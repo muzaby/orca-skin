@@ -8,18 +8,20 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-25 |
 | 매핑 | — (브랜치 `claude/git-infrastructure-performance-4f58s3`) |
-| 상태 | **DRAFT — 구현 전 설계 리뷰 G1~G5 보완 대기** |
-| 보완 검토 | Codex · 2026-09-26 · r1(구현·verify 미수행) |
-| V mode | `Baseline V` |
-| 기준 V | `none` |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| 상태 | **READY** (ΔV1 — §20 G1~G5 닫음) |
+| 보완 검토 | Codex · 2026-09-26 · r1(구현·verify 미수행) → Claude ΔV1 · 2026-09-26 |
+| V mode | `Baseline V` + `Delta V` |
+| 기준 V | V1 = `0241:V1@f682cc2` (ΔV1의 상속 기준) |
+| 이번 V revision | `ΔV1` — §21. V1의 캐시 계약(MD-02·MD-06)을 대체한다 |
+| 유효 V | `V1 + ΔV1` |
 
-> **설계자 차례다.** 사용자 지시로 구현 전 리뷰의 보완 사항을 §20에 기록하고 `plan/DRAFT`로 되돌렸다. V1 원안은 비교 기준으로 보존하며, G1~G5를 닫는 규범 정정과 READY 재판정 전에는 구현하지 않는다.
+> **ΔV1로 READY 재판정.** §20 G1~G5는 §21이 닫는다. V1 본문은 비교 기준으로 보존하고, 대체된 행은 각 절 머리의 `ΔV1` 표식과 §21이 정본이다. 충돌하면 §21이 이긴다.
 
 # Part I — Product & UX Contract
 
 ## 1. Context / 목표
+
+> **ΔV1**: "OID로 정해지는 결과는 재사용된다"와 "턴 종료 git 실행 1회"는 §21.2가 대체한다.
 
 - 해결하려는 문제: 요청 하나가 git.exe 여러 개로 늘어난다. 턴 종료마다 세션당 7~8회, 브랜치 전환 1회에 9회 실행된다(§8 표).
 - 완료 후 달라지는 것: git 실행이 main의 **단일 관문**을 지나고, 변하는 값은 요청당 probe 1회로 확인하며, OID로 정해지는 결과는 재사용된다.
@@ -35,6 +37,8 @@
 | 추론 의도 | "전체"는 턴 2에서 제안한 단계 1~3(계측·안전 조치, GitReader, 계약 전환)을 한 plan에 담으라는 뜻이다. "plan만"은 이번 턴에 구현하지 않는다는 뜻이다 | 턴 2 응답의 "1·2와 3을 나눌지" 질문에 대한 답 |
 | 추론 의도 | "비용"은 git 실행 비용과 구현·유지 비용 둘 다다. 두 비용이 충돌하면 안전성 → 유지보수 → 실행 비용 순으로 우선한다 | 턴 2 문장의 나열 순서 |
 | 명시 요구 | "보완냐용을 plan 반영, plan 차례로 넘겨라. 커밋, push할 것" | 2026-09-26 구현 전 리뷰 후 사용자 지시. 보완 기록·설계자 인계이며 구현 지시는 아님 |
+| 명시 요구 | "/handoff-plan 으로 지적사항을 보완하라" | 2026-09-26 라이브 세션 턴 6 |
+| 명시 결정 | G1: "교차 요청 캐시 제거" · G3: "캐시 없이 매번 조회" | 턴 6 질의 응답(두 항목 모두 추천안 선택) |
 
 ## 3. Decision Ledger
 
@@ -45,8 +49,8 @@
 | D-003 | 우선순위: 안전성 유지·상승 → 유지보수 상승 → 비용 최소화 | "안전성 유지 혹은 상승, 유지보수 상승. 비용 최소화의 방향" | 턴 2 | ACTIVE | — |
 | D-004 | 단계 1~3을 한 plan에 담는다. 이번 턴은 plan만 작성한다 | "전체 plan만 작성하라" | 턴 3 | ACTIVE | — |
 | D-005 | 변하는 값(저장소 좌표·HEAD·브랜치·dirty)은 캐시하지 않고 요청마다 probe 1회로 확인한다 | D-003 안전성. 캐시 무효화 버그가 생길 자리를 설계로 없앤다 | 설계 | ACTIVE | — |
-| D-006 | 캐시 대상은 다음 셋뿐이다. ① OID로 정해지는 결과 ② git 실행 파일 경로(찾은 경우만) ③ origin URL(config 내용이 같을 때만) | D-005의 보완 | 설계 | ACTIVE | — |
-| D-007 | 실패·타임아웃·중단·폴백 결과는 캐시하지 않는다. 예외는 origin 없음(exit 2)뿐이다(EP-09) | 타임아웃은 비결정적이다. 한 번의 부하가 영구 저하로 굳으면 안 된다 | 설계 | ACTIVE | — |
+| D-006 | 캐시 대상은 다음 셋뿐이다. ① OID로 정해지는 결과 ② git 실행 파일 경로(찾은 경우만) ③ origin URL(config 내용이 같을 때만) | D-005의 보완 | 설계 | SUPERSEDED | D-021·D-022 |
+| D-007 | 실패·타임아웃·중단·폴백 결과는 캐시하지 않는다. 예외는 origin 없음(exit 2)뿐이다(EP-09) | 타임아웃은 비결정적이다. 한 번의 부하가 영구 저하로 굳으면 안 된다 | 설계 | SUPERSEDED | D-021 (결과 캐시 자체가 없어 대상이 사라짐) |
 | D-008 | git 실행 파일은 PATH의 **절대 경로 항목**에서만 찾는다. 빈 항목·상대 항목은 건너뛰고, win32는 `git.exe`만 찾는다. 찾지 못한 결과는 memo하지 않는다 | D-003 안전성. 저장소 cwd의 가짜 git 실행을 차단한다. 앱을 켠 채 git을 설치해도 재시작이 필요 없다 | 설계 | ACTIVE | — |
 | D-009 | Windows `cmd\git.exe` 런처 우회는 범위 밖이다 | 효과와 부작용(HOME·PATH 설정)이 실측되지 않았다. 추측으로 구현하지 않는다 | 설계 | ACTIVE | — |
 | D-010 | `orca:git:status`와 `orca:git:diffSummary`를 `orca:git:snapshot` 하나로 합친다. 요약 포함 여부는 `includeSummary`로 정한다 | D-002. 같은 계기로 함께 도는 두 조회가 probe를 공유한다 | 설계 | ACTIVE | — |
@@ -60,6 +64,12 @@
 | D-018 | `removeForSession` 판정 순서와 worktree 이름 후보 루프의 동작은 바꾸지 않는다. 관문 경유만 바꾼다 | 순서를 바꾸면 dirty+커밋 동시 상황의 사유 문구가 바뀐다. 이름 규칙을 복제하면 SSOT가 둘이 된다 | 설계 | ACTIVE | — |
 | D-019 | `runGit` 직접 사용과 `child_process` import는 `infra/git`의 관문·runner로 한정하고 lint로 강제한다. `app/legacy-paths.ts`의 repair도 `infra/git/worktree.ts`를 거친다 | D-003 유지보수. 새 호출부가 관문을 우회할 길을 막는다 | 설계 | ACTIVE | — |
 | D-020 | production 실행 로그·계측은 범위 밖이다. 요청별 실행 횟수는 테스트 oracle로 고정한다 | 로그 폭주 없이 회귀를 잡는다(D-003 비용) | 설계 | ACTIVE | — |
+| D-021 | 요청 사이에 보관하는 값은 git 실행 파일 경로(찾은 경우)뿐이다. diff·log·patch·cat-file·rev-list 결과를 요청 사이에 캐시하지 않는다 | "교차 요청 캐시 제거". OID가 같아도 `.gitattributes`·`git replace`·설정에 따라 출력이 달라진다(§21.1 실측) | 턴 6 사용자 선택 | ACTIVE | D-006·D-007 대체 |
+| D-022 | origin URL은 status를 만들 때마다 `remote get-url origin`으로 조회한다 | "캐시 없이 매번 조회". 저장소 밖 설정(`url.*.insteadOf`)도 결과를 바꾼다 | 턴 6 사용자 선택 | ACTIVE | D-006 ③ 대체 |
+| D-023 | 한 요청 안의 읽기 명령은 probe가 준 HEAD OID를 인자로 쓴다. 문자열 `HEAD`는 checkout 직전 dirty 검사와 쓰기 명령에서만 쓴다 | G2. 명령 사이에 HEAD가 움직여도 한 응답이 한 시점을 본다(§21.1 실측 `2/1` vs `1/1`) | 설계 | ACTIVE | — |
+| D-024 | base OID와 head OID가 같으면 diff·log·patch 실행을 생략하고 빈 결과를 준다 | 같은 OID끼리의 diff와 `A..A` log는 속성·replace와 무관하게 비어 있다 | 설계 | ACTIVE | — |
+| D-025 | 관문 경계 lint는 규칙 3개다. `import/no-restricted-paths`(runner의 해석된 경로) + `no-restricted-imports`(`child_process`·`node:child_process`) + `no-restricted-syntax`(두 표기의 동적 `import()`·`require`) | G4. 문자열 패턴은 `./runner`·`child_process`를 놓친다(§21.1 실측) | 설계 | ACTIVE | D-019의 강제 수단 구체화 |
+| D-026 | renderer `gitApi.status(cwd)`는 `snapshot({cwd, includeSummary:false})`의 `status`를 돌려주는 래퍼로 남긴다 | 상태만 필요한 소비처 2곳의 호출 형태를 보존한다(D-003 유지보수) | 설계 | ACTIVE | — |
 
 ### 갱신 메모
 
@@ -68,6 +78,8 @@
 - 사용자 확인: D-014(textconv 표시 변경)를 턴 4에서 사용자가 수용했다.
 - **`ACTIVE 결정 ↔ AC` 대조 — V1 최초 설계 시점**: 당시 충돌 0으로 기록했다. 2026-09-26 리뷰에서 D-005의 매 요청 probe와 AC24의 기존 기대값 유지가 충돌함을 확인했다(G5); 캐시 결정성·현재 표시 유지도 G1·G3의 정정 대상이다.
 - **2026-09-26 인계**: D-001~D-020은 임의 변경하지 않았다. §20의 G1~G5를 `open`으로 남기며, 설계자는 필요한 Decision·AC·V-pair·§10을 Delta V로 정정한 뒤 READY를 다시 판단한다.
+- **ΔV1 (턴 6)**: 추가 D-021~D-026. 변경 D-006·D-007 → SUPERSEDED(사용자 선택 G1·G3). D-014는 ACTIVE 유지 — 근거 중 "캐시 결정성"은 D-021로 소멸했고 "외부 프로그램 실행 차단"이 남는다.
+- **`ACTIVE 결정 ↔ AC` 대조 — ΔV1**: 충돌 0. D-005↔AC1·AC7(요청마다 probe, 반복 호출도 같은 횟수), D-021↔AC1·AC2·AC7·AC25(반복 호출 실행 수 동일 = 캐시 없음), D-022↔AC3(전역 insteadOf 변경 반영), D-023↔AC26·AC8, D-024↔AC1·AC7, D-025↔AC22, D-026↔AC18, D-018↔AC20. V1 AC24의 "기존 기대값 유지"와 D-005의 충돌(G5)은 AC24 ΔV1이 처분 표로 해소했다.
 
 ## 4. 요구 비판적 검토
 
@@ -80,9 +92,12 @@
 | ACTIVE·기존 결정과 충돌하는가 | 0211 D-063("좌표만 캐시")과 충돌하지 않는다. TO-BE는 좌표 캐시조차 없앤다 | `git-diff.ts:188` 주석 |
 
 - 사용자에게 올릴 결정: V1에서는 없음으로 판단했다(D-014는 턴 4에서 사용자 수용). 현재 G1·G3의 속성·설정 반영 저하까지 D-014 수용으로 간주하지 않으며, 기존 표시 의미를 바꾸는 해법을 택한다면 설계자가 별도 결정 필요 여부를 판정한다.
+- ΔV1: G1·G3를 턴 6에서 사용자에게 올렸고, 표시 의미를 유지하는 쪽(캐시 제거·매번 조회)으로 확정됐다(D-021·D-022). 남은 사용자 결정 없음.
 - 코드 조사로 닫은 사실: §8.
 
 ## 5. 동작 / 사용자 흐름
+
+> **ΔV1**: 흐름의 요약 캐시·origin 캐시 단계, 상태 표의 "같은 범위를 다시 열어도 git 실행 1회", 엣지케이스의 캐시 두 줄은 §21.2가 대체한다.
 
 ```text
 [턴 종료 tick / 수동 새로 고침 / 초기·cwd 변경]
@@ -122,6 +137,8 @@
 | IPC 채널 이름 `orca:git:snapshot` | **예 — 공개 계약** | 지금 확정(D-010) |
 
 ## 7. Requirements / Acceptance — `R ↔ AT`
+
+> **ΔV1**: AC1·AC2·AC3·AC5·AC7·AC8·AC15·AC16·AC22·AC24·AC25는 §21.3이 대체하고, AC23은 폐기, AC26을 신설했다. 이 표의 해당 행은 V1 기록이다.
 
 "실행 1회"는 관문이 runner를 1번 부른 것이다. 관측은 `createGitGateway({ run: countingRunner })`로 한다. countingRunner는 실제 `runGit`을 감싸 인자를 기록하고, 실제 임시 저장소에서 돈다.
 
@@ -170,6 +187,8 @@
 
 ### Node registry
 
+> **ΔV1**: provenance 변경은 §21.4. MD-02·MD-06 SUPERSEDED, R-10·MD-07 NEW.
+
 | Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
 |---|---|---|---|---|
 | R-01 | R | 턴 종료 요약 비용 — AC1·AC2·AC25 | NEW | — |
@@ -193,6 +212,8 @@
 | MD-06 | MD | origin URL 캐시 검증값 (§10 EP-09) | NEW | — |
 
 ### Pair registry
+
+> **ΔV1**: VP-15·VP-19 SUPERSEDED(폐기), VP-20·VP-21 NEW, 나머지 변경 행은 §21.4.
 
 | Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle | 선택적 적대 증거 | §10 강제 지점 전수 |
 |---|---|---|---|---|---|---|
@@ -276,6 +297,8 @@
 
 ## 9. Architecture / Data & Control Flow — AS-IS → TO-BE
 
+> **ΔV1**: TO-BE의 `immutableCache`·origin 캐시 경로는 §21.6 흐름도가 대체한다. AS-IS는 유효하다.
+
 ### AS-IS — 현재 구조와 문제 발생 경로
 
 - 관련 V node: SD-01, SD-02, AR-01.
@@ -334,6 +357,8 @@ runner = resolveGitExecutable(절대 경로) ──> execFile
 
 ## 10. 계약 / 타입 / 강제 지점
 
+> **ΔV1**: EP-03·EP-06 SUPERSEDED, EP-09·EP-10 CHANGED, EP-11 NEW — §21.5.
+
 | V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 | 실패 의미 |
 |---|---|---|---|---|---|
 | AR-01 / VP-06·12 — **EP-01** | 읽기는 `--no-optional-locks` 선두 + `readOnly:true` | `gateway.read` | gateway | 모든 읽기 실행 직전 (1자리) | 사용자 저장소 index.lock 경합 |
@@ -377,6 +402,8 @@ export type RepoProbe =
 `CHANNELS.gitSnapshot = 'orca:git:snapshot'`를 추가하고 `gitStatus`·`gitDiffSummary`를 삭제한다. 스키마는 `GitSnapshotRequestSchema = GitDiffRequestSchema.extend({ includeSummary: z.boolean() })`이다.
 
 ## 11. 구현 설계
+
+> **ΔV1**: `immutable-cache.ts`·`origin-url.ts` 신설과 아래 "캐시 상한" 표는 폐기한다. 파일 표의 변경분은 §21.6.
 
 | 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
 |---|---|---|---|
@@ -445,6 +472,8 @@ gateway/probe → gitSnapshot → IPC GitSnapshotResult → useGitSnapshot → c
 
 ## 14. 성능 / 상한 / 최적화
 
+> **ΔV1**: 실행 수 표와 메모리 상한은 §21.8이 대체한다.
+
 | 요청 | AS-IS | TO-BE |
 |---|---:|---:|
 | 턴 종료, 새 커밋 없음 (타일 닫힘) | 7 | 1 |
@@ -467,6 +496,8 @@ gateway/probe → gitSnapshot → IPC GitSnapshotResult → useGitSnapshot → c
 - 구현 문서: `docs/IPC_CONTRACT.md §2.6-b`. shape는 typecheck, semantics는 `ipc-documentation.test`와 AC16~AC19로 대조한다.
 
 ## 16. 기존 결정·규칙과의 관계
+
+> **ΔV1**: 추가 행은 §21.9.
 
 | 기존 결정/규칙 | 출처 | 본문에서 건드리는 문장 | 결과 |
 |---|---|---|---|
@@ -564,3 +595,209 @@ gateway/probe → gitSnapshot → IPC GitSnapshotResult → useGitSnapshot → c
 - [ ] G5: 기존 테스트의 행동 계약을 보존하면서 대체할 구조 단언을 명시하고 AC24·V-pair를 정정한다. 기존 장치가 검출하던 의미상 회귀를 대체 장치가 놓치지 않는지 확인한다.
 - [ ] 필요한 규범 변경을 `V1 + Delta V`로 남기고 대체 행·pair·oracle을 연결한다. §10과 pair registry의 자리 수 및 Decision↔AC↔Technical Design을 다시 대조한 뒤 READY self-review를 새로 수행한다.
 - [ ] G1~G5가 닫힌 설계 커밋에서 plan과 INDEX를 함께 `plan/READY`로 바꾼다. 그 전까지 다음 주체는 **Claude(설계 보완)**, 라운드는 **1**이며 앱 구현을 시작하지 않는다.
+
+### 20.3 [설계자 응답] ΔV1 처분 — 2026-09-26
+
+| ID | 판정 | 닫은 곳 |
+|---|---|---|
+| G1 | **closed** — 교차 요청 결과 캐시 제거(사용자 선택). 캐시 키·유효성 문제 자체를 없앴다 | D-021·D-024, §21.3 AC1·AC2·AC7·AC25, §21.4 VP-15 폐기 |
+| G2 | **closed** — probe OID를 6자리 명령 인자에 고정, 경합 oracle 신설 | D-023, §21.3 AC26·AC8, §21.5 EP-11, VP-20·VP-21 |
+| G3 | **closed** — origin URL 매 status 조회(사용자 선택). 전역 설정 변경 회귀 AC 추가 | D-022, §21.3 AC3, §21.5 EP-09, VP-19 폐기·VP-02 변경 |
+| G4 | **closed** — lint 규칙 3종으로 해석 경로·두 표기·동적 import를 모두 막는다. 7변이 실측 | D-025, §21.3 AC22, §21.5 EP-10, §21.1 |
+| G5 | **closed** — 기존 테스트를 보존·이동·교체·삭제로 처분하고 대체 oracle을 명시했다 | §21.3 AC24·AC16, §21.7 |
+
+§20.2 재진입 조건 6개는 위 표와 §21.10 self-review로 충족한다. 라운드는 1 그대로다(verify 없는 설계 정정).
+
+## 21. ΔV1 — §20 G1~G5 보완 (2026-09-26)
+
+**판정: READY.** V1 대비 캐시 계약을 걷어내고 HEAD 고정·lint 경계·기존 테스트 처분을 추가한다. 이 절이 V1 본문과 충돌하면 이 절이 정본이다.
+
+### 21.1 이번 턴 실측
+
+| 대상 | 방법 | 관측 | 의미 |
+|---|---|---|---|
+| 속성이 diff 출력을 바꾸는가 | 임시 저장소, 같은 `<B> <H>`에 `*.txt -diff` 추가 전후 `diff --no-ext-diff --no-textconv --numstat` | `1 1 s.txt` → `- - s.txt` | OID만으로 출력이 정해지지 않는다(G1) |
+| replace가 log를 바꾸는가 | `git replace <H> <B>` 전후 `log -1 --format=%s <H>` | `second` → `base` | 같은 OID에서도 다르다(G1) |
+| HEAD 문자열 경합 | `<B>` 고정, 커밋 1개 추가 후 `diff --numstat <B> HEAD` vs `<B> <H>` | `2 1` vs `1 1` | 명령마다 HEAD를 다시 읽으면 한 응답이 두 시점을 본다(G2) |
+| lint 경계 | `app/`에 임시 config로 규칙 3종 적용, 변이 파일 2개 lint | 7변이 전부 error: 외부 `../../infra/git/runner`, 내부 `./runner`, `export … from './runner'`, `import('./runner')`, `child_process`, `node:child_process`, `import('node:child_process')` | 문자열 패턴만으로는 `./runner`·`child_process`·동적 import가 빠진다(G4). 규칙 3종이 모두 닫는다 |
+| 현재 트리의 경계 위반 | 같은 config로 `src/main` 전체 lint | 위반 5파일: `app/legacy-paths.ts`·`infra/git/{git-cli,git-diff,repository,worktree}.ts` | TO-BE가 고칠 파일과 일치. 구현 후 0이어야 한다 |
+| 기존 테스트 충돌 | `rg` 전수(§21.7) | 좌표 캐시 2건, effect 2개 배선 1건, `uncommitted` 단언 5건·픽스처 12파일, 폐기 API 참조 6파일 | G5 처분 대상 |
+
+### 21.2 Product 계약 대체 (§1·§5)
+
+- 목표 문장 대체: 새 커밋이 없는 턴 종료에서 git 실행은 **2회**(probe·origin)이고, 세션 커밋이 있으면 **4회**다. AS-IS는 7회다.
+- 표시 정확도: 요청 사이 캐시가 없으므로 모든 응답은 그 요청 시점의 git 출력과 같다. 한 응답 안의 status·요약·패치는 probe 한 시점을 본다(D-023).
+- 상태 표 대체: 타일 패치 조회는 요청마다 probe 1 + patch 1(base = head면 patch 생략)이다. 커밋 선택 패치는 probe·cat-file·patch 3회다.
+- 엣지케이스 대체: "캐시는 프로세스 메모리에만" → 요청 사이에 남는 값은 git 실행 파일 경로뿐이다. origin URL은 매번 조회하므로 설정 종류와 무관하게 현재 값이다.
+
+### 21.3 AC ΔV1
+
+| R | AT / AC | 상태 | 동작 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|---|---|
+| R-01 | AT-01 / AC1 | CHANGED | baseline `B`이고 HEAD = `B`면 요약 포함 snapshot 실행은 2회(probe·`remote get-url`)이고 요약은 빈 목록이다. 같은 요청을 두 번 해도 두 번째도 2회다 | 각 호출 기록 = `[probe, remote]` 정확 일치 ×2 | tick → `orca:git:snapshot` → `gitSnapshot` |
+| R-01 | AT-02 / AC2 | CHANGED | HEAD ≠ `B`면 실행 4회(probe·remote·diff·log). 같은 요청 반복도 4회이고, 사이에 커밋하면 결과가 새 커밋을 포함한다 | 기록 집합 정확 일치 ×2 + files·commits 단언 | 같음 |
+| R-01 | AT-03 / AC25 | CHANGED | 레거시 `bornAt` 세션은 probe·rev-list 뒤 기준 OID가 HEAD와 같으면 3회, 다르면 5회다. rev-list 인자에는 probe OID가 있다 | 기록 정확 일치 + rev-list 인자 단언 + 반복 호출 동일 횟수 | 같음 |
+| R-02 | AT-04 / AC3 | CHANGED | 상태만 요청하면 매 호출 2회(probe·remote)다. `remote set-url` 뒤와, 저장소 config는 그대로 두고 전역 config(`GIT_CONFIG_GLOBAL` 임시 파일)의 `url.*.insteadOf`만 바꾼 뒤 모두 다음 호출이 새 URL을 준다 | 기록 정확 일치 + 두 변경 후 `githubUrl` 단언. 기존 origin 케이스 통과 | 초기 마운트 → snapshot(false) |
+| R-02 | AT-06 / AC5 | CHANGED | 커밋 0개 저장소: `branch` = 브랜치 이름, `detached:false`, 요약 `base.kind:'none'`, 실행 ≤4회 | 결과 단언 + 기록 길이 | 같음 |
+| R-03 | AT-08 / AC7 | CHANGED | 범위 패치는 probe·patch 2회, HEAD = base면 probe 1회와 빈 파일 목록이다. 커밋 선택 패치는 probe·cat-file·patch 3회다. 반복 호출도 같은 횟수다 | 기록 정확 일치 ×2 | 타일 → `orca:git:diffPatch` |
+| R-03 | AT-09 / AC8 | CHANGED | 전문맥 실패 후 축소 재시도는 전문맥 시도와 같은 OID 쌍을 인자로 쓴다. 두 시도 사이에 HEAD가 움직여도 범위가 바뀌지 않는다 | 두 호출 인자에서 `--unified=*`만 다르다 + 경합 runner로 결과가 probe OID 기준 | 같음 |
+| R-04 | AT-16 / AC15 | CHANGED | clean 전환 성공은 `{ok:true, branch, status}`, `status.branch` = 새 브랜치, 실행 5회(probe·shortstat·checkout·probe·remote). dirty·해소 없음은 2회이고 결과 형태는 지금과 같다 | 결과 단언 + 기록 정확 일치. 기존 checkout 케이스 전부 통과 | 칩 → `orca:git:checkout` |
+| R-07 | AT-17 / AC16 | CHANGED | 계기당 snapshot 1회: 초기·cwd 변경은 `includeSummary:false`, 턴 종료·수동은 `true`, sessionId만 바뀌면 호출 없음. 새 계기 뒤에 도착한 이전 응답은 status·summary 둘 다 반영하지 않는다 | 계획 함수 표(6계기) + owner 세대 테스트에 status 폐기 단언 추가 + 배선 스윕(§21.7 R3) | `useGitSnapshot` |
+| R-09 | AT-23 / AC22 | CHANGED | 허용 파일(`gateway.ts`·`runner.ts`·테스트·픽스처) 밖에서 runner 해석 경로 import·re-export·동적 import, `child_process`·`node:child_process`의 정적·동적 import가 lint error다. 구현 후 `src/main` 위반은 0이다 | §21.1의 7변이를 심어 각각 error + 구현 후 `npm run lint` 0 error | `app/eslint.config.mjs` |
+| R-09 | AT-24 / AC23 | **SUPERSEDED — 폐기** | (LRU 캐시 상한) | 캐시 모듈이 없다(D-021). 증거 이관처 없음 | — |
+| R-09 | AT-25 / AC24 | CHANGED | 기존 테스트는 §21.7 처분 표대로만 바뀐다. "보존" 행은 수정 없이 통과하고, "이동"은 단언 문장이 같으며, "교체"는 표의 대체 oracle이 있고, "삭제"는 표의 근거를 가진다 | 구현 diff의 테스트 파일 집합 ⊆ §21.7 행 + 스위트 green | 전 경로 |
+| R-10 | AT-26 / AC26 | **NEW** | 한 요청 안의 읽기 명령은 probe OID로 고정된다. probe 직후 커밋을 끼워 넣는 경합 runner에서 요약(files·totals·commits)·범위 패치(전문맥·축소)·bornAt 기준이 probe 시점 결과와 같다 | 경합 runner 실저장소 테스트 + **차집합**: 해당 경로 읽기 인자 중 `HEAD` 토큰 또는 `..HEAD` 접미가 있는 것 0건(예외: checkout dirty 검사 1자리) | snapshot·diffPatch 경로 |
+
+변경 없는 AC(AC4·AC6·AC9~AC14·AC17~AC21)는 V1 §7 행이 유효하다. 활성 AC는 25건이다.
+
+### 21.4 V ΔV1
+
+- V mode: Delta V. 기준 `0241:V1@f682cc2`(공유 브랜치에서 `git cat-file -t` → commit 확인).
+- 변경 시작 수준: R(R-01·R-02·R-03·R-10 결과가 바뀐다).
+- SUPERSEDED pair 증거 이관: VP-15(AC23, 변이 없음) → 폐기, 근거 D-021. VP-19(MD-06, 선택 변이 "내용 비교 → mtime 비교") → 폐기, 근거 D-022(캐시 없음). G3 회귀는 VP-02의 AC3 전역 설정 케이스가 새로 든다.
+
+| Node | 레벨 | provenance | 기준선 출처 / 대체 |
+|---|---|---|---|
+| R-01·R-02·R-03·R-04·R-07·R-09 | R | CHANGED | V1 §7-A → §21.3 |
+| R-10 | R | NEW | — (OID 고정, AC26) |
+| SD-01 | SD | CHANGED | 턴 종료 경로에서 캐시 단계 제거, OID 고정 추가 |
+| AR-01 | AR | CHANGED | lint 규칙 3종(D-025) |
+| AR-02 | AR | CHANGED | `gitApi.status` 래퍼 유지(D-026) |
+| MD-02 | MD | SUPERSEDED | 대체 없음 — D-021 |
+| MD-05 | MD | CHANGED | effect 1개 + 늦은 응답 폐기 |
+| MD-06 | MD | SUPERSEDED | 대체 없음 — D-022 |
+| MD-07 | MD | NEW | `rangeArgs(baseOid, headOid)` 순수 인자 생성기 |
+| 그 외(SD-02·MD-01·MD-03·MD-04 등) | — | INHERITED | V1 §7-A |
+
+| Pair | left ↔ right | requiredness | production path | 직접 oracle | 선택적 적대 증거 | §10 자리 |
+|---|---|---|---|---|---|---|
+| VP-01 | R-01 ↔ AT-01·02·03 | REQUIRED (CHANGED) | tick → snapshot → probe → (base≠head) diff‖log | AC1·AC2·AC25 반복 호출 정확 일치 | not selected — 반복 호출 동일 횟수가 캐시 재도입에, 정확 일치가 우회에 반응 | EP-11(요약 diff·history 2종·bornAt = 4) |
+| VP-02 | R-02 ↔ AT-04~07 | REQUIRED (CHANGED) | 초기 마운트 → snapshot(false) → probe → remote | AC3 두 설정 변경 반영 | required — "저장소 config 내용이 같으면 직전 URL 재사용" 변이를 `buildStatus`에 심으면 AC3 전역 insteadOf 케이스 실패 | EP-09(2) |
+| VP-03 | R-03 ↔ AT-08·09 | REQUIRED (CHANGED) | 타일 → diffPatch → probe → patch(전문맥 → 축소) | AC7·AC8 | required — 축소 재시도 인자를 `HEAD`로 되돌리는 변이 → AC8 경합 케이스 실패 | EP-11(패치 2) |
+| VP-04 | R-04 ↔ AT-14~16 | REQUIRED (CHANGED) | 칩 → checkout → mutate → probe → remote | AC13~AC15 | not selected | EP-05(8)·EP-07(1)·EP-09(checkout 1) |
+| VP-07 | R-07 ↔ AT-17~20 | REQUIRED (CHANGED) | renderer 3호출부 → preload → handler | AC16 표 + 소유자 스윕(§21.7 R4) + AC17·AC18·AC19 | not selected | EP-08(3) |
+| VP-09 | R-09 ↔ AT-23·25 | REQUIRED (CHANGED) | lint · 전 스위트 | AC22 7변이 + AC24 처분 표 대조 | required — AC22 7변이 자체 | EP-10(1 설정, 7변이) |
+| VP-10 | SD-01 ↔ ST-01 | REQUIRED (CHANGED) | 실저장소: 커밋 없음 → 커밋 → 반복 | 실행 수 2 → 4 → 4, 결과가 커밋 반영, 인자에 probe OID | not selected | EP-08·EP-11 (9) |
+| VP-12 | AR-01 ↔ IT-01 | REQUIRED (CHANGED) | production 모듈 → 관문 | AC22 + AC9 차집합 | VP-09 공유 | EP-01·EP-05·EP-10 (10) |
+| VP-13 | AR-02 ↔ IT-02 | REQUIRED (CHANGED) | preload `git.snapshot`·renderer `gitApi.status` 래퍼 → handler | `ipc-documentation.test` + 스키마 거절 + `gitIdentityRemoteWiring` 무수정 통과 | not selected | EP-08(3) |
+| VP-15 | MD-02 ↔ UT-02 | **SUPERSEDED** | — | — | — | 폐기(D-021) |
+| VP-18 | MD-05 ↔ UT-05 | REQUIRED (CHANGED) | `planGitSnapshotQuery` + owner | AC16 표 + status 늦은 응답 폐기 | not selected | 0 — 순수 |
+| VP-19 | MD-06 ↔ UT-06 | **SUPERSEDED** | — | — | — | 폐기(D-022) |
+| VP-20 | R-10 ↔ AT-26 | REQUIRED (NEW) | snapshot·diffPatch → probe → 6자리 명령 | 경합 runner 결과 + 인자 차집합 | required — EP-11의 6자리마다 OID를 `HEAD`로 바꾸는 변이 6종, 각각 AC26 실패 | EP-11(6) |
+| VP-21 | MD-07 ↔ UT-07 | REQUIRED (NEW) | `rangeArgs` | base=head → `null`(실행 생략), 그 외 `[base, head]`·`base..head` 표 | not selected | 0 — 순수 |
+
+### 21.5 §10 ΔV1
+
+| V node / pair | 계약 | SSOT | 언제 강제 (자리) | 실패 의미 |
+|---|---|---|---|---|
+| EP-03 · EP-06 | **SUPERSEDED** — 결과 캐시가 없다(D-021) | — | — | — |
+| **EP-09** (CHANGED) VP-02·04 | `status.githubUrl`은 probe가 repo일 때 매번 `remote get-url origin`으로 만든다 | `buildStatus(probe)` (`git-snapshot.ts`) | 2자리: snapshot status · checkout 성공 status | 원격·전역 설정 변경 후 옛 링크 |
+| **EP-10** (CHANGED) VP-09·12 | 규칙 3종(D-025). 허용: `infra/git/gateway.ts`·`infra/git/runner.ts`·`**/*.test.ts`·`**/*.testfixture.ts` | `app/eslint.config.mjs`의 `src/main/**` 블록 | 1자리(설정), 7변이 | 관문 우회 |
+| **EP-11** (NEW) VP-01·03·20 | 읽기 명령의 범위 인자는 `rangeArgs(base, probe.head.oid)` 결과다 | `rangeArgs` (`git-diff.ts`) | 6자리: 요약 diff · history 정상 · history 폴백 · bornAt rev-list · 패치 전문맥 · 패치 축소. 예외 1자리: checkout dirty `diff HEAD --shortstat`(쓰기 직전 게이트라 실제 HEAD 기준이 맞다) | 한 응답이 두 시점을 섞는다 |
+
+- EP-11 예외의 근거: dirty 검사는 뒤따르는 `checkout`이 보는 실제 작업 트리 기준이어야 한다. 쓰기 명령(`reset --hard HEAD` 등)도 같은 이유로 예외다.
+
+### 21.6 Technical ΔV1
+
+```text
+tick ──> gitApi.snapshot({includeSummary}) ──> handler ──> gitSnapshot
+           ├─ probeRepo ──> gateway.read ×1           (H = probe.head.oid)
+           └─ (repo) buildStatus ‖ summary?
+                  buildStatus ──> gateway.read(remote get-url origin)
+                  summary     ──> rangeArgs(B, H) = null ? 빈 결과 : diff(B,H) ‖ log(B..H)
+diffPatch ──> probe ──> rangeArgs(B, H) ──> patch(전문맥) ──(실패)──> patch(축소, 같은 인자)
+gateway.read = 세마포어(4) + in-flight 공유(키에 세대) + --no-optional-locks + readOnly   (요청 사이 보관 없음)
+```
+
+| 파일 | V1 계획 | ΔV1 |
+|---|---|---|
+| `infra/git/immutable-cache.ts` | 신설 | **만들지 않는다** |
+| `infra/git/origin-url.ts` | 신설(내용 검증 캐시) | **만들지 않는다**. `buildStatus`가 `remote get-url`을 직접 부른다(exit 2 → `null`) |
+| `infra/git/git-snapshot.ts` | status(+summary) | `buildStatus(probe, gateway)` export — checkout도 이것을 쓴다 |
+| `infra/git/git-diff.ts` | LRU 저장 | LRU 없음. `rangeArgs(base, head): null \| {diff: [base, head], log: \`${base}..${head}\`}` 신설, EP-11 6자리가 사용. bornAt `rev-list -1 --before=T <H>` |
+| `infra/git/git-cli.ts` | 성공 시 status | `buildStatus` 재사용 |
+| `renderer/src/shared/api/ipc.ts` | status·diffSummary 삭제 | `status: (cwd) => window.orca.git.snapshot({cwd, includeSummary:false}).then(r => r.status)` 래퍼 유지(D-026), `snapshot` 추가, `diffSummary` 삭제 |
+| `renderer/.../useGitSnapshot.ts` | effect 통합 | owner.run 하나가 status·summary를 같은 세대로 커밋한다. status 전용 `live` 플래그 경로는 없어진다 |
+| `app/eslint.config.mjs` | `no-restricted-imports` 패턴 | 아래 블록 |
+
+```js
+// app/eslint.config.mjs — src/main 블록 뒤에 추가 (D-025, §21.1 실측 설정과 같다)
+{
+  files: ['src/main/**/*.ts'],
+  ignores: ['src/main/infra/git/gateway.ts', 'src/main/infra/git/runner.ts', '**/*.test.ts', '**/*.testfixture.ts'],
+  rules: {
+    'no-restricted-imports': ['error', { paths: [{ name: 'child_process' }, { name: 'node:child_process' }] }],
+    'no-restricted-syntax': ['error',
+      { selector: "ImportExpression[source.value=/^(node:)?child_process$/]" },
+      { selector: "CallExpression[callee.name='require'][arguments.0.value=/^(node:)?child_process$/]" }],
+    'import/no-restricted-paths': ['error', { zones: [{ target: './src/main', from: './src/main/infra/git/runner.ts' }] }]
+  }
+}
+```
+
+- 이 블록이 `no-restricted-syntax`를 새로 쓰므로 기존 설정에 같은 규칙이 없음을 확인했다(`rg "no-restricted" app/eslint.config.mjs` → 0건). 이후 다른 블록이 같은 규칙을 쓰면 flat config 병합으로 덮이므로 AC22 변이가 그 회귀를 잡는다.
+- 경합 테스트 seam: `createGitGateway({ run })`의 `run`을 감싸 probe 인자(`--is-inside-work-tree`로 식별)를 본 직후 실저장소에 `git commit`을 실행하고 원래 호출을 넘긴다.
+
+### 21.7 기존 테스트 처분 (G5 · AC24의 정본)
+
+| # | 대상 (파일:줄 / 케이스) | 처분 | 대체 oracle / 근거 |
+|---|---|---|---|
+| R1 | `git-diff.test.ts:580` "저장소 좌표는 한 rev-parse 로 얻고 … 두 번째 조회는 다시 묻지 않는다" | **교체** | "좌표가 한 호출"은 probe 단언으로 보존. "두 번째 재질의 없음"은 D-005로 의도적 반전 → AC1 반복 호출 2회 |
+| R2 | `git-diff.test.ts:595` "runner 가 다르면 캐시를 공유하지 않는다" | **삭제** | 캐시가 없다(D-021) |
+| R3 | `gitQueryReason.test.ts:122` "두 effect 의 deps 가 `tick` 을 갖는다" | **교체** | 스윕 대상: effect 1개의 deps가 `tick`·`refreshTick`·status 키·요약 키를 모두 가진다(정확히 1건). 실행 축은 AC16 계획 함수 표. `:117` `busy` 부재 단언은 보존 |
+| R4 | `gitQueryOwner.test.ts` 소유자 스윕 | **교체(축 갱신)** | `QUERY_CALL`에 `snapshot` 추가·`diffSummary` 제거. 기대: `status` 소유자 = `useGitIdentityRemote` + 랜딩 칩 예외, `snapshot` = `useGitSnapshot`, `diffPatch` = `useGitPatch`. "없다·있다" 양방향 구조 유지 |
+| R5 | `git-diff.test.ts:125·146·449·479` `uncommitted` 단언 4건 | **삭제** | D-012. "커밋된 것만" 의미는 `:134` 케이스가 보존 |
+| R6 | `shared/git-diff-schema.test.ts:29-34` | **교체** | 문서 슬라이스 기준을 `orca:git:snapshot` 행으로, `toContain('uncommitted')` → `not.toContain` |
+| R7 | `uncommitted` **픽스처 필드** 12파일: `gitSnapshotQuery`·`GitContextBar.actions:77`·`GitContextBar.render`·`diffComparison`·`diffPanel0211dv6.render`·`diffReviewNavigation`·`diffSyncState.render`·`diffTile.render:67`·`sessionChangesData`·`chatReducer.diffRequirementSelection`·`chatReducer.plan`·`gitRow.availability` | **픽스처 수정** | 필드만 삭제, 단언 불변(typecheck:test가 강제) |
+| R8 | 비교 모드 문자열 단언 3건: `GitContextBar.actions:259`·`diffTile.render:173`·`gitSyncTriggersRemoved:64` | **보존** | 필드가 아니라 renderer 비교 모드 부재 단언이다 |
+| R9 | `git-cli.test.ts:66·95·109·118` status 케이스 | **이동** | `gitSnapshot`/`buildStatus` 호출로 옮기고 단언 문장은 그대로 |
+| R10 | `git-cli.test.ts:129` checkout 성공 | **단언 추가** | `result.status.branch === 'feature'` (AC15) |
+| R11 | `handlers/git.test.ts:61·100·117·129·146` | **교체** | 채널 집합 `{branches, checkout, snapshot, diffPatch}`, 읽기 3종 폴백·전환 reject, snapshot 폴백 `{status: NOT_REPO, summary: null}` |
+| R12 | `reject-reasons.test.ts:72-93` `gitAvailable`·`resolveRepoRoot` spy | **seam 교체** | PATH에 git 없는 resolver → `git-unavailable`, 비저장소 → `not-repo`. 사유 단언 동일 |
+| R13 | `git-diff.test.ts` fake runner의 `--is-inside-work-tree` 응답 5곳, `infra/git` 테스트의 `runner` 인자 전달 11곳(`rg "runner\)" app/src/main/infra/git --glob '*.test.ts'`) | **seam 교체** | probe 6줄 응답 픽스처 + `createGitGateway({run})` 주입. 단언 불변 |
+| R14 | `gitIdentityRemoteWiring.test.ts` | **보존** | D-026 래퍼로 `gitApi.status` 호출 형태가 같다 |
+| R15 | `gitSnapshotQuery.test.ts:51·113` 늦은 응답 폐기 | **보존 + 단언 추가** | 결과에 status를 실어 status도 버려지는지 단언(AC16) |
+
+검색: `rg -l "uncommitted|gitAvailable|gitStatus\(|gitDiffSummary\(|gitApi\.(status|diffSummary)|CHANNELS\.git(Status|DiffSummary)" app/src --glob '*.test.ts'` → 22파일. 그중 `features/artifacts/service.test.ts:563`·`sessions/session-runtime.test.ts:1841`은 단어 일치일 뿐 대상이 아니다. 위 표 밖의 테스트 파일이 구현 diff에 들어가면 AC24 위반이다.
+
+### 21.8 성능 재산정 (§14 대체)
+
+| 요청 | AS-IS | ΔV1 |
+|---|---:|---:|
+| 턴 종료, 세션 커밋 없음 (타일 닫힘) | 7 | 2 |
+| 턴 종료, 세션 커밋 있음 | 7 | 4 |
+| 타일 열림 추가분 (범위 패치) | +1 (좌표 캐시 적중) | +2 (base = head면 +1) |
+| 커밋 선택 패치 | 2 (좌표 캐시 적중) | 3 |
+| 초기 상태 | 4 | 2 |
+| checkout clean (재조회 포함) | 9 | 5 |
+| checkout dirty·해소 없음 | 4 | 2 |
+| 새 세션 passthrough | 2 | 1 |
+| worktree 준비(baseRef 없음) | 6 | 4 |
+| 비저장소 디렉토리 턴 종료 | 2 | 2 |
+
+- 패치 경로는 probe 때문에 AS-IS 대비 +1이다. 대가로 한 응답이 한 시점을 보장하고(D-023) 좌표 캐시의 소실 경로가 사라진다. 패치는 사용자가 타일을 열 때만 돈다.
+- 메모리: 요청 사이 보관 값은 git 경로 문자열 하나다. V1의 80MB 상한은 없어진다.
+- 동시 실행 worst-case는 V1과 같다(읽기 4 + 저장소별 직렬 쓰기).
+
+### 21.9 기존 결정·규칙 추가 행 (§16)
+
+| 기존 결정/규칙 | 출처 | ΔV1 문장 | 결과 |
+|---|---|---|---|
+| 좌표 캐시로 파일을 열 때마다 프로세스를 늘리지 않는다 (0211 EP-25 ②) | `git-diff.test.ts:580` | §21.7 R1 | 변경 — D-005(요청마다 probe)가 우선한다. 좌표를 한 호출로 얻는 부분은 유지 |
+| 조회 계기의 배선은 effect 2개 (0211 AT-71) | `gitQueryReason.test.ts:108-124` | §21.7 R3 | 변경 — effect 1개. 계기 의미(초기·식별자·턴 종료·수동)는 유지 |
+| 조회 소유자 열거 (0211 EP-13) | `gitQueryOwner.test.ts:1-13` | §21.7 R4 | 유지 — 축 이름만 갱신 |
+
+### 21.10 ΔV1 READY self-review
+
+- [x] Ledger: D-006·D-007 SUPERSEDED → D-021·D-022(사용자 턴 6 원문 인용), D-023~D-026 ACTIVE — §3.
+- [x] 조건절 재해석 없음 — G1·G3 선택지 원문을 §2에 인용.
+- [x] 사용자 결정(G1·G3)과 조사로 닫을 사실(G2·G4·G5)을 구분했다 — §4 ΔV1 줄.
+- [x] 수치 실측: 경합 `2/1`·`1/1`, 속성·replace 출력 차이, lint 7변이·현재 위반 5파일, 테스트 22파일 — §21.1·§21.7.
+- [x] 변경 AC가 행동 단언·검증·도달 경로를 가진다 — §21.3. 활성 AC 25건.
+- [x] Delta V: 기준 `f682cc2` 확인, NEW node(R-10·MD-07)에 REQUIRED pair(VP-20·VP-21), SUPERSEDED pair(VP-15·VP-19)의 증거 이관·폐기 근거 기재 — §21.4.
+- [x] 방향: 캐시 재도입은 "반복 호출 동일 횟수"가, 관문 우회는 "정확 일치"가, OID 고정 해제는 6자리 변이가 각각 실패시킨다 — VP-01·VP-20.
+- [x] 자리 단위 강제 지점: EP-11 6 + 예외 1, EP-09 2, EP-10 1(7변이) — §21.5.
+- [x] 음성 게이트(`HEAD` 토큰 0건)는 경합 결과 단언(양성)과 짝지었다 — AC26.
+- [x] 사람 실기 없음.
+- [x] 게이트는 V1 §7-A 운영 gate와 같다. `node_modules` 설치 후 lint 실측을 이 턴에 수행했다.
+- [x] 본문 교차검증: §1·§5·§7·§7-A·§9·§10·§11·§14·§16에 ΔV1 표식을 달아 대체 관계를 명시했다. `ACTIVE 결정 ↔ AC` 대조는 §3 갱신 메모.
