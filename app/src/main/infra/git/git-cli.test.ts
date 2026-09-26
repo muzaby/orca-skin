@@ -6,12 +6,16 @@
 // 에서 그대로 돈다.
 
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, realpathSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { removeTempRoots } from './temp-repo.testfixture'
-import { gitBranches, gitCheckout, gitStatus } from './git-cli'
+import { gitBranches, gitCheckout } from './git-cli'
+import { gitSnapshot } from './git-snapshot'
+import type { GitStatus } from '../../../shared/ipc'
+const gitStatus = async (cwd: string): Promise<GitStatus> =>
+  (await gitSnapshot({ cwd, includeSummary: false })).status
 
 // **파일 예산 369s** — 최악 케이스(origin 주소 정규화)는 실제 git 을 41회 띄운다
 // (`makeRepo` 7 + `gitStatus` 7회 28 + remote·worktree 조작 6). `gitStatus` 는 한 번에 4개를
@@ -132,7 +136,17 @@ describe('gitCheckout — 깨끗한 트리 (AC3)', () => {
 
     const result = await gitCheckout(repo, 'feature')
 
-    expect(result).toEqual({ ok: true, branch: 'feature' })
+    expect(result).toEqual({
+      ok: true,
+      branch: 'feature',
+      status: {
+        isRepo: true,
+        branch: 'feature',
+        detached: false,
+        root: realpathSync.native(repo),
+        githubUrl: null
+      }
+    })
     expect((await gitStatus(repo)).branch).toBe('feature')
     expect(git(repo, 'rev-parse', '--abbrev-ref', 'HEAD').trim()).toBe('feature')
   })
@@ -166,7 +180,17 @@ describe('gitCheckout — 해소 3종은 추적 변경만 건드린다 (AC5)', (
 
       const result = await gitCheckout(repo, 'feature', resolution)
 
-      expect(result).toEqual({ ok: true, branch: 'feature' })
+      expect(result).toEqual({
+        ok: true,
+        branch: 'feature',
+        status: {
+          isRepo: true,
+          branch: 'feature',
+          detached: false,
+          root: realpathSync.native(repo),
+          githubUrl: null
+        }
+      })
       // 미추적 파일은 체크아웃을 막지도 않고 지워지지도 않는다.
       expect(porcelain(repo)).toContain('?? untracked.txt')
       // 추적 변경은 셋 다 해소됐다 — 워킹 트리에 modified 가 남지 않는다.
@@ -198,7 +222,17 @@ describe('gitCheckout — 브랜치 이름 문자셋을 실행부에서 다시 �
 
   it('정상 이름은 통과한다 — 검사가 전부를 막는 것은 아니다', async () => {
     const repo = makeRepo()
-    expect(await gitCheckout(repo, 'feature')).toEqual({ ok: true, branch: 'feature' })
+    expect(await gitCheckout(repo, 'feature')).toEqual({
+      ok: true,
+      branch: 'feature',
+      status: {
+        isRepo: true,
+        branch: 'feature',
+        detached: false,
+        root: realpathSync.native(repo),
+        githubUrl: null
+      }
+    })
   })
 })
 

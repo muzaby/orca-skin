@@ -1,4 +1,4 @@
-// git IPC 5종 — 컴포저 브랜치 칩의 상태 조회·브랜치 목록·전환 + 변경사항 타일의 읽기 2종(0211).
+// Git snapshot·브랜치 목록·전환·패치 IPC.
 //
 // 읽기 둘은 **무해 폴백**이다: git 이 없거나 저장소가 아니어도 컴포저는 그대로 떠야 하고,
 // 그 판정(`isRepo:false`)이 곧 "칩을 그리지 않는다" 는 UI 입력이다. 전환만 'reject' 로 두어
@@ -8,21 +8,16 @@ import {
   CHANNELS,
   GitCheckoutRequestSchema,
   GitDiffPatchRequestSchema,
-  GitDiffRequestSchema,
+  GitSnapshotRequestSchema,
   GitPathRequestSchema,
   type GitBranchList,
   type GitCheckoutResult,
   type GitDiffPatch,
-  type GitDiffSummary,
-  type GitStatus
+  type GitSnapshotResult
 } from '../../../shared/protocol'
-import { gitBranches, gitCheckout, gitStatus } from '../../infra/git/git-cli'
-import {
-  EMPTY_DIFF_PATCH,
-  EMPTY_DIFF_SUMMARY,
-  gitDiffPatch,
-  gitDiffSummary
-} from '../../infra/git/git-diff'
+import { gitBranches, gitCheckout } from '../../infra/git/git-cli'
+import { gitSnapshot, NOT_REPO } from '../../infra/git/git-snapshot'
+import { EMPTY_DIFF_PATCH, gitDiffPatch } from '../../infra/git/git-diff'
 import { handle } from '../../infra/ipc/handle'
 
 // diff 범위의 base 출처 — 세션 출생 때 고정된 baseline 이다. 구조적 포트로 받아
@@ -42,13 +37,6 @@ export interface SessionBaselineLookup {
 
 const NO_BASELINE = { oid: null, ref: null, bornAt: null } as const
 
-const NOT_REPO: GitStatus = {
-  isRepo: false,
-  branch: null,
-  detached: false,
-  root: null,
-  githubUrl: null
-}
 const NO_BRANCHES: GitBranchList = { current: null, branches: [] }
 
 export function registerGitHandlers(sessions: SessionBaselineLookup): void {
@@ -58,13 +46,6 @@ export function registerGitHandlers(sessions: SessionBaselineLookup): void {
     sessionId?: string
   ): { oid: string | null; ref: string | null; bornAt: number | null } =>
     sessionId ? sessions.getSessionBaseline(sessionId) : NO_BASELINE
-
-  handle(
-    CHANNELS.gitStatus,
-    GitPathRequestSchema,
-    { fallback: NOT_REPO },
-    (req): Promise<GitStatus> => gitStatus(req.cwd)
-  )
 
   handle(
     CHANNELS.gitBranches,
@@ -83,13 +64,14 @@ export function registerGitHandlers(sessions: SessionBaselineLookup): void {
   // 읽기 둘 — 브랜치 칩과 같은 무해 폴백이다. 저장소가 아니거나 git 이 없어도 타일은 떠야
   // 하고, `isRepo:false` 가 곧 "변경 없음이 아니라 볼 것이 없음" 이라는 UI 입력이다.
   handle(
-    CHANNELS.gitDiffSummary,
-    GitDiffRequestSchema,
-    { fallback: EMPTY_DIFF_SUMMARY },
-    (req): Promise<GitDiffSummary> => {
-      const baseline = baselineFor(req.sessionId)
-      return gitDiffSummary({
+    CHANNELS.gitSnapshot,
+    GitSnapshotRequestSchema,
+    { fallback: { status: NOT_REPO, summary: null } },
+    (req): Promise<GitSnapshotResult> => {
+      const baseline = req.includeSummary ? baselineFor(req.sessionId) : NO_BASELINE
+      return gitSnapshot({
         cwd: req.cwd,
+        includeSummary: req.includeSummary,
         baseOid: baseline.oid,
         baseRef: baseline.ref,
         bornAt: baseline.bornAt

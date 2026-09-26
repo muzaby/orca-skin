@@ -1,8 +1,7 @@
 // 변경사항(diff) 타일의 읽기 실행부 (0211) — 요약 1종 + 파일 본문 1종.
-// 요약과 본문은 모두 세션 baseline → 현재 추적 상태만 본다. baseline 이 없는 예전
-// 세션만 질의 시점 HEAD 로 접는다.
+// 누적 요약·본문은 세션 baseline → probe 시점 커밋만 본다.
+// 선택 커밋 본문은 그 커밋의 첫 부모 → 선택 커밋으로 고정한다.
 
-import { stat } from 'node:fs/promises'
 import { GitCommitOidSchema } from '../../../shared/protocol'
 import type {
   GitDiffBase,
@@ -12,7 +11,8 @@ import type {
   GitDiffSummary,
   GitDiffTotals
 } from '../../../shared/ipc'
-import { runGit, type GitRunOptions, type GitRunResult } from './runner'
+import { gitGateway, type GitWrite, type GitRunResult } from './gateway'
+import { probeRepo, type RepositoryProbe } from './probe'
 import {
   MAX_DIFF_COMMITS,
   MAX_DIFF_FILES,
@@ -32,16 +32,8 @@ const PATCH_MAX_BUFFER = 16 * 1024 * 1024
 const PATCH_CONTEXT = 1_000_000
 const COMMIT_FORMAT = '--format=%x00orca-commit%x00%H%x00%s%x00%an%x00%ct%x00%b%x00'
 
-export type GitDiffRunner = (
-  cwd: string,
-  args: string[],
-  options?: GitRunOptions
-) => Promise<GitRunResult>
-
-// 읽기 조회는 **저장소를 잠그지 않는다**(0211 D-064). `--no-optional-locks` 를 여기서 한 번
-// 붙이는 이유: 호출부마다 붙이면 새 호출부가 조용히 빠진다. 이 함수가 유일한 관문이고
-// AT-39 가 "누락 0건" 을 차집합으로 센다.
-export const READ_ONLY_GIT_FLAG = '--no-optional-locks'
+export type GitDiffRunner = GitWrite
+export const DIFF_SAFETY_ARGS = ['--no-ext-diff', '--no-textconv'] as const
 
 function run(
   runner: GitDiffRunner,
@@ -49,19 +41,10 @@ function run(
   args: string[],
   maxBuffer = MAX_BUFFER
 ): Promise<GitRunResult> {
-  return runner(cwd, [READ_ONLY_GIT_FLAG, ...args], {
-    readOnly: true,
-    timeoutMs: TIMEOUT_MS,
-    maxBuffer
-  })
+  return runner(cwd, args, { timeoutMs: TIMEOUT_MS, maxBuffer })
 }
 
 const ZERO_TOTALS: GitDiffTotals = { added: 0, removed: 0 }
-const EMPTY_GROUP: GitDiffSummary['uncommitted'] = {
-  files: [],
-  totals: ZERO_TOTALS,
-  filesTruncated: false
-}
 
 export const EMPTY_DIFF_PATCH: GitDiffPatch = {
   isRepo: false,
@@ -80,85 +63,66 @@ export const EMPTY_DIFF_SUMMARY: GitDiffSummary = {
   filesTruncated: false,
   commits: [],
   commitsTruncated: false,
-  commitFilesUnavailable: false,
-  uncommitted: EMPTY_GROUP
+  commitFilesUnavailable: false
 }
 
-export interface GitDiffRange {
-  kind: 'working'
-  base: GitDiffBase
-}
+export type GitDiffRange =
+  | {
+      kind: 'cumulative'
+      base: Exclude<GitDiffBase, { kind: 'commit-parent' }>
+      headOid: string | null
+    }
+  | { kind: 'commit'; base: Extract<GitDiffBase, { kind: 'commit-parent' }> }
 
-// 빈 저장소의 기준점. `git diff <이 sha>` 는 추적 파일 전체를 추가로 내고
-// `git log <이 sha>..HEAD` 는 루트부터의 커밋을 전부 낸다(실측) — 세션이 커밋 0개인 저장소에서
-// 시작했다면 그 이후 **전부**가 이 세션의 작업이므로 그것이 맞는 기준이다.
 export const EMPTY_TREE_OID = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
-
-// HEAD 커밋 OID. 없으면(빈 저장소) null — `resolveDiffRange` 의 두 분기와 요약 조립이
-// 모두 이것을 부른다. HEAD 존재 판정이 세 벌이면 프로브가 바뀔 때 갈린다.
-async function headOid(cwd: string, runner: GitDiffRunner): Promise<string | null> {
-  const head = await run(runner, cwd, ['rev-parse', '--verify', '-q', 'HEAD'])
-  const oid = head.stdout.trim()
-  return head.ok && oid.length > 0 ? oid : null
+export interface DiffInput {
+  cwd: string
+  baseOid?: string | null
+  baseRef?: string | null
+  bornAt?: number | null
 }
 
+// The probe owns H for the entire request, including date lookup and patch retries.
 export async function resolveDiffRange(
-  input: { cwd: string; baseOid?: string | null; baseRef?: string | null; bornAt?: number | null },
-  runner: GitDiffRunner = runGit
+  input: DiffInput,
+  runner: GitDiffRunner = gitGateway.read,
+  repository?: RepositoryProbe
 ): Promise<GitDiffRange> {
-  // `ref` 는 화면의 유일한 비교 기준 라벨이다(0211 ΔV4 D-069). 여기서 다시 조회하지 않고
-  // 세션행이 준 값을 그대로 싣는다 — 지금 체크아웃된 브랜치를 읽으면 세션 시작 시점이 아니다.
+  const probe = repository ?? (await probeRepo(input.cwd, { read: runner }))
+  const headOid = probe.kind === 'repo' && probe.head.kind !== 'unborn' ? probe.head.oid : null
   if (input.baseOid)
     return {
-      kind: 'working',
-      base: { kind: 'worktree-base', oid: input.baseOid, ref: input.baseRef ?? null }
+      kind: 'cumulative',
+      base: { kind: 'worktree-base', oid: input.baseOid, ref: input.baseRef ?? null },
+      headOid
     }
-
-  // 기록된 기준선이 없으면 **출생 시각으로 되짚는다**(0211 ΔV4 r3).
-  //
-  // 여기서 질의 시점 HEAD 를 읽으면 기준선이 고정점이 아니라 **움직이는 값**이 된다 — 사용자가
-  // 커밋할 때마다 기준이 그 커밋으로 따라 올라가 diff 가 비고, 커밋 목록도 `worktree-base` 가
-  // 아니라 영영 빈다. 세션 시작 이후의 커밋은 보여야 한다는 것이 이 패널의 요구다.
-  if (input.bornAt != null) {
+  if (input.bornAt != null && headOid) {
     const born = await run(runner, input.cwd, [
       'rev-list',
       '-1',
       `--before=${new Date(input.bornAt).toISOString()}`,
-      'HEAD'
+      headOid
     ])
-    const bornOid = born.stdout.trim()
-    if (born.ok && bornOid.length > 0)
-      return {
-        kind: 'working',
-        base: { kind: 'worktree-base', oid: bornOid, ref: input.baseRef ?? null }
-      }
-    // 그 시각 이전 커밋이 없다 = 세션이 **빈 저장소**에서 시작했다. 저장소의 시작이 기준이다.
-    if ((await headOid(input.cwd, runner)) !== null)
-      return {
-        kind: 'working',
-        base: { kind: 'worktree-base', oid: EMPTY_TREE_OID, ref: input.baseRef ?? null }
-      }
-    return { kind: 'working', base: { kind: 'none' } }
+    const oid = born.ok && born.stdout.trim() ? born.stdout.trim() : EMPTY_TREE_OID
+    return {
+      kind: 'cumulative',
+      base: { kind: 'worktree-base', oid, ref: input.baseRef ?? null },
+      headOid
+    }
   }
-
-  const oid = await headOid(input.cwd, runner)
-  return { kind: 'working', base: oid !== null ? { kind: 'head', oid } : { kind: 'none' } }
+  return {
+    kind: 'cumulative',
+    base: headOid ? { kind: 'head', oid: headOid } : { kind: 'none' },
+    headOid
+  }
 }
 
-// 비교 범위 — **커밋된 것만**이다 (0211 ΔV6 D-111, §10 EP-47 ①).
-//
-// 두 항(`<base> HEAD`)이라 작업 트리를 보지 않는다. 한 항으로 두면 `git diff <base>` 가
-// base → **작업 트리**를 내고, 그러면 커밋하지 않은 변경이 목록에 섞인다 — 사용자가
-// “미커밋 변경분을 항상 목록에서 제외” 를 골랐다.
-//
-// 커밋이 하나도 없는 저장소(`none`)는 HEAD 가 없어 어떤 범위도 만들 수 없다. 빈 배열을
-// 돌려주면 `git diff` 가 다시 작업 트리를 보므로 **`null`** 로 “범위 없음” 을 말한다 —
-// 호출부가 조회 자체를 건너뛴다.
-function diffRevArgs(base: GitDiffBase): string[] | null {
-  if (base.kind === 'commit-parent') return [base.oid, base.commitOid]
-  if (base.kind === 'worktree-base') return [base.oid, 'HEAD']
-  if (base.kind === 'head') return [base.oid, 'HEAD']
-  return null
+export function rangeArgs(
+  range: GitDiffRange
+): { diff: [string, string]; log: string | null } | null {
+  if (range.kind === 'commit') return { diff: [range.base.oid, range.base.commitOid], log: null }
+  if (range.base.kind === 'none' || !range.headOid || range.base.oid === range.headOid) return null
+  return { diff: [range.base.oid, range.headOid], log: `${range.base.oid}..${range.headOid}` }
 }
 
 async function resolveCommitPatchRange(
@@ -167,52 +131,15 @@ async function resolveCommitPatchRange(
   runner: GitDiffRunner
 ): Promise<GitDiffRange | null> {
   if (!GitCommitOidSchema.safeParse(sha).success) return null
-  // raw 객체 헤더를 읽어 shallow 경계도 root로 오인하지 않는다. merge는 첫 parent다.
   const commit = await run(runner, cwd, ['cat-file', 'commit', sha])
   if (!commit.ok) return null
   const headers = commit.stdout.split(/\r?\n\r?\n/, 1)[0].split(/\r?\n/)
   const parent = headers.find((line) => line.startsWith('parent '))?.slice(7)
   if (parent && !GitCommitOidSchema.safeParse(parent).success) return null
   return {
-    kind: 'working',
+    kind: 'commit',
     base: { kind: 'commit-parent', oid: parent ?? EMPTY_TREE_OID, commitOid: sha }
   }
-}
-
-interface RepoCoords {
-  inside: boolean
-  root: string | null
-}
-
-// 저장소 좌표는 **좌표만** 담는다 — 파일 내용을 담지 않으므로 worktree 가 사라져도 낡은 본문을
-// 주지 않는다(0211 D-063). 소실 감지는 0210 D-107 이 이미 갖는다.
-//
-// runner 별로 나눠 담는 이유는 격리다: fake runner 를 쓰는 테스트가 서로의 캐시를 보지 않고,
-// 프로덕션은 `runGit` 하나라 프로세스 수명 동안 한 칸을 공유한다.
-const repoCoordsCache = new WeakMap<GitDiffRunner, Map<string, RepoCoords>>()
-
-async function repoCoords(cwd: string, runner: GitDiffRunner): Promise<RepoCoords> {
-  const byCwd = repoCoordsCache.get(runner) ?? new Map<string, RepoCoords>()
-  const cached = byCwd.get(cwd)
-  if (cached) return cached
-
-  if (runner === runGit) {
-    const dir = await stat(cwd).catch(() => null)
-    if (!dir?.isDirectory()) return { inside: false, root: null }
-  }
-  // 두 값이 한 호출로 나온다(실측) — 순서는 inside, toplevel 이다.
-  const result = await run(runner, cwd, ['rev-parse', '--is-inside-work-tree', '--show-toplevel'])
-  const [insideLine, rootLine] = result.stdout.split('\n')
-  const coords: RepoCoords = {
-    inside: result.ok && insideLine?.trim() === 'true',
-    root: result.ok && rootLine?.trim() ? rootLine.trim() : null
-  }
-  // 저장소가 아닌 경로는 캐시하지 않는다 — 나중에 clone/init 될 수 있다.
-  if (coords.inside) {
-    byCwd.set(cwd, coords)
-    repoCoordsCache.set(runner, byCwd)
-  }
-  return coords
 }
 
 // `--raw --numstat -z` **한 호출**이 status 와 줄 수를 함께 낸다(0211 D-062, 실측) — 예전의
@@ -223,7 +150,14 @@ async function readDiff(
   revArgs: readonly string[],
   runner: GitDiffRunner
 ): Promise<{ files: GitDiffFileEntry[]; truncated: boolean; totals: GitDiffTotals }> {
-  const result = await run(runner, cwd, ['diff', '--raw', '--numstat', '-z', ...revArgs])
+  const result = await run(runner, cwd, [
+    'diff',
+    ...DIFF_SAFETY_ARGS,
+    '--raw',
+    '--numstat',
+    '-z',
+    ...revArgs
+  ])
   const tracked = result.ok ? parseCommitFiles(result.stdout.split('\0')) : []
   return mergeDiffEntries(tracked)
 }
@@ -238,73 +172,51 @@ const EMPTY_DIFF_GROUP: { files: GitDiffFileEntry[]; truncated: boolean; totals:
 
 async function readCommitHistory(
   cwd: string,
-  baseOid: string,
+  logRange: string,
   runner: GitDiffRunner
 ): Promise<{
   commits: GitDiffSummary['commits']
   truncated: boolean
   filesUnavailable: boolean
 }> {
-  const common = [
-    'log',
-    `--max-count=${MAX_DIFF_COMMITS + 1}`,
-    COMMIT_FORMAT,
-    '-z',
-    `${baseOid}..HEAD`
-  ]
-  const normalArgs = [...common.slice(0, 3), '--raw', '--numstat', ...common.slice(3)]
+  const common = ['log', `--max-count=${MAX_DIFF_COMMITS + 1}`, COMMIT_FORMAT, '-z', logRange]
+  const normalArgs = [...common, ...DIFF_SAFETY_ARGS, '--raw', '--numstat']
   const normal = await run(runner, cwd, normalArgs, HISTORY_MAX_BUFFER)
   if (normal.ok) {
     const parsed = parseCommitLog(normal.stdout, true)
     return { commits: parsed.commits, truncated: parsed.truncated, filesUnavailable: false }
   }
 
-  const fallback = await run(runner, cwd, common, HISTORY_MAX_BUFFER)
+  const fallback = await run(runner, cwd, [...common, ...DIFF_SAFETY_ARGS], HISTORY_MAX_BUFFER)
   if (!fallback.ok) return { commits: [], truncated: false, filesUnavailable: true }
   const parsed = parseCommitLog(fallback.stdout)
   return { commits: parsed.commits, truncated: parsed.truncated, filesUnavailable: true }
 }
 
 export async function gitDiffSummary(
-  input: { cwd: string; baseOid?: string | null; baseRef?: string | null; bornAt?: number | null },
-  runner: GitDiffRunner = runGit
+  input: DiffInput,
+  runner: GitDiffRunner = gitGateway.read,
+  repository?: RepositoryProbe
 ): Promise<GitDiffSummary> {
-  if (!(await repoCoords(input.cwd, runner)).inside) return EMPTY_DIFF_SUMMARY
-  const range = await resolveDiffRange(input, runner)
-  const base = range.base
-  // 커밋된 것만 본다 (0211 ΔV6 D-111, §10 EP-47 ②) — 범위가 `<base> HEAD` 라 작업 트리가
-  // 들어오지 않고, 미추적 조회도 없다. 범위가 아예 없으면(커밋 0개) 조회를 건너뛴다.
-  const revArgs = diffRevArgs(base)
-  // 두 조회는 서로 독립이라 나란히 돈다 — 턴 종료마다 도는 경로에서 직렬 왕복 하나를 없앤다.
-  const [overall, currentHead] = await Promise.all([
-    revArgs ? readDiff(input.cwd, revArgs, runner) : Promise.resolve(EMPTY_DIFF_GROUP),
-    base.kind === 'head' ? Promise.resolve(base.oid) : headOid(input.cwd, runner)
+  const probe = repository ?? (await probeRepo(input.cwd, { read: runner }))
+  if (probe.kind !== 'repo') return EMPTY_DIFF_SUMMARY
+  const range = await resolveDiffRange(input, runner, probe)
+  const args = rangeArgs(range)
+  const [overall, history] = await Promise.all([
+    args ? readDiff(input.cwd, args.diff, runner) : Promise.resolve(EMPTY_DIFF_GROUP),
+    args?.log && range.base.kind === 'worktree-base'
+      ? readCommitHistory(input.cwd, args.log, runner)
+      : Promise.resolve({ commits: [], truncated: false, filesUnavailable: false })
   ])
-
-  let commits: GitDiffSummary['commits'] = []
-  let commitsTruncated = false
-  let commitFilesUnavailable = false
-  if (base.kind === 'worktree-base' && currentHead != null && base.oid !== currentHead) {
-    const history = await readCommitHistory(input.cwd, base.oid, runner)
-    commits = history.commits
-    commitsTruncated = history.truncated
-    commitFilesUnavailable = history.filesUnavailable
-  }
-
   return {
     isRepo: true,
-    base,
+    base: range.base,
     files: overall.files,
     totals: overall.totals,
     filesTruncated: overall.truncated,
-    commits,
-    commitsTruncated,
-    commitFilesUnavailable,
-    // **항상 빈 값이다** (0211 ΔV6 D-111). 이 조회는 커밋된 것만 수집하므로 미커밋 집합을
-    // 만들 재료가 없다 — 채우려면 D-111 이 없앤 작업 트리 조회를 되살려야 하고, 그 값을
-    // 읽는 renderer 소비처는 ΔV5 D-107 이후 0건이다. 계약 필드 제거는 이번 범위 밖이라
-    // 형태만 남긴다(§18 ΔV6 파생 이슈 I-06).
-    uncommitted: EMPTY_GROUP
+    commits: history.commits,
+    commitsTruncated: history.truncated,
+    commitFilesUnavailable: history.filesUnavailable
   }
 }
 
@@ -325,7 +237,16 @@ async function runPatch(
   return run(
     runner,
     cwd,
-    ['-c', 'core.quotePath=false', 'diff', `--unified=${context}`, '-M', '--no-color', ...revArgs],
+    [
+      '-c',
+      'core.quotePath=false',
+      'diff',
+      ...DIFF_SAFETY_ARGS,
+      `--unified=${context}`,
+      '-M',
+      '--no-color',
+      ...revArgs
+    ],
     PATCH_MAX_BUFFER
   )
 }
@@ -338,14 +259,15 @@ export async function gitDiffPatch(
     bornAt?: number | null
     commitSha?: string
   },
-  runner: GitDiffRunner = runGit
+  runner: GitDiffRunner = gitGateway.read
 ): Promise<GitDiffPatch> {
-  if (!(await repoCoords(input.cwd, runner)).inside) return EMPTY_DIFF_PATCH
+  const probe = await probeRepo(input.cwd, { read: runner })
+  if (probe.kind !== 'repo') return EMPTY_DIFF_PATCH
   const range = input.commitSha
     ? await resolveCommitPatchRange(input.cwd, input.commitSha, runner)
-    : await resolveDiffRange(input, runner)
+    : await resolveDiffRange(input, runner, probe)
   if (!range) return { ...EMPTY_DIFF_PATCH, isRepo: true, unavailable: true }
-  const revArgs = diffRevArgs(range.base)
+  const revArgs = rangeArgs(range)?.diff
   // 커밋된 것만 본다 (0211 ΔV6 D-111, §10 EP-47 ③) — 미추적 병합이 사라졌다. 범위가 없으면
   // (커밋 0개) 조회하지 않고 빈 패치를 돌려준다: 인자 없는 `git diff` 는 작업 트리를 본다.
   if (!revArgs)

@@ -1,9 +1,27 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { GitDiffPatchRequestSchema, GitDiffRequestSchema } from './protocol'
+import {
+  GitDiffPatchRequestSchema,
+  GitDiffRequestSchema,
+  GitSnapshotRequestSchema
+} from './protocol'
 
 describe('diff 요청의 비교 범위', () => {
+  it('snapshot requires a nonempty cwd and an explicit summary flag', () => {
+    expect(GitSnapshotRequestSchema.parse({ cwd: '/repo', includeSummary: false })).toEqual({
+      cwd: '/repo',
+      includeSummary: false
+    })
+    for (const request of [
+      { cwd: '/repo' },
+      { cwd: '', includeSummary: true },
+      { cwd: '/repo', includeSummary: 'true' },
+      { cwd: '/repo', includeSummary: true, sessionId: '' }
+    ]) {
+      expect(GitSnapshotRequestSchema.safeParse(request).success).toBe(false)
+    }
+  })
   it('전체 요청은 SHA 없이 유효하고 요약은 commitSha를 받지 않는다', () => {
     expect(GitDiffPatchRequestSchema.parse({ cwd: '/repo' })).toEqual({ cwd: '/repo' })
     expect(GitDiffRequestSchema.parse({ cwd: '/repo', commitSha: 'a'.repeat(40) })).toEqual({
@@ -26,12 +44,12 @@ describe('diff 요청의 비교 범위', () => {
       fileURLToPath(new URL('../../../docs/IPC_CONTRACT.md', import.meta.url)),
       'utf8'
     )
-    const section = document.slice(document.indexOf('| `orca:git:diffSummary`'))
+    const section = document.slice(document.indexOf('| `orca:git:snapshot`'))
 
     expect(section).not.toContain('commit?: string')
     expect(section).not.toContain('ls-files --others')
     expect(section).toContain('commitFilesUnavailable')
-    expect(section).toContain('uncommitted')
+    expect(section).not.toContain('uncommitted')
     // 0211 ΔV4 — 본문 채널이 패치 채널로 바뀐 것이 문서에도 남아야 한다(§10 EP-30).
     expect(document).toContain('`orca:git:diffPatch`')
     expect(document).not.toContain('`orca:git:diffFile`')

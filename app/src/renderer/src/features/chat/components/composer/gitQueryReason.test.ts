@@ -119,7 +119,8 @@ describe('계기의 배선 (AT-71 · §10 EP-46)', () => {
     expect(source).not.toContain('busy')
   })
 
-  it('두 effect 의 deps 가 `tick` 을 갖는다 — 둘 다 새 계기를 본다', () => {
-    expect(source.match(/\[tick, refreshTick, run(Query|StatusQuery), \w+\]/g)).toHaveLength(2)
+  it('단일 effect 가 tick·refreshTick·상태 키·요약 키를 모두 본다', () => {
+    expect(source.match(/useEffect\(/g)).toHaveLength(1)
+    expect(source).toContain('[cwd, sessionId, owner, tick, refreshTick, statusKey, summaryKey]')
   })
 })

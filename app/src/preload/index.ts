@@ -50,9 +50,8 @@ import {
   type GitCheckoutResult,
   type GitDiffPatch,
   type GitDiffPatchRequest,
-  type GitDiffRequest,
-  type GitDiffSummary,
-  type GitStatus,
+  type GitSnapshotRequest,
+  type GitSnapshotResult,
   type PickedAttachment,
   type OpenPathRequest,
   type ReadAttachmentResult,
@@ -228,13 +227,12 @@ const orca = {
     pathForFile: (file: File): string => webUtils.getPathForFile(file)
   },
   git: {
-    status: (cwd: string): Promise<GitStatus> => ipcRenderer.invoke(CHANNELS.gitStatus, { cwd }),
+    snapshot: (req: GitSnapshotRequest): Promise<GitSnapshotResult> =>
+      ipcRenderer.invoke(CHANNELS.gitSnapshot, req),
     branches: (cwd: string): Promise<GitBranchList> =>
       ipcRenderer.invoke(CHANNELS.gitBranches, { cwd }),
     checkout: (req: GitCheckoutRequest): Promise<GitCheckoutResult> =>
       ipcRenderer.invoke(CHANNELS.gitCheckout, req),
-    diffSummary: (req: GitDiffRequest): Promise<GitDiffSummary> =>
-      ipcRenderer.invoke(CHANNELS.gitDiffSummary, req),
     diffPatch: (req: GitDiffPatchRequest): Promise<GitDiffPatch> =>
       ipcRenderer.invoke(CHANNELS.gitDiffPatch, req)
   },

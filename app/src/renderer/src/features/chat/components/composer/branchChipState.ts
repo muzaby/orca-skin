@@ -55,12 +55,12 @@ export interface DirtyPrompt {
 // checkout 결과가 접히는 세 화면 상태. `failed` 는 **조용히 삼켜지지 않는다** — 왜 브랜치가
 // 그대로인지 그 자리에서 보여야 한다.
 export type CheckoutOutcome =
-  | { kind: 'switched' }
+  | { kind: 'switched'; status: GitStatus }
   | { kind: 'ask'; prompt: DirtyPrompt }
   | { kind: 'failed'; message: string; applied?: GitDirtyResolution }
 
 export function checkoutOutcome(result: GitCheckoutResult, target: string): CheckoutOutcome {
-  if (result.ok) return { kind: 'switched' }
+  if (result.ok) return { kind: 'switched', status: result.status }
   if (result.reason === 'dirty') {
     return { kind: 'ask', prompt: { target, from: result.from, stat: result.stat } }
   }

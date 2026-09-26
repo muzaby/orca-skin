@@ -72,7 +72,7 @@ export function BranchChip({
   const [error, setError] = useState<{ message: string; applied?: GitDirtyResolution } | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
-  // 전환 직후 재조회 — 라벨이 옛 브랜치에 머무르지 않게 한다.
+  // 초기 저장소 이름 조회.
   const refresh = useCallback(async (): Promise<void> => {
     if (!cwd) return
     const request = { cwd }
@@ -126,6 +126,8 @@ export function BranchChip({
       return
     }
     setBusy(true)
+    const request = { cwd }
+    requestRef.current = request
     try {
       const outcome = checkoutOutcome(
         await gitApi.checkout({ cwd, branch, ...(resolution ? { resolution } : {}) }),
@@ -133,7 +135,7 @@ export function BranchChip({
       )
       if (outcome.kind === 'switched') {
         setDirty(null)
-        await refresh()
+        if (requestRef.current === request) setSnapshot({ cwd, status: outcome.status })
         return
       }
       if (outcome.kind === 'ask') {

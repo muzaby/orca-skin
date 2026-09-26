@@ -1,0 +1,198 @@
+[
+    {
+        "id":  "M01-origin-local-cache",
+        "file":  "src/main/infra/git/git-snapshot.ts",
+        "test":  "src/main/infra/git/git-consistency.test.ts",
+        "pattern":  "global insteadOf",
+        "status":  1,
+        "red":  true,
+        "failed":  1
+    },
+    {
+        "id":  "M02-relative-path",
+        "file":  "src/main/infra/git/git-executable.ts",
+        "test":  "src/main/infra/git/git-executable.test.ts",
+        "pattern":  "ignores cwd-dependent",
+        "status":  1,
+        "red":  true,
+        "failed":  2
+    },
+    {
+        "id":  "M03-read-prefix",
+        "file":  "src/main/infra/git/gateway.ts",
+        "test":  "src/main/infra/git/gateway.test.ts",
+        "pattern":  "applies read flags",
+        "status":  1,
+        "red":  true,
+        "failed":  1
+    },
+    {
+        "id":  "M04-summary-safety",
+        "file":  "src/main/infra/git/git-diff.ts",
+        "test":  "src/main/infra/git/git-consistency.test.ts",
+        "pattern":  "summary pins",
+        "status":  1,
+        "red":  true,
+        "failed":  1
+    },
+    {
+        "id":  "M05-history-safety",
+        "file":  "src/main/infra/git/git-diff.ts",
+        "test":  "src/main/infra/git/git-consistency.test.ts",
+        "pattern":  "summary pins",
+        "status":  1,
+        "red":  true,
+        "failed":  1
+    },
+    {
+        "id":  "M06-fallback-history-safety",
+        "file":  "src/main/infra/git/git-diff.ts",
+        "test":  "src/main/infra/git/git-consistency.test.ts",
+        "pattern":  "history-fallback pins",
+        "status":  1,
+        "red":  true,
+        "failed":  1
+    },
+    {
+        "id":  "M07-full-patch-safety",
+        "file":  "src/main/infra/git/git-diff.ts",
+        "test":  "src/main/infra/git/git-consistency.test.ts",
+        "pattern":  "patch pins",
+        "status":  1,
+        "red":  true,
+        "failed":  1
+    },
+    {
+        "id":  "M08-reduced-patch-safety",
+        "file":  "src/main/infra/git/git-diff.ts",
+        "test":  "src/main/infra/git/git-consistency.test.ts",
+        "pattern":  "cumulative fallback",
+        "status":  1,
+        "red":  true,
+        "failed":  1
+    },
+    {
+        "id":  "M09-checkout-safety",
+        "file":  "src/main/infra/git/git-cli.ts",
+        "test":  "src/main/app/git-execution.test.ts",
+        "pattern":  "checkout returns",
+        "status":  1,
+        "red":  true,
+        "failed":  1
+    },
+    {
+        "id":  "M10-checkout-status",
+        "file":  "src/renderer/src/features/chat/components/composer/branchChipState.ts",
+        "test":  "src/renderer/src/features/chat/components/composer/branchChipState.test.ts",
+        "pattern":  "?깃났?대㈃",
+        "status":  1,
+        "red":  true,
+        "failed":  1
+    },
+    {
+        "id":  "M11-summary-head",
+        "file":  "src/main/infra/git/git-diff.ts",
+        "test":  "src/main/infra/git/git-consistency.test.ts",
+        "pattern":  "summary pins",
+        "status":  1,
+        "red":  true,
+        "failed":  1
+    },
+    {
+        "id":  "M12-history-head",
+        "file":  "src/main/infra/git/git-diff.ts",
+        "test":  "src/main/infra/git/git-consistency.test.ts",
+        "pattern":  "summary pins",
+        "status":  1,
+        "red":  true,
+        "failed":  1
+    },
+    {
+        "id":  "M13-fallback-history-head",
+        "file":  "src/main/infra/git/git-diff.ts",
+        "test":  "src/main/infra/git/git-consistency.test.ts",
+        "pattern":  "history-fallback pins",
+        "status":  1,
+        "red":  true,
+        "failed":  1
+    },
+    {
+        "id":  "M14-born-head",
+        "file":  "src/main/infra/git/git-diff.ts",
+        "test":  "src/main/infra/git/git-consistency.test.ts",
+        "pattern":  "bornAt pins",
+        "status":  1,
+        "red":  true,
+        "failed":  1
+    },
+    {
+        "id":  "M15-full-cumulative-head",
+        "file":  "src/main/infra/git/git-diff.ts",
+        "test":  "src/main/infra/git/git-consistency.test.ts",
+        "pattern":  "patch pins",
+        "status":  1,
+        "red":  true,
+        "failed":  1
+    },
+    {
+        "id":  "M16-reduced-cumulative-head",
+        "file":  "src/main/infra/git/git-diff.ts",
+        "test":  "src/main/infra/git/git-consistency.test.ts",
+        "pattern":  "cumulative fallback",
+        "status":  1,
+        "red":  true,
+        "failed":  1
+    },
+    {
+        "id":  "M17-cat-file-head",
+        "file":  "src/main/infra/git/git-diff.ts",
+        "test":  "src/main/infra/git/git-consistency.test.ts",
+        "pattern":  "selected pins",
+        "status":  1,
+        "red":  true,
+        "failed":  1
+    },
+    {
+        "id":  "M18-full-selected-head",
+        "file":  "src/main/infra/git/git-diff.ts",
+        "test":  "src/main/infra/git/git-consistency.test.ts",
+        "pattern":  "selected pins",
+        "status":  1,
+        "red":  true,
+        "failed":  1
+    },
+    {
+        "id":  "M19-reduced-selected-head",
+        "file":  "src/main/infra/git/git-diff.ts",
+        "test":  "src/main/infra/git/git-consistency.test.ts",
+        "pattern":  "selected fallback",
+        "status":  1,
+        "red":  true,
+        "failed":  1
+    },
+    {
+        "id":  "M20-owner-sweep",
+        "file":  "src/renderer/src/features/chat/components/composer/useGitIdentityRemote.ts",
+        "test":  "src/renderer/src/features/chat/components/composer/gitQueryOwner.test.ts",
+        "status":  1,
+        "red":  true,
+        "failed":  1
+    },
+    {
+        "id":  "M21-effect-tick",
+        "file":  "src/renderer/src/features/chat/components/composer/useGitSnapshot.ts",
+        "test":  "src/renderer/src/features/chat/components/composer/gitQueryReason.test.ts",
+        "status":  1,
+        "red":  true,
+        "failed":  1
+    },
+    {
+        "id":  "M22-feature-call-axis",
+        "file":  "src/main/features/worktrees/service.ts",
+        "test":  "src/main/features/worktrees/ipc-integration.test.ts",
+        "pattern":  "features/\\*\\*",
+        "status":  1,
+        "red":  true,
+        "failed":  1
+    }
+]

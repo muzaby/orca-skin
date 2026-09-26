@@ -13,7 +13,7 @@
 import { existsSync } from 'node:fs'
 import type Database from 'better-sqlite3'
 import { rebaseUnderRoot } from '../infra/config/rebase-path'
-import { runGit } from '../infra/git/runner'
+import { repairWorktree } from '../infra/git/worktree'
 
 export interface RebaseCounts {
   sessionCwd: number
@@ -30,8 +30,6 @@ export interface RebaseReport {
   repaired: string[]
   repairFailed: { worktreeRoot: string; message: string }[]
 }
-
-type GitRunner = typeof runGit
 
 interface SessionRow {
   id: string
@@ -143,7 +141,7 @@ export function rebaseStoredPaths(
  */
 export async function repairMovedWorktrees(
   report: RebaseReport,
-  git: GitRunner = runGit
+  repair: typeof repairWorktree = repairWorktree
 ): Promise<RebaseReport> {
   for (const target of report.repairTargets) {
     if (!existsSync(target.repoRoot)) {
@@ -153,7 +151,7 @@ export async function repairMovedWorktrees(
       })
       continue
     }
-    const result = await git(target.repoRoot, ['worktree', 'repair', target.worktreeRoot])
+    const result = await repair(target.repoRoot, target.worktreeRoot)
     if (result.ok) report.repaired.push(target.worktreeRoot)
     else
       report.repairFailed.push({

@@ -67,8 +67,7 @@ const summary: GitDiffSummary = {
   filesTruncated: false,
   commits: [],
   commitsTruncated: false,
-  commitFilesUnavailable: false,
-  uncommitted: { files: [], totals: { added: 0, removed: 0 }, filesTruncated: false }
+  commitFilesUnavailable: false
 }
 
 // 0211 ΔV5 D-110 — 스크롤 소유자를 **주입**한다. SSR 은 ref 를 채우지 않아, 내부 ref 만

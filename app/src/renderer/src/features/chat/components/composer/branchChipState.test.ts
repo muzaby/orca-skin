@@ -62,8 +62,10 @@ describe('statusForCwd — 늦게 도착한 응답은 새 경로를 덮지 않�
 
 describe('checkoutOutcome — 실패는 조용히 삼켜지지 않는다 (AC8)', () => {
   it('성공이면 switched 다', () => {
-    expect(checkoutOutcome({ ok: true, branch: 'feature' }, 'feature')).toEqual({
-      kind: 'switched'
+    const status = repo({ branch: 'feature' })
+    expect(checkoutOutcome({ ok: true, branch: 'feature', status }, 'feature')).toEqual({
+      kind: 'switched',
+      status
     })
   })
 

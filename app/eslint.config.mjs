@@ -174,6 +174,18 @@ export default defineConfig(
       ]
     }
   },
+  // Git 실행은 gateway → runner만 허용한다. 경로 해석으로 내부 상대 import도 검사한다.
+  {
+    files: ['src/main/**/*.ts'],
+    ignores: ['src/main/infra/git/gateway.ts', 'src/main/infra/git/runner.ts', '**/*.test.ts', '**/*.testfixture.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { paths: [{ name: 'child_process' }, { name: 'node:child_process' }] }],
+      'no-restricted-syntax': ['error',
+        { selector: 'ImportExpression[source.value=/^(node:)?child_process$/]', message: 'Use the Git gateway.' },
+        { selector: "CallExpression[callee.name='require'][arguments.0.value=/^(node:)?child_process$/]", message: 'Use the Git gateway.' }],
+      'import/no-restricted-paths': ['error', { zones: [{ target: './src/main', from: './src/main/infra/git/runner.ts' }] }]
+    }
+  },
   // no-console 예외(0124 AC3) — 로깅 인프라 내부의 emergency 경로·dev 콘솔 미러 구현부만.
   {
     files: ['src/main/infra/log/**/*.ts'],

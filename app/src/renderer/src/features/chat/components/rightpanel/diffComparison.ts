@@ -2,8 +2,7 @@ import type { GitDiffPatch, GitDiffPatchFile, GitDiffSummary } from '../../../..
 
 // 비교 범위는 조회 기준이다. 커밋 선택은 첫 부모 → 해당 커밋 패치를 받는다.
 
-// 0211 ΔV5 D-107 — `uncommitted` 는 진입점과 함께 사라졌다(사용자가 첨부 배치를 골랐다).
-// `GitDiffSummary.uncommitted` 계약 필드는 남아 있고 renderer 소비처만 0이 된다.
+// 비교 대상은 세션 누적 범위 또는 선택 커밋이다.
 export type DiffComparison = { kind: 'all' } | { kind: 'commit'; sha: string }
 
 export const ALL_CHANGES: DiffComparison = { kind: 'all' }

@@ -14,6 +14,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { FIXTURE_GIT_TIMEOUT_MS, removeTempRoots } from './temp-repo.testfixture'
 import { gitDiffPatch, gitDiffSummary, resolveDiffRange, type GitDiffRunner } from './git-diff'
 import { runGit, type GitRunResult } from './runner'
+import { createGitGateway } from './gateway'
 import type { GitDiffPatchFile } from '../../../shared/ipc'
 
 /** 패치의 그 파일 — 없으면 undefined 라 테스트가 "목록에 없다" 도 단언할 수 있다. */
@@ -122,11 +123,6 @@ describe('diff 요약 — 범위와 목록 (VP-09)', () => {
     const summary = await gitDiffSummary({ cwd: repo, baseOid: null })
     expect(summary.base).toEqual({ kind: 'head', oid: await head(repo) })
     expect(summary.commits).toEqual([])
-    expect(summary.uncommitted).toEqual({
-      files: summary.files,
-      totals: summary.totals,
-      filesTruncated: summary.filesTruncated
-    })
   })
 
   // AT-72 — 커밋된 것만 온다. **집합 동등**으로 센다: “커밋한 파일이 있다” 만 보면
@@ -138,16 +134,6 @@ describe('diff 요약 — 범위와 목록 (VP-09)', () => {
     const edited = summary.files.find((f) => f.path === 'edited.ts')!
     expect(summary.totals).toEqual({ added: edited.added, removed: edited.removed })
     expect(summary.totals.added).toBeGreaterThan(0)
-  })
-
-  it('미커밋 블록은 항상 빈 값이다 — 이 조회는 그 재료를 모으지 않는다 (D-111)', async () => {
-    const summary = await gitDiffSummary({ cwd: repo, baseOid })
-
-    expect(summary.uncommitted).toEqual({
-      files: [],
-      totals: { added: 0, removed: 0 },
-      filesTruncated: false
-    })
   })
 
   // AT-73 — 기준선 이후 커밋이 0 이면 그릴 것이 없다(D-112). 이 저장소에는 미커밋 변경과
@@ -322,17 +308,24 @@ describe('패치 조회 인자와 폴백 (VP-55 · VP-48 회귀)', () => {
     const runner: GitDiffRunner = async (_cwd, args) => {
       calls.push([...args])
       if (args.includes('--is-inside-work-tree'))
-        return { ok: true, stdout: 'true\n/repo\n', stderr: '', code: 0, aborted: false }
+        return {
+          ok: true,
+          stdout:
+            'true\n' + process.cwd() + '\n.git\n.git\n' + 'a'.repeat(40) + '\nrefs/heads/main\n',
+          stderr: '',
+          code: 0,
+          aborted: false
+        }
       if (fail(args)) return { ok: false, stdout: '', stderr: 'boom', code: null, aborted: false }
       return { ok: true, stdout: '', stderr: '', code: 0, aborted: false }
     }
-    return { calls, runner }
+    return { calls, runner: createGitGateway({ run: runner }).read }
   }
 
   it('성공 경로는 전문맥 한 호출이고 모든 인자가 잠금을 피한다', async () => {
     const { calls, runner } = collectingRunner(() => false)
 
-    await gitDiffPatch({ cwd: '/repo', baseOid: 'b'.repeat(40) }, runner)
+    await gitDiffPatch({ cwd: process.cwd(), baseOid: 'b'.repeat(40) }, runner)
 
     const patchCalls = calls.filter((args) => args.includes('diff'))
     expect(patchCalls).toHaveLength(1)
@@ -345,7 +338,7 @@ describe('패치 조회 인자와 폴백 (VP-55 · VP-48 회귀)', () => {
   it('전문맥 조회가 실패하면 --unified=3 으로 한 번 더 부르고 contextLimited 를 싣는다', async () => {
     const { calls, runner } = collectingRunner((args) => args.includes('--unified=1000000'))
 
-    const patch = await gitDiffPatch({ cwd: '/repo', baseOid: 'b'.repeat(40) }, runner)
+    const patch = await gitDiffPatch({ cwd: process.cwd(), baseOid: 'b'.repeat(40) }, runner)
 
     const patchCalls = calls.filter((args) => args.includes('diff'))
     expect(patchCalls).toHaveLength(2)
@@ -358,7 +351,7 @@ describe('패치 조회 인자와 폴백 (VP-55 · VP-48 회귀)', () => {
   it('폴백까지 실패하면 unavailable 이다 — 빈 목록을 "변경 없음" 으로 읽히게 두지 않는다', async () => {
     const { runner } = collectingRunner((args) => args.includes('diff'))
 
-    const patch = await gitDiffPatch({ cwd: '/repo', baseOid: 'b'.repeat(40) }, runner)
+    const patch = await gitDiffPatch({ cwd: process.cwd(), baseOid: 'b'.repeat(40) }, runner)
 
     expect(patch).toMatchObject({ isRepo: true, files: [], unavailable: true })
   })
@@ -446,7 +439,6 @@ describe('커밋 grouping과 미커밋 블록 (VP-31 · VP-33)', () => {
     ).toEqual(['a.ts'])
     // 작업 트리의 `a.ts` 수정은 목록에 기여하지 않는다 — 커밋 둘이 만든 두 파일뿐이다.
     expect(summary.files.map((file) => file.path).sort()).toEqual(['a.ts', 'b.ts'])
-    expect(summary.uncommitted.files).toEqual([])
   })
 
   it('패치의 파일 줄은 커밋을 골라도 baseline → HEAD 다 (D-036 · D-111 회귀)', async () => {
@@ -462,7 +454,7 @@ describe('범위 해석 SSOT (VP-35)', () => {
   it('커밋이 하나도 없는 저장소는 base 가 none 이다', async () => {
     const repo = await makeRepo()
     const range = await resolveDiffRange({ cwd: repo, baseOid: null })
-    expect(range).toEqual({ kind: 'working', base: { kind: 'none' } })
+    expect(range).toEqual({ kind: 'cumulative', base: { kind: 'none' }, headOid: null })
   })
 
   it('HEAD와 baseline이 같으면 미커밋 변경이 있어도 전부 빈다 (D-111 · D-112)', async () => {
@@ -476,7 +468,6 @@ describe('범위 해석 SSOT (VP-35)', () => {
     const summary = await gitDiffSummary({ cwd: repo, baseOid })
     expect(summary.commits).toEqual([])
     expect(summary.files).toEqual([])
-    expect(summary.uncommitted.files).toEqual([])
   })
 })
 
@@ -562,7 +553,10 @@ describe('읽기 조회의 호출 형태 — 프로세스 수와 버퍼 (VP-48 �
     })
     const runner: GitDiffRunner = async (_cwd, args, runOptions) => {
       calls.push({ args: [...args], maxBuffer: runOptions?.maxBuffer })
-      if (args.includes('--is-inside-work-tree')) return ok('true\n/repo\n')
+      if (args.includes('--is-inside-work-tree'))
+        return ok(
+          'true\n' + process.cwd() + '\n.git\n.git\n' + 'a'.repeat(40) + '\nrefs/heads/main\n'
+        )
       const cmd = subcommand(args)
       if (cmd === 'rev-parse') return ok('h'.repeat(40) + '\n')
       if (cmd === 'log') {
@@ -572,42 +566,30 @@ describe('읽기 조회의 호출 형태 — 프로세스 수와 버퍼 (VP-48 �
       }
       return ok('')
     }
-    return { calls, runner }
+    return { calls, runner: createGitGateway({ run: runner }).read }
   }
 
   const base = 'b'.repeat(40)
 
-  it('저장소 좌표는 한 rev-parse 로 얻고 같은 runner 의 두 번째 조회는 다시 묻지 않는다 (EP-25 ②)', async () => {
+  it('저장소 좌표와 HEAD는 요청마다 한 probe로 다시 읽는다 (0241 R1)', async () => {
     const { calls, runner } = collectingRunner()
 
-    await gitDiffPatch({ cwd: '/repo', baseOid: base }, runner)
-    await gitDiffPatch({ cwd: '/repo', baseOid: base }, runner)
+    await gitDiffPatch({ cwd: process.cwd(), baseOid: base }, runner)
+    await gitDiffPatch({ cwd: process.cwd(), baseOid: base }, runner)
 
     const coordCalls = calls.filter((call) => call.args.includes('--is-inside-work-tree'))
-    // 캐시가 없으면 2다 — 파일을 열 때마다 프로세스가 하나씩 더 뜬다(D-063).
-    expect(coordCalls).toHaveLength(1)
-    // 두 값이 **한 호출**로 온다 — 나눠 부르면 여기가 2가 된다.
+    // 좌표·HEAD 결과를 저장하지 않으므로 두 요청은 각각 probe를 실행한다.
+    expect(coordCalls).toHaveLength(2)
+    // 저장소 좌표는 각 요청의 한 probe에 함께 들어 있다.
     expect(coordCalls[0].args).toEqual(
       expect.arrayContaining(['--is-inside-work-tree', '--show-toplevel'])
-    )
-  })
-
-  it('runner 가 다르면 캐시를 공유하지 않는다 — 테스트끼리 서로의 좌표를 보지 않는다', async () => {
-    const first = collectingRunner()
-    const second = collectingRunner()
-
-    await gitDiffPatch({ cwd: '/repo', baseOid: base }, first.runner)
-    await gitDiffPatch({ cwd: '/repo', baseOid: base }, second.runner)
-
-    expect(second.calls.filter((call) => call.args.includes('--is-inside-work-tree'))).toHaveLength(
-      1
     )
   })
 
   it('log 가 실패하면 --raw·--numstat 만 뺀 재조회를 한 번 하고 unavailable 을 남긴다 (EP-17 ⑤)', async () => {
     const { calls, runner } = collectingRunner({ failLogRaw: true })
 
-    const summary = await gitDiffSummary({ cwd: '/repo', baseOid: base }, runner)
+    const summary = await gitDiffSummary({ cwd: process.cwd(), baseOid: base }, runner)
 
     const logCalls = calls.filter((call) => subcommand(call.args) === 'log')
     expect(logCalls).toHaveLength(2)
@@ -625,7 +607,7 @@ describe('읽기 조회의 호출 형태 — 프로세스 수와 버퍼 (VP-48 �
   it('폴백까지 실패하면 커밋은 빈 목록이고 unavailable 을 유지한다 (EP-17 ⑤)', async () => {
     const { calls, runner } = collectingRunner({ failLogAll: true })
 
-    const summary = await gitDiffSummary({ cwd: '/repo', baseOid: base }, runner)
+    const summary = await gitDiffSummary({ cwd: process.cwd(), baseOid: base }, runner)
 
     expect(calls.filter((call) => subcommand(call.args) === 'log')).toHaveLength(2)
     expect(summary.commits).toEqual([])
@@ -635,9 +617,9 @@ describe('읽기 조회의 호출 형태 — 프로세스 수와 버퍼 (VP-48 �
 
   it('전용 버퍼가 조회마다 다르다 — 절단은 파서 단계라 이것을 대신하지 못한다 (EP-17 ④ · EP-29 ②)', async () => {
     const summaryRun = collectingRunner()
-    await gitDiffSummary({ cwd: '/repo', baseOid: base }, summaryRun.runner)
+    await gitDiffSummary({ cwd: process.cwd(), baseOid: base }, summaryRun.runner)
     const patchRun = collectingRunner()
-    await gitDiffPatch({ cwd: '/repo', baseOid: base }, patchRun.runner)
+    await gitDiffPatch({ cwd: process.cwd(), baseOid: base }, patchRun.runner)
 
     const logCall = summaryRun.calls.find((call) => subcommand(call.args) === 'log')
     const patchCall = patchRun.calls.find((call) => call.args.includes('--unified=1000000'))

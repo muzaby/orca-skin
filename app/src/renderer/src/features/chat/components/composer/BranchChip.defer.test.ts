@@ -9,7 +9,11 @@
 import { describe, expect, it, vi } from 'vitest'
 
 const { checkout, status, branches, menuProps } = vi.hoisted(() => ({
-  checkout: vi.fn(async () => ({ ok: true as const, branch: 'feature' })),
+  checkout: vi.fn(async () => ({
+    ok: true as const,
+    branch: 'feature',
+    status: { isRepo: true, branch: 'feature', detached: false, root: '/repo', githubUrl: null }
+  })),
   status: vi.fn(async () => ({
     isRepo: true,
     branch: 'main',

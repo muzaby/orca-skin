@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { basename } from 'node:path'
 import { branchExists, validateBranchName } from '../../infra/git/repository'
+import type { GitGateway } from '../../infra/git/gateway'
 
 function slugOf(value: string): string {
   return value
@@ -32,6 +33,7 @@ export function branchDirSegment(branch: string): string {
 }
 
 export async function chooseBranchName(input: {
+  gateway?: GitGateway
   repoRoot: string
   worktreeId: string
   firstPrompt: string
@@ -66,8 +68,8 @@ export async function chooseBranchName(input: {
   for (let suffix = 1; suffix < 10_000; suffix += 1) {
     const candidate = suffix === 1 ? base : `${base}-${suffix}`
     if (
-      (await validateBranchName(input.repoRoot, candidate)) &&
-      !(await branchExists(input.repoRoot, candidate)) &&
+      (await validateBranchName(input.repoRoot, candidate, input.gateway)) &&
+      !(await branchExists(input.repoRoot, candidate, input.gateway)) &&
       !(await input.dirTaken?.(candidate))
     )
       return candidate
