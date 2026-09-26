@@ -8,11 +8,14 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-25 |
 | 매핑 | — (브랜치 `claude/git-infrastructure-performance-4f58s3`) |
-| 상태 | **READY** |
+| 상태 | **DRAFT — 구현 전 설계 리뷰 G1~G5 보완 대기** |
+| 보완 검토 | Codex · 2026-09-26 · r1(구현·verify 미수행) |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
 | 이번 V revision | `V1` |
 | 유효 V | `V1` |
+
+> **설계자 차례다.** 사용자 지시로 구현 전 리뷰의 보완 사항을 §20에 기록하고 `plan/DRAFT`로 되돌렸다. V1 원안은 비교 기준으로 보존하며, G1~G5를 닫는 규범 정정과 READY 재판정 전에는 구현하지 않는다.
 
 # Part I — Product & UX Contract
 
@@ -31,6 +34,7 @@
 | 명시 요구 | "전체 plan만 작성하라" | 라이브 세션 턴 3 |
 | 추론 의도 | "전체"는 턴 2에서 제안한 단계 1~3(계측·안전 조치, GitReader, 계약 전환)을 한 plan에 담으라는 뜻이다. "plan만"은 이번 턴에 구현하지 않는다는 뜻이다 | 턴 2 응답의 "1·2와 3을 나눌지" 질문에 대한 답 |
 | 추론 의도 | "비용"은 git 실행 비용과 구현·유지 비용 둘 다다. 두 비용이 충돌하면 안전성 → 유지보수 → 실행 비용 순으로 우선한다 | 턴 2 문장의 나열 순서 |
+| 명시 요구 | "보완냐용을 plan 반영, plan 차례로 넘겨라. 커밋, push할 것" | 2026-09-26 구현 전 리뷰 후 사용자 지시. 보완 기록·설계자 인계이며 구현 지시는 아님 |
 
 ## 3. Decision Ledger
 
@@ -62,7 +66,8 @@
 - 이번 턴에서 새로 추가된 결정: D-001~D-020 (신규 handoff). 턴 4: D-014 사용자 수용("1. 수용함") — 결정 내용 불변, 출처만 갱신.
 - 변경된 결정: 없음.
 - 사용자 확인: D-014(textconv 표시 변경)를 턴 4에서 사용자가 수용했다.
-- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-005↔AC1·AC3(매 요청 probe 1회 단언), D-007↔AC8, D-008↔AC11·AC12, D-014↔AC10, D-017↔AC13, D-018↔AC20·AC24(순서·사유 불변)를 대조했다.
+- **`ACTIVE 결정 ↔ AC` 대조 — V1 최초 설계 시점**: 당시 충돌 0으로 기록했다. 2026-09-26 리뷰에서 D-005의 매 요청 probe와 AC24의 기존 기대값 유지가 충돌함을 확인했다(G5); 캐시 결정성·현재 표시 유지도 G1·G3의 정정 대상이다.
+- **2026-09-26 인계**: D-001~D-020은 임의 변경하지 않았다. §20의 G1~G5를 `open`으로 남기며, 설계자는 필요한 Decision·AC·V-pair·§10을 Delta V로 정정한 뒤 READY를 다시 판단한다.
 
 ## 4. 요구 비판적 검토
 
@@ -74,7 +79,7 @@
 | 선행 자료를 코드와 대조했는가 | 대조함. 턴 1 진단의 "Windows 런처 2배"는 미실측이라 D-009로 범위에서 뺐다 | — |
 | ACTIVE·기존 결정과 충돌하는가 | 0211 D-063("좌표만 캐시")과 충돌하지 않는다. TO-BE는 좌표 캐시조차 없앤다 | `git-diff.ts:188` 주석 |
 
-- 사용자에게 올릴 결정: 없음(D-014는 턴 4에서 사용자 수용).
+- 사용자에게 올릴 결정: V1에서는 없음으로 판단했다(D-014는 턴 4에서 사용자 수용). 현재 G1·G3의 속성·설정 반영 저하까지 D-014 수용으로 간주하지 않으며, 기존 표시 의미를 바꾸는 해법을 택한다면 설계자가 별도 결정 필요 여부를 판정한다.
 - 코드 조사로 닫은 사실: §8.
 
 ## 5. 동작 / 사용자 흐름
@@ -505,7 +510,9 @@ gateway/probe → gitSnapshot → IPC GitSnapshotResult → useGitSnapshot → c
 - 문서: `node scripts/check-doc-inventory.mjs --check`.
 - 사람 실기: 없음.
 
-## READY self-review
+## V1 최초 READY self-review (이전 판정)
+
+아래 체크는 V1 최초 설계 때의 기록이며 현재 READY를 뜻하지 않는다. 현재 상태는 `DRAFT`이고 재진입 조건은 §20.2가 갖는다.
 
 - [x] Decision Ledger의 ACTIVE/SUPERSEDED/OPEN이 여러 턴의 결정을 보존한다 — D-001~D-004가 사용자 턴 1~3.
 - [x] Part I만 읽어도 완료 상태가 이해된다 — §1·§5.
@@ -530,3 +537,30 @@ gateway/probe → gitSnapshot → IPC GitSnapshotResult → useGitSnapshot → c
 - [x] 게이트 명령이 `app/AGENTS.md`와 충돌하지 않는다 — §19.
 - [x] Ledger ↔ AC 대조를 §3 갱신 메모에 적었다.
 - [x] 산출물 문장 규칙을 지켰다.
+
+## 20. [구현자 기입] 구현 전 설계 리뷰 — r1, 2026-09-26
+
+**DRAFT — G1~G5를 설계자에게 인계한다.** 단일 실행 관문·snapshot 통합·실패 결과 비캐시 방향은 유지하되, 아래 설계 전제와 검증 계약을 보완해야 한다. 구현과 독립 verify는 수행하지 않았으므로 `verify/RETURN_TO_PLAN`으로 기록하거나 라운드를 올리지 않는다.
+
+### 20.1 보완 사항과 근거
+
+| ID / 상태 | 출처 / 영향 범위 | 확인한 사실 | 설계자가 닫을 항목 |
+|---|---|---|---|
+| **G1 · P1 · PLAN_GAP · open** | D-006·D-014, VP-01·03·10·15, EP-03·06, §11 캐시 키·§14·§16 | 임시 저장소와 linked worktree에서 동일 `commonDir`·base/head OID로 `git diff --no-ext-diff --no-textconv --numstat <base> <head>`를 실행했다. worktree에 `*.txt -diff`를 설정하자 결과가 `1\t1\tsample.txt`와 `-\t-\tsample.txt`로 달랐고, 별도 `git replace` 재현에서는 HEAD OID가 같은데 log subject가 `second`에서 `base`로 바뀌었다. | OID만으로 출력이 불변이라는 가정을 정정한다. 속성·설정·replacement가 결과에 미치는 영향과 worktree 간 캐시 공유 범위를 정하고, 캐시 키·유효성 검사·우회 또는 명시적 입력 고정 정책을 AC·V-pair·§10에 연결한다. |
+| **G2 · P1 · PLAN_GAP · open** | §12 동일 시점 계약, VP-01·03·10, EP-03·06 | 현재 `git-diff.ts`의 `diffRevArgs`·`readCommitHistory`·bornAt 조회는 `HEAD`를 명령 인자로 사용한다. 임시 저장소에서 probe 뒤 커밋을 추가했을 때 `<base> HEAD`의 numstat는 `2/1`, `<base> <probe OID>`는 `1/1`이었다. | probe OID가 실제 diff·log·rev-list 인자와 캐시 키까지 동일하게 전달되도록 강제 지점을 명시한다. probe와 실행 사이에 HEAD를 이동시키는 지연 테스트로 요약·패치·history·bornAt 경로 및 이후 캐시 적중 결과를 검증한다. |
+| **G3 · P2 · PLAN_GAP · open** | §1 표시 정확성, D-006, VP-02·19, EP-09, §14 | EP-09는 `<commonDir>/config`만 비교한다. §14는 전역 `url.*.insteadOf` 변경이 캐시된 origin URL에 반영되지 않는다고 이미 적고 있으며, Git 공식 `remote get-url` 계약도 URL rewrite 확장을 명시한다. | origin 출력에 영향을 주는 설정 범위를 조사해 유효성 조건·캐시 우회 조건을 정한다. 저장소 config는 같고 외부 설정만 바뀌는 회귀 AC를 추가하며, 현재 URL 표시 의미를 낮추는 선택은 기존 사용자 수용으로 간주하지 않는다. |
+| **G4 · P2 · PLAN_GAP · open** | D-019, AC22, VP-09·12, EP-10, §11 lint 행 | 설치된 ESLint `Linter.verify`에 제안 패턴 `**/infra/git/runner`·`node:child_process`를 적용했다. `../infra/git/runner`·`node:child_process`는 error지만 `./runner`·`child_process`는 error 0이고, 현재 git 내부 production import도 `./runner`를 쓴다. | 상대 import와 Node built-in의 두 표기를 포함해 실제 runner 도달 경로를 차단하도록 경계를 설계한다. 외부 feature뿐 아니라 `infra/git` 내부 허용 파일 밖의 우회도 실패하는 변이를 AC22·VP-09·12에 등록한다. |
+| **G5 · P2 · PLAN_GAP · open** | D-005, AC24, VP-09·18, §11 effect 통합, §16 기존 결정 | `git-diff.test.ts`의 좌표 캐시 테스트는 두 번 조회 후 probe 1회를 요구하지만 새 설계는 요청마다 probe한다. `gitQueryReason.test.ts`의 배선 테스트는 effect 2개를 요구하므로 effect 통합과 충돌하며, 둘 다 AC24가 허용한 필드·채널 변경 범위 밖이다. | AC24를 보존할 행동과 교체할 구조 단언으로 나눠 정정한다. 구 테스트 → 대체 oracle·pair 대응을 남기고 매 요청 probe, 초기·cwd·턴 종료·수동 계기, sessionId만 변경 시 추가 조회 없음과 늦은 응답 처리를 잠근다. |
+
+근거 코드: [git-diff.ts](../../../app/src/main/infra/git/git-diff.ts)의 `diffRevArgs`·`readCommitHistory`·`resolveDiffRange`, [git-diff.test.ts](../../../app/src/main/infra/git/git-diff.test.ts)의 "저장소 좌표는 한 rev-parse 로 얻고 같은 runner 의 두 번째 조회는 다시 묻지 않는다", [gitQueryReason.test.ts](../../../app/src/renderer/src/features/chat/components/composer/gitQueryReason.test.ts)의 "두 effect 의 deps 가 `tick` 을 갖는다". G4의 실제 import 표본은 [repository.ts](../../../app/src/main/infra/git/repository.ts)·[git-cli.ts](../../../app/src/main/infra/git/git-cli.ts)·[worktree.ts](../../../app/src/main/infra/git/worktree.ts)다.
+
+외부 계약: [Git attributes](https://git-scm.com/docs/gitattributes), [Git replace](https://git-scm.com/docs/git-replace), [Git remote get-url](https://git-scm.com/docs/git-remote#Documentation/git-remote.txt-get-url). G1·G2·G4는 이 리뷰 세션의 임시 저장소/메모리 내 검사 관측이고, G3는 기존 plan의 실측 기록과 공식 계약 대조다; 앱 구현의 PASS 증거가 아니다.
+
+### 20.2 설계자 인계 / READY 재진입 조건
+
+- [ ] G1·G3: 캐시가 관측하는 입력과 공유 범위를 확정하고, §14의 표시 저하를 단순 부수 효과로 남기지 않는다. 정책에 따라 실행 횟수 AC1~AC3·AC7·AC25와 §14 성능 표의 적용 조건도 다시 산정한다.
+- [ ] G2: 요약 diff·history 정상/폴백·패치 전문맥/축소·bornAt 조회의 OID 전달 자리를 전수로 세고, 캐시 키와 실행 인자의 일치를 경합 oracle로 잠근다.
+- [ ] G4: 실제 import 경로를 기준으로 EP-10·AC22를 정정하고 외부/내부 우회 변이가 모두 lint error가 되는지 확인한다.
+- [ ] G5: 기존 테스트의 행동 계약을 보존하면서 대체할 구조 단언을 명시하고 AC24·V-pair를 정정한다. 기존 장치가 검출하던 의미상 회귀를 대체 장치가 놓치지 않는지 확인한다.
+- [ ] 필요한 규범 변경을 `V1 + Delta V`로 남기고 대체 행·pair·oracle을 연결한다. §10과 pair registry의 자리 수 및 Decision↔AC↔Technical Design을 다시 대조한 뒤 READY self-review를 새로 수행한다.
+- [ ] G1~G5가 닫힌 설계 커밋에서 plan과 INDEX를 함께 `plan/READY`로 바꾼다. 그 전까지 다음 주체는 **Claude(설계 보완)**, 라운드는 **1**이며 앱 구현을 시작하지 않는다.
