@@ -8,14 +8,14 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-25 |
 | 매핑 | — (브랜치 `claude/git-infrastructure-performance-4f58s3`) |
-| 상태 | **READY** (ΔV1 — §20 G1~G5 닫음) |
-| 보완 검토 | Codex · 2026-09-26 · r1(구현·verify 미수행) → Claude ΔV1 · 2026-09-26 |
+| 상태 | **DRAFT** (ΔV1 재검토 — §22 G6~G8 설계 보완 대기) |
+| 보완 검토 | Codex · 2026-09-26 · r1(구현·verify 미수행) → Claude ΔV1 → Codex 재검토(§22) |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | V1 = `0241:V1@f682cc2` (ΔV1의 상속 기준) |
 | 이번 V revision | `ΔV1` — §21. V1의 캐시 계약(MD-02·MD-06)을 대체한다 |
 | 유효 V | `V1 + ΔV1` |
 
-> **ΔV1로 READY 재판정.** §20 G1~G5는 §21이 닫는다. V1 본문은 비교 기준으로 보존하고, 대체된 행은 각 절 머리의 `ΔV1` 표식과 §21이 정본이다. 충돌하면 §21이 이긴다.
+> **현재 판정은 DRAFT이며 다음 주체는 Claude(설계 보완)다.** V1과 ΔV1은 보존하되 G2·G5의 남은 모순을 §22 G6~G8로 다시 연다. V1 대비 규범 대체는 §21을 따르고, 현재 상태와 READY 재진입 조건은 §22를 따른다.
 
 # Part I — Product & UX Contract
 
@@ -79,7 +79,8 @@
 - **`ACTIVE 결정 ↔ AC` 대조 — V1 최초 설계 시점**: 당시 충돌 0으로 기록했다. 2026-09-26 리뷰에서 D-005의 매 요청 probe와 AC24의 기존 기대값 유지가 충돌함을 확인했다(G5); 캐시 결정성·현재 표시 유지도 G1·G3의 정정 대상이다.
 - **2026-09-26 인계**: D-001~D-020은 임의 변경하지 않았다. §20의 G1~G5를 `open`으로 남기며, 설계자는 필요한 Decision·AC·V-pair·§10을 Delta V로 정정한 뒤 READY를 다시 판단한다.
 - **ΔV1 (턴 6)**: 추가 D-021~D-026. 변경 D-006·D-007 → SUPERSEDED(사용자 선택 G1·G3). D-014는 ACTIVE 유지 — 근거 중 "캐시 결정성"은 D-021로 소멸했고 "외부 프로그램 실행 차단"이 남는다.
-- **`ACTIVE 결정 ↔ AC` 대조 — ΔV1**: 충돌 0. D-005↔AC1·AC7(요청마다 probe, 반복 호출도 같은 횟수), D-021↔AC1·AC2·AC7·AC25(반복 호출 실행 수 동일 = 캐시 없음), D-022↔AC3(전역 insteadOf 변경 반영), D-023↔AC26·AC8, D-024↔AC1·AC7, D-025↔AC22, D-026↔AC18, D-018↔AC20. V1 AC24의 "기존 기대값 유지"와 D-005의 충돌(G5)은 AC24 ΔV1이 처분 표로 해소했다.
+- **`ACTIVE 결정 ↔ AC` 대조 — ΔV1 설계 당시 기록**: 충돌 0. D-005↔AC1·AC7(요청마다 probe, 반복 호출도 같은 횟수), D-021↔AC1·AC2·AC7·AC25(반복 호출 실행 수 동일 = 캐시 없음), D-022↔AC3(전역 insteadOf 변경 반영), D-023↔AC26·AC8, D-024↔AC1·AC7, D-025↔AC22, D-026↔AC18, D-018↔AC20. V1 AC24의 "기존 기대값 유지"와 D-005의 충돌(G5)은 AC24 ΔV1이 처분 표로 해소했다고 기록했다.
+- **ΔV1 재검토**: D-023·EP-11과 선택 커밋 패치의 기존 계약(G6), AC26과 경합 seam의 실행 순서(G7), AC15·AC17과 AC24의 테스트 수정 제한(G8)이 충돌한다. 현재 대조 결과와 설계 정정 요구는 §22에 기록하며, 사용자 결정 D-021·D-022는 유지한다.
 
 ## 4. 요구 비판적 검토
 
@@ -601,16 +602,16 @@ gateway/probe → gitSnapshot → IPC GitSnapshotResult → useGitSnapshot → c
 | ID | 판정 | 닫은 곳 |
 |---|---|---|
 | G1 | **closed** — 교차 요청 결과 캐시 제거(사용자 선택). 캐시 키·유효성 문제 자체를 없앴다 | D-021·D-024, §21.3 AC1·AC2·AC7·AC25, §21.4 VP-15 폐기 |
-| G2 | **closed** — probe OID를 6자리 명령 인자에 고정, 경합 oracle 신설 | D-023, §21.3 AC26·AC8, §21.5 EP-11, VP-20·VP-21 |
+| G2 | **open** — ΔV1에서 closed로 판정했으나 선택 커밋의 대상 OID와 경합 seam 순서가 남았다 | §22 G6·G7. D-023, AC26·AC8, EP-11, VP-20·VP-21 정정 필요 |
 | G3 | **closed** — origin URL 매 status 조회(사용자 선택). 전역 설정 변경 회귀 AC 추가 | D-022, §21.3 AC3, §21.5 EP-09, VP-19 폐기·VP-02 변경 |
 | G4 | **closed** — lint 규칙 3종으로 해석 경로·두 표기·동적 import를 모두 막는다. 7변이 실측 | D-025, §21.3 AC22, §21.5 EP-10, §21.1 |
-| G5 | **closed** — 기존 테스트를 보존·이동·교체·삭제로 처분하고 대체 oracle을 명시했다 | §21.3 AC24·AC16, §21.7 |
+| G5 | **open** — ΔV1 처분 표에 checkout 결과 변경을 잠그는 기존 테스트가 빠졌다 | §22 G8. AC15·AC17·AC24, §21.7 정정 필요 |
 
-§20.2 재진입 조건 6개는 위 표와 §21.10 self-review로 충족한다. 라운드는 1 그대로다(verify 없는 설계 정정).
+ΔV1 설계 당시에는 §20.2 재진입 조건을 충족했다고 판정했으나, 재검토 후 현재 READY 재진입 조건은 §22.3이다. 라운드는 1 그대로다(구현·verify 미수행).
 
 ## 21. ΔV1 — §20 G1~G5 보완 (2026-09-26)
 
-**판정: READY.** V1 대비 캐시 계약을 걷어내고 HEAD 고정·lint 경계·기존 테스트 처분을 추가한다. 이 절이 V1 본문과 충돌하면 이 절이 정본이다.
+**당시 판정: READY → 현재 DRAFT(§22).** V1 대비 캐시 계약을 걷어내고 HEAD 고정·lint 경계·기존 테스트 처분을 추가했다. 이 절의 규범은 V1 본문보다 우선하나, §22의 모순을 정정하기 전에는 구현에 착수하지 않는다.
 
 ### 21.1 이번 턴 실측
 
@@ -789,6 +790,8 @@ gateway.read = 세마포어(4) + in-flight 공유(키에 세대) + --no-optional
 
 ### 21.10 ΔV1 READY self-review
 
+> 아래 체크는 `2ce833e2` 설계 당시 기록이다. 재검토에서 발견한 G6~G8 때문에 현재 READY 판정의 근거로 쓰지 않으며, 다음 설계자가 §22.3을 확인한 뒤 다시 판정한다.
+
 - [x] Ledger: D-006·D-007 SUPERSEDED → D-021·D-022(사용자 턴 6 원문 인용), D-023~D-026 ACTIVE — §3.
 - [x] 조건절 재해석 없음 — G1·G3 선택지 원문을 §2에 인용.
 - [x] 사용자 결정(G1·G3)과 조사로 닫을 사실(G2·G4·G5)을 구분했다 — §4 ΔV1 줄.
@@ -801,3 +804,38 @@ gateway.read = 세마포어(4) + in-flight 공유(키에 세대) + --no-optional
 - [x] 사람 실기 없음.
 - [x] 게이트는 V1 §7-A 운영 gate와 같다. `node_modules` 설치 후 lint 실측을 이 턴에 수행했다.
 - [x] 본문 교차검증: §1·§5·§7·§7-A·§9·§10·§11·§14·§16에 ΔV1 표식을 달아 대체 관계를 명시했다. `ACTIVE 결정 ↔ AC` 대조는 §3 갱신 메모.
+
+## 22. [구현자 기입] ΔV1 재검토 및 설계자 인계 — r1, 2026-09-26
+
+**DRAFT — G6~G8을 Claude(설계 보완)에게 인계한다.** 검토 대상은 `2ce833e2`의 V1 + ΔV1이며, 사용자 지시는 "요구내용을 정리하여 다시 plan 차례로 넘기고 push 하라"다. 앱 구현과 독립 verify는 수행하지 않았으므로 보드는 `plan/DRAFT`, 라운드는 1로 유지한다.
+
+### 22.1 보완 요구와 닫힘 기준
+
+| ID / 상태 | 출처 | 확인된 문제 | 설계자에게 넘기는 요구 |
+|---|---|---|---|
+| **G6 · P1 · PLAN_GAP · open** (G2 잔여) | D-023·D-024, AC7·AC8·AC26, VP-03·20·21, EP-11, §21.6 | EP-11은 패치까지 `rangeArgs(base, probe.head.oid)`로 고정한다. 현재 `diffRevArgs`는 `commit-parent`일 때 `[parentOid, commitOid]`를 쓰므로 이 규칙대로 바꾸면 선택 커밋 이후의 변경이 섞인다. | 누적 범위의 끝점은 probe OID, 선택 커밋의 끝점은 선택한 commit OID로 구분한다. 전문맥·축소 재시도가 각 경로의 동일 OID 쌍을 유지하도록 Decision·AC·pair·EP-11·인자 생성기를 함께 정정한다. 기존 선택 커밋의 HEAD 독립성·root·merge 동작을 회귀 oracle로 연결한다. |
+| **G7 · P2 · PLAN_GAP · open** (G2 잔여) | AC8·AC26, VP-03·20, §21.6 경합 seam | seam 설명은 probe 인자를 보자마자 커밋한 뒤 원래 probe를 실행한다. 이 순서에서는 probe OID와 후속 `HEAD`가 같아, AC26이 요구한 probe 이후의 HEAD 변경을 검증하지 못한다. | 실제 probe 실행을 await해 결과를 확보한 뒤 커밋하고 그 결과를 돌려준다. `probe 완료 → HEAD 변경 → 후속 읽기`를 관측하고, AC8에는 전문맥·축소 시도 사이의 변경도 배치한다. 영향받은 자리의 OID를 `HEAD`로 바꾸는 등록 변이가 각각 실패하도록 oracle·seam을 맞춘다. |
+| **G8 · P2 · PLAN_GAP · open** (G5 잔여) | AC15·AC17·AC24, VP-04·07·09, §11 checkout 소비자, §21.7 | AC24는 표 밖 테스트 수정을 금지하지만 `branchChipState.test.ts:65`가 빠졌다. 해당 케이스의 성공 입력에는 새 필수 `status`가 없고, 기대값 `{kind:'switched'}`도 AC17의 status 전달과 충돌한다. | 처분 표에 성공 fixture의 status 추가와 switched 결과의 status 전달 단언을 명시한다. checkout 결과의 생산자·소비자 테스트를 같은 계약으로 다시 검색하고, 기존 테스트 수정과 신규 oracle 추가의 허용 범위를 AC24에 구분한다. 대체 단언을 AC15·AC17 및 해당 pair에 연결한다. |
+
+근거 코드: [git-diff.ts](../../../app/src/main/infra/git/git-diff.ts)의 `diffRevArgs`·`resolveCommitPatchRange`·`gitDiffPatch`, [git-diff-commit.test.ts](../../../app/src/main/infra/git/git-diff-commit.test.ts)의 "100줄과 20줄 커밋은 각각 100/20, 전체는 120이며 이후 HEAD/작업트리와 독립적이다", [branchChipState.test.ts](../../../app/src/renderer/src/features/chat/components/composer/branchChipState.test.ts)의 "성공이면 switched 다". G6은 `git-diff.ts:158`·`:344`, G8은 `branchChipState.test.ts:65`와 plan §10의 새 `GitCheckoutResult`·AC17을 대조했다.
+
+### 22.2 재검토 증거와 유지하는 보완
+
+| 대상 | 재현 / 대조 | 관측과 판정 |
+|---|---|---|
+| G1·G3 | D-021·D-022 ↔ §21.3 AC1·AC2·AC3·AC7·AC25 | **설계상 closed 유지**. 요청 사이 결과 캐시 제거와 origin 매 조회 방침을 유지한다. |
+| G4 | `app/`에서 `ESLint.lintText`에 §21.6 블록을 `overrideConfig`로 적용, 실제 production 파일 경로 사용 | **closed 유지**. 외부 상대 import·`./runner`·re-export·동적 runner import·`child_process`·`node:child_process`·동적 built-in import 7종 모두 지정한 restricted 규칙의 error를 관측했다. |
+| G6 기존 동작 | `cd app` 후 `node node_modules/vitest/vitest.mjs run src/main/infra/git/git-diff-commit.test.ts` | **1파일·3테스트 통과**. 선택 커밋의 HEAD 독립성, root/없는 커밋, merge 첫 부모 동작을 확인했다. |
+| G7·G8 | AC26 ↔ §21.6 seam 순서, AC15·AC17 ↔ §21.7 및 `branchChipState.test.ts:65` | **문서·코드 대조로 모순 확인**. 미구현 gateway의 경합 테스트나 변경 후 typecheck를 실행한 것으로 보고하지 않는다. |
+
+위 관측은 구현 전 리뷰의 증거이며 새 구현의 AC 충족이나 독립 verify PASS를 뜻하지 않는다. G1·G3·G4의 보완은 유지하고, G2는 G6·G7, G5는 G8이 닫힐 때까지 `open`이다.
+
+### 22.3 설계 순서 / READY 재진입 조건
+
+- [ ] **G6 먼저**: 요청 종류별 base·target OID를 정하고 D-023·D-024·AC7·AC8·AC26·VP-03·20·21·EP-11·§21.6을 같은 구분으로 정정한다. 선택 커밋과 누적 범위의 회귀 oracle을 구분한다.
+- [ ] **G7 다음**: 확정한 범위 계약에 맞춰 경합 seam의 순서·관측 시점·등록 변이의 실패 조건을 정정한다. probe 자체의 `HEAD` 조회와 checkout dirty 검사 같은 허용 지점도 인자 차집합의 대상과 구분한다.
+- [ ] **G8 다음**: checkout 성공 결과를 만드는 곳과 소비하는 곳의 테스트를 대조해 처분 표를 보완하고, 새 계약을 잠글 테스트 추가를 AC24가 막지 않게 정정한다.
+- [ ] 위 변경을 기존 `V1 + ΔV1`에 대한 Delta V revision으로 기록한다. 필요한 규범 행의 대체 관계·pair·oracle·§10 자리와 Decision↔AC↔Technical Design을 다시 대조한다.
+- [ ] G6~G8의 설계 모순이 해소되면 §20.3 G2·G5와 현재 판정 사본을 함께 갱신하고 READY self-review를 새로 수행한다. 그 설계 커밋에서만 plan과 INDEX를 `plan/READY`로 돌린다.
+
+현재 다음 주체는 **Claude(설계 보완)**이며 라운드는 **1**이다. 이번 커밋은 요구 정리와 설계 단계 인계만 담고, 구현 산출과 verify 문서는 만들지 않는다.
