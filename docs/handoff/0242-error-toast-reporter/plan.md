@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-27 |
 | 매핑 | 없음 |
-| 상태 | IMPL_DONE — r1, 독립 검증 대기 |
+| 상태 | verify/PASS — r1 ([verify.md](verify.md)), 사람 실기 AC2·AC13 대기 |
 | V mode | `Delta V` |
 | 기준 V | `V1@abb4e49a` (공유 브랜치, `git cat-file -t` = commit) |
 | 이번 V revision | `ΔV1` |
@@ -818,3 +818,10 @@ Alias는 `tokens.css` 기존 규칙에 따라 다크에서 중복 선언하지 �
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
+| D1 | 레지스트리가 `reportError` 식별자만 본다 — 로컬 no-op 섀도잉이 green | VP-04 (oracle 충족) | import 결합 단언 검토 | NON_BLOCKING | open |
+| D2 | Host `key={id:seq}` 미잠금 — 동작은 정상 | §11 카드 계약 | key 단언 추가 검토 | NON_BLOCKING | open |
+| D3 | 같은 webContents reload 중 main 보고 유실 | 비귀속 | 탐색 시작 시 `forget` 검토 | NON_BLOCKING | open |
+| D4 | bridge `seen` 무상한 증가 | 비귀속 | 상한 정책 | NON_BLOCKING | open |
+| D5 | `errors.bridge.failed` 자리가 표·레지스트리 밖 | D-004 | 레지스트리 행 추가 | NON_BLOCKING | open |
+| D6 | renderer T1 카드 설명에 step id 없음 | 비귀속 UX | detail에 id 포함 | NON_BLOCKING | open |
+| D7 | ΔV1 설계 커밋 `Agent: codex`·D-010 원 대화 부재·증거 로그의 로컬 사용자 경로 | 운영 규칙 | 사용자 확인·경로 마스킹 | NON_BLOCKING | open |

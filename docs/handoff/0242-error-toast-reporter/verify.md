@@ -1,0 +1,247 @@
+# Verify — 0242-error-toast-reporter
+
+> 검증 절차는 [`handoff-verify/SKILL.md`](../../../.agents/skills/handoff-verify/SKILL.md), 협업/상태 머신은 [`docs/handoff/AGENTS.md`](../AGENTS.md).
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| slug | `0242-error-toast-reporter` |
+| 검증자 | Claude Code |
+| 일자 | 2026-09-27 |
+| 대상 커밋/range | `abb4e49a..55f6e887` (`318fecc7` ΔV1 설계 · `55f6e887` r1 구현) |
+| 구현 전 plan 기준 | `abb4e49a` (V1 READY) |
+| V mode / 유효 V | `Delta V` / `V1@abb4e49a + ΔV1@318fecc7` |
+| 검증 기준 plan revision | `abb4e49a:V1` · `318fecc7:ΔV1` |
+| 라운드 | 1 |
+| 상태 | **PASS** — 사람 실기 2건(AC2·AC13) 대기 |
+| 자기 검증 여부 | 아니오 — 구현 Codex, 검증 Claude. 그래도 보고에 없는 축 12건을 §4에 추가했다 |
+
+## 0. 기준선 / plan 변경 확인
+
+- 기준선은 diff로 성립한다. V1 설계 `abb4e49a` → ΔV1 설계 `318fecc7` → 구현 `55f6e887`이 각각 별도 커밋이다.
+- 구현 커밋의 `plan.md` 변경은 메타 상태와 `[구현자 기입]` 절뿐이다. AC·Decision·§10 행은 바뀌지 않았다.
+- **Decision Ledger 변경은 ΔV1 한 건이다.** D-006(다크=첨부 스펙 고정값) → D-010(두 테마 모두 Orca 시맨틱 토큰 우선) SUPERSEDE.
+  - 근거: 사용자 원문 인용 "이것은 참고 스펙이다. 실제로는 orcinus-orca의 스타일을 준수해야한다." · 별도 설계 커밋.
+  - 저장소에서 원 대화는 확인할 수 없다. 인용과 별도 커밋을 근거로 ΔV1을 채점 기준으로 받는다. **사용자 확인 요청**(D7).
+- AC 변경: AC13만 ΔV1으로 대체(다크 고정 hex → alias 상속, keyframes 4스톱 원문). 나머지 AC1~AC17 원문은 V1 그대로다.
+- 채점 기준: V1 AC1~AC17 + ΔV1 AC13·VP-08·EP-10·토큰/keyframes 표.
+
+### Plan validity
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| Delta V mode·상속 기준 | 유효 | `V1@abb4e49a` 실재(`git cat-file -t` = commit), ΔV1은 VP-08 CHANGED·VP-15 REGRESSION만 명시 |
+| NEW/CHANGED node ↔ REQUIRED pair | 유효 | V1 NEW node 전부 VP-01~20 REQUIRED, ΔV1 R-08 CHANGED ↔ VP-08 REQUIRED |
+| 영향받은 INHERITED ↔ REGRESSION | 유효 | Host 렌더(VP-15) REGRESSION |
+| pair별 path·§10 전수·oracle | 유효 | 20 pair 모두 path·EP·직접 oracle 기재 |
+| 선택적 적대 증거·이유 | 유효 | VP-02·04·05·14·19 선택, 나머지는 직접 결과 단언 사유 기재 |
+| `SUPERSEDED` 이관 | 유효 | D-006의 AC13·EP-10이 ΔV1 표로 이관됨 |
+| 운영 gate·범위 | 유효 | lint·typecheck·vitest·inventory·trailer |
+
+- root PLAN_GAP: 없음.
+
+## 1. Product & UX / ACTIVE Decision 요약
+
+| Decision | 기대 결과 | 실제 production path |
+|---|---|---|
+| D-001 | transcript 소비 오류는 toast 없음 | `ingestChatEvent(error)` → transcript만 — `chatStore.errors.test.ts` 3번째 케이스 toast 0 |
+| D-002 | toast = 로그 선행 | renderer `reportError`: `rendererLog.error` → `presentErrorReport`; main: `log.*` → `publishErrorReport` |
+| D-003 | 8 레이어 호출 가능 | renderer app·pages·features·shared, main app·features·adapters·infra 각 1곳 이상 호출, boundaries lint 오류 0 |
+| D-004 | 사용자 영향 사이트만 | renderer 90 catch = TOAST 33 · CONSUMED 36 · EXCLUDE 21, main 25 호출 |
+| D-005 | main 오류 → 창 | `process.on` → `infra/error-report` → hub → sink → `orca:error:reportEvent` → bridge → store |
+| D-007·D-008 | 3장·병합·1초 cooldown·4.6초 | `errorToastModel.ts` 상수 + store 타이머 |
+| D-009 | scheduler 전이 1회 | `Scheduler.failing` Set |
+| D-010 | Orca alias 두 테마 | `tokens.css` `@theme` alias 6 + 다크 shadow 1 |
+
+```text
+renderer 사이트/전역 → shared/errors.reportError → rendererLog(1) → errorToastStore → ErrorToastHost(App.tsx, RootGate 형제)
+main 사이트/전역   → infra/error-report.reportError → logger(1) → ErrorReportHub
+      ├ ready 창 ≥1 → sink → webContents.send(orca:error:reportEvent) → preload → bridge(present, 로그 0)
+      └ ready 0     → pending(≤10) → renderer drain invoke → markReady → 반환
+```
+
+## 2. 구현 결과 비판적 검토 — AC 전에
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 실환경 실패 방식 | 안전 | 두 reporter·present·publish 모두 try/catch, 로그가 게시보다 먼저라 게시 실패에도 로그는 남는다 |
+| false success | 없음 | 폴백(빈 목록·롤백·fail-closed·drop)을 유지하며 보고만 더한다 — T7·T17/18·T21·T27 행동 테스트 |
+| 폭주 | 차단 | main hub 1초 cooldown + renderer 1초 cooldown + cap 3. 비-git 폴더의 `git.snapshot`은 `NOT_REPO`를 반환(reject 아님, `handlers/git.ts:69`)이라 T11 거짓 toast 없음 |
+| A 대신 B | 아니오 | Host는 `App.tsx`에 마운트돼 부팅·게이트 화면에서도 보인다 |
+| 신뢰 경계 | 유지 | drain을 부를 수 있는 창은 preload를 가진 메인 창뿐(로그인 창은 preload 없음, `browser-session.ts:176`) |
+| 수명 | 한 틈 | 같은 webContents가 reload되면 id가 ready로 남아 reload 중 보고가 유실된다 → D3 |
+| worst-case | 유한 | 화면 3장 × 300자, main 대기열 10, bridge `seen`만 창 수명 동안 증가 → D4 |
+
+## 3. 역방향 탐색
+
+`scan-surface.sh abb4e49..55f6e887` 실행.
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| 신규 미사용 값 export (`ERROR_TOAST_MAX`·`ERROR_TOAST_COOLDOWN_MS`·`isBenignWindowError`·`APP_ERROR_TITLES`) | 정상 | 정의 파일 안에서 사용·타입 파생 |
+| 테스트 전용 (`createErrorToastStore`·`ERROR_TOAST_DURATION_MS`) | 정상 | 같은 파일의 싱글턴·모델이 production에서 사용 |
+| `error-report-scan.testlib.ts` | 정상 | `.testlib.` — 테스트 도구 |
+| 나머지 1b·2 항목 | 비귀속 | 이번 diff 이전부터 있던 심볼 |
+| 형제 정책 비대칭 | 없음 | — |
+| plan 표 밖 보고 자리 | 1건 | `mainErrorBridge.ts:23` `errors.bridge.failed` — drain 실패 보고. D-004 범위 안, 레지스트리 밖 → D5 |
+| catch 분모 독립 재열거 | 일치 | AST로 renderer production 전 파일 재열거: 93 = 레지스트리 90 + reporter 내부 3 |
+| main 보고 호출 독립 재열거 | 일치 | `reportError(` 23 + `publishErrorReport(` 2 = 25 = 레지스트리 25행, 표 밖 호출 0 |
+
+## 4. 기존 테스트 / semantic 검증 확인
+
+- 선택 적대 증거 재측정: 실제 소스 파일을 바꿔 vitest를 돌리고 원본을 복원했다(스크립트 `mut.mjs`, 종료 후 `git status` 깨끗).
+  - **등록 변이 10건 중 검출 10**. 자리 미지정 VP-04(a)는 행동 테스트가 있는 T18과 없는 T32 두 자리에 심었다.
+- 보고에 없는 독립 축 12건 중 **red 10 · green 2**(X1 → D1, X8 → D2).
+- 이전 라운드 대조: 첫 검증이라 해당 없음.
+- 형제 슬롯 맞바꿈: T15/T16 event 맞바꿈 red.
+- 순서 관측: AC3 로그 선행은 `invocationCallOrder`(renderer)·publish mock 안 로그 호출 수(main)로 관측. X7(로그를 게시 뒤로)이 red.
+
+| 변이 | 범위 | 결과 | 귀속 |
+|---|---|---|---|
+| T18 `chat.send.rejected` 보고 삭제 | renderer registry + chatStore.errors | red 3 | VP-04(a) |
+| T32 `useMcpServers` 보고 삭제 | renderer registry | red 2 | VP-04(a) 다른 자리 |
+| 기존 파일(`useSkills.ts`)에 `.catch(() => undefined)` | renderer registry | red 2 | VP-04(b) |
+| 새 파일에 `.catch(() => null)` | renderer registry | red 1 | VP-04(b) |
+| T15/T16 event 맞바꿈 | renderer registry | red 3 | VP-04(c) |
+| M23 bus 보고 삭제 | main registry | red 2 | VP-05 |
+| bridge 수신에 renderer 로그 추가 | bridge test | red 1 | VP-02(a) |
+| 제3 파일(`bus`)에 `publishErrorReport` | main registry | red 1 | VP-02(b) |
+| drain을 구독보다 먼저 | bridge test | red 1 | VP-14 |
+| 성공 시 `failing.delete` 삭제 | scheduler test | red 1 | VP-19 |
+| X1 T12 파일의 import를 로컬 no-op `reportError`로 가림 | renderer registry | **green** | D1 |
+| X2 M20 보고를 같은 event 문자열의 `console.warn`으로 | main registry | red 5 | 독립 |
+| X3 hub cooldown 제거 | hub·integration | red 1 | 독립 |
+| X4 drain의 destroyed 구독 제거 | integration | red 1 | 독립 |
+| X5 benign 필터 제거 | shared/errors | red 1 | 독립 |
+| X6 병합 시 만료 재설정 제거 | shared/errors | red 2 | 독립 |
+| X7 renderer 로그를 게시 뒤로 | shared/errors | red 1 | 독립 |
+| X8 Host `key`에서 `seq` 제거 | Host render·errors·chatStore.errors | **green** | D2 |
+| X9 다크 `--shadow-toast` 제거 | Host render | red 1 | 독립 |
+| X10 App의 `<ErrorToastHost />` 제거 | App·Host render | red 2 | 독립 |
+| X11 main detail 절단 제거 | error-report | red 2 | 독립 |
+| X12 M2를 로그 없는 `publishErrorReport`로 | main registry | red 3 | 독립 |
+
+## 5. V-pair closeout — `UT → IT → ST → AT`
+
+| Pair | 레벨 | requiredness | 결과 | 직접 증거 | §10 전수 |
+|---|---|---|---|---|---|
+| VP-17 | MD-01 ↔ UT-01 | REQUIRED | PASS | `errorToastModel.test.ts` 2건 · X6 red | EP-7 3/3 |
+| VP-18 | MD-02 ↔ UT-02 | REQUIRED | PASS | `hub.test.ts` 4건 · X3 red | EP-11 4/4 |
+| VP-19 | MD-03 ↔ UT-03 | REQUIRED | PASS | `scheduler.test.ts` 실패·실패·성공·실패 → 로그 3·보고 2 · 등록 변이 red | EP-9 2/2 |
+| VP-20 | MD-04 ↔ UT-04 | REQUIRED | PASS | `reportError.test.ts` benign 2문구·push/sink/logger throw 비전파 · X5 red | EP-12 3/3 |
+| VP-14 | AR-01 ↔ IT-01 | REQUIRED | PASS | preload typecheck · bridge 2건 · integration · 등록 변이 red | EP-14 3/3 |
+| VP-15 | AR-02 ↔ IT-02 | REGRESSION | PASS | `ErrorToastHost.render.test.ts` · App element 트리 · X10 red | EP-15 1/1 |
+| VP-16 | AR-03 ↔ IT-03 | REQUIRED | PASS | VP-04·05 증거 공유 | EP-4·EP-6 |
+| VP-12 | SD-01 ↔ ST-01 | REQUIRED | PASS | `chatStore.errors.test.ts`: send reject → 롤백·카드 1·Host 렌더·4600ms 후 0 | EP-4 chatStore |
+| VP-13 | SD-02 ↔ ST-02 | REQUIRED | PASS | `error-report.integration.test.ts`: 창 전 보고 → drain → 카드, live 전달, destroyed 후 재대기열 · X4 red | EP-11 |
+| VP-01 | R-01 ↔ AT-01 | REQUIRED | PASS(기계 범위) | renderer 전역 2 event · main M1/M2 레지스트리·integration · X12 red. 실제 Electron 예외 → 사람 실기 | EP-1 2/2 · EP-5 2/2 |
+| VP-02 | R-02 ↔ AT-02 | REQUIRED | PASS | 로그 선행·수신 무로그 · 등록 변이 2 red · X7 red | EP-2 5/5 |
+| VP-03 | R-03 ↔ AT-03 | REQUIRED | PASS | lint boundaries 오류 0 · electron mock 없는 `error-report/index.test.ts`가 electron 미설치 첫 실행에서 통과 | EP-3 2/2 |
+| VP-04 | R-04 ↔ AT-04 | REQUIRED | PASS | 레지스트리 TOAST 33·CONSUMED 36·EXCLUDE 21 · 등록 변이 5 red | EP-4 33/33 · EP-8 1/1 |
+| VP-05 | R-05 ↔ AT-05 | REQUIRED | PASS | main 레지스트리 25행 · 등록 변이 red · X2 red | EP-6 25/25 |
+| VP-06 | R-06 ↔ AT-06 | REQUIRED | PASS | model·store(4599/4600ms, 병합 재시작, dismiss, 타이머 정리) | EP-7 |
+| VP-07 | R-07 ↔ AT-07 | REQUIRED | PASS | VP-19 증거 공유 | EP-9 |
+| VP-08 | R-08 ↔ AT-08 | REQUIRED(ΔV1) | PASS(기계 범위) | 클래스 문자열·alias 6·shadow 2·keyframes 4스톱·4.6s 단언 · X9 red. 시각 → 사람 실기 | EP-10 2/2 |
+| VP-09 | R-09 ↔ AT-09 | REQUIRED | PASS | VP-13·18 증거 공유 | EP-11 |
+| VP-10 | R-10 ↔ AT-10 | REQUIRED | PASS | VP-20 증거 공유 | EP-12 |
+| VP-11 | R-11 ↔ AT-11 | REQUIRED | PASS | `ipc-documentation.test.ts` · inventory `--check` 통과 | EP-13 |
+
+- root `PAIR_FAIL`: 없음. `BLOCKED_BY`: 없음.
+- 실행 범위: 최초 검증 — 유효 V의 REQUIRED 19 + REGRESSION 1 = 20 전건.
+
+### AT / AC 세부와 합계
+
+| AC | 결과 | 증거 |
+|---|---|---|
+| AC1 | ✅ | 전역 error/rejection 각각 로그 1·카드 1, event 이름 유지 |
+| AC2 | ⚠️ | 단위·레지스트리·IPC 통합 통과. 실제 Electron main 예외가 창에 뜨는지는 사람 실기 |
+| AC3 | ✅ | 양 reporter 로그 선행, main 수신 renderer 로그 0 |
+| AC4 | ✅ | renderer 4 레이어 호출 · lint 오류 0 |
+| AC5 | ✅ | main 4 레이어 호출 · electron 비의존 테스트 |
+| AC6 | ✅ | TOAST 33행 + 행동 4건(T7·T17/18·T21·T27) |
+| AC7 | ✅ | 비대상 57 catch 보고 0 |
+| AC8 | ✅ | silent 집합 = 허용 4 · 신규/기존 파일 변이 red |
+| AC9 | ✅ | 25호출 event·title 유지 · publish 2곳 로그 결합 |
+| AC10 | ✅ | cap·병합 seq+1·만료 재설정·500ms 무시 |
+| AC11 | ✅ | 4599/4600ms · dismiss 즉시 · 병합 재시작 |
+| AC12 | ✅ | 로그 3·보고 2, 첫 실패 보고 |
+| AC13 | ⚠️ | 소스 단언 통과. 두 테마 시각은 사람 실기 |
+| AC14 | ✅ | 대기열·FIFO 10·drain 비움·destroyed 재대기열·cooldown |
+| AC15 | ✅ | ResizeObserver 2문구 로그 0·카드 0 |
+| AC16 | ✅ | push·sink·logger throw 비전파 |
+| AC17 | ✅ | IPC 문서 테스트·inventory |
+
+- 합계 재측정: ✅ 15 · ⚠️ 2 · ❌ 0 = 17. 자기보고 15/17과 일치.
+- 사본 대조: plan 본문 15/17 ↔ trailer `Criteria-Met: 15/17` ↔ INDEX 비고 "AC 15/17" 일치.
+
+### 현재 변경의 운영 gate
+
+| Gate | 결과 | 관측 |
+|---|---|---|
+| lint | PASS | error 0 · warning 1(`useTranscriptVirtualizer`, 기존). 실행 후 `git status` 변화 0 |
+| typecheck | PASS | node·web·test 3구성 exit 0 |
+| vitest 전체 | PASS | 593파일 중 592 pass·1 skip, 5652 pass·3 skip·0 fail |
+| vitest 관련 경로 | PASS | 129파일 중 128 pass, 1304 pass |
+| doc inventory `--check` | PASS | generated ok(99 channels)·prose ok·links ok |
+| scripts `node --test` | PASS | 128 pass · 0 fail |
+| trailer | PASS | 두 커밋 모두 적힌 키 전부 파싱 |
+
+## 7. 숫자 재측정
+
+- renderer catch: AST 재열거 93 = 90(33+36+21) + reporter 내부 3.
+- renderer 보고 호출: `shared/errors` 밖 production 33.
+- main 보고 호출: 23 + 2 = 25 = 24 M행 + M22 두 번째 호출.
+- 상한: 카드 3 × 300자 · main pending 10 · cooldown 1000ms 양측.
+
+## 8. 사람 실기
+
+| 항목 | 기계 검증 범위 | 남은 실기 | 방법 |
+|---|---|---|---|
+| AC2 | hub·sink·drain·bridge를 실제 모듈로 조립한 통합 테스트 | Electron main에서 실제 `uncaughtException` → 창 toast | dev 실행 후 main에서 강제 예외 1회, 우측 상단 카드와 로그 JSONL 1줄 확인 |
+| AC13 | 클래스·토큰·keyframes 문자열 | 두 테마 시각 | 라이트/다크 각각 toast 1장 이상 띄워 배경·테두리·글꼴·등장/퇴장 확인 |
+
+## 9. 게이트 재실행
+
+- 설치: `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci --ignore-scripts` → `npm rebuild better-sqlite3`(Node ABI).
+- 첫 전체 실행은 42파일 실패: bindings 미빌드 129건 + electron 바이너리 미설치 2 서명. rebuild 후 8파일 남음.
+- 남은 8파일은 `Electron failed to install correctly` 서명. 기준 `abb4e49`에서도 같은 8파일이 실패한다.
+  - `ELECTRON_OVERRIDE_DIST_PATH`에 빈 파일을 주면 HEAD 8/8(35건)·기준 8/8(34건) 통과 → 환경 기인.
+- 게이트의 트리 변경: 없음. 잔여물: scratchpad의 기준 worktree·node_modules만 — 저장소 밖.
+
+## 11. Repository operation checks
+
+- AGENTS.md 변경 없음.
+- INDEX: 대상 커밋 `(r1 구현 — 검증자 기입)`을 `abb4e49`·`318fecc`·`55f6e88`로 채운다(3건 모두 `git cat-file -t` = commit).
+- trailer: `55f6e887` 6키, `318fecc7` 3키 파싱. 값은 허용값이다.
+  - 다만 `318fecc7`은 `Agent: codex` + `Status: designed`다. 설계 커밋은 Claude 몫이라는 root 규칙과 역할이 어긋난다 → D7.
+- `[구현자 기입]` 7필드 전수 존재.
+- 증거 파일 `evidence/r1-lint.log`·`r1-test-summary.json`에 로컬 Windows 사용자 경로(`C:\Users\<계정>`)가 남았다 → D7.
+
+## 13. Finding disposition / 파생 이슈
+
+| # | finding | 귀속 | disposition | 후속 |
+|---|---|---|---|---|
+| D1 | 레지스트리는 catch 안 `reportError` **식별자**만 본다. 파일 import를 로컬 no-op으로 가리면(X1) 보고 0인데 green | VP-04 oracle은 plan 정의 그대로 충족 — 비귀속 | NON_BLOCKING | 식별자가 `shared/errors` import에 묶였는지 단언 추가 검토 |
+| D2 | Host `key={id:seq}`(병합 시 애니메이션 재생)를 잠그는 테스트가 없다(X8 green). 현재 동작은 정상 | §11 카드 계약, AC 외 | NON_BLOCKING | 회귀 시 병합 카드가 원래 4.6초에 투명해진 채 남는다. key 단언 1건 추가 검토 |
+| D3 | 같은 webContents reload 시 id가 ready로 남아 reload 중 main 보고가 유실된다 | 비귀속(AC14는 destroyed만 요구) | NON_BLOCKING | `did-start-navigation`에서 `forget` 검토 |
+| D4 | bridge `seen` id 집합이 창 수명 동안 증가(구현자 I6) | 비귀속 | NON_BLOCKING | 상한 정책 후속 |
+| D5 | `errors.bridge.failed` 보고 자리가 plan 표·레지스트리 밖 | D-004 범위 안 | NON_BLOCKING | 다음 레지스트리 갱신 때 행 추가 |
+| D6 | renderer T1 `boot.step.degraded` 카드 설명에 step id가 없다(main M11은 `id: message`) | 비귀속 UX | NON_BLOCKING | detail에 step id 포함 검토 |
+| D7 | ΔV1 설계 커밋이 `Agent: codex`이고 D-010 원 대화가 저장소에 없다. 증거 로그에 로컬 사용자 경로 | 운영 규칙 | NON_BLOCKING | **사용자가 D-010 정정을 확인**. 경로는 다음 커밋에서 마스킹 검토 |
+
+## 14. Review Signals — 사실만
+
+- 첫 검증 라운드. 이전 라운드 증상 비교 해당 없음.
+- 구현 턴에서 사용자 스타일 정정이 들어와 구현자가 ΔV1 설계 커밋을 직접 만들었다.
+- 반복 환경 한계: electron 바이너리·better-sqlite3 미빌드(egress). 우회 후 전건 통과.
+
+## 15. 결론
+
+- 상태: **PASS**.
+- pair: REQUIRED/REGRESSION 20/20 PASS · PAIR_FAIL 0 · BLOCKED_BY 0 · PLAN_GAP 0.
+- AC: ✅ 15 · ⚠️ 2(사람 실기) · ❌ 0.
+- 변이: 등록 10/10 red · 독립 12축 중 10 red · 2 green(D1·D2).
+- gate: lint·typecheck·vitest 전체·inventory·scripts·trailer PASS.
+- 비차단: D1~D7.
+- 다음 단계: 사람 실기 AC2·AC13과 D-010 확인. 그 뒤 archive로 이동한다.
