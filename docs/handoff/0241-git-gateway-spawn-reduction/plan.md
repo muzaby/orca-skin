@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-25 |
 | 매핑 | — (브랜치 `claude/git-infrastructure-performance-4f58s3`) |
-| 상태 | **IMPL_DONE** — r1 구현·자기검사 완료, Claude 독립 검증 대기 (§24) |
+| 상태 | **PASS** — r1 독립 검증 완료, 판정 원문은 [`verify.md`](verify.md) (§25) |
 | 보완 검토 | Codex r1(§20) → Claude ΔV1(§21) → Codex 재검토(§22) → Claude ΔV2(§23) · 2026-09-26 |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | V1 = `0241:V1@f682cc2` · ΔV1 = `0241:ΔV1@2ce833e` (ΔV2의 상속 기준) |
@@ -1155,3 +1155,20 @@ backend 회귀 실행에서 ΔV2 내부 범위 타입의 정확 비교와 실행
 - 막았어야 할 계약: AC16의 초기 조회·늦은 응답 폐기는 단독 계획/owner 테스트만으로 hook cleanup의 응답 유실을 잡지 못했다. 실제 hook lifecycle 테스트가 I1을 재현했다.
 - 환경 한계: Windows 샌드박스의 임시 경로 Node helper 실행 제한. 권한 확장 재실행으로 환경 실패를 분리했다. 테스트 assertion은 완화하지 않았다.
 - 현재 라운드·impl 턴: **r1**. 최종 코드 리뷰는 I1 수정 후 잔여 Important 없음을 보고했다. 독립 handoff-verify를 대신하지 않으며 다음 주체는 Claude다.
+
+## 25. [검증자 기입] 파생 이슈 — r1 검증, 2026-09-27
+
+**r1 = PASS.** 판정 원문은 [`verify.md`](verify.md). pair 20/20 PASS · PLAN_GAP 0 · AC ✅25 · 등록 변이 29/29 red. 아래는 비차단 이관이다.
+
+| # | finding | disposition | 후속 |
+|---|---|---|---|
+| D1 | `./runner.js` 정적 import·`createRequire`가 lint 0 error — `src/main` `node` resolver가 `.js→.ts`를 풀지 못하고 `boundaries`도 같다 | NEXT_HANDOFF | resolver 교체 여부 결정 |
+| D2 | 턴 종료 응답의 `setGitStatus` 반영 미잠금(X06 green, 동작은 P1로 확인) | NON_BLOCKING | lifecycle 케이스 추가 |
+| D3 | production `gitExecutable` 실패 메모 미잠금(X08b green, 동작은 P3로 확인) | NON_BLOCKING | 케이스 추가 |
+| D4 | 세마포어 인계 과소 계수 미잠금(X03c green, 동작은 P2로 확인) | NON_BLOCKING | 케이스 추가 |
+| D5 | `gitStatusQueryReason`·`gitSummaryQueryReason`·`resolveHeadRef`·`resolveRepoRoot` production 참조 0 | NON_BLOCKING | 정리 |
+| D6 | spawn 실패가 prepare에서 `not-repo`로 보인다 | NON_BLOCKING | 기록 |
+| D7 | probe 첫 호출의 128 외 실패가 unborn으로 분류된다 | NON_BLOCKING | 기록 |
+| D8 | 구현자 명의 `Status: designed` 3커밋이 AC24 처분 행 추가(완화 0), `a09aeec4` 제목 BOM | NON_BLOCKING | Review Signal |
+| D9 | §7 기존 테스트 수 26·16은 오검출(실제 3·6) | NON_BLOCKING | 기록 |
+| D10 | 같은 cwd 세션 전환 시 진행 중 턴 종료 status도 폐기 | NON_BLOCKING | 기록 |
