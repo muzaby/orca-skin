@@ -12,10 +12,10 @@
 | 일자 | 2026-09-27 |
 | 매핑 | 없음 |
 | 상태 | READY |
-| V mode | `Baseline V` |
-| 기준 V | `none` |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| V mode | `Delta V` |
+| 기준 V | `V1@abb4e49a` (공유 브랜치, `git cat-file -t` = commit) |
+| 이번 V revision | `ΔV1` |
+| 유효 V | `V1 + ΔV1` |
 | 기준 커밋 | `e6d0ab6` (작성 시점 HEAD) |
 
 # Part I — Product & UX Contract
@@ -48,10 +48,12 @@
 | D-003 | 보고 함수는 main의 모든 레이어(app·features·adapters·infra)와 renderer의 모든 레이어(app·pages·features·shared)에서 import 가능하다 | "모든 레이어에서 호출할 수 있어야 한다. 예외 핸들러이다." | 1턴 | ACTIVE | — |
 | D-004 | 판정 기준 = **사용자 영향**: 사용자 행동/데이터가 실패했는데 화면 표시가 없는 것(조용한 롤백·빈 목록 대체·console/log만)과 uncaught 전부 → toast. 결과가 정상 사용 가능한 폴백(파싱 fallback·원문 표시 degrade)은 제외 | 사용자 선택 "사용자 영향 기준" | 1턴 질의 | ACTIVE | — |
 | D-005 | main 포함: main uncaught/unhandled 와 main에서 로그로만 흡수되던 사용자 영향 실패를 IPC로 열린 창에 toast한다 | 사용자 선택 "main 포함" | 1턴 질의 | ACTIVE | — |
-| D-006 | 다크 테마 = 첨부 스펙 값. 라이트 테마 = Orca 토큰에서 파생한 변형. 둘 다 `tokens.css` 컴포넌트 토큰으로 두 스코프에 정의 | 사용자 선택 "라이트용 변형 + orcinus orca 스타일 준수" · `renderer/AGENTS.md §스타일` | 1턴 질의 | ACTIVE | — |
+| D-006 | 다크 테마 = 첨부 스펙 값. 라이트 테마 = Orca 토큰에서 파생한 변형. 둘 다 `tokens.css` 컴포넌트 토큰으로 두 스코프에 정의 | 사용자 선택 "라이트용 변형 + orcinus orca 스타일 준수" · `renderer/AGENTS.md §스타일` | 1턴 질의 | SUPERSEDED | D-010 |
 | D-007 | 동시 표시 최대 3개 세로 스택, 초과 시 가장 오래된 것 제거. 같은 제목+설명이 표시 중이면 새로 띄우지 않고 타이머만 재시작 | 사용자 선택 "세로 스택+중복 병합" | 1턴 질의 | ACTIVE | — |
 | D-008 | 카드 수명 4.6초(스펙 §6·§7), 닫기(×)로 즉시 제거. hover 일시정지 없음 | 스펙 §7 "전체: 4.6초" | 1턴 스펙 | ACTIVE | — |
 | D-009 | 주기 작업(scheduler job) 실패는 job별 **성공→실패 전이 1회**만 toast. 이후 연속 실패는 로그만, 성공 후 다시 실패하면 다시 toast | 1분 cron(`usage-fetch`)이 폐쇄망에서 매 tick 실패 시 toast 폭주 방지 — D-005 범위 안의 설계 결정 | 설계 | ACTIVE | — |
+
+| D-010 | Claude toast 스펙은 참고이며 두 테마 모두 Orca 시맨틱 토큰·앱 폰트를 우선한다. 미세 이동·스택·수명은 유지한다 | 사용자 원문: "이것은 참고 스펙이다. 실제로는 orcinus-orca의 스타일을 준수해야한다." | 2026-09-27 구현 턴 사용자 정정 및 §6 원문 제공 | ACTIVE | D-006 대체 |
 
 ### 갱신 메모
 
@@ -620,6 +622,40 @@ producer(사이트/전역) → reportError(로그 + AppErrorReport) → [main: h
 - [x] `ACTIVE 결정 ↔ AC` 대조 결과를 §3 갱신 메모에 기록.
 
 ---
+
+## ΔV1 — 사용자 스타일 정정 (r1, 2026-09-27)
+
+**READY.** 사용자 정정에 따라 D-006을 D-010으로 대체한다. 이 절은 V1의 AC13·VP-08·EP-10·§11 토큰 표와 keyframes 설명을 대체하며 나머지 V1 계약은 유지한다.
+
+| Node / pair | provenance / requiredness | 유효 계약 / 직접 oracle | 경로 / 강제 지점 |
+|---|---|---|---|
+| R-08 ↔ AT-08 / VP-08 | CHANGED / REQUIRED | AC13: 두 테마에서 Orca surface·ink·rust·앱 폰트를 사용한다. 아래 토큰·keyframes 소스 단언 + 두 테마 시각 실기 | `tokens.css` → `ErrorToastHost` / EP-10 두 테마 |
+| AR-02 ↔ IT-02 / VP-15 | INHERITED / REGRESSION | V1 카드 렌더·제목·설명 oracle 유지 | `App.tsx` → Host → store / EP-15 |
+
+V1 구현도 이번 턴에 수행하므로 그 밖의 REQUIRED pair는 전부 유지한다. 새 모듈·상태 전이·IPC 변경은 없으며 선택 적대 증거도 V1 그대로다.
+
+| 토큰 | 라이트 `@theme` | 다크 |
+|---|---|---|
+| `--color-toast-bg` | `var(--color-panel)` | alias 상속 |
+| `--color-toast-border` | `var(--color-border)` | alias 상속 |
+| `--color-toast-icon-border` | `var(--color-border-strong)` | alias 상속 |
+| `--color-toast-title` | `var(--color-ink)` | alias 상속 |
+| `--color-toast-desc` | `var(--color-ink2)` | alias 상속 |
+| `--color-toast-close` | `var(--color-ink3)` | alias 상속 |
+| `--shadow-toast` | `0 12px 34px color-mix(in srgb, black 12%, transparent)` | `0 12px 34px rgb(0 0 0 / 0.35)` |
+
+Alias는 `tokens.css` 기존 규칙에 따라 다크에서 중복 선언하지 않는다. `--font-app`·`text-rust`·카드 배치/크기/타이포는 V1 §11을 유지한다.
+
+| `error-toast` 스톱 | opacity | transform |
+|---|---|---|
+| 0% | 0 | `translateY(-6px) scale(.992)` |
+| 4% | 1 | `translateY(0) scale(1)` |
+| 86% | 1 | `translateY(0) scale(1)` |
+| 100% | 0 | `translateY(-3px) scale(.996)` |
+
+출처는 이번 사용자 §6 원문이다. 전체 `4.6s cubic-bezier(.2,.75,.2,1) both`, reduced-motion·타이머 수명은 유지한다.
+
+**정합성 확인:** ACTIVE D-001~005·007~010 ↔ AC1~17 충돌 0(AC13만 위 기준으로 대체). V1 어휘의 “다크 스펙 값”·D-006 인용은 위 supersede 관계로 읽고, EP-10은 alias가 참조하는 실제 다크 토큰까지 검증한다.
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은 [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
 
