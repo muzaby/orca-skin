@@ -1,3 +1,4 @@
+import { reportError } from '../../../shared/errors'
 import { useState } from 'react'
 import type { WorktreeDisplay } from '../../../../../shared/ipc'
 import { fileApi } from '../../../shared/api/ipc'
@@ -45,7 +46,12 @@ export function CwdButton({
       const picked = await fileApi.pickDirectory()
       if (picked) chatActions.setPendingCwd(picked)
     } catch (err) {
-      console.warn('[files] cwd button action failed', err)
+      reportError({
+        event: 'files.cwd-action.failed',
+        scope: 'files',
+        title: 'actionFailed',
+        error: err
+      })
     } finally {
       setBusy(false)
     }

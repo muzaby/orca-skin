@@ -1,3 +1,4 @@
+import { reportError } from '../../../../shared/errors'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { GitBranchList, GitDirtyResolution } from '../../../../../../shared/ipc'
 import { gitApi } from '../../../../shared/api/ipc'
@@ -67,7 +68,7 @@ export function BranchChip({
   const [menuOpen, setMenuOpen] = useState(false)
   const [dirty, setDirty] = useState<DirtyPrompt | null>(null)
   const [busy, setBusy] = useState(false)
-  // 전환 실패 문구. 전역 toast 가 없는 앱이라 실패는 그 자리에서 모달로 보여준다.
+  // 전환 실패는 기존 모달에서 소비한다. 조회 실패만 전역 오류 토스트로 보고한다.
   // `applied` 가 있으면 해소만 적용된 **부분 실패** 라 변경이 어디로 갔는지도 함께 말한다.
   const [error, setError] = useState<{ message: string; applied?: GitDirtyResolution } | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -95,7 +96,14 @@ export function BranchChip({
   )
   useEffect(() => {
     if (!cwd || hidden || snapshot.cwd === cwd || requestRef.current?.cwd === cwd) return
-    void refresh().catch(() => {})
+    void refresh().catch((error) => {
+      reportError({
+        event: 'git.branch-status.failed',
+        scope: 'git',
+        title: 'loadFailed',
+        error: error
+      })
+    })
   }, [cwd, hidden, snapshot.cwd, refresh])
 
   const view = branchChipView(cwd, status)
@@ -112,7 +120,15 @@ export function BranchChip({
     void gitApi
       .branches(cwd)
       .then(setList)
-      .catch(() => setList(EMPTY_LIST))
+      .catch((error) => {
+        reportError({
+          event: 'git.branch-list.failed',
+          scope: 'git',
+          title: 'loadFailed',
+          error: error
+        })
+        setList(EMPTY_LIST)
+      })
       .finally(() => setListLoading(false))
   }
 

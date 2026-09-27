@@ -4,6 +4,10 @@ import { existsSync } from 'fs'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import logo from '../../resources/logo.png?asset'
+import { installErrorReportSink } from './app/error-report-sink'
+import { registerErrorHandlers } from './app/handlers/error'
+import { registerLogHandlers } from './app/handlers/log'
+import { reportError } from './infra/error-report'
 import { Bootstrap } from './app/bootstrap'
 import { createArtifactSenderCheck } from './app/artifact-sender'
 import { closeDb } from './infra/db'
@@ -37,6 +41,10 @@ const startup = runStartupSequence({
     }),
   initLog
 })
+installErrorReportSink()
+registerErrorHandlers()
+registerLogHandlers()
+
 const rootLog = startup.logger
 const legacyMigration = startup.migration
 
@@ -48,11 +56,18 @@ for (const item of legacyMigration.conflicts) {
   rootLog.warn('app.legacy.conflict', { from: item.from, to: item.to, using: item.to })
 }
 for (const item of legacyMigration.failed) {
-  rootLog.warn('app.legacy.failed', {
-    from: item.from,
-    to: item.to,
-    message: item.message,
-    critical: item.critical
+  reportError({
+    event: 'app.legacy.failed',
+    scope: 'app',
+    title: 'legacyMigrationFailed',
+    level: 'warn',
+    detail: item.message,
+    data: {
+      from: item.from,
+      to: item.to,
+      message: item.message,
+      critical: item.critical
+    }
   })
 }
 
@@ -95,11 +110,23 @@ function focusMainWindow(): void {
 // 흡수해 다이얼로그/크래시를 막는다(동작 보존 — 0123 에서 console → 로거 교체). 파일 로그가
 // 항상 남고 dev 는 콘솔 미러가 받는다. fatal 경로는 즉시 flush 해 버퍼 유실을 막는다.
 process.on('unhandledRejection', (reason) => {
-  rootLog.error('app.unhandled.rejection', reason)
+  reportError({
+    event: 'app.unhandled.rejection',
+    scope: 'app',
+    title: 'unexpected',
+    level: 'error',
+    error: reason
+  })
   flushLogSync()
 })
 process.on('uncaughtException', (err) => {
-  rootLog.error('app.uncaught.exception', err)
+  reportError({
+    event: 'app.uncaught.exception',
+    scope: 'app',
+    title: 'unexpected',
+    level: 'error',
+    error: err
+  })
   flushLogSync()
 })
 

@@ -1,3 +1,4 @@
+import { reportError } from '../../infra/error-report'
 // TurnCoordinator — §A 가로축(turn pipeline)의 1급 구동체. 한 SessionRuntime 의 NormalizedEvent
 // 스트림을 소비(consume)하고, 턴-로컬 상태를 reduce 하며, 두 개의 *병렬 독립 sink* (persist ∥
 // forward)로 팬아웃한다. retry 정책·stall 타이머·중단/실패 정착(settle)·terminal 합성도 여기서
@@ -138,13 +139,18 @@ export class TurnCoordinator<W = unknown> {
     try {
       this.emit(turn, ev)
     } catch (err) {
-      getLogger()
-        .child('chat')
-        .warn('chat.turn-event.emit-failed', {
+      reportError({
+        event: 'chat.turn-event.emit-failed',
+        scope: 'chat',
+        title: 'eventDeliveryFailed',
+        level: 'warn',
+        error: err,
+        data: {
           isolated: true,
           phase: 'settle',
           message: String(err)
-        })
+        }
+      })
     }
   }
 

@@ -1,3 +1,4 @@
+import { reportError } from '../infra/error-report'
 // Bootstrap — main 측 컴포지션 루트(app 레이어). 의존성 생성 + 부팅 시퀀스 + 핸들러 등록 위임만
 // 담당한다. 도메인 핸들러는 app/handlers/, chat 턴 셋업은 app/chat-turn.ts, 턴 파이프라인 협력자는
 // features/{chat,history,approvals,sessions,usage} 참조 (handoff 0062 수직 슬라이스 재구성).
@@ -70,7 +71,6 @@ import { registerGitHandlers } from './handlers/git'
 import { registerCostHandlers } from './handlers/cost'
 import { registerBootHandlers } from './handlers/boot'
 import { registerUpdateHandlers } from './handlers/update'
-import { registerLogHandlers } from './handlers/log'
 import { registerConnectionHandlers } from './handlers/providers'
 import { WorktreeService } from '../features/worktrees/service'
 import { createAuthRuntime } from '../features/auth/runtime'
@@ -226,7 +226,14 @@ export class Bootstrap {
       deploy: async () => {
         const { config, dropped } = toClaudeConfig(this.mcp.enabledConfig(), this.mcp.resolver())
         for (const d of dropped) {
-          log.warn('mcp.server.skipped', { name: d.name, reason: d.reason })
+          reportError({
+            event: 'mcp.server.skipped',
+            scope: 'extensions',
+            title: 'mcpServerSkipped',
+            level: 'warn',
+            detail: d.name + ': ' + d.reason,
+            data: { name: d.name, reason: d.reason }
+          })
         }
         const result = await deploy('claude', {
           skillRoots: this.skillRoots(),
@@ -240,7 +247,15 @@ export class Bootstrap {
         })
         return result
       },
-      onWarning: (message) => log.warn('extensions.deploy.warning', { message })
+      onWarning: (message) =>
+        reportError({
+          event: 'extensions.deploy.warning',
+          scope: 'extensions',
+          title: 'extensionsFailed',
+          level: 'warn',
+          detail: message,
+          data: { message }
+        })
     })
   }
 
@@ -272,7 +287,14 @@ export class Bootstrap {
     // 영속을 못 열면 어댑터가 스스로 메모리로 내려앉고 사유만 알려 준다 — 게이트 판정은
     // 계속돼야 하므로 부팅을 세우지 않는다.
     const persistence = createGrantPersistence((error) => {
-      log.warn('auth.persistence.unavailable', { reason: errorMessage(error) })
+      reportError({
+        event: 'auth.persistence.unavailable',
+        scope: 'auth',
+        title: 'authPersistenceUnavailable',
+        level: 'warn',
+        error: error,
+        data: { reason: errorMessage(error) }
+      })
     })
 
     const vault = createVault(secretStore)
@@ -283,7 +305,14 @@ export class Bootstrap {
     // 영속을 못 열면 메모리로 내려앉되, 그 경우 앱 재시작을 건너뛴 콜백만 대조된다.
     // 파일은 실제 OAuth 로그인이 돌 때 열린다 — 이 단계는 DB 앞으로 당겨 둔 자리다.
     const oauthStates = createOAuthStatePersistence((error) => {
-      log.warn('auth.oauth.persistence.unavailable', { reason: errorMessage(error) })
+      reportError({
+        event: 'auth.oauth.persistence.unavailable',
+        scope: 'auth',
+        title: 'authPersistenceUnavailable',
+        level: 'warn',
+        error: error,
+        data: { reason: errorMessage(error) }
+      })
     })
 
     const created = createAuthRuntime({
@@ -324,10 +353,17 @@ export class Bootstrap {
     })
 
     for (const rejection of created.rejected) {
-      log.warn('auth.declaration.rejected', {
-        authId: rejection.id,
-        reason: rejection.reason,
-        message: rejection.message
+      reportError({
+        event: 'auth.declaration.rejected',
+        scope: 'auth',
+        title: 'authDeclarationRejected',
+        level: 'warn',
+        detail: rejection.message,
+        data: {
+          authId: rejection.id,
+          reason: rejection.reason,
+          message: rejection.message
+        }
       })
     }
 
@@ -498,7 +534,14 @@ export class Bootstrap {
           })
         }
         for (const failure of report.repairFailed) {
-          log.warn('legacy.worktree.repair.failed', failure)
+          reportError({
+            event: 'legacy.worktree.repair.failed',
+            scope: 'boot',
+            title: 'legacyMigrationFailed',
+            level: 'warn',
+            detail: failure.message,
+            data: failure
+          })
         }
       }
     )
@@ -616,12 +659,17 @@ export class Bootstrap {
     try {
       scheduler.applySettings(this.settings.getAll().scheduler)
     } catch (e) {
-      getLogger()
-        .child('scheduler')
-        .warn('scheduler.settings.failed', {
+      reportError({
+        event: 'scheduler.settings.failed',
+        scope: 'scheduler',
+        title: 'scheduledJobFailed',
+        level: 'warn',
+        error: e,
+        data: {
           message: String(e),
           reason: 'starting with periodic jobs disabled'
-        })
+        }
+      })
     }
 
     const extensions = new ExtensionBuilder(
@@ -791,7 +839,8 @@ export class Bootstrap {
 
   private createUpdateController(): UpdateController {
     if (this.updates) return this.updates
-    const updater = loadElectronAutoUpdater() ?? createNoopUpdater()
+    const updater =
+      loadElectronAutoUpdater({ reportUnavailable: app.isPackaged }) ?? createNoopUpdater()
     this.updates = new UpdateController({
       updater,
       restartGateState: () => this.restartGateState(),
@@ -987,6 +1036,5 @@ export class Bootstrap {
     registerGitHandlers(ctx.db)
     registerCostHandlers(ctx)
     registerMiscHandlers(ctx)
-    registerLogHandlers()
   }
 }

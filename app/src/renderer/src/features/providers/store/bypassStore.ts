@@ -1,3 +1,4 @@
+import { reportError } from '../../../shared/errors'
 import { create } from 'zustand'
 import { settingsApi } from '../../../shared/api/ipc'
 
@@ -29,9 +30,15 @@ export const bypassActions = {
       .then((settings) => {
         useBypassStore.setState({ bypass: settings.authBypass })
       })
-      .catch(() => {
+      .catch((error) => {
         // 못 읽으면 우회하지 않는 쪽으로 둔다(fail-closed) — 토글은 계속 쓸 수 있다.
         useBypassStore.setState({ bypass: false })
+        reportError({
+          event: 'providers.bypass.load-failed',
+          scope: 'providers',
+          title: 'loadFailed',
+          error: error
+        })
       })
       .finally(() => {
         hydrating = null
@@ -42,9 +49,15 @@ export const bypassActions = {
   // 게이트 화면은 이 호출만으로 메인 UI 로 넘어간다(재시작 불요).
   setBypass(next: boolean): void {
     useBypassStore.setState({ bypass: next })
-    void settingsApi.set({ authBypass: next }).catch(() => {
+    void settingsApi.set({ authBypass: next }).catch((error) => {
       // 영속 실패는 되돌린다 — 화면만 켜지고 게이트는 그대로인 상태를 만들지 않는다.
       useBypassStore.setState({ bypass: !next })
+      reportError({
+        event: 'providers.bypass.save-failed',
+        scope: 'providers',
+        title: 'saveFailed',
+        error: error
+      })
     })
   }
 }

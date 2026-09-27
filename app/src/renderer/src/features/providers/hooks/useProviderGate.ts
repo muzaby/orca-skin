@@ -1,3 +1,4 @@
+import { reportError } from '../../../shared/errors'
 import { useCallback, useEffect, useState } from 'react'
 import type {
   ProviderAuthKind,
@@ -38,7 +39,14 @@ export function useProviderGate(): UseProviderGate {
     providerApi
       .state()
       .then(absorb)
-      .catch(() => undefined)
+      .catch((error) => {
+        reportError({
+          event: 'providers.gate.load-failed',
+          scope: 'providers',
+          title: 'loadFailed',
+          error: error
+        })
+      })
     const off = providerApi.onState(absorb)
     return () => {
       cancelled = true

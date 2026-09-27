@@ -1,3 +1,4 @@
+import { reportError } from '../errors'
 import { useState } from 'react'
 import { Button } from './Button'
 import { useI18n } from '../i18n'
@@ -20,8 +21,13 @@ export function CopyIconButton({ text, title, className }: CopyIconButtonProps):
       await navigator.clipboard.writeText(text)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
-    } catch {
-      // clipboard unavailable — silent no-op
+    } catch (error) {
+      reportError({
+        event: 'clipboard.copy.failed',
+        scope: 'clipboard',
+        title: 'copyFailed',
+        error: error
+      })
     }
   }
   return (

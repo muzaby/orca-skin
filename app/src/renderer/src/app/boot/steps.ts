@@ -1,3 +1,4 @@
+import { reportError } from '../../shared/errors'
 import { settingsApi, bootApi } from '../../shared/api/ipc'
 import { seedLandingAgentKind } from '../../features/chat'
 import { initBackend } from '../../features/backend/store/backendStore'
@@ -172,7 +173,12 @@ export async function runBootSteps(
         console.error(message)
         throw error
       }
-      console.warn(message)
+      reportError({
+        event: 'boot.step.degraded',
+        scope: 'boot',
+        title: 'bootStepDegraded',
+        error: error
+      })
     }
   }
 

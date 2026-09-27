@@ -1,3 +1,4 @@
+import { publishErrorReport } from '../../infra/error-report'
 import { Cron } from 'croner'
 import type { Settings } from '../../../shared/protocol'
 import { errorMessage } from '../../infra/errors'
@@ -20,6 +21,7 @@ export class Scheduler {
   private readonly actions = new Map<string, JobAction>()
   private readonly scheduled = new Map<string, ScheduledJob>()
   private readonly running = new Set<string>()
+  private readonly failing = new Set<string>()
   private disposed = false
 
   constructor(
@@ -95,6 +97,7 @@ export class Scheduler {
     for (const job of this.scheduled.values()) job.handle.stop()
     this.scheduled.clear()
     this.actions.clear()
+    this.failing.clear()
     this.running.clear()
   }
 
@@ -111,6 +114,7 @@ export class Scheduler {
     try {
       await action()
       this.recorder.finish(runId, this.now(), 'success', null)
+      this.failing.delete(key)
       // 주기 실행 경계(0124 카탈로그) — job id·소요만 기록.
       getLogger()
         .child('scheduler')
@@ -120,6 +124,10 @@ export class Scheduler {
       getLogger()
         .child('scheduler')
         .error('scheduler.job.failed', e, { job: key, durationMs: this.now() - startedAt })
+      if (!this.failing.has(key)) {
+        this.failing.add(key)
+        publishErrorReport({ title: 'scheduledJobFailed', detail: `${key}: ${errorMessage(e)}` })
+      }
     } finally {
       this.running.delete(key)
     }

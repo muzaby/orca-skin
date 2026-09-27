@@ -1,3 +1,4 @@
+import { reportError } from '../../../shared/errors'
 import { useCallback, useEffect, useState } from 'react'
 import {
   DEFAULT_UPDATE_CHECK,
@@ -34,8 +35,14 @@ export function useUpdateCheckSetting(): [
       previous = prev
       return { ...prev, ...patch }
     })
-    void settingsApi.set({ scheduler: { updateCheck: patch } }).catch(() => {
+    void settingsApi.set({ scheduler: { updateCheck: patch } }).catch((error) => {
       if (previous) setValue(previous)
+      reportError({
+        event: 'settings.update-check.save-failed',
+        scope: 'settings',
+        title: 'saveFailed',
+        error: error
+      })
     })
   }, [])
 

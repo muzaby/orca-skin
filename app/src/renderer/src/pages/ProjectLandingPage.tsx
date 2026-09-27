@@ -1,3 +1,4 @@
+import { reportError } from '../shared/errors'
 import { agentUiPolicy } from '../features/chat/lib/agentPresentation'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AgentModeToggle, ChatTile, Composer, useChatBusy, useChatSession } from '../features/chat'
@@ -57,7 +58,18 @@ export function ProjectLandingPage({
           {tr(projectsLoading ? 'common.loading' : 'projects.unavailable')}
         </p>
         {!projectsLoading && (
-          <Button onClick={() => void projectsActions.refresh().catch(() => undefined)}>
+          <Button
+            onClick={() =>
+              void projectsActions.refresh().catch((error) => {
+                reportError({
+                  event: 'projects.retry.failed',
+                  scope: 'projects',
+                  title: 'loadFailed',
+                  error: error
+                })
+              })
+            }
+          >
             {tr('projects.retry')}
           </Button>
         )}

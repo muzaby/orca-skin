@@ -1,3 +1,4 @@
+import { reportError } from '../../../../shared/errors'
 import { useCallback, useMemo } from 'react'
 import type { DiffLine } from '../../lib/diffLines'
 import { useGitPatch } from '../../hooks/useGitPatch'
@@ -79,7 +80,14 @@ export function DiffTileContent(): React.JSX.Element {
   const openFile = useCallback(
     (path: string) => {
       if (!cwd) return
-      void fileApi.openPath({ path: joinRepoPath(cwd, path), mode: 'reveal' }).catch(() => {})
+      void fileApi.openPath({ path: joinRepoPath(cwd, path), mode: 'reveal' }).catch((error) => {
+        reportError({
+          event: 'files.reveal.failed',
+          scope: 'files',
+          title: 'openFailed',
+          error: error
+        })
+      })
     },
     [cwd]
   )

@@ -1,3 +1,4 @@
+import { reportError } from '../../infra/error-report'
 // Harness native settings 해석 서비스 (0014 → 0017 D2 → 0188 이설).
 // `sources/settings/<harness>/<modelProvider>/` 트리의
 // Harness-네이티브 settings 를 로더로 해석해 캐시한다.
@@ -106,12 +107,17 @@ export class HarnessSettingsService {
         sourceRevision: revisionOf(sourcesSettingsFile, mtimeMs)
       }
     } catch (err) {
-      getLogger()
-        .child('providers')
-        .warn('providers.settings.resolve-failed', {
+      reportError({
+        event: 'providers.settings.resolve-failed',
+        scope: 'providers',
+        title: 'configInvalid',
+        level: 'warn',
+        error: err,
+        data: {
           providerKey: entry.key,
           message: errorMessage(err)
-        })
+        }
+      })
       return undefined
     }
   }
@@ -157,9 +163,15 @@ function modelsForProvider(settingsFile: string): ParsedModel[] {
   try {
     json = JSON.parse(raw)
   } catch {
-    getLogger().child('providers').warn('providers.settings.parse-failed', {
-      path: settingsFile,
-      fallback: 'default models'
+    reportError({
+      event: 'providers.settings.parse-failed',
+      scope: 'providers',
+      title: 'configInvalid',
+      level: 'warn',
+      data: {
+        path: settingsFile,
+        fallback: 'default models'
+      }
     })
     return parseClaudeModels({})
   }

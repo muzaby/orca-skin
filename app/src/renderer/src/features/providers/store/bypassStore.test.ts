@@ -1,3 +1,4 @@
+import { errorToastStore } from '../../../shared/errors/errorToastStore'
 // 게이트 우회 토글의 renderer 미러 (0181). 디버그 패널이 **두 곳**(게이트 화면·메인 셸)에
 // 뜨므로 상태가 갈리면 한쪽에서 켠 값이 다른 쪽에 안 보인다.
 
@@ -15,6 +16,7 @@ const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 
 
 describe('bypassStore', () => {
   beforeEach(() => {
+    for (const { id } of errorToastStore.getState().toasts) errorToastStore.getState().dismiss(id)
     useBypassStore.setState({ bypass: null })
     settingsGet.mockReset().mockResolvedValue({ authBypass: false })
     settingsSet.mockReset().mockResolvedValue({})
@@ -59,5 +61,10 @@ describe('bypassStore', () => {
     bypassActions.setBypass(true)
     await flush()
     expect(useBypassStore.getState().bypass).toBe(false)
+    expect(errorToastStore.getState().toasts[0]).toMatchObject({
+      title: 'saveFailed',
+      detail: 'disk'
+    })
+    for (const { id } of errorToastStore.getState().toasts) errorToastStore.getState().dismiss(id)
   })
 })

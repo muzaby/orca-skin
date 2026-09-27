@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { errorReportHub } from '../infra/error-report'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createBootReportRecorder } from './boot-report'
 
 describe('BootReportRecorder', () => {
@@ -61,6 +62,28 @@ describe('BootReportRecorder', () => {
       status: 'warning',
       critical: false,
       message: 'permission denied'
+    })
+  })
+})
+
+describe('boot failure consumption', () => {
+  afterEach(() => vi.restoreAllMocks())
+  it('reports only optional step failures; critical failures remain on the boot screen', () => {
+    const publish = vi.spyOn(errorReportHub, 'publish').mockImplementation(() => {})
+    const recorder = createBootReportRecorder()
+    expect(() =>
+      recorder.stepSync('required', { critical: true }, () => {
+        throw new Error('critical')
+      })
+    ).toThrow()
+    expect(publish).not.toHaveBeenCalled()
+    recorder.stepSync('optional', { critical: false }, () => {
+      throw new Error('optional failure')
+    })
+    expect(publish).toHaveBeenCalledTimes(1)
+    expect(publish.mock.calls[0][0]).toMatchObject({
+      title: 'bootStepDegraded',
+      detail: 'optional: optional failure'
     })
   })
 })

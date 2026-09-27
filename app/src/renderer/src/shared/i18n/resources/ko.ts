@@ -1,3 +1,4 @@
+import type { AppErrorTitle } from '../../../../../shared/app-error'
 // 한국어 UI 카탈로그 — i18n SSOT(0096). 키 구조가 곧 타입(`i18next.d.ts` 가 typeof ko 로
 // t() 키를 강제). en.ts 는 `typeof ko` 로 선언해 양방향 키 패리티를 컴파일 타임에 보장한다.
 // 값은 기존 하드코딩 문자열을 그대로 옮긴 것 — ko 표시 결과는 마이그레이션 전후 동일해야 한다.
@@ -523,6 +524,29 @@ export const ko = {
     futureScopeTitle: 'v1 비대상 — Future Scope (PRD §9)'
   },
   errors: {
+    toast: {
+      unexpected: '예기치 않은 오류가 발생했습니다',
+      loadFailed: '정보를 불러오지 못했습니다',
+      saveFailed: '변경 사항을 저장하지 못했습니다',
+      actionFailed: '요청한 작업을 완료하지 못했습니다',
+      copyFailed: '클립보드에 복사하지 못했습니다',
+      openFailed: '파일을 열지 못했습니다',
+      attachFailed: '파일을 첨부하지 못했습니다',
+      sendFailed: '메시지를 전송하지 못했습니다',
+      sessionOpenFailed: '대화를 열지 못했습니다',
+      bootStepDegraded: '앱의 일부 기능을 준비하지 못했습니다',
+      legacyMigrationFailed: '기존 데이터를 옮기지 못했습니다',
+      mcpServerSkipped: 'MCP 서버를 준비하지 못했습니다',
+      extensionsFailed: '확장 기능을 준비하지 못했습니다',
+      authPersistenceUnavailable: '인증 정보를 저장할 수 없습니다',
+      authDeclarationRejected: '인증 설정을 적용하지 못했습니다',
+      scheduledJobFailed: '주기 작업을 완료하지 못했습니다',
+      updaterUnavailable: '업데이트 기능을 사용할 수 없습니다',
+      configInvalid: '설정을 읽거나 적용하지 못했습니다',
+      eventDeliveryFailed: '앱 상태 변경을 전달하지 못했습니다',
+      engineInternal: '실행 환경에서 오류가 발생했습니다',
+      steerFailed: '추가 지시를 전달하지 못했습니다'
+    } satisfies Record<AppErrorTitle, string>,
     category: {
       provider_connection_error: '백엔드 연결 오류',
       auth_error: '인증 오류',

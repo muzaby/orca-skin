@@ -1,3 +1,4 @@
+import { reportError } from '../infra/error-report'
 import { createRequire } from 'node:module'
 import { app } from 'electron'
 import { canRestartForUpdate, type RestartGateState } from '../../shared/update-restart'
@@ -282,18 +283,30 @@ function sameUpdateState(a: UpdateState, b: UpdateState): boolean {
     sameProgress(a.progress, b.progress)
   )
 }
-export function loadElectronAutoUpdater(): AutoUpdaterPort | null {
+export function loadElectronAutoUpdater(options?: {
+  reportUnavailable?: boolean
+}): AutoUpdaterPort | null {
   try {
     const require = createRequire(import.meta.url)
     const mod = require('electron-updater') as { autoUpdater?: AutoUpdaterPort }
     return mod.autoUpdater ?? null
   } catch (err) {
-    getLogger()
-      .child('updater')
-      .warn('update.loader.failed', {
-        message: String(err),
-        reason: 'electron-updater unavailable — updates disabled'
+    const data = {
+      message: String(err),
+      reason: 'electron-updater unavailable — updates disabled'
+    }
+    if (options?.reportUnavailable) {
+      reportError({
+        event: 'update.loader.failed',
+        scope: 'updater',
+        title: 'updaterUnavailable',
+        level: 'warn',
+        error: err,
+        data
       })
+    } else {
+      getLogger().child('updater').warn('update.loader.failed', data)
+    }
     return null
   }
 }

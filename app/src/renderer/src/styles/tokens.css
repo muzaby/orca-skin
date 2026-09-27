@@ -3,6 +3,34 @@
    (e.g. `--color-ink` → `bg-ink`, `text-ink`, `border-ink`). */
 
 @theme {
+  /* Error toast aliases follow Orca's semantic palette in both themes. */
+  --color-toast-bg: var(--color-panel);
+  --color-toast-border: var(--color-border);
+  --color-toast-icon-border: var(--color-border-strong);
+  --color-toast-title: var(--color-ink);
+  --color-toast-desc: var(--color-ink2);
+  --color-toast-close: var(--color-ink3);
+  --shadow-toast: 0 12px 34px color-mix(in srgb, black 12%, transparent);
+  --animate-error-toast: error-toast 4.6s cubic-bezier(0.2, 0.75, 0.2, 1) both;
+  @keyframes error-toast {
+    0% {
+      opacity: 0;
+      transform: translateY(-6px) scale(0.992);
+    }
+    4% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    86% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-3px) scale(0.996);
+    }
+  }
+
   /* Semantic tokens — default (white) palette.
      Values mirror the Claude Code (web) light theme: pure-white main surface,
      neutral near-white sidebar/cards (no warm ivory cast), near-black neutral
@@ -185,6 +213,7 @@
    re-themes the whole tree without remounting. */
 
 [data-theme='dark'] {
+  --shadow-toast: 0 12px 34px rgb(0 0 0 / 0.35);
   /* Claude Code (claude.ai) dark theme: warm charcoal surfaces, ivory ink,
      lightened terracotta accent. */
   --color-bg: #262624;

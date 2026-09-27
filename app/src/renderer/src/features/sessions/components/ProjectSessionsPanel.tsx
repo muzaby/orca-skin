@@ -1,3 +1,4 @@
+import { reportError } from '../../../shared/errors'
 import { useEffect } from 'react'
 import { SessionRow, type AgentAppearanceResolver } from './SessionRow'
 import { useProjectSessions } from '../hooks/useProjectSessions'
@@ -35,7 +36,15 @@ export function ProjectSessionsPanel({
 
   // chat 턴 종료 시 새 세션이 추가됐을 가능성 → refresh.
   useEffect(() => {
-    if (!refreshOnTurnEnd) void sessionsActions.loadProject(projectId).catch(() => undefined)
+    if (!refreshOnTurnEnd)
+      void sessionsActions.loadProject(projectId).catch((error) => {
+        reportError({
+          event: 'sessions.panel-load.failed',
+          scope: 'sessions',
+          title: 'loadFailed',
+          error: error
+        })
+      })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshOnTurnEnd])
 

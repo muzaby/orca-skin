@@ -1,3 +1,4 @@
+import { reportError } from '../../../shared/errors'
 import { useMemo } from 'react'
 import {
   DEFAULT_LANDING_AGENT_KIND,
@@ -445,7 +446,14 @@ function receiveDeltaBatch(events: readonly DeltaEvent[]): void {
 }
 
 function sendNewChatPayload(payload: SendChatMessage): void {
-  void chatApi.send(payload).catch((err) => console.error('[chat] send invoke rejected', err))
+  void chatApi.send(payload).catch((err) =>
+    reportError({
+      event: 'chat.new-send.rejected',
+      scope: 'chat',
+      title: 'sendFailed',
+      error: err
+    })
+  )
 }
 
 function releaseNewChatGate(expectedKey: string): void {
@@ -981,7 +989,7 @@ function send(
       } else {
         dispatchTo(sendKey, { type: 'DROP_UNCOMMITTED_USER', clientId: requestId })
       }
-      console.error('[chat] send invoke rejected', err)
+      reportError({ event: 'chat.send.rejected', scope: 'chat', title: 'sendFailed', error: err })
     })
   return true
 }
@@ -1080,9 +1088,14 @@ function cancelSteer(id: string): string | null {
     text = found?.text ?? null
     return pending.filter((item) => item.id !== id)
   })
-  void chatApi
-    .cancelSteer({ sessionId: cur.sessionId, id })
-    .catch((err) => console.error('[chat] cancelSteer invoke rejected', err))
+  void chatApi.cancelSteer({ sessionId: cur.sessionId, id }).catch((err) =>
+    reportError({
+      event: 'chat.steer-cancel.rejected',
+      scope: 'chat',
+      title: 'actionFailed',
+      error: err
+    })
+  )
   return text
 }
 
@@ -1091,9 +1104,14 @@ function cancelSteer(id: string): string | null {
 function discardSession(): void {
   const cur = getActiveChatSession()
   if (!cur.sessionId) return
-  void chatApi
-    .discardSession(cur.sessionId)
-    .catch((err) => console.error('[chat] discardSession invoke rejected', err))
+  void chatApi.discardSession(cur.sessionId).catch((err) =>
+    reportError({
+      event: 'chat.session-discard.rejected',
+      scope: 'chat',
+      title: 'actionFailed',
+      error: err
+    })
+  )
 }
 
 function cancel(): void {
@@ -1404,8 +1422,14 @@ async function loadSession(sessionId: string, title: string | null = null): Prom
     dispatchTo(sessionId, { type: 'LOAD_SESSION', session })
     void refreshBackgroundState(sessionId)
     void settingsApi.set({ lastSessionId: session.id })
-  } catch {
+  } catch (error) {
     dropSession(sessionId)
+    reportError({
+      event: 'chat.session-load.failed',
+      scope: 'chat',
+      title: 'sessionOpenFailed',
+      error: error
+    })
   }
 }
 

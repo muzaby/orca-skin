@@ -1,3 +1,4 @@
+import { reportError } from '../../../shared/errors'
 import { useCallback, useEffect, useState } from 'react'
 import type { DebugMockState } from '../../../../../shared/ipc'
 import { debugApi } from '../../../shared/api/ipc'
@@ -22,7 +23,14 @@ export function useDebugMock(): {
       .then((next) => {
         if (alive) setState(next)
       })
-      .catch(() => {})
+      .catch((error) => {
+        reportError({
+          event: 'debug.mock.load-failed',
+          scope: 'debug',
+          title: 'loadFailed',
+          error: error
+        })
+      })
     return () => {
       alive = false
     }
@@ -33,7 +41,14 @@ export function useDebugMock(): {
     void debugApi
       .setMock(patch)
       .then((next) => setState(next))
-      .catch(() => {})
+      .catch((error) => {
+        reportError({
+          event: 'debug.mock.save-failed',
+          scope: 'debug',
+          title: 'saveFailed',
+          error: error
+        })
+      })
   }, [])
 
   return { state, setMock }

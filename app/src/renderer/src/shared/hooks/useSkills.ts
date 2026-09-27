@@ -1,3 +1,4 @@
+import { reportError } from '../errors'
 import { useEffect, useState } from 'react'
 import type { SkillInfo } from '../../../../shared/ipc'
 import { skillApi } from '../api/ipc'
@@ -10,7 +11,15 @@ export function useSkills(): SkillInfo[] {
     skillApi
       .list()
       .then(setSkills)
-      .catch(() => setSkills([]))
+      .catch((error) => {
+        reportError({
+          event: 'skills.list.load-failed',
+          scope: 'skills',
+          title: 'loadFailed',
+          error: error
+        })
+        setSkills([])
+      })
   }, [])
   return skills
 }

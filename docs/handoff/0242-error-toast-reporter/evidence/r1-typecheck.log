@@ -1,0 +1,15 @@
+
+> orcinus-orca@0.3.1 typecheck
+> npm run typecheck:node && npm run typecheck:web && npm run typecheck:test
+
+
+> orcinus-orca@0.3.1 typecheck:node
+> tsc --noEmit -p tsconfig.node.json --composite false
+
+
+> orcinus-orca@0.3.1 typecheck:web
+> tsc --noEmit -p tsconfig.web.json --composite false
+
+
+> orcinus-orca@0.3.1 typecheck:test
+> tsc --noEmit -p tsconfig.test.json

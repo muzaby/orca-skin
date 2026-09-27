@@ -1,3 +1,4 @@
+import { reportError } from '../../../infra/error-report'
 // 사용자 ~/.claude/skills 래퍼 플러그인 렌더러 (handoff 0117). settingSources 를
 // ['project','local'] 로 명시하면 user 소스가 빠져 ~/.claude/skills 탐색이 끊긴다 — SDK 에서
 // skill 을 세션에 넣는 유일한 대안 경로인 options.plugins 로 보전하기 위해, 대상 skills
@@ -18,7 +19,6 @@ import { mkdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Backend } from '../../../../shared/ipc'
 import { CLAUDE_USER_PLUGIN_NAME } from '../../../adapters/claude-plugin'
-import { getLogger } from '../../../infra/log/registry'
 
 const CLAUDE_USER_PLUGIN_MANIFEST = {
   name: CLAUDE_USER_PLUGIN_NAME,
@@ -62,9 +62,14 @@ export async function renderClaudeUserSkillsPlugin(input: {
     await symlink(input.skillsTarget, skillsLink, 'junction')
     return pluginRoot
   } catch (e) {
-    getLogger()
-      .child('extensions')
-      .warn('extensions.plugin.wrapper-failed', { message: String(e), degraded: 'no-skills' })
+    reportError({
+      event: 'extensions.plugin.wrapper-failed',
+      scope: 'extensions',
+      title: 'extensionsFailed',
+      level: 'warn',
+      error: e,
+      data: { message: String(e), degraded: 'no-skills' }
+    })
     await rm(pluginRoot, { recursive: true, force: true }).catch(() => undefined)
     return null
   }

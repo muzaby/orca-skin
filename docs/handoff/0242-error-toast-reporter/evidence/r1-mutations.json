@@ -1,0 +1,94 @@
+[
+  {
+    "id": "VP-02a",
+    "file": "src/renderer/src/shared/errors/mainErrorBridge.ts",
+    "status": 1,
+    "failedTests": 1,
+    "failures": [
+      "main error bridge subscribes before drain so reports arriving during drain are not lost or logged twice"
+    ]
+  },
+  {
+    "id": "VP-14",
+    "file": "src/renderer/src/shared/errors/mainErrorBridge.ts",
+    "status": 1,
+    "failedTests": 1,
+    "failures": [
+      "main error bridge subscribes before drain so reports arriving during drain are not lost or logged twice"
+    ]
+  },
+  {
+    "id": "VP-19",
+    "file": "src/main/features/scheduler/scheduler.ts",
+    "status": 1,
+    "failedTests": 1,
+    "failures": [
+      "scheduler failure transition reporting reports first failure and failure after success, but logs every failed run"
+    ]
+  },
+  {
+    "id": "startup-wiring-installErrorReportSink()",
+    "file": "src/main/index.ts",
+    "status": 1,
+    "failedTests": 1,
+    "failures": [
+      "main report site registry installs both delivery and logging handlers before global handlers and window startup"
+    ]
+  },
+  {
+    "id": "startup-wiring-registerErrorHandlers()",
+    "file": "src/main/index.ts",
+    "status": 1,
+    "failedTests": 1,
+    "failures": [
+      "main report site registry installs both delivery and logging handlers before global handlers and window startup"
+    ]
+  },
+  {
+    "id": "startup-wiring-registerLogHandlers()",
+    "file": "src/main/index.ts",
+    "status": 1,
+    "failedTests": 1,
+    "failures": [
+      "main report site registry installs both delivery and logging handlers before global handlers and window startup"
+    ]
+  },
+  {
+    "id": "VP-02b-new-file",
+    "file": "src/main/infra/mutation-publisher.ts",
+    "status": 1,
+    "failedTests": 1,
+    "failures": [
+      "main report site registry restricts unlogged publication to scheduler and aggregate config warnings"
+    ]
+  },
+  {
+    "id": "VP-04b-new-file",
+    "file": "src/renderer/src/shared/mutation-silent.ts",
+    "status": 1,
+    "failedTests": 1,
+    "failures": [
+      "renderer report site registry rejects silent promise catches outside the four explicit fallback sites"
+    ]
+  },
+  {
+    "id": "VP-04b-existing-file",
+    "file": "src/renderer/src/shared/hooks/useSkills.ts",
+    "status": 1,
+    "failedTests": 2,
+    "failures": [
+      "renderer report site registry accounts for all baseline catches without a missing or extra ordinal",
+      "renderer report site registry rejects silent promise catches outside the four explicit fallback sites"
+    ]
+  },
+  {
+    "id": "host-mount-oracle",
+    "file": "src/renderer/src/App.tsx",
+    "status": 1,
+    "failedTests": 2,
+    "failures": [
+      "project initialization stays in the boot owner App preserves the nesting order of all live providers and RootGate",
+      "ErrorToastHost uses Orca semantic aliases in both themes and the specified subtle 4.6s keyframes"
+    ]
+  }
+]

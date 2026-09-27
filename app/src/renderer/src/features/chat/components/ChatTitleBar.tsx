@@ -1,3 +1,4 @@
+import { reportError } from '../../../shared/errors'
 import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import { Button } from '../../../shared/ui/Button'
 import { MenuItem } from '../../../shared/ui/MenuItem'
@@ -115,8 +116,13 @@ export const ChatTitleBar = memo(function ChatTitleBar({
       await navigator.clipboard.writeText(text)
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1200)
-    } catch {
-      /* 클립보드 접근 거부 시 조용히 무시 */
+    } catch (error) {
+      reportError({
+        event: 'clipboard.copy.failed',
+        scope: 'clipboard',
+        title: 'copyFailed',
+        error: error
+      })
     }
   }, [tr])
 

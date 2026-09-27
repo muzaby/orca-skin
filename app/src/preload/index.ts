@@ -1,3 +1,4 @@
+import type { AppErrorReport } from '../shared/app-error'
 import type {
   ArtifactRef,
   ArtifactCatalogItem,
@@ -113,6 +114,11 @@ function subscribe<T>(channel: string, handler: (payload: T) => void): () => voi
 
 // renderer가 사용하는 제한된 공개 표면. 임의 채널이나 ipcRenderer 원본은 노출하지 않는다.
 const orca = {
+  error: {
+    onReport: (handler: (report: AppErrorReport) => void): (() => void) =>
+      subscribe(CHANNELS.errorReportEvent, handler),
+    drain: (): Promise<AppErrorReport[]> => ipcRenderer.invoke(CHANNELS.errorDrain)
+  },
   boot: {
     report: (): Promise<BootReport> => ipcRenderer.invoke(CHANNELS.bootReport),
     // main start() 완료 게이트(0109) — resolve 될 때까지 나머지 부트 스텝을 시작하지 않는다.

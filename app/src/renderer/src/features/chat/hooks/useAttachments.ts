@@ -1,3 +1,4 @@
+import { reportError } from '../../../shared/errors'
 import { useRef, useState, type ClipboardEvent } from 'react'
 import { fileApi } from '../../../shared/api/ipc'
 import { downscaleDataUrl } from '../lib/imageThumb'
@@ -65,7 +66,15 @@ export function useAttachments(): UseAttachments {
   }
 
   const pickAttachments = async (): Promise<void> => {
-    const picked = await fileApi.pickAttachments().catch(() => [])
+    const picked = await fileApi.pickAttachments().catch((error) => {
+      reportError({
+        event: 'chat.attachment.pick-failed',
+        scope: 'chat',
+        title: 'attachFailed',
+        error: error
+      })
+      return []
+    })
     await addAttachments(
       picked.map((p) => ({
         kind: 'path' as const,
