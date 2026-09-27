@@ -1,3 +1,4 @@
+import { reportError } from '../../../shared/errors'
 import { useEffect, useState } from 'react'
 import type { ProviderPlatformState } from '../../../../../shared/ipc'
 import { providerApi } from '../../../shared/api/ipc'
@@ -22,7 +23,14 @@ export function useProviderPrincipal(): string | null {
     providerApi
       .state()
       .then(absorb)
-      .catch(() => undefined)
+      .catch((error) => {
+        reportError({
+          event: 'providers.principal.load-failed',
+          scope: 'providers',
+          title: 'loadFailed',
+          error: error
+        })
+      })
     const off = providerApi.onState(absorb)
     return () => {
       cancelled = true

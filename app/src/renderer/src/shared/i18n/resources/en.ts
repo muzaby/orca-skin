@@ -1,3 +1,4 @@
+import type { AppErrorTitle } from '../../../../../shared/app-error'
 // 영어 UI 카탈로그(0096). `typeof ko` 선언으로 ko 와의 키 패리티(누락/초과)를 컴파일 타임에
 // 강제한다 — 새 키는 항상 ko.ts 에 먼저 추가하고 여기 번역을 채운다.
 
@@ -518,6 +519,29 @@ export const en: typeof ko = {
     futureScopeTitle: 'Out of v1 scope — Future Scope (PRD §9)'
   },
   errors: {
+    toast: {
+      unexpected: 'An unexpected error occurred',
+      loadFailed: 'Could not load information',
+      saveFailed: 'Could not save changes',
+      actionFailed: 'Could not complete the action',
+      copyFailed: 'Could not copy to the clipboard',
+      openFailed: 'Could not open the file',
+      attachFailed: 'Could not attach the file',
+      sendFailed: 'Could not send the message',
+      sessionOpenFailed: 'Could not open the conversation',
+      bootStepDegraded: 'Some app features could not be prepared',
+      legacyMigrationFailed: 'Could not migrate existing data',
+      mcpServerSkipped: 'Could not prepare an MCP server',
+      extensionsFailed: 'Could not prepare extensions',
+      authPersistenceUnavailable: 'Authentication storage is unavailable',
+      authDeclarationRejected: 'Could not apply authentication settings',
+      scheduledJobFailed: 'Could not complete a scheduled job',
+      updaterUnavailable: 'Updates are unavailable',
+      configInvalid: 'Could not read or apply settings',
+      eventDeliveryFailed: 'Could not deliver an app state change',
+      engineInternal: 'An error occurred in the runtime',
+      steerFailed: 'Could not deliver the follow-up instruction'
+    } satisfies Record<AppErrorTitle, string>,
     category: {
       provider_connection_error: 'Backend connection error',
       auth_error: 'Authentication error',

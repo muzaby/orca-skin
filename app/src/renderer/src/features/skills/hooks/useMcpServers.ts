@@ -1,3 +1,4 @@
+import { reportError } from '../../../shared/errors'
 import { useCallback, useEffect, useState } from 'react'
 import type {
   CreateMcpServerRequest,
@@ -37,8 +38,14 @@ export function useMcpServers(): UseMcpServers {
         setList(items)
         setLoading(false)
       })
-      .catch(() => {
+      .catch((error) => {
         if (cancelled) return
+        reportError({
+          event: 'mcp.servers.load-failed',
+          scope: 'mcp',
+          title: 'loadFailed',
+          error: error
+        })
         setLoading(false)
       })
     return () => {

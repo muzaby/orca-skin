@@ -11,7 +11,7 @@
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인: `artifact` · `chat`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `git`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `provider`
+- 도메인: `artifact` · `chat`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `git`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `error`, `provider`
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -475,6 +475,16 @@ renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달�
 | `credentials:set` / `credentials:hasKey` | **Phase 3+**              | safeStorage 자격증명 저장 ([arch/backend/security.md](arch/backend/security.md)) |
 | `skills:reload`                          | **Future**                | 핫리로드 도입 시                                                                 |
 | `routines:*`                             | **Future**                | Sidebar nav 의 `/routines` placeholder 가 활성 페이지로 승격될 때                |
+
+### 2.13-d Error — 소비되지 않은 오류 보고
+
+| 채널 | 방향 | 페이로드 | 응답 | 의미 |
+|---|---|---|---|---|
+| `orca:error:reportEvent` | M→R (send) | `AppErrorReport` | — | 준비된 창에 오류 토스트를 게시한다. Main에서 이미 로그한 보고이므로 renderer는 다시 로그하지 않는다. |
+| `orca:error:drain` | R→M (invoke) | 없음 | `AppErrorReport[]` | 발신 창을 준비 상태로 등록하고 부팅 중 대기한 보고를 반환·비운다. Renderer는 이벤트 구독을 먼저 설치한다. |
+
+계약은 `app/src/shared/app-error.ts`가 소유한다. `id`는 보고마다 유일하며 `title`은 번역 카탈로그 키, `detail`은 길이가 제한된 설명, `origin`은 발생 프로세스다.
+준비된 창이 없으면 main은 유한 FIFO 대기열을 유지한다. 창 파괴 시 준비 집합에서 제거하며 같은 제목·설명의 폭주를 억제한다. 로그 동반·수명 정책은 [로깅 정본](arch/backend/observability.md#7-오류-보고toast)을 따른다.
 
 ## 3. NormalizedEvent variant 정의
 

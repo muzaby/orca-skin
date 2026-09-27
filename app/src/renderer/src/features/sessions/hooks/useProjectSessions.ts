@@ -1,3 +1,4 @@
+import { reportError } from '../../../shared/errors'
 import { useEffect, useMemo } from 'react'
 import type { SessionListItem } from '../../../../../shared/ipc'
 import { sessionsActions, useSessionsState } from '../store/sessionsStore'
@@ -16,7 +17,14 @@ export function useProjectSessions(projectId: string): UseProjectSessions {
   const list = useMemo(() => (ids ?? []).flatMap((id) => (byId[id] ? [byId[id]] : [])), [byId, ids])
 
   useEffect(() => {
-    void sessionsActions.loadProject(projectId).catch(() => undefined)
+    void sessionsActions.loadProject(projectId).catch((error) => {
+      reportError({
+        event: 'sessions.project-sessions.failed',
+        scope: 'sessions',
+        title: 'loadFailed',
+        error: error
+      })
+    })
   }, [projectId])
 
   return { list, loading: ids == null }

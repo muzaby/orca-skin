@@ -1,3 +1,4 @@
+import { reportError } from '../infra/error-report'
 import type { BootReport, BootReportStep, BootReportStatus } from '../../shared/ipc'
 import { errorMessage } from '../infra/errors'
 import { getLogger } from '../infra/log/registry'
@@ -115,7 +116,15 @@ export class BootReportRecorder {
     }
     if (input.status === 'ok') log.info('boot.step.completed', data)
     else if (input.status === 'failed') log.error('boot.step.failed', undefined, data)
-    else log.warn('boot.step.failed', { ...data, degraded: true })
+    else
+      reportError({
+        event: 'boot.step.failed',
+        scope: 'boot',
+        title: 'bootStepDegraded',
+        level: 'warn',
+        detail: input.id + ': ' + input.message,
+        data: { ...data, degraded: true }
+      })
   }
 }
 

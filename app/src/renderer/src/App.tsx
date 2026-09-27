@@ -5,6 +5,7 @@ import { SessionsProvider } from './features/sessions'
 import { ChatProvider } from './features/chat'
 import { CostProvider } from './features/cost'
 import { UpdateProvider } from './features/update'
+import { ErrorToastHost } from './shared/ui/ErrorToastHost'
 import { RootGate } from './app/RootGate'
 
 function App(): React.JSX.Element {
@@ -17,6 +18,7 @@ function App(): React.JSX.Element {
               <UpdateProvider>
                 <ChatProvider>
                   <RootGate />
+                  <ErrorToastHost />
                 </ChatProvider>
               </UpdateProvider>
             </CostProvider>

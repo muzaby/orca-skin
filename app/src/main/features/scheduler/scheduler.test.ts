@@ -1,3 +1,5 @@
+import { errorReportHub } from '../../infra/error-report'
+import { setRootLogger } from '../../infra/log/registry'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Scheduler } from './scheduler'
 import type { RunRecorder, ScheduleRunStatus } from './types'
@@ -251,6 +253,33 @@ describe('Scheduler — interval jobs', () => {
     await vi.advanceTimersByTimeAsync(24 * 60 * 60 * 1000)
     expect(update).toHaveBeenCalledTimes(1)
 
+    scheduler.stopAll()
+  })
+})
+
+describe('scheduler failure transition reporting', () => {
+  afterEach(() => {
+    setRootLogger(null)
+    vi.restoreAllMocks()
+  })
+  it('reports first failure and failure after success, but logs every failed run', async () => {
+    const log = { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn(), child: () => log }
+    setRootLogger(log)
+    const publish = vi.spyOn(errorReportHub, 'publish').mockImplementation(() => {})
+    const action = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('one'))
+      .mockRejectedValueOnce(new Error('two'))
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('three'))
+    const scheduler = new Scheduler(new MemoryRecorder())
+    scheduler.register('usage-fetch', action)
+    for (let i = 0; i < 4; i++) await scheduler.runNow('usage-fetch')
+    expect(log.error).toHaveBeenCalledTimes(3)
+    expect(publish.mock.calls.map(([r]) => r.detail)).toEqual([
+      'usage-fetch: one',
+      'usage-fetch: three'
+    ])
     scheduler.stopAll()
   })
 })

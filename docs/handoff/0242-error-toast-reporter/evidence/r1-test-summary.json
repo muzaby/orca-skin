@@ -1,0 +1,290 @@
+{
+  "fullRun": {
+    "files": 593,
+    "passedFiles": 578,
+    "failedFiles": 14,
+    "tests": 5628,
+    "passed": 5515,
+    "failed": 112,
+    "pending": 1,
+    "skippedFiles": 1
+  },
+  "finalRecheck": {
+    "files": 32,
+    "passedFiles": 32,
+    "failedFiles": 0,
+    "tests": 507,
+    "passed": 507,
+    "failed": 0,
+    "pending": 0
+  },
+  "initialFailedFiles": [
+    {
+      "file": "src/main",
+      "failed": 1,
+      "firstFailure": "AssertionError: expected [ 'features/artifacts/tool.ts', …(1) ] to deeply equal [ 'features/artifacts/tool.ts' ]"
+    },
+    {
+      "file": "src/renderer/src/App.projects.test.ts",
+      "failed": 1,
+      "firstFailure": "AssertionError: expected [ 'TweakProvider', …(6) ] to deeply equal [ 'TweakProvider', …(7) ]"
+    },
+    {
+      "file": "src/main",
+      "failed": 6,
+      "firstFailure": "AssertionError: expected [] to have a length of 3 but got +0"
+    },
+    {
+      "file": "src/main",
+      "failed": 7,
+      "firstFailure": "AssertionError: expected undefined to be 'default' // Object.is equality"
+    },
+    {
+      "file": "src/main",
+      "failed": 17,
+      "firstFailure": "AssertionError: expected \"vi.fn()\" to be called once, but got 0 times"
+    },
+    {
+      "file": "src/main",
+      "failed": 30,
+      "firstFailure": "Error: EPERM: operation not permitted, lstat 'C:\\Users\\rlaeo'"
+    },
+    {
+      "file": "src/main/features/artifacts/files.test.ts",
+      "failed": 2,
+      "firstFailure": "Error: EPERM: operation not permitted, lstat 'C:\\Users\\rlaeo'"
+    },
+    {
+      "file": "src/main/features/artifacts/temp-directory.test.ts",
+      "failed": 1,
+      "firstFailure": "Error: EPERM: operation not permitted, lstat 'C:\\Users\\rlaeo'"
+    },
+    {
+      "file": "src/main/features/chat/attachments.test.ts",
+      "failed": 7,
+      "firstFailure": "Error: EPERM: operation not permitted, mkdtemp 'C:\\Users\\rlaeo\\.orca-attachment-test-XXXXXX'"
+    },
+    {
+      "file": "src/main/features/extensions/deployer.test.ts",
+      "failed": 11,
+      "firstFailure": "Error: EPERM: operation not permitted, stat 'C:\\Users\\rlaeo'"
+    },
+    {
+      "file": "src/main/infra/git/git-safety.test.ts",
+      "failed": 2,
+      "firstFailure": "Error: Command failed: C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orca-git-safety-Vz9DUr\\git.exe C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orca-git-safety-Vz9DUr\\marker.cjs"
+    },
+    {
+      "file": "src/main/features/extensions/skills/seed.test.ts",
+      "failed": 4,
+      "firstFailure": "Error: EPERM: operation not permitted, stat 'C:\\Users\\rlaeo'"
+    },
+    {
+      "file": "src/main/features/plugins/confluence/connector.test.ts",
+      "failed": 22,
+      "firstFailure": "AssertionError: expected [] to deeply equal [ '1', '2' ]"
+    },
+    {
+      "file": "src/renderer/src/shared/ui/sparkCss.test.ts",
+      "failed": 1,
+      "firstFailure": "AssertionError: expected '--color-spinner: #c15f3c;' to be '--color-spinner: #C15F3C;' // Object.is equality"
+    }
+  ],
+  "finalRecheckFiles": [
+    {
+      "file": "src/main/error-report.registry.test.ts",
+      "tests": 81,
+      "status": "passed"
+    },
+    {
+      "file": "src/shared/ipc-documentation.test.ts",
+      "tests": 3,
+      "status": "passed"
+    },
+    {
+      "file": "src/main",
+      "tests": 4,
+      "status": "passed"
+    },
+    {
+      "file": "src/main",
+      "tests": 3,
+      "status": "passed"
+    },
+    {
+      "file": "src/main",
+      "tests": 1,
+      "status": "passed"
+    },
+    {
+      "file": "src/main",
+      "tests": 1,
+      "status": "passed"
+    },
+    {
+      "file": "src/renderer/src/App.projects.test.ts",
+      "tests": 3,
+      "status": "passed"
+    },
+    {
+      "file": "src/main",
+      "tests": 6,
+      "status": "passed"
+    },
+    {
+      "file": "src/main",
+      "tests": 7,
+      "status": "passed"
+    },
+    {
+      "file": "src/main",
+      "tests": 25,
+      "status": "passed"
+    },
+    {
+      "file": "src/main",
+      "tests": 30,
+      "status": "passed"
+    },
+    {
+      "file": "src/main/features/artifacts/files.test.ts",
+      "tests": 7,
+      "status": "passed"
+    },
+    {
+      "file": "src/main/features/artifacts/temp-directory.test.ts",
+      "tests": 3,
+      "status": "passed"
+    },
+    {
+      "file": "src/main/features/chat/attachments.test.ts",
+      "tests": 12,
+      "status": "passed"
+    },
+    {
+      "file": "src/main/features/extensions/deployer.test.ts",
+      "tests": 14,
+      "status": "passed"
+    },
+    {
+      "file": "src/main/features/scheduler/scheduler.test.ts",
+      "tests": 13,
+      "status": "passed"
+    },
+    {
+      "file": "src/main/infra/config/orca-config.report.test.ts",
+      "tests": 2,
+      "status": "passed"
+    },
+    {
+      "file": "src/main/infra/error-report/hub.test.ts",
+      "tests": 4,
+      "status": "passed"
+    },
+    {
+      "file": "src/main/infra/error-report/index.test.ts",
+      "tests": 4,
+      "status": "passed"
+    },
+    {
+      "file": "src/main/infra/git/git-safety.test.ts",
+      "tests": 2,
+      "status": "passed"
+    },
+    {
+      "file": "src/main/features/extensions/skills/seed.test.ts",
+      "tests": 8,
+      "status": "passed"
+    },
+    {
+      "file": "src/main/features/plugins/confluence/connector.test.ts",
+      "tests": 36,
+      "status": "passed"
+    },
+    {
+      "file": "src/renderer/src/shared/errors/errorToastModel.test.ts",
+      "tests": 2,
+      "status": "passed"
+    },
+    {
+      "file": "src/renderer/src/shared/errors/errorToastStore.test.ts",
+      "tests": 2,
+      "status": "passed"
+    },
+    {
+      "file": "src/renderer/src/shared/errors/mainErrorBridge.test.ts",
+      "tests": 2,
+      "status": "passed"
+    },
+    {
+      "file": "src/renderer/src/shared/errors/reportError.test.ts",
+      "tests": 4,
+      "status": "passed"
+    },
+    {
+      "file": "src/renderer/src/shared/errors/reportSites.registry.test.ts",
+      "tests": 199,
+      "status": "passed"
+    },
+    {
+      "file": "src/renderer/src/shared/theme/TweakProvider.store.test.ts",
+      "tests": 3,
+      "status": "passed"
+    },
+    {
+      "file": "src/renderer/src/shared/ui/ErrorToastHost.render.test.ts",
+      "tests": 2,
+      "status": "passed"
+    },
+    {
+      "file": "src/renderer/src/shared/ui/sparkCss.test.ts",
+      "tests": 15,
+      "status": "passed"
+    },
+    {
+      "file": "src/renderer/src/features/chat/store/chatStore.errors.test.ts",
+      "tests": 3,
+      "status": "passed"
+    },
+    {
+      "file": "src/renderer/src/features/providers/store/bypassStore.test.ts",
+      "tests": 6,
+      "status": "passed"
+    }
+  ],
+  "latestResultPerFile": {
+    "note": "Union of full run with final recheck replacing the same file; not one full final run",
+    "files": 593,
+    "passed": 5654,
+    "pending": 0,
+    "failed": 0,
+    "skipped": 1,
+    "todo": 0
+  },
+  "oracleSensitivity": {
+    "rendererDeletion": 33,
+    "rendererForbidden": 57,
+    "rendererSwaps": 16,
+    "mainDeletion": 25,
+    "mainSwaps": 26,
+    "companionLogs": 2
+  },
+  "scripts": {
+    "initial": {
+      "pass": 120,
+      "fail": 8,
+      "signature": "EPERM lstat C:\\Users\\rlaeo"
+    },
+    "unrestrictedRecheck": {
+      "pass": 128,
+      "fail": 0
+    }
+  },
+  "inventory": {
+    "check": "PASS",
+    "items": 9,
+    "channels": 99,
+    "proseViolations": 0,
+    "unresolvedLinks": 0
+  }
+}

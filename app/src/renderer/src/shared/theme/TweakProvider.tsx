@@ -1,3 +1,4 @@
+import { reportError } from '../errors'
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { createStore, useStore, type StoreApi } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
@@ -59,8 +60,14 @@ export function createTweakStore(): TweakStore {
     setTweak: (key, val) => {
       const previous = get().t
       set({ t: { ...previous, [key]: val } })
-      void settingsApi.set({ [key]: val } as Partial<Tweaks>).catch(() => {
+      void settingsApi.set({ [key]: val } as Partial<Tweaks>).catch((error) => {
         set({ t: previous })
+        reportError({
+          event: 'settings.tweak.save-failed',
+          scope: 'settings',
+          title: 'saveFailed',
+          error: error
+        })
       })
     }
   }))

@@ -1,3 +1,4 @@
+import { reportError } from '../errors'
 import { create } from 'zustand'
 import type { AgentEnvironment } from '../../../../shared/ipc'
 import { agentApi, providerApi } from '../api/ipc'
@@ -28,6 +29,12 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
       const message: UiMessage =
         error instanceof Error ? { raw: error.message } : { key: 'errors.agentListFailed' }
       set({ agents: [], loaded: true, loading: false, error: message })
+      reportError({
+        event: 'agents.list.load-failed',
+        scope: 'agents',
+        title: 'loadFailed',
+        error: error
+      })
       return []
     }
   },

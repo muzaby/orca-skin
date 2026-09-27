@@ -1,3 +1,4 @@
+import { reportError } from '../../../shared/errors'
 import { memo, useEffect, useRef, useState } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { KebabButton } from '../../../shared/ui/KebabButton'
@@ -269,5 +270,12 @@ export const PinnedProjectsSection = memo(function PinnedProjectsSection({
 
 // 모듈 상수라 identity 가 안정적이다 — 행의 effect deps 를 매 렌더 흔들지 않는다.
 function loadProjectSessions(projectId: string): void {
-  void sessionsActions.loadProject(projectId).catch(() => undefined)
+  void sessionsActions.loadProject(projectId).catch((error) => {
+    reportError({
+      event: 'sessions.pinned-load.failed',
+      scope: 'sessions',
+      title: 'loadFailed',
+      error: error
+    })
+  })
 }

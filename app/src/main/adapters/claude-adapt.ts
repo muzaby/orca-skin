@@ -1,3 +1,4 @@
+import { reportError } from '../infra/error-report'
 // claude 어댑트 변환 — 백엔드 중립 Extension 조각을 claude query() 옵션 조각으로 변환하는 순수
 // 함수들. 인바운드(백엔드→중립)가 normalize 라면, 이쪽은 그 아웃바운드 짝(중립→백엔드)으로,
 // Ports & Adapters 의 어댑터 경계 변환이다. 각 함수는 `...spread` 로 합성될 옵션 조각을
@@ -219,9 +220,13 @@ export function makeSteerGateHook(
       if (reserved) {
         if (!push(reserved)) {
           rollback?.(reserved)
-          getLogger()
-            .child('engine')
-            .warn('engine.steer.submit-rejected', { provider: 'claude', rolledBack: true })
+          reportError({
+            event: 'engine.steer.submit-rejected',
+            scope: 'engine',
+            title: 'steerFailed',
+            level: 'warn',
+            data: { provider: 'claude', rolledBack: true }
+          })
         } else if (commit && !commit(reserved)) {
           getLogger().child('engine').warn('engine.steer.commit-stale', { provider: 'claude' })
         }
@@ -230,13 +235,18 @@ export function makeSteerGateHook(
       // fail-open: steer 는 부가기능이라 예외를 삼켜 턴 본체를 보호한다. 단 **상태는 반드시**
       // 되돌린다 — 삼키기와 상태 유실은 별개다.
       if (reserved) rollback?.(reserved)
-      getLogger()
-        .child('engine')
-        .warn('engine.steer.flush-failed', {
+      reportError({
+        event: 'engine.steer.flush-failed',
+        scope: 'engine',
+        title: 'steerFailed',
+        level: 'warn',
+        error: err,
+        data: {
           provider: 'claude',
           message: String(err),
           rolledBack: reserved !== undefined
-        })
+        }
+      })
     }
     return {}
   }

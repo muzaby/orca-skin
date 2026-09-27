@@ -1,3 +1,4 @@
+import { errorToastStore } from '../errors/errorToastStore'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTweakStore } from './TweakProvider'
 import { settingsApi } from '../api/ipc'
@@ -83,6 +84,11 @@ describe('provider-owned Tweaks store', () => {
     first.reject(new Error('save failed'))
     await first.promise.catch(() => {})
     expect(store.getState().t).toBe(previous)
+    expect(errorToastStore.getState().toasts[0]).toMatchObject({
+      title: 'saveFailed',
+      detail: 'save failed'
+    })
+    for (const { id } of errorToastStore.getState().toasts) errorToastStore.getState().dismiss(id)
     expect(vi.mocked(settingsApi.set).mock.calls).toEqual([
       [{ theme: 'dark' }],
       [{ uiLocale: 'en' }]

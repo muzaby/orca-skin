@@ -1,3 +1,4 @@
+import { reportError } from '../../../shared/errors'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
   ProviderAuthKind,
@@ -37,8 +38,16 @@ export function useProviders(): UseProviders {
     providerApi
       .state()
       .then(absorb)
-      .catch(() => {
-        if (!cancelled) setLoading(false)
+      .catch((error) => {
+        if (!cancelled) {
+          setLoading(false)
+          reportError({
+            event: 'skills.providers.load-failed',
+            scope: 'skills',
+            title: 'loadFailed',
+            error: error
+          })
+        }
       })
     const off = providerApi.onState(absorb)
     return () => {

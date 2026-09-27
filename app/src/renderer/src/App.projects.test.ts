@@ -132,12 +132,17 @@ describe('project initialization stays in the boot owner', () => {
 
   it('App preserves the nesting order of all live providers and RootGate', () => {
     const names: string[] = []
-    let node: unknown = App()
-    while (isValidElement(node)) {
+    function visit(node: unknown): void {
+      if (Array.isArray(node)) {
+        node.forEach(visit)
+        return
+      }
+      if (!isValidElement(node)) return
       const element = node as ReactElement<{ children?: unknown }>
       if (typeof element.type === 'function') names.push(element.type.name)
-      node = element.props.children
+      visit(element.props.children)
     }
+    visit(App())
     expect(names).toEqual([
       'TweakProvider',
       'BrowserRouter',
@@ -146,7 +151,8 @@ describe('project initialization stays in the boot owner', () => {
       'CostProvider',
       'UpdateProvider',
       'ChatProvider',
-      'RootGate'
+      'RootGate',
+      'ErrorToastHost'
     ])
   })
 })

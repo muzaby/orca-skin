@@ -1,3 +1,4 @@
+import { reportError } from '../infra/error-report'
 // claude provider settings 로더 — sources/settings/claude/<provider>/settings.json 을
 // flat-read 한 뒤 escalating defaultMode 필터만 적용해 **verbatim** 으로 돌려준다.
 // provider settings.json 은 `~/.claude/settings.json` 과 동일 스키마/취급이다 (handoff 0028):
@@ -14,7 +15,6 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { EngineUserSettingsResult } from '../../shared/ipc'
 import { isRecord } from '../../shared/obj'
-import { getLogger } from '../infra/log/registry'
 import type { HarnessSettingsLoader } from './harness-config'
 
 // CLI 가 repo-커밋 파일의 escalating 모드에 적용하는 trust 필터와 동등한 목록
@@ -31,9 +31,14 @@ function flatRead(path: string): SettingsObject | undefined {
       return parsed
     }
   } catch (err) {
-    getLogger()
-      .child('providers')
-      .warn('providers.settings.parse-failed', { path, message: String(err) })
+    reportError({
+      event: 'providers.settings.parse-failed',
+      scope: 'providers',
+      title: 'configInvalid',
+      level: 'warn',
+      error: err,
+      data: { path, message: String(err) }
+    })
   }
   return undefined
 }

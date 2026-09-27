@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-27 |
 | 매핑 | 없음 |
-| 상태 | READY |
+| 상태 | IMPL_DONE — r1, 독립 검증 대기 |
 | V mode | `Delta V` |
 | 기준 V | `V1@abb4e49a` (공유 브랜치, `git cat-file -t` = commit) |
 | 이번 V revision | `ΔV1` |
@@ -661,45 +661,156 @@ Alias는 `tokens.css` 기존 규칙에 따라 다크에서 중복 선언하지 �
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- **r1 구현 완료.** V1 + ΔV1을 적용했다. 사용자 참고 스펙의 작은 이동·크기·수명과 Orca 시맨틱 색상·앱 폰트를 함께 사용한다. D-010 정정은 구현과 별도 설계 커밋으로 기록했다.
+- 동의 / 그대로 진행: 소비되지 않는 실패만 보고하고 기존 폴백·롤백·transcript 소비를 유지했다. 신규 의존성은 없다.
+- 실측 정정: M22에는 경고 집계와 로드 실패라는 호출 두 개가 있다. M-표 24행을 **25 호출 자리**로 검증했다. EP-2의 마지막 묶음도 실제 두 호출이므로 전체 5자리다. 계약 추가 없이 표에 명시된 두 경로를 모두 포함했다.
+- 구현 세부 차이: drain의 sender 수명 처리를 Electron 없는 `app/error-report-drain.ts`로 분리했다. 기존 preload 추론 타입이 공개 API를 전달하므로 `renderer/env.d.ts`는 변경할 필요가 없었다.
+- ACTIVE Decision 충돌: 없음. §17의 민감 detail 해당 0이라는 조사와 달리 M18은 원문 DB payload를 숨기는 기존 경계다. `detail:null`로 유지했다.
+
+**배치 차이의 실패 축 재확인:** 로깅 IPC 등록을 bootstrap 완료 시점에서 main 초기화 직후로 옮겼다. AC3의 부팅 화면 로그가 유실되지 않게 하는 배선 수정이다. 만료는 등록 핸들러에 없어 해당 없음, 공유는 프로세스당 등록 1회, 재진입은 bootstrap에서 기존 등록 제거, 무효화는 프로세스 종료만 해당한다. startup oracle과 등록 삭제 변이가 EP-2·EP-14를 확인한다. drain factory의 WeakSet은 sender당 destroyed 구독 1회를 보장하며, 반복 drain·destroyed 후 재대기열은 통합 테스트가 관측한다(AC14·EP-11).
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
+재현 기준: 아래 경로는 `app/src` 기준이다. `cd app; npx vitest run <테스트 경로>`로 각 oracle을 실행한다. 결과와 재실행 목록은 [r1-test-summary.json](evidence/r1-test-summary.json), 실행형 변이는 [r1-mutations.json](evidence/r1-mutations.json)에 남겼다.
+
+전수 검색은 오류의 주어에서 시작했다: renderer의 catch/catch-callback AST, main M-표의 기존 로그 event, 전역 handler 등록, timer·ready·pending·destroyed 상태 전이, IPC 채널과 Host 마운트를 대조했다. `reportSites.registry.test.ts`는 기준 90 catch와 현재 파일별 ordinal 집합의 **양방향 차집합이 빈 배열**임을 단언한다. 새 reporter 내부 catch는 기준 90의 분모에 섞지 않는다.
+
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
+| VP-01 | EP-1 renderer 전역 | 2 handler | 2/2 + 부팅 등록 | `rg -n 'addEventListener\|registerGlobalErrorHandlers' renderer/src/main.tsx renderer/src/shared/errors/globalHandlers.ts`; `reportError.test.ts` 두 event 각각 로그·카드 증가 | 없음 |
+| VP-02 | EP-2 로그 선행·수신 무로그 | 4묶음 | 실측 5/5: reporter 2, present 1, 별도 발행 2 | main/renderer `reportError.test` 로그 선행 각 1; bridge 수신 로그 0; main registry 발행 파일 집합이 scheduler/config와 일치 | 없음 |
+| VP-03 | EP-3 레이어 | 모듈 2 | 2/2, renderer 4·main 4 레이어 호출 | lint boundaries 오류 0; Electron mock 없이 `infra/error-report/index.test.ts` 4건 실행 | 없음 |
+| VP-04·16 | EP-4 T1~T33 | 33 | 33/33 | renderer registry TOAST 33행 통과; report 호출 삭제 33변형 모두 oracle 거부; 대표 롤백/드롭 행동 4곳 통과 | 없음 |
+| VP-01 | EP-5 main 전역 | 2 | 배선 2/2 | `rg -n 'process.on' main/index.ts`; M1·M2 event/title 슬롯 단언, 통합 sink·logger 각각 관측 | 실제 Electron 예외 실기 |
+| VP-05·16 | EP-6 M-표 | 24행 | 25/25 호출 | main registry 기존 event/title 각 1; M22 두 event 별도 단언; 25 호출 삭제 거부 | 없음 |
+| VP-06·17 | EP-7 cap·병합·cooldown | 규칙 3 | 3/3 + 만료·닫기 | `errorToastModel.test.ts`: `[d,c,b]`, 500ms 불변, 1200ms seq+1; store: 4599ms 존재/4600ms 제거·dismiss 즉시 제거 | 없음 |
+| VP-04 | EP-8 조용한 catch | 스윕 1 | 1/1, 허용 4 | 비테스트 TS/TSX 전수 스윕 집합 = 명시 허용 4자리; 새 파일·기존 파일 추가 시 각각 실패 | 없음 |
+| VP-07·19 | EP-9 scheduler 전이 | 2 | 2/2 | `scheduler.test.ts`: 실패·실패·성공·실패 → 로그 3/보고 2; reset 삭제 시 해당 케이스 실패 | 없음 |
+| VP-08 | EP-10 두 테마 | 2 | 소스 2/2 | Host 렌더 클래스·시맨틱 alias 6·두 shadow·keyframes 4스톱·4.6s 단언 통과 | 두 테마 시각 실기 |
+| VP-09·13·18 | EP-11 ready/queue/cooldown/drain/파괴 | 4묶음 | hub 4/4 + app 파괴 경계 2 | `rg -n 'ready\|pending\|destroyed\|isDestroyed' main/infra/error-report main/app/error-report*`; hub 4건·통합 1건: FIFO 10, drain 재호출 빈 배열, destroyed·send 중 소멸 후 재대기열 | 없음 |
+| VP-10·20 | EP-12 benign·재귀 가드 | 3 | 3/3 + 내부 present/publish 가드 | reporter 테스트: ResizeObserver 2문구 로그/카드 0, push·sink·logger throw 비전파 | 없음 |
+| VP-11 | EP-13 IPC 문서 | 채널/도메인 | 2채널·3문서 동기화 | `ipc-documentation.test.ts` 3건; `node scripts/check-doc-inventory.mjs --check` 문서 불일치/끊긴 링크 0 | 없음 |
+| VP-14 | EP-14 sink/preload/bridge | 모듈 3 | 전달 edge 6/6 | sink send 1, preload subscribe/invoke 2, bridge subscribe/drain/dedupe 3; typecheck·통합·bridge 테스트 통과 | 없음 |
+| VP-15 | EP-15 Host | 1 | 1/1 | `rg -n 'ErrorToastHost\|RootGate\|TweakProvider' renderer/src/App.tsx`; 실제 React element 트리에서 RootGate 형제·TweakProvider 자손 | 없음 |
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_BLOCKED | renderer 전역·main 로그/sink·M1/M2 배선 통과 | 미선택; AC2 실제 창 실기 대기 |
+| VP-02 | REQUIRED | SELF_PASS | main/renderer 각 로그 선행, bridge 로그 0 | 중복 로그 삽입 1 red; 제3 발행 파일 1 red |
+| VP-03 | REQUIRED | SELF_PASS | 8개 레이어 호출·lint 오류 0·main 순수 테스트 4건 | 해당 없음 — 직접 oracle |
+| VP-04 | REQUIRED | SELF_PASS | TOAST 33·비대상 57, 기준 catch 양방향 차집합 0, silent 허용 집합 일치 | 삭제 33·event swap 16 거부; silent 신규/기존 파일 red |
+| VP-05 | REQUIRED | SELF_PASS | M-표 25 호출의 기존 event/title 슬롯 통과 | 삭제 25 거부 |
+| VP-06 | REQUIRED | SELF_PASS | 모델 2건·타이머 2건 | 해당 없음 — 직접 oracle |
+| VP-07 | REQUIRED | SELF_PASS | 실패 3회 로그·전이 보고 2회 | 해당 없음 — 직접 oracle |
+| VP-08 | REQUIRED, ΔV1 | SELF_BLOCKED | Orca alias·카드 클래스·4스톱·duration 단언 통과 | 미선택; 두 테마 시각 실기 대기 |
+| VP-09 | REQUIRED | SELF_PASS | hub FIFO·파괴·cooldown 4건 | 해당 없음 — 직접 oracle |
+| VP-10 | REQUIRED | SELF_PASS | benign 2문구·양 reporter 가드 | 해당 없음 — 직접 oracle |
+| VP-11 | REQUIRED | SELF_PASS | IPC 문서 3건·inventory 확인 | 해당 없음 — 기존 oracle |
+| VP-12 | REQUIRED | SELF_PASS | 실제 chat send 거부 → rollback·Host 1장 → 4600ms 후 0 | 해당 없음 — 직접 oracle |
+| VP-13 | REQUIRED | SELF_PASS | 실제 reporter·등록된 IPC handler·bridge 연결: 초기 보고 1, live 보고 추가, destroyed 후 queue | 해당 없음 — 직접 oracle |
+| VP-14 | REQUIRED | SELF_PASS | preload 타입·bridge 2건·실제 app sink 통합 | drain 선행 변이 1 red |
+| VP-15 | REGRESSION, ΔV1 | SELF_PASS | store 2카드 → Host alert 2·번역·escape·닫기 label | 선택 없음; 신규 배선 oracle의 Host 삭제 변이 2 red |
+| VP-16 | REQUIRED | SELF_PASS | renderer 33·main 25 호출, 비대상 57 | VP-04·05 증거 공유 |
+| VP-17 | REQUIRED | SELF_PASS | cap/키별 병합/cooldown 모델 2건 | 해당 없음 — 직접 oracle |
+| VP-18 | REQUIRED | SELF_PASS | hub 4건·app lifetime 통합 | 해당 없음 — 직접 oracle |
+| VP-19 | REQUIRED | SELF_PASS | 성공 뒤 재실패 보고 관측 | 성공 시 reset 삭제 1 red |
+| VP-20 | REQUIRED | SELF_PASS | benign/보고 실패 비전파 | 해당 없음 — 직접 oracle |
+
+자기확인 검산: SELF_PASS 18 + SELF_BLOCKED 2 = 유효 pair 20. 독립 검증 판정이 아니다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
+실제 소스 파일을 바꿔 Vitest 실패를 관측한 변이 10건은 [재현 스크립트](evidence/r1-mutations.cjs)의 `finally`에서 원본 바이트를 복원했다. 레지스트리 변이는 읽은 production source의 메모리 사본을 바꾸고 **같은 판정 함수의 거부**를 단언한다. 이 경우 테스트 러너 자체는 green이며 파일 변이 red와 구분한다.
+
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
+| main 수신에서 renderer 로그 추가 | 선택 VP-02(a) | 첫 구현 | `mainErrorBridge.test.ts` 1건 실패 | red |
+| 제3 production 파일에 logless publish 추가 | 선택 VP-02(b) | 첫 구현 | main registry 사용처 제한 1건 실패 | red |
+| T1~T33 report 호출 삭제 | 선택 VP-04(a) | 첫 구현 | renderer registry 33/33 판정 거부 | 검출 |
+| 새 silent catch 삽입 | 선택 VP-04(b) | 첫 구현 | 새 파일: 스윕 1건 실패; 기존 파일: 집합·스윕 2건 실패 | red |
+| renderer event 형제 교환 | 선택 VP-04(c) | 첫 구현 | 같은 파일 15쌍 + 다른 파일 1쌍, 양쪽 슬롯 모두 거부 | 검출 |
+| M-표 호출 삭제 | 선택 VP-05 | 첫 구현 | main registry 25/25 판정 거부 | 검출 |
+| 구독보다 drain 먼저 호출 | 선택 VP-14 | 첫 구현 | bridge drain 중 live 보고 수신 1건 실패 | red |
+| 성공 시 failing 상태 해제 삭제 | 선택 VP-19 | 첫 구현 | scheduler 성공 후 재실패 1건 실패 | red |
+| CONSUMED/EXCLUDE catch에 보고 삽입 | 새 oracle: 비대상 0건 | 첫 구현 | renderer registry 57/57 판정 거부 | 검출 |
+| 기준 파일에 catch ordinal 추가 | 새 oracle: 양방향 차집합 | 첫 구현 | `VP-04b-existing-file`의 기준 집합 1건 실패(위 증거 공유) | red |
+| logless 발행 동반 로그 제거 | 새 oracle: 로그 결합 | 첫 구현 | M13·M22 2/2 판정 거부 | 검출 |
+| main 동일 파일 event 형제 교환 | 새 oracle: 슬롯 분류 | 첫 구현 | main registry 26쌍 모두 양쪽 슬롯 거부 | 검출 |
+| 초기 sink·drain handler·log handler 등록 각각 삭제 | 새 oracle: startup 배선 | 첫 구현 | 3변이 각각 startup 테스트 1건 실패 | red |
+| App Host 마운트 제거 | 새 oracle: 마운트·provider 트리 | 첫 구현 | Host 소스 단언·App 실제 element 트리 2건 실패 | red |
+| 오류 hub와 같은 파일에 artifact publisher 삽입 | 새 oracle: 기존 artifact 스윕 보정 | 첫 구현 | 명시 error-hub 호출만 제외; 동반 `service.publish`는 검출 1건 | 검출 |
+
+분모 검산: 선택 증거 8 + 인용 변이 0 + 새 oracle 7 = 표 15행. VP-16은 선택 증거를 공유하므로 다시 세지 않았다. 나머지 행동·값 단언은 해당 없음 — 직접 oracle.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
+| 오류 producer가 실제 화면까지 이어지는가 | main 초기/live 전달과 renderer send 실패가 실제 store·Host까지 도달 | 통합 2경로 잠금 |
+| 기존 오류 표면과 중복되는가 | CONSUMED 36·EXCLUDE 21 catch에 보고 0; transcript 오류만 있을 때 toast 0 | 기존 소비 유지 |
+| 취소·실패·빈 결과가 기존 상태를 되돌리는가 | Tweak/bypass 롤백, chat send 롤백·load drop 관측; 훅의 cancelled 조건 유지 | 빈 목록·fail-closed 유지 |
+| 폭주·닫기·재시작은 무엇을 보여주는가 | cap 3·같은 키 1초 억제·4.6초 제거·닫기 즉시 제거; 제거 시 timer 정리 | 행동 테스트 통과 |
+| 두 테마·접근성은 맞는가 | Orca alias, 작은 이동, alert·닫기 label·reduced-motion·원문 escape 관측 | AC13 시각 실기 대기 |
+| 카드 설명에 민감 원문이 새로 노출되는가 | M18은 기존 원문 비기록 정책을 detail:null로 유지 | 제목만 보고 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
+| I1 | 초기 renderer 오류가 bootstrap 전 log IPC로 오면 기존 등록 시점이 늦다 | 선조치: logger 초기화 뒤 등록, bootstrap 중복 등록 제거 | startup 등록 순서 단언·각 삭제 red |
+| I2 | 단순 file-wide event 검색은 같은 제목을 가진 main 형제 교환을 놓친다 | 선조치: 파일 내 호출 ordinal과 event/title 함께 대조 | main 26쌍 교환 모두 거부 |
+| I3 | 새 hub의 `.publish`가 기존 artifact 전수 검색에 걸린다 | 선조치: `errorReportHub.publish` receiver만 제외, 같은 파일의 다른 publish는 유지 | 기존 artifact 스윕 통과·동반 publish 감도 1건 |
+| I4 | 기존 App 테스트는 자식이 하나인 체인만 순회한다 | 선조치: 자식 배열도 순회하여 기존 provider 순서와 새 Host 형제를 함께 확인 | Host 제거 시 App/Host 테스트 둘 다 실패 |
+| I5 | formatter가 기존 spinner 색 문자열 대소문자를 바꿨다 | 선조치: 관련 없는 표기를 원복 | `sparkCss.test.ts` 재검사 통과 |
+| I6 | bridge의 seen id 집합은 창 수명 동안 커진다 | 보고만: plan 지정 정책 유지. 장기간 오류가 계속되면 별도 상한 정책 검토 가능 | 현재 카드/queue/cooldown과 다른 수명; 이번 AC 위반 아님 |
+| I7 | 실제 Electron 예외·두 테마 체감은 Node/SSR로 확인되지 않는다 | AC2·AC13 미완료로 남김 | §19 지정 사람 실기, 실행하지 않음 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
+| 변경 파일 | shared 오류 계약·IPC, main reporter/hub/sink/drain·25 호출, renderer reporter/store/Host·33 호출·i18n/tokens, 회귀 테스트, IPC/관측성/인벤토리 문서 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+| 유효 설계 / 상태 | V1 + ΔV1 / impl·IMPL_DONE / 다음 Claude 독립 검증 |
+| 정적 게이트 | `npm run lint`: 오류 0, 기존 `useTranscriptVirtualizer` 경고 1. `npm run typecheck`: node/web/test 3구성 오류 0 |
+| 전체 테스트 | `npx vitest run`: 593파일, 5515 pass / 112 fail / 1 skip. 실패 14파일은 환경 11파일과 이번 변경 관련 3파일로 분리 |
+| 최종 재검사 | 실패 14파일 + 변경 관련 경로 전체를 권한 확보 후 실행: **32파일 507/507**. 동일 파일을 최신 결과로 치환한 총합 5654 pass / 1 skip / 0 fail(최종 전체 단일 실행 수치가 아님) |
+| 스크립트 게이트 | `node --test "scripts/*.test.mjs"`: 최초 120 pass/8 fail(EPERM), 권한 확보 후 **128/128** |
+| 문서 gate | `node scripts/check-doc-inventory.mjs --check`: 생성물 일치·본문 수치 위반 0·깨진 상대 링크 0 |
+| 관측 증거 | [테스트 요약](evidence/r1-test-summary.json), [변이 관측](evidence/r1-mutations.json), [lint](evidence/r1-lint.log), [typecheck](evidence/r1-typecheck.log). 원본 실행 로그는 로컬 `app/node_modules/.cache/orca/0242-evidence/`에 보존 |
+
+**AC 자기보고**
+
+| AC | 상태 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | 전역 error/rejection 각각 로그·카드 증가, event 이름 유지 |
+| AC2 | ⚠️ | main 단위·배선·IPC 통합 통과, 실제 Electron 강제 예외 실기 미실행 |
+| AC3 | ✅ | 양 reporter 로그 선행 각 1, main 수신 renderer 로그 0 |
+| AC4 | ✅ | renderer 4레이어 호출, boundaries 오류 0 |
+| AC5 | ✅ | main 4레이어 호출, reporter 테스트 Electron mock 없이 4건 통과 |
+| AC6 | ✅ | TOAST 33행 + Tweak/send/load/bypass 행동 4곳 통과 |
+| AC7 | ✅ | 비대상 57 catch 보고 0, 각각 금지 보고 삽입 검출 |
+| AC8 | ✅ | silent 집합 = 허용 4, 신규·기존 파일 위반 모두 red |
+| AC9 | ✅ | M-표 24행의 25호출 event/title 유지, 발행 예외 2곳 로그 결합 |
+| AC10 | ✅ | 최신 3장·같은 키 seq 증가/만료 재설정·500ms 재적중 무시 |
+| AC11 | ✅ | 4599ms 카드 유지/4600ms 제거, dismiss 즉시 제거·타이머 정리 |
+| AC12 | ✅ | 실패·실패·성공·실패 → 로그 3, 보고 2 |
+| AC13 | ⚠️ | 클래스·두 테마 alias/shadow·4스톱 소스 단언 통과, 시각 실기 미실행 |
+| AC14 | ✅ | 부팅 queue/drain·FIFO 10·cooldown·destroyed·send 경합 테스트 통과 |
+| AC15 | ✅ | ResizeObserver benign 두 문구 → 로그 0·카드 0 |
+| AC16 | ✅ | push/sink/logger 예외를 보고 경로 밖으로 전파하지 않음 |
+| AC17 | ✅ | IPC 문서 3테스트·인벤토리/링크 gate 통과 |
+
+검산: ✅ 15 · ⚠️ 2 · ❌ 0 = AC 17. `Criteria-Met: 15/17`; pending은 AC2·AC13 사람 실기다.
 
 ## [구현자 기입] Review Signals — 사실만
 
-- …
+- 현재 라운드 r1 / impl 턴 r1. 이전 verify/FAIL은 없으며, 사용자 스타일 정정을 ΔV1으로 먼저 분리했다.
+- 반복 결함 여부: 첫 구현이라 이전 라운드 비교 해당 없음. 구현 중 기존 구조 검사 두 개의 전제가 새 구조와 달라져 감도를 유지하면서 보정했다.
+- 환경 한계: sandbox의 사용자 디렉터리 EPERM으로 파일·스크립트 테스트 실패. 승인된 재실행에서 전부 통과했다. ABI 변경이나 패키지 재설치는 하지 않았다.
+- 사람 실기 두 항목은 테스트 통과로 대체하지 않았다. 독립 검증 결과는 검증자가 기록한다.
 
 ---
 

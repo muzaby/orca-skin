@@ -1,3 +1,4 @@
+import { reportError } from '../../infra/error-report'
 import type { NormalizedEvent } from '../../../shared/ipc'
 import type { SessionSchedule } from '../../../shared/session-schedules'
 import type { ClaudePermissionMode } from '../../../shared/permission-mode'
@@ -783,8 +784,16 @@ export class SessionRuntime implements ManagedRuntime {
         callback()
       } catch {
         // Observer errors may include raw DB payloads. Report the failed boundary only.
-        getLogger().child('engine').error('engine.channel.retirement-observer.failed', undefined, {
-          provider: this.adapter.id
+        reportError({
+          event: 'engine.channel.retirement-observer.failed',
+          scope: 'engine',
+          title: 'engineInternal',
+          level: 'error',
+          error: undefined,
+          detail: null,
+          data: {
+            provider: this.adapter.id
+          }
         })
       }
     }

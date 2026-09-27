@@ -1,3 +1,4 @@
+import { reportError } from '../../../shared/errors'
 import { useEffect, useMemo, useState } from 'react'
 import type { FileEntry, ProviderInfo } from '../../../../../shared/ipc'
 import { fileApi, providerApi } from '../../../shared/api/ipc'
@@ -52,8 +53,16 @@ export function useMentionAutocomplete(
     void providerApi
       .state()
       .then(absorb)
-      .catch(() => {
-        if (!cancelled) setProviders([])
+      .catch((error) => {
+        if (!cancelled) {
+          setProviders([])
+          reportError({
+            event: 'chat.mention.providers-failed',
+            scope: 'chat',
+            title: 'loadFailed',
+            error: error
+          })
+        }
       })
     const off = providerApi.onState(absorb)
     return () => {
@@ -88,8 +97,14 @@ export function useMentionAutocomplete(
           return next
         })
       })
-      .catch(() => {
+      .catch((error) => {
         if (cancelled) return
+        reportError({
+          event: 'chat.mention.entries-failed',
+          scope: 'chat',
+          title: 'loadFailed',
+          error: error
+        })
         setEntriesByDir((previous) => {
           const next = new Map(previous)
           next.set(dir, [])

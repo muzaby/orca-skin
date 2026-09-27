@@ -1,3 +1,4 @@
+import { reportError } from '../error-report'
 // TypedBus — main 내부 단일 이벤트 버스(아키텍처 스펙 §4.2 "단일 파이프라인"). 어댑터가 방출한
 // NormalizedEvent 를 한 번 emit 하면 등록된 소비자(usage 집계·history 영속·renderer 중계)가
 // 순서대로 소비한다. 소비자는 서로를 모른다 — 버스 구독으로만 존재한다.
@@ -14,8 +15,6 @@
 //    격리하고 로그만 남긴 뒤 다음 리스너를 계속 실행한다(중계·제목 실패가 파이프라인을 죽이지 않게).
 //
 // L0/L1: main 하위 어떤 모듈도 import 하지 않는 순수 유틸(이벤트 맵 타입은 소비 측이 주입).
-
-import { getLogger } from '../log/registry'
 
 type Listener<P> = { fn: (payload: P) => void; critical: boolean }
 
@@ -56,13 +55,18 @@ export class TypedBus<M> {
         try {
           fn(payload)
         } catch (err) {
-          getLogger()
-            .child('bus')
-            .warn('bus.listener.failed', {
+          reportError({
+            event: 'bus.listener.failed',
+            scope: 'bus',
+            title: 'eventDeliveryFailed',
+            level: 'warn',
+            error: err,
+            data: {
               event: String(key),
               isolated: true,
               message: String(err)
-            })
+            }
+          })
         }
       }
     }

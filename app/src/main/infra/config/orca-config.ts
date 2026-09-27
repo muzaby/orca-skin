@@ -1,3 +1,4 @@
+import { reportError, publishErrorReport } from '../error-report'
 // main 프로세스 전역 orca.json 캐시. 부팅 시 loadOrcaConfig() 로 1회 로드하고,
 // 미로드 상태의 getOrcaConfig()/appEnv() 호출은 lazy load 로 동일하게 동작한다.
 
@@ -10,6 +11,12 @@ function warnAll(warnings: string[]): void {
   for (const warning of warnings) {
     getLogger().child('config').warn('config.orca.invalid', { warning })
   }
+  if (warnings.length > 0) {
+    publishErrorReport({
+      title: 'configInvalid',
+      detail: warnings[0] + (warnings.length > 1 ? ` 외 ${warnings.length - 1}건` : '')
+    })
+  }
 }
 
 export function loadOrcaConfig(): OrcaConfig {
@@ -19,9 +26,14 @@ export function loadOrcaConfig(): OrcaConfig {
     warnAll(result.warnings)
     cached = result.config
   } catch (err) {
-    getLogger()
-      .child('config')
-      .warn('config.orca.load-failed', { message: String(err), fallback: 'defaults' })
+    reportError({
+      event: 'config.orca.load-failed',
+      scope: 'config',
+      title: 'configInvalid',
+      level: 'warn',
+      error: err,
+      data: { message: String(err), fallback: 'defaults' }
+    })
     cached = DEFAULT_ORCA_CONFIG
   }
   return cached

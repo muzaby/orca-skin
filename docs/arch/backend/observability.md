@@ -62,3 +62,20 @@ main ─ getLogger().child(scope).* ─────┘     enrich → suppress �
 - **crashReporter(네이티브 덤프) · Support Bundle · audit 로그 분리** — Future(0123 plan 비범위 참조).
 - ~~debug 모드 런타임 토글 UI~~ — **0124 범위 편입(사용자 지시 2026-07-18)**: 디버그 패널 "로그" 스위치(기존 `orca:debug:setMock` 재사용, dev 전용)가 wire 이벤트 debug 기록 + 콘솔 미러를 통합 게이트한다.
 - ~~prod 디버그 로그 토글~~ — **0144 구현(사용자 지시 2026-07-22)**: orcinus-orca.json `"debug": true` 로 prod 설치본도 debug 레벨 전체 + 본문 제거 wire 스트림을 파일에 남긴다(`setLogDebug` 런타임 setter — `initLog` 가 config 로드보다 먼저라 생성자 주입 불가). 신규 IPC 채널/설정 UI 추가는 여전히 비범위(파일 편집 기반).
+
+## 7. 오류 보고(toast)
+
+사용자에게 소비되지 않은 실패는 main의 `infra/error-report.reportError` 또는 renderer의 `shared/errors.reportError`로 보고한다. 두 함수는 기존 로깅 경로를 먼저 호출하고 토스트를 게시하며, 보고 과정의 예외는 다시 전파하지 않는다. 이미 transcript·인라인·모달에서 소비하는 실패와 정상 사용 가능한 폴백은 별도로 보고하지 않는다.
+
+| 경로 | 책임 |
+|---|---|
+| main `infra/error-report` | Electron 비의존 보고 API·ready 창 집합·부팅 대기열·중복 cooldown |
+| main `app/error-report-sink.ts`·`app/handlers/error.ts` | 창 전달·drain·파괴 정리. 로깅 및 drain 수신은 창 생성 전에 등록한다. |
+| renderer `shared/errors` | 로그 동반 보고·main 보고 수신(중복 로그 없음)·스택·만료 타이머 |
+| renderer `shared/ui/ErrorToastHost.tsx` | 게이트 화면에서도 표시하는 전역 호스트. Orca 테마·앱 폰트·reduced-motion을 따른다. |
+
+`title`은 `APP_ERROR_TITLES`의 번역 키다. `detail` 미지정은 오류 메시지, `null`은 설명 숨김, 문자열은 명시 설명이며 `APP_ERROR_DETAIL_MAX`로 절단한다. 비밀 가능성이 있는 실패는 원문을 설명으로 보내지 않는다.
+
+`publishErrorReport`는 같은 실패를 이미 로그한 scheduler 전이·설정 경고 합산에서만 사용한다. Scheduler는 매 실패를 로그하되 첫 실패와 성공 후 재실패에 게시하고, 설정 경고는 개별 로그를 유지하면서 카드 하나로 합친다. 파일 기록의 반복 억제·마스킹은 기존 LogManager 정책을 따른다.
+
+동시 카드 상한·cooldown·표시 수명은 `errorToastModel.ts`, 부팅 대기열 상한은 `app-error.ts`가 소유한다. IPC의 공개 계약은 [IPC Contract](../../IPC_CONTRACT.md#213-d-error--소비되지-않은-오류-보고)에 있다.

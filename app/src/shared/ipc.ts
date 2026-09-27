@@ -17,6 +17,8 @@ export type { ResponseBoundary } from './response-boundary'
 
 // Phase 2 활성 채널 (preload 노출 대상). 미사용 채널은 의도적으로 누락.
 export const CHANNELS = {
+  errorReportEvent: 'orca:error:reportEvent',
+  errorDrain: 'orca:error:drain',
   chatSend: 'orca:chat:send',
   // 0067 AC5: 구 chat:steer 는 chat:send 로 흡수(main 이 busy=예약/idle=즉시를 판정).
   chatSteerCancel: 'orca:chat:steerCancel',
