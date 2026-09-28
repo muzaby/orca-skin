@@ -11,11 +11,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-27 |
 | 매핑 | 없음 |
-| 상태 | verify/PASS — r1 ([verify.md](verify.md)), 사람 실기 AC2·AC13 대기 |
+| 상태 | ΔV2 READY — V1+ΔV1 은 r1 verify/PASS([verify.md](verify.md)), ΔV2 는 사용자 요구 변경 |
 | V mode | `Delta V` |
 | 기준 V | `V1@abb4e49a` (공유 브랜치, `git cat-file -t` = commit) |
-| 이번 V revision | `ΔV1` |
-| 유효 V | `V1 + ΔV1` |
+| 이번 V revision | `ΔV2` (ΔV1 이후, 기준 `55f6e88` r1 구현 + `9e45618` r1 PASS) |
+| 유효 V | `V1 + ΔV1 + ΔV2` |
 | 기준 커밋 | `e6d0ab6` (작성 시점 HEAD) |
 
 # Part I — Product & UX Contract
@@ -54,6 +54,9 @@
 | D-009 | 주기 작업(scheduler job) 실패는 job별 **성공→실패 전이 1회**만 toast. 이후 연속 실패는 로그만, 성공 후 다시 실패하면 다시 toast | 1분 cron(`usage-fetch`)이 폐쇄망에서 매 tick 실패 시 toast 폭주 방지 — D-005 범위 안의 설계 결정 | 설계 | ACTIVE | — |
 
 | D-010 | Claude toast 스펙은 참고이며 두 테마 모두 Orca 시맨틱 토큰·앱 폰트를 우선한다. 미세 이동·스택·수명은 유지한다 | 사용자 원문: "이것은 참고 스펙이다. 실제로는 orcinus-orca의 스타일을 준수해야한다." | 2026-09-27 구현 턴 사용자 정정 및 §6 원문 제공 | ACTIVE | D-006 대체 |
+
+| D-011 | transcript 아티팩트·생성 파일이 삭제·이동·접근 불가여도 카드 UI·우측 패널에 **미리** 불가 표시를 하지 않는다. 사용자가 그 파일에 동작(미리보기·다운로드·저장·위치 열기·휴지통·복사·경로 열기)을 요구했을 때 실패 사유를 예외 toast로 출력한다 | 사용자 원문: "이러한 사례에 대해 바로 안된다는 표시를 하지말고 사용자가 해당 파일에 대해 특정 이벤트를 요구했을때에 안되는 이유를 예외 토스트로 출력되게 하라" | 2026-09-28 impl 턴 사용자 요구 | ACTIVE | — |
+| D-012 | D-011 파생: 불가 상태를 드러내던 부속 표시(카드 아래 상태 줄의 확인 중/없음/접근 불가, 상태 새로 고침 버튼·메뉴)와 `present` 기반 버튼 비활성을 제거한다. 버튼 비활성은 작업 중(busy)만 | 상태를 보여 주지 않으면 새로 고침은 눌러도 보이는 변화가 없다("아무 일도 안 일어남") | 설계 파생 | ACTIVE | — |
 
 ### 갱신 메모
 
@@ -656,6 +659,51 @@ Alias는 `tokens.css` 기존 규칙에 따라 다크에서 중복 선언하지 �
 출처는 이번 사용자 §6 원문이다. 전체 `4.6s cubic-bezier(.2,.75,.2,1) both`, reduced-motion·타이머 수명은 유지한다.
 
 **정합성 확인:** ACTIVE D-001~005·007~010 ↔ AC1~17 충돌 0(AC13만 위 기준으로 대체). V1 어휘의 “다크 스펙 값”·D-006 인용은 위 supersede 관계로 읽고, EP-10은 alias가 참조하는 실제 다크 토큰까지 검증한다.
+
+## ΔV2 — 파일 불가 사유는 동작 시 toast로 (2026-09-28)
+
+**READY.** D-011·D-012를 추가한다. 기준은 V1+ΔV1(r1 PASS). 이 절은 V1 §8 CONSUMED 중 catch 2자리(T34·T35)를 TOAST로 바꾸고, 결과값으로 실패가 오는 경로 2곳(카드 동작 결과·미리보기 결과)과 카드 선제 표시를 아래대로 바꾼다. 나머지 V1·ΔV1 계약은 유지한다.
+
+### 범위
+
+| 표면 (renderer/src/features/chat/…) | AS-IS | TO-BE |
+|---|---|---|
+| `components/ArtifactCard.tsx` (transcript·우측 패널 list 공용) | 확인 중/`chat.artifacts.missing`/`unavailable` 상태 줄 + 새로 고침 버튼·메뉴, `!present` 면 다운로드·저장·위치 열기·휴지통 비활성 | 상태 줄은 busy(`working`)만. 새로 고침 버튼·메뉴 제거. 비활성은 busy만 |
+| `components/ArtifactCards.tsx` | 동작 결과 이슈를 카드 아래 `role=status` 목록으로 표시 | 이슈마다 toast 1건, 인라인 목록 제거 |
+| `store/artifactViewerStore.ts` `readSelection` | unavailable 결과를 뷰어 본문(아이콘+사유+재시도)으로 표시 | `unsupported-format` 외 unavailable 이면 뷰어를 닫고 toast. `unsupported-format` 본문은 유지(접근 불가가 아니라 형식) |
+| `hooks/useArtifactViewerActions.ts` | 복사·다운로드 실패를 뷰어 상단 status 줄에 표시 | 실패는 toast, status 줄은 진행·성공(복사됨·저장됨·취소됨)만 |
+| `components/rightpanel/TaskContextContent.tsx` | 경로 열기 실패를 패널 `role=alert` 로 표시 | toast, 인라인 alert 제거 |
+
+비범위: 아티팩트 **목록** 조회 실패(`listFailed`, 파일이 아니라 목록), 폴더 추가 실패(`useDirectoryPicker`), 이미지 디코드 실패(`imageFailed`), git diff 미리보기 불가, 아티팩트 카탈로그 화면(`features/artifacts`, transcript 밖).
+
+### 계약
+
+- `AppErrorTitle` 에 `fileUnavailable` 추가(ko "파일을 사용할 수 없습니다" / en "File unavailable"). 사유가 `missing`·`not-found`·`access-denied`·`forbidden`·`unsafe-path`·`io-error` 면 `fileUnavailable`, 그 밖은 `actionFailed`.
+- detail = `<파일명>: <사유 문구>` — 사유 문구는 기존 `artifactFailureKey`/`previewFailureKey` 카탈로그 문구를 `i18n.t` 로 해석. 휴지통 이동 후 기록 실패는 `chat.artifacts.trashedUnrecorded`.
+- SSOT: `features/chat/lib/artifactIssueReport.ts` — `artifactIssueTitle(reason)` · `reportArtifactIssue({ event, filename, reason?, messageKey? })`(→ `reportError`, scope `artifacts`, data `{ reason }`). 카드·뷰어 세 경로가 이 함수만 쓴다.
+
+| AC | 동작 기준 | 검증 수단 | 도달 경로 |
+|---|---|---|---|
+| AC18 | availability 가 `missing`·`unavailable`·미확인이어도 카드는 불가/확인 중 문구와 새로 고침 버튼·메뉴를 렌더하지 않고, 다운로드·저장·위치 열기·휴지통은 활성이다. busy 면 비활성 + `working` 문구 | 렌더 테스트: 세 availability × 두 variant → 문구 0·refresh 0·disabled 0 / busy → disabled 4·`working` 1 | `ArtifactCards` → `ArtifactCard` |
+| AC19 | 카드 동작(단건·전체 저장·위치 열기·휴지통) 결과의 실패 이슈마다 toast 1건 + 로그 1건, 카드 아래 인라인 이슈 0 | 동작 테스트: `runArtifactAction` 결과 주입(save items 2 failed · reveal `{ok:false,reason:'missing'}` · trash `already-missing` · trashed unrecorded) → 스토어 카드 수·제목·detail, 로그 호출 수 | `ArtifactCards.run` → `reportArtifactIssue` |
+| AC20 | 미리보기 결과가 unavailable(형식 미지원 제외)이면 뷰어 selection 이 닫히고 toast 1건. 형식 미지원은 기존 본문 유지 | store 테스트: preview `{state:'unavailable',reason:'missing'}`·IPC reject → selection null + toast / `unsupported-format` → selection 유지 + toast 0 / 늦은 응답(다른 request) → toast 0 | `openArtifactViewer`·`retryArtifactViewer` → `readSelection` |
+| AC21 | 뷰어 복사·다운로드 실패는 toast, status 줄에는 실패 문구 0 | 기존 `ArtifactViewer.actions.test.ts` 실패 케이스 갱신 | `useArtifactViewerActions.runAction` |
+| AC22 | 작업 컨텍스트 경로 열기 실패는 toast(`openFailed`, detail `basename: 사유`), 인라인 alert 0 | `TaskContextContent.test.ts` 갱신 + 레지스트리 T34 | `openContextPath` catch |
+
+### V
+
+| Node / pair | provenance / requiredness | 직접 oracle | 선택적 적대 증거 | §10 자리 |
+|---|---|---|---|---|
+| R-12 ↔ AT-12 / VP-21 (AC18) | NEW / REQUIRED | 렌더 테스트 | required — 상태 줄 조건을 원복(`checking \|\| !present`)하는 변이 → red · 비활성 predicate 에 `!present` 재추가 변이 → red | EP-16(5자리: 상태 줄 1 · 비활성 4) |
+| R-13 ↔ AT-13 / VP-22 (AC19~22) | NEW / REQUIRED | 동작·store 테스트 | required — 세 경로 각각 `reportArtifactIssue` 호출 삭제 → 해당 테스트 red | EP-17(4자리: ArtifactCards · readSelection · viewer actions · TaskContext) |
+| MD-05 ↔ UT-05 / VP-23 | NEW / REQUIRED | `artifactIssueReport.test.ts`: 사유별 제목 · detail 형식 · 로그 동반 | not selected | EP-18(1) |
+| AR-03 ↔ IT-03 / VP-16 | CHANGED / REQUIRED | 레지스트리: TaskContextContent catch = TOAST T34(`files.context-open.failed`/`openFailed`) · useArtifactViewerActions catch = TOAST T35(`artifacts.viewer-action.failed`/`actionFailed`) | V1 변이(삭제·맞바꿈·금지 주입) 유지 | EP-4 → 35자리 |
+| R-02 ↔ AT-02 / VP-02 | INHERITED / REGRESSION | 새 경로가 `reportError` 를 거쳐 로그 동반 | — | EP-2 |
+| R-06 ↔ AT-06 / VP-06 | INHERITED / NOT_REQUIRED | 스택·병합 규칙 불변 — 모델·스토어 무변경(r1 증거 유지) | — | — |
+
+운영 gate: V1 §19 그대로(lint·typecheck·관련 vitest·전체 vitest).
+
+**정합성 확인:** D-011 ↔ AC18~22 · D-012 ↔ AC18. D-001(transcript 소비 오류 불변)과 충돌 0 — 대상은 transcript 오류 이벤트가 아니라 파일 가용성 표시다. D-004 사용자 영향 기준과 일치(동작 실패가 화면에 남는다).
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은 [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
 
