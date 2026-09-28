@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-28 |
 | 매핑 | 브랜치 `claude/long-task-response-halt-ms2z08` |
-| 상태 | IMPL_DONE |
+| 상태 | verify/PASS (r1) |
 | V mode | `Delta V` |
 | 기준 V | `V1@d24c13f8` (공유 브랜치에서 확인) |
 | 이번 V revision | `ΔV1` — 구현 전 검토 보완 |
@@ -626,6 +626,12 @@ git diff --check
 
 ## [검증자 기입] 파생 이슈
 
+r1 검증 = PASS — 판정 원문은 [`verify.md`](verify.md).
+
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| D1 | EP-06 ②③·EP-02 helper 쓰기는 관측 불가 자리(X3·X4·X8 green) | VP-06·VP-07 / §10 | 방어 코드 유지 또는 후속 정리 | NON_BLOCKING | open |
+| D2 | 승인 대기 30분 테스트가 coordinator와 결합하지 않음 | VP-01 AC1 | 결합 케이스는 선택. M6가 타이머 재삽입을 잡음 | NON_BLOCKING | open |
+| D3 | ΔV1 규범 정정을 구현 에이전트가 작성 | `docs/handoff/AGENTS.md §2` | Review Signal | NON_BLOCKING | open |
+| D4 | deny+interrupt가 runtime interrupt를 동기 유발 | 비귀속(renderer 미사용) | 해당 경로 사용 시 재검토 | NEXT_HANDOFF | open |
+| D5 | `send.ts:411` 삭제된 idle 타이머 주석 | 비귀속 | 다음 편집 시 정리 | NON_BLOCKING | open |

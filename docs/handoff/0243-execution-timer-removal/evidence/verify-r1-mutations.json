@@ -1,0 +1,213 @@
+[
+  {
+    "id": "M1",
+    "exit": 1,
+    "tests": 103,
+    "failed": 6,
+    "failedTests": [
+      "0243 interruption delivery through real runtime and handlers discard closes the active response exactly once",
+      "0243 interruption delivery through real runtime and handlers controller closes the active response exactly once",
+      "0243 interruption delivery through real runtime and handlers chain closes the active response exactly once",
+      "0243 interruption delivery through real runtime and handlers database-failure closes the active response exactly once",
+      "0243 execution lifetime AC4/5/13: return settles before one abort terminal",
+      "0243 execution lifetime AC4/5/13: finalize-failure settles before one abort terminal"
+    ],
+    "suiteErr": []
+  },
+  {
+    "id": "M2",
+    "exit": 1,
+    "tests": 103,
+    "failed": 1,
+    "failedTests": [
+      "0243 execution lifetime AC4/5/13: throw settles before one abort terminal"
+    ],
+    "suiteErr": []
+  },
+  {
+    "id": "M3",
+    "exit": 1,
+    "tests": 103,
+    "failed": 1,
+    "failedTests": [
+      "0243 execution lifetime AC5: abort during retry backoff sends one interrupted terminal"
+    ],
+    "suiteErr": []
+  },
+  {
+    "id": "M4",
+    "exit": 1,
+    "tests": 103,
+    "failed": 1,
+    "failedTests": [
+      "0243 interruption delivery through real runtime and handlers cancel closes the active response exactly once"
+    ],
+    "suiteErr": []
+  },
+  {
+    "id": "M5",
+    "exit": 1,
+    "tests": 103,
+    "failed": 2,
+    "failedTests": [
+      "0243 execution lifetime AC7: forwarded telemetry prevents a second terminal",
+      "0243 execution lifetime AC7: forwarded error prevents a second terminal"
+    ],
+    "suiteErr": []
+  },
+  {
+    "id": "M6",
+    "exit": 1,
+    "tests": 103,
+    "failed": 4,
+    "failedTests": [
+      "0243 execution lifetime AC1: user waits 30 minutes without output",
+      "0243 execution lifetime AC1: continuation waits 30 minutes without output",
+      "0243 execution lifetime AC1: listen waits 30 minutes without output",
+      "TurnCoordinator — listen 턴 종료 후 수명 listen 턴이 종료된 뒤 시간이 지나도 abort 하지 않는다"
+    ],
+    "suiteErr": []
+  },
+  {
+    "id": "M6b-abortTurn",
+    "exit": 1,
+    "tests": 103,
+    "failed": 4,
+    "failedTests": [
+      "0243 execution lifetime AC1: user waits 30 minutes without output",
+      "0243 execution lifetime AC1: continuation waits 30 minutes without output",
+      "0243 execution lifetime AC1: listen waits 30 minutes without output",
+      "TurnCoordinator — listen 턴 종료 후 수명 listen 턴이 종료된 뒤 시간이 지나도 abort 하지 않는다"
+    ],
+    "suiteErr": []
+  },
+  {
+    "id": "X1-listener-reg",
+    "exit": 1,
+    "tests": 103,
+    "failed": 3,
+    "failedTests": [
+      "0243 interruption delivery through real runtime and handlers controller closes the active response exactly once",
+      "0243 interruption delivery through real runtime and handlers chain closes the active response exactly once",
+      "0243 interruption delivery through real runtime and handlers database-failure closes the active response exactly once"
+    ],
+    "suiteErr": []
+  },
+  {
+    "id": "X2-finalize-trycatch",
+    "exit": 1,
+    "tests": 103,
+    "failed": 2,
+    "failedTests": [
+      "0243 interruption delivery through real runtime and handlers database-failure closes the active response exactly once",
+      "0243 execution lifetime AC4/5/13: finalize-failure settles before one abort terminal"
+    ],
+    "suiteErr": []
+  },
+  {
+    "id": "X3-flag-synth",
+    "exit": 0,
+    "tests": 103,
+    "failed": 0,
+    "failedTests": [],
+    "suiteErr": []
+  },
+  {
+    "id": "X4-flag-error",
+    "exit": 0,
+    "tests": 103,
+    "failed": 0,
+    "failedTests": [],
+    "suiteErr": []
+  },
+  {
+    "id": "X5-preabort",
+    "exit": 1,
+    "tests": 103,
+    "failed": 2,
+    "failedTests": [
+      "0243 execution lifetime AC3: pre-aborted turn never sends; finished run detaches its abort listener",
+      "0239 — 결과 없이 끝난 도구 정착 이미 중단된 턴은 스트림을 시작하거나 도구를 열지 않는다"
+    ],
+    "suiteErr": []
+  },
+  {
+    "id": "X6-listener-unsub",
+    "exit": 1,
+    "tests": 103,
+    "failed": 1,
+    "failedTests": [
+      "0243 execution lifetime AC3: pre-aborted turn never sends; finished run detaches its abort listener"
+    ],
+    "suiteErr": []
+  },
+  {
+    "id": "X7-abortTurn-dedup",
+    "exit": 1,
+    "tests": 103,
+    "failed": 2,
+    "failedTests": [
+      "abortTurn (단일 abort 프리미티브) 이미 중단된 runtime은 다시 interrupt하지 않고 controller만 정착한다",
+      "0243 interruption delivery through real runtime and handlers cancel closes the active response exactly once"
+    ],
+    "suiteErr": []
+  },
+  {
+    "id": "X8-helper-ack-write",
+    "exit": 0,
+    "tests": 103,
+    "failed": 0,
+    "failedTests": [],
+    "suiteErr": []
+  },
+  {
+    "id": "X9-helper-reads-ack",
+    "exit": 1,
+    "tests": 103,
+    "failed": 1,
+    "failedTests": [
+      "0243 interruption delivery through real runtime and handlers cancel closes the active response exactly once"
+    ],
+    "suiteErr": []
+  },
+  {
+    "id": "X10-reason-swap",
+    "exit": 1,
+    "tests": 103,
+    "failed": 8,
+    "failedTests": [
+      "0243 interruption delivery through real runtime and handlers discard closes the active response exactly once",
+      "0243 interruption delivery through real runtime and handlers controller closes the active response exactly once",
+      "0243 interruption delivery through real runtime and handlers chain closes the active response exactly once",
+      "0243 interruption delivery through real runtime and handlers database-failure closes the active response exactly once",
+      "0243 execution lifetime AC4/5/13: return settles before one abort terminal",
+      "0243 execution lifetime AC4/5/13: throw settles before one abort terminal",
+      "0243 execution lifetime AC4/5/13: finalize-failure settles before one abort terminal",
+      "0243 execution lifetime AC5: abort during retry backoff sends one interrupted terminal"
+    ],
+    "suiteErr": []
+  },
+  {
+    "id": "X11-order-finalize-before-settle",
+    "exit": 1,
+    "tests": 103,
+    "failed": 4,
+    "failedTests": [
+      "0243 interruption delivery through real runtime and handlers database-failure closes the active response exactly once",
+      "0243 execution lifetime AC4/5/13: return settles before one abort terminal",
+      "0243 execution lifetime AC4/5/13: throw settles before one abort terminal",
+      "0243 execution lifetime AC4/5/13: finalize-failure settles before one abort terminal"
+    ],
+    "suiteErr": []
+  },
+  {
+    "id": "X12-catch-requires-cancelled",
+    "exit": 1,
+    "tests": 103,
+    "failed": 1,
+    "failedTests": [
+      "0243 execution lifetime AC4/5/13: throw settles before one abort terminal"
+    ],
+    "suiteErr": []
+  }
+]
