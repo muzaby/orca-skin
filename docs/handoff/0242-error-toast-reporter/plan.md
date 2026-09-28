@@ -11,11 +11,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-27 |
 | 매핑 | 없음 |
-| 상태 | verify/PASS — V1+ΔV1 r1 · ΔV2~ΔV4 r1.4 ([verify.md](verify.md)), 사람 실기 3항목 대기 |
+| 상태 | ΔV5 READY — V1~ΔV4 는 verify/PASS([verify.md](verify.md)), ΔV5 는 사용자 요구 변경 |
 | V mode | `Delta V` |
 | 기준 V | `V1@abb4e49a` (공유 브랜치, `git cat-file -t` = commit) |
-| 이번 V revision | `ΔV4` (ΔV3 이후 — ΔV3 설계·r1.3 구현은 INDEX 좌표) |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` |
+| 이번 V revision | `ΔV5` (ΔV4 r1.4 verify/PASS `ef3cd63` 이후) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` |
 | 기준 커밋 | `e6d0ab6` (작성 시점 HEAD) |
 
 # Part I — Product & UX Contract
@@ -59,6 +59,11 @@
 | D-012 | D-011 파생: 불가 상태를 드러내던 부속 표시(카드 아래 상태 줄의 확인 중/없음/접근 불가, 상태 새로 고침 버튼·메뉴)와 `present` 기반 버튼 비활성을 제거한다. 버튼 비활성은 작업 중(busy)만 | 상태를 보여 주지 않으면 새로 고침은 눌러도 보이는 변화가 없다("아무 일도 안 일어남") | 설계 파생 | ACTIVE | — |
 | D-013 | D-011의 대상에 **퍼블리시되지 않은 생성 파일**(`ArtifactRef.category: 'file'`, Write/Edit·응답 링크로 캡처된 출력 파일)을 포함한다. 생성 파일에만 있는 사유(원본 변경·이동 = `file-changed`)와 저장 시 `skipped` 결과도 동작 시 toast 로 알린다 | 사용자 원문: "퍼블리시 되지 않은 생성된 파일도 포함대상이다." | 2026-09-28 r1.2 후 사용자 요구 | ACTIVE | D-011 보완 |
 | D-014 | 미리보기 요청 시 뷰어 공간은 **미리보기 결과를 받은 뒤, 열 수 있을 때만** 할당한다. 열 수 없으면 공간 할당 없이 toast 만 내고, 이미 열린 다른 뷰어는 그대로 둔다. 대기 중에는 누른 카드 미리보기 버튼만 busy 로 표시한다 | 사용자 실기: "Ui 상으로 먼저 공간 할당 → 파일 없는 것을 확인 → Ui 공간 되돌리기 → 토스트 메시지 … 불필요한 ui공간할당이 시도되엇고 플리커 같은 현상이 잘현되어 ux 를 헤친다. 보완하라" | 2026-09-28 r1.3 후 사용자 육안 확인 | ACTIVE | ΔV2 AC20 의 '뷰어를 닫고' 대체 |
+| D-015 | toast 설명은 **최대 8줄까지 가변 높이**로 표시하고, 넘치면 8번째 줄 끝을 `…`로 줄인다. 제목은 그대로 둔다 | 사용자 원문: "로그에 남는가면 창 너비를 초과하는 텍스트에 대해서는 ... 으로 표기하도록 하라" → 실측 후 질의 "8줄 최대 높이인가? 8줄 내외로 가변되는 것인지?" → 선택 "8줄" (기본 창 900×670 에서 3장이 모두 보이는 최대치) | 2026-09-28 r1.4 verify 후 사용자 | ACTIVE | — |
+| D-016 | toast **카드 본문 클릭**(× 제외)은 호출 시 지정된 이동 대상으로 가고 그 toast 를 닫는다. 이동 대상 = 앱 **페이지 경로** 또는 **설정 모달 탭** | 사용자 원문: "클릭시 지정된 위치로 이동 … 지정 위치는 토스트 호출시 입력된 page url 로" · 선택 "카드 본문 클릭" · "페이지 + 설정 탭" | 같은 턴 질의 | ACTIVE | — |
+| D-017 | 이동 대상이 없으면 **탐색기에서 현재 로그 파일**(`~/.config/orcinus-orca/logs/application.jsonl`)을 선택해 보인다 | 사용자 원문: "지정 위치가 없으면 로그파일의 위치로 이동 (~/.config/orcinus-orca/logs/applicationXXX.jsonl)" · 선택 "탐색기에서 파일 선택" | 같은 턴 질의 | ACTIVE | — |
+| D-018 | warning 분류·usage fetcher 연결은 범위 밖. 엔진·모델 자동 할당 fetcher 는 코드에 없다 | 사용자 원문: "없다면 내가 착각했다." | 같은 턴 질의 | ACTIVE | — |
+| D-019 | 기존 보고 사이트는 이동 대상을 지정하지 않는다(전부 로그 파일로 이동). 대상 지정은 새 호출부가 쓰는 입력이다 | 사용자 예시(usage fetcher)가 없어 지정할 근거 사이트가 없다 — 사이트별 대상 선택은 제품 판단이라 설계자가 임의로 붙이지 않는다 | 설계 | ACTIVE | — |
 
 ### 갱신 메모
 
@@ -755,6 +760,126 @@ Alias는 `tokens.css` 기존 규칙에 따라 다크에서 중복 선언하지 �
 | R-13 ↔ AT-13 / VP-22 | CHANGED(AC20 최초 열기 → AC26) / REQUIRED | 재시도 경로의 닫기+toast 는 기존 테스트 유지 | — | EP-17 |
 
 카탈로그 화면(`app/hooks/useArtifactCatalogViewer.tsx`)도 같은 `openArtifactViewer` 를 써서 플리커 제거가 함께 적용된다. 카탈로그 행의 busy 표시는 비범위(`features/artifacts` 는 chat store 를 import 할 수 없다 — 레이어 규칙).
+
+## ΔV5 — 설명 8줄 말줄임 · 클릭 이동 · 로그 파일 위치 (2026-09-28)
+
+**READY.** D-015~D-019 추가. 기준은 V1~ΔV4(r1.4 verify/PASS `ef3cd63`). 모든 toast 는 D-002 로 로그에 남으므로 "로그에 남는다면" 조건은 전 toast 에 참이다 — 말줄임·클릭 이동을 전 toast 에 적용한다.
+
+### 실측 (Chromium, 실제 `ErrorToastHost` + 앱 CSS, Inter 미설치로 Linux 대체 글꼴)
+
+| 항목 | 값 | 근거 |
+|---|---|---|
+| 설명 폭 · 줄당 글자 | 372px · 한글 29 · 영문 48 | 1줄이 될 때까지 늘려 측정 |
+| 카드 높이 | `49 + 17.5×줄 수`px (1줄 66 · 8줄 189 · 9줄 206) | 줄 수 1~10 측정 |
+| 현재 300자 3장 스택 | 카드 242px(11줄), 아래끝 779px → 1024×640 에서 139px 잘림 | 3 뷰포트 측정 |
+| 8줄 상한 3장 | 38 + 3×189 + 16 = 621px ≤ 670−28 | 기본 창 `main/index.ts:188` 900×670, 최소 크기 제한 없음 |
+
+- 300자 상한 아래에서 8줄 말줄임이 걸리는 것은 한글 약 232자 초과 설명이다. 순수 영문 300자는 약 7줄이라 잘리지 않는다.
+
+### 요구 비판적 검토
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 이미 되는가 | 아니오 | 설명은 무제한 줄바꿈(`ErrorToastHost.tsx:29`), 카드 클릭 동작 0, 로그 위치를 여는 IPC 0(`shared/ipc.ts` `orca:error:*` 2채널) |
+| 이동 수단이 있는가 | 페이지·설정 탭만 | Electron 단축키·외부 URL 스킴·main→renderer 이동 IPC 0. 페이지 = `app/router.tsx:30-43`, 설정 = `useSettingsModalStore.show(tab)` |
+| 레이어 | `shared/ui` Host 는 router·features/settings 를 import 할 수 없다 | `eslint.config` boundaries: shared → shared 만. 이동 실행은 app 레이어가 주입 |
+| 이동 대상 소비자 | 현재 0 (D-019) | 기존 보고 사이트는 대상 없음 → 모두 로그 위치. 경로 자체는 production(보고 → store → Host → app 실행)이고 호출부만 미래다 |
+| 병합(D-007) | 키 불변 | 같은 제목+설명이면 병합 — 대상은 **나중 보고의 값으로 교체**(가장 최근 요청이 이동을 정한다) |
+
+### 범위 / 비범위
+
+- 범위: 설명 8줄 말줄임, 카드 본문 클릭 이동 + 닫기, 대상 계약(renderer·main 보고 입력 → IPC → store), 로그 위치 IPC 1개, IPC 문서·인벤토리.
+- 비범위: warning 분류·usage fetcher(D-018), 기존 사이트 대상 지정(D-019), `/plugins` 등 페이지 내부 항목 딥링크(쿼리 계약 없음), 제목 말줄임.
+
+### 계약
+
+```ts
+// shared/app-error.ts — 설정 탭 SSOT 를 여기로 옮기고 settingsModalStore 가 재사용한다
+export type AppSettingsTab = 'general' | 'usage' | `provider:${string}`
+export type AppErrorTarget =
+  | { kind: 'page'; path: `/${string}` }   // 앱 라우트 경로. '//' 시작은 무효
+  | { kind: 'settings'; tab: AppSettingsTab }
+export interface AppErrorReport { id; title; detail?; origin; target?: AppErrorTarget }
+```
+
+- 입력: renderer `reportError({ …, target? })` · main `reportError({ …, target? })` · main `publishErrorReport({ …, target? })` 가 `target` 을 보고에 싣는다. `presentErrorReport` 는 받은 그대로.
+- 모델: `applyErrorReport` 병합 시 `target` 을 새 보고 값으로 교체(없으면 없음으로). 키·cooldown·만료 규칙 불변.
+- 새 채널 `orca:error:revealLog` (R→M invoke, 입력 없음, `void`): main 이 로그를 `flushLogSync()` 한 뒤 현재 파일 `<logs>/application.jsonl` 이 있으면 `shell.showItemInFolder`, 없으면 `shell.openPath(<logs>)`, 그것도 오류 문자열이면 throw. 경로는 `infra/log` 가 `currentLogFilePath()` 로 노출(파일명 SSOT = `file-transport.ts` `DEFAULT_BASE`).
+- 실행(app 레이어 `openErrorTarget(target, deps)`): `page` → `navigate(path)` · `settings` → `openSettings(tab)` · 없음/무효 → `revealLog()`. 무효 = 런타임 가드 실패(`path` 가 `/` 로 시작하지 않거나 `//` 시작, `tab` 이 세 형태 밖). `revealLog` 거부는 `reportError({ event: 'errors.reveal-log.failed', scope: 'errors', title: 'openFailed', error })`.
+- Host: `ErrorToastHost({ onOpen })`. 카드 본문(아이콘+제목+설명)은 `<button type="button" data-behavior="toast:open">` 하나, × 는 형제 버튼. 본문 클릭 = `onOpen(target)` 후 `dismiss(id)`. 설명 `<p>` 에 `line-clamp-8` (+ 기존 `[overflow-wrap:anywhere]` 유지).
+
+### 흐름
+
+```text
+reportError({target?}) ─ renderer ─→ errorToastStore(target) ─┐
+reportError({target?}) ─ main → hub → reportEvent/drain(IPC) ─→ bridge → presentErrorReport ─┘
+  → ErrorToastHost: 설명 line-clamp-8, 본문 button
+  → click → onOpen(target) (app/ErrorToastLayer) → openErrorTarget
+       page → navigate · settings → settings store show(tab) · 없음 → errorApi.revealLog → main showItemInFolder
+  → dismiss(id)
+```
+
+### AC
+
+| AC | 동작 기준 | 검증 수단 | 도달 경로 |
+|---|---|---|---|
+| AC30 | 설명은 8줄까지 가변 높이, 초과분은 `…`. 제목·× 는 말줄임 대상 아님 | Host render: 설명 `<p>` 에 `line-clamp-8` · 제목 `<p>` 에 없음 + **사람 실기**(232자 초과 한글 설명 3장이 900×670 에서 모두 보이고 8번째 줄 끝 `…`) | `ErrorToastHost` |
+| AC31 | 본문 클릭은 `onOpen` 을 그 카드의 `target` 으로 1회 부르고 그 카드만 닫는다. × 는 `onOpen` 0회 | Host 요소 트리 호출 테스트: 카드 2장(대상 page·없음) 각각 본문 onClick → `onOpen` 인자·호출 수, 남은 카드 id / × onClick → `onOpen` 0 | `ErrorToastHost` |
+| AC32 | `openErrorTarget`: page → navigate(path), settings → openSettings(tab), 없음 → revealLog, 무효 page(`'plugins'`·`'//x'`)·무효 tab → revealLog | 순수 단위 테스트(deps fake 호출 기록) | `app/errorToastTarget.ts` |
+| AC33 | revealLog 거부 → toast `openFailed` 1 + 로그 1 | 단위: revealLog reject 주입 → store 카드·`window.orca.log.error` 호출 | 같음 |
+| AC34 | renderer·main 보고의 `target` 이 store 카드까지 보존된다. main 은 이벤트와 drain 두 경로 모두 | renderer `reportError` 단위 · main `reportError`·`publishErrorReport` → hub sink payload · bridge drain/이벤트 → store `target` | 두 `reportError` · hub · bridge |
+| AC35 | 병합 시 `target` 은 나중 보고 값(없음 포함)으로 교체, 카드 수·키 불변 | `applyErrorReport` 단위 | `errorToastModel.ts` |
+| AC36 | `orca:error:revealLog` 가 flush 후 파일 선택 / 파일 없으면 폴더 열기 / 폴더 열기 오류 문자열이면 reject | handler 단위(electron `shell` mock, `infra/log` mock): 호출 순서 flush → showItemInFolder(`…/logs/application.jsonl`) · 파일 부재 → openPath(`…/logs`) · openPath `'err'` → reject | `main/app/handlers/error.ts` |
+| AC37 | app 이 `ErrorToastLayer` 로 Host 를 띄우고 `onOpen` 을 `openErrorTarget` + 실제 navigate·settings store·`errorApi.revealLog` 에 연결한다 | `App` 조립 단언(Host 가 Layer 경유로만 mount) + Layer 가 `openErrorTarget` 에 넘기는 deps 가 settings store `show`·`errorApi.revealLog` 인지 호출 기록 | `App.tsx` → `app/ErrorToastLayer.tsx` |
+| AC38 | IPC 문서·인벤토리가 새 채널·`AppErrorReport.target` 과 일치 | `ipc-documentation.test.ts` · `check-doc-inventory.mjs --check` | CI |
+
+- AC 수: ΔV5 9 (누적 38 — 이 handoff 는 ΔV 단위로 나뉘어 한 라운드 분모는 9).
+
+### V
+
+| Node / pair | provenance / requiredness | 직접 oracle | 선택적 적대 증거 | §10 자리 |
+|---|---|---|---|---|
+| R-16 ↔ AT-16 / VP-26 (AC30) | NEW / REQUIRED | Host render class 단언 + 사람 실기 | required — 설명 `line-clamp-8` 을 제목 `<p>` 로 옮기는 맞바꿈 → red (자리 1: 설명 p) | EP-21(1) |
+| R-17 ↔ AT-17 / VP-27 (AC31·AC32·AC33) | NEW / REQUIRED | Host 호출 테스트 · `openErrorTarget` 단위 | required — (a) 본문 onClick 에서 `dismiss` 삭제 (b) × onClick 이 `onOpen` 도 부름 (c) page·settings 분기 맞바꿈 (d) 무효 가드 삭제 → 각 red | EP-22(7: 본문 onOpen · 본문 dismiss · × 비이동 · page 분기 · settings 분기 · 없음 분기 · 가드) |
+| SD-03 ↔ ST-03 / VP-28 (AC34) | NEW / REQUIRED | main hub sink payload + bridge → store 통합 | required — `target` 누락 변이를 5자리 각각에 심는다(renderer reportError · main reportError · publishErrorReport · 이벤트 수신 · drain 수신) → 자리마다 red | EP-23(5: renderer reportError · main reportError · publishErrorReport · 이벤트 · drain) |
+| AR-04 ↔ IT-04 / VP-29 (AC36·AC37) | NEW / REQUIRED | handler 단위 · App/Layer 조립 | required — handler 의 `flushLogSync` 삭제 → 순서 단언 red · Layer 가 `onOpen` 을 no-op 으로 → red | EP-24(5: 채널 상수 · preload `error.revealLog` · `errorApi` · handler · Layer 배선) |
+| MD-06 ↔ UT-06 / VP-30 (AC35) | NEW / REQUIRED | 모델 단위 | not selected — 순수 결과 직접 단언 | EP-25(1) |
+| R-11 ↔ AT-11 / VP-11 (AC38) | INHERITED / REGRESSION | 기존 CI 테스트 | — | EP-13 |
+| R-06 ↔ AT-06 / VP-06 | CHANGED(병합 시 target) / REQUIRED | AC10·AC11 기존 + AC35 | — | EP-7 |
+| AR-02 ↔ IT-02 / VP-15 | CHANGED(Layer 경유 mount) / REQUIRED | 기존 Host render 2건 + AC37 | — | EP-15 |
+| R-08 ↔ AT-08 / VP-08 | INHERITED / REGRESSION | 카드 클래스·토큰 단언 유지(본문이 button 이 되어도 grid·반경·그림자 불변) | — | EP-10 |
+| R-02 ↔ AT-02 / VP-02 | INHERITED / REGRESSION | revealLog 실패 보고도 로그 동반(AC33) | — | EP-2 |
+
+### §10 강제 지점 (ΔV5)
+
+| EP | 계약 | 자리 | 실패 의미 |
+|---|---|---|---|
+| EP-21 | 설명 8줄 | `ErrorToastHost` 설명 `<p>` 1 | 없으면 긴 설명 3장이 기본 창 밖으로 잘린다(측정 779px) |
+| EP-22 | 클릭 이동 | Host 본문 onClick(onOpen·dismiss) · × onClick · `openErrorTarget` page/settings/없음 분기 · 런타임 가드 | 가드 없으면 main 발 잘못된 경로가 `*` → `/new` 로 조용히 이동 |
+| EP-23 | target 운반 | renderer `reportError` · main `reportError` · `publishErrorReport` · main→renderer 이벤트 · drain | 한 자리라도 빠지면 그 경로의 보고만 로그 위치로 떨어진다 |
+| EP-24 | 로그 위치 IPC | `CHANNELS.errorRevealLog` · preload `error.revealLog` · `errorApi.revealLog` · handler · `ErrorToastLayer` 배선 | flush 없으면 방금 보고한 줄이 파일에 아직 없다 |
+| EP-25 | 병합 target | `applyErrorReport` 병합 분기 | 오래된 대상으로 이동 |
+
+### 파일
+
+| 파일 | 역할 |
+|---|---|
+| `shared/app-error.ts` | `AppSettingsTab` · `AppErrorTarget` · `AppErrorReport.target` |
+| `shared/ipc.ts` · `preload/index.ts` | `errorRevealLog` 채널 · `error.revealLog()` |
+| `main/infra/log/index.ts` (+ `file-transport.ts` path getter) | `currentLogFilePath()` |
+| `main/infra/error-report/index.ts` | 두 입력의 `target` 운반 |
+| `main/app/handlers/error.ts` (+ 테스트 신규) | revealLog 핸들러 |
+| `renderer/src/shared/errors/{reportError,errorToastModel}.ts` | 입력 `target` · 병합 교체 |
+| `renderer/src/shared/api/ipc.ts` | `errorApi.revealLog` |
+| `renderer/src/shared/ui/ErrorToastHost.tsx` | 본문 button · `onOpen` prop · `line-clamp-8` |
+| `renderer/src/app/errorToastTarget.ts` · `app/ErrorToastLayer.tsx` (신규) | 실행 매핑 · hook 배선 |
+| `renderer/src/App.tsx` | Host → Layer |
+| `renderer/src/features/settings/store/settingsModalStore.ts` | `SettingsTabId = AppSettingsTab` |
+| `docs/IPC_CONTRACT.md` · `docs/generated/inventory.md` | 채널·payload |
+
+운영 gate: V1 §19 그대로(lint · typecheck · 관련/전체 vitest · inventory `--check` · trailer).
+
+**정합성 확인:** D-015 ↔ AC30 · D-016 ↔ AC31·AC32·AC34·AC37 · D-017 ↔ AC32·AC36 · D-018 ↔ 비범위 · D-019 ↔ 비범위(기존 사이트 무변경). D-007(병합 키) 유지 — AC35 는 키를 바꾸지 않는다. D-008(4.6초·× 즉시 제거) 유지 — 본문 클릭도 즉시 제거. D-002 유지 — AC33.
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은 [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
 
