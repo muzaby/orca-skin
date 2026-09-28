@@ -231,10 +231,12 @@ describe('viewer toolbar production callbacks', () => {
       { title: 'actionFailed', detail: 'report.md: chat.artifacts.failed' }
     ])
   })
-  it('closes on an inaccessible file with a toast and never renders an error body (0242 ΔV2 AC20)', async () => {
+  it('keeps the open viewer and toasts when another file is inaccessible (0242 ΔV2 AC20 · ΔV4 AC26)', async () => {
+    const open = useArtifactViewerStore.getState().selection
     preview.mockResolvedValueOnce({ state: 'unavailable', reason: 'missing' })
-    await openArtifactViewer('key', 'session', { ...ref, title: 'Missing' })
-    expect(useArtifactViewerStore.getState().selection).toBeNull()
+    await openArtifactViewer('key', 'session', { ...ref, publicationId: 'gone', title: 'Missing' })
+    expect(useArtifactViewerStore.getState().selection).toBe(open)
+    expect(all(render()).some((element) => element.props.role === 'alert')).toBe(false)
     expect(toasts()).toEqual([
       { title: 'fileUnavailable', detail: 'report.md: chat.artifacts.missing' }
     ])

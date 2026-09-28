@@ -33,8 +33,10 @@ export function useArtifactCatalogViewer(): ArtifactsViewProps {
     if (!isCatalog) return
     return () => {
       origin.current = undefined
-      const current = useArtifactViewerStore.getState().selection
-      if (current?.sessionKey.startsWith(CATALOG_KEY)) closeArtifactViewer(current.sessionKey)
+      // 결과를 기다리는 카탈로그 열기(0242 ΔV4)도 함께 취소한다.
+      const { selection: current, opening } = useArtifactViewerStore.getState()
+      for (const key of new Set([current?.sessionKey, opening?.sessionKey]))
+        if (key?.startsWith(CATALOG_KEY)) closeArtifactViewer(key)
     }
   }, [isCatalog])
   const onOpen = useCallback((item: ArtifactCatalogItem, target: HTMLElement): void => {

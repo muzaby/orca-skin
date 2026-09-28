@@ -4,7 +4,7 @@ import { Button } from '../../../shared/ui/Button'
 import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
 import { useI18n } from '../../../shared/i18n'
 import { useChatSession, useChatStore } from '../store/chatStore'
-import { openArtifactViewer } from '../store/artifactViewerStore'
+import { openArtifactViewer, useArtifactViewerStore } from '../store/artifactViewerStore'
 import {
   acquireArtifacts,
   refreshArtifactStatuses,
@@ -33,6 +33,10 @@ export function ArtifactCards({
   const activeKey = useChatStore((state) => state.activeKey)
   const files = useArtifactStore((state) =>
     sessionId ? (state.sessions[sessionId]?.files ?? EMPTY_FILES) : EMPTY_FILES
+  )
+  // 결과를 기다리는 미리보기(0242 ΔV4) — 뷰어 공간 대신 누른 카드만 busy 로 표시한다.
+  const openingId = useArtifactViewerStore((state) =>
+    state.opening?.sessionKey === activeKey ? state.opening.publicationId : null
   )
   const getSnapshot = useEffectEvent(() => ({ artifacts, saveArtifacts }))
   const visibleKey = JSON.stringify(artifacts.map((ref) => [ref.publicationId, ref.artifactFileId]))
@@ -105,6 +109,7 @@ export function ArtifactCards({
           artifact={artifact}
           variant={variant}
           file={files[artifact.artifactFileId]}
+          opening={openingId === artifact.publicationId}
           onPreview={(selected, origin) => {
             if (useChatStore.getState().activeKey !== activeKey) return
             void openArtifactViewer(activeKey, sessionId, selected, origin)

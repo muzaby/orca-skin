@@ -11,6 +11,8 @@ interface ArtifactCardProps {
   artifact: ArtifactRef
   variant?: 'transcript' | 'list'
   file?: ArtifactFileView
+  /** 미리보기 결과를 기다리는 중 — 뷰어 공간 대신 이 버튼만 busy 로 표시한다(0242 ΔV4). */
+  opening?: boolean
   onAction: (artifact: ArtifactRef, action: ArtifactOperation) => void
   onPreview: (artifact: ArtifactRef, origin: HTMLElement) => void
 }
@@ -19,6 +21,7 @@ export function ArtifactCard({
   artifact,
   variant = 'transcript',
   file,
+  opening = false,
   onAction,
   onPreview
 }: ArtifactCardProps): React.JSX.Element {
@@ -44,8 +47,9 @@ export function ArtifactCard({
           data-artifact-preview={artifact.publicationId}
           onClick={(event) => onPreview(artifact, event.currentTarget)}
           disabled={file?.busy}
+          aria-busy={opening || undefined}
           aria-label={tr('chat.artifactViewer.open', { title: artifact.title })}
-          className="flex min-w-0 flex-1 items-center gap-g3 rounded-r4 text-left transition-colors hover:bg-bg2 hide-focus-ring ring-focus disabled:opacity-50"
+          className="flex min-w-0 flex-1 items-center gap-g3 rounded-r4 text-left transition-colors hover:bg-bg2 hide-focus-ring ring-focus disabled:opacity-50 aria-busy:cursor-progress"
         >
           <span
             aria-hidden
