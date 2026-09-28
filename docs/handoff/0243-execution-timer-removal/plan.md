@@ -12,10 +12,10 @@
 | 일자 | 2026-09-28 |
 | 매핑 | 브랜치 `claude/long-task-response-halt-ms2z08` |
 | 상태 | READY |
-| V mode | `Baseline V` |
-| 기준 V | `none` |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| V mode | `Delta V` |
+| 기준 V | `V1@d24c13f8` (공유 브랜치에서 확인) |
+| 이번 V revision | `ΔV1` — 구현 전 검토 보완 |
+| 유효 V | `V1 + ΔV1` (아래 대체 행 우선) |
 
 # Part I — Product & UX Contract
 
@@ -398,6 +398,70 @@ abort 발생원 → TurnCoordinator(deliverAbortTerminal) → forward sendChatEv
 - [x] 게이트 명령이 `app/AGENTS.md` 와 일치 — §19.
 - [x] `ACTIVE 결정 ↔ AC` 대조 결과 §3 갱신 메모에 기록.
 - [x] 문장 규칙 — 표 한 칸 3줄 이내 확인.
+
+---
+
+## ΔV1 — 중단 전달·저장 실패·검증 경로 정정
+
+READY. 사용자 `handoff-impl` 요청에 따라 사전 검토의 누락을 구현 전에 닫는다. V1의 D-001~D-009와 제품 범위는 유지하며, 아래 행이 지목한 V1 규범 행만 대체한다.
+
+### 근거와 결정 승계
+
+| 발견 | 코드 관측 | 정정 |
+|---|---|---|
+| controller abort만으로 프레임이 닫히지 않음 | `SessionRuntime.wrapRequest`는 채널 signal을 사용하고 `consumeFrame`은 frame만 기다린다. 사전 프로브에서 controller abort 뒤 run 미완료, markAborted 뒤 완료 | coordinator가 run 동안 abort를 runtime에 전달하고 종료 후 구독을 제거 |
+| finalize는 settleEmit 격리 밖 | `HistoryWriter.finalizeTurn`의 DB throw가 호출자까지 전파됨 | helper에서 finalize 오류를 별도 격리하고 terminal 전달을 계속 |
+| 문서 음성 게이트의 오검출·누락 | `rg -i stall` 34행 중 단어 stall은 6행, 나머지는 install 등. `persistence.md:115`도 삭제 대상 | 단어 경계·idle timeout 술어로 정정, persistence 문서 포함 |
+| 인벤토리 실행 cwd | 저장소 루트 실행은 `src/shared/ipc.ts` ENOENT, app 실행은 통과 | `cd app` 후 `node scripts/check-doc-inventory.mjs --check` |
+
+- ACTIVE 결정 ↔ AC 대조: 충돌 0. D-006·D-007은 아래 AC3·AC13으로 누락 경로를 보완하고 D-001~D-005·D-008·D-009는 승계한다.
+- 새 제품 결정은 없다. `AbortCause` 내부의 `user_cancelled`는 기존 런타임 중단 수단으로 재사용하며, 사용자에게 보내는 reason은 D-008의 `interrupted`다.
+- V1 §13의 "settleEmit이 finalize 오류까지 격리" 주장은 폐기한다. UI는 기존 §5의 비사용자 중단 행으로 종료하고 실패한 DB 기록은 기존 부팅 복구 대상이다.
+
+### AC 정정 및 추가
+
+| AC | 대체 관계 | 행동·oracle | production path |
+|---|---|---|---|
+| AC3 | 신규 (V1에 AC3 행 없음) | 실제 SessionRuntime+coordinator에 무출력 채널을 연결하고 controller만 abort → runtime interrupt·run resolve·interrupted 1건. run 이전 abort는 send 0건, run 종료 후 abort는 runtime 추가 중단 0건 | controller → run abort listener → markAborted → frame.cancel → terminal |
+| AC5 | V1 AC5 대체 | stream throw 시 controller가 aborted면 runtime.cancelled 값과 무관하게 interrupted 1건·error 0건. retry backoff abort도 동일; 기존 AC4의 정착·마감·boundary 순서를 승계 | catch abort 분기·backoff catch |
+| AC11 | V1 AC11의 검색 oracle 대체 | reason union은 기존 행동 유지. `rg -n -i '\bstall\b|idle timeout' docs/arch docs/IPC_CONTRACT.md` 0행; 설치 관련 서술은 유지 | shared/ipc → 문서 4개(IPC·runtime-ipc·provider-runtime·persistence) |
+| AC13 | 신규 | finalize throw를 주입해도 helper가 interrupted 1건·boundary aborted를 전달하고 run이 resolve, 오류 UI 이벤트 0건. 열린 tool 정착은 finalize 시도보다 먼저 | settleEmit → finalize 격리 → forward → boundary |
+
+유효 AC는 1~13의 13행이다. AC12는 사람 실기로 유지하며 나머지는 기계 검증한다. V1 AC4는 frame 종료를 주입하는 단위 oracle로 유지하고 AC3가 실제 중단 배선을 별도로 잠근다.
+
+### Delta V와 강제 지점
+
+| Node | provenance | 변경 / 승계 |
+|---|---|---|
+| R-02·R-05 | INHERITED | D-006~D-008 사용자 결과·문서 일치 |
+| SD-01·AR-01 | CHANGED | abort 전달·listener 수명·finalize 실패 격리 추가 |
+| MD-01·MD-02·R-01·R-03·R-04 | INHERITED | V1 계약 유지 |
+
+| Pair | V1 대체 관계 / requiredness | path·직접 oracle | 강제 지점 / 선택 적대 증거 |
+|---|---|---|---|
+| VP-02 | V1 VP-02 대체 / REGRESSION | 기존 경로 + abort listener, AC3~AC5·AC7~AC9·AC13·AC12② | EP-01·02·07·08. 기존 helper 호출 삭제 3자리 유지 |
+| VP-05 | V1 VP-05 대체 / REGRESSION | 기존 reason·문서 경로, 정정 AC11 | EP-05, 기존 not selected 유지 |
+| VP-06 | V1 VP-06 대체 / REQUIRED (SD-01↔ST-01) | 종료 3분기 + 사전 abort·DB 실패, AC3~AC5·AC7·AC13 | EP-01·06·07·08. stream terminal flag 삭제 변이 유지 |
+| VP-07 | V1 VP-07 대체 / REQUIRED (AR-01↔IT-01) | controller·실제 runtime·IPC handler·persist 연결, AC3·AC6·AC9·AC13 | EP-02·07·08. 직접 행동 oracle, not selected 유지 |
+
+나머지 VP-01·03·04·08·09는 V1의 REQUIRED·oracle·등록 변이를 그대로 실행한다. VP-02의 helper 삭제 3자리, VP-04의 handler flag 삭제, VP-06의 stream flag 삭제, VP-08의 120초 abort 재삽입 = 등록 변이 6개이며 폐기된 변이는 없다.
+
+| EP | V1 대체 관계 | 실제 자리·강제 의미 |
+|---|---|---|
+| EP-01 | 기존 3자리 유지, catch 조건 정정 | 정상 for-await 종료·controller aborted catch·backoff abort catch에서 helper 호출. runtime.cancelled가 false여도 abort 의미 우선 |
+| EP-03 | V1의 파일/심볼 묶음 11을 자리 수로 간주하지 않음 | 삭제 inventory는 §11 파일 목록과 `rg`의 실제 심볼·사용처를 비교해 구현 보고에서 열거. policy의 listen 값, getter 본문과 주석도 포함 |
+| EP-05 | 문서 범위 보완 | reason union 1·IPC reason 행 1·IPC idle timeout 2·runtime-ipc stall 4·provider-runtime stall 1·persistence stall 1 = 10자리 |
+| EP-06 | V1의 모호한 forward(error) 2곳 정정 | 성공한 stream terminal emit 뒤 1·합성 telemetry emit 뒤 1·generic error forward 뒤 1 = 3자리. 제거할 stall catch는 새 갱신 자리가 아님 |
+| EP-07 | 신규 | run 구독 등록 1·pre-aborted 판정 1·runtime.markAborted 전달 1·finally 구독 해제 1 = 4자리. pre-aborted는 send 없이 helper로 종료 |
+| EP-08 | 신규 | helper의 finalize try/catch 1. DB 오류는 로그만 남기며 이어지는 terminal 송신을 막지 않음 |
+
+### 기술 보완·gate
+
+- coordinator의 abort listener는 run 수명에 묶는다. 이미 runtime.cancelled면 markAborted를 반복하지 않으며, chatCancel은 기존 abortTurn 다음 동기 흐름에서 ack를 세워 helper와 중복하지 않는다.
+- terminalForwarded는 emit/forward가 성공한 뒤 기록한다. abort helper는 정착 → finalize 시도 → interrupted 송신 → ack 순이며, finalize 실패만 독립 격리한다.
+- V1 §11/§18 문서 목록에 `docs/arch/backend/persistence.md`를 추가한다. AC2의 background-controller 예외와 접속·probe 보존은 그대로다.
+- 운영 gate는 V1을 승계하되 문서 검사는 app cwd로 정정한다. 실제 runtime/handler integration과 mail integration을 관련 테스트에 포함하고 DB ABI 실패는 별도 보고한다.
+- READY 검산: 변경 SD-01·AR-01은 REQUIRED VP-06·07, 상위 R-02·R-05는 REGRESSION VP-02·05로 연결. 각 추가 AC는 EP-07·08 또는 정정 EP-05에 도달하며 기존 등록 변이 6개를 전부 승계한다.
 
 ---
 
