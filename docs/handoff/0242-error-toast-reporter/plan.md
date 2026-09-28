@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-27 |
 | 매핑 | 없음 |
-| 상태 | ΔV5 impl/IMPL_DONE — r1.5, Codex 구현·게이트 완료, 다음 Claude 독립 검증. AC30 사람 실기 대기. V1~ΔV4 verify/PASS 유지 |
+| 상태 | verify/PASS — V1+ΔV1 r1 · ΔV2~ΔV4 r1.4 · ΔV5 r1.5 ([verify.md](verify.md)), 사람 실기 대기 |
 | V mode | `Delta V` |
 | 기준 V | `V1@abb4e49a` (공유 브랜치, `git cat-file -t` = commit) |
 | 이번 V revision | `ΔV5` (ΔV4 r1.4 verify/PASS `ef3cd63` 이후) |
@@ -1402,7 +1402,7 @@ reportError({target?}) ─ main → hub → reportEvent/drain(IPC) ─→ bridge
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
 | D1 | 레지스트리가 `reportError` 식별자만 본다 — 로컬 no-op 섀도잉이 green | VP-04 (oracle 충족) | import 결합 단언 검토 | NON_BLOCKING | open |
-| D2 | Host `key={id:seq}` 미잠금 — 동작은 정상 | §11 카드 계약 | key 단언 추가 검토 | NON_BLOCKING | open |
+| D2 | Host `key={id:seq}` 미잠금 — 동작은 정상 | §11 카드 계약 | key 단언 추가 검토 | NON_BLOCKING | closed (r1.5 key 단언, `seq` 제거 변이 red) |
 | D3 | 같은 webContents reload 중 main 보고 유실 | 비귀속 | 탐색 시작 시 `forget` 검토 | NON_BLOCKING | open |
 | D4 | bridge `seen` 무상한 증가 | 비귀속 | 상한 정책 | NON_BLOCKING | open |
 | D5 | `errors.bridge.failed` 자리가 표·레지스트리 밖 | D-004 | 레지스트리 행 추가 | NON_BLOCKING | open |
@@ -1413,3 +1413,7 @@ reportError({target?}) ─ main → hub → reportEvent/drain(IPC) ─→ bridge
 | D10 | `docs/arch/frontend/rendering.md:206`이 제거된 "다시 확인"·불가 상태 표시를 서술 | 운영 규칙 | 문장 정정 | NON_BLOCKING | open |
 | D11 | 끝나지 않는 preview에서 카드 busy 지속·재클릭 무시, 기존 뷰어 닫기가 대기 열기도 취소 | ΔV4 설계 부작용 | 필요 시 사용자 판단 | NON_BLOCKING | open |
 | D12 | `chat.artifacts.checking` 키 참조 0 | 비귀속 | 죽은 키 정리 | NON_BLOCKING | open |
+| D13 | Boot/Gate frame에서는 `AppLayout`·`SettingsModal`이 없어 page/settings 대상 클릭이 보이는 변화 없이 카드만 닫힌다 | D-016 (현재 대상 호출부 0, D-019) | 첫 대상 지정 호출부 도입 시 게이트 중 동작 결정 | NEXT_HANDOFF | open |
+| D14 | 로그 폴더 열기 실패 toast 설명에 Electron invoke 래퍼 문구가 붙는다 | AC33 (충족) | 래퍼 제거 검토 | NON_BLOCKING | open |
+| D15 | plan 메타 `V1@abb4e49a`·`ef3cd63`이 리베이스 전 해시(INDEX 11건은 r1.5 검증에서 교정) | 운영 규칙(좌표) | 설계자 다음 revision에서 `c6cb383`·`077a838`로 정정 | NON_BLOCKING | open |
+| D16 | 설계 커밋 `368358f` 제목·본문 사이 빈 줄 누락 | 커밋 형식 | 기록 | NON_BLOCKING | open |
