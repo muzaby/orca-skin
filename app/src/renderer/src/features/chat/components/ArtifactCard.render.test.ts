@@ -35,8 +35,7 @@ function render(
       file,
       variant,
       onAction: vi.fn(),
-      onPreview: vi.fn(),
-      onRefresh: vi.fn()
+      onPreview: vi.fn()
     })
   )
 }
@@ -103,9 +102,11 @@ describe('artifact metadata card', () => {
     expect(html).not.toContain('문서 · HTML')
     expect(html).not.toContain('role="button"')
   })
-  it('keeps checking and disables busy actions while omitting the transient busy label from output lists', () => {
+  it('disables actions only while busy and shows no checking label (0242 ΔV2 D-012)', () => {
     for (const variant of ['transcript', 'list'] as const) {
-      expect(render(undefined, variant)).toContain('확인 중')
+      const unchecked = render(undefined, variant)
+      expect(unchecked).not.toContain('확인 중')
+      expect(unchecked).not.toContain('disabled=""')
       const busy = render(
         {
           checking: false,
@@ -125,9 +126,9 @@ describe('artifact metadata card', () => {
     }
   })
   it.each(['transcript', 'list'] as const)(
-    'keeps missing and inaccessible states without storage metadata in %s',
+    'does not reveal missing or inaccessible files ahead of an action in %s (0242 ΔV2 D-011)',
     (variant) => {
-      const missing = render(
+      const states: ArtifactFileView[] = [
         {
           checking: false,
           busy: false,
@@ -135,31 +136,36 @@ describe('artifact metadata card', () => {
           availability: { state: 'missing' },
           lastTrashedAt: 10
         },
-        variant
-      )
-      expect(missing).toContain('파일 없음')
-      expect(missing).not.toContain('휴지통으로 이동한 시각')
-      expect(missing).toContain('다시 확인')
-      expect(missing).not.toContain('보관 폴더 열기')
-      if (variant === 'transcript')
-        expect(missing).toMatch(/<button[^>]*disabled=""[^>]*aria-label="다운로드"/)
-      const denied = render(
         {
           checking: false,
           busy: false,
           version: 1,
           availability: { state: 'unavailable', reason: 'access-denied' }
         },
-        variant
-      )
-      expect(denied).toContain('파일에 접근할 수 없음')
-      expect(denied).not.toContain('파일 없음')
+        { checking: true, busy: false, version: 1 }
+      ]
+      for (const file of states) {
+        const html = render(file, variant)
+        for (const text of [
+          '파일 없음',
+          '파일에 접근할 수 없음',
+          '확인 중',
+          '다시 확인',
+          'role="status"'
+        ])
+          expect(html).not.toContain(text)
+        expect(html).not.toContain('disabled=""')
+        const items = Children.toArray(menu.children).filter(
+          (node) => isValidElement<MenuItemProps>(node) && node.type === MenuItem
+        )
+        for (const node of items)
+          if (isValidElement<MenuItemProps>(node)) expect(node.props.disabled).not.toBe(true)
+      }
     }
   )
   it('keeps the same publication identity and all auxiliary actions in both variant menus', () => {
     for (const variant of ['transcript', 'list'] as const) {
       const onAction = vi.fn()
-      const onRefresh = vi.fn()
       renderToStaticMarkup(
         createElement(ArtifactCard, {
           artifact,
@@ -171,8 +177,7 @@ describe('artifact metadata card', () => {
             availability: { state: 'present', sizeBytes: 123, modifiedAt: 1 }
           },
           onAction,
-          onPreview: vi.fn(),
-          onRefresh
+          onPreview: vi.fn()
         })
       )
       const items = Children.toArray(menu.children).filter(
@@ -180,7 +185,7 @@ describe('artifact metadata card', () => {
       )
       expect(
         items.map((node) => isValidElement<MenuItemProps>(node) && node.props.children)
-      ).toEqual(['다른 이름으로 저장', '탐색기에서 보기', '다시 확인', '휴지통으로 이동'])
+      ).toEqual(['다른 이름으로 저장', '탐색기에서 보기', '휴지통으로 이동'])
       for (const node of items) {
         if (isValidElement<MenuItemProps>(node)) {
           expect(node.props.disabled).not.toBe(true)
@@ -192,8 +197,7 @@ describe('artifact metadata card', () => {
         [artifact, 'reveal'],
         [artifact, 'trash']
       ])
-      expect(onRefresh).toHaveBeenCalledOnce()
-      expect(Children.toArray(menu.children)).toHaveLength(4)
+      expect(Children.toArray(menu.children)).toHaveLength(3)
     }
   })
   it('maps known failure reasons and never displays a raw host error', () => {

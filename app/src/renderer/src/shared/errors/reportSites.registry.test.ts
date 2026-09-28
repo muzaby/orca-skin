@@ -152,7 +152,10 @@ export const sites: Site[] = [
     file: 'features/chat/components/rightpanel/TaskContextContent.tsx',
     ordinal: 0,
     line: 54,
-    disposition: 'CONSUMED'
+    disposition: 'TOAST',
+    id: 'T34',
+    event: 'files.context-open.failed',
+    title: 'openFailed'
   },
   {
     file: 'features/chat/components/transcript/ForegroundShellActions.tsx',
@@ -171,7 +174,10 @@ export const sites: Site[] = [
     file: 'features/chat/hooks/useArtifactViewerActions.ts',
     ordinal: 0,
     line: 47,
-    disposition: 'CONSUMED'
+    disposition: 'TOAST',
+    id: 'T35',
+    event: 'artifacts.viewer-action.failed',
+    title: 'actionFailed'
   },
   { file: 'features/chat/hooks/useAttachments.ts', ordinal: 0, line: 57, disposition: 'EXCLUDE' },
   {

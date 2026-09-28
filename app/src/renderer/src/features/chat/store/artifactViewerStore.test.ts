@@ -8,6 +8,7 @@ import {
   toggleArtifactViewerExpanded,
   useArtifactViewerStore
 } from './artifactViewerStore'
+import { errorToastStore } from '../../../shared/errors/errorToastStore'
 
 const ref: ArtifactRef = {
   publicationId: 'p',
@@ -25,6 +26,7 @@ const ready: ArtifactPreviewResult = {
   mimeType: 'text/markdown'
 }
 const preview = vi.fn()
+const logError = vi.fn()
 function deferred(): {
   promise: Promise<ArtifactPreviewResult>
   resolve: (value: ArtifactPreviewResult) => void
@@ -38,7 +40,10 @@ function deferred(): {
 beforeEach(() => {
   closeArtifactViewer()
   preview.mockReset().mockResolvedValue(ready)
-  vi.stubGlobal('window', { orca: { artifacts: { preview } } })
+  logError.mockReset()
+  for (const toast of errorToastStore.getState().toasts)
+    errorToastStore.getState().dismiss(toast.id)
+  vi.stubGlobal('window', { orca: { artifacts: { preview }, log: { error: logError } } })
 })
 afterEach(() => vi.unstubAllGlobals())
 describe('viewer selection and request lifetime', () => {
@@ -98,13 +103,18 @@ describe('viewer selection and request lifetime', () => {
     closeArtifactViewer('key-a')
     expect(useArtifactViewerStore.getState().selection?.sessionId).toBe('b')
   })
-  it('retry clears old errors and stale content, then reports the newest failure', async () => {
+  it('closes the viewer and reports an inaccessible file as a toast instead of an error body (0242 ΔV2 AC20)', async () => {
+    const toasts = (): unknown[] =>
+      errorToastStore.getState().toasts.map(({ title, detail }) => ({ title, detail }))
     preview.mockResolvedValueOnce({ state: 'unavailable', reason: 'missing' })
     await openArtifactViewer('key', 's', ref)
-    expect(useArtifactViewerStore.getState().selection?.result).toEqual({
-      state: 'unavailable',
-      reason: 'missing'
-    })
+    expect(useArtifactViewerStore.getState().selection).toBeNull()
+    expect(toasts()).toEqual([
+      { title: 'fileUnavailable', detail: 'report.md: 파일 없음 — 삭제되었거나 이동되었습니다' }
+    ])
+    expect(logError.mock.calls.map(([event]) => event)).toEqual(['artifacts.preview.failed'])
+
+    await openArtifactViewer('key', 's', ref)
     const pending = deferred()
     preview.mockReturnValueOnce(pending.promise)
     const retry = retryArtifactViewer()
@@ -115,11 +125,30 @@ describe('viewer selection and request lifetime', () => {
     pending.resolve(ready)
     await retry
     expect(useArtifactViewerStore.getState().selection?.result).toEqual(ready)
+
     preview.mockRejectedValueOnce(new Error('private path'))
     await retryArtifactViewer()
+    expect(useArtifactViewerStore.getState().selection).toBeNull()
+    expect(toasts()).toHaveLength(2)
+    expect(JSON.stringify(toasts())).not.toContain('private path')
+  })
+  it('keeps unsupported formats in the viewer body without a toast', async () => {
+    preview.mockResolvedValueOnce({ state: 'unavailable', reason: 'unsupported-format' })
+    await openArtifactViewer('key', 's', ref)
     expect(useArtifactViewerStore.getState().selection?.result).toEqual({
       state: 'unavailable',
-      reason: 'io-error'
+      reason: 'unsupported-format'
     })
+    expect(errorToastStore.getState().toasts).toEqual([])
+  })
+  it('drops a late unavailable result for a replaced selection without a toast', async () => {
+    const pending = deferred()
+    preview.mockReturnValueOnce(pending.promise)
+    const first = openArtifactViewer('key', 's', ref)
+    await openArtifactViewer('key', 's', { ...ref, publicationId: 'p2' })
+    pending.resolve({ state: 'unavailable', reason: 'missing' })
+    await first
+    expect(useArtifactViewerStore.getState().selection?.artifact.publicationId).toBe('p2')
+    expect(errorToastStore.getState().toasts).toEqual([])
   })
 })

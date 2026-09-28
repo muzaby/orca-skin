@@ -11,6 +11,7 @@ const h = vi.hoisted(() => ({
   acquire: vi.fn(() => vi.fn()),
   status: vi.fn(),
   action: vi.fn(),
+  report: vi.fn(),
   same: (a: readonly unknown[], b: readonly unknown[]): boolean =>
     a.length === b.length && a.every((value, i) => Object.is(value, b[i]))
 }))
@@ -55,6 +56,7 @@ vi.mock('../store/artifactStore', () => ({
   runArtifactAction: h.action
 }))
 vi.mock('../../../shared/i18n', () => ({ useI18n: () => ({ tr: (key: string) => key }) }))
+vi.mock('../lib/artifactIssueReport', () => ({ reportArtifactIssue: h.report }))
 import { ArtifactCard } from './ArtifactCard'
 import { ArtifactCards } from './ArtifactCards'
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
@@ -162,8 +164,8 @@ it('same publication IDs from another transcript projection do not resubscribe o
   expect(h.status).toHaveBeenLastCalledWith('other', [ref])
 })
 
-it('trash waits for confirmation, captures the original session, and drops a late result after cleanup', async () => {
-  let resolve!: (result: { outcome: 'trashed'; deletionRecorded: boolean }) => void
+it('trash waits for confirmation and still reports a late failure after the session changes (0242 ΔV2)', async () => {
+  let resolve!: (result: { outcome: 'already-missing' }) => void
   h.action.mockImplementation(
     () =>
       new Promise((done) => {
@@ -180,8 +182,71 @@ it('trash waits for confirmation, captures the original session, and drops a lat
   expect(h.action).toHaveBeenCalledWith('s', [ref], 'trash')
   h.sessionId = 'other'
   render()
-  resolve({ outcome: 'trashed', deletionRecorded: true })
+  resolve({ outcome: 'already-missing' })
   await Promise.resolve()
   await Promise.resolve()
-  expect(h.states[0]).toBeNull()
+  expect(h.report.mock.calls).toEqual([
+    [{ event: 'artifacts.trash.failed', filename: 'report.md', reason: 'missing' }]
+  ])
+})
+
+it('reports each failed action issue as a toast and renders no inline issue list (0242 ΔV2 AC19)', async () => {
+  const other = { ...ref, publicationId: 'q', artifactFileId: 'g', filename: 'data.csv' }
+  const cases: [unknown, unknown[]][] = [
+    [
+      {
+        outcome: 'completed',
+        items: [
+          { publicationId: 'p', outcome: 'failed', reason: 'missing' },
+          { publicationId: 'q', outcome: 'failed', reason: 'access-denied' }
+        ]
+      },
+      [
+        { event: 'artifacts.save.failed', filename: 'report.md', reason: 'missing' },
+        { event: 'artifacts.save.failed', filename: 'data.csv', reason: 'access-denied' }
+      ]
+    ],
+    [
+      { ok: false, reason: 'unsafe-path' },
+      [{ event: 'artifacts.reveal.failed', filename: 'report.md', reason: 'unsafe-path' }]
+    ],
+    [
+      { outcome: 'trashed', deletionRecorded: false },
+      [
+        {
+          event: 'artifacts.trash.failed',
+          filename: 'report.md',
+          reason: undefined,
+          messageKey: 'chat.artifacts.trashedUnrecorded'
+        }
+      ]
+    ],
+    [{ ok: false, reason: 'busy' }, []],
+    [{ outcome: 'completed', items: [{ publicationId: 'p', outcome: 'saved' }] }, []],
+    [{ outcome: 'cancelled', items: [] }, []]
+  ]
+  for (const [result, expected] of cases) {
+    h.report.mockClear()
+    h.action.mockResolvedValueOnce(result)
+    const refs = expected.length === 2 ? [ref, other] : [ref]
+    const tree = render(refs) as ReactElement<{ children: unknown[] }>
+    const operation =
+      (expected[0] as { event?: string } | undefined)?.event?.split('.')[1] ?? 'save'
+    const cards = tree.props.children[1] as ReactElement<{
+      onAction: (ref: ArtifactRef, action: string) => void
+    }>[]
+    if (refs.length === 2) {
+      const saveAll = tree.props.children[0] as ReactElement<{
+        children: ReactElement<{ onClick: () => void }>
+      }>
+      saveAll.props.children.props.onClick()
+    } else {
+      cards[0].props.onAction(ref, operation)
+      if (operation === 'trash') useConfirmStore.getState().request?.onConfirm()
+    }
+    for (let i = 0; i < 4; i++) await Promise.resolve()
+    expect(h.report.mock.calls.map(([call]) => call)).toEqual(expected)
+    const after = render(refs) as ReactElement<{ children: unknown[] }>
+    expect(after.props.children).toHaveLength(2)
+  }
 })

@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 import type { ArtifactRef, ArtifactPreviewResult } from '../../../../../shared/artifacts'
+import { previewFailureKey } from '../lib/artifactFeedback'
+import { reportArtifactIssue } from '../lib/artifactIssueReport'
 
 export interface ArtifactViewerSelection {
   sessionKey: string
@@ -32,10 +34,25 @@ async function readSelection(selection: ArtifactViewerSelection): Promise<void> 
   } catch {
     result = { state: 'unavailable', reason: 'io-error' }
   }
-  useArtifactViewerStore.setState((state) => {
-    if (state.selection?.request !== selection.request) return state
-    return { selection: { ...state.selection, loading: false, result } }
-  })
+  if (useArtifactViewerStore.getState().selection?.request !== selection.request) return
+  // 0242 ΔV2 (D-011) — 파일에 접근할 수 없으면 뷰어 본문에 불가 화면을 두지 않는다. 미리보기를
+  // 요청한 사용자에게 사유를 toast 로 알리고 뷰어를 닫는다. 형식 미지원은 접근 불가가 아니라
+  // 다운로드로 이어지는 정상 상태라 본문에 남긴다.
+  if (result.state === 'unavailable' && result.reason !== 'unsupported-format') {
+    useArtifactViewerStore.setState({ selection: null })
+    reportArtifactIssue({
+      event: 'artifacts.preview.failed',
+      filename: selection.artifact.filename,
+      reason: result.reason,
+      messageKey: previewFailureKey(result.reason)
+    })
+    return
+  }
+  useArtifactViewerStore.setState((state) =>
+    state.selection?.request !== selection.request
+      ? state
+      : { selection: { ...state.selection, loading: false, result } }
+  )
 }
 
 export async function openArtifactViewer(
