@@ -457,3 +457,208 @@ main 사이트/전역   → infra/error-report.reportError → logger(1) → Err
 - 변이: 등록 15/15 red · 독립 10축 중 8 red · 형제 맞바꿈 2/2 red · r1 red 재실행 4/4 red.
 - 비차단: D8~D12.
 - 다음 단계: 사람 실기(ΔV4 플리커 · r1 AC2·AC13) 뒤 archive 이동.
+
+# r1.5 검증 — ΔV5
+
+> V1~ΔV4 판정은 위 r1·r1.4 본문 그대로 유효하다. 이 절은 ΔV5(D-015~D-019, AC30~38)와 구현 r1.5만 채점한다.
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| 일자 | 2026-09-28 |
+| 대상 커밋/range | `077a838..9b9c4ed` — 설계 `368358f`, 구현 `9b9c4ed` |
+| 구현 전 plan 기준 | `368358f` |
+| V mode / 유효 V | `Delta V` / `V1 + ΔV1 … ΔV4 + ΔV5@368358f` |
+| 라운드 | 1 (r1.5는 사용자 요구 변경 impl 턴 — review 트리거 미해당) |
+| 상태 | **PASS** |
+| 자기 검증 여부 | **아니오** — 구현 Codex(`Agent: codex`), 검증 Claude. 그래도 보고에 없는 독립 축 19건과 §10 재열거를 넣었다 |
+
+## 0. 기준선 / plan 변경 확인
+
+- 기준선은 diff로 성립한다. 설계 `368358f`가 구현 `9b9c4ed`보다 먼저, 따로 있다.
+- 구현 커밋의 `plan.md` 변경은 메타 `상태` 행 1줄과 `[구현자 기입]` 절 삽입뿐이다. Decision·AC·V·§10 행 변경 0.
+- 채점 기준: ΔV5 AC30~38 · VP-26~30 · VP-06·15(CHANGED) · VP-11·08·02(REGRESSION) · EP-21~25.
+
+### Plan validity
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| Delta V mode·상속 기준 | 유효(좌표 결함은 D15) | 기준 revision `ΔV4 r1.4 PASS`를 명시. 인용 해시는 리베이스 전 값이라 죽었으나 subject로 `077a838` 특정 가능 |
+| NEW/CHANGED ↔ REQUIRED | 유효 | R-16·17·SD-03·AR-04·MD-06 NEW → VP-26~30, R-06·AR-02 CHANGED → VP-06·15 |
+| INHERITED ↔ REGRESSION | 유효 | VP-11(IPC 문서)·VP-08(카드 시각)·VP-02(로그 동반) |
+| path·§10·oracle | 유효 | 각 pair에 EP 자리 수와 직접 oracle |
+| 선택 적대 증거 | 유효 | VP-26~29 required(자리 명시), VP-30 not selected(직접 결과 단언) |
+| 운영 gate | 유효 | V1 §19 승계 |
+
+- root PLAN_GAP: 없음.
+
+## 1. Product & UX / ACTIVE Decision
+
+| Decision | 기대 결과 | 실제 production path |
+|---|---|---|
+| D-015 | 설명 최대 8줄, 초과 `…`, 제목 그대로 | `ErrorToastHost.tsx:43` 설명 `<p>`만 `line-clamp-8` |
+| D-016 | 본문 클릭 → 지정 page/settings, 그 카드 닫기 | Host 본문 button(`:23-29`) → `ErrorToastLayer` → `openErrorTarget` → `navigate`/`useOpenSettings` |
+| D-017 | 대상 없음 → 탐색기에서 로그 파일 | `errorApi.revealLog` → preload → `orca:error:revealLog` → `flushLogSync` → `showItemInFolder(currentLogFilePath())` |
+| D-018 | warning·fetcher 범위 밖 | 변경 0 |
+| D-019 | 기존 사이트 대상 미지정 | 비테스트 코드에서 `target:`을 넘기는 `reportError`/`publishErrorReport` 호출 0 |
+
+```text
+reportError({target?}) renderer ─→ presentErrorReport → errorToastStore(applyErrorReport: 신규 spread / 병합 교체)
+reportError·publishErrorReport main ─→ hub(sink | pending) → sink send / drain → bridge present ─┘
+  → ErrorToastHost 본문 button click → onOpen(target) · dismiss(id)
+  → ErrorToastLayer → openErrorTarget: page → navigate · settings → show(tab) · 없음/무효 → revealLog
+       revealLog reject → reportError('errors.reveal-log.failed', openFailed)
+```
+
+## 2. 구현 비판적 검토 — AC 전에
+
+| 축 | 판정 | 관측 |
+|---|---|---|
+| false success | 없음 | 폴더 열기 오류 문자열 → throw → renderer reject → toast+로그(AC33·36). `showItemInFolder`는 반환값이 없어 실패 관측 불가(구현자 보고 #3) |
+| 무효 대상 | 안전 | 런타임 가드 실패 → 로그 위치. `//x`·상대 경로·잘못된 탭·비객체 10사례 |
+| 게이트 화면 | ⚠️ | `RootGate`가 Boot/Gate frame일 때 `AppLayout`·`SettingsModal`(사이드바 footer에만 mount)이 없어 page/settings 대상 클릭은 보이는 변화 없이 카드만 닫힌다 → D13. 현재 대상 지정 호출부 0 |
+| 오류 문구 | ⚠️ | 폴더 열기 실패 toast 설명은 Electron 래퍼(`Error invoking remote method 'orca:error:revealLog': Error: …`)를 포함한다 → D14 |
+| 병합·중복 | 계약대로 | 키 = 제목+설명(target 제외). hub 1초 dedupe도 target을 보지 않아 같은 문구·다른 대상의 두 번째 보고는 버려진다 — plan "키·cooldown 불변"과 일치 |
+
+## 3. 역방향 탐색
+
+- `scan-surface.sh 368358f..9b9c4ed`: 1a·1b·2 후보는 전부 이번 diff가 추가하지 않은 기존 심볼. 형제 비대칭 0.
+- 신규 export 5개(`logFilePath`·`currentLogFilePath`·`errorApi`·`openErrorTarget`·`ErrorToastLayer`)는 모두 production 호출자가 있다.
+- 테스트의 동명 재구현: 없음. Layer·handler 테스트는 production `ErrorToastLayer()`·`registerErrorHandlers()`를 직접 부른다.
+
+## 4. semantic 검증 — 변이 재측정
+
+- 구현자 runner를 scratchpad 사본(출력 경로만 교체)으로 실행, 각 변이 뒤 원본 복원. 종료 후 `git status` 깨끗.
+- **등록·보고 변이 18/18 red** — 실패 수까지 구현자 `r1.5-mutations.json`과 동일.
+- **독립 축 19건 19 red** (관련 34파일 스위트, 로드 실패 0).
+- **이전 라운드 red 재실행**: 이번 변경이 닿은 모델·Host·bridge 변이 4건 전부 red → 덮개 회귀 0. r1 X8(`key`의 `seq` 제거, green → D2)은 이번에 red → **D2 closed**.
+
+| 변이 | 결과 | 귀속 |
+|---|---|---|
+| VP-26 clamp 설명→제목 맞바꿈 | red 1 | VP-26 |
+| VP-27 a 본문 dismiss 삭제 · b ×가 onOpen · c page/settings 맞바꿈 · d 가드 삭제 | red 2 · 1 · 1 · 8 | VP-27 |
+| VP-28 renderer · main · publish · 이벤트 · drain 자리 target 누락 | red 1 · 2 · 2 · 1 · 1 | VP-28 5자리 |
+| VP-29 flush 삭제 · Layer no-op | red 2 · 1 | VP-29 |
+| mount 제거 · animation key · preload 채널 · API no-op | red 2 · 4 · 1 · 2 | 구현자 신규 oracle |
+| VP-02 a·b | red 1 · 1 | VP-02 REGRESSION |
+| X1 settings 탭 가드 제거 · X2 `//` 가드 제거 | red 1 · 1 | 독립(AC32 가드 2축) |
+| X3 병합 시 없음이면 이전 target 유지 · X4 병합 교체 안 함 | red 1 · 1 | 독립(AC35) |
+| X5 신규 카드 spread에서 target 제거 | red 3 | 독립(EP-23 model 자리) |
+| X6 파일 선택 대신 openPath(file) · X7 openPath 오류 무시 · X8 존재 검사 반전 | red 1 · 1 · 3 | 독립(AC36) |
+| X9 Host가 `toasts[0].target` 전달(형제 카드 맞바꿈) | red 1 | 형제 슬롯 |
+| X10 reveal 실패 title 변경 · X11 reveal 실패 보고 삭제 | red 1 · 1 | 독립(AC33) |
+| X12 fallback 파일명 drift(`app.jsonl`) | red 1 | 독립(경로 SSOT) |
+| X13 hub pending · X14 sink send · X15 `presentErrorReport`에서 target 제거 | red 1 · 1 · 2 | 독립(EP-23 중간 운반 자리) |
+| X16 clamp 8→3 · X17 본문 button→div | red 1 · 2 | 독립(AC30·31) |
+| X18 Layer settings를 navigate로 · X19 유효 대상 뒤 `return` 삭제(revealLog 동반) | red 1 · 2 | 독립(AC37·32) |
+| P 병합 만료 재설정 삭제 · 다크 `--shadow-toast` 삭제 · drain을 구독보다 먼저 · `motion-reduce` 삭제 | red 2 · 1 · 1 · 1 | 이전 라운드 red 재실행 |
+
+## 5. V-pair closeout
+
+| Pair | 레벨 | 판정 | 증거 |
+|---|---|---|---|
+| VP-30 MD-06↔UT-06 | UT | PASS | 모델 테스트: 500ms 동일 참조 · 1200ms 교체 · 2400ms 제거, id·key·카드 수 불변. X3·X4 red |
+| VP-06 (CHANGED) | UT | PASS | 기존 cap·cooldown·만료 테스트 + P 만료 변이 red |
+| VP-29 AR-04↔IT-04 | IT | PASS | handler 3건(순서 flush→exists→select · 폴더 · reject) · preload 채널 · Layer deps. 등록 2 + X6~8·X18 red |
+| VP-15 (CHANGED) | IT | PASS | `App.projects` 트리에 `ErrorToastLayer` · render 테스트 `<ErrorToastHost` 직접 mount 0. mount 제거 red |
+| VP-28 SD-03↔ST-03 | ST | PASS | reporter 단위 + main hub→drain/sink→bridge→store 통합. 5자리 + 중간 자리 X5·X13~15 red |
+| VP-26 R-16↔AT-16 | AT | PASS | 클래스 단언 + **Chromium 실측**(§8). 맞바꿈·X16 red |
+| VP-27 R-17↔AT-17 | AT | PASS | Host actions 4 · target 12. 7자리 + X1·2·9·10·11·17·19 red |
+| VP-11 (REGRESSION) | AT | PASS | `ipc-documentation.test.ts` 3 pass · inventory 100채널 |
+| VP-08 (REGRESSION) | AT | PASS(기계 범위) | render 테스트 grid·반경·그림자·alias 유지, P 다크 그림자·motion 변이 red. Chromium 캡처에서 아이콘·제목·× 열 유지. 두 테마 시각은 r1 AC13 실기 그대로 |
+| VP-02 (REGRESSION) | AT | PASS | reveal 실패 로그 1(AC33) · VP-02 a·b red |
+
+- REQUIRED 7 · REGRESSION 3 = 10행 PASS · PAIR_FAIL 0 · BLOCKED_BY 0.
+
+### AT / AC 합계
+
+| AC | 판정 | 관측 |
+|---|---|---|
+| AC30 | ✅ | 설명만 `line-clamp-8`. Chromium 900×670 실측: 300자 3장 모두 8줄·`…`, 카드 189px, 셋째 하단 ≈622px |
+| AC31 | ✅ | page/없음 카드 각 onOpen 1·그 카드만 제거, × onOpen 0 |
+| AC32 | ✅ | page 1 · settings 3형태 · 없음/무효 10사례 → revealLog 1 |
+| AC33 | ✅ | reject → store `openFailed` 1 · 로그 `errors.reveal-log.failed` 1 |
+| AC34 | ✅ | renderer·main·publish 단위, 통합의 drain(page)·이벤트(settings) 보존 |
+| AC35 | ✅ | 교체·제거, 키·카드 수 불변 |
+| AC36 | ✅ | handler 3건 |
+| AC37 | ✅ | App Layer 1, Layer deps = 실제 `show`·`errorApi.revealLog`·navigate |
+| AC38 | ✅ | IPC 문서 테스트 · inventory `--check` ok |
+
+- 합계: ✅ 9 · ⚠️ 0 · ❌ 0 = 9.
+- 자기보고 `8/9`(본문·trailer·INDEX 동일)와 다르다 — 차이는 AC30 하나이며, 구현자가 사람 실기로 남긴 레이아웃을 검증자가 Chromium으로 실측해 닫았다.
+
+## 6. §10 강제 지점 독립 재열거
+
+| EP | 보고 | 재측정 | 관측 |
+|---|---|---|---|
+| EP-21 | 1/1 | 1/1 | `ErrorToastHost.tsx:43`. renderer의 다른 `line-clamp`는 무관 컴포넌트 |
+| EP-22 | 7/7 | 7/7 | Host `:27` onOpen · `:28` dismiss · `:52` × · target `:33` page · `:34` settings · `:38` 없음 · `:10-25` 가드 |
+| EP-23 | 18 | 5/5 + 중간 5 | 명시 5자리(`reportError.ts:38` · main `:41` · `:70` · bridge 이벤트·drain 객체 통과). 표 밖 운반 자리 model 신규 spread·hub pending·sink·present·병합 모두 변이 red |
+| EP-24 | 12 | 5/5 | `shared/ipc.ts:22` · `preload:121` · `api/ipc.ts:97` · `handlers/error.ts:13` · `ErrorToastLayer.tsx:13` |
+| EP-25 | 1/1 | 1/1 | `errorToastModel.ts:25` |
+
+- 구현자는 EP-23·24를 전달 지점까지 펼쳐 세었다(18·12). 계약 자리 기준으로는 5·5이며 차이는 세는 단위뿐이다.
+
+## 7. 게이트 재실행
+
+| Gate | 결과 | 관측 |
+|---|---|---|
+| install | — | `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` exit 0. 뒤이어 `npm rebuild better-sqlite3`(Node ABI) |
+| typecheck | PASS | node/web/test 3구성, `error TS` 0 |
+| lint | PASS | 0 error · 1 warning(`useTranscriptVirtualizer.ts:22`, diff 밖). 실행 후 `git status` 변경 0 |
+| 전체 vitest | PASS(환경 분리) | 599파일: 591 통과 · 8 로드 실패, 5657케이스: 5654 pass · 0 fail · 3 skip |
+| 환경 분리 근거 | — | 8파일 전부 `src/main/app/**` `Electron failed to install correctly`(r1.4와 같은 서명·파일군). skip 3 = opt-in live SDK 1 + Windows 전용 경로 2 |
+| 관련 스위트 | PASS | 변경 테스트 17파일 전건 pass(위 전체 실행 내) |
+| inventory | PASS | `check-doc-inventory.mjs --check` generated(100채널)·prose·links ok |
+| trailer | PASS | `368358f` 5키 · `9b9c4ed` 6키 파싱, 값 허용 범위 |
+
+- 잔여물: `app/node_modules`(gitignore), scratchpad의 변이 runner·Chromium 하네스. 추적 트리 변경 0.
+
+## 8. 사람 실기 — Chromium 실측으로 줄인 범위
+
+- 하네스: 실제 `ErrorToastHost` + `app.css`(Tailwind v4 빌드) + i18n을 vite로 묶어 Chromium 141 headless에서 렌더. 카드 rect·설명 `clientHeight/scrollHeight`·computed `-webkit-line-clamp`을 측정.
+- 300·300·300자: 세 카드 모두 8줄(설명 140px, scroll 175px), 제목 clamp `none`, 본문 button 417px · × 열 24px 유지. 캡처는 [`evidence/r1.5-verify-ac30-chromium.png`](evidence/r1.5-verify-ac30-chromium.png).
+- 232·240·120자: 232자는 8줄에 딱 맞아 말줄임 없음 — plan 실측 "232자 초과"와 일치.
+
+| 항목 | 기계 검증 범위 | 남은 실기 |
+|---|---|---|
+| AC30 | Chromium 레이아웃·말줄임·3장 높이 | Windows 실제 글꼴에서 한 번 눈으로(줄 높이는 고정이라 높이는 같다) |
+| D-017 탐색기 | handler 호출 순서·인자 | 실제 탐색기 창에 `application.jsonl` 선택 표시 |
+| r1 AC2·AC13 · ΔV4 공간 변화 | 이전 라운드 그대로 | 계속 대기 |
+
+## 9. Repository operation checks
+
+- AGENTS.md 변경 없음. 증거 JSON에 로컬 사용자 경로·이메일 0.
+- **INDEX 대상 커밋 좌표 11건이 전부 죽은 해시였다**(`git cat-file` 실패, 리베이스 전 값). 공유 브랜치 커밋과 subject·순서·Status trailer로 대조해 교정했다 → D15.
+- 교정표: `abb4e49`→`c6cb383` · `318fecc`→`4424dd1` · `55f6e88`→`bcabba8` · `9e45618`→`5f4b5bc` · `033e314`→`3c918ce` · `2786ed8`→`6f5a5ef` · `1ba1522`→`ba52b9f` · `721fb38`→`053869a` · `29ac36a`→`4afa4d0` · `8fdfafe`→`6865182` · `ef3cd63`→`077a838`. 이번 라운드 `368358f`·`9b9c4ed` 기입.
+- `[구현자 기입]` r1.5 7필드 전부 존재, 구현 보고 좌표는 자리표시자 — 규칙과 일치.
+- 설계 커밋 `368358f`는 제목과 본문 사이 빈 줄이 없어 `%s`가 본문까지 삼킨다. trailer 파싱은 정상 → D16.
+
+## 13. Finding disposition / 파생 이슈
+
+| # | finding | 귀속 | disposition | 후속 |
+|---|---|---|---|---|
+| D2 | Host key 미잠금 | r1 | **closed** | `ErrorToastHost.actions.test.ts` key 단언, `seq` 제거 변이 red 4 |
+| D13 | Boot/Gate frame에서는 `AppLayout`·`SettingsModal`이 없어 page/settings 대상 클릭이 보이는 변화 없이 카드만 닫는다 | D-016, 현재 대상 호출부 0(D-019) | NEXT_HANDOFF | 첫 대상 지정 호출부를 넣을 때 게이트 중 동작 결정 |
+| D14 | 로그 폴더 열기 실패 toast 설명에 Electron invoke 래퍼 문구가 붙는다 | AC33 충족, 문구 품질 | NON_BLOCKING | 래퍼 제거 여부 검토 |
+| D15 | INDEX 좌표 11건과 plan 메타 `V1@abb4e49a`·`ef3cd63`이 리베이스 전 해시 | 운영 규칙(좌표) | NON_BLOCKING | INDEX는 이번에 교정. plan 메타 2곳은 설계자 다음 revision에서 정정 |
+| D16 | `368358f` 제목·본문 사이 빈 줄 누락 | 커밋 형식 | NON_BLOCKING | 기록 |
+
+- D1·D3~D12는 이번 변경 범위 밖이라 상태 유지. 구현자 잠재 문제 #3(`showItemInFolder` 성공 미관측)은 §8 실기로 남긴다.
+
+## 14. Review Signals — 사실만
+
+- ΔV5는 사용자 요구 변경이며 이전 결함 수정이 아니다.
+- 구현자는 AC30 레이아웃을 사람 실기로 남겼고, 검증자는 Chromium 하네스로 기계 측정했다.
+- 좌표 죽음은 0237 D17과 같은 증상(리베이스 뒤 INDEX 해시 미갱신)이다.
+- 반복 환경 한계: electron 바이너리 미설치로 main app 8파일 로드 실패(r1·r1.4와 동일).
+
+## 15. 결론
+
+- 상태: **PASS**.
+- pair: REQUIRED/REGRESSION 10/10 PASS · PAIR_FAIL 0 · PLAN_GAP 0.
+- AC30~38: ✅ 9 · ⚠️ 0 · ❌ 0.
+- 변이: 등록·보고 18/18 red · 독립 19/19 red · 이전 red 재실행 4/4 red · D2 closed.
+- 비차단: D13(NEXT_HANDOFF)·D14~D16.
+- 다음 단계: 사람 실기(탐색기 선택 표시 · r1 AC2·AC13 · ΔV4 공간) 뒤 archive 이동.
