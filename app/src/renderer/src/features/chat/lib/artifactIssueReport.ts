@@ -11,7 +11,8 @@ const FILE_UNAVAILABLE_REASONS = new Set([
   'access-denied',
   'forbidden',
   'unsafe-path',
-  'io-error'
+  'io-error',
+  'file-changed'
 ])
 
 export function artifactIssueTitle(reason?: string): AppErrorTitle {

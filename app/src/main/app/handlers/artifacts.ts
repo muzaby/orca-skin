@@ -38,7 +38,9 @@ function reasonOf(error: unknown): string {
     'unsafe-path',
     'access-denied',
     'too-large',
-    'unsafe-destination'
+    'unsafe-destination',
+    // 0242 ΔV3 — 생성 파일 원본이 바뀌거나 옮겨진 사유를 io-error 로 뭉개지 않는다.
+    'file-changed'
   ].includes(message)
     ? message
     : 'io-error'

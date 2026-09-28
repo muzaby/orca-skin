@@ -66,6 +66,8 @@ async function setup(): Promise<{
     trash: vi.fn(),
     readForExport: vi.fn(async (_s: string, id: string) => {
       if (id === 'gone') throw new Error('missing')
+      if (id === 'changed') throw new Error('file-changed')
+      if (id === 'secret') throw new Error('EIO /private/path')
       return { filename: 'report.md', bytes: Buffer.from(id) }
     }),
     revealPath: vi.fn(async () => join(root, 'report.md')),
@@ -203,6 +205,19 @@ describe('artifact IPC file actions', () => {
       ['original', 'gone'],
       ['original', 'two']
     ])
+  })
+  it('keeps the generated-file file-changed reason instead of collapsing it to io-error (0242 ΔV3)', async () => {
+    const { dest, call } = await setup()
+    mocks.open.mockResolvedValue({ canceled: false, filePaths: [dest] })
+    expect(
+      await call('artifactSave', { sessionId: 's', publicationIds: ['changed', 'secret'] })
+    ).toEqual({
+      outcome: 'completed',
+      items: [
+        { publicationId: 'changed', outcome: 'failed', reason: 'file-changed' },
+        { publicationId: 'secret', outcome: 'failed', reason: 'io-error' }
+      ]
+    })
   })
   it('does not read or copy on cancellation and rejects over-limit requests before a dialog', async () => {
     const { service, call } = await setup()

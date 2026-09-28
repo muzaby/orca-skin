@@ -643,6 +643,7 @@ export const en: typeof ko = {
       available: 'File available',
       missing: 'File missing — it may have been deleted or moved',
       unavailable: 'Cannot access file',
+      changed: 'The source file was changed or moved to another location',
       trashedAt: 'Moved to Recycle Bin at: {{time}}',
       save: 'Save as',
       download: 'Download',

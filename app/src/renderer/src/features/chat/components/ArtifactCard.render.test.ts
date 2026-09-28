@@ -144,8 +144,17 @@ describe('artifact metadata card', () => {
         },
         { checking: true, busy: false, version: 1 }
       ]
-      for (const file of states) {
-        const html = render(file, variant)
+      const generated: ArtifactRef = {
+        ...artifact,
+        category: 'file',
+        kind: 'file',
+        filename: 'out.csv'
+      }
+      for (const [file, ref] of states.flatMap((state) => [
+        [state, artifact] as const,
+        [state, generated] as const
+      ])) {
+        const html = render(file, variant, ref)
         for (const text of [
           '파일 없음',
           '파일에 접근할 수 없음',

@@ -51,3 +51,19 @@ it('reports one logged toast with the filename and the localized reason, never a
     ['artifacts.trash.failed', 'artifacts', undefined]
   ])
 })
+
+it('names a changed or moved generated file source as unavailable (0242 ΔV3 AC25)', () => {
+  reportArtifactIssue({
+    event: 'artifacts.save.failed',
+    filename: 'out.csv',
+    reason: 'file-changed'
+  })
+  expect(errorToastStore.getState().toasts.map(({ title, detail }) => ({ title, detail }))).toEqual(
+    [
+      {
+        title: 'fileUnavailable',
+        detail: 'out.csv: 원본 파일이 변경되었거나 다른 위치로 옮겨졌습니다'
+      }
+    ]
+  )
+})

@@ -7,6 +7,8 @@ export function artifactFailureKey(reason?: string): MessageKey {
       return 'chat.artifacts.missing'
     case 'access-denied':
       return 'chat.artifacts.unavailable'
+    case 'file-changed':
+      return 'chat.artifacts.changed'
     case 'forbidden':
       return 'chat.artifacts.forbidden'
     case 'unsafe-path':
