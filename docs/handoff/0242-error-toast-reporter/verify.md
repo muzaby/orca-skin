@@ -245,3 +245,215 @@ main 사이트/전역   → infra/error-report.reportError → logger(1) → Err
 - gate: lint·typecheck·vitest 전체·inventory·scripts·trailer PASS.
 - 비차단: D1~D7.
 - 다음 단계: 사람 실기 AC2·AC13과 D-010 확인. 그 뒤 archive로 이동한다.
+
+---
+
+# r1.4 검증 — ΔV2 · ΔV3 · ΔV4
+
+> r1(V1+ΔV1) 판정은 위 본문 그대로 유효하다. 이 절은 사용자 요구 변경 3건(ΔV2~ΔV4)과 그 구현 r1.2~r1.4만 채점한다.
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| 일자 | 2026-09-28 |
+| 대상 커밋/range | `9e45618..8fdfafe` — 설계 `033e314`·`1ba1522`·`29ac36a`, 구현 `2786ed8`(r1.2)·`721fb38`(r1.3)·`8fdfafe`(r1.4) |
+| 구현 전 plan 기준 | ΔV2 `033e314` · ΔV3 `1ba1522` · ΔV4 `29ac36a` |
+| V mode / 유효 V | `Delta V` / `V1@abb4e49 + ΔV1@318fecc + ΔV2@033e314 + ΔV3@1ba1522 + ΔV4@29ac36a` |
+| 라운드 | 1 (r1.2~r1.4는 사용자 요구 변경 impl 턴 3 — review 트리거 미해당) |
+| 상태 | **PASS** — 사람 실기 1건(ΔV4 공간 변화 0) 추가, r1의 AC2·AC13 실기는 계속 대기 |
+| 자기 검증 여부 | **예** — 설계·구현·검증 모두 Claude. 보고에 없는 축 10건 + 형제 슬롯 맞바꿈 2건 + §10 독립 재열거를 §4에 넣었다 |
+
+## 0. 기준선 / plan 변경 확인
+
+- 기준선은 diff로 성립한다. 세 ΔV 모두 설계 커밋이 구현 커밋보다 먼저, 따로 있다.
+- 구현 커밋 3개의 `plan.md` 변경은 **`[구현자 기입]` 절 삽입뿐**이다(각 hunk 1개, 삭제 0줄). 메타·Decision·AC·V 행 변경 없음.
+- Decision Ledger: D-011~D-014 추가, 모두 사용자 원문 인용 + 별도 설계 커밋. D-014가 ΔV2 AC20의 '최초 열기'를 대체한다고 명시.
+- 채점 기준: ΔV2 AC18~22 · ΔV3 AC23~25 · ΔV4 AC26~29(AC20은 재시도 경로만 유지) · VP-16·21~25 · EP-4(35)·16~20.
+
+### Plan validity
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| Delta V mode·상속 기준 | 유효 | 각 ΔV가 기준 revision(`V1+ΔV1` → `+ΔV2(r1.2)` → `+ΔV3`)을 명시 |
+| NEW/CHANGED ↔ REQUIRED | 유효 | R-12·13·14·15 NEW → VP-21·22·24·25, MD-05 → VP-23, AR-03 CHANGED → VP-16, ΔV4 R-13 CHANGED → VP-22 REQUIRED |
+| INHERITED ↔ REGRESSION | 유효 | VP-02(ΔV2) · VP-21·22(ΔV3) REGRESSION. VP-06 NOT_REQUIRED 사유(모델 무변경) — diff에서 `errorToastModel.ts` 변경 0 확인 |
+| path·§10·oracle | 유효 | 각 pair에 EP 자리 수와 직접 oracle |
+| 선택 적대 증거 | 유효 | VP-21·22·24·25 required, VP-23 not selected(직접 결과 단언) |
+| `SUPERSEDED`/대체 이관 | 유효 | AC20 최초 열기 → AC26, 재시도 닫기+toast는 VP-22에 잔존 |
+| 운영 gate | 유효 | V1 §19 승계(lint·typecheck·관련/전체 vitest·inventory) |
+
+- root PLAN_GAP: 없음.
+
+## 1. Product & UX / ACTIVE Decision
+
+| Decision | 기대 결과 | 실제 production path |
+|---|---|---|
+| D-011 | 불가를 미리 표시하지 않고 동작 시 toast | `ArtifactCard` 상태 줄 = `file?.busy && transcript`만(`ArtifactCard.tsx:126`) · 동작 → `ArtifactCards.run` → `reportArtifactIssue` |
+| D-012 | 새로 고침 제거, 비활성은 busy만 | `disabled = !!file?.busy`(`:33`) · `onRefresh` prop·메뉴 0건 |
+| D-013 | 생성 파일 포함, `skipped`·`file-changed` 보고 | `artifactOperationIssues` skipped 포함 · main `reasonOf` 허용 목록 `file-changed` · 제목 `fileUnavailable`/문구 `chat.artifacts.changed` |
+| D-014 | 결과 후에만 공간 할당, 대기 중 카드 busy | `openArtifactViewer`: `opening` → preview → `blocked`면 toast만, 아니면 `selection` 1회 · `ArtifactCards:38` selector → `ArtifactCard aria-busy` |
+
+```text
+카드 동작 → ArtifactCards.run → runArtifactAction(IPC) → artifactOperationIssues → reportArtifactIssue → reportError → 로그 + ErrorToastHost
+카드 미리보기 → openArtifactViewer → opening(카드 aria-busy) → artifacts.preview → blocked? toast : selection(뷰어)
+뷰어 재시도(ImagePreview) → retryArtifactViewer → readSelection → blocked? selection null + toast
+뷰어 복사/다운로드 → useArtifactViewerActions.runAction → reportError / reportArtifactIssue
+작업 컨텍스트 경로 열기 → openContextPath catch → reportError(T34)
+```
+
+- 소비자 전수: `openArtifactViewer` 호출 2곳(`ArtifactCards:115`·카탈로그 `useArtifactCatalogViewer:43`), `ArtifactCards` 렌더 2곳(`AssistantTurn:63`·`TaskOutputContent:49`), 외부 store 쓰기 0.
+
+## 2. 구현 비판적 검토 — AC 전에
+
+| 축 | 판정 | 관측 |
+|---|---|---|
+| false success | 없음 | `busy` 사유만 보고 생략(`ArtifactCards.tsx:62`) — 진행 중 동작이라 실패가 아님, X7로 잠김 |
+| 늦은 응답 | 정상 | `opening.request` 불일치면 무시(`artifactViewerStore.ts:86`), X3 red 4 |
+| 세션 이탈 후 결과 | 의도대로 보고 | 카드 동작은 generation 토큰을 없애 세션을 떠나도 toast — 사용자가 요청한 동작(lifecycle 테스트 'late failure after the session changes') |
+| 원시 오류 노출 | 없음 | detail은 카탈로그 문구만. store 테스트가 `private path` 미포함 단언 |
+| 무한 대기 | ⚠️ | preview가 끝나지 않으면 카드가 계속 busy, 같은 파일 재클릭은 무시된다 → D11 |
+
+## 3. 역방향 탐색
+
+- 제거된 표면의 잔존 참조: `onRefresh`·`present`·`checking` in `ArtifactCard.tsx` 0건. `retryArtifactViewer`는 `ArtifactPreviewContent.tsx:45`(이미지 디코드 재시도)가 production 호출자로 남아 `readSelection`은 배선돼 있다.
+- 죽은 i18n 키: `chat.artifacts.checking` production 참조 0 → D12.
+- 현재 상태 문서: `docs/arch/frontend/rendering.md:206`이 "다시 확인 액션 공유 · 파일 없음과 접근 오류를 구분"을 여전히 서술 → D10.
+- 테스트만 부르는 신규 심볼: 없음. `ArtifactViewerOpening`·`opening`은 store·카드·카탈로그가 소비.
+
+## 4. semantic 검증 — 변이 재측정
+
+- 스크립트로 소스를 바꾸고 `vitest run features/chat shared/errors main/app/handlers/artifacts.test.ts app` 실행 후 `git checkout`. 종료 후 트리 깨끗.
+- **등록 변이 15/15 red.** 자리 미지정 VP-21(b)는 비활성 4자리에 각각 심었다.
+- **독립 축 10건 중 red 8 · green 2**(X4 → D8, X5 → D9). 형제 슬롯 맞바꿈 2/2 red.
+- **이전 라운드 red 재실행**: 이번 변경이 닿은 레지스트리 변이 4건 전부 red → 덮개 회귀 0.
+
+| 변이 | 결과 | 귀속 |
+|---|---|---|
+| V21a 상태 줄 조건 원복(`!present` 시 표시) | red 2 | VP-21(a) |
+| V21b 다운로드 버튼 `\|\| !present` | red 3 | VP-21(b) 자리 1 |
+| V21b 메뉴 저장 / 위치 열기 / 휴지통 각각 | red 2 / 2 / 2 | VP-21(b) 자리 2~4 |
+| V22 카드 `reportArtifactIssue` 삭제 | red 2 | VP-22 ArtifactCards |
+| V22 store `blocked` 보고 삭제 | red 3 | VP-22 readSelection |
+| V22 뷰어 catch `reportError` 삭제 | red 4(레지스트리 포함) | VP-22 viewer actions |
+| V22 뷰어 다운로드 결과 보고 삭제 | red 1 | VP-22 viewer actions |
+| V22 TaskContext `reportError` 삭제 | red 3(레지스트리 포함) | VP-22 TaskContext |
+| V24 `skipped` 필터 제거 | red 2 | VP-24 |
+| V24 `reasonOf`에서 `file-changed` 제거 | red 1 | VP-24 |
+| V24 제목 목록에서 `file-changed` 제거 | red 1 | VP-24 |
+| V25a 대기 전 로딩 selection 선할당 | red 6 | VP-25(a) |
+| V25b close의 `opening` 해제 제거 | red 3 | VP-25(b) |
+| X1 `artifactFailureKey`의 `file-changed` 문구 제거 | red 1 | 독립(AC25 문구) |
+| X2 같은 파일 대기 중 재클릭 중복 방지 제거 | red 1 | 독립(AC29) |
+| X3 결과 후 `opening.request` 검사 제거 | red 4 | 독립(AC28) |
+| X4 카탈로그 이탈 정리에서 `opening` 제외 | **green** | D8 |
+| X5 카드 busy selector의 `sessionKey` 조건 제거 | **green** | D9 |
+| X6 재시도 불가 시 뷰어를 닫지 않음 | red 1 | 독립(ΔV4 재시도 유지) |
+| X7 `busy` 사유 생략 제거 | red 1 | 독립 |
+| X8 `skipped` 무사유 기본값 `missing` 제거 | red 1 | 독립(AC23) |
+| X9 열 수 있는 결과를 `loading:true`로 할당 | red 9 | 독립(AC27) |
+| X10 `unsupported-format`도 차단 | red 2 | 독립(AC20 형식 미지원 유지) |
+| S1 T34↔T35 event 맞바꿈 | red 2 | 형제 슬롯 |
+| S2 T34↔T35 title 맞바꿈 | red 5 | 형제 슬롯 |
+| P T18 삭제 · T32 삭제 · `useSkills` catch 주입 · T15/T16 맞바꿈 | red 3 · 2 · 2 · 3 | r1 red 재실행 |
+
+- 구현 보고 대조: 보고 M1~M11·Ma~Md는 위 V/S 행과 같은 결과. 보고의 `Criteria-Met` 5/5·3/3·4/4는 본문 합계·trailer에서 같은 값이다.
+
+## 5. V-pair closeout
+
+| Pair | 레벨 | 판정 | 증거 |
+|---|---|---|---|
+| VP-23 MD-05↔UT-05 | UT | PASS | `artifactIssueReport.test.ts` 3건 — 사유별 제목·detail·로그 data |
+| VP-16 AR-03↔IT-03 | IT | PASS | 레지스트리 T34·T35 행, V22 catch 삭제·S1·S2 red |
+| VP-21 R-12↔AT-12 | AT | PASS | render 테스트: 세 availability × 두 variant × 두 category 문구·`disabled` 0, busy → 비활성. V21 5자리 red |
+| VP-22 R-13↔AT-13 | AT | PASS | lifecycle(AC19) · store(AC20 재시도) · actions(AC21) · TaskContext(AC22). V22 5자리 red |
+| VP-24 R-14↔AT-14 | AT | PASS | operationIssues·helper·handlers·lifecycle skipped 케이스. V24 3자리 + X1·X8 red |
+| VP-25 R-15↔AT-15 | AT | PASS | store 구독 기록(AC26 0건·AC27 1회)·AC28 close/대체·AC29 render·lifecycle. V25a·b + X2·X3·X9 red |
+| VP-02 (REGRESSION) | AT | PASS | 새 경로 전부 `reportError` 경유 — helper 테스트 로그 3건, store 테스트 `artifacts.preview.failed` 1건 |
+| VP-21·22 (ΔV3 REGRESSION) | AT | PASS | 위 VP-21·22 증거 공유, `category:'file'` 반복 포함 |
+
+- REQUIRED/REGRESSION 8행 PASS · PAIR_FAIL 0 · BLOCKED_BY 0. VP-06은 NOT_REQUIRED(모델 파일 변경 0).
+
+### AT / AC 합계
+
+| AC | 판정 | 관측 |
+|---|---|---|
+| AC18 | ✅ | render 'does not reveal … ahead of an action' 2 variant |
+| AC19 | ✅ | lifecycle 7 결과 케이스, 인라인 목록 0(`children` 길이 2) |
+| AC20 | ✅ | 재시도 불가 → selection null + toast 2, 형식 미지원 본문 유지·toast 0 |
+| AC21 | ✅ | actions 테스트 copy/download 실패 toast |
+| AC22 | ✅ | TaskContext 테스트 + 레지스트리 T34 |
+| AC23 | ✅ | skipped 보고, 무사유 → `missing` |
+| AC24 | ✅ | render `category:'file'` 반복 |
+| AC25 | ✅ | helper `file-changed` 제목·문구 + handlers 보존 |
+| AC26 | ✅ | 구독 기록 0 · 기존 selection 동일 참조 |
+| AC27 | ✅ | 대기 중 null → 1회 설정 `loading:false` |
+| AC28 | ✅ | close 후·다른 파일 열기 후 늦은 결과 무시·toast 0 |
+| AC29 | ✅ | 대기 카드만 `aria-busy="true"`, 재클릭 preview 1회 |
+
+- 합계: ✅ 12 · ⚠️ 0 · ❌ 0 = 12(구현자 자기보고 5+3+4=12와 일치).
+
+## 6. §10 강제 지점 독립 재열거
+
+| EP | 보고 | 재측정 | 관측 |
+|---|---|---|---|
+| EP-16 | 5/5 | 5/5 | `ArtifactCard.tsx` 상태 줄 `:126` 1 + `disabled={disabled}` `:95`·`:140`·`:150`·`:161` 4 |
+| EP-17 | 4/4 | 4/4 경로 · 호출 5 | ArtifactCards 1 · store `blocked` 1 · viewer actions 2 · TaskContext 1 |
+| EP-18 | 1/1 | 1/1 | `reportArtifactIssue` 사용 3곳. catch 2곳의 직접 `reportError`는 V1 레지스트리가 catch 본문 식별자를 요구해서다 |
+| EP-19 | 3/3 | 3/3 | skipped 필터 1 · `reasonOf` 1 · 제목 집합 1(+문구 매핑 1) |
+| EP-20 | 3/3(+카탈로그 1) | 3/3 + 1 | store의 `selection:` 쓰기 7곳 중 새 selection 생성은 결과 뒤 open 1·재시도 1뿐. 카탈로그 1은 표 밖이고 미잠금(D8) |
+| EP-4 | 35 | 35 | 레지스트리 T34·T35 CONSUMED → TOAST |
+
+## 7. 게이트 재실행
+
+| Gate | 결과 | 관측 |
+|---|---|---|
+| typecheck | PASS | exit 0, `error TS` 0 |
+| lint | PASS | 0 error · 1 warning(`useTranscriptVirtualizer.ts:22`, diff 밖). 실행 후 `git status` 변경 0 |
+| 관련 vitest | PASS | 219파일 1855케이스 전건 |
+| 전체 vitest | PASS(환경 분리) | 594파일: 585 pass · 1 skip · 8 로드 실패, 5629 pass · 0 fail. 8파일은 전부 `src/main/app/**` `Electron failed to install correctly` |
+| 환경 분리 근거 | — | 기준 `9e45618` worktree에서 `bootstrap.artifacts`·`send.busy` 2/2 같은 서명으로 실패 |
+| inventory | PASS | `check-doc-inventory.mjs --check` generated·prose·links ok |
+| trailer | PASS | 6커밋 전부 파싱(설계 5키 · 구현 7키), 값 허용 범위 |
+
+- 잔여물: scratchpad의 기준 worktree는 제거(`git worktree list` 1행). 변이 스크립트는 scratchpad에만 있다.
+
+## 8. 사람 실기
+
+| 항목 | 기계 검증 범위 | 남은 실기 |
+|---|---|---|
+| ΔV4 플리커 | store 구독 기록으로 selection 변화 0 | 실제 창에서 없는 파일 미리보기 시 우측 공간 변화 0 · toast 1 |
+| r1 AC2·AC13 | r1 §8 그대로 | 계속 대기 |
+
+## 9. Repository operation checks
+
+- AGENTS.md 변경 없음.
+- INDEX 대상 커밋 `(… — 검증자 기입)`을 `1ba1522`·`721fb38`·`29ac36a`·`8fdfafe`로 채운다(4건 `git cat-file -t` = commit).
+- `[구현자 기입]` r1.2·r1.3·r1.4 각 7필드 존재. 구현 보고 좌표는 자리표시자로 둔 채 INDEX로 위임 — 규칙과 일치.
+
+## 13. Finding disposition / 파생 이슈
+
+| # | finding | 귀속 | disposition | 후속 |
+|---|---|---|---|---|
+| D8 | 카탈로그 이탈 정리가 대기 중 `opening`도 취소하는 코드(`useArtifactCatalogViewer.tsx:37-39`)를 잠그는 테스트가 없다(X4 green). 현재 동작은 정상 | §10 표 밖, AC28은 store `close`로 충족 | NON_BLOCKING | 카탈로그 hook 정리 테스트 1건 검토 |
+| D9 | 카드 busy selector의 `sessionKey === activeKey` 조건이 미잠금(X5 green) | AC29는 다른 publication 기준으로 충족 | NON_BLOCKING | 같은 publicationId·다른 key 케이스 1건 |
+| D10 | `docs/arch/frontend/rendering.md:206`이 제거된 "다시 확인" 액션과 파일 없음/접근 오류 구분 표시를 현재 상태로 서술 | 운영 규칙(arch = 현재 상태), gate 밖 | NON_BLOCKING | 다음 커밋에서 문장 정정 |
+| D11 | preview가 끝나지 않으면 카드가 계속 busy이고 같은 파일 재클릭이 무시된다. 대기 중 기존 뷰어를 닫으면(같은 key) 대기 열기도 취소된다 | ΔV4 설계대로의 부작용 | NON_BLOCKING | 대기 상한·취소 UX는 필요 시 사용자 판단 |
+| D12 | `chat.artifacts.checking` 키 production 참조 0 | 비귀속 | NON_BLOCKING | 죽은 키 정리 |
+
+- 구현자 보고 잠재 문제(r1.2 #1~3 · r1.3 #1 · r1.4 #1)는 재현 확인만 했고 판정을 바꾸지 않는다.
+
+## 14. Review Signals — 사실만
+
+- ΔV2~ΔV4 모두 사용자 요구 변경이며 이전 라운드 결함 수정이 아니다.
+- ΔV4는 ΔV2 AC20이 최종 상태만 단언해 중간 공간 할당을 놓친 것을 사용자 실기가 잡아 생겼다.
+- 반복 환경 한계: electron 바이너리 미설치로 main app 8파일 로드 실패(r1과 동일).
+
+## 15. 결론
+
+- 상태: **PASS**.
+- pair: REQUIRED/REGRESSION 8/8 PASS · PAIR_FAIL 0 · PLAN_GAP 0.
+- AC18~29: ✅ 12 · ⚠️ 0 · ❌ 0.
+- 변이: 등록 15/15 red · 독립 10축 중 8 red · 형제 맞바꿈 2/2 red · r1 red 재실행 4/4 red.
+- 비차단: D8~D12.
+- 다음 단계: 사람 실기(ΔV4 플리커 · r1 AC2·AC13) 뒤 archive 이동.

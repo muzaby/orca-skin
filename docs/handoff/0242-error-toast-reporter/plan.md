@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-27 |
 | 매핑 | 없음 |
-| 상태 | ΔV4 READY — V1+ΔV1 은 r1 verify/PASS([verify.md](verify.md)), ΔV2·ΔV3 는 사용자 요구 변경 |
+| 상태 | verify/PASS — V1+ΔV1 r1 · ΔV2~ΔV4 r1.4 ([verify.md](verify.md)), 사람 실기 3항목 대기 |
 | V mode | `Delta V` |
 | 기준 V | `V1@abb4e49a` (공유 브랜치, `git cat-file -t` = commit) |
 | 이번 V revision | `ΔV4` (ΔV3 이후 — ΔV3 설계·r1.3 구현은 INDEX 좌표) |
@@ -1150,3 +1150,8 @@ Alias는 `tokens.css` 기존 규칙에 따라 다크에서 중복 선언하지 �
 | D5 | `errors.bridge.failed` 자리가 표·레지스트리 밖 | D-004 | 레지스트리 행 추가 | NON_BLOCKING | open |
 | D6 | renderer T1 카드 설명에 step id 없음 | 비귀속 UX | detail에 id 포함 | NON_BLOCKING | open |
 | D7 | ΔV1 설계 커밋 `Agent: codex`·D-010 원 대화 부재·증거 로그의 로컬 사용자 경로 | 운영 규칙 | 사용자 확인·경로 마스킹 | NON_BLOCKING | open |
+| D8 | 카탈로그 이탈 정리의 `opening` 취소 미잠금 — 동작은 정상 | VP-25 (§10 표 밖) | 카탈로그 hook 정리 테스트 | NON_BLOCKING | open |
+| D9 | 카드 busy selector의 `sessionKey` 조건 미잠금 | VP-25 AC29 (충족) | 같은 publicationId·다른 key 케이스 | NON_BLOCKING | open |
+| D10 | `docs/arch/frontend/rendering.md:206`이 제거된 "다시 확인"·불가 상태 표시를 서술 | 운영 규칙 | 문장 정정 | NON_BLOCKING | open |
+| D11 | 끝나지 않는 preview에서 카드 busy 지속·재클릭 무시, 기존 뷰어 닫기가 대기 열기도 취소 | ΔV4 설계 부작용 | 필요 시 사용자 판단 | NON_BLOCKING | open |
+| D12 | `chat.artifacts.checking` 키 참조 0 | 비귀속 | 죽은 키 정리 | NON_BLOCKING | open |
