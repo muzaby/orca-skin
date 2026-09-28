@@ -1,0 +1,180 @@
+[
+  {
+    "id": "VP-26-clamp-swap",
+    "file": "src/renderer/src/shared/ui/ErrorToastHost.tsx",
+    "status": 1,
+    "failedTests": 1,
+    "failures": [
+      "toast body and close actions clamps only the description and keeps the animation key responsive to a merge"
+    ]
+  },
+  {
+    "id": "VP-27a-dismiss",
+    "file": "src/renderer/src/shared/ui/ErrorToastHost.tsx",
+    "status": 1,
+    "failedTests": 2,
+    "failures": [
+      "toast body and close actions opens only the selected card target and dismisses only page",
+      "toast body and close actions opens only the selected card target and dismisses only logs"
+    ]
+  },
+  {
+    "id": "VP-27b-close-opens",
+    "file": "src/renderer/src/shared/ui/ErrorToastHost.tsx",
+    "status": 1,
+    "failedTests": 1,
+    "failures": [
+      "toast body and close actions close is a sibling button that dismisses without navigation"
+    ]
+  },
+  {
+    "id": "VP-27c-branch-swap",
+    "file": "src/renderer/src/app/errorToastTarget.ts",
+    "status": 1,
+    "failedTests": 1,
+    "failures": [
+      "toast navigation opens app pages and all settings tab forms without revealing logs"
+    ]
+  },
+  {
+    "id": "VP-27d-invalid-guard",
+    "file": "src/renderer/src/app/errorToastTarget.ts",
+    "status": 1,
+    "failedTests": 8,
+    "failures": [
+      "toast navigation reveals logs for absent or invalid targets: \"invalid\"",
+      "toast navigation reveals logs for absent or invalid targets: {}",
+      "toast navigation reveals logs for absent or invalid targets: {\"kind\":\"other\"}",
+      "toast navigation reveals logs for absent or invalid targets: {\"kind\":\"page\",\"path\":\"plugins\"}",
+      "toast navigation reveals logs for absent or invalid targets: {\"kind\":\"page\",\"path\":\"//x\"}",
+      "toast navigation reveals logs for absent or invalid targets: {\"kind\":\"page\",\"path\":7}",
+      "toast navigation reveals logs for absent or invalid targets: {\"kind\":\"settings\",\"tab\":\"plugins\"}",
+      "toast navigation reveals logs for absent or invalid targets: {\"kind\":\"settings\",\"tab\":null}"
+    ]
+  },
+  {
+    "id": "VP-28-renderer-target",
+    "file": "src/renderer/src/shared/errors/reportError.ts",
+    "status": 1,
+    "failedTests": 1,
+    "failures": [
+      "renderer reporting logs first, truncates description, and leaves main reports unlogged"
+    ]
+  },
+  {
+    "id": "VP-28-main-target",
+    "file": "src/main/infra/error-report/index.ts",
+    "status": 1,
+    "failedTests": 2,
+    "failures": [
+      "main → IPC → renderer reporting drains an early report through the registered handler, delivers live reports, and forgets destroyed senders",
+      "main reportError (no Electron dependency) carries targets through both report and already-logged publication to the hub sink"
+    ]
+  },
+  {
+    "id": "VP-28-publish-target",
+    "file": "src/main/infra/error-report/index.ts",
+    "status": 1,
+    "failedTests": 2,
+    "failures": [
+      "main → IPC → renderer reporting drains an early report through the registered handler, delivers live reports, and forgets destroyed senders",
+      "main reportError (no Electron dependency) carries targets through both report and already-logged publication to the hub sink"
+    ]
+  },
+  {
+    "id": "VP-28-event-target",
+    "file": "src/renderer/src/shared/errors/mainErrorBridge.ts",
+    "status": 1,
+    "failedTests": 1,
+    "failures": [
+      "main → IPC → renderer reporting drains an early report through the registered handler, delivers live reports, and forgets destroyed senders"
+    ]
+  },
+  {
+    "id": "VP-28-drain-target",
+    "file": "src/renderer/src/shared/errors/mainErrorBridge.ts",
+    "status": 1,
+    "failedTests": 1,
+    "failures": [
+      "main → IPC → renderer reporting drains an early report through the registered handler, delivers live reports, and forgets destroyed senders"
+    ]
+  },
+  {
+    "id": "VP-29-flush",
+    "file": "src/main/app/handlers/error.ts",
+    "status": 1,
+    "failedTests": 2,
+    "failures": [
+      "error revealLog IPC handler flushes before checking and selecting the current log file",
+      "error revealLog IPC handler opens the log directory if the file is not present"
+    ]
+  },
+  {
+    "id": "VP-29-layer-noop",
+    "file": "src/renderer/src/app/ErrorToastLayer.tsx",
+    "status": 1,
+    "failedTests": 1,
+    "failures": [
+      "ErrorToastLayer production wiring mounts Host and supplies live navigation, settings and preload wrapper dependencies"
+    ]
+  },
+  {
+    "id": "mount-regression",
+    "file": "src/renderer/src/App.tsx",
+    "status": 1,
+    "failedTests": 2,
+    "failures": [
+      "project initialization stays in the boot owner App preserves the nesting order of all live providers and RootGate",
+      "ErrorToastHost uses Orca semantic aliases in both themes and the specified subtle 4.6s keyframes"
+    ]
+  },
+  {
+    "id": "animation-key",
+    "file": "src/renderer/src/shared/ui/ErrorToastHost.tsx",
+    "status": 1,
+    "failedTests": 4,
+    "failures": [
+      "toast body and close actions opens only the selected card target and dismisses only page",
+      "toast body and close actions opens only the selected card target and dismisses only logs",
+      "toast body and close actions close is a sibling button that dismisses without navigation",
+      "toast body and close actions clamps only the description and keeps the animation key responsive to a merge"
+    ]
+  },
+  {
+    "id": "preload-channel",
+    "file": "src/preload/index.ts",
+    "status": 1,
+    "failedTests": 1,
+    "failures": [
+      "reveals logs through the renderer wrapper and exposed preload on the dedicated no-input channel"
+    ]
+  },
+  {
+    "id": "api-noop",
+    "file": "src/renderer/src/shared/api/ipc.ts",
+    "status": 1,
+    "failedTests": 2,
+    "failures": [
+      "reveals logs through the renderer wrapper and exposed preload on the dedicated no-input channel",
+      "ErrorToastLayer production wiring mounts Host and supplies live navigation, settings and preload wrapper dependencies"
+    ]
+  },
+  {
+    "id": "VP-02a-regression",
+    "file": "src/renderer/src/shared/errors/mainErrorBridge.ts",
+    "status": 1,
+    "failedTests": 1,
+    "failures": [
+      "main error bridge subscribes before drain so reports arriving during drain are not lost or logged twice"
+    ]
+  },
+  {
+    "id": "VP-02b-regression",
+    "file": "src/main/infra/mutation-publisher.ts",
+    "status": 1,
+    "failedTests": 1,
+    "failures": [
+      "main report site registry restricts unlogged publication to scheduler and aggregate config warnings"
+    ]
+  }
+]

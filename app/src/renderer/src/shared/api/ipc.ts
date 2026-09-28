@@ -93,6 +93,10 @@ import type { UsageDelta, UsageLimitsView } from '../../../../shared/usage/limit
 // features/ 내부 hook · 컴포넌트가 직접 window 객체에 의존하지 않도록 격리한다.
 // IPC 계약이 바뀌면 이 파일 한 곳만 갱신.
 
+export const errorApi = {
+  revealLog: (): Promise<void> => window.orca.error.revealLog()
+}
+
 export const chatApi = {
   backgroundState: (sessionId: string): Promise<BackgroundSessionState> =>
     window.orca.chat.backgroundState(sessionId),

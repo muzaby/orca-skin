@@ -482,8 +482,10 @@ renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달�
 |---|---|---|---|---|
 | `orca:error:reportEvent` | M→R (send) | `AppErrorReport` | — | 준비된 창에 오류 토스트를 게시한다. Main에서 이미 로그한 보고이므로 renderer는 다시 로그하지 않는다. |
 | `orca:error:drain` | R→M (invoke) | 없음 | `AppErrorReport[]` | 발신 창을 준비 상태로 등록하고 부팅 중 대기한 보고를 반환·비운다. Renderer는 이벤트 구독을 먼저 설치한다. |
+| `orca:error:revealLog` | R→M (invoke) | 없음 | `void` | 로그 버퍼를 비운 뒤 현재 로그 파일을 탐색기에서 선택한다. 파일이 없으면 로그 폴더를 열고, 폴더 열기 실패는 reject한다. 경로는 main이 결정한다. |
 
 계약은 `app/src/shared/app-error.ts`가 소유한다. `id`는 보고마다 유일하며 `title`은 번역 카탈로그 키, `detail`은 길이가 제한된 설명, `origin`은 발생 프로세스다.
+선택적 `target`은 ``{ kind: 'page', path: `/${string}` }`` 또는 `{ kind: 'settings', tab: AppSettingsTab }`이다. 설정 탭은 `general`·`usage`·`provider:<key>`이며, 본문 클릭 시 app 레이어가 이동을 실행하고 해당 카드를 닫는다. 대상이 없거나 런타임 형태가 무효(상대 경로·`//` 시작 경로·잘못된 설정 탭)이면 로그 위치로 이동한다. 같은 제목·설명 병합은 cooldown 이후 새 보고의 target(생략 포함)으로 교체한다.
 준비된 창이 없으면 main은 유한 FIFO 대기열을 유지한다. 창 파괴 시 준비 집합에서 제거하며 같은 제목·설명의 폭주를 억제한다. 로그 동반·수명 정책은 [로깅 정본](arch/backend/observability.md#7-오류-보고toast)을 따른다.
 
 ## 3. NormalizedEvent variant 정의

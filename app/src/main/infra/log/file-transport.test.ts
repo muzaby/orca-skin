@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, existsSy
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { FileTransport } from './file-transport'
+import { FileTransport, logFilePath } from './file-transport'
 
 let dir: string
 
@@ -21,6 +21,16 @@ function transport(
 }
 
 describe('FileTransport', () => {
+  it('exposes the actual output path with the default or a custom filename', () => {
+    for (const baseName of [undefined, 'custom.jsonl']) {
+      const t = transport({ baseName })
+      expect(t.filePath).toBe(logFilePath(dir, baseName))
+      t.write('record')
+      t.flushSync()
+      expect(readFileSync(t.filePath, 'utf8')).toBe('record\n')
+      t.close()
+    }
+  })
   it('write + flushSync 가 JSONL 1줄 = 1레코드로 append 한다', () => {
     const t = transport()
     t.write('{"a":1}')

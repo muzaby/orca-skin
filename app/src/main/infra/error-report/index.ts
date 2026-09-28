@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto'
-import { APP_ERROR_DETAIL_MAX, type AppErrorTitle } from '../../../shared/app-error'
+import {
+  APP_ERROR_DETAIL_MAX,
+  type AppErrorTitle,
+  type AppErrorTarget
+} from '../../../shared/app-error'
 import { errorMessage } from '../errors'
 import { getLogger } from '../log/registry'
 import { ErrorReportHub, type ErrorReportSink } from './hub'
@@ -12,6 +16,7 @@ export interface MainErrorReportInput {
   detail?: string | null
   data?: Record<string, unknown>
   level?: 'error' | 'warn'
+  target?: AppErrorTarget
 }
 
 export const errorReportHub = new ErrorReportHub()
@@ -33,6 +38,7 @@ export function reportError(input: MainErrorReportInput): void {
     }
     publishErrorReport({
       title: input.title,
+      target: input.target,
       detail:
         input.detail === undefined && input.error !== undefined
           ? errorMessage(input.error)
@@ -44,7 +50,11 @@ export function reportError(input: MainErrorReportInput): void {
 }
 
 /** Only scheduler transitions and aggregated config warnings may publish after logging themselves. */
-export function publishErrorReport(input: { title: AppErrorTitle; detail?: string | null }): void {
+export function publishErrorReport(input: {
+  title: AppErrorTitle
+  detail?: string | null
+  target?: AppErrorTarget
+}): void {
   try {
     const detail =
       input.detail == null
@@ -52,7 +62,13 @@ export function publishErrorReport(input: { title: AppErrorTitle; detail?: strin
         : input.detail.length > APP_ERROR_DETAIL_MAX
           ? input.detail.slice(0, APP_ERROR_DETAIL_MAX - 1) + '…'
           : input.detail
-    errorReportHub.publish({ id: randomUUID(), title: input.title, detail, origin: 'main' })
+    errorReportHub.publish({
+      id: randomUUID(),
+      title: input.title,
+      detail,
+      origin: 'main',
+      target: input.target
+    })
   } catch {
     // The caller has already logged this failure. Do not recursively report delivery errors.
   }

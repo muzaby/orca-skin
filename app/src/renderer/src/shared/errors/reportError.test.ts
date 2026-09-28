@@ -25,11 +25,13 @@ describe('renderer reporting', () => {
       event: 'chat.send.rejected',
       scope: 'chat',
       title: 'sendFailed',
+      target: { kind: 'page', path: '/plugins' },
       error: new Error('x'.repeat(400))
     })
     expect(log).toHaveBeenCalledTimes(1)
     expect(log.mock.invocationCallOrder[0]).toBeLessThan(push.mock.invocationCallOrder[0])
     expect(errorToastStore.getState().toasts[0].detail).toBe('x'.repeat(299) + '…')
+    expect(errorToastStore.getState().toasts[0].target).toEqual({ kind: 'page', path: '/plugins' })
     presentErrorReport({ id: 'main', title: 'loadFailed', detail: 'main failure', origin: 'main' })
     expect(log).toHaveBeenCalledTimes(1)
     expect(errorToastStore.getState().toasts).toHaveLength(2)

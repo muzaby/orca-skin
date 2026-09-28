@@ -10,6 +10,23 @@ const report = (id: string, detail = id): AppErrorReport => ({
 })
 
 describe('error toast model', () => {
+  it('replaces a merged target including removal without changing the key, id or card count', () => {
+    let state = applyErrorReport(
+      [],
+      { ...report('a'), target: { kind: 'page', path: '/plugins' } },
+      0
+    ).state
+    const key = state[0].key
+    const next = { kind: 'settings', tab: 'usage' } as const
+    expect(applyErrorReport(state, { ...report('b', 'a'), target: next }, 500).state).toBe(state)
+    state = applyErrorReport(state, { ...report('b', 'a'), target: next }, 1200).state
+    expect(state).toHaveLength(1)
+    expect(state[0]).toMatchObject({ id: 'a', key, target: next, seq: 1 })
+    state = applyErrorReport(state, report('c', 'a'), 2400).state
+    expect(state).toHaveLength(1)
+    expect(state[0]).toMatchObject({ id: 'a', key, seq: 2 })
+    expect(state[0].target).toBeUndefined()
+  })
   it('keeps the newest three in order', () => {
     let state = applyErrorReport([], report('a'), 0).state
     for (const id of ['b', 'c', 'd']) state = applyErrorReport(state, report(id), 0).state

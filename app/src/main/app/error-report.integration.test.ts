@@ -11,8 +11,10 @@ import { registerErrorHandlers } from './handlers/error'
 const electron = vi.hoisted(() => ({ handle: vi.fn(), fromId: vi.fn() }))
 vi.mock('electron', () => ({
   ipcMain: { handle: electron.handle },
+  shell: {},
   webContents: { fromId: electron.fromId }
 }))
+vi.mock('../infra/log', () => ({ currentLogFilePath: vi.fn(), flushLogSync: vi.fn() }))
 
 afterEach(() => {
   errorReportHub.forget(42)
@@ -34,7 +36,8 @@ describe('main → IPC → renderer reporting', () => {
       event: 'app.uncaught.exception',
       scope: 'app',
       title: 'unexpected',
-      error: new Error('before ready')
+      error: new Error('before ready'),
+      target: { kind: 'page', path: '/plugins' }
     })
     expect(errorToastStore.getState().toasts).toEqual([])
     installErrorReportSink()
@@ -60,16 +63,20 @@ describe('main → IPC → renderer reporting', () => {
     })
     expect(errorToastStore.getState().toasts).toHaveLength(1)
     expect(errorToastStore.getState().toasts[0].detail).toBe('before ready')
+    expect(errorToastStore.getState().toasts[0].target).toEqual({ kind: 'page', path: '/plugins' })
     expect(handle({ sender })).toEqual([])
     expect(sender.once).toHaveBeenCalledTimes(1)
     reportError({
       event: 'app.unhandled.rejection',
       scope: 'app',
       title: 'unexpected',
-      error: 'after ready'
+      error: 'after ready',
+      target: { kind: 'settings', tab: 'usage' }
     })
     expect(send).toHaveBeenCalledTimes(1)
     expect(errorToastStore.getState().toasts).toHaveLength(2)
+    expect(send.mock.calls[0][1].target).toEqual({ kind: 'settings', tab: 'usage' })
+    expect(errorToastStore.getState().toasts[0].target).toEqual({ kind: 'settings', tab: 'usage' })
     expect(error).toHaveBeenCalledTimes(2)
     expect(rendererLog).not.toHaveBeenCalled()
     sender.once.mock.calls[0][1]()

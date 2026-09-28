@@ -43,6 +43,21 @@ Object.defineProperty(process, 'contextIsolated', { value: true, configurable: t
 
 await import('./index')
 
+it('reveals logs through the renderer wrapper and exposed preload on the dedicated no-input channel', async () => {
+  const api = harness.exposed.get('orca') as OrcaApi
+  vi.stubGlobal('window', { orca: api })
+  try {
+    const { errorApi } = await import('../renderer/src/shared/api/ipc')
+    harness.invoke.mockClear()
+    await errorApi.revealLog()
+    expect(harness.invoke).toHaveBeenCalledExactlyOnceWith('orca:error:revealLog')
+    harness.invoke.mockRejectedValueOnce(new Error('folder denied'))
+    await expect(errorApi.revealLog()).rejects.toThrow('folder denied')
+  } finally {
+    vi.unstubAllGlobals()
+  }
+})
+
 it('promotes the selected shell through the renderer API and actual preload with all identity fields', async () => {
   const api = harness.exposed.get('orca') as OrcaApi
   vi.stubGlobal('window', { orca: api })

@@ -21,7 +21,7 @@ describe('ErrorToastHost', () => {
       .push({ id: 'a', title: 'loadFailed', detail: '<script>detail</script>', origin: 'main' })
     errorToastStore.getState().push({ id: 'b', title: 'copyFailed', origin: 'renderer' })
     errorToastStore.getInitialState().toasts = errorToastStore.getState().toasts
-    const html = renderToStaticMarkup(createElement(ErrorToastHost))
+    const html = renderToStaticMarkup(createElement(ErrorToastHost, { onOpen: vi.fn() }))
     expect(html.match(/role="alert"/g)).toHaveLength(2)
     expect(html).toContain('정보를 불러오지 못했습니다')
     expect(html).toContain('클립보드에 복사하지 못했습니다')
@@ -95,6 +95,7 @@ describe('ErrorToastHost', () => {
       expect(Number(body.match(/scale\(([^)]+)\)/)![1])).toBe(Number(scale))
     }
     const app = readFileSync(new URL('../../App.tsx', import.meta.url), 'utf8')
-    expect(app.match(/<ErrorToastHost\s*\/>/g)).toHaveLength(1)
+    expect(app.match(/<ErrorToastLayer\s*\/>/g)).toHaveLength(1)
+    expect(app).not.toContain('<ErrorToastHost')
   })
 })

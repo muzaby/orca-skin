@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { setRootLogger } from '../log/registry'
-import { errorReportHub, reportError } from './index'
+import { errorReportHub, publishErrorReport, reportError } from './index'
 
 afterEach(() => {
   setRootLogger(null)
@@ -16,6 +16,29 @@ function logger(): { error: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi
 }
 
 describe('main reportError (no Electron dependency)', () => {
+  it('carries targets through both report and already-logged publication to the hub sink', () => {
+    logger()
+    const sink = vi.fn()
+    errorReportHub.setSink(sink)
+    errorReportHub.markReady(242)
+    try {
+      const page = { kind: 'page', path: '/plugins' } as const
+      const settings = { kind: 'settings', tab: 'usage' } as const
+      reportError({
+        event: 'test.target.failed',
+        scope: 'test',
+        title: 'openFailed',
+        detail: 'target report',
+        target: page
+      })
+      publishErrorReport({ title: 'saveFailed', detail: 'target publish', target: settings })
+      expect(sink).toHaveBeenCalledTimes(2)
+      expect(sink.mock.calls.map((args) => args[1].target)).toEqual([page, settings])
+    } finally {
+      errorReportHub.forget(242)
+      errorReportHub.setSink(() => {})
+    }
+  })
   it.each(['error', 'warn'] as const)(
     'logs %s exactly once before publishing a bounded detail',
     (level) => {

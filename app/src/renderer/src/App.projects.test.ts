@@ -152,7 +152,7 @@ describe('project initialization stays in the boot owner', () => {
       'UpdateProvider',
       'ChatProvider',
       'RootGate',
-      'ErrorToastHost'
+      'ErrorToastLayer'
     ])
   })
 })
