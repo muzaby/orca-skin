@@ -55,6 +55,18 @@ vi.mock('../store/artifactStore', () => ({
   refreshArtifactStatuses: h.status,
   runArtifactAction: h.action
 }))
+vi.mock('../store/artifactViewerStore', async (original) => {
+  const actual = await original<typeof import('../store/artifactViewerStore')>()
+  const store = actual.useArtifactViewerStore
+  // 이 시험은 컴포넌트를 함수로 부른다 — 훅 대신 현재 상태에 selector 를 적용한다.
+  return {
+    ...actual,
+    useArtifactViewerStore: Object.assign(
+      (select: (state: ReturnType<typeof store.getState>) => unknown) => select(store.getState()),
+      store
+    )
+  }
+})
 vi.mock('../../../shared/i18n', () => ({ useI18n: () => ({ tr: (key: string) => key }) }))
 vi.mock('../lib/artifactIssueReport', () => ({ reportArtifactIssue: h.report }))
 import { ArtifactCard } from './ArtifactCard'
@@ -129,18 +141,26 @@ it.each(['transcript', 'list'] as const)(
     expect(trigger?.props['data-artifact-preview']).toBe('p')
     const origin = {} as HTMLElement
     trigger?.props.onClick({ currentTarget: origin })
+    // 0242 ΔV4 — 결과 전에는 뷰어 공간을 잡지 않고 카드만 대기 중으로 둔다.
+    expect(useArtifactViewerStore.getState().selection).toBeNull()
+    expect(useArtifactViewerStore.getState().opening).toMatchObject({
+      sessionKey: 's',
+      publicationId: 'p'
+    })
+    const busy = render([ref], variant) as ReactElement<{ children: unknown[] }>
+    const busyCards = busy.props.children[1] as ReactElement<Parameters<typeof ArtifactCard>[0]>[]
+    expect(busyCards[0].props.opening).toBe(true)
+    await Promise.resolve()
+    await Promise.resolve()
     expect(useArtifactViewerStore.getState().selection).toMatchObject({
       sessionKey: 's',
       sessionId: 's',
       artifact: ref,
       origin,
-      loading: true
+      loading: false,
+      result: { state: 'ready', content: '# actual preview' }
     })
-    await Promise.resolve()
-    expect(useArtifactViewerStore.getState().selection?.result).toMatchObject({
-      state: 'ready',
-      content: '# actual preview'
-    })
+    expect(useArtifactViewerStore.getState().opening).toBeNull()
   }
 )
 
@@ -151,6 +171,7 @@ it('ignores a stale card callback after the active session changes', () => {
   h.sessionId = 'other'
   cards[0].props.onPreview(ref, {} as HTMLElement)
   expect(useArtifactViewerStore.getState().selection).toBeNull()
+  expect(useArtifactViewerStore.getState().opening).toBeNull()
 })
 it('same publication IDs from another transcript projection do not resubscribe or restat; session change does', () => {
   render()

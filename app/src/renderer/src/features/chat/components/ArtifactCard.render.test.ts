@@ -209,6 +209,24 @@ describe('artifact metadata card', () => {
       expect(Children.toArray(menu.children)).toHaveLength(3)
     }
   })
+  it('marks only the pending preview trigger busy instead of allocating viewer space (0242 ΔV4 AC29)', () => {
+    const file: ArtifactFileView = { checking: false, busy: false, version: 1 }
+    const idle = renderToStaticMarkup(
+      createElement(ArtifactCard, { artifact, file, onAction: vi.fn(), onPreview: vi.fn() })
+    )
+    expect(idle).not.toContain('aria-busy="')
+    const busy = renderToStaticMarkup(
+      createElement(ArtifactCard, {
+        artifact,
+        file,
+        opening: true,
+        onAction: vi.fn(),
+        onPreview: vi.fn()
+      })
+    )
+    expect(busy).toMatch(/<button[^>]*data-artifact-preview="p"[^>]*aria-busy="true"/)
+    expect(busy).not.toContain('disabled=""')
+  })
   it('maps known failure reasons and never displays a raw host error', () => {
     expect(artifactFailureKey('missing')).toBe('chat.artifacts.missing')
     expect(artifactFailureKey('access-denied')).toBe('chat.artifacts.unavailable')

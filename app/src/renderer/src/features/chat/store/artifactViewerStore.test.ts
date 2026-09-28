@@ -60,21 +60,58 @@ describe('viewer selection and request lifetime', () => {
     expect(useArtifactViewerStore.getState().widths).toEqual({ transcript: 710, catalog: 620 })
     expect(preview).toHaveBeenCalledTimes(2)
   })
-  it('shows the selected title while loading then the same publication content', async () => {
+  it('allocates the viewer only once the preview result arrives (0242 ΔV4 AC27)', async () => {
     const pending = deferred()
     preview.mockReturnValueOnce(pending.promise)
     const request = openArtifactViewer('key', 's', ref)
-    expect(useArtifactViewerStore.getState().selection).toMatchObject({
+    expect(useArtifactViewerStore.getState().selection).toBeNull()
+    expect(useArtifactViewerStore.getState().opening).toMatchObject({
       sessionKey: 'key',
-      artifact: ref,
-      loading: true
+      publicationId: 'p'
+    })
+    const seen: unknown[] = []
+    const stop = useArtifactViewerStore.subscribe((state, prev) => {
+      if (state.selection !== prev.selection) seen.push(state.selection)
     })
     pending.resolve(ready)
     await request
+    stop()
+    expect(seen).toHaveLength(1)
     expect(useArtifactViewerStore.getState().selection).toMatchObject({
+      sessionKey: 'key',
+      artifact: ref,
       loading: false,
       result: ready
     })
+    expect(useArtifactViewerStore.getState().opening).toBeNull()
+  })
+  it('never allocates viewer space for an inaccessible file and keeps an open viewer (0242 ΔV4 AC26)', async () => {
+    await openArtifactViewer('key', 's', { ...ref, publicationId: 'open' })
+    const open = useArtifactViewerStore.getState().selection
+    const seen: unknown[] = []
+    const stop = useArtifactViewerStore.subscribe((state, prev) => {
+      if (state.selection !== prev.selection) seen.push(state.selection)
+    })
+    preview.mockResolvedValueOnce({ state: 'unavailable', reason: 'missing' })
+    await openArtifactViewer('key', 's', ref)
+    closeArtifactViewer('other-key')
+    stop()
+    expect(seen).toEqual([])
+    expect(useArtifactViewerStore.getState().selection).toBe(open)
+    expect(errorToastStore.getState().toasts.map(({ title }) => title)).toEqual(['fileUnavailable'])
+  })
+  it('cancels a pending open when its session closes and ignores a duplicate click (0242 ΔV4 AC28·AC29)', async () => {
+    const pending = deferred()
+    preview.mockReturnValueOnce(pending.promise)
+    const first = openArtifactViewer('key', 's', ref)
+    await openArtifactViewer('key', 's', ref)
+    expect(preview).toHaveBeenCalledTimes(1)
+    closeArtifactViewer('key')
+    expect(useArtifactViewerStore.getState().opening).toBeNull()
+    pending.resolve({ state: 'unavailable', reason: 'missing' })
+    await first
+    expect(useArtifactViewerStore.getState().selection).toBeNull()
+    expect(errorToastStore.getState().toasts).toEqual([])
   })
   it('discards an older file response after quickly selecting another file', async () => {
     const old = deferred()
@@ -103,7 +140,7 @@ describe('viewer selection and request lifetime', () => {
     closeArtifactViewer('key-a')
     expect(useArtifactViewerStore.getState().selection?.sessionId).toBe('b')
   })
-  it('closes the viewer and reports an inaccessible file as a toast instead of an error body (0242 ΔV2 AC20)', async () => {
+  it('reports an inaccessible file as a toast; a retry in an open viewer closes it (0242 ΔV2 AC20 · ΔV4)', async () => {
     const toasts = (): unknown[] =>
       errorToastStore.getState().toasts.map(({ title, detail }) => ({ title, detail }))
     preview.mockResolvedValueOnce({ state: 'unavailable', reason: 'missing' })

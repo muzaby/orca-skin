@@ -1068,6 +1068,77 @@ Alias는 `tokens.css` 기존 규칙에 따라 다크에서 중복 선언하지 �
 - `skipped` 무보고는 ΔV2(r1.2)가 선제 표시를 없애면서 드러난 누락이다 — ΔV2 AC19 가 `failed` 만 예시로 들어 걸리지 않았다.
 - 현재 라운드·impl 턴: `r1.3`.
 
+## [구현자 기입] 설계 리뷰 (r1.4 · ΔV4)
+
+- 동의 / 그대로 진행: 열기를 `opening`(대기) → 결과 → `selection`(할당) 두 단계로 나눴다. 재시도 경로는 ΔV2 그대로.
+- 이견 / 현실성 문제: 없음. 카탈로그 이탈 정리(`useArtifactCatalogViewer.tsx`)도 `opening` 을 함께 취소하도록 넓혔다 — ΔV4 AC28 의 카탈로그 쪽 자리.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1.4)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-25 | 결과 후 할당 | EP-20 (3) + 카탈로그 정리 1 | 4/4 | `rg -n "setState\(\{ opening\|opening: null\|opening=\{" artifactViewerStore.ts ArtifactCards.tsx` · `rg -n "opening\?\.sessionKey" app/hooks/useArtifactCatalogViewer.tsx` → open 선할당 없음·close 해제 1·카드 전달 1·카탈로그 1 | — |
+
+- `openArtifactViewer` 가 `selection` 을 세우는 곳은 결과 뒤 1곳뿐: `rg -n "selection: \{" artifactViewerStore.ts` → open 1 · retry 1(이미 열린 뷰어).
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-25 | REQUIRED | SELF_PASS | store 3건·lifecycle 2건·actions 1건·render 1건 | Ma·Mb red (+Mc·Md) |
+| VP-22 | REQUIRED(CHANGED) | SELF_PASS | 재시도 불가 → 닫기+toast 케이스 유지 | — |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1.4)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| Ma `openArtifactViewer` 가 대기 전에 로딩 selection 을 세움(옛 순서) | VP-25 선택 (a) | 최초 | 6건 | 잠김 |
+| Mb `closeArtifactViewer` 의 `opening` 해제 제거 | VP-25 선택 (b) | 최초 | 3건 | 잠김 |
+| Mc `ArtifactCards` 의 `opening` prop 전달 제거 | 배선 oracle 민감도 | 최초 | 2건 | 잠김 |
+| Md `ArtifactCard` `aria-busy` 무효화 | 배선 oracle 민감도 | 최초 | 1건 | 잠김 |
+
+- **분모 검산**: 선택 증거 2 · 인용 변이 0 · 새 oracle 2 = 표 행 4.
+- **덮개 회귀**: 0건 — ΔV2·ΔV3 테스트 전건 유지(아래 게이트).
+
+## [구현자 기입] Product/UX 파생 검토 (r1.4)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 불가 파일에서 공간 할당이 사라졌는가 | 결과 전 `selection` 0 → 할당 0 (AC26 구독 기록 0건) | 사람 실기 재확인 |
+| 정상 파일의 로딩 표시가 사라져 반응이 없어 보이지 않는가 | 대기 중 카드 미리보기 버튼 `aria-busy` + 진행 커서. 로컬 파일 미리보기라 대기는 짧다 | 느린 파일 체감은 사람 실기 |
+| 카탈로그 행은 대기 표시가 없다 | 레이어 규칙상 `features/artifacts` 가 chat store 를 볼 수 없다 | ⚠️ 보고만(아래 1) |
+| 다른 뷰어가 열린 채로 불가 파일을 누르면 | 기존 뷰어 유지 + toast | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1.4)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 카탈로그 화면은 대기 중 행 표시가 없다 | ⚠️ 보고만 — 필요하면 app 레이어에서 `opening` 을 props 로 내려준다 | `app/hooks/useArtifactCatalogViewer.tsx` |
+
+### 설계 대비 명시적 차이
+
+- 없음(카탈로그 정리 취소는 AC28 의 같은 불변식 자리를 닫은 것).
+
+## [구현자 기입] 구현 보고 (r1.4)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `store/artifactViewerStore.ts` · `components/ArtifactCards.tsx` · `components/ArtifactCard.tsx` · `app/hooks/useArtifactCatalogViewer.tsx` + 테스트 4 |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `vitest run src/renderer src/shared src/main/app/handlers/artifacts.test.ts` |
+| **관측한 게이트 산출** | lint 0 error · 1 warning(기존) · typecheck `error TS` 0 · vitest 299파일 2471케이스 전건 통과(AC29 첫 초안 단언이 클래스명 `aria-busy:` 에 걸려 속성 단언으로 고친 뒤) · prettier 통과 |
+| V-pair 자기확인 | SELF_PASS 2 / SELF_BLOCKED 0 |
+| 강제 지점 전수 | 4/4 |
+| **AC 자기보고** | AC26 ✅ 구독 기록 0·기존 selection 동일 참조 · AC27 ✅ 대기 중 null → 결과 후 1회 · AC28 ✅ close 후 늦은 결과 무시·중복 클릭 preview 1회 · AC29 ✅ `aria-busy="true"` 는 대기 카드만 |
+| **합계 검산** | ΔV4 분모 4: ✅ 4 · ⚠️ 0 · ❌ 0 = 4 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r1.4 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r1.4)
+
+- ΔV2 AC20 이 "닫힌다"는 **최종 상태**만 단언해 중간의 공간 할당(플리커)을 보지 못했다. 사람 실기가 잡았다. ΔV4 는 상태 변화 이력(구독 기록)을 단언한다.
+- 현재 라운드·impl 턴: `r1.4`.
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
