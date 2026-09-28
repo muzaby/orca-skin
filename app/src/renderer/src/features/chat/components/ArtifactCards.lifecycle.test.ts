@@ -221,6 +221,13 @@ it('reports each failed action issue as a toast and renders no inline issue list
         }
       ]
     ],
+    [
+      {
+        outcome: 'completed',
+        items: [{ publicationId: 'p', outcome: 'skipped', reason: 'missing' }]
+      },
+      [{ event: 'artifacts.save.failed', filename: 'report.md', reason: 'missing' }]
+    ],
     [{ ok: false, reason: 'busy' }, []],
     [{ outcome: 'completed', items: [{ publicationId: 'p', outcome: 'saved' }] }, []],
     [{ outcome: 'cancelled', items: [] }, []]

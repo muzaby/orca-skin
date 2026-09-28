@@ -648,6 +648,7 @@ export const ko = {
       available: '파일 있음',
       missing: '파일 없음 — 삭제되었거나 이동되었습니다',
       unavailable: '파일에 접근할 수 없음',
+      changed: '원본 파일이 변경되었거나 다른 위치로 옮겨졌습니다',
       trashedAt: '휴지통으로 이동한 시각: {{time}}',
       save: '다른 이름으로 저장',
       download: '다운로드',

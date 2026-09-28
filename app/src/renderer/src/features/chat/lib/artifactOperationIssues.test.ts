@@ -30,3 +30,19 @@ it('preserves partial failures and an unrecorded trash without announcing succes
     { reason: 'busy' }
   ])
 })
+
+it('treats skipped save items as issues so a missing generated file is reported (0242 ΔV3)', () => {
+  expect(
+    artifactOperationIssues({
+      outcome: 'completed',
+      items: [
+        { publicationId: 'saved', outcome: 'saved' },
+        { publicationId: 'gone', outcome: 'skipped', reason: 'missing' },
+        { publicationId: 'bare', outcome: 'skipped' }
+      ]
+    })
+  ).toEqual([
+    { publicationId: 'gone', reason: 'missing' },
+    { publicationId: 'bare', reason: 'missing' }
+  ])
+})

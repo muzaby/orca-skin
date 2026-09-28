@@ -971,6 +971,76 @@ Alias는 `tokens.css` 기존 규칙에 따라 다크에서 중복 선언하지 �
 - 반복 환경 한계: Electron 바이너리 미설치로 main app 스위트 8파일이 로드 단계에서 실패.
 - 현재 라운드·impl 턴: `r1.2`.
 
+## [구현자 기입] 설계 리뷰 (r1.3 · ΔV3)
+
+- 동의 / 그대로 진행: 생성 파일은 ΔV2 경로를 이미 공유한다. 두 틈(`skipped` 무보고 · `file-changed` 소실)만 닫았다.
+- 이견 / 현실성 문제: 없음. `IPC_CONTRACT.md:191` 은 저장 사유 값을 열거하지 않아 문서 변경 불필요.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1.3)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-24 | skipped·file-changed 보고 | EP-19 (3) | 3/3 | `rg -n "skipped" lib/artifactOperationIssues.ts` 1 · `rg -n "'file-changed'" main/app/handlers/artifacts.ts lib/artifactIssueReport.ts lib/artifactFeedback.ts` 각 1 | — |
+
+- §10에 없는데 같은 불변식이 필요했던 지점: 없음. 뷰어 다운로드는 `items[0].outcome !== 'saved'` 면 이미 보고하므로 `skipped` 포함(ΔV2 코드 확인).
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-24 | REQUIRED | SELF_PASS | operationIssues·helper·handlers·lifecycle 테스트 | M9~M11 red |
+| VP-21 | REGRESSION | SELF_PASS | render 테스트가 `category:'file'` 로도 반복 | — |
+| VP-22 | REGRESSION | SELF_PASS | ΔV2 테스트 전건 통과 | — |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1.3)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| M9 `artifactOperationIssues.ts` `skipped` 조건 제거 | VP-24 선택 증거 | 최초 | 2건 | 잠김 |
+| M10 `handlers/artifacts.ts` `reasonOf` 에서 `file-changed` 제거 | VP-24 선택 증거 | 최초 | 1건 | 잠김 |
+| M11 `artifactIssueReport.ts` 목록에서 `file-changed` 제거 | VP-24 선택 증거 | 최초 | 1건 | 잠김 |
+
+- **분모 검산**: 선택 증거 3 · 인용 변이 0 · 새 oracle 0 = 표 행 3.
+- **덮개 회귀**: 0건 — ΔV2 변이 대상 코드는 바꾸지 않았다.
+
+## [구현자 기입] Product/UX 파생 검토 (r1.3)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 문구에 소비자가 있는가 | `chat.artifacts.changed` → 토스트 설명(`artifactFailureKey`) | — |
+| 실패가 "아무 일도 안 일어남"으로 보이지 않는가 | 삭제된 파일 저장이 이전엔 토스트 0 → 이제 1 | — |
+| 저장 창을 거친 뒤에야 없음을 안다 | 핸들러가 창 선택 후 읽는다 — 사용자는 위치를 고른 뒤 토스트를 본다 | ⚠️ 보고만(아래 1) |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1.3)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 단건 저장은 저장 창을 먼저 띄우고 그 뒤 읽기가 실패한다 | ⚠️ 보고만 — 창 전에 존재 확인을 넣을지는 제품 판단 | `handlers/artifacts.ts` 저장 흐름(창 → `readForExport`) |
+
+### 설계 대비 명시적 차이
+
+- 없음.
+
+## [구현자 기입] 구현 보고 (r1.3)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `main/app/handlers/artifacts.ts` · `lib/artifactOperationIssues.ts` · `lib/artifactFeedback.ts` · `lib/artifactIssueReport.ts` · ko/en + 테스트 5 |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `vitest run src/renderer/src/features/chat src/renderer/src/shared/errors src/main/app/handlers/artifacts.test.ts` |
+| **관측한 게이트 산출** | lint 0 error · 1 warning(기존) · typecheck `error TS` 0 · vitest 206파일 1785케이스 전건 통과. 전체 스위트의 main app 8파일 로드 실패(Electron 미설치)는 r1.2 와 동일한 환경 한계 |
+| V-pair 자기확인 | SELF_PASS 3 / SELF_BLOCKED 0 |
+| 강제 지점 전수 | 3/3 |
+| **AC 자기보고** | AC23 ✅ operationIssues·lifecycle skipped 케이스 · AC24 ✅ render `category:'file'` 반복 · AC25 ✅ helper `file-changed` + handlers 보존 케이스 |
+| **합계 검산** | ΔV3 분모 3: ✅ 3 · ⚠️ 0 · ❌ 0 = 3 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r1.3 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r1.3)
+
+- `skipped` 무보고는 ΔV2(r1.2)가 선제 표시를 없애면서 드러난 누락이다 — ΔV2 AC19 가 `failed` 만 예시로 들어 걸리지 않았다.
+- 현재 라운드·impl 턴: `r1.3`.
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
