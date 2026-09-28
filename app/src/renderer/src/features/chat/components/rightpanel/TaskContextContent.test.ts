@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { load } from 'cheerio'
 import { initialChatState, type ChatState } from '../../reducer/chatReducer'
 import { TaskContextContent } from './TaskContextContent'
+import { errorToastStore } from '../../../../shared/errors/errorToastStore'
 
 let session: ChatState
 let busy = false
@@ -216,5 +217,40 @@ describe('Work context directory controls', () => {
     activeKey = 'other'
     callbacks.attachmentClicks.get('C:/tmp/clipboard.png')!()
     expect(callbacks.openPath).toHaveBeenCalledTimes(1)
+  })
+  it('reports a failed reveal as a toast and keeps the panel free of an inline alert (0242 ΔV2 AC22)', async () => {
+    for (const toast of errorToastStore.getState().toasts)
+      errorToastStore.getState().dismiss(toast.id)
+    session = {
+      ...session,
+      messages: [
+        {
+          role: 'user',
+          createdAt: 1,
+          parts: [
+            {
+              type: 'attachment',
+              attachments: [
+                {
+                  id: 'file',
+                  name: 'gone.pdf',
+                  kind: 'file',
+                  mimeType: 'application/pdf',
+                  path: 'C:/tmp/gone.pdf'
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+    callbacks.openPath.mockRejectedValueOnce(new Error('ENOENT C:/tmp/gone.pdf'))
+    renderToStaticMarkup(createElement(TaskContextContent))
+    callbacks.attachmentClicks.get('C:/tmp/gone.pdf')!()
+    for (let i = 0; i < 3; i++) await Promise.resolve()
+    expect(
+      errorToastStore.getState().toasts.map(({ title, detail }) => ({ title, detail }))
+    ).toEqual([{ title: 'openFailed', detail: 'gone.pdf: 파일 위치를 열지 못했습니다.' }])
+    expect(renderToStaticMarkup(createElement(TaskContextContent))).not.toContain('role="alert"')
   })
 })

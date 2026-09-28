@@ -862,6 +862,91 @@ Alias는 `tokens.css` 기존 규칙에 따라 다크에서 중복 선언하지 �
 
 ---
 
+## [구현자 기입] 설계 리뷰 (r1.2 · ΔV2)
+
+- 동의 / 그대로 진행: ΔV2 범위 5표면을 그대로 구현했다. 공통 헬퍼 `features/chat/lib/artifactIssueReport.ts` 한 곳이 제목·설명을 만든다.
+- 이견 / 현실성 문제: 없음.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. D-001(transcript 오류 이벤트)은 건드리지 않았다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1.2)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-21 | 선제 표시 제거 | EP-16 (5: 상태 줄 1 · 비활성 4) | 5/5 | `rg -n "disabled=\{disabled\}\|file\?\.busy && transcript" ArtifactCard.tsx` → 비활성 4(다운로드·저장·위치 열기·휴지통) + 상태 줄 1 · `present`/`checking`/`onRefresh` 0건 | — |
+| VP-22 | 동작 시 toast | EP-17 (4) | 4/4 | `rg -n "reportArtifactIssue\(\|reportError\(" ArtifactCards.tsx artifactViewerStore.ts useArtifactViewerActions.ts TaskContextContent.tsx` → 1·1·2(결과·catch)·1 | — |
+| VP-23 | 제목·설명 SSOT | EP-18 (1) | 1/1 | 세 결과 경로가 `reportArtifactIssue` 만 호출(위 rg) | — |
+| VP-16 | 레지스트리 | EP-4 (33→35) | 35/35 | `reportSites.registry.test.ts` T34·T35 행 + 기존 삭제·주입·맞바꿈 변이 케이스 통과 | — |
+
+- §10에 없는데 같은 불변식이 필요했던 지점: 없음. `TaskOutputContent` 목록 조회 실패·레거시 첨부(경로 없음) 비활성은 파일 가용성 표시가 아니라 비범위로 둔다(아래 잠재 문제 2).
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-21 | REQUIRED | SELF_PASS | `ArtifactCard.render.test.ts` 8건 통과 | M1·M2 red |
+| VP-22 | REQUIRED | SELF_PASS | lifecycle·viewer store·viewer actions·TaskContext 테스트 통과 | M3~M7 red |
+| VP-23 | REQUIRED | SELF_PASS | `artifactIssueReport.test.ts` 2건 | M8 red(선택 외 추가 검사) |
+| VP-16 | REQUIRED | SELF_PASS | 레지스트리 전건 통과 | M6·M7 에서 레지스트리 red 포함 |
+| VP-02 | REGRESSION | SELF_PASS | 헬퍼 테스트가 로그 호출 3건 관측 | — |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1.2)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| M1 `ArtifactCard.tsx` 상태 줄 조건을 `!present` 로 원복 | VP-21 선택 증거 | 최초 | render 2건 | 잠김 |
+| M2 `disabled` 에 `!present` 재추가 | VP-21 선택 증거 | 최초 | render 3건 | 잠김 |
+| M3 `ArtifactCards.tsx` `reportArtifactIssue` 호출 제거 | VP-22 선택 증거 | 최초 | lifecycle 2건 | 잠김 |
+| M4 `artifactViewerStore.ts` 보고 제거 | VP-22 선택 증거 | 최초 | store·actions 2건 | 잠김 |
+| M5 뷰어 다운로드 결과 보고 제거 | VP-22 선택 증거 | 최초 | actions 1건 | 잠김 |
+| M6 뷰어 catch `reportError` 제거 | VP-22 선택 증거 | 최초 | actions+레지스트리 4건 | 잠김 |
+| M7 TaskContext catch `reportError` 제거 | VP-22 선택 증거 | 최초 | TaskContext+레지스트리 3건 | 잠김 |
+| M8 `io-error` 를 fileUnavailable 목록에서 제거 | 새 oracle 민감도 | 최초 | helper 1건 | 잠김 |
+
+- **분모 검산**: 선택 증거 7 · 인용 변이 0 · 새 oracle 1 = 표 행 8. 모든 변이 후 원본 복원(`git status` 변경 파일 17 동일).
+- **덮개 회귀**: 기존 레지스트리 변이(삭제·금지 주입·맞바꿈)는 T34·T35 로 대상이 늘었고 전건 통과 — 0건.
+
+## [구현자 기입] Product/UX 파생 검토 (r1.2)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 문구에 소비자가 있는가 | `errors.toast.fileUnavailable` → ErrorToastHost 제목. 설명은 기존 `chat.artifacts.*`·`chat.taskTile.*` 문구 재사용 | — |
+| 실패 경로가 Part I 상태표의 어느 행인가 | "새 오류" 행 — 스택·병합 규칙 그대로 | — |
+| "아무 일도 안 일어남"으로 보이지 않는가 | 동작마다 toast. 이미 진행 중(`busy`)만 보고 생략 — 그동안 버튼 비활성 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 뷰어는 request 불일치면 닫지도 알리지도 않음(테스트). 카드 동작은 세션을 떠나도 사유를 알림 — 사용자가 요청한 동작이라 의도적 | — |
+| 미리보기 불가 시 | 뷰어가 로딩으로 열렸다가 닫히고 toast. 형식 미지원은 본문 유지 | 시각 실기에서 확인 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1.2)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 가용성이 표시되지 않아도 `refreshArtifactStatuses` 는 카드 마운트마다 계속 돈다 | ⚠️ 보고만 — 표시 소비자가 사라져 IPC 절약 여지. 제거는 lastTrashedAt 등 다른 소비 확인 필요 | `ArtifactCards.tsx` effect |
+| 2 | TaskContext 의 레거시 첨부(경로 없음)는 비활성으로 렌더된다 | ⚠️ 보고만 — 파일 삭제가 아니라 기록에 경로가 없는 경우. D-011 적용 여부는 사용자 판단 | `TaskContextContent.test.ts` "이전 첨부.txt" |
+| 3 | `background.missing`/`denied` 등 출력 가용성 문구 키가 카탈로그에 있으나 렌더 사용처 0 | ⚠️ 보고만 — 죽은 키 정리 후보 | `rg "background\.(missing\|denied)" renderer/src --glob '*.tsx'` → 0 |
+
+### 설계 대비 명시적 차이
+
+- 없음.
+
+## [구현자 기입] 구현 보고 (r1.2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `shared/app-error.ts` · ko/en · `features/chat/lib/artifactIssueReport.ts`(신규) · `ArtifactCard.tsx` · `ArtifactCards.tsx` · `rightpanel/ArtifactViewer.tsx` · `rightpanel/TaskContextContent.tsx` · `hooks/useArtifactViewerActions.ts` · `store/artifactViewerStore.ts` + 테스트 7 |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `vitest run`(전체) · `node scripts/check-doc-inventory.mjs --check` |
+| **관측한 게이트 산출** | lint 0 error · 1 warning(기존 `useTranscriptVirtualizer.ts:22`) · typecheck `error TS` 0 · vitest 594파일: 585 pass · 1 skip · **8 파일 로드 실패**(테스트 0 실패, 5623 pass) — 전부 `src/main/app/**`, `Electron failed to install correctly`(환경 — 변경 stash 후에도 동일 red 2/2 재현) · inventory prose/links ok |
+| V-pair 자기확인 | SELF_PASS 5 / SELF_BLOCKED 0 |
+| 강제 지점 전수 | 43/43 (EP-16 5 · EP-17 4 · EP-18 1 · EP-4 33→35) |
+| **AC 자기보고** | AC18 ✅ render 8건 · AC19 ✅ lifecycle 6 결과 케이스 · AC20 ✅ store 3건 + actions 1건 · AC21 ✅ actions copy/download · AC22 ✅ TaskContext 1건 |
+| **합계 검산** | ΔV2 분모 5: ✅ 5 · ⚠️ 0 · ❌ 0 = 5 (V1+ΔV1 AC1~17 은 r1 PASS 유지, 분모 변경으로 합산 비교 안 함) |
+| 블로커 / 역질문 | 없음 — 위 잠재 문제 2는 사용자 판단 대상 |
+| 대상 커밋 | `(r1.2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r1.2)
+
+- 이번 턴은 사용자 요구 변경(ΔV2)이며 이전 라운드 결함 수정이 아니다.
+- 반복 환경 한계: Electron 바이너리 미설치로 main app 스위트 8파일이 로드 단계에서 실패.
+- 현재 라운드·impl 턴: `r1.2`.
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |

@@ -8,7 +8,6 @@ import { useArtifactViewerActions } from '../../hooks/useArtifactViewerActions'
 import { ArtifactPreviewContent } from './ArtifactPreviewContent'
 import {
   closeArtifactViewer,
-  retryArtifactViewer,
   setArtifactViewerMode,
   toggleArtifactViewerExpanded,
   type ArtifactViewerSelection
@@ -149,22 +148,13 @@ export function ArtifactViewer({
             <Icon name="doc" size={18} />
             {tr('chat.artifactViewer.loading')}
           </div>
-        ) : result?.state === 'unavailable' ? (
+        ) : unsupported ? (
+          // 형식 미지원만 본문에 남는다 — 접근 불가 사유는 readSelection 이 toast 로 알리고 뷰어를 닫는다.
           <div className="flex h-full flex-col items-center justify-center gap-3 px-7 py-8 text-center">
             <Icon name="doc" size={32} className="text-ink3" />
-            <p role="alert" className="text-footnote text-ink2">
+            <p role="status" className="text-footnote text-ink2">
               {tr(previewFailureKey(result.reason))}
             </p>
-            {!unsupported && (
-              <Button
-                size="small"
-                leadingIcon="refresh"
-                data-behavior="viewer:retry"
-                onClick={() => void retryArtifactViewer()}
-              >
-                {tr('chat.artifactViewer.retry')}
-              </Button>
-            )}
           </div>
         ) : (
           ready && (

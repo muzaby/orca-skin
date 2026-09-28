@@ -28,7 +28,10 @@ vi.mock('react', async (original) => ({
     if (cleanup) h.cleanups.push(cleanup)
   }
 }))
-vi.mock('../../../../shared/i18n', () => ({ useI18n: () => ({ tr: (key: string) => key }) }))
+vi.mock('../../../../shared/i18n', () => ({
+  useI18n: () => ({ tr: (key: string) => key }),
+  i18n: { t: (key: string) => key }
+}))
 vi.mock('../../../../shared/api/ipc', () => ({ artifactApi: { save: h.save } }))
 import { ArtifactViewer } from './ArtifactViewer'
 import {
@@ -37,6 +40,7 @@ import {
   useArtifactViewerStore
 } from '../../store/artifactViewerStore'
 import { ArtifactPreviewContent } from './ArtifactPreviewContent'
+import { errorToastStore } from '../../../../shared/errors/errorToastStore'
 
 const ref: ArtifactRef = {
   publicationId: 'p',
@@ -67,6 +71,9 @@ function click(behavior: string): void {
   expect(node).toBeDefined()
   ;(node!.props.onClick as () => void)()
 }
+function toasts(): unknown[] {
+  return errorToastStore.getState().toasts.map(({ title, detail }) => ({ title, detail }))
+}
 function status(): unknown {
   return all(render()).find((element) => element.props.role === 'status')?.props.children
 }
@@ -75,6 +82,8 @@ beforeEach(async () => {
   h.refs = []
   h.cleanups = []
   closeArtifactViewer()
+  for (const toast of errorToastStore.getState().toasts)
+    errorToastStore.getState().dismiss(toast.id)
   h.save
     .mockReset()
     .mockResolvedValue({ outcome: 'completed', items: [{ publicationId: 'p', outcome: 'saved' }] })
@@ -191,7 +200,11 @@ describe('viewer toolbar production callbacks', () => {
     writeText.mockRejectedValueOnce(new Error('clipboard denied'))
     click('copy')
     await Promise.resolve()
-    expect(status()).toBe('chat.artifactViewer.copyFailed')
+    // 0242 ΔV2 AC21 — 실패는 status 줄이 아니라 toast 로 간다.
+    expect(status()).toBeUndefined()
+    expect(toasts()).toEqual([
+      { title: 'actionFailed', detail: 'report.md: chat.artifactViewer.copyFailed' }
+    ])
   })
   it('downloads only the selected publication and distinguishes cancellation and failure', async () => {
     click('download')
@@ -205,22 +218,26 @@ describe('viewer toolbar production callbacks', () => {
     h.save.mockRejectedValueOnce(new Error('private path'))
     click('download')
     await Promise.resolve()
-    expect(status()).toBe('chat.artifacts.failed')
+    expect(status()).toBeUndefined()
+    h.save.mockResolvedValueOnce({
+      outcome: 'completed',
+      items: [{ publicationId: 'p', outcome: 'failed', reason: 'missing' }]
+    })
+    click('download')
+    await Promise.resolve()
+    expect(status()).toBeUndefined()
+    expect(toasts()).toEqual([
+      { title: 'fileUnavailable', detail: 'report.md: chat.artifacts.missing' },
+      { title: 'actionFailed', detail: 'report.md: chat.artifacts.failed' }
+    ])
   })
-  it('shows the selected error and executes retry instead of retaining an old body', async () => {
+  it('closes on an inaccessible file with a toast and never renders an error body (0242 ΔV2 AC20)', async () => {
     preview.mockResolvedValueOnce({ state: 'unavailable', reason: 'missing' })
     await openArtifactViewer('key', 'session', { ...ref, title: 'Missing' })
-    expect(all(render()).find((element) => element.props.role === 'alert')?.props.children).toBe(
-      'chat.artifacts.missing'
-    )
-    expect(all(render()).some((element) => element.type === ArtifactPreviewContent)).toBe(false)
-    click('retry')
-    expect(useArtifactViewerStore.getState().selection?.loading).toBe(true)
-    await Promise.resolve()
-    expect(useArtifactViewerStore.getState().selection?.result).toMatchObject({
-      state: 'ready',
-      content: '# Selected file'
-    })
+    expect(useArtifactViewerStore.getState().selection).toBeNull()
+    expect(toasts()).toEqual([
+      { title: 'fileUnavailable', detail: 'report.md: chat.artifacts.missing' }
+    ])
   })
   it('does not offer copying or code mode for a selected image', async () => {
     preview.mockResolvedValueOnce({

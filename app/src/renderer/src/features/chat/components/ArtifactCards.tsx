@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef, useState } from 'react'
+import { useEffect, useEffectEvent } from 'react'
 import type { ArtifactRef } from '../../../../../shared/artifacts'
 import { Button } from '../../../shared/ui/Button'
 import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
@@ -11,11 +11,10 @@ import {
   runArtifactAction,
   useArtifactStore,
   type ArtifactFileView,
-  type ArtifactOperation,
-  type ArtifactOperationResult
+  type ArtifactOperation
 } from '../store/artifactStore'
 import { artifactOperationIssues } from '../lib/artifactOperationIssues'
-import { artifactFailureKey } from '../lib/artifactFeedback'
+import { reportArtifactIssue } from '../lib/artifactIssueReport'
 import { ArtifactCard } from './ArtifactCard'
 
 const EMPTY_FILES: Record<string, ArtifactFileView> = {}
@@ -35,41 +34,40 @@ export function ArtifactCards({
   const files = useArtifactStore((state) =>
     sessionId ? (state.sessions[sessionId]?.files ?? EMPTY_FILES) : EMPTY_FILES
   )
-  const [result, setResult] = useState<{
-    sessionId: string
-    result: ArtifactOperationResult
-    refs: readonly ArtifactRef[]
-  } | null>(null)
-  const [previousSession, setPreviousSession] = useState(sessionId)
-  if (previousSession !== sessionId) {
-    setPreviousSession(sessionId)
-    setResult(null)
-  }
-  const generation = useRef(0)
   const getSnapshot = useEffectEvent(() => ({ artifacts, saveArtifacts }))
   const visibleKey = JSON.stringify(artifacts.map((ref) => [ref.publicationId, ref.artifactFileId]))
   const collectionKey = JSON.stringify(
     saveArtifacts.map((ref) => [ref.publicationId, ref.artifactFileId])
   )
   useEffect(() => {
-    generation.current += 1
     if (!sessionId) return
     const snapshot = getSnapshot()
     const release = acquireArtifacts(sessionId, snapshot.saveArtifacts)
     void refreshArtifactStatuses(sessionId, snapshot.artifacts)
-    return () => {
-      generation.current += 1
-      release()
-    }
+    return release
   }, [sessionId, visibleKey, collectionKey])
   if (!artifacts.length || !sessionId) return null
 
   const run = async (refs: readonly ArtifactRef[], operation: ArtifactOperation): Promise<void> => {
-    const token = ++generation.current
     const captured = [...refs]
-    setResult(null)
     const next = await runArtifactAction(sessionId, captured, operation)
-    if (generation.current === token) setResult({ sessionId, result: next, refs: captured })
+    // 0242 ΔV2 (D-011) — 동작 실패 사유는 카드 아래가 아니라 toast 로 알린다. 화면을 떠난 뒤
+    // 끝난 동작도 사용자가 요청한 것이므로 결과를 버리지 않는다. `busy` 는 이미 진행 중인 동작이라
+    // 실패가 아니다(카드 버튼이 그동안 비활성이다).
+    for (const issue of artifactOperationIssues(next)) {
+      if (issue.reason === 'busy') continue
+      const ref = issue.publicationId
+        ? captured.find((item) => item.publicationId === issue.publicationId)
+        : captured.length === 1
+          ? captured[0]
+          : undefined
+      reportArtifactIssue({
+        event: `artifacts.${operation}.failed`,
+        filename: ref?.filename ?? issue.publicationId,
+        reason: issue.reason,
+        ...(issue.unrecorded ? { messageKey: 'chat.artifacts.trashedUnrecorded' as const } : {})
+      })
+    }
   }
   const act = (artifact: ArtifactRef, operation: ArtifactOperation): void => {
     if (operation !== 'trash') {
@@ -86,8 +84,6 @@ export function ArtifactCards({
       }
     })
   }
-  const outcome = result?.sessionId === sessionId ? result.result : undefined
-  const issues = artifactOperationIssues(outcome)
   return (
     <div className={`flex min-w-0 flex-col ${variant === 'list' ? 'gap-1' : 'gap-2'}`}>
       {variant === 'transcript' && saveArtifacts.length > 1 && (
@@ -114,26 +110,8 @@ export function ArtifactCards({
             void openArtifactViewer(activeKey, sessionId, selected, origin)
           }}
           onAction={act}
-          onRefresh={() => {
-            void refreshArtifactStatuses(sessionId, [artifact])
-          }}
         />
       ))}
-      {issues.length > 0 && (
-        <div role="status" className="text-caption text-ink2">
-          {issues.map((issue, index) => (
-            <div key={issue.publicationId ?? index}>
-              {issue.publicationId &&
-                `${result?.refs.find((ref) => ref.publicationId === issue.publicationId)?.filename ?? issue.publicationId}: `}
-              {tr(
-                issue.unrecorded
-                  ? 'chat.artifacts.trashedUnrecorded'
-                  : artifactFailureKey(issue.reason)
-              )}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   )
 }

@@ -12,7 +12,6 @@ interface ArtifactCardProps {
   variant?: 'transcript' | 'list'
   file?: ArtifactFileView
   onAction: (artifact: ArtifactRef, action: ArtifactOperation) => void
-  onRefresh: () => void
   onPreview: (artifact: ArtifactRef, origin: HTMLElement) => void
 }
 
@@ -21,15 +20,14 @@ export function ArtifactCard({
   variant = 'transcript',
   file,
   onAction,
-  onRefresh,
   onPreview
 }: ArtifactCardProps): React.JSX.Element {
   const { tr } = useI18n()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLButtonElement>(null)
-  const checking = !file?.availability || file.checking
-  const present = file?.availability?.state === 'present'
-  const disabled = checking || file?.busy
+  // 0242 ΔV2 (D-011·D-012) — 가용성(없음·접근 불가·확인 중)은 카드에 미리 드러내지 않는다.
+  // 동작은 작업 중에만 막고, 불가 사유는 사용자가 동작을 요청했을 때 toast 로 알린다.
+  const disabled = !!file?.busy
   const transcript = variant === 'transcript'
   const dot = artifact.filename.lastIndexOf('.')
   const format = dot > 0 ? artifact.filename.slice(dot + 1).toUpperCase() : ''
@@ -90,7 +88,7 @@ export function ArtifactCard({
             variant="contained"
             leadingIcon="download"
             className="shrink-0"
-            disabled={disabled || !present}
+            disabled={disabled}
             aria-label={tr('chat.artifacts.download')}
             title={tr('chat.artifacts.download')}
             onClick={() => onAction(artifact, 'save')}
@@ -121,22 +119,9 @@ export function ArtifactCard({
           <Icon name="kebab" size={14} />
         </Button>
       </div>
-      {(file?.busy ? transcript : checking || !present) && (
+      {file?.busy && transcript && (
         <div className="mt-1 text-caption text-ink2" role="status">
-          {file?.busy
-            ? tr('chat.artifacts.working')
-            : checking
-              ? tr('chat.artifacts.checking')
-              : file?.availability?.state === 'missing'
-                ? tr('chat.artifacts.missing')
-                : tr('chat.artifacts.unavailable')}
-        </div>
-      )}
-      {!present && !checking && (
-        <div className="mt-1 flex flex-wrap gap-1">
-          <Button size="small" disabled={disabled} onClick={onRefresh}>
-            {tr('chat.artifacts.refresh')}
-          </Button>
+          {tr('chat.artifacts.working')}
         </div>
       )}
       <Popover
@@ -148,7 +133,7 @@ export function ArtifactCard({
       >
         <MenuItem
           icon="download"
-          disabled={disabled || !present}
+          disabled={disabled}
           onClick={() => {
             setMenuOpen(false)
             onAction(artifact, 'save')
@@ -158,7 +143,7 @@ export function ArtifactCard({
         </MenuItem>
         <MenuItem
           icon="fileOpen"
-          disabled={disabled || !present}
+          disabled={disabled}
           onClick={() => {
             setMenuOpen(false)
             onAction(artifact, 'reveal')
@@ -167,19 +152,9 @@ export function ArtifactCard({
           {tr('chat.artifacts.reveal')}
         </MenuItem>
         <MenuItem
-          icon="refresh"
-          disabled={disabled}
-          onClick={() => {
-            setMenuOpen(false)
-            onRefresh()
-          }}
-        >
-          {tr('chat.artifacts.refresh')}
-        </MenuItem>
-        <MenuItem
           danger
           icon="trash"
-          disabled={disabled || !present}
+          disabled={disabled}
           onClick={() => {
             setMenuOpen(false)
             onAction(artifact, 'trash')

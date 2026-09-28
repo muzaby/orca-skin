@@ -545,7 +545,8 @@ export const ko = {
       configInvalid: '설정을 읽거나 적용하지 못했습니다',
       eventDeliveryFailed: '앱 상태 변경을 전달하지 못했습니다',
       engineInternal: '실행 환경에서 오류가 발생했습니다',
-      steerFailed: '추가 지시를 전달하지 못했습니다'
+      steerFailed: '추가 지시를 전달하지 못했습니다',
+      fileUnavailable: '파일을 사용할 수 없습니다'
     } satisfies Record<AppErrorTitle, string>,
     category: {
       provider_connection_error: '백엔드 연결 오류',

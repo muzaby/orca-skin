@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '../../../../shared/ui/Button'
 import { Icon } from '../../../../shared/ui/Icon'
-import { useI18n } from '../../../../shared/i18n'
+import { i18n, useI18n } from '../../../../shared/i18n'
+import { reportError } from '../../../../shared/errors'
 import { basenameForDisplay } from '../../../../../../shared/path-basename'
 import { fileApi } from '../../../../shared/api/ipc'
 import { useChatBusy, useChatSession, useChatStore } from '../../store/chatStore'
@@ -24,11 +25,6 @@ export function TaskContextContent(): React.JSX.Element {
   const mounted = useRef(true)
   const opening = useRef(false)
   const [openingPath, setOpeningPath] = useState<string | null>(null)
-  const [openFailure, setOpenFailure] = useState<{
-    key: string
-    path: string
-    mode: 'directory' | 'reveal'
-  } | null>(null)
   useEffect(() => {
     mounted.current = true
     return () => {
@@ -48,11 +44,22 @@ export function TaskContextContent(): React.JSX.Element {
     if (!current()) return
     opening.current = true
     setOpeningPath(path)
-    setOpenFailure(null)
     try {
       await fileApi.openPath({ path, mode, sessionId })
-    } catch {
-      if (current()) setOpenFailure({ key: activeKey, path, mode })
+    } catch (error) {
+      // 0242 ΔV2 (D-011) — 열기를 요청한 사용자에게 사유를 toast 로 알린다(패널 안 alert 없음).
+      reportError({
+        event: 'files.context-open.failed',
+        scope: 'files',
+        title: 'openFailed',
+        error,
+        detail: `${basenameForDisplay(path)}: ${i18n.t(
+          mode === 'directory'
+            ? 'chat.taskTile.directoryOpenFailed'
+            : 'chat.taskTile.sourceOpenFailed'
+        )}`,
+        data: { mode }
+      })
     } finally {
       opening.current = false
       if (mounted.current) setOpeningPath(null)
@@ -66,16 +73,6 @@ export function TaskContextContent(): React.JSX.Element {
           {picker.errorKey && (
             <p role="alert" className="px-4 pt-2 text-footnote text-rust">
               {tr(picker.errorKey)}
-            </p>
-          )}
-          {openFailure?.key === activeKey && (
-            <p role="alert" className="px-4 pt-2 text-footnote text-rust">
-              {basenameForDisplay(openFailure.path)}:{' '}
-              {tr(
-                openFailure.mode === 'directory'
-                  ? 'chat.taskTile.directoryOpenFailed'
-                  : 'chat.taskTile.sourceOpenFailed'
-              )}
             </p>
           )}
         </>

@@ -20,7 +20,8 @@ export const APP_ERROR_TITLES = [
   'configInvalid',
   'eventDeliveryFailed',
   'engineInternal',
-  'steerFailed'
+  'steerFailed',
+  'fileUnavailable'
 ] as const
 
 export type AppErrorTitle = (typeof APP_ERROR_TITLES)[number]
