@@ -17,6 +17,7 @@ import type { ReceivedMessageOrigin } from '../../../shared/session-schedules'
 // 영속 sink — DB 기록(가로축 좌측). renderer 비의존. L3 HistoryWriter 가 만족.
 export interface TurnPersistSink<W = unknown> {
   persist(turn: TurnContext<W>, ev: NormalizedEvent): void
+  finalizeTurn?(turn: TurnContext<W>): void
   // echo 커밋 단일 경로(0067 AC6) — 턴 프롬프트·프렐류드·steer 배치의 user row 영속 +
   // preview/provider_key 갱신. 구 persistSteerUserMessage 일반화.
   commitUserMessage?(

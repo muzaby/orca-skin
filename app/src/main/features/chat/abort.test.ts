@@ -16,11 +16,19 @@ describe('abortTurn (단일 abort 프리미티브)', () => {
     expect(turn.controller.signal.aborted).toBe(true)
   })
 
-  it('stall 원인도 그대로 전달한다', () => {
+  it('retry 원인도 그대로 전달한다', () => {
     const markAborted = vi.fn()
     const turn = fakeTurn({ markAborted } as unknown as GovernedLiveTurn)
-    abortTurn(turn, 'stall')
-    expect(markAborted).toHaveBeenCalledExactlyOnceWith('stall')
+    abortTurn(turn, 'retry')
+    expect(markAborted).toHaveBeenCalledExactlyOnceWith('retry')
+    expect(turn.controller.signal.aborted).toBe(true)
+  })
+
+  it('이미 중단된 runtime은 다시 interrupt하지 않고 controller만 정착한다', () => {
+    const markAborted = vi.fn()
+    const turn = fakeTurn({ markAborted, cancelled: true } as unknown as GovernedLiveTurn)
+    abortTurn(turn, 'user_cancelled')
+    expect(markAborted).not.toHaveBeenCalled()
     expect(turn.controller.signal.aborted).toBe(true)
   })
 

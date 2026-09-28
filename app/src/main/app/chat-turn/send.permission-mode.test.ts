@@ -74,7 +74,6 @@ vi.mock('./post-turn', () => ({ runTurnWithContinuations: vi.fn(async () => unde
 vi.mock('../chat-turn-continuation', () => ({ prepareAutomaticContinuation: vi.fn() }))
 vi.mock('../../features/chat/turn-coordinator', () => ({
   TurnCoordinator: class {
-    beginApprovalPause = vi.fn()
     run = vi.fn()
   }
 }))

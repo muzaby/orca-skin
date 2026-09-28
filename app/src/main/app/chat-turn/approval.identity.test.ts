@@ -49,13 +49,31 @@ function harness(): {
     approvals: { register, isSessionAllowed: () => false },
     permissionModes: { setMode: vi.fn() },
     persistence: { flushAskAnswers: vi.fn() },
-    beginApprovalPause: () => undefined,
     getActiveTurn: () => turn
   } as never)
   return { pending, register, request, turn }
 }
 
 describe('createApprovalRequester provider identity', () => {
+  it('0243 AC1 — 승인 대기 30분 동안 자동 중단하지 않는다', async () => {
+    vi.useFakeTimers()
+    const { pending, request, turn } = harness()
+    let resolved = false
+    const approval = request(action('long')).then((result) => {
+      resolved = true
+      return result
+    })
+    try {
+      await vi.advanceTimersByTimeAsync(30 * 60_000)
+      expect(resolved).toBe(false)
+      expect(turn.controller.signal.aborted).toBe(false)
+      pending.values().next().value!({ behavior: 'allow' })
+      await expect(approval).resolves.toEqual({ behavior: 'allow' })
+    } finally {
+      vi.useRealTimers()
+      sendChatEvent.mockClear()
+    }
+  })
   it('surfaces provider identity and raw input on the registered card', async () => {
     const { pending, register, request } = harness()
     const first = request(action('r1'))

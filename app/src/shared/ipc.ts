@@ -730,7 +730,7 @@ export type NormalizedEvent =
   | {
       type: 'turn.aborted'
       sessionId?: string
-      reason: 'user_cancelled' | 'timeout'
+      reason: 'user_cancelled' | 'interrupted'
     }
   // 턴이 **정상 종료**했다 — 백엔드의 Stop hook 이 낸다(0211 ΔV6 D-115). `turn.aborted` 와
   // 달리 terminal 판정에 들어가지 않는다: 턴을 닫는 것은 여전히 `telemetry` 이고, 이 이벤트는

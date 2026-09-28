@@ -36,6 +36,7 @@ vi.mock('../../infra/ipc/send', () => ({
 }))
 import { registerChatHandlers } from './index'
 import { runTurnWithContinuations } from './post-turn'
+import { sendChatEvent } from '../../infra/ipc/send'
 
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
 const schedules = [{ id: 'cron1', schedule: '*/5 * * * *', recurring: true, prompt: 'check' }]
@@ -127,7 +128,7 @@ function fixture() {
   const persistence = {
     persist: () => {},
     flushAskAnswers: () => {},
-    finalizeTurn: () => {},
+    finalizeTurn: vi.fn(),
     commitUserMessage: () => 42
   }
   const coordinator = new TurnCoordinator({
@@ -209,6 +210,7 @@ function fixture() {
     activityEvents,
     backgroundTasks,
     events,
+    persistence,
     pushed,
     pendingMessages,
     listenRelease,
@@ -235,6 +237,63 @@ function fixture() {
     }
   }
 }
+
+describe('0243 interruption delivery through real runtime and handlers', () => {
+  it.each(['cancel', 'discard', 'controller', 'chain', 'database-failure'] as const)(
+    '%s closes the active response exactly once',
+    async (source) => {
+      vi.mocked(sendChatEvent).mockClear()
+      const f = fixture()
+      const interrupt = vi.spyOn(f.runtime, 'markAborted')
+      const running = f.run()
+      try {
+        f.emit({
+          type: 'tool.call.started',
+          sessionId: 's1',
+          toolRunId: 'long',
+          toolName: 'Bash',
+          args: {}
+        })
+        await tick()
+        if (source === 'database-failure') {
+          f.persistence.finalizeTurn.mockImplementation(() => {
+            throw new Error('database unavailable')
+          })
+        }
+        if (source === 'cancel') await f.stop()
+        else if (source === 'discard') {
+          await ipc.handlers.get(CHANNELS.chatDiscardSession)!(
+            { sender: f.turn.owner },
+            { sessionId: 's1' }
+          )
+        } else if (source === 'chain') f.supervisor.cancelChain('s1')
+        else f.turn.controller.abort()
+        await running
+        const all = [...f.events, ...vi.mocked(sendChatEvent).mock.calls.map((call) => call[1])]
+        expect(all.filter((ev) => ev.type === 'turn.aborted')).toEqual([
+          {
+            type: 'turn.aborted',
+            sessionId: 's1',
+            reason: source === 'cancel' ? 'user_cancelled' : 'interrupted'
+          }
+        ])
+        expect(all.filter((ev) => ev.type === 'error')).toEqual([])
+        expect(f.events.find((ev) => ev.type === 'tool.call.completed')).toMatchObject({
+          result: { reason: 'aborted' }
+        })
+        expect(f.events.at(-1)).toMatchObject({
+          type: 'response.boundary',
+          boundary: { outcome: 'aborted' }
+        })
+        expect(f.persistence.finalizeTurn).toHaveBeenCalledTimes(1)
+        expect(interrupt).toHaveBeenCalledTimes(1)
+      } finally {
+        f.cleanup()
+        await running
+      }
+    }
+  )
+})
 
 describe('scheduled reception after Stop', () => {
   it('예약 없이 백그라운드 작업만 기다려도 ready이며 즉시 재개한다', async () => {

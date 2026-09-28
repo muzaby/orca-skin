@@ -13,7 +13,6 @@ describe('r4 Main plan approval target', () => {
         approvals: { register },
         permissionModes: { setMode },
         persistence: {},
-        beginApprovalPause: () => undefined,
         getActiveTurn: () => turn
       } as never)
       expect(

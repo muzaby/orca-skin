@@ -101,8 +101,7 @@ describe('0239 SDK to persisted and rendered settlement', () => {
           send: async function* () {
             yield* events
           },
-          cancelled: false,
-          timedOut: false
+          cancelled: false
         } as unknown as CoordinatorRuntime
         let live = chatReducer(initialChatState, { type: 'BEGIN_TURN' })
         const delivered: NormalizedEvent[] = []

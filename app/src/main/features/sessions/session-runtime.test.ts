@@ -1528,9 +1528,6 @@ class FakeSessionRuntime implements GovernedLiveTurn {
   get cancelled(): boolean {
     return this.aborted === 'user_cancelled'
   }
-  get timedOut(): boolean {
-    return this.aborted === 'stall'
-  }
 }
 
 // send.ts 소비 루프의 순수 모델 — close 정책을 분기하지 않고 send() 스트림만 본다.

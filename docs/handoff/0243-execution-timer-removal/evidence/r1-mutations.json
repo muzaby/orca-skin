@@ -1,0 +1,183 @@
+[
+  {
+    "exit": 1,
+    "tests": 74,
+    "passed": 72,
+    "failed": 2,
+    "failedTests": [
+      "0243 execution lifetime AC4/5/13: return settles before one abort terminal",
+      "0243 execution lifetime AC4/5/13: finalize-failure settles before one abort terminal"
+    ],
+    "command": [
+      "node",
+      "node_modules/vitest/vitest.mjs",
+      "run",
+      "src/main/features/chat/turn-coordinator.test.ts",
+      "--maxWorkers=1",
+      "--reporter=json"
+    ],
+    "id": "M1-normal-return",
+    "source": "app/src/main/features/chat/turn-coordinator.ts"
+  },
+  {
+    "exit": 1,
+    "tests": 74,
+    "passed": 73,
+    "failed": 1,
+    "failedTests": [
+      "0243 execution lifetime AC4/5/13: throw settles before one abort terminal"
+    ],
+    "command": [
+      "node",
+      "node_modules/vitest/vitest.mjs",
+      "run",
+      "src/main/features/chat/turn-coordinator.test.ts",
+      "--maxWorkers=1",
+      "--reporter=json"
+    ],
+    "id": "M2-aborted-catch",
+    "source": "app/src/main/features/chat/turn-coordinator.ts"
+  },
+  {
+    "exit": 1,
+    "tests": 74,
+    "passed": 73,
+    "failed": 1,
+    "failedTests": [
+      "0243 execution lifetime AC5: abort during retry backoff sends one interrupted terminal"
+    ],
+    "command": [
+      "node",
+      "node_modules/vitest/vitest.mjs",
+      "run",
+      "src/main/features/chat/turn-coordinator.test.ts",
+      "--maxWorkers=1",
+      "--reporter=json"
+    ],
+    "id": "M3-backoff-catch",
+    "source": "app/src/main/features/chat/turn-coordinator.ts"
+  },
+  {
+    "exit": 1,
+    "tests": 21,
+    "passed": 20,
+    "failed": 1,
+    "failedTests": [
+      "0243 interruption delivery through real runtime and handlers cancel closes the active response exactly once"
+    ],
+    "command": [
+      "node",
+      "node_modules/vitest/vitest.mjs",
+      "run",
+      "src/main/app/chat-turn/post-turn.schedules.test.ts",
+      "--maxWorkers=1",
+      "--reporter=json"
+    ],
+    "id": "M4-handler-ack",
+    "source": "app/src/main/app/chat-turn/index.ts"
+  },
+  {
+    "exit": 1,
+    "tests": 74,
+    "passed": 72,
+    "failed": 2,
+    "failedTests": [
+      "0243 execution lifetime AC7: forwarded telemetry prevents a second terminal",
+      "0243 execution lifetime AC7: forwarded error prevents a second terminal"
+    ],
+    "command": [
+      "node",
+      "node_modules/vitest/vitest.mjs",
+      "run",
+      "src/main/features/chat/turn-coordinator.test.ts",
+      "--maxWorkers=1",
+      "--reporter=json"
+    ],
+    "id": "M5-stream-terminal-flag",
+    "source": "app/src/main/features/chat/turn-coordinator.ts"
+  },
+  {
+    "exit": 1,
+    "tests": 74,
+    "passed": 70,
+    "failed": 4,
+    "failedTests": [
+      "0243 execution lifetime AC1: user waits 30 minutes without output",
+      "0243 execution lifetime AC1: continuation waits 30 minutes without output",
+      "0243 execution lifetime AC1: listen waits 30 minutes without output",
+      "TurnCoordinator — listen 턴 종료 후 수명 listen 턴이 종료된 뒤 시간이 지나도 abort 하지 않는다"
+    ],
+    "command": [
+      "node",
+      "node_modules/vitest/vitest.mjs",
+      "run",
+      "src/main/features/chat/turn-coordinator.test.ts",
+      "--maxWorkers=1",
+      "--reporter=json"
+    ],
+    "id": "M6-execution-cap",
+    "source": "app/src/main/features/chat/turn-coordinator.ts"
+  },
+  {
+    "id": "O1-source-negative",
+    "baselineMatches": 0,
+    "injectedMatches": 1,
+    "command": [
+      "rg",
+      "-n",
+      "STALL_TIMEOUT_MS|createStallTimer|armStall|beginApprovalPause|activeStall|'stall'|timedOut",
+      "app/src/main",
+      "--glob",
+      "!**/*.test.ts",
+      "--glob",
+      "!**/background-controller.ts"
+    ]
+  },
+  {
+    "id": "O2-doc-negative",
+    "baselineMatches": 0,
+    "injectedMatches": 1,
+    "command": [
+      "rg",
+      "-n",
+      "-i",
+      "\\bstall\\b|idle timeout",
+      "docs/arch",
+      "docs/IPC_CONTRACT.md"
+    ]
+  },
+  {
+    "id": "restored",
+    "test": "src/main/features/chat/turn-coordinator.test.ts",
+    "exit": 0,
+    "tests": 74,
+    "passed": 74,
+    "failed": 0,
+    "failedTests": [],
+    "command": [
+      "node",
+      "node_modules/vitest/vitest.mjs",
+      "run",
+      "src/main/features/chat/turn-coordinator.test.ts",
+      "--maxWorkers=1",
+      "--reporter=json"
+    ]
+  },
+  {
+    "id": "restored",
+    "test": "src/main/app/chat-turn/post-turn.schedules.test.ts",
+    "exit": 0,
+    "tests": 21,
+    "passed": 21,
+    "failed": 0,
+    "failedTests": [],
+    "command": [
+      "node",
+      "node_modules/vitest/vitest.mjs",
+      "run",
+      "src/main/app/chat-turn/post-turn.schedules.test.ts",
+      "--maxWorkers=1",
+      "--reporter=json"
+    ]
+  }
+]

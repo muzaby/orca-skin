@@ -370,10 +370,6 @@ export class SessionRuntime implements ManagedRuntime {
     return this.status.cancelled
   }
 
-  get timedOut(): boolean {
-    return this.status.timedOut
-  }
-
   get canSteer(): boolean {
     return this.live?.canSteer === true
   }
@@ -446,7 +442,7 @@ export class SessionRuntime implements ManagedRuntime {
       } catch (err) {
         if (this.frame === frame) this.frame = null
         frame.end()
-        if (!this.cancelled && !this.timedOut) this.status.markError(null)
+        if (!this.cancelled) this.status.markError(null)
         throw err
       }
       yield* this.consumeFrame(frame)
@@ -527,7 +523,7 @@ export class SessionRuntime implements ManagedRuntime {
       }
       if (!terminal) this.status.markLive()
     } catch (err) {
-      if (!this.cancelled && !this.timedOut) this.status.markError(null)
+      if (!this.cancelled) this.status.markError(null)
       throw err
     } finally {
       this.retireChannel(live)
@@ -536,14 +532,14 @@ export class SessionRuntime implements ManagedRuntime {
 
   // consumer 조기 이탈(coordinator return/throw) 시 채널은 유지하되 이 턴 잔여를 draining 으로
   // 넘긴다 — 다음 terminal 까지 드랍(routeEvent). 에러 시 상태 전이는 pump(finishPump)가 아니라
-  // 소비 측에서 판정한다(cancelled/timedOut 우선).
+  // 소비 측에서 판정한다(cancelled 우선).
   private async *consumeFrame(frame: Frame): AsyncIterable<NormalizedEvent> {
     const toolContext = this.runtimeToolContext
     this.consumingFrame = frame
     try {
       yield* frame.iterate()
     } catch (err) {
-      if (!this.cancelled && !this.timedOut) this.status.markError(null)
+      if (!this.cancelled) this.status.markError(null)
       throw err
     } finally {
       toolContext?.cancelUnconfirmed()

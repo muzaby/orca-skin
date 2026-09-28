@@ -349,7 +349,7 @@ describe('mail declaration → auth → plugin → infra', () => {
     expect(manager.store.countMail()).toBe(21)
   })
 
-  it.each(['cancel', 'budget'] as const)(
+  it.each(['cancel', 'command-timeout'] as const)(
     '%s during RETR closes socket without a partial message',
     async (mode) => {
       const f = await setup()
@@ -370,8 +370,8 @@ describe('mail declaration → auth → plugin → infra', () => {
       })
       const manager = await createMailSyncManager({
         auth: f.auth,
-        options: { ...f.options, timeouts: { syncMs: 30, commandMs: 1000, connectMs: 1000 } },
-        session: { ...f.session, timeouts: { syncMs: 30, commandMs: 1000, connectMs: 1000 } },
+        options: { ...f.options, timeouts: { commandMs: 30, connectMs: 1000 } },
+        session: { ...f.session, timeouts: { commandMs: 30, connectMs: 1000 } },
         root: f.root,
         socketFactory: createPop3Socket
       })

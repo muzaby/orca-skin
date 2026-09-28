@@ -1,5 +1,5 @@
 export type SessionRuntimeState = 'cold' | 'live' | 'busy' | 'interrupting' | 'error' | 'closed'
-export type AbortCause = 'user_cancelled' | 'stall' | 'retry' | null
+export type AbortCause = 'user_cancelled' | 'retry' | null
 
 export class SessionRuntimeStatus {
   private currentState: SessionRuntimeState = 'cold'
@@ -11,10 +11,6 @@ export class SessionRuntimeStatus {
 
   get cancelled(): boolean {
     return this.currentAbortCause === 'user_cancelled'
-  }
-
-  get timedOut(): boolean {
-    return this.currentAbortCause === 'stall'
   }
 
   beginSend(): void {

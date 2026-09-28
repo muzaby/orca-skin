@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-28 |
 | 매핑 | 브랜치 `claude/long-task-response-halt-ms2z08` |
-| 상태 | READY |
+| 상태 | IMPL_DONE |
 | V mode | `Delta V` |
 | 기준 V | `V1@d24c13f8` (공유 브랜치에서 확인) |
 | 이번 V revision | `ΔV1` — 구현 전 검토 보완 |
@@ -470,79 +470,156 @@ READY. 사용자 `handoff-impl` 요청에 따라 사전 검토의 누락을 구�
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: D-001~D-009를 보존했다. 실행 상한을 제거하고, 접속·명령 응답·제어 확인 타이머와 CLI 자체 동작을 유지했다.
+- 이견 / 현실성 문제: 사전 조사에서 발견한 실제 runtime 중단 배선·finalize 실패 격리·문서 검색 범위는 위 ΔV1 설계 커밋으로 먼저 정정했다. 구현 기준은 V1+ΔV1이다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. AC12의 실제 CLI·Windows UI 관측은 기계 테스트로 대체하지 않았다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| … | … | … | … | … | … |
+| VP-02·06 | EP-01 aborted 종료 | 정상 반환·aborted catch·backoff catch 3 | `turn-coordinator.ts:566,573,598` | `rg -n deliverAbortTerminal app/src/main/features/chat/turn-coordinator.ts`: 정의·위 3곳·pre-abort 1곳. M1~M3 각각 2·1·1케이스 red | 없음 |
+| VP-04·07 | EP-02 ack | handler·helper 쓰기 2 | `index.ts:187`, `turn-coordinator.ts:301`; helper 읽기 `:283` | 실제 IPC cancel 테스트: terminal 1·finalize 1·interrupt 1. M4에서 terminal 중복으로 1케이스 red | 없음 |
+| VP-01·08 | EP-03 실행 상한 제거 | ΔV1 삭제 inventory | 아래 10파일·47검색행 + generic idle reset 2·clear 1 제거 | [삭제 inventory](evidence/r1-removal-inventory.json)의 기준선 집합을 현재 같은 술어와 대조: 잔여 `[]`. M6에서 장시간 실행 3종 등 4케이스 red | D-003 `background-controller` 지역변수 `timedOut`은 유지 |
+| VP-03·09 | EP-04 mail 예산 | 생성·루프·catch·clear·타입 5묶음 | `sync-manager.ts:75,137,177` 호출자 signal; timer/clear 삭제, `types.ts` syncMs 삭제 | `rg -n 'syncMs|budget|setTimeout|clearTimeout'` 두 파일 0행. 실제 POP3 경로에서 151초 후 synced·3건 저장, 호출자 abort cancelled, 연결/명령 timeout | 없음 |
+| VP-05 | EP-05 공개 계약·문서 | ΔV1 10자리 | IPC union 1·IPC 문서 3·runtime-ipc 4·provider-runtime 1·persistence 1 | `shared/ipc.ts:733` 및 IPC 문서 reason 행 일치. ΔV1 AC11 검색 0행, O2 주입 시 1행 | 없음 |
+| VP-06 | EP-06 terminal 성공 기록 | stream·합성 telemetry·generic error 3 | `turn-coordinator.ts:463,561,620` | `rg -n terminalForwarded`에서 초기값·guard·helper ack와 별도로 3곳 확인. AC7 telemetry/error 뒤 추가 terminal 0, M5 2케이스 red | 없음 |
+| VP-02·06·07 | EP-07 runtime 전달 수명 | 등록·사전 abort·mark·해제 4 | `turn-coordinator.ts:306~314,626` | 실제 SessionRuntime controller/chain abort 모두 run 종료·interrupt 1. 사전 abort send 0, 완료 후 abort mark 0 | 없음 |
+| VP-02·06·07 | EP-08 저장 실패 격리 | finalize try/catch 1 | `turn-coordinator.ts:290~295` | 단위 finalize-failure + 실제 runtime DB-failure: tool 정착 후 finalize 시도, interrupted 1·boundary aborted·error 0 | 없음 |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: …
+EP-03 검색행은 의미상 강제 지점 수와 구분한다. [`r1-removal-inventory.json`](evidence/r1-removal-inventory.json)에 원문 행과 술어를 보존했다.
+
+| 기준선 파일 (`app/src/main/` 기준) | 검색행 | 제거한 책임 |
+|---|---:|---|
+| `app/chat-turn/approval.ts` | 4 | pause dep·호출·관련 주석, release finally |
+| `app/chat-turn/index.ts` | 1 | stall 헤더 주석 |
+| `app/chat-turn/send.ts` | 1 | pause 배선 |
+| `contracts/ports.ts` | 3 | stall 원인·timedOut 포트·주석 |
+| `contracts/session-state.ts` | 3 | stall 원인·timedOut getter |
+| `features/chat/abort.ts` | 1 | 삭제된 타이머 관련 주석 |
+| `features/chat/timers.ts` | 4 | 타이머 파일 전체 |
+| `features/chat/turn-coordinator.ts` | 18 | import·NOOP·activeStall·pause·생성·timedOut 분기·주석. generic idle reset 2·clear 1도 삭제 |
+| `features/chat/turn-policy.ts` | 6 | armStall 필드·user/continuation/listen 값·주석 |
+| `features/sessions/session-runtime.ts` | 6 | timedOut getter·판정 3곳·주석 |
+
+- §10에 없는데 같은 불변식이 필요했던 지점: `abortTurn`의 중복 mark 방지 1곳(`abort.ts:15`). chatCancel은 cancelChain → controller listener → abortTurn 순이므로 마지막 mark가 중복됐다. `abort.test.ts` 4케이스와 실제 IPC cancel의 interrupt 1회 단언으로 닫았다.
+- 별도 주석 정리: `features/approvals/coordinator.ts`의 idle pause 서술도 타이머 삭제와 함께 제거했다.
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| … | … | … | … | … |
+| VP-01 | REQUIRED | SELF_BLOCKED | AC1의 30분 무출력 3종·승인 대기 통과. AC12① 실제 Bash/PowerShell 실기 대기 | not selected — 직접 oracle |
+| VP-02 | REGRESSION | SELF_BLOCKED | AC3~5·7~9·13 기계 경로 통과. AC12② 실제 폐기 UI 실기 대기 | M1~M3 전부 red |
+| VP-03 | REQUIRED | SELF_PASS | AC10 느린 동기화·취소·연결/명령 timeout 4케이스 통과 | not selected — 직접 oracle |
+| VP-04 | REQUIRED | SELF_PASS | 실제 chatCancel에서 user_cancelled 1건 | M4 red |
+| VP-05 | REGRESSION | SELF_PASS | reason union·문서 일치, 단어 경계 검색 0행, typecheck 3구성 통과 | not selected; 문서 음성 oracle O2 감도 확인 |
+| VP-06 | REQUIRED | SELF_PASS | 종료 3분기·사전 abort·listener 해제·기전달 terminal·DB throw 통과 | M5 red |
+| VP-07 | REQUIRED | SELF_PASS | 실제 runtime과 IPC cancel/discard/controller/chain/DB-failure 5케이스 통과 | not selected — 직접 oracle |
+| VP-08 | REQUIRED | SELF_PASS | 실행 상한 검색 0행·30분 무출력 비중단 통과 | M6 red, 소스 음성 oracle O1 감도 확인 |
+| VP-09 | REQUIRED | SELF_PASS | 실제 POP3 명령 타이머를 사용하는 mail 단위 4케이스·기존 통합 28케이스 통과 | not selected — 직접 oracle |
+
+자기확인 합계: SELF_PASS 7 · SELF_BLOCKED 2 = 9 pair. BLOCKED의 사유는 AC12 사람 실기이며 PLAN_GAP이나 기계 gate 실패가 아니다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | … | … | … |
+| M1 정상 반환 helper 삭제 | VP-02 등록 | 최초 구현 | AC4/5/13 return·finalize-failure / 2 | red |
+| M2 aborted catch helper 삭제 | VP-02 등록 | 최초 구현 | AC4/5/13 throw / 1 | red |
+| M3 backoff catch helper 삭제 | VP-02 등록 | 최초 구현 | AC5 abort during retry backoff / 1 | red |
+| M4 handler ack 삭제 | VP-04 등록 | 최초 구현 | 실제 IPC cancel closes the active response exactly once / 1 | red |
+| M5 stream terminal flag 삭제 | VP-06 등록 | 최초 구현 | AC7 forwarded telemetry·error / 2 | red |
+| M6 실행 120초 abort 재삽입 | VP-08 등록 | 최초 구현 | AC1 user·continuation·listen 및 완료된 listen 수명 / 4 | red |
+| O1 소스에 금지 토큰 재삽입 | AC2 음성 oracle 감도 | 신규 oracle 확인 | 동일 rg: 정상 0행 → 주입 1행 | 검출 |
+| O2 현재 문서에 idle timeout 재삽입 | AC11 음성 oracle 감도 | 신규 oracle 확인 | 동일 rg: 정상 0행 → 주입 1행 | 검출 |
 
-- **분모 검산**: …
-- **덮개 회귀**: …
+- **분모 검산**: 선택 증거 6 · 인용 변이 0 · 새 음성 oracle 감도 2 = 표 8행. 직접 행동 oracle에는 추가 proxy 변이를 만들지 않았다.
+- **덮개 회귀**: 최초 구현이라 이전 verify의 red 변이는 없다. 삭제한 stall 동작 테스트는 D-001에 따라 30분 무중단 행동으로 대체했고 실행 제한 재삽입 M6을 검출했다.
+- 재현: 루트에서 `python docs/handoff/0243-execution-timer-removal/evidence/r1-mutations.py`. 각 변이 후 원본 bytes 복구, 마지막 원복 스위트 74+21=95케이스 통과. [상세 결과](evidence/r1-mutations.json).
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 새 문구 없음. interrupted를 chatStore→chatReducer가 소비하고 TURN_END_RESET 적용. 기존 ko `chat.agent.aborted`의 '응답 중단' 사용 | AC8 reducer·실제 StatusLine 렌더 테스트 통과 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 테스트 전용 production 재배치 없음. 새 abort listener는 run의 바깥 try/finally로 모든 반환에서 해제 | AC3 완료 후 abort의 mark 0회 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | finalize 실패를 포함해 §5 '비사용자 중단, terminal 미전달' 행으로 종료 | ΔV1 AC13: error 0·interrupted 1 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | interrupted 후 inflight=false·turnStartedAt=null·오류 없음·StatusLine 마크업 빈 문자열 | 실제 클릭·시각 결과는 AC12 대기 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 같은 run의 기전달 terminal/ack로 추가 종료를 막고 listener를 해제 | AC6·7·3 및 M4·M5 검출. 다른 턴으로의 이벤트 라우팅은 기존 규칙 유지 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | controller.abort만으로 실제 SessionRuntime 프레임이 안 닫힘 | ΔV1에 올린 뒤 run 수명 listener 구현 | 실제 runtime controller·chain 케이스 각각 interrupt 1·run 종료 |
+| 2 | HistoryWriter.finalizeTurn throw가 terminal 송신을 막음 | ΔV1에 올린 뒤 helper의 finalize만 격리 | 단위·통합 DB-failure 케이스에서 terminal 1·error 0 |
+| 3 | chatCancel의 cancelChain과 abortTurn이 같은 runtime을 두 번 중단 | abortTurn에서 이미 cancelled면 mark 생략 | 수정 전 실제 cancel 테스트 interrupt 2회 실패, 수정 후 1회 통과 |
+| 4 | 비사용자 도구 정착도 '사용자가 중단했습니다'를 표시 | D-006 범위의 종료 처리는 구현. 세부 정착 문구는 §6 비범위 그대로 기록 | `settle.ts` 문구 변경 없음; 후속 제품 결정 대상 |
+| 5 | coordinator 진입 전 준비 단계의 비사용자 중단 | §6 비범위 보존 | AC3 사전 abort는 coordinator가 호출된 경우만 보장 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: 핵심 메커니즘은 ΔV1 그대로다. V1이 mail 통합의 syncMs 케이스를 signal abort로 바꾸도록 했지만, 해당 케이스는 명령 timeout 보존으로 바꾸고 caller abort·120초 초과는 신규 sync-manager 단위에서 실제 POP3 경로로 검증했다. AC10의 모든 결과를 각각 관측한다.
+- 추가 세부 수정: abortTurn 중복 mark 방지. ΔV1의 listener가 이미 중단한 runtime에 기존 chatCancel이 다시 mark하는 것을 막기 위한 것으로 공개 결과·Decision 변경은 없다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 새 만료 상태 없음. 실행 상한 제거 뒤 연결/명령 timeout까지 없어질 위험 | AC10 단위 4케이스: 전체 151초 성공, connect/command timeout 각각 유지 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | controller listener와 abortTurn이 같은 runtime을 공유 | EP-07 파생 지점: 실제 cancel의 mark 1회, abort 단위 4케이스 |
+| 재진입 | helper·IPC handler의 중복 종료 가능 | EP-02/06: AC6·7 통과, M4·M5 red |
+| 다른 무효화 축 | 종료 후 이전 listener가 runtime에 남을 위험 | EP-07: AC3 정상 종료 후 abort mark 0. 메일의 새 공유/캐시 무효화 장치는 없음 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님) | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | chat coordinator·abort·policy·계약·session runtime·approval 배선, mail sync/type, 관련 테스트, IPC/아키텍처 4문서. timer 본체·테스트 삭제. 상세는 diff |
+| 실행 명령 | 아래 재현 블록, 변이 runner. lint의 `--fix` 뒤 diff를 확인했고 해당 범위 밖 production 변경 없음 |
+| **관측한 게이트 산출**(exit code 아님) | vitest **271파일/2365케이스 통과·실패0·skip0**, DB 통합 포함. lint **error 0·warning 1**(수정하지 않은 useTranscriptVirtualizer의 기존 incompatible-library). typecheck **node/web/test 3/3·진단0**. doc inventory **9항목·100채널·문서/링크 정상** |
+| V-pair 자기확인 | SELF_PASS 7·SELF_BLOCKED 2(AC12 사람 실기), 총 9 |
+| 강제 지점 전수 | EP-01~08 구현·검색·직접 행동 관측 완료. EP-03은 기준선 47검색행과 현재 잔여 0을 구분해 기록 |
+| **AC 자기보고**(`Criteria-Met`) | **12/13**. 아래 AC별 관측; AC12만 사람 실기 대기 |
+| **합계 검산** | **✅12 · ⚠️1 · ❌0 = 총13**. V1은 AC3 행이 없었고 ΔV1이 AC3·13을 추가한 유효 분모 사용 |
+| 블로커 / 역질문 | 기계 gate 블로커·미해결 PLAN_GAP 없음. AC12 실제 Bash/PowerShell·폐기 UI는 검증자/사람에게 인계 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+| AC | 자기 상태 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | coordinator user/continuation/listen 각각 30분 abort 없음→telemetry 종료. approval.identity 승인 대기 30분 뒤에도 미종료→allow |
+| AC2 | ✅ | 계획의 main 금지 심볼 검색 0행, 확장 inventory 47→0행. O1 검출 및 M6 4케이스 red |
+| AC3 | ✅ | 실제 runtime controller/chain abort interrupt 1·run 종료; 사전 abort send 0·종료 후 mark 0 |
+| AC4 | ✅ | 정상 반환에서 tool aborted→finalize→interrupted 1→boundary aborted 순서. M1 검출 |
+| AC5 | ✅ | cancelled=false인 throw와 backoff abort 모두 interrupted 1·error 0. M2·M3 검출 |
+| AC6 | ✅ | 실제 chatCancel 양쪽 producer 합산 user_cancelled 1·finalize 1. M4 검출 |
+| AC7 | ✅ | telemetry/error 기전달 뒤 interrupted 0. M5 검출 |
+| AC8 | ✅ | reducer inflight=false·turnStartedAt=null·error undefined, StatusLine 실제 렌더 빈 문자열 |
+| AC9 | ✅ | 실제 chatDiscardSession 경유 interrupted 1·열린 tool aborted·boundary aborted |
+| AC10 | ✅ | sync-manager 4케이스(151초 성공·caller abort·connect timeout·command timeout), mail 통합 28·POP3 session 40 통과 |
+| AC11 | ✅ | reason user_cancelled/interrupted union·문서 일치, stall 단어/idle timeout 검색 0행·O2 검출·typecheck 3/3 |
+| AC12 | ⚠️ | 실제 패키징 앱/CLI의 200초 Bash·PowerShell 및 폐기 클릭 시각 검증 미실시 |
+| AC13 | ✅ | finalize throw 주입 시 단위와 실제 runtime 모두 interrupted 1·boundary aborted·error 0, run resolve |
+
+✅ 행 12 + ⚠️ 행 1 + ❌ 행 0 = 13. 구현 메타와 INDEX를 `impl/IMPL_DONE`, 다음 주체 Claude(verify)로 동기화한다.
+
+```powershell
+# app cwd
+npm.cmd run lint
+npm.cmd run typecheck
+npx.cmd vitest run src/main/features/chat src/main/app/chat-turn src/main/features/plugins/mail src/main/app/deployment/mail.integration.test.ts src/main/features/sessions src/main/contracts/session-state.test.ts src/main/infra/net/pop3-session.test.ts src/renderer/src/features/chat --maxWorkers=2
+node scripts/check-doc-inventory.mjs --check
+# repo root
+python docs/handoff/0243-execution-timer-removal/evidence/r1-mutations.py
+git diff --check
+```
+
+증거: [테스트 요약](evidence/r1-tests.json) · [lint](evidence/r1-lint.log) · [typecheck](evidence/r1-typecheck.log) · [변이 결과](evidence/r1-mutations.json). 테스트 요약은 vitest JSON의 파일별 상태·실행 수·실패명을 보존하고 중복 case 본문을 생략한 것이다.
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: r1 최초 구현. 재구현 라운드 없음.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: V1은 중단 후 frame 종료와 finalize 오류 격리를 전제했으나 실제 구현과 달랐다. 사전 프로브 후 ΔV1 AC3·13/EP-07·08로 보완해 분리 커밋했다.
+- 반복해서 부딪히는 환경 한계: 최종 gate의 ABI·네트워크 실패 없음. 실제 CLI/Windows 클릭 관측은 AC12의 원래 사람 실기 경계로 남음.
 - 현재 라운드·impl 턴: `r1`
 
 ---

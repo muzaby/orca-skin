@@ -70,9 +70,7 @@ vi.mock('./approval', () => ({ createApprovalRequester: () => vi.fn() }))
 vi.mock('./turn-request', () => ({ buildTurnRequest: (_deps, input) => input }))
 vi.mock('./post-turn', () => ({ runTurnWithContinuations: mocks.run }))
 vi.mock('../../features/chat/turn-coordinator', () => ({
-  TurnCoordinator: class {
-    beginApprovalPause = vi.fn()
-  }
+  TurnCoordinator: class {}
 }))
 
 import { handleChatSend } from './send'
