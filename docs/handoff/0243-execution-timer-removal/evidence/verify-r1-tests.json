@@ -1,0 +1,1384 @@
+{
+ "numFiles": 275,
+ "numTotalTests": 2398,
+ "numPassedTests": 2398,
+ "numFailedTests": 0,
+ "numPendingTests": 0,
+ "files": [
+  {
+   "file": "app/src/main/contracts/session-state.test.ts",
+   "status": "passed",
+   "tests": 1
+  },
+  {
+   "file": "app/src/main/app/chat-turn-continuation.test.ts",
+   "status": "passed",
+   "tests": 9
+  },
+  {
+   "file": "app/src/main/app/chat-turn.background-subagent.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/main/app/chat-turn.continuity.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/main/app/chat-turn.runtime-resilience.test.ts",
+   "status": "passed",
+   "tests": 1
+  },
+  {
+   "file": "app/src/main/app/chat-turn.runtime-tools.test.ts",
+   "status": "passed",
+   "tests": 7
+  },
+  {
+   "file": "app/src/main/features/approvals/broker.test.ts",
+   "status": "passed",
+   "tests": 12
+  },
+  {
+   "file": "app/src/main/features/approvals/coordinator.permission.test.ts",
+   "status": "passed",
+   "tests": 10
+  },
+  {
+   "file": "app/src/main/features/approvals/permission-bridge.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/main/features/approvals/permission-mode-controller.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/main/features/chat/abort.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/main/features/chat/attachments.test.ts",
+   "status": "passed",
+   "tests": 12
+  },
+  {
+   "file": "app/src/main/features/chat/background-controller.promotion.test.ts",
+   "status": "passed",
+   "tests": 20
+  },
+  {
+   "file": "app/src/main/features/chat/background-controller.test.ts",
+   "status": "passed",
+   "tests": 16
+  },
+  {
+   "file": "app/src/main/features/chat/background-tasks.test.ts",
+   "status": "passed",
+   "tests": 22
+  },
+  {
+   "file": "app/src/main/features/chat/image.test.ts",
+   "status": "passed",
+   "tests": 1
+  },
+  {
+   "file": "app/src/main/features/chat/interrupt-reconcile.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/main/features/chat/pending-message-queue.test.ts",
+   "status": "passed",
+   "tests": 50
+  },
+  {
+   "file": "app/src/main/features/chat/post-turn.test.ts",
+   "status": "passed",
+   "tests": 18
+  },
+  {
+   "file": "app/src/main/features/chat/recovery.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/main/features/chat/session-activity-projector.test.ts",
+   "status": "passed",
+   "tests": 9
+  },
+  {
+   "file": "app/src/main/features/chat/settle.test.ts",
+   "status": "passed",
+   "tests": 12
+  },
+  {
+   "file": "app/src/main/features/chat/stop-subagent.test.ts",
+   "status": "passed",
+   "tests": 9
+  },
+  {
+   "file": "app/src/main/features/chat/subagent-settlement.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/main/features/chat/title-generation.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/main/features/chat/title.test.ts",
+   "status": "passed",
+   "tests": 7
+  },
+  {
+   "file": "app/src/main/features/chat/turn-coordinator.test.ts",
+   "status": "passed",
+   "tests": 74
+  },
+  {
+   "file": "app/src/main/features/sessions/active-turn-tracker.test.ts",
+   "status": "passed",
+   "tests": 1
+  },
+  {
+   "file": "app/src/main/features/sessions/eviction-policy.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/main/features/sessions/respawn-policy.test.ts",
+   "status": "passed",
+   "tests": 8
+  },
+  {
+   "file": "app/src/main/features/sessions/restart-gate.test.ts",
+   "status": "passed",
+   "tests": 7
+  },
+  {
+   "file": "app/src/main/features/sessions/runtime-pool.test.ts",
+   "status": "passed",
+   "tests": 10
+  },
+  {
+   "file": "app/src/main/features/sessions/session-chain-lease.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/main/features/sessions/session-registry.test.ts",
+   "status": "passed",
+   "tests": 8
+  },
+  {
+   "file": "app/src/main/features/sessions/session-runtime.test.ts",
+   "status": "passed",
+   "tests": 74
+  },
+  {
+   "file": "app/src/main/features/sessions/supervisor.test.ts",
+   "status": "passed",
+   "tests": 18
+  },
+  {
+   "file": "app/src/main/app/chat-turn/admission.test.ts",
+   "status": "passed",
+   "tests": 16
+  },
+  {
+   "file": "app/src/main/app/chat-turn/approval.identity.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/main/app/chat-turn/approval.permission.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/main/app/chat-turn/background.integration.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/main/app/chat-turn/background.monitor.test.ts",
+   "status": "passed",
+   "tests": 8
+  },
+  {
+   "file": "app/src/main/app/chat-turn/background.promotion.test.ts",
+   "status": "passed",
+   "tests": 1
+  },
+  {
+   "file": "app/src/main/app/chat-turn/background.skill.test.ts",
+   "status": "passed",
+   "tests": 7
+  },
+  {
+   "file": "app/src/main/app/chat-turn/background.workflow-remote.test.ts",
+   "status": "passed",
+   "tests": 11
+  },
+  {
+   "file": "app/src/main/app/chat-turn/continuation.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/main/app/chat-turn/post-turn.schedules.test.ts",
+   "status": "passed",
+   "tests": 21
+  },
+  {
+   "file": "app/src/main/app/chat-turn/prepare-progress.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/main/app/chat-turn/prepare-worktree.test.ts",
+   "status": "passed",
+   "tests": 8
+  },
+  {
+   "file": "app/src/main/app/chat-turn/project-binding.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/main/app/chat-turn/queued-requirements.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/main/app/chat-turn/resolve-turn.agent.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/main/app/chat-turn/resolve-turn.runtime-catalog.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/main/app/chat-turn/respawn-inputs.test.ts",
+   "status": "passed",
+   "tests": 1
+  },
+  {
+   "file": "app/src/main/app/chat-turn/runtime-entry.test.ts",
+   "status": "passed",
+   "tests": 10
+  },
+  {
+   "file": "app/src/main/app/chat-turn/send.agent-profile.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/main/app/chat-turn/send.busy.test.ts",
+   "status": "passed",
+   "tests": 8
+  },
+  {
+   "file": "app/src/main/app/chat-turn/send.permission-mode.test.ts",
+   "status": "passed",
+   "tests": 7
+  },
+  {
+   "file": "app/src/main/app/chat-turn/send.worktree.test.ts",
+   "status": "passed",
+   "tests": 25
+  },
+  {
+   "file": "app/src/main/app/chat-turn/turn-context.test.ts",
+   "status": "passed",
+   "tests": 25
+  },
+  {
+   "file": "app/src/main/app/chat-turn/worktree-bind.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/main/app/chat-turn/worktree-recover.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/main/app/deployment/mail.integration.test.ts",
+   "status": "passed",
+   "tests": 28
+  },
+  {
+   "file": "app/src/main/infra/net/pop3-session.test.ts",
+   "status": "passed",
+   "tests": 40
+  },
+  {
+   "file": "app/src/main/features/plugins/mail/attachment-export.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/main/features/plugins/mail/endpoint.test.ts",
+   "status": "passed",
+   "tests": 16
+  },
+  {
+   "file": "app/src/main/features/plugins/mail/mime.test.ts",
+   "status": "passed",
+   "tests": 15
+  },
+  {
+   "file": "app/src/main/features/plugins/mail/pure.test.ts",
+   "status": "passed",
+   "tests": 15
+  },
+  {
+   "file": "app/src/main/features/plugins/mail/retention-window.test.ts",
+   "status": "passed",
+   "tests": 7
+  },
+  {
+   "file": "app/src/main/features/plugins/mail/sync-manager.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/main/features/plugins/mail/tools-lifecycle.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/main/features/plugins/mail/tools.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/main/features/plugins/mail/pop3/native-boundary.test.ts",
+   "status": "passed",
+   "tests": 14
+  },
+  {
+   "file": "app/src/main/features/plugins/mail/store/index.test.ts",
+   "status": "passed",
+   "tests": 26
+  },
+  {
+   "file": "app/src/main/features/plugins/mail/store/migrate.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/AgentModeToggle.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/ArtifactCard.render.test.ts",
+   "status": "passed",
+   "tests": 9
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/ArtifactCards.lifecycle.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/ChatTile.workLifetime.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/ChatTitleBar.layout.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/ChatTitleBar.render.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/Composer.activity.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/CwdPanel.isolation.test.ts",
+   "status": "passed",
+   "tests": 8
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/CwdPanel.landing.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/CwdPanel.visibility.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/StatusLine.interrupted.test.ts",
+   "status": "passed",
+   "tests": 1
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composerMount.render.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composerRequirementWiring.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/statusLine.background.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/statusLine.render.test.ts",
+   "status": "passed",
+   "tests": 11
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/usagePanel.render.test.ts",
+   "status": "passed",
+   "tests": 1
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/hooks/gitPatchGuard.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/hooks/gitPatchQuery.test.ts",
+   "status": "passed",
+   "tests": 9
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/hooks/useGitPatch.commitScope.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/hooks/useMentionAutocomplete.test.ts",
+   "status": "passed",
+   "tests": 14
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/hooks/useSkillAutocomplete.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/hooks/useUsageForTelemetryProvider.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/activityLabel.test.ts",
+   "status": "passed",
+   "tests": 18
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/agentPresentation.r8.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/artifactIssueReport.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/artifactOperationIssues.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/ask.test.ts",
+   "status": "passed",
+   "tests": 10
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/backgroundPresentation.test.ts",
+   "status": "passed",
+   "tests": 1
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/canonicalBackground.settlement.test.ts",
+   "status": "passed",
+   "tests": 13
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/changedFileTree.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/contextWindow.test.ts",
+   "status": "passed",
+   "tests": 14
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/diffDisplay.test.ts",
+   "status": "passed",
+   "tests": 10
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/diffHunks.selection.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/diffHunks.test.ts",
+   "status": "passed",
+   "tests": 10
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/diffLines.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/diffPatchLines.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/diffRequirementScroll.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/diffSyntax.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/diffViewport.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/eventCoalescer.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/fileSectionScroll.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/gitPatchCache.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/lang.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/markdownBlocks.test.ts",
+   "status": "passed",
+   "tests": 11
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/mentionAutocomplete.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/nonExecution.test.ts",
+   "status": "passed",
+   "tests": 22
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/parts.editPreview.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/parts.fileEditPatch.test.ts",
+   "status": "passed",
+   "tests": 1
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/parts.reconcile.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/parts.settle-orphan.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/parts.stale-async.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/parts.test.ts",
+   "status": "passed",
+   "tests": 23
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/planComments.test.ts",
+   "status": "passed",
+   "tests": 8
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/pluginMention.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/rightPanelLayout.test.ts",
+   "status": "passed",
+   "tests": 7
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/rightPanelTiles.test.ts",
+   "status": "passed",
+   "tests": 11
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/sendAdmission.test.ts",
+   "status": "passed",
+   "tests": 9
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/settlement.integration.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/taskBoard.test.ts",
+   "status": "passed",
+   "tests": 34
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/taskContext.internalSources.test.ts",
+   "status": "passed",
+   "tests": 9
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/taskContext.test.ts",
+   "status": "passed",
+   "tests": 7
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/telemetry.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/toolMeta.test.ts",
+   "status": "passed",
+   "tests": 22
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/turns.received.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/turns.test.ts",
+   "status": "passed",
+   "tests": 12
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/workActivity.performance.test.ts",
+   "status": "passed",
+   "tests": 1
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/workActivity.test.ts",
+   "status": "passed",
+   "tests": 19
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/workToolPresentation.test.ts",
+   "status": "passed",
+   "tests": 10
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/workToolResults.test.ts",
+   "status": "passed",
+   "tests": 7
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/lib/worktreeDisplay.test.ts",
+   "status": "passed",
+   "tests": 7
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/agentPolicy.r8.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/chatReducer.approval-lifetime.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/chatReducer.artifacts.test.ts",
+   "status": "passed",
+   "tests": 13
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ask.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/chatReducer.commitScope.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/chatReducer.diffCache.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/chatReducer.diffRequirementSelection.test.ts",
+   "status": "passed",
+   "tests": 9
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/chatReducer.extraDirs.test.ts",
+   "status": "passed",
+   "tests": 20
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/chatReducer.gitSnapshotFail.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/chatReducer.listen.test.ts",
+   "status": "passed",
+   "tests": 14
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/chatReducer.model.test.ts",
+   "status": "passed",
+   "tests": 10
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/chatReducer.panelPolicy.test.ts",
+   "status": "passed",
+   "tests": 15
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/chatReducer.parts.test.ts",
+   "status": "passed",
+   "tests": 15
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/chatReducer.permission.test.ts",
+   "status": "passed",
+   "tests": 19
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/chatReducer.plan.test.ts",
+   "status": "passed",
+   "tests": 38
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/chatReducer.prepareStep.test.ts",
+   "status": "passed",
+   "tests": 10
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/chatReducer.runtime-resilience.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/chatReducer.task.test.ts",
+   "status": "passed",
+   "tests": 22
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/chatReducer.tool.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/chatReducer.turnEnd.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/chatReducer.usage.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/reducer/chatReducer.worktree.test.ts",
+   "status": "passed",
+   "tests": 8
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/store/artifactStore.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/store/artifactViewerStore.test.ts",
+   "status": "passed",
+   "tests": 10
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/store/backgroundStore.panel.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/store/chatStore.agentKind.test.ts",
+   "status": "passed",
+   "tests": 7
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/store/chatStore.artifacts.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/store/chatStore.entryUpdates.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/store/chatStore.errors.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/store/chatStore.extraDirs.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/store/chatStore.gitTriggers.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/store/chatStore.landingDefault.test.ts",
+   "status": "passed",
+   "tests": 1
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/store/chatStore.listen.test.ts",
+   "status": "passed",
+   "tests": 14
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/store/chatStore.modelPermission.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/store/chatStore.permission.r4.test.ts",
+   "status": "passed",
+   "tests": 8
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/store/chatStore.project.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/store/chatStore.projectDeletion.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/store/chatStore.schedules.test.ts",
+   "status": "passed",
+   "tests": 10
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/store/chatStore.sessionDirectory.test.ts",
+   "status": "passed",
+   "tests": 16
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/store/chatStore.subagentControl.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/store/chatStore.test.ts",
+   "status": "passed",
+   "tests": 53
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/store/chatStore.worktreeIsolation.test.ts",
+   "status": "passed",
+   "tests": 11
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/BranchChip.defer.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/BranchChip.snapshot.test.ts",
+   "status": "passed",
+   "tests": 1
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/BranchSwitchActions.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/CheckoutErrorBody.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/Composer.requirements.render.test.ts",
+   "status": "passed",
+   "tests": 1
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/ComposerDecorationLayer.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/ComposerInputController.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/GitIdentityMenu.test.ts",
+   "status": "passed",
+   "tests": 14
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/MentionAutocomplete.render.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/RequirementTray.render.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/autocompleteKeys.test.ts",
+   "status": "passed",
+   "tests": 7
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/branchChipState.test.ts",
+   "status": "passed",
+   "tests": 21
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/chipGroup.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/composerDecoration.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/composerPanel.render.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/composerWiring.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/draftQuestion.test.ts",
+   "status": "passed",
+   "tests": 8
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/draftSnapshot.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/gitIdentityMenusWiring.test.ts",
+   "status": "passed",
+   "tests": 9
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/gitIdentityRemote.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/gitIdentityRemoteWiring.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/gitManualRefresh.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/gitQueryOwner.test.ts",
+   "status": "passed",
+   "tests": 1
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/gitQueryReason.test.ts",
+   "status": "passed",
+   "tests": 9
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/gitRow.availability.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/gitRow.render.test.ts",
+   "status": "passed",
+   "tests": 9
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/gitRowIdentityGeneration.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/gitRowState.test.ts",
+   "status": "passed",
+   "tests": 14
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/gitSnapshotLifecycle.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/gitSnapshotPlan.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/gitSnapshotQuery.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/modelMenu0215.render.test.ts",
+   "status": "passed",
+   "tests": 7
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/modelSelection.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/modes.r6.test.ts",
+   "status": "passed",
+   "tests": 18
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/modes.r7.test.ts",
+   "status": "passed",
+   "tests": 12
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/modes.test.ts",
+   "status": "passed",
+   "tests": 10
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/composer/statusViewModel.test.ts",
+   "status": "passed",
+   "tests": 7
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/ArtifactPreviewContent.render.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/ArtifactViewer.actions.test.ts",
+   "status": "passed",
+   "tests": 14
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/BackgroundModelLabel.render.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.render.test.ts",
+   "status": "passed",
+   "tests": 37
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.wiring.test.ts",
+   "status": "passed",
+   "tests": 10
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/DiffTileContent.commitScope.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/GitContextBar.actions.test.ts",
+   "status": "passed",
+   "tests": 12
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/GitContextBar.render.test.ts",
+   "status": "passed",
+   "tests": 18
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/RightPanel.viewport.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/RightPanelTile.actions.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/TaskContextContent.test.ts",
+   "status": "passed",
+   "tests": 8
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/TaskPanelContent.r5.test.ts",
+   "status": "passed",
+   "tests": 7
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/WorkTaskProgress.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/diffComparison.test.ts",
+   "status": "passed",
+   "tests": 7
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/diffOpenFile.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/diffPanel0211dv6.render.test.ts",
+   "status": "passed",
+   "tests": 13
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/diffPanelDesign.test.ts",
+   "status": "passed",
+   "tests": 16
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/diffPeekRemoved.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/diffRequirementSelection.render.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/diffRequirements.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/diffReviewNavigation.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/diffSyncState.render.test.ts",
+   "status": "passed",
+   "tests": 14
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/diffSyntax.render.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/diffTile.render.test.ts",
+   "status": "passed",
+   "tests": 29
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/diffTileMockRemoved.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/diffTileWiring.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/diffViewMenu.test.ts",
+   "status": "passed",
+   "tests": 7
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/fileDiffRequirementReveal.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/gitSyncTriggersRemoved.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/plan0215.render.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/planTasks0224.render.test.ts",
+   "status": "passed",
+   "tests": 8
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/rightPanelTiles.render.test.ts",
+   "status": "passed",
+   "tests": 16
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/sessionChangesData.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/subagentWiring.render.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/taskSurface0212.render.test.ts",
+   "status": "passed",
+   "tests": 21
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/taskTile0213.render.test.ts",
+   "status": "passed",
+   "tests": 11
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/workPanelSections.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/workTaskDetail.ack.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/rightpanel/workTaskDetail.test.ts",
+   "status": "passed",
+   "tests": 5
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/transcript/ForegroundShellActions.interaction.test.ts",
+   "status": "passed",
+   "tests": 9
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/transcript/TranscriptView.received.test.ts",
+   "status": "passed",
+   "tests": 4
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/transcript/TranscriptView.workResults.test.ts",
+   "status": "passed",
+   "tests": 1
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/transcript/TurnOutputCards.test.ts",
+   "status": "passed",
+   "tests": 7
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/transcript/UserMessage.origin.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/transcript/UserMessage.requirements.test.ts",
+   "status": "passed",
+   "tests": 3
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/transcript/WorkActivity.interaction.test.ts",
+   "status": "passed",
+   "tests": 2
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/transcript/WorkActivity.questionIpc.test.ts",
+   "status": "passed",
+   "tests": 1
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/transcript/WorkActivity.render.test.ts",
+   "status": "passed",
+   "tests": 6
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/transcript/WorkToolBody.render.test.ts",
+   "status": "passed",
+   "tests": 11
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/transcript/nonExecution.render.test.ts",
+   "status": "passed",
+   "tests": 7
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/transcript/registry.test.ts",
+   "status": "passed",
+   "tests": 8
+  },
+  {
+   "file": "app/src/renderer/src/features/chat/components/transcript/tool-bodies/DiffBody.render.test.ts",
+   "status": "passed",
+   "tests": 13
+  }
+ ]
+}
