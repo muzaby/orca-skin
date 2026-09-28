@@ -73,8 +73,10 @@ main ─ getLogger().child(scope).* ─────┘     enrich → suppress �
 | main `app/error-report-sink.ts`·`app/handlers/error.ts` | 창 전달·drain·파괴 정리. 로깅 및 drain 수신은 창 생성 전에 등록한다. |
 | renderer `shared/errors` | 로그 동반 보고·main 보고 수신(중복 로그 없음)·스택·만료 타이머 |
 | renderer `shared/ui/ErrorToastHost.tsx` | 게이트 화면에서도 표시하는 전역 호스트. Orca 테마·앱 폰트·reduced-motion을 따른다. |
+| renderer `app/ErrorToastLayer.tsx` | 본문 클릭을 페이지·설정 탭 이동 또는 로그 위치 열기에 연결한다. Host에는 이동 콜백을 주입한다. |
 
 `title`은 `APP_ERROR_TITLES`의 번역 키다. `detail` 미지정은 오류 메시지, `null`은 설명 숨김, 문자열은 명시 설명이며 `APP_ERROR_DETAIL_MAX`로 절단한다. 비밀 가능성이 있는 실패는 원문을 설명으로 보내지 않는다.
+설명은 최대 8줄까지 표시하고 넘치면 말줄임한다. `target`은 선택적 이동 대상이며 기존 호출부는 생략한다. 본문 클릭은 이동 후 카드를 닫고, 닫기 버튼은 이동하지 않는다. 대상이 없으면 `infra/log.currentLogFilePath()`의 파일을 flush 후 탐색기에서 선택하며 파일이 없으면 로그 폴더를 연다. 폴더 열기 실패는 로그와 새 오류 토스트로 보고한다.
 
 `publishErrorReport`는 같은 실패를 이미 로그한 scheduler 전이·설정 경고 합산에서만 사용한다. Scheduler는 매 실패를 로그하되 첫 실패와 성공 후 재실패에 게시하고, 설정 경고는 개별 로그를 유지하면서 카드 하나로 합친다. 파일 기록의 반복 억제·마스킹은 기존 LogManager 정책을 따른다.
 

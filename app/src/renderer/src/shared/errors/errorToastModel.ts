@@ -21,7 +21,9 @@ export function applyErrorReport(
     if (now - existing.lastHitAt < ERROR_TOAST_COOLDOWN_MS) return { state, expire: [] }
     return {
       state: state.map((toast) =>
-        toast === existing ? { ...toast, seq: toast.seq + 1, lastHitAt: now } : toast
+        toast === existing
+          ? { ...toast, target: report.target, seq: toast.seq + 1, lastHitAt: now }
+          : toast
       ),
       expire: [{ id: existing.id, at: now + ERROR_TOAST_DURATION_MS }]
     }

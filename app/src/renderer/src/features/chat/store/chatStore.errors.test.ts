@@ -42,7 +42,9 @@ describe('chat failures reach the toast host', () => {
     })
     expect(log).toHaveBeenCalledTimes(1)
     errorToastStore.getInitialState().toasts = errorToastStore.getState().toasts
-    expect(renderToStaticMarkup(createElement(ErrorToastHost))).toContain('transport rejected')
+    expect(renderToStaticMarkup(createElement(ErrorToastHost, { onOpen: vi.fn() }))).toContain(
+      'transport rejected'
+    )
     vi.advanceTimersByTime(4600)
     expect(errorToastStore.getState().toasts).toEqual([])
   })

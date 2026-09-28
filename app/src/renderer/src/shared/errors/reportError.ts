@@ -1,6 +1,7 @@
 import {
   APP_ERROR_DETAIL_MAX,
   type AppErrorReport,
+  type AppErrorTarget,
   type AppErrorTitle
 } from '../../../../shared/app-error'
 import { rendererLog } from '../logging'
@@ -13,6 +14,7 @@ export function reportError(input: {
   error?: unknown
   detail?: string | null
   data?: Record<string, unknown>
+  target?: AppErrorTarget
 }): void {
   try {
     rendererLog.error(input.event, input.scope, input.error, input.data)
@@ -28,7 +30,13 @@ export function reportError(input: {
         : raw.length > APP_ERROR_DETAIL_MAX
           ? raw.slice(0, APP_ERROR_DETAIL_MAX - 1) + '…'
           : raw
-    presentErrorReport({ id: crypto.randomUUID(), title: input.title, detail, origin: 'renderer' })
+    presentErrorReport({
+      id: crypto.randomUUID(),
+      title: input.title,
+      detail,
+      origin: 'renderer',
+      target: input.target
+    })
   } catch {
     // No rethrow or recursive reporting. The original failure is logged before presentation.
   }

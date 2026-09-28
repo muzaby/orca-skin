@@ -23,6 +23,9 @@ interface FileTransportOptions {
 }
 
 const DEFAULT_BASE = 'application.jsonl'
+export function logFilePath(dir: string, baseName = DEFAULT_BASE): string {
+  return join(dir, baseName)
+}
 const DEFAULT_MAX_BYTES = 10 * 1024 * 1024
 const DEFAULT_MAX_FILES = 5
 const DEFAULT_FLUSH_MS = 500
@@ -90,8 +93,12 @@ export class FileTransport implements LogTransport {
     return this.disabled
   }
 
+  get filePath(): string {
+    return this.basePath()
+  }
+
   private basePath(): string {
-    return join(this.dir, this.baseName)
+    return logFilePath(this.dir, this.baseName)
   }
 
   private rotatedPath(index: number): string {

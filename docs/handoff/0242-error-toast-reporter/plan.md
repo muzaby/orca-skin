@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-27 |
 | 매핑 | 없음 |
-| 상태 | ΔV5 READY — V1~ΔV4 는 verify/PASS([verify.md](verify.md)), ΔV5 는 사용자 요구 변경 |
+| 상태 | ΔV5 impl/IMPL_DONE — r1.5, Codex 구현·게이트 완료, 다음 Claude 독립 검증. AC30 사람 실기 대기. V1~ΔV4 verify/PASS 유지 |
 | V mode | `Delta V` |
 | 기준 V | `V1@abb4e49a` (공유 브랜치, `git cat-file -t` = commit) |
 | 이번 V revision | `ΔV5` (ΔV4 r1.4 verify/PASS `ef3cd63` 이후) |
@@ -1263,6 +1263,139 @@ reportError({target?}) ─ main → hub → reportEvent/drain(IPC) ─→ bridge
 
 - ΔV2 AC20 이 "닫힌다"는 **최종 상태**만 단언해 중간의 공간 할당(플리커)을 보지 못했다. 사람 실기가 잡았다. ΔV4 는 상태 변화 이력(구독 기록)을 단언한다.
 - 현재 라운드·impl 턴: `r1.4`.
+
+## [구현자 기입] 설계 리뷰 (r1.5 · ΔV5)
+
+- 동의 / 그대로 진행: D-015~D-019와 AC30~38을 구현한다. 보드의 Claude 구현 표기는 이번 사용자 `handoff-impl 242` 재개 요청으로 Codex가 승계한다.
+- 기준선: 원격 main과 동일한 트리에서 시작, 로컬 변경 0. 이번 턴은 사용자 요구 변경이므로 r1.5이며 review의 반복 실패 트리거에 해당하지 않는다.
+- 작업 목록: REQUIRED VP-26~30·VP-06·VP-15, REGRESSION VP-11·VP-08·VP-02. 강제 지점 EP-21~25와 상속 EP-7·EP-10·EP-13·EP-15·EP-2를 대조한다.
+- 필수 gate: lint·node/web/test typecheck·관련 및 전체 Vitest·inventory·diff·trailer. AC30 실제 창 말줄임과 기존 AC2·AC13·ΔV4 실기는 기계 단언과 구분한다.
+- 기존 NON_BLOCKING D1~D12는 요구 확장으로 취급하지 않는다. 이번 변경이 만지는 Host 마운트·키·target 전달·로그 경로를 우선 검사한다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 (r1.5)
+
+| Pair | 계약 / §10 자리 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|
+| VP-26 | EP-21 설명 말줄임 1 | 소스 1/1 | `ErrorToastHost.actions.test.ts` 설명에만 `line-clamp-8`, 제목에는 없음 | AC30 사람 실기 |
+| VP-27 | EP-22 클릭·분기·가드 7 | 7/7 | Host 본문 onOpen·dismiss·형제 ×, target 함수 page·settings·fallback·가드. actions 4건 + target 12건 통과 | 없음 |
+| VP-28 | EP-23 target 운반 5묶음 | 18/18 | 아래 운반 자리 목록. reporter 단위와 실제 hub→handler/sink→bridge→store 통합에서 page/settings 보존 | 없음 |
+| VP-29 | EP-24 IPC 5묶음 | 12/12 | 채널·preload·API 각 1, handler 6(아래), Layer 1, 경로 facade·transport 2. handler 3건·Layer 1건·preload 1건·경로 2건 통과 | 탐색기 UI 사람 실기 |
+| VP-30 | EP-25 병합 1 | 1/1 | 모델 테스트: 500ms 동일 참조, 1200ms 새 target, 2400ms undefined; id·key·카드 수 유지 | 없음 |
+| VP-06 | EP-7 cap·dedupe·cooldown 3 | 3/3 | model/store 기존 테스트: 최신 3장·병합 seq·4599/4600ms 만료·dismiss | 없음 |
+| VP-15 | EP-15 App 마운트 1 | 1/1 | App 트리에서 RootGate 형제인 Layer 1; Layer 테스트에서 Host + 실제 의존성 전달 | 없음 |
+| VP-08 | EP-10 두 테마 2 | 소스 2/2 | Host render: 기존 grid·반경·그림자·폰트·시맨틱 alias·4.6초 유지 | AC13 두 테마 사람 실기 상속 |
+| VP-11 | EP-13 IPC 문서 | 채널·payload 동기화 | `ipc-documentation.test.ts`와 inventory check; `orca:error:revealLog`·`AppErrorReport.target` 문서 검색 | 없음 |
+| VP-02 | EP-2 로그 5 | 5/5 | 두 reporter 로그 선행, main 수신 로그 0, scheduler/config 별도 발행 2파일 유지; reveal 실패 로그 1 | 없음 |
+
+- 검색 단위는 `target` 대입만이 아니라 **AppErrorReport 운반**이다. `rg -n 'AppErrorReport|presentErrorReport|errorReportEvent|errorDrain|errorToastStore' app/src -g '!*.test.ts'`와 각 경로의 `report|pending|sink|markReady|subscribe|applyErrorReport`를 대조했다.
+- EP-23의 18자리: 명시된 reporter 3 + bridge 이벤트·drain 2, 객체를 그대로 넘기는 hub ready·pending·markReady 3, sink 1, drain helper·handler 2, preload onReport·subscribe·drain 3, bridge present 1, presenter 1, store push→model 1, model 신규 spread 1. 병합은 EP-25, Host 클릭 전달은 EP-22/24에 따로 센다. 기존 preload 경로는 소스 대조이며 통합 테스트는 main/renderer 사이 API를 연결한다.
+- EP-24 handler 6자리: flush → 현재 경로 → 존재 검사 → 파일 선택 / 폴더 열기 → 오류 문자열 throw. `rg -n 'errorRevealLog|revealLog|currentLogFilePath|logFilePath|flushLogSync|showItemInFolder|openPath'`로 변경 경로를 대조했다. 경로 SSOT는 file-transport의 `DEFAULT_BASE`이며 초기화 전·열린 중·close 뒤 실파일 경로 테스트를 통과했다.
+- `rg -n 'ErrorToastLayer|RootGate|ChatProvider|BrowserRouter' app/src/renderer/src/App.tsx`에서 Layer가 Router와 ChatProvider 안, RootGate 형제임을 재확인했다. 기존 report 호출 사이트에 target을 지정하는 변경은 없다(D-019).
+
+| Pair | requiredness | 자기 상태 | 직접 관측 / 남은 증거 |
+|---|---|---|---|
+| VP-26 | REQUIRED | SELF_BLOCKED | 설명 클래스·맞바꿈 변이 검출. 900×670 실기 미실행 |
+| VP-27 | REQUIRED | SELF_PASS | page·settings·무효/없음·reveal 실패·본문/닫기 동작 통과 |
+| VP-28 | REQUIRED | SELF_PASS | renderer·main 두 생산자·publish·이벤트·drain target 보존, 지정 변이 5자리 검출 |
+| VP-29 | REQUIRED | SELF_PASS | 실제 등록 IPC handler·공개 preload·Layer 의존성 연결, 지정 변이 2자리 검출 |
+| VP-30 | REQUIRED | SELF_PASS | target 교체·제거와 키 보존 직접 단언 |
+| VP-06 | REQUIRED | SELF_PASS | cap·cooldown·병합·타이머 기존 회귀 통과 |
+| VP-15 | REQUIRED | SELF_PASS | App→Layer→Host, Layer 삭제 변이 2건 실패 |
+| VP-11 | REGRESSION | SELF_PASS | IPC 문서 및 inventory 검사 통과 |
+| VP-08 | REGRESSION | SELF_BLOCKED | 클래스·토큰 회귀 통과. 기존 두 테마 시각 실기 대기 유지 |
+| VP-02 | REGRESSION | SELF_PASS | reveal 실패 로그 동반, 기존 중복 로그·제3 발행 파일 변이 검출 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1.5)
+
+실행: `node docs/handoff/0242-error-toast-reporter/evidence/r1.5-mutations.cjs`. 각 production 변이를 실행한 뒤 원본 바이트로 복구했다. 관측 파일: [r1.5-mutations.json](evidence/r1.5-mutations.json).
+
+| 심은 결함 / evidence id | 출처 | 이전 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| VP-26-clamp-swap: 설명→제목 clamp 이동 | VP-26 선택 | 최초 | Host actions 1 | 검출 |
+| VP-27a-dismiss: 본문 dismiss 제거 | VP-27 선택 | 최초 | Host actions 2 | 검출 |
+| VP-27b-close-opens: ×에서 onOpen 실행 | VP-27 선택 | 최초 | Host actions 1 | 검출 |
+| VP-27c-branch-swap: page/settings 맞바꿈 | VP-27 선택 | 최초 | target 1 | 검출 |
+| VP-27d-invalid-guard: 가드 제거 | VP-27 선택 | 최초 | target 8 | 검출 |
+| VP-28-renderer-target: renderer 누락 | VP-28 선택 | 최초 | renderer reporter 1 | 검출 |
+| VP-28-main-target: main reporter 누락 | VP-28 선택 | 최초 | main reporter·통합 2 | 검출 |
+| VP-28-publish-target: publish 누락 | VP-28 선택 | 최초 | main reporter·통합 2 | 검출 |
+| VP-28-event-target: 이벤트 수신 누락 | VP-28 선택 | 최초 | 통합 1 | 검출 |
+| VP-28-drain-target: drain 수신 누락 | VP-28 선택 | 최초 | 통합 1 | 검출 |
+| VP-29-flush: handler flush 제거 | VP-29 선택 | 최초 | handler 2 | 검출 |
+| VP-29-layer-noop: Layer onOpen no-op | VP-29 선택 | 최초 | Layer 1 | 검출 |
+| mount-regression: App Layer 제거 | 교체한 마운트 oracle | r1 Host 제거 red | App·Host render 2 | 검출 유지 |
+| animation-key: seq 키 제거 | 새 구조 oracle / D2 참고 | 미잠금 | Host actions 4 | 검출 |
+| preload-channel: revealLog→drain 채널 | 새 배선 oracle | 최초 | preload 1 | 검출 |
+| api-noop: renderer API no-op | 새 배선 oracle | 최초 | preload·Layer 2 | 검출 |
+| VP-02a-regression: main 수신 중복 로그 | VP-02 상속 선택 | r1 red | bridge 1 | 검출 유지 |
+| VP-02b-regression: 제3 publish 파일 | VP-02 상속 선택 | r1 red | main registry 1 | 검출 유지 |
+
+- **분모 검산**: 선택 증거 14(ΔV5 12 + VP-02 상속 2) · 인용 변이 0 · 신규/교체 oracle 4 = 표 행 18. VP-26은 변이를 검출했어도 사람 실기 전 SELF_PASS로 올리지 않는다.
+- 덮개 회귀 확인: 기존 Host 직접 마운트 검사를 Layer 경유 검사로 바꿨다. 대응 마운트 제거가 여전히 red다. VP-30·VP-06은 직접 결과 oracle이며 새 변이를 만들지 않았다.
+
+## [구현자 기입] Product/UX 파생 검토 (r1.5)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 클릭이 실제 소비자까지 가는가 | 본문→Layer→라우터/설정 또는 IPC. 기존 사이트에는 target이 없으므로 로그 위치를 연다 | D-019 유지 |
+| 닫기가 뜻하지 않은 이동을 만드는가 | 형제 × 버튼은 dismiss만 호출; 본문과 × 각각 테스트 | 없음 |
+| 로그 폴더 열기 실패가 무반응으로 보이는가 | OS 오류 문자열→IPC reject→기존 `openFailed` 번역·토스트 1·로그 1 | 없음 |
+| 긴 설명과 입력 접근성 | 설명만 clamp, 본문은 기본 키보드 활성화를 지원하는 button, 기존 focus·motion-reduce 유지 | 3장·8번째 줄 말줄임·두 테마 실기 대기 |
+| 비동기 실패가 이전 카드를 다시 살리는가 | 클릭 카드는 즉시 dismiss, reveal 실패는 별도 보고로 들어온다 | 기존 report cooldown 정책 유지 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1.5)
+
+| # | 문제 / 관측 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 로그 초기화 전 또는 close 뒤 transport가 없을 수 있다 | ✅ fallback도 같은 파일명 SSOT 사용. 전·중·후 getter와 실파일을 테스트 | `infra/log/index.test.ts` |
+| 2 | 기존 D2의 animation key를 이번 카드 구조 변경이 건드릴 수 있다 | ✅ seq=1의 key를 직접 단언하고 seq 제거 변이 4건 실패. 검증자 이슈 상태는 검증자가 재판정 | `ErrorToastHost.actions.test.ts` |
+| 3 | `shell.showItemInFolder` 반환값에는 OS 창 성공 여부가 없다 | ⚠️ 보고만. 파일 선택 요청까지 기계 검증하며 실제 탐색기 표시는 사람 실기 | `handlers/error.ts` |
+
+### 설계 대비 명시적 차이
+
+- 계약 변경 없음. 기존 preload 추론 타입이 API 변경을 전달하므로 `env.d.ts` 별도 선언은 필요 없다. Host 내부 버튼은 CSS subgrid로 기존 카드 열을 공유한다.
+- 경로 getter가 transport 부재 때도 값을 반환하도록 파일명 helper를 공유했다. 만료·재진입·공유 캐시 무효화는 해당 없음(캐시를 신설하지 않음); transport close 축은 실제 로그 테스트로 재확인했다.
+- 신규 의존성·PLAN_GAP 없음. 기존 D1·D3~D12는 이번 변경 범위 밖으로 유지한다.
+
+## [구현자 기입] 구현 보고 (r1.5)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | shared target/IPC, main reporter·로그 경로·reveal handler, preload/API, 모델·Host·app Layer·target 실행기, settings 탭 타입, 관련 테스트·IPC/observability/inventory |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · 관련/전체 `npx vitest run` · 위 mutation runner · `node scripts/check-doc-inventory.mjs --check` · `git diff --check` |
+| **관측한 게이트 산출** | lint 0 error·기존 warning 1, typecheck node/web/test 3종 오류 0. 관련 16파일 255건 + 추가 log/preload 2파일 16건 통과. 전체 599파일: 5691 통과·1 skip·0 실패. inventory·diff 통과, 변이 18/18 검출 |
+| V-pair 자기확인 | SELF_PASS 8 / SELF_BLOCKED 2(사람 실기) |
+| 강제 지점 전수 | 위 자리 표 참조. EP-23/24 묶음을 실제 전달·실행 위치로 펼쳐 기록 |
+| **AC 자기보고** | 아래 개별 행 참조 |
+| **합계 검산** | ΔV5 분모 9: ✅ 8 · ⚠️ 1 · ❌ 0 = 9. ΔV4 분모 4와 직접 비교하지 않음 |
+| 블로커 / 역질문 | PLAN_GAP 없음. AC30과 상속 시각 실기 미실행 |
+| 대상 커밋 | `(r1.5 구현 — 좌표는 INDEX)` |
+
+| AC | 자기보고 | 이번 턴 관측 |
+|---|---|---|
+| AC30 | ⚠️ | 설명에만 clamp 8 단언 및 맞바꿈 검출. 900×670 한글 설명 3장 실기 미실행 |
+| AC31 | ✅ | Host page/없음 각각 onOpen 1·선택 카드만 제거; × onOpen 0 |
+| AC32 | ✅ | page 1·settings 세 형태·없음/무효 target 10사례의 호출 기록 |
+| AC33 | ✅ | reveal reject→store `openFailed` 1·`errors.reveal-log.failed` 로그 1 |
+| AC34 | ✅ | renderer/main/publish 단위 + 실제 main sink·drain→bridge→store target |
+| AC35 | ✅ | target 교체/제거, id·key·카드 수 유지, cooldown 동일 참조 |
+| AC36 | ✅ | handler 파일 선택 순서·폴더 fallback·OS 오류 reject 3건 |
+| AC37 | ✅ | App Layer 1·Host 타입·실제 settings show/API 의존성, mount/no-op 검출 |
+| AC38 | ✅ | IPC 문서 테스트·inventory 9항목 100채널 일치, 현재 문서 수치 중복·끊긴 상대 링크 없음 |
+
+**합계 재검산:** AC30~38 9행에서 ✅ 8 · ⚠️ 1 · ❌ 0. 구현 trailer의 `Criteria-Met`은 `8/9`로 적는다.
+
+- 전체 첫 실행은 샌드박스의 사용자 폴더 `stat/lstat EPERM` 영향으로 11파일 109건 실패했다. 권한을 확보한 동일 전체 명령 재실행에서 599파일이 통과했고, 첫 실패 집합에서 최종 통과 집합을 뺀 결과는 0건이다. 실패 파일 목록과 수치는 [r1.5-gates.json](evidence/r1.5-gates.json)에 남겼다.
+- skip 1은 환경 변수로 opt-in하는 기존 `artifact-sdk-live.test.ts`의 P02 실제 SDK 테스트다. lint 자동 수정은 이번 변경 파일에만 적용됐으며 네이티브 ABI는 변경하지 않았다.
+- 산출 검산: 보고의 AC 행 9·✅ 8·⚠️ 1, mutation runner 등록 18과 관측 JSON의 차집합 양방향 0. 상태 정본은 plan 메타·INDEX 모두 `impl/IMPL_DONE`, 다음 Claude로 맞춘다. 커밋 뒤 trailer 파싱을 확인한다.
+
+## [구현자 기입] Review Signals — 사실만 (r1.5)
+
+- 사용자 요구 변경 ΔV5 구현이며 이전 FAIL 재구현이 아니다. 현재 라운드·impl 턴은 `r1.5`.
+- 기존 동작상 정상이나 미잠금으로 기록된 D2는 이번 카드 변경에 맞춰 key 단언과 변이를 추가했다. 독립 verify 판정은 하지 않았다.
+- 첫 lint에서 신규 테스트 helper 반환 타입 누락 2건을 검출해 고쳤다. 최종 lint는 오류 0·기존 virtualizer 경고 1이다.
+- 전체 gate의 첫 실패는 샌드박스 파일 접근 제한이었다. 승인된 재실행으로 109건 모두 회복돼 환경 한계로만 기록했다.
+- 사람 실기(AC30·기존 AC2/AC13·ΔV4)는 자동 소스 단언으로 대체하지 않았다. 네이티브 ABI 변경이나 의존성 설치는 수행하지 않았다.
 
 ## [검증자 기입] 파생 이슈
 

@@ -117,7 +117,8 @@ const orca = {
   error: {
     onReport: (handler: (report: AppErrorReport) => void): (() => void) =>
       subscribe(CHANNELS.errorReportEvent, handler),
-    drain: (): Promise<AppErrorReport[]> => ipcRenderer.invoke(CHANNELS.errorDrain)
+    drain: (): Promise<AppErrorReport[]> => ipcRenderer.invoke(CHANNELS.errorDrain),
+    revealLog: (): Promise<void> => ipcRenderer.invoke(CHANNELS.errorRevealLog)
   },
   boot: {
     report: (): Promise<BootReport> => ipcRenderer.invoke(CHANNELS.bootReport),

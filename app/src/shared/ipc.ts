@@ -19,6 +19,7 @@ export type { ResponseBoundary } from './response-boundary'
 export const CHANNELS = {
   errorReportEvent: 'orca:error:reportEvent',
   errorDrain: 'orca:error:drain',
+  errorRevealLog: 'orca:error:revealLog',
   chatSend: 'orca:chat:send',
   // 0067 AC5: 구 chat:steer 는 chat:send 로 흡수(main 이 busy=예약/idle=즉시를 판정).
   chatSteerCancel: 'orca:chat:steerCancel',

@@ -10,7 +10,7 @@ import { join } from 'path'
 import { randomUUID } from 'crypto'
 import { orcaConfigDir } from '../config/paths'
 import type { LogInput, LogRecord } from '../../../shared/logging'
-import { FileTransport } from './file-transport'
+import { FileTransport, logFilePath } from './file-transport'
 import { LogManager, type AppLogger, type LogSource } from './log-manager'
 import { setRootLogger } from './registry'
 
@@ -82,6 +82,10 @@ export function emitIngestedLog(input: LogInput, source: LogSource): void {
 // fatal 경로(uncaughtException 등)에서 버퍼 유실 방지 (AC8·AC9).
 export function flushLogSync(): void {
   manager?.flushSync()
+}
+
+export function currentLogFilePath(): string {
+  return transport?.filePath ?? logFilePath(join(orcaConfigDir(), 'logs'))
 }
 
 export function closeLog(): void {

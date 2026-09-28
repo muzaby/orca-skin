@@ -1,0 +1,114 @@
+{
+  "lint": {
+    "command": "npm run lint",
+    "errors": 0,
+    "warnings": 1,
+    "warning": "react-hooks/incompatible-library: useTranscriptVirtualizer.ts (existing)"
+  },
+  "typecheck": {
+    "command": "npm run typecheck",
+    "configurations": [
+      "node",
+      "web",
+      "test"
+    ],
+    "errors": 0
+  },
+  "vitest": {
+    "command": "npx vitest run --reporter=json --outputFile=<cache>/full-vitest[-elevated].json",
+    "sandbox": {
+      "files": 599,
+      "passedFiles": 588,
+      "failedFiles": [
+        {
+          "file": "src/main/app/chat-turn/send.agent-profile.test.ts",
+          "failedCases": 6
+        },
+        {
+          "file": "src/main/app/chat-turn/send.permission-mode.test.ts",
+          "failedCases": 7
+        },
+        {
+          "file": "src/main/app/chat-turn/send.worktree.test.ts",
+          "failedCases": 17
+        },
+        {
+          "file": "src/main/app/handlers/files.contextDirectory.test.ts",
+          "failedCases": 30
+        },
+        {
+          "file": "src/main/features/artifacts/files.test.ts",
+          "failedCases": 2
+        },
+        {
+          "file": "src/main/features/artifacts/temp-directory.test.ts",
+          "failedCases": 1
+        },
+        {
+          "file": "src/main/features/chat/attachments.test.ts",
+          "failedCases": 7
+        },
+        {
+          "file": "src/main/features/extensions/deployer.test.ts",
+          "failedCases": 11
+        },
+        {
+          "file": "src/main/infra/git/git-safety.test.ts",
+          "failedCases": 2
+        },
+        {
+          "file": "src/main/features/extensions/skills/seed.test.ts",
+          "failedCases": 4
+        },
+        {
+          "file": "src/main/features/plugins/confluence/connector.test.ts",
+          "failedCases": 22
+        }
+      ],
+      "tests": 5692,
+      "passed": 5582,
+      "failed": 109,
+      "pending": 1,
+      "success": false
+    },
+    "elevated": {
+      "files": 599,
+      "passedFiles": 599,
+      "failedFiles": [],
+      "tests": 5692,
+      "passed": 5691,
+      "failed": 0,
+      "pending": 1,
+      "success": true
+    },
+    "sandboxFailuresNotRecovered": [],
+    "skipped": [
+      {
+        "file": "src/main/app/artifact-sdk-live.test.ts",
+        "name": "P02 real SDK preserves publisher receipt and original tool call identity",
+        "status": "skipped"
+      }
+    ]
+  },
+  "mutations": {
+    "command": "node docs/handoff/0242-error-toast-reporter/evidence/r1.5-mutations.cjs",
+    "observed": 18,
+    "missing": [],
+    "surviving": []
+  },
+  "inventory": {
+    "command": "node scripts/check-doc-inventory.mjs --check",
+    "generatedItems": 9,
+    "channels": 100,
+    "mismatches": 0,
+    "brokenLinks": 0
+  },
+  "diff": {
+    "command": "git diff --check",
+    "errors": 0
+  },
+  "manualPending": [
+    "AC30: 900x670, three long Korean descriptions, eight-line ellipsis",
+    "Inherited AC2/AC13 and Delta V4 visual checks"
+  ]
+}

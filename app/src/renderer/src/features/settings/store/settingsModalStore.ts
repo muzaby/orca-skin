@@ -2,9 +2,10 @@
 // `사용량 한도 >` 등 다른 곳에서도 특정 탭으로 열 수 있게 로컬 state 를 스토어로 승격.
 
 import { create } from 'zustand'
+import type { AppSettingsTab } from '../../../../../shared/app-error'
 
 // 'usage' = 전역(전체) 사용량 탭. `provider:<key>` = provider별 사용량 서브탭(0080 항목 4).
-export type SettingsTabId = 'general' | 'usage' | `provider:${string}`
+export type SettingsTabId = AppSettingsTab
 
 // provider 서브탭 id ↔ providerKey 변환 헬퍼.
 export function providerTabId(key: string): SettingsTabId {
