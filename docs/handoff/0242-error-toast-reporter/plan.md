@@ -11,11 +11,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-27 |
 | 매핑 | 없음 |
-| 상태 | ΔV2 READY — V1+ΔV1 은 r1 verify/PASS([verify.md](verify.md)), ΔV2 는 사용자 요구 변경 |
+| 상태 | ΔV3 READY — V1+ΔV1 은 r1 verify/PASS([verify.md](verify.md)), ΔV2·ΔV3 는 사용자 요구 변경 |
 | V mode | `Delta V` |
 | 기준 V | `V1@abb4e49a` (공유 브랜치, `git cat-file -t` = commit) |
-| 이번 V revision | `ΔV2` (ΔV1 이후, 기준 `55f6e88` r1 구현 + `9e45618` r1 PASS) |
-| 유효 V | `V1 + ΔV1 + ΔV2` |
+| 이번 V revision | `ΔV3` (ΔV2 이후 — ΔV2 설계 `033e314`, r1.2 구현 `2786ed8`) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3` |
 | 기준 커밋 | `e6d0ab6` (작성 시점 HEAD) |
 
 # Part I — Product & UX Contract
@@ -57,6 +57,7 @@
 
 | D-011 | transcript 아티팩트·생성 파일이 삭제·이동·접근 불가여도 카드 UI·우측 패널에 **미리** 불가 표시를 하지 않는다. 사용자가 그 파일에 동작(미리보기·다운로드·저장·위치 열기·휴지통·복사·경로 열기)을 요구했을 때 실패 사유를 예외 toast로 출력한다 | 사용자 원문: "이러한 사례에 대해 바로 안된다는 표시를 하지말고 사용자가 해당 파일에 대해 특정 이벤트를 요구했을때에 안되는 이유를 예외 토스트로 출력되게 하라" | 2026-09-28 impl 턴 사용자 요구 | ACTIVE | — |
 | D-012 | D-011 파생: 불가 상태를 드러내던 부속 표시(카드 아래 상태 줄의 확인 중/없음/접근 불가, 상태 새로 고침 버튼·메뉴)와 `present` 기반 버튼 비활성을 제거한다. 버튼 비활성은 작업 중(busy)만 | 상태를 보여 주지 않으면 새로 고침은 눌러도 보이는 변화가 없다("아무 일도 안 일어남") | 설계 파생 | ACTIVE | — |
+| D-013 | D-011의 대상에 **퍼블리시되지 않은 생성 파일**(`ArtifactRef.category: 'file'`, Write/Edit·응답 링크로 캡처된 출력 파일)을 포함한다. 생성 파일에만 있는 사유(원본 변경·이동 = `file-changed`)와 저장 시 `skipped` 결과도 동작 시 toast 로 알린다 | 사용자 원문: "퍼블리시 되지 않은 생성된 파일도 포함대상이다." | 2026-09-28 r1.2 후 사용자 요구 | ACTIVE | D-011 보완 |
 
 ### 갱신 메모
 
@@ -704,6 +705,29 @@ Alias는 `tokens.css` 기존 규칙에 따라 다크에서 중복 선언하지 �
 운영 gate: V1 §19 그대로(lint·typecheck·관련 vitest·전체 vitest).
 
 **정합성 확인:** D-011 ↔ AC18~22 · D-012 ↔ AC18. D-001(transcript 소비 오류 불변)과 충돌 0 — 대상은 transcript 오류 이벤트가 아니라 파일 가용성 표시다. D-004 사용자 영향 기준과 일치(동작 실패가 화면에 남는다).
+
+## ΔV3 — 퍼블리시되지 않은 생성 파일 포함 (2026-09-28)
+
+**READY.** D-013 추가. 기준은 V1+ΔV1+ΔV2(r1.2). 생성 파일은 게시 아티팩트와 같은 `ArtifactCard`·`runArtifactAction`·`readSelection` 경로를 타므로 ΔV2 표시 제거는 이미 적용된다(`AssistantTurn.tsx:63`·`TaskOutputContent.tsx:49` → `ArtifactCards`). 이 절은 그 경로에서 생성 파일 사유가 사라지던 두 틈을 닫는다.
+
+| 틈 | 근거 | TO-BE |
+|---|---|---|
+| 저장 대상이 없으면 결과 항목이 `skipped`(reason `missing`)라 `artifactOperationIssues` 가 이슈로 세지 않는다 → 토스트 0 | `main/app/handlers/artifacts.ts:145` · `lib/artifactOperationIssues.ts` `outcome === 'failed'` 필터 | `skipped` 도 이슈. 사유 없으면 `missing` |
+| 생성 파일 원본이 바뀌거나 옮겨지면 `file-changed` 인데 저장·위치 열기·휴지통 핸들러 `reasonOf` 가 `io-error` 로 뭉갠다. 미리보기 경로는 `file-changed` 를 싣지만 문구가 일반 실패 | `handlers/artifacts.ts:33-45` · `features/artifacts/files.ts:104,149,152` · `service.ts:340` | `reasonOf` 허용 목록에 `file-changed` 추가. 렌더러는 `file-changed` → 제목 `fileUnavailable`, 문구 `chat.artifacts.changed`("원본 파일이 변경되었거나 다른 위치로 옮겨졌습니다") |
+
+| AC | 동작 기준 | 검증 수단 | 도달 경로 |
+|---|---|---|---|
+| AC23 | 카드 동작 결과의 `skipped` 항목도 파일마다 toast 1건(사유 없으면 `missing`) | lifecycle 테스트: save items `[{outcome:'skipped',reason:'missing'}]` → 보고 1 · `artifactOperationIssues` 단위 | `ArtifactCards.run` |
+| AC24 | 생성 파일(`category:'file'`) 카드도 AC18 과 같이 불가 표시·비활성이 없다 | render 테스트에 `category:'file'` 변형 추가 | `ArtifactCard` |
+| AC25 | `file-changed` 는 제목 `fileUnavailable`·문구 `chat.artifacts.changed`, IPC 저장/위치 열기/휴지통 결과에 `file-changed` 가 보존된다 | helper 테스트 · `handlers/artifacts.test.ts` 에 `file-changed` 보존 케이스 | `reasonOf` → 결과 → `reportArtifactIssue` |
+
+| Node / pair | provenance / requiredness | 직접 oracle | 선택적 적대 증거 | §10 자리 |
+|---|---|---|---|---|
+| R-14 ↔ AT-14 / VP-24 (AC23~25) | NEW / REQUIRED | 위 테스트 | required — `skipped` 필터 원복 변이 · `reasonOf` 에서 `file-changed` 제거 변이 · 제목 목록에서 `file-changed` 제거 변이 → 각각 red | EP-19(3자리: issues 필터 · reasonOf · 제목/문구 매핑) |
+| R-12 ↔ AT-12 / VP-21 | INHERITED(ΔV2) / REGRESSION | AC24 가 category file 로 재실행 | — | EP-16 |
+| R-13 ↔ AT-13 / VP-22 | INHERITED(ΔV2) / REGRESSION | ΔV2 테스트 유지 | — | EP-17 |
+
+**정합성 확인:** D-013 ↔ AC23~25 · D-011·D-012 유지. IPC 결과 `reason` 은 이미 `string` 타입이라 계약 형태 변경 없음 — 값 하나가 더 보존될 뿐이다(IPC_CONTRACT 의 저장 결과 설명과 대조 필요 시 구현 턴이 확인).
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은 [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
 
