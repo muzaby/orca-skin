@@ -11,11 +11,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-27 |
 | 매핑 | 없음 |
-| 상태 | ΔV3 READY — V1+ΔV1 은 r1 verify/PASS([verify.md](verify.md)), ΔV2·ΔV3 는 사용자 요구 변경 |
+| 상태 | ΔV4 READY — V1+ΔV1 은 r1 verify/PASS([verify.md](verify.md)), ΔV2·ΔV3 는 사용자 요구 변경 |
 | V mode | `Delta V` |
 | 기준 V | `V1@abb4e49a` (공유 브랜치, `git cat-file -t` = commit) |
-| 이번 V revision | `ΔV3` (ΔV2 이후 — ΔV2 설계 `033e314`, r1.2 구현 `2786ed8`) |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3` |
+| 이번 V revision | `ΔV4` (ΔV3 이후 — ΔV3 설계·r1.3 구현은 INDEX 좌표) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` |
 | 기준 커밋 | `e6d0ab6` (작성 시점 HEAD) |
 
 # Part I — Product & UX Contract
@@ -58,6 +58,7 @@
 | D-011 | transcript 아티팩트·생성 파일이 삭제·이동·접근 불가여도 카드 UI·우측 패널에 **미리** 불가 표시를 하지 않는다. 사용자가 그 파일에 동작(미리보기·다운로드·저장·위치 열기·휴지통·복사·경로 열기)을 요구했을 때 실패 사유를 예외 toast로 출력한다 | 사용자 원문: "이러한 사례에 대해 바로 안된다는 표시를 하지말고 사용자가 해당 파일에 대해 특정 이벤트를 요구했을때에 안되는 이유를 예외 토스트로 출력되게 하라" | 2026-09-28 impl 턴 사용자 요구 | ACTIVE | — |
 | D-012 | D-011 파생: 불가 상태를 드러내던 부속 표시(카드 아래 상태 줄의 확인 중/없음/접근 불가, 상태 새로 고침 버튼·메뉴)와 `present` 기반 버튼 비활성을 제거한다. 버튼 비활성은 작업 중(busy)만 | 상태를 보여 주지 않으면 새로 고침은 눌러도 보이는 변화가 없다("아무 일도 안 일어남") | 설계 파생 | ACTIVE | — |
 | D-013 | D-011의 대상에 **퍼블리시되지 않은 생성 파일**(`ArtifactRef.category: 'file'`, Write/Edit·응답 링크로 캡처된 출력 파일)을 포함한다. 생성 파일에만 있는 사유(원본 변경·이동 = `file-changed`)와 저장 시 `skipped` 결과도 동작 시 toast 로 알린다 | 사용자 원문: "퍼블리시 되지 않은 생성된 파일도 포함대상이다." | 2026-09-28 r1.2 후 사용자 요구 | ACTIVE | D-011 보완 |
+| D-014 | 미리보기 요청 시 뷰어 공간은 **미리보기 결과를 받은 뒤, 열 수 있을 때만** 할당한다. 열 수 없으면 공간 할당 없이 toast 만 내고, 이미 열린 다른 뷰어는 그대로 둔다. 대기 중에는 누른 카드 미리보기 버튼만 busy 로 표시한다 | 사용자 실기: "Ui 상으로 먼저 공간 할당 → 파일 없는 것을 확인 → Ui 공간 되돌리기 → 토스트 메시지 … 불필요한 ui공간할당이 시도되엇고 플리커 같은 현상이 잘현되어 ux 를 헤친다. 보완하라" | 2026-09-28 r1.3 후 사용자 육안 확인 | ACTIVE | ΔV2 AC20 의 '뷰어를 닫고' 대체 |
 
 ### 갱신 메모
 
@@ -728,6 +729,32 @@ Alias는 `tokens.css` 기존 규칙에 따라 다크에서 중복 선언하지 �
 | R-13 ↔ AT-13 / VP-22 | INHERITED(ΔV2) / REGRESSION | ΔV2 테스트 유지 | — | EP-17 |
 
 **정합성 확인:** D-013 ↔ AC23~25 · D-011·D-012 유지. IPC 결과 `reason` 은 이미 `string` 타입이라 계약 형태 변경 없음 — 값 하나가 더 보존될 뿐이다(IPC_CONTRACT 의 저장 결과 설명과 대조 필요 시 구현 턴이 확인).
+
+## ΔV4 — 불가 파일 미리보기의 공간 할당 플리커 제거 (2026-09-28)
+
+**READY.** D-014 추가. ΔV2 AC20("뷰어 selection 이 닫히고 toast")은 여는 순간 로딩 뷰어로 공간을 잡았다가 되돌리는 플리커를 만든다(사용자 실기). 이 절이 AC20 의 **최초 열기** 경로를 대체한다. 이미 열린 뷰어의 재시도(`retryArtifactViewer`)가 불가를 받으면 닫는 동작은 유지한다(공간은 이미 있고 되돌리는 것이 정답이다).
+
+| 비교 축 | AS-IS (ΔV2) | TO-BE (ΔV4) |
+|---|---|---|
+| 열기 순서 | `openArtifactViewer` 가 `selection{loading:true}` 를 먼저 세움 → preview → 불가면 `selection:null` + toast | `opening{request,sessionKey,publicationId}` 만 세움 → preview → 결과가 열 수 있으면 `selection{loading:false,result}`, 불가면 toast 만 |
+| 공간 | 불가 파일도 뷰어 폭만큼 잠깐 할당 | 불가 파일은 0 |
+| 기존 뷰어 | 교체 후 닫힘(빈 패널) | 불가면 그대로 유지 |
+| 대기 표시 | 로딩 뷰어 | 누른 카드의 미리보기 버튼 `aria-busy="true"` + `cursor-progress`, 같은 publication 재클릭 무시 |
+| 취소 | request 불일치 무시 | + `closeArtifactViewer(sessionKey)` 가 같은 key 의 `opening` 도 지운다(세션 이동·카탈로그 이탈 뒤 늦은 결과가 열리지 않음) |
+
+| AC | 동작 기준 | 검증 수단 | 도달 경로 |
+|---|---|---|---|
+| AC26 (AC20 최초 열기 대체) | 불가 결과면 `selection` 이 **한 번도** 설정되지 않고 toast 1건. 이미 열린 다른 selection 은 동일 객체로 유지 | store 테스트: selection 변화를 구독해 기록 → 불가 열기 동안 기록 0 · 기존 selection 참조 불변 | `openArtifactViewer` |
+| AC27 | 열 수 있는 결과는 대기 중 selection 없음 → 결과와 함께 1회 설정(`loading:false`) | store 테스트: pending 동안 `selection` null·`opening` 설정, 해제 후 selection 1회 | 같음 |
+| AC28 | 대기 중 다른 파일 열기·`closeArtifactViewer(key)` 뒤 늦은 결과는 열지도 알리지도 않는다 | store 테스트 2건 | 같음 |
+| AC29 | 대기 중인 카드만 미리보기 버튼 `aria-busy`, 재클릭은 새 요청을 만들지 않는다 | render/lifecycle 테스트 | `ArtifactCards` → `ArtifactCard` |
+
+| Node / pair | provenance / requiredness | 직접 oracle | 선택적 적대 증거 | §10 자리 |
+|---|---|---|---|---|
+| R-15 ↔ AT-15 / VP-25 (AC26~29) | NEW / REQUIRED | 위 테스트 | required — (a) 열기 전에 selection 을 세우는 옛 순서 복원 → AC26 red (b) close 에서 opening 해제 제거 → AC28 red | EP-20(3자리: open 선할당 금지 · close 의 opening 해제 · 카드 busy 전달) |
+| R-13 ↔ AT-13 / VP-22 | CHANGED(AC20 최초 열기 → AC26) / REQUIRED | 재시도 경로의 닫기+toast 는 기존 테스트 유지 | — | EP-17 |
+
+카탈로그 화면(`app/hooks/useArtifactCatalogViewer.tsx`)도 같은 `openArtifactViewer` 를 써서 플리커 제거가 함께 적용된다. 카탈로그 행의 busy 표시는 비범위(`features/artifacts` 는 chat store 를 import 할 수 없다 — 레이어 규칙).
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은 [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
 
