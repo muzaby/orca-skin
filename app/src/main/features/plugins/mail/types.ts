@@ -6,7 +6,6 @@ export type { Pop3Socket, Pop3SocketOptions }
 export interface MailTimeouts {
   readonly connectMs?: number
   readonly commandMs?: number
-  readonly syncMs?: number
 }
 
 // ── 연결 좌표 ─────────────────────────────────────────────────────────────────

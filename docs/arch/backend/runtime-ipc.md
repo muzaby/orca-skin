@@ -20,7 +20,7 @@
 | **RuntimeSupervisor** | `features/sessions` | SessionRuntime 집합 소유 — 등록/승격/조회 + 단일 멱등 teardown(`release`)·abort. **turn teardown(release) ≠ runtime close(releaseRuntime)** 분리. |
 | **SessionRuntime** | `features/sessions` | 세션 1개의 런타임 핸들. `send()` 1회 = 턴 프레임 1개. close 정책 2종(§1.3). 상태: `cold·live·busy·interrupting·error·closed`. |
 | **RuntimePool** | `features/sessions` | Persistent(장수명) idle 핸들을 세션 키로 보관. LRU 축출(기본 cap 5, bootstrap 주입). **IdleCloseTimer 폐기(0067)** — 세션 수명 = 프로그램 종료 or LRU 축출만. |
-| **TurnCoordinator** | `features/chat` | 한 SessionRuntime 의 `NormalizedEvent` 스트림 소비 → 턴-로컬 reduce → **2 병렬 독립 sink(persist ∥ forward)** 팬아웃. retry·stall·중단/실패 settle·terminal 합성 소유. |
+| **TurnCoordinator** | `features/chat` | 한 SessionRuntime 의 `NormalizedEvent` 스트림 소비 → 턴-로컬 reduce → **2 병렬 독립 sink(persist ∥ forward)** 팬아웃. retry·중단/실패 settle·terminal 합성 소유. |
 | **PendingMessageQueue** | `features/chat` | **모든 사용자 프롬프트**가 커밋(DB 영속) 전 지나는 세션별 스테이징 통로(§1.4). |
 | **ActiveTurnTracker** | `features/sessions` | 프로젝트별 active turn 회계(IPC `concurrency` 도메인). RuntimeSupervisor 의 runtime cap count 와 **별개**. |
 
@@ -42,11 +42,11 @@
 | `cold` | 생성 직후, 아직 spawn 전. |
 | `busy` | 턴 진행 중(`beginSend`). |
 | `live` | 턴 종료, 채널/핸들 유휴(재사용/축출 대상). |
-| `interrupting` | 취소·stall·retry 로 중단 신호 발신됨(잔여 드레인은 배경에서 terminal 까지 → `live` 복귀). |
+| `interrupting` | 취소·retry 로 중단 신호 발신됨(잔여 드레인은 배경에서 terminal 까지 → `live` 복귀). |
 | `error` | 프레임/스트림 에러(취소·timeout 이 아닌). |
 | `closed` | 채널 해체(teardown/close). |
 
-`AbortCause` = `user_cancelled · stall · retry · null`(`SessionRuntime.markAborted`) — 취소(`interrupt`)와 stall 타임아웃을 구분한다.
+`AbortCause` = `user_cancelled · retry · null`(`SessionRuntime.markAborted`). 실행 시간 상한은 없으며 턴 controller 중단은 coordinator가 runtime에 전달한다. 중단 시 열린 도구를 정착하고 assistant를 마감한 뒤 renderer terminal을 보장한다.
 
 ### 1.3 장수명 세션 채널 (close 정책)
 
@@ -83,7 +83,7 @@
 
 ### 1.6 Rate Limit / 재시도
 
-- SDK Rate Limit 은 내부 처리. **턴 재시도는 TurnCoordinator 소유**(`MAX_RETRIES = 2`, backoff `[1s, 2s]`) — 프레임 에러 시 `send()` 재호출(respawn+resume 콜드 패스). stall 타이머도 coordinator.
+- SDK Rate Limit 은 내부 처리. **턴 재시도는 TurnCoordinator 소유**(`MAX_RETRIES = 2`, backoff `[1s, 2s]`) — 프레임 에러 시 `send()` 재호출(respawn+resume 콜드 패스). 실행 시간 자체로 턴을 중단하지 않는다.
 - 사용자에게 보여줄 에러: `error / sdk.crashed` 또는 `error / internal` (recoverable 표기, [provider-runtime.md](./provider-runtime.md) ErrorClassifier).
 
 ---

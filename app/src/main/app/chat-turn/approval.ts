@@ -24,8 +24,6 @@ interface ApprovalRequesterDeps {
   approvals: ApprovalCoordinator
   permissionModes: PermissionModeController
   persistence: HistoryWriter
-  /** 승인 대기 동안 stall 타이머를 멈춘다 — 사람 판단 시간이 stall 로 오판되지 않게. */
-  beginApprovalPause: () => (() => void) | undefined
   /** 세션-레벨 인디렉션 — 호출 시점의 활성 턴을 읽는다. */
   getActiveTurn: () => TurnContext<WebContents>
 }
@@ -66,22 +64,15 @@ export function createApprovalRequester(
       })
     }
     sendChatEvent(wc, agentPermissionRequest(approvalId, outbound, turn.dbSessionId ?? undefined))
-    // 승인 보류 동안 stall 타이머를 멈춘다 — 사용자 판단 시간이 stall 로 오판돼 턴이 abort 되지
-    // 않게. main 요청은 턴+SDK 신호를 함께 따르고, 독립 수명의 child 요청은 SDK 권한요청 신호만
+    // main 요청은 턴+SDK 신호를 함께 따르고, 독립 수명의 child 요청은 SDK 권한요청 신호만
     // 따른다. SDK control_cancel_request가 해당 signal을 abort하면 broker deny로 해소된다.
-    const releaseIdle = deps.beginApprovalPause()
     const childRequest = action.providerRequest?.agentId !== undefined
     const regSignal = childRequest
       ? (sdkSignal ?? controller.signal)
       : sdkSignal
         ? AbortSignal.any([controller.signal, sdkSignal])
         : controller.signal
-    let resolution: ApprovalResolution
-    try {
-      resolution = await approvals.register(approvalId, turn, regSignal)
-    } finally {
-      releaseIdle?.()
-    }
+    const resolution = await approvals.register(approvalId, turn, regSignal)
     sendChatEvent(wc, {
       type: 'permission.resolved',
       ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),

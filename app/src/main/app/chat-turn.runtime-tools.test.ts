@@ -54,10 +54,6 @@ vi.mock('../features/chat/post-turn', () => ({
 
 vi.mock('../features/chat/turn-coordinator', () => ({
   TurnCoordinator: class {
-    beginApprovalPause(): () => void {
-      return () => {}
-    }
-
     async run(
       turn: { dbSessionId: string | null },
       request: { model?: string; extensions: unknown },

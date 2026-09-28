@@ -9,7 +9,6 @@ import {
   type TurnCoordinatorDeps
 } from './turn-coordinator'
 import { turnPolicyFor } from './turn-policy'
-import { STALL_TIMEOUT_MS } from './timers'
 import { BackgroundTaskTracker } from './background-tasks'
 import { TypedBus } from '../../infra/bus'
 import type { OrcaBusEvents } from '../../contracts/bus-events'
@@ -119,7 +118,6 @@ function fakeRuntime(
       return sendCount
     },
     cancelled: false,
-    timedOut: false,
     eventBatches: emptyEvents,
     close: () => {},
     setPermissionMode: stub,
@@ -186,6 +184,169 @@ function makeDeps(
 
 const sessionUpdated = { type: 'session.updated', sessionId: 's1' } as unknown as NormalizedEvent
 const telemetry = { type: 'telemetry', sessionId: 's1' } as unknown as NormalizedEvent
+
+describe('0243 execution lifetime', () => {
+  const started: NormalizedEvent = {
+    type: 'tool.call.started',
+    sessionId: 's1',
+    toolRunId: 'long-tool',
+    toolName: 'Bash',
+    args: {}
+  }
+  const received = (deps: CoordDeps): NormalizedEvent[] =>
+    vi.mocked(deps.forward.forward).mock.calls.map((call) => call[1])
+
+  it.each(['user', 'continuation', 'listen'] as const)(
+    'AC1: %s waits 30 minutes without output',
+    async (kind) => {
+      vi.useFakeTimers()
+      let finish!: () => void
+      const waiting = new Promise<void>((resolve) => {
+        finish = resolve
+      })
+      const runtime = fakeRuntime([])
+      const markAborted = vi.fn()
+      runtime.markAborted = markAborted
+      runtime.send = runtime.listen = async function* () {
+        yield started
+        await waiting
+        yield telemetry
+      }
+      const turn = makeTurn()
+      turn.agentKind = 'work'
+      turn.dbSessionId = 's1'
+      const deps = makeDeps(runtime)
+      const run = new TurnCoordinator(deps).run(turn, REQUEST, { kind, boundProjectId: null })
+      try {
+        await vi.advanceTimersByTimeAsync(30 * 60_000)
+        expect(turn.controller.signal.aborted).toBe(false)
+        expect(markAborted).not.toHaveBeenCalled()
+        finish()
+        await run
+        expect(received(deps).filter((ev) => ev.type === 'turn.aborted')).toEqual([])
+        expect(received(deps).at(-1)).toMatchObject({
+          type: 'response.boundary',
+          boundary: { outcome: 'ended' }
+        })
+      } finally {
+        finish()
+        await run
+        vi.useRealTimers()
+      }
+    }
+  )
+
+  it.each(['return', 'throw', 'finalize-failure'] as const)(
+    'AC4/5/13: %s settles before one abort terminal',
+    async (mode) => {
+      const turn = makeTurn()
+      turn.agentKind = 'work'
+      turn.dbSessionId = 's1'
+      const runtime = fakeRuntime([])
+      runtime.send = async function* () {
+        yield started
+        turn.controller.abort()
+        if (mode === 'throw') throw new Error('aborted stream')
+      }
+      const deps = makeDeps(runtime)
+      const order: string[] = []
+      vi.mocked(deps.forward.forward).mockImplementation((_owner, ev) => {
+        order.push(ev.type)
+      })
+      const finalize = vi.fn(() => {
+        order.push('finalize')
+        if (mode === 'finalize-failure') throw new Error('database unavailable')
+      })
+      deps.persist.finalizeTurn = finalize
+      await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+      const events = received(deps)
+      expect(events.filter((ev) => ev.type === 'turn.aborted')).toEqual([
+        { type: 'turn.aborted', sessionId: 's1', reason: 'interrupted' }
+      ])
+      expect(events.filter((ev) => ev.type === 'error')).toEqual([])
+      expect(events.find((ev) => ev.type === 'tool.call.completed')).toMatchObject({
+        result: { reason: 'aborted' }
+      })
+      expect(finalize).toHaveBeenCalledTimes(1)
+      expect(order.indexOf('tool.call.completed')).toBeLessThan(order.indexOf('finalize'))
+      expect(order.indexOf('finalize')).toBeLessThan(order.indexOf('turn.aborted'))
+      expect(events.at(-1)).toMatchObject({
+        type: 'response.boundary',
+        boundary: { outcome: 'aborted' }
+      })
+    }
+  )
+
+  it('AC5: abort during retry backoff sends one interrupted terminal', async () => {
+    vi.useFakeTimers()
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+    const runtime = fakeRuntime([
+      () => {
+        throw new Error('retry')
+      }
+    ])
+    const deps = makeDeps(runtime, {
+      classifyError: () => ({ category: 'stream_error', message: 'retry', retryable: true })
+    })
+    deps.persist.finalizeTurn = vi.fn()
+    const run = new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    try {
+      await vi.advanceTimersByTimeAsync(0)
+      expect(received(deps).some((ev) => ev.type === 'turn.retrying')).toBe(true)
+      turn.controller.abort()
+      await run
+      expect(received(deps).filter((ev) => ev.type === 'turn.aborted')).toEqual([
+        { type: 'turn.aborted', sessionId: 's1', reason: 'interrupted' }
+      ])
+      expect(deps.persist.finalizeTurn).toHaveBeenCalledTimes(1)
+      expect(runtime.sendCount).toBe(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it.each(['telemetry', 'error'] as const)(
+    'AC7: forwarded %s prevents a second terminal',
+    async (type) => {
+      const turn = makeTurn()
+      turn.dbSessionId = 's1'
+      const runtime = fakeRuntime([])
+      runtime.send = async function* () {
+        yield type === 'telemetry'
+          ? telemetry
+          : {
+              type: 'error',
+              sessionId: 's1',
+              error: { category: 'stream_error', message: 'failed', retryable: false }
+            }
+        turn.controller.abort()
+      }
+      const deps = makeDeps(runtime)
+      deps.persist.finalizeTurn = vi.fn()
+      await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+      expect(received(deps).filter((ev) => ev.type === 'turn.aborted')).toEqual([])
+      expect(deps.persist.finalizeTurn).not.toHaveBeenCalled()
+    }
+  )
+
+  it('AC3: pre-aborted turn never sends; finished run detaches its abort listener', async () => {
+    const runtime = fakeRuntime([[telemetry]])
+    const markAborted = vi.fn()
+    runtime.markAborted = markAborted
+    const deps = makeDeps(runtime)
+    const coordinator = new TurnCoordinator(deps)
+    const before = makeTurn()
+    before.controller.abort()
+    await coordinator.run(before, REQUEST, { boundProjectId: null })
+    expect(runtime.sendCount).toBe(0)
+    expect(received(deps).filter((ev) => ev.type === 'turn.aborted')).toHaveLength(1)
+    const finished = makeTurn()
+    await coordinator.run(finished, REQUEST, { boundProjectId: null })
+    finished.controller.abort()
+    expect(markAborted).not.toHaveBeenCalled()
+  })
+})
 
 describe('Work response boundaries', () => {
   const text: NormalizedEvent = {
@@ -590,29 +751,6 @@ describe('TurnCoordinator.run — consume → reduce → persist ∥ forward', (
 
     expect(turn.askPendingIds).toContain('a1')
     expect(deps.persist.flushAskAnswers).toHaveBeenCalledWith(turn, 'owner')
-  })
-
-  it('beginApprovalPause 는 진행 중 attempt 의 stall 을 pause 하는 release 를 돌려준다', async () => {
-    const runtime = fakeRuntime([[sessionUpdated, telemetry]])
-    let pauseHandle: (() => void) | undefined
-    const coord = new TurnCoordinator(
-      makeDeps(runtime, {
-        // 이벤트 처리 중(activeStall 설정됨) 첫 forward 에서 pause 핸들을 캡처
-        forward: {
-          forward: vi.fn(() => {
-            if (!pauseHandle) pauseHandle = coord.beginApprovalPause()
-          })
-        }
-      })
-    )
-    // 진행 전에는 활성 stall 이 없다
-    expect(coord.beginApprovalPause()).toBeUndefined()
-
-    await coord.run(makeTurn(), REQUEST, { boundProjectId: null })
-
-    expect(typeof pauseHandle).toBe('function')
-    // 종료 후에는 다시 비활성
-    expect(coord.beginApprovalPause()).toBeUndefined()
   })
 })
 
@@ -1141,21 +1279,18 @@ describe('TurnCoordinator — settled background enrich + listen 회계 (0143)',
   })
 })
 
-// 0149 — 턴 종류별 정책이 turn-policy 단일 지점으로 올라갔다(구 stallTimerFor + 산재한
-// `request.listen !== true` 판정). stall 무장·동시 턴 계상 규칙을 여기서 고정한다.
-describe('turnPolicyFor — 턴 종류별 정책 (0149, 구 0136 stallTimerFor)', () => {
-  it('listen 턴은 stall 미무장 · 동시 턴 미계상 · 입력 미push', () => {
+// 턴 종류별 동시 턴 계상과 입력 전달 정책은 turn-policy가 소유한다.
+describe('turnPolicyFor — 턴 종류별 정책', () => {
+  it('listen 턴은 동시 턴 미계상 · 입력 미push', () => {
     expect(turnPolicyFor('listen')).toEqual({
-      armStall: false,
       countsAsActive: false,
       pushesInput: false
     })
   })
 
-  it('user·continuation 턴은 stall 무장 · 동시 턴 계상 · 입력 push', () => {
+  it('user·continuation 턴은 동시 턴 계상 · 입력 push', () => {
     for (const kind of ['user', 'continuation'] as const) {
       expect(turnPolicyFor(kind)).toEqual({
-        armStall: true,
         countsAsActive: true,
         pushesInput: true
       })
@@ -1234,11 +1369,11 @@ describe('TurnCoordinator — background_tasks_changed 레벨 정착 (0212 R-04)
   })
 })
 
-describe('TurnCoordinator — listen 턴 stall 미무장 (0136)', () => {
+describe('TurnCoordinator — listen 턴 종료 후 수명', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
-  it('listen 턴은 STALL_TIMEOUT 경과에도 abort 하지 않는다', async () => {
+  it('listen 턴이 종료된 뒤 시간이 지나도 abort 하지 않는다', async () => {
     const turn = makeTurn()
     turn.dbSessionId = 's1'
     const deps = makeDeps(fakeRuntime([[telemetry]]))
@@ -1251,7 +1386,7 @@ describe('TurnCoordinator — listen 턴 stall 미무장 (0136)', () => {
         kind: 'listen'
       }
     )
-    vi.advanceTimersByTime(STALL_TIMEOUT_MS + 1_000)
+    vi.advanceTimersByTime(30 * 60_000)
     expect(turn.controller.signal.aborted).toBe(false)
   })
 })
@@ -1413,7 +1548,7 @@ describe('0239 — 결과 없이 끝난 도구 정착', () => {
     expect(forwarded(deps).some((ev) => ev.type === 'tool.call.retracted')).toBe(false)
   })
 
-  it('사용자 중단(abort)으로 끝난 턴은 host 정착을 하지 않는다 — Stop 은 aborted 정착이 소유한다', async () => {
+  it('이미 중단된 턴은 스트림을 시작하거나 도구를 열지 않는다', async () => {
     const runtime = fakeRuntime([[started('a')]])
     const deps = makeDeps(runtime)
     const turn = makeTurn()
@@ -1421,6 +1556,7 @@ describe('0239 — 결과 없이 끝난 도구 정착', () => {
     turn.controller.abort()
     await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
     expect(forwarded(deps).some((ev) => ev.type === 'tool.call.completed')).toBe(false)
-    expect([...turn.openToolRuns.keys()]).toEqual(['a'])
+    expect([...turn.openToolRuns.keys()]).toEqual([])
+    expect(runtime.sendCount).toBe(0)
   })
 })

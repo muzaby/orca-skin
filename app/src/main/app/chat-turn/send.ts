@@ -443,7 +443,6 @@ export async function handleChatSend(
       approvals,
       permissionModes,
       persistence,
-      beginApprovalPause: () => coordinator.beginApprovalPause(),
       getActiveTurn
     })
 

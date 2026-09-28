@@ -1,6 +1,6 @@
 import { reportError } from '../../infra/error-report'
 // chat 턴 파이프라인 진입(orca:chat:send / steerCancel / discardSession / cancel / stopSubagent)의
-// 컴포지션 루트(L3). 가로축 구동(스트림 소비→reduce→persist∥forward + retry/settle/stall)은
+// 컴포지션 루트(L3). 가로축 구동(스트림 소비→reduce→persist∥forward + retry/settle)은
 // TurnCoordinator(L1)가 1급으로 소유하고(0052, 0051 §A), 여기서는 **배선만** 한다.
 //
 // 0179 에서 892줄짜리 `handleChatSend` 를 단계 모듈로 갈랐다 — 판정 `admission.ts`, 조립
@@ -184,6 +184,7 @@ export function registerChatHandlers(deps: ChatDeps): BackgroundController {
     // 중단 턴은 버스 telemetry 없이 끝난다 — 진행 중 assistant 메시지의 content(FTS 캐시)를
     // 여기서 마감 기록한다(0107). settle 의 합성 tool_result 영속 뒤에 와야 한다.
     persistence.finalizeTurn(turn)
+    turn.abortAcknowledged = true
     sendChatEvent(turn.owner, {
       type: 'turn.aborted',
       sessionId: req.sessionId,

@@ -18,6 +18,18 @@ const recv = (state: ChatState, type: 'turn.ended' | 'turn.aborted'): ChatState 
   })
 
 describe('턴 종료 tick (AT-71 · §10 EP-46 ④)', () => {
+  it('0243 AC8 — 비사용자 중단도 오류 없이 입력 대기 상태로 돌아간다', () => {
+    const after = chatReducer(
+      { ...initialChatState, inflight: true, turnStartedAt: 100 },
+      {
+        type: 'RECV_EVENT',
+        event: { type: 'turn.aborted', sessionId: 's1', reason: 'interrupted' }
+      }
+    )
+    expect(after.inflight).toBe(false)
+    expect(after.turnStartedAt).toBeNull()
+    expect(after.error).toBeUndefined()
+  })
   it('`turn.ended` 마다 1 오른다 — 다른 터미널 이벤트는 올리지 않는다', () => {
     const one = recv(initialChatState, 'turn.ended')
     const two = recv(one, 'turn.ended')

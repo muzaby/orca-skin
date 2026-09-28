@@ -72,9 +72,7 @@ export async function createMailSyncManager(
     onStage?: (event: MailSyncStageEvent) => void
   ): Promise<MailSyncResult> => {
     if (inFlight) return inFlight
-    const budget = new AbortController()
-    const timeout = setTimeout(() => budget.abort(), options.options.timeouts?.syncMs ?? 120_000)
-    const operationSignal = signal ? AbortSignal.any([signal, budget.signal]) : budget.signal
+    const operationSignal = signal ?? new AbortController().signal
     inFlight = (async () => {
       const current = store.state()
       const timestamp = now()
@@ -136,8 +134,7 @@ export async function createMailSyncManager(
                 let consecutiveOld = 0
                 const cutoff = retentionCutoff(timestamp, options.options.retentionDays)
                 for (const item of newest) {
-                  if (operationSignal.aborted)
-                    throw new Pop3Error(budget.signal.aborted ? 'timeout' : 'cancelled')
+                  if (operationSignal.aborted) throw new Pop3Error('cancelled')
                   if (!reconciled.fresh.includes(item.uidl)) continue
                   onStage?.({ stage: 'top' })
                   const top = await session.top(item.messageNumber)
@@ -177,11 +174,7 @@ export async function createMailSyncManager(
         })
       } catch (error) {
         const normalized = normalizePop3Error(
-          budget.signal.aborted
-            ? new Pop3Error('timeout')
-            : operationSignal.aborted
-              ? new Pop3Error('cancelled')
-              : error
+          operationSignal.aborted ? new Pop3Error('cancelled') : error
         )
         store.saveState({ lastErrorCode: normalized.code })
         return {
@@ -195,7 +188,6 @@ export async function createMailSyncManager(
     try {
       return await inFlight
     } finally {
-      clearTimeout(timeout)
       inFlight = undefined
     }
   }
