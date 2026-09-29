@@ -61,3 +61,8 @@ export interface MailArchiveAttachmentExportOutput {
   readonly temporaryPath: string
   readonly bytesWritten: number
 }
+
+export interface MailArchiveImportInput {
+  readonly inputKind: 'files' | 'eml-folder'
+  readonly paths: readonly string[]
+}

@@ -33,7 +33,7 @@ describe('IPC contract documentation', () => {
     const document = readFileSync(IPC_DOCUMENT_PATH, 'utf8')
     const namingSection = document.match(/^- 도메인: (.+)$/m)
     const documented = new Set(
-      [...(namingSection?.[1] ?? '').matchAll(/`([a-z]+)`/g)].map((match) => match[1])
+      [...(namingSection?.[1] ?? '').matchAll(/`([a-z][a-zA-Z0-9]*)`/g)].map((match) => match[1])
     )
 
     // 문서에만 있는 도메인 = 코드에서 사라졌는데 문서가 남긴 것.

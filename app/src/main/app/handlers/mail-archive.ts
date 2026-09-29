@@ -1,4 +1,5 @@
 import { BrowserWindow, dialog, type IpcMainInvokeEvent } from 'electron'
+import { randomUUID } from 'node:crypto'
 import { realpath } from 'node:fs/promises'
 import { basename } from 'node:path'
 import { CHANNELS } from '../../../shared/ipc'
@@ -13,21 +14,19 @@ import {
 } from '../../../shared/mail-archive'
 import type {
   MailArchiveProgress,
+  MailArchiveImportRequest,
   MailArchiveAttachmentExportResult,
   MailArchiveSourceRemovalResult
 } from '../../../shared/mail-archive'
+import type { MailArchiveImportInput } from '../../features/plugins/mail-archive/types'
 import type { MailArchiveService } from '../../features/plugins/mail-archive/service'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 
-type SourceSelection =
-  | { readonly kind: 'files'; readonly paths: ReadonlySet<string> }
-  | { readonly kind: 'eml-folder'; readonly path: string }
-
-// Renderer receives the picker result so it can start an import, but an invoke payload alone is
-// not an authority to read an arbitrary absolute path. Keep the last OS-picker selection bound to
-// the requesting WebContents and re-check it on import. WeakMap also drops the capability when the
-// window is destroyed.
-const selections = new WeakMap<Electron.WebContents, SourceSelection>()
+// A selection is bound to its WebContents and consumed once; no original path crosses IPC.
+const selections = new WeakMap<
+  Electron.WebContents,
+  { id: string; input: MailArchiveImportInput }
+>()
 
 async function canonical(path: string): Promise<string> {
   return realpath(path).catch(() => path)
@@ -40,20 +39,15 @@ function safeAttachmentName(name: string): string {
   return value && value !== '.' && value !== '..' ? value : '첨부파일'
 }
 
-async function assertPickedSelection(
-  request: { inputKind: 'files' | 'eml-folder'; paths: readonly string[] },
+function consumeSelection(
+  request: MailArchiveImportRequest,
   event: IpcMainInvokeEvent
-): Promise<void> {
+): MailArchiveImportInput {
   const selection = selections.get(event.sender)
-  if (!selection || selection.kind !== request.inputKind)
+  if (!selection || selection.id !== request.selectionId)
     throw new Error('mail_source_not_selected')
-  const paths = await Promise.all(request.paths.map((path) => canonical(path)))
-  if (selection.kind === 'files') {
-    if (paths.some((path) => !selection.paths.has(path)))
-      throw new Error('mail_source_not_selected')
-    return
-  }
-  if (paths.length !== 1 || paths[0] !== selection.path) throw new Error('mail_source_not_selected')
+  selections.delete(event.sender)
+  return selection.input
 }
 
 function sendProgress(event: IpcMainInvokeEvent) {
@@ -63,41 +57,48 @@ function sendProgress(event: IpcMainInvokeEvent) {
 }
 
 export function registerMailArchiveHandlers(service: MailArchiveService): void {
-  handlePlain(CHANNELS.mailArchivePickFiles, async (_raw, event): Promise<string[]> => {
-    const result = await dialog.showOpenDialog({
-      properties: ['openFile', 'multiSelections'],
-      filters: [{ name: '메일 원본', extensions: ['eml', 'pst'] }]
-    })
-    if (result.canceled) {
-      selections.delete(event.sender)
-      return []
+  handlePlain(
+    CHANNELS.mailArchivePickFiles,
+    async (_raw, event): Promise<MailArchiveImportRequest | null> => {
+      const result = await dialog.showOpenDialog({
+        properties: ['openFile', 'multiSelections'],
+        filters: [{ name: '메일 원본', extensions: ['eml', 'pst'] }]
+      })
+      if (result.canceled) {
+        selections.delete(event.sender)
+        return null
+      }
+      const paths = await Promise.all(result.filePaths.map((path) => canonical(path)))
+      const id = randomUUID()
+      selections.set(event.sender, { id, input: { inputKind: 'files', paths } })
+      return { selectionId: id }
     }
-    const paths = await Promise.all(result.filePaths.map((path) => canonical(path)))
-    selections.set(event.sender, { kind: 'files', paths: new Set(paths) })
-    return paths
-  })
+  )
 
-  handlePlain(CHANNELS.mailArchivePickEmlFolder, async (_raw, event): Promise<string | null> => {
-    const result = await dialog.showOpenDialog({
-      properties: ['openDirectory', 'createDirectory'],
-      title: 'EML 폴더 선택'
-    })
-    if (result.canceled || result.filePaths.length === 0) {
-      selections.delete(event.sender)
-      return null
+  handlePlain(
+    CHANNELS.mailArchivePickEmlFolder,
+    async (_raw, event): Promise<MailArchiveImportRequest | null> => {
+      const result = await dialog.showOpenDialog({
+        properties: ['openDirectory', 'createDirectory'],
+        title: 'EML 폴더 선택'
+      })
+      if (result.canceled || result.filePaths.length === 0) {
+        selections.delete(event.sender)
+        return null
+      }
+      const path = await canonical(result.filePaths[0]!)
+      const id = randomUUID()
+      selections.set(event.sender, { id, input: { inputKind: 'eml-folder', paths: [path] } })
+      return { selectionId: id }
     }
-    const path = await canonical(result.filePaths[0]!)
-    selections.set(event.sender, { kind: 'eml-folder', path })
-    return path
-  })
+  )
 
   handle(
     CHANNELS.mailArchiveImport,
     MailArchiveImportRequestSchema,
     'reject',
     async (request, event) => {
-      await assertPickedSelection(request, event)
-      return service.import(request, sendProgress(event))
+      return service.import(consumeSelection(request, event), sendProgress(event))
     }
   )
   handle(
@@ -106,7 +107,7 @@ export function registerMailArchiveHandlers(service: MailArchiveService): void {
     'reject',
     (request): { cancelled: boolean } => ({ cancelled: service.cancel(request.id) })
   )
-  handle(CHANNELS.mailArchiveSearch, MailArchiveSearchRequestSchema, { fallback: [] }, (request) =>
+  handle(CHANNELS.mailArchiveSearch, MailArchiveSearchRequestSchema, 'reject', (request) =>
     service.search(request)
   )
   handle(CHANNELS.mailArchiveGet, MailArchiveGetRequestSchema, 'reject', (request) =>
@@ -130,11 +131,8 @@ export function registerMailArchiveHandlers(service: MailArchiveService): void {
         return result.canceled ? null : result.filePath
       })
   )
-  handle(
-    CHANNELS.mailArchiveThread,
-    MailArchiveThreadRequestSchema,
-    { fallback: { mails: [], relations: [], truncated: false } },
-    (request) => service.thread(request)
+  handle(CHANNELS.mailArchiveThread, MailArchiveThreadRequestSchema, 'reject', (request) =>
+    service.thread(request)
   )
   handlePlain(CHANNELS.mailArchiveSources, (): ReturnType<MailArchiveService['sources']> =>
     service.sources()
@@ -153,7 +151,7 @@ export function registerMailArchiveHandlers(service: MailArchiveService): void {
         detail: [
           `현재 검색 가능한 메일 ${source.messageCount}개 중 다른 자료원과 공유된 ${source.sharedMessageCount}개는 유지됩니다.`,
           '이 자료원에만 있는 메일은 색인에서 삭제됩니다. 원본 파일은 삭제하지 않습니다.',
-          '진행 중인 가져오기가 있으면 해당 작업이 취소됩니다.'
+          '이 자료원을 포함한 가져오기가 진행 중이면 해당 작업이 취소됩니다.'
         ].join('\n'),
         buttons: ['취소', '자료원 제거'],
         defaultId: 0,

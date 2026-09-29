@@ -35,29 +35,34 @@ describe('PST archive reader', () => {
     expect(message.bodyQualityFlags).toContain('alternative_mismatch')
   })
 
-  it('walks the bundled parser fixture and keeps importing after a damaged subtree', async () => {
-    const fixture = join(
-      process.cwd(),
-      'node_modules',
-      'pst-extractor',
-      'example',
-      'testdata',
-      'enron.pst'
-    )
-    if (!existsSync(fixture)) return
-    let messages = 0
-    await readPstFile({
-      sourcePath: fixture,
-      sourceId: 'pst-fixture-source',
-      sourceFingerprint: 'fixture',
-      onMessage: (message) => {
-        messages += 1
-        if (messages === 1) {
-          expect(message.sourceKind).toBe('pst')
-          expect(message.folderPath).toBeTruthy()
+  it.skipIf(
+    !existsSync(join(process.cwd(), 'node_modules/pst-extractor/example/testdata/enron.pst'))
+  )(
+    'walks the real parser fixture and imports mail',
+    async () => {
+      const fixture = join(
+        process.cwd(),
+        'node_modules',
+        'pst-extractor',
+        'example',
+        'testdata',
+        'enron.pst'
+      )
+      let messages = 0
+      await readPstFile({
+        sourcePath: fixture,
+        sourceId: 'pst-fixture-source',
+        sourceFingerprint: 'fixture',
+        onMessage: (message) => {
+          messages += 1
+          if (messages === 1) {
+            expect(message.sourceKind).toBe('pst')
+            expect(message.folderPath).toBeTruthy()
+          }
         }
-      }
-    })
-    expect(messages).toBeGreaterThan(0)
-  }, 30_000)
+      })
+      expect(messages).toBeGreaterThan(0)
+    },
+    30_000
+  )
 })

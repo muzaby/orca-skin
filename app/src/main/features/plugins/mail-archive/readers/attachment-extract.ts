@@ -1,25 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { createReadStream } from 'node:fs'
-import { open, readFile, unlink, writeFile } from 'node:fs/promises'
+import { fingerprint } from '../fingerprint'
+import { walkPstMail } from './pst-walk'
+import { open, unlink, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
 import PostalMime from 'postal-mime'
-import type { PSTAttachment, PSTMessage } from 'pst-extractor'
+import { readEmlBytes } from './eml-bytes'
+import type { PSTAttachment } from 'pst-extractor'
 import { normalizeEml } from '../normalize'
 import type { MailArchiveAttachmentExportInput, MailArchiveAttachmentExportOutput } from '../types'
-
-async function fingerprint(path: string, signal: AbortSignal): Promise<string> {
-  const hash = createHash('sha256')
-  const stream = createReadStream(path)
-  try {
-    for await (const chunk of stream) {
-      signal.throwIfAborted()
-      hash.update(chunk as Buffer)
-    }
-    return hash.digest('hex')
-  } finally {
-    stream.destroy()
-  }
-}
 
 function temporaryPath(destinationPath: string): string {
   return join(
@@ -45,7 +33,7 @@ async function extractEmlAttachment(
   input: MailArchiveAttachmentExportInput,
   signal: AbortSignal
 ): Promise<MailArchiveAttachmentExportOutput> {
-  const raw = await readFile(input.sourcePath)
+  const raw = await readEmlBytes(input.sourcePath, signal)
   signal.throwIfAborted()
   if (createHash('sha256').update(raw).digest('hex') !== input.sourceFingerprint) {
     throw new Error('mail_attachment_source_changed')
@@ -82,24 +70,6 @@ async function extractEmlAttachment(
     await unlink(target).catch(() => undefined)
     throw error
   }
-}
-
-type PstFolderLike = {
-  readonly hasSubfolders?: boolean
-  readonly emailCount?: number
-  readonly contentCount?: number
-  getSubFolders(): PstFolderLike[]
-  getNextChild(): unknown
-}
-
-function isPstMessage(value: unknown): value is PSTMessage {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'descriptorNodeId' in value &&
-    typeof (value as { descriptorNodeId?: { toString(): string } }).descriptorNodeId?.toString ===
-      'function'
-  )
 }
 
 function attachmentManifest(attachment: PSTAttachment): {
@@ -161,41 +131,18 @@ async function extractPstAttachment(
   const pst = new PSTFile(input.sourcePath)
   const target = temporaryPath(input.destinationPath)
   let selected: PSTAttachment | undefined
-  const visit = (folder: PstFolderLike): void => {
-    signal.throwIfAborted()
-    const messageCount = Math.max(0, folder.emailCount ?? folder.contentCount ?? 0)
-    for (let index = 0; index < messageCount; index += 1) {
-      signal.throwIfAborted()
-      let candidate: unknown
-      try {
-        candidate = folder.getNextChild()
-      } catch {
-        break
-      }
-      if (!isPstMessage(candidate) || candidate.descriptorNodeId.toString() !== input.itemKey) {
-        continue
-      }
-      if (input.attachmentIndex < 0 || input.attachmentIndex >= candidate.numberOfAttachments) {
-        throw new Error('mail_attachment_not_found')
-      }
-      selected = candidate.getAttachment(input.attachmentIndex)
-      return
-    }
-    if (!folder.hasSubfolders) return
-    let children: PstFolderLike[]
-    try {
-      children = folder.getSubFolders()
-    } catch {
-      return
-    }
-    for (const child of children) {
-      if (selected) return
-      visit(child)
-    }
-  }
-
   try {
-    visit(pst.getRootFolder() as unknown as PstFolderLike)
+    await walkPstMail(
+      pst.getRootFolder(),
+      (candidate) => {
+        if (candidate.descriptorNodeId.toString() !== input.itemKey) return
+        if (input.attachmentIndex < 0 || input.attachmentIndex >= candidate.numberOfAttachments) {
+          throw new Error('mail_attachment_not_found')
+        }
+        selected = candidate.getAttachment(input.attachmentIndex)
+      },
+      signal
+    )
     if (!selected) throw new Error('mail_attachment_message_not_found')
     assertManifest(attachmentManifest(selected), input)
     const bytesWritten = await writePstAttachment(selected, target, signal)

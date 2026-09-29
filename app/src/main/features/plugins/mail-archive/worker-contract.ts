@@ -77,12 +77,14 @@ export interface MailArchiveSourceCallbacks {
     readonly startFingerprint: string
     readonly endFingerprint: string
     readonly revision: number | null
+    readonly ignoredItems?: number
     readonly messages: number
     readonly skipped: boolean
   }): Promise<void>
 }
 
 export interface MailArchiveSourceWorker {
+  close(): void
   run(
     input: MailArchiveSourceInput,
     callbacks: MailArchiveSourceCallbacks,

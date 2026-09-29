@@ -11,6 +11,8 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
   - '!resources/builtin/**'
   - '!resources/claude-plugins/**'
+  - '!scripts/**'
+  - '!node_modules/pst-extractor/example/**'
 asarUnpack:
   - resources/**
   # SDK 번들 native binary(claude[.exe])는 asar 내부에선 spawn 불가 → 실디스크로 언팩.

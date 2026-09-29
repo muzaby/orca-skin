@@ -1,5 +1,4 @@
-import { createHash } from 'node:crypto'
-import { createReadStream } from 'node:fs'
+import { fingerprint } from './fingerprint'
 import { createAcknowledgedMailBatchSender, createMailArchiveBatchBuffer } from './batch-buffer'
 import { extractMailArchiveAttachment } from './readers/attachment-extract'
 import { readEmlFile } from './readers/eml'
@@ -66,20 +65,6 @@ function waitFor(key: string, signal: AbortSignal): Promise<WorkerCommand> {
   })
 }
 
-async function fingerprint(path: string, signal: AbortSignal): Promise<string> {
-  const hash = createHash('sha256')
-  const stream = createReadStream(path)
-  try {
-    for await (const chunk of stream) {
-      signal.throwIfAborted()
-      hash.update(chunk as Buffer)
-    }
-    return hash.digest('hex')
-  } finally {
-    stream.destroy()
-  }
-}
-
 function safeError(error: unknown): string {
   if (error instanceof Error && /^mail_[a-z0-9_:-]{1,160}$/i.test(error.message)) {
     return error.message
@@ -123,8 +108,9 @@ async function sendAndWait(
   waiterKey: string,
   signal: AbortSignal
 ): Promise<WorkerCommand> {
+  const response = waitFor(waiterKey, signal)
   parentPort.postMessage(message)
-  return waitFor(waiterKey, signal)
+  return response
 }
 
 async function processSource(input: MailArchiveSourceInput): Promise<void> {
@@ -142,6 +128,7 @@ async function processSource(input: MailArchiveSourceInput): Promise<void> {
     const decision = decisionCommand as MailArchiveSourceDecision
     let revision: number | null = null
     let messages = 0
+    let ignoredItems = 0
     const skipped = decision.action === 'skip'
 
     if (decision.action === 'scan') {
@@ -167,13 +154,16 @@ async function processSource(input: MailArchiveSourceInput): Promise<void> {
           sourceId: input.sourceId,
           sourceFingerprint: startFingerprint,
           signal,
+          onSkipped: () => {
+            ignoredItems += 1
+          },
           onMessage
         })
       }
       await batcher.flush()
     }
 
-    const endFingerprint = await fingerprint(input.sourcePath, signal)
+    const endFingerprint = skipped ? startFingerprint : await fingerprint(input.sourcePath, signal)
     const completeAck = await sendAndWait(
       {
         type: 'complete',
@@ -182,6 +172,7 @@ async function processSource(input: MailArchiveSourceInput): Promise<void> {
         endFingerprint,
         revision,
         messages,
+        ignoredItems,
         skipped
       },
       'complete',
@@ -196,7 +187,7 @@ async function processSource(input: MailArchiveSourceInput): Promise<void> {
     }
   } finally {
     activeController = undefined
-    setImmediate(() => process.exit(0))
+    parentPort.postMessage({ type: 'idle', ...token })
   }
 }
 

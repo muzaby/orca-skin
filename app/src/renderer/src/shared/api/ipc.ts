@@ -199,8 +199,9 @@ export const fileApi = {
 }
 
 export const mailArchiveApi = {
-  pickFiles: (): Promise<string[]> => window.orca.mailArchive.pickFiles(),
-  pickEmlFolder: (): Promise<string | null> => window.orca.mailArchive.pickEmlFolder(),
+  pickFiles: (): Promise<MailArchiveImportRequest | null> => window.orca.mailArchive.pickFiles(),
+  pickEmlFolder: (): Promise<MailArchiveImportRequest | null> =>
+    window.orca.mailArchive.pickEmlFolder(),
   import: (request: MailArchiveImportRequest): Promise<MailArchiveImportResult> =>
     window.orca.mailArchive.import(request),
   cancel: (jobId: string): Promise<{ cancelled: boolean }> => window.orca.mailArchive.cancel(jobId),

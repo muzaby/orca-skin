@@ -136,7 +136,6 @@ async function handle(request: IndexRequest): Promise<void> {
         value = requireStore().sources()
         break
       case 'removeSource': {
-        if (activeEpochs.size > 0) throw new Error('mail_archive_import_active')
         value = requireStore().removeSource((request.payload as { id: string }).id)
         break
       }

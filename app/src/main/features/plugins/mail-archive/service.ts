@@ -3,7 +3,6 @@ import { realpath, rename, unlink } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, resolve } from 'node:path'
 import type {
   MailArchiveGetRequest,
-  MailArchiveImportRequest,
   MailArchiveImportResult,
   MailArchiveProgress,
   MailArchiveSearchRequest,
@@ -19,7 +18,7 @@ import type {
 import { resolveImportSources } from './sources'
 import { archiveSourceId } from './identity'
 import type { MailArchiveIndexWorker, MailArchiveWorkerFactory } from './worker-contract'
-import type { MailArchiveAttachmentExportInput } from './types'
+import type { MailArchiveAttachmentExportInput, MailArchiveImportInput } from './types'
 
 interface AttachmentExportChoice {
   readonly name: string
@@ -29,7 +28,7 @@ interface AttachmentExportChoice {
 
 export interface MailArchiveService {
   import(
-    request: MailArchiveImportRequest,
+    request: MailArchiveImportInput,
     onProgress?: (progress: MailArchiveProgress) => void
   ): Promise<MailArchiveImportResult>
   cancel(jobId: string): boolean
@@ -48,9 +47,12 @@ export interface MailArchiveService {
 
 interface ImportJob {
   readonly id: string
+  readonly sourcesReady: Promise<void>
+  readonly markSourcesReady: () => void
   readonly controller: AbortController
   epoch: string
   revokePromise?: Promise<void>
+  sourceIds: Set<string>
   finalizing: boolean
   readonly settled: Promise<void>
   readonly settle: () => void
@@ -88,6 +90,8 @@ export function createMailArchiveService(
 ): MailArchiveService {
   const index = workers.createIndex(rootDir)
   const sourceWorker = workers.createSource()
+  let latestProgress: MailArchiveProgress | null = null
+  let lastImport: MailArchiveImportResult | null = null
   let activeJob: ImportJob | null = null
   let closed = false
   let sourceRemovalsPending = 0
@@ -116,10 +120,17 @@ export function createMailArchiveService(
       const settled = new Promise<void>((resolve) => {
         settle = resolve
       })
+      let markSourcesReady!: () => void
+      const sourcesReady = new Promise<void>((r) => {
+        markSourcesReady = r
+      })
       const job: ImportJob = {
+        sourcesReady,
+        markSourcesReady,
         id: randomUUID(),
         controller: new AbortController(),
         epoch: randomUUID(),
+        sourceIds: new Set(),
         finalizing: false,
         settled,
         settle
@@ -130,11 +141,14 @@ export function createMailArchiveService(
       let processedFiles = 0
       let processedMessages = 0
       let completedMessages = 0
+      let ignoredItems = 0
       let insertedMessages = 0
       let skippedMessages = 0
       const failures: { path: string; reason: string }[] = []
+      lastImport = null
+      let lastEventAt = -Infinity
       const emit = (state: MailArchiveProgress['state'], currentPath: string | null): void => {
-        onProgress?.({
+        latestProgress = {
           jobId: job.id,
           state,
           currentPath,
@@ -144,8 +158,12 @@ export function createMailArchiveService(
           insertedMessages,
           skippedMessages,
           failedFiles: failures.length,
-          cancellable: state === 'running' && !job.finalizing && processedFiles < sources.length
-        })
+          cancellable: state === 'running' && !job.finalizing && !job.controller.signal.aborted
+        }
+        if (state !== 'running' || Date.now() - lastEventAt >= 250) {
+          lastEventAt = Date.now()
+          onProgress?.(latestProgress)
+        }
       }
       const assertCurrent = (expectedEpoch = job.epoch): void => {
         job.controller.signal.throwIfAborted()
@@ -155,8 +173,15 @@ export function createMailArchiveService(
       }
 
       try {
+        emit('running', null)
         await index.openEpoch(importEpoch)
-        sources = await resolveImportSources(request.inputKind, request.paths)
+        sources = await resolveImportSources(
+          request.inputKind,
+          request.paths,
+          job.controller.signal
+        )
+        job.sourceIds = new Set(sources.map((source) => archiveSourceId(source.kind, source.path)))
+        job.markSourcesReady()
         if (request.inputKind === 'eml-folder' && sources.length === 0) {
           throw new Error('eml_folder_empty')
         }
@@ -252,6 +277,7 @@ export function createMailArchiveService(
                   job.finalizing = true
                   await index.verifyRevision(sourceId, revision, revisionFingerprint, sourceEpoch)
                   assertCurrent(sourceEpoch)
+                  ignoredItems += completion.ignoredItems ?? 0
                   completedMessages += sourceMessages
                   insertedMessages += sourceInserted
                   skippedMessages += sourceSkipped
@@ -284,17 +310,19 @@ export function createMailArchiveService(
           state: 'completed',
           files: sources.length,
           messages: completedMessages,
+          ignoredItems,
           inserted: insertedMessages,
           skipped: skippedMessages,
           failures
         }
         job.finalizing = true
         emit('completed', null)
+        lastImport = result
         return result
       } catch (error) {
         if (job.controller.signal.aborted) {
           emit('cancelled', null)
-          return cancelledResult(
+          lastImport = cancelledResult(
             job.id,
             processedFiles,
             completedMessages,
@@ -302,9 +330,12 @@ export function createMailArchiveService(
             skippedMessages,
             failures
           )
+          return lastImport
         }
+        latestProgress = null
         throw error
       } finally {
+        job.markSourcesReady()
         if (job.epoch) {
           const epoch = job.epoch
           job.epoch = ''
@@ -312,6 +343,7 @@ export function createMailArchiveService(
         }
         await job.revokePromise
         if (activeJob === job) activeJob = null
+        sourceWorker.close()
         job.settle()
       }
     },
@@ -386,8 +418,9 @@ export function createMailArchiveService(
         if (!sources.some((source) => source.id === sourceId)) return { state: 'not-found' }
 
         const job = activeJob
-        const importCancelled = job !== null
-        if (job) {
+        await job?.sourcesReady
+        const importCancelled = job?.sourceIds.has(sourceId) === true
+        if (job && importCancelled) {
           const epoch = job.epoch
           job.epoch = ''
           job.controller.abort()
@@ -403,7 +436,7 @@ export function createMailArchiveService(
         release()
       }
     },
-    stats: () => index.stats(),
+    stats: async () => ({ ...(await index.stats()), progress: latestProgress, lastImport }),
     close: () => {
       if (closed) return
       closed = true
@@ -413,6 +446,7 @@ export function createMailArchiveService(
         activeJob.controller.abort()
         if (epoch) activeJob.revokePromise = index.revokeEpoch(epoch).catch(() => undefined)
       }
+      sourceWorker.close()
       index.close()
     }
   }

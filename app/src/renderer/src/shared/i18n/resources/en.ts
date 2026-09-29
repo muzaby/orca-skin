@@ -6,6 +6,20 @@ import type { ko } from './ko'
 import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../../../../shared/product'
 
 export const en: typeof ko = {
+  mailArchiveRepair: {
+    failed: 'The mail operation failed. Check the original file and try again.',
+    sourceDestination: 'Choose a destination other than an original EML/PST file.',
+    sourceChanged: 'The source changed since import. Import it again before retrying.',
+    damagedPst:
+      'A PST folder could not be fully read. This import was not applied; existing mail is preserved.',
+    largeEml: 'The EML file exceeds the 50 MiB limit.',
+    alreadyRunning: 'An import is running. Complete or cancel it before retrying.',
+    workerRetry: 'The mail process stopped. Retry to reconnect. Verified mail is preserved.',
+    sourceMissing: 'The source cannot be accessed. Check its location and read permissions.',
+    pickAgain: 'The file selection expired. Select the files again.',
+    failures: 'Files not imported and reasons',
+    cc: 'Cc'
+  },
   background: {
     rejected: 'Rejected',
     cancelled: 'Cancelled',

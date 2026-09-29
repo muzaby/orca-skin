@@ -959,12 +959,12 @@ export class Bootstrap {
   }
 
   private register(ctx: RouterContext): void {
+    this.registerArtifacts(ctx)
     this.mailArchive = createMailArchiveService(
       app.getPath('userData'),
       createMailArchiveWorkerFactory()
     )
     registerMailArchiveHandlers(this.mailArchive)
-    this.registerArtifacts(ctx)
     // chat 턴 파이프라인 조립 — 레지스트리(세션 키잉) · persist · 제목 생성 · 승인 조정.
     const supervisor = (this.supervisor = new RuntimeSupervisor<Electron.WebContents>({
       activeTurns: new ActiveTurnTracker((projectId, count) => {

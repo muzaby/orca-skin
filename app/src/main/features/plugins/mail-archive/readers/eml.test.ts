@@ -1,7 +1,8 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, open, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { fingerprint } from '../fingerprint'
 import { readEmlFile } from './eml'
 
 const roots: string[] = []
@@ -10,6 +11,20 @@ afterEach(async () => {
 })
 
 describe('EML archive reader', () => {
+  it('rejects oversize input before parsing and checks the exact bytes against the revision digest', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'orca-eml-bound-'))
+    roots.push(root)
+    const path = join(root, 'large.eml')
+    const file = await open(path, 'w')
+    await file.truncate(50 * 1024 * 1024 + 1)
+    await file.close()
+    await expect(readEmlFile(path, 'source', 'digest')).rejects.toThrow('mail_eml_too_large')
+    await writeFile(path, 'Subject: changed\r\n\r\nchanged')
+    await expect(readEmlFile(path, 'source', 'wrong-digest')).rejects.toThrow(
+      'mail_source_changed_during_import'
+    )
+  })
+
   it('keeps Korean body and reply headers while indexing attachment names only', async () => {
     const root = await mkdtemp(join(tmpdir(), 'orca-mail-archive-eml-'))
     roots.push(root)
@@ -51,7 +66,11 @@ describe('EML archive reader', () => {
       ].join('\r\n'),
       'utf8'
     )
-    const message = await readEmlFile(path, 'source-id', 'fingerprint')
+    const message = await readEmlFile(
+      path,
+      'source-id',
+      await fingerprint(path, new AbortController().signal)
+    )
     expect(message).toMatchObject({
       sourceKind: 'eml',
       subject: '서버 이전 일정',
@@ -94,7 +113,11 @@ describe('EML archive reader', () => {
       'utf8'
     )
 
-    const message = await readEmlFile(path, 'source-id', 'fingerprint')
+    const message = await readEmlFile(
+      path,
+      'source-id',
+      await fingerprint(path, new AbortController().signal)
+    )
     expect(message).toMatchObject({
       bodyText: '서버 이전 날짜는 3월 2일입니다.',
       bodyKind: 'plain',
@@ -124,7 +147,11 @@ describe('EML archive reader', () => {
       'utf8'
     )
 
-    const message = await readEmlFile(path, 'source-id', 'fingerprint')
+    const message = await readEmlFile(
+      path,
+      'source-id',
+      await fingerprint(path, new AbortController().signal)
+    )
     expect(message.bodyKind).toBe('html')
     expect(message.bodySelectionReason).toBe('html_only')
     expect(message.bodyText).toContain('이전은 다음 주에 진행합니다.')

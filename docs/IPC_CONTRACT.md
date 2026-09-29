@@ -10,8 +10,8 @@
 
 ## 1. 명명 규칙
 
-- 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인: `artifact` · `chat`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `git`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `error`, `provider`
+- 형식: `orca:<domain>:<action>` — 콜론 구분. 도메인은 소문자가 기본이며 개인 보관함은 `mailArchive` 표기를 사용한다.
+- 도메인: `artifact` · `chat`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `git`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `error`, `provider` · `mailArchive`
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -26,7 +26,7 @@
 
 ## 2. 채널 카탈로그
 
-도메인별 분포(개수는 [생성물](./generated/inventory.md)): `chat`(`send`·`event`·`cancel`·`stopSubagent`·`steerCancel`·`steer`) · `boot`(`report`·`whenReady`) · `backend` · `agent` · `engine` · `install` · `update` · `settings` · `skills` · `files` · `git`(§2.6-b) · `session` · `project` · `window` · `search` · `mcp` · `cost` · `concurrency` · `permission`(`respond`·`setMode`) · `notify`(`show` — §2.12-c) · `debug`(dev 전용 — `getMock`·`setMock`) · `log`(`emit` — §2.13-b) · `provider`(§2.13-c — `list`·`state`·`login`·`continue`·`reauth`·`revoke`).
+도메인별 분포(개수는 [생성물](./generated/inventory.md)): `chat`(`send`·`event`·`cancel`·`stopSubagent`·`steerCancel`·`steer`) · `boot`(`report`·`whenReady`) · `backend` · `agent` · `engine` · `install` · `update` · `settings` · `skills` · `files` · `mailArchive`(§2.13-e) · `git`(§2.6-b) · `session` · `project` · `window` · `search` · `mcp` · `cost` · `concurrency` · `permission`(`respond`·`setMode`) · `notify`(`show` — §2.12-c) · `debug`(dev 전용 — `getMock`·`setMock`) · `log`(`emit` — §2.13-b) · `provider`(§2.13-c — `list`·`state`·`login`·`continue`·`reauth`·`revoke`).
 
 > **`provider` 도메인이 구 `auth`·`plugin` 채널을 대체한다.**
 > 앱 로그인·서비스 연결·LLM 자격증명이 **같은 채널 묶음**을 쓴다 — 셋의 차이는 `ProviderInfo.kind`
@@ -463,6 +463,27 @@ renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달�
 | `orca:provider:continue` | R→M (invoke) | `{ providerId; input }` (`ProviderContinueRequestSchema`) | `ProviderStepInfo` | 대화형 step 을 잇는다. 직전에 고른 방식을 이어받으므로 `authKind` 를 다시 싣지 않는다. OAuth `redirect:'manual'` 은 `input.code` 로 code 를 넘긴다. 진행 중 인증이 없으면 `failed(reason:'cancelled')`. |
 | `orca:provider:reauth` | R→M (invoke) | `{ providerId; authKind? }` (`ProviderReauthRequestSchema`) | `ProviderStepInfo` | 재인증. **기존 grant 를 먼저 지우지 않는다** — 새 인증이 성공해야 교체된다. ⚠️ **다만 실패해도 이전 자격증명이 남는다는 보장은 0184 이후 성립하지 않는다**: 값형은 새 값을 **같은 vault 키**에 쓴 뒤 `Provider.probe` 로 확인하므로, 확인에 실패하면 되돌림(`revoke`)이 새 값과 함께 이전 값도 지운다(grant 가 `none` 으로 떨어진다). 실패 후에도 이전 자격증명으로 계속 쓰게 할지는 **미결(OQ)** — `docs/handoff/0184-provider-auth-verification-fixes/verify.md` D2. |
 | `orca:provider:revoke` | R→M (invoke) | `{ providerId }` (`ProviderRevokeRequestSchema`) | `void` | 연결 해제 — grant 와 vault 잔여물(값·metadata·index)을 함께 지운다. 구 `cascade` 는 없다(참조가 없으므로 종속 binding 개념이 사라졌다). |
+
+### 2.13-e 개인 메일 보관함
+
+정본: `app/src/shared/mail-archive.ts`, `main/app/handlers/mail-archive.ts`. 원본 경로는 main의 창별 선택 권한에 보관하며 renderer에는 일회용 `selectionId`만 전달한다. 잘못된 요청·처리 오류는 reject하며 검색 오류를 빈 결과로 바꾸지 않는다. Electron이 붙인 오류 접두어는 화면의 허용 코드 매핑에서 처리한다.
+
+| 채널 | 방향 | 입력 | 응답 / 의미 |
+|---|---|---|---|
+| `orca:mailArchive:pickFiles` | R→M | — | `MailArchiveImportRequest` 또는 null. EML/PST 다중 선택 권한 |
+| `orca:mailArchive:pickEmlFolder` | R→M | — | 동일 권한 또는 null. 하위 EML 재귀 수집 |
+| `orca:mailArchive:import` | R→M | `{selectionId}` | `MailArchiveImportResult`. 호출 창에 귀속한 선택을 한 번 소비 |
+| `orca:mailArchive:cancel` | R→M | `{id: jobId}` | `{cancelled}`. 검증 완료된 메일은 유지 |
+| `orca:mailArchive:search` | R→M | `MailArchiveSearchRequest` | 유형·자료원 ID·공백 AND 질의의 검색 결과 |
+| `orca:mailArchive:get` | R→M | `{id}` | 본문·대체 표현·품질·첨부 목록 또는 null |
+| `orca:mailArchive:thread` | R→M | `{id, limit?}` | 명시 관계의 메일·관계·잘림 여부 |
+| `orca:mailArchive:exportAttachment` | R→M | `{id: attachmentId}` | 저장 대화상자 후 선택 첨부만 추출. 원본 변경 시 실패 |
+| `orca:mailArchive:sources` | R→M | — | 경로를 제외한 자료원 목록·공유 메일 수 |
+| `orca:mailArchive:removeSource` | R→M | `{id: sourceId}` | 확인 후 해당 자료원 제거. 이를 포함한 가져오기만 취소 |
+| `orca:mailArchive:stats` | R→M | — | 메일 통계, 현재 진행 스냅샷과 최근 결과. 화면 재진입 복원용 |
+| `orca:mailArchive:progress` | M→R | `MailArchiveProgress` | 실행 중 알림은 250 ms 간격, 종료는 즉시 전달 |
+
+진행 스냅샷·최근 가져오기 결과는 앱 세션 메모리이고 검색 데이터는 [별도 SQLite 보관함](arch/backend/persistence.md#개인-메일-보관함)에 저장한다. 원본 파일이 바뀌거나 사라져도 과거 검증 완료 메일은 명시 제거 전까지 검색된다. 첨부 바이트는 복제하지 않으므로 과거 revision의 원본이 없으면 추출할 수 없다.
 
 ### 2.14 예약 / 미노출 채널
 

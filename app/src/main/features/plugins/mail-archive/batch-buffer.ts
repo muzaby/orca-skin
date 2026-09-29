@@ -12,8 +12,9 @@ export function createAcknowledgedMailBatchSender<T>(
   let nextBatchId = 0
   return async (batch) => {
     const batchId = ++nextBatchId
+    const acknowledgement = waitForAck(batchId)
     send(batchId, batch)
-    await waitForAck(batchId)
+    await acknowledgement
   }
 }
 

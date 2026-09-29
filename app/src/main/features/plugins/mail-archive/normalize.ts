@@ -51,13 +51,11 @@ function attachmentManifest(
     sizeBytes?: number | null
   }[]
 ): NormalizedArchiveMail['attachments'] {
-  return attachments
-    .map((attachment) => ({
-      name: attachment.name?.trim() || 'attachment',
-      mimeType: attachment.mimeType?.trim() || 'application/octet-stream',
-      sizeBytes: Math.max(0, attachment.sizeBytes ?? 0)
-    }))
-    .filter((attachment) => attachment.name.length > 0)
+  return attachments.map((attachment) => ({
+    name: attachment.name?.trim() || 'attachment',
+    mimeType: attachment.mimeType?.trim() || 'application/octet-stream',
+    sizeBytes: Math.max(0, attachment.sizeBytes ?? 0)
+  }))
 }
 
 export function normalizeEml(
@@ -76,9 +74,7 @@ export function normalizeEml(
       sizeBytes:
         typeof attachment.content === 'string'
           ? Buffer.byteLength(attachment.content, 'utf8')
-          : attachment.content instanceof Uint8Array
-            ? attachment.content.byteLength
-            : attachment.content.byteLength
+          : attachment.content.byteLength
     }))
   )
   const normalized: Omit<NormalizedArchiveMail, 'identityKey'> = {

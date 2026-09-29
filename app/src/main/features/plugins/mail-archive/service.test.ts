@@ -1,11 +1,10 @@
-import { createHash } from 'node:crypto'
-import { createReadStream } from 'node:fs'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { warmFileSqlite } from '../../../infra/db/warm-file-sqlite'
 import { createMailArchiveStore } from './store'
+import { fingerprint } from './fingerprint'
 import { createMailArchiveService } from './service'
 import { readEmlFile } from './readers/eml'
 import { archiveMailIdentityKey, archiveSourceId } from './identity'
@@ -96,20 +95,6 @@ function pstSnapshotMail(
   return { ...partial, identityKey: archiveMailIdentityKey(partial) }
 }
 
-async function fingerprint(path: string, signal: AbortSignal): Promise<string> {
-  const hash = createHash('sha256')
-  const stream = createReadStream(path)
-  try {
-    for await (const chunk of stream) {
-      signal.throwIfAborted()
-      hash.update(chunk as Buffer)
-    }
-    return hash.digest('hex')
-  } finally {
-    stream.destroy()
-  }
-}
-
 function testWorkerFactory(
   root: string,
   hooks: {
@@ -165,6 +150,7 @@ function testWorkerFactory(
   return {
     createIndex: () => index,
     createSource: () => ({
+      close: () => undefined,
       extract: async (input) => {
         if (hooks.extract) return hooks.extract(input)
         throw new Error('mail_attachment_export_not_configured')
@@ -205,7 +191,7 @@ function testWorkerFactory(
 }
 
 describe('mail archive import service', () => {
-  it('skips an unchanged source without reparsing and replaces changed contents without stale search results', async () => {
+  it('skips an unchanged source without reparsing and preserves changed contents as archive history', async () => {
     const root = await mkdtemp(join(tmpdir(), 'orca-mail-archive-service-'))
     roots.push(root)
     const path = join(root, 'mail.eml')
@@ -226,9 +212,9 @@ describe('mail archive import service', () => {
     await writeFile(path, rawMail(2))
     const changed = await service.import({ inputKind: 'files', paths: [path] })
     expect(changed).toMatchObject({ messages: 1, inserted: 1, skipped: 0 })
-    expect(await service.search({ query: '본문 1', limit: 10 })).toHaveLength(0)
+    expect(await service.search({ query: '본문 1', limit: 10 })).toHaveLength(1)
     expect(await service.search({ query: '본문 2', limit: 10 })).toHaveLength(1)
-    expect(await service.stats()).toMatchObject({ totalMessages: 1, emlMessages: 1 })
+    expect(await service.stats()).toMatchObject({ totalMessages: 2, emlMessages: 2 })
   })
 
   it('keeps the last verified revision when the source changes during parsing', async () => {
@@ -306,13 +292,13 @@ describe('mail archive import service', () => {
     ])
     const edited = await service.import({ inputKind: 'files', paths: [path] })
     expect(edited).toMatchObject({ messages: 2, inserted: 1, skipped: 1 })
-    expect(await service.search({ query: '기존 본문', limit: 10 })).toHaveLength(0)
+    expect(await service.search({ query: '기존 본문', limit: 10 })).toHaveLength(1)
     expect(await service.search({ query: '수정 본문', limit: 10 })).toHaveLength(1)
     expect(await service.search({ query: '새 메일', limit: 10 })).toHaveLength(1)
-    expect(await service.stats()).toMatchObject({ totalMessages: 2, pstMessages: 2 })
+    expect(await service.stats()).toMatchObject({ totalMessages: 3, pstMessages: 3 })
   })
 
-  it('keeps completed EML files searchable when a folder batch is cancelled between files', async () => {
+  it('keeps completed EML files and exposes a snapshot when cancellation happens in the next file', async () => {
     const root = await mkdtemp(join(tmpdir(), 'orca-mail-archive-batch-'))
     roots.push(root)
     const folder = join(root, 'eml')
@@ -320,22 +306,33 @@ describe('mail archive import service', () => {
     await Promise.all(
       [1, 2, 3].map((index) => writeFile(join(folder, `${index}.eml`), rawMail(index)))
     )
-    const service = createMailArchiveService(root, testWorkerFactory(root))
+    let jobId = ''
+    let batches = 0
+    const service = createMailArchiveService(
+      root,
+      testWorkerFactory(root, {
+        afterBatch: async () => {
+          batches += 1
+          if (batches === 2) {
+            const snapshot = await service.stats()
+            expect(snapshot.progress?.processedFiles).toBe(1)
+            expect(service.cancel(jobId)).toBe(true)
+          }
+        }
+      })
+    )
     services.push(service)
-    let cancelled = false
     const result = await service.import(
       { inputKind: 'eml-folder', paths: [folder] },
       (progress) => {
-        if (!cancelled && progress.processedFiles >= 1) {
-          cancelled = service.cancel(progress.jobId)
-        }
+        jobId = progress.jobId
       }
     )
-    expect(cancelled).toBe(true)
     expect(result.state).toBe('cancelled')
     expect(result.messages).toBe(1)
     expect(await service.search({ query: '본문 1', limit: 10 })).toHaveLength(1)
     expect(await service.search({ query: '본문 2', limit: 10 })).toHaveLength(0)
+    expect((await service.stats()).lastImport).toEqual(result)
   })
 
   it('does not promote a staged file when its import epoch is cancelled', async () => {
@@ -343,16 +340,20 @@ describe('mail archive import service', () => {
     roots.push(root)
     const path = join(root, 'mail.eml')
     await writeFile(path, rawMail(1))
-    const service = createMailArchiveService(root, testWorkerFactory(root))
+    let jobId = ''
+    const service = createMailArchiveService(
+      root,
+      testWorkerFactory(root, {
+        afterBatch: () => {
+          expect(service.cancel(jobId)).toBe(true)
+          return Promise.resolve()
+        }
+      })
+    )
     services.push(service)
-    let cancelled = false
     const result = await service.import({ inputKind: 'files', paths: [path] }, (progress) => {
-      if (!cancelled && progress.processedMessages >= 1) {
-        cancelled = service.cancel(progress.jobId)
-      }
+      jobId = progress.jobId
     })
-
-    expect(cancelled).toBe(true)
     expect(result.state).toBe('cancelled')
     expect(await service.search({ query: '본문 1', limit: 10 })).toHaveLength(0)
     expect(await service.stats()).toMatchObject({ totalMessages: 0 })
@@ -408,6 +409,38 @@ describe('mail archive import service', () => {
     expect(await concurrentService.search({ query: '본문 1', limit: 10 })).toHaveLength(0)
     expect(await concurrentService.search({ query: '본문 2', limit: 10 })).toHaveLength(0)
     expect(await concurrentService.sources()).toHaveLength(0)
+  })
+
+  it('does not cancel an unrelated import when removing another source', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'orca-mail-unrelated-'))
+    roots.push(root)
+    const firstPath = join(root, 'first.eml')
+    const secondPath = join(root, 'second.eml')
+    await writeFile(firstPath, rawMail(1))
+    await writeFile(secondPath, rawMail(2))
+    let removeDuringBatch = false
+    const service = createMailArchiveService(
+      root,
+      testWorkerFactory(root, {
+        afterBatch: async () => {
+          if (!removeDuringBatch) return
+          expect(await service.removeSource(archiveSourceId('eml', firstPath))).toMatchObject({
+            state: 'removed',
+            importCancelled: false
+          })
+        }
+      })
+    )
+    services.push(service)
+    await service.import({ inputKind: 'files', paths: [firstPath] })
+    removeDuringBatch = true
+    expect(await service.import({ inputKind: 'files', paths: [secondPath] })).toMatchObject({
+      state: 'completed',
+      inserted: 1,
+      failures: []
+    })
+    expect(await service.search({ query: '본문 2' })).toHaveLength(1)
+    expect(await service.search({ query: '본문 1' })).toHaveLength(0)
   })
 
   it('exports only a picked attachment and removal waits for an in-flight export', async () => {

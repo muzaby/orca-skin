@@ -169,3 +169,11 @@ POP3 Mail Plugin은 Core `orcinus-orca.db`와 분리된 계정별 `mail.db`를 `
 ## sessions.provider_key (0008, handoff 0010)
 
 `0008_provider_key.sql` 은 `sessions.provider_key TEXT` nullable 컬럼을 추가한다. 이 값은 마지막 턴에 사용된 provider key 기록이며 세션의 adapter 잠금 제약은 기존 `sessions.backend` 가 담당한다. 자격 토큰은 평문·해시 어느 형태로도 DB 에 저장하지 않는다.
+
+### 개인 메일 보관함
+
+`features/plugins/mail-archive/store.ts`는 `mail-archive/archive.db`를 전용 index utility process에서 연다. 정규화 본문·대체 표현·첨부 목록·FTS와 source/revision/occurrence를 보관하며 원본 EML/PST와 첨부 바이트는 복제하지 않는다. 마이그레이션 정본은 같은 슬라이스의 `migrate.ts`다.
+
+`archive_verified_occurrence`는 모든 검증 완료 revision을 노출한다. 최근 가져오기 포인터는 과거 메일의 표시 여부를 결정하지 않는다. 본문이 수정된 메일과 원본에서 삭제된 메일도 자료원을 명시 제거할 때까지 남는다. 시작/완료 지문이 다른 revision과 파싱 실패·중단된 staging은 노출하지 않는다. 부팅 복구가 미완료 occurrence를 정리하며 이전 보관함은 데이터 삭제 없이 추가 마이그레이션으로 연다.
+
+관계 projection은 변경 후 스레드 조회 시 transaction으로 재구성한다. 파일마다 전체 관계를 다시 쓰지 않으며 검색은 검증 완료 occurrence와 FTS를 직접 조회한다. 자료원 제거는 occurrence와 고아 메일을 transaction으로 제거하고 다른 자료원이 공유하는 메일은 보존한다. 첨부 추출은 검증된 원본 지문·메시지 위치를 다시 확인한다.

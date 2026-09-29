@@ -24,7 +24,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function workerError(value: unknown, fallback: string): Error {
-  if (isRecord(value) && typeof value.error === 'string') return new Error(value.error)
+  if (isRecord(value)) {
+    const code = value.error ?? value.reason
+    if (typeof code === 'string' && /^mail_[a-z0-9_:-]+$/.test(code)) return new Error(code)
+  }
   return new Error(fallback)
 }
 
@@ -33,18 +36,45 @@ class IndexWorkerClient implements MailArchiveIndexWorker {
   private closed = false
   private readonly pending = new Map<
     number,
-    { resolve(value: unknown): void; reject(error: Error): void }
+    {
+      resolve(value: unknown): void
+      reject(error: Error): void
+      timer: ReturnType<typeof setTimeout>
+    }
   >()
-  private readonly ready: Promise<unknown>
+  private child?: UtilityProcess
+  private ready?: Promise<unknown>
 
   constructor(
-    private readonly child: UtilityProcess,
-    rootDir: string
-  ) {
-    child.on('message', (raw) => this.onMessage(raw))
-    child.on('exit', () => this.rejectPending(new Error('mail_archive_index_worker_exited')))
-    this.ready = this.requestRaw('init', rootDir)
-    void this.ready.catch(() => undefined)
+    private readonly fork: (path: string, name: string) => UtilityProcess,
+    private readonly rootDir: string,
+    private readonly timeoutMs: number
+  ) {}
+
+  private start(): Promise<unknown> {
+    if (this.closed) return Promise.reject(new Error('mail_archive_index_worker_closed'))
+    if (this.ready) return this.ready
+    const child = this.fork(indexWorkerPath, 'Orca Mail Archive Index')
+    this.child = child
+    child.on('message', (raw) => {
+      if (this.child === child) this.onMessage(raw)
+    })
+    child.on('exit', () => {
+      if (this.child === child) this.stop(new Error('mail_archive_index_worker_exited'))
+    })
+    this.ready = this.requestRaw('init', this.rootDir).catch((error: unknown) => {
+      if (this.child === child) this.stop(new Error('mail_archive_index_failed'))
+      throw error
+    })
+    return this.ready
+  }
+
+  private stop(error: Error): void {
+    const child = this.child
+    this.child = undefined
+    this.ready = undefined
+    this.rejectPending(error)
+    child?.kill()
   }
 
   private onMessage(raw: unknown): void {
@@ -52,13 +82,17 @@ class IndexWorkerClient implements MailArchiveIndexWorker {
     const response = raw as unknown as RpcResponse
     const pending = this.pending.get(response.requestId)
     if (!pending) return
+    clearTimeout(pending.timer)
     this.pending.delete(response.requestId)
     if (response.ok) pending.resolve(response.value)
     else pending.reject(new Error(response.error ?? 'mail_archive_index_failed'))
   }
 
   private rejectPending(error: Error): void {
-    for (const [, request] of this.pending) request.reject(error)
+    for (const [, request] of this.pending) {
+      clearTimeout(request.timer)
+      request.reject(error)
+    }
     this.pending.clear()
   }
 
@@ -68,13 +102,22 @@ class IndexWorkerClient implements MailArchiveIndexWorker {
     }
     const requestId = ++this.requestId
     return new Promise<T>((resolve, reject) => {
-      this.pending.set(requestId, { resolve, reject })
-      this.child.postMessage({ requestId, operation, payload })
+      const timer = setTimeout(
+        () => this.stop(new Error('mail_archive_index_timeout')),
+        this.timeoutMs
+      )
+      this.pending.set(requestId, { resolve, reject, timer })
+      try {
+        if (!this.child) throw new Error('mail_archive_index_worker_exited')
+        this.child.postMessage({ requestId, operation, payload })
+      } catch {
+        this.stop(new Error('mail_archive_index_worker_exited'))
+      }
     })
   }
 
   private request<T>(operation: string, payload?: unknown): Promise<T> {
-    return this.ready.then(() => this.requestRaw<T>(operation, payload))
+    return this.start().then(() => this.requestRaw<T>(operation, payload))
   }
 
   openEpoch(epoch: string): Promise<void> {
@@ -175,15 +218,22 @@ class IndexWorkerClient implements MailArchiveIndexWorker {
   close(): void {
     if (this.closed) return
     this.closed = true
-    void this.ready
-      .then(() => this.requestRaw('close'))
-      .catch(() => undefined)
-      .finally(() => this.child.kill())
+    this.stop(new Error('mail_archive_index_worker_closed'))
   }
 }
 
 class SourceWorkerClient implements MailArchiveSourceWorker {
-  constructor(private readonly fork: (path: string, name: string) => UtilityProcess) {}
+  private child?: UtilityProcess
+  constructor(
+    private readonly fork: (path: string, name: string) => UtilityProcess,
+    private readonly timeoutMs: number
+  ) {}
+
+  close(): void {
+    const child = this.child
+    this.child = undefined
+    child?.kill()
+  }
 
   run(
     input: MailArchiveSourceInput,
@@ -191,25 +241,34 @@ class SourceWorkerClient implements MailArchiveSourceWorker {
     signal: AbortSignal
   ): Promise<void> {
     signal.throwIfAborted()
-    const child = this.fork(sourceWorkerPath, 'Orca Mail Archive Source')
+    const child = this.child ?? this.fork(sourceWorkerPath, 'Orca Mail Archive Source')
+    this.child = child
     return new Promise<void>((resolve, reject) => {
       let settled = false
       let completionStarted = false
+      let completionAccepted = false
+      let timer: ReturnType<typeof setTimeout>
+      const touch = (): void => {
+        clearTimeout(timer)
+        timer = setTimeout(() => fail(new Error('mail_source_timeout')), this.timeoutMs)
+      }
       const finish = (error?: Error): void => {
         if (settled) return
         settled = true
+        clearTimeout(timer)
+        child.removeListener('message', onMessage)
+        child.removeListener('exit', onExit)
         signal.removeEventListener('abort', onAbort)
         if (error) reject(error)
         else resolve()
       }
       const fail = (error: Error): void => {
+        if (this.child === child) this.child = undefined
         child.kill()
         finish(error)
       }
       const onAbort = (): void => {
-        child.postMessage({ type: 'cancel' })
-        child.kill()
-        finish(new Error('mail_import_cancelled'))
+        fail(new Error('mail_import_cancelled'))
       }
       const onMessage = (raw: unknown): void => {
         if (!isRecord(raw) || typeof raw.type !== 'string' || settled) return
@@ -217,10 +276,17 @@ class SourceWorkerClient implements MailArchiveSourceWorker {
           fail(new Error('mail_import_epoch_revoked'))
           return
         }
+        touch()
+        if (raw.type === 'idle' && completionAccepted) {
+          finish()
+          return
+        }
         if (raw.type === 'ready' && typeof raw.fingerprint === 'string') {
           void callbacks
             .onReady(raw.fingerprint)
-            .then((decision) => child.postMessage({ type: 'decision', ...decision }))
+            .then((decision) => {
+              if (!settled) child.postMessage({ type: 'decision', ...decision })
+            })
             .catch((error: unknown) =>
               fail(error instanceof Error ? error : new Error('mail_revision_start_failed'))
             )
@@ -237,7 +303,9 @@ class SourceWorkerClient implements MailArchiveSourceWorker {
               raw.revision,
               raw.mails as Parameters<MailArchiveSourceCallbacks['onBatch']>[1]
             )
-            .then(() => child.postMessage({ type: 'ack', batchId: raw.batchId as number }))
+            .then(() => {
+              if (!settled) child.postMessage({ type: 'ack', batchId: raw.batchId as number })
+            })
             .catch((error: unknown) =>
               fail(error instanceof Error ? error : new Error('mail_archive_batch_failed'))
             )
@@ -250,15 +318,17 @@ class SourceWorkerClient implements MailArchiveSourceWorker {
               startFingerprint: String(raw.startFingerprint ?? ''),
               endFingerprint: String(raw.endFingerprint ?? ''),
               revision: typeof raw.revision === 'number' ? raw.revision : null,
+              ignoredItems: typeof raw.ignoredItems === 'number' ? raw.ignoredItems : 0,
               messages: typeof raw.messages === 'number' ? raw.messages : 0,
               skipped: raw.skipped === true
             })
             .then(() => {
+              if (settled) return
+              completionAccepted = true
               child.postMessage({ type: 'completeAck', ok: true })
-              finish()
             })
             .catch((error: unknown) => {
-              child.postMessage({ type: 'completeAck', ok: false })
+              if (settled) return
               fail(
                 error instanceof Error ? error : new Error('mail_archive_revision_verify_failed')
               )
@@ -270,12 +340,12 @@ class SourceWorkerClient implements MailArchiveSourceWorker {
         }
       }
       child.on('message', onMessage)
-      child.on('exit', (code) => {
-        if (!settled)
-          finish(
-            new Error(code === 0 ? 'mail_source_worker_exited_early' : 'mail_source_worker_failed')
-          )
-      })
+      const onExit = (): void => {
+        if (this.child === child) this.child = undefined
+        finish(new Error('mail_source_worker_exited_early'))
+      }
+      child.on('exit', onExit)
+      touch()
       signal.addEventListener('abort', onAbort, { once: true })
       child.postMessage({ type: 'start', ...input })
     })
@@ -286,9 +356,12 @@ class SourceWorkerClient implements MailArchiveSourceWorker {
     const requestId = randomUUID()
     return new Promise((resolve, reject) => {
       let settled = false
+      const timer = setTimeout(() => finish(new Error('mail_attachment_timeout')), this.timeoutMs)
       const finish = (error?: Error, result?: MailArchiveAttachmentExportOutput): void => {
         if (settled) return
         settled = true
+        clearTimeout(timer)
+        child.kill()
         if (error) reject(error)
         else if (result) resolve(result)
         else reject(new Error('mail_attachment_export_failed'))
@@ -330,12 +403,20 @@ class SourceWorkerClient implements MailArchiveSourceWorker {
   }
 }
 
-export function createMailArchiveWorkerFactory(): MailArchiveWorkerFactory {
-  const fork = (path: string, serviceName: string): UtilityProcess =>
-    utilityProcess.fork(path, [], { serviceName, stdio: 'ignore' })
+export function createMailArchiveWorkerFactory(
+  options: {
+    fork?: (path: string, serviceName: string) => UtilityProcess
+    requestTimeoutMs?: number
+    sourceTimeoutMs?: number
+  } = {}
+): MailArchiveWorkerFactory {
+  const fork =
+    options.fork ??
+    ((path: string, serviceName: string): UtilityProcess =>
+      utilityProcess.fork(path, [], { serviceName, stdio: 'ignore' }))
   return {
     createIndex: (rootDir) =>
-      new IndexWorkerClient(fork(indexWorkerPath, 'Orca Mail Archive Index'), rootDir),
-    createSource: () => new SourceWorkerClient(fork)
+      new IndexWorkerClient(fork, rootDir, options.requestTimeoutMs ?? 30_000),
+    createSource: () => new SourceWorkerClient(fork, options.sourceTimeoutMs ?? 120_000)
   }
 }

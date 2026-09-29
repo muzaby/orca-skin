@@ -13,7 +13,7 @@
 | 일자 | 2026-09-29 |
 | 매핑 | PR 브랜치 `codex-0244-mail-archive-plan` → `main` |
 | 조사 기준 | `f2f60ac338f2847f81a6cbc426f0728b7eb8d98e` (`git cat-file -t` → commit 확인) |
-| 상태 | **READY — S1 worker·revision·검색 범위 확정** |
+| 상태 | **DRAFT — r1.4 보완 반영, PG-01~03 설계 정정 필요** |
 | V mode / 기준 V | `Delta V` / 독립안 `V1@3f9558d9ec7fca52bc7c55533031051ba5d5b96a` |
 | 이번 V revision / 유효 V | `ΔV3` / `V1 + ΔV2 + ΔV3 (S1 범위)` |
 
@@ -965,126 +965,166 @@ AC3·AC5·AC7을 변경하고 신규 VP-24(utility process 경계·revision prot
 
 ## [구현자 기입] 설계 리뷰
 
-- 판정: D-012를 유지해 source/index utility process 경계를 유지했다. r1.3에는 선택 본문·대체 표현·품질 신호를 정규화/저장/상세 DTO/UI에 연결하고, HTML-only EML/PST와 충돌 표현을 테스트했다.
-- S1 경량 범위는 EML/PST 메타데이터·본문·첨부 이름 검색이며 첨부 본문 색인·임베딩·hybrid 검색·RAG는 계속 제외한다. 첨부 선택 저장은 별도 사용자 동작으로만 처리하고 선택한 바이트 외에는 추출하지 않는다.
-- 설계 대비 충돌 / PLAN_GAP: 없음. D-012·Decision·AC·V·§10의 규범 행은 수정하지 않았다. 기존 색인은 본문 형식 정보가 없으므로 `legacy`로 보존한다. 의미 context 경로는 S1에 없어 EP-15d의 context 분기는 후속이며, SQLite 저장 왕복은 현재 native binding 부재로 실행하지 못했다.
+**r1.4 판정: 결함 보완·부분 구현. S1 완료가 아니다.** 외부 진단의 성능·누락·누적 이력·오류 표시 문제는 코드와 실행으로 확인했다. r1.3의 `7/14`, `SELF_PASS 7`, `38/41` 보고는 계약 전체를 검증하지 않은 과대 보고여서 아래 관측으로 대체한다. 과거 보고는 git 이력에 남으며 별도 델타 문서를 만들지 않는다.
+
+| 진단 | 비판적 판정 / 조치 |
+|---|---|
+| 파일마다 전체 관계 재구성 | 확인. verify/activate/remove는 dirty 표시만 하고 스레드 조회 시 재구성한다. source child는 작업 동안 재사용한다. |
+| 1만 EML 약 15분 | 외삽값으로만 취급. 이번 PC의 3천 건 DB 작업은 천 건 구간별 3,365/3,451/4,256ms였다. 파싱·UI·실파일 전체 성능은 아니다. |
+| PST `emailCount=-1`·예외 삼킴·비메일 유입 | 확인. null까지 순회하는 공통 walker, IPM.Note 계열 필터, 읽기 실패/개수 불일치 오류와 비메일 제외 수를 연결했다. 라이브러리 내부의 조용한 skip도 개수 대조로 감지한다. |
+| 재가져오기 누적/교체를 새로 결정 | D-010·§5·11에 누적이 이미 명시돼 있다. 현재 revision만 노출하던 버그와 잘못된 테스트 기대값을 고쳤다. 원본에서 삭제되거나 수정되기 전의 메일도 명시 제거 전까지 보존한다. |
+| 미출시 migration 압축·개발 DB 삭제는 비용 0 | 채택하지 않음. 사용자가 이미 개인 보관함을 사용 중이다. 태그 미포함은 데이터 부재의 증거가 아니다. 추가 migration으로 기존 DB를 보존한다. |
+| 설정 자료원 관리·가역 segment는 새 선택 | 둘 다 기존 D-008·§11의 S1 계약이다. 미구현을 후속 단계로 옮겼던 보고를 철회한다. |
+| 미사용 DTO·관계·상태 일괄 삭제 | 소비 부재와 불필요는 다르다. 누락 부모·오류 상태 등 계약상 필요한 정보는 유지하고, cc·실패 사유는 화면에 연결했다. 확정된 죽은 분기와 중복 PST 순회·해시만 정리했다. |
+| 워커 테스트가 없다 | 기존 가짜 워커 테스트는 실제 process 경계를 증명하지 못했다. production host/source/index를 실제 Electron으로 실행하는 스크립트를 추가했다. |
+
+**PLAN_GAP (규범 행은 수정하지 않음)**
+
+| ID | 충돌 / 부족한 계약 | 현재 동작 / planner에게 필요한 정정 |
+|---|---|---|
+| PG-01 | §5의 손상 항목 제외 후 정상 항목 보존과 §13의 PST child 오류 시 revision 전체 비활성화 | 이번 수정은 오류를 알리고 새 revision 전체를 보류해 이전 보관함을 지킨다. 부분 손상 자료원의 정상 메일을 새로 공개할지와 partial 상태·oracle을 확정해야 한다. |
+| PG-02 | EML 폴더 상대 locator 모델과 파일 단위 자료원·revision의 관리 단위 | 성능 결함은 수정했지만 자료원 목록은 여전히 파일별이다. 폴더 하나=자료원 하나를 권고해 사용자에게 질문했으며 답변 대기다. 기존 자료원 전환·제거·재가져오기 규칙을 먼저 정해야 한다. |
+| PG-03 | 형식 통합 identity·이름/주소 정상화 때 이미 사용 중인 DB의 전환 oracle 부재 | sourceKind를 identity에서 빼는 수정만 하면 기존 메일이 재삽입된다. 기존 ID·공유 occurrence·첨부 참조를 보존하는 전환 및 충돌 검증을 추가해야 한다. |
+
+[handoff-impl](../../../.agents/skills/handoff-impl/SKILL.md)의 “PLAN_GAP이 남으면 impl/IMPL_DONE으로 넘기지 않는다”에 따라 보드와 메타를 `plan/DRAFT`로 돌린다. 영향받지 않은 수정과 시험 결과는 보존한다. 설정 슬롯·segment 누락은 선택 대기가 아닌 구현 미완료다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
-전수 명령: rg -n '^\| EP-' docs/handoff/0244-mail-archive/plan.md → EP-01~21, 21행·88자리. S1 대상 41자리 중 38자리를 구현했고 3자리는 후속/패키징 검증, S2/S3 47자리는 이번 범위 밖이다.
+검색: `rg -n '^\| EP-' docs/handoff/0244-mail-archive/plan.md`의 규범 표는 21행·88자리다. `rg -n 'pickFiles|selectionId|postMessage|openEpoch|revokeEpoch|verifyRevision|activateRevision|upsertBatch|removeSource|attachmentLocation|thread:|archive_verified_occurrence' app/src`로 운반 지점을 대조했다. 아래 수는 이번 S1 코드에서 관측한 자리이며 **AC 전체 또는 전수 검증 완료 수가 아니다**. 종전 `S1 38/41 완료` 분모는 철회한다.
 
-| §10 | 닫은 자리 | 이번 라운드 관측 | 남긴 자리 |
-|---|---:|---|---|
-| EP-01 / 4 | 4/4 a-d | bootstrap·preload·handler·renderer 배선, typecheck/build | UI/IPC 실제 왕복은 미실행 |
-| EP-02 / 4 | 4/4 a-d | source/index worker·batch commit·재시작 staging 복구; service 테스트와 Electron smoke | 없음 |
-| EP-03 / 4 | 3/4 a-c | EML/PST mapper, identity·revision transaction; reader/store 테스트 | d segment read는 S2/S3 |
-| EP-04 / 3 | 3/3 a-c | Reply/References 명시 ID resolver, 누락·중복 후보·cycle 처리, bounded thread query/view; 역순·동일 제목 분리 store/resolver 테스트 | renderer 시각 실기와 S2/S3 context projection |
-| EP-05 / 4 | 2/4 a-b | term 정규화·FTS/LIKE AND; 한글/짧은 토큰 테스트 | c vector·d hybrid fusion/page |
-| EP-06 / 3 | 2/3 a-b | 첨부 manifest·filename index; 본문 sentinel 미색인 | c chunk/context projection |
-| EP-07 / 5 | 0/5 | 임베딩 계약은 S2/S3 | a-e 전체 |
-| EP-08 / 4 | 0/4 | generation 전환은 S2/S3 | a-d 전체 |
-| EP-09 / 5 | 0/5 | citation/evidence는 S3 | a-e 전체 |
-| EP-10 / 8 | 0/8 | scope resolver는 S3 | a-h 전체 |
-| EP-11 / 4 | 4/4 a-d | 사용자 Save dialog→내부 occurrence 재확인→source fingerprint/첨부 manifest·크기 검증→같은 폴더 임시 파일·rename; EML 선택 추출·원본 보호·제거 경합 테스트, 공개 PST parser fixture에서 선택 바이트 크기 smoke | PST utilityProcess·설치본 추출 smoke; 도구 승인 경로는 S3 EP-12 |
-| EP-12 / 3 | 0/3 | runtime tool descriptor는 S3 | a-c 전체 |
-| EP-13 / 3 | 3/3 a-c | import epoch revoke·자료원 제거 transaction/purge·제거와 in-flight import/export 경합에서 late-write 차단; store/service 테스트 | 실제 UI/IPC 및 S3 context·cache 제거 경합은 AC21 후속 |
-| EP-14 / 3 | 1/3 a | shared MIME 경로 보존, worker bundle build | b fixture sentinel package 검사·c 설치본 child 실행 |
-| EP-15 / 4 | 3/4 a-c | inert HTML 텍스트화·plain 우선/대체 저장·quality flags 및 선택 이유를 상세 DTO/UI에 연결; HTML/영어/식별자/크기 fixture | d semantic context 품질 분기(S1에는 context 경로 없음) |
-| EP-16 / 4 | 0/4 | segment/provenance viewer는 후속 | a-d 전체 |
-| EP-17 / 3 | 0/3 | embedding input은 S2/S3 | a-c 전체 |
-| EP-18 / 4 | 0/4 | hybrid ranking/context는 S2/S3 | a-d 전체 |
-| EP-19 / 4 | 0/4 | embedding cache/scheduler는 S2/S3 | a-d 전체 |
-| EP-20 / 3 | 0/3 | vector scan/generation은 S2/S3 | a-c 전체 |
-| EP-21 / 9 | 9/9 a-i | 실제 utility process import·skip·revision·cancel·restart·staging isolation; batch ACK 테스트 | 없음 |
+| 행 / 전체 자리 | 구현 관측 자리 | 이번 관측 / 남은 자리·검증 |
+|---|---|---|
+| EP-01 / 4 | b·c, d 일부 | main picker의 창별 일회성 토큰 테스트, preload 타입, 진행 snapshot 복원. a 설정 슬롯과 d reducer/시각 실기 미완. |
+| EP-02 / 4 | a~d의 S1 경로 | service 취소/변경·store 재개 테스트, 실제 source/index kill·다음 조회 복구. commit 중 강제 종료/디스크 full은 미검증. |
+| EP-03 / 4 | a~c 일부 | PST·EML 정규화/identity 테스트. 이름·주소 일관화와 형식 간 identity·d segment 미완. |
+| EP-04 / 3 | a~c의 thread 경로 | resolver 3건 및 역순 thread DB 테스트. S3 context 미구현, UI 시각 확인 미실행. |
+| EP-05 / 4 | a·b의 lexical 경로 | 공백 AND·literal LIKE·자료원 ID 필터 테스트. 기간/폴더 UI, c vector·d fusion/page 미완. |
+| EP-06 / 3 | a·b | 첨부 이름 검색·본문 sentinel 제외 테스트. c chunk/context는 S2/S3. |
+| EP-07 / 5 | 없음 | a~e 임베딩 profile/adapter는 S2/S3. |
+| EP-08 / 4 | 없음 | a~d generation은 S2/S3. |
+| EP-09 / 5 | 없음 | a~e evidence/citation은 S3. |
+| EP-10 / 8 | 없음 | a~h 세션 scope는 S3. 개인 보관함 자료원 필터를 scope 구현으로 세지 않음. |
+| EP-11 / 4 | a~d의 UI 추출 경로 | EML 선택 바이트·원본 보호·제거 경합 테스트, 실제 child의 fingerprint 오류 전달. 도구 승인·PST 설치본 추출 실기 미완. |
+| EP-12 / 3 | 없음 | a~c AI 도구 등록/해제·harness는 S3. |
+| EP-13 / 3 | a~c의 S1 경로 | 관련 import만 취소하고 export 정착 후 제거하는 service/store 테스트. S3 context/cache 경합 미구현. |
+| EP-14 / 3 | a·b | 기존 MIME 회귀 suite, unpacked ASAR의 두 child 포함/fixture 제외 확인. b M-PACK 변이는 차단, c 설치본 실행 미실행. |
+| EP-15 / 4 | a~c, d의 UI 부분 | 본문 선택·charset/HTML fixture, M-NESTED 검출. d semantic projection과 UI 실제 상호작용 미검증. |
+| EP-16 / 4 | 없음 | a~d 미구현. S1의 a·b·d를 S2/S3 완료 대기로 숨기지 않음. |
+| EP-17 / 3 | 없음 | a~c embedding input은 S2/S3. |
+| EP-18 / 4 | a 일부 | exact term AND·자료원 필터. b~d RRF/context·결과 이유 미구현. |
+| EP-19 / 4 | 없음 | a~d embedding cache/scheduler는 S2/S3. |
+| EP-20 / 3 | 없음 | a~c vector/generation은 S2/S3. |
+| EP-21 / 9 | a~i의 코드 경로 | 실제 Electron 7시나리오와 IPC handler 토큰 테스트. c OS picker/renderer 실제 왕복, i commit 중 fault·앱 종료 후 재시작 검증은 남음. |
 
-검산: 구현 38 + S1 잔여 3 + S2/S3 47 = §10 전체 88자리. r1.3은 EP-15c와 d의 UI projection을 추가했다. EP-15d의 context branch, EP-14b/c package 검증은 남겼다. EP-01은 코드 배선이 닫혔으나 UI/IPC 실기가 남아 VP-01·VP-13은 SELF_BLOCKED다.
+### V-pair 자기확인 — S1 유효 집합
 
-| Pair | requiredness | 자기 상태 | 직접 관측 | 잔여 |
-|---|---|---|---|---|
-| VP-01 | REQUIRED | SELF_BLOCKED | EML batch/PST service·store 테스트, M-NESTED sentinel | OS picker·renderer 왕복 실기 |
-| VP-02 | REQUIRED | SELF_BLOCKED | resolver·store의 역순/누락/ambiguous/cycle/동일 제목 분리 테스트와 thread viewer 구현 | 설치본 UI 실기와 S2 segment·provenance viewer |
-| VP-03 | REQUIRED | SELF_PASS | FTS/LIKE·파일명 검색·AND 결과 집합 | vector/fusion은 후속 |
-| VP-07 | REQUIRED | SELF_PASS | cancel·staging revoke·기존 revision 유지 | 대량 성능 측정은 AC19 pending |
-| VP-08 | REGRESSION | SELF_BLOCKED | 기존 코드와 신규 빌드 컴파일 | M-WIRE·POP3 통합·패키지 회귀 미실행 |
-| VP-09 | REGRESSION | SELF_PASS | PST reimport·worker restart·active snapshot; import 중 제거 시 revoke 후 삭제되고 export 중 제거는 export 완료 뒤 purge되는 service/store 테스트 | UI/IPC 및 S3 context·cache 경합은 AC21 pending |
-| VP-13 | REQUIRED | SELF_BLOCKED | IPC schema/preload/handler typecheck | 실제 Electron IPC 왕복 미실행 |
-| VP-14 | REQUIRED | SELF_BLOCKED | migration SQL은 Python SQLite로 실행·컬럼 확인, typecheck 및 store 테스트 추가 | native binding 부재로 신규 quality-field 저장/get/search roundtrip 미실행; process crash rollback도 미실행 |
-| VP-17 | REGRESSION | SELF_BLOCKED | PST reader fixture·Vite worker bundle | M-PACK·설치본 smoke 미실행 |
-| VP-18 | REQUIRED | SELF_PASS | EML/PST field·한글·attachment sentinel, HTML quality·대체 표현·plain/HTML mismatch fixture | charset 대표 golden·segment/provenance는 후속 |
-| VP-19 | REQUIRED | SELF_PASS | 한글 short-token·whitespace AND·literal LIKE 테스트 | hybrid rank는 후속 |
-| VP-23 | REGRESSION | SELF_BLOCKED | stale response sequence 방어 코드·typecheck | 역전 응답 UI 실기 미실행 |
-| VP-24 | REQUIRED | SELF_PASS | production service→두 utility process→SQLite/search/cancel smoke; 새 첨부 export도 source utility worker를 사용 | 첨부 추출 worker의 actual PST smoke 및 IPC 왕복은 미실행 |
-| VP-25 | REQUIRED | SELF_PASS | PST revision identity·ID-less locator·다중 term 검색 | 없음 |
+| pair | requiredness | 자기 상태 | 이번 관측 / 미충족 |
+|---|---|---|---|
+| VP-01 | REQUIRED | SELF_BLOCKED | EML/PST·토큰 handler·M-NESTED 확인. 설정·대표 ANSI/Unicode golden·PG-01/02 남음. |
+| VP-02 | REQUIRED | SELF_BLOCKED | 누적 identity·thread 확인. 형식 통합·segment/원문 재결합 미완. |
+| VP-03 | REQUIRED | SELF_BLOCKED | 이름 검색 sentinel·AND 확인. 이름/주소·기간/폴더 전체 AC7 미충족. |
+| VP-07 | REQUIRED | SELF_BLOCKED | 실제 취소/timeout/child 종료 확인. AC19의 대표 자료·1만 건 UI/RSS·commit fault 미검증. |
+| VP-08 | REGRESSION | SELF_BLOCKED | 기존 suite와 부팅 등록 순서 회귀 수정. 설정 슬롯·M-WIRE·설치본 미완. |
+| VP-09 | REGRESSION | SELF_BLOCKED | DB/service 재시도·삭제 경합 확인. commit 전후 actual kill·journal UI 복구 미검증. |
+| VP-13 | REQUIRED | SELF_BLOCKED | production IPC handler를 등록한 테스트로 위조/재사용/다른 창 토큰 거절. 실제 preload→Electron IPC→renderer 왕복 미검증. |
+| VP-14 | REQUIRED | SELF_BLOCKED | 실제 SQLite 테스트 실행 완료. segment/provenance 저장 계약 미구현. native binding은 더 이상 blocker 아님. |
+| VP-17 | REGRESSION | SELF_BLOCKED | Vite 및 unpacked ASAR 검사. M-PACK 변이 차단, Windows 설치본 실행 미검증. |
+| VP-18 | REQUIRED | SELF_BLOCKED | 정규화·본문 품질·M-NESTED 확인. charset 대표 golden·segment·형식 통합 미완. |
+| VP-19 | REQUIRED | SELF_BLOCKED | 한글·정확 term·LIKE 테스트. 전체 필드 검색 계약 미충족. |
+| VP-23 | REGRESSION | SELF_BLOCKED | snapshot 복귀·완료 refresh·오류/cc UI 배선과 타입 확인. reducer/요청 역전 UI oracle 없음. |
+| VP-24 | REQUIRED | SELF_BLOCKED | production worker 7건·ACK 제거 시 검출. 실제 IPC 전체 경로와 모든 fault 지점의 DB/counter 대조는 남음. |
+| VP-25 | REQUIRED | SELF_PASS | store의 추가 revision/변경 payload/ID-less 보존 및 AND 결과 집합, service 동일 PST 재수집 테스트 통과. |
 
-자기확인 합계: SELF_PASS 7 · SELF_BLOCKED 7 = 14개 pair. 이는 구현자 자체 상태이며 독립 검증 PASS가 아니다.
+검산: SELF_PASS 1 · SELF_BLOCKED 13 = 14. 나머지 S2/S3 pair를 완료로 세지 않는다. 실제 워커 smoke가 추가됐다고 VP-24 전체 계약을 충족했다고 보고하지 않는다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
-| 선택 증거 / 자리 | red 관측 | 복구 관측 |
+| 대상 / production 자리 | 실행·관측 | 판정 |
 |---|---|---|
-| M-NESTED · VP-01/03/18 · EP-15a | forceRfc822Attachments 제거 시 nested EML sentinel이 본문에 섞여 reader 테스트 실패 | 옵션 복원 후 sentinel 제외 |
-| M-WORKER · VP-24 · EP-21e | batch ACK 대기를 제거하자 25건 전에 다음 배치까지 읽음(pulled=51) | ACK 대기 복원 후 상한 테스트 통과 |
-| M-WIRE · VP-08 · EP-01a | 페이지 slot 제거 mutation 미실행: 실제 UI 경로 실기 없음 | BLOCKED |
-| M-WIRE · VP-08 · EP-12a | runtime descriptor 제거 mutation 미실행: S3 tool composition 미구현 | BLOCKED |
-| M-PACK · VP-17 · EP-14b | fixture sentinel package 검사 미실행: electron-builder가 egress EACCES로 중단 | BLOCKED |
+| M-NESTED / archive EML PostalMime 옵션 | `forceRfc822Attachments`를 임시 제거하면 nested sentinel 테스트 1건 실패. 복원 후 EML 4건 통과. | 해당 자리 잠금 |
+| M-WORKER / batch-buffer ACK await | `node scripts/check-mail-archive-workers.mjs --drop-ack`는 실제 child의 완료 결과가 30 대신 3건이 되어 실패. 복원한 실제 경로는 7/7 통과. | 해당 자리 잠금; 모든 fault 검증으로 확대하지 않음 |
+| M-PACK / 실제 ASAR 내용 검사 | 정상 unpacked 산출물에 두 child가 있고 pst-extractor 예제·테스트 sentinel·scripts fixture가 없음. 제외 패턴을 뺀 임시 패키지 변이 명령은 자동 승인 검토가 실행 전 차단(추가 사유 미제공). | 감도 미검증, VP-17 유지 SELF_BLOCKED |
+| M-WIRE / EP-01a·EP-12a | 설정 슬롯·runtime descriptor가 아직 없어 제거 변이는 수행하지 못함. | SELF_BLOCKED |
+| 누적 보관·PST count/예외·필터·source별 제거·토큰 권한·오류 문구 | 실제 결과/DB/거절/문구 키를 단언한다. | 해당 없음 — 직접 oracle |
 
-분모 검산: 선택 증거 5자리(완료 2·BLOCKED 3) + 인용 변이 0 + 새 구조 oracle 0 = 표 5행. 두 red mutation은 복구 뒤 해당 직접 행동 테스트가 green이다.
+잠금 분모: SELF_PASS pair의 선택 mutation 0 · 닫힌 외부 이슈의 인용 mutation 0 · 이번 구조/배선 oracle 3(M-NESTED, M-WORKER, M-PACK) = 감도 대상 3행(검출 2, 차단 1). 별도로 미완 M-WIRE와 직접 oracle 행을 적었다. M-PACK 부재 상태에서 패키징 pair 완료를 주장하지 않는다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
-| 사용자 상황 | 판정 | 남은 확인 |
+| 사용자 상황 | 반영 | 남은 관측 |
 |---|---|---|
-| 검색어를 입력하고 조회 | Enter와 검색 버튼 모두 제출, 진행/오류/빈 결과를 분리하고 stale 응답은 무시 | 실제 창에서 키보드·역전 응답 실기 |
-| PST/EML 추가·재추가 | 진행 중 파일·메일과 새로 저장/이미 보관/실패 수를 표시; 변경 PST는 새 revision 상태로 설명 | OS picker·renderer IPC 실기 |
-| 취소 | 최종 commit 중 취소를 막고 취소된 파일/이미 완료된 EML은 유지 | 화면 전환·앱 종료 경합 실기 |
-| 대화 흐름 | 명시 Reply/References로 연결된 메일만 날짜순으로 보여 주고, 제목만 비슷한 메일은 합치지 않음; 최대 50개 잘림을 표시 | 넓은 창/좁은 창에서 관계 목록·선택 이동 시각 실기 |
-| 자료원 제거 | native 확인창에 파일명·짧은 자료원 ID·고유/공유 메일 수·원본 보존을 알림; 제거 중인 가져오기는 취소하고 export가 끝날 때 purge; 같은 파일명도 ID로 식별 | OS 확인창/다중 자료원 중복 이름 실기 |
-| 첨부 확인·저장 | 이름·MIME·크기만 검색·표시; 저장은 사용자가 고른 첨부만 원본 fingerprint/manifest 확인 뒤 임시 저장·rename, 원본 EML/PST 경로로는 저장 차단 | PST utilityProcess/설치본 smoke와 취소/오류 문구 실기 |
-| 본문 해석 | 정상 plain 우선, HTML은 비실행 텍스트로 변환; 내용이 다르면 상세의 대체 본문 버튼과 처리 정보 제공. 의심/크기 초과는 이유를 문장으로 표시하고 본문을 조용히 자르지 않음 | 실제 창에서 대체 전환·좁은 폭·스크린리더 문구 확인; S2 semantic context 제외 연결 |
-| 오류·개인정보 | 실패 파일명과 안정 오류 코드만 표시; 원본 전체 경로·fingerprint는 renderer에 보내지 않음; 원본 변경 시 파일을 생성하지 않고 재등록을 안내 | 실제 화면 문구/다중 창 실기 |
+| 원본 PST에서 삭제 후 다시 가져오기 | 보관 메일·수정 전 본문은 남고 새 본문만 추가된다. 새 revision 전체 실패 시 기존 이력 유지. | 오래된 첨부의 원본이 없어지면 본문은 남아도 추출 불가; 재등록 안내를 실제 창에서 확인 필요. |
+| 일정·연락처가 있는 PST | 메일만 수집하고 제외 수를 결과에 표시한다. 손상은 한국어 오류로 표시한다. | 부분 손상 정상 항목 공개 규칙 PG-01. |
+| 페이지 이동 후 복귀 | main snapshot에서 진행·최근 결과를 복원하고 완료 이벤트 때 목록/통계를 새로 조회한다. | 실제 라우터·다중 창·요청 역전 UI 실기 미실행. |
+| 가져오는 중 다른 자료원 제거 | 현재 작업에 포함된 자료원일 때만 그 작업을 취소한다. | 폴더 관리 단위 PG-02, 파일별 목록 대량 관리 문제는 미해결. |
+| 검색/상세 오류 | Electron 접두어 속 코드만 해석해 번역 문구 표시, 원시 경로 차단. 열기·취소 실패를 화면에 표시하고 cc·개별 실패 사유 추가. | 미등록 오류는 일반 오류로 표시; retry 안내와 실제 키보드 흐름 실기 필요. |
+| 원하는 자료원만 검색 | EML/PST 유형에 더해 자료원 ID를 선택하는 필터 추가. 같은 이름은 짧은 ID로 구별. | 날짜/폴더 필터·이름/주소 통합 검색·설정 관리 미완. |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
-| 문제 | 대응 | 관측 / 남은 점 |
-|---|---|---|
-| PST 전체 fingerprint는 메일 추가 때마다 변함 | fingerprint는 source revision에만 쓰고 canonical path 기반 sourceId·메일 payload identity는 유지 | service/store PST revision·Message-ID 변경·ID-less locator 테스트 |
-| 같은 Message-ID라도 본문 수정 가능 | identity에 정규화 payload hash를 포함해 다른 내용으로 보존 | edited payload는 신규 identity, 기존 staging은 활성 검색에서 제외 |
-| HTML display projection 변경이 PST 재가져오기에서 identity를 바꿀 수 있음 | 표시 본문은 block boundary를 보존하되 identity는 기존 HTML text projection을 별도로 유지; quality flag/대체 표현은 digest에서 제외 | 기존/신규 HTML projection key 동등성 UT 추가; DB 왕복 테스트는 native binding 복구 후 실행 |
-| Message-ID 누락 메일을 과병합할 위험 | 같은 source locator와 payload가 모두 같을 때만 identity 재사용 | ID-less locator 테스트 |
-| 처리 중 원본 변경·worker 취소 | 시작/완료 fingerprint 일치 시에만 승격; epoch revoke·ACK backpressure; verified revision은 유지 | source mutation·25건 batch·cancel/restart smoke |
-| 기존 archive DB의 중복 행 | 0002 migration에서 identity backfill/merge를 transaction으로 수행 | migration checker에서 archive용 정본을 등록; append-only gate 통과 |
-| 자료원 제거와 진행 중 작업 경합 | import epoch를 먼저 revoke하고 worker 정착을 기다린 뒤 occurrence를 제거; active export가 끝날 때까지 대기; 공유 canonical mail은 남은 verified occurrence로 재지정 | service/store 경합 테스트 green; UI/IPC와 S3 context·cache 경합은 남음 |
-| 첨부 추출 중 원본 revision 변경 | attachment ID만 IPC로 받고 main/index가 verified occurrence를 다시 찾음; utility process가 원본 전체 fingerprint, message locator, ordinal/name/MIME/size를 검증하고 임시 파일을 만든 후 main이 revision을 한 번 더 확인 | EML 바이트 검증 테스트 green; PST 실자료 smoke는 검증 대기 |
-| 임시 첨부 파일 잔류 | 정상 오류/취소 경로에서는 utility process가 sibling `.orca-part`를 지우며 main도 rename 실패 시 정리 | 강제 종료·전원 중단 때 선택 대상 폴더의 숨김 임시 파일이 남을 가능성은 설치본 시나리오에서 확인 필요 |
-| 대량 처리 성능 | 파일 전체 fingerprint를 revision 검증에 사용하고 import batch는 ACK backpressure로 제한 | 대표 개인 보관함 크기의 p95/RSS/취소 지연은 AC19 실측 pending |
-| 실제 Windows package·POP3 회귀 | unpacked artifact build 시도와 기존 회귀 suite는 환경/시간 경계로 미실행 | electron-builder network EACCES, VP-08/17 blocked |
+| 문제 | 대응 / 현재 한계 |
+|---|---|
+| process의 `reason`과 host의 `error` 필드 불일치 | 두 안정 오류 필드를 해석하고 실제 추출 child의 코드 전달을 단언했다. |
+| 완료·ACK 대기 등록 전 메시지 도착 | waiter를 먼저 등록한다. 취소 후 늦은 callback은 죽은 child에 ACK를 보내지 않는다. |
+| parser 내부에서 손상 child 예외를 삼킴 | 순회 결과 수와 읽을 수 있는 table/content count를 대조한다. count 자체를 신뢰할 수 없는 손상까지 완전 검출을 보장하지 않는다. |
+| worker 종료 후 pending만 실패, 이후 영구 정지 | 종료/timeout에 child를 정리하고 다음 요청에서 init한다. 실패한 쓰기는 자동 재실행하지 않는다. |
+| 관계 lazy rebuild의 공유·재진입·무효화 | index single writer, thread 안의 동기 transaction만 rebuild한다. verify·activate·remove·reopen이 dirty를 만든다. 만료 없음. 가져오는 중 thread를 자주 열면 반복 전체 재구성 비용이 남고 대형 thread 조회도 같은 worker를 점유한다. |
+| 모든 verified revision 노출 | 누적 보관 계약을 복원한다. staging은 계속 제외한다. occurrence가 revision별로 늘어나는 비용과 오래된 원본의 첨부 추출 불가는 남는다. |
+| 기존 DB의 호환 데이터 | 0001~0004와 backfill을 보존하고 0005 VIEW를 추가했다. 파일 삭제·재수집을 사용자에게 강요하지 않는다. 호환 코드 제거는 데이터 보존 전환 증거 후 검토한다. |
+| timeout과 큰 PST | index RPC 30초/source inactivity 120초. 큰 파일 hash·파싱이 그 시간 동안 메시지를 못 보내면 timeout될 수 있어 대표 대형 파일 측정·heartbeat 보완 필요. |
+| EML 메모리 예산 | stat와 bounded read로 50 MiB를 넘는 입력을 파싱 전에 거절하고 읽은 바이트 hash를 대조한다. PST 단일 item의 사전 해제 상한은 여전히 미검증. |
+| 앱 종료와 임시 추출 파일 | epoch/child 종료는 유지한다. 강제 종료 시 sibling `.orca-part` 잔류 정리·export receipt·디스크 full은 미검증. |
+| Node 테스트가 `?modulePath`를 본문 import로 실행 | Vitest에서 경로 값으로 해석한다. 실제 child 동작은 별도 Electron 스크립트가 검증하며 mock의 성공으로 대체하지 않는다. |
+| PST 첨부 탐색·큰 store/view | 공통 walker만 통합했다. locator 직접 조회·RPC 타입 정리·renderer reducer/분해는 미완이며 line 절감 목표만으로 우선하지 않는다. |
 
-설계 대비 대체 메커니즘: 해당 없음. D-012 source/index worker와 revision 구조를 계획대로 유지했다. expiry·sharing·reentry·invalidation에 새 대체 상태를 추가하지 않았다.
+설계 대비 구현 차이: relation 갱신을 lazy projection으로 바꿨고 위 표에 공유·재진입·무효화·만료 축을 적었다. 검증된 파일을 skip할 때 두 번째 hash는 생략하지만, 새 PST revision과 실제 첨부 저장의 시작/종료 hash는 유지한다. D-012 source/index 격리·epoch·ACK·임시 저장 후 rename은 유지한다.
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 관측 |
 |---|---|
-| 주요 변경 | r1.2 thread·자료원 제거·선택 첨부 저장 위에 r1.3 본문 선택 projection을 추가했다. HTML은 Cheerio 비실행 tree에서 hidden/script/style을 제외하고 문단·목록·표 경계를 보존한다. plain을 검색 대상으로 유지하고 서로 다른 HTML은 대체 본문으로 저장해 검색에서 제외하며, quality flags·선택 사유를 SQLite/상세 DTO/UI로 전달한다. HTML 변환 표시에만 identity hash가 흔들리지 않도록 구 projection text를 호환 입력으로 분리했다. D-012 worker 경계를 유지했다. |
-| 관련 파일 | app/src/main/features/plugins/mail-archive/{relations.ts,migrations/0003_confirmed_relations.sql,store.ts,service.ts,readers/attachment-extract.ts,worker-host.ts}; app/src/main/app/handlers/mail-archive.ts; app/src/preload/index.ts; app/src/renderer/src/features/mail-archive/MailArchiveView.tsx; app/src/shared/{ipc.ts,mail-archive.ts}; docs/generated/inventory.md |
-| 검증 명령 | npm run typecheck; 전체 ESLint + 변경 영역 재검사; mail body/EML/PST Vitest; 전체 archive Vitest; migration checker + 19 tests + Python SQLite migration smoke; doc-inventory --check; electron-vite build; git diff --check |
-| 게이트 산출 | typecheck 3/3 pass; 전체 lint 0 error·기존 warning 1; body/EML/PST 14 tests pass; archive 22 pass·DB 15 skipped/blocked(native binding absent); migration sync core 27 + mail 1 + archive 4, no-copies·append-only pass; migration tests 19/19; Python SQLite 0001~0004 및 legacy row defaults 확인; doc inventory 9 items/112 channels pass; Vite main/worker/preload/renderer build pass |
-| 패키지 산출 | electron-vite build pass; electron-builder 설치 산출물 및 M-PACK sentinel 확인은 이전 r1.2의 egress EACCES blocker로 미완 |
-| V-pair 자기확인 | SELF_PASS 7 · SELF_BLOCKED 7; 독립 verify 아님 |
-| 강제 지점 | §10 88자리 중 38 구현, S1 잔여 3, S2/S3 47 |
-| Criteria-Met | 7/14: AC2·3·5·6·7·9·20 |
-| Criteria-Pending | 7/14: AC1·4·17·19·21·22·23 |
-| 합계 검산 | ✅7 · ⚠️7 = 14 (S1 관측 집합; 전체 AC 완료 주장 아님) |
-| blocker | DB store roundtrip은 better-sqlite3 native binding이 없어 현재 실행하지 못함; 설치본/M-PACK은 electron-builder egress EACCES; OS picker/IPC 실기, semantic context·AC19, AC21 전체 scope/AI 경로, AC22/23 회귀가 남음 |
-| 대상 커밋 | (r1.3 구현 — 검증자 기입) |
+| 주요 변경 | 누적 보관 VIEW·관계 lazy rebuild·source 재사용, PST 공통 순회/오류 감지, 워커 감독/timeout, picker 토큰, 진행 snapshot·자료원 필터·오류/cc/실패 사유 UI. |
+| 관련 파일 | `app/src/main/features/plugins/mail-archive/`, app handler/bootstrap, shared/preload/renderer API·뷰, `app/scripts/check-mail-archive-{workers,package}.mjs`, IPC/현재 architecture 문서. |
+| 검증 명령 | Node ABI에서 archive+handler+오류 Vitest·전체 suite, 타입 3구성·eslint, migration/doc 스크립트. Electron ABI에서 실제 worker 스크립트·Vite build·electron-builder --dir·ASAR 검사. |
+| 게이트 산출 | targeted 12파일 45 pass·benchmark 1 skip. 전체 초기 run 612파일 중 608 pass·3 fail·1 skip, 5,740 tests pass; `?modulePath`·IPC 문서 도메인·부팅 순서 수정 후 실패 관련 3파일 12 tests pass. 최종 진행 상태 변경 후 service 8/8도 재통과. 전체를 재실행해 전건 green이라고 주장하지 않음. |
+| 정적·문서 산출 | typecheck node/web/test 3/3. 전체 lint 0 error·기존 warning 1, 변경 영역 error 0. migration/doc script tests 42/42·append-only·inventory 통과. |
+| 실제 process 산출 | EML 30건/source child 재사용, index kill 재연결, PST 71건/ACK 대기, PST 취소 staging 비노출, RPC timeout 후 복구, source kill 후 다음 import, 첨부 오류 전달 7/7. |
+| 성능 관측 | opt-in store benchmark: 3천 EML begin/upsert/verify, 천 건 구간 3,365/3,451/4,256ms. 전체 관계 재구성 비용이 파일마다 누적되지 않음. 전체 앱 throughput/SLA는 미판정. |
+| 패키지 산출 | Windows unpacked ASAR 실제 생성, source/index child 포함·예제/fixture 제외 확인. 설치본 실행·NSIS·M-PACK 변이 완료 아님. |
+| V-pair 자기확인 | SELF_PASS 1 · SELF_BLOCKED 13. 독립 verify 아님. |
+| 강제 지점 | 규범 21행·88자리 대조. 코드 관측과 시험을 표로 분리; 전체 또는 S1 전수 완료 주장을 철회. |
+| blocker | PG-01~03 설계 정정, 기존 S1 설정·segment·이름/주소·필터, UI/IPC 실제 왕복·대표 규모/설치본 실기. DB native binding과 패키지 빌드는 현재 환경 blocker가 아님. |
+| 대상 커밋 | (r1.4 구현 — 검증자 기입) |
+
+### S1 AC 자기보고
+
+| AC | 상태 | 이번 관측 / 남음 |
+|---|---|---|
+| AC1 | ⚠️ | 파일/폴더 입력 동작·토큰 테스트, 설정 슬롯/실제 왕복 미완. |
+| AC2 | ⚠️ | EML/공개 PST·walker 확인; 대표 ANSI/Unicode/charset golden·PG-01 미완. |
+| AC3 | ⚠️ | fake+실제 cancel·변경 revision 확인; 실제 앱 재시작 전체 상태 oracle 미완. |
+| AC4 | ⚠️ | inert 본문/대체 표현만 구현. 가역 segment·옛 인용 미완. |
+| AC5 | ✅ | store/service의 추가 revision·같은 ID 변경 본문·ID-less locator 집합 확인. |
+| AC6 | ✅ | resolver와 실제 DB의 역순/누락/다중후보/순환/동일제목 분리 확인. |
+| AC7 | ⚠️ | 공백 AND·literal·자료원 필터 확인; 이름/주소·기간/폴더 미완. |
+| AC9 | ✅ | S1 첨부명 검색·첨부 내부 sentinel 비색인 확인. embedding/LLM 관측은 S2/S3. |
+| AC17 | ⚠️ | EML 선택 저장·변경 거절·실제 오류 전달. PST 설치본 추출/승인 경로 미완. |
+| AC19 | ⚠️ | 3천 DB 벤치·실제 ACK 확인. 대표/1만 전체 UI·RSS·취소 지연 미측정. |
+| AC20 | ⚠️ | 실제 kill/timeout/다음 조회 확인. commit 전후/디스크 full/앱 restart 미완. |
+| AC21 | ⚠️ | S1 제거·공유/경합 확인. 전체 source lifecycle·AI/evidence 범위 미완. |
+| AC22 | ⚠️ | 기존 suite·부팅 순서 회귀 확인. 설치본·전체 composition 미완. |
+| AC23 | ⚠️ | 오류·snapshot 배선만 확인. 설정/reducer/역전 응답 실제 UI 미완. |
+
+검산: ✅ 3 · ⚠️ 11 · ❌ 0 = 14. `Criteria-Met: 3/14`는 S1 관측 집합이며 전체 제품 완료를 뜻하지 않는다. `Criteria-Pending: AC1,AC2,AC3,AC4,AC7,AC17,AC19,AC20,AC21,AC22,AC23`.
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번 r1.3에서 본문 quality schema를 append-only migration으로 추가했다. 기존 메일은 `legacy`로 구분하고 기존 HTML identity text projection을 호환 입력으로 써 display formatting 차이만으로 재가져오기 중 중복되지 않게 했다.
-- plan에는 D-012와 EP-21이 이미 있었고, 이전 보고가 이를 deferred로 적었던 사실을 발견했다. 이번에는 규범 행은 건드리지 않고 구현 경로를 바로잡았다.
-- 전체 typecheck, 변경 영역 lint, HTML/EML/PST 14 tests, append-only·doc inventory·Vite build가 통과했다. 현재 run에서 native-bound DB 15 tests는 초기화되지 않아 SELF_BLOCKED로 남겼다.
-- 이전 electron-builder EACCES로 M-PACK/설치본 실행은 계속 미검증이다. 실제 renderer/IPC·품질 상세 UI는 독립 검증과 사람 실기가 남아 있다.
-- 현재 라운드·impl 턴: r1.3 · Codex 구현. 다음 주체: Claude 검증.
+- r1.4. verify 없는 구현이 반복돼 `handoff-review`를 DIAGNOSE_ONLY로 수행했다. 지침·skill·failure corpus는 수정하지 않았다.
+- 누적 보관과 가역 segment는 이미 계약에 있었는데 구현/테스트/보고가 이를 좁혔다. 규칙 부재보다 실행·자기검증 실패(B)와 실제 구현 결함(F)에 해당한다.
+- 37/37 baseline 통과는 재현됐지만, 교체식 기대값과 가짜 worker는 계약 위반을 검출하지 못했다. 테스트 수를 기능 완성도로 사용하지 않는다.
+- 현재 Node/Electron ABI 모두 지정된 훅으로 준비 가능하다. 과거 native/egress blocker를 현재 검증 미실행의 이유로 승계하지 않는다.
+- M-PACK 변이 명령은 자동 승인 검토에 차단됐고 구체 사유는 없었다. 정상 artifact 검사는 실행했고 감도 미검증을 유지했다.
+- 다음 주체는 planner(PG-01~03 정정)다. 독립 verify는 아직 수행하지 않았다. 사용자가 이미 정한 계약과 실제 제품 선택이 필요한 항목을 구별한다.
 
 ## [검증자 기입] 파생 이슈
 

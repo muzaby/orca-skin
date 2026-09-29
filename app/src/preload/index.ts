@@ -249,8 +249,9 @@ const orca = {
     pathForFile: (file: File): string => webUtils.getPathForFile(file)
   },
   mailArchive: {
-    pickFiles: (): Promise<string[]> => ipcRenderer.invoke(CHANNELS.mailArchivePickFiles),
-    pickEmlFolder: (): Promise<string | null> =>
+    pickFiles: (): Promise<MailArchiveImportRequest | null> =>
+      ipcRenderer.invoke(CHANNELS.mailArchivePickFiles),
+    pickEmlFolder: (): Promise<MailArchiveImportRequest | null> =>
       ipcRenderer.invoke(CHANNELS.mailArchivePickEmlFolder),
     import: (request: MailArchiveImportRequest): Promise<MailArchiveImportResult> =>
       ipcRenderer.invoke(CHANNELS.mailArchiveImport, request),

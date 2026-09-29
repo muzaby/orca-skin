@@ -81,7 +81,44 @@ async function addRevision(
 }
 
 describe('mail archive store', () => {
-  it('reuses mail identities across PST revisions and exposes only the active revision', async () => {
+  it.skipIf(process.env.MAIL_ARCHIVE_BENCH !== '1')(
+    'measures three EML cohorts without rebuilding the archive per file',
+    async () => {
+      const store = await fixture()
+      const milliseconds: number[] = []
+      for (let cohort = 0; cohort < 3; cohort++) {
+        const start = performance.now()
+        for (let offset = 0; offset < 1000; offset++) {
+          const number = cohort * 1000 + offset
+          const path = `C:/benchmark/${number}.eml`
+          const id = archiveSourceId('eml', path)
+          const item = mail({
+            sourceKind: 'eml',
+            sourcePath: path,
+            sourceId: id,
+            sourceFingerprint: `fp-${number}`,
+            messageId: `<${number}@benchmark.test>`
+          })
+          const { revision } = store.beginRevision({
+            sourceId: id,
+            sourceKind: 'eml',
+            sourcePath: path,
+            fingerprint: item.sourceFingerprint
+          })
+          store.upsertBatch({ sourceId: id, revision, mails: [item] })
+          store.verifyRevision(id, revision, item.sourceFingerprint)
+        }
+        milliseconds.push(Math.round(performance.now() - start))
+        expect(store.stats().totalMessages).toBe((cohort + 1) * 1000)
+        expect(store.search({ query: '이전 일정', limit: 10 })).toHaveLength(10)
+      }
+      // eslint-disable-next-line no-console -- opt-in benchmark evidence
+      console.log('EML_COHORT_MS', JSON.stringify(milliseconds))
+    },
+    60_000
+  )
+
+  it('reuses mail identities across PST revisions and preserves all verified versions until explicit removal', async () => {
     const store = await fixture()
     const original = mail()
     const oldVersion = mail({
@@ -107,9 +144,9 @@ describe('mail archive store', () => {
     const second = await addRevision(store, 'pst-revision-2', [updated, editedWithSameMessageId])
 
     expect(second).toEqual({ inserted: 1, skipped: 1 })
-    expect(store.stats()).toMatchObject({ totalMessages: 2, emlMessages: 0, pstMessages: 2 })
+    expect(store.stats()).toMatchObject({ totalMessages: 3, emlMessages: 0, pstMessages: 3 })
     expect(store.search({ query: 'migration-plan', limit: 10 })[0]?.id).toBe(originalId)
-    expect(store.search({ query: '인증서 문제', limit: 10 })).toHaveLength(0)
+    expect(store.search({ query: '인증서 문제', limit: 10 })).toHaveLength(1)
     expect(store.search({ query: '인증서 교체', limit: 10 })).toHaveLength(1)
 
     const unchanged = store.beginRevision({
@@ -119,6 +156,12 @@ describe('mail archive store', () => {
       fingerprint: 'pst-revision-2'
     })
     expect(unchanged).toMatchObject({ unchanged: true, existingMessages: 2 })
+    // Deleting all messages in the original PST must not erase a personal archive.
+    await addRevision(store, 'empty-revision', [])
+    expect(store.stats().totalMessages).toBe(3)
+    expect(store.sources()[0]?.messageCount).toBe(3)
+    expect(store.removeSource(sourceId)?.removedMessages).toBe(3)
+    expect(store.stats().totalMessages).toBe(0)
   })
 
   it('reuses ID-less mail only when both source locator and normalized payload match', async () => {
@@ -264,6 +307,9 @@ describe('mail archive store', () => {
       mails: [secondSourceShared]
     })
     store.verifyRevision(secondSourceId, secondRevision.revision, 'backup-revision')
+    expect(store.search({ query: '', sourceId: secondSourceId })).toHaveLength(1)
+    expect(store.search({ query: '개인 자료원', sourceId: secondSourceId })).toHaveLength(0)
+    expect(store.search({ query: '개인 자료원', sourceId })).toHaveLength(1)
 
     expect(store.sources()).toEqual([
       expect.objectContaining({

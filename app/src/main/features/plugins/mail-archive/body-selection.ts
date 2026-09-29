@@ -139,15 +139,6 @@ export function selectMailBody(input: {
       : unusableFallback
         ? 'plain_unusable_fallback'
         : 'html_only'
-    if (hasPlain && !placeholderFallback && !unusableFallback) {
-      alternateText = plainText
-      alternateKind = 'plain'
-    }
-  } else if (hasPlain) {
-    // Keep the only available representation even when it resembles an HTML placeholder.
-    selectedText = plainText
-    selectedKind = 'plain'
-    selectionReason = 'plain_preferred'
   }
 
   const flags = new Set<MailArchiveBodyQualityFlag>()

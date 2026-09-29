@@ -6,6 +6,22 @@ import type { AppErrorTitle } from '../../../../../shared/app-error'
 import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../../../../shared/product'
 
 export const ko = {
+  mailArchiveRepair: {
+    failed: '메일 작업을 완료하지 못했습니다. 원본 파일을 확인한 뒤 다시 시도해 주세요.',
+    sourceDestination: '원본 EML/PST 파일에는 저장할 수 없습니다. 다른 위치를 선택해 주세요.',
+    sourceChanged:
+      '원본 파일이 보관 당시와 달라 작업을 완료하지 않았습니다. 다시 가져온 뒤 시도해 주세요.',
+    damagedPst:
+      'PST 폴더를 끝까지 읽지 못했습니다. 이번 가져오기는 반영하지 않았으며 기존 메일은 유지됩니다.',
+    largeEml: 'EML 파일이 50 MiB 한도를 초과합니다.',
+    alreadyRunning: '가져오기가 진행 중입니다. 완료하거나 취소한 뒤 다시 시도해 주세요.',
+    workerRetry:
+      '메일 처리 프로세스가 중단됐습니다. 다시 시도하면 재연결합니다. 검증된 메일은 유지됩니다.',
+    sourceMissing: '원본 파일에 접근할 수 없습니다. 파일 위치와 읽기 권한을 확인해 주세요.',
+    pickAgain: '파일 선택이 만료됐습니다. 파일을 다시 선택해 주세요.',
+    failures: '가져오지 못한 파일과 사유',
+    cc: '참조'
+  },
   background: {
     rejected: '거부됨',
     cancelled: '취소됨',

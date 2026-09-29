@@ -78,13 +78,10 @@ function escapeLike(value: string): string {
 }
 
 function findOccurrenceColumnSql(column: 'source_path' | 'folder_path'): string {
-  const selected = column === 'source_path' ? 's.source_path' : 'o.folder_path'
+  const selected = `o.${column}`
   return `SELECT ${selected}
-    FROM archive_source_occurrence o
-    JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
-    JOIN archive_source s ON s.source_id=o.source_id
-    WHERE o.mail_id=m.id AND r.state='verified' AND s.current_revision=o.revision
-    ORDER BY r.verified_at DESC, o.rowid DESC LIMIT 1`
+    FROM archive_verified_occurrence o WHERE o.mail_id=m.id
+    ORDER BY o.verified_at DESC, o.revision DESC LIMIT 1`
 }
 
 function rowMail(row: {
@@ -276,10 +273,7 @@ function rebuildRelations(db: Database.Database): void {
         m.references_header AS referencesHeader
       FROM archive_mail m
       WHERE EXISTS (
-        SELECT 1 FROM archive_source_occurrence o
-        JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
-        JOIN archive_source s ON s.source_id=o.source_id
-        WHERE o.mail_id=m.id AND r.state='verified' AND s.current_revision=o.revision
+        SELECT 1 FROM archive_verified_occurrence o WHERE o.mail_id=m.id
       )
       ORDER BY m.id
     `
@@ -455,7 +449,7 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
   })
   backfillLegacyRows(db)
   recoverStagingRevisions(db)
-  db.transaction(() => rebuildRelations(db))()
+  let relationsDirty = true
 
   const beginRevisionTransaction = db.transaction(
     (input: {
@@ -635,7 +629,7 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
         UPDATE archive_source SET current_revision=?, current_fingerprint=? WHERE source_id=?
       `
       ).run(revision, fingerprint, sourceId)
-      rebuildRelations(db)
+      relationsDirty = true
     }
   )
 
@@ -681,7 +675,7 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
         UPDATE archive_source SET current_revision=?, current_fingerprint=? WHERE source_id=?
       `
       ).run(revision, fingerprint, sourceId)
-      rebuildRelations(db)
+      relationsDirty = true
     }
   )
 
@@ -700,14 +694,18 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
     search: (request) => {
       const limit = request.limit ?? 30
       const terms = queryTerms(request.query)
-      const sourceKindFilter = request.sourceKind ? ' AND m.source_kind=?' : ''
-      const sourceKindParams: string[] = request.sourceKind ? [request.sourceKind] : []
+      const sourceKindFilter =
+        (request.sourceKind ? ' AND m.source_kind=?' : '') +
+        (request.sourceId
+          ? ' AND EXISTS (SELECT 1 FROM archive_verified_occurrence scoped WHERE scoped.mail_id=m.id AND scoped.source_id=?)'
+          : '')
+      const sourceKindParams = [
+        ...(request.sourceKind ? [request.sourceKind] : []),
+        ...(request.sourceId ? [request.sourceId] : [])
+      ]
       const hasShortTerm = terms.some((term) => [...term].length < 3)
       const visibleMail = `EXISTS (
-        SELECT 1 FROM archive_source_occurrence vo
-        JOIN archive_source_revision vr ON vr.source_id=vo.source_id AND vr.revision=vo.revision
-        JOIN archive_source vs ON vs.source_id=vo.source_id
-        WHERE vo.mail_id=m.id AND vr.state='verified' AND vs.current_revision=vo.revision
+        SELECT 1 FROM archive_verified_occurrence vo WHERE vo.mail_id=m.id
       )`
       const select = `SELECT m.id, m.source_kind,
         COALESCE((${findOccurrenceColumnSql('source_path')}), m.source_path) AS source_path,
@@ -758,10 +756,7 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
             m.body_quality_flags, m.body_selection_reason,
             0 AS rank
           FROM archive_mail m WHERE m.id=? AND EXISTS (
-            SELECT 1 FROM archive_source_occurrence o
-            JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
-            JOIN archive_source s ON s.source_id=o.source_id
-            WHERE o.mail_id=m.id AND r.state='verified' AND s.current_revision=o.revision
+            SELECT 1 FROM archive_verified_occurrence o WHERE o.mail_id=m.id
           )
         `
         )
@@ -775,6 +770,10 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
       return mapMessage(row, attachments)
     },
     thread: (request) => {
+      if (relationsDirty) {
+        db.transaction(() => rebuildRelations(db))()
+        relationsDirty = false
+      }
       const limit = request.limit ?? 50
       const rows = db
         .prepare(
@@ -782,10 +781,7 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
           WITH RECURSIVE connected(id) AS (
             SELECT m.id FROM archive_mail m
             WHERE m.id=? AND EXISTS (
-              SELECT 1 FROM archive_source_occurrence o
-              JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
-              JOIN archive_source s ON s.source_id=o.source_id
-              WHERE o.mail_id=m.id AND r.state='verified' AND s.current_revision=o.revision
+              SELECT 1 FROM archive_verified_occurrence o WHERE o.mail_id=m.id
             )
             UNION
             SELECT CASE WHEN relation.child_mail_id=connected.id
@@ -803,10 +799,7 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
             m.attachment_names, 0 AS rank
           FROM connected JOIN archive_mail m ON m.id=connected.id
           WHERE EXISTS (
-            SELECT 1 FROM archive_source_occurrence o
-            JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
-            JOIN archive_source s ON s.source_id=o.source_id
-            WHERE o.mail_id=m.id AND r.state='verified' AND s.current_revision=o.revision
+            SELECT 1 FROM archive_verified_occurrence o WHERE o.mail_id=m.id
           )
           ORDER BY m.sent_at IS NULL, m.sent_at, m.id
         `
@@ -851,7 +844,7 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
           JOIN archive_source_occurrence o ON o.mail_id=m.id
           JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
           JOIN archive_source s ON s.source_id=o.source_id
-          WHERE a.id=? AND r.state='verified' AND s.current_revision=o.revision
+          WHERE a.id=? AND r.state='verified'
           ORDER BY r.verified_at DESC, s.source_id LIMIT 1
         `
         )
@@ -872,17 +865,15 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
         .prepare(
           `
           SELECT s.source_id AS id, s.source_kind AS kind, s.source_path AS sourcePath,
-            r.verified_at AS lastImportedAt, COUNT(DISTINCT o.mail_id) AS messageCount,
+            MAX(r.verified_at) AS lastImportedAt, COUNT(DISTINCT o.mail_id) AS messageCount,
             COUNT(DISTINCT CASE WHEN EXISTS (
-              SELECT 1 FROM archive_source_occurrence other
+              SELECT 1 FROM archive_verified_occurrence other
               WHERE other.mail_id=o.mail_id AND other.source_id<>s.source_id
             ) THEN o.mail_id END) AS sharedMessageCount
           FROM archive_source s
-          JOIN archive_source_revision r
-            ON r.source_id=s.source_id AND r.revision=s.current_revision AND r.state='verified'
-          JOIN archive_source_occurrence o
-            ON o.source_id=s.source_id AND o.revision=s.current_revision
-          GROUP BY s.source_id, s.source_kind, s.source_path, r.verified_at
+          JOIN archive_source_revision r ON r.source_id=s.source_id AND r.state='verified'
+          LEFT JOIN archive_source_occurrence o ON o.source_id=s.source_id AND o.revision=r.revision
+          GROUP BY s.source_id
           ORDER BY s.created_at, s.source_id
         `
         )
@@ -915,7 +906,7 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
             `
             SELECT COUNT(DISTINCT o.mail_id) AS candidateMessages,
               COUNT(DISTINCT CASE WHEN EXISTS (
-                SELECT 1 FROM archive_source_occurrence other
+                SELECT 1 FROM archive_verified_occurrence other
                 WHERE other.mail_id=o.mail_id AND other.source_id<>o.source_id
               ) THEN o.mail_id END) AS preservedMessages
             FROM archive_source_occurrence o WHERE o.source_id=?
@@ -935,31 +926,31 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
               JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
               JOIN archive_source s ON s.source_id=o.source_id
               WHERE o.mail_id=m.id
-              ORDER BY CASE WHEN r.state='verified' AND s.current_revision=o.revision THEN 0 ELSE 1 END,
+              ORDER BY CASE WHEN r.state='verified' THEN 0 ELSE 1 END,
                 r.verified_at DESC, o.rowid DESC LIMIT 1),
             source_path=(SELECT s.source_path FROM archive_source_occurrence o
               JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
               JOIN archive_source s ON s.source_id=o.source_id
               WHERE o.mail_id=m.id
-              ORDER BY CASE WHEN r.state='verified' AND s.current_revision=o.revision THEN 0 ELSE 1 END,
+              ORDER BY CASE WHEN r.state='verified' THEN 0 ELSE 1 END,
                 r.verified_at DESC, o.rowid DESC LIMIT 1),
             source_fingerprint=(SELECT r.fingerprint FROM archive_source_occurrence o
               JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
               JOIN archive_source s ON s.source_id=o.source_id
               WHERE o.mail_id=m.id
-              ORDER BY CASE WHEN r.state='verified' AND s.current_revision=o.revision THEN 0 ELSE 1 END,
+              ORDER BY CASE WHEN r.state='verified' THEN 0 ELSE 1 END,
                 r.verified_at DESC, o.rowid DESC LIMIT 1),
             item_key=(SELECT o.item_key FROM archive_source_occurrence o
               JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
               JOIN archive_source s ON s.source_id=o.source_id
               WHERE o.mail_id=m.id
-              ORDER BY CASE WHEN r.state='verified' AND s.current_revision=o.revision THEN 0 ELSE 1 END,
+              ORDER BY CASE WHEN r.state='verified' THEN 0 ELSE 1 END,
                 r.verified_at DESC, o.rowid DESC LIMIT 1),
             folder_path=(SELECT o.folder_path FROM archive_source_occurrence o
               JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
               JOIN archive_source s ON s.source_id=o.source_id
               WHERE o.mail_id=m.id
-              ORDER BY CASE WHEN r.state='verified' AND s.current_revision=o.revision THEN 0 ELSE 1 END,
+              ORDER BY CASE WHEN r.state='verified' THEN 0 ELSE 1 END,
                 r.verified_at DESC, o.rowid DESC LIMIT 1)
           WHERE m.source_id=? AND EXISTS (
             SELECT 1 FROM archive_source_occurrence o WHERE o.mail_id=m.id
@@ -971,7 +962,7 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
           SELECT 1 FROM archive_source_occurrence o WHERE o.mail_id=archive_mail.id
         )`
         ).run()
-        rebuildRelations(db)
+        relationsDirty = true
         return {
           sourceName: sourceName(source.sourcePath),
           removedMessages: counts.candidateMessages - counts.preservedMessages,
@@ -990,10 +981,7 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
             MAX(m.imported_at) AS latest
           FROM archive_mail m
           WHERE EXISTS (
-            SELECT 1 FROM archive_source_occurrence o
-            JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
-            JOIN archive_source s ON s.source_id=o.source_id
-            WHERE o.mail_id=m.id AND r.state='verified' AND s.current_revision=o.revision
+            SELECT 1 FROM archive_verified_occurrence o WHERE o.mail_id=m.id
           )
         `
         )

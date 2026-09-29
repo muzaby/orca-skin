@@ -218,3 +218,7 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 프로젝트·아티팩트·플러그인 목록의 탭은 `CatalogTabs`로 방향키·Home/End·ARIA 연결을 공유한다. Plugin 카탈로그는 플러그인→스킬→MCP 순서이고 첫 진입도 플러그인이다. Plugin 행은 main이 전달한 허용 Material icon과 현재 locale의 title·body를 표시하며 locale 선택은 exact→base→ko→en 순서다. 상세는 body와 분리해 source·version·GitHub·license attribution을 표시한다. catalog가 없는 Plugin은 `electrical_services`와 Auth label, Plugin이 아닌 연결은 기존 power icon과 Auth label을 사용한다. 프로젝트와 아티팩트 검색은 `CatalogSearch`와 `useCatalogSearch`로 열기·Escape·초점 복귀를 공유하며 검색어와 필터·총계는 각 feature가 소유한다. 플러그인의 최종 행 순서는 `catalogOrder`에서 정하고 표시하지 않는 그룹 헤더나 빈 그룹 모델을 만들지 않는다.
 
 뷰어 패널과 작업 타일은 도메인에 독립적인 공통 `ResizableSidePane`을 사용한다. Transcript와 아티팩트 화면의 뷰어 좌측 핸들은 포인터·키보드로 폭을 조절하며 iframe 위를 지나는 드래그도 유지한다. 확대는 가장 가까운 현재 pane 전체를 덮고 nav에는 영향을 주지 않는다. Code 변경사항의 `GitContextBar`도 registry 헤더 props로 같은 확대 상태를 전달받는다. 본문을 다시 mount하지 않으며 복원 시 일반 폭과 스크롤을 되돌린다. 확대한 타일을 닫으면 확대 상태도 해제한다. 세션·대상 전환, 창 초점 이탈, 취소와 unmount에서 드래그 자원을 정리한다.
+
+### 메일 보관함 결과와 오류
+
+메일 상세는 보낸 사람·받는 사람·참조, 선택 본문과 대체 표현, 첨부 목록 및 확인된 대화를 표시한다. 유형 필터와 개별 자료원 필터를 제공하고 가져오기 실패 사유는 접을 수 있는 목록으로 노출한다. 화면 오류는 허용된 오류 코드의 번역 문구로 표현하며 원시 Electron 오류나 원본 경로를 그대로 표시하지 않는다. 기능 범위는 [메일 보관함 UX](ux-domains.md#메일-보관함)에 있다.

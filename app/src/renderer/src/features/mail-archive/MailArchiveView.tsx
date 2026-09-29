@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { mailArchiveErrorKey } from './errors'
 import { mailArchiveApi } from '../../shared/api/ipc'
 import { useI18n } from '../../shared/i18n'
 import { Icon } from '../../shared/ui/Icon'
@@ -8,7 +9,6 @@ import type {
   MailArchiveMessage,
   MailArchiveProgress,
   MailArchiveSearchHit,
-  MailArchiveSourceKind,
   MailArchiveSource,
   MailArchiveStats
 } from '../../../../shared/mail-archive'
@@ -22,7 +22,11 @@ function importSummary(result: MailArchiveImportResult): string {
   if (result.state === 'cancelled') {
     return `가져오기를 취소했습니다. 반영된 메일 ${result.messages}개 중 새로 저장 ${result.inserted}개, 중복 건너뜀 ${result.skipped}개입니다.`
   }
-  const failure = result.failures.length > 0 ? ` 실패 ${result.failures.length}개.` : ''
+  const failure =
+    (result.failures.length > 0 ? ` 실패 ${result.failures.length}개.` : '') +
+    (result.ignoredItems
+      ? ` 메일이 아닌 일정·연락처 등 ${result.ignoredItems}개는 제외했습니다.`
+      : '')
   return `메일 ${result.messages}개를 확인했습니다. 새로 저장 ${result.inserted}개, 중복 건너뜀 ${result.skipped}개입니다.${failure}`
 }
 
@@ -53,12 +57,13 @@ function bodySelectionLabel(reason: MailArchiveMessage['bodySelectionReason']): 
 }
 
 export function MailArchiveView(): React.JSX.Element {
-  const { locale } = useI18n()
+  const { locale, tr: t } = useI18n()
+  const errorMessage = (reason: unknown): string => t(mailArchiveErrorKey(reason))
   const [query, setQuery] = useState('')
-  const [sourceKind, setSourceKind] = useState<MailArchiveSourceKind | 'all'>('all')
+  const [sourceKind, setSourceKind] = useState('all')
   const [appliedSearch, setAppliedSearch] = useState<{
     query: string
-    sourceKind: MailArchiveSourceKind | 'all'
+    sourceKind: string
   }>({ query: '', sourceKind: 'all' })
   const [results, setResults] = useState<MailArchiveSearchHit[]>([])
   const [selected, setSelected] = useState<MailArchiveMessage | null>(null)
@@ -69,6 +74,8 @@ export function MailArchiveView(): React.JSX.Element {
   const [stats, setStats] = useState<MailArchiveStats | null>(null)
   const [progress, setProgress] = useState<MailArchiveProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [failures, setFailures] = useState<MailArchiveImportResult['failures']>([])
+  const progressSequence = useRef(0)
   const [notice, setNotice] = useState<string | null>(null)
   const [searching, setSearching] = useState(false)
   const [removingSourceId, setRemovingSourceId] = useState<string | null>(null)
@@ -77,7 +84,16 @@ export function MailArchiveView(): React.JSX.Element {
   const selectedSequence = useRef(0)
 
   const loadStats = async (): Promise<void> => {
-    setStats(await mailArchiveApi.stats())
+    const sequence = progressSequence.current
+    const snapshot = await mailArchiveApi.stats()
+    setStats(snapshot)
+    if (sequence === progressSequence.current) {
+      setProgress(snapshot.progress ?? null)
+      if (snapshot.lastImport) {
+        setNotice(importSummary(snapshot.lastImport))
+        setFailures(snapshot.lastImport.failures)
+      }
+    }
   }
 
   const loadSources = async (): Promise<void> => {
@@ -90,7 +106,11 @@ export function MailArchiveView(): React.JSX.Element {
     try {
       const found = await mailArchiveApi.search({
         query: nextQuery,
-        ...(nextSource === 'all' ? {} : { sourceKind: nextSource }),
+        ...(nextSource === 'all'
+          ? {}
+          : nextSource === 'eml' || nextSource === 'pst'
+            ? { sourceKind: nextSource }
+            : { sourceId: nextSource }),
         limit: 50
       })
       if (sequence !== searchSequence.current) return
@@ -109,11 +129,14 @@ export function MailArchiveView(): React.JSX.Element {
   }
 
   useEffect(() => {
-    const unsubscribe = mailArchiveApi.onProgress(setProgress)
+    const unsubscribe = mailArchiveApi.onProgress((value) => {
+      progressSequence.current += 1
+      setProgress(value)
+    })
     const timer = window.setTimeout(() => {
-      void loadStats().catch((reason: unknown) => setError(String(reason)))
-      void loadSources().catch((reason: unknown) => setError(String(reason)))
-      void search('', 'all').catch((reason: unknown) => setError(String(reason)))
+      void loadStats().catch((reason: unknown) => setError(errorMessage(reason)))
+      void loadSources().catch((reason: unknown) => setError(errorMessage(reason)))
+      void search('', 'all').catch((reason: unknown) => setError(errorMessage(reason)))
     }, 0)
     return () => {
       window.clearTimeout(timer)
@@ -122,6 +145,19 @@ export function MailArchiveView(): React.JSX.Element {
     // Initial data is intentionally loaded once; the query effect below owns subsequent searches.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (!progress || progress.state === 'running') return
+    // A remounted page did not initiate this import, so its invoke promise cannot refresh it.
+    const timer = window.setTimeout(() => {
+      void Promise.all([loadStats(), loadSources(), search()]).catch((reason: unknown) =>
+        setError(errorMessage(reason))
+      )
+    }, 0)
+    return () => window.clearTimeout(timer)
+    // Refresh once per terminal job; ordinary query edits still require an explicit search.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [progress?.jobId, progress?.state])
 
   const busy = progress?.state === 'running'
   const sourceMaintenanceBusy = removingSourceId !== null
@@ -141,6 +177,7 @@ export function MailArchiveView(): React.JSX.Element {
   const runImport = async (request: Parameters<typeof mailArchiveApi.import>[0]): Promise<void> => {
     setError(null)
     setNotice(null)
+    setFailures([])
     try {
       const result = await mailArchiveApi.import(request)
       setProgress(null)
@@ -148,34 +185,39 @@ export function MailArchiveView(): React.JSX.Element {
       await loadSources()
       await search()
       setNotice(importSummary(result))
+      setFailures(result.failures)
     } catch (reason) {
       setProgress(null)
       setNotice(null)
-      setError(reason instanceof Error ? reason.message : String(reason))
+      setError(errorMessage(reason))
     }
   }
 
   const pickFiles = async (): Promise<void> => {
-    const paths = await mailArchiveApi.pickFiles()
-    if (paths.length > 0) await runImport({ inputKind: 'files', paths })
+    const selection = await mailArchiveApi.pickFiles()
+    if (selection) await runImport(selection)
   }
 
   const pickFolder = async (): Promise<void> => {
-    const path = await mailArchiveApi.pickEmlFolder()
-    if (path) await runImport({ inputKind: 'eml-folder', paths: [path] })
+    const selection = await mailArchiveApi.pickEmlFolder()
+    if (selection) await runImport(selection)
   }
 
   const openResult = async (id: string): Promise<void> => {
     const sequence = ++selectedSequence.current
-    const [message, thread] = await Promise.all([
-      mailArchiveApi.get({ id }),
-      mailArchiveApi.thread({ id, limit: 50 })
-    ])
-    if (sequence !== selectedSequence.current) return
-    setSelected(message)
-    setShowAlternateBody(false)
-    setThreadMails([...thread.mails])
-    setThreadTruncated(thread.truncated)
+    try {
+      const [message, thread] = await Promise.all([
+        mailArchiveApi.get({ id }),
+        mailArchiveApi.thread({ id, limit: 50 })
+      ])
+      if (sequence !== selectedSequence.current) return
+      setSelected(message)
+      setShowAlternateBody(false)
+      setThreadMails([...thread.mails])
+      setThreadTruncated(thread.truncated)
+    } catch (reason) {
+      if (sequence === selectedSequence.current) setError(errorMessage(reason))
+    }
   }
 
   const closeSelected = (): void => {
@@ -201,14 +243,7 @@ export function MailArchiveView(): React.JSX.Element {
         `첨부파일 ${result.name}을(를) 저장했습니다. (${result.sizeBytes.toLocaleString()} bytes)`
       )
     } catch (reason) {
-      const code = reason instanceof Error ? reason.message : ''
-      setError(
-        code === 'mail_attachment_destination_is_source'
-          ? '원본 EML/PST 파일에는 저장할 수 없습니다. 다른 위치를 선택해 주세요.'
-          : code === 'mail_attachment_source_changed'
-            ? '원본 파일이 보관 당시와 달라 첨부를 저장하지 않았습니다. 자료원을 다시 가져온 뒤 시도해 주세요.'
-            : '첨부파일을 저장하지 못했습니다. 원본 파일을 확인한 뒤 다시 시도해 주세요.'
-      )
+      setError(errorMessage(reason))
     } finally {
       setExportingAttachmentId(null)
     }
@@ -227,7 +262,10 @@ export function MailArchiveView(): React.JSX.Element {
       setThreadMails([])
       setThreadTruncated(false)
       await Promise.all([loadStats(), loadSources()])
-      await search()
+      if (sourceKind === sourceId) {
+        setSourceKind('all')
+        await search(query, 'all')
+      } else await search()
       if (result.state === 'not-found') {
         setNotice('이미 제거된 자료원입니다. 목록을 새로 고쳤습니다.')
         return
@@ -237,7 +275,7 @@ export function MailArchiveView(): React.JSX.Element {
         `${result.sourceName}: 메일 ${result.removedMessages}개를 제거하고 공유 메일 ${result.preservedMessages}개를 유지했습니다. 원본 파일은 그대로입니다.${interrupted}`
       )
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason))
+      setError(errorMessage(reason))
     } finally {
       setRemovingSourceId(null)
     }
@@ -278,7 +316,11 @@ export function MailArchiveView(): React.JSX.Element {
           {busy && progress && (
             <button
               type="button"
-              onClick={() => void mailArchiveApi.cancel(progress.jobId)}
+              onClick={() =>
+                void mailArchiveApi
+                  .cancel(progress.jobId)
+                  .catch((reason: unknown) => setError(errorMessage(reason)))
+              }
               disabled={!progress.cancellable}
               className="rounded-r4 border border-border px-3 py-2 text-[12.5px] text-ink3 hover:text-ink disabled:opacity-50"
             >
@@ -344,11 +386,26 @@ export function MailArchiveView(): React.JSX.Element {
         </div>
       )}
 
+      {failures.length > 0 && (
+        <details className="mb-4 rounded-r4 border border-border bg-panel px-3 py-2 text-[12px] text-ink2">
+          <summary>
+            {t('mailArchiveRepair.failures')} ({failures.length})
+          </summary>
+          <ul className="mt-2 max-h-40 overflow-auto">
+            {failures.map((failure, index) => (
+              <li key={`${failure.path}-${index}`}>
+                {failure.path}: {errorMessage(failure.reason)}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
       <form
         className="mb-2 flex gap-2"
         onSubmit={(event) => {
           event.preventDefault()
-          void search().catch((reason: unknown) => setError(String(reason)))
+          void search().catch((reason: unknown) => setError(errorMessage(reason)))
         }}
       >
         <label className="flex min-w-0 flex-1 items-center gap-2 rounded-r4 border border-border bg-panel px-3 py-2">
@@ -362,14 +419,19 @@ export function MailArchiveView(): React.JSX.Element {
           />
         </label>
         <select
-          aria-label="자료원 유형"
+          aria-label="자료원"
           value={sourceKind}
-          onChange={(event) => setSourceKind(event.target.value as MailArchiveSourceKind | 'all')}
+          onChange={(event) => setSourceKind(event.target.value)}
           className="rounded-r4 border border-border bg-panel px-3 text-[12px] text-ink outline-none"
         >
           <option value="all">전체 자료</option>
           <option value="eml">EML</option>
           <option value="pst">PST</option>
+          {sources.map((source) => (
+            <option key={source.id} value={source.id}>
+              {source.name} ({source.id.slice(0, 8)})
+            </option>
+          ))}
         </select>
         <button
           type="submit"
@@ -449,6 +511,8 @@ export function MailArchiveView(): React.JSX.Element {
                   <dd className="truncate text-ink2">{selected.from || '—'}</dd>
                   <dt>받는 사람</dt>
                   <dd className="truncate text-ink2">{selected.to || '—'}</dd>
+                  <dt>{t('mailArchiveRepair.cc')}</dt>
+                  <dd className="truncate text-ink2">{selected.cc || '—'}</dd>
                   <dt>날짜</dt>
                   <dd className="text-ink2">{formatDate(selected.date, locale)}</dd>
                   <dt>자료원</dt>
