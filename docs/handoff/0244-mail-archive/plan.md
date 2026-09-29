@@ -13,9 +13,9 @@
 | 일자 | 2026-09-29 |
 | 매핑 | PR 브랜치 `codex-0244-mail-archive-plan` → `main` |
 | 조사 기준 | `f2f60ac338f2847f81a6cbc426f0728b7eb8d98e` (`git cat-file -t` → commit 확인) |
-| 상태 | **DRAFT — PLAN_GAP: D-012 worker 격리와 경량 S1 범위의 정합성 정정 필요** |
+| 상태 | **READY — S1 worker·revision·검색 범위 확정** |
 | V mode / 기준 V | `Delta V` / 독립안 `V1@3f9558d9ec7fca52bc7c55533031051ba5d5b96a` |
-| 이번 V revision / 유효 V | `ΔV2` / `V1 + ΔV2 (S1 범위)` |
+| 이번 V revision / 유효 V | `ΔV3` / `V1 + ΔV2 + ΔV3 (S1 범위)` |
 
 # Part I — Product & UX Contract
 
@@ -56,7 +56,7 @@
 | D-009 | 확인된 Reply/References와 추정 관련 대화를 구분 | 같은 제목·참여자만으로 확정 스레드 병합하지 않음 | Codex 제안 | ACTIVE | AC6·14 |
 | D-010 | 명시 제거 전까지 로컬 색인 유지, 원본 소실·기간 경과는 삭제 원인 아님 | 재수집 가능한 단기 캐시로 취급하지 않음 | Codex 제안 | ACTIVE | AC5·21 |
 | D-011 | 범위는 세션에 귀속, 인용은 답변 당시 본문 버전에 귀속 | 다른 세션·재색인 결과와 섞이지 않음 | Codex 제안 | ACTIVE | AC13·16·21 |
-| D-012 | 파싱·DB·로컬 추론·벡터 스캔은 자식 프로세스, API 요청만 main의 Chromium 전송 포트 | 대량 PST 처리 중 UI와 취소 응답 유지 | Codex 제안 | ACTIVE | AC3·11·19·20 |
+| D-012 | 파싱·DB·로컬 추론·벡터 스캔은 자식 프로세스, API 요청만 main의 Chromium 전송 포트 | 대량 PST 처리 중 UI와 취소 응답 유지 | Codex 제안, 사용자 재확정 “D 12 유지” | ACTIVE | AC3·11·19·20 |
 | D-013 | main 기준 독립 0244, 작성자 Codex | “비교 후 선택할 것이다” | 사용자 | ACTIVE | 문서 게이트 G-DOC |
 | D-014 | S1 PST parser로 `pst-extractor@1.12.0`을 채택하고 로컬 임베딩 runtime은 S2에서 별도 결정 | PST 1차 구현 요청을 반영하며, parser는 source worker에서 지연 로드 | 사용자 1차 구현 요청 + 기존 후보 검토 | **ACTIVE** | AC2·24 / S1 |
 | D-015 | 첫 로컬 모델 팩과 API 프로토콜·인증·모델 리비전 | “지원 가능”을 특정 모델/서비스 승인으로 해석하지 않음 | 미제공 환경 정보 | **OPEN** | AC10~12 / S0 |
@@ -70,12 +70,13 @@
 | D-023 | 설계 계약은 plan 한 문서에 통합 | 별도 델타 문서를 왕복하지 않고 현재 계약을 읽음 | 사용자 | ACTIVE | G-DOC |
 | D-024 | 첫 기준을 단순·경량으로 구성: FTS5 기본, 선택형 로컬/API 임베딩, E5-small 384d + SQLite BLOB exact scan, ANN·reranker·모델 비교군 보류 | 경량화 방향을 선택했다. 실행 가능성은 S0 실증 조건 | 사용자 “경량화 방향으로 선택” + 공식 모델/runtime 자료 | **ACTIVE** | AC7~12·19·24 / S0 |
 | D-025 | 이번 구현 라운드는 PST·EML 가져오기와 검색으로 제한하고, EML은 파일 단건과 폴더 배치를 모두 제공 | 임베딩·RAG 계약은 유지하되 S2로 미루고, 1차 검색을 모델 설정 없이 즉시 사용 | 사용자 “Pst, eml 검색 1차구현. Eml은 배치로 입력 가능하게” | **ACTIVE** | AC1~3·7·9·17·19·22·23 / S1 |
+| D-026 | 자료원 ID는 형식과 canonical path에서 안정적으로 만들고, 전체 파일 fingerprint는 revision 변경 검증에만 쓴다. 메일 identity는 Message-ID와 정규화 payload hash를 결합하며, Message-ID가 없으면 같은 자료원의 locator와 payload hash를 결합한다. | PST 누적·변경이 새 메일 중복 삽입으로 이어지지 않는다. 같은 ID의 다른 본문은 별도 행으로 보존하고, 유사도만으로 메일을 병합하지 않는다. | Codex 구현 제안 — 사용자 문제 제기 후 구현 계속 지시 | **ACTIVE** | AC3·AC5·AC7 / S1 |
 
-V1의 D-001~D-016을 유지하고 조사 보완 D-017~D-023과 이번 경량 권고 D-024를 반영했다. 기준은 이 독립안의 V1이며 다른 브랜치의 라이브러리 승인·모델 선택·V를 상속하지 않는다.
+V1의 D-001~D-016을 유지하고 조사 보완 D-017~D-023, 경량 기준 D-024, 구현 범위 D-025, 자료원·메일 identity D-026을 반영했다. 기준은 이 독립안의 V1이며 다른 브랜치의 라이브러리 승인·모델 선택·V를 상속하지 않는다.
 
 D-024는 사용자의 후속 구현 지시로 채택됐다. D-014는 S1에서 PST parser 후보를 닫고, 로컬 inference runtime·API 계약은 D-015에 남겨 S2에서 처리한다. `sqlite-vec`, ANN, reranker, Gemma 비교는 첫 기준에서 제외한다.
 
-ACTIVE 결정 ↔ AC 대조: D-001~D-012·D-017~D-021·D-024~D-025는 표의 AC·본문 경로와 대조한다. D-022는 사용자 선택을 반영해 D-024로 대체됐다. 문서 요구 D-013·D-023은 G-DOC로 확인한다. D-015~D-016은 S2·S3의 OPEN으로 남기며, 현재 READY 판정은 D-025의 S1 경계에만 적용한다.
+ACTIVE 결정 ↔ AC 대조: D-001~D-012·D-017~D-021·D-024~D-026은 표의 AC·본문 경로와 대조한다. D-022는 사용자 선택을 반영해 D-024로 대체됐다. 문서 요구 D-013·D-023은 G-DOC로 확인한다. D-015~D-016은 S2·S3의 OPEN으로 남기며, 현재 READY 판정은 D-025·D-026의 S1 경계에만 적용한다.
 
 ### Codex 권고: 첫 기준은 단순·경량
 
@@ -139,7 +140,7 @@ E5-small은 한국어를 포함한 다국어 모델이며 384차원이다. 모�
 ### 검색과 질문
 
 - 검색은 Enter/검색 버튼으로 실행한다. 타이핑마다 LLM·임베딩 API를 부르지 않는다.
-- 기본 화면은 제목·본문·첨부 이름을 검색한다. 이름 전용 입력/필터와 보낸 사람·받는 사람·참조·기간·자료원·PST 폴더 필터를 제공한다.
+- 기본 화면은 제목·본문·첨부 이름을 검색한다. 이름 전용 입력/필터와 보낸 사람·받는 사람·참조·기간·자료원·PST 폴더 필터를 제공한다. 띄어쓴 질의는 공백으로 나뉜 모든 검색어가 결과에 포함되는 AND 검색이다. 1~2자 검색어가 하나라도 있으면 FTS trigram 대신 검색어별 안전한 LIKE fallback을 사용한다.
 - 각 결과는 제목, 발신자, 메일 날짜, 일치 문단, 자료원, 첨부 수, `단어 일치`/`의미 유사`의 근거를 보인다. 내부 벡터 점수를 신뢰도 백분율로 표시하지 않는다.
 - 발신자 이름이 같으면 주소를 함께 표시하고 사용자가 선택한다. 날짜 없는 메일은 `날짜 미상`으로 표시하며 가져온 날짜로 시간순 사건을 만들지 않는다.
 - 결과는 관련도순, 대화 뷰는 메일 날짜순이다. 단순 제목 유사 후보는 `관련 대화 후보`로 분리하고 답장 연결선에 섞지 않는다.
@@ -168,15 +169,15 @@ scope가 바뀌면 인용 결과의 중복 접기와 주변 문맥을 새 scope�
 
 | 사건/상태 | 사용자에게 보이는 결과 | 다음 행동 |
 |---|---|---|
-| 스캔/파싱/저장/임베딩 중 | 처리 단계·완료/제외/실패 수, 전체 미확정 시 퍼센트 대신 건수 | 자료원별 취소, 화면 이동 |
+| 스캔/파싱/저장/임베딩 중 | 처리 단계·완료/새로 저장/기존 자료원에서 확인/실패 수, 전체 미확정 시 퍼센트 대신 건수. 변경 PST는 `새 revision 확인 중 · 기존 검색 결과 유지`를 표시한다. | 자료원별 취소, 화면 이동 |
 | 일부 메일만 가져옴 | `일부 자료만 검색됩니다` + 현재 검색 가능 수 | 현재 자료 검색 / 처리 계속 |
 | 손상 EML/PST 항목 | 실패 이유와 항목 식별자, 정상 항목은 유지 | 실패 항목만 재시도 / 실패 목록 저장 |
 | 원본 이동·오프라인 | 저장 본문 열람·검색 가능, `원본 연결 필요` | 경로 재연결; 첨부 추출 비활성 |
-| 원본 내용 변경 | 저장된 버전과 변경 표시, 옛 첨부 추출 거절 | 재가져오기 후 새 버전 확인 |
+| 원본 내용 변경 | PST는 새 revision을 검증하는 동안 이전 검색 결과를 유지한다. 완료 후 새 메일만 추가하고 이미 확인한 메일은 제외 수로 보여준다. 같은 ID의 수정 본문은 별도 결과로 보존한다. | 재가져오기 결과의 새 메일·기존 메일·실패 수 확인 |
 | 키워드 0건 | 적용 필터와 검색 범위 표시 | 필터 해제·기간 확대를 명시적으로 선택 |
 | API 인증 오류/오프라인 | `의미검색을 사용할 수 없어 단어로 검색했습니다` | 설정 열기 / 재시도; 자동 외부 공급자 변경 없음 |
 | 새 모델 색인 중 | 기존 의미검색 유지, 새 색인 진행률 표시 | 취소 / 준비 후 전환 |
-| 작업 취소·앱 종료 | 취소 시 저장된 배치 유지, 재시작 시 `중단됨` | 재개·재시도. 자동 전량 재전송하지 않음 |
+| 작업 취소·앱 종료 | 완료된 EML 파일의 배치는 유지한다. PST staged revision은 취소 시 활성화하지 않고 이전 검증 revision을 유지한다. 재시작 시 미완료 revision은 `중단됨` | 재개·재시도. 자동 전량 재전송하지 않음 |
 | 자료원 제거 | 삭제 대상 수·공유 중복 메일 유지·원본 파일 보존 안내 | 확인 후 제거 |
 | 오래된 출처 클릭 | 해당 버전 문단 또는 `자료원이 제거되어 근거를 열 수 없음` | 남은 출처 확인 |
 
@@ -204,11 +205,11 @@ scope가 바뀌면 인용 결과의 중복 접기와 주변 문맥을 새 scope�
 |---|---|---|---|---|
 | R-01 | AT-01 / AC1 | 빈 보관함에서 EML 폴더/PST를 등록하고 처리 현황·검색 진입 가능 | OS 선택기 stub→등록 카드→화면 이동, 취소 시 자료원 미생성 | 설정→IPC→자료원→보관함 |
 | R-01 | AT-02 / AC2 | 한글·HTML EML 및 ANSI/Unicode PST의 지정 메일·폴더·첨부 메타데이터를 읽음 | 합성/배포 허용 fixture의 기대 필드 전수 대조, 손상/비메일 항목 제외 이유<br>plain/html 대체 본문을 한 번만 색인, HTML-only·한글 charset·영어/코드 메일을 field golden으로 비교 | OS 등록→reader→normalize→DB<br>reader→body-selection→version |
-| R-01 | AT-03 / AC3 | 부분 저장 중 검색 가능, 작업별 취소·재개 때 중복과 미저장 성공 표시 없음 | 배치 전/후 중단·재시작 삽입 후 저장 건수·상태 대조 | 작업 UI→service→worker→DB→event |
+| R-01 | AT-03 / AC3 | 완료한 EML 파일은 취소 후에도 검색된다. PST revision은 시작/완료 fingerprint가 일치할 때만 활성화하고, 취소·변경 감지 시 이전 검증 revision을 유지한다. 재시도·재시작은 기존 메일을 중복 삽입하지 않는다. | EML 파일 간 취소와 PST revision 중간 취소·원본 변경을 각각 주입하고 검색 가능 메일·revision·카운터 대조 | 작업 UI→main→source/index worker→DB→event |
 | R-02 | AT-04 / AC4 | 인용·서명 포함 본문 열람과 옛 인용은 재색인/원본 이동 후에도 동일 | 버전 해시·UTF-16 범위로 표시 문장 일치, HTML script/외부 이미지 실행·요청 없음<br>인라인 답변·인용·서명을 재결합하면 snapshot과 동일, hit가 접힌 구간이면 펼침 | reader→version→본문/근거 뷰어<br>classifier→snapshot→viewer |
-| R-02 | AT-05 / AC5 | 재등록은 occurrence만 추가, 같은 Message-ID의 다른 본문은 별개 보존; 기간·원본 소실로 삭제 안 됨 | 같은 ID/다른 내용·ID없음·복사본·동일 stat 변경 fixture, 결과/버전 직접 비교<br>같은 문장·다른 메일은 두 출처; 같은 rendered payload만 계산 공유, 제목 변경은 cache miss | rescan→identity→transaction→search<br>identity→chunk/key→store |
+| R-02 | AT-05 / AC5 | 같은 canonical path의 재등록은 새 전체 fingerprint여도 기존 메일을 재사용한다. 같은 Message-ID라도 정규화 payload가 달라지면 별도 행으로 보존하고, Message-ID 없는 메일은 같은 자료원의 locator와 payload가 모두 같을 때만 재사용한다. | 동일 PST의 추가 revision·동일 ID/변경 본문·ID 없음/다른 locator fixture에서 mail row와 revision occurrence 집합 대조 | rescan→stable source ID→mail identity→revision occurrence→search |
 | R-02 | AT-06 / AC6 | 역순 수집에도 Reply/References 연결 복원, 유사 제목만으로 확정 병합 안 함 | 역순/누락부모/다중후보/순환/동일제목 fixture의 edge kind·시간순 대조 | normalize→relations→thread view |
-| R-03 | AT-07 / AC7 | 한두 글자 한글·혼합 검색·문서번호·이름/주소·기간/폴더 필터가 함께 적용 | `QA 승인 AB-12`, `%_`, 동명이인 fixture에서 정확한 mail ID 집합<br>컬럼 가중치와 짧은 토큰 fallback, exact번호·동명이인 hard constraint가 양쪽 검색에 동일 | UI/tool→query plan→SQL→results<br>query→lexical/vector→rank |
+| R-03 | AT-07 / AC7 | 한두 글자 한글·혼합 검색·문서번호·이름/주소·기간/폴더 필터가 함께 적용되고, 띄어쓴 검색어는 모두 포함(AND)된다. 짧은 토큰 질의는 trigram FTS 제약을 피해 안전한 fallback을 쓴다. | `QA 승인 AB-12`, `서버 이전`, `%_`, 동명이인 fixture에서 정확한 mail ID 집합<br>모든 토큰이 각각 제목/본문/주소/첨부 이름 중 하나에 있을 때만 반환 | UI→term compiler→FTS/LIKE→results |
 | R-03 | AT-08 / AC8 | 메일별 중복 chunk를 합친 hybrid 결과를 보여 주고 의미검색 장애 시 단어검색 유지 | 각 검색 분기의 관련메일 포함·중복 1회·degraded 상태·페이지 안정성<br>quote 중복 rank 투표 방지, FTS 0건 semantic 이유 표시, lexical-only는 외부 요청 없음 | search→lexical/vector→fusion→UI<br>hybrid→fold→result DTO |
 | R-03 | AT-09 / AC9 | 첨부 이름으로 메일을 찾되 첨부 내부에만 있는 문자열은 검색·질문 근거에 나오지 않음 | 이름 `견적.xlsx`, 내부 고유문구 sentinel을 가진 fixture; parser/index/embed/LLM payload 대조<br>첨부 EML·inline rfc822·text/plain 첨부의 고유 sentinel이 전송/색인 payload에 없음 | attachment manifest→filename index→search<br>reader 옵션→projection→embedding/context |
 | R-04 | AT-10 / AC10 | 네트워크 없이 선택한 로컬 모델 팩으로 문서/질의를 같은 규약으로 임베딩 | 실 모델 golden input의 차원·수치 허용오차·검색 결과, 전송 포트 호출 없음<br>필수 모델 prompt 보존·입력 budget 검증, query cache hit 때 vector·결과 동일 | settings→local worker→generation→search<br>renderer→EmbeddingPort→cache/worker |
@@ -231,17 +232,17 @@ scope가 바뀌면 인용 결과의 중복 접기와 주변 문맥을 새 scope�
 
 ## 7-A. V / Trace Matrix
 
-이 표는 V1 + ΔV2 기준 계약이다. 현재 구현 라운드의 유효 범위는 D-025의 S1이며, S2·S3의 임베딩·RAG pair는 후속 라운드로 남긴다. 기준 V는 메타의 독립 V1 커밋이며, stable node·pair ID와 이전 oracle·선택 mutation을 보존한다. CHANGED는 계약 보완, INHERITED는 변경 없이 영향을 받는 회귀다. 앱이 아직 미구현이므로 기존 테스트 존재를 실행 PASS로 읽지 않는다.
+이 표는 V1 + ΔV2 + ΔV3 기준 계약이다. 현재 구현 라운드의 유효 범위는 D-025·D-026의 S1이며, S2·S3의 임베딩·RAG pair는 후속 라운드로 남긴다. 기준 V는 메타의 독립 V1 커밋이며, stable node·pair ID와 이전 oracle·선택 mutation을 보존한다. CHANGED는 계약 보완, INHERITED는 변경 없이 영향을 받는 회귀다. 앱이 아직 미구현이므로 기존 테스트 존재를 실행 PASS로 읽지 않는다.
 
 ### 이번 라운드 S1 잠금
 
 | 항목 | 이번 구현에서 잠금 | 후속으로 남김 |
 |---|---|---|
 | 입력 | OS 선택 파일(`.eml`, `.pst`)과 EML 폴더 재귀 배치 | PST 폴더 선택 UX 고도화 |
-| 검색 | 제목·발신자·수신자·참조·본문·첨부 이름, 짧은 한글 fallback, 자료원 필터 | 의미검색·hybrid fusion |
-| 저장 | archive 전용 SQLite/FTS5, 메일 버전·관계 헤더·첨부 manifest, 첨부 본문 미저장 | vector generation·scope/evidence |
-| 작업 | 배치 cursor·부분 저장·취소·재시작 시 중단 상태 | 임베딩 generation 전환 |
-| 유효 pair | VP-01·02·03·07·08·09·13·14·17·18·19·23 중 S1 경로 | VP-04·05·06·10·11·12·15·16·20·21·22 및 S2/S3 증거 |
+| 검색 | 제목·발신자·수신자·참조·본문·첨부 이름, 모든 term AND, 짧은 한글 fallback, 자료원 필터 | 의미검색·hybrid fusion |
+| 저장 | archive 전용 SQLite/FTS5, stable sourceId·전체 파일 revision·메일 identity·occurrence, 첨부 본문 미저장 | vector generation·scope/evidence |
+| 작업 | source/index utility process 분리, bounded batch/backpressure, 취소·revision 검증·재시작 시 중단 상태 | 임베딩 generation 전환 |
+| 유효 pair | VP-01·02·03·07·08·09·13·14·17·18·19·23·24·25 중 S1 경로 | VP-04·05·06·10·11·12·15·16·20·21·22 및 S2/S3 증거 |
 | AC | AC1·AC2·AC3·AC4·AC5·AC6·AC7·AC9·AC17·AC19·AC20·AC21·AC22·AC23의 S1 관측 | AC8·AC10·AC11·AC12·AC13~16·AC18·AC24의 임베딩/RAG/패키징 실기 |
 
 ### Node registry
@@ -259,12 +260,14 @@ scope가 바뀌면 인용 결과의 중복 접기와 주변 문맥을 새 scope�
 | AR-03 / IT-03 | AR / IT | 로컬/API port·자격증명 / adapter 계약·오류 통합 | CHANGED / V1 + §10·15 |
 | AR-04 / IT-04 | AR / IT | runtime tools·session·Markdown / composition 통합 | INHERITED / V1 + §10·12 |
 | AR-05 / IT-05 | AR / IT | worker 패키징·공유 MIME / 산출물 실행·기존 동작 회귀 | INHERITED / V1 + §11·19 |
+| AR-06 / IT-06 | AR / IT | source/index utility process lifecycle·protocol / 두 worker와 SQLite를 통한 실제 왕복 | CHANGED / ΔV3 + §9·10·13 |
 | MD-01 / UT-01 | MD / UT | 정규화·identity·offset / 순수 fixture 비교 | CHANGED / V1 + §10 |
 | MD-02 / UT-02 | MD / UT | short-token query·filter·fusion / 결과 집합·순위 비교 | CHANGED / V1 + §10 |
 | MD-03 / UT-03 | MD / UT | 관계 resolver·context budget / edge·coverage 비교 | CHANGED / V1 + §10 |
 | MD-04 / UT-04 | MD / UT | embedding fingerprint·validation / 분리·오류 비교 | CHANGED / V1 + §10 |
 | MD-05 / UT-05 | MD / UT | scope·evidence·revoke / 허용·거절·tombstone 비교 | CHANGED / V1 + §10·13 |
 | MD-06 / UT-06 | MD / UT | job reducer·UI 상태 / stale 응답·전환 비교 | INHERITED / V1 + §5·13 |
+| MD-07 / UT-07 | MD / UT | stable source/mail identity·whitespace term compiler / revision 재사용·검색 집합 비교 | CHANGED / ΔV3 + §10 |
 
 ### Pair registry
 
@@ -295,6 +298,8 @@ scope가 바뀌면 인용 결과의 중복 접기와 주변 문맥을 새 scope�
 | VP-21 | MD-04 ↔ UT-04 / CHANGED | REQUIRED | model manifest→fingerprint→vector check<br>prompt/hash→cache/차원→검색 | 잘못된 차원·NaN·model version 거절<br>hit/miss·profile 변경 시 재임베딩 | 직접 | EP-07(5), EP-08(4), EP-17(3), EP-19(4), EP-20(3) |
 | VP-22 | MD-05 ↔ UT-05 / CHANGED | REQUIRED | scope/evidence ID→validation→read/purge<br>scope/revoke→cache/vector→evidence | 위조·삭제·외부자료원 허용 집합<br>거절·삭제 | M-SCOPE | EP-09(5), EP-10(8), EP-13(3), EP-19(4), EP-20(3) |
 | VP-23 | MD-06 ↔ UT-06 / INHERITED | REGRESSION | request/event→reducer→UI state<br>품질·fold·cache event→UI | 역전 응답·restart·취소의 상태<br>stale 응답 거절 | 직접 | EP-01(4), EP-02(4), EP-18(4), EP-19(4) |
+| VP-24 | AR-06 ↔ IT-06 / CHANGED | REQUIRED | IPC→main job→source child→bounded batch→index child→SQLite→progress/search<br>cancel/shutdown→epoch revoke→staging cleanup | 같은 PST 재등록·수정 revision·cancel·child exit 각각의 DB/검색/카운터 snapshot | M-WORKER: batch ack를 늦추거나 제거하면 cancel/queue boundedness assertion red | EP-02(4), EP-14(3), EP-21(9) |
+| VP-25 | MD-07 ↔ UT-07 / CHANGED | REQUIRED | source fingerprint→revision state; normalized mail→identity key→upsert; whitespace query→terms→FTS/LIKE→IDs | 동일 PST 추가 revision은 기존 ID 재사용, 같은 Message-ID의 변경 payload는 별도 보존, `서버 이전`은 양 term을 모두 포함한 결과만 반환 | 직접 | EP-03(4), EP-05(4), EP-21(9) |
 
 선택 mutation: M-CITE는 링크의 존재만으로 배선을 오인하지 않도록 EP-09d(스트리밍)·EP-09e(완료) 각각 callback을 제거해 실패시킨다. M-SCOPE는 전수 범위 주장 때문에 EP-10a~h 각 자리에서 제한을 넓히는 결함을 각각 심는다.
 
@@ -430,9 +435,9 @@ SQLite는 `<userData>/mail-archive/archive.db`를 제안한다. 기존 core/mail
 
 | 테이블/정본 | 주요 필드와 불변식 |
 |---|---|
-| `archive_source` | sourceId, kind(eml-folder/pst), 내부 경로 capability, 선택 폴더, health, revision, revokedAt. 경로는 main/source worker만 읽음 |
-| `source_revision` | sourceId, revision, fingerprint, verifiedAt. EML 폴더는 파일 digest manifest, PST는 전체 컨테이너 hash; stat는 빠른 힌트일 뿐 |
-| `source_occurrence` | sourceId/revision + EML 상대 경로/rawDigest 또는 PST 내부 node locator → mailId/versionId. PST locator는 해당 revision에서만 유효 |
+| `archive_source` | sourceId, kind(eml/pst), canonical path capability, health, current verified revision, revokedAt. sourceId는 `kind + canonical path` hash; 경로는 main/source worker만 읽음 |
+| `source_revision` | sourceId, revision, full fingerprint, state(staging/verified/interrupted/failed), verifiedAt. EML은 파일별 원본 digest, PST는 전체 컨테이너 SHA-256; stat는 빠른 변경 힌트일 뿐 |
+| `source_occurrence` | sourceId/revision + EML 상대 경로/rawDigest 또는 PST 내부 node locator → mailId/versionId. PST locator는 해당 revision에서만 유효하고 verified revision만 검색 근거로 사용 |
 | `mail` / `mail_version` | 내부 UUID, 원 Message-ID, content hash, 제목, from/to/cc의 이름·주소, sentAt/receivedAt/importedAt, dateQuality, selectedVariantId·정규화 버전 |
 | `body_variant` | versionId, kind, text, qualityFlags, selectionReason. 선택 표현에 offset 귀속, 대체 표현은 별도 열람 |
 | `body_segment` | versionId, kind(new/quote/signature/unknown), start/end UTF-16 code unit offset. 구간은 원문 snapshot 위에 존재 |
@@ -444,7 +449,11 @@ SQLite는 `<userData>/mail-archive/archive.db`를 제안한다. 기존 core/mail
 | `archive_job` | jobId, target, epoch, phase, cursor, committed/skipped/failed, errorCode. cursor만으로 원본 버전을 추정하지 않음 |
 | `archive_scope` / `evidence_run` / `evidence_item` | scopeId→owner/sessionId·허용 자료원/기간/메일 집합; run→scope snapshot/indexAsOf; item→versionId/offsets/근거 종류 |
 
-Message-ID 단독 unique 제약을 두지 않는다. 같은 ID·정규화 본문·제목·당사자·메일 날짜가 일치하면 논리 메일을 묶을 수 있지만 occurrence는 모두 보존하며, 첨부는 occurrence별로 유지해 같은 이름의 다른 파일을 덮지 않는다.
+`sourceId`는 `sourceKind + canonical absolute path`의 SHA-256이며 PST 전체 fingerprint와 독립이다. 따라서 같은 경로의 PST가 누적되어 컨테이너 hash가 바뀌어도 같은 자료원 revision이 된다. 경로는 main/source worker 전용이고 renderer DTO·로그에 노출하지 않는다.
+
+Message-ID 단독 unique 제약은 두지 않는다. ID가 있으면 `identityKey = SHA-256(normalized Message-ID + normalized payload digest)`이며 payload digest는 날짜·당사자·제목·정규화 본문·정렬된 첨부 manifest에서 만든다. 같은 ID의 수정 본문은 다른 identityKey로 보존한다. ID가 없으면 `identityKey = SHA-256(sourceId + item locator + normalized payload digest)`로 한정한다. 제목 유사도나 본문 일부만으로 자동 병합하지 않는다.
+
+같은 identityKey의 메일은 하나의 archive mail로 유지하고 자료원·revision별 occurrence를 추가한다. 전체 PST fingerprint는 변경 감지·revision 검증에만 쓰며 mail ID나 identityKey 생성에 넣지 않는다. PST worker가 시작/완료 fingerprint를 비교해 일치한 revision만 verified로 승격한다. 취소·해시 불일치·worker 종료 시 staging occurrence를 검색에서 제외하고 직전 verified revision은 그대로 둔다. 완료한 EML 파일은 파일 단위 verified 상태로 보존한다.
 
 ID 없는 메일은 같은 원본 digest일 때만 확실한 중복으로 취급한다. EML↔PST 변환으로 동일성을 증명하지 못한 경우 후보 중복으로 표시하며 내용 유사도만으로 삭제하지 않는다.
 
@@ -660,6 +669,7 @@ UI의 `set-session-scope`는 실제 세션 존재와 호출 창의 소유 관계
 | EP-18 / 4 | retrieval policy | a hard/soft query compiler; b 필터된 rank·RRF; c neighbor/context pack; d 결과 이유/정렬 UI | VP-03·VP-05·VP-10·VP-13·VP-16·VP-19·VP-20·VP-23 | exact ID·old decision·주변 문단·0건 이유. 몰래 범위완화/중복 투표 |
 | EP-19 / 4 | cache epoch/scheduler | a cache key/get; b scheduler·subscriber 취소; c epoch 검증 후 cache put; d scope/profile/remove/session 정리 | VP-04·VP-06·VP-07·VP-09·VP-11·VP-12·VP-15·VP-21·VP-22·VP-23 | 두 subscriber·credential 변경·late reply. 취소 전파/삭제 자료 부활 |
 | EP-20 / 3 | scoped exact vector scan | a dimension/fingerprint validation on write; b filter-first BLOB scan and cosine ranking; c generation swap·삭제·재시작 | VP-04·VP-06·VP-07·VP-08·VP-09·VP-11·VP-14·VP-17·VP-21·VP-22 | reference cosine·scope·dimension mismatch·reopen. 잘못된 결과/범위 유출 |
+| EP-21 / 9 | D-012 worker boundary·source revision protocol | a main이 DB 경로로 index utility process 시작; b index가 migration/DB를 열고 ready 회신; c main이 picker capability로 확인한 파일만 source worker에 전달; d source worker가 시작 fingerprint·reader를 실행; e 최대 25개 DTO batch를 보내고 ack까지 대기; f main이 jobId/epoch를 확인해 batch 전달; g index가 epoch 확인 후 transaction commit·ack; h source 완료 fingerprint와 index revision verify를 대조; i cancel/exit/shutdown이 epoch를 폐기하고 늦은 batch·revision 승격을 거절 | VP-01·VP-07·VP-09·VP-13·VP-14·VP-17·VP-23·VP-24·VP-25 | main event loop 정체·무한 큐·취소 후 commit·stale revision 활성화·잘못된 counter |
 
 동일 필터는 `scope.ts`가 SQL 조건·in-memory predicate를 생성하도록 하고 각 경로의 결과 집합을 같은 fixture로 비교한다. EP-10의 다양한 경로에서 조건문을 독립 복제하지 않는다.
 
@@ -687,6 +697,12 @@ S1~S3를 별도 구현 PR로 나누되 동일 유효 V의 단계 완료와 전�
 | D-015 API 후보 | 사용 가능한 endpoint의 request/response 예제, auth, model/revision, max input/batch, query/document 처리 확인 | 실제 한 배치/한 질의/401/취소 실증. 이 규약을 §15 adapter 예제와 고정 contract test로 반영 |
 | D-016 성능 | 대표 PC 사양·자료량·본문 길이/언어 분포를 기록하고 실제 자료량과 1만 메일에서 §14 측정. 실제 archive가 1만을 넘으면 5만을 추가 | 제품 SLA 새로 확정하지 않고 예산 조정 근거 보고. exact cosine이 느리면 ANN 선택은 후속 결정으로 분리 |
 
+### S1 revision·worker 사용자 관측
+
+같은 PST를 다시 추가하면 보관 중인 자료원으로 인식한다. 원본 전체 fingerprint가 바뀌지 않으면 다시 파싱하지 않고 기존 메일 수를 `이미 보관`으로 보고한다. fingerprint가 바뀌면 `새 revision 확인 중` 상태에서 기존 결과를 계속 검색할 수 있게 하고, source child가 파일 처음과 끝의 SHA-256 일치를 확인한 뒤 index child가 새 revision을 활성화한다. 그 과정에서 기존 identity는 skip, 새 identity는 추가, 같은 Message-ID의 바뀐 payload는 별도 결과로 보존한다.
+
+취소 전 확정된 EML 파일은 유지한다. PST는 한 파일이 하나의 revision이므로 취소·원본 변경·child 오류 중 새 staging 결과를 검색하지 않고 기존 검증 revision을 유지한다. 결과 요약은 `새로 저장 n개 · 이미 보관 n개 · 실패 n개`를 함께 보여준다. `서버 이전` 같은 2자 검색어가 포함되면 모든 공백 term을 각각 LIKE 조회하고 term 간 AND를 적용한다. `%`와 `_`는 literal로 escape해 검색한다.
+
 패키지 설치나 사내 자료의 저장소 반입은 이 문서 PR에서 수행하지 않는다. 실메일 대신 합성 fixture를 커밋하고, 실환경 검증 결과에는 메일 본문·주소·자격증명을 남기지 않는다.
 
 S1에는 MIME 선택·품질 표시·가역 segment·필드 검색, S2에는 선택한 로컬/API profile과 cache·generation 전환, S3에는 quote fold·주변 context·결과 이유·출처 UX를 배치한다. 전 단계를 통과하기 전 전체 기능 완료로 보고하지 않는다.
@@ -701,7 +717,8 @@ S1에는 MIME 선택·품질 표시·가역 segment·필드 검색, S2에는 선
 | `main/features/plugins/mail-archive/{normalize,identity,segments,relations,query,ranking,context,scope,embedding-profile,job-state}.ts` | Electron/DB/native를 import하지 않는 순수 계산 | UT fixture/경합 상태 전이 |
 | `main/features/plugins/mail-archive/{service,ipc,tools}.ts` | 주입 포트·scope·등록·취소 오케스트레이션 | 실제 IPC/tool handler IT |
 | `main/features/plugins/mail-archive/{store,migrations/*,index-worker}.ts` | archive DB single writer·조회·jobs/evidence | 실제 SQLite rollback·migration·snapshot |
-| `main/features/plugins/mail-archive/readers/{eml,pst,source-worker}.ts` | 원본 reader·fingerprint·메타데이터·추출 | ReaderPort fixture·kill/restart |
+| `main/features/plugins/mail-archive/readers/{eml,pst,source-worker}.ts` | source utility process entry·원본 reader·시작/완료 fingerprint·메타데이터·추출 | ReaderPort fixture·bounded batch·cancel/kill/restart |
+| `main/features/plugins/mail-archive/worker-protocol.ts` | source/index child RPC·jobId/epoch·bounded batch/ack DTO | fake process boundary test·stale epoch 거절 |
 | `main/features/plugins/mail-archive/embedding/{local,api,embedding-worker}.ts` | local inference·transport adapter·vector scan | golden/model mock·API contract |
 | `main/features/plugins/mail-content.ts` | 기존 MIME/inline 판정 공통부 추출 후보 | 기존 EUC-KR·첨부 분류 그대로 실행 |
 | `main/contracts/mail-archive.ts` | composition이 주입할 scope/session/network/secret 포트 | feature 간 import 없이 fake 주입 |
@@ -716,7 +733,7 @@ S1에는 MIME 선택·품질 표시·가역 segment·필드 검색, S2에는 선
 
 ## 12. End-to-end 영향
 
-가져오기는 `OS 선택 → main capability → source worker → normalized batch → index worker transaction → revision event → source card/search`이다. 화면은 이벤트 건수를 독자 합산하지 않고 committed snapshot을 정본으로 삼으며 sequence gap이면 다시 조회한다.
+가져오기는 `OS 선택 → main capability → source utility process(start hash/parse/end hash) → normalized batch(최대 25) → main job/epoch check → index utility process transaction/ack → revision verify → event/search`다. source/index worker는 `utilityProcess.fork`로 기동하고 electron-vite `?modulePath`를 사용한다. raw path는 main picker capability 검증 뒤 source child에만 보내며, renderer와 로그에 나오지 않는다. 화면은 committed snapshot을 정본으로 삼고 worker event는 같은 jobId의 progress만 반영한다.
 
 질문은 `사용자 범위 선택 → main session scope → 기존 harness → archive_context → evidence 저장 → tool result → 답변/카드 → citation callback → evidence resolve → viewer`이다. UI 출처 카드와 모델 출처 링크는 같은 evidence ID를 소비한다.
 
@@ -743,11 +760,11 @@ S1에는 MIME 선택·품질 표시·가역 segment·필드 검색, S2에는 선
 
 ### 작업·취소·복구
 
-작업 상태는 `queued → scanning → importing → completed | partial | cancelled | failed`이며 재시작 복구는 `interrupted`이다. source health(`available/missing/changed`)와 embedding state(`not-configured/building/ready/degraded`)는 별도 축이다.
+작업 상태는 `queued → scanning → importing → completed | partial | cancelled | failed`이며 재시작 복구는 `interrupted`이다. source health(`available/missing/changed`)와 embedding state(`not-configured/building/ready/degraded`)는 별도 축이다. main은 index utility process를 앱 수명 동안 유지하고 source utility process는 가져오기 작업 동안만 유지한다. 둘 다 Electron `utilityProcess.fork`로 실행하며 electron-vite `?modulePath` entry를 패키징한다.
 
-main cancel은 해당 job epoch를 먼저 폐기하고 source/compute/API의 AbortSignal을 취소한다. index worker는 batch commit 직전 epoch를 확인하고, 읽기/compute가 응답하지 않으면 해당 자식만 종료한다; 저장된 batch는 유지한다.
+main cancel은 해당 job epoch를 먼저 폐기하고 source worker에 취소를 보낸다. source worker는 25개 이내의 정규화 batch를 보내고 매 batch마다 index ack를 기다려 메모리 queue를 제한한다. index worker는 batch commit 직전 epoch를 확인한다. EML은 완료 파일 단위로 revision을 verify하고, PST는 시작/완료 full fingerprint가 같을 때만 새 revision을 verify한다. PST 취소·hash mismatch·child exit는 staging revision을 검색에서 제외하고 이전 검증 revision을 유지한다. worker가 응답하지 않으면 main은 해당 child를 종료하고 다음 조회는 기존 검증 데이터로 계속한다.
 
-앱 종료는 신규 작업 차단→in-flight 취소→DB commit/close 정착→자식 정리 순서다. 강제 종료에서는 WAL/journal에서 마지막 committed cursor까지 복구하고 transient 상태를 interrupted로 바꾼다.
+앱 종료는 신규 작업 차단→in-flight 취소→index RPC로 DB close→source/index child 정리 순서다. 강제 종료에서는 SQLite WAL 복구 뒤 staging revision을 interrupted로 남기고 마지막 verified revision만 검색한다.
 
 ### 세대·프로필 전환
 
@@ -918,6 +935,14 @@ D-024를 OPEN으로 추가하고 FTS5 기본·선택 설치형 E5-small/API·SQL
 
 사용자가 “경량화 방향으로 선택”이라고 명시해 D-024를 ACTIVE로 확정했다. 기존 `features/plugins/mail`의 `postal-mime` 파서와 SQLite FTS5는 EML 정규화·키워드 검색의 재사용 후보로 확인했다. 이번 S1에서는 PST parser만 채택하고 임베딩 runtime·API 계약·성능 실증(D-015~D-016)은 후속 단계로 남긴다.
 
+### ΔV3 — D-012 재확정·PST revision·다중 term 검색 (2026-09-29)
+
+사용자가 “D 12 유지”를 선택해 worker 격리를 S1 필수 조건으로 확정했다. plan 본문에만 결정 D-026과 보강 규칙을 통합했다. sourceId는 형식/canonical path로 고정하고, 컨테이너 전체 fingerprint는 revision 검증에만 사용한다. 메일 identity는 Message-ID 또는 자료원 내 locator와 정규화 payload hash를 조합하며, 다른 본문 버전과 가능한 ID 없는 동일메일을 억지 병합하지 않는다. PST는 두 번의 full fingerprint가 일치해야 staging revision을 활성화한다.
+
+AC3·AC5·AC7을 변경하고 신규 VP-24(utility process 경계·revision protocol), VP-25(identity·term 검색)를 REQUIRED로 등록했다. AR-06/IT-06·MD-07/UT-07과 EP-21의 아홉 강제 지점을 연결했다. 사용자 관측은 취소/원본 변경 시 기존 검색 결과 유지, 새로 저장/이미 보관/실패 카운터, 공백으로 나눈 모든 검색어의 AND 결과다. 검증 oracle은 PST 추가 revision 1개·변경 본문 1개 fixture, staging 취소/worker 종료 snapshot, `서버 이전`의 정확한 결과 ID 집합이다.
+
+자기검토에서 plan·INDEX 메타/다음 actor·D-012 출처·24 AC 연속성·25 pair 왼쪽 노드·21 EP의 자리수 합계와 worker protocol 순서를 대조한다. READY 구현 gate는 UT→IT→ST→AT, migration append-only, 두 utility process 실제 왕복/kill-restart, 설치본 worker entry·PST smoke다. S2/S3 OPEN은 이번 READY 범위 밖으로 유지한다.
+
 ## READY self-review
 
 - [x] 이번 대화의 사용자 요구와 Codex 제안을 분리하고, 원격 계획 승인·V를 상속하지 않았다.
@@ -929,10 +954,12 @@ D-024를 OPEN으로 추가하고 FTS5 기본·선택 설치형 E5-small/API·SQL
 - [ ] D-016 대표 PC/자료로 예산 검증·필요 설계 정정.
 - [x] D-024 경량 첫 기준을 사용자가 명시적으로 선택.
 - [x] D-025 S1을 PST·EML 검색과 EML 파일/폴더 배치 입력으로 고정.
-- [x] S1에 필요한 ΔV2 본문·AC·pair·§10 범위를 재대조하고 S2/S3 OPEN을 분리.
-- [x] plan/INDEX를 S1 구현용 READY로 전환.
+- [x] D-012를 사용자가 재확정했고, D-026 자료원·메일 identity 정책을 S1에 반영.
+- [x] ΔV3에서 AC3·AC5·AC7의 관측 조건과 VP-24·VP-25, EP-21 worker 경로를 연결.
+- [x] D-015·D-016과 S2/S3를 OPEN/후속으로 분리.
+- [x] plan/INDEX를 S1 구현용 READY·Codex 구현 차례로 동기화.
 
-**초기 판정: S1 구현용 READY.** 구현에서 D-012의 worker 격리와 경량 S1 구현 사이의 PLAN_GAP이 발견됐다. PST·EML 입력·검색·EML 폴더 배치 코드는 보존하지만, 검증 전에 D-012를 S1에 적용할지 후속 단계로 정정할지 설계자가 결정해야 한다.
+**초기 판정은 이력으로 보존한다. ΔV3 판정: S1 구현용 READY.** 사용자가 D-012 유지로 결정했고, stable sourceId·mail identity, revision 검증·취소 가시성, worker protocol, whitespace AND 검색을 규범 계약·pair·강제 지점에 연결해 기존 gap을 닫았다. 사용자 화면에서는 중복/신규/실패 수를 구분한다.
 
 ---
 
