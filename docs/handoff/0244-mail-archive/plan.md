@@ -13,7 +13,7 @@
 | 일자 | 2026-09-29 |
 | 매핑 | PR 브랜치 `codex-0244-mail-archive-plan` → `main` |
 | 조사 기준 | `f2f60ac338f2847f81a6cbc426f0728b7eb8d98e` (`git cat-file -t` → commit 확인) |
-| 상태 | **DRAFT — 경량 기준 제안 반영, 사용자 선택과 D-014~D-016 해소 후 구현** |
+| 상태 | **DRAFT — 사용자 구현 지시로 경량 기준 선택, D-014~D-016 실증·결정 및 V 재대조 후 구현** |
 | V mode / 기준 V | `Delta V` / 독립안 `V1@3f9558d9ec7fca52bc7c55533031051ba5d5b96a` |
 | 이번 V revision / 유효 V | `ΔV1` / `V1 + ΔV1` |
 
@@ -68,13 +68,13 @@
 | D-021 | query cache와 vector 파생 색인은 원문·출처와 별개이며 epoch로 무효화 | 계산 재사용이 범위·삭제·모델 변경을 우회하지 않게 함 | 조사 + Codex 제안 | ACTIVE | AC10·12·19~21 |
 | D-022 | 로컬 모델 비교를 e5-small, EmbeddingGemma 768/256으로 구체화; API 동일 평가 | 공개 점수 대신 동일 한국어 메일 질의셋으로 선택 | 조사 + 공식 모델 카드 | **SUPERSEDED → D-024** | AC10·11·19·24 |
 | D-023 | 설계 계약은 plan 한 문서에 통합 | 별도 델타 문서를 왕복하지 않고 현재 계약을 읽음 | 사용자 | ACTIVE | G-DOC |
-| D-024 | 첫 기준을 단순·경량으로 구성: FTS5 기본, 선택형 로컬/API 임베딩, E5-small 384d + SQLite BLOB exact scan, ANN·reranker·모델 비교군 보류 | “첫 기준은 간단하며 경량성에 초점을 두겠다. 제안하라”에 대한 Codex 권고. **사용자 선택 대기** | Codex 제안 + 공식 모델/runtime 자료 | **OPEN** | AC7~12·19·24 / S0 |
+| D-024 | 첫 기준을 단순·경량으로 구성: FTS5 기본, 선택형 로컬/API 임베딩, E5-small 384d + SQLite BLOB exact scan, ANN·reranker·모델 비교군 보류 | 구현 지시는 직전 경량 권고를 적용하라는 뜻으로 해석한다. 실행 가능성은 S0 실증 조건 | 사용자 구현 지시(직전 권고 후속) + 공식 모델/runtime 자료 | **ACTIVE** | AC7~12·19·24 / S0 |
 
 V1의 D-001~D-016을 유지하고 조사 보완 D-017~D-023과 이번 경량 권고 D-024를 반영했다. 기준은 이 독립안의 V1이며 다른 브랜치의 라이브러리 승인·모델 선택·V를 상속하지 않는다.
 
-D-024는 채택된 제품 결정이 아니라 비교용 Codex 권고다. 권고를 선택하면 D-014는 PST parser와 로컬 inference runtime 후보만 실증하고, D-015는 단일 E5-small 팩과 실제 embedding API 계약을 닫는다. `sqlite-vec`, ANN, reranker, Gemma 비교는 첫 기준에서 제외한다.
+D-024는 사용자의 후속 구현 지시로 채택됐다. D-014는 PST parser와 로컬 inference runtime 후보의 호환성·배포 부담을 실증하고, D-015는 단일 E5-small 팩과 실제 embedding API 계약을 닫는다. `sqlite-vec`, ANN, reranker, Gemma 비교는 첫 기준에서 제외한다.
 
-ACTIVE 결정 ↔ AC 대조: D-001~D-012·D-017~D-021은 표의 AC·본문 경로와 대조해 충돌 0을 확인했다. D-022는 D-024 제안으로 대체됐고 사용자 선택 전이다. 문서 요구 D-013·D-023은 G-DOC로 확인한다. D-014~D-016·D-024는 OPEN이며 §11의 실증과 선택 조건을 해소하기 전 READY로 넘기지 않는다.
+ACTIVE 결정 ↔ AC 대조: D-001~D-012·D-017~D-021·D-024는 표의 AC·본문 경로와 대조한다. D-022는 사용자 선택을 반영해 D-024로 대체됐다. 문서 요구 D-013·D-023은 G-DOC로 확인한다. D-014~D-016은 OPEN이며, S0 실증과 V 재대조를 마치기 전 READY로 넘기지 않는다.
 
 ### Codex 권고: 첫 기준은 단순·경량
 
@@ -230,7 +230,7 @@ scope가 바뀌면 인용 결과의 중복 접기와 주변 문맥을 새 scope�
 
 ## 7-A. V / Trace Matrix
 
-이 표는 V1 + ΔV1의 기준 계약이다. D-024 경량 권고는 아직 OPEN이므로 새 제안을 선택하면 영향을 받은 R/SD/AR/MD 노드·pair·EP 분모를 다시 대조해 갱신해야 한다. 특히 검색 질의 수, 임베딩 runtime·모델팩, exact scan, API fallback 전이를 재검토하기 전까지 이 V는 구현용 READY 계약이 아니다. 기준 V는 메타의 독립 V1 커밋이며, stable node·pair ID와 이전 oracle·선택 mutation을 보존했다. CHANGED는 계약 보완, INHERITED는 변경 없이 영향을 받는 회귀다. 앱이 아직 미구현이므로 기존 테스트 존재를 실행 PASS로 읽지 않는다.
+이 표는 V1 + ΔV1 기준 계약이다. D-024가 선택됐으므로 영향을 받는 R/SD/AR/MD 노드·pair·EP 분모를 ΔV2로 다시 대조해야 한다. 특히 검색 질의 수, 임베딩 runtime·모델팩, exact scan, API fallback 전이를 반영한 검토가 완료되기 전까지 이 V는 구현용 READY 계약이 아니다. 기준 V는 메타의 독립 V1 커밋이며, stable node·pair ID와 이전 oracle·선택 mutation을 보존한다. CHANGED는 계약 보완, INHERITED는 변경 없이 영향을 받는 회귀다. 앱이 아직 미구현이므로 기존 테스트 존재를 실행 PASS로 읽지 않는다.
 
 ### Node registry
 
@@ -661,7 +661,7 @@ M-SCOPE의 전수 범위에는 새 EP-16c(quote fold), EP-18c(neighbor 확장), 
 
 | 단계 | 결과 | 종료 조건 / 이 계획 AC |
 |---|---|---|
-| S0 — 실증·결정 | PST/모델/API 후보와 기준 PC 보고서, 신규 의존성 승인·정확 버전 | D-014~D-016·D-024 closed, 아래 표의 반증 사례를 통과하고 본문/보드 READY 동시 갱신 |
+| S0 — 실증·결정 | PST/모델/API 후보와 기준 PC 보고서, 신규 의존성 승인·정확 버전 | D-014~D-016 closed, D-024 실현 가능성 확인, 아래 표의 반증 사례를 통과하고 본문/보드 READY 동시 갱신 |
 | S1 — 보관·정확검색 | 자료원 UI, EML/PST reader, worker DB, 메타데이터/본문/파일명 검색·열람·선택 추출 | AC1~7·9·17·19~23 관련 pair; 의미검색 미설정 상태가 정상 동작 |
 | S2 — 두 임베딩 경로 | 로컬/API 프로필, chunk/vector, generation, hybrid UI | AC8·10~12·19·20·24 관련 pair; 두 구현체 모두 동작 |
 | S3 — 이력 답변·근거 UX | scope, context 도구, 기존 두 AI 경로, source card/인용 viewer | AC13~16·18·21~24, 나머지 유효 pair와 운영 gate 전부 |
@@ -902,6 +902,10 @@ app 디렉터리에서 `node scripts/check-doc-inventory.mjs --check`를 실행�
 
 D-024를 OPEN으로 추가하고 FTS5 기본·선택 설치형 E5-small/API·SQLite BLOB exact scan·단일 질의 기준을 권고안으로 반영했다. Gemma/ANN/reranker 비교는 첫 기준에서 제외했으며, 사용자 선택 전 DRAFT와 V 재대조 필요 상태를 유지한다. plan 및 handoff 보드의 상대 링크·상태를 대조했고, app doc-inventory·`git diff --check`가 통과했다. 앱 코드·의존성은 수정하지 않았다.
 
+### 경량 기준 선택 및 구현 진입 점검 (2026-09-29)
+
+사용자의 후속 “Handoff-impl 구현하라”를 직전 경량 기준 권고의 선택으로 기록하고 D-024를 ACTIVE로 전환했다. 구현 진입을 대조한 결과, 기존 `features/plugins/mail`에 `postal-mime` 파서와 SQLite FTS5 검색이 있어 EML 정규화·키워드 검색은 우선 재사용 후보로 확인했다. 현재 보드와 plan은 DRAFT이며, 신규 의존성 승인·첫 모델 및 실제 embedding API 계약·성능 실증(D-014~D-016), 선택된 경량 기준을 반영하는 ΔV2 재대조가 남아 구현 코드는 시작하지 않았다.
+
 ## READY self-review
 
 - [x] 이번 대화의 사용자 요구와 Codex 제안을 분리하고, 원격 계획 승인·V를 상속하지 않았다.
@@ -911,10 +915,11 @@ D-024를 OPEN으로 추가하고 FTS5 기본·선택 설치형 E5-small/API·SQL
 - [ ] D-014 PST parser·로컬 runtime 검증 및 신규 의존성 채택 승인 완료.
 - [ ] D-015 최초 로컬 모델 팩·실제 API 계약/인증/모델 revision 확정 및 검증.
 - [ ] D-016 대표 PC/자료로 예산 검증·필요 설계 정정.
-- [ ] D-024 경량 첫 기준 권고를 사용자 선택에 따라 ACTIVE 또는 조정.
-- [ ] 위 OPEN 해소 후 본문·AC·V·§10 재대조, plan/INDEX를 같은 커밋에서 READY로 전환.
+- [x] D-024 경량 첫 기준을 사용자의 후속 구현 지시로 선택.
+- [ ] D-014~D-016 S0를 닫고, 선택된 경량 기준에 맞춰 ΔV2 본문·AC·pair·§10 재대조.
+- [ ] 위 OPEN 해소 후 plan/INDEX를 같은 커밋에서 READY로 전환.
 
-**판정: 비교 가능한 설계안은 작성했으나 구현 READY는 아니다.** 독립안을 먼저 비교·선택한다는 사용자 요청에 따라 DRAFT로 제출하며, 이미 허용한 두 AI 환경·두 임베딩 방식·첨부 본문 제외를 재승인 항목으로 만들지 않는다.
+**판정: 사용자 선택은 반영했으나 구현 READY는 아니다.** 신규 의존성 승인, 실제 임베딩 API 계약, S0 실행 근거와 이에 따른 V 갱신이 남아 DRAFT를 유지한다. 이미 확정된 두 AI 환경·두 임베딩 방식·첨부 본문 제외는 재승인 항목으로 만들지 않는다.
 
 ---
 
