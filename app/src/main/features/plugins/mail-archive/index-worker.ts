@@ -11,6 +11,11 @@ type IndexOperation =
   | 'abortRevision'
   | 'search'
   | 'get'
+  | 'thread'
+  | 'attachmentLocation'
+  | 'sourcePathInUse'
+  | 'sources'
+  | 'removeSource'
   | 'stats'
   | 'close'
 
@@ -118,6 +123,23 @@ async function handle(request: IndexRequest): Promise<void> {
       case 'get':
         value = requireStore().get((request.payload as { id: string }).id)
         break
+      case 'thread':
+        value = requireStore().thread(request.payload as Parameters<MailArchiveStore['thread']>[0])
+        break
+      case 'attachmentLocation':
+        value = requireStore().attachmentLocation((request.payload as { id: string }).id)
+        break
+      case 'sourcePathInUse':
+        value = requireStore().sourcePathInUse((request.payload as { path: string }).path)
+        break
+      case 'sources':
+        value = requireStore().sources()
+        break
+      case 'removeSource': {
+        if (activeEpochs.size > 0) throw new Error('mail_archive_import_active')
+        value = requireStore().removeSource((request.payload as { id: string }).id)
+        break
+      }
       case 'stats':
         value = requireStore().stats()
         break

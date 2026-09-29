@@ -26,3 +26,25 @@ export interface ArchiveImportSource {
   readonly path: string
   readonly kind: MailArchiveSourceKind
 }
+
+export interface MailArchiveAttachmentLocation {
+  readonly attachmentId: string
+  readonly sourceId: string
+  readonly sourceKind: MailArchiveSourceKind
+  readonly sourcePath: string
+  readonly sourceFingerprint: string
+  readonly itemKey: string
+  readonly attachmentIndex: number
+  readonly name: string
+  readonly mimeType: string
+  readonly sizeBytes: number
+}
+
+export interface MailArchiveAttachmentExportInput extends MailArchiveAttachmentLocation {
+  readonly destinationPath: string
+}
+
+export interface MailArchiveAttachmentExportOutput {
+  readonly temporaryPath: string
+  readonly bytesWritten: number
+}

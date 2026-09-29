@@ -8,9 +8,13 @@ import { warmFileSqlite } from '../../../infra/db/warm-file-sqlite'
 import { createMailArchiveStore } from './store'
 import { createMailArchiveService } from './service'
 import { readEmlFile } from './readers/eml'
-import { archiveMailIdentityKey } from './identity'
+import { archiveMailIdentityKey, archiveSourceId } from './identity'
 import type { MailArchiveIndexWorker, MailArchiveWorkerFactory } from './worker-contract'
-import type { NormalizedArchiveMail } from './types'
+import type {
+  MailArchiveAttachmentExportInput,
+  MailArchiveAttachmentExportOutput,
+  NormalizedArchiveMail
+} from './types'
 
 const roots: string[] = []
 const services: Array<ReturnType<typeof createMailArchiveService>> = []
@@ -30,6 +34,29 @@ function rawMail(index: number): string {
     'Content-Type: text/plain; charset=utf-8',
     '',
     `이전 작업 본문 ${index}`,
+    ''
+  ].join('\r\n')
+}
+
+function rawMailWithAttachment(): string {
+  return [
+    'From: sender@example.test',
+    'To: team@example.test',
+    'Subject: 첨부 선택 추출',
+    'Message-ID: <attachment-export@example.test>',
+    'MIME-Version: 1.0',
+    'Content-Type: multipart/mixed; boundary="archive-export"',
+    '',
+    '--archive-export',
+    'Content-Type: text/plain; charset=utf-8',
+    '',
+    '메일 본문 검색에는 첨부 내용이 없습니다.',
+    '--archive-export',
+    'Content-Type: text/plain; name="export-me.txt"',
+    'Content-Disposition: attachment; filename="export-me.txt"',
+    '',
+    'only-the-selected-file',
+    '--archive-export--',
     ''
   ].join('\r\n')
 }
@@ -80,8 +107,11 @@ async function fingerprint(path: string, signal: AbortSignal): Promise<string> {
 function testWorkerFactory(
   root: string,
   hooks: {
-    afterBatch?: (path: string) => Promise<void>
+    afterBatch?: (path: string, signal: AbortSignal) => Promise<void>
     parsed?: () => void
+    extract?: (
+      input: MailArchiveAttachmentExportInput
+    ) => Promise<MailArchiveAttachmentExportOutput>
     readPst?: (
       sourcePath: string,
       sourceId: string,
@@ -118,12 +148,21 @@ function testWorkerFactory(
       store.abortRevision(sourceId, revision, state),
     search: async (request) => store.search(request),
     get: async (request) => store.get(request.id),
+    thread: async (request) => store.thread(request),
+    attachmentLocation: async (attachmentId) => store.attachmentLocation(attachmentId),
+    sourcePathInUse: async (path) => store.sourcePathInUse(path),
+    sources: async () => store.sources(),
+    removeSource: async (sourceId) => store.removeSource(sourceId),
     stats: async () => store.stats(),
     close: () => store.close()
   }
   return {
     createIndex: () => index,
     createSource: () => ({
+      extract: async (input) => {
+        if (hooks.extract) return hooks.extract(input)
+        throw new Error('mail_attachment_export_not_configured')
+      },
       run: async (input, callbacks, signal) => {
         signal.throwIfAborted()
         const startFingerprint = await fingerprint(input.sourcePath, signal)
@@ -142,7 +181,7 @@ function testWorkerFactory(
             signal.throwIfAborted()
             await callbacks.onBatch(revision, [message])
             messages += 1
-            await hooks.afterBatch?.(input.sourcePath)
+            await hooks.afterBatch?.(input.sourcePath, signal)
           }
         }
         signal.throwIfAborted()
@@ -311,5 +350,114 @@ describe('mail archive import service', () => {
     expect(result.state).toBe('cancelled')
     expect(await service.search({ query: '본문 1', limit: 10 })).toHaveLength(0)
     expect(await service.stats()).toMatchObject({ totalMessages: 0 })
+  })
+
+  it('revokes an in-flight import before removing a source and cannot restore deleted mail', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'orca-mail-archive-remove-source-'))
+    roots.push(root)
+    const path = join(root, 'mail.eml')
+    await writeFile(path, rawMail(1))
+    const service = createMailArchiveService(root, testWorkerFactory(root))
+    services.push(service)
+    await service.import({ inputKind: 'files', paths: [path] })
+
+    await writeFile(path, rawMail(2))
+    let entered!: () => void
+    const batchEntered = new Promise<void>((resolve) => {
+      entered = resolve
+    })
+    let release!: () => void
+    const holdBatch = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const concurrentService = createMailArchiveService(
+      root,
+      testWorkerFactory(root, {
+        afterBatch: async (_sourcePath, signal) => {
+          entered()
+          await Promise.race([
+            holdBatch,
+            new Promise<void>((resolve) =>
+              signal.addEventListener('abort', () => resolve(), { once: true })
+            )
+          ])
+        }
+      })
+    )
+    services.push(concurrentService)
+
+    const importing = concurrentService.import({ inputKind: 'files', paths: [path] })
+    await batchEntered
+    const removed = await concurrentService.removeSource(archiveSourceId('eml', path))
+    release()
+    const importResult = await importing
+
+    expect(importResult.state).toBe('cancelled')
+    expect(removed).toMatchObject({
+      state: 'removed',
+      removedMessages: 1,
+      preservedMessages: 0,
+      importCancelled: true
+    })
+    expect(await concurrentService.search({ query: '본문 1', limit: 10 })).toHaveLength(0)
+    expect(await concurrentService.search({ query: '본문 2', limit: 10 })).toHaveLength(0)
+    expect(await concurrentService.sources()).toHaveLength(0)
+  })
+
+  it('exports only a picked attachment and removal waits for an in-flight export', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'orca-mail-archive-export-service-'))
+    roots.push(root)
+    const sourcePath = join(root, 'mail.eml')
+    const destinationPath = join(root, 'saved-attachment.txt')
+    await writeFile(sourcePath, rawMailWithAttachment())
+    let entered!: () => void
+    const exportEntered = new Promise<void>((resolve) => {
+      entered = resolve
+    })
+    let release!: () => void
+    const holdExport = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const service = createMailArchiveService(
+      root,
+      testWorkerFactory(root, {
+        extract: async (input) => {
+          entered()
+          await holdExport
+          const temporaryPath = join(root, '.selected.orca-part')
+          await writeFile(temporaryPath, Buffer.alloc(input.sizeBytes, 0x61))
+          return { temporaryPath, bytesWritten: input.sizeBytes }
+        }
+      })
+    )
+    services.push(service)
+    await service.import({ inputKind: 'files', paths: [sourcePath] })
+    const hit = (await service.search({ query: 'export-me.txt', limit: 10 }))[0]!
+    const message = await service.get({ id: hit.id })
+    const attachment = message!.attachments[0]!
+
+    await expect(service.exportAttachment(attachment.id, async () => sourcePath)).rejects.toThrow(
+      'mail_attachment_destination_is_source'
+    )
+
+    const exporting = service.exportAttachment(attachment.id, async () => destinationPath)
+    await exportEntered
+    let removed = false
+    const removing = service.removeSource(archiveSourceId('eml', sourcePath)).then((result) => {
+      removed = true
+      return result
+    })
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    expect(removed).toBe(false)
+
+    release()
+    await expect(exporting).resolves.toMatchObject({
+      state: 'exported',
+      name: 'export-me.txt',
+      sizeBytes: attachment.sizeBytes
+    })
+    expect(await readFile(destinationPath)).toEqual(Buffer.alloc(attachment.sizeBytes, 0x61))
+    await expect(removing).resolves.toMatchObject({ state: 'removed', removedMessages: 1 })
+    expect(await service.get({ id: hit.id })).toBeNull()
   })
 })

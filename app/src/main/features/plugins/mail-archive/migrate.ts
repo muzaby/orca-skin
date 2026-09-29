@@ -6,10 +6,12 @@ import {
 } from '../../../infra/db/migration-meta'
 import migration0001 from './migrations/0001_mail_archive.sql?raw'
 import migration0002 from './migrations/0002_source_revisions.sql?raw'
+import migration0003 from './migrations/0003_confirmed_relations.sql?raw'
 
 const MAIL_ARCHIVE_MIGRATIONS = [
   { name: '0001_mail_archive', sql: migration0001 },
-  { name: '0002_source_revisions', sql: migration0002 }
+  { name: '0002_source_revisions', sql: migration0002 },
+  { name: '0003_confirmed_relations', sql: migration0003 }
 ] as const
 
 type MailArchiveMigrationName = (typeof MAIL_ARCHIVE_MIGRATIONS)[number]['name']

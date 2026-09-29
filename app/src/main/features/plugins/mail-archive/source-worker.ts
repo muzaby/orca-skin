@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { createAcknowledgedMailBatchSender, createMailArchiveBatchBuffer } from './batch-buffer'
+import { extractMailArchiveAttachment } from './readers/attachment-extract'
 import { readEmlFile } from './readers/eml'
 import { readPstFile } from './readers/pst'
-import type { NormalizedArchiveMail } from './types'
+import type { MailArchiveAttachmentExportInput, NormalizedArchiveMail } from './types'
 import type { MailArchiveSourceInput, MailArchiveSourceDecision } from './worker-contract'
 
 const parentPort = process.parentPort
@@ -15,6 +16,11 @@ type WorkerCommand =
   | { readonly type: 'decision'; readonly action: 'skip' }
   | { readonly type: 'ack'; readonly batchId: number }
   | { readonly type: 'completeAck'; readonly ok: boolean }
+  | {
+      readonly type: 'extract'
+      readonly requestId: string
+      readonly input: MailArchiveAttachmentExportInput
+    }
   | { readonly type: 'cancel' }
 
 interface Waiter {
@@ -75,6 +81,9 @@ async function fingerprint(path: string, signal: AbortSignal): Promise<string> {
 }
 
 function safeError(error: unknown): string {
+  if (error instanceof Error && /^mail_[a-z0-9_:-]{1,160}$/i.test(error.message)) {
+    return error.message
+  }
   if (
     typeof error === 'object' &&
     error !== null &&
@@ -85,6 +94,28 @@ function safeError(error: unknown): string {
     return `mail_source_${error.code.toLowerCase()}`
   }
   return 'mail_source_parse_failed'
+}
+
+async function processExtraction(
+  command: Extract<WorkerCommand, { type: 'extract' }>
+): Promise<void> {
+  const controller = new AbortController()
+  activeController = controller
+  try {
+    const result = await extractMailArchiveAttachment(command.input, controller.signal)
+    parentPort.postMessage({ type: 'extracted', requestId: command.requestId, ...result })
+  } catch (error) {
+    if (!controller.signal.aborted) {
+      parentPort.postMessage({
+        type: 'extractError',
+        requestId: command.requestId,
+        reason: safeError(error)
+      })
+    }
+  } finally {
+    activeController = undefined
+    setImmediate(() => process.exit(0))
+  }
 }
 
 async function sendAndWait(
@@ -179,6 +210,11 @@ parentPort.on('message', (event) => {
   if (command.type === 'start') {
     if (activeController) return
     void processSource(command)
+    return
+  }
+  if (command.type === 'extract') {
+    if (activeController) return
+    void processExtraction(command)
     return
   }
   if (command.type === 'decision') settle('decision', command)

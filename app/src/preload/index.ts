@@ -23,7 +23,12 @@ import type {
   MailArchiveProgress,
   MailArchiveSearchHit,
   MailArchiveSearchRequest,
-  MailArchiveStats
+  MailArchiveStats,
+  MailArchiveSource,
+  MailArchiveSourceRemovalResult,
+  MailArchiveAttachmentExportResult,
+  MailArchiveThreadRequest,
+  MailArchiveThreadResult
 } from '../shared/mail-archive'
 import type {
   BackgroundEvent,
@@ -255,6 +260,13 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.mailArchiveSearch, request),
     get: (request: MailArchiveGetRequest): Promise<MailArchiveMessage | null> =>
       ipcRenderer.invoke(CHANNELS.mailArchiveGet, request),
+    thread: (request: MailArchiveThreadRequest): Promise<MailArchiveThreadResult> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveThread, request),
+    exportAttachment: (attachmentId: string): Promise<MailArchiveAttachmentExportResult> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveExportAttachment, { id: attachmentId }),
+    sources: (): Promise<MailArchiveSource[]> => ipcRenderer.invoke(CHANNELS.mailArchiveSources),
+    removeSource: (sourceId: string): Promise<MailArchiveSourceRemovalResult> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveRemoveSource, { id: sourceId }),
     stats: (): Promise<MailArchiveStats> => ipcRenderer.invoke(CHANNELS.mailArchiveStats),
     onProgress: (handler: (progress: MailArchiveProgress) => void): (() => void) =>
       subscribe(CHANNELS.mailArchiveProgress, handler)

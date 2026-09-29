@@ -96,7 +96,12 @@ import type {
   MailArchiveProgress,
   MailArchiveSearchHit,
   MailArchiveSearchRequest,
-  MailArchiveStats
+  MailArchiveStats,
+  MailArchiveSource,
+  MailArchiveSourceRemovalResult,
+  MailArchiveAttachmentExportResult,
+  MailArchiveThreadRequest,
+  MailArchiveThreadResult
 } from '../../../../shared/mail-archive'
 
 // renderer 의 모든 IPC 호출 진입점. window.orca.* 의 얇은 typed 패스-스루로,
@@ -203,6 +208,13 @@ export const mailArchiveApi = {
     window.orca.mailArchive.search(request),
   get: (request: MailArchiveGetRequest): Promise<MailArchiveMessage | null> =>
     window.orca.mailArchive.get(request),
+  thread: (request: MailArchiveThreadRequest): Promise<MailArchiveThreadResult> =>
+    window.orca.mailArchive.thread(request),
+  exportAttachment: (attachmentId: string): Promise<MailArchiveAttachmentExportResult> =>
+    window.orca.mailArchive.exportAttachment(attachmentId),
+  sources: (): Promise<MailArchiveSource[]> => window.orca.mailArchive.sources(),
+  removeSource: (sourceId: string): Promise<MailArchiveSourceRemovalResult> =>
+    window.orca.mailArchive.removeSource(sourceId),
   stats: (): Promise<MailArchiveStats> => window.orca.mailArchive.stats(),
   onProgress: (handler: (progress: MailArchiveProgress) => void): (() => void) =>
     window.orca.mailArchive.onProgress(handler)

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { basename } from 'node:path'
+import { realpath, rename, unlink } from 'node:fs/promises'
+import { basename, dirname, isAbsolute, resolve } from 'node:path'
 import type {
   MailArchiveGetRequest,
   MailArchiveImportRequest,
@@ -8,11 +9,23 @@ import type {
   MailArchiveSearchRequest,
   MailArchiveSearchHit,
   MailArchiveMessage,
+  MailArchiveAttachmentExportResult,
+  MailArchiveSource,
+  MailArchiveSourceRemovalResult,
+  MailArchiveThreadRequest,
+  MailArchiveThreadResult,
   MailArchiveStats
 } from '../../../../shared/mail-archive'
 import { resolveImportSources } from './sources'
 import { archiveSourceId } from './identity'
 import type { MailArchiveIndexWorker, MailArchiveWorkerFactory } from './worker-contract'
+import type { MailArchiveAttachmentExportInput } from './types'
+
+interface AttachmentExportChoice {
+  readonly name: string
+  readonly mimeType: string
+  readonly sizeBytes: number
+}
 
 export interface MailArchiveService {
   import(
@@ -22,6 +35,13 @@ export interface MailArchiveService {
   cancel(jobId: string): boolean
   search(request: MailArchiveSearchRequest): Promise<MailArchiveSearchHit[]>
   get(request: MailArchiveGetRequest): Promise<MailArchiveMessage | null>
+  thread(request: MailArchiveThreadRequest): Promise<MailArchiveThreadResult>
+  exportAttachment(
+    attachmentId: string,
+    chooseDestination: (attachment: AttachmentExportChoice) => Promise<string | null>
+  ): Promise<MailArchiveAttachmentExportResult>
+  sources(): Promise<MailArchiveSource[]>
+  removeSource(sourceId: string): Promise<MailArchiveSourceRemovalResult>
   stats(): Promise<MailArchiveStats>
   close(): void
 }
@@ -32,6 +52,8 @@ interface ImportJob {
   epoch: string
   revokePromise?: Promise<void>
   finalizing: boolean
+  readonly settled: Promise<void>
+  readonly settle: () => void
 }
 
 function errorReason(error: unknown): string {
@@ -50,6 +72,16 @@ function cancelledResult(
   return { jobId, state: 'cancelled', files, messages, inserted, skipped, failures }
 }
 
+async function canonicalDestination(path: string): Promise<string> {
+  const absolute = resolve(path)
+  try {
+    return await realpath(absolute)
+  } catch {
+    const parent = await realpath(dirname(absolute)).catch(() => dirname(absolute))
+    return resolve(parent, basename(absolute))
+  }
+}
+
 export function createMailArchiveService(
   rootDir: string,
   workers: MailArchiveWorkerFactory
@@ -58,16 +90,39 @@ export function createMailArchiveService(
   const sourceWorker = workers.createSource()
   let activeJob: ImportJob | null = null
   let closed = false
+  let sourceRemovalsPending = 0
+  let sourceRemovalQueue = Promise.resolve()
+  let activeAttachmentExports = 0
+  const attachmentExportsIdle = new Set<() => void>()
+
+  const waitForAttachmentExports = (): Promise<void> => {
+    if (activeAttachmentExports === 0) return Promise.resolve()
+    return new Promise((resolveIdle) => attachmentExportsIdle.add(resolveIdle))
+  }
+
+  const releaseAttachmentExport = (): void => {
+    activeAttachmentExports -= 1
+    if (activeAttachmentExports !== 0) return
+    for (const resolveIdle of attachmentExportsIdle) resolveIdle()
+    attachmentExportsIdle.clear()
+  }
 
   return {
     import: async (request, onProgress) => {
       if (closed) throw new Error('mail_archive_service_closed')
+      if (sourceRemovalsPending > 0) throw new Error('mail_source_remove_in_progress')
       if (activeJob) throw new Error('mail_import_already_running')
+      let settle!: () => void
+      const settled = new Promise<void>((resolve) => {
+        settle = resolve
+      })
       const job: ImportJob = {
         id: randomUUID(),
         controller: new AbortController(),
         epoch: randomUUID(),
-        finalizing: false
+        finalizing: false,
+        settled,
+        settle
       }
       activeJob = job
       const importEpoch = job.epoch
@@ -257,6 +312,7 @@ export function createMailArchiveService(
         }
         await job.revokePromise
         if (activeJob === job) activeJob = null
+        job.settle()
       }
     },
     cancel: (jobId) => {
@@ -269,6 +325,84 @@ export function createMailArchiveService(
     },
     search: (request) => index.search(request),
     get: (request) => index.get(request),
+    thread: (request) => index.thread(request),
+    exportAttachment: async (attachmentId, chooseDestination) => {
+      if (closed) throw new Error('mail_archive_service_closed')
+      if (sourceRemovalsPending > 0) throw new Error('mail_archive_source_removing')
+      activeAttachmentExports += 1
+      let temporaryPath: string | undefined
+      try {
+        const location = await index.attachmentLocation(attachmentId)
+        if (!location) return { state: 'not-found' }
+        const destinationPath = await chooseDestination({
+          name: location.name,
+          mimeType: location.mimeType,
+          sizeBytes: location.sizeBytes
+        })
+        if (!destinationPath) return { state: 'cancelled' }
+        if (!isAbsolute(destinationPath)) throw new Error('mail_attachment_destination_invalid')
+        const targetPath = resolve(destinationPath)
+        if (await index.sourcePathInUse(await canonicalDestination(targetPath))) {
+          throw new Error('mail_attachment_destination_is_source')
+        }
+        const input: MailArchiveAttachmentExportInput = { ...location, destinationPath: targetPath }
+        const extracted = await sourceWorker.extract(input)
+        temporaryPath = extracted.temporaryPath
+        if (
+          dirname(resolve(temporaryPath)) !== dirname(targetPath) ||
+          !basename(temporaryPath).endsWith('.orca-part') ||
+          extracted.bytesWritten !== location.sizeBytes
+        ) {
+          throw new Error('mail_attachment_export_invalid')
+        }
+        const current = await index.attachmentLocation(attachmentId)
+        if (
+          !current ||
+          current.sourceId !== location.sourceId ||
+          current.sourceFingerprint !== location.sourceFingerprint ||
+          current.itemKey !== location.itemKey
+        ) {
+          throw new Error('mail_attachment_source_changed')
+        }
+        await rename(temporaryPath, targetPath)
+        temporaryPath = undefined
+        return { state: 'exported', name: location.name, sizeBytes: extracted.bytesWritten }
+      } finally {
+        if (temporaryPath) await unlink(temporaryPath).catch(() => undefined)
+        releaseAttachmentExport()
+      }
+    },
+    sources: () => index.sources(),
+    removeSource: async (sourceId) => {
+      sourceRemovalsPending += 1
+      let release!: () => void
+      const previous = sourceRemovalQueue
+      sourceRemovalQueue = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      await previous
+      try {
+        const sources = await index.sources()
+        if (!sources.some((source) => source.id === sourceId)) return { state: 'not-found' }
+
+        const job = activeJob
+        const importCancelled = job !== null
+        if (job) {
+          const epoch = job.epoch
+          job.epoch = ''
+          job.controller.abort()
+          if (epoch) job.revokePromise = index.revokeEpoch(epoch).catch(() => undefined)
+          await job.settled
+        }
+
+        await waitForAttachmentExports()
+        const removed = await index.removeSource(sourceId)
+        return removed ? { state: 'removed', ...removed, importCancelled } : { state: 'not-found' }
+      } finally {
+        sourceRemovalsPending -= 1
+        release()
+      }
+    },
     stats: () => index.stats(),
     close: () => {
       if (closed) return

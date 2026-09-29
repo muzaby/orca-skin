@@ -3,10 +3,19 @@ import type {
   MailArchiveMessage,
   MailArchiveSearchHit,
   MailArchiveSearchRequest,
+  MailArchiveSource,
+  MailArchiveSourceDeletion,
   MailArchiveSourceKind,
+  MailArchiveThreadRequest,
+  MailArchiveThreadResult,
   MailArchiveStats
 } from '../../../../shared/mail-archive'
 import type { NormalizedArchiveMail } from './types'
+import type {
+  MailArchiveAttachmentExportInput,
+  MailArchiveAttachmentExportOutput,
+  MailArchiveAttachmentLocation
+} from './types'
 import type { MailArchiveBatchCounts, MailArchiveRevisionStart } from './store'
 
 export interface MailArchiveRevisionInput {
@@ -41,6 +50,11 @@ export interface MailArchiveIndexWorker {
   abortRevision(sourceId: string, revision: number, state?: 'interrupted' | 'failed'): Promise<void>
   search(request: MailArchiveSearchRequest): Promise<MailArchiveSearchHit[]>
   get(request: MailArchiveGetRequest): Promise<MailArchiveMessage | null>
+  thread(request: MailArchiveThreadRequest): Promise<MailArchiveThreadResult>
+  attachmentLocation(attachmentId: string): Promise<MailArchiveAttachmentLocation | null>
+  sourcePathInUse(path: string): Promise<boolean>
+  sources(): Promise<MailArchiveSource[]>
+  removeSource(sourceId: string): Promise<MailArchiveSourceDeletion | null>
   stats(): Promise<MailArchiveStats>
   close(): void
 }
@@ -74,6 +88,7 @@ export interface MailArchiveSourceWorker {
     callbacks: MailArchiveSourceCallbacks,
     signal: AbortSignal
   ): Promise<void>
+  extract(input: MailArchiveAttachmentExportInput): Promise<MailArchiveAttachmentExportOutput>
 }
 
 export interface MailArchiveWorkerFactory {

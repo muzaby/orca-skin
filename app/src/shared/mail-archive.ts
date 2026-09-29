@@ -83,12 +83,59 @@ export interface MailArchiveGetRequest {
   readonly id: string
 }
 
+export interface MailArchiveThreadRequest extends MailArchiveGetRequest {
+  readonly limit?: number
+}
+
+export interface MailArchiveThreadRelation {
+  readonly childMailId: string
+  readonly parentMailId: string
+  readonly kind: 'reply' | 'reference'
+}
+
+export interface MailArchiveThreadResult {
+  readonly mails: readonly MailArchiveSearchHit[]
+  readonly relations: readonly MailArchiveThreadRelation[]
+  readonly truncated: boolean
+}
+
+export type MailArchiveAttachmentExportResult =
+  | { readonly state: 'exported'; readonly name: string; readonly sizeBytes: number }
+  | { readonly state: 'cancelled' }
+  | { readonly state: 'not-found' }
+
 export interface MailArchiveStats {
   readonly totalMessages: number
   readonly emlMessages: number
   readonly pstMessages: number
   readonly lastImportedAt: number | null
 }
+
+export interface MailArchiveSource {
+  readonly id: string
+  readonly kind: MailArchiveSourceKind
+  readonly name: string
+  readonly messageCount: number
+  readonly sharedMessageCount: number
+  readonly lastImportedAt: number | null
+}
+
+export interface MailArchiveSourceDeletion {
+  readonly sourceName: string
+  readonly removedMessages: number
+  readonly preservedMessages: number
+}
+
+export type MailArchiveSourceRemovalResult =
+  | {
+      readonly state: 'removed'
+      readonly sourceName: string
+      readonly removedMessages: number
+      readonly preservedMessages: number
+      readonly importCancelled: boolean
+    }
+  | { readonly state: 'cancelled' }
+  | { readonly state: 'not-found' }
 
 const absolutePath = z
   .string()
@@ -116,4 +163,17 @@ export const MailArchiveGetRequestSchema = z
   .object({ id: z.string().trim().min(1).max(128) })
   .strict()
 
+export const MailArchiveThreadRequestSchema = z
+  .object({
+    id: z.string().trim().min(1).max(128),
+    limit: z.number().int().min(1).max(100).optional()
+  })
+  .strict()
+
 export const MailArchiveCancelRequestSchema = MailArchiveGetRequestSchema
+
+export const MailArchiveSourceRequestSchema = z
+  .object({ id: z.string().trim().min(1).max(128) })
+  .strict()
+
+export const MailArchiveAttachmentRequestSchema = MailArchiveSourceRequestSchema

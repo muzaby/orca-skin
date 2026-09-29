@@ -113,7 +113,8 @@ test('findMigrationListCopies 는 정본과 골든 목록을 사본으로 세지
         path: 'src/main/features/plugins/mail-archive/migrate.ts',
         source: [
           `import a from './migrations/0001_mail_archive.sql?raw'`,
-          `import b from './migrations/0002_source_revisions.sql?raw'`
+          `import b from './migrations/0002_source_revisions.sql?raw'`,
+          `import c from './migrations/0003_confirmed_relations.sql?raw'`
         ].join('\n')
       }
     ],

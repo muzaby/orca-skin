@@ -8,6 +8,7 @@ import type {
   MailArchiveProgress,
   MailArchiveSearchHit,
   MailArchiveSourceKind,
+  MailArchiveSource,
   MailArchiveStats
 } from '../../../../shared/mail-archive'
 
@@ -34,15 +35,25 @@ export function MailArchiveView(): React.JSX.Element {
   }>({ query: '', sourceKind: 'all' })
   const [results, setResults] = useState<MailArchiveSearchHit[]>([])
   const [selected, setSelected] = useState<MailArchiveMessage | null>(null)
+  const [threadMails, setThreadMails] = useState<MailArchiveSearchHit[]>([])
+  const [threadTruncated, setThreadTruncated] = useState(false)
+  const [sources, setSources] = useState<MailArchiveSource[]>([])
   const [stats, setStats] = useState<MailArchiveStats | null>(null)
   const [progress, setProgress] = useState<MailArchiveProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [searching, setSearching] = useState(false)
+  const [removingSourceId, setRemovingSourceId] = useState<string | null>(null)
+  const [exportingAttachmentId, setExportingAttachmentId] = useState<string | null>(null)
   const searchSequence = useRef(0)
+  const selectedSequence = useRef(0)
 
   const loadStats = async (): Promise<void> => {
     setStats(await mailArchiveApi.stats())
+  }
+
+  const loadSources = async (): Promise<void> => {
+    setSources(await mailArchiveApi.sources())
   }
 
   const search = async (nextQuery = query, nextSource = sourceKind): Promise<void> => {
@@ -56,9 +67,12 @@ export function MailArchiveView(): React.JSX.Element {
       })
       if (sequence !== searchSequence.current) return
       setResults(found)
-      setSelected((current) =>
-        current && found.some((result) => result.id === current.id) ? current : null
-      )
+      if (selected && !found.some((result) => result.id === selected.id)) {
+        selectedSequence.current += 1
+        setSelected(null)
+        setThreadMails([])
+        setThreadTruncated(false)
+      }
       setAppliedSearch({ query: nextQuery, sourceKind: nextSource })
       setError(null)
     } finally {
@@ -70,6 +84,7 @@ export function MailArchiveView(): React.JSX.Element {
     const unsubscribe = mailArchiveApi.onProgress(setProgress)
     const timer = window.setTimeout(() => {
       void loadStats().catch((reason: unknown) => setError(String(reason)))
+      void loadSources().catch((reason: unknown) => setError(String(reason)))
       void search('', 'all').catch((reason: unknown) => setError(String(reason)))
     }, 0)
     return () => {
@@ -81,6 +96,7 @@ export function MailArchiveView(): React.JSX.Element {
   }, [])
 
   const busy = progress?.state === 'running'
+  const sourceMaintenanceBusy = removingSourceId !== null
   const searchConditionsChanged =
     query !== appliedSearch.query || sourceKind !== appliedSearch.sourceKind
   const emptyLabel = appliedSearch.query.trim()
@@ -101,6 +117,7 @@ export function MailArchiveView(): React.JSX.Element {
       const result = await mailArchiveApi.import(request)
       setProgress(null)
       await loadStats()
+      await loadSources()
       await search()
       setNotice(importSummary(result))
     } catch (reason) {
@@ -121,8 +138,78 @@ export function MailArchiveView(): React.JSX.Element {
   }
 
   const openResult = async (id: string): Promise<void> => {
-    const message = await mailArchiveApi.get({ id })
+    const sequence = ++selectedSequence.current
+    const [message, thread] = await Promise.all([
+      mailArchiveApi.get({ id }),
+      mailArchiveApi.thread({ id, limit: 50 })
+    ])
+    if (sequence !== selectedSequence.current) return
     setSelected(message)
+    setThreadMails([...thread.mails])
+    setThreadTruncated(thread.truncated)
+  }
+
+  const closeSelected = (): void => {
+    selectedSequence.current += 1
+    setSelected(null)
+    setThreadMails([])
+    setThreadTruncated(false)
+  }
+
+  const exportAttachment = async (attachmentId: string): Promise<void> => {
+    setExportingAttachmentId(attachmentId)
+    setError(null)
+    setNotice(null)
+    try {
+      const result = await mailArchiveApi.exportAttachment(attachmentId)
+      if (result.state === 'cancelled') return
+      if (result.state === 'not-found') {
+        setError('이 첨부는 현재 검색 가능한 자료원에서 찾을 수 없습니다. 검색을 새로 고쳐 주세요.')
+        return
+      }
+      setNotice(
+        `첨부파일 ${result.name}을(를) 저장했습니다. (${result.sizeBytes.toLocaleString()} bytes)`
+      )
+    } catch (reason) {
+      const code = reason instanceof Error ? reason.message : ''
+      setError(
+        code === 'mail_attachment_destination_is_source'
+          ? '원본 EML/PST 파일에는 저장할 수 없습니다. 다른 위치를 선택해 주세요.'
+          : code === 'mail_attachment_source_changed'
+            ? '원본 파일이 보관 당시와 달라 첨부를 저장하지 않았습니다. 자료원을 다시 가져온 뒤 시도해 주세요.'
+            : '첨부파일을 저장하지 못했습니다. 원본 파일을 확인한 뒤 다시 시도해 주세요.'
+      )
+    } finally {
+      setExportingAttachmentId(null)
+    }
+  }
+
+  const removeSource = async (sourceId: string): Promise<void> => {
+    selectedSequence.current += 1
+    setRemovingSourceId(sourceId)
+    setError(null)
+    setNotice(null)
+    try {
+      const result = await mailArchiveApi.removeSource(sourceId)
+      if (result.state === 'cancelled') return
+      setSelected(null)
+      setThreadMails([])
+      setThreadTruncated(false)
+      await Promise.all([loadStats(), loadSources()])
+      await search()
+      if (result.state === 'not-found') {
+        setNotice('이미 제거된 자료원입니다. 목록을 새로 고쳤습니다.')
+        return
+      }
+      const interrupted = result.importCancelled ? ' 진행 중이던 가져오기는 취소했습니다.' : ''
+      setNotice(
+        `${result.sourceName}: 메일 ${result.removedMessages}개를 제거하고 공유 메일 ${result.preservedMessages}개를 유지했습니다. 원본 파일은 그대로입니다.${interrupted}`
+      )
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason))
+    } finally {
+      setRemovingSourceId(null)
+    }
   }
 
   return (
@@ -144,7 +231,7 @@ export function MailArchiveView(): React.JSX.Element {
           <button
             type="button"
             onClick={() => void pickFiles()}
-            disabled={busy}
+            disabled={busy || sourceMaintenanceBusy}
             className="rounded-r4 bg-fill-uncontained-active px-3 py-2 text-[12.5px] font-medium text-ink hover:bg-fill-uncontained-hover disabled:opacity-50"
           >
             파일 추가
@@ -152,7 +239,7 @@ export function MailArchiveView(): React.JSX.Element {
           <button
             type="button"
             onClick={() => void pickFolder()}
-            disabled={busy}
+            disabled={busy || sourceMaintenanceBusy}
             className="rounded-r4 border border-border bg-panel px-3 py-2 text-[12.5px] font-medium text-ink hover:bg-fill-uncontained-hover disabled:opacity-50"
           >
             EML 폴더 배치
@@ -176,6 +263,43 @@ export function MailArchiveView(): React.JSX.Element {
         <span>PST {stats?.pstMessages ?? 0}개</span>
         {progressLabel && <span className="text-ink">가져오는 중: {progressLabel}</span>}
       </div>
+
+      {sources.length > 0 && (
+        <details className="mb-4 rounded-r5 border border-border bg-panel px-4 py-3 text-[12px] text-ink3">
+          <summary className="cursor-pointer font-medium text-ink">
+            자료원 관리 · {sources.length}개
+          </summary>
+          <ul className="mt-3 divide-y divide-border">
+            {sources.map((source) => (
+              <li
+                key={source.id}
+                className="flex flex-wrap items-center justify-between gap-2 py-2 first:pt-0 last:pb-0"
+              >
+                <div className="min-w-0">
+                  <div className="truncate text-ink">
+                    {source.kind.toUpperCase()} · {source.name} · {source.id.slice(0, 8)}
+                  </div>
+                  <div className="mt-0.5">
+                    {source.messageCount}개 검색 가능
+                    {source.sharedMessageCount > 0
+                      ? ` · 다른 자료원과 ${source.sharedMessageCount}개 공유`
+                      : ''}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  aria-label={`${source.name} 자료원 제거`}
+                  disabled={removingSourceId !== null || exportingAttachmentId !== null}
+                  onClick={() => void removeSource(source.id)}
+                  className="rounded-r4 border border-border px-2.5 py-1.5 text-[11.5px] text-ink3 hover:bg-fill-uncontained-hover hover:text-ink disabled:opacity-50"
+                >
+                  {removingSourceId === source.id ? '제거 중…' : '자료원 제거'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       {error && (
         <div className="mb-4 rounded-r4 border border-red-300/40 bg-red-50/40 px-3 py-2 text-[12px] text-red-700">
@@ -280,7 +404,7 @@ export function MailArchiveView(): React.JSX.Element {
             <article className="px-5 py-4">
               <button
                 type="button"
-                onClick={() => setSelected(null)}
+                onClick={closeSelected}
                 className="mb-3 text-[12px] text-ink3 hover:text-ink lg:hidden"
               >
                 ← 검색 결과
@@ -303,6 +427,45 @@ export function MailArchiveView(): React.JSX.Element {
                   </dd>
                 </dl>
               </div>
+              {threadMails.length > 1 && (
+                <section
+                  aria-label="확인된 대화"
+                  className="mb-5 rounded-r4 border border-border bg-bg px-3 py-2.5"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-[12px] font-medium text-ink">
+                      확인된 대화 · {threadMails.length}
+                      {threadTruncated ? '+' : ''}개
+                    </h3>
+                    {threadTruncated && (
+                      <span className="text-[10.5px] text-ink3">최대 50개까지 표시</span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[10.5px] leading-relaxed text-ink3">
+                    메일의 답장·참조 헤더로 확인된 연결입니다. 제목만 비슷한 메일은 합치지
+                    않았습니다.
+                  </p>
+                  <ol className="mt-2 max-h-48 divide-y divide-border overflow-y-auto">
+                    {threadMails.map((message) => (
+                      <li key={message.id}>
+                        <button
+                          type="button"
+                          aria-current={message.id === selected.id ? 'true' : undefined}
+                          onClick={() => void openResult(message.id)}
+                          className={`block w-full py-2 text-left hover:text-ink ${message.id === selected.id ? 'text-ink' : 'text-ink3'}`}
+                        >
+                          <span className="block truncate text-[11.5px]">
+                            {message.subject || '(제목 없음)'}
+                          </span>
+                          <span className="mt-0.5 block truncate text-[10.5px]">
+                            {formatDate(message.date, locale)} · {message.from || '발신자 없음'}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              )}
               <pre className="whitespace-pre-wrap break-words font-sans text-[12.5px] leading-[1.7] text-ink2">
                 {selected.bodyText || '(본문 없음)'}
               </pre>
@@ -310,8 +473,22 @@ export function MailArchiveView(): React.JSX.Element {
                 <div className="mt-5 border-t border-border pt-4 text-[12px] text-ink3">
                   <div className="mb-2 font-medium text-ink">첨부파일 이름</div>
                   {selected.attachments.map((attachment) => (
-                    <div key={attachment.id}>
-                      {attachment.name} · {attachment.sizeBytes.toLocaleString()} bytes
+                    <div
+                      key={attachment.id}
+                      className="flex flex-wrap items-center justify-between gap-2 py-1"
+                    >
+                      <span className="min-w-0 truncate">
+                        {attachment.name} · {attachment.sizeBytes.toLocaleString()} bytes
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`${attachment.name} 첨부파일 저장`}
+                        disabled={busy || sourceMaintenanceBusy || exportingAttachmentId !== null}
+                        onClick={() => void exportAttachment(attachment.id)}
+                        className="shrink-0 rounded-r4 border border-border px-2 py-1 text-[11px] text-ink3 hover:bg-fill-uncontained-hover hover:text-ink disabled:opacity-50"
+                      >
+                        {exportingAttachmentId === attachment.id ? '저장 중…' : '파일로 저장'}
+                      </button>
                     </div>
                   ))}
                 </div>

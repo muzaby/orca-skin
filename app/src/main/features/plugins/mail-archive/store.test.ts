@@ -189,8 +189,186 @@ describe('mail archive store', () => {
       messageId: '<one@example.test>',
       attachments: [{ name: 'migration-plan.xlsx' }]
     })
+    expect(store.attachmentLocation(stored!.attachments[0]!.id)).toMatchObject({
+      sourceId,
+      sourceKind: 'pst',
+      sourcePath,
+      sourceFingerprint: 'eml-attachment',
+      itemKey: 'item-1',
+      attachmentIndex: 0,
+      name: 'migration-plan.xlsx'
+    })
+    expect(store.sourcePathInUse(sourcePath)).toBe(true)
     expect(stored).not.toHaveProperty('sourcePath')
     expect(stored).not.toHaveProperty('sourceFingerprint')
+  })
+
+  it('removes a source atomically, preserves shared mail, and never exposes source paths', async () => {
+    const store = await fixture()
+    const secondSourcePath = 'C:/archive/backup.pst'
+    const secondSourceId = archiveSourceId('pst', secondSourcePath)
+    const shared = mail()
+    const privateMail = mail({
+      itemKey: 'item-private',
+      messageId: '<private@example.test>',
+      subject: '개인 자료원 전용 메일'
+    })
+    const secondSourceShared = mail({
+      sourceId: secondSourceId,
+      sourcePath: secondSourcePath,
+      sourceFingerprint: 'backup-revision',
+      itemKey: 'backup-item'
+    })
+
+    await addRevision(store, 'primary-revision', [shared, privateMail])
+    const secondRevision = store.beginRevision({
+      sourceId: secondSourceId,
+      sourceKind: 'pst',
+      sourcePath: secondSourcePath,
+      fingerprint: 'backup-revision'
+    })
+    store.upsertBatch({
+      sourceId: secondSourceId,
+      revision: secondRevision.revision,
+      mails: [secondSourceShared]
+    })
+    store.verifyRevision(secondSourceId, secondRevision.revision, 'backup-revision')
+
+    expect(store.sources()).toEqual([
+      expect.objectContaining({
+        id: sourceId,
+        kind: 'pst',
+        name: 'mail.pst',
+        messageCount: 2,
+        sharedMessageCount: 1
+      }),
+      expect.objectContaining({
+        id: secondSourceId,
+        kind: 'pst',
+        name: 'backup.pst',
+        messageCount: 1,
+        sharedMessageCount: 1
+      })
+    ])
+    expect(JSON.stringify(store.sources())).not.toContain('C:/archive')
+
+    const removed = store.removeSource(sourceId)
+    expect(removed).toMatchObject({
+      sourceName: 'mail.pst',
+      removedMessages: 1,
+      preservedMessages: 1
+    })
+    expect(store.sources()).toHaveLength(1)
+    expect(store.search({ query: '서버 이전', limit: 10 })).toHaveLength(1)
+    expect(store.search({ query: '개인 자료원 전용', limit: 10 })).toHaveLength(0)
+    expect(store.get(store.search({ query: '서버 이전', limit: 10 })[0]!.id)).toMatchObject({
+      sourceName: 'backup.pst'
+    })
+    expect(store.removeSource(sourceId)).toBeNull()
+  })
+
+  it('resolves reverse-imported Reply/References and leaves same-subject mail separate', async () => {
+    const store = await fixture()
+    const childPath = 'C:/archive/replies.pst'
+    const childSourceId = archiveSourceId('pst', childPath)
+    const parentPath = 'C:/archive/parents.pst'
+    const parentSourceId = archiveSourceId('pst', parentPath)
+    const child = mail({
+      sourceId: childSourceId,
+      sourcePath: childPath,
+      sourceFingerprint: 'child-revision',
+      itemKey: 'child',
+      sentAt: 3,
+      messageId: '<child@example.test>',
+      inReplyTo: '<parent@example.test>',
+      references: '<root@example.test> <parent@example.test>',
+      subject: '같은 제목',
+      bodyText: 'reply-marker'
+    })
+    const childRevision = store.beginRevision({
+      sourceId: childSourceId,
+      sourceKind: 'pst',
+      sourcePath: childPath,
+      fingerprint: 'child-revision'
+    })
+    store.upsertBatch({
+      sourceId: childSourceId,
+      revision: childRevision.revision,
+      mails: [child]
+    })
+    store.verifyRevision(childSourceId, childRevision.revision, 'child-revision')
+    const childId = store.search({ query: 'reply-marker', limit: 10 })[0]!.id
+    expect(store.thread({ id: childId })).toMatchObject({
+      mails: [expect.objectContaining({ id: childId })],
+      relations: [],
+      truncated: false
+    })
+
+    const root = mail({
+      sourceId: parentSourceId,
+      sourcePath: parentPath,
+      sourceFingerprint: 'parent-revision',
+      itemKey: 'root',
+      sentAt: 1,
+      messageId: '<root@example.test>',
+      subject: '같은 제목',
+      bodyText: 'root-marker'
+    })
+    const parent = mail({
+      sourceId: parentSourceId,
+      sourcePath: parentPath,
+      sourceFingerprint: 'parent-revision',
+      itemKey: 'parent',
+      sentAt: 2,
+      messageId: '<parent@example.test>',
+      inReplyTo: '<root@example.test>',
+      subject: '같은 제목',
+      bodyText: 'parent-marker'
+    })
+    const unrelated = mail({
+      sourceId: parentSourceId,
+      sourcePath: parentPath,
+      sourceFingerprint: 'parent-revision',
+      itemKey: 'unrelated',
+      sentAt: 4,
+      messageId: '<unrelated@example.test>',
+      subject: '같은 제목',
+      bodyText: 'unrelated-marker'
+    })
+    const parentRevision = store.beginRevision({
+      sourceId: parentSourceId,
+      sourceKind: 'pst',
+      sourcePath: parentPath,
+      fingerprint: 'parent-revision'
+    })
+    store.upsertBatch({
+      sourceId: parentSourceId,
+      revision: parentRevision.revision,
+      mails: [root, parent, unrelated]
+    })
+    store.verifyRevision(parentSourceId, parentRevision.revision, 'parent-revision')
+
+    const thread = store.thread({ id: childId })
+    expect(thread.mails.map((entry) => entry.id)).toHaveLength(3)
+    expect(thread.mails.map((entry) => entry.subject)).toEqual([
+      '같은 제목',
+      '같은 제목',
+      '같은 제목'
+    ])
+    expect(thread.mails.some((entry) => entry.snippet.includes('unrelated-marker'))).toBe(false)
+    expect(thread.relations).toHaveLength(4)
+    expect(thread.relations).toContainEqual({
+      childMailId: childId,
+      parentMailId: store.search({ query: 'parent-marker', limit: 10 })[0]!.id,
+      kind: 'reply'
+    })
+
+    store.removeSource(parentSourceId)
+    expect(store.thread({ id: childId })).toMatchObject({
+      mails: [expect.objectContaining({ id: childId })],
+      relations: [],
+      truncated: false
+    })
   })
 
   it('backfills duplicate legacy rows into one mail identity and activates the latest PST snapshot', async () => {

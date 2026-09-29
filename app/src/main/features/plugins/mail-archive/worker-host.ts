@@ -1,4 +1,5 @@
 import { utilityProcess, type UtilityProcess } from 'electron'
+import { randomUUID } from 'node:crypto'
 import indexWorkerPath from './index-worker?modulePath'
 import sourceWorkerPath from './source-worker?modulePath'
 import type {
@@ -8,6 +9,7 @@ import type {
   MailArchiveSourceWorker,
   MailArchiveWorkerFactory
 } from './worker-contract'
+import type { MailArchiveAttachmentExportInput, MailArchiveAttachmentExportOutput } from './types'
 import type { MailArchiveStore } from './store'
 
 interface RpcResponse {
@@ -134,6 +136,38 @@ class IndexWorkerClient implements MailArchiveIndexWorker {
     return this.request<Awaited<ReturnType<MailArchiveStore['get']>>>('get', request)
   }
 
+  thread(
+    request: Parameters<MailArchiveStore['thread']>[0]
+  ): ReturnType<MailArchiveIndexWorker['thread']> {
+    return this.request<Awaited<ReturnType<MailArchiveStore['thread']>>>('thread', request)
+  }
+
+  attachmentLocation(
+    attachmentId: string
+  ): ReturnType<MailArchiveIndexWorker['attachmentLocation']> {
+    return this.request<Awaited<ReturnType<MailArchiveStore['attachmentLocation']>>>(
+      'attachmentLocation',
+      { id: attachmentId }
+    )
+  }
+
+  sourcePathInUse(path: string): ReturnType<MailArchiveIndexWorker['sourcePathInUse']> {
+    return this.request<Awaited<ReturnType<MailArchiveStore['sourcePathInUse']>>>(
+      'sourcePathInUse',
+      { path }
+    )
+  }
+
+  sources(): ReturnType<MailArchiveIndexWorker['sources']> {
+    return this.request<Awaited<ReturnType<MailArchiveStore['sources']>>>('sources')
+  }
+
+  removeSource(sourceId: string): ReturnType<MailArchiveIndexWorker['removeSource']> {
+    return this.request<Awaited<ReturnType<MailArchiveStore['removeSource']>>>('removeSource', {
+      id: sourceId
+    })
+  }
+
   stats(): ReturnType<MailArchiveIndexWorker['stats']> {
     return this.request<Awaited<ReturnType<MailArchiveStore['stats']>>>('stats')
   }
@@ -244,6 +278,54 @@ class SourceWorkerClient implements MailArchiveSourceWorker {
       })
       signal.addEventListener('abort', onAbort, { once: true })
       child.postMessage({ type: 'start', ...input })
+    })
+  }
+
+  extract(input: MailArchiveAttachmentExportInput): Promise<MailArchiveAttachmentExportOutput> {
+    const child = this.fork(sourceWorkerPath, 'Orca Mail Archive Attachment Export')
+    const requestId = randomUUID()
+    return new Promise((resolve, reject) => {
+      let settled = false
+      const finish = (error?: Error, result?: MailArchiveAttachmentExportOutput): void => {
+        if (settled) return
+        settled = true
+        if (error) reject(error)
+        else if (result) resolve(result)
+        else reject(new Error('mail_attachment_export_failed'))
+      }
+      child.on('message', (raw) => {
+        if (!isRecord(raw) || raw.requestId !== requestId) return
+        if (raw.type === 'extracted') {
+          if (
+            typeof raw.temporaryPath !== 'string' ||
+            typeof raw.bytesWritten !== 'number' ||
+            !Number.isSafeInteger(raw.bytesWritten) ||
+            raw.bytesWritten < 0
+          ) {
+            child.kill()
+            finish(new Error('mail_attachment_export_failed'))
+            return
+          }
+          finish(undefined, {
+            temporaryPath: raw.temporaryPath,
+            bytesWritten: raw.bytesWritten
+          })
+          return
+        }
+        if (raw.type === 'extractError') {
+          child.kill()
+          finish(workerError(raw, 'mail_attachment_export_failed'))
+        }
+      })
+      child.on('exit', (code) => {
+        if (!settled)
+          finish(
+            new Error(
+              code === 0 ? 'mail_attachment_worker_exited_early' : 'mail_attachment_worker_failed'
+            )
+          )
+      })
+      child.postMessage({ type: 'extract', requestId, input })
     })
   }
 }
