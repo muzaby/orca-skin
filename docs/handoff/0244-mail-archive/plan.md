@@ -13,9 +13,9 @@
 | 일자 | 2026-09-29 |
 | 매핑 | PR 브랜치 `codex-0244-mail-archive-plan` → `main` |
 | 조사 기준 | `f2f60ac338f2847f81a6cbc426f0728b7eb8d98e` (`git cat-file -t` → commit 확인) |
-| 상태 | **DRAFT — 사용자가 경량 기준을 선택, D-014~D-016 실증·결정 및 V 재대조 후 구현** |
+| 상태 | **READY — S1 1차 구현(PST·EML 검색/EML 배치), S2 임베딩·RAG는 후속** |
 | V mode / 기준 V | `Delta V` / 독립안 `V1@3f9558d9ec7fca52bc7c55533031051ba5d5b96a` |
-| 이번 V revision / 유효 V | `ΔV1` / `V1 + ΔV1` |
+| 이번 V revision / 유효 V | `ΔV2` / `V1 + ΔV2 (S1 범위)` |
 
 # Part I — Product & UX Contract
 
@@ -58,7 +58,7 @@
 | D-011 | 범위는 세션에 귀속, 인용은 답변 당시 본문 버전에 귀속 | 다른 세션·재색인 결과와 섞이지 않음 | Codex 제안 | ACTIVE | AC13·16·21 |
 | D-012 | 파싱·DB·로컬 추론·벡터 스캔은 자식 프로세스, API 요청만 main의 Chromium 전송 포트 | 대량 PST 처리 중 UI와 취소 응답 유지 | Codex 제안 | ACTIVE | AC3·11·19·20 |
 | D-013 | main 기준 독립 0244, 작성자 Codex | “비교 후 선택할 것이다” | 사용자 | ACTIVE | 문서 게이트 G-DOC |
-| D-014 | PST parser·로컬 임베딩 runtime의 신규 의존성 채택 | §17 후보 검증 후 패키지 도입 승인 필요 | 저장소 의존성 규칙 | **OPEN** | AC2·10·24 / S0 |
+| D-014 | S1 PST parser로 `pst-extractor@1.12.0`을 채택하고 로컬 임베딩 runtime은 S2에서 별도 결정 | PST 1차 구현 요청을 반영하며, parser는 source worker에서 지연 로드 | 사용자 1차 구현 요청 + 기존 후보 검토 | **ACTIVE** | AC2·24 / S1 |
 | D-015 | 첫 로컬 모델 팩과 API 프로토콜·인증·모델 리비전 | “지원 가능”을 특정 모델/서비스 승인으로 해석하지 않음 | 미제공 환경 정보 | **OPEN** | AC10~12 / S0 |
 | D-016 | 기준 PC·대표 자료로 §14 예산의 실행 가능성 확정 | 성능 SLA를 임의 확정하지 않음 | 저장소 미정 항목 + 실측 필요 | **OPEN** | AC19·24 / S0 |
 | D-017 | 표시 본문·키워드 필드·임베딩 입력을 분리하고 변환 규약을 버전 관리 | 전송 헤더·중복 본문·메타데이터가 검색을 지배하지 않게 함 | 조사 + Codex 제안 | ACTIVE | AC2·4·7·10 |
@@ -69,12 +69,13 @@
 | D-022 | 로컬 모델 비교를 e5-small, EmbeddingGemma 768/256으로 구체화; API 동일 평가 | 공개 점수 대신 동일 한국어 메일 질의셋으로 선택 | 조사 + 공식 모델 카드 | **SUPERSEDED → D-024** | AC10·11·19·24 |
 | D-023 | 설계 계약은 plan 한 문서에 통합 | 별도 델타 문서를 왕복하지 않고 현재 계약을 읽음 | 사용자 | ACTIVE | G-DOC |
 | D-024 | 첫 기준을 단순·경량으로 구성: FTS5 기본, 선택형 로컬/API 임베딩, E5-small 384d + SQLite BLOB exact scan, ANN·reranker·모델 비교군 보류 | 경량화 방향을 선택했다. 실행 가능성은 S0 실증 조건 | 사용자 “경량화 방향으로 선택” + 공식 모델/runtime 자료 | **ACTIVE** | AC7~12·19·24 / S0 |
+| D-025 | 이번 구현 라운드는 PST·EML 가져오기와 검색으로 제한하고, EML은 파일 단건과 폴더 배치를 모두 제공 | 임베딩·RAG 계약은 유지하되 S2로 미루고, 1차 검색을 모델 설정 없이 즉시 사용 | 사용자 “Pst, eml 검색 1차구현. Eml은 배치로 입력 가능하게” | **ACTIVE** | AC1~3·7·9·17·19·22·23 / S1 |
 
 V1의 D-001~D-016을 유지하고 조사 보완 D-017~D-023과 이번 경량 권고 D-024를 반영했다. 기준은 이 독립안의 V1이며 다른 브랜치의 라이브러리 승인·모델 선택·V를 상속하지 않는다.
 
-D-024는 사용자의 후속 구현 지시로 채택됐다. D-014는 PST parser와 로컬 inference runtime 후보의 호환성·배포 부담을 실증하고, D-015는 단일 E5-small 팩과 실제 embedding API 계약을 닫는다. `sqlite-vec`, ANN, reranker, Gemma 비교는 첫 기준에서 제외한다.
+D-024는 사용자의 후속 구현 지시로 채택됐다. D-014는 S1에서 PST parser 후보를 닫고, 로컬 inference runtime·API 계약은 D-015에 남겨 S2에서 처리한다. `sqlite-vec`, ANN, reranker, Gemma 비교는 첫 기준에서 제외한다.
 
-ACTIVE 결정 ↔ AC 대조: D-001~D-012·D-017~D-021·D-024는 표의 AC·본문 경로와 대조한다. D-022는 사용자 선택을 반영해 D-024로 대체됐다. 문서 요구 D-013·D-023은 G-DOC로 확인한다. D-014~D-016은 OPEN이며, S0 실증과 V 재대조를 마치기 전 READY로 넘기지 않는다.
+ACTIVE 결정 ↔ AC 대조: D-001~D-012·D-017~D-021·D-024~D-025는 표의 AC·본문 경로와 대조한다. D-022는 사용자 선택을 반영해 D-024로 대체됐다. 문서 요구 D-013·D-023은 G-DOC로 확인한다. D-015~D-016은 S2·S3의 OPEN으로 남기며, 현재 READY 판정은 D-025의 S1 경계에만 적용한다.
 
 ### Codex 권고: 첫 기준은 단순·경량
 
@@ -230,7 +231,18 @@ scope가 바뀌면 인용 결과의 중복 접기와 주변 문맥을 새 scope�
 
 ## 7-A. V / Trace Matrix
 
-이 표는 V1 + ΔV1 기준 계약이다. D-024가 선택됐으므로 영향을 받는 R/SD/AR/MD 노드·pair·EP 분모를 ΔV2로 다시 대조해야 한다. 특히 검색 질의 수, 임베딩 runtime·모델팩, exact scan, API fallback 전이를 반영한 검토가 완료되기 전까지 이 V는 구현용 READY 계약이 아니다. 기준 V는 메타의 독립 V1 커밋이며, stable node·pair ID와 이전 oracle·선택 mutation을 보존한다. CHANGED는 계약 보완, INHERITED는 변경 없이 영향을 받는 회귀다. 앱이 아직 미구현이므로 기존 테스트 존재를 실행 PASS로 읽지 않는다.
+이 표는 V1 + ΔV2 기준 계약이다. 현재 구현 라운드의 유효 범위는 D-025의 S1이며, S2·S3의 임베딩·RAG pair는 후속 라운드로 남긴다. 기준 V는 메타의 독립 V1 커밋이며, stable node·pair ID와 이전 oracle·선택 mutation을 보존한다. CHANGED는 계약 보완, INHERITED는 변경 없이 영향을 받는 회귀다. 앱이 아직 미구현이므로 기존 테스트 존재를 실행 PASS로 읽지 않는다.
+
+### 이번 라운드 S1 잠금
+
+| 항목 | 이번 구현에서 잠금 | 후속으로 남김 |
+|---|---|---|
+| 입력 | OS 선택 파일(`.eml`, `.pst`)과 EML 폴더 재귀 배치 | PST 폴더 선택 UX 고도화 |
+| 검색 | 제목·발신자·수신자·참조·본문·첨부 이름, 짧은 한글 fallback, 자료원 필터 | 의미검색·hybrid fusion |
+| 저장 | archive 전용 SQLite/FTS5, 메일 버전·관계 헤더·첨부 manifest, 첨부 본문 미저장 | vector generation·scope/evidence |
+| 작업 | 배치 cursor·부분 저장·취소·재시작 시 중단 상태 | 임베딩 generation 전환 |
+| 유효 pair | VP-01·02·03·07·08·09·13·14·17·18·19·23 중 S1 경로 | VP-04·05·06·10·11·12·15·16·20·21·22 및 S2/S3 증거 |
+| AC | AC1·AC2·AC3·AC4·AC5·AC6·AC7·AC9·AC17·AC19·AC20·AC21·AC22·AC23의 S1 관측 | AC8·AC10·AC11·AC12·AC13~16·AC18·AC24의 임베딩/RAG/패키징 실기 |
 
 ### Node registry
 
@@ -661,12 +673,12 @@ M-SCOPE의 전수 범위에는 새 EP-16c(quote fold), EP-18c(neighbor 확장), 
 
 | 단계 | 결과 | 종료 조건 / 이 계획 AC |
 |---|---|---|
-| S0 — 실증·결정 | PST/모델/API 후보와 기준 PC 보고서, 신규 의존성 승인·정확 버전 | D-014~D-016 closed, D-024 실현 가능성 확인, 아래 표의 반증 사례를 통과하고 본문/보드 READY 동시 갱신 |
-| S1 — 보관·정확검색 | 자료원 UI, EML/PST reader, worker DB, 메타데이터/본문/파일명 검색·열람·선택 추출 | AC1~7·9·17·19~23 관련 pair; 의미검색 미설정 상태가 정상 동작 |
+| S0 — S2·S3 실증·결정 | 임베딩/API 후보와 기준 PC 보고서, 후속 신규 의존성·정확 버전 | D-015~D-016 closed, D-024 실현 가능성 확인 후 S2/S3 READY로 승격 |
+| S1 — 보관·정확검색 (이번 라운드) | 자료원 UI, EML/PST reader, EML 폴더 배치, worker DB, 메타데이터/본문/파일명 검색·열람·선택 추출 | AC1~7·9·17·19~23의 S1 pair; 의미검색 미설정 상태가 정상 동작 |
 | S2 — 두 임베딩 경로 | 로컬/API 프로필, chunk/vector, generation, hybrid UI | AC8·10~12·19·20·24 관련 pair; 두 구현체 모두 동작 |
 | S3 — 이력 답변·근거 UX | scope, context 도구, 기존 두 AI 경로, source card/인용 viewer | AC13~16·18·21~24, 나머지 유효 pair와 운영 gate 전부 |
 
-S1~S3를 별도 구현 PR로 나누되 동일 유효 V의 단계 완료와 전체 완료를 구별한다. 중간 구현은 `partial`이며 scope를 줄여 원 요구가 완료된 것처럼 보고하지 않는다.
+S1~S3를 별도 구현 PR로 나누되 동일 유효 V의 단계 완료와 전체 완료를 구별한다. 이번 PR은 S1만 다루며 S2·S3는 구현 완료로 보고하지 않는다.
 
 | S0 결정 | 수행할 실증 | 선택 조건 / 실패 시 대안 |
 |---|---|---|
@@ -904,7 +916,7 @@ D-024를 OPEN으로 추가하고 FTS5 기본·선택 설치형 E5-small/API·SQL
 
 ### 경량 기준 선택 및 구현 진입 점검 (2026-09-29)
 
-사용자가 “경량화 방향으로 선택”이라고 명시해 D-024를 ACTIVE로 확정했다. 구현 진입을 대조한 결과, 기존 `features/plugins/mail`에 `postal-mime` 파서와 SQLite FTS5 검색이 있어 EML 정규화·키워드 검색은 우선 재사용 후보로 확인했다. 현재 보드와 plan은 DRAFT이며, 신규 의존성 승인·첫 모델 및 실제 embedding API 계약·성능 실증(D-014~D-016), 선택된 경량 기준을 반영하는 ΔV2 재대조가 남아 구현 코드는 시작하지 않았다.
+사용자가 “경량화 방향으로 선택”이라고 명시해 D-024를 ACTIVE로 확정했다. 기존 `features/plugins/mail`의 `postal-mime` 파서와 SQLite FTS5는 EML 정규화·키워드 검색의 재사용 후보로 확인했다. 이번 S1에서는 PST parser만 채택하고 임베딩 runtime·API 계약·성능 실증(D-015~D-016)은 후속 단계로 남긴다.
 
 ## READY self-review
 
@@ -912,14 +924,15 @@ D-024를 OPEN으로 추가하고 FTS5 기본·선택 설치형 E5-small/API·SQL
 - [x] Product/UX, AS-IS→TO-BE, 24 AC, R/SD/AR/MD의 pair와 자리별 강제 지점·직접 oracle을 작성했다.
 - [x] 범위·인용·취소·원본 변경·자료원 제거·임베딩 전환을 producer와 consumer 양쪽에서 정의했다.
 - [x] 로컬/API 임베딩 둘 다 완료 범위에 남겼고, 첨부 본문 검색은 제외했다.
-- [ ] D-014 PST parser·로컬 runtime 검증 및 신규 의존성 채택 승인 완료.
+- [x] D-014 S1 PST parser 후보(`pst-extractor@1.12.0`)와 지연 로드 경계를 확정.
 - [ ] D-015 최초 로컬 모델 팩·실제 API 계약/인증/모델 revision 확정 및 검증.
 - [ ] D-016 대표 PC/자료로 예산 검증·필요 설계 정정.
 - [x] D-024 경량 첫 기준을 사용자가 명시적으로 선택.
-- [ ] D-014~D-016 S0를 닫고, 선택된 경량 기준에 맞춰 ΔV2 본문·AC·pair·§10 재대조.
-- [ ] 위 OPEN 해소 후 plan/INDEX를 같은 커밋에서 READY로 전환.
+- [x] D-025 S1을 PST·EML 검색과 EML 파일/폴더 배치 입력으로 고정.
+- [x] S1에 필요한 ΔV2 본문·AC·pair·§10 범위를 재대조하고 S2/S3 OPEN을 분리.
+- [x] plan/INDEX를 S1 구현용 READY로 전환.
 
-**판정: 사용자 선택은 반영했으나 구현 READY는 아니다.** 신규 의존성 승인, 실제 임베딩 API 계약, S0 실행 근거와 이에 따른 V 갱신이 남아 DRAFT를 유지한다. 이미 확정된 두 AI 환경·두 임베딩 방식·첨부 본문 제외는 재승인 항목으로 만들지 않는다.
+**판정: S1 구현용 READY.** PST·EML 입력·검색·EML 폴더 배치의 계약과 관측 pair를 잠갔으며, 임베딩·RAG·성능 실증은 D-015~D-016 후속 handoff에서 별도로 닫는다.
 
 ---
 
