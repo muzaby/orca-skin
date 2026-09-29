@@ -88,6 +88,16 @@ import type {
 } from '../../../../shared/ipc'
 // 사용량 타입 정본은 `shared/usage/limits.ts` (ipc.ts 에 두면 순환).
 import type { UsageDelta, UsageLimitsView } from '../../../../shared/usage/limits'
+import type {
+  MailArchiveGetRequest,
+  MailArchiveImportRequest,
+  MailArchiveImportResult,
+  MailArchiveMessage,
+  MailArchiveProgress,
+  MailArchiveSearchHit,
+  MailArchiveSearchRequest,
+  MailArchiveStats
+} from '../../../../shared/mail-archive'
 
 // renderer 의 모든 IPC 호출 진입점. window.orca.* 의 얇은 typed 패스-스루로,
 // features/ 내부 hook · 컴포넌트가 직접 window 객체에 의존하지 않도록 격리한다.
@@ -181,6 +191,21 @@ export const fileApi = {
   readAttachment: (path: string): Promise<ReadAttachmentResult> =>
     window.orca.files.readAttachment(path),
   pathForFile: (file: File): string => window.orca.files.pathForFile(file)
+}
+
+export const mailArchiveApi = {
+  pickFiles: (): Promise<string[]> => window.orca.mailArchive.pickFiles(),
+  pickEmlFolder: (): Promise<string | null> => window.orca.mailArchive.pickEmlFolder(),
+  import: (request: MailArchiveImportRequest): Promise<MailArchiveImportResult> =>
+    window.orca.mailArchive.import(request),
+  cancel: (jobId: string): Promise<{ cancelled: boolean }> => window.orca.mailArchive.cancel(jobId),
+  search: (request: MailArchiveSearchRequest): Promise<MailArchiveSearchHit[]> =>
+    window.orca.mailArchive.search(request),
+  get: (request: MailArchiveGetRequest): Promise<MailArchiveMessage | null> =>
+    window.orca.mailArchive.get(request),
+  stats: (): Promise<MailArchiveStats> => window.orca.mailArchive.stats(),
+  onProgress: (handler: (progress: MailArchiveProgress) => void): (() => void) =>
+    window.orca.mailArchive.onProgress(handler)
 }
 
 export const gitApi = {
