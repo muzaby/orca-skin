@@ -22,6 +22,7 @@
 | **인증 provider** (로그인 게이트 · LLM 자격증명 · 사내 서비스) | [`arch/backend/auth.md`](arch/backend/auth.md) |
 | Electron 보안 경계 · 자격증명 · 원격 전송 스택 | [`arch/backend/security.md`](arch/backend/security.md) |
 | DB · 영속성 · FTS5 | [`arch/backend/persistence.md`](arch/backend/persistence.md) |
+| **개인 메일 보관함·검색·RAG 설계안** (EML/PST, 로컬/API 임베딩, 근거 UX) | [`0244 Codex 독립 계획`](handoff/0244-mail-archive/plan.md) |
 | 확장 배포 (MCP · SKILL.md · AGENTS.md 표준) | [`arch/backend/standardization.md`](arch/backend/standardization.md) |
 | 시스템 프롬프트 · 정책 append | [`arch/backend/system-prompt.md`](arch/backend/system-prompt.md) |
 | **Work 프롬프트·전용 output style 구현** | [`handoff/0234-work-prompt-profile/plan.md`](handoff/0234-work-prompt-profile/plan.md) — 계약·구현 설계·번들 CLI 실증 |
