@@ -68,7 +68,9 @@ export interface MailArchiveProgress {
   readonly totalFiles: number
   readonly processedMessages: number
   readonly insertedMessages: number
+  readonly skippedMessages: number
   readonly failedFiles: number
+  readonly cancellable: boolean
 }
 
 export interface MailArchiveSearchRequest {

@@ -1,0 +1,82 @@
+import type {
+  MailArchiveGetRequest,
+  MailArchiveMessage,
+  MailArchiveSearchHit,
+  MailArchiveSearchRequest,
+  MailArchiveSourceKind,
+  MailArchiveStats
+} from '../../../../shared/mail-archive'
+import type { NormalizedArchiveMail } from './types'
+import type { MailArchiveBatchCounts, MailArchiveRevisionStart } from './store'
+
+export interface MailArchiveRevisionInput {
+  readonly sourceId: string
+  readonly sourceKind: MailArchiveSourceKind
+  readonly sourcePath: string
+  readonly fingerprint: string
+}
+
+export interface MailArchiveIndexWorker {
+  openEpoch(epoch: string): Promise<void>
+  revokeEpoch(epoch: string): Promise<void>
+  beginRevision(input: MailArchiveRevisionInput): Promise<MailArchiveRevisionStart>
+  upsertBatch(input: {
+    readonly epoch: string
+    readonly sourceId: string
+    readonly revision: number
+    readonly mails: readonly NormalizedArchiveMail[]
+  }): Promise<MailArchiveBatchCounts>
+  verifyRevision(
+    sourceId: string,
+    revision: number,
+    fingerprint: string,
+    epoch: string
+  ): Promise<void>
+  activateRevision(
+    sourceId: string,
+    revision: number,
+    fingerprint: string,
+    epoch: string
+  ): Promise<void>
+  abortRevision(sourceId: string, revision: number, state?: 'interrupted' | 'failed'): Promise<void>
+  search(request: MailArchiveSearchRequest): Promise<MailArchiveSearchHit[]>
+  get(request: MailArchiveGetRequest): Promise<MailArchiveMessage | null>
+  stats(): Promise<MailArchiveStats>
+  close(): void
+}
+
+export interface MailArchiveSourceInput {
+  readonly jobId: string
+  readonly epoch: string
+  readonly sourceId: string
+  readonly sourcePath: string
+  readonly sourceKind: MailArchiveSourceKind
+}
+
+export type MailArchiveSourceDecision =
+  { readonly action: 'scan'; readonly revision: number } | { readonly action: 'skip' }
+
+export interface MailArchiveSourceCallbacks {
+  onReady(fingerprint: string): Promise<MailArchiveSourceDecision>
+  onBatch(revision: number, mails: readonly NormalizedArchiveMail[]): Promise<void>
+  onComplete(input: {
+    readonly startFingerprint: string
+    readonly endFingerprint: string
+    readonly revision: number | null
+    readonly messages: number
+    readonly skipped: boolean
+  }): Promise<void>
+}
+
+export interface MailArchiveSourceWorker {
+  run(
+    input: MailArchiveSourceInput,
+    callbacks: MailArchiveSourceCallbacks,
+    signal: AbortSignal
+  ): Promise<void>
+}
+
+export interface MailArchiveWorkerFactory {
+  createIndex(rootDir: string): MailArchiveIndexWorker
+  createSource(): MailArchiveSourceWorker
+}

@@ -2,6 +2,7 @@ import type { Address, Email } from 'postal-mime'
 import { createHash } from 'node:crypto'
 import type { PSTMessage } from 'pst-extractor'
 import type { NormalizedArchiveMail } from './types'
+import { archiveMailIdentityKey } from './identity'
 
 function addressValue(value: Address | undefined): string {
   if (!value) return ''
@@ -71,7 +72,7 @@ function attachmentManifest(
 
 export function normalizeEml(
   email: Email,
-  input: { sourcePath: string; sourceFingerprint: string; sizeBytes: number }
+  input: { sourceId: string; sourcePath: string; sourceFingerprint: string; sizeBytes: number }
 ): NormalizedArchiveMail {
   const subject = email.subject?.trim() ?? ''
   const messageId = cleanHeader(email.messageId)
@@ -90,8 +91,9 @@ export function normalizeEml(
             : attachment.content.byteLength
     }))
   )
-  return {
+  const normalized: Omit<NormalizedArchiveMail, 'identityKey'> = {
     sourceKind: 'eml',
+    sourceId: input.sourceId,
     sourcePath: input.sourcePath,
     sourceFingerprint: input.sourceFingerprint,
     itemKey: messageId ?? createHash('sha256').update(input.sourcePath).digest('hex'),
@@ -109,12 +111,14 @@ export function normalizeEml(
     attachments,
     sizeBytes: input.sizeBytes
   }
+  return { ...normalized, identityKey: archiveMailIdentityKey(normalized) }
 }
 
 export function normalizePst(
   message: PSTMessage,
   input: {
     sourcePath: string
+    sourceId: string
     sourceFingerprint: string
     folderPath: string
     itemKey: string
@@ -138,8 +142,9 @@ export function normalizePst(
   const sender = message.senderEmailAddress?.trim() || message.senderName?.trim() || ''
   const sentAt = message.messageDeliveryTime?.getTime() ?? null
   const conversation = message.conversationId?.toString('hex')
-  return {
+  const normalized: Omit<NormalizedArchiveMail, 'identityKey'> = {
     sourceKind: 'pst',
+    sourceId: input.sourceId,
     sourcePath: input.sourcePath,
     sourceFingerprint: input.sourceFingerprint,
     itemKey: input.itemKey,
@@ -159,4 +164,5 @@ export function normalizePst(
     attachments,
     sizeBytes: input.sizeBytes
   }
+  return { ...normalized, identityKey: archiveMailIdentityKey(normalized) }
 }

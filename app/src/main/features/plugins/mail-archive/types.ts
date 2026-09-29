@@ -2,9 +2,11 @@ import type { MailArchiveAttachment, MailArchiveSourceKind } from '../../../../s
 
 export interface NormalizedArchiveMail {
   readonly sourceKind: MailArchiveSourceKind
+  readonly sourceId: string
   readonly sourcePath: string
   readonly sourceFingerprint: string
   readonly itemKey: string
+  readonly identityKey: string
   readonly folderPath: string | null
   readonly sentAt: number | null
   readonly from: string

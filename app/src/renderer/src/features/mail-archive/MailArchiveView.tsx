@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { mailArchiveApi } from '../../shared/api/ipc'
 import { useI18n } from '../../shared/i18n'
 import { Icon } from '../../shared/ui/Icon'
@@ -18,41 +18,59 @@ function formatDate(value: number | null, locale: string): string {
 
 function importSummary(result: MailArchiveImportResult): string {
   if (result.state === 'cancelled') {
-    return `가져오기를 취소했습니다. 확인 ${result.messages}개, 새로 저장 ${result.inserted}개입니다.`
+    return `가져오기를 취소했습니다. 반영된 메일 ${result.messages}개 중 새로 저장 ${result.inserted}개, 중복 건너뜀 ${result.skipped}개입니다.`
   }
   const failure = result.failures.length > 0 ? ` 실패 ${result.failures.length}개.` : ''
-  return `메일 ${result.messages}개를 확인했고 새로 저장한 메일은 ${result.inserted}개입니다.${failure}`
+  return `메일 ${result.messages}개를 확인했습니다. 새로 저장 ${result.inserted}개, 중복 건너뜀 ${result.skipped}개입니다.${failure}`
 }
 
 export function MailArchiveView(): React.JSX.Element {
   const { locale } = useI18n()
   const [query, setQuery] = useState('')
   const [sourceKind, setSourceKind] = useState<MailArchiveSourceKind | 'all'>('all')
+  const [appliedSearch, setAppliedSearch] = useState<{
+    query: string
+    sourceKind: MailArchiveSourceKind | 'all'
+  }>({ query: '', sourceKind: 'all' })
   const [results, setResults] = useState<MailArchiveSearchHit[]>([])
   const [selected, setSelected] = useState<MailArchiveMessage | null>(null)
   const [stats, setStats] = useState<MailArchiveStats | null>(null)
   const [progress, setProgress] = useState<MailArchiveProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [searching, setSearching] = useState(false)
+  const searchSequence = useRef(0)
 
   const loadStats = async (): Promise<void> => {
     setStats(await mailArchiveApi.stats())
   }
 
   const search = async (nextQuery = query, nextSource = sourceKind): Promise<void> => {
-    const found = await mailArchiveApi.search({
-      query: nextQuery,
-      ...(nextSource === 'all' ? {} : { sourceKind: nextSource }),
-      limit: 50
-    })
-    setResults(found)
+    const sequence = ++searchSequence.current
+    setSearching(true)
+    try {
+      const found = await mailArchiveApi.search({
+        query: nextQuery,
+        ...(nextSource === 'all' ? {} : { sourceKind: nextSource }),
+        limit: 50
+      })
+      if (sequence !== searchSequence.current) return
+      setResults(found)
+      setSelected((current) =>
+        current && found.some((result) => result.id === current.id) ? current : null
+      )
+      setAppliedSearch({ query: nextQuery, sourceKind: nextSource })
+      setError(null)
+    } finally {
+      if (sequence === searchSequence.current) setSearching(false)
+    }
   }
 
   useEffect(() => {
     const unsubscribe = mailArchiveApi.onProgress(setProgress)
     const timer = window.setTimeout(() => {
       void loadStats().catch((reason: unknown) => setError(String(reason)))
-      void search('').catch((reason: unknown) => setError(String(reason)))
+      void search('', 'all').catch((reason: unknown) => setError(String(reason)))
     }, 0)
     return () => {
       window.clearTimeout(timer)
@@ -62,25 +80,18 @@ export function MailArchiveView(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void search().catch((reason: unknown) => setError(String(reason)))
-    }, 180)
-    return () => window.clearTimeout(timer)
-    // `search` is a local command that reads the current query/source values; those two state
-    // values are the intended effect keys.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, sourceKind])
-
   const busy = progress?.state === 'running'
-  const emptyLabel = query.trim()
+  const searchConditionsChanged =
+    query !== appliedSearch.query || sourceKind !== appliedSearch.sourceKind
+  const emptyLabel = appliedSearch.query.trim()
     ? '검색 결과가 없습니다.'
     : stats?.totalMessages
-      ? '검색어를 입력하면 보관한 메일을 찾을 수 있습니다.'
+      ? '검색어를 입력한 뒤 검색을 실행하세요.'
       : '파일을 추가하면 보관한 메일이 여기에 표시됩니다.'
   const progressLabel = useMemo(() => {
     if (!progress || progress.state !== 'running') return null
-    return `${progress.processedFiles}/${progress.totalFiles} 파일 · ${progress.processedMessages}개 메일`
+    const source = progress.currentPath ? ` · ${progress.currentPath}` : ''
+    return `${progress.processedFiles}/${progress.totalFiles} 파일 · 처리 ${progress.processedMessages}개 · 새 저장 ${progress.insertedMessages}개 · 중복 ${progress.skippedMessages}개${source}`
   }, [progress])
 
   const runImport = async (request: Parameters<typeof mailArchiveApi.import>[0]): Promise<void> => {
@@ -150,9 +161,10 @@ export function MailArchiveView(): React.JSX.Element {
             <button
               type="button"
               onClick={() => void mailArchiveApi.cancel(progress.jobId)}
-              className="rounded-r4 border border-border px-3 py-2 text-[12.5px] text-ink3 hover:text-ink"
+              disabled={!progress.cancellable}
+              className="rounded-r4 border border-border px-3 py-2 text-[12.5px] text-ink3 hover:text-ink disabled:opacity-50"
             >
-              취소
+              {progress.cancellable ? '취소' : '마무리 중'}
             </button>
           )}
         </div>
@@ -177,10 +189,17 @@ export function MailArchiveView(): React.JSX.Element {
         </div>
       )}
 
-      <div className="mb-4 flex gap-2">
+      <form
+        className="mb-2 flex gap-2"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void search().catch((reason: unknown) => setError(String(reason)))
+        }}
+      >
         <label className="flex min-w-0 flex-1 items-center gap-2 rounded-r4 border border-border bg-panel px-3 py-2">
           <Icon name="search" size={15} className="text-ink3" />
           <input
+            aria-label="메일 제목, 발신자, 본문, 첨부파일 이름 검색어"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="제목, 발신자, 본문, 첨부파일 이름 검색"
@@ -188,6 +207,7 @@ export function MailArchiveView(): React.JSX.Element {
           />
         </label>
         <select
+          aria-label="자료원 유형"
           value={sourceKind}
           onChange={(event) => setSourceKind(event.target.value as MailArchiveSourceKind | 'all')}
           className="rounded-r4 border border-border bg-panel px-3 text-[12px] text-ink outline-none"
@@ -196,6 +216,19 @@ export function MailArchiveView(): React.JSX.Element {
           <option value="eml">EML</option>
           <option value="pst">PST</option>
         </select>
+        <button
+          type="submit"
+          className="rounded-r4 bg-fill-uncontained-active px-4 py-2 text-[12px] font-medium text-ink hover:bg-fill-uncontained-hover"
+        >
+          검색
+        </button>
+      </form>
+      <div className="mb-3 min-h-5 text-[11.5px] text-ink3" role="status" aria-live="polite">
+        {searching
+          ? '검색 중…'
+          : searchConditionsChanged
+            ? '검색 조건이 바뀌었습니다. 검색을 실행하면 결과가 갱신됩니다.'
+            : ''}
       </div>
 
       <div className="flex min-h-0 flex-1 gap-4">

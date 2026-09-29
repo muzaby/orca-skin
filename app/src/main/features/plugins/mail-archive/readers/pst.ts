@@ -5,6 +5,7 @@ import type { NormalizedArchiveMail } from '../types'
 
 export interface PstReadOptions {
   readonly sourcePath: string
+  readonly sourceId: string
   readonly sourceFingerprint: string
   readonly signal?: AbortSignal
   readonly onMessage: (message: NormalizedArchiveMail) => Promise<void> | void
@@ -62,6 +63,7 @@ export async function readPstFile(options: PstReadOptions): Promise<number> {
       }
       if (!isPstMessage(candidate)) continue
       const message = normalizePst(candidate, {
+        sourceId: options.sourceId,
         sourcePath: options.sourcePath,
         sourceFingerprint: options.sourceFingerprint,
         folderPath: currentPath,

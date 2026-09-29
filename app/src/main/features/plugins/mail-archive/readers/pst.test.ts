@@ -17,6 +17,7 @@ describe('PST archive reader', () => {
     let messages = 0
     await readPstFile({
       sourcePath: fixture,
+      sourceId: 'pst-fixture-source',
       sourceFingerprint: 'fixture',
       onMessage: (message) => {
         messages += 1

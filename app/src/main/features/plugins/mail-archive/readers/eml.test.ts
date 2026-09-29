@@ -36,12 +36,22 @@ describe('EML archive reader', () => {
         'Content-Disposition: attachment; filename="plan.txt"',
         '',
         'attachment body is not indexed',
+        '--x',
+        'Content-Type: message/rfc822; name="forwarded.eml"',
+        '',
+        'From: forwarded@example.test',
+        'To: archive@example.test',
+        'Subject: forwarded content',
+        'Message-ID: <forwarded@example.test>',
+        'Content-Type: text/plain; charset=utf-8',
+        '',
+        'NESTED-ATTACHMENT-UNIQUE-SENTINEL-93471',
         '--x--',
         ''
       ].join('\r\n'),
       'utf8'
     )
-    const message = await readEmlFile(path, 'fingerprint')
+    const message = await readEmlFile(path, 'source-id', 'fingerprint')
     expect(message).toMatchObject({
       sourceKind: 'eml',
       subject: '서버 이전 일정',
@@ -50,7 +60,11 @@ describe('EML archive reader', () => {
       inReplyTo: '<mail-0@example.test>',
       references: '<mail-0@example.test>'
     })
-    expect(message.attachments.map((attachment) => attachment.name)).toEqual(['plan.txt'])
+    expect(message.attachments.map((attachment) => attachment.name)).toEqual([
+      'plan.txt',
+      'forwarded.eml'
+    ])
     expect(message.bodyText).not.toContain('attachment body')
+    expect(message.bodyText).not.toContain('NESTED-ATTACHMENT-UNIQUE-SENTINEL-93471')
   })
 })

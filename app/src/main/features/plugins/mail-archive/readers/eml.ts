@@ -5,6 +5,7 @@ import type { NormalizedArchiveMail } from '../types'
 
 export async function readEmlFile(
   path: string,
+  sourceId: string,
   sourceFingerprint: string,
   signal?: AbortSignal
 ): Promise<NormalizedArchiveMail> {
@@ -17,6 +18,7 @@ export async function readEmlFile(
   const email = await PostalMime.parse(raw, { forceRfc822Attachments: true })
   signal?.throwIfAborted()
   return normalizeEml(email, {
+    sourceId,
     sourcePath: path,
     sourceFingerprint,
     sizeBytes: raw.byteLength
