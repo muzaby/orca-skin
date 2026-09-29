@@ -6,6 +6,9 @@ import { openFileDatabase } from '../../../infra/db/file-database'
 import { applyMailArchiveMigrations } from './migrate'
 import type {
   MailArchiveAttachment,
+  MailArchiveBodyKind,
+  MailArchiveBodyQualityFlag,
+  MailArchiveBodySelectionReason,
   MailArchiveMessage,
   MailArchiveSearchHit,
   MailArchiveSearchRequest,
@@ -30,6 +33,22 @@ function mailId(identityKey: string): string {
 
 function sourceName(sourcePath: string): string {
   return basename(sourcePath)
+}
+
+const BODY_QUALITY_FLAGS = new Set<MailArchiveBodyQualityFlag>([
+  'alternative_mismatch',
+  'decode_suspect',
+  'html_converted',
+  'oversized'
+])
+
+function parseBodyQualityFlags(value: string): MailArchiveBodyQualityFlag[] {
+  const parsed: unknown = JSON.parse(value)
+  if (!Array.isArray(parsed)) throw new Error('mail_archive_body_quality_invalid')
+  return parsed.filter(
+    (flag): flag is MailArchiveBodyQualityFlag =>
+      typeof flag === 'string' && BODY_QUALITY_FLAGS.has(flag as MailArchiveBodyQualityFlag)
+  )
 }
 
 function queryTerms(query: string): string[] {
@@ -81,6 +100,12 @@ function rowMail(row: {
   cc_addrs: string
   subject: string
   body_text: string
+  body_kind: MailArchiveBodyKind
+  body_alternate_text: string | null
+  body_alternate_kind: Exclude<MailArchiveBodyKind, 'none' | 'legacy'> | null
+  body_alternate_omitted: number
+  body_quality_flags: string
+  body_selection_reason: MailArchiveBodySelectionReason
   message_id: string | null
   in_reply_to: string | null
   references_header: string | null
@@ -101,6 +126,12 @@ function rowMail(row: {
     cc: row.cc_addrs,
     subject: row.subject,
     bodyText: row.body_text,
+    bodyKind: row.body_kind,
+    bodyAlternateText: row.body_alternate_text,
+    bodyAlternateKind: row.body_alternate_kind,
+    bodyAlternateOmitted: row.body_alternate_omitted === 1,
+    bodyQualityFlags: parseBodyQualityFlags(row.body_quality_flags),
+    bodySelectionReason: row.body_selection_reason,
     messageId: row.message_id,
     inReplyTo: row.in_reply_to,
     references: row.references_header,
@@ -131,6 +162,12 @@ function backfillLegacyRows(db: Database.Database): void {
     cc_addrs: string
     subject: string
     body_text: string
+    body_kind: MailArchiveBodyKind
+    body_alternate_text: string | null
+    body_alternate_kind: Exclude<MailArchiveBodyKind, 'none' | 'legacy'> | null
+    body_alternate_omitted: number
+    body_quality_flags: string
+    body_selection_reason: MailArchiveBodySelectionReason
     message_id: string | null
     in_reply_to: string | null
     references_header: string | null
@@ -329,6 +366,12 @@ function mapMessage(
     references_header: string | null
     thread_key: string
     attachment_names: string
+    body_kind: MailArchiveBodyKind
+    body_alternate_text: string | null
+    body_alternate_kind: Exclude<MailArchiveBodyKind, 'none' | 'legacy'> | null
+    body_alternate_omitted: number
+    body_quality_flags: string
+    body_selection_reason: MailArchiveBodySelectionReason
     rank: number
   },
   attachments: readonly MailArchiveAttachment[]
@@ -352,6 +395,12 @@ function mapMessage(
     references: row.references_header,
     threadKey: row.thread_key,
     bodyText: row.body_text,
+    bodyKind: row.body_kind,
+    bodyAlternateText: row.body_alternate_text,
+    bodyAlternateKind: row.body_alternate_kind,
+    bodyAlternateOmitted: row.body_alternate_omitted === 1,
+    bodyQualityFlags: parseBodyQualityFlags(row.body_quality_flags),
+    bodySelectionReason: row.body_selection_reason,
     importedAt: row.imported_at,
     attachments
   }
@@ -497,11 +546,15 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
       INSERT INTO archive_mail (
         id, source_kind, source_path, source_fingerprint, item_key, folder_path, sent_at, imported_at,
         from_addr, to_addrs, cc_addrs, subject, body_text, message_id, in_reply_to, references_header,
-        thread_key, attachment_names, size_bytes, source_id, identity_key
+        thread_key, attachment_names, size_bytes, source_id, identity_key,
+        body_kind, body_alternate_text, body_alternate_kind, body_alternate_omitted,
+        body_quality_flags, body_selection_reason
       ) VALUES (
         @id, @sourceKind, @sourcePath, @sourceFingerprint, @itemKey, @folderPath, @sentAt, @importedAt,
         @from, @to, @cc, @subject, @bodyText, @messageId, @inReplyTo, @references,
-        @threadKey, @attachmentNames, @sizeBytes, @sourceId, @identityKey
+        @threadKey, @attachmentNames, @sizeBytes, @sourceId, @identityKey,
+        @bodyKind, @bodyAlternateText, @bodyAlternateKind, @bodyAlternateOmitted,
+        @bodyQualityFlags, @bodySelectionReason
       )
     `)
       const insertAttachment = db.prepare(
@@ -532,6 +585,12 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
             cc: mail.cc,
             subject: mail.subject,
             bodyText: mail.bodyText,
+            bodyKind: mail.bodyKind,
+            bodyAlternateText: mail.bodyAlternateText,
+            bodyAlternateKind: mail.bodyAlternateKind,
+            bodyAlternateOmitted: mail.bodyAlternateOmitted ? 1 : 0,
+            bodyQualityFlags: JSON.stringify(mail.bodyQualityFlags),
+            bodySelectionReason: mail.bodySelectionReason,
             messageId: mail.messageId,
             inReplyTo: mail.inReplyTo,
             references: mail.references,
@@ -695,6 +754,8 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
             COALESCE((${findOccurrenceColumnSql('folder_path')}), m.folder_path) AS folder_path,
             m.sent_at, m.imported_at, m.from_addr, m.to_addrs, m.cc_addrs, m.subject, m.body_text,
             m.message_id, m.in_reply_to, m.references_header, m.thread_key, m.attachment_names,
+            m.body_kind, m.body_alternate_text, m.body_alternate_kind, m.body_alternate_omitted,
+            m.body_quality_flags, m.body_selection_reason,
             0 AS rank
           FROM archive_mail m WHERE m.id=? AND EXISTS (
             SELECT 1 FROM archive_source_occurrence o

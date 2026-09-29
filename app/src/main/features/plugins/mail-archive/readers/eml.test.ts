@@ -67,4 +67,68 @@ describe('EML archive reader', () => {
     expect(message.bodyText).not.toContain('attachment body')
     expect(message.bodyText).not.toContain('NESTED-ATTACHMENT-UNIQUE-SENTINEL-93471')
   })
+
+  it('retains a differing HTML alternative without making it the searchable body', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'orca-mail-archive-eml-alternative-'))
+    roots.push(root)
+    const path = join(root, 'alternative.eml')
+    await writeFile(
+      path,
+      [
+        'From: sender@example.test',
+        'Subject: 서버 이전',
+        'MIME-Version: 1.0',
+        'Content-Type: multipart/alternative; boundary="body"',
+        '',
+        '--body',
+        'Content-Type: text/plain; charset=utf-8',
+        '',
+        '서버 이전 날짜는 3월 2일입니다.',
+        '--body',
+        'Content-Type: text/html; charset=utf-8',
+        '',
+        '<p>서버 이전 날짜는 3월 4일입니다.</p><script>HTML-SCRIPT-SENTINEL</script>',
+        '--body--',
+        ''
+      ].join('\r\n'),
+      'utf8'
+    )
+
+    const message = await readEmlFile(path, 'source-id', 'fingerprint')
+    expect(message).toMatchObject({
+      bodyText: '서버 이전 날짜는 3월 2일입니다.',
+      bodyKind: 'plain',
+      bodyAlternateText: '서버 이전 날짜는 3월 4일입니다.',
+      bodyAlternateKind: 'html'
+    })
+    expect(message.bodyQualityFlags).toContain('alternative_mismatch')
+    expect(message.bodyAlternateText).not.toContain('HTML-SCRIPT-SENTINEL')
+  })
+
+  it('converts HTML-only Korean mail and excludes explicitly hidden content', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'orca-mail-archive-eml-html-'))
+    roots.push(root)
+    const path = join(root, 'html-only.eml')
+    await writeFile(
+      path,
+      [
+        'From: sender@example.test',
+        'Subject: 서버 이전',
+        'MIME-Version: 1.0',
+        'Content-Type: text/html; charset=utf-8',
+        '',
+        '<html><body><p>이전은 다음 주에 진행합니다.</p>',
+        '<div hidden>HIDDEN-HTML-SENTINEL</div>',
+        '<script>HTML-SCRIPT-SENTINEL</script></body></html>'
+      ].join('\r\n'),
+      'utf8'
+    )
+
+    const message = await readEmlFile(path, 'source-id', 'fingerprint')
+    expect(message.bodyKind).toBe('html')
+    expect(message.bodySelectionReason).toBe('html_only')
+    expect(message.bodyText).toContain('이전은 다음 주에 진행합니다.')
+    expect(message.bodyText).not.toMatch(/HIDDEN-HTML-SENTINEL|HTML-SCRIPT-SENTINEL/)
+    expect(message.bodyQualityFlags).toContain('html_converted')
+  })
 })

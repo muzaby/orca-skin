@@ -36,6 +36,12 @@ function mail(
     cc: '',
     subject: '서버 이전 일정',
     bodyText: '서버 이전을 검토한 뒤 일정 확정합니다.',
+    bodyKind: 'plain',
+    bodyAlternateText: null,
+    bodyAlternateKind: null,
+    bodyAlternateOmitted: false,
+    bodyQualityFlags: [],
+    bodySelectionReason: 'plain_preferred',
     messageId: '<one@example.test>',
     inReplyTo: null,
     references: null,
@@ -201,6 +207,31 @@ describe('mail archive store', () => {
     expect(store.sourcePathInUse(sourcePath)).toBe(true)
     expect(stored).not.toHaveProperty('sourcePath')
     expect(stored).not.toHaveProperty('sourceFingerprint')
+  })
+
+  it('persists body quality and alternate text without indexing the alternate', async () => {
+    const store = await fixture()
+    const message = mail({
+      subject: '본문 표현 확인',
+      bodyText: '일반 텍스트의 결정 내용입니다.',
+      bodyAlternateText: 'HTML-ALTERNATE-ONLY-SENTINEL-39017',
+      bodyAlternateKind: 'html',
+      bodyQualityFlags: ['alternative_mismatch', 'html_converted'],
+      bodySelectionReason: 'plain_preferred'
+    })
+    await addRevision(store, 'body-quality-revision', [message])
+
+    const stored = store.get(store.search({ query: '결정 내용', limit: 10 })[0]!.id)
+    expect(stored).toMatchObject({
+      bodyText: '일반 텍스트의 결정 내용입니다.',
+      bodyKind: 'plain',
+      bodyAlternateText: 'HTML-ALTERNATE-ONLY-SENTINEL-39017',
+      bodyAlternateKind: 'html',
+      bodyAlternateOmitted: false,
+      bodyQualityFlags: ['alternative_mismatch', 'html_converted'],
+      bodySelectionReason: 'plain_preferred'
+    })
+    expect(store.search({ query: 'HTML-ALTERNATE-ONLY-SENTINEL-39017', limit: 10 })).toHaveLength(0)
   })
 
   it('removes a source atomically, preserves shared mail, and never exposes source paths', async () => {

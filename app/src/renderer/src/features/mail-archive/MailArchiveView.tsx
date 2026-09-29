@@ -4,6 +4,7 @@ import { useI18n } from '../../shared/i18n'
 import { Icon } from '../../shared/ui/Icon'
 import type {
   MailArchiveImportResult,
+  MailArchiveBodyKind,
   MailArchiveMessage,
   MailArchiveProgress,
   MailArchiveSearchHit,
@@ -25,6 +26,32 @@ function importSummary(result: MailArchiveImportResult): string {
   return `메일 ${result.messages}개를 확인했습니다. 새로 저장 ${result.inserted}개, 중복 건너뜀 ${result.skipped}개입니다.${failure}`
 }
 
+function bodyKindLabel(kind: MailArchiveBodyKind | null): string {
+  if (kind === 'plain') return '일반 텍스트'
+  if (kind === 'html') return 'HTML 변환 텍스트'
+  if (kind === 'legacy') return '원문 형식 미기록'
+  return '본문 없음'
+}
+
+function bodySelectionLabel(reason: MailArchiveMessage['bodySelectionReason']): string {
+  switch (reason) {
+    case 'plain_preferred':
+      return '일반 텍스트를 우선 사용했습니다.'
+    case 'plain_placeholder_fallback':
+      return '일반 텍스트가 HTML 보기 안내문이라 HTML 본문을 사용했습니다.'
+    case 'plain_unusable_fallback':
+      return '일반 텍스트가 비어 있거나 대체 문자만 있어 HTML 본문을 사용했습니다.'
+    case 'html_only':
+      return 'HTML 본문만 있어 읽을 수 있는 텍스트로 변환했습니다.'
+    case 'oversized':
+      return '본문이 2 MiB 보관 한도를 넘어 저장되지 않았습니다.'
+    case 'empty':
+      return '읽을 수 있는 본문이 없습니다.'
+    case 'legacy':
+      return '이 메일은 본문 품질 표시를 추가하기 전에 가져왔습니다.'
+  }
+}
+
 export function MailArchiveView(): React.JSX.Element {
   const { locale } = useI18n()
   const [query, setQuery] = useState('')
@@ -35,6 +62,7 @@ export function MailArchiveView(): React.JSX.Element {
   }>({ query: '', sourceKind: 'all' })
   const [results, setResults] = useState<MailArchiveSearchHit[]>([])
   const [selected, setSelected] = useState<MailArchiveMessage | null>(null)
+  const [showAlternateBody, setShowAlternateBody] = useState(false)
   const [threadMails, setThreadMails] = useState<MailArchiveSearchHit[]>([])
   const [threadTruncated, setThreadTruncated] = useState(false)
   const [sources, setSources] = useState<MailArchiveSource[]>([])
@@ -145,6 +173,7 @@ export function MailArchiveView(): React.JSX.Element {
     ])
     if (sequence !== selectedSequence.current) return
     setSelected(message)
+    setShowAlternateBody(false)
     setThreadMails([...thread.mails])
     setThreadTruncated(thread.truncated)
   }
@@ -152,6 +181,7 @@ export function MailArchiveView(): React.JSX.Element {
   const closeSelected = (): void => {
     selectedSequence.current += 1
     setSelected(null)
+    setShowAlternateBody(false)
     setThreadMails([])
     setThreadTruncated(false)
   }
@@ -193,6 +223,7 @@ export function MailArchiveView(): React.JSX.Element {
       const result = await mailArchiveApi.removeSource(sourceId)
       if (result.state === 'cancelled') return
       setSelected(null)
+      setShowAlternateBody(false)
       setThreadMails([])
       setThreadTruncated(false)
       await Promise.all([loadStats(), loadSources()])
@@ -466,8 +497,62 @@ export function MailArchiveView(): React.JSX.Element {
                   </ol>
                 </section>
               )}
+              {(selected.bodyQualityFlags.length > 0 || selected.bodyAlternateOmitted) && (
+                <div
+                  role="note"
+                  aria-label="본문 처리 알림"
+                  className="mb-3 rounded-r4 border border-border bg-bg px-3 py-2 text-[11.5px] leading-relaxed text-ink3"
+                >
+                  {selected.bodyQualityFlags.includes('decode_suspect') && (
+                    <p>문자 해석이 불확실할 수 있습니다. 아래 본문을 원본 메일과 대조해 주세요.</p>
+                  )}
+                  {selected.bodyQualityFlags.includes('alternative_mismatch') && (
+                    <p>
+                      일반 텍스트와 HTML 본문 내용이 다릅니다. 다른 본문 형식도 확인할 수 있습니다.
+                    </p>
+                  )}
+                  {selected.bodyQualityFlags.includes('oversized') && (
+                    <p>
+                      {selected.bodySelectionReason === 'oversized'
+                        ? '본문이 2 MiB 보관 한도를 넘어 본문을 저장하지 않았습니다.'
+                        : '본문 보관 한도 때문에 대체 형식은 저장하지 않았습니다.'}
+                    </p>
+                  )}
+                  {selected.bodyQualityFlags.includes('html_converted') && (
+                    <p>HTML에서 읽을 수 있는 텍스트를 만들어 표시합니다.</p>
+                  )}
+                </div>
+              )}
+              <details className="mb-3 rounded-r4 border border-border px-3 py-2 text-[11px] text-ink3">
+                <summary className="cursor-pointer font-medium text-ink2">본문 처리 정보</summary>
+                <p className="mt-2">
+                  표시 형식:{' '}
+                  {bodyKindLabel(
+                    showAlternateBody ? selected.bodyAlternateKind : selected.bodyKind
+                  )}
+                </p>
+                <p>{bodySelectionLabel(selected.bodySelectionReason)}</p>
+                {selected.bodyAlternateKind && (
+                  <p>대체 형식: {bodyKindLabel(selected.bodyAlternateKind)}</p>
+                )}
+              </details>
+              {selected.bodyAlternateText !== null && (
+                <button
+                  type="button"
+                  aria-pressed={showAlternateBody}
+                  onClick={() => setShowAlternateBody((shown) => !shown)}
+                  className="mb-2 rounded-r4 border border-border px-2.5 py-1.5 text-[11px] text-ink3 hover:bg-fill-uncontained-hover hover:text-ink"
+                >
+                  {showAlternateBody
+                    ? '선택 본문으로 돌아가기'
+                    : `대체 본문 보기 · ${bodyKindLabel(selected.bodyAlternateKind)}`}
+                </button>
+              )}
               <pre className="whitespace-pre-wrap break-words font-sans text-[12.5px] leading-[1.7] text-ink2">
-                {selected.bodyText || '(본문 없음)'}
+                {(showAlternateBody ? selected.bodyAlternateText : selected.bodyText) ||
+                  (selected.bodySelectionReason === 'oversized'
+                    ? '보관 한도를 넘어 본문을 저장하지 않았습니다.'
+                    : '(본문 없음)')}
               </pre>
               {selected.attachments.length > 0 && (
                 <div className="mt-5 border-t border-border pt-4 text-[12px] text-ink3">

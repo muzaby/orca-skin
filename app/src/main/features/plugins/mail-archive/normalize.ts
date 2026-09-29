@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import type { PSTMessage } from 'pst-extractor'
 import type { NormalizedArchiveMail } from './types'
 import { archiveMailIdentityKey } from './identity'
+import { selectMailBody } from './body-selection'
 
 function addressValue(value: Address | undefined): string {
   if (!value) return ''
@@ -22,17 +23,6 @@ function addresses(value: readonly Address[] | undefined): string {
 function cleanHeader(value: string | undefined | null): string | null {
   const normalized = value?.trim().replace(/\s+/g, ' ')
   return normalized ? normalized : null
-}
-
-function stripHtml(value: string): string {
-  return value
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/\s+/g, ' ')
-    .trim()
 }
 
 function parseDate(value: string | undefined): number | null {
@@ -78,7 +68,7 @@ export function normalizeEml(
   const messageId = cleanHeader(email.messageId)
   const inReplyTo = cleanHeader(email.inReplyTo)
   const references = cleanHeader(email.references)
-  const bodyText = (email.text?.trim() || (email.html ? stripHtml(email.html) : '')).trim()
+  const body = selectMailBody({ plainText: email.text, html: email.html })
   const attachments = attachmentManifest(
     (email.attachments ?? []).map((attachment) => ({
       name: attachment.filename,
@@ -103,7 +93,7 @@ export function normalizeEml(
     to: addresses(email.to),
     cc: addresses(email.cc),
     subject,
-    bodyText,
+    ...body,
     messageId,
     inReplyTo,
     references,
@@ -128,7 +118,7 @@ export function normalizePst(
   const subject = message.subject?.trim() ?? ''
   const messageId = cleanHeader(message.internetMessageId)
   const inReplyTo = cleanHeader(message.inReplyToId)
-  const bodyText = (message.body?.trim() || stripHtml(message.bodyHTML ?? '')).trim()
+  const body = selectMailBody({ plainText: message.body, html: message.bodyHTML })
   const attachments = attachmentManifest(
     Array.from({ length: Math.max(0, message.numberOfAttachments) }, (_, index) => {
       const attachment = message.getAttachment(index)
@@ -154,7 +144,7 @@ export function normalizePst(
     to: message.displayTo?.trim() ?? '',
     cc: message.displayCC?.trim() ?? '',
     subject,
-    bodyText,
+    ...body,
     messageId,
     inReplyTo,
     references: null,

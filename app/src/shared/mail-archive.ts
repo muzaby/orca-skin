@@ -13,6 +13,18 @@ export interface MailArchiveAttachment {
   readonly sizeBytes: number
 }
 
+export type MailArchiveBodyKind = 'plain' | 'html' | 'none' | 'legacy'
+export type MailArchiveBodyQualityFlag =
+  'alternative_mismatch' | 'decode_suspect' | 'html_converted' | 'oversized'
+export type MailArchiveBodySelectionReason =
+  | 'plain_preferred'
+  | 'plain_placeholder_fallback'
+  | 'plain_unusable_fallback'
+  | 'html_only'
+  | 'empty'
+  | 'oversized'
+  | 'legacy'
+
 export interface MailArchiveSearchHit {
   readonly id: string
   readonly sourceKind: MailArchiveSourceKind
@@ -34,6 +46,12 @@ export interface MailArchiveMessage extends MailArchiveSearchHit {
   readonly references: string | null
   readonly threadKey: string
   readonly bodyText: string
+  readonly bodyKind: MailArchiveBodyKind
+  readonly bodyAlternateText: string | null
+  readonly bodyAlternateKind: Exclude<MailArchiveBodyKind, 'none' | 'legacy'> | null
+  readonly bodyAlternateOmitted: boolean
+  readonly bodyQualityFlags: readonly MailArchiveBodyQualityFlag[]
+  readonly bodySelectionReason: MailArchiveBodySelectionReason
   readonly importedAt: number
   readonly attachments: readonly MailArchiveAttachment[]
 }

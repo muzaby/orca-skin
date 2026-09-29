@@ -26,13 +26,15 @@ function normalizedText(value: string): string {
 type MailIdentityInput = Omit<NormalizedArchiveMail, 'identityKey'>
 
 function contentDigest(mail: MailIdentityInput): string {
+  // Keep identity stable across body-projection upgrades. The compatibility text preserves the
+  // previous HTML-to-text digest; alternate representations and quality flags are not identity.
   const payload = [
     mail.sentAt,
     normalizedText(mail.from).toLocaleLowerCase('en-US'),
     normalizedText(mail.to).toLocaleLowerCase('en-US'),
     normalizedText(mail.cc).toLocaleLowerCase('en-US'),
     normalizedText(mail.subject),
-    mail.bodyText.normalize('NFC'),
+    (mail.identityBodyText ?? mail.bodyText).normalize('NFC'),
     mail.inReplyTo?.trim().toLocaleLowerCase('en-US') ?? null,
     mail.references?.trim().toLocaleLowerCase('en-US') ?? null,
     mail.threadKey.trim().toLocaleLowerCase('en-US'),

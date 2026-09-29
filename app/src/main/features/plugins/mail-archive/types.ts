@@ -1,4 +1,10 @@
-import type { MailArchiveAttachment, MailArchiveSourceKind } from '../../../../shared/mail-archive'
+import type {
+  MailArchiveAttachment,
+  MailArchiveBodyKind,
+  MailArchiveBodyQualityFlag,
+  MailArchiveBodySelectionReason,
+  MailArchiveSourceKind
+} from '../../../../shared/mail-archive'
 
 export interface NormalizedArchiveMail {
   readonly sourceKind: MailArchiveSourceKind
@@ -14,6 +20,13 @@ export interface NormalizedArchiveMail {
   readonly cc: string
   readonly subject: string
   readonly bodyText: string
+  readonly identityBodyText?: string
+  readonly bodyKind: MailArchiveBodyKind
+  readonly bodyAlternateText: string | null
+  readonly bodyAlternateKind: Exclude<MailArchiveBodyKind, 'none' | 'legacy'> | null
+  readonly bodyAlternateOmitted: boolean
+  readonly bodyQualityFlags: readonly MailArchiveBodyQualityFlag[]
+  readonly bodySelectionReason: MailArchiveBodySelectionReason
   readonly messageId: string | null
   readonly inReplyTo: string | null
   readonly references: string | null
