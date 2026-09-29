@@ -13,9 +13,9 @@
 | 일자 | 2026-09-29 |
 | 매핑 | PR 브랜치 `codex-0244-mail-archive-plan` → `main` |
 | 조사 기준 | `f2f60ac338f2847f81a6cbc426f0728b7eb8d98e` (`git cat-file -t` → commit 확인) |
-| 상태 | **DRAFT — r1.4 보완 반영, PG-01~03 설계 정정 필요** |
+| 상태 | **READY — ΔV4-A 독립 경로(설정·필터·본문 구간)만 구현 가능; PG-01~03 경로는 DRAFT 유지** |
 | V mode / 기준 V | `Delta V` / 독립안 `V1@3f9558d9ec7fca52bc7c55533031051ba5d5b96a` |
-| 이번 V revision / 유효 V | `ΔV3` / `V1 + ΔV2 + ΔV3 (S1 범위)` |
+| 이번 V revision / 유효 V | `ΔV4-A` / `V1 + ΔV2 + ΔV3 + ΔV4-A (아래 독립 경로)` |
 
 # Part I — Product & UX Contract
 
@@ -77,6 +77,21 @@ V1의 D-001~D-016을 유지하고 조사 보완 D-017~D-023, 경량 기준 D-024
 D-024는 사용자의 후속 구현 지시로 채택됐다. D-014는 S1에서 PST parser 후보를 닫고, 로컬 inference runtime·API 계약은 D-015에 남겨 S2에서 처리한다. `sqlite-vec`, ANN, reranker, Gemma 비교는 첫 기준에서 제외한다.
 
 ACTIVE 결정 ↔ AC 대조: D-001~D-012·D-017~D-021·D-024~D-026은 표의 AC·본문 경로와 대조한다. D-022는 사용자 선택을 반영해 D-024로 대체됐다. 문서 요구 D-013·D-023은 G-DOC로 확인한다. D-015~D-016은 S2·S3의 OPEN으로 남기며, 현재 READY 판정은 D-025·D-026의 S1 경계에만 적용한다.
+
+### ΔV4-A — 결정 대기와 독립 구현 경로 (2026-09-30)
+
+사용자의 “이어서 진행하라”에 따라 기존 ACTIVE 계약의 미구현 경로를 계속한다. PG-01 손상 PST 부분 공개와 PG-02 EML 폴더 관리 단위는 사용자 답변 대기이며, PG-03 형식 통합 identity 전환은 기술 설계 대기다. **이 세 경로는 READY가 아니며 기존 reader·source/revision·identity 동작을 이번 구현에서 바꾸지 않는다.**
+
+이번 READY 경계는 D-008의 설정 관리, AC7의 명시 필터, AC4의 가역 구간 표시다. 전체 S1 완료로 범위를 좁히지 않으며 기존 미충족 AC는 유지한다. 설정 관리와 본문/검색은 현재 저장된 verified 메일을 소비하므로 위 세 변경 없이 구현 가능하다.
+
+- 설정의 `메일 보관함` 탭에서 파일/폴더 추가·진행·실패·자료원 제거·검색 화면 이동을 제공한다. 페이지는 검색/열람과 `자료원 관리` 진입을 제공한다. 설정과 페이지는 같은 feature 상태를 소비해 어느 쪽에서 변경해도 목록·현황을 갱신한다.
+- 검색은 Enter/검색 버튼으로만 적용한다. 보낸 사람·받는 사람·참조·첨부 이름은 각 필드의 부분 일치, 날짜는 메일의 보낸 날짜 범위, 폴더는 verified occurrence의 경로 부분 일치다. 모든 지정 조건은 AND다. 자료원과 폴더가 함께 지정되면 **동일 occurrence**가 두 조건을 만족해야 한다.
+- 날짜 입력은 사용자의 로컬 달력 날짜이며 시작일 00:00 이상, 종료일 다음 날 00:00 미만으로 IPC에 보낸다. 역전 범위·유효하지 않은 날짜는 검색 전에 표시하고 기존 결과를 유지한다. 날짜 미상은 기간 필터를 지정했을 때 제외한다.
+- 본문 구간은 `[start,end)` UTF-16 offset으로 snapshot 전부를 겹침 없이 덮는다. 명시 `>` 행은 quote, 표준 서명 구분선과 복수 연락처 근거가 함께 있는 꼬리는 signature, 나머지는 unknown으로 보수적으로 분류한다. 한 줄 `--`, 문장 안의 `보낸 사람:`, 인라인 새 답변은 지우거나 quote로 추정하지 않는다.
+- 구간 분류는 새 본문/기존 본문에서 같은 순수 함수를 쓰며 DB에 classifier revision과 offset을 저장한다. 기존 본문·메일/첨부 ID·identity_key는 변경하지 않는다. 대체 본문은 별도 텍스트로 열고 선택 본문 offset을 적용하지 않는다.
+- 뷰어는 quote/signature를 접어 볼 수 있고 해당 구간에 현재 검색어가 있으면 자동 펼친다. 원문 전체 보기를 항상 제공한다. 이번 단계에서는 가중치 FTS·scope-aware quote 중복 접기·AI context를 구현했다고 주장하지 않는다.
+
+ACTIVE 결정 ↔ AC 대조: D-008→AC1/23, D-006→AC4, D-005→AC9, D-026→AC5를 유지한다. 필드의 잃어버린 이름을 추측 복원하지 않으며 이름/주소 재정규화와 EML↔PST 병합은 PG-03에 남긴다. 이 독립 경로에는 신규 제품 선택·의존성 추가가 없다.
 
 ### Codex 권고: 첫 기준은 단순·경량
 
@@ -308,6 +323,27 @@ M-WIRE는 EP-12a 등록 제거와 EP-01a 설정/페이지 슬롯 제거 각각�
 현재 문서 변경의 운영 gate는 §19 G-DOC·G-MSG이다. 구현 게이트와 제품 pair는 구현 턴에 수행한다.
 
 # Part II — Technical Design
+
+### ΔV4-A 경로·검증 정정
+
+기준은 공유 브랜치의 r1.4 산출과 ΔV3이며 stable pair ID를 유지한다. 아래는 독립 경로의 추가 oracle이고 기존 pair 전체 완료 조건을 대체하지 않는다. 나머지 S1 pair는 기존 미충족/회귀 계약을 유지한다.
+
+| node / 기존 pair | 이번 상태·requiredness | 추가 경로 / 직접 oracle | §10 자리·적대 증거 |
+|---|---|---|---|
+| R-01/R-08, AR-01, MD-06 / VP-01·08·13·23 | CHANGED / REQUIRED, 기존 소비 회귀 포함 | app slot→settings/source state→IPC→페이지. 설정 진입·추가/실패/제거·뒤늦은 상태 응답을 실제 store/렌더 경로로 단언 | EP-01 a~d. M-WIRE는 app의 설정 slot 제거 시 렌더 검사 실패 |
+| R-03, MD-02 / VP-03·19 | CHANGED / REQUIRED | 입력→순수 request 변환→schema→index/store→결과. 경계 날짜/null·각 필드·같은 occurrence의 source/folder AND·LIKE literal을 실제 SQLite ID 집합으로 단언 | EP-05 a·b, EP-18 a. 직접 oracle |
+| R-02, AR-02, MD-01 / VP-02·14·18 | CHANGED / REQUIRED | classifier→새 insert/기존 projection→DB→get→뷰어. UTF-16/CRLF/인라인 답변 재결합·이전 ID/첨부 불변·검색 hit 구간 펼침 확인 | EP-03 d, EP-16 a·b·d. 직접 oracle |
+
+Technical Design: `shared/mail-archive.ts`에 검색 필드·구간 DTO를 추가하고 기존 search/get 채널을 사용한다. `search-request.ts`(renderer)는 로컬 날짜→epoch를 검증하고, SQL은 parameter binding으로 필터를 결합한다. 폴더·자료원 조건은 하나의 verified occurrence EXISTS 안에서 평가한다.
+
+자료원 상태는 mail-archive feature의 주입 가능한 store가 소유하고 설정/페이지에서 공유한다. settings는 mail feature를 import하지 않고 app의 ReactNode slot을 받으며 `AppSettingsTab`·오류 목적지 allowlist·i18n·페이지 callback을 함께 연결한다. 늦은 refresh 결과는 세대 번호로 버리고 가져오기 완료/자료원 제거 뒤 공유 revision을 갱신한다.
+
+`segment-classifier.ts`는 Electron/DB를 import하지 않는다. 새 `archive_body_segment` projection은 메일 ID+ordinal·start/end·kind·ruleId·classifierRevision이며 삭제는 mail FK cascade다. 저장은 mail insert와 같은 transaction, 기존 행 backfill도 index worker의 transaction으로 완료한다. 실패/재시작은 이전 본문을 유지하고 projection을 재시도한다. HTML 구조를 이미 잃은 snapshot은 추측하지 않고 unknown으로 남긴다.
+
+Gate: subtree lint/typecheck, classifier/request/source-state UT, SQLite filter·projection IT, 기존 reader/identity/service 회귀, 설정 렌더/오류 목적지 검사, migration append-only·doc inventory·Vite build. D-012 worker smoke는 DTO/DB 경계 회귀로 실행한다. UI 시각은 실제 창 또는 합성 renderer에서 별도 확인하며 정적 검사로 대체하지 않는다.
+
+READY self-review 관측: 기존 설정은 `general/usage/provider:*`이고 app의 `SidebarUserButton`이 SettingsModal을 조립한다. search는 기존 shared→preload→handler→index→store 한 경로이며 날짜/폴더 조건은 아직 없다. body_text와 기존 mail/attachment PK를 유지하는 additive projection이라 PG-03의 identity 전환과 독립이다. PG-01/02에 대한 무응답을 승인으로 해석하지 않는다.
+
 
 ## 8. Research — 현재 코드와 계약
 
