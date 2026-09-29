@@ -13,7 +13,7 @@
 | 일자 | 2026-09-29 |
 | 매핑 | PR 브랜치 `codex-0244-mail-archive-plan` → `main` |
 | 조사 기준 | `f2f60ac338f2847f81a6cbc426f0728b7eb8d98e` (`git cat-file -t` → commit 확인) |
-| 상태 | **IMPL_DONE — S1 1차 구현(부분: PST·EML 검색/EML 배치), S2 임베딩·RAG와 D-012 worker는 후속 검증** |
+| 상태 | **DRAFT — PLAN_GAP: D-012 worker 격리와 경량 S1 범위의 정합성 정정 필요** |
 | V mode / 기준 V | `Delta V` / 독립안 `V1@3f9558d9ec7fca52bc7c55533031051ba5d5b96a` |
 | 이번 V revision / 유효 V | `ΔV2` / `V1 + ΔV2 (S1 범위)` |
 
@@ -932,7 +932,7 @@ D-024를 OPEN으로 추가하고 FTS5 기본·선택 설치형 E5-small/API·SQL
 - [x] S1에 필요한 ΔV2 본문·AC·pair·§10 범위를 재대조하고 S2/S3 OPEN을 분리.
 - [x] plan/INDEX를 S1 구현용 READY로 전환.
 
-**판정: S1 구현용 READY.** PST·EML 입력·검색·EML 폴더 배치의 계약과 관측 pair를 잠갔으며, 임베딩·RAG·성능 실증은 D-015~D-016 후속 handoff에서 별도로 닫는다.
+**초기 판정: S1 구현용 READY.** 구현에서 D-012의 worker 격리와 경량 S1 구현 사이의 PLAN_GAP이 발견됐다. PST·EML 입력·검색·EML 폴더 배치 코드는 보존하지만, 검증 전에 D-012를 S1에 적용할지 후속 단계로 정정할지 설계자가 결정해야 한다.
 
 ---
 
