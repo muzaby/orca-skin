@@ -7,6 +7,7 @@ import { AgentPage } from '../pages/AgentPage'
 import { CapturesPage } from '../pages/CapturesPage'
 import { ArtifactsPage } from '../pages/ArtifactsPage'
 import { PluginsPage } from '../pages/PluginsPage'
+import { MailArchivePage } from '../pages/MailArchivePage'
 import type { ArtifactsViewProps } from '../features/artifacts'
 import { BootRedirector } from './BootRedirector'
 
@@ -34,6 +35,7 @@ export function AppRouter({
       <Route path="/projects" element={<ProjectsPage />} />
       <Route path="/artifacts" element={<ArtifactsPage {...artifactCatalog} />} />
       <Route path="/plugins" element={<PluginsPage />} />
+      <Route path="/mail-archive" element={<MailArchivePage />} />
       <Route
         path="/projects/:projectId"
         element={<ProjectLandingPage onDeleteProject={onDeleteProject} />}

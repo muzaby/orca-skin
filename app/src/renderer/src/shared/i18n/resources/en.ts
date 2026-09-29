@@ -1149,7 +1149,8 @@ export const en: typeof ko = {
       newChat: 'New chat',
       projects: 'Projects',
       engine: 'Engine & Models',
-      plugins: 'Plugins'
+      plugins: 'Plugins',
+      mailArchive: 'Mail archive'
     },
     recents: 'Recents',
     pinnedProjects: 'Projects',

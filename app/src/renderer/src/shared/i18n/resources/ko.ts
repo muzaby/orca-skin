@@ -1156,7 +1156,8 @@ export const ko = {
       newChat: '새 대화',
       projects: '프로젝트',
       engine: '엔진 & 모델',
-      plugins: '플러그인'
+      plugins: '플러그인',
+      mailArchive: '메일 이력'
     },
     recents: '최근 대화',
     pinnedProjects: '프로젝트',

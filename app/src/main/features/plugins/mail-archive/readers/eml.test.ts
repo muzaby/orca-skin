@@ -1,0 +1,170 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, describe, expect, it } from 'vitest'
+import { MAX_EML_BYTES, readEmlFile } from './eml'
+
+const roots: string[] = []
+afterEach(async () => {
+  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
+})
+
+describe('EML archive reader', () => {
+  it('keeps Korean body and reply headers while indexing attachment names only', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'orca-mail-archive-eml-'))
+    roots.push(root)
+    const path = join(root, 'mail.eml')
+    await writeFile(
+      path,
+      [
+        'From: sender@example.test',
+        'To: team@example.test',
+        'Subject: =?UTF-8?B?7ISc67KEIOydtOyghCDsnbzsoJU=?=',
+        'Date: Tue, 01 Jan 2024 10:00:00 +0900',
+        'Message-ID: <mail-1@example.test>',
+        'In-Reply-To: <mail-0@example.test>',
+        'References: <mail-0@example.test>',
+        'MIME-Version: 1.0',
+        'Content-Type: multipart/mixed; boundary="x"',
+        '',
+        '--x',
+        'Content-Type: text/plain; charset=utf-8',
+        '',
+        '서버 이전 검토를 완료했습니다.',
+        '--x',
+        'Content-Type: text/plain; name="plan.txt"',
+        'Content-Disposition: attachment; filename="plan.txt"',
+        '',
+        'attachment body is not indexed',
+        '--x',
+        'Content-Type: message/rfc822; name="forwarded.eml"',
+        '',
+        'From: forwarded@example.test',
+        'To: archive@example.test',
+        'Subject: forwarded content',
+        'Message-ID: <forwarded@example.test>',
+        'Content-Type: text/plain; charset=utf-8',
+        '',
+        'NESTED-ATTACHMENT-UNIQUE-SENTINEL-93471',
+        '--x--',
+        ''
+      ].join('\r\n'),
+      'utf8'
+    )
+    const message = await readEmlFile(path, { sourceId: 'source-id', itemKey: '' })
+    expect(message).toMatchObject({
+      subject: '서버 이전 일정',
+      bodyText: '서버 이전 검토를 완료했습니다.',
+      messageId: '<mail-1@example.test>',
+      inReplyTo: '<mail-0@example.test>',
+      references: '<mail-0@example.test>'
+    })
+    expect(message.attachments.map((attachment) => attachment.name)).toEqual([
+      'plan.txt',
+      'forwarded.eml'
+    ])
+    expect(message.bodyText).not.toContain('attachment body')
+    expect(message.bodyText).not.toContain('NESTED-ATTACHMENT-UNIQUE-SENTINEL-93471')
+  })
+
+  it('keeps display names next to addresses so either finds the mail', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'orca-mail-archive-eml-names-'))
+    roots.push(root)
+    const path = join(root, 'names.eml')
+    await writeFile(
+      path,
+      [
+        'From: =?UTF-8?B?6rmA7LKg7IiY?= <kim@example.test>',
+        'To: Lee <lee@example.test>, park@example.test',
+        'Cc: Team: choi@example.test;',
+        'Subject: names',
+        'Content-Type: text/plain; charset=utf-8',
+        '',
+        'body'
+      ].join('\r\n'),
+      'utf8'
+    )
+
+    const message = await readEmlFile(path, { sourceId: 'source-id', itemKey: 'names.eml' })
+    expect(message).toMatchObject({
+      from: '김철수 <kim@example.test>',
+      to: 'Lee <lee@example.test>, park@example.test',
+      cc: 'choi@example.test',
+      itemKey: 'names.eml'
+    })
+  })
+
+  it('rejects an EML over the input budget before reading it into memory', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'orca-mail-archive-eml-large-'))
+    roots.push(root)
+    const path = join(root, 'large.eml')
+    await writeFile(path, Buffer.alloc(MAX_EML_BYTES + 1))
+    await expect(readEmlFile(path, { sourceId: 'source-id', itemKey: '' })).rejects.toThrow(
+      'mail_eml_too_large'
+    )
+  })
+
+  it('retains a differing HTML alternative without making it the searchable body', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'orca-mail-archive-eml-alternative-'))
+    roots.push(root)
+    const path = join(root, 'alternative.eml')
+    await writeFile(
+      path,
+      [
+        'From: sender@example.test',
+        'Subject: 서버 이전',
+        'MIME-Version: 1.0',
+        'Content-Type: multipart/alternative; boundary="body"',
+        '',
+        '--body',
+        'Content-Type: text/plain; charset=utf-8',
+        '',
+        '서버 이전 날짜는 3월 2일입니다.',
+        '--body',
+        'Content-Type: text/html; charset=utf-8',
+        '',
+        '<p>서버 이전 날짜는 3월 4일입니다.</p><script>HTML-SCRIPT-SENTINEL</script>',
+        '--body--',
+        ''
+      ].join('\r\n'),
+      'utf8'
+    )
+
+    const message = await readEmlFile(path, { sourceId: 'source-id', itemKey: '' })
+    expect(message).toMatchObject({
+      bodyText: '서버 이전 날짜는 3월 2일입니다.',
+      bodyKind: 'plain',
+      bodyAlternateText: '서버 이전 날짜는 3월 4일입니다.',
+      bodyAlternateKind: 'html'
+    })
+    expect(message.bodyQualityFlags).toContain('alternative_mismatch')
+    expect(message.bodyAlternateText).not.toContain('HTML-SCRIPT-SENTINEL')
+  })
+
+  it('converts HTML-only Korean mail and excludes explicitly hidden content', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'orca-mail-archive-eml-html-'))
+    roots.push(root)
+    const path = join(root, 'html-only.eml')
+    await writeFile(
+      path,
+      [
+        'From: sender@example.test',
+        'Subject: 서버 이전',
+        'MIME-Version: 1.0',
+        'Content-Type: text/html; charset=utf-8',
+        '',
+        '<html><body><p>이전은 다음 주에 진행합니다.</p>',
+        '<div hidden>HIDDEN-HTML-SENTINEL</div>',
+        '<script>HTML-SCRIPT-SENTINEL</script></body></html>'
+      ].join('\r\n'),
+      'utf8'
+    )
+
+    const message = await readEmlFile(path, { sourceId: 'source-id', itemKey: '' })
+    expect(message.bodyKind).toBe('html')
+    expect(message.bodySelectionReason).toBe('html_only')
+    expect(message.bodyText).toContain('이전은 다음 주에 진행합니다.')
+    expect(message.bodyText).not.toMatch(/HIDDEN-HTML-SENTINEL|HTML-SCRIPT-SENTINEL/)
+    expect(message.bodyQualityFlags).toContain('html_converted')
+  })
+})

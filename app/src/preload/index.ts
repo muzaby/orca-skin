@@ -16,6 +16,19 @@ import type {
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import type { NormalizedPermissionMode } from '../shared/permission-mode'
 import type {
+  MailArchiveImportResult,
+  MailArchiveMessage,
+  MailArchiveProgress,
+  MailArchiveSearchHit,
+  MailArchiveSearchRequest,
+  MailArchiveStats,
+  MailArchiveSource,
+  MailArchiveSourceRemovalResult,
+  MailArchiveAttachmentExportResult,
+  MailArchiveThreadRequest,
+  MailArchiveThreadResult
+} from '../shared/mail-archive'
+import type {
   BackgroundEvent,
   BackgroundSessionState,
   BackgroundTaskRequest,
@@ -232,6 +245,30 @@ const orca = {
     readAttachment: (path: string): Promise<ReadAttachmentResult> =>
       ipcRenderer.invoke(CHANNELS.filesReadAttachment, { path }),
     pathForFile: (file: File): string => webUtils.getPathForFile(file)
+  },
+  mailArchive: {
+    importFiles: (): Promise<MailArchiveImportResult | null> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveImportFiles),
+    importEmlFolder: (): Promise<MailArchiveImportResult | null> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveImportEmlFolder),
+    status: (): Promise<MailArchiveProgress | null> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveStatus),
+    cancel: (jobId: string): Promise<{ cancelled: boolean }> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveCancel, { id: jobId }),
+    search: (request: MailArchiveSearchRequest): Promise<MailArchiveSearchHit[]> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveSearch, request),
+    get: (id: string): Promise<MailArchiveMessage | null> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveGet, { id }),
+    thread: (request: MailArchiveThreadRequest): Promise<MailArchiveThreadResult> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveThread, request),
+    exportAttachment: (attachmentId: string): Promise<MailArchiveAttachmentExportResult> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveExportAttachment, { id: attachmentId }),
+    sources: (): Promise<MailArchiveSource[]> => ipcRenderer.invoke(CHANNELS.mailArchiveSources),
+    removeSource: (sourceId: string): Promise<MailArchiveSourceRemovalResult> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveRemoveSource, { id: sourceId }),
+    stats: (): Promise<MailArchiveStats> => ipcRenderer.invoke(CHANNELS.mailArchiveStats),
+    onProgress: (handler: (progress: MailArchiveProgress) => void): (() => void) =>
+      subscribe(CHANNELS.mailArchiveProgress, handler)
   },
   git: {
     snapshot: (req: GitSnapshotRequest): Promise<GitSnapshotResult> =>

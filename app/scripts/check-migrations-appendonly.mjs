@@ -25,6 +25,10 @@ export const MIGRATION_PAIRS = [
   {
     dir: join('src', 'main', 'features', 'plugins', 'mail', 'migrations'),
     source: join('src', 'main', 'features', 'plugins', 'mail', 'store', 'migrate.ts')
+  },
+  {
+    dir: join('src', 'main', 'features', 'plugins', 'mail-archive', 'migrations'),
+    source: join('src', 'main', 'features', 'plugins', 'mail-archive', 'migrate.ts')
   }
 ]
 const MIGRATION_FILE_PATTERN = /^(\d{4})_[a-z0-9_]+\.sql$/
@@ -39,6 +43,7 @@ const LIST_OWNERS = new Set([
   // 정본.
   'src/main/infra/db/migrate.ts',
   'src/main/features/plugins/mail/store/migrate.ts',
+  'src/main/features/plugins/mail-archive/migrate.ts',
   // 골든 목록(명세) + 마이그레이션 SQL 자체의 동작 테스트. 둘 다 "그 시점" 에 고정된
   // 부분집합이라 정본을 통해 만들 수 없다.
   'src/main/infra/db/migrate.test.ts'

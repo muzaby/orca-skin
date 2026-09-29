@@ -88,6 +88,19 @@ import type {
 } from '../../../../shared/ipc'
 // 사용량 타입 정본은 `shared/usage/limits.ts` (ipc.ts 에 두면 순환).
 import type { UsageDelta, UsageLimitsView } from '../../../../shared/usage/limits'
+import type {
+  MailArchiveImportResult,
+  MailArchiveMessage,
+  MailArchiveProgress,
+  MailArchiveSearchHit,
+  MailArchiveSearchRequest,
+  MailArchiveStats,
+  MailArchiveSource,
+  MailArchiveSourceRemovalResult,
+  MailArchiveAttachmentExportResult,
+  MailArchiveThreadRequest,
+  MailArchiveThreadResult
+} from '../../../../shared/mail-archive'
 
 // renderer 의 모든 IPC 호출 진입점. window.orca.* 의 얇은 typed 패스-스루로,
 // features/ 내부 hook · 컴포넌트가 직접 window 객체에 의존하지 않도록 격리한다.
@@ -181,6 +194,27 @@ export const fileApi = {
   readAttachment: (path: string): Promise<ReadAttachmentResult> =>
     window.orca.files.readAttachment(path),
   pathForFile: (file: File): string => window.orca.files.pathForFile(file)
+}
+
+export const mailArchiveApi = {
+  importFiles: (): Promise<MailArchiveImportResult | null> => window.orca.mailArchive.importFiles(),
+  importEmlFolder: (): Promise<MailArchiveImportResult | null> =>
+    window.orca.mailArchive.importEmlFolder(),
+  status: (): Promise<MailArchiveProgress | null> => window.orca.mailArchive.status(),
+  cancel: (jobId: string): Promise<{ cancelled: boolean }> => window.orca.mailArchive.cancel(jobId),
+  search: (request: MailArchiveSearchRequest): Promise<MailArchiveSearchHit[]> =>
+    window.orca.mailArchive.search(request),
+  get: (id: string): Promise<MailArchiveMessage | null> => window.orca.mailArchive.get(id),
+  thread: (request: MailArchiveThreadRequest): Promise<MailArchiveThreadResult> =>
+    window.orca.mailArchive.thread(request),
+  exportAttachment: (attachmentId: string): Promise<MailArchiveAttachmentExportResult> =>
+    window.orca.mailArchive.exportAttachment(attachmentId),
+  sources: (): Promise<MailArchiveSource[]> => window.orca.mailArchive.sources(),
+  removeSource: (sourceId: string): Promise<MailArchiveSourceRemovalResult> =>
+    window.orca.mailArchive.removeSource(sourceId),
+  stats: (): Promise<MailArchiveStats> => window.orca.mailArchive.stats(),
+  onProgress: (handler: (progress: MailArchiveProgress) => void): (() => void) =>
+    window.orca.mailArchive.onProgress(handler)
 }
 
 export const gitApi = {
