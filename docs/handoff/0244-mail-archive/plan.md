@@ -2,7 +2,7 @@
 
 > 작성자 **Codex**. 사용자 지시에 따라 `main`에서 작성한 독립 비교안이다. 다른 브랜치의 동명 계획·결정·승인을 상속하지 않는다.
 > 절차: [handoff-plan](../../../.agents/skills/handoff-plan/SKILL.md) · 상태와 V 규약: [handoff/AGENTS.md](../AGENTS.md).
-> **읽는 순서:** 이 문서의 V1 제품 계약 → [조사 검토](research-review.md) → [ΔV1 설계 보완](delta-v1.md). 유효 계약은 **V1 + ΔV1**이며, ΔV1에 명시한 보완은 아래 V1보다 우선한다. 구현·검증 시 양쪽 AC·강제 지점을 함께 적용한다.
+> **설계 정본:** 조사 보완을 포함한 현재 계약은 이 plan에 통합했다. 외부 구현의 관측·채택 판단은 [조사 검토](research-review.md)에 두며, 구현·검증은 이 문서의 AC·V·강제 지점을 따른다.
 
 ## 메타
 
@@ -36,7 +36,8 @@
 | 첨부 답변 | “첨부 본문 검색은 제외한다.” | 첨부 이름·유형·크기 검색과 선택 추출만 설계. OCR·본문 색인·첨부 임베딩 제외 |
 | 계획 요청 | “Handoff-plan 으로 계획 작성하여 pr까지 만들어줘” | 이번 산출은 계획·PR. 앱 구현·의존성 설치 아님 |
 | 독립안 요청 | “원격브랜치 무시하고 244로 만들어라. 비교 후 선택할 것이다. 작성자는 codex로 할 것” | 번호 0244, 작성자 Codex, 기준 main, 타 계획의 사용자 승인을 전용하지 않음 |
-| 조사 반영 요청 | “조사 내용을 바탕으로 보완점이나 구현 방안을 구체화하라” + `mail-archive-rag-report.md` | 1차 구현·모델 문서와 대조하고 [ΔV1](delta-v1.md)에 전처리·검색·UX·실증 조건 보완 |
+| 조사 반영 요청 | “조사 내용을 바탕으로 보완점이나 구현 방안을 구체화하라” + `mail-archive-rag-report.md` | 1차 구현·모델 문서와 대조하고 이 plan에 전처리·검색·UX·실증 조건 통합 |
+| 문서 통합 요청 | “델타 문서는 따로 작성하지말고 plan 문서에 합쳐라” | 보완 계약을 해당 절에 통합하고 별도 델타 파일·참조 제거 |
 
 ## 3. Decision Ledger
 
@@ -57,15 +58,22 @@
 | D-011 | 범위는 세션에 귀속, 인용은 답변 당시 본문 버전에 귀속 | 다른 세션·재색인 결과와 섞이지 않음 | Codex 제안 | ACTIVE | AC13·16·21 |
 | D-012 | 파싱·DB·로컬 추론·벡터 스캔은 자식 프로세스, API 요청만 main의 Chromium 전송 포트 | 대량 PST 처리 중 UI와 취소 응답 유지 | Codex 제안 | ACTIVE | AC3·11·19·20 |
 | D-013 | main 기준 독립 0244, 작성자 Codex | “비교 후 선택할 것이다” | 사용자 | ACTIVE | 문서 게이트 G-DOC |
-| D-014 | PST·로컬 임베딩 신규 의존성 최종 채택 | §17 후보 검증 후 패키지 도입 승인 필요 | 저장소 의존성 규칙 | **OPEN** | AC2·10·24 / S0 |
+| D-014 | PST·로컬 임베딩·벡터 엔진 신규 의존성 최종 채택 | §17 후보 검증 후 패키지 도입 승인 필요 | 저장소 의존성 규칙 | **OPEN** | AC2·10·24 / S0 |
 | D-015 | 첫 로컬 모델 팩과 API 프로토콜·인증·모델 리비전 | “지원 가능”을 특정 모델/서비스 승인으로 해석하지 않음 | 미제공 환경 정보 | **OPEN** | AC10~12 / S0 |
 | D-016 | 기준 PC·대표 자료로 §14 예산의 실행 가능성 확정 | 성능 SLA를 임의 확정하지 않음 | 저장소 미정 항목 + 실측 필요 | **OPEN** | AC19·24 / S0 |
+| D-017 | 표시 본문·키워드 필드·임베딩 입력을 분리하고 변환 규약을 버전 관리 | 전송 헤더·중복 본문·메타데이터가 검색을 지배하지 않게 함 | 조사 + Codex 제안 | ACTIVE | AC2·4·7·10 |
+| D-018 | 인용/서명은 가역 분류, 자동 의미 삭제 없음 | 원 메일 부재·인라인 답변·업무 면책 조건 유실 방지 | 조사 비판 + Codex 제안 | ACTIVE | AC4·5·14 |
+| D-019 | 메시지 버전별 chunk가 검색 단위, 확인된 스레드는 context 단위 | 스레드 전체 재임베딩과 잘못된 발신자·날짜 귀속 방지 | Onyx 구조의 선택적 적용 | ACTIVE | AC5·8·13·14 |
+| D-020 | 기본 관련도 검색에 시간 감쇠 없음, hard filter와 정확 식별자 자동 완화 없음 | 과거 결정 근거·번호 검색의 정확성 보존 | 조사 권고 수정 | ACTIVE | AC7·8·14·16 |
+| D-021 | query cache와 vector 파생 색인은 원문·출처와 별개이며 epoch로 무효화 | 계산 재사용이 범위·삭제·모델 변경을 우회하지 않게 함 | 조사 + Codex 제안 | ACTIVE | AC10·12·19~21 |
+| D-022 | 로컬 모델 비교를 e5-small, EmbeddingGemma 768/256으로 구체화; API 동일 평가 | 공개 점수 대신 동일 한국어 메일 질의셋으로 선택 | 조사 + 공식 모델 카드 | ACTIVE | AC10·11·19·24 |
+| D-023 | 설계 계약은 plan 한 문서에 통합 | 별도 델타 문서를 왕복하지 않고 현재 계약을 읽음 | 사용자 | ACTIVE | G-DOC |
 
-V1 갱신 메모: 독립 Baseline V로 작성했다. “로컬·API 모두”를 유지하고, 다른 계획에서만 있었던 라이브러리 승인·모델 선택·배포 범위는 사용자 결정으로 기록하지 않았다.
+V1의 D-001~D-016을 유지하고 조사 보완 D-017~D-022와 단일 plan 요구 D-023을 추가했다. 기준은 이 독립안의 V1이며 다른 브랜치의 라이브러리 승인·모델 선택·V를 상속하지 않는다.
 
-ΔV1 갱신 메모: 위 결정은 모두 유지하며 [ΔV1 §1](delta-v1.md#1-decision-ledger-변경)에 D-017~D-022를 추가했다. 전처리·입력 표현·중복 접기·캐시·후보 비교를 보완하며 D-014~D-016은 OPEN이다. 이번에 상속하는 기준은 이 독립안의 V1이며 다른 브랜치의 결정이 아니다.
+D-014의 승인 대기 후보에 sqlite-vec를 비교 대상으로 추가한다. D-022는 모델 평가 순서·대상을 정한 것이며 D-015의 모델 채택을 대신하지 않는다.
 
-ACTIVE 결정 ↔ AC 대조: D-001~D-012는 표의 AC에서 같은 동작을 요구하고 충돌 0, 문서 출처에 관한 D-013은 G-DOC로 확인했다. D-014~D-016의 검증 대상·선택 조건은 §11 S0에서 고정하고, 이 항목을 숨긴 채 READY로 넘기지 않는다.
+ACTIVE 결정 ↔ AC 대조: D-001~D-012·D-017~D-022는 표의 AC·본문 경로와 대조해 충돌 0을 확인했다. 문서 요구 D-013·D-023은 G-DOC로 확인한다. D-014~D-016은 OPEN이며 §11의 실증과 선택 조건을 해소하기 전 READY로 넘기지 않는다.
 
 ## 4. 요구 비판적 검토
 
@@ -118,6 +126,23 @@ ACTIVE 결정 ↔ AC 대조: D-001~D-012는 표의 AC에서 같은 동작을 요
 - 범위를 지정하지 않은 일반 채팅에서 메일 도구가 호출되면 `검색할 보관함 선택` 동작을 제시한다. 모델이 임의로 모든 보관함을 선택하지 않는다.
 - 답변은 결론·시간순 경위·변경 조건·확인되지 않은 부분을 구분한다. 판단을 뒷받침하는 문장에 출처를 붙이고 “검색 범위에서 최종 승인 메일을 찾지 못함”과 “승인되지 않음”을 구별한다.
 
+### 검색과 본문 표시
+
+| 상황 | 표시/동작 | 이유 |
+|---|---|---|
+| 반복 인용 포함 메일 | 새 본문 우선 표시, `인용문 보기`·`서명 보기`로 전체 텍스트 펼침 | 검색을 정제해도 증거를 숨기지 않음 |
+| hit가 접힌 인용/서명 안에 있음 | 해당 구간을 자동 펼치고 `인용문에서 일치` 표시 | 사용자가 일치 이유를 즉시 검증 |
+| 본문 해석이 불확실함 | `문자 해석 확인 필요`·선택한 본문 형식·처리 이유를 상세 정보에 표시 | mojibake를 정상 자료처럼 요약하지 않음 |
+| plain/html이 서로 다른 내용을 가짐 | 자동 선택한 본문 하나를 색인하고 `대체 본문 보기` 제공 | 두 표현을 별개의 메일이나 중복 검색 결과로 만들지 않음 |
+| 의미 유사 결과만 있음 | `단어 일치 없음 · 의미가 비슷한 메일` 영역 | 일치와 추정을 구분; RRF 점수를 확률로 표시하지 않음 |
+| 정확번호/이름/기간이 안 맞음 | 기존 필터를 유지하고 완화 제안만 제공 | 시스템이 사용자의 질문 범위를 몰래 바꾸지 않음 |
+| 날짜·동일 본문이 다른 메일 여러 건 | 각 메일 유지, 확인된 대화별 접기 제공 | “승인합니다” 같은 짧은 문장으로 사건을 합치지 않음 |
+| 과거 이력 질문 | 기본 관련도와 시간순 근거를 유지 | 보고서의 시간 감쇠 공식은 기본 검색에 적용하지 않음 |
+
+본문 선택·분류의 진단 정보는 상세의 `처리 정보`에 둔다. 일반 결과 목록에 tokenizer·pooling·engine version 같은 구현 정보를 노출하지 않는다.
+
+scope가 바뀌면 인용 결과의 중복 접기와 주변 문맥을 새 scope에서 다시 계산한다. 다른 자료원에 원문이 있다는 사실만으로 현재 보관함의 인용을 감추지 않는다.
+
 ### 상태·실패·전이
 
 | 사건/상태 | 사용자에게 보이는 결과 | 다음 행동 |
@@ -157,87 +182,87 @@ ACTIVE 결정 ↔ AC 대조: D-001~D-012는 표의 AC에서 같은 동작을 요
 | R | AT / AC | 관측 가능한 동작 기준 | 직접 검증 수단 | 프로덕션 도달 경로 |
 |---|---|---|---|---|
 | R-01 | AT-01 / AC1 | 빈 보관함에서 EML 폴더/PST를 등록하고 처리 현황·검색 진입 가능 | OS 선택기 stub→등록 카드→화면 이동, 취소 시 자료원 미생성 | 설정→IPC→자료원→보관함 |
-| R-01 | AT-02 / AC2 | 한글·HTML EML 및 ANSI/Unicode PST의 지정 메일·폴더·첨부 메타데이터를 읽음 | 합성/배포 허용 fixture의 기대 필드 전수 대조, 손상/비메일 항목 제외 이유 | OS 등록→reader→normalize→DB |
+| R-01 | AT-02 / AC2 | 한글·HTML EML 및 ANSI/Unicode PST의 지정 메일·폴더·첨부 메타데이터를 읽음 | 합성/배포 허용 fixture의 기대 필드 전수 대조, 손상/비메일 항목 제외 이유<br>plain/html 대체 본문을 한 번만 색인, HTML-only·한글 charset·영어/코드 메일을 field golden으로 비교 | OS 등록→reader→normalize→DB<br>reader→body-selection→version |
 | R-01 | AT-03 / AC3 | 부분 저장 중 검색 가능, 작업별 취소·재개 때 중복과 미저장 성공 표시 없음 | 배치 전/후 중단·재시작 삽입 후 저장 건수·상태 대조 | 작업 UI→service→worker→DB→event |
-| R-02 | AT-04 / AC4 | 인용·서명 포함 본문 열람과 옛 인용은 재색인/원본 이동 후에도 동일 | 버전 해시·UTF-16 범위로 표시 문장 일치, HTML script/외부 이미지 실행·요청 없음 | reader→version→본문/근거 뷰어 |
-| R-02 | AT-05 / AC5 | 재등록은 occurrence만 추가, 같은 Message-ID의 다른 본문은 별개 보존; 기간·원본 소실로 삭제 안 됨 | 같은 ID/다른 내용·ID없음·복사본·동일 stat 변경 fixture, 결과/버전 직접 비교 | rescan→identity→transaction→search |
+| R-02 | AT-04 / AC4 | 인용·서명 포함 본문 열람과 옛 인용은 재색인/원본 이동 후에도 동일 | 버전 해시·UTF-16 범위로 표시 문장 일치, HTML script/외부 이미지 실행·요청 없음<br>인라인 답변·인용·서명을 재결합하면 snapshot과 동일, hit가 접힌 구간이면 펼침 | reader→version→본문/근거 뷰어<br>classifier→snapshot→viewer |
+| R-02 | AT-05 / AC5 | 재등록은 occurrence만 추가, 같은 Message-ID의 다른 본문은 별개 보존; 기간·원본 소실로 삭제 안 됨 | 같은 ID/다른 내용·ID없음·복사본·동일 stat 변경 fixture, 결과/버전 직접 비교<br>같은 문장·다른 메일은 두 출처; 같은 rendered payload만 계산 공유, 제목 변경은 cache miss | rescan→identity→transaction→search<br>identity→chunk/key→store |
 | R-02 | AT-06 / AC6 | 역순 수집에도 Reply/References 연결 복원, 유사 제목만으로 확정 병합 안 함 | 역순/누락부모/다중후보/순환/동일제목 fixture의 edge kind·시간순 대조 | normalize→relations→thread view |
-| R-03 | AT-07 / AC7 | 한두 글자 한글·혼합 검색·문서번호·이름/주소·기간/폴더 필터가 함께 적용 | `QA 승인 AB-12`, `%_`, 동명이인 fixture에서 정확한 mail ID 집합 | UI/tool→query plan→SQL→results |
-| R-03 | AT-08 / AC8 | 메일별 중복 chunk를 합친 hybrid 결과를 보여 주고 의미검색 장애 시 단어검색 유지 | 각 검색 분기의 관련메일 포함·중복 1회·degraded 상태·페이지 안정성 | search→lexical/vector→fusion→UI |
-| R-03 | AT-09 / AC9 | 첨부 이름으로 메일을 찾되 첨부 내부에만 있는 문자열은 검색·질문 근거에 나오지 않음 | 이름 `견적.xlsx`, 내부 고유문구 sentinel을 가진 fixture; parser/index/embed/LLM payload 대조 | attachment manifest→filename index→search |
-| R-04 | AT-10 / AC10 | 네트워크 없이 선택한 로컬 모델 팩으로 문서/질의를 같은 규약으로 임베딩 | 실 모델 golden input의 차원·수치 허용오차·검색 결과, 전송 포트 호출 없음 | settings→local worker→generation→search |
+| R-03 | AT-07 / AC7 | 한두 글자 한글·혼합 검색·문서번호·이름/주소·기간/폴더 필터가 함께 적용 | `QA 승인 AB-12`, `%_`, 동명이인 fixture에서 정확한 mail ID 집합<br>컬럼 가중치와 짧은 토큰 fallback, exact번호·동명이인 hard constraint가 양쪽 검색에 동일 | UI/tool→query plan→SQL→results<br>query→lexical/vector→rank |
+| R-03 | AT-08 / AC8 | 메일별 중복 chunk를 합친 hybrid 결과를 보여 주고 의미검색 장애 시 단어검색 유지 | 각 검색 분기의 관련메일 포함·중복 1회·degraded 상태·페이지 안정성<br>quote 중복 rank 투표 방지, FTS 0건 semantic 이유 표시, lexical-only는 외부 요청 없음 | search→lexical/vector→fusion→UI<br>hybrid→fold→result DTO |
+| R-03 | AT-09 / AC9 | 첨부 이름으로 메일을 찾되 첨부 내부에만 있는 문자열은 검색·질문 근거에 나오지 않음 | 이름 `견적.xlsx`, 내부 고유문구 sentinel을 가진 fixture; parser/index/embed/LLM payload 대조<br>첨부 EML·inline rfc822·text/plain 첨부의 고유 sentinel이 전송/색인 payload에 없음 | attachment manifest→filename index→search<br>reader 옵션→projection→embedding/context |
+| R-04 | AT-10 / AC10 | 네트워크 없이 선택한 로컬 모델 팩으로 문서/질의를 같은 규약으로 임베딩 | 실 모델 golden input의 차원·수치 허용오차·검색 결과, 전송 포트 호출 없음<br>필수 모델 prompt 보존·입력 budget 검증, query cache hit 때 vector·결과 동일 | settings→local worker→generation→search<br>renderer→EmbeddingPort→cache/worker |
 | R-04 | AT-11 / AC11 | API 프로필로 색인·질의 임베딩하고 취소·401·429·형상 오류를 구분 | mock + 승인 endpoint 계약 실증, 순서 뒤바뀐 벡터·NaN·잘못된 차원 거절 | worker→main transport→API→validated vectors |
-| R-04 | AT-12 / AC12 | 모델 변경·중단·재시작에도 query/document 모델이 섞이지 않고 완성 세대만 전환 | 실패 위치별 활성 포인터·임베딩 fingerprint·구세대 조회 일치 | profile→staging→activate→query lease |
-| R-05 | AT-13 / AC13 | 답변 출처는 당시 메일 버전 문단을 열며 조작된 출처 ID는 열리지 않음 | evidence 저장 전 반환 실패·재색인·세션 위조·임의 URL 입력 대조 | context→evidence DB→MCP→Markdown→viewer |
-| R-05 | AT-14 / AC14 | 질문의 연대기에서 요청/변경/반대/승인 근거를 남기고 누락·잘림·미확인을 표시 | 고정 정답 타임라인 fixture로 context coverage, 승인 누락/상충 질의 평가 | seeds→bounded expansion→context→answer |
+| R-04 | AT-12 / AC12 | 모델 변경·중단·재시작에도 query/document 모델이 섞이지 않고 완성 세대만 전환 | 실패 위치별 활성 포인터·임베딩 fingerprint·구세대 조회 일치<br>tokenizer/prompt/차원 변경 cache miss·새 generation, engine-only 재구축은 embed 0회 | profile→staging→activate→query lease<br>profile→cache→generation/engine |
+| R-05 | AT-13 / AC13 | 답변 출처는 당시 메일 버전 문단을 열며 조작된 출처 ID는 열리지 않음 | evidence 저장 전 반환 실패·재색인·세션 위조·임의 URL 입력 대조<br>대체 본문·prefix가 인용 offset으로 오인되지 않고 원래 연속 문단을 열음 | context→evidence DB→MCP→Markdown→viewer<br>chunk span→evidence→viewer |
+| R-05 | AT-14 / AC14 | 질문의 연대기에서 요청/변경/반대/승인 근거를 남기고 누락·잘림·미확인을 표시 | 고정 정답 타임라인 fixture로 context coverage, 승인 누락/상충 질의 평가<br>오래된 결정·수정 인용·부모 없는 인용·선택 scope 밖 부모의 골드 근거 보존 | seeds→bounded expansion→context→answer<br>seeds→quote fold→neighbors/thread→context |
 | R-05 | AT-15 / AC15 | 인용 뷰어에서 날짜·당사자·일치 문단·관계 근거를 확인하고 검색/답변으로 복귀 | 스트리밍/완료 인용 클릭, 좁은 창·키보드·세션전환 상태 대조 | Markdown callback→evidence IPC→viewer |
 | R-06 | AT-16 / AC16 | 선택 범위 밖 메일이 검색·확장·출처·첨부에 섞이지 않음 | 서로 다른 두 자료원·두 세션 및 위조 ID/필터 확장 요청에 대해 결과 집합 대조 | session scope→service→all read/export paths |
 | R-06 | AT-17 / AC17 | 선택 첨부만 추출, 원본 변경/소실은 명시 오류, 모델 호출은 기존 승인 경유 | 바이트 해시·추출 파일 수, 원본 변경 race, 승인 false/undefined/true 정책 확인 | UI export/tool approval→validated occurrence→Temp |
 | R-06 | AT-18 / AC18 | 기존 사내서버·Claude(Bedrock) 각각에서 같은 archive 도구로 근거 있는 답변 가능 | 각 실제 실행 경로에서 MCP result·출처 클릭·취소 확인, 기능별 품질평가 | current harness→runtime tool→context→answer |
-| R-07 | AT-19 / AC19 | 대량 처리 중 화면 입력·취소 가능, 큐와 메모리는 §14 예산 내 동작 | 대표 PC 1만/5만 메일 workload 측정, UI 이벤트·취소 ack·RSS 기록 | UI/main→bounded worker jobs |
-| R-07 | AT-20 / AC20 | 앱/worker 종료와 재시작 때 손상 없이 중단 상태 복구, API 늦은 결과 미반영 | child kill·request abort·디스크 full·commit 전후 fault injection | lifecycle→jobs/generation→restart |
-| R-07 | AT-21 / AC21 | 자료원 제거는 고유 데이터 삭제·공유본 유지, 진행 요청이 삭제 데이터를 복원하지 않음 | import/API/context/첨부 read와 제거 경합, 옛 출처 tombstone 확인 | remove→revoke→DB purge→late response guard |
+| R-07 | AT-19 / AC19 | 대량 처리 중 화면 입력·취소 가능, 큐와 메모리는 §14 예산 내 동작 | 대표 PC 1만/5만 메일 workload 측정, UI 이벤트·취소 ack·RSS 기록<br>cold/warm·색인 중 query·microbatch 크기별 p95/RSS/cancel·embedding 요청 수 기록 | UI/main→bounded worker jobs<br>cache→scheduler→engine |
+| R-07 | AT-20 / AC20 | 앱/worker 종료와 재시작 때 손상 없이 중단 상태 복구, API 늦은 결과 미반영 | child kill·request abort·디스크 full·commit 전후 fault injection<br>cache/derived index 생성 도중 kill·취소에서 기존 active 검색 복구 | lifecycle→jobs/generation→restart<br>lease/epoch→transaction→restart |
+| R-07 | AT-21 / AC21 | 자료원 제거는 고유 데이터 삭제·공유본 유지, 진행 요청이 삭제 데이터를 복원하지 않음 | import/API/context/첨부 read와 제거 경합, 옛 출처 tombstone 확인<br>자료원/세션 제거와 in-flight 완료 경합에서 cache·derived rows·늦은 결과 재생성 없음 | remove→revoke→DB purge→late response guard<br>revoke→refcount purge→return guard |
 | R-08 | AT-22 / AC22 | POP3·기존 채팅·산출물 동작을 보존하고 보관함 초기화가 해당 기능을 막지 않음 | 기존 MIME/권한 suite + 독립 DB·빈 archive 부팅·추가/제거 runtime tests | bootstrap→existing/new service→runtime |
 | R-08 | AT-23 / AC23 | 설정·페이지·도구·오류 동작이 양방향 연결되고 오래된 응답이 현 화면을 덮지 않음 | 실제 composition으로 설정 슬롯/오류 링크/범위 칩/요청 역전 테스트 | app composition→feature API→IPC/event |
-| R-08 | AT-24 / AC24 | Windows 패키지에서 PST·로컬 추론을 실행하고 개인 메일·테스트 fixture는 배포에 미포함 | 설치 산출물 파일 manifest·실행 smoke·네트워크 차단 모델 팩 실기 | electron build→installer→worker/native module |
+| R-08 | AT-24 / AC24 | Windows 패키지에서 PST·로컬 추론을 실행하고 개인 메일·테스트 fixture는 배포에 미포함 | 설치 산출물 파일 manifest·실행 smoke·네트워크 차단 모델 팩 실기<br>선택 엔진의 설치본 load/search/delete/reopen과 모델 추론, 없을 때 exact fallback | electron build→installer→worker/native module<br>packaged worker→engine/model |
 
 총 24 AC로 유지하되 S0→S1→S2→S3 구현 단위는 §11에서 나눈다. UI 표시는 상태 테스트로, 실제 문자 렌더링·포커스·설치/사내 endpoint는 실기로 확인한다.
 
 ## 7-A. V / Trace Matrix
 
-아래는 독립 Baseline V1의 registry로, 다른 계획의 V나 회귀 결과를 상속하지 않는다. 현재 provenance·requiredness·추가 oracle은 [ΔV1 §7](delta-v1.md#7-ac--delta-v--강제-지점)에 있다. R-08은 V1에서 기존 코드 경로 보존을 명시한 계약으로, 기존 테스트가 존재한다는 사실과 회귀 PASS를 혼동하지 않는다.
+이 표는 V1 + ΔV1의 유효 계약이다. 기준 V는 메타의 독립 V1 커밋이며, stable node·pair ID와 이전 oracle·선택 mutation을 보존했다. CHANGED는 계약 보완, INHERITED는 변경 없이 영향을 받는 회귀다. 앱이 아직 미구현이므로 기존 테스트 존재를 실행 PASS로 읽지 않는다.
 
 ### Node registry
 
 | Node | 레벨 | 계약 | provenance / 출처 |
 |---|---|---|---|
-| R-01, R-02, R-03, R-04, R-05, R-06, R-07, R-08 | R | §7의 가져오기 / 데이터·관계 / 검색 / 임베딩 / 근거 / 범위·AI / 수명 / 통합 | 모두 NEW / 이번 사용자 요구·Codex 제안 |
-| AT-01, AT-02, AT-03, AT-04, AT-05, AT-06, AT-07, AT-08, AT-09, AT-10, AT-11, AT-12, AT-13, AT-14, AT-15, AT-16, AT-17, AT-18, AT-19, AT-20, AT-21, AT-22, AT-23, AT-24 | AT | 같은 번호 AC의 실행 증거 | 모두 NEW / §7 |
-| SD-01 / ST-01 | SD / ST | 자료원 작업·재시작·제거의 상태 전이 / 결함 주입 시나리오 | NEW / §5·13 |
-| SD-02 / ST-02 | SD / ST | 검색→근거→답변→열람 / 두 AI 경로 시스템 시나리오 | NEW / §5·12 |
-| SD-03 / ST-03 | SD / ST | 임베딩 세대 전환 / 취소·활성 조회 경합 시나리오 | NEW / §13 |
-| SD-04 / ST-04 | SD / ST | 화면·범위·세션 수명 / 두 세션 UI 시나리오 | NEW / §5·12 |
-| AR-01 / IT-01 | AR / IT | Renderer/preload/IPC/worker DTO / 실제 경계 왕복 | NEW / §10 |
-| AR-02 / IT-02 | AR / IT | Reader·DB·식별자·스냅샷 / 실제 SQLite 통합 | NEW / §9·10 |
-| AR-03 / IT-03 | AR / IT | 로컬/API port·자격증명 / adapter 계약·오류 통합 | NEW / §10·15 |
-| AR-04 / IT-04 | AR / IT | runtime tools·session·Markdown / composition 통합 | NEW / §10·12 |
-| AR-05 / IT-05 | AR / IT | worker 패키징·공유 MIME / 산출물 실행·기존 동작 회귀 | NEW / §11·19 |
-| MD-01 / UT-01 | MD / UT | 정규화·identity·offset / 순수 fixture 비교 | NEW / §10 |
-| MD-02 / UT-02 | MD / UT | short-token query·filter·fusion / 결과 집합·순위 비교 | NEW / §10 |
-| MD-03 / UT-03 | MD / UT | 관계 resolver·context budget / edge·coverage 비교 | NEW / §10 |
-| MD-04 / UT-04 | MD / UT | embedding fingerprint·validation / 분리·오류 비교 | NEW / §10 |
-| MD-05 / UT-05 | MD / UT | scope·evidence·revoke / 허용·거절·tombstone 비교 | NEW / §10·13 |
-| MD-06 / UT-06 | MD / UT | job reducer·UI 상태 / stale 응답·전환 비교 | NEW / §5·13 |
+| R-01, R-02, R-03, R-04, R-05, R-06, R-07, R-08 | R | §7의 가져오기 / 데이터·관계 / 검색 / 임베딩 / 근거 / 범위·AI / 수명 / 통합 | R-06·08 INHERITED, 나머지 CHANGED / V1 + 조사 보완 |
+| AT-01, AT-02, AT-03, AT-04, AT-05, AT-06, AT-07, AT-08, AT-09, AT-10, AT-11, AT-12, AT-13, AT-14, AT-15, AT-16, AT-17, AT-18, AT-19, AT-20, AT-21, AT-22, AT-23, AT-24 | AT | 같은 번호 AC의 실행 증거 | AT-16~18·22~24 INHERITED, 나머지 CHANGED / V1 + §7 |
+| SD-01 / ST-01 | SD / ST | 자료원 작업·재시작·제거의 상태 전이 / 결함 주입 시나리오 | INHERITED / V1 + §5·13 |
+| SD-02 / ST-02 | SD / ST | 검색→근거→답변→열람 / 두 AI 경로 시스템 시나리오 | CHANGED / V1 + §5·12 |
+| SD-03 / ST-03 | SD / ST | 임베딩 세대 전환 / 취소·활성 조회 경합 시나리오 | CHANGED / V1 + §13 |
+| SD-04 / ST-04 | SD / ST | 화면·범위·세션 수명 / 두 세션 UI 시나리오 | INHERITED / V1 + §5·12 |
+| AR-01 / IT-01 | AR / IT | Renderer/preload/IPC/worker DTO / 실제 경계 왕복 | CHANGED / V1 + §10 |
+| AR-02 / IT-02 | AR / IT | Reader·DB·식별자·스냅샷 / 실제 SQLite 통합 | CHANGED / V1 + §9·10 |
+| AR-03 / IT-03 | AR / IT | 로컬/API port·자격증명 / adapter 계약·오류 통합 | CHANGED / V1 + §10·15 |
+| AR-04 / IT-04 | AR / IT | runtime tools·session·Markdown / composition 통합 | INHERITED / V1 + §10·12 |
+| AR-05 / IT-05 | AR / IT | worker 패키징·공유 MIME / 산출물 실행·기존 동작 회귀 | INHERITED / V1 + §11·19 |
+| MD-01 / UT-01 | MD / UT | 정규화·identity·offset / 순수 fixture 비교 | CHANGED / V1 + §10 |
+| MD-02 / UT-02 | MD / UT | short-token query·filter·fusion / 결과 집합·순위 비교 | CHANGED / V1 + §10 |
+| MD-03 / UT-03 | MD / UT | 관계 resolver·context budget / edge·coverage 비교 | CHANGED / V1 + §10 |
+| MD-04 / UT-04 | MD / UT | embedding fingerprint·validation / 분리·오류 비교 | CHANGED / V1 + §10 |
+| MD-05 / UT-05 | MD / UT | scope·evidence·revoke / 허용·거절·tombstone 비교 | CHANGED / V1 + §10·13 |
+| MD-06 / UT-06 | MD / UT | job reducer·UI 상태 / stale 응답·전환 비교 | INHERITED / V1 + §5·13 |
 
 ### Pair registry
 
 `EP-xx(N)`의 N은 §10에서 명명한 **자리 수**이며 전체 합의 중복 제거 수가 아니다. 적대 증거 `직접`은 위·아래 행의 행동 oracle로 충분해 추가 mutation을 선택하지 않았다는 뜻이다.
 
-| Pair | left ↔ right | requiredness | start → edges → end | 직접 evidence oracle | 선택 적대 증거 | 강제 지점 전수 |
+| Pair | left ↔ right / provenance | requiredness | start → edges → end | 직접 evidence oracle | 선택 적대 증거 | 강제 지점 전수 |
 |---|---|---|---|---|---|---|
-| VP-01 | R-01 ↔ AT-01, AT-02, AT-03 | REQUIRED | 설정→IPC→reader→DB→현황/결과 | AC1~3 입력·저장·상태 대조 | 직접 | EP-01(4), EP-02(4) |
-| VP-02 | R-02 ↔ AT-04, AT-05, AT-06 | REQUIRED | source→normalize→version/edge→viewer | AC4~6 원문·edge·중복 비교 | 직접 | EP-03(4), EP-04(3) |
-| VP-03 | R-03 ↔ AT-07, AT-08, AT-09 | REQUIRED | 입력→필터→검색 분기→융합→결과 | AC7~9 ID 집합·제외 payload | 직접 | EP-05(4), EP-06(3) |
-| VP-04 | R-04 ↔ AT-10, AT-11, AT-12 | REQUIRED | profile→provider→staging→active→query | AC10~12 fingerprint·정답 비교 | 직접 | EP-07(5), EP-08(4) |
-| VP-05 | R-05 ↔ AT-13, AT-14, AT-15 | REQUIRED | seeds→확장→evidence→도구→viewer | AC13~15 문단·coverage·복귀 | M-CITE | EP-04(3), EP-09(5) |
-| VP-06 | R-06 ↔ AT-16, AT-17, AT-18 | REQUIRED | 세션→범위→조회/추출→AI | AC16~18 허용/거절·파일·실환경 | M-SCOPE | EP-10(8), EP-11(4), EP-12(3) |
-| VP-07 | R-07 ↔ AT-19, AT-20, AT-21 | REQUIRED | job→worker/API→commit→취소/복구 | AC19~21 시간·DB·late-write | 직접 | EP-02(4), EP-08(4), EP-13(3) |
-| VP-08 | R-08 ↔ AT-22, AT-23, AT-24 | REQUIRED | bootstrap→등록/설정→runtime/package | AC22~24 기존 동작·실행 결과 | M-WIRE | EP-01(4), EP-12(3), EP-14(3) |
-| VP-09 | SD-01 ↔ ST-01 | REQUIRED | 등록→batch→취소/kill→재개/삭제 | commit 직전/직후 데이터·상태 | 직접 | EP-02(4), EP-13(3) |
-| VP-10 | SD-02 ↔ ST-02 | REQUIRED | 검색→확장→답변→인용 확인 | 양쪽 AI 실제 source manifest·문단 | 직접 | EP-04(3), EP-09(5), EP-12(3) |
-| VP-11 | SD-03 ↔ ST-03 | REQUIRED | 모델 교체→staging→activate→GC | 기존 쿼리 lease와 신규 세대 일치 | 직접 | EP-07(5), EP-08(4) |
-| VP-12 | SD-04 ↔ ST-04 | REQUIRED | 범위선택→질문→세션전환→복귀 | 세션별 scope/viewer·focus 복원 | 직접 | EP-01(4), EP-09(5), EP-10(8) |
-| VP-13 | AR-01 ↔ IT-01 | REQUIRED | renderer→preload→IPC→service→worker | 실제 handler 스키마·error·취소 왕복 | 직접 | EP-01(4), EP-02(4) |
-| VP-14 | AR-02 ↔ IT-02 | REQUIRED | reader→write transaction→read snapshot | 실제 DB relation·FTS·버전 원자성 | 직접 | EP-03(4), EP-04(3), EP-05(4) |
-| VP-15 | AR-03 ↔ IT-03 | REQUIRED | profile→vault/transport→vectors→DB | doc 예제 shape + 실패 의미 | 직접 | EP-07(5), EP-08(4) |
-| VP-16 | AR-04 ↔ IT-04 | REQUIRED | registry→context→tool result→Markdown | 실행된 도구·persisted ID·UI 강조 | M-CITE, M-WIRE | EP-09(5), EP-10(8), EP-12(3) |
-| VP-17 | AR-05 ↔ IT-05 | REQUIRED | build→child entry→native/parser→메일 | 설치본 실추론/PST·MIME 회귀 | M-PACK | EP-14(3) |
-| VP-18 | MD-01 ↔ UT-01 | REQUIRED | parsed fields→normalize/identity→segments | fixture hash·유니코드·충돌 비교 | 직접 | EP-03(4), EP-06(3) |
-| VP-19 | MD-02 ↔ UT-02 | REQUIRED | query→terms/filters→RRF→mail ranks | 한글·정확번호·짧은 토큰 결과 | 직접 | EP-05(4), EP-10(8) |
-| VP-20 | MD-03 ↔ UT-03 | REQUIRED | refs/candidates→edges→context | 순환 종료·누락·순서·잘림 표시 | 직접 | EP-04(3), EP-09(5) |
-| VP-21 | MD-04 ↔ UT-04 | REQUIRED | model manifest→fingerprint→vector check | 잘못된 차원·NaN·model version 거절 | 직접 | EP-07(5), EP-08(4) |
-| VP-22 | MD-05 ↔ UT-05 | REQUIRED | scope/evidence ID→validation→read/purge | 위조·삭제·외부자료원 허용 집합 | M-SCOPE | EP-09(5), EP-10(8), EP-13(3) |
-| VP-23 | MD-06 ↔ UT-06 | REQUIRED | request/event→reducer→UI state | 역전 응답·restart·취소의 상태 | 직접 | EP-01(4), EP-02(4) |
+| VP-01 | R-01 ↔ AT-01, AT-02, AT-03 / CHANGED | REQUIRED | 설정→IPC→reader→DB→현황/결과<br>reader→선택 본문→저장 | AC1~3 입력·저장·상태 대조<br>AC2 golden | M-NESTED | EP-01(4), EP-02(4), EP-15(4) |
+| VP-02 | R-02 ↔ AT-04, AT-05, AT-06 / CHANGED | REQUIRED | source→normalize→version/edge→viewer<br>분류→identity→본문 | AC4~6 원문·edge·중복 비교<br>재결합·충돌 | 직접 | EP-03(4), EP-04(3), EP-16(4) |
+| VP-03 | R-03 ↔ AT-07, AT-08, AT-09 / CHANGED | REQUIRED | 입력→필터→검색 분기→융합→결과<br>query→fusion→UI | AC7~9 ID 집합·제외 payload<br>결과·payload | M-NESTED | EP-05(4), EP-06(3), EP-15(4), EP-17(3), EP-18(4) |
+| VP-04 | R-04 ↔ AT-10, AT-11, AT-12 / CHANGED | REQUIRED | profile→provider→staging→active→query<br>prompt→cache/engine→결과 | AC10~12 fingerprint·정답 비교<br>fingerprint·동등성 | 직접 | EP-07(5), EP-08(4), EP-17(3), EP-19(4), EP-20(3) |
+| VP-05 | R-05 ↔ AT-13, AT-14, AT-15 / CHANGED | REQUIRED | seeds→확장→evidence→도구→viewer<br>span→context→citation | AC13~15 문단·coverage·복귀<br>연속 문단·coverage | M-CITE | EP-04(3), EP-09(5), EP-16(4), EP-18(4) |
+| VP-06 | R-06 ↔ AT-16, AT-17, AT-18 / INHERITED | REGRESSION | 세션→범위→조회/추출→AI<br>같은 scope→새 projection/cache→기존 AI/첨부 | AC16~18 허용/거절·파일·실환경 | M-SCOPE | EP-10(8), EP-11(4), EP-12(3), EP-19(4), EP-20(3) |
+| VP-07 | R-07 ↔ AT-19, AT-20, AT-21 / CHANGED | REQUIRED | job→worker/API→commit→취소/복구<br>cache/index job→revoke→복구 | AC19~21 시간·DB·late-write<br>late write 거절 | 직접 | EP-02(4), EP-08(4), EP-13(3), EP-19(4), EP-20(3) |
+| VP-08 | R-08 ↔ AT-22, AT-23, AT-24 / INHERITED | REGRESSION | bootstrap→등록/설정→runtime/package<br>옵션 분리/설치본→기존+신규 경로 | AC22~24 기존 동작·실행 결과 | M-WIRE | EP-01(4), EP-12(3), EP-14(3), EP-15(4), EP-20(3) |
+| VP-09 | SD-01 ↔ ST-01 / INHERITED | REGRESSION | 등록→batch→취소/kill→재개/삭제<br>import→derived/cache→중단/제거 | commit 직전/직후 데이터·상태<br>journal 복구 | 직접 | EP-02(4), EP-13(3), EP-19(4), EP-20(3) |
+| VP-10 | SD-02 ↔ ST-02 / CHANGED | REQUIRED | 검색→확장→답변→인용 확인<br>query variants→context→근거 열람 | 양쪽 AI 실제 source manifest·문단<br>골드 timeline | 직접 | EP-04(3), EP-09(5), EP-12(3), EP-17(3), EP-18(4) |
+| VP-11 | SD-03 ↔ ST-03 / CHANGED | REQUIRED | 모델 교체→staging→activate→GC<br>profile→cache miss/index rebuild→active | 기존 쿼리 lease와 신규 세대 일치<br>epoch | 직접 | EP-07(5), EP-08(4), EP-19(4), EP-20(3) |
+| VP-12 | SD-04 ↔ ST-04 / INHERITED | REGRESSION | 범위선택→질문→세션전환→복귀<br>세션전환→quote fold/cache→viewer | 세션별 scope/viewer·focus 복원<br>교차 노출 없음 | 직접 | EP-01(4), EP-09(5), EP-10(8), EP-16(4), EP-19(4) |
+| VP-13 | AR-01 ↔ IT-01 / CHANGED | REQUIRED | renderer→preload→IPC→service→worker<br>quality/match reason DTO→IPC→UI | 실제 handler 스키마·error·취소 왕복<br>원인·상태 일치 | 직접 | EP-01(4), EP-02(4), EP-15(4), EP-18(4) |
+| VP-14 | AR-02 ↔ IT-02 / CHANGED | REQUIRED | reader→write transaction→read snapshot<br>variant/chunk/vector→DB→검색 | 실제 DB relation·FTS·버전 원자성<br>실제 transaction | 직접 | EP-03(4), EP-04(3), EP-05(4), EP-16(4), EP-17(3), EP-20(3) |
+| VP-15 | AR-03 ↔ IT-03 / CHANGED | REQUIRED | profile→vault/transport→vectors→DB<br>model renderer/cache→adapter→결과 | doc 예제 shape + 실패 의미<br>doc shape·오류 의미 | 직접 | EP-07(5), EP-08(4), EP-17(3), EP-19(4) |
+| VP-16 | AR-04 ↔ IT-04 / INHERITED | REGRESSION | registry→context→tool result→Markdown<br>새로운 span/품질 flag→기존 도구→출처 UI | 실행된 도구·persisted ID·UI 강조 | M-CITE, M-WIRE | EP-09(5), EP-10(8), EP-12(3), EP-16(4), EP-18(4) |
+| VP-17 | AR-05 ↔ IT-05 / INHERITED | REGRESSION | build→child entry→native/parser→메일<br>archive parser 옵션/engine→설치본 | 설치본 실추론/PST·MIME 회귀<br>POP3 불변 | M-PACK | EP-14(3), EP-15(4), EP-20(3) |
+| VP-18 | MD-01 ↔ UT-01 / CHANGED | REQUIRED | parsed fields→normalize/identity→segments<br>MIME 후보→분류/identity | fixture hash·유니코드·충돌 비교<br>decode·offset·sentinel | M-NESTED | EP-03(4), EP-06(3), EP-15(4), EP-16(4) |
+| VP-19 | MD-02 ↔ UT-02 / CHANGED | REQUIRED | query→terms/filters→RRF→mail ranks<br>hard/soft→RRF→fold | 한글·정확번호·짧은 토큰 결과<br>정확 집합·순위 | 직접 | EP-05(4), EP-10(8), EP-18(4) |
+| VP-20 | MD-03 ↔ UT-03 / CHANGED | REQUIRED | refs/candidates→edges→context<br>인용 대응→이웃/thread→context | 순환 종료·누락·순서·잘림 표시<br>손실·초과 없음 | 직접 | EP-04(3), EP-09(5), EP-16(4), EP-17(3), EP-18(4) |
+| VP-21 | MD-04 ↔ UT-04 / CHANGED | REQUIRED | model manifest→fingerprint→vector check<br>prompt/hash→cache/차원→검색 | 잘못된 차원·NaN·model version 거절<br>hit/miss·MRL | 직접 | EP-07(5), EP-08(4), EP-17(3), EP-19(4), EP-20(3) |
+| VP-22 | MD-05 ↔ UT-05 / CHANGED | REQUIRED | scope/evidence ID→validation→read/purge<br>scope/revoke→cache/engine→evidence | 위조·삭제·외부자료원 허용 집합<br>거절·삭제 | M-SCOPE | EP-09(5), EP-10(8), EP-13(3), EP-19(4), EP-20(3) |
+| VP-23 | MD-06 ↔ UT-06 / INHERITED | REGRESSION | request/event→reducer→UI state<br>품질·fold·cache event→UI | 역전 응답·restart·취소의 상태<br>stale 응답 거절 | 직접 | EP-01(4), EP-02(4), EP-18(4), EP-19(4) |
 
 선택 mutation: M-CITE는 링크의 존재만으로 배선을 오인하지 않도록 EP-09d(스트리밍)·EP-09e(완료) 각각 callback을 제거해 실패시킨다. M-SCOPE는 전수 범위 주장 때문에 EP-10a~h 각 자리에서 제한을 넓히는 결함을 각각 심는다.
 
@@ -339,6 +364,32 @@ main의 `features/plugins/mail-archive`는 source reader, domain, store, jobs, r
 
 renderer의 새 `features/mail-archive`는 UI와 자신의 상태·API만 소유한다. `app`/`pages`가 settings와 chat에 슬롯/callback을 주입하고 `shared` Markdown은 메일 개념 없이 내부 링크 resolver prop만 제공한다.
 
+### 본문 처리 흐름과 순수 seam
+
+현재 POP3의 파싱 경로와 보관함의 별도 reader를 구분한다. 보관함은 아래 MIME alternative 선택·가역 분류·표현별 입력 예산을 거친다.
+
+```text
+EML bytes / PST body representations
+ → MIME·MAPI reader (첨부 EML도 별도 payload로 분리)
+ → BodyCandidate[] + metadata + quality
+ → 선택한 정규화 snapshot + 보존한 대체 표현
+ → 보수적 segment 분류
+ → lexical projection / embedding payload / citation span
+ → 영속 FTS + canonical vector BLOB
+ → scope 적용 hybrid → 중복 접기 → 문맥 확장 → evidence
+```
+
+| 비교 축 | 처리 대상 | 정본 / seam |
+|---|---|---|
+| 본문 선택 | plain 없으면 HTML 변환 | `body-selection.ts`가 품질/중복/첨부 경계와 선택 이유 반환 |
+| 본문 분류 | new/quote/signature/unknown | `segment-classifier.ts`의 보수적 판정·overlap 금지·원문 offset |
+| 색인 표현 | 제목·본문 가중치 | `index-projection.ts`의 whitelist 필드·모델별 prompt renderer |
+| chunk/중복 | body hash·메일 집계 | `chunker.ts`의 연속 span과 `embedding-key.ts`의 실제 입력 hash 분리 |
+| 조회 | 후보 융합·thread 확장 | `retrieval-policy.ts`의 hard/soft 제약·중복 접기·같은 버전 이웃 확장 |
+| 계산 재사용 | 세대 분리 | `query-embedding-cache.ts`·`vector-search.ts`와 각 epoch/lease |
+
+새 순수 파일은 `main/features/plugins/mail-archive/` 아래에 두고 Electron/DB/native import를 하지 않는다. reader·store·embedding adapter·UI는 §11의 주입 경계를 유지한다.
+
 ## 10. 계약 / 타입 / 강제 지점
 
 ### 데이터 모델과 정체성
@@ -350,7 +401,8 @@ SQLite는 `<userData>/mail-archive/archive.db`를 제안한다. 기존 core/mail
 | `archive_source` | sourceId, kind(eml-folder/pst), 내부 경로 capability, 선택 폴더, health, revision, revokedAt. 경로는 main/source worker만 읽음 |
 | `source_revision` | sourceId, revision, fingerprint, verifiedAt. EML 폴더는 파일 digest manifest, PST는 전체 컨테이너 hash; stat는 빠른 힌트일 뿐 |
 | `source_occurrence` | sourceId/revision + EML 상대 경로/rawDigest 또는 PST 내부 node locator → mailId/versionId. PST locator는 해당 revision에서만 유효 |
-| `mail` / `mail_version` | 내부 UUID, 원 Message-ID, content hash, 제목, from/to/cc의 이름·주소, sentAt/receivedAt/importedAt, dateQuality, 정규화 본문·정규화 버전 |
+| `mail` / `mail_version` | 내부 UUID, 원 Message-ID, content hash, 제목, from/to/cc의 이름·주소, sentAt/receivedAt/importedAt, dateQuality, selectedVariantId·정규화 버전 |
+| `body_variant` | versionId, kind, text, qualityFlags, selectionReason. 선택 표현에 offset 귀속, 대체 표현은 별도 열람 |
 | `body_segment` | versionId, kind(new/quote/signature/unknown), start/end UTF-16 code unit offset. 구간은 원문 snapshot 위에 존재 |
 | `mail_relation` | child/parent 또는 미해결 Message-ID, kind(reply/reference/pst-group/related-candidate), 근거·ambiguity. 순환 검사 |
 | `attachment` | occurrenceId, ordinal, 원 이름/표시 이름, mimeType, size, inline 여부, locator. payload는 저장하지 않음 |
@@ -376,7 +428,7 @@ EML은 raw bytes를 `postal-mime`에 전달해 charset·MIME을 해석한다. PS
 
 EML 폴더 순회는 대소문자와 무관한 `.eml`만 대상으로 하고 junction/symlink를 따라가지 않는다. 재연결·첨부 재판독 시 선택 루트의 canonical path와 occurrence 상대 경로를 확인해 경로 이탈과 순환 순회를 거절한다.
 
-plain text가 없는 HTML은 script/style 제거 후 텍스트화한다. 이미지·HTML 실행을 기본 뷰어에 넣지 않고, 본문에 포함된 외부 URL은 사용자의 명시 클릭에서만 기존 링크 정책을 적용한다.
+plain/HTML 후보 선택과 텍스트화는 아래 본문 선택·문자 해석 계약을 따른다. 이미지·HTML 실행을 기본 뷰어에 넣지 않고, 본문에 포함된 외부 URL은 사용자의 명시 클릭에서만 기존 링크 정책을 적용한다.
 
 References/In-Reply-To는 역순 수집에도 재해결한다. 동일 Message-ID 부모 후보가 여러 개면 ambiguous로 남기고 임의 하나를 고르지 않으며, PST conversation 정보는 그룹 근거로 표시해 직접 답장 edge와 구분한다.
 
@@ -386,6 +438,63 @@ References/In-Reply-To는 역순 수집에도 재해결한다. 동일 Message-ID
 
 PST 한 revision의 완료 여부를 숨기지 않는다. 검증된 배치는 `부분 자료`로 검색 가능하되 원본 변경이 감지되면 해당 revision을 검색 대상에서 제외하고 이전 검증 revision을 유지한다.
 
+### MIME와 첨부 경계
+
+EML adapter는 설치된 PostalMime의 `forceRfc822Attachments: true`를 명시해 `message/rfc822` 하위 본문을 보관함 본문으로 합치지 않는다. 단순 본문 안의 “전달된 메시지” 텍스트는 quote segment로 남기고, 실제 첨부 EML/PST·text/plain attachment는 이름·크기·locator만 저장한다.
+
+`text/plain`과 `text/html`은 대체 표현 후보이며 기본 색인에는 하나만 넣는다. 파일명은 제목 대신 쓰지 않고 제목 없음을 표시하며, title boost는 실제 Subject에만 적용한다.
+
+기존 POP3 parser 옵션은 바꾸지 않는다. archive reader의 별도 옵션과 동일 fixture로 첨부 본문 sentinel이 source DTO→lexical→embedding→LLM 경로에 없는지 확인한다.
+
+### 본문 선택과 문자 해석
+
+1. 정상적인 plain이 있으면 우선한다. 공백/깨진 문자만 있거나 확인된 “HTML로 보세요” placeholder이고 정상 HTML이 있을 때 HTML 텍스트로 대체한다.
+2. 길이가 짧다는 이유만으로 정상 plain을 버리지 않는다. plain/html 불일치는 `alternative_mismatch`, charset 오류 가능성은 `decode_suspect`로 남긴다.
+3. HTML은 비실행 tree에서 script/style·명시적인 hidden 요소를 제외하고 문단·목록·표 행 경계를 유지한다. CSS cascade·외부 stylesheet로 숨김을 완전히 판단한다고 주장하지 않는다.
+4. text의 NFC 같은 변환은 snapshot 생성 전에 한 번 수행하고 normalizer revision에 넣는다. 제로폭/제어문자는 검색 projection에서 목적별 처리하되 emoji·업무 식별자의 의미를 일괄 삭제하지 않는다.
+5. 선언 charset 해석은 기존 MIME 파서에 맡기고, 잘못된 선언을 복구하려고 이미 깨진 JS string에 다른 decoder를 다시 적용하지 않는다. 강제 복구는 원본 part bytes와 transfer encoding을 확보한 adapter에서만 가능하다.
+
+현재 PostalMime 공개 API는 text/html을 반환하지만 part-level charset override hook은 노출하지 않는다. 따라서 첫 구현은 표준 charset/alias 케이스를 검증하고 미복구 항목을 표시하며, 범용 자동 복구·ftfy 도입은 D-014/D-015의 별도 실증 없이는 추가하지 않는다.
+
+영어 메일·숫자·코드만 있는 메일도 정상일 수 있으므로 “한글 5%”를 합격 조건으로 쓰지 않는다. `decode_suspect` 메일은 키워드 열람은 가능하되 기본 의미검색/context에서는 제외하고, 사용자가 해당 메일을 직접 열거나 선택한 경우 경고와 함께 읽는다.
+
+본문 표현 schema는 `body_variant(versionId, kind, text, qualityFlags, selectionReason)`와 `mail_version.selectedVariantId`다. 선택 표현 하나에만 offset을 귀속하고, 대체 표현 열람은 인용을 그 표현으로 자동 바꾸지 않는다; 정규화 규약 변경 시 새 mail_version을 만든다.
+
+메일당 본문 2 MiB UTF-8 상한은 선택 본문과 보존하는 대체 본문 텍스트의 합에 적용한다. 같은 정규화 텍스트는 한 variant로 참조하고, 합계 초과는 `oversized`와 이유를 표시한다. 선택 본문이나 대체 표현을 조용히 잘라 정상 처리하지 않는다.
+
+### 인용·서명 분리
+
+`segment-classifier.ts`는 `[start,end)`, kind, ruleId, confidenceClass(certain/uncertain)를 반환한다. 원문의 모든 code unit은 정확히 한 segment에 속하고 원문을 이어 붙이면 snapshot과 동일해야 한다.
+
+plain의 `>` 연속 블록·확인된 원본 헤더 구분선, HTML의 blockquote·클라이언트 컨테이너는 quote 근거다. 문장 중 “보낸 사람:”이나 한 줄 `--`만으로 그 뒤 전체를 잘라내지 않는다.
+
+quote 사이에 새로 쓴 답변은 new/unknown으로 남긴다. 서명·면책도 확실한 구분 구조만 분류하고, 발신자별 반복 꼬리 통계는 진단 자료로만 사용한다.
+
+new/unknown은 주 검색 본문, quote는 낮은 lexical 가중치의 별도 필드, signature는 이름/정확 문자열 발견을 위한 낮은 가중치 lexical로 남긴다. new/unknown과 quote는 segment별로 임베딩하되 quote 중복은 조회 단계에서 접는다. 확실한 signature는 기본 embedding/context에서 제외하지만 hit/직접 선택 때 펼쳐 읽을 수 있다.
+
+quote는 원 메일 존재 여부만으로 인덱스에서 삭제하지 않는다. 동일 문단·동일 의미의 원문 대응이 확인되고 **현재 scope에서 접근 가능할 때만** 결과/context 반복을 접으며, 인용자·시각·원문 없음/범위 밖을 표시한다.
+
+인용 대응 hash는 공백·인용 접두를 정규화해 계산하되 부정어·수치·날짜를 제거하지 않는다. 유사도만 높은 수정 인용은 접지 않아 “10대”→“20대”, “승인”→“미승인” 변경을 보존한다.
+
+### 색인 필드와 입력 예산
+
+| 표현 | 구성 | 제외/보존 규칙 |
+|---|---|---|
+| display snapshot | 선택 본문 전체와 segment, 별도 mail metadata | 전송 헤더를 본문 앞에 덧붙이지 않음 |
+| lexical | subject, fromName/fromAddr, to/cc, bodyNew/unknown, bodyQuote, bodySignature, attachmentNames | Bcc는 occurrence scope를 통과한 별도 메타 필터; 전역 FTS에 합치지 않음 |
+| embedding | 모델 필수 prompt + 실제 Subject + 선택적 발신자 이름/메일 날짜 + 연속 본문 span | 전체 주소목록·Received/DKIM/ARC/X 헤더·첨부 본문·로컬 경로 제외 |
+| context | snapshot 문단 + 발신자·날짜·subject·관계 근거 + evidenceId | 모델이 생성한 요약/질문을 원문 사실로 재색인하지 않음 |
+
+모델의 최대 token L에서 special token 예약량 S를 뺀 `B=min(512,L-S)`를 첫 비교 예산으로 쓴다. 필수 prompt P는 절대 제거하지 않고 optional metadata H는 `min(128,floor((B-P)×0.25))` 이내로 줄인다.
+
+본문 공간이 `min(256,B-P)`보다 작으면 optional metadata부터 제거한다. `B≤P`는 모델 팩 설정 오류로 처리하고, API가 tokenizer를 제공하지 않으면 그 API의 검증된 token-count/byte-limit 계약이 D-015 완료 조건이다.
+
+chunk는 한 메일 버전의 연속 segment 내부에서 문단→문장→token 순서로 나눈다. 초기 overlap은 0, 문맥은 검색 뒤 이웃 chunk로 확장하며 `0 vs 32 token overlap`은 S0 평가 항목이다.
+
+`chunkId = hash(versionId, variantId, segmentId, start, end, chunkerRevision)`이고 내용이 같다고 출처 identity를 합치지 않는다. `embeddingKey = hash(profileFingerprint, purpose, UTF8(renderedInput))`라서 제목·날짜·prompt가 달라지면 새 계산이다.
+
+캐시는 실제 최종 입력이 같은 경우만 공유한다. 다른 스레드의 “네, 승인합니다”를 하나의 근거로 만들거나, scope 밖 메일의 메타데이터가 붙은 vector를 현재 인용의 대용으로 쓰지 않는다.
+
 ### 검색·Context 구성
 
 `SearchRequest`는 query, optional filters, mode(lexical/hybrid), cursor를 갖는다. mode 생략은 hybrid, 활성 임베딩이 없으면 lexical + degraded reason으로 응답한다.
@@ -393,13 +502,41 @@ PST 한 revision의 완료 여부를 숨기지 않는다. 검증된 배치는 `�
 1. UI 필터와 세션 scope를 교집합한다. 자연어에서 추정한 날짜·사람은 사용자에게 보이는 해석이며 모호하면 hard filter로 몰래 고정하지 않는다.
 2. 문서번호·주소·따옴표 정확 문자열과 FTS5를 결합한다. 3글자 미만 토큰은 escape된 parameter LIKE 등 fallback으로 **토큰별** 처리하고 혼합 AND 조건을 유지한다.
 3. lexical·vector 각각 동일 범위 안에서 후보를 뽑는다. 전 보관함 vector top-k를 구한 뒤 filter하는 방식은 범위 내 좋은 후보를 누락하므로 사용하지 않는다.
-4. RRF(k=60 초기 제안)로 융합하되 정확 식별자 일치 tier를 우선한다. mailId/version별 중복 chunk를 합치고 제목·새 본문은 인용/서명보다 높은 검색 가중치를 갖는다.
+4. 분기 안에서 mailId/version별 최고 chunk로 순위를 만든 뒤 RRF(k=60 초기 제안)로 융합하며 정확 식별자 일치 tier를 우선한다. 아래 하이브리드 계약의 필드 가중치와 hard constraint를 적용한다.
 5. 이력 질문은 seed의 확인된 edge를 앞뒤로 확장하고 관련 후보는 별도 표시한다. 기간 경계 밖 자료는 기본 배제하며 `기간 넓혀 보기`를 사용자에게 제시한다.
 6. 날짜순으로 context를 구성하면서 seed·변경·상충·가장 늦은 확인된 사건을 보존한다. 단순 시간순 앞부분 절단을 하지 않고 생략 건수·연결 누락·범위를 함께 반환한다.
 
 LLM 입력은 untrusted evidence이며 메일 본문의 지시를 작업 명령으로 취급하지 않는다. 숫자·날짜·결정 표현은 인용 근거에 연결하고, context 부족이면 도구로 추가 페이지를 요청하거나 미확인을 답한다.
 
 검색 cursor는 query/filter/index revision에 결속한다. 색인이 바뀌면 `결과가 갱신되었습니다`로 새 검색을 제시하고 중복/누락된 페이지를 정상 페이지인 것처럼 이어 붙이지 않는다.
+
+### 하이브리드와 필터
+
+FTS는 persistent index를 유지한다. `bm25()`의 낮은 값이 더 좋은 순위라는 규약을 lexical rank로 변환하고 cosine과 점수 자체를 더하지 않는다.
+
+초기 lexical 가중치 후보는 subject=3, from=2, to/cc=1, bodyNew/unknown=1, quote=0.2, signature=0.1, attachmentNames=2이다. 이는 다른 제품 상수를 복사한 확정 최적값이 아니며, S0에서 가중치 없는 기준과 비교하고 선택 결과를 profile revision에 남긴다.
+
+양쪽 분기에서 scope를 먼저 적용하고 각 100 candidate를 조회한 뒤, mail/version별 최고 chunk를 대표로 삼아 중복 rank 투표를 없앤다. 양쪽 rank에 `Σ1/(60+rank)`를 적용하고 동률은 안정적인 내부 ID로 정렬한다.
+
+정확 문서번호·인용구가 사용자 hard constraint이면 양쪽 결과를 해당 조건에 맞는 집합으로 제한한다. 자연어의 일반 단어는 lexical AND와 semantic soft query로 처리하고, 명시 날짜/사람/폴더와 혼동하지 않는다.
+
+FTS 0건이면 hybrid의 같은 범위 semantic 결과를 별도 이유와 함께 반환한다. lexical-only 요청은 자동 API 요청으로 바꾸지 않으며, vector 후보가 있다는 이유만으로 “근거 충분”을 표시하지 않는다.
+
+### 시간과 질문 재작성
+
+기본 `관련도`는 나이 감쇠 1.0이다. `최신순`은 사용자 선택 정렬이고, “최종 승인”은 모든 최신 메일에 점수를 더하는 문제가 아니라 확인된 승인/변경 근거를 시간순으로 비교하는 문제로 처리한다.
+
+도구 사용 에이전트가 원 질문과 최대 두 개의 대체 query를 구성할 수 있지만 별도 LLM query-generation 서버를 추가하지 않는다. 같은 run의 최대 검색 variant는 원 질의 포함 3, hard filter/scope는 고정하고 사용한 query 목록을 도구 결과에 남긴다.
+
+변형 검색은 최초 검색으로 충분하지 않을 때만 수행한다. 후보 문서를 다시 임베딩하는 pseudo-reranker나 indexing 시 LLM 질문 생성은 추가하지 않는다.
+
+### Context 확장
+
+상위 seed chunk의 앞뒤 1개를 **같은 version·같은 본문 variant·같은 scope**에서 확장한다. 6 seed면 최대 18 chunk이며 겹치는 span을 합친 뒤 §14의 24메일·64 KiB context cap을 적용한다.
+
+스레드 앞뒤 확장과 이웃 chunk 확장은 별도 단계다. 중복 인용을 접어 확보한 예산은 누락 부모·상충 조건·최종 확인된 이벤트에 배정하며 오래된 최초 요청을 일괄 버리지 않는다.
+
+인용은 실제 snapshot의 연속 범위를 가리킨다. optional embedding metadata를 본문 인용 offset으로 취급하거나 사후 의미 유사도만으로 답변 문장에 출처를 자동 조작하지 않는다.
 
 ### 임베딩 계약
 
@@ -423,7 +560,46 @@ fingerprint는 모델 파일/서비스 revision·차원·tokenizer·pooling·que
 
 API는 배포 adapter가 endpoint의 request/response/auth를 `EmbeddingPort`로 맞춘다. 응답은 입력별 index·개수·차원·유한수·nonzero norm·fingerprint를 검사하고, query와 document 용도 차이를 누락하지 않는다.
 
-첫 구현의 vector 저장은 SQLite float32 BLOB + worker 블록 스캔 cosine을 제안한다. 외부 Vector DB·native SQLite extension을 먼저 추가하지 않으며, S0 실측으로 예산을 못 맞추면 ANN 후보와 의존성 승인을 설계에 반영한 뒤 READY로 전환한다.
+vector 저장·검색의 기준은 SQLite float32 BLOB + worker 블록 스캔 cosine이다. 아래 엔진·모델 후보는 S0에서 비교하며, 채택할 신규 의존성과 배포 조건을 D-014~D-016에서 확정한 뒤 READY로 전환한다.
+
+### 벡터 저장 엔진
+
+기준은 `canonical float32 BLOB + worker exact scan`이다. `sqlite-vec v0.1.9`는 같은 BLOB로부터 재구축 가능한 **파생 검색 엔진**으로 비교하며, 현재 웹 문서에 보이는 alpha 기능을 stable 버전 계약에 넣지 않는다.
+
+```ts
+interface VectorSearchPort {
+  search(input: {
+    generationId: string;
+    scope: ResolvedArchiveScope;
+    queryVector: Float32Array;
+    limit: number;
+    signal: AbortSignal;
+  }): Promise<ReadonlyArray<{ chunkId: string; distance: number }>>;
+}
+```
+
+ResolvedArchiveScope는 main/worker가 해석한 신뢰된 범위이며 모델이 준 SQL·ID 목록이 아니다. vec0가 표현할 수 없는 다중 source occurrence·날짜 미상·선택메일 필터는 **scope를 적용한 canonical BLOB scan으로 fallback**하고, 전역 KNN 후 필터링으로 대신하지 않는다.
+
+vec0 사용 시 차원별 테이블과 generation 구분을 두고 engine revision·corpus revision·row mapping을 검증한다. canonical BLOB와 derived vector의 쓰기를 한 SQLite transaction으로 commit한다. extension 오류면 해당 transaction을 rollback하고, canonical 쓰기와 engine unavailable 표기를 새 transaction에서 함께 commit해 exact 경로를 사용한다. 이 fallback도 실패하면 기존 active generation을 유지하며 성공으로 보고하지 않는다.
+
+main 프로세스에서 extension을 로드하지 않는다. DB writer와 읽기 전용 vector worker 연결만 고정 앱 번들의 검증된 extension을 로드하고, writer의 derived index transaction과 읽기 snapshot으로 정합성을 맞춘다.
+
+engine 교체는 **같은 vector의 재색인**이고 model/tokenizer/prompt/chunker 변경은 **재임베딩**이다. sqlite-vec 도입이 자동 ANN 성능 향상을 보장하지 않으며 5만 메일 exact latency·복합 scope·Windows DLL 로드·삭제 회귀를 비교한 뒤 D-014에서 채택한다.
+
+canonical BLOB를 vec0와 동시에 보존하면 벡터 payload 저장이 중복된다. §14의 200,000chunk×768dim 예시에서 canonical+derived≈1.229GB, 두 generation 동시 유지≈2.458GB이며 DB/FTS/본문은 별도이므로 디스크 예산을 다시 측정한다.
+
+### 모델 비교
+
+| 후보 | 고정할 실행 규약 | 비교 목적 |
+|---|---|---|
+| `intfloat/multilingual-e5-small` 384d | query/passage prefix, attention-mask average pooling, normalize, 정확 모델·tokenizer revision | 첫 CPU 기준 후보; 한국어/영문 혼합 회수율·메모리 |
+| `google/embeddinggemma-300m` 768d | 모델 카드의 query/document prompt, 제목 슬롯, 지원 dtype·conversion hash | 품질 비교 기준 |
+| 같은 Gemma 256d | 768d 결과에서 첫 256요소 절단 후 L2 재정규화, 별도 generation fingerprint | vector 저장·검색 비용 감소와 회수율 손실 측정 |
+| 사용 가능한 embedding API | 실제 모델/revision, query/document mode, token/batch/auth 계약 | 같은 질의셋의 품질·지연·색인/질의 비용 비교 |
+
+MRL 차원 축소는 모델 추론 연산·모델 가중치 크기를 1/3로 만드는 기능이 아니다. e5는 MRL 모델로 가정하지 않아 384d를 임의로 잘라 쓰지 않는다.
+
+ONNX 파일이 있다는 사실만으로 선택한 런타임·dtype·tokenizer와 호환된다고 결론내리지 않는다. 원 모델 golden vector와 변환본 허용오차·검색 순위 비교, 모델 팩 라이선스/반입 가능 여부를 D-015에 기록한다.
 
 ### IPC·도구·출처 계약
 
@@ -474,8 +650,18 @@ UI의 `set-session-scope`는 실제 세션 존재와 호출 창의 소유 관계
 | EP-12 / 3 | runtime descriptor | a bootstrap 등록/해제; b harness factory/context forwarding; c MCP 결과·권한 policy | VP-06·08·10·16 | 도구 미노출·세션 누락·빈 성공·승인 우회 |
 | EP-13 / 3 | revoke epoch/purge | a main in-flight abort; b worker revoke+삭제 transaction; c 응답 반환 직전 revision 검증 | VP-07·09·22 | 제거 후 데이터 부활·늦은 근거 반환 |
 | EP-14 / 3 | packaging/reuse contract | a shared MIME 호출; b builder 산출물 내용; c 설치본 child/native entry 실행 | VP-08·17 | POP3 변경·fixture 유출·설치본만 실패 |
+| EP-15 / 4 | archive body-selection | a archive PostalMime 옵션; b body-selection 후보 평가; c HTML/charset quality projection; d 품질 DTO→UI/context 분기 | VP-01·VP-03·VP-08·VP-13·VP-17·VP-18 | nested 첨부 sentinel·alternative 중복·정상 영어·suspect 처리. 첨부 혼입/정상 본문 유실 |
+| EP-16 / 4 | segment/provenance contract | a segment 분류; b version/variant/chunk provenance transaction; c scope-aware quote fold; d viewer 선택·펼침 | VP-02·VP-05·VP-12·VP-14·VP-16·VP-18·VP-20 | 원문 재결합·변경 숫자·부모 밖 scope·source 클릭. 출처 혼동/본문 손실 |
+| EP-17 / 3 | embedding input contract | a 모델 prompt/token budget renderer; b chunk ID·embedding key 생성; c 저장/전송 projection | VP-03·VP-04·VP-10·VP-14·VP-15·VP-20·VP-21 | 필수 prefix·input hash·연속 span·whitelist. 모델 혼합/메타 노이즈/허위 인용 |
+| EP-18 / 4 | retrieval policy | a hard/soft query compiler; b 필터된 rank·RRF; c neighbor/context pack; d 결과 이유/정렬 UI | VP-03·VP-05·VP-10·VP-13·VP-16·VP-19·VP-20·VP-23 | exact ID·old decision·주변 문단·0건 이유. 몰래 범위완화/중복 투표 |
+| EP-19 / 4 | cache epoch/scheduler | a cache key/get; b scheduler·subscriber 취소; c epoch 검증 후 cache put; d scope/profile/remove/session 정리 | VP-04·VP-06·VP-07·VP-09·VP-11·VP-12·VP-15·VP-21·VP-22·VP-23 | 두 subscriber·credential 변경·late reply. 취소 전파/삭제 자료 부활 |
+| EP-20 / 3 | vector engine port | a engine build/write transaction; b scope-aware engine query/exact fallback; c generation lease·삭제·재구축 | VP-04·VP-06·VP-07·VP-08·VP-09·VP-11·VP-14·VP-17·VP-21·VP-22 | canonical 동등성·load fail·복합필터·reopen. 필터 누락/파생 row 유출 |
 
 동일 필터는 `scope.ts`가 SQL 조건·in-memory predicate를 생성하도록 하고 각 경로의 결과 집합을 같은 fixture로 비교한다. EP-10의 다양한 경로에서 조건문을 독립 복제하지 않는다.
+
+첨부 본문 제외에는 EP-15a의 옵션 제거 mutation **M-NESTED**를 등록하고 sentinel payload 검사에서 실패해야 한다. cache 참조/invalidations와 엔진 fallback은 직접 행동 oracle로 검증하며 구조적 호출 횟수만으로 안전을 주장하지 않는다.
+
+M-SCOPE의 전수 범위에는 새 EP-16c(quote fold), EP-18c(neighbor 확장), EP-19a/c(cache key·put), EP-20b(engine filter/fallback)가 추가된다. 각 자리에서 다른 scope의 자료가 섞이도록 결함을 심고 사용자 반환 집합·출처·cache 소유 상태로 검출한다.
 
 ## 11. 구현 설계
 
@@ -488,7 +674,7 @@ UI의 `set-session-scope`는 실제 세션 존재와 호출 창의 소유 관계
 | S2 — 두 임베딩 경로 | 로컬/API 프로필, chunk/vector, generation, hybrid UI | AC8·10~12·19·20·24 관련 pair; 두 구현체 모두 동작 |
 | S3 — 이력 답변·근거 UX | scope, context 도구, 기존 두 AI 경로, source card/인용 viewer | AC13~16·18·21~24, 나머지 유효 pair와 운영 gate 전부 |
 
-S1~S3를 별도 구현 PR로 나누되 동일 V1의 단계 완료와 전체 완료를 구별한다. 중간 구현은 `partial`이며 scope를 줄여 원 요구가 완료된 것처럼 보고하지 않는다.
+S1~S3를 별도 구현 PR로 나누되 동일 유효 V의 단계 완료와 전체 완료를 구별한다. 중간 구현은 `partial`이며 scope를 줄여 원 요구가 완료된 것처럼 보고하지 않는다.
 
 | S0 결정 | 수행할 실증 | 선택 조건 / 실패 시 대안 |
 |---|---|---|
@@ -498,6 +684,8 @@ S1~S3를 별도 구현 PR로 나누되 동일 V1의 단계 완료와 전체 완�
 | D-016 성능 | 대표 PC 사양·자료량·본문 길이/언어 분포를 기록하고 1만/5만 메일로 §14 측정 | 제품 SLA 새로 확정하지 않고 예산 조정 근거 보고. exact cosine이 느리면 ANN 선택을 먼저 설계 |
 
 패키지 설치나 사내 자료의 저장소 반입은 이 문서 PR에서 수행하지 않는다. 실메일 대신 합성 fixture를 커밋하고, 실환경 검증 결과에는 메일 본문·주소·자격증명을 남기지 않는다.
+
+S1에는 MIME 선택·품질 표시·가역 segment·필드 검색, S2에는 모델별 payload·cache·engine 비교 결과, S3에는 quote fold·주변 context·결과 이유·출처 UX를 배치한다. 전 단계를 통과하기 전 전체 기능 완료로 보고하지 않는다.
 
 ### 파일·seam
 
@@ -581,6 +769,20 @@ source 제거는 그 occurrence만 지우고 다른 자료원에서 같은 versi
 
 범위·출처·추출의 응답 직전에 source revision/revoke를 다시 검사한다. 이미 전달된 도구 텍스트와 채팅 답변의 복사본은 소급 회수할 수 없으므로 제거 확인에 “이전 대화 내용은 남습니다”를 표시하고, 열려 있는 근거 뷰어는 제거 상태로 전환한다.
 
+### 임베딩 캐시와 작업 스케줄링
+
+query embedding cache는 프로세스 메모리에만 두고 TTL 15분, LRU 최대 256 entry를 초기 예산으로 둔다. key는 profile fingerprint·purpose=query·최종 query bytes hash·session/scope revision·credential epoch이며 원문 query를 로그에 남기지 않는다.
+
+동일 key의 동시 요청은 계산을 공유하되 취소는 subscriber별로 처리한다. subscriber가 모두 사라지면 underlying 요청을 abort하고, 실패/401/timeout 응답은 성공 캐시에 넣지 않는다.
+
+profile/generation 전환·scope 변경·source 제거·session 삭제는 관련 epoch를 올리고 entry·in-flight를 무효화한다. 응답 직전 epoch를 재검사하므로 늦은 API 응답이 캐시나 삭제된 vector를 되살리지 못한다.
+
+document embedding 재사용은 canonical vector와 참조 chunk 관계를 저장한다. 마지막 chunk 참조 제거 때 vector와 cache를 함께 정리하며, 출처가 다른 메일의 존재/삭제는 각 occurrence/version이 결정한다.
+
+로컬 embedding worker는 query 우선 큐를 두고 문서 microbatch 사이에 양보한다. 실행 중 native inference를 즉시 선점할 수 있다고 가정하지 않으며 문서 microbatch 초기 상한 8, 실제 취소 응답·query p95로 크기를 조정한다.
+
+API batching 상한 32와 동시 요청 2를 적용한다. query cache miss와 문서 색인이 경쟁할 때 다음 사용 가능한 slot을 query에 배정한다. 질의 임베딩은 최대 3 variant×각 1요청×최대 3시도=9요청/질문이며 문서 색인 요청량과 구분한다.
+
 ## 14. 성능 / 상한 / 최적화
 
 아래는 **S0에서 확인할 초기 엔지니어링 예산**이며 확정 성능 SLA가 아니다. 런타임 상한은 `limits.ts` 한 곳과 관련 DTO validator에서 공유한다.
@@ -589,7 +791,7 @@ source 제거는 그 occurrence만 지우고 다른 자료원에서 같은 versi
 |---|---|---|
 | EML 입력·PST 단일 항목 해제 크기 | 각 50 MiB / 64 MiB | 해당 항목 제외 이유; PST library의 사전 제한 가능성은 S0 검증 |
 | import 배치 | 100 메일 또는 serialized DTO 4 MiB 중 먼저 도달 | 배치 commit 후 양보; 항목 하나의 본문 상한은 별도 검사 |
-| 정규화 본문 snapshot | 2 MiB UTF-8 / 메일 | 조용히 자르지 않고 oversized 상태·재처리 안내 |
+| 정규화 본문 snapshot·대체 표현 | 중복 제거 후 전체 합 2 MiB UTF-8 / 메일 | 조용히 자르지 않고 oversized 상태·재처리 안내 |
 | main↔worker 큐 | 배치 2개 in-flight, 진행 event 초당 최대 4회 | backpressure; 이벤트 드롭은 snapshot 재조회로 복구 |
 | 작업 프로세스 | index 1, source 1, embedding 1 최대 동시 | source/embedding lazy start·유휴 종료, 쿼리 우선 큐 |
 | 검색 후보/페이지 | 분기당 100, 화면/도구 페이지 20메일 | cursor; 의미검색 후보 수를 전체 일치 건수로 표시하지 않음 |
@@ -602,11 +804,29 @@ source 제거는 그 occurrence만 지우고 다른 자료원에서 같은 versi
 
 본문 24×1,500=36,000 UTF-16 units는 UTF-8 64 KiB보다 클 수 있으므로 **직렬화 바이트 cap을 마지막으로 적용**한다. 글자 수를 토큰 수라고 가정하지 않고, harness가 제공하는 컨텍스트 제한이 더 작으면 반환 예산을 낮춘다.
 
-embedding 텍스트 수 C는 chunker가 결정한다. API 최악 요청 수는 `ceil(C/B) × 3`(최초+재시도 2회), B는 profile 한도와 32 중 작은 값이며 질의 요청은 별도 1배치이다.
+embedding 텍스트 수 C는 chunker가 결정한다. API 최악 요청 수는 `ceil(C/B) × 3`(최초+재시도 2회), B는 profile 한도와 32 중 작은 값이며 질의 요청은 최대 3 variant×1요청×3시도=9요청으로 별도 계산한다.
 
 예시로 5만 메일×평균 4chunk×768차원×4byte는 vector만 614,400,000byte이며 SQLite·텍스트·색인 비용은 추가된다. 새/구 generation 공존 중 vector 저장량은 이 예시의 약 두 배이므로 시작 전 여유 공간을 확인한다.
 
 exact cosine의 연산량은 후보 범위 chunk 수×차원이다. 로컬 모델/PC가 정해지지 않은 상태에서 검색 지연·GPU 필요 여부를 확정하지 않는다.
+
+### 실증 계획과 선택 조건
+
+수집 corpus는 합성/반입 허용 자료로 만들고 본문·주소를 PR 로그에 올리지 않는다. **기존 24 AC의 구현 검증**과 **후보 성능 비교**를 분리해, 벤치마크에서 좋다는 이유로 무결성 실패를 허용하지 않는다.
+
+| 축 | 고정 입력 / 비교 | 관측 / 결정 |
+|---|---|---|
+| 전처리 | plain+HTML 중복, HTML-only, UTF-8/EUC-KR/CP949 alias, 잘못된 charset, 영어/코드, inline reply, 서명 유사 업무 조건, nested EML, 원본 없는 quote | 필드 golden·segment 재결합·sentinel 제외·quality flag; 중요한 수치/부정어 유실 0 |
+| 검색 질의 | 48개: 정확번호/주소 8, 한두글자·혼합 8, 의미 유사 8, 기간/사람/폴더 8, 경위·상충·오래된 결정 8, scope/무답 8 | 고정 train/tune 24·holdout 24, 같은 스레드가 두 split에 걸치지 않음 |
+| retrieval | FTS만 → hybrid e5 → hybrid Gemma768/256 → 가능한 API; RRF·가중치·overlap은 한 번에 한 축 변경 | mail Recall@10·MRR@10·thread/event coverage, 중복률·scope leak·무답 오탐 |
+| context/답변 | 동일 retrieved IDs와 두 기존 요약 AI 경로 | 근거 문장 citation validity·claim faithfulness·승인/변경·모름 구분; LLM 자체 점수만으로 합격하지 않음 |
+| 엔진 | 동일 vector·동일 filter로 BLOB vs 고정 sqlite-vec, 10k/50k 메일·실제 chunk 수 기재 | top-k 동등성(거리 허용오차·동률 규칙), cold/warm p50/p95·RSS·DB 크기·삭제/복구 |
+| cache/부하 | cold·동일query 반복·서로 다른 scope·색인 중 query·모델전환·API 지연·취소 | hit ratio·문서/질의 요청 수·native inference 지연·epoch 누락 0 |
+| 배포 | Windows 설치본·사설망 API·오프라인 모델 팩·선택 extension | 실제 load→query→delete→restart; 미선택 후보를 출시 의존성으로 추가하지 않음 |
+
+품질 비교의 기준은 우선 **정확번호·scope·인용 무결성 회귀 0**, 이후 holdout 회수율/시간순 사건 coverage 향상이다. 우위가 없으면 복잡도를 늘린 옵션을 켜지 않고, 지연 목표는 D-016의 기준 PC 실측 후 확정한다.
+
+추천 비교 순서는 e5-small 384d + 기존 BLOB를 기준으로 잡고 Gemma768/256을 비교한 뒤, 같은 승자 vector에서 sqlite-vec를 비교하는 것이다. 모델과 엔진을 동시에 바꾸지 않아 품질·성능 변화 원인을 분리한다.
 
 ## 15. 외부 구현 포트 / 문서 계약
 
@@ -646,13 +866,13 @@ S0 이후 구현 문서에는 실제 지원 adapter의 요청 예제·응답 순
 | native 모델 런타임 배포 크기/ABI | Windows 설치본 smoke·실 모델 추론·폐쇄망 모델 팩 절차 |
 | 개인 자료 잔류 | 명시 제거 transaction·vector/evidence purge; 이전 채팅 내용 잔존을 정확히 안내 |
 
-새 의존성 후보는 `pst-extractor`, `onnxruntime-node`, `@huggingface/tokenizers`다. [app 의존성 정책](../../../app/AGENTS.md)의 “TRD §2 Stack 표 밖의 패키지 추가는 사용자 승인 필수”에 따라 **선정·실제 추가는 D-014에서 승인 후** 진행한다; 이 문서는 채택 승인을 대신하지 않는다.
+새 의존성 후보는 `pst-extractor`, `onnxruntime-node`, `@huggingface/tokenizers`, `sqlite-vec`다. [app 의존성 정책](../../../app/AGENTS.md)의 “TRD §2 Stack 표 밖의 패키지 추가는 사용자 승인 필수”에 따라 **선정·실제 추가는 D-014에서 승인 후** 진행한다; 이 문서는 채택 승인을 대신하지 않는다.
 
 되돌리기 어려운 부분은 identity/version·source occurrence·evidence format이다. 최초 구현부터 schemaVersion·fingerprint·opaque ID를 두고, 모델 이름이나 원본 경로를 공개 식별자로 고정하지 않는다.
 
 ## 18. 영향 받는 파일 / 문서
 
-이번 PR 변경은 이 계획, [handoff INDEX](../INDEX.md), [docs INDEX](../../INDEX.md)뿐이다. 앱 코드·lockfile·현재 architecture 문서는 바꾸지 않는다.
+이번 PR 산출물은 이 계획, [조사 검토](research-review.md), [handoff INDEX](../INDEX.md), [docs INDEX](../../INDEX.md)다. 설계 계약은 이 plan에 통합한다. 앱 코드·lockfile·현재 architecture 문서는 바꾸지 않는다.
 
 향후 구현 변경은 §11 표를 따르며, 실제 동작이 생긴 시점에 `docs/IPC_CONTRACT.md`, `docs/arch/backend/persistence.md`, `docs/arch/backend/overview.md`, `docs/arch/frontend/{state,rendering,ux-domains}.md`를 현재 상태로 갱신한다. API adapter/로컬 모델 팩 운영 절차는 `docs/guides/`에 추가하고 generated inventory는 코드에서 생성한다.
 
@@ -672,11 +892,21 @@ DB 테스트는 `app/AGENTS.md`의 ABI 지침에 따라 필요한 시점에 실�
 
 문서 파서로 AC1~24 연속성, 23 pair의 왼쪽 노드 전부 연결, 14 EP 행의 57자리 표기와 pair의 자리수 일치, 본문 상대 링크 7개 존재를 확인했다. author=Codex, Baseline V 기준=none, 보드=plan/DRAFT·다음 Codex가 본문과 일치했다.
 
-위 기록은 V1 커밋 당시 관측이다. 이번 조사 보완의 정합성·문서 검사 결과는 [ΔV1 §9](delta-v1.md#9-문서구현-게이트와-상태)에 기록한다.
+위 기록은 V1 커밋 당시 관측이며 현재 통합본의 문서 개수를 뜻하지 않는다.
 
 app 디렉터리에서 `node scripts/check-doc-inventory.mjs --check`를 실행해 generated doc·prose·relative links 검사가 모두 통과했다. 처음 저장소 루트에서 실행한 명령은 cwd 의존 경로로 실패했으며, app에서 재실행한 결과를 채택했다.
 
 의미 대조에서는 D-004↔AC10~12↔§10의 local/api union, D-005↔AC9·17↔EP-06·11, D-006↔AC4↔immutable version, D-011↔AC13·16·21↔EP-09·10·13의 동작을 각각 비교했다. §5의 취소/원본 소실/제거 상태는 §13의 저장·복구 순서와 일치하며, 외부 문서 열람·계획된 AT를 구현 PASS로 기록하지 않았다.
+
+### 조사 보완·문서 통합 검증 기록
+
+이 plan의 §3·5·7·7-A·9·10·13·14에 조사 보완을 통합했다. V1의 AC와 선택 mutation은 같은 stable ID에 보존하며, 두 개의 상충하는 pair/강제 지점 표를 두지 않는다.
+
+문서 gate는 링크·앵커·표·UTF-8, Decision·AC·V/EP 보존, 작성자·유효 V·보드 상태 일치, 삭제한 별도 델타 파일의 잔여 참조, doc-inventory·diff·trailer 검사다. 모델 추론·PST 처리·검색 품질·성능의 실행 검증은 §14의 실증으로 남는다.
+
+통합본 검증 결과: V1의 AC 24개와 조사 보완 oracle을 같은 AC 행에 보존했고, pair 23개(REQUIRED 16·REGRESSION 7)의 기존·추가 경로와 EP 연결이 유지됨을 비교했다. 강제 지점은 20행·79자리이며, Decision 23개와 구현자 기입란을 확인했다.
+
+통합 plan·조사 검토의 상대 링크·앵커 11개, 표 38개의 열 수·UTF-8, plan/보드의 Codex·유효 V·DRAFT가 일치한다. 별도 델타 파일과 관련 참조는 제거했고, `node scripts/check-doc-inventory.mjs --check`(app)·`git diff --check`를 통과했다.
 
 ## READY self-review
 
