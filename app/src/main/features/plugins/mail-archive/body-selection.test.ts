@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { selectMailBody } from './body-selection'
-import { archiveMailIdentityKey } from './identity'
 
 describe('mail archive body selection', () => {
   it('converts inert HTML while keeping block, list, and table boundaries', () => {
@@ -19,9 +18,6 @@ describe('mail archive body selection', () => {
 
     expect(selected.bodyKind).toBe('html')
     expect(selected.bodyText).toContain('이전 일정 & 승인')
-    expect(selected.identityBodyText).toBe(
-      'hidden title HIDDEN-SENTINEL 이전 일정 & 승인 첫 번째 두 번째 담당 완료 CSS-HIDDEN-SENTINEL'
-    )
     expect(selected.bodyText).toContain('• 첫 번째')
     expect(selected.bodyText).toContain('• 두 번째')
     expect(selected.bodyText).toContain('담당')
@@ -58,7 +54,6 @@ describe('mail archive body selection', () => {
     })
 
     expect(selected.bodyText).toBe('서버 이전\n승인 완료')
-    expect(selected.identityBodyText).toBe('서버 이전\n승인 완료')
     expect(selected.bodyAlternateText).toBeNull()
     expect(selected.bodyQualityFlags).not.toContain('alternative_mismatch')
   })
@@ -73,52 +68,17 @@ describe('mail archive body selection', () => {
     expect(selected.bodyQualityFlags).toContain('alternative_mismatch')
   })
 
-  it('keeps the prior HTML identity text while preserving readable block boundaries', () => {
+  it('preserves readable block boundaries in HTML-only mail', () => {
     const selected = selectMailBody({ html: '<p>첫 문단</p><p>둘째 문단</p>' })
 
     expect(selected.bodyText).toBe('첫 문단\n\n둘째 문단')
-    expect(selected.identityBodyText).toBe('첫 문단 둘째 문단')
+    expect(selected.bodySelectionReason).toBe('html_only')
+  })
 
-    const previousProjection = {
-      sourceKind: 'eml' as const,
-      sourceId: 'source',
-      sourcePath: 'C:/archive/mail.eml',
-      sourceFingerprint: 'old',
-      itemKey: '<mail@example.test>',
-      folderPath: null,
-      sentAt: 1,
-      from: 'sender@example.test',
-      to: '',
-      cc: '',
-      subject: '업무 이력',
-      bodyText: selected.identityBodyText,
-      bodyKind: 'plain' as const,
-      bodyAlternateText: null,
-      bodyAlternateKind: null,
-      bodyAlternateOmitted: false,
-      bodyQualityFlags: [],
-      bodySelectionReason: 'plain_preferred' as const,
-      messageId: '<mail@example.test>',
-      inReplyTo: null,
-      references: null,
-      threadKey: '<mail@example.test>',
-      attachments: [],
-      sizeBytes: 100
-    }
-    const currentProjection = {
-      ...previousProjection,
-      sourceFingerprint: 'new',
-      bodyText: selected.bodyText,
-      bodyKind: selected.bodyKind,
-      bodyAlternateText: selected.bodyAlternateText,
-      bodyAlternateKind: selected.bodyAlternateKind,
-      bodyQualityFlags: selected.bodyQualityFlags,
-      bodySelectionReason: selected.bodySelectionReason,
-      identityBodyText: selected.identityBodyText
-    }
-    expect(archiveMailIdentityKey(currentProjection)).toBe(
-      archiveMailIdentityKey(previousProjection)
-    )
+  it('keeps a lone plain body even when it looks like an HTML placeholder', () => {
+    const selected = selectMailBody({ plainText: 'This message is best viewed in HTML.' })
+
+    expect(selected).toMatchObject({ bodyKind: 'plain', bodySelectionReason: 'plain_preferred' })
   })
 
   it('uses HTML when plain is only a confirmed placeholder or replacement characters', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createAcknowledgedMailBatchSender, createMailArchiveBatchBuffer } from './batch-buffer'
+import { createMailArchiveBatchBuffer } from './batch-buffer'
 
 describe('mail archive source batching', () => {
   it('does not read past a full batch until the index acknowledges it', async () => {
@@ -9,16 +9,10 @@ describe('mail archive source batching', () => {
     })
     let pulled = 0
     const batches: number[][] = []
-    const sendBatch = createAcknowledgedMailBatchSender<number>(
-      (batchId, batch) => {
-        expect(batchId).toBe(batches.length + 1)
-        batches.push([...batch])
-      },
-      async (batchId) => {
-        if (batchId === 1) await firstAcknowledgement
-      }
-    )
-    const buffer = createMailArchiveBatchBuffer(sendBatch)
+    const buffer = createMailArchiveBatchBuffer<number>(async (batch) => {
+      batches.push([...batch])
+      if (batches.length === 1) await firstAcknowledgement
+    })
     const scan = async (): Promise<void> => {
       for (let index = 0; index < 51; index += 1) {
         pulled += 1

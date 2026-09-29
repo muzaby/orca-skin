@@ -1,23 +1,27 @@
 import type { Address, Email } from 'postal-mime'
-import { createHash } from 'node:crypto'
 import type { PSTMessage } from 'pst-extractor'
 import type { NormalizedArchiveMail } from './types'
 import { archiveMailIdentityKey } from './identity'
 import { selectMailBody } from './body-selection'
 
-function addressValue(value: Address | undefined): string {
-  if (!value) return ''
-  if ('address' in value && value.address) return value.address
-  return (
-    value.group
-      ?.map((member) => member.address || member.name || '')
-      .filter(Boolean)
-      .join(', ') ?? ''
-  )
+/** 이름과 주소를 함께 남겨 둘 중 무엇으로도 찾을 수 있게 한다. */
+function party(name: string | null | undefined, address: string | null | undefined): string {
+  const displayName = name?.trim() ?? ''
+  const mailbox = address?.trim() ?? ''
+  if (displayName && mailbox && displayName.toLocaleLowerCase() !== mailbox.toLocaleLowerCase()) {
+    return `${displayName} <${mailbox}>`
+  }
+  return mailbox || displayName
 }
 
-function addresses(value: readonly Address[] | undefined): string {
-  return (value ?? []).map(addressValue).filter(Boolean).join(', ')
+function emlParty(value: Address | undefined): string {
+  if (!value) return ''
+  if ('group' in value && value.group) return value.group.map(emlParty).filter(Boolean).join(', ')
+  return party(value.name, 'address' in value ? value.address : '')
+}
+
+function emlParties(value: readonly Address[] | undefined): string {
+  return (value ?? []).map(emlParty).filter(Boolean).join(', ')
 }
 
 function cleanHeader(value: string | undefined | null): string | null {
@@ -30,129 +34,117 @@ function parseDate(value: string | undefined): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-function threadKey(
-  subject: string,
-  messageId: string | null,
-  inReplyTo: string | null,
-  references: string | null
-): string {
-  const root = references?.split(/\s+/).filter(Boolean)[0] ?? inReplyTo ?? messageId
-  if (root) return root
-  return `subject:${subject
-    .toLocaleLowerCase()
-    .replace(/^\s*(re|fw|fwd)\s*:\s*/gi, '')
-    .trim()}`
-}
-
-function attachmentManifest(
-  attachments: readonly {
-    name?: string | null
-    mimeType?: string | null
-    sizeBytes?: number | null
-  }[]
-): NormalizedArchiveMail['attachments'] {
-  return attachments
-    .map((attachment) => ({
-      name: attachment.name?.trim() || 'attachment',
-      mimeType: attachment.mimeType?.trim() || 'application/octet-stream',
-      sizeBytes: Math.max(0, attachment.sizeBytes ?? 0)
-    }))
-    .filter((attachment) => attachment.name.length > 0)
+function manifestEntry(
+  name: string | null | undefined,
+  mimeType: string | null | undefined,
+  sizeBytes: number
+): NormalizedArchiveMail['attachments'][number] {
+  return {
+    name: name?.trim() || 'attachment',
+    mimeType: mimeType?.trim() || 'application/octet-stream',
+    sizeBytes: Math.max(0, sizeBytes)
+  }
 }
 
 export function normalizeEml(
   email: Email,
-  input: { sourceId: string; sourcePath: string; sourceFingerprint: string; sizeBytes: number }
+  input: { readonly sourceId: string; readonly itemKey: string }
 ): NormalizedArchiveMail {
-  const subject = email.subject?.trim() ?? ''
-  const messageId = cleanHeader(email.messageId)
-  const inReplyTo = cleanHeader(email.inReplyTo)
-  const references = cleanHeader(email.references)
-  const body = selectMailBody({ plainText: email.text, html: email.html })
-  const attachments = attachmentManifest(
-    (email.attachments ?? []).map((attachment) => ({
-      name: attachment.filename,
-      mimeType: attachment.mimeType,
-      sizeBytes:
-        typeof attachment.content === 'string'
-          ? Buffer.byteLength(attachment.content, 'utf8')
-          : attachment.content instanceof Uint8Array
-            ? attachment.content.byteLength
-            : attachment.content.byteLength
-    }))
-  )
   const normalized: Omit<NormalizedArchiveMail, 'identityKey'> = {
-    sourceKind: 'eml',
     sourceId: input.sourceId,
-    sourcePath: input.sourcePath,
-    sourceFingerprint: input.sourceFingerprint,
-    itemKey: messageId ?? createHash('sha256').update(input.sourcePath).digest('hex'),
+    itemKey: input.itemKey,
     folderPath: null,
     sentAt: parseDate(email.date),
-    from: addressValue(email.from),
-    to: addresses(email.to),
-    cc: addresses(email.cc),
-    subject,
-    ...body,
-    messageId,
-    inReplyTo,
-    references,
-    threadKey: threadKey(subject, messageId, inReplyTo, references),
-    attachments,
-    sizeBytes: input.sizeBytes
+    from: emlParty(email.from),
+    to: emlParties(email.to),
+    cc: emlParties(email.cc),
+    subject: email.subject?.trim() ?? '',
+    ...selectMailBody({ plainText: email.text, html: email.html }),
+    messageId: cleanHeader(email.messageId),
+    inReplyTo: cleanHeader(email.inReplyTo),
+    references: cleanHeader(email.references),
+    attachments: (email.attachments ?? []).map((attachment) =>
+      manifestEntry(
+        attachment.filename,
+        attachment.mimeType,
+        typeof attachment.content === 'string'
+          ? Buffer.byteLength(attachment.content, 'utf8')
+          : attachment.content.byteLength
+      )
+    )
   }
   return { ...normalized, identityKey: archiveMailIdentityKey(normalized) }
 }
 
+/** RFC 5322 헤더 블록에서 한 헤더를 접힌 줄까지 합쳐 읽는다. */
+function transportHeader(headers: string, name: string): string | null {
+  const match = new RegExp(`^${name}:[ \\t]*(.*(?:\\r?\\n[ \\t]+.*)*)`, 'im').exec(headers)
+  return cleanHeader(match?.[1])
+}
+
+interface PstRecipientLike {
+  readonly recipientType?: number
+  readonly displayName?: string
+  readonly smtpAddress?: string
+  readonly emailAddress?: string
+}
+
+function smtp(address: string | null | undefined): string {
+  return address && address.includes('@') && !address.startsWith('/') ? address : ''
+}
+
+/** 수신자 테이블에서 이름·SMTP 주소를 읽고, 읽을 수 없으면 PST 표시 문자열을 쓴다. */
+function pstRecipients(message: PSTMessage): { to: string; cc: string } {
+  const to: string[] = []
+  const cc: string[] = []
+  try {
+    for (let index = 0; index < message.numberOfRecipients; index += 1) {
+      const recipient = message.getRecipient(index) as PstRecipientLike | null
+      if (!recipient) continue
+      const value = party(
+        recipient.displayName,
+        smtp(recipient.smtpAddress) || smtp(recipient.emailAddress)
+      )
+      if (!value) continue
+      if (recipient.recipientType === 1) to.push(value)
+      else if (recipient.recipientType === 2) cc.push(value)
+    }
+  } catch {
+    // 손상된 수신자 테이블은 아래 표시 문자열로 대신한다.
+  }
+  return {
+    to: to.length > 0 ? to.join(', ') : (message.displayTo?.trim() ?? ''),
+    cc: cc.length > 0 ? cc.join(', ') : (message.displayCC?.trim() ?? '')
+  }
+}
+
 export function normalizePst(
   message: PSTMessage,
-  input: {
-    sourcePath: string
-    sourceId: string
-    sourceFingerprint: string
-    folderPath: string
-    itemKey: string
-    sizeBytes: number
-  }
+  input: { readonly sourceId: string; readonly folderPath: string; readonly itemKey: string }
 ): NormalizedArchiveMail {
-  const subject = message.subject?.trim() ?? ''
-  const messageId = cleanHeader(message.internetMessageId)
-  const inReplyTo = cleanHeader(message.inReplyToId)
-  const body = selectMailBody({ plainText: message.body, html: message.bodyHTML })
-  const attachments = attachmentManifest(
-    Array.from({ length: Math.max(0, message.numberOfAttachments) }, (_, index) => {
-      const attachment = message.getAttachment(index)
-      return {
-        name: attachment.longFilename || attachment.filename,
-        mimeType: attachment.mimeTag,
-        sizeBytes: attachment.filesize || attachment.size
-      }
-    })
-  )
-  const sender = message.senderEmailAddress?.trim() || message.senderName?.trim() || ''
-  const sentAt = message.messageDeliveryTime?.getTime() ?? null
-  const conversation = message.conversationId?.toString('hex')
+  const headers = message.transportMessageHeaders ?? ''
+  const sentAt = message.clientSubmitTime ?? message.messageDeliveryTime
   const normalized: Omit<NormalizedArchiveMail, 'identityKey'> = {
-    sourceKind: 'pst',
     sourceId: input.sourceId,
-    sourcePath: input.sourcePath,
-    sourceFingerprint: input.sourceFingerprint,
     itemKey: input.itemKey,
     folderPath: input.folderPath,
-    sentAt,
-    from: sender,
-    to: message.displayTo?.trim() ?? '',
-    cc: message.displayCC?.trim() ?? '',
-    subject,
-    ...body,
-    messageId,
-    inReplyTo,
-    references: null,
-    threadKey: conversation
-      ? `conversation:${conversation}`
-      : threadKey(subject, messageId, inReplyTo, null),
-    attachments,
-    sizeBytes: input.sizeBytes
+    sentAt: sentAt ? sentAt.getTime() : null,
+    // Exchange 내부 발신자의 주소는 X.500 DN이라 SMTP 형식일 때만 이름 옆에 붙인다.
+    from: party(message.senderName, smtp(message.senderEmailAddress)),
+    ...pstRecipients(message),
+    subject: message.subject?.trim() ?? '',
+    ...selectMailBody({ plainText: message.body, html: message.bodyHTML }),
+    messageId: cleanHeader(message.internetMessageId),
+    inReplyTo: cleanHeader(message.inReplyToId) ?? transportHeader(headers, 'In-Reply-To'),
+    references: transportHeader(headers, 'References'),
+    attachments: Array.from({ length: Math.max(0, message.numberOfAttachments) }, (_, index) => {
+      const attachment = message.getAttachment(index)
+      return manifestEntry(
+        attachment.longFilename || attachment.filename,
+        attachment.mimeTag,
+        attachment.filesize || attachment.size || 0
+      )
+    })
   }
   return { ...normalized, identityKey: archiveMailIdentityKey(normalized) }
 }

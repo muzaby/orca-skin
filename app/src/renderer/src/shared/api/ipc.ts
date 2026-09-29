@@ -89,8 +89,6 @@ import type {
 // 사용량 타입 정본은 `shared/usage/limits.ts` (ipc.ts 에 두면 순환).
 import type { UsageDelta, UsageLimitsView } from '../../../../shared/usage/limits'
 import type {
-  MailArchiveGetRequest,
-  MailArchiveImportRequest,
   MailArchiveImportResult,
   MailArchiveMessage,
   MailArchiveProgress,
@@ -199,15 +197,14 @@ export const fileApi = {
 }
 
 export const mailArchiveApi = {
-  pickFiles: (): Promise<string[]> => window.orca.mailArchive.pickFiles(),
-  pickEmlFolder: (): Promise<string | null> => window.orca.mailArchive.pickEmlFolder(),
-  import: (request: MailArchiveImportRequest): Promise<MailArchiveImportResult> =>
-    window.orca.mailArchive.import(request),
+  importFiles: (): Promise<MailArchiveImportResult | null> => window.orca.mailArchive.importFiles(),
+  importEmlFolder: (): Promise<MailArchiveImportResult | null> =>
+    window.orca.mailArchive.importEmlFolder(),
+  status: (): Promise<MailArchiveProgress | null> => window.orca.mailArchive.status(),
   cancel: (jobId: string): Promise<{ cancelled: boolean }> => window.orca.mailArchive.cancel(jobId),
   search: (request: MailArchiveSearchRequest): Promise<MailArchiveSearchHit[]> =>
     window.orca.mailArchive.search(request),
-  get: (request: MailArchiveGetRequest): Promise<MailArchiveMessage | null> =>
-    window.orca.mailArchive.get(request),
+  get: (id: string): Promise<MailArchiveMessage | null> => window.orca.mailArchive.get(id),
   thread: (request: MailArchiveThreadRequest): Promise<MailArchiveThreadResult> =>
     window.orca.mailArchive.thread(request),
   exportAttachment: (attachmentId: string): Promise<MailArchiveAttachmentExportResult> =>

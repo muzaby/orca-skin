@@ -16,8 +16,6 @@ import type {
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import type { NormalizedPermissionMode } from '../shared/permission-mode'
 import type {
-  MailArchiveGetRequest,
-  MailArchiveImportRequest,
   MailArchiveImportResult,
   MailArchiveMessage,
   MailArchiveProgress,
@@ -249,17 +247,18 @@ const orca = {
     pathForFile: (file: File): string => webUtils.getPathForFile(file)
   },
   mailArchive: {
-    pickFiles: (): Promise<string[]> => ipcRenderer.invoke(CHANNELS.mailArchivePickFiles),
-    pickEmlFolder: (): Promise<string | null> =>
-      ipcRenderer.invoke(CHANNELS.mailArchivePickEmlFolder),
-    import: (request: MailArchiveImportRequest): Promise<MailArchiveImportResult> =>
-      ipcRenderer.invoke(CHANNELS.mailArchiveImport, request),
+    importFiles: (): Promise<MailArchiveImportResult | null> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveImportFiles),
+    importEmlFolder: (): Promise<MailArchiveImportResult | null> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveImportEmlFolder),
+    status: (): Promise<MailArchiveProgress | null> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveStatus),
     cancel: (jobId: string): Promise<{ cancelled: boolean }> =>
       ipcRenderer.invoke(CHANNELS.mailArchiveCancel, { id: jobId }),
     search: (request: MailArchiveSearchRequest): Promise<MailArchiveSearchHit[]> =>
       ipcRenderer.invoke(CHANNELS.mailArchiveSearch, request),
-    get: (request: MailArchiveGetRequest): Promise<MailArchiveMessage | null> =>
-      ipcRenderer.invoke(CHANNELS.mailArchiveGet, request),
+    get: (id: string): Promise<MailArchiveMessage | null> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveGet, { id }),
     thread: (request: MailArchiveThreadRequest): Promise<MailArchiveThreadResult> =>
       ipcRenderer.invoke(CHANNELS.mailArchiveThread, request),
     exportAttachment: (attachmentId: string): Promise<MailArchiveAttachmentExportResult> =>

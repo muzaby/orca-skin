@@ -17,13 +17,11 @@ const PLACEHOLDER_TEXTS = new Set([
 const BLOCK_ELEMENTS =
   'address, article, aside, blockquote, dd, div, dl, dt, fieldset, figcaption, figure, footer, form, h1, h2, h3, h4, h5, h6, header, hr, li, main, ol, p, pre, section, table, tbody, tfoot, thead, tr, ul'
 
-export interface MailBodySelection {
-  /** Stable pre-projection text used only for identity compatibility across parser revisions. */
-  readonly identityBodyText: string
+interface MailBodySelection {
   readonly bodyText: string
   readonly bodyKind: MailArchiveBodyKind
   readonly bodyAlternateText: string | null
-  readonly bodyAlternateKind: Exclude<MailArchiveBodyKind, 'none' | 'legacy'> | null
+  readonly bodyAlternateKind: Exclude<MailArchiveBodyKind, 'none'> | null
   readonly bodyAlternateOmitted: boolean
   readonly bodyQualityFlags: readonly MailArchiveBodyQualityFlag[]
   readonly bodySelectionReason: MailArchiveBodySelectionReason
@@ -33,22 +31,11 @@ function normalizeBodyText(value: string | null | undefined): string {
   return (value ?? '').replace(/\r\n?/g, '\n').normalize('NFC').trim()
 }
 
-function legacyHtmlIdentityText(value: string): string {
-  return value
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
 /**
  * Parse HTML as an inert document. Cheerio does not execute scripts or load remote resources;
  * this projection intentionally handles only explicit hidden markers, not the CSS cascade.
  */
-export function htmlToReadableText(value: string): string {
+function htmlToReadableText(value: string): string {
   if (!value.trim()) return ''
   const $ = load(value, { scriptingEnabled: false }, false)
   $('head, title, meta, link, script, style, template, noscript, iframe, object, embed').remove()
@@ -78,6 +65,7 @@ export function htmlToReadableText(value: string): string {
     .replace(/[\t ]{2,}/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
+    .normalize('NFC')
 }
 
 function comparisonText(value: string): string {
@@ -95,9 +83,7 @@ function isOnlyBrokenCharacters(value: string): boolean {
 function isDecodeSuspect(value: string): boolean {
   return (
     value.includes('\uFFFD') ||
-    /(?:Ã[\u0080-\u00BF]|Â[\u0080-\u00BF]|â(?:€|‚|„|…|†|‡|ˆ|‰|‹|‘|’|“|”|•|–|—|˜|™)|ï»¿)/u.test(
-      value
-    )
+    /(?:Ã[\u0080-¿]|Â[\u0080-¿]|â(?:€|‚|„|…|†|‡|ˆ|‰|‹|‘|’|“|”|•|–|—|˜|™)|ï»¿)/u.test(value)
   )
 }
 
@@ -105,82 +91,64 @@ function utf8Bytes(value: string): number {
   return Buffer.byteLength(value, 'utf8')
 }
 
+/** Plain을 우선하고, 안내문·깨진 plain일 때만 HTML로 대체한다. 나머지 표현은 대체 본문으로 보존한다. */
 export function selectMailBody(input: {
   readonly plainText?: string | null
   readonly html?: string | null
 }): MailBodySelection {
   const plainText = normalizeBodyText(input.plainText)
-  const htmlText = htmlToReadableText(input.html ?? '').normalize('NFC')
-  const identityBodyText = plainText || legacyHtmlIdentityText(input.html ?? '')
-  const hasPlain = plainText.length > 0
+  const htmlText = htmlToReadableText(input.html ?? '')
   const hasHtml = htmlText.length > 0
-  const placeholderFallback = hasPlain && hasHtml && isConfirmedPlaceholder(plainText)
-  const unusableFallback = hasPlain && hasHtml && isOnlyBrokenCharacters(plainText)
+  const plainUsable =
+    plainText.length > 0 &&
+    !(hasHtml && (isConfirmedPlaceholder(plainText) || isOnlyBrokenCharacters(plainText)))
+  const differ =
+    plainText.length > 0 && hasHtml && comparisonText(plainText) !== comparisonText(htmlText)
 
   let selectedText = ''
   let selectedKind: MailArchiveBodyKind = 'none'
   let alternateText: string | null = null
-  let alternateKind: Exclude<MailArchiveBodyKind, 'none' | 'legacy'> | null = null
   let selectionReason: MailArchiveBodySelectionReason = 'empty'
-
-  if (hasPlain && !placeholderFallback && !unusableFallback) {
+  if (plainUsable) {
     selectedText = plainText
     selectedKind = 'plain'
     selectionReason = 'plain_preferred'
-    if (hasHtml && comparisonText(plainText) !== comparisonText(htmlText)) {
-      alternateText = htmlText
-      alternateKind = 'html'
-    }
+    if (differ) alternateText = htmlText
   } else if (hasHtml) {
     selectedText = htmlText
     selectedKind = 'html'
-    selectionReason = placeholderFallback
-      ? 'plain_placeholder_fallback'
-      : unusableFallback
-        ? 'plain_unusable_fallback'
-        : 'html_only'
-    if (hasPlain && !placeholderFallback && !unusableFallback) {
-      alternateText = plainText
-      alternateKind = 'plain'
-    }
-  } else if (hasPlain) {
-    // Keep the only available representation even when it resembles an HTML placeholder.
-    selectedText = plainText
-    selectedKind = 'plain'
-    selectionReason = 'plain_preferred'
+    selectionReason =
+      plainText.length === 0
+        ? 'html_only'
+        : isConfirmedPlaceholder(plainText)
+          ? 'plain_placeholder_fallback'
+          : 'plain_unusable_fallback'
   }
 
   const flags = new Set<MailArchiveBodyQualityFlag>()
-  const bothCandidatesDiffer =
-    hasPlain && hasHtml && comparisonText(plainText) !== comparisonText(htmlText)
-  if (bothCandidatesDiffer) flags.add('alternative_mismatch')
-
+  if (differ) flags.add('alternative_mismatch')
   let alternateOmitted = false
   if (selectedText && utf8Bytes(selectedText) > MAX_BODY_BYTES) {
+    // 본문을 조용히 자르지 않는다. 저장하지 않고 이유를 남긴다.
     flags.add('oversized')
     selectedText = ''
     alternateText = null
-    alternateKind = null
-    alternateOmitted = bothCandidatesDiffer
+    alternateOmitted = differ
     selectionReason = 'oversized'
   } else if (alternateText && utf8Bytes(selectedText) + utf8Bytes(alternateText) > MAX_BODY_BYTES) {
     flags.add('oversized')
     alternateText = null
-    alternateKind = null
     alternateOmitted = true
   }
-
-  if ((selectedKind === 'html' && selectedText) || alternateKind === 'html') {
+  if ((selectedKind === 'html' && selectedText) || alternateText !== null)
     flags.add('html_converted')
-  }
   if (selectedText && isDecodeSuspect(selectedText)) flags.add('decode_suspect')
 
   return {
-    identityBodyText,
     bodyText: selectedText,
     bodyKind: selectedKind,
     bodyAlternateText: alternateText,
-    bodyAlternateKind: alternateKind,
+    bodyAlternateKind: alternateText === null ? null : 'html',
     bodyAlternateOmitted: alternateOmitted,
     bodyQualityFlags: [...flags],
     bodySelectionReason: selectionReason

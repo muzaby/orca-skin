@@ -50,15 +50,13 @@ describe('mail archive attachment extraction', () => {
     const sourceBytes = Buffer.from(eml())
     await writeFile(sourcePath, sourceBytes)
     const sourceFingerprint = createHash('sha256').update(sourceBytes).digest('hex')
-    const source = await readEmlFile(sourcePath, 'test-source', sourceFingerprint)
+    const source = await readEmlFile(sourcePath, { sourceId: 'test-source', itemKey: '' })
     expect(source.bodyText).not.toContain('CONFIDENTIAL-ATTACHMENT-CONTENT')
     const attachmentIndex = 1
     const attachment = source.attachments[attachmentIndex]!
 
     const extracted = await extractMailArchiveAttachment(
       {
-        attachmentId: 'attachment-test',
-        sourceId: 'test-source',
         sourceKind: 'eml',
         sourcePath,
         sourceFingerprint,
@@ -81,8 +79,6 @@ describe('mail archive attachment extraction', () => {
     await expect(
       extractMailArchiveAttachment(
         {
-          attachmentId: 'attachment-test',
-          sourceId: 'test-source',
           sourceKind: 'eml',
           sourcePath,
           sourceFingerprint,

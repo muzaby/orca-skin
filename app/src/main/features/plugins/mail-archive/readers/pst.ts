@@ -1,97 +1,106 @@
-import { stat } from 'node:fs/promises'
 import type { PSTMessage } from 'pst-extractor'
 import { normalizePst } from '../normalize'
 import type { NormalizedArchiveMail } from '../types'
 
-export interface PstReadOptions {
-  readonly sourcePath: string
-  readonly sourceId: string
-  readonly sourceFingerprint: string
-  readonly signal?: AbortSignal
-  readonly onMessage: (message: NormalizedArchiveMail) => Promise<void> | void
-}
-
-type PstFolderLike = {
+export interface PstFolderLike {
   readonly displayName?: string
   readonly hasSubfolders?: boolean
-  readonly contentCount?: number
-  readonly emailCount?: number
   getSubFolders(): PstFolderLike[]
   getNextChild(): unknown
 }
 
-function isPstMessage(value: unknown): value is PSTMessage {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'subject' in value &&
-    'body' in value &&
-    'descriptorNodeId' in value &&
-    typeof (value as { descriptorNodeId?: { toString(): string } }).descriptorNodeId?.toString ===
-      'function'
-  )
+/** 읽지 못한 폴더. 조용히 버리지 않고 가져오기 결과에 보고한다. */
+export interface PstWalkReport {
+  readonly unreadableFolders: string[]
+  unreadableMessages: number
 }
 
-function folderName(parent: string, folder: PstFolderLike): string {
+/** 메일 항목만 받는다. 일정·연락처·작업도 PSTMessage를 상속하므로 message class로 거른다. */
+function isMailItem(value: unknown): value is PSTMessage {
+  if (typeof value !== 'object' || value === null || !('descriptorNodeId' in value)) return false
+  const messageClass = String(
+    (value as { messageClass?: unknown }).messageClass ?? ''
+  ).toLocaleLowerCase('en-US')
+  return messageClass.startsWith('ipm.note') || messageClass.startsWith('report.ipm.note')
+}
+
+function childPath(parent: string, folder: PstFolderLike): string {
   const name = folder.displayName?.trim() || '폴더'
   return parent ? `${parent}/${name}` : name
 }
 
-export async function readPstFile(options: PstReadOptions): Promise<number> {
-  options.signal?.throwIfAborted()
-  const fileStat = await stat(options.sourcePath)
-  // pst-extractor opens the path lazily and supports ANSI/Unicode PST variants. The file-size
-  // guard is intentionally only informational here; the import job remains cancellable between
-  // messages and never copies the PST into the archive database.
-  const sizeBytes = fileStat.size
-  const { PSTFile } = await import('pst-extractor')
-  const pst = new PSTFile(options.sourcePath)
-  let count = 0
-  const visit = async (folder: PstFolderLike, path: string): Promise<void> => {
-    options.signal?.throwIfAborted()
-    const currentPath = path
-    const emailCount = Math.max(0, folder.emailCount ?? folder.contentCount ?? 0)
-    for (let index = 0; index < emailCount; index += 1) {
-      options.signal?.throwIfAborted()
-      let candidate: unknown
-      try {
-        candidate = folder.getNextChild()
-      } catch {
-        // A damaged folder can expose an invalid B-tree row. Preserve messages already read from
-        // this folder and continue with the next sibling instead of discarding the whole PST.
-        break
-      }
-      if (!isPstMessage(candidate)) continue
-      const message = normalizePst(candidate, {
-        sourceId: options.sourceId,
-        sourcePath: options.sourcePath,
-        sourceFingerprint: options.sourceFingerprint,
-        folderPath: currentPath,
-        itemKey: candidate.descriptorNodeId.toString(),
-        sizeBytes
-      })
-      await options.onMessage(message)
-      count += 1
-    }
-    if (folder.hasSubfolders) {
-      let children: PstFolderLike[]
-      try {
-        children = folder.getSubFolders()
-      } catch {
-        // pst-extractor reports malformed child tables by throwing. The parent messages remain
-        // searchable; an individual broken subtree is reported by the job at file granularity.
-        return
-      }
-      for (const child of children) {
-        await visit(child, folderName(currentPath, child))
-      }
-    }
-  }
+/**
+ * `getNextChild()`가 null을 낼 때까지 읽는다. 목차가 손상된 폴더는 라이브러리가 descriptor
+ * B-tree로 대체하는데 이때 `emailCount`는 -1이므로 개수로 반복 상한을 잡지 않는다.
+ */
+export function* walkPstMessages(
+  folder: PstFolderLike,
+  report: PstWalkReport,
+  signal?: AbortSignal,
+  path = ''
+): Generator<{ readonly message: PSTMessage; readonly folderPath: string }> {
+  signal?.throwIfAborted()
   try {
-    const root = pst.getRootFolder() as unknown as PstFolderLike
-    await visit(root, '')
-    return count
+    for (let child = folder.getNextChild(); child; child = folder.getNextChild()) {
+      signal?.throwIfAborted()
+      if (isMailItem(child)) yield { message: child, folderPath: path }
+    }
+  } catch (error) {
+    if (signal?.aborted) throw error
+    report.unreadableFolders.push(path || '/')
+  }
+  if (!folder.hasSubfolders) return
+  let children: PstFolderLike[]
+  try {
+    children = folder.getSubFolders()
+  } catch (error) {
+    if (signal?.aborted) throw error
+    report.unreadableFolders.push(`${path || '/'} (하위 폴더)`)
+    return
+  }
+  for (const child of children)
+    yield* walkPstMessages(child, report, signal, childPath(path, child))
+}
+
+export async function openPst<T>(
+  path: string,
+  read: (root: PstFolderLike) => Promise<T>
+): Promise<T> {
+  const { PSTFile } = await import('pst-extractor')
+  const pst = new PSTFile(path)
+  try {
+    return await read(pst.getRootFolder() as unknown as PstFolderLike)
   } finally {
     pst.close()
   }
+}
+
+export async function readPstFile(options: {
+  readonly sourcePath: string
+  readonly sourceId: string
+  readonly signal?: AbortSignal
+  readonly onMessage: (message: NormalizedArchiveMail) => Promise<void> | void
+}): Promise<PstWalkReport & { readonly messages: number }> {
+  options.signal?.throwIfAborted()
+  const report: PstWalkReport = { unreadableFolders: [], unreadableMessages: 0 }
+  let messages = 0
+  await openPst(options.sourcePath, async (root) => {
+    for (const { message, folderPath } of walkPstMessages(root, report, options.signal)) {
+      let normalized: NormalizedArchiveMail
+      try {
+        normalized = normalizePst(message, {
+          sourceId: options.sourceId,
+          folderPath,
+          itemKey: message.descriptorNodeId.toString()
+        })
+      } catch {
+        // 손상된 메시지 하나가 PST 전체를 실패시키지 않게 하되, 개수는 보고한다.
+        report.unreadableMessages += 1
+        continue
+      }
+      await options.onMessage(normalized)
+      messages += 1
+    }
+  })
+  return { ...report, messages }
 }

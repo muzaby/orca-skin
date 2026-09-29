@@ -1,31 +1,13 @@
 export const MAIL_ARCHIVE_BATCH_SIZE = 25
 
-export interface MailArchiveBatchBuffer<T> {
-  push(item: T): Promise<void>
-  flush(): Promise<void>
-}
-
-export function createAcknowledgedMailBatchSender<T>(
-  send: (batchId: number, batch: readonly T[]) => void,
-  waitForAck: (batchId: number) => Promise<unknown>
-): (batch: readonly T[]) => Promise<void> {
-  let nextBatchId = 0
-  return async (batch) => {
-    const batchId = ++nextBatchId
-    send(batchId, batch)
-    await waitForAck(batchId)
-  }
-}
-
-/** A full batch blocks the reader until its owner confirms the write. */
+/**
+ * 가득 찬 batch는 owner가 쓰기를 확인(ack)할 때까지 reader를 멈춘다 — main·index 사이 큐가
+ * batch 하나를 넘지 않는다.
+ */
 export function createMailArchiveBatchBuffer<T>(
   sendBatch: (batch: readonly T[]) => Promise<void>,
   batchSize = MAIL_ARCHIVE_BATCH_SIZE
-): MailArchiveBatchBuffer<T> {
-  if (!Number.isInteger(batchSize) || batchSize < 1) {
-    throw new Error('mail_archive_batch_size_invalid')
-  }
-
+): { push(item: T): Promise<void>; flush(): Promise<void> } {
   let current: T[] = []
   const flush = async (): Promise<void> => {
     if (current.length === 0) return
@@ -33,7 +15,6 @@ export function createMailArchiveBatchBuffer<T>(
     current = []
     await sendBatch(batch)
   }
-
   return {
     push: async (item) => {
       current.push(item)

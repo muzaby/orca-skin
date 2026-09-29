@@ -1,97 +1,45 @@
-import type {
-  MailArchiveGetRequest,
-  MailArchiveMessage,
-  MailArchiveSearchHit,
-  MailArchiveSearchRequest,
-  MailArchiveSource,
-  MailArchiveSourceDeletion,
-  MailArchiveSourceKind,
-  MailArchiveThreadRequest,
-  MailArchiveThreadResult,
-  MailArchiveStats
-} from '../../../../shared/mail-archive'
-import type { NormalizedArchiveMail } from './types'
+import type { MailArchiveSourceKind } from '../../../../shared/mail-archive'
 import type {
   MailArchiveAttachmentExportInput,
   MailArchiveAttachmentExportOutput,
-  MailArchiveAttachmentLocation
+  NormalizedArchiveMail
 } from './types'
-import type { MailArchiveBatchCounts, MailArchiveRevisionStart } from './store'
 
-export interface MailArchiveRevisionInput {
-  readonly sourceId: string
-  readonly sourceKind: MailArchiveSourceKind
-  readonly sourcePath: string
-  readonly fingerprint: string
-}
-
-export interface MailArchiveIndexWorker {
-  openEpoch(epoch: string): Promise<void>
-  revokeEpoch(epoch: string): Promise<void>
-  beginRevision(input: MailArchiveRevisionInput): Promise<MailArchiveRevisionStart>
-  upsertBatch(input: {
-    readonly epoch: string
-    readonly sourceId: string
-    readonly revision: number
-    readonly mails: readonly NormalizedArchiveMail[]
-  }): Promise<MailArchiveBatchCounts>
-  verifyRevision(
-    sourceId: string,
-    revision: number,
-    fingerprint: string,
-    epoch: string
-  ): Promise<void>
-  activateRevision(
-    sourceId: string,
-    revision: number,
-    fingerprint: string,
-    epoch: string
-  ): Promise<void>
-  abortRevision(sourceId: string, revision: number, state?: 'interrupted' | 'failed'): Promise<void>
-  search(request: MailArchiveSearchRequest): Promise<MailArchiveSearchHit[]>
-  get(request: MailArchiveGetRequest): Promise<MailArchiveMessage | null>
-  thread(request: MailArchiveThreadRequest): Promise<MailArchiveThreadResult>
-  attachmentLocation(attachmentId: string): Promise<MailArchiveAttachmentLocation | null>
-  sourcePathInUse(path: string): Promise<boolean>
-  sources(): Promise<MailArchiveSource[]>
-  removeSource(sourceId: string): Promise<MailArchiveSourceDeletion | null>
-  stats(): Promise<MailArchiveStats>
-  close(): void
-}
-
+/** 원본 파일 하나를 읽는 작업. EML 폴더 자료원은 파일마다 하나씩 보낸다. */
 export interface MailArchiveSourceInput {
   readonly jobId: string
   readonly epoch: string
   readonly sourceId: string
-  readonly sourcePath: string
   readonly sourceKind: MailArchiveSourceKind
+  readonly path: string
+  readonly itemKey: string
 }
 
 export type MailArchiveSourceDecision =
   { readonly action: 'scan'; readonly revision: number } | { readonly action: 'skip' }
 
-export interface MailArchiveSourceCallbacks {
-  onReady(fingerprint: string): Promise<MailArchiveSourceDecision>
-  onBatch(revision: number, mails: readonly NormalizedArchiveMail[]): Promise<void>
-  onComplete(input: {
-    readonly startFingerprint: string
-    readonly endFingerprint: string
-    readonly revision: number | null
-    readonly messages: number
-    readonly skipped: boolean
-  }): Promise<void>
+export interface MailArchiveSourceCompletion {
+  readonly revision: number | null
+  readonly messages: number
+  readonly skipped: boolean
+  /** 읽지 못한 폴더·메시지처럼 가져오기는 계속했지만 알려야 하는 사유. */
+  readonly warnings: readonly string[]
+}
+
+/** source job이 main과 주고받는 두 단계. 전송(utility process 메시지)은 구현이 정한다. */
+export interface MailArchiveSourceChannel {
+  ready(fingerprint: string): Promise<MailArchiveSourceDecision>
+  /** index가 batch를 commit하고 확인할 때 resolve된다. */
+  batch(revision: number, mails: readonly NormalizedArchiveMail[]): Promise<void>
 }
 
 export interface MailArchiveSourceWorker {
   run(
     input: MailArchiveSourceInput,
-    callbacks: MailArchiveSourceCallbacks,
+    channel: MailArchiveSourceChannel,
     signal: AbortSignal
-  ): Promise<void>
+  ): Promise<MailArchiveSourceCompletion>
   extract(input: MailArchiveAttachmentExportInput): Promise<MailArchiveAttachmentExportOutput>
-}
-
-export interface MailArchiveWorkerFactory {
-  createIndex(rootDir: string): MailArchiveIndexWorker
-  createSource(): MailArchiveSourceWorker
+  /** 가져오기 작업이 끝나면 프로세스를 내린다. */
+  dispose(): void
 }

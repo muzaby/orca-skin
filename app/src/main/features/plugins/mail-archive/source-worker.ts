@@ -1,223 +1,98 @@
-import { createHash } from 'node:crypto'
-import { createReadStream } from 'node:fs'
-import { createAcknowledgedMailBatchSender, createMailArchiveBatchBuffer } from './batch-buffer'
+import { archiveErrorCode } from './errors'
 import { extractMailArchiveAttachment } from './readers/attachment-extract'
-import { readEmlFile } from './readers/eml'
-import { readPstFile } from './readers/pst'
-import type { MailArchiveAttachmentExportInput, NormalizedArchiveMail } from './types'
-import type { MailArchiveSourceInput, MailArchiveSourceDecision } from './worker-contract'
+import { runSourceJob } from './source-job'
+import type { MailArchiveAttachmentExportInput } from './types'
+import type { MailArchiveSourceDecision, MailArchiveSourceInput } from './worker-contract'
 
 const parentPort = process.parentPort
 if (!parentPort) throw new Error('mail_archive_worker_parent_missing')
 
 type WorkerCommand =
   | ({ readonly type: 'start' } & MailArchiveSourceInput)
-  | { readonly type: 'decision'; readonly action: 'scan'; readonly revision: number }
-  | { readonly type: 'decision'; readonly action: 'skip' }
+  | { readonly type: 'decision'; readonly action: 'scan' | 'skip'; readonly revision?: number }
   | { readonly type: 'ack'; readonly batchId: number }
-  | { readonly type: 'completeAck'; readonly ok: boolean }
   | {
       readonly type: 'extract'
       readonly requestId: string
       readonly input: MailArchiveAttachmentExportInput
     }
-  | { readonly type: 'cancel' }
 
-interface Waiter {
-  resolve(value: WorkerCommand): void
-  reject(error: Error): void
+/** 한 번에 한 파일만 처리한다. main이 결정·ack를 보낼 때까지 기다리는 자리. */
+const waiters = new Map<string, (command: WorkerCommand) => void>()
+let busy = false
+
+function waitFor(key: string): Promise<WorkerCommand> {
+  return new Promise((resolve) => waiters.set(key, resolve))
 }
-
-const waiters = new Map<string, Waiter>()
-let activeController: AbortController | undefined
 
 function settle(key: string, command: WorkerCommand): void {
-  const waiter = waiters.get(key)
-  if (!waiter) return
+  const resolve = waiters.get(key)
   waiters.delete(key)
-  waiter.resolve(command)
+  resolve?.(command)
 }
 
-function rejectWaiters(error: Error): void {
-  for (const [key, waiter] of waiters) {
-    waiters.delete(key)
-    waiter.reject(error)
-  }
-}
-
-function waitFor(key: string, signal: AbortSignal): Promise<WorkerCommand> {
-  signal.throwIfAborted()
-  return new Promise((resolve, reject) => {
-    const abort = (): void => {
-      waiters.delete(key)
-      reject(new Error('mail_import_cancelled'))
-    }
-    signal.addEventListener('abort', abort, { once: true })
-    waiters.set(key, {
-      resolve: (value) => {
-        signal.removeEventListener('abort', abort)
-        resolve(value)
-      },
-      reject: (error) => {
-        signal.removeEventListener('abort', abort)
-        reject(error)
-      }
-    })
-  })
-}
-
-async function fingerprint(path: string, signal: AbortSignal): Promise<string> {
-  const hash = createHash('sha256')
-  const stream = createReadStream(path)
+async function processSource(input: MailArchiveSourceInput): Promise<void> {
+  const token = { jobId: input.jobId, epoch: input.epoch }
+  let batchId = 0
+  busy = true
   try {
-    for await (const chunk of stream) {
-      signal.throwIfAborted()
-      hash.update(chunk as Buffer)
-    }
-    return hash.digest('hex')
+    const completion = await runSourceJob(
+      input,
+      {
+        ready: async (fingerprint): Promise<MailArchiveSourceDecision> => {
+          parentPort.postMessage({ type: 'ready', ...token, fingerprint })
+          const command = await waitFor('decision')
+          return command.type === 'decision' && command.action === 'scan' && command.revision
+            ? { action: 'scan', revision: command.revision }
+            : { action: 'skip' }
+        },
+        batch: async (revision, mails) => {
+          const id = ++batchId
+          parentPort.postMessage({ type: 'batch', ...token, batchId: id, revision, mails })
+          await waitFor(`ack:${id}`)
+        }
+      },
+      // 취소는 main이 이 프로세스를 종료하는 것으로 처리한다.
+      new AbortController().signal
+    )
+    parentPort.postMessage({ type: 'complete', ...token, ...completion })
+  } catch (error) {
+    parentPort.postMessage({
+      type: 'error',
+      ...token,
+      reason: archiveErrorCode(error, 'mail_source_parse_failed')
+    })
   } finally {
-    stream.destroy()
+    busy = false
   }
-}
-
-function safeError(error: unknown): string {
-  if (error instanceof Error && /^mail_[a-z0-9_:-]{1,160}$/i.test(error.message)) {
-    return error.message
-  }
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    typeof error.code === 'string' &&
-    /^[A-Z0-9_]{2,32}$/.test(error.code)
-  ) {
-    return `mail_source_${error.code.toLowerCase()}`
-  }
-  return 'mail_source_parse_failed'
 }
 
 async function processExtraction(
   command: Extract<WorkerCommand, { type: 'extract' }>
 ): Promise<void> {
-  const controller = new AbortController()
-  activeController = controller
   try {
-    const result = await extractMailArchiveAttachment(command.input, controller.signal)
+    const result = await extractMailArchiveAttachment(command.input, new AbortController().signal)
     parentPort.postMessage({ type: 'extracted', requestId: command.requestId, ...result })
   } catch (error) {
-    if (!controller.signal.aborted) {
-      parentPort.postMessage({
-        type: 'extractError',
-        requestId: command.requestId,
-        reason: safeError(error)
-      })
-    }
+    parentPort.postMessage({
+      type: 'extractError',
+      requestId: command.requestId,
+      reason: archiveErrorCode(error, 'mail_attachment_export_failed')
+    })
   } finally {
-    activeController = undefined
-    setImmediate(() => process.exit(0))
-  }
-}
-
-async function sendAndWait(
-  message: Record<string, unknown>,
-  waiterKey: string,
-  signal: AbortSignal
-): Promise<WorkerCommand> {
-  parentPort.postMessage(message)
-  return waitFor(waiterKey, signal)
-}
-
-async function processSource(input: MailArchiveSourceInput): Promise<void> {
-  const controller = new AbortController()
-  activeController = controller
-  const { signal } = controller
-  const token = { jobId: input.jobId, epoch: input.epoch }
-  try {
-    const startFingerprint = await fingerprint(input.sourcePath, signal)
-    const decisionCommand = await sendAndWait(
-      { type: 'ready', ...token, fingerprint: startFingerprint },
-      'decision',
-      signal
-    )
-    const decision = decisionCommand as MailArchiveSourceDecision
-    let revision: number | null = null
-    let messages = 0
-    const skipped = decision.action === 'skip'
-
-    if (decision.action === 'scan') {
-      revision = decision.revision
-      const sendBatch = createAcknowledgedMailBatchSender<NormalizedArchiveMail>(
-        (batchId, mails) =>
-          parentPort.postMessage({ type: 'batch', ...token, batchId, revision, mails }),
-        (batchId) => waitFor(`ack:${batchId}`, signal)
-      )
-      const batcher = createMailArchiveBatchBuffer(sendBatch)
-      const onMessage = async (mail: NormalizedArchiveMail): Promise<void> => {
-        signal.throwIfAborted()
-        messages += 1
-        await batcher.push(mail)
-      }
-
-      if (input.sourceKind === 'eml') {
-        const mail = await readEmlFile(input.sourcePath, input.sourceId, startFingerprint, signal)
-        await onMessage(mail)
-      } else {
-        await readPstFile({
-          sourcePath: input.sourcePath,
-          sourceId: input.sourceId,
-          sourceFingerprint: startFingerprint,
-          signal,
-          onMessage
-        })
-      }
-      await batcher.flush()
-    }
-
-    const endFingerprint = await fingerprint(input.sourcePath, signal)
-    const completeAck = await sendAndWait(
-      {
-        type: 'complete',
-        ...token,
-        startFingerprint,
-        endFingerprint,
-        revision,
-        messages,
-        skipped
-      },
-      'complete',
-      signal
-    )
-    if (completeAck.type !== 'completeAck' || !completeAck.ok) {
-      throw new Error('mail_source_completion_rejected')
-    }
-  } catch (error) {
-    if (!signal.aborted) {
-      parentPort.postMessage({ type: 'error', ...token, reason: safeError(error) })
-    }
-  } finally {
-    activeController = undefined
     setImmediate(() => process.exit(0))
   }
 }
 
 parentPort.on('message', (event) => {
   const command = event.data as WorkerCommand
-  if (command.type === 'cancel') {
-    activeController?.abort()
-    rejectWaiters(new Error('mail_import_cancelled'))
-    return
-  }
   if (command.type === 'start') {
-    if (activeController) return
-    void processSource(command)
-    return
+    if (!busy) void processSource(command)
+  } else if (command.type === 'extract') {
+    if (!busy) void processExtraction(command)
+  } else if (command.type === 'decision') {
+    settle('decision', command)
+  } else if (command.type === 'ack') {
+    settle(`ack:${command.batchId}`, command)
   }
-  if (command.type === 'extract') {
-    if (activeController) return
-    void processExtraction(command)
-    return
-  }
-  if (command.type === 'decision') settle('decision', command)
-  else if (command.type === 'ack') settle(`ack:${command.batchId}`, command)
-  else if (command.type === 'completeAck') settle('complete', command)
 })

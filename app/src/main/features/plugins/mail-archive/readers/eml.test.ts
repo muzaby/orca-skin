@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { readEmlFile } from './eml'
+import { MAX_EML_BYTES, readEmlFile } from './eml'
 
 const roots: string[] = []
 afterEach(async () => {
@@ -51,9 +51,8 @@ describe('EML archive reader', () => {
       ].join('\r\n'),
       'utf8'
     )
-    const message = await readEmlFile(path, 'source-id', 'fingerprint')
+    const message = await readEmlFile(path, { sourceId: 'source-id', itemKey: '' })
     expect(message).toMatchObject({
-      sourceKind: 'eml',
       subject: '서버 이전 일정',
       bodyText: '서버 이전 검토를 완료했습니다.',
       messageId: '<mail-1@example.test>',
@@ -66,6 +65,43 @@ describe('EML archive reader', () => {
     ])
     expect(message.bodyText).not.toContain('attachment body')
     expect(message.bodyText).not.toContain('NESTED-ATTACHMENT-UNIQUE-SENTINEL-93471')
+  })
+
+  it('keeps display names next to addresses so either finds the mail', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'orca-mail-archive-eml-names-'))
+    roots.push(root)
+    const path = join(root, 'names.eml')
+    await writeFile(
+      path,
+      [
+        'From: =?UTF-8?B?6rmA7LKg7IiY?= <kim@example.test>',
+        'To: Lee <lee@example.test>, park@example.test',
+        'Cc: Team: choi@example.test;',
+        'Subject: names',
+        'Content-Type: text/plain; charset=utf-8',
+        '',
+        'body'
+      ].join('\r\n'),
+      'utf8'
+    )
+
+    const message = await readEmlFile(path, { sourceId: 'source-id', itemKey: 'names.eml' })
+    expect(message).toMatchObject({
+      from: '김철수 <kim@example.test>',
+      to: 'Lee <lee@example.test>, park@example.test',
+      cc: 'choi@example.test',
+      itemKey: 'names.eml'
+    })
+  })
+
+  it('rejects an EML over the input budget before reading it into memory', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'orca-mail-archive-eml-large-'))
+    roots.push(root)
+    const path = join(root, 'large.eml')
+    await writeFile(path, Buffer.alloc(MAX_EML_BYTES + 1))
+    await expect(readEmlFile(path, { sourceId: 'source-id', itemKey: '' })).rejects.toThrow(
+      'mail_eml_too_large'
+    )
   })
 
   it('retains a differing HTML alternative without making it the searchable body', async () => {
@@ -94,7 +130,7 @@ describe('EML archive reader', () => {
       'utf8'
     )
 
-    const message = await readEmlFile(path, 'source-id', 'fingerprint')
+    const message = await readEmlFile(path, { sourceId: 'source-id', itemKey: '' })
     expect(message).toMatchObject({
       bodyText: '서버 이전 날짜는 3월 2일입니다.',
       bodyKind: 'plain',
@@ -124,7 +160,7 @@ describe('EML archive reader', () => {
       'utf8'
     )
 
-    const message = await readEmlFile(path, 'source-id', 'fingerprint')
+    const message = await readEmlFile(path, { sourceId: 'source-id', itemKey: '' })
     expect(message.bodyKind).toBe('html')
     expect(message.bodySelectionReason).toBe('html_only')
     expect(message.bodyText).toContain('이전은 다음 주에 진행합니다.')

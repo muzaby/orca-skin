@@ -1,25 +1,12 @@
-import { createHash, randomUUID } from 'node:crypto'
-import { createReadStream } from 'node:fs'
-import { open, readFile, unlink, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
+import { open, unlink, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
 import PostalMime from 'postal-mime'
-import type { PSTAttachment, PSTMessage } from 'pst-extractor'
-import { normalizeEml } from '../normalize'
+import type { PSTAttachment } from 'pst-extractor'
 import type { MailArchiveAttachmentExportInput, MailArchiveAttachmentExportOutput } from '../types'
-
-async function fingerprint(path: string, signal: AbortSignal): Promise<string> {
-  const hash = createHash('sha256')
-  const stream = createReadStream(path)
-  try {
-    for await (const chunk of stream) {
-      signal.throwIfAborted()
-      hash.update(chunk as Buffer)
-    }
-    return hash.digest('hex')
-  } finally {
-    stream.destroy()
-  }
-}
+import { readEmlBytes } from './eml'
+import { bufferFingerprint, fileFingerprint } from './fingerprint'
+import { openPst, walkPstMessages, type PstWalkReport } from './pst'
 
 function temporaryPath(destinationPath: string): string {
   return join(
@@ -41,77 +28,36 @@ function assertManifest(
   }
 }
 
+/** 지문이 같은 바이트에서 바로 꺼내므로 이후 원본이 바뀌어도 결과는 보관 당시의 첨부다. */
 async function extractEmlAttachment(
   input: MailArchiveAttachmentExportInput,
   signal: AbortSignal
 ): Promise<MailArchiveAttachmentExportOutput> {
-  const raw = await readFile(input.sourcePath)
+  const raw = await readEmlBytes(input.sourcePath)
   signal.throwIfAborted()
-  if (createHash('sha256').update(raw).digest('hex') !== input.sourceFingerprint) {
+  if (bufferFingerprint(raw) !== input.sourceFingerprint) {
     throw new Error('mail_attachment_source_changed')
   }
   const email = await PostalMime.parse(raw, { forceRfc822Attachments: true })
   signal.throwIfAborted()
-  const normalized = normalizeEml(email, {
-    sourceId: input.sourceId,
-    sourcePath: input.sourcePath,
-    sourceFingerprint: input.sourceFingerprint,
-    sizeBytes: raw.byteLength
-  })
-  if (normalized.itemKey !== input.itemKey) throw new Error('mail_attachment_message_changed')
   const attachment = email.attachments?.[input.attachmentIndex]
   if (!attachment) throw new Error('mail_attachment_not_found')
-  const name = attachment.filename?.trim() || 'attachment'
-  const mimeType = attachment.mimeType?.trim() || 'application/octet-stream'
   const content = attachment.content
   const bytes =
     typeof content === 'string'
       ? Buffer.from(content, 'utf8')
-      : Buffer.from(content instanceof ArrayBuffer ? new Uint8Array(content) : content)
-  assertManifest({ name, mimeType, sizeBytes: bytes.byteLength }, input)
-
-  const target = temporaryPath(input.destinationPath)
-  try {
-    await writeFile(target, bytes, { flag: 'wx' })
-    signal.throwIfAborted()
-    if ((await fingerprint(input.sourcePath, signal)) !== input.sourceFingerprint) {
-      throw new Error('mail_attachment_source_changed')
-    }
-    return { temporaryPath: target, bytesWritten: bytes.byteLength }
-  } catch (error) {
-    await unlink(target).catch(() => undefined)
-    throw error
-  }
-}
-
-type PstFolderLike = {
-  readonly hasSubfolders?: boolean
-  readonly emailCount?: number
-  readonly contentCount?: number
-  getSubFolders(): PstFolderLike[]
-  getNextChild(): unknown
-}
-
-function isPstMessage(value: unknown): value is PSTMessage {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'descriptorNodeId' in value &&
-    typeof (value as { descriptorNodeId?: { toString(): string } }).descriptorNodeId?.toString ===
-      'function'
+      : Buffer.from(new Uint8Array(content))
+  assertManifest(
+    {
+      name: attachment.filename?.trim() || 'attachment',
+      mimeType: attachment.mimeType?.trim() || 'application/octet-stream',
+      sizeBytes: bytes.byteLength
+    },
+    input
   )
-}
-
-function attachmentManifest(attachment: PSTAttachment): {
-  name: string
-  mimeType: string
-  sizeBytes: number
-} {
-  return {
-    name: attachment.longFilename?.trim() || attachment.filename?.trim() || 'attachment',
-    mimeType: attachment.mimeTag?.trim() || 'application/octet-stream',
-    sizeBytes: attachment.filesize || attachment.size || 0
-  }
+  const target = temporaryPath(input.destinationPath)
+  await writeFile(target, bytes, { flag: 'wx' })
+  return { temporaryPath: target, bytesWritten: bytes.byteLength }
 }
 
 async function writePstAttachment(
@@ -150,65 +96,44 @@ async function writePstAttachment(
   }
 }
 
+/** PST는 추출 중에도 디스크에서 읽으므로 앞뒤 지문을 모두 확인한다. */
 async function extractPstAttachment(
   input: MailArchiveAttachmentExportInput,
   signal: AbortSignal
 ): Promise<MailArchiveAttachmentExportOutput> {
-  if ((await fingerprint(input.sourcePath, signal)) !== input.sourceFingerprint) {
+  if ((await fileFingerprint(input.sourcePath, signal)) !== input.sourceFingerprint) {
     throw new Error('mail_attachment_source_changed')
   }
-  const { PSTFile } = await import('pst-extractor')
-  const pst = new PSTFile(input.sourcePath)
   const target = temporaryPath(input.destinationPath)
-  let selected: PSTAttachment | undefined
-  const visit = (folder: PstFolderLike): void => {
-    signal.throwIfAborted()
-    const messageCount = Math.max(0, folder.emailCount ?? folder.contentCount ?? 0)
-    for (let index = 0; index < messageCount; index += 1) {
-      signal.throwIfAborted()
-      let candidate: unknown
-      try {
-        candidate = folder.getNextChild()
-      } catch {
-        break
-      }
-      if (!isPstMessage(candidate) || candidate.descriptorNodeId.toString() !== input.itemKey) {
-        continue
-      }
-      if (input.attachmentIndex < 0 || input.attachmentIndex >= candidate.numberOfAttachments) {
-        throw new Error('mail_attachment_not_found')
-      }
-      selected = candidate.getAttachment(input.attachmentIndex)
-      return
-    }
-    if (!folder.hasSubfolders) return
-    let children: PstFolderLike[]
-    try {
-      children = folder.getSubFolders()
-    } catch {
-      return
-    }
-    for (const child of children) {
-      if (selected) return
-      visit(child)
-    }
-  }
-
   try {
-    visit(pst.getRootFolder() as unknown as PstFolderLike)
-    if (!selected) throw new Error('mail_attachment_message_not_found')
-    assertManifest(attachmentManifest(selected), input)
-    const bytesWritten = await writePstAttachment(selected, target, signal)
+    const bytesWritten = await openPst(input.sourcePath, async (root) => {
+      const report: PstWalkReport = { unreadableFolders: [], unreadableMessages: 0 }
+      for (const { message } of walkPstMessages(root, report, signal)) {
+        if (message.descriptorNodeId.toString() !== input.itemKey) continue
+        if (input.attachmentIndex < 0 || input.attachmentIndex >= message.numberOfAttachments) {
+          throw new Error('mail_attachment_not_found')
+        }
+        const attachment = message.getAttachment(input.attachmentIndex)
+        assertManifest(
+          {
+            name: attachment.longFilename?.trim() || attachment.filename?.trim() || 'attachment',
+            mimeType: attachment.mimeTag?.trim() || 'application/octet-stream',
+            sizeBytes: attachment.filesize || attachment.size || 0
+          },
+          input
+        )
+        return writePstAttachment(attachment, target, signal)
+      }
+      throw new Error('mail_attachment_message_not_found')
+    })
     if (bytesWritten !== input.sizeBytes) throw new Error('mail_attachment_size_mismatch')
-    if ((await fingerprint(input.sourcePath, signal)) !== input.sourceFingerprint) {
+    if ((await fileFingerprint(input.sourcePath, signal)) !== input.sourceFingerprint) {
       throw new Error('mail_attachment_source_changed')
     }
     return { temporaryPath: target, bytesWritten }
   } catch (error) {
     await unlink(target).catch(() => undefined)
     throw error
-  } finally {
-    pst.close()
   }
 }
 

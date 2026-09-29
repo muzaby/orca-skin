@@ -1,10 +1,6 @@
 import { z } from 'zod'
-import { isAbsolutePath } from './absolute-path'
 
-export const MAIL_ARCHIVE_SOURCE_KINDS = ['eml', 'pst'] as const
-export type MailArchiveSourceKind = (typeof MAIL_ARCHIVE_SOURCE_KINDS)[number]
-
-export type MailArchiveInputKind = 'files' | 'eml-folder'
+export type MailArchiveSourceKind = 'eml' | 'pst'
 
 export interface MailArchiveAttachment {
   readonly id: string
@@ -13,7 +9,7 @@ export interface MailArchiveAttachment {
   readonly sizeBytes: number
 }
 
-export type MailArchiveBodyKind = 'plain' | 'html' | 'none' | 'legacy'
+export type MailArchiveBodyKind = 'plain' | 'html' | 'none'
 export type MailArchiveBodyQualityFlag =
   'alternative_mismatch' | 'decode_suspect' | 'html_converted' | 'oversized'
 export type MailArchiveBodySelectionReason =
@@ -23,11 +19,20 @@ export type MailArchiveBodySelectionReason =
   | 'html_only'
   | 'empty'
   | 'oversized'
-  | 'legacy'
 
 export interface MailArchiveSearchHit {
   readonly id: string
-  readonly sourceKind: MailArchiveSourceKind
+  readonly sourceName: string
+  readonly folderPath: string | null
+  readonly date: number | null
+  readonly from: string
+  readonly subject: string
+  readonly snippet: string
+  readonly attachmentNames: readonly string[]
+}
+
+export interface MailArchiveMessage {
+  readonly id: string
   readonly sourceName: string
   readonly folderPath: string | null
   readonly date: number | null
@@ -35,43 +40,25 @@ export interface MailArchiveSearchHit {
   readonly to: string
   readonly cc: string
   readonly subject: string
-  readonly snippet: string
-  readonly rank: number
-  readonly attachmentNames: readonly string[]
-}
-
-export interface MailArchiveMessage extends MailArchiveSearchHit {
-  readonly messageId: string | null
-  readonly inReplyTo: string | null
-  readonly references: string | null
-  readonly threadKey: string
   readonly bodyText: string
   readonly bodyKind: MailArchiveBodyKind
   readonly bodyAlternateText: string | null
-  readonly bodyAlternateKind: Exclude<MailArchiveBodyKind, 'none' | 'legacy'> | null
+  readonly bodyAlternateKind: Exclude<MailArchiveBodyKind, 'none'> | null
   readonly bodyAlternateOmitted: boolean
   readonly bodyQualityFlags: readonly MailArchiveBodyQualityFlag[]
   readonly bodySelectionReason: MailArchiveBodySelectionReason
-  readonly importedAt: number
   readonly attachments: readonly MailArchiveAttachment[]
 }
 
-export interface MailArchiveImportRequest {
-  readonly inputKind: MailArchiveInputKind
-  readonly paths: readonly string[]
-}
-
 export interface MailArchiveImportFailure {
+  /** 파일 이름만 담는다. 원본 전체 경로는 renderer로 보내지 않는다. */
   readonly path: string
   readonly reason: string
 }
 
-export type MailArchiveImportState = 'completed' | 'cancelled'
-
 export interface MailArchiveImportResult {
   readonly jobId: string
-  readonly state: MailArchiveImportState
-  readonly files: number
+  readonly state: 'completed' | 'cancelled'
   readonly messages: number
   readonly inserted: number
   readonly skipped: number
@@ -87,33 +74,29 @@ export interface MailArchiveProgress {
   readonly processedMessages: number
   readonly insertedMessages: number
   readonly skippedMessages: number
-  readonly failedFiles: number
   readonly cancellable: boolean
 }
 
 export interface MailArchiveSearchRequest {
   readonly query: string
-  readonly sourceKind?: MailArchiveSourceKind
+  readonly sourceId?: string
   readonly limit?: number
 }
 
-export interface MailArchiveGetRequest {
+export interface MailArchiveThreadRequest {
   readonly id: string
-}
-
-export interface MailArchiveThreadRequest extends MailArchiveGetRequest {
   readonly limit?: number
 }
 
-export interface MailArchiveThreadRelation {
-  readonly childMailId: string
-  readonly parentMailId: string
-  readonly kind: 'reply' | 'reference'
+export interface MailArchiveThreadItem {
+  readonly id: string
+  readonly subject: string
+  readonly from: string
+  readonly date: number | null
 }
 
 export interface MailArchiveThreadResult {
-  readonly mails: readonly MailArchiveSearchHit[]
-  readonly relations: readonly MailArchiveThreadRelation[]
+  readonly mails: readonly MailArchiveThreadItem[]
   readonly truncated: boolean
 }
 
@@ -126,7 +109,6 @@ export interface MailArchiveStats {
   readonly totalMessages: number
   readonly emlMessages: number
   readonly pstMessages: number
-  readonly lastImportedAt: number | null
 }
 
 export interface MailArchiveSource {
@@ -135,7 +117,6 @@ export interface MailArchiveSource {
   readonly name: string
   readonly messageCount: number
   readonly sharedMessageCount: number
-  readonly lastImportedAt: number | null
 }
 
 export interface MailArchiveSourceDeletion {
@@ -145,53 +126,23 @@ export interface MailArchiveSourceDeletion {
 }
 
 export type MailArchiveSourceRemovalResult =
-  | {
-      readonly state: 'removed'
-      readonly sourceName: string
-      readonly removedMessages: number
-      readonly preservedMessages: number
-      readonly importCancelled: boolean
-    }
+  | ({ readonly state: 'removed'; readonly importCancelled: boolean } & MailArchiveSourceDeletion)
   | { readonly state: 'cancelled' }
   | { readonly state: 'not-found' }
 
-const absolutePath = z
-  .string()
-  .trim()
-  .min(1)
-  .max(4096)
-  .refine(isAbsolutePath, '메일 원본 경로는 절대 경로여야 합니다')
+const id = z.string().trim().min(1).max(128)
 
-export const MailArchiveImportRequestSchema = z
-  .object({
-    inputKind: z.enum(['files', 'eml-folder']),
-    paths: z.array(absolutePath).min(1).max(1000)
-  })
-  .strict()
+/** 메일·자료원·첨부·작업 ID 하나만 받는 요청. */
+export const MailArchiveIdRequestSchema = z.object({ id }).strict()
 
 export const MailArchiveSearchRequestSchema = z
   .object({
     query: z.string().trim().max(500),
-    sourceKind: z.enum(MAIL_ARCHIVE_SOURCE_KINDS).optional(),
+    sourceId: id.optional(),
     limit: z.number().int().min(1).max(100).optional()
   })
-  .strict()
-
-export const MailArchiveGetRequestSchema = z
-  .object({ id: z.string().trim().min(1).max(128) })
   .strict()
 
 export const MailArchiveThreadRequestSchema = z
-  .object({
-    id: z.string().trim().min(1).max(128),
-    limit: z.number().int().min(1).max(100).optional()
-  })
+  .object({ id, limit: z.number().int().min(1).max(100).optional() })
   .strict()
-
-export const MailArchiveCancelRequestSchema = MailArchiveGetRequestSchema
-
-export const MailArchiveSourceRequestSchema = z
-  .object({ id: z.string().trim().min(1).max(128) })
-  .strict()
-
-export const MailArchiveAttachmentRequestSchema = MailArchiveSourceRequestSchema

@@ -1,409 +1,81 @@
 import { createHash } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
-import { basename, join } from 'node:path'
-import type Database from 'better-sqlite3'
+import { basename, isAbsolute, join, relative } from 'node:path'
 import { openFileDatabase } from '../../../infra/db/file-database'
 import { applyMailArchiveMigrations } from './migrate'
 import type {
   MailArchiveAttachment,
-  MailArchiveBodyKind,
   MailArchiveBodyQualityFlag,
-  MailArchiveBodySelectionReason,
   MailArchiveMessage,
   MailArchiveSearchHit,
   MailArchiveSearchRequest,
   MailArchiveSource,
   MailArchiveSourceDeletion,
   MailArchiveSourceKind,
+  MailArchiveStats,
+  MailArchiveThreadItem,
   MailArchiveThreadRequest,
-  MailArchiveThreadResult,
-  MailArchiveStats
+  MailArchiveThreadResult
 } from '../../../../shared/mail-archive'
-import { archiveMailIdentityKey, archiveSourceId } from './identity'
+import { normalizedSourcePath } from './identity'
 import { resolveArchiveMailRelations } from './relations'
 import type { MailArchiveAttachmentLocation, NormalizedArchiveMail } from './types'
 
+const SNIPPET_LENGTH = 240
+
+function sha256(value: string): string {
+  return createHash('sha256').update(value).digest('hex')
+}
+
 function attachmentId(mailId: string, index: number): string {
-  return createHash('sha256').update(`${mailId}\0${index}`).digest('hex').slice(0, 32)
+  return sha256(`${mailId}\0${index}`).slice(0, 32)
 }
 
 function mailId(identityKey: string): string {
-  return createHash('sha256').update(`mail\0${identityKey}`).digest('hex')
-}
-
-function sourceName(sourcePath: string): string {
-  return basename(sourcePath)
-}
-
-const BODY_QUALITY_FLAGS = new Set<MailArchiveBodyQualityFlag>([
-  'alternative_mismatch',
-  'decode_suspect',
-  'html_converted',
-  'oversized'
-])
-
-function parseBodyQualityFlags(value: string): MailArchiveBodyQualityFlag[] {
-  const parsed: unknown = JSON.parse(value)
-  if (!Array.isArray(parsed)) throw new Error('mail_archive_body_quality_invalid')
-  return parsed.filter(
-    (flag): flag is MailArchiveBodyQualityFlag =>
-      typeof flag === 'string' && BODY_QUALITY_FLAGS.has(flag as MailArchiveBodyQualityFlag)
-  )
+  return sha256(`mail\0${identityKey}`)
 }
 
 function queryTerms(query: string): string[] {
   return query.trim().split(/\s+/).filter(Boolean)
 }
 
-function snippet(value: string, query: string): string {
-  const text = value.replace(/\s+/g, ' ').trim()
-  const terms = queryTerms(query)
-  if (terms.length === 0) return text.slice(0, 280)
-  const lowered = text.toLocaleLowerCase()
-  const index = terms
-    .map((term) => lowered.indexOf(term.toLocaleLowerCase()))
-    .filter((match) => match >= 0)
-    .sort((left, right) => left - right)[0]
-  if (index === undefined) return text.slice(0, 280)
-  const start = Math.max(0, index - 90)
-  return `${start > 0 ? '…' : ''}${text.slice(start, index + Math.max(180, query.length + 80)).slice(0, 280)}${start + 280 < text.length ? '…' : ''}`
-}
-
 function ftsQuery(terms: readonly string[]): string {
-  return terms.map((token) => `"${token.replaceAll('"', '""')}"`).join(' AND ')
+  return terms.map((term) => `"${term.replaceAll('"', '""')}"`).join(' AND ')
 }
 
-function escapeLike(value: string): string {
+function likePattern(value: string): string {
   return `%${value.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')}%`
 }
 
-function findOccurrenceColumnSql(column: 'source_path' | 'folder_path'): string {
-  const selected = column === 'source_path' ? 's.source_path' : 'o.folder_path'
-  return `SELECT ${selected}
-    FROM archive_source_occurrence o
-    JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
-    JOIN archive_source s ON s.source_id=o.source_id
-    WHERE o.mail_id=m.id AND r.state='verified' AND s.current_revision=o.revision
-    ORDER BY r.verified_at DESC, o.rowid DESC LIMIT 1`
+/** 첨부 이름은 FTS·LIKE가 JSON 구두점을 색인하지 않도록 줄바꿈으로 잇는다. */
+function joinAttachmentNames(names: readonly string[]): string {
+  return names.map((name) => name.replace(/[\r\n]+/g, ' ')).join('\n')
 }
 
-function rowMail(row: {
-  source_kind: MailArchiveSourceKind
-  source_id: string | null
-  source_path: string
-  source_fingerprint: string
-  item_key: string
-  folder_path: string | null
-  sent_at: number | null
-  from_addr: string
-  to_addrs: string
-  cc_addrs: string
-  subject: string
-  body_text: string
-  body_kind: MailArchiveBodyKind
-  body_alternate_text: string | null
-  body_alternate_kind: Exclude<MailArchiveBodyKind, 'none' | 'legacy'> | null
-  body_alternate_omitted: number
-  body_quality_flags: string
-  body_selection_reason: MailArchiveBodySelectionReason
-  message_id: string | null
-  in_reply_to: string | null
-  references_header: string | null
-  thread_key: string
-  size_bytes: number
-  attachments: readonly Omit<MailArchiveAttachment, 'id'>[]
-}): NormalizedArchiveMail {
-  const partial: Omit<NormalizedArchiveMail, 'identityKey'> = {
-    sourceKind: row.source_kind,
-    sourceId: row.source_id ?? archiveSourceId(row.source_kind, row.source_path),
-    sourcePath: row.source_path,
-    sourceFingerprint: row.source_fingerprint,
-    itemKey: row.item_key,
-    folderPath: row.folder_path,
-    sentAt: row.sent_at,
-    from: row.from_addr,
-    to: row.to_addrs,
-    cc: row.cc_addrs,
-    subject: row.subject,
-    bodyText: row.body_text,
-    bodyKind: row.body_kind,
-    bodyAlternateText: row.body_alternate_text,
-    bodyAlternateKind: row.body_alternate_kind,
-    bodyAlternateOmitted: row.body_alternate_omitted === 1,
-    bodyQualityFlags: parseBodyQualityFlags(row.body_quality_flags),
-    bodySelectionReason: row.body_selection_reason,
-    messageId: row.message_id,
-    inReplyTo: row.in_reply_to,
-    references: row.references_header,
-    threadKey: row.thread_key,
-    attachments: row.attachments,
-    sizeBytes: row.size_bytes
-  }
-  return { ...partial, identityKey: archiveMailIdentityKey(partial) }
+function splitAttachmentNames(value: string): string[] {
+  // 초기 색인은 JSON 배열로 저장했다.
+  if (value.startsWith('[')) return JSON.parse(value) as string[]
+  return value ? value.split('\n') : []
 }
 
-function backfillLegacyRows(db: Database.Database): void {
-  const index = db
-    .prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name='archive_mail_identity_idx'")
-    .get()
-  if (index) return
-
-  const rows = db.prepare('SELECT * FROM archive_mail ORDER BY imported_at, id').all() as Array<{
-    id: string
-    source_kind: MailArchiveSourceKind
-    source_path: string
-    source_fingerprint: string
-    item_key: string
-    folder_path: string | null
-    sent_at: number | null
-    imported_at: number
-    from_addr: string
-    to_addrs: string
-    cc_addrs: string
-    subject: string
-    body_text: string
-    body_kind: MailArchiveBodyKind
-    body_alternate_text: string | null
-    body_alternate_kind: Exclude<MailArchiveBodyKind, 'none' | 'legacy'> | null
-    body_alternate_omitted: number
-    body_quality_flags: string
-    body_selection_reason: MailArchiveBodySelectionReason
-    message_id: string | null
-    in_reply_to: string | null
-    references_header: string | null
-    thread_key: string
-    size_bytes: number
-  }>
-  const getAttachments = db.prepare(
-    'SELECT name, mime_type AS mimeType, size_bytes AS sizeBytes FROM archive_attachment WHERE mail_id=? ORDER BY rowid'
-  )
-  const insertSource = db.prepare(`
-    INSERT INTO archive_source (source_id, source_kind, source_path, created_at)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(source_id) DO UPDATE SET source_path=excluded.source_path
-  `)
-  const insertRevision = db.prepare(`
-    INSERT OR IGNORE INTO archive_source_revision
-      (source_id, revision, fingerprint, state, started_at, verified_at)
-    VALUES (?, ?, ?, 'verified', ?, ?)
-  `)
-  const updateMail = db.prepare('UPDATE archive_mail SET source_id=?, identity_key=? WHERE id=?')
-  const insertOccurrence = db.prepare(`
-    INSERT OR IGNORE INTO archive_source_occurrence
-      (source_id, revision, item_key, mail_id, folder_path)
-    VALUES (?, ?, ?, ?, ?)
-  `)
-  const deleteMail = db.prepare('DELETE FROM archive_mail WHERE id=?')
-  const merge = db.transaction(() => {
-    const revisionBySourceAndFingerprint = new Map<string, number>()
-    const nextRevision = new Map<string, number>()
-    const canonicalByIdentity = new Map<string, string>()
-
-    for (const row of rows) {
-      const sourceId = archiveSourceId(row.source_kind, row.source_path)
-      const sourceRevisionKey = `${sourceId}\0${row.source_fingerprint}`
-      let revision = revisionBySourceAndFingerprint.get(sourceRevisionKey)
-      if (revision === undefined) {
-        revision = (nextRevision.get(sourceId) ?? 0) + 1
-        nextRevision.set(sourceId, revision)
-        revisionBySourceAndFingerprint.set(sourceRevisionKey, revision)
-        insertSource.run(sourceId, row.source_kind, row.source_path, row.imported_at)
-        insertRevision.run(
-          sourceId,
-          revision,
-          row.source_fingerprint,
-          row.imported_at,
-          row.imported_at
-        )
-      }
-
-      const mail = rowMail({
-        ...row,
-        source_id: sourceId,
-        attachments: getAttachments.all(row.id) as Array<Omit<MailArchiveAttachment, 'id'>>
-      })
-      const canonicalId = canonicalByIdentity.get(mail.identityKey) ?? row.id
-      canonicalByIdentity.set(mail.identityKey, canonicalId)
-      if (canonicalId === row.id) updateMail.run(sourceId, mail.identityKey, row.id)
-      insertOccurrence.run(sourceId, revision, row.item_key, canonicalId, row.folder_path)
-      if (canonicalId !== row.id) deleteMail.run(row.id)
-    }
-
-    for (const [sourceId, revision] of nextRevision) {
-      const current = db
-        .prepare(
-          "SELECT revision, fingerprint FROM archive_source_revision WHERE source_id=? AND state='verified' ORDER BY revision DESC LIMIT 1"
-        )
-        .get(sourceId) as { revision: number; fingerprint: string } | undefined
-      if (current) {
-        db.prepare(
-          'UPDATE archive_source SET current_revision=?, current_fingerprint=? WHERE source_id=?'
-        ).run(current.revision, current.fingerprint, sourceId)
-      }
-      void revision
-    }
-  })
-  merge()
-  db.exec(
-    'CREATE UNIQUE INDEX IF NOT EXISTS archive_mail_identity_idx ON archive_mail(identity_key)'
-  )
+function isInside(root: string, path: string): boolean {
+  const rel = relative(root, path)
+  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))
 }
 
-function recoverStagingRevisions(db: Database.Database): void {
-  const recover = db.transaction(() => {
-    db.exec(`
-      DELETE FROM archive_source_occurrence
-      WHERE EXISTS (
-        SELECT 1 FROM archive_source_revision r
-        WHERE r.source_id=archive_source_occurrence.source_id
-          AND r.revision=archive_source_occurrence.revision AND r.state='staging'
-      );
-      UPDATE archive_source_revision SET state='interrupted', verified_at=NULL
-      WHERE state='staging';
-      DELETE FROM archive_mail WHERE NOT EXISTS (
-        SELECT 1 FROM archive_source_occurrence o WHERE o.mail_id=archive_mail.id
-      );
-    `)
-  })
-  recover()
+const VISIBLE = (alias: string): string =>
+  `EXISTS (SELECT 1 FROM archive_visible_occurrence v WHERE v.mail_id=${alias}.id)`
+
+interface MailRow {
+  readonly id: string
+  readonly sent_at: number | null
+  readonly from_addr: string
+  readonly subject: string
 }
 
-function rebuildRelations(db: Database.Database): void {
-  const visibleMail = db
-    .prepare(
-      `
-      SELECT DISTINCT m.id, m.message_id AS messageId, m.in_reply_to AS inReplyTo,
-        m.references_header AS referencesHeader
-      FROM archive_mail m
-      WHERE EXISTS (
-        SELECT 1 FROM archive_source_occurrence o
-        JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
-        JOIN archive_source s ON s.source_id=o.source_id
-        WHERE o.mail_id=m.id AND r.state='verified' AND s.current_revision=o.revision
-      )
-      ORDER BY m.id
-    `
-    )
-    .all() as Array<{
-    id: string
-    messageId: string | null
-    inReplyTo: string | null
-    referencesHeader: string | null
-  }>
-  const relations = resolveArchiveMailRelations(
-    visibleMail.map(({ referencesHeader, ...message }) => ({
-      ...message,
-      references: referencesHeader
-    }))
-  )
-  db.prepare('DELETE FROM archive_mail_relation').run()
-  const insert = db.prepare(`
-    INSERT INTO archive_mail_relation
-      (child_mail_id, parent_message_id, parent_mail_id, kind, resolution)
-    VALUES (?, ?, ?, ?, ?)
-  `)
-  for (const relation of relations) {
-    insert.run(
-      relation.childMailId,
-      relation.parentMessageId,
-      relation.parentMailId,
-      relation.kind,
-      relation.resolution
-    )
-  }
-}
-
-function mapHit(
-  row: {
-    id: string
-    source_kind: MailArchiveSourceKind
-    source_path: string
-    folder_path: string | null
-    sent_at: number | null
-    from_addr: string
-    to_addrs: string
-    cc_addrs: string
-    subject: string
-    body_text: string
-    attachment_names: string
-    rank: number
-  },
-  query: string
-): MailArchiveSearchHit {
-  const attachmentNames = row.attachment_names ? (JSON.parse(row.attachment_names) as string[]) : []
-  return {
-    id: row.id,
-    sourceKind: row.source_kind,
-    sourceName: sourceName(row.source_path),
-    folderPath: row.folder_path,
-    date: row.sent_at,
-    from: row.from_addr,
-    to: row.to_addrs,
-    cc: row.cc_addrs,
-    subject: row.subject,
-    snippet: snippet(`${row.subject} ${row.body_text}`, query),
-    rank: row.rank,
-    attachmentNames
-  }
-}
-
-function mapMessage(
-  row: {
-    id: string
-    source_kind: MailArchiveSourceKind
-    source_path: string
-    source_fingerprint: string
-    folder_path: string | null
-    sent_at: number | null
-    imported_at: number
-    from_addr: string
-    to_addrs: string
-    cc_addrs: string
-    subject: string
-    body_text: string
-    message_id: string | null
-    in_reply_to: string | null
-    references_header: string | null
-    thread_key: string
-    attachment_names: string
-    body_kind: MailArchiveBodyKind
-    body_alternate_text: string | null
-    body_alternate_kind: Exclude<MailArchiveBodyKind, 'none' | 'legacy'> | null
-    body_alternate_omitted: number
-    body_quality_flags: string
-    body_selection_reason: MailArchiveBodySelectionReason
-    rank: number
-  },
-  attachments: readonly MailArchiveAttachment[]
-): MailArchiveMessage {
-  const attachmentNames = row.attachment_names ? (JSON.parse(row.attachment_names) as string[]) : []
-  return {
-    id: row.id,
-    sourceKind: row.source_kind,
-    sourceName: sourceName(row.source_path),
-    folderPath: row.folder_path,
-    date: row.sent_at,
-    from: row.from_addr,
-    to: row.to_addrs,
-    cc: row.cc_addrs,
-    subject: row.subject,
-    snippet: snippet(`${row.subject} ${row.body_text}`, ''),
-    rank: row.rank,
-    attachmentNames,
-    messageId: row.message_id,
-    inReplyTo: row.in_reply_to,
-    references: row.references_header,
-    threadKey: row.thread_key,
-    bodyText: row.body_text,
-    bodyKind: row.body_kind,
-    bodyAlternateText: row.body_alternate_text,
-    bodyAlternateKind: row.body_alternate_kind,
-    bodyAlternateOmitted: row.body_alternate_omitted === 1,
-    bodyQualityFlags: parseBodyQualityFlags(row.body_quality_flags),
-    bodySelectionReason: row.body_selection_reason,
-    importedAt: row.imported_at,
-    attachments
-  }
+interface OccurrenceInfo {
+  readonly sourceName: string
+  readonly folderPath: string | null
 }
 
 export interface MailArchiveRevisionStart {
@@ -417,30 +89,30 @@ export interface MailArchiveBatchCounts {
   readonly skipped: number
 }
 
+export interface MailArchiveRevisionRef {
+  readonly sourceId: string
+  readonly revision: number
+}
+
 export interface MailArchiveStore {
-  readonly dbPath: string
   beginRevision(input: {
     sourceId: string
     sourceKind: MailArchiveSourceKind
     sourcePath: string
     fingerprint: string
-    startedAt?: number
   }): MailArchiveRevisionStart
-  upsertBatch(input: {
-    sourceId: string
-    revision: number
-    mails: readonly NormalizedArchiveMail[]
-    importedAt?: number
-  }): MailArchiveBatchCounts
-  verifyRevision(sourceId: string, revision: number, fingerprint: string, verifiedAt?: number): void
-  activateRevision(sourceId: string, revision: number, fingerprint: string): void
-  abortRevision(sourceId: string, revision: number, state?: 'interrupted' | 'failed'): void
+  upsertBatch(
+    input: MailArchiveRevisionRef & { mails: readonly NormalizedArchiveMail[] }
+  ): MailArchiveBatchCounts
+  verifyRevision(input: MailArchiveRevisionRef & { fingerprint: string }): void
+  abortRevision(input: MailArchiveRevisionRef): void
+  refreshRelations(): void
   search(request: MailArchiveSearchRequest): MailArchiveSearchHit[]
   get(id: string): MailArchiveMessage | null
-  sources(): MailArchiveSource[]
   thread(request: MailArchiveThreadRequest): MailArchiveThreadResult
   attachmentLocation(attachmentId: string): MailArchiveAttachmentLocation | null
   sourcePathInUse(path: string): boolean
+  sources(): MailArchiveSource[]
   removeSource(sourceId: string): MailArchiveSourceDeletion | null
   stats(): MailArchiveStats
   close(): void
@@ -449,156 +121,177 @@ export interface MailArchiveStore {
 export function createMailArchiveStore(rootDir: string): MailArchiveStore {
   const archiveRoot = join(rootDir, 'mail-archive')
   mkdirSync(archiveRoot, { recursive: true })
-  const dbPath = join(archiveRoot, 'archive.db')
-  const db = openFileDatabase(dbPath, {
+  const db = openFileDatabase(join(archiveRoot, 'archive.db'), {
     initialize: (connection) => applyMailArchiveMigrations(connection)
   })
-  backfillLegacyRows(db)
-  recoverStagingRevisions(db)
-  db.transaction(() => rebuildRelations(db))()
 
-  const beginRevisionTransaction = db.transaction(
-    (input: {
-      sourceId: string
-      sourceKind: MailArchiveSourceKind
-      sourcePath: string
-      fingerprint: string
-      startedAt: number
-    }): MailArchiveRevisionStart => {
+  const deleteOrphanMail = db.prepare(`
+    DELETE FROM archive_mail WHERE NOT EXISTS (
+      SELECT 1 FROM archive_source_occurrence o WHERE o.mail_id=archive_mail.id
+    )
+  `)
+  const deleteRevision = (sourceId: string, revision: number): void => {
+    db.prepare('DELETE FROM archive_source_occurrence WHERE source_id=? AND revision=?').run(
+      sourceId,
+      revision
+    )
+    db.prepare('DELETE FROM archive_source_revision WHERE source_id=? AND revision=?').run(
+      sourceId,
+      revision
+    )
+  }
+
+  /** 관계는 보이는 메일 전체의 함수다. 파일마다가 아니라 가져오기 작업이 끝날 때 한 번 다시 만든다. */
+  const rebuildRelations = (): void => {
+    const visible = db
+      .prepare(
+        `SELECT m.id, m.message_id AS messageId, m.in_reply_to AS inReplyTo,
+           m.references_header AS "references"
+         FROM archive_mail m WHERE ${VISIBLE('m')} ORDER BY m.id`
+      )
+      .all() as Array<{
+      id: string
+      messageId: string | null
+      inReplyTo: string | null
+      references: string | null
+    }>
+    db.prepare('DELETE FROM archive_mail_relation').run()
+    const insert = db.prepare(`
+      INSERT OR IGNORE INTO archive_mail_relation
+        (child_mail_id, parent_message_id, parent_mail_id, kind, resolution)
+      VALUES (?, ?, ?, ?, 'resolved')
+    `)
+    for (const relation of resolveArchiveMailRelations(visible)) {
+      if (relation.resolution !== 'resolved') continue
+      insert.run(
+        relation.childMailId,
+        relation.parentMessageId,
+        relation.parentMailId,
+        relation.kind
+      )
+    }
+  }
+
+  // 강제 종료로 남은 미검증 revision은 검색에 쓰지 않는다. 다음 가져오기가 처음부터 다시 검증한다.
+  db.transaction(() => {
+    const stale = db
+      .prepare(
+        "SELECT source_id AS sourceId, revision FROM archive_source_revision WHERE state<>'verified'"
+      )
+      .all() as MailArchiveRevisionRef[]
+    for (const { sourceId, revision } of stale) deleteRevision(sourceId, revision)
+    deleteOrphanMail.run()
+    rebuildRelations()
+  })()
+
+  /** 결과 메일마다 가장 최근에 확인된 자료원·폴더. */
+  const occurrenceInfo = (ids: readonly string[]): Map<string, OccurrenceInfo> => {
+    const info = new Map<string, OccurrenceInfo>()
+    if (ids.length === 0) return info
+    const rows = db
+      .prepare(
+        `SELECT v.mail_id AS mailId, s.source_path AS sourcePath, v.folder_path AS folderPath
+         FROM archive_visible_occurrence v JOIN archive_source s ON s.source_id=v.source_id
+         WHERE v.mail_id IN (${ids.map(() => '?').join(',')})
+         ORDER BY v.occurrence_order`
+      )
+      .all(...ids) as Array<{ mailId: string; sourcePath: string; folderPath: string | null }>
+    for (const row of rows) {
+      info.set(row.mailId, { sourceName: basename(row.sourcePath), folderPath: row.folderPath })
+    }
+    return info
+  }
+
+  const insertMail = db.prepare(`
+    INSERT INTO archive_mail (
+      id, identity_key, sent_at, imported_at, from_addr, to_addrs, cc_addrs, subject, body_text,
+      body_kind, body_alternate_text, body_alternate_kind, body_alternate_omitted,
+      body_quality_flags, body_selection_reason, message_id, in_reply_to, references_header,
+      attachment_names,
+      source_kind, source_path, source_fingerprint, item_key, thread_key, size_bytes
+    ) VALUES (
+      @id, @identityKey, @sentAt, @importedAt, @from, @to, @cc, @subject, @bodyText,
+      @bodyKind, @bodyAlternateText, @bodyAlternateKind, @bodyAlternateOmitted,
+      @bodyQualityFlags, @bodySelectionReason, @messageId, @inReplyTo, @references,
+      @attachmentNames,
+      @sourceKind, '', @id, @id, '', 0
+    )
+  `)
+  const insertAttachment = db.prepare(
+    'INSERT INTO archive_attachment (id, mail_id, name, mime_type, size_bytes) VALUES (?, ?, ?, ?, ?)'
+  )
+  const insertOccurrence = db.prepare(`
+    INSERT OR IGNORE INTO archive_source_occurrence (source_id, revision, item_key, mail_id, folder_path)
+    VALUES (?, ?, ?, ?, ?)
+  `)
+  const findMail = db.prepare('SELECT id FROM archive_mail WHERE identity_key=?')
+  const revisionState = db.prepare(
+    'SELECT state FROM archive_source_revision WHERE source_id=? AND revision=?'
+  )
+  const sourceKindOf = db.prepare(
+    'SELECT source_kind AS kind FROM archive_source WHERE source_id=?'
+  )
+
+  return {
+    beginRevision: db.transaction((input: Parameters<MailArchiveStore['beginRevision']>[0]) => {
       db.prepare(
-        `
-      INSERT INTO archive_source (source_id, source_kind, source_path, created_at)
-      VALUES (@sourceId, @sourceKind, @sourcePath, @startedAt)
-      ON CONFLICT(source_id) DO UPDATE SET source_path=excluded.source_path
-    `
-      ).run(input)
-
-      const verified = db
+        `INSERT INTO archive_source (source_id, source_kind, source_path, created_at)
+         VALUES (@sourceId, @sourceKind, @sourcePath, @now)
+         ON CONFLICT(source_id) DO UPDATE SET source_path=excluded.source_path`
+      ).run({ ...input, now: Date.now() })
+      const existing = db
         .prepare(
-          `
-        SELECT revision FROM archive_source_revision
-        WHERE source_id=? AND fingerprint=? AND state='verified'
-      `
+          'SELECT revision, state FROM archive_source_revision WHERE source_id=? AND fingerprint=?'
         )
-        .get(input.sourceId, input.fingerprint) as { revision: number } | undefined
-      if (verified) {
+        .get(input.sourceId, input.fingerprint) as { revision: number; state: string } | undefined
+      if (existing?.state === 'verified') {
         const count = db
           .prepare(
             'SELECT COUNT(DISTINCT mail_id) AS count FROM archive_source_occurrence WHERE source_id=? AND revision=?'
           )
-          .get(input.sourceId, verified.revision) as { count: number }
-        return { revision: verified.revision, unchanged: true, existingMessages: count.count }
+          .get(input.sourceId, existing.revision) as { count: number }
+        const start: MailArchiveRevisionStart = {
+          revision: existing.revision,
+          unchanged: true,
+          existingMessages: count.count
+        }
+        return start
       }
-
-      const incomplete = db
-        .prepare(
-          `
-        SELECT revision FROM archive_source_revision
-        WHERE source_id=? AND fingerprint=? AND state IN ('staging', 'interrupted', 'failed')
-      `
-        )
-        .get(input.sourceId, input.fingerprint) as { revision: number } | undefined
-      if (incomplete) {
-        db.prepare('DELETE FROM archive_source_occurrence WHERE source_id=? AND revision=?').run(
-          input.sourceId,
-          incomplete.revision
-        )
-        db.prepare(
-          `
-        UPDATE archive_source_revision SET state='staging', started_at=?, verified_at=NULL
-        WHERE source_id=? AND revision=?
-      `
-        ).run(input.startedAt, input.sourceId, incomplete.revision)
-        return { revision: incomplete.revision, unchanged: false, existingMessages: 0 }
-      }
-
-      const revisionRow = db
+      if (existing) deleteRevision(input.sourceId, existing.revision)
+      const { revision } = db
         .prepare(
           'SELECT COALESCE(MAX(revision), 0) + 1 AS revision FROM archive_source_revision WHERE source_id=?'
         )
         .get(input.sourceId) as { revision: number }
       db.prepare(
-        `
-      INSERT INTO archive_source_revision (source_id, revision, fingerprint, state, started_at)
-      VALUES (?, ?, ?, 'staging', ?)
-    `
-      ).run(input.sourceId, revisionRow.revision, input.fingerprint, input.startedAt)
-      return { revision: revisionRow.revision, unchanged: false, existingMessages: 0 }
-    }
-  )
+        `INSERT INTO archive_source_revision (source_id, revision, fingerprint, state, started_at)
+         VALUES (?, ?, ?, 'staging', ?)`
+      ).run(input.sourceId, revision, input.fingerprint, Date.now())
+      return { revision, unchanged: false, existingMessages: 0 }
+    }),
 
-  const upsertBatchTransaction = db.transaction(
-    (input: {
-      sourceId: string
-      revision: number
-      mails: readonly NormalizedArchiveMail[]
-      importedAt: number
-    }): MailArchiveBatchCounts => {
-      const revision = db
-        .prepare(`SELECT state FROM archive_source_revision WHERE source_id=? AND revision=?`)
-        .get(input.sourceId, input.revision) as { state: string } | undefined
-      if (!revision || revision.state !== 'staging') throw new Error('mail_revision_not_staging')
-
+    upsertBatch: db.transaction((input: Parameters<MailArchiveStore['upsertBatch']>[0]) => {
+      const state = revisionState.get(input.sourceId, input.revision) as
+        { state: string } | undefined
+      if (state?.state !== 'staging') throw new Error('mail_revision_not_staging')
+      const { kind } = sourceKindOf.get(input.sourceId) as { kind: MailArchiveSourceKind }
+      const importedAt = Date.now()
       let inserted = 0
-      let skipped = 0
-      const findMail = db.prepare('SELECT id FROM archive_mail WHERE identity_key=?')
-      const insertMail = db.prepare(`
-      INSERT INTO archive_mail (
-        id, source_kind, source_path, source_fingerprint, item_key, folder_path, sent_at, imported_at,
-        from_addr, to_addrs, cc_addrs, subject, body_text, message_id, in_reply_to, references_header,
-        thread_key, attachment_names, size_bytes, source_id, identity_key,
-        body_kind, body_alternate_text, body_alternate_kind, body_alternate_omitted,
-        body_quality_flags, body_selection_reason
-      ) VALUES (
-        @id, @sourceKind, @sourcePath, @sourceFingerprint, @itemKey, @folderPath, @sentAt, @importedAt,
-        @from, @to, @cc, @subject, @bodyText, @messageId, @inReplyTo, @references,
-        @threadKey, @attachmentNames, @sizeBytes, @sourceId, @identityKey,
-        @bodyKind, @bodyAlternateText, @bodyAlternateKind, @bodyAlternateOmitted,
-        @bodyQualityFlags, @bodySelectionReason
-      )
-    `)
-      const insertAttachment = db.prepare(
-        'INSERT INTO archive_attachment (id, mail_id, name, mime_type, size_bytes) VALUES (?, ?, ?, ?, ?)'
-      )
-      const insertOccurrence = db.prepare(`
-      INSERT OR IGNORE INTO archive_source_occurrence
-        (source_id, revision, item_key, mail_id, folder_path)
-      VALUES (?, ?, ?, ?, ?)
-    `)
-
-      input.mails.forEach((mail) => {
+      for (const mail of input.mails) {
         if (mail.sourceId !== input.sourceId) throw new Error('mail_source_identity_mismatch')
         const existing = findMail.get(mail.identityKey) as { id: string } | undefined
         const id = existing?.id ?? mailId(mail.identityKey)
         if (!existing) {
           insertMail.run({
+            ...mail,
             id,
-            sourceKind: mail.sourceKind,
-            sourcePath: mail.sourcePath,
-            sourceFingerprint: mail.sourceFingerprint,
-            itemKey: mail.itemKey,
-            folderPath: mail.folderPath,
-            sentAt: mail.sentAt,
-            importedAt: input.importedAt,
-            from: mail.from,
-            to: mail.to,
-            cc: mail.cc,
-            subject: mail.subject,
-            bodyText: mail.bodyText,
-            bodyKind: mail.bodyKind,
-            bodyAlternateText: mail.bodyAlternateText,
-            bodyAlternateKind: mail.bodyAlternateKind,
+            importedAt,
             bodyAlternateOmitted: mail.bodyAlternateOmitted ? 1 : 0,
             bodyQualityFlags: JSON.stringify(mail.bodyQualityFlags),
-            bodySelectionReason: mail.bodySelectionReason,
-            messageId: mail.messageId,
-            inReplyTo: mail.inReplyTo,
-            references: mail.references,
-            threadKey: mail.threadKey,
-            attachmentNames: JSON.stringify(mail.attachments.map((attachment) => attachment.name)),
-            sizeBytes: mail.sizeBytes,
-            sourceId: input.sourceId,
-            identityKey: mail.identityKey
+            attachmentNames: joinAttachmentNames(
+              mail.attachments.map((attachment) => attachment.name)
+            ),
+            sourceKind: kind
           })
           mail.attachments.forEach((attachment, index) => {
             insertAttachment.run(
@@ -610,401 +303,240 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
             )
           })
           inserted += 1
-        } else {
-          skipped += 1
         }
         insertOccurrence.run(input.sourceId, input.revision, mail.itemKey, id, mail.folderPath)
-      })
-      return { inserted, skipped }
-    }
-  )
+      }
+      const counts: MailArchiveBatchCounts = { inserted, skipped: input.mails.length - inserted }
+      return counts
+    }),
 
-  const verifyRevisionTransaction = db.transaction(
-    (sourceId: string, revision: number, fingerprint: string, verifiedAt: number): void => {
+    verifyRevision: ({ sourceId, revision, fingerprint }) => {
       const updated = db
         .prepare(
-          `
-          UPDATE archive_source_revision SET state='verified', verified_at=?
-          WHERE source_id=? AND revision=? AND fingerprint=? AND state='staging'
-        `
+          `UPDATE archive_source_revision SET state='verified', verified_at=?
+           WHERE source_id=? AND revision=? AND fingerprint=? AND state='staging'`
         )
-        .run(verifiedAt, sourceId, revision, fingerprint)
+        .run(Date.now(), sourceId, revision, fingerprint)
       if (updated.changes !== 1) throw new Error('mail_revision_not_staging')
-      db.prepare(
-        `
-        UPDATE archive_source SET current_revision=?, current_fingerprint=? WHERE source_id=?
-      `
-      ).run(revision, fingerprint, sourceId)
-      rebuildRelations(db)
-    }
-  )
+    },
 
-  const abortRevisionTransaction = db.transaction(
-    (sourceId: string, revision: number, state: 'interrupted' | 'failed'): void => {
-      const row = db
-        .prepare(`SELECT state FROM archive_source_revision WHERE source_id=? AND revision=?`)
-        .get(sourceId, revision) as { state: string } | undefined
-      if (!row || row.state !== 'staging') return
-      db.prepare('DELETE FROM archive_source_occurrence WHERE source_id=? AND revision=?').run(
-        sourceId,
-        revision
-      )
-      db.prepare(
-        `
-        UPDATE archive_source_revision SET state=?, verified_at=NULL
-        WHERE source_id=? AND revision=?
-      `
-      ).run(state, sourceId, revision)
-      db.prepare(
-        `
-        DELETE FROM archive_mail WHERE NOT EXISTS (
-          SELECT 1 FROM archive_source_occurrence o WHERE o.mail_id=archive_mail.id
-        )
-      `
-      ).run()
-    }
-  )
+    abortRevision: db.transaction(({ sourceId, revision }: MailArchiveRevisionRef): void => {
+      const state = revisionState.get(sourceId, revision) as { state: string } | undefined
+      if (state?.state !== 'staging') return
+      deleteRevision(sourceId, revision)
+      deleteOrphanMail.run()
+    }),
 
-  const activateRevision = db.transaction(
-    (sourceId: string, revision: number, fingerprint: string): void => {
-      const existing = db
-        .prepare(
-          `
-          SELECT 1 FROM archive_source_revision
-          WHERE source_id=? AND revision=? AND fingerprint=? AND state='verified'
-        `
-        )
-        .get(sourceId, revision, fingerprint)
-      if (!existing) throw new Error('mail_revision_not_verified')
-      db.prepare(
-        `
-        UPDATE archive_source SET current_revision=?, current_fingerprint=? WHERE source_id=?
-      `
-      ).run(revision, fingerprint, sourceId)
-      rebuildRelations(db)
-    }
-  )
+    refreshRelations: db.transaction(() => rebuildRelations()),
 
-  return {
-    dbPath,
-    beginRevision: (input) =>
-      beginRevisionTransaction({ ...input, startedAt: input.startedAt ?? Date.now() }),
-    upsertBatch: (input) =>
-      upsertBatchTransaction({ ...input, importedAt: input.importedAt ?? Date.now() }),
-    verifyRevision: (sourceId, revision, fingerprint, verifiedAt = Date.now()) =>
-      verifyRevisionTransaction(sourceId, revision, fingerprint, verifiedAt),
-    activateRevision: (sourceId, revision, fingerprint) =>
-      activateRevision(sourceId, revision, fingerprint),
-    abortRevision: (sourceId, revision, state = 'interrupted') =>
-      abortRevisionTransaction(sourceId, revision, state),
     search: (request) => {
-      const limit = request.limit ?? 30
       const terms = queryTerms(request.query)
-      const sourceKindFilter = request.sourceKind ? ' AND m.source_kind=?' : ''
-      const sourceKindParams: string[] = request.sourceKind ? [request.sourceKind] : []
-      const hasShortTerm = terms.some((term) => [...term].length < 3)
-      const visibleMail = `EXISTS (
-        SELECT 1 FROM archive_source_occurrence vo
-        JOIN archive_source_revision vr ON vr.source_id=vo.source_id AND vr.revision=vo.revision
-        JOIN archive_source vs ON vs.source_id=vo.source_id
-        WHERE vo.mail_id=m.id AND vr.state='verified' AND vs.current_revision=vo.revision
-      )`
-      const select = `SELECT m.id, m.source_kind,
-        COALESCE((${findOccurrenceColumnSql('source_path')}), m.source_path) AS source_path,
-        COALESCE((${findOccurrenceColumnSql('folder_path')}), m.folder_path) AS folder_path,
-        m.sent_at, m.from_addr, m.to_addrs, m.cc_addrs, m.subject, m.body_text,
-        m.attachment_names, `
-
-      let rows: unknown[]
-      if (terms.length > 0 && !hasShortTerm) {
+      const scope = request.sourceId
+        ? 'EXISTS (SELECT 1 FROM archive_visible_occurrence v WHERE v.mail_id=m.id AND v.source_id=?)'
+        : VISIBLE('m')
+      const scopeParams = request.sourceId ? [request.sourceId] : []
+      const limit = request.limit ?? 30
+      // trigram FTS는 3글자 미만 검색어를 찾지 못한다. 하나라도 있으면 모든 검색어를 LIKE로 AND 검색한다.
+      const useFts = terms.length > 0 && terms.every((term) => [...term].length >= 3)
+      const firstTerm = terms[0] ?? ''
+      let rows: Array<MailRow & { snippet: string; attachment_names: string }>
+      if (useFts) {
         rows = db
           .prepare(
-            `${select}bm25(archive_mail_fts) AS rank
+            `SELECT m.id, m.sent_at, m.from_addr, m.subject, m.attachment_names,
+               snippet(archive_mail_fts, 4, '', '', '…', 48) AS snippet
              FROM archive_mail_fts f JOIN archive_mail m ON m.rowid=f.rowid
-             WHERE archive_mail_fts MATCH ? AND ${visibleMail}${sourceKindFilter}
-             ORDER BY rank, COALESCE(m.sent_at, m.imported_at) DESC LIMIT ?`
+             WHERE archive_mail_fts MATCH ? AND ${scope}
+             ORDER BY bm25(archive_mail_fts), COALESCE(m.sent_at, m.imported_at) DESC LIMIT ?`
           )
-          .all(ftsQuery(terms), ...sourceKindParams, limit)
+          .all(ftsQuery(terms), ...scopeParams, limit) as typeof rows
       } else {
-        const termFilters = terms.map(
-          () =>
-            `(m.from_addr || ' ' || m.to_addrs || ' ' || m.cc_addrs || ' ' || m.subject || ' ' || m.body_text || ' ' || m.attachment_names) LIKE ? ESCAPE '\\'`
-        )
-        const termParams = terms.map(escapeLike)
-        const filter = termFilters.length > 0 ? ` AND ${termFilters.join(' AND ')}` : ''
+        const haystack = `(m.from_addr || ' ' || m.to_addrs || ' ' || m.cc_addrs || ' ' || m.subject || ' ' || m.body_text || ' ' || m.attachment_names)`
+        const termFilter = terms.map(() => ` AND ${haystack} LIKE ? ESCAPE '\\'`).join('')
         rows = db
           .prepare(
-            `${select}0 AS rank
+            `SELECT m.id, m.sent_at, m.from_addr, m.subject, m.attachment_names,
+               substr(m.body_text, max(1, instr(lower(m.body_text), lower(?)) - 60), ${SNIPPET_LENGTH}) AS snippet
              FROM archive_mail m
-             WHERE ${visibleMail}${sourceKindFilter}${filter}
+             WHERE ${scope}${termFilter}
              ORDER BY COALESCE(m.sent_at, m.imported_at) DESC LIMIT ?`
           )
-          .all(...sourceKindParams, ...termParams, limit)
+          .all(firstTerm, ...scopeParams, ...terms.map(likePattern), limit) as typeof rows
       }
-      return (rows as Parameters<typeof mapHit>[0][]).map((row) => mapHit(row, request.query))
+      const info = occurrenceInfo(rows.map((row) => row.id))
+      return rows.map((row) => ({
+        id: row.id,
+        sourceName: info.get(row.id)?.sourceName ?? '',
+        folderPath: info.get(row.id)?.folderPath ?? null,
+        date: row.sent_at,
+        from: row.from_addr,
+        subject: row.subject,
+        snippet: row.snippet.replace(/\s+/g, ' ').trim(),
+        attachmentNames: splitAttachmentNames(row.attachment_names)
+      }))
     },
+
     get: (id) => {
       const row = db
-        .prepare(
-          `
-          SELECT m.id, m.source_kind,
-            COALESCE((${findOccurrenceColumnSql('source_path')}), m.source_path) AS source_path,
-            m.source_fingerprint,
-            m.item_key,
-            COALESCE((${findOccurrenceColumnSql('folder_path')}), m.folder_path) AS folder_path,
-            m.sent_at, m.imported_at, m.from_addr, m.to_addrs, m.cc_addrs, m.subject, m.body_text,
-            m.message_id, m.in_reply_to, m.references_header, m.thread_key, m.attachment_names,
-            m.body_kind, m.body_alternate_text, m.body_alternate_kind, m.body_alternate_omitted,
-            m.body_quality_flags, m.body_selection_reason,
-            0 AS rank
-          FROM archive_mail m WHERE m.id=? AND EXISTS (
-            SELECT 1 FROM archive_source_occurrence o
-            JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
-            JOIN archive_source s ON s.source_id=o.source_id
-            WHERE o.mail_id=m.id AND r.state='verified' AND s.current_revision=o.revision
-          )
-        `
-        )
-        .get(id) as Parameters<typeof mapMessage>[0] | undefined
+        .prepare(`SELECT * FROM archive_mail m WHERE m.id=? AND ${VISIBLE('m')}`)
+        .get(id) as
+        | (MailRow & {
+            to_addrs: string
+            cc_addrs: string
+            body_text: string
+            body_kind: MailArchiveMessage['bodyKind']
+            body_alternate_text: string | null
+            body_alternate_kind: MailArchiveMessage['bodyAlternateKind']
+            body_alternate_omitted: number
+            body_quality_flags: string
+            body_selection_reason: MailArchiveMessage['bodySelectionReason']
+          })
+        | undefined
       if (!row) return null
       const attachments = db
         .prepare(
           'SELECT id, name, mime_type AS mimeType, size_bytes AS sizeBytes FROM archive_attachment WHERE mail_id=? ORDER BY rowid'
         )
         .all(id) as MailArchiveAttachment[]
-      return mapMessage(row, attachments)
+      const info = occurrenceInfo([id]).get(id)
+      return {
+        id: row.id,
+        sourceName: info?.sourceName ?? '',
+        folderPath: info?.folderPath ?? null,
+        date: row.sent_at,
+        from: row.from_addr,
+        to: row.to_addrs,
+        cc: row.cc_addrs,
+        subject: row.subject,
+        bodyText: row.body_text,
+        bodyKind: row.body_kind,
+        bodyAlternateText: row.body_alternate_text,
+        bodyAlternateKind: row.body_alternate_kind,
+        bodyAlternateOmitted: row.body_alternate_omitted === 1,
+        bodyQualityFlags: JSON.parse(row.body_quality_flags) as MailArchiveBodyQualityFlag[],
+        bodySelectionReason: row.body_selection_reason,
+        attachments
+      }
     },
+
     thread: (request) => {
       const limit = request.limit ?? 50
       const rows = db
         .prepare(
-          `
-          WITH RECURSIVE connected(id) AS (
-            SELECT m.id FROM archive_mail m
-            WHERE m.id=? AND EXISTS (
-              SELECT 1 FROM archive_source_occurrence o
-              JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
-              JOIN archive_source s ON s.source_id=o.source_id
-              WHERE o.mail_id=m.id AND r.state='verified' AND s.current_revision=o.revision
-            )
-            UNION
-            SELECT CASE WHEN relation.child_mail_id=connected.id
-              THEN relation.parent_mail_id ELSE relation.child_mail_id END
-            FROM archive_mail_relation relation
-            JOIN connected
-              ON relation.child_mail_id=connected.id OR relation.parent_mail_id=connected.id
-            WHERE relation.resolution='resolved' AND relation.parent_mail_id IS NOT NULL
-            LIMIT ?
-          )
-          SELECT m.id, m.source_kind,
-            COALESCE((${findOccurrenceColumnSql('source_path')}), m.source_path) AS source_path,
-            COALESCE((${findOccurrenceColumnSql('folder_path')}), m.folder_path) AS folder_path,
-            m.sent_at, m.from_addr, m.to_addrs, m.cc_addrs, m.subject, m.body_text,
-            m.attachment_names, 0 AS rank
-          FROM connected JOIN archive_mail m ON m.id=connected.id
-          WHERE EXISTS (
-            SELECT 1 FROM archive_source_occurrence o
-            JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
-            JOIN archive_source s ON s.source_id=o.source_id
-            WHERE o.mail_id=m.id AND r.state='verified' AND s.current_revision=o.revision
-          )
-          ORDER BY m.sent_at IS NULL, m.sent_at, m.id
-        `
+          `WITH RECURSIVE connected(id) AS (
+             SELECT m.id FROM archive_mail m WHERE m.id=? AND ${VISIBLE('m')}
+             UNION
+             SELECT CASE WHEN r.child_mail_id=connected.id THEN r.parent_mail_id ELSE r.child_mail_id END
+             FROM archive_mail_relation r
+             JOIN connected ON r.child_mail_id=connected.id OR r.parent_mail_id=connected.id
+             WHERE r.parent_mail_id IS NOT NULL
+             LIMIT ?
+           )
+           SELECT m.id, m.sent_at, m.from_addr, m.subject
+           FROM connected JOIN archive_mail m ON m.id=connected.id
+           WHERE ${VISIBLE('m')}
+           ORDER BY m.sent_at IS NULL, m.sent_at, m.id`
         )
-        .all(request.id, limit + 1) as Parameters<typeof mapHit>[0][]
-      const truncated = rows.length > limit
-      const selectedRows = rows.slice(0, limit)
-      const ids = selectedRows.map((row) => row.id)
-      const relations =
-        ids.length === 0
-          ? []
-          : (db
-              .prepare(
-                `
-                SELECT child_mail_id AS childMailId, parent_mail_id AS parentMailId, kind
-                FROM archive_mail_relation
-                WHERE resolution='resolved'
-                  AND child_mail_id IN (${ids.map(() => '?').join(',')})
-                  AND parent_mail_id IN (${ids.map(() => '?').join(',')})
-                ORDER BY child_mail_id, parent_mail_id, kind
-              `
-              )
-              .all(...ids, ...ids) as MailArchiveThreadResult['relations'])
-      return {
-        mails: selectedRows.map((row) => mapHit(row, '')),
-        relations,
-        truncated
-      }
+        .all(request.id, limit + 1) as MailRow[]
+      const mails: MailArchiveThreadItem[] = rows.slice(0, limit).map((row) => ({
+        id: row.id,
+        subject: row.subject,
+        from: row.from_addr,
+        date: row.sent_at
+      }))
+      return { mails, truncated: rows.length > limit }
     },
-    attachmentLocation: (attachmentId) => {
+
+    attachmentLocation: (id) => {
       const row = db
         .prepare(
-          `
-          SELECT a.id AS attachmentId, s.source_id AS sourceId,
-            s.source_kind AS sourceKind, s.source_path AS sourcePath,
-            r.fingerprint AS sourceFingerprint, o.item_key AS itemKey,
-            (SELECT COUNT(*) FROM archive_attachment prior
-              WHERE prior.mail_id=a.mail_id AND prior.rowid<a.rowid) AS attachmentIndex,
-            a.name, a.mime_type AS mimeType, a.size_bytes AS sizeBytes
-          FROM archive_attachment a
-          JOIN archive_mail m ON m.id=a.mail_id
-          JOIN archive_source_occurrence o ON o.mail_id=m.id
-          JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
-          JOIN archive_source s ON s.source_id=o.source_id
-          WHERE a.id=? AND r.state='verified' AND s.current_revision=o.revision
-          ORDER BY r.verified_at DESC, s.source_id LIMIT 1
-        `
+          `SELECT s.source_kind AS sourceKind, s.source_path AS root, r.fingerprint AS sourceFingerprint,
+             v.item_key AS itemKey,
+             (SELECT COUNT(*) FROM archive_attachment prior
+               WHERE prior.mail_id=a.mail_id AND prior.rowid<a.rowid) AS attachmentIndex,
+             a.name, a.mime_type AS mimeType, a.size_bytes AS sizeBytes
+           FROM archive_attachment a
+           JOIN archive_visible_occurrence v ON v.mail_id=a.mail_id
+           JOIN archive_source_revision r ON r.source_id=v.source_id AND r.revision=v.revision
+           JOIN archive_source s ON s.source_id=v.source_id
+           WHERE a.id=?
+           ORDER BY r.verified_at DESC, v.occurrence_order DESC LIMIT 1`
         )
-        .get(attachmentId) as MailArchiveAttachmentLocation | undefined
-      return row ?? null
+        .get(id) as
+        (Omit<MailArchiveAttachmentLocation, 'sourcePath'> & { root: string }) | undefined
+      if (!row) return null
+      const { root, ...location } = row
+      // EML 폴더 자료원은 루트 + 상대 경로가 원본 파일이다. 루트 밖으로 나가는 경로는 거절한다.
+      const sourcePath = row.sourceKind === 'eml' && row.itemKey ? join(root, row.itemKey) : root
+      if (!isInside(root, sourcePath)) return null
+      return { ...location, sourcePath }
     },
+
     sourcePathInUse: (path) => {
-      const emlSourceId = archiveSourceId('eml', path)
-      const pstSourceId = archiveSourceId('pst', path)
-      return Boolean(
-        db
-          .prepare('SELECT 1 FROM archive_source WHERE source_id IN (?, ?) LIMIT 1')
-          .get(emlSourceId, pstSourceId)
-      )
+      const target = normalizedSourcePath(path)
+      const roots = db.prepare('SELECT source_path AS root FROM archive_source').all() as Array<{
+        root: string
+      }>
+      return roots.some(({ root }) => isInside(normalizedSourcePath(root), target))
     },
+
     sources: () => {
       const rows = db
         .prepare(
-          `
-          SELECT s.source_id AS id, s.source_kind AS kind, s.source_path AS sourcePath,
-            r.verified_at AS lastImportedAt, COUNT(DISTINCT o.mail_id) AS messageCount,
-            COUNT(DISTINCT CASE WHEN EXISTS (
-              SELECT 1 FROM archive_source_occurrence other
-              WHERE other.mail_id=o.mail_id AND other.source_id<>s.source_id
-            ) THEN o.mail_id END) AS sharedMessageCount
-          FROM archive_source s
-          JOIN archive_source_revision r
-            ON r.source_id=s.source_id AND r.revision=s.current_revision AND r.state='verified'
-          JOIN archive_source_occurrence o
-            ON o.source_id=s.source_id AND o.revision=s.current_revision
-          GROUP BY s.source_id, s.source_kind, s.source_path, r.verified_at
-          ORDER BY s.created_at, s.source_id
-        `
+          `SELECT s.source_id AS id, s.source_kind AS kind, s.source_path AS sourcePath,
+             COUNT(DISTINCT v.mail_id) AS messageCount,
+             COUNT(DISTINCT CASE WHEN EXISTS (
+               SELECT 1 FROM archive_visible_occurrence other
+               WHERE other.mail_id=v.mail_id AND other.source_id<>s.source_id
+             ) THEN v.mail_id END) AS sharedMessageCount
+           FROM archive_source s
+           LEFT JOIN archive_visible_occurrence v ON v.source_id=s.source_id
+           GROUP BY s.source_id
+           ORDER BY s.created_at, s.source_id`
         )
-        .all() as Array<{
-        id: string
-        kind: MailArchiveSourceKind
-        sourcePath: string
-        messageCount: number
-        sharedMessageCount: number
-        lastImportedAt: number | null
-      }>
-      return rows.map((row) => ({
-        id: row.id,
-        kind: row.kind,
-        name: sourceName(row.sourcePath),
-        messageCount: row.messageCount,
-        sharedMessageCount: row.sharedMessageCount,
-        lastImportedAt: row.lastImportedAt
-      }))
+        .all() as Array<Omit<MailArchiveSource, 'name'> & { sourcePath: string }>
+      return rows.map(({ sourcePath, ...row }) => ({ ...row, name: basename(sourcePath) }))
     },
-    removeSource: (sourceId) => {
-      const remove = db.transaction((id: string): MailArchiveSourceDeletion | null => {
-        const source = db
-          .prepare('SELECT source_path AS sourcePath FROM archive_source WHERE source_id=?')
-          .get(id) as { sourcePath: string } | undefined
-        if (!source) return null
 
-        const counts = db
-          .prepare(
-            `
-            SELECT COUNT(DISTINCT o.mail_id) AS candidateMessages,
-              COUNT(DISTINCT CASE WHEN EXISTS (
-                SELECT 1 FROM archive_source_occurrence other
-                WHERE other.mail_id=o.mail_id AND other.source_id<>o.source_id
-              ) THEN o.mail_id END) AS preservedMessages
-            FROM archive_source_occurrence o WHERE o.source_id=?
-          `
-          )
-          .get(id) as { candidateMessages: number; preservedMessages: number }
+    removeSource: db.transaction((sourceId: string): MailArchiveSourceDeletion | null => {
+      const source = db
+        .prepare('SELECT source_path AS sourcePath FROM archive_source WHERE source_id=?')
+        .get(sourceId) as { sourcePath: string } | undefined
+      if (!source) return null
+      const counts = db
+        .prepare(
+          `SELECT COUNT(DISTINCT o.mail_id) AS total,
+             COUNT(DISTINCT CASE WHEN EXISTS (
+               SELECT 1 FROM archive_source_occurrence other
+               WHERE other.mail_id=o.mail_id AND other.source_id<>o.source_id
+             ) THEN o.mail_id END) AS preserved
+           FROM archive_source_occurrence o WHERE o.source_id=?`
+        )
+        .get(sourceId) as { total: number; preserved: number }
+      db.prepare('DELETE FROM archive_source_occurrence WHERE source_id=?').run(sourceId)
+      db.prepare('DELETE FROM archive_source_revision WHERE source_id=?').run(sourceId)
+      db.prepare('DELETE FROM archive_source WHERE source_id=?').run(sourceId)
+      deleteOrphanMail.run()
+      rebuildRelations()
+      return {
+        sourceName: basename(source.sourcePath),
+        removedMessages: counts.total - counts.preserved,
+        preservedMessages: counts.preserved
+      }
+    }),
 
-        db.prepare('DELETE FROM archive_source WHERE source_id=?').run(id)
-
-        // A canonical mail row can be shared by several sources. Re-point the retained row to an
-        // occurrence that still exists so removing the original source also removes its path and
-        // revision fingerprint from the retained record.
-        db.prepare(
-          `
-          UPDATE archive_mail AS m SET
-            source_id=(SELECT o.source_id FROM archive_source_occurrence o
-              JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
-              JOIN archive_source s ON s.source_id=o.source_id
-              WHERE o.mail_id=m.id
-              ORDER BY CASE WHEN r.state='verified' AND s.current_revision=o.revision THEN 0 ELSE 1 END,
-                r.verified_at DESC, o.rowid DESC LIMIT 1),
-            source_path=(SELECT s.source_path FROM archive_source_occurrence o
-              JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
-              JOIN archive_source s ON s.source_id=o.source_id
-              WHERE o.mail_id=m.id
-              ORDER BY CASE WHEN r.state='verified' AND s.current_revision=o.revision THEN 0 ELSE 1 END,
-                r.verified_at DESC, o.rowid DESC LIMIT 1),
-            source_fingerprint=(SELECT r.fingerprint FROM archive_source_occurrence o
-              JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
-              JOIN archive_source s ON s.source_id=o.source_id
-              WHERE o.mail_id=m.id
-              ORDER BY CASE WHEN r.state='verified' AND s.current_revision=o.revision THEN 0 ELSE 1 END,
-                r.verified_at DESC, o.rowid DESC LIMIT 1),
-            item_key=(SELECT o.item_key FROM archive_source_occurrence o
-              JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
-              JOIN archive_source s ON s.source_id=o.source_id
-              WHERE o.mail_id=m.id
-              ORDER BY CASE WHEN r.state='verified' AND s.current_revision=o.revision THEN 0 ELSE 1 END,
-                r.verified_at DESC, o.rowid DESC LIMIT 1),
-            folder_path=(SELECT o.folder_path FROM archive_source_occurrence o
-              JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
-              JOIN archive_source s ON s.source_id=o.source_id
-              WHERE o.mail_id=m.id
-              ORDER BY CASE WHEN r.state='verified' AND s.current_revision=o.revision THEN 0 ELSE 1 END,
-                r.verified_at DESC, o.rowid DESC LIMIT 1)
-          WHERE m.source_id=? AND EXISTS (
-            SELECT 1 FROM archive_source_occurrence o WHERE o.mail_id=m.id
-          )
-        `
-        ).run(id)
-        db.prepare(
-          `DELETE FROM archive_mail WHERE NOT EXISTS (
-          SELECT 1 FROM archive_source_occurrence o WHERE o.mail_id=archive_mail.id
-        )`
-        ).run()
-        rebuildRelations(db)
-        return {
-          sourceName: sourceName(source.sourcePath),
-          removedMessages: counts.candidateMessages - counts.preservedMessages,
-          preservedMessages: counts.preservedMessages
-        }
-      })
-      return remove(sourceId)
-    },
     stats: () => {
       const row = db
         .prepare(
-          `
-          SELECT COUNT(*) AS total,
-            SUM(CASE WHEN m.source_kind='eml' THEN 1 ELSE 0 END) AS eml,
-            SUM(CASE WHEN m.source_kind='pst' THEN 1 ELSE 0 END) AS pst,
-            MAX(m.imported_at) AS latest
-          FROM archive_mail m
-          WHERE EXISTS (
-            SELECT 1 FROM archive_source_occurrence o
-            JOIN archive_source_revision r ON r.source_id=o.source_id AND r.revision=o.revision
-            JOIN archive_source s ON s.source_id=o.source_id
-            WHERE o.mail_id=m.id AND r.state='verified' AND s.current_revision=o.revision
-          )
-        `
+          `SELECT COUNT(DISTINCT v.mail_id) AS total,
+             COUNT(DISTINCT CASE WHEN s.source_kind='eml' THEN v.mail_id END) AS eml,
+             COUNT(DISTINCT CASE WHEN s.source_kind='pst' THEN v.mail_id END) AS pst
+           FROM archive_visible_occurrence v JOIN archive_source s ON s.source_id=v.source_id`
         )
-        .get() as { total: number; eml: number | null; pst: number | null; latest: number | null }
-      return {
-        totalMessages: row.total,
-        emlMessages: row.eml ?? 0,
-        pstMessages: row.pst ?? 0,
-        lastImportedAt: row.latest
-      }
+        .get() as { total: number; eml: number; pst: number }
+      return { totalMessages: row.total, emlMessages: row.eml, pstMessages: row.pst }
     },
+
     close: () => db.close()
   }
 }

@@ -2,340 +2,202 @@ import { utilityProcess, type UtilityProcess } from 'electron'
 import { randomUUID } from 'node:crypto'
 import indexWorkerPath from './index-worker?modulePath'
 import sourceWorkerPath from './source-worker?modulePath'
-import type {
-  MailArchiveIndexWorker,
-  MailArchiveSourceCallbacks,
-  MailArchiveSourceInput,
-  MailArchiveSourceWorker,
-  MailArchiveWorkerFactory
-} from './worker-contract'
+import {
+  createIndexOperations,
+  type IndexOperationName,
+  type MailArchiveIndex
+} from './index-operations'
 import type { MailArchiveAttachmentExportInput, MailArchiveAttachmentExportOutput } from './types'
-import type { MailArchiveStore } from './store'
-
-interface RpcResponse {
-  readonly requestId: number
-  readonly ok: boolean
-  readonly value?: unknown
-  readonly error?: string
-}
+import type {
+  MailArchiveSourceChannel,
+  MailArchiveSourceCompletion,
+  MailArchiveSourceInput,
+  MailArchiveSourceWorker
+} from './worker-contract'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-function workerError(value: unknown, fallback: string): Error {
-  if (isRecord(value) && typeof value.error === 'string') return new Error(value.error)
-  return new Error(fallback)
+function asError(value: unknown, fallback: string): Error {
+  return value instanceof Error ? value : new Error(fallback)
 }
 
-class IndexWorkerClient implements MailArchiveIndexWorker {
-  private requestId = 0
-  private closed = false
-  private readonly pending = new Map<
-    number,
-    { resolve(value: unknown): void; reject(error: Error): void }
-  >()
-  private readonly ready: Promise<unknown>
-
-  constructor(
-    private readonly child: UtilityProcess,
-    rootDir: string
-  ) {
-    child.on('message', (raw) => this.onMessage(raw))
-    child.on('exit', () => this.rejectPending(new Error('mail_archive_index_worker_exited')))
-    this.ready = this.requestRaw('init', rootDir)
-    void this.ready.catch(() => undefined)
-  }
-
-  private onMessage(raw: unknown): void {
-    if (!isRecord(raw) || typeof raw.requestId !== 'number') return
-    const response = raw as unknown as RpcResponse
-    const pending = this.pending.get(response.requestId)
-    if (!pending) return
-    this.pending.delete(response.requestId)
-    if (response.ok) pending.resolve(response.value)
-    else pending.reject(new Error(response.error ?? 'mail_archive_index_failed'))
-  }
-
-  private rejectPending(error: Error): void {
-    for (const [, request] of this.pending) request.reject(error)
-    this.pending.clear()
-  }
-
-  private requestRaw<T>(operation: string, payload?: unknown): Promise<T> {
-    if (this.closed && operation !== 'close' && operation !== 'revokeEpoch') {
-      return Promise.reject(new Error('mail_archive_index_worker_closed'))
-    }
-    const requestId = ++this.requestId
-    return new Promise<T>((resolve, reject) => {
-      this.pending.set(requestId, { resolve, reject })
-      this.child.postMessage({ requestId, operation, payload })
-    })
-  }
-
-  private request<T>(operation: string, payload?: unknown): Promise<T> {
-    return this.ready.then(() => this.requestRaw<T>(operation, payload))
-  }
-
-  openEpoch(epoch: string): Promise<void> {
-    return this.request('openEpoch', epoch)
-  }
-
-  revokeEpoch(epoch: string): Promise<void> {
-    return this.request('revokeEpoch', epoch)
-  }
-
-  beginRevision(
-    input: Parameters<MailArchiveStore['beginRevision']>[0]
-  ): ReturnType<MailArchiveIndexWorker['beginRevision']> {
-    return this.request<Awaited<ReturnType<MailArchiveStore['beginRevision']>>>(
-      'beginRevision',
-      input
-    )
-  }
-
-  upsertBatch(
-    input: Parameters<MailArchiveIndexWorker['upsertBatch']>[0]
-  ): ReturnType<MailArchiveIndexWorker['upsertBatch']> {
-    return this.request<Awaited<ReturnType<MailArchiveStore['upsertBatch']>>>('upsertBatch', input)
-  }
-
-  verifyRevision(
-    sourceId: string,
-    revision: number,
-    fingerprint: string,
-    epoch: string
-  ): Promise<void> {
-    return this.request('verifyRevision', { sourceId, revision, fingerprint, epoch })
-  }
-
-  activateRevision(
-    sourceId: string,
-    revision: number,
-    fingerprint: string,
-    epoch: string
-  ): Promise<void> {
-    return this.request('activateRevision', { sourceId, revision, fingerprint, epoch })
-  }
-
-  abortRevision(
-    sourceId: string,
-    revision: number,
-    state: 'interrupted' | 'failed' = 'interrupted'
-  ): Promise<void> {
-    return this.request('abortRevision', { sourceId, revision, state })
-  }
-
-  search(
-    request: Parameters<MailArchiveStore['search']>[0]
-  ): ReturnType<MailArchiveIndexWorker['search']> {
-    return this.request<Awaited<ReturnType<MailArchiveStore['search']>>>('search', request)
-  }
-
-  get(request: { id: string }): ReturnType<MailArchiveIndexWorker['get']> {
-    return this.request<Awaited<ReturnType<MailArchiveStore['get']>>>('get', request)
-  }
-
-  thread(
-    request: Parameters<MailArchiveStore['thread']>[0]
-  ): ReturnType<MailArchiveIndexWorker['thread']> {
-    return this.request<Awaited<ReturnType<MailArchiveStore['thread']>>>('thread', request)
-  }
-
-  attachmentLocation(
-    attachmentId: string
-  ): ReturnType<MailArchiveIndexWorker['attachmentLocation']> {
-    return this.request<Awaited<ReturnType<MailArchiveStore['attachmentLocation']>>>(
-      'attachmentLocation',
-      { id: attachmentId }
-    )
-  }
-
-  sourcePathInUse(path: string): ReturnType<MailArchiveIndexWorker['sourcePathInUse']> {
-    return this.request<Awaited<ReturnType<MailArchiveStore['sourcePathInUse']>>>(
-      'sourcePathInUse',
-      { path }
-    )
-  }
-
-  sources(): ReturnType<MailArchiveIndexWorker['sources']> {
-    return this.request<Awaited<ReturnType<MailArchiveStore['sources']>>>('sources')
-  }
-
-  removeSource(sourceId: string): ReturnType<MailArchiveIndexWorker['removeSource']> {
-    return this.request<Awaited<ReturnType<MailArchiveStore['removeSource']>>>('removeSource', {
-      id: sourceId
-    })
-  }
-
-  stats(): ReturnType<MailArchiveIndexWorker['stats']> {
-    return this.request<Awaited<ReturnType<MailArchiveStore['stats']>>>('stats')
-  }
-
-  close(): void {
-    if (this.closed) return
-    this.closed = true
-    void this.ready
-      .then(() => this.requestRaw('close'))
-      .catch(() => undefined)
-      .finally(() => this.child.kill())
-  }
+function fork(path: string, serviceName: string, env?: Record<string, string>): UtilityProcess {
+  return utilityProcess.fork(path, [], {
+    serviceName,
+    stdio: 'ignore',
+    ...(env ? { env: { ...process.env, ...env } } : {})
+  })
 }
 
+const INDEX_OPERATIONS = Object.keys(
+  createIndexOperations(() => {
+    throw new Error('mail_archive_index_names_only')
+  })
+) as IndexOperationName[]
+
+/**
+ * index utility process RPC. 처음 요청할 때 띄우고, 죽으면 대기 요청을 실패시킨 뒤 다음 요청에서
+ * 다시 띄운다 — 워커 한 번의 종료가 앱 재시작 전까지 보관함 전체를 멈추지 않는다.
+ */
+function createIndexClient(rootDir: string): MailArchiveIndex {
+  let child: UtilityProcess | null = null
+  let nextRequestId = 0
+  const pending = new Map<number, { resolve(value: unknown): void; reject(error: Error): void }>()
+
+  const startWorker = (): UtilityProcess => {
+    const worker = fork(indexWorkerPath, 'Orca Mail Archive Index', {
+      ORCA_MAIL_ARCHIVE_ROOT: rootDir
+    })
+    worker.on('message', (raw: unknown) => {
+      if (!isRecord(raw) || typeof raw.requestId !== 'number') return
+      const request = pending.get(raw.requestId)
+      if (!request) return
+      pending.delete(raw.requestId)
+      if (raw.ok === true) request.resolve(raw.value)
+      else
+        request.reject(
+          new Error(typeof raw.error === 'string' ? raw.error : 'mail_archive_index_failed')
+        )
+    })
+    worker.on('exit', () => {
+      if (child === worker) child = null
+      for (const request of pending.values()) {
+        request.reject(new Error('mail_archive_index_worker_exited'))
+      }
+      pending.clear()
+    })
+    return worker
+  }
+
+  const call = (operation: IndexOperationName, payload: unknown): Promise<unknown> =>
+    new Promise((resolve, reject) => {
+      if (operation === 'close' && !child) return resolve(undefined)
+      const target = child ?? (child = startWorker())
+      const requestId = ++nextRequestId
+      pending.set(requestId, { resolve, reject })
+      target.postMessage({ requestId, operation, payload })
+    })
+
+  return Object.fromEntries(
+    INDEX_OPERATIONS.map((operation) => [
+      operation,
+      (payload?: unknown) => call(operation, payload)
+    ])
+  ) as MailArchiveIndex
+}
+
+/** source utility process. 한 가져오기 작업 동안 재사용하고 작업이 끝나면 내린다. */
 class SourceWorkerClient implements MailArchiveSourceWorker {
-  constructor(private readonly fork: (path: string, name: string) => UtilityProcess) {}
+  private child: UtilityProcess | null = null
 
   run(
     input: MailArchiveSourceInput,
-    callbacks: MailArchiveSourceCallbacks,
+    channel: MailArchiveSourceChannel,
     signal: AbortSignal
-  ): Promise<void> {
+  ): Promise<MailArchiveSourceCompletion> {
     signal.throwIfAborted()
-    const child = this.fork(sourceWorkerPath, 'Orca Mail Archive Source')
-    return new Promise<void>((resolve, reject) => {
+    const child = this.child ?? (this.child = fork(sourceWorkerPath, 'Orca Mail Archive Source'))
+    return new Promise((resolve, reject) => {
       let settled = false
-      let completionStarted = false
-      const finish = (error?: Error): void => {
+      const finish = (error: Error | null, completion?: MailArchiveSourceCompletion): void => {
         if (settled) return
         settled = true
+        child.off('message', onMessage)
+        child.off('exit', onExit)
         signal.removeEventListener('abort', onAbort)
         if (error) reject(error)
-        else resolve()
+        else resolve(completion!)
       }
+      // main 쪽 단계가 실패하면 워커는 결정·ack를 기다린 채 멈추므로 프로세스를 내린다.
       const fail = (error: Error): void => {
-        child.kill()
+        this.stop(child)
         finish(error)
       }
-      const onAbort = (): void => {
-        child.postMessage({ type: 'cancel' })
-        child.kill()
-        finish(new Error('mail_import_cancelled'))
+      const onAbort = (): void => fail(new Error('mail_import_cancelled'))
+      const onExit = (): void => {
+        if (this.child === child) this.child = null
+        finish(new Error('mail_source_worker_exited'))
       }
       const onMessage = (raw: unknown): void => {
-        if (!isRecord(raw) || typeof raw.type !== 'string' || settled) return
+        if (!isRecord(raw) || settled) return
         if (raw.jobId !== input.jobId || raw.epoch !== input.epoch) {
           fail(new Error('mail_import_epoch_revoked'))
-          return
-        }
-        if (raw.type === 'ready' && typeof raw.fingerprint === 'string') {
-          void callbacks
-            .onReady(raw.fingerprint)
-            .then((decision) => child.postMessage({ type: 'decision', ...decision }))
-            .catch((error: unknown) =>
-              fail(error instanceof Error ? error : new Error('mail_revision_start_failed'))
+        } else if (raw.type === 'ready') {
+          channel.ready(String(raw.fingerprint)).then(
+            (decision) => child.postMessage({ type: 'decision', ...decision }),
+            (error: unknown) => fail(asError(error, 'mail_revision_start_failed'))
+          )
+        } else if (raw.type === 'batch') {
+          channel
+            .batch(
+              raw.revision as number,
+              raw.mails as Parameters<MailArchiveSourceChannel['batch']>[1]
             )
-          return
-        }
-        if (
-          raw.type === 'batch' &&
-          typeof raw.batchId === 'number' &&
-          typeof raw.revision === 'number' &&
-          Array.isArray(raw.mails)
-        ) {
-          void callbacks
-            .onBatch(
-              raw.revision,
-              raw.mails as Parameters<MailArchiveSourceCallbacks['onBatch']>[1]
+            .then(
+              () => child.postMessage({ type: 'ack', batchId: raw.batchId }),
+              (error: unknown) => fail(asError(error, 'mail_archive_batch_failed'))
             )
-            .then(() => child.postMessage({ type: 'ack', batchId: raw.batchId as number }))
-            .catch((error: unknown) =>
-              fail(error instanceof Error ? error : new Error('mail_archive_batch_failed'))
-            )
-          return
-        }
-        if (raw.type === 'complete' && !completionStarted) {
-          completionStarted = true
-          void callbacks
-            .onComplete({
-              startFingerprint: String(raw.startFingerprint ?? ''),
-              endFingerprint: String(raw.endFingerprint ?? ''),
-              revision: typeof raw.revision === 'number' ? raw.revision : null,
-              messages: typeof raw.messages === 'number' ? raw.messages : 0,
-              skipped: raw.skipped === true
-            })
-            .then(() => {
-              child.postMessage({ type: 'completeAck', ok: true })
-              finish()
-            })
-            .catch((error: unknown) => {
-              child.postMessage({ type: 'completeAck', ok: false })
-              fail(
-                error instanceof Error ? error : new Error('mail_archive_revision_verify_failed')
-              )
-            })
-          return
-        }
-        if (raw.type === 'error') {
-          fail(workerError(raw, 'mail_source_parse_failed'))
+        } else if (raw.type === 'complete') {
+          finish(null, {
+            revision: typeof raw.revision === 'number' ? raw.revision : null,
+            messages: typeof raw.messages === 'number' ? raw.messages : 0,
+            skipped: raw.skipped === true,
+            warnings: Array.isArray(raw.warnings) ? raw.warnings.map(String) : []
+          })
+        } else if (raw.type === 'error') {
+          finish(
+            new Error(typeof raw.reason === 'string' ? raw.reason : 'mail_source_parse_failed')
+          )
         }
       }
       child.on('message', onMessage)
-      child.on('exit', (code) => {
-        if (!settled)
-          finish(
-            new Error(code === 0 ? 'mail_source_worker_exited_early' : 'mail_source_worker_failed')
-          )
-      })
+      child.on('exit', onExit)
       signal.addEventListener('abort', onAbort, { once: true })
       child.postMessage({ type: 'start', ...input })
     })
   }
 
   extract(input: MailArchiveAttachmentExportInput): Promise<MailArchiveAttachmentExportOutput> {
-    const child = this.fork(sourceWorkerPath, 'Orca Mail Archive Attachment Export')
+    const child = fork(sourceWorkerPath, 'Orca Mail Archive Attachment Export')
     const requestId = randomUUID()
     return new Promise((resolve, reject) => {
-      let settled = false
-      const finish = (error?: Error, result?: MailArchiveAttachmentExportOutput): void => {
-        if (settled) return
-        settled = true
-        if (error) reject(error)
-        else if (result) resolve(result)
-        else reject(new Error('mail_attachment_export_failed'))
-      }
-      child.on('message', (raw) => {
+      child.on('message', (raw: unknown) => {
         if (!isRecord(raw) || raw.requestId !== requestId) return
-        if (raw.type === 'extracted') {
-          if (
-            typeof raw.temporaryPath !== 'string' ||
-            typeof raw.bytesWritten !== 'number' ||
-            !Number.isSafeInteger(raw.bytesWritten) ||
-            raw.bytesWritten < 0
-          ) {
-            child.kill()
-            finish(new Error('mail_attachment_export_failed'))
-            return
-          }
-          finish(undefined, {
-            temporaryPath: raw.temporaryPath,
-            bytesWritten: raw.bytesWritten
-          })
+        if (
+          raw.type === 'extracted' &&
+          typeof raw.temporaryPath === 'string' &&
+          typeof raw.bytesWritten === 'number' &&
+          Number.isSafeInteger(raw.bytesWritten) &&
+          raw.bytesWritten >= 0
+        ) {
+          resolve({ temporaryPath: raw.temporaryPath, bytesWritten: raw.bytesWritten })
           return
         }
-        if (raw.type === 'extractError') {
-          child.kill()
-          finish(workerError(raw, 'mail_attachment_export_failed'))
-        }
+        child.kill()
+        reject(
+          new Error(typeof raw.reason === 'string' ? raw.reason : 'mail_attachment_export_failed')
+        )
       })
-      child.on('exit', (code) => {
-        if (!settled)
-          finish(
-            new Error(
-              code === 0 ? 'mail_attachment_worker_exited_early' : 'mail_attachment_worker_failed'
-            )
-          )
-      })
+      child.on('exit', () => reject(new Error('mail_attachment_worker_exited')))
       child.postMessage({ type: 'extract', requestId, input })
     })
   }
+
+  dispose(): void {
+    if (this.child) this.stop(this.child)
+  }
+
+  private stop(child: UtilityProcess): void {
+    if (this.child === child) this.child = null
+    child.kill()
+  }
 }
 
-export function createMailArchiveWorkerFactory(): MailArchiveWorkerFactory {
-  const fork = (path: string, serviceName: string): UtilityProcess =>
-    utilityProcess.fork(path, [], { serviceName, stdio: 'ignore' })
-  return {
-    createIndex: (rootDir) =>
-      new IndexWorkerClient(fork(indexWorkerPath, 'Orca Mail Archive Index'), rootDir),
-    createSource: () => new SourceWorkerClient(fork)
-  }
+export function createMailArchiveWorkers(rootDir: string): {
+  readonly index: MailArchiveIndex
+  readonly source: MailArchiveSourceWorker
+} {
+  return { index: createIndexClient(rootDir), source: new SourceWorkerClient() }
 }

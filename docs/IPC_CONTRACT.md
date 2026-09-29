@@ -11,7 +11,7 @@
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인: `artifact` · `chat`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `git`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `error`, `provider`
+- 도메인: `archive` · `artifact` · `chat`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `git`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `error`, `provider`
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -194,6 +194,27 @@ interface Settings {
 | `orca:artifact:openFolder` | R→M (invoke) | — | `ArtifactActionResult` | 앱이 정한 profile 보관 폴더만 탐색기로 열기. |
 
 `ArtifactRef`는 게시/파일 ID·제목·파일명·형식·category·게시 당시 크기/시각을 포함한다. 구형 DTO의 category 생략은 artifact로 해석한다. 일반 출력의 `kind: file`은 Office·PDF 등 다운로드 전용 형식이며 ready 미리보기 형식에 포함되지 않는다. 일반 파일 수집·저장은 64 MiB, 미리보기와 명시적 아티팩트 게시에는 5 MiB 상한을 적용한다. 현재 파일은 외부에서 수정·삭제할 수 있으며 저장과 미리보기는 동작 시점의 바이트를 사용한다. 상태는 진입·사용자 재확인·액션 시 조회하고 watcher/polling은 없다. `window.orca.artifacts.preview`는 `ready`일 때 format·content·mimeType·선택적 language를, `unavailable`일 때 reason을 반환한다. HTML에는 원문 content와 별도로 Main이 정제한 previewContent가 포함된다. 신뢰한 renderer sender만 호출할 수 있으며 파일·소유권 오류는 본문 없이 반환한다. HTML 미리보기는 정제된 문서만 스크립트·네트워크 없는 격리 iframe에서 표시한다. 보관과 세션 수명은 [영속성 문서](arch/backend/persistence.md#14-계층-2--게시-원본-파일) 참조.
+
+### 2.6-c Archive (0244 — 개인 EML·PST 메일 보관함)
+
+타입 정본은 `app/src/shared/mail-archive.ts`, 실행은 `main/app/handlers/mail-archive.ts` → `features/plugins/mail-archive/service.ts`다. 원본 경로는 renderer로 가지 않는다 — 가져오기 채널은 main이 OS 선택기를 열고 결과를 바로 가져오기에 넘긴다. 파싱은 source utility process, archive DB 쓰기·조회는 index utility process가 맡는다. 실패는 `mail_*`/`eml_*` 안정 코드로 reject한다.
+
+| 채널 | 방향 | 요청 | 응답 | 의미 |
+|---|---|---|---|---|
+| `orca:archive:importFiles` | R→M (invoke) | — | `MailArchiveImportResult \| null` | EML·PST 파일 선택 후 가져오기. 선택 취소는 `null`. 각 파일이 자료원 하나다. |
+| `orca:archive:importEmlFolder` | R→M (invoke) | — | `MailArchiveImportResult \| null` | EML 폴더 선택 후 재귀 가져오기. 폴더가 자료원 하나이고 파일은 상대 경로로 식별한다. |
+| `orca:archive:status` | R→M (invoke) | — | `MailArchiveProgress \| null` | 진행 중 가져오기의 마지막 상태. 화면 재진입 시 복구용. |
+| `orca:archive:cancel` | R→M (invoke) | `{ id: jobId }` | `{ cancelled: boolean }` | 가져오기 취소. 마무리(검증) 중이면 `false`. |
+| `orca:archive:progress` | M→R (send) | — | `MailArchiveProgress` | 가져오기를 시작한 창에만 보낸다. 진행 중에는 초당 최대 4회, 완료·취소는 항상. |
+| `orca:archive:search` | R→M (invoke) | `MailArchiveSearchRequest` | `MailArchiveSearchHit[]` | 공백으로 나뉜 모든 검색어 AND. 3글자 미만 검색어가 있으면 LIKE, 아니면 FTS5 trigram. `sourceId`로 자료원을 좁힌다. 무효 입력은 `[]`. |
+| `orca:archive:get` | R→M (invoke) | `{ id }` | `MailArchiveMessage \| null` | 선택 본문·대체 본문·품질 표시·첨부 목록. 검색 불가 메일은 `null`. |
+| `orca:archive:thread` | R→M (invoke) | `MailArchiveThreadRequest` | `MailArchiveThreadResult` | Reply/References로 확인된 연결만 날짜순. 상한 초과는 `truncated`. |
+| `orca:archive:exportAttachment` | R→M (invoke) | `{ id: attachmentId }` | `MailArchiveAttachmentExportResult` | 저장 창에서 고른 위치로 선택 첨부 하나만 추출. 원본 지문 재확인, 원본 파일·자료원 폴더 안 저장 거절. |
+| `orca:archive:sources` | R→M (invoke) | — | `MailArchiveSource[]` | 자료원별 검색 가능 메일 수와 다른 자료원과 공유된 수. 경로 대신 이름만. |
+| `orca:archive:removeSource` | R→M (invoke) | `{ id: sourceId }` | `MailArchiveSourceRemovalResult` | 확인 창 후 제거. 공유 메일은 유지, 원본 파일은 건드리지 않는다. 그 자료원을 가져오는 중일 때만 가져오기를 취소한다. |
+| `orca:archive:stats` | R→M (invoke) | — | `MailArchiveStats` | 검색 가능한 메일 수(전체·EML·PST). |
+
+가져오기는 누적이다. 같은 자료원을 다시 가져와 새 revision이 검증돼도, 이전 revision에서 확인한 메일은 명시적으로 제거하기 전까지 검색된다.
 
 ### 2.6-b Git (컴포저 브랜치 칩)
 

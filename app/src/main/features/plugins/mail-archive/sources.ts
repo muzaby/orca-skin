@@ -1,60 +1,71 @@
-import { readdir, stat } from 'node:fs/promises'
-import { extname, resolve } from 'node:path'
-import type { ArchiveImportSource } from './types'
-
-const EML_EXTENSION = '.eml'
-const PST_EXTENSION = '.pst'
+import { readdir, realpath, stat } from 'node:fs/promises'
+import { extname, relative, resolve, sep } from 'node:path'
+import { archiveSourceId } from './identity'
+import type { ArchiveImportSource, MailArchiveImportRequest } from './types'
 
 export function sourceKindForPath(path: string): 'eml' | 'pst' | null {
   const extension = extname(path).toLowerCase()
-  if (extension === EML_EXTENSION) return 'eml'
-  if (extension === PST_EXTENSION) return 'pst'
+  if (extension === '.eml') return 'eml'
+  if (extension === '.pst') return 'pst'
   return null
 }
 
-export async function collectEmlFiles(root: string): Promise<ArchiveImportSource[]> {
-  const result: ArchiveImportSource[] = []
+/** 폴더 아래 `.eml`을 안정된 순서로 모은다. 심볼릭 링크·junction은 따라가지 않는다. */
+export async function collectEmlFiles(root: string): Promise<string[]> {
+  const result: string[] = []
   const walk = async (directory: string): Promise<void> => {
     const entries = await readdir(directory, { withFileTypes: true })
     entries.sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true }))
     for (const entry of entries) {
-      // Symlinks/junctions are intentionally skipped so an archive folder cannot recurse out of
-      // its selected root or loop back into itself.
       if (entry.isSymbolicLink()) continue
       const path = resolve(directory, entry.name)
-      if (entry.isDirectory()) {
-        await walk(path)
-      } else if (entry.isFile() && sourceKindForPath(path) === 'eml') {
-        result.push({ path, kind: 'eml' })
-      }
+      if (entry.isDirectory()) await walk(path)
+      else if (entry.isFile() && sourceKindForPath(path) === 'eml') result.push(path)
     }
   }
-  await walk(resolve(root))
+  await walk(root)
   return result
 }
 
+async function canonical(path: string): Promise<string> {
+  return realpath(resolve(path)).catch(() => resolve(path))
+}
+
+/** EML 폴더는 자료원 하나이고, 파일은 루트 기준 `/` 구분 상대 경로로 식별한다. */
 export async function resolveImportSources(
-  inputKind: 'files' | 'eml-folder',
-  paths: readonly string[]
+  request: MailArchiveImportRequest
 ): Promise<ArchiveImportSource[]> {
-  if (inputKind === 'eml-folder') {
-    if (paths.length !== 1) throw new Error('eml_folder_requires_one_path')
-    const root = resolve(paths[0]!)
-    const rootStat = await stat(root).catch(() => null)
-    if (!rootStat?.isDirectory()) throw new Error('eml_folder_not_found')
-    return collectEmlFiles(root)
+  if (request.inputKind === 'eml-folder') {
+    if (request.paths.length !== 1) throw new Error('eml_folder_requires_one_path')
+    const root = await canonical(request.paths[0]!)
+    if (!(await stat(root).catch(() => null))?.isDirectory())
+      throw new Error('eml_folder_not_found')
+    const files = await collectEmlFiles(root)
+    if (files.length === 0) throw new Error('eml_folder_empty')
+    return [
+      {
+        sourceId: archiveSourceId('eml', root),
+        kind: 'eml',
+        root,
+        files: files.map((path) => ({ path, itemKey: relative(root, path).split(sep).join('/') }))
+      }
+    ]
   }
 
   const sources: ArchiveImportSource[] = []
-  for (const rawPath of paths) {
-    const path = resolve(rawPath)
-    const fileStat = await stat(path).catch(() => null)
-    if (!fileStat?.isFile()) throw new Error(`mail_source_not_found:${path}`)
+  for (const rawPath of request.paths) {
+    const path = await canonical(rawPath)
+    if (!(await stat(path).catch(() => null))?.isFile()) throw new Error('mail_source_not_found')
     const kind = sourceKindForPath(path)
-    if (!kind) throw new Error(`unsupported_mail_source:${path}`)
-    sources.push({ path, kind })
+    if (!kind) throw new Error('mail_source_unsupported')
+    sources.push({
+      sourceId: archiveSourceId(kind, path),
+      kind,
+      root: path,
+      files: [{ path, itemKey: '' }]
+    })
   }
   return sources.sort((left, right) =>
-    left.path.localeCompare(right.path, undefined, { numeric: true })
+    left.root.localeCompare(right.root, undefined, { numeric: true })
   )
 }

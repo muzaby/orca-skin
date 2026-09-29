@@ -2,43 +2,39 @@ import { randomUUID } from 'node:crypto'
 import { realpath, rename, unlink } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, resolve } from 'node:path'
 import type {
-  MailArchiveGetRequest,
-  MailArchiveImportRequest,
-  MailArchiveImportResult,
-  MailArchiveProgress,
-  MailArchiveSearchRequest,
-  MailArchiveSearchHit,
-  MailArchiveMessage,
   MailArchiveAttachmentExportResult,
+  MailArchiveImportFailure,
+  MailArchiveImportResult,
+  MailArchiveMessage,
+  MailArchiveProgress,
+  MailArchiveSearchHit,
+  MailArchiveSearchRequest,
   MailArchiveSource,
   MailArchiveSourceRemovalResult,
+  MailArchiveStats,
   MailArchiveThreadRequest,
-  MailArchiveThreadResult,
-  MailArchiveStats
+  MailArchiveThreadResult
 } from '../../../../shared/mail-archive'
+import { archiveErrorCode } from './errors'
+import type { MailArchiveIndex } from './index-operations'
 import { resolveImportSources } from './sources'
-import { archiveSourceId } from './identity'
-import type { MailArchiveIndexWorker, MailArchiveWorkerFactory } from './worker-contract'
-import type { MailArchiveAttachmentExportInput } from './types'
-
-interface AttachmentExportChoice {
-  readonly name: string
-  readonly mimeType: string
-  readonly sizeBytes: number
-}
+import type { ArchiveImportSource, MailArchiveImportRequest } from './types'
+import type { MailArchiveSourceWorker } from './worker-contract'
 
 export interface MailArchiveService {
   import(
     request: MailArchiveImportRequest,
     onProgress?: (progress: MailArchiveProgress) => void
   ): Promise<MailArchiveImportResult>
+  /** 진행 중 작업의 마지막 상태. 화면을 다시 열었을 때 복구한다. */
+  progress(): MailArchiveProgress | null
   cancel(jobId: string): boolean
   search(request: MailArchiveSearchRequest): Promise<MailArchiveSearchHit[]>
-  get(request: MailArchiveGetRequest): Promise<MailArchiveMessage | null>
+  get(id: string): Promise<MailArchiveMessage | null>
   thread(request: MailArchiveThreadRequest): Promise<MailArchiveThreadResult>
   exportAttachment(
     attachmentId: string,
-    chooseDestination: (attachment: AttachmentExportChoice) => Promise<string | null>
+    chooseDestination: (attachment: { name: string }) => Promise<string | null>
   ): Promise<MailArchiveAttachmentExportResult>
   sources(): Promise<MailArchiveSource[]>
   removeSource(sourceId: string): Promise<MailArchiveSourceRemovalResult>
@@ -49,373 +45,298 @@ export interface MailArchiveService {
 interface ImportJob {
   readonly id: string
   readonly controller: AbortController
+  readonly sourceIds: Set<string>
+  /** 비면 폐기된 작업이다. index는 이 값이 없는 batch·검증을 거절한다. */
   epoch: string
-  revokePromise?: Promise<void>
   finalizing: boolean
-  readonly settled: Promise<void>
-  readonly settle: () => void
-}
-
-function errorReason(error: unknown): string {
-  if (error instanceof Error && /^[a-z0-9_:-]{1,160}$/i.test(error.message)) return error.message
-  return 'mail_import_failed'
-}
-
-function cancelledResult(
-  jobId: string,
-  files: number,
-  messages: number,
-  inserted: number,
-  skipped: number,
-  failures: readonly { path: string; reason: string }[]
-): MailArchiveImportResult {
-  return { jobId, state: 'cancelled', files, messages, inserted, skipped, failures }
+  progress: MailArchiveProgress | null
+  settled: Promise<void>
 }
 
 async function canonicalDestination(path: string): Promise<string> {
-  const absolute = resolve(path)
-  try {
-    return await realpath(absolute)
-  } catch {
-    const parent = await realpath(dirname(absolute)).catch(() => dirname(absolute))
-    return resolve(parent, basename(absolute))
-  }
+  return realpath(path).catch(async () =>
+    resolve(await realpath(dirname(path)).catch(() => dirname(path)), basename(path))
+  )
 }
 
-export function createMailArchiveService(
-  rootDir: string,
-  workers: MailArchiveWorkerFactory
-): MailArchiveService {
-  const index = workers.createIndex(rootDir)
-  const sourceWorker = workers.createSource()
+export function createMailArchiveService(workers: {
+  readonly index: MailArchiveIndex
+  readonly source: MailArchiveSourceWorker
+}): MailArchiveService {
+  const { index, source: sourceWorker } = workers
   let activeJob: ImportJob | null = null
   let closed = false
-  let sourceRemovalsPending = 0
-  let sourceRemovalQueue = Promise.resolve()
-  let activeAttachmentExports = 0
-  const attachmentExportsIdle = new Set<() => void>()
+  let removalsPending = 0
+  let removalQueue: Promise<unknown> = Promise.resolve()
+  const exports = new Set<Promise<unknown>>()
 
-  const waitForAttachmentExports = (): Promise<void> => {
-    if (activeAttachmentExports === 0) return Promise.resolve()
-    return new Promise((resolveIdle) => attachmentExportsIdle.add(resolveIdle))
+  /** 작업을 멈추고 epoch를 폐기한다. 이후 도착하는 batch·검증은 index가 거절한다. */
+  const revoke = (job: ImportJob, abort: boolean): Promise<void> => {
+    if (abort) job.controller.abort()
+    if (!job.epoch) return Promise.resolve()
+    const epoch = job.epoch
+    job.epoch = ''
+    return index.revokeEpoch(epoch).catch(() => undefined)
   }
 
-  const releaseAttachmentExport = (): void => {
-    activeAttachmentExports -= 1
-    if (activeAttachmentExports !== 0) return
-    for (const resolveIdle of attachmentExportsIdle) resolveIdle()
-    attachmentExportsIdle.clear()
+  const importSources = async (
+    job: ImportJob,
+    sources: readonly ArchiveImportSource[],
+    onProgress?: (progress: MailArchiveProgress) => void
+  ): Promise<MailArchiveImportResult> => {
+    const epoch = job.epoch
+    const totalFiles = sources.reduce((sum, source) => sum + source.files.length, 0)
+    const failures: MailArchiveImportFailure[] = []
+    let processedFiles = 0
+    let processedMessages = 0
+    let insertedMessages = 0
+    let skippedMessages = 0
+    let verified = false
+    const emit = (state: MailArchiveProgress['state'], currentPath: string | null): void => {
+      job.progress = {
+        jobId: job.id,
+        state,
+        currentPath,
+        processedFiles,
+        totalFiles,
+        processedMessages,
+        insertedMessages,
+        skippedMessages,
+        cancellable: state === 'running' && !job.finalizing
+      }
+      onProgress?.(job.progress)
+    }
+    const assertCurrent = (): void => {
+      job.controller.signal.throwIfAborted()
+      if (job.epoch !== epoch) throw new Error('mail_import_epoch_revoked')
+    }
+
+    try {
+      emit('running', null)
+      for (const source of sources) {
+        for (const file of source.files) {
+          assertCurrent()
+          const label = basename(file.path)
+          let revision: number | null = null
+          let fingerprint = ''
+          let existing = 0
+          let messages = 0
+          let inserted = 0
+          let skipped = 0
+          emit('running', label)
+          try {
+            const completion = await sourceWorker.run(
+              { jobId: job.id, epoch, sourceId: source.sourceId, sourceKind: source.kind, ...file },
+              {
+                ready: async (readyFingerprint) => {
+                  assertCurrent()
+                  fingerprint = readyFingerprint
+                  const started = await index.beginRevision({
+                    sourceId: source.sourceId,
+                    sourceKind: source.kind,
+                    sourcePath: source.root,
+                    fingerprint
+                  })
+                  if (started.unchanged) {
+                    existing = started.existingMessages
+                    return { action: 'skip' }
+                  }
+                  revision = started.revision
+                  assertCurrent()
+                  return { action: 'scan', revision: started.revision }
+                },
+                batch: async (batchRevision, mails) => {
+                  assertCurrent()
+                  if (batchRevision !== revision) throw new Error('mail_import_epoch_revoked')
+                  const counts = await index.upsertBatch({
+                    epoch,
+                    sourceId: source.sourceId,
+                    revision: batchRevision,
+                    mails
+                  })
+                  messages += mails.length
+                  inserted += counts.inserted
+                  skipped += counts.skipped
+                  processedMessages += mails.length
+                  emit('running', label)
+                }
+              },
+              job.controller.signal
+            )
+            if (completion.skipped) {
+              processedMessages += existing
+              skippedMessages += existing
+            } else {
+              if (
+                completion.revision !== revision ||
+                completion.messages !== messages ||
+                revision === null
+              ) {
+                throw new Error('mail_archive_batch_count_mismatch')
+              }
+              job.finalizing = true
+              await index.verifyRevision({
+                epoch,
+                sourceId: source.sourceId,
+                revision,
+                fingerprint
+              })
+              verified = true
+              insertedMessages += inserted
+              skippedMessages += skipped
+              for (const warning of completion.warnings)
+                failures.push({ path: label, reason: warning })
+            }
+          } catch (error) {
+            if (revision !== null) {
+              await index
+                .abortRevision({ sourceId: source.sourceId, revision })
+                .catch(() => undefined)
+            }
+            if (job.controller.signal.aborted) throw error
+            failures.push({ path: label, reason: archiveErrorCode(error, 'mail_import_failed') })
+          } finally {
+            job.finalizing = false
+          }
+          processedFiles += 1
+          emit('running', label)
+        }
+      }
+      assertCurrent()
+      emit('completed', null)
+      return {
+        jobId: job.id,
+        state: 'completed',
+        messages: processedMessages,
+        inserted: insertedMessages,
+        skipped: skippedMessages,
+        failures
+      }
+    } catch (error) {
+      if (!job.controller.signal.aborted) throw error
+      emit('cancelled', null)
+      return {
+        jobId: job.id,
+        state: 'cancelled',
+        messages: processedMessages,
+        inserted: insertedMessages,
+        skipped: skippedMessages,
+        failures
+      }
+    } finally {
+      // 관계는 보이는 메일 전체에서 한 번 다시 계산한다. 파일마다 하면 가져오기가 O(N²)이 된다.
+      if (verified) await index.refreshRelations().catch(() => undefined)
+    }
   }
 
   return {
     import: async (request, onProgress) => {
       if (closed) throw new Error('mail_archive_service_closed')
-      if (sourceRemovalsPending > 0) throw new Error('mail_source_remove_in_progress')
+      if (removalsPending > 0) throw new Error('mail_source_remove_in_progress')
       if (activeJob) throw new Error('mail_import_already_running')
       let settle!: () => void
-      const settled = new Promise<void>((resolve) => {
-        settle = resolve
-      })
       const job: ImportJob = {
         id: randomUUID(),
         controller: new AbortController(),
+        sourceIds: new Set(),
         epoch: randomUUID(),
         finalizing: false,
-        settled,
-        settle
+        progress: null,
+        settled: new Promise<void>((resolve) => (settle = resolve))
       }
       activeJob = job
-      const importEpoch = job.epoch
-      let sources = [] as Awaited<ReturnType<typeof resolveImportSources>>
-      let processedFiles = 0
-      let processedMessages = 0
-      let completedMessages = 0
-      let insertedMessages = 0
-      let skippedMessages = 0
-      const failures: { path: string; reason: string }[] = []
-      const emit = (state: MailArchiveProgress['state'], currentPath: string | null): void => {
-        onProgress?.({
-          jobId: job.id,
-          state,
-          currentPath,
-          processedFiles,
-          totalFiles: sources.length,
-          processedMessages,
-          insertedMessages,
-          skippedMessages,
-          failedFiles: failures.length,
-          cancellable: state === 'running' && !job.finalizing && processedFiles < sources.length
-        })
-      }
-      const assertCurrent = (expectedEpoch = job.epoch): void => {
-        job.controller.signal.throwIfAborted()
-        if (activeJob !== job || job.epoch !== expectedEpoch) {
-          throw new Error('mail_import_epoch_revoked')
-        }
-      }
-
       try {
-        await index.openEpoch(importEpoch)
-        sources = await resolveImportSources(request.inputKind, request.paths)
-        if (request.inputKind === 'eml-folder' && sources.length === 0) {
-          throw new Error('eml_folder_empty')
-        }
-        emit('running', null)
-        for (const source of sources) {
-          assertCurrent()
-          const sourcePath = source.path
-          const currentLabel = basename(source.path)
-          const sourceId = archiveSourceId(source.kind, sourcePath)
-          const sourceEpoch = job.epoch
-          let revision: number | null = null
-          let revisionFingerprint = ''
-          let sourceUnchanged = false
-          let existingMessages = 0
-          let sourceMessages = 0
-          let sourceInserted = 0
-          let sourceSkipped = 0
-          emit('running', currentLabel)
-          try {
-            await sourceWorker.run(
-              { jobId: job.id, epoch: sourceEpoch, sourceId, sourcePath, sourceKind: source.kind },
-              {
-                onReady: async (fingerprint) => {
-                  assertCurrent(sourceEpoch)
-                  revisionFingerprint = fingerprint
-                  const started = await index.beginRevision({
-                    sourceId,
-                    sourceKind: source.kind,
-                    sourcePath,
-                    fingerprint
-                  })
-                  revision = started.revision
-                  assertCurrent(sourceEpoch)
-                  if (started.unchanged) {
-                    sourceUnchanged = true
-                    existingMessages = started.existingMessages
-                    return { action: 'skip' }
-                  }
-                  return { action: 'scan', revision: started.revision }
-                },
-                onBatch: async (batchRevision, mails) => {
-                  assertCurrent(sourceEpoch)
-                  if (revision === null || batchRevision !== revision) {
-                    throw new Error('mail_import_epoch_revoked')
-                  }
-                  const result = await index.upsertBatch({
-                    epoch: sourceEpoch,
-                    sourceId,
-                    revision,
-                    mails
-                  })
-                  assertCurrent(sourceEpoch)
-                  sourceMessages += mails.length
-                  sourceInserted += result.inserted
-                  sourceSkipped += result.skipped
-                  processedMessages += mails.length
-                  emit('running', currentLabel)
-                },
-                onComplete: async (completion) => {
-                  assertCurrent(sourceEpoch)
-                  if (
-                    completion.startFingerprint !== revisionFingerprint ||
-                    completion.endFingerprint !== revisionFingerprint
-                  ) {
-                    throw new Error('mail_source_changed_during_import')
-                  }
-                  if (sourceUnchanged) {
-                    if (completion.revision !== null || completion.messages !== 0) {
-                      throw new Error('mail_archive_unchanged_revision_invalid')
-                    }
-                    job.finalizing = true
-                    if (!completion.skipped || revision === null) {
-                      throw new Error('mail_archive_unchanged_revision_invalid')
-                    }
-                    await index.activateRevision(
-                      sourceId,
-                      revision,
-                      revisionFingerprint,
-                      sourceEpoch
-                    )
-                    assertCurrent(sourceEpoch)
-                    completedMessages += existingMessages
-                    processedMessages += existingMessages
-                    skippedMessages += existingMessages
-                    return
-                  }
-                  if (revision === null || completion.skipped || completion.revision !== revision) {
-                    throw new Error('mail_archive_revision_invalid')
-                  }
-                  if (completion.messages !== sourceMessages) {
-                    throw new Error('mail_archive_batch_count_mismatch')
-                  }
-                  job.finalizing = true
-                  await index.verifyRevision(sourceId, revision, revisionFingerprint, sourceEpoch)
-                  assertCurrent(sourceEpoch)
-                  completedMessages += sourceMessages
-                  insertedMessages += sourceInserted
-                  skippedMessages += sourceSkipped
-                }
-              },
-              job.controller.signal
-            )
-          } catch (error) {
-            if (revision !== null) {
-              await index
-                .abortRevision(
-                  sourceId,
-                  revision,
-                  job.controller.signal.aborted ? 'interrupted' : 'failed'
-                )
-                .catch(() => undefined)
-            }
-            if (job.controller.signal.aborted) throw error
-            failures.push({ path: currentLabel, reason: errorReason(error) })
-          }
-          processedFiles += 1
-          job.finalizing = processedFiles >= sources.length
-          emit('running', currentLabel)
-          // Let IPC cancellation and progress events run between source files.
-          await new Promise<void>((resolve) => setImmediate(resolve))
-        }
-        assertCurrent()
-        const result: MailArchiveImportResult = {
-          jobId: job.id,
-          state: 'completed',
-          files: sources.length,
-          messages: completedMessages,
-          inserted: insertedMessages,
-          skipped: skippedMessages,
-          failures
-        }
-        job.finalizing = true
-        emit('completed', null)
-        return result
-      } catch (error) {
-        if (job.controller.signal.aborted) {
-          emit('cancelled', null)
-          return cancelledResult(
-            job.id,
-            processedFiles,
-            completedMessages,
-            insertedMessages,
-            skippedMessages,
-            failures
-          )
-        }
-        throw error
+        await index.openEpoch(job.epoch)
+        const sources = await resolveImportSources(request)
+        for (const source of sources) job.sourceIds.add(source.sourceId)
+        return await importSources(job, sources, onProgress)
       } finally {
-        if (job.epoch) {
-          const epoch = job.epoch
-          job.epoch = ''
-          job.revokePromise = index.revokeEpoch(epoch).catch(() => undefined)
-        }
-        await job.revokePromise
-        if (activeJob === job) activeJob = null
-        job.settle()
+        await revoke(job, false)
+        sourceWorker.dispose()
+        activeJob = null
+        settle()
       }
     },
+
+    progress: () => activeJob?.progress ?? null,
+
     cancel: (jobId) => {
-      if (!activeJob || activeJob.id !== jobId || activeJob.finalizing) return false
-      const epoch = activeJob.epoch
-      activeJob.epoch = ''
-      activeJob.controller.abort()
-      activeJob.revokePromise = index.revokeEpoch(epoch).catch(() => undefined)
+      if (activeJob?.id !== jobId || activeJob.finalizing) return false
+      void revoke(activeJob, true)
       return true
     },
+
     search: (request) => index.search(request),
-    get: (request) => index.get(request),
+    get: (id) => index.get(id),
     thread: (request) => index.thread(request),
-    exportAttachment: async (attachmentId, chooseDestination) => {
-      if (closed) throw new Error('mail_archive_service_closed')
-      if (sourceRemovalsPending > 0) throw new Error('mail_archive_source_removing')
-      activeAttachmentExports += 1
-      let temporaryPath: string | undefined
-      try {
+
+    exportAttachment: (attachmentId, chooseDestination) => {
+      if (closed) return Promise.reject(new Error('mail_archive_service_closed'))
+      if (removalsPending > 0) return Promise.reject(new Error('mail_archive_source_removing'))
+      const task = (async (): Promise<MailArchiveAttachmentExportResult> => {
         const location = await index.attachmentLocation(attachmentId)
         if (!location) return { state: 'not-found' }
-        const destinationPath = await chooseDestination({
-          name: location.name,
-          mimeType: location.mimeType,
-          sizeBytes: location.sizeBytes
-        })
-        if (!destinationPath) return { state: 'cancelled' }
-        if (!isAbsolute(destinationPath)) throw new Error('mail_attachment_destination_invalid')
-        const targetPath = resolve(destinationPath)
+        const destination = await chooseDestination({ name: location.name })
+        if (!destination) return { state: 'cancelled' }
+        if (!isAbsolute(destination)) throw new Error('mail_attachment_destination_invalid')
+        const targetPath = resolve(destination)
         if (await index.sourcePathInUse(await canonicalDestination(targetPath))) {
           throw new Error('mail_attachment_destination_is_source')
         }
-        const input: MailArchiveAttachmentExportInput = { ...location, destinationPath: targetPath }
-        const extracted = await sourceWorker.extract(input)
-        temporaryPath = extracted.temporaryPath
-        if (
-          dirname(resolve(temporaryPath)) !== dirname(targetPath) ||
-          !basename(temporaryPath).endsWith('.orca-part') ||
-          extracted.bytesWritten !== location.sizeBytes
-        ) {
-          throw new Error('mail_attachment_export_invalid')
+        const extracted = await sourceWorker.extract({ ...location, destinationPath: targetPath })
+        try {
+          if (
+            dirname(resolve(extracted.temporaryPath)) !== dirname(targetPath) ||
+            !basename(extracted.temporaryPath).endsWith('.orca-part') ||
+            extracted.bytesWritten !== location.sizeBytes
+          ) {
+            throw new Error('mail_attachment_export_invalid')
+          }
+          // 추출하는 동안 자료원이 제거·교체되지 않았는지 다시 확인한 뒤에만 파일을 내놓는다.
+          const current = await index.attachmentLocation(attachmentId)
+          if (current?.sourceFingerprint !== location.sourceFingerprint) {
+            throw new Error('mail_attachment_source_changed')
+          }
+          await rename(extracted.temporaryPath, targetPath)
+        } catch (error) {
+          await unlink(extracted.temporaryPath).catch(() => undefined)
+          throw error
         }
-        const current = await index.attachmentLocation(attachmentId)
-        if (
-          !current ||
-          current.sourceId !== location.sourceId ||
-          current.sourceFingerprint !== location.sourceFingerprint ||
-          current.itemKey !== location.itemKey
-        ) {
-          throw new Error('mail_attachment_source_changed')
-        }
-        await rename(temporaryPath, targetPath)
-        temporaryPath = undefined
         return { state: 'exported', name: location.name, sizeBytes: extracted.bytesWritten }
-      } finally {
-        if (temporaryPath) await unlink(temporaryPath).catch(() => undefined)
-        releaseAttachmentExport()
-      }
+      })()
+      exports.add(task)
+      void task.catch(() => undefined).finally(() => exports.delete(task))
+      return task
     },
-    sources: () => index.sources(),
-    removeSource: async (sourceId) => {
-      sourceRemovalsPending += 1
-      let release!: () => void
-      const previous = sourceRemovalQueue
-      sourceRemovalQueue = new Promise<void>((resolve) => {
-        release = resolve
-      })
-      await previous
-      try {
-        const sources = await index.sources()
-        if (!sources.some((source) => source.id === sourceId)) return { state: 'not-found' }
 
+    sources: () => index.sources(),
+
+    removeSource: (sourceId) => {
+      removalsPending += 1
+      const removal = removalQueue.then(async (): Promise<MailArchiveSourceRemovalResult> => {
         const job = activeJob
-        const importCancelled = job !== null
-        if (job) {
-          const epoch = job.epoch
-          job.epoch = ''
-          job.controller.abort()
-          if (epoch) job.revokePromise = index.revokeEpoch(epoch).catch(() => undefined)
+        // 이 자료원을 가져오는 중일 때만 멈춘다. 다른 자료원의 가져오기는 계속된다.
+        const importCancelled = job !== null && job.sourceIds.has(sourceId)
+        if (job && importCancelled) {
+          await revoke(job, true)
           await job.settled
         }
-
-        await waitForAttachmentExports()
+        await Promise.allSettled([...exports])
         const removed = await index.removeSource(sourceId)
         return removed ? { state: 'removed', ...removed, importCancelled } : { state: 'not-found' }
-      } finally {
-        sourceRemovalsPending -= 1
-        release()
-      }
+      })
+      removalQueue = removal.catch(() => undefined).finally(() => (removalsPending -= 1))
+      return removal
     },
+
     stats: () => index.stats(),
+
     close: () => {
       if (closed) return
       closed = true
-      if (activeJob) {
-        const epoch = activeJob.epoch
-        activeJob.epoch = ''
-        activeJob.controller.abort()
-        if (epoch) activeJob.revokePromise = index.revokeEpoch(epoch).catch(() => undefined)
-      }
-      index.close()
+      if (activeJob) void revoke(activeJob, true)
+      sourceWorker.dispose()
+      void index.close().catch(() => undefined)
     }
   }
 }
-
-export type { MailArchiveIndexWorker }
