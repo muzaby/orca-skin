@@ -5,7 +5,7 @@ import { useShallow } from 'zustand/react/shallow'
 import type { ThemeId, DensityId } from '../config/theme'
 import type { UiLocale } from '../i18n/datetime'
 import { DENSITY_FONT } from '../config/theme'
-import { getPlatform, settingsApi } from '../api/ipc'
+import { bootApi, getPlatform, settingsApi } from '../api/ipc'
 import { i18n } from '../i18n'
 
 export type AppFontId = 'sans' | 'serif' | 'mono'
@@ -74,21 +74,43 @@ export function createTweakStore(): TweakStore {
   return Object.assign(store, {
     load: (): (() => void) => {
       let cancelled = false
-      void settingsApi.get().then((s) => {
-        if (cancelled) return
-        store.setState({
-          t: {
-            theme: s.theme,
-            density: s.density,
-            sidebarCollapsed: s.sidebarCollapsed,
-            sidebarWidth: s.sidebarWidth,
-            appFont: s.appFont,
-            uiLocale: s.uiLocale,
-            notifyOnComplete: s.notifyOnComplete,
-            spendingLimitUsd: s.spendingLimitUsd
+      // 첫 읽기가 실패하면(부팅 중 핸들러 미등록 등) main 부팅 완료를 기다려 **한 번만** 다시
+      // 읽는다(0244 D-004). 그래도 실패하면 기본값이 조용히 남지 않도록 보고한다 — 이슈2 는
+      // 이 실패가 로그에만 남아 저장한 다크 테마가 라이트로 보였다. 해제 뒤에는 재시도도 멈춘다.
+      void (async () => {
+        try {
+          let s: Awaited<ReturnType<typeof settingsApi.get>>
+          try {
+            s = await settingsApi.get()
+          } catch {
+            if (cancelled) return
+            await bootApi.whenReady()
+            if (cancelled) return
+            s = await settingsApi.get()
           }
-        })
-      })
+          if (cancelled) return
+          store.setState({
+            t: {
+              theme: s.theme,
+              density: s.density,
+              sidebarCollapsed: s.sidebarCollapsed,
+              sidebarWidth: s.sidebarWidth,
+              appFont: s.appFont,
+              uiLocale: s.uiLocale,
+              notifyOnComplete: s.notifyOnComplete,
+              spendingLimitUsd: s.spendingLimitUsd
+            }
+          })
+        } catch (error) {
+          if (cancelled) return
+          reportError({
+            event: 'settings.tweak.load-failed',
+            scope: 'settings',
+            title: 'loadFailed',
+            error
+          })
+        }
+      })()
       return () => {
         cancelled = true
       }

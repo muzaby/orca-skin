@@ -59,7 +59,7 @@ import { registerProjectHandlers } from './handlers/project'
 import { registerMcpHandlers } from './handlers/mcp'
 import { registerEngineHandlers } from './handlers/engine'
 import { registerMiscHandlers } from './handlers/misc'
-import { registerSettingsHandlers } from './handlers/settings'
+import { registerSettingsHandlers, registerSettingsReadHandler } from './handlers/settings'
 import { registerSkillsHandlers } from './handlers/skills'
 import { registerFilesHandlers } from './handlers/files'
 import { registerArtifactHandlers } from './handlers/artifacts'
@@ -388,6 +388,13 @@ export class Bootstrap {
   }
 
   async start(): Promise<void> {
+    // ── 설정 읽기: **첫 문장에서 조기 등록** (0244) ────────────────────────────────
+    // 창은 start() 완료 전에 열리고(0109) `TweakProvider` 는 부팅 게이트 밖에서 마운트 즉시
+    // `settings:get` 을 부른다. 등록이 첫 `await` 뒤에 있으면 그 읽기가 거절돼 저장한 테마·글꼴·
+    // 언어 대신 기본값이 남는다. 읽기는 생성자가 만든 `SettingsStore` 만 필요해 DB·이관과 무관하다.
+    // 쓰기(`settings:set`)는 스케줄러가 필요해 `register(ctx)` 에 남는다.
+    registerSettingsReadHandler(this.settings)
+
     // ── 0225 이관 등급 확인: **DB·store 를 열기 전에** ────────────────────────────
     // DB 3종(`*.db`·`-wal`·`-shm`) 이동 실패만 여기서 부팅을 막는다(D-018). WAL 만 남고 DB 가
     // 옮겨진 상태로 DB 를 열면 WAL 꼬리가 조용히 유실되기 때문이다. 나머지 실패는

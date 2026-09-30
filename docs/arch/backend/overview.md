@@ -137,7 +137,11 @@ Electron App
 ```
 1. app.whenReady() → registerAppProtocol()  # app:// 커스텀 스킴 핸들러
 2. bootstrap = new Bootstrap()              # SettingsStore / McpStore / AdapterRegistry field-init
-3. bootstrap.start()                        # 각 단계 = bootReport.step* 래핑
+3. bootstrap.start()                        # 각 단계 = bootReport.step* 래핑. 창(4)은 이 promise 를 기다리지 않는다 (0109)
+   0. 동기 구간(첫 await 전)                 # 창보다 먼저 끝난다 — 부팅 게이트 밖 renderer 가 즉시 부르는 채널
+      - registerSettingsReadHandler           # orca:settings:get — TweakProvider 첫 테마 읽기 (0244)
+      - legacy-migration (critical)          # 이관 등급 확인
+      - 인증 스택 + registerConnectionHandlers # orca:provider:state 등 게이트 판정 채널 (0181/0188)
    a. db-init (critical)                    # initDb — better-sqlite3 초기화 + 마이그레이션(infra/db/migrations/) + 재시작 잔재 정착
    b. cost-recompute (critical)             # new UsageTracker(db, …) → 부팅 1회 일/주/월 합산 + 비용 요약 push 배선
    c. new Scheduler(DbRunRecorder)          # 'usage-recompute' job 등록(action = cost.recordAndBroadcast 주입)
@@ -157,7 +161,7 @@ Electron App
         - PendingMessageQueue · ApprovalCoordinator · PermissionModeController
         - updates: UpdateController (app/updater.ts — electron-updater, 0084~0086)
         - registerChatHandlers + session/project/mcp/engine/boot/update/misc 핸들러 등록
-4. createWindow(bootstrap.settings)         # BrowserWindow + webPreferences 명시
+4. createWindow(bootstrap.settings)         # start() 착수·boot:whenReady 등록 직후(3 과 병행). BrowserWindow + webPreferences 명시
    ├─ contextIsolation: true / nodeIntegration: false / sandbox: true
    └─ preload: '../preload/index.js'
 5. windowBounds 복구 + mainWindow.on('close') → settings.patch({ windowBounds })

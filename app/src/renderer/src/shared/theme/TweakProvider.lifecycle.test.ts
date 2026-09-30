@@ -33,6 +33,7 @@ vi.mock('react', async (original) => ({
 }))
 vi.mock('../api/ipc', () => ({
   settingsApi: { get: h.get, set: h.patch },
+  bootApi: { whenReady: () => new Promise(() => {}) },
   getPlatform: () => 'win32'
 }))
 vi.mock('../i18n', () => ({ i18n: { changeLanguage: h.changeLanguage } }))
