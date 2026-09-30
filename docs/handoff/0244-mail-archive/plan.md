@@ -13,9 +13,9 @@
 | 일자 | 2026-09-29 |
 | 매핑 | PR 브랜치 `codex-0244-mail-archive-plan` → `main` |
 | 조사 기준 | `f2f60ac338f2847f81a6cbc426f0728b7eb8d98e` (`git cat-file -t` → commit 확인) |
-| 상태 | **READY — ΔV7의 S3-A 빌트인 MCP 검색·조회·근거·세션 범위 경로만 구현 가능. PG-03·S2·전체 S1과 나머지 S3는 미완료, 독립 verify 미착수** |
+| 상태 | **READY — ΔV8의 S3-A 표준 Plugin 도구 팩터리·검색·조회·근거·세션 범위 경로만 구현 가능. 등록은 사용자 Deployment 소유. PG-03·S2·전체 S1과 나머지 S3는 미완료, 독립 verify 미착수** |
 | V mode / 기준 V | `Delta V` / 독립안 `V1@3f9558d9ec7fca52bc7c55533031051ba5d5b96a` |
-| 이번 V revision / 유효 V | `ΔV7` / `V1 + ΔV2 + ΔV3 + ΔV4-A + ΔV5 + ΔV6 + ΔV7`. READY는 S3-A의 키워드 MCP 경로이며 S2 실모델·PG-03은 범위 밖 |
+| 이번 V revision / 유효 V | `ΔV8` / `V1 + ΔV2 + ΔV3 + ΔV4-A + ΔV5 + ΔV6 + ΔV7 + ΔV8`. ΔV8이 ΔV7의 등록 owner/수명을 정정. S2 실모델·PG-03은 범위 밖 |
 
 # Part I — Product & UX Contract
 
@@ -84,6 +84,7 @@
 | D-032 | 형식 통합 전환에서 이미 보관된 EML/PST 중복을 처리하는 방식 | 기존 ID를 alias로 유지해 검색 결과를 통합할지, 기존 중복은 유지하고 신규 입력부터 중복 차단할지 확인 필요 | 사용자에게 질문 2026-09-30, 답변 대기 | **OPEN** | PG-03 / AC3·5·7·17. 기존 메일·첨부 ID와 본문 보존은 두 안의 공통 전제 |
 | D-033 | S2는 로컬 임베딩만 구현. 임베딩 API는 reserved. FTS5 기본·선택형 E5-small 384d·SQLite BLOB exact scan·ANN/reranker 보류 승계 | “S2: 로컬 임베딩만. Api는 reserved.” | 사용자 2026-09-30 | **ACTIVE** | D-004·024 대체 / AC8·10~12·19·20·24. D-003·028·030 유지 |
 | D-034 | 244의 S3 기능을 빌트인 MCP Plugin으로 노출 | “이것이 s3에 대한 답변이다”. 기존 채팅이 공통 도구를 호출하며 별도 AI 연결 설정을 추가하지 않음 | 사용자 2026-09-30, “계속” | **ACTIVE** | AC18·22·23·25. EML 내부 입력·PST GUI·로컬 임베딩 결정 유지 |
+| D-035 | 다른 플러그인 도구와 같은 표준 팩터리로 제공. 실제 등록은 사용자 Deployment 소유 | “다른 플러그인도구와 똑같이 취급… 사용자 측에서 deployments에서 등록”. Bootstrap 자동 등록·Deployment deps 주입/파일 편집은 하지 않음 | 사용자 2026-09-30 정정 | **ACTIVE** | AC25·VP-30~33·EP-26. ΔV7의 Bootstrap 등록 해석만 대체 |
 
 V1의 D-001~D-016을 유지하고 조사 보완 D-017~D-023, 경량 기준 D-024, 구현 범위 D-025, 자료원·메일 identity D-026을 반영했다. 기준은 이 독립안의 V1이며 다른 브랜치의 라이브러리 승인·모델 선택·V를 상속하지 않는다.
 
@@ -301,7 +302,7 @@ scope가 바뀌면 인용 결과의 중복 접기와 주변 문맥을 새 scope�
 
 | R | AT / AC | 동작 기준 | 검증 수단 | production path |
 |---|---|---|---|---|
-| R-10 | AT-26 / AC25 | 빌트인 MCP Plugin이 허용된 실제 세션에서 보관 메일을 검색·조회·관계/근거 반환한다. 등록 인스턴스 유지, 빈 보관함/해제된 범위는 명시 실패 | 실제 registry→Claude MCP adapter→handler 왕복, 서로 다른 두 세션/자료원·취소/제거/restart oracle, plugin 카탈로그 범위 설정과 출처 열람 | Plugin UI→trusted IPC→scope→index worker, runtime tool→같은 scoped service→persisted evidence→UI |
+| R-10 | AT-26 / AC25 | 표준 Plugin 도구 팩터리가 사용자 Deployment 등록 후 허용된 실제 세션의 보관 메일을 검색·조회·관계/근거 반환한다. 같은 서버 인스턴스를 재사용하고 미등록/해제된 범위는 UI·도구에 명시 | 실제 팩터리→registry→Claude MCP adapter→handler 왕복, 미등록 기본 빌드·두 세션/자료원·취소/제거/restart, Plugin 범위 설정·출처 열람 | Deployment 소유 등록→runtime tool→scoped index worker→evidence→UI. Bootstrap은 로컬 backend/IPC 수명만 연결 |
 
 ## 7-A. V / Trace Matrix
 
@@ -455,7 +456,7 @@ M-EMBED-API는 EP-25d의 로컬 실패 처리를 원격 임베딩 fallback으로
 
 현재 변경 산출물의 gate는 Decision→AC→V/EP→기술 경로·plan/INDEX 교차 대조, 링크·표·UTF-8, doc-inventory·diff·trailer다. S2 구현 gate는 local-only schema/manifest/cache UT→실 worker·SQLite IT→취소/전환/restart ST→실 모델·UI·오프라인 설치본 AT, M-EMBED-API, lint/typecheck/build와 해당 기존 회귀다. 모델 팩·runtime·기준 PC를 닫기 전 S2는 DRAFT다.
 
-### ΔV7 — S3-A 빌트인 MCP 노출 (2026-09-30, READY)
+### ΔV7 — S3-A 빌트인 MCP 노출 (2026-09-30, 등록 owner는 ΔV8로 대체)
 
 판정은 **독립 경로 READY**다. D-034는 S3의 공개 표면을 빌트인 MCP Plugin으로 확정하며 D-003의 기존 채팅 환경은 같은 `RuntimeToolRegistry`를 소비한다. S2가 준비되기 전에도 S1 키워드 검색으로 도구를 제공하고 semantic 미구현을 응답에 표시한다.
 
@@ -482,6 +483,23 @@ Technical Design: `features/plugins/mail-archive/tools.ts`가 `orca_mail_archive
 근거는 기존 불변 mail ID를 본문 version으로 쓰고 연속 UTF-16 start/end·sessionId/runId와 함께 index DB에 반환 전 저장한다. 출처는 opaque evidence ID이며 같은 실제 세션의 허용된 메일만 resolve하고 마지막 occurrence 제거는 내용 없는 tombstone으로 처리한다. 두 Markdown 경로는 도메인 중립 internal-link callback을 소비하고 app이 근거 viewer를 주입해 보관 본문·강조 범위·포커스 복귀를 제공한다.
 
 게이트: strict args/paragraph/scope UT→SQLite/실 tool/IPC/registry/adapter IT→late 결과·reopen·session/source 제거 ST→실 Electron worker·Plugin UI AT, M-ARCHIVE-MCP. app lint/typecheck·변경 관련 Vitest와 기존 MIME/보관함/registry/adapter 회귀, migration append-only·doc inventory·Vite build를 수행한다. 실제 사내/Bedrock 답변 품질과 설치본 smoke는 기존 AC18/24의 미완료로 보존한다.
+
+### ΔV8 — Plugin 등록 owner 정정 (2026-09-30, READY)
+
+판정은 **READY**다. D-035는 MCP 공개 계약을 유지하며 등록 owner만 사용자 Deployment로 확정했다. `app/deployment/` 파일·`PluginDeploymentDeps`를 수정하거나 로컬 service를 그 계약에 주입하지 않는다. Bootstrap은 기존 PST GUI/내부 EML API를 위한 service와 trusted IPC 수명을 연결하고 RuntimeToolRegistry에 메일 서버를 add/remove하지 않는다.
+
+도구 진입점 `features/plugins/mail-archive/plugin.ts:createMailArchiveToolServer()`는 다른 Plugin 도구처럼 표준 `RuntimeToolServer`를 반환한다. 팩터리는 초기 DB 부팅 전에 호출 가능하고 handler는 Bootstrap에서 설치한 단일 로컬 backend에 지연 연결한다. backend 설치/해제는 명시적 수명 포트이며 호출 전에 준비되지 않았으면 `isError: true`로 실패한다. 배포가 sync마다 팩터리를 재호출하지 않고 반환 인스턴스를 보존한다. 별도 Auth 자격증명을 합성하지 않는다.
+
+Product/UX: 기본 Deployment가 등록하지 않은 현재 빌드의 Plugin 카드에는 AI 도구 비활성 상태를 표시한다. 자료원/세션 scope 관리는 가능하며 실제 등록 후 같은 카드와 근거 열람을 사용한다. 자료원 제거는 등록 상태를 자동 변경하지 않고 scoped read/evidence만 무효화한다. 빈 결과는 빈 집합과 부족한 근거로 명시한다.
+
+| 기존 node/pair | ΔV8 requiredness / 변경 경로·oracle |
+|---|---|
+| R-10/AT-26 · VP-30 | REQUIRED / 실제 공개 팩터리를 배포 역할의 fixture에서 registry에 등록→SDK handler→worker→출처. 현재 기본 빌드는 미등록 표시. `M-ARCHIVE-FACTORY`: 공개 팩터리가 빈 서버를 반환하면 실행 oracle red |
+| SD-06/ST-06 · VP-31 | REQUIRED / backend 준비/종료·scope/revoke·세션/자료원 제거·late/reopen. 배포 등록 수명과 자료원 수명을 분리 |
+| AR-08/IT-08 · VP-32 | REQUIRED / Bootstrap backend/IPC 설치→공개 팩터리→사용자 등록 registry→SDK. M-ARCHIVE-FACTORY 승계. 자동 등록 없음은 실제 기본 registry snapshot으로 확인 |
+| MD-09/UT-09 · VP-33 | REQUIRED / strict args·실세션 scope·SQL 교집합·persisted UTF-16·64 KiB 계약 승계 |
+
+ΔV7의 `M-ARCHIVE-MCP`(Bootstrap 등록 제거)는 등록 자체가 금지되어 적용 종료이며 `M-ARCHIVE-FACTORY`로 대체한다. 기존 VP-06·08·16·22·23 REGRESSION, EP-27/28, AC 총수 25, 운영 gate는 승계한다. 현재 체크아웃에서 사용자 배포를 대신 작성하지 않으며 배포 후 사내/Bedrock 실 답변·설치본 검증은 미완료로 남긴다. READY self-review: 현재 `createPluginBindings()`는 빈 배열이며 Bootstrap은 이를 호출해 표준 registry를 전달한다. 공개 팩터리와 backend 수명 포트로 이 계약을 확장하지 않고 연결할 수 있다.
 
 ### ΔV4-A 경로·검증 정정
 
@@ -866,7 +884,7 @@ UI의 `set-session-scope`는 실제 세션 존재와 호출 창의 소유 관계
 | EP-20 / 3 | scoped exact vector scan | a dimension/fingerprint validation on write; b filter-first BLOB scan and cosine ranking; c generation swap·삭제·재시작 | VP-04·VP-06·VP-07·VP-08·VP-09·VP-11·VP-14·VP-17·VP-21·VP-22 | reference cosine·scope·dimension mismatch·reopen. 잘못된 결과/범위 유출 |
 | EP-21 / 9 | D-012 worker boundary·source revision protocol | a main이 DB 경로로 index utility process 시작; b index가 migration/DB를 열고 ready 회신; c main이 picker capability로 확인한 파일만 source worker에 전달; d source worker가 시작 fingerprint·reader를 실행; e 최대 25개 DTO batch를 보내고 ack까지 대기; f main이 jobId/epoch를 확인해 batch 전달; g index가 epoch 확인 후 transaction commit·ack; h source 완료 fingerprint와 index revision verify를 대조; i cancel/exit/shutdown이 epoch를 폐기하고 늦은 batch·revision 승격을 거절 | VP-01·VP-07·VP-09·VP-13·VP-14·VP-17·VP-23·VP-24·VP-25 | main event loop 정체·무한 큐·취소 후 commit·stale revision 활성화·잘못된 counter |
 | EP-25 / 5 | D-033 로컬 전용·임베딩 API reserved | a shared profile schema/IPC가 local만 수용; b settings local 팩 선택·상태; c bootstrap embedding port는 local worker만 주입; d document/query scheduler·실패 분기는 local 또는 키워드 검색; e worker는 등록 로컬 파일만 로드·추론 | VP-04·11·15·21 (ΔV6), 상위 회귀 | API 활성화·자격증명/HTTP 요청·원격 모델 자동 로드·원격 fallback |
-| EP-26 / 6 | D-034 builtin MCP Plugin | a bootstrap server 1회 생성; b verified 데이터 변화 add/remove; c registry→harness snapshot; d 도구 declaration/strict input·readOnlyHint; e context session/signal→handler; f Plugin 카탈로그 MCP slot/관리 목적지 | VP-30~33 | 등록 누락·빈 성공·EML 내부 주입의 모델 노출·가짜 Auth |
+| EP-26 / 6 | D-034/035 표준 Plugin 도구 | a 공개 팩터리/server 1회 생성; b Bootstrap backend 준비/해제·자동 등록 없음; c 사용자 등록 registry→harness snapshot; d 도구 declaration/strict input·readOnlyHint; e context session/signal→handler; f Plugin MCP slot/미등록 표시·관리 목적지 | VP-30~33 | 빈 서버·자동 등록·EML 내부 주입의 모델 노출·가짜 Auth |
 | EP-27 / 7 | session scope·revoke | a UI 대화·sourceIds/날짜 선택; b trusted IPC/core session 검증; c index DB scope 저장/lease; d SQL candidate 이전의 scope 교집합; e get/thread/resolve 동일 predicate; f 반환 직전 signal/revision/session 검사; g session/source 제거·restart 정리 | VP-30~33 | 다른 자료원/세션 노출·필터 후 limit 누락·late 반환 |
 | EP-28 / 5 | bounded evidence·출처 | a 연속 UTF-16 span/64 KiB pack; b index evidence persist-before-return; c 세션/허용 occurrence resolve·tombstone; d completed/streaming Markdown internal callback; e viewer 본문 강조·닫기 포커스 | VP-30~33 | 조작 출처·현재 본문으로 옛 근거 변경·첨부 혼입·클릭 단절 |
 
