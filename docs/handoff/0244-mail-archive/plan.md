@@ -13,9 +13,9 @@
 | 일자 | 2026-09-29 |
 | 매핑 | PR 브랜치 `codex-0244-mail-archive-plan` → `main` |
 | 조사 기준 | `f2f60ac338f2847f81a6cbc426f0728b7eb8d98e` (`git cat-file -t` → commit 확인) |
-| 상태 | **DRAFT — r1.5에서 ΔV4-A 독립 경로 구현; PG-01~03 규범 정정은 planner 대기. 전체 S1 미완료·독립 verify 미착수** |
+| 상태 | **READY — ΔV5의 PST 손상 보존·정규화 EML 내부 배치 API·EML 입력 GUI 제거 경로. PG-03 identity 전환은 별도 설계 대기; 전체 S1 미완료·독립 verify 미착수** |
 | V mode / 기준 V | `Delta V` / 독립안 `V1@3f9558d9ec7fca52bc7c55533031051ba5d5b96a` |
-| 이번 V revision / 유효 V | `ΔV4-A` / `V1 + ΔV2 + ΔV3 + ΔV4-A (아래 독립 경로)` |
+| 이번 V revision / 유효 V | `ΔV5` / `V1 + ΔV2 + ΔV3 + ΔV4-A + ΔV5`. PG-03과 S2/S3의 미확정 경로는 READY 범위 밖 |
 
 # Part I — Product & UX Contract
 
@@ -38,6 +38,8 @@
 | 독립안 요청 | “원격브랜치 무시하고 244로 만들어라. 비교 후 선택할 것이다. 작성자는 codex로 할 것” | 번호 0244, 작성자 Codex, 기준 main, 타 계획의 사용자 승인을 전용하지 않음 |
 | 조사 반영 요청 | “조사 내용을 바탕으로 보완점이나 구현 방안을 구체화하라” + `mail-archive-rag-report.md` | 1차 구현·모델 문서와 대조하고 이 plan에 전처리·검색·UX·실증 조건 통합 |
 | 문서 통합 요청 | “델타 문서는 따로 작성하지말고 plan 문서에 합쳐라” | 보완 계약을 해당 절에 통합하고 별도 델타 파일·참조 제거 |
+| 손상 보존 결정 | “pst 손상 발견 시 마지막 업데이트까지만 유지.” | 손상된 PST의 이번 revision 전체를 공개하지 않고 이전 완료·검증 이력 유지. 후속 답변 D-029 |
+| EML 배치 결정 | “Eml 배치 주입은 내부 함수(api)로만 제공할 것. 전처리 후 배치로 전달 예정. 수핸되는 동안 전처리기는 다시 파일 리드 위주의 작업을 진행할 것임. Gui 로 제공하지 않을 것임.” | EML 배치 입력 GUI를 없애고 내부 함수로 제공. 소비 중 다음 파일 읽기가 진행되는 유한 파이프라인 설계 |
 
 ## 3. Decision Ledger
 
@@ -69,16 +71,37 @@
 | D-022 | 로컬 모델 비교를 e5-small, EmbeddingGemma 768/256으로 구체화; API 동일 평가 | 공개 점수 대신 동일 한국어 메일 질의셋으로 선택 | 조사 + 공식 모델 카드 | **SUPERSEDED → D-024** | AC10·11·19·24 |
 | D-023 | 설계 계약은 plan 한 문서에 통합 | 별도 델타 문서를 왕복하지 않고 현재 계약을 읽음 | 사용자 | ACTIVE | G-DOC |
 | D-024 | 첫 기준을 단순·경량으로 구성: FTS5 기본, 선택형 로컬/API 임베딩, E5-small 384d + SQLite BLOB exact scan, ANN·reranker·모델 비교군 보류 | 경량화 방향을 선택했다. 실행 가능성은 S0 실증 조건 | 사용자 “경량화 방향으로 선택” + 공식 모델/runtime 자료 | **ACTIVE** | AC7~12·19·24 / S0 |
-| D-025 | 이번 구현 라운드는 PST·EML 가져오기와 검색으로 제한하고, EML은 파일 단건과 폴더 배치를 모두 제공 | 임베딩·RAG 계약은 유지하되 S2로 미루고, 1차 검색을 모델 설정 없이 즉시 사용 | 사용자 “Pst, eml 검색 1차구현. Eml은 배치로 입력 가능하게” | **ACTIVE** | AC1~3·7·9·17·19·22·23 / S1 |
+| D-025 | 이번 구현 라운드는 PST·EML 가져오기와 검색으로 제한하고, EML은 파일 단건과 폴더 배치를 모두 제공 | 임베딩·RAG 계약은 유지하되 S2로 미루고, 1차 검색을 모델 설정 없이 즉시 사용 | 사용자 “Pst, eml 검색 1차구현. Eml은 배치로 입력 가능하게” | **SUPERSEDED → D-028** | S1 범위는 승계. EML 입력 경로는 사용자 후속 결정으로 정정 |
 | D-026 | 자료원 ID는 형식과 canonical path에서 안정적으로 만들고, 전체 파일 fingerprint는 revision 변경 검증에만 쓴다. 메일 identity는 Message-ID와 정규화 payload hash를 결합하며, Message-ID가 없으면 같은 자료원의 locator와 payload hash를 결합한다. | PST 누적·변경이 새 메일 중복 삽입으로 이어지지 않는다. 같은 ID의 다른 본문은 별도 행으로 보존하고, 유사도만으로 메일을 병합하지 않는다. | Codex 구현 제안 — 사용자 문제 제기 후 구현 계속 지시 | **ACTIVE** | AC3·AC5·AC7 / S1 |
+| D-027 | PST 손상 발견 시 마지막 업데이트까지만 유지 | “pst 손상 발견 시 마지막 업데이트까지만 유지.” | 사용자 2026-09-30 | **ACTIVE** | AC2·3·20. 보존 시점의 정확한 단위는 D-029 |
+| D-028 | S1은 PST·EML 가져오기·검색. EML 배치 주입은 전처리 후 내부 함수(API)로만 제공하며 GUI로 제공하지 않음 | “수핸되는 동안 전처리기는 다시 파일 리드 위주의 작업을 진행할 것임.” | 사용자 2026-09-30 | **ACTIVE** | D-025 대체 / AC1·3·19·23. S2/S3 범위 유지 |
+| D-029 | 손상 PST는 직전 가져오기가 끝나 검증된 상태를 유지. 이번 PST revision 전체를 적용하지 않음 | “직전 가져오기가 끝나 검증된 상태 유지: 이번 가져오기 전체는 적용하지 않음 (권고)” | 사용자 답변 2026-09-30 | **ACTIVE** | PG-01 확정 / AC2·3·20 |
+| D-030 | EML 내부 배치 API는 정규화된 헤더·본문·첨부 메타데이터와 원본 위치를 받음 | “정규화된 메일 데이터: 헤더·본문·첨부 메타데이터와 원본 위치 (권고)” | 사용자 답변 2026-09-30 | **ACTIVE** | PG-02 확정 / AC1·3·19. 전처리기가 파일/MIME와 읽은 원본 digest 검증 담당 |
+| D-031 | EML 입력 GUI를 모두 제거하고 PST 추가만 제공 | “EML 입력 GUI를 모두 제거하고 PST 추가만 제공 (권고)” | 사용자 답변 2026-09-30 | **ACTIVE** | AC1·23 / picker·preload·renderer. 기존 EML 검색·열람·제거는 유지 |
 
 V1의 D-001~D-016을 유지하고 조사 보완 D-017~D-023, 경량 기준 D-024, 구현 범위 D-025, 자료원·메일 identity D-026을 반영했다. 기준은 이 독립안의 V1이며 다른 브랜치의 라이브러리 승인·모델 선택·V를 상속하지 않는다.
 
 D-024는 사용자의 후속 구현 지시로 채택됐다. D-014는 S1에서 PST parser 후보를 닫고, 로컬 inference runtime·API 계약은 D-015에 남겨 S2에서 처리한다. `sqlite-vec`, ANN, reranker, Gemma 비교는 첫 기준에서 제외한다.
 
-ACTIVE 결정 ↔ AC 대조: D-001~D-012·D-017~D-021·D-024~D-026은 표의 AC·본문 경로와 대조한다. D-022는 사용자 선택을 반영해 D-024로 대체됐다. 문서 요구 D-013·D-023은 G-DOC로 확인한다. D-015~D-016은 S2·S3의 OPEN으로 남기며, 현재 READY 판정은 D-025·D-026의 S1 경계에만 적용한다.
+직전 설계 대조는 D-001~D-012·D-017~D-021·D-024~D-026과 당시 AC·본문 경로를 기준으로 했다. D-022는 D-024로, 이번 턴의 D-025는 D-028로 대체됐다. 문서 요구 D-013·D-023은 G-DOC로 확인하며 D-015~D-016은 S2·S3의 OPEN으로 남긴다.
 
-### ΔV4-A — 결정 대기와 독립 구현 경로 (2026-09-30)
+### ΔV5 — 손상 보존·내부 EML 배치 결정 반영 (2026-09-30, READY)
+
+D-027~031은 사용자 명시 결정이다. D-025의 S1 범위는 승계하고 EML 파일·폴더 입력 GUI 해석을 대체한다. PST는 직전 완료·검증 이력을 보존하고 EML은 정규화 데이터를 내부 함수로 주입한다.
+
+| 대상 | 확정 / 남은 확인 | 설계·검증 영향 |
+|---|---|---|
+| PG-01 | D-029로 확정: 손상된 PST의 이번 revision 전체 미공개 | 이전 verified의 ID·본문·첨부 참조·검색 집합과 성공 counter 유지. 첫 입력 손상은 공개 메일 0 |
+| PG-02 | D-030·031로 확정: 정규화 데이터 내부 API, EML 입력 GUI 전체 제거 | 기존 D-026의 EML 원본 파일별 자료원 유지. 폴더 하나=자료원 하나라는 종전 권고는 채택하지 않음 |
+| PG-03 | 형식 통합 identity와 이름/주소 정규화는 기술 설계 대기 | 기존 ID·첨부 참조·공유 occurrence 유지가 선행. sourceKind 제거만으로 전환하지 않음 |
+
+소비자가 한 배치를 저장하는 동안 전처리기는 다음 파일 읽기·전처리를 진행한다. API는 한 배치만 처리하고 완료 Promise를 ACK로 반환하며, 생산자는 다음 한 배치까지만 준비한 뒤 ACK를 기다린다. 기존 D-012의 자식 프로세스 격리·index 단일 writer·epoch 취소를 유지한다.
+
+ACTIVE 결정 ↔ AC 대조: D-028/030/031→AC1·19·23의 내부 주입·병행 읽기·PST GUI, D-027/029→AC2·3의 이전 verified 보존을 아래 pair와 대조했다. 기존 ID/첨부 보존 D-026과 비영향 계약은 유지한다. r1.4/r1.5의 GUI 증거는 당시 계약의 이력으로 보존한다.
+
+### ΔV4-A — 직전 구현 경로와 당시 결정 대기 기록 (2026-09-30)
+
+> 이 절은 r1.5 구현 기준 이력이다. 현재 사용자 결정과 확인 항목은 위 ΔV5가 정본이며, 아래 파일/폴더 추가 GUI를 새 구현 계약으로 승계하지 않는다.
 
 사용자의 “이어서 진행하라”에 따라 기존 ACTIVE 계약의 미구현 경로를 계속한다. PG-01 손상 PST 부분 공개와 PG-02 EML 폴더 관리 단위는 사용자 답변 대기이며, PG-03 형식 통합 identity 전환은 기술 설계 대기다. **이 세 경로는 READY가 아니며 기존 reader·source/revision·identity 동작을 이번 구현에서 바꾸지 않는다.**
 
@@ -132,7 +155,7 @@ E5-small은 한국어를 포함한 다국어 모델이며 384차원이다. 모�
 
 ```text
 설정 > 메일 보관함                         메일 보관함 화면
- ├ 자료원: EML 폴더 / PST 파일 추가    →    검색어 [서버 이전 보류] [검색]
+ ├ 자료원: PST 파일 추가             →    검색어 [서버 이전 보류] [검색]
  ├ 처리 현황·오류·재시도·경로 재연결        범위 [전체 보관함] 기간 [전체] 사람 [전체]
  ├ 의미검색: 사용 안 함 / 로컬 / API        검색 결과 목록  │ 선택 메일 / 대화 흐름
  └ [보관함 열기]                           [이 범위로 질문] │ [선택 첨부 추출]
@@ -145,10 +168,10 @@ E5-small은 한국어를 포함한 다국어 모델이며 384차원이다. 모�
 
 ### 최초 가져오기
 
-1. 빈 화면에 `EML 폴더 추가`, `PST 파일 추가`, 지원 범위 설명을 보여 준다. OS 선택기로만 경로를 등록한다.
+1. 설정에서 `PST 파일 추가`만 제공한다. EML은 전처리기가 내부 함수로 전달하며 단일·복수 파일·폴더 입력 GUI를 제공하지 않는다.
 2. 자료원별 준비 결과에 파일/폴더 수, 예상 처리량 또는 `계산 중`, 경로 접근 오류를 표시한다. PST는 메일 폴더를 선택할 수 있고 기본은 전체 메일 폴더이다.
-3. `가져오기` 후 저장된 배치부터 검색 가능하다. `검색 가능한 메일`과 `의미검색 준비된 메일`을 따로 표시한다.
-4. 설정을 닫아도 진행한다. `취소`는 해당 작업만 멈추고 이미 가져온 메일은 남긴다.
+3. EML은 완료·검증된 입력부터 검색할 수 있다. PST는 revision 전체의 시작/완료 fingerprint 일치와 정상 순회 뒤 공개한다. `검색 가능한 메일`과 `의미검색 준비된 메일`을 따로 표시한다.
+4. 설정을 닫아도 진행한다. `취소`는 해당 작업만 멈추며 EML의 완료·검증된 입력은 남긴다. PST 취소·손상·재시작 시 미완료 revision 전체를 제외하고 이전 verified 이력을 유지한다.
 
 이름검색은 `견적서.xlsx`라는 **첨부 이름을 가진 메일**을 찾는다. `선택 추출`은 그 첨부 하나를 원본에서 꺼내 파일로 저장하는 동작이며, 파일 속 셀·문장·이미지는 검색 대상이 아니다.
 
@@ -186,13 +209,14 @@ scope가 바뀌면 인용 결과의 중복 접기와 주변 문맥을 새 scope�
 |---|---|---|
 | 스캔/파싱/저장/임베딩 중 | 처리 단계·완료/새로 저장/기존 자료원에서 확인/실패 수, 전체 미확정 시 퍼센트 대신 건수. 변경 PST는 `새 revision 확인 중 · 기존 검색 결과 유지`를 표시한다. | 자료원별 취소, 화면 이동 |
 | 일부 메일만 가져옴 | `일부 자료만 검색됩니다` + 현재 검색 가능 수 | 현재 자료 검색 / 처리 계속 |
-| 손상 EML/PST 항목 | 실패 이유와 항목 식별자, 정상 항목은 유지 | 실패 항목만 재시도 / 실패 목록 저장 |
+| 손상 EML 입력 | 실패 이유와 항목 식별자, 완료·검증된 입력 유지 | 내부 API 호출자에게 실패 결과 반환 |
+| 손상 PST | 실패 이유 표시, 손상된 PST의 새 revision 전체 미적용. 이전 완료·검증 이력 유지 | 원본 복구 후 재가져오기 |
 | 원본 이동·오프라인 | 저장 본문 열람·검색 가능, `원본 연결 필요` | 경로 재연결; 첨부 추출 비활성 |
 | 원본 내용 변경 | PST는 새 revision을 검증하는 동안 이전 검색 결과를 유지한다. 완료 후 새 메일만 추가하고 이미 확인한 메일은 제외 수로 보여준다. 같은 ID의 수정 본문은 별도 결과로 보존한다. | 재가져오기 결과의 새 메일·기존 메일·실패 수 확인 |
 | 키워드 0건 | 적용 필터와 검색 범위 표시 | 필터 해제·기간 확대를 명시적으로 선택 |
 | API 인증 오류/오프라인 | `의미검색을 사용할 수 없어 단어로 검색했습니다` | 설정 열기 / 재시도; 자동 외부 공급자 변경 없음 |
 | 새 모델 색인 중 | 기존 의미검색 유지, 새 색인 진행률 표시 | 취소 / 준비 후 전환 |
-| 작업 취소·앱 종료 | 완료된 EML 파일의 배치는 유지한다. PST staged revision은 취소 시 활성화하지 않고 이전 검증 revision을 유지한다. 재시작 시 미완료 revision은 `중단됨` | 재개·재시도. 자동 전량 재전송하지 않음 |
+| 작업 취소·앱 종료 | 완료·검증된 EML 입력 유지. PST staging은 공개하지 않고 이전 verified 이력 유지. 재시작 시 미완료 revision은 `중단됨` | 재개·재시도. 자동 전량 재전송하지 않음 |
 | 자료원 제거 | 삭제 대상 수·공유 중복 메일 유지·원본 파일 보존 안내 | 확인 후 제거 |
 | 오래된 출처 클릭 | 해당 버전 문단 또는 `자료원이 제거되어 근거를 열 수 없음` | 남은 출처 확인 |
 
@@ -216,11 +240,13 @@ scope가 바뀌면 인용 결과의 중복 접기와 주변 문맥을 새 scope�
 
 각 AT는 같은 번호의 AC를 검증한다. 아래 검증은 **구현 때 수행할 기준**이며 이번 문서 PR에서 통과했다고 주장하지 않는다.
 
+ΔV5의 변경 행은 아래 node/pair·§10을 구현 기준으로 사용한다. 직전 V·구현 자기보고는 그 당시 계약의 증거로 보존한다.
+
 | R | AT / AC | 관측 가능한 동작 기준 | 직접 검증 수단 | 프로덕션 도달 경로 |
 |---|---|---|---|---|
-| R-01 | AT-01 / AC1 | 빈 보관함에서 EML 폴더/PST를 등록하고 처리 현황·검색 진입 가능 | OS 선택기 stub→등록 카드→화면 이동, 취소 시 자료원 미생성 | 설정→IPC→자료원→보관함 |
-| R-01 | AT-02 / AC2 | 한글·HTML EML 및 ANSI/Unicode PST의 지정 메일·폴더·첨부 메타데이터를 읽음 | 합성/배포 허용 fixture의 기대 필드 전수 대조, 손상/비메일 항목 제외 이유<br>plain/html 대체 본문을 한 번만 색인, HTML-only·한글 charset·영어/코드 메일을 field golden으로 비교 | OS 등록→reader→normalize→DB<br>reader→body-selection→version |
-| R-01 | AT-03 / AC3 | 완료한 EML 파일은 취소 후에도 검색된다. PST revision은 시작/완료 fingerprint가 일치할 때만 활성화하고, 취소·변경 감지 시 이전 검증 revision을 유지한다. 재시도·재시작은 기존 메일을 중복 삽입하지 않는다. | EML 파일 간 취소와 PST revision 중간 취소·원본 변경을 각각 주입하고 검색 가능 메일·revision·카운터 대조 | 작업 UI→main→source/index worker→DB→event |
+| R-01 | AT-01 / AC1 | PST를 GUI로 등록하고 정규화 EML 배치를 내부 API로 전달해 검색·열람 가능. EML 입력 GUI 전체 제거 | 실제 PST picker→가져오기→검색과 내부 EML 호출→검색 ID 집합. EML 버튼 복원 변이·picker의 EML 경로 거절 | PST: 설정→IPC→worker. EML: 내부 producer→배치 API→index→보관함 |
+| R-01 | AT-02 / AC2 | 한글·HTML EML 및 ANSI/Unicode PST의 지정 메일·폴더·첨부 메타데이터를 읽음. 손상 PST는 이전 완료·검증 이력 유지 | 합성/배포 허용 fixture의 기대 필드와 비메일 제외 이유. 손상 전 신규 staging 배치가 검색에 없고 이전 ID·첨부 참조가 유지됨<br>plain/html 대체 본문·HTML-only·charset·영어/코드 field golden | 내부 EML 입력/PST 등록→reader·normalize→DB<br>reader→body-selection→version |
+| R-01 | AT-03 / AC3 | EML 완료·검증 입력은 취소 후에도 검색된다. PST 손상·취소·원본 변경은 새 revision 전체 미공개. 재시도·재시작은 기존 메일 중복 삽입 없음 | EML 입력 사이 취소와 PST 손상·원본 변경·재시작의 검색 ID·revision·성공 counter 대조. 첫 PST 손상은 검색 0, 기존 revision은 본문·ID·첨부 불변 | 내부 API/작업 UI→main→source/index worker→DB→event |
 | R-02 | AT-04 / AC4 | 인용·서명 포함 본문 열람과 옛 인용은 재색인/원본 이동 후에도 동일 | 버전 해시·UTF-16 범위로 표시 문장 일치, HTML script/외부 이미지 실행·요청 없음<br>인라인 답변·인용·서명을 재결합하면 snapshot과 동일, hit가 접힌 구간이면 펼침 | reader→version→본문/근거 뷰어<br>classifier→snapshot→viewer |
 | R-02 | AT-05 / AC5 | 같은 canonical path의 재등록은 새 전체 fingerprint여도 기존 메일을 재사용한다. 같은 Message-ID라도 정규화 payload가 달라지면 별도 행으로 보존하고, Message-ID 없는 메일은 같은 자료원의 locator와 payload가 모두 같을 때만 재사용한다. | 동일 PST의 추가 revision·동일 ID/변경 본문·ID 없음/다른 locator fixture에서 mail row와 revision occurrence 집합 대조 | rescan→stable source ID→mail identity→revision occurrence→search |
 | R-02 | AT-06 / AC6 | 역순 수집에도 Reply/References 연결 복원, 유사 제목만으로 확정 병합 안 함 | 역순/누락부모/다중후보/순환/동일제목 fixture의 edge kind·시간순 대조 | normalize→relations→thread view |
@@ -236,7 +262,7 @@ scope가 바뀌면 인용 결과의 중복 접기와 주변 문맥을 새 scope�
 | R-06 | AT-16 / AC16 | 선택 범위 밖 메일이 검색·확장·출처·첨부에 섞이지 않음 | 서로 다른 두 자료원·두 세션 및 위조 ID/필터 확장 요청에 대해 결과 집합 대조 | session scope→service→all read/export paths |
 | R-06 | AT-17 / AC17 | 선택 첨부만 추출, 원본 변경/소실은 명시 오류, 모델 호출은 기존 승인 경유 | 바이트 해시·추출 파일 수, 원본 변경 race, 승인 false/undefined/true 정책 확인 | UI export/tool approval→validated occurrence→Temp |
 | R-06 | AT-18 / AC18 | 기존 사내서버·Claude(Bedrock) 각각에서 같은 archive 도구로 근거 있는 답변 가능 | 각 실제 실행 경로에서 MCP result·출처 클릭·취소 확인, 기능별 품질평가 | current harness→runtime tool→context→answer |
-| R-07 | AT-19 / AC19 | 대량 처리 중 화면 입력·취소 가능, 큐와 메모리는 §14 예산 내 동작 | 대표 PC actual/1만 mail workload (실제 archive가 1만을 넘으면 5만) 측정, UI 이벤트·취소 ack·RSS 기록<br>cold/warm·색인 중 query·microbatch 크기별 p95/RSS/cancel·embedding 요청 수 기록 | UI/main→bounded worker jobs<br>cache→scheduler→scoped scan |
+| R-07 | AT-19 / AC19 | 대량 처리 중 화면 입력·취소 가능, 큐와 메모리는 §14 예산 내 동작. EML 배치 소비 중 전처리기의 다음 파일 읽기가 진행되고 대기 상한에서 멈춤 | ACK 지연 시 선행 읽기·슬롯/바이트 상한을 직접 관측<br>대표 PC actual/1만 mail workload의 p95/RSS/cancel 측정. 실제 archive가 1만을 넘으면 5만 추가 | 내부 EML producer→유한 큐→index ACK<br>UI/main→bounded worker jobs; cache→scheduler→scoped scan |
 | R-07 | AT-20 / AC20 | 앱/worker 종료와 재시작 때 손상 없이 중단 상태 복구, API 늦은 결과 미반영 | child kill·request abort·디스크 full·commit 전후 fault injection<br>cache/vector generation 쓰기 도중 kill·취소에서 기존 active 검색 복구 | lifecycle→jobs/generation→restart<br>lease/epoch→transaction→restart |
 | R-07 | AT-21 / AC21 | 자료원 제거는 고유 데이터 삭제·공유본 유지, 진행 요청이 삭제 데이터를 복원하지 않음 | import/API/context/첨부 read와 제거 경합, 옛 출처 tombstone 확인<br>자료원/세션 제거와 in-flight 완료 경합에서 cache·vector rows·늦은 결과 재생성 없음 | remove→revoke→DB purge→late response guard<br>revoke→refcount purge→return guard |
 | R-08 | AT-22 / AC22 | POP3·기존 채팅·산출물 동작을 보존하고 보관함 초기화가 해당 기능을 막지 않음 | 기존 MIME/권한 suite + 독립 DB·빈 archive 부팅·추가/제거 runtime tests | bootstrap→existing/new service→runtime |
@@ -247,13 +273,13 @@ scope가 바뀌면 인용 결과의 중복 접기와 주변 문맥을 새 scope�
 
 ## 7-A. V / Trace Matrix
 
-이 표는 V1 + ΔV2 + ΔV3 기준 계약이다. 현재 구현 라운드의 유효 범위는 D-025·D-026의 S1이며, S2·S3의 임베딩·RAG pair는 후속 라운드로 남긴다. 기준 V는 메타의 독립 V1 커밋이며, stable node·pair ID와 이전 oracle·선택 mutation을 보존한다. CHANGED는 계약 보완, INHERITED는 변경 없이 영향을 받는 회귀다. 앱이 아직 미구현이므로 기존 테스트 존재를 실행 PASS로 읽지 않는다.
+이 표는 V1 + ΔV2 + ΔV3 기준 계약이며 ΔV4-A 정정은 Part II에 있다. ΔV5는 아래 신규 pair로 변경된 입력·손상 정책을 닫으며 기존 상위 S1 pair의 미충족 범위를 승계한다. 기준 V는 메타의 독립 V1 커밋이며 stable node·pair ID와 이전 oracle·선택 mutation을 보존한다.
 
 ### 이번 라운드 S1 잠금
 
 | 항목 | 이번 구현에서 잠금 | 후속으로 남김 |
 |---|---|---|
-| 입력 | OS 선택 파일(`.eml`, `.pst`)과 EML 폴더 재귀 배치 | PST 폴더 선택 UX 고도화 |
+| 입력 | PST OS 선택과 정규화 EML 내부 배치 주입. EML 입력 GUI 없음 | PST 폴더 선택 UX 고도화 |
 | 검색 | 제목·발신자·수신자·참조·본문·첨부 이름, 모든 term AND, 짧은 한글 fallback, 자료원 필터 | 의미검색·hybrid fusion |
 | 저장 | archive 전용 SQLite/FTS5, stable sourceId·전체 파일 revision·메일 identity·occurrence, 첨부 본문 미저장 | vector generation·scope/evidence |
 | 작업 | source/index utility process 분리, bounded batch/backpressure, 취소·revision 검증·재시작 시 중단 상태 | 임베딩 generation 전환 |
@@ -323,6 +349,61 @@ M-WIRE는 EP-12a 등록 제거와 EP-01a 설정/페이지 슬롯 제거 각각�
 현재 문서 변경의 운영 gate는 §19 G-DOC·G-MSG이다. 구현 게이트와 제품 pair는 구현 턴에 수행한다.
 
 # Part II — Technical Design
+
+### ΔV5 — 내부 배치·PST 보존·GUI 제거 설계
+
+조사 기준은 공유 브랜치의 `49ec470d95907f9ec5e15b215a9c91d7b77571b5`이며 `git cat-file -t`로 commit을 확인했다. D-029~031의 사용자 답변을 반영했다. 이 경로는 PG-03의 메일 identity 전환과 독립이며 기존 key 알고리즘·DB migration을 바꾸지 않는다.
+
+| 현재 코드·검증 seam | 관측 | 변경 설계 입력 |
+|---|---|---|
+| `service.ts`의 `onBatch`→`onComplete`→`verifyRevision`, `store.ts`의 `abortRevision` | 배치는 staging 저장. 완료 검증 뒤 공개하며 실패 staging의 occurrence와 고유 메일을 제거 | PST 경로 재사용. 오류 전 새 배치를 저장한 뒤 오류를 주입해 이전 snapshot·첨부 ID·성공 counter 불변 검사 |
+| `batch-buffer.ts`와 `batch-buffer.test.ts`의 ACK 지연 케이스 | 기존 source reader는 저장 ACK까지 멈춤 | 내부 함수는 입력 한 배치 소비 Promise를 반환. 전처리기는 그 Promise를 보관하고 다음 배치 읽기를 진행한 뒤 ACK를 기다림 |
+| `service.ts`의 `import`, `types.ts`의 `MailArchiveImportInput` | 내부 서비스도 파일·폴더 경로만 받음. 전처리 결과 함수 없음 | `importEmlBatch(items,onProgress?)` 추가. 기존 job lock·epoch·자료원별 staging/verify를 재사용 |
+| `handlers/mail-archive.ts`→shared channel→preload→renderer API→`source-state.ts`→`MailArchiveSourceManager` | EML/PST 복수 파일 picker와 EML 폴더 picker가 설정에 연결됨 | EML folder channel·API·state 분기·버튼 제거. file picker는 PST 확장자만 허용하고 OS 반환 경로도 검사 |
+| `archiveSourceId`·`archiveMailIdentityKey`·store occurrence/attachment | 자료원은 형식+원본 경로. identity payload와 표시 주소가 결합돼 있음 | 입력 UI 제거로 보관된 EML·ID를 삭제하거나 폴더 단위로 재작성하지 않음. PG-03은 별도 전환 oracle 필요 |
+
+```text
+전처리 child: 파일 읽기 → MIME/본문 전처리 → 정규화 items
+    → main 내부 importEmlBatch → index worker → transaction/verify → Promise ACK
+    └ 소비 Promise가 진행 중인 동안 다음 한 배치 파일 읽기 → ACK 대기
+PST 설정 → 기존 picker capability → main job → source worker → index worker
+```
+
+`MailArchiveEmlBatchItem`은 `NormalizedArchiveMail`에서 `sourceKind/sourceId/identityKey`를 제외한 정규화 계약이다. 원본 canonical 절대 경로, 읽은 원본의 SHA-256 fingerprint, locator, 헤더·본문 선택/품질·첨부 manifest를 포함하며 첨부 바이트는 포함하지 않는다. 소비자는 sourceKind를 eml로 고정하고 D-026의 sourceId/identityKey를 계산해 caller가 내부 ID를 지정하지 못하게 한다.
+
+`eml-batch.ts`는 Electron/SQLite를 import하지 않는 schema·예산·identity seam이다. 한 호출은 1~25개·serialized JSON UTF-8 4 MiB 이하, 본문+대체 본문 합은 2 MiB 이하이며 같은 원본 경로의 중복 item을 거절한다. 입력 전체를 검증한 뒤 job을 열고 기존 source/index job과 동시 호출은 `mail_import_already_running`으로 거절한다.
+
+`service.ts`의 파일 가져오기와 내부 배치 함수는 하나의 job 루프를 사용한다. 정규화 입력에서는 source worker의 파일 재읽기·MIME 해석을 생략하고 index의 beginRevision→upsertBatch→verifyRevision을 실행한다. 완료 EML 파일은 보존하고 실패 입력은 staging abort 뒤 파일명·reason을 결과에 반환하며, Promise는 모든 해당 입력의 완료/실패·epoch 정리가 끝난 뒤 resolve한다.
+
+취소·제거·종료의 sourceIds는 호출 입력에서 먼저 확정하므로 기존 경합 처리와 같다. 생산자는 전처리 중 AbortSignal을 관측하고 consumer의 실패·cancelled 결과를 받으면 다음 배치를 주입하지 않는다. 원본 읽기 일관성·full digest 계산은 전처리기가 보장하며, 소비자는 파일을 재읽지 않고 첨부 추출 시 기존 full fingerprint 재검증을 유지한다.
+
+main은 정규화 DTO 검증·job 전달만 맡고 파일 읽기·MIME 파싱·DB는 D-012의 child에 둔다. 한 API 호출만 in-flight이며 생산자의 다음 배치 한 개를 합쳐 데이터 슬롯은 2개·직렬화 입력 최대 8 MiB다. 이 값은 입력 보유 예산이며 IPC 복사·DB cache를 포함한 RSS 상한이라고 주장하지 않는다.
+
+내부 호출 예제는 실제 타입·서비스로 typecheck하고 실제 worker fixture에서 실행한다. `const committing = service.importEmlBatch(batch); const next = await preprocessor.readNextBatch(signal); await committing;` 순서로 소비 중 읽기를 관측하며, caller는 ACK 전 다음 `importEmlBatch`를 호출하지 않는다. 이 함수는 renderer/preload/도구 API에 등록하지 않는다.
+
+| Node | 레벨 | 계약 | provenance / 기준 |
+|---|---|---|---|
+| R-09 / AT-25 | R / AT | AC1·2·3·19·23의 내부 주입·PST GUI·손상 보존 결과 | NEW / ΔV5. 기존 전체 AC를 축소하지 않음 |
+| SD-05 / ST-05 | SD / ST | 소비 중 선행 읽기, ACK·취소·제거·재시작 | NEW / ΔV5 |
+| AR-07 / IT-07 | AR / IT | 내부 normalized API→공통 job→index와 GUI picker 경계 | NEW / ΔV5 |
+| MD-08 / UT-08 | MD / UT | 입력 shape·byte/count cap·consumer identity 및 PST rollback | NEW / ΔV5; D-026 key 알고리즘 유지 |
+
+| Pair | left ↔ right | requiredness | production path | 직접 oracle / 선택 증거 | §10 자리 |
+|---|---|---|---|---|---|
+| VP-26 | R-09 ↔ AT-25 | REQUIRED | PST settings→picker→job→검색; 내부 EML→index→검색 | 실제 UI는 PST만 추가, 실제 내부 주입 메일·첨부 검색. M-EML-GUI: EP-23a에 EML 버튼 복원 시 UI 검사 red | EP-22(6)·23(6)·24(6) |
+| VP-27 | SD-05 ↔ ST-05 | REQUIRED | 전처리 읽기→소비 Promise→ACK; cancel/remove/kill→재조회 | 저장을 보류해도 다음 파일 읽기 완료, 이른 두 번째 주입 거절, 취소·제거 뒤 late write 없음, reopen에서 이전 PST만 공개. 직접 oracle | EP-22(6)·24(6) |
+| VP-28 | AR-07 ↔ IT-07 | REQUIRED | normalized input→job→index worker→DB; picker→capability | 실제 SQLite/worker의 검색 ID·counter·첨부 추출, EML 경로 picker 거절, 기존 private capability. 직접 oracle | EP-22(6)·23(6)·24(6) |
+| VP-29 | MD-08 ↔ UT-08 | REQUIRED | items→schema/budget→source/mail identity; PST staged write→abort | 잘못된 fingerprint/path/date/byte/count·중복 경로 입력은 쓰기 전 거절. caller ID 없음, 동일 입력 재주입 ID 재사용. 직접 oracle | EP-22a·b·c·d(4)·24(6) |
+
+기존 VP-01·07·08·09·13·14·17·18·23·24·25는 영향을 받는 S1 회귀다. 새 경로의 회귀는 실행하되 대표 ANSI/charset·PG-03·전체 설치본 등 기존 미충족이 남으면 해당 전체 pair를 SELF_PASS로 올리지 않는다. 기존 M-WIRE 설정 slot 제거 oracle은 유지하며 ΔV5는 EML GUI 복원 변이를 추가한다.
+
+| 강제 지점 / 자리수 | 계약 | 운반 자리 전수 | 연결 pair | 실패 의미 |
+|---|---|---|---|---|
+| EP-22 / 6 | 내부 EML batch shape·ACK | a pure 입력 validator; b 서비스 공통 job lock/epoch/sourceIds; c normalized→index 전달; d index upsert/verify·완료 counter; e producer fixture의 소비 Promise/다음 읽기/ACK; f cancel/remove/close의 epoch·settled | VP-26~29 | raw data·위조 ID·무한 queue·이른 ACK·삭제 복원 |
+| EP-23 / 6 | EML 입력 GUI 전체 제거 | a 설정 source manager; b source-state picker 분기; c renderer API; d preload API; e shared channel registry; f main picker handler·PST 경로 검사 | VP-26·28 | 버튼만 숨겼으나 renderer가 EML 경로를 여전히 등록 |
+| EP-24 / 6 | 손상 PST 이전 verified 보존 | a PST walker 오류/개수 검사; b source child 오류 전달; c service abort; d store staging cleanup transaction; e verified-only 검색·상세·통계; f startup interrupted 복구 | VP-26~29 | 손상 revision 일부 공개·counter 성공 오인·기존 ID/첨부 삭제 |
+
+자리 분모는 신규 18자리이며 기존 EP-21의 worker epoch·ACK 경계를 함께 회귀한다. 게이트는 schema/service/store/handler/source-state UT·IT, 실제 worker 내부 API/PST smoke, 실제 설정 UI·M-EML-GUI·기존 M-WIRE, subtree lint/typecheck, migration append-only·doc inventory·Vite build다. 원본 비복제·보관된 EML 데이터 불변·기존 attachments/relations/segments 회귀를 포함한다.
 
 ### ΔV4-A 경로·검증 정정
 
@@ -513,7 +594,7 @@ References/In-Reply-To는 역순 수집에도 재해결한다. 동일 Message-ID
 
 재스캔은 hash 확인 후 변경 파일만 다시 파싱한다. PST는 시작/완료 시 fingerprint 일치를 확인하고, 변경 중인 컨테이너의 새 revision은 활성화하지 않는다; 중단된 staging을 재개할 때도 fingerprint부터 확인한다.
 
-PST 한 revision의 완료 여부를 숨기지 않는다. 검증된 배치는 `부분 자료`로 검색 가능하되 원본 변경이 감지되면 해당 revision을 검색 대상에서 제외하고 이전 검증 revision을 유지한다.
+PST 한 revision의 완료 여부를 숨기지 않는다. 정상 순회와 시작/완료 fingerprint 검증 뒤 revision 전체를 공개한다. 손상·취소·원본 변경·child 종료에서는 이번 PST staging을 전부 제외하고 이전 완료·검증 이력을 유지한다.
 
 ### MIME와 첨부 경계
 
@@ -720,7 +801,7 @@ M-SCOPE의 전수 범위에는 새 EP-16c(quote fold), EP-18c(neighbor 확장), 
 | 단계 | 결과 | 종료 조건 / 이 계획 AC |
 |---|---|---|
 | S0 — S2·S3 실증·결정 | 임베딩/API 후보와 기준 PC 보고서, 후속 신규 의존성·정확 버전 | D-015~D-016 closed, D-024 실현 가능성 확인 후 S2/S3 READY로 승격 |
-| S1 — 보관·정확검색 (이번 라운드) | 자료원 UI, EML/PST reader, EML 폴더 배치, worker DB, 메타데이터/본문/파일명 검색·열람·선택 추출 | AC1~7·9·17·19~23의 S1 pair; 의미검색 미설정 상태가 정상 동작 |
+| S1 — 보관·정확검색 (이번 라운드) | PST 자료원 UI, EML 내부 배치 API, EML/PST reader, worker DB, 메타데이터/본문/파일명 검색·열람·선택 추출 | AC1~7·9·17·19~23의 S1 pair. ΔV5 입력·손상 경로 READY; PG-03은 별도 설계. 의미검색 미설정은 정상 동작 |
 | S2 — 두 임베딩 경로 | 로컬/API 프로필, chunk/vector, generation, hybrid UI | AC8·10~12·19·20·24 관련 pair; 두 구현체 모두 동작 |
 | S3 — 이력 답변·근거 UX | scope, context 도구, 기존 두 AI 경로, source card/인용 viewer | AC13~16·18·21~24, 나머지 유효 pair와 운영 gate 전부 |
 
@@ -795,6 +876,8 @@ S1에는 MIME 선택·품질 표시·가역 segment·필드 검색, S2에는 선
 ## 13. Lifecycle / 오류 / 정리
 
 ### 작업·취소·복구
+
+ΔV5의 PST 보존 시점·EML 입력은 D-029·030을 따른다. 아래 source worker 순서는 PST와 내부 파일 reader의 기준이며 정규화 EML 주입은 Part II의 ΔV5 공통 job→index 경로를 따른다.
 
 작업 상태는 `queued → scanning → importing → completed | partial | cancelled | failed`이며 재시작 복구는 `interrupted`이다. source health(`available/missing/changed`)와 embedding state(`not-configured/building/ready/degraded`)는 별도 축이다. main은 index utility process를 앱 수명 동안 유지하고 source utility process는 가져오기 작업 동안만 유지한다. 둘 다 Electron `utilityProcess.fork`로 실행하며 electron-vite `?modulePath` entry를 패키징한다.
 
@@ -979,7 +1062,19 @@ AC3·AC5·AC7을 변경하고 신규 VP-24(utility process 경계·revision prot
 
 자기검토에서 plan·INDEX 메타/다음 actor·D-012 출처·24 AC 연속성·25 pair 왼쪽 노드·21 EP의 자리수 합계와 worker protocol 순서를 대조한다. READY 구현 gate는 UT→IT→ST→AT, migration append-only, 두 utility process 실제 왕복/kill-restart, 설치본 worker entry·PST smoke다. S2/S3 OPEN은 이번 READY 범위 밖으로 유지한다.
 
-## READY self-review
+### ΔV5 READY 판정
+
+판정은 **독립 경로 READY**다. 사용자가 세 질문에 답변해 D-029~031을 ACTIVE로 확정했다. PG-03과 전체 S1의 미완료 기준을 유지한다.
+
+- D-027/029↔AC2/3↔EP-24: 손상 PST의 새 revision 전체 미공개와 기존 snapshot·counter 보존을 직접 oracle로 잠갔다.
+- D-028/030/031↔AC1/19↔EP-22/23: normalized 내부 함수와 소비 중 다음 읽기, PST 전용 GUI를 고정했다.
+- PG-03: 기존 메일·첨부 ID를 유지하는 전환과 형식 통합 oracle을 더 설계해야 한다. 이번 변경은 identity·DB·현재 architecture·앱 코드를 변경하지 않는다.
+- V: 신규 R/SD/AR/MD와 VP-26~29 REQUIRED, 영향받는 상위 S1 회귀, EP-22~24의 18자리·직접 oracle·M-EML-GUI를 등록했다. 기존 stable ID와 M-WIRE/worker 회귀는 보존했다.
+- 메시지 버스: plan 메타와 INDEX는 plan/READY·다음 주체 Codex로 함께 갱신한다. 아래 초기 READY 및 r1.4/r1.5 구현자 보고는 이전 기준 이력이다.
+
+설계 gate 관측: `git diff --check` 오류 0, app의 `node scripts/check-doc-inventory.mjs --check`에서 generated/prose/상대 링크 통과. 메타의 ΔV5 READY와 INDEX의 plan/READY·Codex를 다시 읽어 일치를 확인했다. 신규 네 node/pair와 EP-22~24의 자리수 `6+6+6=18`을 표와 대조했으며 코드·lockfile 변경은 없다.
+
+## READY self-review — 이전 설계 판정 이력
 
 - [x] 이번 대화의 사용자 요구와 Codex 제안을 분리하고, 원격 계획 승인·V를 상속하지 않았다.
 - [x] Product/UX, AS-IS→TO-BE, 24 AC, R/SD/AR/MD의 pair와 자리별 강제 지점·직접 oracle을 작성했다.
