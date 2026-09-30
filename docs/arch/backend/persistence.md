@@ -201,3 +201,7 @@ if (result.state !== 'cancelled' && !signal.aborted && next.length > 0) {
 본문 구간은 `archive_body_segment`에 메일 ID·ordinal·UTF-16 범위·종류·규칙·classifier revision·확실성으로 저장한다. `archive_body_projection`은 빈 본문을 포함한 분류 완료 revision을 기록한다. 순수 classifier를 새 메일 insert와 기존 메일 backfill에서 공유하며, 각각 index worker의 transaction 안에서 완료한다. projection 실패 시 본문과 기존 식별자는 유지되고 다음 열기에서 재시도한다. 메일 삭제는 FK cascade로 구간을 정리한다.
 
 검색의 필드·보낸 날짜 조건은 bound parameter로 결합한다. 자료원과 폴더 조건은 하나의 검증 완료 occurrence 안에서 모두 충족해야 하며 결과의 자료원·폴더 표시도 해당 occurrence에서 고른다. 첨부 이름은 attachment 행에서 literal로 비교하고 첨부 바이트는 색인하지 않는다.
+
+메일 Plugin의 대화별 허용 범위(`archive_session_scope`)와 근거(`archive_evidence`)도 같은 index worker에서 저장한다. scope token과 corpus revision을 읽기 전·반환 직전에 확인하며 source/date 교집합은 후보 제한과 관계 재귀 전에 적용한다. Bootstrap은 단일 backend/IPC 수명만 연결하고 도구 등록은 사용자 Deployment가 소유한다. `plugin.ts:createMailArchiveToolServer()`가 표준 RuntimeToolServer를 반환하며 같은 서버 인스턴스를 재사용한다.
+
+근거는 불변 보관 mail ID·본문 해시·연속 UTF-16 범위·실세션/run ID로 기록하고 반환 전에 commit한다. 원본 재읽기로 본문을 대체하지 않는다. 마지막 occurrence 제거 시 mail FK가 null로 바뀌어 내용 없는 tombstone을 반환한다. 현재 허용 occurrence가 없으면 접근 불가이며 세션 폐기와 부팅 시 고아 scope/evidence를 정리한다. 첨부 본문은 context에 포함하지 않는다.

@@ -14,6 +14,14 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { registerMailArchiveHandlers } from '../../src/main/app/handlers/mail-archive'
+import { registerMailArchivePluginHandlers } from '../../src/main/app/handlers/mail-archive-plugin'
+import {
+  createMailArchiveToolServer,
+  initializeMailArchivePlugin
+} from '../../src/main/features/plugins/mail-archive/plugin'
+import { RuntimeToolRegistry } from '../../src/main/features/extensions/runtime-tool-registry'
+import { ARCHIVE_MCP_TOOLS } from '../../src/shared/mail-archive-plugin'
+import type { ArchiveEvidence } from '../../src/shared/mail-archive-plugin'
 import { createMailArchiveWorkerFactory } from '../../src/main/features/plugins/mail-archive/worker-host'
 import { createMailArchiveService } from '../../src/main/features/plugins/mail-archive/service'
 import { archiveSourceId } from '../../src/main/features/plugins/mail-archive/identity'
@@ -21,6 +29,9 @@ import type { MailArchiveEmlBatchItem } from '../../src/main/features/plugins/ma
 import { CHANNELS } from '../../src/shared/ipc'
 import type { MailArchiveSearchRequest } from '../../src/shared/mail-archive'
 import Database from 'better-sqlite3'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
+import { adaptRuntimeTools } from '../../src/main/adapters/claude-runtime-tools'
 
 function deferred(): { promise: Promise<void>; resolve(): void } {
   let resolve!: () => void
@@ -37,9 +48,11 @@ async function main(): Promise<void> {
   probe.close()
   const root = await mkdtemp(join(tmpdir(), 'orca-mail-ui-'))
   const children = new Set<UtilityProcess>()
+  let sourceForks = 0
   const production = createMailArchiveWorkerFactory({
     fork: (path, serviceName) => {
       const child = utilityProcess.fork(path, [], { serviceName, stdio: 'pipe' })
+      if (serviceName.endsWith('Source')) sourceForks++
       children.add(child)
       child.on('exit', () => children.delete(child))
       child.stderr?.on('data', (data) => process.stderr.write(data))
@@ -136,6 +149,21 @@ async function main(): Promise<void> {
   ipcMain.handle(CHANNELS.settingsSet, (_event, patch) => Object.assign(settings, patch))
   ipcMain.handle(CHANNELS.agentList, () => [])
   ipcMain.handle(CHANNELS.providerState, () => ({ providers: [], bypass: false }))
+  ipcMain.handle(CHANNELS.mcpList, () => [])
+  ipcMain.handle(CHANNELS.skillsList, () => [])
+  ipcMain.handle(CHANNELS.sessionList, () =>
+    ['s1', 's2'].map((id) => ({
+      id,
+      title: `Saved ${id}`,
+      updatedAt: 0,
+      preview: null,
+      projectId: null,
+      cwd: null,
+      pinnedAt: null,
+      backend: 'claude',
+      agentKind: 'code'
+    }))
+  )
   let picked: string[] = []
   let confirmRemoval = 1
   const exported = join(root, 'saved-attachment.txt')
@@ -166,6 +194,33 @@ async function main(): Promise<void> {
       backgroundThrottling: false
     }
   })
+  const runtimeTools = new RuntimeToolRegistry()
+  const plugin = initializeMailArchivePlugin(
+    service,
+    (id) => ['s1', 's2'].includes(id),
+    () => ['s1', 's2'],
+    () => runtimeTools.snapshot().servers.has('orca_mail_archive')
+  )
+  await plugin.ready()
+  let holdEvidence = false
+  const evidenceEntered = deferred()
+  const releaseEvidence = deferred()
+  registerMailArchivePluginHandlers(
+    {
+      ...plugin,
+      resolve: async (sessionId, id) => {
+        const result = await plugin.resolve(sessionId, id)
+        if (holdEvidence) {
+          holdEvidence = false
+          evidenceEntered.resolve()
+          await releaseEvidence.promise
+        }
+        return result
+      }
+    },
+    (event) => event.sender === win.webContents && event.senderFrame === win.webContents.mainFrame
+  )
+  let mcpClient: Client | undefined
   win.webContents.on('console-message', (_event, level, message) => {
     if (level >= 2) console.error(`renderer: ${message}`)
   })
@@ -510,8 +565,168 @@ async function main(): Promise<void> {
     pass(
       'PST file picker registration, worker normalization/segments, searchable completion and archive navigation'
     )
+    await click('플러그인 검사', 'a')
+    await click('MCP')
+    await waitFor(
+      `!!document.querySelector('[data-mail-archive-plugin]') && !document.querySelector('[data-mail-archive-plugin]')?.textContent.includes('불러오는')`,
+      'plugin mounted'
+    )
+    await waitFor(
+      `document.querySelector('[data-mail-archive-plugin]')?.textContent.includes('AI 도구가 활성화되지')`,
+      'default build is unregistered'
+    )
+    assert.equal(runtimeTools.snapshot().servers.size, 0)
+    // This is the user's deployment role, not automatic registration in Bootstrap.
+    const server = createMailArchiveToolServer()
+    runtimeTools.add(server)
+    await click('다시 확인')
+    await waitFor(
+      `document.querySelector('[data-mail-archive-plugin]')?.textContent.includes('메일 검색 도구를 사용할')`,
+      'registered state'
+    )
+    await evaluate(
+      `(() => {const label=[...document.querySelectorAll('[data-mail-archive-plugin] label')].find(l=>l.textContent.includes('enron.pst'));label.querySelector('input[type=checkbox]').click()})()`
+    )
+    await click('이 대화에 허용 저장')
+    await waitFor(
+      `document.querySelector('[data-mail-archive-plugin]')?.textContent.includes('허용 범위를 저장')`,
+      'scope saved via real IPC'
+    )
+    pass('Plugin MCP slot, inactive default, caller registration, real session/source scope IPC')
+    await screenshot('mcp-plugin-card')
+    const context = {
+      cwd: root,
+      extraDirs: [],
+      getSignal: () => new AbortController().signal,
+      waitForSession: async () => 's1'
+    }
+    const beforeForks = sourceForks
+    const adapted = adaptRuntimeTools(runtimeTools.snapshot(), context) as {
+      mcpServers: Record<string, { instance: { connect(transport: unknown): Promise<void> } }>
+    }
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
+    await adapted.mcpServers.orca_mail_archive.instance.connect(serverTransport)
+    mcpClient = new Client({ name: 'archive-ui-fixture', version: '1' })
+    await mcpClient.connect(clientTransport)
+    const listed = (await mcpClient.listTools()).tools
+    assert.deepEqual(
+      listed.map((tool) => tool.name),
+      [...ARCHIVE_MCP_TOOLS]
+    )
+    assert.ok(listed.every((tool) => tool.annotations?.readOnlyHint === true))
+    const found = await mcpClient.callTool({
+      name: 'archive_search',
+      arguments: { query: '', limit: 20 }
+    })
+    assert.equal(found.isError, undefined)
+    const mailIds = (
+      (found.structuredContent as Record<string, unknown>).mails as { id: string }[]
+    ).map((mail) => mail.id)
+    assert.ok(mailIds.length > 0)
+    const forbiddenId = (await service.search({ query: 'SECOND_ONLY' }))[0]!.id
+    assert.equal(
+      (await mcpClient.callTool({ name: 'archive_thread', arguments: { id: forbiddenId } }))
+        .isError,
+      true
+    )
+    const result = await mcpClient.callTool({ name: 'archive_get', arguments: { id: mailIds[0] } })
+    assert.equal(result.isError, undefined)
+    assert.deepEqual(result.content, [
+      { type: 'text', text: JSON.stringify(result.structuredContent) }
+    ])
+    const evidence = (
+      (result.structuredContent as Record<string, unknown>).evidence as ArchiveEvidence[]
+    )[0]!
+    assert.ok(evidence)
+    assert.equal(sourceForks, beforeForks, 'MCP reads the index without reopening source files')
+    assert.equal((await plugin.resolve('s2', evidence.id)).state, 'forbidden')
+    await evaluate(`window.postMessage({type:'evidence',id:${JSON.stringify(evidence.id)}},'*')`)
+    for (const label of ['완료 근거', '진행 근거']) {
+      await waitFor(
+        `!![...document.querySelectorAll('a')].find(a=>a.textContent===${JSON.stringify(label)})`,
+        'citation link'
+      )
+      await evaluate(
+        `(() => {const link=[...document.querySelectorAll('a')].find(a=>a.textContent===${JSON.stringify(label)});link.focus();link.click()})()`
+      )
+      await waitFor(
+        `!!document.querySelector('[data-mail-archive-evidence] mark')`,
+        'evidence viewer'
+      )
+      assert.equal(
+        await evaluate(`document.querySelector('[data-mail-archive-evidence] mark')?.textContent`),
+        evidence.text
+      )
+      assert.equal(await evaluate(`document.activeElement?.textContent`), '닫기')
+      win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Tab' })
+      win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Tab' })
+      assert.equal(await evaluate(`document.activeElement?.textContent`), '닫기')
+      await screenshot(label === '완료 근거' ? 'mcp-evidence-completed' : 'mcp-evidence-streaming')
+      if (label === '완료 근거') {
+        await evaluate(`document.documentElement.dataset.theme = 'white'`)
+        win.setSize(640, 900)
+        await waitFor(`window.innerWidth <= 640`, 'narrow evidence viewport')
+        await delay(180)
+        await screenshot('mcp-evidence-white-narrow')
+        await evaluate(`document.documentElement.dataset.theme = 'dark'`)
+        await delay(180)
+        await screenshot('mcp-evidence-dark-narrow')
+        win.setSize(1280, 900)
+      }
+      await click('닫기')
+      await waitFor(
+        `document.activeElement?.textContent===${JSON.stringify(label)}`,
+        'focus restored to citation'
+      )
+    }
+    holdEvidence = true
+    await click('완료 근거', 'a')
+    await evidenceEntered.promise
+    await waitFor(
+      `document.querySelector('[data-mail-archive-evidence]')?.textContent.includes('불러오는')`,
+      'evidence request is still pending'
+    )
+    await evaluate(`window.postMessage({type:'session',id:'s2'},'*')`)
+    await waitFor(
+      `!document.querySelector('[data-mail-archive-evidence]')`,
+      'session switch closes viewer'
+    )
+    releaseEvidence.resolve()
+    await delay(120)
+    assert.equal(await evaluate(`!!document.querySelector('[data-mail-archive-evidence]')`), false)
+    await click('완료 근거', 'a')
+    await waitFor(
+      `document.querySelector('[data-mail-archive-evidence]')?.textContent.includes('현재 대화에서 이 근거를 열 수 없습니다')`,
+      'new session cannot open previous evidence'
+    )
+    await click('닫기')
+    await evaluate(`window.postMessage({type:'session',id:'s1'},'*')`)
+    await delay(120)
+    assert.equal(await evaluate(`!!document.querySelector('[data-mail-archive-evidence]')`), false)
+    pass('session switch discards delayed evidence and denies cross-session citation')
+    await click('허용 해제')
+    await waitFor(
+      `document.querySelector('[data-mail-archive-plugin]')?.textContent.includes('허용을 해제')`,
+      'scope revoked'
+    )
+    assert.equal(
+      (await mcpClient.callTool({ name: 'archive_search', arguments: { query: '' } })).isError,
+      true
+    )
+    await click('완료 근거', 'a')
+    await waitFor(
+      `document.querySelector('[data-mail-archive-evidence]')?.textContent.includes('현재 대화에서 이 근거를 열 수 없습니다')`,
+      'revoked citation denied'
+    )
+    await click('닫기')
+    pass(
+      'real worker tool read, persisted evidence, completed/streaming clicks, exact highlight/focus, revoked denial'
+    )
     console.log(`MAIL_ARCHIVE_UI ${passed}/${passed}; screenshots: ${screenshots}`)
   } finally {
+    await mcpClient?.close()
+    plugin.close()
+    releaseEvidence.resolve()
     releaseBatch.resolve()
     releaseQuery.resolve()
     const exits = [...children].map((child) => once(child, 'exit'))

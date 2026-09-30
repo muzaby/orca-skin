@@ -24,6 +24,13 @@ import type {
 import { archiveMailIdentityKey, archiveSourceId } from './identity'
 import { resolveArchiveMailRelations } from './relations'
 import { classifyArchiveBody, ARCHIVE_CLASSIFIER_REVISION } from './segment-classifier'
+import { archiveScopeSql } from './scope-sql'
+import { createArchivePluginStore } from './plugin-store'
+import type {
+  ArchiveReadScope,
+  ArchivePluginRequest,
+  ArchivePluginResponse
+} from '../../../../shared/mail-archive-plugin'
 import type { MailArchiveAttachmentLocation, NormalizedArchiveMail } from './types'
 
 function attachmentId(mailId: string, index: number): string {
@@ -434,10 +441,11 @@ export interface MailArchiveStore {
   verifyRevision(sourceId: string, revision: number, fingerprint: string, verifiedAt?: number): void
   activateRevision(sourceId: string, revision: number, fingerprint: string): void
   abortRevision(sourceId: string, revision: number, state?: 'interrupted' | 'failed'): void
-  search(request: MailArchiveSearchRequest): MailArchiveSearchHit[]
-  get(id: string): MailArchiveMessage | null
+  search(request: MailArchiveSearchRequest, scope?: ArchiveReadScope): MailArchiveSearchHit[]
+  get(id: string, scope?: ArchiveReadScope): MailArchiveMessage | null
   sources(): MailArchiveSource[]
-  thread(request: MailArchiveThreadRequest): MailArchiveThreadResult
+  thread(request: MailArchiveThreadRequest, scope?: ArchiveReadScope): MailArchiveThreadResult
+  pluginRequest(input: ArchivePluginRequest): ArchivePluginResponse
   attachmentLocation(attachmentId: string): MailArchiveAttachmentLocation | null
   sourcePathInUse(path: string): boolean
   removeSource(sourceId: string): MailArchiveSourceDeletion | null
@@ -728,7 +736,13 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
     }
   )
 
-  return {
+  const plugin = createArchivePluginStore(db, {
+    search: (request, scope) => store.search(request, scope),
+    get: (id, scope) => store.get(id, scope),
+    thread: (request, scope) => store.thread(request, scope)
+  })
+  const store: MailArchiveStore = {
+    pluginRequest: (input) => plugin.request(input),
     dbPath,
     beginRevision: (input) =>
       beginRevisionTransaction({ ...input, startedAt: input.startedAt ?? Date.now() }),
@@ -740,12 +754,13 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
       activateRevision(sourceId, revision, fingerprint),
     abortRevision: (sourceId, revision, state = 'interrupted') =>
       abortRevisionTransaction(sourceId, revision, state),
-    search: (input) => {
+    search: (input, scope) => {
       const request = MailArchiveSearchRequestSchema.parse(input)
+      const access = archiveScopeSql(scope)
       const limit = request.limit ?? 30
       const terms = queryTerms(request.query)
-      const parameters: Record<string, string | number> = { limit }
-      let occurrenceFilter = ''
+      const parameters: Record<string, string | number> = { limit, ...access.parameters }
+      let occurrenceFilter = access.occurrence
       for (const [key, column] of [
         ['sourceKind', 'source_kind'],
         ['sourceId', 'source_id'],
@@ -759,7 +774,7 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
             ? ` AND o.${column} LIKE @${key} ESCAPE '\\'`
             : ` AND o.${column}=@${key}`
       }
-      let fieldFilters = ''
+      let fieldFilters = access.date
       for (const [key, column] of [
         ['from', 'from_addr'],
         ['to', 'to_addrs'],
@@ -819,26 +834,27 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
       }
       return (rows as Parameters<typeof mapHit>[0][]).map((row) => mapHit(row, request.query))
     },
-    get: (id) => {
+    get: (id, scope) => {
+      const access = archiveScopeSql(scope)
       const row = db
         .prepare(
           `
           SELECT m.id, m.source_kind,
-            COALESCE((${findOccurrenceColumnSql('source_path')}), m.source_path) AS source_path,
+            COALESCE((${findOccurrenceColumnSql('source_path', access.occurrence)}), m.source_path) AS source_path,
             m.source_fingerprint,
             m.item_key,
-            COALESCE((${findOccurrenceColumnSql('folder_path')}), m.folder_path) AS folder_path,
+            ${scope ? `(${findOccurrenceColumnSql('folder_path', access.occurrence)})` : `COALESCE((${findOccurrenceColumnSql('folder_path', access.occurrence)}), m.folder_path)`} AS folder_path,
             m.sent_at, m.imported_at, m.from_addr, m.to_addrs, m.cc_addrs, m.subject, m.body_text,
             m.message_id, m.in_reply_to, m.references_header, m.thread_key, m.attachment_names,
             m.body_kind, m.body_alternate_text, m.body_alternate_kind, m.body_alternate_omitted,
             m.body_quality_flags, m.body_selection_reason,
             0 AS rank
-          FROM archive_mail m WHERE m.id=? AND EXISTS (
-            SELECT 1 FROM archive_verified_occurrence o WHERE o.mail_id=m.id
-          )
+          FROM archive_mail m WHERE m.id=@id AND EXISTS (
+            SELECT 1 FROM archive_verified_occurrence o WHERE o.mail_id=m.id${access.occurrence}
+          )${access.date}
         `
         )
-        .get(id) as Parameters<typeof mapMessage>[0] | undefined
+        .get({ id, ...access.parameters }) as Parameters<typeof mapMessage>[0] | undefined
       if (!row) return null
       const attachments = db
         .prepare(
@@ -855,7 +871,8 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
         .all(id) as MailArchiveBodySegment[]
       return mapMessage(row, attachments, segments)
     },
-    thread: (request) => {
+    thread: (request, scope) => {
+      const access = archiveScopeSql(scope)
       if (relationsDirty) {
         db.transaction(() => rebuildRelations(db))()
         relationsDirty = false
@@ -866,31 +883,37 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
           `
           WITH RECURSIVE connected(id) AS (
             SELECT m.id FROM archive_mail m
-            WHERE m.id=? AND EXISTS (
-              SELECT 1 FROM archive_verified_occurrence o WHERE o.mail_id=m.id
-            )
+            WHERE m.id=@id AND EXISTS (
+              SELECT 1 FROM archive_verified_occurrence o WHERE o.mail_id=m.id${access.occurrence}
+            )${access.date}
             UNION
             SELECT CASE WHEN relation.child_mail_id=connected.id
               THEN relation.parent_mail_id ELSE relation.child_mail_id END
             FROM archive_mail_relation relation
             JOIN connected
               ON relation.child_mail_id=connected.id OR relation.parent_mail_id=connected.id
+            JOIN archive_mail m ON m.id=CASE WHEN relation.child_mail_id=connected.id
+              THEN relation.parent_mail_id ELSE relation.child_mail_id END
             WHERE relation.resolution='resolved' AND relation.parent_mail_id IS NOT NULL
-            LIMIT ?
+              AND EXISTS (SELECT 1 FROM archive_verified_occurrence o
+                WHERE o.mail_id=m.id${access.occurrence})${access.date}
+            LIMIT @limit
           )
           SELECT m.id, m.source_kind,
-            COALESCE((${findOccurrenceColumnSql('source_path')}), m.source_path) AS source_path,
-            COALESCE((${findOccurrenceColumnSql('folder_path')}), m.folder_path) AS folder_path,
+            COALESCE((${findOccurrenceColumnSql('source_path', access.occurrence)}), m.source_path) AS source_path,
+            ${scope ? `(${findOccurrenceColumnSql('folder_path', access.occurrence)})` : `COALESCE((${findOccurrenceColumnSql('folder_path', access.occurrence)}), m.folder_path)`} AS folder_path,
             m.sent_at, m.from_addr, m.to_addrs, m.cc_addrs, m.subject, m.body_text,
             m.attachment_names, 0 AS rank
           FROM connected JOIN archive_mail m ON m.id=connected.id
           WHERE EXISTS (
-            SELECT 1 FROM archive_verified_occurrence o WHERE o.mail_id=m.id
-          )
+            SELECT 1 FROM archive_verified_occurrence o WHERE o.mail_id=m.id${access.occurrence}
+          )${access.date}
           ORDER BY m.sent_at IS NULL, m.sent_at, m.id
         `
         )
-        .all(request.id, limit + 1) as Parameters<typeof mapHit>[0][]
+        .all({ id: request.id, limit: limit + 1, ...access.parameters }) as Parameters<
+        typeof mapHit
+      >[0][]
       const truncated = rows.length > limit
       const selectedRows = rows.slice(0, limit)
       const ids = selectedRows.map((row) => row.id)
@@ -1081,4 +1104,5 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
     },
     close: () => db.close()
   }
+  return store
 }

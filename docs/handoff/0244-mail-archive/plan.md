@@ -13,7 +13,7 @@
 | 일자 | 2026-09-29 |
 | 매핑 | PR 브랜치 `codex-0244-mail-archive-plan` → `main` |
 | 조사 기준 | `f2f60ac338f2847f81a6cbc426f0728b7eb8d98e` (`git cat-file -t` → commit 확인) |
-| 상태 | **READY — ΔV8의 S3-A 표준 Plugin 도구 팩터리·검색·조회·근거·세션 범위 경로만 구현 가능. 등록은 사용자 Deployment 소유. PG-03·S2·전체 S1과 나머지 S3는 미완료, 독립 verify 미착수** |
+| 상태 | **IMPL_DONE — ΔV8 S3-A 표준 Plugin 도구 팩터리·검색·조회·근거·세션 범위 구현, 독립 verify 대기. 등록은 사용자 Deployment 소유. PG-03·S2·전체 S1과 나머지 S3는 미완료** |
 | V mode / 기준 V | `Delta V` / 독립안 `V1@3f9558d9ec7fca52bc7c55533031051ba5d5b96a` |
 | 이번 V revision / 유효 V | `ΔV8` / `V1 + ΔV2 + ΔV3 + ΔV4-A + ΔV5 + ΔV6 + ΔV7 + ΔV8`. ΔV8이 ΔV7의 등록 owner/수명을 정정. S2 실모델·PG-03은 범위 밖 |
 
@@ -1616,6 +1616,151 @@ S1 자기결과는 SELF_PASS 5·SELF_BLOCKED 13이다. 새 독립 경로 네 pai
 - 실제 프로세스 시험이 class spread 래퍼 결함을 검출했다. mock/정적 검사 성공으로 실제 실행 실패를 덮지 않았다.
 - mutation의 build 오류와 지정 assertion의 실패를 구별했고 각각 수정·재실행했다.
 - 독립 verify는 수행하지 않았다. 기술 전환의 규범 정정은 handoff-plan 역할과 별도 커밋으로 수행해야 한다.
+
+## [구현자 기입] r1.7 설계 리뷰
+
+**S3-A 구현 완료, 0244 전체는 partial이다.** D-034/035와 ΔV8을 따르며 앞의 r1.6 결과는 당시 범위의 기록으로 보존한다. 사용자 정정으로 Bootstrap 자동 등록 해석을 폐기했고, Deployment 계약·파일을 수정하지 않았다.
+
+| 경계 | 구현 / 이번 관측 |
+|---|---|
+| 표준 Plugin | `plugin.ts:40`의 `createMailArchiveToolServer(): RuntimeToolServer`가 동일 서버/handler를 반환한다. 실제 registry 반복 추가에서 revision 불변, SDK에서 읽기 도구 4개 실행. |
+| 등록 owner | archive server는 기본 registry에 없다. 사용자 배포 역할의 fixture가 팩터리를 추가한 뒤 활성 상태로 바뀐다. `git diff --name-only -- app/src/main/app/deployment` 출력 0줄. |
+| Bootstrap | 기존 단일 archive service/index writer를 backend로 설치하고 trusted IPC·core session 폐기·종료에 연결한다. backend close 이후 도구는 isError이고 registry 소유권은 호출자에게 남는다. |
+| S3-A 검색 | `archive_search/get/thread/context`는 keyword 전용이며 semanticAvailable=false를 반환한다. source/date scope를 후보 LIMIT 전에 적용하고 원본 reader를 재실행하지 않는다. |
+| 공개 계약 | shared/preload/renderer의 state·setScope·resolveEvidence 세 호출은 strict/trusted 입력만 받는다. normalized EML 입력은 내부 함수로 유지하며 MCP·GUI 입력으로 공개하지 않는다. |
+| SDK 경계 | 기존 raw-shape 입력 포트를 보존하고 optional inputObjectSchema를 추가했다. 실제 SDK가 알 수 없는 키를 먼저 버리던 문제를 strict Zod object 전달로 막았으며 sessionId 위조가 isError다. |
+| 설계 선택 / 남음 | 임베딩은 로컬 전용/API reserved(D-033)를 승계하되 실 모델은 구현하지 않았다. PG-03·전체 품질/성능/설치본·사내/Bedrock 실 답변은 이 구현 결과로 닫지 않는다. |
+
+## [구현자 기입] r1.7 강제 지점과 V-pair 자기확인
+
+등록·세션·자료원·근거라는 주어로 production edge를 조사했다. 재현 검색은 `rg -n 'runtimeTools\.(add|remove)|createPluginBindings|mailArchive' app/src/main/app/bootstrap.ts app/src/main/app/deployment/plugins.ts`, `rg -n 'pluginRequest|waitForSession|throwIfAborted|inputObjectSchema|readOnlyHint' app/src/main/adapters app/src/main/features/plugins/mail-archive`, `rg -n 'sourceIds|sentAfter|sentBefore|scope|archive_verified_occurrence' app/src/main/features/plugins/mail-archive`, renderer의 `resolveEvidence|epoch|useChatSession|mail-evidence|MarkdownLink|builtinMcp|<mark|focus`다. 테스트 파일은 production 자리에서 제외했다.
+
+| 자리 | 실제 edge / 이번 직접 관측 |
+|---|---|
+| EP-26a | `plugin.ts:40` 공개 팩터리→module cached server. `mail-archive-plugin.test.ts:154`에서 객체 동일·중복 등록 revision 불변·SDK 네 도구 실행. |
+| EP-26b | `bootstrap.ts:970/990/871` backend 설치 호출·준비/prune·종료. 실제 Bootstrap 메서드 UT에서 service 1회·trusted handler·기본 registry 0·close 후 거절. 연결 제거/자동 등록 추가 변이 각각 red. |
+| EP-26c | 사용자 registry.add→snapshot→`claude-runtime-tools.ts:85` SDK. actual UI 10/12의 미등록→등록 전환, 12/12의 MCP Client→production worker→본문 근거. |
+| EP-26d | `tools.ts:132/138` readOnlyHint·strict object→SDK 입력 검증→handler safeParse. 실제 SDK의 sessionId 추가 인수 거절 및 IPC unknown field·날짜 역전 UT. |
+| EP-26e | adapter의 context→`tools.ts:100` waitForSession(signal)→core session 존재→lease. no-scope·다른 세션·실세션 삭제·abort 네 경합에서 isError. |
+| EP-26f | `router.tsx:38`→PluginsPage→ExtensionsCatalogView MCP 슬롯→app PluginSlot→관리 목적지. UI 10/12에서 inactive 문구·저장 확인, 같은 production 관리 슬롯은 UI 1~9에서 실행. |
+| EP-27a | PluginCard의 저장된 대화·자료원·날짜→shared API. actual UI 10/12의 s1/enron.pst 허용 저장, 날짜 경계는 SQLite/IPC UT에서 기대 ID·역전 거절. |
+| EP-27b | `handlers/mail-archive-plugin.ts` trusted sender+strict schema→`plugin.ts` core session 검사. 세 IPC 호출의 untrusted/위조 필드 거절·정상 forwarding UT. |
+| EP-27c | `plugin-store.ts:47/85` persisted scope/token/corpus revision→RPC lease 검사. 더 넓은 위조 lease 거절, 같은 정상 필드의 순서 변경 허용, reopen의 저장 scope 유지. |
+| EP-27d | `store.ts:759`→scope-sql occurrence/date→FTS/LIKE WHERE→LIMIT. 외부 메일 40개를 먼저 넣은 두 분기에서 허용된 정확 ID만 반환. 같은 occurrence에서 source/folder를 교차 적용. |
+| EP-27e | `store.ts:838/875`, `plugin-store.ts:168`의 get/thread/resolve 세 소비자. scope 밖 root/중간 edge 제외, 공유본의 허용 위치·NULL folder 유지, 다른 세션 근거는 forbidden. |
+| EP-27f | `tools.ts:106~111`, `plugin.ts` resolve 반환 직전 signal/token/revision/core 검사. 읽기 뒤 scope 해제·source 제거·core 삭제·abort의 늦은 반환 isError. UI 11/12는 늦은 출처 응답을 세션 전환 후 폐기. |
+| EP-27g | Bootstrap session 폐기→dispose, 시작→전체 core session(-1) prune, 기존 source remove→occurrence purge/revision. 마지막 source 삭제 근거는 removed, 공유본 유지, reopen의 orphan scope/evidence 삭제·stale lease 거절. |
+| EP-28a | context-packing 원문 RegExp/UTF-16 연속 slice→`tools.ts:79` 전체 MCP envelope 64 KiB. 원문 slice 일치·surrogate pair·İ 위치·과다 메타데이터/6근거 예산·첨부 sentinel 제외 UT. |
+| EP-28b | `plugin-store.ts:129` evidence transaction 완료→worker ACK→MCP 반환. 반환된 모든 opaque ID를 같은 세션에서 resolve하고 content와 structuredContent의 본문 동등 확인. |
+| EP-28c | `plugin-store.ts:168` session+opaque ID→허용 occurrence/hash→원문 span. scope 해제 forbidden, 마지막 메일 삭제 FK tombstone removed, 재개방 동일 span. |
+| EP-28d | shared MarkdownLink/internal context→app EvidenceBridge, StreamingMarkdown도 같은 Markdown 경로. actual UI 12/12에서 완료·진행 링크를 각각 눌러 실제 persisted ID 열람. |
+| EP-28e | Viewer mark/scroll/close→app focus 복원. UI 12/12에서 mark.textContent===evidence.text·Tab 고정·닫은 뒤 원래 링크 focus. white/dark 640px 캡처를 직접 열어 줄바꿈/본문/닫기 확인. |
+
+S3-A 조사 자리 18개를 §10 EP-26(6)·27(7)·28(5)에 대응했다. 이 보고의 자리 집합과 §10 집합의 missing/extra 차집합은 각각 0이며 EP-28e를 제외한 음성 대조는 missing=1이다. EP-27e의 세 조회 branch 및 EP-28d의 완료/진행 소비자를 따로 실행했다. 이 결과는 §10의 vector/cache/export/설치본 전체 자리 종결을 뜻하지 않는다.
+
+| 유효 pair | 자기상태 | 이번 증거 / 남음 |
+|---|---|---|
+| VP-30 | SELF_PASS | 실제 공개 팩터리→사용자 등록→SDK→worker→UI. 기본 미등록·허용 저장·검색/조회·출처·M-ARCHIVE-FACTORY red. |
+| VP-31 | SELF_PASS | SQLite reopen/prune/tombstone·네 late 경합, backend close·실세션 검사, actual UI 11의 세션 전환/지연 응답/타 세션 거절. |
+| VP-32 | SELF_PASS | 실제 SDK Client에서 네 도구·content/structuredContent, actual Electron SDK→index child 왕복·source reader fork 불변. Bootstrap 연결/자동 등록 oracle 변이 red. |
+| VP-33 | SELF_PASS | strict SDK+IPC·source/date/folder의 pre-LIMIT SQL·6근거/64 KiB·정확 UTF-16·persisted ID·첨부 내용 제외. 직접 oracle. |
+| VP-06·08·16·22·23 | SELF_BLOCKED | 이번 영향 범위의 scope/evidence/SDK·UI 역전·기존 MIME/권한/registry 회귀 성공. 각 pair 전체의 cache/vector/export 승인·설치본·사내 endpoint·품질 flags 전수 및 등록 M-SCOPE/M-CITE/M-WIRE 전체는 미완료. |
+| VP-01~05·07·09~15·17~21·24~29 | SELF_BLOCKED | 현재 관련 S1 회귀·worker/UI 성공과 r1.6의 하위 경로 증거를 보존한다. 전체 pair의 golden·PG-03·S2·타임라인 품질·성능/설치본은 미완료. r1.6 SELF_PASS를 현재 전체 계약 통과로 확대하지 않는다. |
+
+검산: 이번 S3-A REQUIRED 4 SELF_PASS·영향 REGRESSION 5 SELF_BLOCKED, 나머지 상속 24 SELF_BLOCKED = 유효 pair 33. 독립 verify 결과가 아니다.
+
+## [구현자 기입] r1.7 이번 라운드 수정의 잠금
+
+| 선택 / 자리 | 정상 대조 | 적대 대조 / 이번 관측 |
+|---|---|---|
+| M-ARCHIVE-FACTORY / VP-30·32, EP-26a/c | `node scripts/check-mail-archive-ui.mjs`: SDK→worker→출처 포함 12/12. | `--empty-archive-factory`: 공개 팩터리만 tools/implementations 빈 서버로 바꿔 SDK listTools가 MCP -32601로 실패(exit 1). UI 1~10은 실행 완료, 빌드/ABI 실패가 아니다. |
+| 새 Bootstrap 연결 oracle / EP-26b | `vitest run src/main/app/bootstrap.mail-archive.test.ts`: 1/1. | 실제 `this.registerMailArchive(ctx)`를 `void ctx`로 바꿔 같은 suite의 연결 match assertion red(1/1 fail). 원복 후 1/1. |
+| 새 자동 등록 부재 oracle / EP-26b | 실제 Bootstrap backend 호출 뒤 registry size 0. | 같은 메서드에 빈 archive server registry.add를 추가해 예상 0/관측 1 assertion red. 원복 후 1/1. |
+| 새 자리 집합 차집합 oracle / 보고 전수 | §10와 보고 EP 집합 missing/extra 0. | 관측 집합에서 EP-28e 제거→missing 1·extra 0. 총계 합으로 차집합을 대신하지 않는다. |
+
+잠금 검산: 선택 증거 1·인용 변이 0·새 oracle 3 = 표 4행, 적대 대조 4/4 검출. 그 밖의 직접 입력/ID/span/순서 oracle은 추가 변이를 선택하지 않았다. ΔV7의 Bootstrap 등록 제거 M-ARCHIVE-MCP는 ΔV8에서 적용 종료다. 상속 전체 M-SCOPE/M-CITE/M-WIRE/M-PACK 감도는 이번 4행으로 대체하지 않는다.
+
+## [구현자 기입] r1.7 Product/UX 파생 검토
+
+| 사용자 상황 | 구현 / 이번 관측 |
+|---|---|
+| 기본 배포에서 archive 도구가 없음 | Plugin MCP 카드에서 AI 도구 비활성 문구와 대화별 허용 설정을 보여 준다. 사용자 역할로 등록한 뒤 다시 확인하면 활성 문구. actual UI 10. |
+| 대화/자료원·기간을 허용 | 사용자만 trusted IPC로 저장하고 모델 인수로 범위를 늘릴 수 없다. 자료원과 날짜는 AND, 종료일은 기존 검색과 같은 로컬 inclusive-day 규칙. |
+| 근거 클릭 | 완료/진행 모두 같은 persisted 원문을 열고 날짜·보낸 사람·허용된 자료원 위치를 표시한다. 정확 mark·키보드/닫기 focus와 두 테마의 좁은 창을 확인했다. |
+| 출처 읽기 중 대화 전환 | 즉시 viewer를 닫고 이전 Promise를 버린다. 같은 링크를 새 세션에서 누르면 forbidden 안내, 이전 세션 복귀로 viewer가 되살아나지 않음. actual UI 11. |
+| 허용 해제 / 자료원·세션 삭제 | 검색은 isError, 링크는 forbidden/removed 안내. shared source가 남으면 해당 허용 occurrence로 열고 마지막 source 삭제는 tombstone. |
+| 단어검색 근거가 부족함 | keyword/semanticAvailable=false·insufficient/truncated를 반환한다. 실 모델·타임라인 coverage가 완료된 것처럼 표시하지 않는다. |
+
+## [구현자 기입] r1.7 놓친 잠재 문제 + 대응
+
+| 관측 | 대응 / 남은 한계 |
+|---|---|
+| SDK raw-shape가 unknown 키를 제거 | optional full Zod object를 실제 SDK adapter에 전달해 strict 검증을 유지했다. raw-shape를 쓰는 기존 Jira 등 인터페이스는 보존하고 adapter/registry 회귀 56개 재확인. |
+| 공유 메일 canonical folder의 privacy fallback | scoped get/thread에서 허용 occurrence의 NULL folder를 그대로 반환한다. 비허용 첫 자료원의 폴더가 fallback으로 섞이지 않음을 공유본 UT에서 단언했다. |
+| Unicode case-fold offset | lowercased 문자열의 인덱스를 원문에 쓰지 않고 원문 RegExp offset을 사용한다. İ/emoji·surrogate boundary의 원문 slice oracle. |
+| 보수적 corpus revision | staging occurrence 변경도 in-flight read를 무효화한다. 데이터 비노출을 우선하며 가져오기 중 도구가 index_changed로 재시도를 요구할 수 있다. |
+| 반환 전 취소된 evidence | persist 후 취소되면 반환되지 않은 evidence row가 세션 정리까지 남을 수 있다. 모델/다른 세션에 노출되지는 않으며 보관량 정책은 후속 검토. |
+| source 허용 JSON 수명 | 삭제 source ID가 기존 scope JSON에 남아도 SQL은 없는 occurrence를 허용하지 않는다. 같은 canonical source 재등록 시 기존 허용의 승계 정책은 후속 제품 검토로 남긴다. |
+| 오래된 대화 선택 범위 | 카드의 대화 목록은 현재 공통 session.list 계약을 따른다. 목록 상한 밖 대화의 선택 UX 개선은 후속 검토이며 backend prune는 전체 core sessions(-1)를 쓴다. |
+| theme/resize와 offscreen paint | 첫 white/narrow 캡처가 이전 frame이어서 viewport 확인·paint 안정화 뒤 재촬영했다. 최종 캡처를 직접 열어 white/dark 640px viewer 확인. |
+| 네이티브 ABI | prebuild가 Node ABI127 캐시를 재사용해 UI 시작을 막았다. Electron39.8.10 강제 rebuild 뒤 worker 9/9·UI 12/12. 이번 종료 ABI는 Electron이며 hook 캐시 개선은 별도 조사. |
+| 전체 품질 / 실 배포 | PG-03·로컬 실 모델·context 타임라인/quote coverage·MCP 첨부 추출 승인·사내/Bedrock·Windows installer는 미완료로 남긴다. |
+
+## [구현자 기입] r1.7 구현 보고
+
+| 항목 | 이번 턴 관측 산출 |
+|---|---|
+| 주요 변경 | 표준 cached Plugin 팩터리·keyword 도구 4개, 실제 session/source/date scope·SQL·persisted evidence, Bootstrap backend/IPC 수명, MCP 관리 카드·완료/진행 출처 viewer. |
+| 관련 UT/IT | archive·신규 Bootstrap/IPC/factory·adapter/registry·inventory/App composition 관련 21파일 130 pass·1 benchmark skip. 후속 adapter/IPC/Bootstrap/문서/App 8파일 56 pass 재실행. |
+| 전체 회귀 관측 | 전체 Vitest 첫 실행은 619파일 중 3 fail·615 pass·1 skip, 5,796 pass·3 fail·2 skip. 신규 IPC inventory/documentation 두 기대값과 App provider 기대값을 수정하고 해당 suite를 위 관련 집합에서 재실행했다. 수정 후 전체 재실행 결과로 기록하지 않는다. |
+| scripts | `node --test scripts/*.test.mjs`: 128 pass·0 fail·0 skip. |
+| 정적 gate | npm typecheck node/web/test 3/3·별도 production worker/UI-main fixture tsc 성공. 전체 ESLint 0 error·기존 virtualizer warning 1. 마지막 UI fixture formatting warning은 수정 후 0. |
+| 문서/DB gate | inventory generated/prose/link·append-only/sync/no-copies·test-budgets·git diff check 성공. migration0007 추가, 이전 migration·package/lockfile·Deployment 변경 없음. |
+| 실제 실행 | Electron source/index worker 9/9, 실제 SDK→worker→sandboxed preload→renderer UI 12/12. 빈 팩터리·Bootstrap 두 변이가 지정 oracle에서 red, 원복 control 성공. |
+| 빌드/시각 | npm build 및 최종 electron-vite main/preload/renderer/worker 산출 성공. Plugin 카드·완료/진행 viewer·white/dark 640px PNG를 직접 검사. 설치본 성공으로 해석하지 않는다. |
+| 범위 / 다음 주체 | ΔV8 S3-A를 impl/IMPL_DONE으로 검증자에게 넘긴다. 전체 0244는 partial이며 기존 미완료와 PG-03·S2·나머지 S3는 보존한다. |
+| 대상 커밋 | (r1.7 구현 — 검증자 기입) |
+
+### r1.7 전체 AC 자기보고
+
+| AC | 상태 | 이번 관측 / 남음 |
+|---|---|---|
+| AC1 | ✅ | 실제 PST GUI·normalized EML 내부 API 검색/본문·EML 입력 비공개, UI 1/9·worker 8. |
+| AC2 | ⚠️ | 공개 PST 71메일·손상 보존 회귀 성공. 대표 ANSI/Unicode/charset golden 미완료. |
+| AC3 | ⚠️ | cancel/ACK·손상 staging 비공개·store reopen 회귀 성공. 전체 앱 restart 미완료. |
+| AC4 | ⚠️ | 가역 원문/대체 본문·persisted span/reopen 성공. 재색인·원본 이동 후 기존 인용 전체 시나리오 미완료. |
+| AC5 | ✅ | stable identity·누적 revision·변경 payload/ID-less locator·손상 시 이전 ID 회귀. |
+| AC6 | ✅ | 역순/누락부모/다중후보/순환/동일제목 관계 회귀와 scoped thread 확인. |
+| AC7 | ⚠️ | 날짜/source/folder/AND·FTS/LIKE 정확 집합 성공. 이름/주소·형식 통합 PG-03 미완료. |
+| AC8 | ⚠️ | keyword 결과와 semanticAvailable=false 확인. hybrid/vector/degraded 세대 미구현. |
+| AC9 | ✅ | 기존 MIME nested/text 첨부 제외·첨부명 검색, 새 context payload의 첨부 sentinel 제외. |
+| AC10 | ⚠️ | 로컬 전용 결정 보존. 실 로컬 모델·오프라인 vector golden 미구현. |
+| AC11 | ⚠️ | 임베딩 API reserved 결정 보존. local-only profile/worker/API 활성 거절 경로 미구현. |
+| AC12 | ⚠️ | embedding generation/profile/cache 전환·중단·재시작 미구현. |
+| AC13 | ⚠️ | opaque ID·same-session 원문 span·tombstone/reopen·실제 클릭 성공. 재색인/영구 version 이동 전체 미완료. |
+| AC14 | ⚠️ | bounded keyword context·insufficient/truncated 구현. 정답 타임라인·승인/상충·quote coverage 미완료. |
+| AC15 | ⚠️ | 완료/진행·exact mark·키보드/focus·640px 두 테마·세션 전환 성공. 관계 근거·전체 답변 복귀 실기 미완료. |
+| AC16 | ⚠️ | 두 source/session·SQL scope·거절/late read 성공. MCP 승인 첨부 추출·vector/cache scope 경로 미완료. |
+| AC17 | ⚠️ | 기존 GUI 선택 추출 바이트/원본 변경 거절 회귀. 설치본 PST 추출·모델 승인 도구 미완료. |
+| AC18 | ⚠️ | 실제 SDK handler→worker 성공. 사내서버·Bedrock 각각의 실 답변 미수행. |
+| AC19 | ⚠️ | read/index overlap·유한 배치·ACK 회귀. 대표 PC/1만·5만/RSS/p95 미측정. |
+| AC20 | ⚠️ | worker crash/timeout/재연결·store reopen 성공. disk full·전체 앱/embedding commit fault 미완료. |
+| AC21 | ⚠️ | source/session purge·shared 유지·evidence tombstone/late 반환 거절. 후속 vector/cache 삭제 미완료. |
+| AC22 | ⚠️ | 관련 adapter/MIME/권한/registry·Bootstrap backend 회귀 성공. 기본 전체 앱/설치본 smoke 미완료. |
+| AC23 | ⚠️ | 실제 관리→검색·MCP scope→근거·오류/역전 응답 성공. 후속 semantic/cache·전체 앱 연결 미완료. |
+| AC24 | ⚠️ | 개발 빌드/source/index 실행 성공. Windows installer·로컬 추론·배포 manifest 실기 미완료. |
+| AC25 | ✅ | 표준 cached 팩터리→사용자 registry→실제 SDK/worker 도구, 기본 미등록·trusted scope·persisted 출처·revoke/reopen/late UI 성공. |
+
+검산: ✅ 5·⚠️ 20·❌ 0 = 전체 AC 25. ΔV7에서 AC25가 추가되었으며 이전 r1.6의 S1 하위 집합 14를 이번 전체 분모와 직접 비교하지 않는다. `Criteria-Met: 5/25`, `Criteria-Pending: AC2,AC3,AC4,AC7,AC8,AC10,AC11,AC12,AC13,AC14,AC15,AC16,AC17,AC18,AC19,AC20,AC21,AC22,AC23,AC24`.
+
+## [구현자 기입] r1.7 Review Signals — 사실만
+
+- r1.7은 사용자 등록 owner 정정 턴이다. ΔV7/ΔV8 설계와 구현 커밋을 분리했고 유효 V는 V1+ΔV2+ΔV3+ΔV4-A+ΔV5+ΔV6+ΔV7+ΔV8이다.
+- 최초 Bootstrap 자동 등록 해석을 D-035로 정정했다. Deployment 계약은 그대로 두고 실제 factory caller와 backend lifecycle를 분리했다.
+- SDK unknown-field 제거·Unicode offset·공유 NULL folder는 새 실행 경계에서 발견해 고쳤다. mock/직접 handler 성공만으로 SDK 성공을 보고하지 않았다.
+- prebuild의 네이티브 캐시 문제가 반복됐다. actual constructor/worker/UI 실행 후 ABI를 기록하며 지침·failure corpus는 수정하지 않았다.
+- 첫 전체 테스트의 inventory/App 기대값 실패를 관련 재실행으로 닫았고, 전체 재실행 성공으로 바꾸어 적지 않았다.
+- 이번 independent verify는 수행하지 않았다. S3-A 자기결과와 전체 제품 미완료를 plan 메타·보드·AC·구현 trailer에 함께 표시한다.
 
 ## [검증자 기입] 파생 이슈
 

@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm'
 import { CodeBlock } from './CodeBlock'
 import { isCodeBlock } from './isCodeBlock'
 import { useI18n } from '../../i18n'
+import { MarkdownLink } from './internalLinks'
 
 // 차단된 외부 이미지 플레이스홀더 — components 맵 항목은 react-markdown 이 컴포넌트로
 // 렌더하므로 훅 사용이 가능하지만, 명시적 함수 컴포넌트로 분리해 의도를 드러낸다(0097).
@@ -38,16 +39,7 @@ const COMPONENTS: Components = {
     </h6>
   ),
   p: ({ children }) => <p className="my-2 first:mt-0 last:mb-0">{children}</p>,
-  a: ({ href, children }) => (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-rust underline-offset-2 hover:underline"
-    >
-      {children}
-    </a>
-  ),
+  a: MarkdownLink,
   ul: ({ children }) => <ul className="my-2 list-disc pl-5 [&_ul]:my-1 [&_ol]:my-1">{children}</ul>,
   ol: ({ children }) => (
     <ol className="my-2 list-decimal pl-5 [&_ul]:my-1 [&_ol]:my-1">{children}</ol>

@@ -6,6 +6,27 @@ import type { ko } from './ko'
 import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../../../../shared/product'
 
 export const en: typeof ko = {
+  mailArchivePlugin: {
+    title: 'Mail archive · Built-in MCP',
+    help: 'Allow sources and dates for each conversation. Save the scope, then ask about mail in that conversation.',
+    available: 'Mail tools are available. Keyword search is currently supported.',
+    inactive: 'Mail AI tools are not enabled in this build. You can manage sources.',
+    saving: 'Saving permitted scope…',
+    empty: 'No searchable mail. Add a PST in source management.',
+    conversation: 'Conversation to allow',
+    selectConversation: 'Select a saved conversation',
+    allowedSources: 'Sources the AI may read',
+    save: 'Save access for this conversation',
+    revoke: 'Revoke access',
+    saved: 'Saved the permitted scope for this conversation.',
+    revoked: 'Revoked mail access for this conversation.',
+    failed: 'Unable to check mail access. Please retry.',
+    invalidDates: 'Check the start and end dates.',
+    evidence: 'Mail evidence for the answer',
+    evidenceRemoved: 'The archived mail for this evidence was removed.',
+    evidenceForbidden:
+      'This evidence is unavailable in the current conversation. Check the permitted mail sources.'
+  },
   mailArchive: {
     title: 'Mail archive',
     manage: 'Manage sources',

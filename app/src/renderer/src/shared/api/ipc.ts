@@ -199,6 +199,19 @@ export const fileApi = {
 }
 
 export const mailArchiveApi = {
+  pluginState: (
+    sessionId?: string
+  ): Promise<import('../../../../shared/mail-archive-plugin').ArchivePluginState> =>
+    window.orca.mailArchive.pluginState(sessionId),
+  setScope: (
+    input: import('../../../../shared/mail-archive-plugin').ArchiveScopeInput
+  ): Promise<import('../../../../shared/mail-archive-plugin').ArchiveReadScope | null> =>
+    window.orca.mailArchive.setScope(input),
+  resolveEvidence: (
+    sessionId: string,
+    id: string
+  ): Promise<import('../../../../shared/mail-archive-plugin').ArchiveEvidenceResult> =>
+    window.orca.mailArchive.resolveEvidence(sessionId, id),
   pickFiles: (): Promise<MailArchiveImportRequest | null> => window.orca.mailArchive.pickFiles(),
   import: (request: MailArchiveImportRequest): Promise<MailArchiveImportResult> =>
     window.orca.mailArchive.import(request),

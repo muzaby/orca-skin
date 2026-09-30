@@ -7,6 +7,7 @@ import { CostProvider } from './features/cost'
 import { UpdateProvider } from './features/update'
 import { ErrorToastLayer } from './app/ErrorToastLayer'
 import { RootGate } from './app/RootGate'
+import { MailArchiveEvidenceBridge } from './app/MailArchiveEvidenceBridge'
 
 function App(): React.JSX.Element {
   return (
@@ -17,8 +18,10 @@ function App(): React.JSX.Element {
             <CostProvider>
               <UpdateProvider>
                 <ChatProvider>
-                  <RootGate />
-                  <ErrorToastLayer />
+                  <MailArchiveEvidenceBridge>
+                    <RootGate />
+                    <ErrorToastLayer />
+                  </MailArchiveEvidenceBridge>
                 </ChatProvider>
               </UpdateProvider>
             </CostProvider>

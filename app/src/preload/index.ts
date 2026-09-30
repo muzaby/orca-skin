@@ -249,6 +249,19 @@ const orca = {
     pathForFile: (file: File): string => webUtils.getPathForFile(file)
   },
   mailArchive: {
+    pluginState: (
+      sessionId?: string
+    ): Promise<import('../shared/mail-archive-plugin').ArchivePluginState> =>
+      ipcRenderer.invoke(CHANNELS.mailArchivePluginState, sessionId ? { sessionId } : {}),
+    setScope: (
+      input: import('../shared/mail-archive-plugin').ArchiveScopeInput
+    ): Promise<import('../shared/mail-archive-plugin').ArchiveReadScope | null> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveSetScope, input),
+    resolveEvidence: (
+      sessionId: string,
+      id: string
+    ): Promise<import('../shared/mail-archive-plugin').ArchiveEvidenceResult> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveResolveEvidence, { sessionId, id }),
     pickFiles: (): Promise<MailArchiveImportRequest | null> =>
       ipcRenderer.invoke(CHANNELS.mailArchivePickFiles),
     import: (request: MailArchiveImportRequest): Promise<MailArchiveImportResult> =>

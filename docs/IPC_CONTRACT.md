@@ -481,6 +481,9 @@ renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달�
 | `orca:mailArchive:removeSource` | R→M | `{id: sourceId}` | 확인 후 해당 자료원 제거. 이를 포함한 가져오기만 취소 |
 | `orca:mailArchive:stats` | R→M | — | 메일 통계, 현재 진행 스냅샷과 최근 결과. 화면 재진입 복원용 |
 | `orca:mailArchive:progress` | M→R | `MailArchiveProgress` | 실행 중 알림은 250 ms 간격, 종료는 즉시 전달 |
+| `orca:mailArchive:pluginState` | R→M | `{sessionId?}` | `ArchivePluginState`. 실제 registry 등록 여부·검색 가능 여부·해당 저장 대화의 허용 범위 |
+| `orca:mailArchive:setScope` | R→M | `ArchiveScopeInput` | 자료원 ID·발신 날짜 범위 허용. 빈 ID 목록은 해제. 실제 core session과 trusted 창 검사 |
+| `orca:mailArchive:resolveEvidence` | R→M | `{sessionId, id: evidenceUUID}` | `ArchiveEvidenceResult`. 같은 세션/현재 허용 occurrence의 보관 본문과 원래 UTF-16 강조 범위, 제거/접근 불가 상태 |
 
 진행 스냅샷·최근 가져오기 결과는 앱 세션 메모리이고 검색 데이터는 [별도 SQLite 보관함](arch/backend/persistence.md#개인-메일-보관함)에 저장한다. 원본 파일이 바뀌거나 사라져도 과거 검증 완료 메일은 명시 제거 전까지 검색된다. 첨부 바이트는 복제하지 않으므로 과거 revision의 원본이 없으면 추출할 수 없다.
 
@@ -489,6 +492,8 @@ EML 입력은 main 내부 `MailArchiveService.importEmlBatch`만 제공한다. �
 검색의 선택 필드 `from`·`to`·`cc`·`attachmentName`·`folderPath`는 부분 문자열을 literal로 비교한다. `sentAfter`는 포함 시작 epoch, `sentBefore`는 제외 끝 epoch이며 둘 다 있으면 시작이 끝보다 작아야 한다. renderer는 로컬 달력의 시작일 자정부터 종료일 다음 날 자정까지 변환한다. 날짜 조건에서 날짜 미상 메일은 제외된다. 유형·자료원 ID·폴더 조건은 같은 검증 완료 occurrence에서 평가하며 staging은 검색되지 않는다.
 
 `MailArchiveMessage.bodySegments`는 선택 본문의 `[start,end)` UTF-16 범위·종류·판정 규칙·classifier revision·확실성으로 구성된다. 범위는 선택 본문 전체를 겹침 없이 덮으며 대체 본문에 적용하지 않는다. 표시와 접기 동작은 [렌더링](arch/frontend/rendering.md#메일-보관함-결과와-오류)을 따른다.
+
+메일 Plugin IPC의 스키마 정본은 `app/src/shared/mail-archive-plugin.ts`이며 `main/app/handlers/mail-archive-plugin.ts`가 trusted sender를 검사하고 backend가 core session 존재를 확인한다. 모델 도구는 session/scope 인자를 받지 않고 런타임의 실제 세션·호출 취소 신호를 사용한다. source/date 교집합을 SQL 후보 조회 전에 적용하며 근거 ID는 같은 세션에서만 열 수 있다. 내부 EML 배치 입력은 MCP·preload로 공개하지 않는다.
 
 ### 2.14 예약 / 미노출 채널
 

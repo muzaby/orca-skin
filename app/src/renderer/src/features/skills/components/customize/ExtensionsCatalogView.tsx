@@ -26,7 +26,9 @@ import { AddMcpServerModal } from '../AddMcpServerModal'
 
 const skillKey = (sourceId: string, name: string): string => `${sourceId}/${name}`
 
-export function ExtensionsCatalogView(): React.JSX.Element {
+export function ExtensionsCatalogView({
+  builtinMcp
+}: { builtinMcp?: React.ReactNode } = {}): React.JSX.Element {
   const { tr } = useI18n()
   const navigate = useNavigate()
   const id = useId()
@@ -135,6 +137,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
             )}
           </div>
           <div role="tabpanel" id={`${id}-items`} aria-labelledby={`${id}-${selection.tab}`}>
+            {selection.tab === 'mcp' && builtinMcp}
             {skills.loading || mcp.loading || providers.loading ? (
               <div role="status" className="grid h-48 place-items-center text-footnote text-ink3">
                 {tr('common.loading')}

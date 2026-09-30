@@ -54,6 +54,8 @@ export function jsonToolResult(value: Record<string, unknown>, isError = false):
 export interface RuntimeToolImplementation {
   name: string
   inputSchema: z.ZodRawShape
+  // Full objects preserve strict keys and refinements through the SDK validation boundary.
+  inputObjectSchema?: z.ZodObject<z.ZodRawShape>
   handler(input: Record<string, unknown>, context?: RuntimeToolContext): Promise<RuntimeToolResult>
 }
 

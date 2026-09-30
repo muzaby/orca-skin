@@ -151,6 +151,7 @@ describe('project initialization stays in the boot owner', () => {
       'CostProvider',
       'UpdateProvider',
       'ChatProvider',
+      'MailArchiveEvidenceBridge',
       'RootGate',
       'ErrorToastLayer'
     ])

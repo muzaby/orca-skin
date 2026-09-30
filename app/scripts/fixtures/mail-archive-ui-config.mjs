@@ -5,6 +5,25 @@ import tailwindcss from '@tailwindcss/vite'
 export function createMailUiConfig(appRoot, output, mutation) {
   return {
     main: {
+      plugins:
+        mutation === 'empty-archive-factory'
+          ? [
+              {
+                name: mutation,
+                enforce: 'pre',
+                transform(code, id) {
+                  if (!id.replaceAll('\\', '/').endsWith('/mail-archive/plugin.ts')) return
+                  const target = 'return server'
+                  if (!code.includes(target))
+                    throw new Error('Archive factory mutation target missing')
+                  return code.replace(
+                    target,
+                    "return { descriptor: { id: 'orca_mail_archive', connectorId: 'orca_mail_archive', tools: [] }, implementations: [] }"
+                  )
+                }
+              }
+            ]
+          : [],
       build: {
         outDir: join(output, 'main'),
         rollupOptions: { input: join(appRoot, 'scripts/fixtures/mail-archive-ui-main.ts') }
@@ -23,7 +42,7 @@ export function createMailUiConfig(appRoot, output, mutation) {
       plugins: [
         react(),
         tailwindcss(),
-        ...(mutation
+        ...(mutation && mutation !== 'empty-archive-factory'
           ? [
               {
                 name: mutation,

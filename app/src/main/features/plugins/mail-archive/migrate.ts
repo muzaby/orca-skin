@@ -11,6 +11,7 @@ import migration0004 from './migrations/0004_body_quality_projection.sql?raw'
 
 import migration0005 from './migrations/0005_verified_history.sql?raw'
 import migration0006 from './migrations/0006_body_segments.sql?raw'
+import migration0007 from './migrations/0007_builtin_mcp.sql?raw'
 
 const MAIL_ARCHIVE_MIGRATIONS = [
   { name: '0001_mail_archive', sql: migration0001 },
@@ -18,7 +19,8 @@ const MAIL_ARCHIVE_MIGRATIONS = [
   { name: '0003_confirmed_relations', sql: migration0003 },
   { name: '0004_body_quality_projection', sql: migration0004 },
   { name: '0005_verified_history', sql: migration0005 },
-  { name: '0006_body_segments', sql: migration0006 }
+  { name: '0006_body_segments', sql: migration0006 },
+  { name: '0007_builtin_mcp', sql: migration0007 }
 ] as const
 
 type MailArchiveMigrationName = (typeof MAIL_ARCHIVE_MIGRATIONS)[number]['name']

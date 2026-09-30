@@ -17,6 +17,7 @@ type IndexOperation =
   | 'sources'
   | 'removeSource'
   | 'stats'
+  | 'pluginRequest'
   | 'close'
 
 interface IndexRequest {
@@ -139,6 +140,11 @@ async function handle(request: IndexRequest): Promise<void> {
         value = requireStore().removeSource((request.payload as { id: string }).id)
         break
       }
+      case 'pluginRequest':
+        value = requireStore().pluginRequest(
+          request.payload as Parameters<MailArchiveStore['pluginRequest']>[0]
+        )
+        break
       case 'stats':
         value = requireStore().stats()
         break

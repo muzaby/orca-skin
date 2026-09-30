@@ -19,7 +19,9 @@ try {
     ? 'remove-settings-slot'
     : process.argv.includes('--restore-eml-gui')
       ? 'restore-eml-gui'
-      : false
+      : process.argv.includes('--empty-archive-factory')
+        ? 'empty-archive-factory'
+        : false
   const configFile = join(output, 'config.mjs')
   const factoryUrl = pathToFileURL(
     join(appRoot, 'scripts/fixtures/mail-archive-ui-config.mjs')

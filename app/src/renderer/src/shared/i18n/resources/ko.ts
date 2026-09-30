@@ -6,6 +6,26 @@ import type { AppErrorTitle } from '../../../../../shared/app-error'
 import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../../../../shared/product'
 
 export const ko = {
+  mailArchivePlugin: {
+    title: '메일 보관함 · 빌트인 MCP',
+    help: 'AI가 읽을 자료원과 날짜를 대화별로 허용합니다. 허용을 저장한 뒤 해당 대화에서 메일을 질문하세요.',
+    available: '메일 검색 도구를 사용할 수 있습니다. 현재는 단어 검색을 지원합니다.',
+    inactive: '이 빌드에서 메일 AI 도구가 활성화되지 않았습니다. 자료원은 관리할 수 있습니다.',
+    saving: '허용 범위 저장 중…',
+    empty: '검색 가능한 메일이 없습니다. 자료원 관리에서 PST를 추가하세요.',
+    conversation: '허용할 대화',
+    selectConversation: '저장된 대화를 선택하세요',
+    allowedSources: 'AI가 읽을 수 있는 자료원',
+    save: '이 대화에 허용 저장',
+    revoke: '허용 해제',
+    saved: '이 대화의 허용 범위를 저장했습니다.',
+    revoked: '이 대화의 메일 접근 허용을 해제했습니다.',
+    failed: '메일 접근 상태를 확인하지 못했습니다. 다시 확인해 주세요.',
+    invalidDates: '시작일과 종료일을 확인해 주세요.',
+    evidence: '답변의 메일 근거',
+    evidenceRemoved: '이 근거의 보관 메일이 제거되었습니다.',
+    evidenceForbidden: '현재 대화에서 이 근거를 열 수 없습니다. 메일 자료원 허용 범위를 확인하세요.'
+  },
   mailArchive: {
     title: '메일 보관함',
     manage: '자료원 관리',

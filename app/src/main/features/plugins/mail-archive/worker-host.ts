@@ -11,6 +11,10 @@ import type {
 } from './worker-contract'
 import type { MailArchiveAttachmentExportInput, MailArchiveAttachmentExportOutput } from './types'
 import type { MailArchiveStore } from './store'
+import type {
+  ArchivePluginRequest,
+  ArchivePluginResponse
+} from '../../../../shared/mail-archive-plugin'
 
 interface RpcResponse {
   readonly requestId: number
@@ -122,6 +126,10 @@ class IndexWorkerClient implements MailArchiveIndexWorker {
 
   openEpoch(epoch: string): Promise<void> {
     return this.request('openEpoch', epoch)
+  }
+
+  pluginRequest(input: ArchivePluginRequest): Promise<ArchivePluginResponse> {
+    return this.request('pluginRequest', input)
   }
 
   revokeEpoch(epoch: string): Promise<void> {

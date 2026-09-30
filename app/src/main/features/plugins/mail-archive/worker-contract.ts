@@ -12,6 +12,10 @@ import type {
 } from '../../../../shared/mail-archive'
 import type { NormalizedArchiveMail } from './types'
 import type {
+  ArchivePluginRequest,
+  ArchivePluginResponse
+} from '../../../../shared/mail-archive-plugin'
+import type {
   MailArchiveAttachmentExportInput,
   MailArchiveAttachmentExportOutput,
   MailArchiveAttachmentLocation
@@ -26,6 +30,7 @@ export interface MailArchiveRevisionInput {
 }
 
 export interface MailArchiveIndexWorker {
+  pluginRequest?(input: ArchivePluginRequest): Promise<ArchivePluginResponse>
   openEpoch(epoch: string): Promise<void>
   revokeEpoch(epoch: string): Promise<void>
   beginRevision(input: MailArchiveRevisionInput): Promise<MailArchiveRevisionStart>

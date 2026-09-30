@@ -224,3 +224,7 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 메일 상세는 보낸 사람·받는 사람·참조, 선택 본문과 대체 표현, 첨부 목록 및 확인된 대화를 표시한다. `MailArchiveBody`는 선택 snapshot의 구간을 잘라 text node로 표시하며 명시 인용문·확실한 서명을 접을 수 있다. 검색어가 포함된 구간은 자동 펼치고 일치 위치를 표시한다. unknown과 인라인 새 답변은 보인다. 원문 전체 보기와 별도 대체 본문 보기를 제공하며 HTML을 실행하지 않는다. 본문 처리 이유·문자 해석 주의·대체 본문 생략은 상세에서 확인한다.
 
 필드·기간·폴더·자료원 필터는 검색 폼에 있고 자료원 추가·진행·실패 사유·제거는 설정 탭에 있다. 화면 오류는 허용된 오류 코드의 번역 문구로 표현하며 원시 Electron 오류나 원본 경로를 그대로 표시하지 않는다. 기능 범위는 [메일 보관함 UX](ux-domains.md#메일-보관함)에 있다.
+
+Plugins의 MCP 탭은 도메인 중립 slot으로 `MailArchivePluginCard`를 조립한다. 실제 registry의 도구 등록 여부와 대화별 source/date 허용 범위를 표시하며 미등록 빌드는 AI 도구 비활성 상태를 보인다. 자료원 관리는 기존 설정으로 연결된다.
+
+완료·스트리밍 메시지의 Markdown은 같은 범용 internal-link context를 소비한다. app의 `MailArchiveEvidenceBridge`가 실제 활성 세션으로 opaque 근거 ID를 resolve하며, viewer는 보관된 본문을 text node로 표시하고 원래 연속 범위를 강조한다. 대화 전환·닫기 뒤 늦은 응답은 버리고 닫으면 출처 링크로 포커스를 복귀한다. 제거/접근 불가는 본문 없는 상태로 표시한다.

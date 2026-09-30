@@ -18,6 +18,10 @@ import type {
 import { resolveImportSources } from './sources'
 import { archiveSourceId } from './identity'
 import { prepareEmlBatch } from './eml-batch'
+import type {
+  ArchivePluginRequest,
+  ArchivePluginResponse
+} from '../../../../shared/mail-archive-plugin'
 import type { MailArchiveIndexWorker, MailArchiveWorkerFactory } from './worker-contract'
 import type { MailArchiveSourceCallbacks } from './worker-contract'
 import type {
@@ -34,6 +38,7 @@ interface AttachmentExportChoice {
 }
 
 export interface MailArchiveService {
+  pluginRequest(input: ArchivePluginRequest): Promise<ArchivePluginResponse>
   import(
     request: MailArchiveImportInput,
     onProgress?: (progress: MailArchiveProgress) => void
@@ -388,6 +393,11 @@ export function createMailArchiveService(
     }
   }
   return {
+    pluginRequest: (input) => {
+      if (closed || !index.pluginRequest)
+        return Promise.reject(new Error('mail_archive_unavailable'))
+      return index.pluginRequest(input)
+    },
     import: importArchive,
     importEmlBatch: (items, onProgress) =>
       importArchive({ inputKind: 'eml-batch', items }, onProgress),
