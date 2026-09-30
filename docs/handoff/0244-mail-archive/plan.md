@@ -78,6 +78,7 @@
 | D-029 | 손상 PST는 직전 가져오기가 끝나 검증된 상태를 유지. 이번 PST revision 전체를 적용하지 않음 | “직전 가져오기가 끝나 검증된 상태 유지: 이번 가져오기 전체는 적용하지 않음 (권고)” | 사용자 답변 2026-09-30 | **ACTIVE** | PG-01 확정 / AC2·3·20 |
 | D-030 | EML 내부 배치 API는 정규화된 헤더·본문·첨부 메타데이터와 원본 위치를 받음 | “정규화된 메일 데이터: 헤더·본문·첨부 메타데이터와 원본 위치 (권고)” | 사용자 답변 2026-09-30 | **ACTIVE** | PG-02 확정 / AC1·3·19. 전처리기가 파일/MIME와 읽은 원본 digest 검증 담당 |
 | D-031 | EML 입력 GUI를 모두 제거하고 PST 추가만 제공 | “EML 입력 GUI를 모두 제거하고 PST 추가만 제공 (권고)” | 사용자 답변 2026-09-30 | **ACTIVE** | AC1·23 / picker·preload·renderer. 기존 EML 검색·열람·제거는 유지 |
+| D-032 | 형식 통합 전환에서 이미 보관된 EML/PST 중복을 처리하는 방식 | 기존 ID를 alias로 유지해 검색 결과를 통합할지, 기존 중복은 유지하고 신규 입력부터 중복 차단할지 확인 필요 | 사용자에게 질문 2026-09-30, 답변 대기 | **OPEN** | PG-03 / AC3·5·7·17. 기존 메일·첨부 ID와 본문 보존은 두 안의 공통 전제 |
 
 V1의 D-001~D-016을 유지하고 조사 보완 D-017~D-023, 경량 기준 D-024, 구현 범위 D-025, 자료원·메일 identity D-026을 반영했다. 기준은 이 독립안의 V1이며 다른 브랜치의 라이브러리 승인·모델 선택·V를 상속하지 않는다.
 
@@ -98,6 +99,22 @@ D-027~031은 사용자 명시 결정이다. D-025의 S1 범위는 승계하고 E
 소비자가 한 배치를 저장하는 동안 전처리기는 다음 파일 읽기·전처리를 진행한다. API는 한 배치만 처리하고 완료 Promise를 ACK로 반환하며, 생산자는 다음 한 배치까지만 준비한 뒤 ACK를 기다린다. 기존 D-012의 자식 프로세스 격리·index 단일 writer·epoch 취소를 유지한다.
 
 ACTIVE 결정 ↔ AC 대조: D-028/030/031→AC1·19·23의 내부 주입·병행 읽기·PST GUI, D-027/029→AC2·3의 이전 verified 보존을 아래 pair와 대조했다. 기존 ID/첨부 보존 D-026과 비영향 계약은 유지한다. r1.4/r1.5의 GUI 증거는 당시 계약의 이력으로 보존한다.
+
+### PG-03 후속 조사 — DRAFT, D-032 답변 대기 (2026-09-30)
+
+조사 기준은 공유 브랜치의 `5c4cd9b0`이다. PST/EML 공통 identity를 단순 형식 제거로 구현할 수 없으며 기존 중복의 결과 표시 정책 D-032를 먼저 확정해야 한다. 이 절은 후속 설계 입력이며 READY·실행된 전환·새 V pair 완료를 뜻하지 않는다.
+
+| 대상 / 검색·실행 | 이번 관측 | 설계 영향 |
+|---|---|---|
+| `identity.ts`, normalize/store/EML boundary의 `archiveMailIdentityKey` 호출 검색 | payload에 표시 문자열·reply/references·threadKey·첨부 순서와 sourceKind가 결합된다. | 주소/이름·관계·manifest 순서가 다른 두 형식의 동일성을 증명하지 못한다. canonical 계산과 기존 key 호환성을 분리해야 한다. |
+| `normalize.ts`와 설치된 `pst-extractor` 타입/런타임 | EML은 name을 버리고 PST는 displayTo/displayCC와 delivery time을 사용한다. 실제 타입에 transportMessageHeaders·clientSubmitTime·recipient.smtpAddress/displayName이 있다. | transport header와 native recipient fallback을 공통 주소 모델로 만들고 Date/submit time과 delivery time을 구별한다. 없는 이름을 추측 복원하지 않는다. |
+| 공개 enron.pst를 실제 parser+PostalMime로 읽는 비공개내용 없는 probe | 71메일·헤더 71·발신 표시 이름 70·수신 헤더 71·SMTP recipient 127·첨부 있는 메일 29. Date 헤더/References는 없고 submit/delivery time은 이 표본에서 모두 같았다. | 실물에 이름/주소·첨부 seam이 존재함을 확인했다. 날짜가 다른 synthetic oracle 및 ANSI/한국어 golden을 이 표본으로 대체하지 않는다. |
+| `store.ts` legacy backfill·upsert·첨부 위치 SELECT, source revision schema | identity_key unique lookup으로 결정적 mail ID를 만들고 첨부 ID는 mail ID/ordinal에 귀속된다. legacy backfill은 충돌 행을 삭제한다. revision은 source/fingerprint unique다. | 새 normalizer를 같은 원본에 적용하는 revision, 기존 key/ID alias, 충돌 처리, 자료원별 실제 첨부 순서 mapping을 별도로 설계해야 한다. |
+| query/get/stats/remove의 verified occurrence 경로 | 검색은 mail 행, 위치/제거는 occurrence, 첨부 추출은 메일의 저장 ordinal을 사용한다. | 기존 두 ID를 통합할 경우 검색·상세·통계·공유 제거·첨부 저장 전 경로가 같은 대표/alias 규칙을 소비해야 한다. 한 SQL lookup만 바꾸면 안 된다. |
+
+후속 계약의 공통 전제는 본문/기존 ID 보존, Message-ID+확인된 normalized payload 비교, 다른 본문 버전·ID 없는 자료원 locator의 강제 병합 금지다. 원본 없는 legacy 행의 잃어버린 이름·발신 시각은 생성하지 않는다. 저장된 과거 identity를 즉시 재작성하거나 기존 중복 행을 삭제하지 않는다.
+
+**선택안 1 권고**: 확인된 기존 중복은 대표 검색 결과 하나로 통합하고 기존 mail/attachment ID는 alias로 계속 resolve한다. **선택안 2**: 기존 결과는 그대로 유지하고 새 입력부터 공통 identity를 적용한다. 두 안 모두 첨부 reference와 공유 occurrence를 보존하며, D-032 답변 후 영향받는 V node/pair·§10·rollback/reopen·충돌·제거 oracle을 ΔV6으로 확정해야 한다.
 
 ### ΔV4-A — 직전 구현 경로와 당시 결정 대기 기록 (2026-09-30)
 
