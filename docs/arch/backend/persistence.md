@@ -177,3 +177,7 @@ POP3 Mail Plugin은 Core `orcinus-orca.db`와 분리된 계정별 `mail.db`를 `
 `archive_verified_occurrence`는 모든 검증 완료 revision을 노출한다. 최근 가져오기 포인터는 과거 메일의 표시 여부를 결정하지 않는다. 본문이 수정된 메일과 원본에서 삭제된 메일도 자료원을 명시 제거할 때까지 남는다. 시작/완료 지문이 다른 revision과 파싱 실패·중단된 staging은 노출하지 않는다. 부팅 복구가 미완료 occurrence를 정리하며 이전 보관함은 데이터 삭제 없이 추가 마이그레이션으로 연다.
 
 관계 projection은 변경 후 스레드 조회 시 transaction으로 재구성한다. 파일마다 전체 관계를 다시 쓰지 않으며 검색은 검증 완료 occurrence와 FTS를 직접 조회한다. 자료원 제거는 occurrence와 고아 메일을 transaction으로 제거하고 다른 자료원이 공유하는 메일은 보존한다. 첨부 추출은 검증된 원본 지문·메시지 위치를 다시 확인한다.
+
+본문 구간은 `archive_body_segment`에 메일 ID·ordinal·UTF-16 범위·종류·규칙·classifier revision·확실성으로 저장한다. `archive_body_projection`은 빈 본문을 포함한 분류 완료 revision을 기록한다. 순수 classifier를 새 메일 insert와 기존 메일 backfill에서 공유하며, 각각 index worker의 transaction 안에서 완료한다. projection 실패 시 본문과 기존 식별자는 유지되고 다음 열기에서 재시도한다. 메일 삭제는 FK cascade로 구간을 정리한다.
+
+검색의 필드·보낸 날짜 조건은 bound parameter로 결합한다. 자료원과 폴더 조건은 하나의 검증 완료 occurrence 안에서 모두 충족해야 하며 결과의 자료원·폴더 표시도 해당 occurrence에서 고른다. 첨부 이름은 attachment 행에서 literal로 비교하고 첨부 바이트는 색인하지 않는다.

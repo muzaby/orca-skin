@@ -4,11 +4,13 @@ import { basename, join } from 'node:path'
 import type Database from 'better-sqlite3'
 import { openFileDatabase } from '../../../infra/db/file-database'
 import { applyMailArchiveMigrations } from './migrate'
+import { MailArchiveSearchRequestSchema } from '../../../../shared/mail-archive'
 import type {
   MailArchiveAttachment,
   MailArchiveBodyKind,
   MailArchiveBodyQualityFlag,
   MailArchiveBodySelectionReason,
+  MailArchiveBodySegment,
   MailArchiveMessage,
   MailArchiveSearchHit,
   MailArchiveSearchRequest,
@@ -21,6 +23,7 @@ import type {
 } from '../../../../shared/mail-archive'
 import { archiveMailIdentityKey, archiveSourceId } from './identity'
 import { resolveArchiveMailRelations } from './relations'
+import { classifyArchiveBody, ARCHIVE_CLASSIFIER_REVISION } from './segment-classifier'
 import type { MailArchiveAttachmentLocation, NormalizedArchiveMail } from './types'
 
 function attachmentId(mailId: string, index: number): string {
@@ -77,10 +80,10 @@ function escapeLike(value: string): string {
   return `%${value.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')}%`
 }
 
-function findOccurrenceColumnSql(column: 'source_path' | 'folder_path'): string {
+function findOccurrenceColumnSql(column: 'source_path' | 'folder_path', filter = ''): string {
   const selected = `o.${column}`
   return `SELECT ${selected}
-    FROM archive_verified_occurrence o WHERE o.mail_id=m.id
+    FROM archive_verified_occurrence o WHERE o.mail_id=m.id${filter}
     ORDER BY o.verified_at DESC, o.revision DESC LIMIT 1`
 }
 
@@ -368,7 +371,8 @@ function mapMessage(
     body_selection_reason: MailArchiveBodySelectionReason
     rank: number
   },
-  attachments: readonly MailArchiveAttachment[]
+  attachments: readonly MailArchiveAttachment[],
+  bodySegments: readonly MailArchiveBodySegment[]
 ): MailArchiveMessage {
   const attachmentNames = row.attachment_names ? (JSON.parse(row.attachment_names) as string[]) : []
   return {
@@ -389,6 +393,7 @@ function mapMessage(
     references: row.references_header,
     threadKey: row.thread_key,
     bodyText: row.body_text,
+    bodySegments,
     bodyKind: row.body_kind,
     bodyAlternateText: row.body_alternate_text,
     bodyAlternateKind: row.body_alternate_kind,
@@ -449,6 +454,49 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
   })
   backfillLegacyRows(db)
   recoverStagingRevisions(db)
+  const writeSegments = (id: string, body: string): void => {
+    db.prepare('DELETE FROM archive_body_segment WHERE mail_id=?').run(id)
+    const insert = db.prepare(`
+      INSERT INTO archive_body_segment
+        (mail_id, ordinal, start_offset, end_offset, kind, rule_id, classifier_revision, confidence_class)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    for (const segment of classifyArchiveBody(body)) {
+      insert.run(
+        id,
+        segment.ordinal,
+        segment.start,
+        segment.end,
+        segment.kind,
+        segment.ruleId,
+        segment.classifierRevision,
+        segment.confidenceClass
+      )
+    }
+    db.prepare(
+      `INSERT INTO archive_body_projection (mail_id, classifier_revision) VALUES (?, ?)
+      ON CONFLICT(mail_id) DO UPDATE SET classifier_revision=excluded.classifier_revision`
+    ).run(id, ARCHIVE_CLASSIFIER_REVISION)
+  }
+  try {
+    db.transaction(() => {
+      const selectPending = db.prepare(`SELECT m.id, m.body_text FROM archive_mail m
+        LEFT JOIN archive_body_projection p ON p.mail_id=m.id
+        WHERE p.classifier_revision IS NULL OR p.classifier_revision<>? ORDER BY m.id LIMIT 100`)
+      while (true) {
+        // Finish the SELECT before writing on the same SQLite connection.
+        const pending = selectPending.all(ARCHIVE_CLASSIFIER_REVISION) as Array<{
+          id: string
+          body_text: string
+        }>
+        if (pending.length === 0) break
+        for (const row of pending) writeSegments(row.id, row.body_text)
+      }
+    })()
+  } catch (error) {
+    db.close()
+    throw error
+  }
   let relationsDirty = true
 
   const beginRevisionTransaction = db.transaction(
@@ -603,6 +651,7 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
               attachment.sizeBytes
             )
           })
+          writeSegments(id, mail.bodyText)
           inserted += 1
         } else {
           skipped += 1
@@ -691,25 +740,55 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
       activateRevision(sourceId, revision, fingerprint),
     abortRevision: (sourceId, revision, state = 'interrupted') =>
       abortRevisionTransaction(sourceId, revision, state),
-    search: (request) => {
+    search: (input) => {
+      const request = MailArchiveSearchRequestSchema.parse(input)
       const limit = request.limit ?? 30
       const terms = queryTerms(request.query)
-      const sourceKindFilter =
-        (request.sourceKind ? ' AND m.source_kind=?' : '') +
-        (request.sourceId
-          ? ' AND EXISTS (SELECT 1 FROM archive_verified_occurrence scoped WHERE scoped.mail_id=m.id AND scoped.source_id=?)'
-          : '')
-      const sourceKindParams = [
-        ...(request.sourceKind ? [request.sourceKind] : []),
-        ...(request.sourceId ? [request.sourceId] : [])
-      ]
+      const parameters: Record<string, string | number> = { limit }
+      let occurrenceFilter = ''
+      for (const [key, column] of [
+        ['sourceKind', 'source_kind'],
+        ['sourceId', 'source_id'],
+        ['folderPath', 'folder_path']
+      ] as const) {
+        const value = request[key]
+        if (!value) continue
+        parameters[key] = key === 'folderPath' ? escapeLike(value) : value
+        occurrenceFilter +=
+          key === 'folderPath'
+            ? ` AND o.${column} LIKE @${key} ESCAPE '\\'`
+            : ` AND o.${column}=@${key}`
+      }
+      let fieldFilters = ''
+      for (const [key, column] of [
+        ['from', 'from_addr'],
+        ['to', 'to_addrs'],
+        ['cc', 'cc_addrs']
+      ] as const) {
+        if (!request[key]) continue
+        parameters[key] = escapeLike(request[key])
+        fieldFilters += ` AND m.${column} LIKE @${key} ESCAPE '\\'`
+      }
+      if (request.attachmentName) {
+        parameters.attachmentName = escapeLike(request.attachmentName)
+        fieldFilters += ` AND EXISTS (SELECT 1 FROM archive_attachment a
+          WHERE a.mail_id=m.id AND a.name LIKE @attachmentName ESCAPE '\\')`
+      }
+      if (request.sentAfter !== undefined) {
+        parameters.sentAfter = request.sentAfter
+        fieldFilters += ' AND m.sent_at>=@sentAfter'
+      }
+      if (request.sentBefore !== undefined) {
+        parameters.sentBefore = request.sentBefore
+        fieldFilters += ' AND m.sent_at<@sentBefore'
+      }
       const hasShortTerm = terms.some((term) => [...term].length < 3)
       const visibleMail = `EXISTS (
-        SELECT 1 FROM archive_verified_occurrence vo WHERE vo.mail_id=m.id
+        SELECT 1 FROM archive_verified_occurrence o WHERE o.mail_id=m.id${occurrenceFilter}
       )`
       const select = `SELECT m.id, m.source_kind,
-        COALESCE((${findOccurrenceColumnSql('source_path')}), m.source_path) AS source_path,
-        COALESCE((${findOccurrenceColumnSql('folder_path')}), m.folder_path) AS folder_path,
+        COALESCE((${findOccurrenceColumnSql('source_path', occurrenceFilter)}), m.source_path) AS source_path,
+        (${findOccurrenceColumnSql('folder_path', occurrenceFilter)}) AS folder_path,
         m.sent_at, m.from_addr, m.to_addrs, m.cc_addrs, m.subject, m.body_text,
         m.attachment_names, `
 
@@ -719,25 +798,24 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
           .prepare(
             `${select}bm25(archive_mail_fts) AS rank
              FROM archive_mail_fts f JOIN archive_mail m ON m.rowid=f.rowid
-             WHERE archive_mail_fts MATCH ? AND ${visibleMail}${sourceKindFilter}
-             ORDER BY rank, COALESCE(m.sent_at, m.imported_at) DESC LIMIT ?`
+             WHERE archive_mail_fts MATCH @query AND ${visibleMail}${fieldFilters}
+             ORDER BY rank, COALESCE(m.sent_at, m.imported_at) DESC, m.id LIMIT @limit`
           )
-          .all(ftsQuery(terms), ...sourceKindParams, limit)
+          .all({ ...parameters, query: ftsQuery(terms) })
       } else {
-        const termFilters = terms.map(
-          () =>
-            `(m.from_addr || ' ' || m.to_addrs || ' ' || m.cc_addrs || ' ' || m.subject || ' ' || m.body_text || ' ' || m.attachment_names) LIKE ? ESCAPE '\\'`
-        )
-        const termParams = terms.map(escapeLike)
+        const termFilters = terms.map((term, index) => {
+          parameters[`term${index}`] = escapeLike(term)
+          return `(m.from_addr || ' ' || m.to_addrs || ' ' || m.cc_addrs || ' ' || m.subject || ' ' || m.body_text || ' ' || m.attachment_names) LIKE @term${index} ESCAPE '\\'`
+        })
         const filter = termFilters.length > 0 ? ` AND ${termFilters.join(' AND ')}` : ''
         rows = db
           .prepare(
             `${select}0 AS rank
              FROM archive_mail m
-             WHERE ${visibleMail}${sourceKindFilter}${filter}
-             ORDER BY COALESCE(m.sent_at, m.imported_at) DESC LIMIT ?`
+             WHERE ${visibleMail}${fieldFilters}${filter}
+             ORDER BY COALESCE(m.sent_at, m.imported_at) DESC, m.id LIMIT @limit`
           )
-          .all(...sourceKindParams, ...termParams, limit)
+          .all(parameters)
       }
       return (rows as Parameters<typeof mapHit>[0][]).map((row) => mapHit(row, request.query))
     },
@@ -767,7 +845,15 @@ export function createMailArchiveStore(rootDir: string): MailArchiveStore {
           'SELECT id, name, mime_type AS mimeType, size_bytes AS sizeBytes FROM archive_attachment WHERE mail_id=? ORDER BY rowid'
         )
         .all(id) as MailArchiveAttachment[]
-      return mapMessage(row, attachments)
+      const segments = db
+        .prepare(
+          `SELECT ordinal, start_offset AS start, end_offset AS end,
+        kind, rule_id AS ruleId, classifier_revision AS classifierRevision,
+        confidence_class AS confidenceClass FROM archive_body_segment
+        WHERE mail_id=? ORDER BY ordinal`
+        )
+        .all(id) as MailArchiveBodySegment[]
+      return mapMessage(row, attachments, segments)
     },
     thread: (request) => {
       if (relationsDirty) {

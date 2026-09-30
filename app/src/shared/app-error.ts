@@ -28,7 +28,7 @@ export type AppErrorTitle = (typeof APP_ERROR_TITLES)[number]
 export const APP_ERROR_DETAIL_MAX = 300
 export const APP_ERROR_PENDING_MAX = 10
 
-export type AppSettingsTab = 'general' | 'usage' | `provider:${string}`
+export type AppSettingsTab = 'general' | 'usage' | 'mail-archive' | `provider:${string}`
 export type AppErrorTarget =
   { kind: 'page'; path: `/${string}` } | { kind: 'settings'; tab: AppSettingsTab }
 

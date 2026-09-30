@@ -212,4 +212,6 @@ Sidebar는 고정됨→프로젝트→최근 대화 순서다. 고정 프로젝�
 
 ### 메일 보관함 상태
 
-`features/mail-archive/MailArchiveView.tsx`가 검색 조건·선택 메일·대화·자료원 목록을 소유한다. 검색과 상세 응답에는 요청 순번을 적용하고, 초기 진행 스냅샷은 더 최신인 push 이벤트를 덮지 않는다. 화면 재진입은 `mailArchive.stats()`의 세션 진행·최근 결과로 복원한다. 원본 경로를 상태에 저장하지 않으며 파일 선택 후 받은 일회용 권한만 import에 전달한다.
+`features/mail-archive/source-state.ts`의 주입 가능한 store가 자료원 목록·통계·진행·최근 결과를 소유한다. 설정과 페이지는 같은 snapshot을 구독하며 마지막 구독자가 떠날 때 progress listener를 해제한다. refresh 세대 번호로 늦은 응답을 버리고 초기 snapshot은 최신 push를 덮지 않는다. 화면 재진입은 `mailArchive.stats()`에서 복원한다. 설정을 닫아도 main의 가져오기는 계속된다.
+
+`MailArchiveView.tsx`는 입력 중인 조건과 마지막으로 실행한 조건을 따로 보유한다. Enter/검색 버튼에서 request를 검증하며 잘못된 날짜는 기존 결과를 유지한다. 가져오기 완료·자료원 제거가 공유 revision을 갱신하면 마지막 적용 조건으로 재검색하고 남은 선택 메일의 상세도 다시 읽는다. 제거된 선택은 해제한다. 검색·상세의 요청 순번과 자료원 revision으로 역전 응답을 버린다. 원본 경로를 상태에 저장하지 않으며 picker의 일회용 권한만 import에 전달한다.

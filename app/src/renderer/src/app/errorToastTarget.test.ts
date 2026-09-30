@@ -22,10 +22,15 @@ describe('toast navigation', () => {
     await openErrorTarget({ kind: 'page', path: '/plugins' }, deps)
     expect(deps.navigate).toHaveBeenCalledExactlyOnceWith('/plugins')
     expect(deps.openSettings).not.toHaveBeenCalled()
-    for (const tab of ['general', 'usage', 'provider:claude'] as const) {
+    for (const tab of ['general', 'usage', 'mail-archive', 'provider:claude'] as const) {
       await openErrorTarget({ kind: 'settings', tab }, deps)
     }
-    expect(deps.openSettings.mock.calls).toEqual([['general'], ['usage'], ['provider:claude']])
+    expect(deps.openSettings.mock.calls).toEqual([
+      ['general'],
+      ['usage'],
+      ['mail-archive'],
+      ['provider:claude']
+    ])
     expect(deps.navigate).toHaveBeenCalledTimes(1)
     expect(deps.revealLog).not.toHaveBeenCalled()
   })

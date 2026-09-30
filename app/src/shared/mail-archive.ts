@@ -24,6 +24,17 @@ export type MailArchiveBodySelectionReason =
   | 'oversized'
   | 'legacy'
 
+/** Offsets belong exclusively to bodyText and use JavaScript UTF-16 code units. */
+export interface MailArchiveBodySegment {
+  readonly ordinal: number
+  readonly start: number
+  readonly end: number
+  readonly kind: 'unknown' | 'quote' | 'signature'
+  readonly ruleId: string
+  readonly classifierRevision: string
+  readonly confidenceClass: 'certain' | 'uncertain'
+}
+
 export interface MailArchiveSearchHit {
   readonly id: string
   readonly sourceKind: MailArchiveSourceKind
@@ -45,6 +56,7 @@ export interface MailArchiveMessage extends MailArchiveSearchHit {
   readonly references: string | null
   readonly threadKey: string
   readonly bodyText: string
+  readonly bodySegments: readonly MailArchiveBodySegment[]
   readonly bodyKind: MailArchiveBodyKind
   readonly bodyAlternateText: string | null
   readonly bodyAlternateKind: Exclude<MailArchiveBodyKind, 'none' | 'legacy'> | null
@@ -95,6 +107,13 @@ export interface MailArchiveSearchRequest {
   readonly query: string
   readonly sourceKind?: MailArchiveSourceKind
   readonly sourceId?: string
+  readonly from?: string
+  readonly to?: string
+  readonly cc?: string
+  readonly attachmentName?: string
+  readonly folderPath?: string
+  readonly sentAfter?: number
+  readonly sentBefore?: number
   readonly limit?: number
 }
 
@@ -165,9 +184,21 @@ export const MailArchiveSearchRequestSchema = z
     query: z.string().trim().max(500),
     sourceKind: z.enum(MAIL_ARCHIVE_SOURCE_KINDS).optional(),
     sourceId: z.string().min(1).max(128).optional(),
+    from: z.string().trim().max(500).optional(),
+    to: z.string().trim().max(500).optional(),
+    cc: z.string().trim().max(500).optional(),
+    attachmentName: z.string().trim().max(500).optional(),
+    folderPath: z.string().trim().max(500).optional(),
+    sentAfter: z.number().int().min(-8_640_000_000_000_000).max(8_640_000_000_000_000).optional(),
+    sentBefore: z.number().int().min(-8_640_000_000_000_000).max(8_640_000_000_000_000).optional(),
     limit: z.number().int().min(1).max(100).optional()
   })
   .strict()
+  .refine(
+    ({ sentAfter, sentBefore }) =>
+      sentAfter === undefined || sentBefore === undefined || sentAfter < sentBefore,
+    { message: 'mail_archive_date_range_invalid' }
+  )
 
 export const MailArchiveGetRequestSchema = z
   .object({ id: z.string().trim().min(1).max(128) })

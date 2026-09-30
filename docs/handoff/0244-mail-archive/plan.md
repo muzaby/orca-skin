@@ -13,7 +13,7 @@
 | 일자 | 2026-09-29 |
 | 매핑 | PR 브랜치 `codex-0244-mail-archive-plan` → `main` |
 | 조사 기준 | `f2f60ac338f2847f81a6cbc426f0728b7eb8d98e` (`git cat-file -t` → commit 확인) |
-| 상태 | **READY — ΔV4-A 독립 경로(설정·필터·본문 구간)만 구현 가능; PG-01~03 경로는 DRAFT 유지** |
+| 상태 | **DRAFT — r1.5에서 ΔV4-A 독립 경로 구현; PG-01~03 규범 정정은 planner 대기. 전체 S1 미완료·독립 verify 미착수** |
 | V mode / 기준 V | `Delta V` / 독립안 `V1@3f9558d9ec7fca52bc7c55533031051ba5d5b96a` |
 | 이번 V revision / 유효 V | `ΔV4-A` / `V1 + ΔV2 + ΔV3 + ΔV4-A (아래 독립 경로)` |
 
@@ -1161,6 +1161,131 @@ AC3·AC5·AC7을 변경하고 신규 VP-24(utility process 경계·revision prot
 - 현재 Node/Electron ABI 모두 지정된 훅으로 준비 가능하다. 과거 native/egress blocker를 현재 검증 미실행의 이유로 승계하지 않는다.
 - M-PACK 변이 명령은 자동 승인 검토에 차단됐고 구체 사유는 없었다. 정상 artifact 검사는 실행했고 감도 미검증을 유지했다.
 - 다음 주체는 planner(PG-01~03 정정)다. 독립 verify는 아직 수행하지 않았다. 사용자가 이미 정한 계약과 실제 제품 선택이 필요한 항목을 구별한다.
+
+## [구현자 기입] r1.5 설계 리뷰
+
+이번 턴은 `ΔV4-A`의 설정 관리·명시 필터·가역 구간을 구현했다. 앞의 r1.4 보고는 당시 관측으로 보존하며 현재 자기보고는 아래 표가 갱신한다. Decision·AC·V pair·§10의 규범 행은 변경하지 않았다.
+
+| 경계 | 판단 / 관측 |
+|---|---|
+| 설정과 페이지 | app의 ReactNode slot으로 관리 화면을 조립하고 주입 가능한 feature store를 공유한다. `SidebarUserButton.tsx:134`, `SettingsModal.tsx:94`; Electron UI 9/9. |
+| 검색 | 입력 중 조건과 적용 조건을 분리하고 로컬 날짜·필드·같은 occurrence의 자료원/폴더를 AND로 결합한다. `search-request.test.ts`, store의 날짜·필터 ID oracle, UI 사례 4·6·8. |
+| 구간 | 새 메일/기존 DB에 같은 classifier를 쓰는 additive projection이다. 이전 본문·메일/첨부 ID·identity를 유지하며 실패 rollback/reopen을 검사했다. `store.test.ts`의 projection·backfill 사례. |
+| 미정 경로 | PG-01 손상 PST 부분 공개, PG-02 폴더 관리 단위, PG-03 형식 통합 identity/이름·주소 정규화는 그대로 남는다. reader·source/revision·identity 구현을 이번 diff에서 바꾸지 않았다. |
+| 다음 주체 | `plan/DRAFT`·planner로 반환한다. 독립 경로의 성공은 전체 S1 완료와 독립 verify를 대신하지 않는다. |
+
+## [구현자 기입] r1.5 강제 지점과 V-pair 자기확인
+
+ΔV4-A가 지정한 자리를 아래에 재열거했다. EP 항목 개수와 값을 운반하는 실제 edge를 구별하며, tool·scope·vector·evidence 등 이번 READY 경계 밖 자리는 기존 미충족으로 남긴다.
+
+| 자리 | 실제 production edge / 이번 관측 |
+|---|---|
+| EP-01a | SidebarUserButton slot→SettingsModal prop/탭 렌더→MailArchiveSettingsContent 관리/이동 callback; 페이지→설정 열기; AppSettingsTab→오류 목적지 allowlist. UI 사례 1·5·9, `errorToastTarget.test.ts`; M-WIRE red. |
+| EP-01b | shared search/get DTO→renderer API→실제 preload invoke. 수정 필드와 bodySegments가 UI 사례 2·4에서 원형대로 왕복했다. `shared/api/ipc.ts:201`, `preload/index.ts:251`. |
+| EP-01c | 실제 handler/schema→service→index client/worker→store parse/read. UI 사례 1~4·9의 실제 SQLite 결과·본문·첨부 바이트를 단언했다. handler search/get 등록 `mail-archive.ts:110`. |
+| EP-01d | progress/stats→공유 source-state 세대→페이지 revision→검색/상세 순번. source-state UT 6사례와 UI 사례 5~8에서 늦은 snapshot/결과, 모달 닫기, 제거 후 선택을 확인했다. |
+| EP-05a | form submit→archiveSearchRequest→shared schema. 로컬 포함 시작/제외 끝, DST 달력 연산, 역전·무효 날짜, 입력만으로 검색하지 않음을 request UT·UI 사례 4·6에서 확인했다. tool 입력은 미구현. |
+| EP-05b | handler→index RPC→store의 bound parameter→FTS/LIKE→ID/자료원/폴더 DTO. 날짜 경계·null·각 필드·literal·동일 occurrence를 독립 DB ID 집합과 대조했다. store 필터 2사례. |
+| EP-18a | 입력 필드→request compiler→조건 AND. request UT와 UI 사례 4·6·8, store의 각 필드 음성 대조가 적용 조건과 초안 조건의 혼선을 검출한다. hard/soft RAG 범위는 미구현. |
+| EP-03d | segment SELECT ordinal→mapMessage→get IPC→MailArchiveBody. store 이전 DB 재개방의 DTO 동등성과 UI 사례 2의 UTF-16 본문·인용 자동 펼침을 확인했다. |
+| EP-16a | snapshot→순수 classifier→연속 범위·규칙/revision. classifier UT 6사례에서 CRLF/CR/UTF-16 재결합, 인라인 답변·문장 헤더·불확실한 꼬리를 확인했다. |
+| EP-16b | 새 mail/attachment insert→segment/빈 본문 marker transaction; 기존 mail→backfill transaction→reopen. store 3사례에서 PK·identity·본문 불변, 실패 rollback·재시도·FK cascade를 확인했다. variant/chunk provenance는 후속 단계다. |
+| EP-16d | 선택 snapshot slice→unknown 표시/quote·signature details→hit 펼침→전체/대체 본문 선택. UI 사례 2에서 원문 golden·HTML 비실행·선택 offset 미적용을 확인했다. |
+
+ΔV4-A 본문에서 추출한 지정 자리 11개와 위 보고 자리 11개의 차집합은 missing/extra 모두 0이었다. 보고 집합에서 EP-16d를 뺀 음성 대조는 missing 1(EP-16d)을 반환했다. §10 전체와 S1 전체를 닫았다는 주장은 하지 않는다.
+
+| 유효 S1 pair | 자기상태 | 이번 증거 / 남은 경계 |
+|---|---|---|
+| VP-01 | SELF_BLOCKED | 설정·EML/PST 등록 UI 9/9. 대표 charset/ANSI golden·PG-01·전체 restart oracle 미완. |
+| VP-02 | SELF_BLOCKED | classifier·DB·뷰어의 원문 재결합, 기존 identity/관계 회귀. 옛 evidence·PG-03 전환 미완. |
+| VP-03 | SELF_BLOCKED | 필드·날짜·폴더·literal/AND 실제 ID oracle. 이름/주소 정규화·hybrid/fold 미완. |
+| VP-07 | SELF_BLOCKED | 실제 worker kill/timeout/cancel 7/7, 공유 자료원 제거 UI 확인. 대표 규모·disk full·후속 세대 lifecycle 미완. |
+| VP-08 | SELF_BLOCKED | app 설정 composition·M-WIRE·전체 회귀·Vite 성공. runtime archive tool·설치본/모델 경로 미완. |
+| VP-09 | SELF_BLOCKED | 취소/복구 worker 및 store 회귀 성공. 앱 재시작·commit 전후 fault injection 미완. |
+| VP-13 | SELF_BLOCKED | 수정 DTO가 실제 preload/schema/index/SQLite/뷰어를 통과했다. 현재 independent 경로 외 취소·도구·후속 상태 계약 미완. |
+| VP-14 | SELF_BLOCKED | additive migration·backfill·rollback/reopen·검색 branch IT 성공. PG-03·variant/chunk/vector 경로 미완. |
+| VP-17 | SELF_BLOCKED | 기존 MIME 회귀와 source/index 포함 Vite 산출. 설치본 PST/추론·M-PACK은 이번 턴 미실행. |
+| VP-18 | SELF_BLOCKED | classifier·MIME·본문 품질 회귀 성공. 형식/charset 전수 golden·PG-03 미완. |
+| VP-19 | SELF_BLOCKED | request/SQL 경계·literal·동일 occurrence ID oracle 성공. 정규화 이름/주소·RRF/hard-soft 경로 미완. |
+| VP-23 | SELF_BLOCKED | UT late snapshot과 실제 렌더 IPC 역전·제거·설정 닫기 확인. scope/tool/cache의 후속 이벤트 미완. |
+| VP-24 | SELF_BLOCKED | production worker 7/7와 실제 UI PST 등록 성공. 전체 앱 restart·대표 부하·설치본 경로 미완. |
+| VP-25 | SELF_PASS | store/service/reader 회귀에서 누적 revision·동일 ID 변경 payload·locator·공백 AND 확인. 관련 suite 16파일 82 pass·1 benchmark skip; store 마지막 재검사 13 pass·1 skip. |
+
+자기결과는 SELF_PASS 1·SELF_BLOCKED 13이며 독립 verify 판정이 아니다. 이번 독립 경로의 직접 oracle 성공을 기존 pair 전체 성공으로 바꾸지 않았다.
+
+## [구현자 기입] r1.5 이번 라운드 수정의 잠금
+
+| 선택 / 자리 | 정상 대조 | 적대 대조 / 판정 |
+|---|---|---|
+| M-WIRE / app의 settings slot 주입 | `node scripts/check-mail-archive-ui.mjs`: 실제 설정의 파일/폴더 추가 버튼을 찾고 IPC까지 실행, 9/9. | 동일 runner `--remove-settings-slot`: production SidebarUserButton에서 slot만 제거해 `actual settings slot renders management`에서 실패(exit 1). 감도 확인. |
+| 필터·offset·transaction·stale 상태 | UT의 명시 기대값, 실제 DB PK 집합/rollback, 실제 UI 본문 golden·역전 응답을 단언한다. | 해당 없음 — 직접 oracle. 기존 M-NESTED/M-WORKER 위치·동작은 수정하지 않았으며 해당 pair 전체 잠금을 이번 턴 완료했다고 주장하지 않는다. |
+
+선택 감도 대상은 M-WIRE 1행이며 검출 1이다. fixture의 main은 실제 archive handler/service/worker/DB를 사용하고 OS 선택기·앱 설정·provider 조회만 시험값으로 대체한다. stylesheet는 실제 app.css/tokens와 production source scan을 쓰며 offscreen paint 후 캡처한다.
+
+## [구현자 기입] r1.5 Product/UX 파생 검토
+
+| 사용자 상황 | 반영 / 실제 관측 |
+|---|---|
+| 설정을 닫은 상태에서 가져오기 완료 | main 작업과 페이지 구독을 유지한다. UI 사례 5에서 ACK 직전 대기 중 Esc로 닫은 뒤 공유 목록 갱신을 확인했다. |
+| 자료원 제거 취소·공유 메일 유지 | native 확인 취소 시 변화 없음, 승인 시 공유 메일 유지·원본 바이트 보존·상세 자료원 갱신. UI 사례 5·8. |
+| 입력만 바꾸거나 날짜를 거꾸로 입력 | Enter/검색 때 적용하고 기존 결과·선택을 유지한다. 제거 후 자동 갱신은 마지막 적용 조건을 쓰며 초안을 보존한다. UI 사례 4·6·8. |
+| 인용문만 검색에 일치 | 해당 quote를 펼쳐 일치 이유를 표시하고 unknown 인라인 답변을 유지한다. 원문 전체·대체 표현도 읽을 수 있다. UI 사례 2와 흰색/어두운·좁은 창 캡처. |
+| 원본 파일 소실·재시도 | 한국어 안정 오류로 표시하고 원시 Electron 문자열·원본 경로를 오류 문구에 노출하지 않는다. 재확인 및 picker 취소 후 기존 검색 자료를 유지했다. UI 사례 7. |
+| 아직 없는 의미 검색 | 설정에 현재 단어 검색을 사용함을 표시한다. 임베딩 관리·이력 질문·근거 scope/뷰어는 구현 완료라고 표시하지 않는다. `MailArchiveSourceManager`의 catalog 문구. |
+
+## [구현자 기입] r1.5 놓친 잠재 문제 + 대응
+
+| 관측 | 대응 / 남은 한계 |
+|---|---|
+| iterator를 연 채 같은 SQLite connection에 backfill write | 읽기 batch를 먼저 materialize한 뒤 쓴다. backfill happy/failure/reopen test가 통과했다. 대형 최초 backfill 지연·RSS는 대표 workload에서 미측정이다. |
+| 제거 후 공유 메일의 상세 자료원 stale | 완료 revision에서 상세를 다시 읽고 실제 삭제된 선택은 해제한다. UI 사례 5·8. |
+| 오래된 초기 snapshot·해제된 progress callback | refresh/progress/subscription 세대를 따로 확인한다. source-state UT의 늦은 응답·callback과 UI 역전 응답이 통과했다. 다중 창 실기는 미실행이다. |
+| 기본 prebuild의 native cache가 Node binding을 유지 | 강제 electron-rebuild 후 실제 constructor·utility process·UI를 실행했다. ABI 오류를 성공으로 기록하지 않았고 종료 시 Electron ABI `--check` 성공 상태를 남겼다. hook/cache 개선은 별도 조사 대상이다. |
+| EML 이름·형식 간 중복 불일치 | 현재 mapper는 표시 이름을 버리는 경우가 있다. 주소 필터는 실제 보관값을 검색하며 이름 복원·identity 재작성은 PG-03 규범 정정 후 수행한다. |
+| 손상 PST·EML 폴더 관리 정책 | PG-01/02에 대한 이전 질문은 여전히 답변 대기다. 부분 공개와 기존 source 전환을 임의 구현하지 않았다. |
+
+## [구현자 기입] r1.5 구현 보고
+
+| 항목 | 이번 턴에 관측한 산출 |
+|---|---|
+| 주요 변경 | 설정 관리 slot/공유 상태, 명시 필드·로컬 날짜·동일 occurrence 필터, additive 구간 migration/classifier/backfill·가역 뷰어, 실제 Electron UI runner. |
+| 관련 UT/IT | archive·handler·request/source-state·오류 목적지: 16파일 82 pass·1 benchmark skip. ID oracle 강화 뒤 store 별도 재검사 13 pass·1 skip. |
+| 전체 회귀 | `vitest run --maxWorkers=2`: 614파일 pass·1파일 skip, 5,776 tests pass·2 skip. `node --test scripts/*.test.mjs`: 128 pass·0 fail. |
+| 정적 gate | typecheck node/web/test 3/3; 전체 lint 0 error·기존 virtualizer warning 1. 마지막 fixture/store 변경도 별도 eslint 성공. |
+| 문서/DB gate | append-only·migration sync/no-copy 성공. doc inventory `--check`: 생성물·프로즈·상대 링크 성공. 기존 migration 파일 수정 없음. |
+| 빌드 / 실제 실행 | Vite main/preload/renderer 모두 성공; source/index child 산출 확인. Electron production worker 7/7; 실제 UI 9/9, M-WIRE red. |
+| 시각 | 실제 CSS의 흰색·어두운 테마, 넓은/좁은 본문·설정 캡처 확인. 출력은 ignored cache에 있으며 runner가 재생성한다. 설치본·사내 endpoint 실기 완료를 뜻하지 않는다. |
+| 범위 / 다음 주체 | ΔV4-A 구현 산출은 보존하고 PG-01~03을 planner에게 반환한다. S2 embedding·S3 RAG, 남은 S1 golden/규모/restart/설치본은 계속 미완료다. |
+| 대상 커밋 | (r1.5 구현 — 검증자 기입) |
+
+### r1.5 S1 AC 자기보고
+
+| AC | 상태 | 이번 관측 / 남음 |
+|---|---|---|
+| AC1 | ✅ | UI 사례 1·5·7·9에서 EML 폴더/PST 파일 등록·진행·검색 이동·picker 취소를 actual composition으로 확인했다. |
+| AC2 | ⚠️ | EML body/attachment와 공개 PST 71메일 경로 성공. 대표 ANSI/Unicode/charset golden·PG-01 미완. |
+| AC3 | ⚠️ | store/service·실제 worker 취소/변경/복구 회귀 성공. 전체 앱 restart oracle 미완. |
+| AC4 | ⚠️ | 원문·구간 재결합/펼침·inert 대체 본문 성공. 오래된 evidence/재색인 인용 경로 미완. |
+| AC5 | ✅ | 이번 store/service 회귀에서 누적 revision·동일 ID 변경 payload·ID 없는 locator 계약 재확인. |
+| AC6 | ✅ | 이번 relations/store 회귀에서 역순/누락/다중후보/순환/동일제목 분리 재확인. |
+| AC7 | ⚠️ | 필드/날짜/폴더/literal/AND·FTS/LIKE ID oracle 성공. 이름/주소 전환 PG-03 미완. |
+| AC9 | ✅ | 기존 MIME reader/store 회귀에서 첨부명 검색·nested/text 첨부 내부 sentinel 비색인 재확인. |
+| AC17 | ⚠️ | UI 선택 저장의 실제 추출 바이트 확인·기존 변경 거절 회귀. 설치본 PST 추출·모델 승인 경로 미완. |
+| AC19 | ⚠️ | 실제 worker ACK 및 화면 입력 확인. 대표/1만 전체 처리·RSS·cancel p95 미측정. |
+| AC20 | ⚠️ | worker kill/timeout/reconnect와 projection rollback/reopen 성공. disk full·앱 restart·전체 commit 경계 미완. |
+| AC21 | ⚠️ | UI 공유/마지막 source 제거와 늦은 상태 비반영 확인. 전체 lifecycle·cache/vector/evidence 삭제는 미완. |
+| AC22 | ⚠️ | 전체 suite green, 빈 보관함+설정/페이지 실제 composition 성공. 전체 앱/설치본 조립은 미완. |
+| AC23 | ⚠️ | 설정/페이지·오류·역전 응답 성공. 도구·범위 칩·근거 callback 경로는 미완. |
+
+검산: ✅ 4·⚠️ 10 = 14. `Criteria-Met: 4/14`, `Criteria-Pending: AC2,AC3,AC4,AC7,AC17,AC19,AC20,AC21,AC22,AC23`. S1 관측 집합이며 전체 제품 완료를 뜻하지 않는다.
+
+## [구현자 기입] r1.5 Review Signals — 사실만
+
+- r1.5, 유효 V는 V1+ΔV2+ΔV3+ΔV4-A다. verify 없이 구현이 반복된 진단은 DIAGNOSE_ONLY로 유지했으며 지침·corpus를 수정하지 않았다.
+- r1.4 미구현으로 남긴 설정·필터·구간을 구현하고 같은 사용자 계약으로 시험했다. 과거 성공 숫자를 현재 구현 증거로 대체하지 않았다.
+- 합성 renderer도 실제 CSS scan/paint가 없으면 스크린샷이 부정확했다. 이번 runner는 production source scan과 offscreen paint를 기다려 캡처한다.
+- 준비 훅의 exit 0만으로 Electron SQLite를 성공 처리하지 않았다. 강제 rebuild 후 실제 constructor/worker/화면 실행을 확인했다.
+- PG-01~03은 그대로 남았으므로 보드와 plan 메타를 함께 plan/DRAFT로 되돌린다. 독립 verify는 수행하지 않았다.
 
 ## [검증자 기입] 파생 이슈
 

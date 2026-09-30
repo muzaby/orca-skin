@@ -165,4 +165,6 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 
 ### 메일 보관함
 
-`features/mail-archive/MailArchiveView.tsx`는 EML/PST 파일·EML 폴더 가져오기, 메타데이터·본문·첨부 이름 검색, 명시 관계 확인, 자료원 제거와 선택 첨부 저장을 제공한다. 자료원 관리 UI는 현재 메일 페이지 안에 있다. 첨부 본문 검색, 의미 검색과 RAG는 구현되어 있지 않다. 진행·재진입 및 오류 표시는 [상태](state.md#메일-보관함-상태)와 [렌더링](rendering.md#메일-보관함-결과와-오류)을 따른다.
+설정의 메일 보관함 탭은 `MailArchiveSourceManager`로 EML/PST 파일·EML 폴더 추가, 진행·실패 사유, 자료원 제거와 보관함 열기를 제공한다. app의 `MailArchiveSettingsContent`를 `SidebarUserButton`이 설정의 ReactNode slot에 주입한다. settings feature는 mail-archive feature를 import하지 않는다.
+
+`features/mail-archive/MailArchiveView.tsx`는 검색·명시 관계·본문·선택 첨부 저장과 자료원 관리 진입을 담당한다. 검색어·발신/수신/참조·첨부 이름·보낸 기간·메일 폴더·자료원은 AND로 적용하며 Enter 또는 검색 버튼으로 실행한다. 종료일은 포함하고 날짜 오류 때 결과를 유지한다. 첨부 본문 검색, 의미 검색과 RAG는 구현되어 있지 않다. 진행·재진입 및 오류 표시는 [상태](state.md#메일-보관함-상태)와 [렌더링](rendering.md#메일-보관함-결과와-오류)을 따른다.

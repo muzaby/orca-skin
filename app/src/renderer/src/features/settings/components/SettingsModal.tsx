@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { type IconName } from '../../../shared/ui/Icon'
 import { Modal } from '../../../shared/ui/Modal'
 import { Rail, RailItem } from '../../../shared/ui/Rail'
@@ -18,18 +18,23 @@ import {
 // 라벨은 언어 전환 시 stale 해지지 않도록 키만 상수로 두고 렌더에서 t() 해석.
 const TABS = [
   { id: 'general', labelKey: 'settings.tabs.general', icon: 'settings' },
-  { id: 'usage', labelKey: 'settings.tabs.usage', icon: 'chart' }
+  { id: 'usage', labelKey: 'settings.tabs.usage', icon: 'chart' },
+  { id: 'mail-archive', labelKey: 'mailArchive.title', icon: 'history' }
 ] as const satisfies readonly { id: SettingsTabId; labelKey: string; icon: IconName }[]
 
 // 0186 — 구 `ProviderUsageController` prop 과 app 레이어 주입 배선이 사라졌다. 사용량 상태가
 // `shared/stores/usageStore` 로 올라가 features 에서 직접 읽을 수 있게 됐기 때문이다
 // (renderer boundaries 는 `features → shared` 를 허용한다).
 
-// 설정 모달 — 배경을 어둡게 하고 중앙에 2-pane(좌: 일반/사용량 탭 레일, 우: 내용) 패널을
+// 설정 모달 — 배경을 어둡게 하고 중앙에 2-pane(좌: 기능 탭 레일, 우: 내용) 패널을
 // 띄운다. 백드롭/portal/Esc 는 공용 Modal(크롬리스, panelClassName override). 열림/탭 상태는
 // 전역 스토어(settingsModalStore)가 보유해 도넛 `>` 등 다른 트리거가 특정 탭으로 열 수 있다.
-// 닫힘=null 렌더(내용 상태는 각 탭이 언마운트 시 리셋).
-export function SettingsModal(): React.JSX.Element | null {
+// 닫힘=null 렌더. 탭 UI는 언마운트되며 자료원 진행 상태는 mail-archive store가 보존한다.
+export function SettingsModal({
+  mailArchiveSlot
+}: {
+  mailArchiveSlot?: ReactNode
+}): React.JSX.Element | null {
   const open = useSettingsModalStore((s) => s.open)
   const tab = useSettingsModalStore((s) => s.tab)
   const setTab = useSettingsModalStore((s) => s.setTab)
@@ -86,6 +91,7 @@ export function SettingsModal(): React.JSX.Element | null {
         <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
           {tab === 'general' && <GeneralTab />}
           {tab === 'usage' && <UsageTab />}
+          {tab === 'mail-archive' && mailArchiveSlot}
           {/* `key` 로 provider 마다 인스턴스를 가른다 (0186 r6). 없으면 서브탭을 바꿔도 같은
               인스턴스가 재사용돼 A 에서 난 동기화 오류 문구와 한도 편집 화면이 B 로 새어 나간다. */}
           {activeProvider && (

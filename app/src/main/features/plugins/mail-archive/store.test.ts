@@ -8,6 +8,7 @@ import { applyMailArchiveMigrations } from './migrate'
 import { archiveMailIdentityKey, archiveSourceId } from './identity'
 import { createMailArchiveStore } from './store'
 import type { NormalizedArchiveMail } from './types'
+import { classifyArchiveBody } from './segment-classifier'
 
 const roots: string[] = []
 const stores: Array<ReturnType<typeof createMailArchiveStore>> = []
@@ -81,6 +82,227 @@ async function addRevision(
 }
 
 describe('mail archive store', () => {
+  it('combines partial field filters and sent-date boundaries with AND in both search branches', async () => {
+    const store = await fixture()
+    const start = new Date(2026, 8, 29).getTime()
+    const end = new Date(2026, 8, 30).getTime()
+    const base = mail({
+      from: '김민수 <qa@example.test>',
+      to: '담당 <team@example.test>',
+      cc: 'review@example.test',
+      attachments: [{ name: '견적%_원본.xlsx', mimeType: 'application/test', sizeBytes: 1 }]
+    })
+    const items = [start - 1, start, end - 1, end, null].map((sentAt, index) =>
+      mail({ ...base, sentAt, itemKey: `date-${index}`, messageId: `<date-${index}@example.test>` })
+    )
+    await addRevision(store, 'date-fields', items)
+    const oracle = openFileDatabase(store.dbPath, { initialize: () => {} })
+    const ids = oracle
+      .prepare('SELECT id, message_id FROM archive_mail ORDER BY id')
+      .all() as Array<{ id: string; message_id: string }>
+    oracle.close()
+    const dateIds = (...indices: number[]): string[] =>
+      ids
+        .filter((row) => indices.some((index) => row.message_id === `<date-${index}@example.test>`))
+        .map((row) => row.id)
+        .sort()
+    const expected = dateIds(1, 2)
+    expect(
+      store
+        .search({ query: '', sentAfter: start, sentBefore: end })
+        .map((hit) => hit.id)
+        .sort()
+    ).toEqual(expected)
+    expect(
+      store
+        .search({ query: '', sentAfter: start })
+        .map((hit) => hit.id)
+        .sort()
+    ).toEqual(dateIds(1, 2, 3))
+    expect(
+      store
+        .search({ query: '', sentBefore: end })
+        .map((hit) => hit.id)
+        .sort()
+    ).toEqual(dateIds(0, 1, 2))
+    for (const query of ['', '서버 이전', 'example']) {
+      const request = {
+        query,
+        from: '김민수',
+        to: 'team@',
+        cc: 'review@',
+        attachmentName: '%_',
+        sentAfter: start,
+        sentBefore: end
+      }
+      expect(
+        store
+          .search(request)
+          .map((hit) => hit.id)
+          .sort()
+      ).toEqual(expected)
+      for (const field of ['from', 'to', 'cc', 'attachmentName'] as const)
+        expect(store.search({ ...request, [field]: 'not-present' })).toEqual([])
+    }
+    expect(store.search({ query: '', from: '%_' })).toEqual([])
+    expect(() => store.search({ query: '', sentAfter: end, sentBefore: start })).toThrow()
+    expect(store.search({ query: '' })).toHaveLength(5)
+  })
+
+  it('requires the same verified occurrence to satisfy source and literal folder filters', async () => {
+    const store = await fixture()
+    const first = mail({ folderPath: '받은/승인%_폴더' })
+    await addRevision(store, 'first-folder', [first])
+    const oracle = openFileDatabase(store.dbPath, { initialize: () => {} })
+    const { id } = oracle
+      .prepare('SELECT id FROM archive_mail WHERE message_id=?')
+      .get(first.messageId) as { id: string }
+    oracle.close()
+    const secondPath = 'C:/archive/second.pst'
+    const secondId = archiveSourceId('pst', secondPath)
+    const second = mail({
+      ...first,
+      sourceId: secondId,
+      sourcePath: secondPath,
+      folderPath: '다른/폴더',
+      itemKey: 'second'
+    })
+    const started = store.beginRevision({
+      sourceId: secondId,
+      sourceKind: 'pst',
+      sourcePath: secondPath,
+      fingerprint: 'second-folder'
+    })
+    store.upsertBatch({ sourceId: secondId, revision: started.revision, mails: [second] })
+    store.verifyRevision(secondId, started.revision, 'second-folder')
+    for (const query of ['', '서버', 'migration']) {
+      expect(store.search({ query, sourceId: secondId, folderPath: '승인' })).toEqual([])
+      expect(store.search({ query, sourceId, folderPath: '%_' })).toMatchObject([
+        { id, folderPath: '받은/승인%_폴더', sourceName: 'mail.pst' }
+      ])
+      expect(store.search({ query, sourceId: secondId, folderPath: '다른' })).toMatchObject([
+        { id, folderPath: '다른/폴더', sourceName: 'second.pst' }
+      ])
+    }
+    const stagingPath = 'C:/archive/staging.pst'
+    const stagingId = archiveSourceId('pst', stagingPath)
+    const revision = store.beginRevision({
+      sourceId: stagingId,
+      sourceKind: 'pst',
+      sourcePath: stagingPath,
+      fingerprint: 'pending'
+    }).revision
+    store.upsertBatch({
+      sourceId: stagingId,
+      revision,
+      mails: [
+        mail({ ...first, sourceId: stagingId, sourcePath: stagingPath, folderPath: '비공개/폴더' })
+      ]
+    })
+    expect(store.search({ query: '', folderPath: '비공개' })).toEqual([])
+  })
+
+  it('persists and backfills segments without changing existing mail, identity or attachment references', async () => {
+    const store = await fixture()
+    const body = '결정 😀\r\n> 원문 미승인\r\n새 답변\n-- \nqa@example.test\n전화: 02-1234-5678\n'
+    await addRevision(store, 'segments', [mail({ bodyText: body })])
+    const id = store.search({ query: '미승인' })[0].id
+    const original = store.get(id)!
+    expect(original.bodySegments).toEqual(classifyArchiveBody(body))
+    store.close()
+    stores.splice(stores.indexOf(store), 1)
+    const db = openFileDatabase(store.dbPath, { initialize: () => {} })
+    const identity = db.prepare('SELECT identity_key FROM archive_mail WHERE id=?').get(id)
+    // Simulate an already-used 0005 DB: no projection marker or segments exist.
+    db.exec(
+      "DROP TABLE archive_body_segment; DROP TABLE archive_body_projection; DELETE FROM _migrations WHERE name='0006_body_segments'"
+    )
+    db.close()
+    const reopened = createMailArchiveStore(roots.at(-1)!)
+    stores.push(reopened)
+    expect(reopened.get(id)).toEqual(original)
+    const check = openFileDatabase(reopened.dbPath, { initialize: () => {} })
+    expect(check.prepare('SELECT identity_key FROM archive_mail WHERE id=?').get(id)).toEqual(
+      identity
+    )
+    expect(
+      check.prepare('SELECT COUNT(*) AS n FROM archive_body_segment WHERE mail_id=?').get(id)
+    ).toEqual({ n: original.bodySegments.length })
+    check.close()
+    reopened.removeSource(sourceId)
+    const removed = openFileDatabase(reopened.dbPath, { initialize: () => {} })
+    expect(removed.prepare('SELECT COUNT(*) AS n FROM archive_body_segment').get()).toEqual({
+      n: 0
+    })
+    removed.close()
+  })
+  it('rolls mail and attachment writes back when segment persistence fails', async () => {
+    const store = await fixture()
+    await addRevision(store, 'verified-before-failure', [mail()])
+    const revision = store.beginRevision({
+      sourceId,
+      sourceKind: 'pst',
+      sourcePath,
+      fingerprint: 'projection-failure'
+    }).revision
+    const item = mail({
+      itemKey: 'failed-new',
+      messageId: '<failed-new@example.test>',
+      bodyText: '> pending snapshot'
+    })
+    const db = openFileDatabase(store.dbPath, { initialize: () => {} })
+    db.exec(
+      "CREATE TRIGGER fail_segment BEFORE INSERT ON archive_body_segment BEGIN SELECT RAISE(ABORT, 'projection_failure'); END"
+    )
+    expect(() => store.upsertBatch({ sourceId, revision, mails: [item] })).toThrow(
+      'projection_failure'
+    )
+    expect(db.prepare('SELECT COUNT(*) AS n FROM archive_mail').get()).toEqual({ n: 1 })
+    expect(db.prepare('SELECT COUNT(*) AS n FROM archive_attachment').get()).toEqual({ n: 1 })
+    db.exec('DROP TRIGGER fail_segment')
+    db.close()
+    expect(store.upsertBatch({ sourceId, revision, mails: [item] })).toEqual({
+      inserted: 1,
+      skipped: 0
+    })
+    store.verifyRevision(sourceId, revision, 'projection-failure')
+    expect(store.get(store.search({ query: 'pending' })[0].id)?.bodySegments).toEqual(
+      classifyArchiveBody(item.bodyText)
+    )
+  })
+  it('retries failed backfill on reopen while preserving the verified snapshot and identifiers', async () => {
+    const store = await fixture()
+    await addRevision(store, 'backfill-retry', [mail({ bodyText: '원문 😀\r\n> 인용 보존' })])
+    const id = store.search({ query: '인용' })[0].id
+    const before = store.get(id)!
+    store.close()
+    stores.splice(stores.indexOf(store), 1)
+    const db = openFileDatabase(store.dbPath, { initialize: () => {} })
+    const identity = db.prepare('SELECT identity_key FROM archive_mail WHERE id=?').get(id)
+    db.exec(`DELETE FROM archive_body_segment; DELETE FROM archive_body_projection;
+      CREATE TRIGGER fail_backfill BEFORE INSERT ON archive_body_segment
+      BEGIN SELECT RAISE(ABORT, 'backfill_failure'); END`)
+    db.close()
+    expect(() => createMailArchiveStore(roots.at(-1)!)).toThrow('backfill_failure')
+    const unchanged = openFileDatabase(store.dbPath, { initialize: () => {} })
+    expect(unchanged.prepare('SELECT body_text FROM archive_mail WHERE id=?').get(id)).toEqual({
+      body_text: before.bodyText
+    })
+    expect(unchanged.prepare('SELECT identity_key FROM archive_mail WHERE id=?').get(id)).toEqual(
+      identity
+    )
+    expect(unchanged.prepare('SELECT COUNT(*) AS n FROM archive_body_segment').get()).toEqual({
+      n: 0
+    })
+    expect(unchanged.prepare('SELECT COUNT(*) AS n FROM archive_body_projection').get()).toEqual({
+      n: 0
+    })
+    unchanged.exec('DROP TRIGGER fail_backfill')
+    unchanged.close()
+    const recovered = createMailArchiveStore(roots.at(-1)!)
+    stores.push(recovered)
+    expect(recovered.get(id)).toEqual(before)
+  })
   it.skipIf(process.env.MAIL_ARCHIVE_BENCH !== '1')(
     'measures three EML cohorts without rebuilding the archive per file',
     async () => {

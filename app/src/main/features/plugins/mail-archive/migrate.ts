@@ -10,13 +10,15 @@ import migration0003 from './migrations/0003_confirmed_relations.sql?raw'
 import migration0004 from './migrations/0004_body_quality_projection.sql?raw'
 
 import migration0005 from './migrations/0005_verified_history.sql?raw'
+import migration0006 from './migrations/0006_body_segments.sql?raw'
 
 const MAIL_ARCHIVE_MIGRATIONS = [
   { name: '0001_mail_archive', sql: migration0001 },
   { name: '0002_source_revisions', sql: migration0002 },
   { name: '0003_confirmed_relations', sql: migration0003 },
   { name: '0004_body_quality_projection', sql: migration0004 },
-  { name: '0005_verified_history', sql: migration0005 }
+  { name: '0005_verified_history', sql: migration0005 },
+  { name: '0006_body_segments', sql: migration0006 }
 ] as const
 
 type MailArchiveMigrationName = (typeof MAIL_ARCHIVE_MIGRATIONS)[number]['name']
