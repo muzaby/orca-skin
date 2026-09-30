@@ -432,6 +432,59 @@ SettingsStore.getAll → settings:get(조기) → TweakProvider.load → store.t
 - 반복해서 부딪히는 환경 한계: better-sqlite3 ABI — `npm ci` 뒤 Electron ABI 라 DB 스위트가 실패, `npm rebuild better-sqlite3` 로 해소.
 - 현재 라운드·impl 턴: `r1`.
 
+## [구현자 기입] 설계 리뷰 (r1.2 — 필수 gate red 수정)
+
+- 판정: plan 변경 없음. r1 이 renderer 에 catch 2개를 새로 만들었는데 `reportSites.registry.test.ts`(renderer catch 전수 레지스트리)에 행이 없어 "accounts for all baseline catches…" 1케이스가 red 였다.
+- 발견 경위: 0245 구현 턴의 전체 vitest. r1 보고의 vitest 는 수정 디렉토리 3곳만 돌렸다(아래 Review Signals).
+- 재현: r1 커밋 트리에서 `vitest run src/renderer/src/shared/errors/reportSites.registry.test.ts` → `+ "shared/theme/TweakProvider.tsx:1"`, `:2` 미등록 · 199 중 1 fail.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) — r1.2
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| (저장소 gate) | renderer 의 모든 catch 는 disposition 과 함께 레지스트리에 있다 | — (§10 밖 저장소 위생 규칙) | 2/2 | r1 이 만든 catch 전수 `git show <r1> -- app/src/renderer ':!*.test.ts' \| grep '^+' \| grep -cE '\bcatch\b'` → 2 (`TweakProvider.tsx:85` 폴백 · `:104` 보고) · 레지스트리 204 pass | — |
+
+- 불변식: **새 catch 는 만든 턴에 레지스트리 행(폴백=EXCLUDE · 보고=TOAST)을 함께 갖는다.** `:85` 는 부팅 뒤 한 번 더 읽는 폴백이라 EXCLUDE, `:104` 는 `settings.tweak.load-failed`·`loadFailed` 보고라 TOAST `T36`.
+- 같은 파일 T7 의 `line` 표기를 62 → 63 으로 맞췄다(r1 의 import 추가로 한 줄 밀림 — 판정은 ordinal 기준이라 동작 무관).
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r1.2
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| 레지스트리에서 새 두 행 삭제 | r1 gate red 재현 | r1 = red(1) | "accounts for all baseline catches…" 1건 | 잠김 |
+| `:104` 의 `reportError` 제거 | 레지스트리 내장 "detects removal of T36" | 새 행 | 내장 변이 케이스가 `matches=false` 를 단언(204 pass 에 포함) | 잠김 |
+
+- 분모 검산: `선택 증거 0 · 인용 변이 1(gate red) · 새 oracle 1(T36 행) = 표 행 2`.
+- 덮개 회귀: 없음 — r1 의 등록 변이 3건은 이번에 건드린 파일 밖이다.
+
+## [구현자 기입] Product/UX 파생 검토 — r1.2
+
+- 해당 없음 — 테스트 레지스트리만 바꿨고 동작·문구 변화가 없다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r1.2
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 4 | r1 의 "관련 vitest" 가 저장소 전역 위생 스위트를 포함하지 않았다 | ✅ r1.2 는 전체 vitest 로 판정 | 아래 게이트 산출 |
+
+## [구현자 기입] 구현 보고 — r1.2
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/src/renderer/src/shared/errors/reportSites.registry.test.ts` |
+| 실행 명령 | r1 트리 + 이 수정으로 `ELECTRON_OVERRIDE_DIST_PATH=<빈 디렉토리> ./node_modules/.bin/vitest run`(전체) · `npm run lint` · `npm run typecheck` |
+| **관측한 게이트 산출** | r1 트리 + 수정: vitest 전체 **600파일 pass · 1 skip · 5716케이스 pass · 실패 0** · lint 0 error · 1 warning(`useVirtualizer` — 변경 밖) · typecheck node/web/test exit 0 · 레지스트리 단독 204 pass |
+| V-pair 자기확인 | r1 과 같음 — `SELF_PASS 4 / SELF_BLOCKED 1`(VP-01 실기) |
+| **AC 자기보고** | r1 과 같음 — `✅ 5 · ⚠️ 1 · ❌ 0 = 총 6` (분모 변화 없음) |
+| 대상 커밋 | `(r1.2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r1.2)
+
+- 같은 축인가: 새 축 — r1 의 동작 불변식은 그대로이고, 저장소 위생 gate 를 실행 범위에서 뺀 것이 원인이다.
+- 막았어야 할 plan 지침: §7-A 운영 gate 가 vitest 를 수정 디렉토리로 한정했고, renderer catch 레지스트리를 설계 입력(저장소 규칙)으로 적지 않았다.
+- 반복 환경 한계: electron 바이너리 미설치 — electron 을 import 하는 8파일이 `Electron failed to install correctly` 로 import 단계에서 실패. `ELECTRON_OVERRIDE_DIST_PATH` 로 경로 해석만 우회하면 36케이스 전부 실행된다.
+- 현재 라운드·impl 턴: `r1.2`.
+
 ---
 
 ## [검증자 기입] 파생 이슈

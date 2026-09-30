@@ -512,11 +512,23 @@ export const sites: Site[] = [
   {
     file: 'shared/theme/TweakProvider.tsx',
     ordinal: 0,
-    line: 62,
+    line: 63,
     disposition: 'TOAST',
     id: 'T7',
     event: 'settings.tweak.save-failed',
     title: 'saveFailed'
+  },
+  // 0244 — 첫 설정 읽기 실패는 부팅 완료 뒤 한 번 더 읽는 폴백이다(보고하지 않는다). 재시도까지
+  // 실패하면 바깥 catch 가 보고한다.
+  { file: 'shared/theme/TweakProvider.tsx', ordinal: 1, line: 85, disposition: 'EXCLUDE' },
+  {
+    file: 'shared/theme/TweakProvider.tsx',
+    ordinal: 2,
+    line: 104,
+    disposition: 'TOAST',
+    id: 'T36',
+    event: 'settings.tweak.load-failed',
+    title: 'loadFailed'
   },
   {
     file: 'shared/ui/CopyIconButton.tsx',
