@@ -6,6 +6,7 @@ import { useTweakContext } from '../shared/theme'
 import { useI18n, type UiLocale } from '../shared/i18n'
 import { SettingsModal, useSettingsModalStore } from '../features/settings'
 import { useProviderPrincipal } from '../features/providers'
+import { MailArchiveSettingsContent } from './MailArchiveSettingsContent'
 
 // 언어 서브메뉴 목록 — UI 표시 언어(settings.uiLocale) 스위처(0096).
 // 언어 이름은 해당 언어 자체 표기라 번역하지 않는다.
@@ -130,7 +131,7 @@ export function SidebarUserButton(): React.JSX.Element {
         </div>
       </Popover>
 
-      <SettingsModal />
+      <SettingsModal mailArchiveSlot={<MailArchiveSettingsContent />} />
     </>
   )
 }

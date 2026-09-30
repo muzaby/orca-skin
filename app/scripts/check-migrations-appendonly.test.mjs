@@ -92,7 +92,11 @@ test('findPreviousTag skips the tag being built and empty lines', () => {
 // 이 검사의 눈은 네 지점에서 각각 멀 수 있다 — 대상 집합(무엇을 훑는가) · 추출(어떤 토큰을
 // 뽑는가) · 허용 판정(무엇을 정본으로 세는가) · 분류(무엇을 error 로 올리는가).
 
-const OWNERS = new Set(['src/main/infra/db/migrate.ts', 'src/main/infra/db/migrate.test.ts'])
+const OWNERS = new Set([
+  'src/main/infra/db/migrate.ts',
+  'src/main/features/plugins/mail-archive/migrate.ts',
+  'src/main/infra/db/migrate.test.ts'
+])
 
 test('findMigrationListCopies 는 정본과 골든 목록을 사본으로 세지 않는다', () => {
   const copies = findMigrationListCopies(
@@ -104,6 +108,14 @@ test('findMigrationListCopies 는 정본과 골든 목록을 사본으로 세지
       {
         path: 'src/main/infra/db/migrate.test.ts',
         source: `import m from './migrations/0006_turn_usage.sql?raw'`
+      },
+      {
+        path: 'src/main/features/plugins/mail-archive/migrate.ts',
+        source: [
+          `import a from './migrations/0001_mail_archive.sql?raw'`,
+          `import b from './migrations/0002_source_revisions.sql?raw'`,
+          `import c from './migrations/0003_confirmed_relations.sql?raw'`
+        ].join('\n')
       }
     ],
     OWNERS

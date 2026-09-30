@@ -62,6 +62,7 @@ import { registerMiscHandlers } from './handlers/misc'
 import { registerSettingsHandlers } from './handlers/settings'
 import { registerSkillsHandlers } from './handlers/skills'
 import { registerFilesHandlers } from './handlers/files'
+import { registerMailArchiveHandlers } from './handlers/mail-archive'
 import { registerArtifactHandlers } from './handlers/artifacts'
 import { ArtifactService } from '../features/artifacts/service'
 import { ArtifactCatalog } from '../features/artifacts/catalog'
@@ -143,6 +144,17 @@ import {
 } from '../features/chat/session-activity-projector'
 import { clientLeaseKey } from '../features/sessions/session-chain-lease'
 import { deriveLeaseGateState } from '../features/sessions/restart-gate'
+import {
+  createMailArchiveService,
+  type MailArchiveService
+} from '../features/plugins/mail-archive/service'
+import { createMailArchiveWorkerFactory } from '../features/plugins/mail-archive/worker-host'
+import {
+  initializeMailArchivePlugin,
+  type MailArchivePlugin
+} from '../features/plugins/mail-archive/plugin'
+import { ARCHIVE_MCP_SERVER_ID } from '../../shared/mail-archive-plugin'
+import { registerMailArchivePluginHandlers } from './handlers/mail-archive-plugin'
 
 export class Bootstrap {
   private readonly bootReport = createBootReportRecorder()
@@ -175,6 +187,8 @@ export class Bootstrap {
   private pendingMessages?: PendingMessageQueue
   private activity?: SessionActivityProjector
   private titles?: TitleGenerator
+  private mailArchive?: MailArchiveService
+  private mailArchivePlugin?: MailArchivePlugin
 
   constructor(
     private readonly isTrustedArtifactSender: (event: IpcMainInvokeEvent) => boolean,
@@ -854,6 +868,10 @@ export class Bootstrap {
   // abort 해 SDK 서브프로세스를 깨끗이 종료한다. persist 는 better-sqlite3 동기라 종료 시간 내
   // 완료된다. start() 이전(register 미실행)이면 no-op.
   shutdown(): void {
+    this.mailArchivePlugin?.close()
+    this.mailArchivePlugin = undefined
+    this.mailArchive?.close()
+    this.mailArchive = undefined
     // admission freeze 를 **가장 먼저**(0151 AC9) — 이후 send/steer 예약을 거부해, 종료 중
     // 게이트 flush·자동 연속 턴이 큐 폐기와 경합하며 메시지를 뒤늦게 제출하는 것을 막는다.
     this.pendingMessages?.freeze()
@@ -949,8 +967,27 @@ export class Bootstrap {
     )
   }
 
+  private registerMailArchive(ctx: Pick<RouterContext, 'db' | 'runtimeTools'>): void {
+    this.mailArchive = createMailArchiveService(
+      app.getPath('userData'),
+      createMailArchiveWorkerFactory()
+    )
+    registerMailArchiveHandlers(this.mailArchive)
+    this.mailArchivePlugin = initializeMailArchivePlugin(
+      this.mailArchive,
+      (id) => !!ctx.db.getSessionById(id),
+      () => ctx.db.listSessions(-1).map((session) => session.id),
+      () => ctx.runtimeTools.snapshot().servers.has(ARCHIVE_MCP_SERVER_ID)
+    )
+    registerMailArchivePluginHandlers(this.mailArchivePlugin, this.isTrustedArtifactSender)
+    void this.mailArchivePlugin.ready().catch(() => {
+      getLogger().child('mail-archive').warn('plugin.backend.failed')
+    })
+  }
+
   private register(ctx: RouterContext): void {
     this.registerArtifacts(ctx)
+    this.registerMailArchive(ctx)
     // chat 턴 파이프라인 조립 — 레지스트리(세션 키잉) · persist · 제목 생성 · 승인 조정.
     const supervisor = (this.supervisor = new RuntimeSupervisor<Electron.WebContents>({
       activeTurns: new ActiveTurnTracker((projectId, count) => {
@@ -1013,6 +1050,9 @@ export class Bootstrap {
     registerSessionHandlers(ctx, {
       isSessionBusy: (sessionId) => supervisor.hasSession(sessionId),
       onSessionDisposed: (sessionId) => {
+        void this.mailArchivePlugin?.disposeSession(sessionId).catch(() => {
+          getLogger().child('mail-archive').warn('session.cleanup.failed')
+        })
         background.dispose(sessionId)
         persistence.forgetProviderSession(sessionId)
         // DB 행을 지우기 전에 호출되는 hook에서 active/idle provider 수명도 함께 끊는다. lease가

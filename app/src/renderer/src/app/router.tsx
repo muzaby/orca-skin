@@ -7,8 +7,10 @@ import { AgentPage } from '../pages/AgentPage'
 import { CapturesPage } from '../pages/CapturesPage'
 import { ArtifactsPage } from '../pages/ArtifactsPage'
 import { PluginsPage } from '../pages/PluginsPage'
+import { MailArchivePage } from '../pages/MailArchivePage'
 import type { ArtifactsViewProps } from '../features/artifacts'
 import { BootRedirector } from './BootRedirector'
+import { MailArchivePluginSlot } from './MailArchivePluginSlot'
 
 // path 라우팅의 진실의 출처. 화면 ID → element 매핑.
 // - `/`         : BootRedirector — lastSessionId 가 있으면 /chat/<id>, 없으면 /new 로 replace
@@ -33,7 +35,8 @@ export function AppRouter({
       <Route path="/chat/:sessionId" element={<ChatPage />} />
       <Route path="/projects" element={<ProjectsPage />} />
       <Route path="/artifacts" element={<ArtifactsPage {...artifactCatalog} />} />
-      <Route path="/plugins" element={<PluginsPage />} />
+      <Route path="/plugins" element={<PluginsPage builtinMcp={<MailArchivePluginSlot />} />} />
+      <Route path="/mail-archive" element={<MailArchivePage />} />
       <Route
         path="/projects/:projectId"
         element={<ProjectLandingPage onDeleteProject={onDeleteProject} />}

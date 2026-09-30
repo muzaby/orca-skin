@@ -19,7 +19,10 @@ function isValidTarget(target: unknown): target is AppErrorTarget {
   if ('kind' in target && target.kind === 'settings' && 'tab' in target) {
     return (
       typeof target.tab === 'string' &&
-      (target.tab === 'general' || target.tab === 'usage' || target.tab.startsWith('provider:'))
+      (target.tab === 'general' ||
+        target.tab === 'usage' ||
+        target.tab === 'mail-archive' ||
+        target.tab.startsWith('provider:'))
     )
   }
   return false

@@ -16,6 +16,21 @@ import type {
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import type { NormalizedPermissionMode } from '../shared/permission-mode'
 import type {
+  MailArchiveGetRequest,
+  MailArchiveImportRequest,
+  MailArchiveImportResult,
+  MailArchiveMessage,
+  MailArchiveProgress,
+  MailArchiveSearchHit,
+  MailArchiveSearchRequest,
+  MailArchiveStats,
+  MailArchiveSource,
+  MailArchiveSourceRemovalResult,
+  MailArchiveAttachmentExportResult,
+  MailArchiveThreadRequest,
+  MailArchiveThreadResult
+} from '../shared/mail-archive'
+import type {
   BackgroundEvent,
   BackgroundSessionState,
   BackgroundTaskRequest,
@@ -232,6 +247,41 @@ const orca = {
     readAttachment: (path: string): Promise<ReadAttachmentResult> =>
       ipcRenderer.invoke(CHANNELS.filesReadAttachment, { path }),
     pathForFile: (file: File): string => webUtils.getPathForFile(file)
+  },
+  mailArchive: {
+    pluginState: (
+      sessionId?: string
+    ): Promise<import('../shared/mail-archive-plugin').ArchivePluginState> =>
+      ipcRenderer.invoke(CHANNELS.mailArchivePluginState, sessionId ? { sessionId } : {}),
+    setScope: (
+      input: import('../shared/mail-archive-plugin').ArchiveScopeInput
+    ): Promise<import('../shared/mail-archive-plugin').ArchiveReadScope | null> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveSetScope, input),
+    resolveEvidence: (
+      sessionId: string,
+      id: string
+    ): Promise<import('../shared/mail-archive-plugin').ArchiveEvidenceResult> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveResolveEvidence, { sessionId, id }),
+    pickFiles: (): Promise<MailArchiveImportRequest | null> =>
+      ipcRenderer.invoke(CHANNELS.mailArchivePickFiles),
+    import: (request: MailArchiveImportRequest): Promise<MailArchiveImportResult> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveImport, request),
+    cancel: (jobId: string): Promise<{ cancelled: boolean }> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveCancel, { id: jobId }),
+    search: (request: MailArchiveSearchRequest): Promise<MailArchiveSearchHit[]> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveSearch, request),
+    get: (request: MailArchiveGetRequest): Promise<MailArchiveMessage | null> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveGet, request),
+    thread: (request: MailArchiveThreadRequest): Promise<MailArchiveThreadResult> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveThread, request),
+    exportAttachment: (attachmentId: string): Promise<MailArchiveAttachmentExportResult> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveExportAttachment, { id: attachmentId }),
+    sources: (): Promise<MailArchiveSource[]> => ipcRenderer.invoke(CHANNELS.mailArchiveSources),
+    removeSource: (sourceId: string): Promise<MailArchiveSourceRemovalResult> =>
+      ipcRenderer.invoke(CHANNELS.mailArchiveRemoveSource, { id: sourceId }),
+    stats: (): Promise<MailArchiveStats> => ipcRenderer.invoke(CHANNELS.mailArchiveStats),
+    onProgress: (handler: (progress: MailArchiveProgress) => void): (() => void) =>
+      subscribe(CHANNELS.mailArchiveProgress, handler)
   },
   git: {
     snapshot: (req: GitSnapshotRequest): Promise<GitSnapshotResult> =>

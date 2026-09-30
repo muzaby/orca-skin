@@ -82,7 +82,7 @@ function adaptServer(
       name: implementation.name,
       description: declaration.description,
       annotations: declaration.annotations,
-      inputSchema: implementation.inputSchema,
+      inputSchema: implementation.inputObjectSchema ?? implementation.inputSchema,
       handler: adaptHandler(implementation, serverId, context)
     }
   })

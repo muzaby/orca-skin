@@ -62,7 +62,8 @@ src/renderer/
     │   ├── projects/                # projects store(초기 조회는 app/boot/steps), ProjectsView, ProjectLandingHeader,
     │   │                            #   ProjectInstructionsSidebar, CreateProjectModal, EditInstructionsModal
     │   ├── cost/                    # CostProvider, cost store (일/주/월·provider별 사용량 미러, refreshCost) — 0079~0082
-    │   ├── settings/                # SettingsModal + 탭(General/Usage/ProviderUsage) + settingsModalStore (0079~0082)
+    │   ├── settings/                # SettingsModal + 탭(General/Usage/ProviderUsage) + app이 주입하는 mailArchiveSlot + settingsModalStore
+    │   ├── mail-archive/            # 검색/본문 뷰·자료원 관리·공유 source-state. 설정 연결은 app/MailArchiveSettingsContent
     │   ├── update/                  # UpdateProvider, updateStore(dummyMode 포함), UpdateDialog, UpdateDebugSection — 인앱 업데이트 UX (0085/0086)
     │   ├── providers/               # 연결(provider) — GateLogin(로그인 랜딩), useProviderGate, ProviderDetail,
     │   │                            #   principal.ts(신원 선택 규칙, 순수), bypassStore(DEV 우회 토글)

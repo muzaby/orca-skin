@@ -10,8 +10,8 @@
 
 ## 1. 명명 규칙
 
-- 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인: `artifact` · `chat`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `git`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `error`, `provider`
+- 형식: `orca:<domain>:<action>` — 콜론 구분. 도메인은 소문자가 기본이며 개인 보관함은 `mailArchive` 표기를 사용한다.
+- 도메인: `artifact` · `chat`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `git`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `error`, `provider` · `mailArchive`
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -26,7 +26,7 @@
 
 ## 2. 채널 카탈로그
 
-도메인별 분포(개수는 [생성물](./generated/inventory.md)): `chat`(`send`·`event`·`cancel`·`stopSubagent`·`steerCancel`·`steer`) · `boot`(`report`·`whenReady`) · `backend` · `agent` · `engine` · `install` · `update` · `settings` · `skills` · `files` · `git`(§2.6-b) · `session` · `project` · `window` · `search` · `mcp` · `cost` · `concurrency` · `permission`(`respond`·`setMode`) · `notify`(`show` — §2.12-c) · `debug`(dev 전용 — `getMock`·`setMock`) · `log`(`emit` — §2.13-b) · `provider`(§2.13-c — `list`·`state`·`login`·`continue`·`reauth`·`revoke`).
+도메인별 분포(개수는 [생성물](./generated/inventory.md)): `chat`(`send`·`event`·`cancel`·`stopSubagent`·`steerCancel`·`steer`) · `boot`(`report`·`whenReady`) · `backend` · `agent` · `engine` · `install` · `update` · `settings` · `skills` · `files` · `mailArchive`(§2.13-e) · `git`(§2.6-b) · `session` · `project` · `window` · `search` · `mcp` · `cost` · `concurrency` · `permission`(`respond`·`setMode`) · `notify`(`show` — §2.12-c) · `debug`(dev 전용 — `getMock`·`setMock`) · `log`(`emit` — §2.13-b) · `provider`(§2.13-c — `list`·`state`·`login`·`continue`·`reauth`·`revoke`).
 
 > **`provider` 도메인이 구 `auth`·`plugin` 채널을 대체한다.**
 > 앱 로그인·서비스 연결·LLM 자격증명이 **같은 채널 묶음**을 쓴다 — 셋의 차이는 `ProviderInfo.kind`
@@ -464,6 +464,37 @@ renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달�
 | `orca:provider:reauth` | R→M (invoke) | `{ providerId; authKind? }` (`ProviderReauthRequestSchema`) | `ProviderStepInfo` | 재인증. **기존 grant 를 먼저 지우지 않는다** — 새 인증이 성공해야 교체된다. ⚠️ **다만 실패해도 이전 자격증명이 남는다는 보장은 0184 이후 성립하지 않는다**: 값형은 새 값을 **같은 vault 키**에 쓴 뒤 `Provider.probe` 로 확인하므로, 확인에 실패하면 되돌림(`revoke`)이 새 값과 함께 이전 값도 지운다(grant 가 `none` 으로 떨어진다). 실패 후에도 이전 자격증명으로 계속 쓰게 할지는 **미결(OQ)** — `docs/handoff/0184-provider-auth-verification-fixes/verify.md` D2. |
 | `orca:provider:revoke` | R→M (invoke) | `{ providerId }` (`ProviderRevokeRequestSchema`) | `void` | 연결 해제 — grant 와 vault 잔여물(값·metadata·index)을 함께 지운다. 구 `cascade` 는 없다(참조가 없으므로 종속 binding 개념이 사라졌다). |
 
+### 2.13-e 개인 메일 보관함
+
+정본: `app/src/shared/mail-archive.ts`, `main/app/handlers/mail-archive.ts`. 원본 경로는 main의 창별 선택 권한에 보관하며 renderer에는 일회용 `selectionId`만 전달한다. 잘못된 요청·처리 오류는 reject하며 검색 오류를 빈 결과로 바꾸지 않는다. Electron이 붙인 오류 접두어는 화면의 허용 코드 매핑에서 처리한다.
+
+| 채널 | 방향 | 입력 | 응답 / 의미 |
+|---|---|---|---|
+| `orca:mailArchive:pickFiles` | R→M | — | `MailArchiveImportRequest` 또는 null. PST 다중 선택 권한; OS 반환 경로의 확장자도 검사 |
+| `orca:mailArchive:import` | R→M | `{selectionId}` | `MailArchiveImportResult`. 호출 창에 귀속한 선택을 한 번 소비 |
+| `orca:mailArchive:cancel` | R→M | `{id: jobId}` | `{cancelled}`. 검증 완료된 메일은 유지 |
+| `orca:mailArchive:search` | R→M | `MailArchiveSearchRequest` | 공백 AND 질의와 필드·기간·자료원·폴더 조건을 모두 만족하는 결과 |
+| `orca:mailArchive:get` | R→M | `{id}` | 본문·대체 표현·품질·가역 구간·첨부 목록 또는 null |
+| `orca:mailArchive:thread` | R→M | `{id, limit?}` | 명시 관계의 메일·관계·잘림 여부 |
+| `orca:mailArchive:exportAttachment` | R→M | `{id: attachmentId}` | 저장 대화상자 후 선택 첨부만 추출. 원본 변경 시 실패 |
+| `orca:mailArchive:sources` | R→M | — | 경로를 제외한 자료원 목록·공유 메일 수 |
+| `orca:mailArchive:removeSource` | R→M | `{id: sourceId}` | 확인 후 해당 자료원 제거. 이를 포함한 가져오기만 취소 |
+| `orca:mailArchive:stats` | R→M | — | 메일 통계, 현재 진행 스냅샷과 최근 결과. 화면 재진입 복원용 |
+| `orca:mailArchive:progress` | M→R | `MailArchiveProgress` | 실행 중 알림은 250 ms 간격, 종료는 즉시 전달 |
+| `orca:mailArchive:pluginState` | R→M | `{sessionId?}` | `ArchivePluginState`. 실제 registry 등록 여부·검색 가능 여부·해당 저장 대화의 허용 범위 |
+| `orca:mailArchive:setScope` | R→M | `ArchiveScopeInput` | 자료원 ID·발신 날짜 범위 허용. 빈 ID 목록은 해제. 실제 core session과 trusted 창 검사 |
+| `orca:mailArchive:resolveEvidence` | R→M | `{sessionId, id: evidenceUUID}` | `ArchiveEvidenceResult`. 같은 세션/현재 허용 occurrence의 보관 본문과 원래 UTF-16 강조 범위, 제거/접근 불가 상태 |
+
+진행 스냅샷·최근 가져오기 결과는 앱 세션 메모리이고 검색 데이터는 [별도 SQLite 보관함](arch/backend/persistence.md#개인-메일-보관함)에 저장한다. 원본 파일이 바뀌거나 사라져도 과거 검증 완료 메일은 명시 제거 전까지 검색된다. 첨부 바이트는 복제하지 않으므로 과거 revision의 원본이 없으면 추출할 수 없다.
+
+EML 입력은 main 내부 `MailArchiveService.importEmlBatch`만 제공한다. 전처리기가 원본 위치·SHA-256·정규화 헤더/본문·첨부 manifest를 전달하며 소비 Promise는 저장·검증·정리 완료 ACK다. 입력·생산자 병행 예제는 [현재 배치 처리 계약](arch/backend/persistence.md#개인-메일-보관함)을 따른다.
+
+검색의 선택 필드 `from`·`to`·`cc`·`attachmentName`·`folderPath`는 부분 문자열을 literal로 비교한다. `sentAfter`는 포함 시작 epoch, `sentBefore`는 제외 끝 epoch이며 둘 다 있으면 시작이 끝보다 작아야 한다. renderer는 로컬 달력의 시작일 자정부터 종료일 다음 날 자정까지 변환한다. 날짜 조건에서 날짜 미상 메일은 제외된다. 유형·자료원 ID·폴더 조건은 같은 검증 완료 occurrence에서 평가하며 staging은 검색되지 않는다.
+
+`MailArchiveMessage.bodySegments`는 선택 본문의 `[start,end)` UTF-16 범위·종류·판정 규칙·classifier revision·확실성으로 구성된다. 범위는 선택 본문 전체를 겹침 없이 덮으며 대체 본문에 적용하지 않는다. 표시와 접기 동작은 [렌더링](arch/frontend/rendering.md#메일-보관함-결과와-오류)을 따른다.
+
+메일 Plugin IPC의 스키마 정본은 `app/src/shared/mail-archive-plugin.ts`이며 `main/app/handlers/mail-archive-plugin.ts`가 trusted sender를 검사하고 backend가 core session 존재를 확인한다. 모델 도구는 session/scope 인자를 받지 않고 런타임의 실제 세션·호출 취소 신호를 사용한다. source/date 교집합을 SQL 후보 조회 전에 적용하며 근거 ID는 같은 세션에서만 열 수 있다. 내부 EML 배치 입력은 MCP·preload로 공개하지 않는다.
+
 ### 2.14 예약 / 미노출 채널
 
 코드에 채널 상수는 없지만 향후 도입이 예약된 도메인:
@@ -485,7 +516,7 @@ renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달�
 | `orca:error:revealLog` | R→M (invoke) | 없음 | `void` | 로그 버퍼를 비운 뒤 현재 로그 파일을 탐색기에서 선택한다. 파일이 없으면 로그 폴더를 열고, 폴더 열기 실패는 reject한다. 경로는 main이 결정한다. |
 
 계약은 `app/src/shared/app-error.ts`가 소유한다. `id`는 보고마다 유일하며 `title`은 번역 카탈로그 키, `detail`은 길이가 제한된 설명, `origin`은 발생 프로세스다.
-선택적 `target`은 ``{ kind: 'page', path: `/${string}` }`` 또는 `{ kind: 'settings', tab: AppSettingsTab }`이다. 설정 탭은 `general`·`usage`·`provider:<key>`이며, 본문 클릭 시 app 레이어가 이동을 실행하고 해당 카드를 닫는다. 대상이 없거나 런타임 형태가 무효(상대 경로·`//` 시작 경로·잘못된 설정 탭)이면 로그 위치로 이동한다. 같은 제목·설명 병합은 cooldown 이후 새 보고의 target(생략 포함)으로 교체한다.
+선택적 `target`은 ``{ kind: 'page', path: `/${string}` }`` 또는 `{ kind: 'settings', tab: AppSettingsTab }`이다. 설정 탭은 `general`·`usage`·`mail-archive`·`provider:<key>`이며, 본문 클릭 시 app 레이어가 이동을 실행하고 해당 카드를 닫는다. 대상이 없거나 런타임 형태가 무효(상대 경로·`//` 시작 경로·잘못된 설정 탭)이면 로그 위치로 이동한다. 같은 제목·설명 병합은 cooldown 이후 새 보고의 target(생략 포함)으로 교체한다.
 준비된 창이 없으면 main은 유한 FIFO 대기열을 유지한다. 창 파괴 시 준비 집합에서 제거하며 같은 제목·설명의 폭주를 억제한다. 로그 동반·수명 정책은 [로깅 정본](arch/backend/observability.md#7-오류-보고toast)을 따른다.
 
 ## 3. NormalizedEvent variant 정의

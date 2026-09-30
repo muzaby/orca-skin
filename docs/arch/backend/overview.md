@@ -228,3 +228,7 @@ Electron App
 - CLI 시기 외부 계약 + Orca 채택 표기: [claude-code-spec.md](../../claude-code-spec.md)
 - Phase 로드맵 / Future Scope: [PRD.md](../../PRD.md) §8 / §9 / §11
 - 운영 규칙: [`app/AGENTS.md`](../../../app/AGENTS.md)
+
+### 개인 메일 보관함 실행 경계
+
+`app/handlers/mail-archive.ts` → `features/plugins/mail-archive/service.ts` → `worker-host.ts`가 로컬 보관함을 조립한다. source utility process는 가져오기 작업 내 파일들을 순차 처리하며 index utility process가 SQLite와 검증 승격을 소유한다. ACK·epoch로 배치 저장과 취소를 제어한다. 워커 종료/응답 시간 초과는 대기 요청을 실패시키고 다음 호출에서 index를 다시 시작한다. 실패한 쓰기를 자동 재전송하지 않는다. 저장 규칙은 [persistence](persistence.md#개인-메일-보관함), 공개 경계는 [IPC 계약](../../IPC_CONTRACT.md#213-e-개인-메일-보관함)에 있다.

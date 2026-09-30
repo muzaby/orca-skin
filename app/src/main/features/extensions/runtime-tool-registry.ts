@@ -74,6 +74,7 @@ function sameServer(left: RuntimeToolServer, right: RuntimeToolServer): boolean 
       (implementation, index) =>
         implementation.name === right.implementations[index]?.name &&
         implementation.inputSchema === right.implementations[index]?.inputSchema &&
+        implementation.inputObjectSchema === right.implementations[index]?.inputObjectSchema &&
         implementation.handler === right.implementations[index]?.handler
     )
   )

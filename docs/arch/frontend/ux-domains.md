@@ -162,3 +162,9 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 - `availableModels`의 custom 항목은 실제 모델명을 Composer에 그대로 표시하고 선택값도 같은 이름을 쓴다. 1M 변형은 선택값에 `[1m]` 이 붙어 기본 변형과 구분된다(`shared/model-identity.ts`).
 - Claude 모델 계열은 `sonnet`·`opus`·`haiku`·`fable`을 인식한다. `ANTHROPIC_DEFAULT_FABLE_MODEL`과 `availableModels`의 Fable 항목도 동일한 모델 identity 축(모델명 + `[1m]`)으로 Composer와 Engine 카드에 투영하며, alias 폴백 우선순위는 기존 호환 순서를 유지한 뒤 Fable을 마지막에 둔다.
 - Engine 화면의 runtime-derived Orca Harness는 `readOnly:true` 배지를 표시하며 편집·삭제 액션을 노출하지 않는다. Main IPC도 같은 provenance로 mutation을 거부한다.
+
+### 메일 보관함
+
+설정의 메일 보관함 탭은 `MailArchiveSourceManager`로 PST 파일 추가, 진행·실패 사유, 자료원 제거와 보관함 열기를 제공한다. EML 입력 GUI는 없으며 내부에서 주입된 EML도 검색·열람·제거할 수 있다. app의 `MailArchiveSettingsContent`를 `SidebarUserButton`이 설정의 ReactNode slot에 주입하며 settings feature는 mail-archive feature를 import하지 않는다.
+
+`features/mail-archive/MailArchiveView.tsx`는 검색·명시 관계·본문·선택 첨부 저장과 자료원 관리 진입을 담당한다. 검색어·발신/수신/참조·첨부 이름·보낸 기간·메일 폴더·자료원은 AND로 적용하며 Enter 또는 검색 버튼으로 실행한다. 종료일은 포함하고 날짜 오류 때 결과를 유지한다. 첨부 본문 검색, 의미 검색과 RAG는 구현되어 있지 않다. 진행·재진입 및 오류 표시는 [상태](state.md#메일-보관함-상태)와 [렌더링](rendering.md#메일-보관함-결과와-오류)을 따른다.
