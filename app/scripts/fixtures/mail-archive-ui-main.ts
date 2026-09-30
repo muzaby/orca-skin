@@ -1,4 +1,12 @@
-import { app, BrowserWindow, dialog, ipcMain, utilityProcess, type UtilityProcess } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  utilityProcess,
+  type NativeImage,
+  type UtilityProcess
+} from 'electron'
 import assert from 'node:assert/strict'
 import { once } from 'node:events'
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
@@ -8,6 +16,8 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { registerMailArchiveHandlers } from '../../src/main/app/handlers/mail-archive'
 import { createMailArchiveWorkerFactory } from '../../src/main/features/plugins/mail-archive/worker-host'
 import { createMailArchiveService } from '../../src/main/features/plugins/mail-archive/service'
+import { archiveSourceId } from '../../src/main/features/plugins/mail-archive/identity'
+import type { MailArchiveEmlBatchItem } from '../../src/main/features/plugins/mail-archive/types'
 import { CHANNELS } from '../../src/shared/ipc'
 import type { MailArchiveSearchRequest } from '../../src/shared/mail-archive'
 import Database from 'better-sqlite3'
@@ -40,31 +50,60 @@ async function main(): Promise<void> {
   const batchEntered = deferred()
   const releaseBatch = deferred()
   const service = createMailArchiveService(root, {
-    createIndex: (path) => production.createIndex(path),
-    createSource: () => {
-      const source = production.createSource()
-      return {
-        close: () => source.close(),
-        extract: (input) => source.extract(input),
-        run: (input, callbacks, signal) =>
-          source.run(
-            input,
-            {
-              ...callbacks,
-              onBatch: async (revision, mails) => {
-                if (holdBatch) {
-                  holdBatch = false
-                  batchEntered.resolve()
-                  await releaseBatch.promise
-                }
-                await callbacks.onBatch(revision, mails)
+    createIndex: (path) => {
+      const index = production.createIndex(path)
+      return new Proxy(index, {
+        get(target, property) {
+          if (property === 'upsertBatch')
+            return async (input: Parameters<typeof index.upsertBatch>[0]) => {
+              if (holdBatch) {
+                holdBatch = false
+                batchEntered.resolve()
+                await releaseBatch.promise
               }
-            },
-            signal
-          )
-      }
-    }
+              return target.upsertBatch(input)
+            }
+          const value = Reflect.get(target, property)
+          return typeof value === 'function' ? value.bind(target) : value
+        }
+      })
+    },
+    createSource: () => production.createSource()
   })
+  async function preprocess(path: string): Promise<MailArchiveEmlBatchItem> {
+    const source = production.createSource()
+    const items: MailArchiveEmlBatchItem[] = []
+    try {
+      await source.run(
+        {
+          jobId: 'preprocess',
+          epoch: 'preprocess',
+          sourceKind: 'eml',
+          sourceId: archiveSourceId('eml', path),
+          sourcePath: path
+        },
+        {
+          onReady: async () => ({ action: 'scan', revision: 1 }),
+          onBatch: async (_revision, mails) => {
+            for (const { sourceKind, sourceId, identityKey, ...item } of mails) {
+              assert.equal(sourceKind, 'eml')
+              assert.ok(sourceId)
+              assert.ok(identityKey)
+              items.push(item)
+            }
+          },
+          onComplete: async (completion) => {
+            assert.equal(completion.startFingerprint, completion.endFingerprint)
+          }
+        },
+        new AbortController().signal
+      )
+      assert.equal(items.length, 1)
+      return items[0]!
+    } finally {
+      source.close()
+    }
+  }
   const searches: MailArchiveSearchRequest[] = []
   let holdQuery: string | null = null
   const queryEntered = deferred()
@@ -165,10 +204,15 @@ async function main(): Promise<void> {
     await waitFor(`${resultCount} === ${count}`, `${count} result rows`)
   }
   async function screenshot(name: string): Promise<void> {
-    const painted = once(win.webContents, 'paint')
+    await evaluate(`(async () => {
+      await document.fonts.ready;
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    })()`)
+    const painted = new Promise<NativeImage>((resolve) => {
+      win.webContents.once('paint', (_event, _rectangle, frame) => resolve(frame))
+    })
     win.webContents.invalidate()
-    await painted
-    await writeFile(join(screenshots, `${name}.png`), (await win.webContents.capturePage()).toPNG())
+    await writeFile(join(screenshots, `${name}.png`), (await painted).toPNG())
   }
   try {
     const folder = join(root, 'eml')
@@ -190,23 +234,39 @@ async function main(): Promise<void> {
     await results(0)
     await click('자료원 관리')
     await waitFor(
-      `!![...document.querySelectorAll('[role=dialog] button')].find(b => b.textContent === 'EML·PST 파일 추가')`,
+      `!![...document.querySelectorAll('[role=dialog] button')].find(b => b.textContent === 'PST 파일 추가')`,
       'actual settings slot renders management'
     )
     assert.equal(
       await evaluate(`document.querySelector('[role=dialog] [aria-current=page]')?.textContent`),
       '메일 보관함'
     )
-    await screenshot('settings-white')
-    picked = [folder]
-    await click('EML 폴더 추가')
+    assert.equal(
+      await evaluate(
+        `!![...document.querySelectorAll('[role=dialog] button')].find(b => /EML/i.test(b.textContent))`
+      ),
+      false,
+      'EML input GUI is absent'
+    )
+    assert.equal(
+      await evaluate(
+        `'pickEmlFolder' in window.orca.mailArchive || 'importEmlBatch' in window.orca.mailArchive`
+      ),
+      false,
+      'internal EML input is not a renderer API'
+    )
+    const items = [await preprocess(primary), await preprocess(secondary)]
+    await service.importEmlBatch(items, (progress) =>
+      win.webContents.send(CHANNELS.mailArchiveProgress, progress)
+    )
     await waitFor(
       `document.querySelector('[role=dialog]')?.textContent.includes('검색 가능한 메일 2개')`,
-      'folder completion in settings'
+      'internal EML completion in settings'
     )
     await results(2)
+    await screenshot('settings-white')
     pass(
-      'app settings slot, production preload/IPC, actual source/index workers and shared result refresh'
+      'PST-only settings, private normalized EML API, actual source/index workers and shared result refresh'
     )
     await click('보관함 열기')
     await waitFor(`!document.querySelector('[role=dialog]')`, 'settings navigation closes modal')
@@ -306,10 +366,12 @@ async function main(): Promise<void> {
     await results(2)
     const copy = join(root, 'copy.eml')
     await writeFile(copy, mail)
-    picked = [copy]
+    const copyItem = await preprocess(copy)
     holdBatch = true
     await click('자료원 관리')
-    await click('EML·PST 파일 추가')
+    const copying = service.importEmlBatch([copyItem], (progress) =>
+      win.webContents.send(CHANNELS.mailArchiveProgress, progress)
+    )
     await batchEntered.promise
     await waitFor(
       `document.querySelector('[role=dialog]')?.textContent.includes('처리')`,
@@ -320,6 +382,7 @@ async function main(): Promise<void> {
     await waitFor(`!document.querySelector('[role=dialog]')`, 'close settings during import')
     assert.equal((await service.stats()).progress?.state, 'running')
     releaseBatch.resolve()
+    await copying
     await waitFor(
       `document.querySelector('select[aria-label="자료원"]')?.options.length === 6`,
       'completion shared after modal close'
@@ -366,9 +429,9 @@ async function main(): Promise<void> {
       'UI secondary'
     )
     pass('Enter-only submit and reversed IPC responses cannot replace newer search results')
-    picked = [join(root, 'missing.eml')]
+    picked = [join(root, 'missing.pst')]
     await click('자료원 관리')
-    await click('EML·PST 파일 추가')
+    await click('PST 파일 추가')
     await waitFor(
       `document.querySelector('[role=dialog] [role=alert]')?.textContent.includes('원본 파일에 접근할 수 없습니다.')`,
       'translated import error'
@@ -385,7 +448,7 @@ async function main(): Promise<void> {
       `!document.querySelector('[role=dialog] [role=alert]')`,
       'retry clears stale error'
     )
-    await click('EML·PST 파일 추가')
+    await click('PST 파일 추가')
     assert.equal((await service.sources()).length, 2)
     pass('translated failure/retry and picker cancellation preserve verified source state')
     await screenshot('settings-error-recovered-white')
@@ -430,7 +493,7 @@ async function main(): Promise<void> {
     await results(1)
     picked = [resolve('node_modules/pst-extractor/example/testdata/enron.pst')]
     await click('자료원 관리')
-    await click('EML·PST 파일 추가')
+    await click('PST 파일 추가')
     await waitFor(
       `document.querySelector('[role=dialog]')?.textContent.includes('새 저장 71개')`,
       'PST file registration completes'

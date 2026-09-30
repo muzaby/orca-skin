@@ -64,7 +64,6 @@ export const CHANNELS = {
   filesOpenPath: 'orca:files:openPath',
   filesReadAttachment: 'orca:files:readAttachment',
   mailArchivePickFiles: 'orca:mailArchive:pickFiles',
-  mailArchivePickEmlFolder: 'orca:mailArchive:pickEmlFolder',
   mailArchiveImport: 'orca:mailArchive:import',
   mailArchiveCancel: 'orca:mailArchive:cancel',
   mailArchiveSearch: 'orca:mailArchive:search',

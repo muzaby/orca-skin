@@ -66,3 +66,9 @@ export interface MailArchiveImportInput {
   readonly inputKind: 'files' | 'eml-folder'
   readonly paths: readonly string[]
 }
+
+/** Preprocessed in a trusted child; original bytes and caller-assigned archive IDs are excluded. */
+export type MailArchiveEmlBatchItem = Omit<
+  NormalizedArchiveMail,
+  'sourceKind' | 'sourceId' | 'identityKey'
+>

@@ -57,7 +57,6 @@ function fixture(): {
       return unsubscribe
     }),
     pickFiles: vi.fn(async () => ({ selectionId: 'selected' })),
-    pickEmlFolder: vi.fn(async () => ({ selectionId: 'folder' })),
     import: vi.fn<MailArchiveSourceApi['import']>(async () => ({
       jobId: 'job',
       state: 'completed' as const,
@@ -136,10 +135,10 @@ describe('shared source state', () => {
     const f = fixture()
     const pending = deferred<Awaited<ReturnType<MailArchiveSourceApi['import']>>>()
     f.api.import.mockReturnValueOnce(pending.promise)
-    const importing = f.store.getState().add('eml-folder')
-    await vi.waitFor(() => expect(f.api.import).toHaveBeenCalledWith({ selectionId: 'folder' }))
-    await f.store.getState().add('files')
-    expect(f.api.pickFiles).not.toHaveBeenCalled()
+    const importing = f.store.getState().add()
+    await vi.waitFor(() => expect(f.api.import).toHaveBeenCalledWith({ selectionId: 'selected' }))
+    await f.store.getState().add()
+    expect(f.api.pickFiles).toHaveBeenCalledTimes(1)
     pending.resolve({
       jobId: 'job',
       state: 'completed',
@@ -161,13 +160,13 @@ describe('shared source state', () => {
     const f = fixture()
     await f.store.getState().refresh()
     f.api.pickFiles.mockRejectedValueOnce(new Error('mail_source_not_selected'))
-    await f.store.getState().add('files')
+    await f.store.getState().add()
     expect(f.store.getState().errorKey).toBe('mailArchiveRepair.pickAgain')
     expect(f.store.getState().sources).toEqual([source])
     await f.store.getState().refresh()
     expect(f.store.getState().errorKey).toBeNull()
     f.api.import.mockRejectedValueOnce(new Error('mail_archive_index_timeout'))
-    await f.store.getState().add('files')
+    await f.store.getState().add()
     expect(f.store.getState().errorKey).toBe('mailArchiveRepair.workerRetry')
     f.store.setState({ progress: running })
     f.api.cancel.mockRejectedValueOnce(new Error('mail_source_timeout'))

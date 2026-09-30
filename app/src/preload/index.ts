@@ -251,8 +251,6 @@ const orca = {
   mailArchive: {
     pickFiles: (): Promise<MailArchiveImportRequest | null> =>
       ipcRenderer.invoke(CHANNELS.mailArchivePickFiles),
-    pickEmlFolder: (): Promise<MailArchiveImportRequest | null> =>
-      ipcRenderer.invoke(CHANNELS.mailArchivePickEmlFolder),
     import: (request: MailArchiveImportRequest): Promise<MailArchiveImportResult> =>
       ipcRenderer.invoke(CHANNELS.mailArchiveImport, request),
     cancel: (jobId: string): Promise<{ cancelled: boolean }> =>

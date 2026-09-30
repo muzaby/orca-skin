@@ -3,8 +3,6 @@ import { z } from 'zod'
 export const MAIL_ARCHIVE_SOURCE_KINDS = ['eml', 'pst'] as const
 export type MailArchiveSourceKind = (typeof MAIL_ARCHIVE_SOURCE_KINDS)[number]
 
-export type MailArchiveInputKind = 'files' | 'eml-folder'
-
 export interface MailArchiveAttachment {
   readonly id: string
   readonly name: string

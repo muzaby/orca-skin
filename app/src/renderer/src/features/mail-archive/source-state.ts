@@ -11,14 +11,7 @@ import type {
 
 export type MailArchiveSourceApi = Pick<
   typeof mailArchiveApi,
-  | 'stats'
-  | 'sources'
-  | 'onProgress'
-  | 'pickFiles'
-  | 'pickEmlFolder'
-  | 'import'
-  | 'cancel'
-  | 'removeSource'
+  'stats' | 'sources' | 'onProgress' | 'pickFiles' | 'import' | 'cancel' | 'removeSource'
 >
 
 export interface MailArchiveSourceState {
@@ -34,7 +27,7 @@ export interface MailArchiveSourceState {
   revision: number
   acquire(): () => void
   refresh(changed?: boolean): Promise<void>
-  add(kind: 'files' | 'eml-folder'): Promise<void>
+  add(): Promise<void>
   cancel(): Promise<void>
   remove(id: string): Promise<void>
 }
@@ -105,12 +98,12 @@ export function createMailArchiveSourceStore(api: MailArchiveSourceApi): MailArc
           set({ loading: false, errorKey: mailArchiveErrorKey(error) })
       }
     },
-    add: async (kind) => {
+    add: async () => {
       if (get().importing || get().progress?.state === 'running' || get().removingSourceId) return
       refreshGeneration++
       set({ importing: true, loading: false, errorKey: null, lastRemoval: null })
       try {
-        const selected = await (kind === 'files' ? api.pickFiles() : api.pickEmlFolder())
+        const selected = await api.pickFiles()
         if (!selected) {
           await get().refresh()
           return

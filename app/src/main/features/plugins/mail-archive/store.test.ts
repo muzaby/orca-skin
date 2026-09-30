@@ -82,6 +82,76 @@ async function addRevision(
 }
 
 describe('mail archive store', () => {
+  it('recovers interrupted PST revisions without publishing their stored batches or changing prior mail/attachment IDs', async () => {
+    const store = await fixture()
+    await addRevision(store, 'old-verified', [mail()])
+    const id = store.search({ query: '서버 이전' })[0]!.id
+    const snapshot = store.get(id)
+    const staged = store.beginRevision({
+      sourceId,
+      sourceKind: 'pst',
+      sourcePath,
+      fingerprint: 'interrupted'
+    })
+    store.upsertBatch({
+      sourceId,
+      revision: staged.revision,
+      mails: [
+        mail({
+          itemKey: 'new',
+          messageId: '<new@test>',
+          bodyText: '미완료 신규 본문',
+          sourceFingerprint: 'interrupted'
+        })
+      ]
+    })
+    const freshPath = 'C:/archive/first-interrupted.pst'
+    const freshId = archiveSourceId('pst', freshPath)
+    const fresh = store.beginRevision({
+      sourceId: freshId,
+      sourceKind: 'pst',
+      sourcePath: freshPath,
+      fingerprint: 'fresh-interrupted'
+    })
+    store.upsertBatch({
+      sourceId: freshId,
+      revision: fresh.revision,
+      mails: [
+        mail({
+          sourceId: freshId,
+          sourcePath: freshPath,
+          itemKey: 'first-new',
+          messageId: '<first@test>',
+          bodyText: '첫 입력 미완료 본문',
+          sourceFingerprint: 'fresh-interrupted'
+        })
+      ]
+    })
+    stores.splice(stores.indexOf(store), 1)
+    store.close() // No abort/verify: model a process ending after transaction commit.
+    const reopened = createMailArchiveStore(roots.at(-1)!)
+    stores.push(reopened)
+    expect(reopened.get(id)).toEqual(snapshot)
+    expect(reopened.search({ query: '미완료' })).toHaveLength(0)
+    expect(reopened.stats().totalMessages).toBe(1)
+    const db = openFileDatabase(reopened.dbPath, { initialize: () => {} })
+    try {
+      expect(
+        db
+          .prepare(
+            "SELECT state FROM archive_source_revision WHERE fingerprint IN ('interrupted','fresh-interrupted') ORDER BY fingerprint"
+          )
+          .all()
+      ).toEqual([{ state: 'interrupted' }, { state: 'interrupted' }])
+      expect(
+        db
+          .prepare('SELECT COUNT(*) AS n FROM archive_source_occurrence WHERE source_id=?')
+          .get(freshId)
+      ).toEqual({ n: 0 })
+    } finally {
+      db.close()
+    }
+  })
   it('combines partial field filters and sent-date boundaries with AND in both search branches', async () => {
     const store = await fixture()
     const start = new Date(2026, 8, 29).getTime()

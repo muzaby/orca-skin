@@ -1,7 +1,7 @@
 import { BrowserWindow, dialog, type IpcMainInvokeEvent } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { realpath } from 'node:fs/promises'
-import { basename } from 'node:path'
+import { basename, extname } from 'node:path'
 import { CHANNELS } from '../../../shared/ipc'
 import {
   MailArchiveCancelRequestSchema,
@@ -62,33 +62,19 @@ export function registerMailArchiveHandlers(service: MailArchiveService): void {
     async (_raw, event): Promise<MailArchiveImportRequest | null> => {
       const result = await dialog.showOpenDialog({
         properties: ['openFile', 'multiSelections'],
-        filters: [{ name: '메일 원본', extensions: ['eml', 'pst'] }]
+        filters: [{ name: 'PST 메일 원본', extensions: ['pst'] }]
       })
       if (result.canceled) {
         selections.delete(event.sender)
         return null
       }
+      selections.delete(event.sender)
+      if (result.filePaths.some((path) => extname(path).toLowerCase() !== '.pst')) {
+        throw new Error('mail_source_unsupported')
+      }
       const paths = await Promise.all(result.filePaths.map((path) => canonical(path)))
       const id = randomUUID()
       selections.set(event.sender, { id, input: { inputKind: 'files', paths } })
-      return { selectionId: id }
-    }
-  )
-
-  handlePlain(
-    CHANNELS.mailArchivePickEmlFolder,
-    async (_raw, event): Promise<MailArchiveImportRequest | null> => {
-      const result = await dialog.showOpenDialog({
-        properties: ['openDirectory', 'createDirectory'],
-        title: 'EML 폴더 선택'
-      })
-      if (result.canceled || result.filePaths.length === 0) {
-        selections.delete(event.sender)
-        return null
-      }
-      const path = await canonical(result.filePaths[0]!)
-      const id = randomUUID()
-      selections.set(event.sender, { id, input: { inputKind: 'eml-folder', paths: [path] } })
       return { selectionId: id }
     }
   )

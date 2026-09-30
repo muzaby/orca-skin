@@ -31,7 +31,7 @@ it('keeps picker paths in main and consumes a window-bound selection only once',
   registerMailArchiveHandlers({ import: importMail } as unknown as MailArchiveService)
   const event = { sender: {} } as IpcMainInvokeEvent
   const otherWindow = { sender: {} } as IpcMainInvokeEvent
-  mocks.pick.mockResolvedValue({ canceled: false, filePaths: ['C:/private/customer.eml'] })
+  mocks.pick.mockResolvedValue({ canceled: false, filePaths: ['C:/private/customer.pst'] })
   const selection = await mocks.handlers.get(CHANNELS.mailArchivePickFiles)!(undefined, event)
   expect(MailArchiveImportRequestSchema.safeParse(selection).success).toBe(true)
   expect(JSON.stringify(selection)).not.toContain('private')
@@ -39,7 +39,7 @@ it('keeps picker paths in main and consumes a window-bound selection only once',
   await expect(importer(selection, otherWindow)).rejects.toThrow('mail_source_not_selected')
   await importer(selection, event)
   expect(importMail).toHaveBeenCalledWith(
-    { inputKind: 'files', paths: ['C:/private/customer.eml'] },
+    { inputKind: 'files', paths: ['C:/private/customer.pst'] },
     expect.any(Function)
   )
   await expect(importer(selection, event)).rejects.toThrow('mail_source_not_selected')
@@ -49,4 +49,28 @@ it('keeps picker paths in main and consumes a window-bound selection only once',
       paths: ['C:/private/customer.eml']
     }).success
   ).toBe(false)
+})
+
+it('only exposes the PST picker and rejects EML paths returned by the OS dialog', async () => {
+  const importMail = vi.fn()
+  registerMailArchiveHandlers({ import: importMail } as unknown as MailArchiveService)
+  expect(mocks.handlers.has('orca:mailArchive:pickEmlFolder')).toBe(false)
+  const event = { sender: {} } as IpcMainInvokeEvent
+  const picker = mocks.handlers.get(CHANNELS.mailArchivePickFiles)!
+  mocks.pick.mockResolvedValueOnce({ canceled: false, filePaths: ['C:/private/good.pst'] })
+  const selection = await picker(undefined, event)
+  expect(mocks.pick).toHaveBeenCalledWith(
+    expect.objectContaining({
+      filters: [{ name: 'PST 메일 원본', extensions: ['pst'] }]
+    })
+  )
+  mocks.pick.mockResolvedValueOnce({
+    canceled: false,
+    filePaths: ['C:/private/good.pst', 'C:/private/customer.eml']
+  })
+  await expect(picker(undefined, event)).rejects.toThrow('mail_source_unsupported')
+  await expect(mocks.handlers.get(CHANNELS.mailArchiveImport)!(selection, event)).rejects.toThrow(
+    'mail_source_not_selected'
+  )
+  expect(importMail).not.toHaveBeenCalled()
 })

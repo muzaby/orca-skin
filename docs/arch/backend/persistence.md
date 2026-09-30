@@ -176,6 +176,26 @@ POP3 Mail Plugin은 Core `orcinus-orca.db`와 분리된 계정별 `mail.db`를 `
 
 `archive_verified_occurrence`는 모든 검증 완료 revision을 노출한다. 최근 가져오기 포인터는 과거 메일의 표시 여부를 결정하지 않는다. 본문이 수정된 메일과 원본에서 삭제된 메일도 자료원을 명시 제거할 때까지 남는다. 시작/완료 지문이 다른 revision과 파싱 실패·중단된 staging은 노출하지 않는다. 부팅 복구가 미완료 occurrence를 정리하며 이전 보관함은 데이터 삭제 없이 추가 마이그레이션으로 연다.
 
+PST 손상은 이번 revision 전체를 적용하지 않고 직전 완료·검증 이력을 유지한다. 실패 전에 index에 저장된 배치도 공개하지 않으며 성공 메일·신규/중복 counter에 포함하지 않는다. 이전 메일·첨부 ID와 다른 verified 이력은 유지한다.
+
+`MailArchiveService.importEmlBatch(items,onProgress?)`는 정규화된 EML 입력을 받는 내부 함수다. `MailArchiveEmlBatchItem`의 원본 canonical 절대 경로·읽은 원본 SHA-256·locator·헤더/본문/첨부 manifest를 검증하고 소비자가 내부 ID를 계산한다. byte/count 상한은 `eml-batch.ts`와 `batch-buffer.ts`가 정본이며 renderer·preload에는 입력 API를 제공하지 않는다.
+
+전처리 child가 파일 읽기·MIME·원본 digest 검증을 수행하고 내부 소비자는 파일을 다시 읽지 않고 index worker에 전달한다. 입력 전체를 검증한 후 공통 job lock·epoch·파일별 staging/verify를 사용하며 완료 Promise는 저장·검증·정리 완료 ACK다. 완료 입력은 취소 후에도 유지하고 실패 입력만 abort하며 원본이 없어져도 저장된 본문은 열 수 있다.
+
+생산자는 아래 순서로 저장 중 다음 한 배치를 읽는다. 다음 입력을 준비한 뒤 현재 소비 ACK를 기다려 대기량을 제한하며, ACK 전에 재주입하면 `mail_import_already_running`으로 거절한다. 취소·종료를 관측하거나 결과가 cancelled이면 다음 배치를 주입하지 않는다.
+
+```ts
+const [result, next] = await Promise.all([
+  service.importEmlBatch(batch, onProgress),
+  preprocessor.readNextBatch(signal)
+])
+if (result.state !== 'cancelled' && !signal.aborted && next.length > 0) {
+  await service.importEmlBatch(next, onProgress)
+}
+```
+
+생산자 경계는 위 Promise.all에 즉시 rejection handler를 설치하고 실패 시 진행 중인 읽기를 취소한다. 실제 타입과 producer/consumer 실행 예제는 `app/scripts/fixtures/mail-archive-workers.ts`가 검증하며, 첨부 추출은 원본 fingerprint를 다시 대조한다.
+
 관계 projection은 변경 후 스레드 조회 시 transaction으로 재구성한다. 파일마다 전체 관계를 다시 쓰지 않으며 검색은 검증 완료 occurrence와 FTS를 직접 조회한다. 자료원 제거는 occurrence와 고아 메일을 transaction으로 제거하고 다른 자료원이 공유하는 메일은 보존한다. 첨부 추출은 검증된 원본 지문·메시지 위치를 다시 확인한다.
 
 본문 구간은 `archive_body_segment`에 메일 ID·ordinal·UTF-16 범위·종류·규칙·classifier revision·확실성으로 저장한다. `archive_body_projection`은 빈 본문을 포함한 분류 완료 revision을 기록한다. 순수 classifier를 새 메일 insert와 기존 메일 backfill에서 공유하며, 각각 index worker의 transaction 안에서 완료한다. projection 실패 시 본문과 기존 식별자는 유지되고 다음 열기에서 재시도한다. 메일 삭제는 FK cascade로 구간을 정리한다.

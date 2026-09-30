@@ -470,8 +470,7 @@ renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달�
 
 | 채널 | 방향 | 입력 | 응답 / 의미 |
 |---|---|---|---|
-| `orca:mailArchive:pickFiles` | R→M | — | `MailArchiveImportRequest` 또는 null. EML/PST 다중 선택 권한 |
-| `orca:mailArchive:pickEmlFolder` | R→M | — | 동일 권한 또는 null. 하위 EML 재귀 수집 |
+| `orca:mailArchive:pickFiles` | R→M | — | `MailArchiveImportRequest` 또는 null. PST 다중 선택 권한; OS 반환 경로의 확장자도 검사 |
 | `orca:mailArchive:import` | R→M | `{selectionId}` | `MailArchiveImportResult`. 호출 창에 귀속한 선택을 한 번 소비 |
 | `orca:mailArchive:cancel` | R→M | `{id: jobId}` | `{cancelled}`. 검증 완료된 메일은 유지 |
 | `orca:mailArchive:search` | R→M | `MailArchiveSearchRequest` | 공백 AND 질의와 필드·기간·자료원·폴더 조건을 모두 만족하는 결과 |
@@ -484,6 +483,8 @@ renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달�
 | `orca:mailArchive:progress` | M→R | `MailArchiveProgress` | 실행 중 알림은 250 ms 간격, 종료는 즉시 전달 |
 
 진행 스냅샷·최근 가져오기 결과는 앱 세션 메모리이고 검색 데이터는 [별도 SQLite 보관함](arch/backend/persistence.md#개인-메일-보관함)에 저장한다. 원본 파일이 바뀌거나 사라져도 과거 검증 완료 메일은 명시 제거 전까지 검색된다. 첨부 바이트는 복제하지 않으므로 과거 revision의 원본이 없으면 추출할 수 없다.
+
+EML 입력은 main 내부 `MailArchiveService.importEmlBatch`만 제공한다. 전처리기가 원본 위치·SHA-256·정규화 헤더/본문·첨부 manifest를 전달하며 소비 Promise는 저장·검증·정리 완료 ACK다. 입력·생산자 병행 예제는 [현재 배치 처리 계약](arch/backend/persistence.md#개인-메일-보관함)을 따른다.
 
 검색의 선택 필드 `from`·`to`·`cc`·`attachmentName`·`folderPath`는 부분 문자열을 literal로 비교한다. `sentAfter`는 포함 시작 epoch, `sentBefore`는 제외 끝 epoch이며 둘 다 있으면 시작이 끝보다 작아야 한다. renderer는 로컬 달력의 시작일 자정부터 종료일 다음 날 자정까지 변환한다. 날짜 조건에서 날짜 미상 메일은 제외된다. 유형·자료원 ID·폴더 조건은 같은 검증 완료 occurrence에서 평가하며 staging은 검색되지 않는다.
 

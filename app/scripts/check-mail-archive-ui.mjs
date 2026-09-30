@@ -16,13 +16,17 @@ if (relative(cacheRoot, output).startsWith('..') || isAbsolute(relative(cacheRoo
 
 try {
   const mutation = process.argv.includes('--remove-settings-slot')
+    ? 'remove-settings-slot'
+    : process.argv.includes('--restore-eml-gui')
+      ? 'restore-eml-gui'
+      : false
   const configFile = join(output, 'config.mjs')
   const factoryUrl = pathToFileURL(
     join(appRoot, 'scripts/fixtures/mail-archive-ui-config.mjs')
   ).href
   await writeFile(
     configFile,
-    `import { createMailUiConfig } from ${JSON.stringify(factoryUrl)};\nexport default createMailUiConfig(${JSON.stringify(appRoot)}, ${JSON.stringify(output)}, ${mutation});\n`
+    `import { createMailUiConfig } from ${JSON.stringify(factoryUrl)};\nexport default createMailUiConfig(${JSON.stringify(appRoot)}, ${JSON.stringify(output)}, ${JSON.stringify(mutation)});\n`
   )
   await build({ configFile, ignoreConfigWarning: true })
   const env = {

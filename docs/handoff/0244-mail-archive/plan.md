@@ -13,7 +13,7 @@
 | 일자 | 2026-09-29 |
 | 매핑 | PR 브랜치 `codex-0244-mail-archive-plan` → `main` |
 | 조사 기준 | `f2f60ac338f2847f81a6cbc426f0728b7eb8d98e` (`git cat-file -t` → commit 확인) |
-| 상태 | **READY — ΔV5의 PST 손상 보존·정규화 EML 내부 배치 API·EML 입력 GUI 제거 경로. PG-03 identity 전환은 별도 설계 대기; 전체 S1 미완료·독립 verify 미착수** |
+| 상태 | **DRAFT — r1.6에서 ΔV5 손상 보존·내부 EML 배치 API·PST 전용 GUI 구현 및 자기검사 완료. PG-03 identity 전환 설계 대기; 전체 S1 미완료·독립 verify 미착수** |
 | V mode / 기준 V | `Delta V` / 독립안 `V1@3f9558d9ec7fca52bc7c55533031051ba5d5b96a` |
 | 이번 V revision / 유효 V | `ΔV5` / `V1 + ΔV2 + ΔV3 + ΔV4-A + ΔV5`. PG-03과 S2/S3의 미확정 경로는 READY 범위 밖 |
 
@@ -1381,6 +1381,130 @@ AC3·AC5·AC7을 변경하고 신규 VP-24(utility process 경계·revision prot
 - 합성 renderer도 실제 CSS scan/paint가 없으면 스크린샷이 부정확했다. 이번 runner는 production source scan과 offscreen paint를 기다려 캡처한다.
 - 준비 훅의 exit 0만으로 Electron SQLite를 성공 처리하지 않았다. 강제 rebuild 후 실제 constructor/worker/화면 실행을 확인했다.
 - PG-01~03은 그대로 남았으므로 보드와 plan 메타를 함께 plan/DRAFT로 되돌린다. 독립 verify는 수행하지 않았다.
+
+## [구현자 기입] r1.6 설계 리뷰
+
+사용자 답변 D-029~031을 반영한 ΔV5를 구현했다. PG-01/02의 제품 선택은 닫혔고 PG-03의 기술 전환은 남는다. 앞의 r1.4/r1.5 기록은 당시 관측이며 현재 상태는 이 보고를 따른다.
+
+| 경계 | 구현 / 관측 |
+|---|---|
+| 손상 PST | 기존 source revision transaction을 유지하고 저장 후 오류·중단 후 DB 재개방 oracle을 보강했다. 새 staging의 메일·첨부·성공 counter가 공개되지 않고 이전 verified 결과와 ID가 유지된다. |
+| 내부 EML | `MailArchiveService.importEmlBatch`가 정규화 패킷 전체를 먼저 검증하고 기존 job/epoch·파일별 staging/verify 경로를 사용한다. 원본 파일/MIME를 다시 읽지 않는다. |
+| 읽기와 소비 | 실제 source child로 다음 EML을 읽는 동안 index 전달을 보류했다. 소비 Promise는 아직 미완료이며 이른 재주입은 거절된다. ACK 뒤 다음 입력과 같은 입력의 ID 재사용을 확인했다. |
+| 입력 GUI | SourceManager부터 renderer API·preload·shared channel·main picker까지 EML 입력을 제거했다. picker는 PST만 제시하며 실제 반환 경로도 검사한다. 기존 EML 자료원의 검색·열람·제거는 유지한다. |
+| 범위 / 다음 주체 | identity 알고리즘·DB migration·의존성은 변경하지 않았다. PG-03 규범 정정이 다음 planner 작업이며 S1 전체·독립 verify 완료를 주장하지 않는다. |
+
+## [구현자 기입] r1.6 강제 지점과 V-pair 자기확인
+
+검색은 입력·메일·revision·자료원이라는 주어로 했다. `rg -n 'pickEmlFolder|mailArchivePickEmlFolder|mailArchive\.(addFiles|addFolder|emptySources)|importEmlBatch|mailArchiveImport' app/src -g '*.ts' -g '*.tsx' -g '!*.test.*'`, archive subtree의 `sourcePath|mails|revision|fingerprint|epoch`, `recover|interrupted|abortRevision|verifyRevision|archive_verified_occurrence`를 찾아 실제 전달 edge와 조회 branch를 아래 자리에 대응했다. 기존 내부 file/folder reader는 GUI 진입점이 아니며 picker capability로 임의 경로를 주입할 수 없다.
+
+| 자리 | 실제 edge / 직접 관측 |
+|---|---|
+| EP-22a | `eml-batch.ts` strict schema→UTF-8 본문/직렬화 batch 상한→canonical source 중복→소비자 ID 계산. 빈/과다/위조 ID/raw/fingerprint/path/date/size 입력 UT. |
+| EP-22b | `service.ts` closed/removal/job guard→전체 prepare→active job/epoch→sourceIds 등록. 잘못된 두 번째 item은 첫 source도 쓰지 않는다. |
+| EP-22c | normalized packet→공통 callback→index client의 upsert RPC→index worker/store. 원본을 지운 뒤에도 packet 본문을 저장하고 source parser 호출 0을 단언했다. |
+| EP-22d | index commit ACK→source count→verify RPC→성공 counter→완료 Promise. 실제 worker fixture의 hold/release·중복 counter/ID·실제 UI 검색. |
+| EP-22e | production source child 전처리→첫 소비 Promise→다음 원본 읽기 완료→이른 호출 거절→ACK 뒤 다음 소비. worker fixture 마지막에서 source/index child를 정리한다. |
+| EP-22f | cancel/remove/close→epoch revoke→늦은 commit 거절→job settled. service의 세 경합 사례에서 완료 입력만 유지하고 제거된 source를 복원하지 않는다. |
+| EP-23a | SourceManager의 PST 추가·보관함 이동, View/SourceManager의 PST 전용 빈 상태 문구. 실제 white/dark/narrow 화면; EML 버튼 복원 변이 red. |
+| EP-23b | source-state의 add→pickFiles 한 경로. 중복 picker 차단·공유 상태/늦은 snapshot UT와 실제 UI. |
+| EP-23c | renderer API의 폴더 picker 삭제. internal batch method는 renderer API에 없음; 실제 renderer의 API shape 단언. |
+| EP-23d | preload 폴더 invoke 삭제, PST picker token→import는 유지. 실제 sandboxed preload/handler 왕복. |
+| EP-23e | shared channel registry의 EML picker 삭제. generated inventory 갱신·없는 handler 단언. |
+| EP-23f | main의 PST picker filter→반환 확장자 검사→기존 selection 폐기→one-use/window capability. EML 혼합 반환과 이전 token 재사용 거절 UT. |
+| EP-24a | `readers/pst-walk.ts` item/subfolder 오류·개수 불일치 throw. 손상 table/subtree UT와 공개 PST 71메일 실기. |
+| EP-24b | source worker 오류→실제 process host→service rejection. 실제 손상 PST header와 기존 source crash/오류 전달 fixture. |
+| EP-24c | service의 source catch→abortRevision; 완료 전 source count는 전체 성공 counter에 더하지 않음. batch 저장 후 손상 사례의 inserted/messages 0. |
+| EP-24d | store abort transaction→staging occurrence/고아 메일 정리. 이전 본문·메일/첨부 ID·공유 참조는 유지하며 검색 집합을 전후 대조. |
+| EP-24e | search/get/stats/sources의 verified occurrence VIEW. 새 staging query 0·이전 get DTO 동일·total 동일, 실제 worker의 이전 scoped 검색 71개 동일. |
+| EP-24f | store open→recoverStagingRevisions→interrupted 상태/미검증 occurrence 정리. 이전 자료원 수정과 첫 신규 PST staging을 남기고 재개방한 실제 SQLite oracle. |
+
+ΔV5 지정 자리와 관측 자리의 차집합은 missing/extra 모두 0(18/18)이다. 보고 집합에서 EP-24f를 제외한 음성 대조는 missing 1을 반환했다. EP-21의 기존 epoch/ACK/identity 회귀는 실행했으나 §10 전체의 후속 tool/scope/vector/evidence 경로를 완료했다고 보고하지 않는다.
+
+| 유효 S1 pair | 자기상태 | 증거 / 남음 |
+|---|---|---|
+| VP-26 | SELF_PASS | actual UI 9/9: PST 전용 설정·내부 EML의 검색/본문/첨부 저장, M-EML-GUI red. |
+| VP-27 | SELF_PASS | service의 cancel/remove/close·late write, 실제 worker의 read/index overlap·ACK·조기 호출 거절, store interrupted reopen의 이전 PST snapshot. |
+| VP-28 | SELF_PASS | 실제 SQLite와 source/index child의 내부 EML·PST 검색 ID/counter, actual preload의 private capability 및 picker guard. |
+| VP-29 | SELF_PASS | pure validator·동일 입력 ID 재사용·손상 PST 저장 후 abort와 이전 ID/첨부 보존. |
+| VP-25 | SELF_PASS | 기존 누적 revision·동일 Message-ID의 변경 본문·locator·공백 AND 계약 회귀 통과. |
+| VP-01·02·03·07·08·09·13·14·17·18·19·23·24 | SELF_BLOCKED | 해당 S1 하위 경로 회귀는 통과. PG-03, ANSI/charset golden, 전체 앱 restart/commit fault/disk full, 대표 규모/설치본 및 각 pair의 후속 경계는 여전히 미완료. |
+
+S1 자기결과는 SELF_PASS 5·SELF_BLOCKED 13이다. 새 독립 경로 네 pair의 성공을 전체 S1 pair 성공으로 확장하지 않았으며 독립 verify 결과가 아니다.
+
+## [구현자 기입] r1.6 이번 라운드 수정의 잠금
+
+| 선택 / 자리 | 정상 대조 | 적대 대조 / 판정 |
+|---|---|---|
+| M-EML-GUI / EP-23a | 실제 SourceManager의 PST 버튼과 EML 버튼 부재 단언, UI 9/9. | `node scripts/check-mail-archive-ui.mjs --restore-eml-gui`: 같은 production SourceManager에 EML 버튼만 복원해 `EML input GUI is absent` assertion 실패(exit 1). |
+| M-WIRE / settings slot | 동일 실제 UI runner의 관리 탭→picker→job→검색 9/9. | `--remove-settings-slot`: 실제 SidebarUserButton의 slot만 제거해 `actual settings slot renders management` 실패(exit 1). |
+| 입력/counter/ID/epoch/reopen | 기대 ID·DTO·counter·비노출·순서를 직접 단언한다. | 직접 oracle. 이 pair에 추가 mutation을 임의 선정하지 않았다. |
+
+선택 mutation은 신규 M-EML-GUI와 영향 회귀 M-WIRE의 2행이며 검출 2다. 최초 mutation runner의 문자열 직렬화 오류는 oracle 실행 전 실패라 증거로 사용하지 않았고, 수정 후 위 assertion 실패를 확인했다. 기존 worker/package mutation 전체 감도는 이번 성공으로 대체하지 않는다.
+
+## [구현자 기입] r1.6 Product/UX 파생 검토
+
+| 사용자 상황 | 반영 / 관측 |
+|---|---|
+| PST를 다시 가져오다 손상 발견 | 새 revision 전체 비공개·실패 표시, 기존 검색 본문·ID 유지. 이전 raw 파일이 바뀌면 첨부 재추출은 fingerprint mismatch로 거절되며 첨부 바이트 상시 복제는 하지 않는다. |
+| 내부 EML 저장 중 설정 닫기 | UI를 열 필요 없이 내부 API 실행 가능. UI 사례 5에서 완료 뒤 공유 자료원/검색 상태 갱신과 설정 닫기 독립성을 확인했다. |
+| EML 자료원이 이미 보관됨 | 입력 버튼은 PST만 제공하고 보관된 EML의 검색·읽기·선택 추출·제거는 유지한다. actual UI 사례 1~5·8. |
+| 다음 입력을 먼저 준비함 | 읽기는 현재 소비와 병행하고 다음 주입은 완료 ACK까지 기다린다. 현 소비+다음 준비 두 배치의 데이터 상한이며 전체 RSS 상한으로 해석하지 않는다. |
+| 잘못된 내부 패킷 / 취소 | 전체 validation 실패는 쓰기 전에 거절. 취소·제거·close 후 늦은 입력은 공개되지 않고 호출자는 cancelled/실패를 관측해 다음 주입을 중단한다. |
+
+## [구현자 기입] r1.6 놓친 잠재 문제 + 대응
+
+| 관측 | 대응 / 남은 한계 |
+|---|---|
+| class index client를 spread한 시험 래퍼 | 실제 Electron 실행에서 prototype의 revoke/close가 누락됨을 발견했다. Proxy로 원래 receiver에 메서드를 bind해 UI/worker fixture를 수정하고 실제 실행·fixture typecheck를 재수행했다. production client 결함으로 분류하지 않는다. |
+| 최초 설정 캡처가 이전 compositor frame | 폰트/renderer frame 이후 offscreen paint bitmap을 저장하고 실제 입력 완료 화면에서 캡처한다. 캡처 내용은 직접 열어 확인하며 DOM assertion만으로 시각 성공을 선언하지 않는다. |
+| 정규화 패킷의 fingerprint 신뢰 | 전처리기 계약이다. 내부 소비자는 파일을 다시 읽지 않고 첨부 추출 때 원본 fingerprint를 검증한다. 임의 renderer/IPC 호출에는 이 API를 공개하지 않는다. |
+| producer/consumer 에러 병행 | 문서 예제는 Promise.all로 즉시 두 rejection을 관측한다. 실제 전처리 producer 연결 시 실패/취소를 읽기 child에 전파해야 하며 무한 queue를 만들지 않는다. |
+| 기본 prebuild가 캐시된 Node ABI를 재사용 | electron ABI check의 실패를 확인해 강제 electron-rebuild를 수행했다. 실제 constructor/worker/UI를 통과한 뒤 종료 상태를 기록하며 준비 hook 개선은 별도 조사 대상이다. |
+| 형식별 payload·표시 이름 손실 | PG-03 유지. 이번 API는 기존 identity 계산을 쓰고 이미 사용 중인 mail/attachment ID나 occurrence를 재작성하지 않는다. |
+
+## [구현자 기입] r1.6 구현 보고
+
+| 항목 | 이번 턴에 관측한 산출 |
+|---|---|
+| 주요 변경 | strict normalized EML 내부 API·공통 job/epoch 소비, EML GUI/preload/channel 제거·PST picker guard, 손상 PST abort/reopen ID·첨부·counter oracle. |
+| 관련 UT/IT | archive·handler·source-state 등 16파일 81 pass·1 benchmark skip. pure boundary와 실제 SQLite 경합/복구 포함. |
+| 전체 회귀 | `vitest run --maxWorkers=2`: 615파일 pass·1파일 skip, 5,787 tests pass·2 skip. `node --test scripts/*.test.mjs`: 128 pass·0 fail. 마지막 UI 문구/fixture 수정은 actual UI 및 별도 static gate로 재확인했다. |
+| 정적 gate | node/web/test typecheck 3/3. 전체 lint 0 error·기존 virtualizer warning 1; production source/index를 사용하는 두 fixture도 별도 TypeScript 프로젝트로 검사했다. |
+| 문서/DB gate | append-only·migration sync/no-copy·doc inventory generated/prose/link 검사 성공. 이전 migration·package/lockfile 수정 없음. |
+| 실제 실행 | Electron production worker 9/9; actual UI 9/9; M-EML-GUI·M-WIRE 각각 올바른 assertion에서 red. Vite main/preload/renderer 및 source/index child 산출 성공. |
+| 시각 | 실제 CSS의 흰색·어두운 테마·좁은 창에서 PST 전용 설정과 기존 EML 자료원을 확인했다. 재생성 경로는 ignored `app/node_modules/.cache/orca/mail-archive-ui/`. |
+| 범위 / 다음 주체 | ΔV5 구현 산출은 보존하고 PG-03을 planner에게 반환한다. S1 golden/규모/restart/설치본은 미완, S2/S3 OPEN은 그대로 유지한다. |
+| 대상 커밋 | (r1.6 구현 — 검증자 기입) |
+
+### r1.6 S1 AC 자기보고
+
+| AC | 상태 | 이번 관측 / 남음 |
+|---|---|---|
+| AC1 | ✅ | 사용자 후속 결정대로 PST GUI와 normalized EML 내부 입력을 실제 UI/worker로 확인. |
+| AC2 | ⚠️ | 손상 PST 이전 verified 보존·EML 본문/첨부·공개 PST 71메일 성공. 대표 ANSI/Unicode/charset golden 미완. |
+| AC3 | ⚠️ | 실제 ACK/worker 취소 및 store/service의 이전 snapshot 재개방 성공. 전체 앱 restart oracle 미완. |
+| AC4 | ⚠️ | 기존 가역 본문/구간·대체 표현 회귀 성공. 오래된 evidence/인용은 후속 경로. |
+| AC5 | ✅ | 누적 revision·동일 ID의 변경 payload·ID-less locator 회귀와 손상 시 이전 ID 유지. |
+| AC6 | ✅ | 기존 관계/누락/다중후보/순환/동일제목 분리 회귀 성공. |
+| AC7 | ⚠️ | 실제 필드/날짜/폴더/literal/AND 검색 회귀 성공. 이름/주소·형식 통합 전환 PG-03 미완. |
+| AC9 | ✅ | 실제 첨부명 검색/추출·기존 nested/text 첨부 내부 비색인 회귀 성공. |
+| AC17 | ⚠️ | EML 선택 추출의 실제 바이트와 원본 변경 거절 확인. 설치본 PST 추출·후속 승인 경로 미완. |
+| AC19 | ⚠️ | read/index overlap·유한 입력 상한·ACK 확인. 대표/1만 처리·RSS·cancel p95 미측정. |
+| AC20 | ⚠️ | worker kill/timeout과 PST abort/reopen 성공. disk full·전체 앱 restart/commit fault 미완. |
+| AC21 | ⚠️ | 내부 배치 cancel/remove/close·늦은 write 비공개와 실제 UI 제거 성공. 후속 cache/vector/evidence 삭제 미완. |
+| AC22 | ⚠️ | 전체 회귀 green·실제 settings/preload/worker 조립 성공. 전체 앱/설치본 smoke 미완. |
+| AC23 | ⚠️ | PST 전용 관리·공유 상태·오류·역전 응답 확인. 도구/범위/근거 callback은 후속 경로. |
+
+검산: ✅ 4·⚠️ 10 = 14. `Criteria-Met: 4/14`, `Criteria-Pending: AC2,AC3,AC4,AC7,AC17,AC19,AC20,AC21,AC22,AC23`. 독립 ΔV5 완료와 전체 제품 완료를 구별한다.
+
+## [구현자 기입] r1.6 Review Signals — 사실만
+
+- r1.6은 사용자 요구 변경 턴이며 유효 V는 V1+ΔV2+ΔV3+ΔV4-A+ΔV5다. 지침·failure corpus를 수정하지 않았다.
+- 사용자 답변으로 PG-01/02를 닫았으며 기존 source/identity 수명은 유지했다. PG-03은 아직 구현 승인된 전환 설계가 없어 plan/DRAFT와 planner 다음 주체를 함께 표시한다.
+- 실제 프로세스 시험이 class spread 래퍼 결함을 검출했다. mock/정적 검사 성공으로 실제 실행 실패를 덮지 않았다.
+- mutation의 build 오류와 지정 assertion의 실패를 구별했고 각각 수정·재실행했다.
+- 독립 verify는 수행하지 않았다. 기술 전환의 규범 정정은 handoff-plan 역할과 별도 커밋으로 수행해야 한다.
 
 ## [검증자 기입] 파생 이슈
 

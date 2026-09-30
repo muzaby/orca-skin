@@ -26,9 +26,23 @@ export function createMailUiConfig(appRoot, output, mutation) {
         ...(mutation
           ? [
               {
-                name: 'remove-settings-slot',
+                name: mutation,
                 enforce: 'pre',
                 transform(code, id) {
+                  if (mutation === 'restore-eml-gui') {
+                    if (
+                      !id
+                        .replaceAll('\\', '/')
+                        .endsWith('/mail-archive/MailArchiveSourceManager.tsx')
+                    )
+                      return
+                    const target = '<div className="flex flex-wrap gap-2">'
+                    if (!code.includes(target)) throw new Error('EML GUI mutation target missing')
+                    return code.replace(
+                      target,
+                      `${target}<button type="button">EML 폴더 추가</button>`
+                    )
+                  }
                   if (!id.replaceAll('\\', '/').endsWith('/app/SidebarUserButton.tsx')) return
                   const target =
                     '<SettingsModal mailArchiveSlot={<MailArchiveSettingsContent />} />'

@@ -17,8 +17,15 @@ import type {
 } from '../../../../shared/mail-archive'
 import { resolveImportSources } from './sources'
 import { archiveSourceId } from './identity'
+import { prepareEmlBatch } from './eml-batch'
 import type { MailArchiveIndexWorker, MailArchiveWorkerFactory } from './worker-contract'
-import type { MailArchiveAttachmentExportInput, MailArchiveImportInput } from './types'
+import type { MailArchiveSourceCallbacks } from './worker-contract'
+import type {
+  MailArchiveAttachmentExportInput,
+  MailArchiveImportInput,
+  MailArchiveEmlBatchItem,
+  NormalizedArchiveMail
+} from './types'
 
 interface AttachmentExportChoice {
   readonly name: string
@@ -29,6 +36,11 @@ interface AttachmentExportChoice {
 export interface MailArchiveService {
   import(
     request: MailArchiveImportInput,
+    onProgress?: (progress: MailArchiveProgress) => void
+  ): Promise<MailArchiveImportResult>
+  /** Resolves after index commits/verification and cleanup. The producer may read its next batch meanwhile. */
+  importEmlBatch(
+    items: readonly MailArchiveEmlBatchItem[],
     onProgress?: (progress: MailArchiveProgress) => void
   ): Promise<MailArchiveImportResult>
   cancel(jobId: string): boolean
@@ -74,6 +86,25 @@ function cancelledResult(
   return { jobId, state: 'cancelled', files, messages, inserted, skipped, failures }
 }
 
+async function consumePreprocessedEml(
+  mail: NormalizedArchiveMail,
+  callbacks: MailArchiveSourceCallbacks,
+  signal: AbortSignal
+): Promise<void> {
+  signal.throwIfAborted()
+  const decision = await callbacks.onReady(mail.sourceFingerprint)
+  signal.throwIfAborted()
+  if (decision.action === 'scan') await callbacks.onBatch(decision.revision, [mail])
+  signal.throwIfAborted()
+  await callbacks.onComplete({
+    startFingerprint: mail.sourceFingerprint,
+    endFingerprint: mail.sourceFingerprint,
+    revision: decision.action === 'scan' ? decision.revision : null,
+    messages: decision.action === 'scan' ? 1 : 0,
+    skipped: decision.action === 'skip'
+  })
+}
+
 async function canonicalDestination(path: string): Promise<string> {
   const absolute = resolve(path)
   try {
@@ -111,242 +142,255 @@ export function createMailArchiveService(
     attachmentExportsIdle.clear()
   }
 
-  return {
-    import: async (request, onProgress) => {
-      if (closed) throw new Error('mail_archive_service_closed')
-      if (sourceRemovalsPending > 0) throw new Error('mail_source_remove_in_progress')
-      if (activeJob) throw new Error('mail_import_already_running')
-      let settle!: () => void
-      const settled = new Promise<void>((resolve) => {
-        settle = resolve
-      })
-      let markSourcesReady!: () => void
-      const sourcesReady = new Promise<void>((r) => {
-        markSourcesReady = r
-      })
-      const job: ImportJob = {
-        sourcesReady,
-        markSourcesReady,
-        id: randomUUID(),
-        controller: new AbortController(),
-        epoch: randomUUID(),
-        sourceIds: new Set(),
-        finalizing: false,
-        settled,
-        settle
+  const importArchive = async (
+    request:
+      | MailArchiveImportInput
+      | { inputKind: 'eml-batch'; items: readonly MailArchiveEmlBatchItem[] },
+    onProgress?: (progress: MailArchiveProgress) => void
+  ): Promise<MailArchiveImportResult> => {
+    if (closed) throw new Error('mail_archive_service_closed')
+    if (sourceRemovalsPending > 0) throw new Error('mail_source_remove_in_progress')
+    if (activeJob) throw new Error('mail_import_already_running')
+    const prepared = request.inputKind === 'eml-batch' ? prepareEmlBatch(request.items) : null
+    const preparedByPath = new Map(prepared?.map((mail) => [mail.sourcePath, mail]))
+    let settle!: () => void
+    const settled = new Promise<void>((resolve) => {
+      settle = resolve
+    })
+    let markSourcesReady!: () => void
+    const sourcesReady = new Promise<void>((r) => {
+      markSourcesReady = r
+    })
+    const job: ImportJob = {
+      sourcesReady,
+      markSourcesReady,
+      id: randomUUID(),
+      controller: new AbortController(),
+      epoch: randomUUID(),
+      sourceIds: new Set(),
+      finalizing: false,
+      settled,
+      settle
+    }
+    activeJob = job
+    const importEpoch = job.epoch
+    let sources = [] as Awaited<ReturnType<typeof resolveImportSources>>
+    let processedFiles = 0
+    let processedMessages = 0
+    let completedMessages = 0
+    let ignoredItems = 0
+    let insertedMessages = 0
+    let skippedMessages = 0
+    const failures: { path: string; reason: string }[] = []
+    lastImport = null
+    let lastEventAt = -Infinity
+    const emit = (state: MailArchiveProgress['state'], currentPath: string | null): void => {
+      latestProgress = {
+        jobId: job.id,
+        state,
+        currentPath,
+        processedFiles,
+        totalFiles: sources.length,
+        processedMessages,
+        insertedMessages,
+        skippedMessages,
+        failedFiles: failures.length,
+        cancellable: state === 'running' && !job.finalizing && !job.controller.signal.aborted
       }
-      activeJob = job
-      const importEpoch = job.epoch
-      let sources = [] as Awaited<ReturnType<typeof resolveImportSources>>
-      let processedFiles = 0
-      let processedMessages = 0
-      let completedMessages = 0
-      let ignoredItems = 0
-      let insertedMessages = 0
-      let skippedMessages = 0
-      const failures: { path: string; reason: string }[] = []
-      lastImport = null
-      let lastEventAt = -Infinity
-      const emit = (state: MailArchiveProgress['state'], currentPath: string | null): void => {
-        latestProgress = {
-          jobId: job.id,
-          state,
-          currentPath,
-          processedFiles,
-          totalFiles: sources.length,
-          processedMessages,
-          insertedMessages,
-          skippedMessages,
-          failedFiles: failures.length,
-          cancellable: state === 'running' && !job.finalizing && !job.controller.signal.aborted
-        }
-        if (state !== 'running' || Date.now() - lastEventAt >= 250) {
-          lastEventAt = Date.now()
-          onProgress?.(latestProgress)
-        }
+      if (state !== 'running' || Date.now() - lastEventAt >= 250) {
+        lastEventAt = Date.now()
+        onProgress?.(latestProgress)
       }
-      const assertCurrent = (expectedEpoch = job.epoch): void => {
-        job.controller.signal.throwIfAborted()
-        if (activeJob !== job || job.epoch !== expectedEpoch) {
-          throw new Error('mail_import_epoch_revoked')
-        }
+    }
+    const assertCurrent = (expectedEpoch = job.epoch): void => {
+      job.controller.signal.throwIfAborted()
+      if (activeJob !== job || job.epoch !== expectedEpoch) {
+        throw new Error('mail_import_epoch_revoked')
       }
+    }
 
-      try {
-        emit('running', null)
-        await index.openEpoch(importEpoch)
-        sources = await resolveImportSources(
-          request.inputKind,
-          request.paths,
-          job.controller.signal
-        )
-        job.sourceIds = new Set(sources.map((source) => archiveSourceId(source.kind, source.path)))
-        job.markSourcesReady()
-        if (request.inputKind === 'eml-folder' && sources.length === 0) {
-          throw new Error('eml_folder_empty')
-        }
-        emit('running', null)
-        for (const source of sources) {
-          assertCurrent()
-          const sourcePath = source.path
-          const currentLabel = basename(source.path)
-          const sourceId = archiveSourceId(source.kind, sourcePath)
-          const sourceEpoch = job.epoch
-          let revision: number | null = null
-          let revisionFingerprint = ''
-          let sourceUnchanged = false
-          let existingMessages = 0
-          let sourceMessages = 0
-          let sourceInserted = 0
-          let sourceSkipped = 0
-          emit('running', currentLabel)
-          try {
+    try {
+      emit('running', null)
+      await index.openEpoch(importEpoch)
+      sources =
+        request.inputKind === 'eml-batch'
+          ? [...preparedByPath.values()].map((mail) => ({
+              kind: 'eml' as const,
+              path: mail.sourcePath
+            }))
+          : await resolveImportSources(request.inputKind, request.paths, job.controller.signal)
+      job.sourceIds = new Set(sources.map((source) => archiveSourceId(source.kind, source.path)))
+      job.markSourcesReady()
+      if (request.inputKind === 'eml-folder' && sources.length === 0) {
+        throw new Error('eml_folder_empty')
+      }
+      emit('running', null)
+      for (const source of sources) {
+        assertCurrent()
+        const sourcePath = source.path
+        const currentLabel = basename(source.path)
+        const sourceId = archiveSourceId(source.kind, sourcePath)
+        const sourceEpoch = job.epoch
+        let revision: number | null = null
+        let revisionFingerprint = ''
+        let sourceUnchanged = false
+        let existingMessages = 0
+        let sourceMessages = 0
+        let sourceInserted = 0
+        let sourceSkipped = 0
+        emit('running', currentLabel)
+        try {
+          const callbacks: MailArchiveSourceCallbacks = {
+            onReady: async (fingerprint) => {
+              assertCurrent(sourceEpoch)
+              revisionFingerprint = fingerprint
+              const started = await index.beginRevision({
+                sourceId,
+                sourceKind: source.kind,
+                sourcePath,
+                fingerprint
+              })
+              revision = started.revision
+              assertCurrent(sourceEpoch)
+              if (started.unchanged) {
+                sourceUnchanged = true
+                existingMessages = started.existingMessages
+                return { action: 'skip' }
+              }
+              return { action: 'scan', revision: started.revision }
+            },
+            onBatch: async (batchRevision, mails) => {
+              assertCurrent(sourceEpoch)
+              if (revision === null || batchRevision !== revision) {
+                throw new Error('mail_import_epoch_revoked')
+              }
+              const result = await index.upsertBatch({
+                epoch: sourceEpoch,
+                sourceId,
+                revision,
+                mails
+              })
+              assertCurrent(sourceEpoch)
+              sourceMessages += mails.length
+              sourceInserted += result.inserted
+              sourceSkipped += result.skipped
+              processedMessages += mails.length
+              emit('running', currentLabel)
+            },
+            onComplete: async (completion) => {
+              assertCurrent(sourceEpoch)
+              if (
+                completion.startFingerprint !== revisionFingerprint ||
+                completion.endFingerprint !== revisionFingerprint
+              ) {
+                throw new Error('mail_source_changed_during_import')
+              }
+              if (sourceUnchanged) {
+                if (completion.revision !== null || completion.messages !== 0) {
+                  throw new Error('mail_archive_unchanged_revision_invalid')
+                }
+                job.finalizing = true
+                if (!completion.skipped || revision === null) {
+                  throw new Error('mail_archive_unchanged_revision_invalid')
+                }
+                await index.activateRevision(sourceId, revision, revisionFingerprint, sourceEpoch)
+                assertCurrent(sourceEpoch)
+                completedMessages += existingMessages
+                processedMessages += existingMessages
+                skippedMessages += existingMessages
+                return
+              }
+              if (revision === null || completion.skipped || completion.revision !== revision) {
+                throw new Error('mail_archive_revision_invalid')
+              }
+              if (completion.messages !== sourceMessages) {
+                throw new Error('mail_archive_batch_count_mismatch')
+              }
+              job.finalizing = true
+              await index.verifyRevision(sourceId, revision, revisionFingerprint, sourceEpoch)
+              assertCurrent(sourceEpoch)
+              ignoredItems += completion.ignoredItems ?? 0
+              completedMessages += sourceMessages
+              insertedMessages += sourceInserted
+              skippedMessages += sourceSkipped
+            }
+          }
+          const preprocessed = preparedByPath.get(sourcePath)
+          if (preprocessed) {
+            await consumePreprocessedEml(preprocessed, callbacks, job.controller.signal)
+          } else {
             await sourceWorker.run(
               { jobId: job.id, epoch: sourceEpoch, sourceId, sourcePath, sourceKind: source.kind },
-              {
-                onReady: async (fingerprint) => {
-                  assertCurrent(sourceEpoch)
-                  revisionFingerprint = fingerprint
-                  const started = await index.beginRevision({
-                    sourceId,
-                    sourceKind: source.kind,
-                    sourcePath,
-                    fingerprint
-                  })
-                  revision = started.revision
-                  assertCurrent(sourceEpoch)
-                  if (started.unchanged) {
-                    sourceUnchanged = true
-                    existingMessages = started.existingMessages
-                    return { action: 'skip' }
-                  }
-                  return { action: 'scan', revision: started.revision }
-                },
-                onBatch: async (batchRevision, mails) => {
-                  assertCurrent(sourceEpoch)
-                  if (revision === null || batchRevision !== revision) {
-                    throw new Error('mail_import_epoch_revoked')
-                  }
-                  const result = await index.upsertBatch({
-                    epoch: sourceEpoch,
-                    sourceId,
-                    revision,
-                    mails
-                  })
-                  assertCurrent(sourceEpoch)
-                  sourceMessages += mails.length
-                  sourceInserted += result.inserted
-                  sourceSkipped += result.skipped
-                  processedMessages += mails.length
-                  emit('running', currentLabel)
-                },
-                onComplete: async (completion) => {
-                  assertCurrent(sourceEpoch)
-                  if (
-                    completion.startFingerprint !== revisionFingerprint ||
-                    completion.endFingerprint !== revisionFingerprint
-                  ) {
-                    throw new Error('mail_source_changed_during_import')
-                  }
-                  if (sourceUnchanged) {
-                    if (completion.revision !== null || completion.messages !== 0) {
-                      throw new Error('mail_archive_unchanged_revision_invalid')
-                    }
-                    job.finalizing = true
-                    if (!completion.skipped || revision === null) {
-                      throw new Error('mail_archive_unchanged_revision_invalid')
-                    }
-                    await index.activateRevision(
-                      sourceId,
-                      revision,
-                      revisionFingerprint,
-                      sourceEpoch
-                    )
-                    assertCurrent(sourceEpoch)
-                    completedMessages += existingMessages
-                    processedMessages += existingMessages
-                    skippedMessages += existingMessages
-                    return
-                  }
-                  if (revision === null || completion.skipped || completion.revision !== revision) {
-                    throw new Error('mail_archive_revision_invalid')
-                  }
-                  if (completion.messages !== sourceMessages) {
-                    throw new Error('mail_archive_batch_count_mismatch')
-                  }
-                  job.finalizing = true
-                  await index.verifyRevision(sourceId, revision, revisionFingerprint, sourceEpoch)
-                  assertCurrent(sourceEpoch)
-                  ignoredItems += completion.ignoredItems ?? 0
-                  completedMessages += sourceMessages
-                  insertedMessages += sourceInserted
-                  skippedMessages += sourceSkipped
-                }
-              },
+              callbacks,
               job.controller.signal
             )
-          } catch (error) {
-            if (revision !== null) {
-              await index
-                .abortRevision(
-                  sourceId,
-                  revision,
-                  job.controller.signal.aborted ? 'interrupted' : 'failed'
-                )
-                .catch(() => undefined)
-            }
-            if (job.controller.signal.aborted) throw error
-            failures.push({ path: currentLabel, reason: errorReason(error) })
           }
-          processedFiles += 1
-          job.finalizing = processedFiles >= sources.length
-          emit('running', currentLabel)
-          // Let IPC cancellation and progress events run between source files.
-          await new Promise<void>((resolve) => setImmediate(resolve))
+        } catch (error) {
+          if (revision !== null) {
+            await index
+              .abortRevision(
+                sourceId,
+                revision,
+                job.controller.signal.aborted ? 'interrupted' : 'failed'
+              )
+              .catch(() => undefined)
+          }
+          if (job.controller.signal.aborted) throw error
+          failures.push({ path: currentLabel, reason: errorReason(error) })
         }
-        assertCurrent()
-        const result: MailArchiveImportResult = {
-          jobId: job.id,
-          state: 'completed',
-          files: sources.length,
-          messages: completedMessages,
-          ignoredItems,
-          inserted: insertedMessages,
-          skipped: skippedMessages,
-          failures
-        }
-        job.finalizing = true
-        emit('completed', null)
-        lastImport = result
-        return result
-      } catch (error) {
-        if (job.controller.signal.aborted) {
-          emit('cancelled', null)
-          lastImport = cancelledResult(
-            job.id,
-            processedFiles,
-            completedMessages,
-            insertedMessages,
-            skippedMessages,
-            failures
-          )
-          return lastImport
-        }
-        latestProgress = null
-        throw error
-      } finally {
-        job.markSourcesReady()
-        if (job.epoch) {
-          const epoch = job.epoch
-          job.epoch = ''
-          job.revokePromise = index.revokeEpoch(epoch).catch(() => undefined)
-        }
-        await job.revokePromise
-        if (activeJob === job) activeJob = null
-        sourceWorker.close()
-        job.settle()
+        processedFiles += 1
+        job.finalizing = processedFiles >= sources.length
+        emit('running', currentLabel)
+        // Let IPC cancellation and progress events run between source files.
+        await new Promise<void>((resolve) => setImmediate(resolve))
       }
-    },
+      assertCurrent()
+      const result: MailArchiveImportResult = {
+        jobId: job.id,
+        state: 'completed',
+        files: sources.length,
+        messages: completedMessages,
+        ignoredItems,
+        inserted: insertedMessages,
+        skipped: skippedMessages,
+        failures
+      }
+      job.finalizing = true
+      emit('completed', null)
+      lastImport = result
+      return result
+    } catch (error) {
+      if (job.controller.signal.aborted) {
+        emit('cancelled', null)
+        lastImport = cancelledResult(
+          job.id,
+          processedFiles,
+          completedMessages,
+          insertedMessages,
+          skippedMessages,
+          failures
+        )
+        return lastImport
+      }
+      latestProgress = null
+      throw error
+    } finally {
+      job.markSourcesReady()
+      if (job.epoch) {
+        const epoch = job.epoch
+        job.epoch = ''
+        job.revokePromise = index.revokeEpoch(epoch).catch(() => undefined)
+      }
+      await job.revokePromise
+      if (activeJob === job) activeJob = null
+      if (!prepared) sourceWorker.close()
+      job.settle()
+    }
+  }
+  return {
+    import: importArchive,
+    importEmlBatch: (items, onProgress) =>
+      importArchive({ inputKind: 'eml-batch', items }, onProgress),
     cancel: (jobId) => {
       if (!activeJob || activeJob.id !== jobId || activeJob.finalizing) return false
       const epoch = activeJob.epoch

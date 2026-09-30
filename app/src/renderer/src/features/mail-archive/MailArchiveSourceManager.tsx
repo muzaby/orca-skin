@@ -25,18 +25,10 @@ export function MailArchiveSourceManager({
         <button
           type="button"
           disabled={busy || state.removingSourceId !== null}
-          onClick={() => void state.add('files')}
+          onClick={() => void state.add()}
           className="rounded-r4 bg-fill-uncontained-active px-3 py-2 text-ink hover:bg-fill-uncontained-hover disabled:opacity-50"
         >
           {t('mailArchive.addFiles')}
-        </button>
-        <button
-          type="button"
-          disabled={busy || state.removingSourceId !== null}
-          onClick={() => void state.add('eml-folder')}
-          className="rounded-r4 border border-border px-3 py-2 hover:bg-fill-uncontained-hover disabled:opacity-50"
-        >
-          {t('mailArchive.addFolder')}
         </button>
         <button
           type="button"

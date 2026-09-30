@@ -1,12 +1,14 @@
 import { app, utilityProcess, type UtilityProcess } from 'electron'
 import assert from 'node:assert/strict'
 import { once } from 'node:events'
-import { mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises'
+import { mkdtemp, writeFile, rm, mkdir, copyFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { createMailArchiveWorkerFactory } from '../../src/main/features/plugins/mail-archive/worker-host'
 import { createMailArchiveService } from '../../src/main/features/plugins/mail-archive/service'
+import { archiveSourceId } from '../../src/main/features/plugins/mail-archive/identity'
+import type { MailArchiveEmlBatchItem } from '../../src/main/features/plugins/mail-archive/types'
 
 async function main(): Promise<void> {
   await app.whenReady()
@@ -33,7 +35,36 @@ async function main(): Promise<void> {
       return child
     }
   })
-  const service = createMailArchiveService(root, workers)
+  let holdNormalized = false
+  let normalizedEntered!: () => void
+  const normalizedReady = new Promise<void>((r) => {
+    normalizedEntered = r
+  })
+  let normalizedRelease!: () => void
+  const normalizedGate = new Promise<void>((r) => {
+    normalizedRelease = r
+  })
+  const service = createMailArchiveService(root, {
+    ...workers,
+    createIndex: (path) => {
+      const index = workers.createIndex(path)
+      return new Proxy(index, {
+        get(target, property) {
+          if (property === 'upsertBatch')
+            return async (input: Parameters<typeof index.upsertBatch>[0]) => {
+              if (holdNormalized) {
+                holdNormalized = false
+                normalizedEntered()
+                await normalizedGate
+              }
+              return target.upsertBatch(input)
+            }
+          const value = Reflect.get(target, property)
+          return typeof value === 'function' ? value.bind(target) : value
+        }
+      })
+    }
+  })
   let passed = 0
   function pass(label: string): void {
     passed++
@@ -199,6 +230,93 @@ async function main(): Promise<void> {
     )
     extractor.close()
     pass('source attachment errors cross the real process boundary without losing their code')
+    const preprocessor = workers.createSource()
+    async function preprocess(path: string): Promise<MailArchiveEmlBatchItem> {
+      const items: MailArchiveEmlBatchItem[] = []
+      await preprocessor.run(
+        {
+          jobId: 'internal-preprocessor',
+          epoch: 'preprocess',
+          sourceId: archiveSourceId('eml', path),
+          sourcePath: path,
+          sourceKind: 'eml'
+        },
+        {
+          onReady: async () => ({ action: 'scan', revision: 1 }),
+          onBatch: async (_revision, mails) => {
+            for (const { sourceKind, sourceId, identityKey, ...item } of mails) {
+              assert.equal(sourceKind, 'eml')
+              assert.ok(sourceId)
+              assert.ok(identityKey)
+              items.push(item)
+            }
+          },
+          onComplete: async (completion) => {
+            assert.equal(completion.startFingerprint, completion.endFingerprint)
+            assert.equal(completion.messages, 1)
+          }
+        },
+        new AbortController().signal
+      )
+      assert.equal(items.length, 1)
+      return items[0]!
+    }
+    const firstPath = join(folder, 'internal-first.eml')
+    const nextPath = join(folder, 'internal-next.eml')
+    for (const [n, path] of [firstPath, nextPath].entries()) {
+      await writeFile(
+        path,
+        `From: qa@example.test\r\nMessage-ID: <internal-${n}@test>\r\nSubject: internal pipeline ${n}\r\n\r\ninternal pipeline body`
+      )
+    }
+    const first = await preprocess(firstPath)
+    holdNormalized = true
+    let acknowledged = false
+    const committing = service.importEmlBatch([first]).then((result) => {
+      acknowledged = true
+      return result
+    })
+    await normalizedReady
+    const next = await preprocess(nextPath)
+    assert.equal(
+      acknowledged,
+      false,
+      'file/MIME preprocessing runs while the previous batch is consumed'
+    )
+    await assert.rejects(service.importEmlBatch([next]), /mail_import_already_running/)
+    normalizedRelease()
+    assert.equal((await committing).inserted, 1)
+    assert.equal((await service.importEmlBatch([next])).inserted, 1)
+    assert.equal((await service.importEmlBatch([first])).skipped, 1)
+    assert.equal((await service.search({ query: 'internal pipeline', limit: 10 })).length, 2)
+    preprocessor.close()
+    pass('normalized internal EML API, read/index overlap, ACK backpressure and identity reuse')
+    const pstPath = join(root, 'archive.pst')
+    await copyFile(resolve('node_modules/pst-extractor/example/testdata/enron.pst'), pstPath)
+    assert.equal((await service.import({ inputKind: 'files', paths: [pstPath] })).inserted, 71)
+    const pstScope = { query: '', sourceId: archiveSourceId('pst', pstPath), limit: 100 }
+    const verifiedPst = await service.search(pstScope)
+    const pstSnapshot = await service.get({ id: verifiedPst[0]!.id })
+    await writeFile(pstPath, 'corrupt PST header')
+    const failedPst = await service.import({ inputKind: 'files', paths: [pstPath] })
+    assert.equal(failedPst.inserted, 0)
+    assert.equal(failedPst.messages, 0)
+    assert.equal(failedPst.failures.length, 1)
+    assert.deepEqual(await service.search(pstScope), verifiedPst)
+    assert.deepEqual(await service.get({ id: verifiedPst[0]!.id }), pstSnapshot)
+    const firstBroken = join(root, 'first-broken.pst')
+    await writeFile(firstBroken, 'not a PST')
+    assert.equal(
+      (await service.import({ inputKind: 'files', paths: [firstBroken] })).failures.length,
+      1
+    )
+    assert.equal(
+      (await service.search({ query: '', sourceId: archiveSourceId('pst', firstBroken) })).length,
+      0
+    )
+    pass(
+      'real PST corruption keeps its last verified snapshot and first corrupt import exposes no mail'
+    )
     console.log(`MAIL_WORKER_INTEGRATION ${passed}/${passed}`)
   } catch (error) {
     console.error(error)

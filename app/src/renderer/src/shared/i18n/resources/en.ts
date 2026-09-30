@@ -12,8 +12,7 @@ export const en: typeof ko = {
     open: 'Open archive',
     description:
       'Keep personal EML/PST mail and search its subject, body, metadata and attachment names.',
-    addFiles: 'Add EML/PST files',
-    addFolder: 'Add EML folder',
+    addFiles: 'Add PST files',
     loading: 'Loading sources…',
     count: '{{count}} searchable messages',
     sourceCount: '{{count}} searchable · {{shared}} shared with other sources',
@@ -34,7 +33,7 @@ export const en: typeof ko = {
     alreadyRemoved: 'This source was already removed.',
     embeddingLater:
       'Keyword search is active. Semantic search settings will be available in the next stage.',
-    emptySources: 'Add files or a folder to start searching.',
+    emptySources: 'Add PST files to start searching.',
     removeSource: 'Remove source',
     removeSourceLabel: 'Remove source {{name}}',
     removing: 'Removing…',
