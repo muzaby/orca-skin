@@ -13,9 +13,9 @@
 | 일자 | 2026-09-29 |
 | 매핑 | PR 브랜치 `codex-0244-mail-archive-plan` → `main` |
 | 조사 기준 | `f2f60ac338f2847f81a6cbc426f0728b7eb8d98e` (`git cat-file -t` → commit 확인) |
-| 상태 | **DRAFT — ΔV6에서 S2 로컬 임베딩만 확정·임베딩 API reserved. r1.6 ΔV5 자기검사 완료; PG-03 identity 전환·S2 실증 대기, 전체 S1 미완료·독립 verify 미착수** |
+| 상태 | **READY — ΔV7의 S3-A 빌트인 MCP 검색·조회·근거·세션 범위 경로만 구현 가능. PG-03·S2·전체 S1과 나머지 S3는 미완료, 독립 verify 미착수** |
 | V mode / 기준 V | `Delta V` / 독립안 `V1@3f9558d9ec7fca52bc7c55533031051ba5d5b96a` |
-| 이번 V revision / 유효 V | `ΔV6` / `V1 + ΔV2 + ΔV3 + ΔV4-A + ΔV5 + ΔV6`. ΔV6은 S2 범위 정정이며 PG-03과 S2/S3의 미확정 경로는 READY 범위 밖 |
+| 이번 V revision / 유효 V | `ΔV7` / `V1 + ΔV2 + ΔV3 + ΔV4-A + ΔV5 + ΔV6 + ΔV7`. READY는 S3-A의 키워드 MCP 경로이며 S2 실모델·PG-03은 범위 밖 |
 
 # Part I — Product & UX Contract
 
@@ -42,6 +42,7 @@
 | EML 배치 결정 | “Eml 배치 주입은 내부 함수(api)로만 제공할 것. 전처리 후 배치로 전달 예정. 수핸되는 동안 전처리기는 다시 파일 리드 위주의 작업을 진행할 것임. Gui 로 제공하지 않을 것임.” | EML 배치 입력 GUI를 없애고 내부 함수로 제공. 소비 중 다음 파일 읽기가 진행되는 유한 파이프라인 설계 |
 | S2 범위 정정 | “S2: 로컬 임베딩만. Api는 reserved.” | 로컬 임베딩만 구현·검증. 임베딩 API는 예약 항목이며 활성 프로필·UI·인증·요청 구현 제외 |
 | S3 의미 질문 | “s3: 사내서버, 클로드 연동은 무엇을 의미하지?” | 기존 채팅 모델이 선택 범위의 메일 근거로 답하고 출처를 여는 S3 계획 설명. D-003 변경 지시로 해석하지 않음 |
+| S3 답변 | “핸드오프 244의 구현은 플러그인(빌트인mcp)으로 노출돼야 한다” + “이것이 s3에 대한 답변이다” + “계속” | S3는 빌트인 MCP Plugin 노출로 확정. 기존 채팅의 runtime tool 경계를 사용 |
 
 ## 3. Decision Ledger
 
@@ -82,6 +83,7 @@
 | D-031 | EML 입력 GUI를 모두 제거하고 PST 추가만 제공 | “EML 입력 GUI를 모두 제거하고 PST 추가만 제공 (권고)” | 사용자 답변 2026-09-30 | **ACTIVE** | AC1·23 / picker·preload·renderer. 기존 EML 검색·열람·제거는 유지 |
 | D-032 | 형식 통합 전환에서 이미 보관된 EML/PST 중복을 처리하는 방식 | 기존 ID를 alias로 유지해 검색 결과를 통합할지, 기존 중복은 유지하고 신규 입력부터 중복 차단할지 확인 필요 | 사용자에게 질문 2026-09-30, 답변 대기 | **OPEN** | PG-03 / AC3·5·7·17. 기존 메일·첨부 ID와 본문 보존은 두 안의 공통 전제 |
 | D-033 | S2는 로컬 임베딩만 구현. 임베딩 API는 reserved. FTS5 기본·선택형 E5-small 384d·SQLite BLOB exact scan·ANN/reranker 보류 승계 | “S2: 로컬 임베딩만. Api는 reserved.” | 사용자 2026-09-30 | **ACTIVE** | D-004·024 대체 / AC8·10~12·19·20·24. D-003·028·030 유지 |
+| D-034 | 244의 S3 기능을 빌트인 MCP Plugin으로 노출 | “이것이 s3에 대한 답변이다”. 기존 채팅이 공통 도구를 호출하며 별도 AI 연결 설정을 추가하지 않음 | 사용자 2026-09-30, “계속” | **ACTIVE** | AC18·22·23·25. EML 내부 입력·PST GUI·로컬 임베딩 결정 유지 |
 
 V1의 D-001~D-016을 유지하고 조사 보완 D-017~D-023, 경량 기준 D-024, 구현 범위 D-025, 자료원·메일 identity D-026을 반영했다. 기준은 이 독립안의 V1이며 다른 브랜치의 라이브러리 승인·모델 선택·V를 상속하지 않는다.
 
@@ -295,7 +297,11 @@ scope가 바뀌면 인용 결과의 중복 접기와 주변 문맥을 새 scope�
 | R-08 | AT-23 / AC23 | 설정·페이지·도구·오류 동작이 양방향 연결되고 오래된 응답이 현 화면을 덮지 않음 | 실제 composition으로 설정 슬롯/오류 링크/범위 칩/요청 역전 테스트 | app composition→feature API→IPC/event |
 | R-08 | AT-24 / AC24 | Windows 패키지에서 PST·로컬 추론을 실행하고 개인 메일·테스트 fixture는 배포에 미포함 | 설치 산출물 파일 manifest·실행 smoke·네트워크 차단 모델 팩 실기<br>선택 parser/runtime의 설치본 load/search/delete/reopen과 모델 추론, 모델 미설치 시 FTS5 동작 | electron build→installer→worker/runtime<br>packaged worker→PST/model pack |
 
-총 24 AC로 유지하되 S0→S1→S2→S3 구현 단위는 §11에서 나눈다. UI 표시는 상태 테스트로, 실제 문자 렌더링·포커스·설치/사내 endpoint는 실기로 확인한다.
+ΔV7은 기존 AC1~24를 승계하고 빌트인 MCP 노출의 AC25를 추가한다. S0→S1→S2→S3 구현 단위는 §11에서 나누며 S3-A는 실모델 없이 기존 키워드 검색으로 구현할 수 있다. UI 표시는 상태 테스트로, 실제 문자 렌더링·포커스·설치/사내 endpoint는 실기로 확인한다.
+
+| R | AT / AC | 동작 기준 | 검증 수단 | production path |
+|---|---|---|---|---|
+| R-10 | AT-26 / AC25 | 빌트인 MCP Plugin이 허용된 실제 세션에서 보관 메일을 검색·조회·관계/근거 반환한다. 등록 인스턴스 유지, 빈 보관함/해제된 범위는 명시 실패 | 실제 registry→Claude MCP adapter→handler 왕복, 서로 다른 두 세션/자료원·취소/제거/restart oracle, plugin 카탈로그 범위 설정과 출처 열람 | Plugin UI→trusted IPC→scope→index worker, runtime tool→같은 scoped service→persisted evidence→UI |
 
 ## 7-A. V / Trace Matrix
 
@@ -448,6 +454,34 @@ main은 정규화 DTO 검증·job 전달만 맡고 파일 읽기·MIME 파싱·D
 M-EMBED-API는 EP-25d의 로컬 실패 처리를 원격 임베딩 fallback으로 바꾸는 결함이다. 실패 상태에서도 키워드 검색 성공·임베딩 전송 0을 단언하므로 실제 전송 시 red여야 한다. S3의 기존 AI 답변 요청을 임베딩 요청으로 세거나 차단하지 않는다.
 
 현재 변경 산출물의 gate는 Decision→AC→V/EP→기술 경로·plan/INDEX 교차 대조, 링크·표·UTF-8, doc-inventory·diff·trailer다. S2 구현 gate는 local-only schema/manifest/cache UT→실 worker·SQLite IT→취소/전환/restart ST→실 모델·UI·오프라인 설치본 AT, M-EMBED-API, lint/typecheck/build와 해당 기존 회귀다. 모델 팩·runtime·기준 PC를 닫기 전 S2는 DRAFT다.
+
+### ΔV7 — S3-A 빌트인 MCP 노출 (2026-09-30, READY)
+
+판정은 **독립 경로 READY**다. D-034는 S3의 공개 표면을 빌트인 MCP Plugin으로 확정하며 D-003의 기존 채팅 환경은 같은 `RuntimeToolRegistry`를 소비한다. S2가 준비되기 전에도 S1 키워드 검색으로 도구를 제공하고 semantic 미구현을 응답에 표시한다.
+
+| node | provenance / 계약 |
+|---|---|
+| R-10 / AT-26 | NEW / AC25 빌트인 MCP 노출·실제 세션 범위·실행 결과 |
+| SD-06 / ST-06 | NEW / scope 설정/해제·세션/자료원 제거·취소·재시작 수명 |
+| AR-08 / IT-08 | NEW / registry·SDK adapter·trusted IPC·index worker·Plugin UI 배선 |
+| MD-09 / UT-09 | NEW / 도구 입력·scope 교집합·bounded context·연속 span·오류 |
+
+| Pair | left ↔ right / requiredness | production path / 직접 oracle | §10 자리 / 선택 증거 |
+|---|---|---|---|
+| VP-30 | R-10 ↔ AT-26 / REQUIRED | Plugin 카드→대화/자료원 선택→MCP 검색/조회→메일 근거. 실제 result 본문·ID·출처, 범위 미지정/다른 세션의 거절 | EP-26(6)·27(7)·28(5); M-ARCHIVE-MCP: bootstrap의 실제 registry 등록을 제거하면 실행 검사 red |
+| VP-31 | SD-06 ↔ ST-06 / REQUIRED | 허용→읽기 대기→scope 해제/세션·자료원 제거/취소→반환. late 반환·삭제 복원 0, reopen의 허용 scope·메일 버전 참조 유지 | EP-26(6)·27(7)·28(5); 직접 oracle |
+| VP-32 | AR-08 ↔ IT-08 / REQUIRED | RuntimeToolServer→registry snapshot→Claude SDK handler→service/index SQLite→MCP content+structuredContent. cached handler identity·reader 무재실행·UI 호출 도달 확인 | EP-26(6)·27(7)·28(5); M-ARCHIVE-MCP 승계 |
+| VP-33 | MD-09 ↔ UT-09 / REQUIRED | untrusted args→strict schema→trusted scope→SQL/paragraph packing→evidence. 정확 ID 집합·UTF-16 span·64 KiB·첨부 sentinel 제외·실패 isError | EP-26d/e(2)·27c/d/f(3)·28a/b(2); 직접 oracle |
+
+영향받는 기존 R-06/08·AR-04·MD-05/06, VP-06·08·16·22·23은 REGRESSION이다. 기존 scope/evidence/tool 경로의 전체 pair 완료와 S3-A 직접 경로 완료를 구별하고 전자의 미구현을 숨기지 않는다. PG-03 identity 전환·S2·고급 quote fold/timeline 품질평가·MCP 첨부 Temp 추출은 다음 작업이며 기존 AC는 유지한다.
+
+Technical Design: `features/plugins/mail-archive/tools.ts`가 `orca_mail_archive` 서버 한 인스턴스를 생성해 `archive_search`, `archive_get`, `archive_thread`, `archive_context`를 제공한다. Bootstrap의 전용 배선이 검색 가능한 verified 메일 유무로 registry add/remove하고 기존 Auth binding에 가짜 자격증명을 만들지 않는다. Plugin 카탈로그의 MCP 탭에는 도메인 중립 slot으로 로컬 Plugin 카드와 현재 저장된 대화의 자료원/날짜 허용 UI를 표시한다.
+
+범위는 trusted 창 IPC와 실제 core session 존재 검사를 거쳐 archive DB에 저장한다. 모델 입력에는 sessionId/scope가 없고 `context.waitForSession(signal)`이 얻은 실제 세션의 sourceIds/날짜와 좁히기 filter만 SQL 후보 조회 전에 교집합한다. 자료원 이름·위치도 허용 occurrence에서 읽고 get/thread/근거 resolve에 같은 predicate를 적용하며 제거·범위 변경 후 반환 직전 revision/세션/취소를 다시 확인한다.
+
+근거는 기존 불변 mail ID를 본문 version으로 쓰고 연속 UTF-16 start/end·sessionId/runId와 함께 index DB에 반환 전 저장한다. 출처는 opaque evidence ID이며 같은 실제 세션의 허용된 메일만 resolve하고 마지막 occurrence 제거는 내용 없는 tombstone으로 처리한다. 두 Markdown 경로는 도메인 중립 internal-link callback을 소비하고 app이 근거 viewer를 주입해 보관 본문·강조 범위·포커스 복귀를 제공한다.
+
+게이트: strict args/paragraph/scope UT→SQLite/실 tool/IPC/registry/adapter IT→late 결과·reopen·session/source 제거 ST→실 Electron worker·Plugin UI AT, M-ARCHIVE-MCP. app lint/typecheck·변경 관련 Vitest와 기존 MIME/보관함/registry/adapter 회귀, migration append-only·doc inventory·Vite build를 수행한다. 실제 사내/Bedrock 답변 품질과 설치본 smoke는 기존 AC18/24의 미완료로 보존한다.
 
 ### ΔV4-A 경로·검증 정정
 
@@ -832,6 +866,9 @@ UI의 `set-session-scope`는 실제 세션 존재와 호출 창의 소유 관계
 | EP-20 / 3 | scoped exact vector scan | a dimension/fingerprint validation on write; b filter-first BLOB scan and cosine ranking; c generation swap·삭제·재시작 | VP-04·VP-06·VP-07·VP-08·VP-09·VP-11·VP-14·VP-17·VP-21·VP-22 | reference cosine·scope·dimension mismatch·reopen. 잘못된 결과/범위 유출 |
 | EP-21 / 9 | D-012 worker boundary·source revision protocol | a main이 DB 경로로 index utility process 시작; b index가 migration/DB를 열고 ready 회신; c main이 picker capability로 확인한 파일만 source worker에 전달; d source worker가 시작 fingerprint·reader를 실행; e 최대 25개 DTO batch를 보내고 ack까지 대기; f main이 jobId/epoch를 확인해 batch 전달; g index가 epoch 확인 후 transaction commit·ack; h source 완료 fingerprint와 index revision verify를 대조; i cancel/exit/shutdown이 epoch를 폐기하고 늦은 batch·revision 승격을 거절 | VP-01·VP-07·VP-09·VP-13·VP-14·VP-17·VP-23·VP-24·VP-25 | main event loop 정체·무한 큐·취소 후 commit·stale revision 활성화·잘못된 counter |
 | EP-25 / 5 | D-033 로컬 전용·임베딩 API reserved | a shared profile schema/IPC가 local만 수용; b settings local 팩 선택·상태; c bootstrap embedding port는 local worker만 주입; d document/query scheduler·실패 분기는 local 또는 키워드 검색; e worker는 등록 로컬 파일만 로드·추론 | VP-04·11·15·21 (ΔV6), 상위 회귀 | API 활성화·자격증명/HTTP 요청·원격 모델 자동 로드·원격 fallback |
+| EP-26 / 6 | D-034 builtin MCP Plugin | a bootstrap server 1회 생성; b verified 데이터 변화 add/remove; c registry→harness snapshot; d 도구 declaration/strict input·readOnlyHint; e context session/signal→handler; f Plugin 카탈로그 MCP slot/관리 목적지 | VP-30~33 | 등록 누락·빈 성공·EML 내부 주입의 모델 노출·가짜 Auth |
+| EP-27 / 7 | session scope·revoke | a UI 대화·sourceIds/날짜 선택; b trusted IPC/core session 검증; c index DB scope 저장/lease; d SQL candidate 이전의 scope 교집합; e get/thread/resolve 동일 predicate; f 반환 직전 signal/revision/session 검사; g session/source 제거·restart 정리 | VP-30~33 | 다른 자료원/세션 노출·필터 후 limit 누락·late 반환 |
+| EP-28 / 5 | bounded evidence·출처 | a 연속 UTF-16 span/64 KiB pack; b index evidence persist-before-return; c 세션/허용 occurrence resolve·tombstone; d completed/streaming Markdown internal callback; e viewer 본문 강조·닫기 포커스 | VP-30~33 | 조작 출처·현재 본문으로 옛 근거 변경·첨부 혼입·클릭 단절 |
 
 동일 필터는 `scope.ts`가 SQL 조건·in-memory predicate를 생성하도록 하고 각 경로의 결과 집합을 같은 fixture로 비교한다. EP-10의 다양한 경로에서 조건문을 독립 복제하지 않는다.
 
@@ -849,6 +886,7 @@ M-SCOPE의 전수 범위에는 새 EP-16c(quote fold), EP-18c(neighbor 확장), 
 | S1 — 보관·정확검색 (이번 라운드) | PST 자료원 UI, EML 내부 배치 API, EML/PST reader, worker DB, 메타데이터/본문/파일명 검색·열람·선택 추출 | AC1~7·9·17·19~23의 S1 pair. ΔV5 입력·손상 경로 READY; PG-03은 별도 설계. 의미검색 미설정은 정상 동작 |
 | S2 — 로컬 임베딩 | 로컬 프로필, chunk/vector, generation, hybrid UI. 임베딩 API reserved | AC8·10~12·19·20·24의 ΔV6 pair; 로컬 실추론·오프라인 검색·예약 API 비활성 확인 |
 | S3 — 이력 답변·근거 UX | scope, context 도구, 기존 두 AI 경로, source card/인용 viewer | AC13~16·18·21~24, 나머지 유효 pair와 운영 gate 전부 |
+| S3-A — 빌트인 MCP (ΔV7 READY) | 키워드 archive 검색/조회/관계/context 도구, Plugin 노출·세션 scope·보관 버전 출처 | AC25·VP-30~33와 해당 기존 회귀. 실모델·PG-03·전체 이력 품질/설치본은 별도 미완료 |
 
 S1~S3를 별도 구현 PR로 나누되 동일 유효 V의 단계 완료와 전체 완료를 구별한다. 이번 PR은 S1만 다루며 S2·S3는 구현 완료로 보고하지 않는다.
 
