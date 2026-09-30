@@ -8,7 +8,8 @@ import type {
   ArchiveReadScope,
   ArchiveEvidence
 } from '../../../../shared/mail-archive-plugin'
-import type { MailArchiveStore } from './store'
+import type { MailArchiveReads } from './store-reads'
+import { archiveEvidence } from './context-packing'
 
 type ScopeRow = {
   source_ids: string
@@ -20,26 +21,38 @@ const bodyHash = (body: string): string => createHash('sha256').update(body).dig
 
 export function createArchivePluginStore(
   db: Database.Database,
-  reads: Pick<MailArchiveStore, 'search' | 'get' | 'thread'>
+  reads: MailArchiveReads
 ): {
   request(input: ArchivePluginRequest): ArchivePluginResponse
 } {
-  const revision = (): number =>
-    (
-      db.prepare('SELECT revision FROM archive_plugin_revision WHERE id=1').get() as {
-        revision: number
-      }
-    ).revision
+  const selectRevision = db.prepare('SELECT revision FROM archive_plugin_revision WHERE id=1')
+  const selectScope = db.prepare('SELECT * FROM archive_session_scope WHERE session_id=?')
+  const selectSessions = db.prepare(
+    'SELECT session_id FROM archive_session_scope UNION SELECT session_id FROM archive_evidence'
+  )
+  const deleteScope = db.prepare('DELETE FROM archive_session_scope WHERE session_id=?')
+  const deleteEvidence = db.prepare('DELETE FROM archive_evidence WHERE session_id=?')
+  const sourceExists = db.prepare('SELECT 1 FROM archive_source WHERE source_id=?')
+  const upsertScope = db.prepare(
+    `INSERT INTO archive_session_scope VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(session_id) DO UPDATE SET source_ids=excluded.source_ids,
+    sent_after=excluded.sent_after, sent_before=excluded.sent_before, token=excluded.token`
+  )
+  const insertEvidence = db.prepare('INSERT INTO archive_evidence VALUES (?, ?, ?, ?, ?, ?, ?)')
+  const selectEvidence = db.prepare('SELECT * FROM archive_evidence WHERE id=? AND session_id=?')
+  const disposeSession = (sessionId: string): void => {
+    deleteScope.run(sessionId)
+    deleteEvidence.run(sessionId)
+  }
+  const dispose = db.transaction(disposeSession)
   const scope = (sessionId: string): ArchiveScopeLease | null => {
-    const row = db
-      .prepare('SELECT * FROM archive_session_scope WHERE session_id=?')
-      .get(sessionId) as ScopeRow | undefined
+    const row = selectScope.get(sessionId) as ScopeRow | undefined
     if (!row) return null
     return {
       sessionId,
       token: row.token,
       sourceIds: JSON.parse(row.source_ids) as string[],
-      corpusRevision: revision(),
+      corpusRevision: (selectRevision.get() as { revision: number }).revision,
       ...(row.sent_after !== null ? { sentAfter: row.sent_after } : {}),
       ...(row.sent_before !== null ? { sentBefore: row.sent_before } : {})
     }
@@ -69,16 +82,8 @@ export function createArchivePluginStore(
         case 'prune': {
           const retained = new Set(input.sessionIds)
           db.transaction(() => {
-            const ids = db
-              .prepare(
-                'SELECT session_id FROM archive_session_scope UNION SELECT session_id FROM archive_evidence'
-              )
-              .all() as { session_id: string }[]
-            for (const { session_id: id } of ids)
-              if (!retained.has(id)) {
-                db.prepare('DELETE FROM archive_session_scope WHERE session_id=?').run(id)
-                db.prepare('DELETE FROM archive_evidence WHERE session_id=?').run(id)
-              }
+            const ids = selectSessions.all() as { session_id: string }[]
+            for (const { session_id: id } of ids) if (!retained.has(id)) disposeSession(id)
           })()
           return null
         }
@@ -86,20 +91,13 @@ export function createArchivePluginStore(
           const value = ArchiveScopeSchema.parse(input.input)
           return db.transaction(() => {
             if (!value.sourceIds.length) {
-              db.prepare('DELETE FROM archive_session_scope WHERE session_id=?').run(
-                value.sessionId
-              )
+              deleteScope.run(value.sessionId)
               return null
             }
             for (const id of value.sourceIds) {
-              if (!db.prepare('SELECT 1 FROM archive_source WHERE source_id=?').get(id))
-                throw new Error('mail_archive_scope_invalid')
+              if (!sourceExists.get(id)) throw new Error('mail_archive_scope_invalid')
             }
-            db.prepare(
-              `INSERT INTO archive_session_scope VALUES (?, ?, ?, ?, ?)
-              ON CONFLICT(session_id) DO UPDATE SET source_ids=excluded.source_ids,
-              sent_after=excluded.sent_after, sent_before=excluded.sent_before, token=excluded.token`
-            ).run(
+            upsertScope.run(
               value.sessionId,
               JSON.stringify(value.sourceIds),
               value.sentAfter ?? null,
@@ -113,13 +111,9 @@ export function createArchivePluginStore(
             } satisfies ArchiveReadScope
           })()
         }
-        case 'dispose': {
-          db.transaction(() => {
-            db.prepare('DELETE FROM archive_session_scope WHERE session_id=?').run(input.sessionId)
-            db.prepare('DELETE FROM archive_evidence WHERE session_id=?').run(input.sessionId)
-          })()
+        case 'dispose':
+          dispose(input.sessionId)
           return null
-        }
         case 'search':
           return reads.search(input.query, input.lease)
         case 'get':
@@ -130,7 +124,6 @@ export function createArchivePluginStore(
           return db.transaction(() => {
             if (input.spans.length > 6) throw new Error('mail_archive_invalid_input')
             const runId = randomUUID()
-            const insert = db.prepare('INSERT INTO archive_evidence VALUES (?, ?, ?, ?, ?, ?, ?)')
             return input.spans.map((span): ArchiveEvidence => {
               const mail = reads.get(span.mailId, input.lease)
               if (
@@ -144,7 +137,7 @@ export function createArchivePluginStore(
               )
                 throw new Error('mail_archive_out_of_scope')
               const id = randomUUID()
-              insert.run(
+              insertEvidence.run(
                 id,
                 input.lease.sessionId,
                 runId,
@@ -153,22 +146,11 @@ export function createArchivePluginStore(
                 span.end,
                 bodyHash(mail.bodyText)
               )
-              return {
-                id,
-                mailId: mail.id,
-                start: span.start,
-                end: span.end,
-                text: mail.bodyText.slice(span.start, span.end),
-                subject: mail.subject,
-                from: mail.from,
-                date: mail.date
-              }
+              return archiveEvidence(id, mail, span)
             })
           })()
         case 'resolve': {
-          const row = db
-            .prepare('SELECT * FROM archive_evidence WHERE id=? AND session_id=?')
-            .get(input.id, input.sessionId) as
+          const row = selectEvidence.get(input.id, input.sessionId) as
             | {
                 id: string
                 mail_id: string | null
@@ -186,16 +168,10 @@ export function createArchivePluginStore(
           return {
             state: 'available',
             mail,
-            evidence: {
-              id: row.id,
-              mailId: mail.id,
+            evidence: archiveEvidence(row.id, mail, {
               start: row.start_offset,
-              end: row.end_offset,
-              text: mail.bodyText.slice(row.start_offset, row.end_offset),
-              subject: mail.subject,
-              from: mail.from,
-              date: mail.date
-            }
+              end: row.end_offset
+            })
           }
         }
       }

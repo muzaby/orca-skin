@@ -13,7 +13,7 @@
 | 일자 | 2026-09-29 |
 | 매핑 | PR 브랜치 `codex-0244-mail-archive-plan` → `main` |
 | 조사 기준 | `f2f60ac338f2847f81a6cbc426f0728b7eb8d98e` (`git cat-file -t` → commit 확인) |
-| 상태 | **READY — ΔV9 기존 S1/S3-A 구현 리팩토링. 공개 동작·등록 owner·DB 형식 유지. PG-03·S2·전체 S1과 나머지 S3는 미완료** |
+| 상태 | **IMPL_DONE — ΔV9 기존 S1/S3-A 리팩토링 완료, 독립 verify 대기. 공개 동작·등록 owner·DB 형식 유지. 전체 0244는 partial** |
 | V mode / 기준 V | `Delta V` / 독립안 `V1@3f9558d9ec7fca52bc7c55533031051ba5d5b96a` |
 | 이번 V revision / 유효 V | `ΔV9` / `V1 + ΔV2 + ΔV3 + ΔV4-A + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9`. 기준 구현 `0a689f1d`·ΔV8 계약 승계. S2 실모델·PG-03은 범위 밖 |
 
@@ -1799,6 +1799,124 @@ S3-A 조사 자리 18개를 §10 EP-26(6)·27(7)·28(5)에 대응했다. 이 보
 - prebuild의 네이티브 캐시 문제가 반복됐다. actual constructor/worker/UI 실행 후 ABI를 기록하며 지침·failure corpus는 수정하지 않았다.
 - 첫 전체 테스트의 inventory/App 기대값 실패를 관련 재실행으로 닫았고, 전체 재실행 성공으로 바꾸어 적지 않았다.
 - 이번 independent verify는 수행하지 않았다. S3-A 자기결과와 전체 제품 미완료를 plan 메타·보드·AC·구현 trailer에 함께 표시한다.
+
+## [구현자 기입] r1.8 설계 리뷰
+
+**ΔV9 리팩토링 완료, 전체 0244는 partial이다.** 별도 설계 커밋 후 D-036의 책임 분리·중복 제거를 구현했다. 새로운 제품 결정·공개 계약·의존성·migration은 추가하지 않았다.
+
+| 경계 | 구현 / 이번 관측 |
+|---|---|
+| 저장소 책임 | `store.ts` 연결/revision 쓰기, `store-maintenance.ts` 초기화·복구·segment, `store-reads.ts` 조회, `store-records.ts` row 변환. store와 Plugin에 같은 read 포트를 전달한다. |
+| 비용 축소 | 고정 batch/segment/attachment/scope/evidence statement는 연결별 준비. 각 mail·요청의 SELECT·lease·revision·transaction은 계속 실행하며 결과를 캐시하지 않는다. |
+| Plugin 실행 | 도구 이름·설명·schema·typed handler를 한 정의로 묶고 handler에서 parsed.data를 한 번 사용한다. spans에 mail/preview를 함께 보관해 예산 루프의 loaded.find와 반복 slice를 제거했다. |
+| 데이터·owner | store/SDK의 ID·본문·첨부·NULL folder·scope·원문 span·late 거절 회귀 성공. shared·preload·Deployment·package/lockfile·migration 경로의 diff 출력 0줄. |
+| 설계 차이 / 남음 | 새 evidence mapper는 기존 `context-packing.ts`에 공유했다. 구조/구간 projection 책임 안의 구현 선택이며 PG-03·S2·고급 context·실환경/설치본은 계속 미완료다. |
+
+## [구현자 기입] r1.8 강제 지점과 V-pair 자기확인
+
+| 자리 | 실제 edge / 이번 직접 관측 |
+|---|---|
+| EP-29a | `store.ts:77`→`initializeArchiveStore`→legacy identity/backfill·staging recovery. store의 legacy duplicate/reopen/recovery와 native worker 9의 손상 전 verified 보존 성공. |
+| EP-29b | `store-maintenance.ts:154` 공통 segment writer→부팅 pending backfill·`store.ts:245` 신규 insert. 구간/ID/첨부 불변, segment 실패 rollback·다음 reopen 재시도 UT 성공. |
+| EP-29c | `store.ts:164/182/207` 준비 statement→각 mail identity SELECT→insert/attachment/occurrence→verify/abort transaction. PST 누적 revision·변경 payload·ID-less locator·취소/손상 회귀 성공. |
+| EP-29d | `store-reads.ts:42/112/146/187` 공통 source/folder projection→FTS·LIKE·get·thread. SQL pre-LIMIT source/date/folder 교집합, scoped NULL folder·숨은 관계 제외 UT 성공. |
+| EP-29e | `store.ts:420` 단일 occurrence SELECT→retained source/path/fingerprint/item/folder tuple→orphan 삭제. 공유 mail/attachment 참조 유지·고유본 삭제, native UI 5/8도 성공. |
+| EP-29f | `tools.ts:131/155/174` strict typed dispatch·preview/예산→`plugin-store.ts:60/76/140` lease/evidence→최종 withSession 검사. SDK 네 도구·opaque ID resolve·64 KiB·네 late 경합·prune/dispose/reopen 성공. |
+
+EP-29의 명세/보고 집합은 6/6이며 missing/extra 차집합 0/0을 보고 checker로 관측했다. S3-A의 EP-26/27/28 소비자는 Bootstrap/IPC/SDK/SQL·scope/evidence/완료·진행 viewer의 기존 suite와 실제 UI 10~12로 회귀 실행했다. 새 source/worker/UI edge는 추가하지 않았으며 그 경로의 미구현 vector/cache/설치본을 완료로 확대하지 않는다.
+
+| 유효 pair | 자기상태 | 이번 증거 / 남음 |
+|---|---|---|
+| VP-34 | SELF_PASS | 실제 SQLite startup/backfill/rollback/revision/공유본 삭제, production worker 9/9·UI 12/12. |
+| VP-35 | SELF_PASS | 같은 row/DTO·scoped projection, strict SDK 입력/6근거/UTF-16/64 KiB·persist-before-return·오류·late 거절. |
+| VP-30~33 | SELF_PASS | 공개 팩터리→사용자 registry→실제 SDK→worker→UI, 기본 미등록·scope/revoke·reopen/정리·M-ARCHIVE-FACTORY red와 정상 control. |
+| VP-01~03·05~10·12~14·16~20·22~29 | SELF_BLOCKED | 구현된 S1/S3-A 회귀 성공. 각 상위 pair의 PG-03·전체 golden·timeline/성능·승인/사내/설치본·상속 전체 mutation은 미완료를 승계한다. |
+| VP-04·11·15·21 | SELF_BLOCKED | ΔV9 실행 집합은 NOT_REQUIRED. ΔV6 로컬 embedding 경로 미구현 상태를 승계한다. |
+
+검산: 신규 REQUIRED 2·S3-A REGRESSION 4 = 6 SELF_PASS, 나머지 29 SELF_BLOCKED = 유효 pair 35. 독립 verify 판정이 아니다.
+
+## [구현자 기입] r1.8 이번 라운드 수정의 잠금
+
+| 선택 / 자리 | 정상 대조 | 적대 대조 / 이번 관측 |
+|---|---|---|
+| M-ARCHIVE-FACTORY / VP-30·32, EP-26a/c | `node scripts/check-mail-archive-ui.mjs`: 실제 SDK→worker→출처 12/12. | `--empty-archive-factory`: UI 1~10 완료 뒤 실제 SDK listTools가 `McpError -32601: Method not found`, exit 1. 생성 bundle에만 변이를 적용하고 정상 control을 다시 실행했다. |
+| 보고 EP-29 차집합 oracle | 명세/보고 6/6·missing/extra 0/0. | 보고 복사본에서 EP-29f 제거 시 checker assertion 실패. 원본 정상 checker 성공. |
+| 보고 AC 분모/상태 oracle | 현재 명세/보고 25/25·5✅/20⚠️/0❌. | 보고 복사본의 AC25를 ⚠️로 바꾸면 상태 검산 assertion 실패. 원본 정상 checker 성공. |
+| 보고 V-pair 집합 oracle | 유효/보고 35/35·missing/extra 0/0·6 SELF_PASS. | 보고 복사본에서 VP-34 제거 시 pair 검산 assertion 실패. 원본 정상 checker 성공. |
+
+잠금 검산: 선택 증거 1·인용 변이 0·새 보고 oracle 3 = 표 4행, 적대 대조 4/4 검출. `app/node_modules/.cache/orca/check-mail-refactor-report.mjs`가 보고·7절·메타/INDEX를 검사하며 source의 직접 ID/field/span/late 테스트는 수정 없이 재사용했다. 상속 전체 M-SCOPE/M-CITE/M-WIRE/M-PACK의 종결을 주장하지 않는다.
+
+## [구현자 기입] r1.8 Product/UX 파생 검토
+
+| 사용자 상황 | 구현 / 이번 관측 |
+|---|---|
+| 가져오기·조회·제거 | 실제 PST GUI와 내부 normalized EML API, 공유본 제거/열람·오류/역전 응답을 native UI 1~9와 worker 8/9에서 재현했다. |
+| Plugin 허용과 출처 | 기본 비활성·사용자 등록·trusted scope·완료/진행 링크·exact highlight·focus·세션 전환·revoke가 native UI 10~12에서 동일하다. |
+| 요청 중 변경 | token/corpus/session/signal 검사는 SQL 준비 재사용과 별개로 매번 실행된다. scope 해제·source/session 제거·취소 뒤 늦은 반환이 모두 isError다. |
+| 새로운 UX 결정 | 해당 없음. renderer·preload·shared API를 바꾸지 않았으며 모델·PG-03 등 기존 OPEN 항목은 보존했다. |
+
+## [구현자 기입] r1.8 놓친 잠재 문제 + 대응
+
+| 관측 | 대응 / 남은 한계 |
+|---|---|
+| SQL 준비 재사용이 결과 캐시로 오인될 수 있음 | statement만 공유하고 SELECT·bound parameters·lease 검사는 호출마다 유지한다. reopen은 새 DB 연결/statement, 관계 dirty 갱신은 verify/activate/remove 후 유지한다. |
+| 공유 occurrence의 canonical folder fallback | 공통 projection에서 search와 scoped get/thread는 NULL을 유지한다. 기존 공유본 fixture의 정확 폴더/자료원과 숨은 관계 제외 oracle이 성공했다. |
+| 메일 위치 tuple 갱신 | 이전과 같은 verified 우선·verified_at/rowid 순서를 한 occurrence SELECT에 적용했다. 같은 transaction에서 공유본 유지·고유본 제거와 원본 locator 일치를 확인했다. |
+| helper의 광범위 spread | evidence helper는 id/mailId/start/end/text/subject/from/date만 명시적으로 만든다. 미검증 span의 추가 필드를 payload에 복사하지 않는다. |
+| 초기화 실패 수명 | legacy/복구/segment 초기화를 outer catch로 묶어 DB를 닫고 오류를 전달한다. 실패 backfill→reopen 재시도·기존 ID/본문 보존 UT 성공. |
+| 환경·제품 한계 | Electron/Node ABI는 실행 단계별로 전환하고 마지막은 실제 ABI 140·SQLite 3.53.2 constructor로 확인했다. D-015/016/032와 r1.7의 근거 잔여 row/자료원 재등록 허용 정책·실환경 한계는 계속 남긴다. |
+
+## [구현자 기입] r1.8 구현 보고
+
+| 항목 | 이번 턴 관측 산출 |
+|---|---|
+| 주요 변경 | 초기화/복구·read·row codec 분리, 고정 SQL 재사용·공유본 위치 tuple, 도구 정의 통합·단일 parse·evidence projection/preview 공유. |
+| 크기 관측 | 같은 LF/CRLF 정규화 방식으로 `0a689f1d`와 비교. store 1,108→469줄, 새 파일 포함 변경 production 전체 1,616→1,561줄(55줄 감소). tools는 268→278줄이며 타입 안전한 도구 정의로 바뀌었다. |
+| 관련 UT/IT | 관련 archive/Bootstrap/IPC/SDK/registry/권한/MIME/renderer 25파일 131 pass·1 benchmark skip. 마지막 공통 SQL/관계 alias 변경 후 store/Plugin/service/App 4파일 41 pass·1 skip. |
+| scripts / 정적 gate | Node script 128 pass·0 fail·0 skip. typecheck node/web/test 3/3·production fixture tsc, ESLint 0 error·기존 virtualizer warning 1. 최초 row helper return-type lint 1건은 명시 타입 추가 후 해소했다. |
+| 실제 실행 | production Electron worker 9/9, UI/SDK 12/12. 빈 팩터리 변이 exit 1(-32601), 변이 제거 후 UI 12/12 재확인. 로그는 `app/node_modules/.cache/orca/mail-refactor-*.log`. |
+| 문서/DB/build gate | doc generated/prose/link, migration sync/no-copies/append-only, test-budgets 16 suite, diff check 성공. electron-vite main/preload/renderer/worker 빌드 성공; 기존 동적/static import 경고 유지. |
+| 범위 / 다음 주체 | ΔV9를 impl/IMPL_DONE으로 검증자에게 넘긴다. 전체 AC는 5/25로 유지하며 전체 Vitest·installer·실모델/사내 답변 성공을 주장하지 않는다. |
+| 대상 커밋 | (r1.8 구현 — 검증자 기입) |
+
+### r1.8 전체 AC 자기보고
+
+| AC | 상태 | 이번 관측 / 남음 |
+|---|---|---|
+| AC1 | ✅ | native UI 1/9·worker 8의 PST GUI/내부 EML 검색·열람, EML 입력 비공개. |
+| AC2 | ⚠️ | PST/본문/손상 보존 회귀. 대표 ANSI/Unicode/charset golden 미완료. |
+| AC3 | ⚠️ | cancel/ACK·손상 staging 비공개·store reopen 성공. 전체 앱 restart 미완료. |
+| AC4 | ⚠️ | segment rollback/reopen·대체 본문·원문 span 성공. 재색인/원본 이동 후 전체 인용 시나리오 미완료. |
+| AC5 | ✅ | store 누적 revision·변경 payload·ID-less locator 기대 ID와 native worker 9의 이전 verified 불변. |
+| AC6 | ✅ | store/relations 역순·누락/다중후보·순환·같은 제목 분리와 Plugin scoped thread 회귀. |
+| AC7 | ⚠️ | FTS/LIKE AND·source/date/folder 집합 성공. 이름/주소·형식 통합 PG-03 미완료. |
+| AC8 | ⚠️ | keyword/semanticAvailable=false 유지. hybrid/vector 미구현. |
+| AC9 | ✅ | MIME/reader 첨부 본문 제외·첨부 이름 검색·SDK 6근거의 attachment sentinel 제외. |
+| AC10 | ⚠️ | 실 로컬 모델·오프라인 vector golden 미구현. |
+| AC11 | ⚠️ | API reserved 결정 유지, local-only profile/worker/API 입력 거절 미구현. |
+| AC12 | ⚠️ | embedding generation/profile/cache 전환·복구 미구현. |
+| AC13 | ⚠️ | opaque ID·same-session span·tombstone/reopen·native 클릭 성공. 재색인/version 이동 전체 미완료. |
+| AC14 | ⚠️ | bounded keyword context와 예산/잘림 유지. timeline·승인/상충·quote coverage 미완료. |
+| AC15 | ⚠️ | native 완료/진행·정확 강조·focus·세션 전환 성공. 관계 근거/전체 답변 복귀 미완료. |
+| AC16 | ⚠️ | SQL scope·공유 NULL folder·거절/late 성공. 승인 첨부/vector/cache scope 미완료. |
+| AC17 | ⚠️ | native GUI 추출 바이트·원본 변경 거절 유지. installer PST 추출·모델 승인 도구 미완료. |
+| AC18 | ⚠️ | actual SDK→worker 성공. 사내서버/Bedrock 실 답변 미수행. |
+| AC19 | ⚠️ | native read/index overlap·ACK·유한 배치 성공. 대표 PC/대량 RSS/p95 미측정. |
+| AC20 | ⚠️ | worker crash/timeout/재연결·store reopen 성공. disk full·전체 앱/embedding fault 미완료. |
+| AC21 | ⚠️ | 공유본 유지/고유본 삭제·session purge·tombstone/late 성공. vector/cache 삭제 미완료. |
+| AC22 | ⚠️ | MIME/권한/registry/adapter/Bootstrap 관련 회귀. 기본 전체 앱/installer smoke 미완료. |
+| AC23 | ⚠️ | native 관리·검색·scope·근거·오류/역전 성공. 후속 semantic/cache·전체 앱 연결 미완료. |
+| AC24 | ⚠️ | 개발 빌드/실 source/index 실행 성공. installer·로컬 추론·manifest 실기 미완료. |
+| AC25 | ✅ | 실제 공개 cached 팩터리/registry/SDK 네 도구·worker·scope/evidence/revoke/reopen과 native UI 10~12, 빈 팩터리 변이 검출. |
+
+검산: ✅ 5·⚠️ 20·❌ 0 = 전체 AC 25. 제품 AC 분모와 r1.7의 미완료를 유지한다. `Criteria-Met: 5/25`, `Criteria-Pending: AC2,AC3,AC4,AC7,AC8,AC10,AC11,AC12,AC13,AC14,AC15,AC16,AC17,AC18,AC19,AC20,AC21,AC22,AC23,AC24`.
+
+## [구현자 기입] r1.8 Review Signals — 사실만
+
+- r1.8은 사용자 리팩토링 요청이며 설계/구현 커밋을 분리했다. 유효 V는 ΔV9까지이고 신규 pair 34/35만 추가했으며 기존 제품 AC는 유지했다.
+- 기존 직접 store/SDK/worker/UI oracle을 재사용했다. 새 테스트·기능·Deployment 등록·의존성·migration을 추가하지 않았다.
+- 최초 lint의 private helper return type을 수정했고 최종 정적 gate는 0 error다. Electron ABI는 force rebuild 후 실제 constructor와 worker/UI로 확인했다.
+- 이번 변경의 전체 Vitest와 독립 verify는 수행하지 않았다. S2·PG-03·전체 품질/성능/설치본의 미완료를 메타·보드·AC·trailer에 함께 유지한다.
 
 ## [검증자 기입] 파생 이슈
 

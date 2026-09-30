@@ -1,6 +1,26 @@
+import type { MailArchiveMessage } from '../../../../shared/mail-archive'
+import type { ArchiveEvidence } from '../../../../shared/mail-archive-plugin'
+
 export interface ArchiveSpan {
   start: number
   end: number
+}
+
+export function archiveEvidence(
+  id: string,
+  mail: Pick<MailArchiveMessage, 'id' | 'bodyText' | 'subject' | 'from' | 'date'>,
+  span: ArchiveSpan
+): ArchiveEvidence {
+  return {
+    id,
+    mailId: mail.id,
+    start: span.start,
+    end: span.end,
+    text: mail.bodyText.slice(span.start, span.end),
+    subject: mail.subject,
+    from: mail.from,
+    date: mail.date
+  }
 }
 
 /** Exact, contiguous UTF-16 slices. Never split a surrogate pair or synthesize body text. */

@@ -174,6 +174,8 @@ POP3 Mail Plugin은 Core `orcinus-orca.db`와 분리된 계정별 `mail.db`를 `
 
 `features/plugins/mail-archive/store.ts`는 `mail-archive/archive.db`를 전용 index utility process에서 연다. 정규화 본문·대체 표현·첨부 목록·FTS와 source/revision/occurrence를 보관하며 원본 EML/PST와 첨부 바이트는 복제하지 않는다. 마이그레이션 정본은 같은 슬라이스의 `migrate.ts`다.
 
+`store.ts`는 연결과 revision 쓰기를 소유한다. `store-maintenance.ts`는 초기화·복구·본문 구간 저장, `store-reads.ts`는 검증 완료 occurrence의 조회와 범위 적용을 담당하며 `store-records.ts`의 행 변환을 공유한다. Plugin은 같은 조회 포트를 사용하고 연결별 고정 statement를 재사용하며 결과·scope·revision은 요청마다 다시 읽는다.
+
 `archive_verified_occurrence`는 모든 검증 완료 revision을 노출한다. 최근 가져오기 포인터는 과거 메일의 표시 여부를 결정하지 않는다. 본문이 수정된 메일과 원본에서 삭제된 메일도 자료원을 명시 제거할 때까지 남는다. 시작/완료 지문이 다른 revision과 파싱 실패·중단된 staging은 노출하지 않는다. 부팅 복구가 미완료 occurrence를 정리하며 이전 보관함은 데이터 삭제 없이 추가 마이그레이션으로 연다.
 
 PST 손상은 이번 revision 전체를 적용하지 않고 직전 완료·검증 이력을 유지한다. 실패 전에 index에 저장된 배치도 공개하지 않으며 성공 메일·신규/중복 counter에 포함하지 않는다. 이전 메일·첨부 ID와 다른 verified 이력은 유지한다.
