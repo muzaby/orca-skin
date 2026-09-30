@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-30 |
 | 매핑 | 이슈2(다크모드 재시작 초기화) — 사용자 라이브 세션 |
-| 상태 | READY |
+| 상태 | IMPL_DONE (r1.2) |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
 | 이번 V revision | `V1` |
