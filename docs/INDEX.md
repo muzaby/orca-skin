@@ -14,6 +14,7 @@
 | Main 구조·성능 진단 및 경량화 결과 | [`etc/study/main-structure/diagnosis.md`](etc/study/main-structure/diagnosis.md) |
 | 세션 런타임 · 동시성 · IPC 핸들러 구조 | [`arch/backend/runtime-ipc.md`](arch/backend/runtime-ipc.md) |
 | chat turn · 어댑터 호출 · SDK→NormalizedEvent 정규화 | [`arch/backend/adapters.md`](arch/backend/adapters.md) |
+| **Claude CLI 컨텍스트 한도·파일/이미지 정책** (200k·1M·미확인 모델 · 게이트웨이 경유 차이) | [`etc/study/claude/08-컨텍스트-한도와-파일-정책.md`](etc/study/claude/08-컨텍스트-한도와-파일-정책.md) — 근거 · Orca 적용은 [`handoff/0245-context-policy-cli-parity/plan.md`](handoff/0245-context-policy-cli-parity/plan.md) |
 | 백그라운드 작업 · 원본 journal · 출력 읽기 | [`arch/backend/background-tasks.md`](arch/backend/background-tasks.md) |
 | **TaskXXX 도구군** (할 일 목록 · background 태스크 · 기능 가용성) | [`claude-taskxxx-spec.md`](claude-taskxxx-spec.md) — SDK 표면 정본 |
 | **OpenCode SDK** (설치 버전 · API 표면 · 메시지/이벤트 · 오류/전송 제약) | [`opencode-sdk-spec.md`](opencode-sdk-spec.md) · 공식 원문은 [`spec/opencode/INDEX.md`](spec/opencode/INDEX.md) |
