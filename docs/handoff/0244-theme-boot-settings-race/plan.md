@@ -352,43 +352,85 @@ SettingsStore.getAll → settings:get(조기) → TweakProvider.load → store.t
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은
 > [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-- (구현 턴에서 기입)
+- 동의 / 그대로 진행: §9 TO-BE 그대로 — 읽기 등록은 `start()` **첫 문장**(`bootstrap.ts:396`)에 뒀다. §11 은 "인증 스택 앞"이라 적었고 첫 문장은 그 조건을 만족한다.
+- 이견 / 현실성 문제: 없음. `legacy-migration` 이 critical 로 throw 할 수 있어 그보다 앞이 더 안전하다(§13 부팅 실패 시에도 테마 읽기 가능).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| VP-02 | EP-01 첫 `await` 전 등록 | 1 | 1/1 | `rg -n "registerSettingsReadHandler\(" app/src/main --glob '!*.test.ts'` → 호출 1건 `bootstrap.ts:396` · `bootstrap.settings-early.test.ts` 2케이스 green | — |
+| VP-03 | EP-02 등록 1회씩 (① 읽기 모듈 `settingsGet` ② 쓰기 모듈 비등록) | 2 | 2/2 | `rg -n "CHANNELS.settingsGet" app/src/main --glob '!*.test.ts'` → 1건 `handlers/settings.ts:16` · `misc-split.test.ts` 2케이스 green | — |
+| VP-04·VP-05 | EP-03 (① `whenReady` 대기 ② 재시도 1회 ③ 최종 보고) | 3 | 3/3 | `TweakProvider.tsx:87`·`:89`·`:109` · store 테스트 4케이스 green | — |
+
+- §10에 없는데 같은 불변식이 필요했던 지점: `chatStore.ts:1785` 언어 캐시 — 같은 채널이라 EP-01 로 함께 닫힘(코드 변경 없음). `update:state`·`session:cwd` 는 D-005 비범위.
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_BLOCKED | 사람 실기(AC6) 대기 | not selected |
+| VP-02 | REQUIRED | SELF_PASS | 2케이스 green | ① 삭제 → 2 red · ② `register(ctx)` 앞으로 이동 → 1 red |
+| VP-03 | REQUIRED | SELF_PASS | 2케이스 green | 쓰기 모듈에 `settingsGet` 재등록 → 2 red |
+| VP-04 | REQUIRED | SELF_PASS | store 4케이스 green | not selected — 직접 행동 oracle |
+| VP-05 | REQUIRED | SELF_PASS | VP-04 와 같은 4케이스 | not selected |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| — | — | — | — | — |
+| `bootstrap.ts:396` 호출 삭제 | VP-02 선택 증거 ① · 새 소스 스캔 oracle 민감도 | 최초 | `bootstrap.settings-early.test.ts` 2건 | 잠김 |
+| `bootstrap.ts` 호출을 `this.register(ctx)` 직전(첫 `await` 뒤)으로 이동 | VP-02 선택 증거 ② | 최초 | "등록 호출은 start() 의 첫 await 보다 앞선다" 1건 | 잠김 |
+| `handlers/settings.ts` `registerSettingsHandlers` 에 `settingsGet` 재등록 | VP-03 선택 증거 · 전수 oracle(`misc-split`) 민감도 | 최초 | `misc-split.test.ts` 2건 | 잠김 |
+
+- **분모 검산**: `선택 증거 3 · 인용 변이 0 · 새 oracle 2(소스 스캔·등록 전수 — 위 행과 공유) = 표 행 3`.
+- **덮개 회귀**: 해당 없음(최초 라운드).
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| — | — | — |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 새 문구 없음 — 기존 `loadFailed` 제목을 `reportError` → 오류 토스트가 표시 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 — `load()` 의 `cancelled` 클로저 그대로 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | "두 번 모두 실패" · "첫 읽기 실패·부팅 성공" · "읽는 중 해제" 3행 | — |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 최종 실패는 토스트. 부팅 실패면 `BootFailureFrame` 이 앞에 있어 토스트가 가려질 수 있다 | 보고만 — 부팅 실패 화면이 원인을 이미 보인다 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해제 뒤 응답·재시도 폐기(케이스 "stops the retry chain…") | — |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| — | — | — | — |
+| 1 | `arch/backend/overview.md §3.1` 부트 시퀀스가 0109 이전 순서(부팅 후 창)로 적혀 있었다 | ✅ 선조치 — 동기 구간 조기 등록 3종과 창 병행을 현재 상태로 기술 | `overview.md` 3단계 0 항목 |
+| 2 | `app/src/main/AGENTS.md` 컴포지션 루트 행이 조기 등록을 인증 스택만 적었다 | ✅ 선조치 — 설정 읽기 조기 등록 한 줄 추가 | `app/src/main/AGENTS.md` app 행 |
+| 3 | `update:state` 조기 호출 실패가 `actionError` 로 남는다(대화상자를 열면 지워짐) · `session:cwd` 조기 호출 실패는 unhandled rejection 로그 | ⚠️ 보고만 — D-005 비범위 | `updateStore.ts:55` · `chatStore.ts:1770` |
+
+### 설계 대비 명시적 차이
+
+- 없음. (등록 위치를 "인증 스택 앞" 중 가장 앞인 첫 문장으로 골랐다 — §11 의 범위 안.)
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
+| 변경 파일 | `app/src/main/app/handlers/settings.ts` · `app/src/main/app/bootstrap.ts` · `app/src/main/app/bootstrap.settings-early.test.ts`(신규) · `app/src/main/app/handlers/misc-split.test.ts` · `app/src/renderer/src/shared/theme/TweakProvider.tsx` · `TweakProvider.store.test.ts` · `TweakProvider.lifecycle.test.ts` · `docs/IPC_CONTRACT.md` · `docs/arch/backend/overview.md` · `app/src/main/AGENTS.md` |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `npm rebuild better-sqlite3` 후 `./node_modules/.bin/vitest run src/renderer/src/shared/theme src/main/app/handlers src/main/app/bootstrap.settings-early.test.ts` · `node scripts/check-doc-inventory.mjs --check` |
+| **관측한 게이트 산출** | lint 0 error · 1 warning(`useVirtualizer` incompatible-library — 이번 변경 밖 파일) · typecheck node/web/test exit 0 · vitest **19파일 130케이스 pass**(Node ABI 재빌드 전에는 DB 로드 5파일이 `NODE_MODULE_VERSION 140 vs 127` 로 실패 — 환경) · doc-inventory ok |
+| V-pair 자기확인 | `SELF_PASS 4 / SELF_BLOCKED 1`(VP-01 실기) |
+| 강제 지점 전수 | 6/6 (EP-01 1 · EP-02 2 · EP-03 3) |
+| **AC 자기보고** | AC1 ✅ 소스 스캔 2케이스 · AC2 ✅ 등록 전수 2케이스 · AC3 ✅ "retries once after main boot…" · AC4 ✅ "reports loadFailed…" 2케이스 · AC5 ✅ "stops the retry chain…" · AC6 ⚠️ Windows 실기 대기 |
+| **합계 검산** | `✅ 5 · ⚠️ 1 · ❌ 0 = 총 6` |
+| 블로커 / 역질문 | 없음 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- (구현 턴에서 기입)
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음(최초 라운드).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: 0109 plan 이 부팅 게이트로 "미등록 핸들러 invoke" 를 막는다고 적었으나 게이트 밖 호출자를 세지 않았다(IPC_CONTRACT 69행 정정).
+- 반복해서 부딪히는 환경 한계: better-sqlite3 ABI — `npm ci` 뒤 Electron ABI 라 DB 스위트가 실패, `npm rebuild better-sqlite3` 로 해소.
+- 현재 라운드·impl 턴: `r1`.
 
 ---
 

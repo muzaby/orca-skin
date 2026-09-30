@@ -1,13 +1,22 @@
 // 설정 IPC 2종 (0179 에서 misc 에서 분리). 검증은 `SettingsStore.patch` 내부 zod 가 담당한다.
+//
+// **읽기와 쓰기는 등록 시점이 다르다** (0244). 창은 `start()` 완료 전에 열리고(0109) 테마를
+// 적용하는 `TweakProvider` 는 부팅 게이트 밖에서 마운트 즉시 `settings:get` 을 부른다. 읽기는
+// `SettingsStore` 하나만 필요하므로 `start()` 첫 문장에서 등록하고, 스케줄러가 필요한 쓰기는
+// 부팅 끝의 `register(ctx)` 에 둔다. 같은 채널을 두 번 `handle` 하면 Electron 이 throw 한다.
 
 import { CHANNELS, type Settings } from '../../../shared/protocol'
 import { handlePlain } from '../../infra/ipc/handle'
 import { getLogger } from '../../infra/log'
 import type { RouterContext } from '../context'
 
-export function registerSettingsHandlers(ctx: Pick<RouterContext, 'settings' | 'scheduler'>): void {
-  handlePlain(CHANNELS.settingsGet, (): Settings => ctx.settings.getAll())
+export function registerSettingsReadHandler(
+  settings: Pick<RouterContext['settings'], 'getAll'>
+): void {
+  handlePlain(CHANNELS.settingsGet, (): Settings => settings.getAll())
+}
 
+export function registerSettingsHandlers(ctx: Pick<RouterContext, 'settings' | 'scheduler'>): void {
   // 파생 상태(게이트 판정·사용량 뷰)를 다시 미는 일은 **이 핸들러의 몫이 아니다** —
   // `SettingsStore.onPatch` 로 각 소유자가 부팅에서 스스로 등록한다(`app/bootstrap.ts`).
   // 여기에 `if (key === …)` 를 쌓으면 도메인을 모르는 핸들러가 feature 를 알아야 하고,
