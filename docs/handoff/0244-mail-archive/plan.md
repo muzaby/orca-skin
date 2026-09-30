@@ -13,9 +13,9 @@
 | 일자 | 2026-09-29 |
 | 매핑 | PR 브랜치 `codex-0244-mail-archive-plan` → `main` |
 | 조사 기준 | `f2f60ac338f2847f81a6cbc426f0728b7eb8d98e` (`git cat-file -t` → commit 확인) |
-| 상태 | **IMPL_DONE — ΔV8 S3-A 표준 Plugin 도구 팩터리·검색·조회·근거·세션 범위 구현, 독립 verify 대기. 등록은 사용자 Deployment 소유. PG-03·S2·전체 S1과 나머지 S3는 미완료** |
+| 상태 | **READY — ΔV9 기존 S1/S3-A 구현 리팩토링. 공개 동작·등록 owner·DB 형식 유지. PG-03·S2·전체 S1과 나머지 S3는 미완료** |
 | V mode / 기준 V | `Delta V` / 독립안 `V1@3f9558d9ec7fca52bc7c55533031051ba5d5b96a` |
-| 이번 V revision / 유효 V | `ΔV8` / `V1 + ΔV2 + ΔV3 + ΔV4-A + ΔV5 + ΔV6 + ΔV7 + ΔV8`. ΔV8이 ΔV7의 등록 owner/수명을 정정. S2 실모델·PG-03은 범위 밖 |
+| 이번 V revision / 유효 V | `ΔV9` / `V1 + ΔV2 + ΔV3 + ΔV4-A + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9`. 기준 구현 `0a689f1d`·ΔV8 계약 승계. S2 실모델·PG-03은 범위 밖 |
 
 # Part I — Product & UX Contract
 
@@ -85,6 +85,7 @@
 | D-033 | S2는 로컬 임베딩만 구현. 임베딩 API는 reserved. FTS5 기본·선택형 E5-small 384d·SQLite BLOB exact scan·ANN/reranker 보류 승계 | “S2: 로컬 임베딩만. Api는 reserved.” | 사용자 2026-09-30 | **ACTIVE** | D-004·024 대체 / AC8·10~12·19·20·24. D-003·028·030 유지 |
 | D-034 | 244의 S3 기능을 빌트인 MCP Plugin으로 노출 | “이것이 s3에 대한 답변이다”. 기존 채팅이 공통 도구를 호출하며 별도 AI 연결 설정을 추가하지 않음 | 사용자 2026-09-30, “계속” | **ACTIVE** | AC18·22·23·25. EML 내부 입력·PST GUI·로컬 임베딩 결정 유지 |
 | D-035 | 다른 플러그인 도구와 같은 표준 팩터리로 제공. 실제 등록은 사용자 Deployment 소유 | “다른 플러그인도구와 똑같이 취급… 사용자 측에서 deployments에서 등록”. Bootstrap 자동 등록·Deployment deps 주입/파일 편집은 하지 않음 | 사용자 2026-09-30 정정 | **ACTIVE** | AC25·VP-30~33·EP-26. ΔV7의 Bootstrap 등록 해석만 대체 |
+| D-036 | 기존 244 구현을 책임별로 정리하고 중복·반복 준비·쓸모없는 코드를 제거 | “구조적으로 안정적이며 낭비 없는 코드로. 유여하고 컴팩트한 크기. 쓸모없는 코드 제거” | 사용자 2026-09-30 | **ACTIVE** | ΔV9 / 기존 AC·공개 계약 유지. 새로운 제품 기능·identity 전환은 포함하지 않음 |
 
 V1의 D-001~D-016을 유지하고 조사 보완 D-017~D-023, 경량 기준 D-024, 구현 범위 D-025, 자료원·메일 identity D-026을 반영했다. 기준은 이 독립안의 V1이며 다른 브랜치의 라이브러리 승인·모델 선택·V를 상속하지 않는다.
 
@@ -501,6 +502,42 @@ Product/UX: 기본 Deployment가 등록하지 않은 현재 빌드의 Plugin 카
 
 ΔV7의 `M-ARCHIVE-MCP`(Bootstrap 등록 제거)는 등록 자체가 금지되어 적용 종료이며 `M-ARCHIVE-FACTORY`로 대체한다. 기존 VP-06·08·16·22·23 REGRESSION, EP-27/28, AC 총수 25, 운영 gate는 승계한다. 현재 체크아웃에서 사용자 배포를 대신 작성하지 않으며 배포 후 사내/Bedrock 실 답변·설치본 검증은 미완료로 남긴다. READY self-review: 현재 `createPluginBindings()`는 빈 배열이며 Bootstrap은 이를 호출해 표준 registry를 전달한다. 공개 팩터리와 backend 수명 포트로 이 계약을 확장하지 않고 연결할 수 있다.
 
+### ΔV9 — 기존 구현의 책임 분리·중복 제거 (2026-09-30, READY)
+
+판정은 **READY**다. 사용자 요청은 기존 구현의 구조·낭비를 개선하는 비기능 변경이며 제품 AC 총수 25를 유지한다. D-027~035의 입력·보존·로컬 전용·등록 owner와 OPEN D-015/016/032를 승계한다.
+
+Product/UX: 같은 입력의 메일 ID·첨부·본문·구간·검색/스레드 집합·오류가 유지된다. 사용자 Deployment 등록 후 같은 공개 팩터리와 MCP 도구를 쓰며 scope/revoke·근거·64 KiB 상한을 유지한다. EML 내부 입력, PST GUI, 세션/자료원 제거와 재시작의 결과도 유지한다.
+
+| node | provenance / 계약 |
+|---|---|
+| AR-09 / IT-09 | NEW / 단일 DB writer 아래 초기화·복구, 조회, 쓰기를 분리. 기존 worker/서비스와 실제 SQLite 계약 동등 |
+| MD-10 / UT-10 | NEW / 공통 행 변환·SQL projection, 연결별 고정 statement 재사용, 도구별 단일 입력 parse와 bounded evidence 구성 |
+
+| Pair | left ↔ right / requiredness | production path / 직접 oracle | §10 자리 / 선택 증거 |
+|---|---|---|---|
+| VP-34 | AR-09 ↔ IT-09 / REQUIRED | index open→초기화/복구→revision transaction→read/plugin→worker. 기존 ID·본문/첨부·segment·FTS/LIKE·공유본 삭제·reopen의 fixture 집합 일치 | EP-29a~f(6), EP-21(9)·27(7)·28(5); 직접 SQLite/worker oracle |
+| VP-35 | MD-10 ↔ UT-10 / REQUIRED | SQL row→공통 DTO, strict args→typed handler→context packing→evidence. 허용 집합·NULL 폴더·Unicode span·full-envelope 예산·persist-before-return·오류 일치 | EP-29a~f(6), EP-26d/e(2)·27d/e/f(3)·28a/b(2); 직접 oracle |
+
+영향받는 기존 VP-01~03·05~10·12~14·16~20·22~33은 **REGRESSION**이다. 증거는 현재 구현된 S1/S3-A 구간에 한정하며 미구현 임베딩·고급 context·실환경 품질/설치본 AC는 그대로 partial이다. VP-30~33의 공개 Plugin/수명 경로는 실제 SDK·worker·UI로 재현하고 `M-ARCHIVE-FACTORY`를 승계한다.
+
+VP-04·11·15·21은 **NOT_REQUIRED**다. 출처는 ΔV6 로컬 임베딩 계약이며 r1.7의 S2 미구현 기록을 승계한다. 이번 변경은 모델 프로필·scheduler·vector·embedding cache 경로를 만들거나 바꾸지 않아 기존 미충족을 유지한다.
+
+| 조사 대상 / 검색 | 관측 | TO-BE |
+|---|---|---|
+| `store.ts`: `rowMail/mapHit/mapMessage`, legacy SELECT·search/get/thread | 같은 필드 타입·DTO 변환·자료원 projection 반복, get의 fingerprint/item_key는 소비되지 않음 | `store-records.ts`의 공통 row/mapper, `store-reads.ts`의 조회 책임. 불필요한 SELECT 필드 제거 |
+| `store.ts`: boot/backfill/rebuild·writeSegments·upsert | 시작 복구와 읽기/쓰기 혼재, mail/batch마다 고정 statement 재준비 | `store-maintenance.ts`가 초기화/복구와 분류 projection 담당. 고정 statement는 연결별 준비 |
+| `store.ts`: removeSource canonical UPDATE | 같은 정렬의 occurrence 하위 조회 반복 | 단일 occurrence SELECT로 retained row의 위치 필드를 함께 갱신. transaction·삭제 순서는 유지 |
+| `tools.ts`: schemas/descriptions/index, safeParse+parse, loaded.find | 병렬 배열·재파싱·예산 축소 루프 안 메일 재탐색 | 도구별 schema/description/handler 묶음, parsed.data 1회 사용. span과 메일을 함께 보관 |
+| `plugin-store.ts`: prune/dispose, scope/evidence statement | 동일 삭제 코드·고정 SQL 반복 준비 | 공통 세션 정리와 연결별 statement. lease 검사와 evidence transaction은 호출마다 유지 |
+
+Technical Design: 새 모듈은 모두 기존 `features/plugins/mail-archive/` 내부이며 상위·다른 feature import를 추가하지 않는다. 읽기 모듈은 관계 갱신 callback을 주입받아 쓰기 상태를 소유하지 않으며 Plugin store에 같은 read 포트를 전달한다. 기존 `MailArchiveStore`·서비스·worker·공개 Plugin 타입과 DB migration은 유지한다.
+
+Statement hoisting은 **SQL 준비만** 줄인다. 결과·scope/token/corpus revision·본문·관계를 캐시하지 않으며 각 요청의 실제 DB 조회와 transaction·최종 검사 부수 효과는 유지한다. 새 연결은 새 statement를 준비하고 닫힌 연결의 것을 공유하지 않는다.
+
+게이트: 기존 store/서비스/reader/내부 batch·Plugin/Bootstrap/handler·registry/adapter/UI 회귀와 native worker·UI fixture, lint·typecheck 3구성·build·script 검사·migration append-only·doc inventory·diff/trailer. 신규 동작 테스트를 구조 복사 목적으로 늘리지 않고 기존 직접 oracle을 재사용한다. 총 production LOC는 새 파일을 포함해 기준 구현과 비교하며 기능을 삭제하거나 테스트/계약을 축소해 감소시키지 않는다.
+
+READY self-review: D-036→AR-09/MD-10→VP-34/35→EP-29, D-027~035→기존 AC→상위 REGRESSION을 대조했다. ACTIVE 결정 ↔ AC 충돌 0; 기존 직접 oracle은 `store.test.ts`의 손상 복구/rollback/backfill/삭제와 `app/mail-archive-plugin.test.ts`의 SQL 교집합/예산/late/reopen이다. plan 메타·이 절·INDEX를 READY로 함께 갱신하고 별도 설계 커밋 후 구현한다.
+
 ### ΔV4-A 경로·검증 정정
 
 기준은 공유 브랜치의 r1.4 산출과 ΔV3이며 stable pair ID를 유지한다. 아래는 독립 경로의 추가 oracle이고 기존 pair 전체 완료 조건을 대체하지 않는다. 나머지 S1 pair는 기존 미충족/회귀 계약을 유지한다.
@@ -887,6 +924,7 @@ UI의 `set-session-scope`는 실제 세션 존재와 호출 창의 소유 관계
 | EP-26 / 6 | D-034/035 표준 Plugin 도구 | a 공개 팩터리/server 1회 생성; b Bootstrap backend 준비/해제·자동 등록 없음; c 사용자 등록 registry→harness snapshot; d 도구 declaration/strict input·readOnlyHint; e context session/signal→handler; f Plugin MCP slot/미등록 표시·관리 목적지 | VP-30~33 | 빈 서버·자동 등록·EML 내부 주입의 모델 노출·가짜 Auth |
 | EP-27 / 7 | session scope·revoke | a UI 대화·sourceIds/날짜 선택; b trusted IPC/core session 검증; c index DB scope 저장/lease; d SQL candidate 이전의 scope 교집합; e get/thread/resolve 동일 predicate; f 반환 직전 signal/revision/session 검사; g session/source 제거·restart 정리 | VP-30~33 | 다른 자료원/세션 노출·필터 후 limit 누락·late 반환 |
 | EP-28 / 5 | bounded evidence·출처 | a 연속 UTF-16 span/64 KiB pack; b index evidence persist-before-return; c 세션/허용 occurrence resolve·tombstone; d completed/streaming Markdown internal callback; e viewer 본문 강조·닫기 포커스 | VP-30~33 | 조작 출처·현재 본문으로 옛 근거 변경·첨부 혼입·클릭 단절 |
+| EP-29 / 6 | D-036 책임 분리·계약 보존 | a 부팅 migration/backfill/recovery; b 새/기존 본문 구간 저장; c source revision·identity/attachment write; d search/get/thread row·scope projection; e source removal·retained occurrence; f Plugin strict dispatch·scope/evidence/prune/dispose·최종 반환 검사 | VP-34·35 / 기존 회귀 | 초기화 누락·staging 공개·공유본 소실·NULL 폴더 대체·late/범위 우회·과대 payload |
 
 동일 필터는 `scope.ts`가 SQL 조건·in-memory predicate를 생성하도록 하고 각 경로의 결과 집합을 같은 fixture로 비교한다. EP-10의 다양한 경로에서 조건문을 독립 복제하지 않는다.
 
