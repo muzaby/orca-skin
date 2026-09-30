@@ -60,6 +60,7 @@
 - 변경된 결정: D-004 → D-005 ("디폴트 200k"의 적용 대상을 사용자가 비-Claude 로 좁혔다).
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: D-001·D-009·D-012.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-005 ↔ AC1·AC2 · D-006 ↔ AC1 · D-007 ↔ AC1 · D-008 ↔ AC2·AC3 · D-009 ↔ AC4·AC5 · D-010 ↔ AC6~AC9 · D-011 ↔ AC9 · D-012 ↔ AC10~AC13 · D-013 ↔ AC3(환경변수를 건드리지 않음) · D-014 ↔ AC 없음(변경 없음).
+- r1 구현 중 정정(AC6 예시 값): `(2000,1500)→(1269,952)` 는 `Math.round` 로 계산한 값이었다. 공식 참조 구현(Python `round` = half-to-even)은 `(1270,952)` — 1270/1.333=952.5 → 952. 동작 기준("공식 참조 구현과 같다")은 그대로다.
 
 ## 4. 요구 비판적 검토
 
@@ -122,7 +123,7 @@
 | R-02 | AT-03 / AC3 | 어댑터가 실행 모델을 넘기는 **세 자리** 모두 정규화 문자열을 쓰고, env 는 바꾸지 않는다 | query mock: `options.model` · `pushTurn` 의 `setModel` 인자 · `LiveTurn.setModel` 인자 = `…[1m]` · `options.env` 불변 | `sendMessage` → `query()` · `pushTurn` · `setModel` |
 | R-03 | AT-04 / AC4 | 도구 결과 교체 규칙: Read `image`·`pdf`·`parts` → Read `text` 출력(안내문), `notebook` → 이미지 출력만 제거·자리표시 텍스트, MCP 배열 → `image`·`document` 블록만 텍스트로, 그 외 → 교체 없음 | 순수 테스트 8케이스 이상 · 교체 결과를 SDK `FileReadOutput` 타입에 대입(typecheck) · 안내문에 경로·MIME·크기 포함 | `guardToolResultMedia` |
 | R-03 | AT-05 / AC5 | 교체 훅은 **커스텀 모델 세션에서만** `updatedToolOutput` 을 낸다. 세션 중 모델을 바꾸면 다음 호출부터 새 분류를 따른다 | query mock: `options.hooks.PostToolUse` 콜백에 Read image 입력 → 커스텀이면 `hookSpecificOutput.updatedToolOutput`, Claude 면 `{}` · `setModel(커스텀)` 뒤 같은 입력 → 교체 | `sendMessage` hooks → CLI PostToolUse |
-| R-04 | AT-06 / AC6 | 표준 등급 축소 크기가 공식 참조 구현과 같다 | 공식 예시: (1075,1520)→(924,1307) · (1920,1080)→(1456,819) · (2000,1500)→(1269,952) · (3840,2160)→(1456,819) · (1080,1920)→(819,1456) · (1092,1092)·(200,200) 불변 | `resizedSize` |
+| R-04 | AT-06 / AC6 | 표준 등급 축소 크기가 공식 참조 구현과 같다 | 문서 예시 (1075,1520)→(924,1307) + 참조 구현(Python 원문) 계산값: (1920,1080)→(1456,819) · (2000,1500)→(1270,952) · (3840,2160)→(1456,819) · (1080,1920)→(819,1456) · (1092,1092)·(200,200) 불변 | `resizedSize` |
 | R-04 | AT-07 / AC7 | PNG·JPEG 헤더에서 크기를, JPEG EXIF 에서 회전 값을 읽는다 | 합성 바이트 fixture: PNG IHDR · JPEG SOF0/SOF2 · EXIF orientation 6 · 잘린 버퍼는 `undefined` | `readImageInfo` |
 | R-04 | AT-08 / AC8 | 첨부 정규화는 표준 등급을 넘는 PNG·JPEG(회전 없음)에만 축소본을 만든다. 원본 data·보관 파일·view 는 그대로다. 코덱이 `null`·예외면 축소본 없이 계속한다 | 가짜 코덱: 큰 PNG → 축소본(크기·코덱 출력) / 작은 PNG·GIF·회전 JPEG → 없음 / 코덱 throw → 없음·정규화 성공 · 원본 `data` 불변 | `send.ts` → `normalizeAttachments(…, { imageCodec })` |
 | R-04 | AT-09 / AC9 | 커스텀 세션의 모델 입력은 축소본 이미지와 CLI 형식 메모를 쓰고, Claude 세션은 원본과 메모 없음을 쓴다 — 첫 입력·프렐류드·steer·`pushTurn` 네 경로 모두 | `buildTurnContent` 테스트(두 등급) + query mock: 첫 입력 이미지 data = 축소본 · `pushTurn` content 도 축소본 | `batchContent`·`buildTurnContent` |
