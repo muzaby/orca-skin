@@ -655,4 +655,6 @@ READY. 구현 전 사용자 결정 변경이다. V1 이 서버(게이트웨이) 
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| D1 | 저장 이름에 `#`가 남아 CLI `@"…"` 파서(`Q0s`)가 `#` 앞까지만 파일명으로 읽는다 — `issue#12.md` 첨부 내용이 모델에 안 간다 | VP-16 · D-018 · AC21 | 저장 이름 정제에 `#` 처리 추가 + `#` 이름 테스트. 재현은 [verify §6](verify.md#6-외부-포트--문서-계약) | BLOCKING | open |
+| D2 | 모델·env 해석이 CLI project/local settings의 env·`model`을 보지 않는다 | 비귀속(plan §11 범위 밖) | 실사용 확인 후 판단 | NEXT_HANDOFF | open |
+| D3 | VP-17 IT의 `additionalDirectories` 단언이 `expect.any(String)` | 비귀속 | D1 수정 때 강화 가능 | NON_BLOCKING | open |
