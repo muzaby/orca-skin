@@ -738,6 +738,8 @@ export const SPAWN_ENV_INJECTOR: SpawnEnvInjector | undefined = ({ target, hostE
 | 게이트웨이에서 1M 사용 | 자동으로 붙는 `[1m]`의 beta 헤더를 게이트웨이가 받는지 설치본에서 확인한다. 거절하면 `CLAUDE_CODE_DISABLE_1M_CONTEXT=1`로 자동 부착을 끈다. |
 | 미확인 1M 모델 | 선택 이름에 `[1m]`을 명시하고 실제 서버 창과 CLI 사용량을 확인한다. |
 | 창·요약 env 설정 | `CLAUDE_CODE_MAX_CONTEXT_TOKENS`·`CLAUDE_CODE_AUTO_COMPACT_WINDOW` 등은 CLI 설정으로 관리한다. Orca가 기본값을 주입하지 않으므로 기존 운영 설정을 확인한다. |
+| 프록시 모델의 컨텍스트 창 | 미확인 모델은 `CLAUDE_CODE_MAX_CONTEXT_TOKENS`를 실제 창으로 설정하고 도넛 분모와 CLI 압축 기준이 같은 창을 쓰는지 확인한다. 미설정 시 기본 정책을 따른다 — [컨텍스트 분모](../arch/frontend/rendering.md#19-컨텍스트-사용량-도넛패널-구현-완료). |
+| 프록시 컨텍스트 도넛이 갱신되지 않음 | 메인 assistant usage 또는 `message_delta.usage`의 입력·캐시 토큰을 요청 로그에서 확인한다. 둘 다 usage를 반환하지 않는 프록시는 도넛 미지원이다 — [사용량 수집](../arch/backend/provider-runtime.md#8-telemetryservice). |
 | 큰 텍스트 첨부 | 작은 파일·큰 파일·이미지와 함께 첨부한 파일을 설치본에서 확인한다. 읽기·상한 안내는 CLI가 처리한다. |
 | 도구 결과 이미지가 글자로 변환됨 | 게이트웨이의 `/v1/messages` 변환 경로와 요청 로그를 확인한다. Orca에서 우회하지 않는다 — [study 8.8](../etc/study/claude/08-컨텍스트-한도와-파일-정책.md#88-게이트웨이litellm-뒤에서-달라지는-것). |
 

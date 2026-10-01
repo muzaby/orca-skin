@@ -12,7 +12,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-02 |
 | 매핑 | — |
-| 상태 | READY |
+| 상태 | IMPL_DONE |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
 | 이번 V revision | `V1` |
@@ -551,109 +551,132 @@ turn_usage 최신 행 → reader → usageRowToTelemetry → LOAD_SESSION → �
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: … (Part I/II의 정확한 절 인용)
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: D-001~D-010 유지. 메인 delta 관측·assistant 우선·result/압축 리셋을 §10 그대로 구현했고, smoke A~D 10턴이 일치했다.
+- 이견 / 현실성 문제: 없음 — AC1~8 UT·AC9 IT·AC10 실 CLI 경로 모두 실행 가능했다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음 — assistant 양수 우선(AC2), 2단계 미채택(AC3·smoke C), CLI 창 유지(smoke D)를 직접 관측했다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
-> `§10`의 `언제 강제` 칸은 **하나의 불변식이 성립해야 하는 지점 목록**이다. 한 지점만 닫아도
-> 대표 경로 AC는 통과하므로 게이트 green은 전수를 뜻하지 않는다.
-> **각 행의 `재현 명령 / 관측`은 이번 턴에 실제로 실행한 것만 적는다** — 산출물에서 표식을 다시
-> 찾지 못하면 그 행은 닫힌 것이 아니다.
-> **그 관측이 구조적 proxy·0건/전수 스윕·배선 존재 oracle이고 이번 턴에 장치를 만들거나 고쳤다면,
-> 등록된 결함을 심어 실패하는지 먼저 확인한다** — 눈이 없는 장치의 `0건`은 전수의 증거가 아니다.
-> 직접 행동 결과를 관측하는 oracle에는 mutation을 자동 요구하지 않는다(impl §3).
-> **`전건`·`미분류 0`·`잔여 0` 행의 관측은 차집합이다** — 총계·합계는 그 주장을 반증할 수 없다(impl §8).
-> **`닫은 지점`은 §10 항목이 아니라 자리로 세고 그 수를 낸 검색 명령을 적는다** — pair production path의 계약 운반 edge를 자리 후보에 넣는다(impl §2).
-
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-… | … | … | … | … | … |
+| VP-01·03·04·06·07 | EP-01 메인 delta 마지막 양수 | stream_event 1자리 | 1/1 | `claude-map.ts:455-465`; AC1=17,023·AC3/4=0·AC7 컨텍스트 부재, M1·4·6·7 red | 없음 |
+| VP-01·03·04·05 | EP-02 이번 턴 assistant 합 | assistant 1자리 | 1/1 | `claude-map.ts:538`; AC2=120+5,200, M8 red | 없음 |
+| VP-01·03·04·05·06 | EP-03 폴백 우선순위·필드 병합 | result 1자리 | 1/1 | `claude-map.ts:786-789`→`:870` 공유 병합; AC1·2·8 통과, M2 red | 없음 |
+| VP-01·03·04·07 | EP-04 result·압축 경계 리셋 | 2자리 | 2/2 | `claude-map.ts:428`·`:746-747`; AC5=다음 턴0·AC6=30,000/31,000, M3·5 red | 없음 |
+| VP-02·04 | EP-05 원장·화면·복원 게이트 | 무변경 3자리 | 3/3 | `tracker.ts:53`→`:55` insert1/0회; `dto.ts:69` 복원17,023; `chatReducer.ts:1063` 기존 양수/0 케이스 통과 | 없음 |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: 없음 / … → 현재 pair·Decision·AC 필수면 PLAN_GAP, 아니면 별도 finding
+- 전수 검색: `rg -n "msg.type === 'stream_event'|msg.type === 'assistant'|msg.type === 'result'|subtype === 'compact_boundary'|type: 'telemetry'" app/src/main --glob '!*.test.*'`로 메시지 주어와 생산 경로를 조사했다. `claude.ts`는 전달·영수증, `claude-background.ts`는 child 모델 회계이며 컨텍스트 판정은 `claude-map`의 네 분기에 있다.
+- 생산자 대조: `rg -l "yield.*type: 'telemetry'|^\s+type: 'telemetry'," app/src/main --glob '!*.test.*'`의 실 생산자 `claude-map`·dev `mock-scenarios`·usage 없는 합성 `turn-coordinator`와 분류 집합을 `Compare-Object`로 뺐다 — 차집합 0줄.
+- 소비처 검색: `rg -n 'hasContextTokens|insertTurnUsage\(' app/src/main/features/usage/tracker.ts` 및 `rg -n 'contextTokens\(telemetry\)|usageRowToTelemetry' app/src/renderer/src/features/chat/reducer/chatReducer.ts app/src/main/infra/ipc/dto.ts`로 기존 세 자리를 다시 확인했다. 신규 5/5 + 상속 3/3 = 8/8이다.
+- §10에 없는데 같은 불변식이 필요했던 지점: 없음 — 위 메시지 경로·소비처 대조에서 추가 강제 지점이 나오지 않았다.
 
-**V-pair 자기확인** — 구현자의 `SELF_PASS`는 독립 검증의 `PASS`가 아니다.
+**V-pair 자기확인** — SELF_PASS는 독립 검증의 PASS가 아니다.
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | REQUIRED / REGRESSION | SELF_PASS / SELF_BLOCKED | … | required — 결과 / not selected — 직접 oracle 근거 |
+| VP-01 | REQUIRED | SELF_PASS | mapper 110케이스 중 신규14; AC1~8·중복 result·cache-only·마지막양수 보존 통과 | M1~M8 8/8 red |
+| VP-02 | REQUIRED | SELF_PASS | tracker 34케이스; 신규 AC9 insert1/0회·실 DTO 복원17,023; 기존 reducer 양수/0 통과 | not selected — 종단 값 직접 관측 |
+| VP-03 | REQUIRED | SELF_PASS | 실 SessionRuntime→Adapter→번들 CLI smoke A~D 10턴 일치·모드당 채널1개 | M1 smoke A red, 원문 복원 후 A 3턴 green |
+| VP-04 | REQUIRED | SELF_BLOCKED | AC9·AC10A 기계 범위 통과; 실 프록시·앱 재시작 AC13은 미실행 | not selected — 실 환경 관측 대기 |
+| VP-05 | REQUIRED | SELF_PASS | AC2=120+5,200; 기존 mapper96 무수정 통과; smoke B=[19,075,19,135,0] | M2·M8 red(VP-01 공유) |
+| VP-06 | REQUIRED | SELF_PASS | AC3=0·원장0행; smoke C=[0,0,0]; 기존 빈 컨텍스트 tracker 케이스 통과 | not selected — 양수 짝 AC1도 관측 |
+| VP-07 | REQUIRED | SELF_PASS | AC5=0·AC6=30,000/31,000·AC7 입력3종 부재; A `/context`=0 | M3·M5·M6 red(VP-01 공유) |
+| VP-08 | REQUIRED | SELF_PASS | smoke A 창200,000·D 창262,144; 기존 창/reducer 2파일20케이스 통과 | not selected — 분모 무변경·값 직접 관측 |
+| VP-09 | REQUIRED | SELF_PASS | provider-runtime §8·rendering §1.9·guide §3-e의 폴백/창/미지원 문장 재검색, inventory 통과 | not selected — 문서 직접 관측 |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
-> pair가 적대 증거를 선택했거나 파생 이슈가 변이를 인용했거나 이번 턴에 구조적 proxy·0건/전수·배선 oracle을 만들었다면
-> 그 결함을 심어 장치의 방향·민감도를 확인한다(impl §3). 형제 슬롯이 서로 다른 계약을 가지면
-> 지우는 변이에 더해 **형제와 맞바꾸는 변이**도 심는다. 그 밖의 hunk에는 mutation을 새로 발명하지
-> 않고 `해당 없음 — 직접 oracle …`을 적는다. mutation이 없다는 이유만으로 현재 FAIL 범위를 늘리지 않는다.
-
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| `파일:줄` — … | `VP-… 선택 증거` / `D<N> 인용 변이` / `구조·전수·배선 oracle 민감도` | red / green / 최초 | `<케이스명>` 외 N건 | 잠김 / **잠금 없음 — 사유** / 해당 없음 — 직접 oracle |
+| M1 `claude-map.ts:465` delta 캡처 제거 | VP-01 선택 증거 | 최초 | AC1 외 7건, 신규14 중8실패 | 잠김 |
+| M2 `claude-map.ts:786` assistant 양수에도 delta 우선 | VP-01·05 선택 증거 | 최초 | AC2·cache-only assistant 2실패 | 잠김 |
+| M3 `claude-map.ts:747` result 리셋 제거 | VP-01·07 선택 증거 | 최초 | AC5·이전 채널 snapshot 회귀 2실패 | 잠김 |
+| M4 `claude-map.ts:456` 메인 체인 가드 제거 | VP-01 선택 증거 | 최초 | AC4 1실패 | 잠김 |
+| M5 `claude-map.ts:428` 압축 리셋 제거 | VP-01·07 선택 증거 | 최초 | AC6 압축 전 폐기 1실패 | 잠김 |
+| M6 `claude-map.ts:456` 핸드오프 게이트 제거 | VP-01·07 선택 증거 | 최초 | AC7 1실패 | 잠김 |
+| M7 `claude-map.ts:465` 교체를 첫 양수 유지로 변경 | VP-01 선택 증거 | 최초 | AC1 1실패 | 잠김 |
+| M8 `claude-map.ts:538` assistantContext 기록 제거 | VP-01·05 선택 증거 | 최초 | AC2·cache-only assistant 2실패 | 잠김 |
+| M1 `claude-map.ts:465` delta 캡처 제거(실 CLI) | VP-03 선택 증거 | 최초 | smoke A 턴1 `0 !== 19075`, child exit1·ok=false | 잠김 — 원문 복원 후 A 3턴 green |
 
-- **분모 검산**: `선택 증거 N · 인용 변이 M · 새 oracle K = 표 행 T` — 행이 없는 claim은 `SELF_PASS`·`closed`로 적지 않는다(impl §8).
-- **덮개 회귀**: 이전 라운드에 red였는데 이번에 green인 행 0건 / N건 → 사유와 함께 적는다. 장치를 교체·삭제했으면 구 장치가 잡던 자리가 새 장치의 하한이다(impl §3).
+- 재현: 각 변이를 단독으로 심고 `cd app; node node_modules/vitest/vitest.mjs run src/main/adapters/claude-map.test.ts -t 0247 --reporter=json`를 실행했다. 스모크 변이는 같은 캡처 삭제 후 `node scripts/smoke-context-usage-sdk.mjs --case=A`를 실행했다.
+- 단위 변이 관측: OS temp `orca-0247-mapper-mutations/observed-results.json`; 재현 runner는 같은 폴더 `run-mutations.cjs`다. 각 실행 뒤·finally 원문 복원, 전체 mapper 110/110 재통과를 확인했다.
+- 실 CLI 관측: OS temp `orcinus-orca/context-usage-smoke-XpBJf0/result.json`(M1 red), `context-usage-smoke-6CVg3m/result.json`(복원 A green); byte restoration=true와 mapper110/110을 다시 관측했다.
+- 분모 검산: 선택 증거 9(단위8 + 실 CLI1, pair 간 공유 중복 제외) · 인용 변이 0 · 새 oracle 0 = 표 행 9. 값 직접 관측인 IT·분모·문서에 새 적대 증거를 추가하지 않았다.
+- 덮개 회귀: 해당 없음 — r1 최초 구현으로 이전 red 장치의 교체·삭제가 없다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 / … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … / **표에 없음** | … |
-| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
-
-> 범위 밖이라 이번에 고치지 않더라도 **적는다** — 적지 않으면 그 선택지가 존재한 적도 없게 된다.
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 새 문구 없음(D-004); 폴백 telemetry는 기존 tracker·reducer·DTO 소비, AC9·AC10A 통과 | AC13 실 화면 확인 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음; 필드 병합만 동기 helper로 공유(`claude-map.ts:870`) | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 새 실패 경로 없음; none/로컬/압축/핸드오프 행은 AC3·5~7·smoke C에서 관측 | 없음 |
+| 실패가 화면에서 아무 일도 안 일어남으로 보이지 않는가 | none은 D-002의 미갱신 유지; guide §3-e에서 usage 미반환 도넛 미지원 안내 | 지원 확대는 후속 결정 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 새 비동기 요청 없음; 중복 result UUID가 다음 관측을 지우지 않는 신규 UT 통과 | 기존 채널 순서 유지 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 선조치(구현 세부) / 📝 **plan 수정 제안**(설계가 틀렸다는 증거) / ⚠️ 보고만(제품·AC·Decision·의존성) | … |
-
-> 가운데 갈래가 구현 턴의 핵심 산출이다 — plan을 고치는 것은 설계자 책임이지만, **고쳐야
-> 한다는 증거를 만드는 것은 구현자만 할 수 있다.** 무엇이 틀렸는지·코드에서 무엇을 봤는지·
-> 어느 절을 어떻게 바꿔야 하는지를 함께 적는다.
+| I1 | MapContext 생성 단위 주석이 턴으로 낡았다 | ✅ 선조치 — 채널 단위로 정정 | `claude.ts:391-395` 생성·mapper 한 ctx 다턴 UT |
+| I2 | rendering §1.9 설명이 분모를 정적 contextWindowFor로 적었다 | ✅ 선조치 — 현재 CLI 우선 contextWindowOf 체인으로 문서 정정 | 기존 contextWindow.test.ts top-level 우선·실측 부재 케이스, smoke D=262,144 |
+| I3 | delta형 사용량의 CLI 추정 비용도 기존 원장에 노출된다 | ⚠️ 보고만 — D-010의 명시적 비범위 유지 | AC9 원장/복원 costUsd=0.12, smoke A 비용·modelUsage 그대로 |
+| I4 | result 없이 취소한 턴 관측·마지막 요청 usage 누락 시 이전 양수는 남을 수 있다 | ⚠️ 보고만 — §5·§13·§17의 허용 수명/근사 유지 | result/compact 리셋 외 추가 경계 없음; 마지막양수 유지 UT 통과 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: 없음 / …
-
-> 차이가 있으면 **대체물이 갖고 원본이 갖지 않던 실패 모드를 축마다 한 줄씩** 적고, 그 축에서 다시 확인한
-> AC·§10 행을 관측과 함께 남긴다. 한 축만 적은 보고는 나머지 축도 조사한 것처럼 보인다(impl §6).
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: 없음 — EP-01~05·기존 fakeDb·실 CLI 하네스 그대로다. 스모크 `--case=A`는 등록 M1을 독립 실행하기 위한 실행 옵션이다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … / 해당 없음 + 근거 | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … / 해당 없음 + 근거 | … |
-| 재진입 | … / 해당 없음 + 근거 | … |
-| 다른 무효화 축 | … / 해당 없음 + 근거 | … |
+| 만료 | 해당 없음 — 대체 캐시 없음 | EP-04 result·압축 리셋, AC5·6 통과 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 — 채널 MapContext 그대로 | 한 ctx 다턴 AC5 및 A·B·C 각1채널 |
+| 재진입 | 해당 없음 — 새 비동기 작업 없음 | 중복 result UUID 직접 UT 통과 |
+| 다른 무효화 축 | 해당 없음 — §13 취소 수명 유지 | EP-04 2자리·M3·5 red |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님) | 테스트 N파일 / M케이스 · error·warning 수 · 환경 기인 실패 분리 근거 |
-| V-pair 자기확인 | `SELF_PASS N / SELF_BLOCKED M`; pair별 상세는 위 표 |
-| 강제 지점 전수 | N/M |
-| **AC 자기보고**(`Criteria-Met`) | N/M — 각 AC 옆에 **이번 턴에 재현한 관측값**을 적는다. 표식을 다시 찾지 못한 AC는 ✅로 세지 않는다 |
-| **합계 검산** | `✅ N · ⚠️ M · ❌ K = 총 T` — 분모를 다시 세고 **이 줄을 쓴 뒤** 커밋 trailer를 적는다 |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` — 자기 환경의 해시를 적지 않는다 |
+| 변경 파일 | mapper·mapper UT·tracker IT·신규 `smoke-context-usage-sdk.mjs`; provider-runtime·rendering·guide; plan 보고·INDEX |
+| 실행 명령 | `cd app; npm run lint`; `npm run typecheck`; `node node_modules/vitest/vitest.mjs run src/main/adapters src/main/features/usage src/main/infra/ipc src/renderer/src/features/chat`; smoke·inventory·diff·trailer 별도 |
+| 관측한 게이트 산출 | vitest 262파일/2,328케이스 통과; typecheck node/web/test 진단0; lint 0error·1warning(`useTranscriptVirtualizer.ts:22` 기존 incompatible-library, 변경 없음). smoke A~D 4그룹/10턴 일치; inventory 생성물·본문·링크 통과; diff whitespace0 |
+| V-pair 자기확인 | SELF_PASS 8 / SELF_BLOCKED 1(VP-04 AC13 사람 실기); pair별 직접 관측은 위 표 |
+| 강제 지점 전수 | 신규5/5 + 무변경 소비3/3 = 8/8; 생산자 분류 차집합0줄 |
+| AC 자기보고(Criteria-Met) | 12/13 — 아래 AC별 표; AC13 실 환경 관측 대기 |
+| 합계 검산 | ✅ 12 · ⚠️ 1 · ❌ 0 = 총 13; AC10 A~D는 하나의 AC10으로 센다 |
+| 블로커 / 역질문 | PLAN_GAP 없음; 독립 verify와 AC13 사람 실기 대기 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+| AC | 자기 상태 | 이번 턴 직접 관측 |
+|---|---|---|
+| AC1 | ✅ | `claude-map.test.ts:45` input17,023·비용0.02·modelUsage32,455·창200,000 그대로 |
+| AC2 | ✅ | `claude-map.test.ts:88` input120·cacheRead5,200 우선; 기존96 무수정 통과 |
+| AC3 | ✅ | output-only 신규 UT score0·tracker insert0회·smoke C 전3턴0 |
+| AC4 | ✅ | child delta50,000 신규 UT score0; M4 1실패 |
+| AC5 | ✅ | 한 ctx의 다음 턴 score0; M3 2실패 |
+| AC6 | ✅ | 압축 전 폐기30,000·압축 후31,000 두 UT; M5 1실패 |
+| AC7 | ✅ | handoff 입력·cache3종 undefined; M6 1실패 |
+| AC8 | ✅ | input1,200·cacheRead30,000·null cacheCreation은 result700 유지 |
+| AC9 | ✅ | tracker 신규 IT: insert1회/input17,023→실 DTO 복원17,023; output-only insert0회 |
+| AC10 | ✅ | smoke A/B=[19,075,19,135,0], C=[0,0,0], D input17,591·창262,144; 각 채널1spawn |
+| AC11 | ✅ | 기존 contextWindow/reducer 대상2파일20케이스; top-level 실측 우선·미지모델 기본200k |
+| AC12 | ✅ | `rg -n '프록시 usage 폴백|컨텍스트 입력의 원천|프록시 모델의 컨텍스트 창|프록시 컨텍스트 도넛'` 세 문서에서4행; doc inventory 통과 |
+| AC13 | ⚠️ | 실 LiteLLM/OpenRouter 로그·설치본 도넛·앱 재시작은 미실행 — 사람 실기 |
+
+✅ 12 · ⚠️ 1 · ❌ 0 = 총 13. 현재 AC 행13과 ✅ 행12를 별도로 다시 센 뒤 trailer에 12/13을 쓴다.
+
+- smoke 전체 증거: OS temp `orcinus-orca/context-usage-smoke-qVLWb3/result.json` — 4그룹10턴, fixtureErrors 모두 빈 배열.
+- 상태 사본: 저장본 재읽기에서 plan 메타 `IMPL_DONE`, INDEX `impl/IMPL_DONE`·다음 `Claude`를 확인했다. 보고 파서는 AC13행/✅12/⚠️1/❌0·구현자7절·잠금9행을 반환했고, 두 상태 사본은 같은 구현 커밋에 포함한다. trailer 파싱은 커밋 후 직접 확인한다.
 
 ## [구현자 기입] Review Signals — 사실만
 
-> 원인 분류(A~F)와 지침 변경은 `handoff-review`가 한다.
-
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음 / …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: …
-- 반복해서 부딪히는 환경 한계: 없음 / …
-- 현재 라운드·impl 턴: `rN` / `rN.k`
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음 — r1 최초 구현, 이전 verify/impl 없음.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: EP-01~04·AC1~8·M1~8을 처음 적용했고 등록 변이는 단위8+CLI1 모두 red였다.
+- 반복해서 부딪히는 환경 한계: 없음 — ABI 전환 없이 대상 vitest·실 CLI·정적 게이트 완료. 원격 읽기는 기본 sandbox 네트워크 제한 뒤 승인된 읽기로 main 일치를 확인했다.
+- 현재 라운드·impl 턴: `r1`.
 
 ---
-
 ## [검증자 기입] 파생 이슈
 
 > `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다. `PLAN_GAP`은 구현자 권한 밖의 Decision·AC·V node/pair·§10·oracle 정정 요구이며 하나라도 있으면 다음 주체는 설계자다.

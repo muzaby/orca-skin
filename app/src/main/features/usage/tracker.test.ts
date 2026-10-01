@@ -2,11 +2,20 @@
 // (실제 왕복은 `infra/db/queries.test.ts` 가 본다).
 
 import { describe, expect, it, vi } from 'vitest'
+import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
+import { claudeToNormalized, type MapContext } from '../../adapters/claude-map'
 import type { UsageQueries } from '../../infra/db/usage-queries'
+import { usageRowToTelemetry } from '../../infra/ipc/dto'
 import type { NormalizedEvent, ProviderReportedTelemetry } from '../../../shared/ipc'
 import type { TurnContext } from '../../contracts/turn'
-import type { ProviderUsageReportRow } from '../../infra/db/types'
+import type {
+  ProviderUsageReportRow,
+  TurnModelUsageInsert,
+  TurnUsageInsert,
+  TurnUsageRow
+} from '../../infra/db/types'
 import type { UsageDelta } from '../../../shared/usage/limits'
+import { primaryModelScore } from '../../../shared/usage/primary-model'
 import { UsageTracker } from './tracker'
 import type { UsageFetcher, UsageSnapshot } from './fetcher'
 
@@ -506,6 +515,119 @@ describe('UsageTracker 원장 기록', () => {
     })
     broadcast.mockClear()
     expect(() => cost.recordTurnUsage(turnCtx(), telemetry())).toThrow(failure)
+    expect(broadcast).not.toHaveBeenCalled()
+  })
+})
+
+// 0247 IT-01 — SDK 정규화의 폴백 값이 기존 원장 게이트·복원까지 같은 값으로 도달한다.
+// fake DB 는 insert 인자를 DB 행 형상으로 옮기기만 하고 컨텍스트 판정을 재구현하지 않는다.
+describe('프록시 컨텍스트 사용량 원장·복원', () => {
+  function mapTurn(messages: unknown[]): Extract<NormalizedEvent, { type: 'telemetry' }> {
+    const ctx: MapContext = { sessionId: 'sess-1', cwd: '/w' }
+    const events = messages.flatMap((message) => claudeToNormalized(message as SDKMessage, ctx))
+    const ev = events.find((event) => event.type === 'telemetry')
+    if (!ev || ev.type !== 'telemetry') throw new Error('Expected mapped turn telemetry')
+    return ev
+  }
+
+  function zeroAssistant(): unknown {
+    return {
+      type: 'assistant',
+      message: {
+        content: [],
+        usage: {
+          input_tokens: 0,
+          output_tokens: 0,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0
+        }
+      }
+    }
+  }
+
+  it('AC9 마지막 delta 입력 17,023을 1행 기록하고 같은 컨텍스트로 복원한다', () => {
+    const ev = mapTurn([
+      zeroAssistant(),
+      { type: 'stream_event', event: { type: 'message_delta', usage: { input_tokens: 15432 } } },
+      zeroAssistant(),
+      { type: 'stream_event', event: { type: 'message_delta', usage: { input_tokens: 17023 } } },
+      {
+        type: 'result',
+        subtype: 'success',
+        usage: { input_tokens: 32455, output_tokens: 16 },
+        total_cost_usd: 0.12,
+        modelUsage: {
+          'qwen3.8-27b': {
+            inputTokens: 32455,
+            outputTokens: 16,
+            costUSD: 0.12,
+            contextWindow: 200000
+          }
+        }
+      }
+    ])
+    expect(ev.usage?.inputTokens).toBe(17023)
+
+    const { db, insertTurnUsage, insertTurnModelUsage } = fakeDb()
+    new UsageTracker(db).recordTurnUsage(turnCtx(), ev)
+
+    expect(insertTurnUsage).toHaveBeenCalledTimes(1)
+    const inserted = insertTurnUsage.mock.calls[0][0] as TurnUsageInsert
+    expect(inserted).toMatchObject({
+      sessionId: 'sess-1',
+      messageId: 7,
+      inputTokens: 17023,
+      totalCostUsd: 0.12
+    })
+    const row: TurnUsageRow = {
+      id: 1,
+      session_id: inserted.sessionId,
+      message_id: inserted.messageId,
+      created_at: inserted.createdAt,
+      input_tokens: inserted.inputTokens,
+      output_tokens: inserted.outputTokens,
+      cache_creation_input_tokens: inserted.cacheCreationInputTokens,
+      cache_read_input_tokens: inserted.cacheReadInputTokens,
+      total_cost_usd: inserted.totalCostUsd
+    }
+    const modelRows = insertTurnModelUsage.mock.calls.map(([value], index) => {
+      const model = value as TurnModelUsageInsert
+      return {
+        id: index + 1,
+        turn_usage_id: model.turnUsageId,
+        model: model.model,
+        input_tokens: model.inputTokens,
+        output_tokens: model.outputTokens,
+        cache_creation_input_tokens: model.cacheCreationInputTokens,
+        cache_read_input_tokens: model.cacheReadInputTokens,
+        cost_usd: model.costUsd,
+        context_window: model.contextWindow
+      }
+    })
+    const restored = usageRowToTelemetry(row, modelRows)
+    expect(primaryModelScore(restored)).toBe(17023)
+    expect(restored).toMatchObject({
+      inputTokens: 17023,
+      costUsd: 0.12,
+      model: 'qwen3.8-27b',
+      modelUsage: { 'qwen3.8-27b': { inputTokens: 32455, contextWindow: 200000 } }
+    })
+  })
+
+  it('AC9 usage 미반환 프록시의 output-only delta는 원장을 기록하지 않는다', () => {
+    const ev = mapTurn([
+      zeroAssistant(),
+      { type: 'stream_event', event: { type: 'message_delta', usage: { output_tokens: 16 } } },
+      { type: 'result', subtype: 'success', usage: { input_tokens: 0, output_tokens: 16 } }
+    ])
+    expect(primaryModelScore(ev.usage ?? {})).toBe(0)
+
+    const { db, insertTurnUsage, insertTurnModelUsage } = fakeDb()
+    const broadcast = vi.fn()
+    new UsageTracker(db, broadcast).recordTurnUsage(turnCtx(), ev)
+
+    expect(insertTurnUsage).not.toHaveBeenCalled()
+    expect(insertTurnModelUsage).not.toHaveBeenCalled()
     expect(broadcast).not.toHaveBeenCalled()
   })
 })
