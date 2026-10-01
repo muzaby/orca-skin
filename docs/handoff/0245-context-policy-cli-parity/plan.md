@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-30 |
 | 매핑 | 이슈1(폐쇄망 LLM 입력 264k 초과) — 사용자 라이브 세션 · 근거 [study 8장](../../etc/study/claude/08-컨텍스트-한도와-파일-정책.md) |
-| 상태 | READY (ΔV1) |
+| 상태 | IMPL_DONE (ΔV1 r1 · 기계 범위) |
 | V mode | `Delta V` |
 | 기준 V | `V1@64fbfb35` (공유 브랜치에서 확인) |
 | 이번 V revision | `ΔV1` — 서버 정상 가정: Claude Code 와 같은 큰 파일 정책으로 범위 조정 |
@@ -545,41 +545,109 @@ READY. 구현 전 사용자 결정 변경이다. V1 이 서버(게이트웨이) 
 
 ## [구현자 기입] 설계 리뷰
 
-- (구현 턴에서 기입)
+- 유지 — r1 기준선은 V1+ΔV1, 유효 AC는 10행이며 REQUIRED 9·REGRESSION 2 pair다. ΔV1의 대체 표를 적용하고 폐기된 이미지 우회·초과 분류는 구현하지 않았다.
+- 유지 — 사용자 현재 요청에 따라 Codex가 구현했다. 종료 상태는 이 문서 메타와 INDEX의 `impl/IMPL_DONE`·Claude 독립 검증 대기로 맞췄다.
+- 유지 — 저장 모델·env·오류 분류 계약은 보존한다. `claude.context-policy.test.ts`의 요청 식별자·env 불변 단언과 `claude-map.test.ts`의 `stream_error` 단언으로 확인했다.
+- PLAN_GAP 없음 — CLI 멘션 경로의 큰따옴표 전제는 `attachment-files.ts:93-101` 저장 이름 정제와 `attachments.test.ts`의 인용 이름 저장 사례로 확인했다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| VP-01·VP-02 | EP-01 분류 소비 | `modelForCli` | 1/1 | `rg -n 'classifyContextModel\(' app/src/main/adapters/claude-context-policy.ts` → 선언 외 호출 `:101`만. AC1 분류 표·AC2 실행 문자열 표. | — |
+| VP-03·VP-12 | EP-02 실행 모델 | 스폰·`pushTurn`·라이브 전환 | 3/3 | `rg -n -e 'setModel\(' -e 'model:' app/src/main/adapters/claude.ts` → `:586·754·786`. `runCompletion :347`은 ΔV1 비범위. M1~M5 red. | — |
+| VP-10 | EP-06′ 결과 오류 | result 분기 | 1/1 | `claude-map.ts:808-828`; AC11 우선순위 8사례·정상 결과 1사례·기존 `error_max_turns` 유지. | — |
+| VP-02·VP-15 | EP-08 해석 입력 | env·settings model 조립 | 1/1 | `claude.ts:384-386`; query mock의 settings env+model·prepared `ANTHROPIC_MODEL` 사례, 순수 AC20 표. | — |
+| VP-16·VP-17 | EP-09 입력 조립 | 첫 입력·프렐류드·steer·`pushTurn` | 4/4 | `rg -n -e 'buildTurnContent\(' -e 'batchContent\(' app/src/main/adapters/claude.ts` → 공유 seam `:419` + 경로 `:426·428·560·760`. 네 query 입력 단언·M6~M9 red. | — |
+| VP-18 | EP-10 텍스트 정규화·저장 | 자르기 제거·storage 전달 | 2/2 | `attachments.ts:106-108·166·183`, `send.ts:96-98`. 300,014바이트 원본 저장·BOM 보존·NUL/확장자 거부·표시 경로 일치. | — |
+
+전수는 source의 SDK model 전달·입력 스트림 진입·텍스트 생산자를 검색해 재열거했다. 모델 계약 집합과 관측 집합의 차집합 0행, 입력 경로 집합과 관측 집합의 차집합 0행이며 `runCompletion`은 명시 비범위다. `rg -n '24_000|MAX_FILE_CONTEXT_CHARS|truncateText' app/src/main --glob '!*.test.ts'` 출력은 0행이다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 |
+|---|---|---|---|
+| VP-01 | REGRESSION | SELF_PASS | AC1 분류 표 21행·구 버전/날짜 판정 사례. |
+| VP-02 | REQUIRED | SELF_PASS | AC2 표 12행·3P 플래그 5사례·AC20 해석 표. |
+| VP-03 | REGRESSION | SELF_PASS | query mock의 스폰·후속 턴·라이브 setter 인자; M1~M3 검출. |
+| VP-10 | REQUIRED | SELF_PASS | result 원문 우선순위·정상 결과·기존 오류 사례. |
+| VP-12 | REQUIRED | SELF_PASS | `sonnet→opus→sonnet`, `internal→opus→200k→fable` 전환; M4·M5 검출. |
+| VP-13 | REQUIRED | SELF_BLOCKED | AC18·AC23은 폐쇄망 설치본·실 게이트웨이가 필요하다. |
+| VP-14 | REQUIRED | SELF_PASS | adapters 정책 표·가이드 3-e·study 8.6/8.8; inventory·prose·links 검사 통과. |
+| VP-15 | REQUIRED | SELF_PASS | AC20 해석 표 12행·env 읽기 불변 사례·query 배선 사례. |
+| VP-16 | REQUIRED | SELF_PASS | `build-turn-content.test.ts`: 멘션 줄·첨부 순서·마지막 텍스트·이미지 원본·diff 위치. |
+| VP-17 | REQUIRED | SELF_PASS | 네 실제 query 입력 경로의 SDK 메시지 비교; M6~M9 검출. |
+| VP-18 | REQUIRED | SELF_PASS | 파일 저장 후 원본 비교·텍스트 필드 부재·검증 거부 사례. |
+
+합계: SELF_PASS 10·SELF_BLOCKED 1 = 유효 pair 11. 독립 verify 판정은 대기한다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| — | — | — | — | — |
+| M1 스폰에 원문 model 전달 | VP-03 / EP-02 ① | 해당 없음 — 첫 ΔV1 구현 | `claude.context-policy`: 스폰·settings model·env model / 3 | red |
+| M2 `pushTurn`에 원문 model 전달 | VP-03 / EP-02 ② | 해당 없음 | 후속 턴 별칭 전환 / 1 | red |
+| M3 라이브 setter에 원문 model 전달 | VP-03 / EP-02 ③ | 해당 없음 | 라이브 모델 전환·settings env / 2 | red |
+| M4 `pushTurn` 해석을 스폰 값으로 고정 | VP-12 / EP-02 ② | 해당 없음 | 후속 턴 별칭 전환 / 1 | red |
+| M5 라이브 setter 해석을 스폰 값으로 고정 | VP-12 / EP-02 ③ | 해당 없음 | 라이브 모델 전환·settings env / 2 | red |
+| M6 첫 입력에서 첨부 조립 우회 | VP-17 / EP-09 첫 입력 | 해당 없음 | `initial delegates text…` / 1 | red |
+| M7 프렐류드에서 첨부 조립 우회 | VP-17 / EP-09 프렐류드 | 해당 없음 | `prelude delegates text…` / 1 | red |
+| M8 steer에서 첨부 조립 우회 | VP-17 / EP-09 steer | 해당 없음 | `steer delegates text…` / 1 | red |
+| M9 후속 턴에서 첨부 조립 우회 | VP-17 / EP-09 `pushTurn` | 해당 없음 | `pushTurn delegates text…` / 1 | red |
+
+검산: 선택 증거 9·인용 변이 0·새 구조 proxy oracle 0 = 표 행 9. 전건 실제 production `claude.ts`에 심고 query mock의 행동 단언으로 검출했으며 마지막 `source restored=true`로 원본 바이트 복원을 확인했다. 다른 pair는 해당 없음 — 직접 oracle이며, 폐기된 V1 변이는 ΔV1 폐기 표를 따른다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| — | — | — |
+| 큰 파일 내용이 사라지는가 | 유지 — 300,014바이트를 저장 후 다시 읽어 원본과 비교했다. 프롬프트의 본문·잘림 메모는 CLI 멘션으로 대체됐다. | CLI 상한·이어읽기 화면은 AC23 실기. |
+| 이미지와 함께 보내도 멘션이 확장되는가 | 충족 — 단위·query 네 경로가 원본 image→마지막 text 순서를 단언한다. | 실 CLI 확장은 AC23 실기. |
+| 오류 원문의 소비자가 있는가 | 충족 — 매퍼가 기존 `error` 이벤트의 `message`에 원문을 싣는다. 기존 배너·영속 ErrorCard 경로를 사용하며 category는 `stream_error`다. | 설치본 배너는 AC23 실기. |
+| 모델 전환이 이전 정책을 쓰는가 | 충족 — 후속 턴과 라이브 전환에서 서로 다른 모델을 연속 호출했고 M4·M5를 검출했다. | 도넛·200k 초과 진행은 AC18 실기. |
+| 도구 결과·이미지 자체 정책을 바꾸는가 | 유지 — `claude-adapt.ts`·이미지 정규화 코덱·오류 분류기 diff 없음. 이미지 data는 네 query 경로에서 원본과 동일하다. | D-015~D-017 유지. |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| — | — | — | — |
+| I-01 | 텍스트 `text` 필드를 제거하면 정규화 결과의 기존 분기 기준도 사라진다. | 선조치 후 보고 — `data` 유무로 이미지·텍스트를 나누고 텍스트 `path`를 필수화했다. | `attachments.ts:182-183`, `turn.ts:63-71`; 파일·클립보드 원본/표시 테스트. |
+| I-02 | SDK result 매퍼의 로컬 shape에 `result`·`errors` 필드가 빠져 있었다. | 선조치 후 보고 — unknown 필드를 선언하고 비어 있지 않은 문자열만 원문 후보로 쓴다. | `claude-map.ts:731-732·808-828`; AC11 9사례. |
+| I-03 | 변경 전 전체 테스트는 SQLite Electron/Node ABI 불일치로 실패했다. | 환경 조치 — 저장소 `npm run pretest`가 Node ABI 재빌드를 성공했다. | 변경 전 601파일·187 실패 케이스는 전부 `better_sqlite3.node` 서명; `[sqlite-abi] node: rebuilt`. |
+| I-04 | 워커 4 전체 실행의 renderer 소스 전수 검사 한 케이스가 41.2초 걸려 실패했다. | 환경 지연으로 판단 — 코드·시간 예산을 바꾸지 않고 단독 15/15와 워커 1 전체 실행으로 다시 확인했다. | `sparkCss.test.ts` 전수 케이스 단독 7.85초·전체 직렬 0.85초 통과; 전체 603파일·5792 pass. |
+
+설계 대비 대체 메커니즘 없음 — ΔV1의 CLI 위임·순수 재해석을 그대로 사용했다. 신규 캐시·만료 상태·공유 가변 정책·재진입 잠금·별도 무효화 축은 만들지 않았다(`claude.ts:384-386·754·786`).
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+| 구현일 | 2026-10-01 |
+| 구현 범위 | 모델 분류/CLI 실제 모델 해석·실행 전달·텍스트 멘션 조립·저장 결과 계약·오류 원문·문서. |
+| 관측한 게이트 산출 | 관련 Vitest 5파일·181케이스 통과. lint 0 error·기존 warning 1, typecheck node/web/test 통과. |
+| 전체 게이트 | `vitest run --maxWorkers=1`: 603파일·5792 pass·1 skip·0 fail. 스크립트 128/128, inventory·prose·links 통과, `git diff --check` 출력 없음. |
+| 환경 | `npm run pretest`로 Node ABI를 준비했다. Electron ABI로 전환하는 dev/build는 이번 운영 gate가 아니다. |
+| 다음 주체 | Claude 독립 verify. 폐쇄망 설치본 AC18·AC23은 사람 실기. |
+
+| AC | 자기 충족 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | 분류 21행과 구 버전·날짜 사례. |
+| AC2 | ✅ | 실행 문자열 12행·3P 플래그 5사례. |
+| AC3 | ✅ | query의 스폰·`pushTurn`·라이브 전환·env/요청 불변, M1~M5 red. |
+| AC11 | ✅ | SDK 원문 후보 우선순위 8사례·정상 결과 1사례·기존 오류 유지. |
+| AC15 | ✅ | 정책 표·운영 가이드·study 연결 및 inventory·prose·links 검사. |
+| AC18 | ⚠️ | 실 게이트웨이의 beta 헤더·도넛·200k 초과 진행은 미실행. |
+| AC20 | ✅ | CLI 실제 모델 해석 12행·env 읽기 불변·query 입력 배선. |
+| AC21 | ✅ | 단위 9케이스·query 네 경로·인용 이름 저장 사례, M6~M9 red. |
+| AC22 | ✅ | 300,014바이트 저장 원본·BOM·삭제 필드·NUL/확장자 거부·저장 경로. |
+| AC23 | ⚠️ | 폐쇄망 설치본 CLI의 작은/큰 텍스트·동시 이미지·API 오류 화면은 미실행. |
+
+검산: ✅8·⚠️2·❌0 = 유효 AC 10. ΔV1로 분모는 V1의 19행에서 유효 10행으로 바뀌었고 구현 커밋의 `Criteria-Met`은 8/10이다.
 
 ## [구현자 기입] Review Signals — 사실만
 
-- (구현 턴에서 기입)
+- 현재 라운드/턴은 r1이며 독립 verify 결과는 아직 없다. 이전 ΔV1 구현 보고·인용 red 변이가 없어 재구현 이슈는 해당 없음이다.
+- 등록된 잠금은 VP-03 3자리·VP-12 2자리·VP-17 4경로의 9종이다. 모두 query에 전달된 실제 옵션·메시지 행동으로 red를 관측했다.
+- SQLite ABI 불일치는 pretest로 해소했고, 병렬 소스 스윕 지연은 동일 코드의 직렬 전체 실행으로 재확인했다(I-03·I-04). 폐쇄망 게이트웨이·설치본 실기 접근은 이 환경에 없어 AC18·AC23을 남겼다.
 
 ---
 

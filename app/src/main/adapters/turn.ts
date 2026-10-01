@@ -59,18 +59,14 @@ export interface InterruptReceipt {
   stillQueued: string[]
 }
 
-// 첨부 추출 결과 — 어댑터가 turn content 로 굽는 입력 계약(구 files/attachments 정의를 포트로 이관).
+// 텍스트는 저장 경로를 CLI @파일로 전달한다. 본문 읽기·상한은 CLI가 소유한다.
 export interface ExtractedAttachmentText {
   id: string
   name: string
   mimeType: string
   sizeBytes?: number
-  text: string
-  charsOriginal: number
-  charsIncluded: number
-  truncated: boolean
   sourceKind: AttachmentSourceKind
-  path?: string
+  path: string
   sha256?: string
 }
 

@@ -728,6 +728,8 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       }
       is_error?: boolean
       subtype?: string
+      result?: unknown
+      errors?: unknown
       error?: unknown
       message?: string
       modelUsage?: Record<
@@ -804,12 +806,21 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       }
     ]
     if (r.is_error === true || (r.subtype !== undefined && r.subtype !== 'success')) {
+      const errors = Array.isArray(r.errors)
+        ? r.errors.filter(
+            (value): value is string => typeof value === 'string' && value.trim() !== ''
+          )
+        : []
       const message =
-        typeof r.message === 'string'
-          ? r.message
-          : typeof r.error === 'string'
-            ? r.error
-            : `Claude result failed${r.subtype ? ` (${r.subtype})` : ''}`
+        typeof r.result === 'string' && r.result.trim() !== ''
+          ? r.result
+          : errors.length > 0
+            ? errors.join('\n')
+            : typeof r.message === 'string' && r.message.trim() !== ''
+              ? r.message
+              : typeof r.error === 'string' && r.error.trim() !== ''
+                ? r.error
+                : `Claude result failed${r.subtype ? ` (${r.subtype})` : ''}`
       out.push(
         errorEvent(
           makeClassifiedError('stream_error', message, { provider: 'claude' }),

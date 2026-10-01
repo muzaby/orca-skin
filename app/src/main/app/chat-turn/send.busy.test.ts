@@ -225,10 +225,7 @@ describe('handleChatSend busy submission', () => {
         id: 'attachment',
         name: 'note.txt',
         mimeType: 'text/plain',
-        text: 'file content',
-        charsOriginal: 12,
-        charsIncluded: 12,
-        truncated: false,
+        path: 'C:/tmp/input.txt',
         sourceKind: 'dialog'
       }
     ]

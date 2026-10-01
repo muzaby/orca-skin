@@ -39,6 +39,21 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 
 제목용 `complete`는 도구 없는 단발 실행이고, 대화는 plugin·runtime tool·권한 hook을 사용한다. `~/.claude/skills`는 사용자 스킬 래퍼 plugin으로 전달한다. 정확한 호출 옵션은 [claude.ts](../../../app/src/main/adapters/claude.ts)가 정본이다.
 
+#### 컨텍스트 모델과 파일 입력
+
+[claude-context-policy.ts](../../../app/src/main/adapters/claude-context-policy.ts)가 대화 실행 모델의 컨텍스트 정책을 해석한다. 명시 모델이 별칭이면 `ANTHROPIC_DEFAULT_<별칭>_MODEL`을 조회하고, 모델이 없으면 `ANTHROPIC_MODEL` 다음 settings `model`을 조회한다. 준비된 턴 env가 있으면 그 값을 읽고, 없으면 settings env 문자열이 process env보다 우선한다.
+
+| 대상 | 현재 동작 |
+|---|---|
+| 모델 분류 | 이름의 계열·버전과 `[1m]`으로 Claude·미확인 모델을 구분한다. 네이티브 1M은 Opus 4.7 이상·Sonnet 5 이상·Fable·Mythos다. |
+| 실행 모델 | Claude 1M을 CLI가 스스로 인정하지 못하는 게이트웨이·3P 연결이면 실행 문자열에만 `[1m]`을 붙인다. 직결·기존 접미사·1M 비활성 설정·3P Sonnet 5 이상은 원문을 유지한다. |
+| 식별자·env | 저장 모델과 settings·env는 바꾸지 않는다. 창 크기·자동 요약 env도 주입하지 않는다. 스폰과 후속 턴·라이브 모델 전환이 같은 해석 함수를 쓴다. |
+| 텍스트 첨부 | `.txt`·`.md`와 NUL 검사를 거쳐 원본 바이트를 보관하고, 마지막 텍스트 블록에 `@"<저장 경로>"`를 넣는다. 본문 읽기와 상한·이어읽기 안내는 CLI가 처리한다. |
+| 이미지·도구 결과 | 첨부 이미지 원본 블록들을 먼저 두고 텍스트를 마지막에 둔다. 축소·미디어 제한·도구 결과 처리는 CLI에 맡긴다. |
+| 결과 오류 | 비어 있지 않은 SDK `result` → `errors` 줄바꿈 결합 → `message` → `error` → 합성 문구 순으로 원문을 표시한다. 분류는 `stream_error`다. |
+
+입력 조립은 [buildTurnContent](../../../app/src/main/adapters/claude.ts)가 소유하고 첫 입력·프렐류드·steer·후속 턴이 공유한다. CLI 정책의 버전별 근거는 [컨텍스트·파일 연구](../../etc/study/claude/08-컨텍스트-한도와-파일-정책.md)를 참조한다.
+
 ### 1.4 ExtensionBuilder (턴 확장 입력 조립)
 
 `features/extensions/builder.ts`의 `ExtensionBuilder`는 프로젝트 지침·앱 설정·스킬·plugin 경로·runtime tool snapshot으로 `TurnExtensions`를 조립한다. 실제 필드는 [adapters/turn.ts](../../../app/src/main/adapters/turn.ts)가 정본이다.
