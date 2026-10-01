@@ -491,4 +491,7 @@ SettingsStore.getAll → settings:get(조기) → TweakProvider.load → store.t
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| D1 | bootstrap 안 읽기 등록 2회 변이(M4)를 잡는 테스트 없음 — production 은 1건 | VP-03 / EP-02 형제 자리 | 기록 | NON_BLOCKING | open |
+| D2 | 첫 `await` 앞 `setTimeout` 지연 등록(M5)이 소스 스캔 통과 | VP-02 구조적 proxy 한계 | 기록 | NON_BLOCKING | open |
+| D3 | 해제 뒤 실패 분기의 바깥 catch `cancelled` 가드(M9) 미잠금 | VP-04 / AC5 | 다음 수정 때 케이스 추가 후보 | NON_BLOCKING | open |
+| D4 | plan 메타 커밋 `553ab87` 이 구현 trailer 를 실음 | 커밋 프로토콜 | 기록 | NON_BLOCKING | open |
