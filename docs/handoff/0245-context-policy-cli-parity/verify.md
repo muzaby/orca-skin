@@ -9,13 +9,129 @@
 | slug | `0245-context-policy-cli-parity` |
 | 검증자 | Claude Code |
 | 일자 | 2026-10-01 |
-| 대상 커밋/range | `2da87fd2..97a59769` (r1 구현 `97a59769`) |
+| 대상 커밋/range | r2 `97a59769..4bdb6eb1` (r2 구현 `4bdb6eb1`) · r1 `2da87fd2..97a59769` |
 | 구현 전 plan 기준 | `0acd248a`(V1) · `64fbfb35`(AC6 정정) · `2da87fd2`(ΔV1) |
 | V mode / 유효 V | `Delta V`: `V1@64fbfb35 + ΔV1@2da87fd2` |
 | 검증 기준 plan revision | `64fbfb35:V1` / `2da87fd2:ΔV1` |
-| 라운드 | 1 |
-| 상태 | **FAIL** — root D1(`#` 든 파일명의 텍스트 첨부가 CLI 멘션으로 해석되지 않음) |
-| 자기 검증 여부 | 설계 = Claude, 구현 = Codex, 검증 = Claude. 구현자 ≠ 검증자 — 그래도 보고에 없던 독립 축 8건을 심었다(§4) |
+| 라운드 | 2 |
+| 상태 | **r2 PASS**(기계 범위) — D1·D3 closed, 루트 `#` 잔여는 D4 NEXT_HANDOFF(사용자 결정). r1 = FAIL([§r1](#r1--원-검증)) |
+| 자기 검증 여부 | 설계 = Claude, 구현 = Codex, 검증 = Claude. 구현자 ≠ 검증자 — r1 독립 축 8건, r2 독립 축 4건 + 루트 탐침 1건 |
+
+# r2 — 재검증
+
+**판정: PASS (기계 범위).** root D1 closed, VP-16 PAIR_FAIL → PASS. PLAN_GAP 0. AC ✅8 · ⚠️2 · ❌0.
+루트 `#` 잔여(D4)는 사용자 결정으로 NEXT_HANDOFF. AC18·AC23 사람 실기는 그대로 남는다.
+
+## r2-0. 기준선
+
+- 구현 커밋 `4bdb6eb1`이 바꾼 `plan.md`: 메타 `상태` 1행 · `## [구현자 기입] … (r2)` 7절 · 파생 이슈 표 D1·D3 상태 칸. Decision·AC·V·§10 규범 행 변경 0(`git show 4bdb6eb1 -- plan.md` 직접 확인).
+- 채점 기준: r1과 같다 — `V1@64fbfb35 + ΔV1@2da87fd2`, 유효 AC 10 · REQUIRED 9 · REGRESSION 2. Plan validity는 r1 판정 유지(규범 변경 없음).
+- 재검증 범위: root VP-16, 이번 변경이 닿은 VP-17(D3 단언)·VP-18(저장 정제), 운영 gate. 영향받지 않은 VP-01·02·03·10·12·14·15는 [r1 §5](#5-v-pair-closeout--ut--it--st--at) 증거를 참조하되 등록 변이 M1~M9는 다시 실행했다.
+
+## r2-1. diff 비판적 읽기
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| D1 원인을 고쳤는가 | 예 | `attachment-files.ts:99` 정제 문자 집합에 `#` 추가. 단일 생성자 `storeAttachmentBytes`만 보관 이름을 만든다(`rg storeAttachmentBytes` 비테스트 호출 1곳 `attachments.ts:160`) — path·inline 두 kind 공통 |
+| 표시·원본 손상 | 없음 | 표시 이름은 `att.name`(`attachments.ts:171`) 그대로, 소스 파일은 읽기만 |
+| false success 잔여 | **있음(D4)** | 저장 **루트**(`getTemporaryFilesPath()` = `os.tmpdir()/Orca`)는 정제 대상이 아니다. 루트에 `#`가 있으면 같은 증상 |
+| 새 테스트가 production을 잠그는가 | 예 | `normalizeAttachments`·`buildTurnContent` production symbol을 부른다. `cliMentionPaths`는 외부 CLI 파서의 fixture 재현(아래 r2-3에서 번들 원문과 대조) |
+
+## r2-2. 역방향 탐색
+
+`bash .agents/skills/handoff-verify/scripts/scan-surface.sh 97a5976..4bdb6eb` — 미사용 export · 테스트 전용 · 형제 비대칭 모두 `(없음)`.
+
+## r2-3. CLI 파서 계약 재확인
+
+- 번들 `@anthropic-ai/claude-agent-sdk-linux-x64/claude --version` = `2.1.267`. `function Q0s`·`function Y0s` 원문의 두 정규식이 `attachments.test.ts:40-45` fixture와 문자 단위로 같다.
+- 소비처 `D0s`: `Y0s` 결과마다 `Q0s(p).filename` → `ot(y)` 확장 → 권한 검사 → 읽기. 즉 `#` 앞 **전체 경로**가 파일명이 된다 — 보관 이름뿐 아니라 루트도 같은 규칙을 받는다(D4 근거).
+
+## r2-4. 변이 재측정
+
+재현: scratchpad `mut.py` — 앵커 1회 일치 확인 → 치환 → `vitest run <suite>` → 원본 복원. 종료 후 `git status --porcelain` 빈 출력.
+
+| 변이 | 귀속 | r1 | r2 |
+|---|---|---|---|
+| R0 `#` 정제 되돌림 | D1 수정 잠금 | — | red 3(`a#b#c.md`는 `Q0s` 불일치로 원문 경로 → green, 기대대로) |
+| M1 스폰 `options.model` 원문 | VP-03 | red 3 | red 3 |
+| M2 `pushTurn` setModel 원문 | VP-03 | red 1 | red 1 |
+| M3 `LiveTurn.setModel` 원문 | VP-03 | red 2 | red 2 |
+| M4 `pushTurn` 해석 스폰 값 고정 | VP-12 | red 1 | red 1 |
+| M5 `LiveTurn` 해석 스폰 값 고정 | VP-12 | red 2 | red 2 |
+| M6 첫 입력 `attachmentTexts` → `[]` | VP-17 | red 1 | red 1 |
+| M7 프렐류드 `attachmentTexts` → `[]` | VP-17 | red 1 | red 1 |
+| M8 steer flush `attachmentTexts` → `[]` | VP-17 | red 1 | red 1 |
+| M9 `pushTurn` `attachmentTexts` → `[]` | VP-17 | red 1 | red 1 |
+| Y1 `additionalDirectories`에서 임시 루트 제거 | 독립 — D3 | — | red 4 |
+| Y2 표시 이름을 보관 이름으로 | 독립 — VP-18 표시 계약 | — | red 5 |
+| Y3 멘션 인용부호 제거(`@${path}`) | 독립 — fixture oracle 민감도 | — | red 4 |
+| Y4 `#`를 정제하지 않고 앞에 문자 덧붙임 | 독립 — 정제 형태 | — | red 3 |
+| P1 루트 `…/user#1-*/Orca` 탐침 | 독립 — D1 자리 확장 | — | **red 1**: 저장 `/tmp/user#1-4Cqhc7/Orca/<uuid>-a.md` → CLI 경로 `/tmp/user` |
+
+- 등록 9/9 red, 이전 red와 실패 수 동일 — 덮개 회귀 0.
+- 독립 4/4 red. 탐침 P1은 D4로 기록(r2-7).
+
+## r2-5. V-pair closeout
+
+| Pair | requiredness | r2 결과 | 증거 |
+|---|---|---|---|
+| VP-16 MD-07↔UT-07 | REQUIRED | **PASS** | `#` 4사례 × dialog·drop의 CLI 경로 = 저장 경로 · 바이트 일치 · R0 red 3 · Y3 red 4. 루트 `#`는 D4(사용자 결정 NEXT_HANDOFF) |
+| VP-17 AR-07↔IT-07 | REQUIRED | PASS | M6~M9 red · 정확한 임시 루트 단언(Y1 red 4) |
+| VP-18 MD-08↔UT-08 | REQUIRED | PASS | 첨부 스위트 전건 · 표시 이름 유지(Y2 red 5) |
+| VP-01·02·03·10·12·14·15 | — | PASS(r1 참조) | r1 §5 · M1~M5 재실행 동일 |
+| VP-13 | REQUIRED | 사람 실기 대기 | AC18·AC23 |
+
+- §10 분모: EP-09 4/4 · EP-10 2/2 재확인(라인 변동 없음). D1 정제 지점 1/1(`attachment-files.ts:99`, 생성자 1곳).
+
+| AC | r1 | r2 |
+|---|---|---|
+| AC1·AC2·AC3·AC11·AC15·AC20·AC22 | ✅ | ✅ (AC15: adapters.md 저장 이름 정제 문장 추가 · links ok) |
+| AC21 | ❌ | ✅ |
+| AC18·AC23 | ⚠️ | ⚠️ |
+
+- 합계 재측정 ✅8 · ⚠️2 · ❌0 = 10. 자기보고 plan 본문 ✅8 ↔ trailer `Criteria-Met: 8/10` ↔ INDEX 비고 ✅8 — 일치.
+
+## r2-6. 운영 gate
+
+| Gate | 결과 | 증거 |
+|---|---|---|
+| lint | PASS | 0 error · 1 warning(`useVirtualizer` 기존). 실행 후 `git status --porcelain` 빈 출력 |
+| typecheck | PASS | node·web·test exit 0 |
+| 관련 스위트 | PASS | 4파일 89 pass |
+| 전체 vitest | PASS(환경 분리) | `npm rebuild better-sqlite3` 후 `ELECTRON_OVERRIDE_DIST_PATH=/nonexistent vitest run --maxWorkers=2`: 601 pass · 1 skip · **1 fail**(603) · 5793 pass · 3 skip · 1 fail(5797) |
+| inventory | PASS | generated·prose·links ok |
+| trailer | PASS | `4bdb6eb1` 6키 파싱, 값 허용 범위 |
+
+- 전체 실행의 1 fail = `infra/loopback-callback.test.ts` "타임아웃은 LoopbackCancelledError 로 끝난다" — `listen EADDRINUSE 127.0.0.1:45214`. 이번 diff가 건드리지 않은 파일이고 단독 3회 6/6 pass. 병렬 실행의 포트 충돌로 판정(D5 NON_BLOCKING).
+- 첫 시도(`npm ci` 직후)는 better-sqlite3 `Module did not self-register` 27건 · `Electron failed to install correctly` 2건으로 42파일 실패 — `app/AGENTS.md` 알려진 ABI/electron signature. Node ABI 재빌드 후 위 결과.
+- 총 5797은 구현 보고(5796 pass · 1 skip)와 같다.
+
+## r2-7. Finding disposition
+
+| # | finding | disposition |
+|---|---|---|
+| D1 | `#` 보관 이름 | **closed** — r2-4 R0·r2-5 |
+| D3 | `additionalDirectories` 느슨한 단언 | **closed** — Y1 red 4 |
+| D4 | 저장 루트(`os.tmpdir()/Orca`)에 `#`가 있으면 CLI가 `#` 앞까지만 읽어 모든 텍스트 첨부가 오류 없이 누락(P1 재현). Windows 계정명은 `#`를 허용한다. plan 기술 보완은 "저장 위치는 CLI가 읽을 수 있다"를 전제로 두었고, 고치려면 저장 위치 변경·감지 후 오류 등 새 계약이 필요하다 | **NEXT_HANDOFF** — 사용자 결정(2026-10-01, 드문 환경이라 이번 PASS를 막지 않음). AC23 실기 때 계정 경로 확인 권장 |
+| D5 | 전체 병렬 실행에서 `loopback-callback` 포트 충돌 1건 | NON_BLOCKING — 변경 무관, 단독 통과 |
+| D2 | project/local settings 미반영 | NEXT_HANDOFF 유지 |
+
+## r2-8. Repository operation checks
+
+- INDEX: `verify/PASS`, 다음 주체 사람(AC18·AC23 실기), 좌표 `(r2 구현 — 검증자 기입)` → `4bdb6eb1`(`git cat-file -t` = commit). 실기 뒤 archive.
+- `[구현자 기입]` r2 7필드 모두 존재. plan 구현 보고의 대상 커밋은 자리표시자 유지.
+- AGENTS.md 변경 없음. 검증 잔여물: 임시 탐침 테스트 파일 삭제, 트리 clean.
+
+## r2-9. Review Signals — 사실만
+
+- r1 D1과 같은 메커니즘(`Q0s`의 `#` 분리)이 r2에서 **다른 자리(루트)** 로 남았다. r1 disposition은 "저장 이름 정제"로 자리를 좁혀 적었다.
+- 관련 plan 지침: ΔV1 MD-07은 큰따옴표 전제만, 저장 위치 행은 "CLI가 읽을 수 있다"만 적었다.
+- 사용자 결정 변경 근거: D4를 NEXT_HANDOFF로 두라는 사용자 응답(이번 턴).
+- 반복된 검증 환경 한계: `npm ci` 직후 better-sqlite3 ABI·electron 미설치 — Node ABI 재빌드 + `ELECTRON_OVERRIDE_DIST_PATH`로 실행.
+
+---
+
+# r1 — 원 검증
 
 ## 0. 기준선 / plan 변경 확인
 
