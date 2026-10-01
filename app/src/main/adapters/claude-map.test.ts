@@ -819,6 +819,65 @@ it('result 에러는 telemetry 와 error 이벤트를 함께 낸다', () => {
   })
 })
 
+describe('0245 AC11 — result error original message', () => {
+  it.each([
+    [
+      {
+        subtype: 'success',
+        is_error: true,
+        result: 'API Error: 400 prompt is too long',
+        errors: ['ignored'],
+        message: 'ignored'
+      },
+      'API Error: 400 prompt is too long'
+    ],
+    [
+      {
+        subtype: 'error_during_execution',
+        errors: ['first error', 'second error'],
+        message: 'ignored'
+      },
+      'first error\nsecond error'
+    ],
+    [
+      { subtype: 'error_max_turns', result: '  ', errors: ['', '  ', 42], message: 'bad request' },
+      'bad request'
+    ],
+    [{ subtype: 'error_during_execution', errors: ['  ', 'error'], message: 'ignored' }, 'error'],
+    [{ subtype: 'success', is_error: true, result: '\noriginal error\n' }, '\noriginal error\n'],
+    [
+      {
+        subtype: 'error_during_execution',
+        result: '',
+        errors: [],
+        message: '',
+        error: 'legacy error'
+      },
+      'legacy error'
+    ],
+    [
+      { subtype: 'error_during_execution', result: '', errors: [], message: '', error: '' },
+      'Claude result failed (error_during_execution)'
+    ],
+    [{ is_error: true }, 'Claude result failed']
+  ])('preserves priority for %j', (fields, expected) => {
+    const out = claudeToNormalized(sdk({ type: 'result', ...fields }), ctx())
+    expect(out[0]).toMatchObject({ type: 'telemetry' })
+    expect(out[1]).toMatchObject({
+      type: 'error',
+      error: { category: 'stream_error', message: expected, provider: 'claude' }
+    })
+  })
+
+  it('does not treat a successful result text as an error', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'result', subtype: 'success', is_error: false, result: 'answer' }),
+      ctx()
+    )
+    expect(out.map((event) => event.type)).toEqual(['telemetry'])
+  })
+})
+
 describe('claudeToNormalized — 서브에이전트(Task) 메타', () => {
   it('system task_started → subagent.task(started) (tool_use_id 키)', () => {
     const out = claudeToNormalized(

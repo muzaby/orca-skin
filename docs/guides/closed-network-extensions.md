@@ -728,6 +728,19 @@ export const SPAWN_ENV_INJECTOR: SpawnEnvInjector | undefined = ({ target, hostE
 
 ---
 
+### 3-e. 게이트웨이 모델·컨텍스트 운영
+
+모델 해석과 파일 입력의 정본은 [adapters — 컨텍스트 모델과 파일 입력](../arch/backend/adapters.md#컨텍스트-모델과-파일-입력)이다.
+
+| 상황 | 운영자가 확인하는 것 |
+|---|---|
+| 이름을 바꾼 Claude 모델 | `gw-opus-4.7`처럼 계열·버전 토큰을 남긴다. 별칭을 쓰면 `ANTHROPIC_DEFAULT_OPUS_MODEL` 등 실제 모델 매핑도 확인한다. |
+| 게이트웨이에서 1M 사용 | 자동으로 붙는 `[1m]`의 beta 헤더를 게이트웨이가 받는지 설치본에서 확인한다. 거절하면 `CLAUDE_CODE_DISABLE_1M_CONTEXT=1`로 자동 부착을 끈다. |
+| 미확인 1M 모델 | 선택 이름에 `[1m]`을 명시하고 실제 서버 창과 CLI 사용량을 확인한다. |
+| 창·요약 env 설정 | `CLAUDE_CODE_MAX_CONTEXT_TOKENS`·`CLAUDE_CODE_AUTO_COMPACT_WINDOW` 등은 CLI 설정으로 관리한다. Orca가 기본값을 주입하지 않으므로 기존 운영 설정을 확인한다. |
+| 큰 텍스트 첨부 | 작은 파일·큰 파일·이미지와 함께 첨부한 파일을 설치본에서 확인한다. 읽기·상한 안내는 CLI가 처리한다. |
+| 도구 결과 이미지가 글자로 변환됨 | 게이트웨이의 `/v1/messages` 변환 경로와 요청 로그를 확인한다. Orca에서 우회하지 않는다 — [study 8.8](../etc/study/claude/08-컨텍스트-한도와-파일-정책.md#88-게이트웨이litellm-뒤에서-달라지는-것). |
+
 ## 4. 레시피 C — Plugin + 내장 도구 (구 `kind:'service'`)
 
 인증된 연결이 LLM 에 런타임 도구를 노출한다. Auth 가 `valid` 일 때만 등록되고, 해제·만료·401

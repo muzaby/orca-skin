@@ -30,6 +30,7 @@ import { ClaudeBackgroundMapper } from './claude-background'
 import { readClaudeSessionSchedules } from './claude-schedules'
 import { makeOutputFilesHook } from './claude-output-files'
 import { ClaudeInputReceipts } from './claude-input-receipts'
+import { envLookup, modelForCli } from './claude-context-policy'
 import type { SessionSchedule } from '../../shared/session-schedules'
 import { claudeErrorClassifier, errorEvent } from './error-classifier'
 import { createSessionInputStream, type TurnInputContent } from './streaming-input'
@@ -380,6 +381,10 @@ export class ClaudeAdapter implements SessionAdapter {
       requirements = []
     } = req
 
+    const settings = req.providerSettings?.settings
+    const contextEnv = envLookup(env, settings, process.env)
+    const executionModel = modelForCli(model, contextEnv, settings?.model)
+
     // 매퍼 컨텍스트 — sessionId 는 init(=session.updated)에서 갱신된다(resume 면 초기값이 그 id).
     // handoffArrival(0127): 핸드오프 도착 턴 표식 — 경계 이전 승계 컨텍스트 usage 를 매퍼가 무효화.
     const ctx: MapContext = {
@@ -578,7 +583,7 @@ export class ClaudeAdapter implements SessionAdapter {
           : {}),
         // 권한 모드 (정규화 6종 → SDK PermissionMode). 부재 시 SDK 기본(default) 동작.
         ...(permissionMode ? { permissionMode: toClaudePermissionMode(permissionMode) } : {}),
-        ...(model ? { model } : {}),
+        ...(executionModel ? { model: executionModel } : {}),
         ...(effort ? { effort } : {})
       }
     })
@@ -745,7 +750,9 @@ export class ClaudeAdapter implements SessionAdapter {
       // extensions 변경은 respawn 경계(호출자 소관). setter 실패는 push 전에 던져져 호출자
       // (SessionRuntime frame)가 스폰 폴백/에러 처리한다.
       pushTurn: async (next) => {
-        if (next.model !== undefined) await handle.setModel(next.model)
+        if (next.model !== undefined) {
+          await handle.setModel(modelForCli(next.model, contextEnv, settings?.model))
+        }
         if (next.permissionMode !== undefined) {
           await handle.setPermissionMode(toClaudePermissionMode(next.permissionMode))
         }
@@ -776,7 +783,7 @@ export class ClaudeAdapter implements SessionAdapter {
       },
       // steer UX 수용 — 전달은 게이트 훅 flush(takeSteerFlush) 또는 다음 턴 carryover(D2)로.
       canSteer: true,
-      setModel: (model) => handle.setModel(model),
+      setModel: (model) => handle.setModel(modelForCli(model, contextEnv, settings?.model)),
       // 서브에이전트 단위 중단 — task_started/notification 의 task_id 로 stopTask.
       stopTask: (taskId) => handle.stopTask(taskId),
       // foreground 서브에이전트를 백그라운드로(필요 시 stopTask 전 fallback). tool_use id 로 단건.
@@ -786,9 +793,8 @@ export class ClaudeAdapter implements SessionAdapter {
 }
 
 // 턴 입력 content 조립 — 첨부 유무/종류에 따라 string vs content-block 배열을 고른다.
-// 텍스트 첨부만 있으면 attachment wrapper 를 본문 text 에 이어붙여 **string 으로 유지**한다
-// (무첨부 턴과 동일한 검증된 경로). content-block 배열은 **이미지 블록이 있을 때만** 쓴다 —
-// 이미지는 image source 블록이 불가피하기 때문. 순수 함수라 단위 테스트 대상.
+// 텍스트 첨부는 CLI @파일 멘션으로 위임한다. CLI는 마지막 텍스트 블록에서만
+// 멘션을 확장하므로 이미지 블록들을 먼저 두고 텍스트를 마지막에 둔다.
 export function buildTurnContent(
   text: string,
   attachmentTexts: ExtractedAttachmentText[],
@@ -796,9 +802,6 @@ export function buildTurnContent(
   requirements: DiffRequirementAnchor[]
 ): TurnInputContent {
   const mergedTextParts = [text]
-  if (attachmentTexts.length > 0) {
-    mergedTextParts.push(...attachmentTexts.map((a) => formatAttachmentPromptBlock(a)))
-  }
   for (const image of attachmentImages) {
     if (image.path)
       mergedTextParts.push(
@@ -811,13 +814,15 @@ export function buildTurnContent(
         })
       )
   }
+  if (attachmentTexts.length > 0) {
+    mergedTextParts.push(attachmentTexts.map((a) => `@"${a.path}"`).join('\n'))
+  }
   if (requirements.length > 0) {
     mergedTextParts.push(formatDiffRequirementsPrompt(requirements))
   }
   const mergedText = mergedTextParts.join('\n\n')
   if (attachmentImages.length === 0) return mergedText
   return [
-    { type: 'text', text: mergedText },
     ...attachmentImages.map((img) => ({
       type: 'image' as const,
       source: {
@@ -825,7 +830,8 @@ export function buildTurnContent(
         media_type: img.mimeType,
         data: img.data
       } as Base64ImageSource
-    }))
+    })),
+    { type: 'text', text: mergedText }
   ]
 }
 

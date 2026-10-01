@@ -11,7 +11,6 @@ import {
   storeAttachmentBytes
 } from './attachment-files'
 
-export const MAX_FILE_CONTEXT_CHARS = 24_000
 export const SUPPORTED_IMAGE_MIME_TYPES = new Set<string>(SUPPORTED_IMAGE_MEDIA_TYPES)
 
 // 대용량 버퍼 base64 인코딩(0110) — 이미지 상한 32MB 의 단일 .toString('base64') 는
@@ -91,24 +90,6 @@ export function assertAllowedAttachmentPath(path: string): string {
   return real
 }
 
-function truncateText(text: string): {
-  text: string
-  charsOriginal: number
-  charsIncluded: number
-  truncated: boolean
-} {
-  const charsOriginal = text.length
-  if (charsOriginal <= MAX_FILE_CONTEXT_CHARS) {
-    return { text, charsOriginal, charsIncluded: charsOriginal, truncated: false }
-  }
-  return {
-    text: text.slice(0, MAX_FILE_CONTEXT_CHARS),
-    charsOriginal,
-    charsIncluded: MAX_FILE_CONTEXT_CHARS,
-    truncated: true
-  }
-}
-
 async function attachmentFromPath(
   att: Extract<ComposerAttachment, { kind: 'path' }>,
   bytes: Buffer
@@ -124,9 +105,7 @@ async function attachmentFromPath(
   const ext = extname(path).toLowerCase()
   if (ext !== '.txt' && ext !== '.md') throw new Error(`unsupported attachment type: ${ext}`)
   if (bytes.includes(0)) throw new Error('binary-like text attachment is not supported')
-  const extracted = bytes.toString('utf8').replace(/^\uFEFF/, '')
-  const truncated = truncateText(extracted)
-  return { id, name: att.name, mimeType, sizeBytes, sourceKind: att.sourceKind, ...truncated }
+  return { id, name: att.name, mimeType, sizeBytes, sourceKind: att.sourceKind, path }
 }
 
 function attachmentFromInline(
@@ -200,8 +179,8 @@ export async function normalizeAttachments(
           sha256: file.sha256
         })
       }
-      if ('text' in normalized) attachmentTexts.push(normalized)
-      else attachmentImages.push(normalized)
+      if ('data' in normalized) attachmentImages.push(normalized)
+      else attachmentTexts.push(normalized)
     }
   } catch (error) {
     await Promise.allSettled(stored.map((file) => file.cleanup()))

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { buildTurnContent } from './claude'
-import { formatAttachmentPromptBlock } from './attachment-prompt'
 import type { ExtractedAttachmentImage, ExtractedAttachmentText } from './turn'
 import type { DiffRequirementAnchor } from '../../shared/ipc'
 
@@ -9,10 +8,7 @@ const textAtt = (overrides: Partial<ExtractedAttachmentText> = {}): ExtractedAtt
   name: 'spec.md',
   mimeType: 'text/markdown',
   sizeBytes: 12,
-  text: 'hello attachment',
-  charsOriginal: 16,
-  charsIncluded: 16,
-  truncated: false,
+  path: 'C:/tmp/spec with spaces.md',
   sourceKind: 'dialog',
   ...overrides
 })
@@ -51,64 +47,81 @@ describe('buildTurnContent', () => {
       []
     )
     const blocks = content as unknown as Array<Record<string, unknown>>
-    expect(blocks[0].text).toContain('path="C:/tmp/reference.md"')
-    expect(blocks[0].text).toContain('path="C:/tmp/paste.png"')
-    expect(blocks[0].text).toContain(`sha256="${hash}"`)
-    expect(blocks[1]).toMatchObject({ type: 'image', source: { data: 'QUJD' } })
+    expect(blocks[1].text).toContain('@"C:/tmp/reference.md"')
+    expect(blocks[1].text).toContain('path="C:/tmp/paste.png"')
+    expect(blocks[1].text).toContain(`sha256="${hash}"`)
+    expect(blocks[0]).toMatchObject({ type: 'image', source: { data: 'QUJD' } })
   })
 
   it('첨부가 없으면 본문 text 를 string 그대로 반환한다(검증된 무첨부 경로)', () => {
     expect(buildTurnContent('hi', [], [], [])).toBe('hi')
   })
 
-  it('텍스트 첨부만 있으면 wrapper 를 본문에 병합한 string 을 반환한다(배열 아님)', () => {
+  it('텍스트 첨부만 있으면 CLI 멘션을 병합한 string 을 반환한다(AC21)', () => {
     const content = buildTurnContent('질문 본문', [textAtt()], [], [])
     expect(typeof content).toBe('string')
     expect(content).toContain('질문 본문')
-    expect(content).toContain('<<<ORCA_ATTACHMENT_START id="att_text"')
+    expect(content).toBe('질문 본문\n\n@"C:/tmp/spec with spaces.md"')
   })
 
-  it('이미지 첨부가 있으면 content-block 배열을 반환하고 첫 블록에 병합 text 를 둔다', () => {
+  it('이미지 첨부가 있으면 원본 이미지 뒤 마지막 블록에 멘션 text 를 둔다(AC21)', () => {
     const content = buildTurnContent('보세요', [textAtt()], [imageAtt()], [])
     expect(Array.isArray(content)).toBe(true)
     const blocks = content as unknown as Array<Record<string, unknown>>
-    expect(blocks[0]).toMatchObject({ type: 'text' })
-    expect(blocks[0]!.text as string).toContain('보세요')
-    expect(blocks[0]!.text as string).toContain('<<<ORCA_ATTACHMENT_START id="att_text"')
-    expect(blocks[1]).toMatchObject({
+    expect(blocks[1]).toMatchObject({ type: 'text' })
+    expect(blocks[1]!.text as string).toBe('보세요\n\n@"C:/tmp/spec with spaces.md"')
+    expect(blocks[0]).toMatchObject({
       type: 'image',
       source: { type: 'base64', media_type: 'image/png', data: 'QUJD' }
     })
   })
 
-  it('이미지만 있으면 본문 text 블록 + image 블록 배열', () => {
+  it('이미지만 있으면 image 블록들 뒤 마지막 본문 text 블록', () => {
     const content = buildTurnContent('cap', [], [imageAtt(), imageAtt({ id: 'att_img2' })], [])
     const blocks = content as unknown as Array<Record<string, unknown>>
     expect(blocks).toHaveLength(3)
-    expect(blocks[0]).toMatchObject({ type: 'text', text: 'cap' })
+    expect(blocks[0]).toMatchObject({ type: 'image' })
     expect(blocks[1]).toMatchObject({ type: 'image' })
-    expect(blocks[2]).toMatchObject({ type: 'image' })
+    expect(blocks[2]).toMatchObject({ type: 'text', text: 'cap' })
   })
 
   it('requirements 가 비어 있으면 첨부-only string 경로도 byte-identical 하다', () => {
     const attachment = textAtt()
     expect(buildTurnContent('질문 본문', [attachment], [], [])).toBe(
-      ['질문 본문', formatAttachmentPromptBlock(attachment)].join('\n\n')
+      ['질문 본문', `@"${attachment.path}"`].join('\n\n')
     )
   })
 
   it('requirements 블록을 attachment 뒤 string content 에 합류시킨다', () => {
     const content = buildTurnContent('질문 본문', [textAtt()], [], [requirement()])
     expect(typeof content).toBe('string')
-    expect(content).toContain('<<<ORCA_ATTACHMENT_START id="att_text"')
+    expect(content).toContain('@"C:/tmp/spec with spaces.md"')
     expect(content).toContain('<<<ORCA_DIFF_REQUIREMENTS_START count="1">>>')
     expect(content).toContain('filePath="app/src/main/adapters/claude.ts"')
   })
 
-  it('이미지 경로에서도 requirements 는 첫 text 블록에만 실린다', () => {
+  it('이미지 경로에서도 requirements 는 마지막 text 블록에만 실린다', () => {
     const content = buildTurnContent('보세요', [], [imageAtt()], [requirement()])
     const blocks = content as unknown as Array<Record<string, unknown>>
-    expect(blocks[0]?.text).toContain('<<<ORCA_DIFF_REQUIREMENTS_START count="1">>>')
+    expect(blocks[1]?.text).toContain('<<<ORCA_DIFF_REQUIREMENTS_START count="1">>>')
     expect(blocks).toHaveLength(2)
+  })
+
+  it('첨부 순서대로 한 줄씩 멘션하고 이미지 메타·멘션·diff 순서를 보존한다(AC21)', () => {
+    const content = buildTurnContent(
+      'review',
+      [textAtt(), textAtt({ path: 'C:/tmp/second.txt' })],
+      [imageAtt({ path: 'C:/tmp/paste.png' })],
+      [requirement()]
+    )
+    const blocks = content as Array<{ type: string; text?: string }>
+    const text = blocks.at(-1)!.text!
+    expect(text).toContain('@"C:/tmp/spec with spaces.md"\n@"C:/tmp/second.txt"')
+    expect(text.indexOf('ORCA_ATTACHMENT_END')).toBeLessThan(text.indexOf('@"'))
+    expect(text.indexOf('@"C:/tmp/second.txt"')).toBeLessThan(
+      text.indexOf('ORCA_DIFF_REQUIREMENTS_START')
+    )
+    expect(text).not.toContain('Attachment truncated')
+    expect(text).not.toContain('id="att_text"')
   })
 })
