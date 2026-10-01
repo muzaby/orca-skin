@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-30 |
 | 매핑 | 이슈1(폐쇄망 LLM 입력 264k 초과) — 사용자 라이브 세션 · 근거 [study 8장](../../etc/study/claude/08-컨텍스트-한도와-파일-정책.md) |
-| 상태 | IMPL_DONE (ΔV1 r2 · D1·D3 보완 · 기계 범위) |
+| 상태 | verify/PASS (ΔV1 r2 · 기계 범위) — AC18·AC23 사람 실기 대기 |
 | V mode | `Delta V` |
 | 기준 V | `V1@64fbfb35` (공유 브랜치에서 확인) |
 | 이번 V revision | `ΔV1` — 서버 정상 가정: Claude Code 와 같은 큰 파일 정책으로 범위 조정 |
@@ -764,6 +764,8 @@ READY. 구현 전 사용자 결정 변경이다. V1 이 서버(게이트웨이) 
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | 저장 이름에 `#`가 남아 CLI `@"…"` 파서(`Q0s`)가 `#` 앞까지만 파일명으로 읽는다 — `issue#12.md` 첨부 내용이 모델에 안 간다 | VP-16 · D-018 · AC21 | 저장 이름 정제에 `#` 처리 추가 + `#` 이름 테스트. 재현은 [verify §6](verify.md#6-외부-포트--문서-계약) | BLOCKING | closed (r2 자기확인) — 새 4사례의 CLI 읽기 경로·바이트 일치. 재검증 대기. |
+| D1 | 저장 이름에 `#`가 남아 CLI `@"…"` 파서(`Q0s`)가 `#` 앞까지만 파일명으로 읽는다 — `issue#12.md` 첨부 내용이 모델에 안 간다 | VP-16 · D-018 · AC21 | 저장 이름 정제에 `#` 처리 추가 + `#` 이름 테스트. 재현은 [verify §6](verify.md#6-외부-포트--문서-계약) | BLOCKING | **closed (r2 verify)** — R0 되돌림 red 3, 4사례 CLI 경로·바이트 일치 |
 | D2 | 모델·env 해석이 CLI project/local settings의 env·`model`을 보지 않는다 | 비귀속(plan §11 범위 밖) | 실사용 확인 후 판단 | NEXT_HANDOFF | open |
-| D3 | VP-17 IT의 `additionalDirectories` 단언이 `expect.any(String)` | 비귀속 | D1 수정 때 강화 가능 | NON_BLOCKING | closed (r2 자기확인) — 정확한 제품 임시 루트, 네 query 입력 사례 통과. |
+| D3 | VP-17 IT의 `additionalDirectories` 단언이 `expect.any(String)` | 비귀속 | D1 수정 때 강화 가능 | NON_BLOCKING | **closed (r2 verify)** — 임시 루트 제거 변이 red 4 |
+| D4 | 저장 루트(`os.tmpdir()/Orca`)에 `#`가 있으면 CLI가 `#` 앞까지만 읽어 텍스트 첨부 전체가 오류 없이 누락 — Windows 계정명 `#` 허용 | D-018 저장 위치 전제(기술 보완 "CLI 가 읽을 수 있다") | 저장 위치 변경 또는 감지 후 오류 등 새 계약 — 재현은 [verify r2-4 P1](verify.md#r2-4-변이-재측정) | NEXT_HANDOFF(사용자 결정) | open |
+| D5 | 전체 병렬 vitest에서 `loopback-callback` 포트 충돌(`EADDRINUSE`) 1건 | 비귀속(변경 무관) | 단독 통과 | NON_BLOCKING | open |
