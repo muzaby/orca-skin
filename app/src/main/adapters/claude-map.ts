@@ -19,7 +19,7 @@ import type { ReceivedMessageOrigin, SessionSchedule } from '../../shared/sessio
 import { isAsyncLaunchedPayload } from '../../shared/subagent'
 import { carriesFileEditPatch, readFileEditStructuredPatch } from '../../shared/file-edit-tool'
 import { isTaskToolName } from '../../shared/task-tool'
-import { pickPrimaryModel } from '../../shared/usage/primary-model'
+import { pickPrimaryModel, primaryModelScore } from '../../shared/usage/primary-model'
 import { readToolResultMeta } from '../../shared/tool-outcome'
 import { makeClassifiedError } from '../infra/errors'
 import { errorEvent } from './error-classifier'
@@ -70,13 +70,16 @@ export interface MapContext {
   // 마지막 assistant 메시지의 usage 스냅샷 — /context 상단 % 근사용. 턴 누적이 아니라 그 턴
   // *마지막* 요청에서 모델이 본 입력 컨텍스트다. 멀티스텝(도구 N회) 턴에서 result.usage 는
   // 단계별 입력이 합산돼 과대 집계되므로, result telemetry 의 컨텍스트 입력 3종을 이 값으로 덮는다.
-  // assistant 가 여러 번 와도 마지막 것이 남는다(ctx 는 턴 1회 생성·스트림 전체 공유).
+  // assistant 가 여러 번 와도 마지막 것이 남는다(ctx 는 채널 1회 생성·모든 턴 공유).
   lastAssistantUsage?: {
     inputTokens?: number
     outputTokens?: number
     cacheReadTokens?: number
     cacheCreationTokens?: number
   }
+  // 이번 턴 메인 체인의 폴백 관측(0247). assistantContext 는 마지막 assistant 입력 합(0 포함),
+  // delta 는 마지막 양수 message_delta usage 다. result·compact_boundary 에서 비운다.
+  turnUsage?: { assistantContext?: number; delta?: UsageSnapshot }
   // 이 턴에서 compact_boundary(네이티브 압축)를 지났는가 — 경계 이전의 usage(전체 이력이 실린
   // 요약 요청 입력)는 더 이상 라이브 컨텍스트가 아니므로, 경계에서 스냅샷을 무효화하고 result
   // telemetry 의 컨텍스트 점유를 압축 후 값으로 근사하는 데 쓴다(0064 r5 피드백 1).
@@ -112,6 +115,8 @@ export interface MapContext {
   // 채널에서 무한히 자라지 않게 `receivedInputUuids` 와 같은 상한으로 가장 오래된 것부터 버린다.
   toolRunIdsByMessageUuid?: Map<string, string[]>
 }
+
+type UsageSnapshot = NonNullable<MapContext['lastAssistantUsage']>
 
 const RETRACTION_MEMORY_LIMIT = 2048
 
@@ -420,6 +425,7 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       ctx.compacted = true
       if (postTokens !== undefined) ctx.compactPostTokens = postTokens
       delete ctx.lastAssistantUsage
+      delete ctx.turnUsage
       return [
         {
           type: 'session.compacted',
@@ -437,9 +443,29 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     const parentToolRunId = readParentToolRunId(msg)
     const ev = (
       msg as unknown as {
-        event?: { delta?: { type?: string; text?: string; thinking?: string } }
+        event?: {
+          type?: string
+          usage?: Record<string, unknown>
+          delta?: { type?: string; text?: string; thinking?: string }
+        }
       }
     ).event
+    // assistant 에 usage 를 싣지 않는 프록시의 마지막 요청 입력을 관측한다(0247 EP-01).
+    // output-only·0 값은 이전 양수를 지우지 않고, child·승계 컨텍스트는 메인 입력에 섞지 않는다.
+    if (ev?.type === 'message_delta') {
+      if (parentToolRunId === undefined && !(ctx.handoffArrival && ctx.compacted !== true)) {
+        const u = ev.usage
+        const snapshot: UsageSnapshot = {}
+        assignNums(snapshot, {
+          inputTokens: u?.input_tokens,
+          outputTokens: u?.output_tokens,
+          cacheReadTokens: u?.cache_read_input_tokens,
+          cacheCreationTokens: u?.cache_creation_input_tokens
+        })
+        if (primaryModelScore(snapshot) > 0) (ctx.turnUsage ??= {}).delta = snapshot
+      }
+      return []
+    }
     if (ev?.delta?.type === 'text_delta' && typeof ev.delta.text === 'string') {
       return [
         {
@@ -500,14 +526,17 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       typeof u === 'object' &&
       !(ctx.handoffArrival && ctx.compacted !== true)
     ) {
-      const snapshot: NonNullable<MapContext['lastAssistantUsage']> = {}
+      const snapshot: UsageSnapshot = {}
       assignNums(snapshot, {
         inputTokens: u.input_tokens,
         outputTokens: u.output_tokens,
         cacheReadTokens: u.cache_read_input_tokens,
         cacheCreationTokens: u.cache_creation_input_tokens
       })
-      if (Object.keys(snapshot).length > 0) ctx.lastAssistantUsage = snapshot
+      if (Object.keys(snapshot).length > 0) {
+        ctx.lastAssistantUsage = snapshot
+        ;(ctx.turnUsage ??= {}).assistantContext = primaryModelScore(snapshot)
+      }
     }
     // 이 프레임이 대체하는 기존 wire 메시지(0239 EP-03 ③) — 대체된 메시지의 tool_use 는 실행되지
     // 않는다. 새 프레임의 내용보다 먼저 내보내 철회된 카드가 새 카드보다 앞서 정착되게 한다.
@@ -713,6 +742,9 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     // 턴 경계 — 계획 폴백 본문을 비운다(0215 EP-03). 남겨두면 다음 턴의 `ExitPlanMode` 가
     // **이전 턴의 서술**을 계획으로 싣는다.
     ctx.lastAssistantText = undefined
+    // 중복 result 는 위에서 제외했다. 이번 턴 관측만 판정에 쓰고 다음 턴으로 넘기지 않는다.
+    const turn = ctx.turnUsage
+    ctx.turnUsage = undefined
     const r = msg as unknown as {
       user_message_uuid?: unknown
       user_message_uuids?: unknown
@@ -751,12 +783,10 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     // numTurns·model 은 result 값을 유지하고 query 누적 비용/modelUsage는 위에서 차분한다.
     // 스냅샷에 있는 필드만 덮는다 — 없는 필드는 result.usage 값을 보존한다. (스냅샷이 input 만
     // 담고 cache_read 를 안 줄 때 delete 하면 contextTokens 가 input(≈1) 으로 붕괴 → 도넛 0~1%.)
-    if (telemetry && ctx.lastAssistantUsage) {
-      const snap = ctx.lastAssistantUsage
-      if (snap.inputTokens !== undefined) telemetry.inputTokens = snap.inputTokens
-      if (snap.cacheReadTokens !== undefined) telemetry.cacheReadTokens = snap.cacheReadTokens
-      if (snap.cacheCreationTokens !== undefined)
-        telemetry.cacheCreationTokens = snap.cacheCreationTokens
+    if (telemetry && turn?.delta && (turn.assistantContext ?? 0) <= 0) {
+      overrideContext(telemetry, turn.delta)
+    } else if (telemetry && ctx.lastAssistantUsage) {
+      overrideContext(telemetry, ctx.lastAssistantUsage)
     } else if (telemetry && ctx.compacted) {
       // 압축 턴(manual /compact·핸드오프 도착)인데 경계 이후 실측 usage 가 없는 경우 —
       // result.usage 의 컨텍스트 3종은 압축 *전* 전체 이력이 실린 요약 요청 입력이라 그대로
@@ -834,6 +864,14 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
   // 그 외 SDK 메시지 (plugin_install, permission_denied, rate_limit_event, status,
   // api_retry, hook_*, auth_status 등) 는 미사용. (compact_boundary 는 0064 에서 정규화됨.)
   return []
+}
+
+// assistant 와 delta 는 같은 필드 병합 규칙을 쓴다 — 미제공 필드는 result 값을 보존한다.
+function overrideContext(telemetry: ProviderReportedTelemetry, snapshot: UsageSnapshot): void {
+  if (snapshot.inputTokens !== undefined) telemetry.inputTokens = snapshot.inputTokens
+  if (snapshot.cacheReadTokens !== undefined) telemetry.cacheReadTokens = snapshot.cacheReadTokens
+  if (snapshot.cacheCreationTokens !== undefined)
+    telemetry.cacheCreationTokens = snapshot.cacheCreationTokens
 }
 
 // modelUsage 에서 도넛 분모의 귀속 모델(primary)을 고른다 — **실사용량(input+cache_read+

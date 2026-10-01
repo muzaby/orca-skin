@@ -1,9 +1,252 @@
 import { describe, it, expect } from 'vitest'
 import { claudeToNormalized, type MapContext } from './claude-map'
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
+import type { ProviderReportedTelemetry } from '../../shared/ipc'
+import { primaryModelScore } from '../../shared/usage/primary-model'
 
 const ctx = (sessionId = 's1'): MapContext => ({ sessionId, cwd: '/w' })
 const sdk = (m: unknown): SDKMessage => m as SDKMessage
+
+describe('0247 — message_delta 컨텍스트 폴백 (AC1~AC8)', () => {
+  const assistantUsage = (c: MapContext, usage?: Record<string, unknown>): void => {
+    claudeToNormalized(sdk({ type: 'assistant', message: { content: [], usage } }), c)
+  }
+  const deltaUsage = (
+    c: MapContext,
+    usage: Record<string, unknown>,
+    parentToolRunId?: string
+  ): void => {
+    expect(
+      claudeToNormalized(
+        sdk({
+          type: 'stream_event',
+          event: { type: 'message_delta', usage },
+          ...(parentToolRunId !== undefined ? { parent_tool_use_id: parentToolRunId } : {})
+        }),
+        c
+      )
+    ).toEqual([])
+  }
+  const finish = (
+    c: MapContext,
+    fields: Record<string, unknown> = {}
+  ): ProviderReportedTelemetry | undefined => {
+    const event = claudeToNormalized(sdk({ type: 'result', ...fields }), c)[0]
+    if (event?.type !== 'telemetry') throw new Error('Expected result telemetry')
+    return event.usage
+  }
+  const zeroUsage = {
+    input_tokens: 0,
+    output_tokens: 0,
+    cache_read_input_tokens: 0,
+    cache_creation_input_tokens: 0
+  }
+
+  it('AC1 — 마지막 양수 메인 delta 17,023 을 쓰고 비용·모델·창은 result 값을 보존한다', () => {
+    const c = ctx()
+    deltaUsage(c, { input_tokens: 15_432, output_tokens: 10 })
+    assistantUsage(c, { input_tokens: 0, output_tokens: 0 })
+    deltaUsage(c, { input_tokens: 17_023, output_tokens: 30 })
+    assistantUsage(c, { input_tokens: 0, output_tokens: 0 })
+    const usage = finish(c, {
+      total_cost_usd: 0.02,
+      duration_ms: 900,
+      num_turns: 2,
+      usage: { input_tokens: 32_455, output_tokens: 40 },
+      modelUsage: {
+        'qwen3.8-27b': {
+          inputTokens: 32_455,
+          outputTokens: 40,
+          costUSD: 0.02,
+          contextWindow: 200_000
+        }
+      }
+    })
+    expect(usage).toEqual({
+      inputTokens: 17_023,
+      outputTokens: 40,
+      costUsd: 0.02,
+      durationMs: 900,
+      numTurns: 2,
+      model: 'qwen3.8-27b',
+      contextWindow: 200_000,
+      modelUsage: {
+        'qwen3.8-27b': {
+          inputTokens: 32_455,
+          outputTokens: 40,
+          costUsd: 0.02,
+          contextWindow: 200_000
+        }
+      }
+    })
+  })
+
+  it('AC2 — 양수 assistant 120·5,200 은 delta 999 보다 우선한다', () => {
+    const c = ctx()
+    assistantUsage(c, { input_tokens: 120, cache_read_input_tokens: 5_200 })
+    deltaUsage(c, { input_tokens: 999 })
+    expect(finish(c, { usage: { input_tokens: 1_119, cache_read_input_tokens: 5_200 } })).toEqual({
+      inputTokens: 120,
+      cacheReadTokens: 5_200
+    })
+  })
+
+  it('AC3 — output-only delta 는 컨텍스트 사용량으로 채택하지 않는다', () => {
+    const c = ctx()
+    assistantUsage(c, zeroUsage)
+    deltaUsage(c, { output_tokens: 50 })
+    expect(primaryModelScore(finish(c, { usage: zeroUsage }) ?? {})).toBe(0)
+  })
+
+  it('AC4 — 사이드체인 양수 delta 50,000 은 메인 컨텍스트에 섞지 않는다', () => {
+    const c = ctx()
+    assistantUsage(c, zeroUsage)
+    deltaUsage(c, { input_tokens: 50_000 }, 'agent-use-1')
+    expect(primaryModelScore(finish(c, { usage: zeroUsage }) ?? {})).toBe(0)
+  })
+
+  it('AC5 — 한 채널의 다음 턴에 이전 delta 17,023 이 새지 않는다', () => {
+    const c = ctx()
+    assistantUsage(c, zeroUsage)
+    deltaUsage(c, { input_tokens: 17_023 })
+    expect(finish(c, { usage: zeroUsage })?.inputTokens).toBe(17_023)
+    assistantUsage(c, zeroUsage)
+    expect(primaryModelScore(finish(c, { usage: zeroUsage }) ?? {})).toBe(0)
+  })
+
+  it('AC6 — 압축 전 delta 150,000 을 버리고 post_tokens 30,000 으로 근사한다', () => {
+    const c = ctx()
+    deltaUsage(c, { input_tokens: 150_000 })
+    claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'compact_boundary',
+        compact_metadata: { post_tokens: 30_000 }
+      }),
+      c
+    )
+    expect(finish(c, { usage: zeroUsage })?.inputTokens).toBe(30_000)
+  })
+
+  it('AC6 — 압축 후 delta 31,000 은 post_tokens 근사보다 우선한다', () => {
+    const c = ctx()
+    deltaUsage(c, { input_tokens: 150_000 })
+    claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'compact_boundary',
+        compact_metadata: { post_tokens: 30_000 }
+      }),
+      c
+    )
+    deltaUsage(c, { input_tokens: 31_000 })
+    expect(finish(c, { usage: zeroUsage })?.inputTokens).toBe(31_000)
+  })
+
+  it('AC7 — 핸드오프 도착 압축 전 delta 90,000 은 무효화 경로를 우회하지 않는다', () => {
+    const c = { ...ctx(), handoffArrival: true }
+    deltaUsage(c, { input_tokens: 90_000 })
+    const usage = finish(c, {
+      usage: {
+        input_tokens: 90_000,
+        cache_read_input_tokens: 500,
+        cache_creation_input_tokens: 100
+      }
+    })
+    expect(usage?.inputTokens).toBeUndefined()
+    expect(usage?.cacheReadTokens).toBeUndefined()
+    expect(usage?.cacheCreationTokens).toBeUndefined()
+  })
+
+  it('AC8 — delta 의 숫자 필드만 병합하고 null cache_creation 은 result 700 을 보존한다', () => {
+    const c = ctx()
+    assistantUsage(c, zeroUsage)
+    deltaUsage(c, {
+      input_tokens: 1_200,
+      cache_read_input_tokens: 30_000,
+      cache_creation_input_tokens: null,
+      output_tokens: 2
+    })
+    expect(
+      finish(c, {
+        usage: {
+          input_tokens: 5_000,
+          cache_read_input_tokens: 90_000,
+          cache_creation_input_tokens: 700,
+          output_tokens: 50
+        }
+      })
+    ).toEqual({
+      inputTokens: 1_200,
+      cacheReadTokens: 30_000,
+      cacheCreationTokens: 700,
+      outputTokens: 50
+    })
+  })
+
+  it('양수 delta 뒤 output-only·null·비숫자 delta 가 와도 마지막 양수를 유지한다', () => {
+    const c = ctx()
+    assistantUsage(c, zeroUsage)
+    deltaUsage(c, { input_tokens: 17_023 })
+    for (const usage of [
+      { output_tokens: 50 },
+      { input_tokens: null, cache_read_input_tokens: null, cache_creation_input_tokens: null },
+      { input_tokens: '20', cache_read_input_tokens: Number.NaN, cache_creation_input_tokens: 0 }
+    ]) {
+      deltaUsage(c, usage)
+    }
+    expect(finish(c, { usage: zeroUsage })?.inputTokens).toBe(17_023)
+  })
+
+  it('이번 턴 assistant usage 가 없으면 채널 이전 양수 snapshot 보다 턴 delta 가 우선한다', () => {
+    const c = ctx()
+    assistantUsage(c, { input_tokens: 120, cache_read_input_tokens: 5_200 })
+    finish(c, { usage: { input_tokens: 120, cache_read_input_tokens: 5_200 } })
+    assistantUsage(c)
+    deltaUsage(c, { input_tokens: 17_023 })
+    const usage = finish(c, { usage: { input_tokens: 17_023 } })
+    expect(usage?.inputTokens).toBe(17_023)
+    expect(usage?.cacheReadTokens).toBeUndefined()
+    expect(c.lastAssistantUsage).toEqual({ inputTokens: 120, cacheReadTokens: 5_200 })
+  })
+
+  it('중복 result UUID 는 다음 턴에 이미 관측한 delta 를 비우지 않는다', () => {
+    const c = ctx()
+    assistantUsage(c, zeroUsage)
+    finish(c, { uuid: 'result-1', usage: zeroUsage })
+    deltaUsage(c, { input_tokens: 17_023 })
+    expect(
+      claudeToNormalized(sdk({ type: 'result', uuid: 'result-1', usage: zeroUsage }), c)
+    ).toEqual([])
+    expect(finish(c, { uuid: 'result-2', usage: zeroUsage })?.inputTokens).toBe(17_023)
+  })
+
+  it('컨텍스트 합은 cache_read·cache_creation 도 포함하므로 cache-only assistant 가 우선한다', () => {
+    const c = ctx()
+    assistantUsage(c, {
+      input_tokens: 0,
+      cache_read_input_tokens: 5_200,
+      cache_creation_input_tokens: 10
+    })
+    deltaUsage(c, { input_tokens: 999 })
+    expect(finish(c, { usage: { input_tokens: 999, cache_read_input_tokens: 5_200 } })).toEqual({
+      inputTokens: 0,
+      cacheReadTokens: 5_200,
+      cacheCreationTokens: 10
+    })
+  })
+
+  it('컨텍스트가 cache-only 인 delta 도 폴백 관측으로 채택한다', () => {
+    const c = ctx()
+    assistantUsage(c, zeroUsage)
+    deltaUsage(c, {
+      input_tokens: 0,
+      cache_read_input_tokens: 30_000,
+      cache_creation_input_tokens: 700
+    })
+    expect(primaryModelScore(finish(c, { usage: zeroUsage }) ?? {})).toBe(30_700)
+  })
+})
 
 describe('claudeToNormalized', () => {
   it('system/init → session.updated 이고 ctx.sessionId 를 갱신한다', () => {
