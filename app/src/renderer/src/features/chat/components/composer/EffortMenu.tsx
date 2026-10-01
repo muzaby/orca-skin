@@ -9,10 +9,11 @@ const EFFORT_OPTIONS: EffortLevel[] = ['low', 'medium', 'high', 'xhigh', 'max']
 
 interface EffortMenuProps {
   effort: EffortLevel
+  defaultEffort: EffortLevel
   onPick: (effort: EffortLevel) => void
 }
 
-export function EffortMenu({ effort, onPick }: EffortMenuProps): React.JSX.Element {
+export function EffortMenu({ effort, defaultEffort, onPick }: EffortMenuProps): React.JSX.Element {
   const { tr } = useI18n()
   return (
     <div role="none" className="flex w-[240px] flex-col">
@@ -30,6 +31,11 @@ export function EffortMenu({ effort, onPick }: EffortMenuProps): React.JSX.Eleme
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-1.5 text-[13px] font-medium text-ink">
                 {tr(EFFORT_LABEL_KEYS[level])}
+                {level === defaultEffort && (
+                  <span className="shrink-0 text-[11.5px] text-rust">
+                    {tr('chat.composer.effort.recommendedTag')}
+                  </span>
+                )}
                 {active && <Icon name="check" size={12} />}
               </span>
               <span className="mt-0.5 block text-[11.5px] leading-snug text-ink2">

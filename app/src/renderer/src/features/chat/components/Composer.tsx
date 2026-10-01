@@ -11,6 +11,7 @@ import { RequirementTray } from './composer/RequirementTray'
 import { ModeMenu } from './composer/ModeMenu'
 import { ModelMenu } from './composer/ModelMenu'
 import { EffortMenu } from './composer/EffortMenu'
+import { defaultEffortForModel } from '../../../../../shared/model-effort'
 import { EFFORT_LABEL_KEYS } from './composer/effort'
 import {
   defaultSelection,
@@ -491,6 +492,7 @@ export function Composer({
       >
         <EffortMenu
           effort={effort}
+          defaultEffort={defaultEffortForModel(modelFamily)}
           onPick={(nextEffort) => {
             setEffort(nextEffort)
             setEffortMenuOpen(false)

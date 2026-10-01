@@ -1,15 +1,14 @@
-import { CLAUDE_MODEL_FAMILIES } from '../../shared/model-identity'
+import {
+  CLAUDE_MODEL_FAMILIES,
+  parseClaudeModelName,
+  type ClaudeNameFamily
+} from '../../shared/model-identity'
 import { isRecord } from '../../shared/obj'
 import type { HarnessNativeSettings } from './harness-config'
 
-type ClaudeFamily = (typeof CLAUDE_MODEL_FAMILIES)[number] | 'mythos'
 export type ContextEnvLookup = (key: string) => string | undefined
 
 const ONE_M_SUFFIX = /\[1m\]/i
-const FAMILY = new RegExp(
-  `(?:^|[^a-z])(${[...CLAUDE_MODEL_FAMILIES, 'mythos'].join('|')})(?![a-z])`,
-  'i'
-)
 const THIRD_PARTY_FLAGS = [
   'CLAUDE_CODE_USE_BEDROCK',
   'CLAUDE_CODE_USE_VERTEX',
@@ -23,27 +22,19 @@ export function classifyContextModel(model?: string): {
   kind: 'default' | 'claude' | 'custom'
   contextWindow: 200_000 | 1_000_000
   has1mSuffix: boolean
-  family?: ClaudeFamily
+  family?: ClaudeNameFamily
   major?: number
   minor?: number
 } {
   const has1mSuffix = ONE_M_SUFFIX.test(model ?? '')
   if (!model) return { kind: 'default', contextWindow: 200_000, has1mSuffix }
-  const name = model.replace(/\[1m\]/gi, '').toLowerCase()
-  const match = FAMILY.exec(name)
-  if (!match) {
+  const parsed = parseClaudeModelName(model)
+  if (!parsed) {
     return { kind: 'custom', contextWindow: has1mSuffix ? 1_000_000 : 200_000, has1mSuffix }
   }
-  const family = match[1] as ClaudeFamily
-  const familyStart = match.index + match[0].length - family.length
-  const after = name.slice(familyStart + family.length)
-  const before = name.slice(0, familyStart)
-  // A date is not a minor version: 4-20250514 means major 4, not 4.20.
-  const version =
-    /^[-_.:/@ ]*(\d)(?!\d)(?:[-_.](\d{1,2})(?!\d))?/.exec(after) ??
-    /(\d)[-_.](\d{1,2})[-_.]*$/.exec(before)
-  const major = version ? Number(version[1]) : undefined
-  const minor = version?.[2] !== undefined ? Number(version[2]) : 0
+  const { family } = parsed
+  const major = parsed.version?.major
+  const minor = parsed.version?.minor ?? 0
   const native1m =
     family === 'fable' ||
     family === 'mythos' ||

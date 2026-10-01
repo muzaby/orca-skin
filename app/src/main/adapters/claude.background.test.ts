@@ -51,7 +51,7 @@ describe('0231 Claude provider lane', () => {
       type: 'system',
       subtype: 'init',
       session_id: 's1',
-      claude_code_version: '2.1.267',
+      claude_code_version: '2.1.286',
       tools: ['Bash', 'PowerShell']
     })
     const { provider } = await collect()
@@ -59,8 +59,8 @@ describe('0231 Claude provider lane', () => {
       expect.objectContaining({
         type: 'background.connection',
         state: 'connected',
-        sdkVersion: '0.3.267',
-        cliVersion: '2.1.267',
+        sdkVersion: '0.3.286',
+        cliVersion: '2.1.286',
         cliPath: expect.any(String)
       })
     )

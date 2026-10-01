@@ -429,6 +429,7 @@ export class SessionRuntime implements ManagedRuntime {
           ...(req.requirements ? { requirements: req.requirements } : {}),
           ...(req.promptUuid !== undefined ? { promptUuid: req.promptUuid } : {}),
           ...(req.model !== undefined ? { model: req.model } : {}),
+          ...(req.effort !== undefined ? { effort: req.effort } : {}),
           ...(req.permissionMode !== undefined ? { permissionMode: req.permissionMode } : {})
         })
         if (outcome.kind === 'rejectedBeforeAccept') {

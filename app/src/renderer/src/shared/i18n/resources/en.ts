@@ -941,9 +941,10 @@ export const en: typeof ko = {
       },
       effort: {
         title: 'Effort',
+        recommendedTag: 'Recommended',
         low: { label: 'Low', desc: 'Prioritizes fast responses.' },
         medium: { label: 'Medium', desc: 'Balances speed and thinking depth.' },
-        high: { label: 'High', desc: 'Default. Works with sufficient thinking depth.' },
+        high: { label: 'High', desc: 'Works with sufficient thinking depth.' },
         xhigh: { label: 'Extra', desc: 'Thinks more deeply for complex tasks.' },
         max: { label: 'Max', desc: 'Uses the deepest thinking budget.' }
       },

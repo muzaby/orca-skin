@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-01 |
 | 매핑 | 사용자 라이브 세션 (`/handoff-plan`) — 브랜치 `claude/sdk-update-model-effort-v7c8lg` |
-| 상태 | READY (V1 + ΔV1) |
+| 상태 | impl/IMPL_DONE (r1 · V1 + ΔV1 · 독립 검증 대기) |
 | V mode | `Delta V` |
 | 기준 V | `V1@b035a11` (공유 브랜치에서 확인) |
 | 이번 V revision | `ΔV1` — effort 메뉴 기본 수준 태그 문구를 '추천'으로 |
@@ -616,80 +616,154 @@ READY. 구현 전 사용자 결정 변경이다. V1의 '기본' 태그(D-010)를
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: V1+ΔV1을 구현했다. `model-effort.test.ts` 34케이스·메뉴 render 4케이스·실 CLI smoke 18건이 통과했다.
+- 이견 / 현실성 문제: smoke C가 어댑터를 직접 호출하면 runtime의 M7을 관측하지 못한다. 실제 `SessionRuntime → ClaudeAdapter → CLI`를 실행하도록 기술 경로를 보완해 M7·M8에서 각각 `[high, high, high]`를 관측했다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. D-014의 '추천'은 메뉴에만 추가했으며 `Composer.tsx:415`의 칩은 현재 effort 라벨을 유지한다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| … | … | … | … | … | … |
+| VP-02·13 | EP-01 기본값 계산 | reducer·메뉴 입력 2 | 2/2 | `rg -n -e 'effort:' -e 'defaultEffort=' app/src/renderer/src/features/chat/{reducer/chatReducer.ts,components/Composer.tsx}` — `:1479`·`:495`가 shared 함수 호출 | 없음 |
+| VP-12 | EP-02 계열·버전 파서 | effort·context 2 | 2/2 | `rg -n 'parseClaudeModelName\(' app/src --glob '!*.test.*'` — 정의 외 `model-effort.ts:49`·`claude-context-policy.ts:31`; M3·M4가 두 스위트를 함께 red | 없음 |
+| VP-03·14 | EP-03 선택 변경 | `SET_MODEL` 1 | 1/1 | `rg -n "case 'SET_MODEL'" app/src/renderer` — `chatReducer.ts:1466`; reducer 9케이스 통과 | 없음 |
+| VP-08·09·02·03 | EP-04 effort 운반 | 새·기존 send·handoff·draft·main·spawn 6 | 6/6 | `rg -n -e 'effort: cur\.effort' -e 'effort: src\.effort' -e 'payload\.effort' app/src --glob '!*.test.*'` — store `:847,979,1279,1357`·send `:508`. spawn `claude.ts:588`; store 8·send 9·adapter 5케이스 통과 | 없음 |
+| VP-04·07·09·10 | EP-05 라이브 적용 | 계약·전달·초기값·호출·성공 기록 5 | 5/5 | `rg -n -e 'effort\??:' -e 'appliedEffort' -e 'applyFlagSettings' -e 'req\.effort' app/src/main/{adapters/turn.ts,adapters/claude.ts,features/sessions/session-runtime.ts}` — `turn:129`·runtime `:432`·adapter `:387,759~761`; M7~M10 red | 없음 |
+| VP-01·11 | EP-06 SDK·픽스처 | pin·lock·식별·Monitor 입력 3곳 = 6 | 6/6 | `npm ls` = `0.3.286`; lock의 SDK·플랫폼 패키지 버전 모두 `0.3.286`. `rg -n 'MonitorInput|timeout_ms|sdkVersion'`으로 입력 3곳과 버전 단언을 재열람; Monitor 8·식별 9케이스 통과 | 없음 |
+| VP-05·15 | EP-07′ 추천 표시 | 메뉴·ko/en 설명·ko/en 태그 5 | 5/5 | `rg -n -e 'recommendedTag' -e 'high:.*desc' app/src/renderer/src/shared/i18n/resources/{ko,en}.ts` — '추천'/'Recommended'·정적 기본값 제거. render 4·i18n 3케이스 통과 | 없음 |
+| VP-01·02·13 | EP-08 CLI 대조 | 표 10·별칭 4 = 14 | 14/14 | `node scripts/smoke-effort-sdk.mjs` — A 10/10·B 4/4; M2는 A의 Opus 4.7·4.8 두 행 red, M12는 B opus red | 없음 |
+| VP-06 | EP-09 현재 상태 | spec·runtime 문서·계약/어댑터 주석 4 | 4/4 | `rg -n 'effort/providerSettings' app/src/main/adapters`·`rg -n '기본 high' docs/claude-code-spec.md` = 각각 0줄. `runtime-ipc.md:53` setter·실패 재시도, `turn.ts:117`·`claude.ts:749` 라이브 적용 확인 | 없음 |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: …
+- §10에 없는데 같은 불변식이 필요했던 지점: 없음. 위 검색은 effort 전달·선택·분류 소비처에서 시작했으며, 초기 `high`·수동 `SET_EFFORT`는 D-006과 기존 초기 상태 계약에 따라 유지했다.
+- 지점 검산: `2 + 2 + 1 + 6 + 5 + 6 + 5 + 14 + 4 = 45/45`. 같은 지점을 공유하는 pair는 다시 더하지 않았다.
+- 검색의 `{a,b}` 표기는 rg에 개별 파일 인자로 풀어 실행한다. 음성 관측은 파일 열람·양성 호출 관측과 함께 대조했다.
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| … | … | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | 설치 SDK `0.3.286`·식별 9케이스 통과; smoke B 별칭 4종 일치 | 해당 없음 — 직접 oracle |
+| VP-02 | REQUIRED | SELF_PASS | 기본값 UT 34·store 8케이스 통과; smoke A 10행 일치 | M1·M2 red |
+| VP-03 | REQUIRED | SELF_PASS | reducer 9케이스·fork/handoff `max` payload 통과 | M5·M6 red |
+| VP-04 | REQUIRED | SELF_PASS | send/runtime 전달·실 CLI `[high, low, low]`, 단일 spawn | M7·M8 IT·smoke C 각각 red |
+| VP-05 | REQUIRED | SELF_PASS | render 4케이스에서 추천 행·ko/en 문구 확인 | M11 red |
+| VP-06 | REQUIRED | SELF_PASS | 전체 607파일·5866 pass·1 skip·0 fail; smoke E 두 모델 일치·EP-09 관측 | 해당 없음 — 직접 oracle |
+| VP-07 | REQUIRED | SELF_PASS | smoke C 단일 CLI 채널의 세 턴 effort 일치 | M8 red; N3은 effort가 맞아도 spawn 3으로 red |
+| VP-08 | REQUIRED | SELF_PASS | 새·기존 대화 각각 Opus 5.5·custom·opus payload 일치 | 해당 없음 — 직접 oracle |
+| VP-09 | REQUIRED | SELF_PASS | send의 effort 지정/생략 두 케이스·runtime 후속 전달 통과 | M7 IT·smoke C red |
+| VP-10 | REQUIRED | SELF_PASS | 동일/생략 무호출·변경 1회·입력 전 적용·실패 후 재시도·채널 격리 5케이스 | M9·M10 red |
+| VP-11 | REQUIRED | SELF_PASS | typecheck 3구성 오류 0·설치 SDK 식별·Monitor 출력의 persistent 유지 | 해당 없음 — 직접 oracle |
+| VP-12 | REQUIRED | SELF_PASS | identity 65·context 52케이스 통과, 이설 파서의 계열 앞 버전·날짜·점 구분자 유지 | M3 두 스위트 1+1·M4 2+6 red |
+| VP-13 | REQUIRED | SELF_PASS | AC4 표 전부·표 중복/별칭 집합 검사 34케이스 통과 | M1·M2·M12 red; N1·N2 red |
+| VP-14 | REQUIRED | SELF_PASS | 같은 선택 유지·모델/provider 변경·거부·hydration 통과 | M5·M6 red |
+| VP-15 | REQUIRED | SELF_PASS | 기본 수준 medium/xhigh/high 행에서만 추천, 선택 max 행과 구별 | M11 render 3케이스 red |
+| VP-16 | REQUIRED | SELF_BLOCKED | 실제 계정의 Opus/Sonnet 5.5 대화·메뉴 실기 미실행 | 해당 없음 — 사람 AC16′ |
+
+REQUIRED 16 = SELF_PASS 15 + SELF_BLOCKED 1. 유효 V의 REGRESSION pair는 없으며, 기존 context 52케이스·권한/모델 테스트는 전체 gate에 포함했다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | … | … | … |
+| M1 Opus 5.5 행 삭제 | VP-02·13 | 첫 구현 | `model-effort.test.ts` / 8 | red |
+| M2 Opus 4.7↔4.8 값 교환 | VP-02·13 | 첫 구현 | effort UT / 3; smoke A / 2행 | red |
+| M3 계열 앞 버전 분기 제거 | VP-12 | 첫 구현 | identity / 1 + context / 1 | 두 스위트 red |
+| M4 버전 점 구분자 제거 | VP-12 | 첫 구현 | identity / 2 + context / 6 | 두 스위트 red |
+| M5 선택 비교 없이 항상 재설정 | VP-03·14 | 첫 구현 | reducer / 1(같은 선택의 수동값) | red |
+| M6 재설정 제거 | VP-03·14 | 첫 구현 | reducer / 6 + store / 6 | red |
+| M7 runtime 전달에서 effort 제거 | VP-04·09 | 첫 구현 | runtime / 1; smoke C `[high, high, high]` | red |
+| M8 SDK 적용 호출 제거 | VP-04·07 | 설계 probe `[high, high]` | adapter / 3; smoke C `[high, high, high]` | red |
+| M9 적용 기록을 await 앞으로 이동 | VP-10 | 첫 구현 | adapter / 1(같은 값 재시도) | red |
+| M10 SDK 적용을 input.push 뒤로 이동 | VP-10 | 첫 구현 | adapter / 3(순서·실패·대기) | red |
+| M11 추천을 현재 선택 행에 표시 | VP-05·15 | 첫 구현 | render / 3(기본 수준과 선택이 다름) | red |
+| M12 opus 별칭을 5.0으로 | VP-13 | 첫 구현 | effort UT / 3; smoke B / opus 1 | red |
+| N1 표에 동일 Opus 5.5 행 추가 | 새 표 중복 oracle | 없음 | effort UT / 1 | red |
+| N2 별칭 맵에서 haiku 제거 | 새 별칭 집합 oracle | 없음 | effort UT / 1 | red |
+| N3 살아 있는 채널도 매 send teardown | 새 smoke C spawn 횟수 oracle | 없음 | smoke C / 1: effort `[high, low, low]`지만 spawn `3 !== 1` | red |
 
-- **분모 검산**: …
-- **덮개 회귀**: …
+- **분모 검산**: 선택 증거 12(M1~M12, 공유 pair 중복 제거) · 인용 변이 0 · 새 oracle 3(N1~N3) = 표 행 15. 등록 변이 12/12·새 oracle 3/3 red; 일반 직접 행동 oracle에 임의 변이를 추가하지 않았다.
+- **덮개 회귀**: 기존 테스트 제거 0. 전체 기준선 5796 pass → 5866 pass, 실패 집합 차집합 `[]`. 원래 spawn effort 단언은 `claude.effort.test.ts` 첫 케이스로 유지했다.
+- **복원**: 각 변이 뒤 원본 바이트를 finally로 복원했다. 복원 후 전체 vitest 0 fail; N3 이후 `session-runtime.ts` diff는 effort 전달 1줄이며 `git diff --check` 오류 0이다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 확인 — EffortMenu가 recommendedTag를 읽고 render 4케이스에서 ko/en 행 위치 확인 | 실제 앱의 메뉴 시각은 AC16′ |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 해당 없음 — parser만 순수 shared로 이설; 채널 close/finally 위치 불변 | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 일치 — `applyFlagSettings 실패` 행. adapter reject 케이스가 입력 미전송·같은 값 재시도 관측 | 없음 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 기존 경로 연결 — runtime catch의 markError/throw → send의 오류 발신; setter reject를 삼키지 않는다 | 실 계정 UI 오류 표시는 AC16′ |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 동기 SET_MODEL에서 재설정; provider 스냅샷 기존 테스트도 전체 통과. 카탈로그 hydration 지연은 Part I 수용 항목 유지 | 별도 동작 변경 없음 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | 어댑터 직호출 smoke만으로 runtime의 effort 유실을 검출할 수 없다 | 선조치 — smoke C의 진입을 SessionRuntime으로 올렸다 | M7 IT 1케이스와 실제 CLI `[high, high, high]` red |
+| 2 | 요청 effort만 맞으면 매 턴 respawn도 smoke를 통과할 수 있다 | 선조치 — 실제 adapter.sendMessage 호출 횟수 1을 함께 단언 | N3에서 effort는 맞지만 `3 !== 1` red |
+| 3 | Haiku 미지원 effort·Bedrock/Foundry 별칭 차이는 남는다 | 보고만 — D-005·D-013의 명시 수용/비범위 유지 | smoke D의 요청 effort 없음; AC4 haiku 기본 high |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- smoke C는 `SessionRuntime`을 통해 실제 어댑터를 호출한다. §등록 변이의 M7이 runtime 자리이므로 그 배선을 생략한 어댑터 직호출로는 요구된 red를 만들 수 없다; 관측 목표·제품 계약은 유지했다.
+- send effort 케이스는 §11이 허용한 기존 `send.permission-mode.test.ts` 하네스에 추가했다. SDK 설치는 `--ignore-scripts`를 붙여 기준선의 SQLite ABI를 유지했으며 package/lock은 npm이 생성했다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 추가 캐시 없음 — 해당 없음 | AC11 세 프레임 완료; timer/finally로 fixture 종료 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | runtime frame과 CLI 채널이 함께 살아야 한다 | AC11·EP-05: channelAlive와 spawn 1, `[high, low, low]` 확인 |
+| 재진입 | 후속 runtime.send가 초기 spawn으로 돌아가면 effort 결과만으로 놓칠 수 있다 | N3 red, runtime UT도 spawn 1 확인 |
+| 다른 무효화 축 | runtime teardown이 채널을 바꾸는 축 | AC11·EP-05: N3 강제 teardown에서 spawn 단언 red; production respawn 정책 불변 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님) | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | §18의 범위. send 테스트는 기존 permission-mode 스위트에 추가; 신규 6파일(shared 규칙/테스트·reducer/store/render 테스트·smoke) |
+| 실행 명령 | SDK exact install·`npm run lint`·`npm run typecheck`·전체 `vitest run --reporter=json`·smoke A~E·`electron-vite build`·`node --test scripts/*.test.mjs`·doc inventory |
+| **관측한 게이트 산출**(exit code 아님) | lint 0 error·기존 warning 1; typecheck 3구성 오류 0. 전체 607파일·5866 pass·1 skip·0 fail; script 128/128·smoke 18/18; main/preload/renderer build 성공 |
+| V-pair 자기확인 | SELF_PASS 15·SELF_BLOCKED 1(실 계정 AC16′); 독립 검증은 다음 주체 몫 |
+| 강제 지점 전수 | EP-01~09의 유효 9행, 고유 자리 45/45; 표의 검색·관측과 대조 |
+| **AC 자기보고**(`Criteria-Met`) | 15/16 — 아래 각 AC 관측표 정본 |
+| **합계 검산** | ✅15 · ⚠️1 · ❌0 = 총 16; V1 AC12·16은 ΔV1의 AC12′·16′로 대체 |
+| 블로커 / 역질문 | PLAN_GAP 없음. AC16′는 실 API 자격증명이 필요한 사람 실기; 기계 gate 실패 없음 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+### AC 자기보고 관측표
+
+| AC | 자기 판정 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | npm ls `0.3.286`; lock의 SDK/플랫폼 패키지 버전 일치; 설치 식별 9케이스 통과 |
+| AC2 | ✅ | smoke B `opus/sonnet/fable/haiku` 요청 버전 = `5.5/5.5/5.1/4.5` |
+| AC3 | ✅ | smoke A 10행 모두 일치; D Haiku 요청 effort 없음 |
+| AC4 | ✅ | model-effort UT 34/34; M1·M2·M12 red |
+| AC5 | ✅ | identity 65/65·기존 context 52/52; M3·M4 양쪽 red; 정책 파일의 `new RegExp` 검색 0줄 |
+| AC6 | ✅ | reducer 모델별 기본값 + store 새/기존 대화 payload 6케이스 통과 |
+| AC7 | ✅ | 같은 선택/alias만 변경 시 max 유지·provider/model 변경 시 재설정·타 어댑터 거부 통과 |
+| AC8 | ✅ | fork draft와 handoff 모두 선택 식별자·max 유지; fork 첫 send·handoff payload max |
+| AC9 | ✅ | main 조립의 medium/생략 2케이스·runtime low 후속 전달/단일 spawn 통과 |
+| AC10 | ✅ | adapter 5/5; 같은 값/생략 0회·변경 1회·reject 후 2회 재시도·입력 전 적용 |
+| AC11 | ✅ | 실제 CLI smoke C `[high, low, low]`·spawn 1; M7·M8·N3 red |
+| AC12′ | ✅ | render 4/4: 기본 medium/xhigh/high만 추천, en Recommended; i18n 3/3 |
+| AC13 | ✅ | 기준선 603파일·5796 pass → 607파일·5866 pass; 양쪽 fail 0·skip 1, 새 실패 집합 `[]`; lint/typecheck 오류 0 |
+| AC14 | ✅ | smoke E 정식/gateway 두 요청에서 `[1m]` 제거·context-1m 베타 유지 |
+| AC15 | ✅ | EP-09 네 자리 재열람; 금지 문자열 음성 0줄·runtime 문서 applyFlagSettings 양성 1줄 |
+| AC16′ | ⚠️ | 실제 계정의 대화·앱 칩/메뉴 실기 미실행 |
+
+검산: ✅15 · ⚠️1 · ❌0 = 16. 최종 전체 Vitest JSON의 변경 전/후 실패 케이스 집합 차집합은 `[]`, 추가 케이스는 70이다.
+
+### 운영 산출 재열람
+
+- 빌드: `out/main/index.js:16`에 `require("@anthropic-ai/claude-agent-sdk")` 유지; main/preload/renderer 빌드 성공.
+- 문서: `check-doc-inventory.mjs --check`에서 generated/prose/relative links 모두 통과.
+- 상태 사본: plan 메타 `impl/IMPL_DONE (r1 · V1 + ΔV1 · 독립 검증 대기)`와 INDEX의 impl/IMPL_DONE·다음 주체 Claude가 일치함을 재열람했다. 커밋 후 trailer의 `Agent`·`Handoff`·`Status`·`Criteria-*`·`Verified-By` 파싱을 확인한다.
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
-- 현재 라운드·impl 턴: …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음 — 첫 구현 r1이다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: M7은 runtime 자리를 지정했지만 smoke C 기술 예시는 어댑터 직호출이었다. runtime 경로로 실행해 등록 red를 관측했다.
+- 반복해서 부딪히는 환경 한계: native/electron 설치 제약 없음 — 기준선·최종 전체 테스트 실패 0. lint의 useTranscriptVirtualizer 경고 1은 기존 파일이며 수정하지 않았다.
+- 현재 라운드·impl 턴: 1 · r1; 사용자 결정 변경 ΔV1을 합성했고 verify는 아직 수행하지 않았다.
 
 ---
 

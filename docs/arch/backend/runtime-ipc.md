@@ -50,6 +50,7 @@
 
 ### 1.3 장수명 세션 채널 (close 정책)
 
+- **effort 라이브 적용**: `SessionRuntime`이 후속 요청의 effort를 `pushTurn`에 전달하고 ClaudeAdapter가 마지막 적용값과 다를 때만 입력 전송 전에 `applyFlagSettings({ effortLevel })`를 호출한다. 성공 후에만 적용값을 기록하므로 실패한 턴은 입력을 보내지 않고 다음 전송에서 재시도한다.
 - **`persistent`** + 어댑터 `pushTurn` 구현(claude): 한 번의 spawn(SDK `query`/서브프로세스)이 세션 수명 동안 살아남는다. **단일 채널 pump**가 provider 원본 메시지 단위 `ProviderMessageBatch`를 소비하며 **프레임(1 프레임 = 1 턴)** 으로 절단한다. 배치 전 이벤트를 같은 목적지에 넣은 뒤 terminal 전이를 적용하므로 한 원본 메시지의 `[telemetry,error]`가 서로 다른 턴으로 갈라지지 않는다. terminal에서는 프레임만 닫고 채널은 유지하며 후속 턴은 `pushTurn`으로 잇는다.
 - **`oneshot`** 또는 `pushTurn` 미구현(mock): 턴-스코프(매 턴 fresh spawn, terminal 에서 핸들 close) — 0067 이전 동작 보존.
 - **프레임 밖 이벤트**(CLI 가 자기 큐 잔존분을 자동 픽업해 시작한 턴): `SessionRuntime` 의 `unframed` 버퍼 + `hasUnframedBacklog` 로 노출 → 자동 연속 프레임 오픈(배선은 `app/chat-turn/post-turn.ts`).
