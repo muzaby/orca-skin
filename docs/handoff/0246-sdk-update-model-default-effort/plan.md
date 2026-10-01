@@ -8,11 +8,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-01 |
 | 매핑 | 사용자 라이브 세션 (`/handoff-plan`) — 브랜치 `claude/sdk-update-model-effort-v7c8lg` |
-| 상태 | READY |
-| V mode | `Baseline V` |
-| 기준 V | `none` |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| 상태 | READY (V1 + ΔV1) |
+| V mode | `Delta V` |
+| 기준 V | `V1@b035a11` (공유 브랜치에서 확인) |
+| 이번 V revision | `ΔV1` — effort 메뉴 기본 수준 태그 문구를 '추천'으로 |
+| 유효 V | `V1 + ΔV1` (ΔV1 절의 대체 행 우선) |
 
 # Part I — Product & UX Contract
 
@@ -45,15 +45,18 @@
 | D-007 | effort만 바꿔도 살아 있는 CLI 채널의 다음 턴부터 반영한다 — SDK `applyFlagSettings({ effortLevel })`, 채널 재시작 없이 | 질의 응답 "포함" — 백그라운드 작업 유지 | 사용자 턴 2 | ACTIVE | — |
 | D-008 | 기본값은 renderer reducer `SET_MODEL` 이 shared 순수 함수로 정한다. main은 `payload.effort` 를 그대로 전달한다 | 0215 권한 강등(`coercePermissionMode`)과 같은 자리·형태 | 설계자 | ACTIVE | — |
 | D-009 | 이름 파서를 `claude-context-policy.ts` 에서 `shared/model-identity.ts` 로 옮겨 effort·컨텍스트 분류가 함께 쓴다 | 같은 규칙(D-004 = 0245 D-007)을 renderer·main 두 레이어가 쓴다 — 복붙 정규식 금지 | 설계자 | ACTIVE | — |
-| D-010 | effort 메뉴의 정적 "기본값" 문구를 지우고 현재 모델의 기본 수준에 '기본' 태그를 단다 | `high.desc` "기본값."(`ko.ts:954`)은 Opus 5.5에서 거짓이 된다 | 설계자 | ACTIVE | — |
+| D-010 | effort 메뉴의 정적 "기본값" 문구를 지우고 현재 모델의 기본 수준에 '기본' 태그를 단다 | `high.desc` "기본값."(`ko.ts:954`)은 Opus 5.5에서 거짓이 된다 | 설계자 | SUPERSEDED | D-014·D-015 |
 | D-011 | "모델 선택 변경" = `providerKey` 또는 `modelFamily` 변경. 같은 선택 재지정·어댑터 불일치로 거부된 `SET_MODEL` 은 effort를 바꾸지 않는다 | D-006의 판정 기준 | 설계자 | ACTIVE | — |
 | D-012 | 표·별칭 대응을 번들 CLI와 대조하는 opt-in smoke 스크립트를 둔다(루프백 모델 픽스처, 외부 호출 0) | SDK를 올릴 때 하드코딩 표의 드리프트를 기계로 잡는다 | 설계자 | ACTIVE | — |
 | D-013 | 비범위: 모델별 지원 수준 제한(메뉴 비활성), Haiku effort 칩 숨김, effort 영속화, 1-shot 보조 경로(제목·worktree 이름)의 effort | 요청 밖이고 CLI가 미지원 수준을 낮춰 실행한다 | 설계자 | ACTIVE | — |
+| D-014 | effort 팝업 메뉴에서 현재 모델 기본 수준의 라벨 옆에 '추천'을 표시한다(en 'Recommended' — 설계자). 컴포저 effort 칩은 바꾸지 않는다 | "Effort level 팝업 메뉴에서 기본값에는 옆에 추천 이라고 표시해줘야한다" | 사용자 턴 3 (ΔV1) | ACTIVE | D-010 대체 |
+| D-015 | `high` 설명의 정적 "기본값" 문구(ko·en)는 지운다 | 기본값이 모델마다 다르다 — V1 D-010 앞부분 승계 | 설계자 (ΔV1) | ACTIVE | D-010 대체 |
 
 ### 갱신 메모
 
 - 이번 턴에서 새로 추가된 결정: D-001~D-013 (신규 handoff).
 - 변경된 결정: 없음.
+- ΔV1(구현 전 사용자 결정 변경): D-010 → SUPERSEDED, D-014(사용자 — '추천' 태그)·D-015(설계자 — 정적 문구 제거 승계) 신설. 유효 AC 정정은 아래 ΔV1 절이 정한다.
 - 기존 ACTIVE 중 언급되지 않았지만 유지되는 결정: 해당 없음(신규).
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-001 ↔ AC1·AC2 · D-002 ↔ AC3·AC4 · D-003 ↔ AC4 · D-004 ↔ AC4·AC5 · D-005 ↔ AC2·AC4 · D-006 ↔ AC6·AC7·AC8 · D-007 ↔ AC9·AC10·AC11 · D-008 ↔ AC6·AC9 · D-009 ↔ AC5 · D-010 ↔ AC12 · D-011 ↔ AC7 · D-012 ↔ AC2·AC3·AC11·AC14 · D-013 ↔ §6 비범위(AC 없음).
 
@@ -551,6 +554,58 @@ defaultEffortForModel(model):
 - [x] 게이트 명령이 `app/AGENTS.md` 와 충돌하지 않는다 — `npm test` 대신 `vitest run`, lint·typecheck 기본.
 - [x] 본문 완성 후 `ACTIVE 결정 ↔ AC` 대조를 §3 갱신 메모에 적었다 — 충돌 0.
 - [x] 산출물 문장 규칙 — 판정 먼저, 관측 인용, 같은 사실을 Part I/II에 중복하지 않음(probe 수치는 §8에만).
+
+## ΔV1 — effort 메뉴 기본 수준 표시를 '추천'으로
+
+READY. 구현 전 사용자 결정 변경이다. V1의 '기본' 태그(D-010)를 사용자가 지정한 '추천'으로 바꾼다. 유효 범위는 V1 + 이 절이며, V1 §5·§7 AC12·AC16·§10 EP-07·§11(`EffortMenu`·i18n·render 테스트 행)의 태그 서술은 이 절이 대체한다.
+
+### 근거와 결정 승계
+
+| 사용자 문장 · 발견 | 관측 | 정정 |
+|---|---|---|
+| "Effort level 팝업 메뉴에서 기본값에는 옆에 추천 이라고 표시해줘야한다" | V1은 같은 자리에 '기본' 태그(D-010)를 설계했다 — 구현 전(앱 코드 변경 0) | D-010 → D-014(태그 문구 '추천') · D-015(정적 '기본값' 문구 제거 승계) |
+| 표시 위치 | 사용자 문장은 팝업 메뉴를 지정한다. 컴포저 effort 칩(`Composer.tsx:412-419`)은 현재 effort 라벨만 보인다 | 칩 불변 |
+| 영문 카탈로그 | ko/en 리프 키 패리티를 컴파일(`en.ts` `typeof ko`)과 `resources.test.ts` 가 강제한다 | en = 'Recommended'(설계자) |
+
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-014 ↔ AC12′·AC16′ · D-015 ↔ AC12′ · 그 밖 ACTIVE 결정은 V1 대조 그대로(D-010만 SUPERSEDED).
+- 폐기 근거: 없음 — V1 AC12의 증거(태그 1개·위치·M11)는 AC12′로 이관한다.
+
+### AC 정정
+
+| AC | 대체 관계 | 행동 · oracle | production path |
+|---|---|---|---|
+| AC12′ | V1 AC12 대체 | effort 메뉴는 현재 모델 기본 수준 행에만 라벨 옆 '추천'(en 'Recommended')을 단다. `high` 설명은 ko·en 모두 '기본값'을 주장하지 않는다. render UT: `defaultEffort` `medium`·`xhigh`·`high` 각각 '추천' 1개·그 행 위치 단언(그중 하나는 `effort ≠ defaultEffort`) + 변이 M11 · i18n 패리티 테스트 | `Composer` → `EffortMenu` |
+| AC16′ | V1 AC16 대체 | V1 AC16 + effort 메뉴를 열면 현재 모델 기본 수준 옆에 '추천'이 보인다(Opus 5.5 → '중간' 행, Fable → '높음' 행) | 앱 실행 |
+| 나머지 | 승계 | V1 AC1~AC11·AC13~AC15 그대로 | V1 |
+
+유효 AC는 V1 AC1~AC11·AC13~AC15 + AC12′·AC16′의 16행이다. 사람 실기는 AC16′, 나머지는 기계 검증한다.
+
+### Delta V 와 강제 지점
+
+| Node | provenance | 변경 / 승계 |
+|---|---|---|
+| R-05 | CHANGED | 메뉴 기본 표시 = '추천' 태그(D-014) + 정적 문구 제거(D-015) |
+| AT-12 · AT-16 | CHANGED | AC12′ · AC16′ |
+| MD-04 · UT-04 | CHANGED | `EffortMenu` 태그 문구 키 `chat.composer.effort.recommendedTag` |
+| 그 밖 V1 node | INHERITED | `V1@b035a11` 그대로 — 구현 전이므로 V1 REQUIRED pair는 모두 유효 |
+
+| Pair | V1 대체 관계 / requiredness | path · 직접 oracle | 강제 지점 / 선택 적대 증거 |
+|---|---|---|---|
+| VP-05 | V1 VP-05 대체 / REQUIRED (R-05 ↔ AT-12) | `Composer`(`defaultEffortForModel(modelFamily)`) → `EffortMenu` 태그, AC12′ | EP-07′ (5) · **required** — M11 승계(태그를 `effort` 자리에 렌더) |
+| VP-15 | V1 VP-15 대체 / REQUIRED (MD-04 ↔ UT-04) | `EffortMenu({effort, defaultEffort})`, AC12′ render | EP-07′ ① (1) · **required** — M11 승계 |
+| VP-16 | V1 VP-16 대체 / REQUIRED (R-01·R-02·R-04·R-05 ↔ AT-16) | 앱 실행 → 실 API · 메뉴 표시, AC16′ | 0 — 실기. 기계 경로는 VP-01·VP-02·VP-04·VP-05가 잠근다 |
+| VP-01~VP-04 · VP-06~VP-14 | 승계 / REQUIRED | V1 그대로 | V1 그대로 |
+
+| EP | V1 대체 관계 | 자리 · 강제 의미 |
+|---|---|---|
+| EP-07′ | V1 EP-07 대체 | ① `EffortMenu` 가 `level === defaultEffort` 행에 `tr('chat.composer.effort.recommendedTag')` ② ko `high.desc` 정적 '기본값' 제거 ③ en `high.desc` 'Default.' 제거 ④ ko `effort.recommendedTag` = '추천' ⑤ en `effort.recommendedTag` = 'Recommended' (5) |
+
+### 기술 보완
+
+- V1 §11의 `EffortMenu.tsx`·i18n·`effortMenu.render.test.ts` 행은 키 `effort.defaultTag`·문구 '기본'/'default' 대신 키 `effort.recommendedTag`·문구 '추천'/'Recommended' 로 읽는다. 태그 형태(ModelMenu와 같은 `shrink-0 text-[11.5px] text-rust`)와 위치 규칙(`level === defaultEffort`)은 V1 그대로다.
+- 컴포저 effort 칩은 바꾸지 않는다(D-014) — 칩 라벨은 V1과 같이 `EFFORT_LABEL_KEYS[effort]` 다.
+- 운영 gate: V1 그대로.
+- **READY 검산**: CHANGED node(R-05·AT-12·AT-16·MD-04·UT-04)는 모두 REQUIRED pair(VP-05·VP-15·VP-16)를 갖는다. 다른 상위 동작에 닿지 않는다 — 바뀌는 것은 태그 문구 키와 값뿐이고 `defaultEffort` 계산·칩 라벨은 불변이다. V1 M11은 VP-05·VP-15로 승계했고 폐기한 변이는 0이다.
 
 ---
 
