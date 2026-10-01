@@ -8,11 +8,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-30 |
 | 매핑 | 이슈1(폐쇄망 LLM 입력 264k 초과) — 사용자 라이브 세션 · 근거 [study 8장](../../etc/study/claude/08-컨텍스트-한도와-파일-정책.md) |
-| 상태 | READY |
-| V mode | `Baseline V` |
-| 기준 V | `none` |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| 상태 | READY (ΔV1) |
+| V mode | `Delta V` |
+| 기준 V | `V1@64fbfb35` (공유 브랜치에서 확인) |
+| 이번 V revision | `ΔV1` — 서버 정상 가정: Claude Code 와 같은 큰 파일 정책으로 범위 조정 |
+| 유효 V | `V1 + ΔV1` (ΔV1 절의 대체 행 우선) |
 
 # Part I — Product & UX Contract
 
@@ -41,18 +41,24 @@
 |---|---|---|---|---|---|
 | D-001 | LiteLLM 쪽 수정(버전·오류 문구 훅)은 하지 않는다 — 고정 제약으로 본다 | "Litellm쪽은 해결할 수 없다 제외하라" | 사용자 턴 | ACTIVE | — |
 | D-002 | 조사 결과를 study 문서로 남긴다 | "study 문서 남길 것" | 사용자 턴 | ACTIVE | — |
-| D-003 | 설계·구현을 이번 세션에서 모두 한다 | "Plan 및 impl을 모두 진행하라" | 사용자 턴 | ACTIVE | — |
+| D-003 | 설계·구현을 이번 세션에서 모두 한다 | "Plan 및 impl을 모두 진행하라" | 사용자 턴 | SUPERSEDED | D-020 |
 | D-004 | 기본 정책은 200k 로 한다 | "디폴트 200k 정책으로 기준하도록" | 사용자 턴 | SUPERSEDED | D-005 |
 | D-005 | 200k 기본 정책은 **Claude 가 아닌 모델**에 적용한다. Claude 모델은 `[1m]` 접미사가 있거나 1M 으로 출시된 모델이면 1M 정책, 아니면 200k 정책 | "디폴트 200k 정책은 클로드 모델이 아닐때이다. …1000k 정책으로 수행돼야 한다" | 사용자 턴 | ACTIVE | D-004 를 구체화 |
 | D-006 | 정책은 **Claude Code CLI 2.1.267 과 같은 분류**를 따른다 — Claude 200k · Claude 1M · 미확인 모델 · 미확인 모델+`[1m]` | "클로드 코드 cli와 똑같은 정책을 가져가고 싶다. 200k, 1m, 미확인된 모델, 미확인된 모델이지만 1m 등" | 사용자 턴 | ACTIVE | — |
 | D-007 | 게이트웨이가 바꾼 모델명에서 계열(opus·sonnet·haiku·fable·mythos)과 버전(`4.7`·`4-7` 등)을 뽑아 Claude 여부·1M 출시 여부를 판정한다 | "'opus', '4.7', '4-7' 같은 형태로 모델이름과 버전을 추출할 수 있음" | 사용자 턴 | ACTIVE | — |
 | D-008 | 1M 인 Claude 모델명에 `[1m]` 이 없고, **CLI 가 스스로 1M 을 인정하지 못하는 연결**(게이트웨이 URL · 3P)이면 Orca 가 실행 모델 문자열에만 `[1m]` 을 붙인다 | CLI 는 `api.anthropic.com` 직결에서만 네이티브 1M 을 인정한다(study 8.2). CLI 는 `[1m]` 을 떼고 원래 이름을 보낸다 | D-005·D-006 의 구현 수단 — 설계자 | ACTIVE | — |
-| D-009 | Claude 가 아닌 모델 세션에서 도구 결과의 이미지·PDF 는 경로·크기 안내문으로 바꿔 모델에 보낸다 | LiteLLM 이 커스텀 백엔드로 보낼 때 도구 결과 이미지를 base64 텍스트로 바꾼다(study 8.8) — 모델은 볼 수 없고 수십만 토큰이 된다. 안내형 UX 는 사용자에게 제시 후 이견 없음 | 설계자 제안 · 사용자 UX 확인 턴 | ACTIVE | — |
-| D-010 | Claude 가 아닌 모델 세션에서 컴포저 첨부 이미지는 Claude 표준 등급(긴 변 1568px · 시각 토큰 1568, 공식 `resizedSize`)으로 줄여 보내고, 원본 보관·표시는 그대로 둔다 | "컨텍스트를 너무 많이 차지한다" · 200k 정책의 이미지 등급이 표준이다 | 사용자 턴 + 설계자 | ACTIVE | — |
-| D-011 | 줄인 이미지에는 CLI 와 같은 형식의 `[Image: original …, displayed at …]` 메모를 모델용 텍스트에 붙이고, 별도 UI 표시는 두지 않는다 | CLI 와 같은 동작(`CBe`) | 설계자 | ACTIVE | — |
-| D-012 | 초과 오류는 전용 분류 `context_overflow` 로 표시하고 원문과 조치 안내를 보인다. 자동 요약 재시도·되돌려 이어가기는 이번 범위가 아니다 | Claude 경로는 CLI 가 이미 자동 복구한다. 커스텀 경로는 CLI 도 복구하지 못한다 — CLI 동등 수준은 안내다(추론) | 설계자 권고(2회 제시) + D-006 | ACTIVE | — |
+| D-009 | Claude 가 아닌 모델 세션에서 도구 결과의 이미지·PDF 는 경로·크기 안내문으로 바꿔 모델에 보낸다 | LiteLLM 이 커스텀 백엔드로 보낼 때 도구 결과 이미지를 base64 텍스트로 바꾼다(study 8.8) — 모델은 볼 수 없고 수십만 토큰이 된다. 안내형 UX 는 사용자에게 제시 후 이견 없음 | 설계자 제안 · 사용자 UX 확인 턴 | SUPERSEDED | D-015 |
+| D-010 | Claude 가 아닌 모델 세션에서 컴포저 첨부 이미지는 Claude 표준 등급(긴 변 1568px · 시각 토큰 1568, 공식 `resizedSize`)으로 줄여 보내고, 원본 보관·표시는 그대로 둔다 | "컨텍스트를 너무 많이 차지한다" · 200k 정책의 이미지 등급이 표준이다 | 사용자 턴 + 설계자 | SUPERSEDED | D-016 |
+| D-011 | 줄인 이미지에는 CLI 와 같은 형식의 `[Image: original …, displayed at …]` 메모를 모델용 텍스트에 붙이고, 별도 UI 표시는 두지 않는다 | CLI 와 같은 동작(`CBe`) | 설계자 | SUPERSEDED | D-016 |
+| D-012 | 초과 오류는 전용 분류 `context_overflow` 로 표시하고 원문과 조치 안내를 보인다. 자동 요약 재시도·되돌려 이어가기는 이번 범위가 아니다 | Claude 경로는 CLI 가 이미 자동 복구한다. 커스텀 경로는 CLI 도 복구하지 못한다 — CLI 동등 수준은 안내다(추론) | 설계자 권고(2회 제시) + D-006 | SUPERSEDED | D-017 |
 | D-013 | 자동 요약 창 기본값 env 주입(`CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000`)은 하지 않는다 | 미확인 모델은 CLI 가 이미 200k 로 요약한다. 1M 모델은 1M 전체를 써야 한다("1m의 컨텍스트를 모두 사용할수있나?") | 사용자 질문 → 설계자 철회 | ACTIVE | — |
 | D-014 | 텍스트 Read 상한은 CLI 기본값(256KB · 25,000토큰)을 유지한다 | 200k·1M 모두 CLI 기본과 같게 | D-006 | ACTIVE | — |
+| D-015 | 도구 결과(Read·MCP·노트북)의 이미지·PDF 는 Orca 가 바꾸지 않는다 — CLI 동작 그대로 | "해당 문제는 서버사이드 이슈로 남겨두고, orca는 서버가 정상이라는 가정하에 큰 파일에 대한 정책을 claude 와 똑같이 가져가는 형태로 만 손대려고 한다" | 사용자 턴 (ΔV1) | ACTIVE | D-009 대체 |
+| D-016 | 대화창 첨부 이미지는 Orca 가 줄이거나 메모를 붙이지 않는다 — CLI 가 SDK 입력 이미지에 자체 정책(긴 변 2000px · 512,000바이트 · 축소 메모)을 적용한다 | 같은 사용자 문장 · CLI 입력 처리 확인(study 8.5) | 사용자 턴 + 설계자 확인 (ΔV1) | ACTIVE | D-010·D-011 대체 |
+| D-017 | 결과 오류는 SDK 원문(`result`·`errors`)을 그대로 표시한다. 새 분류·안내 문구는 두지 않는다 | "Claude code와 같게 맞추는 방향으로 plan 수정하라" — CLI 는 원문을 보이고 분류 라벨이 없다 | 사용자 턴 (ΔV1) | ACTIVE | D-012 대체 |
+| D-018 | 대화창 텍스트 첨부는 Claude Code `@파일` 첨부와 같게 처리한다 — Orca 는 내용을 넣지 않고 저장 경로를 `@"경로"` 로 넘겨 CLI 가 처리하게 한다. 24,000자 자르기는 없앤다 | "Claude code와 같게 맞추는 방향으로 plan 수정하라" · Claude Code 는 버리지 않고 Read 로 이어 읽게 안내한다. CLI 에 넘겨야만 CLI 버전이 바뀌어도 같다 | 사용자 턴 + 설계자(방식) (ΔV1) | ACTIVE | — |
+| D-019 | 1M 판정은 CLI 가 실제로 실행할 모델로 한다 — Orca 모델이 별칭이면 `ANTHROPIC_DEFAULT_<별칭>_MODEL`, 없으면 `ANTHROPIC_MODEL` → settings `model` 값으로 판정 | 700K 사례 분석에서 찾은 빈틈 — V1 은 Orca 문자열만 봤다 · D-006 | 설계자 (ΔV1) | ACTIVE | D-008 보완 |
+| D-020 | 이 세션은 설계까지만 한다. 구현은 다른 모델이 한다 | "Handoff-plan 까지만 완료하라. Handoff-impl은 모델을 변경할 예정이다" | 사용자 턴 | ACTIVE | D-003 대체 |
 
 ### 갱신 메모
 
@@ -60,6 +66,7 @@
 - 변경된 결정: D-004 → D-005 ("디폴트 200k"의 적용 대상을 사용자가 비-Claude 로 좁혔다).
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: D-001·D-009·D-012.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-005 ↔ AC1·AC2 · D-006 ↔ AC1 · D-007 ↔ AC1 · D-008 ↔ AC2·AC3 · D-009 ↔ AC4·AC5 · D-010 ↔ AC6~AC9 · D-011 ↔ AC9 · D-012 ↔ AC10~AC13 · D-013 ↔ AC3(환경변수를 건드리지 않음) · D-014 ↔ AC 없음(변경 없음).
+- ΔV1(구현 전 사용자 결정 변경): D-003·D-009·D-010·D-011·D-012 → SUPERSEDED, D-015~D-020 신설. 유효 범위와 AC 는 아래 ΔV1 절이 정한다.
 - r1 구현 중 정정(AC6 예시 값): `(2000,1500)→(1269,952)` 는 `Math.round` 로 계산한 값이었다. 공식 참조 구현(Python `round` = half-to-even)은 `(1270,952)` — 1270/1.333=952.5 → 952. 동작 기준("공식 참조 구현과 같다")은 그대로다.
 
 ## 4. 요구 비판적 검토
@@ -446,6 +453,90 @@ SDK result/throw → isContextOverflowMessage → ClassifiedError → error 파�
 - [x] 게이트 명령이 `app/AGENTS.md` 와 충돌하지 않는다.
 - [x] `ACTIVE 결정 ↔ AC` 대조를 §3 갱신 메모에 적었다.
 - [x] 산출물 문장 규칙.
+
+## ΔV1 — 서버 정상 가정: Claude Code 와 같은 큰 파일 정책으로 범위 조정
+
+READY. 구현 전 사용자 결정 변경이다. V1 이 서버(게이트웨이) 문제를 Orca 에서 우회하던 범위를 걷어 내고, Orca 가 CLI 를 거치지 않고 직접 넣던 **텍스트 첨부**만 Claude Code 와 같게 맞춘다. 유효 범위는 이 절의 표가 전부다 — V1 §5·§9~§14·§17 의 도구 결과 교체·이미지 축소·초과 분류 서술은 이 절이 대체한다.
+
+### 근거와 결정 승계
+
+| 발견 · 사용자 문장 | 관측 | 정정 |
+|---|---|---|
+| "해당 문제는 서버사이드 이슈로 남겨두고, orca는 서버가 정상이라는 가정하에 큰 파일에 대한 정책을 claude 와 똑같이 가져가는 형태로 만 손대려고 한다" | 700,342토큰 오류 = PNG 2장(427KB·327KB)의 base64 약 100만 자가 LiteLLM→OpenRouter 변환에서 글자로 토큰화(약 1.4~1.5자/토큰, study 8.8). Claude Haiku 200k 에서는 큰 이미지도 증가가 작다(사용자 관측) | D-009 → D-015 · D-010·D-011 → D-016 |
+| "Claude code와 같게 맞추는 방향으로 plan 수정하라" | CLI 는 API 오류 원문을 보이고 별도 분류 라벨·안내가 없다 | D-012 → D-017 |
+| 텍스트 첨부 | Orca 는 24,000자에서 자르고 한 줄 메모만 붙인다(`attachments.ts` `MAX_FILE_CONTEXT_CHARS`). Claude Code `@파일`은 256KB 초과 미첨부 · 25,000토큰 초과 앞 2,000줄 + "Read 로 더 읽어라" 안내 · 그 밖 전체(study 8.6) | D-018 |
+| 1M 판정 입력 | Orca 모델이 별칭이거나 없으면 CLI 가 env 로 실제 모델을 고른다 — V1 분류는 Orca 문자열만 봤다 | D-019 |
+| CLI 의 SDK 입력 처리 | 이미지 블록에는 CLI 이미지 정책을 적용한다(study 8.5) · `@` 는 사용자 메시지의 **마지막 블록이 텍스트**일 때만 확장한다 | D-016 근거 · D-018 조립 조건 |
+| 첨부 저장 위치 | 첨부는 OS 임시 디렉토리의 제품 하위(`getTemporaryFilesPath`)에 저장되고, 그 경로는 대화 `additionalDirectories` 에 들어 있다 | D-018 — CLI 가 읽을 수 있다 |
+
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-005~D-007 ↔ AC1 · D-008·D-019 ↔ AC2·AC3·AC20 · D-016 ↔ AC21(이미지 원본 유지) · D-017 ↔ AC11 · D-018 ↔ AC21·AC22·AC23 · D-013 ↔ AC3(env 불변) · D-014·D-015 ↔ AC 없음(변경 없음) · D-020 ↔ AC 없음(작업 분담).
+- 폐기 근거: V1 AC4~AC10·AC12~AC14·AC16·AC17·AC19 는 D-015~D-017 로 대상 동작이 사라져 이관할 곳이 없다.
+
+### AC 정정 및 추가
+
+| AC | 대체 관계 | 행동 · oracle | production path |
+|---|---|---|---|
+| AC1·AC2·AC3·AC18 | 승계 | V1 그대로. AC3 의 세 자리는 AC20 의 해석을 거친 문자열을 넘긴다 | V1 |
+| AC11 | V1 AC11 대체 | 결과 오류 message = SDK 원문 — 비어 있지 않은 `result` → `errors`(줄바꿈 결합) → `message` → `error` → 합성 문구 순. category 는 기존 `stream_error`. 기존 `error_max_turns`+`message` 케이스 유지 | `claude-map.ts` result 분기 |
+| AC15 | V1 AC15 대체 | 문서가 ΔV1 범위만 서술한다: adapters 문서(1M 판정·텍스트 첨부 CLI 위임) · 폐쇄망 가이드(모델 이름·`[1m]`·창 env, 도구 결과 이미지 글자화는 게이트웨이 쪽 문제) · study 8.6·8.8. `check-doc-inventory --check` exit 0 | 문서 |
+| AC20 | 신규 | CLI 실제 모델 해석 표 — 별칭 `opus` + `ANTHROPIC_DEFAULT_OPUS_MODEL=gw-opus-4.7` + 게이트웨이 → `opus[1m]` · 별칭 `sonnet` + `ANTHROPIC_DEFAULT_SONNET_MODEL=internal-llm` → `sonnet` · 별칭 env 값에 이미 `[1m]` → 별칭 그대로 · 모델 없음 + `ANTHROPIC_MODEL=gw-opus-4.7` + 게이트웨이 → `gw-opus-4.7[1m]` · 모델 없음 + settings `model: gw-fable-5` + 게이트웨이 → `gw-fable-5[1m]` · 모델 없음 + `ANTHROPIC_MODEL=internal-llm` → 없음 · 모델 없음 + 둘 다 없음 → 없음 | `modelForCli` |
+| AC21 | 신규 | 텍스트 첨부 조립 — 첨부마다 마지막 텍스트 블록에 `@"<저장 경로>"` 한 줄, 첨부 내용·잘림 메모 없음. 이미지가 있으면 블록 순서 = 이미지들 → 텍스트(마지막)이고 이미지 data 는 첨부 원본. 첫 입력·프렐류드·steer·`pushTurn` 네 경로 모두 같다 | `buildTurnContent` · `claude.ts` 네 경로 |
+| AC22 | 신규 | 텍스트 첨부 정규화는 확장자(.txt·.md)·NUL 검사만 하고 내용을 자르지 않는다. 결과에 저장 경로가 있고, 24,000자 상수와 잘림 필드는 없다 | `send.ts` → `normalizeAttachments` |
+| AC23 | 신규 (실기) | 설치본: 작은 .md → 모델이 내용을 인용 · 256KB 초과 .md → 내용 없이 경로만, 모델이 Read 로 나눠 읽음 · 256KB 이하·25,000토큰 초과 → 앞 2,000줄 + CLI 안내 · 이미지와 텍스트를 함께 첨부해도 같다 · API 오류 시 배너에 원문 | 설치본 → CLI |
+
+유효 AC 는 AC1·AC2·AC3·AC11·AC15·AC18·AC20·AC21·AC22·AC23 의 10행이다. 사람 실기는 AC18·AC23, 나머지는 기계 검증한다.
+
+### Delta V 와 강제 지점
+
+| Node | provenance | 변경 / 승계 |
+|---|---|---|
+| R-01 · MD-01 | INHERITED | 분류 규칙 V1 그대로 |
+| R-02 · MD-02 | CHANGED | 1M 판정 입력 = CLI 실제 모델(D-019) |
+| MD-06 | NEW | CLI 실제 모델 해석 |
+| SD-01 | CHANGED | 세션 동안 실행 모델 문자열 = 현재 모델의 해석 결과(전환 반영). 훅·이미지 등급 제외 |
+| R-05 · AR-05 | CHANGED | 결과 오류 원문 1자리만(D-017) |
+| R-07 · AR-07 · MD-07 · MD-08 | NEW | 텍스트 첨부 CLI 위임 — 조립(MD-07)·4경로 배선(AR-07)·정규화(MD-08) |
+| R-06 | CHANGED | 문서 범위 |
+| R-03 · AR-02 · MD-03 | SUPERSEDED | D-015 — 대체 없음 |
+| R-04 · AR-03 · AR-04 · MD-04 | SUPERSEDED | D-016 — AR-04 의 "4경로 한 함수 경유" 증거는 AR-07 로 이관 |
+| AR-06 · MD-05 | SUPERSEDED | D-017 — 대체 없음 |
+
+| Pair | V1 대체 관계 / requiredness | path · 직접 oracle | 강제 지점 / 선택 적대 증거 |
+|---|---|---|---|
+| VP-01 | 승계 / REGRESSION | V1 | EP-01 · not selected |
+| VP-02 | V1 VP-02 대체 / REQUIRED (MD-02↔UT-02) | 해석 모델 + env → 실행 문자열, AC2·AC20 | EP-01 · not selected — 직접 표 |
+| VP-03 | 승계 / REGRESSION (AR-01↔IT-01) | V1 세 자리, AC3 | EP-02 (3) · V1 등록 변이(자리마다 원문 전달) 승계 |
+| VP-10 | V1 VP-10 대체 / REQUIRED (AR-05↔IT-05) | SDK result → `claudeToNormalized` → error 이벤트, AC11 | EP-06′ (1) · not selected — 직접 원문 단언 |
+| VP-12 | V1 VP-12 대체 / REQUIRED (SD-01↔ST-01) | 스폰 → `pushTurn(model)`·`setModel` → 새 해석 문자열, AC3 전환 케이스 | EP-02 ②③ · 전환 때 해석 미갱신 변이 |
+| VP-13 | V1 VP-13 대체 / REQUIRED (R-02·R-05·R-07↔AT) | 설치본 → CLI → 게이트웨이, AC18·AC23 | 0 — 실기 |
+| VP-14 | V1 VP-14 대체 / REQUIRED (R-06↔AT-15) | 문서 → 인벤토리 검사, AC15 | 0 — 문서 |
+| VP-15 | 신규 / REQUIRED (MD-06↔UT-06) | 모델·env·settings → 해석 모델, AC20 | EP-08 (1) · not selected — 직접 표 |
+| VP-16 | 신규 / REQUIRED (MD-07↔UT-07) | 첨부 → content(멘션 줄·블록 순서), AC21 단위 | EP-09 · not selected — 직접 결과 |
+| VP-17 | 신규 / REQUIRED (AR-07↔IT-07) | 첫 입력·프렐류드·steer·`pushTurn` → 입력 스트림 content, AC21 통합(query mock) | EP-09 (4) · **required** — 네 자리 각각에서 조립을 우회(내용 inline)하는 변이 → red. V1 VP-08 의 4경로 증거 이관 |
+| VP-18 | 신규 / REQUIRED (MD-08↔UT-08) | 파일 바이트 → 정규화 결과, AC22 | EP-10 (2) · not selected — 직접 결과 |
+| VP-04~VP-09 · VP-11 | SUPERSEDED | 대상 동작 폐기(D-015~D-017) | V1 VP-05·07·08·10② 의 등록 변이는 대상 코드가 없어 폐기. VP-08 의 경로별 변이는 VP-17 로 이관 |
+
+| EP | V1 대체 관계 | 자리 · 강제 의미 |
+|---|---|---|
+| EP-01 | V1 2자리 → 1자리 | 분류는 `modelForCli` 만 쓴다 — V1 의 `customModel` 판정은 폐기 |
+| EP-02 | 승계 | 실행 모델 3자리(스폰 `options.model` · `pushTurn` · `LiveTurn.setModel`) 모두 같은 해석 함수 결과를 넘긴다 |
+| EP-06′ | V1 EP-06 대체 | `claude-map.ts` result 분기 1자리. 예외 분류기(`error-classifier.ts`)는 바꾸지 않는다 |
+| EP-08 | 신규 | 해석 입력 1자리 — `sendMessage` 의 env 조회와 settings `model` 을 해석 함수에 함께 넘긴다 |
+| EP-09 | 신규 (V1 EP-04 이관) | content 조립 4경로(첫 입력·프렐류드·steer·`pushTurn`) 모두 `buildTurnContent` 한 함수 경유 — 멘션 줄·블록 순서 |
+| EP-10 | 신규 | ① `attachments.ts` 텍스트 자르기 제거 ② 저장 경로 보장(`send.ts` 가 storage 전달 — 현행 유지) |
+| EP-03·EP-04·EP-05·EP-07 | 폐기 | D-015~D-017 |
+
+### 기술 보완
+
+- **해석 규칙(MD-06)**: 별칭 = `sonnet`·`opus`·`haiku`·`fable`(대소문자 무시, `[1m]` 접미사 허용)이면 `ANTHROPIC_DEFAULT_<별칭>_MODEL` 값을 분류한다. 값이 없으면 별칭 자체를 분류한다(V1 규칙상 버전 없음 → 200k). 모델이 없으면 `ANTHROPIC_MODEL` → settings `model` 순서로 고른다 — Orca `model-parser.ts` 의 기본 모델 선정과 같은 우선순위다.
+- **실행 문자열**: 별칭 경로에서 1M 부착이 필요하면 별칭에 `[1m]` 을 붙인다(CLI 가 별칭을 env 모델로 풀 때 접미사를 옮긴다 — CLI 2.1.267 별칭 해석). 모델 없음 경로는 부착이 필요할 때만 해석 모델에 `[1m]` 을 붙여 명시적으로 넘기고, 아니면 지금처럼 넘기지 않는다.
+- **조립(MD-07)**: 텍스트 = 사용자 본문 → 이미지 첨부 블록(현행) → 텍스트 첨부 멘션 줄(`@"<path>"`, 첨부 순서) → diff 요구 블록(현행). 이미지가 없으면 string, 있으면 `[이미지 블록들…, {type:'text'}]`. 경로는 큰따옴표로 감싼다 — 저장 경로에 큰따옴표가 들어가지 않는다는 전제는 구현자가 `attachment-files.ts` 저장 이름 규칙으로 확인하고 테스트로 잠근다.
+- **텍스트 첨부 필드**: `ExtractedAttachmentText` 의 `text`·`charsOriginal`·`charsIncluded`·`truncated` 소비처는 프롬프트 조립뿐이다(`rg -n "charsIncluded|charsOriginal|MAX_FILE_CONTEXT_CHARS|formatAttachmentPromptBlock" app/src --glob '!*.test.ts'` → `turn.ts`·`attachment-prompt.ts`·`claude.ts`·`attachments.ts`). 텍스트 첨부 쪽 필드는 제거하고, 이미지용 `formatAttachmentPromptBlock` 호출은 유지한다.
+- **생산자 전수**: 텍스트 첨부는 `normalizeAttachments` 한 곳에서만 만들어지고(`rg -n "attachmentTexts" app/src/main --glob '!*.test.ts'`), 유일한 호출부 `send.ts` 가 항상 storage 를 넘겨 저장 경로가 채워진다. 큐·프렐류드·연속 턴은 같은 객체를 옮길 뿐이다.
+- **작업 중 추가 지시(steer)**: 같은 조립을 쓴다. CLI 가 작업 중 받은 메시지의 `@` 를 어떻게 다루는지는 CLI 동작을 따른다 — Claude Code 에서 작업 중 `@파일` 을 입력한 것과 같다.
+- **바꾸지 않는 것**: 도구 결과(PostToolUse 교체 훅 없음) · 첨부 이미지(축소·메모 없음, CLI 처리) · 오류 분류 값(`ErrorCategory` 변경 없음) · env(창·자동 요약 주입 없음).
+- **운영 gate**: V1 의 lint·typecheck·inventory·trailer 를 승계하고, vitest 는 **전체 스위트**로 판정한다 — 저장소 전역 위생 스위트(renderer catch 레지스트리 등)를 빠뜨리지 않기 위해서다(0244 r1 사례). electron 미설치 환경에서 electron 을 import 하는 스위트는 기준선과 같은 실패로 분리 보고한다.
+- **READY 검산**: NEW·CHANGED node(R-02·MD-02·MD-06·SD-01·R-05·AR-05·R-06·R-07·AR-07·MD-07·MD-08)는 모두 REQUIRED pair(VP-02·10·12·13·14·15·16·17·18)를 갖는다. 영향받은 상위 AR-01 은 REGRESSION VP-03 이다. SUPERSEDED pair 의 등록 변이는 VP-17 로 이관하거나 폐기 근거를 적었다.
 
 ---
 
