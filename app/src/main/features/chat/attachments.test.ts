@@ -13,7 +13,8 @@ import { createHash } from 'node:crypto'
 import { homedir, tmpdir } from 'node:os'
 import { afterEach, describe, expect, it } from 'vitest'
 import { PRODUCT_SLUG } from '../../../shared/product'
-import { MAX_FILE_CONTEXT_CHARS, bufferToBase64Chunked, normalizeAttachments } from './attachments'
+import { buildTurnContent } from '../../adapters/claude'
+import { bufferToBase64Chunked, normalizeAttachments } from './attachments'
 import { MAX_ATTACHMENT_BYTES, nativeAttachmentDirectory } from './attachment-files'
 
 const createdDirs: string[] = []
@@ -32,6 +33,15 @@ async function makeTempDir(): Promise<string> {
 // 허용하므로(보안 검사) 홈 안에 만들 수밖에 없다 — afterEach 가 즉시 정리한다.
 async function makeHomeTempDir(): Promise<string> {
   return trackTempDir(await mkdtemp(join(homedir(), '.orca-attachment-test-')))
+}
+
+// Claude Code 2.1.267 번들의 quoted mention과 #L/anchor 정규식.
+// 인용된 문자열이 아니라 CLI가 파일 읽기에 쓰는 경로를 대조한다(0245 D1).
+function cliMentionPaths(text: string): string[] {
+  return Array.from(
+    text.matchAll(/(^|[\s\u3002\u3001\uFF1F\uFF01])@"([^"]+)"/g),
+    (match) => /^([^#]+)(?:#L(\d+)(?:-(\d+))?)?(?:#[^#]*)?$/.exec(match[2])?.[1] ?? match[2]
+  )
 }
 
 afterEach(async () => {
@@ -74,15 +84,19 @@ describe('attachment files and text normalization', () => {
     expect(await readFile(normalized.attachmentViews![1].path!, 'utf8')).toBe('clipboard')
     expect(await readFile(source, 'utf8')).toBe('# Source')
   })
-  it('extracts UTF-8 text and strips BOM', async () => {
+  it('passes the saved UTF-8 file path to the CLI and preserves BOM bytes (AC22)', async () => {
     const dir = await makeHomeTempDir()
     const path = join(dir, 'note.md')
     await writeFile(path, '\uFEFFhello')
 
-    const result = await normalizeAttachments([
-      { kind: 'path', path, name: 'note.md', mimeType: 'text/markdown', sourceKind: 'dialog' }
-    ])
-    expect(result.attachmentTexts[0]?.text).toBe('hello')
+    const directory = await makeTempDir()
+    const result = await normalizeAttachments(
+      [{ kind: 'path', path, name: 'note.md', mimeType: 'text/markdown', sourceKind: 'dialog' }],
+      { directory, views: [] }
+    )
+    expect(result.attachmentTexts[0]?.path).toBe(result.attachmentViews![0].path)
+    expect(await readFile(result.attachmentTexts[0].path, 'utf8')).toBe('\uFEFFhello')
+    expect(result.attachmentTexts[0]).not.toHaveProperty('text')
   })
 
   it('rejects binary-like text', async () => {
@@ -113,23 +127,35 @@ describe('normalizeAttachments', () => {
     expect(result.attachmentImages[0]).toMatchObject({ data: 'abc123', sourceKind: 'clipboard' })
   })
 
-  it('truncates oversized path text attachments', async () => {
+  it('preserves text beyond 24,000 characters and 256KB in the saved file (AC22)', async () => {
     const dir = await makeHomeTempDir()
     const path = join(dir, 'large.txt')
-    await writeFile(path, 'a'.repeat(MAX_FILE_CONTEXT_CHARS + 10))
+    const original = 'a'.repeat(300_000) + '\nKEEP_THIS_END'
+    await writeFile(path, original)
+    const directory = await makeTempDir()
 
-    const result = await normalizeAttachments([
-      {
-        kind: 'path',
-        path,
-        name: 'large.txt',
-        mimeType: 'text/plain',
-        sourceKind: 'dialog'
-      }
-    ])
+    const result = await normalizeAttachments(
+      [
+        {
+          kind: 'path',
+          path,
+          name: 'large.txt',
+          mimeType: 'text/plain',
+          sourceKind: 'dialog'
+        }
+      ],
+      { directory, views: [] }
+    )
 
-    expect(result.attachmentTexts[0]?.truncated).toBe(true)
-    expect(result.attachmentTexts[0]?.charsIncluded).toBe(MAX_FILE_CONTEXT_CHARS)
+    const attachment = result.attachmentTexts[0]
+    expect(await readFile(attachment.path, 'utf8')).toBe(original)
+    expect(attachment).toMatchObject({
+      sizeBytes: Buffer.byteLength(original),
+      path: result.attachmentViews![0].path
+    })
+    for (const field of ['text', 'charsOriginal', 'charsIncluded', 'truncated']) {
+      expect(attachment).not.toHaveProperty(field)
+    }
   })
 
   it('stores dialog, drop and clipboard bytes at unique paths while preserving display views and model data', async () => {
@@ -183,7 +209,6 @@ describe('normalizeAttachments', () => {
       expect(view.sha256).toBe(createHash('sha256').update(bytes).digest('hex'))
     }
     expect(result.attachmentTexts[0]).toMatchObject({
-      text: '# Reference',
       path: result.attachmentViews![0].path
     })
     expect(result.attachmentImages[0]).toMatchObject({
@@ -192,6 +217,76 @@ describe('normalizeAttachments', () => {
       sourceKind: 'clipboard'
     })
     expect(await readFile(path, 'utf8')).toBe('# Reference')
+  })
+
+  it('sanitizes stored names so quoted CLI mentions have no embedded quotes (AC21)', async () => {
+    const path = join(await makeHomeTempDir(), 'source.md')
+    await writeFile(path, 'reference')
+    const directory = await makeTempDir()
+    const result = await normalizeAttachments(
+      [
+        {
+          kind: 'path',
+          path,
+          name: '../../quoted"name?:file.md',
+          mimeType: 'text/markdown',
+          sourceKind: 'dialog'
+        }
+      ],
+      { directory, views: [] }
+    )
+    expect(result.attachmentTexts[0].path).not.toContain('"')
+    expect(dirname(result.attachmentTexts[0].path)).toBe(await realpath(directory))
+    expect(await readFile(result.attachmentTexts[0].path, 'utf8')).toBe('reference')
+  })
+
+  it.each(['issue#12.md', 'C# notes.md', 'lines#L2-4.txt', 'a#b#c.md'])(
+    'CLI mentions read the saved bytes of %s from dialog and drop without renaming display views (0245 D1)',
+    async (name) => {
+      const path = join(await makeHomeTempDir(), name)
+      const original = Buffer.from(`# Reference\n${name}\nKeep the complete attachment.\n`)
+      await writeFile(path, original)
+      const directory = await makeTempDir()
+      const result = await normalizeAttachments(
+        (['dialog', 'drag_drop'] as const).map((sourceKind) => ({
+          kind: 'path' as const,
+          path,
+          name,
+          mimeType: 'text/plain',
+          sourceKind
+        })),
+        { directory, views: [] }
+      )
+
+      const savedPaths = result.attachmentTexts.map((attachment) => attachment.path)
+      const content = buildTurnContent('review', result.attachmentTexts, [], [])
+      const cliPaths = cliMentionPaths(content as string)
+      expect(cliPaths).toEqual(savedPaths)
+      expect(new Set(savedPaths).size).toBe(2)
+      expect(result.attachmentViews!.map((view) => view.name)).toEqual([name, name])
+      expect(result.attachmentViews!.map((view) => view.path)).toEqual(savedPaths)
+      for (const cliPath of cliPaths) {
+        expect(dirname(cliPath)).toBe(await realpath(directory))
+        expect(await readFile(cliPath)).toEqual(original)
+      }
+      expect(await readFile(path)).toEqual(original)
+    }
+  )
+
+  it('rejects unsupported text extensions before passing a path to the CLI (AC22)', async () => {
+    const path = join(await makeHomeTempDir(), 'script.ts')
+    await writeFile(path, 'text')
+    await expect(
+      normalizeAttachments([
+        {
+          kind: 'path',
+          path,
+          name: 'script.ts',
+          mimeType: 'text/plain',
+          sourceKind: 'dialog'
+        }
+      ])
+    ).rejects.toThrow('unsupported attachment type')
   })
 
   it('rolls back files from this batch when a later attachment fails', async () => {

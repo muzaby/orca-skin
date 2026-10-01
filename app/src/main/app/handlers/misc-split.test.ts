@@ -9,11 +9,13 @@ import { describe, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../../shared/ipc'
 
 const registered = vi.hoisted(() => [] as string[])
+const handlers = vi.hoisted(() => new Map<string, (event: unknown, raw: unknown) => unknown>())
 
 vi.mock('electron', () => ({
   ipcMain: {
-    handle: vi.fn((channel: string) => {
+    handle: vi.fn((channel: string, fn: (event: unknown, raw: unknown) => unknown) => {
       registered.push(channel)
+      handlers.set(channel, fn)
     })
   },
   BrowserWindow: { fromWebContents: vi.fn() },
@@ -23,7 +25,7 @@ vi.mock('electron', () => ({
 }))
 
 const { registerMiscHandlers } = await import('./misc')
-const { registerSettingsHandlers } = await import('./settings')
+const { registerSettingsHandlers, registerSettingsReadHandler } = await import('./settings')
 const { registerSkillsHandlers } = await import('./skills')
 const { registerFilesHandlers } = await import('./files')
 const { registerCostHandlers } = await import('./cost')
@@ -73,6 +75,9 @@ describe('handlers/misc 분해 (0179)', () => {
   it('5개 모듈이 25개 채널을 정확히 그대로 등록한다 (중복 0)', () => {
     registered.length = 0
 
+    // 0244 — 설정 읽기는 `start()` 첫 문장에서 따로 등록된다. 두 등록 함수를 합쳐도 설정
+    // 채널이 정확히 1회씩이어야 한다(두 번째 `ipcMain.handle` 은 Electron 에서 throw).
+    registerSettingsReadHandler((ctx as { settings: { getAll: () => never } }).settings)
     registerSettingsHandlers(ctx)
     registerSkillsHandlers(ctx)
     registerFilesHandlers(ctx)
@@ -81,5 +86,18 @@ describe('handlers/misc 분해 (0179)', () => {
 
     expect([...registered].sort()).toEqual([...EXPECTED].sort())
     expect(new Set(registered).size).toBe(registered.length)
+  })
+
+  it('0244 — 조기 등록 읽기 핸들러는 SettingsStore.getAll() 을 그대로 돌려주고 쓰기 모듈은 읽기를 등록하지 않는다', () => {
+    registered.length = 0
+    handlers.clear()
+    const snapshot = { theme: 'dark', uiLocale: 'en' }
+    registerSettingsReadHandler({ getAll: () => snapshot as never })
+    expect(registered).toEqual([CHANNELS.settingsGet])
+    expect(handlers.get(CHANNELS.settingsGet)?.({}, undefined)).toBe(snapshot)
+
+    registered.length = 0
+    registerSettingsHandlers(ctx)
+    expect(registered).toEqual([CHANNELS.settingsSet])
   })
 })

@@ -66,7 +66,7 @@ Composer의 `dialog`·`drag_drop`·`clipboard` 첨부는 `chat:send` 정규화 �
 | 채널 | 방향 | 페이로드 | 응답 | 설명 |
 | --- | --- | --- | --- | --- |
 | `orca:boot:report` | R→M (invoke) | — | `BootReport` = `{ startedAt; finishedAt; durationMs; status:'ok'\|'warning'\|'failed'; steps: BootReportStep[]; warnings: string[] }` | main `Bootstrap.start()` 부트 결과의 **완료 리포트 스냅샷**을 조회한다. 실시간 진행률/event 채널이 아니며, renderer boot 에서는 non-mandatory diagnostic 단계로만 조회한다(`whenReady` 게이트 뒤). 조회 실패나 `warning` status 는 앱 진입을 막지 않고 degrade/console warning 으로 남긴다. |
-| `orca:boot:whenReady` | R→M (invoke) | — | `void` (resolve = main 준비 완료 / reject = `start()` 실패) | **main 부팅 완료 게이트** (0109). 창이 `start()` 완료 *이전* 에 뜨므로, renderer 부트 오케스트레이터의 **첫 mandatory 스텝**(`main-ready`)이 이 invoke 로 main 준비를 기다린 뒤에야 나머지 IPC 스텝(settings/session 조회 등)을 시작한다 — "미등록 핸들러 invoke" 창을 구조적으로 차단. 핸들러는 `index.ts` 가 `start()` 착수 직후(다른 어떤 핸들러 등록보다 먼저) 등록하고 `start()` promise 를 그대로 반환한다. reject 는 renderer mandatory 규칙에 따라 BootScreen failed UX 로 표면화된다. |
+| `orca:boot:whenReady` | R→M (invoke) | — | `void` (resolve = main 준비 완료 / reject = `start()` 실패) | **main 부팅 완료 게이트** (0109). 창이 `start()` 완료 *이전* 에 뜨므로, renderer 부트 오케스트레이터의 **첫 mandatory 스텝**(`main-ready`)이 이 invoke 로 main 준비를 기다린 뒤에야 나머지 IPC 스텝(settings/session 조회 등)을 시작한다 — **부트 스텝이 부르는 invoke 만** 보호한다. 게이트 밖에서 마운트 즉시 부르는 채널은 `start()` 동기 구간에서 조기 등록한다(`orca:settings:get` 0244 · `orca:provider:state` 0181/0188). 핸들러는 `index.ts` 가 `start()` 착수 직후(다른 어떤 핸들러 등록보다 먼저) 등록하고 `start()` promise 를 그대로 반환한다. reject 는 renderer mandatory 규칙에 따라 BootScreen failed UX 로 표면화된다. |
 
 `BootReportStep` = `{ id; label?; status:'ok'\|'warning'\|'failed'; critical; startedAt; finishedAt; durationMs; message? }`. `critical:false` 단계의 실패는 `warning` 으로 기록되며 main 부트를 막지 않는다. `critical:true` 단계의 실패는 main 부트 실패로 전파되며, renderer 는 `whenReady` reject 로 이를 관측한다(0109 이전에는 창 자체가 뜨지 않았다).
 
@@ -119,7 +119,7 @@ Composer의 `dialog`·`drag_drop`·`clipboard` 첨부는 `chat:send` 정규화 �
 
 | 채널                | 방향         | 페이로드                              | 응답       | 설명                                     |
 | ------------------- | ------------ | ------------------------------------- | ---------- | ---------------------------------------- |
-| `orca:settings:get` | R→M (invoke) | —                                     | `Settings` | electron-store 의 전체 설정 객체.        |
+| `orca:settings:get` | R→M (invoke) | —                                     | `Settings` | electron-store 의 전체 설정 객체. **창 생성 전 조기 등록**(0244 — `start()` 첫 문장): 부팅 게이트 밖 `TweakProvider` 가 첫 화면 전에 테마를 읽는다. renderer 는 읽기 실패 시 `orca:boot:whenReady` 뒤 1회 재시도하고, 또 실패하면 `loadFailed` 로 보고한다. |
 | `orca:settings:set` | R→M (invoke) | `SettingsPatch` = `Omit<Partial<Settings>, 'scheduler'> & { scheduler?: { usageRecompute?: Partial<…>; updateCheck?: Partial<…> } }` (scheduler 는 그룹별 중첩 partial — 한 그룹만 보내도 형제 그룹은 보존) | `Settings` | 부분 패치 후 병합·검증된 전체 객체 반환. **부수효과 2건**: 패치 키에 `authBypass` 가 있으면 `orca:provider:state` 를 push 하고(게이트 판정의 입력이라, 저장만 하고 끝내면 화면이 재시작 전까지 옛 판정에 머문다 — 0181), `spendingLimitUsd` 가 있으면 `orca:cost:usageEvent` 전역 delta 를 push 한다(한도는 사용량 뷰의 `budget`·`pct` 입력이라, 저장만 하고 끝내면 도넛이 다음 턴 종료까지 옛 한도의 퍼센트를 보여준다 — 0186). |
 
 `Settings` 타입 (`app/src/shared/ipc.ts`):
