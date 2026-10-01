@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-30 |
 | 매핑 | 이슈1(폐쇄망 LLM 입력 264k 초과) — 사용자 라이브 세션 · 근거 [study 8장](../../etc/study/claude/08-컨텍스트-한도와-파일-정책.md) |
-| 상태 | IMPL_DONE (ΔV1 r1 · 기계 범위) |
+| 상태 | IMPL_DONE (ΔV1 r2 · D1·D3 보완 · 기계 범위) |
 | V mode | `Delta V` |
 | 기준 V | `V1@64fbfb35` (공유 브랜치에서 확인) |
 | 이번 V revision | `ΔV1` — 서버 정상 가정: Claude Code 와 같은 큰 파일 정책으로 범위 조정 |
@@ -651,10 +651,119 @@ READY. 구현 전 사용자 결정 변경이다. V1 이 서버(게이트웨이) 
 
 ---
 
+## [구현자 기입] 설계 리뷰 (r2)
+
+- 유지 — 기준은 V1+ΔV1이며 유효 AC 10·REQUIRED 9·REGRESSION 2다. r1 FAIL의 root D1과 VP-16·VP-17·VP-18을 보완하고 나머지 계약은 전체 게이트로 다시 확인했다.
+- 변경 — 불변식은 **보관 첨부 파일명이 CLI에서 다른 경로로 해석되지 않는다**다. `attachment-files.ts:93-102` 공통 저장 이름 정제에 `#`를 추가했고 dialog·drop의 실제 정규화 결과를 CLI 파서에 넣어 저장 바이트까지 읽었다.
+- PLAN_GAP 없음 — D1은 기존 D-018·MD-07·AC21의 멘션 전제다. Decision·AC·V·§10 규범 행은 수정하지 않았고 `git show HEAD:plan.md`와 현재 규범 부분 비교가 `normativeDelta: 0`이었다.
+- 선조치 — D3의 `additionalDirectories` 단언을 OS 임시 디렉토리의 제품 하위 경로와 정확히 대조한다(`claude.context-policy.test.ts:214`). D2는 별도 실사용 판단이 필요한 NEXT_HANDOFF로 남겼다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조, r2)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-01·VP-02 | EP-01 분류 소비 | `modelForCli` | 1/1 | `rg -n 'classifyContextModel\(' app/src/main/adapters/claude-context-policy.ts` → 선언 외 `:101` 1곳. 정책 UT 52/52. | — |
+| VP-03·VP-12 | EP-02 실행 모델 | 스폰·후속 턴·라이브 전환 | 3/3 | `rg -n -e 'model:' -e 'setModel\(' app/src/main/adapters/claude.ts` → `:586·754·786`; `runCompletion :347` 비범위. M1~M5 red. | — |
+| VP-10 | EP-06′ 결과 오류 | result 분기 | 1/1 | `claude-map.ts:808-828`; 매퍼 96/96, 원문 우선순위·정상 결과·기존 오류 케이스. | — |
+| VP-02·VP-15 | EP-08 해석 입력 | env·settings model | 1/1 | `claude.ts:384-386`; 정책 UT 52/52와 query의 settings/env 모델 사례. | — |
+| VP-16·VP-17 | EP-09 조립 | 첫 입력·프렐류드·steer·후속 턴 | 4/4 | `rg -n -e 'buildTurnContent\(' -e 'batchContent\(' app/src/main/adapters/claude.ts` → `:419` 공유·`:426·428·560·760` 진입. query 네 입력 비교·M6~M9 red. | — |
+| VP-18 | EP-10 텍스트 생산 | 자르기 제거·storage 전달 | 2/2 | `attachments.ts:106-108·160-166`, `send.ts:96-98`; 첨부 18/18, 300,014바이트·BOM·검증 거부·원본 보존. | — |
+| VP-16·VP-18 | D1 멘션 전제 | 보관 파일명 정제 | 1/1 | `attachment-files.ts:93-102`의 단일 생성자. `attachments.ts:160` 공통 호출을 dialog·drop 양쪽으로 실행했고, 파일명 4종의 저장 경로 8개를 CLI 파서로 읽었다. | — |
+
+§10 자리는 12개, D1의 저장 이름 전제는 공통 생성자 1곳이다. 검색은 `fs.open`·`writeFile`·`attachmentTexts`와 SDK의 `model`·`setModel`·`content` 운반 edge를 함께 읽어 readonly 파일 열기와 실제 보관 파일 생성(`wx`)을 구분했다. 모델 전달·입력 진입·보관 파일 생성의 계약 집합과 관측 집합 차집합은 각각 0행이다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 |
+|---|---|---|---|
+| VP-01 | REGRESSION | SELF_PASS | 전체 실행에서 정책 UT 52/52: AC1 분류·구 버전/날짜 사례. |
+| VP-02 | REQUIRED | SELF_PASS | 같은 UT의 AC2 실행 문자열·3P 플래그·1M 비활성 사례. |
+| VP-03 | REGRESSION | SELF_PASS | query 10/10과 M1~M3 red. |
+| VP-10 | REQUIRED | SELF_PASS | 매퍼 96/96: AC11 원문·기존 `error_max_turns` 유지. |
+| VP-12 | REQUIRED | SELF_PASS | query의 두 전환 시퀀스와 M4·M5 red. |
+| VP-13 | REQUIRED | SELF_BLOCKED | AC18·AC23 폐쇄망 설치본·실 게이트웨이 실기는 미실행. |
+| VP-14 | REQUIRED | SELF_PASS | adapters 저장 이름 정책·기존 가이드/study 연결; inventory·prose·links 통과. |
+| VP-15 | REQUIRED | SELF_PASS | 정책 UT의 AC20 해석 표·env 불변과 query의 settings/env 배선. |
+| VP-16 | REQUIRED | SELF_PASS | 조립 UT 9/9 + 새 파일명 4종의 정규화→조립→CLI 경로→바이트 비교. |
+| VP-17 | REQUIRED | SELF_PASS | 네 query content·정확한 임시 루트 단언, M6~M9 red. |
+| VP-18 | REQUIRED | SELF_PASS | 첨부 18/18: 원본·표시 이름·유일 경로·BOM·상한·rollback. |
+
+검산: SELF_PASS 10·SELF_BLOCKED 1 = 유효 pair 11. 독립 verify 판정은 다음 주체가 수행한다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r2)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| M1 스폰에 원문 model | VP-03 / EP-02 ① | r1 red 3 | query 스폰·settings model·env model / 3 | red |
+| M2 후속 턴에 원문 model | VP-03 / EP-02 ② | r1 red 1 | 후속 턴 별칭 전환 / 1 | red |
+| M3 라이브 setter에 원문 model | VP-03 / EP-02 ③ | r1 red 2 | 라이브 전환·settings env / 2 | red |
+| M4 후속 턴 해석을 스폰 값으로 고정 | VP-12 / EP-02 ② | r1 red 1 | 후속 턴 별칭 전환 / 1 | red |
+| M5 라이브 해석을 스폰 값으로 고정 | VP-12 / EP-02 ③ | r1 red 2 | 라이브 전환·settings env / 2 | red |
+| M6 첫 입력에서 첨부 조립 우회 | VP-17 / EP-09 첫 입력 | r1 red 1 | `initial delegates text…` / 1 | red |
+| M7 프렐류드에서 첨부 조립 우회 | VP-17 / EP-09 프렐류드 | r1 red 1 | `prelude delegates text…` / 1 | red |
+| M8 steer에서 첨부 조립 우회 | VP-17 / EP-09 steer | r1 red 1 | `steer delegates text…` / 1 | red |
+| M9 후속 턴에서 첨부 조립 우회 | VP-17 / EP-09 후속 턴 | r1 red 1 | `pushTurn delegates text…` / 1 | red |
+
+검산: 선택 증거 9·인용 변이 0·새 구조 proxy oracle 0 = 표 행 9. 실제 production에 각각 심어 실행했고 `source restored=true`로 바이트 복원했다. D1은 직접 행동 oracle이며 원결함에서 새 테스트 3건 red→수정 후 4건 green을 관측했다; D3은 query 옵션의 실제 값을 대조한다.
+
+## [구현자 기입] Product/UX 파생 검토 (r2)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| `#` 파일명을 보내도 내용이 전달되는가 | 충족 — `issue#12.md`·`C# notes.md`·`lines#L2-4.txt`·`a#b#c.md`의 CLI 읽기 경로가 저장 경로와 일치하고 원본 바이트를 읽었다. | 실제 설치본의 모델 인용은 AC23. |
+| 이름 정제가 화면·원본을 바꾸는가 | 유지 — 새 네 사례의 dialog·drop 표시 이름은 원래 이름이며 소스 파일 바이트도 동일하다. | — |
+| 같은 이름을 다시 보내면 충돌하는가 | 충족 — 새 네 사례 모두 두 저장 경로가 서로 다르고 각 경로의 바이트가 원본과 같다. | — |
+| 이미지 동시 입력·작업 중 추가 지시 | 충족 — 원본 이미지→마지막 text 순서와 네 query 진입·임시 루트가 통과했다. | 설치본의 실제 `@` 확장은 AC23. |
+| 새 실패·로딩 상태가 필요한가 | 해당 없음 — 기존 저장과 전송 순서 안에서 파일명만 정제한다. 첨부 rollback·안전 디렉토리 거부 테스트도 통과했다. | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r2)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| D1 | 인용 부호만 안전하게 만들어도 CLI의 `#` 해석이 남는다. | closed — 공통 보관 파일명에서 `#` 정제, 실제 정규화→조립→CLI 파서→파일 읽기 회귀 테스트. | 수정 전 첨부 18건 중 3 fail·수정 후 18/18. 새 4종·2출처의 원본/표시 이름/유일 경로 비교. |
+| D3 | 임의 문자열이 임시 루트 단언을 통과했다. | closed — query `additionalDirectories`를 `resolve(tmpdir(), PRODUCT_SLUG)`와 대조한다. | `claude.context-policy.test.ts:214`; 네 query 입력 사례 통과. |
+| I-05 | CLI 함수 축약명만으로 파서 출처를 찾으면 플랫폼별 번들이 다른 함수를 가리킬 수 있다. | 선조치 후 보고 — 테스트 fixture의 두 정규식 source 자체를 Windows 번들에서 검색했다. | `claude.exe --version` = 2.1.267; quoted source byte 100582388·fragment source byte 100582676에서 일치. |
+| D2 | CLI project/local settings를 모델 해석 입력으로 포함할지는 현재 범위 밖이다. | open — NEXT_HANDOFF 유지. | r1 verify §13과 ΔV1 유효 env 규칙. |
+
+설계 대비 대체 메커니즘 없음 — 기존 첨부 저장·CLI 위임 경로를 사용했다. 별도 캐시·만료·공유 가변 상태·재진입 잠금·무효화 축은 추가하지 않았다.
+
+## [구현자 기입] 구현 보고 (r2)
+
+| 항목 | 내용 |
+|---|---|
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+| 구현일 | 2026-10-01 |
+| 구현 범위 | D1 저장 이름 정제·CLI 파서 기반 회귀 테스트, D3 정확한 임시 루트 단언, adapters 문서. |
+| 관측한 게이트 산출 | 관련 3파일 37/37; 전체 실행 안의 관련 5파일 185/185. lint 0 error·기존 warning 1; typecheck node/web/test 통과. |
+| 전체 게이트 | `vitest run --maxWorkers=1`: 603파일·5796 pass·1 skip·0 fail. 스크립트 128/128; inventory·prose·links 통과; `git diff --check` 출력 없음. |
+| 환경 | 현재 Node ABI로 전체 실행했다. ABI 재빌드·Electron import 보정 없이 통과했다. |
+| 다음 주체 | Claude 독립 재검증(VP-16·VP-17·VP-18 + gate). AC18·AC23은 폐쇄망 설치본 사람 실기. |
+
+| AC | 자기 충족 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | 정책 UT 52/52 중 분류 표·구 버전/날짜 사례. |
+| AC2 | ✅ | 같은 UT의 실행 문자열·3P·비활성 사례. |
+| AC3 | ✅ | query 10/10; 세 모델 전달 자리·env 불변·M1~M5 red. |
+| AC11 | ✅ | 매퍼 96/96; 원문 우선순위·정상 결과·기존 오류 유지. |
+| AC15 | ✅ | 저장 이름 정제·표시 정책을 adapters 문서에 연결; inventory·prose·links 통과. |
+| AC18 | ⚠️ | 실 게이트웨이·도넛·200k 초과 진행은 미실행. |
+| AC20 | ✅ | 정책 UT의 해석 표·env 불변과 query의 settings/env 모델 사례. |
+| AC21 | ✅ | 조립 9/9·새 파일명 4사례·query 네 경로/임시 루트·M6~M9 red. |
+| AC22 | ✅ | 첨부 18/18; 300,014바이트·BOM·검증 거부·표시/원본·저장 경로. |
+| AC23 | ⚠️ | 설치본 CLI의 모델 인용·대용량·이미지 동시·오류 배너는 미실행. |
+
+검산: ✅8·⚠️2·❌0 = 유효 AC 10. 규범 AC 집합과 보고 집합의 차집합은 0행이며 분모 변경은 없다. 구현 커밋의 `Criteria-Met`은 8/10이다.
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- 현재 라운드/턴은 r2이며 r1 FAIL의 D1을 보완했다. r1의 경로 전제 검사는 큰따옴표만 봤고 CLI fragment 해석을 보지 않았다.
+- 새 직접 oracle은 실제 보관 파일을 CLI 파서로 읽는다. 같은 원결함에서 세 사례가 실패했고 수정 후 네 사례 모두 통과했다(`attachments.test.ts:242`).
+- 등록 변이 9/9는 r1과 같은 실패 수로 검출됐다. 이번 전체 게이트에는 ABI·electron·타임아웃 보정이 없었다; AC18·AC23 실기는 남아 있다.
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | 저장 이름에 `#`가 남아 CLI `@"…"` 파서(`Q0s`)가 `#` 앞까지만 파일명으로 읽는다 — `issue#12.md` 첨부 내용이 모델에 안 간다 | VP-16 · D-018 · AC21 | 저장 이름 정제에 `#` 처리 추가 + `#` 이름 테스트. 재현은 [verify §6](verify.md#6-외부-포트--문서-계약) | BLOCKING | open |
+| D1 | 저장 이름에 `#`가 남아 CLI `@"…"` 파서(`Q0s`)가 `#` 앞까지만 파일명으로 읽는다 — `issue#12.md` 첨부 내용이 모델에 안 간다 | VP-16 · D-018 · AC21 | 저장 이름 정제에 `#` 처리 추가 + `#` 이름 테스트. 재현은 [verify §6](verify.md#6-외부-포트--문서-계약) | BLOCKING | closed (r2 자기확인) — 새 4사례의 CLI 읽기 경로·바이트 일치. 재검증 대기. |
 | D2 | 모델·env 해석이 CLI project/local settings의 env·`model`을 보지 않는다 | 비귀속(plan §11 범위 밖) | 실사용 확인 후 판단 | NEXT_HANDOFF | open |
-| D3 | VP-17 IT의 `additionalDirectories` 단언이 `expect.any(String)` | 비귀속 | D1 수정 때 강화 가능 | NON_BLOCKING | open |
+| D3 | VP-17 IT의 `additionalDirectories` 단언이 `expect.any(String)` | 비귀속 | D1 수정 때 강화 가능 | NON_BLOCKING | closed (r2 자기확인) — 정확한 제품 임시 루트, 네 query 입력 사례 통과. |

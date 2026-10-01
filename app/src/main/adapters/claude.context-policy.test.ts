@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { tmpdir } from 'node:os'
+import { resolve } from 'node:path'
 import type { Options, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
+import { PRODUCT_SLUG } from '../../shared/product'
 import type {
   ExtractedAttachmentImage,
   ExtractedAttachmentText,
@@ -208,7 +211,7 @@ describe('0245 AC21 — four actual query input paths', () => {
           text: `${path}\n\n@"C:/Temp/Orca/first reference.md"\n@"C:/Temp/Orca/second.txt"`
         }
       ])
-      expect(args.options.additionalDirectories).toContainEqual(expect.any(String))
+      expect(args.options.additionalDirectories).toContain(resolve(tmpdir(), PRODUCT_SLUG))
       live.close()
     })
   }

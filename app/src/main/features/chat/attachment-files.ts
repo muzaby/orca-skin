@@ -95,7 +95,8 @@ export async function storeAttachmentBytes(
       char.charCodeAt(0) < 32 ? '-' : char
     )
       .join('')
-      .replace(/[<>:"/\\|?*]/g, '-')
+      // CLI file mentions interpret # as a line range or anchor even inside quotes.
+      .replace(/[<>:"/\\|?*#]/g, '-')
       .replace(/[. ]+$/g, '')
       .slice(-140) || 'attachment'
   const path = join(root, `${randomUUID()}-${safeName}`)
