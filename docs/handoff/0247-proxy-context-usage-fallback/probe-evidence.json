@@ -1,0 +1,2289 @@
+{
+  "sdkVersion": "0.3.286",
+  "model": "qwen3.8-27b",
+  "generatedAt": "2026-10-01T22:54:58.792Z",
+  "runs": [
+    {
+      "label": "p1",
+      "mode": "p1",
+      "extraEnv": {},
+      "countTokensStatus": 200,
+      "turns": [
+        {
+          "text": "READ_FIXTURE_FILE notes.txt then answer.",
+          "assistantUsage": [
+            {
+              "input_tokens": 15419,
+              "output_tokens": 1,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            {
+              "input_tokens": 17021,
+              "output_tokens": 1,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            }
+          ],
+          "messageStart": [
+            {
+              "input_tokens": 15419,
+              "output_tokens": 1,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            {
+              "input_tokens": 17021,
+              "output_tokens": 1,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            }
+          ],
+          "messageDelta": [
+            {
+              "output_tokens": 12
+            },
+            {
+              "output_tokens": 12
+            }
+          ],
+          "contextUsageTwin": null,
+          "result": {
+            "subtype": "success",
+            "usage": {
+              "input_tokens": 32440,
+              "output_tokens": 24,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            "modelUsage": {
+              "qwen3.8-27b": {
+                "inputTokens": 32440,
+                "outputTokens": 24,
+                "contextWindow": 200000,
+                "costUSD": 0.13024000000000002
+              }
+            }
+          },
+          "systemNotices": [
+            {
+              "subtype": "status",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"status\",\"status\":\"requesting\",\"session_id\":\"1e42ee74-339c-4195-9dd9-2ed88e42578b\",\"uuid\":\"bb38283f-eae3-468b-9aed-69567c72b4e6\"}"
+            },
+            {
+              "subtype": "informational",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"informational\",\"content\":\"We're changing auto mode to no longer charge for classifier requests in Claude Code. However, this session isn't eligible because your requests go through 127.0.0.1:55899, which isn't compatible with this update. Nothing breaks: auto mode keeps working, and its classifier requests are billed as before. To fix it and access the new version of auto mode, ask your gateway to implement: https://code.claude.com/docs/en/auto-mode-classifier-billing\",\"isMeta\":false,\"timestamp\":\"2026-10-01T22:55:01.721Z\",\"uuid\":\"48edf0b8-e250-4814-8538-60ad79357e86"
+            },
+            {
+              "subtype": "status",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"status\",\"status\":\"requesting\",\"session_id\":\"1e42ee74-339c-4195-9dd9-2ed88e42578b\",\"uuid\":\"bcc9db13-0722-4ac8-b822-c0526e569868\"}"
+            }
+          ],
+          "fixtureRequests": [
+            {
+              "n": 1,
+              "model": "qwen3.8-27b",
+              "stream": true,
+              "tools": 22,
+              "messages": 2,
+              "trueInputTokens": 15419,
+              "kind": "tool_use"
+            },
+            {
+              "n": 2,
+              "model": "qwen3.8-27b",
+              "stream": true,
+              "tools": 22,
+              "messages": 5,
+              "trueInputTokens": 17021,
+              "kind": "text"
+            }
+          ],
+          "transcriptAssistantUsage": [
+            {
+              "id": "fixture_1",
+              "usage": {
+                "input_tokens": 15419,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_2",
+              "usage": {
+                "input_tokens": 17021,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            }
+          ],
+          "getContextUsage_summary": {
+            "totalTokens": 26106,
+            "maxTokens": 200000,
+            "rawMaxTokens": 200000,
+            "percentage": 13,
+            "model": "qwen3.8-27b",
+            "categories": [
+              {
+                "name": "System tools",
+                "kind": "used",
+                "tokens": 24193
+              },
+              {
+                "name": "Skills",
+                "kind": "used",
+                "tokens": 1913
+              },
+              {
+                "name": "Autocompact buffer",
+                "kind": "buffer",
+                "tokens": 33000
+              },
+              {
+                "name": "Free space",
+                "kind": "free",
+                "tokens": 140894
+              }
+            ],
+            "elapsedMs": 15,
+            "countTokensCalls": 0
+          },
+          "asIs": {
+            "telemetryContext": {
+              "inputTokens": 17021,
+              "cacheReadTokens": 0,
+              "cacheCreationTokens": 0,
+              "contextWindow": 200000,
+              "model": "qwen3.8-27b"
+            },
+            "contextTokens": 17021,
+            "donutUpdates": true,
+            "lastMainRequestTrueInput": 17021
+          }
+        },
+        {
+          "text": "Second turn, plain reply.",
+          "assistantUsage": [
+            {
+              "input_tokens": 17074,
+              "output_tokens": 1,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            }
+          ],
+          "messageStart": [
+            {
+              "input_tokens": 17074,
+              "output_tokens": 1,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            }
+          ],
+          "messageDelta": [
+            {
+              "output_tokens": 12
+            }
+          ],
+          "contextUsageTwin": null,
+          "result": {
+            "subtype": "success",
+            "usage": {
+              "input_tokens": 17074,
+              "output_tokens": 12,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            "modelUsage": {
+              "qwen3.8-27b": {
+                "inputTokens": 49514,
+                "outputTokens": 36,
+                "contextWindow": 200000,
+                "costUSD": 0.198776
+              }
+            }
+          },
+          "systemNotices": [
+            {
+              "subtype": "status",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"status\",\"status\":\"requesting\",\"session_id\":\"1e42ee74-339c-4195-9dd9-2ed88e42578b\",\"uuid\":\"59b7ea2c-ba4f-4b74-9ca9-a4edc454ff9d\"}"
+            }
+          ],
+          "fixtureRequests": [
+            {
+              "n": 3,
+              "model": "qwen3.8-27b",
+              "stream": true,
+              "tools": 22,
+              "messages": 8,
+              "trueInputTokens": 17074,
+              "kind": "text"
+            }
+          ],
+          "transcriptAssistantUsage": [
+            {
+              "id": "fixture_1",
+              "usage": {
+                "input_tokens": 15419,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_2",
+              "usage": {
+                "input_tokens": 17021,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_3",
+              "usage": {
+                "input_tokens": 17074,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            }
+          ],
+          "getContextUsage_summary": {
+            "totalTokens": 26106,
+            "maxTokens": 200000,
+            "rawMaxTokens": 200000,
+            "percentage": 13,
+            "model": "qwen3.8-27b",
+            "categories": [
+              {
+                "name": "System tools",
+                "kind": "used",
+                "tokens": 24193
+              },
+              {
+                "name": "Skills",
+                "kind": "used",
+                "tokens": 1913
+              },
+              {
+                "name": "Autocompact buffer",
+                "kind": "buffer",
+                "tokens": 33000
+              },
+              {
+                "name": "Free space",
+                "kind": "free",
+                "tokens": 140894
+              }
+            ],
+            "elapsedMs": 8,
+            "countTokensCalls": 0
+          },
+          "getContextUsage_full": {
+            "totalTokens": 17074,
+            "maxTokens": 200000,
+            "rawMaxTokens": 200000,
+            "percentage": 9,
+            "model": "qwen3.8-27b",
+            "categories": [
+              {
+                "name": "System tools",
+                "kind": "used",
+                "tokens": 10679
+              },
+              {
+                "name": "Skills",
+                "kind": "used",
+                "tokens": 1913
+              },
+              {
+                "name": "Messages",
+                "kind": "used",
+                "tokens": 4482
+              },
+              {
+                "name": "Autocompact buffer",
+                "kind": "buffer",
+                "tokens": 33000
+              },
+              {
+                "name": "Free space",
+                "kind": "free",
+                "tokens": 149926
+              }
+            ],
+            "elapsedMs": 21,
+            "countTokensCalls": 4
+          },
+          "asIs": {
+            "telemetryContext": {
+              "inputTokens": 17074,
+              "cacheReadTokens": 0,
+              "cacheCreationTokens": 0,
+              "contextWindow": 200000,
+              "model": "qwen3.8-27b"
+            },
+            "contextTokens": 17074,
+            "donutUpdates": true,
+            "lastMainRequestTrueInput": 17074
+          }
+        },
+        {
+          "text": "/context",
+          "assistantUsage": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            }
+          ],
+          "messageStart": [],
+          "messageDelta": [],
+          "contextUsageTwin": {
+            "total_tokens": 17074,
+            "raw_max_tokens": 200000,
+            "percentage": 9
+          },
+          "result": {
+            "subtype": "success",
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            "modelUsage": {
+              "qwen3.8-27b": {
+                "inputTokens": 49514,
+                "outputTokens": 36,
+                "contextWindow": 200000,
+                "costUSD": 0.198776
+              }
+            }
+          },
+          "fixtureRequests": [],
+          "transcriptAssistantUsage": [
+            {
+              "id": "fixture_1",
+              "usage": {
+                "input_tokens": 15419,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_2",
+              "usage": {
+                "input_tokens": 17021,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_3",
+              "usage": {
+                "input_tokens": 17074,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            }
+          ],
+          "asIs": {
+            "telemetryContext": {
+              "inputTokens": 0,
+              "cacheReadTokens": 0,
+              "cacheCreationTokens": 0,
+              "contextWindow": 200000,
+              "model": "qwen3.8-27b"
+            },
+            "contextTokens": 0,
+            "donutUpdates": false,
+            "lastMainRequestTrueInput": null
+          }
+        }
+      ],
+      "sessionId": "1e42ee74-339c-4195-9dd9-2ed88e42578b"
+    },
+    {
+      "label": "delta",
+      "mode": "delta",
+      "extraEnv": {},
+      "countTokensStatus": 404,
+      "turns": [
+        {
+          "text": "READ_FIXTURE_FILE notes.txt then answer.",
+          "assistantUsage": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            },
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          ],
+          "messageStart": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            },
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          ],
+          "messageDelta": [
+            {
+              "input_tokens": 15432,
+              "output_tokens": 12
+            },
+            {
+              "input_tokens": 17023,
+              "output_tokens": 12
+            }
+          ],
+          "contextUsageTwin": null,
+          "result": {
+            "subtype": "success",
+            "usage": {
+              "input_tokens": 32455,
+              "output_tokens": 24,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            "modelUsage": {
+              "qwen3.8-27b": {
+                "inputTokens": 32455,
+                "outputTokens": 24,
+                "contextWindow": 200000,
+                "costUSD": 0.1303
+              }
+            }
+          },
+          "systemNotices": [
+            {
+              "subtype": "status",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"status\",\"status\":\"requesting\",\"session_id\":\"c29215c2-d2c8-4b9e-9019-9e9639eec287\",\"uuid\":\"d3b956bd-17a1-4991-b5c8-897d38e60227\"}"
+            },
+            {
+              "subtype": "informational",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"informational\",\"content\":\"We're changing auto mode to no longer charge for classifier requests in Claude Code. However, this session isn't eligible because your requests go through 127.0.0.1:55904, which isn't compatible with this update. Nothing breaks: auto mode keeps working, and its classifier requests are billed as before. To fix it and access the new version of auto mode, ask your gateway to implement: https://code.claude.com/docs/en/auto-mode-classifier-billing\",\"isMeta\":false,\"timestamp\":\"2026-10-01T22:55:02.999Z\",\"uuid\":\"f69a71ad-bf15-4421-a0cf-4f351207ee22"
+            },
+            {
+              "subtype": "status",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"status\",\"status\":\"requesting\",\"session_id\":\"c29215c2-d2c8-4b9e-9019-9e9639eec287\",\"uuid\":\"5b7009e1-9989-4eb6-a3a6-afe928d22145\"}"
+            }
+          ],
+          "fixtureRequests": [
+            {
+              "n": 1,
+              "model": "qwen3.8-27b",
+              "stream": true,
+              "tools": 22,
+              "messages": 2,
+              "trueInputTokens": 15432,
+              "kind": "tool_use"
+            },
+            {
+              "n": 2,
+              "model": "qwen3.8-27b",
+              "stream": true,
+              "tools": 22,
+              "messages": 5,
+              "trueInputTokens": 17023,
+              "kind": "text"
+            }
+          ],
+          "transcriptAssistantUsage": [
+            {
+              "id": "fixture_1",
+              "usage": {
+                "input_tokens": 15432,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_2",
+              "usage": {
+                "input_tokens": 17023,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            }
+          ],
+          "getContextUsage_summary": {
+            "totalTokens": 26106,
+            "maxTokens": 200000,
+            "rawMaxTokens": 200000,
+            "percentage": 13,
+            "model": "qwen3.8-27b",
+            "categories": [
+              {
+                "name": "System tools",
+                "kind": "used",
+                "tokens": 24193
+              },
+              {
+                "name": "Skills",
+                "kind": "used",
+                "tokens": 1913
+              },
+              {
+                "name": "Autocompact buffer",
+                "kind": "buffer",
+                "tokens": 33000
+              },
+              {
+                "name": "Free space",
+                "kind": "free",
+                "tokens": 140894
+              }
+            ],
+            "elapsedMs": 40,
+            "countTokensCalls": 0
+          },
+          "asIs": {
+            "telemetryContext": {
+              "inputTokens": 0,
+              "cacheReadTokens": 0,
+              "cacheCreationTokens": 0,
+              "contextWindow": 200000,
+              "model": "qwen3.8-27b"
+            },
+            "contextTokens": 0,
+            "donutUpdates": false,
+            "lastMainRequestTrueInput": 17023
+          }
+        },
+        {
+          "text": "Second turn, plain reply.",
+          "assistantUsage": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          ],
+          "messageStart": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          ],
+          "messageDelta": [
+            {
+              "input_tokens": 17075,
+              "output_tokens": 12
+            }
+          ],
+          "contextUsageTwin": null,
+          "result": {
+            "subtype": "success",
+            "usage": {
+              "input_tokens": 17075,
+              "output_tokens": 12,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            "modelUsage": {
+              "qwen3.8-27b": {
+                "inputTokens": 49530,
+                "outputTokens": 36,
+                "contextWindow": 200000,
+                "costUSD": 0.19884000000000002
+              }
+            }
+          },
+          "systemNotices": [
+            {
+              "subtype": "status",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"status\",\"status\":\"requesting\",\"session_id\":\"c29215c2-d2c8-4b9e-9019-9e9639eec287\",\"uuid\":\"dd09e916-36c5-40f7-bb85-ed91a2fcec64\"}"
+            }
+          ],
+          "fixtureRequests": [
+            {
+              "n": 3,
+              "model": "qwen3.8-27b",
+              "stream": true,
+              "tools": 22,
+              "messages": 8,
+              "trueInputTokens": 17075,
+              "kind": "text"
+            }
+          ],
+          "transcriptAssistantUsage": [
+            {
+              "id": "fixture_1",
+              "usage": {
+                "input_tokens": 15432,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_2",
+              "usage": {
+                "input_tokens": 17023,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_3",
+              "usage": {
+                "input_tokens": 17075,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            }
+          ],
+          "getContextUsage_summary": {
+            "totalTokens": 26106,
+            "maxTokens": 200000,
+            "rawMaxTokens": 200000,
+            "percentage": 13,
+            "model": "qwen3.8-27b",
+            "categories": [
+              {
+                "name": "System tools",
+                "kind": "used",
+                "tokens": 24193
+              },
+              {
+                "name": "Skills",
+                "kind": "used",
+                "tokens": 1913
+              },
+              {
+                "name": "Autocompact buffer",
+                "kind": "buffer",
+                "tokens": 33000
+              },
+              {
+                "name": "Free space",
+                "kind": "free",
+                "tokens": 140894
+              }
+            ],
+            "elapsedMs": 9,
+            "countTokensCalls": 0
+          },
+          "getContextUsage_full": {
+            "totalTokens": 26106,
+            "maxTokens": 200000,
+            "rawMaxTokens": 200000,
+            "percentage": 13,
+            "model": "qwen3.8-27b",
+            "categories": [
+              {
+                "name": "System tools",
+                "kind": "used",
+                "tokens": 24193
+              },
+              {
+                "name": "Skills",
+                "kind": "used",
+                "tokens": 1913
+              },
+              {
+                "name": "Autocompact buffer",
+                "kind": "buffer",
+                "tokens": 33000
+              },
+              {
+                "name": "Free space",
+                "kind": "free",
+                "tokens": 140894
+              }
+            ],
+            "elapsedMs": 32,
+            "countTokensCalls": 5
+          },
+          "asIs": {
+            "telemetryContext": {
+              "inputTokens": 0,
+              "cacheReadTokens": 0,
+              "cacheCreationTokens": 0,
+              "contextWindow": 200000,
+              "model": "qwen3.8-27b"
+            },
+            "contextTokens": 0,
+            "donutUpdates": false,
+            "lastMainRequestTrueInput": 17075
+          }
+        },
+        {
+          "text": "/context",
+          "assistantUsage": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            }
+          ],
+          "messageStart": [],
+          "messageDelta": [],
+          "contextUsageTwin": {
+            "total_tokens": 26106,
+            "raw_max_tokens": 200000,
+            "percentage": 13
+          },
+          "result": {
+            "subtype": "success",
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            "modelUsage": {
+              "qwen3.8-27b": {
+                "inputTokens": 49530,
+                "outputTokens": 36,
+                "contextWindow": 200000,
+                "costUSD": 0.19884000000000002
+              }
+            }
+          },
+          "fixtureRequests": [],
+          "transcriptAssistantUsage": [
+            {
+              "id": "fixture_1",
+              "usage": {
+                "input_tokens": 15432,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_2",
+              "usage": {
+                "input_tokens": 17023,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_3",
+              "usage": {
+                "input_tokens": 17075,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            }
+          ],
+          "asIs": {
+            "telemetryContext": {
+              "inputTokens": 0,
+              "cacheReadTokens": 0,
+              "cacheCreationTokens": 0,
+              "contextWindow": 200000,
+              "model": "qwen3.8-27b"
+            },
+            "contextTokens": 0,
+            "donutUpdates": false,
+            "lastMainRequestTrueInput": null
+          }
+        }
+      ],
+      "sessionId": "c29215c2-d2c8-4b9e-9019-9e9639eec287"
+    },
+    {
+      "label": "delta-ct200",
+      "mode": "delta",
+      "extraEnv": {},
+      "countTokensStatus": 200,
+      "turns": [
+        {
+          "text": "READ_FIXTURE_FILE notes.txt then answer.",
+          "assistantUsage": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            },
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          ],
+          "messageStart": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            },
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          ],
+          "messageDelta": [
+            {
+              "input_tokens": 15457,
+              "output_tokens": 12
+            },
+            {
+              "input_tokens": 17026,
+              "output_tokens": 12
+            }
+          ],
+          "contextUsageTwin": null,
+          "result": {
+            "subtype": "success",
+            "usage": {
+              "input_tokens": 32483,
+              "output_tokens": 24,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            "modelUsage": {
+              "qwen3.8-27b": {
+                "inputTokens": 32483,
+                "outputTokens": 24,
+                "contextWindow": 200000,
+                "costUSD": 0.130412
+              }
+            }
+          },
+          "systemNotices": [
+            {
+              "subtype": "status",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"status\",\"status\":\"requesting\",\"session_id\":\"514e3af3-bb56-4cb1-8af0-80a8f31d7311\",\"uuid\":\"40ed09ff-08b2-404c-91ac-4a923c23500e\"}"
+            },
+            {
+              "subtype": "informational",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"informational\",\"content\":\"We're changing auto mode to no longer charge for classifier requests in Claude Code. However, this session isn't eligible because your requests go through 127.0.0.1:55909, which isn't compatible with this update. Nothing breaks: auto mode keeps working, and its classifier requests are billed as before. To fix it and access the new version of auto mode, ask your gateway to implement: https://code.claude.com/docs/en/auto-mode-classifier-billing\",\"isMeta\":false,\"timestamp\":\"2026-10-01T22:55:04.271Z\",\"uuid\":\"65dabac1-4507-46e9-8219-f618707c5777"
+            },
+            {
+              "subtype": "status",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"status\",\"status\":\"requesting\",\"session_id\":\"514e3af3-bb56-4cb1-8af0-80a8f31d7311\",\"uuid\":\"5603e582-08f1-46e8-a2d4-13d6959ee722\"}"
+            }
+          ],
+          "fixtureRequests": [
+            {
+              "n": 1,
+              "model": "qwen3.8-27b",
+              "stream": true,
+              "tools": 22,
+              "messages": 2,
+              "trueInputTokens": 15457,
+              "kind": "tool_use"
+            },
+            {
+              "n": 2,
+              "model": "qwen3.8-27b",
+              "stream": true,
+              "tools": 22,
+              "messages": 5,
+              "trueInputTokens": 17026,
+              "kind": "text"
+            }
+          ],
+          "transcriptAssistantUsage": [
+            {
+              "id": "fixture_1",
+              "usage": {
+                "input_tokens": 15457,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_2",
+              "usage": {
+                "input_tokens": 17026,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            }
+          ],
+          "getContextUsage_summary": {
+            "totalTokens": 26106,
+            "maxTokens": 200000,
+            "rawMaxTokens": 200000,
+            "percentage": 13,
+            "model": "qwen3.8-27b",
+            "categories": [
+              {
+                "name": "System tools",
+                "kind": "used",
+                "tokens": 24193
+              },
+              {
+                "name": "Skills",
+                "kind": "used",
+                "tokens": 1913
+              },
+              {
+                "name": "Autocompact buffer",
+                "kind": "buffer",
+                "tokens": 33000
+              },
+              {
+                "name": "Free space",
+                "kind": "free",
+                "tokens": 140894
+              }
+            ],
+            "elapsedMs": 17,
+            "countTokensCalls": 0
+          },
+          "asIs": {
+            "telemetryContext": {
+              "inputTokens": 0,
+              "cacheReadTokens": 0,
+              "cacheCreationTokens": 0,
+              "contextWindow": 200000,
+              "model": "qwen3.8-27b"
+            },
+            "contextTokens": 0,
+            "donutUpdates": false,
+            "lastMainRequestTrueInput": 17026
+          }
+        },
+        {
+          "text": "Second turn, plain reply.",
+          "assistantUsage": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          ],
+          "messageStart": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          ],
+          "messageDelta": [
+            {
+              "input_tokens": 17078,
+              "output_tokens": 12
+            }
+          ],
+          "contextUsageTwin": null,
+          "result": {
+            "subtype": "success",
+            "usage": {
+              "input_tokens": 17078,
+              "output_tokens": 12,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            "modelUsage": {
+              "qwen3.8-27b": {
+                "inputTokens": 49561,
+                "outputTokens": 36,
+                "contextWindow": 200000,
+                "costUSD": 0.198964
+              }
+            }
+          },
+          "systemNotices": [
+            {
+              "subtype": "status",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"status\",\"status\":\"requesting\",\"session_id\":\"514e3af3-bb56-4cb1-8af0-80a8f31d7311\",\"uuid\":\"841bd8e2-05cb-4b98-ad47-bf7a5c842166\"}"
+            }
+          ],
+          "fixtureRequests": [
+            {
+              "n": 3,
+              "model": "qwen3.8-27b",
+              "stream": true,
+              "tools": 22,
+              "messages": 8,
+              "trueInputTokens": 17078,
+              "kind": "text"
+            }
+          ],
+          "transcriptAssistantUsage": [
+            {
+              "id": "fixture_1",
+              "usage": {
+                "input_tokens": 15457,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_2",
+              "usage": {
+                "input_tokens": 17026,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_3",
+              "usage": {
+                "input_tokens": 17078,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            }
+          ],
+          "getContextUsage_summary": {
+            "totalTokens": 26106,
+            "maxTokens": 200000,
+            "rawMaxTokens": 200000,
+            "percentage": 13,
+            "model": "qwen3.8-27b",
+            "categories": [
+              {
+                "name": "System tools",
+                "kind": "used",
+                "tokens": 24193
+              },
+              {
+                "name": "Skills",
+                "kind": "used",
+                "tokens": 1913
+              },
+              {
+                "name": "Autocompact buffer",
+                "kind": "buffer",
+                "tokens": 33000
+              },
+              {
+                "name": "Free space",
+                "kind": "free",
+                "tokens": 140894
+              }
+            ],
+            "elapsedMs": 8,
+            "countTokensCalls": 0
+          },
+          "getContextUsage_full": {
+            "totalTokens": 17078,
+            "maxTokens": 200000,
+            "rawMaxTokens": 200000,
+            "percentage": 9,
+            "model": "qwen3.8-27b",
+            "categories": [
+              {
+                "name": "System tools",
+                "kind": "used",
+                "tokens": 10679
+              },
+              {
+                "name": "Skills",
+                "kind": "used",
+                "tokens": 1913
+              },
+              {
+                "name": "Messages",
+                "kind": "used",
+                "tokens": 4486
+              },
+              {
+                "name": "Autocompact buffer",
+                "kind": "buffer",
+                "tokens": 33000
+              },
+              {
+                "name": "Free space",
+                "kind": "free",
+                "tokens": 149922
+              }
+            ],
+            "elapsedMs": 26,
+            "countTokensCalls": 4
+          },
+          "asIs": {
+            "telemetryContext": {
+              "inputTokens": 0,
+              "cacheReadTokens": 0,
+              "cacheCreationTokens": 0,
+              "contextWindow": 200000,
+              "model": "qwen3.8-27b"
+            },
+            "contextTokens": 0,
+            "donutUpdates": false,
+            "lastMainRequestTrueInput": 17078
+          }
+        },
+        {
+          "text": "/context",
+          "assistantUsage": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            }
+          ],
+          "messageStart": [],
+          "messageDelta": [],
+          "contextUsageTwin": {
+            "total_tokens": 17078,
+            "raw_max_tokens": 200000,
+            "percentage": 9
+          },
+          "result": {
+            "subtype": "success",
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            "modelUsage": {
+              "qwen3.8-27b": {
+                "inputTokens": 49561,
+                "outputTokens": 36,
+                "contextWindow": 200000,
+                "costUSD": 0.198964
+              }
+            }
+          },
+          "fixtureRequests": [],
+          "transcriptAssistantUsage": [
+            {
+              "id": "fixture_1",
+              "usage": {
+                "input_tokens": 15457,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_2",
+              "usage": {
+                "input_tokens": 17026,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_3",
+              "usage": {
+                "input_tokens": 17078,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            }
+          ],
+          "asIs": {
+            "telemetryContext": {
+              "inputTokens": 0,
+              "cacheReadTokens": 0,
+              "cacheCreationTokens": 0,
+              "contextWindow": 200000,
+              "model": "qwen3.8-27b"
+            },
+            "contextTokens": 0,
+            "donutUpdates": false,
+            "lastMainRequestTrueInput": null
+          }
+        }
+      ],
+      "sessionId": "514e3af3-bb56-4cb1-8af0-80a8f31d7311"
+    },
+    {
+      "label": "none",
+      "mode": "none",
+      "extraEnv": {},
+      "countTokensStatus": 404,
+      "turns": [
+        {
+          "text": "READ_FIXTURE_FILE notes.txt then answer.",
+          "assistantUsage": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            },
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          ],
+          "messageStart": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            },
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          ],
+          "messageDelta": [
+            {
+              "output_tokens": 0
+            },
+            {
+              "output_tokens": 0
+            }
+          ],
+          "contextUsageTwin": null,
+          "result": {
+            "subtype": "success",
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            "modelUsage": {
+              "qwen3.8-27b": {
+                "inputTokens": 0,
+                "outputTokens": 0,
+                "contextWindow": 200000,
+                "costUSD": 0
+              }
+            }
+          },
+          "systemNotices": [
+            {
+              "subtype": "status",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"status\",\"status\":\"requesting\",\"session_id\":\"e2c5c69d-b250-4ee6-a20b-5090532cf78a\",\"uuid\":\"13d9c897-a2d8-4dd4-adb5-ef93aa2e2762\"}"
+            },
+            {
+              "subtype": "informational",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"informational\",\"content\":\"We're changing auto mode to no longer charge for classifier requests in Claude Code. However, this session isn't eligible because your requests go through 127.0.0.1:55914, which isn't compatible with this update. Nothing breaks: auto mode keeps working, and its classifier requests are billed as before. To fix it and access the new version of auto mode, ask your gateway to implement: https://code.claude.com/docs/en/auto-mode-classifier-billing\",\"isMeta\":false,\"timestamp\":\"2026-10-01T22:55:05.505Z\",\"uuid\":\"d257d6aa-80d0-4e5c-8533-014b53c99b5f"
+            },
+            {
+              "subtype": "status",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"status\",\"status\":\"requesting\",\"session_id\":\"e2c5c69d-b250-4ee6-a20b-5090532cf78a\",\"uuid\":\"9ff7938f-e1a8-4a73-8103-7329aee0e8a3\"}"
+            }
+          ],
+          "fixtureRequests": [
+            {
+              "n": 1,
+              "model": "qwen3.8-27b",
+              "stream": true,
+              "tools": 22,
+              "messages": 2,
+              "trueInputTokens": 15427,
+              "kind": "tool_use"
+            },
+            {
+              "n": 2,
+              "model": "qwen3.8-27b",
+              "stream": true,
+              "tools": 22,
+              "messages": 5,
+              "trueInputTokens": 17022,
+              "kind": "text"
+            }
+          ],
+          "transcriptAssistantUsage": [
+            {
+              "id": "fixture_1",
+              "usage": {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_2",
+              "usage": {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            }
+          ],
+          "getContextUsage_summary": {
+            "totalTokens": 31631,
+            "maxTokens": 200000,
+            "rawMaxTokens": 200000,
+            "percentage": 16,
+            "model": "qwen3.8-27b",
+            "categories": [
+              {
+                "name": "System tools",
+                "kind": "used",
+                "tokens": 24193
+              },
+              {
+                "name": "Skills",
+                "kind": "used",
+                "tokens": 1913
+              },
+              {
+                "name": "Messages",
+                "kind": "used",
+                "tokens": 5525
+              },
+              {
+                "name": "Autocompact buffer",
+                "kind": "buffer",
+                "tokens": 33000
+              },
+              {
+                "name": "Free space",
+                "kind": "free",
+                "tokens": 135369
+              }
+            ],
+            "elapsedMs": 15,
+            "countTokensCalls": 0
+          },
+          "asIs": {
+            "telemetryContext": {
+              "inputTokens": 0,
+              "cacheReadTokens": 0,
+              "cacheCreationTokens": 0,
+              "contextWindow": 200000,
+              "model": "qwen3.8-27b"
+            },
+            "contextTokens": 0,
+            "donutUpdates": false,
+            "lastMainRequestTrueInput": 17022
+          }
+        },
+        {
+          "text": "Second turn, plain reply.",
+          "assistantUsage": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          ],
+          "messageStart": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          ],
+          "messageDelta": [
+            {
+              "output_tokens": 0
+            }
+          ],
+          "contextUsageTwin": null,
+          "result": {
+            "subtype": "success",
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            "modelUsage": {
+              "qwen3.8-27b": {
+                "inputTokens": 0,
+                "outputTokens": 0,
+                "contextWindow": 200000,
+                "costUSD": 0
+              }
+            }
+          },
+          "systemNotices": [
+            {
+              "subtype": "status",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"status\",\"status\":\"requesting\",\"session_id\":\"e2c5c69d-b250-4ee6-a20b-5090532cf78a\",\"uuid\":\"a0b1f991-58e9-4154-8835-8bc949d20bac\"}"
+            }
+          ],
+          "fixtureRequests": [
+            {
+              "n": 3,
+              "model": "qwen3.8-27b",
+              "stream": true,
+              "tools": 22,
+              "messages": 8,
+              "trueInputTokens": 17075,
+              "kind": "text"
+            }
+          ],
+          "transcriptAssistantUsage": [
+            {
+              "id": "fixture_1",
+              "usage": {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_2",
+              "usage": {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_3",
+              "usage": {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            }
+          ],
+          "getContextUsage_summary": {
+            "totalTokens": 31673,
+            "maxTokens": 200000,
+            "rawMaxTokens": 200000,
+            "percentage": 16,
+            "model": "qwen3.8-27b",
+            "categories": [
+              {
+                "name": "System tools",
+                "kind": "used",
+                "tokens": 24193
+              },
+              {
+                "name": "Skills",
+                "kind": "used",
+                "tokens": 1913
+              },
+              {
+                "name": "Messages",
+                "kind": "used",
+                "tokens": 5567
+              },
+              {
+                "name": "Autocompact buffer",
+                "kind": "buffer",
+                "tokens": 33000
+              },
+              {
+                "name": "Free space",
+                "kind": "free",
+                "tokens": 135327
+              }
+            ],
+            "elapsedMs": 9,
+            "countTokensCalls": 0
+          },
+          "getContextUsage_full": {
+            "totalTokens": 31673,
+            "maxTokens": 200000,
+            "rawMaxTokens": 200000,
+            "percentage": 16,
+            "model": "qwen3.8-27b",
+            "categories": [
+              {
+                "name": "System tools",
+                "kind": "used",
+                "tokens": 24193
+              },
+              {
+                "name": "Skills",
+                "kind": "used",
+                "tokens": 1913
+              },
+              {
+                "name": "Messages",
+                "kind": "used",
+                "tokens": 5567
+              },
+              {
+                "name": "Autocompact buffer",
+                "kind": "buffer",
+                "tokens": 33000
+              },
+              {
+                "name": "Free space",
+                "kind": "free",
+                "tokens": 135327
+              }
+            ],
+            "elapsedMs": 24,
+            "countTokensCalls": 6
+          },
+          "asIs": {
+            "telemetryContext": {
+              "inputTokens": 0,
+              "cacheReadTokens": 0,
+              "cacheCreationTokens": 0,
+              "contextWindow": 200000,
+              "model": "qwen3.8-27b"
+            },
+            "contextTokens": 0,
+            "donutUpdates": false,
+            "lastMainRequestTrueInput": 17075
+          }
+        },
+        {
+          "text": "/context",
+          "assistantUsage": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            }
+          ],
+          "messageStart": [],
+          "messageDelta": [],
+          "contextUsageTwin": {
+            "total_tokens": 31673,
+            "raw_max_tokens": 200000,
+            "percentage": 16
+          },
+          "result": {
+            "subtype": "success",
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            "modelUsage": {
+              "qwen3.8-27b": {
+                "inputTokens": 0,
+                "outputTokens": 0,
+                "contextWindow": 200000,
+                "costUSD": 0
+              }
+            }
+          },
+          "fixtureRequests": [],
+          "transcriptAssistantUsage": [
+            {
+              "id": "fixture_1",
+              "usage": {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_2",
+              "usage": {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_3",
+              "usage": {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            }
+          ],
+          "asIs": {
+            "telemetryContext": {
+              "inputTokens": 0,
+              "cacheReadTokens": 0,
+              "cacheCreationTokens": 0,
+              "contextWindow": 200000,
+              "model": "qwen3.8-27b"
+            },
+            "contextTokens": 0,
+            "donutUpdates": false,
+            "lastMainRequestTrueInput": null
+          }
+        }
+      ],
+      "sessionId": "e2c5c69d-b250-4ee6-a20b-5090532cf78a"
+    },
+    {
+      "label": "none-ct200",
+      "mode": "none",
+      "extraEnv": {},
+      "countTokensStatus": 200,
+      "turns": [
+        {
+          "text": "READ_FIXTURE_FILE notes.txt then answer.",
+          "assistantUsage": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            },
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          ],
+          "messageStart": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            },
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          ],
+          "messageDelta": [
+            {
+              "output_tokens": 0
+            },
+            {
+              "output_tokens": 0
+            }
+          ],
+          "contextUsageTwin": null,
+          "result": {
+            "subtype": "success",
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            "modelUsage": {
+              "qwen3.8-27b": {
+                "inputTokens": 0,
+                "outputTokens": 0,
+                "contextWindow": 200000,
+                "costUSD": 0
+              }
+            }
+          },
+          "systemNotices": [
+            {
+              "subtype": "status",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"status\",\"status\":\"requesting\",\"session_id\":\"31e97efa-d465-40a0-a803-b1445bc02efd\",\"uuid\":\"2f241516-f865-431a-b805-4af184377a0c\"}"
+            },
+            {
+              "subtype": "informational",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"informational\",\"content\":\"We're changing auto mode to no longer charge for classifier requests in Claude Code. However, this session isn't eligible because your requests go through 127.0.0.1:55922, which isn't compatible with this update. Nothing breaks: auto mode keeps working, and its classifier requests are billed as before. To fix it and access the new version of auto mode, ask your gateway to implement: https://code.claude.com/docs/en/auto-mode-classifier-billing\",\"isMeta\":false,\"timestamp\":\"2026-10-01T22:55:06.769Z\",\"uuid\":\"387bcdd3-6768-460c-9f39-143843645998"
+            },
+            {
+              "subtype": "status",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"status\",\"status\":\"requesting\",\"session_id\":\"31e97efa-d465-40a0-a803-b1445bc02efd\",\"uuid\":\"502a5ce9-073c-4a73-b9cf-4d4f864aab4b\"}"
+            }
+          ],
+          "fixtureRequests": [
+            {
+              "n": 1,
+              "model": "qwen3.8-27b",
+              "stream": true,
+              "tools": 22,
+              "messages": 2,
+              "trueInputTokens": 15453,
+              "kind": "tool_use"
+            },
+            {
+              "n": 2,
+              "model": "qwen3.8-27b",
+              "stream": true,
+              "tools": 22,
+              "messages": 5,
+              "trueInputTokens": 17025,
+              "kind": "text"
+            }
+          ],
+          "transcriptAssistantUsage": [
+            {
+              "id": "fixture_1",
+              "usage": {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_2",
+              "usage": {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            }
+          ],
+          "getContextUsage_summary": {
+            "totalTokens": 31635,
+            "maxTokens": 200000,
+            "rawMaxTokens": 200000,
+            "percentage": 16,
+            "model": "qwen3.8-27b",
+            "categories": [
+              {
+                "name": "System tools",
+                "kind": "used",
+                "tokens": 24193
+              },
+              {
+                "name": "Skills",
+                "kind": "used",
+                "tokens": 1913
+              },
+              {
+                "name": "Messages",
+                "kind": "used",
+                "tokens": 5529
+              },
+              {
+                "name": "Autocompact buffer",
+                "kind": "buffer",
+                "tokens": 33000
+              },
+              {
+                "name": "Free space",
+                "kind": "free",
+                "tokens": 135365
+              }
+            ],
+            "elapsedMs": 16,
+            "countTokensCalls": 0
+          },
+          "asIs": {
+            "telemetryContext": {
+              "inputTokens": 0,
+              "cacheReadTokens": 0,
+              "cacheCreationTokens": 0,
+              "contextWindow": 200000,
+              "model": "qwen3.8-27b"
+            },
+            "contextTokens": 0,
+            "donutUpdates": false,
+            "lastMainRequestTrueInput": 17025
+          }
+        },
+        {
+          "text": "Second turn, plain reply.",
+          "assistantUsage": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          ],
+          "messageStart": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          ],
+          "messageDelta": [
+            {
+              "output_tokens": 0
+            }
+          ],
+          "contextUsageTwin": null,
+          "result": {
+            "subtype": "success",
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            "modelUsage": {
+              "qwen3.8-27b": {
+                "inputTokens": 0,
+                "outputTokens": 0,
+                "contextWindow": 200000,
+                "costUSD": 0
+              }
+            }
+          },
+          "systemNotices": [
+            {
+              "subtype": "status",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"status\",\"status\":\"requesting\",\"session_id\":\"31e97efa-d465-40a0-a803-b1445bc02efd\",\"uuid\":\"df61af00-03fa-4de8-9eab-2ff59f977d33\"}"
+            }
+          ],
+          "fixtureRequests": [
+            {
+              "n": 3,
+              "model": "qwen3.8-27b",
+              "stream": true,
+              "tools": 22,
+              "messages": 8,
+              "trueInputTokens": 17078,
+              "kind": "text"
+            }
+          ],
+          "transcriptAssistantUsage": [
+            {
+              "id": "fixture_1",
+              "usage": {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_2",
+              "usage": {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_3",
+              "usage": {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            }
+          ],
+          "getContextUsage_summary": {
+            "totalTokens": 31677,
+            "maxTokens": 200000,
+            "rawMaxTokens": 200000,
+            "percentage": 16,
+            "model": "qwen3.8-27b",
+            "categories": [
+              {
+                "name": "System tools",
+                "kind": "used",
+                "tokens": 24193
+              },
+              {
+                "name": "Skills",
+                "kind": "used",
+                "tokens": 1913
+              },
+              {
+                "name": "Messages",
+                "kind": "used",
+                "tokens": 5571
+              },
+              {
+                "name": "Autocompact buffer",
+                "kind": "buffer",
+                "tokens": 33000
+              },
+              {
+                "name": "Free space",
+                "kind": "free",
+                "tokens": 135323
+              }
+            ],
+            "elapsedMs": 11,
+            "countTokensCalls": 0
+          },
+          "getContextUsage_full": {
+            "totalTokens": 17073,
+            "maxTokens": 200000,
+            "rawMaxTokens": 200000,
+            "percentage": 9,
+            "model": "qwen3.8-27b",
+            "categories": [
+              {
+                "name": "System tools",
+                "kind": "used",
+                "tokens": 10679
+              },
+              {
+                "name": "Skills",
+                "kind": "used",
+                "tokens": 1913
+              },
+              {
+                "name": "Messages",
+                "kind": "used",
+                "tokens": 4481
+              },
+              {
+                "name": "Autocompact buffer",
+                "kind": "buffer",
+                "tokens": 33000
+              },
+              {
+                "name": "Free space",
+                "kind": "free",
+                "tokens": 149927
+              }
+            ],
+            "elapsedMs": 28,
+            "countTokensCalls": 5
+          },
+          "asIs": {
+            "telemetryContext": {
+              "inputTokens": 0,
+              "cacheReadTokens": 0,
+              "cacheCreationTokens": 0,
+              "contextWindow": 200000,
+              "model": "qwen3.8-27b"
+            },
+            "contextTokens": 0,
+            "donutUpdates": false,
+            "lastMainRequestTrueInput": 17078
+          }
+        },
+        {
+          "text": "/context",
+          "assistantUsage": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            }
+          ],
+          "messageStart": [],
+          "messageDelta": [],
+          "contextUsageTwin": {
+            "total_tokens": 17073,
+            "raw_max_tokens": 200000,
+            "percentage": 9
+          },
+          "result": {
+            "subtype": "success",
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            "modelUsage": {
+              "qwen3.8-27b": {
+                "inputTokens": 0,
+                "outputTokens": 0,
+                "contextWindow": 200000,
+                "costUSD": 0
+              }
+            }
+          },
+          "fixtureRequests": [],
+          "transcriptAssistantUsage": [
+            {
+              "id": "fixture_1",
+              "usage": {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_2",
+              "usage": {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            },
+            {
+              "id": "fixture_3",
+              "usage": {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            }
+          ],
+          "asIs": {
+            "telemetryContext": {
+              "inputTokens": 0,
+              "cacheReadTokens": 0,
+              "cacheCreationTokens": 0,
+              "contextWindow": 200000,
+              "model": "qwen3.8-27b"
+            },
+            "contextTokens": 0,
+            "donutUpdates": false,
+            "lastMainRequestTrueInput": null
+          }
+        }
+      ],
+      "sessionId": "31e97efa-d465-40a0-a803-b1445bc02efd"
+    },
+    {
+      "label": "delta-acw150k",
+      "mode": "delta",
+      "extraEnv": {
+        "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "150000"
+      },
+      "countTokensStatus": 404,
+      "turns": [
+        {
+          "text": "Plain reply please.",
+          "assistantUsage": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          ],
+          "messageStart": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          ],
+          "messageDelta": [
+            {
+              "input_tokens": 15460,
+              "output_tokens": 12
+            }
+          ],
+          "contextUsageTwin": null,
+          "result": {
+            "subtype": "success",
+            "usage": {
+              "input_tokens": 15460,
+              "output_tokens": 12,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            "modelUsage": {
+              "qwen3.8-27b": {
+                "inputTokens": 15460,
+                "outputTokens": 12,
+                "contextWindow": 200000,
+                "costUSD": 0.062079999999999996
+              }
+            }
+          },
+          "systemNotices": [
+            {
+              "subtype": "status",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"status\",\"status\":\"requesting\",\"session_id\":\"f4b362cf-c38b-4d12-b855-9e02b6694cf4\",\"uuid\":\"49fc8baf-6ba7-4deb-8117-e96ac54efc0f\"}"
+            },
+            {
+              "subtype": "informational",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"informational\",\"content\":\"We're changing auto mode to no longer charge for classifier requests in Claude Code. However, this session isn't eligible because your requests go through 127.0.0.1:55928, which isn't compatible with this update. Nothing breaks: auto mode keeps working, and its classifier requests are billed as before. To fix it and access the new version of auto mode, ask your gateway to implement: https://code.claude.com/docs/en/auto-mode-classifier-billing\",\"isMeta\":false,\"timestamp\":\"2026-10-01T22:55:07.975Z\",\"uuid\":\"79c81fae-a72a-4c2d-90db-82aad58c16e7"
+            }
+          ],
+          "fixtureRequests": [
+            {
+              "n": 1,
+              "model": "qwen3.8-27b",
+              "stream": true,
+              "tools": 22,
+              "messages": 2,
+              "trueInputTokens": 15460,
+              "kind": "text"
+            }
+          ],
+          "transcriptAssistantUsage": [
+            {
+              "id": "fixture_1",
+              "usage": {
+                "input_tokens": 15460,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            }
+          ],
+          "getContextUsage_summary": {
+            "totalTokens": 26106,
+            "maxTokens": 150000,
+            "rawMaxTokens": 150000,
+            "percentage": 17,
+            "model": "qwen3.8-27b",
+            "categories": [
+              {
+                "name": "System tools",
+                "kind": "used",
+                "tokens": 24193
+              },
+              {
+                "name": "Skills",
+                "kind": "used",
+                "tokens": 1913
+              },
+              {
+                "name": "Autocompact buffer",
+                "kind": "buffer",
+                "tokens": 33000
+              },
+              {
+                "name": "Free space",
+                "kind": "free",
+                "tokens": 90894
+              }
+            ],
+            "elapsedMs": 38,
+            "countTokensCalls": 0
+          },
+          "asIs": {
+            "telemetryContext": {
+              "inputTokens": 0,
+              "cacheReadTokens": 0,
+              "cacheCreationTokens": 0,
+              "contextWindow": 200000,
+              "model": "qwen3.8-27b"
+            },
+            "contextTokens": 0,
+            "donutUpdates": false,
+            "lastMainRequestTrueInput": 15460
+          }
+        }
+      ],
+      "sessionId": "f4b362cf-c38b-4d12-b855-9e02b6694cf4"
+    },
+    {
+      "label": "delta-max262k",
+      "mode": "delta",
+      "extraEnv": {
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "262144"
+      },
+      "countTokensStatus": 404,
+      "turns": [
+        {
+          "text": "Plain reply please.",
+          "assistantUsage": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          ],
+          "messageStart": [
+            {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          ],
+          "messageDelta": [
+            {
+              "input_tokens": 15460,
+              "output_tokens": 12
+            }
+          ],
+          "contextUsageTwin": null,
+          "result": {
+            "subtype": "success",
+            "usage": {
+              "input_tokens": 15460,
+              "output_tokens": 12,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            "modelUsage": {
+              "qwen3.8-27b": {
+                "inputTokens": 15460,
+                "outputTokens": 12,
+                "contextWindow": 262144,
+                "costUSD": 0.062079999999999996
+              }
+            }
+          },
+          "systemNotices": [
+            {
+              "subtype": "status",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"status\",\"status\":\"requesting\",\"session_id\":\"ad8f4e19-ce63-495e-85a9-3634bb7b0936\",\"uuid\":\"af04ec4c-d53c-41f2-8c88-553b001b82f9\"}"
+            },
+            {
+              "subtype": "informational",
+              "mentionsWindow": false,
+              "text": "{\"type\":\"system\",\"subtype\":\"informational\",\"content\":\"We're changing auto mode to no longer charge for classifier requests in Claude Code. However, this session isn't eligible because your requests go through 127.0.0.1:55931, which isn't compatible with this update. Nothing breaks: auto mode keeps working, and its classifier requests are billed as before. To fix it and access the new version of auto mode, ask your gateway to implement: https://code.claude.com/docs/en/auto-mode-classifier-billing\",\"isMeta\":false,\"timestamp\":\"2026-10-01T22:55:08.968Z\",\"uuid\":\"3ee496dc-01c3-4f0d-a9aa-ef95c2c8154e"
+            }
+          ],
+          "fixtureRequests": [
+            {
+              "n": 1,
+              "model": "qwen3.8-27b",
+              "stream": true,
+              "tools": 22,
+              "messages": 2,
+              "trueInputTokens": 15460,
+              "kind": "text"
+            }
+          ],
+          "transcriptAssistantUsage": [
+            {
+              "id": "fixture_1",
+              "usage": {
+                "input_tokens": 15460,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0
+              }
+            }
+          ],
+          "getContextUsage_summary": {
+            "totalTokens": 26106,
+            "maxTokens": 262144,
+            "rawMaxTokens": 262144,
+            "percentage": 10,
+            "model": "qwen3.8-27b",
+            "categories": [
+              {
+                "name": "System tools",
+                "kind": "used",
+                "tokens": 24193
+              },
+              {
+                "name": "Skills",
+                "kind": "used",
+                "tokens": 1913
+              },
+              {
+                "name": "Autocompact buffer",
+                "kind": "buffer",
+                "tokens": 33000
+              },
+              {
+                "name": "Free space",
+                "kind": "free",
+                "tokens": 203038
+              }
+            ],
+            "elapsedMs": 25,
+            "countTokensCalls": 0
+          },
+          "asIs": {
+            "telemetryContext": {
+              "inputTokens": 0,
+              "cacheReadTokens": 0,
+              "cacheCreationTokens": 0,
+              "contextWindow": 262144,
+              "model": "qwen3.8-27b"
+            },
+            "contextTokens": 0,
+            "donutUpdates": false,
+            "lastMainRequestTrueInput": 15460
+          }
+        }
+      ],
+      "sessionId": "ad8f4e19-ce63-495e-85a9-3634bb7b0936"
+    }
+  ]
+}
