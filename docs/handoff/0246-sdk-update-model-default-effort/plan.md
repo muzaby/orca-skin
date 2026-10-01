@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-01 |
 | 매핑 | 사용자 라이브 세션 (`/handoff-plan`) — 브랜치 `claude/sdk-update-model-effort-v7c8lg` |
-| 상태 | impl/IMPL_DONE (r1 · V1 + ΔV1 · 독립 검증 대기) |
+| 상태 | verify/PASS (r1 · V1 + ΔV1 · 기계 범위 — AC16′ 실기 대기) |
 | V mode | `Delta V` |
 | 기준 V | `V1@b035a11` (공유 브랜치에서 확인) |
 | 이번 V revision | `ΔV1` — effort 메뉴 기본 수준 태그 문구를 '추천'으로 |
@@ -771,4 +771,5 @@ REQUIRED 16 = SELF_PASS 15 + SELF_BLOCKED 1. 유효 V의 REGRESSION pair는 없�
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| D1 | `ensure-sqlite-abi.mjs electron` 이 Node rebuild 뒤 남은 `.forge-meta`(`x64--140`) 때문에 rebuild를 건너뛰고도 `rebuilt` 를 출력, 바이너리는 Node ABI 잔류 | 비귀속(0104 도구) | `npm test` → `dev` 재현 확인 후 새 handoff | NEXT_HANDOFF | open |
+| D2 | `scan-surface.sh` 가 Windows Git Bash에서 `rg` 를 찾지 못함 | 비귀속(verify 도구) | 기록 | NON_BLOCKING | open |
