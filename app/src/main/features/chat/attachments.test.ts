@@ -13,6 +13,7 @@ import { createHash } from 'node:crypto'
 import { homedir, tmpdir } from 'node:os'
 import { afterEach, describe, expect, it } from 'vitest'
 import { PRODUCT_SLUG } from '../../../shared/product'
+import { buildTurnContent } from '../../adapters/claude'
 import { bufferToBase64Chunked, normalizeAttachments } from './attachments'
 import { MAX_ATTACHMENT_BYTES, nativeAttachmentDirectory } from './attachment-files'
 
@@ -32,6 +33,15 @@ async function makeTempDir(): Promise<string> {
 // 허용하므로(보안 검사) 홈 안에 만들 수밖에 없다 — afterEach 가 즉시 정리한다.
 async function makeHomeTempDir(): Promise<string> {
   return trackTempDir(await mkdtemp(join(homedir(), '.orca-attachment-test-')))
+}
+
+// Claude Code 2.1.267 번들의 quoted mention과 #L/anchor 정규식.
+// 인용된 문자열이 아니라 CLI가 파일 읽기에 쓰는 경로를 대조한다(0245 D1).
+function cliMentionPaths(text: string): string[] {
+  return Array.from(
+    text.matchAll(/(^|[\s\u3002\u3001\uFF1F\uFF01])@"([^"]+)"/g),
+    (match) => /^([^#]+)(?:#L(\d+)(?:-(\d+))?)?(?:#[^#]*)?$/.exec(match[2])?.[1] ?? match[2]
+  )
 }
 
 afterEach(async () => {
@@ -229,6 +239,39 @@ describe('normalizeAttachments', () => {
     expect(dirname(result.attachmentTexts[0].path)).toBe(await realpath(directory))
     expect(await readFile(result.attachmentTexts[0].path, 'utf8')).toBe('reference')
   })
+
+  it.each(['issue#12.md', 'C# notes.md', 'lines#L2-4.txt', 'a#b#c.md'])(
+    'CLI mentions read the saved bytes of %s from dialog and drop without renaming display views (0245 D1)',
+    async (name) => {
+      const path = join(await makeHomeTempDir(), name)
+      const original = Buffer.from(`# Reference\n${name}\nKeep the complete attachment.\n`)
+      await writeFile(path, original)
+      const directory = await makeTempDir()
+      const result = await normalizeAttachments(
+        (['dialog', 'drag_drop'] as const).map((sourceKind) => ({
+          kind: 'path' as const,
+          path,
+          name,
+          mimeType: 'text/plain',
+          sourceKind
+        })),
+        { directory, views: [] }
+      )
+
+      const savedPaths = result.attachmentTexts.map((attachment) => attachment.path)
+      const content = buildTurnContent('review', result.attachmentTexts, [], [])
+      const cliPaths = cliMentionPaths(content as string)
+      expect(cliPaths).toEqual(savedPaths)
+      expect(new Set(savedPaths).size).toBe(2)
+      expect(result.attachmentViews!.map((view) => view.name)).toEqual([name, name])
+      expect(result.attachmentViews!.map((view) => view.path)).toEqual(savedPaths)
+      for (const cliPath of cliPaths) {
+        expect(dirname(cliPath)).toBe(await realpath(directory))
+        expect(await readFile(cliPath)).toEqual(original)
+      }
+      expect(await readFile(path)).toEqual(original)
+    }
+  )
 
   it('rejects unsupported text extensions before passing a path to the CLI (AC22)', async () => {
     const path = join(await makeHomeTempDir(), 'script.ts')

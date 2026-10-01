@@ -52,7 +52,7 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 | 이미지·도구 결과 | 첨부 이미지 원본 블록들을 먼저 두고 텍스트를 마지막에 둔다. 축소·미디어 제한·도구 결과 처리는 CLI에 맡긴다. |
 | 결과 오류 | 비어 있지 않은 SDK `result` → `errors` 줄바꿈 결합 → `message` → `error` → 합성 문구 순으로 원문을 표시한다. 분류는 `stream_error`다. |
 
-입력 조립은 [buildTurnContent](../../../app/src/main/adapters/claude.ts)가 소유하고 첫 입력·프렐류드·steer·후속 턴이 공유한다. CLI 정책의 버전별 근거는 [컨텍스트·파일 연구](../../etc/study/claude/08-컨텍스트-한도와-파일-정책.md)를 참조한다.
+입력 조립은 [buildTurnContent](../../../app/src/main/adapters/claude.ts)가 소유하고 첫 입력·프렐류드·steer·후속 턴이 공유한다. [첨부 저장](../../../app/src/main/features/chat/attachment-files.ts)은 보관 파일명에서 큰따옴표·`#` 등의 멘션 구분자를 정제하며, 화면에는 원래 첨부 이름을 표시한다. CLI 정책의 버전별 근거는 [컨텍스트·파일 연구](../../etc/study/claude/08-컨텍스트-한도와-파일-정책.md)를 참조한다.
 
 ### 1.4 ExtensionBuilder (턴 확장 입력 조립)
 
