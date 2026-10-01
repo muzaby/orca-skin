@@ -114,9 +114,9 @@ export interface TurnExtensions {
   systemPromptAppend?: string
 }
 
-// 장수명 채널(0067)에 이어붙이는 후속 턴 계약 — 어댑터가 라이브 setter(model/permissionMode) 적용
-// 후 content 를 조립해 자기 입력 채널로 push 한다. effort/providerSettings/extensions 등 스폰-바인딩
-// 옵션은 여기 없다(변경 시 respawn 경계 — 0067 설계).
+// 장수명 채널에 이어붙이는 후속 턴 계약 — 어댑터가 model/permissionMode/effort 라이브 setter를
+// 적용한 뒤 content를 입력 채널로 push한다. providerSettings/extensions는 spawn에 묶여
+// 여기 없으며 변경 시 respawn한다.
 export interface TurnContinuation {
   text: string
   attachmentTexts?: ExtractedAttachmentText[]
@@ -126,6 +126,7 @@ export interface TurnContinuation {
   promptUuid?: string
   model?: string
   permissionMode?: NormalizedPermissionMode
+  effort?: EffortLevel
 }
 
 // 한 턴 실행 요청. sendMessage 의 인자 증식(7개)을 단일 객체로 통합한다 (설계검토 §9 1단계).

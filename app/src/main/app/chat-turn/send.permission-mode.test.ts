@@ -299,4 +299,30 @@ describe('handleChatSend — 지원하지 않는 권한 모드 보정 (AT-14)', 
     expect(setMode).toHaveBeenCalledWith('session-1', 'accept_edits')
     expect(requestMode).toBe('accept_edits')
   })
+
+  it.each(['medium', undefined] as const)(
+    '0246 AC9 — carries effort %s into TurnRequest',
+    async (effort) => {
+      const harness = makeHarness('session-1')
+      harness.deps.permissionModes = {
+        setMode: vi.fn(),
+        getCurrentMode: () => 'default'
+      } as never
+      mocks.acquireTurnRuntime.mockResolvedValue({
+        ok: true,
+        runtime: { close: vi.fn(), channelAlive: true, markAborted: vi.fn() },
+        extensions: { skills: [], hooks: { normalized: {} } }
+      })
+      await handleChatSend(harness.deps as never, { sender: harness.sender } as never, {
+        sessionId: 'session-1',
+        text: 'work',
+        attachmentViews: [],
+        ...(effort ? { effort } : {})
+      })
+      const request = mocks.buildTurnRequest.mock.calls.at(-1)?.[1]
+      expect(request).toBeDefined()
+      if (effort) expect(request).toHaveProperty('effort', effort)
+      else expect(request).not.toHaveProperty('effort')
+    }
+  )
 })

@@ -1,5 +1,39 @@
 import { describe, expect, it } from 'vitest'
-import { modelIdentity, sameModelIdentity, supportsAutoPermission } from './model-identity'
+import {
+  modelIdentity,
+  sameModelIdentity,
+  supportsAutoPermission,
+  parseClaudeModelName
+} from './model-identity'
+
+describe('0246 AC5 — shared Claude name parser', () => {
+  it.each([
+    'claude-opus-5-5',
+    'opus-5.5',
+    'Opus 5.5',
+    'us.anthropic.claude-opus-5-5-v1:0',
+    'claude-opus-5-5[1m]'
+  ])('reads opus 5.5 in %s', (model) => {
+    expect(parseClaudeModelName(model)).toEqual({ family: 'opus', version: { major: 5, minor: 5 } })
+  })
+  it('reads a version before the family token', () => {
+    expect(parseClaudeModelName('claude-3-5-sonnet')).toEqual({
+      family: 'sonnet',
+      version: { major: 3, minor: 5 }
+    })
+  })
+  it('excludes a date from the minor version', () => {
+    expect(parseClaudeModelName('claude-opus-4-20250514')).toEqual({
+      family: 'opus',
+      version: { major: 4, minor: 0 }
+    })
+  })
+  it('keeps versionless families distinct from custom names', () => {
+    expect(parseClaudeModelName('opus')).toEqual({ family: 'opus' })
+    expect(parseClaudeModelName('myopus-5.5')).toBeUndefined()
+    expect(parseClaudeModelName('gpt-5.5')).toBeUndefined()
+  })
+})
 
 describe('Claude Code model name variants', () => {
   it.each([

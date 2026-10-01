@@ -19,6 +19,7 @@ import type {
   GitDiffPatch
 } from '../../../../../shared/ipc'
 import { subagentNoticePart } from '../../../../../shared/ipc'
+import { defaultEffortForModel } from '../../../../../shared/model-effort'
 import type { NonExecution } from '../../../../../shared/tool-outcome'
 import { isFilesystemRoot } from '../../../../../shared/absolute-path'
 import { directoryIdentity } from '../../../../../shared/extra-directories'
@@ -1466,6 +1467,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       if (state.sessionId && state.backend && action.adapter && action.adapter !== state.backend) {
         return state
       }
+      const selectionChanged =
+        action.providerKey !== state.providerKey || action.modelFamily !== state.modelFamily
       // 지원하지 않는 권한 모드는 모델과 함께 내려앉는다(0215 D-010) — haiku 는 SDK 'auto' 를
       // 받지 못한다. 규칙은 `shared/permission-mode.ts` 하나가 갖고 여기가 상태 정본이다.
       return {
@@ -1473,6 +1476,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         providerKey: action.providerKey,
         modelFamily: action.modelFamily,
         modelAlias: action.modelAlias,
+        effort: selectionChanged ? defaultEffortForModel(action.modelFamily) : state.effort,
         permissionMode: coercePermissionMode(
           state.permissionMode,
           {

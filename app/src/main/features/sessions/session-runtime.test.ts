@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, type Mock } from 'vitest'
 import type { DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
 import { makeClassifiedError } from '../../infra/errors'
-import type { TurnRequest } from '../../adapters/turn'
+import type { TurnRequest, TurnContinuation } from '../../adapters/turn'
 import type { AbortCause } from '../../contracts/session-state'
 import type { GovernedLiveTurn, RuntimeSessionAdapter } from '../../contracts/ports'
 import type { ClaudePermissionMode } from '../../../shared/permission-mode'
@@ -128,7 +128,7 @@ function channelLive(): {
   emitBatch: (events: NormalizedEvent[]) => void
   emitProvider: (events: (BackgroundEvent | ProviderMessageEvent)[]) => void
   close: ReturnType<typeof vi.fn>
-  pushed: Array<{ text: string; promptUuid?: string; requirements?: DiffRequirementAnchor[] }>
+  pushed: TurnContinuation[]
   interrupted: ReturnType<typeof vi.fn>
 } {
   const queue: ProviderMessageBatch[] = []
@@ -140,11 +140,7 @@ function channelLive(): {
     wake?.()
     wake = null
   })
-  const pushed: Array<{
-    text: string
-    promptUuid?: string
-    requirements?: DiffRequirementAnchor[]
-  }> = []
+  const pushed: TurnContinuation[] = []
   const interrupted = vi.fn()
   const liveTurn: LiveTurn = {
     eventBatches: (async function* () {
@@ -162,6 +158,7 @@ function channelLive(): {
       pushed.push({
         text: next.text,
         ...(next.promptUuid ? { promptUuid: next.promptUuid } : {}),
+        ...(next.effort !== undefined ? { effort: next.effort } : {}),
         ...(next.requirements ? { requirements: next.requirements } : {})
       })
       return { kind: 'accepted' }
@@ -455,6 +452,30 @@ describe('runtime tool channel context', () => {
 })
 
 describe('SessionRuntime 장수명 채널(0067)', () => {
+  it('0246 AC9 — forwards changed effort on the live channel without spawning', async () => {
+    const ch = channelLive()
+    const engine = adapter(ch.liveTurn)
+    const spawn = vi.spyOn(engine, 'sendMessage')
+    const runtime = new SessionRuntime(engine)
+    try {
+      const first = collect(runtime.send({ ...req(), effort: 'high' }))
+      ch.emit({ type: 'telemetry', sessionId: 's1' })
+      await first
+      const second = collect(runtime.send({ ...req(), text: 'second', effort: 'low' }))
+      await tick()
+      expect(ch.pushed).toEqual([{ text: 'second', effort: 'low' }])
+      ch.emit({ type: 'telemetry', sessionId: 's1' })
+      await second
+      expect(spawn).toHaveBeenCalledTimes(1)
+      const third = collect(runtime.send({ ...req(), text: 'unspecified' }))
+      await tick()
+      expect(ch.pushed[1]).toEqual({ text: 'unspecified' })
+      ch.emit({ type: 'telemetry', sessionId: 's1' })
+      await third
+    } finally {
+      runtime.close()
+    }
+  })
   it('terminal 에서 프레임만 닫고 채널(live)은 유지한다', async () => {
     const ch = channelLive()
     const runtime = new SessionRuntime(adapter(ch.liveTurn))

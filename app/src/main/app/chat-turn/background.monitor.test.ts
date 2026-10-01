@@ -1,4 +1,4 @@
-// Codex: SDK 0.3.267 sdk-tools.d.ts MonitorInput/Output and sdk.d.ts task envelopes.
+// Codex: SDK 0.3.286 sdk-tools.d.ts MonitorInput/Output and sdk.d.ts task envelopes.
 // These are declaration-based fixtures, not captures from a Monitor-enabled deployment.
 import { randomUUID } from 'node:crypto'
 import { afterEach, expect, it, vi, type Mock } from 'vitest'
@@ -31,14 +31,12 @@ const outputFile = 'C:/monitor-fixture/events.output'
 const command: MonitorInput = {
   description: 'Watch command stdout',
   command: 'bounded-fixture-command',
-  timeout_ms: 5000,
-  persistent: false
+  timeout_ms: 5000
 }
 const websocket: MonitorInput = {
   description: 'Watch WebSocket text frames',
   ws: { url: 'wss://fixture.invalid/events', protocols: ['events-v1'] },
-  timeout_ms: 9000,
-  persistent: false
+  timeout_ms: 9000
 }
 
 interface MonitorFixture {
@@ -266,7 +264,7 @@ it('retains the provider timeout outcome instead of completing merely because th
 
 it('keeps persistent zero timeout metadata but disables live control after CLI disconnect and termination', async () => {
   const f = fixture()
-  const input: MonitorInput = { ...websocket, persistent: true }
+  const input: MonitorInput = { ...websocket }
   f.launch(input, { taskId, timeoutMs: 0, persistent: true })
   f.start()
   f.snapshot([taskId])

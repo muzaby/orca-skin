@@ -384,6 +384,7 @@ export class ClaudeAdapter implements SessionAdapter {
     const settings = req.providerSettings?.settings
     const contextEnv = envLookup(env, settings, process.env)
     const executionModel = modelForCli(model, contextEnv, settings?.model)
+    let appliedEffort = effort
 
     // 매퍼 컨텍스트 — sessionId 는 init(=session.updated)에서 갱신된다(resume 면 초기값이 그 id).
     // handoffArrival(0127): 핸드오프 도착 턴 표식 — 경계 이전 승계 컨텍스트 usage 를 매퍼가 무효화.
@@ -745,16 +746,19 @@ export class ClaudeAdapter implements SessionAdapter {
       },
       eventBatches: eventBatches(),
       close,
-      // 장수명 채널(0067) — 후속 턴을 같은 서브프로세스에 이어붙인다. 라이브 setter 적용 후
-      // content 를 push(P2 픽업 또는 P1 게이트 drain — 분기는 CLI). effort/providerSettings/
-      // extensions 변경은 respawn 경계(호출자 소관). setter 실패는 push 전에 던져져 호출자
-      // (SessionRuntime frame)가 스폰 폴백/에러 처리한다.
+      // 후속 턴은 model/permissionMode/effort를 라이브 적용한 뒤 입력을 push한다.
+      // providerSettings/extensions는 respawn 경계(호출자 소관)다. setter 실패는 입력 전송
+      // 전에 던져지며 SessionRuntime이 그 턴을 오류로 마감한다.
       pushTurn: async (next) => {
         if (next.model !== undefined) {
           await handle.setModel(modelForCli(next.model, contextEnv, settings?.model))
         }
         if (next.permissionMode !== undefined) {
           await handle.setPermissionMode(toClaudePermissionMode(next.permissionMode))
+        }
+        if (next.effort !== undefined && next.effort !== appliedEffort) {
+          await handle.applyFlagSettings({ effortLevel: next.effort })
+          appliedEffort = next.effort
         }
         return pushInput(
           buildTurnContent(
