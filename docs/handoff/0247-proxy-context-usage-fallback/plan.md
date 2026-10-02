@@ -12,7 +12,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-02 |
 | 매핑 | — |
-| 상태 | IMPL_DONE |
+| 상태 | verify/PASS (r1 · V1 · 기계 범위 — AC13 실기 대기) |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
 | 이번 V revision | `V1` |
@@ -683,4 +683,6 @@ turn_usage 최신 행 → reader → usageRowToTelemetry → LOAD_SESSION → �
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | … | … | … | … | … |
+| D1 | delta형 프록시 턴의 CLI 추정 단가 비용이 원장·사용량 화면에 나타난다 | 비귀속 — D-010 비범위 | 프록시 모델 비용 정책 후속 handoff | NEXT_HANDOFF | open |
+| D2 | `ensure-sqlite-abi.mjs electron` false "rebuilt"(0246 D1 재현) · npm 밖 직접 호출 시 `electron-builder.cmd` PATH 미해결 | 비귀속(0104 도구) | 0246 D1 과 같은 후속 handoff | NEXT_HANDOFF | open |
+| D3 | arch 문서에서 필드 병합 `else delete` 금지 근거 문장 소실(코드 주석엔 존재) | 비귀속 — AC12 충족 | 다음 문서 손질 때 복원 고려 | NON_BLOCKING | open |
