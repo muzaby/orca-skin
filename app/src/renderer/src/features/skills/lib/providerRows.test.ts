@@ -8,6 +8,7 @@ function provider(patch: Partial<ProviderInfo> = {}): ProviderInfo {
     id: 'gw',
     label: '게이트웨이',
     kind: 'llm',
+    authScheme: 'login-required',
     origin: 'https://gw.example.corp',
     auth: [
       { kind: 'api-key', label: 'API 키', fields: [] },
@@ -53,12 +54,14 @@ describe('providerRows (AC5)', () => {
     expect(providerRowMeta(provider())).toEqual({
       statusKey: 'skills.provider.status.none',
       activeLabel: null,
-      kindKey: 'skills.provider.kind.llm'
+      kindKey: 'skills.provider.kind.llm',
+      showsAuthMethod: true
     })
     expect(providerRowMeta(provider({ status: 'expired', activeAuthKind: 'oauth' }))).toEqual({
       statusKey: 'skills.provider.status.expired',
       activeLabel: '사내 계정으로 로그인',
-      kindKey: 'skills.provider.kind.llm'
+      kindKey: 'skills.provider.kind.llm',
+      showsAuthMethod: true
     })
   })
 
@@ -71,4 +74,18 @@ describe('providerRows (AC5)', () => {
     expect(canManageAuth(provider({ status: 'unknown' }))).toBe(true)
     expect(canManageAuth(provider({ status: 'valid' }))).toBe(true)
   })
+
+  it.each(['none', 'valid', 'expired', 'unknown'] as const)(
+    '로그인 프리는 %s 상태에서도 기본 제공·인증 불필요로 표시하고 인증을 관리하지 않는다 (0248 AC11·AC12)',
+    (status) => {
+      const info = provider({ authScheme: 'login-free', status, activeAuthKind: 'oauth' })
+      expect(providerRowMeta(info)).toEqual({
+        statusKey: 'skills.provider.status.loginFree',
+        activeLabel: null,
+        kindKey: 'skills.provider.kind.loginFree',
+        showsAuthMethod: false
+      })
+      expect(canManageAuth(info)).toBe(false)
+    }
+  )
 })

@@ -10,6 +10,7 @@ import type { SecretStorePort } from '../../infra/config/secret-store-port'
 import { AuthenticatedRequester, AuthPolicyError } from './authenticated-request'
 import {
   checkHeaders,
+  checkLoginFreeRequest,
   checkOutboundRequest,
   checkRedirect,
   checkRequestPath,
@@ -91,6 +92,26 @@ describe('정책 순수 판정', () => {
     expect(
       checkRedirect('https://evil.example/x?token=abc', ['https://wiki.example.corp'])
     ).toEqual({ ok: false, reason: 'origin_not_allowed', detail: 'https://evil.example' })
+  })
+
+  it('로그인 프리는 상대 경로와 origin만 검사한다 (0248 AC6)', () => {
+    const facts = {
+      url: 'https://public.example/items',
+      path: '/items',
+      allowedOrigins: ['https://public.example']
+    }
+    expect(checkLoginFreeRequest(facts)).toEqual({ ok: true })
+    expect(checkLoginFreeRequest({ ...facts, path: '//public.example/items' })).toMatchObject({
+      ok: false,
+      reason: 'absolute_path'
+    })
+    expect(
+      checkLoginFreeRequest({ ...facts, url: 'https://other.example/items?token=secret' })
+    ).toEqual({
+      ok: false,
+      reason: 'origin_not_allowed',
+      detail: 'https://other.example'
+    })
   })
 })
 

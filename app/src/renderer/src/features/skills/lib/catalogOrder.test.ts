@@ -30,6 +30,7 @@ const provider = (id: string, kind: ProviderInfo['kind']): ProviderInfo => ({
   id,
   label: id,
   kind,
+  authScheme: 'login-required',
   origin: 'https://example.com',
   auth: [],
   status: 'none',

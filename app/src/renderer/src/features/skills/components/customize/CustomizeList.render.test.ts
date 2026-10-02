@@ -34,6 +34,7 @@ const provider = (id: string, kind: ProviderInfo['kind']): ProviderInfo => ({
   id,
   label: id,
   kind,
+  authScheme: 'login-required',
   origin: 'https://example.com',
   auth: [{ kind: 'api-key', label: 'API 키', fields: [] }],
   activeAuthKind: 'api-key',
@@ -100,6 +101,26 @@ describe('plugin catalog list', () => {
     expect(markup).toContain('지라 데이터 센터')
     expect(markup).not.toContain('>jira-auth<')
     expect(markup).toContain('M720-360v-80h80')
+  })
+
+  it('로그인 프리 행은 detail에 기본 제공만, trailing에 인증 불필요를 표시한다 (0248 AC11)', () => {
+    const markup = render({
+      tab: 'providers',
+      providers: [
+        {
+          ...provider('builtin-tools', 'service'),
+          authScheme: 'login-free',
+          auth: [],
+          activeAuthKind: null
+        }
+      ]
+    })
+    expect(markup).toContain('title="기본 제공">기본 제공</span>')
+    expect(markup).toContain('>인증 불필요</span>')
+    expect(markup).not.toContain('기본 제공 ·')
+    expect(markup).not.toContain('알 수 없음')
+    expect(markup).not.toContain('API 키')
+    expect(markup.match(/<button\b/g)).toHaveLength(1)
   })
 
   it.each<CatalogTab>(['skills', 'mcp', 'providers'])(

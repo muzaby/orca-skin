@@ -6,6 +6,7 @@ function info(over: Partial<ProviderInfo> & Pick<ProviderInfo, 'id'>): ProviderI
   return {
     label: over.id,
     kind: 'gate',
+    authScheme: 'login-required',
     origin: 'https://portal.example.corp',
     auth: [],
     status: 'valid',

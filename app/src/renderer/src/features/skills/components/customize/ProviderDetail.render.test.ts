@@ -8,6 +8,7 @@ const provider: ProviderInfo = {
   id: 'jira-dc',
   label: 'Jira Auth',
   kind: 'service',
+  authScheme: 'login-required',
   origin: 'https://jira.example.com',
   auth: [{ kind: 'pat', label: 'PAT', fields: [] }],
   status: 'none',
@@ -29,6 +30,42 @@ const provider: ProviderInfo = {
 }
 
 describe('ProviderDetail plugin presentation', () => {
+  it.each(['', 'https://public.example.com'])(
+    '로그인 프리 상세는 도구와 상태를 표시하고 origin=%s 주소 유무를 따른다 (0248 AC12)',
+    (origin) => {
+      const markup = renderToStaticMarkup(
+        createElement(ProviderDetail, {
+          provider: {
+            ...provider,
+            authScheme: 'login-free',
+            origin,
+            auth: [],
+            status: 'valid',
+            activeAuthKind: null
+          },
+          step: null,
+          onLogin: vi.fn(),
+          onSubmit: vi.fn(),
+          onReauth: vi.fn(),
+          onRevoke: vi.fn()
+        })
+      )
+      expect(markup).toContain('>기본 제공</span>')
+      expect(markup).toContain('>인증 불필요</span>')
+      expect(markup.indexOf('>기본 제공</span>')).toBeLessThan(
+        markup.indexOf('>인증 불필요</span>')
+      )
+      expect(markup).toContain('bg-good ring-good/20')
+      expect(markup).toContain('mcp__jira-dc-tools__jira_searchIssues')
+      expect(markup).not.toMatch(/<button\b|provider-authenticate|provider-reauth-menu/)
+      expect(markup).not.toContain('연결 해제')
+      expect(markup).not.toContain('연결되면 모델에게 노출됩니다.')
+      expect(markup).not.toContain('PAT')
+      expect(markup.includes('>주소</dt>')).toBe(origin !== '')
+      if (origin !== '') expect(markup).toContain(origin)
+    }
+  )
+
   it('localized title/body와 source/version/GitHub/license를 auth detail과 함께 표시한다', () => {
     const markup = renderToStaticMarkup(
       createElement(ProviderDetail, {

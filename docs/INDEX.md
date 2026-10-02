@@ -20,7 +20,7 @@
 | **OpenCode SDK** (설치 버전 · API 표면 · 메시지/이벤트 · 오류/전송 제약) | [`opencode-sdk-spec.md`](opencode-sdk-spec.md) · 공식 원문은 [`spec/opencode/INDEX.md`](spec/opencode/INDEX.md) |
 | **Orca → OpenCode 마이그레이션 연구** (레이어별 작업 · 매핑 · 단계별 gate) | [`etc/study/opencode/orca-migration-guide.md`](etc/study/opencode/orca-migration-guide.md) · 기존 연구 지도는 [`etc/study/opencode/00-index.md`](etc/study/opencode/00-index.md) |
 | 턴 이벤트 정규화 계층 (NormalizedEvent · 권한 브리지) | [`arch/backend/provider-runtime.md`](arch/backend/provider-runtime.md) |
-| **인증 provider** (로그인 게이트 · LLM 자격증명 · 사내 서비스) | [`arch/backend/auth.md`](arch/backend/auth.md) |
+| **인증 provider · 로그인 프리 Plugin** (로그인 게이트 · LLM 자격증명 · 사내 서비스 · 기본 제공 도구) | [`arch/backend/auth.md`](arch/backend/auth.md) |
 | Electron 보안 경계 · 자격증명 · 원격 전송 스택 | [`arch/backend/security.md`](arch/backend/security.md) |
 | DB · 영속성 · FTS5 | [`arch/backend/persistence.md`](arch/backend/persistence.md) |
 | 확장 배포 (MCP · SKILL.md · AGENTS.md 표준) | [`arch/backend/standardization.md`](arch/backend/standardization.md) |
@@ -39,12 +39,13 @@
 | DOM 마커 체계 · z-stack · custom titlebar | [`arch/frontend/dom-architecture.md`](arch/frontend/dom-architecture.md) |
 | **IPC 채널 계약** (추가·변경 포함) | [`IPC_CONTRACT.md`](IPC_CONTRACT.md) |
 | **릴리스** 실행·롤백 | [`guides/release-operations.md`](guides/release-operations.md) |
-| **폐쇄망 확장·로그인 게이트 추가** ("플러그인 추가" 요청 포함) | [`guides/closed-network-extensions.md`](guides/closed-network-extensions.md) |
+| **폐쇄망 확장·로그인 게이트·로그인 프리 도구 추가** ("플러그인 추가" 요청 포함) | [`guides/closed-network-extensions.md`](guides/closed-network-extensions.md) |
 | 도구 권한 · 작업 디렉토리 스코프 | [`guides/workspace-isolation-permissions.md`](guides/workspace-isolation-permissions.md) |
 | **Windows SRT 도입 보류·실증 결과** | [`etc/study/srt/execution-report.md`](etc/study/srt/execution-report.md) — 사용자 보류 결정과 Windows 실행 결과 |
 | **Windows SRT 보관 실험·재현 자료** | [`etc/study/srt/README.md`](etc/study/srt/README.md) — 계획·시험 코드·운영 절차의 study 보관본, 현재 앱 기능 아님 |
 | **용어** 정의 | [`GLOSSARY.md`](GLOSSARY.md) · 쉬운 해설은 [`arch/frontend/terms.md`](arch/frontend/terms.md) · [`arch/backend/terms.md`](arch/backend/terms.md) |
 | **왜 이 구조인가** (결정 근거) | [`decisions/`](decisions/) — ADR |
+| **로그인 프리 인증 체계의 선택 근거** | [`decisions/006-login-free-auth-scheme.md`](decisions/006-login-free-auth-scheme.md) |
 | 커밋 trailer 작성·파싱 | [`git-template.md`](git-template.md) |
 | 코드에서 센 **수치** (채널·슬라이스·키·마이그레이션 수) | [`generated/inventory.md`](generated/inventory.md) — 생성물, 직접 편집 금지 |
 

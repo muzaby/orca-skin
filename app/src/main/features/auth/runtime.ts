@@ -31,6 +31,8 @@ import type {
   AuthSnapshotChangeCause,
   AuthStep,
   BoundAuth,
+  LoginFreeDefinition,
+  LoginFreePluginAuth,
   PluginAuth
 } from '../../contracts/auth'
 import { AuthenticatedRequester } from './authenticated-request'
@@ -46,6 +48,8 @@ import type { Vault } from '../../infra/vault'
 import type { BrowserSessionPort } from './specs/browser-session'
 import { registerDeclaredSessions } from './session-policies'
 import { errorMessage } from '../../infra/errors'
+import { createSender } from '../../infra/net/transport'
+import { createLoginFreePluginAuth } from './login-free'
 
 // **실행 credential 이 바뀐 원인만 true 다.** `verified` 는 "기록이 살아 있음을 확인했다" 는
 // 뜻이지 값이 달라졌다는 뜻이 아니다 — 이것을 true 로 두면 부팅 probe 한 번에 모든 Harness
@@ -65,6 +69,7 @@ function methodDescriptor(method: AuthMethod): AuthMethodDescriptor {
 
 export interface CreateAuthRuntimeDeps {
   definitions: readonly AuthDefinition[]
+  loginFreeDefinitions?: readonly LoginFreeDefinition[]
   persistence: GrantPersistencePort
   vault: Vault
   // 원격 요청은 Chromium 스택으로만 나간다 (0173) — 기본값을 두지 않는다.
@@ -88,7 +93,7 @@ export interface CreatedAuthRuntime {
 }
 
 export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRuntime {
-  const registry = new AuthRegistry(deps.definitions)
+  const registry = new AuthRegistry(deps.definitions, deps.loginFreeDefinitions)
   const store = new AuthStore({
     persistence: deps.persistence,
     vault: deps.vault,
@@ -202,7 +207,12 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
 
   const bindForPlugin = (authId: AuthId): PluginAuth => {
     const definition = registry.get(authId)
-    if (!definition) throw new Error(`unknown auth: ${authId}`)
+    if (!definition) {
+      if (registry.getLoginFree(authId)) {
+        throw new Error(`login-free auth requires bindLoginFreePlugin: ${authId}`)
+      }
+      throw new Error(`unknown auth: ${authId}`)
+    }
     return {
       ...bind(authId),
       label: definition.label,
@@ -229,14 +239,41 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
     }
   }
 
+  const loginFreeSender = createSender(deps.fetchImpl)
+  const bindLoginFreePlugin = (authId: AuthId): LoginFreePluginAuth => {
+    const definition = registry.getLoginFree(authId)
+    if (!definition) {
+      if (registry.get(authId)) {
+        throw new Error(`login-required auth requires bindForPlugin: ${authId}`)
+      }
+      throw new Error(`unknown login-free auth: ${authId}`)
+    }
+    return createLoginFreePluginAuth(definition, {
+      sender: loginFreeSender,
+      ...(deps.logger ? { logger: deps.logger } : {})
+    })
+  }
+
   const runtime: AuthRuntime = {
     bind,
     bindForPlugin,
+    bindLoginFreePlugin,
     tryBind: (authId) => (registry.get(authId) ? bind(authId) : null),
     describe(authId) {
       const definition = registry.get(authId)
-      if (!definition) throw new Error(`unknown auth: ${authId}`)
+      if (!definition) {
+        const loginFree = registry.getLoginFree(authId)
+        if (!loginFree) throw new Error(`unknown auth: ${authId}`)
+        return {
+          scheme: 'login-free',
+          authId: loginFree.id,
+          label: loginFree.label,
+          ...(loginFree.origin !== undefined ? { origin: loginFree.origin } : {}),
+          methods: []
+        }
+      }
       const descriptor: AuthDescriptor = {
+        scheme: 'login-required',
         authId: definition.id,
         label: definition.label,
         origin: definition.origin,

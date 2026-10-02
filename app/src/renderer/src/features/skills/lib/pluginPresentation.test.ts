@@ -7,6 +7,7 @@ const provider = (catalog?: ProviderInfo['catalog']): ProviderInfo => ({
   id: 'jira',
   label: 'Jira Auth',
   kind: 'service',
+  authScheme: 'login-required',
   origin: 'https://jira.example.com',
   auth: [],
   status: 'none',

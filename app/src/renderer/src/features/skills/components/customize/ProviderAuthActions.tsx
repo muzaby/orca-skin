@@ -19,6 +19,7 @@ export interface ProviderAuthActionsProps {
  *
  * 미인증 provider는 검정 primary 인증 버튼 하나만 노출하고, 인증 정보가 있으면
  * 스킬 탭의 추가 버튼과 같은 primary dropdown으로 재인증/연결 해제를 묶는다.
+ * 로그인 프리는 인증 액션을 렌더하지 않는다.
  * 메뉴를 닫는 작업을 callback보다 먼저 수행해 인증 흐름이나 상태 방송으로 패널이
  * 교체되어도 열린 popover가 남지 않게 한다.
  */
@@ -28,12 +29,15 @@ export function ProviderAuthActions({
   onLogin,
   onReauth,
   onRevoke
-}: ProviderAuthActionsProps): React.JSX.Element {
+}: ProviderAuthActionsProps): React.JSX.Element | null {
   const { tr } = useI18n()
   const anchorRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
 
-  if (providerAuthActionKind(provider) === 'authenticate') {
+  const actionKind = providerAuthActionKind(provider)
+  if (actionKind === 'none') return null
+
+  if (actionKind === 'authenticate') {
     return (
       <Button
         size="small"

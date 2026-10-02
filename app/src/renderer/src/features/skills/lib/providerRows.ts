@@ -16,6 +16,7 @@ export interface ProviderRowMeta {
   // 지금 무엇으로 연결돼 있는가. 미인증이면 null — 화면이 "무엇으로 연결됐는지" 를 보여준다.
   activeLabel: string | null
   kindKey: MessageKey
+  showsAuthMethod: boolean
 }
 
 const STATUS_KEYS: Record<ProviderGrantStatus, MessageKey> = {
@@ -32,16 +33,26 @@ const KIND_KEYS: Record<ProviderKind, MessageKey> = {
 }
 
 export function providerRowMeta(provider: ProviderInfo): ProviderRowMeta {
+  if (provider.authScheme === 'login-free') {
+    return {
+      statusKey: 'skills.provider.status.loginFree',
+      activeLabel: null,
+      kindKey: 'skills.provider.kind.loginFree',
+      showsAuthMethod: false
+    }
+  }
   const active = provider.auth.find((spec) => spec.kind === provider.activeAuthKind)
   return {
     statusKey: STATUS_KEYS[provider.status],
     activeLabel: active?.label ?? null,
-    kindKey: KIND_KEYS[provider.kind]
+    kindKey: KIND_KEYS[provider.kind],
+    showsAuthMethod: true
   }
 }
 
 // **재인증·해제 버튼을 보여주는가.** 재인증·해제 둘 다 이 조건 하나를 쓴다 — 이름을 나눠 두면
-// 규칙이 같은 동안에도 두 벌로 보이고, 한쪽만 고쳐질 자리가 생긴다. 없으면 버튼은 "연결" 하나다.
+// 규칙이 같은 동안에도 두 벌로 보이고, 한쪽만 고쳐질 자리가 생긴다. 로그인 프리는 인증 액션이
+// 없고, 인증 이력이 없는 자격증명 대상에는 "연결" 하나를 낸다.
 //
 // **`isConnected` 도 `hasAuthRecord` 도 아니다.** `expired`·`unknown` 에도 참이라 "연결됨" 이
 // 아니고, 레코드 유무와도 어긋난다 — `status` 는 grant 레코드가 있어도 값형의 vault 값이 없으면
@@ -49,5 +60,5 @@ export function providerRowMeta(provider: ProviderInfo): ProviderRowMeta {
 // 있는데 status 는 none" 이 성립한다. 이 판정이 실제로 정하는 것은 **화면에 어떤 버튼을 낼지**
 // 하나뿐이므로 이름도 그것으로 둔다. (0187 D4)
 export function canManageAuth(provider: ProviderInfo): boolean {
-  return provider.status !== 'none'
+  return provider.authScheme === 'login-required' && provider.status !== 'none'
 }

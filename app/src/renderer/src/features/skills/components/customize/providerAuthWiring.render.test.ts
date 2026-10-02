@@ -53,6 +53,7 @@ const PROVIDER: ProviderInfo = {
   id: 'jira-dc',
   label: 'Jira',
   kind: 'service',
+  authScheme: 'login-required',
   origin: 'builtin',
   auth: [
     { kind: 'pat', label: 'PAT', fields: [] },

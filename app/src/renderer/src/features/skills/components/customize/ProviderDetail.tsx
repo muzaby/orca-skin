@@ -17,7 +17,8 @@ import { ProviderAuthActions } from './ProviderAuthActions'
 const TONE = { valid: 'green', expired: 'amber', unknown: 'amber', none: 'slate' } as const
 
 // provider 상세 — 상태·인증·재인증·해제. 앱 로그인(gate)과 사내 서비스(service)가 **같은
-// 패널**을 쓴다(둘의 차이는 kind 뿐). 입력 폼은 main 이 내려준 `fields` 선언을 그대로
+// 패널**을 쓴다. 로그인 프리는 체계에 맞는 상태 표시와 도구 목록을 쓴다.
+// 입력 폼은 main 이 내려준 `fields` 선언을 그대로
 // 렌더링한다 — provider 가 만든 임의 UI 가 아니라 **신뢰된 prompt** 다.
 export function ProviderDetail({
   provider,
@@ -109,8 +110,12 @@ export function ProviderDetail({
             호출을 사용자가 대조할 수 있어야 한다. */}
         <dt className="text-ink3">{tr('skills.provider.id')}</dt>
         <dd className="m-0 truncate font-mono text-ink2">{provider.id}</dd>
-        <dt className="text-ink3">{tr('skills.provider.origin')}</dt>
-        <dd className="m-0 truncate font-mono text-ink2">{provider.origin}</dd>
+        {provider.origin !== '' && (
+          <>
+            <dt className="text-ink3">{tr('skills.provider.origin')}</dt>
+            <dd className="m-0 truncate font-mono text-ink2">{provider.origin}</dd>
+          </>
+        )}
         {provider.principal !== null && (
           <>
             <dt className="text-ink3">{tr('skills.table.author')}</dt>

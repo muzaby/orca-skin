@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { AuthDefinition } from '../../contracts/auth'
+import type { AuthDefinition, LoginFreeDefinition } from '../../contracts/auth'
 import { isBareOrigin, AuthRegistry, registerAuthDefinitions } from './registry'
 
 function provider(id: string, origin: string): AuthDefinition {
@@ -21,8 +21,13 @@ describe('AuthRegistry (AC1)', () => {
     expect(definitions.map((p) => p.id)).toEqual(['wiki', 'gw'])
     expect(definitions[0]?.origin).toBe('https://wiki.example.corp')
     expect(rejected).toEqual([
-      { id: 'wiki', reason: 'duplicate_id', message: expect.any(String) },
-      { id: 'jira', reason: 'invalid_origin', message: expect.any(String) }
+      { id: 'wiki', scheme: 'login-required', reason: 'duplicate_id', message: expect.any(String) },
+      {
+        id: 'jira',
+        scheme: 'login-required',
+        reason: 'invalid_origin',
+        message: expect.any(String)
+      }
     ])
   })
 
@@ -68,5 +73,52 @@ describe('AuthRegistry (AC1)', () => {
     expect(registry.list().map((p) => p.id)).toEqual(['sso', 'wiki'])
     expect(registry.get('wiki')?.label).toBe('wiki')
     expect(registry.get('nope')).toBeUndefined()
+  })
+})
+
+describe('로그인 프리 등록 — 공유 id 공간 (0248 AC8)', () => {
+  it('자격증명 accepted id와 앞선 로그인 프리 id를 우선하고 잘못된 선언만 거부한다', () => {
+    const declared = [provider('wiki', 'https://wiki.example.corp')]
+    const loginFree: readonly LoginFreeDefinition[] = [
+      { id: 'wiki', label: '충돌' },
+      { id: 'host-exe', label: '호스트 exe' },
+      { id: 'host-exe', label: '중복' },
+      { id: 'Invalid_ID', label: '잘못된 id' },
+      { id: 'invalid-origin', label: '잘못된 origin', origin: 'https://public.example/api' },
+      { id: 'public-api', label: '공개 API', origin: 'https://public.example' },
+      { id: 'non-http', label: 'authority', origin: 'orca://local' }
+    ]
+    const result = registerAuthDefinitions(declared, loginFree)
+    expect(result.definitions).toEqual(declared)
+    expect(result.loginFreeDefinitions).toEqual([loginFree[1], loginFree[5], loginFree[6]])
+    expect(result.rejected).toEqual([
+      { id: 'wiki', scheme: 'login-free', reason: 'duplicate_id', message: expect.any(String) },
+      { id: 'host-exe', scheme: 'login-free', reason: 'duplicate_id', message: expect.any(String) },
+      { id: 'Invalid_ID', scheme: 'login-free', reason: 'invalid_id', message: expect.any(String) },
+      {
+        id: 'invalid-origin',
+        scheme: 'login-free',
+        reason: 'invalid_origin',
+        message: expect.any(String)
+      }
+    ])
+  })
+
+  it('거부된 자격증명 id는 예약하지 않고 두 조회 목록을 분리한다', () => {
+    const loginFree = [{ id: 'wiki', label: '호스트' }]
+    const registry = new AuthRegistry([provider('wiki', 'https://wiki.example/path')], loginFree)
+    expect(registry.list()).toEqual([])
+    expect(registry.get('wiki')).toBeUndefined()
+    expect(registry.loginFree()).toEqual(loginFree)
+    expect(registry.getLoginFree('wiki')).toEqual(loginFree[0])
+    expect(registry.getLoginFree('missing')).toBeUndefined()
+    expect(registry.rejected()).toEqual([
+      {
+        id: 'wiki',
+        scheme: 'login-required',
+        reason: 'invalid_origin',
+        message: expect.any(String)
+      }
+    ])
   })
 })

@@ -29,6 +29,18 @@ const cases = [
     'import/no-restricted-paths'
   ],
   [
+    'plugin relative runner',
+    'src/main/features/plugins/confluence/tools.ts',
+    "import { runGit } from '../../../infra/git/runner'; void runGit",
+    'import/no-restricted-paths'
+  ],
+  [
+    'plugin dynamic runner',
+    'src/main/features/plugins/confluence/tools.ts',
+    "void import('../../../infra/git/runner')",
+    'import/no-restricted-paths'
+  ],
+  [
     'child_process',
     'src/main/features/worktrees/service.ts',
     "import { execFile } from 'child_process'; void execFile",
@@ -44,6 +56,12 @@ const cases = [
     'dynamic child_process',
     'src/main/features/worktrees/service.ts',
     "void import('node:child_process')",
+    'no-restricted-syntax'
+  ],
+  [
+    'dynamic bare child_process',
+    'src/main/features/worktrees/service.ts',
+    "void import('child_process')",
     'no-restricted-syntax'
   ]
 ]
@@ -71,5 +89,26 @@ test('Git gateway and runner are the permitted execution boundary', async () => 
       ),
       []
     )
+  }
+})
+
+test('Plugin implementations may directly execute host programs', async () => {
+  for (const moduleName of ['child_process', 'node:child_process']) {
+    for (const source of [
+      `import { execFile } from '${moduleName}'; void execFile`,
+      `void import('${moduleName}')`
+    ]) {
+      const [result] = await eslint.lintText(source, {
+        filePath: 'src/main/features/plugins/confluence/tools.ts'
+      })
+      assert.deepEqual(
+        result.messages.filter((message) =>
+          ['no-restricted-imports', 'no-restricted-syntax', 'import/no-restricted-paths'].includes(
+            message.ruleId
+          )
+        ),
+        []
+      )
+    }
   }
 })

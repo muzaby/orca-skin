@@ -1724,6 +1724,9 @@ export interface DeleteMcpServerRequest {
 // 관계. **프로토콜이 아니다** — gate=신원 있는 로그인, llm=모델 게이트웨이, service=사내 REST.
 export type ProviderKind = 'gate' | 'llm' | 'service'
 
+// 앱이 인증을 관리하는지 여부. 로그인 프리는 자격증명 lifecycle 밖에서 항상 유효하다.
+export type ProviderAuthScheme = 'login-required' | 'login-free'
+
 // 인증 방식. 앞 3종은 입력 수집형(코어 구현), 뒤 2종은 브라우저 흐름형.
 export type ProviderAuthKind = 'api-key' | 'password' | 'pat' | 'oauth' | 'browser-session'
 
@@ -1749,6 +1752,8 @@ export interface ProviderInfo {
   id: string
   label: string
   kind: ProviderKind
+  authScheme: ProviderAuthScheme
+  // 로그인 프리 선언에 origin이 없으면 빈 문자열이다.
   origin: string
   // 선언 순서 = GUI 선택지 순서. 길이가 1이면 renderer 는 선택 단계를 건너뛴다.
   auth: ProviderAuthSpecInfo[]

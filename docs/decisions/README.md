@@ -31,6 +31,7 @@ ADR 이 없으면 architecture 본문이 그 역할을 대신한다 — 실제�
 | [003](003-electron-network-stack.md) | main 의 원격 요청은 Chromium `net` 스택만 | `arch/backend/security.md` §1.8 |
 | [004](004-provider-single-axis.md) | 인증은 `Provider` 단일 축 — 프로토콜이 아니라 관계로 가른다 | `arch/backend/auth.md` |
 | [005](005-runtime-conversation-separation.md) | Session(기록)과 SessionRuntime(실행)을 가른다 | `GLOSSARY.md` |
+| [006](006-login-free-auth-scheme.md) | 로그인 프리는 별도 인증 체계이며 같은 Plugin 소비 포트를 사용한다 | `arch/backend/auth.md` · `arch/backend/security.md` |
 
 ## 새 ADR 을 쓸 때
 

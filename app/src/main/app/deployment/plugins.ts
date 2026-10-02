@@ -73,13 +73,14 @@ export function createPluginBinding(deps: CreatePluginBindingDeps): PluginBindin
 // 범용 `bootstrap.ts` 까지 고쳐야 하고, "배포가 고치는 파일은 `app/deployment/` 묶음뿐" 이라는
 // 경계가 깨진다(r3 에서 실제로 그랬다).
 export interface PluginDeploymentDeps {
-  auth: Pick<AuthRuntime, 'bindForPlugin'>
+  auth: Pick<AuthRuntime, 'bindForPlugin' | 'bindLoginFreePlugin'>
   registry: RuntimeToolSink
   logger?: (event: string, data: Record<string, unknown>) => void
 }
 
 // 배포는 여기서 auth를 bind하고 서버를 조립한다. 서비스별 deps 슬롯은 추가하지 않는다.
 // 예: const auth = deps.auth.bindForPlugin(MAIL_AUTH.id)
+// 로그인 프리: const auth = deps.auth.bindLoginFreePlugin(LOCAL_TOOLS.id)
 // return [createPluginBinding({ auth, server: mailTools(auth, MAIL_OPTIONS),
 //   registry: deps.registry, logger: deps.logger })]
 export function createPluginBindings(_deps: PluginDeploymentDeps): PluginBinding[] {

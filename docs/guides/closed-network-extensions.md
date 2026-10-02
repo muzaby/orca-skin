@@ -1,7 +1,7 @@
 # 폐쇄망(사내) 배포 — 로그인 게이트·확장 추가 가이드
 
 회사 폐쇄망에 Orca 를 배포할 때, 코어를 고치지 않고 **로그인 게이트·LLM 자격증명·사내 서비스
-도구**를 붙이는 방법의 정본. 대상 독자는 **Orca 내부 구조를 모르는 외부 에이전트/사내 개발자**다 —
+도구·로그인 프리 기본 도구**를 붙이는 방법의 정본. 대상 독자는 **Orca 내부 구조를 모르는 외부 에이전트/사내 개발자**다 —
 각 절은 순서대로 실행 가능한 단계로 쓴다.
 
 > **구조·설계 근거는 [`arch/backend/auth.md`](../arch/backend/auth.md) 가 정본이다.**
@@ -27,17 +27,18 @@
 
 세 뜻이 한 단어를 쓰므로 **문맥 없이 서로 대체하지 않는다.**
 
-따라서 **"플러그인을 추가한다" 는 요청은 아래 넷 중 하나로 번역해야 한다.** 번역하지 않고
+따라서 **"플러그인을 추가한다" 는 요청은 아래 라우팅 표의 작업으로 번역한다.** 번역하지 않고
 착수하면 없는 개념을 찾아 헤매게 된다.
 
 ### 라우팅 표
 
 | 하려는 일 | 레시피 | 축 | 재빌드 | 요청 주체 |
 |---|---|---|---|---|
-| 앱을 열 때 사내 로그인을 **강제**한다 (ADFS/WIA) | **[A — §2](#2-레시피-a--로그인-게이트-추가-kindgate)** | `AuthDefinition` + `gate-auth.ts` membership | 필요 | — |
-| 사내 **모델 게이트웨이**에 자격증명을 붙인다 | **[B — §3](#3-레시피-b--llm-provider-추가-kindllm)** | `AuthDefinition` + `harness-runtime.ts` augmenter | 필요 | Orca(발급) → Harness(사용) |
+| 앱을 열 때 사내 로그인을 **강제**한다 (ADFS/WIA) | **[A — §2](#2-레시피-a--로그인-게이트-추가-구-kindgate)** | `AuthDefinition` + `gate-auth.ts` membership | 필요 | — |
+| 사내 **모델 게이트웨이**에 자격증명을 붙인다 | **[B — §3](#3-레시피-b--harness-실행-구성-추가-구-kindllm)** | `AuthDefinition` + `harness-runtime.ts` augmenter | 필요 | Orca(발급) → Harness(사용) |
 | 사내 **프록시·사설 CA** 를 Claude subprocess 에 먹인다 | **[B-2 — §3-d](#3-d-spawn-env-주입점--프록시사설-ca-같은-환경-적응값)** | `spawn-env.ts` injector (모든 key) | 필요 | — |
-| 인증이 필요한 **내장 도구**를 모델에 노출한다 (Confluence 등) | **[C — §4](#4-레시피-c--사내-서비스-provider--내장-도구-kindservice)** | `AuthDefinition` + `plugins.ts` binding | 필요 | **Orca** (`BoundAuth.request`) |
+| 인증이 필요한 **내장 도구**를 모델에 노출한다 (Confluence 등) | **[C — §4](#4-레시피-c--plugin--내장-도구-구-kindservice)** | `AuthDefinition` + `plugins.ts` binding | 필요 | **Orca** (`BoundAuth.request`) |
+| 앱 로그인·인증 없이 항상 제공하는 **내장 도구**를 추가한다 (공개 API·로컬 키·호스트 exe) | **[C 로그인 프리 — §4](#로그인-프리-plugin-레시피)** | `LoginFreeDefinition` + `LOGIN_FREE_DEFINITIONS` + `plugins.ts` binding | 필요 | Plugin (`LoginFreePluginAuth.request` 또는 직접 실행) |
 | 그 외 모든 서비스 연동 | **[D — §5](#5-레시피-d--mcp-서버-추가-재빌드-없음)** | MCP 서버 | **불필요** | claude CLI |
 
 **"재빌드 없이 서비스를 추가하고 싶다" → 레시피 D(MCP) 를 쓴다.** 인증이 필요한 MCP 서버는
@@ -56,7 +57,7 @@ vault 가 유지, §5).
 
 ```
 app/src/main/app/deployment/
-├── auth-definitions.ts  ← 인증 대상 전부 (기본값: [])        → 레시피 A·B·C 공통 1단계
+├── auth-definitions.ts  ← AUTH_DEFINITIONS / LOGIN_FREE_DEFINITIONS (기본값: []) → 레시피 A·B·C
 ├── gate-auth.ts         ← 그중 앱 로그인 게이트 membership   → 레시피 A
 ├── harness-runtime.ts   ← Harness 실행 구성 augmenter        → 레시피 B
 ├── spawn-env.ts         ← spawn env 주입점 (기본값: undefined) → 레시피 B-2 (§3-d)
@@ -71,11 +72,11 @@ app/src/main/app/deployment/
 > **레시피 정본은 이 문서다** (0190). `app/deployment/*.ts` 주석은 *틀리면 조용히 실패하는*
 > 불변식만 남기고 여기를 가리킨다 — 같은 예제를 두 곳에 두었더니 실제로 세 군데가 갈렸다.
 
-**factory 는 Bootstrap 이 넘긴 인자만으로 조립한다.** 네 factory 의 시그니처는 이렇다:
+**factory 는 Bootstrap 이 넘긴 인자만으로 조립한다.** 시그니처는 이렇다:
 
 | 파일 | factory | 받는 것 |
 |---|---|---|
-| `plugins.ts` | `createPluginBindings(deps)` | `auth: AuthBinder` · `registry: RuntimeToolSink` · `logger?` |
+| `plugins.ts` | `createPluginBindings(deps: PluginDeploymentDeps)` | `auth` (`bindForPlugin`·`bindLoginFreePlugin`) · `registry: RuntimeToolSink` · `logger?` |
 | `harness-runtime.ts` | `createConfigApiAugmenters(deps)` | `auth: AuthBinder` **만** |
 | `harness-runtime.ts` | `createDirectCredentialAugmenters(deps)` | `secrets: Record<AuthId, () => string \| null>` **만** (선언한 id 만) |
 | `connections.ts` | `createConnectionSources(deps)` | `auth` · `gateMembers` · `plugins` (표시 입력은 함수 본문의 row 조각 인자로 넣는다) |
@@ -84,6 +85,8 @@ app/src/main/app/deployment/
 `AuthBinder` 는 `Pick<AuthRuntime,'bind'>` 다 (0190) — 배포는 자기 AuthId 를 골라
 `BoundAuth.request` 를 쓸 뿐이고 `login`·`revoke`·`resume`·`subscribe` 에는 **도달하지 못한다**
 (컴파일 강제). 인증 lifecycle 은 IPC 핸들러와 부팅 복원이 소유한다.
+Plugin은 표에 적힌 별도 binder만 사용한다. 로그인 프리 id를 `AuthBinder`·게이트·MCP
+`${BINDING:<id>}`에 넣지 않는다. 선언·바인딩·GUI의 소유 경계는 [인증 구조 정본](../arch/backend/auth.md#7-plugin)을 따른다.
 
 **`bootstrap.ts` 는 열지 않는다.** 필요한 능력이 인자에 없으면 그것부터 이 표에 추가한다 —
 부팅 파일을 배포마다 고치기 시작하면 이 디렉토리를 둔 이유가 없어진다.
@@ -104,6 +107,7 @@ app/src/main/app/deployment/
 | 무엇을 정하나 | 어디에 | 어떻게 |
 |---|---|---|
 | 인증 대상 자체 (id·origin·방식·probe) | `auth-definitions.ts` | `AuthDefinition` 상수 + `AUTH_DEFINITIONS` 배열 |
+| 로그인 프리 대상 (id·label·선택적 origin) | `auth-definitions.ts` | `LoginFreeDefinition` 상수 + 별도 `LOGIN_FREE_DEFINITIONS` 배열 |
 | 앱 로그인 강제 | `gate-auth.ts` | 위 상수를 **객체 참조**로 `GATE_AUTH_DEFINITIONS` 에 담는다 |
 | Harness 실행 구성 | `harness-runtime.ts` | 선택된 key 에 `RuntimeConfigAugmenter` 를 붙인다 |
 | 모델에 노출할 도구 | `plugins.ts` | Plugin 모듈로 tool server 를 만들고 binding 을 돌려준다 |
@@ -745,10 +749,11 @@ export const SPAWN_ENV_INJECTOR: SpawnEnvInjector | undefined = ({ target, hostE
 
 ## 4. 레시피 C — Plugin + 내장 도구 (구 `kind:'service'`)
 
-인증된 연결이 LLM 에 런타임 도구를 노출한다. Auth 가 `valid` 일 때만 등록되고, 해제·만료·401
-강등 시 도구가 스냅샷에서 사라진다.
+자격증명 Plugin과 로그인 프리 Plugin을 같은 `createPluginBinding`으로 조립한다. 자격증명
+Plugin은 인증이 `valid`일 때 도구를 노출하고 로그인 프리는 항상 노출한다. 상태·요청·등록의
+계약은 [인증 구조 정본](../arch/backend/auth.md#7-plugin)을 따른다.
 
-### 단계
+### 자격증명 Plugin 단계
 
 | # | 하는 일 | 고치는 파일 / 확인 지점 |
 |---|---|---|
@@ -805,9 +810,86 @@ export function createPluginBindings(deps: PluginDeploymentDeps): PluginBinding[
 `status`가 `none`·`valid`·`expired`·`unknown` 중 무엇이든 Composer `@` 후보가 된다. 후보의
 토큰은 표시 label이 아니라 고정 `provider id`이며, root plain 입력에서는 경로 그룹을 Plugin 그룹
 보다 먼저 표시한다. 입력 전체 삭제 뒤 같은 Composer에서 `@`를 다시 입력하면 token occurrence를
-새로 시작해 팝업이 다시 열린다. 상세 패널의 미인증 액션은 `인증`, 인증 이력이 있으면
+새로 시작해 팝업이 다시 열린다. 자격증명 상세 패널의 미인증 액션은 `인증`, 인증 이력이 있으면
 `재인증` dropdown과 위험 색상의 `연결 해제`를 사용한다. 이 표면은 기존 provider IPC의
 `login`·`reauth`·`revoke`를 그대로 호출하므로 폐쇄망 배포가 별도 채널을 추가할 필요는 없다.
+
+### 로그인 프리 Plugin 레시피
+
+앱이 인증을 수행·관리하지 않는 도구는 이 레시피를 사용한다. 구조·요청 정책은
+[auth.md §7](../arch/backend/auth.md#7-plugin), 로컬 키와 exe 실행 규칙은
+[security.md](../arch/backend/security.md#110-git-실행과-plugin-호스트-프로그램-경계)를 따른다.
+아래는 배포자가 채우는 예제이며, 기본 배포의 `LOGIN_FREE_DEFINITIONS`와 Plugin binding은
+빈 배열을 유지한다.
+
+| 순서 | 하는 일 | 확인 지점 |
+|---|---|---|
+| 선언 | `LoginFreeDefinition`을 만들고 별도 `LOGIN_FREE_DEFINITIONS`에 담는다. `AUTH_DEFINITIONS`·`GATE_AUTH_DEFINITIONS`에는 넣지 않는다 | id를 자격증명 대상·다른 로그인 프리 대상과 겹치지 않는 케밥 소문자로 정한다 |
+| 도구 | `LoginFreePluginAuth`를 받는 서버를 만든다. HTTP를 사용하면 bare origin을 선언하고 `request()`에 상대 path와 응답 상한을 넘긴다 | 앱이 로컬 키를 관리하게 만들거나 `withCredential`을 요구하지 않는다 |
+| 조립 | `bindLoginFreePlugin(선언.id)`와 같은 `createPluginBinding`을 사용한다. 서버는 부팅에서 만들고 재사용한다 | `PluginDeploymentDeps`의 기존 auth·registry·logger만 사용하고 Bootstrap을 수정하지 않는다 |
+| 검증 | `npm run typecheck`와 `./node_modules/.bin/vitest run src/main/features/auth src/main/app/deployment`를 실행한다 | 같은 예제를 컴파일하는 `app/src/main/app/deployment/login-free-deployment.test.ts`를 함께 갱신한다 |
+| 실기 | 앱 인증 전후에 새 채팅에서 도구를 확인하고 연결 탭 목록·상세와 Composer `@public-api`를 확인한다 | `기본 제공`·`인증 불필요`, 인증 액션 부재, 항상 활성인 도구를 확인한다. origin 생략 배포도 만들어 주소 행이 없는지 본다 |
+
+```ts
+// app/deployment/auth-definitions.ts
+import type { LoginFreeDefinition } from '../../contracts/auth'
+
+export const PUBLIC_API_PLUGIN = {
+  id: 'public-api',
+  label: '공개 API',
+  origin: 'https://api.example.corp'
+} satisfies LoginFreeDefinition
+
+export const LOGIN_FREE_DEFINITIONS: readonly LoginFreeDefinition[] = [PUBLIC_API_PLUGIN]
+```
+
+```ts
+// features/plugins/public-api/tools.ts — 예제 구현. 실제 도구는 별도 배포에서 추가한다.
+import type { RuntimeToolServer } from '../../../adapters/runtime-tools'
+import { authToolServerId } from '../../../adapters/runtime-tool-policy'
+import type { LoginFreePluginAuth } from '../../../contracts/auth'
+
+export function publicApiTools(auth: LoginFreePluginAuth): RuntimeToolServer {
+  return {
+    descriptor: {
+      id: authToolServerId(auth.authId),
+      connectorId: auth.authId,
+      tools: [{ name: 'public_api_health', description: 'API 상태 확인', annotations: { readOnlyHint: true } }]
+    },
+    implementations: [{
+      name: 'public_api_health',
+      inputSchema: {},
+      async handler(_input, context) {
+        const response = await auth.request({ path: '/health', maxBytes: 64 * 1024 }, context?.getSignal())
+        return { content: [{ type: 'text', text: response.body }], isError: !response.ok }
+      }
+    }]
+  }
+}
+```
+
+```ts
+// app/deployment/plugins.ts — 기존 createPluginBinding·PluginBinding·PluginDeploymentDeps를 사용한다.
+import { publicApiTools } from '../../features/plugins/public-api/tools'
+import { PUBLIC_API_PLUGIN } from './auth-definitions'
+
+export function createPluginBindings(deps: PluginDeploymentDeps): PluginBinding[] {
+  const auth = deps.auth.bindLoginFreePlugin(PUBLIC_API_PLUGIN.id)
+  return [createPluginBinding({
+    auth,
+    server: publicApiTools(auth),
+    registry: deps.registry,
+    logger: deps.logger
+  })]
+}
+```
+
+exe만 사용하는 도구는 선언에서 `origin`을 생략하고 Plugin에서 직접 실행한다. 그 포트의
+`request()`는 전송 전에 거부되므로 exe 전용 서버가 HTTP 호출에 의존하지 않는지 확인한다.
+로컬 키가 필요한 API는 플러그인이 직접 읽은 헤더를 `request()`에 전달한다. 앱의 키 저장·
+주입·검증·만료·vault·UI를 추가하지 않는다. 401/403·네트워크 실패가 도구 결과에 나타나더라도
+로그인 프리 연결 상태와 도구 노출은 유지되는지 확인한다. 프로그램 실행의 절대 경로·셸 금지·
+timeout·취소·출력 상한은 [보안 정본](../arch/backend/security.md#110-git-실행과-plugin-호스트-프로그램-경계)에 맞춘다.
 
 ### POP3 Mail Plugin 레시피
 

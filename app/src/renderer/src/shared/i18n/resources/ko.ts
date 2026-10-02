@@ -219,12 +219,14 @@ export const ko = {
         none: '연결 안 됨',
         valid: '연결됨',
         expired: '만료됨',
-        unknown: '확인 불가'
+        unknown: '확인 불가',
+        loginFree: '인증 불필요'
       },
       kind: {
         gate: '앱 로그인',
         llm: '모델',
-        service: '사내 서비스'
+        service: '사내 서비스',
+        loginFree: '기본 제공'
       },
       authenticate: '인증',
       connect: '연결',

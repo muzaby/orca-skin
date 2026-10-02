@@ -17,10 +17,11 @@
 // 하나가 경로를 달고 있으면 그 패키지의 대상이 통째로 사라졌다(0164). 여기서는 나머지가
 // 그대로 등록되고, 사유는 진단으로 남는다.
 
-import type { AuthDefinition, AuthId } from '../../contracts/auth'
+import type { AuthDefinition, AuthId, AuthScheme, LoginFreeDefinition } from '../../contracts/auth'
 
 export interface AuthRejection {
   id: AuthId
+  scheme: AuthScheme
   reason: 'duplicate_id' | 'invalid_id' | 'invalid_origin'
   message: string
 }
@@ -32,6 +33,7 @@ const AUTH_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
 export interface RegistryResult {
   definitions: AuthDefinition[]
+  loginFreeDefinitions: LoginFreeDefinition[]
   rejected: AuthRejection[]
 }
 
@@ -55,8 +57,12 @@ export function isBareOrigin(raw: string): boolean {
   }
 }
 
-export function registerAuthDefinitions(declared: readonly AuthDefinition[]): RegistryResult {
+export function registerAuthDefinitions(
+  declared: readonly AuthDefinition[],
+  loginFree: readonly LoginFreeDefinition[] = []
+): RegistryResult {
   const definitions: AuthDefinition[] = []
+  const loginFreeDefinitions: LoginFreeDefinition[] = []
   const rejected: AuthRejection[] = []
   const seen = new Set<string>()
 
@@ -64,6 +70,7 @@ export function registerAuthDefinitions(declared: readonly AuthDefinition[]): Re
     if (seen.has(definition.id)) {
       rejected.push({
         id: definition.id,
+        scheme: 'login-required',
         reason: 'duplicate_id',
         message: `auth id "${definition.id}" 가 중복 선언됐다`
       })
@@ -72,6 +79,7 @@ export function registerAuthDefinitions(declared: readonly AuthDefinition[]): Re
     if (!AUTH_ID_RE.test(definition.id)) {
       rejected.push({
         id: definition.id,
+        scheme: 'login-required',
         reason: 'invalid_id',
         message: `auth id "${definition.id}" 는 케밥 소문자(a-z0-9-)여야 한다`
       })
@@ -80,6 +88,7 @@ export function registerAuthDefinitions(declared: readonly AuthDefinition[]): Re
     if (!isBareOrigin(definition.origin)) {
       rejected.push({
         id: definition.id,
+        scheme: 'login-required',
         reason: 'invalid_origin',
         message: `origin "${definition.origin}" 에 경로·쿼리가 있거나 형식이 아니다`
       })
@@ -89,16 +98,54 @@ export function registerAuthDefinitions(declared: readonly AuthDefinition[]): Re
     definitions.push(definition)
   }
 
-  return { definitions, rejected }
+  // 자격증명 대상이 우선이다. 같은 seen으로 로그인 프리 앞선 선언과도 충돌을 검사한다.
+  for (const definition of loginFree) {
+    if (seen.has(definition.id)) {
+      rejected.push({
+        id: definition.id,
+        scheme: 'login-free',
+        reason: 'duplicate_id',
+        message: `auth id "${definition.id}" 가 중복 선언됐다`
+      })
+      continue
+    }
+    if (!AUTH_ID_RE.test(definition.id)) {
+      rejected.push({
+        id: definition.id,
+        scheme: 'login-free',
+        reason: 'invalid_id',
+        message: `auth id "${definition.id}" 는 케밥 소문자(a-z0-9-)여야 한다`
+      })
+      continue
+    }
+    if (definition.origin !== undefined && !isBareOrigin(definition.origin)) {
+      rejected.push({
+        id: definition.id,
+        scheme: 'login-free',
+        reason: 'invalid_origin',
+        message: `origin "${definition.origin}" 에 경로·쿼리가 있거나 형식이 아니다`
+      })
+      continue
+    }
+    seen.add(definition.id)
+    loginFreeDefinitions.push(definition)
+  }
+
+  return { definitions, loginFreeDefinitions, rejected }
 }
 
 export class AuthRegistry {
   private readonly accepted: AuthDefinition[]
+  private readonly acceptedLoginFree: LoginFreeDefinition[]
   private readonly rejections: AuthRejection[]
 
-  constructor(declared: readonly AuthDefinition[]) {
-    const { definitions, rejected } = registerAuthDefinitions(declared)
+  constructor(declared: readonly AuthDefinition[], loginFree: readonly LoginFreeDefinition[] = []) {
+    const { definitions, loginFreeDefinitions, rejected } = registerAuthDefinitions(
+      declared,
+      loginFree
+    )
     this.accepted = definitions
+    this.acceptedLoginFree = loginFreeDefinitions
     this.rejections = rejected
   }
 
@@ -108,6 +155,14 @@ export class AuthRegistry {
 
   get(id: AuthId): AuthDefinition | undefined {
     return this.accepted.find((definition) => definition.id === id)
+  }
+
+  loginFree(): readonly LoginFreeDefinition[] {
+    return this.acceptedLoginFree
+  }
+
+  getLoginFree(id: AuthId): LoginFreeDefinition | undefined {
+    return this.acceptedLoginFree.find((definition) => definition.id === id)
   }
 
   rejected(): readonly AuthRejection[] {

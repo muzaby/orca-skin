@@ -32,6 +32,7 @@ function provider(status: ProviderInfo['status']): ProviderInfo {
     id: 'jira-dc',
     label: 'Jira',
     kind: 'service',
+    authScheme: 'login-required',
     origin: 'builtin',
     auth: [],
     status,
@@ -73,6 +74,24 @@ beforeEach(() => {
 })
 
 describe('ProviderAuthActions rendered wiring (AC13~AC16)', () => {
+  it.each(['none', 'valid', 'expired', 'unknown'] as const)(
+    '로그인 프리는 %s 상태에서 버튼·메뉴·인증 호출이 없다 (0248 AC12)',
+    (status) => {
+      const cb = callbacks()
+      const tree = ProviderAuthActions({
+        provider: { ...provider(status), authScheme: 'login-free' },
+        authKind: null,
+        ...cb
+      })
+      expect(tree).toBeNull()
+      expect(collect(tree, Button)).toEqual([])
+      expect(collect(tree, MenuItem)).toEqual([])
+      expect(cb.onLogin).not.toHaveBeenCalled()
+      expect(cb.onReauth).not.toHaveBeenCalled()
+      expect(cb.onRevoke).not.toHaveBeenCalled()
+    }
+  )
+
   it('none renders one primary 인증 button that calls login and no menu', () => {
     const cb = callbacks()
     const tree = ProviderAuthActions({ provider: provider('none'), authKind: 'pat', ...cb })

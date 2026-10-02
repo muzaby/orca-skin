@@ -219,12 +219,14 @@ export const en: typeof ko = {
         none: 'Not connected',
         valid: 'Connected',
         expired: 'Expired',
-        unknown: 'Unavailable'
+        unknown: 'Unavailable',
+        loginFree: 'No sign-in required'
       },
       kind: {
         gate: 'App sign-in',
         llm: 'Model',
-        service: 'Internal service'
+        service: 'Internal service',
+        loginFree: 'Built-in'
       },
       authenticate: 'Authenticate',
       connect: 'Connect',
