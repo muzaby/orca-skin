@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-02 |
 | 매핑 | — (브랜치 `claude/0248-login-free-plugin-auth`) |
-| 상태 | IMPL_DONE (V1 r1) |
+| 상태 | verify/PASS (r1 · V1 · 기계 범위 — AC20 실기 대기) |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
 | 이번 V revision | `V1` |
@@ -754,4 +754,6 @@ AC 합계 검산: `✅ 19 · ⚠️ 1 · ❌ 0 = 총 20`. 재독에서 pair 18·
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| D1 | `LoginFreeDefinition.methods?: never`만 지워도 typecheck green — 타입 없는 `methods` 객체 상수가 그 자리 없이 대입된다 | VP-05 · EP-08 (코드는 계약대로) | `probe` 없는 `methods` 객체 변수 대입 `@ts-expect-error` 추가 | NON_BLOCKING | open |
+| D2 | `AuthRegistry.loginFree()` 비-테스트 소비 0 | plan §11 지정 | 첫 소비자 도입 또는 정리 시 판단 | NON_BLOCKING | open |
+| D3 | `scan-surface.sh`가 `rg` 부재 시 중단 | 검증 도구 | 환경 한계 기록 | NON_BLOCKING | open |
