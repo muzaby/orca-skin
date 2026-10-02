@@ -24,6 +24,7 @@
 // 읽는 어휘이므로 여기서 다시 정의하지 않는다.
 import type {
   ProviderAuthKind,
+  ProviderAuthScheme,
   ProviderAuthSpecInfo,
   ProviderFieldInfo,
   ProviderGrantStatus,
@@ -330,6 +331,18 @@ export interface AuthDefinition {
   probe?: AuthProbe
 }
 
+// 앱이 로그인·키 저장을 관리하지 않는 대상. 자격증명 선언과 서로 대입되지 않는다.
+export interface LoginFreeDefinition {
+  id: AuthId
+  label: string
+  // exe만 쓰는 플러그인은 생략한다. 선언하면 AuthDefinition과 같은 bare origin 규칙이다.
+  origin?: string
+  methods?: never
+  probe?: never
+}
+
+export type AuthScheme = ProviderAuthScheme
+
 // gate 로 쓸 수 있는 Auth 정의. **확인 없이 통과하는 게이트는 곧 우회다.**
 export type GateAuthDefinition = AuthDefinition & { probe: AuthProbe }
 
@@ -416,12 +429,14 @@ export type AuthChange =
 export type AuthStep = ProviderStepInfo
 
 // renderer 와 app view mapper 가 읽는 **secret 없는 설명**이다.
-export interface AuthDescriptor {
+interface AuthDescriptorBase {
   authId: AuthId
   label: string
-  origin: string
   methods: readonly AuthMethodDescriptor[]
 }
+
+export type AuthDescriptor = AuthDescriptorBase &
+  ({ scheme: 'login-required'; origin: string } | { scheme: 'login-free'; origin?: string })
 
 export type AuthMethodDescriptor = ProviderAuthSpecInfo
 
@@ -446,6 +461,11 @@ export interface PluginAuth extends BoundAuth {
   ): Promise<T>
 }
 
+export interface LoginFreePluginAuth extends BoundAuth {
+  readonly label: string
+  readonly origin?: string
+}
+
 // 자기 Auth 를 고르기만 하는 소비자의 표면 (0190).
 //
 // 위 원칙("소비는 `AuthRuntime` 전체가 아니라 좁은 포트")을 **타입으로** 세운다. 0188 의 배포
@@ -461,6 +481,7 @@ export type AuthBinder = Pick<AuthRuntime, 'bind'>
 export interface AuthRuntime {
   bind(authId: AuthId): BoundAuth
   bindForPlugin(authId: AuthId): PluginAuth
+  bindLoginFreePlugin(authId: AuthId): LoginFreePluginAuth
   tryBind(authId: AuthId): BoundAuth | null
   describe(authId: AuthId): AuthDescriptor
   currentStep(): AuthStep | null

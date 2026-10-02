@@ -75,6 +75,19 @@ export function checkOutboundRequest(facts: OutboundRequestFacts): PolicyResult 
   return allow
 }
 
+// 로그인 프리 대상의 로컬 키는 플러그인이 관리한다. 앱 주입 자격증명이 없으므로 예약 헤더
+// 검사·grant 판정은 적용하지 않고, 상대 경로·origin 고정만 같은 규칙으로 검사한다.
+export function checkLoginFreeRequest(
+  facts: Pick<OutboundRequestFacts, 'url' | 'path' | 'allowedOrigins'>
+): PolicyResult {
+  const pathCheck = checkRequestPath(facts.path)
+  if (!pathCheck.ok) return pathCheck
+  if (!isAllowedOrigin(facts.url, facts.allowedOrigins)) {
+    return deny({ reason: 'origin_not_allowed', detail: safeOrigin(facts.url) })
+  }
+  return allow
+}
+
 // redirect 추적 시 재검사용 — manual redirect 의 Location 이 allowlist 안인지.
 export function checkRedirect(location: string, allowedOrigins: readonly string[]): PolicyResult {
   return isAllowedOrigin(location, allowedOrigins)

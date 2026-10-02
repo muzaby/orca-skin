@@ -110,7 +110,9 @@ export function CustomizeList({
         orderProviders(providers).map((provider) => {
           const meta = providerRowMeta(provider)
           const presentation = providerPresentation(provider, locale)
-          const detail = `${tr(meta.kindKey)} · ${meta.activeLabel ?? tr('common.unknown')}`
+          const detail = meta.showsAuthMethod
+            ? `${tr(meta.kindKey)} · ${meta.activeLabel ?? tr('common.unknown')}`
+            : tr(meta.kindKey)
           return (
             <CatalogListRow
               key={provider.id}

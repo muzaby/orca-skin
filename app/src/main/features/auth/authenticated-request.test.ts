@@ -232,6 +232,29 @@ function valueHarness(
 }
 
 describe('AuthenticatedRequester — 체인 도중 grant 변경 (D1)', () => {
+  it('값형: origin 밖 Location은 다음 홉 없이 origin_not_allowed로 거부한다 (0248 AC14)', async () => {
+    const registry = new AuthRegistry([VALUE_API])
+    const vault = createVault(fakeSecretStore())
+    const store = new AuthStore({ persistence: createMemoryGrantPersistence(), vault })
+    store.restore(['api'])
+    vault.set('api:pat', 'value', { kind: 'pat', createdAt: 0 })
+    store.put('api', { kind: 'secret', vaultKey: 'api:pat', authKind: 'pat', createdAt: 0 })
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response('', { status: 302, headers: { location: 'https://outside.example/steal' } })
+    )
+    const logger = vi.fn()
+    const api = new AuthenticatedRequester({ registry, store, fetchImpl, logger })
+
+    await expect(api.request('api', { path: '/thing' })).rejects.toMatchObject({
+      name: 'AuthPolicyError',
+      reason: 'origin_not_allowed'
+    })
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(store.status('api')).toBe('valid')
+    expect(logger).toHaveBeenCalledWith('auth.request.redirect-blocked', { authId: 'api' })
+  })
+
   it('값형: 홉 사이 revoke 면 다음 홉을 보내지 않는다', async () => {
     const { api, sent } = valueHarness(
       (store) => store.revoke('api'),

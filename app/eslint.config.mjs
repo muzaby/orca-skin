@@ -174,15 +174,22 @@ export default defineConfig(
       ]
     }
   },
-  // Git 실행은 gateway → runner만 허용한다. 경로 해석으로 내부 상대 import도 검사한다.
+  // 호스트 프로그램 실행은 Git gateway → runner 및 Plugin 구현만 허용한다.
+  {
+    files: ['src/main/**/*.ts'],
+    ignores: ['src/main/infra/git/gateway.ts', 'src/main/infra/git/runner.ts', 'src/main/features/plugins/**', '**/*.test.ts', '**/*.testfixture.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { paths: [{ name: 'child_process' }, { name: 'node:child_process' }] }],
+      'no-restricted-syntax': ['error',
+        { selector: 'ImportExpression[source.value=/^(node:)?child_process$/]', message: 'Use the Git gateway or a Plugin implementation.' },
+        { selector: "CallExpression[callee.name='require'][arguments.0.value=/^(node:)?child_process$/]", message: 'Use the Git gateway or a Plugin implementation.' }]
+    }
+  },
+  // Plugin도 Git runner를 직접 가져오지 못한다. 실행 import 예외와 분리한다.
   {
     files: ['src/main/**/*.ts'],
     ignores: ['src/main/infra/git/gateway.ts', 'src/main/infra/git/runner.ts', '**/*.test.ts', '**/*.testfixture.ts'],
     rules: {
-      'no-restricted-imports': ['error', { paths: [{ name: 'child_process' }, { name: 'node:child_process' }] }],
-      'no-restricted-syntax': ['error',
-        { selector: 'ImportExpression[source.value=/^(node:)?child_process$/]', message: 'Use the Git gateway.' },
-        { selector: "CallExpression[callee.name='require'][arguments.0.value=/^(node:)?child_process$/]", message: 'Use the Git gateway.' }],
       'import/no-restricted-paths': ['error', { zones: [{ target: './src/main', from: './src/main/infra/git/runner.ts' }] }]
     }
   },

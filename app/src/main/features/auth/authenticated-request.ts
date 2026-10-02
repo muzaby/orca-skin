@@ -28,14 +28,15 @@ import type {
 import type { PreparedRequest, SendOptions, SendResult } from '../../infra/net/transport'
 import { createSender } from '../../infra/net/transport'
 import { applyPresentation } from './present'
-import { checkOutboundRequest, checkRedirect, isAllowedOrigin } from './policy'
+import { checkOutboundRequest, isAllowedOrigin } from './policy'
 import type { AuthRegistry } from './registry'
 import type { AuthStore } from './store'
 import type { BrowserSessionPort } from './specs/browser-session'
 import { ifPresent } from '../../../shared/obj'
+import { AuthPolicyError } from './auth-policy-error'
+import { followRedirects, toAuthenticatedResponse, withQuery } from './request-chain'
 
-// redirect 추종 상한. 홉마다 정책을 다시 보므로 무한 루프는 안 나지만, 루프 자체는 막는다.
-const MAX_REDIRECTS = 5
+export { AuthPolicyError } from './auth-policy-error'
 
 // 이 요청이 무엇을 싣고 나가는가 — 체인 전체에서 한 번만 정해지는 값이다.
 //
@@ -60,16 +61,6 @@ export interface CandidateCredential {
   grant: Grant
   // 값형: vault 에 아직 쓰지 않은 메모리 값. 세션형은 cookie jar 가 나르므로 없다.
   secret?: string
-}
-
-export class AuthPolicyError extends Error {
-  constructor(
-    readonly reason: string,
-    detail: string
-  ) {
-    super(`요청이 거부됐습니다 (${reason}: ${detail})`)
-    this.name = 'AuthPolicyError'
-  }
 }
 
 export interface AuthenticatedRequesterDeps {
@@ -184,14 +175,7 @@ export class AuthenticatedRequester {
       }
     }
 
-    return {
-      ok: result.status >= 200 && result.status < 300,
-      status: result.status,
-      finalUrl,
-      headers: result.headers,
-      body: result.body,
-      ...ifPresent('bodyBytes', result.bodyBytes)
-    }
+    return toAuthenticatedResponse({ result, finalUrl })
   }
 
   // redirect 는 **호출자(여기)가** 돈다 — 홉마다 정책을 재검사해야 자격증명이 allowlist 밖으로
@@ -212,31 +196,25 @@ export class AuthenticatedRequester {
       ...ifPresent('responseType', req.responseType),
       ...ifPresent('maxBytes', req.maxBytes)
     }
-    let current = prepared
-    for (let hop = 0; ; hop++) {
-      const result = await this.transport(carrier, current, options, signal)
-      const location = result.headers['location']
-      const isRedirect = result.status >= 300 && result.status < 400
-      if (!isRedirect || location === undefined) return { result, finalUrl: current.url }
-      if (hop >= MAX_REDIRECTS) return { result, finalUrl: current.url }
-
-      const next = new URL(location, current.url).toString()
-      const redirectCheck = checkRedirect(next, allowed)
-      if (!redirectCheck.ok) {
-        this.deps.logger?.('auth.request.redirect-blocked', { authId: definition.id })
-        throw new AuthPolicyError(redirectCheck.reason, redirectCheck.detail)
-      }
+    return followRedirects({
+      prepared,
+      options,
+      allowedOrigins: allowed,
+      transport: (current, sendOptions) => this.transport(carrier, current, sendOptions, signal),
+      onBlocked: () =>
+        this.deps.logger?.('auth.request.redirect-blocked', { authId: definition.id }),
       // **다음 홉을 보내기 직전**에 grant 가 그대로인지 본다(첫 홉은 방금 `resolveCarrier` 가
       // 풀었으므로 볼 것이 없다). 해제·재인증·강등·만료가 이 사이에 일어나면 이미 손에 든
       // 자격증명은 더 이상 유효하지 않다 — 홉마다 다시 풀던 시절에는 이 판정이 공짜로 따라왔다.
       // 후보는 store 에 없으므로 홉 사이 변경을 볼 대상 자체가 없다 — 다른 IPC 가 건드릴 수
       // 없는 로그인 턴 지역 값이다.
-      if (!candidate && !this.grantStillValid(definition.id, carrier)) {
-        this.deps.logger?.('auth.request.grant-changed', { authId: definition.id })
-        throw new AuthPolicyError('grant_not_valid', '요청 도중 자격증명이 바뀌었습니다')
+      beforeNextHop: () => {
+        if (!candidate && !this.grantStillValid(definition.id, carrier)) {
+          this.deps.logger?.('auth.request.grant-changed', { authId: definition.id })
+          throw new AuthPolicyError('grant_not_valid', '요청 도중 자격증명이 바뀌었습니다')
+        }
       }
-      current = { ...current, url: next }
-    }
+    })
   }
 
   // 홉이 오갈 수 있는 origin. 요청의 **시작점**은 언제나 `definition.origin` 하나지만(위
@@ -335,13 +313,6 @@ export class AuthenticatedRequester {
       options
     )
   }
-}
-
-// 쿼리는 경로와 분리해 받으므로 여기서 한 번만 붙인다 — origin 은 바뀌지 않는다.
-function withQuery(url: URL, query: Record<string, string> | undefined): string {
-  if (!query) return url.toString()
-  for (const [name, value] of Object.entries(query)) url.searchParams.set(name, value)
-  return url.toString()
 }
 
 // 활성 방식의 `present` 선언을 찾는다. 방식마다 싣는 방법이 다르므로 grant 의 방식을 따라간다.

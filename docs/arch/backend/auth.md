@@ -7,13 +7,15 @@
 > - 채널 계약은 [`IPC_CONTRACT.md`](../../IPC_CONTRACT.md), 자격증명 경계는 [`security.md`](./security.md), 용어는 [`GLOSSARY.md`](../../GLOSSARY.md).
 > - **계약 정본은 코드다** — `app/src/main/contracts/auth.ts`. 이 문서와 어긋나면 코드가 진실이다.
 > - Decision rationale: [ADR-004](../../decisions/004-provider-single-axis.md) — 왜 프로토콜이 아니라 관계를 축으로 삼았는가.
+> - Decision rationale: [ADR-006](../../decisions/006-login-free-auth-scheme.md) — 로그인 프리 대상이 같은 Plugin 소비 포트를 쓰면서 자격증명 lifecycle에서 분리되는 이유.
 
 ---
 
 ## 1. 하나의 문장
 
-**Auth 는 인증하고 인증된 능력만 제공한다. Harness·Plugin·Usage 는 자기 API 와 반환값을 직접
-해석한다. Bootstrap 은 구체 구현을 연결하되 제품 기능을 대신 구현하지 않는다.**
+**Auth 는 자격증명 대상에 인증된 능력을, 로그인 프리 대상에 인증 없이 같은 형상의 Plugin 능력을
+제공한다. Harness·Plugin·Usage 는 자기 API 와 반환값을 직접 해석한다. Bootstrap 은 구체 구현을
+연결하되 제품 기능을 대신 구현하지 않는다.**
 
 이 세 문장이 아래 모든 경계의 근거다.
 
@@ -23,20 +25,21 @@
 
 ```text
 AuthRuntime  (features/auth)
-  ├─ 로그인 · 재인증 · 해제
-  ├─ Grant · vault · cookie jar
-  ├─ 인증된 요청 (origin·redirect·예약 header·응답 크기 정책)
+  ├─ 자격증명 체계 : 로그인 · 재인증 · 해제 · Grant · vault · cookie jar
+  │   └─ 인증된 요청 (origin·redirect·예약 header·응답 크기 정책)
+  ├─ 로그인 프리 체계 : 항상 valid인 Plugin 포트 · 앱 credential 주입 없는 요청
+  │   └─ 플러그인 헤더 통과 · origin·redirect·응답 크기 정책
   └─ secret 없는 상태 설명과 변화 통지
 
 AuthSecretReader  (trusted main 전용)
-  └─ MCP binding · Harness direct-credential 에 한한 raw 조회
+  └─ 자격증명 대상의 MCP binding · Harness direct-credential 에 한한 raw 조회
 
 Gate  (features/gate)
   └─ 필수 Auth 의 valid + verified 만 소비하는 앱 접근 정책
 
 소비 feature
   ├─ Harness (features/harnesses) : settings 열거·해석 · Model 해석 · 실행 구성 · respawn 경계
-  ├─ Plugin  (features/plugins/*) : REST · 변환 · Runtime Tool 구성
+  ├─ Plugin  (features/plugins/*) : API · 호스트 프로그램 실행 · 변환 · Runtime Tool 구성
   └─ Usage   (features/usage)     : UsageSnapshot 의 의미와 합성
 
 app/deployment/*  : 배포별 concrete (build-time TypeScript)
@@ -48,6 +51,9 @@ Bootstrap        : 위 객체를 생성하고 좁은 포트로 연결만 함
 
 `AuthDefinition` 에는 **`kind`·`tools`·`llm`·`usage`·`envKey` 가 없다.** 이 선언을 읽고 "이 Auth 가
 무엇에 쓰이는가" 를 알 수 없는 것이 정상이다.
+
+`LoginFreeDefinition`은 `id`·`label`·선택적 `origin`만 갖는다. `methods`·`probe`는 허용하지
+않으며 `AuthDefinition`과 서로 대입되지 않는다. 인증 체계는 소비 기능 슬롯이 아니다.
 
 | 없어진 슬롯 | 지금 누가 아는가 |
 |---|---|
@@ -66,12 +72,14 @@ config API 를 불러 URL·모델 식별자·실행 token 을 한꺼번에 받�
 
 | 경로 | 책임 |
 |---|---|
-| `contracts/auth.ts` | 타입 계약 — `AuthDefinition`·`AuthMethod`·`AuthProbe`·`Grant`·`AuthenticatedRequest/Response`·`AuthSnapshot`·`AuthChange`·`BoundAuth`·`AuthRuntime`·`AuthSecretReader` |
+| `contracts/auth.ts` | 타입 계약 — `AuthDefinition`·`LoginFreeDefinition`·`AuthScheme`·`AuthMethod`·`AuthProbe`·`Grant`·`AuthenticatedRequest/Response`·`AuthSnapshot`·`AuthChange`·`BoundAuth`·`PluginAuth`·`LoginFreePluginAuth`·`AuthRuntime`·`AuthSecretReader` |
 | `adapters/harness-config.ts` | 실행 구성 계약 + spawn 입력 조립 — `options.settings` / `options.env` 두 채널과 env fingerprint(`PreparedHarnessConfig`). feature 가 아니라 어댑터 포트다 |
-| `features/auth/runtime.ts` | `createAuthRuntime()` — registry·store·요청·로그인을 묶고 `{ runtime, secretReader }` 반환 |
-| `features/auth/registry.ts` | 빌드타임 선언 검사 (중복 id · bare origin). **gate probe 검사는 여기 없다** |
+| `features/auth/runtime.ts` | `createAuthRuntime()` — 체계별 바인딩·상태 설명과 자격증명 store·요청·로그인을 묶고 `{ runtime, secretReader }` 반환 |
+| `features/auth/registry.ts` | 별도 선언 목록의 빌드타임 검사 (공유 id 공간 · 케밥 id · bare origin). 자격증명 선언을 우선 등록하며 충돌한 로그인 프리 선언만 거부한다. **gate probe 검사는 여기 없다** |
 | `features/auth/store.ts` | `authId → Grant` 단일 맵 + `verified` + `credentialRevision` + 만료 정착 집합 |
 | `features/auth/authenticated-request.ts` | 정책 → credential 주입 → 전송 → redirect 재검사 → 강등(요청별 인증 실패 status, 기본 401/403 · 세션의 origin 미복귀) |
+| `features/auth/login-free.ts` | 항상 valid·verified인 `LoginFreePluginAuth`와 앱 인증 없는 요청. store·vault·상태 전이 callback을 받지 않는다 |
+| `features/auth/request-chain.ts` | 두 요청 체계가 공유하는 query 조립·redirect 홉 재검사·응답 변환 |
 | `features/auth/secret-access.ts` | trusted-main raw 조회 (동기) |
 | `features/auth/login.ts` | `AuthMethod` 분기 실행 · 후보 probe → 성공 시 1회 커밋 · 단일 Auth `resume` |
 | `features/auth/browser-session/runner.ts` | 브라우저 세션 로그인 흐름 (창 → final URL 의 인가 코드 → 토큰 교환 · whoami) |
@@ -105,6 +113,12 @@ key 를 보강하면 합류점이 **throw** 한다. 인자 없는 factory 로 �
 `deployment-wiring.test.ts` 가 **비어 있지 않은 가상 배포**로 Bootstrap→Plugin/Harness/Usage/
 카탈로그를 끝까지 태운다.
 
+Plugin 배포 능력은 `PluginDeploymentDeps`의 `auth`·`registry`·선택적 `logger`이며, `auth`는
+`bindForPlugin`·`bindLoginFreePlugin`만 제공한다. `bind`·`tryBind`·`bindForPlugin`과
+`AuthSecretReader`는 자격증명 목록만 해석하고, `describe`만 두 체계를 설명한다. 로그인 프리
+id를 게이트·부팅 복원·Harness/Usage 자격증명·MCP `${BINDING:<id>}` 대상으로 사용할 수 없다.
+기본 배포의 `AUTH_DEFINITIONS`·`LOGIN_FREE_DEFINITIONS`·`createPluginBindings()`는 빈 배열이다.
+
 ---
 
 ## 4. 상태와 변화
@@ -117,6 +131,11 @@ key 를 보강하면 합류점이 **throw** 한다. 인자 없는 factory 로 �
 | `verified` | **이번 실행에서 실제로 확인됐는가.** 복원된 grant 는 `valid` 지만 `verified:false` 다 |
 | `credentialRevision` | 실행 credential 이 **실제로 바뀐** 횟수. 메모리 단조, 영속하지 않는다 |
 | `activeMethod` · `principalId` · `expiresAt` | 표시용. secret 은 없다 |
+
+로그인 프리 포트는 `{ status:'valid', verified:true, credentialRevision:0 }`을 항상 반환하고
+snapshot에는 `activeMethod`·`principalId`·`expiresAt`를 싣지 않는다. GUI 매핑에서 해당 필드의
+부재를 `null`로 접는다. 아래의 grant 확인·커밋·해제·만료·강등은
+자격증명 체계의 수명주기다. 로그인 프리 요청은 snapshot change를 발행하지 않는다.
 
 `verified` 를 두는 이유: grant 는 디스크에서 복원되는 *기록*이고, `kind:'session'` grant 는 vault 도
 만료도 없이 기록만으로 `valid` 가 된다. 그것만 보던 동안 한 번 로그인에 성공한 id 는 영구히 통과
@@ -393,6 +412,10 @@ browser-session 에도 그대로 걸린다 — 빠지면 교환이 만든 token 
 두 번째가 필요한 이유: 멤버에서 빼기만 하면 `members.length === 0` 이 되어 prod gate 가
 `required:false` 로 **열린다**. 그것이 곧 "확인 없이 통과하는 게이트" 다.
 
+로그인 프리 선언은 `GateAuthDefinition`에 대입되지 않고 자격증명 `tryBind`에서도 해석되지
+않는다. 해당 id를 게이트로 잘못 선언하면 `unregistered`로 차단한다. 항상 valid인 Plugin
+포트가 앱 로그인을 통과시키는 근거가 되지는 않는다.
+
 ### 5.2 부팅 복원 순서
 
 ```text
@@ -623,8 +646,14 @@ Claude settings 파서는 `sonnet`·`opus`·`haiku`·`fable` 네 family와
 
 ## 7. Plugin
 
-Plugin은 GUI 카탈로그에 표시되는 제품 기능 단위다. 배포는 `bindForPlugin(id)`로 `PluginAuth`를
-얻고 서버에 자기 옵션과 함께 넘긴다. HTTP는 `request()`를 사용하며 비-HTTP built-in은
+Plugin은 GUI 카탈로그에 표시되는 제품 기능 단위다. 자격증명 대상은 `bindForPlugin(id)`로
+`PluginAuth`를, 로그인 프리 대상은 `bindLoginFreePlugin(id)`로 `LoginFreePluginAuth`를 받는다.
+두 포트 모두 `BoundAuth` 형상을 만족하며 **같은 `createPluginBinding`**으로 조립한다. 도구 등록·
+노출 도구 목록·Composer `@`·승인 정책은 같은 경로다. 로그인 프리 포트에는 `withCredential`이
+없으므로 `PluginAuth`를 요구하는 서버에는 대입되지 않는다. 서로 다른 체계의 binder를 쓰거나
+로그인 프리 미등록 id를 바인딩하면 부팅에서 던진다.
+
+자격증명 Plugin의 HTTP는 `request()`를 사용하며 비-HTTP built-in은
 `withCredential()`의 자기 credential과 거부 callback을 사용한다. callback은 읽은 revision에만
 작용하므로 이전 요청의 거부가 새 로그인을 만료시키지 않는다. 이는 신뢰하는 앱 코드의 좁은
 표면이며 외부 코드 sandbox가 아니다. DB·소켓·파일 경로는 Auth가 제공하지 않고 infra가 맡는다.
@@ -640,9 +669,25 @@ Plugin은 GUI 카탈로그에 표시되는 제품 기능 단위다. 배포는 `b
 grant를 살려 두라는 뜻이다. HTTP probe의 `authFailureStatuses` 예외와 같은 축이며, 생략하면
 기존대로 만료한다 — 기본값이 곧 계약이므로 선언이 말하지 않은 것을 core가 추측하지 않는다.
 
-플러그인의 **연결 좌표는 `AuthDefinition.origin` 한 사본**이다. 배포는 좌표를 선언 입력에만
+플러그인의 **연결 좌표는 선언의 `origin` 한 사본**이다. 배포는 좌표를 선언 입력에만
 적고 런타임 옵션에는 담지 않으며, 소비자는 `origin`에서 되읽는다. 두 사본을 부팅에서 대조하는
 구조가 아니라 사본이 하나라 어긋날 수 없다.
+
+로그인 프리는 `LoginFreeDefinition`을 `LOGIN_FREE_DEFINITIONS`에 빌드타임으로 선언한다.
+id는 케밥 소문자이고 자격증명 id와 같은 공간을 사용한다. `origin`은 선택적이며 생략하면
+`request()`는 `origin_not_declared`로 전송 전에 거부된다. 형식은 자격증명 origin과 같고
+비-HTTP authority도 선언할 수 있지만 `request()` 전송은 HTTP(S)만 허용한다.
+
+로그인 프리 `request()`는 앱 credential·cookie를 주입하지 않고 플러그인이 전달한 헤더
+(`Authorization`·`Cookie` 포함)를 그대로 보낸다. Chromium sender는 `credentials:'omit'`이며,
+상대 경로·선언 origin 고정·redirect 홉별 재검사·홉 상한·선택한 `maxBytes`의 수신 중 상한을
+적용한다. query 조립·redirect 체인·응답 변환은 자격증명 요청과 공유한다. `maxBytes`를
+생략하면 응답 크기 상한을 추가하지 않는다. 401/403도 그대로 반환하고 강등·change·도구 회수가
+없다. `authFailureStatuses`를 줘도 로그인 프리 상태에는 영향을 주지 않는다.
+
+로컬 키·인증 파일·호스트 exe는 플러그인 또는 그 프로그램이 직접 사용한다. 앱은 키를 저장·
+주입·검증하거나 만료를 관리하지 않는다. 호스트 프로그램은 `features/plugins/**`에서 직접
+실행하며 별도 공용 실행기를 두지 않는다. 실행·비밀 출력 경계는 [security.md](security.md#110-git-실행과-plugin-호스트-프로그램-경계)를 따른다.
 
 - 배포의 선택적 `catalog` 설정은 binding 생성 시 정규화한다. icon을 생략하거나 설정 자체가 없으면
   `electrical_services`, title이 없으면 Auth label, body가 없으면 본문 없음이 된다. locale text와
@@ -650,7 +695,9 @@ grant를 살려 두라는 뜻이다. HTTP probe의 `authFailureStatuses` 예외�
 - Runtime Tool 서버는 부팅에서 **한 번만** 만들고 이후 sync 는 add/remove 만 한다.
   `RuntimeToolRegistry` 의 동등성 검사가 handler identity 까지 보기 때문이다 — 매번 새로 만들면
   형상이 같아도 revision 이 올라 다음 턴이 런타임을 재spawn 한다.
-- sync 는 **`credentialChanged:true` 인 자기 Auth 의 change 에서만** 일어난다.
+- 부팅 sync 이후에는 **`credentialChanged:true` 인 자기 Auth 의 change 에서만** sync한다.
+  로그인 프리는 초기 sync에서 등록되고 다른 Auth의 commit·revoke·만료·강등이나 게이트 상태로
+  회수되지 않는다.
 - GUI `tools` 는 **cached descriptor** 에서 나온다. Auth 가 invalid 여도 목록을 비우지 않고 `status`
   로 비활성을 안내한다 — active registry 로 목록을 만들면 미인증 상태에서 도구가 통째로 사라진다.
 - Jira Data Center 내장 도구는 `features/plugins/jira/`가 REST mapping·결과 envelope·첨부 staging을
@@ -686,8 +733,9 @@ HarnessPlugin  Harness 규약에 맞춰 렌더한 package 를 Harness 가 직접
 
 ## 9. GUI 와 wire
 
-renderer 는 여전히 한 DTO 에서 `gate | llm | service` 분류·인증 상태·노출 도구를 함께 받는다.
-내부 책임을 갈랐다고 화면과 wire 를 동시에 바꾸지 않는다.
+renderer는 한 DTO에서 `gate | llm | service` 분류·인증 체계·상태·노출 도구를 함께 받는다.
+`ProviderInfo.authScheme`은 필수이며 `'login-required' | 'login-free'`다. `ProviderKind`는
+기존 view 분류를 유지한다.
 
 `app/connection-views.ts` 가 `ConnectionViewSource[]` 를 기존 DTO 로 매핑한다:
 
@@ -702,6 +750,10 @@ renderer 는 여전히 한 DTO 에서 `gate | llm | service` 분류·인증 상�
   써도 `BoundAuth` 만 재사용하고 GUI row 를 복제하지 않는다.
 - label·origin·인증 방식 입력 필드는 `auth.describe()` 에서, 상태는 `auth.snapshot()` 에서 읽는다 —
   view source 에 다시 적지 않는다.
+- 로그인 프리 행은 `kind:'service'`·`authScheme:'login-free'`·`auth:[]`·`status:'valid'`이며
+  `activeAuthKind`·`principal`·`expiresAt`는 `null`이다. 미선언 origin은 wire에서 `''`로 보내고
+  상세의 주소 행을 숨긴다. 인증 체계는 `authScheme`으로만 판단하며 빈 origin이나 방식 배열에서
+  추론하지 않는다.
 - `catalog`는 gate·harness·plugin·usage connection source가 선택적으로 `ProviderInfo`로 투영한다.
   입력이 없는 gate·harness·usage 행은 기존 Auth label과 power icon 표시를, Plugin은
   `electrical_services` 기본값을 유지한다.
@@ -709,7 +761,9 @@ renderer 는 여전히 한 DTO 에서 `gate | llm | service` 분류·인증 상�
   `ProviderInfo.id`만 투영한다. `catalog`와 `status`는 후보 자격을 결정하지 않으며, root plain 입력에서는
   경로 그룹을 Plugin 그룹보다 먼저 표시하고 slash/quoted 입력은 path 그룹으로 남긴다. token이 null이
   되는 입력 삭제 전이는 dismissal과 active index를 끝내므로 새 `@` occurrence가 다시 열린다.
-- 인증 상세의 액션은 `status === 'none'`이면 `인증` 단일 버튼, 그 외에는 `재인증` dropdown과
+- 로그인 프리 행은 목록·상세에 종류 `기본 제공`, 상태 `인증 불필요`를 표시한다. 인증 방식
+  라벨·인증·재인증·연결 해제 액션은 없고 cached 도구 목록은 항상 활성이다. 사용자가 끌 수 없다.
+- 자격증명 행의 인증 상세 액션은 `status === 'none'`이면 `인증` 단일 버튼, 그 외에는 `재인증` dropdown과
   메뉴의 위험 색상 `연결 해제`로 구성한다. 모두 기존 `login`·`reauth`·`revoke` 경로를 호출한다.
 - **renderer 에 새 kind 를 추가하지 않는다.** 신규 도메인 코드 안쪽에서는 `ProviderKind` 를 쓰지
   않는다 — 이 표가 유일한 접점이다.
@@ -731,7 +785,7 @@ Bootstrap 은 gate 멤버와 plugin binding 을 넘기고 결과를 그대로 IP
 
 ```text
 Bootstrap.start
-  ├─ [DB 이전] RuntimeToolRegistry + createAuthRuntime(AUTH_DEFINITIONS)
+  ├─ [DB 이전] RuntimeToolRegistry + createAuthRuntime(AUTH_DEFINITIONS, LOGIN_FREE_DEFINITIONS)
   │   └─ mcp.attachTokenSource((id) => secretReader.read(id))
   ├─ [DB 이전] Gate + Plugin concrete 1회 생성 + 초기 tool sync
   │   ├─ Auth change listener
@@ -764,6 +818,8 @@ Bootstrap 은 endpoint path·response body·Confluence CQL·UsageSnapshot mappin
 | **해제는 fail-closed, 추가·교체는 degrade-open** | 방향이 다르다 — 해제를 degrade 하면 사용자가 끊은 연결이 재시작 후 되살아나고, 추가를 fail 시키면 멀쩡한 로그인이 일시적 디스크 문제로 막힌다 |
 | 읽기 실패를 "없음" 으로 읽지 않는다 (`authoritative`) | vault sweep 이 그 위에서 돈다. grant 파일 손상 하나가 멀쩡한 secret 전부를 지우는 경로가 된다 |
 | Auth 계약에 소비 슬롯을 되살리지 않는다 | 같은 집적이 재생산된다 |
+| 로그인 프리 선언·포트는 자격증명 lifecycle에서 분리한다 | 항상 valid인 Plugin이 게이트·vault·부팅 복원 경로로 들어가면 인증 우회와 앱의 키 관리가 생긴다 |
+| Plugin 조립·승인 정책은 인증 체계와 무관하게 같은 경로를 쓴다 | 로그인 프리도 항상 인증된 Plugin과 같은 소비 계약을 만족한다 |
 | `AuthSecretReader` 를 RouterContext·renderer·일반 feature 에 넣지 않는다 | bound request 로 충분한 소비자까지 secret 표면을 넓힌다 |
 | raw cookie 목록을 일반 포트로 내보내지 않는다 | 같은 partition 의 bound request 로 충분하다 |
 | main 원격 요청은 Chromium 스택(`net.fetch`)만 쓴다 | Node 스택은 OS 프록시·사설 CA 를 보지 못한다 |

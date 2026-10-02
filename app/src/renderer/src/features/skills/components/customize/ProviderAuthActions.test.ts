@@ -6,6 +6,7 @@ const provider: ProviderInfo = {
   id: 'plugin',
   label: 'Plugin',
   kind: 'service',
+  authScheme: 'login-required',
   origin: 'builtin',
   auth: [],
   status: 'none',
@@ -32,4 +33,11 @@ describe('providerAuthActionKind', () => {
       { kind: 'revoke', danger: true }
     ])
   })
+
+  it.each(['none', 'valid', 'expired', 'unknown'] as const)(
+    '로그인 프리는 %s 상태에서도 인증 액션이 없다 (0248 AC12)',
+    (status) => {
+      expect(providerAuthActionKind({ ...provider, authScheme: 'login-free', status })).toBe('none')
+    }
+  )
 })

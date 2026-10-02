@@ -833,6 +833,7 @@ export type {
   DeleteMcpServerRequest,
   ProviderKind,
   ProviderAuthKind,
+  ProviderAuthScheme,
   ProviderFieldInfo,
   ProviderAuthSpecInfo,
   ProviderGrantStatus,

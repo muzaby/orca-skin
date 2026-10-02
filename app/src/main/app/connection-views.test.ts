@@ -33,6 +33,9 @@ function bound(authId: string, snapshot: Partial<AuthSnapshot> = {}): BoundAuth 
 
 function runtime(descriptors: Record<string, AuthDescriptor>): AuthRuntime {
   return {
+    bindLoginFreePlugin: () => {
+      throw new Error('unused login-free binding')
+    },
     bindForPlugin: () => {
       throw new Error('unused plugin binding')
     },
@@ -55,6 +58,7 @@ function runtime(descriptors: Record<string, AuthDescriptor>): AuthRuntime {
 }
 
 const DESCRIPTOR: AuthDescriptor = {
+  scheme: 'login-required',
   authId: 'confluence',
   label: 'Confluence',
   origin: 'https://wiki.example.corp',
@@ -93,6 +97,7 @@ describe('connectionInfo — ProviderInfo 전 필드 (AC22)', () => {
       id: 'confluence',
       label: 'Confluence',
       kind: 'service',
+      authScheme: 'login-required',
       origin: 'https://wiki.example.corp',
       auth: [
         {
@@ -148,6 +153,12 @@ describe('compat kind 매핑 (AC22)', () => {
       'llm',
       'service',
       'service'
+    ])
+    expect(connectionList(auth, sources).map((info) => info.authScheme)).toEqual([
+      'login-required',
+      'login-required',
+      'login-required',
+      'login-required'
     ])
   })
 

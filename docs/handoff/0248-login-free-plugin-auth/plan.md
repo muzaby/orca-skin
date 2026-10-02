@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-02 |
 | 매핑 | — (브랜치 `claude/0248-login-free-plugin-auth`) |
-| 상태 | READY |
+| 상태 | IMPL_DONE (V1 r1) |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
 | 이번 V revision | `V1` |
@@ -561,79 +561,191 @@ LOGIN_FREE_DEFINITIONS → registry → bindLoginFreePlugin → createPluginBind
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: D-001~D-017 유지. 별도 선언·상수 valid 포트를 같은 Plugin 조립에 넣고 자격증명 lifecycle은 분리했다(`login-free-deployment.test.ts` AC1~4).
+- 이견 / 현실성 문제: redirect 공유 함수가 `AuthPolicyError`를 기존 requester에서 import하면 순환한다. 클래스를 `auth-policy-error.ts`로 이동하고 기존 경로에서 re-export했다(`authenticated-request.ts:37`).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. 기본 선언·binding·연결 행은 계속 빈 배열이다(AC15 테스트).
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-… | … | … | … | … | … |
+| VP-01·09 / EP-01 | snapshot 상수 | 1 | 1/1 | S1 → `login-free.ts:22`; AC1·2·3·7에서 전 필드 등치 | 없음 |
+| VP-01 / EP-02 | 동일 조립 | 1 | 1/1 | S3 → `plugins.ts:57` sync; AC1 최초 add, M1 5 red | 없음 |
+| VP-02·09 / EP-03 | 상태 전이 없음 | deps 1 + runtime 발행 1(집합 표기) | 실측 7/7 | S1 → deps 1·생산 edge 5·공통 emit 1; AC7 snapshot/change/서버 불변, M4 두 자리 각 4 red | 없음 |
+| VP-02·11 / EP-04 | 앱 주입 없음·헤더 통과 | 3 | 3/3 | S2 → `login-free.ts:49`·`policy.ts` 로그인 프리 판정·`transport.ts:58`; AC5 기본 헤더 `{}`·플러그인 헤더 등치 | 없음 |
+| VP-02·11·17 / EP-05 | origin 고정 | 3 | 3/3 | S2 → `login-free.ts:29~39` 첫 요청·미선언/비HTTP 거부, `request-chain.ts:43` 홉 판정; AC6 및 M3·M13 | 없음 |
+| VP-07·11·17 / EP-06 | 공유 redirect 호출 | 2 | 2/2 | S2 → requester `:199`·로그인 프리 `:53`; M13이 두 경로 각 1 red | 없음 |
+| VP-05·10 / EP-07 | 자격증명 binder·복원 비해석 | 6 | 기존 소비 edge 포함 11/11 | S4 → requester get·tryBind·bindForPlugin·secretReader·gate·store restore(6), sessions 등록·resume lookup(5); AC4 stale grant도 null/unknown_auth | 없음 |
+| VP-05 / EP-08 | 타입 상호 비대입 | 3 | 3/3 | S5 → methods/probe never·methods 필수·withCredential 없음; `login-free.test.ts` 타입 음성 단언 4개 | 없음 |
+| VP-06·10·15 / EP-09 | 공유 id·거부 체계 진단 | 2 | 2/2 | S3·S6 → registry seen 자격증명 우선 + Bootstrap `scheme:rejection.scheme`; AC8 accepted/rejected 전 필드 단언, M12 1 red | 없음 |
+| VP-04·12 / EP-10 | wire 생산 | 2(생산자/매퍼) | 출력 자리 실측 4/4 | S5 → describe 양 체계 출력 2 + view authScheme/origin 2; AC10 두 origin 경우 전 필드 등치·네 category login-required | 없음 |
+| VP-04·16 / EP-11 | wire 소비 | 6 | 표시/props edge 포함 10/10 | S7 → 순수 판정/액션/목록 detail/주소 6 + 목록 상태·상세 종류/상태·액션 props 4; AC11~13·M6/M7 | 없음 |
+| VP-06·13 / EP-12 | 부팅 배선 | 1 | 1/1 | S3 → `bootstrap.ts:320`; AC16 실제 호출 인자 스캔, M8·M8b 각 1 red | 없음 |
+| VP-06·13 / EP-13 | 기본 빈 배포 | 2 | 2/2 | S3 → 선언 `:53`·binding `:89`; AC15 production export 3종 직접 호출 | 없음 |
+| VP-06·13 / EP-14 | 배포 능력 | 1 | 1/1 | S3 → `plugins.ts:76` Pick 두 binder; AC17 `PluginDeploymentDeps` 타입 factory·실제 registry handler request | 없음 |
+| VP-03·14 / EP-15 | 프로세스 실행 경계 | 2 | 2/2 | S8 → 실행 import 예외와 runner 제한 별도 블록; boundary 12케이스 green, M9~11 red | 없음 |
+| VP-08 / EP-16 | 문서·판정 사본 | 8 | 8/8 | AC19 문서 diff 6묶음 + plan 메타/INDEX 재독 2; inventory prose/links green | 없음 |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: …
+- §10에 없는데 같은 불변식이 필요했던 지점: 신규 계약 없음. 위 실측은 §10 집합 표현에 들어 있던 기존 producer/consumer edge를 개별 자리로 풀었다.
+- EP-03 생산 edge는 `runtime.ts:127` snapshot 만료, `:164` requester 강등, `:166` requester 만료, `:198` LoginService, `:235` withCredential 거부다. 공통 emit은 `:177`, step-only publish `:197`은 snapshot 집합 밖이다.
+- EP-07 추가 소비는 `runtime.ts:115` 자격증명 세션 등록과 `auth-resume.ts:88·113·201·214` 네 lookup이다. Bootstrap 복원 입력은 `AUTH_DEFINITIONS`만이며 로그인 프리 배열을 넘기지 않는다(`bootstrap.ts:507`).
+
+전수 검색(모두 저장소 루트에서 실행):
+
+```powershell
+# S1 snapshot 생산·발행 주어
+rg -n 'snapshot:|interface LoginFreeDeps|publish\(|emitSnapshot\(|onSnapshot:|onUnauthorized:|onExpired:' app/src/main/features/auth/login-free.ts app/src/main/features/auth/runtime.ts
+# S2 outbound header·origin·redirect 운반 edge
+rg -n 'headers:|credentials:|allowedOrigins:|definition.origin|verdict|redirectCheck|beforeNextHop|followRedirects\(' app/src/main/features/auth/login-free.ts app/src/main/features/auth/request-chain.ts app/src/main/features/auth/authenticated-request.ts app/src/main/infra/net/transport.ts
+# S3 선언→부팅→배포 소비
+rg -n 'LOGIN_FREE_DEFINITIONS|loginFreeDefinitions:|scheme: rejection|bindLoginFreePlugin|tryBind|remainingDefinitions:|registry\.(add|remove)' app/src/main/app/bootstrap.ts app/src/main/app/deployment/auth-definitions.ts app/src/main/app/deployment/plugins.ts
+# S4 자격증명 id 조회·복원·소비
+rg -n 'registry\.(get|list)|tryBind|withCredential|store.secret|store.restore' app/src/main/features/auth/runtime.ts app/src/main/features/auth/secret-access.ts app/src/main/features/auth/authenticated-request.ts app/src/main/features/gate/index.ts app/src/main/app/auth-resume.ts
+# S5 체계 타입·wire 값
+rg -n 'authScheme:|scheme:|origin: descriptor|methods\?: never|probe\?: never|interface LoginFreePluginAuth|methods:' app/src/main/contracts/auth.ts app/src/main/app/connection-views.ts app/src/main/features/auth/runtime.ts
+# S6 공유 id·거부 값
+rg -n 'seen\.|loginFreeDefinitions|scheme:|getLoginFree|loginFree\(' app/src/main/features/auth/registry.ts
+# S7 renderer 소비·전달
+rg -n 'providerRowMeta|canManageAuth|providerAuthActionKind|ProviderAuthActions|provider.origin|meta.(kindKey|statusKey)' app/src/renderer/src/features/skills -g '!*.test.*'
+# S8 host 실행 import와 runner import 경계
+rg -n 'child_process|features/plugins|import/no-restricted-paths' app/eslint.config.mjs
+```
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | REQUIRED | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | AC1~3 registry 존재·add1/remove0 | M1 5 red |
+| VP-02 | REQUIRED | SELF_PASS | AC5~7 runtime request 헤더/홉/상태 단언 | M2 3·M2b 3·M3 1·M4 두 자리 각4 red |
+| VP-03 | REQUIRED | SELF_PASS | AC18 boundary 12케이스 | M9 1·M10 4·M11 2 red |
+| VP-04 | REQUIRED | SELF_PASS | AC10 wire 등치·AC11/12 렌더·AC13 후보 | M6/M7 아래 여섯 자리 red |
+| VP-05 | REQUIRED | SELF_PASS | AC4 binder/게이트/stale grant 격리·AC9 포트 음성 타입 | M5a 2·M5b 1·M5c 2 red |
+| VP-06 | REQUIRED | SELF_PASS | AC8·15~17 registry/기본배포/가이드 요청 | M8 1·M8b 1·M12 1 red |
+| VP-07 | REQUIRED | SELF_PASS | 기존 Plugin sync/revision/revoke·requester·renderer 케이스 green | 해당 없음 — 직접 oracle |
+| VP-08 | REQUIRED | SELF_PASS | AC19 문서 및 inventory generated/prose/links green | 해당 없음 — 직접 대조 |
+| VP-09 | REQUIRED | SELF_PASS | AC2 실제 change handler 4종·AC3 gate 대조군 | M4 request/runtime 각4 red(서버 회수 관측) |
+| VP-10 | REQUIRED | SELF_PASS | AC4·8·9 런타임·registry 단언 | M5a~c 각2/1/2 red |
+| VP-11 | REQUIRED | SELF_PASS | AC5~7 bindLoginFreePlugin→sender 직접 전송 | M2·M2b·M3·M4 runtime 경유 red |
+| VP-12 | REQUIRED | SELF_PASS | AC10 origin 선언/생략 두 행 전 필드 등치 | 해당 없음 — 직접 oracle |
+| VP-13 | REQUIRED | SELF_PASS | AC15 production 호출·AC16 소스·AC17 factory 요청 | M8·M8b 각1 red |
+| VP-14 | REQUIRED | SELF_PASS | AC18 정적/동적 양 module import + runner 거부 | M9~11 각1/4/2 red |
+| VP-15 | REQUIRED | SELF_PASS | AC8 registry accepted/rejected 전 필드 등치 | M12 1 red |
+| VP-16 | REQUIRED | SELF_PASS | AC11/12 순수 label/action 판정 | M6 순수4·M7 순수4 포함 red |
+| VP-17 | REQUIRED | SELF_PASS | AC6 로그인 프리 + AC14 신규 자격증명 cross-origin 차단 | M13 두 요청 경로 각1 red |
+| VP-18 | REQUIRED | SELF_BLOCKED | AC20 라이트·다크 시각 판정은 사람 실기 대기 | 해당 없음 — 사람 관측 |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| M1 sync 로그인 프리 조기 return | VP-01 | 최초 | login-free-deployment AC1·2·3·7 / 5 | red·복원 |
+| M2 앱 Authorization 주입 | VP-02·11 | 최초 | login-free request 헤더·redirect / 3 | red·복원 |
+| M2b 플러그인 헤더를 앱 값으로 교체 | VP-02·11 | 최초 | login-free request 헤더·redirect / 3 | red·복원 |
+| M3 로그인 프리만 홉 origin 검사 생략 | VP-02·11 | 최초 | login-free origin 밖 redirect / 1 | red·복원 |
+| M4 request 401 강등+publisher 연결 | VP-02·09·11 | 최초 | auth AC7 2 + deployment AC7 2 / 4 | red·서버 회수·복원 |
+| M4 runtime binder 강등+snapshot emit | VP-02·09·11 | 최초 | auth AC7 2 + deployment AC7 2 / 4 | red·서버 회수·복원 |
+| M5a tryBind 로그인 프리 해석 | VP-05·10 | 최초 | binder 격리 + gate unregistered / 2 | red·복원 |
+| M5b bindForPlugin 로그인 프리 포트 반환 | VP-05·10 | 최초 | 서로 다른 plugin binder 거부 / 1 | red·복원 |
+| M5c requester 로그인 프리 registry 해석 | VP-05·10 | 최초 | binder request + stale persisted grant / 2 | red·최신 테스트 재측정·복원 |
+| M6 providerRowMeta 종류/상태 키 맞바꿈 | VP-04·16 | 최초 | 순수4 + 목록1 + 상세2 / 7 | red·복원 |
+| M6 CustomizeList 종류/상태 소비 맞바꿈 | VP-04·16 | 최초 | 목록 기존/로그인프리 / 2 | red·복원 |
+| M6 ProviderDetail 종류/상태 소비 맞바꿈 | VP-04·16 | 최초 | 상세 origin 유/무 / 2 | red·복원 |
+| M7 action model→authenticate | VP-04·16 | 최초 | 순수4 + 액션4 + 상세2 / 10 | red·복원 |
+| M7 ProviderAuthActions→authenticate | VP-04·16 | 최초 | 액션4 + 상세2 / 6 | red·복원 |
+| M7 상세→액션 props 체계→login-required | VP-04·16 | 최초 | 상세 origin 유/무(dropdown 복귀) / 2 | red·복원 |
+| M8 Bootstrap 로그인 프리 인자 삭제 | VP-06·13 | 최초 | 실제 Bootstrap 객체 인자 / 1 | red·최신 스캔 재측정·복원 |
+| M8b Bootstrap 인자→빈 배열 | VP-06·13 | 최초 | 실제 Bootstrap 객체 인자 / 1 | red·최신 스캔 재측정·복원 |
+| M9 Plugin child_process 예외 삭제 | VP-03·14 | 최초 | Plugin 직접 실행 허용 / 1 | red·복원 |
+| M10 child_process 예외→features 전체 | VP-03·14 | 최초 | worktrees 정적/동적 양 module / 4 | red·복원 |
+| M11 runner import 경계에 Plugin 예외 | VP-03·14 | 최초 | Plugin 상대/동적 runner 거부 / 2 | red·복원 |
+| M12 자격증명 accepted id 공유 seen 누락 | VP-06·15 | 최초 | registry 공유 id 충돌 / 1 | red·복원 |
+| M13 공유 redirect check 제거 | VP-17 | 최초 | 로그인 프리 AC6 1 + 자격증명 AC14 신규1 / 2 | 두 경로 red·복원 |
 
-- **분모 검산**: `선택 증거 N · 인용 변이 M · 새 oracle K = 표 행 T`
-- **덮개 회귀**: …
+- **분모 검산**: `선택 증거 22 · 인용 변이 0 · 새 oracle 0 = 표 행 22`. 등록 이름 17개를 M4 두 자리·M6/M7 소비/props 자리까지 펼친 분모다. Bootstrap guard와 lint oracle의 감도는 등록 M8/M8b·M9~11에 포함돼 중복하지 않았다.
+- **덮개 회귀**: 기존 requester 케이스를 삭제하지 않았다. 공유 루프는 AC14 신규 cross-origin 테스트와 M13 두 경로 red로 잠갔고 복원 뒤 관련 89파일/929케이스 green이다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 확인 — 목록/상세가 두 locale의 종류·상태 키를 렌더한다(AC11·12, i18n 테스트) | AC20 사람 테마 실기 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 확인 — 공유 루프는 sender·signal·grant callback을 caller closure로 받는다. 획득/정리 상태를 이동하지 않았다(requester 기존 테스트) | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 일치 — 정책 거부·origin 오류·401/403은 요청 실패 행, 등록 오류는 선언 오류 행(AC6~8) | 없음 |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 확인 — 가이드 handler는 응답 body와 `isError:!ok`를 반환한다(AC7·17). 계약만 범위라 실제 제품 도구는 없다 | 후속 도구가 예외/실행 실패의 결과를 소유 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 상태 변경 callback이 없는 포트라 응답이 snapshot을 바꾸지 않는다(AC7). 요청 signal은 sender에 그대로 간다(AC5) | 없음 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | AuthPolicyError 이동 시 import cycle 또는 기존 instanceof 깨짐 가능 | 독립 파일로 이동하고 기존 requester 경로에서 re-export | auth suite 및 AC6/14 예외 단언 green |
+| 2 | 과거 자격증명 id를 로그인 프리로 재선언한 배포에 영속 grant가 남을 수 있음 | 기존 credential-only restore 유지, stale grant 입력 회귀 테스트 추가 | `login-free.test.ts` persisted grant 케이스 null/unknown_auth·snapshot 변화0 |
+| 3 | 가상 배포의 만료 seed가 AC1 ‘전부 none’ 관측을 가림 | 기본 fixture는 빈 persistence, AC2만 withExpiry 옵션 | AC1 두 상태 `['none','none']`, AC2 네 change cause 단언 |
+| 4 | ESLint lintText가 존재하지 않는 Plugin 가상 경로에서 no-cycle 내부 오류 | 기존 실제 Plugin 파일 좌표에 lintText 실행 | boundary 12케이스 모두 green·M11 상대/동적 runner 2 red |
+| 5 | Bootstrap 소스 스캔이 import·다른 객체·중첩 속성을 배선으로 셀 수 있음 | createAuthRuntime 직접 객체 속성만 추출, 가드 음성 입력 추가 | AC16 missing/empty/wrong/comment/string/nested/outside 입력과 M8/M8b red |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: 예외 클래스만 `auth-policy-error.ts`로 분리했다. requester→request-chain→requester 순환을 없애며 기존 export·class identity는 보존한다. 신규 dependency·상태·캐시 없음.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 — 예외 클래스에 상태/만료가 없다 | AC14 기존 grant 만료/홉 테스트 green |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 클래스 import 정체성 분열 가능 | AC6 두 포트 AuthPolicyError 이름/reason, 기존 requester import의 예외 단언 green |
+| 재진입 | 해당 없음 — 예외 생성 외 공유 mutable 값 없음 | AC7 반복 401/403 snapshot 등치 |
+| 다른 무효화 축 | 해당 없음 — cache/lifecycle 의존 없음 | EP-06 두 caller가 같은 followRedirects를 호출, M13 두 경로 red |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님) | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | auth 계약/registry/policy/runtime·공유 요청 체인·로그인 프리 포트, deployment/bootstrap/view, wire/protocol, renderer 표시/액션/i18n, lint 경계, 관련 테스트와 AC19 문서 |
+| 실행 명령 | `npm run lint`; `npm run typecheck`; 아래 관련 `vitest run`; `node --test scripts/git-boundary.test.mjs`; `node scripts/check-doc-inventory.mjs --check`; `git diff --check` |
+| **관측한 게이트 산출**(exit code 아님) | vitest 89파일/929케이스·boundary 12케이스 green; lint 오류0·기존 `useTranscriptVirtualizer` 경고1; typecheck node/web/test diagnostics0; inventory generated/prose/links green |
+| V-pair 자기확인 | SELF_PASS 17 · SELF_BLOCKED 1(사람 시각 VP-18). 독립 verify 전 결과다 |
+| 강제 지점 전수 | EP-01~16 위 표 전수, 집합 분모는 생산/소비 edge로 펼쳐 기재. 사람 시각은 자동 완료로 세지 않음 |
+| **AC 자기보고**(`Criteria-Met`) | 19/20 — 아래 행별 증거, AC20 사람 실기 대기 |
+| **합계 검산** | ✅ 19 · ⚠️ 1 · ❌ 0 = 총 20 |
+| 블로커 / 역질문 | 코드/규범 블로커 없음. 사람 AC20·독립 verify·CI 최종 판정 대기 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+최종 관련 테스트 명령(ABI 전환 없음):
+
+```powershell
+cd app
+./node_modules/.bin/vitest run src/main/features/auth src/main/app/deployment src/main/app/connection-views.test.ts src/main/app/auth-resume.test.ts src/main/app/runtime-model-startup src/main/features/gate src/renderer/src/features/skills src/renderer/src/features/chat/lib src/renderer/src/features/chat/hooks/useMentionAutocomplete.test.ts src/renderer/src/features/providers/lib/principal.test.ts src/renderer/src/shared/i18n src/main/infra/net/no-node-fetch.test.ts
+```
+
+| AC | 자기 결과 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | 가상 배포 최초 sync 서버 존재, 두 credential 상태 none, handler→request 성공 |
+| AC2 | ✅ | 실제 handler에 commit/revoke/만료/401 cause 수신, 로그인 프리 add1/remove0·snapshot 등치 |
+| AC3 | ✅ | gate false→true→false 내내 로그인 프리 존재, 자격증명 서버 false→true→false |
+| AC4 | ✅ | binder null/unknown_auth·secretReader null·잘못된 gate unregistered 차단, stale grant 입력 동일, 타입 음성 단언 |
+| AC5 | ✅ | URL/query/body/signal·omit 등치, 기본 헤더 `{}`와 플러그인 Authorization/Cookie/임의 헤더 등치 |
+| AC6 | ✅ | absolute_path·cross-origin next-hop0·same-origin finalUrl·첫요청+5홉·text/binary maxBytes·미선언/비HTTP 전송0 |
+| AC7 | ✅ | 401/403 + authFailureStatuses 응답 false, snapshot/change/registry revision 불변·tool isError |
+| AC8 | ✅ | credential/앞선 LF id 충돌·invalid id/origin rejection scheme 등치, accepted 목록 유지 |
+| AC9 | ✅ | 체계 반대/미등록 binder throw, withCredential 없음·PluginAuth 대입 타입 오류 |
+| AC10 | ✅ | origin 유/무 LF ProviderInfo 전 필드 등치, 네 credential category authScheme login-required |
+| AC11 | ✅ | providerRowMeta 순수 단언 + CustomizeList ‘기본 제공’/‘인증 불필요’ 렌더 |
+| AC12 | ✅ | action none·버튼0·활성 도구·비활성 안내0·주소 유/무·green 토큰 상세 렌더 |
+| AC13 | ✅ | pluginMentionCandidates와 validPluginIds 로그인 프리 fixture 포함 |
+| AC14 | ✅ | 기존 sync/revision/revoke·requester grant/후보·renderer 액션 green, 신규 requester cross-origin next-hop0 |
+| AC15 | ✅ | production LOGIN_FREE_DEFINITIONS·createPluginBindings·createConnectionSources 직접 호출 모두 `[]` |
+| AC16 | ✅ | Bootstrap 직접 인자 LOGIN_FREE_DEFINITIONS 관측, M8/M8b 각각1 red |
+| AC17 | ✅ | 실제 PluginDeploymentDeps·LoginFreeDefinition factory 컴파일, registry handler→/health 응답 |
+| AC18 | ✅ | plugins 양 module 정적/동적 허용·worktrees 차단·plugins runner 차단, 12케이스 |
+| AC19 | ✅ | auth/security/guide/IPC/GLOSSARY/ADR+목록 대조·inventory generated/prose/links green |
+| AC20 | ⚠️ | 자동 렌더는 라벨/도구/주소/버튼/톤 확인. 라이트·다크 사람 시각 실기는 미수행 |
+
+AC 합계 검산: `✅ 19 · ⚠️ 1 · ❌ 0 = 총 20`. 재독에서 pair 18·EP 16·AC 20의 번호 집합 차집합 각각 0건, ✅19/⚠️1, 잠금 표 22행을 다시 측정했다. 등록 변이 이름 17개와 보고 이름 집합 차집합도 0건이다.
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 최초 r1이며 이전 구현 라운드 없음.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: AC1 전부 none 관측을 구현 QA에서 강화했고, AC16 nested/outside false-positive 음성 입력을 추가했다.
+- 반복해서 부딪히는 환경 한계: DB ABI 전환 없이 모든 관련 테스트를 실행했다. 새 비-기능 블로커 없음; AC20만 계획상 사람 시각 경계다.
 - 현재 라운드·impl 턴: `r1`
 
 ---

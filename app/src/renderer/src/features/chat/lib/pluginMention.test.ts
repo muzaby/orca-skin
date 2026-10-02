@@ -7,6 +7,7 @@ function provider(overrides: Partial<ProviderInfo> = {}): ProviderInfo {
     id: 'jira-dc',
     label: 'Jira Data Center',
     kind: 'service',
+    authScheme: 'login-required',
     origin: 'builtin',
     auth: [],
     status: 'none',
@@ -29,6 +30,14 @@ function provider(overrides: Partial<ProviderInfo> = {}): ProviderInfo {
 }
 
 describe('pluginMentionCandidates', () => {
+  it('tools가 있는 로그인 프리 행을 id 토큰으로 투영한다 (0248 AC13)', () => {
+    expect(
+      pluginMentionCandidates([
+        provider({ id: 'builtin-tools', authScheme: 'login-free', origin: '', status: 'valid' })
+      ])
+    ).toEqual([{ kind: 'plugin', id: 'builtin-tools', label: 'Jira Data Center' }])
+  })
+
   it('catalog와 tool이 있는 provider를 인증 상태와 무관하게 id 토큰으로 투영한다', () => {
     const candidates = pluginMentionCandidates([
       provider({ status: 'none' }),

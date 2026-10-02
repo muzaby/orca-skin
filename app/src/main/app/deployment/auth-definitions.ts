@@ -41,8 +41,13 @@
 //    없다. `allowedOrigins` 에 **API 종점 origin 을 넣지 않는다**: 그 목록은 로그인 창이 오가는
 //    origin 이고, 세션 grant 의 요청이 그 안에서 끝나면 인증이 살아 있는 것으로 읽히지 않는다.
 
-import type { AuthDefinition } from '../../contracts/auth'
+import type { AuthDefinition, LoginFreeDefinition } from '../../contracts/auth'
 
 // 등록 순서 = GUI 카탈로그 행 순서. `connection-views.ts` 의 view source 배열이 이 순서를
 // 보존해야 한다(0188 D-029).
 export const AUTH_DEFINITIONS: readonly AuthDefinition[] = []
+
+// 로그인 프리 선언은 자격증명 lifecycle과 별도다. 레시피는 가이드 §4를 따른다.
+// ⚠️ id는 AUTH_DEFINITIONS와 같은 공간이다. origin은 네트워크를 쓰는 경우에만 선언한다.
+// ⚠️ 로컬 키와 호스트 exe는 플러그인이 직접 소유한다. 앱 인증·vault에 넣지 않는다.
+export const LOGIN_FREE_DEFINITIONS: readonly LoginFreeDefinition[] = []

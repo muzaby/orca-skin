@@ -4,6 +4,7 @@
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [provider-runtime.md](./provider-runtime.md), [adapters.md](./adapters.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 > Decision rationale: [ADR-003](../../decisions/003-electron-network-stack.md) — 왜 main 이 Node `fetch` 를 쓰지 않는가.
+> Decision rationale: [ADR-006](../../decisions/006-login-free-auth-scheme.md) — 로그인 프리 요청과 로컬 키·호스트 실행의 소유 경계.
 
 ## 1. 보안 경계 / 자격증명
 
@@ -65,6 +66,12 @@ new BrowserWindow({
 
 > 세 경로 모두 **값의 소유권은 vault** 이고, 나가는 시점이 다를 뿐이다. 새 노출 경로를 추가하려면
 > 이 표에 행을 더하는 것이 선행 조건이다.
+
+**로그인 프리 Plugin의 로컬 인증 수단은 앱 소유 credential이 아니다.** 플러그인 또는 그
+호스트 프로그램이 사전 발급 키·인증 파일을 직접 사용하며, Auth는 이를 저장·주입·검증·만료
+판정하거나 vault·UI로 관리하지 않는다. 위 raw secret 예외 표는 앱이 소유한 credential의
+반출 경계이고, 로컬 키를 앱 credential로 승격하는 근거가 되지 않는다. 플러그인은 로컬 키를
+로그·도구 결과·renderer DTO에 싣지 않는다.
 
 ### 1.4 채택된 자격증명 모델 (Phase 3+ 도입 결정)
 
@@ -151,6 +158,14 @@ main 프로세스의 모든 원격 요청은 **Chromium 네트워크 스택**으
 
 > 이 규칙은 보안 경계이자 *동작* 경계다. 위반해도 로컬·개방망에서는 통과하고 **사내망에서만 실패**하므로, 리뷰가 아니라 테스트로 잡는다.
 
+로그인 프리 HTTP 요청도 `LoginFreePluginAuth.request` → 공유 redirect 체인 →
+`createSender(netFetch)`를 사용한다. 앱의 Authorization·cookie 주입과 자격증명 확인은 없고
+`credentials:'omit'`으로 전송한다. 플러그인이 준 `Authorization`·`Cookie` 등 헤더는 그대로
+통과한다. 예약 헤더 금지는 앱이 주입한 credential을 보호하는 자격증명 요청에 적용한다.
+로그인 프리도 상대 경로·선언 origin 고정·redirect 홉별 origin 재검사·홉 상한·선택한 응답
+크기 상한을 유지한다. origin 미선언·비-HTTP origin은 전송 전에 거부한다. 401/403 응답은
+상태 전이나 도구 회수 없이 반환한다. 정책 로그에는 전체 URL·query·헤더 값 대신 origin만 남긴다.
+
 Jira Data Center Plugin도 이 경계를 우회하지 않는다. 도구는 `BoundAuth.request`에 origin 상대 REST
 path만 넘기고 `Authorization`·cookie를 직접 만들지 않는다. 첨부의 metadata URL도 설정 origin과
 정확히 같은 origin만 허용한다. JSON 요청·응답, 첨부 파일, 호출당 파일 수, inline data, 최종 tool
@@ -181,11 +196,22 @@ POP3 Mail Plugin은 HTTP가 아닌 메일 전송을 사용한다. `node:net`·`n
 | `loopback-callback.ts` (0181) | OAuth 루프백 콜백 1회성 리스너(127.0.0.1, RFC 8252). node `http` 만 쓴다 | — |
 | `vault.ts` | safeStorage 위 네임스페이스 뷰. 값·metadata·index (§1.4-b) | — |
 
-### 1.10 Git 실행 경계
+### 1.10 Git 실행과 Plugin 호스트 프로그램 경계
 
 Git 명령은 `infra/git/gateway.ts`를 거쳐 `runner.ts`의 `execFile`로 실행한다. 실행 파일은 절대 PATH 항목에서 찾은 절대 경로이며 cwd에 의존하는 빈·상대 항목은 제외한다. 성공한 실행 파일 경로만 메모하고 실패한 탐색은 다음 요청에서 다시 시도한다.
 
-읽기는 `--no-optional-locks`와 `GIT_OPTIONAL_LOCKS=0`을 적용하며 전역 동시 실행을 제한한다. 같은 세대의 동일한 진행 중 요청만 공유하고 완료 결과는 저장하지 않는다. 쓰기는 저장소별 mutation queue를 사용하며 성공·실패 모두 세대를 전진시킨다. diff/log는 외부 diff·textconv 실행을 차단한다. 실행기 직접 import와 `child_process` import는 ESLint 경계가 제한한다.
+읽기는 `--no-optional-locks`와 `GIT_OPTIONAL_LOCKS=0`을 적용하며 전역 동시 실행을 제한한다. 같은 세대의 동일한 진행 중 요청만 공유하고 완료 결과는 저장하지 않는다. 쓰기는 저장소별 mutation queue를 사용하며 성공·실패 모두 세대를 전진시킨다. diff/log는 외부 diff·textconv 실행을 차단한다. Git 실행기 직접 import는 ESLint 경계가 제한한다.
+
+`child_process`·`node:child_process` 정적·동적 import는 Git gateway·runner와
+`src/main/features/plugins/**`에서 허용한다. 그 밖 main의 실행 경계는 유지하며, Plugin도
+`infra/git/runner`를 직접 import할 수 없다. Plugin은 호스트에 설치된 프로그램을 직접 실행하고
+인자·timeout·취소·출력 처리를 소유한다. 공용 호스트 실행기를 추가하지 않는다.
+
+호스트 프로그램은 신뢰하는 절대 실행 파일 경로를 사용하고, 셸을 통하지 않는 `execFile` 또는
+`spawn`에 인자를 배열로 전달한다. 입력을 명령 문자열로 합치거나 PATH·cwd에 실행 파일
+선택을 맡기지 않는다. 실행에는 timeout과 호출 취소 signal을 적용하고 출력량을 제한한다.
+프로그램이 사용한 로컬 키·인증 파일 내용은 로그·도구 결과로 반환하지 않는다. 실제 exe
+Plugin의 테스트는 그 프로그램을 추가하는 작업이 소유한다.
 
 저장소 probe는 요청마다 좌표와 HEAD를 읽는다. snapshot의 status와 summary는 그 probe를 공유하며 누적 범위와 재시도의 끝점을 고정한다. 원격 URL은 매 요청 Git 설정 해석을 거쳐 읽으므로 전역 include·insteadOf 변경도 반영한다. 결과 계약은 [IPC Git 계약](../../IPC_CONTRACT.md#26-b-git-컴포저-브랜치-칩)을 따른다.
 

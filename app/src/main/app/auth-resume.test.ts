@@ -144,12 +144,21 @@ function fakeRuntime(
   })
 
   const auth: AuthRuntime = {
+    bindLoginFreePlugin: () => {
+      throw new Error('unused login-free binding')
+    },
     bindForPlugin: () => {
       throw new Error('unused plugin binding')
     },
     bind,
     tryBind: (authId) => (states.has(authId) ? bind(authId) : null),
-    describe: (authId) => ({ authId, label: authId, origin: '', methods: [] }),
+    describe: (authId) => ({
+      scheme: 'login-required',
+      authId,
+      label: authId,
+      origin: '',
+      methods: []
+    }),
     currentStep: () => null,
     subscribe(listener) {
       listeners.add(listener)

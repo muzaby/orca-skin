@@ -93,7 +93,7 @@ import {
   createRuntimeModelSnapshotReader,
   startRuntimeModelCatalogAfterDeploy
 } from './runtime-model-startup'
-import { AUTH_DEFINITIONS } from './deployment/auth-definitions'
+import { AUTH_DEFINITIONS, LOGIN_FREE_DEFINITIONS } from './deployment/auth-definitions'
 import { GATE_AUTH_DEFINITIONS, remainingAuthDefinitions } from './deployment/gate-auth'
 import {
   AUTH_INVALIDATED_HARNESS_KEYS,
@@ -317,6 +317,7 @@ export class Bootstrap {
 
     const created = createAuthRuntime({
       definitions: AUTH_DEFINITIONS,
+      loginFreeDefinitions: LOGIN_FREE_DEFINITIONS,
       persistence,
       vault,
       // 원격 요청은 Chromium 스택으로만 나간다 (0173) — 기본값을 두지 않는다.
@@ -361,6 +362,7 @@ export class Bootstrap {
         detail: rejection.message,
         data: {
           authId: rejection.id,
+          scheme: rejection.scheme,
           reason: rejection.reason,
           message: rejection.message
         }

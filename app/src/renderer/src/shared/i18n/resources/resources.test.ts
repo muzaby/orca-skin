@@ -49,4 +49,11 @@ describe('i18n resources', () => {
       )
     }
   })
+
+  it('로그인 프리 상태·종류 문구를 각 locale에 둔다 (0248 AC11·AC12)', () => {
+    expect(ko.skills.provider.status.loginFree).toBe('인증 불필요')
+    expect(ko.skills.provider.kind.loginFree).toBe('기본 제공')
+    expect(en.skills.provider.status.loginFree).toBe('No sign-in required')
+    expect(en.skills.provider.kind.loginFree).toBe('Built-in')
+  })
 })

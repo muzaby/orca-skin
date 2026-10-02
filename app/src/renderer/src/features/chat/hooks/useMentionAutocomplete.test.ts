@@ -117,6 +117,7 @@ function provider(id: string, overrides: Partial<ProviderInfo> = {}): ProviderIn
     id,
     label: id,
     kind: 'service',
+    authScheme: 'login-required',
     origin: 'builtin',
     auth: [],
     status: 'none',
@@ -295,6 +296,22 @@ describe('mention autocomplete occurrence and dismissal (D-015 · AC11 · AC20)'
 })
 
 describe('mention autocomplete provider sources (AC10 · AC19 · AC23)', () => {
+  it('includes 로그인 프리 tools in @ candidates and validPluginIds (0248 AC13)', async () => {
+    h.providerState.mockResolvedValue({
+      providers: [
+        provider('builtin-tools', { authScheme: 'login-free', origin: '', status: 'valid' })
+      ]
+    })
+    render('@', null)
+    await flush()
+    const result = render('@', null)
+    expect([...result.validPluginIds]).toEqual(['builtin-tools'])
+    expect(result.suggestions).toEqual([
+      { kind: 'plugin', id: 'builtin-tools', label: 'builtin-tools' }
+    ])
+    expect(result.open).toBe(true)
+  })
+
   it('opens a Plugin-only popup without cwd and never lists files', async () => {
     h.providerState.mockResolvedValue({ providers: [provider('jira-dc')] })
     render('@', null)
