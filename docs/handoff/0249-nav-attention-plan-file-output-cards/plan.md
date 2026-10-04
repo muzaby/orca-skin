@@ -11,14 +11,15 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-04 |
 | 매핑 | 기준 커밋 `origin/main@954e6fff` |
-| 상태 | DRAFT — 구현 중 PLAN_GAP (ΔV1 규범은 보존, AC19 정정 대기) |
+| 상태 | READY (ΔV2) — PLAN_GAP PG-01 정정 |
 | V mode | `Baseline V` + `Delta V` |
-| 기준 V | V1 = `none`(신규) · ΔV1 = `0249:V1@266bdbfe`(공유 브랜치 확인). 다른 handoff 의 동작은 `INHERITED` 회귀로만 둔다 |
-| 이번 V revision | `ΔV1` — 사용자 결정 변경(⑪~⑭)·진술⑮·추가 요구⑦ |
-| 유효 V | `V1 + ΔV1` |
-| 구현 주체 | Claude — 사용자 표현 "수정 및 버그 픽스"(root `AGENTS.md` 비기능 작업 분담) |
+| 기준 V | V1 = `none`(신규) · ΔV1 = `0249:V1@266bdbfe` · ΔV2 = `0249:ΔV1@c6e7b7e1`(모두 공유 브랜치 확인). 다른 handoff 의 동작은 `INHERITED` 회귀로만 둔다 |
+| 이번 V revision | `ΔV2` — r1 구현이 올린 PLAN_GAP PG-01 정정(결정⑯). 직전 `ΔV1` = 사용자 결정 변경(⑪~⑭)·진술⑮·추가 요구⑦ |
+| 유효 V | `V1 + ΔV1 + ΔV2` |
+| 구현 주체 | Codex — r1(`61c12248`)부터 사용자 지시(`[구현자 기입]` 설계 리뷰). V1 작성 시점 계획은 Claude 였다 |
 
 > **ΔV1 적용(2026-10-04)** — ③ 백그라운드 패널·④ ExitPlanMode 에 관한 V1 서술(§1·§2·§5·§6·§7·§7-A·§9~§19 의 해당 행)은 문서 끝 **§ΔV1** 이 대체한다. ⑦ 엔진&모델 개수는 ΔV1 신설이다. 유효 AC 20.
+> **ΔV2 적용(2026-10-04)** — r1 이 올린 PLAN_GAP PG-01(AC19)을 닫는다. AC19·VP-23·VP-24 와 백그라운드 표시 정착 규칙은 문서 끝 **§ΔV2** 가 정본이다. 유효 AC 21.
 
 ---
 
@@ -83,6 +84,8 @@
 | D-027 (ΔV1) | 계획 패널 UI 와 `PlanReviewRequest` 는 바꾸지 않는다 | 결정⑬ "그곳은 수정할 필요가 없다" | 결정⑬ | ACTIVE | D-014 대체 |
 | D-028 (ΔV1) | 입력이 파일 출처와 같으면(정규화 비교) 요청 본문·CLI 응답이 기존과 같다 | 진술⑮ — Claude API·HuggingFace 는 문제가 없다 | 진술⑮ | ACTIVE | — |
 | D-029 (ΔV1) | 엔진&모델 제목 옆 개수 = 화면에 그린 카드 수(`agents.length`) — settings·runtime(배포 LLM) 공통 | 요구⑦ "카드 숫자와 동기화되어야 함" | 요구⑦ | ACTIVE | 0226 D-24 변경(§ΔV1 Δ7) |
+| D-030 (ΔV2) | 현재 세대 live 목록이 확립된 뒤 그 목록에 없고 종료 증거도 없는 백그라운드 작업, 그리고 이전 세대·`terminated` 연결의 원격 작업은 **표시만** 정착한다 — 완료 그룹 '종료 확인 불가'(`unconfirmed`), 경과는 마지막 관측에서 멈춘다. 이후 종료 증거가 오면 실제 결과로 바뀐다. canonical 기록은 바꾸지 않는다 | 결정⑯ — 실행 중 = Spark N(결정⑪)을 지키면서 종료를 합성하지 않는다(0231 D-06) | 결정⑯ | ACTIVE | 0239 D-012 확장 · 0231 원격 미정착 표시 변경(§ΔV2 Δ7) |
+| D-031 (ΔV2) | 그 결과 도달 불가가 된 `excluded` 표시 상태(분기·union·라벨 맵·i18n `background.excluded`)를 삭제한다 | D-015 와 같은 규칙 — 죽은 형제 분기가 검사 장치를 침묵시킨다 | 설계 | ACTIVE | — |
 
 ### 갱신 메모
 
@@ -101,6 +104,10 @@
   - D-021·D-022 ↔ AC6′(양성)·AC7′(음성, 같은 state)·AC19(등식) → 일치. D-023 ↔ AC19 의 main·renderer 두 관측 → 일치. D-024 ↔ AC20 → 일치. D-008 ↔ AC7′ 이 투영만 단언 → 일치.
   - D-025 ↔ AC9′·AC10′ → 일치. D-026 ↔ AC9′·AC10′ 의 `updatedInput` 단언 + 서술 미반환 → 일치. D-027 ↔ AC 없음 → 의도한 부재(AC13 폐기). D-028 ↔ AC21 → 일치. D-015·D-016·D-017 ↔ AC11·AC14′ → 일치.
   - D-029 ↔ AC22 → 일치.
+- **ΔV2(PLAN_GAP PG-01 정정)**: r1(Codex)이 AC19 등식과 D-022·종료 합성 금지의 모순을 반례 2개로 올렸다. 사용자 결정⑯ 으로 D-030·D-031 신설, AC19 → AC19′ 대체, AC23 신설. SUPERSEDED Decision 0.
+- **`ACTIVE 결정 ↔ AC` 대조(ΔV2)**: 충돌 0.
+  - D-030 ↔ AC19′(반례 포함 등식)·AC23(완료 그룹 '종료 확인 불가'·기록 불변) → 일치. D-022 ↔ AC19′ → D-022 는 카드 *표시 여부*, D-030 은 *그룹*을 정해 충돌하지 않는다.
+  - D-031 ↔ AC23 → '종료 확인 불가' 단일 라벨 → 일치. 0231 D-06 ↔ AC23 의 기록 불변 단언 → 일치.
 
 ## 4. 요구 비판적 검토
 
@@ -593,7 +600,7 @@ E/F: output.captured/tool.call.completed → artifact part → partsArtifacts �
 | AC6′ | CHANGED | 실행 중 그룹에 Spark 가 세는 작업이 **종류와 무관하게** 카드로 보인다(백그라운드 Bash·PowerShell·Agent·Monitor·Workflow·MCP 작업). 끝난 백그라운드 작업은 완료 그룹에 남는다 | SSR: 종류별 fixture(실제 형상 — live 목록·`isBackgrounded`·호출 mode) → data 속성·그룹 | 이벤트 → `applyBackgroundEvent` → `projectBackgroundPanel` → `CanonicalBackgroundContent` |
 | AC7′ | CHANGED | 포그라운드 Agent·포그라운드 셸·ambient 작업·백그라운드가 아닌 호출(Read·MCP 실패, Workflow 시작 실패)은 카드·그룹 개수·완료 지우기 대상에 없다 | **같은 state 에 AC6′ 양성 항목과 함께** 넣고 0건 단언 | 동일 |
 | AC8′ | CHANGED (회귀) | 백그라운드 Agent 카드의 대화록 상세·셸 상세의 도구 본문·개별 중단·완료 지우기는 그대로다 | 기존 케이스 green(fixture 를 백그라운드 형상으로) | 동일 |
-| AC19 | NEW | **Spark 동기** — 정상 상태에서 실행 중 카드의 작업 id 집합 = `countedBackgroundTaskIds(state)` 이고 main 의 Spark 개수 = 그 길이다. 작업 하나가 끝나면(통지 + 다음 live 목록) 둘 다 1 줄고 그 카드는 완료 그룹으로 간다 | renderer: 집합 등식 · main: `BackgroundTaskTracker.count` = 같은 함수 길이(ambient·`liveKnown=false` 포함) | Spark: tracker → `session-activity-projector` → `chat.activity` → StatusLine · 패널: 위 경로 |
+| AC19 → **ΔV2 AC19′** | NEW | **Spark 동기** — 정상 상태에서 실행 중 카드의 작업 id 집합 = `countedBackgroundTaskIds(state)` 이고 main 의 Spark 개수 = 그 길이다. 작업 하나가 끝나면(통지 + 다음 live 목록) 둘 다 1 줄고 그 카드는 완료 그룹으로 간다 | renderer: 집합 등식 · main: `BackgroundTaskTracker.count` = 같은 함수 길이(ambient·`liveKnown=false` 포함) | Spark: tracker → `session-activity-projector` → `chat.activity` → StatusLine · 패널: 위 경로 |
 | AC20 | NEW | 코드 모드 인라인 Agent 행의 '열기'가 그 Agent 대화록 상세를 연다 — 포그라운드라 목록에 카드가 없어도. 목록으로 돌아가면 그 카드는 없다 | 단위: `openSubagentTask(id)` 후 backgroundStore selection = 그 호출 키 · 투영 `selectedCall` = 그 호출 · 목록 `tasks`·`calls` 에는 없음 | `AgentTaskRow`·`AgentTaskBody`·`SubagentNoticeRow` → `chatActions.openSubagentTask` → backgroundStore selection → `CanonicalBackgroundContent` 상세 |
 | AC9′ | CHANGED | 입력 plan 이 비고 이번 턴 계획 파일 T 가 있으면 승인 요청 plan = T 본문이고 allow 의 `updatedInput` = `{...입력, plan: T 본문, planFilePath: T}` | 단위: `makeCanUseTool` + 주입 `getPlanFiles` | CLI `can_use_tool` → `makeCanUseTool` → `requestApproval` / control_response |
 | AC10′ | CHANGED | **잘못 채워진 입력** — `planFilePath` 가 T 와 다르거나 `plan` 이 파일 본문과 다르면 T(없으면 입력 `planFilePath` 파일)로 요청과 `updatedInput` 을 보정한다. 파일 출처가 없으면 입력 plan → 서술 → `''` 이고 `updatedInput` 은 입력 그대로다(서술은 CLI 로 보내지 않는다) | 단위: 출처 표(파일 출처 T·선언·없음 × 입력 빈·틀림·맞음 × 서술 유무) | 동일 |
@@ -654,8 +661,8 @@ E/F: output.captured/tool.call.completed → artifact part → partsArtifacts �
 | VP-06′ | R-03 ↔ AT-06·07·08 | REQUIRED | 이벤트 → reducer → `projectBackgroundPanel` → 목록·그룹 count·상세 | SSR data 속성·count | **required** — AC7′ 은 0건 단언. M-C1′(`canonicalBackground.ts` `isBackgroundWork` 가 항상 true) / M-C2′(같은 함수 ambient 검사 제거) / M-C3′(같은 함수에 '비셸 작업 무조건 표시' 분기 복원 → 포그라운드 Agent 노출) / M-C4′(같은 함수에서 call.mode 증거 제거 → Monitor·Workflow 미표시) | EP-03′ ④~⑨ (6) |
 | VP-07′ | MD-04 ↔ UT | REQUIRED | — | 진리표(ambient · Spark 집합 · 증거 7항 · 포그라운드) | not selected | EP-03′ ④⑤ (2) |
 | VP-08′ | AR-04 ↔ IT | REQUIRED | 같은 state 로 목록·count·선택·지우기 + `openSubagentTask` 선택 연결 | 숨긴 호출(실패 Read) 선택 불가 · 숨긴 Agent 호출은 명시 선택 시 상세 | not selected | EP-03′ ⑥~⑨ (4) + EP-08 ② (1) |
-| VP-23 | R-03 ↔ AT-19 | REQUIRED | live 목록 → shared 집합 → (main) count → activity / (renderer) 실행 중 카드 | 집합 등식 + 길이 등식 + 종료 후 둘 다 −1 | **required** — 등식 주장. M-S1(`background-tasks.ts` count 를 ambient 포함으로 재구현) / M-S2(`canonicalBackground.ts` Spark 집합 항 제거 + call.mode 증거 제거) / M-S3(같은 파일 포그라운드 Agent 노출) | EP-03′ ①②④⑤⑥ (5) |
-| VP-24 | SD-03 ↔ ST-03 | REQUIRED | 시작 → live 포함 → 종료 통지 → live 제외 | 단계별 그룹·count | not selected | EP-03′ ①④ (2) |
+| VP-23 → ΔV2 VP-23′ | R-03 ↔ AT-19 | REQUIRED | live 목록 → shared 집합 → (main) count → activity / (renderer) 실행 중 카드 | 집합 등식 + 길이 등식 + 종료 후 둘 다 −1 | **required** — 등식 주장. M-S1(`background-tasks.ts` count 를 ambient 포함으로 재구현) / M-S2(`canonicalBackground.ts` Spark 집합 항 제거 + call.mode 증거 제거) / M-S3(같은 파일 포그라운드 Agent 노출) | EP-03′ ①②④⑤⑥ (5) |
+| VP-24 → ΔV2 VP-24′ | SD-03 ↔ ST-03 | REQUIRED | 시작 → live 포함 → 종료 통지 → live 제외 | 단계별 그룹·count | not selected | EP-03′ ①④ (2) |
 | VP-25 | AR-05 ↔ IT-05 | REQUIRED | main tracker 와 renderer 투영이 shared `countedBackgroundTaskIds` 를 호출 | 같은 fixture 에서 두 쪽 수가 같다 | not selected — 방향은 VP-23 M-S1 이 본다 | EP-03′ ①② (2) |
 | VP-26 | R-03 ↔ AT-20 | REQUIRED | `AgentTaskRow` → `openSubagentTask` → backgroundStore selection → 투영 선택 → 상세 | selection 값·`selectedCall`·목록 부재 | **required** — 배선. M-B4(`chatStore.ts` `openSubagentTask` 의 선택 연결 제거) / M-B5(`canonicalBackground.ts` 선택의 Agent 예외 제거) | EP-08 ①② (2) |
 | VP-09′ | R-04 ↔ AT-09·10·11·21 | REQUIRED | Write/Edit 훅 → 셀 → `getPlanFiles` → `resolvePlanReview` → 요청 plan + allow `updatedInput` | 요청 인자 + allow 결과 | **required** — 형제 슬롯(요청 plan · updatedInput plan · planFilePath)과 출처 순서. M-D1(`plan-text.ts` 서술을 파일보다 앞에) / M-D2′(같은 파일: 입력을 T 보다 앞에) / M-D3′(같은 파일: 같을 때도 새 객체 반환 → AC21 참조 단언 red) / M-D4′(같은 파일: updatedInput 에서 planFilePath 누락) / M-D10(같은 파일: 서술을 updatedInput 에 동봉) | EP-04′ ④⑤⑥⑦ (4) |
@@ -748,6 +755,140 @@ E/F: output.captured/tool.call.completed → artifact part → partsArtifacts �
 - [x] 새 pair 의 분모는 자리 단위(EP-03′ 9 · EP-04′ 7 · EP-07 3 · EP-08 2), 등록 변이는 심을 파일을 적었다.
 - [x] 철회 항목(캡션·필드·문서 2곳)이 구현 목록·문서 목록에서 빠졌다(Δ6·Δ8).
 - [x] 유효 AC 분모 재계산 20(Δ4).
+
+---
+
+# ΔV2 — PLAN_GAP PG-01 정정 (2026-10-04)
+
+> 기준 = `0249:ΔV1@c6e7b7e1`. r1 구현(`61c12248`, Codex)이 AC19 경로를 멈추고 PG-01 을 올렸다(`[구현자 기입] 놓친 잠재 문제` PG-01).
+> **이 절이 AC19·VP-23·VP-24 와 백그라운드 표시 정착 규칙의 정본이다.** 라운드 1 그대로 — 구현 중 PLAN_GAP 정정이라 다음 impl 턴은 `r1.2`.
+
+## Δ1. PG-01 — 무엇이 모순이었나
+
+| 항목 | 관측 | 근거 |
+|---|---|---|
+| 반례 ① | 현재 세대 live `[a,b]` → `[b]`, `a` 종료 통지 없음 → Spark 1 · 실행 중 카드 2(`a` = "실행 목록에서 제외됨 · 종료 사유 미확인") | `backgroundPresentation.ts:8`(`excluded`) · `canonicalBackground.ts:109`(`settled:false`) · `[구현자 기입]` PG-01 재현 입력 |
+| 반례 ② | 이전 세대 원격 Agent 작업 + 새 프로세스 live `[]` → Spark 0 · 실행 중 카드 1 | `canonicalBackground.ts:103` `if (!remote && deadGeneration(…))` — 원격은 이전 세대여도 정착하지 않는다 |
+| 모순 | AC19 "실행 중 = Spark 집합" ↔ D-022 의 관측 이력 포함 + 종료 합성 금지(0231 D-06)·원격 존속 추정 금지(0231) | 실행 중 그룹에 넣을지의 기준이 plan 에 없었다 — 구현자가 정할 수 없는 제품 정책이다 |
+| 비교 | Spark 개수는 이 두 작업을 세지 않는다(live 미포함·`terminated` 이면 `liveKnown=false`) | `background-tasks.ts:193-202` · `background-task.ts` `applyBackgroundEvent` connection 분기 |
+
+## Δ2. 결정과 Product / UX
+
+| 구분 | 내용 | 출처 |
+|---|---|---|
+| 명시 결정 ⑯ | 현재 정책 설명 후 — Spark 목록에서 빠졌는데 종료 통지가 없는 작업 = "완료 그룹 '종료 확인 불가'" | AskUserQuestion 답변 |
+
+### 상태와 전이 (추가)
+
+| 시작 상태/이벤트 | 시스템 동작 | 사용자/소비자에게 보이는 결과 |
+|---|---|---|
+| 현재 세대 live 목록에서 빠짐 + 종료 통지 없음 | **표시만** 정착 — canonical 기록은 그대로 | 완료 그룹 '종료 확인 불가', 경과 정지, 중단 버튼 없음, 완료 지우기 대상 |
+| 위 상태에서 종료 통지 도착 | 기록에 실제 결과 | 같은 완료 그룹에서 완료·실패·중단 라벨로 바뀜 |
+| 이전 프로세스의 원격 작업(새 live 목록에 없음) · 연결 `terminated` 의 원격 작업 | 표시만 정착 | 완료 그룹 '종료 확인 불가' |
+| 이전 프로세스의 비원격 작업 | 기존 그대로(0239 D-012) | 완료 그룹 '종료 확인 불가' |
+| 일시 차이(등식 밖) | ① live 포함 전 launch 카드 ② 첫 live 목록 전(시작·재연결 직후) ③ 종료 통지가 live 갱신보다 먼저 온 직후 | 다음 live 목록에서 맞춰진다 |
+
+## Δ3. Decision Ledger 변경
+
+§3 표에 반영 — 신설 D-030·D-031. SUPERSEDED 없음(AC19 는 Δ4 에서 대체).
+
+## Δ4. Acceptance — 변경·신설·대체
+
+| AC | provenance | 동작 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| AC19′ | CHANGED (AC19 대체) | **Spark 동기** — 정상 상태에서 실행 중 카드의 작업 id 집합 = `countedBackgroundTaskIds(state)` 이고 main 의 Spark 개수 = 그 길이다. **PG-01 두 반례에서도 성립한다**(① 실행 중 {b} · Spark 1 ② 실행 중 ∅ · Spark 0). 작업 종료 시 둘 다 1 줄고 카드는 완료 그룹으로 간다. Δ2 의 일시 차이 3종은 등식 밖이다 | renderer: 실제 `ClaudeBackgroundMapper.map` → `applyBackgroundEvent` 누적 state(정상·반례①②)에서 실행 중 집합 = shared 집합 · main: `BackgroundTaskTracker.count` = 같은 함수 길이 | Spark: tracker → `session-activity-projector` → `chat.activity` · 패널: `projectBackgroundPanel` + `backgroundTaskDisplay` → `CanonicalBackgroundContent` 그룹 |
+| AC23 | NEW | live 목록에서 빠졌는데 종료 통지가 없는 작업과 이전 세대·`terminated` 원격 작업은 **완료 그룹 '종료 확인 불가'** 다 — 경과가 마지막 관측에서 멈추고 중단 버튼이 없고 완료 지우기로 지울 수 있다. 이후 종료 통지가 오면 같은 카드가 실제 결과 라벨이 된다. canonical 기록의 `status` 는 바뀌지 않는다 | SSR + 단위: 상태 시퀀스별 그룹·라벨·중단 버튼 부재·지우기 대상 포함 + `state.tasks[key].status` 불변 | 동일 |
+| AC19 | SUPERSEDED → AC19′ | — | — | — |
+
+- 유효 AC 분모: ΔV1 20 − 1(AC19) + 1(AC19′) + 1(AC23) = **21**.
+- 뒤집히는 기존 단언(전수 — `git grep "excluded\|remote" -- '*.test.ts'` 로 찾은 3곳):
+  - `canonicalBackground.settlement.test.ts:114-135` 'settles a nonremote %s task at lastSeenAt' — 원격(`remote_agent`·`mode:'remote'`)이 이전 세대·`terminated` 에서 미정착임을 단언 → `unconfirmed`·정착으로 뒤집는다. 비원격 단언은 유지.
+  - 같은 파일 `:145-161` 'settles dead awaitingTask calls but preserves remote calls' — 원격 호출 미정착 단언 → 정착으로 뒤집는다.
+  - `backgroundPresentation.test.ts:9-22` — `backgroundTaskStatus(...) === 'excluded'` 단언 → D-031 로 상태가 사라진다. 같은 시퀀스를 `backgroundTaskDisplay` 의 `unconfirmed`·정착과 이후 통지 반영으로 다시 단언한다.
+
+## Δ5. V / Trace Matrix — Delta (ΔV2)
+
+- 기준: `0249:ΔV1@c6e7b7e1`(공유 브랜치 확인). r1 구현 `61c12248`(공유 브랜치 `origin/codex-0249-nav-attention-plan-file-output-cards` 확인).
+- `SUPERSEDED` pair 이관: VP-23(AC19, M-S1~M-S3) → **VP-23′**(AC19′, M-S1~M-S3 그대로 + M-S4·M-S5 신설). VP-24 → **VP-24′**(수명에 제외 → 종료 확인 불가 → 통지 단계 추가). r1 의 M-S1~M-S3 red 관측은 VP-23′ 의 같은 ID 로 승계한다.
+
+### Node registry (ΔV2)
+
+| Node | 레벨 | 계약 | provenance | 기준선 / 대체 |
+|---|---|---|---|---|
+| R-03 | R | ΔV1 R-03 + D-030 표시 정착 | CHANGED | ΔV1 R-03 |
+| AT-19 | AT | — | SUPERSEDED | → AT-19′ |
+| AT-19′ | AT | AC19′ | CHANGED | ΔV1 AT-19 |
+| AT-23 | AT | AC23 | NEW | — |
+| SD-03 | SD | 수명 = 시작 → live 포함·실행 중 → (종료 통지 \| live 제외 → 종료 확인 불가 → 통지) → 완료 | CHANGED | ΔV1 SD-03 |
+| MD-07 | MD | `backgroundTaskDisplay`·`backgroundCallDisplay` 정착 규칙(D-030) + `excluded` 표시 상태 삭제(D-031) | NEW | — |
+| R-0239-12 | R | 0239 D-012 — 이전 세대 비원격 작업 '종료 확인 불가' | INHERITED | `docs/handoff/0239-foreground-cancel-settlement/plan.md` D-012 |
+| R-0231-06 | R | 0231 D-06 — 종료를 합성하지 않는다(기록 불변) | INHERITED | `docs/handoff/0231-background-task-conformance/plan.md` D-06 |
+
+### Pair registry (ΔV2)
+
+| Pair | left ↔ right | requiredness | production path | 직접 evidence oracle | 선택적 적대 증거 (자리) | §10 |
+|---|---|---|---|---|---|---|
+| VP-23′ | R-03 ↔ AT-19′ | REQUIRED | live 목록 → shared 집합 → (main) count / (renderer) 투영 + 표시 정착 → 실행 중 그룹 | 집합 등식(정상·반례①②) + 길이 등식 | **required** — 등식 주장. M-S1·M-S2·M-S3(ΔV1 그대로) / M-S4(`canonicalBackground.ts` `backgroundTaskDisplay` 의 live 제외 정착 제거 → 반례① red) / M-S5(같은 함수에 원격 이전 세대 예외 복원 → 반례② red) | EP-03′ ①②④⑤⑥ + EP-09 ①② (7) |
+| VP-24′ | SD-03 ↔ ST-03 | REQUIRED | 시작 → live 포함 → live 제외(통지 없음) → 종료 확인 불가 → 통지 → 실제 결과 | 단계별 그룹·라벨·Spark 개수 | not selected | EP-09 ①② (2) |
+| VP-29 | R-03 ↔ AT-23 | REQUIRED | 상태 → `backgroundTaskDisplay` → 카드 그룹·라벨·경과·중단 버튼·지우기 | SSR 출력 + 지우기 결과 + 기록 `status` | not selected — 직접 관측 | EP-09 ①②③④⑤⑥ (6) |
+| VP-30 | MD-07 ↔ UT | REQUIRED | — | 정착 진리표(종료 증거 · `liveKnown` · membership · 세대 · `connection` · 원격 · 포그라운드 반환) + `excluded` 부재 | not selected | EP-09 ①⑥ + EP-10 (7) |
+| VP-31 | R-0239-12 ↔ AT(0239) | REGRESSION | 이전 세대 비원격 → 완료 '종료 확인 불가' | 기존 비원격 단언 green(`canonicalBackground.settlement.test.ts:114` 비원격 부분) | not selected | EP-09 ① (1) |
+| VP-32 | R-0231-06 ↔ AT(0231) | REGRESSION | 표시 정착이 canonical 기록을 바꾸지 않는다 | `state.tasks[key].status` 불변 · 이후 통지 반영 | not selected | EP-09 ① (1) |
+
+## Δ6. Technical Design — Delta (ΔV2)
+
+### AS-IS → TO-BE
+
+| 비교 축 | AS-IS (r1) | TO-BE (ΔV2) | V 연결 |
+|---|---|---|---|
+| live 제외 + 미종료(현재 세대) | `excluded` 상태, `settled:false` → 실행 중 그룹 | `unconfirmed`, `settled:true`, `endedAt = task.lastSeenAt` → 완료 그룹 | MD-07 / VP-30 |
+| 원격 + 이전 세대·`terminated` | 미정착(실행 중) | `unconfirmed` 정착 — 작업·작업 없는 호출 모두 | MD-07 / VP-30 |
+| `excluded` 표시 상태 | `backgroundTaskStatus` 분기 · union · 라벨 맵 · i18n | 삭제(D-031) — 도달 불가 | MD-07 / VP-30 |
+| 기록 | — | 불변(표시 파생만) | R-0231-06 / VP-32 |
+
+### 구현 설계 (ΔV2)
+
+| 파일 | 변경 |
+|---|---|
+| `app/src/renderer/src/features/chat/lib/canonicalBackground.ts` | `backgroundTaskDisplay` 분기 순서: ① 종료 증거(기존) ② 포그라운드 부모 반환(기존) ③ `deadGeneration` 이면 **원격 여부와 무관하게** `unconfirmed` 정착(`endedAt = task.lastSeenAt`) ④ **현재 세대 ∧ `state.liveKnown` ∧ `task.liveMembership === 'excluded'`** 이면 `unconfirmed` 정착 ⑤ 그 밖은 `backgroundTaskStatus`. `backgroundCallDisplay` 의 `call.mode !== 'remote'` 예외 제거(③과 같은 규칙). `BackgroundDisplayStatus` 에서 `'excluded'` 제거 |
+| `app/src/renderer/src/features/chat/lib/backgroundPresentation.ts` | `backgroundTaskStatus` 의 `excluded` 분기·반환 타입 제거. `canStopBackgroundTask` 의 membership 검사는 유지(데이터 축) |
+| `app/src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.tsx` | `DISPLAY_LABEL` 의 `excluded` 행 제거(`Record` 전수 맵이라 union 과 함께 typecheck 가 강제) |
+| `app/src/renderer/src/shared/i18n/resources/{ko,en}.ts` | `background.excluded` 키 제거(소비처 0이 되면) |
+| 기록 쪽 | 변경 없음 — `shared/background-task.ts` `applyBackgroundEvent` 는 membership·status 를 지금처럼 기록한다 |
+
+### §10 강제 지점 (ΔV2 — EP-09·EP-10 신설)
+
+| V node / pair | 계약 | SSOT | 언제 강제 (자리) | 실패 의미 |
+|---|---|---|---|---|
+| R-03·SD-03·MD-07 / VP-23′·24′·29·30·31·32 | Spark 밖 미종료 → 완료 '종료 확인 불가'(표시만) | `backgroundTaskDisplay` · `backgroundCallDisplay` | **EP-09** ① `canonicalBackground.ts` `backgroundTaskDisplay` ② `CanonicalBackgroundContent.tsx:110` 그룹 분류 ③ `CanonicalBackgroundContent.tsx:197-203` 카드 라벨·경과·중단 버튼 ④ `canonicalBackground.ts:131` 지우기 가드 ⑤ `backgroundStore.ts:70` 완료 지우기 ⑥ `canonicalBackground.ts` `backgroundCallDisplay` 원격 예외 (6) | ② ~ ⑤ 중 하나가 membership·원격을 직접 읽으면 그룹·라벨·지우기가 갈라진다 · ⑥ 을 빼면 작업 없는 원격 호출이 실행 중에 남는다 |
+| MD-07 / VP-30 | `excluded` 표시 상태 부재 | `BackgroundDisplayStatus` union | **EP-10** ① `backgroundPresentation.ts` 반환 타입 ② 같은 파일 분기 ③ `canonicalBackground.ts` union ④ `CanonicalBackgroundContent.tsx` 라벨 맵 ⑤ `ko.ts` 키 ⑥ `en.ts` 키 (6) | union 만 지우고 분기를 남기면 typecheck 가 잡는다 — 라벨 맵은 `Record` 전수라 남은 키도 잡힌다. i18n 키는 typecheck 밖이라 `git grep "background.excluded"` 0건으로 확인 |
+
+## Δ7. 기존 결정·규칙과의 관계 (ΔV2)
+
+| 기존 결정/규칙 | 출처 | 결과 |
+|---|---|---|
+| ACK·timeout·snapshot 제외로 종료를 합성하지 않음 | 0231 D-06 | **유지** — 기록은 바꾸지 않고 표시만 정착한다 |
+| 원격 worker 의 존속·성공을 추정하지 않음 | 0231 (plan :662) · `canonicalBackground.settlement.test.ts:114`·`:145` | **변경(표시 그룹만)** — '종료 확인 불가'는 종료·성공 주장이 아니다. 이전 세대·`terminated` 원격 카드가 실행 중 대신 완료 그룹에 간다(결정⑯) |
+| 이전 세대 비원격 작업 '종료 확인 불가' | 0239 D-012 | **유지·확장** — 같은 상태를 현재 세대 live 제외와 원격으로 넓힌다 |
+| "실행 목록에서 제외됨 · 종료 사유 미확인" 표시 | 0231 패널 라벨(`background.excluded`) | **변경** — '종료 확인 불가'로 통일하고 상태·라벨 삭제(D-031) |
+| 문서 `rendering.md:13` "종료된 비원격 프로세스의 미확인 작업이 완료 그룹에 들어간다" | `docs/arch/frontend/rendering.md` | **변경** — "live 목록에서 빠졌는데 종료 통지가 없는 작업과 이전 프로세스·종료된 연결의 작업(원격 포함)이 완료 그룹 '종료 확인 불가'에 들어간다"로 고친다 |
+
+## Δ8. 영향 파일·문서 (ΔV2)
+
+- 코드: `canonicalBackground.ts` · `backgroundPresentation.ts` · `CanonicalBackgroundContent.tsx` · i18n `ko.ts`·`en.ts`.
+- 테스트: `canonicalBackground.settlement.test.ts`(:114·:145 뒤집기) · `backgroundPresentation.test.ts`(:9 다시 쓰기) · AC19′ 반례 재현(r1 의 PG-01 재현 입력을 테스트로 고정) · AC23 SSR.
+- 문서: `docs/arch/frontend/rendering.md:13` · `docs/arch/backend/background-tasks.md:17`(표시 정착 순서에 live 제외 추가).
+- 게이트: ΔV1 Δ8 과 같은 스위트.
+
+## Δ9. READY self-review (ΔV2)
+
+- [x] PG-01 의 두 반례를 코드 줄로 재현 근거를 적었다(Δ1 — `backgroundPresentation.ts:8`·`canonicalBackground.ts:103`·`:109`).
+- [x] 제품 정책은 사용자 결정⑯ 으로 닫았다(구현자가 정하지 않음).
+- [x] AC19 를 supersede 하고 AC19′ 가 반례 두 개를 직접 포함한다. 새 상태는 AC23 으로 양성 단언한다.
+- [x] 뒤집히는 기존 단언 3곳을 grep 으로 전수 적었다(Δ4).
+- [x] 새 §10 행의 분모는 자리 단위(EP-09 6 · EP-10 6), 등록 변이 M-S4·M-S5 는 심을 파일을 적었다.
+- [x] 기록 불변(0231 D-06)을 REGRESSION pair VP-32 로 잠갔다.
+- [x] 유효 AC 분모 21.
 
 ## READY self-review
 
