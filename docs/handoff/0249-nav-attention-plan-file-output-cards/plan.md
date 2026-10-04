@@ -922,6 +922,10 @@ E/F: output.captured/tool.call.completed → artifact part → partsArtifacts �
 > [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
 > **재구현 턴도 같은 이름의 필드를 다시 채운다.** 해당 없는 필드는 `해당 없음`으로 남긴다.
 
+# [구현자 기입] r1 기록 — V1 + ΔV1
+
+> 아래 r1의 `19/20`·PG-01·DRAFT 판정은 당시 기록이다. 현재 구현 자기보고는 뒤의 **r1.2 — V1 + ΔV1 + ΔV2** 절이 정본이다.
+
 ## [구현자 기입] 설계 리뷰
 
 - 동의 / 그대로 진행: V1 + ΔV1의 로그인 프리·nav·계획 보정·출력 카드·엔진 개수 계약을 수행했다. 현재 사용자의 `handoff-impl 249` 지시에 따라 구현 주체는 Codex다.
@@ -1111,6 +1115,208 @@ node scripts/check-doc-inventory.mjs --check
 - 현재 라운드·impl 턴: **r1**. PLAN_GAP을 formal verify 결과로 가장하지 않았고 `impl/IMPL_DONE`으로 넘기지 않았다.
 
 ---
+
+# [구현자 기입] r1.2 — V1 + ΔV1 + ΔV2
+
+## [구현자 기입] 설계 리뷰
+
+- 동의 / 그대로 진행: 원격 ΔV2 설계 커밋을 fast-forward로 동기화하고 D-030·D-031을 구현했다. plan 메타의 READY·유효 V를 다시 읽었고 규범 Decision·AC·pair·§10은 수정하지 않았다.
+- 이견 / 현실성 문제: 없음. 실제 Mapper 반례에서 현재 live 제외 작업과 이전 세대 원격 작업을 표시만 정착시켜 Spark 집합과 맞췄다(S6).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. 현재 연결을 '프로세스 종료'로 잘못 표시하는 카드 조건은 실제 세대·연결 상태로 바로잡았다(S6 음성·기존 S3 양성).
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-01·22 | 로그인 프리 상태 | EP-01 5 | 5/5: ko/en·row meta·목록·상세 | S1, 연결됨/Connected·기본 제공·인증 액션 부재 | 없음 |
+| VP-02~05·19 | 완료·응답 대기 Map | EP-02 8 | 운반 세분 10/10 | S2, 3종 요청→같은 파랑·열람/삭제·last wins | 없음 |
+| VP-06′·07′·08′·21′·23′·24′·25 | 패널 투영·Spark | EP-03′ 9 | 운반 세분 17/17 | S3+S6, 실제 Mapper 두 반례에서 실행 중 집합={b}/∅, Spark=1/0 | 없음 |
+| VP-09′·10·11′·12·13′·20 | 계획 파일·CLI 반환 | EP-04′ 7 | 운반 세분 8/8 | S4, 실제 query·파일·Stop·출처 표·원본 입력 참조 | 없음 |
+| VP-15·16 | 한 턴 최신 파일 | EP-05 2 | 2/2 | S5, 최신 ref·최초 위치·category 경계·실제 saveAll 인자 | 없음 |
+| VP-17·18 | 카드→메타 슬롯 | EP-06 1 | 1/1 | S5, Work/Code×pending/done 순서·spark 1개 | 없음 |
+| VP-27·28 | 엔진 카드 수 | EP-07 3 | 3/3 | S1, settings+runtime 3개·증감·빈 0개·설명 부재 | 없음 |
+| VP-26·08′ | 인라인 Agent 상세 | EP-08 2 | 2/2 | S3, 실제 openSubagentTask 선택·Agent/Task 상세·Read 실패 선택 부재 | 없음 |
+| VP-23′·24′·29·30·31·32 | 종료 확인 불가 표시 정착 | EP-09 6 | 운반 세분 17/17 | S6, 그룹·라벨·6s 고정·중단 부재·지우기·후속 통지·기록 불변 | 없음 |
+| VP-30 | excluded 표시 퇴역 | EP-10 6 | 6/6 | S6 진리표·typecheck·키 검색 0건, OR-1 민감도 2건→원복 0건 | 없음 |
+
+- 독립 분모: EP-02의 두 구독과 effect는 3자리, EP-04′의 hook 편입과 getter는 2자리다. EP-03′ 세분은 1+1+3+1+1+4+1+3+2=17이며, 각 지정 모듈 내부의 소비 의미를 센다.
+- EP-09 세분: task/call 표시 함수 2 + task/call 그룹 분류 2 + TaskCard의 표시 입력·라벨·틱 중지·endedAt 계산·중단 guard·중단 버튼·연결 배지 7 + CallCard 표시 입력·라벨 2 + task/call dismiss guard 2 + task/call 완료 지우기 2=17이다. EP-10은 반환 타입·분기·display union·라벨 맵·ko 키·en 키를 각각 센 6자리다.
+- 검색으로 구한 투영 소비 파일 3개와 지정 소비 파일 3개의 차집합은 0행이다. 계획 출처/소비 파일 3개와 지정 파일 집합의 차집합도 0행이며, partsArtifacts의 transcript 소비는 AssistantTurn 1곳이다.
+- §10 밖의 같은 불변식: TaskCard 연결 종료 배지 조건을 현재 live 제외의 unconfirmed 상태에도 소비하는 자리로 조사했다. S6 현재 연결의 '프로세스 종료' 부재와 S3 실제 종료 배지 양성으로 닫았다.
+- 퇴역 검색: 표시 관련 5파일의 excluded 잔여는 중단 판단과 표시 정착의 raw liveMembership 비교 2줄뿐이다. background.excluded 참조와 locale의 excluded 키는 각각 0건이며 raw membership은 보존했다.
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | S1 카탈로그·목록·상세 SSR | not selected |
+| VP-02 | REQUIRED | SELF_PASS | S2 실제 3종 ingest→Map→아이콘 | B1·B2·B3 red |
+| VP-03 | REQUIRED | SELF_PASS | S2 열람 acknowledge·사유 교차·삭제 | not selected |
+| VP-04 | REQUIRED | SELF_PASS | S2 app 구독 값·lint boundaries 오류 0 | not selected |
+| VP-05 | REQUIRED | SELF_PASS | S2 store 값·동일 사유 identity | not selected |
+| VP-06′ | REQUIRED | SELF_PASS | S3 양성/음성 같은 state·종류별 카드 | C1′~C4′ red |
+| VP-07′ | REQUIRED | SELF_PASS | S3 ambient·Spark·증거·foreground 진리표 | not selected |
+| VP-08′ | REQUIRED | SELF_PASS | S3 목록·선택·지우기 공통 투영 | not selected |
+| VP-09′ | REQUIRED | SELF_PASS | S4 요청 본문·allow 입력·출처 조합 | D1·D2′·D3′·D4′·D10 red |
+| VP-10 | REQUIRED | SELF_PASS | S4 마지막 메인 쓰기·Stop 비움 | D5·D6 red |
+| VP-11′ | REQUIRED | SELF_PASS | S4 query 포획·hook/getter 공유 셀·env | D7·D8·D9 red |
+| VP-12 | REQUIRED | SELF_PASS | S4 경로·상한·링크·부재·reader 오류/close | not selected |
+| VP-13′ | REQUIRED | SELF_PASS | S4 실제 resolver의 출처·정규화·참조 | not selected |
+| VP-15 | REQUIRED | SELF_PASS | S5 최신 파일·첫 위치·실제 saveAll | E1·E2·E3 red |
+| VP-16 | REQUIRED | SELF_PASS | S5 partsArtifacts 반환·category 경계 | not selected |
+| VP-17 | REQUIRED | SELF_PASS | S5 Work/Code×진행/완료 순서 | not selected |
+| VP-18 | REGRESSION | SELF_PASS | S5 이전 턴·pending fallback·spark 1개 | not selected |
+| VP-19 | REGRESSION | SELF_PASS | S2 기존 완료 의미·같은 파랑 | not selected |
+| VP-20 | REGRESSION | SELF_PASS | S4 서술/empty·plan0215.render | not selected |
+| VP-21′ | REGRESSION | SELF_PASS | S3 foreground 셸 제외·배경 Agent 상세 | not selected |
+| VP-22 | REGRESSION | SELF_PASS | S1 기본 제공·인증 액션 부재 | not selected |
+| VP-23′ | REQUIRED | SELF_PASS | S6 실제 Mapper 정상+반례①②의 집합/길이 등식 | S1~S5 red |
+| VP-24′ | REQUIRED | SELF_PASS | S6 시작→live→제외→unconfirmed→실제 통지 | not selected |
+| VP-25 | REQUIRED | SELF_PASS | S3+S6 같은 상태의 shared 집합·main count·SSR | not selected |
+| VP-26 | REQUIRED | SELF_PASS | S3 실제 인라인 선택→숨긴 Agent 상세 | B4·B5 red |
+| VP-27 | REQUIRED | SELF_PASS | S1 제목 개수=실제 카드 수·증감 | not selected |
+| VP-28 | REGRESSION | SELF_PASS | S1 설명 부재·common.count 단위 | not selected |
+| VP-29 | REQUIRED | SELF_PASS | S6 unconfirmed 그룹·라벨·시간·중단·clear | not selected — 직접 oracle |
+| VP-30 | REQUIRED | SELF_PASS | S6 정착 진리표 26행·call 연결 2종·키 퇴역 | not selected, 키 sweep는 OR-1 |
+| VP-31 | REGRESSION | SELF_PASS | S6 기존 비원격 old/terminated 정착·시간 | not selected |
+| VP-32 | REGRESSION | SELF_PASS | S6 raw running/증거 불변·늦은 실제 통지 | not selected |
+
+- 유효 pair를 규범 registry에서 다시 추출한 결과 REQUIRED 23·REGRESSION 8이다. 보고 pair와의 누락/추가 차집합은 0행이다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | r1 red | r1.2 실패 케이스 수 / 대상 | 결과 |
+|---|---|---|---|---|
+| M-B1 완료 전용 effect 구독 | VP-02 | 1 | 1 / useSessionCompletion 11 | red→원복 11 green |
+| M-B2 요청 listener 통지 제거 | VP-02 | 4 | 4 / 같은 11 | red→원복 11 green |
+| M-B3 viewed guard 제거 | VP-02 | 2 | 2 / 같은 11 | red→원복 11 green |
+| M-B4 인라인 선택 연결 제거 | VP-26 | 2 | 2 / background-open 3 | red→원복 3 green |
+| M-B5 선택 Agent 예외 제거 | VP-26 | 5 | 5 / S3A 11파일175 | red→바이트 원복 |
+| M-C1′ 배경 술어 항상 true | VP-06′ | 35 | 35 / S3A | red→바이트 원복 |
+| M-C2′ ambient 검사 제거 | VP-06′ | 10 | 10 / S3A | red→바이트 원복 |
+| M-C3′ 비셸 작업 무조건 표시 | VP-06′ | 24 | 16 / S3A | red→바이트 원복 |
+| M-C4′ call.mode 증거 제거 | VP-06′ | 4 | 4 / S3A | red→바이트 원복 |
+| M-S1 main count에 ambient 포함 | VP-23′ | 1 | 2 / S3A | red→바이트 원복 |
+| M-S2 Spark 항·call.mode 제거 | VP-23′ | 5 | 5 / S3A | red→바이트 원복 |
+| M-S3 foreground Agent 노출 | VP-23′ | 24 | 16 / C3′와 같은 관측 | 공유 red |
+| M-S4 live 제외 정착 제거 | VP-23′ | 신규 | 5 / S3A, 반례① 포함 | red→바이트 원복 |
+| M-S5 이전 세대 remote 예외 복원 | VP-23′ | 신규 | 7 / S3A, 반례② 포함 | red→바이트 원복 |
+| M-D1 file 분기에서 서술 우선 | VP-09′ | 17 | 14 / S4 8파일153 | red→원복 153 green |
+| M-D2′ 파일 판정 전 입력 반환 | VP-09′ | 9 | 12 / S4 | red→원복 153 green |
+| M-D3′ 일치 입력도 새 객체 | VP-09′ | 9 | 10 / S4 | red→원복 153 green |
+| M-D4′ 보정 입력 경로 제거 | VP-09′ | 16 | 18 / S4 | red→원복 153 green |
+| M-D5 Stop 비움 제거 | VP-10 | 3 | 3 / S4 | red→원복 153 green |
+| M-D6 agent_id guard 제거 | VP-10 | 3 | 3 / S4 | red→원복 153 green |
+| M-D7 계획 hook 병합 제거 | VP-11′ | 3 | 18 / S4, 직접 배선3·매처 단언15 | red→원복 153 green |
+| M-D8 tracked getter를 새 셀로 | VP-11′ | 3 | 3 / S4 | red→원복 153 green |
+| M-D9 getPlanFiles 배선 제거 | VP-11′ | 5 | 5 / S4 | red→원복 153 green |
+| M-D10 서술을 CLI 입력에 동봉 | VP-09′ | 5 | 4 / S4 | red→원복 153 green |
+| M-E1 첫 파일 버전 유지 | VP-15 | 6 | 6 / S5 3파일44 | red→바이트 원복 |
+| M-E2 마지막 파일 위치 유지 | VP-15 | 7 | 7 / S5 | red→바이트 원복 |
+| M-E3 category 경계 제거 | VP-15 | 9 | 9 / S5 | red→바이트 원복 |
+| OR-1 locale 퇴역 키 검색 | EP-10 / VP-30 | 신규 | ko/en 키 재삽입 시 2건 | 민감도 검출→원복 0건 |
+
+- **분모 검산**: 선택 증거 27 ID · 파생 이슈의 추가 인용 변이 0 · 새 구조 oracle 민감도 1 = 표 28행이다. 규범 등록 ID와 잠금 표 ID의 누락/추가 차집합은 0행이며 C3′/S3는 한 실제 변이를 각각 등록 ID에 귀속했다.
+- C/S/B5는 실제 생산 소스 변이 뒤 S3A를 실행했고 finally 원복 뒤 11파일175케이스 green이었다. 연결 상태 진리표를 보강한 최종 S6는 3파일47케이스 green이며 S5 담당 8파일74케이스도 원복 green이다.
+- r1과 r1.2의 변이 대상/치환은 같다고 가정하지 않았다. C3′·S3·D 계열의 이전 치환 원문은 미보존이며 이번 표의 정확한 치환·실패 수를 사용한다.
+- D7의 추가 15개 실패는 계획 Stop 포함 매처 수를 확인하는 helper 단언이다. 실제 종료 동작 실패로 확대하지 않았으며 직접 계획 배선 3개도 red다.
+- 새 그룹·지우기·중단·배지·늦은 통지 단언은 실제 반환/SSR oracle이다. 해당 없음 — 직접 oracle이며 별도 구조 변이를 추가하지 않았다.
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 기존 unconfirmed 라벨을 task/call 카드와 완료 그룹이 소비(S6) | 도달 불가 excluded 문구 삭제 |
+| seam 재배치 뒤 정리 코드의 스코프가 유효한가 | 표시 SSOT의 소비·지우기 스코프 유지, clear 뒤 같은 raw state 참조(S6) | 별도 상태/캐시 없음 |
+| 이번 실패 경로가 Part I 어느 행인가 | D-030의 live 제외·이전 세대/terminated→완료 unconfirmed(S6) | 실제 status는 원본에 유지 |
+| 실패가 화면에서 아무 일도 없는 것으로 보이는가 | 완료 그룹·종료 확인 불가·시간 고정·중단 부재(S6) | 연결 종료 배지는 실제 연결 사실로 한정 |
+| 늦게 도착한 응답이 화면을 되돌리는가 | completed/failed/stopped 통지는 같은 완료 그룹의 결과만 갱신(S6 3행) | 표시로 종료 증거를 합성하지 않음 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| PG-01 | Spark 밖 미종료 작업이 실행 중에 남음 | 해결 — ΔV2 규범 정정에 따라 표시 정착 | S6 실제 Mapper 반례① {b}/1, 반례② ∅/0, 해석 오류 없음 |
+| I-04 | 현재 connected live 제외에도 프로세스 종료 배지 노출 | 수정 — 세대 불일치 또는 실제 terminated만 사용 | S6 현재 연결 부재·S3 실제 종료 배지 양성 |
+| I-01~03 | reader·Stop helper·타입 관련 r1 문제 | 기존 대응 유지 | S4 153케이스 원복 green, 전체 게이트 진단 없음 |
+
+### 설계 대비 명시적 차이
+
+- 신규 대체 설계 없음. r1 bounded handle reader는 유지했으며 이번 S4의 상한·링크·실패·close 단언을 다시 관측했다.
+- 표시 정착 조건을 한 분기에서 OR로 표현한 것은 D-030의 dead generation→current live 제외 순서를 합친 동등한 결과다. 두 조건의 결과가 동일하고 foreground/terminal 우선순위는 진리표가 확인한다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 새 캐시/TTL 없음 | AC23·EP-09, 마지막 관측 시간 고정 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 기존 reader 셀과 Stop 수명 유지 | AC11·14′·EP-04′, S4 공유 셀/비움 |
+| 재진입 | 기존 reader handle close 의무 유지 | AC11·EP-04′, S4 성공·실패·조기 반환 close |
+| 다른 무효화 축 | generation·connection·liveKnown·membership 표시 파생 | AC19′·23·EP-09, S6 진리표와 실제 이벤트 |
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | renderer 표시 SSOT·카드·ko/en·정착/실제 Mapper 테스트, 현재 아키텍처 2문서·plan·INDEX. 파일 목록 정본은 r1.2 diff |
+| 실행 명령 | 아래 전체 영향 명령 + S3A/S4/S5/S6 및 등록 변이 실행 |
+| **관측한 게이트 산출**(exit code 아님) | lint 0 error·기존 Virtualizer warning1, typecheck node/web/test 진단0. 영향 vitest 250파일2064케이스 green. doc inventory generated/prose/links 정상·diff --check 출력0 |
+| V-pair 자기확인 | REQUIRED 23 SELF_PASS·REGRESSION 8 SELF_PASS =31, SELF_BLOCKED 0 |
+| 강제 지점 전수 | EP-01~10 유효 행은 위 표의 각 물리/운반 자리에서 닫힘. 투영·계획 파일 집합 차집합 각각 0행 |
+| **AC 자기보고**(Criteria-Met) | **21/21** — 구현 자기확인이며 독립 verify 결과는 아님 |
+| **합계 검산** | ✅21 · ⚠️0 · ❌0 =21. 규범 acceptance 행과 보고 AC의 누락/추가 차집합 0행 |
+| 블로커 / 역질문 | 없음. 독립 handoff 검증과 §19의 시각/실환경 확인은 다음 주체의 범위 |
+| 대상 커밋 | (r1.2 구현 — 좌표는 INDEX) |
+
+### AC 자기보고 — 유효 21행
+
+| AC | 자기결과 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | S1 ko/en Connected·연결됨, 기본 제공·인증 액션 부재 |
+| AC2 | ✅ | S2 3종 요청 Map·실제 SessionRow 같은 파랑 |
+| AC3 | ✅ | S2 viewed 요청 부재·열람 acknowledge |
+| AC4 | ✅ | S2 last wins·삭제·같은 사유 identity |
+| AC5 | ✅ | S2 미지/null/불일치/폴백/삭제/unsubscribe 음성 |
+| AC6′ | ✅ | S3 배경 6종 작업 카드·완료 보존 |
+| AC7′ | ✅ | S3 양성과 같은 state의 foreground/ambient/실패 음성 |
+| AC8′ | ✅ | S3 배경 Agent/셸 상세·개별 중단·완료 지우기 |
+| AC9′ | ✅ | S4 빈 입력의 파일 요청 본문·allow plan/path |
+| AC10′ | ✅ | S4 출처/입력/서술 조합·파일 없는 입력 불변 |
+| AC11 | ✅ | S4 agent_id·오류·경로·Stop·상한·링크·close |
+| AC14′ | ✅ | S4 실제 query의 Write→ExitPlanMode→Stop·env |
+| AC15 | ✅ | S5 최신 publishedAt·동시각·최초 위치 |
+| AC16 | ✅ | S5 다른 category/파일/턴 보존·실제 saveAll refs |
+| AC17 | ✅ | S5 Work/Code×진행/완료 카드→메타·spark 1개 |
+| AC18 | ✅ | 전체 게이트 산출은 위 칸, 커밋 후 trailer 파싱 재확인 |
+| AC19′ | ✅ | S6 실제 Mapper 정상·두 반례 집합/길이 등식 |
+| AC20 | ✅ | S3 실제 인라인 선택·Agent/Task 상세·목록 부재 |
+| AC21 | ✅ | S4 BOM/CRLF/끝 공백·win32 경로·원본 입력 참조 |
+| AC22 | ✅ | S1 settings+runtime 3개·증감·빈 0개 |
+| AC23 | ✅ | S6 unconfirmed 완료·6s 고정·중단 부재·clear·기록 불변·실제 통지 |
+
+- **합계 검산**: ✅21 · ⚠️0 · ❌0 =21이다. AC19→19′ 대체와 AC23 추가로 r1의 분모 20에서 21로 바뀌었다.
+
+### 재현 명령 키
+
+r1 기록의 S1·S2·S4·S5 명령을 그대로 사용했다. S3A는 r1 S3에 backgroundPresentation.test.ts와 CanonicalBackgroundContent.spark.test.ts를 포함한 11파일이며, S6는 settlement·backgroundPresentation·spark 세 파일이다.
+
+~~~powershell
+npm run lint
+npm run typecheck
+.\node_modules\.bin\vitest.cmd run src/main/adapters/plan-file.test.ts src/main/adapters/plan-file.reader.test.ts src/main/adapters/plan-text.test.ts src/main/adapters/claude.canusetool.test.ts src/main/adapters/claude.plan-file.test.ts src/main/adapters/claude.plan-narrative.test.ts src/main/adapters/claude.turnEnd.test.ts src/main/adapters/claude-output-files.test.ts src/shared/background-task.test.ts src/main/features/chat/background-tasks.test.ts src/main/features/chat/session-activity-projector.test.ts src/renderer/src/features/sessions src/renderer/src/app/hooks src/renderer/src/features/chat src/renderer/src/features/skills src/renderer/src/features/engine src/renderer/src/shared/i18n --reporter=dot
+node scripts/check-doc-inventory.mjs --check
+~~~
+
+- 최종 상태 재조회: plan 메타 READY(ΔV2)·유효 V1+ΔV1+ΔV2, INDEX impl/IMPL_DONE·Claude(검증). 구현 커밋 메시지는 git log의 파싱된 trailer에서 Agent/Handoff/Status/Criteria-Met/Verified-By를 재확인한다.
+- 공유되지 않은 자체 커밋 좌표는 문서에 적지 않는다. INDEX의 r1.2 구현 칸은 검증자 기입 자리표시자다.
+
+## [구현자 기입] Review Signals — 사실만
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: r1 PG-01의 Spark 집합/표시 정착 축을 ΔV2로 닫았다(S6 실제 두 반례).
+- 막았어야 할 plan 지침·AC가 있었는가: r1의 충돌을 planner가 D-030·31/AC19′·23으로 정정했고 이번 진리표·SSR이 그 분기를 관측한다.
+- 반복 환경 한계: native ABI 전환 없이 순수 테스트를 실행했다. 한 번의 변이 프로세스 생성 error5는 소스 변경 전에 발생했고 재시도로 해결했다.
+- 현재 라운드·impl 턴: **r1.2**. formal verify를 수행하지 않았으며 다음 주체는 Claude 검증자다.
+
+---
+
 
 ## [검증자 기입] 파생 이슈
 

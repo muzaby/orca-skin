@@ -27,7 +27,6 @@ export const ko = {
     running: '실행 중',
     pending: '시작 대기',
     unknown: '상태 확인 필요',
-    excluded: '실행 목록에서 제외됨 · 종료 사유 미확인',
     sync: '실행 목록 동기화 중',
     disconnected: '연결 끊김 · 현재 상태 미확인',
     terminated: '프로세스 종료 · 과거 실행',

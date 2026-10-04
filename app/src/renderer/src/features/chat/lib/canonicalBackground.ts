@@ -26,7 +26,7 @@ import { backgroundTaskStatus } from './backgroundPresentation'
 
 export type TranscriptResults = ReadonlyMap<string, NonNullable<ToolCall['result']>>
 export type BackgroundDisplayStatus =
-  ToolRunOutcome | 'stopped' | 'launch' | 'pending' | 'unknown' | 'excluded' | 'unconfirmed'
+  ToolRunOutcome | 'stopped' | 'launch' | 'pending' | 'unknown' | 'unconfirmed'
 export interface BackgroundDisplay {
   status: BackgroundDisplayStatus
   settled: boolean
@@ -71,7 +71,7 @@ export function backgroundCallDisplay(
     const status = toolRunOutcome(transcript)
     if (status !== 'running') return done(status)
   }
-  if (call.mode !== 'remote' && deadGeneration(state, call.generation)) return done('unconfirmed')
+  if (deadGeneration(state, call.generation)) return done('unconfirmed')
   if (call.awaitingTask) return { status: 'launch', settled: false }
   return { status: 'running', settled: false }
 }
@@ -100,7 +100,10 @@ export function backgroundTaskDisplay(
           : toolRunOutcome(backgroundCallToToolCall(call, transcript).result)
     return { status, settled: true, endedAt: call.lastSeenAt }
   }
-  if (!remote && deadGeneration(state, task.generation))
+  if (
+    deadGeneration(state, task.generation) ||
+    (state.liveKnown && task.generation === state.generation && task.liveMembership === 'excluded')
+  )
     return {
       status: 'unconfirmed',
       settled: true,

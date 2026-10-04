@@ -4,7 +4,8 @@ import {
   applyBackgroundEvent,
   backgroundKey,
   emptyBackgroundState,
-  type BackgroundSessionState
+  type BackgroundSessionState,
+  type BackgroundTaskRecord
 } from '../../../../../shared/background-task'
 import {
   backgroundCallDisplay,
@@ -49,12 +50,164 @@ function fixture(): BackgroundSessionState {
 }
 const key = backgroundKey('g', 'task')
 const callKey = backgroundKey('g', 'call')
+
+type SettlementScenario = {
+  name: string
+  status?: string
+  liveKnown?: boolean
+  membership?: BackgroundTaskRecord['liveMembership']
+  old?: boolean
+  terminated?: boolean
+  connection?: BackgroundSessionState['connection']
+  remote?: 'task' | 'call'
+  foregroundReturned?: boolean
+  expected: 'running' | 'pending' | 'unknown' | 'unconfirmed' | 'completed' | 'failed' | 'stopped'
+}
+
+const scenarios: SettlementScenario[] = [
+  { name: 'connected running before first live', expected: 'running' },
+  { name: 'connected pending before first live', status: 'pending', expected: 'pending' },
+  { name: 'unknown raw status', status: 'other', expected: 'unknown' },
+  {
+    name: 'disconnected without termination evidence',
+    connection: 'disconnected',
+    expected: 'running'
+  },
+  {
+    name: 'reconnecting before the first live',
+    connection: 'resynchronizing',
+    expected: 'running'
+  },
+  {
+    name: 'included after established live',
+    liveKnown: true,
+    membership: 'included',
+    expected: 'running'
+  },
+  { name: 'unknown membership after live', liveKnown: true, expected: 'running' },
+  { name: 'excluded before first live', membership: 'excluded', expected: 'running' },
+  {
+    name: 'excluded after established live',
+    liveKnown: true,
+    membership: 'excluded',
+    expected: 'unconfirmed'
+  },
+  {
+    name: 'excluded pending after live',
+    status: 'pending',
+    liveKnown: true,
+    membership: 'excluded',
+    expected: 'unconfirmed'
+  },
+  {
+    name: 'excluded remote task after live',
+    liveKnown: true,
+    membership: 'excluded',
+    remote: 'task',
+    expected: 'unconfirmed'
+  },
+  {
+    name: 'excluded remote call after live',
+    liveKnown: true,
+    membership: 'excluded',
+    remote: 'call',
+    expected: 'unconfirmed'
+  },
+  { name: 'old nonremote', old: true, expected: 'unconfirmed' },
+  { name: 'old remote task', old: true, remote: 'task', expected: 'unconfirmed' },
+  { name: 'old remote call', old: true, remote: 'call', expected: 'unconfirmed' },
+  { name: 'terminated nonremote', terminated: true, expected: 'unconfirmed' },
+  { name: 'terminated remote task', terminated: true, remote: 'task', expected: 'unconfirmed' },
+  { name: 'terminated remote call', terminated: true, remote: 'call', expected: 'unconfirmed' },
+  {
+    name: 'current remote included',
+    liveKnown: true,
+    membership: 'included',
+    remote: 'task',
+    expected: 'running'
+  },
+  {
+    name: 'foreground parent result before dead generation',
+    foregroundReturned: true,
+    old: true,
+    expected: 'completed'
+  },
+  {
+    name: 'foreground parent result before excluded membership',
+    foregroundReturned: true,
+    liveKnown: true,
+    membership: 'excluded',
+    expected: 'completed'
+  },
+  {
+    name: 'remote parent result is not a task result',
+    foregroundReturned: true,
+    remote: 'call',
+    expected: 'running'
+  },
+  {
+    name: 'terminal success before excluded old remote',
+    status: 'completed',
+    liveKnown: true,
+    membership: 'excluded',
+    old: true,
+    remote: 'task',
+    expected: 'completed'
+  },
+  {
+    name: 'terminal failure before terminated remote',
+    status: 'failed',
+    terminated: true,
+    remote: 'call',
+    expected: 'failed'
+  },
+  {
+    name: 'terminal stop before foreground parent result',
+    status: 'stopped',
+    foregroundReturned: true,
+    expected: 'stopped'
+  },
+  {
+    name: 'terminal killed before dead generation',
+    status: 'killed',
+    old: true,
+    expected: 'stopped'
+  }
+]
 afterEach(() => {
   vi.restoreAllMocks()
   useBackgroundStore.setState(useBackgroundStore.getInitialState(), true)
 })
 
 describe('0239 canonical display settlement', () => {
+  it.each(scenarios)('0249 ΔV2 truth table: $name', (scenario) => {
+    const state = fixture()
+    state.liveKnown = scenario.liveKnown ?? false
+    state.generation = scenario.old ? 'next' : 'g'
+    state.connection = scenario.terminated ? 'terminated' : (scenario.connection ?? 'connected')
+    const task = {
+      ...state.tasks[key],
+      status: scenario.status ?? 'running',
+      isBackgrounded: !scenario.foregroundReturned,
+      taskType: scenario.remote === 'task' ? 'remote_agent' : 'local_agent',
+      liveMembership: scenario.membership ?? 'unknown',
+      lastSeenAt: 5000
+    }
+    const call = {
+      ...state.calls[callKey],
+      mode: scenario.remote === 'call' ? ('remote' as const) : undefined,
+      phase: scenario.foregroundReturned ? ('returned' as const) : ('started' as const),
+      status: scenario.foregroundReturned ? 'completed' : undefined
+    }
+    const before = JSON.stringify({ state, task, call })
+    const display = backgroundTaskDisplay(state, task, call)
+    expect(display.status).toBe(scenario.expected)
+    expect(display.settled).toBe(!['running', 'pending', 'unknown'].includes(scenario.expected))
+    if (scenario.expected === 'unconfirmed') expect(display.endedAt).toBe(5000)
+    if (scenario.foregroundReturned && scenario.expected === 'completed')
+      expect(display.endedAt).toBe(7000)
+    expect(JSON.stringify({ state, task, call })).toBe(before)
+  })
   it('keeps launch failure and canonical success authoritative over transcript metadata in detail', () => {
     const state = fixture()
     const transcript = {
@@ -125,12 +278,14 @@ describe('0239 canonical display settlement', () => {
         endedAt: 5000
       })
       expect(backgroundElapsedSeconds(task, 99000, 5000)).toBe(4)
-      expect(backgroundTaskDisplay(state, { ...task, taskType: 'remote_agent' }).settled).toBe(
-        false
-      )
+      expect(backgroundTaskDisplay(state, { ...task, taskType: 'remote_agent' })).toEqual({
+        status: 'unconfirmed',
+        settled: true,
+        endedAt: 5000
+      })
       expect(
         backgroundTaskDisplay(state, task, { ...fixture().calls[callKey], mode: 'remote' }).settled
-      ).toBe(false)
+      ).toBe(true)
     }
   )
   it('keeps a current connected task running without a parent receipt', () => {
@@ -141,24 +296,32 @@ describe('0239 canonical display settlement', () => {
       settled: false
     })
   })
-  it('settles dead awaitingTask calls but preserves remote calls', () => {
-    const state = fixture()
-    state.generation = 'next'
-    const call = {
-      ...state.calls[callKey],
-      phase: 'returned' as const,
-      status: 'async_launched',
-      mode: 'background' as const,
-      awaitingTask: true,
-      taskId: undefined
+  it.each(['old-generation', 'terminated'] as const)(
+    'settles %s awaitingTask calls including remote calls',
+    (kind) => {
+      const state = fixture()
+      if (kind === 'old-generation') state.generation = 'next'
+      else state.connection = 'terminated'
+      const call = {
+        ...state.calls[callKey],
+        phase: 'returned' as const,
+        status: 'async_launched',
+        mode: 'background' as const,
+        awaitingTask: true,
+        taskId: undefined
+      }
+      expect(backgroundCallDisplay(state, call)).toEqual({
+        status: 'unconfirmed',
+        settled: true,
+        endedAt: 7000
+      })
+      expect(backgroundCallDisplay(state, { ...call, mode: 'remote' })).toEqual({
+        status: 'unconfirmed',
+        settled: true,
+        endedAt: 7000
+      })
     }
-    expect(backgroundCallDisplay(state, call)).toEqual({
-      status: 'unconfirmed',
-      settled: true,
-      endedAt: 7000
-    })
-    expect(backgroundCallDisplay(state, { ...call, mode: 'remote' }).settled).toBe(false)
-  })
+  )
   it('joins transcript results into missing returns and removes cleared selections', () => {
     const state = fixture()
     state.tasks = {}
@@ -211,7 +374,7 @@ describe('0239 canonical display settlement', () => {
     expect(panel.dismissedTasks).toEqual([])
     expect(projectBackgroundPanel(state, undefined, panel).tasks).toEqual([])
   })
-  it('clears dead nonremote task/call identities while retaining remote and current work', () => {
+  it('clears dead task/call identities including remote while retaining current work', () => {
     const state = fixture()
     state.tasks[key].backgroundObserved = true
     state.calls[callKey].mode = 'background'
@@ -246,10 +409,10 @@ describe('0239 canonical display settlement', () => {
     dismissCompletedBackgroundItems('s')
     const panel = useBackgroundStore.getState().panels.s
     expect(panel.dismissedTasks).toEqual([key])
-    expect(panel.dismissedCalls).toEqual([callKey])
+    expect(panel.dismissedCalls).toEqual([callKey, backgroundKey('g', 'remote')])
     const projected = projectBackgroundPanel(state, undefined, panel)
     expect(projected.tasks).toEqual([])
-    expect(projected.calls.map((call) => call.toolUseId)).toEqual(['remote', 'current'])
+    expect(projected.calls.map((call) => call.toolUseId)).toEqual(['current'])
     expect(JSON.stringify(state)).toBe(before)
   })
   it.each(['user-rejected', 'cancelled', 'future-kind'])(

@@ -27,7 +27,6 @@ export const en: typeof ko = {
     running: 'Running',
     pending: 'Pending',
     unknown: 'State unknown',
-    excluded: 'No longer listed · termination reason unknown',
     sync: 'Synchronizing live membership',
     disconnected: 'Disconnected · current state unknown',
     terminated: 'Process ended · historical execution',
