@@ -148,7 +148,7 @@ describe('canonical background production callbacks', () => {
       toolName: 'Agent',
       phase: 'returned',
       source: source(3),
-      patch: { status: 'completed' }
+      patch: { status: 'completed', mode: 'background' }
     })
     seed(state)
     render()
@@ -230,7 +230,7 @@ describe('canonical background production callbacks', () => {
       toolName: 'Agent',
       phase: 'returned',
       source: source(3),
-      patch: { status: 'completed' }
+      patch: { status: 'completed', mode: 'background' }
     })
     seed(state)
     const original = JSON.stringify(state)
@@ -269,7 +269,7 @@ describe('canonical background production callbacks', () => {
       toolName: 'Agent',
       phase: 'returned',
       source: source(3),
-      patch: { status: 'failed' }
+      patch: { status: 'failed', mode: 'background' }
     })
     useBackgroundStore.setState((store) => ({
       sessions: { ...store.sessions, [sessionId]: { ...store.sessions[sessionId], state: next } }

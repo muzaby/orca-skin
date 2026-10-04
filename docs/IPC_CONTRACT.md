@@ -455,7 +455,7 @@ wire 체계의 정본은 `app/src/shared/ipc.ts`의 `ProviderAuthScheme`이고 m
 
 로그인 프리 Plugin의 `ProviderInfo`는 `kind:'service'`·`authScheme:'login-free'`·`auth:[]`·
 `status:'valid'`이며 `activeAuthKind`·`principal`·`expiresAt`는 `null`이다. `origin`은 선언값을
-싣고 미선언이면 `''`이다. renderer는 `authScheme`으로 `기본 제공`·`인증 불필요`와 인증 액션
+싣고 미선언이면 `''`이다. renderer는 `authScheme`으로 `기본 제공`·`연결됨`와 인증 액션
 부재를 판단하며, origin이 비면 주소 행을 숨긴다. `tools`·`catalog`는 같은 Plugin 경로로
 투영한다. 자격증명 gate·harness·plugin·usage 행은 `authScheme:'login-required'`다.
 로그인 프리 id에 인증 IPC를 직접 호출하면 login·reauth는 `unknown_provider` 실패 step을

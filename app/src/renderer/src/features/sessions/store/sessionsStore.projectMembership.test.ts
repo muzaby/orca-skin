@@ -138,7 +138,7 @@ describe('project membership receives recent and project snapshots together', ()
       recentIds: ['existing', 'other'],
       projectSessionIds: { p: ['existing'], q: ['other'] },
       loading: false,
-      unseenCompletedIds: new Set(['existing']),
+      unseenAttention: new Map([['existing', 'completed']]),
       viewedSessionId: 'existing'
     })
     const before = useSessionsStore.getState()
@@ -155,7 +155,7 @@ describe('project membership receives recent and project snapshots together', ()
     expect(detached.projectSessionIds.p).toBeUndefined()
     expect(detached.projectSessionIds.q).toBe(before.projectSessionIds.q)
     expect(detached.recentIds).toBe(before.recentIds)
-    expect(detached.unseenCompletedIds).toBe(before.unseenCompletedIds)
+    expect(detached.unseenAttention).toBe(before.unseenAttention)
     expect(detached.viewedSessionId).toBe('existing')
     project.resolve([existing, session('late', 'p')])
     await projectPending

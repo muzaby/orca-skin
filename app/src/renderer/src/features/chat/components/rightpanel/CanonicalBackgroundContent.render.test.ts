@@ -13,6 +13,7 @@ import {
 } from '../../lib/canonicalBackground'
 import {
   selectBackgroundItem,
+  dismissCompletedBackgroundItems,
   useBackgroundStore,
   type BackgroundSelection
 } from '../../store/backgroundStore'
@@ -22,6 +23,7 @@ import { SubAgentTileHeader } from './SubAgentTileContent'
 import {
   applyBackgroundEvent,
   backgroundKey,
+  countedBackgroundTaskIds,
   emptyBackgroundState,
   type BackgroundSessionState,
   type BackgroundTaskRecord
@@ -76,6 +78,151 @@ afterEach(() => {
 })
 
 describe('canonical background task cards', () => {
+  function mixedBackgroundState(): BackgroundSessionState {
+    let state = emptyBackgroundState()
+    let sequence = 0
+    const source = (): {
+      generation: string
+      sequence: number
+      receivedAt: number
+      replay: false
+    } => ({
+      generation: 'g',
+      sequence: ++sequence,
+      receivedAt: sequence,
+      replay: false
+    })
+    for (const toolName of ['Bash', 'PowerShell', 'Agent', 'Monitor', 'Workflow', 'mcp__work']) {
+      state = applyBackgroundEvent(state, {
+        type: 'background.call',
+        sessionId: 's',
+        source: source(),
+        toolName,
+        toolUseId: `call-${toolName}`,
+        phase: 'started',
+        patch: { mode: 'background' }
+      })
+      state = applyBackgroundEvent(state, {
+        type: 'background.task',
+        sessionId: 's',
+        source: source(),
+        taskId: `task-${toolName}`,
+        toolUseId: `call-${toolName}`,
+        phase: 'started',
+        patch: { status: 'running', isBackgrounded: true }
+      })
+    }
+    for (const toolName of ['Agent', 'Bash', 'PowerShell']) {
+      state = applyBackgroundEvent(state, {
+        type: 'background.call',
+        sessionId: 's',
+        source: source(),
+        toolName,
+        toolUseId: `foreground-${toolName}`,
+        phase: 'returned',
+        patch: { mode: 'foreground', status: 'completed' }
+      })
+      state = applyBackgroundEvent(state, {
+        type: 'background.task',
+        sessionId: 's',
+        source: source(),
+        taskId: `foreground-task-${toolName}`,
+        toolUseId: `foreground-${toolName}`,
+        phase: 'notification',
+        patch: { status: 'completed', isBackgrounded: false }
+      })
+    }
+    for (const toolName of ['Read', 'mcp__report', 'Workflow'])
+      state = applyBackgroundEvent(state, {
+        type: 'background.call',
+        sessionId: 's',
+        source: source(),
+        toolName,
+        toolUseId: `failed-${toolName}`,
+        phase: 'returned',
+        patch: { status: 'failed' }
+      })
+    state = applyBackgroundEvent(state, {
+      type: 'background.task',
+      sessionId: 's',
+      source: source(),
+      taskId: 'done',
+      phase: 'notification',
+      patch: { status: 'completed', isBackgrounded: true }
+    })
+    return applyBackgroundEvent(state, {
+      type: 'background.snapshot',
+      sessionId: 's',
+      source: source(),
+      tasks: [
+        ...['Bash', 'PowerShell', 'Agent', 'Monitor', 'Workflow', 'mcp__work'].map((toolName) => ({
+          taskId: `task-${toolName}`
+        })),
+        { taskId: 'ambient', ambient: true }
+      ]
+    })
+  }
+
+  it('renders only background work of every family with Spark identities and excludes hidden work from completed clearing', () => {
+    const state = mixedBackgroundState()
+    const $ = load(renderState(state))
+    expect(
+      $('[data-background-group="running"] [data-background-task]')
+        .map((_, element) => $(element).attr('data-background-task'))
+        .get()
+        .sort()
+    ).toEqual(countedBackgroundTaskIds(state).sort())
+    expect($('[data-background-group-toggle="running"] span').last().text()).toBe('6')
+    expect($('[data-background-group-toggle="completed"] span').last().text()).toBe('1')
+    expect(
+      $(
+        '[data-background-task="ambient"], [data-background-task^="foreground"], [data-background-call^="failed"], [data-background-call^="foreground"]'
+      )
+    ).toHaveLength(0)
+    useBackgroundStore.setState({ sessions: { s: { state, loading: false } }, panels: {} })
+    dismissCompletedBackgroundItems('s')
+    const panel = useBackgroundStore.getState().panels.s
+    expect(panel.dismissedTasks).toEqual([backgroundKey('g', 'done')])
+    expect(panel.dismissedCalls).toEqual([])
+    const cleared = load(renderState(state, undefined, [], panel))
+    expect(cleared('[data-background-group="completed"]')).toHaveLength(0)
+    expect(cleared('[data-background-group-toggle="running"] span').last().text()).toBe('6')
+  })
+
+  it('moves terminal background work to completed and reduces running cards after the next live snapshot', () => {
+    let state = mixedBackgroundState()
+    state = applyBackgroundEvent(state, {
+      type: 'background.task',
+      sessionId: 's',
+      taskId: 'task-Agent',
+      phase: 'notification',
+      source: { generation: 'g', sequence: 100, receivedAt: 100, replay: false },
+      patch: { status: 'completed' }
+    })
+    state = applyBackgroundEvent(state, {
+      type: 'background.snapshot',
+      sessionId: 's',
+      source: { generation: 'g', sequence: 101, receivedAt: 101, replay: false },
+      tasks: [
+        ...['Bash', 'PowerShell', 'Monitor', 'Workflow', 'mcp__work'].map((toolName) => ({
+          taskId: `task-${toolName}`
+        })),
+        { taskId: 'ambient', ambient: true }
+      ]
+    })
+    const $ = load(renderState(state))
+    expect(
+      $('[data-background-group="running"] [data-background-task]')
+        .map((_, element) => $(element).attr('data-background-task'))
+        .get()
+        .sort()
+    ).toEqual(countedBackgroundTaskIds(state).sort())
+    expect($('[data-background-group-toggle="running"] span').last().text()).toBe('5')
+    expect(
+      $('[data-background-group="completed"] [data-background-task="task-Agent"]')
+    ).toHaveLength(1)
+    expect($('[data-background-group-toggle="completed"] span').last().text()).toBe('2')
+  })
   function settlementState(): BackgroundSessionState {
     const source = { generation: 'g', sequence: 1, receivedAt: 1000, replay: false }
     let state = applyBackgroundEvent(emptyBackgroundState(), {
@@ -85,7 +232,8 @@ describe('canonical background task cards', () => {
       phase: 'started',
       toolUseId: 'c',
       toolName: 'Agent',
-      input: {}
+      input: {},
+      patch: { mode: 'background' }
     })
     state = applyBackgroundEvent(state, {
       type: 'background.task',
@@ -94,7 +242,7 @@ describe('canonical background task cards', () => {
       phase: 'started',
       taskId: 't',
       toolUseId: 'c',
-      patch: { status: 'running', isBackgrounded: false, taskType: 'local_agent' }
+      patch: { status: 'completed', isBackgrounded: true, taskType: 'local_agent' }
     })
     return applyBackgroundEvent(state, {
       type: 'background.call',
@@ -106,8 +254,9 @@ describe('canonical background task cards', () => {
       patch: { status: 'completed' }
     })
   }
-  it('renders returned foreground work in completed with frozen elapsed and no stop control', () => {
+  it('renders completed background work with frozen elapsed and no stop control', () => {
     const state = settlementState()
+    state.tasks[backgroundKey('g', 't')].durationMs = 6000
     const before = JSON.stringify(state)
     const $ = load(renderState(state))
     expect($('[data-background-group="completed"] [data-background-task="t"]').text()).toContain(
@@ -123,6 +272,8 @@ describe('canonical background task cards', () => {
       const state = settlementState()
       state.calls = {}
       state.tasks[backgroundKey('g', 't')].lastSeenAt = 5000
+      state.tasks[backgroundKey('g', 't')].status = 'running'
+      state.tasks[backgroundKey('g', 't')].terminalEvidence = []
       if (kind === 'old-generation') state.generation = 'next'
       else state.connection = 'terminated'
       const $ = load(renderState(state))
@@ -139,14 +290,18 @@ describe('canonical background task cards', () => {
     ['future-kind', '실행되지 않음']
   ])('renders %s consistently in canonical call/task labels and detail', (kind, label) => {
     const state = settlementState()
+    state.tasks[backgroundKey('g', 't')].status = 'running'
+    state.tasks[backgroundKey('g', 't')].isBackgrounded = false
+    state.tasks[backgroundKey('g', 't')].backgroundObserved = false
+    state.tasks[backgroundKey('g', 't')].terminalEvidence = []
     state.calls[backgroundKey('g', 'c')] = {
       ...state.calls[backgroundKey('g', 'c')],
       status: 'failed',
       meta: [{ id: 'c', non_execution_kind: kind }]
     }
     let $ = load(renderState(state))
-    expect($('[data-background-task="t"]').text()).toContain(label)
-    expect($('[data-background-task="t"] .text-bad')).toHaveLength(0)
+    const selected = load(renderState(state, { kind: 'call', key: backgroundKey('g', 'c') }))
+    expect(selected('[data-subagent-inline="c"]')).toHaveLength(1)
     state.tasks = {}
     state.calls[backgroundKey('g', 'c')].toolName = 'Workflow'
     $ = load(renderState(state))
@@ -199,7 +354,7 @@ describe('canonical background task cards', () => {
       phase: 'progress',
       source: { generation: 'g', sequence: 1, receivedAt: 1, replay: false },
       input: { description: 'Explorer title', model: 'opus', subagent_type: 'Explore' },
-      patch: { model: 'claude-haiku-4-5-20251001' }
+      patch: { model: 'claude-haiku-4-5-20251001', mode: 'background' }
     })
     expect(renderState(state)).toContain('Haiku 4.5')
     expect(renderState(state)).not.toContain('Opus')
@@ -329,7 +484,12 @@ describe('canonical background task cards', () => {
         taskId: 'terminal',
         phase: 'notification',
         source: { generation: 'g', sequence: 1, receivedAt: 1, replay: false },
-        patch: { status, summary: 'private-result-summary', error: 'private-execution-error' }
+        patch: {
+          status,
+          isBackgrounded: true,
+          summary: 'private-result-summary',
+          error: 'private-execution-error'
+        }
       })
       const html = renderState(state)
       expect(html).toContain('data-background-task="terminal"')
@@ -337,7 +497,7 @@ describe('canonical background task cards', () => {
       expect(html).not.toContain('private-execution-error')
     }
   )
-  it('shows a failed Workflow call without task controls, then preserves failure alongside an actual later start', () => {
+  it('hides a failed Workflow launch then shows an actual later background task', () => {
     let state = applyBackgroundEvent(emptyBackgroundState(), {
       type: 'background.call',
       sessionId: 's',
@@ -351,12 +511,12 @@ describe('canonical background task cards', () => {
         runId: 'run1',
         error: 'syntax error'
       },
-      patch: { taskId: 'never-started', runId: 'run1', status: 'failed', mode: 'background' }
+      patch: { taskId: 'never-started', runId: 'run1', status: 'failed' }
     })
     const failed = renderState(state)
-    expect(failed).toContain('data-background-call="workflow"')
+    expect(failed).not.toContain('data-background-call="workflow"')
     expect(failed).not.toContain('syntax error')
-    expect(failed).toContain('실패')
+    expect(failed).not.toContain('실패')
     expect(failed).not.toContain('data-background-task=')
     state = applyBackgroundEvent(state, {
       type: 'background.task',
@@ -364,7 +524,7 @@ describe('canonical background task cards', () => {
       taskId: 'never-started',
       phase: 'started',
       source: { generation: 'g', sequence: 2, receivedAt: 2, replay: false },
-      patch: { status: 'running' }
+      patch: { status: 'running', isBackgrounded: true }
     })
     const started = renderState(state)
     expect(started).toContain('data-background-task="never-started"')
@@ -380,6 +540,7 @@ describe('canonical background task cards', () => {
       phase: 'returned',
       patch: {
         taskId: 't',
+        mode: 'background',
         outputRefs: [
           {
             id: 'call-camel',
@@ -480,7 +641,7 @@ describe('canonical background task cards', () => {
         receivedAt: 1_700_000_000_000,
         replay: false
       },
-      patch: { status: 'running', description: '로그 파서 조사', toolUses: 3 }
+      patch: { status: 'running', isBackgrounded: true, description: '로그 파서 조사', toolUses: 3 }
     })
 
     const html = renderState(state)
@@ -534,7 +695,7 @@ describe('canonical background task cards', () => {
     expect(html).not.toContain('data-background-task="task-1"')
   })
 
-  it('keeps taskless failed calls as selectable cards with the existing tool body detail', () => {
+  it('hides taskless failed calls without background evidence from both list and detail', () => {
     const state = applyBackgroundEvent(emptyBackgroundState(), {
       type: 'background.call',
       sessionId: 's',
@@ -548,15 +709,14 @@ describe('canonical background task cards', () => {
     })
 
     const list = renderState(state)
-    expect(list).toContain('data-background-call="workflow-1"')
-    expect(list).toContain('role="button"')
+    expect(list).not.toContain('data-background-call="workflow-1"')
 
     const detail = renderState(state, {
       kind: 'call',
       key: backgroundKey('generation-1', 'workflow-1')
     })
-    expect(detail).toContain('data-background-call-detail="workflow-1"')
-    expect(detail).toContain('syntax error')
+    expect(detail).not.toContain('data-background-call-detail="workflow-1"')
+    expect(detail).not.toContain('syntax error')
     expect(detail).not.toContain('aria-expanded=')
   })
 
@@ -756,7 +916,7 @@ describe('canonical background selection', () => {
       taskId: 'same-task',
       phase: 'started',
       source: { generation: 'generation-1', sequence: 1, receivedAt: 1, replay: false },
-      patch: { description: '이전 실행', status: 'running' }
+      patch: { description: '이전 실행', status: 'running', isBackgrounded: true }
     })
     state = applyBackgroundEvent(state, {
       type: 'background.task',
@@ -764,7 +924,7 @@ describe('canonical background selection', () => {
       taskId: 'same-task',
       phase: 'started',
       source: { generation: 'generation-2', sequence: 1, receivedAt: 2, replay: false },
-      patch: { description: '현재 실행', status: 'running' }
+      patch: { description: '현재 실행', status: 'running', isBackgrounded: true }
     })
 
     const oldHeader = renderHeader(state, {

@@ -56,14 +56,17 @@ export const SessionRow = memo(function SessionRow({
   const [menuOpen, setMenuOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const kebabRef = useRef<HTMLButtonElement>(null)
-  const unseen = useSessionsState((state) => state.unseenCompletedIds.has(session.id))
+  const attention = useSessionsState((state) => state.unseenAttention.get(session.id))
+  const unseen = attention !== undefined && !isActive
   const modeIcon = (
     <span
       role="img"
       aria-label={tr(appearance.label)}
       data-context="session-agent-kind"
-      data-state={unseen && !isActive ? 'unseen-complete' : 'default'}
-      className={`inline-flex shrink-0 ${unseen && !isActive ? 'text-selected [&_svg]:stroke-current [&_svg]:[stroke-linejoin:round] [&_svg]:[stroke-width:40]' : ''}`}
+      data-state={
+        unseen ? (attention === 'completed' ? 'unseen-complete' : 'awaiting-response') : 'default'
+      }
+      className={`inline-flex shrink-0 ${unseen ? 'text-selected [&_svg]:stroke-current [&_svg]:[stroke-linejoin:round] [&_svg]:[stroke-width:40]' : ''}`}
     >
       <Icon name={appearance.navIcon} size={variant === 'catalog' ? 20 : 14} />
     </span>

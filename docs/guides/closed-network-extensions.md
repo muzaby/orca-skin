@@ -828,7 +828,7 @@ export function createPluginBindings(deps: PluginDeploymentDeps): PluginBinding[
 | 도구 | `LoginFreePluginAuth`를 받는 서버를 만든다. HTTP를 사용하면 bare origin을 선언하고 `request()`에 상대 path와 응답 상한을 넘긴다 | 앱이 로컬 키를 관리하게 만들거나 `withCredential`을 요구하지 않는다 |
 | 조립 | `bindLoginFreePlugin(선언.id)`와 같은 `createPluginBinding`을 사용한다. 서버는 부팅에서 만들고 재사용한다 | `PluginDeploymentDeps`의 기존 auth·registry·logger만 사용하고 Bootstrap을 수정하지 않는다 |
 | 검증 | `npm run typecheck`와 `./node_modules/.bin/vitest run src/main/features/auth src/main/app/deployment`를 실행한다 | 같은 예제를 컴파일하는 `app/src/main/app/deployment/login-free-deployment.test.ts`를 함께 갱신한다 |
-| 실기 | 앱 인증 전후에 새 채팅에서 도구를 확인하고 연결 탭 목록·상세와 Composer `@public-api`를 확인한다 | `기본 제공`·`인증 불필요`, 인증 액션 부재, 항상 활성인 도구를 확인한다. origin 생략 배포도 만들어 주소 행이 없는지 본다 |
+| 실기 | 앱 인증 전후에 새 채팅에서 도구를 확인하고 연결 탭 목록·상세와 Composer `@public-api`를 확인한다 | `기본 제공`·`연결됨`, 인증 액션 부재, 항상 활성인 도구를 확인한다. origin 생략 배포도 만들어 주소 행이 없는지 본다 |
 
 ```ts
 // app/deployment/auth-definitions.ts

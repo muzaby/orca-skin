@@ -51,10 +51,9 @@ describe('ProviderDetail plugin presentation', () => {
         })
       )
       expect(markup).toContain('>기본 제공</span>')
-      expect(markup).toContain('>인증 불필요</span>')
-      expect(markup.indexOf('>기본 제공</span>')).toBeLessThan(
-        markup.indexOf('>인증 불필요</span>')
-      )
+      expect(markup).toContain('>연결됨</span>')
+      expect(markup).not.toContain('인증 불필요')
+      expect(markup.indexOf('>기본 제공</span>')).toBeLessThan(markup.indexOf('>연결됨</span>'))
       expect(markup).toContain('bg-good ring-good/20')
       expect(markup).toContain('mcp__jira-dc-tools__jira_searchIssues')
       expect(markup).not.toMatch(/<button\b|provider-authenticate|provider-reauth-menu/)

@@ -220,7 +220,7 @@ export const en: typeof ko = {
         valid: 'Connected',
         expired: 'Expired',
         unknown: 'Unavailable',
-        loginFree: 'No sign-in required'
+        loginFree: 'Connected'
       },
       kind: {
         gate: 'App sign-in',

@@ -50,10 +50,10 @@ describe('i18n resources', () => {
     }
   })
 
-  it('로그인 프리 상태·종류 문구를 각 locale에 둔다 (0248 AC11·AC12)', () => {
-    expect(ko.skills.provider.status.loginFree).toBe('인증 불필요')
+  it('로그인 프리 상태는 연결됨이고 기본 제공 종류는 각 locale에 보존한다 (0249 AC1)', () => {
+    expect(ko.skills.provider.status.loginFree).toBe('연결됨')
     expect(ko.skills.provider.kind.loginFree).toBe('기본 제공')
-    expect(en.skills.provider.status.loginFree).toBe('No sign-in required')
+    expect(en.skills.provider.status.loginFree).toBe('Connected')
     expect(en.skills.provider.kind.loginFree).toBe('Built-in')
   })
 })

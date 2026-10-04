@@ -3,12 +3,33 @@ import {
   applyBackgroundEvent,
   backgroundPending,
   backgroundKey,
+  countedBackgroundTaskIds,
   emptyBackgroundState,
   isForegroundTask,
   type BackgroundEvent,
   type BackgroundEventSource,
   type BackgroundTaskRecord
 } from './background-task'
+
+describe('countedBackgroundTaskIds (0249)', () => {
+  it('counts only the established current live set, excluding ambient identities', () => {
+    let state = applyBackgroundEvent(emptyBackgroundState(), {
+      type: 'background.snapshot',
+      sessionId: 's',
+      source: { generation: 'g', sequence: 1, receivedAt: 1, replay: false },
+      tasks: [{ taskId: 'work' }, { taskId: 'ambient', ambient: true }]
+    })
+    expect(countedBackgroundTaskIds(state)).toEqual(['work'])
+    expect(countedBackgroundTaskIds({ ...state, liveKnown: false })).toEqual([])
+    state = applyBackgroundEvent(state, {
+      type: 'background.snapshot',
+      sessionId: 's',
+      source: { generation: 'next', sequence: 1, receivedAt: 2, replay: false },
+      tasks: [{ taskId: 'ambient' }]
+    })
+    expect(countedBackgroundTaskIds(state)).toEqual(['ambient'])
+  })
+})
 
 let sequence = 0
 const source = (generation = 'g1', replay = false): BackgroundEventSource => ({
