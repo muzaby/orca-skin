@@ -37,7 +37,7 @@ function doneCall(
     toolName: 'Agent',
     phase: 'returned',
     source: source(1, generation),
-    patch: { status: 'completed' }
+    patch: { status: 'completed', mode: 'background' }
   }
 }
 function seed(state: BackgroundSessionState, sessionId = 's'): void {
@@ -57,7 +57,7 @@ afterEach(() => {
 
 describe('session background panel visibility', () => {
   it.each(['running', 'paused'])(
-    'restores a dismissed failed launch when a later task_started proves an actual %s execution',
+    'excludes a failed launch from dismissal and shows later background %s execution',
     (status) => {
       const mapper = new ClaudeBackgroundMapper()
       const emit = (raw: unknown): void => {
@@ -83,6 +83,7 @@ describe('session background panel visibility', () => {
         }
       })
       dismissCompletedBackgroundItems('s')
+      expect(useBackgroundStore.getState().panels.s.dismissedCalls).toEqual([])
       expect(visible().calls).toHaveLength(0)
       expect(visible().tasks).toHaveLength(0)
       // Merely linking an ID does not establish that execution began.
@@ -99,7 +100,8 @@ describe('session background panel visibility', () => {
         type: 'system',
         subtype: 'task_started',
         task_id: 'never-started',
-        tool_use_id: 'workflow'
+        tool_use_id: 'workflow',
+        is_backgrounded: true
       })
       if (status === 'paused')
         emit({
@@ -115,13 +117,15 @@ describe('session background panel visibility', () => {
           backgroundKey(mapper.generation, 'workflow')
         ].launchFailure
       ).toBeDefined()
-      // A later actual completion returns to the already-dismissed terminal identity.
+      // Completion is now visible and can be dismissed after it actually ran.
       emit({
         type: 'system',
         subtype: 'task_notification',
         task_id: 'never-started',
         status: 'completed'
       })
+      expect(visible().tasks).toHaveLength(1)
+      dismissCompletedBackgroundItems('s')
       expect(visible().tasks).toHaveLength(0)
     }
   )
@@ -157,7 +161,7 @@ describe('session background panel visibility', () => {
       taskId: 'task',
       phase: 'notification',
       source: source(1),
-      patch: { status: 'failed' }
+      patch: { status: 'failed', isBackgrounded: true }
     })
     seed(state)
     dismissCompletedBackgroundItems('s')
@@ -178,7 +182,7 @@ describe('session background panel visibility', () => {
         taskId: status,
         phase: 'updated',
         source: source(index + 2),
-        patch: { status }
+        patch: { status, isBackgrounded: true }
       })
     seed(state)
     seed(applyBackgroundEvent(emptyBackgroundState(), doneCall('other')), 'other')

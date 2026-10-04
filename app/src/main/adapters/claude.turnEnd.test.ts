@@ -70,15 +70,19 @@ const req = (): TurnRequest => ({
   extensions: { skills: [], hooks: { normalized: {} } }
 })
 
-/** 어댑터가 SDK 에 **실제로 건넨** `Stop` 콜백. 배선이 없으면 여기서 이미 실패한다. */
+/** SDK처럼 병합된 Stop 콜백을 모두 발화한다. 계획 파일 셀 정리와 턴 종료가 공존한다. */
 function stopCallback(): HookCallback {
   const matchers = h.state.options?.hooks?.Stop
   expect(
     matchers,
     'query options 에 Stop 매처가 없다 — 계기의 시작점이 배선되지 않았다'
   ).toBeDefined()
-  expect(matchers).toHaveLength(1)
-  return matchers![0].hooks[0]
+  expect(matchers).toHaveLength(2)
+  return async (input, toolUseId, options) => {
+    for (const matcher of matchers!) {
+      for (const callback of matcher.hooks) await callback(input, toolUseId, options)
+    }
+  }
 }
 
 /** 한 턴을 끝까지 돌려 배치별 이벤트 타입을 모은다. */
@@ -225,8 +229,8 @@ describe('claude.ts 턴 종료 배선 (D25·D26 · VP-72 · EP-46 ①②)', () =
     // 변이와 hooks 자체가 빈 변이를 구분한다.
     expect(Object.keys(hooks)).toContain('Stop')
     expect(Object.keys(hooks)).toContain('PreToolUse')
-    expect(hooks.Stop).toHaveLength(1)
-    expect(typeof hooks.Stop[0].hooks[0]).toBe('function')
+    expect(hooks.Stop).toHaveLength(2)
+    for (const matcher of hooks.Stop) expect(typeof matcher.hooks[0]).toBe('function')
   })
 
   it('스트림 도중 `Stop` 이 나면 **다음 배치**에 `turn.ended` 가 실린다', async () => {

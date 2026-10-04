@@ -164,6 +164,7 @@ describe('0239 canonical display settlement', () => {
     state.tasks = {}
     state.calls[callKey] = {
       ...state.calls[callKey],
+      mode: 'background',
       phase: 'started',
       status: undefined,
       taskId: undefined
@@ -202,16 +203,18 @@ describe('0239 canonical display settlement', () => {
     expect(projectBackgroundPanel(state, undefined, store.panels.s, results).calls).toEqual([])
     expect(state.calls[callKey].phase).toBe('started')
   })
-  it('clears returned foreground tasks with no terminal evidence', () => {
+  it('does not clear hidden returned foreground tasks with no terminal evidence', () => {
     const state = fixture()
     useBackgroundStore.setState({ sessions: { s: { state, loading: false } }, panels: {} })
     dismissCompletedBackgroundItems('s')
     const panel = useBackgroundStore.getState().panels.s
-    expect(panel.dismissedTasks).toContain(key)
+    expect(panel.dismissedTasks).toEqual([])
     expect(projectBackgroundPanel(state, undefined, panel).tasks).toEqual([])
   })
   it('clears dead nonremote task/call identities while retaining remote and current work', () => {
     const state = fixture()
+    state.tasks[key].backgroundObserved = true
+    state.calls[callKey].mode = 'background'
     state.generation = 'next'
     state.calls = {
       [callKey]: {

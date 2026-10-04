@@ -8,11 +8,13 @@ import type { SessionListItem } from '../../../../../shared/ipc'
 import { projectApi, sessionApi } from '../../../shared/api/ipc'
 import { reconcileProjectMembership } from '../lib/projectMembership'
 
+export type SessionAttention = 'completed' | 'awaiting-response'
+
 interface SessionsStoreState {
   // 세션 엔티티의 renderer 단일 정본. recent/project 조회는 ID membership 만 따로 가진다.
   byId: Record<string, SessionListItem>
-  // 이번 앱 실행에서 아직 열어보지 않은 정상 완료. DB 메타 재조회와 수명을 분리한다.
-  unseenCompletedIds: ReadonlySet<string>
+  // 이번 앱 실행에서 아직 열어보지 않은 완료·응답 요청. DB 메타 재조회와 수명을 분리한다.
+  unseenAttention: ReadonlyMap<string, SessionAttention>
   viewedSessionId: string | null
   recentIds: string[]
   // 값이 없으면 "아직 조회 안 함" — 로딩 판정이 이 한 축에서 나온다(별도 플래그 없음).
@@ -22,7 +24,7 @@ interface SessionsStoreState {
 
 export const useSessionsStore = create<SessionsStoreState>()(() => ({
   byId: {},
-  unseenCompletedIds: new Set<string>(),
+  unseenAttention: new Map<string, SessionAttention>(),
   viewedSessionId: null,
   recentIds: [],
   projectSessionIds: {},
@@ -157,7 +159,7 @@ async function remove(sessionId: string): Promise<boolean> {
     }
     return {
       byId,
-      unseenCompletedIds: new Set([...state.unseenCompletedIds].filter((id) => id !== sessionId)),
+      unseenAttention: new Map([...state.unseenAttention].filter(([id]) => id !== sessionId)),
       viewedSessionId: state.viewedSessionId === sessionId ? null : state.viewedSessionId,
       recentIds: state.recentIds.filter((candidate) => candidate !== sessionId),
       projectSessionIds: touchedProject ? projectSessionIds : state.projectSessionIds
@@ -237,25 +239,34 @@ function detachProject(projectId: string): void {
   })
 }
 
-function markCompleted(sessionId: string): void {
+function markAttention(sessionId: string, reason: SessionAttention): void {
   setState((state) => {
-    if (state.viewedSessionId === sessionId || state.unseenCompletedIds.has(sessionId)) return state
-    return { unseenCompletedIds: new Set([...state.unseenCompletedIds, sessionId]) }
+    if (state.viewedSessionId === sessionId || state.unseenAttention.get(sessionId) === reason)
+      return state
+    return { unseenAttention: new Map(state.unseenAttention).set(sessionId, reason) }
   })
+}
+
+function markCompleted(sessionId: string): void {
+  markAttention(sessionId, 'completed')
+}
+
+function markAwaitingResponse(sessionId: string): void {
+  markAttention(sessionId, 'awaiting-response')
 }
 
 function setViewedSession(sessionId: string | null): void {
   setState((state) => {
     if (
       state.viewedSessionId === sessionId &&
-      (sessionId === null || !state.unseenCompletedIds.has(sessionId))
+      (sessionId === null || !state.unseenAttention.has(sessionId))
     )
       return state
-    const unseenCompletedIds =
-      sessionId !== null && state.unseenCompletedIds.has(sessionId)
-        ? new Set([...state.unseenCompletedIds].filter((id) => id !== sessionId))
-        : state.unseenCompletedIds
-    return { viewedSessionId: sessionId, unseenCompletedIds }
+    const unseenAttention =
+      sessionId !== null && state.unseenAttention.has(sessionId)
+        ? new Map([...state.unseenAttention].filter(([id]) => id !== sessionId))
+        : state.unseenAttention
+    return { viewedSessionId: sessionId, unseenAttention }
   })
 }
 
@@ -267,6 +278,7 @@ export const sessionsActions = {
   rename,
   setPinned,
   markCompleted,
+  markAwaitingResponse,
   setViewedSession
 }
 

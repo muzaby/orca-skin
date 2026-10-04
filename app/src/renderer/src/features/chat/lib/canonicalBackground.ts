@@ -1,7 +1,7 @@
 import { chatApi } from '../../../shared/api/ipc'
 import {
   backgroundKey,
-  isShellBackgroundTool,
+  countedBackgroundTaskIds,
   isBackgroundTerminal,
   isForegroundTask,
   type BackgroundCallRecord,
@@ -155,11 +155,14 @@ export function callForBackgroundTask(
   )
 }
 
-export function isBackgroundPanelItemVisible(
+export function isBackgroundWork(
+  state: BackgroundSessionState,
   task?: BackgroundTaskRecord,
-  call?: BackgroundCallRecord
+  call?: BackgroundCallRecord,
+  countedIds: ReadonlySet<string> = new Set(countedBackgroundTaskIds(state))
 ): boolean {
-  if (!isShellBackgroundTool(call?.toolName ?? '') && task?.taskType !== 'local_bash') return true
+  if (task?.ambient) return false
+  if (task?.generation === state.generation && task && countedIds.has(task.taskId)) return true
   const requested =
     call?.input &&
     typeof call.input === 'object' &&
@@ -176,6 +179,17 @@ export function isBackgroundPanelItemVisible(
   )
 }
 
+export function backgroundCallKeyForToolUse(
+  state: BackgroundSessionState,
+  toolUseId: string
+): string | undefined {
+  const currentKey = backgroundKey(state.generation ?? '', toolUseId)
+  if (state.calls[currentKey]) return currentKey
+  return Object.entries(state.calls)
+    .filter(([, call]) => call.toolUseId === toolUseId)
+    .sort(([, a], [, b]) => b.lastSeenAt - a.lastSeenAt)[0]?.[0]
+}
+
 export function projectBackgroundPanel(
   state: BackgroundSessionState,
   selection?: BackgroundSelection,
@@ -187,11 +201,12 @@ export function projectBackgroundPanel(
   selectedTask?: BackgroundTaskRecord
   selectedCall?: BackgroundCallRecord
 } {
+  const countedIds = new Set(countedBackgroundTaskIds(state))
   const tasks = Object.values(state.tasks)
     .filter((task) => {
       const call = callForBackgroundTask(state, task)
       return (
-        isBackgroundPanelItemVisible(task, call) &&
+        isBackgroundWork(state, task, call, countedIds) &&
         !isDismissedBackgroundItem(
           state,
           panel,
@@ -205,19 +220,14 @@ export function projectBackgroundPanel(
   const calls = Object.values(state.calls).filter(
     (call) =>
       (!call.taskId || !state.tasks[backgroundKey(call.generation, call.taskId)]) &&
-      isBackgroundPanelItemVisible(undefined, call) &&
+      isBackgroundWork(state, undefined, call, countedIds) &&
       !isDismissedBackgroundItem(
         state,
         panel,
         undefined,
         call,
         transcriptResults?.get(call.toolUseId)
-      ) &&
-      (isShellBackgroundTool(call.toolName ?? '') ||
-        call.awaitingTask ||
-        call.launchFailure ||
-        call.status === 'failed' ||
-        isAgentTaskName(call.toolName ?? ''))
+      )
   )
   let selectedTask =
     selection?.kind === 'task'
@@ -226,10 +236,14 @@ export function projectBackgroundPanel(
   let selectedCall = selectedTask ? callForBackgroundTask(state, selectedTask) : undefined
   if (selection?.kind === 'call') {
     const call = state.calls[selection.key]
-    const task = call?.taskId
-      ? tasks.find((task) => task.generation === call.generation && task.taskId === call.taskId)
-      : undefined
-    if (call && (task || calls.includes(call))) {
+    const task = call?.taskId ? state.tasks[backgroundKey(call.generation, call.taskId)] : undefined
+    if (
+      call &&
+      ((task && tasks.includes(task)) ||
+        calls.includes(call) ||
+        isAgentTaskName(call.toolName ?? '')) &&
+      !isDismissedBackgroundItem(state, panel, task, call, transcriptResults?.get(call.toolUseId))
+    ) {
       selectedCall = call
       selectedTask = task
     }

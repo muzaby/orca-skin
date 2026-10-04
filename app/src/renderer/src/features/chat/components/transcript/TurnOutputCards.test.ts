@@ -110,15 +110,86 @@ it.each(['work', 'code'] as const)(
   }
 )
 
-it('puts completed metadata before cards and keeps idle history free of live text and spark', () => {
-  const html = render(
-    createElement(AssistantTurn, { turn, transcriptPolicy: workTranscript, pending: false })
-  )
-  expect(html.indexOf('committed-body')).toBeLessThan(html.indexOf('group-hover/msg:opacity-100'))
-  expect(html.indexOf('group-hover/msg:opacity-100')).toBeLessThan(html.indexOf(card('ordinary')))
-  expect(html).not.toContain('live-body')
-  expect(html).not.toContain(spark)
-})
+it.each(['work', 'code'] as const)(
+  '%s puts completed cards immediately after the body and before metadata (0249 AC17)',
+  (kind) => {
+    const html = render(
+      createElement(Exchange, {
+        exchange: { startIndex: 0, turns: [turn] },
+        transcriptPolicy: agentUiPolicy(kind).transcript,
+        reserve: false,
+        pending: false
+      })
+    )
+    expect(html).toContain(card('ordinary'))
+    expect(html).toContain('group-hover/msg:opacity-100')
+    expect(html.indexOf('committed-body')).toBeLessThan(html.indexOf(card('ordinary')))
+    expect(html.indexOf(card('published'))).toBeLessThan(
+      html.indexOf('group-hover/msg:opacity-100')
+    )
+    expect(html).not.toContain('live-body')
+    expect(html).not.toContain(spark)
+  }
+)
+
+it.each(['work', 'code'] as const)(
+  '%s keeps only the newest ordinary file at its first position while preserving published artifacts (0249 AC15·AC16)',
+  (kind) => {
+    const second = {
+      ...file,
+      publicationId: 'other',
+      artifactFileId: 'other-file',
+      filename: 'other.md'
+    }
+    const updated = {
+      ...file,
+      publicationId: 'updated',
+      artifactFileId: 'updated-file',
+      publishedAt: 2
+    }
+    const latest = {
+      ...file,
+      publicationId: 'latest',
+      artifactFileId: 'latest-file',
+      publishedAt: 3
+    }
+    const legacy = {
+      ...file,
+      publicationId: 'legacy',
+      artifactFileId: 'legacy-file',
+      category: undefined
+    }
+    const firstMessage = turn.messages[0]
+    const html = render(
+      createElement(AssistantTurn, {
+        transcriptPolicy: agentUiPolicy(kind).transcript,
+        pending: false,
+        turn: {
+          ...turn,
+          messages: [
+            {
+              ...firstMessage,
+              parts: [...firstMessage.parts, { type: 'artifact', artifact: second }]
+            },
+            {
+              role: 'assistant',
+              createdAt: 2,
+              parts: [updated, latest, updated, legacy].map((artifact) => ({
+                type: 'artifact' as const,
+                artifact
+              }))
+            }
+          ]
+        }
+      })
+    )
+    const ids = [...html.matchAll(/data-artifact-preview="([^"]+)"/g)].map((match) => match[1])
+    expect(ids).toEqual(['latest', 'published', 'other', 'legacy'])
+    expect(html).not.toContain(card('ordinary'))
+    expect(html).not.toContain(card('updated'))
+    expect(html).toContain('모두 저장')
+  }
+)
 
 it.each([
   { turns: [] },

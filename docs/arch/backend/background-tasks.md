@@ -8,7 +8,7 @@
 
 `HistoryWriter.persistProviderEvent`는 원본과 작업 이벤트를 전용 DB journal에 먼저 커밋한다. 세션 init보다 먼저 온 이벤트는 세션 행 생성까지 보관한다. 원본은 일반 transcript·FTS·wire log·renderer 채널로 전달하지 않는다. 새 프로세스는 별도 generation을 갖고, 재로드된 journal은 과거 이력으로 복원한다.
 
-`BackgroundTaskTracker`의 상태 정본은 shared의 순수 reducer다. taskId, toolUseId, agentId는 서로 다른 식별자다. 명시적 연결이 없는 Agent 실행 영수증은 호출에 남으며 임의 taskId를 만들지 않는다. 최신 전체 snapshot은 첫 수신부터 live 집합을 교체하고 snapshot에만 있는 작업도 표시한다. 집합에서 빠진 사실은 terminal 상태를 만들지 않는다. 비동기 작업의 대기 여부와 비ambient live 개수는 별도로 계산한다.
+`BackgroundTaskTracker`의 상태 정본은 shared의 순수 reducer다. taskId, toolUseId, agentId는 서로 다른 식별자다. 명시적 연결이 없는 Agent 실행 영수증은 호출에 남으며 임의 taskId를 만들지 않는다. 최신 전체 snapshot은 첫 수신부터 live 집합을 교체하고 snapshot에만 있는 작업도 표시한다. 집합에서 빠진 사실은 terminal 상태를 만들지 않는다. 비동기 작업의 대기 여부와 비ambient live 개수는 별도로 계산한다. Spark 개수는 shared `countedBackgroundTaskIds`의 길이이며 live 현재성이 미확립이면 빈 집합이다. renderer도 이 집합을 백그라운드 증거로 읽지만 종료가 확인되지 않은 작업의 과거 증거를 보존하므로 실행 중 카드 수가 live 개수보다 클 수 있다.
 
 task patch의 누락 필드는 기존 값을 유지하고 false·0·빈 문자열은 값으로 반영한다. 종료 뒤 도착한 메타와 출력 참조도 보존하며, 늦은 running 갱신은 종료 상태를 되살리지 않는다. 상충하는 종료 증거는 별도 이력으로 남는다.
 

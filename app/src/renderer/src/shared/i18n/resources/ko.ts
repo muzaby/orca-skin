@@ -220,7 +220,7 @@ export const ko = {
         valid: '연결됨',
         expired: '만료됨',
         unknown: '확인 불가',
-        loginFree: '인증 불필요'
+        loginFree: '연결됨'
       },
       kind: {
         gate: '앱 로그인',

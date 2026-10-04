@@ -1,5 +1,43 @@
 import { describe, expect, it } from 'vitest'
 import { BackgroundTaskTracker } from './background-tasks'
+import {
+  applyBackgroundEvent,
+  countedBackgroundTaskIds,
+  emptyBackgroundState
+} from '../../../shared/background-task'
+
+describe('canonical Spark count (0249)', () => {
+  it('uses the shared live set with ambient and unknown snapshots excluded', () => {
+    const tracker = new BackgroundTaskTracker()
+    const state = applyBackgroundEvent(emptyBackgroundState(), {
+      type: 'background.snapshot',
+      sessionId: 's',
+      source: { generation: 'g', sequence: 1, receivedAt: 1, replay: false },
+      tasks: [{ taskId: 'a' }, { taskId: 'b' }, { taskId: 'ambient', ambient: true }]
+    })
+    tracker.restore('s', state)
+    tracker.restore('unknown', { ...state, liveKnown: false })
+    expect(tracker.count('s')).toBe(countedBackgroundTaskIds(state).length)
+    expect(tracker.count('s')).toBe(2)
+    expect(tracker.count('unknown')).toBe(0)
+    tracker.observe({
+      type: 'background.task',
+      sessionId: 's',
+      taskId: 'a',
+      phase: 'notification',
+      source: { generation: 'g', sequence: 2, receivedAt: 2, replay: false },
+      patch: { status: 'completed' }
+    })
+    tracker.observe({
+      type: 'background.snapshot',
+      sessionId: 's',
+      source: { generation: 'g', sequence: 3, receivedAt: 3, replay: false },
+      tasks: [{ taskId: 'b' }, { taskId: 'ambient', ambient: true }]
+    })
+    expect(tracker.count('s')).toBe(1)
+    expect(tracker.count('s')).toBe(countedBackgroundTaskIds(tracker.getState('s')).length)
+  })
+})
 
 describe('BackgroundTaskTracker (0136)', () => {
   it('started 로 등록하고 ids 로 조회한다', () => {

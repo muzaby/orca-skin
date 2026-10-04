@@ -52,6 +52,7 @@ export const AssistantTurn = memo(
           ))
         )}
         {pending && <PendingAssistant showStatus={false} />}
+        {artifacts.length > 0 && <ArtifactCards artifacts={artifacts} />}
         {!pending && (
           <MessageMeta
             text={turnCopyText(turn)}
@@ -60,7 +61,6 @@ export const AssistantTurn = memo(
             forkable={forkable}
           />
         )}
-        {artifacts.length > 0 && <ArtifactCards artifacts={artifacts} />}
         {pending && <PendingAssistantStatus />}
       </div>
     )

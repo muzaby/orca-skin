@@ -5,6 +5,7 @@ import {
   partsToolCalls,
   partsErrors,
   partsAttachments,
+  partsArtifacts,
   childMessageForParentToolRunId,
   subagentTaskDescription,
   subagentTasksFromMessages,
@@ -16,6 +17,68 @@ import {
 } from './parts'
 import type { ToolCall } from '../reducer/chatReducer'
 import type { AppMessagePart } from '../../../../../shared/ipc'
+import type { ArtifactRef } from '../../../../../shared/artifacts'
+
+const outputFile = (patch: Partial<ArtifactRef> = {}): ArtifactRef => ({
+  publicationId: 'first',
+  artifactFileId: 'first-file',
+  title: 'Report',
+  filename: 'report.md',
+  kind: 'markdown',
+  category: 'file',
+  sizeBytes: 10,
+  publishedAt: 1,
+  ...patch
+})
+const artifactPart = (artifact: ArtifactRef): AppMessagePart => ({ type: 'artifact', artifact })
+
+describe('turn output artifacts (0249 AC15·AC16)', () => {
+  it('keeps the latest publication at the first filename position without mutating parts', () => {
+    const first = outputFile()
+    const other = outputFile({ publicationId: 'other', filename: 'other.md' })
+    const latest = outputFile({ publicationId: 'latest', publishedAt: 3 })
+    const lateOlder = outputFile({ publicationId: 'late-older', publishedAt: 2 })
+    const parts = [first, other, latest, lateOlder].map(artifactPart)
+    expect(partsArtifacts(parts)).toEqual([latest, other])
+    expect(parts.map((part) => (part.type === 'artifact' ? part.artifact : null))).toEqual([
+      first,
+      other,
+      latest,
+      lateOlder
+    ])
+  })
+
+  it('uses the later encountered file publication when publishedAt is equal', () => {
+    const first = outputFile()
+    const next = outputFile({ publicationId: 'next', artifactFileId: 'next-file' })
+    expect(partsArtifacts([artifactPart(first), artifactPart(next)])).toEqual([next])
+  })
+
+  it('preserves published and legacy artifacts with the same filename and deduplicates publication ids', () => {
+    const file = outputFile()
+    const published = outputFile({
+      publicationId: 'published',
+      category: 'artifact',
+      publishedAt: 2
+    })
+    const legacy = outputFile({ publicationId: 'legacy', category: undefined, publishedAt: 3 })
+    const latest = outputFile({ publicationId: 'latest', publishedAt: 4 })
+    expect(
+      partsArtifacts([file, published, legacy, latest, published, latest].map(artifactPart))
+    ).toEqual([latest, published, legacy])
+  })
+
+  it('does not merge filenames or independent turns', () => {
+    const first = outputFile()
+    const other = outputFile({ publicationId: 'other', filename: 'other.md' })
+    const nextTurn = outputFile({ publicationId: 'next-turn', publishedAt: 2 })
+    expect(
+      partsArtifacts([artifactPart(first), { type: 'text', text: 'answer' }, artifactPart(other)])
+    ).toEqual([first, other])
+    expect(partsArtifacts([artifactPart(nextTurn)])).toEqual([nextTurn])
+    expect(partsArtifacts([{ type: 'text', text: 'no output' }])).toEqual([])
+  })
+})
 
 describe('parts selectors', () => {
   it('partsAttachments 는 attachment 파트의 첨부 뷰를 순서대로 평탄화한다', () => {

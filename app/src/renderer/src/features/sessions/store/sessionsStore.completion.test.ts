@@ -23,38 +23,66 @@ beforeEach(() => {
     recentIds: ['s'],
     projectSessionIds: {},
     loading: false,
-    unseenCompletedIds: new Set(),
+    unseenAttention: new Map(),
     viewedSessionId: null
   })
   api.list.mockResolvedValue([row])
   api.remove.mockResolvedValue({ ok: true })
 })
 describe('r5 unseen normal completion lifecycle', () => {
+  it.each(['completed', 'awaiting-response'] as const)('the last reason wins after %s', (first) => {
+    const actions = {
+      completed: sessionsActions.markCompleted,
+      'awaiting-response': sessionsActions.markAwaitingResponse
+    }
+    const last = first === 'completed' ? 'awaiting-response' : 'completed'
+    actions[first]('s')
+    expect(useSessionsStore.getState().unseenAttention.get('s')).toBe(first)
+    actions[last]('s')
+    const state = useSessionsStore.getState()
+    expect(state.unseenAttention.get('s')).toBe(last)
+    actions[last]('s')
+    expect(useSessionsStore.getState()).toBe(state)
+  })
+  it('viewing acknowledges an awaiting response and metadata refresh preserves it until then', async () => {
+    sessionsActions.markAwaitingResponse('s')
+    await sessionsActions.refresh()
+    expect(useSessionsStore.getState().unseenAttention.get('s')).toBe('awaiting-response')
+    sessionsActions.setViewedSession('s')
+    sessionsActions.markAwaitingResponse('s')
+    sessionsActions.setViewedSession(null)
+    expect(useSessionsStore.getState().unseenAttention.has('s')).toBe(false)
+  })
+  it('deletion clears an awaiting response', async () => {
+    sessionsActions.markAwaitingResponse('s')
+    await sessionsActions.remove('s')
+    expect(useSessionsStore.getState().unseenAttention.has('s')).toBe(false)
+  })
   it('only non-viewed completion marks and repeated completion is idempotent', () => {
     sessionsActions.setViewedSession('other')
     sessionsActions.markCompleted('s')
     const marked = useSessionsStore.getState()
-    expect(marked.unseenCompletedIds.has('s')).toBe(true)
+    expect(marked.unseenAttention.has('s')).toBe(true)
     sessionsActions.markCompleted('s')
     expect(useSessionsStore.getState()).toBe(marked)
   })
   it('viewing clears completion and leaving does not resurrect it', () => {
     sessionsActions.markCompleted('s')
     sessionsActions.setViewedSession('s')
-    expect(useSessionsStore.getState().unseenCompletedIds.has('s')).toBe(false)
+    expect(useSessionsStore.getState().unseenAttention.has('s')).toBe(false)
     sessionsActions.markCompleted('s')
     sessionsActions.setViewedSession(null)
-    expect(useSessionsStore.getState().unseenCompletedIds.has('s')).toBe(false)
+    expect(useSessionsStore.getState().unseenAttention.has('s')).toBe(false)
   })
   it('recent metadata refresh preserves the independent marker', async () => {
     sessionsActions.markCompleted('s')
     await sessionsActions.refresh()
-    expect(useSessionsStore.getState().unseenCompletedIds.has('s')).toBe(true)
+    expect(useSessionsStore.getState().unseenAttention.has('s')).toBe(true)
   })
   it('successful deletion clears the marker', async () => {
     sessionsActions.markCompleted('s')
     await sessionsActions.remove('s')
-    expect(useSessionsStore.getState().unseenCompletedIds.has('s')).toBe(false)
+    expect(useSessionsStore.getState().unseenAttention.has('s')).toBe(false)
     expect(useSessionsStore.getState().byId.s).toBeUndefined()
   })
 })

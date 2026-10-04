@@ -41,7 +41,7 @@
 | 입력창 상태 | 항상 mount되는 `ComposerInputController` 로컬 `DraftSnapshot` | — | revision, text, selectionStart/End, composing |
 | UI 인터랙션 (hover/focus/모달) | 컴포넌트 로컬 `useState` | — | DebugPanel 펼침 여부 |
 
-세션 완료 표시는 `sessionsStore.unseenCompletedIds`가 목록 엔티티와 분리해 보관한다. `chatStore`가 정상 라우팅한 `turn.ended`만 `subscribeTurnEnd`로 알리고, app의 `useSessionCompletion`이 실제 라우트와 draft 상태에서 계산한 열람 세션을 연결한다. 현재 열린 세션은 표시하지 않으며, 열기에서 확인 처리하고 목록 재조회에 유지한다. 삭제는 표시를 정리하며 앱 재시작 후에는 복원하지 않는다. 중간 메시지·오류·중단·삭제된 세션의 늦은 신호는 새 완료 표시를 만들지 않는다.
+세션 주의 표시는 `sessionsStore.unseenAttention`이 목록 엔티티와 분리해 세션별 마지막 사유(`completed`·`awaiting-response`)를 보관한다. `chatStore`가 정확히 라우팅한 `turn.ended`와 `permission.requested`를 각각 `subscribeTurnEnd`·`subscribeResponseRequest`로 알리며, app의 `subscribeSessionAttention`이 sessions 액션에 연결한다. `useSessionCompletion`은 실제 라우트와 draft 상태에서 계산한 열람 세션을 전달한다. 현재 열린 세션은 표시하지 않으며, 열기에서 확인 처리하고 목록 재조회에 유지한다. 삭제는 표시를 정리하며 앱 재시작 후에는 복원하지 않는다. 중간 메시지·오류·중단·삭제된 세션의 늦은 신호는 새 완료 표시를 만들지 않고, 세션 ID가 없거나 미확정 draft로 폴백한 요청은 새 응답 대기 표시를 만들지 않는다.
 
 ### 1.2 chat store 구조 (실제 정의 요약)
 

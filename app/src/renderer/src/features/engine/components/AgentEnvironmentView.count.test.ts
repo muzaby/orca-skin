@@ -30,27 +30,44 @@ const environment = (key: string, source: AgentEnvironment['source']): AgentEnvi
 const render = (): string => renderToStaticMarkup(createElement(AgentEnvironmentView))
 const count = (markup: string): string | undefined =>
   markup.match(/data-engine-catalog-count=""[^>]*>([^<]+)</)?.[1]
+// 실제 EngineCard의 최상위 요소를 같은 SSR 산출에서 센다.
+const cards = (markup: string): number =>
+  [...markup.matchAll(/<div class="rounded-xl border border-border bg-panel px-4 py-3\.5">/g)]
+    .length
+const expectCountMatchesCards = (markup: string, expected: number): void => {
+  expect(cards(markup)).toBe(expected)
+  expect(count(markup)).toBe(`${cards(markup)}개`)
+}
 
-describe('engine settings count', () => {
-  it('counts two registered settings while retaining a runtime environment in the list', () => {
+describe('engine catalog count (0249 AC22)', () => {
+  it('counts settings and deployed runtime cards in the same render', () => {
     state.agents = [
       environment('anthropic', 'settings'),
       environment('bedrock', 'settings'),
       environment('corporate-runtime', 'runtime')
     ]
     const markup = render()
-    expect(count(markup)).toBe('2개')
+    expectCountMatchesCards(markup, 3)
     expect(markup).toContain('corporate-runtime')
     expect(markup).not.toContain(ko.engine.subtitle)
     expect(markup).not.toContain('<code>')
   })
 
-  it('updates the total when settings are removed and excludes entries without settings provenance', () => {
+  it('updates the count alongside runtime additions and removals, including legacy provenance', () => {
     state.agents = [environment('anthropic', 'settings'), environment('legacy', undefined)]
-    expect(count(render())).toBe('1개')
+    expectCountMatchesCards(render(), 2)
+    state.agents = [...state.agents, environment('corporate-runtime', 'runtime')]
+    expectCountMatchesCards(render(), 3)
+    state.agents = state.agents.filter((agent) => agent.source !== 'runtime')
+    expectCountMatchesCards(render(), 2)
     state.agents = [environment('corporate-runtime', 'runtime')]
-    expect(count(render())).toBe('0개')
+    expectCountMatchesCards(render(), 1)
+  })
+
+  it('shows zero and the empty state when there are no cards', () => {
     state.agents = []
-    expect(count(render())).toBe('0개')
+    const markup = render()
+    expectCountMatchesCards(markup, 0)
+    expect(markup).toContain(ko.engine.emptyState)
   })
 })

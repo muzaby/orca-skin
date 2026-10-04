@@ -211,6 +211,13 @@ export interface StopAllBackgroundTasksResult {
 export function backgroundKey(generation: string, id: string): string {
   return JSON.stringify([generation, id])
 }
+/** Spark and the background panel consume the same current live task identities. */
+export function countedBackgroundTaskIds(state: BackgroundSessionState): string[] {
+  if (!state.liveKnown) return []
+  return state.liveTaskIds.filter(
+    (id) => state.tasks[backgroundKey(state.generation ?? '', id)]?.ambient !== true
+  )
+}
 export function emptyBackgroundState(): BackgroundSessionState {
   return {
     connection: 'disconnected',
