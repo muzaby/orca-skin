@@ -40,6 +40,8 @@ import { ClaudeAdapter } from './claude'
 import { makeWorkspaceGuardHook } from './workspace-guard'
 import type { TurnRequest } from './turn'
 import type { RuntimeToolContext } from './runtime-tools'
+import type { LiveTurn } from './types'
+import type { NormalizedEvent } from '../../shared/ipc'
 
 const guardHookMock = vi.mocked(makeWorkspaceGuardHook)
 const AUTOMATIC_TEMP = resolve(tmpdir(), 'orcinus-orca')
@@ -51,13 +53,17 @@ const baseReq = (): TurnRequest => ({
   extensions: { skills: [], hooks: { normalized: {} } }
 })
 
-function capture(req: TurnRequest): { option: unknown; guardArg: unknown } {
+function capture(req: TurnRequest): { option: unknown; guardArg: unknown; live: LiveTurn } {
   queryMock.mockClear()
   guardHookMock.mockClear()
-  new ClaudeAdapter().sendMessage(req)
+  const live = new ClaudeAdapter().sendMessage(req)
   const call = queryMock.mock.calls[0]?.[0] as
     { options: { additionalDirectories?: string[] } } | undefined
-  return { option: call?.options.additionalDirectories, guardArg: guardHookMock.mock.calls[0]?.[1] }
+  return {
+    option: call?.options.additionalDirectories,
+    guardArg: guardHookMock.mock.calls[0]?.[1],
+    live
+  }
 }
 
 describe('ClaudeAdapter — extraDirs 는 옵션과 가드가 같은 배열을 본다 (AC11)', () => {
@@ -94,28 +100,56 @@ describe('ClaudeAdapter — extraDirs 는 옵션과 가드가 같은 배열을 �
     request.extraDirs = extraDirs
     request.runtimeToolContext = context
     request.extensions.outputFiles = { directory: AUTOMATIC_TEMP, capture: captured }
-    const { option, guardArg } = capture(request)
+    const { option, guardArg, live } = capture(request)
     expect(option).toEqual(['/tmp/refs', AUTOMATIC_TEMP])
     expect(guardArg).toBe(option)
     expect(extraDirs).toEqual(['/tmp/refs'])
     const args = queryMock.mock.calls[0][0] as {
-      options: { hooks: Record<string, { hooks: ((...args: unknown[]) => Promise<unknown>)[] }[]> }
+      options: {
+        hooks: Record<
+          string,
+          { matcher?: string; hooks: ((...args: unknown[]) => Promise<unknown>)[] }[]
+        >
+      }
     }
-    expect(args.options.hooks.Stop).toHaveLength(2)
-    await args.options.hooks.PostToolUse[0].hooks[0](
-      {
-        hook_event_name: 'PostToolUse',
+    const invoke = async (
+      event: 'PostToolUse' | 'Stop',
+      value: Record<string, unknown>
+    ): Promise<void> => {
+      for (const matcher of args.options.hooks[event] ?? []) {
+        if (
+          event === 'PostToolUse' &&
+          matcher.matcher &&
+          !new RegExp(matcher.matcher).test(String(value.tool_name))
+        )
+          continue
+        for (const callback of matcher.hooks)
+          await callback({ hook_event_name: event, ...value }, undefined, {})
+      }
+    }
+    try {
+      await invoke('PostToolUse', {
         tool_name: 'Write',
         tool_input: { file_path: join(AUTOMATIC_TEMP, 'report.md') },
         tool_response: 'success'
-      },
-      undefined,
-      {}
-    )
-    expect(captured).toHaveBeenCalledWith(
-      join(AUTOMATIC_TEMP, 'report.md'),
-      expect.objectContaining({ cwd: '/tmp/work' })
-    )
+      })
+      expect(captured).toHaveBeenCalledExactlyOnceWith(
+        join(AUTOMATIC_TEMP, 'report.md'),
+        expect.objectContaining({ cwd: '/tmp/work' })
+      )
+      const summaryPath = join(AUTOMATIC_TEMP, 'summary.md').replace(/\\/g, '/')
+      await invoke('Stop', { last_assistant_message: `[Summary](<${summaryPath}>)` })
+      expect(captured).toHaveBeenCalledTimes(2)
+      expect(captured).toHaveBeenLastCalledWith(
+        summaryPath,
+        expect.objectContaining({ cwd: '/tmp/work' })
+      )
+      const events: NormalizedEvent[] = []
+      for await (const batch of live.eventBatches) events.push(...batch.events)
+      expect(events.filter((event) => event.type === 'turn.ended')).toHaveLength(1)
+    } finally {
+      live.close()
+    }
   })
 
   it('앱 임시 루트는 통과시키고 OS Temp 부모와 형제는 자동 허용하지 않는다', async () => {

@@ -2,12 +2,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import path from 'node:path'
 
-const { lstatMock, openMock, realpathMock, handle, stat } = vi.hoisted(() => {
+const { lstatMock, openMock, handle, stat } = vi.hoisted(() => {
   const stat = { isFile: () => true, isSymbolicLink: () => false, size: 1, ino: 1, dev: 1 }
   const handle = { stat: vi.fn(), read: vi.fn(), close: vi.fn() }
-  return { stat, handle, lstatMock: vi.fn(), openMock: vi.fn(), realpathMock: vi.fn() }
+  return { stat, handle, lstatMock: vi.fn(), openMock: vi.fn() }
 })
-vi.mock('node:fs/promises', () => ({ lstat: lstatMock, open: openMock, realpath: realpathMock }))
+vi.mock('node:fs/promises', () => ({ lstat: lstatMock, open: openMock }))
 
 import { nodePlanFileReader } from './plan-file'
 
@@ -17,7 +17,6 @@ beforeEach(() => {
   lstatMock.mockResolvedValue(stat)
   openMock.mockResolvedValue(handle)
   handle.stat.mockResolvedValue(stat)
-  realpathMock.mockResolvedValue(filePath)
   handle.close.mockResolvedValue(undefined)
 })
 
@@ -50,16 +49,46 @@ describe('0249 VP-12 — bounded reader와 핸들 정리', () => {
     'not file',
     'oversized',
     'different inode',
-    'realpath reject',
+    'different device',
+    'parent stat reject',
     'linked parent',
+    'linked ancestor',
+    'replaced path',
+    'replaced device',
+    'linked replacement',
     'read reject'
   ])('%s 후 null을 반환하고 이미 연 핸들은 닫는다', async (failure) => {
     if (failure === 'stat reject') handle.stat.mockRejectedValue(new Error('stat failed'))
     if (failure === 'not file') handle.stat.mockResolvedValue({ ...stat, isFile: () => false })
     if (failure === 'oversized') handle.stat.mockResolvedValue({ ...stat, size: 5 })
     if (failure === 'different inode') handle.stat.mockResolvedValue({ ...stat, ino: 2 })
-    if (failure === 'realpath reject') realpathMock.mockRejectedValue(new Error('realpath failed'))
-    if (failure === 'linked parent') realpathMock.mockResolvedValue(path.resolve('outside/a.md'))
+    if (failure === 'different device') handle.stat.mockResolvedValue({ ...stat, dev: 2 })
+    if (failure === 'parent stat reject')
+      lstatMock.mockImplementation(async (target: string) => {
+        if (target !== filePath) throw new Error('parent stat failed')
+        return stat
+      })
+    if (failure === 'linked parent' || failure === 'linked ancestor')
+      lstatMock.mockImplementation(async (target: string) => ({
+        ...stat,
+        isSymbolicLink: () =>
+          target ===
+          (failure === 'linked parent'
+            ? path.dirname(filePath)
+            : path.dirname(path.dirname(filePath)))
+      }))
+    if (['replaced path', 'replaced device', 'linked replacement'].includes(failure)) {
+      let fileStats = 0
+      lstatMock.mockImplementation(async (target: string) => {
+        if (target !== filePath || ++fileStats === 1) return stat
+        return {
+          ...stat,
+          ino: failure === 'replaced path' ? 2 : stat.ino,
+          dev: failure === 'replaced device' ? 2 : stat.dev,
+          isSymbolicLink: () => failure === 'linked replacement'
+        }
+      })
+    }
     if (failure === 'read reject') handle.read.mockRejectedValue(new Error('read failed'))
     expect(await nodePlanFileReader(4)(filePath)).toBeNull()
     expect(handle.close).toHaveBeenCalledTimes(1)

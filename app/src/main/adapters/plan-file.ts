@@ -1,6 +1,6 @@
 // ExitPlanMode 파일 출처(0249 D-015~D-017): 성공한 메인 에이전트의 마지막 plans 쓰기를
 // 채널 셀에 기록하고 Stop마다 비운다. 읽기는 승인 요청 시점이며 파일을 쓰지는 않는다.
-import { lstat, open, realpath } from 'node:fs/promises'
+import { lstat, open } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import path from 'node:path'
 import type { HookCallback, Options } from '@anthropic-ai/claude-agent-sdk'
@@ -60,9 +60,23 @@ export function nodePlanFileReader(maxBytes = PLAN_FILE_MAX_BYTES): PlanFileRead
           opened.dev !== stat.dev
         )
           return null
-        // 디렉토리 링크를 통해 plans 밖으로 빠지는 경로도 파일 출처가 아니다. win32 relative는
-        // 실제 파일의 대소문자 정규화만으로 정상 읽기를 막지 않는다.
-        if (path.relative(absolutePath, await realpath(absolutePath)) !== '') return null
+        // Windows의 8.3 별칭도 일반 경로다. realpath 문자열 비교로 링크를 추정하면
+        // 짧은 TEMP 경로의 정상 파일까지 거부하므로 조상 자체의 링크 속성을 검사한다.
+        for (let parent = path.dirname(absolutePath); ;) {
+          if ((await lstat(parent)).isSymbolicLink()) return null
+          const next = path.dirname(parent)
+          if (next === parent) break
+          parent = next
+        }
+        // 조상 검사 중 경로가 교체됐으면 열린 파일과 다른 출처를 읽지 않는다.
+        const current = await lstat(absolutePath)
+        if (
+          !current.isFile() ||
+          current.isSymbolicLink() ||
+          current.ino !== opened.ino ||
+          current.dev !== opened.dev
+        )
+          return null
         // stat 이후 파일이 커져도 무제한으로 읽지 않는다. 1바이트 초과 probe로 상한을
         // 판정하고 이미 연 핸들은 모든 반환·실패 경로에서 닫는다.
         const bytes = Buffer.alloc(maxBytes + 1)
