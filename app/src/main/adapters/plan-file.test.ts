@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { lstat, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises'
+import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import type { HookCallback } from '@anthropic-ai/claude-agent-sdk'
@@ -63,6 +64,22 @@ describe('0249 VP-12 — plans 경로 판정', () => {
 })
 
 describe('0249 VP-12 — reader·선언 경로 guard', () => {
+  it.runIf(process.platform === 'win32')(
+    '8.3 별칭의 비링크 일반 파일도 읽는다',
+    async ({ skip }) => {
+      const root = await directory()
+      const shortRoot = execFileSync('cmd.exe', ['/d', '/c', 'for %I in (.) do @echo %~fsI'], {
+        cwd: root,
+        encoding: 'utf8'
+      }).trim()
+      const file = path.join(shortRoot, 'a.md')
+      await writeFile(file, '# 짧은 경로의 계획')
+      if (path.relative(file, await realpath(file)) === '') skip('8.3 별칭이 없는 볼륨')
+      expect((await lstat(shortRoot)).isSymbolicLink()).toBe(false)
+      expect(await nodePlanFileReader()(file)).toBe('# 짧은 경로의 계획')
+    }
+  )
+
   it('일반 파일·256 KiB 경계는 읽고 초과·디렉토리·부재는 건너뛴다', async () => {
     const root = await directory()
     const allowed = path.join(root, 'a.md')

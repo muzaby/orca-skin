@@ -924,7 +924,7 @@ E/F: output.captured/tool.call.completed → artifact part → partsArtifacts �
 
 # [구현자 기입] r1 기록 — V1 + ΔV1
 
-> 아래 r1의 `19/20`·PG-01·DRAFT 판정은 당시 기록이다. 현재 구현 자기보고는 뒤의 **r1.2 — V1 + ΔV1 + ΔV2** 절이 정본이다.
+> 아래 r1의 `19/20`·PG-01·DRAFT 판정은 당시 기록이다. 현재 구현 자기보고는 뒤의 **r1.3 — CI 게이트 보완** 절이 정본이다.
 
 ## [구현자 기입] 설계 리뷰
 
@@ -1318,8 +1318,205 @@ node scripts/check-doc-inventory.mjs --check
 ---
 
 
+# [구현자 기입] r1.3 — CI 게이트 보완
+
+## [구현자 기입] 설계 리뷰
+
+- 동의 / 그대로 진행: READY·유효 V1+ΔV1+ΔV2 유지. 사용자 보고는 현재 산출물의 필수 CI gate red라 기존 D-016·AC11·AC14′ 범위에서 선조치했다.
+- 이견 / 현실성 문제: 없음. Decision·AC·V registry·§10 규범 행은 변경하지 않았다.
+- ACTIVE Decision과 충돌하는 설계 발견: 일반 파일을 realpath 문자열 차이만으로 거부한 reader가 D-016을 위반했다. 실제 링크 속성 검사로 보정하고 상한·핸들 동일성·정리를 유지했다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-01·22 | 로그인 프리 상태 | EP-01 5 | 5/5: ko/en·row meta·목록·상세 | S1, 연결됨/Connected·기본 제공·인증 액션 부재 | 없음 |
+| VP-02~05·19 | 완료·응답 대기 Map | EP-02 8 | 운반 세분 10/10 | S2, 3종 요청→같은 파랑·열람/삭제·last wins | 없음 |
+| VP-06′·07′·08′·21′·23′·24′·25 | 패널 투영·Spark | EP-03′ 9 | 운반 세분 17/17 | S3+S6, 실제 Mapper 두 반례에서 실행 중 집합={b}/∅, Spark=1/0 | 없음 |
+| VP-09′·10·11′·12·13′·20 | 계획 파일·CLI 반환 | EP-04′ 7 | 운반 세분 8/8 | S4, 실제 query·파일·Stop·출처 표·원본 입력 참조 | 없음 |
+| VP-15·16 | 한 턴 최신 파일 | EP-05 2 | 2/2 | S5, 최신 ref·최초 위치·category 경계·실제 saveAll 인자 | 없음 |
+| VP-17·18 | 카드→메타 슬롯 | EP-06 1 | 1/1 | S5, Work/Code×pending/done 순서·spark 1개 | 없음 |
+| VP-27·28 | 엔진 카드 수 | EP-07 3 | 3/3 | S1, settings+runtime 3개·증감·빈 0개·설명 부재 | 없음 |
+| VP-26·08′ | 인라인 Agent 상세 | EP-08 2 | 2/2 | S3, 실제 openSubagentTask 선택·Agent/Task 상세·Read 실패 선택 부재 | 없음 |
+| VP-23′·24′·29·30·31·32 | 종료 확인 불가 표시 정착 | EP-09 6 | 운반 세분 17/17 | S6, 그룹·라벨·6s 고정·중단 부재·지우기·후속 통지·기록 불변 | 없음 |
+| VP-30 | excluded 표시 퇴역 | EP-10 6 | 6/6 | S6 진리표·typecheck·키 검색 0건, OR-1 민감도 2건→원복 0건 | 없음 |
+
+- 독립 분모: EP-02의 두 구독과 effect는 3자리, EP-04′의 hook 편입과 getter는 2자리다. EP-03′ 세분은 1+1+3+1+1+4+1+3+2=17이며, 각 지정 모듈 내부의 소비 의미를 센다.
+- EP-09 세분: task/call 표시 함수 2 + task/call 그룹 분류 2 + TaskCard의 표시 입력·라벨·틱 중지·endedAt 계산·중단 guard·중단 버튼·연결 배지 7 + CallCard 표시 입력·라벨 2 + task/call dismiss guard 2 + task/call 완료 지우기 2=17이다. EP-10은 반환 타입·분기·display union·라벨 맵·ko 키·en 키를 각각 센 6자리다.
+- 검색으로 구한 투영 소비 파일 3개와 지정 소비 파일 3개의 차집합은 0행이다. 계획 출처/소비 파일 3개와 지정 파일 집합의 차집합도 0행이며, partsArtifacts의 transcript 소비는 AssistantTurn 1곳이다.
+- §10 밖의 같은 불변식: TaskCard 연결 종료 배지 조건을 현재 live 제외의 unconfirmed 상태에도 소비하는 자리로 조사했다. S6 현재 연결의 '프로세스 종료' 부재와 S3 실제 종료 배지 양성으로 닫았다.
+- 퇴역 검색: 표시 관련 5파일의 excluded 잔여는 중단 판단과 표시 정착의 raw liveMembership 비교 2줄뿐이다. background.excluded 참조와 locale의 excluded 키는 각각 0건이며 raw membership은 보존했다.
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | S1 카탈로그·목록·상세 SSR | not selected |
+| VP-02 | REQUIRED | SELF_PASS | S2 실제 3종 ingest→Map→아이콘 | B1·B2·B3 red |
+| VP-03 | REQUIRED | SELF_PASS | S2 열람 acknowledge·사유 교차·삭제 | not selected |
+| VP-04 | REQUIRED | SELF_PASS | S2 app 구독 값·lint boundaries 오류 0 | not selected |
+| VP-05 | REQUIRED | SELF_PASS | S2 store 값·동일 사유 identity | not selected |
+| VP-06′ | REQUIRED | SELF_PASS | S3 양성/음성 같은 state·종류별 카드 | C1′~C4′ red |
+| VP-07′ | REQUIRED | SELF_PASS | S3 ambient·Spark·증거·foreground 진리표 | not selected |
+| VP-08′ | REQUIRED | SELF_PASS | S3 목록·선택·지우기 공통 투영 | not selected |
+| VP-09′ | REQUIRED | SELF_PASS | S4 요청 본문·allow 입력·출처 조합 | D1·D2′·D3′·D4′·D10 red |
+| VP-10 | REQUIRED | SELF_PASS | S4 마지막 메인 쓰기·Stop 비움 | D5·D6 red |
+| VP-11′ | REQUIRED | SELF_PASS | S4 query 포획·hook/getter 공유 셀·env | D7·D8·D9 red |
+| VP-12 | REQUIRED | SELF_PASS | S4 경로·상한·링크·부재·reader 오류/close | not selected |
+| VP-13′ | REQUIRED | SELF_PASS | S4 실제 resolver의 출처·정규화·참조 | not selected |
+| VP-15 | REQUIRED | SELF_PASS | S5 최신 파일·첫 위치·실제 saveAll | E1·E2·E3 red |
+| VP-16 | REQUIRED | SELF_PASS | S5 partsArtifacts 반환·category 경계 | not selected |
+| VP-17 | REQUIRED | SELF_PASS | S5 Work/Code×진행/완료 순서 | not selected |
+| VP-18 | REGRESSION | SELF_PASS | S5 이전 턴·pending fallback·spark 1개 | not selected |
+| VP-19 | REGRESSION | SELF_PASS | S2 기존 완료 의미·같은 파랑 | not selected |
+| VP-20 | REGRESSION | SELF_PASS | S4 서술/empty·plan0215.render | not selected |
+| VP-21′ | REGRESSION | SELF_PASS | S3 foreground 셸 제외·배경 Agent 상세 | not selected |
+| VP-22 | REGRESSION | SELF_PASS | S1 기본 제공·인증 액션 부재 | not selected |
+| VP-23′ | REQUIRED | SELF_PASS | S6 실제 Mapper 정상+반례①②의 집합/길이 등식 | S1~S5 red |
+| VP-24′ | REQUIRED | SELF_PASS | S6 시작→live→제외→unconfirmed→실제 통지 | not selected |
+| VP-25 | REQUIRED | SELF_PASS | S3+S6 같은 상태의 shared 집합·main count·SSR | not selected |
+| VP-26 | REQUIRED | SELF_PASS | S3 실제 인라인 선택→숨긴 Agent 상세 | B4·B5 red |
+| VP-27 | REQUIRED | SELF_PASS | S1 제목 개수=실제 카드 수·증감 | not selected |
+| VP-28 | REGRESSION | SELF_PASS | S1 설명 부재·common.count 단위 | not selected |
+| VP-29 | REQUIRED | SELF_PASS | S6 unconfirmed 그룹·라벨·시간·중단·clear | not selected — 직접 oracle |
+| VP-30 | REQUIRED | SELF_PASS | S6 정착 진리표 26행·call 연결 2종·키 퇴역 | not selected, 키 sweep는 OR-1 |
+| VP-31 | REGRESSION | SELF_PASS | S6 기존 비원격 old/terminated 정착·시간 | not selected |
+| VP-32 | REGRESSION | SELF_PASS | S6 raw running/증거 불변·늦은 실제 통지 | not selected |
+
+- 유효 pair를 규범 registry에서 다시 추출한 결과 REQUIRED 23·REGRESSION 8이다. 보고 pair와의 누락/추가 차집합은 0행이다.
+
+- r1.3 재측정: 위 S1~S6의 직접 oracle을 모두 포함한 IMPACT 251파일2075케이스 green. 선택된 27 ID도 이번 턴에 다시 실행했고 결과는 다음 표다.
+- 같은 불변식 전수: 공통 reader 1곳을 추적·선언 2출처가 사용한다. 파일 lstat → 열린 handle stat → 조상 전수 lstat → 현재 파일 lstat → bounded handle read → finally close를 관측했다(S4, SHORT-TEMP).
+- EP/운반 분모는 r1.2와 같고 새 helper/저장소/IPC는 없다. 계획 출처 생산 검색의 파일 집합 {claude.ts, plan-file.ts, plan-text.ts}와 지정 집합 차집합은 0행이다.
+- 검색 명령은 r1 전수 명령 4개를 재실행했다. 실제 merged 훅의 고정 가정 검색에서 extraDirs 2곳(Stop 개수·첫 PostToolUse)을 보정했으며 turnEnd의 2곳은 출력 기능 없는 fixture로 유효했다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+| 심은 결함 ID | 출처 | 정확한 결함 / 자리 | 이번 실패 수 / 대상 | 결과 |
+|---|---|---|---|---|
+| M-B1 | VP-02 | 완료 전용 effect 구독 | 1 / hook 11 | red·바이트 원복 |
+| M-B2 | VP-02 | 요청 listener 통지 제거 | 4 / hook 11 | red·바이트 원복 |
+| M-B3 | VP-02 | viewed guard 제거 | 2 / hook 11 | red·바이트 원복 |
+| M-B4 | VP-26 | 인라인 선택 연결 제거 | 2 / background-open 3 | red·바이트 원복 |
+| M-B5 | VP-26 | 선택 Agent 예외 제거 | 5 / S3A 178 | red·바이트 원복 |
+| M-C1′ | VP-06′ | 배경 술어 항상 true | 35 / S3A 178 | red·바이트 원복 |
+| M-C2′ | VP-06′ | ambient 검사 제거 | 10 / S3A 178 | red·바이트 원복 |
+| M-C3′ | VP-06′ | 비셸 작업 무조건 표시 | 16 / S3A 178 | red·바이트 원복 |
+| M-C4′ | VP-06′ | call.mode 증거 제거 | 4 / S3A 178 | red·바이트 원복 |
+| M-S1 | VP-23′ | main count에 ambient 포함 | 2 / S3A 178 | red·바이트 원복 |
+| M-S2 | VP-23′ | Spark 항·call.mode 제거 | 5 / S3A 178 | red·바이트 원복 |
+| M-S3 | VP-23′ | 포그라운드 Agent 노출(C3′ 공유) | 16 / S3A 178 | red·바이트 원복 |
+| M-S4 | VP-23′ | live 제외 정착 제거 | 6 / S3A 178 | red·바이트 원복 |
+| M-S5 | VP-23′ | 이전 세대 remote 예외 복원 | 7 / S3A 178 | red·바이트 원복 |
+| M-D1 | VP-09′ | 파일보다 서술 우선 | 14 / S4+extraDirs 164 | red·바이트 원복 |
+| M-D2′ | VP-09′ | 파일 판정 전 입력 반환 | 12 / 같은 164 | red·바이트 원복 |
+| M-D3′ | VP-09′ | 일치 입력도 새 객체 | 10 / 같은 164 | red·바이트 원복 |
+| M-D4′ | VP-09′ | 보정 입력 경로 제거 | 18 / 같은 164 | red·바이트 원복 |
+| M-D5 | VP-10 | Stop 비움 제거 | 3 / 같은 164 | red·바이트 원복 |
+| M-D6 | VP-10 | agent_id guard 제거 | 3 / 같은 164 | red·바이트 원복 |
+| M-D7 | VP-11′ | 계획 hook 병합 제거 | 18 / 같은 164 | red·바이트 원복 |
+| M-D8 | VP-11′ | tracked getter를 새 셀로 | 3 / 같은 164 | red·바이트 원복 |
+| M-D9 | VP-11′ | getPlanFiles 배선 제거 | 5 / 같은 164 | red·바이트 원복 |
+| M-D10 | VP-09′ | 서술을 CLI 입력에 동봉 | 4 / 같은 164 | red·바이트 원복 |
+| M-E1 | VP-15 | 첫 파일 버전 유지 | 6 / S5 44 | red·바이트 원복 |
+| M-E2 | VP-15 | 최신 ref는 유지하고 마지막 슬롯으로 이동 | 5 / S5 44 | red·바이트 원복 |
+| M-E3 | VP-15 | category 경계 제거 | 9 / S5 44 | red·바이트 원복 |
+| OF-1 | 새 extraDirs 배선 oracle | claude.ts의 makeOutputFilesHook 병합 조각 제거 | 1 / extraDirs 5 | red→원복 5 green |
+| OR-1 | 기존 EP-10 sweep | ko/en의 background.excluded 키 재삽입 | rg 2건→원복 0건 | 민감도 검출·바이트 원복 |
+
+- 분모 검산: 선택 증거 27 ID · 추가 인용 변이 0 · 새 oracle 1 = 필수 28행, 기존 OR-1 재측정 1행을 더해 표 29행이다. 등록 ID와 선택 표 ID의 누락/추가 차집합은 0행이다.
+- C3′와 S3는 같은 실제 변이를 공유한다. S4는 추가 진리표의 영향으로 6건, E2는 최신 ref를 보존하고 위치만 옮긴 치환에서 5건이며 과거 수치를 복사하지 않았다.
+- D 계열 원복 9파일164케이스 green, 나머지 원복 20파일263케이스 green. 최종 IMPACT 251파일2075케이스도 green이며 영구 diff는 의도한 main 어댑터/테스트 4파일뿐이다.
+- SHORT-TEMP와 reader의 파일/부모 링크·교체·성장·close는 실제 반환 직접 oracle이다. VP-12는 not selected이며 임의 등록 변이를 추가하지 않았다.
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — 신규 문구·상태 없음 | 기존 계획 승인 본문이 소비한다 |
+| seam 재배치 뒤 정리 코드의 스코프가 유효한가 | 열린 handle 읽기·finally close 유지(S4) | 조상/현재 파일 검사 실패도 close |
+| 이번 실패 경로가 Part I 어느 행인가 | D-016 일반 파일·AC11·AC14′ 계획 본문 | SHORT-TEMP의 동일 6개 실패 재현 |
+| 실패가 화면에서 아무 일도 없는 것으로 보이는가 | 기존 결함은 파일을 못 읽고 서술/빈 본문으로 내려갔다 | 파일 요청·CLI allow 결과를 다시 관측(S4) |
+| 늦게 도착한 응답이 화면을 되돌리는가 | Stop 수명·세션 셀 격리 그대로(S4) | 별도 지연/재시도 없음 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| CI-01 | realpath가 8.3 별칭을 긴 이름으로 바꾸면 일반 파일도 거부 | 수정 — 조상 링크 속성 검사·현재 파일 identity 재확인 | 짧은 TEMP에서 원본 2파일6red→수정 4파일48green |
+| CI-02 | extraDirs가 Stop 2개·첫 PostToolUse를 가정 | 수정 — matcher 필터 후 전체 callback 실행 | Write·Stop 출력 캡처와 turn.ended 1회, OF-1 red |
+| N-01 | 기존 ino Number가 안전정수 밖에서 반올림됨 | 보고만 — bigint 메타 강화 후보, CI 오판 원인과 별개 | 로컬 일반 파일 Number와 bigint 진단 값이 1 차이 |
+| E-01 | sandbox가 사용자 폴더 lstat를 EPERM으로 차단 | 검증 환경 분리 — 승격 실행에서 정상 | 동일 3파일40green, scripts132green |
+
+### 설계 대비 명시적 차이
+
+- 링크 추정에 realpath 문자열 비교를 쓰지 않고 파일과 모든 조상의 실제 링크 속성을 검사한다. 짧은 이름은 비링크 일반 파일이므로 D-016의 설계 기준은 그대로다.
+- 여러 fs 호출로 모든 악의적 경로 교체를 원자적으로 막는다고 주장하지 않는다. handle identity·검사 뒤 현재 파일 identity·열린 handle bounded read를 유지한다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 새 캐시/TTL 없음 | AC11·EP-04′ Stop 비움 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 기존 셀·두 출처 유지 | AC11·14′, S4 실제 query 배선 |
+| 재진입 | 추가 조상 lstat가 실패할 수 있음 | AC11, reader parent-stat 실패·close 단언 |
+| 다른 무효화 축 | 파일/부모 링크 또는 검사 도중 파일 교체 | AC11·D-016, 실제 junction·inode/dev/link 교체 단언 |
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 관측 |
+|---|---|
+| 변경 파일 | main 계획 reader와 reader/경로/extraDirs 테스트 4파일, plan·INDEX. 최종 diff가 파일 목록 정본 |
+| 실행 명령 | IMPACT(앞 영향 명령 + extraDirs, maxWorkers=4), SHORT-TEMP, S4+extraDirs, S1/S2/S3A/S5, lint·typecheck·3가드·scripts |
+| 관측한 게이트 산출 | IMPACT 251파일2075, scripts132 green. lint 0error·기존 warning1, typecheck node/web/test 진단0. 문서 inventory·migration·test-budget 정상 |
+| V-pair 자기확인 | REQUIRED 23 SELF_PASS·REGRESSION 8 SELF_PASS =31, SELF_BLOCKED 0 |
+| 강제 지점 전수 | 위 EP-01~10 자리와 계획 파일 두 출처의 공통 reader 재조회. 지정/검색 집합 차집합 0행 |
+| AC 자기보고(Criteria-Met) | 21/21 — 독립 verify 판정 아님 |
+| 합계 검산 | ✅21 · ⚠️0 · ❌0 =21. 유효 acceptance와 아래 보고 ID의 누락/추가 차집합 0행 |
+| 블로커 / 역질문 | 없음. 원격 CI의 전체 게이트 재실행은 push 후 확인하며 독립 handoff 검증은 Claude 대기 |
+| 대상 커밋 | (r1.3 구현 — 좌표는 INDEX) |
+
+### AC 자기보고 — 유효 21행
+
+| AC | 자기결과 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | S1 ko/en Connected·연결됨, 기본 제공·인증 액션 부재 |
+| AC2 | ✅ | S2 3종 요청 Map·실제 SessionRow 같은 파랑 |
+| AC3 | ✅ | S2 viewed 요청 부재·열람 acknowledge |
+| AC4 | ✅ | S2 last wins·삭제·같은 사유 identity |
+| AC5 | ✅ | S2 미지/null/불일치/폴백/삭제/unsubscribe 음성 |
+| AC6′ | ✅ | S3 배경 6종 작업 카드·완료 보존 |
+| AC7′ | ✅ | S3 양성과 같은 state의 foreground/ambient/실패 음성 |
+| AC8′ | ✅ | S3 배경 Agent/셸 상세·개별 중단·완료 지우기 |
+| AC9′ | ✅ | S4 빈 입력의 파일 요청 본문·allow plan/path |
+| AC10′ | ✅ | S4 출처/입력/서술 조합·파일 없는 입력 불변 |
+| AC11 | ✅ | S4 + SHORT-TEMP, 8.3 일반 파일·agent_id·오류·경로·Stop·상한·링크·close |
+| AC14′ | ✅ | S4 실제 query의 Write→ExitPlanMode→Stop·env |
+| AC15 | ✅ | S5 최신 publishedAt·동시각·최초 위치 |
+| AC16 | ✅ | S5 다른 category/파일/턴 보존·실제 saveAll refs |
+| AC17 | ✅ | S5 Work/Code×진행/완료 카드→메타·spark 1개 |
+| AC18 | ✅ | IMPACT 251파일2075·scripts132·lint0error/1warning·typecheck3종0·문서/가드 정상, 커밋 후 trailer 재조회 |
+| AC19′ | ✅ | S6 실제 Mapper 정상·두 반례 집합/길이 등식 |
+| AC20 | ✅ | S3 실제 인라인 선택·Agent/Task 상세·목록 부재 |
+| AC21 | ✅ | S4 BOM/CRLF/끝 공백·win32 경로·원본 입력 참조 |
+| AC22 | ✅ | S1 settings+runtime 3개·증감·빈 0개 |
+| AC23 | ✅ | S6 unconfirmed 완료·6s 고정·중단 부재·clear·기록 불변·실제 통지 |
+
+- 합계 검산: ✅21 · ⚠️0 · ❌0 =21. 폐기 AC12·13 및 대체 전 AC6~10·14·19는 분모 밖이다.
+- CI 원본: [run 37169511419](https://github.com/muzaby/orca-skin/actions/runs/37169511419), Test 3파일7건 실패·앞 gate 정상. 로그에 TEMP 자체는 없어 실제 짧은 TEMP를 통제 입력으로 만들어 같은 6건을 재현했다.
+- 로컬 전체 Vitest는 장시간 실행 중 중단해 완료 판정에 사용하지 않았다. sandbox scripts8red는 승격 실행132green으로 분리했고 native ABI 전환은 하지 않았다.
+- 최종 plan READY·V1+ΔV1+ΔV2와 INDEX impl/IMPL_DONE r1.3·Claude(검증)를 다시 읽는다. 커밋 후 git log의 Agent/Handoff/Status/Criteria-Met/Verified-By trailer를 확인한다.
+
+## [구현자 기입] Review Signals — 사실만
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 계획 파일 일반/비링크 읽기와 기존 출력 훅 배선 축이다. ΔV2 제품 상태 정착은 변경하지 않았다.
+- 막았어야 할 plan 지침·AC가 있었는가: D-016·AC11은 일반 파일을 허용했지만 기존 로컬 TEMP는 긴 이름이라 realpath 오판이 드러나지 않았다. 기존 영향 명령에는 extraDirs가 빠져 있었다.
+- 반복 환경 한계: 사용자 폴더 lstat sandbox EPERM은 승격 검증으로 분리했다. 로컬 전체 테스트 중단은 전체 성공으로 세지 않고 원격 CI에서 확인한다.
+- 현재 라운드·impl 턴: r1.3. formal verify는 수행하지 않았으며 다음 주체는 Claude 검증자다.
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| CI-01 | 8.3 일반 파일 realpath 오판 | VP-12·D-016·AC11 / 필수 CI Test gate | 실제 조상 링크 검사 | BLOCKING | closed(구현자 자기확인): SHORT-TEMP 6red→48green |
+| CI-02 | extraDirs의 병합 훅 고정 위치·개수 | 필수 CI Test gate·출력 capture 회귀 | 전체 훅 실행의 실제 결과 관측 | BLOCKING | closed(구현자 자기확인): OF-1 red→5green |
