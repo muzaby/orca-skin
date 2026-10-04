@@ -103,7 +103,7 @@ describe('plugin catalog list', () => {
     expect(markup).toContain('M720-360v-80h80')
   })
 
-  it('로그인 프리 행은 detail에 기본 제공만, trailing에 인증 불필요를 표시한다 (0248 AC11)', () => {
+  it('로그인 프리 행은 detail에 기본 제공만, trailing에 연결됨을 표시한다 (0249 AC1)', () => {
     const markup = render({
       tab: 'providers',
       providers: [
@@ -116,7 +116,8 @@ describe('plugin catalog list', () => {
       ]
     })
     expect(markup).toContain('title="기본 제공">기본 제공</span>')
-    expect(markup).toContain('>인증 불필요</span>')
+    expect(markup).toContain('>연결됨</span>')
+    expect(markup).not.toContain('인증 불필요')
     expect(markup).not.toContain('기본 제공 ·')
     expect(markup).not.toContain('알 수 없음')
     expect(markup).not.toContain('API 키')

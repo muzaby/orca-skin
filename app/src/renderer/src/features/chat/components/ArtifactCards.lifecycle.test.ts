@@ -17,6 +17,7 @@ const h = vi.hoisted(() => ({
 }))
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
+  useMemo: (calculate: () => unknown) => calculate(),
   useEffectEvent: (callback: () => unknown) => callback,
   useState: (initial: unknown) => {
     const i = h.stateIndex++
@@ -75,6 +76,9 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from 'rea
 import type { ArtifactRef } from '../../../../../shared/artifacts'
 import { useConfirmStore } from '../../../shared/ui/confirmDialogStore'
 import { closeArtifactViewer, useArtifactViewerStore } from '../store/artifactViewerStore'
+import { AssistantTurn } from './transcript/AssistantTurn'
+import { agentUiPolicy } from '../lib/agentPresentation'
+import type { Turn } from '../lib/turns'
 const ref = {
   publicationId: 'p',
   artifactFileId: 'f',
@@ -85,12 +89,13 @@ const ref = {
   publishedAt: 1
 }
 function render(
-  refs = [ref],
-  variant: 'list' | 'transcript' = 'transcript'
+  refs: readonly ArtifactRef[] = [ref],
+  variant: 'list' | 'transcript' = 'transcript',
+  props: Partial<Parameters<typeof ArtifactCards>[0]> = {}
 ): ReturnType<typeof ArtifactCards> {
   h.stateIndex = h.refIndex = h.effectIndex = 0
   h.pending = []
-  const result = ArtifactCards({ artifacts: refs, variant })
+  const result = ArtifactCards({ artifacts: refs, variant, ...props })
   for (const run of h.pending) run()
   return result
 }
@@ -103,6 +108,63 @@ beforeEach(() => {
   closeArtifactViewer()
 })
 afterEach(() => vi.unstubAllGlobals())
+
+it('saves exactly the latest cards projected by the real AssistantTurn (0249 AC16)', () => {
+  const first: ArtifactRef = { ...ref, category: 'file' }
+  const other: ArtifactRef = {
+    ...first,
+    publicationId: 'other',
+    artifactFileId: 'other-file',
+    filename: 'other.md'
+  }
+  const latest: ArtifactRef = {
+    ...first,
+    publicationId: 'latest',
+    artifactFileId: 'latest-file',
+    publishedAt: 2
+  }
+  const published: ArtifactRef = { ...first, publicationId: 'published', category: 'artifact' }
+  const turn: Turn = {
+    role: 'assistant',
+    startIndex: 0,
+    messages: [
+      {
+        role: 'assistant',
+        createdAt: 1,
+        parts: [first, other, latest, published].map((artifact) => ({ type: 'artifact', artifact }))
+      }
+    ]
+  }
+  // memo가 감싼 production 컴포넌트의 함수로 props를 투영하고 실제 카드 동작을 누른다.
+  const component = AssistantTurn as unknown as {
+    type: (props: {
+      turn: Turn
+      transcriptPolicy: ReturnType<typeof agentUiPolicy>['transcript']
+    }) => ReactElement<{ children: ReactNode[] }>
+  }
+  const assistant = component.type({ turn, transcriptPolicy: agentUiPolicy('work').transcript })
+  const element = assistant.props.children.find(
+    (child): child is ReactElement<Parameters<typeof ArtifactCards>[0]> =>
+      isValidElement(child) && child.type === ArtifactCards
+  )
+  expect(element).toBeDefined()
+  const tree = render(element!.props.artifacts, 'transcript', element!.props) as ReactElement<{
+    children: ReactNode[]
+  }>
+  const cards = tree.props.children[1] as ReactElement<Parameters<typeof ArtifactCard>[0]>[]
+  expect(cards.map((card) => card.props.artifact)).toEqual([latest, other, published])
+  const saveAll = tree.props.children[0] as ReactElement<{
+    children: ReactElement<{ onClick: () => void }>
+  }>
+  h.action.mockResolvedValueOnce({ outcome: 'completed', items: [] })
+  saveAll.props.children.props.onClick()
+  expect(h.action).toHaveBeenCalledWith(
+    's',
+    cards.map((card) => card.props.artifact),
+    'save'
+  )
+  expect(h.acquire).toHaveBeenCalledWith('s', [latest, other, published])
+})
 
 function previewTrigger(tree: ReactNode):
   | ReactElement<{

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { ChatActivitySnapshot } from '../../../shared/ipc'
+import type { BackgroundEventSource } from '../../../shared/background-task'
 import { BackgroundTaskTracker } from './background-tasks'
 import { PendingMessageQueue } from './pending-message-queue'
 import { SessionActivityProjector, sessionForeground } from './session-activity-projector'
@@ -46,6 +47,61 @@ const flush = async (): Promise<void> => {
 }
 
 describe('SessionActivityProjector', () => {
+  it('carries the canonical shared Spark count through start, live membership, completion, and reconnect', async () => {
+    const f = fixture()
+    const source = (sequence: number): BackgroundEventSource => ({
+      generation: 'g',
+      sequence,
+      receivedAt: sequence,
+      replay: false
+    })
+    try {
+      f.background.observe({
+        type: 'background.task',
+        sessionId: 's',
+        source: source(1),
+        taskId: 'a',
+        phase: 'started',
+        patch: { status: 'running', isBackgrounded: true }
+      })
+      await flush()
+      expect(f.emitted.at(-1)?.backgroundTaskCount).toBe(0)
+      f.background.observe({
+        type: 'background.snapshot',
+        sessionId: 's',
+        source: source(2),
+        tasks: [{ taskId: 'a' }, { taskId: 'b' }, { taskId: 'ambient', ambient: true }]
+      })
+      await flush()
+      expect(f.emitted.at(-1)?.backgroundTaskCount).toBe(2)
+      f.background.observe({
+        type: 'background.task',
+        sessionId: 's',
+        source: source(3),
+        taskId: 'a',
+        phase: 'notification',
+        patch: { status: 'completed' }
+      })
+      f.background.observe({
+        type: 'background.snapshot',
+        sessionId: 's',
+        source: source(4),
+        tasks: [{ taskId: 'b' }, { taskId: 'ambient', ambient: true }]
+      })
+      await flush()
+      expect(f.emitted.at(-1)?.backgroundTaskCount).toBe(1)
+      f.background.observe({
+        type: 'background.connection',
+        sessionId: 's',
+        source: source(5),
+        state: 'resynchronizing'
+      })
+      await flush()
+      expect(f.emitted.at(-1)?.backgroundTaskCount).toBe(0)
+    } finally {
+      f.projector.dispose()
+    }
+  })
   it('ready 수신 lease만 응답 foreground에서 제외하고 준비/활성 응답/종료를 구별한다', () => {
     expect(sessionForeground(undefined, 'ready')).toBe('idle')
     expect(sessionForeground({ kind: 'preparing', activeChild: null }, 'idle')).toBe('preparing')

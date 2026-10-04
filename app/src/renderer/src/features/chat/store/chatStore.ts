@@ -54,8 +54,11 @@ import { forgetArtifacts, refreshArtifactList } from './artifactStore'
 import {
   ingestBackgroundEvent,
   forgetBackgroundState,
-  refreshBackgroundState
+  refreshBackgroundState,
+  selectBackgroundItem,
+  useBackgroundStore
 } from './backgroundStore'
+import { backgroundCallKeyForToolUse } from '../lib/canonicalBackground'
 
 // Zustand 단일 chat store — arch/frontend/state.md §1.4 채택안의 멀티세션 외피(handoff 0013).
 //
@@ -528,12 +531,20 @@ function dropSession(sessionId: string, fallbackProjectId: string | null = null)
 // 델타 2종은 그 엔트리의 live 슬라이스로만 흐른다. sessionId 가 없는 이벤트(일부 error)는
 // 활성 엔트리 폴백, 미지 sessionId(엔트리 삭제 후 늦게 도착)는 폐기한다.
 const turnEndListeners = new Set<(sessionId: string) => void>()
+const responseRequestListeners = new Set<(sessionId: string) => void>()
 
 // 정규화 이벤트의 세션 라우팅을 통과한 정상 완료만 app 조립부에 알린다.
 export function subscribeTurnEnd(listener: (sessionId: string) => void): () => void {
   turnEndListeners.add(listener)
   return () => {
     turnEndListeners.delete(listener)
+  }
+}
+
+export function subscribeResponseRequest(listener: (sessionId: string) => void): () => void {
+  responseRequestListeners.add(listener)
+  return () => {
+    responseRequestListeners.delete(listener)
   }
 }
 
@@ -756,6 +767,13 @@ function receive(ev: NormalizedEvent): void {
       // 미지/삭제 세션이나 미확정 draft로 폴백한 신호를 다른 세션의 완료로 만들지 않는다.
       if (ev.sessionId && key === ev.sessionId && entrySession?.sessionId === ev.sessionId) {
         for (const listener of turnEndListeners) listener(ev.sessionId)
+      }
+      return
+
+    case 'permission.requested':
+      dispatchTo(key, { type: 'RECV_EVENT', event: ev })
+      if (ev.sessionId && key === ev.sessionId && entrySession?.sessionId === ev.sessionId) {
+        for (const listener of responseRequestListeners) listener(ev.sessionId)
       }
       return
 
@@ -1752,6 +1770,12 @@ export const chatActions = {
   openSubagentTask: (toolRunId: string): void => {
     dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId })
     revealRightPanelTile('subagent')
+    const sessionId = getState().sessions[getState().activeKey]?.session.sessionId
+    const background = sessionId
+      ? useBackgroundStore.getState().sessions[sessionId]?.state
+      : undefined
+    const key = background ? backgroundCallKeyForToolUse(background, toolRunId) : undefined
+    if (sessionId && key) selectBackgroundItem(sessionId, { kind: 'call', key })
   },
   acknowledgeSettledTasks: (): void => dispatchActive({ type: 'ACKNOWLEDGE_SETTLED_TASKS' }),
   stopTask,

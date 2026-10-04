@@ -761,7 +761,7 @@ renderer는 한 DTO에서 `gate | llm | service` 분류·인증 체계·상태·
   `ProviderInfo.id`만 투영한다. `catalog`와 `status`는 후보 자격을 결정하지 않으며, root plain 입력에서는
   경로 그룹을 Plugin 그룹보다 먼저 표시하고 slash/quoted 입력은 path 그룹으로 남긴다. token이 null이
   되는 입력 삭제 전이는 dismissal과 active index를 끝내므로 새 `@` occurrence가 다시 열린다.
-- 로그인 프리 행은 목록·상세에 종류 `기본 제공`, 상태 `인증 불필요`를 표시한다. 인증 방식
+- 로그인 프리 행은 목록·상세에 종류 `기본 제공`, 상태 `연결됨`를 표시한다. 인증 방식
   라벨·인증·재인증·연결 해제 액션은 없고 cached 도구 목록은 항상 활성이다. 사용자가 끌 수 없다.
 - 자격증명 행의 인증 상세 액션은 `status === 'none'`이면 `인증` 단일 버튼, 그 외에는 `재인증` dropdown과
   메뉴의 위험 색상 `연결 해제`로 구성한다. 모두 기존 `login`·`reauth`·`revoke` 경로를 호출한다.

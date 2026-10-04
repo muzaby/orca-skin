@@ -46,9 +46,7 @@ export function AgentEnvironmentView(): React.JSX.Element {
           {tr('engine.title')}
         </h1>
         <span data-engine-catalog-count="" className="text-[13px] text-ink3">
-          {tr('common.count', {
-            count: agents.filter((agent) => agent.source === 'settings').length
-          })}
+          {tr('common.count', { count: agents.length })}
         </span>
         <Button
           variant="primary"

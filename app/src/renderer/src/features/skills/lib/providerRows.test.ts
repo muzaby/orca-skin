@@ -76,7 +76,7 @@ describe('providerRows (AC5)', () => {
   })
 
   it.each(['none', 'valid', 'expired', 'unknown'] as const)(
-    '로그인 프리는 %s 상태에서도 기본 제공·인증 불필요로 표시하고 인증을 관리하지 않는다 (0248 AC11·AC12)',
+    '로그인 프리는 %s 상태에서도 기본 제공·연결됨으로 표시하고 인증을 관리하지 않는다 (0249 AC1)',
     (status) => {
       const info = provider({ authScheme: 'login-free', status, activeAuthKind: 'oauth' })
       expect(providerRowMeta(info)).toEqual({

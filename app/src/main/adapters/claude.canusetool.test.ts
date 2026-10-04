@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { makeCanUseTool } from './claude'
 import type { AskQuestion, ApprovalResolution, PermissionAction } from '../../shared/ipc'
+import path from 'node:path'
 
 const ctx = { signal: new AbortController().signal } as never
 const identifiedCtx = {
@@ -479,5 +480,91 @@ describe('r4 Work plan approval target', () => {
       updatedInput: input,
       updatedPermissions: [{ type: 'setMode', mode: 'default', destination: 'session' }]
     })
+  })
+})
+
+describe('0249 VP-09′ — ExitPlanMode 파일 보정 + CLI 반환', () => {
+  const tracked = { plan: '# 이번 턴 계획', planFilePath: path.resolve('plans/latest.md') }
+  const declared = { plan: '# 선언 파일 계획', planFilePath: path.resolve('plans/declared.md') }
+  const requestPlan = (approve: ReturnType<typeof vi.fn<ReqApproval>>): string => {
+    const action = approve.mock.calls.at(-1)![0]
+    if (action.kind !== 'plan_review') throw new Error('not a plan review')
+    expect(action.request).not.toHaveProperty('planFilePath')
+    return action.request.plan
+  }
+
+  it.each(['empty', 'wrong plan', 'wrong path'])(
+    'AC9′·10′ — %s 입력을 T로 보정해 요청·allow에 넣는다',
+    async (kind) => {
+      const approve = vi.fn<ReqApproval>().mockResolvedValue({ behavior: 'allow' })
+      const getPlanFiles = vi.fn(async () => ({ tracked, declared }))
+      const input = {
+        extra: { keep: true },
+        ...(kind === 'empty'
+          ? {}
+          : kind === 'wrong plan'
+            ? { ...tracked, plan: '옛 본문' }
+            : { ...tracked, planFilePath: declared.planFilePath })
+      }
+      const result = await makeCanUseTool(approve, {
+        getPlanFiles,
+        getPlanNarrative: () => '서술'
+      })('ExitPlanMode', input, ctx)
+      expect(getPlanFiles).toHaveBeenCalledExactlyOnceWith(input)
+      expect(requestPlan(approve)).toBe(tracked.plan)
+      expect(result).toMatchObject({ behavior: 'allow', updatedInput: { ...input, ...tracked } })
+      expect(result).toHaveProperty('updatedPermissions')
+    }
+  )
+
+  it('T를 못 읽으면 선언 파일로 보정한다', async () => {
+    const approve = vi.fn<ReqApproval>().mockResolvedValue({ behavior: 'allow' })
+    const input = { plan: '옛 계획', planFilePath: declared.planFilePath }
+    const result = await makeCanUseTool(approve, {
+      getPlanFiles: async () => ({ declared }),
+      getPlanNarrative: () => '서술'
+    })('ExitPlanMode', input, ctx)
+    expect(requestPlan(approve)).toBe(declared.plan)
+    expect(result).toMatchObject({ updatedInput: declared })
+  })
+
+  it.each(['tracked', 'declared', 'normalized'])(
+    'AC21 — %s 정상 입력의 본문과 참조를 보존한다',
+    async (source) => {
+      const approve = vi.fn<ReqApproval>().mockResolvedValue({ behavior: 'allow' })
+      const input =
+        source === 'normalized'
+          ? {
+              ...tracked,
+              plan: '\uFEFF# 이번 턴 계획\r\n   ',
+              planFilePath:
+                process.platform === 'win32'
+                  ? tracked.planFilePath.toUpperCase()
+                  : tracked.planFilePath
+            }
+          : { ...(source === 'tracked' ? tracked : declared) }
+      const result = await makeCanUseTool(approve, {
+        getPlanFiles: async () => (source === 'declared' ? { declared } : { tracked, declared }),
+        getPlanNarrative: () => '서술'
+      })('ExitPlanMode', input, ctx)
+      expect(requestPlan(approve)).toBe(input.plan)
+      expect(result?.behavior).toBe('allow')
+      if (result?.behavior !== 'allow') throw new Error('expected allow')
+      expect(result.updatedInput).toBe(input)
+    }
+  )
+
+  it('파일 출처 없음 — 서술을 요청에 표시해도 CLI 입력에 동봉하지 않는다', async () => {
+    const approve = vi.fn<ReqApproval>().mockResolvedValue({ behavior: 'allow' })
+    const input = { allowedPrompts: [{ tool: 'Bash', prompt: 'run' }] }
+    const result = await makeCanUseTool(approve, {
+      getPlanFiles: async () => ({}),
+      getPlanNarrative: () => '서술 계획'
+    })('ExitPlanMode', input, ctx)
+    expect(requestPlan(approve)).toBe('서술 계획')
+    expect(result?.behavior).toBe('allow')
+    if (result?.behavior !== 'allow') throw new Error('expected allow')
+    expect(result.updatedInput).toBe(input)
+    expect(result.updatedInput).not.toHaveProperty('plan')
   })
 })

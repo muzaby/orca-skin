@@ -322,7 +322,7 @@ describe('r5 모든 채팅 구획의 모드 아이콘과 완료 색', () => {
   })
 
   it('only the non-viewed completed icon uses selected blue; an open row restores the normal color', () => {
-    snapshot.unseenCompletedIds = new Set(['work'])
+    snapshot.unseenAttention = new Map([['work', 'completed']])
     const item = session('work', '읽지 않은 작업', { agentKind: 'work' })
     const hidden = load(
       renderToStaticMarkup(

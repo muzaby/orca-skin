@@ -16,6 +16,7 @@ import {
   applyBackgroundEvent,
   backgroundKey,
   backgroundPending,
+  countedBackgroundTaskIds,
   emptyBackgroundState,
   isBackgroundTerminal,
   type BackgroundEvent,
@@ -192,12 +193,7 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
 
   count(sessionId: string): number {
     const state = this.canonical.get(sessionId)
-    if (state)
-      return state.liveKnown
-        ? state.liveTaskIds.filter(
-            (id) => !state.tasks[backgroundKey(state.generation ?? '', id)]?.ambient
-          ).length
-        : 0
+    if (state) return countedBackgroundTaskIds(state).length
     return this.bySession.get(sessionId)?.size ?? 0
   }
 
