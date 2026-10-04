@@ -1518,5 +1518,9 @@ node scripts/check-doc-inventory.mjs --check
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| CI-01 | 8.3 일반 파일 realpath 오판 | VP-12·D-016·AC11 / 필수 CI Test gate | 실제 조상 링크 검사 | BLOCKING | closed(구현자 자기확인): SHORT-TEMP 6red→48green |
-| CI-02 | extraDirs의 병합 훅 고정 위치·개수 | 필수 CI Test gate·출력 capture 회귀 | 전체 훅 실행의 실제 결과 관측 | BLOCKING | closed(구현자 자기확인): OF-1 red→5green |
+| CI-01 | 8.3 일반 파일 realpath 오판 | VP-12·D-016·AC11 / 필수 CI Test gate | 실제 조상 링크 검사 | BLOCKING | closed(검증자 확인): reader·영향 스위트 green — [`verify.md`](verify.md) §13 |
+| CI-02 | extraDirs의 병합 훅 고정 위치·개수 | 필수 CI Test gate·출력 capture 회귀 | 전체 훅 실행의 실제 결과 관측 | BLOCKING | closed(검증자 확인): OF-1 red 6/164 |
+| D1 | reader가 조상 디렉토리 링크도 거부 — 링크된 `~/.claude`·`CLAUDE_CONFIG_DIR`에서 파일 출처가 서술 폴백으로 내려감 | D-016(파일 자체만 규정) | 허용 여부 사용자 결정 후 후속 | NON_BLOCKING | open |
+| D2 | `ino` Number 비교의 안전정수 밖 반올림(N-01) | 비귀속 | `bigint` stat | NON_BLOCKING | open |
+| D3 | 구현자가 `[검증자 기입]` 절에 직접 기입 | `docs/handoff/AGENTS.md §충돌 최소화` | 검증자 재분류로 대체 | NON_BLOCKING | closed |
+| D4 | `auth.md` 조사 오류 `` `연결됨`와 `` | 비귀속 | `과`로 정정 | NON_BLOCKING | open |
