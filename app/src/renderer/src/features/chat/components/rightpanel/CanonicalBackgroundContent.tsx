@@ -49,7 +49,6 @@ const DISPLAY_LABEL: Record<BackgroundDisplayStatus, MessageKey> = {
   launch: 'background.launch',
   pending: 'background.pending',
   unknown: 'background.unknown',
-  excluded: 'background.excluded',
   unconfirmed: 'background.unconfirmed',
   rejected: 'background.rejected',
   cancelled: 'background.cancelled',
@@ -264,7 +263,7 @@ export function BackgroundTaskCard({
         {mode && ` · ${tr(`background.${mode}`)}`}
         {task.ambient && ` · ${tr('background.ambient')}`}
         {terminal && task.liveMembership === 'included' && ` · ${tr('background.sync')}`}
-        {(task.generation !== state.generation || display.status === 'unconfirmed') &&
+        {(task.generation !== state.generation || state.connection === 'terminated') &&
           ` · ${tr('background.terminated')}`}
       </div>
       <div className="mt-g1 flex items-center pl-5 text-footnote text-ink3">

@@ -2,10 +2,9 @@ import type { BackgroundTaskRecord } from '../../../../../shared/background-task
 import { isBackgroundTerminal } from '../../../../../shared/background-task'
 export function backgroundTaskStatus(
   task: BackgroundTaskRecord
-): 'completed' | 'failed' | 'stopped' | 'running' | 'pending' | 'unknown' | 'excluded' {
+): 'completed' | 'failed' | 'stopped' | 'running' | 'pending' | 'unknown' {
   if (task.status === 'killed' || task.status === 'stopped') return 'stopped'
   if (task.status === 'completed' || task.status === 'failed') return task.status
-  if (task.liveMembership === 'excluded') return 'excluded'
   if (task.status === 'running' || task.status === 'pending') return task.status
   return 'unknown'
 }

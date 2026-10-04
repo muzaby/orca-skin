@@ -8,13 +8,13 @@
 
 `HistoryWriter.persistProviderEvent`는 원본과 작업 이벤트를 전용 DB journal에 먼저 커밋한다. 세션 init보다 먼저 온 이벤트는 세션 행 생성까지 보관한다. 원본은 일반 transcript·FTS·wire log·renderer 채널로 전달하지 않는다. 새 프로세스는 별도 generation을 갖고, 재로드된 journal은 과거 이력으로 복원한다.
 
-`BackgroundTaskTracker`의 상태 정본은 shared의 순수 reducer다. taskId, toolUseId, agentId는 서로 다른 식별자다. 명시적 연결이 없는 Agent 실행 영수증은 호출에 남으며 임의 taskId를 만들지 않는다. 최신 전체 snapshot은 첫 수신부터 live 집합을 교체하고 snapshot에만 있는 작업도 표시한다. 집합에서 빠진 사실은 terminal 상태를 만들지 않는다. 비동기 작업의 대기 여부와 비ambient live 개수는 별도로 계산한다. Spark 개수는 shared `countedBackgroundTaskIds`의 길이이며 live 현재성이 미확립이면 빈 집합이다. renderer도 이 집합을 백그라운드 증거로 읽지만 종료가 확인되지 않은 작업의 과거 증거를 보존하므로 실행 중 카드 수가 live 개수보다 클 수 있다.
+`BackgroundTaskTracker`의 상태 정본은 shared의 순수 reducer다. taskId, toolUseId, agentId는 서로 다른 식별자다. 명시적 연결이 없는 Agent 실행 영수증은 호출에 남으며 임의 taskId를 만들지 않는다. 최신 전체 snapshot은 첫 수신부터 live 집합을 교체하고 snapshot에만 있는 작업도 표시한다. 집합에서 빠진 사실은 terminal 상태를 만들지 않는다. 비동기 작업의 대기 여부와 비ambient live 개수는 별도로 계산한다. Spark 개수는 shared `countedBackgroundTaskIds`의 길이이며 live 현재성이 미확립이면 빈 집합이다. renderer도 이 집합을 백그라운드 증거로 읽고 과거 관측을 보존한다. live 현재성이 확립된 정상 상태에서는 실행 중 작업 집합과 Spark 집합이 같다. live 포함 전의 실행 영수증, 첫 live 전의 시작·재연결, live 갱신 전의 종료 통지는 일시 차이를 만들 수 있다.
 
 task patch의 누락 필드는 기존 값을 유지하고 false·0·빈 문자열은 값으로 반영한다. 종료 뒤 도착한 메타와 출력 참조도 보존하며, 늦은 running 갱신은 종료 상태를 되살리지 않는다. 상충하는 종료 증거는 별도 이력으로 남는다.
 
 `isBackgrounded:false`이고 live 집합에 없으며 background 관측 이력이 없는 태스크는 포그라운드다. 포그라운드 태스크의 실행·중단 ACK 대기는 `backgroundPending`에서 제외한다. 이후 background 승격이나 live 포함을 관측하면 다시 대기 대상으로 계산한다. `post-turn` 로그의 `haveTasks`는 이 판정 값이며 표시용 `taskCount`와 분리한다.
 
-패널은 종료 증거, 포그라운드 부모 호출 반환, 비원격 프로세스 종료 순서로 표시 정착을 판정한다. 부모 호출만 반환했다면 부모의 결과를 표시하고 호출의 마지막 관측 시각에서 경과를 멈춘다. 호출 시각은 늦게 도착한 이전 시각의 이벤트로 되돌리지 않는다. 종료되었거나 과거 세대인 비원격 작업·taskId 없는 호출은 `종료 확인 불가`로 완료 그룹에 놓고 마지막 관측 시각에서 시간을 멈춘다. `mode:remote` 또는 `taskType:remote_*` 태스크는 이 프로세스 종료 규칙에서 제외한다. 표시 파생은 정본 status·terminalEvidence를 바꾸지 않는다.
+패널은 종료 증거, 포그라운드 부모 호출 반환, 프로세스 종료·이전 세대, 현재 세대의 확립된 live 제외 순서로 표시 정착을 판정한다. 부모 호출만 반환했다면 부모의 결과를 표시하고 호출의 마지막 관측 시각에서 경과를 멈춘다. 호출 시각은 늦게 도착한 이전 시각의 이벤트로 되돌리지 않는다. 종료 통지가 없는 live 제외 작업과 종료되었거나 과거 세대인 작업·taskId 없는 호출은 원격 여부와 무관하게 `종료 확인 불가`로 완료 그룹에 놓고 마지막 관측 시각에서 시간을 멈춘다. 중단 버튼을 숨기고 완료 지우기 대상으로 삼는다. 표시 파생은 정본 status·terminalEvidence를 바꾸지 않으며 이후 실제 종료 통지가 오면 같은 완료 그룹의 결과를 갱신한다.
 
 정본 반환이 없는 호출은 transcript의 결과를 표시 입력으로 합류한다. SDK 비실행 메타데이터와 host 정착 사유는 거부·취소·미실행을 실패와 구분하며, host 정착을 provider journal에 합성하지 않는다. 완료 지우기는 이 표시 정착 판정을 공유한다.
 
