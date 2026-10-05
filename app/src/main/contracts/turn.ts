@@ -4,13 +4,15 @@ import type { ResolvedHarnessSettings } from '../adapters/harness-config'
 import type { LineageRelation } from '../infra/db/types'
 import type { GovernedLiveTurn, RuntimeTitleAdapter } from './ports'
 
+export type AbortContinuation = 'reception' | 'send-now'
+
 export interface TurnContext<W = unknown> {
   /** 사용자 중단 핸들러 또는 coordinator가 renderer 종료 신호를 전달했음. 턴마다 초기화. */
   abortAcknowledged?: boolean
   agentKind: AgentKind
   controller: AbortController
-  // 명시적인 응답 Stop 뒤에도 세션 예약 수신은 이어간다. 새 child에는 상속하지 않는다.
-  resumeScheduledReception?: boolean
+  // 응답 중단 뒤 이어갈 경로. 새 child에는 상속하지 않는다.
+  abortContinuation?: AbortContinuation
   owner: W
   live: GovernedLiveTurn | null
   titleAdapter: RuntimeTitleAdapter

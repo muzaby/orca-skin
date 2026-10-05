@@ -12,7 +12,11 @@ import type { TurnCoordinator } from '../../features/chat/turn-coordinator'
 import type { PendingMessageQueue } from '../../features/chat/pending-message-queue'
 import type { BackgroundTaskTracker } from '../../features/chat/background-tasks'
 import type { SessionActivityProjector } from '../../features/chat/session-activity-projector'
-import { decidePostTurnStep, postTurnHoldsSession } from '../../features/chat/post-turn'
+import {
+  abortResumePolicy,
+  decidePostTurnStep,
+  postTurnHoldsSession
+} from '../../features/chat/post-turn'
 import type { SessionRuntime } from '../../features/sessions/session-runtime'
 import type { RuntimeSupervisor } from '../../features/sessions/supervisor'
 import type { SessionChainLease } from '../../features/sessions/session-chain-lease'
@@ -71,26 +75,38 @@ export async function runTurnWithContinuations(
     listenPhaseSessionId = null
     activity.setTransport(sessionId, 'idle')
   }
+  // listen 종료부와 다음 루프 상단이 같은 중단을 보더라도 태스크 정착은 턴마다 한 번만 한다.
+  const settledAbortedTurns = new WeakSet<TurnContext<WebContents>>()
+  const settleAbortedTasksOnce = async (
+    abortedTurn: TurnContext<WebContents>,
+    sessionId: string
+  ): Promise<void> => {
+    if (settledAbortedTurns.has(abortedTurn)) return
+    await deps.stopAndSettleAbortedTasks(abortedTurn, sessionId)
+    settledAbortedTurns.add(abortedTurn)
+  }
 
   try {
     // 준비 중 중단된 입력은 전송하지 않는다. 예약 유지 Stop이면 아래에서 새 수신 child를 연다.
     if (!turn.controller.signal.aborted) {
       await coordinator.run(turn, request, { boundProjectId })
     }
-    // 자동 연속 턴(0067 AC7) — 턴 종료 시 held 잔여(어시스턴트 턴 중 예약됐으나 게이트를 못
-    // 만난 메시지)를 즉시 다음 턴으로 잇는다. 사용자 개입 없음. 체인 중단(lease controller abort)
+    // 자동 연속 턴(0067 AC7) — 응답 중 예약된 held 잔여를 턴 종료 뒤 즉시 다음 턴으로 잇는다.
+    // 사용자 개입 없음. 체인 중단(lease controller abort)
     // 시에는 발동하지 않는다 — 중단 버튼이 held 를 이미 drain(draft 복원)했다.
     // 0136/0143 — held 가 없어도 미정착 백그라운드 태스크가 살아 있으면 listen 턴(입력 push
     // 없는 프레임 소비)으로 CLI 자동 턴(진행·task_notification·완료 알림 턴)을 라이브 배달한다.
     while (!lease.controller.signal.aborted && deps.getActiveTurn().dbSessionId) {
       const activeTurn = deps.getActiveTurn()
       const sessionId = activeTurn.dbSessionId!
-      const resumeSchedules =
-        activeTurn.controller.signal.aborted && activeTurn.resumeScheduledReception === true
-      if (activeTurn.controller.signal.aborted && !resumeSchedules) break
-      if (resumeSchedules) {
-        delete activeTurn.resumeScheduledReception
-        await deps.stopAndSettleAbortedTasks(activeTurn, sessionId)
+      const resumePolicy = abortResumePolicy(activeTurn.abortContinuation)
+      const resumeAborted = activeTurn.controller.signal.aborted && resumePolicy.resume
+      if (activeTurn.controller.signal.aborted && !resumeAborted) break
+      if (resumeAborted) {
+        delete activeTurn.abortContinuation
+        if (resumePolicy.resume && resumePolicy.stopTasks) {
+          await settleAbortedTasksOnce(activeTurn, sessionId)
+        }
         if (lease.controller.signal.aborted) break
       }
       // 채널이 죽었으면 in-process 백그라운드 태스크도 소멸 — 정착·정리(고착 방지, 0136).
@@ -159,9 +175,13 @@ export async function runTurnWithContinuations(
         if (haveUnconfirmed) pendingMessages.orphanUnconfirmed(sessionId, lease.chainId)
         const continuation = await deps.prepareContinuation(sessionId)
         if (lease.controller.signal.aborted) break
-        if (deps.getActiveTurn().controller.signal.aborted && !resumeSchedules) {
-          // 준비 await 동안 들어온 Stop도 위의 동일한 정착/새 child 경계로 돌린다.
-          if (deps.getActiveTurn().resumeScheduledReception) continue
+        const preparedTurn = deps.getActiveTurn()
+        if (
+          preparedTurn.controller.signal.aborted &&
+          (!resumeAborted || preparedTurn.abortContinuation !== undefined)
+        ) {
+          // 소모한 중단은 재개하되 await 중 새로 들어온 Stop은 새 정책으로 다시 정착한다.
+          if (abortResumePolicy(preparedTurn.abortContinuation).resume) continue
           break
         }
         if (continuation.shouldRespawn) runtime.teardownChannel()
@@ -184,8 +204,11 @@ export async function runTurnWithContinuations(
           supervisor.release(listenTurn)
         }
         // 사용자 중단(0143, 사용자 확정) — 대기 종료와 함께 실행 중 태스크도 중지·정착한다.
-        if (listenTurn.controller.signal.aborted && !listenTurn.resumeScheduledReception) {
-          await deps.stopAndSettleAbortedTasks(listenTurn, sessionId)
+        if (listenTurn.controller.signal.aborted) {
+          const listenAbortPolicy = abortResumePolicy(listenTurn.abortContinuation)
+          if (!listenAbortPolicy.resume || listenAbortPolicy.stopTasks) {
+            await settleAbortedTasksOnce(listenTurn, sessionId)
+          }
         }
         continue
       }
@@ -195,16 +218,19 @@ export async function runTurnWithContinuations(
       // teardown — 아래 channelAlive 분기가 채널-사망 경로(takeForRespawn)로 자연 전환된다.
       const continuation = await deps.prepareContinuation(sessionId)
       if (lease.controller.signal.aborted) break
-      if (deps.getActiveTurn().controller.signal.aborted && !resumeSchedules) {
-        if (deps.getActiveTurn().resumeScheduledReception) continue
+      const preparedTurn = deps.getActiveTurn()
+      if (
+        preparedTurn.controller.signal.aborted &&
+        (!resumeAborted || preparedTurn.abortContinuation !== undefined)
+      ) {
+        if (abortResumePolicy(preparedTurn.abortContinuation).resume) continue
         break
       }
       if (continuation.shouldRespawn) runtime.teardownChannel()
       let contPreludes: SteerFlushBatch[] = []
       let batch: SteerFlushBatch | undefined
       if (runtime.channelAlive) {
-        // 채널 생존 — held 병합 단일 배치(D4 1버블)를 pushTurn 프롬프트로. 게이트 flush 와
-        // 같은 메서드지만 여기서는 **턴 프롬프트**라 origin 이 다르다(0151 AC1 — 확정 신호가
+        // 채널 생존 — held 병합 단일 배치(D4 1버블)를 pushTurn 프롬프트로(0151 AC1 — 확정 신호가
         // echo 가 아니라 첫 모델 출력).
         batch = pendingMessages.reserveHeld(sessionId, 'turn-open', undefined, lease.chainId)
       } else {

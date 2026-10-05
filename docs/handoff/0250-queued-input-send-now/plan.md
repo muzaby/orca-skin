@@ -12,7 +12,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-06 |
 | 매핑 | — |
-| 상태 | plan/READY |
+| 상태 | impl/IMPL_DONE (r1) |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
 | 이번 V revision | `V1` |
@@ -518,81 +518,164 @@ PendingSteerTurn 클릭 → chatActions.sendSteerNow → preload → steerSendNo
 > **재구현 턴도 같은 이름의 필드를 다시 채운다** — 표제(`… (r2)`, 같은 라운드 추가 턴이면 `… (r2.2)`)만 바꾸고 필드를 줄이지 않는다.
 > 해당 없는 필드는 지우지 말고 `해당 없음`으로 남긴다: 빠진 필드는 조사하지 않은 것과 구분되지 않는다(impl §8).
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: D-001~D-012 유지. ST-01에서 도구 배치 3회 동안 held2·push0, 종료 뒤 병합 push1을 관측했다.
+- 이견 / 현실성 문제: 없음. IT-02는 main DAG를 지키도록 `app/chat-turn/adapter-input.test.ts`에 두고 실제 큐→요청→runtime→SDK 입력을 관측한다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. 표식 쓰기2·정책 읽기4·연속 턴 비상속을 확인했다.
 
-## [구현자 기입] 강제 지점 전수 (§10 대조)
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-… | … | … | … | … | … |
+| VP-10·17 | EP-01~08 IPC | 8항목 | 10/10 슬롯 | `rg -n 'chatSteerSendNow\|SteerSendNow\|sendSteerNow'` shared/ipc·protocol·preload·shared/api·main/index: 채널·schema·export·interface·preload·API·handle. 문서 행·도메인 목록·inventory 확인 | 없음 |
+| VP-18 | EP-09~12 표식 | 필드·쓰기2·읽기4·비상속 | 9/9 | type/field2, `index.ts:166,216` 쓰기2, `post-turn.ts:102,184,208,226` 읽기4, turn-context 비상속2케이스 | 없음 |
+| VP-11·19 | EP-13 제거 | 편집 군18 | 28/28 | 아래 제거 검색0건. runtime 위임키3+3·래퍼3·게터1(10), request Omit3+콜백3(6), 나머지12. 18+(10−4)+(6−2)=28 | 없음 |
+| VP-20·24 | EP-14 responding | 선언·게터·소비3 | 3/3 | `ports.ts:17`·`session-runtime.ts:365`·`index.ts:154`, UT-02 상태표 green | 없음 |
+| VP-21·26 | EP-15 renderer | 계약 항목4 | 11/11 | state·action·reject 원복·stable export·helper 판정/매핑·component foreground/클릭/라벨·ko/en. UT-04 16케이스·IT-03 | 없음 |
+| VP-22 | EP-16 공통 중단 | 호출2 | 2/2 | `index.ts:167,217` helper 호출. ST-02/04에서 두 동작 각각 finalize1·aborted1 | 없음 |
+| VP-06·23 | EP-17 순수 판정 | 정의·소비2 | 2/2 | `admission.ts:26`·`index.ts:151`, UT-01 표9케이스·IT-01 무중단3상황 | 없음 |
+| VP-12 | EP-18 문서 | 자리5 | 5/5 | runtime §1.4 즉시행1/게이트행0, adapters 문장, ADR-007, ADR 목록, docs INDEX 라우팅 | 없음 |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: …
+- 전수 검색: `rg -n 'takeSteerFlush\|commitSteerFlush\|rollbackSteerFlush\|makeSteerGateHook\|canSteer\|steerFailed\|resumeScheduledReception' app/src` → 0건. `rg -n PostToolBatch app/src/main --glob '!*.test.ts'` → 0건.
+- renderer 11자리: `chatStore.ts:97,1101,1119,1694`; `pendingSteerControls.ts:16,26`; `PendingSteerTurn.tsx:21/34,41,46`; `ko.ts:682`·`en.ts:676`. await 읽기4는 각 재판정 위치를 세며 내부 존재 체크를 중복 합산하지 않았다.
+- renderer 검색: `rg -n 'pendingSteer\|submitted\|activityForeground\|sendNowRequested\|data-control'` store·PendingSteerTurn·controls, i18n `rg -n 'sendNow:'` → ko:682/en:676.
+- 합계 검산: 10+9+28+3+11+2+2+5 = 70 슬롯. 편집 군을 개별 키·콜백·소비 자리로 펼친 수이며 계약·production path를 추가하지 않았다.
+- §10에 없는데 같은 불변식이 필요했던 지점: 없음. 연관 오류 registry의 사라진 producer2행 제거·새 renderer reject event1행 등록도 기존 registry 테스트로 확인했다.
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | … | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | ST-01 held2/push0, IT-02 SDK 추가 입력0 | M1a·b red |
+| VP-02 | REGRESSION | SELF_PASS | ST-01 `first\n\nsecond`, 첫 모델 출력 committed1·ids2 | M10 red |
+| VP-03 | REQUIRED | SELF_PASS | UT-04 16케이스: 노출표·ko/en 라벨·실제 callback | M7a·b·M8a·b red |
+| VP-04 | REQUIRED | SELF_PASS | ST-02 interrupt1·cancelled0·aborted1·동일채널push1·respawn0·순서 | M2·3·5 red |
+| VP-05 | REQUIRED | SELF_PASS | response/listen send-now 중지0, Stop 중지1·lease 유지 | M4a·b red |
+| VP-06 | REQUIRED | SELF_PASS | UT-01·IT-01 대기0/턴사이/준비중 무중단 | M6 red |
+| VP-07 | REQUIRED | SELF_PASS | ST-04 자동응답 interrupt1·대기push1·태스크중지0 | 해당 없음 — 직접 oracle |
+| VP-08 | REGRESSION | SELF_PASS | 기존 scheduled reception·0239 Stop 케이스 green | 해당 없음 — 직접 oracle |
+| VP-09 | REGRESSION | SELF_PASS | IT-03 send-now 뒤 cancelSteer·항목 제거·draft 반환, queue cancel 회귀 | 해당 없음 — 직접 oracle |
+| VP-10 | REQUIRED | SELF_PASS | IT-01 등록·무효2 reject·정상 accept, preload 실제 invoke·inventory | 해당 없음 — 직접 oracle |
+| VP-11 | REQUIRED | SELF_PASS | 제거 식별자7종 검색0건 | 코드 잔류→검색1건, 원복0건 |
+| VP-12 | REQUIRED | SELF_PASS | IPC/current docs/ADR-007·목록·라우팅 존재, inventory green | 해당 없음 — 직접 관측 |
+| VP-13 | REQUIRED | SELF_BLOCKED | 실제 Electron·번들 CLI §19 3건 미실행 | 사람 실기 대기 |
+| VP-14 | REQUIRED | SELF_PASS | ST-01 terminal 전 held·종료 뒤 병합·첫출력 확정 | M1a·b·M10 공유 |
+| VP-15 | REQUIRED | SELF_PASS | ST-02 aborted 송신 뒤 push·tail 폐기·1회 interrupt | M2·3·5 공유 |
+| VP-16 | REGRESSION | SELF_PASS | Stop 기존 회귀 green | 해당 없음 — 직접 oracle |
+| VP-17 | REQUIRED | SELF_PASS | IT-01 accept/reject + preload/API 실제 홉 | 해당 없음 — 직접 oracle |
+| VP-18 | REQUIRED | SELF_PASS | IT-04 비상속2행 + Stop/send-now 재개·단일 정착, await 후 새 Stop 두 자리 | M9 red |
+| VP-19 | REQUIRED | SELF_PASS | IT-02 실제 options 전체 훅 호출 후 SDK 추가 입력0 | M1a 공유 |
+| VP-20 | REQUIRED | SELF_PASS | UT-02 cold/send/terminal/listen 상태표 | M11 red |
+| VP-21 | REQUIRED | SELF_PASS | IT-03 신규5케이스: 요청·표식·실패 원복·취소·재진입 | 해당 없음 — 직접 oracle |
+| VP-22 | REQUIRED | SELF_PASS | ST-02/04 Stop/send-now finalize1·aborted1 | 해당 없음 — 직접 oracle |
+| VP-23 | REQUIRED | SELF_PASS | UT-01 우선순위표9케이스 | M6 공유 |
+| VP-24 | REQUIRED | SELF_PASS | UT-02 cold/send/listen/terminal | M11 공유 |
+| VP-25 | REQUIRED | SELF_PASS | UT-03 undefined/reception/send-now 정책3행 | M4a·b 공유 |
+| VP-26 | REQUIRED | SELF_PASS | UT-04 노출·action mapping·실제 callback | M7a·b·M8a·b 공유 |
 
-## [구현자 기입] 이번 라운드 수정의 잠금
+- Pair 합계: REQUIRED 21 SELF_PASS·1 SELF_BLOCKED, REGRESSION 4 SELF_PASS = 26. 독립 verify는 대기다.
+- 산출물 차집합: §7 R↔AT 표의 AC 집합13 ↔ 자기보고13, 유효 V pair 집합26 ↔ 자기보고26을 각각 빼서 누락·추가0건을 재확인했다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| M1a adapter PostToolBatch reserve+SDK push 복원(request callback+adapter) | VP-01·19 | 최초 | IT-02 실제 추가 SDK user 입력 / 1 | red·원복 |
+| M1b main 도구 완료 reserve+runtime push 복원(request 위임+runtime) | VP-01·14 | 최초 | ST-01 held ids2→0 / 1 | red·원복 |
+| M2 send-now에서 cancelAllHeld | VP-04·15 | 최초 | ST-02/04 / 3 | red·원복 |
+| M3 send-now 표식 미설정 | VP-04·15 | 최초 | ST-02/04 / 3 | red·원복 |
+| M4a 루프 상단 send-now stopTasks=true | VP-05·25 | 최초 | response/listen 태스크 유지 / 2 | red·원복 |
+| M4b listen 종료부 send-now stopTasks=true | VP-05·25 | 최초 | listen 태스크 유지 / 1 | red·원복 |
+| M5 send-now에서 cancelChain | VP-04·15 | 최초 | ST-02/04 / 3 | red·원복 |
+| M6 not-responding 판정 삭제 | VP-06·23 | 최초 | UT-01·IT-01 턴사이/수신유휴 / 3 | red·원복 |
+| M7a helper의 send-now/cancel 분기 맞바꿈 | VP-03·26 | 최초 | 순수 매핑·실제 callback / 2 | red·원복 |
+| M7b component의 전달 kind 맞바꿈 | VP-03·26 | 최초 | 실제 두 버튼 callback / 1 | red·원복 |
+| M8a helper submitted 가드 삭제 | VP-03·26 | 최초 | submitted 노출표 / 6 | red·원복 |
+| M8b component submitted 분기 제거 | VP-03·26 | 최초 | submitted markup / 6 | red·원복 |
+| M9 연속 턴 표식 상속 | VP-18 | 최초 | turn-context reception/send-now / 2 | red·원복 |
+| M10 reserveHeld 역순 정렬 | VP-02·14 | 최초 | ST-01 `second\n\nfirst` / 1 | red·원복 |
+| M11 listen 프레임도 responding=true | VP-20·24 | 최초 | UT-02 유휴/백그라운드 전용 listen / 2 | red·원복 |
+| canSteer 코드 선언 잔류 | VP-11 | 최초 | rg 잔류1건·원복0건 | red·원복 |
+| 신규 T19a registry의 report 제거·형제 event 맞바꿈 | 오류 보고 gate·IT-03 | 최초 | `detects removal of T19a`·T19a 형제5조합, mutant matches=false | 6 source mutant 거부(matches=false)·suite green |
 
-- **분모 검산**: …
-- **덮개 회귀**: …
+- 신규 구조적 감도 재현: `vitest run src/renderer/src/shared/errors/reportSites.registry.test.ts -t 'detects.*T19a'` → 6 passed. 제거1·T17/T18/T19/T20/T21 event 맞바꿈5 모두 matcher false.
+- **분모 검산**: 선택 증거16자리 · 인용 변이0 · 새 구조적/proxy oracle1 = 표 행17. 공유 pair는 중복 합산하지 않았다.
+- **덮개 회귀**: 해당 없음 — 신규 r1. 삭제한 게이트 테스트는 폐기한 생산자 계약이며 held 무주입은 ST-01·실제 SDK 입력 IT-02로 관측한다.
+- 재현: 등록16자리는 production 파일에 임시 결함을 넣고 대응 vitest/rg를 실행한 뒤 원본 바이트를 finally 복원했다. T19a는 읽은 source 문자열에 인메모리 변이를 만들고 matches=false를 단언했다. M1a=`adapter-input.test.ts`; main=`post-turn.schedules.test.ts -t '0250|ST-01'`; M6=admission+main; M7/M8=controls; M9=turn-context; M11=session-runtime UT-02.
 
-## [구현자 기입] Product/UX 파생 검토
+## [구현자 기입] Product/UX 파생 검토 (r1)
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | ko/en sendNow·data-control/라벨·callback, UT-04 green | 없음 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | interruptResponse는 동기 공통 정착, getActiveTurn 게터/finally 유지 | ST-02/04 finalize1·중복정착0 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | IPC 실패 행 — 표식 원복·오류 보고 | IT-03 reject green |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | actionFailed 오류 보고 + 버튼 재노출, registry 등록 | 실제 시각은 AC13 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 원 세션 key·요청 ID만 복원, 삭제 key는 no-op | IT-03 새항목/취소/세션전환 보호 |
 
-## [구현자 기입] 놓친 잠재 문제 + 대응
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | 기존 outer group/msg hover는 형제 pending 버튼도 함께 노출 | NON_BLOCKING 보고만. 기존 cancel 구조 유지 | 기존 PendingSteerTurn outer group; 명령 대상은 D-005대로 대기 전부 |
+| 2 | listen 종료부·다음 루프 상단의 같은 Stop 중복 정착 | run 함수 스코프 WeakSet으로 턴당1회 | ST-02/04 Stop 중지1·send-now0 |
+| 3 | 삭제 producer를 오류 registry가 요구함 | main2행 제거·renderer 새 catch1행 등록 | 두 registry 전체 green |
+| 4 | send-now 표식을 소모한 뒤 continuation 준비 await 중 새 Stop 표식이 무시됨 | listen/flush 두 자리에서 새 표식 재판정 | 신규 2케이스 red(태스크 중지0)→green(1), schedules30/30 |
+| 5 | 기존 runtime-tools full mock가 새 정책 export를 누락 | 실제 export를 보존하는 partial mock | 해당 파일7/7 green |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- IT-02 위치는 app/chat-turn으로 변경했다. 실제 production 경로·행동 oracle은 유지하며 adapters의 app/features import 위반을 피했다.
+- plan §11의 main registry2행 title 교체는 producer 자체 삭제에 따라 행 삭제로 처리했다. 없는 producer를 다른 title로 유지하지 않았다.
+- 계약·선택 메커니즘 대체는 없다. WeakSet은 기존 정착의 중복 호출만 막는다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 — 대체 cache·TTL 없음 | WeakSet은 run 호출 수명 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 같은 run의 종료부·루프 상단이 같은 턴을 봄 | AC5/8·EP-11: Stop 정착1·send-now0 |
+| 재진입 | 같은 응답에 반복 요청 | AC4/6·EP-17: 두 sendNow 호출 interrupt1 |
+| 다른 무효화 축 | 세션 삭제·항목 취소 후 지각 reject | AC9·EP-15: 기존 key/ID만 원복 |
 
-## [구현자 기입] 구현 보고
+## [구현자 기입] 구현 보고 (r1)
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님) | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | main 판정/핸들러/정책/runtime/adapter, renderer store/control, IPC/preload, 테스트, 현재 문서/ADR/inventory. 정확한 목록은 diff |
+| 실행 명령 | `npm run lint`, `npm run typecheck`, §19 vitest + preload/shared protocol/doc/i18n/error registry(`--maxWorkers=4`), inventory·migration·budget |
+| **관측한 게이트 산출**(exit code 아님) | lint error0/warning1(기존 React Compiler 경고)·typecheck node/web/test 3/3·vitest 319파일 3372케이스 통과·inventory 생성물/본문/링크 green·migration 검사3종·budget16스위트 green |
+| V-pair 자기확인 | REQUIRED 21 SELF_PASS·1 SELF_BLOCKED(실기), REGRESSION 4 SELF_PASS |
+| 강제 지점 전수 | 70/70 개별 슬롯. 삭제군28·renderer11로 펼쳐 보고. 제거 식별자 잔여0 |
+| **AC 자기보고**(`Criteria-Met`) | 아래 행 기준 12/13 |
+| **합계 검산** | ✅12 · ⚠️1 · ❌0 = 총13 |
+| 블로커 / 역질문 | 코드/계획 블로커 없음. AC13 실제 앱·CLI 3건 대기 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
-## [구현자 기입] Review Signals — 사실만
+| AC | 자기 상태 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | ST-01 held2/push0·IT-02 추가 입력0, M1a/b red |
+| AC2 | ✅ | ST-01 text/id 순서·첫출력 committed1, M10 red |
+| AC3 | ✅ | UT-04 16케이스: 노출표·라벨·실제 클릭매핑 |
+| AC4 | ✅ | ST-02 interrupt1·aborted1·cancelled0·push1·respawn0·순서, M2/3/5 red |
+| AC5 | ✅ | response/listen lease 유지·중지0, Stop 대조1, M4a/b red |
+| AC6 | ✅ | UT-01 우선순위표·IT-01 무중단3상황, M6 red |
+| AC7 | ✅ | ST-04 자동응답 interrupt1→push1·태스크중지0 |
+| AC8 | ✅ | 기존 scheduled reception·0239·renderer draft 회귀 및 준비중 후속 Stop 2케이스 green |
+| AC9 | ✅ | send-now 뒤 cancelSteer·draft 반환·queue 예약 전/후 취소 green |
+| AC10 | ✅ | schema reject2·accept, preload 실제 invoke·inventory |
+| AC11 | ✅ | 제거 검색0·잔류 변이1건 검출·원복0 |
+| AC12 | ✅ | runtime 즉시행1/게이트행0·adapters·ADR007·목록·라우팅·inventory |
+| AC13 | ⚠️ | 실제 Electron/번들 CLI §19 3건 미실행 |
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: …
-- 반복해서 부딪히는 환경 한계: …
+- **합계 검산**: ✅12 · ⚠️1 · ❌0 = 총13. `Criteria-Met: 12/13`으로 커밋한다.
+- 환경 분리: 기본 sandbox send.worktree 17건은 `EPERM: lstat C:\Users\rlaeo`, 권한 확장 재실행으로 해결했다. 관련 전체 첫 실행(319파일·3370케이스)의 9 red 중 7은 mock 누락 수정 후 green, registry/StatusLine 2건은 분리87/87 green. 최종 재실행 산출은 위 게이트 행에 적었다.
+- 상태 사본: plan 메타·INDEX 모두 impl/IMPL_DONE(r1), 다음 주체 Claude. 커밋은 생성 뒤 trailer 파싱을 재독한다.
+
+## [구현자 기입] Review Signals — 사실만 (r1)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음 — 신규 r1.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: AC1/4/5/11을 ST/IT와 등록 변이16자리로 확인했다. AC8 후속 Stop은 준비 await 2자리 red→green으로 확인했다.
+- 반복해서 부딪히는 환경 한계: sandbox 사용자 경로 EPERM은 권한 확장으로 해결. ABI 전환 없이 직접 vitest 사용.
 - 현재 라운드·impl 턴: `r1`
 
 ---

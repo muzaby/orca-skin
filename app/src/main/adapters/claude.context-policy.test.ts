@@ -3,12 +3,7 @@ import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import type { Options, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
 import { PRODUCT_SLUG } from '../../shared/product'
-import type {
-  ExtractedAttachmentImage,
-  ExtractedAttachmentText,
-  SteerFlushBatch,
-  TurnRequest
-} from './turn'
+import type { ExtractedAttachmentImage, ExtractedAttachmentText, TurnRequest } from './turn'
 
 const { queryMock, setModel } = vi.hoisted(() => {
   const setModel = vi.fn<(model?: string) => Promise<void>>(async () => undefined)
@@ -151,8 +146,8 @@ describe('0245 AC3 — all three execution model sites and model changes', () =>
   })
 })
 
-describe('0245 AC21 — four actual query input paths', () => {
-  for (const path of ['initial', 'prelude', 'steer', 'pushTurn'] as const) {
+describe('0245 AC21 — three actual query input paths', () => {
+  for (const path of ['initial', 'prelude', 'pushTurn'] as const) {
     it(`${path} delegates text to CLI mentions after original image blocks`, async () => {
       const attachments = {
         text: path,
@@ -162,45 +157,16 @@ describe('0245 AC21 — four actual query input paths', () => {
         ],
         attachmentImages: [image]
       }
-      let batch: SteerFlushBatch | undefined = {
-        ...attachments,
-        ids: ['steer'],
-        uuid: 'steer',
-        createdAt: 1
-      }
       const req = base({
         ...(path === 'initial' ? attachments : {}),
         ...(path === 'prelude'
           ? { preludes: [{ ...attachments, ids: ['prelude'], uuid: 'prelude', createdAt: 1 }] }
-          : {}),
-        ...(path === 'steer'
-          ? {
-              takeSteerFlush: () => {
-                const current = batch
-                batch = undefined
-                return current
-              }
-            }
           : {})
       })
       const live = new ClaudeAdapter().sendMessage(req)
       const args = queryMock.mock.calls[0][0]
       const input = args.prompt[Symbol.asyncIterator]()
-      if (path === 'steer' || path === 'pushTurn') await input.next()
-      if (path === 'steer') {
-        const callback = args.options.hooks!.PostToolBatch![0].hooks[0]
-        await callback(
-          {
-            hook_event_name: 'PostToolBatch',
-            session_id: 's1',
-            transcript_path: '',
-            cwd: process.cwd(),
-            tool_calls: []
-          },
-          undefined,
-          { signal: new AbortController().signal }
-        )
-      }
+      if (path === 'pushTurn') await input.next()
       if (path === 'pushTurn')
         expect(await live.pushTurn!(attachments)).toEqual({ kind: 'accepted' })
       const message = (await input.next()).value as SDKUserMessage

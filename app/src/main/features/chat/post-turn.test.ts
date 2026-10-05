@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { decidePostTurnStep, postTurnHoldsSession } from './post-turn'
+import { abortResumePolicy, decidePostTurnStep, postTurnHoldsSession } from './post-turn'
+
+describe('0250 abortResumePolicy', () => {
+  it('일반 중단은 재개하지 않는다', () => {
+    expect(abortResumePolicy(undefined)).toEqual({ resume: false })
+  })
+
+  it('예약 유지 Stop은 태스크를 중지하고 재개한다', () => {
+    expect(abortResumePolicy('reception')).toEqual({ resume: true, stopTasks: true })
+  })
+
+  it('즉시 보내기는 태스크를 유지하고 재개한다', () => {
+    expect(abortResumePolicy('send-now')).toEqual({ resume: true, stopTasks: false })
+  })
+})
 
 // 턴-후 스텝 판정(0143) — 핵심 불변식: pushTurn(flush)은 "채널 생존 + CLI 유휴 + 백로그 없음"
 // 에서만. mid-turn flush 가 auto-turn terminal 오귀속(steer 세션 사망)을 만들던 경로를 차단한다.

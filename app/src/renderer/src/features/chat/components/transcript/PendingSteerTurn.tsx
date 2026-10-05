@@ -1,8 +1,9 @@
 import { memo } from 'react'
-import { chatActions, type PendingSteerState } from '../../store/chatStore'
+import { chatActions, useChatActivity, type PendingSteerState } from '../../store/chatStore'
 import { useI18n } from '../../../../shared/i18n'
 import { UserBubbleText } from '../UserBubbleText'
 import { UserDiffRequirements } from './UserDiffRequirements'
+import { pendingSteerControls, runPendingSteerControl } from './pendingSteerControls'
 
 interface PendingSteerTurnProps {
   items: PendingSteerState[]
@@ -10,13 +11,14 @@ interface PendingSteerTurnProps {
 }
 
 // 미커밋(pending) 사용자 메시지 버블(0067 pending-first) — 일반 send·steer 예약 모두 이
-// 연회색/기울임 버블로 시작해, echo 커밋(message.committed) 시 store 가 일반 커밋 사용자
+// 연회색/기울임 버블로 시작해, message.committed 수신 시 store 가 일반 커밋 사용자
 // 메시지로 승격한다. held 인 동안 hover 취소(단건 draft 복원) 가능.
 export const PendingSteerTurn = memo(function PendingSteerTurn({
   items,
   onRestoreDraft
 }: PendingSteerTurnProps): React.JSX.Element | null {
   const { tr } = useI18n()
+  const { activityForeground } = useChatActivity()
   if (items.length === 0) return null
   return (
     <div className="group/msg flex flex-col items-end gap-[var(--chat-item-gap)]">
@@ -29,16 +31,20 @@ export const PendingSteerTurn = memo(function PendingSteerTurn({
               {tr('chat.steer.submitted')}
             </span>
           ) : (
-            <button
-              type="button"
-              className="mt-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-ink3 opacity-0 transition-opacity hover:bg-fill-uncontained-hover group-hover/msg:opacity-100"
-              onClick={() => {
-                const restored = chatActions.cancelSteer(item.id)
-                if (restored) onRestoreDraft?.(restored)
-              }}
-            >
-              {tr('common.cancel')}
-            </button>
+            pendingSteerControls(item, activityForeground).map((kind) => (
+              <button
+                key={kind}
+                type="button"
+                data-control={kind}
+                className="mt-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-ink3 opacity-0 transition-opacity hover:bg-fill-uncontained-hover group-hover/msg:opacity-100"
+                onClick={() => {
+                  const restored = runPendingSteerControl(kind, item, chatActions)
+                  if (restored) onRestoreDraft?.(restored)
+                }}
+              >
+                {tr(kind === 'send-now' ? 'chat.steer.sendNow' : 'common.cancel')}
+              </button>
+            ))
           )}
           <div className="flex min-w-0 flex-col items-end gap-1.5">
             {item.requirements && item.requirements.length > 0 && (

@@ -213,6 +213,8 @@ export const CancelSteerSchema = z.object({
   id: z.string().min(1)
 })
 
+export const SteerSendNowSchema = z.object({ sessionId: z.string().min(1) })
+
 export const CancelChatSchema = z.object({ sessionId: z.string() })
 
 export const BackgroundStateSchema = z.object({ sessionId: z.string().min(1) })
@@ -752,6 +754,7 @@ export type {
   ClassifiedError,
   SendChatMessage,
   CancelSteer,
+  SteerSendNow,
   ComposerAttachment,
   PickedAttachment,
   OpenPathRequest,

@@ -197,6 +197,66 @@ function channelLive(): {
 
 const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
 
+describe('0250 UT-02 — 응답 진행 여부', () => {
+  it('cold 런타임에는 중단할 응답이 없다', () => {
+    const runtime = new SessionRuntime(adapter(channelLive().liveTurn))
+    expect(runtime.responding).toBe(false)
+  })
+
+  it('send 프레임은 첫 이벤트 전부터 응답 중이고 terminal 뒤에는 응답이 없다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const response = collect(runtime.send(req()))
+    await tick()
+    expect(runtime.responding).toBe(true)
+
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await response
+    expect(runtime.responding).toBe(false)
+    runtime.close()
+  })
+
+  it.each([
+    ['수신 유휴', [] as NormalizedEvent[], false],
+    [
+      '메인 자동 응답',
+      [
+        { type: 'message.delta', sessionId: 's1', delta: { text: '자동 응답' } }
+      ] as NormalizedEvent[],
+      true
+    ],
+    [
+      '백그라운드 스코프 이벤트만',
+      [
+        {
+          type: 'message.delta',
+          sessionId: 's1',
+          delta: { text: '백그라운드 응답' },
+          parentToolRunId: 'background-task'
+        }
+      ] as NormalizedEvent[],
+      false
+    ]
+  ])('listen 프레임 + %s의 응답 진행 여부를 판정한다', async (_label, events, responding) => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const initial = collect(runtime.send(req()))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await initial
+    const reception = collect(runtime.listen(req()))
+    await tick()
+    if (events.length > 0) {
+      ch.emitBatch(events)
+      await tick()
+    }
+    expect(runtime.responding).toBe(responding)
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await reception
+    expect(runtime.responding).toBe(false)
+    runtime.close()
+  })
+})
+
 it('tracks session schedules across response frames and clears them with the channel', async () => {
   const ch = channelLive()
   const runtime = new SessionRuntime(adapter(ch.liveTurn))
@@ -691,79 +751,23 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
     expect(rest.map((event) => event.type)).toEqual(['message.delta', 'telemetry'])
   })
 
-  // 0166 D8 — 게이트 훅 콜백 **3종 전부** 턴마다 재바인딩돼야 한다. 채널은 체인보다 오래 살고
-  // commit/rollback 은 체인 스코프(lease.chainId fence)를 캡처하므로, spawn 시점 클로저를 그대로
-  // 두면 두 번째 send 부터 "take 는 새 체인 · commit 은 옛 체인" 이 되어 fence 가 항상 어긋난다.
-  // 결과: 배치가 `submitting` 에 갇혀 **정식 버블로 승격되지 않는다**(실기 보고).
-  it('게이트 훅 콜백(take·commit·rollback)은 spawn 이 아니라 **현재 턴**으로 위임된다', async () => {
-    const ch = channelLive()
-    let captured: TurnRequest | undefined
-    const runtime = new SessionRuntime({
-      ...adapter(ch.liveTurn),
-      sendMessage: (request) => {
-        captured = request
-        return ch.liveTurn
-      }
-    })
-
-    const calls: string[] = []
-    const turnRequest = (chain: string): TurnRequest => ({
-      ...req(),
-      takeSteerFlush: () => {
-        calls.push(`take:${chain}`)
-        return undefined
-      },
-      commitSteerFlush: () => {
-        calls.push(`commit:${chain}`)
-        return true
-      },
-      rollbackSteerFlush: () => {
-        calls.push(`rollback:${chain}`)
-      }
-    })
-
-    // 체인 1 — spawn. 어댑터는 여기서 훅 클로저를 캡처한다.
-    const first = collect(runtime.send(turnRequest('chain-1')))
-    await tick()
-    ch.emit({ type: 'telemetry', sessionId: 's1' })
-    await first
-
-    // 체인 2 — 같은 채널에 pushTurn 으로 이어붙인다(0067). 어댑터의 훅은 여전히 spawn 캡처본이다.
-    const second = collect(runtime.send(turnRequest('chain-2')))
-    await tick()
-
-    const batch = { uuid: 'b', ids: ['m'], text: 'x', createdAt: 1 }
-    captured!.takeSteerFlush?.()
-    captured!.commitSteerFlush?.(batch)
-    captured!.rollbackSteerFlush?.(batch)
-
-    // 셋 다 **현재 체인** 으로 가야 한다 — 하나라도 chain-1 이면 fence 가 어긋난다.
-    expect(calls).toEqual(['take:chain-2', 'commit:chain-2', 'rollback:chain-2'])
-
-    ch.emit({ type: 'telemetry', sessionId: 's1' })
-    await second
-  })
-
   it('pickFrameDelegates 는 프레임 위임을 **전부** 옮긴다 — 재조립 경로의 절반 누락 차단', () => {
     const noop = (): undefined => undefined
     const full = {
       ...req(),
       requestApproval: noop,
-      takeSteerFlush: noop,
-      commitSteerFlush: () => true,
-      rollbackSteerFlush: noop,
       captureInterruptReceipt: noop,
-      onChannelRetired: noop
+      onChannelRetired: noop,
+      onSessionSchedules: noop,
+      onProviderEvent: noop
     } as unknown as TurnRequest
-    // listen 요청(`chat-turn.ts`)이 손으로 나열하다 commit/rollback 을 빠뜨려 게이트 훅이 배치를
-    // `submitting` 에 가뒀다(0166 D7). 목록을 여기 한 곳에 두고 그 전량을 단언한다.
+    // listen 요청의 재조립도 현재 체인의 콜백 전량을 유지해야 한다.
     expect(Object.keys(pickFrameDelegates(full)).sort()).toEqual([
       'captureInterruptReceipt',
-      'commitSteerFlush',
       'onChannelRetired',
-      'requestApproval',
-      'rollbackSteerFlush',
-      'takeSteerFlush'
+      'onProviderEvent',
+      'onSessionSchedules',
+      'requestApproval'
     ])
     // 요청이 안 준 것은 싣지 않는다(어댑터가 "있다" 로 오인하지 않게).
     expect(pickFrameDelegates(req())).toEqual({})

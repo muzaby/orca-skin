@@ -23,6 +23,7 @@ export const CHANNELS = {
   chatSend: 'orca:chat:send',
   // 0067 AC5: 구 chat:steer 는 chat:send 로 흡수(main 이 busy=예약/idle=즉시를 판정).
   chatSteerCancel: 'orca:chat:steerCancel',
+  chatSteerSendNow: 'orca:chat:steerSendNow',
   chatEvent: 'orca:chat:event',
   chatBackgroundState: 'orca:chat:backgroundState',
   chatBackgroundEvent: 'orca:chat:backgroundEvent',
@@ -941,6 +942,10 @@ export type PermissionMode = 'plan' | 'acceptEdits'
 export interface CancelSteer {
   sessionId: string
   id: string
+}
+
+export interface SteerSendNow {
+  sessionId: string
 }
 
 export interface CancelChat {

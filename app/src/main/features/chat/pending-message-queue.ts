@@ -21,12 +21,12 @@ interface PendingMessage extends PendingMessagePayload {
 
 // 배치 성격(0151 AC1) — **어느 신호가 이 배치를 확정할 수 있는가**를 데이터로 못박는다.
 //   turn-open : 턴 프롬프트·프렐류드 → 첫 모델 출력(0069 기본 앵커) **또는** echo
-//   steer     : mid-turn 게이트 flush → **echo 만**. 응답 진행은 mid-turn steer 의 소비 증거가
-//               못 되므로(0060 D2) 모델 출력으로 확정하면 모델이 못 본 텍스트를 커밋하게 된다.
+//   steer     : 큐 내부의 echo 전용 배치 → **echo 만**. 응답 진행은 그 배치의 소비 증거가
+//               못 되므로 모델 출력으로 확정하면 모델이 못 본 텍스트를 커밋하게 된다.
 // 관계는 **비대칭**이다 — 막아야 하는 것은 "모델 출력 → steer" 한 방향뿐이고, echo 는 CLI 의
 // drain 영수증이라 양쪽에 유효하다(r2 교정, 아래 confirm 주석 참조).
-// 성격은 **메서드로 유도할 수 없다** — 같은 reserveHeld 가 게이트에서는 steer 를, 연속 턴
-// 루프에서는 턴 프롬프트를 만든다(chat-turn). 그래서 호출자가 명시한다.
+// 성격은 **메서드로 유도할 수 없다** — 호출자가 origin 인자로 명시한다. 자동 연속 턴은
+// turn-open 을 쓰며, 내부 steer 의 echo 전용 확정 규칙은 그대로 유지한다.
 type BatchOrigin = 'turn-open' | 'steer'
 
 // 예약 배치의 수명(0151 AC2) — 구 `consumed: boolean` 을 대체한다. held 는 별도 맵이 소유하므로
@@ -128,7 +128,8 @@ function scrubBatch(batch: TrackedBatch): void {
 //   사용자 턴(세션 idle) — chat:send 가 enqueue 직후 reserveItem 으로 아이템 단위 배치를 떠서
 //     턴 프롬프트로 주입한다(스폰 초기 메시지 또는 pushTurn). 채널이 죽어 있었다면
 //     takeForRespawn 이 잔여를 프렐류드 배치로 앞세운다.
-//   어시스턴트 턴(inflight) — chat:send 는 예약(held)만 한다. held 인 동안 취소 100% 가능.
+//   어시스턴트 턴(inflight) — chat:send 는 적재(held)만 한다. 응답이 끝나면 자동 연속 턴이
+//     병합 배치를 예약·전달하며, held 인 동안 취소 가능하다.
 //
 // 소유권은 provider 로 넘기지 않는다(0151 설계 결정): SDK 0.3.220 공개 표면에 provider 큐의
 // 개별 메시지를 취소하는 메서드가 없으므로(`cancel_async_message` 는 Query 메서드 아님), 로컬
@@ -392,8 +393,8 @@ export class PendingMessageQueue {
   // 가 그대로 확정하고, 회수는 CLI 큐가 실제로 사라지는 시점(채널 사망 → takeForRespawn, 세션
   // 폐기 → dispose)이 맡는다.
   // **`submitting` 도 대상이다**(0166 D8). 체인이 끝나는 시점에 남아 있는 `submitting` 은 "아직
-  // 안 보낸 것" 이 아니라 **"보냈는데 commit fence 가 어긋난 것"** 이다 — push 실패는 게이트 훅이
-  // 이미 rollback 했고(`makeSteerGateHook`), 초기 배치는 outer finally 가 `rollbackInitialSubmission`
+  // 안 보낸 것" 이 아니라 **"보냈는데 commit fence 가 어긋난 것"** 이다 — 입력 인계 실패는
+  // outer finally 가 `rollbackInitialSubmission`
   // 을 먼저 태운다. 여기서 제외하면 그 배치는 confirm 대상도(open 술어가 제외) orphan 대상도 아니게
   // 되어 **영원히 갇히고**, 그러면서 open 카운트에는 계속 잡혀 세션이 영구히 busy 로 보인다.
   orphanUnconfirmed(sessionId: string, chainId?: string): SteerFlushBatch[] {

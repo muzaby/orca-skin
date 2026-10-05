@@ -13,6 +13,8 @@ export interface RuntimeLiveTurn extends LiveTurn {
   markAborted?(cause: 'user_cancelled' | 'retry'): void
   readonly spawnedModel?: string
   readonly cancelled?: boolean
+  /** 현재 사용자 응답 또는 CLI 자동 응답이 진행 중인지. 부재는 중단할 응답 없음으로 취급한다. */
+  readonly responding?: boolean
 }
 
 // 어댑터 계약의 부분집합 — 런타임(턴 실행)이 실제로 쓰는 표면만 골라 재사용한다(단일 정본은

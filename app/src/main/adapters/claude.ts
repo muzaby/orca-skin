@@ -60,7 +60,6 @@ import {
   adaptPlugins,
   adaptSkills,
   adaptSystemPrompt,
-  makeSteerGateHook,
   makeInputReceiptHook,
   makeTurnEndHook,
   mergeHooks,
@@ -419,10 +418,8 @@ export class ClaudeAdapter implements SessionAdapter {
     else signal?.addEventListener('abort', onAbort)
 
     // 세션-스코프 입력 스트림 — close() 까지 미종료(streaming-input.ts 가 불변식 격리).
-    // steer 는 로컬 홀드(PendingMessageQueue held) 후 PostToolBatch 게이트 훅이 takeSteerFlush 로 병합
-    // 배치를 회수해 input.push 로 주입한다(0060 D3·D4). 소비 확정은 CLI 가 흡수 후 되돌려주는
-    // user echo(input.echo, claude-map)로 turn-coordinator 가 판정한다(0060 D1)
-    // — pull(=SDK eager drain)도 orca 관찰 경계도 flush 신호가 아니다.
+    // 응답 중 입력은 로컬 held 로 남는다. 응답 종료 후 앱의 자동 연속 턴이 병합 배치를
+    // pushTurn 으로 전달하며, 도구 경계에서는 입력을 회수하거나 주입하지 않는다.
     // 스폰 초기 입력 = 프렐류드(채널 사망 후 이월 배치 — 각자 uuid 로 개별 echo→커밋) 다음에
     // 본 프롬프트. CLI 는 턴 시작에 전부 coalesce 해 개별 user 메시지로 소비한다(명세 C9).
     const batchContent = (b: {
@@ -532,7 +529,7 @@ export class ClaudeAdapter implements SessionAdapter {
         ...adaptExecutionConfig(req.providerSettings?.settings, env, getTemporaryFilesPath()),
         disallowedTools: ['WebSearch'],
         ...adaptRuntimeTools(extensions.runtimeTools, req.runtimeToolContext),
-        // hooks = 중립 정규화 훅 + steer 게이트(PostToolBatch, 메인 루프 한정 flush) 병합 위에
+        // hooks = 중립 정규화 훅 + 어댑터 내부 훅 병합 위에
         // 어댑터 내부 PostCompact(압축 요약 수집, manual 만·0064) 를 덧씌운다.
         ...withPostCompactHook(
           mergeHooks(
@@ -572,15 +569,7 @@ export class ClaudeAdapter implements SessionAdapter {
             }),
             // 격리 가드(PreToolUse) — 모든 툴·모든 모드보다 먼저 밖 경로를 자른다(0075). 안·예외는
             // pass-through 라 아래 canUseTool/permissionMode 흐름은 그대로 유지된다.
-            makeWorkspaceGuardHook(cwd, additionalDirectories),
-            req.takeSteerFlush
-              ? makeSteerGateHook(
-                  req.takeSteerFlush,
-                  (batch) => pushInput(batchContent(batch), batch.uuid),
-                  req.rollbackSteerFlush,
-                  req.commitSteerFlush
-                )
-              : {}
+            makeWorkspaceGuardHook(cwd, additionalDirectories)
           ),
           (summary) => compactSummaries.push(summary)
         ),
@@ -807,8 +796,6 @@ export class ClaudeAdapter implements SessionAdapter {
         if (!res || !Array.isArray(res.still_queued)) return undefined
         return { stillQueued: res.still_queued.filter((u): u is string => typeof u === 'string') }
       },
-      // steer UX 수용 — 전달은 게이트 훅 flush(takeSteerFlush) 또는 다음 턴 carryover(D2)로.
-      canSteer: true,
       setModel: (model) => handle.setModel(modelForCli(model, contextEnv, settings?.model)),
       // 서브에이전트 단위 중단 — task_started/notification 의 task_id 로 stopTask.
       stopTask: (taskId) => handle.stopTask(taskId),

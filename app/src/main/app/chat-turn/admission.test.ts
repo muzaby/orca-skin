@@ -6,6 +6,7 @@ import {
   admitChatSend,
   checkBusyReservation,
   checkContinuitySource,
+  decideSendNow,
   leaseKeyFor
 } from './admission'
 
@@ -16,6 +17,40 @@ const validPayload = {
   attachments: [],
   attachmentViews: []
 }
+
+describe('0250 decideSendNow', () => {
+  const eligible = {
+    heldCount: 2,
+    turn: { aborted: false, responding: true },
+    chain: { kind: 'active', aborted: false }
+  }
+
+  it.each([
+    ['no-held', { heldCount: 0, turn: undefined, chain: undefined }],
+    ['no-turn', { turn: undefined, chain: undefined }],
+    ['chain-inactive', { chain: undefined, turn: { aborted: true, responding: false } }],
+    [
+      'chain-inactive',
+      { chain: { kind: 'preparing', aborted: false }, turn: { aborted: true, responding: false } }
+    ],
+    [
+      'chain-inactive',
+      { chain: { kind: 'closing', aborted: false }, turn: { aborted: true, responding: false } }
+    ],
+    [
+      'chain-inactive',
+      { chain: { kind: 'active', aborted: true }, turn: { aborted: true, responding: false } }
+    ],
+    ['turn-aborted', { turn: { aborted: true, responding: false } }],
+    ['not-responding', { turn: { aborted: false, responding: false } }]
+  ] as const)('%s 조건은 뒤의 조건보다 우선한다', (reason, overrides) => {
+    expect(decideSendNow({ ...eligible, ...overrides })).toEqual({ action: 'none', reason })
+  })
+
+  it('held와 활성 체인과 응답이 모두 있으면 interrupt한다', () => {
+    expect(decideSendNow(eligible)).toEqual({ action: 'interrupt' })
+  })
+})
 
 describe('admitChatSend', () => {
   it('스키마에 맞지 않는 페이로드는 schema_validation_error 로 거부한다', () => {

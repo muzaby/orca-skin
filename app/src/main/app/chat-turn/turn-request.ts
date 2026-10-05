@@ -1,4 +1,4 @@
-// 최초 턴의 TurnRequest 조립 — 게이트 콜백 6종 + 중단 영수증 화해 (0179 에서 분해).
+// 최초 턴의 TurnRequest 조립 — 입력 인계 콜백 + 중단 영수증 화해 (0179 에서 분해).
 //
 // **활성 턴과 초기 배치를 값이 아니라 게터로 받는다.** 두 값은 자동 연속 턴과 finally 정리가
 // 함께 보는 가변 상태다 — 값으로 캡처하면 연속 턴에서 콜백이 옛 턴을 보고(0067 AC7) 롤백
@@ -62,9 +62,6 @@ export function buildTurnRequest(
   deps: TurnRequestDeps,
   fields: Omit<
     TurnRequest,
-    | 'takeSteerFlush'
-    | 'rollbackSteerFlush'
-    | 'commitSteerFlush'
     | 'canSubmitInitial'
     | 'commitInitialSubmission'
     | 'rollbackInitialSubmission'
@@ -76,7 +73,7 @@ export function buildTurnRequest(
 ): TurnRequest {
   const { pendingMessages, activity, chainId, queueKey } = deps
 
-  // 소유권 표시(0151 AC12) — 세 예약 경로(게이트 flush·롤백·연속 턴)가 같은 인자로 부르게 한다.
+  // 소유권 표시(0151 AC12) — 입력 인계와 롤백이 같은 인자로 부르게 한다.
   const sendOwnership = (sessionId: string, ids: string[], submitted: boolean): void => {
     sendSubmitted(deps.wc, sessionId, ids, submitted)
   }
@@ -93,27 +90,6 @@ export function buildTurnRequest(
 
   return {
     ...fields,
-    // 게이트 훅(PostToolBatch) 시점에 로컬 홀드 pending 을 병합 단일 배치로 회수(0060 D3·D4).
-    // 활성 턴의 dbSessionId 를 훅 발화 시점에 동적으로 읽는다 — 새 세션 턴은 session.updated
-    // 전까지 null(그동안 예약 자체가 불가능하므로 빈 회수가 옳다).
-    takeSteerFlush: () => {
-      const sid = deps.getActiveTurn().dbSessionId
-      if (!sid) return undefined
-      return pendingMessages.reserveHeld(sid, 'steer', undefined, chainId)
-    },
-    // 입력 채널이 배치를 거부하면(closed stream / push 예외) 예약을 held 로 되돌린다(AC4).
-    rollbackSteerFlush: (batch) => {
-      const sid = deps.getActiveTurn().dbSessionId
-      if (!sid) return
-      if (pendingMessages.rollback(sid, batch.uuid)) sendOwnership(sid, batch.ids, false)
-    },
-    commitSteerFlush: (batch) => {
-      const sid = deps.getActiveTurn().dbSessionId
-      if (!sid) return false
-      const committed = pendingMessages.commit(sid, batch.attemptId ?? batch.uuid, chainId)
-      if (committed) sendOwnership(sid, batch.ids, true)
-      return committed
-    },
     canSubmitInitial: () =>
       pendingMessages.canCommitMany(deps.getActiveTurn().dbSessionId ?? queueKey, batchClaims()),
     commitInitialSubmission: () => {

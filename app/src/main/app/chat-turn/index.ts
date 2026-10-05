@@ -18,6 +18,7 @@ import {
   CancelChatSchema,
   CancelSteerSchema,
   DiscardSessionSchema,
+  SteerSendNowSchema,
   StopSubagentSchema
 } from '../../../shared/protocol'
 import type { TurnEmit } from '../../contracts/bus-events'
@@ -37,6 +38,7 @@ import { handleChatSend } from './send'
 import { sendSubmitted } from './enqueue'
 import { registerBackgroundHandlers } from './background'
 import type { BackgroundController } from '../../features/chat/background-controller'
+import { decideSendNow } from './admission'
 
 export type { ChatDeps } from './deps'
 
@@ -103,6 +105,19 @@ export function registerChatHandlers(deps: ChatDeps): BackgroundController {
     listenRelease
   }
 
+  // Stop과 즉시 보내기는 같은 정착/영속/통지 순서를 쓴다. held와 체인 정책은 호출자가 정한다.
+  const interruptResponse = (turn: TurnContext<WebContents>, sessionId: string): void => {
+    abortTurn(turn, 'user_cancelled')
+    settleOpenToolRuns(turn, emitTurn, 'aborted', backgroundTasks.getState?.(sessionId))
+    persistence.finalizeTurn(turn)
+    turn.abortAcknowledged = true
+    sendChatEvent(turn.owner, {
+      type: 'turn.aborted',
+      sessionId,
+      reason: 'user_cancelled'
+    })
+  }
+
   // chatSend 는 검증 실패를 reject 가 아닌 error 이벤트로 회신하는 특례 — handlePlain 으로
   // 등록하고 핸들러 서두에서 직접 safeParse 한다(admission.ts). 턴 진입을 runWithLogContext 로
   // 감싸(0124 AC4) 이 턴의 비동기 흐름(chat/engine/db)에서 emit 되는 로그가 동일 correlationId
@@ -128,6 +143,28 @@ export function registerChatHandlers(deps: ChatDeps): BackgroundController {
       sessionId: req.sessionId,
       ids: [req.id]
     })
+  })
+
+  handle(CHANNELS.chatSteerSendNow, SteerSendNowSchema, 'reject', (req): void => {
+    const turn = supervisor.getBySession(req.sessionId)
+    const chain = supervisor.getChainBySession(req.sessionId)
+    const decision = decideSendNow({
+      heldCount: pendingMessages.pending(req.sessionId).length,
+      turn: turn
+        ? { aborted: turn.controller.signal.aborted, responding: turn.live?.responding === true }
+        : undefined,
+      chain: chain ? { kind: chain.kind, aborted: chain.controller.signal.aborted } : undefined
+    })
+    getLogger()
+      .child('chat')
+      .info('chat.steer.send-now', {
+        sessionId: req.sessionId,
+        action: decision.action,
+        ...(decision.action === 'none' ? { reason: decision.reason } : {})
+      })
+    if (decision.action !== 'interrupt' || !turn) return
+    turn.abortContinuation = 'send-now'
+    interruptResponse(turn, req.sessionId)
   })
 
   // 세션 전체 중단(0151 r2 / OQ1 결정) — Stop 뒤에도 CLI 큐에 살아남은 **우리** 예약을 없애는
@@ -176,20 +213,8 @@ export function registerChatHandlers(deps: ChatDeps): BackgroundController {
         scheduleActivity.pendingSessionWakeup === true)
     if (!keepScheduledReception) supervisor.cancelChain(req.sessionId)
     if (!turn) return
-    if (keepScheduledReception) turn.resumeScheduledReception = true
-    abortTurn(turn, 'user_cancelled')
-    // 진행 중이던 도구(최상위 + 서브에이전트 child)를 중단 결과로 정착 — 안 하면 결과가
-    // 영영 안 와 "실행 중"으로 무한 렌더되고 부모 Task 가 "진행 중"으로 남는다. turn.aborted 전에.
-    settleOpenToolRuns(turn, emitTurn, 'aborted', backgroundTasks.getState?.(req.sessionId))
-    // 중단 턴은 버스 telemetry 없이 끝난다 — 진행 중 assistant 메시지의 content(FTS 캐시)를
-    // 여기서 마감 기록한다(0107). settle 의 합성 tool_result 영속 뒤에 와야 한다.
-    persistence.finalizeTurn(turn)
-    turn.abortAcknowledged = true
-    sendChatEvent(turn.owner, {
-      type: 'turn.aborted',
-      sessionId: req.sessionId,
-      reason: 'user_cancelled'
-    })
+    if (keepScheduledReception) turn.abortContinuation = 'reception'
+    interruptResponse(turn, req.sessionId)
   })
 
   // 서브에이전트(Task) 단위 중단 — turn 전체가 아니라 한 Agent 도구 호출만 멈춘다(turn 계속).

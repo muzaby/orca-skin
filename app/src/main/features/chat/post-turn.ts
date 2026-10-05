@@ -3,6 +3,16 @@
 // CLI 가 자동(알림) 턴을 진행 중이거나 프레임 밖 적체가 남아 있으면 listen 드레인을 먼저 돌려
 // 그 턴의 terminal/이벤트가 다음(steer) 프레임에 오귀속되는 것(steer 세션 사망 — 0143 버그 a)을
 // 구조적으로 차단한다.
+import type { AbortContinuation } from '../../contracts/turn'
+
+type AbortResumePolicy = { resume: false } | { resume: true; stopTasks: boolean }
+
+// 응답 중단의 의도를 한 곳에서 해석한다. 즉시 보내기는 체인과 백그라운드 작업을 유지한다.
+export function abortResumePolicy(continuation: AbortContinuation | undefined): AbortResumePolicy {
+  if (continuation === undefined) return { resume: false }
+  return { resume: true, stopTasks: continuation === 'reception' }
+}
+
 type PostTurnStep = 'listen' | 'flush' | 'break'
 
 interface PostTurnState {

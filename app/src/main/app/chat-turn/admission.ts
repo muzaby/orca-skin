@@ -15,6 +15,29 @@ import { crossesProviderBoundary } from '../../features/harnesses/runtime-bounda
 
 export type SendChatPayload = ReturnType<typeof SendChatMessageSchema.parse>
 
+export type SendNowDecision =
+  | { action: 'interrupt' }
+  | {
+      action: 'none'
+      reason: 'no-held' | 'no-turn' | 'chain-inactive' | 'turn-aborted' | 'not-responding'
+    }
+
+// 즉시 보내기는 실제 응답만 끊는다. 턴 사이/준비 중 held는 기존 연속 턴 경로가 전달한다.
+export function decideSendNow(input: {
+  heldCount: number
+  turn: { aborted: boolean; responding: boolean } | undefined
+  chain: { kind: string; aborted: boolean } | undefined
+}): SendNowDecision {
+  if (input.heldCount === 0) return { action: 'none', reason: 'no-held' }
+  if (!input.turn) return { action: 'none', reason: 'no-turn' }
+  if (!input.chain || input.chain.kind !== 'active' || input.chain.aborted) {
+    return { action: 'none', reason: 'chain-inactive' }
+  }
+  if (input.turn.aborted) return { action: 'none', reason: 'turn-aborted' }
+  if (!input.turn.responding) return { action: 'none', reason: 'not-responding' }
+  return { action: 'interrupt' }
+}
+
 type Admission =
   { ok: true; data: SendChatPayload } | { ok: false; error: ClassifiedError; sessionId?: string }
 

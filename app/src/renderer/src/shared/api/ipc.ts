@@ -62,6 +62,7 @@ import type {
   SearchHit,
   SendChatMessage,
   CancelSteer,
+  SteerSendNow,
   SessionListItem,
   SessionTitleEvent,
   Settings,
@@ -114,6 +115,7 @@ export const chatApi = {
     window.orca.chat.readBackgroundOutput(req),
   send: (req: SendChatMessage): Promise<void> => window.orca.chat.send(req),
   cancelSteer: (req: CancelSteer): Promise<void> => window.orca.chat.cancelSteer(req),
+  sendSteerNow: (req: SteerSendNow): Promise<void> => window.orca.chat.sendSteerNow(req),
   cancel: (sessionId: string): Promise<void> => window.orca.chat.cancel(sessionId),
   stopSubagent: (sessionId: string, toolUseId: string): Promise<void> =>
     window.orca.chat.stopSubagent(sessionId, toolUseId),

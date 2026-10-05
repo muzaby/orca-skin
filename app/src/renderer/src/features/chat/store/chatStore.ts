@@ -93,6 +93,8 @@ export interface PendingSteerState {
   // 소유권(0151) — true 면 stdin 주입이 끝나 **취소 불가**(main 이 취소를 거부한다). 버블은
   // 취소 버튼을 감추고 "전달됨" 으로 보인다. 예약 롤백(닫힌 입력 스트림)이면 다시 false 로 돌아온다.
   submitted?: boolean
+  // 즉시 보내기의 낙관 표식. 전달 여부는 main 의 submitted/committed 이벤트만 정한다.
+  sendNowRequested?: boolean
 }
 
 export interface SubagentMetaState {
@@ -1096,6 +1098,36 @@ function setWorktreeBaseRef(branch: string | null): void {
 
 // 구 steer() 는 send() 로 흡수(0067 AC5) — busy/idle 판정은 main 소관, renderer 는 단일 send.
 
+function sendSteerNow(): void {
+  const state = getState()
+  const key = state.activeKey
+  const sessionId = state.sessions[key]?.session.sessionId
+  if (!sessionId) return
+  const requested = new Map(
+    (state.sessions[key].pendingSteer ?? [])
+      .filter((item) => item.submitted !== true && item.sendNowRequested !== true)
+      .map((item) => [item.id, item.sendNowRequested])
+  )
+  if (requested.size === 0) return
+  patchPendingSteer(key, (pending) =>
+    pending.map((item) => (requested.has(item.id) ? { ...item, sendNowRequested: true } : item))
+  )
+  void chatApi.sendSteerNow({ sessionId }).catch((err) => {
+    // 요청 뒤 추가·취소·커밋된 항목과 다른 세션은 손대지 않는다.
+    patchPendingSteer(key, (pending) =>
+      pending.map((item) =>
+        requested.has(item.id) ? { ...item, sendNowRequested: requested.get(item.id) } : item
+      )
+    )
+    reportError({
+      event: 'chat.steer-send-now.rejected',
+      scope: 'chat',
+      title: 'actionFailed',
+      error: err
+    })
+  })
+}
+
 function cancelSteer(id: string): string | null {
   const cur = getActiveChatSession()
   if (!cur.sessionId) return null
@@ -1659,6 +1691,7 @@ function denyTool(approvalId: string): void {
 export const chatActions = {
   setAgentKind,
   send,
+  sendSteerNow,
   cancelSteer,
   cancel,
   discardSession,

@@ -49,14 +49,16 @@ function baseRequest(): TurnRequest {
     forkFrom: 'origin-session',
     handoff: true,
     preludes: [{ uuid: 'p-1', ids: ['m-1'], text: '프렐류드' } as unknown as SteerFlushBatch],
-    takeSteerFlush: vi.fn(),
-    commitSteerFlush: vi.fn(),
-    rollbackSteerFlush: vi.fn()
+    requestApproval: vi.fn(),
+    captureInterruptReceipt: vi.fn(),
+    onChannelRetired: vi.fn(),
+    onSessionSchedules: vi.fn(),
+    onProviderEvent: vi.fn()
   } as unknown as TurnRequest
 }
 
 describe('buildListenRequest', () => {
-  it('첨부를 싣지 않고 프레임 위임 3종을 전부 넘긴다', () => {
+  it('첨부를 싣지 않고 프레임 위임을 전부 넘긴다', () => {
     const base = baseRequest()
     const signal = new AbortController().signal
 
@@ -67,10 +69,11 @@ describe('buildListenRequest', () => {
     expect(request.attachmentImages).toBeUndefined()
     expect(request.requirements).toBeUndefined()
     expect(request.promptUuid).toBeUndefined()
-    // 0166 D7 — 위임을 절반만 실으면 게이트 훅이 배치를 submitting 에 가둔다.
-    expect(request.takeSteerFlush).toBe(base.takeSteerFlush)
-    expect(request.commitSteerFlush).toBe(base.commitSteerFlush)
-    expect(request.rollbackSteerFlush).toBe(base.rollbackSteerFlush)
+    expect(request.requestApproval).toBe(base.requestApproval)
+    expect(request.captureInterruptReceipt).toBe(base.captureInterruptReceipt)
+    expect(request.onChannelRetired).toBe(base.onChannelRetired)
+    expect(request.onSessionSchedules).toBe(base.onSessionSchedules)
+    expect(request.onProviderEvent).toBe(base.onProviderEvent)
     // 신선한 확장/모델/설정을 쓰고 cwd 는 원 턴을 유지한다.
     expect(request.extensions).toBe(continuation.extensions)
     expect(request.model).toBe('sonnet-next')

@@ -7,7 +7,7 @@
 //     canUseTool 을 건너뛰어 기존 승인 카드(makeCanUseTool)·plan/acceptEdits 흐름을 우회하기 때문.
 //   - 그래서 dontAsk 를 쓰지 않는다(그 모드는 canUseTool 을 죽여 AskUserQuestion·ExitPlanMode·승인
 //     카드를 자동 거부한다).
-// 어댑터 내부 훅 조각이라 makeSteerGateHook(claude-adapt.ts)과 동형으로 `{hooks:{PreToolUse:[…]}}`
+// 어댑터 내부 훅 조각으로 `{hooks:{PreToolUse:[…]}}`
 // 를 반환하고 claude.ts 가 mergeHooks 로 합성한다. 순수 판정부는 named export 로 단위 테스트한다.
 
 import { homedir } from 'node:os'

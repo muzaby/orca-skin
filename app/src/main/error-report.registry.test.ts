@@ -151,20 +151,6 @@ const sites = [
     method: 'reportError'
   },
   {
-    id: 'M20',
-    file: 'adapters/claude-adapt.ts',
-    event: 'engine.steer.submit-rejected',
-    title: 'steerFailed',
-    method: 'reportError'
-  },
-  {
-    id: 'M21',
-    file: 'adapters/claude-adapt.ts',
-    event: 'engine.steer.flush-failed',
-    title: 'steerFailed',
-    method: 'reportError'
-  },
-  {
     id: 'M22',
     file: 'infra/config/orca-config.ts',
     event: 'config.orca.invalid',
@@ -210,8 +196,6 @@ const slots: Record<string, number> = {
   M17b: 0,
   M18: 0,
   M19: 0,
-  M20: 0,
-  M21: 1,
   M22: 0,
   M23: 0
 }
