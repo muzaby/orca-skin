@@ -12,7 +12,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-06 |
 | 매핑 | — |
-| 상태 | impl/IMPL_DONE (r1) |
+| 상태 | verify/PASS (r1 · 기계 범위) — AC13 사람 실기 대기 |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
 | 이번 V revision | `V1` |
@@ -684,4 +684,8 @@ PendingSteerTurn 클릭 → chatActions.sendSteerNow → preload → steerSendNo
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| D1 | hover 컨테이너 `group/msg` 하나라 모든 대기 버블 버튼이 함께 보인다 | 비귀속(D-005로 결과 동일) | AC13 시각 확인 때 판단 | NON_BLOCKING | open |
+| D2 | renderer `streaming`인데 main `responding=false`면 클릭이 무동작·버튼만 사라짐 | D-009 의도 | 기록 | NON_BLOCKING | open |
+| D3 | 검증 환경 `rg` 부재로 scan-surface 불가 | 환경 | git grep 대체 | NON_BLOCKING | 기록 |
+
+r1 검증 원문: [`verify.md`](verify.md).
