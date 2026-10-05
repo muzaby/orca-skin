@@ -13,6 +13,7 @@ import {
 import { flushRaf, installChatStoreHarness } from './chatStore.testHarness'
 import { DEFAULT_DIFF_VIEW, initialChatState } from '../reducer/chatReducer'
 import { partsText } from '../lib/parts'
+import * as errors from '../../../shared/errors'
 import type { DiffRequirementItem, NormalizedEvent } from '../../../../../shared/ipc'
 
 let chatSend: ReturnType<typeof installChatStoreHarness>['chatSend']
@@ -23,6 +24,137 @@ const delta = (text: string, sessionId = 's'): NormalizedEvent => ({
   type: 'message.delta',
   sessionId,
   delta: { text }
+})
+
+describe('chatStore — 0250 즉시 보내기', () => {
+  let sendNow: ReturnType<typeof vi.fn>
+
+  const queued = (id: string): void =>
+    ingestChatEvent({ type: 'message.queued', sessionId: 's', id, text: id, createdAt: 10 })
+  const pending = (): NonNullable<
+    ReturnType<typeof useChatStore.getState>['sessions']['s']['pendingSteer']
+  > => useChatStore.getState().sessions.s.pendingSteer ?? []
+
+  beforeEach(() => {
+    sendNow = vi.fn().mockResolvedValue(undefined)
+    Object.assign(window.orca.chat, { sendSteerNow: sendNow })
+    vi.spyOn(errors, 'reportError').mockImplementation(() => {})
+  })
+  afterEach(() => vi.restoreAllMocks())
+
+  it('활성 세션의 전달 전 항목 전부만 표식하고 sessionId 하나로 요청한다', () => {
+    queued('first')
+    queued('second')
+    queued('submitted')
+    ingestChatEvent({
+      type: 'message.submitted',
+      sessionId: 's',
+      ids: ['submitted'],
+      submitted: true
+    })
+    chatActions.sendSteerNow()
+    expect(sendNow).toHaveBeenCalledExactlyOnceWith({ sessionId: 's' })
+    expect(pending().map((item) => [item.id, item.sendNowRequested])).toEqual([
+      ['first', true],
+      ['second', true],
+      ['submitted', undefined]
+    ])
+    queued('later')
+    expect(pending().at(-1)?.sendNowRequested).toBeUndefined()
+    expect(entry().session.inflight).toBe(true)
+    expect(entry().session.messages).toEqual([])
+  })
+
+  it('IPC reject 는 표식을 되돌리고 오류를 보고하며 취소·draft 반환을 유지한다', async () => {
+    const failure = new Error('send now rejected')
+    sendNow.mockRejectedValueOnce(failure)
+    queued('first')
+    queued('second')
+    chatActions.sendSteerNow()
+    await Promise.resolve()
+    expect(pending().map((item) => item.sendNowRequested)).toEqual([undefined, undefined])
+    expect(errors.reportError).toHaveBeenCalledExactlyOnceWith({
+      event: 'chat.steer-send-now.rejected',
+      scope: 'chat',
+      title: 'actionFailed',
+      error: failure
+    })
+    expect(chatActions.cancelSteer('first')).toBe('first')
+    expect(window.orca.chat.cancelSteer).toHaveBeenCalledExactlyOnceWith({
+      sessionId: 's',
+      id: 'first'
+    })
+    expect(pending().map((item) => item.id)).toEqual(['second'])
+  })
+
+  it('즉시 보내기 요청 뒤에도 전달 전 취소는 항목 제거와 draft 반환을 유지한다', () => {
+    queued('first')
+    queued('second')
+    chatActions.sendSteerNow()
+    expect(chatActions.cancelSteer('first')).toBe('first')
+    expect(window.orca.chat.cancelSteer).toHaveBeenCalledExactlyOnceWith({
+      sessionId: 's',
+      id: 'first'
+    })
+    expect(pending()).toEqual([expect.objectContaining({ id: 'second', sendNowRequested: true })])
+    ingestChatEvent({ type: 'message.cancelled', sessionId: 's', ids: ['first'] })
+    expect(useChatStore.getState().draftRestore).toBeNull()
+  })
+
+  it('늦은 reject 는 취소 항목을 되살리지 않고 새 항목·다른 활성 세션을 건드리지 않는다', async () => {
+    let rejectRequest!: (error: Error) => void
+    sendNow.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectRequest = reject
+      })
+    )
+    queued('cancelled')
+    queued('held')
+    chatActions.sendSteerNow()
+    chatActions.cancelSteer('cancelled')
+    queued('later')
+    useChatStore.setState((state) => ({
+      activeKey: 'other',
+      sessions: {
+        ...state.sessions,
+        other: {
+          ...state.sessions.s,
+          session: { ...state.sessions.s.session, sessionId: 'other' },
+          pendingSteer: [{ id: 'other', text: 'other', createdAt: 20, sendNowRequested: true }]
+        }
+      }
+    }))
+    rejectRequest(new Error('late failure'))
+    await Promise.resolve()
+    expect(pending().map((item) => [item.id, item.sendNowRequested])).toEqual([
+      ['held', undefined],
+      ['later', undefined]
+    ])
+    expect(useChatStore.getState().sessions.other.pendingSteer?.[0].sendNowRequested).toBe(true)
+    expect(useChatStore.getState().activeKey).toBe('other')
+  })
+
+  it('같은 항목의 반복 요청은 막고 새 항목은 요청하며 이전 실패로 새 표식을 지우지 않는다', async () => {
+    let rejectRequest!: (error: Error) => void
+    sendNow.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectRequest = reject
+      })
+    )
+    queued('first')
+    chatActions.sendSteerNow()
+    chatActions.sendSteerNow()
+    expect(sendNow).toHaveBeenCalledTimes(1)
+    queued('second')
+    chatActions.sendSteerNow()
+    expect(sendNow).toHaveBeenCalledTimes(2)
+    rejectRequest(new Error('first request failed'))
+    await Promise.resolve()
+    expect(pending().map((item) => [item.id, item.sendNowRequested])).toEqual([
+      ['first', undefined],
+      ['second', true]
+    ])
+  })
 })
 
 const reasoningDelta = (text: string, sessionId = 's'): NormalizedEvent => ({

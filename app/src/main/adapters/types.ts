@@ -41,9 +41,6 @@ export interface LiveTurn {
   // `still_queued`(중단 뒤에도 실행될 잔여 uuid)를 어댑터가 버렸다. 미지원 어댑터/구형 CLI 는
   // `undefined`(잔여 미상)를 반환하며, 이는 빈 배열(잔여 없음)과 **다른 의미**다.
   interrupt(): Promise<InterruptReceipt | undefined>
-  // steer UX 수용 여부 — 전달은 어댑터 게이트 훅(TurnRequest.takeSteerFlush) 또는 다음 턴
-  // carryover(0060 D2/D3). mid-turn stdin 직주입 경로(injectMessage)는 0060 D3 에서 제거됐다.
-  readonly canSteer?: boolean
   setModel(model?: string): Promise<void>
   // 서브에이전트(Task) 단위 중단 — SDK task_id 로 stopTask. 백엔드 미지원 시 no-op 가능.
   stopTask(taskId: string): Promise<void>

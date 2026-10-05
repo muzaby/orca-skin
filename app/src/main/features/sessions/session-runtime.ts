@@ -17,12 +17,9 @@ import {
 
 // 프레임 위임 키 — **채널보다 짧은 수명(체인·턴)을 캡처한 콜백의 정본 목록**이다. 채널은 체인보다
 // 오래 살므로 이 콜백들은 spawn 시점 값으로 굳으면 안 되고, 매 send/listen 마다 갈아끼워야 한다.
-// 앞의 4개는 어댑터에 넘어가 고정 래퍼를 거치고(`wrapRequest`), 뒤의 3개는 Runtime 이 직접 읽는다.
+// 승인 콜백은 어댑터에 넘어가 고정 래퍼를 거치고(`wrapRequest`), 나머지는 Runtime 이 직접 읽는다.
 const FRAME_DELEGATE_KEYS = [
   'requestApproval',
-  'takeSteerFlush',
-  'commitSteerFlush',
-  'rollbackSteerFlush',
   'captureInterruptReceipt',
   'onChannelRetired',
   'onSessionSchedules',
@@ -33,12 +30,7 @@ type FrameDelegateKey = (typeof FRAME_DELEGATE_KEYS)[number]
 type FrameDelegate = Pick<TurnRequest, FrameDelegateKey>
 
 // 어댑터로 넘어가는 부분집합 — 나머지는 Runtime 내부 소비라 요청에 실리지 않는다.
-const ADAPTER_DELEGATE_KEYS = [
-  'requestApproval',
-  'takeSteerFlush',
-  'commitSteerFlush',
-  'rollbackSteerFlush'
-] as const satisfies readonly FrameDelegateKey[]
+const ADAPTER_DELEGATE_KEYS = ['requestApproval'] as const satisfies readonly FrameDelegateKey[]
 
 // 요청에서 프레임 위임만 골라낸다. **요청을 처음부터 재조립하는 경로**(listen 은 원 request 를
 // spread 하면 base64 첨부가 분 단위로 살아남아 최소 리터럴로 짓는다, 0149)가 위임을 절반만
@@ -255,8 +247,8 @@ export class SessionRuntime implements ManagedRuntime {
   // 현재 턴의 콜백 위임(0067 W1) — 채널 spawn 시 어댑터에 바인딩된 콜백이 턴을 넘어 재사용되므로,
   // 어댑터에는 고정 래퍼를 주고 실제 콜백은 매 send/listen 마다 여기로 갈아끼운다.
   // 목록 정본은 `FRAME_DELEGATE_KEYS` 다 — **요청을 재조립하는 모든 경로**(listen 등)가 같은
-  // 목록으로 골라내야 한다(`pickFrameDelegates`). 절반만 넘기면 "take 는 현재 체인 · commit 은
-  // 옛 체인" 이 되어 확정 fence 가 항상 어긋나고 배치가 `submitting` 에 갇힌다(0166 D7/D8).
+  // 목록으로 골라내야 한다(`pickFrameDelegates`). 일부만 넘기면 현재 체인의 승인·중단 영수증·
+  // 채널 관찰 콜백이 누락되거나 옛 체인을 계속 보게 된다.
   private delegate: FrameDelegate = {}
   private providerSource: BackgroundEventSource | undefined
   private providerSessionId: string | undefined
@@ -370,8 +362,8 @@ export class SessionRuntime implements ManagedRuntime {
     return this.status.cancelled
   }
 
-  get canSteer(): boolean {
-    return this.live?.canSteer === true
+  get responding(): boolean {
+    return (this.frame !== null && this.frame !== this.listenFrame) || this.cliBusy
   }
 
   send(req: TurnRequest): AsyncIterable<NormalizedEvent> {
@@ -695,8 +687,8 @@ export class SessionRuntime implements ManagedRuntime {
       .info('engine.channel.teardown', { provider: this.adapter.id, reason: 'stream-ended' })
   }
 
-  // listen 프레임 강제 종료(0136 릴리즈 밸브) — busy send(held 예약)가 게이트 훅(PostToolBatch)
-  // 없이도 즉시 자동 연속 턴으로 전환되도록 프레임만 닫는다. draining 을 세우지 않으므로
+  // listen 프레임 강제 종료(0136 릴리즈 밸브) — 유휴 수신 중 들어온 held 입력을
+  // 즉시 자동 연속 턴으로 전환하도록 프레임만 닫는다. draining 을 세우지 않으므로
   // (consumeFrame 의 finally 는 this.frame !== frame 을 보고 통과) 이후 이벤트는 unframed 로
   // 남아 다음 openFrame 백로그 합류로 무손실 이월된다. listen 프레임이 아니면 no-op(일반 턴
   // 프레임 오폐쇄 방지).
@@ -822,10 +814,7 @@ export class SessionRuntime implements ManagedRuntime {
       {
         requestApproval: (action, signal) =>
           this.delegate.requestApproval?.(action, signal) ??
-          Promise.resolve({ behavior: 'deny' as const }),
-        takeSteerFlush: () => this.delegate.takeSteerFlush?.(),
-        commitSteerFlush: (batch) => this.delegate.commitSteerFlush?.(batch) ?? false,
-        rollbackSteerFlush: (batch) => this.delegate.rollbackSteerFlush?.(batch)
+          Promise.resolve({ behavior: 'deny' as const })
       }
     const wrapped: Record<string, unknown> = {}
     for (const key of ADAPTER_DELEGATE_KEYS) {

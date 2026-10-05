@@ -62,20 +62,26 @@
 
 ### 1.4 세션별 pending message queue (`features/chat/pending-message-queue.ts`)
 
-모든 프롬프트는 커밋 전 이 큐를 지난다(0067). 세션 상태가 주입 경로를 가른다:
+모든 사용자 프롬프트는 커밋 전 이 큐를 지난다. 전달 시점은 세션 상태와 사용자 동작으로 정한다.
+Decision rationale: [ADR-007](../../decisions/007-queued-input-next-turn.md).
 
-- **세션 idle(사용자 턴)**: `chat:send` 가 enqueue 직후 아이템 단위 배치를 예약해(`reserveItem`) 턴 프롬프트로 주입(스폰 초기 메시지 또는 `pushTurn`).
-- **어시스턴트 턴(busy)**: `chat:send` 는 **예약(held)만** 한다(구 `chat:steer` 흡수). 항목 수명:
+| 진입 / 동작 | 전달 경로 | 대기 항목 |
+|---|---|---|
+| 유휴 세션 전송 | `chat:send` → `reserveItem` → 최초 프롬프트 또는 `pushTurn` | 즉시 예약 |
+| 응답 중 전송 | `chat:send` → held → 응답 종료 → post-turn `reserveHeld('turn-open')` → 다음 턴 | 응답 종료까지 취소 가능 |
+| 즉시 보내기 | `chat:steerSendNow` → `decideSendNow` → `interruptResponse` → 잔여 드레인 → post-turn flush | 대기 전부를 입력 순서대로 병합 |
+
+도구 경계에서는 held를 회수하지 않는다. '즉시 보내기'는 진행 중 응답이 있을 때만 interrupt하며, 대기·세션 체인·백그라운드 작업은 유지한다. 수신 대기 중 CLI 자동 응답도 같은 판정을 사용하고, 유휴 수신·턴 사이·준비 중이면 아무것도 끊지 않는다.
 
 | 상태 | 의미 | 취소 |
 |---|---|---|
-| **held** | enqueue 직후. stdin 미주입. | ✅ 100% 가능(`chat:steerCancel`·중단 시 `cancelAllHeld`) |
-| **flushed** | 게이트 훅(`PostToolBatch`, `reserveHeld` 병합 단일 배치) 또는 턴 프롬프트(`reserveItem`/`takeForRespawn`, 아이템 단위)로 stdin 주입됨. | ✖ 불가 |
-| **consumed** | 소비 확정(`confirm` → `drainConfirmed`). 배치 성격에 따라 신호 2종(0069) ↓ | — |
+| **held** | enqueue 직후, 아직 CLI 입력으로 전달하지 않음 | `chat:steerCancel` 가능. '중단'은 전량 취소·draft 복원 |
+| **flushed** | 턴 프롬프트 또는 프렐류드로 예약·전달한 배치 | 취소 거부 후 `message.submitted(true)`로 재동기화 |
+| **consumed** | 소비 확정(`confirm` → `drainConfirmed`) | 확정됨 |
 
-- **consumed 신호(0069)**: ① **턴-시작 배치**(프롬프트·프렐류드) = 프레임의 **첫 모델 출력**(coordinator `MODEL_OUTPUT_EVENTS` 앵커 — 응답 시작이 곧 소비 증거, echo 불요) ② **steer 배치**(mid-turn 게이트 flush) = CLI **user echo**(uuid 매칭 — 응답 진행은 소비 증거가 못 되므로 echo 가 유일 정밀 신호).
-- **커밋(user row 영속 · preview · renderer 승격)** = **echo 관측 단일 경로**(`message.committed`) — `chat:send` 시점 선영속은 **없다**. renderer 는 `message.queued/committed/cancelled` 로 큐를 간접 관찰한다.
-- 훅(`PostToolBatch`/`UserPromptSubmit`)은 **주입 제어 계층**이지 커밋 신호가 아니다(0068 실측 — `UserPromptSubmit` 은 uuid 부재 + init 이전 발화라 상관 불가).
+턴 시작 배치의 소비 증거는 프레임의 첫 모델 출력이다. 큐 내부의 `steer` 배치와 user echo 확인 규칙은 유지하지만 현재 전달 생산 경로에서는 사용하지 않는다. 커밋은 `message.committed`를 통해 DB 영속·preview·renderer 승격으로 이어지며, `chat:send` 시점 선영속은 없다.
+
+중단 후 재개 정책은 `features/chat/post-turn.ts`의 `abortResumePolicy`가 소유한다. `TurnContext.abortContinuation`의 `'reception'`은 태스크 중지 후 수신 재개, `'send-now'`는 태스크를 유지한 채 재개이며, 새 연속 턴에는 이 표식을 상속하지 않는다. renderer는 `message.queued/submitted/committed/cancelled`로 큐를 관찰하고 `sendNowRequested`는 버튼 숨김에만 사용한다.
 
 ### 1.5 자원 상한 (cap / LRU)
 

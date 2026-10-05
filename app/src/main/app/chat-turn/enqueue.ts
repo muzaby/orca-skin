@@ -39,7 +39,7 @@ export function enqueueTurnPrompt(input: {
   // ① 프렐류드: 채널 사망 이월 — 미소비 flushed(CLI 큐 소멸분) 재전달 + held 를 아이템 단위
   //    배치로 회수해 본 프롬프트 *앞에* 개별 user 메시지로 선적재한다(개별 echo→개별 커밋 =
   //    버블 구조 보존). **채널 생존 시엔 회수하지 않는다** — flushed 분은 CLI 큐에 살아있어
-  //    다음 턴 픽업으로, held 분은 이번 턴 게이트 flush 로 이어진다(드레인하면 이중 전달).
+  //    다음 턴 픽업으로, held 분은 턴-후 자동 연속 턴으로 이어진다(드레인하면 이중 전달).
   const preludes: SteerFlushBatch[] = input.channelAlive
     ? []
     : pendingMessages.takeForRespawn(queueKey, chainId)
@@ -57,9 +57,9 @@ export function enqueueTurnPrompt(input: {
   // 턴 프롬프트 예약 — origin='turn-open' 이라 확정 신호는 **첫 모델 출력**이다(0069·0151 AC1).
   //
   // **잔여 held 를 함께 병합한다(0152 AC2)**: 이전 턴이 남긴 예약이 있는데 새 항목만 예약하면
-  // 새 메시지가 턴 프롬프트로 먼저 들어가고 잔여는 게이트/연속 턴으로 나중에 흘러 **입력 순서가
+  // 새 메시지가 턴 프롬프트로 먼저 들어가고 잔여는 연속 턴으로 나중에 흘러 **입력 순서가
   // 뒤집힌다**. reserveHeld 는 held 를 적재 순서(=시간 순)대로 병합하므로 잔여가 앞, 새 메시지가
-  // 뒤가 된다(0067 D4 = 병합 1버블, 게이트 flush 와 동일 규칙). 잔여가 없으면 아이템 단위 배치.
+  // 뒤가 된다(0067 D4 = 병합 1버블). 잔여가 없으면 아이템 단위 배치.
   const mainBatch =
     pendingMessages.pending(queueKey).length > 1
       ? pendingMessages.reserveHeld(queueKey, 'turn-open', undefined, chainId)!
@@ -90,8 +90,8 @@ export function reserveOnBusySession(
   data: BusyReservePayload,
   na: NormalizedAttachments
 ): void {
-  // 큐 admission 과 즉시 steer 가능 여부는 다른 계약이다. active 채널이 mid-turn steer 를
-  // 지원하지 않아도 체인 종료 뒤 자동 continuation 으로 안전하게 전달할 수 있으므로,
+  // 큐 admission 과 현재 채널의 입력 가능 여부는 다른 계약이다. 응답이 진행 중이어도
+  // 응답 종료 뒤 자동 continuation 으로 안전하게 전달할 수 있으므로,
   // closing 전 lease 는 입력을 held 로 수용한다. 실제 push 가능성은 턴-후 루프가 판정한다.
   const rejection = checkBusyReservation({
     leaseKind: lease.kind,
@@ -115,8 +115,8 @@ export function reserveOnBusySession(
     attachments: na,
     admittedAt: Math.max(Date.now(), lease.admittedAt + 1)
   })
-  // 0136 — listen 턴(백그라운드 대기) 중의 예약은 게이트 훅(PostToolBatch)이 영영 안 올 수
-  // 있다(CLI 유휴). listen 프레임을 닫아 턴-후 루프가 즉시 held flush 연속 턴으로 전환한다.
+  // 0136 — 유휴 listen 프레임을 닫아 턴-후 루프가 즉시 held flush 연속 턴으로 전환한다.
+  // CLI 자동 응답이 진행 중이면 런타임 밸브는 그 응답의 terminal 까지 기다린다.
   if (sessionId) deps.listenRelease.get(sessionId)?.()
 }
 // 신규·busy 입력은 같은 내용과 queued wire를 만든다. 예약·respawn·listen 정책은 호출부 소유.

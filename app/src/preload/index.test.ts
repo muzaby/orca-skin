@@ -81,6 +81,22 @@ it('promotes the selected shell through the renderer API and actual preload with
   }
 })
 
+it('sends all held inputs now through the renderer API and actual preload using the session key', async () => {
+  const api = harness.exposed.get('orca') as OrcaApi
+  vi.stubGlobal('window', { orca: api })
+  try {
+    const { chatApi } = await import('../renderer/src/shared/api/ipc')
+    harness.invoke.mockClear()
+    const request = { sessionId: 'queued-session' }
+    await chatApi.sendSteerNow(request)
+    expect(harness.invoke).toHaveBeenCalledExactlyOnceWith(CHANNELS.chatSteerSendNow, request)
+    harness.invoke.mockRejectedValueOnce(new Error('interrupt denied'))
+    await expect(chatApi.sendSteerNow(request)).rejects.toThrow('interrupt denied')
+  } finally {
+    vi.unstubAllGlobals()
+  }
+})
+
 it('artifact actions preserve session and publication IDs on dedicated channels', async () => {
   const api = harness.exposed.get('orca') as OrcaApi
   harness.invoke.mockClear()

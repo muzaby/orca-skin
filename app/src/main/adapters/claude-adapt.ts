@@ -1,4 +1,3 @@
-import { reportError } from '../infra/error-report'
 // claude 어댑트 변환 — 백엔드 중립 Extension 조각을 claude query() 옵션 조각으로 변환하는 순수
 // 함수들. 인바운드(백엔드→중립)가 normalize 라면, 이쪽은 그 아웃바운드 짝(중립→백엔드)으로,
 // Ports & Adapters 의 어댑터 경계 변환이다. 각 함수는 `...spread` 로 합성될 옵션 조각을
@@ -18,7 +17,6 @@ import type {
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { adaptSkillNameForClaude } from './claude-plugin'
-import { getLogger } from '../infra/log/registry'
 import type { SkillInfo } from '../../shared/ipc'
 import { isRecord } from '../../shared/obj'
 import {
@@ -35,7 +33,6 @@ import {
   type NormalizedHookHandler,
   type NormalizedHookSet
 } from './hooks'
-import type { SteerFlushBatch } from './turn'
 
 // Claude Code plugin root 들을 SDK local plugin 옵션으로 변환한다(0117 에서 복수화 — Orca plugin +
 // 사용자 ~/.claude/skills 래퍼 plugin). 상대 경로는 cwd 기준이라 세션 cwd 변경과 얽힐 수 있으므로
@@ -196,63 +193,6 @@ export function adaptHooks(set: NormalizedHookSet): object {
   return { hooks }
 }
 
-// PostToolBatch 게이트 훅 조각 — 로컬 홀드된 steer 를 "다음 모델 요청 직전"(drain 직전 단일
-// 발화, 명세 §7.5)에 stdin 으로 flush 한다(0060 D3·D4). 규칙:
-//   - 메인 루프 한정: input.agent_id 는 서브에이전트 발화 시에만 존재(SDK dts) — 있으면 스킵.
-//   - push(스트림 stdin write)가 훅 응답 반환보다 선행 → 같은 stdin FIFO 라 CLI 가 훅 응답을
-//     읽기 전에 배치가 enqueue 된다(same-batch 포함, 명세 §7.3 — 부정돼도 다음 경계 열화로 안전).
-//   - fail-open: steer 는 부가기능 — 어떤 예외도 {} 로 삼켜 턴 본체를 보호한다.
-//   - 2단계 인계(0151 AC4): take 는 **예약**이고 push 성공까지는 소유권이 넘어가지 않는다.
-//     push 가 false(닫힌 스트림)를 돌려주거나 예외가 나면 rollback 으로 항목을 held 로 되돌려
-//     사용자가 다시 취소할 수 있게 한다 — 구 계약은 실패를 삼켜 메시지가 굳었다.
-export function makeSteerGateHook(
-  take: () => SteerFlushBatch | undefined,
-  push: (batch: SteerFlushBatch) => boolean,
-  rollback?: (batch: SteerFlushBatch) => void,
-  commit?: (batch: SteerFlushBatch) => boolean
-): object {
-  const callback: HookCallback = async (input) => {
-    let reserved: SteerFlushBatch | undefined
-    try {
-      if ((input as { agent_id?: string }).agent_id !== undefined) return {}
-      reserved = take()
-      // 구조 페이로드(0067) — content 조립(첨부 블록 포함)은 호출자(claude.ts)의 push 가 소유.
-      if (reserved) {
-        if (!push(reserved)) {
-          rollback?.(reserved)
-          reportError({
-            event: 'engine.steer.submit-rejected',
-            scope: 'engine',
-            title: 'steerFailed',
-            level: 'warn',
-            data: { provider: 'claude', rolledBack: true }
-          })
-        } else if (commit && !commit(reserved)) {
-          getLogger().child('engine').warn('engine.steer.commit-stale', { provider: 'claude' })
-        }
-      }
-    } catch (err) {
-      // fail-open: steer 는 부가기능이라 예외를 삼켜 턴 본체를 보호한다. 단 **상태는 반드시**
-      // 되돌린다 — 삼키기와 상태 유실은 별개다.
-      if (reserved) rollback?.(reserved)
-      reportError({
-        event: 'engine.steer.flush-failed',
-        scope: 'engine',
-        title: 'steerFailed',
-        level: 'warn',
-        error: err,
-        data: {
-          provider: 'claude',
-          message: String(err),
-          rolledBack: reserved !== undefined
-        }
-      })
-    }
-    return {}
-  }
-  return { hooks: { PostToolBatch: [{ hooks: [callback] }] } }
-}
-
 /**
  * 턴 종료 hook 조각 (0211 ΔV6 D-115 · §10 EP-46 ①).
  *
@@ -278,7 +218,7 @@ export function makeInputReceiptHook(onPrompt: (input: unknown) => void): object
   return { hooks: { UserPromptSubmit: [{ hooks: [callback] }] } }
 }
 
-// options.hooks 조각 병합 — adaptHooks 산출과 게이트 조각처럼 `{hooks?: …}` 조각 여럿을
+// options.hooks 조각 병합 — adaptHooks 산출과 내부 훅처럼 `{hooks?: …}` 조각 여럿을
 // 이벤트별 매처 배열 concat 으로 합친다. 조각이 하나 이하로만 hooks 를 가지면 그대로 통과.
 export function mergeHooks(...fragments: object[]): object {
   const merged: Partial<Record<HookEvent, HookCallbackMatcher[]>> = {}

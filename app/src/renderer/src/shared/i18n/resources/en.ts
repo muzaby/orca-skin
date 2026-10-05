@@ -541,7 +541,6 @@ export const en: typeof ko = {
       configInvalid: 'Could not read or apply settings',
       eventDeliveryFailed: 'Could not deliver an app state change',
       engineInternal: 'An error occurred in the runtime',
-      steerFailed: 'Could not deliver the follow-up instruction',
       fileUnavailable: 'File unavailable'
     } satisfies Record<AppErrorTitle, string>,
     category: {
@@ -674,6 +673,7 @@ export const en: typeof ko = {
       retainedOnSessionDelete: 'Stored artifact files will be kept.'
     },
     steer: {
+      sendNow: 'Send now',
       submitted: 'Sent',
       residualTitle: 'Response stopped · {{count}} awaiting delivery',
       residualBody:

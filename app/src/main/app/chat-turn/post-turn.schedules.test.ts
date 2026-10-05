@@ -3,7 +3,7 @@ import type { WebContents } from 'electron'
 import { CHANNELS, type ChatActivitySnapshot, type NormalizedEvent } from '../../../shared/ipc'
 import { sessionLeaseKey } from '../../../shared/lease-key'
 import type { TurnContext } from '../../contracts/turn'
-import type { TurnRequest } from '../../adapters/turn'
+import type { SteerFlushBatch, TurnRequest } from '../../adapters/turn'
 import type { LiveTurn, ProviderMessageBatch } from '../../adapters/types'
 import { SessionRuntime } from '../../features/sessions/session-runtime'
 import { RuntimeSupervisor } from '../../features/sessions/supervisor'
@@ -37,18 +37,21 @@ vi.mock('../../infra/ipc/send', () => ({
 import { registerChatHandlers } from './index'
 import { runTurnWithContinuations } from './post-turn'
 import { sendChatEvent } from '../../infra/ipc/send'
+import { buildTurnRequest } from './turn-request'
+import { reserveOnBusySession } from './enqueue'
 
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
 const schedules = [{ id: 'cron1', schedule: '*/5 * * * *', recurring: true, prompt: 'check' }]
 
 // 실제 runtime/coordinator/lease를 잇는다. SDK 스트림과 디스크 영속만 메모리 경계로 대체한다.
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-function fixture() {
+function fixture(options: { activeChain?: boolean } = {}) {
   const queue: ProviderMessageBatch[] = []
   let wake: (() => void) | undefined
   let closed = false
   let sequence = 0
   const pushed: string[] = []
+  const eventsAtPush: Array<Array<{ type: string }>> = []
   const live: LiveTurn = {
     eventBatches: (async function* () {
       while (!closed) {
@@ -64,18 +67,20 @@ function fixture() {
       wake?.()
     },
     pushTurn: async (input) => {
+      eventsAtPush.push(vi.mocked(sendChatEvent).mock.calls.map((call) => call[1]))
       pushed.push(input.text)
       return { kind: 'accepted' }
     },
-    interrupt: async () => undefined,
+    interrupt: vi.fn(async () => undefined),
     setPermissionMode: async () => {},
     setModel: async () => {},
     stopTask: async () => {},
     backgroundTask: async () => false
   }
+  const sendMessage = vi.fn(() => live)
   const runtime = new SessionRuntime({
     id: 'claude',
-    sendMessage: () => live,
+    sendMessage,
     complete: async () => '',
     classifyError: (error) => makeClassifiedError('stream_error', String(error))
   })
@@ -106,7 +111,7 @@ function fixture() {
     stoppedSubagents: new Set()
   } as unknown as TurnContext<WebContents>
   supervisor.startResume('s1', turn)
-  supervisor.activateChain(lease.leaseId, runtime, null, turn)
+  if (options.activeChain !== false) supervisor.activateChain(lease.leaseId, runtime, null, turn)
   const pendingMessages = new PendingMessageQueue()
   const backgroundTasks = new BackgroundTaskTracker()
   const activityEvents: ChatActivitySnapshot[] = []
@@ -159,17 +164,29 @@ function fixture() {
     permissionModes: {},
     isUpdateInstallPending: () => false
   } as never)
-  const request: TurnRequest = {
-    sessionId: 's1',
-    text: 'initial',
-    cwd: '/w',
-    extensions: { skills: [], hooks: { normalized: {} } },
-    onSessionSchedules: (id, values, pendingWakeup) =>
-      activity.setSchedules(id, values, pendingWakeup)
-  }
   let activeTurn = turn
+  let initialBatches: SteerFlushBatch[] = []
+  const request: TurnRequest = buildTurnRequest(
+    {
+      wc: owner,
+      pendingMessages,
+      activity,
+      chainId: lease.chainId,
+      queueKey: 's1',
+      getActiveTurn: () => activeTurn,
+      getInitialBatches: () => initialBatches,
+      settleDeadBackgroundTasks: async () => {}
+    },
+    {
+      sessionId: 's1',
+      text: 'initial',
+      cwd: '/w',
+      extensions: { skills: [], hooks: { normalized: {} } }
+    }
+  )
   let beforePrepare: (() => Promise<void>) | undefined
   const listenRelease = new Map<string, () => void>()
+  const stopAndSettleAbortedTasks = vi.fn(async () => {})
   const run = (): Promise<void> =>
     runTurnWithContinuations(
       {
@@ -190,12 +207,14 @@ function fixture() {
           }
         },
         settleDeadBackgroundTasks: async () => {},
-        stopAndSettleAbortedTasks: async () => {},
+        stopAndSettleAbortedTasks,
         getActiveTurn: () => activeTurn,
         setActiveTurn: (next) => {
           activeTurn = next
         },
-        setInitialBatches: () => {}
+        setInitialBatches: (batches) => {
+          initialBatches = batches
+        }
       },
       turn,
       request,
@@ -211,6 +230,10 @@ function fixture() {
     backgroundTasks,
     events,
     persistence,
+    live,
+    sendMessage,
+    eventsAtPush,
+    stopAndSettleAbortedTasks,
     pushed,
     pendingMessages,
     listenRelease,
@@ -229,6 +252,19 @@ function fixture() {
       wake?.()
     },
     stop: () => ipc.handlers.get(CHANNELS.chatCancel)!({ sender: owner }, { sessionId: 's1' }),
+    sendNow: (raw: unknown = { sessionId: 's1' }) =>
+      ipc.handlers.get(CHANNELS.chatSteerSendNow)!({ sender: owner }, raw),
+    queueHeld: (text: string, id: string) => {
+      reserveOnBusySession(
+        { pendingMessages, listenRelease },
+        { sender: owner } as never,
+        's1',
+        's1',
+        supervisor.getChainBySession('s1')!,
+        { text, clientRequestId: id },
+        { attachmentTexts: [], attachmentImages: [] }
+      )
+    },
     cleanup: () => {
       lease.controller.abort()
       activeTurn.controller.abort()
@@ -237,6 +273,292 @@ function fixture() {
     }
   }
 }
+
+describe('0250 queued input and send now through real runtime and handlers', () => {
+  it('ST-01 — 도구 배치 세 번 동안 held를 유지하고 terminal 뒤 입력 순서대로 병합한다', async () => {
+    vi.mocked(sendChatEvent).mockClear()
+    const f = fixture()
+    const running = f.run()
+    try {
+      await tick()
+      f.queueHeld('first', 'first-id')
+      f.queueHeld('second', 'second-id')
+      for (let index = 0; index < 3; index++) {
+        f.emit(
+          {
+            type: 'tool.call.started',
+            sessionId: 's1',
+            toolRunId: `tool${index}`,
+            toolName: 'Read',
+            args: {}
+          },
+          {
+            type: 'tool.call.completed',
+            sessionId: 's1',
+            toolRunId: `tool${index}`,
+            result: 'done',
+            isError: false
+          }
+        )
+        await tick()
+        expect(f.pendingMessages.pending('s1').map((item) => item.id)).toEqual([
+          'first-id',
+          'second-id'
+        ])
+        expect(f.pushed).toEqual([])
+      }
+      f.emit({ type: 'telemetry', sessionId: 's1' })
+      await tick()
+      expect(f.pushed).toEqual(['first\n\nsecond'])
+      expect(f.events.filter((event) => event.type === 'message.committed')).toEqual([])
+      f.emit({ type: 'message.delta', sessionId: 's1', delta: { text: 'next answer' } })
+      await tick()
+      expect(f.events.filter((event) => event.type === 'message.committed')).toEqual([
+        expect.objectContaining({ text: 'first\n\nsecond', ids: ['first-id', 'second-id'] })
+      ])
+      f.emit({ type: 'telemetry', sessionId: 's1' })
+      await running
+    } finally {
+      f.cleanup()
+      await running
+    }
+  })
+
+  it('ST-02 — 즉시 보내기는 응답만 한 번 끊고 tail 이후 같은 채널로 held 전부를 보낸다', async () => {
+    vi.mocked(sendChatEvent).mockClear()
+    const f = fixture()
+    const running = f.run()
+    try {
+      f.emit({
+        type: 'tool.call.started',
+        sessionId: 's1',
+        toolRunId: 'foreground',
+        toolName: 'Bash',
+        args: {}
+      })
+      await tick()
+      f.queueHeld('first', 'first-id')
+      f.queueHeld('second', 'second-id')
+      await f.sendNow()
+      await f.sendNow()
+      expect(f.live.interrupt).toHaveBeenCalledTimes(1)
+      expect(f.persistence.finalizeTurn).toHaveBeenCalledTimes(1)
+      expect(
+        vi.mocked(sendChatEvent).mock.calls.filter((call) => call[1].type === 'turn.aborted')
+      ).toHaveLength(1)
+      expect(
+        vi.mocked(sendChatEvent).mock.calls.filter((call) => call[1].type === 'message.cancelled')
+      ).toEqual([])
+      expect(f.events.find((event) => event.type === 'tool.call.completed')).toMatchObject({
+        toolRunId: 'foreground',
+        result: { reason: 'aborted' }
+      })
+      expect(f.lease.controller.signal.aborted).toBe(false)
+      expect(f.pendingMessages.pending('s1')).toHaveLength(2)
+      await tick()
+      expect(f.pushed).toEqual([])
+      f.emit(
+        { type: 'message.delta', sessionId: 's1', delta: { text: 'cancelled tail' } },
+        { type: 'telemetry', sessionId: 's1' }
+      )
+      await tick()
+      expect(f.pushed).toEqual(['first\n\nsecond'])
+      expect(f.sendMessage).toHaveBeenCalledTimes(1)
+      expect(f.eventsAtPush[0]).toContainEqual(
+        expect.objectContaining({ type: 'turn.aborted', reason: 'user_cancelled' })
+      )
+      expect(f.events).not.toContainEqual(
+        expect.objectContaining({ type: 'message.delta', delta: { text: 'cancelled tail' } })
+      )
+      expect(f.active().abortContinuation).toBeUndefined()
+      f.emit(
+        { type: 'message.delta', sessionId: 's1', delta: { text: 'new answer' } },
+        { type: 'telemetry', sessionId: 's1' }
+      )
+      await running
+    } finally {
+      f.cleanup()
+      await running
+    }
+  })
+
+  it.each(['response', 'listen'] as const)(
+    'ST-02/ST-04 — %s 응답에서 send-now는 백그라운드를 유지하고 Stop은 한 번 중지한다',
+    async (phase) => {
+      for (const action of ['send-now', 'stop'] as const) {
+        vi.mocked(sendChatEvent).mockClear()
+        const f = fixture()
+        f.backgroundTasks.started('s1', 'background1')
+        const running = f.run()
+        try {
+          if (phase === 'listen') {
+            f.emit({ type: 'telemetry', sessionId: 's1' })
+            await tick()
+            expect(f.runtime.responding).toBe(false)
+          }
+          f.emit({ type: 'message.delta', sessionId: 's1', delta: { text: 'working' } })
+          await tick()
+          expect(f.runtime.responding).toBe(true)
+          f.queueHeld('continue', 'held1')
+          if (action === 'send-now') await f.sendNow()
+          else await f.stop()
+          expect(f.live.interrupt).toHaveBeenCalledTimes(1)
+          expect(f.persistence.finalizeTurn).toHaveBeenCalledTimes(1)
+          expect(
+            vi.mocked(sendChatEvent).mock.calls.filter((call) => call[1].type === 'turn.aborted')
+          ).toHaveLength(1)
+          expect(f.lease.controller.signal.aborted).toBe(false)
+          f.emit({ type: 'telemetry', sessionId: 's1' })
+          await tick()
+          expect(f.stopAndSettleAbortedTasks).toHaveBeenCalledTimes(action === 'stop' ? 1 : 0)
+          expect(f.backgroundTasks.hasPending('s1')).toBe(true)
+          expect(f.pushed).toEqual(action === 'send-now' ? ['continue'] : [])
+          if (action === 'send-now') {
+            f.emit(
+              { type: 'message.delta', sessionId: 's1', delta: { text: 'continued' } },
+              { type: 'telemetry', sessionId: 's1' }
+            )
+            await tick()
+          }
+        } finally {
+          f.cleanup()
+          await running
+        }
+      }
+    }
+  )
+
+  it('IT-01 — 신규 채널은 등록되며 무효 payload는 reject하고 대기 0건이면 무중단이다', async () => {
+    vi.mocked(sendChatEvent).mockClear()
+    const f = fixture()
+    const running = f.run()
+    try {
+      expect(ipc.handlers.has(CHANNELS.chatSteerSendNow)).toBe(true)
+      await expect(f.sendNow({})).rejects.toBeDefined()
+      await expect(f.sendNow({ sessionId: '' })).rejects.toBeDefined()
+      await tick()
+      await expect(f.sendNow()).resolves.toBeUndefined()
+      expect(f.live.interrupt).not.toHaveBeenCalled()
+      expect(
+        vi.mocked(sendChatEvent).mock.calls.filter((call) => call[1].type === 'turn.aborted')
+      ).toEqual([])
+    } finally {
+      f.cleanup()
+      await running
+    }
+  })
+
+  it.each(['listen', 'flush'] as const)(
+    '0250 subsequent Stop — %s 준비 중 후속 Stop은 즉시 보내기의 태스크 유지 정책을 바꾼다',
+    async (step) => {
+      const f = fixture()
+      f.backgroundTasks.started('s1', 'background1')
+      let release!: () => void
+      const preparing = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      let preparationCount = 0
+      let preparedStep: 'listen' | 'flush' | undefined
+      f.beforePrepare(async () => {
+        if (++preparationCount !== 1) return
+        preparedStep =
+          f.pendingMessages.pending('s1').length > 0 && !f.runtime.channelBusy ? 'flush' : 'listen'
+        await preparing
+      })
+      const running = f.run()
+      try {
+        f.emit({ type: 'message.delta', sessionId: 's1', delta: { text: 'working' } })
+        await tick()
+        f.queueHeld('continue', 'held1')
+        const sendNow = f.sendNow()
+        if (step === 'listen') f.pendingMessages.cancel('s1', 'held1')
+        f.emit({ type: 'telemetry', sessionId: 's1' })
+        await sendNow
+        await tick()
+        expect(preparedStep).toBe(step)
+        expect(f.active()).toBe(f.turn)
+        expect(f.active().controller.signal.aborted).toBe(true)
+        expect(f.active().abortContinuation).toBeUndefined()
+        await f.stop()
+        expect(f.active().abortContinuation).toBe('reception')
+        expect(f.lease.controller.signal.aborted).toBe(false)
+        release()
+        await tick()
+        expect(f.stopAndSettleAbortedTasks).toHaveBeenCalledTimes(1)
+        expect(f.active()).not.toBe(f.turn)
+        expect(f.active().controller.signal.aborted).toBe(false)
+        expect(f.pushed).toEqual([])
+      } finally {
+        release()
+        f.cleanup()
+        await running
+      }
+    }
+  )
+
+  it('IT-01 — flush 준비 await의 턴 사이는 끊지 않고 기존 경로로 전달한다', async () => {
+    vi.mocked(sendChatEvent).mockClear()
+    const f = fixture()
+    let release!: () => void
+    const preparing = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    f.beforePrepare(() => preparing)
+    const running = f.run()
+    try {
+      await tick()
+      f.queueHeld('next', 'held1')
+      f.emit({ type: 'telemetry', sessionId: 's1' })
+      await tick()
+      expect(f.runtime.responding).toBe(false)
+      await f.sendNow()
+      expect(f.live.interrupt).not.toHaveBeenCalled()
+      expect(
+        vi.mocked(sendChatEvent).mock.calls.filter((call) => call[1].type === 'turn.aborted')
+      ).toEqual([])
+      expect(f.pendingMessages.pending('s1')).toHaveLength(1)
+      release()
+      await tick()
+      expect(f.pushed).toEqual(['next'])
+      f.emit(
+        { type: 'message.delta', sessionId: 's1', delta: { text: 'answer' } },
+        { type: 'telemetry', sessionId: 's1' }
+      )
+      await running
+    } finally {
+      release()
+      f.cleanup()
+      await running
+    }
+  })
+
+  it('IT-01 — 준비 중 체인과 수신 유휴는 held가 있어도 끊지 않는다', async () => {
+    for (const phase of ['preparing', 'idle'] as const) {
+      vi.mocked(sendChatEvent).mockClear()
+      const f = fixture({ activeChain: phase !== 'preparing' })
+      const running = f.run()
+      try {
+        if (phase === 'idle') {
+          f.emit(
+            { type: 'session.schedules', sessionId: 's1', schedules },
+            { type: 'telemetry', sessionId: 's1' }
+          )
+        }
+        await tick()
+        // 유휴 수신은 enqueue 직후 릴리즈되어 전달한다. 판정 시점만 held로 구성해 무중단을 관측한다.
+        f.pendingMessages.enqueue('s1', { text: 'next' }, Date.now(), 'held1')
+        await f.sendNow()
+        expect(f.live.interrupt).not.toHaveBeenCalled()
+        expect(
+          vi.mocked(sendChatEvent).mock.calls.filter((call) => call[1].type === 'turn.aborted')
+        ).toEqual([])
+      } finally {
+        f.cleanup()
+        await running
+      }
+    }
+  })
+})
 
 describe('0243 interruption delivery through real runtime and handlers', () => {
   it.each(['cancel', 'discard', 'controller', 'chain', 'database-failure'] as const)(
@@ -468,7 +790,7 @@ describe('scheduled reception after Stop', () => {
     )
     await warm
     f.turn.controller.abort()
-    f.turn.resumeScheduledReception = true
+    f.turn.abortContinuation = 'reception'
     const running = f.run()
     try {
       await tick()

@@ -546,7 +546,6 @@ export const ko = {
       configInvalid: '설정을 읽거나 적용하지 못했습니다',
       eventDeliveryFailed: '앱 상태 변경을 전달하지 못했습니다',
       engineInternal: '실행 환경에서 오류가 발생했습니다',
-      steerFailed: '추가 지시를 전달하지 못했습니다',
       fileUnavailable: '파일을 사용할 수 없습니다'
     } satisfies Record<AppErrorTitle, string>,
     category: {
@@ -680,6 +679,7 @@ export const ko = {
     },
     // 예약 steer 가 stdin 으로 넘어가 취소 불가가 된 상태 표시(0151).
     steer: {
+      sendNow: '즉시 보내기',
       submitted: '전달됨',
       residualTitle: '응답은 중단됨 · 전달 대기 {{count}}건',
       residualBody:

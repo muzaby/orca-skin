@@ -47,7 +47,8 @@ vi.mock('../infra/ipc/send', () => ({
     if (event.type === 'error') harness.errors.push(event.error)
   })
 }))
-vi.mock('../features/chat/post-turn', () => ({
+vi.mock('../features/chat/post-turn', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../features/chat/post-turn')>()),
   decidePostTurnStep: () => harness.steps.shift() ?? 'break',
   postTurnHoldsSession: (step: string) => step !== 'break'
 }))

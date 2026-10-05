@@ -275,6 +275,15 @@ export const sites: Site[] = [
   {
     file: 'features/chat/store/chatStore.ts',
     ordinal: 3,
+    line: 1115,
+    disposition: 'TOAST',
+    id: 'T19a',
+    event: 'chat.steer-send-now.rejected',
+    title: 'actionFailed'
+  },
+  {
+    file: 'features/chat/store/chatStore.ts',
+    ordinal: 4,
     line: 1085,
     disposition: 'TOAST',
     id: 'T19',
@@ -283,25 +292,25 @@ export const sites: Site[] = [
   },
   {
     file: 'features/chat/store/chatStore.ts',
-    ordinal: 4,
+    ordinal: 5,
     line: 1096,
     disposition: 'TOAST',
     id: 'T20',
     event: 'chat.session-discard.rejected',
     title: 'actionFailed'
   },
-  { file: 'features/chat/store/chatStore.ts', ordinal: 5, line: 1133, disposition: 'CONSUMED' },
-  { file: 'features/chat/store/chatStore.ts', ordinal: 6, line: 1153, disposition: 'CONSUMED' },
+  { file: 'features/chat/store/chatStore.ts', ordinal: 6, line: 1133, disposition: 'CONSUMED' },
+  { file: 'features/chat/store/chatStore.ts', ordinal: 7, line: 1153, disposition: 'CONSUMED' },
   {
     file: 'features/chat/store/chatStore.ts',
-    ordinal: 7,
+    ordinal: 8,
     line: 1407,
     disposition: 'TOAST',
     id: 'T21',
     event: 'chat.session-load.failed',
     title: 'sessionOpenFailed'
   },
-  { file: 'features/chat/store/chatStore.ts', ordinal: 8, line: 1513, disposition: 'CONSUMED' },
+  { file: 'features/chat/store/chatStore.ts', ordinal: 9, line: 1513, disposition: 'CONSUMED' },
   {
     file: 'features/debug/hooks/useDebugMock.ts',
     ordinal: 0,

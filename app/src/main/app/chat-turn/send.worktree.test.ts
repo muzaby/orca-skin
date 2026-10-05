@@ -107,7 +107,7 @@ function makeHarness(sessionId?: string) {
   const controller = new AbortController()
   const turn = {
     controller: new AbortController(),
-    resumeScheduledReception: undefined as boolean | undefined,
+    abortContinuation: undefined as 'reception' | 'send-now' | undefined,
     cwd: '/managed/repo',
     extraDirs: ['/shared'],
     queueKey: 'new:1',
@@ -224,7 +224,7 @@ describe('handleChatSend worktree production wiring', () => {
     harness.deps.ctx.ensureExtensionsDeployedForTurn.mockImplementationOnce(async () => {
       // chatCancel의 응답만 중단하는 결과. 이미 submitting인 initial은 cancelAllHeld 대상이 아니다.
       harness.turn.controller.abort()
-      harness.turn.resumeScheduledReception = true
+      harness.turn.abortContinuation = 'reception'
       queue.enqueue('new:1', { text: 'after stop' }, 2, 'later')
     })
     vi.mocked(runTurnWithContinuations).mockImplementationOnce(async () => {

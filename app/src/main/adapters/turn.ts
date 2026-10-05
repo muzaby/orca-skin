@@ -22,8 +22,8 @@ import type { NormalizedPermissionMode } from '../../shared/permission-mode'
 import type { NormalizedHookSet } from './hooks'
 import type { BackgroundEvent, ProviderMessageEvent } from '../../shared/background-task'
 
-// pending message flush 배치 계약 — 어댑터가 게이트 훅에서 회수(takeSteerFlush)하거나 턴
-// 프롬프트/프렐류드(0067)로 받아 자기 입력 채널로 주입한다. 구조 페이로드(0067 AC5): 첨부
+// pending message flush 배치 계약 — 어댑터가 턴 프롬프트/프렐류드(0067)로 받아 자기
+// 입력 채널로 주입한다. 구조 페이로드(0067 AC5): 첨부
 // 추출분은 어댑터가 content 블록으로 굽고, attachmentViews 는 커밋 시 표시/영속용으로 흐른다.
 // 구현(PendingMessageQueue)은 features/chat 이지만 계약 타입은 어댑터 포트에 둔다.
 export interface SteerFlush {
@@ -36,7 +36,7 @@ export interface SteerFlush {
   attachmentViews?: AttachmentView[]
 }
 export interface SteerFlushBatch extends SteerFlush {
-  // stdin 주입 배치의 uuid — echo 상관키(주입 user 메시지의 uuid). 게이트 병합 배치는 신규
+  // stdin 주입 배치의 uuid — echo 상관키(주입 user 메시지의 uuid). 병합 배치는 신규
   // uuid, 턴 프롬프트/프렐류드 아이템 단위 배치는 item id 를 그대로 쓴다(renderer 정합).
   uuid: string
   attemptId?: string
@@ -178,16 +178,6 @@ export interface TurnRequest {
   planApprovalMode?: NormalizedPermissionMode
   // Claude Code thinking effort. SDK Options.effort 로 per-turn 전달한다.
   effort?: EffortLevel
-  // 게이트 훅 시점에 로컬 홀드 steer 를 병합 단일 배치로 회수한다(0060 D3·D4). 어댑터가 자기
-  // 게이트(claude=PostToolBatch, 메인 루프 한정)에서 호출해 반환 배치를 자기 입력 채널로 주입
-  // — 미주입(steer 미지원 백엔드)/빈 큐면 undefined(주입 없음). requestApproval 과 대칭인
-  // 라이브-턴 제어 채널이라 TurnExtensions 가 아닌 TurnRequest 직속.
-  takeSteerFlush?: () => SteerFlushBatch | undefined
-  // 예약 롤백(0151 AC4) — 어댑터가 takeSteerFlush 로 회수한 배치를 자기 입력 채널이 **거부**했을
-  // 때(closed stream / push 예외) 호출한다. 큐가 항목을 held 로 되돌려 다시 취소 가능해진다.
-  // takeSteerFlush 와 짝이며, 미주입이면 어댑터는 실패를 삼킨다(fail-open 현행 유지).
-  rollbackSteerFlush?: (batch: SteerFlushBatch) => void
-  commitSteerFlush?: (batch: SteerFlushBatch) => boolean
   // 스폰 입력(프렐류드+본 프롬프트)의 로컬 스트림 수용 직후 전량 commit한다.
   canSubmitInitial?: () => boolean
   commitInitialSubmission?: () => boolean

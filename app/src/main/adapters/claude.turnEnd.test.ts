@@ -514,7 +514,7 @@ describe('claude.ts 턴 종료 배선 (D25·D26 · VP-72 · EP-46 ①②)', () =
     ])
   })
 
-  it('initial/prelude/후속/steer 실제 송신을 hook 자동수신에서 제외한다', async () => {
+  it('initial/prelude/후속 실제 송신을 hook 자동수신에서 제외한다', async () => {
     h.state.script = [
       INIT,
       firePrompt('prelude\nhello'),
@@ -525,27 +525,21 @@ describe('claude.ts 턴 종료 배선 (D25·D26 · VP-72 · EP-46 ①②)', () =
       },
       firePrompt('follow-up'),
       ASSISTANT,
-      async () => {
-        await h.state.options!.hooks!.PostToolBatch[0].hooks[0]({}, undefined, {})
-      },
-      firePrompt('steer'),
-      ASSISTANT,
       RESULT,
-      firePrompt('steer'),
+      firePrompt('follow-up'),
       ASSISTANT,
       RESULT
     ]
     const live = new ClaudeAdapter().sendMessage({
       ...req(),
-      preludes: [{ ids: ['p'], text: 'prelude', uuid: 'p', createdAt: 1 }],
-      takeSteerFlush: () => ({ ids: ['s'], text: 'steer', uuid: 's', createdAt: 2 })
+      preludes: [{ ids: ['p'], text: 'prelude', uuid: 'p', createdAt: 1 }]
     })
     const events: NormalizedEvent[] = []
     for await (const batch of live.eventBatches) events.push(...batch.events)
     expect(events.filter((event) => event.type === 'error')).toEqual([])
     // 같은 문자열이 다음에 외부에서 재발화한 한 건만 남는다.
     expect(events.filter((event) => event.type === 'input.received')).toMatchObject([
-      { text: 'steer', origin: { kind: 'automatic' } }
+      { text: 'follow-up', origin: { kind: 'automatic' } }
     ])
   })
 

@@ -173,6 +173,20 @@ describe('resolveTurnCwd', () => {
 })
 
 describe('makeContinuationTurn', () => {
+  it.each(['reception', 'send-now'] as const)(
+    '0250 — %s 중단 후 재개 표식은 다음 턴에 상속하지 않는다',
+    (continuation) => {
+      const prev = buildTurnContext<string>(base())
+      prev.abortContinuation = continuation
+      prev.abortAcknowledged = true
+      prev.controller.abort()
+      const next = makeContinuationTurn(prev)
+      expect(next.abortContinuation).toBeUndefined()
+      expect(next.abortAcknowledged).toBeUndefined()
+      expect(next.controller.signal.aborted).toBe(false)
+    }
+  )
+
   it('세션 메타는 계승하고 턴-로컬 상태는 초기화한다', () => {
     const prev = buildTurnContext<string>({
       ...base(),
