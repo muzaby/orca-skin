@@ -1842,3 +1842,9 @@ D-033/AC24·25 및 D-002/AC2·5의 기존 의미를 교차 확인했다. 새로�
 §10 EP-12″는 EP-12′의 6자리와 runtime requestApproval의 폐기 채널/요청 신호 검사, requester의 surface 전 유효 신호 검사 2자리를 합친 **8자리**다. VP-34·36의 직접 oracle에 옛 채널·이미 취소된 요청의 side effect 0과 live child 양성 대조를 추가한다. **M-F13**(requester의 조기 aborted 판정 제거)과 **M-F14**(runtime wrapper의 channel/SDK guard 제거)를 신규 선택한다. F14는 요청 SDK signal이 살아 있어도 폐기 채널이 현재 delegate를 호출하지 않는 실제 runtime oracle로 측정해 requester의 중복 guard에 가려지지 않게 한다.
 
 등록 변이는 ΔV3.1의26 + F13·14 =28이다. 나머지 운영 gate·EP-02′·EP-04″·EP-11·EP-13′·EP-14는 그대로 유지한다. READY self-review에서 신규 정책이 아닌 기존 소유권·취소 계약 적용임을 확인했고 main/child 양성·음성 oracle과 실제 강제 지점 및 선택 변이를 연결했다. 구현 산출과 별도 설계 커밋으로 보존한다.
+
+### ΔV3.2 강제 지점 추가 정정 — 자연 종료도 채널을 폐기한다
+
+읽기 pre-audit에서 자연 iterator 종료/오류와 turn-scoped finally의 공통 retireChannel이 captured signal을 무효화하지 않는 것을 확인했다. 명시 teardown만 신호를 abort하면 같은 폐기 계약을 만족하지 못한다. 공통 retireChannel에서 이전 신호를 abort하고 새 controller로 교체하며, teardown의 중복 abort/교체는 이 공통 자리로 옮긴다. 폐기 observer·live.close 전에 신호를 무효화하고, 살아 있는 persistent 채널의 main interrupt는 기존 수명을 유지한다.
+
+EP-12″의 8자리에 공통 retireChannel의 신호 무효화 생산자 1자리를 추가해 **9자리**로 정정한다. VP-36/37은 explicit teardown·자연 done·자연 error·turn-scoped retirement 뒤의 늦은 승인/모드 callback이 현재 delegate를 부르지 않음을 직접 관측한다. **M-F15**는 공통 retireChannel의 신호 abort/교체를 제거하여 natural retirement 대조가 red인지 검사한다. registered 변이는 **29**(26+F13~15)로 정정하며 선택17·NOT_REQUIRED20·기존 제품/AC 계약은 유지한다. 자연 폐기 생산자와 wrapper 소비자를 함께 전수에 포함하고 별도 설계 커밋으로 구현 전 보존한다.
