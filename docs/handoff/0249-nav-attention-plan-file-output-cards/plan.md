@@ -1529,6 +1529,7 @@ node scripts/check-doc-inventory.mjs --check
 | D2 | `ino` Number 비교의 안전정수 밖 반올림(N-01) | 비귀속 | `bigint` stat | NON_BLOCKING | open |
 | D3 | 구현자가 `[검증자 기입]` 절에 직접 기입 | `docs/handoff/AGENTS.md §충돌 최소화` | 검증자 재분류로 대체 | NON_BLOCKING | closed |
 | D4 | `auth.md` 조사 오류 `` `연결됨`와 `` | 비귀속 | `과`로 정정 | NON_BLOCKING | open |
+| D5 | 새 대화의 init 전 계획 승인 요청이 다른 열람 세션으로 라우팅됨 — 독립 X1 | VP-36·D-033·AC24/25; VP-35 종속 | 세션 미확정 requested/resolved의 pending draft 소유권을 보존하고 session.updated 승격에 연결 | BLOCKING | open(r1.4 독립 검증): [`verify.md`](verify.md) r1.4 §1 |
 
 ---
 
