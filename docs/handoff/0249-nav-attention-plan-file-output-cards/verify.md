@@ -510,3 +510,239 @@ D6와 D5 판정을 plan의 `[검증자 기입]`에만 반영했으며 normative 
 Review Signals: D5의 noid 라우팅 증상은 해소됐고 D6는 같은 소유권/child 경계의 기존 승인 소비자에서 발견됐다. 관련 D-033·AC25·Product/UX child 계약은 이미 있었고 사용자 결정 변경0이다. 반복 sandbox lstat 제한은 local-only 실행으로 분리했다.
 
 **다음: Codex 라운드3.** D6 수정 후 X2·영향 pair·등록 변이·운영 gate를 독립 재검증한다. 이번 판정은 명시 계약 위반에 따른 FAIL이며 미실행29변이와 외부 경계는 성공 증거로 합산하지 않는다.
+
+---
+
+# r3 — ΔV3.3·ΔV3.4 독립 검증 (2026-10-07)
+
+**PASS (기계 범위).** 선택 pair 17개(REQUIRED7·REGRESSION10)를 닫았다. 등록41개와 독립 구독 대조2개는 각각 assertion red → 원본 byte 동일 복원 → 동일 필터 green이다. D6는 closed, PLAN_GAP0·root PAIR_FAIL0·BLOCKED_BY0이다. 실 모델·Windows 시각·원격 게시/CI는 미실행이며 archive 이동은 보류한다.
+
+| 메타 | 값 |
+|---|---|
+| 검증자 | 독립 위임 agent(handoff-verify 역할), 이번 production/정식 test 미작성 |
+| 기준/대상 | INDEX의 ΔV3.3·3.4 설계 및 r3 로컬 frozen 구현 |
+| 라운드/상태 | 3 / PASS(기계 범위); 기존 r1.4·r2 FAIL 원문 보존 |
+
+## 0. 기준선·규범·보고 대조
+
+실재 로컬 구현/설계 좌표는 [INDEX의 0249 행](../INDEX.md)에 기입했다. 고정 HEAD와 설계3건에 각각 `git cat-file -t`가 `commit`을 반환했다. 설계와 구현은 별도 커밋이며 구현의 plan diff는 `[구현자 기입] r3` 추가뿐이다. Decision·Product/UX·AC·V 규범 변경0, AGENTS 변경0이다. 구현자와 검증자는 별도 agent이며 구현자 측181파일1883·41변이 자기 결과는 이번 증거로 받지 않았다.
+
+| 검사 | 직접 판정 |
+|---|---|
+| 유효 V | V1+ΔV1+ΔV2+ΔV3~3.4; 유효 AC25·pair37 |
+| 선택/승계 | REQUIRED7+REGRESSION10=17, NOT_REQUIRED20; superseded pair의 기존 이관 유지 |
+| path·직접 oracle | 파일/승인/DB/card·draft/attention·mode·main/child 수명·네 응답 소비자까지 확인 |
+| §10 분모 | 지정54 → 실측56; EP02의 이미 명시된 구독 운반3자리 재측정(§4) |
+| PLAN_GAP | 0; 필요한 계약·path가 명시돼 있어 새 제품 선택 없이 닫힘 |
+| 구현 trailer | Agent/Handoff/Status/Criteria-Met/Verified-By 실제5행 파싱; Criteria-Met25/25는 자기보고 |
+| 공유 상태 | 로컬 main/origin-main 동일·좌우0/0; 원격 최신/게시/CI의 증거로 확대하지 않음 |
+
+구현 보고의 필수7필드도 독립 대조했다.
+
+| 필드 | 확인 |
+|---|---|
+| 설계 리뷰 | D6 네 응답·child mode 및 await 전 main signal의 기존 계약을 설명 |
+| 강제 지점 | 전수 표 존재; “54물리” 자기 수량은 이번 실측56으로 정정 |
+| 수정 잠금 | 등록41 정의 존재, 이번에 모두 새 실행 |
+| Product/UX 파생 | child 격리·취소·늦은 응답·surface 소비자 대조 |
+| 놓친 문제 | main interrupt await 및 F25 false green을 숨기지 않고 기록 |
+| 구현 보고 | AC25 의미와 gate/외부 한계를 구별; frozen source와 일치 |
+| Review Signals | r3 유지, 사용자 결정 drift0·SDK/CLI 순서 미확인 명시 |
+
+## 1. 결과의 비판적·역방향 검토
+
+파일 정본은 승인 시점에 다시 읽는다. `started → callback`과 역순 모두 보정 입력이 requester persistence → writer/실제 SQL → reducer → Work/Code 라이브·재로드 카드에 전달된다. 다른 call/session/turn·child의 입력과 parent/result는 보존된다. 보정 Map은 기존 TurnContext 수명이고 새 owner cache·IPC·schema·의존성은 없다.
+
+`currentPlanReview`는 resolve 전에 key/session/review를 캡처한다(`chatStore.ts:1653`). 네 응답 호출(:1668/1685/1700/1712)은 현재 미해결 ID가 아니면 IPC·state·mode를 바꾸지 않는다. 유효 child approve(:1673)는 SDK allow를 유지하면서 메인 mode를 보존한다. X1 정식 fixture의 변경0, X2 최초10개 기대값 변경0을 diff로 확인했고 실제 requester/broker를 통과하는 유효 응답3개 추가만 확인했다.
+
+원 signal 생산3곳(`send.ts:503`, `continuation.ts:44,69`) → runAttempt/runListen adoption2곳(`session-runtime.ts:390,411`) → scalar 공표(:406) → captured-channel getter(:847) → actual query(`claude.ts:611`) → main 첫 await 전 단일 캡처(:194~199) → Exit await 후 동일 signal 인자(:245)를 대조했다. 두 타입 정의는 운반 계약으로 별도 확인했다. `signal`은 FRAME delegate 목록에 추가되지 않았고 listen/flush의 fresh signal이 유지된다. adopt→teardown→respawn에서도 새 scalar를 지우지 않는다.
+
+이미 취소된 main은 파일·서술 getter/approval surface side effect0이다. 대기 중 main 취소는 기존 wrapper/requester가 막고, 살아 있는 child는 main getter를 읽지 않으며 자신의 SDK signal이 취소될 때까지 유지된다. 공통 retire는 observer/close보다 먼저 captured channel을 취소한다(`session-runtime.ts:747,752,755`). `init/status.permissionMode`만 실제 controller/renderer로 전달되며 child·unknown·retired 보고는 배제한다.
+
+역방향 `scan-surface.sh 33c7c628..7b32d299`는 현재 고정 source4파일에서 미사용 runtime export·test-only symbol·형제 정책 비대칭 후보0이다. 처음 실행의 Git Bash utilities PATH 누락은 PATH를 `/usr/bin`으로 보완해 재실행했으며 불완전 첫 출력을 성공 증거로 쓰지 않았다. 코드의 실제 생산/소비자도 위 경로로 별도 읽었다.
+
+설치 SDK0.3.286의 `sdk.mjs`는 control 요청마다 AbortController를 만들고 `control_cancel_request`에서 해당 signal을 취소한다. `interrupt()`는 interrupt control request를 발신하며 이 callback들을 직접 취소하지 않는다. `sdk.d.ts`는 callback signal의 취소 의미를 규정하지만 cancel-before-terminal 순서는 보장하지 않는다. 새 fixture는 production `claudeToNormalized(result/error_during_execution)`로 drain을 해소한다. 실제 CLI가 주입한 순서를 발생시키는지는 **미확인**이다. 앱 포트의 main owner 보존과 CLI 발생 빈도는 별개다.
+
+## 2. 직접 단계 검사·운영 gate
+
+UT → IT → ST → AT 순서로 독립 runner의 명시29파일을 실행했다. reporter의 실제 assertion status를 세었고 중복 파일0이다. real reader/DB는 설치된 plain Node22.15.1·ABI127로 실행했다.
+
+| 단계 | 파일 | pass / fail / skip | 직접 범위 |
+|---|---:|---:|---|
+| UT | 7 | 144 / 0 / 0 | 입력 식별/mode·resolver/reader·canUseTool·completion store8 |
+| IT | 10 | 169 / 0 / 0 | requester·실제 SQL15·runtime81·observer/controller·send·continuation·actual query |
+| ST | 3 | 39 / 0 / 0 | narrative2·lifetime18·main-scope19 |
+| AT | 9 | 116 / 0 / 0 | 카드/계획 SSR·reducer·Work응답·X1 owner10·X2 13·nav/app attention |
+| 합계 | 29 | **468 / 0 / 0** | 구현자181/1883과 별개 직접 측정 |
+
+| gate | 직접 산출 |
+|---|---|
+| full lint no-fix | src/scripts1416파일, error0·기존 warning1(`useTranscriptVirtualizer.ts:22`) |
+| typecheck | node/web/test3종 각각 exit0·진단0 |
+| scripts 기본 sandbox | testcase132 중 failure8/error0; 8건 모두 `lstat C:\Users\rlaeo EPERM` |
+| scripts 동일 승격 대조 | testcase132·failure0·error0; 설치/실제 ABI 전환 없음 |
+| doc-inventory | generated9항목·102채널 일치, prose/relative links 정상 |
+| test-budget | 실제 git fixture16 suites 정상 |
+| migration | schema28/mail1 sync·source1393 no-copies·v0.3.1 이후 append-only 정상 |
+| diff/소스 보존 | 변이 종료 후 src/scripts/package diff0·tracked clean·diff --check0 |
+| 메시지 버스 | 구현 trailer5행 파싱, 로컬 main/origin-main0/0·실재 commit 확인 |
+
+scripts의8실패는 ensureSqliteAbi의 electron fast-path/rebuild/marker/check, node rebuild/check, shell 운반, spawn 실패 보존 사례다. 같은 명령을 local-only 권한 승격으로 재실행해132green을 확인했다. 실제 Electron ABI140로 전환하거나 의존성을 설치하지 않았다.
+
+재현 명령(app 기준):
+
+~~~text
+node .tmp-verify-0249-r3-stages.mjs --execute
+node .tmp-verify-0249-r3-mutations.mjs --execute
+node .tmp-verify-0249-r3-subscription-mutations.mjs --execute
+node --test --test-reporter=junit scripts/*.test.mjs > .tmp-verify-0249-r3-scripts-{sandbox|elevated}.xml
+node node_modules/eslint/bin/eslint.js ./src ./scripts --format json --output-file .tmp-verify-0249-r3-eslint.json
+node node_modules/typescript/bin/tsc --noEmit -p tsconfig.node.json --composite false
+node node_modules/typescript/bin/tsc --noEmit -p tsconfig.web.json --composite false
+node node_modules/typescript/bin/tsc --noEmit -p tsconfig.test.json
+node scripts/check-doc-inventory.mjs --check
+node scripts/check-test-budgets.mjs
+node scripts/check-migrations-appendonly.mjs
+~~~
+
+새 결과는 `app/.tmp-verify-0249-r3-{UT,IT,ST,AT}.json`, `stage-results.json`, `mutation-results.json`, `subscription-mutation-results.json`, `mut-<ID>-{red,green}.json`, scripts XML, lint JSON에 직접 남겼다. 파일 목록/필터는 두 독립 runner에 고정했다. 임시 증거의 최종 정리는 root가 맡으며, 정식 fixture와 이 문서의 재현표는 보존한다.
+
+## 3. V-pair closeout·AC
+
+| pair | 레벨 / requiredness | 결과 | 직접 oracle·선택 변이 |
+|---|---|---|---|
+| VP-05 | MD↔UT / REGRESSION | PASS | completion Map8·마지막 사유·identity·삭제 |
+| VP-12 | MD↔UT / REGRESSION | PASS | real reader 일반/8.3·상한·링크·오류·close |
+| VP-13′ | MD↔UT / REGRESSION | PASS | 출처/정규화·정상 입력 reference, D1~4·10 |
+| VP-33 | MD↔UT / REQUIRED | PASS | 같은 main call 식별·다른 ID/tool/child 음성, F1·2·4·6 |
+| VP-38 | MD↔UT / REQUIRED | PASS | SDK mode6종/unknown·Enter `{}`/message·Exit filePath |
+| VP-04 | AR↔IT / REGRESSION | PASS | app→chat/sessions 값·boundaries lint0, X3·X4 |
+| VP-11′ | AR↔IT / REGRESSION | PASS | actual query hook/getter 동일 셀·env, D7~9 |
+| VP-34 | AR↔IT / REQUIRED | PASS | persist-before-send·SQL owner/args, F3~5·7·13·14·22~27 |
+| VP-37 | AR↔IT / REQUIRED | PASS | actual mode→controller/renderer·latest/retired delegates, F8~10·15·16 |
+| VP-03 | SD↔ST / REGRESSION | PASS | 3종 승격·해결·열람·재방출·unsubscribe 수명 |
+| VP-10 | SD↔ST / REGRESSION | PASS | Write/Edit 마지막 main·Stop·child 음성, D5·6 |
+| VP-36 | SD↔ST / REQUIRED | PASS | 양방향 순서·X1·X2·자연 retire·main await/child, F4·11~27·D5·6 |
+| VP-02 | R↔AT / REGRESSION | PASS | 요청/승격→app→주의 Map→같은 파랑 SSR, B1~3·B6·X3·X4 |
+| VP-09′ | R↔AT / REQUIRED | PASS | 승인 시점 파일→request/action/CLI, D1~4·10 |
+| VP-19 | R↔AT / REGRESSION | PASS | 완료 tick/표시 보존·SessionRow, X3 |
+| VP-20 | R↔AT / REGRESSION | PASS | 파일 없는 입력/서술/empty·계획 SSR, D10 |
+| VP-35 | R↔AT / REQUIRED | PASS | actual adapter/history/reducer→Work/Code live/reload, F1·2·6·11·12 |
+
+**PASS17 + NOT_REQUIRED20 = 유효37.** root PAIR_FAIL0·종속 BLOCKED_BY0이다. NOT_REQUIRED는 VP-01·06′·07′·08′·15·16·17·18·21′·22·23′·24′·25·26·27·28·29·30·31·32이며, 이번에 다시 실행한 PASS로 합산하지 않는다.
+
+| 유효 AC | 기계 판정·증거 |
+|---|---|
+| AC2·3·4·5 | ✅4 — 3종 요청·승격·열람·noid/unknown/해결·마지막 사유·삭제, app/nav/store 및 B/X3/X4 |
+| AC9′·10′·11·14′·21 | ✅5 — 파일 정본/기존 fallback·reader 보안·actual query·정상 입력 reference, D1~10 |
+| AC18 | ✅1 — 위 현재 변경 gate 직접 산출·실재 trailer |
+| AC24·25·26·27 | ✅4 — 종단 입력/DB/card·X1/X2 owner·child·main 수명·actual mode, F1~27 |
+| AC1·6′·7′·8′·15·16·17·19′·20·22·23 | ✅11 승계 — 기존 r1 PASS의 비영향 영역, 이번 변경 diff와 소비 경계 재독 |
+
+유효 ID를 직접 다시 세면 **✅25·⚠️0·❌0=25(기계 범위)**다. 현재 직접 측정14와 기존 독립 PASS 승계11을 구별한다. 기존 시각/실 모델4항목은 이 기계 합계와 별도 대기다.
+
+## 4. §10 전수·분모 정정
+
+| 행 | plan 지정 | 독립 실측 | 재검색한 실제 자리 |
+|---|---:|---:|---|
+| EP-04″ | 8 | 8 | record·Stop·hook merge·동일 셀 getter·resolver·request.plan·allow.updatedInput·declared reader |
+| EP-11 | 6 | 6 | started·action.input·requester persistence·late started·SQL·reducer |
+| EP-12⁗ | 20 | 20 | 기존 owner/퇴역9 + 현재 review helper/호출5 + main 캡처/adopt/getter/query/entry abort/await 인자6 |
+| EP-02′ | 9 | **11** | 원래8항목의 app 구독③을 실제3자리로 풀고 승격1 추가 |
+| EP-13″ | 7 | 7 | adapter report·app callback·frame/adapter delegates·controller·renderer send·child mode guard |
+| EP-14 | 4 | 4 | 설치 SDK 입력/결과·plan 메타·유효 ΔV3 규범·INDEX 상태 |
+| 합계 | **54** | **56** | 동일 계약이 다른 EP에서 소비되면 해당 계약 자리로 각각 대조 |
+
+EP02의 대응표는 다음과 같다.
+
+| 지정 항목 | 실제 위치 | 실제 수 |
+|---|---|---:|
+| ① 요청 통지 | `chatStore.ts:797` | 1 |
+| ② 완료 통지 | `chatStore.ts:789` | 1 |
+| ③ app 구독 | `useSessionCompletion.ts:7` 완료 등록, `:8` 응답 등록, `:20` mount effect | **3** |
+| ④ 응답 대기 mark | `sessionsStore.ts:254` | 1 |
+| ⑤ 완료 mark | `sessionsStore.ts:250` | 1 |
+| ⑥ 열람 해제 | `sessionsStore.ts:258` | 1 |
+| ⑦ 삭제 해제 | `sessionsStore.ts:163` | 1 |
+| ⑧ 행 표시 | `SessionRow.tsx:59` | 1 |
+| ⑨ 승격 통지 | `chatStore.ts:830` | 1 |
+
+plan의 원 EP02 및 구현 상세는 두 구독 합성과 effect 소비를 이미 명시한다. 기존 보고도 운반 세분10을 적었다. ΔV3.1이 기존8+승격1을9로 승계하고 최신 표가 이를 물리 분모에 합쳐, r3 자기보고의 “54물리”가 실제56과 달라졌다. 검증 skill §0의 “path에 명시된 계약 운반 edge는 PLAN_GAP 대신 분모 재측정”을 적용했다. 누락된 제품 계약/구현 선택은 없으며 normative 행을 수정하지 않았다. 독립 X3/X4는 추가 두 구독을 각각 제거해 semantic 통지가 실제 끊어짐을 잠갔다.
+
+지정 항목과 검색 집합의 **미대조 차집합0**이다. 신호 생산3·adoption 호출2·타입 운반2는 §10 지정과 구별해 함께 읽고 실제 main-scope/continuation/query oracle로 관측했다. 동일 불변식의 화면 형제4곳은 각 ID 변이로 따로 대조했다.
+
+## 5. 등록41·독립2 민감도
+
+각 행은 한 생산 자리만 변조했다. 실제 failed assertions가 있는 exit1만 red로 받았고, finally에서 원본 Buffer byte 동일 복원 뒤 같은 파일/필터가 green인지 재실행했다. skip은 실행/성공 분모에서 제외했다. 초기 임시 집계가 `pending`만 세어 `skipped`를 로그에서0으로 표시했으므로, 최종 표/JSON은 원 reporter의 두 status와 `numPendingTests`를 대조해 교정했다. 실행/실패 수와 원 reporter는 변하지 않았다.
+
+| ID | 실패 / 실제 실행 | skip | 원복 같은 필터 pass |
+|---|---:|---:|---:|
+| F6 | 2 / 4 | 0 | 4 |
+| F9 | 2 / 2 | 79 | 2 |
+| F10 | 2 / 2 | 79 | 2 |
+| F1 | 1 / 92 | 0 | 92 |
+| F2 | 4 / 92 | 0 | 92 |
+| F3 | 4 / 5 | 0 | 5 |
+| F4 | 2 / 15 | 0 | 15 |
+| F5 | 5 / 15 | 0 | 15 |
+| F7 | 1 / 15 | 0 | 15 |
+| F8 | 1 / 92 | 0 | 92 |
+| D1 | 9 / 92 | 0 | 92 |
+| D2′ | 12 / 92 | 0 | 92 |
+| D3′ | 10 / 92 | 0 | 92 |
+| D4′ | 20 / 92 | 0 | 92 |
+| D5 | 3 / 92 | 0 | 92 |
+| D6 | 2 / 92 | 0 | 92 |
+| D7 | 5 / 92 | 0 | 92 |
+| D8 | 5 / 92 | 0 | 92 |
+| D9 | 9 / 92 | 0 | 92 |
+| D10 | 11 / 92 | 0 | 92 |
+| F11 | 10 / 10 | 0 | 10 |
+| F12 | 2 / 10 | 0 | 10 |
+| B1 | 1 / 19 | 0 | 19 |
+| B2 | 4 / 19 | 0 | 19 |
+| B3 | 3 / 19 | 0 | 19 |
+| B6 | 4 / 19 | 0 | 19 |
+| F13 | 3 / 5 | 13 | 5 |
+| F14 | 2 / 2 | 16 | 2 |
+| F15 | 8 / 8 | 10 | 8 |
+| F16 | 1 / 2 | 11 | 2 |
+| F17 | 4 / 4 | 9 | 4 |
+| F18 | 1 / 1 | 12 | 1 |
+| F19 | 1 / 1 | 12 | 1 |
+| F20 | 1 / 1 | 12 | 1 |
+| F21 | 1 / 1 | 12 | 1 |
+| F22 | 2 / 2 | 17 | 2 |
+| F23 | 2 / 2 | 17 | 2 |
+| F24 | 2 / 2 | 17 | 2 |
+| F25 | 1 / 1 | 7 | 1 |
+| F26 | 1 / 1 | 18 | 1 |
+| F27 | 2 / 2 | 17 | 2 |
+
+**등록41 unique·41 assertion red·41 byte 동일·41 동일필터green.** 표의 D2′~4′는 runner ID D2~4에 대응한다. F1/2/8·D1~10은 adapter4파일92, F3 requester5, F4/5/7 actual DB15, F6 카드4, F9/10 runtime 필터2, F11/12 owner10, B attention19, F13~15 lifetime 필터, F16~21 X2 필터, F22~24/26/27 main-scope 필터다.
+
+F25는 `claude.plan-mode.test.ts -t 'main approval scope'`에서 actual `ClaudeAdapter.sendMessage → query`를 실행했다. getter 전달을 제거하자 consume 바깥 `:159`의 `error events=[]` assertion이 실패했다(1/1, skip7); 원복1green이다. 구현자 첫 self-run의 생존과 oracle 보강 사실은 그대로 보존한다. 이번 검증에서는 처음부터 보강된 oracle로 재측정했으며 iterator 내부 assertion만으로 PASS하지 않는다.
+
+| 독립 축 | 한 자리 변조 | 실패 / 실행 / skip | 원복 대조 |
+|---|---|---|---|
+| X3 | 완료 구독을 no-op 해제 함수로 대체 | 6 / 19 / 0 | byte 동일·19green |
+| X4 | 응답 요청 구독을 no-op 해제 함수로 대체 | 8 / 19 / 0 | byte 동일·19green |
+
+독립2는 등록41 분모에 넣지 않았다. 이전 r2 등록29는 FAIL 조기 이관으로 **미실행**이므로 과거 red 성공으로 주장하지 않는다. 원 X1/X2 기대는 보존됐고 현재 green, 승계 D1~10을 포함한 등록41은 모두 이번 새 assertion red로 검출돼 이번 대조의 red→green 미검출0이다. static 진단만으로 받은 red0·원복 잔여 production diff0이다.
+
+## 6. Finding disposition·외부 경계·다음 작업
+
+| ID | 독립 판정·직접 근거 | 상태/후속 |
+|---|---|---|
+| D5 | 기존 X1 기대 보존·owner10green, F11 10/10·F12 2/10 red→10green | closed 유지; 관련 pair closeout 이번 발행 |
+| D6 | X2 원10 기대 보존+유효 actual requester3 모두green; F16~21 각 소비자 red/원복green | **closed**; child mode 및 네 응답 ID/owner 소비자 확인 |
+| D7 | EP02③의3실행자리를1항목으로 센 “54물리” 자기보고 오계산 | NON_BLOCKING/closed: 실측56·대응표 기록, INDEX 정정 |
+| D1·D2·D4 | 기존 NON_BLOCKING 잔여 | open 유지, 이번 수정/재판정 없음 |
+
+ΔV3.4의 별도 main await 소유권 축도 main-scope19green·F22~27 red/원복green으로 닫혔다. 실제 CLI cancel/terminal 순서는 미확인이며 이 사실을 제거하지 않는다. D6와 D7의 상태는 plan의 `[검증자 기입]`에만 반영했다.
+
+실 모델·Windows 앱 시각·공유 브랜치 게시/원격 CI는 미실행이다. 이전 자동 승인 검토가 목적지 권한 불명확을 사유로 원격 push를 거부한 제한을 유지했고 이번 원격 쓰기0이다. 로컬 main/origin-main0/0과 `git cat-file`은 공개/CI 성공을 대신하지 않는다. 원격 목적지 승인/게시 후 CI, 기존 §8의 nav 파랑·Work/Code 카드 위치·custom 모델 계획·Spark/패널 시각을 별도 확인한다. 새 계획 파일 캡션은 D-027로 철회됐으므로 실기 요구로 되살리지 않는다.
+
+Review Signals: D6는 기존 소유권/child 계약이 승인 화면 소비자에 빠진 문제였고, main await는 같은 계약의 신호 전달 edge였다. 기존 지침/AC가 있어 제품 선택0, normative 보강은 구현 전 별도 설계로 분리됐다. 이번 검증이 찾은 수량 불일치는 명시 path의 운반 세분 재측정으로 처리했으며 root PLAN_GAP을 발명하지 않았다. 반복 sandbox EPERM은 동일 local-only 승격 대조로 구별했다.
+
+INDEX는 **verify/PASS(기계 범위), 다음 사람(외부 게시/CI·모델/시각), 라운드3**으로 갱신한다. 외부 확인 전 archive 이동을 보류한다. 검증 중 production/정식 test 변경0·autofix0·설치/ABI전환0·커밋0이다. 최종 문서 커밋과 trailer 파싱은 root의 후속 작업이다.
