@@ -259,3 +259,123 @@
 - gate 전부 PASS(DB 1파일은 ABI 분리 후 green).
 - NON_BLOCKING D1~D4.
 - 다음: 사람 실기 §8 4건. archive 이동은 실기 뒤.
+
+---
+
+# r1.4 — ΔV3 독립 검증 (2026-10-06)
+
+**FAIL.** 새 대화의 init 전 계획 승인 콜백이 실행되고 사용자가 기존 세션을 열면, 새 대화의 계획 승인 카드가 기존 세션에 표시된다. 실제 `createApprovalRequester` → IPC transport → `ingestChatEvent` → `chatStore` 경로의 독립 X1에서 D5를 재현했다. 이전 r1 판정은 위 원문으로 보존한다.
+
+## 0. 기준선·독립성
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Codex 독립 subagent — 구현 agent와 별도 |
+| 대상 / plan | 로컬 `b110cca6..963464c8`; ΔV3 설계 `68c39bdd` + MD-08 정정 `b110cca6`; main `ceda5c5a` |
+| 유효 V / 범위 | V1 + ΔV1 + ΔV2 + ΔV3; 37 pair 중 REQUIRED 7 + REGRESSION 5 =12 선택 |
+| 상태 | r1.4 FAIL, 완료 주기1 → 보드 라운드2·다음 Codex |
+
+네 ref 모두 `git cat-file -t`로 commit 실재를 확인했다. `git diff b110cca6 963464c8 -- plan.md`는 구현 보고151줄 추가만 보인다. Decision·AC·V·requiredness·§10의 무단 변경은 없다. ΔV3의 같은 수준 pair·영향 회귀·oracle·선택 변이·gate는 유효하다. **PLAN_GAP 0**: D-033·AC25가 소유 세션 격리를 이미 규정하므로 D5는 명시 계약의 구현 실패다.
+
+## 1. D5 — 소유 세션 오배선
+
+**BLOCKING**, root **VP-36 PAIR_FAIL**; **VP-35 BLOCKED_BY:VP-36**. 확정 세션의 파일 보정·카드/DB oracle이 성공해도 잘못된 세션에 표시되므로 AC24/25 종단은 닫히지 않는다.
+
+- 조건: pending draft `draft`, `dbSessionId=null`, `pendingNewChatKey='draft'`; 사용자는 기존 세션 `s`를 열람한다.
+- 실행: 실제 requester에 plan_review를 넣고 deferred broker의 승인 대기 중 실제 store를 관측한다.
+- 기대: `other=null`, `owner='# Pending draft plan'`.
+- 실제: `other='# Pending draft plan'`, `owner=null`.
+- producer: `app/src/main/app/chat-turn/approval.ts:57`의 init 선행 가정과 `:67`의 sessionId 없는 requested 발행.
+- consumer: `app/src/renderer/src/features/chat/store/chatStore.ts:580`; sessionId 없는 permission.requested는 pending 분기에 없어 activeKey로 간다.
+- 재현: `app/src/renderer/src/features/chat/store/chatStore.planOwner.test.ts:14`(owner 비교 `:60`); report `app/.tmp-verify-0249-X1.json`.
+
+설치 SDK의 control callback과 iterator는 독립 진행한다. 따라서 requester의 “권한 요청은 session.updated 이후” 주석을 순서 보장으로 인정하지 않는다. requested/resolved의 pending owner와 session.updated 승격을 함께 잠가야 한다. X1의 직접 실패 단언은 **대기 중 requested 라우팅**이며 resolved까지 재현했다고 주장하지 않는다.
+
+역방향으로 writer·SQL·reducer의 owner guard를 거슬러 이 edge를 찾았다. 신규 helper/port의 production 소비처도 직접 확인했다. `scan-surface.sh b110cca6..963464c8`는 bash가 없어 미실행이며, `rg`로 `planReviewToolInput|fromClaudePermissionMode|createPermissionModeObserver|onPermissionModeChanged|updateToolCallInput|planToolInputs|pendingPlanToolCalls`의 production 참조를 추적했다. 제보된 승격 후 attention 통지는 후속 보정의 인접 소비처로 남기고 X1 실패 건수에 더하지 않는다.
+
+## 2. 독립 테스트와 운영 gate
+
+UT → IT → ST → AT 순으로 직접 실행했다. 설치 SQLite의 plain Node ABI를 사용했으며 ABI 전환·새 의존성 설치·autofix·production 수정은 없다.
+
+| 단계 | 파일 | pass / fail | 직접 oracle |
+|---|---:|---:|---|
+| UT | 5 | 90 / 0 | input 식별·mode·파일 resolver/reader |
+| IT | 7 | 149 / 0 | requester 저장 선행·실제 writer/SQLite·runtime·observer·fresh TurnContext |
+| ST | 4 | 61 / 0 | 실제 adapter query의 입력/모드·두 순서·child·Stop |
+| AT | 5 | 56 / 0 | Work/Code SSR·계획 패널·reducer·store |
+| 합계 | 21 | 356 / 0 | 파일 중복 없음; X1은 별도 |
+| X1 | 1 | 0 / 1 | init 전 요청 + 다른 열람 세션 |
+
+| gate | 독립 관측 |
+|---|---|
+| scripts | JUnit testcase132·failure0 |
+| lint | ESLint src/scripts no-fix: error0·기존 warning1(`useTranscriptVirtualizer.ts:22`, incompatible-library) |
+| typecheck | node/web/test 3종 진단0 |
+| doc-inventory | 생성값·본문 수치·링크 검사 정상 |
+| test-budget / migration | git fixture 범위·schema 동기·no-copies·append-only 정상 |
+| diff | `git diff --check` 정상 |
+
+초기 sandbox UT는88pass/2fail(8.3 일반 파일·256KiB 경계)였다. 직접 `lstatSync('C:/Users/rlaeo')`에서 EPERM을 확인했고 **동일5파일 권한 승격 실행은90/90**이었다. sandbox scripts는124pass/8fail이며 모두 `ensure-sqlite-abi.test.mjs`의 require.resolve→fingerprint에서 같은 사용자 폴더 EPERM을 보였다. **동일 scripts 승격 실행132/132**로 환경 false fail을 분리했다.
+
+재현 명령(app 기준); stage runner가 선택21파일 목록과 순서를 갖는다.
+
+```text
+node .tmp-verify-0249-stages.mjs
+node --test --test-reporter=junit --test-reporter-destination=.tmp-verify-0249-scripts-elevated.xml scripts/*.test.mjs
+node node_modules/vitest/vitest.mjs run src/renderer/src/features/chat/store/chatStore.planOwner.test.ts --reporter=json --outputFile=.tmp-verify-0249-X1.json
+node node_modules/eslint/bin/eslint.js ./src ./scripts
+npm run typecheck
+node scripts/check-doc-inventory.mjs --check
+node scripts/check-test-budgets.mjs
+node scripts/check-migrations-appendonly.mjs
+```
+
+stage 산출은 `app/.tmp-verify-0249-{UT,IT,ST,AT}-elevated.json`이다. 등록 M-F1~10·M-D1~10 **20건은 모두 미실행**이다. 정의는 독립 대조했으나 실제 baseline X1 실패를 확인한 뒤 재구현으로 이관했다. 구현자가 보고한20red를 이번 증거로 받지 않았고 승계 변이 red→green도 판정하지 않았다. 검증자 변이 적용0건. 임시 runner/report는 구현 산출과 분리하며 **X1 fixture는 후속 재검증을 위해 보존**한다.
+
+## 3. Pair 판정·AC·§10
+
+| pair | 수준 / requiredness | 결과 | 직접 증거 |
+|---|---|---|---|
+| VP-38 | MD↔UT / REQUIRED | PASS | SDK mode6종/unknown·Enter 입력{}/message·Exit filePath 계약 |
+| VP-12 | MD↔UT / REGRESSION | PASS | 실제 일반 파일·8.3·상한·링크·오류·close |
+| VP-13′ | MD↔UT / REGRESSION | PASS | 파일/입력 출처·BOM/CRLF/공백·경로·정상 입력 reference |
+| VP-36 | SD↔ST / REQUIRED | PAIR_FAIL | X1의 init 전 요청이 다른 세션 entry에 저장됨 |
+| VP-35 | R↔AT / REQUIRED | BLOCKED_BY:VP-36 | owner draft의 승인 카드가 없어 해당 live 종단을 닫을 수 없음 |
+
+나머지 선택7은 직접 oracle green이지만 등록 변이를 실행하지 않아 **closeout 미발행**이다. 종속 실패로 과장하지 않는다.
+
+| pair | 직접 관측 | 남은 선택 변이 |
+|---|---|---|
+| VP-33 | main/id/tool 식별·동일 reference | F1·2·4·6 |
+| VP-34 | persist 선행·실제 DB args/owner·decoder·오류 전파 | F3·4·5·7 |
+| VP-37 | 실제 controller/renderer·latest delegates·old/child/replay | F8·9·10 |
+| VP-09′ | 파일 정본·CLI 입력·추가 필드·child 음성 | D1·2′·3′·4′·10 |
+| VP-10 | main Write/Edit·Stop·child 음성 | D5·6 |
+| VP-11′ | query hook/getter 동일 셀·env | D7·8·9 |
+| VP-20 | 입력→서술→empty·계획 패널 SSR | D10 |
+
+완료 판정5 + 미발행7 + 비영향 NOT_REQUIRED25 = 유효37. 선택12 전체 PASS를 발행하지 않는다. 신규 AC4는 **AC24❌·AC25❌·AC26✅·AC27✅ = ✅2·❌2**다. 기존 유효21 + 신규4 =25를 재검산했지만 이번 검증이 기존21 전건의 새 PASS를 발행한 것은 아니다. 구현 본문/trailer의25/25와 기존 INDEX SELF_PASS는 서로 일치했으나 X1로 완결 성공 주장은 성립하지 않는다.
+
+| §10 행 | 독립 재열거 | 관측 / 한계 |
+|---|---:|---|
+| EP-04′ | 8 | 기존7항목 중 ③ 배선은 hook 병합·동일 셀 getter 전달 두 edge; 파일/resolver 직접 실행 |
+| EP-11 | 6 | started·action.input·persist·late started·SQL·reducer; F1~6 미실행 |
+| EP-12 | 4 | helper·턴 Map·SQL scope·reducer id/name; requester→store owner 실패를 덮지 못함 |
+| EP-13 | 6 | 마지막 controller set+renderer send는 두 sink; 직접 mode 실행, F8~10 미실행 |
+| EP-14 | 4 | 설치 SDK 입력/결과·plan 메타/ΔV3·INDEX 재독 |
+
+8+6+4+6+4 = **28 지정 자리**를 확인했으며 이를28/28 계약 통과로 해석하지 않는다. D5는 이미 명시된 소유 세션 계약을 requester→store edge에서 깨는 구현 실패다. 설치 SDK0.3.286 타입에서 Enter 입력{}/결과message와 Exit 결과plan/filePath를 재독하고 adapter oracle의 내부 입력planFilePath와 결과filePath 구분도 확인했다.
+
+## 4. 운영 정합성·이관
+
+INDEX는 verify/FAIL·다음Codex 한 명·라운드2·로컬 실재 ref로 갱신했다. 구현 trailer는 Agent:codex·Handoff·Status:implemented·Criteria-Met:25/25·Verified-By:pending **5행이 실제 파싱**된다. 구현 보고7필드가 모두 있고 AGENTS 변경은 없다. archive 이동은 하지 않는다.
+
+로컬 main...origin/main은0/0이나 원격 최신 조회·공유 브랜치 게시·CI 통과를 증명하지 않는다. 원격 쓰기는 수행하지 않았다. 실제 외부 모델·Windows 앱 시각 실기도 미실행이며 기존 r1 §8의 외부 확인 범위를 유지한다. 구현자157파일1658·20변이red는 자기 보고이고 이번 독립 증거는21파일356와X1이다.
+
+| ID | finding | 귀속 / disposition | 후속 |
+|---|---|---|---|
+| D5 | init 전 새 대화 계획 승인 요청의 다른 세션 표시 | BLOCKING; D-033·AC24/25; rootVP-36, 종속VP-35 | requested/resolved pending owner→승격 보존, X1 재실행 |
+
+D5를 plan의 [검증자 기입]에 이관했다. 기존D1~D4는 위 비영향 판정을 참조한다. Review Signals: 이전 reader/extraDirs 증상과 다르며 D-033·AC25가 순서/owner를 명시했고 새 제품 결정 변경은 없다. 반복 lstat EPERM은 권한 대조로 해소됐다.
+
+**다음: Codex 라운드2.** D5 수정 뒤 X1·영향 pair·등록 변이·적용 gate를 독립 재검증한다. 이번 판정은 PASS3·root PAIR_FAIL1·BLOCKED_BY1·미발행7, PLAN_GAP0이며 FAIL은 확정이다.
