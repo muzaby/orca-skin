@@ -12,7 +12,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-06 |
 | 매핑 | — |
-| 상태 | IMPL_DONE (V1 + ΔV1 · r1, 검증 대기) |
+| 상태 | verify/PASS (V1 + ΔV1 · r1) |
 | V mode | `Baseline V`(V1) + `Delta V`(ΔV1) |
 | 기준 V | V1 = `none`(신규 — 0186·0112 동작은 INHERITED 노드로만 참조, §7-A) · ΔV1 = `0251:V1@a73e0760`(공유 브랜치 `claude/0251-0252-usage-breakdown-file-open` 에서 `git cat-file -t` = commit) |
 | 이번 V revision | `ΔV1` — 사용자 결정 변경(원격 값 정본·SDK 반환값 무시·월 누적값 포함). 대체 관계는 §ΔV1 |
@@ -982,4 +982,5 @@ functional probe는 테스트가 읽는 실제 production에 심었고 각 final
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| D1 | `models`만 실은 `monthly` 항목은 월 total 행이 없어 월 바 ①이 아니다 — D-021 "monthly 항목"의 범위가 plan에 명시되지 않음 | 비귀속(AC9′는 total 항목만 규정) | 가이드 "비용 동반" 행 유지, 필요 시 문구 보강 | NON_BLOCKING | 기록 ([verify.md §13](verify.md)) |
+| D2 | `persistence.md` 마이그레이션 표가 0018 다음 0028 행(0019~0027 기존 공백) | 비귀속 | 문서 정리 후보 | NON_BLOCKING | 기록 |
