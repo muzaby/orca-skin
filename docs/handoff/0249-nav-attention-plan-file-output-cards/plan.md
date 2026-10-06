@@ -11,11 +11,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-04 |
 | 매핑 | 기준 커밋 `origin/main@954e6fff` |
-| 상태 | READY (ΔV3.1) — r1.4 FAIL의 세션 확정 전 승인 소유권 보완 |
+| 상태 | READY (ΔV3.2) — 승인 소유권·승격·취소 및 폐기 채널 보완 |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | V1 = `none`(신규) · ΔV1 = `0249:V1@266bdbfe` · ΔV2 = `0249:ΔV1@c6e7b7e1`(모두 공유 브랜치 확인). 다른 handoff 의 동작은 `INHERITED` 회귀로만 둔다 |
-| 이번 V revision | `ΔV3.1` — 기존 승인 소유권 경로·승격 후 대기 표시 보완 |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV3.1` |
+| 이번 V revision | `ΔV3.2` — 기존 승인 소유권 경로·승격·취소 및 폐기 채널 보완 |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV3.1 + ΔV3.2` |
 | 구현 주체 | Codex — r1(`61c12248`)부터 사용자 지시(`[구현자 기입]` 설계 리뷰). V1 작성 시점 계획은 Claude 였다 |
 
 > **ΔV1 적용(2026-10-04)** — ③ 백그라운드 패널·④ ExitPlanMode 에 관한 V1 서술(§1·§2·§5·§6·§7·§7-A·§9~§19 의 해당 행)은 문서 끝 **§ΔV1** 이 대체한다. ⑦ 엔진&모델 개수는 ΔV1 신설이다. 유효 AC 20.
@@ -1822,3 +1822,23 @@ VP-02·03·04·05·19는 기존 NOT_REQUIRED를 대체하는 REGRESSION이다. V
 ## READY self-review
 
 D-033/AC24·25 및 D-002/AC2·5의 기존 의미를 교차 확인했다. 새로운 제품 정책을 발명하지 않고 기존 소유자·대기 표시 계약의 빠진 전달 경로를 보완했다. 원인·직접 oracle·생산자/소비자·수명·§10 물리 자리와 변이/운영 gate를 연결했다. 기존 AC25를 완화하지 않았고 UNKNOWN/noid 순간의 nav 가드와 실제 열람 의미를 유지했다. 설계 변경과 구현 산출은 별도 커밋한다.
+
+---
+
+# ΔV3.2 — 취소·폐기 채널 승인 콜백 수명 보완 (2026-10-06)
+
+**기존 소유권 계약을 유지한다.** 구현 중 실제 SessionRuntime·makeCanUseTool·requester·ApprovalBroker를 연결한 probe에서 옛 Exit의 파일 읽기 대기 → 채널 폐기 → 새 send/delegate 교체 → 옛 읽기 완료가 현재 턴의 persist/requested를 실행했다. SDK signal이 이미 abort되어 broker가 deny해도 화면·이력 쓰기는 먼저 일어났다. 별도 requester probe에서도 이미 취소된 SDK 요청이 persist/requested 이후 deny했다. 이는 D-033·AC25의 다른 턴/세션 격리와 AC26의 child 수명 경계에 적용할 구현 누락이며 새로운 제품 결정은 아니다.
+
+기준은 ΔV3.1 로컬 설계 `0a59d198`와 r2 진행 중 조사다. AC25·26, SD-02·AR-02·MD-06 및 VP-34·36의 기존 경로를 runtime wrapper의 captured channel signal → requester의 유효 승인 signal → persist/send/register 순서까지 확장한다. 신규 AC·node·pair는 없다. 선택17·NOT_REQUIRED20은 ΔV3.1과 같다.
+
+| 상태 | 완료 관측 / 직접 oracle |
+|---|---|
+| 파일 읽기 중 폐기된 채널의 늦은 main 승인 콜백 | deny하며 현재 delegate·현재 턴의 persistence·IPC surface를 호출하지 않는다. 실제 runtime 교체 + canUseTool 파일 await fixture로 다른/같은 sessionId의 새 턴을 대조한다. |
+| 요청 진입 때 SDK signal 또는 main turn signal이 이미 취소됨 | persist·requested/resolved·broker register·모드 변경을 실행하지 않고 deny한다. |
+| main turn 취소, SDK signal이 살아 있는 child 요청 | 기존 child 독립 수명을 보존한다. child SDK 취소만 해당 broker를 해소한다. 정상 main과 다음 채널 요청도 기존 동작이다. |
+
+기술적으로 requestApproval wrapper는 captured channel signal과 요청 SDK signal의 aborted 값을 delegate 접근 전에 검사한다. requester는 기존 main/child 신호 합성 규칙을 사용하되 regSignal 계산·aborted 판정을 자동 허용·persist/send보다 앞에 둔다. 신호가 진입 때 살아 있고 이후 취소되는 경우는 기존 broker cancel/resolved 경로를 유지한다. main turn signal을 child 요청에 추가하지 않는다.
+
+§10 EP-12″는 EP-12′의 6자리와 runtime requestApproval의 폐기 채널/요청 신호 검사, requester의 surface 전 유효 신호 검사 2자리를 합친 **8자리**다. VP-34·36의 직접 oracle에 옛 채널·이미 취소된 요청의 side effect 0과 live child 양성 대조를 추가한다. **M-F13**(requester의 조기 aborted 판정 제거)과 **M-F14**(runtime wrapper의 channel/SDK guard 제거)를 신규 선택한다. F14는 요청 SDK signal이 살아 있어도 폐기 채널이 현재 delegate를 호출하지 않는 실제 runtime oracle로 측정해 requester의 중복 guard에 가려지지 않게 한다.
+
+등록 변이는 ΔV3.1의26 + F13·14 =28이다. 나머지 운영 gate·EP-02′·EP-04″·EP-11·EP-13′·EP-14는 그대로 유지한다. READY self-review에서 신규 정책이 아닌 기존 소유권·취소 계약 적용임을 확인했고 main/child 양성·음성 oracle과 실제 강제 지점 및 선택 변이를 연결했다. 구현 산출과 별도 설계 커밋으로 보존한다.
