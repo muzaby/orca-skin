@@ -42,6 +42,10 @@ export function localDayKey(ms: number): string {
   return `${d.getFullYear()}-${mm}-${dd}`
 }
 
+export function localMonthKey(ms: number): string {
+  return localDayKey(ms).slice(0, 7)
+}
+
 // 'YYYY-MM-DD' 키 → 로컬 자정 Date. localDayKey 의 역함수 — 키 포맷 계약(SQL
 // date(...,'localtime'))의 파서 단일 지점. 차트 축 라벨 등 소비처도 이걸 쓴다.
 export function parseDayKey(key: string): Date {

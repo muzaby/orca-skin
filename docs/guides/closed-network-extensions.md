@@ -1165,9 +1165,56 @@ renderer 에서 SP 를 부르려면 **전용 도메인 IPC 채널**을 만든다
 | `features/usage/jobs.ts` | `registerUsageJobs()` — 잡 등록. **fetcher 가 없으면 원격 잡을 등록조차 하지 않는다** |
 | `app/deployment/usage-fetcher.ts` | `createUsageFetcher(deps)` — 기본값 `undefined`. 배포가 이 자리를 채운다 (0188 이전에는 `bootstrap.ts` 의 상수였다) |
 
+아래는 서버가 포트와 같은 내역 필드 형식을 제공하는 **가상 배포 예제**다. 실제 배포에서는
+서버 응답을 검증하고 필드명·단위·날짜 달력을 이 형식으로 매핑한다. 내역 정규화의 정본은
+`features/usage/breakdown.ts`, 저장·합성 계약은 [IPC 계약 §2.12](../IPC_CONTRACT.md#212-cost-phase-3)다.
+기존 `UsageDeploymentDeps` 선언은 유지하고 레시피 B의 배포 키 `CLAUDE_CORP_KEY`를 함께 사용한다.
+
 ```ts
 // app/deployment/usage-fetcher.ts — 배포가 이 자리를 채운다
+import { z } from 'zod'
+import type { UsageFetcher, UsageSnapshot } from '../../features/usage/fetcher'
 import { CLAUDE_CORP_KEY } from './harness-runtime'
+
+const remoteMetricsSchema = z.object({
+  inputTokens: z.number().nullish(),
+  outputTokens: z.number().nullish(),
+  cacheCreationInputTokens: z.number().nullish(),
+  cacheReadInputTokens: z.number().nullish(),
+  costUsd: z.number().nullish()
+})
+const remoteModelsSchema = z.array(remoteMetricsSchema.extend({ model: z.string() }))
+const usageReportSchema = z.object({
+  asOf: z.number().nullish(),
+  limitUsd: z.number().nullish(),
+  usedUsd: z.number().nullish(),
+  remainingUsd: z.number().nullish(),
+  daily: z.array(z.object({
+    day: z.string(),
+    total: remoteMetricsSchema.nullish(),
+    models: remoteModelsSchema.nullish()
+  })).nullish(),
+  monthly: z.array(z.object({
+    month: z.string(),
+    total: remoteMetricsSchema.nullish(),
+    models: remoteModelsSchema.nullish()
+  })).nullish()
+})
+
+function toSnapshot(providerKey: string, body: unknown): UsageSnapshot {
+  const report = usageReportSchema.parse(typeof body === 'string' ? JSON.parse(body) : body)
+  return {
+    providerKey,
+    asOf: report.asOf ?? null,
+    fetchedAt: Date.now(),
+    limitUsd: report.limitUsd ?? null,
+    usedUsd: report.usedUsd ?? null,
+    remainingUsd: report.remainingUsd ?? null,
+    daily: report.daily,
+    monthly: report.monthly,
+    raw: body
+  }
+}
 
 export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher | undefined {
   const corpUsage = deps.auth.bind('corp-usage')     // AuthId 를 여기서 한 번 닫는다
@@ -1195,16 +1242,31 @@ export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher | un
 | 이 배포가 주는 것 | 코어가 하는 일 |
 |---|---|
 | `supports === false` | 원격 미지원 — **과거에 받아둔 캐시 행이 있어도 무시**하고 로컬 집계 + 사용자 설정 한도로 접는다 |
-| `supports === true` + 스냅샷 | 갱신 성공 — 스냅샷을 캐시에 upsert 하고 그 provider 뷰만 push 한다 |
+| `supports === true` + 스냅샷 | 검증 후 캐시·기간 합계·모델 집합을 같은 DB 트랜잭션으로 저장하고, 커밋된 값으로 만든 provider 뷰만 push 한다 |
 | `supports === true` + `null` 또는 throw | **이번 갱신 실패** — 주기 잡은 그 provider 만 건너뛰고 나머지를 계속 갱신하지만(격리), 실패가 하나라도 있으면 **틱 끝에서 잡 자체가 실패**해 `schedule_runs` 에 `error` 로 남는다. 설정 탭의 수동 동기화는 그대로 실패로 되돌려준다 |
+
+내역 매퍼를 작성하고 아래 의미를 확인한다. 예제의 `daily`에는
+`{ day: '2026-10-01', total: { costUsd: 12, inputTokens: 100 }, models: [{ model: 'm', costUsd: 12, inputTokens: 100 }] }`,
+`monthly`에는 `{ month: '2026-10', total: { costUsd: 35 } }`를 실어 검증한다.
+
+| 확인할 입력·동작 | 배포 구현자가 지킬 의미 |
+|---|---|
+| 미제공 | `daily`·`monthly` 생략/`null`/`[]`, `total`의 수치 전무, 모델의 수치 전무, 걸러낸 뒤 빈 모델 집합은 해당 쓰기 0이다. 기존 행을 삭제하거나 0으로 덮지 않는다. 제공한 행의 개별 수치 생략·`null`은 SQL NULL로 보존하고 명시적 `0`은 저장한다. |
+| 누적·교체 | 다른 기간은 이력으로 남긴다. 같은 기간의 제공한 `total`은 통째 갱신한다. `models`를 실은 기간의 모델 집합은 통째 교체하여 빠진 모델을 지우고, 미제공이면 기존 집합을 유지한다. |
+| 날짜 키 | `day`는 실재하는 `YYYY-MM-DD`, `month`는 `YYYY-MM`이다. 서버 날짜를 Orca OS 로컬 달력으로 변환한다. 코어는 타임존을 변환하지 않는다. |
+| 검증·상한 | 키 오류·중복 기간/모델·빈 모델명·음수/비유한 수치·비정수 토큰·상한 초과는 갱신 전체 실패다. 상한값은 `features/usage/breakdown.ts`의 `USAGE_BREAKDOWN_LIMITS`를 따른다. 요청 창은 최근 2개월을 권장한다. |
+| 실패 | 형식 오류는 쓰기 0·push 0, DB 쓰기 실패는 트랜잭션 전체 롤백이다. 마지막 반영 값은 유지한다. |
+| 원격 칸 | 지원 provider의 저장된 원격 합계·모델 집합 칸은 원격 값만 사용한다. 표시할 때 미제공 수치는 0이고 SDK 수치로 채우거나 더하지 않는다. 칸 없는 날만 SDK 값을 쓴다. |
+| 월 바 3단 | 이번 달 `monthly` 항목이 있거나 이번 달 `usedUsd`가 있으면 `monthly` 비용 → `usedUsd` → 0 순으로 원격 값만 쓴다. 아니면 이번 달 원격 날짜 칸과 칸 없는 날 SDK를 합하고, 원격 날짜 칸도 없으면 SDK 월 합을 쓴다. |
+| 월 판정·주 바 | `usedUsd`의 이번 달 판정은 `asOf`, 없으면 받은 시각 `fetchedAt`으로 한다. 주 창은 월 시작과 주 시작 중 늦은 날부터 오늘까지이며, 원격 날짜 칸 비용(NULL→0)과 칸 없는 날 SDK를 합한다. `monthly`·`usedUsd`는 주 바에 쓰지 않는다. |
+| 비용 동반 | 토큰만 주는 원격 칸의 비용은 0으로 표시된다. 비용 바도 제공하려면 `costUsd`를 함께 매핑한다. 오늘 이후 날짜·이번 달 이외 월은 provider 바에 쓰지 않는다. 월별 모델 내역은 저장만 한다. |
+| 원장·전역 | SDK 턴 사용량은 계속 원장에 기록한다. 세션 비용·컨텍스트 도넛·전역 지출 한도는 로컬 원장을 사용한다. |
 
 - **`null` 을 "정상" 의 뜻으로 쓰지 않는다.** 미인증·사내망 밖은 *상태로는* 정상이지만 **이번
   갱신은 실패한 것**이라, 지원 provider 가 `null` 을 주면 코어가 실패로 올린다. "이 배포는 원래
   이 provider 를 안 부른다" 는 뜻이라면 `null` 이 아니라 **`supports` 를 `false`** 로 답한다.
-- **`baselineUsable` 은 함부로 켜지 않는다.** 응답의 `as_of` 가 *billing aggregation watermark*
-  임을 확인했을 때만 `true` 로 채운다. 단순 "응답 생성 시각" 이면 원격이 이미 센 턴이 로컬 증분에
-  또 더해져 **같은 턴이 두 번 계상**된다. 미지정이면 코어가 기준선을 쓰지 않고 **한도만** 원격에서
-  가져가므로, 확신이 없으면 비워 두는 쪽이 옳다.
+- **`baselineUsable`은 월 계산에 쓰이지 않는 호환 필드다.** 기존 배포의 필드와 캐시 봉투 저장은
+  유지하지만 `true`·`false`·미지정에 따른 월 사용량 차이는 없다.
 - **`providerKey` 와 `Provider.id` 는 다른 축이다.** 사용량은 `${adapter}-${provider}` 합성 키를
   쓰고 Auth 는 `AuthId` 를 쓴다. 두 좌표를 잇는 곳은 `app/deployment/harness-runtime.ts` 의
   augmenter 배선 하나뿐이다 — AuthId → key 조인 registry 를 새로 만들지 않는다.

@@ -124,16 +124,9 @@ export interface UsageByBoundaries {
   month: UsageSumRow
 }
 
-// provider 한정 집계(0186) — 위 3구간 + **원격 기준선 이후 월간 증분**(USD).
-// 증분을 WHERE 하한이 아니라 별도 컬럼으로 두는 이유는 `queries.ts` 의 해당 메서드 주석 참조
-// (하한을 올리면 같은 스캔의 week 가 깨진다).
-export interface ProviderUsageByBoundaries extends UsageByBoundaries {
-  monthDeltaCostUsd: number
-}
-
 // 원격 사용량 스냅샷 한 행 (마이그레이션 0014 `provider_usage_report_cache`).
 // report_json 은 코어가 정한 봉투다 — `{ baselineUsable, raw }`. 스칼라로 접히지 않은 원격
-// 응답을 raw 가 통째로 보존하고, baselineUsable 은 기준선 사용 가부를 재시작 후에도 남긴다.
+// 응답을 raw 가 보존한다. baselineUsable 은 월 계산에 쓰지 않는 호환 필드다.
 export interface ProviderUsageReportRow {
   provider_key: string
   report_json: string
@@ -156,9 +149,67 @@ export interface ProviderUsageReportUpsert {
   updatedAt: number
 }
 
+export type UsagePeriodKind = 'day' | 'month'
+
+export interface UsagePeriodMetrics {
+  inputTokens: number | null
+  outputTokens: number | null
+  cacheCreationInputTokens: number | null
+  cacheReadInputTokens: number | null
+  costUsd: number | null
+}
+
+export interface UsagePeriodTotal extends UsagePeriodMetrics {
+  kind: UsagePeriodKind
+  period: string
+}
+
+export interface UsagePeriodModelSet {
+  kind: UsagePeriodKind
+  period: string
+  models: (UsagePeriodMetrics & { model: string })[]
+}
+
+export interface UsageBreakdown {
+  totals: UsagePeriodTotal[]
+  modelSets: UsagePeriodModelSet[]
+}
+
+export interface ProviderUsagePeriodRow {
+  provider_key: string
+  period_kind: UsagePeriodKind
+  period: string
+  input_tokens: number | null
+  output_tokens: number | null
+  cache_creation_input_tokens: number | null
+  cache_read_input_tokens: number | null
+  cost_usd: number | null
+  fetched_at: number
+  updated_at: number
+}
+
+export interface ProviderUsagePeriodModelRow extends ProviderUsagePeriodRow {
+  model: string
+}
+
+export interface ProviderPeriodCosts {
+  days: { day: string; costUsd: number | null }[]
+  month: { costUsd: number | null } | null
+}
+
+export interface UsagePeriodFilter {
+  periodKind: UsagePeriodKind
+  from?: string
+  to?: string
+}
+
 // 사용량 요약(0112) — since 이후 로컬 일자별 합산 한 행. day = date(...,'localtime') 'YYYY-MM-DD'.
 export interface DailyUsageRow extends UsageSumRow {
   day: string
+}
+
+export interface ProviderDailyUsageRow extends DailyUsageRow {
+  provider_key: string | null
 }
 
 // 사용량 요약(0112) — since 이후 모델별 합산 한 행(turn_model_usage ⨝ turn_usage).
@@ -169,6 +220,11 @@ export interface ModelUsageSumRow {
   cache_creation_input_tokens: number
   cache_read_input_tokens: number
   cost_usd: number
+}
+
+export interface ProviderDayModelUsageRow extends ModelUsageSumRow {
+  provider_key: string | null
+  day: string
 }
 
 export type ScheduleRunStatus = 'running' | 'success' | 'error' | 'skipped'

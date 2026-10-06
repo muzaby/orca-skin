@@ -13,33 +13,50 @@
 // 아직 미상(OQ1)이라, 코어가 쓰지도 않을 mapper 를 미리 만들면 0183 이 지운 "슬롯" 과 같은
 // 냄새가 난다. 매핑은 이 포트를 구현하는 쪽이 소유한다.
 
-// 원격이 보고한 provider 사용량 한 장. `provider_usage_report_cache`(마이그레이션 0014) 한 행에
-// 대응한다 — 스칼라 3종은 컬럼으로, 나머지는 `raw` 가 통째로 보존한다.
+// 미제공 수치는 NULL로 저장한다. 원격 기간 칸을 표시할 때만 NULL을 0으로 읽으며 SDK로 채우지 않는다.
+export interface RemoteUsageMetrics {
+  inputTokens?: number | null
+  outputTokens?: number | null
+  cacheCreationInputTokens?: number | null
+  cacheReadInputTokens?: number | null
+  costUsd?: number | null
+}
+
+export interface RemoteModelUsage extends RemoteUsageMetrics {
+  model: string
+}
+
+export interface RemoteDailyUsage {
+  day: string // YYYY-MM-DD, Orca OS 로컬 날짜 달력. 변환은 배포 매퍼 책임.
+  total?: RemoteUsageMetrics | null
+  models?: readonly RemoteModelUsage[] | null
+}
+
+export interface RemoteMonthlyUsage {
+  month: string // YYYY-MM
+  total?: RemoteUsageMetrics | null
+  models?: readonly RemoteModelUsage[] | null
+}
+
+// 스칼라는 0014 캐시, 내역은 기간별 이력으로 저장한다. 빈 내역은 미제공이며 기존 행을 지우지 않는다.
 export interface UsageSnapshot {
   // 사용량 축의 식별자(`${adapter}-${provider}`). `Provider.id` 가 아니다 — 좌표 조인은
   // 컴포지션 루트가 `findLlmProvider`/`llmProviderKey` 로 한 번만 한다.
   providerKey: string
-  // 원격이 이 수치를 집계한 기준 시각(epoch ms). **`fetchedAt` 과 다르다.**
+  // 월 누적값의 월 판정 시각(epoch ms). 없으면 fetchedAt으로 이번 달인지 판정한다.
   asOf: number | null
   // 우리가 응답을 받은 시각(epoch ms).
   fetchedAt: number
   // 원격이 보고한 월 한도. null = 원격이 한도를 주지 않았다 → 사용자 설정 한도로 폴백.
   limitUsd: number | null
-  // `asOf` 시점까지 원격이 집계한 누적 사용액. 기준선으로 쓰인다.
+  // 원격 월 누적 사용액. 이번 달이면 SDK 증분 없이 이 값만 쓴다.
   usedUsd: number | null
   remainingUsd: number | null
-  // ── 기준선 사용 게이트 ──────────────────────────────────────────────────────
-  // `asOf` 가 **billing aggregation watermark** 임을 배포 fetcher 가 보장할 때만 true.
-  //
-  // watermark 가 아니면(예: 단순 응답 생성 시각) 원격이 이미 센 턴의 로컬 행이
-  // `created_at > asOf` 가 되어 **같은 턴이 두 번 더해진다**. 판별할 방법이 코어에는 없으므로
-  // 배포가 선언한다.
-  //
-  // **미지정 = false 로 접는다(fail-closed).** 그러면 사용량은 로컬로 가고 한도만 원격을 쓴다 —
-  // 틀린 숫자를 그리느니 덜 정확한 쪽으로 떨어지는 것이 낫다.
+  /** @deprecated 월 계산에 쓰지 않는 호환 필드. 봉투 저장만 유지한다. */
   baselineUsable?: boolean
-  // 원격 응답 원본. 스칼라로 접히지 않은 필드(모델별 내역·기간 구분 등)를 잃지 않기 위해
-  // 통째로 보관한다. 나중에 주간 기준선 같은 것이 필요해지면 여기서 꺼내 컬럼을 늘린다.
+  daily?: readonly RemoteDailyUsage[] | null
+  monthly?: readonly RemoteMonthlyUsage[] | null
+  // 배포 응답 원본. 표시 수치는 검증 후 커밋된 DB 행으로 만든다.
   raw: unknown
 }
 

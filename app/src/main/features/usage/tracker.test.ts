@@ -35,7 +35,6 @@ function sums(totalCostUsd: number): Record<string, number> {
 interface FakeDbOptions {
   report?: ProviderUsageReportRow
   limit?: number | null
-  monthDeltaCostUsd?: number
 }
 
 function fakeDb(opts: FakeDbOptions = {}): {
@@ -51,13 +50,20 @@ function fakeDb(opts: FakeDbOptions = {}): {
   const sumForProvider = vi.fn().mockReturnValue({
     day: sums(1),
     week: sums(12),
-    month: sums(40),
-    monthDeltaCostUsd: opts.monthDeltaCostUsd ?? 7
+    month: sums(40)
   })
   const db = {
     insertTurnUsage,
     insertTurnModelUsage,
-    upsertProviderUsageReport: upsert,
+    saveProviderUsageReport: upsert,
+    providerPeriodCosts: vi.fn().mockReturnValue({ days: [], month: null }),
+    sumUsageByDayForProvider: vi.fn().mockReturnValue([]),
+    listProviderUsagePeriods: vi.fn().mockReturnValue([]),
+    listProviderUsagePeriodModels: vi.fn().mockReturnValue([]),
+    sumUsageByProviderDaySince: vi.fn().mockReturnValue([]),
+    sumModelUsageByProviderDaySince: vi.fn().mockReturnValue([]),
+    sumUsageByDaySince: vi.fn().mockReturnValue([]),
+    sumUsageByModelSince: vi.fn().mockReturnValue([]),
     getProviderUsageReport: vi.fn().mockReturnValue(opts.report),
     getProviderLimit: vi.fn().mockReturnValue(opts.limit ?? null),
     sumUsageByBoundaries: vi
@@ -164,7 +170,7 @@ describe('UsageTracker delta 방출', () => {
 })
 
 describe('UsageTracker provider 정본', () => {
-  it('지원 중인 provider 는 원격 값 위에 로컬 증분을 얹는다', () => {
+  it('지원 중인 provider 는 원격 월 값만 쓴다', () => {
     const { db } = fakeDb({ report: reportRow(), limit: 90 })
     const t = new UsageTracker(db, () => {}, {
       spendingLimitUsd: () => 300,
@@ -173,12 +179,12 @@ describe('UsageTracker provider 정본', () => {
 
     const view = t.getProviderUsage('claude-gateway', NOW)
 
-    expect(view.month.used).toBe(319) // 312 + 7
-    expect(view.month.source).toBe('remote-baseline')
+    expect(view.month.used).toBe(312)
+    expect(view.month.source).toBe('remote')
     expect(view.month.budget).toBe(500) // 원격 한도가 사용자 한도 90 을 이긴다
   })
 
-  it('봉투가 baselineUsable 을 담지 않으면 기준선을 쓰지 않는다', () => {
+  it('봉투의 호환 필드 없이도 스칼라 원격 월 값을 쓴다', () => {
     const { db } = fakeDb({
       report: reportRow({ report_json: JSON.stringify({ raw: {} }) }),
       limit: 90
@@ -190,20 +196,20 @@ describe('UsageTracker provider 정본', () => {
 
     const view = t.getProviderUsage('claude-gateway', NOW)
 
-    expect(view.month.source).toBe('local')
-    expect(view.month.used).toBe(40)
-    // 기준선을 못 써도 한도는 원격이 정본이다.
+    expect(view.month.source).toBe('remote')
+    expect(view.month.used).toBe(312)
+    // 봉투의 호환 필드와 무관하게 한도도 원격이 정본이다.
     expect(view.month.budget).toBe(500)
   })
 
-  it('봉투 파싱이 실패하면 기준선을 쓰지 않는다 (fail-closed)', () => {
+  it('봉투 파싱 실패와 무관하게 스칼라 원격 월 값을 쓴다', () => {
     const { db } = fakeDb({ report: reportRow({ report_json: 'not json' }), limit: 90 })
     const t = new UsageTracker(db, () => {}, {
       spendingLimitUsd: () => 300,
       fetcher: fetcherWith(vi.fn())
     })
 
-    expect(t.getProviderUsage('claude-gateway', NOW).month.source).toBe('local')
+    expect(t.getProviderUsage('claude-gateway', NOW).month.source).toBe('remote')
   })
 
   it('스냅샷이 없으면 사용자 한도로 로컬 파생한다', () => {
@@ -237,7 +243,7 @@ describe('UsageTracker provider 정본', () => {
     expect(view.month).toMatchObject({ used: 40, budget: 90, source: 'local' })
   })
 
-  it('기준선이 없으면 asOf 0 으로 조회한다', () => {
+  it('경계 집계는 두 인자로 한 번 조회한다', () => {
     const { db } = fakeDb()
     const t = new UsageTracker(db, () => {}, { spendingLimitUsd: () => 300 })
 
@@ -245,8 +251,7 @@ describe('UsageTracker provider 정본', () => {
 
     expect(db.sumUsageByBoundariesForProvider).toHaveBeenCalledWith(
       'claude-gateway',
-      expect.anything(),
-      0
+      expect.anything()
     )
   })
 })
@@ -276,7 +281,7 @@ describe('UsageTracker.refreshProvider', () => {
     expect(insertTurnModelUsage).not.toHaveBeenCalled()
   })
 
-  it('baselineUsable 미지정은 false 로 영속한다 (fail-closed)', async () => {
+  it('baselineUsable 미지정은 호환 봉투에 false 로 영속한다', async () => {
     const { db, upsert } = fakeDb()
     const fetcher = fetcherWith(vi.fn().mockResolvedValue(snapshot({ baselineUsable: undefined })))
     const t = new UsageTracker(db, () => {}, { spendingLimitUsd: () => 300, fetcher })

@@ -11,13 +11,10 @@ import { daysInMonth, weekDaysInMonth } from '../time/clock'
 import { nextMonthReset, nextWeekReset } from '../time/reset'
 
 // 이 막대의 `used` 가 무엇을 센 값인지.
-//   'local'           = 이 PC 의 Orca 사용량만 (기본값이자 주간의 유일한 값)
-//   'remote-baseline' = 계정 기준선 + 기준시각 이후 이 PC 증분
-//
-// 'remote' 가 아니라 'remote-baseline' 인 이유: 원격이 `used` 전체를 대체하는 것이 아니라
-// **기준선만** 제공하고 그 위에 로컬 증분을 얹기 때문이다. 'remote' 라고 쓰면 "이 숫자는 전부
-// 원격이 센 것" 으로 오독된다.
-export type UsageSource = 'local' | 'remote-baseline'
+//   'local' = 이 PC의 SDK 사용량
+//   'remote' = 이번 달 원격 월 사용액만
+//   'remote-daily' = 원격 날짜 칸 + 칸 없는 날의 SDK 사용량
+export type UsageSource = 'local' | 'remote' | 'remote-daily'
 
 export interface UsageLimitBar {
   used: number // USD, 해당 기간 사용량 (source 가 의미를 규정한다)
@@ -59,7 +56,7 @@ export type UsageDelta =
   // provider 만** 다시 조회하게 한다.
   | { scope: 'boundary'; value: UsageLimitsView }
 
-// 기간별 실사용액(USD). 주간은 언제나 로컬이고, 월간만 기준선 합성 결과가 들어올 수 있다.
+// 기간별 실사용액(USD). provider는 원격 우선 합성, 전역은 로컬 집계다.
 export interface UsageUsed {
   week: number
   month: number
@@ -90,8 +87,8 @@ export function computeUsageLimits(
 // 사용량·경과일과 무관한 고정 envelope 라 weekPct 가 이번 주 실지출에만 반응한다.
 // 월간: monthPct = 이달 실사용 / 월 한도.
 //
-// `used` 를 summary 가 아니라 값으로 받는 이유(0186): provider 월간은 원격 기준선 + 로컬 증분으로
-// 합성될 수 있어 CostSummary 한 곳에서 나오지 않는다. 합성 판정은 호출자(usage-compose)가 하고
+// `used` 를 summary 가 아니라 값으로 받는 이유: provider는 원격 우선 합성 결과라
+// CostSummary 한 곳에서 나오지 않는다. 합성 판정은 호출자(usage-compose)가 하고
 // 여기서는 예산·퍼센트 파생만 한다.
 export function computeUsageLimitsFrom(
   used: UsageUsed,

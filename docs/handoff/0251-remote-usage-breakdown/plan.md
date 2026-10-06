@@ -12,7 +12,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-06 |
 | 매핑 | — |
-| 상태 | READY (V1 + ΔV1) |
+| 상태 | IMPL_DONE (V1 + ΔV1 · r1, 검증 대기) |
 | V mode | `Baseline V`(V1) + `Delta V`(ΔV1) |
 | 기준 V | V1 = `none`(신규 — 0186·0112 동작은 INHERITED 노드로만 참조, §7-A) · ΔV1 = `0251:V1@a73e0760`(공유 브랜치 `claude/0251-0252-usage-breakdown-file-open` 에서 `git cat-file -t` = commit) |
 | 이번 V revision | `ΔV1` — 사용자 결정 변경(원격 값 정본·SDK 반환값 무시·월 누적값 포함). 대체 관계는 §ΔV1 |
@@ -800,82 +800,181 @@ const week = hasRemoteDay(remote, weekFromKey, todayKey) // weekFromKey = localD
 > **재구현 턴도 같은 이름의 필드를 다시 채운다** — 표제(`… (r2)`, 같은 라운드 추가 턴이면 `… (r2.2)`)만 바꾸고 필드를 줄이지 않는다.
 > 해당 없는 필드는 지우지 말고 `해당 없음`으로 남긴다: 빠진 필드는 조사하지 않은 것과 구분되지 않는다(impl §8).
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: V1 + ΔV1을 합성했다. 원격 칸은 DB 커밋 뒤 원격 값만 표시하고 NULL은 0이다. SDK 원장과 전역 집계는 계속 로컬이다.
+- 이견 / 현실성 문제: 없음. Node ABI에서 SQLite를 실제 로드해 원자 저장·재시작을 실행했다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. V1의 대체 행 대신 ΔV1 월 3단·엄격 합성을 구현했다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-… | … | … | … | … | … |
+| VP-10 | EP-01 검증 선행 | 1 | 1/1 | 정규화 → save. 형식 오류 전후 세 테이블 동등·push 0; M13 2 red | 없음 |
+| VP-02·10·13′ | EP-02 원자 저장 | 3 | 3/3 | 캐시·total·모델 집합 transaction. PK/trigger 실패 전부 롤백; M14 2 red | 없음 |
+| VP-01·02·16 | EP-03 미제공 | 5 | 5/5 | 정규화 4영역 + 보고된 모델 기간만 교체. 제공 0/SQL NULL 구분; M1~6 red | 없음 |
+| VP-14′ | EP-04 supports | 2 논리 영역 | 3/3 실제 자리 | provider 게이트 + stats total 필터 + 모델 필터. M15 4·M16 두 자리 각 1 red | 없음 |
+| VP-03′·17′ | EP-05′ 월·주 | 6 논리 자리 | 5/5 실제 자리 (6/6 논리) | 월 단·월 칸 순서·월 판정·주 창·공용 sumDays. 주/월 NULL 판정은 같은 함수 1곳; M7′·8·17·18·21~23 red | 없음 |
+| VP-04′·18′ | EP-06′ stats 합성 | 3 논리 영역 | 5/5 실제 자리 | 일 변환·모델 변환·집합 교체·일 정렬·모델 정렬. M9′ 두 자리·M10 red | 없음 |
+| VP-05 | EP-07 전역 | 1 | 1/1 | 전역 경로 원격 입력 0, global/boundary local. M11 2 red | 없음 |
+| VP-09 | EP-08 기존 SQL | 1 | 1/1 | 미주입·미지원·행 없음은 기존 SQL 동등·provider별 쿼리 0회; M12 2 red | 없음 |
+| VP-07′ | EP-09′ 사본 | 10 | 10/10 | 가이드·auth·IPC 합성/타입/usage행·persistence 두 행·inventory·fetcher/deployment 주석. broad sweep 0 | 없음 |
+| VP-03′·04′ | EP-10 미래 제외 | 2 논리 경로 | 8/8 실제 자리 | provider toDay·SQL 상한·hasRemoteDay·sumDays; stats to·기간/모델 SQL 상한·inRange. 미래·월 경계 주·range 전 날짜 단언 | 없음 |
+| VP-12′ | EP-11′ 포트 | 2 | 2/2 | nullable optional 내역 + deprecated 호환 필드. 내역 有/無 예제 컴파일·정규화 | 없음 |
+| VP-13′ | EP-12 등록 | 2 논리 영역 | 3/3 실제 자리 | raw import·MIGRATIONS append·EXPECTED_MIGRATIONS에 0028; 실 적용·append-only green | 없음 |
+| VP-19 | EP-13 원장·SDK | 2 논리 영역 | 4/4 실제 자리 | 원장 1·provider 공용 날짜 합 1·stats 일 1·모델 1. M20 2·M19 세 자리 11/1/1 red | 없음 |
+| VP-12′ | EP-14 증분 제거 | 5 | 5/5 | compose·tracker·query·types·limits 제거. app/src 금지 어휘 0; 음성 probe 두 개 각각 1행 검출 | 없음 |
+| VP-07′ | EP-15 주석 | 4 | 4/4 | cost·limits·types·tracker 커밋된 원격 값/호환 봉투 의미 재관측; broad sweep 0 | 없음 |
+| VP-13′ | EP-16 조회 NULL | 1 | 1/1 | 실 DB day cost:null·month cost:null 존재 유지, 없는 월은 null | 없음 |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: …
+- 전수 검색: `rg -n "daily|monthly|total|models" app/src/main/features/usage/fetcher.ts app/src/main/features/usage/breakdown.ts`; `rg -n "provider_key|period_kind|period|cost_usd|transaction" app/src/main/infra/db/usage-queries.ts`; `rg -n "provider|supports|UsageStats|toDay|window|globalView|recordTurnUsage" app/src/main/features/usage/tracker.ts`; `rg -n "month|week|days|inRange|dayCells|modelCells|sort" app/src/main/features/usage/usage-compose.ts app/src/main/features/usage/usage-stats-compose.ts`.
+- §10에 없는 새 계약 경로: 없음. 위 실제 자리 증감은 같은 pair 경로의 필터·정렬 분해/주·월 합계 공용화다.
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | … | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | AC1~3 포트·미제공/오류/상한 표 | M1 3·M2 1·M3 2 red |
+| VP-02 | REQUIRED | SELF_PASS | AC4~6 왕복·누적·부분 제공 | M4 1·M5 1·M6 2 red |
+| VP-03′ | REQUIRED | SELF_PASS | AC9′·10′·11·13′ 월/주·예산·push | M7′ 4+4·8 1·17 12·18 1·21 1·22 2·23 2 red |
+| VP-04′ | REQUIRED | SELF_PASS | AC14′~16′ 일·모델·range 3종 | M9′ 1+1·M10 1 red |
+| VP-05 | REGRESSION | SELF_PASS | AC18 global/boundary local | M11 2 red |
+| VP-06 | REQUIRED | SELF_PASS | AC24 0251 스테이징 renderer 0행, 0252 renderer 변경은 unstaged | not selected — `git diff --cached --name-only -- app/src/renderer` 직접 관측 |
+| VP-07′ | REQUIRED | SELF_PASS | AC22′ 사본 10+4·sweep 0·예제 실행 | not selected — 직접 관측 |
+| VP-08′ | REGRESSION | SELF_PASS | AC19′ 기존 compose/tracker/jobs/limits | not selected — 행동 결과 |
+| VP-09 | REGRESSION | SELF_PASS | AC17 기존 SQL 동등·새 쿼리 0회 | M12 2 red |
+| VP-10 | REQUIRED | SELF_PASS | AC7 오류 쓰기/push 0·롤백 | M13 2·M14 2 red |
+| VP-11 | REQUIRED | SELF_PASS | AC20 새 tracker 원격값·fetch 0 | not selected — 행동 결과 |
+| VP-12′ | REQUIRED | SELF_PASS | AC1·23′ 호환 리터럴·출처 3값·봉투 3종 | M24 1 red + symbol 2 probe 각 1행 |
+| VP-13′ | REQUIRED | SELF_PASS | AC4~6·21 0028·NULL 조회·경계 3키 | not selected — SQLite 왕복 |
+| VP-14′ | REQUIRED | SELF_PASS | AC12′ 네 상태 호출 수·경계 인자 2개 | M15 4·M16 두 자리 각 1 red |
+| VP-15 | REGRESSION | SELF_PASS | AC8 턴/모델 원장 행 수 불변 | not selected — 행 수 |
+| VP-16 | REQUIRED | SELF_PASS | AC2·3 정규화 표 | VP-01 M1~3 공유 |
+| VP-17′ | REQUIRED | SELF_PASS | AC9′·10′·11 합성 표 | VP-03′ 증거 공유 |
+| VP-18′ | REQUIRED | SELF_PASS | AC14′·15′ stats 표 | VP-04′ 증거 공유 |
+| VP-19 | REQUIRED | SELF_PASS | AC25 원장/세션/전역 증가·원격 칸 불변 | M19 세 자리 11/1/1·M20 2 red |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
+functional probe는 테스트가 읽는 실제 production에 심었고 각 finally에서 byte buffer를 복원했다. 마지막 queries·compose·stats·tracker 백업 대조 4/4 true, 정규화 M1~3도 각 복원 동등을 확인했다. 기록은 ignored `app/node_modules/.cache/test-tmp/0251-*.json`이다.
+
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| M1 빈 모델 집합을 삭제로 처리 | VP-01·16 | 최초 | 미제공 표 2 + 모델 보존 종단 1 = 3 | red |
+| M2 미제공 수치 0 저장 | VP-01·16 | 최초 | 제공 0/NULL 보존 1 | red |
+| M3 중복 일·월 허용 | VP-01·16 | 최초 | 중복 기간 2 | red |
+| M4 total 미제공을 NULL로 덮음 | VP-02 | 최초 green → 보강 뒤 red | 모델만 재수신 직후 total 보존 1 | red |
+| M5 total만 보고한 기간 모델 삭제 | VP-02 | 최초 | 부분 제공 보존 1 | red |
+| M6 모델 집합 교체 대신 upsert | VP-02 | 최초 | 빠진 모델 잔존·PK 실패 롤백 2 | red |
+| M7′ monthly 비용/usedUsd 순서 교환 | VP-03′·17′ | 최초 | monthly 우선·호환 필드 3값 4 | red |
+| M7′ 월 전체/일 합 단 교환 | VP-03′·17′ | 최초 | 인접 단 공존 4 | red |
+| M8 주 창에서 월 시작 제거 | VP-03′·17′ | 최초 | 월 경계 주 1 | red |
+| M9′ 일 NULL을 SDK로 채움 | VP-04′·18′ | 최초 | 원격 비용만 있는 날 토큰 0 1 | red |
+| M9′ 모델 NULL을 SDK로 채움 | VP-04′·18′ | 최초 | 같은 모델 SDK 비용 버림 1 | red |
+| M10 SDK 전용 모델 유지 | VP-04′·18′ | 최초 | 원격 집합 대체 1 | red |
+| M11 전역에 원격 혼입 | VP-05 | 최초 | 재시작/전역·AC25 전역 증가 2 | red |
+| M12 원격 행 0에도 합성 | VP-09 | 최초 | 미지원·행없음 provider 쿼리 spy 2 | red |
+| M13 검증 전에 캐시 저장 | VP-10 | 최초 | 오류 캐시 불변·DB 실패 잔여 2 | red |
+| M14 transaction 제거 | VP-10 | 최초 | PK/trigger 실패 후 전부 롤백 2 | red |
+| M15 provider supports 제거 | VP-14′ | 최초 | 미주입/미지원 cache·호출 수 4 | red |
+| M16 stats total supports 제거 | VP-14′ | 최초 | 미지원 값 9 → 7 1 | red |
+| M16 stats 모델 supports 제거 | VP-14′ | 최초 | 미지원 모델 비용 9 → 0 1 | red |
+| M17 원격 월에 SDK 더함 | VP-03′·17′ | 최초 | 월 값만·NULL 월·호환 필드 등 12 | red |
+| M18 날짜 NULL을 SDK로 채움 | VP-03′·17′ | 최초 | 주/월 공용 합 1 | red |
+| M19 원격 날짜 비용에 SDK 더함 | VP-19 | 최초 | provider·push·AC25·순수 합 11 | red |
+| M19 stats 원격 일에 SDK 더함 | VP-19 | 최초 | 원격 비용만 있는 날 토큰 0 1 | red |
+| M19 stats 원격 모델에 SDK 더함 | VP-19 | 최초 | 모델 집합 SDK 무시 1 | red |
+| M20 원격 지원 provider 기록 생략 | VP-19 | 최초 | 원격 칸 有/無 원장 +1 2 | red |
+| M21 비용 없는 월을 SDK로 폴백 | VP-03′·17′ | 최초 | monthly NULL·usedUsd 無 → 0 1 | red |
+| M22 asOf 없는 usedUsd 폐기 | VP-03′·17′ | 최초 | fetchedAt 월 판정 2 | red |
+| M23 호환 필드로 usedUsd 폐기 | VP-03′·17′ | 최초 | false·미지정도 월 원격값 2 | red |
+| M24 파싱 실패 시 scalar 폐기 | VP-12′ | 최초 | 파싱실패 원격 월값 유지 1 | red |
+| 금지 출처 어휘 limits.ts 삽입 | VP-12′ | 최초 | 등록 음성 rg 정확히 1행 검출 | red (음성 gate) |
+| 금지 함수명 compose.ts 삽입 | VP-12′ | 최초 | 등록 음성 rg 정확히 1행 검출 | red (음성 gate) |
 
-- **분모 검산**: …
-- **덮개 회귀**: …
+- **분모 검산**: 선택 증거 31자리(기능 29 + symbol 2) · 인용 변이 0 · 추가 oracle 0 = 표 31행. 공유 pair의 같은 probe는 중복하지 않았다. 등록 ID/자리와 실행 기록을 대조해 차집합 0이다.
+- **덮개 회귀**: 이전 verify 장치 교체 없음. 기존 기대값 14건은 Δ4를 따랐다. M4 최초 감도 0은 누락된 시점 단언을 보강해 같은 변이가 1 red가 됐다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새 사용자 문구·상태의 소비자 | 새 문구 없음. 기존 refreshFailed·cron 실패 경로로 전달 | 없음 |
+| seam 재배치와 정리 스코프 | 새 순수 정규화/합성만 추가. 턴 기록·shutdown·bus 순서 이동 없음 | 없음 |
+| 새 실패 경로의 Part I 행 | 형식 오류·DB 실패는 갱신 실패 행. 쓰기/push 0 관측 | 없음 |
+| 실패가 아무 일도 안 일어난 것으로 보이는가 | 수동 reject·refreshFailed, cron schedule_runs error. 기존 jobs green | 없음 |
+| 늦은 응답이 화면을 되돌리는가 | 계약대로 늦게 커밋된 보고가 이긴다. transaction 뒤 push | 계약 유지 |
+| 원격 값인데 SDK 추정치 문구가 보이는가 | 기존 estimateNote는 renderer 무변경 범위 때문에 남는다 | §17 기존 후속 유지 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | 모델만 재수신한 직후 total 보존을 단언하지 않아 M4가 다음 갱신에 가려짐 | 그 시점 total=5 단언을 선조치 | AC6 · 최초 0 → 1 red |
+| 2 | AuthRequest body는 text인데 가이드 decoder는 object를 가정 | 배포 mapper에서 text JSON 해석 뒤 zod 검증하도록 예제·테스트 동기화 | auth.ts text/binary · BoundAuth 예제 24 green |
+| 3 | mutation 복원 때 Windows UNKNOWN 파일쓰기 transient | 즉시 정상식 복원, original byte 백업·쓰기 retry 후 재실행 | 마지막 백업 동등 4/4 true·최종 245 green |
+| 4 | NULL 칸 비용이 낮고 원격 월/주 출처가 다를 수 있음 | 가이드 costUsd 동반·SDK 무시 의미 명시 | Δ7 수용된 리스크 유지 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- 공개 타입·DB 스키마·Part I 차이 없음. 주/월 합은 공용 순수 함수, stats 정렬·supports는 일/모델 실제 자리로 분해했다.
+- 배포 예제 text JSON 해석은 실재 포트에 맞춘 구현 세부다. 새 네트워크 스택·responseType·의존성 없음.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 — 새 TTL/캐시 상태 없음 | AC20 fetch 0 |
+| 공유 | 공용 날짜 합 결함은 주/월에 함께 작용 | AC9′·10′ · M18 1 red |
+| 재진입 | 동기 transaction 밖 원격 쓰기 없음 | AC7 PK/trigger 롤백·push 0 |
+| 다른 무효화 축 | 지원 중단 시 total·모델 두 권위를 제거 | AC12′·17 · M15/M16 세 자리 red |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님) | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | usage 포트·정규화·provider/stats 합성·tracker와 테스트; infra DB 타입·쿼리·0028·등록과 테스트; shared limits/stats; 배포 예제/주석·cost 주석; 현재 문서 4종·inventory |
+| 실행 명령 | `vitest run src/main/features/usage src/shared/usage src/main/infra/db/queries.test.ts src/main/infra/db/migrate.test.ts src/main/app/deployment/deployment-wiring.test.ts`; `npm run lint`; `npm run typecheck`; migration/inventory 위생; 등록 기능 29자리+음성 2 probe |
+| **관측한 게이트 산출** | 관련 **12파일·245테스트 green**. lint **0 error/기존 warning 1**(useTranscriptVirtualizer incompatible-library), typecheck **node/web/test 3구성 error 0**. main migration 28/mail 1·append-only green. 두 handoff 통합 작업트리 inventory 9항목/102채널·수치재서술 0·링크 green; 0251 스테이징의 코드·경로를 같은 정본 parser/renderer로 재생성한 inventory는 101채널/17핸들러/28 main migration. diff --check green |
+| V-pair 자기확인 | 유효 19 = REQUIRED 15 + REGRESSION 4, SELF_PASS 표 위 |
+| 강제 지점 전수 | 위 EP 실제 자리 전수. 선택 증거 31/31 검출·복원 |
+| **AC 자기보고**(`Criteria-Met`) | 아래 25행. 0251 스테이징 renderer 0행·shared IPC 신규 변경 0행을 확인했고 0252 코드와 문서 행은 분리했다 |
+| **합계 검산** | ✅25 · ⚠️0 · ❌0 = 25 |
+| 블로커 / 역질문 | 제품/PLAN_GAP 0. INDEX·커밋/trailer·push는 root 소유 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+| AC | 자기 결과 | 이번 턴 직접 관측 |
+|---|---|---|
+| AC1 | ✅ | 호환 리터럴+가이드 decoder/fetcher 정규화; 배포 24 green |
+| AC2 | ✅ | 미제공 표·0/NULL 구분; M1·M2 red |
+| AC3 | ✅ | 날짜/월/중복/수치/상한 경계 표; M3 red |
+| AC4 | ✅ | 캐시·일/월 total·모델 SQL NULL 왕복 |
+| AC5 | ✅ | A→B 날짜 3행·같은 날짜 최신값 |
+| AC6 | ✅ | total/모델 보존·집합 교체; M4~6 red |
+| AC7 | ✅ | 오류 세 테이블 동등·push 0·PK/trigger 롤백; M13/14 red |
+| AC8 | ✅ | 원격 refresh 전후 턴·모델 원장 행 수 불변 |
+| AC9′ | ✅ | 월 3단·월 칸 4갈래·시각/호환 표; M7′·17·18·21~23 red |
+| AC10′ | ✅ | 주 창/월 경계/미래·NULL 칸·월 값 미사용; M8·18 red |
+| AC11 | ✅ | 내역 有/無×원격 한도 有/無 예산·출처·설정값 |
+| AC12′ | ✅ | 네 상태 조회 수·경계 인자 2개 |
+| AC13′ | ✅ | SQLite 3시나리오 조회값=refresh push값 |
+| AC14′ | ✅ | 일 5수치 NULL→0·provider 없는 행·희소 정렬 |
+| AC15′ | ✅ | 모델 집합·SDK 전용 제거·NULL→0·정렬 |
+| AC16′ | ✅ | SQLite 7d/30d/all 엄격 합성 |
+| AC17 | ✅ | 기존 SQL 동등·provider SQL 0회; M12 red |
+| AC18 | ✅ | 전역/턴 global delta/boundary local; M11 red |
+| AC19′ | ✅ | 무원격 사용액 기존 compose/tracker/jobs/limits 회귀 |
+| AC20 | ✅ | 같은 DB 새 tracker 원격값·fetch 0 |
+| AC21 | ✅ | 0028 목록·실 적용·append-only·inventory |
+| AC22′ | ✅ | 사본 10+4·가이드 예제·broad sweep 0 |
+| AC23′ | ✅ | 출처 3값·금지 경로 0·호환 포트/봉투·M24 red |
+| AC24 | ✅ | 0251 스테이징의 `git diff --cached --name-only -- app/src/renderer` 0행. 0252 renderer 변경과 신규 IPC 문서 행은 별도 커밋으로 남겼다 |
+| AC25 | ✅ | 원장 +1·세션/최신/전역 증가·원격 칸 불변/대조 증가; M19/20 red |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
-- 현재 라운드·impl 턴: …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 최초 r1, 이전 verify 지적 없음.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: AC6이 total 보존을 요구했다. 초기 oracle의 시점 단언 누락은 M4로 발견해 선조치했다.
+- 반복해서 부딪히는 환경 한계: Node ABI 127/SQLite 3.53.2 정상, 재빌드 없음. Windows mutation 쓰기 transient 1회는 byte 복원·재실행으로 해소.
+- 현재 라운드·impl 턴: r1 (V1 + ΔV1). 공개 결정·AC·V 규범 행 수정 0.
 
 ---
 

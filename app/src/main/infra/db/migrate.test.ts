@@ -47,7 +47,8 @@ const EXPECTED_MIGRATIONS = [
   '0024_artifact_preview_formats',
   '0025_artifact_catalog',
   '0026_project_paths',
-  '0027_background_events'
+  '0027_background_events',
+  '0028_provider_usage_periods'
 ]
 
 const APPLIED_SQL = [

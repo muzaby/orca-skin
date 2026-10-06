@@ -16,6 +16,8 @@
 // 의존성 형태**(`AuthRuntime`·`RuntimeToolSink`·AuthId 를 닫은 secret closure)를 그대로 재현한다.
 
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
+import { normalizeUsageBreakdown } from '../../features/usage/breakdown'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type {
@@ -38,7 +40,7 @@ import { createHarnessRuntimeConfigService } from '../../features/harnesses/runt
 import { prepareHarnessConfig, type SpawnEnvInjector } from '../../adapters/harness-config'
 import { stripCommentsAndStrings } from '../../infra/source-scan'
 import { SPAWN_ENV_INJECTOR } from './spawn-env'
-import type { UsageFetcher } from '../../features/usage/fetcher'
+import type { UsageFetcher, UsageSnapshot } from '../../features/usage/fetcher'
 import { connectionState } from '../connection-views'
 import type { ConnectionViewSource } from '../connection-views'
 import {
@@ -144,7 +146,9 @@ function fakeSecretStore(): SecretStorePort {
 }
 
 // Bootstrap 이 만드는 것과 같은 스택. 선언한 Auth를 모두 인증된 상태로 seed 한다.
-function deployment(options: { jiraProbeStatus?: number; jiraApiBasePath?: string } = {}): {
+function deployment(
+  options: { jiraProbeStatus?: number; jiraApiBasePath?: string; usageBody?: unknown } = {}
+): {
   auth: AuthRuntime
   secretFor: (authId: AuthId) => () => string | null
   registry: RuntimeToolRegistry
@@ -186,7 +190,14 @@ function deployment(options: { jiraProbeStatus?: number; jiraApiBasePath?: strin
       )
         ? (options.jiraProbeStatus ?? 200)
         : 200
-      return new Response(JSON.stringify({ token: 'llm-token' }), { status })
+      return new Response(
+        JSON.stringify(
+          url.includes('/api/usage') && options.usageBody !== undefined
+            ? options.usageBody
+            : { token: 'llm-token' }
+        ),
+        { status }
+      )
     }) as unknown as typeof fetch
   })
   return {
@@ -454,7 +465,7 @@ describe('가상 배포 — Usage', () => {
     expect(fetcher.supports('claude-anthropic')).toBe(false)
     const snapshot = await fetcher.fetchUsage(CLAUDE_CORP_KEY)
     expect(snapshot).toMatchObject({ providerKey: CLAUDE_CORP_KEY })
-    // 배포가 watermark 를 확인하지 않았으면 미지정 = false 로 접힌다(fail-closed).
+    // 기존 내역 없는 배포도 호환 필드를 생략할 수 있다.
     expect(snapshot?.baselineUsable).toBeUndefined()
   })
 })
@@ -710,5 +721,127 @@ describe('resolve-turn 이 배포 injector 를 두 조립 경로에 넘긴다 (0
     expect(
       countOf("import { SPAWN_ENV_INJECTOR } from '../deployment/spawn-env'", INJECTOR_ARG)
     ).toBe(0)
+  })
+})
+
+// 가이드 §5-b의 내역 decoder와 mapper를 그대로 실행한다.
+const remoteMetricsSchema = z.object({
+  inputTokens: z.number().nullish(),
+  outputTokens: z.number().nullish(),
+  cacheCreationInputTokens: z.number().nullish(),
+  cacheReadInputTokens: z.number().nullish(),
+  costUsd: z.number().nullish()
+})
+const remoteModelsSchema = z.array(remoteMetricsSchema.extend({ model: z.string() }))
+const usageReportSchema = z.object({
+  asOf: z.number().nullish(),
+  limitUsd: z.number().nullish(),
+  usedUsd: z.number().nullish(),
+  remainingUsd: z.number().nullish(),
+  daily: z
+    .array(
+      z.object({
+        day: z.string(),
+        total: remoteMetricsSchema.nullish(),
+        models: remoteModelsSchema.nullish()
+      })
+    )
+    .nullish(),
+  monthly: z
+    .array(
+      z.object({
+        month: z.string(),
+        total: remoteMetricsSchema.nullish(),
+        models: remoteModelsSchema.nullish()
+      })
+    )
+    .nullish()
+})
+
+function toSnapshot(providerKey: string, body: unknown): UsageSnapshot {
+  const report = usageReportSchema.parse(typeof body === 'string' ? JSON.parse(body) : body)
+  return {
+    providerKey,
+    asOf: report.asOf ?? null,
+    fetchedAt: Date.now(),
+    limitUsd: report.limitUsd ?? null,
+    usedUsd: report.usedUsd ?? null,
+    remainingUsd: report.remainingUsd ?? null,
+    daily: report.daily,
+    monthly: report.monthly,
+    raw: body
+  }
+}
+
+const createBreakdownUsageFetcher = (deps: UsageDeploymentDeps): UsageFetcher => {
+  const corpUsage = deps.auth.bind('corp-usage')
+  return {
+    supports: (providerKey) => providerKey === CLAUDE_CORP_KEY,
+    fetchUsage: async (providerKey, signal) => {
+      const res = await corpUsage.request({ path: '/api/usage' }, signal)
+      if (!res.ok) throw new Error(`usage request failed: ${res.status}`)
+      return toSnapshot(providerKey, res.body)
+    }
+  }
+}
+
+describe('가이드 §5-b 기간 내역 예제', () => {
+  it('기존 호환 필드 리터럴이 UsageFetcher에 대입되고 미제공 내역은 쓰기 0이다', async () => {
+    const fetcher: UsageFetcher = {
+      supports: () => true,
+      fetchUsage: async (providerKey) => ({
+        providerKey,
+        asOf: null,
+        fetchedAt: 0,
+        limitUsd: null,
+        usedUsd: null,
+        remainingUsd: null,
+        baselineUsable: true,
+        raw: null
+      })
+    }
+    const value = await fetcher.fetchUsage(CLAUDE_CORP_KEY)
+    expect(normalizeUsageBreakdown(value!)).toEqual({ totals: [], modelSets: [] })
+  })
+  it('내역 예제는 실제 BoundAuth 요청 뒤 정규화를 통과한다', async () => {
+    const body = {
+      daily: [
+        {
+          day: '2026-10-01',
+          total: { costUsd: 12, inputTokens: 100 },
+          models: [{ model: 'm', costUsd: 12, inputTokens: 100 }]
+        }
+      ],
+      monthly: [{ month: '2026-10', total: { costUsd: 35 } }]
+    }
+    const { auth } = deployment({ usageBody: body })
+    const fetcher = createBreakdownUsageFetcher({ auth })
+    const value = await fetcher.fetchUsage(CLAUDE_CORP_KEY)
+    const normalized = normalizeUsageBreakdown(value!)
+    expect(normalized.totals).toEqual([
+      {
+        kind: 'day',
+        period: '2026-10-01',
+        inputTokens: 100,
+        outputTokens: null,
+        cacheCreationInputTokens: null,
+        cacheReadInputTokens: null,
+        costUsd: 12
+      },
+      {
+        kind: 'month',
+        period: '2026-10',
+        inputTokens: null,
+        outputTokens: null,
+        cacheCreationInputTokens: null,
+        cacheReadInputTokens: null,
+        costUsd: 35
+      }
+    ])
+    expect(normalized.modelSets[0].models[0]).toMatchObject({
+      model: 'm',
+      costUsd: 12,
+      inputTokens: 100
+    })
   })
 })

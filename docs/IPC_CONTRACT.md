@@ -331,15 +331,24 @@ interface McpServer {
 
 **사용량 정본은 Main 이 만든다 (0186).** `UsageTracker` 가 `turn_usage.created_at` 기준 SQL `SUM` 으로 집계하고 `shared/usage/limits.ts` 로 주/월 한도까지 파생해 **완성된 `UsageLimitsView`** 를 돌려준다. Renderer 는 `shared/stores/usageStore` 로 그 값을 mirror 만 하고 재계산하지 않는다. provider별(0080) 은 `turn_usage ⨝ sessions.provider_key` 로 귀속·집계하고, 사용자가 설정한 월 한도는 `provider_limits` 에 영속한다.
 
-원격 사용량은 **선택 기능**이다. 배포가 `UsageFetcher` 포트를 주입하면 cron `usage-fetch` 가 provider 별로 조회해 `provider_usage_report_cache` 테이블(`0014_provider_usage_report_cache`)에 스냅샷을 upsert 한다. 합성 규칙: **주간은 언제나 로컬**, 월간은 `as_of` 가 이번 달 안이고 배포가 `baselineUsable` 을 보장했을 때만 *계정 기준선 + `as_of` 이후 로컬 증분* 이 되며(`source: 'remote-baseline'`), 그 밖에는 로컬로 접힌다. 한도는 원격이 정본이고 없으면 사용자 설정값으로 폴백한다. **로컬 원장은 어떤 경우에도 수정·삭제하지 않는다** — 합성은 읽기 시점에만 일어난다.
+원격 사용량은 **선택 기능**이다. 배포가 `UsageFetcher`를 주입하면 cron `usage-fetch` 또는 수동 갱신이 스냅샷과 선택 내역(`daily`·`monthly`)을 받는다. 내역 검증 후 `provider_usage_report_cache`·`provider_usage_periods`·`provider_usage_period_models`를 같은 트랜잭션으로 커밋하고, 표시 값은 커밋된 DB 행으로 만든다. 현재 배포의 `supports()`가 true인 provider의 저장 행만 원격 권위를 갖는다.
+
+| 표시 범위 | 원격 우선 합성 규칙 |
+|---|---|
+| provider 월 바 3단 | ① 이번 달 `monthly` 항목 또는 이번 달 `usedUsd`가 있으면 `monthly` 비용 → `usedUsd` → 0 순으로 원격 값만 사용(`'remote'`, SDK 증분 없음). ② 아니고 이번 달 원격 날짜 칸이 있으면 그 칸 비용(NULL→0)과 칸 없는 날 SDK 비용의 합(`'remote-daily'`). ③ 나머지는 SDK 월 합(`'local'`). `usedUsd`의 월 판정은 `asOf`, 없으면 받은 시각 `fetchedAt`으로 한다. |
+| provider 주 바 | [max(주 시작, 월 시작), 오늘] 창에 원격 날짜 칸이 있으면 그 칸 비용(NULL→0)과 칸 없는 날 SDK 비용을 합한다(`'remote-daily'`). 없으면 SDK 주 합(`'local'`). 미래·창 밖 날짜와 `monthly`·`usedUsd`는 쓰지 않는다. |
+| 사용량 탭 일별·모델별 | (provider, 날짜)의 원격 합계 칸은 수치 전부 원격(NULL→0), 원격 모델 집합이 있으면 그 집합만 사용(NULL→0)한다. 같은 칸의 SDK 수치는 무시하고 원격 칸 없는 날만 SDK 값을 쓴다. provider 없는 로컬 행도 포함한다. 월별 모델 내역은 저장만 한다. |
+| 전역 지출 한도 | 로컬 원장만 사용한다. SDK 턴 사용량은 계속 원장에 기록하여 세션 비용·컨텍스트 도넛에도 쓴다. |
+
+빈 내역·수치 전무는 미제공으로 기존 행을 유지하며, 제공한 행의 개별 미제공 수치는 SQL NULL로 보존한다. 같은 기간의 제공한 합계는 통째 갱신하고 모델 집합을 제공하면 그 기간 모델 행을 통째 교체한다. 한도는 원격 값 ?? 사용자 설정값이며 `baselineUsable`은 월 계산에 쓰이지 않는 호환 필드다. 배포 입력 형식·검증 실패·상한은 [확장 가이드 §5-b](guides/closed-network-extensions.md#5-b-레시피-e--sp-api-를-주기적으로-부르기-cron), 저장 구조는 [영속성](arch/backend/persistence.md#현재-스키마)을 따른다.
 
 | 채널                            | 방향         | 페이로드                                | 응답                   | 설명                                                                                                                       |
 | ------------------------------- | ------------ | --------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `orca:cost:usage`               | R→M (invoke) | `{ providerKey?: string }`              | `UsageLimitsView \| null` | 사용량 정본 조회 (0186). `providerKey` 를 주면 그 provider(원격 기준선 합성 포함), 생략하면 전역(항상 로컬). 구 `cost:summary` + `cost:providerSummaries` 를 흡수했다. 실패 정책 = fallback(`null`) — renderer 는 null 이면 한도 섹션을 숨긴다. |
-| `orca:cost:refreshUsage`        | R→M (invoke) | `{ providerKey: string }`               | `UsageLimitsView`      | 원격을 **즉시** 조회해 0014 스냅샷을 갱신하고 합성된 뷰를 반환한다 (설정 사용량 탭의 동기화 버튼). 조회 채널과 분리한 이유는 부수효과 유무 — 실패 정책이 쓰기(`reject`)다. `UsageFetcher` 미주입 배포에서는 원격 호출이 no-op 이라 결과적으로 로컬 재조회가 된다. |
+| `orca:cost:usage`               | R→M (invoke) | `{ providerKey?: string }`              | `UsageLimitsView \| null` | 사용량 정본 조회. `providerKey`를 주면 그 provider의 저장된 원격 값 우선 합성, 생략하면 전역(항상 로컬)이다. 구 `cost:summary` + `cost:providerSummaries`를 흡수했다. 실패 정책 = fallback(`null`) — renderer는 null이면 한도 섹션을 숨긴다. |
+| `orca:cost:refreshUsage`        | R→M (invoke) | `{ providerKey: string }`               | `UsageLimitsView`      | 원격을 **즉시** 조회해 스냅샷·기간 내역을 검증 후 같은 DB 트랜잭션으로 갱신하고 합성된 뷰를 반환한다(설정 provider 탭의 동기화 버튼). 실패는 쓰기(`reject`)이며 검증·저장 실패 시 push 없이 마지막 값을 유지한다. `UsageFetcher` 미주입 배포에서는 원격 호출 없이 로컬 재조회가 된다. |
 | `orca:cost:usageEvent`          | M→R (send)   | `UsageDelta`                            | —                      | **변경된 scope 만** push 하는 delta (0186). `{scope:'global',value}` · `{scope:'provider',providerKey,value}` · `{scope:'boundary',value}` 셋 중 하나. 턴 종료 시 전역 1건 + 그 턴이 쓴 provider 1건이 나가고, 전체 provider map 은 보내지 않는다. `boundary` 는 자정 cron 전용으로, 전역 값을 실어 보내면서 **renderer 가 캐시한 provider 뷰를 전부 무효화하라는 신호**를 겸한다 — 기간이 넘어가면 캐시된 주/월/`resetAt` 이 전부 어제 기준이기 때문이다. 무효화된 provider 는 화면이 실제로 필요로 할 때 다시 조회한다(자정에 전 provider 를 재집계하지 않는다). |
 | `orca:cost:setProviderLimit`    | R→M (invoke) | `{ providerKey: string; limitUsd: number \| null }` | `UsageLimitsView`      | provider별 월 한도를 upsert 하고 갱신된 뷰를 반환한다(즉시 반영). 원격 한도가 있으면 표시 적용값은 그쪽이 이기고(`budgetSource: 'remote'`), 저장된 사용자 값은 `configuredLimitUsd` 로 함께 실린다. |
-| `orca:cost:usageStats`          | R→M (invoke) | `{ range: '7d' \| '30d' \| 'all' }`     | `UsageStats`           | 사용량 요약(0112) — range 하한(since, 로컬 자정 기준) 이후의 일별 토큰/비용 시계열(희소, 오름차순)과 모델별 집계(총 토큰 내림차순)를 한 번에 반환한다. 제로필은 renderer(`shared/usage/stats.ts`) 몫. Composer 가 쓰지 않는 상세라 **설정 화면을 열 때만 lazy 조회**하고 store 에 상주시키지 않는다. 실패 정책 = fallback(빈 요약). |
+| `orca:cost:usageStats`          | R→M (invoke) | `{ range: '7d' \| '30d' \| 'all' }`     | `UsageStats`           | 사용량 요약 — range 하한(since, 로컬 자정)부터 오늘까지의 일별 토큰/비용(희소, 오름차순)과 모델별 합계(총 토큰 내림차순·동률은 이름 오름차순)를 반환한다. 지원 provider의 저장된 원격 합계·모델 집합이 있는 날짜는 그 값만 쓰고 미제공 수치는 0이다. 지원 원격 행이 없거나 fetcher 미주입이면 기존 로컬 SQL 경로를 쓴다. 제로필은 renderer(`shared/usage/stats.ts`) 몫이며 **설정 화면을 열 때만 lazy 조회**한다(push 없음). 실패 정책 = fallback(빈 요약). |
 
 > `orca:cost:summary` · `orca:cost:summaryEvent` · `orca:cost:providerSummaries` 3채널과 중간 DTO
 > `ProviderUsageEntry` · `ProviderSummariesRequest` 는 0186 에서 제거됐다 — Main 이 뷰를 완성하므로
@@ -363,7 +372,7 @@ interface CostSummary {
 }
 // CostSummary 는 **main 내부 집계 타입**이다 (0186) — IPC 로 나가지 않는다.
 // renderer 가 받는 것은 아래 UsageLimitsView 뿐이다 (`app/src/shared/usage/limits.ts`).
-type UsageSource = 'local' | 'remote-baseline'; // used 가 무엇을 센 값인가
+type UsageSource = 'local' | 'remote' | 'remote-daily'; // SDK 로컬 / 원격 월 값만 / 원격 날짜 칸 우선 합
 type BudgetSource = 'configured' | 'remote'; // 적용 중인 예산이 어디서 왔는가
 interface UsageLimitBar {
   used: number; // USD. source 가 의미를 규정한다
@@ -375,7 +384,7 @@ interface UsageLimitBar {
   source: UsageSource;
 }
 interface UsageLimitsView {
-  week: UsageLimitBar; // 주간은 언제나 source:'local'
+  week: UsageLimitBar; // 원격 날짜 칸이 있으면 source:'remote-daily', 없으면 'local'
   month: UsageLimitBar;
   budgetSource: BudgetSource; // 주간 예산은 월 한도에서 일할 파생 → 출처가 같다
   configuredLimitUsd: number | null; // 사용자가 저장한 값(원격이 이겨도 편집기가 보여준다)
@@ -404,8 +413,8 @@ interface UsageStatsModel {
 interface UsageStats {
   range: UsageStatsRange;
   since: number | null; // range 하한(epoch ms, 로컬 자정) — 'all' 은 null
-  days: UsageStatsDay[]; // 희소(사용 있던 날만), 오름차순
-  models: UsageStatsModel[]; // 총 토큰 내림차순
+  days: UsageStatsDay[]; // 로컬 또는 원격 칸이 있는 날(희소), 오름차순. 원격 칸은 NULL→0, SDK 무시
+  models: UsageStatsModel[]; // 총 토큰 내림차순·동률 이름 오름차순. 원격 모델 집합은 SDK 집합을 대체
   updatedAt: number;
 }
 ```
