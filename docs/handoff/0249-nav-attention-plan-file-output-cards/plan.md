@@ -1812,12 +1812,12 @@ VP-02·03·04·05·19는 기존 NOT_REQUIRED를 대체하는 REGRESSION이다. V
 | ID | 대체 범위 / 지정 물리 자리 | 직접 oracle / 선택 적대 증거 |
 |---|---|---|
 | EP-12′ | ΔV3 EP-12를 대체한다. 기존 shared 식별·writer 턴 Map·SQL session filter·reducer call 식별 4자리와 renderer noid requested 라우팅·noid resolved approvalId owner 2자리: 6자리. | requester→store 실제 승인 대기 중 owner/이웃 상태, pre-init 해결, 다음 draft 보호. 기존 M-F7 + M-F11(requested를 activeKey로 원복)·M-F12(resolved를 pending/active fallback으로 원복). |
-| EP-02′ | 기존 EP-02의 8자리를 유지하고 실제 draft 승격의 미해결 요청 통지 생산자 1자리를 추가한다: 9자리. | 3종별 noid순간 Map0·승격 뒤 Map/SSR·해결 전후·재방출·unsubscribe·실제 viewed gate. 기존 M-B1~3 + M-B4(승격 통지 제거). |
+| EP-02′ | 기존 EP-02의 8자리를 유지하고 실제 draft 승격의 미해결 요청 통지 생산자 1자리를 추가한다: 9자리. | 3종별 noid순간 Map0·승격 뒤 Map/SSR·해결 전후·재방출·unsubscribe·실제 viewed gate. 기존 M-B1~3 + M-B6(승격 통지 제거). |
 | EP-13′ | ΔV3의 5그룹 표기를 물리 6자리로 풀어 적는다: adapter report·TurnRequest app callback·runtime frame delegate·runtime adapter delegate·controller set·renderer send. 동작 계약은 그대로다. | 실제 모드/수명 직접 oracle, M-F8~10. |
 | EP-04″ | 기존 EP-04′의 7항목을 실제 8자리로 풀어 적는다: PostToolUse record·Stop reset·hook 병합·동일 셀 getter 전달·resolver·request.plan·allow.updatedInput·declared path 판정/읽기. 동작 계약은 그대로다. | 실제 resolver/reader/hook oracle, M-D1~10. |
 | EP-11·14 | ΔV3 그대로. | 등록 M-F1~10 승계. |
 
-선택 변이는 기존 20 + 승계 M-B1~3 + 신규 M-B4·M-F11~12 =26이다. 실제 분모·제거 red·원복 green을 독립 확인한다. 새 물리 자리는 X1 소유권과 승격 통지의 운반을 보장하므로 선택했다. 적용 gate는 ΔV3의 subtree lint·typecheck·영향 테스트·doc/test budget/migration guard·diff/trailer·로컬 기준선 확인을 그대로 수행한다. real model·시각 실기와 원격 CI/공유 브랜치 전송은 기계 fixture와 구별해 미실행 여부를 기록한다.
+선택 변이는 기존 20 + 승계 M-B1~3 + 신규 M-B6·M-F11~12 =26이다. 실제 분모·제거 red·원복 green을 독립 확인한다. 새 물리 자리는 X1 소유권과 승격 통지의 운반을 보장하므로 선택했다. 적용 gate는 ΔV3의 subtree lint·typecheck·영향 테스트·doc/test budget/migration guard·diff/trailer·로컬 기준선 확인을 그대로 수행한다. real model·시각 실기와 원격 CI/공유 브랜치 전송은 기계 fixture와 구별해 미실행 여부를 기록한다.
 
 ## READY self-review
 
@@ -1848,3 +1848,5 @@ D-033/AC24·25 및 D-002/AC2·5의 기존 의미를 교차 확인했다. 새로�
 읽기 pre-audit에서 자연 iterator 종료/오류와 turn-scoped finally의 공통 retireChannel이 captured signal을 무효화하지 않는 것을 확인했다. 명시 teardown만 신호를 abort하면 같은 폐기 계약을 만족하지 못한다. 공통 retireChannel에서 이전 신호를 abort하고 새 controller로 교체하며, teardown의 중복 abort/교체는 이 공통 자리로 옮긴다. 폐기 observer·live.close 전에 신호를 무효화하고, 살아 있는 persistent 채널의 main interrupt는 기존 수명을 유지한다.
 
 EP-12″의 8자리에 공통 retireChannel의 신호 무효화 생산자 1자리를 추가해 **9자리**로 정정한다. VP-36/37은 explicit teardown·자연 done·자연 error·turn-scoped retirement 뒤의 늦은 승인/모드 callback이 현재 delegate를 부르지 않음을 직접 관측한다. **M-F15**는 공통 retireChannel의 신호 abort/교체를 제거하여 natural retirement 대조가 red인지 검사한다. registered 변이는 **29**(26+F13~15)로 정정하며 선택17·NOT_REQUIRED20·기존 제품/AC 계약은 유지한다. 자연 폐기 생산자와 wrapper 소비자를 함께 전수에 포함하고 별도 설계 커밋으로 구현 전 보존한다.
+
+승격 통지 제거의 신규 ID는 **M-B6**이다. 기존 ACTIVE VP-26의 M-B4(openSubagentTask 선택 연결 제거)를 보존하기 위해 ΔV3.1의 신규 명칭 충돌을 정정했다. 물리 자리·oracle·선택 분모29는 불변이다.
