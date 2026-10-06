@@ -47,6 +47,7 @@ export class DbQueries {
   private readonly appendPartStmt: Database.Statement
   private readonly updateToolResultPartStmt: Database.Statement
   private readonly updateToolResultPartScopedStmt: Database.Statement
+  private readonly updateToolCallInputStmt: Database.Statement
   private readonly findDanglingToolCallsStmt: Database.Statement
   private readonly findDanglingToolCallsBySessionStmt: Database.Statement
   private readonly findIncompleteAssistantTextPartsStmt: Database.Statement
@@ -189,6 +190,16 @@ export class DbQueries {
       UPDATE message_parts
       SET payload_json = @payloadJson
       WHERE message_id = @messageId AND tool_run_id = @toolRunId AND type = 'tool_result'
+    `)
+    this.updateToolCallInputStmt = db.prepare(`
+      UPDATE message_parts
+      SET payload_json = json_set(payload_json, '$.args', json(@inputJson))
+      WHERE type = 'tool_call'
+        AND tool_run_id = @toolRunId
+        AND json_extract(payload_json, '$.toolName') = @toolName
+        AND json_extract(payload_json, '$.parentToolRunId') IS NULL
+        AND message_id = @messageId
+        AND message_id IN (SELECT id FROM messages WHERE session_id = @sessionId)
     `)
     const danglingToolCallsSql = `
       SELECT DISTINCT
@@ -511,6 +522,23 @@ export class DbQueries {
     if (info.changes === 0) {
       this.appendPart({ messageId, type: 'tool_result', toolRunId, payloadJson })
     }
+  }
+
+  // 특정 메시지의 메인 도구 호출 입력만 교정하고 나머지 payload·파트 순서는 보존한다.
+  updateToolCallInput(
+    sessionId: string,
+    messageId: number,
+    toolRunId: string,
+    toolName: string,
+    input: unknown
+  ): void {
+    this.updateToolCallInputStmt.run({
+      sessionId,
+      messageId,
+      toolRunId,
+      toolName,
+      inputJson: JSON.stringify(input)
+    })
   }
 
   findDanglingToolCalls(sessionId?: string): DanglingToolCallRow[] {

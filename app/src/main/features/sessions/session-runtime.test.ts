@@ -759,12 +759,14 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
       captureInterruptReceipt: noop,
       onChannelRetired: noop,
       onSessionSchedules: noop,
+      onPermissionModeChanged: noop,
       onProviderEvent: noop
     } as unknown as TurnRequest
     // listen 요청의 재조립도 현재 체인의 콜백 전량을 유지해야 한다.
     expect(Object.keys(pickFrameDelegates(full)).sort()).toEqual([
       'captureInterruptReceipt',
       'onChannelRetired',
+      'onPermissionModeChanged',
       'onProviderEvent',
       'onSessionSchedules',
       'requestApproval'
@@ -973,6 +975,75 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
     second.emit({ type: 'telemetry', sessionId: 's1' })
     await f2
     expect(spawns).toBe(2)
+  })
+})
+
+describe('0249 VP-37 — 권한 관측 callback의 채널/프레임 위임', () => {
+  it('하나의 adapter wrapper가 후속 send와 listen의 최신 callback을 호출한다', async () => {
+    const ch = channelLive()
+    let wrapped: TurnRequest | undefined
+    const runtime = new SessionRuntime({
+      ...adapter(ch.liveTurn),
+      sendMessage: (request) => {
+        wrapped = request
+        return ch.liveTurn
+      }
+    })
+    const first = vi.fn()
+    const sent = collect(runtime.send({ ...req(), onPermissionModeChanged: first }))
+    await tick()
+    wrapped!.onPermissionModeChanged!('s1', 'plan')
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await sent
+    expect(first).toHaveBeenCalledExactlyOnceWith('s1', 'plan')
+
+    const second = vi.fn()
+    const next = collect(runtime.send({ ...req(), onPermissionModeChanged: second }))
+    await tick()
+    wrapped!.onPermissionModeChanged!('s1', 'accept_edits')
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await next
+    expect(second).toHaveBeenCalledExactlyOnceWith('s1', 'accept_edits')
+    expect(first).toHaveBeenCalledTimes(1)
+
+    const listener = vi.fn()
+    const listening = collect(runtime.listen({ ...req(), onPermissionModeChanged: listener }))
+    await tick()
+    wrapped!.onPermissionModeChanged!('s1', 'bypass')
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await listening
+    expect(listener).toHaveBeenCalledExactlyOnceWith('s1', 'bypass')
+    expect(second).toHaveBeenCalledTimes(1)
+    runtime.close()
+    wrapped!.onPermissionModeChanged!('s1', 'plan')
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+
+  it('폐기된 adapter wrapper는 교체 채널의 callback에 늦은 보고를 전달하지 않는다', async () => {
+    const channels = [channelLive(), channelLive()]
+    const wrappers: TurnRequest[] = []
+    const runtime = new SessionRuntime({
+      ...adapter(channels[0].liveTurn),
+      sendMessage: (request) => {
+        wrappers.push(request)
+        return channels[wrappers.length - 1].liveTurn
+      }
+    })
+    const old = vi.fn()
+    const first = collect(runtime.send({ ...req(), onPermissionModeChanged: old }))
+    channels[0].emit({ type: 'telemetry', sessionId: 's1' })
+    await first
+    runtime.teardownChannel()
+    const current = vi.fn()
+    const second = collect(runtime.send({ ...req(), onPermissionModeChanged: current }))
+    await tick()
+    wrappers[0].onPermissionModeChanged!('s1', 'bypass')
+    wrappers[1].onPermissionModeChanged!('s1', 'plan')
+    channels[1].emit({ type: 'telemetry', sessionId: 's1' })
+    await second
+    expect(old).not.toHaveBeenCalled()
+    expect(current).toHaveBeenCalledExactlyOnceWith('s1', 'plan')
+    runtime.close()
   })
 })
 

@@ -221,6 +221,12 @@ interface PermissionModeController {
 
 공유 `permission-mode.ts`는 정규화/SDK 매핑과 종류·모델에 따른 Composer 정책을 소유한다. Work는 default·auto_classified·bypass를 선택하며, 자동 승인은 명시된 Claude 버전 >4.5에만 허용한다. 지원하지 않는 자동은 Work=default, Code=accept_edits로 정착한다. Main send는 payload의 모드 유무와 관계없이 실제 해소 모델을 확인한다. ApprovalCoordinator는 같은 세션의 라이브 변경을 직렬화하고 실제 spawnedModel로 정착한 값을 SDK에 적용한 후 저장·응답한다. idle 선택은 다음 send에서 모델을 최종 확인한다. 실제 실행 보정은 session.updated 권한 patch로 UI에 전달한다. 계획 승인 목표는 Main이 종류별로 계산하여 TurnRequest와 후속 요청에 전달하므로 adapter가 agentProfileKey를 해석하지 않는다. 자세한 반환·실패 계약은 [IPC 계약](../../IPC_CONTRACT.md)을 따른다.
 
+메인 live SDK의 `system/init`·`system/status.permissionMode`는 `TurnRequest.onPermissionModeChanged`를 통해 현재 세션 controller와 renderer에 반영한다. 초기 보고는 세션 확정 뒤 적용하고, 장수명 채널은 send/listen의 최신 callback을 참조한다. 다른 세션·하위 에이전트·replay·퇴역 채널의 보고는 적용하지 않는다. 모드 patch는 renderer에 직접 전달하며 history·continuity의 세션 생성 경로를 다시 실행하지 않는다. 선택값의 종류·모델 보정과 실제 SDK 보고값은 구별한다.
+
+`EnterPlanMode`는 빈 입력을 그대로 넘기며 결과의 `message`를 보존한다. 메인 `ExitPlanMode`는 성공한 계획 파일 쓰기 경로 또는 허용된 선언 경로에서 승인 시점 파일을 다시 읽는다. 파일이 있으면 내부 입력의 `plan`·`planFilePath`를 보완하고, 파일이 없으면 기존 입력·서술·빈 본문 순서로 검토 본문을 정한다. 서술이나 추측한 경로를 CLI 입력에 주입하지 않는다. 정상 입력 참조와 원래 기타 필드도 보존한다. 도구 결과의 경로 필드는 `filePath`다.
+
+보정 입력은 같은 승인 action과 CLI allow에 담으며, 승인 카드 발신 전에 HistoryWriter가 같은 턴·세션·호출의 입력을 등록한다. 이미 저장된 도구 호출은 해당 메시지의 args만 갱신하고, 늦은 started는 relay 전에 보정한다. Renderer도 기존 메인 호출의 args를 교정해 라이브와 재로드 카드가 같은 본문·경로를 사용한다. Stop은 파일 추적을 비우며 해당 호출의 검토 입력은 턴 수명 동안 유지한다. 하위 호출에는 메인 파일·서술·모드 변경을 적용하지 않는다.
+
 | Provider | 처리 |
 |---|---|
 | Claude | `setPermissionMode` 런타임 전환. `auto`(TS)=모델 분류기 승인 |

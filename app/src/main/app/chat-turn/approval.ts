@@ -11,6 +11,7 @@ import type { WebContents } from 'electron'
 import { randomUUID } from 'node:crypto'
 import type { ApprovalResolution, PermissionAction } from '../../../shared/ipc'
 import { planApprovedMode } from '../../../shared/permission-mode'
+import { planReviewToolInput } from '../../../shared/plan-review-input'
 import { agentPermissionRequest } from '../../features/approvals/permission-bridge'
 import type { ApprovalCoordinator } from '../../features/approvals/coordinator'
 import type { PermissionModeController } from '../../features/approvals/permission-mode-controller'
@@ -63,7 +64,11 @@ export function createApprovalRequester(
         reason: 'permission.requested without dbSessionId — falling back to activeKey'
       })
     }
-    sendChatEvent(wc, agentPermissionRequest(approvalId, outbound, turn.dbSessionId ?? undefined))
+    const requested = agentPermissionRequest(approvalId, outbound, turn.dbSessionId ?? undefined)
+    // 승인 콜백과 started 스트림은 독립 진행한다. 저장·late started 보정을 먼저 등록해
+    // 화면과 재로드가 같은 승인 시점 입력을 사용하게 한다.
+    if (planReviewToolInput(outbound)) persistence.persist(turn, requested)
+    sendChatEvent(wc, requested)
     // main 요청은 턴+SDK 신호를 함께 따르고, 독립 수명의 child 요청은 SDK 권한요청 신호만
     // 따른다. SDK control_cancel_request가 해당 signal을 abort하면 broker deny로 해소된다.
     const childRequest = action.providerRequest?.agentId !== undefined
@@ -99,7 +104,12 @@ export function createApprovalRequester(
     // 계획 승인 후처리 — SDK 세션은 어댑터가 allow 응답의 updatedPermissions 로 이미 전환했다
     // (adapters/claude.ts). 여기서는 main 세션 SSOT 를 같은 값으로 맞춰, 다음 턴 send 페이로드가
     // 도착하기 전 구간에도 controller 가 plan 이라고 답하지 않게 한다.
-    if (action.kind === 'plan_review' && resolution.behavior === 'allow' && turn.dbSessionId) {
+    if (
+      action.kind === 'plan_review' &&
+      !childRequest &&
+      resolution.behavior === 'allow' &&
+      turn.dbSessionId
+    ) {
       void permissionModes.setMode(turn.dbSessionId, planApprovedMode(turn.agentKind))
     }
     return resolution

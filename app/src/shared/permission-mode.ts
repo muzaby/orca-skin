@@ -98,6 +98,27 @@ export function toClaudePermissionMode(mode: NormalizedPermissionMode): ClaudePe
   }
 }
 
+// SDK의 실제 세션 보고를 정규화한다. 미지정·미지원 값에 기본값을 만들면 관측한 모드를
+// 선택 정책으로 덮어쓰므로, 알려진 SDK 어휘만 받아 나머지는 무시한다(0249 ΔV3).
+export function fromClaudePermissionMode(value: unknown): NormalizedPermissionMode | undefined {
+  switch (value) {
+    case 'default':
+      return 'default'
+    case 'acceptEdits':
+      return 'accept_edits'
+    case 'plan':
+      return 'plan'
+    case 'dontAsk':
+      return 'dont_ask'
+    case 'bypassPermissions':
+      return 'bypass'
+    case 'auto':
+      return 'auto_classified'
+    default:
+      return undefined
+  }
+}
+
 // 이전 UI 저장값을 정규화된 모드로 읽는 호환 브리지.
 export function fromUiPermissionMode(mode: PermissionMode): NormalizedPermissionMode {
   return mode === 'plan' ? 'plan' : 'accept_edits'

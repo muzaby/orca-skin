@@ -27,6 +27,8 @@ function freshTurnLocalState<W>(
   | 'pendingAskAnswers'
   | 'askPendingIds'
   | 'askResolved'
+  | 'planToolInputs'
+  | 'pendingPlanToolCalls'
   | 'subagentTaskIds'
   | 'openToolRuns'
   | 'subagentTypes'
@@ -39,6 +41,8 @@ function freshTurnLocalState<W>(
     pendingAskAnswers: [],
     askPendingIds: [],
     askResolved: new Map(),
+    planToolInputs: new Map(),
+    pendingPlanToolCalls: [],
     subagentTaskIds: control?.taskIds ?? new Map(),
     openToolRuns: new Map(),
     subagentTypes: control?.subagentTypes ?? new Map(),

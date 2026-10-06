@@ -1614,3 +1614,154 @@ V mode는 **Delta V**다. 기준선 V1+ΔV1+ΔV2는 공유 main `ceda5c5a`와 �
 ## READY self-review
 
 Decision D-032~035 ↔ AC24~27 ↔ 4개 V 수준 ↔ EP-11~14와 callback/consumer 경로를 대조했다. 계획 본문/경로의 정본은 승인 시점 파일이다. 카드·DB·모드 소비처까지 설계에 포함했고 기존 정상 입력·narrative/empty·child·Stop 계약도 판정했다. INDEX는 plan/READY·Codex로 재개한다. 설계 정정은 구현과 별도 커밋으로 전달한다.
+
+---
+
+# [구현자 기입] r1.4 — ΔV3 계획 모드 종단
+
+## [구현자 기입] 설계 리뷰
+
+- 동의 / 그대로 진행: D-032~035·ΔV3의 파일 정본·입력/결과 구분·카드/이력·실제 모드 경로를 구현했다. 현재 SDK 타입과 CLI 2.1.286의 내부 파일 주입·재읽기를 대조했다.
+- 이견 / 현실성 문제: 기존 history에는 세션 미확정 started 저장 경로가 없었다. 메인 Exit 호출만 TurnContext에 보류해 세션 확정 뒤 기존 저장 경로로 배출했다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. 기존 ΔV2 MD-07과 새 노드의 이름 충돌은 MD-08로 별도 설계 정정했다. 제품 계약·선택 pair 수는 같다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-09′·10·11′·12·13′·20 | 계획 파일·정상 입력·fallback | EP-04′ 기존 7자리(③ 2개) | 8/8 | main adapters 테스트의 파일·hook·resolver·narrative 직접 값; D1~10 red | 없음 |
+| VP-33~36 | 보정 입력 운반 | EP-11 6자리 | 6/6 | adapter started/action, approval persist→send, writer late started, scoped SQL, reducer existing part; F1~6 red | 없음 |
+| VP-33·34·36 | 호출 소유권 | EP-12 4자리 | 4/4 | helper 음성·턴 Map·DB 다른 세션/이전 메시지·reducer 다른 id/tool/child 비교; F7 red | 없음 |
+| VP-37·38 | 실제 모드 보고 | EP-13 5자리 | 운반 세분 6/6 | SDK observer·app callback·frame/adapter delegate·controller·renderer sink, F8~10 red | 없음 |
+| VP-38·gate | SDK/문서 계약 | EP-14 4자리 | 4/4 | Enter/Exit 결과 단언, meta/ΔV3/INDEX 재독·trailer 별도 확인 | 없음 |
+
+검색은 `tool.call.started`, `plan_review`, `ExitPlanMode`, `permission.requested`, `permissionMode`, `onPermissionModeChanged`, `updateToolCallInput`의 production producer/consumer를 대상으로 했다. 계획 input 경로의 adapter→requester→writer→SQL→reducer→parts→Work/Code 카드와 지정 경로를 직접 빼서 누락 0개를 확인했다. getter/hook·plan panel·result mapper는 기존 경로다. 포트는 `TurnRequest`가 선언하고 `buildTurnRequest` spread 및 runtime의 두 delegate가 운반한다. EP-13의 마지막 지정 항목에는 controller set과 renderer send 두 물리 sink가 있어 실제 분모는 6이다.
+
+§10 밖의 같은 불변식: 새 TurnContext와 자동 연속 TurnContext의 fresh 상태 생산을 `turn-context.ts` whitelist에서 함께 초기화했다. 기존 SQL의 세션 범위에 currentAssistantMessageId 범위를 더해 같은 세션 이전 턴도 보호했다. 이는 현재 턴 소유권의 구현 세부이며 AC25 음성 fixture로 관측했다.
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-09′ | REQUIRED | SELF_PASS | 파일 정본·기타 필드·정상 참조·child 출처 격리 | D1·2′·3′·4′·10 red |
+| VP-33 | REQUIRED | SELF_PASS | helper record/main/id 음성 및 같은 입력 참조 | F1·2·4·6 red |
+| VP-34 | REQUIRED | SELF_PASS | requester 저장 선행·실제 SQLite args 변경·오류 전파·decoder | F3·4·5·7 red |
+| VP-35 | REQUIRED | SELF_PASS | 실제 adapter→history payload→reducer→Work/Code SSR live/reload | F1·2·6 red |
+| VP-36 | REQUIRED | SELF_PASS | 두 도착 순서·승인 시점 변경·Stop·중복·deny/revise/abort·새 턴 | F4 및 D5·6 red |
+| VP-37 | REQUIRED | SELF_PASS | 실제 init/status→현재 controller/IPC, 초기 확정·latest send/listen·old channel | F8·9·10 red |
+| VP-38 | REQUIRED | SELF_PASS | SDK 6종·unknown·child/replay 음성, Enter message/Exit filePath 구분 | 직접 oracle |
+| VP-10 | REGRESSION | SELF_PASS | 메인 Write/Edit·Stop·child 쓰기 음성 | D5·6 red |
+| VP-11′ | REGRESSION | SELF_PASS | query의 hook/getter 동일 셀·env | D7·8·9 red |
+| VP-12 | REGRESSION | SELF_PASS | 실제 파일 상한·링크·reader 오류·close·8.3 | 직접 oracle |
+| VP-13′ | REGRESSION | SELF_PASS | 파일/입력 출처·BOM/CRLF/공백·경로·참조 | 직접 oracle |
+| VP-20 | REGRESSION | SELF_PASS | 파일 없는 입력→서술→empty, 기존 계획 패널 SSR | D10 red·기존 SSR |
+
+선택 registry 12개와 위 pair 표를 비교한 누락/추가 집합은 모두 ∅다. 비영향 pair 25개는 ΔV3의 NOT_REQUIRED 상태를 유지한다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| F1 adapter started 정규화 제거 | EP-11·VP-35 | 최초 | adapter4파일91 중 1 | red·원복 |
+| F2 callback action.input 원본 복귀 | EP-11·VP-34 | 최초 | 같은 91 중 4 | red·원복 |
+| F3 requester persist 제거 | EP-11·VP-34 | 최초 | approval 새5 중 4 | red·원복 |
+| F4 writer late args 보정 제거 | EP-11·VP-36 | 최초 | 실제 DB15 중 2 | red·원복 |
+| F5 SQL args UPDATE no-op | EP-11·VP-34 | 최초 | 실제 DB15 중 5 | red·원복 |
+| F6 reducer 기존 call 보정 no-op | EP-11·VP-35 | 최초 | renderer 새4 중 2 | red·원복→관련42 green |
+| F7 SQL session 조건 제거 | EP-12·VP-34 | 최초 | 실제 DB15 중 1(잘못된 session/message 조합) | red·원복 |
+| F8 adapter mode observer 제거 | EP-13·VP-37 | 최초 | adapter91 중 1 | red·원복 |
+| F9 frame delegate mode key 누락 | EP-13·VP-37 | 최초 | runtime VP-37 2 중 2 | red·원복 |
+| F10 adapter delegate mode key 누락 | EP-13·VP-37 | 최초 | runtime VP-37 2 중 2 | red·원복→2 green |
+| D1 서술이 있으면 파일 사용 안 함 | VP-09′ | red | adapter91 중 9 | red·원복 |
+| D2′ 파일 전 input plan 즉시 반환 | VP-09′ | red | 같은 91 중 12 | red·원복 |
+| D3′ 정상 입력도 spread 객체 | VP-09′ | red | 같은 91 중 10 | red·원복 |
+| D4′ 보정 planFilePath 제거 | VP-09′ | red | 같은 91 중 20 | red·원복 |
+| D5 Stop cell 비움 제거 | VP-10 | red | 같은 91 중 3 | red·원복 |
+| D6 child Write guard 제거 | VP-10 | red | 같은 91 중 2 | red·원복 |
+| D7 계획 hook 편입 제거 | VP-11′ | red | 같은 91 중 5 | red·원복 |
+| D8 tracked getter 다른 셀 | VP-11′ | red | 같은 91 중 5 | red·원복 |
+| D9 callback getPlanFiles 미주입 | VP-11′ | red | 같은 91 중 9 | red·원복 |
+| D10 서술을 CLI 입력에 동봉 | VP-09′·20 | red | 같은 91 중 11 | red·원복 |
+
+분모 검산: 선택 증거 20 · 인용 변이 0 · 별도 새 oracle 0 = 표 20행. 새로운 배선 oracle의 민감도는 선택 F1~10과 같은 행이다. 승계 red 10개 중 이번 green은 0개다. 임시 변이는 각 실행의 finally에서 원본 bytes를 복원했고 최종 기준선 테스트로 대조했다. 다른 직접 행동 oracle에는 임의 변이를 등록하지 않았다.
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 사용자 문구·상태의 소비자가 있는가 | 신규 문구 없음; 보정 입력은 Work/Code 카드, 실제 모드는 controller/renderer가 소비 | 두 카드 SSR·실제 IPC 테스트 |
+| seam 재배치 뒤 정리 코드 스코프가 유효한가 | reader handle finally 유지, map은 TurnContext와 함께 회수 | fresh/continuation 독립 map 테스트 |
+| 실패 경로가 Part I 어느 행인가 | 파일 부재/실패 fallback, deny/revise/abort, 다른 owner 음성 | CLI에 가짜 path·narrative 미주입 |
+| 실패가 아무 일도 안 일어난 것으로 보이는가 | 기존 broker 응답/취소 UI 유지; DB write failure는 critical 경로로 전파 | 오류 전파 fixture |
+| 늦은 응답이 화면을 되돌리는가 | callback 정본으로 old call만 수정, old channel mode·다른 세션·이전 user 경계는 제외 | 두 도착순서·음성 tests |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| I-01 | 기존 writer는 세션 미확정 started를 버렸다 | ✅ 최소 보류 배열 + init 뒤 flush | 실제 DB 두 호출 순서 fixture |
+| I-02 | 같은 세션 이전 턴에서 같은 tool ID 사용 가능 | ✅ SQL current message scope, renderer 현재 user 경계 | 실제 DB 이전 메시지 음성·renderer ownership |
+| I-03 | child 승인/모드 결과가 메인 상태를 바꿀 수 있었다 | ✅ main getter·서술·SDK updatedPermissions 및 requester 모드 후처리 격리 | child 실제 adapter/requester 음성 |
+| I-04 | 외부 실제 모델의 입력 주입 차이는 기계 fixture만으로 단정 못 함 | ⚠️ 보고만, 기존 §8 사람 실기 유지 | 실제 모델 실행/앱 시각 실기는 이번 턴 미실행 |
+
+### 설계 대비 명시적 차이
+
+기존 pending row 재사용이라는 가정과 달리 메인 Exit started 전용 배열을 추가했다. SQL은 generic API에 session·message·call·name·main 범위를 전달해 provider 정책을 infra literal로 넣지 않는다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 / 관측 |
+|---|---|---|
+| 만료 | 임의 TTL 없음; 턴 context 수명 | AC25·fresh map 독립 |
+| 공유 | map/배열의 소유 context가 바뀌면 옛 입력이 섞일 수 있음 | AC25·새/continuation fixture |
+| 재진입 | init flush가 같은 배열을 다시 쓰면 중복 저장 가능 | 배출 전에 배열 delete; DB 최초 순서/개수 직접 단언 |
+| 다른 무효화 축 | 다른 세션 확정·Stop·child·old channel | owner guard 및 old call/새 call 분리·mode 폐기 음성 |
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | adapter·TurnRequest·approval/observer/send·TurnContext/fresh state·history/SQL·reducer·shared helpers와 관련 tests, 현재 provider-runtime 문서. 목록 정본은 구현 diff. |
+| 실행 명령 | Vitest main adapters/history/sessions/chat-turn + shared·신규 renderer; 기존 0249 renderer 수용 테스트; ESLint src/scripts(동일 gate의 no-fix), node/web/test tsc, scripts 직접 Node, doc/budget/migration guard. |
+| 관측한 게이트 산출 | main 영향109파일1248 + 추가 renderer49파일414 green(파일별 중복 제거157파일1658). scripts132 green. lint0error/기존1warning, node/web/test typecheck 진단0, inventory/budget/migration/diff 정상. 선택20변이 red 후 원복. |
+| V-pair 자기확인 | SELF_PASS12 / SELF_BLOCKED0, 비영향 NOT_REQUIRED25 |
+| 강제 지점 전수 | 기존8 + EP-11 6 + EP-12 4 + EP-13 6 + EP-14 4, 빠진 경로 없음 |
+| AC 자기보고 | ✅25/25(기계 범위), 각 행의 이번 관측은 아래 표. 실 외부 모델·시각 실기는 기존 §8과 별도. |
+| 합계 검산 | 기존 유효21 + AC24~27 신규4 =25. 폐기 AC12/13은 분모 밖. |
+| 블로커 / 역질문 | 기계 범위 없음. 실제 외부 모델·시각 실기는 별도 사람 몫. |
+| 대상 커밋 | (r1.4 구현 — 좌표는 INDEX 검증자 기입) |
+
+| 유효 AC | 자기 상태 | 이번 턴의 관측 |
+|---|---|---|
+| AC1 | ✅ | skills 카탈로그/목록/상세의 연결됨·Connected·기본 제공 |
+| AC2 | ✅ | useSessionCompletion·sessions 표시 요청3종 |
+| AC3 | ✅ | 열람 해제·다시 열기·삭제 |
+| AC4 | ✅ | 완료/요청 마지막 사유·동일 표시 |
+| AC5 | ✅ | unknown/no-session/unsubscribe 음성 |
+| AC6′ | ✅ | CanonicalBackgroundContent 양성 셸/Agent·Spark |
+| AC7′ | ✅ | visibility·배경 render의 foreground/ambient/실패 음성 |
+| AC8′ | ✅ | background-open·panel 개별 선택/중단/완료 지우기 |
+| AC9′ | ✅ | actual query empty 입력·파일 본문·path 반환 |
+| AC10′ | ✅ | 파일/입력/서술 조합·파일 없는 입력 불변 |
+| AC11 | ✅ | main Write/Edit·child·Stop·경로/상한/링크/close·8.3 |
+| AC14′ | ✅ | actual SDK query 포획 hook/getter·CLAUDE_CONFIG_DIR |
+| AC15 | ✅ | partsArtifacts·transcript 최신 버전/최초 위치 |
+| AC16 | ✅ | category/파일/턴 경계·store 저장 ref |
+| AC17 | ✅ | transcript Work/Code 진행/완료 카드→메타 슬롯 |
+| AC18 | ✅ | 157파일1658·scripts132·lint0error/1warning·3종tsc·문서/guard·diff; trailer는 커밋 뒤 재독 |
+| AC19′ | ✅ | CanonicalBackgroundContent.spark 실제 Mapper·정착 진리표 |
+| AC20 | ✅ | chatStore.background-open 인라인 선택과 main/child 상세 |
+| AC21 | ✅ | resolver BOM/CRLF/끝 공백·경로·원본 입력 reference |
+| AC22 | ✅ | AgentEnvironmentView.count 실제 카드 수·빈 상태 |
+| AC23 | ✅ | canonical settlement·background display·미확인 시간/중단/clear·늦은 실제 통지 |
+| AC24 | ✅ | actual adapter·requester·SQLite·decoder·Work/Code live/reload |
+| AC25 | ✅ | 두 도착순서·파일 수정·Stop·중복·owner/turn·fresh map |
+| AC26 | ✅ | child getter·서술/권한 억제, Enter message·Exit filePath·파일 없는 입력 |
+| AC27 | ✅ | SDK 6종 init/status→controller/IPC·확정 순서·latest delegate·old channel 음성 |
+
+합계 검산: ✅25 · ⚠️0 · ❌0 =25. 이전 유효21에 신규4를 더했으며 폐기 AC12/13은 포함하지 않는다. 테스트의 it.each가 같은 fullName을 갖는 경우를 합치지 않고 파일별 assertion 개수로 1658을 재검산했다. 테스트 타입의 nullable 반환 누락은 수정 후 해당7개 green·최종 test tsc 진단0으로 재확인했다. 변이 중 실행된 tsc의 unused 진단은 원복 후 정상 검사와 구별했다.
+
+## [구현자 기입] Review Signals — 사실만
+
+- 이번 불변식은 이전 파일 폴백 축을 action·started·history·card·mode 소비처까지 확장한다.
+- 기존 EP-04′는 승인 본문/CLI 반환만 잠가 원본 도구 카드와 실제 SDK mode 보고를 보지 않았다. ΔV3가 해당 경로를 명시했다.
+- Temp 조상 lstat의 sandbox EPERM은 승격 테스트로 분리했다. SQLite 실제 ABI127은 plain Node로 실행했고 Electron ABI140 실패는 알려진 환경 차이로 분리했다. ABI 전환은 하지 않았다.
+- 현재 r1.4는 사용자 요구 변경 턴이다. 독립 검증 PASS를 선점하지 않으며 다음 주체는 검증자다.

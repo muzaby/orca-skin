@@ -11,6 +11,7 @@ import type { ReceivedMessageOrigin } from '../../../shared/session-schedules'
 import type { AttachmentView, DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
 import { subagentNoticePart } from '../../../shared/ipc'
 import { responseBoundaryPart } from '../../../shared/response-boundary'
+import { planReviewToolInput } from '../../../shared/plan-review-input'
 import type { DbQueries } from '../../infra/db'
 import type { LineageRelation } from '../../infra/db/types'
 import { previewOf } from '../../infra/ipc/dto'
@@ -342,6 +343,14 @@ export class HistoryWriter {
           if (title) this.db.updateSessionTitle(sessionId, title)
           turn.pendingUserText = null
         }
+        // permission이 먼저 왔거나 started 당시 세션이 아직 없었던 계획 호출을 보존한다.
+        // 보정 Map은 지우지 않는다: Stop/승인 해소 뒤 같은 호출이 늦게 와도 정본이 같다.
+        const pendingPlans = turn.pendingPlanToolCalls
+        delete turn.pendingPlanToolCalls
+        for (const pending of pendingPlans ?? []) {
+          if (pending.sessionId && pending.sessionId !== sessionId) continue
+          this.persist(turn, { ...pending, sessionId })
+        }
         break
       }
       case 'message.reasoning': {
@@ -360,6 +369,19 @@ export class HistoryWriter {
         break
       }
       case 'tool.call.started': {
+        if (ev.toolName === 'ExitPlanMode' && ev.parentToolRunId === undefined) {
+          if (turn.dbSessionId && ev.sessionId && ev.sessionId !== turn.dbSessionId) break
+          const resolved = turn.planToolInputs?.get(ev.toolRunId)
+          const sessionId = turn.dbSessionId ?? (ev.sessionId || undefined)
+          if (resolved && (resolved.sessionId === undefined || resolved.sessionId === sessionId)) {
+            // 버스 history→relay 순서에서 같은 이벤트를 교정해 live와 DB 입력을 일치시킨다.
+            ev.args = resolved.input
+          }
+          if (!turn.dbSessionId) {
+            ;(turn.pendingPlanToolCalls ??= []).push({ ...ev })
+            break
+          }
+        }
         if (!turn.dbSessionId) break
         const id = this.ensureAssistantMessage(turn, turn.dbSessionId)
         this.db.appendPart({
@@ -369,6 +391,26 @@ export class HistoryWriter {
           // 라이브 전용 필드(`editPreview`)를 거르는 규칙은 순수 모듈이 갖는다(0229 §10 EP-Δ5).
           payloadJson: JSON.stringify(toolCallPartPayload(ev))
         })
+        break
+      }
+      case 'permission.requested': {
+        const resolved = planReviewToolInput(ev.action)
+        if (!resolved || (ev.sessionId && turn.dbSessionId && ev.sessionId !== turn.dbSessionId))
+          break
+        const sessionId = ev.sessionId ?? turn.dbSessionId ?? undefined
+        ;(turn.planToolInputs ??= new Map()).set(resolved.toolUseId, {
+          input: resolved.input,
+          ...(sessionId !== undefined ? { sessionId } : {})
+        })
+        if (turn.dbSessionId && turn.currentAssistantMessageId !== null) {
+          this.db.updateToolCallInput(
+            turn.dbSessionId,
+            turn.currentAssistantMessageId,
+            resolved.toolUseId,
+            'ExitPlanMode',
+            resolved.input
+          )
+        }
         break
       }
       case 'message.completed': {
@@ -513,7 +555,8 @@ export class HistoryWriter {
         break
       }
       // message.delta/message.reasoning.delta/turn.retrying 은 transient(미저장).
-      // permission.* 는 별도 row 없음. subagent.task 는 위 통지 파트 외 transient — 메타 영속은
+      // permission.* 는 별도 row 없음(계획 검토는 기존 호출 입력만 교정). subagent.task 는
+      // 위 통지 파트 외 transient — 메타 영속은
       // 부모 Task tool_result 의 subagentMeta(위 tool.call.completed)가 담당한다. activity 투영은
       // sendChatEvent 직행이라 여기 도달하지 않는다(도달해도 case 부재 = no-op).
     }

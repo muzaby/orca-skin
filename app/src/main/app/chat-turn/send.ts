@@ -36,6 +36,7 @@ import { acquireTurnRuntime } from './runtime-entry'
 import { enqueueTurnPrompt, reserveOnBusySession } from './enqueue'
 import { buildTurnRequest } from './turn-request'
 import { createApprovalRequester } from './approval'
+import { createPermissionModeObserver } from './permission-mode-observer'
 import { runTurnWithContinuations } from './post-turn'
 import type { ChatRuntimeDeps, NormalizedAttachments } from './deps'
 import { makeClassifiedError } from '../../infra/errors'
@@ -445,6 +446,11 @@ export async function handleChatSend(
       persistence,
       getActiveTurn
     })
+    const permissionModeObserver = createPermissionModeObserver({
+      wc,
+      permissionModes,
+      getActiveTurn
+    })
 
     // 실제 해소된 모델과 세션 종류에서 요청 여부와 무관하게 실행 권한을 정착한다.
     const permissionMode = coerceAutoPermissionModeForModelName(
@@ -465,6 +471,7 @@ export async function handleChatSend(
         if (permissionPublished) return
         permissionPublished = true
         publishPermissionMode(sessionId)
+        permissionModeObserver.confirm(sessionId)
       }
     }
 
@@ -502,6 +509,7 @@ export async function handleChatSend(
         ...ifPresent('providerSettings', resolved.prepared.providerSettings),
         ...(resolved.model !== undefined ? { model: resolved.model } : {}),
         requestApproval,
+        onPermissionModeChanged: permissionModeObserver.report,
         onProviderEvent: (event) => deps.background?.observe(event),
         permissionMode,
         planApprovalMode: planApprovedMode(agentKind),

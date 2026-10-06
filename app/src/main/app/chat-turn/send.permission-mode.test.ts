@@ -84,6 +84,7 @@ import { prepareAutomaticContinuation } from '../chat-turn-continuation'
 import type { NormalizedPermissionMode } from '../../../shared/permission-mode'
 import { normalizeAttachments } from '../../features/chat/attachments'
 import { enqueueTurnPrompt } from './enqueue'
+import { PermissionModeController } from '../../features/approvals/permission-mode-controller'
 
 // `WorktreeService.recoverMissingWorktree` 의 반환 union. 하네스 기본값을 갈아끼우려면 넓은
 // 타입이어야 한다 — `{kind:'none'}` 으로 좁히면 `mockResolvedValue` 가 다른 갈래를 거부한다.
@@ -133,7 +134,8 @@ function makeHarness(sessionId?: string) {
   }
   const sender = {
     once: vi.fn(),
-    removeListener: vi.fn()
+    removeListener: vi.fn(),
+    isDestroyed: vi.fn(() => false)
   }
   const deps = {
     ctx: {
@@ -253,6 +255,46 @@ describe('handleChatSend — 지원하지 않는 권한 모드 보정 (AT-14)', 
       type: 'session.updated',
       sessionId: 'session-1',
       patch: { permissionMode: 'default' }
+    })
+  })
+
+  it('0249 VP-37 — 새 SDK init 보고를 실제 send의 세션 확정 후 controller와 renderer에 반영한다', async () => {
+    const harness = makeHarness()
+    const permissionModes = new PermissionModeController('default')
+    harness.deps.permissionModes = permissionModes as never
+    mocks.resolvedModel.value = 'claude-sonnet-4-6'
+    mocks.acquireTurnRuntime.mockResolvedValue({
+      ok: true,
+      runtime: { close: vi.fn(), channelAlive: true, markAborted: vi.fn() },
+      extensions: { skills: [], hooks: { normalized: {} } }
+    })
+    vi.mocked(runTurnWithContinuations).mockImplementationOnce(async () => {
+      const fields = mocks.buildTurnRequest.mock.calls.at(-1)![1] as {
+        onPermissionModeChanged: (sessionId: string, mode: NormalizedPermissionMode) => void
+      }
+      fields.onPermissionModeChanged('created', 'plan')
+      expect(permissionModes.getCurrentMode('created')).toBe('default')
+      expect(mocks.sendChatEvent).not.toHaveBeenCalledWith(expect.anything(), {
+        type: 'session.updated',
+        sessionId: 'created',
+        patch: { permissionMode: 'plan' }
+      })
+      harness.turn.dbSessionId = 'created'
+      const confirmed = harness.turn as typeof harness.turn & {
+        onSessionConfirmed: (sessionId: string) => void
+      }
+      confirmed.onSessionConfirmed('created')
+      expect(permissionModes.getCurrentMode('created')).toBe('plan')
+      expect(mocks.sendChatEvent).toHaveBeenLastCalledWith(harness.sender, {
+        type: 'session.updated',
+        sessionId: 'created',
+        patch: { permissionMode: 'plan' }
+      })
+    })
+    await handleChatSend(harness.deps as never, { sender: harness.sender } as never, {
+      text: 'work',
+      permissionMode: 'accept_edits',
+      attachmentViews: []
     })
   })
   it('Work restores hidden plan mode to manual; Code approval keeps accept_edits', async () => {

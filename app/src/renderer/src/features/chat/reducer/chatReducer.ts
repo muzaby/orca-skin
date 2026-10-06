@@ -30,6 +30,7 @@ import {
 } from '../../../../../shared/agent-kind'
 import { agentSessionPolicy } from '../../../../../shared/agent-session-policy'
 import { responseBoundaryPart } from '../../../../../shared/response-boundary'
+import { planReviewToolInput } from '../../../../../shared/plan-review-input'
 import type {
   ReceivedMessageOrigin,
   SessionSchedule
@@ -733,6 +734,34 @@ function appendAssistantPart(messages: Message[], part: AppMessagePart): Message
   return next
 }
 
+function correctPlanToolInput(
+  messages: Message[],
+  correction: { toolUseId: string; input: unknown } | undefined
+): Message[] {
+  if (!correction) return messages
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex--) {
+    const message = messages[messageIndex]
+    if (message.role === 'user') break
+    for (let partIndex = message.parts.length - 1; partIndex >= 0; partIndex--) {
+      const part = message.parts[partIndex]
+      if (
+        part.type !== 'tool_call' ||
+        part.toolRunId !== correction.toolUseId ||
+        part.toolName !== 'ExitPlanMode' ||
+        part.parentToolRunId !== undefined
+      )
+        continue
+      if (part.args === correction.input) return messages
+      const parts = message.parts.slice()
+      parts[partIndex] = { ...part, args: correction.input }
+      const next = messages.slice()
+      next[messageIndex] = { ...message, parts }
+      return next
+    }
+  }
+  return messages
+}
+
 function appendOwnedArtifact(
   messages: Message[],
   owner: number,
@@ -1094,8 +1123,13 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           }
           if (ev.action.kind === 'plan_review') {
             // 계획 도착 → 액션 게이트 설정 + 우측 타일에 내용 표시 + 자동 오픈(auto-trigger).
+            const correction =
+              ev.sessionId && state.sessionId && ev.sessionId !== state.sessionId
+                ? undefined
+                : planReviewToolInput(ev.action)
             return {
               ...state,
+              messages: correctPlanToolInput(state.messages, correction),
               retry: undefined,
               pendingPlanReview: {
                 ...ev.action.request,
