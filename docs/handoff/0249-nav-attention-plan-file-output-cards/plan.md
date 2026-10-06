@@ -2030,3 +2030,171 @@ r3 구현 중 독립 phase-0 probe가 실제 SessionRuntime→makeCanUseTool→r
 ## READY self-review
 
 D-033·AC25의 원래 턴 소유권을 비동기 파일 읽기 이전에 잡고 D-034·AC26의 child 독립성을 유지한다. 원래 signal 생산3→adopt2→runtime getter→실제 query factory→main 캡처→await 뒤 운반→기존 소비 guard를 연결했다. 두 음성 실패와 SDK 취소/child 양성 대조의 독립 증거를 보존하고 실제 CLI 순서의 미확인을 명시했다. 규범 수정은 구현 산출과 별도 커밋한다.
+
+---
+
+# [구현자 기입] r3 — ΔV3.3·ΔV3.4
+
+## [구현자 기입] 설계 리뷰
+
+D6의 기존 child 격리·요청 소유권 계약을 화면 네 계획 응답까지 적용했다. 승인 전에 현재 key·session·pending review를 캡처해 요청 ID를 검사하며, 하위 승인에는 메인 mode 갱신을 하지 않는다. 네 유효 응답은 기존 allow/deny/feedback 형상을 유지한다. 기존 r4 Work fixture에 실제 plan patch·pending 요청을 넣고 기존 기대값은 유지했다. 독립 X2 원래10케이스는 기대값을 바꾸지 않았고 실제 SDK deny/피드백·중복·빈 입력 양성3을 추가했다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+| 행 | 지정 / 확인 | 실제 생산자·소비자 / 관측 |
+|---|---:|---|
+| EP-04″ | 8 / 8 | 파일 기록·Stop·hook·getter·resolver·request.plan·allow.updatedInput·reader, D1~10 및 실제 SDK fixture. |
+| EP-11 | 6 / 6 | started·action.input·persist·late started·SQL·reducer의 보정 입력, F1~6. |
+| EP-12⁗ | 20 / 20 | 기존14 owner/수명·화면 응답 자리 + original signal adoption·runtime getter·query 전달·main 캡처/합성·entry abort·Exit await 후 signal 전달6, F7·11~15·17~27 및 X1/X2/main scope. |
+| EP-02′ | 9 / 9 | 기존8 주의 표시 자리 + 승격 통지1, B1~3·B6 및 3종 Map/SSR. |
+| EP-13″ | 7 / 7 | 기존6 실제 SDK mode 운반 + renderer child mode분기1, F8~10·16 및 controller/renderer/다음 send. |
+| EP-14 | 4 / 4 | 설치 SDK Enter/Exit 계약·plan READY/ΔV3.4·INDEX·trailer. |
+
+불변식의 주어로 `permission.requested|permission.resolved|RESOLVE_PLAN|SET_PERMISSION_MODE|approvePlan|revisePlan|revisePlanWithComments|rejectPlan|requestApproval|retireChannel`을 검색하고 값의 생산/소비 경로를 대조했다. 네 계획 응답은 같은 ID검사를 거치며 상태 해소 뒤 출처를 다시 읽지 않는다. 지정54자리와 실제 자리 집합을 대조했다. 원 signal 생산3(initial/listen/flush)·adoption 호출2(runAttempt/runListen)와 타입 운반2를 별도 대조했다. retire signal과 original turn signal은 각각 channel/main 취소를 담당하고 child는 main getter를 읽지 않는다. 별도 owner cache·IPC·schema·의존성은 없다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+최종 영향 회귀는 **181파일·1883 assertions pass, 0 fail/skip**이다(`app/.tmp-0249-r34-regression-final.json`, testResults.length와 파일별 assertion 길이 합을 대조). 새 main-scope19·실제 query factory1·기존 X2 기대값10+정상피드백3과 renderer 회귀를 포함한다. scripts는 제한 환경의 EPERM8을 분리하고 같은132개를 권한 제한 없이 재실행해 failure/error0을 확인했다. 실제 의존성 설치·ABI 재빌드는 수행하지 않았다.
+
+| 등록 변이 | 강제 자리 | assertion red 실패/실행 | 동일 필터 원복 대조 |
+|---|---|---:|---|
+| F6 | EP-11 | 2/4 (0 skip) | 4 green / bytes동일 |
+| F9 | EP-13″ | 2/2 (79 skip) | 2 green / bytes동일 |
+| F10 | EP-13″ | 2/2 (79 skip) | 2 green / bytes동일 |
+| F1 | EP-11 | 1/92 (0 skip) | 92 green / bytes동일 |
+| F2 | EP-11 | 4/92 (0 skip) | 92 green / bytes동일 |
+| F3 | EP-11 | 4/5 (0 skip) | 5 green / bytes동일 |
+| F4 | EP-11 | 2/15 (0 skip) | 15 green / bytes동일 |
+| F5 | EP-11 | 5/15 (0 skip) | 15 green / bytes동일 |
+| F7 | EP-12⁗ | 1/15 (0 skip) | 15 green / bytes동일 |
+| F8 | EP-13″ | 1/92 (0 skip) | 92 green / bytes동일 |
+| D1 | EP-04″ | 9/92 (0 skip) | 92 green / bytes동일 |
+| D2 | EP-04″ | 12/92 (0 skip) | 92 green / bytes동일 |
+| D3 | EP-04″ | 10/92 (0 skip) | 92 green / bytes동일 |
+| D4 | EP-04″ | 20/92 (0 skip) | 92 green / bytes동일 |
+| D5 | EP-04″ | 3/92 (0 skip) | 92 green / bytes동일 |
+| D6 | EP-04″ | 2/92 (0 skip) | 92 green / bytes동일 |
+| D7 | EP-04″ | 5/92 (0 skip) | 92 green / bytes동일 |
+| D8 | EP-04″ | 5/92 (0 skip) | 92 green / bytes동일 |
+| D9 | EP-04″ | 9/92 (0 skip) | 92 green / bytes동일 |
+| D10 | EP-04″ | 11/92 (0 skip) | 92 green / bytes동일 |
+| F11 | EP-12⁗ | 10/10 (0 skip) | 10 green / bytes동일 |
+| F12 | EP-12⁗ | 2/10 (0 skip) | 10 green / bytes동일 |
+| B1 | EP-02′ | 1/19 (0 skip) | 19 green / bytes동일 |
+| B2 | EP-02′ | 4/19 (0 skip) | 19 green / bytes동일 |
+| B3 | EP-02′ | 3/19 (0 skip) | 19 green / bytes동일 |
+| B6 | EP-02′ | 4/19 (0 skip) | 19 green / bytes동일 |
+| F13 | EP-12⁗ | 3/5 (13 skip) | 5 green / bytes동일 |
+| F14 | EP-12⁗ | 2/2 (16 skip) | 2 green / bytes동일 |
+| F15 | EP-12⁗ | 8/8 (10 skip) | 8 green / bytes동일 |
+| F16 | EP-13″ | 1/2 (11 skip) | 2 green / bytes동일 |
+| F17 | EP-12⁗ | 4/4 (9 skip) | 4 green / bytes동일 |
+| F18 | EP-12⁗ | 1/1 (12 skip) | 1 green / bytes동일 |
+| F19 | EP-12⁗ | 1/1 (12 skip) | 1 green / bytes동일 |
+| F20 | EP-12⁗ | 1/1 (12 skip) | 1 green / bytes동일 |
+| F21 | EP-12⁗ | 1/1 (12 skip) | 1 green / bytes동일 |
+| F22 | EP-12⁗ | 2/2 (17 skip) | 2 green / bytes동일 |
+| F23 | EP-12⁗ | 2/2 (17 skip) | 2 green / bytes동일 |
+| F24 | EP-12⁗ | 2/2 (17 skip) | 2 green / bytes동일 |
+| F25 | EP-12⁗ | 1/1 (7 skip) | 1 green / bytes동일 |
+| F26 | EP-12⁗ | 1/1 (18 skip) | 1 green / bytes동일 |
+| F27 | EP-12⁗ | 2/2 (17 skip) | 2 green / bytes동일 |
+
+
+
+D2·D3·D4는 등록 D2′·D3′·D4′의 러너 별칭이다. 등록41 집합과 최종 결과의 ID 집합을 양방향 차집합으로 비교해 각각0, unique41을 확인했다. 모든 행의 red exit1·실패>0·원본 Buffer equality·동일 필터 green exit0을 검사했다. 증거는 `.tmp-0249-r34-mutation-results-final.json`이며 F25 초기 생존은 최초 결과에 보존했다.
+
+선택 증거41·별도 추가 인용 변이0·새 proxy/oracle에 따로 등록되지 않은 변이0 = 잠금 표41자리다. 기존 X1·X2의 직접 기대값을 유지하며 등록 자리마다 제거 red→원본 byte 복원→동일 필터 green을 실행했다. skip은 실행 분모에 넣지 않는다. F25의 첫 측정은 query 내부 assertion이 adapter의 오류 이벤트로 변환돼 살아남았다. 실제 소비가 끝난 테스트 경계에서 오류 이벤트0·getter3회·승인3회를 직접 검사하도록 oracle을 보강했고 같은 F25를 재측정했다. 이 보강 전 생존을 성공으로 세지 않는다. 독립 검증 PASS를 선점하지 않는다.
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 상태 | 직접 관측 |
+|---|---|
+| main Work/Code 승인 | 기존 allow·목표 mode·다음 send 유지, 추가 setMode IPC 없음. |
+| child 승인 | SDK allow·child updatedPermissions 부재, renderer/controller/다음 send 메인 mode 보존. |
+| 다른 ID·실제 해결된 ID·중복 응답 | 네 핸들러의 현재 pending 요청·session reference·이웃 reference·mode 유지, 불필요 response0. |
+| 유효 수정/코멘트/거부 | 실제 adapter/requester/broker까지 기존 deny 메시지·구조화 피드백·요청 해소·plan mode 유지. |
+| 빈 수정/빈 코멘트 | 기존 미해결 요청 유지·응답0. |
+| 새 draft 승격·승인 해소·channel 폐기 | 기존 X1·owner/attention·lifetime 회귀로 같은 소유자·표시·수명 보존. |
+| main interrupt 중 Exit 파일 await·SDK signal live | 같은/다른 새 owner의 delegate·persist·register·requested0, 기존 원 턴 취소를 유지. |
+| 정상 초기/pre-init/후속/listen/flush/내부 respawn | 현재 원 signal의 승인→취소 연결 및 child SDK 독립 수명 유지. |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+r2의 SDK/main child guard만으로 화면 소비자의 mode 갱신을 막지 못했다. 계획 응답의 요청 ID와 출처는 RESOLVE_PLAN 전에 캡처해야 한다. 동일 불변식이 필요한 수정·코멘트·거부 형제도 함께 닫았고 각 호출의 ID 조회를 잘못 빌리는 변이로 직접 잠갔다. D6는 독립 재검증자의 closed 판정 전 open이다.
+
+독립 phase-0의 실제 persistent main interrupt probe는 SDK cancel이 아직 없을 때 늦은 Exit 파일 await의 side effect를 관측했다. ΔV3.4로 원래 req.signal의 현재 scalar를 공표하고 main callback 첫 await 전에 한 번 캡처·합성해 Exit requestApproval까지 운반했다. 이미 취소된 승인만 파일 읽기 전에 deny하며 child와 안전 도구 자동 통과 정책은 유지한다. SDK interrupt가 로컬 controller abort를 보장하지 않는 설치 소스는 확인했으나 실제 CLI의 cancel/terminal 순서는 확인하지 못했다.
+
+기존 D1·D2·D4 잔여는 유지하며 정책 변경으로 숨기지 않았다. 원격 게시·CI·외부 모델·Windows 시각 실기는 미실행이다. 자동 승인 검토의 push 거부는 로컬 gate와 구별한다.
+
+## [구현자 기입] 구현 보고
+
+선택17(REQUIRED7·REGRESSION10)은 아래 증거에 따른 SELF_PASS 자기판정이며 비영향20은 기존 기준선으로 NOT_REQUIRED다.
+
+| pair | requiredness | 자기판정 | 실제 관측 / 잠금 |
+|---|---|---|---|
+| VP-02 | REGRESSION | SELF_PASS | 요청·승격→app 구독→Map·SessionRow; B1·2·3·6 |
+| VP-03 | REGRESSION | SELF_PASS | 해결/열람/삭제/재방출 수명; 직접 oracle |
+| VP-04 | REGRESSION | SELF_PASS | app→chat→sessions 의존 방향·실제 통합; boundaries lint·직접 oracle |
+| VP-05 | REGRESSION | SELF_PASS | store 값·reference identity; 직접 oracle |
+| VP-19 | REGRESSION | SELF_PASS | 완료 표시·요청과 마지막 사유·SSR; 직접 oracle |
+| VP-09′ | REQUIRED | SELF_PASS | 승인 시점 파일→request/action/CLI 입력; D1·2′·3′·4′·10 |
+| VP-10 | REGRESSION | SELF_PASS | main Write/Edit·Stop·child 파일 음성; D5·6 |
+| VP-11′ | REGRESSION | SELF_PASS | query hook/getter 동일 셀·환경; D7·8·9 |
+| VP-12 | REGRESSION | SELF_PASS | 파일 reader 일반/8.3·상한·링크·오류·close; 직접 oracle |
+| VP-13′ | REGRESSION | SELF_PASS | 출처/본문/경로 정규화·정상 입력 참조; 직접 oracle |
+| VP-20 | REGRESSION | SELF_PASS | 파일 없는 input→서술→empty·plan SSR; D10 |
+| VP-33 | REQUIRED | SELF_PASS | 보정 입력 main/call 식별·같은 reference; F1·2·4·6 |
+| VP-34 | REQUIRED | SELF_PASS | persist 선행·SQL args/owner·decoder; F3·4·5·7·13·14·22~27 |
+| VP-35 | REQUIRED | SELF_PASS | 실제 live/reload Work/Code 본문·경로·이웃; F1·2·6·11·12 |
+| VP-36 | REQUIRED | SELF_PASS | 순서·Stop·턴·owner·폐기/화면4응답·child; F4·11~27·D5·6 |
+| VP-37 | REQUIRED | SELF_PASS | SDK mode→controller/renderer·latest/retired delegates; F8·9·10·15·16 |
+| VP-38 | REQUIRED | SELF_PASS | mode6종·unknown/child/replay·Enter/Exit 키; 직접 oracle |
+
+검산: REQUIRED7·REGRESSION10=17. 유효37−선택17=비영향20; 비영향 pair를 새 PASS로 만들지 않는다.
+
+| AC | 기계 fixture 자기판정 / 직접 관측 |
+|---|---|
+| AC1 | ✅ skills 목록/상세 연결됨·Connected·기본 제공·인증 액션 부재 |
+| AC2 | ✅ 3종 요청·승격→주의 Map·행 SSR |
+| AC3 | ✅ 실제 viewed guard·열람 해제·재방출 음성 |
+| AC4 | ✅ 완료/대기 last wins·삭제·같은 사유 identity |
+| AC5 | ✅ unknown/noid 순간·불일치·해결 후 승격·unsubscribe 음성 |
+| AC6′ | ✅ canonical background 종류별 카드·완료 보존 |
+| AC7′ | ✅ 양성과 같은 state의 foreground·ambient·실패 목록/count/clear 음성 |
+| AC8′ | ✅ background-open·panel의 상세·중단·완료 지우기 |
+| AC9′ | ✅ 빈 입력의 파일 plan/path 보정·실제 query |
+| AC10′ | ✅ 출처×입력×서술 조합·잘못된 입력 보정·파일 없는 입력 불변 |
+| AC11 | ✅ main Write/Edit·child·Stop·크기·경로·링크·8.3·오류·close |
+| AC14′ | ✅ actual query 포획 hook/getter·Write→Exit→Stop·환경 |
+| AC15 | ✅ 최신 publishedAt·동시각 최신 입력·첫 카드 위치 |
+| AC16 | ✅ 다른 category/filename/턴 보존·store 저장 refs |
+| AC17 | ✅ Work/Code 진행/완료 본문→카드→완료 메타·spark1 |
+| AC18 | ✅ 아래 lint/typecheck/영향 테스트/scripts/guards/diff·trailer 산출 |
+| AC19′ | ✅ actual Mapper 정상/반례의 Spark 집합/count 등식 |
+| AC20 | ✅ 실제 openSubagentTask·Agent/Task 상세 선택·목록 복귀 부재 |
+| AC21 | ✅ BOM/CRLF/끝 공백·win32 경로·정상 입력 reference |
+| AC22 | ✅ Engine settings/runtime 병합·증감·빈0개 카드 수 |
+| AC23 | ✅ unconfirmed 완료·고정 시간·중단 부재·clear·기록 불변·늦은 통지 |
+| AC24 | ✅ actual adapter/requester/SQLite/decoder·live/reload Work/Code 입력 |
+| AC25 | ✅ 두 순서·Stop·같은/다른 call/turn/session·FIFO·late retired·4응답 ID·await 전 original main scope |
+| AC26 | ✅ child 파일/서술·SDK권한·renderer/controller/다음 send 격리·Enter/Exit |
+| AC27 | ✅ actual SDK init/status6종→controller/renderer·latest·old/child/replay 음성 |
+
+검산: ✅25·⚠️0·❌0=유효25(자기검증 기계 범위). 외부 모델·시각 실기의 성공을 이 수로 주장하지 않는다.
+
+| 적용 gate | 최종 실행 결과 |
+|---|---|
+| lint | 전체 src/scripts no-fix:0 error, 기존 useTranscriptVirtualizer.ts22 warning1. 신규 main-scope/배선 파일 별도 no-fix lint0. |
+| typecheck | node·web·test 모두 exit0. 신규 fixture의 helper 반환형·spy 타입·flush createdAt을 정정 후 test tsc와 해당 lint를 다시 통과했다. production 동작/기대값 변경 없음. |
+| 영향 테스트 | 181파일1883 assertions pass·fail/skip0. 새 main-scope19와 실제 query1 포함 최종8파일188 pass; 중복 실행을 합산하지 않는다. |
+| scripts | 제한 환경 EPERM8 분리, 동일 JUnit testcase132 권한 제한 없이 재실행 failure/error0. |
+| 문서·예산·마이그레이션·diff | doc-inventory·test-budget16 real-git·migration guard(1393 source)·diff-check exit0. |
+| 기준선·설계·handoff | 요청 당시 main/origin main ceda5c5a 동기화0/0. ΔV3.3 d6b9ace8, ΔV3.4 3378c153·requestId 오표기정정 d5bb58c6 별도 설계. INDEX impl/IMPL_DONE r3·다음 독립 검증자. D6는 독립 판정 전 open. |
+| 환경·외부 | plain Node SQLite ABI127의 실제 DB 포함. 의존성 설치·Electron ABI140 재빌드 없음. 실 모델·Windows 시각 실기·원격 게시/CI 미실행. SDK cancel/terminal 실제 CLI 순서 미확인. |
+
+로컬 구현 커밋은 연속된 Agent:codex·Status:implemented·Criteria-Met:25/25·Verified-By:pending trailer를 기록하고 git log로 파싱한다.
+
+## [구현자 기입] Review Signals — 사실만
+
+r3 첫 구현 턴이다. r2 D6는 기존 Product/UX child 경계와 D-033/AC25 소유권이 UI 응답 소비자에 빠져 생겼다. 이번에는 네 응답 핸들러와 main/child mode 소비자를 함께 대조했다. 같은 r3 phase-0에서 발견한 persistent main interrupt 뒤 await 운반 누락은 ΔV3.4 별도 설계 후 원 signal 생산/캡처/소비 전수로 닫았다. r2에서 지적된 AC 설명 오매핑을 반복하지 않도록 유효 ID와 실제 fixture의 의미를 대응했다. 제품 결정 drift·handoff 지침 변경은 없으며 원격/시각 경계와 sandbox/ABI 실행 환경을 기계 fixture 성공과 분리했다.

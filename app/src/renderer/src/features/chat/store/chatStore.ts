@@ -1650,20 +1650,40 @@ function setPermissionMode(mode: NormalizedPermissionMode): void {
   synchronizePermissionMode(key, previous)
 }
 
+function currentPlanReview(requestId: string): {
+  key: string
+  session: ChatState
+  review: NonNullable<ChatState['pendingPlanReview']>
+} | null {
+  const state = getState()
+  const key = state.activeKey
+  const session = state.sessions[key]?.session
+  if (!session) return null
+  const review = session.pendingPlanReview
+  if (!review || review.requestId !== requestId) return null
+  return { key, session, review }
+}
+
 function approvePlan(requestId: string): void {
+  const current = currentPlanReview(requestId)
+  if (!current) return
   void permissionApi.respond({ approvalId: requestId, resolution: { behavior: 'allow' } })
-  dispatchActive({ type: 'RESOLVE_PLAN' })
+  dispatchTo(current.key, { type: 'RESOLVE_PLAN' })
+  // child 계획 승인은 main의 계획 모드를 바꾸지 않는다. 해소 전 snapshot의 출처를 사용한다.
+  if (current.review.providerRequest?.agentId !== undefined) return
   // 승인 = plan 모드 종료. 종류별 승인 목표로 칩을 전환 → 다음 턴이 plan 모드로 재진입하지
   // 않아 ExitPlanMode 재호출(단순 질문 시 계획 카드 재출현)을 막는다. 여기는 낙관적 UI 갱신이고,
   // SDK 세션 전환은 어댑터가 같은 allow 응답의 updatedPermissions 로 원자 처리한다
   // (adapters/claude.ts) — 그래서 setPermissionMode() 처럼 별도 IPC 를 발행하지 않는다.
-  dispatchActive({
+  dispatchTo(current.key, {
     type: 'SET_PERMISSION_MODE',
-    mode: planApprovedMode(getActiveChatSession().agentKind)
+    mode: planApprovedMode(current.session.agentKind)
   })
 }
 
 function revisePlan(requestId: string, feedback: string): void {
+  const current = currentPlanReview(requestId)
+  if (!current) return
   const trimmed = feedback.trim()
   if (trimmed === '') return
   // revise = deny + 피드백 메시지(어댑터가 '사용자 수정 요청: '+message 로 재작성 유도).
@@ -1671,22 +1691,26 @@ function revisePlan(requestId: string, feedback: string): void {
     approvalId: requestId,
     resolution: { behavior: 'deny', message: trimmed }
   })
-  dispatchActive({ type: 'RESOLVE_PLAN' })
+  dispatchTo(current.key, { type: 'RESOLVE_PLAN' })
 }
 
 // 인라인 코멘트 묶음(+선택 메모)으로 계획 수정 요청. main 이 구조화 태그(ORCA_PLAN_FEEDBACK)로
 // 직렬화한다(prompts/plan-feedback.ts). 보낼 내용이 없으면 no-op.
 function revisePlanWithComments(requestId: string, comments: PlanComment[], note: string): void {
+  const current = currentPlanReview(requestId)
+  if (!current) return
   const feedback = toPlanFeedback(comments, note)
   if (feedback.comments.length === 0 && feedback.note === undefined) return
   void permissionApi.respond({
     approvalId: requestId,
     resolution: { behavior: 'deny', planFeedback: feedback }
   })
-  dispatchActive({ type: 'RESOLVE_PLAN' })
+  dispatchTo(current.key, { type: 'RESOLVE_PLAN' })
 }
 
 function rejectPlan(requestId: string): void {
+  const current = currentPlanReview(requestId)
+  if (!current) return
   // reject = deny(중단 안내 메시지). interrupt 없이 보내야 deny 가 모델에 전달된다 —
   // interrupt 는 approvals.respond 에서 broker.resolve(deny=마이크로태스크) 직후 동기 abort 라
   // deny 가 SDK 까지 전파되기 전 쿼리를 죽여 PLAN_REJECT_MESSAGE 가 유실된다. clean deny 면
@@ -1695,7 +1719,7 @@ function rejectPlan(requestId: string): void {
     approvalId: requestId,
     resolution: { behavior: 'deny' }
   })
-  dispatchActive({ type: 'RESOLVE_PLAN' })
+  dispatchTo(current.key, { type: 'RESOLVE_PLAN' })
 }
 
 // 위험 도구 승인 — 허용(이번만) / 세션 동안 허용 / 거부(턴 계속, 중단 아님).

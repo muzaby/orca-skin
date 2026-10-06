@@ -254,6 +254,8 @@ export class SessionRuntime implements ManagedRuntime {
   // 목록으로 골라내야 한다(`pickFrameDelegates`). 일부만 넘기면 현재 체인의 승인·중단 영수증·
   // 채널 관찰 콜백이 누락되거나 옛 체인을 계속 보게 된다.
   private delegate: FrameDelegate = {}
+  // 채널 신호로 치환하기 전 현재 send/listen의 원래 턴 신호. 다음 adoption이 갱신한다.
+  private mainApprovalSignal: AbortSignal | undefined
   private providerSource: BackgroundEventSource | undefined
   private providerSessionId: string | undefined
   // 0125: 채널 spawn 시 어댑터에 주입된 providerSettings 의 불투명 기록 — 내용 해석·비교는
@@ -401,6 +403,7 @@ export class SessionRuntime implements ManagedRuntime {
 
   private adoptDelegate(req: TurnRequest): void {
     this.delegate = pickFrameDelegates(req)
+    this.mainApprovalSignal = req.signal
   }
 
   private async *runAttempt(req: TurnRequest): AsyncIterable<NormalizedEvent> {
@@ -840,6 +843,8 @@ export class SessionRuntime implements ManagedRuntime {
     return {
       ...req,
       signal: this.channelController.signal,
+      getMainApprovalSignal: () =>
+        channelSignal.aborted ? channelSignal : this.mainApprovalSignal,
       ...wrapped,
       runtimeToolContext: this.runtimeToolContext ?? undefined
     }

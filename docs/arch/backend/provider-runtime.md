@@ -229,7 +229,7 @@ interface PermissionModeController {
 
 승인 콜백은 세션 초기화 이벤트보다 먼저 실행될 수 있다. 세션 ID 없는 요청은 진행 중인 새 채팅 draft에 보관하고, 해결 이벤트는 승인 ID가 일치하는 요청 소유자에게만 적용한다. draft가 실제 세션으로 승격되면 승인 상태를 유지하며 미해결 요청의 대기를 한 번 통지한다. 기존 세션의 모드 patch나 재방출로 대기 표시를 다시 만들지 않는다.
 
-승인 요청 wrapper는 폐기된 채널과 취소된 SDK 요청을 현재 delegate에 넘기지 않는다. requester도 유효 승인 신호를 화면 표시·이력 저장 전에 확인한다. main 요청은 턴·SDK 신호를 함께 따르고, 살아 있는 child SDK 요청은 메인 턴 취소와 독립적으로 유지한다.
+승인 요청 wrapper는 폐기된 채널과 취소된 SDK 요청을 현재 delegate에 넘기지 않는다. runtime은 send/listen의 원래 턴 신호를 adoption 때 보존하고, 채널 신호와 분리된 getter로 승인 콜백에 제공한다. main 승인 콜백은 첫 await 전에 이 신호를 한 번 캡처해 SDK 신호와 합성하며, Exit의 파일 읽기 뒤에도 같은 합성 신호를 requestApproval에 전달한다. requester도 유효 승인 신호를 화면 표시·이력 저장 전에 확인한다. 살아 있는 child SDK 요청은 메인 턴 신호 getter를 조회하지 않고 SDK 신호만 따라 메인 턴 취소와 독립적으로 유지한다.
 
 | Provider | 처리 |
 |---|---|
