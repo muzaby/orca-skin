@@ -420,6 +420,21 @@ function resolveSessionKey(
   return { key: null, pendingFallback: false }
 }
 
+function resolveApprovalOwner(
+  sessions: Record<string, { session: ChatState }>,
+  approvalId: string
+): string | null {
+  for (const [key, { session }] of Object.entries(sessions)) {
+    if (
+      session.pendingAsks.some((request) => request.requestId === approvalId) ||
+      session.pendingPlanReview?.requestId === approvalId ||
+      session.pendingToolApprovals.some((request) => request.approvalId === approvalId)
+    )
+      return key
+  }
+  return null
+}
+
 // 한 scheduler window의 모든 live delta를 단일 Zustand transaction으로 반영한다.
 // session 커밋 슬라이스 identity는 BEGIN_TURN이 필요한 첫 활동을 제외하고 그대로 유지된다.
 function receiveDeltaBatch(events: readonly DeltaEvent[]): void {
@@ -479,9 +494,10 @@ function releaseNewChatGate(expectedKey: string): void {
 // 보존해 진행 중 라이브 버퍼·메시지가 그대로 따라간다. main 의 promote(turn, sessionId)
 // 신원가드가 resume session.updated 의 오승격을 차단하고, renderer 의 기존 sessionId
 // 가드는 같은 세션 재방출을 방어한다(handoff 0040).
-function promotePendingNewChat(sessionId: string): void {
+function promotePendingNewChat(sessionId: string): boolean {
   let nextPayload: SendChatMessage | null = null
   let missingPending = false
+  let promoted = false
   setState((s) => {
     if (s.sessions[sessionId]) return s
     const pendingKey = s.pendingNewChatKey
@@ -498,6 +514,7 @@ function promotePendingNewChat(sessionId: string): void {
     delete rest[pendingKey]
     const [next, ...restQueue] = s.newChatQueue
     nextPayload = next?.payload ?? null
+    promoted = true
     return {
       sessions: { ...rest, [sessionId]: entry },
       pendingNewChatKey: next?.key ?? null,
@@ -509,6 +526,7 @@ function promotePendingNewChat(sessionId: string): void {
   if (missingPending)
     console.warn('[chat] session.updated without pending new-chat slot', sessionId)
   if (nextPayload) sendNewChatPayload(nextPayload)
+  return promoted
 }
 
 // 엔트리 제거. 활성 엔트리였다면 깨끗한 새 채팅으로 전환한다.
@@ -565,9 +583,10 @@ function receive(ev: NormalizedEvent): void {
   const evSessionId = 'sessionId' in ev ? ev.sessionId || null : null
 
   // session.updated = sessionId 발급/확정 시점 — main 에 진입한 pending draft 를 sessionId 키로 승격.
-  if (ev.type === 'session.updated' && !getState().sessions[ev.sessionId]) {
-    promotePendingNewChat(ev.sessionId)
-  }
+  const promotedNewChat =
+    ev.type === 'session.updated' && !getState().sessions[ev.sessionId]
+      ? promotePendingNewChat(ev.sessionId)
+      : false
 
   let key: string | null = null
   // sessionId 이벤트가 pending draft 로 폴백 라우팅됐는가 — 터미널 이벤트 시 게이트 해제용.
@@ -584,14 +603,17 @@ function receive(ev: NormalizedEvent): void {
     // sessionId 없는 message.queued = 새 세션 send 의 pending 등록(0067 — 핸드오프 자동 메시지
     // 포함, 턴 시작 전 발행). startHandoff/send 가 방금 세운 pendingNewChatKey(draft)로
     // 라우팅해야 사용자가 그 사이 다른 세션으로 이동해도 활성 화면을 오염하지 않는다.
-    // 0211 — `worktree.preparing` 도 세션 발급 전 신호라 같은 규칙이다. 준비 중 사용자가
-    // 다른 세션으로 이동해도 그 화면을 오염시키지 않는다.
+    // worktree 준비·독립 승인 콜백도 세션 발급 전에 올 수 있다. 해결은 이미 기록된
+    // approvalId 소유자를 찾아, 게이트가 넘어간 뒤의 늦은 응답도 다음 draft를 건드리지 않는다.
     key =
-      isTerminalWithoutSession(ev) ||
-      ev.type === 'message.queued' ||
-      ev.type === 'worktree.preparing'
-        ? (getState().pendingNewChatKey ?? getState().activeKey)
-        : getState().activeKey
+      ev.type === 'permission.resolved'
+        ? resolveApprovalOwner(getState().sessions, ev.approvalId)
+        : isTerminalWithoutSession(ev) ||
+            ev.type === 'message.queued' ||
+            ev.type === 'worktree.preparing' ||
+            ev.type === 'permission.requested'
+          ? (getState().pendingNewChatKey ?? getState().activeKey)
+          : getState().activeKey
   }
   if (!key) return // 미지 세션의 늦은 이벤트 — 폐기
 
@@ -795,6 +817,19 @@ function receive(ev: NormalizedEvent): void {
 
     case 'session.updated':
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
+      // 미확정 요청에는 nav 신원을 붙이지 않는다. 최초 승격 뒤에도 남아 있는 승인만
+      // 실제 세션으로 통지하며, 기존 세션/모드 patch는 열람으로 해제한 표시를 되살리지 않는다.
+      if (promotedNewChat) {
+        const session = getState().sessions[key]?.session
+        if (
+          session?.sessionId === ev.sessionId &&
+          (session.pendingAsks.length > 0 ||
+            session.pendingPlanReview !== null ||
+            session.pendingToolApprovals.length > 0)
+        ) {
+          for (const listener of responseRequestListeners) listener(ev.sessionId)
+        }
+      }
       // 마지막 활성 세션 영속화 — 백그라운드 턴이 lastSessionId 를 가로채지 않도록 활성만.
       // 코어 중립(0016): chat store 는 backend 를 모른다(이벤트에 provider 없음·레이어 경계상
       // backend store 의존 불가). lastBackend 영속은 backend store 소관 — 여기선 세션만 기록한다.

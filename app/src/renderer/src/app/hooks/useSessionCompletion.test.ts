@@ -98,7 +98,7 @@ const row: SessionListItem = {
   cwd: null,
   pinnedAt: null
 }
-function icon(): ReturnType<typeof load> {
+function icon(sessionId = row.id): ReturnType<typeof load> {
   // Zustand SSR reads getInitialState; render the actual production event's state and restore it.
   const initial = useSessionsStore.getInitialState()
   const original = { ...initial }
@@ -107,7 +107,7 @@ function icon(): ReturnType<typeof load> {
     return load(
       renderToStaticMarkup(
         createElement(SessionRow, {
-          session: row,
+          session: { ...row, id: sessionId },
           isActive: false,
           appearance: { navIcon: 'terminal2', label: 'chat.agent.code' }
         })
@@ -171,5 +171,102 @@ describe('0249 response attention across app features', () => {
     const source = readFileSync(new URL('./useSessionCompletion.ts', import.meta.url), 'utf8')
     expect(source).toContain('useEffect(subscribeSessionAttention, [])')
     expect(source).not.toContain('subscribeSessionCompletions')
+  })
+})
+
+describe('0249 ΔV3.1 — draft 승격 뒤 승인 주의 표시', () => {
+  function pendingDraft(action: PermissionAction): void {
+    const state = useChatStore.getState()
+    const entry = state.sessions.s
+    useChatStore.setState({
+      sessions: {
+        ...state.sessions,
+        draft: { ...entry, session: { ...entry.session, sessionId: null } }
+      },
+      pendingNewChatKey: 'draft'
+    })
+    const pendingAction: PermissionAction =
+      action.kind === 'ask_question'
+        ? { ...action, request: { ...action.request, requestId: 'a' } }
+        : action.kind === 'plan_review'
+          ? { ...action, request: { ...action.request, requestId: 'a' } }
+          : action
+    ingestChatEvent(request(pendingAction))
+  }
+
+  it.each(requestActions)(
+    '$kind는 noid 순간 표시 없이 승격한 실제 세션에 같은 파랑을 만든다',
+    (action) => {
+      pendingDraft(action)
+      expect(useSessionsStore.getState().unseenAttention.size).toBe(0)
+      ingestChatEvent({ type: 'session.updated', sessionId: 'promoted', patch: {} })
+      expect(useSessionsStore.getState().unseenAttention.get('promoted')).toBe('awaiting-response')
+      expect(useSessionsStore.getState().unseenAttention.has('s')).toBe(false)
+      const awaiting = icon('promoted')('[data-context="session-agent-kind"]')
+      expect(awaiting.attr('data-state')).toBe('awaiting-response')
+      expect(awaiting.hasClass('text-selected')).toBe(true)
+      expect(awaiting.attr('class')).toContain('[&_svg]:[stroke-width:40]')
+      const attention = useSessionsStore.getState().unseenAttention
+      ingestChatEvent({
+        type: 'session.updated',
+        sessionId: 'promoted',
+        patch: { permissionMode: 'plan' }
+      })
+      expect(useSessionsStore.getState().unseenAttention).toBe(attention)
+      sessionsActions.setViewedSession('promoted')
+      sessionsActions.setViewedSession(null)
+      ingestChatEvent({ type: 'session.updated', sessionId: 'promoted', patch: {} })
+      expect(useSessionsStore.getState().unseenAttention.size).toBe(0)
+      expect(icon('promoted')('[data-context="session-agent-kind"]').attr('data-state')).toBe(
+        'default'
+      )
+    }
+  )
+
+  it.each(requestActions)(
+    '$kind를 init 전에 해결하면 승격은 대기 표시를 만들지 않는다',
+    (action) => {
+      pendingDraft(action)
+      ingestChatEvent({
+        type: 'permission.resolved',
+        approvalId: 'a',
+        resolution: { behavior: 'deny' }
+      })
+      ingestChatEvent({ type: 'session.updated', sessionId: 'promoted', patch: {} })
+      expect(useSessionsStore.getState().unseenAttention.size).toBe(0)
+    }
+  )
+
+  it('실제 열람 가드는 승격 대기를 억제하고 activeKey만 같은 다른 route에서는 표시한다', () => {
+    pendingDraft(requestActions[2])
+    sessionsActions.setViewedSession('promoted')
+    ingestChatEvent({ type: 'session.updated', sessionId: 'promoted', patch: {} })
+    expect(useSessionsStore.getState().unseenAttention.size).toBe(0)
+    installChatStoreHarness({ inflight: true })
+    sessionsActions.setViewedSession(null)
+    pendingDraft(requestActions[2])
+    useChatStore.setState({ activeKey: 'draft' })
+    ingestChatEvent({ type: 'session.updated', sessionId: 'route-away', patch: {} })
+    expect(useChatStore.getState().activeKey).toBe('route-away')
+    expect(useSessionsStore.getState().unseenAttention.get('route-away')).toBe('awaiting-response')
+  })
+
+  it('구독을 해제한 뒤의 승격과 승인 없는 새 세션은 표시를 만들지 않는다', () => {
+    pendingDraft(requestActions[2])
+    unsubscribe()
+    ingestChatEvent({ type: 'session.updated', sessionId: 'promoted', patch: {} })
+    expect(useSessionsStore.getState().unseenAttention.size).toBe(0)
+    installChatStoreHarness({ inflight: true })
+    unsubscribe = subscribeSessionAttention()
+    const state = useChatStore.getState()
+    useChatStore.setState({
+      sessions: {
+        ...state.sessions,
+        draft: { ...state.sessions.s, session: { ...state.sessions.s.session, sessionId: null } }
+      },
+      pendingNewChatKey: 'draft'
+    })
+    ingestChatEvent({ type: 'session.updated', sessionId: 'without-approval', patch: {} })
+    expect(useSessionsStore.getState().unseenAttention.size).toBe(0)
   })
 })

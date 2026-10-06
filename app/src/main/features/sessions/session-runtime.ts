@@ -720,8 +720,6 @@ export class SessionRuntime implements ManagedRuntime {
         .child('engine')
         .info('engine.channel.teardown', { provider: this.adapter.id, reason: 'forced' })
     }
-    this.channelController.abort()
-    this.channelController = new AbortController()
     const frame = this.frame
     this.frame = null
     // 채널 폐기는 취소가 아니다 — 이미 받은 이벤트는 소비자가 드레인하도록 둔다(end).
@@ -741,6 +739,10 @@ export class SessionRuntime implements ManagedRuntime {
   // frame/drain/backlog 전이는 각 종료 경로가 소유한다. 여기서는 현재 채널의 자원만 회수한다.
   private retireChannel(live = this.live): void {
     if (live !== this.live) return
+    // 자연 스트림 종료·오류도 명시 teardown과 같은 채널 수명 경계다. 어댑터의 늦은 콜백과
+    // retirement observer가 현재 턴 위임에 접근하기 전에 캡처된 신호부터 무효화한다.
+    this.channelController.abort()
+    this.channelController = new AbortController()
     this.runtimeToolContext?.close()
     this.runtimeToolContext = null
     try {
@@ -817,9 +819,16 @@ export class SessionRuntime implements ManagedRuntime {
     const channelSignal = this.channelController.signal
     const forward: { [K in (typeof ADAPTER_DELEGATE_KEYS)[number]]: NonNullable<TurnRequest[K]> } =
       {
-        requestApproval: (action, signal) =>
-          this.delegate.requestApproval?.(action, signal) ??
-          Promise.resolve({ behavior: 'deny' as const }),
+        requestApproval: (action, signal) => {
+          // 파일 읽기 등에서 늦게 재개된 옛 채널 요청은 현재 턴 위임에 접근하지 않는다.
+          if (channelSignal.aborted || signal?.aborted) {
+            return Promise.resolve({ behavior: 'deny' as const })
+          }
+          return (
+            this.delegate.requestApproval?.(action, signal) ??
+            Promise.resolve({ behavior: 'deny' as const })
+          )
+        },
         onPermissionModeChanged: (sessionId, mode) => {
           if (!channelSignal.aborted) this.delegate.onPermissionModeChanged?.(sessionId, mode)
         }
