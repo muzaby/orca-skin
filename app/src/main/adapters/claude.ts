@@ -22,6 +22,7 @@ import type {
 } from '../../shared/ipc'
 import {
   PLAN_APPROVED_MODE,
+  fromClaudePermissionMode,
   toClaudePermissionMode,
   type NormalizedPermissionMode
 } from '../../shared/permission-mode'
@@ -212,16 +213,17 @@ export function makeCanUseTool(
     if (toolName === 'ExitPlanMode' && requestApproval) {
       // 파일 정본은 입력이 차 있어도 확인한다. CLI 주입 캐시가 낡았거나 custom 인프라가
       // 필드를 잘못 파싱한 경우 요청 본문과 allow 입력을 함께 보정한다(0249 ΔV1).
-      const files = await opts.getPlanFiles?.(input)
+      const childRequest = options?.agentID !== undefined
+      const files = childRequest ? undefined : await opts.getPlanFiles?.(input)
       const resolved = resolvePlanReview(input, {
         ...files,
-        narrative: opts.getPlanNarrative?.()
+        narrative: childRequest ? undefined : opts.getPlanNarrative?.()
       })
       const res = await requestApproval(
         {
           kind: 'plan_review',
           request: { requestId: '', plan: resolved.plan },
-          ...(providerRequest ? { input, providerRequest } : {})
+          ...(providerRequest ? { input: resolved.updatedInput, providerRequest } : {})
         },
         signal
       )
@@ -233,13 +235,17 @@ export function makeCanUseTool(
         return {
           behavior: 'allow',
           updatedInput: resolved.updatedInput,
-          updatedPermissions: [
-            {
-              type: 'setMode',
-              mode: toClaudePermissionMode(opts.planApprovalMode ?? PLAN_APPROVED_MODE),
-              destination: 'session'
-            }
-          ]
+          ...(childRequest
+            ? {}
+            : {
+                updatedPermissions: [
+                  {
+                    type: 'setMode',
+                    mode: toClaudePermissionMode(opts.planApprovalMode ?? PLAN_APPROVED_MODE),
+                    destination: 'session'
+                  }
+                ]
+              })
         }
       }
       // deny: planFeedback(구조화 코멘트) 우선 — 자기서술 블록이라 '사용자 수정 요청:' 프리픽스
@@ -488,6 +494,12 @@ export class ClaudeAdapter implements SessionAdapter {
     const plansDir = claudePlansDirectory(contextEnv)
     const planFileCell: PlanFileCell = {}
     const readForPlan = nodePlanFileReader()
+    const getPlanFiles = async (
+      input: unknown
+    ): Promise<{ tracked?: PlanFile; declared?: PlanFile }> => ({
+      tracked: await readTrackedPlanFile(planFileCell, readForPlan),
+      declared: await readDeclaredPlanFile(input, plansDir, readForPlan)
+    })
 
     const handle = query({
       prompt: input.stream,
@@ -585,10 +597,7 @@ export class ClaudeAdapter implements SessionAdapter {
                 // 매퍼가 쓰는 **같은 ctx** 를 읽는다(0215 EP-01) — 이 인자를 빼면 계획을
                 // 입력에 싣지 않는 모델에서 우측 패널이 다시 빈다.
                 getPlanNarrative: () => ctx.lastAssistantText,
-                getPlanFiles: async (input) => ({
-                  tracked: await readTrackedPlanFile(planFileCell, readForPlan),
-                  declared: await readDeclaredPlanFile(input, plansDir, readForPlan)
-                }),
+                getPlanFiles,
                 ...(isSubagentBlocked ? { isSubagentBlocked } : {})
               })
             }
@@ -687,6 +696,33 @@ export class ClaudeAdapter implements SessionAdapter {
             const reconciled = receipts.reconcile(event)
             return reconciled ? [reconciled] : []
           })
+          if (
+            mainMessage &&
+            !('agent_id' in msg && msg.agent_id != null) &&
+            !provider.source.replay &&
+            msg.type === 'system' &&
+            (msg.subtype === 'init' || msg.subtype === 'status')
+          ) {
+            const mode = fromClaudePermissionMode(msg.permissionMode)
+            if (mode && typeof msg.session_id === 'string' && msg.session_id.trim() !== '') {
+              // initはsession.updatedの消費前なのでcompositionが確定まで保留する。
+              // statusは表示/controllerだけに伝え、session生成イベントに変換しない。
+              req.onPermissionModeChanged?.(msg.session_id, mode)
+            }
+          }
+          for (const event of events) {
+            if (
+              event.type === 'tool.call.started' &&
+              event.toolName === 'ExitPlanMode' &&
+              !event.parentToolRunId &&
+              !provider.source.replay
+            ) {
+              event.args = resolvePlanReview(
+                event.args,
+                await getPlanFiles(event.args)
+              ).updatedInput
+            }
+          }
           if (msg.type === 'assistant' || msg.type === 'stream_event' || msg.type === 'result') {
             events.unshift(...receipts.response(msg, ctx.sessionId))
             events.unshift(...receipts.drain(ctx.sessionId))

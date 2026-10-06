@@ -17,12 +17,13 @@ import {
 
 // 프레임 위임 키 — **채널보다 짧은 수명(체인·턴)을 캡처한 콜백의 정본 목록**이다. 채널은 체인보다
 // 오래 살므로 이 콜백들은 spawn 시점 값으로 굳으면 안 되고, 매 send/listen 마다 갈아끼워야 한다.
-// 승인 콜백은 어댑터에 넘어가 고정 래퍼를 거치고(`wrapRequest`), 나머지는 Runtime 이 직접 읽는다.
+// 승인·권한 관측 콜백은 어댑터에 넘어가 고정 래퍼를 거치고(`wrapRequest`), 나머지는 Runtime이 읽는다.
 const FRAME_DELEGATE_KEYS = [
   'requestApproval',
   'captureInterruptReceipt',
   'onChannelRetired',
   'onSessionSchedules',
+  'onPermissionModeChanged',
   'onProviderEvent'
 ] as const
 
@@ -30,7 +31,10 @@ type FrameDelegateKey = (typeof FRAME_DELEGATE_KEYS)[number]
 type FrameDelegate = Pick<TurnRequest, FrameDelegateKey>
 
 // 어댑터로 넘어가는 부분집합 — 나머지는 Runtime 내부 소비라 요청에 실리지 않는다.
-const ADAPTER_DELEGATE_KEYS = ['requestApproval'] as const satisfies readonly FrameDelegateKey[]
+const ADAPTER_DELEGATE_KEYS = [
+  'requestApproval',
+  'onPermissionModeChanged'
+] as const satisfies readonly FrameDelegateKey[]
 
 // 요청에서 프레임 위임만 골라낸다. **요청을 처음부터 재조립하는 경로**(listen 은 원 request 를
 // spread 하면 base64 첨부가 분 단위로 살아남아 최소 리터럴로 짓는다, 0149)가 위임을 절반만
@@ -810,11 +814,15 @@ export class SessionRuntime implements ManagedRuntime {
   // 래퍼 맵은 `ADAPTER_DELEGATE_KEYS` 전부를 요구하는 타입이라, 위임이 하나 늘었는데 여기 래퍼를
   // 안 만들면 **컴파일 에러**가 난다 — spawn 클로저가 조용히 굳는 경로를 타입으로 막는다.
   private wrapRequest(req: TurnRequest): TurnRequest {
+    const channelSignal = this.channelController.signal
     const forward: { [K in (typeof ADAPTER_DELEGATE_KEYS)[number]]: NonNullable<TurnRequest[K]> } =
       {
         requestApproval: (action, signal) =>
           this.delegate.requestApproval?.(action, signal) ??
-          Promise.resolve({ behavior: 'deny' as const })
+          Promise.resolve({ behavior: 'deny' as const }),
+        onPermissionModeChanged: (sessionId, mode) => {
+          if (!channelSignal.aborted) this.delegate.onPermissionModeChanged?.(sessionId, mode)
+        }
       }
     const wrapped: Record<string, unknown> = {}
     for (const key of ADAPTER_DELEGATE_KEYS) {

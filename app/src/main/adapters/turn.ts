@@ -198,6 +198,9 @@ export interface TurnRequest {
     schedules: import('../../shared/session-schedules').SessionSchedule[],
     pendingWakeup?: boolean
   ) => void
+  // SDK가 실제 정착한 세션 권한을 보고한다. 세션 생성/history 버스에 재발행하지 않고
+  // 컴포지션 루트가 controller와 renderer를 함께 갱신한다(0249 ΔV3).
+  onPermissionModeChanged?: (sessionId: string, mode: NormalizedPermissionMode) => void
   // 중단된 서브에이전트 타입 재호출 차단 술어(가이드 §6-A). turn.blockedSubagents 를 읽는다.
   isSubagentBlocked?: (subagentType: string | undefined) => boolean
   attachmentTexts?: ExtractedAttachmentText[]

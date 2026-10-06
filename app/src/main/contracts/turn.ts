@@ -1,4 +1,4 @@
-import type { AttachmentView } from '../../shared/ipc'
+import type { AttachmentView, NormalizedEvent } from '../../shared/ipc'
 import type { AgentKind } from '../../shared/agent-kind'
 import type { ResolvedHarnessSettings } from '../adapters/harness-config'
 import type { LineageRelation } from '../infra/db/types'
@@ -48,6 +48,11 @@ export interface TurnContext<W = unknown> {
   }>
   askPendingIds: string[]
   askResolved: Map<string, { answers: Record<string, string | string[]>; response?: string }>
+  // 계획 승인에서 읽은 입력은 호출별 정본이다. Stop은 파일 추적만 비우며 늦은 started를
+  // 보정할 이 값은 턴 context와 함께 해제한다(0249 ΔV3).
+  planToolInputs?: Map<string, { input: unknown; sessionId?: string }>
+  // 세션 확정 전 도착한 메인 계획 호출만 보류하고 session.updated 뒤 원래 순서로 저장한다.
+  pendingPlanToolCalls?: Array<Extract<NormalizedEvent, { type: 'tool.call.started' }>>
   subagentTaskIds: Map<string, string>
   openToolRuns: Map<string, { parentToolRunId?: string }>
   subagentTypes: Map<string, string>

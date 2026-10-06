@@ -51,6 +51,25 @@ function base(): Parameters<typeof buildTurnContext<string>>[0] {
 }
 
 describe('buildTurnContext', () => {
+  it('0249 — 계획 승인 입력과 미확정 호출은 새/연속 턴에 상속하지 않는다', () => {
+    const previous = buildTurnContext<string>(base())
+    previous.planToolInputs!.set('same-id', { input: { plan: 'previous plan' } })
+    previous.pendingPlanToolCalls!.push({
+      type: 'tool.call.started',
+      sessionId: '',
+      toolRunId: 'same-id',
+      toolName: 'ExitPlanMode',
+      args: { plan: 'previous plan' }
+    })
+    for (const next of [buildTurnContext<string>(base()), makeContinuationTurn(previous)]) {
+      expect(next.planToolInputs).toEqual(new Map())
+      expect(next.planToolInputs).not.toBe(previous.planToolInputs)
+      expect(next.pendingPlanToolCalls).toEqual([])
+      expect(next.pendingPlanToolCalls).not.toBe(previous.pendingPlanToolCalls)
+    }
+    expect(previous.planToolInputs!.get('same-id')).toEqual({ input: { plan: 'previous plan' } })
+    expect(previous.pendingPlanToolCalls).toHaveLength(1)
+  })
   it('keeps Work identity across automatic turns while starting a fresh response boundary', () => {
     const turn = buildTurnContext<string>({ ...base(), agentKind: 'work' })
     turn.responseBoundary = { id: 'previous-response', messageId: 3 }

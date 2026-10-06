@@ -6,6 +6,7 @@ import {
   NORMALIZED_MODES,
   PLAN_APPROVED_MODE,
   toClaudePermissionMode,
+  fromClaudePermissionMode,
   fromUiPermissionMode,
   type NormalizedPermissionMode,
   type ClaudePermissionMode
@@ -42,6 +43,23 @@ describe('permission-mode 정규화', () => {
     ]
     for (const mode of NORMALIZED_MODES) {
       expect(sdkUnion).toContain(toClaudePermissionMode(mode))
+    }
+  })
+
+  it('SDK 보고 6종을 정규화하고 unknown·미지정 값은 무시한다(0249 VP-38)', () => {
+    const cases = [
+      ['default', 'default'],
+      ['acceptEdits', 'accept_edits'],
+      ['plan', 'plan'],
+      ['dontAsk', 'dont_ask'],
+      ['bypassPermissions', 'bypass'],
+      ['auto', 'auto_classified']
+    ] as const
+    for (const [sdk, normalized] of cases) {
+      expect(fromClaudePermissionMode(sdk)).toBe(normalized)
+    }
+    for (const value of [undefined, null, '', 'unknown', 'accept_edits', 'PLAN', {}, 1]) {
+      expect(fromClaudePermissionMode(value)).toBeUndefined()
     }
   })
 
