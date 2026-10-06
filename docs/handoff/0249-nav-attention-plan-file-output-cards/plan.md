@@ -11,15 +11,16 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-04 |
 | 매핑 | 기준 커밋 `origin/main@954e6fff` |
-| 상태 | READY (ΔV2) — PLAN_GAP PG-01 정정 |
+| 상태 | READY (ΔV3) — 사용자 요청으로 계획 모드 콜백·보정 데이터 종단 재개 |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | V1 = `none`(신규) · ΔV1 = `0249:V1@266bdbfe` · ΔV2 = `0249:ΔV1@c6e7b7e1`(모두 공유 브랜치 확인). 다른 handoff 의 동작은 `INHERITED` 회귀로만 둔다 |
-| 이번 V revision | `ΔV2` — r1 구현이 올린 PLAN_GAP PG-01 정정(결정⑯). 직전 `ΔV1` = 사용자 결정 변경(⑪~⑭)·진술⑮·추가 요구⑦ |
-| 유효 V | `V1 + ΔV1 + ΔV2` |
+| 이번 V revision | `ΔV3` — Enter/ExitPlanMode 경로 진단, 승인 입력·카드·이력 일치, 실제 모드 관측 |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3` |
 | 구현 주체 | Codex — r1(`61c12248`)부터 사용자 지시(`[구현자 기입]` 설계 리뷰). V1 작성 시점 계획은 Claude 였다 |
 
 > **ΔV1 적용(2026-10-04)** — ③ 백그라운드 패널·④ ExitPlanMode 에 관한 V1 서술(§1·§2·§5·§6·§7·§7-A·§9~§19 의 해당 행)은 문서 끝 **§ΔV1** 이 대체한다. ⑦ 엔진&모델 개수는 ΔV1 신설이다. 유효 AC 20.
 > **ΔV2 적용(2026-10-04)** — r1 이 올린 PLAN_GAP PG-01(AC19)을 닫는다. AC19·VP-23·VP-24 와 백그라운드 표시 정착 규칙은 문서 끝 **§ΔV2** 가 정본이다. 유효 AC 21.
+> **ΔV3 적용(2026-10-06)** — 문서 끝 **§ΔV3**가 계획 콜백의 보정 입력을 카드·이력까지 연결하고 Enter/Exit 실제 모드 보고를 동기화한다. 승인 시점 파일 정본·계획 패널 UI 불변은 유지한다. 유효 AC 25.
 
 ---
 
@@ -86,6 +87,10 @@
 | D-029 (ΔV1) | 엔진&모델 제목 옆 개수 = 화면에 그린 카드 수(`agents.length`) — settings·runtime(배포 LLM) 공통 | 요구⑦ "카드 숫자와 동기화되어야 함" | 요구⑦ | ACTIVE | 0226 D-24 변경(§ΔV1 Δ7) |
 | D-030 (ΔV2) | 현재 세대 live 목록이 확립된 뒤 그 목록에 없고 종료 증거도 없는 백그라운드 작업, 그리고 이전 세대·`terminated` 연결의 원격 작업은 **표시만** 정착한다 — 완료 그룹 '종료 확인 불가'(`unconfirmed`), 경과는 마지막 관측에서 멈춘다. 이후 종료 증거가 오면 실제 결과로 바뀐다. canonical 기록은 바꾸지 않는다 | 결정⑯ — 실행 중 = Spark N(결정⑪)을 지키면서 종료를 합성하지 않는다(0231 D-06) | 결정⑯ | ACTIVE | 0239 D-012 확장 · 0231 원격 미정착 표시 변경(§ΔV2 Δ7) |
 | D-031 (ΔV2) | 그 결과 도달 불가가 된 `excluded` 표시 상태(분기·union·라벨 맵·i18n `background.excluded`)를 삭제한다 | D-015 와 같은 규칙 — 죽은 형제 분기가 검사 장치를 침묵시킨다 | 설계 | ACTIVE | — |
+| D-032 (ΔV3) | 메인 ExitPlanMode의 파일 보정 입력은 승인 action.input·CLI allow·도구 호출 args·저장 이력에 함께 적용한다. 원본의 추가 필드는 보존한다 | 사용자 2026-10-06: 정확한 데이터가 충족하지 않았을 때 폴백으로 보정된 값이 채워져야 한다 | 이번 요청 | ACTIVE | D-025·D-026 보완, 카드 새 레이아웃 없음 |
+| D-033 (ΔV3) | 승인 콜백이 읽은 최신 파일이 그 호출의 정본이다. 먼저 온 started의 읽기를 콜백이 재사용하지 않는다. toolUseId와 소유 세션으로 기존/늦은 호출을 같은 값으로 보정한다 | SDK control_request와 assistant 소비는 독립 비동기 경로다 | 설치 SDK sdk.mjs, 이번 진단 | ACTIVE | Stop 뒤 새 요청에 이전 파일을 재사용하지 않음 |
+| D-034 (ΔV3) | child 호출에는 메인 계획 파일·서술을 주입하지 않는다. 파일 출처가 없으면 D-025·D-026의 입력/서술 폴백을 유지하며 경로를 만들지 않는다 | 메인 파일 추적 D-015와 동일한 소비 경계 | 이번 진단 | ACTIVE | 추가 필드 삭제·파일 검색 추측 없음 |
+| D-035 (ΔV3) | EnterPlanMode 입력 `{}`·출력 `message`, Exit 내부 입력 `planFilePath`·출력 `filePath`를 구별한다. 유효한 main/live SDK init/status의 실제 권한 모드를 controller·renderer에 반영한다 | CLI가 계획 모드에 들어가도 현재 앱은 status.permissionMode를 버린다 | 설치 SDK 0.3.286·CLI 2.1.286 | ACTIVE | 세션 생성 이벤트를 bus에 재발행하지 않음 |
 
 ### 갱신 메모
 
@@ -1524,3 +1529,88 @@ node scripts/check-doc-inventory.mjs --check
 | D2 | `ino` Number 비교의 안전정수 밖 반올림(N-01) | 비귀속 | `bigint` stat | NON_BLOCKING | open |
 | D3 | 구현자가 `[검증자 기입]` 절에 직접 기입 | `docs/handoff/AGENTS.md §충돌 최소화` | 검증자 재분류로 대체 | NON_BLOCKING | closed |
 | D4 | `auth.md` 조사 오류 `` `연결됨`와 `` | 비귀속 | `과`로 정정 | NON_BLOCKING | open |
+
+---
+
+# ΔV3 — 계획 모드 콜백·핸들러와 보정 입력 종단 (2026-10-06)
+
+## 1. Product & UX Contract / 결정 복원
+
+사용자는 “정확한 데이터가 충족하지 않았을때 폴백으로 보정된 값”과 계획 모드에서 호출되는 콜백·핸들러의 적극적인 분석을 요구했다. D-025~027의 파일 정본·서술 폴백·계획 패널 UI 계약을 유지하면서, D-032~035로 카드·이력과 실제 모드 보고 경로를 보완한다. 새 제품 정책·새 의존성은 없다.
+
+| 시작 / 상태 | 관측 결과 |
+|---|---|
+| 메인 ExitPlanMode의 입력 누락·stale 값, 허용된 계획 파일 존재 | 승인 본문, CLI allow 입력, 라이브 도구 카드와 재로드 카드가 승인 시점 파일의 `plan`·`planFilePath`를 사용한다. 알 수 있는 원래 필드도 보존한다. |
+| started가 승인 요청보다 먼저 도착 | 처음 읽을 수 있는 파일로 입력을 보완하고 승인 요청에서 최신 파일을 다시 읽어 해당 호출만 교정한다. |
+| 승인 요청이 started보다 먼저 도착 | 같은 턴·세션·toolUseId의 보정 입력을 보관해 늦은 started에도 적용한다. |
+| 승인 뒤 Stop, 늦은 동일 호출 started / Stop 뒤 새 호출 | 옛 호출에는 검토한 입력을 유지한다. 새 호출은 비워진 파일 추적 셀로 다시 판정한다. |
+| 파일 부재·빈 파일·읽기 실패 | 기존 입력·서술·빈 본문 순서를 유지하며 CLI 입력에 서술이나 가짜 경로를 만들지 않는다. |
+| 하위 에이전트 호출 | 메인 계획 파일·메인 서술을 빌리지 않는다. 메인 도구 카드·계획 모드에도 영향을 주지 않는다. |
+| 승인·수정 요청·거부·취소 | 검토한 보정 입력은 카드·이력에 남는다. CLI allow·권한 변경은 승인 결과에만 적용한다. |
+| 메인 live SDK init/status의 permissionMode 보고 | 실제 보고된 모드를 controller와 renderer에 반영한다. 기존 session 생성·continuity·history 경로를 다시 실행하지 않는다. |
+
+SDK 설치본 `sdk-tools.d.ts`와 CLI 2.1.286 런타임을 확인했다. Enter 입력은 `{}`, 결과는 `message`다. Exit의 모델 입력에는 deprecated `allowedPrompts`가 있으며 CLI가 내부 입력 `plan`·`planFilePath`를 주입한다. 결과는 `plan`·`filePath`다. `planfilepath`는 해당 계약의 필드명이 아니다. CLI는 실행 전에 파일을 다시 읽으므로 assistant 입력과 canUseTool 입력은 다를 수 있다. SDK control request와 iterator도 독립 진행하므로 어느 쪽이 먼저라는 가정을 금지한다. 실제 모드 보고는 `system/init`·`system/status.permissionMode`이며 telemetry 문자열을 새 SDK subtype으로 해석하지 않는다.
+
+### Acceptance Criteria (유효 AC 25)
+
+| ID | 동작 기준 | 검증 / 프로덕션 도달 경로 |
+|---|---|---|
+| AC24 | 보정된 메인 Exit 입력이 승인 action·CLI allow·라이브 카드·영속 이력·재로드 카드에 같게 전달된다. 기존 입력과 기타 필드·정상 입력 참조는 보존한다. | 실제 adapter query → approval requester → history/DB → reducer → Work/Code 카드. VP-33~35. |
+| AC25 | 두 도착 순서와 파일 변경·Stop·중복 요청·다른 호출/턴/세션에서 보정 입력의 소유권·승인 시점 정본이 성립한다. | 제어 가능한 SDK iterator/control callback·실제 history writer의 순서 fixture. VP-33·34·36. |
+| AC26 | 하위 호출에는 메인 파일·서술을 섞지 않고, 파일 없는 fallback과 Enter/Exit 입력·결과 계약을 구별한다. | adapter·resolver·mapper의 입력/결과 직접 단언, 파일 reader 기존 회귀. VP-09′·33·36. |
+| AC27 | 실제 메인 live init/status 모드가 controller·renderer에 반영되고, 이후 send/listen의 최신 delegate·세션 수명에 맞는다. unknown·child·replay는 무시한다. | adapter report → TurnRequest port → runtime delegates → composition controller/forward-only renderer. VP-37·38. |
+
+## 2. V 노드 / 기준선
+
+V mode는 **Delta V**다. 기준선 V1+ΔV1+ΔV2는 공유 main `ceda5c5a`와 기존 ΔV2 설계 `f3198994`에서 확인했다(`git cat-file -t`: commit). 해당 설계와 기존 verify의 계약은 비영향 영역에서 유지한다.
+
+| 노드 | 변화 | 계약 / 대응 pair |
+|---|---|---|
+| R-04 | CHANGED | D-032~034·AC24/26의 사용자 도구 입력 종단. 기존 VP-09′를 확장하며 이전 선택 변이 5개를 승계한다. |
+| R-08 | NEW | D-035·AC27의 실제 모드 반영. VP-35의 카드 수용과 VP-37의 경계 검증에 연결한다. |
+| SD-02 | CHANGED | 승인·started의 독립 순서, 파일 수정·Stop·턴 종료 수명. VP-36. |
+| AR-02 | CHANGED | adapter → permission action → requester/history → DB/reducer의 입력 운반. VP-34. |
+| AR-06 | NEW | SDK mode → callback → runtime delegate → app/renderer. VP-37. |
+| MD-06 | NEW | 같은 호출의 보정 입력 식별·결합과 main/child 분리. VP-33. |
+| MD-07 | NEW | SDK 권한 모드의 검증·정규화, 미지정값 처리. VP-38. |
+
+| pair | 레벨 / requiredness | start → edges → end / 직접 oracle |
+|---|---|---|
+| VP-09′ | R↔AT / REQUIRED (CHANGED) | 파일/입력 → callback resolver → 승인 본문·CLI 입력. 기존 출처/참조 단언과 child 음성 대조. M-D1·D2′·D3′·D4′·D10 승계. |
+| VP-33 | MD↔UT / REQUIRED | 보정 action·원본 started → 식별/결합 → 같은 호출 args. 식별 부재·다른 tool·child·같은 id의 다른 세션 음성 대조. |
+| VP-34 | AR↔IT / REQUIRED | adapter callback → requester persist-before-send → writer/DB → 재로드 입력. args만 교정, 기존 순서·parent·결과·다른 세션을 직접 비교. |
+| VP-35 | R↔AT / REQUIRED | 생산된 started/request → live reducer 및 저장 payload/reload → Work/Code SSR. 카드의 plan/path 값과 원래 필드, 이웃 호출을 비교. |
+| VP-36 | SD↔ST / REQUIRED | iterator/control callback → hook 파일 수정·Stop → 승인 및 늦은 호출 입력. 양방향 순서·중복·새 호출·child·deny/abort 직접 단언. |
+| VP-37 | AR↔IT / REQUIRED | SDK init/status → observer → TurnRequest/runtime → 실제 controller와 renderer patch. 최신 delegate와 폐기·교체 세션 음성 대조. |
+| VP-38 | MD↔UT / REQUIRED | SDK mode 6종/unknown → validator → normalized 6종 또는 무시. Enter `{}`/message, Exit 결과 filePath도 별도 단언. |
+| VP-10·11′·12·13′·20 | INHERITED / REGRESSION | 기존 hook·reader·resolver·narrative 경로. M-D5~9 승계, 기존 직접 oracle 유지. |
+| VP-01~08′·15~19·21′~32 | INHERITED / NOT_REQUIRED | 로그인·주의 표시·배경 투영·파일 슬롯·엔진·표시 정착은 이번 입력/모드 경로에 닿지 않는다. 기준선 위와 같음. |
+
+유효 pair 총수 37(기존 31 + 신규 6). 이번 선택은 REQUIRED 7 + REGRESSION 5 =12이며 나머지 25는 비영향이다. 기존 AC21·파일 보안·D-027·VP-20을 약화하지 않는다. 기존 VP-14는 폐기 상태 유지다. R-08의 R↔AT는 VP-35에서 카드에 전달되는 모드/입력 상태를, AR-06의 IT는 VP-37에서 controller/renderer 실제 모드를 확인한다.
+
+## 3. Technical Design
+
+1. `claude.ts`의 메인 Exit 시작 이벤트를 현재 파일 출처로 보완한다. canUseTool은 **그 순간** 파일을 다시 읽어 action.input에 `resolved.updatedInput`을 넣는다. 정상 입력은 기존 객체를 그대로 사용한다. child에서는 main getter를 호출하지 않는다.
+2. 기존 `permission.requested`의 plan_review/action.input/providerRequest 식별을 재사용한다. shared 순수 helper에서 검증해 main toolUseId와 입력을 꺼낸다. 새 IPC/event/DB 스키마는 추가하지 않는다.
+3. approval requester는 같은 요청 이벤트를 persistence에 먼저 전달한 뒤 renderer로 보낸다. history writer는 TurnContext 소유 보정 Map과 session-scoped tool_call args UPDATE로 이미 저장된 호출 및 늦게 도착한 호출을 교정한다. relay 전에 late started.args를 교정하며 renderer는 기존 call의 args만 교정한다. 세션 id가 없으면 턴 Map에 두고 세션 확정 뒤 pending 저장 경로를 이용한다. 턴 종료 뒤 해당 context와 함께 해제한다. Stop은 file 추적 셀만 비운다.
+4. UPDATE는 sessionId·toolUseId·toolName으로 한정하고 args만 변경한다. parent·결과·순서와 다른 세션은 그대로 둔다. DB 실패는 기존 history critical 오류 경로로 처리하며 성공을 조용히 가장하지 않는다.
+5. 실제 main/live SDK init/status.permissionMode를 검증하는 observer port를 TurnRequest에 추가한다. runtime의 frame/adapter delegate 두 경로에서 최신 callback을 참조한다. app은 유효한 현재 세션의 controller를 갱신하고 renderer에 permissionMode session.updated를 **forward-only** 보낸다. history/coordinator/session 생성 bus에는 재발행하지 않는다. init 보고는 세션 확정 순서를 보장한다.
+6. Enter passthrough와 SDK 도구 결과는 보존한다. 승인은 기존 `updatedPermissions` setMode, 수정/거부/abort는 기존 deny 동작을 유지한다. D-015~017 reader 보안과 정상 입력의 reference 보존을 그대로 사용한다.
+
+## 10. 강제 지점 / 운영 gate
+
+| ID | 계약 | 지정 물리 자리 / 직접 oracle | 실패 의미 / 선택 적대 증거 |
+|---|---|---|---|
+| EP-04′ | 기존 파일 정본 | hook 편입·cell getter·resolver·reader·canUseTool 반환의 기존 자리 유지 | 승계 M-D1~10, 기존 verify에서 red였던 자리 재확인. |
+| EP-11 | 보정 입력 종단 | adapter started, canUseTool action.input, requester persist-before-send, writer late started, DB scoped args update, reducer 기존 call 교정: **6자리** | 값 직접 비교. 운반 단절의 민감도 M-F1~6를 각 자리 제거로 확인. |
+| EP-12 | 호출 소유권 | shared action 식별, writer 턴 Map, SQL 세션 필터, reducer tool id/name: **4자리** | 다른 호출·세션·child 음성 대조. 세션 범위 제거 M-F7로 실제 DB 교차 오염 검출. |
+| EP-13 | 실제 모드 | adapter main/live report, TurnRequest app callback, runtime frame delegate, runtime adapter delegate, controller set+renderer send: **5자리** | SDK report→실제 state 직접 비교. M-F8(adapter observer 제거), M-F9~10(delegate 각각 누락) 선택. |
+| EP-14 | 데이터/문서 계약 | Enter/Exit SDK 타입·결과, plan 메타·본 ΔV3·INDEX 상태: **4자리** | 실제 필드/결과와 갱신 산출 재독. 구조적 수량을 성공 근거로 대신하지 않는다. |
+
+등록 신규 변이 10(M-F1~10)은 배선·범위 oracle의 민감도를 증명한다. 승계 변이 10(M-D1~10)은 변경 장치의 하한이다. 직접 값/순서 oracle에는 추가 변이를 임의로 늘리지 않는다. 전수 검색으로 실제 producer/consumer와 지정 자리의 차집합을 보고한다.
+
+적용 gate: `app/AGENTS.md`의 lint·node/web/test typecheck, 선택 pair 테스트와 영향 회귀, doc-inventory·test budget·migration append-only guard, diff/trailer/공유 브랜치 확인. better-sqlite3 ABI는 바꾸지 않으며 실제 DB 검증은 설치 binary에 맞는 런타임으로 분리한다. 파일 조상 lstat sandbox EPERM은 권한 있는 실행으로 분리한다. 실 외부 모델 실행은 기계 fixture 성공과 구별해 미실행 여부를 보고한다.
+
+## READY self-review
+
+Decision D-032~035 ↔ AC24~27 ↔ 4개 V 수준 ↔ EP-11~14와 callback/consumer 경로를 대조했다. 계획 본문/경로의 정본은 승인 시점 파일이다. 카드·DB·모드 소비처까지 설계에 포함했고 기존 정상 입력·narrative/empty·child·Stop 계약도 판정했다. INDEX는 plan/READY·Codex로 재개한다. 설계 정정은 구현과 별도 커밋으로 전달한다.
