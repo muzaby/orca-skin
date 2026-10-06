@@ -1572,7 +1572,7 @@ V mode는 **Delta V**다. 기준선 V1+ΔV1+ΔV2는 공유 main `ceda5c5a`와 �
 | AR-02 | CHANGED | adapter → permission action → requester/history → DB/reducer의 입력 운반. VP-34. |
 | AR-06 | NEW | SDK mode → callback → runtime delegate → app/renderer. VP-37. |
 | MD-06 | NEW | 같은 호출의 보정 입력 식별·결합과 main/child 분리. VP-33. |
-| MD-07 | NEW | SDK 권한 모드의 검증·정규화, 미지정값 처리. VP-38. |
+| MD-08 | NEW | SDK 권한 모드의 검증·정규화, 미지정값 처리. VP-38. |
 
 | pair | 레벨 / requiredness | start → edges → end / 직접 oracle |
 |---|---|---|
