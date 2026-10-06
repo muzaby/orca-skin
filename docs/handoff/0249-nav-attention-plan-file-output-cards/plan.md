@@ -11,11 +11,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-04 |
 | 매핑 | 기준 커밋 `origin/main@954e6fff` |
-| 상태 | READY (ΔV3.3) — 화면 응답 소비자의 요청 소유권·child 모드 격리 보완 |
+| 상태 | READY (ΔV3.4) — 승인 await 전 메인 턴 취소 신호 보존 |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | V1 = `none`(신규) · ΔV1 = `0249:V1@266bdbfe` · ΔV2 = `0249:ΔV1@c6e7b7e1`(모두 공유 브랜치 확인). 다른 handoff 의 동작은 `INHERITED` 회귀로만 둔다 |
-| 이번 V revision | `ΔV3.3` — 화면 응답 소비자의 요청 소유권·child 모드 격리 보완 |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV3.1 + ΔV3.2 + ΔV3.3` |
+| 이번 V revision | `ΔV3.4` — 승인 await 전 메인 턴 취소 신호 보존 |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV3.1 + ΔV3.2 + ΔV3.3 + ΔV3.4` |
 | 구현 주체 | Codex — r1(`61c12248`)부터 사용자 지시(`[구현자 기입]` 설계 리뷰). V1 작성 시점 계획은 Claude 였다 |
 
 > **ΔV1 적용(2026-10-04)** — ③ 백그라운드 패널·④ ExitPlanMode 에 관한 V1 서술(§1·§2·§5·§6·§7·§7-A·§9~§19 의 해당 행)은 문서 끝 **§ΔV1** 이 대체한다. ⑦ 엔진&모델 개수는 ΔV1 신설이다. 유효 AC 20.
@@ -1998,3 +1998,35 @@ Product/UX Contract·D-033/034를 화면 승인 소비자까지 풀어 적는다
 ## READY self-review
 
 main/child 및 승인 ID 격리는 기존 계약을 보완하며 새 제품 정책을 결정하지 않는다. X2의 실제 연결과 main 양성·child/네 응답 소유권 음성의 baseline 실패를 대조했다. 정상 피드백 회귀 oracle을 설계하고 생산자→버튼 핸들러→mode/다음 전송 소비자를 §10과 변이에 연결했다. 규범 수정은 구현과 별도 커밋한다.
+
+
+---
+
+# ΔV3.4 — 승인 await 전 메인 턴 취소 신호 보존 (2026-10-07)
+
+r3 구현 중 독립 phase-0 probe가 실제 SessionRuntime→makeCanUseTool→requester→broker를 연결했다. persistent main interrupt에서 채널을 살려 둔 채 옛 Exit 파일 읽기 대기→원래 턴 취소→production result(error_during_execution)로 drain 해소→같은/다른 세션의 새 send→옛 읽기 완료 순서를 주면 현재 delegate·persist·register·permission.requested가 각각1회 실행됐다(기대0). SDK signal 취소 음성과 live child 양성은 통과했다: 4건 중 PASS2·FAIL2·skip0. 설치 SDK0.3.286의 interrupt는 control request만 발신하며 SDK callback signal의 cancel-before-terminal 순서를 타입/API에서 보장하지 않는다. 실제 CLI가 위 순서를 발생시키는지는 확인하지 못했다. 앱 포트가 원래 메인 턴 소유권을 보존해야 한다는 D-033·AC25의 기존 계약을 보완한다. formal r3 검증 전 조사이며 라운드는3으로 유지한다.
+
+## Delta V / 영향받는 규범 행
+
+기준은 ΔV3.3 설계 `d6b9ace8`과 진행 중 r3 조사다. AC25의 다른 턴/세션 격리는 첫 승인 await 이전의 원래 메인 턴 signal에도 적용한다. D-034·AC26의 child SDK 독립 수명은 유지한다. SD-02·AR-02·MD-06 / VP-34·36은 CHANGED, VP-37·38과 나머지 선택 pair는 INHERITED다. AC25개·유효pair37·REQUIRED7+REGRESSION10=선택17·NOT_REQUIRED20을 유지한다. 외부 API·IPC·DB schema·owner cache·제품 정책 추가는 없다.
+
+## Technical Design
+
+1. TurnRequest와 CanUseToolOpts에 backend-neutral optional `getMainApprovalSignal?: () => AbortSignal | undefined`를 둔다. SessionRuntime.adoptDelegate(req)는 wrap 전 원래 req.signal을 scalar로 공표한다. runAttempt·runListen 공통 adoption이 초기/후속/listen/flush의 현재 signal을 갱신한다.
+2. wrapRequest getter는 captured channel signal이 취소됐으면 그 신호를 우선 반환하고, 살아 있으면 마지막 adopted original signal을 반환한다. retireChannel에서 scalar를 무조건 지우지 않는다(adopt→teardown→spawn에서 새 신호를 잃지 않아야 한다). 퇴역 무효화는 기존 captured channel signal이 담당한다. signal을 FRAME_DELEGATE_KEYS에 추가하지 않는다. listen의 fresh signal이 이전 base signal로 덮이지 않아야 한다.
+3. Claude 실제 query factory가 getter를 makeCanUseTool에 전달한다. requestApproval로 처리하는 AskUserQuestion·ExitPlanMode·위험/runtime 승인 경로의 main callback만 첫 await 전에 getter를1회 읽어 AbortSignal 객체를 지역 값으로 캡처하고 SDK signal과 합성한다. child는 getter를 읽지 않고 SDK signal만 사용한다. 중복 toolUseId는 기존 Promise 재사용이며 await 후 getter를 재조회하지 않는다.
+4. 유효 승인 signal이 이미 취소됐으면 파일/서술 조회·delegate·persist·register·IPC·모드 변경 전에 deny한다. 안전 도구·Agent/Task·approval callback 미주입의 기존 자동 통과 정책은 확장하지 않는다. 파일 await 후 Exit requestApproval에는 캡처한 합성 signal을 전달한다. AskUserQuestion과 위험/runtime 승인 두 호출의 신호 인자는 기존 소비 회귀로 대조한다. 기존 runtime wrapper/requester guard가 대기 중 취소를 차단한다.
+5. 초기/자동 listen/flush 원 signal 생산자3곳과 runAttempt/runListen adoption2곳을 회귀 대조한다. 정상 초기/후속/listen/pre-init main, SDK 취소, 파일 대기 중 main 취소 뒤 동일/다른 새 owner, 살아 있는 child를 실제 경로로 관측한다. 이미 취소된 main은 파일/서술 getter 및 surface side effect0을 단언한다. 실제 ClaudeAdapter.query factory 배선을 별도 oracle로 잠근다.
+
+## §10 강제 지점 / 변이 / gate
+
+| ID | 지정 물리 자리 | 직접 oracle / 선택 변이 |
+|---|---|---|
+| EP-12⁗ | EP-12‴14자리 + main signal 캡처/합성·adopt original signal 공표·runtime getter·query factory 전달·entry aborted guard·Exit의 await 후 requestApproval signal 인자6 =20자리. 두 타입 정의는 운반 계약으로 별도 확인한다. | M-F22 캡처/합성을 SDK-only로 교체; M-F23 adopt signal 공표 제거; M-F24 runtime getter를 channel-only로 교체; M-F25 query factory getter 전달 제거; M-F26 entry aborted guard 제거; M-F27 Exit의 await 뒤 requestApproval signal을 SDK-only로 교체. 각 실제 값 assertion red→원본 bytes 원복→같은 필터 green을 확인한다. |
+| EP-04″·11·02′·13″·14 | 기존8·6·9·7·4자리 유지. 전체 지정54자리. | 기존 파일/입력·DB/card·draft/주의·네 응답/child mode·SDK 계약·상태/trailer 직접 대조. |
+
+등록 변이는35+F22~27=41이다. 신규6과 기존35를 독립 재실행하고 필터 skip은 실행분모와 성공에서 제외한다. 같은 생산자→포트→콜백→requestApproval 운반 edge를 포함해 §10 전수를 재검색한다. 기존 운영 gate와 외부 모델·Windows 시각 실기·원격 게시/CI 미실행 구별을 유지한다.
+
+## READY self-review
+
+D-033·AC25의 원래 턴 소유권을 비동기 파일 읽기 이전에 잡고 D-034·AC26의 child 독립성을 유지한다. 원래 signal 생산3→adopt2→runtime getter→실제 query factory→main 캡처→await 뒤 운반→기존 소비 guard를 연결했다. 두 음성 실패와 SDK 취소/child 양성 대조의 독립 증거를 보존하고 실제 CLI 순서의 미확인을 명시했다. 규범 수정은 구현 산출과 별도 커밋한다.
