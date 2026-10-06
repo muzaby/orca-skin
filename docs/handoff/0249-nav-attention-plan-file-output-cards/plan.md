@@ -11,11 +11,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-04 |
 | 매핑 | 기준 커밋 `origin/main@954e6fff` |
-| 상태 | READY (ΔV3.2) — 승인 소유권·승격·취소 및 폐기 채널 보완 |
+| 상태 | READY (ΔV3.3) — 화면 응답 소비자의 요청 소유권·child 모드 격리 보완 |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | V1 = `none`(신규) · ΔV1 = `0249:V1@266bdbfe` · ΔV2 = `0249:ΔV1@c6e7b7e1`(모두 공유 브랜치 확인). 다른 handoff 의 동작은 `INHERITED` 회귀로만 둔다 |
-| 이번 V revision | `ΔV3.2` — 기존 승인 소유권 경로·승격·취소 및 폐기 채널 보완 |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV3.1 + ΔV3.2` |
+| 이번 V revision | `ΔV3.3` — 화면 응답 소비자의 요청 소유권·child 모드 격리 보완 |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV3.1 + ΔV3.2 + ΔV3.3` |
 | 구현 주체 | Codex — r1(`61c12248`)부터 사용자 지시(`[구현자 기입]` 설계 리뷰). V1 작성 시점 계획은 Claude 였다 |
 
 > **ΔV1 적용(2026-10-04)** — ③ 백그라운드 패널·④ ExitPlanMode 에 관한 V1 서술(§1·§2·§5·§6·§7·§7-A·§9~§19 의 해당 행)은 문서 끝 **§ΔV1** 이 대체한다. ⑦ 엔진&모델 개수는 ΔV1 신설이다. 유효 AC 20.
@@ -88,8 +88,8 @@
 | D-030 (ΔV2) | 현재 세대 live 목록이 확립된 뒤 그 목록에 없고 종료 증거도 없는 백그라운드 작업, 그리고 이전 세대·`terminated` 연결의 원격 작업은 **표시만** 정착한다 — 완료 그룹 '종료 확인 불가'(`unconfirmed`), 경과는 마지막 관측에서 멈춘다. 이후 종료 증거가 오면 실제 결과로 바뀐다. canonical 기록은 바꾸지 않는다 | 결정⑯ — 실행 중 = Spark N(결정⑪)을 지키면서 종료를 합성하지 않는다(0231 D-06) | 결정⑯ | ACTIVE | 0239 D-012 확장 · 0231 원격 미정착 표시 변경(§ΔV2 Δ7) |
 | D-031 (ΔV2) | 그 결과 도달 불가가 된 `excluded` 표시 상태(분기·union·라벨 맵·i18n `background.excluded`)를 삭제한다 | D-015 와 같은 규칙 — 죽은 형제 분기가 검사 장치를 침묵시킨다 | 설계 | ACTIVE | — |
 | D-032 (ΔV3) | 메인 ExitPlanMode의 파일 보정 입력은 승인 action.input·CLI allow·도구 호출 args·저장 이력에 함께 적용한다. 원본의 추가 필드는 보존한다 | 사용자 2026-10-06: 정확한 데이터가 충족하지 않았을 때 폴백으로 보정된 값이 채워져야 한다 | 이번 요청 | ACTIVE | D-025·D-026 보완, 카드 새 레이아웃 없음 |
-| D-033 (ΔV3) | 승인 콜백이 읽은 최신 파일이 그 호출의 정본이다. 먼저 온 started의 읽기를 콜백이 재사용하지 않는다. toolUseId와 소유 세션으로 기존/늦은 호출을 같은 값으로 보정한다 | SDK control_request와 assistant 소비는 독립 비동기 경로다 | 설치 SDK sdk.mjs, 이번 진단 | ACTIVE | Stop 뒤 새 요청에 이전 파일을 재사용하지 않음 |
-| D-034 (ΔV3) | child 호출에는 메인 계획 파일·서술을 주입하지 않는다. 파일 출처가 없으면 D-025·D-026의 입력/서술 폴백을 유지하며 경로를 만들지 않는다 | 메인 파일 추적 D-015와 동일한 소비 경계 | 이번 진단 | ACTIVE | 추가 필드 삭제·파일 검색 추측 없음 |
+| D-033 (ΔV3·ΔV3.3) | 승인 콜백이 읽은 최신 파일이 그 호출의 정본이다. 먼저 온 started의 읽기를 콜백이 재사용하지 않는다. toolUseId와 소유 세션으로 기존/늦은 호출을 같은 값으로 보정한다. 화면의 계획 응답도 현재 미해결 요청 ID와 일치할 때만 발신·해소한다 | SDK control_request와 assistant 소비는 독립 비동기 경로다. 화면 응답의 소유권도 유지한다 | 설치 SDK sdk.mjs, 독립 X2 | ACTIVE | Stop 뒤 새 요청에 이전 파일을 재사용하지 않음 |
+| D-034 (ΔV3·ΔV3.3) | child 호출에는 메인 계획 파일·서술을 주입하지 않고 메인 도구 카드·계획 모드도 바꾸지 않는다. 파일 출처가 없으면 D-025·D-026의 입력/서술 폴백을 유지하며 경로를 만들지 않는다 | 메인 파일 추적 D-015와 Product/UX child 행의 동일한 소비 경계 | 이번 진단·독립 X2 | ACTIVE | 추가 필드 삭제·파일 검색 추측 없음 |
 | D-035 (ΔV3) | EnterPlanMode 입력 `{}`·출력 `message`, Exit 내부 입력 `planFilePath`·출력 `filePath`를 구별한다. 유효한 main/live SDK init/status의 실제 권한 모드를 controller·renderer에 반영한다 | CLI가 계획 모드에 들어가도 현재 앱은 status.permissionMode를 버린다 | 설치 SDK 0.3.286·CLI 2.1.286 | ACTIVE | 세션 생성 이벤트를 bus에 재발행하지 않음 |
 
 ### 갱신 메모
@@ -1558,8 +1558,8 @@ SDK 설치본 `sdk-tools.d.ts`와 CLI 2.1.286 런타임을 확인했다. Enter �
 | ID | 동작 기준 | 검증 / 프로덕션 도달 경로 |
 |---|---|---|
 | AC24 | 보정된 메인 Exit 입력이 승인 action·CLI allow·라이브 카드·영속 이력·재로드 카드에 같게 전달된다. 기존 입력과 기타 필드·정상 입력 참조는 보존한다. | 실제 adapter query → approval requester → history/DB → reducer → Work/Code 카드. VP-33~35. |
-| AC25 | 두 도착 순서와 파일 변경·Stop·중복 요청·다른 호출/턴/세션에서 보정 입력의 소유권·승인 시점 정본이 성립한다. | 제어 가능한 SDK iterator/control callback·실제 history writer의 순서 fixture. VP-33·34·36. |
-| AC26 | 하위 호출에는 메인 파일·서술을 섞지 않고, 파일 없는 fallback과 Enter/Exit 입력·결과 계약을 구별한다. | adapter·resolver·mapper의 입력/결과 직접 단언, 파일 reader 기존 회귀. VP-09′·33·36. |
+| AC25 | 두 도착 순서와 파일 변경·Stop·중복 요청·다른 호출/턴/세션에서 보정 입력의 소유권·승인 시점 정본이 성립한다. 화면의 승인·수정·코멘트·거부도 현재 미해결 ID에만 발신·적용한다. | 제어 가능한 SDK iterator/control callback·실제 history writer의 순서 및 화면 네 응답 fixture. VP-33·34·36. |
+| AC26 | 하위 호출에는 메인 파일·서술을 섞거나 메인 도구 카드·계획 모드를 바꾸지 않고, 파일 없는 fallback과 Enter/Exit 입력·결과 계약을 구별한다. | adapter·resolver·mapper 입력/결과 및 실제 approvePlan→controller/renderer/다음 send 직접 단언, 파일 reader 회귀. VP-09′·33·36. |
 | AC27 | 실제 메인 live init/status 모드가 controller·renderer에 반영되고, 이후 send/listen의 최신 delegate·세션 수명에 맞는다. unknown·child·replay는 무시한다. | adapter report → TurnRequest port → runtime delegates → composition controller/forward-only renderer. VP-37·38. |
 
 ## 2. V 노드 / 기준선
@@ -1959,3 +1959,42 @@ D5의 원인은 init 선행 가정이 아니라 control callback과 iterator의 
 ## [구현자 기입] Review Signals — 사실만
 
 r1.4의 D5는 기존 AC25가 규정한 소유권을 requester→store edge에서 놓친 결함이다. 이번 턴은 같은 불변식의 요청·해결·승격·퇴역 callback 생산자/소비자를 함께 검사했다. 별도 pre-audit가 natural retire 생산자를 찾아 별도 설계와 실제 oracle로 보완했다. r2 formal 검증자가 자기보고 AC18~23 등의 설명 오매핑을 지적해 유효 AC와 실제178파일의 fixture에 맞춰 보고만 정정했다. 제품 결정 drift와 handoff 지침 변경은 없다. r2 첫 구현 턴이며 formal verify 전의 설계 보강은 라운드를 추가하지 않는다. 원격 게시·모델/시각 확인과 sandbox/ABI 환경 제한은 로컬 코드 gate와 구별했다.
+
+---
+
+# ΔV3.3 — 화면 승인 동작의 요청 소유권·child 모드 격리 (2026-10-06)
+
+r2 독립 X2는 실제 adapter→requester→broker→IPC→chat reducer→approvePlan→다음 send를 연결했다. child 승인에서 SDK allow와 main controller는 올바르게 격리됐지만 renderer와 다음 전송의 permissionMode가 accept_edits로 바뀌었다. 다른 승인 ID와 이미 해결된 ID의 클릭도 현재 pendingPlanReview를 지우고 메인 모드를 바꾸며 respond를 보냈다. 같은 ID 검사 누락이 수정 요청·구조화 코멘트·거부의 세 형제에도 있어 네 응답 소비자를 함께 보완한다. 기존 Product/UX Contract의 “하위 호출은 메인 계획 모드에 영향을 주지 않는다”와 D-033의 소유권 위반이다. 신규 제품 결정은 없다.
+
+기준선은 r2 생산 구현 `463019d7`, 자기보고 정정 `68f1a8c9`, r2 독립 FAIL `33c7c628`이다. AC 수25·유효 pair37·선택 REQUIRED7+REGRESSION10=17·NOT_REQUIRED20을 유지한다.
+
+## Delta V / 영향받는 규범 행
+
+| node / pair | 변화 | 직접 관측 |
+|---|---|---|
+| R-04·SD-02·AR-02·MD-06 / VP-35·36 | CHANGED | 실제 미해결 요청→화면의 approve/revise/comments/reject 네 응답 핸들러를 소유권 경로에 추가한다. 다른 ID·이미 해결됨·중복 클릭은 현재 entry·mode·승인 IPC를 바꾸지 않는다. |
+| AR-02·MD-08 / VP-37·38 | INHERITED / 기존 REQUIRED 선택 유지 | 유효 main 승인만 종류별 목표 모드로 낙관 갱신하고 child 승인은 메인 renderer/controller/다음 send 모드를 보존한다. SDK init/status 경로는 그대로다. |
+| 기타 선택 노드/pair | INHERITED | 기존 승인 입력·파일·수명·주의 표시 및 운영 gate를 그대로 재검증한다. |
+
+Product/UX Contract·D-033/034를 화면 승인 소비자까지 풀어 적는다. AC25의 다른 호출 소유권은 화면 승인 ID에도 적용한다. AC26의 하위 호출 격리는 이미 규정된 메인 도구 카드·계획 모드 불변을 포함한다. API·IPC·DB schema·owner cache를 추가하지 않는다.
+
+## Technical Design
+
+1. 순수 currentPlanReview(requestId) helper가 현재 entry key·session·pendingPlanReview를 캡처하고 미해결 요청 ID를 비교한다. approvePlan·revisePlan·revisePlanWithComments·rejectPlan 네 핸들러는 이 helper의 유효 snapshot이 없으면 respond·resolve·mode 변경 없이 반환한다.
+2. 유효한 요청만 각 핸들러의 기존 allow 또는 deny/feedback 응답을 보내고 캡처한 entry의 계획 승인을 해소한다. 빈 수정/코멘트의 기존 no-op은 유지한다. approvePlan은 child의 providerRequest.agentId가 있으면 메인 mode를 갱신하지 않는다. main은 기존 planApprovedMode(agentKind)를 적용한다.
+3. SDK allow의 child updatedPermissions 부재와 main requester/controller 격리는 유지한다. 상태를 지운 뒤 provider metadata를 읽지 않는다. 별도 permission.setMode IPC도 추가하지 않는다.
+4. 기존 r4 Work 승인 테스트는 실제 plan 모드 patch와 pending 요청을 입력한 뒤 승인하도록 fixture를 보강한다. 기존 allow 응답·목표 모드·추가 setMode IPC 부재의 기대값은 바꾸지 않는다. 독립 X2의 기대값은 그대로 유지한다.
+
+## §10 강제 지점 / 변이 / gate
+
+| ID | 지정 물리 자리 | 직접 oracle / 선택 변이 |
+|---|---|---|
+| EP-12‴ | 기존 EP-12″9자리 + currentPlanReview ID검사1·네 핸들러의 검사 호출4 =14자리. | 실제 X2의 네 응답별 다른 ID/이미 해결됨·중복·이웃 reference 음성 및 정상 응답 양성. 신규 M-F17은 helper의 ID 비교를 제거한다. M-F18~21은 approve/revise/comments/reject 각 한 호출의 조회 ID를 현재 pending ID로 바꿔 잘못 받은 ID를 허용하게 한다. 각각 different-id fixture의 값/IPC assertion red를 관측한다. |
+| EP-13″ | 기존 EP-13′6자리 + renderer approvePlan의 main/child 모드 분기1 =7자리. | 실제 X2의 main 양성·child allow 및 controller/renderer/다음 send 비교. 신규 M-F16은 child guard를 제거해 child fixture의 mode assertion red를 관측한다. |
+| EP-04″·11·02′·14 | 기존8·6·9·4자리 유지. | 설치 SDK·파일/후킹·보정 입력·주의 Map/SSR·상태/trailer 직접 대조. |
+
+등록 변이는 기존29 + M-F16~21 =35다. F16은 child 행, F17은 different-id 네 행, F18~21은 해당 핸들러의 different-id 한 행을 필터해 실제 실행분모로 기록하고 bytes 원복 후 동일 필터 green을 대조한다. selected17 pair 및 기존29도 독립 재실행한다. subtree lint(no-fix)·node/web/test typecheck·영향 테스트·scripts·doc/test-budget/migration guard·diff/trailer·로컬 기준선 gate를 수행한다. 외부 모델·Windows 시각 실기·원격 게시/CI는 미실행을 기계 fixture와 구별한다.
+
+## READY self-review
+
+main/child 및 승인 ID 격리는 기존 계약을 보완하며 새 제품 정책을 결정하지 않는다. X2의 실제 연결과 main 양성·child/네 응답 소유권 음성의 baseline 실패를 대조했다. 정상 피드백 회귀 oracle을 설계하고 생산자→버튼 핸들러→mode/다음 전송 소비자를 §10과 변이에 연결했다. 규범 수정은 구현과 별도 커밋한다.
