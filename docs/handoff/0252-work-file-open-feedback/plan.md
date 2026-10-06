@@ -12,7 +12,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-06 |
 | 매핑 | — |
-| 상태 | IMPL_DONE (r1.2 · CI 게이트 수정, 검증 대기) |
+| 상태 | verify/PASS (r1.2 · 기계 범위) — AC14 사람 실기 대기 |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0242 카드·toast 동작은 INHERITED 노드로만 참조한다(§7-A) |
 | 이번 V revision | `V1` |
@@ -724,4 +724,6 @@ main resolveContextFile/handler → OpenContextFileResult → preload → fileAp
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| 1 | CI의 기존 IPC 등록 기대 집합에 신규 파일 열기 채널이 누락됨 | 필수 CI Test gate · VP-10·AC12·EP-08 | 기대 집합을 갱신하고 등록 누락 검출력을 유지 | BLOCKING | r1.2 로컬 수정 완료(2 green·등록 삭제 1 red). 원격 CI는 push 후 확인 |
+| 1 | CI의 기존 IPC 등록 기대 집합에 신규 파일 열기 채널이 누락됨 | 필수 CI Test gate · VP-10·AC12·EP-08 | 기대 집합을 갱신하고 등록 누락 검출력을 유지 | BLOCKING | **closed** — r1.2 수정, 검증자 등록 삭제 probe `misc-split` red 1, 원격 CI run `37425385848` success ([verify.md §13](verify.md)) |
+| D2 | `Criteria-Pending` 문구가 trailer("실제 카드 높이 실기")와 plan("시각 실기")에서 표현만 다름 | message-bus | 값 13/14·AC14 동일 | NON_BLOCKING | 기록 |
+| D3 | r1 관련 테스트 목록이 기존 IPC 등록 전수 테스트(`misc-split.test.ts`)를 빠뜨려 CI에서 처음 드러남 | Review Signal | review 판단 | NON_BLOCKING | 기록 |
