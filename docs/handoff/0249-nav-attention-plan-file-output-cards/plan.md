@@ -1529,7 +1529,8 @@ node scripts/check-doc-inventory.mjs --check
 | D2 | `ino` Number 비교의 안전정수 밖 반올림(N-01) | 비귀속 | `bigint` stat | NON_BLOCKING | open |
 | D3 | 구현자가 `[검증자 기입]` 절에 직접 기입 | `docs/handoff/AGENTS.md §충돌 최소화` | 검증자 재분류로 대체 | NON_BLOCKING | closed |
 | D4 | `auth.md` 조사 오류 `` `연결됨`와 `` | 비귀속 | `과`로 정정 | NON_BLOCKING | open |
-| D5 | 새 대화의 init 전 계획 승인 요청이 다른 열람 세션으로 라우팅됨 — 독립 X1 | VP-36·D-033·AC24/25; VP-35 종속 | 세션 미확정 requested/resolved의 pending draft 소유권을 보존하고 session.updated 승격에 연결 | BLOCKING | open(r1.4 독립 검증): [`verify.md`](verify.md) r1.4 §1 |
+| D5 | 새 대화의 init 전 계획 승인 요청이 다른 열람 세션으로 라우팅됨 — 독립 X1 | VP-36·D-033·AC24/25; VP-35 종속 | 세션 미확정 requested/resolved의 pending draft 소유권을 보존하고 session.updated 승격에 연결 | BLOCKING | closed(r2 독립 검증): 기존 X1 기대값을 유지한 owner10건 green. 등록 변이의 pair closeout은 별도 미발행. [`verify.md`](verify.md) r2 §5 |
+| D6 | 하위 계획 승인과 stale 승인 ID가 메인 모드/현재 승인 상태를 바꿈 — 독립 X2 | VP-36·D-033/AC25·D-034/AC26·ΔV3 Product/UX 하위 호출 행 | approve/revise/구조화 코멘트/reject의 현재 requestId·owner를 처리 전 확인하고 providerRequest의 child 경계를 낙관적 renderer 모드 소비까지 유지 | BLOCKING | open(r2 독립 검증): main 양성1 PASS, child1·4응답×다른/해결된 ID8 FAIL. [`verify.md`](verify.md) r2 §1 |
 
 ---
 
