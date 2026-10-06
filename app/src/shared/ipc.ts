@@ -63,6 +63,7 @@ export const CHANNELS = {
   filesPickAttachments: 'orca:files:pickAttachments',
   filesPickDirectory: 'orca:files:pickDirectory',
   filesOpenPath: 'orca:files:openPath',
+  filesOpenContextFile: 'orca:files:openContextFile',
   filesReadAttachment: 'orca:files:readAttachment',
   artifactList: 'orca:artifact:list',
   artifactCatalog: 'orca:artifact:catalog',
@@ -1180,6 +1181,17 @@ export interface FileEntry {
   name: string
   isDirectory: boolean
 }
+
+/** Work 세션에 기록된 파일을 기본 앱 또는 탐색기로 연다. */
+export interface OpenContextFileRequest {
+  path: string
+  sessionId: string
+}
+
+export type OpenContextFileResult =
+  | { outcome: 'opened' }
+  | { outcome: 'revealed'; reason: 'unsupported-type' | 'open-failed' }
+  | { outcome: 'missing' }
 
 /** `mode`는 필수다. 폴더 열기와 파일 선택 표시를 명시적으로 구분한다. */
 export type OpenPathRequest = { path: string } & (

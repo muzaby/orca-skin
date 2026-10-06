@@ -5,6 +5,7 @@ import { load } from 'cheerio'
 import { initialChatState, type ChatState } from '../../reducer/chatReducer'
 import { TaskContextContent } from './TaskContextContent'
 import { errorToastStore } from '../../../../shared/errors/errorToastStore'
+import type { OpenContextFileResult } from '../../../../../../shared/ipc'
 
 let session: ChatState
 let busy = false
@@ -13,9 +14,16 @@ let activeKey = 'work'
 const callbacks = vi.hoisted(() => ({
   sourceClick: undefined as undefined | ((event: { preventDefault: () => void }) => void),
   attachmentClicks: new Map<string, () => void>(),
-  openPath: vi.fn(async () => ({ ok: true }))
+  fileClicks: new Map<string, () => void>(),
+  directoryClicks: new Map<string, () => void>(),
+  openPath: vi.fn(async () => {}),
+  openContextFile: vi
+    .fn<() => Promise<OpenContextFileResult>>()
+    .mockResolvedValue({ outcome: 'opened' })
 }))
-vi.mock('../../../../shared/api/ipc', () => ({ fileApi: { openPath: callbacks.openPath } }))
+vi.mock('../../../../shared/api/ipc', () => ({
+  fileApi: { openPath: callbacks.openPath, openContextFile: callbacks.openContextFile }
+}))
 vi.mock('../../store/chatStore', () => ({
   useChatSession: (select: (s: ChatState) => unknown) => select(session),
   useChatStore: Object.assign((select: (s: unknown) => unknown) => select({ activeKey }), {
@@ -37,6 +45,10 @@ vi.mock('react/jsx-dev-runtime', async (original) => {
         callbacks.sourceClick = props.onClick as typeof callbacks.sourceClick
       if (props['data-surface'] === 'context-attachment-source')
         callbacks.attachmentClicks.set(String(props.title), props.onClick as () => void)
+      if (props['data-surface'] === 'context-file-source')
+        callbacks.fileClicks.set(String(props.title), props.onClick as () => void)
+      if (props['data-surface'] === 'context-directory')
+        callbacks.directoryClicks.set(String(props['aria-label']), props.onClick as () => void)
       return actual.jsxDEV(...args)
     }
   }
@@ -49,7 +61,12 @@ describe('Work context directory controls', () => {
     activeKey = 'work'
     callbacks.sourceClick = undefined
     callbacks.attachmentClicks.clear()
-    callbacks.openPath.mockClear()
+    callbacks.fileClicks.clear()
+    callbacks.directoryClicks.clear()
+    callbacks.openPath.mockReset().mockResolvedValue(undefined)
+    callbacks.openContextFile.mockReset().mockResolvedValue({ outcome: 'opened' })
+    for (const toast of errorToastStore.getState().toasts)
+      errorToastStore.getState().dismiss(toast.id)
     session = {
       ...initialChatState,
       sessionId: 'work',
@@ -165,7 +182,7 @@ describe('Work context directory controls', () => {
       ).length
     ).toBe(0)
   })
-  it('shows all composer attachments by original name and reveals stored files within the originating session', async () => {
+  it('shows all composer attachments by original name and opens stored files within the originating session', async () => {
     session = {
       ...session,
       messages: [
@@ -206,19 +223,142 @@ describe('Work context directory controls', () => {
       '이전 첨부.txt'
     ])
     expect(attachments.first().attr('disabled')).toBeUndefined()
+    expect(attachments.first().attr('title')).toBe('C:/tmp/input-file.pdf')
     expect(attachments.last().is('[disabled]')).toBe(true)
     callbacks.attachmentClicks.get('C:/tmp/input-file.pdf')!()
     await Promise.resolve()
-    expect(callbacks.openPath).toHaveBeenCalledExactlyOnceWith({
+    expect(callbacks.openContextFile).toHaveBeenCalledExactlyOnceWith({
       path: 'C:/tmp/input-file.pdf',
-      mode: 'reveal',
       sessionId: 'work'
     })
     activeKey = 'other'
     callbacks.attachmentClicks.get('C:/tmp/clipboard.png')!()
-    expect(callbacks.openPath).toHaveBeenCalledTimes(1)
+    expect(callbacks.openContextFile).toHaveBeenCalledTimes(1)
+    expect(callbacks.openPath).not.toHaveBeenCalled()
   })
-  it('reports a failed reveal as a toast and keeps the panel free of an inline alert (0242 ΔV2 AC22)', async () => {
+  it.each(['C:\\w\\docs\\a.md', '/w/docs/a.md'])(
+    'shows only the file name while preserving the full path tooltip for %s',
+    async (path) => {
+      session = {
+        ...session,
+        messages: [
+          {
+            role: 'assistant',
+            createdAt: 1,
+            parts: [
+              { type: 'tool_call', toolRunId: 'read', toolName: 'Read', args: { file_path: path } },
+              { type: 'tool_result', toolRunId: 'read', result: 'input', isError: false }
+            ]
+          }
+        ]
+      }
+      const $ = load(renderToStaticMarkup(createElement(TaskContextContent)))
+      const file = $('[data-surface="context-file-source"]')
+      expect(file.text()).toBe('a.md')
+      expect(file.attr('title')).toBe(path)
+      expect(file.attr('aria-label')).toBe('a.md 파일 열기')
+      callbacks.fileClicks.get(path)!()
+      for (let i = 0; i < 3; i++) await Promise.resolve()
+      expect(callbacks.openContextFile).toHaveBeenCalledExactlyOnceWith({ path, sessionId: 'work' })
+      expect(callbacks.openPath).not.toHaveBeenCalled()
+    }
+  )
+  it.each<OpenContextFileResult>([
+    { outcome: 'opened' },
+    { outcome: 'revealed', reason: 'open-failed' },
+    { outcome: 'revealed', reason: 'unsupported-type' },
+    { outcome: 'missing' }
+  ])('maps the file outcome $outcome/$reason to the expected toast', async (result) => {
+    const path = 'C:/work/gone.md'
+    session = {
+      ...session,
+      messages: [
+        {
+          role: 'assistant',
+          createdAt: 1,
+          parts: [
+            { type: 'tool_call', toolRunId: 'read', toolName: 'Read', args: { file_path: path } },
+            { type: 'tool_result', toolRunId: 'read', result: 'input', isError: false }
+          ]
+        }
+      ]
+    }
+    callbacks.openContextFile.mockResolvedValueOnce(result)
+    renderToStaticMarkup(createElement(TaskContextContent))
+    callbacks.fileClicks.get(path)!()
+    for (let i = 0; i < 3; i++) await Promise.resolve()
+    expect(
+      errorToastStore.getState().toasts.map(({ title, detail }) => ({ title, detail }))
+    ).toEqual(
+      result.outcome === 'missing'
+        ? [
+            {
+              title: 'fileUnavailable',
+              detail: 'gone.md: 파일이 없습니다. 삭제되었거나 이동되었을 수 있습니다.'
+            }
+          ]
+        : []
+    )
+    expect(renderToStaticMarkup(createElement(TaskContextContent))).not.toContain('role="alert"')
+  })
+  it('keeps one in-flight file request and still reports missing after moving to another session', async () => {
+    const path = 'C:/work/gone.md'
+    const other = 'C:/work/other.md'
+    session = {
+      ...session,
+      messages: [
+        {
+          role: 'assistant',
+          createdAt: 1,
+          parts: [
+            { type: 'tool_call', toolRunId: 'read', toolName: 'Read', args: { file_path: path } },
+            { type: 'tool_result', toolRunId: 'read', result: 'input', isError: false },
+            { type: 'tool_call', toolRunId: 'other', toolName: 'Read', args: { file_path: other } },
+            { type: 'tool_result', toolRunId: 'other', result: 'other', isError: false }
+          ]
+        }
+      ]
+    }
+    let finish!: (result: OpenContextFileResult) => void
+    callbacks.openContextFile.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve
+      })
+    )
+    renderToStaticMarkup(createElement(TaskContextContent))
+    callbacks.fileClicks.get(path)!()
+    callbacks.fileClicks.get(other)!()
+    expect(callbacks.openContextFile).toHaveBeenCalledExactlyOnceWith({ path, sessionId: 'work' })
+    activeKey = 'other'
+    finish({ outcome: 'missing' })
+    for (let i = 0; i < 3; i++) await Promise.resolve()
+    expect(
+      errorToastStore.getState().toasts.map(({ title, detail }) => ({ title, detail }))
+    ).toEqual([
+      {
+        title: 'fileUnavailable',
+        detail: 'gone.md: 파일이 없습니다. 삭제되었거나 이동되었을 수 있습니다.'
+      }
+    ])
+    callbacks.fileClicks.get(path)!()
+    expect(callbacks.openContextFile).toHaveBeenCalledTimes(1)
+  })
+  it('keeps folder chips on directory IPC with their existing failure detail', async () => {
+    callbacks.openPath.mockRejectedValueOnce(new Error('native failure'))
+    renderToStaticMarkup(createElement(TaskContextContent))
+    callbacks.directoryClicks.get('폴더 열기: implicit')!()
+    for (let i = 0; i < 3; i++) await Promise.resolve()
+    expect(callbacks.openPath).toHaveBeenCalledExactlyOnceWith({
+      path: 'C:/implicit',
+      mode: 'directory',
+      sessionId: 'work'
+    })
+    expect(callbacks.openContextFile).not.toHaveBeenCalled()
+    expect(errorToastStore.getState().toasts[0].detail).toBe(
+      'implicit: 폴더를 열지 못했습니다. 삭제되었거나 접근할 수 없는지 확인한 뒤 다시 클릭해 주세요.'
+    )
+  })
+  it('reports a rejected file open as a toast and keeps the panel free of an inline alert (0252 AC9)', async () => {
     for (const toast of errorToastStore.getState().toasts)
       errorToastStore.getState().dismiss(toast.id)
     session = {
@@ -244,13 +384,13 @@ describe('Work context directory controls', () => {
         }
       ]
     }
-    callbacks.openPath.mockRejectedValueOnce(new Error('ENOENT C:/tmp/gone.pdf'))
+    callbacks.openContextFile.mockRejectedValueOnce(new Error('IO failed'))
     renderToStaticMarkup(createElement(TaskContextContent))
     callbacks.attachmentClicks.get('C:/tmp/gone.pdf')!()
     for (let i = 0; i < 3; i++) await Promise.resolve()
     expect(
       errorToastStore.getState().toasts.map(({ title, detail }) => ({ title, detail }))
-    ).toEqual([{ title: 'openFailed', detail: 'gone.pdf: 파일 위치를 열지 못했습니다.' }])
+    ).toEqual([{ title: 'openFailed', detail: 'gone.pdf: 파일을 열지 못했습니다.' }])
     expect(renderToStaticMarkup(createElement(TaskContextContent))).not.toContain('role="alert"')
   })
 })

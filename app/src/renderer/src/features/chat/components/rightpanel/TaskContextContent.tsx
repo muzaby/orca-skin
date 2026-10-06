@@ -31,7 +31,7 @@ export function TaskContextContent(): React.JSX.Element {
       mounted.current = false
     }
   }, [])
-  const openContextPath = async (path: string, mode: 'directory' | 'reveal'): Promise<void> => {
+  const openContextPath = async (path: string, mode: 'directory' | 'file'): Promise<void> => {
     if (!sessionId || opening.current) return
     const current = (): boolean => {
       const state = useChatStore.getState()
@@ -45,7 +45,17 @@ export function TaskContextContent(): React.JSX.Element {
     opening.current = true
     setOpeningPath(path)
     try {
-      await fileApi.openPath({ path, mode, sessionId })
+      if (mode === 'directory') await fileApi.openPath({ path, mode, sessionId })
+      else {
+        const result = await fileApi.openContextFile({ path, sessionId })
+        if (result.outcome === 'missing')
+          reportError({
+            event: 'files.context-open.missing',
+            scope: 'files',
+            title: 'fileUnavailable',
+            detail: `${basenameForDisplay(path)}: ${i18n.t('chat.taskTile.sourceMissing')}`
+          })
+      }
     } catch (error) {
       // 0242 ΔV2 (D-011) — 열기를 요청한 사용자에게 사유를 toast 로 알린다(패널 안 alert 없음).
       reportError({
@@ -150,7 +160,7 @@ export function TaskContextContent(): React.JSX.Element {
                     })}
                     title={source.path ?? (source.kind === 'attachment' ? source.name : undefined)}
                     onClick={() => {
-                      if (source.path) void openContextPath(source.path, 'reveal')
+                      if (source.path) void openContextPath(source.path, 'file')
                     }}
                     data-surface={
                       source.kind === 'attachment'
@@ -165,7 +175,7 @@ export function TaskContextContent(): React.JSX.Element {
                       className="shrink-0"
                     />
                     <span className="min-w-0 truncate">
-                      {source.kind === 'attachment' ? source.name : source.path}
+                      {source.kind === 'attachment' ? source.name : basenameForDisplay(source.path)}
                     </span>
                   </button>
                 ) : (

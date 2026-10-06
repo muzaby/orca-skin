@@ -10,11 +10,11 @@
 // 객체를 포획해 실제 노출 표면을 그대로 부른다 — 재구현이 아니라 production 객체다.
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { CHANNELS } from '../shared/ipc'
+import { CHANNELS, type OpenContextFileResult } from '../shared/ipc'
 import type { OrcaApi } from './index'
 
 const harness = vi.hoisted(() => ({
-  invoke: vi.fn(async () => undefined),
+  invoke: vi.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue(undefined),
   exposed: new Map<string, unknown>(),
   listeners: new Map<string, Set<(event: unknown, payload: unknown) => void>>()
 }))
@@ -92,6 +92,32 @@ it('sends all held inputs now through the renderer API and actual preload using 
     expect(harness.invoke).toHaveBeenCalledExactlyOnceWith(CHANNELS.chatSteerSendNow, request)
     harness.invoke.mockRejectedValueOnce(new Error('interrupt denied'))
     await expect(chatApi.sendSteerNow(request)).rejects.toThrow('interrupt denied')
+  } finally {
+    vi.unstubAllGlobals()
+  }
+})
+
+it('opens a context file through the renderer wrapper and actual preload with unchanged results', async () => {
+  const api = harness.exposed.get('orca') as OrcaApi
+  vi.stubGlobal('window', { orca: api })
+  try {
+    const { fileApi } = await import('../renderer/src/shared/api/ipc')
+    const request = { path: 'C:/work/a.md', sessionId: 'owner' }
+    harness.invoke.mockClear()
+    const outcomes: OpenContextFileResult[] = [
+      { outcome: 'opened' },
+      { outcome: 'revealed', reason: 'open-failed' },
+      { outcome: 'revealed', reason: 'unsupported-type' },
+      { outcome: 'missing' }
+    ]
+    for (const outcome of outcomes) {
+      harness.invoke.mockResolvedValueOnce(outcome)
+      await expect(fileApi.openContextFile(request)).resolves.toBe(outcome)
+      expect(harness.invoke).toHaveBeenLastCalledWith('orca:files:openContextFile', request)
+    }
+    expect(harness.invoke).toHaveBeenCalledTimes(4)
+    harness.invoke.mockRejectedValueOnce(new Error('scope rejected'))
+    await expect(fileApi.openContextFile(request)).rejects.toThrow('scope rejected')
   } finally {
     vi.unstubAllGlobals()
   }

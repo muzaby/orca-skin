@@ -312,6 +312,11 @@ export const ListFilesRequestSchema = z.object({
   relDir: z.string()
 })
 
+export const OpenContextFileRequestSchema = z.object({
+  path: z.string().min(1),
+  sessionId: z.string().min(1).max(256)
+})
+
 export const OpenPathRequestSchema = z.discriminatedUnion('mode', [
   z.object({
     path: z.string().min(1),
@@ -758,6 +763,8 @@ export type {
   ComposerAttachment,
   PickedAttachment,
   OpenPathRequest,
+  OpenContextFileRequest,
+  OpenContextFileResult,
   ReadAttachmentRequest,
   ReadAttachmentResult,
   ConcurrencyEvent,

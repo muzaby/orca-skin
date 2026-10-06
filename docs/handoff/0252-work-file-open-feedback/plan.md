@@ -12,7 +12,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-06 |
 | 매핑 | — |
-| 상태 | READY |
+| 상태 | IMPL_DONE |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0242 카드·toast 동작은 INHERITED 노드로만 참조한다(§7-A) |
 | 이번 V revision | `V1` |
@@ -524,80 +524,140 @@ main resolveContextFile/handler → OpenContextFileResult → preload → fileAp
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: V1의 D-001~D-013과 AC1~AC14를 유지했다. 범위 해석기는 기존 reveal 판정을 옮기고 두 입구에서 호출한다.
+- 이견 / 현실성 문제: §7의 신설 shell 호출부 예상은 2였지만 실제 호출부는 3이다(허용 밖 reveal·기본 앱 open·실패 reveal). `rg -n 'shell\.(openPath|showItemInFolder)' app/src/main/app/handlers/files.ts`는 기존 3 + 신설 3 = 6줄이다. AC의 호출 횟수·결과 계약과 차이는 없다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. 폴더 실패는 기존 `directoryOpenFailed`를 유지하고 파일 실패만 `sourceOpenFailed` 문구를 바꿨다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-… | … | … | … | … | … |
+| VP-01 | EP-01 카드 높이 | 1 | 1/1 | `ArtifactCard.render.test.ts`의 busy/idle 마크업 비교가 disabled 외 차이를 거부한다. M1·M2 각각 red 1 | 없음 |
+| VP-06·VP-12 | EP-02 존재 확인 | 2 | 2/2 | `rg -n -e 'stat\(' -e realpath -e missing app/src/main/app/handlers/context-file.ts app/src/main/app/handlers/files.ts`: stat `context-file.ts:59` → realpath `:67`; missing 반환 `files.ts:167`. 순수 missing 2 + main shell 0 단언 green | 없음 |
+| VP-04·VP-05·VP-16 | EP-03 허용 형식 | 2 | 2/2 | 정의 `context-file.ts:41` + 실제 target 인자 `files.ts:169`. 허용 23·거부 15 사례, M4 정의/호출부와 M6 red | 없음 |
+| VP-05·VP-12 | EP-04 열기 실패 폴백 | 1 | 1/1 | `files.ts:174-177` 오류 문자열 분기; native 오류 사례에서 open 1·reveal 1·reason open-failed. M5 red 1 | 없음 |
+| VP-08·VP-14 | EP-05 공유 해석기 | 2 | 2/2 | `rg -n 'resolveContextFile' app/src/main/app/handlers/files.ts`: 호출 `:124`·`:166`; `rg -n 'export async function resolveContextFile' app/src/main`: 정의 `context-file.ts:45` 1줄. 양 입구 scope 사례 green, M9 open junction red | 없음 |
+| VP-06·VP-07·VP-17 | EP-06 결과→toast | 3 | 3/3 | `rg -n -e result.outcome -e reportError -e files.context-open app/src/renderer/src/features/chat/components/rightpanel/TaskContextContent.tsx`: missing `:51-57`·catch T34 `:61-75`. 결과 4종 표에서 missing 1건·opened/revealed 0건, reject 1건 green | 없음 |
+| VP-03 | EP-07 표시 | 3 | 3/3 | `rg -n -e source.path -e source.name -e aria-label -e title= app/src/renderer/src/features/chat/components/rightpanel/TaskContextContent.tsx`: label `:157`·title `:161`·text `:178`. Windows/POSIX와 첨부 원래 이름 단언 green; M3 양 source 자리 red | 없음 |
+| VP-10·VP-13 | EP-08 IPC 사본 | 7 | 7/7 | `rg -n -e filesOpenContextFile -e OpenContextFileRequestSchema -e openContextFile app/src/shared app/src/preload app/src/main/app/handlers/files.ts app/src/renderer/src/shared/api/ipc.ts docs/IPC_CONTRACT.md docs/generated/inventory.md`: 7사본 확인. 실제 preload→invoke 테스트 + IPC 문서 3사례 green, inventory 102채널 일치 | 없음 |
+| VP-10·VP-15 | EP-09 i18n | 6 | 6/6 | `rg -n -e openSourceFile -e sourceOpenFailed -e sourceMissing app/src/renderer/src/shared/i18n/resources/ko.ts app/src/renderer/src/shared/i18n/resources/en.ts`: ko `:832-834`, en `:824-826` 각 3줄. resources/레지스트리 스위트 green | 없음 |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: …
+- §10에 없는데 같은 불변식이 필요했던 지점: 추가 발견 없음. EP-07의 공유 JSX는 파일/첨부 두 branch를 모두 시험했다. EP-03은 정의와 호출부 양쪽 M4를 실행했다.
+- 강제 지점 검산: `1 + 2 + 2 + 1 + 2 + 3 + 3 + 7 + 6 = 27`, 닫은 자리 27/27. 검색의 주어는 busy 표시·존재·범위·형식·결과·표시 속성·채널·문구다.
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | … | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | busy의 disabled를 지우면 idle과 같은 markup | M1·M2 red 각 1 |
+| VP-02 | REGRESSION | SELF_PASS | ArtifactCards.lifecycle/artifactViewerStore 기존 실패 toast 사례 green | 해당 없음 — 직접 oracle |
+| VP-03 | REQUIRED | SELF_PASS | 파일명·title·aria와 첨부 이름·저장 경로·무경로 비활성 green | M3 파일 2·첨부 1 red |
+| VP-04 | REQUIRED | SELF_PASS | 실제 채널 open 호출 target·횟수·opened 결과; renderer toast 0 green | 해당 없음 — 직접 oracle |
+| VP-05 | REQUIRED | SELF_PASS | open-failed 폴백·지원 밖 3종·실경로 확장자 green | M4 호출 3·정의 15, M5 1, M6 1 red |
+| VP-06 | REQUIRED | SELF_PASS | 범위 안 missing·범위 밖 reject·shell 0·missing toast 1 green | M7 2·M8 1 red |
+| VP-07 | REQUIRED | SELF_PASS | reject toast 1·인라인 alert 없음; T34 단일 catch 유지 green | 해당 없음 — 직접 oracle |
+| VP-08 | REGRESSION | SELF_PASS | 기존 보안 사례를 reveal/open 두 입구로 실행 green | M9 open junction 1 red, reveal 동일 사례 green |
+| VP-09 | REGRESSION | SELF_PASS | directory main 기존 사례 + renderer directory 호출·기존 실패 detail green | 해당 없음 — 직접 oracle |
+| VP-10 | REQUIRED | SELF_PASS | 스키마·IPC 문서·i18n·레지스트리·inventory green | 해당 없음 — 직접 oracle |
+| VP-11 | REQUIRED | SELF_BLOCKED | Windows 기본 앱/탐색기 창·hover·실제 카드 높이는 사람 실기 대기 | 해당 없음 — §19 사람 실기 |
+| VP-12 | REQUIRED | SELF_PASS | 실제 main 결과표 + renderer 결과별 toast표 green | VP-05·VP-06 공유 M4~M8 red |
+| VP-13 | REQUIRED | SELF_PASS | 무효 payload reject; fileApi→실제 preload→invoke 요청·응답 보존 green | 해당 없음 — 직접 oracle |
+| VP-14 | REQUIRED | SELF_PASS | 정의 1곳·호출 2곳 + 양 입구 scope 사례 green | VP-08 공유 M9 red |
+| VP-15 | REQUIRED | SELF_PASS | ko/en 키 대조와 T34 event/title catch 레지스트리 green | 해당 없음 — 직접 oracle |
+| VP-16 | REQUIRED | SELF_PASS | 허용/비허용 순수 형식 표·대문자·끝 점·ADS green | VP-05 공유 M4 정의·M6 red |
+| VP-17 | REQUIRED | SELF_PASS | opened/revealed toast 0·missing/reject toast 1 green | VP-06 공유 M7·M8 red |
+
+- pair 검산: SELF_PASS 16 · SELF_BLOCKED 1 = 등록 pair 17. 독립 verify 판정은 선점하지 않는다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| M1 busy 상태 줄 복원 | VP-01 | 최초 | ArtifactCard.render busy markup / 1 red | 원본 byte 복원 |
+| M2 busy aria-live span 삽입 | VP-01 | 최초 | 동상 / 1 red(마크업 비교) | 원본 byte 복원 |
+| M3 파일 텍스트↔title 교환 | VP-03 | 최초 | TaskContextContent 파일명/tooltip Windows·POSIX / 2 red | 원본 byte 복원 |
+| M3 첨부 텍스트↔title 교환 | VP-03·D-012 | 최초 | TaskContextContent original name / 1 red | 원본 byte 복원 |
+| M4 핸들러 허용 판정 제거 | VP-05·VP-16 | 최초 | files.contextDirectory 지원 밖 py·exe·무확장자 / 3 red | 원본 byte 복원 |
+| M4 판정 함수가 항상 true | VP-05·VP-16 | 최초 | context-file 비허용 형식 표 / 15 red | 원본 byte 복원 |
+| M5 오류 시 폴백 호출 제거 | VP-05 | 최초 | files.contextDirectory native error string / 1 red | 원본 byte 복원 |
+| M6 요청 경로 확장자로 판정 | VP-05 | 최초 | files.contextDirectory resolved extension / 1 red | 원본 byte 복원 |
+| M7 realpath를 stat 앞에 호출 | VP-06 | 최초 | context-file absent path·replaced parent / 2 red | 원본 byte 복원 |
+| M8 문자열 범위 검사 없는 missing | VP-06 | 최초 | context-file outside absent path / 1 red | 원본 byte 복원 |
+| M9 신규 채널에 lexical-only 해석기 사본 | VP-08·VP-14 | 최초 | files.contextDirectory open in-scope escaping junction / 1 red; reveal 형제 1 green | 원본 byte 복원 |
 
-- **분모 검산**: …
-- **덮개 회귀**: …
+- **분모 검산**: 선택 증거 9종(M1~M9)의 production 자리 11 · 인용 변이 0 · 새 oracle 0 = 잠금 표 11행. M3 파일/첨부, M4 정의/호출부는 각 두 자리다. 구조적 추가 oracle은 만들지 않고 실제 결과·마크업을 관측했다.
+- **덮개 회귀**: 이전 장치 교체 없음. 모든 변이 후 byte-for-byte 복원 true를 확인했고 최종 관련 스위트 17파일·444케이스 green을 재현했다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | missing → sourceMissing → fileUnavailable toast; reject → sourceOpenFailed → openFailed toast | 결과 4종 + reject 사례 green |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 해석기만 이동했다. opening ref·mounted ref·finally는 같은 renderer 함수 안에 남는다 | 중복 클릭 가드·다음 세션 늦은 클릭 0 green |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 없는 파일 → missing toast 행; 그 밖 실패 → reject toast 행; native 오류 → 위치 열기 행 | main/renderer 결과표 green |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | missing/reject toast 1; open-failed 폴백 reveal 1. 카드 아래 상태 줄은 없다 | AC1·AC6·AC8·AC9 green |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 결과는 toast로만 알리고 화면 내용을 바꾸지 않는다. 세션 이동 뒤 missing도 요청한 사용자에게 알린다 | pending 요청 중 중복 클릭 0·이동 뒤 missing toast 1 green |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | 기본 tmpdir가 사용자 프로필 아래라 sandbox에서 realpathSync가 EPERM | 테스트 실행 TEMP/TMP만 `app/node_modules/.cache/test-tmp`로 지정했다. 앱·테스트 동작 계약은 변경하지 않았다 | 초기 DB-context 55건 setup 실패 → 동일 테스트 workspace TEMP에서 green |
+| 2 | OS 기본 앱·연결 프로그램 선택창·실제 카드 높이는 mock에서 보이지 않는다 | AC14는 사람 실기 대기, 완료 수에 넣지 않는다 | §19 절차·VP-11 SELF_BLOCKED |
+| 3 | 실제 shell 호출부와 설계 예상 수치가 다름 | 실제 호출부 6곳을 검색하고 각 신규 branch sink를 직접 시험했다. 규범 AC·§10은 그대로다 | `files.ts:126·147·157·170·173·175` |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: 없음. 새 파일 open mode는 renderer 내부 판별자 `file`이며 공개 요청은 계획한 `{path, sessionId}` 그대로다. 첨부·폴더·웹 경로도 계획한 경계를 유지했다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 — 캐시·추가 저장소 없음 | AC8 실제 stat 선행 green |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 — 대체물 없음. 기존 두 입구가 해석기를 공유한다 | AC10 두 입구 scope·세션 재확인 green |
+| 재진입 | 해당 없음 — 대체물 없음. 기존 opening ref 가드 유지 | 동시 두 항목 클릭 IPC 1 green |
+| 다른 무효화 축 | 해당 없음 — 대체물 없음. 파일 교체 TOCTOU는 §17 수용 범위 유지 | M6 actual target 확장자 red |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님) | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | §18 production·계약·테스트·문서 + preload 실제 wire 테스트. 신규 `context-file.ts`·`context-file.test.ts` |
+| 실행 명령 | §19 관련 vitest 목록 + `src/preload/index.test.ts`·`src/shared/protocol.send.test.ts`·`src/shared/ipc-documentation.test.ts`, `--maxWorkers=2`; TEMP/TMP workspace 지정. `node scripts/check-doc-inventory.mjs --check` |
+| **관측한 게이트 산출**(exit code 아님) | 관련 vitest **17파일·444케이스 green**, 97.67s. inventory 생성/문서/상대링크 **green: 102채널·수치 재서술 없음·모든 상대링크 해석**. `npm run lint`: 오류 0·기존 경고 1(`useTranscriptVirtualizer.ts:22`, incompatible-library). `npm run typecheck`: node/web/test 3구성 오류 0. Prettier 형식 변경 외 동작 변경 없음; lint 지적의 테스트 helper 반환형 1곳을 명시했다 |
+| V-pair 자기확인 | SELF_PASS 16 / SELF_BLOCKED 1(Windows 사람 실기) |
+| 강제 지점 전수 | EP-01~EP-09의 27/27자리. 선택 M1~M9 11자리 모두 red → byte 복원 → 관련 suite green |
+| **AC 자기보고**(`Criteria-Met`) | 13/14. AC1~AC13 기계 증거 green, AC14 사람 실기 대기 |
+| **합계 검산** | ✅ 13 · ⚠️ 1 · ❌ 0 = AC 총 14. 아래 AC 행을 세어 검산했다 |
+| 블로커 / 역질문 | 제품·계약 PLAN_GAP 없음. AC14 OS 창·시각 실기만 미실행 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+- root 별도 회귀 관측: ArtifactCards.lifecycle·artifactViewerStore·i18n·errors·files.openPath **10파일·262케이스 green**. 위 17파일 스위트와 겹치므로 합산하지 않는다.
+
+| AC | 자기보고 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | ArtifactCard busy/idle disabled 외 markup 동일·상태 줄 0 |
+| AC2 | ✅ | ArtifactCards.lifecycle + artifactViewerStore 실패 toast 기존 사례 green |
+| AC3 | ✅ | TaskContextContent Windows/POSIX 파일명·tooltip·aria green |
+| AC4 | ✅ | 첨부 원래 이름·저장 경로 tooltip·새 IPC·무경로 비활성 green |
+| AC5 | ✅ | 실제 main opened/open 1/reveal 0 + renderer toast 0 green |
+| AC6 | ✅ | native 오류 문자열 → reveal 1/open-failed + toast 0 green |
+| AC7 | ✅ | 허용 23종·거부 15종 순수 + py/exe/무확장자 실제 handler + 실제 경로 확장자 green |
+| AC8 | ✅ | 승인 missing/shell 0·범위 밖 missing reject·fileUnavailable detail green |
+| AC9 | ✅ | rejected file open toast 1/openFailed/인라인 alert 0 green |
+| AC10 | ✅ | 동일 보안 사례 reveal/open 두 입구 green·해석기 정의 1곳 |
+| AC11 | ✅ | main directory 기존 사례·renderer directory mode와 기존 실패 detail green |
+| AC12 | ✅ | 요청 accept/reject·등록·실제 preload wire·IPC 문서 3사례·inventory green |
+| AC13 | ✅ | ko/en 리프 집합·T34 catch/event/title 레지스트리 green |
+| AC14 | ⚠️ | Windows 기본 앱/탐색기 창·실제 카드 높이 사람 실기 대기 |
+
+- AC 합계 재측정: ✅ 13 · ⚠️ 1 · ❌ 0 = 14. `Criteria-Met: 13/14`, `Criteria-Pending: AC14 Windows 기본 앱·탐색기·시각 실기`.
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
-- 현재 라운드·impl 턴: …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 최초 구현. 0242의 busy 상태 줄 요구만 이번 D-001로 대체했고 실패 toast·busy 비활성·범위 보안은 유지했다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: AC1 markup 비교가 문구 없는 새 높이 변화(M2)도 검출했다. M9는 open의 연결 경로 검사 누락을 검출하고 reveal 형제 사례는 green이었다.
+- 반복해서 부딪히는 환경 한계: Node ABI의 SQLite는 정상이다. 프로필 아래 realpath sandbox 제한은 테스트 TEMP/TMP workspace 지정으로 해소했다. OS 실제 창은 사람 실기가 필요하다.
+- 현재 라운드·impl 턴: r1. 구현 결과 자기보고이며 다음은 독립 verify다.
 
 ---
 

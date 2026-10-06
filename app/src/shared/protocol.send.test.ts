@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { OpenPathRequestSchema, SendChatMessageSchema, SetPermissionModeSchema } from './protocol'
+import {
+  OpenContextFileRequestSchema,
+  OpenPathRequestSchema,
+  SendChatMessageSchema,
+  SetPermissionModeSchema
+} from './protocol'
 
 const base = { sessionId: null, projectId: null, text: 'hi' }
 
@@ -103,6 +108,25 @@ describe('SendChatMessageSchema — cwd', () => {
     expect(SendChatMessageSchema.safeParse({ ...base, cwd: '/repo/orca' }).success).toBe(true)
     expect(SendChatMessageSchema.safeParse({ ...base, cwd: null }).success).toBe(true)
     expect(SendChatMessageSchema.safeParse({ ...base, cwd: '' }).success).toBe(false)
+  })
+})
+
+describe('OpenContextFileRequestSchema', () => {
+  it('requires a nonempty path and a bounded nonempty session id', () => {
+    expect(
+      OpenContextFileRequestSchema.safeParse({ path: '/work/a.md', sessionId: 'work' }).success
+    ).toBe(true)
+    expect(
+      OpenContextFileRequestSchema.safeParse({ path: '/work/a.md', sessionId: 's'.repeat(256) })
+        .success
+    ).toBe(true)
+    for (const request of [
+      { path: '', sessionId: 'work' },
+      { path: '/work/a.md' },
+      { path: '/work/a.md', sessionId: '' },
+      { path: '/work/a.md', sessionId: 's'.repeat(257) }
+    ])
+      expect(OpenContextFileRequestSchema.safeParse(request).success).toBe(false)
   })
 })
 
