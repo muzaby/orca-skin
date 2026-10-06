@@ -78,8 +78,7 @@ describe('computeUsageLimits', () => {
   })
 })
 
-// 0186 — provider 월간은 원격 기준선 + 로컬 증분으로 합성될 수 있어 CostSummary 한 곳에서
-// 나오지 않는다. 합성 판정은 usage-compose 가 하고, 여기서는 값을 받아 예산·퍼센트만 파생한다.
+// provider는 원격 우선 합성 결과를 받아 출처를 보존한다.
 describe('computeUsageLimitsFrom', () => {
   it('summary 경유와 같은 결과를 낸다', () => {
     expect(computeUsageLimitsFrom({ week: 8, month: 30 }, 90, JUL_15_WED)).toEqual(
@@ -87,13 +86,13 @@ describe('computeUsageLimitsFrom', () => {
     )
   })
 
-  it('월간만 remote-baseline 로 표기하고 주간은 local 을 유지한다', () => {
+  it('월간만 remote 로 표기하고 주간은 local 을 유지한다', () => {
     const v = computeUsageLimitsFrom({ week: 8, month: 319 }, 500, JUL_15_WED, {
       week: 'local',
-      month: 'remote-baseline'
+      month: 'remote'
     })
     expect(v.week.source).toBe('local')
-    expect(v.month.source).toBe('remote-baseline')
+    expect(v.month.source).toBe('remote')
     expect(v.month.used).toBe(319)
     expect(v.month.pct).toBeCloseTo(319 / 500, 5)
   })
@@ -101,8 +100,8 @@ describe('computeUsageLimitsFrom', () => {
   it('무제한이어도 출처 표기는 보존한다', () => {
     const v = computeUsageLimitsFrom({ week: 8, month: 319 }, null, JUL_15_WED, {
       week: 'local',
-      month: 'remote-baseline'
+      month: 'remote'
     })
-    expect(v.month).toMatchObject({ budget: null, unlimited: true, source: 'remote-baseline' })
+    expect(v.month).toMatchObject({ budget: null, unlimited: true, source: 'remote' })
   })
 })

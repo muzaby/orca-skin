@@ -9,10 +9,9 @@
 // 재인증하면 되는 상태다. 그래서 `supports` 는 그대로 두고 `fetchUsage()` 가 Auth 오류를
 // 정상적으로 전파하게 한다.
 //
-// ── `baselineUsable` 은 fail-closed ─────────────────────────────────────────
-// `asOf` 가 **billing aggregation watermark** 임을 배포가 확인한 경우에만 `true` 다. 단순
-// 응답 생성 시각이면 `false` 로 둔다 — 그러지 않으면 원격이 이미 센 턴의 로컬 행이
-// `created_at > asOf` 가 되어 같은 턴이 두 번 더해진다.
+// baselineUsable은 월 계산에 쓰지 않는 호환 필드다.
+// usedUsd는 asOf, 없으면 fetchedAt의 달로 판정하고 SDK 증분 없이 쓴다.
+// daily/monthly 미제공은 기존 기간 행을 보존한다.
 //
 // 채우는 예제는 `docs/guides/closed-network-extensions.md` §5-b 다.
 

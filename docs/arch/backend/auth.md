@@ -725,8 +725,12 @@ HarnessPlugin  Harness 규약에 맞춰 렌더한 package 를 Harness 가 직접
 
 - `supports(key)` 는 **이 배포가 그 key 의 원격 사용량을 지원하는가** 이지 현재 Auth 상태가 아니다.
   미인증·만료에서 `supports:false` 로 숨기지 말고 `fetchUsage()` 가 Auth 오류를 전파하게 한다.
-- `baselineUsable` 은 `asOf` 가 **billing aggregation watermark** 임을 배포가 확인한 경우에만 true 다.
-  미지정은 false 로 접힌다(fail-closed) — 아니면 같은 턴이 두 번 더해진다.
+- `UsageSnapshot.daily`·`monthly`는 선택 내역이다. 빈 내역·수치 전무는 미제공이며 기존 행을 지우지 않는다.
+  제공한 행의 개별 미제공 수치는 SQL NULL로 저장한다. 캐시·기간 합계·모델 집합은 검증 후 같은 DB 트랜잭션으로 커밋한다.
+- 원격 칸의 표시는 저장된 원격 값만 사용하며 미제공 수치는 0이다. 같은 칸의 SDK 사용량은 무시하고
+  SDK 턴 원장 기록은 계속한다. 월·주 바와 사용량 탭의 합성 규칙은 [IPC 계약 §2.12](../../IPC_CONTRACT.md#212-cost-phase-3)가 정본이다.
+- `baselineUsable`은 월 계산에 쓰이지 않는 호환 필드다. 포트 필드와 캐시 봉투 저장은 유지한다.
+  `usedUsd`의 이번 달 판정은 `asOf`, 없으면 받은 시각 `fetchedAt`으로 한다.
 - 재인증·해제는 저장된 마지막 `UsageSnapshot` 을 임의로 삭제하지 않는다.
 
 ---

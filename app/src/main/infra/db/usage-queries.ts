@@ -6,7 +6,13 @@ import type {
   TurnModelUsageRow,
   TurnUsageInsert,
   TurnUsageRow,
-  ProviderUsageByBoundaries,
+  UsageBreakdown,
+  ProviderPeriodCosts,
+  ProviderUsagePeriodRow,
+  ProviderUsagePeriodModelRow,
+  UsagePeriodFilter,
+  ProviderDailyUsageRow,
+  ProviderDayModelUsageRow,
   ProviderUsageReportRow,
   ProviderUsageReportUpsert,
   UsageByBoundaries,
@@ -32,6 +38,15 @@ export class UsageQueries {
   // 원격 사용량 스냅샷(0014) — provider 당 1행. fetcher 가 있는 배포에서만 쓰이므로 lazy prepare.
   private getProviderUsageReportStmt?: Database.Statement
   private upsertProviderUsageReportStmt?: Database.Statement
+  private upsertPeriodStmt?: Database.Statement
+  private deletePeriodModelsStmt?: Database.Statement
+  private insertPeriodModelStmt?: Database.Statement
+  private periodCostsStmt?: Database.Statement
+  private listPeriodsStmt?: Database.Statement
+  private listPeriodModelsStmt?: Database.Statement
+  private sumDayForProviderStmt?: Database.Statement
+  private sumProviderDayStmt?: Database.Statement
+  private sumProviderDayModelStmt?: Database.Statement
 
   constructor(private readonly db: Database.Database) {
     this.insertTurnUsageStmt = db.prepare(`
@@ -103,8 +118,7 @@ export class UsageQueries {
         COALESCE(SUM(tu.output_tokens), 0) AS month_output_tokens,
         COALESCE(SUM(tu.cache_creation_input_tokens), 0) AS month_cache_creation_input_tokens,
         COALESCE(SUM(tu.cache_read_input_tokens), 0) AS month_cache_read_input_tokens,
-        COALESCE(SUM(tu.total_cost_usd), 0) AS month_total_cost_usd,
-        COALESCE(SUM(CASE WHEN tu.created_at > @asOf THEN tu.total_cost_usd END), 0) AS month_delta_cost_usd
+        COALESCE(SUM(tu.total_cost_usd), 0) AS month_total_cost_usd
       FROM turn_usage tu
       JOIN sessions s ON s.id = tu.session_id
       WHERE tu.created_at >= @monthStart AND s.provider_key = @providerKey
@@ -165,17 +179,11 @@ export class UsageQueries {
   }
 
   // provider 한정 집계(0080) — sumUsageByBoundaries 와 같은 형태를 provider_key 로 필터해 반환.
-  //
-  // `asOf`(0186) 는 **WHERE 하한이 아니라 조건부 SUM 의 경계**다. 하한을 asOf 로 올려 재사용하면
-  // 같은 스캔에서 나오는 `week` 가 asOf 이전 사용분을 잃는다 — 주간은 언제나 로컬 전량이어야
-  // 한다. 그래서 하한은 monthStart 로 두고 월간 증분만 컬럼 하나로 더 뽑는다(스캔 횟수 불변).
-  // 기준선이 없으면 `asOf: 0` 을 넘긴다 — 그러면 delta 가 월 전체와 같아져 의미가 성립한다.
   sumUsageByBoundariesForProvider(
     providerKey: string,
-    b: { dayStart: number; weekStart: number; monthStart: number },
-    asOf = 0
-  ): ProviderUsageByBoundaries {
-    const r = this.sumUsageByBoundariesForProviderStmt.get({ ...b, providerKey, asOf }) as Record<
+    b: { dayStart: number; weekStart: number; monthStart: number }
+  ): UsageByBoundaries {
+    const r = this.sumUsageByBoundariesForProviderStmt.get({ ...b, providerKey }) as Record<
       string,
       number
     >
@@ -189,8 +197,7 @@ export class UsageQueries {
     return {
       day: period('day'),
       week: period('week'),
-      month: period('month'),
-      monthDeltaCostUsd: r.month_delta_cost_usd
+      month: period('month')
     }
   }
 
@@ -225,6 +232,130 @@ export class UsageQueries {
         updated_at = @updatedAt
     `)
     this.upsertProviderUsageReportStmt.run(row)
+  }
+
+  // 모든 원격 쓰기는 같은 SQLite 트랜잭션에 속한다. 모델 집합은 보고한 기간만 교체한다.
+  saveProviderUsageReport(report: ProviderUsageReportUpsert, periods: UsageBreakdown): void {
+    this.upsertPeriodStmt ??= this.db.prepare(`
+      INSERT INTO provider_usage_periods (provider_key, period_kind, period, input_tokens,
+        output_tokens, cache_creation_input_tokens, cache_read_input_tokens, cost_usd, fetched_at, updated_at)
+      VALUES (@providerKey, @kind, @period, @inputTokens, @outputTokens, @cacheCreationInputTokens,
+        @cacheReadInputTokens, @costUsd, @fetchedAt, @updatedAt)
+      ON CONFLICT(provider_key, period_kind, period) DO UPDATE SET
+        input_tokens = excluded.input_tokens, output_tokens = excluded.output_tokens,
+        cache_creation_input_tokens = excluded.cache_creation_input_tokens,
+        cache_read_input_tokens = excluded.cache_read_input_tokens, cost_usd = excluded.cost_usd,
+        fetched_at = excluded.fetched_at, updated_at = excluded.updated_at
+    `)
+    this.deletePeriodModelsStmt ??= this.db.prepare(`
+      DELETE FROM provider_usage_period_models
+      WHERE provider_key = @providerKey AND period_kind = @kind AND period = @period
+    `)
+    this.insertPeriodModelStmt ??= this.db.prepare(`
+      INSERT INTO provider_usage_period_models (provider_key, period_kind, period, model, input_tokens,
+        output_tokens, cache_creation_input_tokens, cache_read_input_tokens, cost_usd, fetched_at, updated_at)
+      VALUES (@providerKey, @kind, @period, @model, @inputTokens, @outputTokens,
+        @cacheCreationInputTokens, @cacheReadInputTokens, @costUsd, @fetchedAt, @updatedAt)
+    `)
+    this.db.transaction(() => {
+      this.upsertProviderUsageReport(report)
+      const meta = {
+        providerKey: report.providerKey,
+        fetchedAt: report.fetchedAt,
+        updatedAt: report.updatedAt
+      }
+      for (const total of periods.totals) this.upsertPeriodStmt!.run({ ...meta, ...total })
+      for (const set of periods.modelSets) {
+        this.deletePeriodModelsStmt!.run({
+          providerKey: report.providerKey,
+          kind: set.kind,
+          period: set.period
+        })
+        for (const model of set.models) {
+          this.insertPeriodModelStmt!.run({ ...meta, kind: set.kind, period: set.period, ...model })
+        }
+      }
+    })()
+  }
+
+  providerPeriodCosts(
+    providerKey: string,
+    window: { fromDay: string; toDay: string; month: string }
+  ): ProviderPeriodCosts {
+    this.periodCostsStmt ??= this.db.prepare(`
+      SELECT period_kind, period, cost_usd FROM provider_usage_periods WHERE provider_key = @providerKey
+        AND ((period_kind = 'day' AND period >= @fromDay AND period <= @toDay)
+          OR (period_kind = 'month' AND period = @month)) ORDER BY period
+    `)
+    const rows = this.periodCostsStmt.all({ providerKey, ...window }) as Pick<
+      ProviderUsagePeriodRow,
+      'period_kind' | 'period' | 'cost_usd'
+    >[]
+    return {
+      days: rows
+        .filter((r) => r.period_kind === 'day')
+        .map((r) => ({ day: r.period, costUsd: r.cost_usd })),
+      month: rows.find((r) => r.period_kind === 'month')
+        ? { costUsd: rows.find((r) => r.period_kind === 'month')!.cost_usd }
+        : null
+    }
+  }
+
+  listProviderUsagePeriods(filter: UsagePeriodFilter): ProviderUsagePeriodRow[] {
+    this.listPeriodsStmt ??= this.db.prepare(`
+      SELECT * FROM provider_usage_periods WHERE period_kind = @periodKind
+        AND (@from IS NULL OR period >= @from) AND (@to IS NULL OR period <= @to)
+      ORDER BY period, provider_key
+    `)
+    return this.listPeriodsStmt.all({
+      ...filter,
+      from: filter.from ?? null,
+      to: filter.to ?? null
+    }) as ProviderUsagePeriodRow[]
+  }
+
+  listProviderUsagePeriodModels(filter: UsagePeriodFilter): ProviderUsagePeriodModelRow[] {
+    this.listPeriodModelsStmt ??= this.db.prepare(`
+      SELECT * FROM provider_usage_period_models WHERE period_kind = @periodKind
+        AND (@from IS NULL OR period >= @from) AND (@to IS NULL OR period <= @to)
+      ORDER BY period, provider_key, model
+    `)
+    return this.listPeriodModelsStmt.all({
+      ...filter,
+      from: filter.from ?? null,
+      to: filter.to ?? null
+    }) as ProviderUsagePeriodModelRow[]
+  }
+
+  sumUsageByDayForProvider(providerKey: string, since: number): DailyUsageRow[] {
+    this.sumDayForProviderStmt ??= this.db.prepare(`
+      SELECT date(tu.created_at / 1000, 'unixepoch', 'localtime') AS day,
+        ${localMetricsSql('tu', 'total_cost_usd')}
+      FROM turn_usage tu JOIN sessions s ON s.id = tu.session_id
+      WHERE tu.created_at >= @since AND s.provider_key = @providerKey GROUP BY day ORDER BY day
+    `)
+    return this.sumDayForProviderStmt.all({ providerKey, since }) as DailyUsageRow[]
+  }
+
+  sumUsageByProviderDaySince(since: number): ProviderDailyUsageRow[] {
+    this.sumProviderDayStmt ??= this.db.prepare(`
+      SELECT s.provider_key, date(tu.created_at / 1000, 'unixepoch', 'localtime') AS day,
+        ${localMetricsSql('tu', 'total_cost_usd')}
+      FROM turn_usage tu LEFT JOIN sessions s ON s.id = tu.session_id
+      WHERE tu.created_at >= @since GROUP BY s.provider_key, day ORDER BY day, s.provider_key
+    `)
+    return this.sumProviderDayStmt.all({ since }) as ProviderDailyUsageRow[]
+  }
+
+  sumModelUsageByProviderDaySince(since: number): ProviderDayModelUsageRow[] {
+    this.sumProviderDayModelStmt ??= this.db.prepare(`
+      SELECT s.provider_key, date(tu.created_at / 1000, 'unixepoch', 'localtime') AS day, tmu.model,
+        ${localMetricsSql('tmu', 'cost_usd')}
+      FROM turn_model_usage tmu JOIN turn_usage tu ON tu.id = tmu.turn_usage_id
+      LEFT JOIN sessions s ON s.id = tu.session_id
+      WHERE tu.created_at >= @since GROUP BY s.provider_key, day, tmu.model ORDER BY day, s.provider_key, tmu.model
+    `)
+    return this.sumProviderDayModelStmt.all({ since }) as ProviderDayModelUsageRow[]
   }
 
   // 사용량 요약(0112) — since(epoch ms, 'all'=0) 이후를 OS 로컬 일자로 버킷팅해 합산한다.
@@ -279,4 +410,16 @@ export class UsageQueries {
   setProviderLimit(providerKey: string, limitUsd: number | null, updatedAt: number): void {
     this.setProviderLimitStmt.run({ providerKey, limitUsd, updatedAt })
   }
+}
+
+function localMetricsSql(alias: string, cost: 'cost_usd' | 'total_cost_usd'): string {
+  return [
+    'input_tokens',
+    'output_tokens',
+    'cache_creation_input_tokens',
+    'cache_read_input_tokens',
+    cost
+  ]
+    .map((key) => `COALESCE(SUM(${alias}.${key}), 0) AS ${key}`)
+    .join(', ')
 }

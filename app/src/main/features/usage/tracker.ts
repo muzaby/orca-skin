@@ -15,7 +15,7 @@ import type {
   UsageStats,
   UsageStatsRange
 } from '../../../shared/ipc'
-import { rangeSince } from '../../../shared/usage/stats'
+import { localDayKey, localMonthKey, rangeSince } from '../../../shared/usage/stats'
 import {
   computeUsageLimits,
   type UsageDelta,
@@ -27,6 +27,8 @@ import type { DailyUsageRow, ModelUsageSumRow, UsageSumRow } from '../../infra/d
 import { boundaries } from '../../../shared/time/clock'
 import { composeProviderUsage } from './usage-compose'
 import type { UsageFetcher, UsageSnapshot } from './fetcher'
+import { normalizeUsageBreakdown } from './breakdown'
+import { composeUsageStats } from './usage-stats-compose'
 
 export interface UsageTrackerDeps {
   // 전역 월 한도. Main SettingsStore 가 소유하고 메모리 캐시라 hot path 에서 disk read 가 없다.
@@ -136,19 +138,21 @@ export class UsageTracker {
     return this.globalView(now)
   }
 
-  // provider 정본 — 로컬 집계 + (있으면) 원격 기준선 + 한도를 합성한다.
+  // provider 정본 — 커밋된 원격 칸 우선 합성과 한도를 조립한다.
   getProviderUsage(providerKey: string, now = Date.now()): UsageLimitsView {
     // DB cache 는 현재 capability 의 저장 수단일 뿐 그 자체가 authority 는 아니다. 배포가
     // provider 지원을 제거했으면 과거 행이 남아 있어도 local/configured 로 접는다.
-    const snapshot = this.deps.fetcher?.supports(providerKey)
-      ? this.readSnapshot(providerKey)
+    const supported = this.deps.fetcher?.supports(providerKey) === true
+    const snapshot = supported ? this.readSnapshot(providerKey) : null
+    const b = boundaries(now)
+    const sums = this.db.sumUsageByBoundariesForProvider(providerKey, b)
+    const periods = supported
+      ? this.db.providerPeriodCosts(providerKey, {
+          fromDay: localDayKey(b.monthStart),
+          toDay: localDayKey(now),
+          month: localMonthKey(now)
+        })
       : null
-    // 기준선이 없으면 asOf 0 — delta 가 월 전체와 같아져 의미가 성립한다.
-    const sums = this.db.sumUsageByBoundariesForProvider(
-      providerKey,
-      boundaries(now),
-      snapshot?.asOf ?? 0
-    )
     const local = {
       summary: {
         day: toPeriod(sums.day),
@@ -156,9 +160,23 @@ export class UsageTracker {
         month: toPeriod(sums.month),
         updatedAt: now
       },
-      monthDeltaCostUsd: sums.monthDeltaCostUsd
+      dayCostUsd: periods?.days.length
+        ? new Map(
+            this.db
+              .sumUsageByDayForProvider(providerKey, b.monthStart)
+              .map((row) => [row.day, row.total_cost_usd])
+          )
+        : undefined
     }
-    return composeProviderUsage(local, snapshot, this.db.getProviderLimit(providerKey), now)
+    return composeProviderUsage(
+      local,
+      snapshot,
+      this.db.getProviderLimit(providerKey),
+      now,
+      periods
+        ? { month: periods.month, days: new Map(periods.days.map((row) => [row.day, row.costUsd])) }
+        : undefined
+    )
   }
 
   // provider 월 한도 쓰기 — **한도는 이 뷰의 입력**(`budget`·`pct`)이므로 쓰기도 뷰의 주인이
@@ -185,21 +203,25 @@ export class UsageTracker {
     const snapshot = await this.deps.fetcher.fetchUsage(providerKey, signal)
     if (!snapshot) throw new Error(`Remote usage refresh returned no snapshot: ${providerKey}`)
 
+    const periods = normalizeUsageBreakdown(snapshot)
     const now = Date.now()
-    this.db.upsertProviderUsageReport({
-      providerKey,
-      // report_json 은 코어가 정한 봉투다 — 재시작 후에도 기준선 사용 가부를 알아야 한다.
-      reportJson: JSON.stringify({
-        baselineUsable: snapshot.baselineUsable === true,
-        raw: snapshot.raw ?? null
-      }),
-      fetchedAt: snapshot.fetchedAt,
-      asOf: snapshot.asOf,
-      quotaLimitUsd: snapshot.limitUsd,
-      quotaUsedUsd: snapshot.usedUsd,
-      quotaRemainingUsd: snapshot.remainingUsd,
-      updatedAt: now
-    })
+    this.db.saveProviderUsageReport(
+      {
+        providerKey,
+        // 이전 버전과 봉투 호환을 유지한다. 표시 수치는 스칼라 열·기간 행에서 읽는다.
+        reportJson: JSON.stringify({
+          baselineUsable: snapshot.baselineUsable === true,
+          raw: snapshot.raw ?? null
+        }),
+        fetchedAt: snapshot.fetchedAt,
+        asOf: snapshot.asOf,
+        quotaLimitUsd: snapshot.limitUsd,
+        quotaUsedUsd: snapshot.usedUsd,
+        quotaRemainingUsd: snapshot.remainingUsd,
+        updatedAt: now
+      },
+      periods
+    )
     const value = this.getProviderUsage(providerKey, now)
     this.broadcast({ scope: 'provider', providerKey, value })
     return value
@@ -210,6 +232,38 @@ export class UsageTracker {
   // 제로필은 renderer 몫. since=null 은 '전체'(하한 없음)를 뜻한다.
   usageStats(range: UsageStatsRange, now = Date.now()): UsageStats {
     const since = rangeSince(range, now)
+    if (this.deps.fetcher) {
+      const window = {
+        from: range === 'all' ? undefined : localDayKey(since),
+        to: localDayKey(now)
+      }
+      const supported = new Map<string, boolean>()
+      const accepts = (row: { provider_key: string }): boolean => {
+        if (!supported.has(row.provider_key))
+          supported.set(row.provider_key, this.deps.fetcher!.supports(row.provider_key))
+        return supported.get(row.provider_key) === true
+      }
+      const days = this.db
+        .listProviderUsagePeriods({ periodKind: 'day', ...window })
+        .filter(accepts)
+      const models = this.db
+        .listProviderUsagePeriodModels({ periodKind: 'day', ...window })
+        .filter(accepts)
+      if (days.length > 0 || models.length > 0) {
+        return {
+          range,
+          since: range === 'all' ? null : since,
+          updatedAt: now,
+          ...composeUsageStats(
+            this.db.sumUsageByProviderDaySince(since),
+            this.db.sumModelUsageByProviderDaySince(since),
+            days,
+            models,
+            window
+          )
+        }
+      }
+    }
     return {
       range,
       since: range === 'all' ? null : since,
@@ -223,19 +277,16 @@ export class UsageTracker {
     return computeUsageLimits(this.summary, this.deps.spendingLimitUsd(), now)
   }
 
-  // 0014 행 → UsageSnapshot. 봉투 파싱이 실패하면 `baselineUsable:false` 로 접는다(fail-closed) —
-  // 알 수 없는 상태를 "기준선을 써도 된다" 로 읽지 않는다.
+  // 봉투 파싱 실패와 무관하게 DB 스칼라 열은 원격 값 정본이다.
   private readSnapshot(providerKey: string): UsageSnapshot | null {
     const row = this.db.getProviderUsageReport(providerKey)
     if (!row) return null
-    let baselineUsable = false
     let raw: unknown = null
     try {
-      const envelope = JSON.parse(row.report_json) as { baselineUsable?: unknown; raw?: unknown }
-      baselineUsable = envelope?.baselineUsable === true
+      const envelope = JSON.parse(row.report_json) as { raw?: unknown }
       raw = envelope?.raw ?? null
     } catch {
-      // 파싱 실패 = 알 수 없음 → 기준선 미사용.
+      // 원본 봉투만 사용할 수 없다. 스칼라 열은 보존한다.
     }
     return {
       providerKey: row.provider_key,
@@ -244,7 +295,6 @@ export class UsageTracker {
       limitUsd: row.quota_limit_usd,
       usedUsd: row.quota_used_usd,
       remainingUsd: row.quota_remaining_usd,
-      baselineUsable,
       raw
     }
   }

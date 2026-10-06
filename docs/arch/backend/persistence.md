@@ -69,11 +69,12 @@
 | `0011_session_lineage.sql` | `session_lineage` 테이블 — Conversation Continuity fork/handoff 계보 (handoff 0051). |
 | `0012_provider_limits.sql` | `provider_limits` 테이블 — provider별 월간 지출 한도 (0080~0082). |
 | `0013_schedules.sql` | `schedule_runs` 테이블 — scheduler job 실행 이력 원장 (0091). |
-| `0014_provider_usage_report_cache.sql` | `provider_usage_report_cache` 테이블 — provider 당 1행의 원격 사용량 스냅샷. `report_json` 은 `{ baselineUsable, raw }` 봉투이고 스칼라 3종(`quota_{limit,used,remaining}_usd`)이 한도·기준선 경로를 싸게 만든다. 원격 fetcher 를 주입한 배포에서만 채워진다 (0111, 0186). |
+| `0014_provider_usage_report_cache.sql` | `provider_usage_report_cache` 테이블 — provider 당 원격 사용량 스냅샷. `report_json`은 `{ baselineUsable, raw }` 봉투이며 `baselineUsable`은 월 계산에 쓰이지 않는 호환 필드다. `quota_{limit,used,remaining}_usd`가 한도·월 사용액을 보존하고 `usedUsd`의 월은 `asOf`, 없으면 받은 시각 `fetchedAt`으로 판정한다. 원격 fetcher를 주입한 배포에서만 채운다. |
 | `0015_pinned.sql` | 고정(pin) 섹션 지원 컬럼 (0129). |
 | `0016_turn_model_context_window.sql` | `turn_model_usage.context_window`(nullable) — SDK 실측 컨텍스트 윈도 영속. 재로드 도넛 분모가 라이브와 같은 실측값을 쓰게 해 렌더러의 모델명 추측 목록을 걷어냈다 (0149). |
 | `0017_session_extra_dirs.sql` | `sessions.extra_dirs`(nullable JSON 배열) — 세션에 허용한 추가 참조 경로. Work는 유휴 상태의 명시 폴더 추가 명령으로 확장할 수 있다. |
 | `0018_managed_worktrees.sql` | `managed_worktrees` — Orca가 생성한 Git worktree의 저장소·경로·branch·base OID와 nullable 세션 연결. |
+| `0028_provider_usage_periods.sql` | `provider_usage_periods`의 (provider, 일/월, 기간) 합계와 `provider_usage_period_models`의 기간별 모델 내역. 개별 미제공 수치는 NULL로 보존하며 빈 내역은 기존 행을 유지한다. 제공한 기간 합계와 모델 집합은 최신 보고로 교체하고 캐시와 같은 transaction으로 저장한다. 현재 목록은 [생성 인벤토리](../../generated/inventory.md)를 따른다. |
 
 **마이그레이션 규칙**:
 - `src/main/infra/db/migrations/NNNN_<name>.sql` (NNNN = 0으로 패딩된 일련번호)
@@ -96,6 +97,8 @@ Work의 표시 경계는 `message_parts`에 `response_boundary` JSON으로 저�
 | `projects` | id, name, instructions, cwd, cwd_key, pinned_at, createdAt, updatedAt |
 | `turn_usage` / `turn_model_usage` | per-turn 사용량 원장 + 모델별 분해 (토큰·cost_usd·context_window) |
 | `provider_limits` | provider별 월간 지출 한도 (0080) |
+| `provider_usage_report_cache` | 원격 스냅샷의 한도·월 사용액·수신 시각·호환 봉투 |
+| `provider_usage_periods` / `provider_usage_period_models` | 원격 일/월 합계·기간별 모델 집합. 표시 합성은 [IPC 계약 §2.12](../../IPC_CONTRACT.md#212-cost-phase-3)를 따른다. |
 | `session_lineage` | fork/handoff 계보 (0051) |
 | `schedule_runs` | scheduler job 실행 이력 (0091) |
 | `messages_fts` | FTS5 가상 테이블 (content + sessionId 인덱싱. rank 정렬. `toFtsMatch` 가 토큰마다 `*` wildcard 부착.) |

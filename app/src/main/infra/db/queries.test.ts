@@ -698,9 +698,7 @@ describe('DbQueries provider usage + limits (0080)', () => {
     expect(q.usage.getProviderLimit('claude')).toBeNull()
   })
 
-  // 0186 — asOf 는 WHERE 하한이 아니라 조건부 SUM 의 경계다. 하한을 올려 재사용하면 같은
-  // 스캔에서 나오는 week 가 asOf 이전 사용분을 잃는다(주간은 언제나 로컬 전량).
-  it('as_of 가 이번 주 안이어도 week 가 온전하다', () => {
+  it('provider의 주·월 전체 사용량을 함께 집계한다', () => {
     const db = dbWithMigrations()
     insertSessionWithProvider(db, 'sw', 'claude')
     const q = new DbQueries(db)
@@ -721,20 +719,18 @@ describe('DbQueries provider usage + limits (0080)', () => {
     usd(250, 2)
     usd(400, 4)
 
-    const sums = q.usage.sumUsageByBoundariesForProvider(
-      'claude',
-      { dayStart: 100, weekStart: 100, monthStart: 100 },
-      300
-    )
+    const sums = q.usage.sumUsageByBoundariesForProvider('claude', {
+      dayStart: 100,
+      weekStart: 100,
+      monthStart: 100
+    })
 
     // week 는 asOf 와 무관하게 전량(1+2+4).
     expect(sums.week.total_cost_usd).toBe(7)
     expect(sums.month.total_cost_usd).toBe(7)
-    // delta 는 asOf 이후만(4).
-    expect(sums.monthDeltaCostUsd).toBe(4)
   })
 
-  it('asOf 를 생략하면 delta 가 월 전체와 같다', () => {
+  it('provider 경계 집계는 월 전체를 반환한다', () => {
     const db = dbWithMigrations()
     insertSessionWithProvider(db, 'sd', 'claude')
     const q = new DbQueries(db)
@@ -754,7 +750,6 @@ describe('DbQueries provider usage + limits (0080)', () => {
       weekStart: 100,
       monthStart: 100
     })
-    expect(sums.monthDeltaCostUsd).toBe(3)
     expect(sums.month.total_cost_usd).toBe(3)
   })
 })
