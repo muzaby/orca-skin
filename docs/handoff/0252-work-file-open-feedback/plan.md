@@ -12,7 +12,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-06 |
 | 매핑 | — |
-| 상태 | IMPL_DONE |
+| 상태 | IMPL_DONE (r1.2 · CI 게이트 수정, 검증 대기) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0242 카드·toast 동작은 INHERITED 노드로만 참조한다(§7-A) |
 | 이번 V revision | `V1` |
@@ -659,10 +659,69 @@ main resolveContextFile/handler → OpenContextFileResult → preload → fileAp
 - 반복해서 부딪히는 환경 한계: Node ABI의 SQLite는 정상이다. 프로필 아래 realpath sandbox 제한은 테스트 TEMP/TMP workspace 지정으로 해소했다. OS 실제 창은 사람 실기가 필요하다.
 - 현재 라운드·impl 턴: r1. 구현 결과 자기보고이며 다음은 독립 verify다.
 
+## [구현자 기입] 설계 리뷰 (r1.2)
+
+- 동의 / 그대로 진행: V1의 계약과 production은 유지했다. 새 파일 열기 채널을 기존 등록 전수 테스트의 명시적 기대 집합에 넣었다.
+- 이견 / 현실성 문제: 없음. CI run `37424040442`에서 guards·lint·typecheck는 성공했고, 테스트는 `misc-split.test.ts` 등록 집합 1건만 실패했다(619파일·6302케이스 통과, 1파일·1케이스 skip).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. REQUIRED gate의 누락된 테스트 기대값을 보완하는 같은 라운드의 두 번째 구현 턴이다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1.2)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-10·VP-13 | EP-08 신규 IPC 등록 | 7 | r1의 7/7 유지, 기존 등록 oracle 1곳 보완 | `misc-split.test.ts`의 기대 집합에 새 채널을 추가했다. 실제/기대 26개 일치·중복 0, 2케이스 green | 없음 |
+
+- 전수 검색: `rg -n 'EXPECTED|registerFilesHandlers|filesOpenPath' app/src --glob '*.test.ts'`와 파일 채널 리터럴·고정 개수 검색. 등록·호출·소비 타입·preload·문서·provider 도메인 테스트 7파일을 대조했고 stale 등록 기대 집합은 `misc-split.test.ts` 1곳이었다. production 파일은 `git diff -- app/src/main/app/handlers/files.ts` 0행이다.
+- V-pair 자기확인: VP-10·VP-13 `SELF_PASS` — 신규 등록 전수 2케이스 green. 나머지 pair의 production과 oracle은 변경하지 않았으며 r1 관측을 승계한다. VP-11 Windows 실기 `SELF_BLOCKED`를 유지한다.
+- §10 밖 신규 계약 경로: 없음. EP-08의 실제 등록을 확인하는 기존 회귀 oracle 보완이다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1.2)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| `files.ts`의 새 context-file 채널 등록 블록 삭제 | 수정한 등록 전수 oracle · VP-10·VP-13 | 최초 | `misc-split.test.ts`의 필요한 채널 등록 집합 단언 1 red, 조기 설정 읽기 형제 1 green | production byte 복원 true → 원본 2케이스 green |
+
+- 분모 검산: 이번 수정이 고친 구조적 oracle 1 · 이번 수정이 닿은 선택/인용 변이 0 = 표 1행. r1의 M1~M9 11자리 관측은 당시 증거로 유지하며 이번 턴의 재실행으로 세지 않는다.
+- 덮개 회귀: 명시적 집합 동등과 중복 단언을 유지했다. `arrayContaining` 또는 수치만 비교하는 단언으로 약화하지 않았다.
+
+## [구현자 기입] Product/UX 파생 검토 (r1.2)
+
+- 새 사용자 문자열·상태·소비자: 해당 없음 — 테스트 기대 목록과 그 설명만 수정했다.
+- seam 재배치·정리 스코프·실패 경로·늦은 응답: 해당 없음 — production diff 0행으로 r1의 동작을 유지한다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1.2)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | r1의 관련 17파일 목록이 기존 IPC 등록 전수 회귀를 포함하지 않아 기대값 누락을 놓쳤다 | 등록 집합을 갱신하고 이 파일 전체를 추가 실행했다. 고정 채널 수를 테스트명에 중복하지 않는다 | 수정 전 1 failed/1 passed → 수정 후 2 passed, 등록 삭제 probe 1 red |
+
+- 설계 대비 차이: 없음. 만료·공유·재진입·기타 무효화 대체물은 해당 없음(production/저장소/캐시 변경 0).
+
+## [구현자 기입] 구현 보고 (r1.2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/src/main/app/handlers/misc-split.test.ts`, 이 구현 보고, INDEX의 0252 행 |
+| 실행 명령 | `vitest run src/main/app/handlers/misc-split.test.ts --maxWorkers=2`; `eslint src/main/app/handlers/misc-split.test.ts`; 등록 삭제 probe; `git diff --check` |
+| 관측한 게이트 산출 | 수정 전 **1파일·1 failed/1 passed**, 수정/복원 뒤 **1파일·2 passed**. 해당 파일 ESLint **오류 0·경고 0**. production diff 0행. 새 커밋의 CI 결과는 push 후 확인한다 |
+| V-pair 자기확인 | 영향 pair VP-10·VP-13 SELF_PASS. r1의 기능 결과를 승계하며 VP-11 사람 실기는 그대로 대기 |
+| 강제 지점 전수 | EP-08 production 7/7 유지. 등록 oracle 누락 1곳 수정·같은 축 추가 stale 기대 집합 없음 |
+| AC 자기보고 (`Criteria-Met`) | **13/14** 유지. AC12 등록 회귀 2케이스 추가. AC1~13은 기존 기능 구현·CI 관측을 승계하며 AC14는 Windows 실기 미실행 |
+| 합계 검산 | r1의 AC 표 **✅13 · ⚠️1 · ❌0 = 14**, AC 분모 변경 0 |
+| 블로커 / 역질문 | PLAN_GAP 없음. 독립 verify와 AC14 실기 대기 |
+| 대상 커밋 | `(r1.2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r1.2)
+
+- 같은 불변식의 재발: 최초 CI 피드백이다. 실제 등록은 맞았고 기존 테스트의 기대 집합이 빠졌다.
+- 막았어야 할 계약: AC12·EP-08의 등록 증거와 필수 CI gate. r1 관련 실행 집합에 기존 `misc-split.test.ts`가 없었다.
+- 환경 한계: 없음. 원격 CI와 로컬 실패 모두 같은 배열 차이를 보였고 ABI·컴파일·네트워크 실패 서명이 아니다.
+- 현재 라운드·impl 턴: r1.2. 다음은 여전히 Claude 독립 verify다.
+
 ---
 
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| 1 | CI의 기존 IPC 등록 기대 집합에 신규 파일 열기 채널이 누락됨 | 필수 CI Test gate · VP-10·AC12·EP-08 | 기대 집합을 갱신하고 등록 누락 검출력을 유지 | BLOCKING | r1.2 로컬 수정 완료(2 green·등록 삭제 1 red). 원격 CI는 push 후 확인 |
