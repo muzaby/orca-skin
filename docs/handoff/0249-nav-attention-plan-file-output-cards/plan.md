@@ -1915,27 +1915,27 @@ D5의 원인은 init 선행 가정이 아니라 control callback과 iterator의 
 
 | AC | 기계 fixture 자기판정 / 직접 관측 |
 |---|---|
-| AC1 | ✅ 카탈로그·Provider SSR 로그인 상태 |
+| AC1 | ✅ skills 카탈로그·목록·상세의 연결됨/Connected·기본 제공·인증 액션 부재 |
 | AC2 | ✅ 3종 실제 요청·승격→주의 Map·행 SSR |
 | AC3 | ✅ 열람/다른 route 실제 viewed guard |
-| AC4 | ✅ 완료↔대기·열람 해제·재요청 |
+| AC4 | ✅ 완료/대기 마지막 사유·동일 사유 identity·삭제 |
 | AC5 | ✅ unknown/noid 요청 순간·불일치·해결 후 승격·삭제·unsubscribe 음성 |
-| AC6 | ✅ canonical background 목록·상세/선택 |
-| AC7 | ✅ 숨김 작업 음성·count |
-| AC8 | ✅ 백그라운드 투영·정착 |
+| AC6′ | ✅ canonical background의 셸/Agent/Monitor/Workflow/MCP 등 종류별 카드·완료 보존 |
+| AC7′ | ✅ 양성과 같은 state의 foreground·ambient·실패 호출 목록/count/clear 음성 |
+| AC8′ | ✅ background-open·panel의 기존 Agent/셸 상세·개별 중단·완료 지우기 |
 | AC9′ | ✅ 파일 정본→request/action/CLI 입력 |
-| AC10 | ✅ BOM/CRLF/공백·최신 파일 |
+| AC10′ | ✅ 파일/입력/서술 조합·잘못된 입력 보정·파일 없는 입력 불변 |
 | AC11 | ✅ reader 크기·일반/비링크·8.3·오류 |
-| AC14 | ✅ 동일 cell hook/getter·Stop/new call |
-| AC15 | ✅ artifact part 순서·범주 |
-| AC16 | ✅ 같은 파일 최종 슬롯 |
-| AC17 | ✅ AgentWork/AssistantTurn/Output 순서 |
-| AC18 | ✅ Engine 그룹 수·상세 |
-| AC19 | ✅ canonical background 표시 정착 |
-| AC20 | ✅ tool_run/artifact 슬롯 대조 |
-| AC21 | ✅ 경로/Agent 여부·차단 카드 음성 |
-| AC22 | ✅ Work/Code 정책·계획 파일 단일 카드 |
-| AC23 | ✅ provider/설치 상태·계획 패널 소비 |
+| AC14′ | ✅ actual query의 동일 cell hook/getter·Write→Exit→Stop·CLAUDE_CONFIG_DIR |
+| AC15 | ✅ partsArtifacts·transcript의 최신 publishedAt·동시각 최신 입력·첫 카드 위치 |
+| AC16 | ✅ 다른 category/filename/턴 보존·store 실제 저장 refs |
+| AC17 | ✅ Work/Code 진행/완료의 본문→카드→완료 메타·spark 1개 |
+| AC18 | ✅ 영향178파일1842·scripts132·lint0error/기존warning1·3종tsc·문서/guard·diff·실제 trailer 파싱 |
+| AC19′ | ✅ 실제 background Mapper 정상/반례의 Spark 집합·count 등식 |
+| AC20 | ✅ 실제 openSubagentTask 인라인 Agent/Task 상세 선택·목록 복귀 부재 |
+| AC21 | ✅ resolver BOM/CRLF/끝 공백·win32 경로 정규화·원본 입력 reference |
+| AC22 | ✅ AgentEnvironmentView.count settings/runtime 병합·증감·빈0개 카드 수 |
+| AC23 | ✅ unconfirmed 완료 그룹·고정 시간·중단 부재·clear·canonical 기록 불변·늦은 종료 통지 |
 | AC24 | ✅ 실제 action→CLI→card/DB/reload, init 전 owner/승격 |
 | AC25 | ✅ 두 순서·Stop·같은/다른 call/turn/session·FIFO·late retired callback |
 | AC26 | ✅ Enter {}/message·Exit filePath·child main 파일/모드 음성·live child SDK 양성 |
@@ -1957,4 +1957,4 @@ D5의 원인은 init 선행 가정이 아니라 control callback과 iterator의 
 
 ## [구현자 기입] Review Signals — 사실만
 
-r1.4의 D5는 기존 AC25가 규정한 소유권을 requester→store edge에서 놓친 결함이다. 이번 턴은 같은 불변식의 요청·해결·승격·퇴역 callback 생산자/소비자를 함께 검사했다. 별도 pre-audit가 natural retire 생산자를 찾아 별도 설계와 실제 oracle로 보완했다. 제품 결정 drift와 handoff 지침 변경은 없다. r2 첫 구현 턴이며 formal verify 전의 설계 보강은 라운드를 추가하지 않는다. 원격 게시·모델/시각 확인과 sandbox/ABI 환경 제한은 로컬 코드 gate와 구별했다.
+r1.4의 D5는 기존 AC25가 규정한 소유권을 requester→store edge에서 놓친 결함이다. 이번 턴은 같은 불변식의 요청·해결·승격·퇴역 callback 생산자/소비자를 함께 검사했다. 별도 pre-audit가 natural retire 생산자를 찾아 별도 설계와 실제 oracle로 보완했다. r2 formal 검증자가 자기보고 AC18~23 등의 설명 오매핑을 지적해 유효 AC와 실제178파일의 fixture에 맞춰 보고만 정정했다. 제품 결정 drift와 handoff 지침 변경은 없다. r2 첫 구현 턴이며 formal verify 전의 설계 보강은 라운드를 추가하지 않는다. 원격 게시·모델/시각 확인과 sandbox/ABI 환경 제한은 로컬 코드 gate와 구별했다.
