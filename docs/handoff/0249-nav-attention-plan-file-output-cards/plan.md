@@ -11,11 +11,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-04 |
 | 매핑 | 기준 커밋 `origin/main@954e6fff` |
-| 상태 | READY (ΔV3) — 사용자 요청으로 계획 모드 콜백·보정 데이터 종단 재개 |
+| 상태 | READY (ΔV3.1) — r1.4 FAIL의 세션 확정 전 승인 소유권 보완 |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | V1 = `none`(신규) · ΔV1 = `0249:V1@266bdbfe` · ΔV2 = `0249:ΔV1@c6e7b7e1`(모두 공유 브랜치 확인). 다른 handoff 의 동작은 `INHERITED` 회귀로만 둔다 |
-| 이번 V revision | `ΔV3` — Enter/ExitPlanMode 경로 진단, 승인 입력·카드·이력 일치, 실제 모드 관측 |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3` |
+| 이번 V revision | `ΔV3.1` — 기존 승인 소유권 경로·승격 후 대기 표시 보완 |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV3.1` |
 | 구현 주체 | Codex — r1(`61c12248`)부터 사용자 지시(`[구현자 기입]` 설계 리뷰). V1 작성 시점 계획은 Claude 였다 |
 
 > **ΔV1 적용(2026-10-04)** — ③ 백그라운드 패널·④ ExitPlanMode 에 관한 V1 서술(§1·§2·§5·§6·§7·§7-A·§9~§19 의 해당 행)은 문서 끝 **§ΔV1** 이 대체한다. ⑦ 엔진&모델 개수는 ΔV1 신설이다. 유효 AC 20.
@@ -1766,3 +1766,59 @@ Decision D-032~035 ↔ AC24~27 ↔ 4개 V 수준 ↔ EP-11~14와 callback/consum
 - 기존 EP-04′는 승인 본문/CLI 반환만 잠가 원본 도구 카드와 실제 SDK mode 보고를 보지 않았다. ΔV3가 해당 경로를 명시했다.
 - Temp 조상 lstat의 sandbox EPERM은 승격 테스트로 분리했다. SQLite 실제 ABI127은 plain Node로 실행했고 Electron ABI140 실패는 알려진 환경 차이로 분리했다. ABI 전환은 하지 않았다.
 - 현재 r1.4는 사용자 요구 변경 턴이다. 독립 검증 PASS를 선점하지 않으며 다음 주체는 검증자다.
+
+---
+
+# ΔV3.1 — 세션 확정 전 승인 소유권 보완 (2026-10-06)
+
+## Product & UX Contract / 기준선
+
+r1.4 독립 검증의 X1은 기존 D-033·AC24/25 위반이다. 세션 ID 발급 전에 계획 승인을 요청하고 사용자가 다른 채팅을 열면 계획이 현재 화면에 들어갔다. 기존 파일 정본·승인 시점 입력·Enter/Exit 계약과 D-001~035는 유지한다. 제품 결정 변경은 없다.
+
+| 상태 | 관측 결과 |
+|---|---|
+| 새 채팅 승인 요청이 session.updated보다 먼저 도착 / 사용자는 다른 채팅 열람 | 요청은 진행 중인 pending draft에 남으며 다른 채팅의 상태·입력은 바뀌지 않는다. |
+| 세션 확정 전 거부·취소 / 먼저 종료된 draft의 늦은 해결 | approvalId가 일치하는 미해결 요청 소유자만 정리한다. 일치하는 요청이 없으면 다른 draft·채팅을 바꾸지 않는다. |
+| 미해결 승인 요청을 가진 draft의 세션 승격 | 계획·요청 ID·보정 입력이 실제 세션으로 이동한다. 승인 3종의 대기를 실제 sessionId로 한 번 통지해 D-002/AC2 표시가 이어진다. noid 요청 순간 nav 표시가 없다는 AC5는 유지한다. |
+| 해결 후 승격 / 기존 세션·모드 patch 재방출 | 대기 통지를 만들거나 열람으로 해제한 표시를 되살리지 않는다. 실제 열람 가드는 기존 sessions store가 판단한다. |
+
+기준은 ΔV3 설계 `68c39bdd`·식별자 정정 `b110cca6`와 구현 `963464c8`다. 모두 로컬 `git cat-file -t`로 확인한다. 원격 push는 자동 승인 검토 거부로 미실행이므로 공유 브랜치 존재를 주장하지 않는다.
+
+## Delta V / 영향받는 규범 행
+
+AC 수는 25, 유효 pair는 37이다. AC24/25의 기존 소유권 계약을 새 세션 draft → 실제 세션 경로에도 적용한다. ΔV3의 파일·모드·child 계약은 그대로다.
+
+| node | 변화 | pair / 근거 |
+|---|---|---|
+| R-04·SD-02·AR-02·MD-06 | CHANGED | 기존 VP-33~36의 도착 순서·승인 입력 운반·소유자 식별을 승인 이벤트의 draft 수명까지 확장한다. |
+| R-02·SD-01·AR-01·MD-01·R-0224-37 | INHERITED / REGRESSION | 승인 승격 통지가 기존 주의 표시·열람 해제·app 구독·순수 store·완료 표시를 소비한다. VP-02·03·04·05·19. |
+| 나머지 ΔV3 선택 노드 | INHERITED / 기존 선택 유지 | 파일 resolver/reader/hook 및 실제 mode observer 경로는 기존 직접 oracle·변이로 재검증한다. |
+
+ΔV3 선택표 중 VP-33·34·35·36의 경로에 `createApprovalRequester → ingestChatEvent → chatStore.receive → pending draft / approvalId owner → promotePendingNewChat → reducer`를 추가한다. VP-36 직접 oracle은 실제 requester와 production store를 연결해 init 전 요청·해결·화면 전환·다음 draft·승격을 관측한다. VP-35는 승격 뒤 실제 Work/Code 계획 카드와 이웃 입력이 유지되는지 확인한다.
+
+VP-02·03·04·05·19는 기존 NOT_REQUIRED를 대체하는 REGRESSION이다. VP-02의 production path에 성공한 draft 승격 → 미해결 3종 검사 → 기존 responseRequest 구독 → 주의 Map·SessionRow SSR를 추가한다. VP-03은 해결·열람·재방출 수명, VP-04는 기존 feature/app 경계, VP-05는 store 값·identity, VP-19는 완료 표시 보존을 관측한다.
+
+이번 선택은 REQUIRED 7 + REGRESSION 10 =17, 나머지 20은 ΔV3와 같은 비영향 근거로 NOT_REQUIRED다. 새 node·새 pair·새 IPC/data schema는 없다.
+
+## Technical Design
+
+1. 세션 ID 없는 permission.requested는 pendingNewChatKey를 우선 사용한다. pending draft가 없을 때의 기존 active fallback은 유지한다. assistant/started 스트림 라우팅은 확대하지 않는다.
+2. 세션 ID 없는 permission.resolved는 현재 미해결 3종의 approvalId를 비교해 owner를 찾는다. owner가 없으면 no-op한다. 별도 cache/owner Map 없이 기존 승인 상태를 읽는다.
+3. promotePendingNewChat의 실제 re-key 성공을 호출자에게 반환한다. 해당 최초 session.updated를 reducer에 적용한 뒤 미해결 pendingAsks·pendingPlanReview·pendingToolApprovals가 있으면 기존 responseRequestListeners에 실제 sessionId를 한 번 통지한다. 재방출·모드 patch는 승격 성공이 아니므로 통지하지 않는다. activeKey를 열람 판정으로 쓰지 않는다.
+4. requester의 “승인 전에 dbSessionId가 항상 확정된다”는 주석·warn 가정을 제거하고 pre-init 경로를 명시한다. canonical input의 persist-before-send와 broker 수명은 유지한다.
+
+## §10 강제 지점 / gate 보완
+
+| ID | 대체 범위 / 지정 물리 자리 | 직접 oracle / 선택 적대 증거 |
+|---|---|---|
+| EP-12′ | ΔV3 EP-12를 대체한다. 기존 shared 식별·writer 턴 Map·SQL session filter·reducer call 식별 4자리와 renderer noid requested 라우팅·noid resolved approvalId owner 2자리: 6자리. | requester→store 실제 승인 대기 중 owner/이웃 상태, pre-init 해결, 다음 draft 보호. 기존 M-F7 + M-F11(requested를 activeKey로 원복)·M-F12(resolved를 pending/active fallback으로 원복). |
+| EP-02′ | 기존 EP-02의 8자리를 유지하고 실제 draft 승격의 미해결 요청 통지 생산자 1자리를 추가한다: 9자리. | 3종별 noid순간 Map0·승격 뒤 Map/SSR·해결 전후·재방출·unsubscribe·실제 viewed gate. 기존 M-B1~3 + M-B4(승격 통지 제거). |
+| EP-13′ | ΔV3의 5그룹 표기를 물리 6자리로 풀어 적는다: adapter report·TurnRequest app callback·runtime frame delegate·runtime adapter delegate·controller set·renderer send. 동작 계약은 그대로다. | 실제 모드/수명 직접 oracle, M-F8~10. |
+| EP-04″ | 기존 EP-04′의 7항목을 실제 8자리로 풀어 적는다: PostToolUse record·Stop reset·hook 병합·동일 셀 getter 전달·resolver·request.plan·allow.updatedInput·declared path 판정/읽기. 동작 계약은 그대로다. | 실제 resolver/reader/hook oracle, M-D1~10. |
+| EP-11·14 | ΔV3 그대로. | 등록 M-F1~10 승계. |
+
+선택 변이는 기존 20 + 승계 M-B1~3 + 신규 M-B4·M-F11~12 =26이다. 실제 분모·제거 red·원복 green을 독립 확인한다. 새 물리 자리는 X1 소유권과 승격 통지의 운반을 보장하므로 선택했다. 적용 gate는 ΔV3의 subtree lint·typecheck·영향 테스트·doc/test budget/migration guard·diff/trailer·로컬 기준선 확인을 그대로 수행한다. real model·시각 실기와 원격 CI/공유 브랜치 전송은 기계 fixture와 구별해 미실행 여부를 기록한다.
+
+## READY self-review
+
+D-033/AC24·25 및 D-002/AC2·5의 기존 의미를 교차 확인했다. 새로운 제품 정책을 발명하지 않고 기존 소유자·대기 표시 계약의 빠진 전달 경로를 보완했다. 원인·직접 oracle·생산자/소비자·수명·§10 물리 자리와 변이/운영 gate를 연결했다. 기존 AC25를 완화하지 않았고 UNKNOWN/noid 순간의 nav 가드와 실제 열람 의미를 유지했다. 설계 변경과 구현 산출은 별도 커밋한다.
