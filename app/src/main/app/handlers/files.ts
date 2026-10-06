@@ -1,4 +1,4 @@
-// 파일·검색 IPC 6종 — 디렉토리 나열·첨부 선택·디렉토리 선택·경로 열기·첨부 읽기 + 대화 검색
+// 파일·검색 IPC — 디렉토리 나열·첨부 선택·디렉토리 선택·경로 열기·첨부 읽기 + 대화 검색
 // (0179 에서 misc 에서 분리). 검색이 여기 있는 이유는 "renderer 가 내용을 찾아 여는" 같은
 // 사용자 동선이기 때문이다.
 
@@ -6,11 +6,13 @@ import {
   CHANNELS,
   ListFilesRequestSchema,
   OpenPathRequestSchema,
+  OpenContextFileRequestSchema,
   ReadAttachmentRequestSchema,
   SearchMessagesRequestSchema,
   type FileEntry,
   type PickedAttachment,
   type ReadAttachmentResult,
+  type OpenContextFileResult,
   type SearchHit
 } from '../../../shared/protocol'
 import { dialog, shell } from 'electron'
@@ -30,7 +32,7 @@ import { isAbsolutePath, isFilesystemRoot } from '../../../shared/absolute-path'
 import { directoryIdentity, parseStoredExtraDirectories } from '../../../shared/extra-directories'
 import { parseAgentKind } from '../../../shared/agent-kind'
 import { agentSessionPolicy } from '../../../shared/agent-session-policy'
-import { unredirectedFile } from '../../infra/config/real-file'
+import { opensWithDefaultApp, resolveContextFile } from './context-file'
 
 interface FilesHandlerContext extends Pick<RouterContext, 'getCwd'> {
   db: Pick<
@@ -69,6 +71,7 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
       return []
     return ctx.db.listSessionAttachmentFiles(sessionId).map((file) => file.path)
   }
+  const contextFileScope = { recordedContextDirectories, recordedAttachmentFiles }
 
   const isInsideAllowedDir = (dir: string): boolean => {
     let current = resolve(dir)
@@ -118,49 +121,9 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
   // Work 컨텍스트 호출은 해당 세션의 cwd와 기록된 추가 폴더 범위만 허용한다.
   handle(CHANNELS.filesOpenPath, OpenPathRequestSchema, 'reject', async (req): Promise<void> => {
     if (req.mode === 'reveal' && req.sessionId !== undefined) {
-      if (!isAbsolutePath(req.path) || isFilesystemRoot(req.path))
-        throw new Error('허용되지 않은 경로입니다.')
-      const directories = recordedContextDirectories(req.sessionId)
-      const attachments = recordedAttachmentFiles(req.sessionId)
-      if (directories.length === 0 && attachments.length === 0)
-        throw new Error('허용되지 않은 경로입니다.')
-      const target = await fs.realpath(req.path)
-      const stat = await fs.stat(target).catch(() => null)
-      if (!stat?.isFile()) throw new Error('파일만 탐색기에서 열 수 있습니다.')
-      const unredirectedTarget = await unredirectedFile(req.path).catch(() => null)
-      const verifiedDirectories = await Promise.all(
-        directories.map(async (directory) => {
-          // Only a real spelling alias may bypass lexical membership; an outside
-          // junction pointing into a permitted folder is not an approved path.
-          if (!isWithinDir(req.path, directory) && unredirectedTarget === null) return null
-          const actual = await fs.realpath(directory).catch(() => null)
-          if (!actual || isFilesystemRoot(actual) || !isWithinDir(target, actual)) return null
-          const directoryStat = await fs.stat(actual).catch(() => null)
-          return directoryStat?.isDirectory() ? directoryIdentity(directory) : null
-        })
-      )
-      const verifiedAttachments = await Promise.all(
-        attachments.map(async (path) => {
-          const actual = await unredirectedFile(path).catch(() => null)
-          return unredirectedTarget &&
-            actual &&
-            directoryIdentity(actual) === directoryIdentity(target)
-            ? directoryIdentity(path)
-            : null
-        })
-      )
-      // 비동기 파일 검사 뒤에도 같은 세션에 남아 있는 승인 범위만 사용한다.
-      const currentDirectories = recordedContextDirectories(req.sessionId)
-      if (
-        !currentDirectories.some((directory) =>
-          verifiedDirectories.includes(directoryIdentity(directory))
-        ) &&
-        !recordedAttachmentFiles(req.sessionId).some((path) =>
-          verifiedAttachments.includes(directoryIdentity(path))
-        )
-      )
-        throw new Error('허용되지 않은 경로입니다.')
-      shell.showItemInFolder(target)
+      const file = await resolveContextFile(contextFileScope, req.sessionId, req.path)
+      if (file.state === 'missing') throw new Error('파일이 없습니다.')
+      shell.showItemInFolder(file.target)
       return
     }
     let target = req.path
@@ -194,6 +157,27 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
     const error = await shell.openPath(target)
     if (error) throw new Error(error)
   })
+
+  handle(
+    CHANNELS.filesOpenContextFile,
+    OpenContextFileRequestSchema,
+    'reject',
+    async (req): Promise<OpenContextFileResult> => {
+      const file = await resolveContextFile(contextFileScope, req.sessionId, req.path)
+      if (file.state === 'missing') return { outcome: 'missing' }
+      const target = file.target
+      if (!opensWithDefaultApp(target)) {
+        shell.showItemInFolder(target)
+        return { outcome: 'revealed', reason: 'unsupported-type' }
+      }
+      const error = await shell.openPath(target)
+      if (error) {
+        shell.showItemInFolder(target)
+        return { outcome: 'revealed', reason: 'open-failed' }
+      }
+      return { outcome: 'opened' }
+    }
+  )
 
   handle(
     CHANNELS.filesReadAttachment,

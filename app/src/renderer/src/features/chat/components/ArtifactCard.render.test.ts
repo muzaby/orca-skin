@@ -102,7 +102,7 @@ describe('artifact metadata card', () => {
     expect(html).not.toContain('문서 · HTML')
     expect(html).not.toContain('role="button"')
   })
-  it('disables actions only while busy and shows no checking label (0242 ΔV2 D-012)', () => {
+  it('changes only disabled attributes while busy, keeping transcript markup and height stable (0252 AC1)', () => {
     for (const variant of ['transcript', 'list'] as const) {
       const unchecked = render(undefined, variant)
       expect(unchecked).not.toContain('확인 중')
@@ -116,11 +116,12 @@ describe('artifact metadata card', () => {
         },
         variant
       )
+      expect(busy).not.toContain('처리 중')
+      expect(busy).not.toContain('role="status"')
+      expect(busy.replace(/ disabled=""/g, '')).toBe(unchecked)
       if (variant === 'transcript') {
-        expect(busy).toContain('처리 중')
         expect(busy).toMatch(/<button[^>]*disabled=""[^>]*aria-label="다운로드"/)
       } else {
-        expect(busy).not.toContain('처리 중')
         expect(busy).toMatch(/<button[^>]*data-artifact-preview="p"[^>]*disabled=""/)
       }
     }

@@ -123,11 +123,6 @@ export function ArtifactCard({
           <Icon name="kebab" size={14} />
         </Button>
       </div>
-      {file?.busy && transcript && (
-        <div className="mt-1 text-caption text-ink2" role="status">
-          {tr('chat.artifacts.working')}
-        </div>
-      )}
       <Popover
         open={menuOpen}
         anchorRef={menuRef}

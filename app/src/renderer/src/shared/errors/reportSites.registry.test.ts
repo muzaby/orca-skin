@@ -151,7 +151,7 @@ export const sites: Site[] = [
   {
     file: 'features/chat/components/rightpanel/TaskContextContent.tsx',
     ordinal: 0,
-    line: 54,
+    line: 61,
     disposition: 'TOAST',
     id: 'T34',
     event: 'files.context-open.failed',

@@ -55,6 +55,8 @@ import {
   type GitSnapshotResult,
   type PickedAttachment,
   type OpenPathRequest,
+  type OpenContextFileRequest,
+  type OpenContextFileResult,
   type ReadAttachmentResult,
   type InstallStatus,
   type LoadedSession,
@@ -232,6 +234,8 @@ const orca = {
     pickDirectory: (): Promise<string | null> => ipcRenderer.invoke(CHANNELS.filesPickDirectory),
     openPath: (req: OpenPathRequest): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.filesOpenPath, req),
+    openContextFile: (req: OpenContextFileRequest): Promise<OpenContextFileResult> =>
+      ipcRenderer.invoke(CHANNELS.filesOpenContextFile, req),
     readAttachment: (path: string): Promise<ReadAttachmentResult> =>
       ipcRenderer.invoke(CHANNELS.filesReadAttachment, { path }),
     pathForFile: (file: File): string => webUtils.getPathForFile(file)

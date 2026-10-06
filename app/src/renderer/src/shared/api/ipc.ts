@@ -52,6 +52,8 @@ import type {
   GitStatus,
   PickedAttachment,
   OpenPathRequest,
+  OpenContextFileRequest,
+  OpenContextFileResult,
   ReadAttachmentResult,
   InstallStatus,
   LoadedSession,
@@ -180,6 +182,8 @@ export const fileApi = {
   pickAttachments: (): Promise<PickedAttachment[]> => window.orca.files.pickAttachments(),
   pickDirectory: (): Promise<string | null> => window.orca.files.pickDirectory(),
   openPath: (req: OpenPathRequest): Promise<void> => window.orca.files.openPath(req),
+  openContextFile: (req: OpenContextFileRequest): Promise<OpenContextFileResult> =>
+    window.orca.files.openContextFile(req),
   readAttachment: (path: string): Promise<ReadAttachmentResult> =>
     window.orca.files.readAttachment(path),
   pathForFile: (file: File): string => window.orca.files.pathForFile(file)
