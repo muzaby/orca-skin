@@ -1850,3 +1850,111 @@ D-033/AC24·25 및 D-002/AC2·5의 기존 의미를 교차 확인했다. 새로�
 EP-12″의 8자리에 공통 retireChannel의 신호 무효화 생산자 1자리를 추가해 **9자리**로 정정한다. VP-36/37은 explicit teardown·자연 done·자연 error·turn-scoped retirement 뒤의 늦은 승인/모드 callback이 현재 delegate를 부르지 않음을 직접 관측한다. **M-F15**는 공통 retireChannel의 신호 abort/교체를 제거하여 natural retirement 대조가 red인지 검사한다. registered 변이는 **29**(26+F13~15)로 정정하며 선택17·NOT_REQUIRED20·기존 제품/AC 계약은 유지한다. 자연 폐기 생산자와 wrapper 소비자를 함께 전수에 포함하고 별도 설계 커밋으로 구현 전 보존한다.
 
 승격 통지 제거의 신규 ID는 **M-B6**이다. 기존 ACTIVE VP-26의 M-B4(openSubagentTask 선택 연결 제거)를 보존하기 위해 ΔV3.1의 신규 명칭 충돌을 정정했다. 물리 자리·oracle·선택 분모29는 불변이다.
+
+---
+
+# [구현자 기입] r2 — ΔV3.1·ΔV3.2
+
+## [구현자 기입] 설계 리뷰
+
+기존 D-033·AC24/25의 소유권을 init 전 pending draft부터 실제 세션 승격까지 적용했다. 독립 X1의 다른 채팅 오표시를 재현한 정식 테스트의 기대값을 유지하고 수정 후 green을 확인했다. 파일 읽기 중 폐기된 채널의 늦은 콜백도 실제 runtime·adapter·requester·broker로 재현했으며 ΔV3.2의 별도 설계 후 보정했다. 새 제품 정책·IPC·DB schema·owner cache·의존성은 없다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+| 행 | 지정 / 확인 | 실제 생산자·소비자 / 직접 관측 |
+|---|---:|---|
+| EP-04″ | 8 / 8 | record·Stop·hook 병합·getter·resolver·request.plan·allow.updatedInput·declared reader; 기존 실제 adapter/reader fixture와 D1~10. |
+| EP-11 | 6 / 6 | started→action.input→persist→late started→SQL→reducer; 실제 입력·payload·Work/Code SSR 및 F1~6. |
+| EP-12″ | 9 / 9 | 기존 helper/turn Map/SQL/reducer 4 + noid 요청/해결 2 + requester early signal/runtime wrapper guard/common retire signal 3; 다른 owner·다음 draft·late old channel 직접 대조. |
+| EP-02′ | 9 / 9 | 기존 요청·완료·app 구독·두 mark·열람·삭제·행 표시 8 + 실제 승격의 미해결 통지 1; 3종 Map/SSR, viewed/해결/재방출 음성. |
+| EP-13′ | 6 / 6 | adapter→app port→frame/adapter delegate→controller/renderer; 실제 mode 및 폐기 채널의 옛 report 음성. |
+| EP-14 | 4 / 4 | Enter/Exit 설치 SDK 필드·결과와 plan READY/ΔV3.2·INDEX·trailer 재독. |
+
+검색 주어는 `permission.requested|permission.resolved|promotePendingNewChat|resolveApprovalOwner|requestApproval|regSignal|channelController|retireChannel|onPermissionModeChanged|planReviewToolInput`다. 생산자/소비자를 실제 코드와 위 지정 집합으로 대조했다. retire caller는 consumeTurnScoped finally·finishPump·teardown 세 경로이며 모두 공통 신호 무효화 자리로 들어간다. persist/send보다 앞의 취소 검사와 signal을 소비하는 runtime guard를 함께 확인했다. stream started/assistant 라우팅은 이번 owner 보정의 수정 대상이 아니다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+최종 영향 회귀는 **178파일·1842 assertions pass, 0 fail**이다(`app/.tmp-0249-r2-regression-final.json`, testResults.length와 파일별 assertion 길이 합을 따로 확인). scripts는 JUnit testcase132·failure/error0이다. 새 owner/attention29, lifetime18 및 runtime81의 실제 값을 포함하며 중복된 스위트 실행 횟수를 합산하지 않는다.
+
+등록29자리는 각각 생산 코드 한 자리를 제거하여 assertion red를 확인했다. F9/10과 F13~15의 분모는 필터로 **실제로 실행한 assertion**이며 skip을 성공에 넣지 않는다.
+
+| 변이 | red 실패 / 실행 | 원복 대조 |
+|---|---:|---|
+| F1·F2 | 1/91 · 4/91 | 최종 원복 9파일·214 green |
+| F3·F4·F5·F6·F7·F8 | 4/5 · 2/15 · 5/15 · 2/4 · 1/15 · 1/91 | 같은 영향 스위트의 최종 원복 214 green |
+| F9·F10 | 각각 2/2 (각79 skip) | 최종 원복 runtime81 green 포함 |
+| D1·D2′·D3′·D4′·D5 | 9/91 · 12/91 · 10/91 · 20/91 · 3/91 | 최종 원복 adapter91 green 포함 |
+| D6·D7·D8·D9·D10 | 2/91 · 5/91 · 5/91 · 9/91 · 11/91 | 최종 원복 adapter91 green 포함 |
+| F11·F12 | 10/10 · 2/10 | 각 bytes 동일 원복 후 같은10 green |
+| B1·B2·B3·B6 | 1/19 · 4/19 · 3/19 · 4/19 | 각 bytes 동일 원복 후 같은19 green |
+| F13·F14·F15 | 3/5 · 2/2 · 8/8 (각13·16·10 skip) | 각 bytes 동일 원복 후 같은 필터 green, 최종18 green |
+
+기존20의 finally는 원본 Buffer와 byte equality를 검사했고 최종 관련9파일·214 assertions를 다시 실행해 green을 확인했다. 신규9는 자리별 red→원복→같은 필터 green을 실행했다. B6는 기존 ACTIVE B4와의 이름 충돌 정정 후 현재 ID로 재실행했다. r1.4의 수치를 재사용하지 않았으며 F8의 현재 실패 수는1/91이다. 증거는 `app/.tmp-0249-r2-mutation-results.json`, `.tmp-0249-owner-mutation-results.json`(정정 전 B4는 제외)·`.tmp-0249-owner-mutation-results-selected.json`(B6), `.tmp-0249-lifetime-mutations.results.json`, `.tmp-0249-r2-restored.json`이다.
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 상태 | 수정 후 관측 |
+|---|---|
+| init 전 plan 요청, 다른 기존/새 채팅 열람 | 원래 pending draft만 승인 상태를 가지며 이웃 entry reference는 유지된다. |
+| init 전 deny/SDK cancel / 다음 queued draft의 늦은 unknown 해결 | 같은 승인 ID owner만 정리하고 다른 draft retry/state identity를 보존한다. |
+| request→승격→actual SID resolved | 계획/요청 ID/보정 call 입력·이웃 part가 유지되고 Work/Code SSR의 본문·경로가 같다. |
+| 미해결 3종 승격 / 해결 후 승격 / mode 재방출 | 실제 세션 대기 Map·행 SSR가 한 번 이어지며 해결·열람·unsubscribe 음성은 표시를 만들지 않는다. |
+| 취소·폐기된 요청 / main abort+live child SDK | 앞선 요청의 side effect 0, child는 독립 SDK 수명을 유지하며 정상 후속 send/listen을 차단하지 않는다. |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+D5의 원인은 init 선행 가정이 아니라 control callback과 iterator의 독립 순서다. renderer owner 경로를 고쳤으며 독립 검증자의 closed 판정은 아직 받지 않았다. 해결 이벤트에 단순 pending fallback을 적용하면 다음 draft의 retry까지 바뀌므로 기존 승인 ID lookup/no-op 대체물을 사용했다.
+
+추가 수명 probe는 파일 await 뒤 옛 wrapper가 새 delegate로 forwarding하고 이미 취소된 요청도 persist/send 뒤 deny하는 것을 관측했다. 진입 전 유효 신호 검사·captured channel guard로 보정했다. pre-audit가 찾은 natural retirement의 signal 잔존도 공통 retire 생산자로 보정했으며 explicit teardown·done·error·oneshot 및 기존 자원 회수 회귀를 확인했다. 별도 actor cache를 추가하지 않고 기존 controller 수명과 pending state를 사용했다. persistent main interrupt는 공통 retire를 호출하지 않아 살아 있는 child 수명을 유지한다.
+
+기존 D1·D2·D4는 비영향 미해결 상태를 유지한다. 실제 외부 모델·Windows 시각 실기·remote CI는 미실행이다. push는 자동 승인 검토가 목적지 전송 권한을 이유로 거부했고, 원격 게시 없이 로컬 구현/검증을 진행했다.
+
+## [구현자 기입] 구현 보고
+
+선택 REQUIRED7 + REGRESSION10 =17은 자기검증 대상이며 비영향20은 기존 기준선으로 NOT_REQUIRED다. 독립 검증 PASS를 선점하지 않는다.
+
+| AC | 기계 fixture 자기판정 / 직접 관측 |
+|---|---|
+| AC1 | ✅ 카탈로그·Provider SSR 로그인 상태 |
+| AC2 | ✅ 3종 실제 요청·승격→주의 Map·행 SSR |
+| AC3 | ✅ 열람/다른 route 실제 viewed guard |
+| AC4 | ✅ 완료↔대기·열람 해제·재요청 |
+| AC5 | ✅ unknown/noid 요청 순간·불일치·해결 후 승격·삭제·unsubscribe 음성 |
+| AC6 | ✅ canonical background 목록·상세/선택 |
+| AC7 | ✅ 숨김 작업 음성·count |
+| AC8 | ✅ 백그라운드 투영·정착 |
+| AC9′ | ✅ 파일 정본→request/action/CLI 입력 |
+| AC10 | ✅ BOM/CRLF/공백·최신 파일 |
+| AC11 | ✅ reader 크기·일반/비링크·8.3·오류 |
+| AC14 | ✅ 동일 cell hook/getter·Stop/new call |
+| AC15 | ✅ artifact part 순서·범주 |
+| AC16 | ✅ 같은 파일 최종 슬롯 |
+| AC17 | ✅ AgentWork/AssistantTurn/Output 순서 |
+| AC18 | ✅ Engine 그룹 수·상세 |
+| AC19 | ✅ canonical background 표시 정착 |
+| AC20 | ✅ tool_run/artifact 슬롯 대조 |
+| AC21 | ✅ 경로/Agent 여부·차단 카드 음성 |
+| AC22 | ✅ Work/Code 정책·계획 파일 단일 카드 |
+| AC23 | ✅ provider/설치 상태·계획 패널 소비 |
+| AC24 | ✅ 실제 action→CLI→card/DB/reload, init 전 owner/승격 |
+| AC25 | ✅ 두 순서·Stop·같은/다른 call/turn/session·FIFO·late retired callback |
+| AC26 | ✅ Enter {}/message·Exit filePath·child main 파일/모드 음성·live child SDK 양성 |
+| AC27 | ✅ init/status 6종→controller/renderer·latest delegate·old/child/replay 음성 |
+
+검산: ✅25·⚠️0·❌0 =25(기계 fixture 자기판정). 외부 모델/시각 실기는 이 수로 성공을 주장하지 않는다.
+
+| 적용 gate | 최종 실행 결과 |
+|---|---|
+| lint | `node node_modules/eslint/bin/eslint.js --cache ./src ./scripts` (no-fix): 0 error, 기존 `useTranscriptVirtualizer.ts:22` React compiler warning1. |
+| typecheck | node·web·test 모두 exit0. 새 lifetime test의 mock 타입4건은 테스트 선언만 정정 후 test tsc·대상 eslint·lifetime18을 다시 통과했다. |
+| 영향 테스트 | 실제178파일·1842 assertions pass; 변이 원복 후9파일·214 pass, 타입 정정 후lifetime18 pass. |
+| scripts | JUnit testcase132·failure0·error0. |
+| 문서·예산·마이그레이션·diff | doc-inventory·test-budget(실 git16검사 포함)·migration guard·`git diff --check` 모두 exit0. |
+| 기준선·설계·handoff | main과 origin/main은 요청 당시 `ceda5c5a`에서 동기화0/0. ΔV3.1 `0a59d198`, ΔV3.2 `72e2d8eb`·자연 폐기 `0552d740`·신규 B6 `1576d485`는 별도 규범 커밋. INDEX는 impl/IMPL_DONE r2, 다음 검증자이며 D5는 독립 재검증 전 open. |
+| 환경·외부 | installed plain Node SQLite ABI127로 실제 DB를 실행했다. Electron ABI140 재빌드·의존성 설치 없이 진행했고 real model·Windows 시각 실기·remote CI/원격 게시에는 성공 판정을 하지 않았다. |
+
+로컬 구현 커밋은 contiguous `Agent: codex / Status: implemented / Criteria-Met: 25/25 / Verified-By: pending` trailer를 별도로 기록하고 파싱한다.
+
+## [구현자 기입] Review Signals — 사실만
+
+r1.4의 D5는 기존 AC25가 규정한 소유권을 requester→store edge에서 놓친 결함이다. 이번 턴은 같은 불변식의 요청·해결·승격·퇴역 callback 생산자/소비자를 함께 검사했다. 별도 pre-audit가 natural retire 생산자를 찾아 별도 설계와 실제 oracle로 보완했다. 제품 결정 drift와 handoff 지침 변경은 없다. r2 첫 구현 턴이며 formal verify 전의 설계 보강은 라운드를 추가하지 않는다. 원격 게시·모델/시각 확인과 sandbox/ABI 환경 제한은 로컬 코드 gate와 구별했다.

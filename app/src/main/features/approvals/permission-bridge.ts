@@ -13,9 +13,9 @@ import type { NormalizedEvent, PermissionAction } from '../../../shared/ipc'
 
 // 에이전트 발화 권한 요청 이벤트 합성(origin:'agent'). 종류는 action.kind 로 구분된다.
 // 코어 중립(0016): 이벤트는 provider 를 싣지 않는다 — 세션↔어댑터 바인딩에서 파생.
-// sessionId 는 renderer chatStore.receive 가 올바른 세션 엔트리로 라우팅하는 키 — 없으면
-// activeKey 폴백이라 멀티세션에서 카드/우측패널이 다른 대화로 샌다(권한 요청은 항상 소유
-// 세션이 있으므로 호출부가 turn.dbSessionId 를 넘긴다). 미전달 시 키 생략(폴백 유지).
+// sessionId는 확정된 소유 세션의 라우팅 키다. control callback이 초기화보다 먼저 오면
+// 아직 ID가 없으므로 키를 생략하고 renderer가 진행 중 pending draft에 보관한다.
+// 승격 때 같은 승인 상태를 실제 세션으로 옮긴다.
 export function agentPermissionRequest(
   approvalId: string,
   action: PermissionAction,
