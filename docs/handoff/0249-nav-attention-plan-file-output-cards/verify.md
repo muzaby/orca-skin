@@ -379,3 +379,134 @@ INDEX는 verify/FAIL·다음Codex 한 명·라운드2·로컬 실재 ref로 갱�
 D5를 plan의 [검증자 기입]에 이관했다. 기존D1~D4는 위 비영향 판정을 참조한다. Review Signals: 이전 reader/extraDirs 증상과 다르며 D-033·AC25가 순서/owner를 명시했고 새 제품 결정 변경은 없다. 반복 lstat EPERM은 권한 대조로 해소됐다.
 
 **다음: Codex 라운드2.** D5 수정 뒤 X1·영향 pair·등록 변이·적용 gate를 독립 재검증한다. 이번 판정은 PASS3·root PAIR_FAIL1·BLOCKED_BY1·미발행7, PLAN_GAP0이며 FAIL은 확정이다.
+
+---
+
+# Verify ΔV3.2 r2 (2026-10-06)
+
+**FAIL.** 실제 하위 ExitPlanMode를 승인하면 renderer와 다음 메인 send payload가 `plan`에서 `accept_edits`로 바뀐다. 승인·수정·구조화 코멘트·거부 네 응답이 다른 요청 ID 또는 이미 해결된 ID에도 현재 승인 상태를 바꾸거나 IPC를 발행한다. 기존 D5는 독립 X1 재실행으로 닫았으며 새 승인 소비자 결함 D6를 이관한다.
+
+## 0. 기준선·독립성·plan validity
+
+| 항목 | 값 |
+|---|---|
+| 검증자 / 독립성 | Codex 독립 subagent; 구현 agent와 별도. 구현 보고를 실행 증거로 받지 않음 |
+| 대상 | 로컬 구현 `463019d78c9690c345bbe006bd186a0ab15fe1c3`; main 기준 `ceda5c5a` |
+| 설계 기준 | ΔV3 `68c39bdd`+`b110cca6` → ΔV3.1 `0a59d198` → ΔV3.2 `72e2d8eb`+`0552d740` → B6 ID 정정 `1576d485` |
+| 별도 보고 정정 | `68f1a8c93ac694cf7075aab4eba50e0f9c974db0`; 제품 규범·production·tests 변경 없음 |
+| 유효 V / 선택 | V1+ΔV1+ΔV2+ΔV3+ΔV3.1+ΔV3.2; 유효37, REQUIRED7+REGRESSION10=17, NOT_REQUIRED20 |
+| 상태 / 후속 | r2 FAIL → 보드 라운드3·다음 Codex; 원격 공유 게시·CI는 미확인 |
+
+모든 대상 ref를 `git cat-file -t`로 commit 실재 확인했다. `1576d485..463019d7`의 plan diff는 `[구현자 기입]` 108줄 추가이며 규범 행 변경0이다. 구현 보고의 AC18~23 등 설명 오매핑은 독립 지적 뒤 별도 `68f1a8c9`에서 보고17행만 정정됐다.
+
+**PLAN_GAP0.** 같은 레벨 pair·영향 회귀·production path·§10·oracle·등록29변이·운영 gate가 유효하다. ΔV3 Product/UX 하위 호출 행은 “메인 도구 카드·계획 모드에도 영향을 주지 않는다”를 명시하며 D-033/AC25가 다른 호출의 소유권을 규정한다. 따라서 D6는 기존 계약의 구현 실패이며 신규 제품 선택이 필요하지 않다.
+
+## 1. 역방향 발견 D6 — 승인 소비자 경계
+
+**BLOCKING, root VP-36 PAIR_FAIL.** producer의 child guard와 실제 controller가 올바르게 동작해도 `chatStore.approvePlan` 소비자가 메인 mode를 무조건 바꾼다. `RESOLVE_PLAN` 전에 남아 있는 `providerRequest.agentId`·현재 `requestId`를 검사하지 않는다.
+
+| X2 축 | 기대 | 직접 관측 |
+|---|---|---|
+| main 승인 양성 | renderer/controller/다음 payload 모두 `accept_edits` | PASS; SDK allow + `updatedPermissions` 있음 |
+| 실제 child 승인 | renderer/controller/다음 payload 모두 `plan` | FAIL; `accept_edits`/`plan`/`accept_edits` |
+| 다른 approvalId | 현재 request 유지·mode=`plan`·respond0 | FAIL; request=null·mode=`accept_edits`·respond1 |
+| 이미 해결된 approvalId | request=null·mode=`plan`·respond0 | FAIL; request=null·mode=`accept_edits`·respond1 |
+| revise/comments/reject × 다른 ID(3) | 현재 request/세션 reference 유지·respond0 | FAIL3; request=null·mode=`plan`·respond1 |
+| revise/comments/reject × 해결된 ID(3) | 원래 세션 reference 유지·respond0 | FAIL3; request=null·mode=`plan`·respond1 |
+
+새 정식 fixture는 `app/src/renderer/src/features/chat/store/chatStore.planModeIsolation.test.ts`다. 실제 `makeCanUseTool` → requester → ApprovalBroker → transport → `ingestChatEvent`/reducer → `approvePlan` → 다음 `send`를 연결했다. child allow 응답에 `updatedPermissions`가 없고 이웃 세션 reference가 유지됨을 실패 단언 전에 확인한다(`:90~99`).
+
+production 원인은 `app/src/renderer/src/features/chat/store/chatStore.ts:1653~1663`의 무조건 respond·`RESOLVE_PLAN`·`SET_PERMISSION_MODE`다. 같은 파일 `:1666`·`:1679`·`:1689`의 revise/comments/reject도 ID 검사 없이 respond·`RESOLVE_PLAN`을 실행하며 X2 `:107`의8축에서 세션/request reference와 IPC 음성을 직접 비교했다. 다음 payload는 실제 `send`가 생산하며 main `send.ts:456~465`가 이를 controller/renderer에 게시한다; X2가 그 main handler를 재호출해 이후 controller까지 측정한 것은 아니다.
+
+해결된 ID 축은 현재 요청 없음 상태를 임의 조립한 대조가 아니다. 실제 `permission.requested('stale')` → `permission.resolved('stale', deny)`를 production store에 전달해 pending=null을 확인한 뒤 네 stale 버튼 응답을 실행했다(X2 `:141~167`). SDK에 이전 요청을 보내 실제 모델의 해결까지 실행한 것은 아니다.
+
+귀속은 plan의 ΔV3 Product/UX 하위 호출 행 + D-034/AC26, stale ID 축은 D-033/AC25다. requester `approval.ts:106`와 SDK adapter의 main-only 권한 변경 guard는 양성/음성 대조에서 정상이다. 파일 정본·모드 observer·채널 폐기 producer만 확인하면 이 낙관적 승인 consumer를 놓친다.
+
+## 2. 직접 테스트·운영 gate
+
+UT → IT → ST → AT를 직접 순차 실행했고 reporter의 파일/실행 assertion을 따로 합산했다. 실제 SQLite DB는 설치된 plain Node ABI127로 실행했으며 설치·ABI 전환·production 수정·autofix는 없다.
+
+| 단계 | 파일 | pass / fail / skip | 관측 범위 |
+|---|---:|---:|---|
+| UT | 6 | 98 / 0 / 0 | 식별/mode·resolver/reader·순수 completion store |
+| IT | 7 | 149 / 0 / 0 | requester·실제 DB writer·runtime81·observer·send/controller·fresh TurnContext |
+| ST | 5 | 79 / 0 / 0 | 실제 adapter query 및 approval lifetime18 |
+| AT | 7 | 85 / 0 / 0 | Work/Code SSR·reducer·store·owner10·app attention19 |
+| baseline 합계 | 25 | 411 / 0 / 0 | 중복 파일 없음; 구현자178파일1842와 별개 측정 |
+| 독립 X2 | 1 | 1 / 9 / 0 | main 양성·child·4응답×다른/해결된 ID |
+
+| gate | 직접 관측 |
+|---|---|
+| scripts | 독립 JUnit testcase132·failure0·error0 |
+| lint no-fix | 전체 src/scripts error0·기존 warning1(`useTranscriptVirtualizer.ts:22`); 새 X2 error0/warning0 |
+| typecheck | node/web/test3종 진단0; X2 추가 뒤 test typecheck 진단0 재확인 |
+| doc-inventory | generated inventory·본문 수치·상대 링크 검사 정상 |
+| test-budget / migration | 실제 git fixture16 suites·schema28/mail1 sync·no-copies·append-only 정상 |
+| diff / 소스 고정 | `git diff --check` 정상; 이번 검증의 production 변경0 |
+
+실행 명령(app 기준); 단계별 선택25파일은 독립 runner `.tmp-verify-0249-r2-stages.mjs`에 고정했다.
+
+```text
+node .tmp-verify-0249-r2-stages.mjs
+node --test --test-reporter=junit --test-reporter-destination=.tmp-verify-0249-r2-scripts.xml scripts/*.test.mjs
+node node_modules/vitest/vitest.mjs run src/renderer/src/features/chat/store/chatStore.planModeIsolation.test.ts --reporter=json --outputFile=.tmp-verify-0249-r2-X2.json
+node node_modules/vitest/vitest.mjs run src/renderer/src/features/chat/store/chatStore.planModeIsolation.test.ts --reporter=verbose
+node node_modules/eslint/bin/eslint.js ./src ./scripts
+npm run typecheck
+node scripts/check-doc-inventory.mjs --check
+node scripts/check-test-budgets.mjs
+node scripts/check-migrations-appendonly.mjs
+```
+
+산출은 `app/.tmp-verify-0249-r2-{UT,IT,ST,AT}.json`·`stage-results.json`·`scripts.xml`·`X2.json`이다. 실제 파일 reader/DB/scripts는 이전 독립 r1.4에서 확인한 sandbox `lstat C:/Users/rlaeo EPERM`을 피하는 승인된 local-only 권한 승격으로 실행했다. X2의9실패는 assertion 차이이며 환경 실패가 아니다.
+
+## 3. Pair 판정·§10·미실행
+
+| pair | 수준 / requiredness | 결과 | 직접 증거 |
+|---|---|---|---|
+| VP-38 | MD↔UT / REQUIRED | PASS | SDK6종/unknown·Enter `{}`/message·Exit filePath |
+| VP-12·13′ | MD↔UT / REGRESSION | PASS(각1) | 실제 파일 경계/링크/close·출처 표·정상 입력 reference |
+| VP-05 | MD↔UT / REGRESSION | PASS | completion store8건: Map·마지막 사유·identity·열람/삭제 |
+| VP-04 | AR↔IT / REGRESSION | PASS | 실제 app→chat→sessions 구독 통합과 전체 boundaries lint0 |
+| VP-03 | SD↔ST / REGRESSION | PASS | app19건:3종 승격·해결·열람 해제·재방출·unsubscribe 수명 |
+| VP-19 | R↔AT / REGRESSION | PASS | 실제 완료 Map/tick 보존·SessionRow의 완료/대기 동일 class SSR |
+| VP-36 | SD↔ST / REQUIRED | PAIR_FAIL | X2: child 승인 후 메인 mode 오염 및 stale ID의 현재 요청 제거 |
+
+나머지 선택9는 직접 baseline oracle green이나 해당 등록 변이 미실행으로 **closeout 미발행**이다. VP-35는 X1 때의 종속 판정을 복사하지 않는다: r2 카드 표시/값은 독립 관측됐으며 이번 결함과 같은 이유로 `BLOCKED_BY`를 추가하지 않는다.
+
+| closeout 미발행 pair | 아직 실행하지 않은 선택 변이 |
+|---|---|
+| VP-33·34·35 | F1~7·owner F11·12 및 해당 취소 경로 F13·14 |
+| VP-37 | F8~10·자연 retire F15 |
+| VP-09′·10·11′·20 | D1~10의 해당 자리 |
+| VP-02 | B1~3·신규 B6 승격 통지 |
+
+**PASS7 + PAIR_FAIL1 + 미발행9 + NOT_REQUIRED20 = 유효37.** 이번 FAIL의 root는1개이며 종속 실패0, PLAN_GAP0이다. AC25/26과 Product/UX child 경계는 X2로 실패했고 AC24/27의 기존 baseline 양성은 관측했으나 유효 AC25개 전체의 완결 PASS를 발행하지 않는다. 구현 본문/trailer의25/25는 자기보고이며 독립 결과가 이를 지지하지 않는다.
+
+§10 물리 자리의 재열거는 EP-04″8(기록·Stop·hook·getter·resolver·request·allow·reader), EP-11 6(started·action·persist·late started·SQL·reducer), EP-12″9(기존 owner4·noid requested/resolved2·early signal/wrapper/common retire3), EP-02′9(기존8·승격 통지1), EP-13′6(report·app callback·frame/adapter delegate·controller·renderer), EP-14 4(SDK 입력/결과·plan/ΔV3·INDEX)다. 지정 **42자리**를 소스에서 대조했으며42/42 계약 PASS로 해석하지 않는다. `approvePlan` 소비자는 이미 명시된 child/소유권 계약을 깨므로 지정 표 밖이라는 이유로 D6를 낮추지 않는다.
+
+**등록29건 모두 독립 미실행**: F1~15·D1~10·B1~3·B6. 정의/필터를 독립 대조한 후 X2 baseline 결함을 확정해 이관했으며 mutation window를 시작하지 않았다. 제거 red·byte복원·동일 필터 green, F9/10/F13~15의 실제 실행/skip, 이전 red→green 민감도 비교는 모두 미측정이다.
+
+## 4. 저장소 운영·보고 정합성
+
+구현 trailer는 Agent:codex·Handoff·Status:implemented·Criteria-Met:25/25·Verified-By:pending **5행 실제 파싱**이다. 재구현 보고7필드(설계 리뷰·강제 지점·수정 잠금·Product/UX 파생·놓친 문제·구현 보고·Review Signals)가 있으며 AGENTS 변경0이다. INDEX는 verify/FAIL·다음Codex 한 명·라운드3·실재 로컬 구현/보고 좌표로 갱신하고 archive 이동하지 않았다.
+
+`68f1a8c9`는 구현자가 유효 AC 의미와 다른 설명을 쓴 보고 문제의 정정이며 제품 기준 변경으로 받지 않았다. 로컬 main...origin/main0/0은 원격 최신/게시/CI를 증명하지 않는다. 자동 승인 검토가 목적지 권한 불명확으로 거부한 원격 push는 실행하지 않았으며 로컬 source 검증과 분리한다.
+
+## 5. 파생 이슈 이관
+
+| ID | 독립 판정 / 근거 | 후속 |
+|---|---|---|
+| D5 | closed: 보존된 X1 기대값 포함 owner10건 green; noid requested/resolved·FIFO·re-key 직접 관측 | 관련 등록 변이의 pair closeout은 미발행으로 유지 |
+| D6 | open/BLOCKING: main 양성1 PASS·child1/4응답 stale8 FAIL; VP-36·D-033/AC25·D-034/AC26·Product/UX child 행 | 4소비자의 requestId/owner guard와 승인 전 child snapshot을 유지, X2 재실행 |
+| D1·D2·D4 | 기존 NON_BLOCKING open 유지; 이번 검증에서 수정/재판정하지 않음 | 별도 잔여 보존 |
+
+D6와 D5 판정을 plan의 `[검증자 기입]`에만 반영했으며 normative 행은 변경하지 않았다. 정식 X2는 후속 재검증을 위해 보존한다. 신규 fixture만 포맷했고 baseline production/tests bytes는 그대로다.
+
+## 6. 외부 경계·Review Signals·다음 작업
+
+실제 외부 모델·Windows 앱 시각 실기·공유 브랜치 게시/원격 CI는 미실행이며 기존 r1 §8의 실기 범위를 유지한다. 도구 카드/계획 패널/SessionRow의 SSR·상태는 기계 관측이고 앱 시각 실기를 대신하지 않는다. 새 dependency/owner cache/ABI 전환은 없다.
+
+Review Signals: D5의 noid 라우팅 증상은 해소됐고 D6는 같은 소유권/child 경계의 기존 승인 소비자에서 발견됐다. 관련 D-033·AC25·Product/UX child 계약은 이미 있었고 사용자 결정 변경0이다. 반복 sandbox lstat 제한은 local-only 실행으로 분리했다.
+
+**다음: Codex 라운드3.** D6 수정 후 X2·영향 pair·등록 변이·운영 gate를 독립 재검증한다. 이번 판정은 명시 계약 위반에 따른 FAIL이며 미실행29변이와 외부 경계는 성공 증거로 합산하지 않는다.
