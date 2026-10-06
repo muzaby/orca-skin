@@ -170,6 +170,9 @@ export interface TurnRequest {
   // signal: 어댑터(SDK)가 이 권한요청을 취소할 때 신호. 주어지면 router 가 턴 signal 과 합쳐
   // broker 에 묶어, SDK 취소 시 보류가 deny 로 깔끔히 해소되게 한다(canUseTool 무한 await 방지).
   requestApproval?: (action: PermissionAction, signal?: AbortSignal) => Promise<ApprovalResolution>
+  // 승인 콜백 진입 때 현재 메인 턴의 원래 신호를 캡처한다. 장수명 채널 신호와 분리하며,
+  // 독립 수명의 child 요청은 이 getter를 조회하지 않는다.
+  getMainApprovalSignal?: () => AbortSignal | undefined
   // 이 턴의 권한 모드 (정규화 6종 — Composer 모드 버튼). 어댑터가 toClaudePermissionMode 로
   // 자기 query 옵션(SDK PermissionMode)으로 어댑트. 확장 묶음이 아니라 query-레벨 제어라
   // env/askUser 처럼 TurnRequest 직속.

@@ -173,4 +173,125 @@ describe('0249 independent X2 — plan acceptance ownership and child mode isola
       })
     }
   )
+
+  const validResponses: Array<{
+    handler: string
+    respond: (id: string) => void
+    resolution: ApprovalResolution
+  }> = [
+    {
+      handler: 'revise',
+      respond: (id) => chatActions.revisePlan(id, '  Revise this plan  '),
+      resolution: { behavior: 'deny', message: 'Revise this plan' }
+    },
+    {
+      handler: 'comments',
+      respond: (id) =>
+        chatActions.revisePlanWithComments(
+          id,
+          [{ id: 'c', quote: 'plan', start: 0, end: 4, body: '  Revise  ', createdAt: 1 }],
+          '  Include tests  '
+        ),
+      resolution: {
+        behavior: 'deny',
+        planFeedback: {
+          comments: [{ id: 'c', quote: 'plan', start: 0, end: 4, body: 'Revise' }],
+          note: 'Include tests'
+        }
+      }
+    },
+    {
+      handler: 'reject',
+      respond: (id) => chatActions.rejectPlan(id),
+      resolution: { behavior: 'deny' }
+    }
+  ]
+  it.each(validResponses)(
+    '$handler valid request preserves feedback, main plan mode and the neighboring entry',
+    async ({ handler, respond, resolution }) => {
+      const harness = installChatStoreHarness({ agentKind: 'code', permissionMode: 'plan' })
+      const start = useChatStore.getState()
+      const neighbor = {
+        ...start.sessions.s,
+        session: { ...start.sessions.s.session, sessionId: 'neighbor' }
+      }
+      useChatStore.setState({ sessions: { ...start.sessions, neighbor } })
+      transport.deliver = (event) => ingestChatEvent(event as NormalizedEvent)
+      const broker = new ApprovalBroker<ApprovalResolution>()
+      harness.permissionRespond.mockImplementation(async ({ approvalId, resolution }) => {
+        broker.resolve(approvalId, resolution)
+      })
+      const permissionModes = new PermissionModeController()
+      await permissionModes.setMode('s', 'plan')
+      const turn = {
+        dbSessionId: 's',
+        agentKind: 'code',
+        controller: new AbortController()
+      } as TurnContext<WebContents>
+      const request = createApprovalRequester({
+        wc: {} as WebContents,
+        approvals: {
+          register: (id: string, _turn: unknown, signal: AbortSignal) =>
+            broker.register(id, signal, { behavior: 'deny' })
+        } as unknown as ApprovalCoordinator,
+        permissionModes,
+        persistence: { persist: vi.fn() } as unknown as HistoryWriter,
+        getActiveTurn: () => turn
+      })
+      const sdk = new AbortController()
+      const canUse = makeCanUseTool(request, { providerGeneration: `X2-valid-${handler}` })
+      const pending = canUse('ExitPlanMode', { plan: '# Requested plan' }, {
+        signal: sdk.signal,
+        requestId: `control-${handler}`,
+        toolUseID: `exit-${handler}`
+      } as Parameters<typeof canUse>[2])
+      await vi.waitFor(() => {
+        expect(useChatStore.getState().sessions.s.session.pendingPlanReview).not.toBeNull()
+      })
+      const review = useChatStore.getState().sessions.s.session.pendingPlanReview!
+      try {
+        const before = useChatStore.getState().sessions.s.session
+        if (handler === 'revise') chatActions.revisePlan(review.requestId, '   ')
+        if (handler === 'comments') chatActions.revisePlanWithComments(review.requestId, [], '   ')
+        expect(useChatStore.getState().sessions.s.session).toBe(before)
+        expect(harness.permissionRespond).not.toHaveBeenCalled()
+        respond(review.requestId)
+        const result = await pending
+        expect(harness.permissionRespond).toHaveBeenCalledExactlyOnceWith({
+          approvalId: review.requestId,
+          resolution
+        })
+        expect(result?.behavior).toBe('deny')
+        if (result?.behavior !== 'deny') throw new Error('missing SDK deny result')
+        if (handler === 'revise') expect(result.message).toBe('사용자 수정 요청: Revise this plan')
+        else if (handler === 'reject')
+          expect(result.message).toBe(
+            '사용자가 계획을 거부했습니다. 다른 계획이나 제안 없이 여기서 중단하세요.'
+          )
+        else {
+          expect(result.message).toContain('<<<ORCA_PLAN_FEEDBACK_START count="1">>>')
+          expect(result.message).toContain(
+            '<<<ORCA_PLAN_COMMENT_START id="c" index="1" range="0-4">>>'
+          )
+          expect(result.message).toContain('<quote>plan</quote>\n<comment>Revise</comment>')
+          expect(result.message).toContain('<note>Include tests</note>')
+          expect(result.message).toContain('<<<ORCA_PLAN_FEEDBACK_END>>>')
+          expect(result.message).not.toContain('사용자 수정 요청:')
+        }
+        const resolved = useChatStore.getState().sessions.s.session
+        expect(resolved.pendingPlanReview).toBeNull()
+        expect(resolved.planContent).toBe('# Requested plan')
+        expect(resolved.permissionMode).toBe('plan')
+        expect(permissionModes.getCurrentMode('s')).toBe('plan')
+        expect(harness.permissionSetMode).not.toHaveBeenCalled()
+        expect(useChatStore.getState().sessions.neighbor).toBe(neighbor)
+        respond(review.requestId)
+        expect(useChatStore.getState().sessions.s.session).toBe(resolved)
+        expect(harness.permissionRespond).toHaveBeenCalledTimes(1)
+      } finally {
+        sdk.abort()
+        await pending
+      }
+    }
+  )
 })

@@ -70,10 +70,14 @@ const assistant = (
   ...(child ? { parent_tool_use_id: 'agent-call' } : {}),
   message: { content: [{ type: 'tool_use', id, name, input }] }
 })
-async function setup(resolution: ApprovalResolution = { behavior: 'allow' }): Promise<{
+async function setup(
+  resolution: ApprovalResolution = { behavior: 'allow' },
+  getMainApprovalSignal?: () => AbortSignal | undefined
+): Promise<{
   plans: string
   actions: PermissionAction[]
   modes: unknown[][]
+  approvalSignals: (AbortSignal | undefined)[]
   events: NormalizedEvent[]
   consume: () => Promise<void>
 }> {
@@ -83,16 +87,19 @@ async function setup(resolution: ApprovalResolution = { behavior: 'allow' }): Pr
   await mkdir(plans)
   const actions: PermissionAction[] = []
   const modes: unknown[][] = []
+  const approvalSignals: (AbortSignal | undefined)[] = []
   const live = new ClaudeAdapter().sendMessage({
     sessionId: 's',
     text: 'plan',
     cwd: root,
     env: { CLAUDE_CONFIG_DIR: root },
     extensions: { skills: [], hooks: { normalized: {} } },
-    requestApproval: async (action) => {
+    requestApproval: async (action, approvalSignal) => {
       actions.push(action)
+      approvalSignals.push(approvalSignal)
       return resolution
     },
+    getMainApprovalSignal,
     onPermissionModeChanged: (sid, mode) => modes.push([sid, mode])
   })
   const events: NormalizedEvent[] = []
@@ -100,6 +107,7 @@ async function setup(resolution: ApprovalResolution = { behavior: 'allow' }): Pr
     plans,
     actions,
     modes,
+    approvalSignals,
     events,
     consume: async () => {
       try {
@@ -112,6 +120,46 @@ async function setup(resolution: ApprovalResolution = { behavior: 'allow' }): Pr
 }
 
 describe('0249 plan mode callback and handler paths', () => {
+  it('actual query factory forwards main approval scope and never reads the getter for child calls', async () => {
+    const main = new AbortController()
+    const next = new AbortController()
+    let current = main.signal
+    const getMainApprovalSignal = vi.fn(() => current)
+    const f = await setup({ behavior: 'allow' }, getMainApprovalSignal)
+    fixture.steps.push(async () => {
+      expect((await call('first-main', { plan: '# First' }))?.behavior).toBe('allow')
+      expect(getMainApprovalSignal).toHaveBeenCalledOnce()
+      expect(f.approvalSignals[0]).not.toBe(main.signal)
+      expect(f.approvalSignals[0]!.aborted).toBe(false)
+      main.abort()
+      expect(f.approvalSignals[0]!.aborted).toBe(true)
+      expect((await call('cancelled-main', {}))?.behavior).toBe('deny')
+      expect(f.actions).toHaveLength(1)
+      current = next.signal
+      expect((await call('next-main', { plan: '# Next' }))?.behavior).toBe('allow')
+      expect(getMainApprovalSignal).toHaveBeenCalledTimes(3)
+      const sdk = new AbortController()
+      expect(
+        (
+          await options().canUseTool!('ExitPlanMode', { plan: '# Child' }, {
+            signal: sdk.signal,
+            requestId: 'child',
+            toolUseID: 'child',
+            agentID: 'live-child'
+          } as never)
+        )?.behavior
+      ).toBe('allow')
+      expect(getMainApprovalSignal).toHaveBeenCalledTimes(3)
+      expect(f.approvalSignals.at(-1)).toBe(sdk.signal)
+      expect(f.actions).toHaveLength(3)
+    })
+    await f.consume()
+    // SDK iterator 안의 assertion은 adapter가 오류 이벤트로 정규화할 수 있다.
+    // 소비가 끝난 테스트 경계에서도 query 배선과 전체 callback 진행을 검증한다.
+    expect(f.events.filter((event) => event.type === 'error')).toEqual([])
+    expect(getMainApprovalSignal).toHaveBeenCalledTimes(3)
+    expect(f.actions).toHaveLength(3)
+  })
   it('started reads available data; the approval callback re-reads the later authoritative file', async () => {
     const f = await setup()
     const file = path.join(f.plans, 'current.md')

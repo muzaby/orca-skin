@@ -86,6 +86,21 @@ describe('r4 permission applied response lifetime', () => {
     expect(harnessSession().permissionModeError).toBe(false)
   })
   it('plan approval has Work manual target and original allow response', () => {
+    ingestChatEvent({
+      type: 'session.updated',
+      sessionId: 's',
+      patch: { permissionMode: 'plan' }
+    })
+    ingestChatEvent({
+      type: 'permission.requested',
+      sessionId: 's',
+      approvalId: 'p1',
+      origin: 'agent',
+      action: {
+        kind: 'plan_review',
+        request: { requestId: 'p1', plan: '# Work plan' }
+      }
+    })
     chatActions.approvePlan('p1')
     expect(harness.permissionRespond).toHaveBeenCalledWith({
       approvalId: 'p1',

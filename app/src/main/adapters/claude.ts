@@ -138,6 +138,7 @@ const SUBAGENT_BLOCKED_MESSAGE =
 interface CanUseToolOptions {
   providerGeneration?: string
   planApprovalMode?: NormalizedPermissionMode
+  getMainApprovalSignal?: () => AbortSignal | undefined
   // 중단된 서브에이전트 타입이면 재호출을 deny(가이드 §6-A). 미주입이면 차단 없음.
   isSubagentBlocked?: (subagentType: string | undefined) => boolean
   // 이번 턴 메인 에이전트의 마지막 서술(0215). `ExitPlanMode` 입력에 계획이 실려 오지 않는
@@ -182,6 +183,23 @@ export function makeCanUseTool(
       }
       return { behavior: 'allow', updatedInput: input }
     }
+    const needsApproval =
+      requestApproval !== undefined &&
+      (toolName === 'AskUserQuestion' ||
+        toolName === 'ExitPlanMode' ||
+        isRiskyTool(toolName) ||
+        opts.runtimeApprovalToolNames?.has(toolName) === true)
+    const childRequest = options?.agentID !== undefined
+    // 첫 await 전에 원래 main 턴 소유권을 잡는다. await 뒤 최신 턴 getter를 다시 읽지 않는다.
+    const mainSignal = needsApproval && !childRequest ? opts.getMainApprovalSignal?.() : undefined
+    const approvalSignal = mainSignal
+      ? signal
+        ? AbortSignal.any([mainSignal, signal])
+        : mainSignal
+      : signal
+    if (needsApproval && approvalSignal?.aborted) {
+      return { behavior: 'deny', message: TOOL_DENY_MESSAGE }
+    }
     if (toolName === 'AskUserQuestion' && requestApproval) {
       const questions = Array.isArray((input as { questions?: unknown }).questions)
         ? (input as { questions: AskQuestion[] }).questions
@@ -192,7 +210,7 @@ export function makeCanUseTool(
           request: { requestId: '', questions },
           ...(providerRequest ? { input, providerRequest } : {})
         },
-        signal
+        approvalSignal
       )
       if (res.behavior === 'deny') {
         return { behavior: 'deny', message: ASK_SKIP_MESSAGE }
@@ -213,7 +231,6 @@ export function makeCanUseTool(
     if (toolName === 'ExitPlanMode' && requestApproval) {
       // 파일 정본은 입력이 차 있어도 확인한다. CLI 주입 캐시가 낡았거나 custom 인프라가
       // 필드를 잘못 파싱한 경우 요청 본문과 allow 입력을 함께 보정한다(0249 ΔV1).
-      const childRequest = options?.agentID !== undefined
       const files = childRequest ? undefined : await opts.getPlanFiles?.(input)
       const resolved = resolvePlanReview(input, {
         ...files,
@@ -225,7 +242,7 @@ export function makeCanUseTool(
           request: { requestId: '', plan: resolved.plan },
           ...(providerRequest ? { input: resolved.updatedInput, providerRequest } : {})
         },
-        signal
+        approvalSignal
       )
       if (res.behavior === 'allow') {
         // 계획 승인 = plan 모드 종료. 모드 전환을 **allow 응답에 동봉**해 단일 control_response 로
@@ -269,7 +286,7 @@ export function makeCanUseTool(
           input,
           ...(providerRequest ? { providerRequest } : {})
         },
-        signal
+        approvalSignal
       )
       if (res.behavior === 'allow') {
         return {
@@ -591,6 +608,7 @@ export class ClaudeAdapter implements SessionAdapter {
         ...(requestApproval
           ? {
               canUseTool: makeCanUseTool(requestApproval, {
+                getMainApprovalSignal: req.getMainApprovalSignal,
                 providerGeneration: backgroundMapper.generation,
                 runtimeApprovalToolNames: runtimeToolApprovalNames,
                 ...(req.planApprovalMode ? { planApprovalMode: req.planApprovalMode } : {}),
