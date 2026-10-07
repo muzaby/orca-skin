@@ -12,10 +12,10 @@
 | 일자 | 2026-10-07 |
 | 매핑 | 기준 커밋 `origin/main@5e1e9209` · 브랜치 `claude/0254-0255-nav-progress-daily-login` |
 | 상태 | READY |
-| V mode | `Baseline V` |
-| 기준 V | `none`. 게이트·부팅 복원·nav 주의 표시는 `INHERITED` 회귀 노드로만 참조한다 — 출처 `origin/main@5e1e9209`(`git cat-file -t` = commit) |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| V mode | `Delta V` |
+| 기준 V | `0255:V1@ba2c3eeb3e00d9126c4d80356823f2160d200f00` (공유 브랜치의 설계 커밋; `git cat-file -t` = commit) |
+| 이번 V revision | `ΔV1` |
+| 유효 V | `V1 + ΔV1` (§7-B의 대체 관계 적용) |
 | 구현 주체 | Codex (기능 구현). **0254 다음 순서** — 두 handoff 가 `useSessionCompletion.ts`·그 테스트를 함께 고친다 |
 
 ---
@@ -25,7 +25,7 @@
 ## 1. Context / 목표
 
 - 해결하려는 문제: 로그인 게이트를 한 번 통과하면 앱을 끌 때까지 다시 묻지 않는다. 하루 넘게 켜 둔 앱은 추가 로그인 이벤트가 없어 서버의 일별 사용 집계에서 빠진다.
-- 완료 후 달라지는 것: 앱 실행 중 로컬 00:00 이 지나면 게이트 통과가 풀리고 로그인 화면이 뜬다. [로그인]을 다시 눌러 통과하면 하던 화면으로 돌아간다. 자격증명·연결·진행 중 응답은 그대로다.
+- 완료 후 달라지는 것: 앱 실행 중 로컬 00:00 이 지나면 게이트 통과가 풀리고 로그인 화면이 뜬다. [로그인]을 다시 눌러 통과하면 하던 화면으로 돌아간다. 일일 정책은 자격증명·연결·진행 중 응답을 직접 변경하지 않으며 기존 자연 만료 처리는 유지한다(D-012).
 - 성공을 한 문장으로: **서버 호출을 늘리지 않고, 날짜마다 최소 한 번 로그인 게이트를 거친다.**
 
 ## 2. 사용자 의도 / 요구 출처
@@ -36,6 +36,7 @@
 | 명시 맥락 | "사용 집계만을 목적으로 주기적인 health check/fetch를 수행하는 것은 불필요한 서버 자원 사용으로 판단된다." · "별도의 주기적 서버 호출 없이 날짜 경계를 기준으로 로그인 기회를 보장할 필요가 있다." | 동일 |
 | 명시 결정 ③ | 자정 해제 범위 = "게이트 통과만 해제" — 로그인 화면이 뜨고 [로그인]을 다시 눌러야 통과, 저장된 자격증명·플러그인 연결·진행 중 응답은 유지 | AskUserQuestion |
 | 명시 결정 ④ | 앱 시작 = "현행 유지" — 매 실행마다 게이트가 저장된 로그인을 확인하고 유효하면 자동 통과 | AskUserQuestion |
+| 명시 정정 승인 | "제안대로 수행하라" — 일일 정책이 인증을 직접 변경하지 않으며, 기존 자연 만료 처리와 무효화는 유지한다. 정책의 직접 방송과 자연 만료의 추가 방송을 구분한다 | 이 구현 세션, 2026-10-07; 자연 만료 반례와 기존 요구/정정안 차이 설명 뒤 승인 |
 | 추론 의도 | "00:00" = 앱이 도는 PC 의 로컬 시각 기준 날짜 경계(D-001) | 사용자 PC 시간대가 곧 업무일 |
 | 추론 의도 | 게이트가 떠 있는 밤사이 끝난 작업도 아침에 nav 에서 알아볼 수 있어야 한다(D-008) | 결정③ "진행 중 응답은 유지" + 0249 완료 표시 정책 |
 
@@ -46,7 +47,7 @@
 | ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
 |---|---|---|---|---|---|
 | D-001 | 기준 = main 프로세스 로컬 시각의 날짜(`YYYY-MM-DD`). 날짜가 바뀌는 순간 게이트 통과를 해제한다 | "00:00을 지나면" · "날짜 경계를 기준으로" | 요구 | ACTIVE | — |
-| D-002 | 해제 대상은 **게이트 통과만**이다. Auth grant·`verified`·`credentialRevision`·vault·cookie jar·Plugin 도구·Harness 구성·진행 중 턴을 건드리지 않는다 | 결정③ | 결정③ | ACTIVE | — |
+| D-002 | 해제 대상은 **게이트 통과만**이다. Auth grant·`verified`·`credentialRevision`·vault·cookie jar·Plugin 도구·Harness 구성·진행 중 턴을 건드리지 않는다 | 결정③ | 결정③ | SUPERSEDED | D-012: 직접 변경 범위와 기존 자연 만료를 구분 |
 | D-003 | 재통과 = 경계 뒤 게이트 멤버마다 로그인 커밋 1회. 판정은 멤버 snapshot이 `valid ∧ verified`이고, 실제 로그인 커밋 이벤트에서 기록한 `lastLoginRevision`이 경계 시점 credential revision보다 큰 것이다. 자동 refresh의 revision 증가는 로그인 증거가 아니다. 경계 시점에 미확인(`verified=false`)이던 멤버는 경계 뒤 첫 확인이 그날의 통과다 | 결정③ "[로그인]을 다시 눌러야 통과". 로그인과 refresh 모두 revision을 올리므로(`store.ts:248-258`, `login.ts:432,656`) 원인 구분이 필요하다(§11 로그인 증거 보완) | 결정③·코드 | ACTIVE | — |
 | D-004 | 앱 시작은 현행 유지 — 부팅 자동 확인(복원 probe)으로 통과한다. 경계 표식은 실행 중 메모리에만 있고 영속하지 않는다 | 결정④ | 결정④ | ACTIVE | — |
 | D-005 | 경계 감지 = 다음 로컬 자정 타이머 + 시스템 resume·unlock-screen·창 focus 때 날짜 재확인. 서버 호출을 추가하지 않는다. 날짜가 앞뒤 어느 쪽으로 바뀌어도 해제한다 | "별도의 주기적 서버 호출 없이". 절전 중에는 타이머가 제때 돌지 않고 시계 변경은 타이머가 모른다(추론) | 요구·추론 | ACTIVE | — |
@@ -56,8 +57,9 @@
 | D-009 | 경계 뒤 로그인이 필요한 멤버 목록을 `ProviderGateState.dailyRelogin`(멤버 순서)으로 renderer 에 보낸다. 로그인 화면의 현재 단계 = `status≠valid` 이거나 이 목록에 있는 첫 멤버 | 현재 규칙(`GateLogin.tsx:42` `status !== 'valid'`)은 경계 뒤 전원이 valid 라 체인을 진행하지 못한다 | 코드 | ACTIVE | — |
 | D-010 | DEV 우회(bypass)·게이트 미요구(prod 선언 0)에는 이 정책이 적용되지 않는다 — `dailyRelogin=[]`, `passed` 불변 | 기존 진리표의 앞선 분기(`features/gate/index.ts:72-73`) | 코드 | ACTIVE | — |
 | D-011 | 정책의 이유(서버 일별 집계·주기 호출 배제·선택지)는 ADR-008 이 갖고, `docs/arch/backend/auth.md §5` 는 현재 규칙만 서술한다 | `docs/AGENTS.md §문서를 어디에 두는가` | 저장소 규칙 | ACTIVE | — |
+| D-012 | 일일 정책은 Auth mutator·서버 요청·Plugin/Harness 무효화·턴 중단을 직접 실행하지 않는다. 유효기간이 남은 자격증명은 유지한다. `snapshot()`의 기존 자연 만료 정착과 그 Auth 이벤트·저장·소비자 무효화는 유지하며 정책의 직접 push 1회와 구분한다 | 실제 자정 만료에서 snapshot이 만료를 정착시킨다. 이를 억제하면 기존 인증 계약이 깨진다 | 사용자 "제안대로 수행하라"(2026-10-07) · [반례](natural-expiry-probe.md) | ACTIVE | D-002 대체; AC1·AC5·§10은 ΔV1 적용 |
 
-### 갱신 메모
+### V1 갱신 메모 (기준선 기록; 정정은 §7-B)
 
 - 이번 턴에서 새로 추가된 결정: D-001~D-011 (신규 handoff).
 - 변경된 결정: 다른 handoff 결정 중 0249 D-006 의 **설치 위치**만 바뀐다(app 계층 연결 원칙은 유지, §16).
@@ -122,7 +124,7 @@
 ## 6. 범위 / 비범위
 
 - **범위**: 날짜 경계 감지(main) · 게이트 일일 표식과 판정 · wire `dailyRelogin` · 로그인 화면 현재 단계·안내 · nav 주의 표시 구독 위치 이동 · Auth 커밋 원인 구분 및 기존 change 소비자에서 로그인 증거 기록 · 문서(auth.md §5 · IPC_CONTRACT · ADR-008 · decisions README · docs/INDEX · 폐쇄망 가이드 §2 · frontend state.md).
-- **비범위**: 경계에 의한 Auth 상태 변경(D-002) · 앱 시작 동작(D-004) · 서버 호출 추가 · 경계 표식 영속 · 입력 중 초안 보존 · 사용자 설정 토글(정책은 항상 켜짐) · 다른 시각 기준(서버 시각·고정 시간대).
+- **비범위**: 일일 정책의 직접 Auth 상태 변경(D-012) · 앱 시작 동작(D-004) · 서버 호출 추가 · 경계 표식 영속 · 입력 중 초안 보존 · 사용자 설정 토글(정책은 항상 켜짐) · 다른 시각 기준(서버 시각·고정 시간대). 기존 Auth 자연 만료·무효화는 억제하지 않는다.
 
 | 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
 |---|---|---|
@@ -130,7 +132,9 @@
 | 입력 중 초안 보존 | 아니오 — renderer 내부 | 후속 handoff 후보(§17) |
 | 경계 기준 시간대 설정 | 아니오 — 판정 함수 인자 하나 | 요청 시 후속 |
 
-## 7. Requirements / Acceptance — `R ↔ AT`
+## 7. V1 Requirements / Acceptance — `R ↔ AT` (기준선 기록)
+
+AC1·AC5는 §7-B의 ΔV1 행으로 대체한다. 나머지 AC 13개는 그대로 유효하다.
 
 | R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
 |---|---|---|---|---|
@@ -157,7 +161,9 @@
 - 사람 실기 항목: 실제 electron `powerMonitor`·OS 시계·SSO 창만 남긴다. 날짜 계산·판정·체인 선택·배선은 테스트로 내렸다.
 - 시간대: 테스트는 로컬 생성자로 시각을 만들어 실행 머신 시간대와 무관하게 성립시킨다.
 
-## 7-A. V / Trace Matrix
+## 7-A. V1 / Trace Matrix (기준선 기록)
+
+아래 registry는 공유 설계 커밋의 V1이다. 현재 유효 V는 §7-B의 supersession을 적용해 재구성한다.
 
 - V mode 판정: 상속할 V 가 없다. 게이트 진리표(0181/0188)·부팅 대기(0194)·nav 주의 표시(0249)는 `INHERITED` 회귀로 둔다.
 - 기준 V 상속 근거: 없음. INHERITED 출처 = `origin/main@5e1e9209` 의 코드·테스트.
@@ -235,7 +241,72 @@
 
 ---
 
+## 7-B. ΔV1 — 자연 만료 계약 정정 (2026-10-07)
+
+**사용자 승인으로 PLAN_GAP을 정정한다.** 기존 실제 Auth는 snapshot을 읽을 때 자연 만료를 정착시킨다.
+자정과 만료가 겹친 반례에서 snapshot valid/true/rev0 → expired/false/rev1, 저장·Plugin sync·Harness invalidate 각각 1, 직접 정책 방송 1·전체 방송 2를 관측했다([원문과 재현](natural-expiry-probe.md)).
+기준선은 메타의 공유 설계 커밋이며 아래 행이 V1의 충돌하는 AC·node·pair·§10 행보다 우선한다. 제품 범위·생산 알고리즘·EP 자리 수는 확장하지 않는다.
+
+### 현재 Acceptance Criteria — 대체 행
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 직접 oracle | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-01-D1 | AT-01-D1 / AC1 | 날짜 경계에서 `passed:false`·멤버 순서의 `dailyRelogin`으로 정착하며 **일일 정책이 직접 내는** `pushConnectionState`는 1회다. 기존 Auth의 추가 방송은 별도 집계한다 | 기존 DG 시퀀스 + 실제 Auth 만료 통합: policyPushes=1, 전체 방송=2, 마지막 state 차단·['gate']. snapshot의 재진입 방송 [] → 마지막 ['gate']와 순서 로그를 직접 단언 | 타이머/wake → check → lapseDay(snapshot 자연 만료 가능) → 정책 push; 기존 expired → change handler → 별도 push |
+| R-03-D1 | AT-05-D1 / AC5 | 일일 정책의 `login`·`reauth`·`revoke`·`resume`·`refresh`·`request` 직접 호출은 0이다. 유효기간이 남은 snapshot과 연결은 유지한다. 자연 만료는 기존대로 expired/verified=false/revision+1로 한 번 정착하고 기존 저장·Plugin/Harness 무효화를 실행한다 | 던지는 fake Auth로 직접 mutator 0·유효 snapshot 동일. 실제 Auth 만료 통합으로 expired 이벤트1·credentialChanged=true·revision+1·저장1·sync1·invalidate1 및 서버/authorize 포트 호출0을 직접 단언 | lapseDay → BoundAuth.snapshot → runtime.snapshot → settleExpiry → expired publish → 기존 handler; 새 Auth 구독 없음 |
+
+상태표 보완: 날짜 경계와 grant 만료가 겹치면 기존 자연 만료 정착·방송 후 표식 기록·정책 방송이 이어진다.
+최종 화면은 만료 상태의 기존 로그인 화면이며 valid 전용 날짜 안내는 보이지 않는다(기존 AC4). 날짜 정책이 자연 만료를 유발하는 별도 mutator를 호출하지 않는다.
+
+### Node delta / supersession
+
+| Node | 레벨 | provenance | 기준선 / 대체 및 계약 |
+|---|---|---|---|
+| R-01·R-03·SD-01 | R·R·SD | SUPERSEDED | 각각 R-01-D1·R-03-D1·SD-01-D1로 대체 |
+| AT-01·AT-05·ST-01 | AT·AT·ST | SUPERSEDED | 각각 AT-01-D1·AT-05-D1·ST-01-D1로 대체; 나머지 AT 유지 |
+| R-01-D1 / AT-01-D1 | R / AT | CHANGED | AC1 직접 정책 방송·최종 정착; AC2·8·9·12 승계 |
+| R-03-D1 / AT-05-D1 | R / AT | CHANGED | AC5 직접 변경 없음·기존 자연 만료 유지; AC6 승계 |
+| SD-01-D1 / ST-01-D1 | SD / ST | CHANGED | 기존 경계→로그인→다음 경계 시퀀스 + 동시 자연 만료→재진입 방송→최종 차단 |
+| AR-EXP | AR | INHERITED | V1 기준 코드의 runtime.snapshot→expired publish→기존 app handler→방송·Plugin/Harness 무효화 |
+| IT-EXP | IT | NEW | 실제 AuthRuntime·createGate·startDailyGate·기존 handler 통합의 직접 만료 관측 |
+| MD-EXP / UT-EXP | MD / UT | INHERITED | V1 기준 runtime/store 자연 만료 1회 정착; runtime.test.ts `시계 기반 만료의 1회 정착 (r3)` 4케이스 |
+
+### Pair delta / 증거 이관
+
+| Pair | V node | requiredness | start → edges → end / 직접 oracle | 선택 적대 증거 | §10 자리 |
+|---|---|---|---|---|---|
+| VP-01-D1 (VP-01 대체) | R-01-D1 ↔ AT-01-D1·02·08·09·12 | REQUIRED | 기존 VP-01 경로·AC 전부 승계 + 실제 만료에서 직접 정책1/전체2/최종차단 관측 | 기존 M1·M2 전부 승계 | EP-01·04·05·06(a~e) |
+| VP-03-D1 (VP-03 대체) | R-03-D1 ↔ AT-05-D1·06 | REQUIRED | lapseDay→snapshot→기존 만료/handler; 직접 mutator0·유효 snapshot 유지·만료 소비자 정착 + RootGate 표시 | 기존 M7 revoke/resume·M8 전부 승계 | EP-01·07; 만료 기존 경로는 VP-21 |
+| VP-08-D1 (VP-08 대체) | SD-01-D1 ↔ ST-01-D1 | REQUIRED | 기존 `[passed,lapsed(2),lapsed(1),passed,lapsed(2)]` + 실제 만료 시 []→['gate'] 방송·최종차단 | 기존 VP-01·02 변이 전부 승계 | EP-01·02·05 |
+| VP-21 | AR-EXP ↔ IT-EXP | REGRESSION | 실제 Auth snapshot→settleExpiry→expired 이벤트1→기존 handler→저장/sync/invalidate 각1·Auth방송1→정책방송1 | not selected — 직접 상태·이벤트·호출·순서 oracle | EP-01·05; 기존 runtime/store/handler 경로 추가 구현 없음 |
+| VP-22 | MD-EXP ↔ UT-EXP | REGRESSION | 기존 runtime의 snapshot 반복/요청 만료 관측→revision 1회 정착·verified 해제·credentialChanged=true | not selected — 기존 4케이스의 직접 oracle | 기존 Auth 내부 정착 경로 무변경; EP-01로 새 소비 경로 도달 |
+
+- 증거 이관: superseded VP-01·03·08의 AC·선택 변이는 각각 대체 pair로 모두 승계한다. 폐기 증거 0.
+- 유효 pair: V1 20 − 대체 3 + ΔV1 5 = **22 (REQUIRED 15·REGRESSION 7)**. 나머지 V1 17 pair는 원래 requiredness와 증거가 유효하다.
+- 유효 AC는 **15개**다. 변경 AC1·5의 행동·검증·production 도달 경로를 위 표에서 다시 닫았으며 사람 실기는 기존 AC15뿐이다.
+
+### §10 강제 지점 정정 / 테스트 설계
+
+| 대체 행 | 현재 계약 / 실패 의미 | 자리·직접 관측 |
+|---|---|---|
+| EP-01 (V1 행 대체) | lapseDay는 snapshot의 revision·verified로 표식을 기록하며 Auth mutator를 직접 호출하지 않는다. snapshot의 기존 자연 만료는 유지한다. mutator 직접 호출 또는 만료 정착 억제는 D-012 위반 | 기존 자리1 유지; fake 직접호출0 + 실제 만료 상태/이벤트/저장/무효화 |
+| EP-05 (V1 행 대체) | onDayChanged의 직접 순서는 lapseDay → 정책 push 1이다. lapseDay 안의 자연 만료 Auth 방송은 별도이고 최종 정책 방송에 표식이 반영된다 | 기존 자리2 유지; policyPushes1·전체2·순서·최종state |
+
+- §10 나머지 8행 불변. EP 분모 **10행·41자리**를 유지하며 기존 Auth 내부는 회귀 경로로 추적한다.
+- §11·§18 보완: `app/src/main/app/daily-gate.expiry.test.ts` 신규 1케이스를 VP-01-D1·03-D1·08-D1·21에 연결한다. `runtime.test.ts` 기존 자연 만료 4케이스는 VP-22다.
+- §19 관련 Vitest 필터에 `src/main/app/daily-gate.expiry.test.ts`를 추가한다. 문서·정적 gate와 실제 OS/SSO 실기는 기존대로다.
+- `natural-expiry-probe.md`는 충돌의 원문 증거이며 영구 통과 회귀는 신규 expiry 테스트다. 의도적으로 실패하는 반례를 전체 앱 테스트에 포함하지 않는다.
+
+### ΔV1 READY self-review / 관측
+
+- `git cat-file -t ba2c3eeb3e00d9126c4d80356823f2160d200f00` = commit. 공유 V1 기준선을 잠갔다.
+- ACTIVE 결정↔AC: D-012↔AC1·5, D-001/005/006↔AC1·8·9, 나머지 D-003~011↔기존 AC 일치. D-002는 superseded이며 기존 절의 절대 불변 표현은 이 delta가 대체한다.
+- 변경 R·SD 각각 같은 레벨 REQUIRED 대체 pair, 영향받는 기존 Auth AR·MD REGRESSION 2 pair를 선택했다. production 경로·직접 oracle·EP1/2자리 정정과 모든 이전 선택 변이의 이관을 표에서 확인했다.
+- 두 바뀐 AC에 동작 기준·직접 단언·production 경로가 있고, 최종 방송과 직접 방송의 관측 주체를 구분한다. 공개 wire·저장 포맷·신규 의존성·부팅 정책 변경 0.
+- 정정 설계는 구현 산출과 별도 커밋한다. READY/다음 Codex 상태를 plan 메타와 INDEX에 함께 반영한다.
+
 # Part II — Technical Design
+
+V1 설계의 EP-01·EP-05·자연 만료 관련 절대 불변 표현은 §7-B의 ΔV1을 적용한다. 나머지 경로·알고리즘·수명주기 설계는 유지한다.
 
 ## 8. Research — 현재 코드와 계약
 
@@ -259,6 +330,7 @@
 | F-16 | main 에 `powerMonitor` 사용처 0 — 신규 | `rg powerMonitor app/src/main` 0건 |
 | F-17 | 종료 정리는 `Bootstrap.shutdown()`(index.ts `will-quit`) | `bootstrap.ts:865-901` · `index.ts:335` |
 | F-18 | 메인 셸이 언마운트되면 Composer 초안(컴포넌트 state)이 사라진다 | `ComposerInputController.tsx:104` |
+| F-19 (ΔV1) | `AuthRuntime.snapshot()`은 `settleExpiry`를 실행하며 최초 자연 만료에서 verified 해제·revision+1·저장·expired publish가 발생한다. 기존 handler가 추가 방송·Plugin/Harness 무효화를 실행한다 | `runtime.ts:126`·`store.ts:393/429`·`runtime-model-startup.ts:102/106/107`; [실제 반례](natural-expiry-probe.md) |
 
 ### 전수 조사
 
@@ -508,7 +580,7 @@ DayBoundary → gate.lapseDay → gate.state(dailyRelogin) → pushConnectionSta
 
 관측: **8파일 155케이스 PASS**. 기존 게이트·부팅·구독·주의 표시 테스트의 실재와 현재 통과를 확인한 결과이며, 아직 구현하지 않은 0254·0255의 AC 충족 보고가 아니다.
 
-## READY self-review
+## V1 READY self-review (기준선 기록; 현재 정정 검토는 §7-B)
 
 - [x] Decision Ledger 가 제안 원문·결정③④ 를 보존한다 — §2 원문 인용, D-002·D-004.
 - [x] Part I 만 읽어도 완료 상태가 이해된다 — §5 흐름·상태표.
