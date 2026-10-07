@@ -284,3 +284,80 @@
 - `ACTIVE 결정 ↔ AC` 충돌 0 (§3 갱신 메모).
 - 모든 NEW/CHANGED MD 노드에 REQUIRED pair(VP-01~09), 전체 회귀 VP-10.
 - 사람 실기로 미룬 순수 로직 없음.
+
+---
+
+## [구현자 기입] 설계 리뷰
+
+- 동의 / 그대로 진행: 구현이 plan 보다 먼저 존재(§0) — 본 절은 커밋 `a27b93ec` 의 실측 보고다.
+- 이견 / 현실성 문제: 없음.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+| Pair | 계약 | §10 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-01 | 확정 = uuid + open | 3 | 3/3 | `git grep -n "reserveHeld\|reserveItem" HEAD -- 'src/**/*.ts' ':!*.test.ts'` → origin 인자 0 | — |
+| VP-02 | head 파생 | 10 | 10/10 | HEAD 삼항 검색 → 정의 2줄만, 헬퍼 호출 9줄(service 1줄에 2호출) | — |
+| VP-03 | clamp/key | 4 | 4/4 | `git grep -nE "clampErrorDetail\(\|appErrorKey\("` → 사용 4 + 정의 2 = 6 | — |
+| VP-04 | 6종 매핑 | 2 | 2/2 | `permission-mode.ts` 두 함수가 테이블 참조 | — |
+| VP-05 | usage 4필드 | 2 | 2/2 | `claude-map.ts` 의 `cacheCreationTokens: u` → 헬퍼 1건 | — |
+| VP-06 | prepare/abort | 2 | 2/2 | `deps.prepareContinuation(` → 1건(`prepareNext`) | — |
+| VP-07 | 검증 순서 | 2 | 2/2 | 두 루프 모두 `accept(` 호출 | — |
+| VP-08 | in-flight 공유 | 1 | 1/1 | `git-executable.ts` | — |
+| VP-09 | 단일 필드 구독 | 1 | 1/1 | `PendingSteerTurn.tsx` | — |
+
+- §10에 없는데 같은 불변식이 필요했던 지점: 테스트 mock 2건(`prepare-worktree.test.ts` 의 probe mock, `pendingSteerControls.test.ts` 의 chatStore mock) — 프로덕션 지점 아님.
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 관측 |
+|---|---|---|---|
+| VP-01~09 | REQUIRED | SELF_PASS | 아래 게이트 산출 |
+| VP-10 | REGRESSION | SELF_PASS | 기준선 FAIL 집합 = 변경 후 FAIL 집합(mock 2건 갱신 후) |
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 결과 |
+|---|---|---|
+| 해당 없음 — 직접 oracle | 선택 적대 증거 0 · 인용 변이 0 · 새 oracle 0 | 해당 없음 |
+
+- 분모 검산: `0 · 0 · 0 = 0`.
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 |
+|---|---|
+| 새 사용자 대면 문구·상태 | 없음 |
+| production 재배치로 정리 코드 스코프 변화 | `prepareNext` 는 루프 본문 안 클로저 — `sessionId`·`resumeAborted` 동일 스코프 |
+| 새 실패 경로 | 없음 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 |
+|---|---|---|
+| 1 | 구현 커밋 trailer `Handoff: none` | ⚠️ 보고만 — push 완료로 재작성하지 않음, plan §0 |
+| 2 | artifact availability 상태가 읽히지 않는데 IPC 를 계속 소비 | ⚠️ 보고만 — D-002, 사용자 결정 |
+
+### 설계 대비 명시적 차이
+
+- 없음.
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 30 (비-테스트 22 · 테스트 8) |
+| 실행 명령 | `npm run typecheck:node` · `typecheck:web` · `typecheck:test` · `npx eslint <변경 파일>` · `npx vitest run <영향 13 디렉토리>` (기준선은 `git stash` 후 동일 명령) |
+| 관측한 게이트 산출 | typecheck 3종 오류 0 · eslint 출력 0 · vitest 4940케이스 중 196 FAIL — 기준선 FAIL 파일 집합과 diff 후 신규 2파일(mock) 발견 → 갱신 후 해당 24케이스 green. 잔여 FAIL 은 전부 기준선(Windows better-sqlite3 로드 등) |
+| V-pair 자기확인 | SELF_PASS 10 / SELF_BLOCKED 0 |
+| 강제 지점 전수 | 27/27 |
+| AC 자기보고 | 10/10 |
+| 합계 검산 | `✅ 10 · ⚠️ 0 · ❌ 0 = 총 10` |
+| 블로커 / 역질문 | D-002 (artifactStatus IPC) 사용자 결정 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만
+
+- 구현이 plan 보다 먼저 커밋됨 — `/simplify` 스킬이 handoff 진입 트리거를 거치지 않는 경로.
+- 현재 라운드·impl 턴: `r1`.
