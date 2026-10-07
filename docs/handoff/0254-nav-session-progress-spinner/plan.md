@@ -11,7 +11,7 @@
 | 작성자 | Claude Code 초안 · Codex 복원/설계 검토 |
 | 일자 | 2026-10-07 |
 | 매핑 | 기준 커밋 `origin/main@5e1e9209` · 브랜치 `claude/0254-0255-nav-progress-daily-login` |
-| 상태 | READY |
+| 상태 | IMPL_DONE |
 | V mode | `Baseline V` |
 | 기준 V | `none`. 0249 의 nav 주의 표시는 `INHERITED` 회귀 노드로만 참조한다 — 출처 `0249:plan@03bfcaed`(`git cat-file -t` = commit, `origin/main` 조상 확인) |
 | 이번 V revision | `V1` |
@@ -473,81 +473,132 @@ chat events/send → chatStore entry(inflight, pending*) → generatingSessionKe
 > **재구현 턴도 같은 이름의 필드를 다시 채운다** — 표제(`… (r2)`, 같은 라운드 추가 턴이면 `… (r2.2)`)만 바꾸고 필드를 줄이지 않는다.
 > 해당 없는 필드는 지우지 말고 `해당 없음`으로 남긴다.
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: V1을 구현했다. `responseProgress.ts`의 조건 4개와 `navIconState.ts`의 우선순위가 D-001·D-005와 일치한다.
+- 이견 / 현실성 문제: 없음. 기존 `subscribeSessionAttention`에 생성 중 구독과 cleanup을 추가했다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. 열람 행도 스피너를 보이며 listen 구간은 제외한다(`useSessionCompletion.test.ts`의 viewed·listening 케이스).
 
-## [구현자 기입] 강제 지점 전수 (§10 대조)
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-… | … | … | … | … | … |
+| VP-08·02 | EP-01 생성 판정 | 1자리·조건 4 | 1/1 | `rg 'state.inflight|pendingAsks|pendingPlanReview|pendingToolApprovals' responseProgress.ts`; 16조합+child UT green | 없음 |
+| VP-06·10 | EP-02 집합 운반 | 4 | 4/4 | `rg 'subscribeGeneratingSessions|setGeneratingSessions|generatingSessionIds' app/src/renderer/src -g '!*.test.*'`; chat 초기/변화 emit·app 연결·store bail-out·행 selector | 없음 |
+| VP-09·03 | EP-03 공통 아이콘 소비 | 3 | 3/3 | `rg '\{modeIcon\}|icon=\{modeIcon\}' SessionRow.tsx` = rename·catalog·nav; 순수 우선순위 12조합 green | 없음 |
+| VP-01·07 | EP-04 크기 | 2 | 2/2 | nav 목록 4개는 14px, project panel은 20px; `navSections.render.test.ts` 5개 생성 케이스 green | 없음 |
+| VP-07 | EP-05 i18n | 2 | 2/2 | `rg 'generating:' resources/{ko,en}.ts`; 한국어 SSR label·리소스 파리티 green | 없음 |
+| VP-07 | EP-06 animation | 1 | 1/1 | `dotsSpinner.test.ts`: token/keyframes 각각 1 및 점 3개 지연·감속 class green | 없음 |
+| VP-06 | EP-07 문서 | 1 | 1/1 | `rg 'generatingSessionIds' docs/arch/frontend/state.md:44`; inventory generated/prose/links green | 없음 |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: …
+- §10에 없는데 같은 불변식이 필요했던 지점: 없음. 렌더 사이트 검색은 `rg '<SessionRow' app/src/renderer/src/features/sessions -g '!*.test.*'`로 5곳을 확인했다.
+- 전수 대조: 검색된 렌더 사이트 {SessionList draft/recent, PinnedSection, PinnedProjectsSection, ProjectSessionsPanel} − 테스트 renderers 집합 = ∅; modeIcon 소비 {rename,catalog,nav} − §10 EP-03 = ∅. EP 자리 합계 14/14.
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | … | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | hook optimistic send·viewed·draft 승격 SSR + nav 5사이트 green | M1·M2·M3·M10 red |
+| VP-02 | REQUIRED | SELF_PASS | 요청 3종 × 열람 2 + child 3종 해소 후 재진입 green | M4a·b·c red |
+| VP-03 | REQUIRED | SELF_PASS | 종료 4종·listen/ready·retained attention 2종·delta 참조·삭제 green | M5·M6 red |
+| VP-04 | REQUIRED | SELF_BLOCKED | AC14 light/dark·Windows 감속 모션 시각 실기 미실행 | 해당 없음 — 실기 |
+| VP-05 | REQUIRED | SELF_PASS | hook state 열 `[in-progress, awaiting-response, in-progress, awaiting-response, unseen-complete]` green | M4·M5·M6 공유 |
+| VP-06 | REQUIRED | SELF_PASS | 구독 cleanup 뒤 no-write·재설치 즉시 집합 동기화 green | M1·M7 red |
+| VP-07 | REQUIRED | SELF_PASS | dots SSR 2크기·CSS 원문·i18n green | M11·M12 red |
+| VP-08 | REQUIRED | SELF_PASS | 판정 16조합·child·키 정렬 green | M4 공유 |
+| VP-09 | REQUIRED | SELF_PASS | 우선순위 12조합 green | M5 공유 |
+| VP-10 | REQUIRED | SELF_PASS | 구독 초기 1·delta 10회 추가 0·두째 세션+1·삭제+1; store 참조 동일 green | M8·M9 red |
+| VP-11 | REGRESSION | SELF_PASS | 기존 r5·0249·ΔV3.1 케이스 green | 해당 없음 — 직접 oracle |
 
-## [구현자 기입] 이번 라운드 수정의 잠금
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| M1: 생성 구독 연결 제거 | V1 등록 | 최초 | useSessionCompletion.test.ts / 14 | assertion red → 바이트 원복 |
+| M2: 열람 행 스피너 금지 | V1 등록 | 최초 | useSessionCompletion.test.ts / 1 | assertion red → 바이트 원복 |
+| M3: warn을 행 루트로 이동 | V1 등록 | 최초 | hook + navSections.render.test.ts / 6 | assertion red → 바이트 원복 |
+| M4a: ask 조건 제거 | V1 등록 | 최초 | responseProgress + hook / 7 | assertion red → 바이트 원복 |
+| M4b: plan 조건 제거 | V1 등록 | 최초 | responseProgress + hook / 6 | assertion red → 바이트 원복 |
+| M4c: tool 조건 제거 | V1 등록 | 최초 | responseProgress + hook / 7 | assertion red → 바이트 원복 |
+| M5: 기존 주의 표시를 생성보다 우선 | V1 등록 | 최초 | navIconState + hook / 11 | assertion red → 바이트 원복 |
+| M6: listen transport를 생성으로 취급 | V1 등록 | 최초 | useSessionCompletion.test.ts / 1 | assertion red → 바이트 원복 |
+| M7: 초기 emit 제거 | V1 등록 | 최초 | chatStore.generating + hook / 5 | assertion red → 바이트 원복 |
+| M8: 집합 변화 비교 제거 | V1 등록 | 최초 | chatStore.generating + hook / 2 | assertion red → 바이트 원복 |
+| M9: store 동일 구성원 bail-out 제거 | V1 등록 | 최초 | sessionsStore.completion.test.ts / 1 | assertion red → 바이트 원복 |
+| M10: nav/catalog 크기 맞바꿈 | V1 등록 | 최초 | navSections.render.test.ts / 5 | assertion red → 바이트 원복 |
+| M11: animate 토큰 제거 | V1 등록 | 최초 | dotsSpinner.test.ts / 1 | assertion red → 바이트 원복 |
+| M12: keyframes 제거 | V1 등록 | 최초 | dotsSpinner.test.ts / 1 | assertion red → 바이트 원복 |
 
-- **분모 검산**: …
-- **덮개 회귀**: …
 
-## [구현자 기입] Product/UX 파생 검토
+- **분모 검산**: 선택 증거 14(M4 a/b/c 분할) · 인용 변이 0 · 새 oracle 0(등록 CSS·배선 oracle과 중복) = 표 행 14.
+- **덮개 회귀**: 해당 없음 — 최초 구현이며 기존 행동 테스트를 유지했다. 각 mutation의 원본 바이트를 복원하고 동일 관련 집합을 다시 실행했다.
+
+## [구현자 기입] Product/UX 파생 검토 (r1)
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 있음 — `SessionRow` role=img label `코드 · 답변 생성 중` SSR green | AC14 시각 실기 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음; app cleanup에서 3개 구독 모두 해제 | reinstall IT green |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 오류·중단은 기존 `TURN_END_RESET` 소비 | 종료 4종 green |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 기존 오류 표시 유지, 스피너는 즉시 제거 | error 케이스 green |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | unknown/deleted terminal 이벤트는 집합 변화 없음 | 삭제·unknown IT green |
 
-## [구현자 기입] 놓친 잠재 문제 + 대응
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | light warn 대비·hydrate의 listen inflight·미로드 세션 한계 | 기존 §17 범위 유지; 새 제품 결정 없음 | `chatReducer.ts` 변경 없이 판정이 chat inflight를 읽음 |
+| 2 | 0255는 게이트 동안에도 생성 중 집합을 유지해야 함 | 후속 0255 EP-07·VP-20에서 구독 위치 이동 | 0255 plan AC6 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: 없음. 테스트는 child 요청 3종을 모두 직접 관측한다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 — 대체 메커니즘 없음 | AC5 종료 4종 green |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 — 계획한 sessions 집합 그대로 | AC8 같은 Set 구성원 참조 green |
+| 재진입 | 해당 없음 — 계획한 초기 emit 그대로 | VP-06 reinstall green |
+| 다른 무효화 축 | 해당 없음 — 계획한 삭제·승격 경로 | AC11·12 green |
 
-## [구현자 기입] 구현 보고
+## [구현자 기입] 구현 보고 (r1)
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님) | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | §18 목록의 production·test 파일 + frontend state 문단; `git diff --name-only`·신규 파일 목록 대조 |
+| 실행 명령 | §19 관련 vitest(`--reporter=dot --maxWorkers=2`)·`npm run lint`·`npm run typecheck`·inventory `--check`; 등록 mutation 14회 |
+| **관측한 게이트 산출**(exit code 아님) | 관련 16파일·166케이스 green; lint 0 error·기존 warning 1(useTranscriptVirtualizer); typecheck node/web/test 0; inventory generated/prose/links green |
+| V-pair 자기확인 | REQUIRED SELF_PASS 9·SELF_BLOCKED 1(실기) + REGRESSION SELF_PASS 1; 위 표 11행 |
+| 강제 지점 전수 | EP-01~07 합계 14/14, 렌더 사이트 차집합 ∅ |
+| **AC 자기보고**(`Criteria-Met`) | ✅13/14; 아래 행 관측 표 |
+| **합계 검산** | ✅13 · ⚠️1 · ❌0 = 총 14 |
+| 블로커 / 역질문 | 코드/계약 PLAN_GAP 없음. AC14는 사람 시각 실기 대기 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
-## [구현자 기입] Review Signals — 사실만
+| AC | 자기 상태 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | optimistic send·delta→actual SessionRow: in-progress·warning·3dots·SVG0 |
+| AC2 | ✅ | viewed rows SSR에도 in-progress |
+| AC3 | ✅ | renderers 5사이트 SSR green; catalog h-5, nav h-[14px] |
+| AC4 | ✅ | 3종 × active 2 + child 3종·resolve green |
+| AC5 | ✅ | 종료 4종·turn.ended 단독·listening/ready green |
+| AC6 | ✅ | retained completed/awaiting response→generation→완료 sequence green |
+| AC7 | ✅ | 기존 r5·0249·ΔV3.1·store·nav 케이스 green |
+| AC8 | ✅ | delta10 추가emit0·sink 호출0·참조동일·멤버변화+1 green |
+| AC9 | ✅ | dot3 animation/reduced-motion/stagger·CSS token/keyframes 각각1 green |
+| AC10 | ✅ | ko SSR label 및 ko/en placeholder parity green |
+| AC11 | ✅ | unknown/identity-less terminal inert·삭제 뒤 집합0 green |
+| AC12 | ✅ | continuity draft→promoted 키 및 SSR green |
+| AC13 | ✅ | lint/typecheck/test/inventory green; 구현 커밋 뒤 trailer 키 파싱 확인 |
+| AC14 | ⚠️ | light/dark·Windows OS 애니메이션 실기 미실행 |
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
+✅13 · ⚠️1 · ❌0 = 총 14. 상태 사본은 plan 메타·INDEX의 0254행을 `IMPL_DONE`으로 다시 읽어 확인하며 커밋 trailer는 `Criteria-Met: 13/14`, `Verified-By: pending`이다.
+
+## [구현자 기입] Review Signals — 사실만 (r1)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 최초 구현; 이전 verify 없음.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: V1의 등록 mutation·AC가 직접 oracle을 제공했다.
+- 반복해서 부딪히는 환경 한계: 권한 환경 전환으로 실행 중 mutation 프로세스가 종료돼 M7~M12를 이어 실행했다; 원복 상태를 확인했다.
 - 현재 라운드·impl 턴: `r1`
 
 ---

@@ -26,5 +26,6 @@ export {
   useActiveDraftKey,
   subscribeTurnEnd,
   subscribeResponseRequest,
+  subscribeGeneratingSessions,
   type DraftRow
 } from './store/chatStore'

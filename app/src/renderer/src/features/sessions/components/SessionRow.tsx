@@ -1,5 +1,7 @@
 import { memo, useRef, useState } from 'react'
 import { useSessionsState } from '../store/sessionsStore'
+import { navIconState } from '../lib/navIconState'
+import { DotsSpinner } from '../../../shared/ui/DotsSpinner'
 import { Icon, type IconName } from '../../../shared/ui/Icon'
 import { KebabButton } from '../../../shared/ui/KebabButton'
 import { MenuItem } from '../../../shared/ui/MenuItem'
@@ -57,18 +59,26 @@ export const SessionRow = memo(function SessionRow({
   const [renaming, setRenaming] = useState(false)
   const kebabRef = useRef<HTMLButtonElement>(null)
   const attention = useSessionsState((state) => state.unseenAttention.get(session.id))
-  const unseen = attention !== undefined && !isActive
+  const generating = useSessionsState((state) => state.generatingSessionIds.has(session.id))
+  const iconState = navIconState({ generating, attention, isActive })
+  const unseen = iconState === 'unseen-complete' || iconState === 'awaiting-response'
   const modeIcon = (
     <span
       role="img"
-      aria-label={tr(appearance.label)}
-      data-context="session-agent-kind"
-      data-state={
-        unseen ? (attention === 'completed' ? 'unseen-complete' : 'awaiting-response') : 'default'
+      aria-label={
+        iconState === 'in-progress'
+          ? tr('sessions.generating', { agent: tr(appearance.label) })
+          : tr(appearance.label)
       }
-      className={`inline-flex shrink-0 ${unseen ? 'text-selected [&_svg]:stroke-current [&_svg]:[stroke-linejoin:round] [&_svg]:[stroke-width:40]' : ''}`}
+      data-context="session-agent-kind"
+      data-state={iconState}
+      className={`inline-flex shrink-0 ${iconState === 'in-progress' ? 'text-warn' : unseen ? 'text-selected [&_svg]:stroke-current [&_svg]:[stroke-linejoin:round] [&_svg]:[stroke-width:40]' : ''}`}
     >
-      <Icon name={appearance.navIcon} size={variant === 'catalog' ? 20 : 14} />
+      {iconState === 'in-progress' ? (
+        <DotsSpinner size={variant === 'catalog' ? 20 : 14} />
+      ) : (
+        <Icon name={appearance.navIcon} size={variant === 'catalog' ? 20 : 14} />
+      )}
     </span>
   )
 

@@ -19,6 +19,7 @@ import {
   type PlanComment
 } from '../reducer/chatReducer'
 import { toPlanFeedback } from '../lib/planComments'
+import { generatingSessionKeys, sameKeys } from '../lib/responseProgress'
 import { nextComposerDraftSequence, type ComposerDraftUpdate } from '../lib/composerDraft'
 import { steerBlockedByProviderBoundary, shouldQueueAsPending } from '../lib/sendAdmission'
 import {
@@ -566,6 +567,20 @@ export function subscribeResponseRequest(listener: (sessionId: string) => void):
   return () => {
     responseRequestListeners.delete(listener)
   }
+}
+
+export function subscribeGeneratingSessions(
+  listener: (keys: ReadonlySet<string>) => void
+): () => void {
+  let keys = generatingSessionKeys(useChatStore.getState().sessions)
+  listener(new Set(keys))
+  return useChatStore.subscribe((state, previous) => {
+    if (state.sessions === previous.sessions) return
+    const next = generatingSessionKeys(state.sessions)
+    if (sameKeys(keys, next)) return
+    keys = next
+    listener(new Set(keys))
+  })
 }
 
 function receive(ev: NormalizedEvent): void {

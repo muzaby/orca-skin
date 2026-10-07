@@ -300,6 +300,26 @@ describe('r5 모든 채팅 구획의 모드 아이콘과 완료 색', () => {
     ]
   ]
 
+  it.each(renderers)('0254 %s uses a warning spinner in the correct box', (name, render) => {
+    snapshot.generatingSessionIds = new Set(['work', 'code'])
+    const $ = load(
+      render([session('work', '문서 작업', { agentKind: 'work' }), session('code', '코딩 대화')])
+    )
+    for (const id of ['work', 'code']) {
+      const row = $(`[data-session-id="${id}"]`)
+      const icon = row.find('[data-context="session-agent-kind"]')
+      const spinner = icon.find('[data-spinner="dots"]')
+      expect(icon.attr('data-state')).toBe('in-progress')
+      expect(icon.hasClass('text-warn')).toBe(true)
+      expect(row.hasClass('text-warn')).toBe(false)
+      expect(row.find('span.text-warn')).toHaveLength(1)
+      expect(icon.find('svg')).toHaveLength(0)
+      expect(spinner).toHaveLength(1)
+      expect(spinner.children()).toHaveLength(3)
+      expect(spinner.hasClass(name === 'project panel' ? 'h-5' : 'h-[14px]')).toBe(true)
+    }
+  })
+
   it.each(renderers)('%s uses official left icons without a right mode label', (_name, render) => {
     const items = [
       session('code', '코딩 대화', { agentKind: 'code' }),
