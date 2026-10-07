@@ -11,7 +11,7 @@
 | 작성자 | Claude Code 초안 · Codex 복원/설계 검토 |
 | 일자 | 2026-10-07 |
 | 매핑 | 기준 커밋 `origin/main@5e1e9209` · 브랜치 `claude/0254-0255-nav-progress-daily-login` |
-| 상태 | IMPL_DONE |
+| 상태 | verify/PASS (r1 · V1+ΔV1 · 기계 범위) — AC15 사람 실기 대기 |
 | V mode | `Delta V` |
 | 기준 V | `0255:V1@ba2c3eeb3e00d9126c4d80356823f2160d200f00` (공유 브랜치의 설계 커밋; `git cat-file -t` = commit) |
 | 이번 V revision | `ΔV1` |
@@ -789,4 +789,7 @@ DayBoundary → gate.lapseDay → gate.state(dailyRelogin) → pushConnectionSta
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| D1 | EP-06 자리 d(RootGate→GateFrame)·e(GateFrame→GateLogin) 운반을 값으로 잠그는 테스트 없음(Y3·Y4 green). 동작은 SSR probe로 정상 | VP-10 / EP-06 | GateFrame SSR 1케이스 추가 | NON_BLOCKING | open |
+| D2 | `localDayKey`가 `shared/usage/stats.ts:38`과 `features/gate/daily.ts`에 중복 | SSOT | shared 함수 재사용 | NON_BLOCKING | open |
+| D3 | GateLogin authKind가 체인 단계 변경 뒤에도 남아 `unknown_auth_kind` 실패 가능(구현자 보고, 미재현) | 비귀속 | 별도 설계 | NEXT_HANDOFF | 후보 |
+| D4 | 게이트 표시 시 미전송 Composer 초안 소실 | plan §17 | 별도 설계 | NEXT_HANDOFF | 후보 |
