@@ -168,23 +168,32 @@ export async function runTurnWithContinuations(
         break
       }
 
-      if (step === 'listen') {
-        // 유예를 1라운드로 묶는다(0154) — listen 을 여는 김에 미확정 예약을 orphaned 로 강등한다.
-        // 강등해도 늦은 echo 는 여전히 확정할 수 있고(confirm 의 open 술어가 orphaned 포함),
-        // haveUnconfirmed 는 submitted 만 세므로 다음 평가에서 break 에 정상 도달한다.
-        if (haveUnconfirmed) pendingMessages.orphanUnconfirmed(sessionId, lease.chainId)
+      // listen·flush 공통 — 연속 설정을 다시 읽고(0126) 그 await 중 들어온 중단을 정착한다.
+      const prepareNext = async (): Promise<
+        Awaited<ReturnType<PostTurnDeps['prepareContinuation']>> | 'continue' | 'break'
+      > => {
         const continuation = await deps.prepareContinuation(sessionId)
-        if (lease.controller.signal.aborted) break
+        if (lease.controller.signal.aborted) return 'break'
         const preparedTurn = deps.getActiveTurn()
         if (
           preparedTurn.controller.signal.aborted &&
           (!resumeAborted || preparedTurn.abortContinuation !== undefined)
         ) {
           // 소모한 중단은 재개하되 await 중 새로 들어온 Stop은 새 정책으로 다시 정착한다.
-          if (abortResumePolicy(preparedTurn.abortContinuation).resume) continue
-          break
+          return abortResumePolicy(preparedTurn.abortContinuation).resume ? 'continue' : 'break'
         }
         if (continuation.shouldRespawn) runtime.teardownChannel()
+        return continuation
+      }
+
+      if (step === 'listen') {
+        // 유예를 1라운드로 묶는다(0154) — listen 을 여는 김에 미확정 예약을 orphaned 로 강등한다.
+        // 강등해도 늦은 echo 는 여전히 확정할 수 있고(confirm 의 open 술어가 orphaned 포함),
+        // haveUnconfirmed 는 submitted 만 세므로 다음 평가에서 break 에 정상 도달한다.
+        if (haveUnconfirmed) pendingMessages.orphanUnconfirmed(sessionId, lease.chainId)
+        const continuation = await prepareNext()
+        if (continuation === 'break') break
+        if (continuation === 'continue') continue
         const listenTurn = makeContinuationTurn(deps.getActiveTurn())
         supervisor.startResume(sessionId, listenTurn)
         deps.setActiveTurn(listenTurn)
@@ -216,23 +225,15 @@ export async function runTurnWithContinuations(
       // flush — 0126: 연속 턴 settings 신선도 재판정. providerKey 는 원 턴 키로 고정(선택
       // 변경은 다음 사용자 send 부터, 0119)하고 settings blob 만 재해석한다. 내용이 다르면
       // teardown — 아래 channelAlive 분기가 채널-사망 경로(takeForRespawn)로 자연 전환된다.
-      const continuation = await deps.prepareContinuation(sessionId)
-      if (lease.controller.signal.aborted) break
-      const preparedTurn = deps.getActiveTurn()
-      if (
-        preparedTurn.controller.signal.aborted &&
-        (!resumeAborted || preparedTurn.abortContinuation !== undefined)
-      ) {
-        if (abortResumePolicy(preparedTurn.abortContinuation).resume) continue
-        break
-      }
-      if (continuation.shouldRespawn) runtime.teardownChannel()
+      const continuation = await prepareNext()
+      if (continuation === 'break') break
+      if (continuation === 'continue') continue
       let contPreludes: SteerFlushBatch[] = []
       let batch: SteerFlushBatch | undefined
       if (runtime.channelAlive) {
         // 채널 생존 — held 병합 단일 배치(D4 1버블)를 pushTurn 프롬프트로(0151 AC1 — 확정 신호가
         // echo 가 아니라 첫 모델 출력).
-        batch = pendingMessages.reserveHeld(sessionId, 'turn-open', undefined, lease.chainId)
+        batch = pendingMessages.reserveHeld(sessionId, undefined, lease.chainId)
       } else {
         // 채널 사망 — respawn 이월 전체를 회수해 마지막을 본 프롬프트, 앞을 프렐류드로.
         const leftovers = pendingMessages.takeForRespawn(sessionId, lease.chainId)

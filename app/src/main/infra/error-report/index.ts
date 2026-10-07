@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import {
-  APP_ERROR_DETAIL_MAX,
+  clampErrorDetail,
   type AppErrorTitle,
   type AppErrorTarget
 } from '../../../shared/app-error'
@@ -56,16 +56,10 @@ export function publishErrorReport(input: {
   target?: AppErrorTarget
 }): void {
   try {
-    const detail =
-      input.detail == null
-        ? undefined
-        : input.detail.length > APP_ERROR_DETAIL_MAX
-          ? input.detail.slice(0, APP_ERROR_DETAIL_MAX - 1) + '…'
-          : input.detail
     errorReportHub.publish({
       id: randomUUID(),
       title: input.title,
-      detail,
+      detail: clampErrorDetail(input.detail),
       origin: 'main',
       target: input.target
     })

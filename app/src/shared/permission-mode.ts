@@ -80,43 +80,24 @@ export const agentPermissionPolicy = {
 } as const satisfies Record<AgentKind, AgentPermissionPolicy>
 
 // NormalizedPermissionMode → SDK PermissionMode 순수 매핑 (provider-runtime.md §3 정본).
-// auto_classified = TS 전용 모델 분류기('auto'). 6종 전수 대응 — exhaustive switch 로 누락 시 컴파일 에러.
+// auto_classified = TS 전용 모델 분류기('auto'). Record 타입이 6종 전수 대응을 컴파일 타임에 강제한다.
+const CLAUDE_PERMISSION_MODE = {
+  default: 'default',
+  accept_edits: 'acceptEdits',
+  plan: 'plan',
+  dont_ask: 'dontAsk',
+  bypass: 'bypassPermissions',
+  auto_classified: 'auto'
+} as const satisfies Record<NormalizedPermissionMode, ClaudePermissionMode>
+
 export function toClaudePermissionMode(mode: NormalizedPermissionMode): ClaudePermissionMode {
-  switch (mode) {
-    case 'default':
-      return 'default'
-    case 'accept_edits':
-      return 'acceptEdits'
-    case 'plan':
-      return 'plan'
-    case 'dont_ask':
-      return 'dontAsk'
-    case 'bypass':
-      return 'bypassPermissions'
-    case 'auto_classified':
-      return 'auto'
-  }
+  return CLAUDE_PERMISSION_MODE[mode]
 }
 
 // SDK의 실제 세션 보고를 정규화한다. 미지정·미지원 값에 기본값을 만들면 관측한 모드를
 // 선택 정책으로 덮어쓰므로, 알려진 SDK 어휘만 받아 나머지는 무시한다(0249 ΔV3).
 export function fromClaudePermissionMode(value: unknown): NormalizedPermissionMode | undefined {
-  switch (value) {
-    case 'default':
-      return 'default'
-    case 'acceptEdits':
-      return 'accept_edits'
-    case 'plan':
-      return 'plan'
-    case 'dontAsk':
-      return 'dont_ask'
-    case 'bypassPermissions':
-      return 'bypass'
-    case 'auto':
-      return 'auto_classified'
-    default:
-      return undefined
-  }
+  return NORMALIZED_MODES.find((mode) => CLAUDE_PERMISSION_MODE[mode] === value)
 }
 
 // 이전 UI 저장값을 정규화된 모드로 읽는 호환 브리지.

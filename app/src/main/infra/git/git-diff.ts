@@ -12,7 +12,7 @@ import type {
   GitDiffTotals
 } from '../../../shared/ipc'
 import { gitGateway, type GitWrite, type GitRunResult } from './gateway'
-import { probeRepo, type RepositoryProbe } from './probe'
+import { headOid as oidOf, probeRepo, type RepositoryProbe } from './probe'
 import {
   MAX_DIFF_COMMITS,
   MAX_DIFF_FILES,
@@ -89,7 +89,7 @@ export async function resolveDiffRange(
   repository?: RepositoryProbe
 ): Promise<GitDiffRange> {
   const probe = repository ?? (await probeRepo(input.cwd, { read: runner }))
-  const headOid = probe.kind === 'repo' && probe.head.kind !== 'unborn' ? probe.head.oid : null
+  const headOid = probe.kind === 'repo' ? oidOf(probe.head) : null
   if (input.baseOid)
     return {
       kind: 'cumulative',

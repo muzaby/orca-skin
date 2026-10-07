@@ -5,7 +5,7 @@ import type { WorktreeDisplay, WorktreePrepareStep } from '../../../shared/ipc'
 import type { DbQueries } from '../../infra/db'
 import { isWithinDir } from '../../infra/config/paths'
 import { canonicalPath, isClean, resolveBranchOid, resolveHead } from '../../infra/git/repository'
-import { probeRepo } from '../../infra/git/probe'
+import { headName, headOid, probeRepo } from '../../infra/git/probe'
 import { gitGateway, type GitGateway } from '../../infra/git/gateway'
 import { addWorktree, deleteBranch, listWorktrees, removeWorktree } from '../../infra/git/worktree'
 import { branchDirSegment, chooseBranchName, repoDirSegment } from './naming'
@@ -115,10 +115,7 @@ export class WorktreeService {
     // 유예 브랜치가 없으면 앞서 읽은 probe의 커밋과 이름을 함께 쓴다.
     const [baseRef, baseOid] = input.baseRef
       ? ([input.baseRef, await resolveBranchOid(sourceCwd, input.baseRef, this.gateway)] as const)
-      : [
-          probe.head.kind === 'detached' ? null : probe.head.name,
-          probe.head.kind === 'unborn' ? null : probe.head.oid
-        ]
+      : [headName(probe.head), headOid(probe.head)]
     if (!baseOid)
       return {
         kind: 'rejected',

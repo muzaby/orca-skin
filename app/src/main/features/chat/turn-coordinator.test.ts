@@ -521,7 +521,7 @@ describe('Work response boundaries', () => {
   it('closes the old segment before the confirmed steer user row and opens a fresh segment', async () => {
     const queue = new PendingMessageQueue()
     queue.enqueue('s1', { text: 'next' }, 1, 'steer')
-    const batch = queue.reserveHeld('s1', 'steer', 'steer')!
+    const batch = queue.reserveHeld('s1')!
     queue.commit('s1', batch.attemptId!, batch.chainId)
     const deps = makeDeps(
       fakeRuntime([
@@ -604,64 +604,58 @@ describe('runtime tool session confirmation', () => {
 })
 
 describe('TurnCoordinator requirement commit', () => {
-  it.each(['turn-open', 'steer'] as const)(
-    'preserves %s merged requirements in both persistence and renderer events',
-    async (origin) => {
-      const requirements: DiffRequirementAnchor[] = ['a.ts', 'b.ts'].map((filePath, index) => ({
-        sessionId: 's1',
-        baselineCommit: 'base',
-        filePath,
-        oldLine: null,
-        newLine: index + 1,
-        hunkHeader: '@@ -0,0 +1 @@',
-        contextBefore: [],
-        contextAfter: [],
-        comment: `comment ${index}`,
-        createdAt: index
-      }))
-      const pendingMessages = new PendingMessageQueue()
-      requirements.forEach((requirement, index) =>
-        pendingMessages.enqueue(
-          's1',
-          {
-            text: `message ${index}`,
-            requirements: [requirement]
-          },
-          index,
-          `req-${index}`
-        )
+  it('preserves merged requirements in both persistence and renderer events', async () => {
+    const requirements: DiffRequirementAnchor[] = ['a.ts', 'b.ts'].map((filePath, index) => ({
+      sessionId: 's1',
+      baselineCommit: 'base',
+      filePath,
+      oldLine: null,
+      newLine: index + 1,
+      hunkHeader: '@@ -0,0 +1 @@',
+      contextBefore: [],
+      contextAfter: [],
+      comment: `comment ${index}`,
+      createdAt: index
+    }))
+    const pendingMessages = new PendingMessageQueue()
+    requirements.forEach((requirement, index) =>
+      pendingMessages.enqueue(
+        's1',
+        {
+          text: `message ${index}`,
+          requirements: [requirement]
+        },
+        index,
+        `req-${index}`
       )
-      const batch = pendingMessages.reserveHeld('s1', origin)!
-      pendingMessages.commit('s1', batch.attemptId!, batch.chainId)
-      const runtime = fakeRuntime([
-        [{ type: 'input.echo', sessionId: 's1', text: batch.text, uuid: batch.uuid }, telemetry]
-      ])
-      const commitUserMessage = vi.fn(() => 42)
-      const deps = makeDeps(runtime, {
-        pendingMessages,
-        persist: { persist: vi.fn(), flushAskAnswers: vi.fn(), commitUserMessage }
+    )
+    const batch = pendingMessages.reserveHeld('s1')!
+    pendingMessages.commit('s1', batch.attemptId!, batch.chainId)
+    const runtime = fakeRuntime([
+      [{ type: 'input.echo', sessionId: 's1', text: batch.text, uuid: batch.uuid }, telemetry]
+    ])
+    const commitUserMessage = vi.fn(() => 42)
+    const deps = makeDeps(runtime, {
+      pendingMessages,
+      persist: { persist: vi.fn(), flushAskAnswers: vi.fn(), commitUserMessage }
+    })
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+    await new TurnCoordinator(deps).run(
+      turn,
+      { ...REQUEST, sessionId: 's1', text: batch.text, promptUuid: batch.uuid },
+      { boundProjectId: null }
+    )
+    expect(commitUserMessage).toHaveBeenCalledWith(turn, expect.objectContaining({ requirements }))
+    expect(deps.forward.forward).toHaveBeenCalledWith(
+      'owner',
+      expect.objectContaining({
+        type: 'message.committed',
+        ids: ['req-0', 'req-1'],
+        requirements
       })
-      const turn = makeTurn()
-      turn.dbSessionId = 's1'
-      await new TurnCoordinator(deps).run(
-        turn,
-        { ...REQUEST, sessionId: 's1', text: batch.text, promptUuid: batch.uuid },
-        { boundProjectId: null }
-      )
-      expect(commitUserMessage).toHaveBeenCalledWith(
-        turn,
-        expect.objectContaining({ requirements })
-      )
-      expect(deps.forward.forward).toHaveBeenCalledWith(
-        'owner',
-        expect.objectContaining({
-          type: 'message.committed',
-          ids: ['req-0', 'req-1'],
-          requirements
-        })
-      )
-    }
-  )
+    )
+  })
 })
 const subagentStarted = (toolUseId: string): NormalizedEvent =>
   ({
@@ -800,7 +794,7 @@ describe('TurnCoordinator.run — steer 커밋 (user echo 기반, handoff 0060 D
     const pendingMessages = new PendingMessageQueue()
     for (const item of items) {
       pendingMessages.enqueue('s1', { text: item.text }, Date.now(), item.id)
-      const batch = pendingMessages.reserveHeld('s1', 'steer', item.id)!
+      const batch = pendingMessages.reserveHeld('s1', item.id)!
       pendingMessages.commit('s1', batch.attemptId!, batch.chainId)
     }
     const persistSteer = vi.fn(() => 42)
@@ -962,16 +956,16 @@ describe('TurnCoordinator.run — 턴-시작 배치 소비 (응답 시작 증거
     const pendingMessages = new PendingMessageQueue()
     const preludes = (opts.preludeIds ?? []).map((id) => {
       pendingMessages.enqueue('s1', { text: `carry-${id}` }, Date.now(), id)
-      const batch = pendingMessages.reserveItem('s1', id, 'turn-open')!
+      const batch = pendingMessages.reserveItem('s1', id)!
       pendingMessages.commit('s1', batch.attemptId!, batch.chainId)
       return batch
     })
     pendingMessages.enqueue('s1', { text: 'hello' }, Date.now(), 'p1')
-    const mainBatch = pendingMessages.reserveItem('s1', 'p1', 'turn-open')!
+    const mainBatch = pendingMessages.reserveItem('s1', 'p1')!
     pendingMessages.commit('s1', mainBatch.attemptId!, mainBatch.chainId)
     for (const id of opts.steerIds ?? []) {
       pendingMessages.enqueue('s1', { text: `steer-${id}` }, Date.now(), id)
-      const batch = pendingMessages.reserveHeld('s1', 'steer', id)!
+      const batch = pendingMessages.reserveHeld('s1', id)!
       pendingMessages.commit('s1', batch.attemptId!, batch.chainId)
     }
     const commitUser = vi.fn(() => 42)
@@ -1469,7 +1463,7 @@ describe('0239 — 결과 없이 끝난 도구 정착', () => {
   it('AC2 — error 정착은 소비된 steer의 message.committed보다 먼저 이전 응답을 닫는다', async () => {
     const pendingMessages = new PendingMessageQueue()
     pendingMessages.enqueue('s1', { text: 'next instruction' }, Date.now(), 'steer-1')
-    const batch = pendingMessages.reserveHeld('s1', 'steer', 'steer-1')!
+    const batch = pendingMessages.reserveHeld('s1', 'steer-1')!
     pendingMessages.commit('s1', batch.attemptId!, batch.chainId)
     const deps = makeDeps(
       fakeRuntime([

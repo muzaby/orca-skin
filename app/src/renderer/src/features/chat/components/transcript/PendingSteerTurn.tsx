@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { chatActions, useChatActivity, type PendingSteerState } from '../../store/chatStore'
+import { chatActions, useChatSession, type PendingSteerState } from '../../store/chatStore'
 import { useI18n } from '../../../../shared/i18n'
 import { UserBubbleText } from '../UserBubbleText'
 import { UserDiffRequirements } from './UserDiffRequirements'
@@ -18,7 +18,7 @@ export const PendingSteerTurn = memo(function PendingSteerTurn({
   onRestoreDraft
 }: PendingSteerTurnProps): React.JSX.Element | null {
   const { tr } = useI18n()
-  const { activityForeground } = useChatActivity()
+  const activityForeground = useChatSession((s) => s.activityForeground)
   if (items.length === 0) return null
   return (
     <div className="group/msg flex flex-col items-end gap-[var(--chat-item-gap)]">

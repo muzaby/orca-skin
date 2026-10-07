@@ -723,8 +723,8 @@ export class ClaudeAdapter implements SessionAdapter {
           ) {
             const mode = fromClaudePermissionMode(msg.permissionMode)
             if (mode && typeof msg.session_id === 'string' && msg.session_id.trim() !== '') {
-              // initはsession.updatedの消費前なのでcompositionが確定まで保留する。
-              // statusは表示/controllerだけに伝え、session生成イベントに変換しない。
+              // init 은 session.updated 소비 전이므로 composition 이 세션을 확정할 때까지 보류한다.
+              // status 는 표시/controller 에만 전달하고 세션 생성 이벤트로 바꾸지 않는다.
               req.onPermissionModeChanged?.(msg.session_id, mode)
             }
           }

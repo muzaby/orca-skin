@@ -153,7 +153,7 @@ describe('SessionActivityProjector', () => {
   it('큐의 여러 동기 전이를 한 revision 스냅샷으로 합쳐 중간 깜빡임을 노출하지 않는다', async () => {
     const f = fixture()
     f.queue.enqueue('s', { text: 'hello' }, 1, 'm1')
-    const batch = f.queue.reserveHeld('s', 'turn-open', 'a1', 'c1')!
+    const batch = f.queue.reserveHeld('s', 'a1', 'c1')!
     f.queue.commit('s', batch.attemptId!, batch.chainId)
     await flush()
 
@@ -184,7 +184,7 @@ describe('SessionActivityProjector', () => {
   it('interrupt 생존 attempt만 residual로 세고 같은 메시지 id는 중복 계산하지 않는다', async () => {
     const f = fixture()
     f.queue.enqueue('s', { text: 'one' }, 1, 'm1')
-    const batch = f.queue.reserveHeld('s', 'steer', 'a1', 'c1')!
+    const batch = f.queue.reserveHeld('s', 'a1', 'c1')!
     f.queue.commit('s', batch.attemptId!, batch.chainId)
     f.projector.setResidualAttempts('s', ['a1', 'a1', 'unknown'])
     await flush()

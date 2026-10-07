@@ -109,7 +109,7 @@ async function runTurn(
   // 0067: 프롬프트도 큐 경유 — enqueue→예약 후 첫 모델 출력(uuid=item id) 관측으로 커밋된다.
   const pendingMessages = new PendingMessageQueue()
   pendingMessages.enqueue('draft-key', { text: turn.firstUserText }, 1, 'prompt-item')
-  const initialBatch = pendingMessages.reserveItem('draft-key', 'prompt-item', 'turn-open')!
+  const initialBatch = pendingMessages.reserveItem('draft-key', 'prompt-item')!
   // 이 helper는 SessionRuntime을 우회하는 Coordinator 대역이다. 실제 Runtime이 동기
   // sendMessage 반환 직후 수행하는 accepted commit을 같은 경계에서 모사한다.
   pendingMessages.commit('draft-key', initialBatch.attemptId!, initialBatch.chainId)

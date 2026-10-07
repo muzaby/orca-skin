@@ -231,6 +231,18 @@ function assignNums(target: object, fields: Record<string, unknown>): void {
   }
 }
 
+// wire usage(snake_case) → UsageSnapshot. message_delta·assistant 두 경로가 같은 매핑을 쓴다.
+function usageSnapshot(u: Record<string, unknown> | undefined): UsageSnapshot {
+  const snapshot: UsageSnapshot = {}
+  assignNums(snapshot, {
+    inputTokens: u?.input_tokens,
+    outputTokens: u?.output_tokens,
+    cacheReadTokens: u?.cache_read_input_tokens,
+    cacheCreationTokens: u?.cache_creation_input_tokens
+  })
+  return snapshot
+}
+
 function readParentToolRunId(msg: unknown): string | undefined {
   const id = (msg as { parent_tool_use_id?: unknown }).parent_tool_use_id
   return typeof id === 'string' && id.trim() !== '' ? id : undefined
@@ -454,14 +466,7 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     // output-only·0 값은 이전 양수를 지우지 않고, child·승계 컨텍스트는 메인 입력에 섞지 않는다.
     if (ev?.type === 'message_delta') {
       if (parentToolRunId === undefined && !(ctx.handoffArrival && ctx.compacted !== true)) {
-        const u = ev.usage
-        const snapshot: UsageSnapshot = {}
-        assignNums(snapshot, {
-          inputTokens: u?.input_tokens,
-          outputTokens: u?.output_tokens,
-          cacheReadTokens: u?.cache_read_input_tokens,
-          cacheCreationTokens: u?.cache_creation_input_tokens
-        })
+        const snapshot = usageSnapshot(ev.usage)
         if (primaryModelScore(snapshot) > 0) (ctx.turnUsage ??= {}).delta = snapshot
       }
       return []
@@ -526,13 +531,7 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       typeof u === 'object' &&
       !(ctx.handoffArrival && ctx.compacted !== true)
     ) {
-      const snapshot: UsageSnapshot = {}
-      assignNums(snapshot, {
-        inputTokens: u.input_tokens,
-        outputTokens: u.output_tokens,
-        cacheReadTokens: u.cache_read_input_tokens,
-        cacheCreationTokens: u.cache_creation_input_tokens
-      })
+      const snapshot = usageSnapshot(u)
       if (Object.keys(snapshot).length > 0) {
         ctx.lastAssistantUsage = snapshot
         ;(ctx.turnUsage ??= {}).assistantContext = primaryModelScore(snapshot)

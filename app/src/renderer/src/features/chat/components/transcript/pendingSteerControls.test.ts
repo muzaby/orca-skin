@@ -19,7 +19,8 @@ const harness = vi.hoisted(() => ({
 }))
 vi.mock('../../store/chatStore', () => ({
   chatActions: { sendSteerNow: harness.sendSteerNow, cancelSteer: harness.cancelSteer },
-  useChatActivity: () => ({ activityForeground: harness.foreground })
+  useChatSession: (select: (s: { activityForeground: unknown }) => unknown) =>
+    select({ activityForeground: harness.foreground })
 }))
 
 // 기존 React fixture 방식으로 실제 버튼 callback을 호출해 control kind 전달도 잠근다.

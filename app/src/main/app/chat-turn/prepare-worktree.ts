@@ -7,7 +7,7 @@
 import type { WorktreeDisplay, WorktreePrepareStep } from '../../../shared/ipc'
 import type { SessionAdapter } from '../../adapters/types'
 import type { WorktreeService } from '../../features/worktrees/service'
-import { probeRepo } from '../../infra/git/probe'
+import { headName, headOid, probeRepo } from '../../infra/git/probe'
 
 type CompletionInput = Parameters<SessionAdapter['complete']>[0]
 
@@ -88,10 +88,8 @@ export async function prepareTurnWorktree(input: {
   if (!input.enabled) {
     // 비격리 신규 세션 — 기준 커밋과 그때의 브랜치 이름을 **여기서 함께** 읽는다(0211 ΔV4 D-070).
     const probe = await probeRepo(input.sourceCwd).catch(() => null)
-    const sessionBaseline =
-      probe?.kind === 'repo' && probe.head.kind !== 'unborn' ? probe.head.oid : null
-    const sessionBaselineRef =
-      probe?.kind === 'repo' && probe.head.kind !== 'detached' ? probe.head.name : null
+    const sessionBaseline = probe?.kind === 'repo' ? headOid(probe.head) : null
+    const sessionBaselineRef = probe?.kind === 'repo' ? headName(probe.head) : null
     return {
       kind: 'passthrough',
       executionCwd: input.sourceCwd,
