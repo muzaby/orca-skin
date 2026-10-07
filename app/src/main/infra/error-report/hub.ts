@@ -1,4 +1,4 @@
-import { APP_ERROR_PENDING_MAX, type AppErrorReport } from '../../../shared/app-error'
+import { APP_ERROR_PENDING_MAX, appErrorKey, type AppErrorReport } from '../../../shared/app-error'
 
 export type ErrorReportSink = (windowId: number, report: AppErrorReport) => void
 
@@ -20,7 +20,7 @@ export class ErrorReportHub {
     for (const [key, at] of this.lastPublished) {
       if (now - at >= 1000) this.lastPublished.delete(key)
     }
-    const key = `${report.title}\0${report.detail ?? ''}`
+    const key = appErrorKey(report)
     if (this.lastPublished.has(key)) return
     this.lastPublished.set(key, now)
     for (const id of this.ready) this.sink(id, report)

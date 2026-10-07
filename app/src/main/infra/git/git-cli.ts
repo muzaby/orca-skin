@@ -3,7 +3,7 @@ import type { GitBranchList, GitCheckoutResult, GitDirtyResolution } from '../..
 import { GitBranchNameSchema } from '../../../shared/protocol'
 import { firstErrorLine, parseBranchList, parseShortstat } from './git-parse'
 import { gitGateway, type GitGateway, type GitWrite, type GitRunResult } from './gateway'
-import { probeRepo } from './probe'
+import { headName, probeRepo } from './probe'
 import { buildStatus } from './git-snapshot'
 import { DIFF_SAFETY_ARGS } from './git-diff'
 
@@ -13,7 +13,7 @@ export async function gitBranches(
 ): Promise<GitBranchList> {
   const probe = await probeRepo(cwd, gateway)
   if (probe.kind !== 'repo') return { current: null, branches: [] }
-  const current = probe.head.kind === 'detached' ? null : probe.head.name
+  const current = headName(probe.head)
   const result = await gateway.read(cwd, [
     'for-each-ref',
     '--format=%(refname:short)',
@@ -53,7 +53,7 @@ export async function gitCheckout(
     return {
       ok: false,
       reason: 'dirty',
-      from: probe.head.kind === 'detached' ? null : probe.head.name,
+      from: headName(probe.head),
       stat: dirty
     }
   }

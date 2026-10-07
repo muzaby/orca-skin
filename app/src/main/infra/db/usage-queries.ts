@@ -291,13 +291,12 @@ export class UsageQueries {
       ProviderUsagePeriodRow,
       'period_kind' | 'period' | 'cost_usd'
     >[]
+    const month = rows.find((r) => r.period_kind === 'month')
     return {
       days: rows
         .filter((r) => r.period_kind === 'day')
         .map((r) => ({ day: r.period, costUsd: r.cost_usd })),
-      month: rows.find((r) => r.period_kind === 'month')
-        ? { costUsd: rows.find((r) => r.period_kind === 'month')!.cost_usd }
-        : null
+      month: month ? { costUsd: month.cost_usd } : null
     }
   }
 

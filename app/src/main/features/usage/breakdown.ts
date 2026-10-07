@@ -1,6 +1,7 @@
 // 배포가 제공한 기간 내역을 저장 전에 전부 검증한다. 미제공은 쓰기 후보를 만들지 않는다.
 import type { UsageBreakdown, UsagePeriodKind, UsagePeriodMetrics } from '../../infra/db/types'
 import type { UsageSnapshot } from './fetcher'
+import { isRecord } from '../../../shared/obj'
 
 export const USAGE_BREAKDOWN_LIMITS = {
   daily: 400,
@@ -25,10 +26,8 @@ const metricKeys = [
 ] as const
 
 function object(value: unknown, context: string): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new UsageBreakdownError(`Expected object: ${context}`)
-  }
-  return value as Record<string, unknown>
+  if (!isRecord(value)) throw new UsageBreakdownError(`Expected object: ${context}`)
+  return value
 }
 
 function metrics(value: unknown, context: string): UsagePeriodMetrics | null {

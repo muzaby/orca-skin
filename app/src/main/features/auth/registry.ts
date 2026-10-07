@@ -66,69 +66,32 @@ export function registerAuthDefinitions(
   const rejected: AuthRejection[] = []
   const seen = new Set<string>()
 
-  for (const definition of declared) {
-    if (seen.has(definition.id)) {
-      rejected.push({
-        id: definition.id,
-        scheme: 'login-required',
-        reason: 'duplicate_id',
-        message: `auth id "${definition.id}" 가 중복 선언됐다`
-      })
-      continue
+  // 두 선언 종류가 같은 규칙·같은 순서로 검사된다 — origin 은 로그인 프리에서만 생략 가능.
+  const accept = (
+    id: string,
+    origin: string | undefined,
+    scheme: AuthRejection['scheme']
+  ): boolean => {
+    const reject = (reason: AuthRejection['reason'], message: string): false => {
+      rejected.push({ id, scheme, reason, message })
+      return false
     }
-    if (!AUTH_ID_RE.test(definition.id)) {
-      rejected.push({
-        id: definition.id,
-        scheme: 'login-required',
-        reason: 'invalid_id',
-        message: `auth id "${definition.id}" 는 케밥 소문자(a-z0-9-)여야 한다`
-      })
-      continue
-    }
-    if (!isBareOrigin(definition.origin)) {
-      rejected.push({
-        id: definition.id,
-        scheme: 'login-required',
-        reason: 'invalid_origin',
-        message: `origin "${definition.origin}" 에 경로·쿼리가 있거나 형식이 아니다`
-      })
-      continue
-    }
-    seen.add(definition.id)
-    definitions.push(definition)
+    if (seen.has(id)) return reject('duplicate_id', `auth id "${id}" 가 중복 선언됐다`)
+    if (!AUTH_ID_RE.test(id))
+      return reject('invalid_id', `auth id "${id}" 는 케밥 소문자(a-z0-9-)여야 한다`)
+    if ((scheme === 'login-required' || origin !== undefined) && !isBareOrigin(origin ?? ''))
+      return reject('invalid_origin', `origin "${origin}" 에 경로·쿼리가 있거나 형식이 아니다`)
+    seen.add(id)
+    return true
   }
 
+  for (const definition of declared) {
+    if (accept(definition.id, definition.origin, 'login-required')) definitions.push(definition)
+  }
   // 자격증명 대상이 우선이다. 같은 seen으로 로그인 프리 앞선 선언과도 충돌을 검사한다.
   for (const definition of loginFree) {
-    if (seen.has(definition.id)) {
-      rejected.push({
-        id: definition.id,
-        scheme: 'login-free',
-        reason: 'duplicate_id',
-        message: `auth id "${definition.id}" 가 중복 선언됐다`
-      })
-      continue
-    }
-    if (!AUTH_ID_RE.test(definition.id)) {
-      rejected.push({
-        id: definition.id,
-        scheme: 'login-free',
-        reason: 'invalid_id',
-        message: `auth id "${definition.id}" 는 케밥 소문자(a-z0-9-)여야 한다`
-      })
-      continue
-    }
-    if (definition.origin !== undefined && !isBareOrigin(definition.origin)) {
-      rejected.push({
-        id: definition.id,
-        scheme: 'login-free',
-        reason: 'invalid_origin',
-        message: `origin "${definition.origin}" 에 경로·쿼리가 있거나 형식이 아니다`
-      })
-      continue
-    }
-    seen.add(definition.id)
-    loginFreeDefinitions.push(definition)
+    if (accept(definition.id, definition.origin, 'login-free'))
+      loginFreeDefinitions.push(definition)
   }
 
   return { definitions, loginFreeDefinitions, rejected }

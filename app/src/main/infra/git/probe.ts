@@ -13,6 +13,11 @@ export type RepoProbe =
   | { kind: 'repo'; root: string; gitDir: string; commonDir: string; head: RepoHead }
 export type RepositoryProbe = Extract<RepoProbe, { kind: 'repo' }>
 
+// HEAD 에서 커밋 oid(unborn 이면 null)·브랜치 이름(detached 면 null)을 꺼낸다.
+export const headOid = (head: RepoHead): string | null => (head.kind === 'unborn' ? null : head.oid)
+export const headName = (head: RepoHead): string | null =>
+  head.kind === 'detached' ? null : head.name
+
 export const isGitOid = (value: string): boolean => /^[0-9a-fA-F]{40,64}$/.test(value)
 const COORDS = [
   'rev-parse',

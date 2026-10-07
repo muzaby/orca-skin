@@ -1,4 +1,4 @@
-import type { AppErrorReport } from '../../../../shared/app-error'
+import { appErrorKey, type AppErrorReport } from '../../../../shared/app-error'
 
 export const ERROR_TOAST_MAX = 3
 export const ERROR_TOAST_DURATION_MS = 4600
@@ -15,7 +15,7 @@ export function applyErrorReport(
   report: AppErrorReport,
   now: number
 ): { state: readonly ErrorToast[]; expire: { id: string; at: number }[] } {
-  const key = `${report.title}\0${report.detail ?? ''}`
+  const key = appErrorKey(report)
   const existing = state.find((toast) => toast.key === key)
   if (existing) {
     if (now - existing.lastHitAt < ERROR_TOAST_COOLDOWN_MS) return { state, expire: [] }

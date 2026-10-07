@@ -54,7 +54,7 @@ export function enqueueTurnPrompt(input: {
     attachments: input.attachments,
     admittedAt: input.admittedAt
   })
-  // 턴 프롬프트 예약 — origin='turn-open' 이라 확정 신호는 **첫 모델 출력**이다(0069·0151 AC1).
+  // 턴 프롬프트 예약 — 확정 신호는 **첫 모델 출력** 또는 echo 다(0069·0151 AC1).
   //
   // **잔여 held 를 함께 병합한다(0152 AC2)**: 이전 턴이 남긴 예약이 있는데 새 항목만 예약하면
   // 새 메시지가 턴 프롬프트로 먼저 들어가고 잔여는 연속 턴으로 나중에 흘러 **입력 순서가
@@ -62,8 +62,8 @@ export function enqueueTurnPrompt(input: {
   // 뒤가 된다(0067 D4 = 병합 1버블). 잔여가 없으면 아이템 단위 배치.
   const mainBatch =
     pendingMessages.pending(queueKey).length > 1
-      ? pendingMessages.reserveHeld(queueKey, 'turn-open', undefined, chainId)!
-      : pendingMessages.reserveItem(queueKey, queuedItem.id, 'turn-open', chainId)!
+      ? pendingMessages.reserveHeld(queueKey, undefined, chainId)!
+      : pendingMessages.reserveItem(queueKey, queuedItem.id, chainId)!
 
   return { preludes, mainBatch, initialBatches: [...preludes, mainBatch] }
 }

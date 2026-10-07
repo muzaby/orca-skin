@@ -19,20 +19,10 @@ interface PendingMessage extends PendingMessagePayload {
   createdAt: number
 }
 
-// 배치 성격(0151 AC1) — **어느 신호가 이 배치를 확정할 수 있는가**를 데이터로 못박는다.
-//   turn-open : 턴 프롬프트·프렐류드 → 첫 모델 출력(0069 기본 앵커) **또는** echo
-//   steer     : 큐 내부의 echo 전용 배치 → **echo 만**. 응답 진행은 그 배치의 소비 증거가
-//               못 되므로 모델 출력으로 확정하면 모델이 못 본 텍스트를 커밋하게 된다.
-// 관계는 **비대칭**이다 — 막아야 하는 것은 "모델 출력 → steer" 한 방향뿐이고, echo 는 CLI 의
-// drain 영수증이라 양쪽에 유효하다(r2 교정, 아래 confirm 주석 참조).
-// 성격은 **메서드로 유도할 수 없다** — 호출자가 origin 인자로 명시한다. 자동 연속 턴은
-// turn-open 을 쓰며, 내부 steer 의 echo 전용 확정 규칙은 그대로 유지한다.
-type BatchOrigin = 'turn-open' | 'steer'
-
 // 예약 배치의 수명(0151 AC2) — 구 `consumed: boolean` 을 대체한다. held 는 별도 맵이 소유하므로
 // 여기 없다.
 //   submitted : stdin 주입됨. 취소 불가(소유권 transport). push 실패 시에만 rollback 으로 복귀.
-//   confirmed : origin 이 허용하는 신호를 관측. 커밋 대상.
+//   confirmed : 확정 신호(첫 모델 출력 또는 echo)를 관측. 커밋 대상.
 //   orphaned  : 턴 체인이 끝나도록 확정 신호가 오지 않음. 재주입 후보이자 관측 지점 —
 //               구 구조에는 이 상태가 없어 echo 유실이 **표현도 탐지도 불가**했다.
 type BatchState = 'submitting' | 'submitted' | 'confirmed' | 'orphaned'
@@ -46,15 +36,13 @@ interface SubmissionAttempt {
 export type PendingQueueMutation =
   { kind: 'changed'; sessionId: string } | { kind: 'rekey'; oldKey: string; newKey: string }
 
-// 확정 신호 — 큐가 kind 와 origin 의 (비대칭) 관계를 검증한다(AC5). 규약이 코드 4곳에 흩어져
-// 있던 것을 큐 안의 검증 한 곳으로 내린다.
+// 확정 신호 — 큐 안의 검증 한 곳에서 판정한다(AC5). 규약이 코드 4곳에 흩어져 있던 것을 내린다.
 type ConfirmSignal =
   { kind: 'echo'; uuid?: string; text?: string } | { kind: 'model-output'; uuids: string[] }
 
 interface TrackedBatch extends SteerFlushBatch {
   attemptId: string
   chainId: string
-  origin: BatchOrigin
   state: BatchState
   // 롤백 복원 원본 — push 가 거부되면 이 항목들이 held 로 되돌아간다(AC4).
   items: PendingMessage[]
@@ -79,7 +67,7 @@ function toBatch(items: PendingMessage[], attemptId: string, chainId: string): S
   }
 }
 
-// 추적 필드(origin/state/items)를 벗긴 공개 배치 — 호출자는 계약 타입만 본다.
+// 추적 필드(state/items)를 벗긴 공개 배치 — 호출자는 계약 타입만 본다.
 function toPublic(batch: TrackedBatch): SteerFlushBatch {
   return {
     uuid: batch.uuid,
@@ -245,7 +233,6 @@ export class PendingMessageQueue {
   // 취소는 no-op 이라(sdk.d.ts:3487), "대표 uuid 1개 = 배치 1개" 가 provider 모델과 정합이다.
   reserveHeld(
     sessionId: string,
-    origin: BatchOrigin,
     attemptId: string = randomUUID(),
     chainId: string = randomUUID()
   ): SteerFlushBatch | undefined {
@@ -255,7 +242,7 @@ export class PendingMessageQueue {
     this.heldBySession.delete(sessionId)
     const ordered = [...items].sort((a, b) => a.createdAt - b.createdAt)
     const batch = toBatch(ordered, attemptId, chainId)
-    this.track(sessionId, batch, origin, ordered)
+    this.track(sessionId, batch, ordered)
     return batch
   }
 
@@ -264,7 +251,6 @@ export class PendingMessageQueue {
   reserveItem(
     sessionId: string,
     id: string,
-    origin: BatchOrigin,
     chainId: string = randomUUID()
   ): SteerFlushBatch | undefined {
     return this.transaction(() => {
@@ -272,7 +258,7 @@ export class PendingMessageQueue {
       const item = this.cancel(sessionId, id) // held 에서 제거(재사용 — 검증 동일)
       if (!item) return undefined
       const batch = toBatch([item], item.id, chainId)
-      this.track(sessionId, batch, origin, [item])
+      this.track(sessionId, batch, [item])
       return batch
     })
   }
@@ -330,13 +316,10 @@ export class PendingMessageQueue {
     return !selectAttempts(batches, attempts, ['submitting']).some((batch) => batch === undefined)
   }
 
-  // 소비 확정(구 markConsumed) — 신호와 origin 의 관계는 **비대칭**이다(AC5, r2 교정):
-  //   · `model-output`(첫 모델 출력) → **turn-open 만**. 응답 진행은 mid-turn steer 의 소비
-  //     증거가 못 되므로(0060 D2) steer 배치를 확정하면 모델이 못 본 텍스트를 커밋하게 된다.
-  //   · `echo`(CLI drain 영수증) → **양쪽**. 배치 성격과 무관하게 "CLI 가 이 입력을 흡수했다" 는
-  //     직접 증거다. 모델 출력이 없는 턴에서는 turn-open 의 유일한 신호이기도 하다.
-  // (r1 은 echo 도 steer 로 한정했다가 CI 에서 회귀를 냈다 — 모델 출력 없는 handoff 도착 턴의
-  //  사용자 메시지가 영영 커밋되지 않았다.)
+  // 소비 확정(구 markConsumed) — 모든 예약은 턴 프롬프트·프렐류드라 신호 두 종 모두 유효하다:
+  //   · `model-output`(첫 모델 출력) — 0069 기본 앵커.
+  //   · `echo`(CLI drain 영수증) — "CLI 가 이 입력을 흡수했다" 는 직접 증거. 모델 출력이 없는
+  //     턴(handoff 도착 턴 등)에서는 유일한 신호다.
   // uuid 가 실려 오면 uuid 로만 판정한다(AC6) — 텍스트가 같은 무관한 배치를 확정하던 폴백
   // 경로를 끊는다. text 폴백은 uuid 를 보존하지 않는 replay 에서만 살아난다.
   // orphaned 도 확정 대상이다 — 지각 신호로 커밋이 유실되지 않게(AC7).
@@ -355,9 +338,7 @@ export class PendingMessageQueue {
     if (signal.kind === 'model-output') {
       const confirmed: SteerFlushBatch[] = []
       for (const uuid of signal.uuids) {
-        const batch = batches.find(
-          (b) => b.origin === 'turn-open' && isOpen(b.state) && b.uuid === uuid
-        )
+        const batch = batches.find((b) => isOpen(b.state) && b.uuid === uuid)
         if (!batch) continue
         batch.state = 'confirmed'
         confirmed.push(toPublic(batch))
@@ -365,9 +346,6 @@ export class PendingMessageQueue {
       return confirmed
     }
 
-    // echo 는 **양쪽 origin 을 확정할 수 있다** — CLI 가 입력을 drain 했다는 영수증이라 배치
-    // 성격과 무관하게 유효하다. 모델 출력이 하나도 없는 턴(handoff 도착 턴 등)에서는 turn-open
-    // 배치의 **유일한** 확정 신호이므로, 여기서 거부하면 사용자 메시지가 영영 커밋되지 않는다.
     const batch =
       signal.uuid !== undefined
         ? batches.find((b) => isOpen(b.state) && b.uuid === signal.uuid)
@@ -461,8 +439,7 @@ export class PendingMessageQueue {
   // 채널 사망 후 스폰 직전(0067) — 이월 잔여를 프렐류드 배치 목록으로 회수한다. 미확정 예약
   // (모델이 못 본 stdin 사본 — 서브프로세스 종료로 CLI 큐 소멸)은 **재주입**(uuid 보존 =
   // renderer pending id 정합), held 는 아이템 단위 배치로 전이. 전부 새 턴의 프렐류드/프롬프트가
-  // 되므로 origin 을 turn-open 으로 **재스탬프**한다 — 확정 신호가 echo 에서 첫 모델 출력으로
-  // 바뀌기 때문이다. confirmed 잔존분(경계 유실)은 폐기한다(이중 전달 방지).
+  // 된다. confirmed 잔존분(경계 유실)은 폐기한다(이중 전달 방지).
   takeForRespawn(sessionId: string, chainId: string = randomUUID()): SteerFlushBatch[] {
     const carried = (this.trackedBySession.get(sessionId) ?? []).filter((b) => isOpen(b.state))
     const held = this.heldBySession.get(sessionId) ?? []
@@ -474,7 +451,6 @@ export class PendingMessageQueue {
         uuid: attemptId,
         attemptId,
         chainId,
-        origin: 'turn-open' as const,
         state: 'submitting' as const
       }
     })
@@ -484,7 +460,6 @@ export class PendingMessageQueue {
         ...toBatch([item], attemptId, chainId),
         attemptId,
         chainId,
-        origin: 'turn-open',
         state: 'submitting',
         items: [item]
       })
@@ -531,16 +506,11 @@ export class PendingMessageQueue {
     return hit.map(toPublic)
   }
 
-  private track(
-    sessionId: string,
-    batch: SteerFlushBatch,
-    origin: BatchOrigin,
-    items: PendingMessage[]
-  ): void {
+  private track(sessionId: string, batch: SteerFlushBatch, items: PendingMessage[]): void {
     const batches = this.trackedBySession.get(sessionId) ?? []
     const attemptId = batch.attemptId ?? batch.uuid
     const chainId = batch.chainId ?? randomUUID()
-    batches.push({ ...batch, attemptId, chainId, origin, state: 'submitting', items: [...items] })
+    batches.push({ ...batch, attemptId, chainId, state: 'submitting', items: [...items] })
     this.trackedBySession.set(sessionId, batches)
     this.changed(sessionId)
   }

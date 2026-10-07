@@ -1,5 +1,5 @@
 import {
-  APP_ERROR_DETAIL_MAX,
+  clampErrorDetail,
   type AppErrorReport,
   type AppErrorTarget,
   type AppErrorTitle
@@ -24,16 +24,10 @@ export function reportError(input: {
           ? input.error.message
           : String(input.error)
         : input.detail
-    const detail =
-      raw == null
-        ? undefined
-        : raw.length > APP_ERROR_DETAIL_MAX
-          ? raw.slice(0, APP_ERROR_DETAIL_MAX - 1) + '…'
-          : raw
     presentErrorReport({
       id: crypto.randomUUID(),
       title: input.title,
-      detail,
+      detail: clampErrorDetail(raw),
       origin: 'renderer',
       target: input.target
     })

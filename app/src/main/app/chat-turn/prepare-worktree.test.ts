@@ -4,7 +4,10 @@ import type { PrepareWorktreeResult } from '../../features/worktrees/service'
 import { prepareTurnExecution, prepareTurnWorktree } from './prepare-worktree'
 
 const { probeMock } = vi.hoisted(() => ({ probeMock: vi.fn() }))
-vi.mock('../../infra/git/probe', () => ({ probeRepo: probeMock }))
+vi.mock('../../infra/git/probe', async (original) => ({
+  ...(await original<typeof import('../../infra/git/probe')>()),
+  probeRepo: probeMock
+}))
 
 const adapter = { complete: vi.fn() }
 const signal = new AbortController().signal

@@ -1,6 +1,6 @@
 import type { GitSnapshotResult, GitStatus } from '../../../shared/ipc'
 import { gitGateway, type GitGateway } from './gateway'
-import { probeRepo, type RepoProbe } from './probe'
+import { headName, probeRepo, type RepoProbe } from './probe'
 import { EMPTY_DIFF_SUMMARY, gitDiffSummary, type DiffInput } from './git-diff'
 import { githubRepositoryUrl } from './github-url'
 
@@ -23,7 +23,7 @@ export async function buildStatus(
   return {
     isRepo: true,
     root: probe.root,
-    branch: probe.head.kind === 'detached' ? null : probe.head.name,
+    branch: headName(probe.head),
     detached: probe.head.kind === 'detached',
     githubUrl: origin.ok ? githubRepositoryUrl(origin.stdout) : null
   }
