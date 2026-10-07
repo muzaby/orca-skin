@@ -746,3 +746,60 @@ F25는 `claude.plan-mode.test.ts -t 'main approval scope'`에서 actual `ClaudeA
 Review Signals: D6는 기존 소유권/child 계약이 승인 화면 소비자에 빠진 문제였고, main await는 같은 계약의 신호 전달 edge였다. 기존 지침/AC가 있어 제품 선택0, normative 보강은 구현 전 별도 설계로 분리됐다. 이번 검증이 찾은 수량 불일치는 명시 path의 운반 세분 재측정으로 처리했으며 root PLAN_GAP을 발명하지 않았다. 반복 sandbox EPERM은 동일 local-only 승격 대조로 구별했다.
 
 INDEX는 **verify/PASS(기계 범위), 다음 사람(외부 게시/CI·모델/시각), 라운드3**으로 갱신한다. 외부 확인 전 archive 이동을 보류한다. 검증 중 production/정식 test 변경0·autofix0·설치/ABI전환0·커밋0이다. 최종 문서 커밋과 trailer 파싱은 root의 후속 작업이다.
+
+---
+
+# r3 재검증 — 원격 브랜치 신규 커밋 독립 대조 (2026-10-07)
+
+**PASS 유지 (기계 범위).** 사용자 요청으로 원격 `codex-0249-plan-mode-fallback`의 r1.4 ΔV3 이후 커밋(`68c39bdd..7b32d299`)을 r3 결론과 독립으로 다시 대조했다. 새 root PAIR_FAIL0·PLAN_GAP0이다. 구현 보고와 r3 검증이 이름을 대지 않은 적대 축13개 중 11개 red, 1개 등가 변이, 1개 생존(D8 NON_BLOCKING)이다.
+
+| 메타 | 값 |
+|---|---|
+| 검증자 | claude(이번 세션), 0249 production/정식 test 미작성 — 구현자와 다른 agent |
+| 대상 | 원격 tip `f5d11f98`(r3 검증 커밋)까지; 코드 범위는 `963464c8`·`463019d7`·`7b32d299` |
+| 기준 | ΔV3~ΔV3.4 규범 행(`68c39bdd`·`b110cca6`·`0a59d198`·`72e2d8eb`·`0552d740`·`1576d485`·`d6b9ace8`·`3378c153`·`d5bb58c6`); 설계와 구현은 별도 커밋 |
+
+## 1. 독립 적대 축 — 등록41·r3 독립 X3/X4 밖
+
+한 자리씩 변조하고 원본 bytes를 복원했다. 실행 분모는 `src/main/adapters/claude*`·`src/main/features/sessions`·`src/main/app/chat-turn`·`src/main/app/permission`·`src/renderer/src/features/chat/store`의 1117 tests다. 기준선 실패6은 아래 §2의 ABI 서명뿐이며, 판정은 기준선 대비 **새 실패**만 센다. 복원 뒤 같은 분모가 기준선과 같은 1104 pass/6 fail로 돌아왔다.
+
+| ID | 자리 | 변조 | 새 실패 | 판정 |
+|---|---|---|---:|---|
+| A1 | `claude.ts` main 캡처 | child도 main getter 조회 | 3 | red |
+| A2 | `claude.ts` Ask 승인 | 합성 signal → SDK-only | 1 | red |
+| A3 | `claude.ts` 위험/runtime 승인 | 합성 signal → SDK-only | 2 | red |
+| A4 | `claude.ts` needsApproval | runtime 승인 도구 제외 | 1 | red |
+| A5 | `session-runtime.ts` getter | 퇴역 channel 우선 분기 제거 | **0** | **생존 → D8** |
+| A6 | `retireChannel` | main signal 삭제(설계 §2 금지) | 1 | red |
+| A7 | `adoptDelegate` | 첫 signal만 유지(`??=`) | 4 | red |
+| A8 | renderer `approvePlan` | child 판정을 RESOLVE 뒤 state에서 재조회 | 1 | red |
+| A9 | renderer `approvePlan` | 목표 mode를 고정 `accept_edits` | 0 | 등가: Work `modes.accept_edits→default`, Code 목표=`accept_edits` |
+| B1 | `approval.ts` regSignal | child에도 main 턴 신호 합성 | 2 | red |
+| B2 | `approval.ts` | 진입 전 취소 deny 제거 | 3 | red |
+| B3 | runtime wrapper | SDK signal 취소 진입 검사 생략 | 4 | red |
+| B4 | runtime wrapper | 퇴역 채널 mode 통지 guard 제거 | 12 | red |
+
+A5 생존은 임시 probe로 행동 차이를 확인했다. 실제 `SessionRuntime` 퇴역(`close`) 뒤 옛 채널 Exit 콜백을 SDK signal이 살아 있는 채로 넣으면, 원본은 진입에서 deny하고 `getPlanFiles`0이다. A5에서는 `getPlanFiles`1회 뒤 wrapper가 deny한다. persist0·IPC0·deny는 둘 다 같다. AC25의 다른 owner side effect0과 ΔV3.4 §4의 “이미 취소된 **main**” 계약은 유지된다. ΔV3.4 TD §2가 적은 channel 우선 분기에만 oracle이 없다(M-F24는 반대 방향만 잰다). 현재 코드는 설계대로이므로 PAIR_FAIL이 아니다. 이 분기 하나에만 기대는 AC도 없어 NON_BLOCKING이다.
+
+## 2. Gate 재실행
+
+| gate | 산출 |
+|---|---|
+| lint no-fix | 1416파일 error0·warning1(기존 `useTranscriptVirtualizer.ts:22`) |
+| typecheck node/web/test | 3종 exit0 |
+| 전체 vitest | 6420 tests: pass6082·skip87·fail251. 실패 37파일 전부 `NODE_MODULE_VERSION 140 vs 127` better-sqlite3 서명이고 비-ABI 실패0 |
+| scripts | testcase132·failure0 |
+| doc-inventory·test-budget·migration | 각각 exit0 |
+| diff --check `33c7c628..7b32d299` | 0 |
+| 구현 trailer `7b32d299` | Agent/Handoff/Status/Criteria-Met/Verified-By 5키 파싱 |
+
+현재 `node_modules`의 better-sqlite3는 Electron ABI140이다. `app/AGENTS.md`에 따라 ABI를 뒤집지 않았다. 그래서 실제 SQL을 지나는 F3~5·F7과 writer/DB pair 증거는 **이번에 다시 실행하지 못했다**. 해당 경로의 production 파일은 `7b32d299`가 바꾸지 않았다. 그 판정은 r3 §2·§5의 ABI127 측정을 승계한다.
+
+## 3. 판정·이관
+
+- 선택 pair17의 r3 PASS를 뒤집는 관측0이다. 새 축은 VP-34·36·37의 적대 분모를 넓혔고 A5 외에는 모두 검출됐다.
+- D8을 plan `[검증자 기입]`에 NON_BLOCKING/open으로 등록한다. 위 probe를 정식 회귀로 올리면 닫힌다.
+- 원격 브랜치는 이제 공유 원격에 있다. `gh` 미인증이라 PR/CI 상태는 확인하지 못했다. 실 모델·Windows 시각·실제 CLI cancel/terminal 순서는 계속 미확인이다. archive는 외부 확인 뒤로 보류를 유지한다.
+- Review Signals: 같은 r3 대상의 두 번째 독립 검증이다. 생존 축은 이전 FAIL 증상과 무관한 새 분기다. 반복된 환경 한계는 better-sqlite3 ABI 단일 슬롯이다.
+
+임시 증거(`app/.tmp-verify-0249-r3b-*`)는 커밋하지 않고 정리했다.
