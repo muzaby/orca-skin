@@ -361,3 +361,9 @@
 
 - 구현이 plan 보다 먼저 커밋됨 — `/simplify` 스킬이 handoff 진입 트리거를 거치지 않는 경로.
 - 현재 라운드·impl 턴: `r1`.
+
+## [검증자 기입] 파생 이슈
+
+- r1 검증 **PASS** — 상세는 [`verify.md`](verify.md) §13.
+- NON_BLOCKING D1(clamp 경계 테스트 없음) · D2(`gitExecutable` 테스트 없음) · D3(삭제 테스트 수 서술 −1 → 실제 −2) · D4(구현 선행·`Handoff: none`).
+- NEXT_HANDOFF D5 — artifact availability(D-002) 사용자 결정 대기.
