@@ -11,7 +11,7 @@
 | 작성자 | Claude Code 초안 · Codex 복원/설계 검토 |
 | 일자 | 2026-10-07 |
 | 매핑 | 기준 커밋 `origin/main@5e1e9209` · 브랜치 `claude/0254-0255-nav-progress-daily-login` |
-| 상태 | IMPL_DONE |
+| 상태 | verify/PASS (r1 · 기계 범위) — AC14 사람 실기 대기 |
 | V mode | `Baseline V` |
 | 기준 V | `none`. 0249 의 nav 주의 표시는 `INHERITED` 회귀 노드로만 참조한다 — 출처 `0249:plan@03bfcaed`(`git cat-file -t` = commit, `origin/main` 조상 확인) |
 | 이번 V revision | `V1` |
@@ -607,4 +607,4 @@ chat events/send → chatStore entry(inflight, pending*) → generatingSessionKe
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| D1 | `state.sessions === previous.sessions` skip 제거 변이(X6)가 green — 뒤의 `sameKeys`가 같은 emit을 막는 등가 최적화 | VP-10 / D-008 | 조치 불필요 | NON_BLOCKING | 기록 |
