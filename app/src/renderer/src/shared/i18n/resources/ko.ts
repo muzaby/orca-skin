@@ -151,6 +151,7 @@ export const ko = {
     retry: '다시 시도'
   },
   sessions: {
+    generating: '{{agent}} · 답변 생성 중',
     deleteDialogTitle: '대화 삭제',
     deleteDialogMessage: '이 대화를 삭제하시겠습니까?',
     menuAria: '세션 메뉴',

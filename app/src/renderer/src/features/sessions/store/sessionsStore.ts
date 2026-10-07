@@ -15,6 +15,7 @@ interface SessionsStoreState {
   byId: Record<string, SessionListItem>
   // 이번 앱 실행에서 아직 열어보지 않은 완료·응답 요청. DB 메타 재조회와 수명을 분리한다.
   unseenAttention: ReadonlyMap<string, SessionAttention>
+  generatingSessionIds: ReadonlySet<string>
   viewedSessionId: string | null
   recentIds: string[]
   // 값이 없으면 "아직 조회 안 함" — 로딩 판정이 이 한 축에서 나온다(별도 플래그 없음).
@@ -25,6 +26,7 @@ interface SessionsStoreState {
 export const useSessionsStore = create<SessionsStoreState>()(() => ({
   byId: {},
   unseenAttention: new Map<string, SessionAttention>(),
+  generatingSessionIds: new Set<string>(),
   viewedSessionId: null,
   recentIds: [],
   projectSessionIds: {},
@@ -270,6 +272,17 @@ function setViewedSession(sessionId: string | null): void {
   })
 }
 
+function setGeneratingSessions(ids: ReadonlySet<string>): void {
+  setState((state) => {
+    if (
+      state.generatingSessionIds.size === ids.size &&
+      [...ids].every((id) => state.generatingSessionIds.has(id))
+    )
+      return state
+    return { generatingSessionIds: new Set(ids) }
+  })
+}
+
 export const sessionsActions = {
   refresh: initSessions,
   loadProject,
@@ -279,6 +292,7 @@ export const sessionsActions = {
   setPinned,
   markCompleted,
   markAwaitingResponse,
+  setGeneratingSessions,
   setViewedSession
 }
 

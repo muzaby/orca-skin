@@ -1,7 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { subscribeSessionAttention } from './useSessionCompletion'
 import { chatActions, ingestChatEvent, useChatStore } from '../../features/chat/store/chatStore'
-import { installChatStoreHarness } from '../../features/chat/store/chatStore.testHarness'
+import { flushRaf, installChatStoreHarness } from '../../features/chat/store/chatStore.testHarness'
+import { activitySnapshot } from '../../features/chat/activity.testfixture'
 import { sessionsActions, useSessionsStore } from '../../features/sessions/store/sessionsStore'
 import { readFileSync } from 'node:fs'
 import { createElement } from 'react'
@@ -98,7 +99,7 @@ const row: SessionListItem = {
   cwd: null,
   pinnedAt: null
 }
-function icon(sessionId = row.id): ReturnType<typeof load> {
+function icon(sessionId = row.id, isActive = false): ReturnType<typeof load> {
   // Zustand SSR reads getInitialState; render the actual production event's state and restore it.
   const initial = useSessionsStore.getInitialState()
   const original = { ...initial }
@@ -108,7 +109,7 @@ function icon(sessionId = row.id): ReturnType<typeof load> {
       renderToStaticMarkup(
         createElement(SessionRow, {
           session: { ...row, id: sessionId },
-          isActive: false,
+          isActive,
           appearance: { navIcon: 'terminal2', label: 'chat.agent.code' }
         })
       )
@@ -117,6 +118,173 @@ function icon(sessionId = row.id): ReturnType<typeof load> {
     Object.assign(initial, original)
   }
 }
+
+describe('0254 생성 중 스피너', () => {
+  const state = (active = false, id = 's'): string | undefined =>
+    icon(id, active)('[data-context="session-agent-kind"]').attr('data-state')
+  const resolve = (): void =>
+    ingestChatEvent({
+      type: 'permission.resolved',
+      sessionId: 's',
+      approvalId: 'a',
+      resolution: { behavior: 'deny' }
+    })
+  const ask = (action: PermissionAction): NormalizedEvent => {
+    if (action.kind === 'ask_question')
+      return request({ ...action, request: { ...action.request, requestId: 'a' } }, 's')
+    if (action.kind === 'plan_review')
+      return request({ ...action, request: { ...action.request, requestId: 'a' } }, 's')
+    return request(action, 's')
+  }
+
+  it('projects optimistic send and delta activity to warning dots including viewed rows', () => {
+    installChatStoreHarness({ inflight: false })
+    expect(state()).toBe('default')
+    expect(chatActions.send('hello')).toBe(true)
+    expect(state()).toBe('in-progress')
+    sessionsActions.setViewedSession('s')
+    const $ = icon('s', true)
+    const agent = $('[data-context="session-agent-kind"]')
+    expect(agent.attr('data-state')).toBe('in-progress')
+    expect(agent.attr('role')).toBe('img')
+    expect(agent.attr('aria-label')).toBe('코드 · 답변 생성 중')
+    expect(agent.hasClass('text-warn')).toBe(true)
+    expect($('[data-session-id]').hasClass('text-warn')).toBe(false)
+    expect(agent.find('svg')).toHaveLength(0)
+    expect(agent.find('[data-spinner="dots"] > span')).toHaveLength(3)
+    ingestChatEvent({ type: 'telemetry', sessionId: 's' })
+    ingestChatEvent({ type: 'message.delta', sessionId: 's', delta: { text: 'answer' } })
+    flushRaf()
+    expect(state(true)).toBe('in-progress')
+  })
+
+  for (const active of [false, true]) {
+    it.each(requestActions)(
+      `$kind suspends generation and resumes after resolution; active=${active}`,
+      (action) => {
+        sessionsActions.setViewedSession(active ? 's' : null)
+        expect(state(active)).toBe('in-progress')
+        ingestChatEvent(ask(action))
+        expect(state(active)).toBe(active ? 'default' : 'awaiting-response')
+        resolve()
+        expect(state(active)).toBe('in-progress')
+      }
+    )
+  }
+  it.each(requestActions)('child $kind also suspends the spinner', (action) => {
+    ingestChatEvent(
+      ask({
+        ...action,
+        providerRequest: { requestId: 'child', toolUseId: 'use', agentId: 'agent' }
+      })
+    )
+    expect(state()).toBe('awaiting-response')
+    resolve()
+    expect(state()).toBe('in-progress')
+  })
+
+  it.each(['telemetry', 'turn.aborted', 'error', 'CANCEL_CHAT'] as const)(
+    '%s removes generation without completion',
+    (type) => {
+      if (type === 'CANCEL_CHAT') chatActions.cancel()
+      else if (type === 'turn.aborted')
+        ingestChatEvent({ type, sessionId: 's', reason: 'user_cancelled' })
+      else if (type === 'error')
+        ingestChatEvent({
+          type,
+          sessionId: 's',
+          error: { category: 'stream_error', message: 'failed', retryable: false }
+        })
+      else ingestChatEvent({ type, sessionId: 's' })
+      expect(state()).toBe('default')
+      expect(marked()).toBe(false)
+      ingestChatEvent({ type: 'turn.ended', sessionId: 's' })
+      expect(state()).toBe('unseen-complete')
+      sessionsActions.setViewedSession('s')
+      expect(state(true)).toBe('default')
+    }
+  )
+  it.each(['listening', 'ready'] as const)('%s with no open turn has no spinner', (transport) => {
+    ingestChatEvent({ type: 'telemetry', sessionId: 's' })
+    ingestChatEvent(activitySnapshot(1, transport, { foreground: 'streaming' }))
+    expect(state()).toBe('default')
+  })
+  it.each(['completed', 'awaiting-response'] as const)(
+    'generation precedes retained %s attention without deleting it',
+    (attention) => {
+      if (attention === 'completed') sessionsActions.markCompleted('s')
+      else sessionsActions.markAwaitingResponse('s')
+      expect(state()).toBe('in-progress')
+      expect(useSessionsStore.getState().unseenAttention.get('s')).toBe(attention)
+      ingestChatEvent({ type: 'turn.ended', sessionId: 's' })
+      expect(state()).toBe('in-progress')
+      ingestChatEvent({ type: 'telemetry', sessionId: 's' })
+      expect(state()).toBe('unseen-complete')
+    }
+  )
+  it('observes the full non-viewed state sequence', () => {
+    const states = [state()]
+    ingestChatEvent(ask(requestActions[0]))
+    states.push(state())
+    resolve()
+    states.push(state())
+    ingestChatEvent({ type: 'telemetry', sessionId: 's' })
+    states.push(state())
+    ingestChatEvent({ type: 'turn.ended', sessionId: 's' })
+    states.push(state())
+    expect(states).toEqual([
+      'in-progress',
+      'awaiting-response',
+      'in-progress',
+      'awaiting-response',
+      'unseen-complete'
+    ])
+  })
+  it('does not write the sessions store for repeated delta frames', () => {
+    unsubscribe()
+    const sink = vi.spyOn(sessionsActions, 'setGeneratingSessions')
+    unsubscribe = subscribeSessionAttention()
+    sink.mockClear()
+    const before = useSessionsStore.getState().generatingSessionIds
+    for (let index = 0; index < 10; index++) {
+      ingestChatEvent({ type: 'message.delta', sessionId: 's', delta: { text: 'x' } })
+      flushRaf()
+    }
+    expect(sink).not.toHaveBeenCalled()
+    expect(useSessionsStore.getState().generatingSessionIds).toBe(before)
+    sink.mockRestore()
+  })
+  it('keeps unknown or identity-less terminal events inert and removes a deleted entry', () => {
+    const before = useSessionsStore.getState().generatingSessionIds
+    ingestChatEvent({ type: 'turn.ended', sessionId: 'unknown' })
+    ingestChatEvent({ type: 'turn.ended' })
+    expect(useSessionsStore.getState().generatingSessionIds).toBe(before)
+    chatActions.handleSessionDeleted('s')
+    expect(useSessionsStore.getState().generatingSessionIds.size).toBe(0)
+  })
+  it('projects continuity draft keys then replaces them with the promoted session id', () => {
+    const entry = useChatStore.getState().sessions.s
+    useChatStore.setState({
+      sessions: {
+        'draft:continuity': { ...entry, session: { ...entry.session, sessionId: null } }
+      },
+      activeKey: 'draft:continuity',
+      pendingNewChatKey: 'draft:continuity'
+    })
+    expect(state(false, 'draft:continuity')).toBe('in-progress')
+    ingestChatEvent({ type: 'session.updated', sessionId: 'promoted', patch: {} })
+    expect(useSessionsStore.getState().generatingSessionIds).toEqual(new Set(['promoted']))
+    expect(state(false, 'promoted')).toBe('in-progress')
+  })
+  it('cleans up generation and synchronizes current state immediately on reinstall', () => {
+    unsubscribe()
+    const before = useSessionsStore.getState().generatingSessionIds
+    chatActions.cancel()
+    expect(useSessionsStore.getState().generatingSessionIds).toBe(before)
+    unsubscribe = subscribeSessionAttention()
+    expect(useSessionsStore.getState().generatingSessionIds.size).toBe(0)
+  })
+})
 
 describe('0249 response attention across app features', () => {
   it.each(requestActions)('$kind uses the same blue icon as completion', (action) => {

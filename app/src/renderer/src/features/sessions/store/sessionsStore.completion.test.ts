@@ -24,12 +24,22 @@ beforeEach(() => {
     projectSessionIds: {},
     loading: false,
     unseenAttention: new Map(),
+    generatingSessionIds: new Set(),
     viewedSessionId: null
   })
   api.list.mockResolvedValue([row])
   api.remove.mockResolvedValue({ ok: true })
 })
 describe('r5 unseen normal completion lifecycle', () => {
+  it('0254 generating membership preserves store and set identity across equal sets', () => {
+    sessionsActions.setGeneratingSessions(new Set(['s', 'other']))
+    const state = useSessionsStore.getState()
+    sessionsActions.setGeneratingSessions(new Set(['other', 's']))
+    expect(useSessionsStore.getState()).toBe(state)
+    expect(useSessionsStore.getState().generatingSessionIds).toBe(state.generatingSessionIds)
+    sessionsActions.setGeneratingSessions(new Set(['s']))
+    expect(useSessionsStore.getState().generatingSessionIds).toEqual(new Set(['s']))
+  })
   it.each(['completed', 'awaiting-response'] as const)('the last reason wins after %s', (first) => {
     const actions = {
       completed: sessionsActions.markCompleted,

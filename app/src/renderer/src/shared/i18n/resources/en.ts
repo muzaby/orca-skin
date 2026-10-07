@@ -151,6 +151,7 @@ export const en: typeof ko = {
     retry: 'Try again'
   },
   sessions: {
+    generating: '{{agent}} · Generating response',
     deleteDialogTitle: 'Delete conversation',
     deleteDialogMessage: 'Delete this conversation?',
     menuAria: 'Session menu',
