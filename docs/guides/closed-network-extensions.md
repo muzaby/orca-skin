@@ -276,6 +276,8 @@ origin 밖에서 끝나도** 같다 — §2-c) ·
 사내 IdP 에 로그인해야 앱이 열리게 한다. 인증 방식은 `browser-session` — Electron 창으로 IdP 에
 로그인하고 그 partition(cookie jar)을 이후 요청에 재사용한다.
 
+게이트 통과는 매일 로컬 00:00에 풀려 다시 로그인한다 — [현재 규칙](../arch/backend/auth.md#53-실행-중-날짜-경계와-일일-재로그인)·[근거 ADR-008](../decisions/008-daily-login-gate.md)을 확인한다.
+
 ### 단계
 
 | # | 하는 일 | 고치는 파일 / 확인 지점 |

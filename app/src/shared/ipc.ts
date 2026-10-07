@@ -1826,6 +1826,8 @@ export interface ProviderGateState {
   passed: boolean
   // dev 우회(Settings.authBypass)로 통과했는가 — UI 가 "우회 중" 을 표시할 수 있게.
   bypassed: boolean
+  /** 날짜 경계 뒤 다시 로그인해야 하는 게이트 멤버 id (멤버 순서). */
+  dailyRelogin: string[]
 }
 
 export interface ProviderPlatformState {

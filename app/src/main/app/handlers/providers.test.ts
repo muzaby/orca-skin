@@ -51,7 +51,7 @@ describe('registerConnectionHandlers', () => {
         currentStep: () => null,
         describe: () => ({ authId: 'a', label: 'a', origin: '', methods: [] })
       },
-      gate: { state: () => ({ required: true, passed: true, bypassed: false }) },
+      gate: { state: () => ({ required: true, passed: true, bypassed: false, dailyRelogin: [] }) },
       connections: [],
       resuming: () => true
     } as unknown as ConnectionHandlerDeps

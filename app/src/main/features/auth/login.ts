@@ -429,7 +429,13 @@ export class LoginService {
       tokenToCommit,
       grant.principalId
     )
-    const outcome = await this.settleGrant(definition, attempt, candidate, writeVault)
+    const outcome = await this.settleGrant(
+      definition,
+      attempt,
+      candidate,
+      writeVault,
+      'credential-refreshed'
+    )
     this.deps.logger?.('auth.refresh.result', { authId, outcome: outcome.kind })
     // superseded 는 실패가 아니다 — 사용자의 새 시도가 이미 이겼으므로 회복은 그 자리에서
     // 그만두면 된다. 재로그인으로 넘어가면 사용자의 로그인을 덮는다.
@@ -605,7 +611,8 @@ export class LoginService {
     definition: AuthDefinition,
     attempt: number,
     candidate: CandidateCredential,
-    writeVault?: () => void
+    writeVault?: () => void,
+    cause: AuthSnapshotChangeCause = 'credential-committed'
   ): Promise<SettleOutcome> {
     const probe = await this.probe(definition, candidate)
     // **세대 확인이 결과 해석보다 먼저다** (r8). r7 은 실패 분기를 먼저 처리해서, 늦게 끝난 옛
@@ -653,7 +660,7 @@ export class LoginService {
       // 그러니 **옛 키를 지우지 않는다**. 지우면 재시작 후 아무것도 가리키지 않는 grant 가 된다.
       this.deps.logger?.('auth.login.persist-degraded', { authId: definition.id })
     }
-    this.deps.onSnapshot?.(definition.id, 'credential-committed')
+    this.deps.onSnapshot?.(definition.id, cause)
     return { kind: 'settled', step: this.emit({ kind: 'done', providerId: definition.id }) }
   }
 

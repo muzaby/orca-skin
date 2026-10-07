@@ -8,6 +8,7 @@
 > - **계약 정본은 코드다** — `app/src/main/contracts/auth.ts`. 이 문서와 어긋나면 코드가 진실이다.
 > - Decision rationale: [ADR-004](../../decisions/004-provider-single-axis.md) — 왜 프로토콜이 아니라 관계를 축으로 삼았는가.
 > - Decision rationale: [ADR-006](../../decisions/006-login-free-auth-scheme.md) — 로그인 프리 대상이 같은 Plugin 소비 포트를 쓰면서 자격증명 lifecycle에서 분리되는 이유.
+> - Decision rationale: [ADR-008](../../decisions/008-daily-login-gate.md) — 일일 로그인 기회를 날짜 경계에서 요구하는 이유.
 
 ---
 
@@ -35,7 +36,7 @@ AuthSecretReader  (trusted main 전용)
   └─ 자격증명 대상의 MCP binding · Harness direct-credential 에 한한 raw 조회
 
 Gate  (features/gate)
-  └─ 필수 Auth 의 valid + verified 만 소비하는 앱 접근 정책
+  └─ 필수 Auth 의 valid + verified 와 일일 재로그인 표식을 소비하는 앱 접근 정책
 
 소비 feature
   ├─ Harness (features/harnesses) : settings 열거·해석 · Model 해석 · 실행 구성 · respawn 경계
@@ -85,6 +86,8 @@ config API 를 불러 URL·모델 식별자·실행 token 을 한꺼번에 받�
 | `features/auth/browser-session/runner.ts` | 브라우저 세션 로그인 흐름 (창 → final URL 의 인가 코드 → 토큰 교환 · whoami) |
 | `features/auth/specs/` | 선언 헬퍼(값 입력형) + 브라우저 세션 포트·응답 해석 |
 | `features/gate/index.ts` | `evaluateGate`(순수 진리표) · `createGate` · `selectGateMembers`(fail-closed) |
+| `features/gate/daily.ts` | 로컬 날짜·다음 자정 계산 · 날짜 경계 감시 · 일일 재로그인 표식 판정 |
+| `app/daily-gate.ts` | 날짜 경계 → 게이트 통과 해제 → 상태 방송 · wake 구독과 종료 정리 |
 | `features/harnesses/settings.ts` | `sources/settings/<harness>/<modelProvider>/` 열거 |
 | `features/harnesses/settings.ts` | native settings 해석 + mtime cache + `sourceRevision` |
 | `features/harnesses/runtime-config.ts` | 동적 실행 구성 — augmenter · 세대 cache · fence · single-flight · expiry |
@@ -148,11 +151,12 @@ snapshot에는 `activeMethod`·`principalId`·`expiresAt`를 싣지 않는다. G
 |---|---:|---:|---:|---:|
 | 입력 form · OAuth code 대기 · `resuming` · 오류 message | O | O | **X** | **X** |
 | 기존 Grant 의 probe 성공으로 `verified` 만 변경 | O | O | **X** | **X** |
-| credential commit · revoke · expiry · 인증 실패 강등 | O | O | O | **영향 key 만** O |
+| credential commit · refresh · revoke · expiry · 인증 실패 강등 | O | O | O | **영향 key 만** O |
 
 `kind:'step'` 은 화면 단계, `kind:'snapshot'` 은 인증 상태다. snapshot 은 `cause` 와
-**`credentialChanged`** 를 함께 싣고, 소비자는 그 boolean 하나만 본다 — `cause → boolean` 기본
-매핑은 `features/auth/runtime.ts` 한 곳에 있다.
+**`credentialChanged`** 를 함께 싣고, Plugin·Harness의 실행 무효화는 그 boolean을 본다 —
+`cause → boolean` 기본 매핑은 `features/auth/runtime.ts` 한 곳에 있다. 게이트의 일일 로그인
+증거는 `credential-committed`와 `credential-refreshed`를 구분한다(§5.3).
 
 **`cause` 가 답을 못 내는 경우가 하나 있다**: 같은 강등을 두 지점이 관측할 때다(§4.4). 그때는
 전이를 관측한 호출부가 `credentialChanged` 를 명시로 싣고, `cause` 매핑은 기본값으로만 쓰인다 —
@@ -386,9 +390,10 @@ browser-session 에도 그대로 걸린다 — 빠지면 교환이 만든 token 
 |---|---|
 | **prod** · gate 선언 **0개** | **통과**(`required:false`) — OSS/기본 배포가 로그인 화면에 갇히지 않게 하는 안전장치 |
 | **DEV** · 선언 **0개** | **차단**(`alwaysRequired`) — 폐쇄망 실값이 없어도 로그인 화면을 보고 고칠 수 있어야 한다. **탈출구는 우회 토글 하나뿐** |
-| 선언 N · 전부 `valid` **+ `verified`** | 통과 |
+| 선언 N · 전부 `valid` **+ `verified`** · 일일 재로그인 대상 없음 | 통과 |
 | 선언 N · 하나라도 아님 | 차단 — 로그인이 체인이라 멤버 하나만 풀려도 인증이 아니다 |
 | 선언 N · 복원됐지만 **미확인** | 차단 — 자동 로그인이 확인할 때까지 |
+| 로컬 날짜 경계 · 일일 재로그인 대상 있음 | 차단 — 멤버별 재로그인 완료까지(§5.3). Auth 상태는 유지 |
 | **확인할 수 없는 gate 선언이 하나라도 있음** | 차단 — probe 가 없거나 등록에서 떨어진 정의(§5.1) |
 | `Settings.authBypass` (**DEV 전용**) | 통과 + `bypassed:true`. prod 번들에서는 분기 자체가 사라진다 |
 | **판정 전** | **통과시키지 않는다** |
@@ -492,6 +497,40 @@ refresh token 이 없으면 **보내던 값을 그대로 다음 세대 키에 �
 
 이 정책은 `app/auth-resume.ts` 가 갖는다 — electron 을 물지 않아 순서와 방송 횟수를 단위 테스트로
 관측할 수 있다.
+
+### 5.3 실행 중 날짜 경계와 일일 재로그인
+
+main 프로세스의 로컬 날짜가 바뀌면 `createGate.lapseDay()`가 게이트 멤버의 현재
+`credentialRevision`·`verified`를 메모리 표식으로 기록한 뒤 같은 상태 방송 경로를 사용한다.
+다음 로컬 자정 타이머와 시스템 `resume`·`unlock-screen`·창 `browser-window-focus`에서 날짜를
+재확인하며, 날짜가 앞뒤 어느 쪽으로 바뀌어도 해제한다. 서버 요청과 표식 영속은 없다.
+
+| 경계 이후 상태 | 일일 판정 |
+|---|---|
+| 경계에서 이미 확인된 멤버 | `valid ∧ verified`이며 실제 로그인으로 기록한 revision이 경계 revision보다 커야 통과 |
+| 경계에서 이미 확인된 멤버의 자동 refresh로 credential revision만 증가 | 재로그인 요구 유지 — `credential-refreshed`는 로그인 증거가 아니다 |
+| 경계에서 `verified:false`였던 멤버 | 이후 `valid ∧ verified`가 되면 통과 — 진행 중 부팅 확인을 그대로 인정 |
+| 로그인 실패·취소 | 재로그인 요구 유지 |
+| 게이트 미요구 또는 DEV 우회 | `dailyRelogin: []`, 기존 통과 판정 유지 |
+
+로그인 증거는 기존 Auth change 구독이 `credential-committed` snapshot을 받을 때
+`gate.noteLoginCommit()`으로 방송 전에 기록한다. `credential-refreshed`도 Plugin·Harness의
+자격증명 무효화에는 반영되지만 일일 재로그인 통과에는 쓰지 않는다.
+
+`ProviderGateState.dailyRelogin`은 재로그인이 필요한 멤버 id를 선언 순서로 담는다.
+renderer는 상태가 `valid`가 아니거나 이 목록에 있는 첫 멤버를 로그인 단계로 고르고,
+현재 멤버가 목록에 있으면서 `valid`일 때만 날짜 변경 안내를 표시한다.
+
+일일 날짜 정책은 게이트 통과만 해제하며 grant·`verified`·credential revision·vault·cookie jar·Plugin
+연결·Harness 구성·진행 중 턴을 직접 변경하지 않는다. `snapshot()`에서 이미 만료된 자격증명을
+처음 관측하면 기존 Auth의 자연 만료 정착과 상태 방송·Plugin/Harness 무효화는 그대로 실행된다.
+
+일일 정책이 직접 내는 상태 방송과 자연 만료가 내는 기존 Auth 방송은 별개다. 메인 셸이 닫혀
+있어도 채팅 이벤트와 nav 주의 표시 구독은 유지된다. 구독 위치는
+[renderer 상태 관리](../frontend/state.md)가 서술한다.
+
+앱 시작은 실행 중 표식 없이 기존 부팅 확인을 사용하며 유효한 저장 로그인이 확인되면 자동
+통과한다. 재로그인 뒤 다음 날짜 경계가 오면 표식을 갱신해 다시 요구한다.
 
 ---
 

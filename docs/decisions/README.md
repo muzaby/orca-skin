@@ -33,6 +33,7 @@ ADR 이 없으면 architecture 본문이 그 역할을 대신한다 — 실제�
 | [005](005-runtime-conversation-separation.md) | Session(기록)과 SessionRuntime(실행)을 가른다 | `GLOSSARY.md` |
 | [006](006-login-free-auth-scheme.md) | 로그인 프리는 별도 인증 체계이며 같은 Plugin 소비 포트를 사용한다 | `arch/backend/auth.md` · `arch/backend/security.md` |
 | [007](007-queued-input-next-turn.md) | 응답 중 입력은 다음 턴까지 대기하며 즉시 보내기는 응답만 interrupt한다 | `arch/backend/runtime-ipc.md` §1.4 |
+| [008](008-daily-login-gate.md) | 실행 중 로컬 날짜 경계에서는 게이트 통과만 해제하고 다시 로그인을 요구한다 | `arch/backend/auth.md` §5.3 |
 
 ## 새 ADR 을 쓸 때
 

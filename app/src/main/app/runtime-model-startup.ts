@@ -89,12 +89,16 @@ export function createRuntimeModelReconcileSnapshot(
 // `AuthChange` 하나가 지나는 네 갈래 — 화면 방송 · plugin 동기화 · harness 무효화 · 카탈로그
 // 재조정. 컴포지션 루트의 클로저로 두면 어느 갈래가 사라져도 게이트가 조용하다(0202 D4).
 export function createRuntimeModelAuthChangeHandler(input: {
+  recordGateLogin(authId: AuthId, revision: number): void
   pushConnectionState(): void
   syncPlugins(authId: AuthId): void
   invalidateForAuth(authId: AuthId): void
   reconcileSnapshot(authId: AuthId, snapshot: AuthSnapshot): void
 }): (change: AuthChange) => void {
   return (change) => {
+    if (change.kind === 'snapshot' && change.cause === 'credential-committed') {
+      input.recordGateLogin(change.authId, change.snapshot.credentialRevision)
+    }
     input.pushConnectionState()
     // 화면 변화(입력 폼·OAuth 대기·resuming)는 여기서 끝난다 — 실행 credential 이 그대로다.
     if (change.kind !== 'snapshot') return

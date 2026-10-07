@@ -3,7 +3,7 @@ import { reportError } from '../infra/error-report'
 // 담당한다. 도메인 핸들러는 app/handlers/, chat 턴 셋업은 app/chat-turn.ts, 턴 파이프라인 협력자는
 // features/{chat,history,approvals,sessions,usage} 참조 (handoff 0062 수직 슬라이스 재구성).
 
-import { app, shell, webContents } from 'electron'
+import { app, powerMonitor, shell, webContents } from 'electron'
 import type { IpcMainInvokeEvent } from 'electron'
 import { mkdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
@@ -78,6 +78,7 @@ import { createGrantPersistence, createOAuthStatePersistence } from '../features
 import { OAuthStateStore } from '../features/auth/oauth'
 import { OAuthRunner } from '../features/auth/oauth-runner'
 import { createGate, selectGateMembers } from '../features/gate'
+import { startDailyGate } from './daily-gate'
 import { createAuthResume } from './auth-resume'
 import { createHarnessRuntimeConfigService } from '../features/harnesses/runtime-config'
 import {
@@ -175,6 +176,7 @@ export class Bootstrap {
   private pendingMessages?: PendingMessageQueue
   private activity?: SessionActivityProjector
   private titles?: TitleGenerator
+  private dailyGate?: { dispose(): void }
 
   constructor(
     private readonly isTrustedArtifactSender: (event: IpcMainInvokeEvent) => boolean,
@@ -478,6 +480,23 @@ export class Bootstrap {
     const pushConnectionState = (): void => {
       broadcastProviderState(connectionState(auth, gate, connections, resuming()))
     }
+    this.dailyGate = startDailyGate({
+      gate,
+      pushConnectionState,
+      now: Date.now,
+      setTimer: (callback, ms) => setTimeout(callback, ms),
+      clearTimer: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+      subscribeWake: (check) => {
+        powerMonitor.on('resume', check)
+        powerMonitor.on('unlock-screen', check)
+        app.on('browser-window-focus', check)
+        return () => {
+          powerMonitor.off('resume', check)
+          powerMonitor.off('unlock-screen', check)
+          app.off('browser-window-focus', check)
+        }
+      }
+    })
 
     // ── Auth change 소비 (0188 D-008) ──────────────────────────────────────────
     // **reader 는 한 벌이다** (0202 D4) — seam 마다 새로 만들면 그중 하나만 굳어도 나머지
@@ -767,6 +786,7 @@ export class Bootstrap {
         // The sole Auth-change consumer is installed only after deploy invalidation. No verified
         // snapshot can fetch a contribution and then be erased by the boot-time reset.
         onChange: createRuntimeModelAuthChangeHandler({
+          recordGateLogin: (authId, revision) => gate.noteLoginCommit(authId, revision),
           pushConnectionState,
           syncPlugins: (authId) => {
             for (const plugin of plugins) {
@@ -866,6 +886,7 @@ export class Bootstrap {
     // admission freeze 를 **가장 먼저**(0151 AC9) — 이후 send/steer 예약을 거부해, 종료 중
     // 게이트 flush·자동 연속 턴이 큐 폐기와 경합하며 메시지를 뒤늦게 제출하는 것을 막는다.
     this.pendingMessages?.freeze()
+    this.dailyGate?.dispose()
     void this.artifacts?.close()
     this.titles?.dispose()
     this.scheduler?.stopAll()

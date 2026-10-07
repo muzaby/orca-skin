@@ -164,6 +164,7 @@ function deployment(options: { withExpiry?: boolean } = {}): TestDeployment {
   const plugins = [loginFree, required]
   const changes: AuthChange[] = []
   const onChange = createRuntimeModelAuthChangeHandler({
+    recordGateLogin: () => undefined,
     pushConnectionState: () => undefined,
     syncPlugins: (authId) => {
       for (const plugin of plugins) if (plugin.auth.authId === authId) plugin.sync()
@@ -353,7 +354,7 @@ describe('로그인 프리 가상 배포 — 같은 Plugin 경로 (0248)', () =>
         blockedMembers: selection.blocked.length,
         bypass: () => false
       }).state()
-    ).toEqual({ required: true, passed: false, bypassed: false })
+    ).toEqual({ required: true, passed: false, bypassed: false, dailyRelogin: [] })
     expect(d.secretReader.read(PUBLIC_API_PLUGIN.id)).toBeNull()
   })
 })

@@ -11,6 +11,7 @@ import { MODAL_INPUT, MODAL_LABEL } from '../../../shared/ui/Modal'
 import { useI18n } from '../../../shared/i18n'
 import { authChoices, needsAuthChoice } from '../../../shared/config/providerAuth'
 import { AuthKindChoices } from '../../../shared/ui/AuthKindChoices'
+import { currentGateProvider, showsDailyRelogin } from '../lib/gateStep'
 import orca from '../assets/orca-login.webp'
 
 // 로그인 랜딩 (0180 이 지운 구 `features/auth/AuthView` 복원 — 0181 의 provider 축에 맞춰 개정).
@@ -26,12 +27,14 @@ import orca from '../assets/orca-login.webp'
 // 필드 이름을 쓰면 초기화 없이는 앞 값이 남는다.
 export function GateLogin({
   providers,
+  dailyRelogin,
   step,
   busy,
   onLogin,
   onSubmit
 }: {
   providers: ProviderInfo[]
+  dailyRelogin: readonly string[]
   step: ProviderStepInfo | null
   busy: boolean
   onLogin: (providerId: string, authKind?: ProviderAuthKind) => void
@@ -39,7 +42,7 @@ export function GateLogin({
 }): React.JSX.Element {
   const { tr } = useI18n()
   // 아직 통과하지 못한 첫 provider 가 지금 할 일이다.
-  const current = providers.find((provider) => provider.status !== 'valid') ?? providers[0]
+  const current = currentGateProvider(providers, dailyRelogin)
   const mine = step && current && step.providerId === current.id ? step : null
   const failure = mine?.kind === 'failed' ? mine : null
   const fields = mine?.kind === 'input-required' ? mine.fields : []
@@ -74,6 +77,9 @@ export function GateLogin({
               label: current.label
             })}
           </p>
+        )}
+        {showsDailyRelogin(current, dailyRelogin) && (
+          <p className="mb-3 text-center text-[12.5px] text-ink2">{tr('gate.dailyRelogin')}</p>
         )}
         {failure && (
           <p role="alert" className="mb-3 text-center text-[12.5px] text-bad">

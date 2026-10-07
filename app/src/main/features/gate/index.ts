@@ -14,6 +14,7 @@
 // | prod | N개              | 일부만 valid+verified        | 차단 ← 로그인이 체인이라 멤버 하나만 풀려도 인증이 아니다 |
 // | prod | N개              | **복원만 됨(미로그인)**       | **차단** ← 기록은 인증이 아니다. 로그인 화면에서 한 번 통과해야 한다 |
 // | prod | N개              | 전부 valid + **verified**    | 통과 |
+// | 둘 다 | N개             | 날짜 경계 뒤 재로그인 필요   | 차단 (자격증명은 유지) |
 // | **DEV** | **0개**       | —                            | **차단** ← 로그인 화면을 항상 볼 수 있어야 한다 |
 // | 둘 다 | N개(또는 DEV)    | (무관) bypass ON             | 통과 |
 //
@@ -36,6 +37,7 @@ import type {
   GateAuthDefinition
 } from '../../contracts/auth'
 import { ifPresent } from '../../../shared/obj'
+import { dailyReloginRequired, type DailyMark } from './daily'
 
 export interface GateMember {
   authId: string
@@ -49,6 +51,7 @@ export interface GateMember {
   // 살아 있으면 IdP 가 폼 없이 곧장 `doneUrlPrefix` 로 보내 창이 열리자마자 닫히므로, 그것이
   // 곧 자동 로그인이다 — 여기에 별도 검증 경로를 만들지 마라(사용자 결정 2026-08-11).
   verified: boolean
+  dailyReloginRequired: boolean
 }
 
 export interface GateInput {
@@ -69,8 +72,8 @@ export function evaluateGate(input: GateInput): ProviderGateState {
   // 것이 fail-closed 의 뜻이다. 호출부가 두 플래그로 나눠 넘기던 것을 여기서 파생한다(0190).
   const required =
     input.alwaysRequired === true || input.blocked === true || input.members.length > 0
-  if (!required) return { required: false, passed: true, bypassed: false }
-  if (input.bypass) return { required: true, passed: true, bypassed: true }
+  if (!required) return { required: false, passed: true, bypassed: false, dailyRelogin: [] }
+  if (input.bypass) return { required: true, passed: true, bypassed: true, dailyRelogin: [] }
   // 선언이 0개인 DEV 에서는 통과할 방법이 bypass 뿐이다 — `every` 는 빈 배열에 true 를 주므로
   // 멤버 수를 함께 본다(안 그러면 DEV 게이트가 즉시 열려 원래 문제로 되돌아간다).
   //
@@ -81,8 +84,13 @@ export function evaluateGate(input: GateInput): ProviderGateState {
   const passed =
     input.blocked !== true &&
     input.members.length > 0 &&
-    input.members.every((member) => member.status === 'valid' && member.verified)
-  return { required: true, passed, bypassed: false }
+    input.members.every(
+      (member) => member.status === 'valid' && member.verified && !member.dailyReloginRequired
+    )
+  const dailyRelogin = input.members
+    .filter((member) => member.dailyReloginRequired)
+    .map((member) => member.authId)
+  return { required: true, passed, bypassed: false, dailyRelogin }
 }
 
 // ── 앱 접근 정책 ──────────────────────────────────────────────────────────────
@@ -97,6 +105,11 @@ export interface Gate {
   state(): ProviderGateState
 }
 
+export interface DailyGate extends Gate {
+  lapseDay(): void
+  noteLoginCommit(authId: string, revision: number): void
+}
+
 export interface CreateGateDeps {
   members: readonly BoundAuth[]
   // 확인할 수 없는 gate 선언의 수. 0 이 아니면 gate 는 required 이면서 **통과하지 않는다**
@@ -109,15 +122,34 @@ export interface CreateGateDeps {
   alwaysRequired?: boolean
 }
 
-export function createGate(deps: CreateGateDeps): Gate {
+export function createGate(deps: CreateGateDeps): DailyGate {
+  const marks = new Map<string, DailyMark>()
+  const loginRevisions = new Map<string, number>()
   return {
+    lapseDay(): void {
+      for (const auth of deps.members) {
+        const snapshot = auth.snapshot()
+        marks.set(auth.authId, {
+          revision: snapshot.credentialRevision,
+          verified: snapshot.verified
+        })
+      }
+    },
+    noteLoginCommit(authId: string, revision: number): void {
+      if (deps.members.some((auth) => auth.authId === authId)) loginRevisions.set(authId, revision)
+    },
     state(): ProviderGateState {
       const members = deps.members.map((auth) => {
         const snapshot = auth.snapshot()
         return {
           authId: auth.authId,
           status: snapshot.status,
-          verified: snapshot.verified
+          verified: snapshot.verified,
+          dailyReloginRequired: dailyReloginRequired(
+            marks.get(auth.authId),
+            snapshot,
+            loginRevisions.get(auth.authId)
+          )
         }
       })
       return evaluateGate({

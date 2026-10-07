@@ -46,6 +46,7 @@
 | **용어** 정의 | [`GLOSSARY.md`](GLOSSARY.md) · 쉬운 해설은 [`arch/frontend/terms.md`](arch/frontend/terms.md) · [`arch/backend/terms.md`](arch/backend/terms.md) |
 | **왜 이 구조인가** (결정 근거) | [`decisions/`](decisions/) — ADR |
 | **로그인 프리 인증 체계의 선택 근거** | [`decisions/006-login-free-auth-scheme.md`](decisions/006-login-free-auth-scheme.md) |
+| **일일 로그인 게이트 정책의 선택 근거** | [`decisions/008-daily-login-gate.md`](decisions/008-daily-login-gate.md) · 현재 규칙은 [`arch/backend/auth.md`](arch/backend/auth.md) §5.3 |
 | **응답 중 입력 대기·즉시 보내기 결정** | [`decisions/007-queued-input-next-turn.md`](decisions/007-queued-input-next-turn.md) · 현재 동작은 [`arch/backend/runtime-ipc.md`](arch/backend/runtime-ipc.md) §1.4 |
 | 커밋 trailer 작성·파싱 | [`git-template.md`](git-template.md) |
 | 코드에서 센 **수치** (채널·슬라이스·키·마이그레이션 수) | [`generated/inventory.md`](generated/inventory.md) — 생성물, 직접 편집 금지 |

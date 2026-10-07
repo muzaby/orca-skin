@@ -17,12 +17,14 @@ import { PRODUCT_DISPLAY_NAME } from '../../../shared/product'
 // (게이트에 백도어를 만들지 않는다).
 export function GateFrame({
   providers,
+  dailyRelogin,
   step,
   busy,
   onLogin,
   onSubmit
 }: {
   providers: ProviderInfo[]
+  dailyRelogin: readonly string[]
   step: ProviderStepInfo | null
   busy: boolean
   onLogin: (providerId: string, authKind?: ProviderAuthKind) => void
@@ -37,6 +39,7 @@ export function GateFrame({
     >
       <GateLogin
         providers={providers}
+        dailyRelogin={dailyRelogin}
         step={step}
         busy={busy}
         onLogin={onLogin}

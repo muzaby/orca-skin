@@ -175,6 +175,7 @@ export const en: typeof ko = {
     signIn: 'Sign in',
     signingIn: 'Signing in…',
     resuming: 'Signing in automatically with the existing session…',
+    dailyRelogin: 'A new day has started. Please sign in again.',
     chainProgress: 'Step {{index}} of {{total}} · {{label}}',
     noProviders:
       'No sign-in target is declared in this build. Use the bypass toggle in the debug panel.',
