@@ -1532,6 +1532,7 @@ node scripts/check-doc-inventory.mjs --check
 | D5 | 새 대화의 init 전 계획 승인 요청이 다른 열람 세션으로 라우팅됨 — 독립 X1 | VP-36·D-033·AC24/25; VP-35 종속 | 세션 미확정 requested/resolved의 pending draft 소유권을 보존하고 session.updated 승격에 연결 | BLOCKING | closed(r3 독립 검증): X1 기대 보존·owner10green, F11 10/10·F12 2/10 red→원복10green. 관련 pair closeout 발행. [`verify.md`](verify.md) r3 §6 |
 | D6 | 하위 계획 승인과 stale 승인 ID가 메인 모드/현재 승인 상태를 바꿈 — 독립 X2 | VP-36·D-033/AC25·D-034/AC26·ΔV3 Product/UX 하위 호출 행 | approve/revise/구조화 코멘트/reject의 현재 requestId·owner를 처리 전 확인하고 providerRequest의 child 경계를 낙관적 renderer 모드 소비까지 유지 | BLOCKING | closed(r3 독립 검증): 원 X2 10기대 보존+실제 유효응답3green, F16~21 assertion red→bytes원복/동일필터green. [`verify.md`](verify.md) r3 §6 |
 | D7 | EP02의 app 구독3실행자리를1항목으로 센 r3 자기보고 “54물리” 오계산 | VP-02·04·19 / §10 EP-02′; 이미 명시된 구독 운반 path | 지정54와 실측56의 대응표를 기록하고 INDEX 수량 정정 | NON_BLOCKING | closed(r3 독립 검증): EP02 9→11 재측정, 완료/응답 구독 제거 X3 6/19·X4 8/19 red→원복19green. 규범 변경 없이 PLAN_GAP0. [`verify.md`](verify.md) r3 §4 |
+| D8 | runtime getter의 퇴역 channel 우선 분기에 oracle 없음 — 제거해도 등록 분모 green, 퇴역 채널 늦은 Exit가 deny 전 계획 파일을 1회 읽음 | VP-36·ΔV3.4 TD §2 / EP-12⁗ runtime getter | 퇴역 뒤 늦은 Exit의 `getPlanFiles`0을 정식 회귀로 추가 | NON_BLOCKING | open — [`verify.md`](verify.md) r3 재검증 §1 |
 
 ---
 
