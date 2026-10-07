@@ -6,6 +6,7 @@ import { BootScreen } from './boot/BootScreen'
 import { bootActions, useBootStore } from './boot/bootStore'
 import { useProviderGate } from '../features/providers/hooks/useProviderGate'
 import { rootFrame } from './rootFrame'
+import { useSessionAttentionSubscription } from './hooks/useSessionCompletion'
 
 // 앱 최상위 게이트. renderer 부트 오케스트레이터를 실행하고 그 단계에 따라 화면을 고른다.
 //
@@ -23,6 +24,7 @@ import { rootFrame } from './rootFrame'
 // 게이트 provider 선언이 0개면 main 이 `required:false, passed:true` 를 주므로 3번은 즉시
 // 지나간다 — dev/OSS 빌드가 로그인 화면에 갇히지 않는다(AC14).
 export function RootGate(): React.JSX.Element {
+  useSessionAttentionSubscription()
   const bootPhase = useBootStore((s) => s.phase)
   const bootError = useBootStore((s) => s.errorMessage)
   const gate = useProviderGate()
@@ -44,6 +46,7 @@ export function RootGate(): React.JSX.Element {
     return (
       <GateFrame
         providers={gate.providers}
+        dailyRelogin={gate.gate?.dailyRelogin ?? []}
         step={gate.step}
         busy={gate.busy}
         onLogin={(providerId, authKind) => void gate.login(providerId, authKind)}

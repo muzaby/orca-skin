@@ -11,7 +11,7 @@
 | 작성자 | Claude Code 초안 · Codex 복원/설계 검토 |
 | 일자 | 2026-10-07 |
 | 매핑 | 기준 커밋 `origin/main@5e1e9209` · 브랜치 `claude/0254-0255-nav-progress-daily-login` |
-| 상태 | READY |
+| 상태 | IMPL_DONE |
 | V mode | `Delta V` |
 | 기준 V | `0255:V1@ba2c3eeb3e00d9126c4d80356823f2160d200f00` (공유 브랜치의 설계 커밋; `git cat-file -t` = commit) |
 | 이번 V revision | `ΔV1` |
@@ -609,82 +609,179 @@ DayBoundary → gate.lapseDay → gate.state(dailyRelogin) → pushConnectionSta
 > **재구현 턴도 같은 이름의 필드를 다시 채운다** — 표제(`… (r2)`, 같은 라운드 추가 턴이면 `… (r2.2)`)만 바꾸고 필드를 줄이지 않는다.
 > 해당 없는 필드는 지우지 말고 `해당 없음`으로 남긴다.
 
-## [구현자 기입] 설계 리뷰
+2026-10-07 사용자 승인으로 PLAN_GAP을 정정했다. 현재 유효 V는 plan §7-B의 V1 + ΔV1이며 D-012가 D-002를 대체한다. 기존 Auth 자연 만료를 유지하고 일일 정책의 직접 변경·직접 방송으로 계약 범위를 한정했다.
+정정 전 strict 단언2 red와 관측1 green의 원문은 [natural-expiry-probe.md](natural-expiry-probe.md)에 보존했다. 영구 통과 회귀는 app/src/main/app/daily-gate.expiry.test.ts이며 반례 임시 테스트와 구분한다.
+아래 산출은 구현 턴 팀 관측과 실제 증거 JSON/로그를 합쳤다. 최종 관련 합집합59파일704케이스 PASS는 .tmp/0255-final-vitest.log의 팀 관측이다. 최종 typecheck 3구성 오류0·lint 오류0/기존 warning1·inventory 3검사 green을 확인했다. 구현 상태 사본은 아래 보고와 INDEX에 둔다.
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+## [구현자 기입] 설계 리뷰 (r1)
 
-## [구현자 기입] 강제 지점 전수 (§10 대조)
+- 동의 / 그대로 진행: 일일 게이트·로그인 원인 구분·RootGate 구독·문서 배선은 유효 V대로 구현했다. 관련 합집합59파일704케이스 PASS(구현 턴 팀 관측).
+- 이견 / 현실성 문제: 실제 Auth의 snapshot은 자연 만료를 정착시키므로 원문 AC5의 절대 불변·부수효과0 및 AC1의 전체 방송1과 충돌했다. 2026-10-07 사용자 승인과 §7-B ΔV1로 해결했다.
+- ACTIVE Decision과 충돌하는 설계 발견: 현재 충돌 없음. D-012에 따라 유효기간이 남은 Auth는 정책이 직접 변경하지 않으며 기존 expired 이벤트·저장·Plugin/Harness 무효화는 유지한다. 영구 expiry 회귀의 직접 정책1/전체2·최종차단 oracle이 새 계약을 잠근다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-… | … | … | … | … | … |
+| VP-01-D1·VP-03-D1·VP-08-D1·VP-13·VP-21 | EP-01 lapseDay snapshot 표식 | 1 | 1/1 | rg -n -e lapseDay -e 'snapshot\(' app/src/main/features/gate/index.ts → :129·131. DG 직접 mutator0·유효 snapshot 동일; EXP expired 이벤트1·rev+1·저장/sync/invalidate 각1·fetch/authorize0. 강화 후 단독1/1 PASS | 없음 |
+| VP-02·VP-13·VP-19 | EP-02 일일 판정 | 3 | 3/3 | rg -n -e dailyReloginRequired -e 'const passed' -e 'const dailyRelogin' app/src/main/features/gate → state 매핑:148·passed:88·목록:90. M3/M4 각2 assertion red | 없음 |
+| VP-05·VP-13 | EP-03 미요구·bypass 반환 | 2 | 2/2 | gate/index.ts:75·76의 빈 배열 반환. M9 assertion5 red | 없음 |
+| VP-01-D1·VP-09·VP-12 | EP-04 예약·wake·정리 | 10 | 10/10 | bootstrap.ts:483·490~496·889와 daily.ts의 start/check 예약. M10a~c·M11a~d·M12 각각1, M14 2·M15 4 assertion red | 없음 |
+| VP-01-D1·VP-08-D1·VP-21 | EP-05 lapse → 정책 push | 2 | 2/2 | EXP:165~184 직접 policy1·전체2·최종차단 ['gate']·방송 []→['gate']·expired→push→sync→invalidate→reconcile→policy-push→push 단언 green | 없음 |
+| VP-01-D1·VP-02·VP-10·VP-14 | EP-06 dailyRelogin 운반 | 7 | 7/7 | rg -n -e dailyRelogin -e currentGateProvider -e showsDailyRelogin app/src/shared/ipc.ts app/src/main/features/gate app/src/main/app/connection-views.ts app/src/renderer/src/app app/src/renderer/src/features/providers — shared/ipc.ts:1830·RootGate.tsx:27/49·GateFrame.tsx:42·GateLogin.tsx:45/81 재검색, 운반 누락 차집합∅(팀 관측) | 없음 |
+| VP-03-D1·VP-11·VP-17·VP-20 | EP-07 구독/열람 소유 | 2 | 2/2 | RootGate.tsx:27 설치; useSessionCompletion.ts:21/22 구독·28/29 열람 전용. M8 구조 단언1 red; 소유 검색 차집합∅ | 없음 |
+| VP-07 | EP-08 문서 | 7 | 7/7 | auth.md:396·501·524, IPC_CONTRACT.md:481, ADR-008:3/13/23/37/46/52, decisions/README:36, docs/INDEX:49, guide:279, frontend/state.md:44. 승인 후 직접 변경 범위·기존 만료 유지 정합화와 inventory green | 없음; 반례 증거 문서는 분모 밖 |
+| VP-02·VP-10 | EP-09 ko·en 안내 | 2 | 2/2 | rg -n 'dailyRelogin:' app/src/renderer/src/shared/i18n/resources → ko.ts:177·en.ts:178. locale 누락 차집합∅; i18n 포함 합집합 green | 없음 |
+| VP-02·VP-19 | EP-10 로그인 증거 | 5 | 5/5 | auth.ts:407~408 cause, login.ts refresh 원인/settle 전달, runtime-model-startup.ts:99~102 방송 전 기록, bootstrap.ts:789 포트. M16/17/18/19 assertion1/3/2/1 red | 없음 |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: …
+- 분모 검산: EP10행·41자리 = 1+3+2+10+2+7+2+7+2+5. 실측 main26/26 + renderer9/9(문서 state 포함) + docs6/6 = 41/41.
+- EP-01·05는 ΔV1 계약으로 닫았다. 기존 Auth 내부 정착 경로는 VP-21·22 회귀로 추적하며 새 EP 자리를 추가하지 않았다.
+- §10 밖 발견: snapshot 자연 만료·재진입 방송은 사용자 승인 ΔV1에 반영했다. 운반·소유·locale 전수 검색의 차집합은 ∅다.
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | … | … | … | … |
+| VP-01-D1 | REQUIRED | SELF_PASS | DG 경계·wake·반복 + EXP 정책직접1/전체2·최종차단 green | VP-01의 M1 3·M2 2 assertion red 승계 |
+| VP-02 | REQUIRED | SELF_PASS | 실제 Auth refresh 차단·login/reauth/continue 통과, 체인 SSR와 안내 green | M3/4 각2·M5 1·M6 3 red |
+| VP-03-D1 | REQUIRED | SELF_PASS | DG 직접 mutator0·유효 snapshot 동일 + EXP 기존 자연 만료/소비자 정착 green | VP-03의 M7 revoke/resume 각각3·M8 1 red 승계 |
+| VP-04 | REQUIRED | SELF_PASS | gate 초기 표식 없음·부팅 복원 회귀 green; 표식 영속 경로 전수 검색 없음 | 직접 oracle |
+| VP-05 | REQUIRED | SELF_PASS | gate 진리표·bypass 우선·미요구 빈 목록 green | M9 5 red |
+| VP-06 | REQUIRED | SELF_BLOCKED | AC15 실제 Windows 날짜·절전·focus·SSO 실기 미실행 | 실기 |
+| VP-07 | REQUIRED | SELF_PASS | 규범 문서7곳 앵커·승인 후 정합화·inventory generated/prose/links green | not selected |
+| VP-08-D1 | REQUIRED | SELF_PASS | DG passed→lapsed2→lapsed1→passed→lapsed2 + EXP []→['gate']·최종차단 green | VP-01·02 선택 변이 전부 승계 |
+| VP-09 | REQUIRED | SELF_PASS | wake3종 on/off·bootstrap start·shutdown dispose 소스 가드5케이스 green | M10a~c·M11a~d·M12 각1 red |
+| VP-10 | REQUIRED | SELF_PASS | GateLogin SSR·gateStep·prop 운반 green; renderer baseline/원복8파일96 | M5 1·M6 3 red |
+| VP-11 | REQUIRED | SELF_PASS | RootGate effect 소유·AppLayout viewed 소유 구조 단언·게이트 중 주의 표시 green | M8 1 red |
+| VP-12 | REQUIRED | SELF_PASS | D21케이스: 로컬 자정·DST·점프·역행·조기·dispose·timer 상한 green | M13/14/15 1/2/4 red |
+| VP-13 | REQUIRED | SELF_PASS | gate/daily48케이스: revision·확인 예외·bypass·다음날 표식 갱신 green | M3/M4/M9 red 공유 |
+| VP-14 | REQUIRED | SELF_PASS | gateStep·SSR 현재 단계/안내3조건 green | M5/M6 red 공유 |
+| VP-15 | REGRESSION | SELF_PASS | 기존 gate 진리표 포함 G27케이스 green | not selected |
+| VP-16 | REGRESSION | SELF_PASS | auth-resume·rootFrame 부팅/복원/대기 회귀 포함 합집합59파일704 PASS | not selected |
+| VP-17 | REGRESSION | SELF_PASS | 기존 0249 완료·응답대기·열람 정책 green; renderer 넓은21파일205 | not selected |
+| VP-18 | REGRESSION | SELF_PASS | no-stray-auth-subscribe 포함 합집합 green; 새 Auth 구독 없이 기존 handler 포트 사용 | not selected |
+| VP-19 | REQUIRED | SELF_PASS | A15케이스: 실제 refresh/login·실패/취소/superseded·기록-before-push·기존 소비자 무효화 green | M16/17/18/19 1/3/2/1 red |
+| VP-20 | REGRESSION | SELF_PASS | 게이트 중 생성 집합/주의 표시·재열람 회귀 green; RootGate.tsx:27 구독 유지 | M8 공유 |
+| VP-21 | REGRESSION | SELF_PASS | EXP:165~184 실제 Auth·gate·daily·기존 handler: expired/effectiveExpiry1·저장/sync/invalidate 각1·Auth방송1→정책방송1·fetch/authorize0. 강화 후 단독1/1 PASS | not selected — 직접 상태·이벤트·호출·순서 oracle |
+| VP-22 | REGRESSION | SELF_PASS | runtime.test.ts:171~226 기존4케이스: verified 해제·반복 revision 1회·expired1/credentialChanged=true·request 경로 정착 green | not selected — 기존 직접 oracle |
 
-## [구현자 기입] 이번 라운드 수정의 잠금
+- 합계 검산: REQUIRED15 = SELF_PASS14 + SELF_BLOCKED1; REGRESSION7 = SELF_PASS7. 전체22 = SELF_PASS21 + SELF_BLOCKED1.
+- V1 20 − 대체3 + ΔV1 5 = 22. superseded VP-01·03·08의 AC·선택 변이는 각각 -D1로 전부 승계했고 폐기 증거0이다. 자기결과이며 독립 검증 PASS를 선점하지 않는다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
+
+구현 턴 팀 변이 관측: .tmp/daily-main-mutations.json 22회 + .tmp/0255-renderer-evidence/results.json 3회.
+25회 모두 assertion red·대상 파일 bytes 원복. main JSON 재읽기22회 모두 exit1/failedCases≥1·복구6대상true, renderer JSON 재읽기3회 M5 1/M6 3/M8 1 red. main 원복5파일71·renderer baseline/원복8파일96 green이다.
+약호 경로: DG=app/src/main/app/daily-gate.test.ts, EXP=app/src/main/app/daily-gate.expiry.test.ts, D=app/src/main/features/gate/daily.test.ts, G=app/src/main/features/gate/gate.test.ts, W=app/src/main/app/daily-gate.wiring.test.ts, A=app/src/main/app/runtime-model-startup.test.ts, GL=app/src/renderer/src/features/providers/components/GateLogin.render.test.ts, GS=app/src/renderer/src/features/providers/lib/gateStep.test.ts, SA=app/src/renderer/src/app/hooks/useSessionCompletion.test.ts.
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| M1 일일 push 제거 | VP-01-D1 / EP-05 | 최초; ΔV1 승계 | DG lapses/follows/wakes — 3 | assertion red·원복 |
+| M2 lapseDay 제거 | VP-01-D1 / EP-01·05 | 최초; ΔV1 승계 | DG lapses/follows — 2 | assertion red·원복 |
+| M3 revision >를 >=로 | VP-02·13 / EP-02 | 최초 | D verified login evidence + G same revision cannot pass — 2 | assertion red·원복 |
+| M4 미확인 경계 예외 제거 | VP-02·13 / EP-02 | 최초 | D verified login evidence + G previously unverified first confirmation — 2 | assertion red·원복 |
+| M5 옛 현재 단계 규칙 | VP-02·10·14 / EP-06f | 최초 | GL advances to the second valid member — 1 | assertion red·원복 |
+| M6 안내 status 조건 제거 | VP-02·10·14 / EP-06g | 최초 | GL expired reason + GS none/expired reason — 3 | assertion red·원복 |
+| M7-revoke 경계에서 revoke | VP-03-D1 / EP-01 | 최초; ΔV1 승계 | DG3케이스 — 3 | assertion red·원복 |
+| M7-resume 경계에서 resume | VP-03-D1 / EP-01 | 최초; ΔV1 승계 | DG3케이스 — 3 | assertion red·원복 |
+| M8 구독을 AppLayout으로 복귀 | VP-03-D1·11 / EP-07 | 최초; ΔV1 승계 | SA RootGate owns the attention effect — 1 | assertion red·원복 |
+| M9 bypass 조기 반환 제거 | VP-05·13 / EP-03 | 최초 | G 기존 bypass4 + daily marks bypass — 5 | assertion red·원복 |
+| M10a resume on 제거 | VP-09 / EP-04c | 최초 | W powerMonitor resume on/off — 1 | assertion red·원복 |
+| M10b unlock-screen on 제거 | VP-09 / EP-04d | 최초 | W powerMonitor unlock-screen on/off — 1 | assertion red·원복 |
+| M10c focus on 제거 | VP-09 / EP-04e | 최초 | W app browser-window-focus on/off — 1 | assertion red·원복 |
+| M11a shutdown dispose 제거 | VP-09 / EP-04f | 최초 | W starts once and disposes at shutdown — 1 | assertion red·원복 |
+| M11b resume off 제거 | VP-09 / EP-04g | 최초 | W powerMonitor resume on/off — 1 | assertion red·원복 |
+| M11c unlock-screen off 제거 | VP-09 / EP-04h | 최초 | W powerMonitor unlock-screen on/off — 1 | assertion red·원복 |
+| M11d focus off 제거 | VP-09 / EP-04i | 최초 | W app browser-window-focus on/off — 1 | assertion red·원복 |
+| M12 bootstrap 시작 제거 | VP-09 / EP-04j | 최초 | W starts once and disposes at shutdown — 1 | assertion red·원복 |
+| M13 날짜 !==를 >로 | VP-12 / EP-04 | 최초 | D clock reversal — 1 | assertion red·원복 |
+| M14 check 재예약 제거 | VP-12 / EP-04b | 최초 | D midnight/jump/reversal + early delivery — 2 | assertion red·원복 |
+| M15 start에서 콜백 | VP-12 / EP-04a | 최초 | D lifetime4케이스 — 4 | assertion red·원복 |
+| M16 refresh를 committed로 | VP-19 / EP-10b | 최초 | A real Auth refresh/login — 1 | assertion red·원복 |
+| M17 recordGateLogin 제거 | VP-19 / EP-10d | 최초 | A snapshot routes/real refresh-login/reauth-continuation — 3 | assertion red·원복 |
+| M18 기록을 push 뒤로 | VP-19 / EP-10d | 최초 | A snapshot routes/real refresh-login — 2 | assertion red·원복 |
+| M19 bootstrap 포트 제거 | VP-19 / EP-10e | 최초 | W live gate login recorder — 1 | assertion red·원복 |
 
-- **분모 검산**: …
-- **덮개 회귀**: …
+- 분모 검산: 등록24자리 + M7 대안 추가1회 = 실행25회·표25행. 인용 변이0·등록 밖 새 잠금 oracle0; 등록 proxy는 해당 변이 행으로 검사했다.
+- 감사 재현: 저장소 루트에서 Get-Content .tmp/daily-main-mutations.json 및 Get-Content .tmp/0255-renderer-evidence/results.json. 심는/실행/복구 절차는 .tmp/daily-main-mutations.mjs·.tmp/0255-renderer-mutations.py 원문이다. 이 산출을 root가 직접 실행했다는 주장은 하지 않는다.
+- 덮개 회귀: 최초 r1. 기존 0249·0254 회귀 합집합 green이며 구독 이동 구조 장치가 M8을 검출했다.
+- 원문 자연 만료 strict2 red는 승인 정정의 증거로 보존했다. 현재 ΔV1은 EXP 통과 회귀와 기존 runtime4케이스로 닫는다. VP-21·22에는 선택 변이를 새로 등록하지 않았다.
 
-## [구현자 기입] Product/UX 파생 검토
+## [구현자 기입] Product/UX 파생 검토 (r1)
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새 사용자 문구·상태에 소비자가 있는가 | RootGate→GateFrame→GateLogin prop과 gateStep/SSR green; 날짜 이유는 valid+목록소속일 때만 표시 | 없음 |
+| seam 재배치 뒤 정리 스코프가 유지되는가 | dailyGate dispose·wake3종 off·timer 정리 W/DG green; M11a~d가 해당 누락을 각각 검출 | 없음 |
+| 새 실패 경로가 Part I 상태표 어디에 해당하는가 | 로그인 실패·취소는 기존 화면 유지. 자정 동시 자연 만료는 ΔV1 상태표의 기존 expired 로그인 화면이며 날짜 안내는 숨김 | 승인 정정 반영 완료 |
+| 실패가 아무 일도 안 일어남으로 보이지 않는가 | 경계 안내·기존 failed 문구 SSR green. authKind stale은 unknown_auth_kind 실패 가능 | 아래 후속 후보 |
+| 늦은 응답이 화면을 되돌리지 않는가 | superseded 로그인 성공 증거 없음(A green). 게이트 중 turn/permission/생성 집합은 RootGate 구독 유지 | 실제 OS·긴 턴 실기는 AC15 대기 |
 
-## [구현자 기입] 놓친 잠재 문제 + 대응
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | snapshot 자연 만료 정착이 원문 AC5 절대 불변과 충돌 | 해결 — 사용자 승인 D-012·AC5(ΔV1)·EP-01로 직접 변경 범위와 기존 만료 정착을 분리; 영구 EXP+runtime 회귀 green | [반례 원문](natural-expiry-probe.md), runtime.ts:126→store.ts:393/429→startup.ts:102/106/107; EXP:168~184 |
+| 2 | 동시 Auth방송1+정책방송1이 원문 AC1 전체1과 충돌 | 해결 — AC1(ΔV1)·EP-05 직접 정책1/전체2·방송 순서·최종차단 직접 oracle green | EXP:170~184, 정책직접1·전체2·[]→['gate'] |
+| 3 | GateLogin authKind는 provider 변경 뒤에도 유지된다. 다음 provider 방식1개면 선택 UI 없이 잘못된 authKind로 실패 가능 | NEXT_HANDOFF 후보 — 기존 chain의 인접 UX, 이번 규범을 확장하지 않음 | GateLogin.tsx:52·95~113, login.ts:473~477 unknown_auth_kind. 코드 경로 관측이며 별도 행동 probe 미실행 |
+| 4 | 메인 셸 언마운트 시 미전송 Composer 초안 소실 | 기존 plan§17 후속 후보 유지 | plan§17·ADR-008 포기 절; 초안 보존은 현재 비범위 |
+| 5 | 문서 boolean-only cause 소비·무조건 refresh 불통과 표현이 gate/미확인 예외와 충돌 | 선조치 — Plugin/Harness 소비 범위 한정, 경계 당시 확인된 멤버 조건화. 승인 후 직접 Auth 변경 범위·기존 만료 유지 정합화 | auth.md§4.2·511·524~530, IPC_CONTRACT.md:481, ADR-008:37~39·52~53 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+대체 구현 메커니즘 없음. 기존 Auth 자연 만료와 소비자 경로를 그대로 유지했다. 발견된 원문 설계 충돌은 사용자 승인 §7-B ΔV1에 반영했고 아래4축을 새 직접 oracle로 재확인했다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 대체물 없음; 기존 snapshot 자연 만료를 원문 계획이 누락 | AC1(ΔV1)·5-D1 / EP-01·05. EXP expired·verified false·rev+1·이벤트1·직접정책1/전체2 green; runtime 기존4케이스 green |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 대체물 없음; 기존 Auth 이벤트를 Plugin/Harness 소비자가 함께 받음 | D-012·AC5(ΔV1): 저장/sync/invalidate 각1 유지. 정책 직접 mutator0·유효 snapshot 동일 green |
+| 재진입 | 대체물 없음; lapseDay snapshot의 handler push→gate.state 재진입 | AC1(ΔV1) / EP-05: EXP 방송 []→['gate']·정책직접1·전체2·최종차단·순서 로그 green |
+| 다른 무효화 축 | 대체물 없음; refresh는 credentialChanged:true이나 로그인 증거가 아님 | AC3 / EP-10: A 실제 Auth green·M16 red; 기존 bypass·부팅 회귀 green |
 
-## [구현자 기입] 구현 보고
+## [구현자 기입] 구현 보고 (r1)
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님) | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+| 변경 파일 | main/auth·gate·app composition·shared IPC·renderer providers/app hooks/i18n·규범 문서7곳·natural-expiry-probe.md 증거·영구 daily-gate.expiry.test.ts. EP-08 분모7자리는 유지. §18 파일 목록 + 신규 영구 expiry 회귀. 구현 산출35파일과 plan/INDEX 보고2파일을 포함하며 별도 설계 커밋의 증거 문서는 중복 포함하지 않는다 |
+| 실행 명령 | app에서 node node_modules/vitest/vitest.mjs run src/main/app/daily-gate.expiry.test.ts src/main/features/auth/runtime.test.ts 및 plan§19 관련 필터. node scripts/check-doc-inventory.mjs --check. 변이 script/JSON 위 표. npm run typecheck·npm run lint·git diff --check. 커밋 메시지와 파싱은 아래 상태 사본에서 기록 |
+| 관측한 게이트 산출 | 관련 최종 합집합59파일704 PASS(.tmp/0255-final-vitest.log, 팀 관측); main24파일432·mutation 원복5파일71; renderer8파일96·넓은21파일205. 정정 후 관련5파일67 green. inventory generated9 items·102 channels/prose/relative links green |
+| 정적 gate 관측 | 최종 full typecheck exit0(node/web/test 모두0, .tmp/0255-final-typecheck.log). fetch/authorize0 보강 EXP 단독1/1 PASS·읽기 전용 ESLint0. 최종 npm run lint exit0·0error/1warning(.tmp/0255-final-lint.log). warning은 기존 useTranscriptVirtualizer.ts:22 react-hooks/incompatible-library |
+| V-pair 자기확인 | REQUIRED14 SELF_PASS·1 SELF_BLOCKED, REGRESSION7 SELF_PASS →21/22 자기 통과·실기1보류 |
+| 강제 지점 전수 | EP41/41(main26+renderer9+docs6), 운반/소유/locale 차집합∅. EP-01·05는 ΔV1 직접변경/방송 계약과 기존 만료 회귀로 닫음 |
+| AC 자기보고(Criteria-Met) | ✅14·⚠️1(AC15 실기)·❌0=15. Criteria-Met: 14/15 |
+| 합계 검산 | pair22행·mutation25행·AC15행. REQUIRED15/REGRESSION7, 선택 증거24자리+M7 대안1·인용 변이0·등록 밖 새 proxy oracle0=표25행 |
+| 블로커 / 역질문 | 사용자 승인 대기는 해소. 남은 사람 실기는 AC15·VP-06. 기계 gate 완료. plan/INDEX를 impl/IMPL_DONE·다음 Claude 검증으로 갱신하고 다시 읽어 확인 |
+| 대상 커밋 | r1 구현 좌표 INDEX; ΔV1 설계 정정과 구현 산출 분리. 설계 trailer3키와 구현 커밋의6키 파싱 확인. `git log -1 --format='%(trailers:only=true)'`가 Agent codex·Handoff255·Status implemented·Criteria-Met14/15·Criteria-Pending AC15·Verified-By pending을 반환했다. 좌표는 INDEX의 검증자 기입 자리표시자 |
 
-## [구현자 기입] Review Signals — 사실만
+**AC 자기보고**
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
-- 현재 라운드·impl 턴: `r1`
+| AC | 자기 판정 | 실제 관측 / 재현 |
+|---|---|---|
+| AC1 경계 state·정책 직접 방송 | ✅ | ΔV1 R-01-D1/AT-01-D1. DG + EXP:165~184 정책직접1·전체2·최종 passedfalse/['gate']·방송 []→['gate']·순서 oracle green |
+| AC2 renderer 게이트 프레임 | ✅ | rootFrame 포함 합집합 green; dailyRelogin fixture·!passed→gate |
+| AC3 실제 로그인·refresh·체인 | ✅ | A real Auth refresh/login·reauth/continue, G 체인·GL 2단계 SSR green |
+| AC4 날짜 안내 조건 | ✅ | GL/GS valid·expired·none·목록밖 oracle green; M6 3 red |
+| AC5 정책 직접 Auth 변경0·기존 만료 유지 | ✅ | ΔV1 R-03-D1/AT-05-D1. DG:26·88~100 직접6mutator0·유효 snapshot 동일; EXP:168~184 expired/effectiveExpiry1·rev+1·저장/sync/invalidate 각1·fetch/authorize0 직접 단언. 보강 후 단독1/1 PASS·읽기 전용 ESLint0(팀 관측) |
+| AC6 게이트 동안 이벤트/표시 | ✅ | SA RootGate 소유·완료/응답요청/생성집합·재열람 회귀 green; M8 1 red |
+| AC7 초기 표식·영속 없음 | ✅ | G 초기/부팅 회귀 green; 표식 메모리만 사용. D-012 기존 자연 만료 저장과 분리 |
+| AC8 날짜·자정·감시 수명 | ✅ | D21케이스: 로컬·DST23/25h·역행·점프·조기·dispose·timer 상한 green |
+| AC9 Electron 배선 | ✅ | W5케이스·DG wake/dispose green; M10a~c·M11a~d·M12 각1 red |
+| AC10 면제·DEV 진리표 | ✅ | G27케이스 green; M9 5 red |
+| AC11 미확인 첫 확인·expired/none 로그인 | ✅ | D/G 판정 표 green; M4 2 red |
+| AC12 다음 경계 재해제 | ✅ | DG passed→lapsed2→lapsed1→passed→lapsed2 green |
+| AC13 문서 | ✅ | 규범7곳 앵커·승인 후 auth/IPC/ADR/probe 정합화·inventory generated/prose/links green |
+| AC14 운영 gate·Auth 구독·trailer | ✅ | 최종 관련59파일704 PASS·no-stray·inventory green. 최종 full node/web/test0·보강 EXP1/1 PASS·읽기 전용 ESLint0·최종 full lint0error/1warning. 설계 trailer3키·구현 trailer6키의 실제 git log 파싱 확인 |
+| AC15 OS·SSO 실기 | ⚠️ | 실제 Windows 날짜·자정 긴 턴·절전·focus·SSO 실기 미실행 |
+
+- 합계 검산: ✅14·⚠️1·❌0=15. AC 분모는 ΔV1에서도15다.
+- 상태 사본: plan 메타 IMPL_DONE·유효 V1+ΔV1, INDEX impl/IMPL_DONE·다음 Claude 검증·(r1 구현 — 검증자 기입). 커밋 직전 rg로 두 사본을 다시 읽어 확인했고 구현 커밋 뒤6키 trailer를 확인했다.
+
+## [구현자 기입] Review Signals — 사실만 (r1)
+
+- 이전 라운드와 같은 축인가: 최초 r1. 기존 Auth production 자연 만료를 이번 경계 snapshot 소비가 드러냈다.
+- 막았어야 할 plan 지침·AC: 원문 EP-01 snapshot 소비에서 만료 효과를 분해하지 않아 fake Auth AC5 green/실제 strict AC1·5 red가 갈렸다. 사용자 승인 ΔV1이 직접 범위를 정정하고 EXP+runtime 회귀를 추가했다.
+- 환경 한계: Windows·SSO 사람 실기 미실행. 최종 full typecheck0·보강 EXP1/1 PASS·full lint0error/기존warning1·구현 trailer6키 파싱을 관측했다. ABI·네트워크 장애를 추측해 추가하지 않았다.
+- 현재 라운드·impl 턴: r1. 승인 대기는 해소됐으며 pair21/22 자기 통과·AC15 실기1보류다. 독립 검증 완료나 새 라운드로 올리지 않는다.
 
 ---
 

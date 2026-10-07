@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { AgentEnvironment } from '../../shared/ipc'
+import type { AgentEnvironment, ProviderGateState } from '../../shared/ipc'
+import type { AuthChange, AuthDefinition, AuthRuntime, BoundAuth } from '../contracts/auth'
+import { createVault } from '../infra/vault'
+import { createMemoryGrantPersistence } from '../features/auth/store'
+import { createAuthRuntime } from '../features/auth/runtime'
+import { createGate } from '../features/gate'
+import type { AuthResult } from '../features/auth/login'
 import {
   affectedRuntimeModelAuthIds,
   createRuntimeModelAuthChangeHandler,
@@ -120,6 +126,7 @@ describe('runtime model startup', () => {
   it('routes one Auth snapshot change to broadcast, plugin sync, invalidation, and reconcile', () => {
     const log: string[] = []
     const handle = createRuntimeModelAuthChangeHandler({
+      recordGateLogin: (authId, revision) => log.push(`gate:${authId}:${revision}`),
       pushConnectionState: () => log.push('push'),
       syncPlugins: (authId) => log.push(`sync:${authId}`),
       invalidateForAuth: (authId) => log.push(`invalidate:${authId}`),
@@ -130,15 +137,17 @@ describe('runtime model startup', () => {
       kind: 'snapshot',
       authId: 'wiki',
       credentialChanged: true,
-      snapshot: { authId: 'wiki' }
+      cause: 'credential-committed',
+      snapshot: { authId: 'wiki', credentialRevision: 7 }
     } as never)
 
-    expect(log).toEqual(['push', 'sync:wiki', 'invalidate:wiki', 'reconcile:wiki'])
+    expect(log).toEqual(['gate:wiki:7', 'push', 'sync:wiki', 'invalidate:wiki', 'reconcile:wiki'])
   })
 
   it('reconciles a snapshot change that did not swap credentials, and stops at step changes', () => {
     const log: string[] = []
     const handle = createRuntimeModelAuthChangeHandler({
+      recordGateLogin: (authId, revision) => log.push(`gate:${authId}:${revision}`),
       pushConnectionState: () => log.push('push'),
       syncPlugins: (authId) => log.push(`sync:${authId}`),
       invalidateForAuth: (authId) => log.push(`invalidate:${authId}`),
@@ -229,5 +238,210 @@ describe('runtime model startup', () => {
     listeners[1]?.({ kind: 'snapshot', authId: 'gate' } as never)
 
     expect(order).toEqual(['subscribe', 'subscribe', 'run', 'change', 'gate:gate'])
+  })
+})
+
+describe('daily gate with real Auth commits', () => {
+  function harness(): {
+    runtime: AuthRuntime
+    bound: BoundAuth
+    gate: ReturnType<typeof createGate>
+    log: string[]
+    pushed: ProviderGateState[]
+    changes: AuthChange[]
+    setProbe(value: boolean): void
+    setLoginMode(value: 'token' | 'cancel' | 'code'): void
+    setRefreshFails(value: boolean): void
+    deferLogin(): (result: AuthResult) => void
+    clear(): void
+  } {
+    const secrets = new Map<string, string>()
+    let probeOk = true
+    let loginMode: 'token' | 'cancel' | 'code' = 'token'
+    let refreshFails = false
+    let deferredLogin: Promise<AuthResult> | undefined
+    const definition: AuthDefinition = {
+      id: 'gate',
+      label: 'Gate',
+      origin: 'https://gate.example.corp',
+      probe: { onResume: true, execute: async () => ({ ok: probeOk, rejected: !probeOk }) },
+      methods: [
+        {
+          kind: 'oauth',
+          label: 'OAuth',
+          present: { location: 'header', name: 'Authorization', scheme: 'bearer' },
+          authorize: async () => {
+            throw new Error('OAuth executor owns authorize')
+          },
+          refresh: async () => {
+            if (refreshFails) throw new Error('refresh failed')
+            return { token: 'refreshed', refreshToken: 'next-refresh' }
+          }
+        }
+      ]
+    }
+    const { runtime } = createAuthRuntime({
+      definitions: [definition],
+      persistence: createMemoryGrantPersistence(),
+      vault: createVault({
+        get: (key) => secrets.get(key),
+        set: (key, value) => void secrets.set(key, value),
+        delete: (key) => void secrets.delete(key)
+      }),
+      fetchImpl: (async () => {
+        throw new Error('executable probe must not fetch')
+      }) as typeof fetch,
+      clock: () => 1000,
+      oauth: {
+        begin: async () => {
+          if (deferredLogin) return deferredLogin
+          if (loginMode === 'cancel')
+            return { kind: 'failed', reason: 'cancelled', message: 'cancelled' }
+          if (loginMode === 'code')
+            return { kind: 'code-required', url: 'https://gate.example.corp/login' }
+          return { kind: 'token', token: { token: 'login', refreshToken: 'refresh' } }
+        },
+        complete: async () => ({
+          kind: 'token',
+          token: { token: 'complete', refreshToken: 'refresh' }
+        })
+      }
+    })
+    const bound = runtime.bind('gate')
+    const gate = createGate({ members: [bound], bypass: () => false })
+    const log: string[] = []
+    const pushed: ReturnType<typeof gate.state>[] = []
+    const changes: AuthChange[] = []
+    const handle = createRuntimeModelAuthChangeHandler({
+      recordGateLogin: (authId, revision) => {
+        log.push('gate')
+        gate.noteLoginCommit(authId, revision)
+      },
+      pushConnectionState: () => {
+        log.push('push')
+        pushed.push(gate.state())
+      },
+      syncPlugins: () => log.push('sync'),
+      invalidateForAuth: () => log.push('invalidate'),
+      reconcileSnapshot: () => log.push('reconcile')
+    })
+    runtime.subscribe((change) => {
+      changes.push(change)
+      handle(change)
+    })
+    return {
+      runtime,
+      bound,
+      gate,
+      log,
+      pushed,
+      changes,
+      setProbe: (value: boolean) => {
+        probeOk = value
+      },
+      setLoginMode: (value: typeof loginMode) => {
+        loginMode = value
+      },
+      setRefreshFails: (value: boolean) => {
+        refreshFails = value
+      },
+      deferLogin: () => {
+        let resolve!: (result: AuthResult) => void
+        deferredLogin = new Promise<AuthResult>((done) => {
+          resolve = done
+        })
+        return resolve
+      },
+      clear: () => {
+        log.length = 0
+        pushed.length = 0
+        changes.length = 0
+      }
+    }
+  }
+
+  it('refresh changes credentials and invalidates consumers while only login clears the gate before push', async () => {
+    const h = harness()
+    await h.runtime.login('gate', 'oauth')
+    expect(h.gate.state().passed).toBe(true)
+    h.gate.lapseDay()
+    const boundaryRevision = h.bound.snapshot().credentialRevision
+    h.clear()
+    await expect(h.runtime.refresh('gate')).resolves.toBe('refreshed')
+    expect(h.bound.snapshot().credentialRevision).toBeGreaterThan(boundaryRevision)
+    expect(h.changes.filter((change) => change.kind === 'snapshot')).toEqual([
+      expect.objectContaining({ cause: 'credential-refreshed', credentialChanged: true })
+    ])
+    expect(h.log).toEqual(['push', 'sync', 'invalidate', 'reconcile', 'push'])
+    expect(h.pushed.every((state) => !state.passed && state.dailyRelogin.includes('gate'))).toBe(
+      true
+    )
+    h.clear()
+    await h.runtime.login('gate', 'oauth')
+    expect(h.log).toEqual(['gate', 'push', 'sync', 'invalidate', 'reconcile', 'push'])
+    expect(h.pushed[0]).toEqual({ required: true, passed: true, bypassed: false, dailyRelogin: [] })
+    expect(h.gate.state().passed).toBe(true)
+  })
+
+  it('failed refresh, cancelled login, and rejected probe never provide a login commit', async () => {
+    const h = harness()
+    await h.runtime.login('gate', 'oauth')
+    h.gate.lapseDay()
+    const revision = h.bound.snapshot().credentialRevision
+    h.clear()
+    h.setRefreshFails(true)
+    await expect(h.runtime.refresh('gate')).resolves.toBe('failed')
+    h.setLoginMode('cancel')
+    await h.runtime.login('gate', 'oauth')
+    h.setLoginMode('token')
+    h.setProbe(false)
+    await h.runtime.login('gate', 'oauth')
+    expect(h.log).not.toContain('gate')
+    expect(h.changes.filter((change) => change.kind === 'snapshot')).toEqual([])
+    expect(h.bound.snapshot().credentialRevision).toBe(revision)
+    expect(h.gate.state().dailyRelogin).toEqual(['gate'])
+  })
+
+  it('reauth and continuation both emit committed and satisfy a new boundary', async () => {
+    const h = harness()
+    await h.runtime.login('gate', 'oauth')
+    h.gate.lapseDay()
+    h.clear()
+    await h.runtime.reauth('gate', 'oauth')
+    expect(h.changes.filter((change) => change.kind === 'snapshot')).toEqual([
+      expect.objectContaining({ cause: 'credential-committed' })
+    ])
+    expect(h.gate.state().passed).toBe(true)
+    h.gate.lapseDay()
+    h.setLoginMode('code')
+    h.clear()
+    await h.runtime.login('gate', 'oauth')
+    expect(h.log).not.toContain('gate')
+    expect(h.gate.state().passed).toBe(false)
+    await h.runtime.continue('gate', { code: 'test-code' })
+    expect(h.changes.filter((change) => change.kind === 'snapshot')).toEqual([
+      expect.objectContaining({ cause: 'credential-committed' })
+    ])
+    expect(h.gate.state().passed).toBe(true)
+  })
+
+  it('a superseded login result emits no successful commit evidence', async () => {
+    const h = harness()
+    await h.runtime.login('gate', 'oauth')
+    h.gate.lapseDay()
+    h.clear()
+    const resolve = h.deferLogin()
+    const pending = h.runtime.login('gate', 'oauth')
+    await h.runtime.revoke('gate')
+    resolve({ kind: 'token', token: { token: 'late-login', refreshToken: 'late-refresh' } })
+    await pending
+    expect(h.log).not.toContain('gate')
+    expect(
+      h.changes.filter(
+        (change) => change.kind === 'snapshot' && change.cause === 'credential-committed'
+      )
+    ).toEqual([])
+    expect(h.gate.state().passed).toBe(false)
+    expect(h.gate.state().dailyRelogin).toEqual(['gate'])
   })
 })

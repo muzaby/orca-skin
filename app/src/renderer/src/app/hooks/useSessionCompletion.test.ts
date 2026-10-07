@@ -335,10 +335,63 @@ describe('0249 response attention across app features', () => {
     ingestChatEvent(request(requestActions[0], 's'))
     expect(marked()).toBe(false)
   })
-  it('the mounted app effect installs the attention subscription', () => {
+  it('RootGate owns the attention effect and AppLayout owns only viewed state', () => {
     const source = readFileSync(new URL('./useSessionCompletion.ts', import.meta.url), 'utf8')
-    expect(source).toContain('useEffect(subscribeSessionAttention, [])')
+    const root = readFileSync(new URL('../RootGate.tsx', import.meta.url), 'utf8')
+    const layout = readFileSync(new URL('../AppLayout.tsx', import.meta.url), 'utf8')
+    expect(root).toMatch(/^\s*useSessionAttentionSubscription\(\)$/m)
+    const attentionHook = source.slice(
+      source.indexOf('export function useSessionAttentionSubscription'),
+      source.indexOf('// 메인 셸이 없으면')
+    )
+    expect(attentionHook).toContain('useEffect(subscribeSessionAttention, [])')
+    const viewedHook = source.slice(source.indexOf('export function useSessionCompletion('))
+    expect(viewedHook).not.toContain('subscribeSessionAttention')
+    expect(viewedHook).toContain('return () => sessionsActions.setViewedSession(null)')
+    expect(layout).toContain('useSessionCompletion(')
     expect(source).not.toContain('subscribeSessionCompletions')
+  })
+})
+
+describe('0255 attention and generation while the login gate is shown', () => {
+  it('updates generation during the gate and displays the current turn after re-entry', () => {
+    installChatStoreHarness({ inflight: false })
+    sessionsActions.setViewedSession('s')
+    // AppLayout cleanup on gate entry. RootGate's subscription remains installed.
+    sessionsActions.setViewedSession(null)
+    expect(chatActions.send('overnight')).toBe(true)
+    expect(useSessionsStore.getState().generatingSessionIds).toEqual(new Set(['s']))
+    sessionsActions.setViewedSession('s')
+    expect(icon('s', true)('[data-context="session-agent-kind"]').attr('data-state')).toBe(
+      'in-progress'
+    )
+    sessionsActions.setViewedSession(null)
+    ingestChatEvent({ type: 'telemetry', sessionId: 's' })
+    ingestChatEvent({ type: 'turn.ended', sessionId: 's' })
+    expect(useSessionsStore.getState().generatingSessionIds.size).toBe(0)
+    expect(useSessionsStore.getState().unseenAttention.get('s')).toBe('completed')
+    expect(icon()('[data-context="session-agent-kind"]').attr('data-state')).toBe('unseen-complete')
+    sessionsActions.setViewedSession('s')
+    expect(marked()).toBe(false)
+    expect(icon('s', true)('[data-context="session-agent-kind"]').attr('data-state')).toBe(
+      'default'
+    )
+  })
+
+  it.each(requestActions)('$kind keeps awaiting attention during the gate', (action) => {
+    sessionsActions.setViewedSession('s')
+    sessionsActions.setViewedSession(null)
+    ingestChatEvent(request(action, 's'))
+    expect(useSessionsStore.getState().unseenAttention.get('s')).toBe('awaiting-response')
+    expect(useSessionsStore.getState().generatingSessionIds.size).toBe(0)
+    expect(icon()('[data-context="session-agent-kind"]').attr('data-state')).toBe(
+      'awaiting-response'
+    )
+    sessionsActions.setViewedSession('s')
+    expect(marked()).toBe(false)
+    expect(icon('s', true)('[data-context="session-agent-kind"]').attr('data-state')).toBe(
+      'default'
+    )
   })
 })
 

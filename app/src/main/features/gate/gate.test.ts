@@ -8,56 +8,57 @@ describe('로그인 게이트 진리표 (AC8·AC14)', () => {
     expect(evaluateGate({ members: [], bypass: false })).toEqual({
       required: false,
       passed: true,
-      bypassed: false
+      bypassed: false,
+      dailyRelogin: []
     })
   })
 
   it('선언 N · 하나도 인증 안 됨 → 차단', () => {
     const state = evaluateGate({
       members: [
-        { authId: 'sso', status: 'none', verified: false },
-        { authId: 'sso2', status: 'none', verified: false }
+        { authId: 'sso', status: 'none', verified: false, dailyReloginRequired: false },
+        { authId: 'sso2', status: 'none', verified: false, dailyReloginRequired: false }
       ],
       bypass: false
     })
-    expect(state).toEqual({ required: true, passed: false, bypassed: false })
+    expect(state).toEqual({ required: true, passed: false, bypassed: false, dailyRelogin: [] })
   })
 
   // 로그인이 체인이라 멤버 하나만 풀려도 인증이 아니다(0172 의 결정 유지).
   it('선언 N · 일부만 valid → 차단', () => {
     const state = evaluateGate({
       members: [
-        { authId: 'sso', status: 'valid', verified: true },
-        { authId: 'sso2', status: 'expired', verified: false }
+        { authId: 'sso', status: 'valid', verified: true, dailyReloginRequired: false },
+        { authId: 'sso2', status: 'expired', verified: false, dailyReloginRequired: false }
       ],
       bypass: false
     })
-    expect(state).toEqual({ required: true, passed: false, bypassed: false })
+    expect(state).toEqual({ required: true, passed: false, bypassed: false, dailyRelogin: [] })
   })
 
   it('선언 N · 전부 valid → 통과', () => {
     const state = evaluateGate({
       members: [
-        { authId: 'sso', status: 'valid', verified: true },
-        { authId: 'sso2', status: 'valid', verified: true }
+        { authId: 'sso', status: 'valid', verified: true, dailyReloginRequired: false },
+        { authId: 'sso2', status: 'valid', verified: true, dailyReloginRequired: false }
       ],
       bypass: false
     })
-    expect(state).toEqual({ required: true, passed: true, bypassed: false })
+    expect(state).toEqual({ required: true, passed: true, bypassed: false, dailyRelogin: [] })
   })
 
   it('dev bypass 는 미인증이어도 통과시키되 우회했음을 표시한다', () => {
     const state = evaluateGate({
-      members: [{ authId: 'sso', status: 'none', verified: false }],
+      members: [{ authId: 'sso', status: 'none', verified: false, dailyReloginRequired: false }],
       bypass: true
     })
-    expect(state).toEqual({ required: true, passed: true, bypassed: true })
+    expect(state).toEqual({ required: true, passed: true, bypassed: true, dailyRelogin: [] })
   })
 
   // 'unknown'(복호화 실패)은 valid 가 아니다 — 키체인이 잠긴 상태로 조용히 들어가지 않는다.
   it('복호화 실패(unknown)는 통과로 치지 않는다', () => {
     const state = evaluateGate({
-      members: [{ authId: 'sso', status: 'unknown', verified: false }],
+      members: [{ authId: 'sso', status: 'unknown', verified: false, dailyReloginRequired: false }],
       bypass: false
     })
     expect(state.passed).toBe(false)
@@ -72,7 +73,8 @@ describe('DEV 게이트 도달성 (alwaysRequired)', () => {
     expect(evaluateGate({ members: [], bypass: false, alwaysRequired: true })).toEqual({
       required: true,
       passed: false,
-      bypassed: false
+      bypassed: false,
+      dailyRelogin: []
     })
   })
 
@@ -80,7 +82,8 @@ describe('DEV 게이트 도달성 (alwaysRequired)', () => {
     expect(evaluateGate({ members: [], bypass: true, alwaysRequired: true })).toEqual({
       required: true,
       passed: true,
-      bypassed: true
+      bypassed: true,
+      dailyRelogin: []
     })
   })
 
@@ -93,11 +96,11 @@ describe('DEV 게이트 도달성 (alwaysRequired)', () => {
   it('선언이 있으면 DEV 여도 실제 인증으로 통과한다', () => {
     expect(
       evaluateGate({
-        members: [{ authId: 'sso', status: 'valid', verified: true }],
+        members: [{ authId: 'sso', status: 'valid', verified: true, dailyReloginRequired: false }],
         bypass: false,
         alwaysRequired: true
       })
-    ).toEqual({ required: true, passed: true, bypassed: false })
+    ).toEqual({ required: true, passed: true, bypassed: false, dailyRelogin: [] })
   })
 
   // ── 회귀: 복원된 grant 는 통과 근거가 아니다 ────────────────────────────────
@@ -107,19 +110,19 @@ describe('DEV 게이트 도달성 (alwaysRequired)', () => {
   it('복원됐지만 이번 실행에서 미확인인 grant 는 게이트를 열지 않는다', () => {
     expect(
       evaluateGate({
-        members: [{ authId: 'sso', status: 'valid', verified: false }],
+        members: [{ authId: 'sso', status: 'valid', verified: false, dailyReloginRequired: false }],
         bypass: false,
         alwaysRequired: true
       })
-    ).toEqual({ required: true, passed: false, bypassed: false })
+    ).toEqual({ required: true, passed: false, bypassed: false, dailyRelogin: [] })
   })
 
   it('멤버 하나만 미확인이어도 차단된다', () => {
     expect(
       evaluateGate({
         members: [
-          { authId: 'sso', status: 'valid', verified: true },
-          { authId: 'sso2', status: 'valid', verified: false }
+          { authId: 'sso', status: 'valid', verified: true, dailyReloginRequired: false },
+          { authId: 'sso2', status: 'valid', verified: false, dailyReloginRequired: false }
         ],
         bypass: false
       }).passed
@@ -213,29 +216,171 @@ describe('selectGateMembers (AC4)', () => {
 describe('createGate (AC4)', () => {
   it('valid + verified 면 통과한다', () => {
     const gate = createGate({ members: [bound('sso')], bypass: () => false })
-    expect(gate.state()).toEqual({ required: true, passed: true, bypassed: false })
+    expect(gate.state()).toEqual({
+      required: true,
+      passed: true,
+      bypassed: false,
+      dailyRelogin: []
+    })
   })
 
   it('valid 만으로는 통과하지 않는다 — 복원된 기록은 인증이 아니다', () => {
-    const gate = createGate({ members: [bound('sso', { verified: false })], bypass: () => false })
+    const gate = createGate({
+      members: [bound('sso', { verified: false })],
+      bypass: () => false
+    })
     expect(gate.state().passed).toBe(false)
   })
 
   it('확인할 수 없는 선언이 있으면 나머지가 통과해도 열지 않는다 (fail-closed)', () => {
     const gate = createGate({ members: [bound('sso')], blockedMembers: 1, bypass: () => false })
-    expect(gate.state()).toEqual({ required: true, passed: false, bypassed: false })
+    expect(gate.state()).toEqual({
+      required: true,
+      passed: false,
+      bypassed: false,
+      dailyRelogin: []
+    })
   })
 
   it('blocked 상태에서도 dev 우회는 유효하다 — 탈출구까지 막으면 화면에 도달할 수 없다', () => {
     const gate = createGate({ members: [], blockedMembers: 1, bypass: () => true })
-    expect(gate.state()).toEqual({ required: true, passed: true, bypassed: true })
+    expect(gate.state()).toEqual({ required: true, passed: true, bypassed: true, dailyRelogin: [] })
   })
 
   it('bypass 는 읽는 시점의 값이다 — 설정이 런타임에 바뀐다', () => {
     let bypass = false
-    const gate = createGate({ members: [bound('sso', { verified: false })], bypass: () => bypass })
+    const gate = createGate({
+      members: [bound('sso', { verified: false })],
+      bypass: () => bypass
+    })
     expect(gate.state().passed).toBe(false)
     bypass = true
     expect(gate.state().passed).toBe(true)
+  })
+})
+
+describe('daily gate login chain', () => {
+  function harness(): {
+    gate: ReturnType<typeof createGate>
+    snapshots: Record<string, AuthSnapshot>
+    setBypass(value: boolean): void
+  } {
+    const snapshots: Record<string, AuthSnapshot> = {
+      first: { authId: 'first', status: 'valid', verified: true, credentialRevision: 4 },
+      second: { authId: 'second', status: 'valid', verified: true, credentialRevision: 9 }
+    }
+    let bypass = false
+    const gate = createGate({
+      members: Object.keys(snapshots).map((authId) => ({
+        authId,
+        snapshot: () => snapshots[authId]!,
+        request: () => Promise.reject(new Error('boundary must not request'))
+      })),
+      bypass: () => bypass
+    })
+    return {
+      gate,
+      snapshots,
+      setBypass: (value: boolean) => {
+        bypass = value
+      }
+    }
+  }
+
+  it('requires every member in order; refresh alone and same revision login cannot pass', () => {
+    const { gate, snapshots } = harness()
+    expect(gate.state()).toEqual({
+      required: true,
+      passed: true,
+      bypassed: false,
+      dailyRelogin: []
+    })
+    gate.lapseDay()
+    expect(gate.state()).toEqual({
+      required: true,
+      passed: false,
+      bypassed: false,
+      dailyRelogin: ['first', 'second']
+    })
+    snapshots.first!.credentialRevision++
+    expect(gate.state().dailyRelogin).toEqual(['first', 'second'])
+    gate.noteLoginCommit('first', 4)
+    gate.noteLoginCommit('unrelated', 100)
+    expect(gate.state().dailyRelogin).toEqual(['first', 'second'])
+    gate.noteLoginCommit('first', snapshots.first!.credentialRevision)
+    expect(gate.state()).toEqual({
+      required: true,
+      passed: false,
+      bypassed: false,
+      dailyRelogin: ['second']
+    })
+    snapshots.second!.credentialRevision++
+    gate.noteLoginCommit('second', snapshots.second!.credentialRevision)
+    expect(gate.state().passed).toBe(true)
+    gate.lapseDay()
+    expect(gate.state().dailyRelogin).toEqual(['first', 'second'])
+    expect(gate.state().passed).toBe(false)
+  })
+
+  it('a previously unverified member passes its first confirmation of the new day', () => {
+    const { gate, snapshots } = harness()
+    snapshots.first!.verified = false
+    gate.lapseDay()
+    snapshots.first!.verified = true
+    expect(gate.state().dailyRelogin).toEqual(['second'])
+  })
+
+  it('expired or missing members need a valid, verified login commit', () => {
+    const { gate, snapshots } = harness()
+    snapshots.first!.status = 'expired'
+    snapshots.first!.verified = false
+    snapshots.second!.status = 'none'
+    snapshots.second!.verified = false
+    gate.lapseDay()
+    expect(gate.state().dailyRelogin).toEqual(['first', 'second'])
+    for (const snapshot of Object.values(snapshots)) {
+      snapshot.status = 'valid'
+      snapshot.verified = true
+      snapshot.credentialRevision++
+      gate.noteLoginCommit(snapshot.authId, snapshot.credentialRevision)
+    }
+    expect(gate.state().passed).toBe(true)
+  })
+
+  it('bypass wins over daily marks; prod no-members and DEV remain unchanged', () => {
+    const h = harness()
+    h.gate.lapseDay()
+    h.setBypass(true)
+    expect(h.gate.state()).toEqual({
+      required: true,
+      passed: true,
+      bypassed: true,
+      dailyRelogin: []
+    })
+    const prod = createGate({ members: [], bypass: () => false })
+    prod.lapseDay()
+    expect(prod.state()).toEqual({
+      required: false,
+      passed: true,
+      bypassed: false,
+      dailyRelogin: []
+    })
+    const dev = createGate({ members: [], bypass: () => false, alwaysRequired: true })
+    dev.lapseDay()
+    expect(dev.state()).toEqual({
+      required: true,
+      passed: false,
+      bypassed: false,
+      dailyRelogin: []
+    })
+  })
+
+  it('a fresh gate retains boot verification behavior without persisting marks', () => {
+    const h = harness()
+    h.gate.lapseDay()
+    expect(h.gate.state().passed).toBe(false)
+    const restarted = createGate({ members: [bound('first')], bypass: () => false })
+    expect(restarted.state().passed).toBe(true)
+    expect(restarted.state().dailyRelogin).toEqual([])
   })
 })

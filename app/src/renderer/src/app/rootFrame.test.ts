@@ -6,6 +6,7 @@ const gate = (patch?: Partial<ProviderGateState>): ProviderGateState => ({
   required: true,
   passed: true,
   bypassed: false,
+  dailyRelogin: [],
   ...patch
 })
 
@@ -29,6 +30,16 @@ describe('rootFrame', () => {
     expect(rootFrame({ bootPhase: 'ready', gate: gate({ passed: false }), resuming: false })).toBe(
       'gate'
     )
+  })
+
+  it('날짜 경계로 다시 로그인이 필요하면 로그인 화면이다', () => {
+    expect(
+      rootFrame({
+        bootPhase: 'ready',
+        gate: gate({ passed: false, dailyRelogin: ['corporate'] }),
+        resuming: false
+      })
+    ).toBe('gate')
   })
 
   // 0194 의 요구: 복원은 대기 화면이 떠 있는 동안 돌아야 한다. 여기서 'app' 을 내주면 나머지

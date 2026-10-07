@@ -405,7 +405,12 @@ export interface AuthSnapshot {
 export type AuthStatus = ProviderGrantStatus
 
 export type AuthSnapshotChangeCause =
-  'credential-committed' | 'revoked' | 'expired' | 'unauthorized' | 'verified'
+  | 'credential-committed'
+  | 'credential-refreshed'
+  | 'revoked'
+  | 'expired'
+  | 'unauthorized'
+  | 'verified'
 
 // **renderer 갱신 이벤트와 실행 credential invalidation 을 한 boolean 으로 뭉개지 않는다.**
 //
