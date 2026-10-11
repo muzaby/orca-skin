@@ -23,7 +23,7 @@ export function PendingAssistant({
   showStatus?: boolean
 }): React.JSX.Element {
   return (
-    <div className="flex flex-col gap-2.5 text-[14px] leading-[1.7] text-ink">
+    <div className="flex flex-col gap-2.5 text-[calc(14px*var(--transcript-text-scale,1))] leading-[1.7] text-ink">
       <LiveReasoning />
       <LiveText />
       <RetryStatus />

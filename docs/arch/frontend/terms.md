@@ -58,7 +58,7 @@
 | **ChatState** | 현재 대화의 상태 묶음 (sessionId·messages·inflight — chatStore 의 `sessions[key].session`). | [state.md §1](./state.md) |
 | **useChat / chatReducer** | 채팅 상태를 바꾸는 훅 + 순수 reducer (메시지 전송·이벤트 수신·새 대화 등). | [state.md §1](./state.md) |
 | **Delta** | 답변이 스트리밍될 때 도착하는 *부분 텍스트 조각*. chatStore 의 `live.text`(구 pendingDelta)에 누적되다 완성되면 메시지로 확정. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
-| **Tweaks** | 사용자 환경 설정 (테마·밀도·사이드바). electron-store 로 저장. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
+| **Tweaks** | 사용자 환경 설정 (테마·대화 텍스트 크기·대화 기록 너비·사이드바). electron-store 로 저장. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 
 ## 6. 화면 카탈로그 (Screen)
 

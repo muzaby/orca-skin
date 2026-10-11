@@ -8,7 +8,7 @@
 // 기하(viewBox · 좌표 · stroke-width · r · path)는 원본 값을 문자열 그대로 옮긴 것이고,
 // `statusLine.render.test.ts` 가 렌더 출력과 원본을 태그 단위로 대조한다.
 // **크기만 원본을 따르지 않는다** — 원본은 100×100 이지만 여기서는 14×14 다. 사용자·어시스턴트
-// 버블 본문(`text-[14px]`)과 같은 치수라, 옆의 12px 상태문구보다 크게 읽힌다.
+// 버블 본문(`text-[calc(14px*var(--transcript-text-scale,1))]`)과 같은 치수라, 옆의 12px 상태문구보다 크게 읽힌다.
 //
 // Icon.tsx 는 single-path 규약이라 stroke·멀티마크인 이 스피너는 여기 인라인으로 둔다
 // (OrcaLogo 와 같은 자리). 색은 지정하지 않는다 — 소비자가 주는 `text-spinner` 를

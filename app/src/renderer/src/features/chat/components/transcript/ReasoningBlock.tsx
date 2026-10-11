@@ -29,9 +29,9 @@ export const ReasoningBlock = memo(function ReasoningBlock({
   return (
     <details
       open={defaultOpen}
-      className="group/reasoning rounded-r6 border border-border bg-bg2 px-p5 py-p4 text-[13px] text-ink2"
+      className="group/reasoning rounded-r6 border border-border bg-bg2 px-p5 py-p4 text-[calc(13px*var(--transcript-text-scale,1))] text-ink2"
     >
-      <summary className="cursor-pointer select-none list-none font-mono text-[11px] uppercase tracking-[0.04em] text-ink3">
+      <summary className="cursor-pointer select-none list-none font-mono text-[calc(11px*var(--transcript-text-scale,1))] uppercase tracking-[0.04em] text-ink3">
         {tr('chat.transcript.reasoning')}
       </summary>
       <div className="mt-p3 leading-[1.6] text-ink2">

@@ -167,9 +167,10 @@ describe('StatusLine — 스피너가 상태문구보다 크다', () => {
       )
     )
     expect(HTML).toContain('<svg width="14" height="14"')
-    expect(statusLine).toContain('text-[12px]')
-    expect(statusLine).not.toContain('text-[14px]')
-    expect(bubble).toContain('text-[14px]')
+    // 0256 — 트랜스크립트 글자는 대화 텍스트 배율을 곱한다. 기준 치수(12·14px)는 그대로다.
+    expect(statusLine).toContain('text-[calc(12px*var(--transcript-text-scale,1))]')
+    expect(statusLine).not.toContain('text-[calc(14px*')
+    expect(bubble).toContain('text-[calc(14px*var(--transcript-text-scale,1))]')
   })
 })
 

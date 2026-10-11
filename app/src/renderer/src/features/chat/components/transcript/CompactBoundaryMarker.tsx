@@ -37,7 +37,7 @@ export const CompactBoundaryMarker = memo(function CompactBoundaryMarker({
   return (
     <div className="my-1 flex items-center gap-2 text-ink3" role="separator" aria-label={label}>
       <span className="h-px flex-1 bg-border" aria-hidden />
-      <span className="flex items-center gap-1 text-[11px] leading-none">
+      <span className="flex items-center gap-1 text-[calc(11px*var(--transcript-text-scale,1))] leading-none">
         <Icon name="layers" size={11} />
         {label}
       </span>

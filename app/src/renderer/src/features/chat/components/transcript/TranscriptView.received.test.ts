@@ -105,3 +105,13 @@ describe.each(['work', 'code'] as const)('%s received input visibility', (agentK
     expect(html).toContain('메시지')
   })
 })
+
+describe('0256 AC7 — transcript text scale scope', () => {
+  it('declares the transcript text scale on the transcript scroll root', () => {
+    installChatStoreHarness({ agentKind: 'code' })
+    const html = render('code', [])
+    const root = html.match(/^<div [^>]*>/)?.[0] ?? ''
+    expect(root).toContain('app-frame-transcript')
+    expect(root).toContain('[--transcript-text-scale:var(--chat-text-scale,1)]')
+  })
+})

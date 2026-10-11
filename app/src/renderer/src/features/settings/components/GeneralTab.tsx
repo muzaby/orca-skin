@@ -6,9 +6,15 @@ import { Icon } from '../../../shared/ui/Icon'
 import { Toggle } from '../../../shared/ui/Toggle'
 import { AutoGrowTextarea } from '../../../shared/ui/AutoGrowTextarea'
 import { useI18n, type UiLocale } from '../../../shared/i18n'
-import type { ThemeId, DensityId } from '../../../shared/config/theme'
+import type { ThemeId } from '../../../shared/config/theme'
 import type { AppFontId } from '../../../shared/theme'
-import { UPDATE_CHECK_INTERVAL_HOURS } from '../../../../../shared/ipc'
+import {
+  TRANSCRIPT_TEXT_SIZES,
+  TRANSCRIPT_WIDTHS,
+  UPDATE_CHECK_INTERVAL_HOURS,
+  type TranscriptTextSize,
+  type TranscriptWidth
+} from '../../../../../shared/ipc'
 import { useUpdateCheckSetting } from '../hooks/useUpdateCheckSetting'
 import { SettingsGroup, SettingsRow, SettingsSelect } from './parts'
 
@@ -24,12 +30,18 @@ const THEME_OPTIONS = [
   { value: 'dark', labelKey: 'settings.general.themeDark', icon: 'moon' }
 ] as const satisfies readonly { value: ThemeId; labelKey: string; icon: 'sun' | 'moon' }[]
 
-// 앱 전역 밀도(루트 font-size 파생 — DENSITY_FONT). 디버그 패널의 밀도 라디오와 같은 t.density Tweak.
-const DENSITY_OPTIONS = [
-  { value: 'compact', labelKey: 'settings.general.densityCompact' },
-  { value: 'normal', labelKey: 'settings.general.densityNormal' },
-  { value: 'comfortable', labelKey: 'settings.general.densityComfortable' }
-] as const satisfies readonly { value: DensityId; labelKey: string }[]
+// 대화 내용 텍스트 크기 · 대화 기록 너비(0256). 값 순서는 ipc.ts 배열이 SSOT — 라벨 키만 여기서 붙인다.
+const TEXT_SIZE_LABEL_KEYS = {
+  small: 'settings.general.transcriptTextSizeSmall',
+  medium: 'settings.general.transcriptTextSizeMedium',
+  large: 'settings.general.transcriptTextSizeLarge'
+} as const satisfies Record<TranscriptTextSize, string>
+
+const WIDTH_LABEL_KEYS = {
+  narrow: 'settings.general.transcriptWidthNarrow',
+  medium: 'settings.general.transcriptWidthMedium',
+  wide: 'settings.general.transcriptWidthWide'
+} as const satisfies Record<TranscriptWidth, string>
 
 // 언어 이름은 해당 언어 자체 표기(자기 언어로 항상 읽을 수 있어야 함) — 번역 대상 아님.
 const LOCALE_OPTIONS: { value: UiLocale; label: string }[] = [
@@ -47,7 +59,8 @@ export function GeneralTab(): React.JSX.Element {
     theme: t.theme,
     appFont: t.appFont,
     uiLocale: t.uiLocale,
-    density: t.density,
+    transcriptTextSize: t.transcriptTextSize,
+    transcriptWidth: t.transcriptWidth,
     notifyOnComplete: t.notifyOnComplete
   }))
   const { tr } = useI18n()
@@ -153,13 +166,30 @@ export function GeneralTab(): React.JSX.Element {
         </SettingsRow>
 
         <SettingsRow
-          label={tr('settings.general.density')}
-          description={tr('settings.general.densityDesc')}
+          label={tr('settings.general.transcriptTextSize')}
+          description={tr('settings.general.transcriptTextSizeDesc')}
         >
           <SettingsSelect
-            value={t.density}
-            options={DENSITY_OPTIONS.map((o) => ({ value: o.value, label: tr(o.labelKey) }))}
-            onChange={(v) => setTweak('density', v)}
+            value={t.transcriptTextSize}
+            options={TRANSCRIPT_TEXT_SIZES.map((value) => ({
+              value,
+              label: tr(TEXT_SIZE_LABEL_KEYS[value])
+            }))}
+            onChange={(v) => setTweak('transcriptTextSize', v)}
+          />
+        </SettingsRow>
+
+        <SettingsRow
+          label={tr('settings.general.transcriptWidth')}
+          description={tr('settings.general.transcriptWidthDesc')}
+        >
+          <SettingsSelect
+            value={t.transcriptWidth}
+            options={TRANSCRIPT_WIDTHS.map((value) => ({
+              value,
+              label: tr(WIDTH_LABEL_KEYS[value])
+            }))}
+            onChange={(v) => setTweak('transcriptWidth', v)}
           />
         </SettingsRow>
       </SettingsGroup>

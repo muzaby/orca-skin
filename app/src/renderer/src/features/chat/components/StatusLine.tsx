@@ -114,7 +114,7 @@ export function StatusLine({
 
   return (
     <span
-      className="inline-flex items-center gap-1.5 text-[12px] font-normal text-ink2"
+      className="inline-flex items-center gap-1.5 text-[calc(12px*var(--transcript-text-scale,1))] font-normal text-ink2"
       aria-live="polite"
       aria-label={accessibleLabel}
       title={factLabel || undefined}
@@ -125,7 +125,7 @@ export function StatusLine({
       <span aria-hidden>{statusLabel}</span>
       {visibleFacts.facts.map((fact) => (
         <Fragment key={fact.key}>
-          <span className="text-[11px] text-ink3" aria-hidden>
+          <span className="text-[calc(11px*var(--transcript-text-scale,1))] text-ink3" aria-hidden>
             {' · '}
           </span>
           {fact.key === 'background' && onOpenBackground ? (
@@ -133,25 +133,31 @@ export function StatusLine({
               type="button"
               onClick={onOpenBackground}
               data-behavior="action:open-background-tasks"
-              className="-mx-1 rounded-r4 px-1 py-0.5 text-[11px] text-selected outline-none transition-colors hover:bg-selected-soft focus-visible:bg-selected-soft focus-visible:ring-1 focus-visible:ring-selected"
+              className="-mx-1 rounded-r4 px-1 py-0.5 text-[calc(11px*var(--transcript-text-scale,1))] text-selected outline-none transition-colors hover:bg-selected-soft focus-visible:bg-selected-soft focus-visible:ring-1 focus-visible:ring-selected"
             >
               {tr('chat.activity.background', { count: fact.count })}
             </button>
           ) : (
-            <span className="text-[11px] text-ink3" aria-hidden>
+            <span
+              className="text-[calc(11px*var(--transcript-text-scale,1))] text-ink3"
+              aria-hidden
+            >
               {tr(`chat.activity.${fact.key}`, { count: fact.count })}
             </span>
           )}
         </Fragment>
       ))}
       {visibleFacts.overflow > 0 && (
-        <span className="text-[11px] text-ink3" aria-hidden>
+        <span className="text-[calc(11px*var(--transcript-text-scale,1))] text-ink3" aria-hidden>
           {' · '}
           {tr('chat.activity.more', { count: visibleFacts.overflow })}
         </span>
       )}
       {showCounter && (
-        <span className="font-mono text-[11px] text-ink3" aria-hidden>
+        <span
+          className="font-mono text-[calc(11px*var(--transcript-text-scale,1))] text-ink3"
+          aria-hidden
+        >
           {' '}
           ({formatElapsed(elapsedSec)}
           {outputTokensLabel ? ` · ↓ ${outputTokensLabel}` : ''}

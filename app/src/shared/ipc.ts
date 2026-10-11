@@ -1045,7 +1045,13 @@ export interface InstallStatus {
 
 // Settings (TRD §6.7 / §10 anchor "재시작 재개"). Phase 2+ 영속화 도입.
 export type ThemePref = 'white' | 'dark'
-export type DensityPref = 'compact' | 'normal' | 'comfortable'
+
+// 대화 내용 텍스트 크기 · 대화 기록 너비(0256). 값 목록은 여기가 SSOT — protocol.ts 의 zod 스키마와
+// 설정 UI 옵션이 함께 참조한다. 숫자(배율·px)는 저장하지 않고 renderer `shared/config/theme.ts` 가 매핑한다.
+export const TRANSCRIPT_TEXT_SIZES = ['small', 'medium', 'large'] as const
+export type TranscriptTextSize = (typeof TRANSCRIPT_TEXT_SIZES)[number]
+export const TRANSCRIPT_WIDTHS = ['narrow', 'medium', 'wide'] as const
+export type TranscriptWidth = (typeof TRANSCRIPT_WIDTHS)[number]
 
 export interface WindowBounds {
   x: number
@@ -1084,7 +1090,10 @@ export interface SchedulerSettings {
 
 export interface Settings {
   theme: ThemePref
-  density: DensityPref
+  // 트랜스크립트 글자 배율 단계. 기본 'medium'.
+  transcriptTextSize: TranscriptTextSize
+  // 트랜스크립트·채팅 입력창 열의 최대 너비 단계. 기본 'medium'.
+  transcriptWidth: TranscriptWidth
   sidebarCollapsed: boolean
   sidebarWidth: number
   lastBackend: Backend | null

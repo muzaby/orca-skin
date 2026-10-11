@@ -89,20 +89,22 @@ export function TurnErrorBanner({ error }: { error: ClassifiedError }): React.JS
   const { tr } = useI18n()
   const categoryKey = errorCategoryKey(error.category)
   return (
-    <div className="rounded-[10px] border border-bad/40 bg-bad/10 px-3 py-2 text-[12.5px] text-ink">
+    <div className="rounded-[10px] border border-bad/40 bg-bad/10 px-3 py-2 text-[calc(12.5px*var(--transcript-text-scale,1))] text-ink">
       <div className="flex items-center gap-2">
         <span className="font-semibold">
           {tr('errors.turnError', { category: categoryKey ? tr(categoryKey) : error.category })}
         </span>
         {error.retryable && (
-          <span className="rounded-full border border-border px-1.5 py-px text-[10.5px] text-ink3">
+          <span className="rounded-full border border-border px-1.5 py-px text-[calc(10.5px*var(--transcript-text-scale,1))] text-ink3">
             {tr('errors.retryable')}
           </span>
         )}
       </div>
       <div className="mt-1 text-ink2">{error.message}</div>
       {error.retryable && (
-        <div className="mt-1 text-[11.5px] text-ink3">{tr('errors.transientHint')}</div>
+        <div className="mt-1 text-[calc(11.5px*var(--transcript-text-scale,1))] text-ink3">
+          {tr('errors.transientHint')}
+        </div>
       )}
     </div>
   )

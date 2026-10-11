@@ -32,7 +32,7 @@ export function AttachmentThumb({
         {isImage && previewUrl ? (
           <img src={previewUrl} alt={name} className="h-full w-full object-cover" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center px-1 text-center text-[11px] font-semibold tracking-wide text-ink2">
+          <div className="flex h-full w-full items-center justify-center px-1 text-center text-[calc(11px*var(--transcript-text-scale,1))] font-semibold tracking-wide text-ink2">
             {extLabel(name)}
           </div>
         )}

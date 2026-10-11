@@ -30,7 +30,7 @@ export const WorkActivity = memo(function WorkActivity({
     )
   return (
     <div
-      className="flex flex-col gap-[var(--chat-item-gap)] text-[14px] leading-[1.7] text-ink"
+      className="flex flex-col gap-[var(--chat-item-gap)] text-[calc(14px*var(--transcript-text-scale,1))] leading-[1.7] text-ink"
       data-agent="work"
     >
       {nodes.map((node) =>

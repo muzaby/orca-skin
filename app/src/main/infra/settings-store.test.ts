@@ -123,3 +123,25 @@ describe('SettingsStore — scheduler 중첩 병합 (0156)', () => {
     expect(calls[1]).toEqual(['spendingLimitUsd'])
   })
 })
+
+describe('SettingsStore — 0256 대화 텍스트 크기·너비', () => {
+  it('두 키 patch 는 저장되고 같은 backend 의 새 인스턴스(재시작)에서 유지된다 (AC4·AC5·ST-01)', () => {
+    const backend = countingBackend()
+    new SettingsStore('1.0.0', backend).patch({
+      transcriptTextSize: 'large',
+      transcriptWidth: 'narrow'
+    })
+    expect(new SettingsStore('1.0.0', backend).getAll()).toMatchObject({
+      transcriptTextSize: 'large',
+      transcriptWidth: 'narrow'
+    })
+  })
+
+  it('density patch 는 결과와 디스크에 남지 않는다 (AC3)', () => {
+    const backend = countingBackend({ density: 'compact' })
+    const store = new SettingsStore('1.0.0', backend)
+    const result = store.patch({ density: 'compact' })
+    expect(result).not.toHaveProperty('density')
+    expect(backend.store).not.toHaveProperty('density')
+  })
+})

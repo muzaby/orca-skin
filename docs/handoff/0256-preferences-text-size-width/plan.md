@@ -478,81 +478,110 @@ boot → settings:get → TweakProvider.load → effects → html style vars →
 > **재구현 턴도 같은 이름의 필드를 다시 채운다** — 표제(`… (r2)`, 같은 라운드 추가 턴이면 `… (r2.2)`)만 바꾸고 필드를 줄이지 않는다.
 > 해당 없는 필드는 지우지 말고 `해당 없음`으로 남긴다.
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: Part II 그대로 구현 — 루트 14.5px는 `app.css` base `html`, 타이포 5종은 `@theme inline`, 범위 선언은 `TranscriptView` 루트.
+- 이견 / 현실성 문제: AC2 음성 `rg -n -i density app/src` 는 AC3 테스트가 `density` 를 일부러 쓰므로 0이 될 수 없다 — 비테스트 범위(`--glob '!*.test.*'`) 0건으로 관측했다(아래 §6 #1).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-… | … | … | … | … | … |
+| VP-07 | EP-01 설정 계약 | 4 | 4/4 | `rg -n "transcriptTextSize\|TRANSCRIPT_TEXT_SIZES" app/src/shared --glob '!*.test.*'` → `ipc.ts:1051,1052,1094` · `protocol.ts:685,732` | — |
+| VP-07 | EP-02 Tweaks 투영 | 3 | 3/3 | `TweakProvider.tsx:17`(타입) · `:36`(DEFAULTS) · `:100-101`(load) | — |
+| VP-08 | EP-03 DOM 적용 | 3 | 3/3 | `rg -n "fontSize" TweakProvider.tsx` → 0 · `:151` `--chat-text-scale` · `:158` `--reading-column` | — |
+| VP-08 | EP-04 CSS | 7 | 7/7 | `app.css:10-12` · `tokens.css` `@theme inline` 5토큰(typeScale UT 5케이스 green) · `--reading-column: 960px` | — |
+| VP-02 | EP-05 범위 선언 | 1 | 1/1 | 선언 파일 스캔 UT → `['…/TranscriptView.tsx']` | — |
+| VP-10 | EP-06 closure 글자 크기 | 38 | 38/38 | 변환 스크립트 `total 38` · `rg -o "transcript-text-scale,1\)\)\]" --glob '*.tsx'` → 38 · closure 스캔 위반 `[]` | — |
+| VP-11 | EP-07 설정 행 | 3 | 3/3 | GeneralTab render UT 3케이스 green(밀도 0 · 순서 · 설명 · 옵션) | — |
+| VP-09 | EP-08 매핑 | 2 | 2/2 | `theme.ts` `TRANSCRIPT_TEXT_SCALE`·`TRANSCRIPT_WIDTH_PX` | — |
+| VP-01 | EP-09 density 제거 | 51 | 51/51 | `rg -n -i density app/src --glob '!*.test.*'` → 0 · 테스트 8자리는 새 계약으로 교체(남은 `density` 9줄은 AC3 신규 단언) | — |
+| VP-04 | EP-10 문서 | 15 | 15/15 | 16 치환 적용 · `rg -n -i "density\|밀도" docs/PRD.md docs/TRD.md docs/IPC_CONTRACT.md docs/GLOSSARY.md docs/arch` → 0 · inventory 재생성(`inventory.md` 3줄) | — |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: …
+- §10에 없는데 같은 불변식이 필요했던 지점: `statusLine.render.test.ts:170-172` 가 StatusLine·AssistantMessage 원문의 `text-[12px]`·`text-[14px]` 를 단언했다 — 배율 형태로 교체(치수 12·14는 유지).
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | REQUIRED | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | migration·store UT(AC3) · CSS UT(AC2) · render UT(AC1) | not selected |
+| VP-02 | REQUIRED | SELF_PASS | AC4·AC6·AC7·AC8 UT | M1 red · M2 red |
+| VP-03 | REQUIRED | SELF_PASS | AC5·AC9·AC10 UT | not selected |
+| VP-04 | REQUIRED | SELF_PASS | `rg` 0 · inventory `--check` exit 0 | not selected |
+| VP-05 | REQUIRED | SELF_BLOCKED | 사람 실기 대기(AC12) | not selected |
+| VP-06 | REQUIRED | SELF_PASS | store UT "새 인스턴스에서 유지" · lifecycle `h.patch` 인자 | not selected |
+| VP-07 | REQUIRED | SELF_PASS | store "loads the settings projection" · lifecycle | M3 red |
+| VP-08 | REQUIRED | SELF_PASS | lifecycle · TranscriptView render · CSS UT | M1·M2·M4 red |
+| VP-09 | REQUIRED | SELF_PASS | lifecycle 값 표 6케이스 | M5·M6 red |
+| VP-10 | REQUIRED | SELF_PASS | closure 스캔 | M7·M8 red |
+| VP-11 | REQUIRED | SELF_PASS | GeneralTab render | M9 red |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| `TranscriptView.tsx` 루트 선언 제거 | VP-02·VP-08 M1 | 최초 | `0256 AC7` render + 선언 파일 스캔 — 2 failed | 잠김 |
+| 선언을 `Composer.tsx` 루트로 이동(형제 자리) | VP-02 M2 | 최초 | 같은 2케이스 — 2 failed | 잠김 |
+| `load()` 에서 `transcriptWidth` 삭제 | VP-07 M3 | 최초 | store "loads the settings projection" — 1 failed | 잠김 |
+| 토큰 블록 `@theme inline` → `@theme` | VP-08 M4 | 최초 | typeScale 토큰 5케이스 — 5 failed | 잠김 |
+| `small`↔`large` 배율 맞바꿈 | VP-09 M5 | 최초 | lifecycle 값 표 — 3 failed | 잠김 |
+| `medium` 폭 768 | VP-09 M6 | 최초 | lifecycle 3 + 기본값 대조 — 3 failed | 잠김 |
+| `Markdown.tsx` 본문 `text-[13.5px]` 복귀 | VP-10 M7 | 최초 | closure 스캔 — 1 failed | 잠김 |
+| closure 걷기 1단계로 축소(테스트 장치) | VP-10 M8 | 최초 | closure 포함 단언 — 1 failed | 잠김 |
+| 두 신규 행 설명 맞바꿈 | VP-11 M9 | 최초 | GeneralTab "설명이 라벨 다음" — 1 failed | 잠김 |
 
-- **분모 검산**: …
-- **덮개 회귀**: …
+- **분모 검산**: `선택 증거 9 · 인용 변이 0 · 새 oracle 0(스캔·CSS 장치는 M4·M8로 함께 셈) = 표 행 9`.
+- **덮개 회귀**: 해당 없음 — 최초 라운드.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 있음 — 신규 i18n 10키 전부 `GeneralTab` 이 쓴다(render UT) | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 저장 실패 = 기존 `setTweak` 롤백(§5 흐름 ↘) · 손상 값 = '저장값 손상' 행 | — |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 저장 실패는 기존 토스트 + 값 복원 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 기존 load 취소 계약 그대로 | — |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | AC2 음성 `rg density` 의 범위가 테스트까지 포함 — AC3 테스트가 `density` 를 일부러 쓴다 | 📝 **plan 수정 제안**: AC2 검증 수단을 `rg -n -i density app/src --glob '!*.test.*'` → 0 으로 | 현재 비테스트 0 · 테스트 9줄(AC3) |
+| 2 | 파이썬 치환이 CRLF 파일에 LF 줄을 섞었다 | ✅ 선조치 — `npm run lint`(prettier) 실행 후 커밋 시 git이 LF로 정규화 | `file TweakProvider.tsx` CRLF |
+| 3 | `settlement.integration.test.ts` 5건 red | ⚠️ 보고만 — 변경 전 트리에서도 같은 5건 red, better-sqlite3 ABI 서명(`npm ci` 후 Electron ABI) | `git stash` 후 동일 실행 5 failed |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: 없음.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 — 대체물 없음 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 — 대체물 없음 | — |
+| 재진입 | 해당 없음 — 대체물 없음 | — |
+| 다른 무효화 축 | 해당 없음 — 대체물 없음 | — |
 
-## [구현자 기입] 구현 보고
+## [구현자 기입] 구현 보고 (r1)
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출** | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | `app/src/shared/{ipc,protocol}.ts` · renderer `shared/{config/theme.ts,theme/TweakProvider.tsx,i18n/resources/{ko,en}.ts,ui/{MenuItem,SparkSpinner,markdown/Markdown}.tsx}` · `styles/{app.css,tokens.css}` · `features/settings/components/{GeneralTab,parts}.tsx` · `features/debug/components/DebugPanel.tsx` · `features/chat/components/{StatusLine,composer/AttachmentThumb,composer/composerPanel}` · transcript 13파일 · 테스트 7(신규 2) · 문서 11 + inventory |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `vitest run src/main/infra/settings src/renderer/src/{shared,app,features/settings,features/chat,styles,pages}` · `check-doc-inventory.mjs --check` |
+| **관측한 게이트 산출** | lint 0 error · 1 warning(`useTranscriptVirtualizer.ts:25` 기존) · typecheck exit 0 · vitest 257파일 2217케이스: 2212 pass · 5 red = `settlement.integration` better-sqlite3 ABI(변경 전 트리도 동일) · StatusLine 원문 단언 1건은 수정 후 green · inventory ok |
+| V-pair 자기확인 | `SELF_PASS 10 / SELF_BLOCKED 1(VP-05 실기)` |
+| 강제 지점 전수 | 10행 모두 N/N(위 표) |
+| **AC 자기보고**(`Criteria-Met`) | AC1 render 3케이스 · AC2 CSS UT + fontSize 미기록 + 비테스트 density 0 · AC3 migration/store · AC4·AC5 migration/store 재로드 · AC6·AC9 lifecycle 값 표 6 · AC7 render + 스캔 · AC8 closure 스캔 0 · AC10 원문 UT · AC11 `rg` 0 + inventory · AC13 gate ✅ / AC12 사람 실기 ⚠️ |
+| **합계 검산** | `✅ 12 · ⚠️ 1 · ❌ 0 = 총 13` |
+| 블로커 / 역질문 | 없음 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음(최초).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: AC2 음성 술어 범위(§6 #1).
+- 반복해서 부딪히는 환경 한계: better-sqlite3 ABI — `npm ci` 가 Electron ABI로 맞춰 DB 로드 스위트(settlement.integration)가 Node vitest에서 red.
 - 현재 라운드·impl 턴: `r1`
 
 ---

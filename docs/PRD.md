@@ -85,7 +85,7 @@ v1 의 기능 표면은 P2 만으로도 충분히 커버 가능하다. P1 의 �
 | F7 | **CLI 설치 자동화** | 둘 다 미설치 시 다이얼로그 → `npm install -g @anthropic-ai/claude-code` / `curl -fsSL https://opencode.ai/install \| bash` 를 사용자가 선택해 시도. |
 | F8 | **설치 실패 폴백** | 자동 설치 실패 시 수동 명령을 화면에 표시. Node.js 미설치 / 글로벌 npm 권한 부족 케이스 OS 별 안내. |
 | F9 | **인증 만료 처리** | Claude Code OAuth 토큰 만료(401) 감지 시 사용자에게 `claude /login` 안내. (전략 §6.5) |
-| F10 | **Tweaks 패널** | 테마 팔레트(원안 Classic/Dark/Cool — **구현은 white/dark 2종으로 축소**), 밀도(조밀/보통/넓게), 사이드바 접기. CSS 커스텀 프로퍼티로 적용. |
+| F10 | **Tweaks 패널** | 테마 팔레트(원안 Classic/Dark/Cool — **구현은 white/dark 2종으로 축소**), 대화 내용 텍스트 크기(작게/보통/크게)·대화 기록 너비(좁게/보통/넓게), 사이드바 접기. CSS 커스텀 프로퍼티로 적용. |
 
 ### 6.2 Non-functional Requirements
 
@@ -255,7 +255,9 @@ Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또�
 | 컨트롤 | 영향 |
 |---|---|
 | 테마 팔레트 (white/dark) | `<html data-theme="white\|dark">` 속성 갱신 → `tokens.css` 의 `[data-theme]` 스코프가 Tailwind `@theme` 토큰 변수를 override. 트리 remount 불요. (원안 3종 → 구현 2종) |
-| 밀도 (조밀/보통/넓게) | 베이스 `font-size` 11.5 / 13 / 14.5px. em/rem 의존 spacing 이 함께 변한다. |
+| 기준 글자 | 앱 루트 `font-size` 14.5px 고정. rem 의존 spacing·글자가 이 값을 따른다. |
+| 대화 내용 텍스트 크기 (작게/보통/크게) | 트랜스크립트 안 글자만 13/14 · 1 · 15/14 배. 입력창·사이드바·설정은 불변. |
+| 대화 기록 너비 (좁게/보통/넓게) | 트랜스크립트·채팅 입력창 열 최대폭 768 / 960 / 1200px, 기본 보통. |
 | 사이드바 접기 | 사이드바 너비 248 ↔ 56 px 토글. |
 
 → **인라인 스타일에 색을 하드코딩하지 말 것.** 모든 시각 변환은 토큰/커스텀 프로퍼티 경유.

@@ -22,7 +22,13 @@ export const ArtifactStatusRequestSchema = ArtifactListRequestSchema.extend({
 export const ArtifactSaveRequestSchema = ArtifactListRequestSchema.extend({
   publicationIds: z.array(artifactId).min(1).max(50)
 }).strict()
-import { DEFAULT_UPDATE_CHECK, MOCK_SCENARIO_IDS, UPDATE_CHECK_INTERVAL_HOURS } from './ipc'
+import {
+  DEFAULT_UPDATE_CHECK,
+  MOCK_SCENARIO_IDS,
+  TRANSCRIPT_TEXT_SIZES,
+  TRANSCRIPT_WIDTHS,
+  UPDATE_CHECK_INTERVAL_HOURS
+} from './ipc'
 import type {
   AttachmentView,
   Backend,
@@ -675,7 +681,9 @@ export const DEFAULT_SCHEDULER_SETTINGS = SchedulerSettingsSchema.parse({})
 
 export const SettingsSchema = z.object({
   theme: z.enum(['white', 'dark']).catch('white').default('white'),
-  density: z.enum(['compact', 'normal', 'comfortable']).default('normal'),
+  // 대화 내용 텍스트 크기 · 대화 기록 너비(0256). 손상 값은 부팅을 막지 않고 'medium' 으로 복구.
+  transcriptTextSize: z.enum(TRANSCRIPT_TEXT_SIZES).catch('medium').default('medium'),
+  transcriptWidth: z.enum(TRANSCRIPT_WIDTHS).catch('medium').default('medium'),
   sidebarCollapsed: z.boolean().default(false),
   sidebarWidth: z
     .number()
@@ -721,7 +729,8 @@ export const SettingsSchema = z.object({
 export const SettingsPatchSchema = z
   .object({
     theme: z.enum(['white', 'dark']),
-    density: z.enum(['compact', 'normal', 'comfortable']),
+    transcriptTextSize: z.enum(TRANSCRIPT_TEXT_SIZES),
+    transcriptWidth: z.enum(TRANSCRIPT_WIDTHS),
     sidebarCollapsed: z.boolean(),
     sidebarWidth: z.number().int().min(SIDEBAR_WIDTH_MIN).max(SIDEBAR_WIDTH_MAX),
     lastBackend: BackendSchema.nullable(),
@@ -795,7 +804,8 @@ export type {
   SetSkillEnabledRequest,
   SkillTargetRequest,
   ThemePref,
-  DensityPref,
+  TranscriptTextSize,
+  TranscriptWidth,
   WindowBounds,
   ListFilesRequest,
   FileEntry,

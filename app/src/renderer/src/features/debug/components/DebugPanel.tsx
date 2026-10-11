@@ -85,8 +85,6 @@ export function DebugPanel({
         onChange={(v) => setTweak('theme', v)}
       />
       <PanelSection label={tr('debug.layoutSection')} />
-      {/* 밀도(t.density)는 설정 → 일반 → 환경설정이 단독 노출한다(0132 가 정식 노출 지점을
-          만든 뒤 디버그 패널 라디오는 중복이 됐다 — 0149 에서 사용자 결정으로 제거). */}
       <PanelToggle
         label={tr('header.collapseSidebar')}
         value={t.sidebarCollapsed}

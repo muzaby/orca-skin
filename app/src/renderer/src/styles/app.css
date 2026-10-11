@@ -5,6 +5,11 @@
    so there is no desktop chrome of our own — the app shell fills the
    viewport via #root + the Frame component. */
 @layer base {
+  /* 앱 기준 글자 크기 — 모든 rem 토큰(여백·글자)의 기준이다(0256 D-001, 구 '밀도: 넓게' 값).
+     문서 루트는 JSX 에서 닿지 않으므로 base 레이어가 소유한다. */
+  html {
+    font-size: 14.5px;
+  }
   html,
   body {
     margin: 0;

@@ -24,7 +24,8 @@
 | 키 | 타입 | 기본값 | 용도 |
 |---|---|---|---|
 | `theme` | `'white' \| 'dark'` | `'white'` | Tweaks 테마 (2종) |
-| `density` | `'compact' \| 'normal' \| 'comfortable'` | `'normal'` | Tweaks 밀도 |
+| `transcriptTextSize` | `'small' \| 'medium' \| 'large'` | `'medium'` | 대화 내용 텍스트 크기 — 트랜스크립트 글자 배율. 숫자는 renderer `shared/config/theme.ts` 가 매핑 |
+| `transcriptWidth` | `'narrow' \| 'medium' \| 'wide'` | `'medium'` | 대화 기록 너비 — `--reading-column` px 매핑(같은 파일) |
 | `sidebarCollapsed` | `boolean` | `false` | Sidebar 펼침 상태 |
 | `sidebarWidth` | `number` | `248` | Sidebar 너비 (180–480, Phase 3+) |
 | `lastBackend` | `Backend \| null` | `null` | 직전 활성 백엔드 (재시작 시 복원) |

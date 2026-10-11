@@ -19,7 +19,7 @@ describe('settings migration', () => {
         windowBounds: { x: 10, y: 20, width: 800, height: 600 },
         lastSessionId: 's1',
         lastBackend: 'claude',
-        density: 'compact'
+        transcriptTextSize: 'large'
       },
       '1.100.0'
     )
@@ -28,7 +28,7 @@ describe('settings migration', () => {
       windowBounds: { x: 10, y: 20, width: 800, height: 600 },
       lastSessionId: 's1',
       lastBackend: 'claude',
-      density: 'compact'
+      transcriptTextSize: 'large'
     })
     expect(migrated.raw[SETTINGS_VERSION_KEY]).toBe(SETTINGS_VERSION)
     expect(migrated.raw[LAST_APP_VERSION_KEY]).toBe('1.100.0')
@@ -37,7 +37,7 @@ describe('settings migration', () => {
   it('일부 키가 invalid여도 보존 가능한 사용자 상태를 기본값으로 무음 리셋하지 않는다', () => {
     const migrated = migrateRawSettings(
       {
-        density: 'invalid-density',
+        transcriptWidth: 'huge',
         windowBounds: { x: 1, y: 2, width: 1024, height: 768 },
         lastSessionId: 'last',
         lastBackend: 'claude'
@@ -45,7 +45,7 @@ describe('settings migration', () => {
       '1.100.0'
     )
 
-    expect(migrated.settings.density).toBe('normal')
+    expect(migrated.settings.transcriptWidth).toBe('medium')
     expect(migrated.settings.windowBounds).toEqual({ x: 1, y: 2, width: 1024, height: 768 })
     expect(migrated.settings.lastSessionId).toBe('last')
     expect(migrated.settings.lastBackend).toBe('claude')
@@ -95,6 +95,29 @@ describe('settings migration', () => {
       const migrated = migrateRawSettings({ ssoBypass: true, lastSessionId: 's1' }, '1.100.0')
       expect(migrated.settings.lastSessionId).toBe('s1')
       expect(migrated.settings.authBypass).toBe(true)
+    })
+  })
+
+  describe('0256 — 밀도 제거와 대화 텍스트 크기·너비', () => {
+    it('저장된 density 는 다음 로드에서 settings·raw 모두에서 사라지고 형제 키는 보존된다 (AC3)', () => {
+      const migrated = migrateRawSettings({ density: 'compact', lastSessionId: 's1' }, '1.100.0')
+      expect(migrated.settings).not.toHaveProperty('density')
+      expect(migrated.raw).not.toHaveProperty('density')
+      expect(migrated.settings.lastSessionId).toBe('s1')
+    })
+
+    it('두 키 — 부재는 medium, 유효값 보존, 불량값 medium 복구 (AC4·AC5)', () => {
+      expect(migrateRawSettings({}, '1.100.0').settings).toMatchObject({
+        transcriptTextSize: 'medium',
+        transcriptWidth: 'medium'
+      })
+      expect(
+        migrateRawSettings({ transcriptTextSize: 'small', transcriptWidth: 'wide' }, '1.100.0')
+          .settings
+      ).toMatchObject({ transcriptTextSize: 'small', transcriptWidth: 'wide' })
+      expect(
+        migrateRawSettings({ transcriptTextSize: 'xl', transcriptWidth: 7 }, '1.100.0').settings
+      ).toMatchObject({ transcriptTextSize: 'medium', transcriptWidth: 'medium' })
     })
   })
 })
