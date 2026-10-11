@@ -20,7 +20,11 @@ export const AskExchange = memo(function AskExchange({
   // 질문은 어시스턴트가 물은 것이므로 좌측 정렬(사용자 답변 버블=우측과 구분).
   return (
     <div className="flex justify-start">
-      <UserBubbleText className="flex max-w-[85%] flex-col gap-1 rounded-2xl bg-bubble-user px-4 py-2.5 text-[calc(14px*var(--transcript-text-scale,1))] leading-[1.7] text-ink">
+      <UserBubbleText
+        className="max-w-[85%] rounded-2xl bg-bubble-user px-4 py-2.5 text-[calc(14px*var(--transcript-text-scale,1))] leading-[1.7] text-ink"
+        contentClassName="flex flex-col gap-1"
+        collapseKey={`ask:${call.toolUseId}`}
+      >
         {items.map((item, i) => (
           <div key={i}>
             <span className="text-ink2">{item.question}</span>

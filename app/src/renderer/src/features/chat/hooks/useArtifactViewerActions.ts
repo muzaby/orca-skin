@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { artifactApi } from '../../../shared/api/ipc'
-import { i18n, type MessageKey } from '../../../shared/i18n'
+import { i18n } from '../../../shared/i18n'
 import { reportArtifactIssue } from '../lib/artifactIssueReport'
 import { reportError } from '../../../shared/errors'
 import { useArtifactViewerStore, type ArtifactViewerSelection } from '../store/artifactViewerStore'
@@ -9,13 +9,14 @@ type ViewerAction = 'copy' | 'download'
 
 export function useArtifactViewerActions(selection: ArtifactViewerSelection): {
   action: ViewerAction | null
-  feedback: MessageKey | null
+  // 마지막 복사가 성공했는가 — 복사 버튼 아이콘(체크)만 이 값을 쓴다.
+  copied: boolean
   copy: () => Promise<void>
   download: () => Promise<void>
 } {
   const [action, setAction] = useState<ViewerAction | null>(null)
   const actionRef = useRef(false)
-  const [feedback, setFeedback] = useState<MessageKey | null>(null)
+  const [copied, setCopied] = useState(false)
   const alive = useRef(true)
   const { artifact, result } = selection
   const ready = result?.state === 'ready' ? result : null
@@ -32,21 +33,22 @@ export function useArtifactViewerActions(selection: ArtifactViewerSelection): {
     }
   }, [])
 
-  // 0242 ΔV2 (D-011) — 뷰어 상단 status 줄은 진행·성공만 말한다. 실패 사유는 사용자가 요청한
-  // 동작의 결과이므로 toast 로 알린다(뷰어를 닫았어도 알린다).
+  // 0257 D-001 — 뷰어는 복사·다운로드의 진행·성공·취소 문구를 쓰지 않는다(status 줄 없음).
+  // 복사 성공은 아이콘 체크로만 보이고, 실패 사유는 사용자가 요청한 동작의 결과이므로
+  // toast 로 알린다(0242 ΔV2 D-011 — 뷰어를 닫았어도 알린다).
   const runAction = async <T>(
     operation: ViewerAction,
     execute: () => Promise<T>,
-    settle: (result: T) => MessageKey | null
+    settle: (result: T) => boolean
   ): Promise<void> => {
     if (actionRef.current) return
     actionRef.current = true
     setAction(operation)
-    setFeedback(null)
+    setCopied(false)
     try {
       const result = await execute()
-      const success = settle(result)
-      if (success && current()) setFeedback(success)
+      const copiedNow = settle(result)
+      if (copiedNow && current()) setCopied(true)
     } catch (error) {
       reportError({
         event: 'artifacts.viewer-action.failed',
@@ -69,7 +71,7 @@ export function useArtifactViewerActions(selection: ArtifactViewerSelection): {
     await runAction(
       'copy',
       () => navigator.clipboard.writeText(ready.content),
-      () => 'chat.artifactViewer.copied'
+      () => true
     )
   }
   const download = async (): Promise<void> => {
@@ -82,17 +84,16 @@ export function useArtifactViewerActions(selection: ArtifactViewerSelection): {
           publicationIds: [artifact.publicationId]
         }),
       (saved) => {
-        if (saved.outcome === 'cancelled') return 'chat.artifacts.cancelled'
-        if (saved.outcome === 'completed' && saved.items[0]?.outcome === 'saved')
-          return 'chat.artifacts.saved'
+        if (saved.outcome === 'cancelled') return false
+        if (saved.outcome === 'completed' && saved.items[0]?.outcome === 'saved') return false
         reportArtifactIssue({
           event: 'artifacts.viewer-download.failed',
           filename: artifact.filename,
           reason: saved.reason ?? saved.items[0]?.reason
         })
-        return null
+        return false
       }
     )
   }
-  return { action, feedback, copy, download }
+  return { action, copied, copy, download }
 }

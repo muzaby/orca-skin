@@ -2,7 +2,7 @@ import { Icon } from '../../../../shared/ui/Icon'
 import { useI18n } from '../../../../shared/i18n'
 import type { EffortLevel } from '../../../../../../shared/ipc'
 
-import { EFFORT_DESC_KEYS, EFFORT_LABEL_KEYS } from './effort'
+import { EFFORT_LABEL_KEYS } from './effort'
 import { MenuItem, MenuTitle } from '../../../../shared/ui/MenuItem'
 
 const EFFORT_OPTIONS: EffortLevel[] = ['low', 'medium', 'high', 'xhigh', 'max']
@@ -25,22 +25,17 @@ export function EffortMenu({ effort, defaultEffort, onPick }: EffortMenuProps): 
             key={level}
             role="menuitemradio"
             aria-checked={active}
-            align="start"
             onClick={() => onPick(level)}
           >
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-1.5 text-[13px] font-medium text-ink">
-                {tr(EFFORT_LABEL_KEYS[level])}
-                {level === defaultEffort && (
-                  <span className="shrink-0 text-[11.5px] text-rust">
-                    {tr('chat.composer.effort.recommendedTag')}
-                  </span>
-                )}
-                {active && <Icon name="check" size={12} />}
-              </span>
-              <span className="mt-0.5 block text-[11.5px] leading-snug text-ink2">
-                {tr(EFFORT_DESC_KEYS[level])}
-              </span>
+            {/* 0257 D-013 — 수준별 설명 문구 없이 라벨(+추천 태그·체크)만 한 줄로 보인다. */}
+            <span className="flex min-w-0 flex-1 items-center gap-1.5 text-[13px] font-medium text-ink">
+              {tr(EFFORT_LABEL_KEYS[level])}
+              {level === defaultEffort && (
+                <span className="shrink-0 text-[11.5px] text-rust">
+                  {tr('chat.composer.effort.recommendedTag')}
+                </span>
+              )}
+              {active && <Icon name="check" size={12} />}
             </span>
           </MenuItem>
         )

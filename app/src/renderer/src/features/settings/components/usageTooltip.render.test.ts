@@ -124,6 +124,11 @@ describe('일별 토큰 차트 툴팁 (AT-28)', () => {
     // 안내를 위해 붙였던 폭 제한과 구분선도 함께 사라진다.
     expect(html).not.toContain('max-w-[240px]')
     expect(html).not.toContain('border-t')
+    // 0257 AC6 — 앱 공용 검은 툴팁 표면 · 보조 줄은 muted 흰색.
+    expect(html).toContain('bg-tooltip')
+    expect(html).toContain('text-tooltip-ink')
+    expect(html).toContain('text-tooltip-ink-muted')
+    expect(html).not.toContain('bg-panel')
   })
 
   it('비활성이면 아무것도 그리지 않는다', () => {

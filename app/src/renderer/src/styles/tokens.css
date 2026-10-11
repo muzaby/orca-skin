@@ -89,6 +89,11 @@
      다른 색이 나온다 — `--color-rust` 가 정확히 그 경우였다). raw 값은 여기 한 곳만 갖고
      `SparkSpinner` 는 currentColor 만 쓴다. 정의가 하나뿐임은 `sparkCss.test.ts` 가 센다. */
   --color-spinner: #C15F3C;
+  /* 툴팁 — 첨부 7 실측 검은 배경·흰 글자(0257 D-004). 두 테마 공통이라 [data-theme]
+     스코프에 재정의하지 않는다(spinner 와 같은 이유). 표면 클래스 SSOT = shared/ui/tooltipStyle.ts. */
+  --color-tooltip: #0b0b0b;
+  --color-tooltip-ink: #ffffff;
+  --color-tooltip-ink-muted: #a3a3a3;
 
   /* Status tones */
   --color-good: #5a8a4f;

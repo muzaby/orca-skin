@@ -621,7 +621,6 @@ export const en: typeof ko = {
       preview: 'Preview',
       code: 'Code',
       copy: 'Copy',
-      copied: 'Copied',
       copyFailed: 'Could not copy. Please try again.',
       close: 'Close viewer',
       loading: 'Loading file…',
@@ -629,9 +628,7 @@ export const en: typeof ko = {
       unsupported: 'Preview is not supported for this file format',
       invalidEncoding: 'Cannot read the text encoding',
       imageFailed: 'Could not display the image',
-      empty: 'This file is empty',
-      copyBusy: 'Copying',
-      downloadBusy: 'Saving'
+      empty: 'This file is empty'
     },
     artifacts: {
       forbidden: 'This file is not available in this conversation',
@@ -660,11 +657,9 @@ export const en: typeof ko = {
       trashTitle: 'Move this file to the Recycle Bin?',
       trashMessage:
         'The publication record will remain. Other conversations referencing this file will also lose access to it.',
-      cancelled: 'Save cancelled',
       failed: 'Could not complete the file action. Please check again.',
       saveComplete: 'Save results',
       tooMany: 'Save up to 50 files at once. Please save files individually.',
-      saved: 'Saved',
       skipped: 'Skipped — please check file status',
       done: 'Done',
       trashed: 'Moved to Recycle Bin',
@@ -712,6 +707,8 @@ export const en: typeof ko = {
       reasoning: 'Reasoning',
       structuredOutput: 'Structured output',
       incompleteResponse: 'The response was not completed',
+      showMore: 'Show more',
+      showLess: 'Show less',
       loading: 'Loading conversation…',
       emptyPrompt: 'Send your first message to Claude Code.',
       lineageFork: 'This session was forked from <hl>‘{{label}}’</hl>',
@@ -946,11 +943,11 @@ export const en: typeof ko = {
       effort: {
         title: 'Effort',
         recommendedTag: 'Recommended',
-        low: { label: 'Low', desc: 'Prioritizes fast responses.' },
-        medium: { label: 'Medium', desc: 'Balances speed and thinking depth.' },
-        high: { label: 'High', desc: 'Works with sufficient thinking depth.' },
-        xhigh: { label: 'Extra', desc: 'Thinks more deeply for complex tasks.' },
-        max: { label: 'Max', desc: 'Uses the deepest thinking budget.' }
+        low: { label: 'Low' },
+        medium: { label: 'Medium' },
+        high: { label: 'High' },
+        xhigh: { label: 'Extra' },
+        max: { label: 'Max' }
       },
       handoffNoSession: 'No session to hand off',
       handoffWaitTurn: 'Try again after the response completes',

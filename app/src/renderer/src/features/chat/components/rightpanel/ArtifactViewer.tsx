@@ -20,7 +20,7 @@ export function ArtifactViewer({
 }): React.JSX.Element {
   const { tr } = useI18n()
   const closeRef = useRef<HTMLButtonElement>(null)
-  const { action, feedback, copy, download } = useArtifactViewerActions(selection)
+  const { action, copied, copy, download } = useArtifactViewerActions(selection)
   const { artifact, result, loading, mode, expanded } = selection
   const ready = result?.state === 'ready' ? result : null
   const image = ready?.format === 'image' || artifact.kind === 'image'
@@ -89,7 +89,7 @@ export function ArtifactViewer({
             <Button
               iconOnly
               size="small"
-              leadingIcon={feedback === 'chat.artifactViewer.copied' ? 'check' : 'copy'}
+              leadingIcon={copied ? 'check' : 'copy'}
               disabled={!ready || !!action}
               aria-label={tr('chat.artifactViewer.copy')}
               title={tr('chat.artifactViewer.copy')}
@@ -122,20 +122,6 @@ export function ArtifactViewer({
           />
         </div>
       </div>
-      {(feedback || action) && (
-        <p
-          role="status"
-          className="shrink-0 border-b border-border px-3 py-1.5 text-caption text-ink2"
-        >
-          {tr(
-            action === 'copy'
-              ? 'chat.artifactViewer.copyBusy'
-              : action === 'download'
-                ? 'chat.artifactViewer.downloadBusy'
-                : feedback!
-          )}
-        </p>
-      )}
       <div
         data-artifact-viewer-body=""
         className={`min-h-0 flex-1 ${ready?.format === 'html' && mode === 'preview' ? 'overflow-hidden' : 'overflow-auto'}`}
