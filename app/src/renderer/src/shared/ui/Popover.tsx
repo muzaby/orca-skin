@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
+import { TOOLTIP_SURFACE } from './tooltipStyle'
 
 interface PopoverProps {
   open: boolean
@@ -125,7 +126,7 @@ export function Popover({
     <div
       ref={panelRef}
       role={role}
-      className={`app-frame-floating fixed z-50 ${role === 'tooltip' ? 'pointer-events-none whitespace-nowrap rounded-r4 bg-ink px-2.5 py-1.5 text-caption text-bg shadow-sm' : 'rounded-lg border border-border bg-panel p-1 shadow-lg'} ${className}`}
+      className={`app-frame-floating fixed z-50 ${role === 'tooltip' ? TOOLTIP_SURFACE : 'rounded-lg border border-border bg-panel p-1 shadow-lg'} ${className}`}
       style={style}
       data-context="floating"
       data-behavior="dismissible"

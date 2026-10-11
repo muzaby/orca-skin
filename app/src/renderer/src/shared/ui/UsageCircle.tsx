@@ -17,7 +17,6 @@ export interface UsageCircleProps {
   /** 0..1 fraction filled. Clamped. */
   ratio: number
   size?: number
-  title?: string
   /** compaction 임박 등 경고 상태 — progress arc 를 강제로 위험색(bad)으로 칠한다. */
   warn?: boolean
   'aria-label'?: string
@@ -32,7 +31,6 @@ function progressStroke(clamped: number, warn?: boolean): string {
 export function UsageCircle({
   ratio,
   size = 12,
-  title,
   warn,
   'aria-label': ariaLabel
 }: UsageCircleProps): React.JSX.Element {
@@ -46,7 +44,6 @@ export function UsageCircle({
       role="img"
       aria-label={ariaLabel}
     >
-      {title && <title>{title}</title>}
       <circle cx="6" cy="6" r="5" fill="none" strokeWidth="2" stroke="var(--color-t3)" />
       <circle
         cx="6"

@@ -55,7 +55,7 @@ export const PendingSteerTurn = memo(function PendingSteerTurn({
             <UserBubbleText
               data-state={item.submitted ? 'submitted-steer' : 'pending-steer'}
               className="rounded-r6 bg-bubble-user px-p7 py-p5 text-body italic text-ink3"
-              title={item.text}
+              collapseKey={`steer:${item.id}`}
             >
               {item.text}
             </UserBubbleText>

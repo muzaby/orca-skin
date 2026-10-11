@@ -54,6 +54,8 @@
 | 헤더 버전 모달 | 햄버거 메뉴 `버전` 항목 → 앱 버전/메타 모달 | `app/Header.tsx` 의 `HeaderVersionModal` (0083) |
 | 인앱 업데이트 | 업데이트 가용 시 헤더 버튼 + 파란 뱃지 → `UpdateDialog`(다운로드/재시작 사용자 게이트). dev 는 디버그 패널 더미 토글 | `features/update/` (0085/0086) |
 | 사용량 한도 | Composer 도넛 클릭 → `UsagePanel`(rendering.md §1.9) → `>` 로 설정 사용량 탭(provider 탭 포함) 이동, 월간 한도 편집 | `features/chat/components/UsagePanel.tsx` + `features/settings/` (0079~0082) |
+| 툴팁 | 모든 `title` 툴팁은 앱 루트 `TooltipHost` 가 hover 500ms 뒤 검은 배경·흰 글자 툴팁으로 그린다(OS 툴팁 대신, 두 테마 동일). 표면 클래스 SSOT = `shared/ui/tooltipStyle.ts` | `shared/ui/{TooltipHost.tsx,tooltipController.ts,tooltipTarget.ts}` (0257) |
+| 사용자 버블 접기 | 본문이 10줄을 넘으면 접고 마지막 줄을 흐린 뒤 버블 안 '더 보기'/'간략히 보기'로 오간다. 펼침 상태는 키별 메모리(가상화 재마운트에도 유지) | `features/chat/components/UserBubbleText.tsx` + `store/bubbleExpansionStore.ts` (0257) |
 | 엔진 추가 모달 | 단일 화면(마법사 폐기) — provider 드롭다운 + `~/.claude/settings.json` 불러오기(`orca:engine:importUserSettings`) | `features/engine/components/EngineFormModal.tsx` (0090) |
 
 ### 1.4 접근성

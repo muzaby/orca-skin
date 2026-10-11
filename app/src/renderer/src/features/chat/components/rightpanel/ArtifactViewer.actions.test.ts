@@ -74,8 +74,40 @@ function click(behavior: string): void {
 function toasts(): unknown[] {
   return errorToastStore.getState().toasts.map(({ title, detail }) => ({ title, detail }))
 }
-function status(): unknown {
-  return all(render()).find((element) => element.props.role === 'status')?.props.children
+// 0257 D-001 — 뷰어는 복사·다운로드 문구를 어디에도 쓰지 않는다. 본문 상태 안내(불러오는 중·형식
+// 미지원, D-003)만 role=status 로 남는다.
+const ACTION_MESSAGE_KEYS = [
+  'chat.artifactViewer.copyBusy',
+  'chat.artifactViewer.downloadBusy',
+  'chat.artifactViewer.copied',
+  'chat.artifacts.saved',
+  'chat.artifacts.cancelled'
+]
+function strings(node: ReactNode): string[] {
+  return Children.toArray(node).flatMap((child) =>
+    typeof child === 'string'
+      ? [child]
+      : isValidElement<Record<string, unknown>>(child)
+        ? strings(child.props.children as ReactNode)
+        : []
+  )
+}
+function expectQuiet(): void {
+  const tree = render()
+  expect(strings(tree).filter((text) => ACTION_MESSAGE_KEYS.includes(text))).toEqual([])
+  // 본문(data-artifact-viewer-body) 밖의 status 줄 — 본문 안은 내려가지 않는다.
+  const outside = (node: ReactNode): ReactElement<Record<string, unknown>>[] =>
+    Children.toArray(node).flatMap((child) =>
+      isValidElement<Record<string, unknown>>(child) &&
+      !('data-artifact-viewer-body' in child.props)
+        ? [child, ...outside(child.props.children as ReactNode)]
+        : []
+    )
+  expect(outside(tree).filter((element) => element.props.role === 'status')).toEqual([])
+}
+function copyIcon(): unknown {
+  return all(render()).find((element) => element.props['data-behavior'] === 'viewer:copy')?.props
+    .leadingIcon
 }
 beforeEach(async () => {
   h.states = []
@@ -115,14 +147,13 @@ describe('viewer toolbar production callbacks', () => {
       click('download')
       expect(writeText).toHaveBeenCalledTimes(operation === 'copy' ? 1 : 0)
       expect(h.save).toHaveBeenCalledTimes(operation === 'download' ? 1 : 0)
-      expect(status()).toBe(`chat.artifactViewer.${operation}Busy`)
+      expectQuiet()
       finish()
       await pending
       await Promise.resolve()
       await Promise.resolve()
-      expect(status()).toBe(
-        operation === 'copy' ? 'chat.artifactViewer.copied' : 'chat.artifacts.cancelled'
-      )
+      expectQuiet()
+      expect(copyIcon()).toBe(operation === 'copy' ? 'check' : 'copy')
     }
   )
   it.each([
@@ -153,7 +184,7 @@ describe('viewer toolbar production callbacks', () => {
     await Promise.resolve()
     await Promise.resolve()
     expect(h.states).toEqual(stateBeforeCompletion)
-    if (transition === 'switch') expect(status()).toBeUndefined()
+    if (transition === 'switch') expectQuiet()
   })
   it('keeps binary file download available when its preview format is unsupported', async () => {
     preview.mockResolvedValueOnce({ state: 'unavailable', reason: 'unsupported-format' })
@@ -172,7 +203,7 @@ describe('viewer toolbar production callbacks', () => {
     click('download')
     await Promise.resolve()
     expect(h.save).toHaveBeenCalledWith({ sessionId: 'session', publicationIds: ['p'] })
-    expect(status()).toBe('chat.artifacts.saved')
+    expectQuiet()
   })
   it('changes the selected file mode, expands, and closes without changing its identity', () => {
     const code = all(render()).find(
@@ -196,12 +227,14 @@ describe('viewer toolbar production callbacks', () => {
     click('copy')
     await Promise.resolve()
     expect(writeText).toHaveBeenCalledWith('# Selected file')
-    expect(status()).toBe('chat.artifactViewer.copied')
+    expectQuiet()
+    expect(copyIcon()).toBe('check')
     writeText.mockRejectedValueOnce(new Error('clipboard denied'))
     click('copy')
     await Promise.resolve()
-    // 0242 ΔV2 AC21 — 실패는 status 줄이 아니라 toast 로 간다.
-    expect(status()).toBeUndefined()
+    // 0242 ΔV2 AC21 — 실패는 toast 로 간다. 0257 — 뷰어 문구는 없다.
+    expectQuiet()
+    expect(copyIcon()).toBe('copy')
     expect(toasts()).toEqual([
       { title: 'actionFailed', detail: 'report.md: chat.artifactViewer.copyFailed' }
     ])
@@ -210,22 +243,22 @@ describe('viewer toolbar production callbacks', () => {
     click('download')
     await Promise.resolve()
     expect(h.save).toHaveBeenCalledWith({ sessionId: 'session', publicationIds: ['p'] })
-    expect(status()).toBe('chat.artifacts.saved')
+    expectQuiet()
     h.save.mockResolvedValueOnce({ outcome: 'cancelled', items: [] })
     click('download')
     await Promise.resolve()
-    expect(status()).toBe('chat.artifacts.cancelled')
+    expectQuiet()
     h.save.mockRejectedValueOnce(new Error('private path'))
     click('download')
     await Promise.resolve()
-    expect(status()).toBeUndefined()
+    expectQuiet()
     h.save.mockResolvedValueOnce({
       outcome: 'completed',
       items: [{ publicationId: 'p', outcome: 'failed', reason: 'missing' }]
     })
     click('download')
     await Promise.resolve()
-    expect(status()).toBeUndefined()
+    expectQuiet()
     expect(toasts()).toEqual([
       { title: 'fileUnavailable', detail: 'report.md: chat.artifacts.missing' },
       { title: 'actionFailed', detail: 'report.md: chat.artifacts.failed' }

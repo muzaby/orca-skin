@@ -51,7 +51,8 @@ export function UserMessage({ message }: UserMessageProps): React.JSX.Element {
       {text && (
         <UserBubbleText
           className="max-w-[80%] rounded-r6 bg-bubble-user px-p7 py-p5 text-body text-ink"
-          title={text}
+          // 0257 — 전체 문장 title 은 없다(접기가 전체 보기 수단). Message 에 id 가 없어 생성 시각을 키로 쓴다.
+          collapseKey={`user:${message.createdAt}`}
         >
           {text}
         </UserBubbleText>

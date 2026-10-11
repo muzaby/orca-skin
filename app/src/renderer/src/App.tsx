@@ -7,6 +7,7 @@ import { CostProvider } from './features/cost'
 import { UpdateProvider } from './features/update'
 import { ErrorToastLayer } from './app/ErrorToastLayer'
 import { RootGate } from './app/RootGate'
+import { TooltipHost } from './shared/ui/TooltipHost'
 
 function App(): React.JSX.Element {
   return (
@@ -19,6 +20,8 @@ function App(): React.JSX.Element {
                 <ChatProvider>
                   <RootGate />
                   <ErrorToastLayer />
+                  {/* 0257 — 모든 title 툴팁을 검은 툴팁으로(게이트·부팅 화면 포함). */}
+                  <TooltipHost />
                 </ChatProvider>
               </UpdateProvider>
             </CostProvider>

@@ -626,7 +626,6 @@ export const ko = {
       preview: '미리보기',
       code: '코드',
       copy: '복사',
-      copied: '복사했습니다',
       copyFailed: '복사하지 못했습니다. 다시 시도해 주세요.',
       close: '뷰어 닫기',
       loading: '파일을 불러오는 중…',
@@ -634,9 +633,7 @@ export const ko = {
       unsupported: '이 파일 형식은 미리보기를 지원하지 않습니다',
       invalidEncoding: '텍스트 인코딩을 읽을 수 없습니다',
       imageFailed: '이미지를 표시하지 못했습니다',
-      empty: '파일이 비어 있습니다',
-      copyBusy: '복사 중',
-      downloadBusy: '저장 중'
+      empty: '파일이 비어 있습니다'
     },
     artifacts: {
       forbidden: '이 대화에서 파일을 사용할 수 없습니다',
@@ -665,11 +662,9 @@ export const ko = {
       trashTitle: '파일을 휴지통으로 이동할까요?',
       trashMessage:
         '게시 기록은 남습니다. 이 파일을 참조하는 다른 대화에서도 파일을 사용할 수 없게 됩니다.',
-      cancelled: '저장을 취소했습니다',
       failed: '파일 작업을 완료하지 못했습니다. 다시 확인해 주세요.',
       saveComplete: '저장 결과',
       tooMany: '한 번에 50개까지 저장할 수 있습니다. 개별 저장을 이용해 주세요.',
-      saved: '저장됨',
       skipped: '건너뜀 — 파일 상태를 확인해 주세요',
       done: '완료했습니다',
       trashed: '휴지통으로 이동했습니다',
@@ -720,6 +715,8 @@ export const ko = {
       reasoning: '사고 과정',
       structuredOutput: '구조화 출력',
       incompleteResponse: '응답이 완료되지 않았습니다',
+      showMore: '더 보기',
+      showLess: '간략히 보기',
       loading: '대화 불러오는 중…',
       emptyPrompt: 'Claude Code 에 첫 메시지를 보내보세요.',
       lineageFork: '이 세션은 <hl>‘{{label}}’</hl>에서 분기되었습니다',
@@ -954,11 +951,11 @@ export const ko = {
       effort: {
         title: '노력',
         recommendedTag: '추천',
-        low: { label: '낮음', desc: '빠른 응답을 우선합니다.' },
-        medium: { label: '중간', desc: '속도와 사고 깊이를 균형 있게 사용합니다.' },
-        high: { label: '높음', desc: '충분한 사고 깊이로 작업합니다.' },
-        xhigh: { label: '엑스트라', desc: '복잡한 작업에 더 깊게 사고합니다.' },
-        max: { label: '최대', desc: '가장 깊은 사고 예산을 사용합니다.' }
+        low: { label: '낮음' },
+        medium: { label: '중간' },
+        high: { label: '높음' },
+        xhigh: { label: '엑스트라' },
+        max: { label: '최대' }
       },
       handoffNoSession: '핸드오프할 세션이 없습니다',
       handoffWaitTurn: '응답 완료 후 시도하세요',

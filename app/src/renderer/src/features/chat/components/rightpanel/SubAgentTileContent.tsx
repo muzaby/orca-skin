@@ -251,7 +251,7 @@ export function SubAgentTaskDetail({
         <div className="flex justify-end">
           <UserBubbleText
             className="max-w-[85%] rounded-2xl bg-bubble-user px-4 py-2.5 text-[14px] leading-[1.7] text-ink"
-            title={prompt}
+            collapseKey={`subagent:${selected.toolUseId}`}
           >
             {prompt}
           </UserBubbleText>

@@ -463,81 +463,116 @@ UserBubbleText(consumer props) → measure → store → render
 > **재구현 턴도 같은 이름의 필드를 다시 채운다** — 표제(`… (r2)`, 같은 라운드 추가 턴이면 `… (r2.2)`)만 바꾸고 필드를 줄이지 않는다.
 > 해당 없는 필드는 지우지 말고 `해당 없음`으로 남긴다.
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: 뷰어 status 줄 제거 · `TooltipHost` 위임 · `UserBubbleText` 접기 · effort 설명 제거 모두 Part II 그대로.
+- 이견 / 현실성 문제: `Message` 타입에 `id` 가 없다(`chatReducer.ts:224-232`) — §11의 `message.id` 키 대신 `user:${message.createdAt}` 를 쓴다(§6 #1).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-… | … | … | … | … | … |
+| VP-02·VP-08 | EP-01 툴팁 표면 | 3 | 3/3 | `rg -n "TOOLTIP_SURFACE" app/src/renderer/src --glob '!*.test.*'` → `Popover.tsx`·`TokensPerDayChart.tsx`·(`TooltipHost` 는 Popover 경유) | — |
+| VP-02 | EP-02 색 토큰 | 3 | 3/3 | `tokens.css` `@theme` 3줄 · 다크 스코프 0(tooltipCss UT) | — |
+| VP-08 | EP-03 호스트 마운트 | 1 | 1/1 | `App.tsx` `<TooltipHost />` 1회(tooltipCss UT) | — |
+| VP-06·VP-10 | EP-04 title 이동 | 4 | 4/4 | `tooltipController.ts` pointerover claim · pointerout release · 트리거 release · observe re-claim(controller UT 13케이스) | — |
+| VP-06 | EP-05 숨김 트리거 | 7 | 7/7 | pointerout + `HIDE_EVENTS` 4 + window blur + observe 제거 콜백 — UT `it.each` 6 + 떠남 1 | — |
+| VP-02 | EP-06 SVG title | 1 | 1/1 | `UsageCircle` `title` prop 삭제 · `<title>` 스캔 0 | — |
+| VP-03·VP-09 | EP-07 버블 계약 | 9 | 9/9 | ① `UserBubbleText` ②~⑤ `rg -n "collapseKey=" …/components` → 4 ⑥ `shouldScrollAfterCollapse` 경유 ⑦~⑨ `title={text\|item.text\|prompt}` 0 | — |
+| VP-01·VP-12 | EP-08 뷰어 문구 0 | 4 | 4/4 | status 줄 삭제 · `copied` · settle boolean · i18n 5키 삭제(ko·en, `copied` 포함 — §6 #2) | — |
+| VP-04·VP-13 | EP-09 effort 설명 0 | 3 | 3/3 | span 삭제 · `rg EFFORT_DESC_KEYS` → 0 · ko·en `desc` 10 삭제 | — |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: …
+- §10에 없는데 같은 불변식이 필요했던 지점: `App.projects.test.ts` 의 Provider 순서 단언에 `TooltipHost` 추가 · `usageTooltip.render.test.ts` 에 검은 표면 양성 단언 추가.
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | REQUIRED | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | `ArtifactViewer.actions` 14케이스(`expectQuiet`) | A1·A2 red |
+| VP-02 | REQUIRED | SELF_PASS | tooltip UT 28 + tooltipCss 5 | T1~T4 red |
+| VP-03 | REQUIRED | SELF_PASS | bubble 순수 7 + store 1 + render/원문 6 | B1·B2·B3 red |
+| VP-04 | REQUIRED | SELF_PASS | effortMenu 6 | E1 red |
+| VP-05 | REQUIRED | SELF_BLOCKED | 사람 실기 대기(AC14) | not selected |
+| VP-06 | REQUIRED | SELF_PASS | controller 수명 UT | T1·T2 red |
+| VP-07 | REQUIRED | SELF_PASS | store·helper·render | B3·B4 red |
+| VP-08 | REQUIRED | SELF_PASS | App 마운트·Popover 원문 | T3·M-host red |
+| VP-09 | REQUIRED | SELF_PASS | 소비처 원문·render | B3 red |
+| VP-10 | REQUIRED | SELF_PASS | tooltipTarget 순수 UT 5 | not selected |
+| VP-11 | REQUIRED | SELF_PASS | 경계 UT | B1 red |
+| VP-12 | REQUIRED | SELF_PASS | 아이콘 단언 | A2 red |
+| VP-13 | REQUIRED | SELF_PASS | 행 텍스트 단언 | E1 red |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| 뷰어 툴바 아래 status 줄 복원 | A1 | 최초 | `ArtifactViewer.actions` 2 failed | 잠김 |
+| 복사 아이콘이 `copied` 무시 | A2 | 최초 | 2 failed | 잠김 |
+| `claimTitle` 이 title 유지 | T1 | 최초 | tooltip 3 failed | 잠김 |
+| `releaseTitle` 원복 생략 | T2 | 최초 | tooltip 11 failed | 잠김 |
+| Popover 표면 `bg-ink text-bg` 복귀 | T3 | 최초 | tooltipCss 1 failed | 잠김 |
+| 다크 스코프 `--color-tooltip` 재정의 | T4 | 최초 | tooltipCss 1 failed | 잠김 |
+| `App.tsx` 호스트 제거 | M-host | 최초 | tooltipCss 1 failed | 잠김 |
+| 접기 기준 ∞ | B1 | 최초 | bubbleCollapse 1 failed | 잠김 |
+| 더 보기↔간략히 보기 맞바꿈 | B2 | 최초 | bubbleCollapse 1 failed | 잠김 |
+| `UserMessage` collapseKey 제거 | B3 | 최초 | userBubble 2 failed | 잠김 |
+| 접기 helper 항상 스크롤 | B4 | 최초 | bubbleCollapse 1 failed | 잠김 |
+| effort 설명 span 복원 | E1 | 최초 | effortMenu 2 failed | 잠김 |
 
-- **분모 검산**: …
-- **덮개 회귀**: …
+- **분모 검산**: `선택 증거 12 · 인용 변이 0 · 새 oracle 0(expectQuiet·원문 스캔은 A1·M-host로 함께 셈) = 표 행 12`.
+- **덮개 회귀**: 해당 없음 — 최초 라운드.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 있음 — `showMore`/`showLess` 는 `UserBubbleText` 버튼 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 호스트 로직을 `tooltipController.ts` 로 분리 — dispose 가 리스너·관찰·title 원복을 함께 정리(UT) | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 뷰어 실패 = '실패 → 토스트' 행 · 툴팁 대상 제거 = '대상 DOM 제거' 행 | — |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 다운로드 성공·취소는 이제 무표시(D-001 그대로) — OS 저장 창이 닫히는 것이 결과다 | 사람 실기 AC14 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 기존 `current()` 세대 확인 유지(late result 6케이스 green) | — |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | `Message` 에 `id` 없음 — plan §11·AC12의 `message.id` 키 불가 | ✅ 선조치 `user:${message.createdAt}` · 📝 plan 수정 제안: AC12 키 표를 `user:<createdAt>` 로 | `chatReducer.ts:224-232` |
+| 2 | 뷰어 `artifactViewer.copied` 도 소비처가 사라졌다 | ✅ 선조치 — ko·en에서 함께 삭제(EP-08 ④ 4키 → 5키) | `rg artifactViewer.copied` 비테스트 0 |
+| 3 | 호스트 로직을 `TooltipHost.tsx` 안 대신 순수 `tooltipController.ts` 로 분리 | ✅ 선조치 — node 환경에서 이벤트 수명을 테스트하려면 React 밖 seam 필요 | controller UT 13 |
+| 4 | `SubAgentTaskDetail` 은 `selectedId` 가 아니라 `task` prop을 받는다 | ✅ 선조치 키 = `subagent:${selected.toolUseId}` | `SubAgentTileContent.tsx:231-245` |
+| 5 | `settlement.integration.test.ts` 5건 red | ⚠️ 보고만 — better-sqlite3 ABI(0256과 동일) | 변경 전 트리 동일 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: 접기 키 `user:<createdAt>`(§6 #1) · 컨트롤러 파일 분리(§6 #3).
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 — 메모리 Set, 만료 없음 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | `createdAt` 이 같은 두 사용자 메시지(같은 ms)가 펼침을 공유할 수 있다 — 같은 세션 같은 ms 커밋은 사실상 없음 | AC11 store UT(키 분리) |
+| 재진입 | 라이브 낙관 메시지와 커밋 메시지의 `createdAt` 이 다르면 커밋 시 펼침이 접힘으로 돌아갈 수 있다 | 사람 실기 AC14에서 확인 |
+| 다른 무효화 축 | 세션 재로드 후 키 동일(DB createdAt) — 메모리라 앱 재시작이면 접힘 | D-011(디스크 저장 없음)과 일치 |
 
-## [구현자 기입] 구현 보고
+## [구현자 기입] 구현 보고 (r1)
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출** | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | 신규 `shared/ui/{tooltipStyle,tooltipTarget,tooltipController}.ts`·`TooltipHost.tsx` · `features/chat/{lib/bubbleCollapse,store/bubbleExpansionStore}.ts` · 수정 `Popover`·`UsageCircle`·`App.tsx`·`tokens.css`·`TokensPerDayChart`·`UserBubbleText`·소비 4·`ArtifactViewer`·`useArtifactViewerActions`·`EffortMenu`·`effort.ts`·i18n ko/en · 테스트 신규 7·개정 5 · 문서 `ux-domains.md` |
+| 실행 명령 | `npm run typecheck` · `npm run lint` · `vitest run src/renderer src/main/infra/settings` · 변이 12건 |
+| **관측한 게이트 산출** | typecheck exit 0 · lint 0 error/1 warning(기존) · vitest 296파일 2465케이스: 2460 pass · 5 red = `settlement.integration` DB ABI(변경 전 동일) |
+| V-pair 자기확인 | `SELF_PASS 12 / SELF_BLOCKED 1(VP-05 실기)` |
+| 강제 지점 전수 | 9행 모두 N/N |
+| **AC 자기보고**(`Criteria-Met`) | AC1 expectQuiet·아이콘 · AC2 형식 미지원 본문 status 유지(`:158-176` green) · AC3~AC5 controller UT · AC6 Popover 원문·차트 render · AC7 CSS UT · AC8 `<title>` 0 · AC9·AC10 순수·경계 UT · AC11 store UT · AC12 소비처 원문·render · AC13 effortMenu · AC15 gate ✅ / AC14 실기 ⚠️ |
+| **합계 검산** | `✅ 14 · ⚠️ 1 · ❌ 0 = 총 15` |
+| 블로커 / 역질문 | 없음 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음(최초).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: plan이 존재하지 않는 `message.id` 를 인용(§6 #1).
+- 반복해서 부딪히는 환경 한계: better-sqlite3 ABI.
 - 현재 라운드·impl 턴: `r1`
 
 ---
