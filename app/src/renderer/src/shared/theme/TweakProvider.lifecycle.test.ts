@@ -91,8 +91,13 @@ describe('actual TweakProvider lifecycle and selector connection', () => {
     const cleanup = first.effects.map(({ run }) => run())
     expect(h.get).toHaveBeenCalledOnce()
     expect(document.documentElement.dataset).toEqual({ theme: 'white', platform: 'win32' })
-    expect(document.documentElement.style.fontSize).toBe('13px')
-    expect(h.setProperty).toHaveBeenCalledExactlyOnceWith('--font-app', 'var(--font-sans)')
+    // 0256 D-001 — 루트 글자 크기는 app.css 가 소유한다. Provider 는 쓰지 않는다.
+    expect((document.documentElement.style as { fontSize?: string }).fontSize).toBeUndefined()
+    expect(h.setProperty.mock.calls).toEqual([
+      ['--chat-text-scale', '1'],
+      ['--reading-column', '960px'],
+      ['--font-app', 'var(--font-sans)']
+    ])
     expect(h.changeLanguage).toHaveBeenCalledExactlyOnceWith('ko')
     expect(document.documentElement.lang).toBe('ko')
     expect(cleanup.filter((fn) => typeof fn === 'function')).toHaveLength(1)
@@ -104,14 +109,17 @@ describe('actual TweakProvider lifecycle and selector connection', () => {
     )
     first.store.getState().setTweak('theme', 'dark')
     first.store.getState().setTweak('uiLocale', 'en')
-    first.store.getState().setTweak('density', 'compact')
+    first.store.getState().setTweak('transcriptTextSize', 'small')
+    first.store.getState().setTweak('transcriptWidth', 'wide')
     first.store.getState().setTweak('appFont', 'mono')
     const changed = renderProvider()
     changed.effects.forEach((effect, index) => {
       if (effect.deps.some((dep, i) => !Object.is(dep, first.effects[index].deps[i]))) effect.run()
     })
     expect(document.documentElement.dataset.theme).toBe('dark')
-    expect(document.documentElement.style.fontSize).toBe('11.5px')
+    expect((document.documentElement.style as { fontSize?: string }).fontSize).toBeUndefined()
+    expect(h.setProperty).toHaveBeenCalledWith('--chat-text-scale', String(13 / 14))
+    expect(h.setProperty).toHaveBeenCalledWith('--reading-column', '1200px')
     expect(h.setProperty).toHaveBeenLastCalledWith('--font-app', 'var(--font-mono)')
     expect(h.changeLanguage).toHaveBeenLastCalledWith('en')
     expect(document.documentElement.lang).toBe('en')
@@ -133,5 +141,33 @@ describe('actual TweakProvider lifecycle and selector connection', () => {
     expect(unrelated.setTweak).toBe(first.setTweak)
     first.setTweak('theme', 'dark')
     expect(SelectionProbe().t).toEqual({ theme: 'dark' })
+  })
+})
+
+describe('0256 AC6·AC9 — transcript text size and width reach the document', () => {
+  function applied(name: string): unknown {
+    return h.setProperty.mock.calls.filter(([key]) => key === name).at(-1)?.[1]
+  }
+  it.each([
+    ['small', String(13 / 14)],
+    ['medium', '1'],
+    ['large', String(15 / 14)]
+  ] as const)('text size %s → --chat-text-scale %s', (size, scale) => {
+    const { store } = renderProvider()
+    store.getState().setTweak('transcriptTextSize', size)
+    renderProvider().effects.forEach(({ run }) => run())
+    expect(applied('--chat-text-scale')).toBe(scale)
+    expect(h.patch).toHaveBeenCalledWith({ transcriptTextSize: size })
+  })
+  it.each([
+    ['narrow', '768px'],
+    ['medium', '960px'],
+    ['wide', '1200px']
+  ] as const)('width %s → --reading-column %s', (width, px) => {
+    const { store } = renderProvider()
+    store.getState().setTweak('transcriptWidth', width)
+    renderProvider().effects.forEach(({ run }) => run())
+    expect(applied('--reading-column')).toBe(px)
+    expect(h.patch).toHaveBeenCalledWith({ transcriptWidth: width })
   })
 })

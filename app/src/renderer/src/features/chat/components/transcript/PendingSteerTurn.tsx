@@ -27,7 +27,7 @@ export const PendingSteerTurn = memo(function PendingSteerTurn({
           {/* 소유권이 넘어간(stdin 주입 완료) 항목은 취소 버튼을 내린다(0151) — main 이 취소를
               거부하므로, 버튼을 남겨두면 눌러도 아무 일이 없는 죽은 어포던스가 된다. */}
           {item.submitted ? (
-            <span className="mt-1 select-none px-2 py-0.5 text-[11px] text-ink3 opacity-0 transition-opacity group-hover/msg:opacity-100">
+            <span className="mt-1 select-none px-2 py-0.5 text-[calc(11px*var(--transcript-text-scale,1))] text-ink3 opacity-0 transition-opacity group-hover/msg:opacity-100">
               {tr('chat.steer.submitted')}
             </span>
           ) : (
@@ -36,7 +36,7 @@ export const PendingSteerTurn = memo(function PendingSteerTurn({
                 key={kind}
                 type="button"
                 data-control={kind}
-                className="mt-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-ink3 opacity-0 transition-opacity hover:bg-fill-uncontained-hover group-hover/msg:opacity-100"
+                className="mt-1 rounded-full border border-border px-2 py-0.5 text-[calc(11px*var(--transcript-text-scale,1))] text-ink3 opacity-0 transition-opacity hover:bg-fill-uncontained-hover group-hover/msg:opacity-100"
                 onClick={() => {
                   const restored = runPendingSteerControl(kind, item, chatActions)
                   if (restored) onRestoreDraft?.(restored)

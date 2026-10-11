@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-// 설정 행 우측의 드롭다운. 네 개 행(폰트·언어·밀도·업데이트 주기)이 같은 표면을 쓰므로 클래스가
+// 설정 행 우측의 드롭다운. 다섯 개 행(폰트·언어·대화 텍스트 크기·대화 기록 너비·업데이트 주기)이 같은 표면을 쓰므로 클래스가
 // 여기 한 번만 산다. 라벨은 호출부가 tr() 로 해석해 넘긴다 — i18n 키와 원문 라벨을 모두 받기 위함.
 export function SettingsSelect<V extends string | number>({
   value,

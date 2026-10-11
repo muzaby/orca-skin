@@ -60,5 +60,9 @@ export const MenuItem = forwardRef<HTMLButtonElement, MenuItemProps>(function Me
  * 좌측 인셋은 MenuItem 의 px-2.5 에 맞춘다.
  */
 export function MenuTitle({ children }: { children: ReactNode }): React.JSX.Element {
-  return <div className="px-2.5 pb-0.5 pt-1 text-[11px] font-medium text-ink3">{children}</div>
+  return (
+    <div className="px-2.5 pb-0.5 pt-1 text-[calc(11px*var(--transcript-text-scale,1))] font-medium text-ink3">
+      {children}
+    </div>
+  )
 }

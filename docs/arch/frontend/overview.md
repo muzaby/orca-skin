@@ -58,7 +58,7 @@
 | ToolCard 렌더링 (input/output 토글) | Phase 2 | ✅ 완료 | `features/chat/components/transcript/ToolCard.tsx` |
 | AuthExpiredModal | Phase 2 | ✅ 완료 | `features/backend/components/AuthExpiredModal.tsx` — `error / auth.expired` 이벤트 트리거 |
 | InstallerDialog | Phase 2 | ✅ 완료 | `features/backend/components/InstallerDialog.tsx` — claude-code 는 SDK 자동 처리로 즉시 done |
-| Tweaks (theme/density/sidebar) + electron-store 영속화 | Phase 2+ | ✅ 완료 | `shared/theme/TweakProvider` — 컨트롤 UI 는 dev 전용 `features/debug/components/DebugPanel.tsx` (구 shared/ui/TweaksPanel 부재). 테마는 white/dark 2종 |
+| Tweaks (theme/대화 텍스트 크기·너비/sidebar) + electron-store 영속화 | Phase 2+ | ✅ 완료 | `shared/theme/TweakProvider` — 컨트롤 UI 는 dev 전용 `features/debug/components/DebugPanel.tsx` (구 shared/ui/TweaksPanel 부재). 테마는 white/dark 2종 |
 | 세션 재개 (lastSessionId 부팅 복원) | Phase 2+ | ✅ 완료 | 부팅 스텝 `landing-target`(`app/boot/steps.ts`)이 `settings.lastSessionId` 로 랜딩 경로를 정한다 |
 | DOM Architecture 마커 체계 (`app-frame-*` + `data-*`) | Phase 3+ | ✅ 완료 | dom-architecture.md — 단일 PR 일괄 적용 (`45e129f`) |
 | Custom titlebar (`frame: false` + 윈도우 컨트롤 IPC) | Phase 3+ | ✅ 완료 | rendering.md §1.5 — 플랫폼 분기 + IPC 3채널 |

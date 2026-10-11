@@ -43,7 +43,7 @@ PRD §6.1 의 F1~F10 을 *수용 기준* 으로 구체화한다.
 | F7 | **CLI 설치 자동화** | Installer (IPC `orca:install:*`) | 둘 다 미설치 → 다이얼로그 (npm / curl 선택) → child_process 실행 → 라인 단위 status 스트림 → 완료/실패 표시 | §6.1 |
 | F8 | **설치 실패 폴백** | Installer | 자동 실패 → 수동 명령 전체 텍스트 UI에 표시 + 복사 버튼. Node.js 미설치 (Windows: choco, macOS: brew 안내), npm 글로벌 권한 부족 (sudo / npm config 안내) | §6.1 |
 | F9 | **인증 만료 처리** | ClaudeAdapter, Auth modal | Claude Code OAuth 401 감지 (stdout/stderr `"401"` / `"expired"` 패턴) → `error / auth.expired` 이벤트 → UI 모달 "`claude /login` 을 터미널에서 실행 후 새 대화" | §6.1 |
-| F10 | **Tweaks 패널** | DebugPanel(dev 전용, 구 TweaksPanel), useTweaks | 테마 선택 (**white/dark 2종** — 구 Classic/Dark/Cool 3종에서 축소) + 밀도 + 사이드바 접기 토글 → `data-theme` 속성 갱신 → Tailwind `@theme` 토큰 스코프 cascade → 전 화면 반영. 선택값은 `electron-store` 영속(§6.7 키 카탈로그의 일부). 트리 remount 불요 (CSS 변수 재설정으로 충분) | §6.1 |
+| F10 | **Tweaks 패널** | DebugPanel(dev 전용, 구 TweaksPanel), useTweaks | 테마 선택 (**white/dark 2종** — 구 Classic/Dark/Cool 3종에서 축소) + 사이드바 접기 토글 → `data-theme` 속성 갱신 → Tailwind `@theme` 토큰 스코프 cascade → 전 화면 반영. 선택값은 `electron-store` 영속(§6.7 키 카탈로그의 일부). 트리 remount 불요 (CSS 변수 재설정으로 충분) | §6.1 |
 
 **Phase 4 에서 추가 구현된 기능** (F1~F10 이후 — 인수 기준 상세는 각 handoff plan/verify 가 정본):
 
@@ -98,7 +98,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | diff 렌더링 | diff | ^9 | 확정 | 도구 카드의 파일 편집 diff 표시 |
 | transcript 가상화 (Renderer) | `@tanstack/react-virtual` | ^3 | **확정 (0102)** | 긴 세션 transcript 의 과거(확정) 교환만 가상화해 화면 밖 shiki/DOM 상주 비용 제한. 마지막(스트리밍) 교환은 비가상 tail 로 유지해 0008 예약공간 앵커 보존 ("virtualized head + unvirtualized tail"). |
 | 차트 (Renderer) | recharts | ^3 | **확정 (0112, 사용자 승인)** | 설정 사용량 요약의 일별 토큰 바 차트. 선언적 React 컴포넌트 + SVG 렌더링이라 `tokens.css` 시맨틱 토큰(CSS 변수)·white/dark 테마와 직결. 색은 `--color-indigo`(사용량 지정색)만 사용. |
-| 영속화 (설정) | `electron-store` | ^8 | **확정 (완료)** | theme·density·sidebar*·lastBackend·lastSessionId·windowBounds·mcp*·skillEnabled·authBypass·language·uiLocale·accountInstructions·appFont·notifyOnComplete·spendingLimitUsd·scheduler). §6.7 참조 |
+| 영속화 (설정) | `electron-store` | ^8 | **확정 (완료)** | theme·transcriptTextSize·transcriptWidth·sidebar*·lastBackend·lastSessionId·windowBounds·mcp*·skillEnabled·authBypass·language·uiLocale·accountInstructions·appFont·notifyOnComplete·spendingLimitUsd·scheduler). §6.7 참조 |
 | 자동 업데이트 | `electron-updater` | ^6 | **확정 (0084~0086)** | `app/updater.ts` UpdateController — autoDownload=false·사용자 게이트. [arch/backend/runtime-ipc.md](arch/backend/runtime-ipc.md) §3.1 |
 | 로컬 DB (Phase 3+) | better-sqlite3 (Phase 3 MVP raw) / Drizzle 후보 (Phase 4 재검토) | — | **채택 (Phase 3+)** | 메시지·세션 메타 SSOT. 어댑터 외부 저장 (jsonl 등) 은 단방향 동기화 소스로 격하. 마이그레이션 `src/main/db/migrations/NNN_<name>.sql`. **Phase 3 MVP: raw better-sqlite3 + prepared statements (쿼리 6 개 내외, ORM 가치 작음). Drizzle 은 Phase 4 멀티 세션·artifact·권한·통계 도입 시 재검토 (2026-05-20).** 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
 | POP3 메일 수집 | `infra/net/pop3-session.ts` + 격리 소켓 factory | 앱 내부 구현 | **Mail Plugin opt-in** | `UIDL` 증분 수집·`TOP`/`RETR`·TLS. 기본 배포에는 binding을 만들지 않으며, 명령 whitelist와 대량 소실 보호를 적용한다. |
@@ -297,7 +297,8 @@ interface ChatState {
 | 키 | 타입 | 설명 |
 |---|---|---|
 | `theme` | `'white' \| 'dark'` | 테마 선택 (2종 — lowercase 표준) |
-| `density` | `'compact' \| 'normal' \| 'comfortable'` | 밀도 |
+| `transcriptTextSize` | `'small' \| 'medium' \| 'large'` | 대화 내용 텍스트 크기 — 트랜스크립트 글자 배율(기본 `medium`) |
+| `transcriptWidth` | `'narrow' \| 'medium' \| 'wide'` | 대화 기록 너비 — 트랜스크립트·입력창 열 768/960/1200px(기본 `medium`) |
 | `sidebarCollapsed` / `sidebarWidth` | `boolean` / `number` | 사이드바 접음/너비 (180–480) |
 | `lastBackend` | `Backend \| null` | 마지막 사용 백엔드 (OQ7) |
 | `lastSessionId` | `string \| null` | 재개용 마지막 세션 ID |

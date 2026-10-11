@@ -128,7 +128,8 @@ Composer의 `dialog`·`drag_drop`·`clipboard` 첨부는 `chat:send` 정규화 �
 ```typescript
 interface Settings {
   theme: "white" | "dark";
-  density: "compact" | "normal" | "comfortable";
+  transcriptTextSize: "small" | "medium" | "large"; // 대화 내용 텍스트 크기 — 트랜스크립트 글자 배율 13/14·1·15/14. 손상 ⇒ medium
+  transcriptWidth: "narrow" | "medium" | "wide"; // 대화 기록 너비 — `--reading-column` 768/960/1200px. 손상 ⇒ medium
   sidebarCollapsed: boolean;
   sidebarWidth: number; // 180–480, default 248 (Phase 3+ 도입)
   lastBackend: Backend | null;

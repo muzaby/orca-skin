@@ -40,12 +40,12 @@ export const AssistantMessage = memo(function AssistantMessage({
   const segments = reconcileSegments(prevRef.current, messageSegments(message.parts))
   prevRef.current = segments
   return (
-    <div className="flex flex-col gap-[var(--chat-item-gap)] text-[14px] leading-[1.7] text-ink">
+    <div className="flex flex-col gap-[var(--chat-item-gap)] text-[calc(14px*var(--transcript-text-scale,1))] leading-[1.7] text-ink">
       {segments.map((segment, index) => (
         <AssistantSegment key={index} segment={segment} transcriptPolicy={transcriptPolicy} />
       ))}
       {message.incomplete && (
-        <div className="inline-flex w-fit rounded-full border border-border bg-bg2 px-2 py-1 text-xs leading-none text-ink3">
+        <div className="inline-flex w-fit rounded-full border border-border bg-bg2 px-2 py-1 text-[calc(0.75rem*var(--transcript-text-scale,1))] leading-none text-ink3">
           {tr('chat.transcript.incompleteResponse')}
         </div>
       )}

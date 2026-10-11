@@ -16,7 +16,8 @@ const h = vi.hoisted(() => {
 })
 const values: Tweaks = {
   theme: 'white',
-  density: 'normal',
+  transcriptTextSize: 'medium',
+  transcriptWidth: 'medium',
   sidebarCollapsed: false,
   sidebarWidth: 248,
   appFont: 'sans',
@@ -54,7 +55,7 @@ const cases: [string, () => ReactNode, (keyof Tweaks)[]][] = [
   [
     'GeneralTab',
     () => createElement(GeneralTab),
-    ['theme', 'appFont', 'uiLocale', 'density', 'notifyOnComplete']
+    ['theme', 'appFont', 'uiLocale', 'transcriptTextSize', 'transcriptWidth', 'notifyOnComplete']
   ]
 ]
 beforeEach(() => {

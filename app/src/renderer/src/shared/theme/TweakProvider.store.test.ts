@@ -36,7 +36,8 @@ describe('provider-owned Tweaks store', () => {
     const second = createTweakStore()
     expect(first.getState().t).toEqual({
       theme: 'white',
-      density: 'normal',
+      transcriptTextSize: 'medium',
+      transcriptWidth: 'medium',
       sidebarCollapsed: false,
       sidebarWidth: 248,
       appFont: 'sans',

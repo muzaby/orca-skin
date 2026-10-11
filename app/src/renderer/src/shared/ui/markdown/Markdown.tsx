@@ -10,7 +10,7 @@ import { useI18n } from '../../i18n'
 function BlockedImagePlaceholder({ label }: { label: string }): React.JSX.Element {
   const { tr } = useI18n()
   return (
-    <span className="text-[12px] italic text-ink3">
+    <span className="text-[calc(12px*var(--transcript-text-scale,1))] italic text-ink3">
       {tr('markdown.imagePlaceholder', { label })}
     </span>
   )
@@ -18,22 +18,32 @@ function BlockedImagePlaceholder({ label }: { label: string }): React.JSX.Elemen
 
 const COMPONENTS: Components = {
   h1: ({ children }) => (
-    <h1 className="mt-4 mb-2 text-[18px] font-semibold tracking-tight text-ink">{children}</h1>
+    <h1 className="mt-4 mb-2 text-[calc(18px*var(--transcript-text-scale,1))] font-semibold tracking-tight text-ink">
+      {children}
+    </h1>
   ),
   h2: ({ children }) => (
-    <h2 className="mt-4 mb-2 text-[16px] font-semibold tracking-tight text-ink">{children}</h2>
+    <h2 className="mt-4 mb-2 text-[calc(16px*var(--transcript-text-scale,1))] font-semibold tracking-tight text-ink">
+      {children}
+    </h2>
   ),
   h3: ({ children }) => (
-    <h3 className="mt-3 mb-1.5 text-[14.5px] font-semibold text-ink">{children}</h3>
+    <h3 className="mt-3 mb-1.5 text-[calc(14.5px*var(--transcript-text-scale,1))] font-semibold text-ink">
+      {children}
+    </h3>
   ),
   h4: ({ children }) => (
-    <h4 className="mt-3 mb-1 text-[13.5px] font-semibold text-ink">{children}</h4>
+    <h4 className="mt-3 mb-1 text-[calc(13.5px*var(--transcript-text-scale,1))] font-semibold text-ink">
+      {children}
+    </h4>
   ),
   h5: ({ children }) => (
-    <h5 className="mt-2.5 mb-1 text-[12.5px] font-semibold text-ink">{children}</h5>
+    <h5 className="mt-2.5 mb-1 text-[calc(12.5px*var(--transcript-text-scale,1))] font-semibold text-ink">
+      {children}
+    </h5>
   ),
   h6: ({ children }) => (
-    <h6 className="mt-2.5 mb-1 text-[12px] font-medium uppercase tracking-wide text-ink2">
+    <h6 className="mt-2.5 mb-1 text-[calc(12px*var(--transcript-text-scale,1))] font-medium uppercase tracking-wide text-ink2">
       {children}
     </h6>
   ),
@@ -82,7 +92,9 @@ const COMPONENTS: Components = {
   hr: () => <hr className="my-3 border-border" />,
   table: ({ children }) => (
     <div className="my-2 overflow-x-auto">
-      <table className="w-full border-collapse text-[12.5px]">{children}</table>
+      <table className="w-full border-collapse text-[calc(12.5px*var(--transcript-text-scale,1))]">
+        {children}
+      </table>
     </div>
   ),
   thead: ({ children }) => <thead className="border-b border-border-strong">{children}</thead>,
@@ -112,7 +124,7 @@ const COMPONENTS: Components = {
     if (!isCodeBlock(className, text)) {
       // 인라인 코드 — 테두리·배경을 사용자 메시지 버블 배경(`--color-bubble-user`)으로 통일.
       return (
-        <code className="rounded border border-bubble-user bg-bubble-user px-1 py-[1px] font-mono text-[12px] text-ink">
+        <code className="rounded border border-bubble-user bg-bubble-user px-1 py-[1px] font-mono text-[calc(12px*var(--transcript-text-scale,1))] text-ink">
           {children}
         </code>
       )
@@ -131,7 +143,7 @@ export interface MarkdownProps {
 }
 
 const DEFAULT_WRAPPER =
-  'text-[13.5px] leading-[1.65] text-ink [&>*:first-child]:mt-0 [&>*:last-child]:mb-0'
+  'text-[calc(13.5px*var(--transcript-text-scale,1))] leading-[1.65] text-ink [&>*:first-child]:mt-0 [&>*:last-child]:mb-0'
 
 // memo: source 는 string(값 비교)이라 기본 shallow 비교로 동일 본문의 unified 재파싱을
 // 건너뛴다 — 부모(messageSegments)가 세그먼트 객체를 재생성해도 안전 (0007-transcript-render-memo).

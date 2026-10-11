@@ -2,9 +2,10 @@ import { reportError } from '../errors'
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { createStore, useStore, type StoreApi } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
-import type { ThemeId, DensityId } from '../config/theme'
+import type { ThemeId } from '../config/theme'
+import type { TranscriptTextSize, TranscriptWidth } from '../../../../shared/ipc'
 import type { UiLocale } from '../i18n/datetime'
-import { DENSITY_FONT } from '../config/theme'
+import { TRANSCRIPT_TEXT_SCALE, TRANSCRIPT_WIDTH_PX } from '../config/theme'
 import { bootApi, getPlatform, settingsApi } from '../api/ipc'
 import { i18n } from '../i18n'
 
@@ -12,7 +13,10 @@ export type AppFontId = 'sans' | 'serif' | 'mono'
 
 export interface Tweaks {
   theme: ThemeId
-  density: DensityId
+  // 대화 내용 텍스트 크기(0256). TweakProvider 가 --chat-text-scale 로 적용 — 트랜스크립트 루트만 받아들인다.
+  transcriptTextSize: TranscriptTextSize
+  // 대화 기록 너비(0256). TweakProvider 가 --reading-column 으로 적용.
+  transcriptWidth: TranscriptWidth
   sidebarCollapsed: boolean
   sidebarWidth: number
   // 앱 전체 폰트(설정 모달). TweakProvider 가 --font-app var 로 적용.
@@ -29,7 +33,8 @@ export interface Tweaks {
 
 const DEFAULTS: Tweaks = {
   theme: 'white',
-  density: 'normal',
+  transcriptTextSize: 'medium',
+  transcriptWidth: 'medium',
   sidebarCollapsed: false,
   sidebarWidth: 248,
   appFont: 'sans',
@@ -92,7 +97,8 @@ export function createTweakStore(): TweakStore {
           store.setState({
             t: {
               theme: s.theme,
-              density: s.density,
+              transcriptTextSize: s.transcriptTextSize,
+              transcriptWidth: s.transcriptWidth,
               sidebarCollapsed: s.sidebarCollapsed,
               sidebarWidth: s.sidebarWidth,
               appFont: s.appFont,
@@ -126,7 +132,8 @@ export function TweakProvider({ children }: { children: ReactNode }): React.JSX.
     store,
     useShallow((state) => ({
       theme: state.t.theme,
-      density: state.t.density,
+      transcriptTextSize: state.t.transcriptTextSize,
+      transcriptWidth: state.t.transcriptWidth,
       appFont: state.t.appFont,
       uiLocale: state.t.uiLocale
     }))
@@ -137,9 +144,21 @@ export function TweakProvider({ children }: { children: ReactNode }): React.JSX.
     document.documentElement.dataset.theme = t.theme
   }, [t.theme])
 
+  // 앱 루트 글자 크기는 app.css 의 고정값(14.5px)이 소유한다(0256 D-001) — 여기서 쓰지 않는다.
+  // 대화 텍스트 배율은 전역 값만 쓰고, 트랜스크립트 루트가 그것을 범위 변수로 받아들인다(D-009).
   useEffect(() => {
-    document.documentElement.style.fontSize = DENSITY_FONT[t.density] + 'px'
-  }, [t.density])
+    document.documentElement.style.setProperty(
+      '--chat-text-scale',
+      String(TRANSCRIPT_TEXT_SCALE[t.transcriptTextSize])
+    )
+  }, [t.transcriptTextSize])
+
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      '--reading-column',
+      TRANSCRIPT_WIDTH_PX[t.transcriptWidth] + 'px'
+    )
+  }, [t.transcriptWidth])
 
   useEffect(() => {
     document.documentElement.style.setProperty('--font-app', FONT_STACK[t.appFont])

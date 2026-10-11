@@ -29,7 +29,7 @@
 |---|---|---|---|
 | 채팅 세션 상태 (커밋) | `features/chat/store/chatStore.ts` 의 `sessions[key].session` — 변경은 순수 `chatReducer` 경유(스토어가 키 라우팅) | **Phase 3 부터**: 로컬 SQLite 영속화 (../backend/persistence.md). 메모리 캐시 + DB SSOT 병행. | sessionId, messages, inflight, permissionMode |
 | 채팅 스트리밍 라이브 버퍼 | `chatStore` 의 엔트리별 `live` 슬라이스 (transient — 턴 종료 시 리셋, 비활성 엔트리도 백그라운드 누적) | — | live.text(구 pendingDelta), live.reasoning |
-| Tweaks (theme/density/sidebar/한도) | `shared/theme/TweakProvider`의 provider별 store + electron-store | ✅ `orca:settings:get` / `set` | theme, density, sidebarCollapsed, **sidebarWidth** (180–480, default 248 — Phase 3+), **spendingLimitUsd**(0079) |
+| Tweaks (theme/대화 텍스트 크기·너비/sidebar/한도) | `shared/theme/TweakProvider`의 provider별 store + electron-store | ✅ `orca:settings:get` / `set` | theme, transcriptTextSize, transcriptWidth, sidebarCollapsed, **sidebarWidth** (180–480, default 248 — Phase 3+), **spendingLimitUsd**(0079) |
 | 백엔드 설치 상태 | `features/backend/store/backendStore`(Zustand, 0013) | — | list, active, installerOpen |
 | 세션/프로젝트 목록 | `features/{sessions,projects}/store/*Store`(Zustand, 0013) | — | list, loading |
 | 사용량 미러 | `shared/stores/usageStore`(Zustand, 0186) | — | Main 이 완성한 `UsageLimitsView` 의 사본 — `global` + `providers[key]` + `providerUpdatedAt[key]` (전역 쪽 타임스탬프는 두지 않는다 — 전역 화면에 "마지막 업데이트" 표시가 없다). **주/월을 여기서 파생하지 않는다**(계산은 main 소유). 갱신은 `orca:cost:usageEvent` delta push 뿐이고, `boundary` scope 가 오면 provider 사본을 통째로 버린다(기간이 넘어가 전부 어제 기준이므로). `features/chat`(도넛)·`features/settings`(사용량 탭) 둘이 읽으므로 어느 feature 에도 둘 수 없다 — renderer boundaries 가 feature 교차를 막는다 |
@@ -158,7 +158,9 @@ TweakProvider ──► provider별 store ──► useTweakContext(selector)
                   │                   선택 필드 + 안정된 setTweak
 useEffect(theme):  ──► document.documentElement.dataset.theme = t.theme
                        (tokens.css 의 [data-theme="..."] 스코프 활성)
-useEffect(density): ──► document.documentElement.style.fontSize = DENSITY_FONT[t.density] + 'px'
+useEffect(transcriptTextSize): ──► html.style --chat-text-scale = TRANSCRIPT_TEXT_SCALE[…]  (트랜스크립트 루트만 수용)
+useEffect(transcriptWidth): ──► html.style --reading-column = TRANSCRIPT_WIDTH_PX[…] + 'px'
+(루트 font-size 14.5px 는 app.css base 가 소유 — Provider 는 쓰지 않는다)
                        (rem 기반 Tailwind spacing 자연 cascade)
 
 마운트: settingsApi.get() → 초기 Tweaks 복원 (요청별 cleanup으로 늦은 응답 무시)
@@ -168,7 +170,7 @@ useEffect(density): ──► document.documentElement.style.fontSize = DENSITY_
 
 `data-theme` 속성 변경만으로 모든 CSS 변수 재해석. **트리 remount 불요** (이전에 사용하던 `key={theme}` bump 제거됨).
 
-Context에는 provider 수명 동안 같은 store를 전달한다. 소비자는 필요한 필드만 선택하고 shallow 비교로 관련 없는 설정 변경을 구독 결과에 전파하지 않는다. Provider 자체는 theme/density/font/locale 효과에 필요한 필드만 선택한다. font·locale·platform의 DOM 적용도 같은 Provider가 소유한다. 설정 저장을 합치거나 지연하지 않으며, 실패 시 전체 snapshot 복원 정책을 유지한다.
+Context에는 provider 수명 동안 같은 store를 전달한다. 소비자는 필요한 필드만 선택하고 shallow 비교로 관련 없는 설정 변경을 구독 결과에 전파하지 않는다. Provider 자체는 theme/대화 텍스트 크기·너비/font/locale 효과에 필요한 필드만 선택한다. font·locale·platform의 DOM 적용도 같은 Provider가 소유한다. 설정 저장을 합치거나 지연하지 않으며, 실패 시 전체 snapshot 복원 정책을 유지한다.
 
 ### 1.6 세션 목록 참조와 membership
 

@@ -80,19 +80,21 @@ export const TranscriptView = memo(function TranscriptView({
     <div
       ref={scrollRef}
       onScroll={onScroll}
-      className="app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none]"
+      // 대화 내용 텍스트 크기(0256 D-009) — 전역 설정값을 이 루트만 범위 변수로 받아들인다.
+      // 컴포저·우측 패널·포털 팝오버는 선언 밖이라 배율 1이다.
+      className="app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] [--transcript-text-scale:var(--chat-text-scale,1)]"
       data-behavior="virtualizable"
     >
       {/* gap 은 flex 가 아니라 각 항목의 pb-[--chat-turn-gap] 로 준다 — 가상 head 아이템은
           absolute 배치라 flex gap 이 적용되지 않기 때문. tail·엣지 상태도 동일 pb 로 균일. */}
       <ReadingColumn ref={contentRef} className="flex min-h-full flex-col">
         {loadingSession && (
-          <div className="m-auto text-center text-[13px] text-ink3">
+          <div className="m-auto text-center text-[calc(13px*var(--transcript-text-scale,1))] text-ink3">
             {tr('chat.transcript.loading')}
           </div>
         )}
         {isEmpty && (
-          <div className="m-auto text-center text-[13px] text-ink3">
+          <div className="m-auto text-center text-[calc(13px*var(--transcript-text-scale,1))] text-ink3">
             {tr('chat.transcript.emptyPrompt')}
           </div>
         )}

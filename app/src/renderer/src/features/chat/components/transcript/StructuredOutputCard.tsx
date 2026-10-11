@@ -15,7 +15,7 @@ export function StructuredOutputCard({ value }: StructuredOutputCardProps): Reac
   const code = typeof value === 'string' ? value : stringify(value)
   return (
     <div className="flex flex-col gap-1 rounded-r6 border border-border bg-bg2 px-p5 py-p4">
-      <span className="font-mono text-[11px] uppercase tracking-[0.04em] text-ink3">
+      <span className="font-mono text-[calc(11px*var(--transcript-text-scale,1))] uppercase tracking-[0.04em] text-ink3">
         {tr('chat.transcript.structuredOutput')}
       </span>
       <CodeBlock code={code} lang="json" showHeader={false} embedded />
