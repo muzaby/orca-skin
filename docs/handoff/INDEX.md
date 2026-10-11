@@ -22,6 +22,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
+| [`0259-composer-menu-grouping`](0259-composer-menu-grouping/plan.md) | plan | **READY** (V1) | **Codex** (구현) | (V1 설계 — 검증자 기입) | 1 | '+' 메뉴를 파일 추가 / 스킬 ▸(출처 ▸ 스킬) / 플러그인 ▸(목록·관리) 계단식으로, `/`·`@` 자동완성은 섹션 헤더로 정돈한다.<br>AC 13 · REQUIRED 11 · 등록 변이 7.<br>**0257 뒤에 구현** — 항목 설명 툴팁이 0257 `TooltipHost` 를 쓴다. |
 | [`0258-sdk-update-haiku-5-5`](0258-sdk-update-haiku-5-5/plan.md) | plan | **READY** (V1) | **Codex** (구현) | (V1 설계 — 검증자 기입) | 1 | SDK `0.3.286`→`0.3.296`(CLI 2.1.296) — `haiku` 별칭 = Haiku 5.5, 기본 effort `medium`, 네이티브 1M(설계 턴 루프백 probe 실측).<br>AC 12 · REQUIRED 11 · 등록 변이 4. 다른 3건과 독립.<br>로컬 `app/node_modules` SDK가 lock과 다르다(0.3.220) — 기준선 전 `npm ci`. |
 | [`0257-tooltip-bubble-ui-polish`](0257-tooltip-bubble-ui-polish/plan.md) | plan | **READY** (V1) | **Codex** (구현) | (V1 설계 — 검증자 기입) | 1 | 모든 툴팁 검은 배경·흰 글자(`TooltipHost` 가 `title` 위임) · 사용자 버블 10줄 접기('더 보기'/'간략히 보기') · 아티팩트 뷰어 동작 문구 제거 · effort 설명 제거.<br>AC 15 · REQUIRED 13 · 등록 변이 12.<br>**0256 뒤에 구현** — 같은 트랜스크립트 파일을 고친다. |
 | [`0256-preferences-text-size-width`](0256-preferences-text-size-width/plan.md) | plan | **READY** (V1) | **Codex** (구현) | (V1 설계 — 검증자 기입) | 1 | 기준 글자 14.5px 고정·'밀도' 제거 · '대화 내용 텍스트 크기'(작게·보통·크게 = 13/14·1·15/14, 트랜스크립트만) · '대화 기록 너비'(768·960·1200px, 기본 보통 — 사용자 결정).<br>AC 13 · REQUIRED 11 · 등록 변이 9.<br>구현 순서 0256 → 0257 → 0259, 0258은 독립. |
