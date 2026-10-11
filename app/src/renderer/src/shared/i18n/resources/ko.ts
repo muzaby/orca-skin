@@ -984,6 +984,14 @@ export const ko = {
       permissionUpdateFailedLabel: '권한 적용 실패',
       permissionUpdateFailed: '권한 모드를 적용하지 못했습니다. 다시 선택해 주세요.',
       attachMenuTitle: '추가 메뉴',
+      attachMenu: {
+        addFiles: '파일 또는 사진 추가',
+        skills: '스킬',
+        plugins: '플러그인',
+        managePlugins: '플러그인 관리',
+        noSkills: '사용 가능한 스킬 없음',
+        noPlugins: '사용 가능한 플러그인 없음'
+      },
       modelSelectTitle: '모델 선택',
       modelMenuTitle: '모델',
       modelFallback: '모델',
@@ -991,7 +999,6 @@ export const ko = {
       contextTitle: '컨텍스트 ~{{used}}k / {{window}}k 토큰 · 사용량 보기',
       contextLimitNear: '컨텍스트 한계 임박',
       contextUsageAria: '컨텍스트 사용량: {{pct}}%',
-      attach: '첨부',
       attachRemoveAria: '{{name}} 첨부 제거',
       mentionAutocompleteAria: '플러그인 및 파일 경로 자동완성',
       mentionPlugins: '플러그인',

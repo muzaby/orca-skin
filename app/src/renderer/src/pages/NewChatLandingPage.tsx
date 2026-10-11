@@ -1,4 +1,4 @@
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { AgentModeToggle, ChatTile, Composer, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
 import { useUsageForTelemetryProvider } from '../features/chat'
@@ -22,6 +22,9 @@ export function NewChatLandingPage(): React.JSX.Element {
   // 끝나기 전에는 숫자가 바뀌지 않는다.
   const usageLimits = useUsageForTelemetryProvider()
   const openSettings = useOpenSettings()
+  const navigate = useNavigate()
+  // '+' 메뉴 '플러그인 관리' → 플러그인 페이지(첫 탭 = 플러그인, 0259 D-003).
+  const onManagePlugins = (): void => void navigate('/plugins')
   const onOpenUsageSettings = (key?: string): void =>
     openSettings(key ? providerTabId(key) : 'usage')
   // Skills 페이지의 "채팅에서 사용해보기" 가 nav state 로 전달한 컴포저 프리필(`/<스킬명> `).
@@ -42,6 +45,7 @@ export function NewChatLandingPage(): React.JSX.Element {
               canAbort={canAbort}
               usageLimits={usageLimits}
               onOpenUsageSettings={onOpenUsageSettings}
+              onManagePlugins={onManagePlugins}
               initialDraft={composerDraft}
               showLandingCwdPanel
             />
@@ -56,6 +60,7 @@ export function NewChatLandingPage(): React.JSX.Element {
       canAbort={canAbort}
       usageLimits={usageLimits}
       onOpenUsageSettings={onOpenUsageSettings}
+      onManagePlugins={onManagePlugins}
       initialDraft={composerDraft}
     />
   )

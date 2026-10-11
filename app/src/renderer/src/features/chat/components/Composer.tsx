@@ -76,6 +76,8 @@ interface ComposerProps {
   showLandingCwdPanel?: boolean
   // 세션이 시작됐는가 — git 행의 노출 조건 절반(나머지 절반은 git 저장소 여부, 0206 D-002).
   showGitRow?: boolean
+  // '+' 메뉴 '플러그인 관리' — 페이지가 navigate('/plugins') 를 주입한다(0259 D-010).
+  onManagePlugins?: () => void
 }
 
 interface ComposerPanelStackViewProps {
@@ -116,7 +118,8 @@ export function Composer({
   restoredDraft,
   flush,
   showLandingCwdPanel = false,
-  showGitRow = false
+  showGitRow = false,
+  onManagePlugins
 }: ComposerProps): React.JSX.Element {
   const { tr } = useI18n()
   const { send, cancel, answerAsk, skipAsk, setPermissionMode, setModel, setEffort } = chatActions
@@ -384,6 +387,7 @@ export function Composer({
               }
               onClearDiffRequirementsIfUnchanged={chatActions.clearDiffRequirementsIfUnchanged}
               onCancel={cancel}
+              onManagePlugins={onManagePlugins}
               controlsStart={
                 <ComposerChip
                   ref={modeButtonRef}

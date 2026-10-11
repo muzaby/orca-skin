@@ -84,6 +84,7 @@ export function ProjectLandingPage({
         canAbort={canAbort}
         usageLimits={usageLimits}
         onOpenUsageSettings={onOpenUsageSettings}
+        onManagePlugins={() => navigate('/plugins')}
         {...sessionActions}
       />
     )
@@ -106,6 +107,7 @@ export function ProjectLandingPage({
                 canAbort={canAbort}
                 usageLimits={usageLimits}
                 onOpenUsageSettings={onOpenUsageSettings}
+                onManagePlugins={() => navigate('/plugins')}
                 flush
                 showLandingCwdPanel
               />
