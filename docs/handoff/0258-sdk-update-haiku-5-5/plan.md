@@ -415,81 +415,100 @@ classifyContextModel → modelForCli → spawn options.model → CLI betas
 > **재구현 턴도 같은 이름의 필드를 다시 채운다** — 표제(`… (r2)`, 같은 라운드 추가 턴이면 `… (r2.2)`)만 바꾸고 필드를 줄이지 않는다.
 > 해당 없는 필드는 지우지 말고 `해당 없음`으로 남긴다.
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: pin 0.3.296 · 표 Haiku 5.5 `medium` · 별칭 5.5 · 1M 분류 · smoke D2·E 사례 모두 Part II 그대로.
+- 이견 / 현실성 문제: 없음. 타입 변화가 추가형이라는 설계 턴 판단대로 typecheck 0 오류.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-… | … | … | … | … | … |
+| VP-01·VP-08 | EP-01 SDK pin | 11 | 11/11 | `package.json:35` `0.3.296` · `grep -c '"version": "0.3.296"' package-lock.json` → 9(본체 + 플랫폼 8) · lock 루트 의존 1 · `npm ls` → `0.3.296` | — |
+| VP-01 | EP-02 버전 literal | 3 | 3/3 | `claude.background.test.ts:54,62,63` → `2.1.296`·`0.3.296`·`2.1.296` | — |
+| VP-02·VP-09 | EP-03 effort 표 | 3 | 3/3 | `model-effort.ts:16` 주석 · Haiku 5.5 행 · `haiku: {5,5}` | — |
+| VP-03·VP-10 | EP-04 1M 분류 | 1 | 1/1 | `claude-context-policy.ts` haiku 분기 | — |
+| VP-07 | EP-05 smoke 사례 | 2 | 2/2 | smoke D `Haiku 5.5 honors explicit effort` ok · E `gw-haiku-5.5[1m]` ok | — |
+| VP-05 | EP-06 문서 | 2 | 2/2 | `rg "Haiku 5.5" docs/arch/backend/adapters.md` → `:48` · `rg 2.1.296 model-effort.ts` → `:16` | — |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: …
+- §10에 없는데 같은 불변식이 필요했던 지점: 없음 — `rg -n "0\.3\.286\|2\.1\.286" app/src app/scripts` → `background.monitor.test.ts:1` 관측 주석 1(plan대로 유지).
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | REQUIRED | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | `npm ls` 0.3.296 · 식별 테스트 green · smoke B haiku ok | M4 red |
+| VP-02 | REQUIRED | SELF_PASS | smoke A 11행 ok · AC4 UT · AC7 store IT | M1·M2 red |
+| VP-03 | REQUIRED | SELF_PASS | AC5 UT · smoke E ok | M3 red |
+| VP-04 | REQUIRED | SELF_PASS | `permission-mode.test.ts` 양성 2 | not selected |
+| VP-05 | REQUIRED | SELF_PASS | 기준선 대조 · build · `rg` | not selected |
+| VP-06 | REQUIRED | SELF_BLOCKED | 실 API 사람 실기(AC12) | not selected |
+| VP-07 | REQUIRED | SELF_PASS | smoke A·B·C·D·E 21/21 ok | M2·M4 red |
+| VP-08 | REQUIRED | SELF_PASS | typecheck exit 0 · 식별 테스트 | not selected |
+| VP-09 | REQUIRED | SELF_PASS | AC4 표 | M1·M2 red |
+| VP-10 | REQUIRED | SELF_PASS | AC5 표 | M3 red |
+| VP-11 | REQUIRED | SELF_PASS | AC8 표 | not selected |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| `model-effort.ts` Haiku 5.5 행 삭제 | M1 | 최초 | `model-effort` 6 failed | 잠김 |
+| `CLAUDE_ALIAS_VERSION.haiku` 4.5 | M2 | 최초 | `model-effort`·`chatStore.effort` 4 failed | 잠김 |
+| 1M 분류 haiku 분기 삭제 | M3 | 최초 | `claude-context-policy` 5 failed | 잠김 |
+| SDK `0.3.286` 설치(`--no-save`) | M4 | 최초 | smoke B `haiku` ok:false · `claude.background` 1 failed | 잠김 — 이후 `npm ci` 로 0.3.296 복원 |
 
-- **분모 검산**: …
-- **덮개 회귀**: …
+- **분모 검산**: `선택 증거 4 · 인용 변이 0 · 새 oracle 0 = 표 행 4`.
+- **덮개 회귀**: 해당 없음 — 최초 라운드.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 새 문구 없음 — 칩 값(`medium`)만 바뀐다 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 새 실패 경로 없음 | — |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 해당 없음 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 | — |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | `npm install`(설치·복원)이 better-sqlite3 를 Electron ABI 로 되돌린다 — DB 스위트는 `npm run pretest` 후 실행 | ⚠️ 보고만 — 환경 절차 | `[sqlite-abi] node: rebuilt` 후 전체 green |
+| 2 | 0.3.287~0.3.296 CLI 변화(백그라운드 제한·SDK 시작 MCP 대기 등) | ✅ smoke background·context-usage exit 0 으로 확인 | smoke 로그 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: 없음.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 — 대체물 없음 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 — 대체물 없음 | — |
+| 재진입 | 해당 없음 — 대체물 없음 | — |
+| 다른 무효화 축 | 해당 없음 — 대체물 없음 | — |
 
-## [구현자 기입] 구현 보고
+## [구현자 기입] 구현 보고 (r1)
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출** | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | `app/package.json` · `app/package-lock.json` · `app/src/shared/{model-effort.ts,model-effort.test.ts,permission-mode.test.ts}` · `app/src/main/adapters/{claude-context-policy.ts,claude-context-policy.test.ts,claude.background.test.ts}` · `chatStore.effort.test.ts` · `app/scripts/smoke-effort-sdk.mjs` · `docs/arch/backend/adapters.md` |
+| 실행 명령 | 기준선 `npm run pretest && vitest run`(0.3.286) · `npm install --save-exact …@0.3.296` · `npm run typecheck` · `npm run lint` · `vitest run` · smoke effort·background·context-usage · `electron-vite build` · 변이 4 |
+| **관측한 게이트 산출** | 기준선 649파일: 648 pass·1 skip / 6599 pass·1 skip → 변경 후 648 pass·1 skip / 6614 pass·1 skip(신규 실패 0, +15 신규 케이스) · typecheck exit 0 · lint 0 error/1 warning(기존) · smoke effort 21/21 · background exit 0 · context-usage exit 0 · build ✓(`out/main/index.js` `require("@anthropic-ai/claude-agent-sdk")` 유지) |
+| V-pair 자기확인 | `SELF_PASS 10 / SELF_BLOCKED 1(VP-06 실기)` |
+| 강제 지점 전수 | 6행 모두 N/N |
+| **AC 자기보고**(`Criteria-Met`) | AC1 `npm ls`·식별 · AC2 smoke B · AC3 smoke A·D·D2 · AC4 UT · AC5 UT · AC6 smoke E · AC7 store IT · AC8 UT · AC9 기준선 대조·smoke · AC10 build · AC11 `rg` ✅ / AC12 실 API ⚠️ |
+| **합계 검산** | `✅ 11 · ⚠️ 1 · ❌ 0 = 총 12` |
+| 블로커 / 역질문 | 없음 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음(최초).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: 없음.
+- 반복해서 부딪히는 환경 한계: better-sqlite3 ABI 전환(설치 명령마다 Electron ABI).
 - 현재 라운드·impl 턴: `r1`
 
 ---

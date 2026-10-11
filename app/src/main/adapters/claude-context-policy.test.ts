@@ -22,6 +22,11 @@ describe('0245 AC1 — CLI model classification', () => {
     ['claude-opus-4-6', 'claude', 200_000],
     ['claude-sonnet-4-5-20250929', 'claude', 200_000],
     ['claude-haiku-4-5', 'claude', 200_000],
+    // 0258 AC5 — Haiku 5.5 는 네이티브 1M, 버전 없는 별칭은 그대로 200k.
+    ['claude-haiku-5-5', 'claude', 1_000_000],
+    ['gw-haiku-5.5', 'claude', 1_000_000],
+    ['us.anthropic.claude-haiku-5-5-v1:0', 'claude', 1_000_000],
+    ['haiku', 'claude', 200_000],
     ['claude-3-5-sonnet', 'claude', 200_000],
     ['opus', 'claude', 200_000],
     ['claude-opus-4-20250514', 'claude', 200_000],
@@ -56,7 +61,10 @@ describe('0245 AC2 — execution model only', () => {
     ['gw-opus-4.7', { ...gateway, CLAUDE_CODE_DISABLE_1M_CONTEXT: 'false' }, 'gw-opus-4.7[1m]'],
     ['claude-opus-4-7', { CLAUDE_CODE_USE_BEDROCK: '1' }, 'claude-opus-4-7[1m]'],
     ['claude-sonnet-5', { CLAUDE_CODE_USE_BEDROCK: '1' }, 'claude-sonnet-5'],
-    ['claude-sonnet-5', gateway, 'claude-sonnet-5[1m]']
+    ['claude-sonnet-5', gateway, 'claude-sonnet-5[1m]'],
+    ['gw-haiku-5.5', gateway, 'gw-haiku-5.5[1m]'],
+    ['claude-haiku-5-5', {}, 'claude-haiku-5-5'],
+    ['claude-haiku-5-5', { CLAUDE_CODE_USE_BEDROCK: '1' }, 'claude-haiku-5-5[1m]']
   ])('%s with %j → %s', (model, env, expected) => {
     expect(modelForCli(model, lookup(env))).toBe(expected)
   })

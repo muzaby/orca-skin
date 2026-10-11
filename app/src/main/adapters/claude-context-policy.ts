@@ -39,7 +39,9 @@ export function classifyContextModel(model?: string): {
     family === 'fable' ||
     family === 'mythos' ||
     (family === 'opus' && major !== undefined && (major > 4 || (major === 4 && minor >= 7))) ||
-    (family === 'sonnet' && major !== undefined && major >= 5)
+    (family === 'sonnet' && major !== undefined && major >= 5) ||
+    // Haiku 5.5 — CLI 2.1.296 카탈로그 native_1m (0258 D-004). Haiku 4.5 는 200k 그대로.
+    (family === 'haiku' && major !== undefined && (major > 5 || (major === 5 && minor >= 5)))
   return {
     kind: 'claude',
     contextWindow: has1mSuffix || native1m ? 1_000_000 : 200_000,
