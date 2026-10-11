@@ -128,6 +128,17 @@ describe('coerceAutoPermissionMode (AT-12·AT-14 · D-010)', () => {
     ).toBe('auto_classified')
   })
 
+  // 0258 AC8 — 정식 ID 의 Haiku 5.5 는 자동을 지원한다(CLI 2.1.296 init permissionMode 'auto' 실측).
+  // 별칭만(model null)은 0215 규칙대로 강등된다(위 케이스).
+  it('claude-haiku-5-5 + auto_classified 는 그대로다', () => {
+    expect(
+      coercePermissionMode('auto_classified', { alias: 'haiku', model: 'claude-haiku-5-5' }, 'code')
+    ).toBe('auto_classified')
+    expect(
+      coerceAutoPermissionModeForModelName('auto_classified', 'claude-haiku-5-5', 'code')
+    ).toBe('auto_classified')
+  })
+
   it('auto 가 아닌 모드는 haiku 에서도 손대지 않는다', () => {
     for (const mode of ['default', 'accept_edits', 'plan', 'dont_ask', 'bypass'] as const) {
       expect(coercePermissionMode(mode, { alias: 'haiku', model: null }, 'code')).toBe(mode)

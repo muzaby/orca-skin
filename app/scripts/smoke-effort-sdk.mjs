@@ -221,7 +221,11 @@ try {
   await run('D', 'Haiku ignores explicit effort', async () => {
     assert.equal((await oneTurn('claude-haiku-4-5', 'high')).effort, undefined)
   })
-  for (const model of ['claude-opus-4-7[1m]', 'gw-opus-4.7[1m]']) {
+  // 0258 AC3 — Haiku 5.5 는 effort 를 받는다(명시값 그대로).
+  await run('D', 'Haiku 5.5 honors explicit effort', async () => {
+    assert.equal((await oneTurn('claude-haiku-5-5', 'low')).effort, 'low')
+  })
+  for (const model of ['claude-opus-4-7[1m]', 'gw-opus-4.7[1m]', 'gw-haiku-5.5[1m]']) {
     await run('E', model, async () => {
       const observed = await oneTurn(model)
       assert.equal(observed.model, model.replace('[1m]', ''))

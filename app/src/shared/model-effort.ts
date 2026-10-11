@@ -13,12 +13,13 @@ interface ClaudeDefaultEffort {
   readonly effort: EffortLevel
 }
 
-// Claude Code 2.1.286 defaults. smoke-effort-sdk.mjs checks these against the bundled CLI.
+// Claude Code 2.1.296 defaults. smoke-effort-sdk.mjs checks these against the bundled CLI.
 export const CLAUDE_MODEL_DEFAULT_EFFORT: readonly ClaudeDefaultEffort[] = [
   { family: 'fable', major: 5, minor: 1, effort: 'high' },
   { family: 'fable', major: 5, minor: 0, effort: 'high' },
   { family: 'opus', major: 5, minor: 5, effort: 'medium' },
   { family: 'sonnet', major: 5, minor: 5, effort: 'medium' },
+  { family: 'haiku', major: 5, minor: 5, effort: 'medium' },
   { family: 'opus', major: 5, minor: 0, effort: 'high' },
   { family: 'sonnet', major: 5, minor: 0, effort: 'high' },
   { family: 'opus', major: 4, minor: 8, effort: 'high' },
@@ -34,7 +35,7 @@ export const CLAUDE_ALIAS_VERSION: Readonly<
   opus: { major: 5, minor: 5 },
   sonnet: { major: 5, minor: 5 },
   fable: { major: 5, minor: 1 },
-  haiku: { major: 4, minor: 5 }
+  haiku: { major: 5, minor: 5 }
 }
 
 export const CLAUDE_UNLISTED_EFFORT: EffortLevel = 'high'

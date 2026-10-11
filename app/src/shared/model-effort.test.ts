@@ -19,7 +19,14 @@ describe('0246 AC4 — model default effort', () => {
     'OPUS',
     'opus[1m]',
     'sonnet',
-    ' sonnet[1m] '
+    ' sonnet[1m] ',
+    // 0258 AC4 — Haiku 5.5(정식 ID·표기 변형·별칭)
+    'claude-haiku-5-5',
+    'haiku-5.5',
+    'us.anthropic.claude-haiku-5-5-v1:0',
+    'claude-haiku-5-5[1m]',
+    'haiku',
+    'HAIKU'
   ])('%s defaults to medium', (model) => {
     expect(defaultEffortForModel(model)).toBe('medium')
   })
@@ -37,7 +44,6 @@ describe('0246 AC4 — model default effort', () => {
     'claude-opus-4-6',
     'claude-sonnet-4-6',
     'fable',
-    'haiku',
     'claude-opus-4-1',
     'claude-haiku-4-5',
     'claude-mythos-5-1',

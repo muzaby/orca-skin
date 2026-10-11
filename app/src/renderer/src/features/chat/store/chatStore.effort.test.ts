@@ -21,7 +21,10 @@ describe('0246 AC6·AC8 — effort payload and continuity', () => {
     { model: 'opus', effort: 'medium', sessionId: null },
     { model: 'claude-opus-5-5', effort: 'medium', sessionId: 's' },
     { model: 'my-gateway-model', effort: 'high', sessionId: 's' },
-    { model: 'opus', effort: 'medium', sessionId: 's' }
+    { model: 'opus', effort: 'medium', sessionId: 's' },
+    // 0258 AC7 — 별칭 haiku = Haiku 5.5 → medium
+    { model: 'haiku', effort: 'medium', sessionId: null },
+    { model: 'haiku', effort: 'medium', sessionId: 's' }
   ])('$model → $effort in session $sessionId', ({ model, effort, sessionId }) => {
     harness = installChatStoreHarness({ sessionId, effort: 'max' })
     chatActions.setModel('claude-anthropic', model, 'opus', 'claude')
