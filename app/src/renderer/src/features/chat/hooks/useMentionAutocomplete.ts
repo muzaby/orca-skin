@@ -10,7 +10,7 @@ import {
   type MentionGroup,
   type MentionSuggestion
 } from '../lib/mentionAutocomplete'
-import { pluginMentionCandidates } from '../lib/pluginMention'
+import { pluginMentionCandidates, type PluginMention } from '../lib/pluginMention'
 
 export interface UseMentionAutocomplete {
   open: boolean
@@ -25,6 +25,8 @@ export interface UseMentionAutocomplete {
   hasClosingQuote: boolean
   validFilePaths: ReadonlySet<string>
   validPluginIds: ReadonlySet<string>
+  // 필터 없는 전체 플러그인 후보 — 컴포저 '+' 메뉴가 같은 집합을 쓴다(0259 D-006).
+  plugins: readonly PluginMention[]
   close: () => void
 }
 
@@ -135,10 +137,8 @@ export function useMentionAutocomplete(
   const pathOpen = token !== null && cwd !== null
   const open = active && token !== null && !dismissed && (pluginOpen || pathOpen)
   const loading = active && cwd !== null && token !== null && !entriesByDir.has(token.dirPath)
-  const validPluginIds = useMemo(
-    () => new Set(pluginMentionCandidates(visibleProviders).map((plugin) => plugin.id)),
-    [visibleProviders]
-  )
+  const allPlugins = useMemo(() => pluginMentionCandidates(visibleProviders), [visibleProviders])
+  const validPluginIds = useMemo(() => new Set(allPlugins.map((plugin) => plugin.id)), [allPlugins])
 
   return {
     open,
@@ -153,6 +153,7 @@ export function useMentionAutocomplete(
     hasClosingQuote: token?.quoted === true && text[caret] === '"',
     validFilePaths,
     validPluginIds,
+    plugins: allPlugins,
     close
   }
 }

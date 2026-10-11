@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { ChatView } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
 import { useUsageForTelemetryProvider } from '../features/chat'
@@ -15,6 +16,7 @@ export function ChatPage(): React.JSX.Element {
   // 끝나기 전에는 숫자가 바뀌지 않는다.
   const usageLimits = useUsageForTelemetryProvider()
   const openSettings = useOpenSettings()
+  const navigate = useNavigate()
   const sessionActions = useSessionActions({ redirectAfterActiveDelete: '/new' })
   return (
     <ChatView
@@ -22,6 +24,7 @@ export function ChatPage(): React.JSX.Element {
       canAbort={canAbort}
       usageLimits={usageLimits}
       onOpenUsageSettings={(key) => openSettings(key ? providerTabId(key) : 'usage')}
+      onManagePlugins={() => navigate('/plugins')}
       {...sessionActions}
     />
   )

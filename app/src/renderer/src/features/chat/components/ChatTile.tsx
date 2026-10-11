@@ -23,6 +23,8 @@ interface ChatTileProps {
   usageLimits?: UsageLimitsView | null
   // providerKey = 도넛에서 현재 선택된 provider(있으면 그 서브탭으로, 없으면 전역 사용량 탭).
   onOpenUsageSettings?: (providerKey?: string) => void
+  // '+' 메뉴 '플러그인 관리' — 페이지가 navigate('/plugins') 를 주입한다(0259 D-010).
+  onManagePlugins?: () => void
   // 컴포저 초기 입력 시드(Skills "채팅에서 사용해보기"). page 가 nav state 로 주입.
   initialDraft?: string
   onDeleteSession?: (sessionId: string) => void
@@ -40,6 +42,7 @@ export function ChatTile({
   canAbort,
   usageLimits,
   onOpenUsageSettings,
+  onManagePlugins,
   initialDraft,
   onDeleteSession,
   onRenameSession,
@@ -128,6 +131,7 @@ export function ChatTile({
             onScrollToBottom={scrollToBottom}
             usageLimits={usageLimits}
             onOpenUsageSettings={onOpenUsageSettings}
+            onManagePlugins={onManagePlugins}
             initialDraft={initialDraft}
             restoredDraft={storeRestore}
           />

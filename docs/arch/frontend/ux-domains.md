@@ -26,6 +26,8 @@
 
 - 멀티라인 textarea + 자동 높이 조절
 - 3-chip 행: 첨부 / 현재 프레임 / Skill 선택 (`Popover` 기반 picker)
+- `+` 메뉴는 계단식이다(0259): 파일 또는 사진 추가 / 스킬 ▸(출처 ▸ 스킬) / 플러그인 ▸(목록 · 플러그인 관리). 스킬·플러그인을 고르면 커서 자리에 `/이름 `·`@id ` 를 넣고, 항목 hover 설명은 `title` 툴팁이다. 틀 = `shared/ui/CascadeMenu.tsx`(상태·좌표 순수부 `cascadeMenuState.ts`), 트리 = `lib/attachMenuModel.ts`, '플러그인 관리' 이동은 페이지가 `onManagePlugins` 로 주입한다
+- `/` 자동완성 후보는 출처 라벨 섹션으로 묶이고, `/`·`@` 헤더는 `AutocompleteSectionHeader` 하나를 쓴다
 - `/skillname` 토큰을 **활성 스킬일 때만** 파란 chip 으로 mirror overlay 강조 (`composer/ComposerDecorationLayer.tsx` + `composer/composerDecoration.ts`, `knownSkillNames: ReadonlySet<string>`)
 - `@filepath` 자동완성: 디렉토리 단계별 진입, quoted/plain 자동 감지, 공백 시 자동 wrapping
 - `@plugin-id` 자동완성: main이 Plugin source에만 싣는 cached `tools`가 있는 내장 Plugin을 인증 상태와 무관하게 식별자 토큰으로 노출한다. `catalog`는 gate·harness·plugin·usage 공용 표시 입력이며 후보 판별과 분리한다. 팝업은 path/Plugin 그룹을 분리해 path를 먼저 보이고, 선택 시 label이 아닌 id를 Composer에 삽입하며, 검증된 Plugin id는 violet chip으로 mirror overlay 강조한다 (`pluginMention.ts`·`mentionAutocomplete.ts`).

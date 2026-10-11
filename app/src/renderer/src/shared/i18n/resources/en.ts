@@ -977,6 +977,14 @@ export const en: typeof ko = {
       permissionUpdateFailedLabel: 'Permission update failed',
       permissionUpdateFailed: 'Could not apply the permission mode. Please select it again.',
       attachMenuTitle: 'More menu',
+      attachMenu: {
+        addFiles: 'Add files or photos',
+        skills: 'Skills',
+        plugins: 'Plugins',
+        managePlugins: 'Manage plugins',
+        noSkills: 'No skills available',
+        noPlugins: 'No plugins available'
+      },
       modelSelectTitle: 'Select model',
       modelMenuTitle: 'Model',
       modelFallback: 'Model',
@@ -984,7 +992,6 @@ export const en: typeof ko = {
       contextTitle: 'Context ~{{used}}k / {{window}}k tokens · view usage',
       contextLimitNear: 'context limit approaching',
       contextUsageAria: 'Context usage: {{pct}}%',
-      attach: 'Attach',
       attachRemoveAria: 'Remove attachment {{name}}',
       mentionAutocompleteAria: 'Plugin and file path autocomplete',
       mentionPlugins: 'Plugins',

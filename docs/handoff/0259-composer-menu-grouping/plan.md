@@ -428,81 +428,105 @@ useSkills · useMentionAutocomplete.plugins → buildAttachMenu → CascadeMenu 
 > **재구현 턴도 같은 이름의 필드를 다시 채운다** — 표제(`… (r2)`, 같은 라운드 추가 턴이면 `… (r2.2)`)만 바꾸고 필드를 줄이지 않는다.
 > 해당 없는 필드는 지우지 말고 `해당 없음`으로 남긴다.
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: `CascadeMenu`(shared/ui) + 순수 `cascadeMenuState` · 트리 `attachMenuModel` · 토큰 `composerToken` · `/` 섹션 · 헤더 공용 · `onManagePlugins` 9자리 배선 모두 Part II 그대로.
+- 이견 / 현실성 문제: 서버 렌더 테스트가 열린 하위 패널을 그리려면 상태를 주입할 seam이 필요해 `CascadeBody` 를 export하고 `initialState` prop을 두었다(§6 #1).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-… | … | … | … | … | … |
+| VP-01·VP-08 | EP-01 메뉴 트리 | 4 | 4/4 | `attachMenuModel.test.ts` 최상위·출처 그룹·플러그인+관리·빈 상태 4케이스 green | — |
+| VP-05·VP-10 | EP-02 토큰 삽입 | 1 | 1/1 | 컨트롤러 `onAttachMenuAction` → `attachMenuToken` → `insertComposerToken` → `replaceDraftRange` | — |
+| VP-02·VP-09 | EP-03 상호작용 | 3 | 3/3 | reducer 키 · `HOVER_OPEN_DELAY_MS=150` · `submenuPosition` (cascadeMenuState UT 11) | — |
+| VP-07 | EP-04 플러그인 목록 공유 | 1 | 1/1 | `useMentionAutocomplete` 반환 `plugins: allPlugins`(같은 `pluginMentionCandidates`) | — |
+| VP-06 | EP-05 `onManagePlugins` | 9 | 9/9 | `rg -n "onManagePlugins=" pages features/chat/components` → 생성 5(ChatPage 1·NewChatLanding 2·ProjectLanding 2) + 중계 4(ChatView·ChatTile·Composer·Controller) · 배선 원문 UT | — |
+| VP-03·VP-11 | EP-06 자동완성 정돈 | 3 | 3/3 | `SkillAutocomplete` 섹션 · `AutocompleteSectionHeader` 2파일 import | — |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: …
+- §10에 없는데 같은 불변식이 필요했던 지점: i18n ko↔en **키 순서** 단언(`resources.test.ts`) — en에 `attachMenu` 블록을 다른 자리에 넣어 red, ko와 같은 자리로 옮겨 green.
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | REQUIRED | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | 트리·render UT | S1·S2 red |
+| VP-02 | REQUIRED | SELF_PASS | reducer·좌표 UT | K1·K2 red |
+| VP-03 | REQUIRED | SELF_PASS | 섹션·헤더 UT | G1 red |
+| VP-04 | REQUIRED | SELF_BLOCKED | 사람 실기 대기(AC12) | not selected |
+| VP-05 | REQUIRED | SELF_PASS | 토큰 매핑·삽입 UT | S2 red |
+| VP-06 | REQUIRED | SELF_PASS | 배선 원문 UT | W1 red |
+| VP-07 | REQUIRED | SELF_PASS | 훅 반환 필드(typecheck)·트리 입력 | not selected |
+| VP-08 | REQUIRED | SELF_PASS | 트리 UT | S1 red |
+| VP-09 | REQUIRED | SELF_PASS | 표 UT | K1·K2 red |
+| VP-10 | REQUIRED | SELF_PASS | 4경우 UT | S2·S3 red |
+| VP-11 | REQUIRED | SELF_PASS | 인덱스 UT | G1 red |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| 스킬·플러그인 하위 내용 맞바꿈 | S1 | 최초 | attachMenuModel·render 4 failed | 잠김 |
+| 토큰 접두 `/`↔`@` 맞바꿈 | S2 | 최초 | attachMenuToken 1 failed | 잠김 |
+| 글자 뒤 앞 공백 생략 | S3 | 최초 | composerToken 2 failed | 잠김 |
+| ← 무시 | K1 | 최초 | cascadeMenuState 1 failed | 잠김 |
+| 왼쪽 뒤집기 생략 | K2 | 최초 | cascadeMenuState 1 failed | 잠김 |
+| 섹션 안 역순 | G1 | 최초 | skillGroups·render 2 failed | 잠김 |
+| `ProjectLandingPage` Composer 자리 prop 누락 | W1 | 최초 | 배선 UT 1 failed | 잠김 |
 
-- **분모 검산**: …
-- **덮개 회귀**: …
+- **분모 검산**: `선택 증거 7 · 인용 변이 0 · 새 oracle 0(배선 원문 UT는 W1로 셈) = 표 행 7`.
+- **덮개 회귀**: 해당 없음 — 최초 라운드.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 있음 — `attachMenu.*` 6키 모두 `AttachMenu` 가 쓴다. 미사용이 된 `chat.composer.attach`('첨부')는 삭제 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 'Skill' 항목·`openSkillPicker` 삭제, 메뉴 닫기는 `setAttachMenuOpen(false)` 한 곳 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 목록 로드 실패 → 빈 상태 행(§5 '스킬 0개' 행) · 조합 중 → 삽입 거부 행 | — |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 빈 하위는 비활성 안내 행 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 삽입은 `replaceDraftRange` 의 revision 비교로 늦은 적용을 거부 | — |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | 열린 하위 패널을 서버 렌더로 보려면 상태 주입 seam이 필요 | ✅ 선조치 — `CascadeBody` export + `initialState` prop(기본값 = 초기 상태) | `attachMenu.render.test.ts` "하위 패널은 최상위 메뉴 DOM 안" |
+| 2 | 토큰 매핑을 컨트롤러 안 삼항 대신 순수 `attachMenuToken` 으로 | ✅ 선조치 — S2 변이를 단위로 잠그기 위함 | attachMenuModel UT |
+| 3 | 하위 패널 Esc 가 Popover 문서 keydown 으로 메뉴 전체를 닫을 수 있다 | ✅ 선조치 — 메뉴 루트 `onKeyDown` 에서 `stopPropagation` | 실기 AC12에서 확인 필요(React 포털 이벤트 전파) |
+| 4 | hover 대각선 이동 중 형제 하위 전환 | ⚠️ 보고만 — 150ms 지연으로 완화(D-007) | 실기 AC12 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: `CascadeBody` export·`initialState` seam(§6 #1) · `attachMenuToken` 추가(§6 #2).
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 — seam prop은 테스트만 쓴다(프로덕션 호출부 `CascadeMenu` 는 넘기지 않음) | `rg -n "initialState" app/src/renderer/src --glob '!*.test.*'` → CascadeMenu.tsx 3줄(기본값·타입·useState) — 호출부 0 |
+| 재진입 | 메뉴를 다시 열면 Popover 가 내용을 다시 마운트해 상태가 초기화된다 | AC1 render(하위 닫힌 채 시작) |
+| 다른 무효화 축 | 해당 없음 | — |
 
-## [구현자 기입] 구현 보고
+## [구현자 기입] 구현 보고 (r1)
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출** | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | 신규 `shared/ui/{CascadeMenu.tsx,cascadeMenuState.ts}` · `features/chat/lib/{attachMenuModel,composerToken,skillGroups}.ts` · `composer/AutocompleteSectionHeader.tsx` · 수정 `AttachMenu`·`ComposerInputController`·`SkillAutocomplete`·`MentionAutocomplete`·`useMentionAutocomplete`·`Composer`·`ChatTile`·`ChatView`·pages 3·i18n ko/en · 테스트 신규 5 · 문서 `ux-domains.md` |
+| 실행 명령 | `npm run typecheck` · `npm run lint` · `npm run pretest && vitest run` · 변이 7 |
+| **관측한 게이트 산출** | typecheck exit 0 · lint 0 error/1 warning(기존) · vitest 654파일: 653 pass·1 skip / 6644: 6643 pass·1 skip · 실패 0 |
+| V-pair 자기확인 | `SELF_PASS 10 / SELF_BLOCKED 1(VP-04 실기)` |
+| 강제 지점 전수 | 6행 모두 N/N |
+| **AC 자기보고**(`Criteria-Met`) | AC1 트리·render · AC2 트리·토큰·삽입 · AC3 트리·배선 원문 · AC4 빈 상태 · AC5 title · AC6 reducer 키 표 · AC7 reducer hover + 하위 패널 DOM 포함 render · AC8 좌표 4 · AC9 섹션·인덱스 · AC10 헤더 공용 · AC11 기존 자동완성 스위트 green · AC13 gate ✅ / AC12 실기 ⚠️ |
+| **합계 검산** | `✅ 12 · ⚠️ 1 · ❌ 0 = 총 13` |
+| 블로커 / 역질문 | 없음 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음(최초).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: i18n 키 **순서** 테스트를 plan이 gate로 언급하지 않음(typecheck 패리티만 언급).
+- 반복해서 부딪히는 환경 한계: better-sqlite3 ABI.
 - 현재 라운드·impl 턴: `r1`
 
 ---

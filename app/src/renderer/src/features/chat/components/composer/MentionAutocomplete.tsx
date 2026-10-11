@@ -1,5 +1,6 @@
 import type { RefObject } from 'react'
 import { AnchoredDropdown } from './AnchoredDropdown'
+import { AutocompleteSectionHeader } from './AutocompleteSectionHeader'
 import { Icon } from '../../../../shared/ui/Icon'
 import { useI18n } from '../../../../shared/i18n'
 import type { MentionGroup, MentionSuggestion } from '../../lib/mentionAutocomplete'
@@ -43,9 +44,9 @@ export function MentionAutocomplete({
             .reduce((total, previous) => total + previous.suggestions.length, 0)
           return (
             <div key={group.kind}>
-              <div className="border-b border-border px-2 py-1 text-[10.5px] font-semibold uppercase tracking-[0.05em] text-ink3">
-                {group.kind === 'plugin' ? tr('chat.composer.mentionPlugins') : headerLabel}
-              </div>
+              <AutocompleteSectionHeader
+                label={group.kind === 'plugin' ? tr('chat.composer.mentionPlugins') : headerLabel}
+              />
               {group.suggestions.map((suggestion, index) => {
                 const flatIndex = start + index
                 const selected = flatIndex === activeIndex

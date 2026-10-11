@@ -9,7 +9,6 @@ import {
   type ReactNode
 } from 'react'
 import { Button } from '../../../../shared/ui/Button'
-import { Popover } from '../../../../shared/ui/Popover'
 import { useI18n } from '../../../../shared/i18n'
 import { useChatSession } from '../../store/chatStore'
 import { agentPresentation } from '../../lib/agentPresentation'
@@ -21,6 +20,8 @@ import { useSkillAutocomplete } from '../../hooks/useSkillAutocomplete'
 import type { AttachmentView, ComposerAttachment, SkillInfo } from '../../../../../../shared/ipc'
 import type { DiffRequirementSubmitSnapshot } from '../../store/chatStore'
 import { AttachMenu } from './AttachMenu'
+import { insertComposerToken } from '../../lib/composerToken'
+import { attachMenuToken, type AttachMenuAction } from '../../lib/attachMenuModel'
 import { AttachmentTray } from './AttachmentTray'
 import { ComposerChip } from './ComposerChip'
 import { ComposerInputSurface, type ComposerInputSurfaceHandle } from './ComposerInputSurface'
@@ -67,6 +68,8 @@ interface ComposerInputControllerProps {
   onCancel: () => void
   controlsStart: ReactNode
   controlsEnd: ReactNode
+  // '+' 메뉴의 '플러그인 관리' — 페이지가 주입한다(0259 D-010). 없으면 그 항목이 없다.
+  onManagePlugins?: () => void
 }
 
 function derivedSnapshotIsCurrent(current: DraftSnapshot, deferred: DraftSnapshot): boolean {
@@ -97,7 +100,8 @@ export function ComposerInputController({
   onClearDiffRequirementsIfUnchanged,
   onCancel,
   controlsStart,
-  controlsEnd
+  controlsEnd,
+  onManagePlugins
 }: ComposerInputControllerProps): React.JSX.Element {
   const { tr } = useI18n()
   const agentKind = useChatSession((session) => session.agentKind)
@@ -187,16 +191,27 @@ export function ComposerInputController({
   const skillOpen = active && derivedCurrent && autocomplete.open
   const mentionOpen = active && derivedCurrent && mentionAutocomplete.open
 
-  const openSkillPicker = (): void => {
-    if (compositionActive()) return
+  // '+' 메뉴 동작(0259) — 파일 추가는 현행 선택 창, 스킬·플러그인은 커서 자리에 토큰을 넣는다.
+  const onAttachMenuAction = (action: AttachMenuAction): void => {
     setAttachMenuOpen(false)
+    if (action.type === 'attach') {
+      void pickAttachments()
+      return
+    }
+    const token = attachMenuToken(action)
+    if (token === null || compositionActive()) return
     const current = snapshotRef.current
-    const nextText =
-      current.text === '' || current.text.endsWith(' ') || current.text.endsWith('\n')
-        ? `${current.text}/`
-        : `${current.text} /`
-    updateSnapshot((value) => replaceDraft(value, nextText))
-    focus(nextText.length)
+    const inserted = insertComposerToken(current.text, current.selectionStart, token)
+    updateSnapshot((value) =>
+      replaceDraftRange(
+        value,
+        current.revision,
+        inserted.start,
+        inserted.start,
+        inserted.replacement
+      )
+    )
+    focus(inserted.caret)
   }
 
   const applyAutocomplete = (skill: SkillInfo): void => {
@@ -413,19 +428,22 @@ export function ComposerInputController({
           </div>
         </div>
       )}
-      <Popover
+      <AttachMenu
         open={active && attachMenuOpen}
         anchorRef={attachButtonRef}
         onClose={() => setAttachMenuOpen(false)}
-      >
-        <AttachMenu
-          onPickAttachment={() => {
-            setAttachMenuOpen(false)
-            void pickAttachments()
-          }}
-          onPickSkill={openSkillPicker}
-        />
-      </Popover>
+        skills={skills}
+        plugins={mentionAutocomplete.plugins}
+        onAction={onAttachMenuAction}
+        onManagePlugins={
+          onManagePlugins
+            ? () => {
+                setAttachMenuOpen(false)
+                onManagePlugins()
+              }
+            : undefined
+        }
+      />
       <SkillAutocomplete
         open={skillOpen}
         anchorRef={surfaceWrapRef}
