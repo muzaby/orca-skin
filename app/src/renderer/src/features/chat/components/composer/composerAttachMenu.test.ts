@@ -100,4 +100,45 @@ describe('runAttachMenuAction (AC2·AC3)', () => {
       ].join('\n')
     )
   })
+
+  // r5 verify D9 — VP-01 path 첫 edge('+' → AttachMenu): 칩이 메뉴를 열고, 컨트롤러가 열림·앵커('+' 칩)·
+  // 닫기를 넘긴다. 그 아래(AttachMenu → CascadeMenu → 선택)는 attachMenu.flow.test.ts 가 실행해 본다.
+  it("'+' 칩이 메뉴를 열고 닫으며 컨트롤러가 AttachMenu 에 열림·앵커·닫기를 넘긴다", () => {
+    const source = readFileSync(new URL('./ComposerInputController.tsx', import.meta.url), 'utf8')
+    expect(source.match(/const attachButtonRef = useRef<HTMLButtonElement>\(null\)/g)).toHaveLength(
+      1
+    )
+    expect(source).toContain(
+      [
+        '              <ComposerChip',
+        '                ref={attachButtonRef}',
+        '                icon="plus"',
+        '                onClick={() => setAttachMenuOpen((value) => !value)}',
+        '                ariaHasPopup',
+        '                ariaExpanded={attachMenuOpen}',
+        "                title={tr('chat.composer.attachMenuTitle')}",
+        '              />'
+      ].join('\n')
+    )
+    expect(source).toContain(
+      [
+        '      <AttachMenu',
+        '        open={active && attachMenuOpen}',
+        '        anchorRef={attachButtonRef}',
+        '        onClose={() => setAttachMenuOpen(false)}',
+        '        skills={skills}',
+        '        plugins={mentionAutocomplete.plugins}',
+        '        onAction={onAttachMenuAction}',
+        '        onManagePlugins={',
+        '          onManagePlugins',
+        '            ? () => {',
+        '                setAttachMenuOpen(false)',
+        '                onManagePlugins()',
+        '              }',
+        '            : undefined',
+        '        }',
+        '      />'
+      ].join('\n')
+    )
+  })
 })
