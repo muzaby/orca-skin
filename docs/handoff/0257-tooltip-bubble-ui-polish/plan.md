@@ -581,4 +581,7 @@ UserBubbleText(consumer props) → measure → store → render
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| D1 | hover 중 React가 조건부 `title`을 제거하면 떠날 때 옛 값이 복원된다(제거는 mutation record 없음) — 프로덕션 조건부 `title` 3자리 | D-005 메커니즘 · AC 밖 | 옮긴 값의 보관·제거 감지 방식 재검토 | NON_BLOCKING | open |
+| D2 | `TooltipHost` 실제 MutationObserver 설정이 미잠금 — Y3(`attributeFilter`)·Y4(`isConnected`) green | VP-06 어댑터 edge · plan oracle은 콜백 모사 | stub MutationObserver 어댑터 UT | NON_BLOCKING | open |
+| D3 | AC12·§11 키 `message.id`가 없는 필드 — 구현 `user:<createdAt>` | AC12 문구 | 설계자가 키 표 정정 | NON_BLOCKING | open |
+| D4 | pointerdown 원복 뒤 같은 요소 위 mousemove에서 OS 툴팁이 뜰 수 있다(가설) | AC4 · AC14 | AC14 실기에서 확인 | NON_BLOCKING | 실기 대기 |
