@@ -796,6 +796,109 @@ useSkills · useMentionAutocomplete.plugins → buildAttachMenu → CascadeMenu 
 - 반복해서 부딪히는 환경 한계: 컨트롤러를 node 환경에서 렌더할 수 없어 배선이 원문 단언에 기댄다 · Windows `.bin/vitest` shell 호출 실패.
 - 현재 라운드·impl 턴: `r4`
 
+## [구현자 기입] 설계 리뷰 (r5)
+
+- 동의 / 그대로 진행: r4 verify D8(BLOCKING)·D3(NON_BLOCKING)을 닫는다. 유효 V는 V1 그대로, production 코드 무변경 — 테스트 1파일(`shared/ui/CascadeMenu.test.ts`, plan §11이 이름 댄 파일) 신설.
+- 이견 / 현실성 문제: verify가 제안한 "순수 seam 추출" 대신 react 훅만 mock하고 production `CascadeBody`·`CascadePanel`·`Popover` 함수를 그대로 부르는 하네스를 썼다(`useMentionAutocomplete.test.ts` 선례) — 재배치 없이 컴포넌트 edge 자체를 지난다. 진입 전 `handoff-review` round 31 완료(`276b2098`).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조, r5)
+
+불변식: **reducer·hover 지연·배치 함수는 메뉴의 실제 이벤트·열림 경로에서 불린다**(D-007·D-008). 자리 = VP-02 path `keydown`/`pointerenter → reducer → 열림 경로 → submenuPosition`의 edge + §10 EP-03 3자리.
+검색: `grep -n "dispatch\|scheduleHover\|cancelHover\|onHover\|onLeave\|submenuPosition\|HOVER_OPEN_DELAY_MS" shared/ui/CascadeMenu.tsx` · `grep -n "contains" shared/ui/Popover.tsx`.
+
+| Pair | 자리 | 직접 oracle 좌표 | 관측 | 남긴 곳 |
+|---|---|---|---|---|
+| VP-09 ① | `reduceCascade` 키 | `shared/ui/cascadeMenuState.test.ts` '키보드 (AC6)' 5케이스 | K1 red(r4 verify) | — |
+| VP-09 ② | `HOVER_OPEN_DELAY_MS = 150` · `scheduleHover` 타이머 | `shared/ui/CascadeMenu.test.ts:'하위 항목 hover 는 150ms 뒤에 연다 — 149ms 에는 닫혀 있다'` | H1·H3 red 2 | — |
+| VP-09 ③ | `submenuPosition` | `cascadeMenuState.test.ts` 'submenuPosition (AC8)' 4케이스 | K2 red(r4 verify) | — |
+| VP-02 a | 루트 `onKeyDown → dispatch` | `CascadeMenu.test.ts:'메뉴 keydown 이 reducer 로 가 포커스를 옮기고, 처리한 키는 문서로 새지 않는다'` · `'최상위 Esc 는 메뉴를 닫고 …'` | K3 red 2 · J3 red 1 | — |
+| VP-02 b | 패널 prop `onHover={scheduleHover}`·`onLeave={cancelHover}` | `CascadeMenu.test.ts:'150ms 전에 항목을 떠나면 열지 않는다'` + ② 좌표 | H2b red 1 | — |
+| VP-02 c | 항목 `onPointerEnter → onHover(level, index)`·`onPointerLeave → onLeave` | `CascadeMenu.test.ts:'패널 항목의 pointerenter·pointerleave 가 …'` | J1·J2 red 1 | — |
+| VP-02 d | 하위 패널 layout effect → `submenuPosition`(부모 rect·패널 크기·viewport) → `style` | `CascadeMenu.test.ts:'열린 하위 패널은 부모 항목 좌표로 submenuPosition 을 적용한다 …'` | P1b·J4 red 1 | — |
+| D3 | `Popover` 바깥 mousedown — 패널 `contains`면 유지 | `CascadeMenu.test.ts:'패널 안(하위 패널 포함) mousedown 은 닫지 않고 …'` | Q1 red 1 | — |
+
+- VP-09 `3/3` · VP-02 path edge `4/4` · D3 `1/1`.
+- §10에 없는데 같은 불변식이 필요했던 지점: 없음 — b·c는 VP-02 path `pointerenter → reducer` edge를 운반하는 두 자리다.
+
+**V-pair 자기확인 (r5)** — 유지 행은 r4 verify §5 좌표를 인용한다(round 31).
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-09 | REQUIRED | SELF_PASS | 위 ①②③ | K1·K2(r4 verify) red · H1·H3 red |
+| VP-02 | REQUIRED | SELF_PASS | 위 a~d + VP-09 좌표 | K1·K2 red · H2b·K3·P1b red |
+| VP-01·03·05·06·07·08·10·11 | REQUIRED | SELF_PASS(유지) | r4 verify §5 표 좌표(`attachMenuModel.test.ts` 4 · `composerToken.test.ts` · `composerAttachMenu.test.ts` · `attachMenu.render.test.ts` · `attachMenuSelect.test.ts` · `useMentionAutocomplete.test.ts` · `skillGroups.test.ts`) — 이번 턴 관련 vitest 1862케이스 안에서 green | r4 verify 재측정 red 유지(production 무변경) |
+| VP-04 | REQUIRED | SELF_BLOCKED | 사람 실기(AC12) — 좌표 아님 | not selected |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r5)
+
+실행: 변이마다 백업 → `node node_modules/vitest/vitest.mjs run features/chat/{components/composer,lib,hooks} shared/ui pages`(118파일 864케이스) → 원복. 최종 `git status` = 신규 테스트 1파일.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| H1 `HOVER_OPEN_DELAY_MS = 0` | D8 인용 | green(r4 verify) | CascadeMenu 2 | 잠김 |
+| H3 타이머 없이 즉시 dispatch | D8 인용 | green | CascadeMenu 2 | 잠김 |
+| H2b `onLeave={() => undefined}` | D8 인용 | green | CascadeMenu 1 | 잠김 |
+| K3 `onKeyDown`이 dispatch 안 함 | D8 인용 | green | CascadeMenu 2 | 잠김 |
+| P1b `submenuPosition` 우회 고정 배치 | D8 인용 | green | CascadeMenu 1 | 잠김 |
+| J1 `onPointerEnter → onHover(level, 0)` | 새 oracle — 항목 edge 형제 인덱스(독립 축) | — | CascadeMenu 1 | 잠김 |
+| J2 `onPointerLeave` 무동작 | 새 oracle — 항목 이탈 edge(독립 축) | — | CascadeMenu 1 | 잠김 |
+| J3 루트 `stopPropagation` 삭제 | 새 oracle — Esc 한 단계(독립 축) | — | CascadeMenu 1 | 잠김 |
+| J4 패널 폭 `0` 전달 | 새 oracle — 배치 입력(독립 축) | — | CascadeMenu 1 | 잠김 |
+| Q1 Popover 패널 `contains` 판정 삭제 | D3 대응 | — | CascadeMenu 1 | 잠김 |
+
+- **분모 검산**: `선택 증거 0(K1·K2 r4 verify 재측정 유지, 코드 무변경) · 인용 변이 5(H1·H2b·H3·K3·P1b) · 새 oracle 5(J1~J4·Q1) = 표 행 10`.
+- **덮개 회귀**: 해당 없음 — 기존 테스트·장치 무변경, 신규 파일만 추가.
+
+## [구현자 기입] Product/UX 파생 검토 (r5)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — production 무변경 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 해당 없음 — 재배치 없음(훅 mock 하네스) | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 해당 없음 | — |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | K3(키 무반응)·H2b(떠난 뒤 열림)·P1b(화면 밖 패널)가 이제 red | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r5)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 하네스가 react 훅을 대체하므로 실제 React의 재렌더·effect 순서는 보지 않는다 | ⚠️ 보고만 — 관측 대상은 이벤트 → dispatch/타이머/배치 호출 edge이고 그 순서는 컴포넌트 함수 안 동기 코드다. 시각·체감은 AC12 실기 | `CascadeMenu.test.ts` 머리 주석 |
+| 2 | `vi.stubGlobal('window'·'document')`가 다른 테스트로 새지 않는가 | ✅ `afterEach` `unstubAllGlobals` · 관련 vitest 236파일 green | 위 gate |
+
+### 설계 대비 명시적 차이
+
+- verify D8 대응 방향(순수 seam 추출)이 아니라 훅 mock 하네스로 production 컴포넌트를 직접 구동했다 — 대체물에만 있는 실패 모드:
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 상태 없는 테스트 하네스 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 전역 `window`·`document` stub 공유 | `afterEach` 해제 · 236파일 green |
+| 재진입 | 하네스 재호출이 실제 재렌더와 훅 순서를 다르게 매길 수 있다 | 훅 호출 순서는 컴포넌트가 고정 — refs[1]=rootRef 가정이 틀리면 배치 테스트가 먼저 깨진다(P1b red로 경로 진입 확인) |
+| 다른 무효화 축 | 해당 없음 | — |
+
+## [구현자 기입] 구현 보고 (r5)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 신규 `shared/ui/CascadeMenu.test.ts` (production 0) |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `vitest run features/chat shared/ui pages` · 변이 10건 |
+| **관측한 게이트 산출** | lint 0 error · 1 warning(기존 `useTranscriptVirtualizer.ts`) · lint 후 트리 = 신규 1파일(자기 파일 포맷만) · typecheck `error TS` 0 · 관련 vitest 236파일 1862케이스 pass·실패 0(r4 1855 + 신규 7) |
+| V-pair 자기확인 | `SELF_PASS 10 / SELF_BLOCKED 1(VP-04 실기)` |
+| 강제 지점 전수 | VP-09 3/3 · VP-02 edge 4/4 · D3 1/1 — 자리별 좌표는 위 표 |
+| **AC 자기보고**(`Criteria-Met`) | r4 verify ✅9 + AC6(K3·J3 red)·AC7(H1·H2b·H3·J1·J2·Q1 red)·AC8(P1b·J4 red) ✅ / AC12 실기 ⚠️ |
+| **합계 검산** | `✅ 12 · ⚠️ 1 · ❌ 0 = 총 13` |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r5 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r5)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 예 — pair path edge 중 테스트가 닿지 않은 자리(r1 D1·D2 → r2 D4 → r3 D6 → r4 D8). 이번엔 VP-02·09.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: 있었다 — VP-02 path·AC7·§10 EP-03 ②. r1~r4 자기확인이 이 pair를 좌표 없이 유지로 옮겼다(round 31이 이 자리를 막는다).
+- 반복해서 부딪히는 환경 한계: 컴포넌트를 node 환경에서 렌더할 수 없다 — 이번엔 훅 mock 하네스로 넘었다.
+- 현재 라운드·impl 턴: `r5`
+
 ---
 
 ## [검증자 기입] 파생 이슈
