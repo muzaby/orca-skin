@@ -899,6 +899,136 @@ useSkills · useMentionAutocomplete.plugins → buildAttachMenu → CascadeMenu 
 - 반복해서 부딪히는 환경 한계: 컴포넌트를 node 환경에서 렌더할 수 없다 — 이번엔 훅 mock 하네스로 넘었다.
 - 현재 라운드·impl 턴: `r5`
 
+## [구현자 기입] 설계 리뷰 (r6)
+
+- 동의 / 그대로 진행: r5 verify D9(BLOCKING)를 닫는다. 유효 V는 V1 그대로. 진입 전 `handoff-review` round 32 완료(INDEX 비고).
+- 이견 / 현실성 문제: D9 대응 방향("r5 하네스를 래퍼까지 넓혀")만으로는 닫히지 않는다 — r5 하네스는 react 훅만 바꿔 effect deps·커밋 순서·ref 부착·숨은 요소 포커스 거부가 없고, 그 사각에 production 결함이 있었다(Electron 실측, 놓친 #1). 그래서 React 런타임·브라우저 규칙을 흉내 내는 실행 하네스(`shared/ui/renderHarness.testfixture.ts`)로 '+' 칩·`AttachMenu`·래퍼부터 production 컴포넌트를 실행했다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음 — D-007(키보드 탐색)을 못 지키던 구현 결함을 고쳤다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조, r6)
+
+불변식: **사용자 입력에서 컨트롤러가 받는 결과(선택 동작·닫기·DOM 포커스·패널 배치)까지, 메뉴 path의 자리는 실제 컴포넌트와 실제 런타임 규칙(effect deps·커밋 순서·ref 부착·숨은 요소 포커스 거부)으로 실행되는 테스트 구간 안에서 관측된다.**
+자리 = VP-01 path(`'+' → AttachMenu → CascadeMenu → 선택 → 삽입/관리`)와 VP-02 path(`keydown/pointerenter → reducer → 열림 경로 → submenuPosition`)가 지나는 컴포넌트의 JSX 속성·호출·대입·조건·return·deps 배열·`HANDLED_KEYS` 원소·JSX 자식 식.
+검색: TypeScript AST 전수 열거(`ts.createSourceFile` → JsxAttribute·CallExpression·`=`·if·deps·JSX 식) — `CascadeMenu.tsx` 137 · `Popover.tsx` 49 · `ComposerInputController.tsx`(134-135·195-205·404-434) 26 · `ComposerChip.tsx` 18 · `AttachMenu.tsx` 13 = **243**.
+차집합: 243 − (변이 red로 닫음 160 · 훅 선언(쓰임 자리 변이로 닫힘) 15 · 남긴 곳 68) = **0줄**. 변이 156건: red 145 · green 11 — green 11은 전부 열거 때 미리 `남긴 곳`(등가·NON_BLOCKING)으로 분류한 자리다.
+
+| Pair · edge | 자리 | 직접 oracle 좌표 | 변이 → 실패 테스트 수 | 남긴 곳 |
+|---|---|---|---|---|
+| VP-01 ① '+' 칩 → 열림 | 컨트롤러 `:134·407-411` · `ComposerChip.tsx:22·39·41·44·45` | `composerAttachMenu.test.ts:"'+' 칩이 메뉴를 열고 닫으며 …"`(원문) · `attachMenu.flow.test.ts:'받은 onClick·ref 를 버튼에 …'` | C1·C2·C3·C3h·CC1~CC4 각 1 | 칩 disabled·title·ariaPressed·label(넘기지 않음) · 아이콘(시각) |
+| VP-01 ② 컨트롤러 → AttachMenu | `:420-430` open·anchorRef·onClose·skills·plugins·onAction·관리 래퍼 · `:196-199` | 같은 원문 2케이스 · `composerAttachMenu.test.ts:'%s → 커서 자리 삽입 …'` 4 | C4·C5·C6·C10·X1c·X2c·X3c 1 · C10b·V2·V3·V5·Y4·Z1 2 · Z2·Z3 4 | — |
+| VP-01 ③ AttachMenu → 트리 | `AttachMenu.tsx:30-45` 입력·라벨 6·canManage·memo deps | `attachMenu.flow.test.ts` '최상위 4행 …'·'빈 목록이면 …'·'열린 채 … 새 목록' | A1 3·A2 4·A3f 5·A3t 2·Y1 6·L1 1·L2 1·L3 5·M1~M4 각 1 | i18n 훅(하네스가 키 그대로 내는 tr) |
+| VP-01 ④ AttachMenu → CascadeMenu | `:49-56` open·anchorRef·onClose·items·ariaLabel·onSelect 분기 | 같은 파일 선택 4케이스·'최상위 Esc …'·'닫힌 채 마운트돼도 …' | A6 1·A7 3·A8 5·A9 12·A10 2·A11 2·A12 6·Y2 2 | — |
+| VP-01 ⑤ 래퍼 → Popover·CascadeBody | `CascadeMenu.tsx:39-46` | `CascadeMenu.flow.test.ts` '열면 …'·'최상위 Esc …'·'바깥 mousedown …'·'Enter·Space 로 …' | W1m 3·W2m 12·W3m 2·W4m 1·X3 19·X1b 6·X2 7·W8m 2·W9m 6 | — |
+| VP-01 ⑥ 행 → 선택 | `:84-92`·`:159-161`·`:236` | '클릭으로 하위를 열고 깊은 동작 항목을 …'·'Enter·Space 로 동작 항목을 …' | X13b 6·B6m 5·X14b 9·X15 7·B38m 5·B2m 11·B3m 18·B4m 17 | `:160` 클릭 전 cancelHover(등가, r5 X7) |
+| VP-02 ⑦ 열림 → 키가 메뉴에 닿음 | `:78`·`:108-121`·`:136-139` | '열면 … 배치 뒤 프레임에 루트가 포커스를 받는다 …' | X10 9·R1 9·R2 9·B1m 12·B22m 11·B23m 3·B24m 6·B25m 9 | `:112·118·121` 프레임 취소·deps(등가 R3·B16m·B15m) · `:119` hover 정리(NON_BLOCKING r5 X6) |
+| VP-02 ⑧ keydown → reducer | `:53-59` 키 7 · `:141-146` | '↓/↑ …'·'→·Enter·Space …'·'최상위 Esc …' | KAD 6·KAU 1·KAL 1·KAR 4·KEN 3·KSP 2·KES 4·B26g 2·B27m 3·J3 5·K3 9 | — |
+| VP-02 ⑨ reducer → DOM 포커스 | `:123-131` · `:231-232` | 같은 키보드 케이스 | X4b 5·B20m 5·B19m 3·B19b 4·P19m 14·P20m 15 | `:125` null 가드(tsc가 막음) |
+| VP-02 ⑩ 최상위 Esc → onClose·앵커 | `:90-92` | '최상위 Esc …'(두 파일) | B7m 3·B8m 3 | — |
+| VP-02 ⑪ 포인터 → 타이머 → reducer | `:97-104`·`:157-158`·`:234-235` | '하위 항목 hover 는 150ms 뒤에 …(레벨 1)'·'150ms 전에 …' | H1 4·H3 4·H2b 2·B9m 2·B9b 2·X9b 1·B12m 3·B36m 3·J1 3·J2 2·P22b 1 | `:98·101·103` 타이머 id 정리(등가 B10m·B11m) |
+| VP-02 ⑫ 열린 경로 렌더 | `:133`·`:149-156`·`:218-219`·`:229-230`·`:246` | 키보드·hover·접근성 케이스 | B21m 16·B31m 16·B32m 14·B33m 4·B35m 6·P11m 4·P17m 3·P18m 5·P27m 7 | `:151` 재조정 key |
+| VP-02 ⑬ → submenuPosition → style | `:188-205`·`:249-252` | '열린 하위 패널은 부모 행 좌표 …'·'화면 높이를 넘는 …' | P1b 3·J4 3·P4m 2·X5 3·P3m 3·P2m 4·X8 6·P7m 6·P8m 1·P28m 5·P30b 6 | `:192` 레벨 0 조기 반환(등가 P1m) · `:197` null 가드(tsc) · 숨김 대체 style(등가 P30m) |
+| VP-02 ⑭ 안/밖 mousedown · Popover | `Popover.tsx:43-134` 중 path 자리 | '클릭으로 … 하위 패널 안 mousedown …'·'바깥 mousedown …'·'닫힌 채 마운트돼도 …' | Q1 4·X11 1·PO4m 3·PO8m 3·PO1m 3·PO2d 1·PO6d 1·PO5m 11·PO3t 2·PO7m 3·PO9h 11·PO10m 3 | Popover 현행 배치 분기·창 크기 재배치·문서 Esc(r5 X12)·DOM 마커 — 0259 무변경 |
+| AC1·AC5 표시 | `:137-138`·`:210-215`·`:223`·`:227`·`:238-239`·`:250` | '루트 role=menu·aria-label …' | P9m 3·P10m 2·P10b 2·P12m 1·P15m 2·P25m 10·P26m 1·P29m 3 | className·아이콘 크기(시각 AC12) · 행 tabIndex(Tab 순서, AC 밖) · 비활성 속성(등가 P16m) |
+
+- 줄 번호는 `CascadeMenu.tsx` = 이번 턴 수정본, 나머지 = HEAD. 실패 수는 선별 집합(메뉴 path 관측 10파일 74케이스) 기준이고, green 11건은 관련 vitest 120파일로 다시 돌렸다(잠금 표 아래).
+- §10 EP-01~06의 다른 자리(트리·토큰·reducer·좌표 함수·자동완성 정돈): 코드 무변경 — 아래 V-pair 표의 r4/r5 verify 좌표 + 등록 변이 재실행.
+- §10에 없는데 같은 불변식이 필요했던 지점: 포커스 시점(열 때 루트·하위를 열 때 첫 항목, 2자리). VP-02 path(`keydown`이 메뉴에 닿아야 reducer로 간다)·AC6("첫 활성 항목")·D-007에 귀속되므로 PLAN_GAP이 아니라 구현 결함 → 고쳤다(놓친 #1).
+
+**V-pair 자기확인 (r6)** — 유지 행은 r4·r5 verify §5 좌표를 인용한다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | 위 ①~⑥ + VP-05·06·07·08·10 좌표 | S1 12·S2 5 red |
+| VP-02 | REQUIRED | SELF_PASS | 위 ⑦~⑭ + VP-09 좌표 | K1 2·K2 4 red |
+| VP-03·11 | REQUIRED | SELF_PASS(유지) | `attachMenu.render.test.ts:'/ 후보가 출처 헤더 아래 …'`·`'/ 와 @ 헤더가 같은 컴포넌트를 쓴다'` · `skillGroups.test.ts` 2 | G1 2 red |
+| VP-05·10 | REQUIRED | SELF_PASS(유지) | `composerAttachMenu.test.ts:'%s → 커서 자리 삽입 …'` 4·`'컨트롤러는 메뉴 동작을 …'` · `composerToken.test.ts` 5 | S2 5·S3 3 red · Z1~Z3·X1c~X3c red |
+| VP-06 | REQUIRED | SELF_PASS(유지) | `attachMenu.render.test.ts:"페이지 5자리가 navigate('/plugins') …"` · `attachMenuSelect.test.ts` 3 · `attachMenu.flow.test.ts:"'플러그인 관리'는 …"` | W1 1 red · A3f·A3t·Y1·A11·C10b red |
+| VP-07 | REQUIRED | SELF_PASS(유지) | r4 구현 표 4좌표 + `attachMenu.flow.test.ts:'열린 채 … 새 목록'`(memo deps) | not selected — V2·M1~M4 red |
+| VP-08 | REQUIRED | SELF_PASS(유지) | `attachMenuModel.test.ts` 4 | S1 12 red |
+| VP-09 | REQUIRED | SELF_PASS(유지) | `cascadeMenuState.test.ts` '키보드 (AC6)' 5·'submenuPosition (AC8)' 4 · `CascadeMenu.test.ts:'하위 항목 hover 는 150ms 뒤에 연다 …'` | K1·K2·H1·H3 red |
+| VP-04 | REQUIRED | SELF_BLOCKED | 사람 실기(AC12) — 좌표 아님 | not selected |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r6)
+
+실행: 변이마다 백업 → 선별 집합 `vitest run`(10파일 74케이스) → 원복. green이면 관련 vitest(`features/chat/{components/composer,lib,hooks}`·`shared/ui`·`pages` 120파일 888케이스)로 재확인. 최종 `git status` = 의도한 5파일.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| S1 스킬·플러그인 하위 맞바꿈 `attachMenuModel.ts` | VP-01·08 선택 증거 | red(r4 verify) | `attachMenuModel` 4 · `attachMenu.flow` 5 · `attachMenuSelect` 2 · `attachMenu.render` 1 = 12 | 잠김 |
+| S2 토큰 접두 `/`↔`@` | VP-01·05·10 선택 증거 | red | `attachMenuToken` 1 · `runAttachMenuAction` 4 | 잠김 |
+| S3 앞 공백 생략 `composerToken.ts` | VP-10 선택 증거 | red | 3 | 잠김 |
+| K1 ← 무시 `cascadeMenuState.ts` | VP-02·09 선택 증거 | red | 키보드 표 1 · 흐름 '→·Enter·Space …' 1 | 잠김 |
+| K2 왼쪽 뒤집기 생략 | VP-02·09 선택 증거 | red | 좌표 표 1 · 흐름 배치 2 · r5 배치 1 | 잠김 |
+| G1 섹션 안 역순 `skillGroups.ts` | VP-03·11 선택 증거 | red | 2 | 잠김 |
+| W1 `ProjectLandingPage` Composer 자리 누락 | VP-06 선택 증거 | red | 배선 원문 1 | 잠김 |
+| X1b 래퍼가 onSelect 안 넘김 `CascadeMenu.tsx:43` | D9 인용 | green(r5 verify) | 'Enter·Space 로 …'·'클릭으로 …' · AttachMenu 선택 4 = 6 | 잠김 |
+| X13b activate 가 onSelect 미호출 `:88` | D9 인용 | green | 같은 6 | 잠김 |
+| X14b 패널 클릭 미dispatch `:161` | D9 인용 | green | 클릭·배치·접근성·목록 갱신 9 | 잠김 |
+| X15 항목 클릭 인덱스 0 `:236` | D9 인용 | green | 7 | 잠김 |
+| X2 래퍼 onClose 무동작 `:44` | D9 인용 | green | '최상위 Esc …'(두 파일) 포함 7 | 잠김 |
+| X10 열 때 루트 포커스 삭제 `:116` | D9 인용 | green | '열면 …' 포함 9 | 잠김 |
+| X4b 포커스 이동 effect 삭제 `:123-131` | D9 인용 | green | 키보드 5 | 잠김 |
+| X9b hover 타이머 레벨 0 `:104` | D9 인용 | green | 'hover 는 150ms … (레벨 1)' 1 | 잠김 |
+| `CascadeMenu.flow.test.ts` — 래퍼 → Popover·CascadeBody·패널·행 | 새 oracle(배선) | — | path 자리 변이 95건 red(⑤~⑭·표시 행) | 잠김 |
+| `attachMenu.flow.test.ts` — '+' 칩·AttachMenu → CascadeMenu | 새 oracle(배선) | — | 85건 red(①·③·④ + 아래로 이어지는 자리) | 잠김 |
+| 컨트롤러 원문 단언 확장 — '+' 칩·AttachMenu 블록 | 새 oracle(구조 proxy) | — | C1~C6·C3h·C10·C10b·V2·V3·V5·Y4 13건 red | 잠김 |
+| `renderHarness.testfixture.ts` — 숨은 패널 포커스 거부·deps·ref 부착 | 새 oracle(실행 환경 규칙) | — | R1(포커스를 프레임 없이 즉시 = 수정 전 코드) 9 · B20m 5·P8m 1·PO2d 1·PO6d 1·M1~M4 1 · B22m 11·P28m 5·PO1m 3 | 잠김 |
+
+- **분모 검산**: `선택 증거 7 · 인용 변이 8 · 새 oracle 4 = 표 행 19`.
+- **덮개 회귀**: 0건 — r5 red 변이 재실행 전부 red(H1 4·H3 4·H2b 2·K3 9·P1b 3·J1 3·J2 2·J3 5·J4 3·Q1 4·X3 19·X5 3·X8 6). r5 하네스(`CascadeMenu.test.ts`)는 그대로 두었다. r5 verify의 NON_BLOCKING X11은 이번에 red 1(앵커 mousedown 단언).
+- **green 11건**(전부 `남긴 곳` 분류) — 관련 vitest 120파일 888케이스 재실행 11/11 green(X6·X7·X12·B10m·B11m·B16m·P1m·P16m·P30m·R3·B15m), 마지막 단언 추가 뒤 선별 재실행도 green.
+
+## [구현자 기입] Product/UX 파생 검토 (r6)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — 문구 무변경 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 — production 변경은 포커스 시점 2자리(`focusNextFrame`), 정리는 같은 effect 반환에 모았다(`cancelFocus`·`cancelHover`) | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 새 실패 경로 없음. 고친 결함은 '+' 클릭 → ↓/↑·→·Enter 행이 전부 무반응이던 것 — 표는 맞고 구현이 못 지켰다 | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | **그렇게 보였다** — 수정 전 '+'로 연 메뉴에서 ↓·→·Enter가 '+' 버튼으로 가 무반응, 마우스로 열고 → 로 하위를 열면 포커스가 부모 행에 남았다(Electron 실측) | 수정 — 놓친 #1 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 늦은 포커스 프레임: 메뉴가 닫혔으면 대상이 떨어진 노드라 무동작, 다음 키가 먼저 왔으면 마지막 프레임이 최신 행을 포커스 — 정리에서 취소도 한다(R3 등가) | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r6)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 열 때 루트 포커스·→/Enter/Space로 연 하위 첫 항목 포커스가 배치 측정 중 `visibility:hidden` 패널에서 거부돼 키보드가 '+' 버튼에 갇혔다 — passive effect가 레이아웃 effect의 배치 재렌더보다 먼저 돈다 | ✅ 선조치 — 포커스를 배치 재렌더 다음 프레임으로(`requestAnimationFrame`, 정리에서 취소). `ArtifactCatalogRow`·`ProjectCatalogRow`·`GitIdentityMenus` 선례와 같은 처리 | Electron 39 일회성 실측: 수정 전 '+' 클릭 → `#anchor`, ↓↓→ 모두 `#anchor`(`focus(menu) visibility=hidden`) · 수정 후 루트 → row(0,0) → row(0,2) → row(1,0) → … → 선택 1회. 좌표는 R1 9 red |
+| 2 | r5 하네스(훅만 대체)는 deps·커밋 순서·ref 부착·포커스 규칙이 없어 #1과 deps·ref 변이를 볼 수 없었다 | ✅ 선조치 — `shared/ui/renderHarness.testfixture.ts`(최소 렌더러 + 가짜 DOM) 신설, 실패 메시지는 `toJSON` 요약 | 잠금 표 마지막 행 |
+| 3 | 하네스 한계: 재렌더가 늘 루트부터라 React bailout이 없다 · 포털을 제자리에 그린다 · 레이아웃은 테스트가 정한 상자다 | ⚠️ 보고만 — path 컴포넌트에 deps 없는 effect 0(AST 열거 deps 행) · 이벤트는 React 트리를 따라가 포털 위치와 무관 · 픽셀은 AC12 실기 | fixture 머리 주석 |
+| 4 | `Popover`의 측정 단계(`visibility:hidden`)는 공용이라 열 때 안으로 포커스를 옮기는 소비자마다 미뤄야 한다 | ⚠️ 보고만 — 그런 소비자 중 미루지 않는 곳 0: `ArtifactCatalogRow`·`ProjectCatalogRow`·`GitIdentityMenus` rAF · `EngineFormModal` 포커스 대상은 Popover 밖 · `CascadeMenu` 이번 수정 | `grep -rln "<Popover" --include=*.tsx src/renderer/src \| xargs grep -n "autoFocus\|\.focus("` → 5파일 |
+
+### 설계 대비 명시적 차이
+
+- r5 verify D9 대응 방향(r5 하네스 확장) 대신 실행 하네스를 새로 만들었고, production 포커스 시점을 고쳤다(plan §11은 포커스 시점을 정하지 않았다). r5 하네스·테스트는 그대로 둔다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 프레임 콜백은 창이 숨으면 멈춘다 — 숨은 창에는 키 입력도 없다 | 해당 없음 — 사람 실기 AC12 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 하네스의 전역 `document`·`window` stub과 렌더 중 인스턴스 포인터 | `afterEach` `unstubAllGlobals` · 포인터는 렌더 중에만 두고 `finally` 복원 · 관련 vitest 238파일 green |
+| 재진입 | 닫았다 다시 열면 새 인스턴스·새 프레임 · StrictMode 이중 마운트는 첫 프레임 취소 후 재예약 | `CascadeMenu.flow.test.ts:'닫았다 다시 열면 …'` · `attachMenu.flow.test.ts:'닫힌 채 마운트돼도 …'` |
+| 다른 무효화 축 | 프레임 전에 다음 키가 오면 keydown은 이전 포커스 행에서 루트로 올라가 `stateRef`로 처리된다 | `CascadeMenu.flow.test.ts:'↓/↑ …'`(한 프레임 안 두 키) · B2m 11 red |
+
+## [구현자 기입] 구현 보고 (r6)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | production `shared/ui/CascadeMenu.tsx`(포커스 시점) · 신규 `shared/ui/renderHarness.testfixture.ts` · `shared/ui/CascadeMenu.flow.test.ts` · `composer/attachMenu.flow.test.ts` · 수정 `composer/composerAttachMenu.test.ts` |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `vitest run features/chat shared/ui pages` · 변이 156건(선별 10파일 → green은 120파일) · Electron 실측 1회 |
+| **관측한 게이트 산출** | lint 0 error · 1 warning(기존 `useTranscriptVirtualizer.ts`) · lint 후 트리 = 의도한 5파일 · typecheck(node·web·test) exit 0·`error TS` 0 · 관련 vitest 238파일 1886케이스 pass·실패 0(r5 1862 + 신규 24) |
+| V-pair 자기확인 | `SELF_PASS 10 / SELF_BLOCKED 1(VP-04 실기)` |
+| 강제 지점 전수 | AST 243자리 · 차집합 0 · 변이 닫힘 160 · 선언 15 · 남긴 곳 68(사유별) |
+| **AC 자기보고**(`Criteria-Met`) | AC1 최상위 4행·라벨 키(L1~L3 red) · AC2 스킬 선택 → onAction(X1b·X13b·X15 red) · AC3 플러그인·관리(A11·C10 red) · AC4 빈 행(L2·P10m red) · AC5 title(P15m red) · AC6 키·DOM 포커스·Esc(X10·X4b·X2·R1 red) · AC7 레벨 1 hover·이탈·안/밖 mousedown(X9b·H2b·Q1·PO8m red) · AC8 배치(P1b·P8m red) · AC9~AC11 G1 red·기존 스위트 green · AC13 gate ✅ / AC12 실기 ⚠️ |
+| **합계 검산** | `✅ 12 · ⚠️ 1 · ❌ 0 = 총 13` |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r6 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r6)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 예 — pair path 자리가 테스트 실행 구간 밖(r1 D1·D2 → r2 D4 → r3 D6 → r4 D8 → r5 D9). 이번엔 하네스가 브라우저 포커스 규칙을 몰라 production 결함까지 green이었다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: AC12(사람 실기: 키보드 탐색)가 r1부터 대기였다 — 실기 전엔 이 결함을 볼 자리가 없었다. AC6 oracle이 reducer 표 UT라 DOM 포커스를 요구하지 않았다.
+- 반복해서 부딪히는 환경 한계: node 환경에 DOM이 없다 — React 런타임·브라우저 규칙을 흉내 내는 하네스 + Electron 일회성 실측(좌표 아님)으로 넘었다.
+- 현재 라운드·impl 턴: `r6`
+
 ---
 
 ## [검증자 기입] 파생 이슈

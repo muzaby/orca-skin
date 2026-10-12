@@ -105,18 +105,29 @@ export function CascadeBody<A>({
     }, HOVER_OPEN_DELAY_MS)
   }
 
+  // 패널은 배치를 재기 전 첫 커밋에서 visibility:hidden 이다(Popover 루트·하위 패널 모두). 숨은 요소는
+  // 포커스를 받지 않으므로(Chromium) 배치 재렌더가 끝난 다음 프레임에 옮긴다 — 열 때 루트, 키 이동 때 그 행.
+  const focusNextFrame = (target: () => HTMLElement | null | undefined): (() => void) => {
+    const frame = window.requestAnimationFrame(() => target()?.focus({ preventScroll: true }))
+    return () => window.cancelAnimationFrame(frame)
+  }
+
   useEffect(() => {
-    rootRef.current?.focus({ preventScroll: true })
-    return cancelHover
+    const cancelFocus = focusNextFrame(() => rootRef.current)
+    return () => {
+      cancelFocus()
+      cancelHover()
+    }
   }, [])
 
   useEffect(() => {
-    if (!state.focus) return
-    rootRef.current
-      ?.querySelector<HTMLElement>(
-        `[data-cascade-level="${state.focus.level}"][data-cascade-index="${state.focus.index}"]`
+    const focus = state.focus
+    if (!focus) return
+    return focusNextFrame(() =>
+      rootRef.current?.querySelector<HTMLElement>(
+        `[data-cascade-level="${focus.level}"][data-cascade-index="${focus.index}"]`
       )
-      ?.focus({ preventScroll: true })
+    )
   }, [state.focus])
 
   const levels = [0, ...state.open.map((_, i) => i + 1)]
