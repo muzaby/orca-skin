@@ -76,9 +76,18 @@ describe('runAttachMenuAction (AC2·AC3)', () => {
   it('컨트롤러는 메뉴 동작을 이 함수에 자기 스냅샷·갱신·포커스와 함께 넘긴다', () => {
     const source = readFileSync(new URL('./ComposerInputController.tsx', import.meta.url), 'utf8')
     expect(source.match(/runAttachMenuAction\(action, \{/g)).toHaveLength(1)
-    expect(source).toContain('snapshot: () => snapshotRef.current,')
-    expect(source).toMatch(
-      /runAttachMenuAction\(action, \{[^}]*\n\s+updateSnapshot,\n\s+focus\n\s+\}\)/
+    // r2 verify D5 — 넘기는 의존성 6개 전부를 원문 그대로 잠근다(파일 추가 경로 포함).
+    expect(source).toContain(
+      [
+        '    runAttachMenuAction(action, {',
+        '      closeMenu: () => setAttachMenuOpen(false),',
+        '      pickAttachments: () => void pickAttachments(),',
+        '      compositionActive: () => compositionActive(),',
+        '      snapshot: () => snapshotRef.current,',
+        '      updateSnapshot,',
+        '      focus',
+        '    })'
+      ].join('\n')
     )
     expect(source).toContain('onAction={onAttachMenuAction}')
   })

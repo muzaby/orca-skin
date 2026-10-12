@@ -621,6 +621,92 @@ useSkills · useMentionAutocomplete.plugins → buildAttachMenu → CascadeMenu 
 - 반복해서 부딪히는 환경 한계: 훅 컨트롤러를 node 환경에서 렌더할 수 없어 배선 자리는 원문 단언으로 잠근다.
 - 현재 라운드·impl 턴: `r2`
 
+## [구현자 기입] 설계 리뷰 (r3)
+
+- 동의 / 그대로 진행: r2 verify D4(BLOCKING)·D5(NON_BLOCKING)만 닫는다. 유효 V는 V1 그대로, production 코드 무변경 — 테스트 2파일만 고친다.
+- 이견 / 현실성 문제: 없음.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조, r3)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-06 | EP-05 `onManagePlugins` — 화면 표시 | 9(prop) | 9/9 + 호출 edge 1 + 행 표시 edge 1 | `attachMenuSelect.test.ts` '플러그인 관리' 행 2케이스 — 콜백 있음 `['empty','separator','action:managePlugins']` · 없음 → 관리 행 없음 | — |
+| VP-05 | EP-02 컨트롤러 의존성 전달 | 1 | 1/1 · 의존성 6/6 원문 | `grep -c "runAttachMenuAction(action, {" ComposerInputController.tsx` → 1 · 원문 블록 8줄 `toContain` | — |
+| 그 밖 | — | r1 그대로 | 코드 무변경 | `git diff --stat` = 테스트 2파일 | — |
+
+- §10에 없는데 같은 불변식이 필요했던 지점: 없음 — VP-06 path `… → AttachMenu` 의 마지막 edge(`!!onManagePlugins` → 트리)가 r2 verify가 지적한 그 자리다.
+
+**V-pair 자기확인 (r3)**
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-06 | REQUIRED | SELF_PASS | 콜백 1회·onAction 미호출(r2) + 관리 행 유무 2케이스(r3) | W1(r1) · Z4 · X5 · X6 · Y1 · Y2 red |
+| VP-01 | REQUIRED | SELF_PASS | VP-06 해소로 AC3 '플러그인 관리' 행 증거 충족 | S1~S3 결과 유지 · Y3 red |
+| VP-05 | REQUIRED | SELF_PASS(r2 유지) | 원문 블록이 의존성 6개 전부 | Z1~Z3·S2c·X7 red · X1~X3·Y4 red |
+| 나머지 8 pair | REQUIRED | r1 SELF 상태 유지 | 코드 무변경 | — |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r3)
+
+실행: 변이마다 백업 → `node node_modules/vitest/vitest.mjs run composer/ features/chat/lib pages`(96파일 739케이스) → 원복.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| X5 `canManagePlugins: false` | D4 인용 | green(r2 verify) | attachMenuSelect 1 | 잠김 |
+| X6 `canManagePlugins: true` | D4 인용 | green | attachMenuSelect 1 | 잠김 |
+| X3 `pickAttachments: () => undefined` | D5 인용 | green | composerAttachMenu 1 | 잠김 |
+| X1 `compositionActive: () => false` | 새 oracle(원문 블록) 민감도 | green · 등가 | composerAttachMenu 1 | 잠김 |
+| X2 `closeMenu: () => undefined` | 새 oracle 민감도 | green · 등가 | composerAttachMenu 1 | 잠김 |
+| Y1 `canManagePlugins: !onManagePlugins` | 새 oracle — 같은 edge 반전(독립 축) | — | attachMenuSelect 2 | 잠김 |
+| Y2 관리 선택 시 콜백 + `onAction` 둘 다 | 새 oracle — 형제 분기 누수(독립 축) | — | attachMenuSelect 1 | 잠김 |
+| Y3 플러그인 하위 구분선 삭제 | 새 oracle — 행 순서 단언(독립 축) | — | attachMenuSelect·attachMenuModel 3 | 잠김 |
+| Y4 컨트롤러 `onAction={(action) => void action}` | 새 oracle — 배선 삭제(독립 축) | — | composerAttachMenu 1 | 잠김 |
+
+- **분모 검산**: `선택 증거 0(대상 코드 무변경) · 인용 변이 3(X3·X5·X6) · 새 oracle 6(X1·X2·Y1~Y4) = 표 행 9`.
+- **덮개 회귀**: 없음 — r2 red 변이 Z1~Z4·S2c·X7 재실행 전부 red(2·4·4·1·4·6케이스). X4(`value.revision`)는 r2와 같이 green·등가(읽기·갱신이 같은 동기 호출).
+
+## [구현자 기입] Product/UX 파생 검토 (r3)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — production 무변경 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 해당 없음 — 재배치 없음 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 해당 없음 | — |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | X3(파일 추가 무동작)·X5(관리 행 소실)가 이제 red | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r3)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 원문 블록 단언은 줄바꿈 바이트에 기대 Windows CRLF 체크아웃에서 깨질 수 있다 | ✅ 해당 없음 확인 — 루트 `.gitattributes` `* text=auto eol=lf` | `file ComposerInputController.tsx` CRLF 표기 없음 |
+| 2 | r2 verify의 변이 도구가 Windows에서 `.bin/vitest` 를 shell로 못 불러 산출 0이었다 | ✅ `node node_modules/vitest/vitest.mjs` 직접 호출 · 행마다 실패 파일명 관측 | 위 표 |
+
+### 설계 대비 명시적 차이
+
+- 없음 — D4는 `AttachMenu` 콜백 UT(VP-06 oracle) 안에서, D5는 r2의 컨트롤러 배선 원문 단언을 넓혀 닫았다.
+
+## [구현자 기입] 구현 보고 (r3)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `composer/attachMenuSelect.test.ts` · `composer/composerAttachMenu.test.ts` (production 0) |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `vitest run features/chat shared/ui pages` · 변이 16건 |
+| **관측한 게이트 산출** | lint 0 error · 1 warning(기존 `useTranscriptVirtualizer.ts`) · lint 후 트리 = 의도한 2파일 · typecheck exit 0·`error TS` 0 · 관련 vitest 235파일 1853케이스 pass·실패 0 |
+| V-pair 자기확인 | `SELF_PASS 10 / SELF_BLOCKED 1(VP-04 실기)` |
+| 강제 지점 전수 | EP-05 9/9 + 호출 edge + 행 표시 edge · EP-02 1/1(의존성 6/6) |
+| **AC 자기보고**(`Criteria-Met`) | r2 verify ✅11 + AC3(관리 행 유무 X5·X6 red) ✅ / AC12 실기 ⚠️ |
+| **합계 검산** | `✅ 12 · ⚠️ 1 · ❌ 0 = 총 13` |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r3 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r3)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 예 — VP-06 pair 세 번째 edge(r1 prop 전달 → r2 콜백 호출 → r3 행 표시).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: 있었다 — VP-06 path가 `AttachMenu` 까지, §10 EP-05 실패 의미가 "미표시". r2 구현 보고의 무효화 축은 컨트롤러 의존성만 셌다.
+- 반복해서 부딪히는 환경 한계: Windows에서 `.bin/vitest` shell 호출 실패·cp949 출력.
+- 현재 라운드·impl 턴: `r3`
+
 ---
 
 ## [검증자 기입] 파생 이슈
