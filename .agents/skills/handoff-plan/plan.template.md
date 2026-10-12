@@ -136,9 +136,9 @@
 
 ### Pair registry
 
-| Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle | 선택적 적대 증거 | §10 강제 지점 전수 |
+| Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 강제 지점 전수 |
 |---|---|---|---|---|---|---|
-| VP-01 | R-01 ↔ AT-01 | REQUIRED / REGRESSION / NOT_REQUIRED | … | … | required — 이유·변이·심을 자리 / not selected — 직접 oracle 근거 | EP-… (N자리) / 0 + 이유 |
+| VP-01 | R-01 ↔ AT-01 | REQUIRED / REGRESSION / NOT_REQUIRED | … | 자리 → `파일:테스트명` / 신규 `파일` — 관측 대상 | required — 이유·변이·심을 자리 / not selected — 직접 oracle 근거 | EP-… (N자리) / 0 + 이유 |
 | VP-02 | SD-01 ↔ ST-01 | … | … | … | … | EP-… (N) |
 
 `§10 강제 지점 전수`의 N은 §10 항목 수가 아니라 **자리 수**다 — production path의 edge 중 그 계약 값을 운반하는 edge는 모두 자리이고, 같은 결함 변이가 여러 자리에서 가능하면 자리마다 적는다.
@@ -350,7 +350,7 @@ producer → contract/normalize → state/store → consumer/UI/tool
 - [ ] 상속 기준이 없으면 Baseline V, 명시적인 기존 V를 일부 바꿀 때만 Delta V를 썼고 유효 V를 재구성할 수 있다.
 - [ ] 변경 효과에 필요한 레벨을 선택했고 모든 NEW/CHANGED node에 같은 레벨 REQUIRED pair가 있다.
 - [ ] 영향받은 INHERITED node는 REGRESSION, 비영향 node만 출처·기존 증거와 함께 NOT_REQUIRED다.
-- [ ] 각 pair의 경로·§10 전수 분모·직접 oracle이 있고 적대 증거가 필요한 pair만 선택 이유·변이를 갖는다.
+- [ ] 각 pair의 경로·§10 전수 분모·자리별 직접 oracle 좌표가 있고 적대 증거가 필요한 pair만 선택 이유·변이를 갖는다.
 - [ ] 현재 변경 산출물의 운영 gate가 열거됐고 관련 없는 기존 실패를 새 blocking 범위로 만들지 않는다.
 - [ ] 사람 실기로 미룬 순수 로직이 없다.
 - [ ] semantic 목표가 structural proxy만으로 검증되지 않는다.
@@ -386,18 +386,19 @@ producer → contract/normalize → state/store → consumer/UI/tool
 > 직접 행동 결과를 관측하는 oracle에는 mutation을 자동 요구하지 않는다(impl §3).
 > **`전건`·`미분류 0`·`잔여 0` 행의 관측은 차집합이다** — 총계·합계는 그 주장을 반증할 수 없다(impl §8).
 > **`닫은 지점`은 §10 항목이 아니라 자리로 세고 그 수를 낸 검색 명령을 적는다** — pair production path의 계약 운반 edge를 자리 후보에 넣는다(impl §2).
+> **닫은 자리마다 직접 oracle 좌표(`파일:테스트명` / 실패 의미 red를 관측한 `gate:<명령>`)를 적는다** — typecheck·코드 읽기·일회성 실측만 있는 자리는 `남긴 곳`에 적고 세지 않는다(impl §2).
 
-| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-… | … | `commit·revoke·expiry·401` (4) | 4/4 | `rg …` → 4건 / 테스트 `…` 케이스명 | — |
+| VP-… | … | `commit·revoke·expiry·401` (4) | 4/4 | `rg …` → 4건 · commit → `a.test.ts:'…'` · revoke → … | — |
 
 - §10에 없는데 같은 불변식이 필요했던 지점: 없음 / … → 현재 pair·Decision·AC 필수면 PLAN_GAP, 아니면 별도 finding
 
 **V-pair 자기확인** — 구현자의 `SELF_PASS`는 독립 검증의 `PASS`가 아니다.
 
-| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | REQUIRED / REGRESSION | SELF_PASS / SELF_BLOCKED | … | required — 결과 / not selected — 직접 oracle 근거 |
+| VP-… | REQUIRED / REGRESSION | SELF_PASS / SELF_BLOCKED | `파일:테스트명` … | required — 결과 / not selected — 직접 oracle 근거 |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 

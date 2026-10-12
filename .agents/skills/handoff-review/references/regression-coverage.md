@@ -2378,3 +2378,73 @@ r6 구현은 프로덕션을 한 줄도 바꾸지 않고 렌더 테스트로만 
 ## 남은 한계
 
 - "사용자 요구 변경에 따른 턴"인지는 plan Decision Ledger의 `SUPERSEDED`·사용자 출처로 판정한다. 출처가 모호한 턴은 세는 쪽(트리거 쪽)으로 둔다 — 규칙 문면에는 넣지 않았다.
+
+---
+
+# review round 30 — 0259 (라운드 3→4): 직접 oracle 좌표 — round 26 미적용 패치의 재발
+
+**발동/모드**: 0259 r3 verify FAIL로 라운드 4 > 3. 사용자가 `/handoff-review` 후 진단 질의에 **APPLY** 를 선택했다. 제품 코드 변경 0.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | 직접 oracle이 관측의 서술이라 존재하지 않는 테스트가 PASS의 근거가 된다 | VP-07 plan oracle "훅 반환·트리 UT" — 훅 테스트에 `plugins` 단언 0. r1 자기확인 "훅 반환 필드(typecheck)" · r1 검증 PASS(코드 읽기 + typecheck) · r3에서 V4(필터 목록 맞바꿈)·V2(`plugins={[]}`)가 전 gate 통과(D6). round 26 발견 1(0211 브라우저 실측)과 같은 원인 | **A** — round 26 미적용 패치 흡수. AGENTS §공통 V·절차 2·3 · plan §5-A·READY · plan.template 3곳 · impl §2 · verify §6 · verify.template §5 2곳 · corpus **P54** |
+| 2 | 재검증 범위 규칙의 "증거 좌표"가 정의되지 않아 좌표 없는 이전 PASS가 라운드를 넘겨 참조된다 | r2 검증이 VP-07을 "영향받지 않은 이전 PASS"로 참조 | **A** — 1과 같은 class라 통합. verify §6 재검증 문장에 "좌표 없이 난 PASS는 재판정" |
+| 3 | path edge가 라운드마다 하나씩 열렸다(r1 컨트롤러 → r2 `AttachMenu` 행 표시 → r3 데이터 공급) | D1·D2 → D4 → D6 | **B** — impl §5 전수 sweep·§2 자리 단위가 이미 요구. 문장 추가 없음 — 1의 자리별 좌표가 evidence로 강제한다 |
+| 4 | 자기검증 축이 blocking의 유일한 원천(r1 Z1~Z4 · r2 X5·X6 · r3 V2·V4) | 구현 보고 분모 출처 blocking 3라운드 0건 | **유지** (round 25 규칙 작동) |
+| 5 | 컨트롤러를 node 환경에서 렌더할 수 없어 배선이 원문 단언에 기댄다 · Windows `.bin/vitest` shell 호출 실패 | r2·r3 | **E** — 지침 대상 아님 |
+| 6 | Decision drift | D-001~D-012 변경 0 · SUPERSEDED 0 | **D 오염 0** |
+
+## Tier
+
+**Tier 1.** 닫힘 증거의 형식(필수 template 필드)과 재검증 참조 정책이 바뀐다. 6-A + 6-B + 6-C 전부 수행.
+
+## 6-A Operational Instruction Delta
+
+삭제 줄 **17**(`git diff -U0`) — 같은 hunk 추가 줄과 토큰 대조: **SUPERSET 10** · 구두점/삽입으로 토큰이 갈린 확장 **5**(`직접 oracle` → `자리별 직접 oracle 좌표` 3 · `참조한다.` · `포함한다**`) · **REPLACE 2**.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| plan.template V-pair 자기확인 열 `직접 관측` | **REPLACE** → `직접 oracle 좌표` | 관측 요구를 좌표 요구로 강화. 열 이름 inbound 0(`grep` skills·AGENTS) |
+| plan.template 전수표 예시 `테스트 \`…\` 케이스명` | **REPLACE** → 자리별 `파일:'테스트명'` | 같은 의미, 자리 단위 |
+| plan.template 전수표 열 `재현 명령 / 관측` | **KEEP + 확장** | 상단 주석이 이 열 이름을 인용 — 이름 유지 |
+| verify §6 재검증 "이전 PASS는 증거 좌표를 참조" | **KEEP + 확장** | 참조 허용 유지, 좌표 정의·재판정 조건 추가 |
+| 그 밖(AGENTS·plan §5-A·READY·impl §2·verify.template) | **KEEP + 확장** | 원문 토큰 잔존 |
+| 명령·gate·reference 삭제·이동 | **없음** | inbound `N`/semantic `M/M` 대상 없음 |
+
+## 6-B Historical Failure Regression
+
+- **54 P 전수**(P1~P53 + 신규 P54) · 변경 후 **COVERED 54 / PARTIAL 0 / GAP 0 / OBSOLETE 0**. 삭제된 방어 문장 0이라 기존 mapping은 구성상 보존된다.
+- **P23 개별 확인**(AC가 테스트 파일명을 지정해 이름 변경에 끊김): 좌표는 AC가 아니라 pair oracle·impl/verify 증거에 붙고, 검증자가 매 라운드 구현 보고에서 다시 찾는다. impl §1 "AC는 행동 단언이 정본" 유지 — 재개 없음.
+- **P22·P18 개별 확인**: 사람 실기 자리는 좌표가 아니어서 `N/N`에 세지 않는다 — 실기 하치장(P22)을 더 막는다. 테스트 핸들 탐색(P18)은 불변.
+- **P33·P37·P44·P52 개별 확인**: 이름 댄 테스트 실재(P33)를 이름 대지 않은 경우까지 넓히고, structural proxy(P37)인 typecheck를 좌표에서 제외하며, 자리(P52)마다 배선(P44) 증거를 요구한다.
+- **P51 개별 확인**: 자기검증 축 규칙 불변.
+
+### V/lifecycle replay — 거짓 PASS·FAIL inflation
+
+| anchor | 라운드 | 변경 전 판정 | 새 규칙 적용 | 방향 |
+|---|---|---|---|---|
+| 0259 | r1 impl/verify | VP-07 SELF_PASS·PASS(typecheck) · VP-05·06 PAIR_FAIL(D1·D2) | VP-07 자리(훅 반환·컨트롤러 전달)에 좌표 없음 → 구현자가 세지 않거나 검증자가 PAIR_FAIL. VP-06 `AttachMenu` 행 표시 자리도 좌표 없음 → D4가 r1에서 나옴 | D4·D6 조기 검출, 3라운드 → 1라운드 |
+| 0259 | r3 verify | D7(스킬 전달) NON_BLOCKING | 스킬 전달은 어느 pair path 자리에도 없다 → 좌표 요구 대상 아님, NON_BLOCKING 유지 | inflation 0 |
+| 0211 | r1~r4 | 브라우저 실측으로 `N/N` 자기보고 · r4 재측정 green 6행 | 일회성 실측은 좌표 아님 → 그 자리는 닫힌 수에서 빠짐 | 거짓 SELF_PASS 차단 |
+| 진행 중 plan(prose oracle) | 다음 verify | — | plan 칸의 형식은 PLAN_GAP 사유가 아님(AGENTS §신규 템플릿 적용 경계). 좌표는 impl/verify 증거에서 요구 | 형식만으로 RETURN_TO_PLAN 0 |
+| 좌표 없이 난 과거 PASS | 재검증 | 참조 | 재판정 — 테스트가 실재하면 PASS 유지, 없으면 그 pair가 이미 지정한 oracle 부재라 PAIR_FAIL | 새 범위 생성 없음 |
+
+## 6-C Cross-document Consistency
+
+- **PASS.** 좌표 규칙 **9사이트**: AGENTS §공통 V(정의) · AGENTS 절차 2(구현 최소 계약) · 절차 3(검증) · plan §5-A·READY 2곳 · plan.template pair registry·전수표 주석·V-pair 자기확인 · impl §2 · verify §6 2문장 · verify.template §5·§10 분모 · corpus P54. 정의 문장은 AGENTS 한 곳, 나머지는 인용.
+- **owner 충돌 0**: 설계자가 자리별 oracle(기존 테스트 또는 만들 테스트)을 적고, 구현자가 좌표로 닫고, 검증자가 다시 찾는다.
+- **mutation 정책 충돌 0**: `not selected` pair의 mutation 면제(impl §0·§3, verify §4)는 유지 — impl §2에 "면제되는 것은 mutation이지 좌표가 아니다" 명시.
+- **scope 충돌 0**: 새 명령·gate 없음. `gate:<명령>` 좌표는 기존 subtree gate를 가리킬 뿐이라 `app/AGENTS.md` ABI 규칙과 겹치지 않는다. root `AGENTS.md`는 skill·owner 표 불변이라 변경 없음.
+- `node app/scripts/check-doc-inventory.mjs --check` — generated · prose · links ok. `git diff --check` 출력 0.
+- AGENTS 위생: 추가분에 비밀·개인정보·변동성 운영정보 없음. 새 `AGENTS.md`·`CLAUDE.md` 없음.
+
+## review 기록 정책
+
+`round30-review.md`를 만들지 않았다 — 사용자 보존 요구 없음, 압축으로 잃는 rationale 없음. 신규 P **1**(P54: round 26 발견 1과 0259 VP-07을 묶음).
+
+## 남은 한계
+
+- **좌표가 자리를 실제로 지나는지는 읽어서 판정한다.** `not selected` pair는 mutation 없이 테스트 본문을 읽어 production symbol 경유를 보는 것이 한계다 — 동명 재구현 판별(verify §2)에 기댄다.
+- round 26 발견 3(검증자가 고른 변이가 등가일 때 처리)은 이번에도 미적용 — 0259 r2 X1·X2·X4 등가 판정은 verify가 근거와 함께 적어 실제 문제를 만들지 않았다.
