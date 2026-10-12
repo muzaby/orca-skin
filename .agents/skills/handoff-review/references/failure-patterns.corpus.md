@@ -1452,3 +1452,26 @@ edge 중 테스트가 닿지 않은 자리였다.
 `plan.template.md` pair registry·`[구현자 기입] 강제 지점 전수`·V-pair 자기확인 · impl §2 · verify §6 ·
 `verify.template.md §5`. P33(이름 댄 테스트의 실재)·P44(배선 미잠금)·P52(자리 단위)는 유지한다 — 이 규칙은 그 자리마다
 닫힘의 증거 형식을 정한다.
+
+## P55 — **실재하는 좌표가 자리의 한쪽 끝만 실행해, 두 테스트 사이의 edge가 어느 좌표에도 없었다**
+
+*출처: 0259 (라운드 1~5) — review round 32.*
+
+좌표는 실재했고 production 코드를 불렀지만 덮는 구간이 자리에 닿지 않았다. VP-02의 r1~r3 좌표는 순수
+`reduceCascade` UT라 `keydown → reducer` 컴포넌트 edge 뒤에서 들어갔고(r4 D8: 키 미전달·hover 지연 제거 전 gate green),
+r5 `CascadeMenu.test.ts`는 `CascadeBody`로 들어가 `state.focus`만 단언해 래퍼의 `onSelect`·`onClose` 전달과 DOM 포커스를
+건너뛰었다.
+
+`attachMenuSelect.test.ts`는 `CascadeMenu`를 mock해 받은 `onSelect`를 직접 불렀으므로, "항목을 고르면
+`onSelect(action)`을 부른다"는 mock의 가정은 어느 테스트도 실제 `CascadeMenu`에서 확인하지 않았다. VP-01은 r1~r3에
+`BLOCKED_BY`, r4에 하위 pair 좌표 합으로 PASS가 나서 자기 path의 `CascadeMenu → 선택` edge가 판정된 적이 없었고, r5
+검증의 독립 축에서 선택 edge 변이 4건과 닫기·포커스·레벨 변이 4건이 lint·typecheck·864케이스를 통과했다(D9).
+
+→ **규칙.** **좌표가 닫는 자리는 그 테스트의 실행 구간 — 들어간 곳부터 관측한 곳까지 production 코드로 실행한 구간에서
+mock·stub로 바꾼 path 구성요소를 뺀 것 — 안의 자리뿐이다(react 훅·타이머 같은 실행 환경 대체는 구성요소 교체가 아니다). 하위 pair 좌표로 상위 pair를 닫으면 상위 path의 edge마다 덮는 좌표를
+대응시킨다.** mutation 없이 테스트를 읽어 판정하므로, plan이 적대 증거를 단위 쪽에만 등록해 P44의 변이 방어가 배선을
+못 볼 때도 걸린다.
+
+현재 방어: `docs/handoff/AGENTS.md §공통 V 추적 프로토콜`·§단계별 절차 2·3 · plan §5-A · `plan.template.md`
+`[구현자 기입] 강제 지점 전수` · impl §2 · verify §6 · `verify.template.md §5`. P44(배선 미잠금)는 변이로, P54(좌표 형식)는
+좌표의 실재로 지키고, 이 규칙은 실재하는 좌표가 덮는 범위를 정한다.
