@@ -276,3 +276,116 @@
 - PLAN_GAP: 없음.
 - AC: ✅11 · ⚠️1 · ❌1(AC3).
 - 다음 단계: 구현자 r3 — D4를 닫고 X5·X6 red를 보고한다(D5 권장).
+
+---
+
+# r3 검증
+
+## 메타 (r3)
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `349f6701..399a36ce` = r3 `399a36ce` |
+| 구현 전 plan 기준 | `7f6ed426` (V1) — r1 기준 그대로 |
+| V mode / 유효 V | `Baseline V: V1` / `V1` |
+| 라운드 | 3 |
+| 상태 | **FAIL** — D4·D5 closed, 새 root `PAIR_FAIL` VP-07(D6: plan이 지정한 "훅 반환 UT" 부재, 전체↔필터 목록 맞바꿈 V4 green) |
+| 자기 검증 여부 | **예** — 구현 `Agent: claude`. 보고에 없던 축 5건(V1~V5)을 넣었고 V2~V5가 전 gate 통과 |
+
+## 0. 기준선 (r3)
+
+- 구현 커밋의 `plan.md` 변경: hunk 1개 `@@ -621` — r2 `[구현자 기입]` 뒤 r3 절 추가만. Decision·AC·V·§10·oracle 변경 없음.
+- production 변경 0 — `399a36ce` app diff는 테스트 2파일(`attachMenuSelect.test.ts`·`composerAttachMenu.test.ts`).
+- 채점 기준: r1 §0 인용 + `7f6ed426:plan.md` VP-07 oracle "훅 반환·트리 UT" · §10 EP-04 "반환 `plugins`(전체 후보) — 실패 의미: 메뉴와 `@` 후보 불일치" · §8 "필터용·전체용 — 메뉴는 전체용을 쓴다".
+
+## 2. 비판적 읽기 (r3)
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 새 단언이 production `AttachMenu`를 통과하는가 | 예 | `CascadeMenu`만 mock, 실제 `AttachMenu` → `buildAttachMenu` 트리를 `captured.items`로 관측 |
+| '콜백 없음' 케이스가 관리 행 부재를 보는가 | 예 | `not.toContain('action:managePlugins')` · 남는 구분선은 `attachMenuModel.test.ts:62`가 본다 |
+| 원문 블록 8줄이 의존성 6개 전부인가 | 예 | `ComposerInputController.tsx:196-203`과 일치 · `.gitattributes` `eol=lf` |
+| 컨트롤러 → `AttachMenu` 데이터 prop(`skills`·`plugins`)이 잠겼는가 | **아니오** | V2·V3·V5 green(§4) |
+| VP-07 "훅 반환 UT"가 있는가 | **아니오** | `useMentionAutocomplete.test.ts` 17케이스에 `plugins` 반환 단언 0(`grep -n "\.plugins\|allPlugins"` → 0) · r1 PASS 근거는 코드 읽기 + typecheck |
+
+## 4. 적대 증거 재측정 (r3)
+
+- 실행: 변이마다 백업 → `node node_modules/vitest/vitest.mjs run composer/ features/chat/lib [features/chat/hooks] pages` → 원복. hooks 제외 96파일 739케이스, 포함 102파일 777케이스. green 변이는 `eslint <file>` · `tsc -p tsconfig.web.json`도 실행. 최종 `git status` clean.
+
+| 변이 | 자리 | r2 | r3 | 귀속 |
+|---|---|---|---|---|
+| X5 `canManagePlugins: false` | `AttachMenu.tsx` | green | **red** attachMenuSelect 1 | D4 인용 |
+| X6 `canManagePlugins: true` | 같음 | green | **red** 1 | D4 인용 |
+| X3 `pickAttachments: () => undefined` | 컨트롤러 | green | **red** composerAttachMenu 1 | D5 인용 |
+| X1 `compositionActive: () => false` | 컨트롤러 | green·등가 | red 1 | 새 oracle |
+| X2 `closeMenu: () => undefined` | 컨트롤러 | green·등가 | red 1 | 새 oracle |
+| Y1 `!onManagePlugins` | `AttachMenu.tsx` | — | red 2 | 새 oracle |
+| Y2 관리 선택 시 `onAction`도 호출 | 같음 | — | red 1 | 새 oracle |
+| Y4 `onAction={(action) => void action}` | 컨트롤러 | — | red 1 | 새 oracle |
+| Z1 · Z2 · Z3 · X7 · S2c | `composerAttachMenu.ts` | red | red 2·4·4·6·4 | 덮개 회귀 검사 |
+| Z4 관리 콜백 미호출 | `AttachMenu.tsx` | red | red 1 | 덮개 회귀 검사 |
+| W1 `ProjectLandingPage` Composer 자리 prop 삭제 | 페이지 | red | red attachMenu.render 1 | 덮개 회귀 검사 |
+| **V1** 컨트롤러 `onManagePlugins && false ?` | 컨트롤러 | — | vitest green · **eslint 1 error · tsc 1 error** | VP-06 — gate가 잠금 |
+| **V2** 컨트롤러 `plugins={[]}` | 컨트롤러 | — | **green** · eslint 0 · tsc 0 | VP-07 → **D6** |
+| **V4** 훅 `plugins: allPlugins` → `plugins`(접두 필터 목록) | `useMentionAutocomplete.ts` | — | **green** · eslint 0 · tsc 0 | VP-07 → **D6** |
+| **V3** 컨트롤러 `skills={[]}` | 컨트롤러 | — | **green** · eslint 0 · tsc 0 | D-006 스킬 절반 → D7 |
+| **V5** 컨트롤러 `skills={autocomplete.suggestions}` | 컨트롤러 | — | **green** · eslint 0 · tsc 0 | D-006 스킬 절반 → D7 |
+
+- 재측정 합계: 인용 3/3 red · 새 oracle 5/6 재실행 red(Y3은 Y2·X6과 같은 단언을 공유해 생략) · 덮개 회귀 0(r2 red 7건 전부 red).
+- V4는 §8이 명시한 형제 슬롯(필터용 `plugins` ↔ 전체용 `allPlugins`) 맞바꿈이다. 타입이 같아 typecheck가 못 잡고, `@ji` 토큰 뒤에서 '+'를 열면 플러그인 하위가 접두 일치분만 보인다.
+- V2는 5화면 전부에서 플러그인 하위를 '사용 가능한 플러그인 없음'으로 만든다 — EP-04 실패 의미 그대로.
+- VP-07은 r1 이후 코드 무변경이지만 r1 PASS의 증거가 plan이 지정한 oracle이 아니었다(코드 읽기 + typecheck). 이전 verify 결론은 증거가 아니므로 재판정한다.
+
+## 5. V-pair closeout (r3)
+
+| Pair | r3 결과 | 근거 |
+|---|---|---|
+| VP-06 | **PASS** | 9자리 원문(W1 red) · 콜백 edge(Z4·Y2 red) · 행 표시 edge(X5·X6·Y1 red) · 컨트롤러 중계 자리는 원문 `onManagePlugins()` + gate(V1 eslint·tsc red) |
+| VP-05 | **PASS** | Z1~Z3·S2c·X7 red 유지 · 의존성 6/6 원문(X1~X3·Y4 red) |
+| VP-07 | **PAIR_FAIL** | plan oracle "훅 반환 UT" 부재 · 컨트롤러 → `AttachMenu` `plugins` edge 미잠금 — V2·V4 green(D6) |
+| VP-01 | **BLOCKED_BY:VP-07** | AC3 "`@` 후보와 같은 플러그인 목록"이 VP-07 미잠금 edge에 걸림 · AC1·AC2·AC4·AC5 ✅ |
+| VP-02·03·08~11 | PASS (r1 증거 좌표) | 코드 무변경 · S1·K1·K2·G1·S3 r1 red |
+| VP-04 | 실기 대기 | AC12 |
+
+### AC 합계 (r3)
+
+- `✅ 11 · ⚠️ 1 · ❌ 1(AC3) = 총 13` · 자기보고 `✅12·⚠️1` · 불일치 AC3(r2는 관리 행, r3은 플러그인 목록 출처).
+- 사본 대조: 본문 `✅12·⚠️1·❌0` ↔ trailer `Criteria-Met: 12/13` ↔ INDEX `✅12·⚠️1` — 사본끼리는 일치.
+
+## 9. 게이트 (r3)
+
+- eslint(`--fix` 없이 `./src ./scripts`) 0 error · 1 warning(기존 `useTranscriptVirtualizer.ts`) · 트리 무변경.
+- typecheck(node·web·test) exit 0 · `error TS` 0.
+- 관련 vitest(plan §7-A: `features/chat` · `shared/ui` · `pages`) 235파일 1853케이스 pass · 실패 0.
+
+## 11. Repository operation checks (r3)
+
+- INDEX 좌표 `399a36ce` 기입(`git cat-file -t` commit · `origin/claude/0256-0259-prefs-tooltip-sdk-menu` 포함).
+- trailer `399a36ce` 7키 파싱.
+- `[구현자 기입]` r3 7필드 존재 · 분모 검산 `0 · 3 · 6 = 9` 행 수 일치 · INDEX 비고 3줄.
+
+## 13. Finding disposition (r3)
+
+| # | finding | 귀속 | disposition |
+|---|---|---|---|
+| D4 | '플러그인 관리' 행 유무 미잠금 | VP-06 | **closed** — X5·X6 red |
+| D5 | `pickAttachments` 전달 미잠금 | 기존 동작 | **closed** — X3 red |
+| D3 | AC7 바깥 클릭 stub UT 부재 | AC7 | NON_BLOCKING · open |
+| D6 | 메뉴 플러그인 목록이 훅의 **전체** 후보라는 계약이 잠기지 않았다 — 훅 반환 UT 부재(V4 green) · 컨트롤러 `plugins=` 전달 미잠금(V2 green) | VP-07 oracle · §10 EP-04 · D-006 · AC3 | **BLOCKING** — 기존 훅 하네스로 `@` 접두 토큰 중에도 `plugins`가 전체 후보임을 단언(V4 red) + 컨트롤러 전달 원문 단언(V2 red) |
+| D7 | 컨트롤러가 `useSkills()` 전체를 넘기는 자리 미잠금 — V3·V5 green | D-006 스킬 절반 · 현재 코드 충족(`ComposerInputController.tsx:423`) · plan에 이 edge oracle 없음 | NON_BLOCKING — D6 원문 단언에 `skills={skills}` 함께 추가 권장 |
+
+## 14. Review Signals (r3)
+
+- 이전 라운드와 유사 증상: 예 — r1 D1·D2, r2 D4와 같은 축(pair path에 적힌 edge 중 테스트가 닿지 않은 자리)이 네 번째 edge(VP-07 데이터 공급)에서 나왔다.
+- 관련 plan 지침: VP-07 oracle이 "훅 반환·트리 UT"를 지정 · §8·§10이 전체/필터 구분을 명시.
+- r1 검증이 VP-07을 코드 읽기 + typecheck로 PASS 처리했다 — 지정 oracle 부재를 그때 잡지 못했다.
+- 반복 환경 한계: 컨트롤러를 node 환경에서 렌더할 수 없어 배선이 원문 단언에 기댄다 · Windows `.bin/vitest` shell 호출 실패.
+- 라운드가 4로 올라 3을 초과한다 — 다음 재구현 전 `handoff-review` 진입 조건.
+
+## 15. 결론 (r3)
+
+- 상태: **FAIL**.
+- pair: PASS 9 · root PAIR_FAIL 1(VP-07) · BLOCKED_BY 1(VP-01) · 실기 대기 1(VP-04).
+- PLAN_GAP: 없음 — VP-07 path·oracle·EP-04가 계약을 명시한다.
+- AC: ✅11 · ⚠️1 · ❌1(AC3).
+- 다음 단계: `handoff-review`(라운드 4 > 3) → 구현자 r4 — D6을 닫고 V2·V4 red를 보고한다(D7 권장).
