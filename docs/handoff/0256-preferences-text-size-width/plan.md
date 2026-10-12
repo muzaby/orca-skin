@@ -590,4 +590,4 @@ boot → settings:get → TweakProvider.load → effects → html style vars →
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| D1 | AC2 음성 술어 `rg -n -i density app/src`가 AC3 테스트 9줄과 충돌 — 비테스트 0건이 의도 | AC2·AC3 문구 | 다음 revision에서 AC2 술어를 `--glob '!*.test.*'`로 정정 | NON_BLOCKING | open (r1 verify `5a773f17`) |
