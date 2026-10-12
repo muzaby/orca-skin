@@ -607,7 +607,7 @@
 | VP-04 | AT-12 | 사람 실기 | — | 실기 대기 |
 
 - root `PAIR_FAIL`: VP-01(선택 edge) · VP-02(닫기·포커스·레벨 edge). 같은 컴포넌트지만 path가 다른 pair라 `BLOCKED_BY`로 묶지 않는다.
-- r1~r4 VP-01 PASS는 mock `CascadeMenu`의 `onSelect`를 직접 불러 선택 이후만 관측했다 — path의 `CascadeMenu → 선택` edge는 한 번도 지나지 않았다.
+- VP-01은 r1~r3에 하위 pair 실패의 `BLOCKED_BY`, r4에 하위 좌표 합으로 PASS였고, 그 좌표는 mock `CascadeMenu`의 `onSelect`를 직접 불러 선택 이후만 관측했다 — path의 `CascadeMenu → 선택` edge는 한 번도 지나지 않았다.
 
 ### AC 합계 (r5)
 
