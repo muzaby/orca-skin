@@ -529,6 +529,98 @@ useSkills · useMentionAutocomplete.plugins → buildAttachMenu → CascadeMenu 
 - 반복해서 부딪히는 환경 한계: better-sqlite3 ABI.
 - 현재 라운드·impl 턴: `r1`
 
+## [구현자 기입] 설계 리뷰 (r2)
+
+- 동의 / 그대로 진행: r1 verify D1(VP-05)·D2(VP-06)만 닫는다. 유효 V는 V1 그대로 — 사용자가 같은 날 요청했다가 취소한 스킬 평면 나열(ΔV1)은 로컬 설계 커밋째 되돌려 공유 브랜치에 남지 않았다.
+- 이견 / 현실성 문제: 컨트롤러는 React 훅 덩어리라 node 환경에서 직접 렌더할 수 없다 — `composerSubmit` 선례대로 동작 순서를 순수 모듈 `composerAttachMenu.ts` 로 떼고, 컨트롤러는 자기 상태 접근만 넘긴다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조, r2)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-05·VP-10 | EP-02 토큰 삽입 | 1 | 1/1 | `grep -n "runAttachMenuAction(action, {" ComposerInputController.tsx` → 1 · `composerAttachMenu.ts` 가 `insertComposerToken`→`replaceDraftRange`→`focus(caret)` | — |
+| VP-06 | EP-05 `onManagePlugins` | 9 | 9/9 + 호출 edge 1 | r1 원문 UT(W1) 그대로 · `AttachMenu` `onSelect` 분기를 `attachMenuSelect.test.ts` 가 실제 렌더로 구동 | — |
+| 그 밖 EP-01·03·04·06 | — | r1 그대로 | 코드 무변경 | `git diff --stat` = 컨트롤러 1파일 + 신규 3파일 | — |
+
+- §10에 없는데 같은 불변식이 필요했던 지점: 컨트롤러가 함수에 넘기는 의존성(스냅샷·갱신·포커스)과 `AttachMenu` 의 `onAction` 배선 — 원문 단언으로 함께 잠갔다(Z1-ctrl·Z2-ctrl·Z5·Z7).
+
+**V-pair 자기확인 (r2)**
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-05 | REQUIRED | SELF_PASS | `composerAttachMenu.test.ts` 4경우(텍스트·caret·focus 1회·메뉴 닫힘) + 파일 추가·IME 거부 + 컨트롤러 배선 원문 | Z1·Z2·Z3 red · Z1-ctrl·Z2-ctrl·Z5·Z7 red |
+| VP-06 | REQUIRED | SELF_PASS | `attachMenuSelect.test.ts` — managePlugins 1회·onAction 미호출 / 나머지 3종 onAction 그대로 | W1(r1) · Z4·Z6 red |
+| VP-01 | REQUIRED | SELF_PASS | VP-05·06 해소로 AC2·AC3 증거 충족 | r1 S1~S3 결과 유지(해당 코드 무변경) |
+| 나머지 8 pair | REQUIRED | r1 SELF 상태 유지 | 코드 무변경 | — |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r2)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| 커서 대신 `text.length` 에 삽입 (`composerAttachMenu.ts`) | D1 인용 Z1 | green(r1 verify) | composerAttachMenu 2 failed | 잠김 |
+| `focus(0)` | D1 인용 Z2 | green | 4 failed | 잠김 |
+| `replacement.trim()` | D1 인용 Z3 | green | 4 failed | 잠김 |
+| `managePlugins` 콜백 미호출 (`AttachMenu.tsx`) | D2 인용 Z4 | green | attachMenuSelect 1 failed | 잠김 |
+| 컨트롤러가 빈 스냅샷을 넘김 | 새 oracle(배선 원문) — Z1을 컨트롤러 자리에 | — | 1 failed | 잠김 |
+| 컨트롤러가 `focus: () => focus(0)` 를 넘김 | 새 oracle — Z2를 컨트롤러 자리에 | — | 1 failed | 잠김 |
+| 컨트롤러가 함수를 부르지 않음 | 새 oracle — 배선 삭제 | — | 1 failed | 잠김 |
+| `onAction={() => {}}` | 새 oracle — 배선 삭제 | — | 1 failed | 잠김 |
+| 나머지 동작을 관리 콜백으로 보냄 | 새 oracle — 형제 분기 맞바꿈 | — | attachMenuSelect 3 failed | 잠김 |
+
+- **분모 검산**: `선택 증거 0(r1 등록 변이 대상 코드 무변경) · 인용 변이 4(Z1~Z4) · 새 oracle 5 = 표 행 9`.
+- **덮개 회귀**: 없음 — 구 장치(`attachMenu.render.test.ts` 원문 9자리)는 그대로 두었고 W1은 여전히 그 단언이 잡는다.
+- 컨트롤러 자리의 잠금은 원문 단언(구조)이다 — 훅 렌더 없이 그 의존성 전달을 행동으로 볼 방법이 없다.
+
+## [구현자 기입] Product/UX 파생 검토 (r2)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — 문구 변경 없음 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치는 동작 순서(닫기 → 분기 → 삽입 → 포커스)를 그대로 옮겼다 · 정리 코드 없음 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 새 실패 경로 없음 · IME 중 거부 = '조합(IME) 중' 행(UT) | — |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 해당 없음 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | `replaceDraftRange` revision 비교 유지 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r2)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 같은 날 사용자가 스킬 평면 나열을 요청했다가 취소 | ✅ 로컬 ΔV1 설계 커밋·코드를 `git reset --hard 80d373bf` 로 되돌림(공유 브랜치 미푸시) | `git log origin/…` 최신 = `80d373bf` |
+| 2 | 검증 중 쓴 변이 도구가 `git checkout` 으로 원복해 미커밋 작업을 지웠다 | ✅ 파일별 백업 원복으로 교체 · 이번 r2 작업은 전부 재작성 | 최종 `git status` = 의도한 4파일 |
+
+### 설계 대비 명시적 차이
+
+- plan §11의 신규 테스트 `attachMenuWiring.test.ts` 대신 `composerAttachMenu.test.ts`(D1)·`attachMenuSelect.test.ts`(D2)를 더했다 — 배선 원문 9자리는 r1의 `attachMenu.render.test.ts` 가 계속 맡는다. 컨트롤러 동작을 순수 모듈로 옮긴 것은 동작 보존 추출이다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 상태 없는 함수 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 — 호출부는 컨트롤러 1곳(`grep` 1) | — |
+| 재진입 | 스냅샷을 함수 시작에 한 번 읽고 갱신은 revision 비교로 거부 — 기존과 같음 | AC2 4경우 UT |
+| 다른 무효화 축 | 컨트롤러가 다른 의존성을 넘기면 함수 테스트가 못 본다 | 원문 단언 + Z1-ctrl·Z2-ctrl·Z5·Z7 red |
+
+## [구현자 기입] 구현 보고 (r2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 신규 `composer/composerAttachMenu.ts` · `composerAttachMenu.test.ts` · `attachMenuSelect.test.ts` · 수정 `ComposerInputController.tsx` |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `vitest run …/composer …/lib shared/ui pages` · 전체 `vitest run` · 변이 11건(Z1~Z7·Z1-ctrl·Z2-ctrl) |
+| **관측한 게이트 산출** | lint 0 error · 1 warning(기존 `useTranscriptVirtualizer.ts`) · typecheck exit 0·`error TS` 0 · composer 44파일 269케이스 pass · 관련 111파일 815케이스 pass · 전체 655파일(+1 skip) 6654케이스 pass·실패 0 |
+| V-pair 자기확인 | `SELF_PASS 10 / SELF_BLOCKED 1(VP-04 실기)` |
+| 강제 지점 전수 | EP-02 1/1 · EP-05 9/9(+호출 edge) |
+| **AC 자기보고**(`Criteria-Met`) | r1 ✅ 10 + AC2(삽입 4경우·컨트롤러 배선)·AC3(관리 콜백 1회·삽입) ✅ / AC12 실기 ⚠️ |
+| **합계 검산** | `✅ 12 · ⚠️ 1 · ❌ 0 = 총 13` |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 예 — r1 verify D1·D2(plan 지정 oracle 부재)를 그대로 닫았다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: 있었다 — VP-05·VP-06이 oracle을 이름으로 지정했고 r1 구현 보고가 대체를 적지 않았다.
+- 반복해서 부딪히는 환경 한계: 훅 컨트롤러를 node 환경에서 렌더할 수 없어 배선 자리는 원문 단언으로 잠근다.
+- 현재 라운드·impl 턴: `r2`
+
 ---
 
 ## [검증자 기입] 파생 이슈

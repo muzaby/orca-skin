@@ -20,8 +20,8 @@ import { useSkillAutocomplete } from '../../hooks/useSkillAutocomplete'
 import type { AttachmentView, ComposerAttachment, SkillInfo } from '../../../../../../shared/ipc'
 import type { DiffRequirementSubmitSnapshot } from '../../store/chatStore'
 import { AttachMenu } from './AttachMenu'
-import { insertComposerToken } from '../../lib/composerToken'
-import { attachMenuToken, type AttachMenuAction } from '../../lib/attachMenuModel'
+import type { AttachMenuAction } from '../../lib/attachMenuModel'
+import { runAttachMenuAction } from './composerAttachMenu'
 import { AttachmentTray } from './AttachmentTray'
 import { ComposerChip } from './ComposerChip'
 import { ComposerInputSurface, type ComposerInputSurfaceHandle } from './ComposerInputSurface'
@@ -192,27 +192,15 @@ export function ComposerInputController({
   const mentionOpen = active && derivedCurrent && mentionAutocomplete.open
 
   // '+' 메뉴 동작(0259) — 파일 추가는 현행 선택 창, 스킬·플러그인은 커서 자리에 토큰을 넣는다.
-  const onAttachMenuAction = (action: AttachMenuAction): void => {
-    setAttachMenuOpen(false)
-    if (action.type === 'attach') {
-      void pickAttachments()
-      return
-    }
-    const token = attachMenuToken(action)
-    if (token === null || compositionActive()) return
-    const current = snapshotRef.current
-    const inserted = insertComposerToken(current.text, current.selectionStart, token)
-    updateSnapshot((value) =>
-      replaceDraftRange(
-        value,
-        current.revision,
-        inserted.start,
-        inserted.start,
-        inserted.replacement
-      )
-    )
-    focus(inserted.caret)
-  }
+  const onAttachMenuAction = (action: AttachMenuAction): void =>
+    runAttachMenuAction(action, {
+      closeMenu: () => setAttachMenuOpen(false),
+      pickAttachments: () => void pickAttachments(),
+      compositionActive: () => compositionActive(),
+      snapshot: () => snapshotRef.current,
+      updateSnapshot,
+      focus
+    })
 
   const applyAutocomplete = (skill: SkillInfo): void => {
     if (compositionActive()) return
