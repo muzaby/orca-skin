@@ -372,6 +372,34 @@ describe('mention autocomplete provider sources (AC10 · AC19 · AC23)', () => {
     expect([...render('plain').validPluginIds]).toEqual(['plugin-without-catalog'])
   })
 
+  // 0259 r3 verify D6 · VP-07 — '+' 메뉴의 플러그인 목록은 입력 중인 `@` 접두와 무관한 전체 후보다.
+  it('returns every Plugin candidate as plugins while an @ prefix narrows the suggestions', async () => {
+    h.providerState.mockResolvedValue({
+      providers: [
+        provider('jira-dc', { label: 'Jira DC' }),
+        provider('confluence', { label: 'Confluence' }),
+        provider('gate', { tools: [] }),
+        provider('linear', { label: 'Linear' })
+      ]
+    })
+    render('@ji', null)
+    await flush()
+    const result = render('@ji', null)
+    expect(result.suggestions.map((item) => (item.kind === 'plugin' ? item.id : ''))).toEqual([
+      'jira-dc'
+    ])
+    expect(result.plugins).toEqual([
+      { kind: 'plugin', id: 'jira-dc', label: 'Jira DC' },
+      { kind: 'plugin', id: 'confluence', label: 'Confluence' },
+      { kind: 'plugin', id: 'linear', label: 'Linear' }
+    ])
+    expect(render('plain', null).plugins.map((plugin) => plugin.id)).toEqual([
+      'jira-dc',
+      'confluence',
+      'linear'
+    ])
+  })
+
   it('follows provider pushes and drops the subscription when inactive', async () => {
     render('plain')
     await flush()
