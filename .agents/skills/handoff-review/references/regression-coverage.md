@@ -2501,3 +2501,74 @@ r6 구현은 프로덕션을 한 줄도 바꾸지 않고 렌더 테스트로만 
 ## 남은 한계
 
 - 구현자가 유지 행의 좌표를 인용해도 그 테스트가 자리를 지나는지는 검증자가 읽어서 판정한다(round 30 한계 그대로).
+
+---
+
+# review round 32 — 0259 (라운드 5→6): 실재하는 좌표가 덮는 범위
+
+**발동/모드**: 0259 r5 verify FAIL로 라운드 6 > 3. 사용자가 `/handoff-review` 후 진단 질의에 **APPLY** 를 선택했다. 제품 코드 변경 0.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | 좌표가 실재하고 production 코드를 불러도 그 테스트가 **실행한 구간**이 정의되지 않아, 자리의 한쪽 끝만 실행한 테스트가 그 자리를 닫았다 | `attachMenuSelect.test.ts`가 `CascadeMenu`를 mock해 받은 `onSelect`를 직접 부름 · r5 `CascadeMenu.test.ts`가 `CascadeBody`로 들어가 `state.focus`만 단언 · r1~r3 VP-02 좌표가 순수 reducer UT · VP-01은 r1~r3 `BLOCKED_BY`, r4 하위 좌표 합으로 PASS — r5 D9 변이 8건 전 gate green | **A** — round 30 "좌표가 자리를 실제로 지나는지는 읽어서 판정" 한계를 판정 규칙으로 교체. AGENTS §공통 V(정의) · 절차 2·3 · plan §5-A · plan.template 전수 주석 · impl §2 · verify §6 · verify.template §5 · corpus **P55** |
+| 2 | r5 구현자가 D8 대응 방향("함수가 이벤트 경로에서 불린다")을 불변식으로 삼아 출처 계약 AC6(Enter/Space 실행·최상위 Esc 닫힘·포커스 이동)을 분모에 넣지 않았다 | `[구현자 기입] (r5)` 불변식·검색 술어 = D8 메커니즘 이름 | **B** — AGENTS "파생 이슈의 계약은 `출처`… 닫힘은 그 계약의 성립"·impl §5가 이미 요구(P38). 문장 추가 없음 |
+| 3 | VP-01을 r1~r3에 `BLOCKED_BY`로 둠 — 자기 path의 선택 edge는 하위 pair와 독립 판정 가능했다 | verify r1~r3 §5 | **B** — verify §6 "다른 경로에서 독립 관측할 수 있으면 실행"이 이미 요구. 1의 상위 pair edge 대응 규칙이 evidence로 강제 |
+| 4 | 자기검증 독립 축이 5라운드 연속 blocking의 유일한 원천(r5: 15축 → BLOCKING 8) | r5 verify §4 | **유지** (round 25 규칙 작동) |
+| 5 | renderer 테스트가 DOM 없는 node 환경(`environment: 'node'`, `include: src/**/*.test.ts`, jsdom·happy-dom·testing-library 없음)이라 컴포넌트를 mock·직접 호출로 근사한다 — 1의 이음매가 체계적으로 생기는 조건 | r1~r5 | **E** — 지침 대상 아님. DOM 테스트 환경은 신규 의존성이라 사용자 결정(NEXT_HANDOFF 후보) |
+| 6 | Decision drift | D-001~D-012 ACTIVE · `7f6ed426..HEAD` plan 규범 hunk 0 | **D 오염 0** |
+
+## Tier
+
+**Tier 1.** 좌표 판정(닫힘의 의미)과 필수 template 필드 안내가 바뀐다. 6-A + 6-B + 6-C 전부 수행.
+
+## 6-A Operational Instruction Delta
+
+삭제 줄 **5**(`git diff -U0`, 줄 = 문단) — 추가 줄과 토큰 대조.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| impl §2 좌표 bullet | **KEEP + 확장** | 잃은 토큰 0 — 문장 덧붙임 |
+| AGENTS 절차 2 좌표 문장 | **KEEP + 확장** | 잃은 토큰 0 — "그 자리를 실행 구간 안에 둔" 삽입 |
+| AGENTS 절차 3 좌표 문장 | **KEEP + 확장** | 잃은 토큰 `찾고,` → `찾아 … 읽고(§공통 V),` |
+| plan §5-A 만들 테스트 표기 | **KEEP + 확장** | `(파일·관측 대상)` → `(파일·진입점·관측 대상 — …)` |
+| verify §6 "production symbol로 그 자리를 지나는지 읽는다" | **REPLACE** | 실행 구간 안 판정은 구 조건(production 코드가 자리를 지남)을 포함한다 — 동명 로컬 재구현·자리에 못 닿는 테스트는 여전히 구간 밖. 규범 inbound 0(`rg 지나는지` → round 30·31 기록 2건만) |
+| AGENTS §공통 V · plan.template · verify.template · corpus | **추가** | 삭제 줄 0 |
+| 명령·gate·reference 삭제·이동 | **없음** | inbound `N`/semantic `M/M` 대상 없음 |
+
+## 6-B Historical Failure Regression
+
+- **55 P 전수**(P1~P54 + 신규 P55) · 변경 후 **COVERED 55 / PARTIAL 0 / GAP 0 / OBSOLETE 0**. 유일한 REPLACE(verify §6)가 구 조건의 상위집합이라 기존 mapping은 보존된다.
+- verify §6을 방어로 인용하는 P 개별 확인: **P41**(라벨 표본 확인)·**P48**("다른 게이트가 막는다" 재측정)·**P51**(독립 축) — 해당 문장 불변. **P54** — 좌표 실재 위에 덮는 범위 판정이 붙어 강화.
+- 관련 P 개별 확인: **P44**(배선 미잠금) — 변이 방어에 더해 테스트를 읽는 방어가 생김. **P38**(지목 지점만 닫음) — 발견 2가 그 재발이며 방어 문장 불변. **P49**(형제 슬롯) — X9b(hover 레벨 상수 0)는 실행 구간 안이라 이 규칙으로 안 걸리고 P49·P51의 변이 축이 잡는다. **P18·P22**(실기 하치장) — 구간 밖 자리는 `남긴 곳`이지 실기가 아니고, r5 하네스가 핸들의 실재를 보였다.
+
+### V/lifecycle replay — 거짓 PASS·FAIL inflation
+
+| anchor | 라운드 | 변경 전 | 새 규칙 | 방향 |
+|---|---|---|---|---|
+| 0259 | r1 verify VP-02 | PASS(reducer UT) | reducer UT의 구간은 `reduceCascade`부터 — `keydown → reducer` 컴포넌트 edge는 밖 → PAIR_FAIL | D8 3라운드 조기 |
+| 0259 | r1~r3 verify VP-01 | `BLOCKED_BY:VP-05/06/07` | 선택 edge는 `CascadeMenu`를 mock한 테스트 구간 밖이고 독립 판정 가능 → root PAIR_FAIL | D9 선택 4변이 4라운드 조기 |
+| 0259 | r4 verify VP-01 | PASS(VP-05~10 좌표 합) | path edge별 대응에서 선택 이음매가 비어 PAIR_FAIL | 거짓 PASS 제거 |
+| 0259 | r5 impl | `CascadeBody` 진입·`state.focus` 단언으로 SELF_PASS | 래퍼 `onSelect`·`onClose`·마운트 포커스·DOM 포커스가 구간 밖 → `남긴 곳` | X1b·X2·X4b·X10 r5 안에서 노출 |
+| 0259 | r5 하네스 | react 훅 mock | 실행 환경 대체는 구성요소 교체가 아님 → 그 좌표의 구간 유지 | inflation 0 |
+| mock한 무관 협력자 | 임의 | — | 자리의 양 끝이 아닌 구성요소 mock은 그 자리 판정과 무관 | inflation 0 |
+| 진행 중 plan(성긴 path) | 다음 impl/verify | — | plan 형식 migration 없음 — 판정은 impl/verify 좌표 읽기에만 걸림 | RETURN_TO_PLAN 0 |
+
+## 6-C Cross-document Consistency
+
+- **PASS.** "실행 구간" 규칙 **9사이트**: AGENTS §공통 V(정의) · AGENTS 절차 2·3 · plan §5-A · plan.template 전수 주석 · impl §2 · verify §6 · verify.template §5 · corpus P55. 정의 문장은 AGENTS 한 곳, 나머지는 인용·적용. "path 구성요소" 용어 6사이트 일치.
+- **owner 충돌 0**: 설계자는 만들 테스트의 진입점·관측 대상을 적고, 구현자가 구간 밖 자리를 `남긴 곳`에 적고, 검증자가 다시 읽는다.
+- **mutation 정책 충돌 0**: 판정은 읽기라 `not selected` pair의 mutation 면제(impl §3·verify §4)와 겹치지 않는다.
+- **scope 충돌 0**: 새 명령·gate 없음 → `app/AGENTS.md` ABI 규칙과 무관. root `AGENTS.md` skill·owner 표 불변이라 변경 없음.
+- `node app/scripts/check-doc-inventory.mjs --check` — generated · prose · links ok. `git diff --check` 출력 0.
+- AGENTS 위생: 추가분에 비밀·개인정보·변동성 운영정보 없음. 새 `AGENTS.md`·`CLAUDE.md` 없음.
+
+## review 기록 정책
+
+`round32-review.md`를 만들지 않았다 — 사용자 보존 요구 없음, 압축으로 잃는 rationale 없음. 신규 P **1**(P55: 실재 좌표의 덮는 범위 — P44·P54와 다른 causal class).
+
+## 남은 한계
+
+- 실행 구간 안 자리라도 테스트 입력이 운반 값을 바꾸지 않으면(0259 X9b: hover 레벨 0만) 그 자리는 잠기지 않는다 — 변이 축(P49·P51)이 잡는다.
+- 실행 환경 대체(react 훅 mock)가 실제 React의 effect 순서·재렌더를 다르게 매길 위험은 남는다 — DOM 테스트 환경 도입은 사용자 결정이다.
