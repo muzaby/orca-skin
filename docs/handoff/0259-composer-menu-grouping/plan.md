@@ -707,6 +707,95 @@ useSkills · useMentionAutocomplete.plugins → buildAttachMenu → CascadeMenu 
 - 반복해서 부딪히는 환경 한계: Windows에서 `.bin/vitest` shell 호출 실패·cp949 출력.
 - 현재 라운드·impl 턴: `r3`
 
+## [구현자 기입] 설계 리뷰 (r4)
+
+- 동의 / 그대로 진행: r3 verify D6(BLOCKING)·D7(NON_BLOCKING)을 닫는다. 유효 V는 V1 그대로, production 코드 무변경 — 테스트 3파일만 고친다.
+- 이견 / 현실성 문제: 없음. 진입 전 `handoff-review` round 30(P54) 완료 — INDEX 비고.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조, r4)
+
+불변식: **메뉴가 그리는 목록은 자동완성이 쓰는 전체 집합 그대로다**(D-006). 자리 = 그 목록을 운반하는 edge.
+검색: `grep -n "plugins" hooks/useMentionAutocomplete.ts components/composer/{ComposerInputController,AttachMenu}.tsx lib/attachMenuModel.ts` · 같은 명령 `skills`.
+
+| Pair | 자리 | 직접 oracle 좌표 | 관측 | 남긴 곳 |
+|---|---|---|---|---|
+| VP-07 ① | `useMentionAutocomplete.ts:156` `plugins: allPlugins` | `hooks/useMentionAutocomplete.test.ts:'returns every Plugin candidate as plugins while an @ prefix narrows the suggestions'` | V4 red 1 | — |
+| VP-07 ② | `ComposerInputController.tsx:424` `plugins={mentionAutocomplete.plugins}` | `composer/composerAttachMenu.test.ts:'컨트롤러는 메뉴 동작을 이 함수에 자기 스냅샷·갱신·포커스와 함께 넘긴다'` | V2 red 1 | — |
+| VP-07 ③ | `AttachMenu.tsx:34` `plugins` → `buildAttachMenu` | `composer/attachMenuSelect.test.ts:'받은 플러그인·스킬 목록을 그대로 하위 메뉴에 그린다'` | A1 red 1 | — |
+| VP-07 ④ | `attachMenuModel.ts:70` 플러그인 행 | `lib/attachMenuModel.test.ts:'플러그인 ▸ 목록 · 구분선 · 플러그인 관리 (AC3)'` | S1 red(r1) | — |
+| D7 ① | `ComposerInputController.tsx:130·423` `useSkills()` → `skills={skills}` | 위 ② 와 같은 테스트(`const skills = useSkills()` 1회 + 3줄 원문) | V3·V5 red 1 | — |
+| D7 ② | `AttachMenu.tsx:33` `skills` → `buildAttachMenu` | 위 ③ 와 같은 테스트 | A2 red 1 | — |
+
+- VP-07 `4/4` · D7 `2/2`(트리 내부 스킬 행은 `attachMenuModel.test.ts:'스킬 ▸ 출처 ▸ 스킬 이름 (AC2)'`, r1).
+- §10에 없는데 같은 불변식이 필요했던 지점: 없음 — ③은 VP-07 path `plugins → buildAttachMenu` edge 자체다.
+
+**V-pair 자기확인 (r4)**
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-07 | REQUIRED | SELF_PASS | 위 4자리 좌표 | not selected — 인용 변이 V2·V4 red |
+| VP-01 | REQUIRED | SELF_PASS | VP-07 해소로 AC3 "`@` 후보와 같은 플러그인 목록" 충족 | S1~S3 r1 결과 유지 |
+| 나머지 9 pair | REQUIRED | r3 상태 유지 | production 무변경 | — |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r4)
+
+실행: 변이마다 백업 → `node node_modules/vitest/vitest.mjs run composer lib hooks pages`(105파일 790케이스) → 원복. 최종 `git status` = 테스트 3파일.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| V4 훅 `plugins: allPlugins` → 필터 `plugins` | D6 인용 | green(r3 verify) | useMentionAutocomplete 1 | 잠김 |
+| V2 컨트롤러 `plugins={[]}` | D6 인용 | green | composerAttachMenu 1 | 잠김 |
+| V3 컨트롤러 `skills={[]}` | D7 인용 | green | composerAttachMenu 1 | 잠김 |
+| V5 컨트롤러 `skills={autocomplete.suggestions}` | D7 인용 | green | composerAttachMenu 1 | 잠김 |
+| A1 `AttachMenu` `plugins: []` | 새 oracle — 자리 ③ | — | attachMenuSelect 1 | 잠김 |
+| A2 `AttachMenu` `skills: []` | 새 oracle — 자리 D7 ② | — | attachMenuSelect 1 | 잠김 |
+
+- **분모 검산**: `선택 증거 0(VP-07 not selected) · 인용 변이 4(V2·V3·V4·V5) · 새 oracle 2(A1·A2) = 표 행 6`.
+- **덮개 회귀**: 없음 — 수정한 두 파일의 r3 red 변이 재실행 전부 red: X5 2 · X6 1 · Y1 3 · Z4 1(attachMenuSelect) · X3 1(composerAttachMenu). X5·Y1 수 증가는 신규 데이터 전달 케이스가 관리 행까지 단언하기 때문.
+
+## [구현자 기입] Product/UX 파생 검토 (r4)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — production 무변경 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 해당 없음 — 재배치 없음 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 해당 없음 | — |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | V2(5화면 '플러그인 없음')·V4(`@ji` 뒤 '+' 시 일부만)가 이제 red | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r4)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | ②·D7 ① 은 원문 단언(구조적 proxy)이다 — 컨트롤러를 node 환경에서 렌더할 수 없다 | ✅ 인용 변이 V2·V3·V5 red로 민감도 확인 · 데이터 내용은 ①·③ 행동 UT가 본다 | 위 잠금 표 |
+| 2 | 훅이 비활성(`active=false`)이면 `plugins` = `[]` — 메뉴도 비지만 그때 메뉴는 열리지 않는다(`open={active && …}`) | 해당 없음 | `ComposerInputController.tsx:420` |
+
+### 설계 대비 명시적 차이
+
+- 없음 — D6 대응 방향(훅 UT + 컨트롤러 원문 단언)에 자리 ③(`AttachMenu` 전달) 행동 UT를 더했다.
+
+## [구현자 기입] 구현 보고 (r4)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `hooks/useMentionAutocomplete.test.ts` · `composer/attachMenuSelect.test.ts` · `composer/composerAttachMenu.test.ts` (production 0) |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `vitest run features/chat shared/ui pages` · 변이 11건 |
+| **관측한 게이트 산출** | lint 0 error · 1 warning(기존 `useTranscriptVirtualizer.ts`) · lint 후 트리 = 의도한 3파일 · typecheck exit 0·`error TS` 0 · 관련 vitest 235파일 1855케이스 pass·실패 0(r3 1853 + 신규 2) |
+| V-pair 자기확인 | `SELF_PASS 10 / SELF_BLOCKED 1(VP-04 실기)` |
+| 강제 지점 전수 | VP-07 4/4 · D7 2/2 — 자리별 좌표는 위 표 |
+| **AC 자기보고**(`Criteria-Met`) | r3 verify ✅11 + AC3(플러그인 목록 출처 V2·V4 red) ✅ / AC12 실기 ⚠️ |
+| **합계 검산** | `✅ 12 · ⚠️ 1 · ❌ 0 = 총 13` |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r4 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r4)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 예 — pair path edge 중 테스트가 닿지 않은 자리(r1 D1·D2 → r2 D4 → r3 D6).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: 있었다 — VP-07 oracle "훅 반환·트리 UT". r1 자기확인은 typecheck를 좌표로 적었다(round 30 P54가 이 자리를 막는다).
+- 반복해서 부딪히는 환경 한계: 컨트롤러를 node 환경에서 렌더할 수 없어 배선이 원문 단언에 기댄다 · Windows `.bin/vitest` shell 호출 실패.
+- 현재 라운드·impl 턴: `r4`
+
 ---
 
 ## [검증자 기입] 파생 이슈
