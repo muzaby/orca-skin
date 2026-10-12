@@ -389,3 +389,142 @@
 - PLAN_GAP: 없음 — VP-07 path·oracle·EP-04가 계약을 명시한다.
 - AC: ✅11 · ⚠️1 · ❌1(AC3).
 - 다음 단계: `handoff-review`(라운드 4 > 3) → 구현자 r4 — D6을 닫고 V2·V4 red를 보고한다(D7 권장).
+
+---
+
+# r4 검증
+
+## 메타 (r4)
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `dfeefee1..70c3b332` = r4 `70c3b332` |
+| 구현 전 plan 기준 | `7f6ed426` (V1) — r1 기준 그대로 |
+| V mode / 유효 V | `Baseline V: V1` / `V1` |
+| 라운드 | 4 |
+| 상태 | **FAIL** — D6·D7 closed(VP-07 PASS), 새 root `PAIR_FAIL` VP-09·VP-02(D8: EP-03 hover 지연·`CascadeMenu` 배선 자리에 직접 oracle 없음, 변이 5건 전 gate green) |
+| 자기 검증 여부 | **예** — 구현 `Agent: claude`. 보고에 없던 축 8건(I1~I3·H1~H3·K3·P1) |
+
+## 0. 기준선 (r4)
+
+- 구현 커밋의 `plan.md` 변경: hunk 1개 `@@ -707` — r3 `[구현자 기입]` 뒤 r4 절 추가만. `7f6ed426..70c3b332` 누적 hunk도 `@@ -428`(마커 이후) 1개 — Decision·AC·V·§10·oracle 변경 없음.
+- production 변경 0 — app diff는 테스트 3파일.
+- round 30(`dfeefee1`) 규칙 적용: 좌표 없이 난 이전 PASS는 재판정한다. r1~r3의 VP-02·03·08~11 PASS 근거는 "트리 UT · S1 red" 같은 서술이라 이번 라운드에 자리별 좌표로 재판정했다(§5).
+
+## 2. 비판적 읽기 (r4)
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 훅 UT가 production 훅을 지나는가 | 예 | 실제 `useMentionAutocomplete` · react는 deps 비교 mock(`useMentionAutocomplete.test.ts:42`) |
+| `@ji` 단언이 필터↔전체 맞바꿈을 가르는가 | 예 | suggestions = `['jira-dc']` · plugins = 3개 — 두 슬롯이 다른 값 |
+| `AttachMenu` 데이터 UT가 실제 `buildAttachMenu`를 지나는가 | 예 | `CascadeMenu`만 mock, `captured.items` 관측 |
+| 컨트롤러 원문 단언 3줄이 현재 코드와 일치하는가 | 예 | `ComposerInputController.tsx:423-425` · `useSkills()` 1회(`:130`) |
+| `CascadeMenu`의 hover 타이머·키·배치 호출 자리가 잠겼는가 | **아니오** | H1·H2b·H3·K3·P1b green(§4) |
+
+## 4. 적대 증거 재측정 (r4)
+
+- 실행: 변이마다 백업 → `node node_modules/vitest/vitest.mjs run features/chat/{components/composer,lib,hooks} shared/ui pages`(117파일 857케이스) → 원복. green 변이는 `tsc -p tsconfig.web.json`·`eslint <file>`도 실행하고 잔여 진단이 0이 될 때까지 밀었다(H2→H2b, P1→P1b). 최종 `git status` clean.
+
+| 변이 | 자리 | r3 | r4 | 귀속 |
+|---|---|---|---|---|
+| V4 훅 `plugins: allPlugins` → `plugins` | `useMentionAutocomplete.ts:156` | green | **red** useMentionAutocomplete 1 | D6 인용 |
+| V2 `plugins={[]}` | 컨트롤러 `:424` | green | **red** composerAttachMenu 1 | D6 인용 |
+| V3 `skills={[]}` | 컨트롤러 `:423` | green | **red** composerAttachMenu 1 | D7 인용 |
+| V5 `skills={autocomplete.suggestions}` | 같음 | green | **red** composerAttachMenu 1 | D7 인용 |
+| A1 `plugins: []` | `AttachMenu.tsx` | — | red attachMenuSelect 1 | 새 oracle |
+| A2 `skills: []` | 같음 | — | red attachMenuSelect 1 | 새 oracle |
+| I1 훅 `plugins` = 토큰 접두로 필터한 후보 | 훅 반환 | — | red useMentionAutocomplete 1 | 독립(다른 자리) |
+| I2 트리 `plugins.slice(0, 1)` | `attachMenuModel.ts` 플러그인 행 | — | red attachMenuModel·attachMenuSelect 2 | 독립(VP-07 ④) |
+| I3 훅 `allPlugins` memo deps `[]`(stale) | 훅 | — | red useMentionAutocomplete 4 | 독립(형제 축) |
+| X5 · X6 · Y1 · Z4 | `AttachMenu.tsx` | red | red 2·1·3·1 | 덮개 회귀 검사 |
+| X3 · Z1 | 컨트롤러 · `composerAttachMenu.ts` | red | red 1·2 | 덮개 회귀 검사 |
+| W1 | `ProjectLandingPage` Composer 자리 | red | red attachMenu.render 1 | 덮개 회귀 검사 |
+| S1 · K1 · K2 · G1 · S3 | 등록 변이(r1) | red(r1) | red 5·1·1·2·3 | 좌표 재판정 |
+| **H1** `HOVER_OPEN_DELAY_MS = 0` | `cascadeMenuState.ts:20` | — | **green** · tsc 0 · eslint 0 | VP-09 EP-03 ② → **D8** |
+| **H3** `scheduleHover`가 타이머 없이 즉시 dispatch(+미사용 import 제거) | `CascadeMenu.tsx:100-106` | — | **green** · tsc 0 · eslint 0 | VP-09 EP-03 ② → **D8** |
+| **H2b** `onLeave={() => undefined}`(이탈 시 타이머 미취소) | `CascadeMenu.tsx:147` | — | **green** · tsc 0 · eslint 0 | VP-02 AC7 "이전 이탈 시 안 열림" → **D8** |
+| **K3** `onKeyDown`이 `dispatch` 안 함 | `CascadeMenu.tsx:135` | — | **green** · tsc 0 · eslint 0 | VP-02 path `keydown → reducer` → **D8** |
+| **P1b** `submenuPosition` 대신 고정 우측 배치(+미사용 import 제거) | `CascadeMenu.tsx:186` | — | **green** · tsc 0 · eslint 0 | VP-02 path `→ submenuPosition` → **D8** |
+
+- 재측정 합계: 인용 4/4 red · 새 oracle 2/2 red · 독립 VP-07 축 3/3 red · 덮개 회귀 0(r3 red 7건 전부 red) · 등록 변이 5/5 red · 독립 VP-02 축 **0/5 red**.
+- K3이면 '+' 메뉴 키보드 탐색 전체가, P1b면 왼쪽 뒤집기·아래 밀기·최대 높이가, H1·H3이면 hover 150ms 지연이 production에서 사라져도 전 gate가 통과한다.
+
+## 5. V-pair closeout (r4)
+
+자리별 직접 oracle 좌표(round 30 규칙). 좌표 = `파일:테스트명`, 전부 §7-A 관련 vitest 실행 집합 안.
+
+| Pair | §10 자리 | 좌표 | 변이 | 결과 |
+|---|---|---|---|---|
+| VP-08 | EP-01 ① 최상위 | `lib/attachMenuModel.test.ts:'최상위 = 파일 추가 · 구분선 · 스킬 ▸ · 플러그인 ▸ (AC1)'` | S1 red | PASS |
+| | ② 스킬 그룹 | 같은 파일 `'스킬 ▸ 출처 ▸ 스킬 이름 (AC2)'` | S1 red | |
+| | ③ 플러그인+관리 | 같은 파일 `'플러그인 ▸ 목록 · 구분선 · 플러그인 관리 (AC3)'` | S1·I2 red | |
+| | ④ 빈 상태 | 같은 파일 `'빈 상태 행 (AC4)'` | — 직접 행동 단언 | |
+| VP-10 | EP-02 순수부 | `lib/composerToken.test.ts` 5케이스(`'글자 뒤 → 앞에 공백 1개'` 등) | S3 red | PASS |
+| VP-05 | EP-02 컨트롤러 | `composer/composerAttachMenu.test.ts:'%s → 커서 자리 삽입 …'` 4 · `'컨트롤러는 메뉴 동작을 …'` | Z1·X3·V2·V3 red | PASS |
+| VP-11 | EP-06 ① `/` 그룹 | `composer/attachMenu.render.test.ts:'/ 후보가 출처 헤더 아래 묶이고 …'` · `lib/skillGroups.test.ts` 2 | G1 red | PASS |
+| | ② `/` 헤더 · ③ `@` 헤더 | `attachMenu.render.test.ts:'/ 와 @ 헤더가 같은 컴포넌트를 쓴다'` | — 원문+클래스 | |
+| VP-03 | R-03 (AT-09~11) | VP-11 좌표 + 기존 `autocompleteKeys`·`MentionAutocomplete.render`·`ComposerInputController` 스위트 | G1 red | PASS |
+| VP-06 | EP-05 9자리 + 호출·행 표시 edge | `attachMenu.render.test.ts:"페이지 5자리가 navigate('/plugins') …"` · `attachMenuSelect.test.ts` 3케이스 | W1·Z4·X5·X6·Y1 red | PASS |
+| VP-07 | EP-04 ①~④ | 구현 보고 r4 표 4좌표 실재 확인 | V2·V4·A1·I1·I2·I3 red | **PASS** |
+| VP-09 | EP-03 ① 키 reducer | `shared/ui/cascadeMenuState.test.ts` '키보드 (AC6)' 5케이스 | K1 red | **PAIR_FAIL** |
+| | ③ `submenuPosition` | 같은 파일 'submenuPosition (AC8)' 4케이스 | K2 red | |
+| | **② hover 지연 150ms** | **없음** — `HOVER_OPEN_DELAY_MS`·타이머 단언 0(`grep -rn "HOVER_OPEN_DELAY_MS\|150"` 관련 테스트 → 무관 1건) | **H1·H3 green** | |
+| VP-02 | path `keydown → reducer` | **없음** | **K3 green** | **PAIR_FAIL** |
+| | path `pointerenter/leave → 타이머 → reducer` | **없음** — AC7 "150ms 후 열림 · 이전 이탈 시 안 열림" | **H2b·H3 green** | |
+| | path `→ submenuPosition` | **없음** | **P1b green** | |
+| VP-01 | R-01 (AT-01~05) | VP-05·06·07·08·10 좌표 | 위 | **PASS** |
+| VP-04 | AT-12 | 사람 실기 | — | 실기 대기 |
+
+- root `PAIR_FAIL`: VP-09(§10 EP-03 ② 자리) · VP-02(plan path가 명시한 `CascadeMenu` edge 3개). 둘은 다른 자리라 `BLOCKED_BY`로 묶지 않는다.
+- r1~r3의 VP-02·VP-09 PASS는 reducer·좌표 순수 함수의 단언이었고 그것을 production에 잇는 컴포넌트 자리에는 좌표가 없었다.
+
+### AC 합계 (r4)
+
+| AC | 결과 | 근거 |
+|---|---|---|
+| AC1~AC5 | ✅ | VP-01 PASS · AC3 플러그인 목록 출처 V2·V4 red |
+| AC6 | ❌ | 키 reducer는 잠김, production `onKeyDown → dispatch` 미잠금(K3 green) |
+| AC7 | ❌ | hover 150ms·이탈 취소 미잠금(H1·H2b·H3 green) · D3 바깥 클릭 stub UT도 여전히 없음 |
+| AC8 | ❌ | 좌표 함수는 잠김, production 호출 미잠금(P1b green) |
+| AC9~AC11 · AC13 | ✅ | VP-03·11 · §9 |
+| AC12 | ⚠️ | 사람 실기 |
+
+- `✅ 9 · ⚠️ 1 · ❌ 3 = 총 13` · 자기보고 `✅12·⚠️1` · 불일치 AC6·AC7·AC8.
+- 사본 대조: 본문 `✅12·⚠️1·❌0` ↔ trailer `Criteria-Met: 12/13` ↔ INDEX `✅12·⚠️1` — 사본끼리는 일치.
+
+## 9. 게이트 (r4)
+
+- eslint(`--fix` 없이 `./src ./scripts`) 0 error · 1 warning(기존 `useTranscriptVirtualizer.ts`) · 트리 무변경.
+- typecheck(node·web·test) exit 0 · `error TS` 0.
+- 관련 vitest(plan §7-A: `features/chat` · `shared/ui` · `pages`) 235파일 1855케이스 pass · 실패 0.
+
+## 11. Repository operation checks (r4)
+
+- INDEX 좌표 `70c3b332` 기입(`git cat-file -t` commit · `origin/claude/0256-0259-prefs-tooltip-sdk-menu` 포함).
+- trailer `70c3b332` 7키 파싱.
+- `[구현자 기입]` r4 7필드 존재 · 분모 검산 `0 · 4 · 2 = 6` 행 수 일치 · INDEX 비고 3줄.
+
+## 13. Finding disposition (r4)
+
+| # | finding | 귀속 | disposition |
+|---|---|---|---|
+| D6 | 메뉴 플러그인 목록 = 훅 전체 후보 | VP-07 · EP-04 | **closed** — V2·V4 red, 독립 I1~I3 red |
+| D7 | 컨트롤러 `skills={skills}` 전달 | D-006 | **closed** — V3·V5 red |
+| D3 | AC7 바깥 클릭 stub UT 부재 | AC7 | NON_BLOCKING · open — D8과 같은 seam에서 닫을 수 있다 |
+| D8 | `CascadeMenu`가 reducer·`submenuPosition`을 production에 잇는 자리와 hover 지연 150ms에 직접 oracle이 없다 — H1·H3(지연 제거)·H2b(이탈 미취소)·K3(키 미전달)·P1b(배치 함수 우회) 전 gate green | VP-09 §10 EP-03 ② · VP-02 path · AC6·AC7·AC8 · D-007·D-008 | **BLOCKING** — 타이머·키·배치 연결을 순수 seam으로 떼어(`composerAttachMenu` 선례, scheduler에 `setTimeout`/`clearTimeout` 주입) "149ms 미열림·150ms 열림·이탈 시 미열림"을 단언하고 `onKeyDown`·`submenuPosition` 호출 edge를 행동 또는 원문 단언으로 잠근다. H1·H2b·H3·K3·P1b가 red여야 닫힘 |
+
+## 14. Review Signals (r4)
+
+- 이전 라운드와 유사 증상: 예 — pair path에 적힌 edge 중 테스트가 닿지 않은 자리(r1 D1·D2 → r2 D4 → r3 D6 → r4 D8). 이번엔 다른 pair(VP-02·09)다.
+- 관련 plan 지침: VP-02 path가 `keydown`/`pointerenter → reducer → … → submenuPosition`을, AC7이 "hover 150ms 후 열림·이전 이탈 시 안 열림"을, §10 EP-03 ②가 "hover 지연 150ms"를 명시.
+- r1 검증이 VP-02·09를 `EP-03 3/3`으로 좌표 없이 PASS 처리했다 — round 30의 좌표 재판정 규칙이 이번에 드러냈다.
+- 반복 환경 한계: 컴포넌트를 node 환경에서 렌더할 수 없어 배선이 원문 단언·순수 seam 추출에 기댄다.
+- 라운드가 5로 올라 3을 초과한다 — `handoff-review` 진입 조건(round 30이 r4 직전에 수행됨).
+
+## 15. 결론 (r4)
+
+- 상태: **FAIL**.
+- pair: PASS 8 · root PAIR_FAIL 2(VP-02·VP-09) · 실기 대기 1(VP-04).
+- PLAN_GAP: 없음 — VP-02 path·AC7·§10 EP-03이 계약과 자리를 명시한다.
+- AC: ✅9 · ⚠️1 · ❌3(AC6·AC7·AC8).
+- 다음 단계: 구현자 r5 — D8을 닫고 H1·H2b·H3·K3·P1b red를 보고한다(D3 함께 권장).
