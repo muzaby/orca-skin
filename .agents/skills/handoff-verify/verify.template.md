@@ -113,7 +113,7 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 
 | Pair | left ↔ right / 레벨 | requiredness | 결과 | 직접 검증 증거 | production path / §10 전수 |
 |---|---|---|---|---|---|
-| VP-04 | MD-01 ↔ UT-01 / UT | REQUIRED | PASS / PAIR_FAIL / BLOCKED_BY:VP-… / NOT_REQUIRED | 테스트 / 선택된 변이 | start → … → end / N/N |
+| VP-04 | MD-01 ↔ UT-01 / UT | REQUIRED | PASS / PAIR_FAIL / BLOCKED_BY:VP-… / NOT_REQUIRED | 자리별 `파일:테스트명` / `gate:<명령>` · 선택된 변이 | start → … → end / N/N |
 | VP-03 | AR-01 ↔ IT-01 / IT | … | … | … | … |
 | VP-02 | SD-01 ↔ ST-01 / ST | … | … | … | … |
 | VP-01 | R-01 ↔ AT-01 / AT | … | … | … | … |
@@ -121,7 +121,7 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 - root `PAIR_FAIL`: 없음 / VP-… — …
 - 종속 `BLOCKED_BY`: 없음 / VP-… → VP-…
 - 하나의 증거가 함께 닫은 pair와 직접 판정 범위: 해당 없음 / …
-- 이번 라운드 실행 범위: 최초 검증 — 유효 V의 REQUIRED/REGRESSION 전건 / 재검증 — root·종속·변경 영향 pair + 현재 변경 운영 gate; 이전 PASS 참조 …
+- 이번 라운드 실행 범위: 최초 검증 — 유효 V의 REQUIRED/REGRESSION 전건 / 재검증 — root·종속·변경 영향 pair + 현재 변경 운영 gate; 이전 PASS 참조 — 좌표 실재 확인(좌표 없이 난 PASS는 재판정) …
 
 ### AT / AC 세부와 합계
 
@@ -138,7 +138,7 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 
 | Pair | 계약/필드 | plan이 적은 강제 지점 | 코드에서 확인한 지점 | 결과 |
 |---|---|---|---|---|
-| VP-… | … | `commit·revoke·expiry·401` (4) | … (N/4) | PASS / PAIR_FAIL / PLAN_GAP |
+| VP-… | … | `commit·revoke·expiry·401` (4) | … (N/4) · 자리별 oracle 좌표 | PASS / PAIR_FAIL / PLAN_GAP |
 
 - 표에 없는데 같은 불변식이 필요한 지점: 없음 / … → 현재 pair·Decision·AC 필수면 PLAN_GAP, 아니면 NON_BLOCKING/NEXT_HANDOFF
 - `실패 의미`가 “다른 게이트가 막는다”고 적은 행의 재측정: 해당 없음 / …

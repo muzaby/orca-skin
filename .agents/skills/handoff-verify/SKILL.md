@@ -160,9 +160,9 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 
 하위 root 실패로 상위 pair를 독립 판정할 수 없을 때만 `BLOCKED_BY:<root-pair>`로 둔다. 상위 행동을 다른 경로에서 독립 관측할 수 있으면 실행하며, 같은 root 원인을 네 단계의 `PAIR_FAIL`로 부풀리지 않는다. 하나의 직접 증거가 여러 pair를 닫으면 각 행에 공유 증거와 판정 범위를 적는다.
 
-plan §10은 pair 안에서 **별도 분모**로 계속 걷는다. `언제 강제`에 열거된 지점을 코드에서 하나씩 다시 세고, `실패 의미`의 적대 상태를 만든다. **구현자가 분모를 코드의 라벨로 세었으면 그 라벨이 참인지 표본으로 확인한다** — 0209 r11의 `readOnly: true` 8건 중 셋은 `stash push`·`commit -a`·`reset --hard` 였다. “다른 게이트가 막는다”는 주장도 필요한 pair의 선택된 변이로 재측정한다. 표 밖 지점이 현재 pair·ACTIVE Decision·AC에 필수면 `PLAN_GAP`, 그 밖이면 `NON_BLOCKING`/`NEXT_HANDOFF`다.
+plan §10은 pair 안에서 **별도 분모**로 계속 걷는다. `언제 강제`에 열거된 지점을 코드에서 하나씩 다시 세고, `실패 의미`의 적대 상태를 만든다. **자리마다 직접 oracle 좌표를 다시 찾는다** — 그 `파일:테스트명`이 실재하고 이번 gate 실행 집합에 들며 production symbol로 그 자리를 지나는지 읽는다. typecheck·코드 읽기·일회성 실측만 있는 자리는 닫히지 않았다(`docs/handoff/AGENTS.md §공통 V`). **구현자가 분모를 코드의 라벨로 세었으면 그 라벨이 참인지 표본으로 확인한다** — 0209 r11의 `readOnly: true` 8건 중 셋은 `stash push`·`commit -a`·`reset --hard` 였다. “다른 게이트가 막는다”는 주장도 필요한 pair의 선택된 변이로 재측정한다. 표 밖 지점이 현재 pair·ACTIVE Decision·AC에 필수면 `PLAN_GAP`, 그 밖이면 `NON_BLOCKING`/`NEXT_HANDOFF`다.
 
-첫 검증 라운드는 유효 V의 모든 `REQUIRED`·`REGRESSION` pair와 현재 변경의 운영 gate를 실행한다. 재검증은 root 실패 pair·그 종속 pair·이번 변경으로 영향받은 pair·적용 gate를 실행하고, 영향받지 않은 이전 `PASS`는 증거 좌표를 참조한다. 이전 라운드 산문을 복사해 다시 PASS 수에 더하지 않는다.
+첫 검증 라운드는 유효 V의 모든 `REQUIRED`·`REGRESSION` pair와 현재 변경의 운영 gate를 실행한다. 재검증은 root 실패 pair·그 종속 pair·이번 변경으로 영향받은 pair·적용 gate를 실행하고, 영향받지 않은 이전 `PASS`는 증거 좌표를 참조한다 — **참조할 좌표는 위의 직접 oracle 좌표이고, 이전 PASS가 좌표 없이 났으면 영향 여부와 무관하게 이번 라운드에 재판정한다**(0259 r3: r1 VP-07 PASS의 근거가 코드 읽기 + typecheck였다). 이전 라운드 산문을 복사해 다시 PASS 수에 더하지 않는다.
 
 ## 7. 숫자·음성 기준·상한을 재측정한다
 

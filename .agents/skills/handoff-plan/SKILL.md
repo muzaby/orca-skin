@@ -172,10 +172,10 @@ UI 작업만을 뜻하지 않는다. renderer가 없어도 CLI/API/저장/운영
 - Product/UX 결과가 바뀌면 `R↔AT`, end-to-end 상태·수명주기가 바뀌면 `SD↔ST`, production 경계·producer/consumer·이벤트·저장소가 바뀌면 `AR↔IT`, 모듈 불변식·알고리즘·seam이 바뀌면 `MD↔UT`를 포함한다.
 - 노드마다 `NEW`·`CHANGED`·`INHERITED`·`SUPERSEDED`와 기준선 출처/대체 노드를 적는다. Delta V는 영향 없는 기준 V 전체를 복사하지 않고, 명시적으로 비영향을 판정할 필요가 있는 inherited pair만 `NOT_REQUIRED`로 기록한다. **pair의 왼쪽 노드를 `SUPERSEDED`로 분해하면 그 pair의 AC와 선택 적대 증거가 어느 대체 pair로 가는지 적고, 어디로도 가지 않으면 폐기 근거를 적는다.**
 - 모든 `NEW`·`CHANGED` 왼쪽 노드에 같은 레벨 `REQUIRED` pair를 둔다. 변경 경로가 기존 상위 동작에 닿으면 해당 `INHERITED` 노드를 `REGRESSION`으로 선택한다.
-- pair에는 `start → edges → end` 경로, §10 강제 지점 전수, 직접 oracle을 둔다. 음성 대조/결함 변이는 oracle이 구조적 proxy·0건/전수 주장·배선 존재처럼 방향이나 민감도를 별도로 입증해야 할 때만 선택하고, 선택 이유와 심을 결함을 적는다. **§10 강제 지점은 항목이 아니라 자리로 센다** — path의 edge 중 그 계약 값을 운반하는 edge는 모두 자리이고, 선택한 결함은 심을 자리를 적으며 같은 결함이 여러 자리에서 가능하면 자리마다 등록한다.
+- pair에는 `start → edges → end` 경로, §10 강제 지점 전수, 직접 oracle을 둔다. **직접 oracle은 관측의 서술이 아니라 좌표다** — 자리마다 기존 `파일:테스트명` 또는 구현자가 만들 테스트(파일·관측 대상)를 적고, typecheck·코드 읽기는 oracle로 적지 않는다(`docs/handoff/AGENTS.md §공통 V`). 음성 대조/결함 변이는 oracle이 구조적 proxy·0건/전수 주장·배선 존재처럼 방향이나 민감도를 별도로 입증해야 할 때만 선택하고, 선택 이유와 심을 결함을 적는다. **§10 강제 지점은 항목이 아니라 자리로 센다** — path의 edge 중 그 계약 값을 운반하는 edge는 모두 자리이고, 선택한 결함은 심을 자리를 적으며 같은 결함이 여러 자리에서 가능하면 자리마다 등록한다.
 - 보안·데이터 무결성처럼 이번 요구에 필요한 제약은 V node·Decision·AC·§10에 귀속시킨다. 수정 subtree gate와 repository/message-bus 검사는 현재 변경 산출물의 운영 완료 조건으로 별도 열거하며 새 제품 범위를 만들지 않는다.
 
-READY 전 V mode·상속 기준, 변경 효과에 필요한 레벨, `NEW`·`CHANGED` node의 pair, 영향받은 상위 회귀, `SUPERSEDED` pair 증거의 이관, 경로·자리 단위 전수 분모·직접 oracle, 선택한 적대 증거의 이유와 자리, 현재 변경에 적용할 gate를 확인한다. 필요한 항목이 없으면 plan은 READY가 아니다.
+READY 전 V mode·상속 기준, 변경 효과에 필요한 레벨, `NEW`·`CHANGED` node의 pair, 영향받은 상위 회귀, `SUPERSEDED` pair 증거의 이관, 경로·자리 단위 전수 분모·자리별 직접 oracle 좌표, 선택한 적대 증거의 이유와 자리, 현재 변경에 적용할 gate를 확인한다. 필요한 항목이 없으면 plan은 READY가 아니다.
 
 ---
 
@@ -257,7 +257,7 @@ Product/UX Contract가 **무엇을** 정했다면 여기서는 **어떻게**를 
 - [ ] 상속 기준이 없으면 Baseline V, 명시적인 기존 V를 일부 바꿀 때만 Delta V를 사용했고 유효 V를 재구성할 수 있다.
 - [ ] 변경 효과에 필요한 레벨을 선택했고 모든 `NEW`·`CHANGED` node에 같은 레벨 `REQUIRED` pair가 있다.
 - [ ] 영향받은 `INHERITED` 상위 node는 `REGRESSION`, 비영향 node만 출처·기존 증거와 함께 `NOT_REQUIRED`다.
-- [ ] 각 pair가 production path, §10 강제 지점 전수, 직접 oracle을 가지며 적대 증거가 필요한 pair만 선택 이유·결함 변이를 갖는다.
+- [ ] 각 pair가 production path, §10 강제 지점 전수, 자리별 직접 oracle 좌표를 가지며 적대 증거가 필요한 pair만 선택 이유·결함 변이를 갖는다.
 - [ ] 현재 변경 산출물에 적용되는 subtree·repository gate가 열거됐고 관련 없는 기존 실패를 새 blocking 범위로 만들지 않는다.
 - [ ] 사람 실기로 미룬 순수 로직이 없다.
 - [ ] semantic 목표를 structural proxy만으로 검증하는 AC가 없다.

@@ -1429,3 +1429,24 @@ V1 은 VP-06·VP-12 에 `header 를 option 으로 계산` 결함 변이를 등�
 
 현재 방어: `docs/handoff/AGENTS.md §공통 V 추적 프로토콜` · plan §5-A · `plan.template.md` V 절 · verify §0 ·
 `verify.template.md` Plan validity.
+
+## P54 — **직접 oracle을 관측의 서술로 적어, 존재하지 않는 테스트가 PASS의 근거가 됐다**
+
+*출처: 0211 (라운드 1~5) — review round 26(진단만) · 0259 (라운드 1~3) — review round 30.*
+
+0211은 다섯 라운드 동안 일회성 브라우저 실측을 자리 닫힘 증거로 적었고, 그 자리들은 r4 재측정에서 전부 green이었다
+(round 26이 이 원인을 찾았으나 지침은 바꾸지 않았다). 0259의 VP-07은 plan이 "훅 반환·트리 UT"를 oracle로 지정했는데
+훅 테스트에 `plugins` 단언이 한 줄도 없었다. r1 구현 자기확인은 "훅 반환 필드(typecheck)"를 적었고, r1 검증은 코드
+읽기 + typecheck로 PASS를 줬으며, r2 검증은 그 PASS를 "영향받지 않은 이전 PASS"로 참조했다. r3에서 필터 목록 맞바꿈과
+`plugins={[]}`가 lint·typecheck·관련 1853케이스를 전부 통과했다. 같은 라운드들의 D1·D2·D4도 plan이 path에 적은
+edge 중 테스트가 닿지 않은 자리였다.
+
+→ **규칙.** **직접 oracle은 자리마다 좌표로 적는다 — 그 자리의 행동을 관측하는 `파일:테스트명`(이번 gate 실행 집합
+안) 또는 그 자리의 실패 의미를 red로 만든다고 관측한 `gate:<명령>`이다. typecheck·코드 읽기·일회성 실측·관측의 서술은
+좌표가 아니며 좌표 없는 자리는 닫힌 자리로 세지 않는다. 검증자는 좌표를 다시 찾고, 좌표 없이 난 이전 PASS는 참조하지
+않고 재판정한다.** `not selected` pair에서 면제되는 것은 mutation이지 좌표가 아니다.
+
+현재 방어: `docs/handoff/AGENTS.md §공통 V 추적 프로토콜`·§단계별 절차 2·3 · plan §5-A·READY 체크 ·
+`plan.template.md` pair registry·`[구현자 기입] 강제 지점 전수`·V-pair 자기확인 · impl §2 · verify §6 ·
+`verify.template.md §5`. P33(이름 댄 테스트의 실재)·P44(배선 미잠금)·P52(자리 단위)는 유지한다 — 이 규칙은 그 자리마다
+닫힘의 증거 형식을 정한다.
