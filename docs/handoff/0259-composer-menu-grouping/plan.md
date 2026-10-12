@@ -627,6 +627,8 @@ useSkills · useMentionAutocomplete.plugins → buildAttachMenu → CascadeMenu 
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | '+' 메뉴 선택 → 컨트롤러 삽입 경로를 잠그는 UT가 없다. 인용 변이 Z1(커서 대신 `text.length`)·Z2(`focus(0)`)·Z3(`replacement.trim()`) 전부 green | VP-05 oracle "컨트롤러 UT(스냅샷 텍스트·커서)" · AC2·AC3 | 컨트롤러가 쓰는 동작을 관측하는 UT 추가 — Z1~Z3 red로 닫힘 | BLOCKING | open |
-| D2 | `AttachMenu`의 '플러그인 관리' 콜백 호출을 잠그는 UT가 없다. 인용 변이 Z4(`managePlugins`에서 콜백 미호출) green | VP-06 oracle "AttachMenu 콜백 UT" · AC3 | `onSelect` 분기 콜백 UT — Z4 red, `onAction`으로 새지 않음 | BLOCKING | open |
+| D1 | '+' 메뉴 선택 → 컨트롤러 삽입 경로를 잠그는 UT가 없다. 인용 변이 Z1(커서 대신 `text.length`)·Z2(`focus(0)`)·Z3(`replacement.trim()`) 전부 green | VP-05 oracle "컨트롤러 UT(스냅샷 텍스트·커서)" · AC2·AC3 | 컨트롤러가 쓰는 동작을 관측하는 UT 추가 — Z1~Z3 red로 닫힘 | BLOCKING | closed(r2 — Z1~Z3 red) |
+| D2 | `AttachMenu`의 '플러그인 관리' 콜백 호출을 잠그는 UT가 없다. 인용 변이 Z4(`managePlugins`에서 콜백 미호출) green | VP-06 oracle "AttachMenu 콜백 UT" · AC3 | `onSelect` 분기 콜백 UT — Z4 red, `onAction`으로 새지 않음 | BLOCKING | closed(r2 — Z4 red) |
 | D3 | AC7 하위 패널 안/밖 mousedown은 plan의 stub document UT 대신 DOM 포함 구조 증거로 잠김 | AC7 | 재구현 시 보강 권장 | NON_BLOCKING | open |
+| D4 | `AttachMenu`가 `onManagePlugins` 유무로 '플러그인 관리' 행을 그리는지(`canManagePlugins: !!onManagePlugins`) 잠기지 않았다. X5(항상 false)·X6(항상 true) green | VP-06 path 마지막 edge · AC3 · §10 EP-05 | 콜백 있음/없음 렌더로 관리 행 유무 단언 — X5·X6 red로 닫힘 | BLOCKING | open |
+| D5 | 컨트롤러의 `pickAttachments` 전달 자리 미잠금 — X3 green(파일 추가 무동작) | 기존 파일 추가 동작 | 원문 단언에 추가 권장 | NON_BLOCKING | open |
