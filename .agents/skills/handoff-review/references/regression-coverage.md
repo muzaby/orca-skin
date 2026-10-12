@@ -2448,3 +2448,56 @@ r6 구현은 프로덕션을 한 줄도 바꾸지 않고 렌더 테스트로만 
 
 - **좌표가 자리를 실제로 지나는지는 읽어서 판정한다.** `not selected` pair는 mutation 없이 테스트 본문을 읽어 production symbol 경유를 보는 것이 한계다 — 동명 재구현 판별(verify §2)에 기댄다.
 - round 26 발견 3(검증자가 고른 변이가 등가일 때 처리)은 이번에도 미적용 — 0259 r2 X1·X2·X4 등가 판정은 verify가 근거와 함께 적어 실제 문제를 만들지 않았다.
+
+---
+
+# review round 31 — 0259 (라운드 4→5): 좌표 재판정 규칙의 impl 쪽 비대칭
+
+**발동/모드**: 0259 r4 verify FAIL로 라운드 5 > 3. 사용자가 `/handoff-review` 후 진단 질의에 **APPLY** 를 선택했다. 제품 코드 변경 0.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | "좌표 없이 난 이전 PASS는 재판정"이 verify §6에만 있어, 구현자는 좌표 없는 `SELF_PASS`를 "유지"로 옮겨 적을 수 있다 | 0259 r4 impl 자기확인 `나머지 9 pair — r3 상태 유지`(좌표 0) · 같은 라운드 verify가 그중 VP-02·09를 재판정해 D8(H1·H3·H2b·K3·P1b 전 gate green) | **A** — impl §2 한 문장 · plan.template V-pair 자기확인 주석 · AGENTS 절차 2 · corpus **P54 확장** |
+| 2 | path edge가 라운드마다 하나씩 열림(D1·D2 → D4 → D6 → D8) | VP-02 oracle "reducer UT"가 컴포넌트 edge를 분모에 넣지 않음 | **B** — round 30 plan §5-A 자리별 좌표가 새 plan부터 막는다. 문장 추가 없음 |
+| 3 | 자기검증 독립 축이 4라운드 연속 blocking의 유일한 원천 | r4 H·K·P 축 | **유지** (round 25 규칙 작동) |
+| 4 | 컴포넌트·컨트롤러를 node 환경에서 렌더하지 못함 | r2~r4 | **E** — 지침 대상 아님 |
+| 5 | Decision drift | D-001~D-012 변경·SUPERSEDED 0 | **D 오염 0** |
+
+## Tier
+
+**Tier 1.** impl의 자기확인 행동(필수 template 필드의 채움 규칙)이 바뀐다. 6-A + 6-B + 6-C 전부 수행.
+
+## 6-A Operational Instruction Delta
+
+삭제 줄 **3**(`git diff -U0`) — 셋 다 같은 줄에 문장을 덧붙인 **SUPERSET**(impl §2 좌표 bullet · plan.template V-pair 자기확인 머리 · AGENTS 절차 2 bullet). corpus P54는 출처·규칙 문단 확장. 명령·gate·reference 삭제·이동 없음 — inbound `N`/semantic `M/M` 대상 없음.
+
+## 6-B Historical Failure Regression
+
+- **54 P 전수**(P1~P54) · 변경 후 **COVERED 54 / PARTIAL 0 / GAP 0 / OBSOLETE 0**. 순수 추가라 기존 방어 문장 삭제 0.
+- 개별 확인: **P39**(자기보고 재현)·**P54**(좌표) — 유지 행에도 재현을 요구해 강화. **P50**(덮개 회귀)·**P51**(자기검증 독립 축) 불변. **P45**(규범 정정 소멸) — 재판정은 테스트 추가로 닫히므로 구현자 권한 안, PLAN_GAP 유입 0.
+
+### V/lifecycle replay
+
+| anchor | 라운드 | 변경 전 | 새 규칙 | 방향 |
+|---|---|---|---|---|
+| 0259 | r4 impl | 9 pair "r3 상태 유지" · verify가 D8로 FAIL | VP-02·09 EP-03 ②·`CascadeMenu` edge 좌표 0 → 구현자가 그 자리를 닫지 않은 수로 세고 r4 안에서 테스트 추가 | 라운드 1개 절감 |
+| 0259 | r2·r3 impl | VP-07 "r1 SELF 상태 유지" | 좌표 없음 → r2에서 D6 노출 | D6 2라운드 조기 |
+| 좌표 있는 유지 행 | 재구현 | 유지 | 좌표 인용만 — 재측정 의무 없음 | inflation 0 |
+| 진행 중 plan | 다음 impl | — | 규칙은 `[구현자 기입]` 채움에만 걸림, plan 형식 migration 없음 | RETURN_TO_PLAN 0 |
+
+## 6-C Cross-document Consistency
+
+- **PASS.** 재판정 규칙 사이트: verify §6(검증자) ↔ impl §2(구현자, 신규) ↔ AGENTS 절차 2(신규)·3(기존) ↔ plan.template V-pair 자기확인(신규) ↔ verify.template §5(기존) ↔ corpus P54. owner 충돌 0 — 구현자가 재판정해 닫고 검증자가 다시 센다.
+- 새 명령·gate 없음 → `app/AGENTS.md` ABI 규칙과 충돌 0. root `AGENTS.md` 불변.
+- `node app/scripts/check-doc-inventory.mjs --check` — generated · prose · links ok. `git diff --check` 출력 0.
+- AGENTS 위생: 비밀·개인정보·변동성 정보 없음. 새 `AGENTS.md`·`CLAUDE.md` 없음.
+
+## review 기록 정책
+
+`round31-review.md`를 만들지 않았다 — 사용자 보존 요구 없음. 신규 P 0(P54 같은 causal class 확장).
+
+## 남은 한계
+
+- 구현자가 유지 행의 좌표를 인용해도 그 테스트가 자리를 지나는지는 검증자가 읽어서 판정한다(round 30 한계 그대로).
