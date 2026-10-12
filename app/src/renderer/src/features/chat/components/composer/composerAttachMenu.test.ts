@@ -1,0 +1,85 @@
+// 0259 r1 verify D1 · VP-05 — '+' 메뉴 선택이 컨트롤러 경로에서 커서 자리에 토큰을 넣고 커서를 그 뒤로
+// 옮긴다. 실제 스냅샷 규칙(replaceDraftRange)으로 구동하고, 컨트롤러가 이 함수에 자기 상태를 넘기는지
+// 원문으로 잠근다.
+import { readFileSync } from 'node:fs'
+import { describe, expect, it, vi, type Mock } from 'vitest'
+import type { AttachMenuAction } from '../../lib/attachMenuModel'
+import { runAttachMenuAction, type AttachMenuActionDeps } from './composerAttachMenu'
+import { createDraftSnapshot, updateDraftText, type DraftSnapshot } from './draftSnapshot'
+
+function harness(
+  initial: DraftSnapshot,
+  composing = false
+): {
+  deps: AttachMenuActionDeps & { closeMenu: Mock; pickAttachments: Mock; focus: Mock }
+  read: () => DraftSnapshot
+} {
+  let current = initial
+  const deps = {
+    closeMenu: vi.fn(),
+    pickAttachments: vi.fn(),
+    compositionActive: () => composing,
+    snapshot: () => current,
+    updateSnapshot: (update: (value: DraftSnapshot) => DraftSnapshot) => {
+      current = update(current)
+    },
+    focus: vi.fn()
+  }
+  return { deps, read: () => current }
+}
+
+const at = (text: string, caret: number): DraftSnapshot =>
+  updateDraftText(createDraftSnapshot(), text, caret, caret)
+
+describe('runAttachMenuAction (AC2·AC3)', () => {
+  it.each([
+    ['빈 입력', at('', 0), { type: 'skill', name: 'review' }, '/review ', 8],
+    [
+      '커서가 글자 사이 · 뒤가 공백',
+      at('hello world', 5),
+      { type: 'skill', name: 'r' },
+      'hello /r world',
+      8
+    ],
+    ['커서가 문장 앞', at('fix it', 0), { type: 'plugin', id: 'jira' }, '@jira fix it', 6],
+    ['공백으로 끝남', at('see ', 4), { type: 'plugin', id: 'jira' }, 'see @jira ', 10]
+  ] as const)(
+    '%s → 커서 자리 삽입 · 커서는 토큰 뒤 · 메뉴 닫힘',
+    (_, start, action, text, caret) => {
+      const { deps, read } = harness(start)
+      runAttachMenuAction(action as AttachMenuAction, deps)
+      expect(read().text).toBe(text)
+      expect(read().selectionStart).toBe(caret)
+      expect(deps.focus).toHaveBeenCalledExactlyOnceWith(caret)
+      expect(deps.closeMenu).toHaveBeenCalledOnce()
+      expect(deps.pickAttachments).not.toHaveBeenCalled()
+    }
+  )
+
+  it('파일 추가는 선택 창만 열고 입력을 바꾸지 않는다', () => {
+    const { deps, read } = harness(at('keep', 4))
+    runAttachMenuAction({ type: 'attach' }, deps)
+    expect(deps.pickAttachments).toHaveBeenCalledOnce()
+    expect(deps.closeMenu).toHaveBeenCalledOnce()
+    expect(read().text).toBe('keep')
+    expect(deps.focus).not.toHaveBeenCalled()
+  })
+
+  it('조합(IME) 중이면 삽입하지 않는다', () => {
+    const { deps, read } = harness(at('ab', 2), true)
+    runAttachMenuAction({ type: 'skill', name: 'r' }, deps)
+    expect(read().text).toBe('ab')
+    expect(deps.focus).not.toHaveBeenCalled()
+    expect(deps.closeMenu).toHaveBeenCalledOnce()
+  })
+
+  it('컨트롤러는 메뉴 동작을 이 함수에 자기 스냅샷·갱신·포커스와 함께 넘긴다', () => {
+    const source = readFileSync(new URL('./ComposerInputController.tsx', import.meta.url), 'utf8')
+    expect(source.match(/runAttachMenuAction\(action, \{/g)).toHaveLength(1)
+    expect(source).toContain('snapshot: () => snapshotRef.current,')
+    expect(source).toMatch(
+      /runAttachMenuAction\(action, \{[^}]*\n\s+updateSnapshot,\n\s+focus\n\s+\}\)/
+    )
+    expect(source).toContain('onAction={onAttachMenuAction}')
+  })
+})
