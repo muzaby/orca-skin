@@ -660,3 +660,124 @@
 - PLAN_GAP: 없음 — VP-01·VP-02 path와 AC2·AC3·AC6·AC7이 자리와 계약을 명시한다.
 - AC: ✅8 · ⚠️1 · ❌4(AC2·AC3·AC6·AC7).
 - 다음 단계: 구현자 r6 — D9를 닫고 8변이 red를 보고한다. 분모는 `CascadeMenu.tsx`의 props·이벤트·effect 자리 독립 재열거로 잡는다.
+
+# r6 검증
+
+## 메타 (r6)
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `bffa5333..104b9a93` = r6 `104b9a93` |
+| 구현 전 plan 기준 | `7f6ed426` (V1) — r1 기준 그대로 |
+| V mode / 유효 V | `Baseline V: V1` / `V1` |
+| 라운드 | 6 |
+| 상태 | **PASS (기계 범위)** — D9 closed(인용 8/8 red), VP-01·VP-02 PASS, VP-04(AC12) 사람 실기 대기 |
+| 자기 검증 여부 | **예** — 구현 `Agent: claude`. 보고에 없던 축 6건(I1~I5·I9) + Popover 형제 소비자 독립 재열거(§4) |
+
+## 0. 기준선 (r6)
+
+- 구현 커밋의 `plan.md` 변경: hunk 2개(`@@ -899` r6 절 추가 · `@@ -907` 파생 이슈 표 뒤) — 삭제 줄 0. Decision·AC·V·§10·oracle 변경 없음.
+- app diff: production `CascadeMenu.tsx` 1파일(포커스 시점 2자리 → `focusNextFrame`) · 신규 하네스 1 · 신규 테스트 2 · 기존 테스트 확장 1(`composerAttachMenu.test.ts` +41, 삭제 0).
+
+## 2. 비판적 읽기 (r6)
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| production 수정이 원인을 고치는가 | 예 | `Popover.tsx:119-123`·`CascadeMenu.tsx:252-256` 첫 커밋 `visibility:hidden` → 같은 커밋의 passive effect focus는 거부된다. React는 layout effect의 setState 재렌더 전에 passive effect를 비운다 — 하네스 `renderRoot` 순서(layout → passive → 재렌더)와 같다 |
+| 늦은 프레임이 화면을 되돌리는가 | 아니오 | 언마운트 시 effect 정리가 취소하고, 놓쳐도 `rootRef.current`가 null이라 무동작 — I5(취소 삭제) 관련 vitest 238파일 1886 green, 등가 판정 참 |
+| 하네스가 VP-01 path를 지나는가 | 예 | `attachMenu.flow.test.ts`는 `AttachMenu` → 실제 `CascadeMenu`·`Popover`·`MenuItem`, mock은 `react` 훅·`react-dom` 포털·i18n `tr`뿐(실행 환경·문구 대체) |
+| 컨트롤러 → AttachMenu edge | 구조 proxy | `composerAttachMenu.test.ts:"'+' 칩이 메뉴를 열고 닫으며 …"` — `ComposerInputController.tsx` 원문 블록 정확 일치. 블록 안 편집은 전부 red, 블록 밖 의미 변경은 못 본다(NON_BLOCKING N1) |
+
+## 4. 적대 증거 재측정 (r6)
+
+- 실행: 변이마다 백업 → `node node_modules/vitest/vitest.mjs run` 선별 13파일 101케이스(`shared/ui/{CascadeMenu.flow,CascadeMenu,cascadeMenuState}` · `composer/{attachMenu.flow,attachMenu.render,attachMenuSelect,composerAttachMenu,autocompleteKeys,MentionAutocomplete.render}` · `lib/{attachMenuModel,composerToken,skillGroups}` · `hooks/useMentionAutocomplete`) → 원복. green은 관련 vitest 238파일로 재실행. 최종 `git status` clean.
+
+| 변이 | 자리 | r5 | r6 실패 수 | 귀속 |
+|---|---|---|---|---|
+| X1b 래퍼 `onSelect` 가드 | `CascadeMenu.tsx:43` | green | **red** 6 | D9 인용 |
+| X13b activate `onSelect` 가드 | `:88` | green | **red** 6 | D9 인용 |
+| X14b 패널 클릭 미dispatch | `:161` | green | **red** 9 | D9 인용 |
+| X15 항목 `onClick(0)` | `:236` | green | **red** 7 | D9 인용 |
+| X2 래퍼 `onClose` 무동작 | `:44` | green | **red** 7 | D9 인용 |
+| X10 열 때 루트 포커스 삭제 | `:116` | green | **red** 9 | D9 인용 |
+| X4b 포커스 이동 effect 무동작 | `:125` | green | **red** 5 | D9 인용 |
+| X9b hover 레벨 0 | `:104` | green | **red** 1 | D9 인용 |
+| S1 · S2 · S3 | 트리 · 토큰 접두 · 앞 공백 | red | red 12 · 5 · 3 | 등록 |
+| K1 · K2 · G1 · W1 | ← 무시 · 뒤집기 생략 · 섹션 역순 · `ProjectLandingPage` Composer 누락 | red | red 2 · 4 · 2 · 1 | 등록 |
+| H1 · H3 · H2b · K3 · P1b | hover 지연 · 즉시 dispatch · 이탈 · 키 · 좌표 우회 | red | red 4 · 4 · 2 · 9 · 3 | r5 red 재실행 |
+| X3 · X5 · X8 · Q1 | 래퍼 `items=[]` · viewport 맞바꿈 · parentIndex · Popover 안쪽 판정 | red | red 19 · 3 · 6 · 4 | r5 red 재실행 |
+| R1 수정 전 `CascadeMenu.tsx`(`89a501e5`) | 포커스 즉시 | — | **red** 9 | 이번 production 수정 |
+| I1 focus effect deps `[state.focus?.index]` | `:131` | — | red 1 | 독립(다른 지점) |
+| I2 루트 포커스를 `useLayoutEffect` 즉시로 | `:115-116` | — | red 9 | 독립(다른 시점) |
+| I3 행 포커스를 `useLayoutEffect` 즉시로 | `:123-130` | — | red 1 | 독립(다른 시점) |
+| I4 루트 `tabIndex` 삭제 | `:139` | — | red 9 | 독립(형제 속성) |
+| I9 래퍼 `anchorRef` → `{ current: null }` | `:45` | — | red 2 | 독립(형제 prop) |
+| I5 프레임 취소 삭제(구현자 R3 등가 표본) | `:112` | — | green(238파일 1886) | 등가 판정 참 — §2 |
+
+- 합계: D9 인용 8/8 red · 등록 7/7 red · r5 red 9/9 red(**덮개 회귀 0**) · R1 red · 독립 5/5 red + 등가 표본 1 green.
+- I2·I3은 "다음 프레임" 대신 다른 동기 시점을 고른 구현이 하네스에서 red인지 본다 — 하네스가 숨은 패널 포커스 거부를 실제로 모델링한다는 독립 증거.
+- 형제 재열거: `.focus(`/`autoFocus` 가진 `.tsx` 25파일 중 `Popover` 소비 + 열 때 안으로 포커스 = `ArtifactCatalogRow`·`ProjectCatalogRow`·`GitIdentityMenus`(rAF) · `CascadeMenu`(이번 수정) · `EngineFormModal`(대상이 Popover 밖) — 구현 보고 #4와 같음.
+
+## 5. V-pair closeout (r6)
+
+| Pair | 자리 | 좌표 | 변이 | 결과 |
+|---|---|---|---|---|
+| VP-01 | ① '+' 칩 → 열림 · ② 컨트롤러 → AttachMenu | `composerAttachMenu.test.ts:"'+' 칩이 메뉴를 열고 닫으며 …"`(원문) · `attachMenu.flow.test.ts:'받은 onClick·ref 를 버튼에 …'` | 원문 블록 정확 일치(N1) | **PASS** |
+| | ③ AttachMenu → 트리 · ④ → CascadeMenu | `attachMenu.flow.test.ts` '최상위 4행 …'·'빈 목록이면 …'·선택 4케이스·'열린 채 … 새 목록' | S1 12 · X3 19 · W1 1 | |
+| | ⑤ 래퍼 → CascadeBody · ⑥ 행 → 선택 | `CascadeMenu.flow.test.ts` 'Enter·Space 로 동작 항목을 …'·'클릭으로 하위를 열고 깊은 동작 항목을 …' | X1b·X13b·X14b·X15·I9 red | |
+| | 선택 이후 삽입 | r4 §5 VP-05·10 좌표(`composerAttachMenu.test.ts:'%s → 커서 자리 삽입 …'`) — 실재 · 이번 gate 집합 안 | S2 5 · S3 3 | |
+| VP-02 | 열림 → 키가 메뉴에 닿음 · reducer → DOM 포커스 | `CascadeMenu.flow.test.ts` '열면 … 배치 뒤 프레임에 루트가 포커스를 …'·'↓/↑ …'·'→·Enter·Space …' | X10·X4b·R1·I1~I4 red · K1·K3 | **PASS** |
+| | 최상위 Esc → onClose·앵커 | '최상위 Esc …'(두 파일) | X2 7 · I9 2 | |
+| | 포인터 → 타이머 → reducer(레벨) | 'hover 는 150ms 뒤에 …(레벨 1)'·'150ms 전에 …' | X9b·H1·H2b·H3 | |
+| | → `submenuPosition` → style · 안/밖 mousedown | 배치 2케이스 · '바깥 mousedown …' | K2·P1b·X5·X8·Q1 | |
+| VP-03·05·06·07·08·09·10·11 | — | r4·r5 §5 좌표 그대로 — 대상 파일·production 무변경, 관련 vitest 1886 안 green | 등록 변이 red 유지(위 표) | PASS |
+| VP-04 | AT-12 | 사람 실기 | — | 실기 대기 |
+
+### AC 합계 (r6)
+
+| AC | 결과 | 근거 |
+|---|---|---|
+| AC1 · AC4 · AC5 | ✅ | 트리·render·flow 접근성 좌표 · S1 |
+| AC2 · AC3 | ✅ | 선택 edge X1b·X13b·X14b·X15 red · 삽입 S2·S3 · 관리 W1 |
+| AC6 | ✅ | X2·X10·X4b·R1·I1~I4 red |
+| AC7 | ✅ | X9b·H1·H2b·H3·Q1 red |
+| AC8 | ✅ | K2·P1b·X5·X8 red |
+| AC9~AC11 · AC13 | ✅ | G1 red · §9 |
+| AC12 | ⚠️ | 사람 실기 |
+
+- `✅ 12 · ⚠️ 1 · ❌ 0 = 총 13` · 자기보고 본문 `✅12·⚠️1·❌0` = trailer `Criteria-Met: 12/13` = INDEX `✅12·⚠️1` — 일치.
+
+## 9. 게이트 (r6)
+
+- eslint(`npm run lint`, `--fix` 없음) 0 error · 1 warning(기존 `useTranscriptVirtualizer.ts`) · 트리 무변경.
+- typecheck(node·web·test) exit 0 · `error TS` 0.
+- 관련 vitest(`features/chat` · `shared/ui` · `pages`) 238파일 1886케이스 pass · 실패 0.
+
+## 11. Repository operation checks (r6)
+
+- INDEX 좌표 `104b9a93` 기입(`git cat-file -t` commit · `origin/claude/0256-0259-prefs-tooltip-sdk-menu` 포함).
+- trailer `104b9a93` 7키 파싱.
+- `[구현자 기입]` r6 7필드 존재 · 분모 검산 `7 · 8 · 4 = 19` 행 수 일치 · INDEX 비고 3줄.
+
+## 13. Finding disposition (r6)
+
+| # | finding | 귀속 | disposition |
+|---|---|---|---|
+| D9 | `CascadeMenu` 선택·닫기·포커스·hover 레벨 edge | VP-01·VP-02 · AC2·AC3·AC6·AC7 | **closed** — 인용 8/8 red |
+| 놓친 #1 | 숨은 패널 포커스 거부로 '+' 메뉴 키보드 무반응(production) | VP-02 · AC6 · D-007 | 구현자 선조치 — R1 red로 잠김 |
+| N1 | 컨트롤러 → AttachMenu edge는 원문 블록 일치(구조 proxy) — 블록 밖에서 `setAttachMenuOpen`·`attachButtonRef` 의미를 바꾸면 못 본다 | VP-01 ①② | NON_BLOCKING — 컨트롤러 실행 하네스는 다음 컴포저 작업 때 |
+
+## 14. Review Signals (r6)
+
+- 이전 라운드와 유사 증상: 아니오 — r1~r5의 "path edge가 실행 구간 밖" 축이 이번 라운드 측정에서 재현되지 않았다(인용·독립 변이 전부 red).
+- 관련 plan 지침: AC6 oracle이 reducer 표 UT라 DOM 포커스를 요구하지 않았고, 그 사각에 production 결함(놓친 #1)이 r1부터 있었다 — 사실로만 기록.
+- 반복 환경 한계: node 환경 DOM 부재 — 이번 하네스(React 커밋 순서·숨은 요소 포커스 거부)로 넘었다. 픽셀·체감은 AC12.
+- 라운드 6 — 3 초과(round 31·32가 r5·r6 직전에 수행됨).
+
+## 15. 결론 (r6)
+
+- 상태: **PASS (기계 범위)**.
+- pair: PASS 10 · 실기 대기 1(VP-04).
+- PLAN_GAP: 없음.
+- AC: ✅12 · ⚠️1(AC12) · ❌0.
+- 다음 단계: 사람 — AC12 실기(`npm run dev`: 계단식 메뉴·하위 위치·툴팁·키보드·삽입). archive 이동은 실기 뒤.
