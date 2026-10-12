@@ -517,4 +517,4 @@ classifyContextModel → modelForCli → spawn options.model → CLI betas
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| — | 없음 (r1 verify — 등록 변이 4/4 red, 독립 축 red) | — | — | — | — |
