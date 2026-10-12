@@ -528,3 +528,135 @@
 - PLAN_GAP: 없음 — VP-02 path·AC7·§10 EP-03이 계약과 자리를 명시한다.
 - AC: ✅9 · ⚠️1 · ❌3(AC6·AC7·AC8).
 - 다음 단계: 구현자 r5 — D8을 닫고 H1·H2b·H3·K3·P1b red를 보고한다(D3 함께 권장).
+
+---
+
+# r5 검증
+
+## 메타 (r5)
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `276b2098..89a501e5` = r5 `89a501e5` |
+| 구현 전 plan 기준 | `7f6ed426` (V1) — r1 기준 그대로 |
+| V mode / 유효 V | `Baseline V: V1` / `V1` |
+| 라운드 | 5 |
+| 상태 | **FAIL** — D8·D3 closed(VP-09 PASS), 새 root `PAIR_FAIL` VP-01·VP-02(D9: `CascadeMenu` 선택·닫기·포커스·hover 레벨 edge, 변이 8건 진단 0까지 밀어 전 gate green) |
+| 자기 검증 여부 | **예** — 구현 `Agent: claude`. 보고에 없던 축 15건(X1~X15, 일부 b판) |
+
+## 0. 기준선 (r5)
+
+- 구현 커밋의 `plan.md` 변경: hunk 1개 `@@ -796` — r4 `[구현자 기입]` 뒤 r5 절 추가만. Decision·AC·V·§10·oracle 변경 없음.
+- app diff: 신규 `shared/ui/CascadeMenu.test.ts` 1파일(+257) · production 0 · 기존 테스트 수정·삭제 0.
+
+## 2. 비판적 읽기 (r5)
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 하네스가 production 컴포넌트를 지나는가 | 예 | react 훅만 mock, `CascadeBody`·`CascadePanel`(`panel.type`)·`Popover` 실함수 호출(`CascadeMenu.test.ts:63-64,197,222,249`) |
+| 래퍼 `CascadeMenu`(→ CascadeBody props 전달)를 지나는가 | **아니오** | 테스트는 `CascadeBody`를 직접 마운트 — `CascadeMenu.tsx:41-47` 전달 자리를 지나는 테스트 0(`attachMenuSelect.test.ts:17`은 `CascadeMenu`를 mock) |
+| 선택 경로(클릭/Enter → activate → `onSelect`)를 관측하는가 | **아니오** | 7케이스 중 `onSelect` 단언 0 — X1b·X13b·X14b·X15 green(§4) |
+| hover 테스트가 레벨을 가르는가 | **아니오** | hover는 level 0만 — X9b green |
+| DOM 포커스(마운트 시 루트·키 이동 후 행)를 관측하는가 | **아니오** | `state.focus`만 단언 — X4b·X10 green |
+
+## 4. 적대 증거 재측정 (r5)
+
+- 실행: 변이마다 백업 → `node node_modules/vitest/vitest.mjs run src/renderer/src/features/chat/{components/composer,lib,hooks} src/renderer/src/{shared/ui,pages}`(118파일 864케이스) → 원복. green 변이는 `eslint <file>`·`tsc -p tsconfig.web.json --composite false`도 실행해 error 0까지 밀었다(X1→X1b · X13→X13b · X14→X14b · X4→X4b · X9→X9b). 최종 `git status` clean.
+
+| 변이 | 자리 | r4 | r5 | 귀속 |
+|---|---|---|---|---|
+| H1 · H3 | `cascadeMenuState.ts:20` · `CascadeMenu.tsx:100-106` | green | **red** 2 · 2 | D8 인용 |
+| H2b | `CascadeMenu.tsx:147` | green | **red** 1 | D8 인용 |
+| K3 | `CascadeMenu.tsx:135` | green | **red** 2 | D8 인용 |
+| P1b | `CascadeMenu.tsx:187-193` | green | **red** 1 | D8 인용 |
+| J1 · J2 · J3 · J4 | 항목 edge · Esc 전파 · 패널 폭 | — | red 1 · 1 · 1 · 1 | 구현자 새 oracle |
+| Q1 | `Popover.tsx:99` | — | red 1 | D3 인용 |
+| X3 래퍼 `items={[]}` | `CascadeMenu.tsx:42` | — | red attachMenu.render 1 | 독립 |
+| X5 viewport 가로↔세로 맞바꿈 | `CascadeMenu.tsx:191` | — | red 1 | 독립(형제 슬롯) |
+| X8 `parentIndex = state.open[level]` | `CascadeMenu.tsx:144` | — | red 1 | 독립 |
+| **X1b** 래퍼 `onSelect={(a) => { if (a === undefined) onSelect(a) }}` | `CascadeMenu.tsx:43` | — | **green** · eslint 0 error · tsc 0 | VP-01 path `CascadeMenu → 선택` → **D9** |
+| **X13b** activate 효과 `onSelect` 미호출(가드) | `CascadeMenu.tsx:88` | — | **green** · 0 · 0 | VP-01 → **D9** |
+| **X14b** 패널 `onClick`이 dispatch 안 함 | `CascadeMenu.tsx:148-151` | — | **green** · 0 · 0 | VP-01 → **D9** |
+| **X15** 항목 `onClick(0)` | `CascadeMenu.tsx:225` | — | **green** · 0 · 0 | VP-01 → **D9** |
+| **X2** 래퍼 `onClose={() => undefined}` | `CascadeMenu.tsx:44` | — | **green** · 0 · 0 | VP-02 AC6 "최상위 Esc 전체 닫힘" → **D9** |
+| **X10** 마운트 시 루트 `focus` 삭제 | `CascadeMenu.tsx:109` | — | **green** · 0 · 0 | VP-02 path 시작 `keydown` — 포커스가 없으면 메뉴에 안 닿음 → **D9** |
+| **X4b** 포커스 이동 effect 삭제 | `CascadeMenu.tsx:113-120` | — | **green** · 0 error(prettier warning 1) · 0 | VP-02 AC6 "↓/↑ 이동 · 첫 활성 항목" → **D9** |
+| **X9b** hover 타이머 `level: level * 0` | `CascadeMenu.tsx:104` | — | **green** · 0 · 0 | VP-02 path `pointerenter → reducer` 레벨 운반 → **D9** |
+| X6 언마운트 cleanup 삭제 | `CascadeMenu.tsx:110` | — | green | NON_BLOCKING — 닫힌 뒤 타이머는 setState만, 관측 결과 없음 |
+| X7 클릭 시 `cancelHover` 생략 | `CascadeMenu.tsx:149` | — | green | NON_BLOCKING — AC7에 "클릭 후 대기 hover 취소" 조항 없음 |
+| X11 · X12 Popover 앵커 판정·문서 Esc 삭제 | `Popover.tsx:100,104` | — | green | NON_BLOCKING — 0259가 바꾸지 않은 공용 Popover 동작 |
+
+- 재측정 합계: 인용 6/6 red(D8 5 · D3 1) · 구현자 새 oracle 4/4 red · 독립 red 3(X3·X5·X8) · 독립 green 12 = BLOCKING 8 + NON_BLOCKING 4.
+- 덮개 회귀 0 — 기존 테스트 수정·삭제 0이라 r4 red 변이를 잡던 케이스가 그대로 실행 집합 안에 있다(864 = r4 857 + 7).
+- X1b·X13b·X14b·X15면 '+' 메뉴에서 무엇을 골라도 아무것도 들어가지 않고, X2·X10이면 최상위 Esc·키 탐색이 죽어도 전 gate가 통과한다.
+
+## 5. V-pair closeout (r5)
+
+| Pair | 자리 | 좌표 | 변이 | 결과 |
+|---|---|---|---|---|
+| VP-09 | ① 키 reducer · ③ `submenuPosition` | r4 §5 좌표(`cascadeMenuState.test.ts` '키보드 (AC6)' 5 · 'submenuPosition (AC8)' 4) — 파일·production 무변경 | K1·K2(r4) red | **PASS** |
+| | ② hover 150ms | `CascadeMenu.test.ts:'하위 항목 hover 는 150ms 뒤에 연다 — 149ms 에는 닫혀 있다'` | H1·H3 red | |
+| VP-02 | 키 → dispatch · Esc 전파 | `CascadeMenu.test.ts:'메뉴 keydown 이 reducer 로 …'` · `'최상위 Esc 는 메뉴를 닫고 …'` | K3·J3 red | **PAIR_FAIL** |
+| | hover/이탈 → 타이머 · 항목 edge | `'150ms 전에 항목을 떠나면 열지 않는다'` · `'패널 항목의 pointerenter·pointerleave …'` | H2b·J1·J2 red | |
+| | → `submenuPosition` → style | `'열린 하위 패널은 부모 항목 좌표로 …'` | P1b·J4·X5·X8 red | |
+| | **래퍼 `onClose` → 최상위 Esc 닫힘** | **없음** | **X2 green** | |
+| | **마운트 루트 focus · 키 이동 후 행 focus** | **없음** — `state.focus`만 단언 | **X10·X4b green** | |
+| | **hover → reducer 레벨 운반** | **없음** — level 0만 hover | **X9b green** | |
+| VP-01 | `AttachMenu → CascadeMenu → 선택 → insert` | `attachMenuSelect.test.ts`는 `CascadeMenu`를 mock해 `onSelect`를 직접 부름 — `CascadeMenu` 안 선택 edge 좌표 **없음** | **X1b·X13b·X14b·X15 green** | **PAIR_FAIL** |
+| VP-03·05·06·07·08·10·11 | — | r4 §5 좌표 그대로 — 대상 파일·production 무변경, 관련 vitest 1862 안에서 green | r4 red 유지 | PASS |
+| VP-04 | AT-12 | 사람 실기 | — | 실기 대기 |
+
+- root `PAIR_FAIL`: VP-01(선택 edge) · VP-02(닫기·포커스·레벨 edge). 같은 컴포넌트지만 path가 다른 pair라 `BLOCKED_BY`로 묶지 않는다.
+- r1~r4 VP-01 PASS는 mock `CascadeMenu`의 `onSelect`를 직접 불러 선택 이후만 관측했다 — path의 `CascadeMenu → 선택` edge는 한 번도 지나지 않았다.
+
+### AC 합계 (r5)
+
+| AC | 결과 | 근거 |
+|---|---|---|
+| AC1 · AC4 · AC5 | ✅ | 트리·render 좌표(r4) |
+| AC2 · AC3 | ❌ | "고르면 커서 자리에 삽입" — `CascadeMenu` 안 선택 edge 미잠금(X1b·X13b·X14b·X15) |
+| AC6 | ❌ | 최상위 Esc 닫힘(X2)·키 포커스 이동(X10·X4b) 미잠금 |
+| AC7 | ❌ | 하위 레벨 hover(X9b) 미잠금 · 150ms·이탈·바깥 클릭은 잠김(H1·H2b·H3·Q1 red) |
+| AC8 | ✅ | P1b·J4·X5·X8 red |
+| AC9~AC11 · AC13 | ✅ | VP-03·11 · §9 |
+| AC12 | ⚠️ | 사람 실기 |
+
+- `✅ 8 · ⚠️ 1 · ❌ 4 = 총 13` · 자기보고 `✅12·⚠️1` · 불일치 AC2·AC3·AC6·AC7.
+- 사본 대조: 본문 `✅12·⚠️1·❌0` ↔ trailer `Criteria-Met: 12/13` ↔ INDEX `✅12·⚠️1` — 사본끼리는 일치.
+
+## 9. 게이트 (r5)
+
+- eslint(`npm run lint`, `--fix` 없음) 0 error · 1 warning(기존 `useTranscriptVirtualizer.ts`) · 트리 무변경.
+- typecheck(node·web·test) exit 0 · `error TS` 0.
+- 관련 vitest(`features/chat` · `shared/ui` · `pages`) 236파일 1862케이스 pass · 실패 0.
+
+## 11. Repository operation checks (r5)
+
+- INDEX 좌표 `89a501e5` 기입(`git cat-file -t` commit · `origin/claude/0256-0259-prefs-tooltip-sdk-menu` 포함).
+- trailer `89a501e5` 7키 파싱.
+- `[구현자 기입]` r5 7필드 존재 · 분모 검산 `0 · 5 · 5 = 10` 행 수 일치 · INDEX 비고 3줄.
+
+## 13. Finding disposition (r5)
+
+| # | finding | 귀속 | disposition |
+|---|---|---|---|
+| D8 | `CascadeMenu` 키·hover 지연·배치 edge | VP-09 · VP-02 | **closed** — H1·H2b·H3·K3·P1b red |
+| D3 | AC7 바깥 클릭 stub UT | AC7 | **closed** — Q1 red |
+| D9 | `CascadeMenu` 선택·닫기·포커스·hover 레벨 edge 미잠금 — X1b·X13b·X14b·X15·X2·X10·X4b·X9b 진단 0 green | VP-01 path · VP-02 path · AC2·AC3·AC6·AC7 · D-007 | **BLOCKING** — plan 파생 이슈 D9 |
+| — | X6 · X7 · X11 · X12 green | 현재 pair·AC 밖 | NON_BLOCKING(기록만) |
+
+## 14. Review Signals (r5)
+
+- 이전 라운드와 유사 증상: 예 — pair path edge 중 테스트가 닿지 않은 자리(r1 D1·D2 → r2 D4 → r3 D6 → r4 D8 → r5 D9). 이번엔 r4가 PASS로 둔 VP-01의 `CascadeMenu → 선택` edge가 같은 컴포넌트에서 드러났다.
+- 관련 plan 지침: VP-01 path가 `CascadeMenu → 선택`을, AC6이 "최상위 Esc 전체 닫힘"을 명시.
+- r5 구현 분모는 D8 인용 변이 + 구현자가 고른 형제 4건 — 같은 컴포넌트의 래퍼·선택·포커스 edge는 세지 않았다. r4 검증의 VP-01 좌표도 mock 너머를 보지 않았다.
+- 반복 환경 한계: node 환경 컴포넌트 렌더 불가 — r5 훅 mock 하네스가 이 한계를 넘었으므로 D9도 같은 하네스로 닫을 수 있다.
+- 라운드 6 — 3 초과(round 31이 r5 직전에 수행됨).
+
+## 15. 결론 (r5)
+
+- 상태: **FAIL**.
+- pair: PASS 8 · root PAIR_FAIL 2(VP-01·VP-02) · 실기 대기 1(VP-04).
+- PLAN_GAP: 없음 — VP-01·VP-02 path와 AC2·AC3·AC6·AC7이 자리와 계약을 명시한다.
+- AC: ✅8 · ⚠️1 · ❌4(AC2·AC3·AC6·AC7).
+- 다음 단계: 구현자 r6 — D9를 닫고 8변이 red를 보고한다. 분모는 `CascadeMenu.tsx`의 props·이벤트·effect 자리 독립 재열거로 잡는다.
