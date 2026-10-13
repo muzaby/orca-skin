@@ -347,3 +347,9 @@
 - 운영 gate 3종 PASS · repository operation 정상
 - 남은 사람 확인: D-003(PRD/TRD 정정 깊이)·D-007(AGENTS 범위 — `app/AGENTS.md` 선조치 포함) 기본값 · X1(DevTools)·X4(장치 상시화)·X5(`bypass` 모드 SDK 플래그)
 - 다음 단계: 사람 확인 뒤 archive 이동. NON_BLOCKING N8·N9 는 한 줄 정정 후보.
+
+## 사용자 확인 (2026-10-13)
+
+- D-003(PRD/TRD 정정 깊이) "이 범위로 괜찮다" · D-007(AGENTS 범위) "Ok" — 남은 사람 확인 0, 보드 행을 archive 로 옮긴다.
+- NEXT_HANDOFF 중 X1(프로덕션 DevTools 차단)·X5(`allowDangerouslySkipPermissions` 전달)는 사용자 지시로 **0261** 에서 다룬다. X2·X3·X4 와 NON_BLOCKING N4·N7~N9 는 후보로 남는다.
+
