@@ -177,7 +177,9 @@ function openWindow(entry: Entry, opts: LoginWindowOptions): Promise<{ finalUrl:
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
-        partition: partitionFor(entry.sessionGroup)
+        partition: partitionFor(entry.sessionGroup),
+        // 외부 IdP 페이지를 싣는 창이라 production 에서 DevTools 를 열지 않는다(0261 D-002 — 본창과 같은 키).
+        devTools: import.meta.env.DEV
       }
     })
     let settled = false

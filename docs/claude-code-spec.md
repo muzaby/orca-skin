@@ -233,9 +233,13 @@ claude -p "Apply the lint fixes" --permission-mode acceptEdits
 | 플래그 | 의미 |
 |---|---|
 | `--dangerously-skip-permissions` | `--permission-mode bypassPermissions` 와 동일. 모든 권한 프롬프트 건너뜀 |
-| `--allow-dangerously-skip-permissions` | Shift+Tab 모드 사이클에 `bypassPermissions` 를 *옵션* 으로 추가. 시작은 다른 모드로 |
+| `--allow-dangerously-skip-permissions` | Shift+Tab 모드 사이클에 `bypassPermissions` 를 *옵션* 으로 추가. 시작은 다른 모드로. 스트리밍 세션의 라이브 `setPermissionMode('bypassPermissions')` 도 이 플래그(또는 bypass 시작) 없이 spawn 한 세션에서는 거부된다(SDK 0.3.296 실측) |
 
-✅ **Orca v1 채택 (`--dangerously-skip-permissions` 쪽)** — 같은 의미의 `permissionMode: 'bypassPermissions'` 를 Composer 권한 메뉴의 `bypass`(Work·Code)로 사용자가 고를 수 있다(`shared/permission-mode.ts` `menuModes`, 0224). 기본값이 아니며(기본 정책은 OQ9), workspace guard 훅의 deny 는 이 모드에서도 유효하다. `--allow-dangerously-skip-permissions` 대응 `allowDangerouslySkipPermissions` 는 넘기지 않는다(`adapters/claude.ts`).
+✅ **Orca v1 채택 (두 플래그 모두)** — 같은 의미의 `permissionMode: 'bypassPermissions'` 를 Composer 권한 메뉴의 `bypass`(Work·Code)로 사용자가 고를 수 있다(`shared/permission-mode.ts` `menuModes`, 0224). 기본값이 아니며(기본 정책은 OQ9), workspace guard 훅의 deny 는 이 모드에서도 유효하다.
+
+- 대화 query 는 시작 모드(`permissionMode`)를 명시할 때 `allowDangerouslySkipPermissions: true` 를 함께 넘긴다(`adapters/claude.ts`, 0261) — 다른 모드로 시작한 장수명 채널도 턴 중·다음 턴에 `bypass` 로 바뀐다.
+- 플래그는 가용성만 연다. 시작 모드는 명시값이고, 레포 settings 의 `defaultMode: bypassPermissions` 는 시작 모드가 되지 않으며, `disableBypassPermissionsMode` 정책은 전환을 계속 막는다(0261 실측 — SDK 를 갱신하면 `docs/handoff/0261-bypass-flag-prod-devtools/probe-live-bypass.mjs` 로 다시 잰다).
+- 제목 생성 `complete()` 는 넘기지 않는다(도구 0·모드 없음).
 
 ### 5.6 Orca 채택 (OQ9)
 
@@ -468,6 +472,7 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 | `--resume <id>` / `-r` | `resume` — 채널 사망 뒤 spawn | §7.2 |
 | `--fork-session` | `forkSession` — Fork·Handoff (0064) | §7.3 |
 | `--permission-mode` | `permissionMode` — Composer 권한 메뉴·라이브 전환(`bypass` = `--dangerously-skip-permissions` 와 같은 `bypassPermissions`). **기본 정책값은 OQ9** | §5.2, §5.5, §5.6 |
+| `--allow-dangerously-skip-permissions` | `allowDangerouslySkipPermissions: true` — 대화 query 가 명시 시작 모드와 함께 넘긴다(라이브 `bypass` 전환의 전제, 0261). 제목 생성 `complete()` 는 넘기지 않는다 | §5.5 |
 | `--disallowedTools` | `disallowedTools: ['WebSearch']` | §5.4 |
 | `--append-system-prompt` | `systemPrompt` preset + append(`# Orca` 헤더) | §6 |
 | `--add-dir` | `additionalDirectories` — 앱 임시 루트 + 세션 extraDirs | §11 |
@@ -495,7 +500,6 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 | `--continue` / `-c` | 단일 세션 시나리오, ID 기반 재개로 충분 | §7.1 |
 | `--system-prompt` (완전 교체) | Claude Code 정체성 유지 | §6 |
 | `--json-schema` | 자유 텍스트 챗 | §9 |
-| `--allow-dangerously-skip-permissions` | `allowDangerouslySkipPermissions` 를 넘기지 않는다 — 권한 우회는 `--permission-mode`(`bypassPermissions`)로만(§14.1) | §5.5 |
 | `--no-session-persistence` | 영속화 가치 (재개 시 컨텍스트 복원) | §7.5 |
 | `--name <text>` / `-n` | 제목은 Orca DB(`sessions.title`·`title_source`)가 소유 | §7.5 |
 | stdin 파이프 입력 | UI 가 입력 채널, `-p` 인자만 사용 | §8 |

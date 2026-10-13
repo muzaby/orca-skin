@@ -621,7 +621,15 @@ export class ClaudeAdapter implements SessionAdapter {
             }
           : {}),
         // 권한 모드 (정규화 6종 → SDK PermissionMode). 부재 시 SDK 기본(default) 동작.
-        ...(permissionMode ? { permissionMode: toClaudePermissionMode(permissionMode) } : {}),
+        // 시작 모드를 명시할 때 bypass 가용성도 함께 연다(0261 D-001·D-004) — CLI 는 이 플래그(또는
+        // bypass 시작) 없이 spawn 한 채널의 라이브 `setPermissionMode('bypassPermissions')` 를 거부한다.
+        // 가용성일 뿐 시작 모드는 위 명시값이고, `disableBypassPermissionsMode` 정책은 계속 전환을 막는다.
+        ...(permissionMode
+          ? {
+              permissionMode: toClaudePermissionMode(permissionMode),
+              allowDangerouslySkipPermissions: true
+            }
+          : {}),
         ...(executionModel ? { model: executionModel } : {}),
         ...(effort ? { effort } : {})
       }

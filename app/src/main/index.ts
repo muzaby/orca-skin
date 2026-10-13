@@ -210,7 +210,10 @@ function createWindow(settings: SettingsStore): void {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
+      // production 빌드에서는 상수 false 로 접혀 메뉴·단축키·openDevTools 가 모두 무효다(0261 D-002·D-003).
+      // 모든 창 생성자가 이 키를 갖는지는 infra/browser-window-devtools.test.ts 가 강제한다.
+      devTools: import.meta.env.DEV
     }
   })
 

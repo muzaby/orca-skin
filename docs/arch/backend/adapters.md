@@ -79,6 +79,7 @@ SDK 가 throw 하는 에러 메시지/코드에서 `401` / `OAuth` / `expired` �
 | `options.cwd` | ✅ | 구현 | 세션 cwd — 격리 세션은 managed worktree 경로(`features/worktrees`) |
 | `result.total_cost_usd` / `usage` / `modelUsage` / `duration_ms` | ✅ | 구현 | `ProviderReportedTelemetry` 로 정규화(cost·model·캐시 토큰·duration·numTurns) → UsagePanel (provider-runtime.md §8) |
 | `options.permissionMode` / `canUseTool` | ✅ | 구현 | `shared/permission-mode.ts` + `features/approvals/permission-mode-controller.ts`(세션 SSOT); `canUseTool` 은 RISKY_TOOLS(`adapters/risky-tools.ts`) 승인 브리지. **기본 정책값은 PRD OQ9 로 열려 있다** |
+| `options.allowDangerouslySkipPermissions` | ✅ | 구현 | 대화 query 가 `permissionMode` 를 명시할 때 `true` — 장수명 채널의 라이브 `bypass` 전환 전제([claude-code-spec §5.5](../../claude-code-spec.md)). 제목 생성 `complete()` 는 넘기지 않는다 |
 | `options.hooks` (PreToolUse / Stop …) | ✅ | 구현 | `adaptHooks(extensions.hooks)` + 어댑터 내부 훅(workspace guard PreToolUse · Stop git sync · Stop 출력 수집)을 `claude.ts` 가 병합 — in-process 콜백(§3.2.5) |
 | `createSdkMcpServer` + `tool()` | ✅ | 구현 | 인프로세스 runtime tool(`claude-runtime-tools.ts` `adaptRuntimeTools` → `mcpServers`) — 산출물 게시 도구 등 |
 | `options.mcpServers` | ✅ (runtime tool 전용) | 구현 | 파일 기반 MCP 는 plugin `.mcp.json` 으로 로드([standardization.md §5.1](./standardization.md)); `options.mcpServers` 는 인프로세스 runtime tool 서버에만 쓴다 |
