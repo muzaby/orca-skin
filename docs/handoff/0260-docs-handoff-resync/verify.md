@@ -15,7 +15,7 @@
 | V mode / 유효 V | `Baseline V: V1` / `V1` |
 | 검증 기준 plan revision | `0b53bbfa:V1` |
 | 라운드 | 1 |
-| 상태 | **RETURN_TO_PLAN** — PLAN_GAP 2 + BLOCKING 4 |
+| 상태 | r1 **RETURN_TO_PLAN** — PLAN_GAP 2 + BLOCKING 4 → r2 **PASS** (아래 `# r2 검증`) |
 | 자기 검증 여부 | 설계·구현·검증 동일 에이전트 — §4 에 구현 보고가 이름을 대지 않은 적대 축 5건 |
 
 ## 0. 기준선 / plan 변경 확인
@@ -236,3 +236,114 @@
 - 현재 변경 운영 gate: 3종 PASS
 - 남은 사람 확인: D-003·D-007 기본값 · X1·X4·X5
 - 다음 단계: 설계자(Claude)가 G1·G2 를 ΔV1 로 정정(별도 설계 커밋) → r2 구현(D1~D4 + N1~N3) → r2 검증
+
+---
+
+# r2 검증 — V1 + ΔV1
+
+> r1 판정(위)은 보존한다. 이 절은 r2 구현(`4a30602a`)을 ΔV1(`f26d342a`) 기준으로 검증한다.
+
+## r2-0. 메타 · 기준선
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `f26d342a..4a30602a` (r2 구현 1커밋) |
+| 구현 전 plan 기준 | `f26d342a` (ΔV1 설계 커밋 — `origin/ccr-0d9ab133-25ay9c` 에서 `git cat-file -t` = commit) |
+| 유효 V | `V1 + ΔV1` |
+| 라운드 | 2 |
+| 상태 | **PASS** |
+| 자기 검증 여부 | 동일 에이전트 — r2 보고에 없던 축 4건(아래 r2-3) |
+
+- 구현 커밋의 `plan.md` 변경: 메타 `상태` 1행 삭제 + `[구현자 기입] r2` 블록 추가뿐(삭제 줄 = `| 상태 | plan/READY … |` 1줄). Decision·AC·V·§10 규범 행 변경 0.
+- Plan validity: ΔV1 의 대체 pair 3(VP-01·02·08 -D1)이 같은 레벨 REQUIRED 이고 V1 선택 변이를 전부 승계했다. G1·G2 는 D-014·D-013 으로 닫혔다. 새 PLAN_GAP 0.
+
+## r2-1. 비판적 검토
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| false success | 닫힘 — 커버리지 `-` 행 거짓 주장이 이제 red | ⑤ 0221·0222 를 `-` 로 → `'-' 인데 기준 커밋 인용 …` |
+| A 가 아닌 B | 닫힘 — 좌표 정책은 D-013 이 정했다 | DA-SE12·UX9·A07 |
+| 새 표면 실패 | `COVERAGE_BASE` 소실 시 preflight exit 2 | ⑥ |
+
+## r2-2. 등록 적대 증거 재측정
+
+| 변이 | 이전 라운드 | 이번 라운드 | 귀속 |
+|---|---|---|---|
+| r1 등록 10건(UT-01 ①×4·②·③·확인어·④·형식 2) | red 10 | **red 10** | 덮개 회귀 0 |
+| EP-15 §11 도구 권한 → "미사용 확정" | — | red(DA-CS4·CS5) | VP-01-D1 · D1 인용 |
+| EP-15 §7.3 → "❌ 미사용" | — | red(DA-CS7) | VP-01-D1 · D2 인용 |
+| EP-15 §5.5 만 · §14.3 만 | — | red(DA-CS4 · DA-CS6) | VP-01-D1 형제 |
+| ⑤ 0222 · 0221 → `-` | r1: 축 없음(green) | red 2 | VP-02-D1 · D3 인용 |
+| ⑥ `COVERAGE_BASE` 부재 | — | exit 2 | VP-08-D1 |
+
+- 합: 등록·인용 변이 17 → 검출 17 · 미검출 0. 원복 후 `drift-check.sh check` 통과 · `*.mutbak` 0 · `git status` 변경 0.
+
+## r2-3. 자기검증 분모 — r2 보고에 없던 축
+
+| 축 | 결과 | 귀속 |
+|---|---|---|
+| EP-15 §11 **세션 분기** 행을 "❌ 미사용" 으로 | red(DA-CS11) | 정상 — 보고의 잠금 표에 없던 자리 |
+| D4 재도입 — ux-domains §3.2 식을 `chatStore.ts:1920` 으로 | red(DA-UX9 must_not `chatStore\.ts:[0-9]`) | 정상 |
+| EP-15 자리 독립 재열거 `grep -nE 'dangerously\|bypass\|fork-session\|forkSession\|세션 분기\|--continue\|--name' docs/claude-code-spec.md` | 채택/미사용 표기 전부 코드와 일치 · §14.3 `--continue` 행의 **사유**만 "단일 세션 시나리오"(N8) | NON_BLOCKING |
+| 엄격화 재측정(`예정`·`미도입`) 차집합 | GLOSSARY:82 "현 … 정적 정책 append `prompts/`" — `app/src/main/prompts/` 는 0062(`91ee76f3`)에 제거(범위 이전 사실, N9) | NON_BLOCKING |
+
+## r2-4. V-pair closeout
+
+| Pair | 결과 | 직접 증거 |
+|---|---|---|
+| VP-08-D1 (MD-01-D1 ↔ UT-01-D1) | PASS | 판정 함수 4 + 형식 — r2-2 ①~⑥·형식 2·SCOPE 사본 2(r1 좌표 유지) |
+| VP-09 | PASS | r1 좌표 유지(장치 변경 없음) |
+| VP-06 · VP-07 | PASS | `doc-gate.sh check` `전부 공집합 — 통과` · plan 메타 `impl/IMPL_DONE (r2 · V1 + ΔV1)` = INDEX 행 · `4a30602a` trailer 8키 파싱 |
+| VP-05 | PASS | r1 자리별 DA 행 green · r1 형제 변이 red 유지 |
+| VP-02-D1 (R-02 ↔ AT-02-D1) | PASS | 커버리지 축 67/67 · `-` 8행 인용 0 · ⑤ red |
+| VP-03 · VP-04 | PASS | 표식 82/82 · inventory ok 3줄 · `docs/generated` diff 0 |
+| VP-01-D1 (R-01 ↔ AT-01-D1) | PASS | 단언 축 불일치 0 · EP-15 5/5 · EP-16 3/3 + 범위 줄번호 인용 0 |
+
+- root `PAIR_FAIL` 0 · `BLOCKED_BY` 0.
+
+### AC 합계
+
+| AC | 결과 | 증거 |
+|---|---|---|
+| AC1~AC3 · AC5 · AC6 · AC8~AC10 · AC12~AC15 · AC17 · AC18 · AC20~AC23 | ✅ | r1 증거 유지 + r2 gate 재실행 green |
+| AC4-D1 · AC7-D1 · AC11-D1 | ✅ | DA-A07·SE12·UX9 (D-013) |
+| AC16-D1 | ✅ | DA-CS4~CS11 · EP-15 변이 red |
+| AC19-D1 | ✅ | 커버리지 축 + `-` 인용 대조 · ⑤ red |
+| AC24 | ✅ | 설계(`0b53bbfa`·`f26d342a`)와 구현(`7f1f504d`·`4a30602a`) 분리 · trailer 파싱 · INDEX ↔ plan 메타 |
+
+- **합계 재측정**: ✅ 24 · ⚠️ 0 · ❌ 0 = 총 24 · 자기보고 23/24(AC24 ⚠️ — 커밋 전이라 관측 불가였던 trailer)와 차이 1, 이번에 관측해 ✅.
+- **합계 사본 대조**: r2 본문 `✅ 23 · ⚠️ 1` ↔ trailer `Criteria-Met: 23/24` ↔ INDEX "✅23·⚠️1" — 일치.
+
+## r2-5. 운영 gate · repository operation
+
+- `drift-check.sh check` `전부 공집합 — 통과` · `doc-gate.sh check` `심볼 276/165 · 경로 13 · 시제 126 · 전부 공집합 — 통과` · inventory ok 3줄 exit 0.
+- INDEX: 이번 커밋에서 `verify/PASS`·다음 주체 **사람**(D-003·D-007 확인)·좌표 `f26d342a`(ΔV1 설계)·`4a30602a`(r2) 기입. 사람 확인 대기라 archive 로 옮기지 않는다(D-004 와 같은 보드 관례).
+- trailer: `4a30602a` 허용값·파싱 정상. 인용 해시 `f26d342a`·`4a30602a`·`91ee76f3` 실재.
+- `[구현자 기입] r2` 7필드 전수 존재.
+
+## r2-6. Finding disposition
+
+| # | finding | disposition | 후속 |
+|---|---|---|---|
+| G1·G2 · D1~D4 | r1 지적 | **closed** — r2-2·r2-4 관측 | — |
+| N1·N2·N3·N5·N6 | r1 NON_BLOCKING | closed — 확인어 교체 · DA-CS9·10·A14·UX9 · ΔV1 §8 정정 | — |
+| N4 | EP-02 가이드 4자리 파일 단위 행 | NON_BLOCKING(유지) | 기록 |
+| N7 | §14.3 "❌ 미사용 (의도적)" 아래 `--allow-dangerously-skip-permissions` 행 — 의도인지는 미확인(X5) | NON_BLOCKING | X5 결정 때 함께 |
+| N8 | §14.3 `--continue` 행 사유 "단일 세션 시나리오"(표기 자체는 맞음) | NON_BLOCKING | 한 줄 정정 후보 |
+| N9 | GLOSSARY:82 "현 … 정적 정책 append `prompts/`" — 0062 에 제거된 경로 | NON_BLOCKING(범위 이전) | 한 줄 정정 후보 |
+| X1~X5 | r1 과 같음 | NEXT_HANDOFF | 사용자 결정 |
+
+## r2-7. Review Signals — 사실만
+
+- 이전 라운드와 같은 축: r1 D1·D2 와 r2 N8 은 모두 "같은 문서 안 같은 사실의 다른 자리" 다 — r2 는 표기 자리를 전수로 닫았고 사유 문장 1자리(N8)가 남았다.
+- 관련 plan 지침: ΔV1 의 EP-15 는 "채택/미사용 표기" 를 셌고 사유 문장은 세지 않았다.
+- 사용자 결정 변경 근거: 없음. 환경 한계: 없음(신규).
+
+## r2-8. 결론
+
+- 상태: **PASS** (라운드 2)
+- pair: REQUIRED 9 PASS · PAIR_FAIL 0 · PLAN_GAP 0
+- AC: ✅ 24 / 24
+- 운영 gate 3종 PASS · repository operation 정상
+- 남은 사람 확인: D-003(PRD/TRD 정정 깊이)·D-007(AGENTS 범위 — `app/AGENTS.md` 선조치 포함) 기본값 · X1(DevTools)·X4(장치 상시화)·X5(`bypass` 모드 SDK 플래그)
+- 다음 단계: 사람 확인 뒤 archive 이동. NON_BLOCKING N8·N9 는 한 줄 정정 후보.
