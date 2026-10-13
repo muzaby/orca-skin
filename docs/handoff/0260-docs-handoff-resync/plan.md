@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-13 |
 | 매핑 | 없음 (문서 전수 재동기화 — 0191/0192 의 후속 접촉) |
-| 상태 | impl/IMPL_DONE (r1) |
+| 상태 | verify/RETURN_TO_PLAN (r1 → 라운드 2) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0191/0192 는 구 템플릿(V 없음). 게이트 장치(`doc-gate.sh`)만 운영 gate 로 승계 |
 | 이번 V revision | `V1` |
@@ -608,6 +608,15 @@
 
 ## [검증자 기입] 파생 이슈
 
+> r1 검증 — [`verify.md`](verify.md) §13 이 정본. 상태는 다음 턴이 갱신한다.
+
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| (검증 턴) | | | | | |
+| G1 | 커버리지 `-` 행의 진위를 보는 oracle 이 없다 — 거짓 `-` 2행이 전 gate 통과 | VP-02 · AC19 · MD-01 | `-` 행 핸드오프의 커밋이 지운·옮긴 `app/src` 이름이 기준 커밋 범위 문서에 인용됐으면 red 인 축을 추가 | PLAN_GAP | open |
+| G2 | 코드 인용 좌표 정책 미결 — AC4·AC7·AC11 은 줄번호 갱신, 구현은 식·심볼 좌표 | VP-01 · AC4·AC7·AC11 | Decision 으로 정책을 정하고 영향 AC 술어를 정정 | PLAN_GAP | open |
+| D1 | 해설 미러 §11:409·§5.5:238·§14.3:498 "권한 우회 미사용" ↔ Work·Code 메뉴 `bypass`(0224) | VP-01 · AC16 · R-01 | 3자리 현행화 + 자리별 DA 행 | BLOCKING | open |
+| D2 | §7.3:319 `--fork-session` "❌ 미사용" ↔ §11:405 ✅ · `forkSession` | VP-01 · R-01 | 정정 + DA 행 | BLOCKING | open |
+| D3 | 커버리지 0221·0222 `-` 사유 거짓 · 0205 사유 근거 0 | VP-02 · AC19 | 반영 문서·확인어로 교체 · 0205 사유 정정 | BLOCKING | open |
+| D4 | AC11 `:1920 ≥1` 0건 · AC7 동작 기준 줄번호 부재 | VP-01 · AC7·AC11 | G2 결정에 따른다 | BLOCKING | open |
+| N1~N6 | 확인어 약함(0202·0213·0239) · §7.2·§7.5 사유 · 스킬 재스캔 서술 · 가이드 EP-02 파일 단위 행 · DA-UX9 식 anchor · §8 "6"→5 | VP-01·02·05 / plan 본문 | r2·ΔV1 에서 함께 | NON_BLOCKING | open |
+| X1~X5 | DevTools · main AGENTS chat-turn 표 · TRD 0193 이전 F 행 · 장치 상시화 · `bypass` 의 `allowDangerouslySkipPermissions` 부재 | 비귀속 | 새 handoff 후보 | NEXT_HANDOFF | open |
