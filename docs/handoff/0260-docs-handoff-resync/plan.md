@@ -11,11 +11,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-13 |
 | 매핑 | 없음 (문서 전수 재동기화 — 0191/0192 의 후속 접촉) |
-| 상태 | verify/RETURN_TO_PLAN (r1 → 라운드 2) |
+| 상태 | plan/READY (V1 + ΔV1 · 라운드 2) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0191/0192 는 구 템플릿(V 없음). 게이트 장치(`doc-gate.sh`)만 운영 gate 로 승계 |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| 이번 V revision | `ΔV1` |
+| 유효 V | `V1 + ΔV1` (§7-B 의 대체 관계 적용) |
 
 # Part I — Product & UX Contract
 
@@ -51,11 +51,13 @@
 | D-010 | 검증 장치는 **데이터(TSV) + 스크립트** 다 — `drift-assertions.tsv`(사실 단언)·`status-marks.tsv`(상태 표식 유지 판정)·`handoff-coverage.tsv`(핸드오프→문서) 를 `drift-check.sh check` 가 대조한다. 수치는 산문이 아니라 `check` 산출이 갖는다 | 0192 원칙(손으로 적은 수치는 재현되지 않는다) 승계 | 0192 plan §19 · verify r2 E1 | ACTIVE | — |
 | D-011 | 버전·용량 같은 코드 상수는 문서에 값으로 적지 않고 정본 파일(`package.json`·`bootstrap.ts`)을 가리킨다 | 수치 복제 금지 규칙의 확장 — "latest"·"Unlimited" 가 낡은 방식이 그것이다 | `docs/AGENTS.md` 작성 규칙 2 | ACTIVE | — |
 | D-012 | `generated/inventory.md` 는 스크립트로만 바뀐다. 문서 변경이 수치를 요구하면 산문에 적지 않고 생성물을 링크한다 | 생성물 편집 금지 | `docs/AGENTS.md` 표 | ACTIVE | — |
+| D-013 | 문서의 코드 인용 좌표는 **줄번호가 아니라 파일 + 심볼·식**으로 적는다. 이번 범위 문서에 줄번호 인용을 새로 두지 않는다 | 기준선의 줄번호 인용 4건이 전부 낡아 있었다(verify r1 V-d: `git grep -nE '\.(ts\|tsx)\`?:[0-9]+'` 기준선 4 → HEAD 0). D-011(값 대신 정본 파일)과 같은 축 | 설계자(r1 검증 G2) | ACTIVE | AC4·AC7·AC11 의 줄번호 술어를 대체 |
+| D-014 | 커버리지 `-` 행은 **기준 커밋 인용 대조**로 판정한다 — 그 핸드오프가 지우거나 옮긴 `app/src` 이름이 기준 커밋 범위 문서에 인용돼 있었다면 문서 영향이 있었던 것이다 | 거짓 `-` 2행(0221·0222)이 구문 oracle 을 통과했다(verify r1 V-b) | 설계자(r1 검증 G1) | ACTIVE | AC19 보강 |
 
 ### 갱신 메모
 
 - 이번 턴에서 새로 추가된 결정: D-001~D-012 전부(신규 handoff).
-- 변경된 결정: 없음.
+- 변경된 결정: 없음. **ΔV1(2026-10-13)** 에서 D-013·D-014 추가 — 기존 결정 대체 없음.
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: 0191 D-003(이력 표 삭제+링크 — D-002 로 승계) · 0192 D-003(`doc-gate.sh` 는 CI 밖, 사람이 돌린다 — 유지).
 - 사용자 미질의 기본값 2건(D-003·D-007)은 READY 보고에서 사용자에게 명시한다 — 거부 시 D-003 은 PRD/TRD 범위 축소, D-007 은 세 파일 1줄 되돌림으로 닫힌다(둘 다 one-way door 아님).
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-002 ↔ AC4(adapters §1.5 "삭제+링크") 일치 · D-003 ↔ AC12·AC13("사실 정정·완료 표기·F16+ 행만", OQ 미결 항목 비접촉) 일치 · D-005 ↔ AC21(ADR 사이트는 baseline 분류만) 일치 · D-007 ↔ AC17(세 파일 1줄) 일치 · D-010 ↔ AC18~AC20(TSV 장치) 일치 · D-011 ↔ AC2·AC3(값 대신 정본 파일) 일치.
@@ -216,6 +218,70 @@
 
 ---
 
+## 7-B. ΔV1 — r1 검증 정정 (2026-10-13)
+
+**r1 검증의 `RETURN_TO_PLAN`(G1·G2)을 정정한다.** 기준선은 공유 설계 커밋 `0b53bbfa`(V1)이며 아래 행이 V1 의 충돌하는 AC·node·pair·§10 행보다 우선한다. 근거는 [`verify.md`](verify.md) §4 V-b·V-c·V-d 와 §13.
+제품 범위·대상 문서 범위·장치의 기존 세 축은 유지한다. 바뀌는 것은 좌표 표기 정책(D-013), 커버리지 `-` 행의 판정(D-014), AC16 의 자리 범위다.
+
+### 현재 Acceptance Criteria — 대체 행
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 직접 oracle | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-01 | AT-01-D1 / AC4 | V1 AC4 그대로 + "§3.2.5 줄번호 현행" → **§3.2.5 의 코드 인용은 파일 + 심볼**(D-013) | V1 DA 행 + `builder\.ts:[0-9]` 0 | V1 과 같음 |
+| R-01 | AT-01-D1 / AC7 | V1 AC7 그대로 + "§1.1 줄번호 `210-213`" → **§1.1 은 `app/src/main/index.ts` `createWindow` 의 `webPreferences` 블록**을 가리킨다(D-013) | V1 DA 행 + must `createWindow` 의 `webPreferences` 블록 (anchor `index.ts:webPreferences`) | V1 과 같음 |
+| R-01 | AT-01-D1 / AC11 | V1 AC11 그대로 + "§3.2 `:1920`" → **§3.2 는 `chatApi.onEvent(ingestChatEvent)` 식**을 가리킨다(D-013) | `chatStore.ts:1243` 0 + must `chatApi\.onEvent\(ingestChatEvent\)` (anchor = 같은 식이 `chatStore.ts` 에 실재) | V1 과 같음 |
+| R-01 | AT-01-D1 / AC16 | V1 AC16 그대로 + 해설 미러의 **Orca 채택/미사용 표기가 §5.5·§7·§11·§14 에서 서로·코드와 같은 말**이다 — 권한 우회는 Composer 권한 메뉴의 `bypass`(→ `bypassPermissions`)로 사용자가 고를 수 있다(기본값은 OQ9), 세션 분기 `--fork-session` 은 `forkSession` 으로 채택(0064) | DA 행: `미사용 확정` 0 · 권한 우회 자리 3(§5.5·§11·§14.3) 각 must ≥1(anchor `shared/permission-mode.ts:bypass`) · §7.3 must `채택`(anchor `chat-turn/send.ts:forkSession`) | 외부 스펙 해설 경로 |
+| R-02 | AT-02-D1 / AC19 | V1 AC19 그대로 + **`-` 행은 문서 영향이 없다는 주장이다** — 그 핸드오프 커밋이 지우거나 옮긴 `app/src` 비테스트 파일의 이름(`` `stem` ``·`stem.ts`·`stem.tsx`)이 기준 커밋 `6ee2d4db` 의 범위 문서에 인용됐으면 `-` 일 수 없다(D-014). 사유 칸은 확인 가능한 사실만 적는다 | `drift-check.sh check` 커버리지 축에 `-` 행 인용 대조 추가 — 적중 시 red(`<slug>: '-' 인데 기준 커밋 인용 <이름> in <파일>`) | 사용자 요구 "모두 적용" 의 관측 |
+
+- 나머지 AC 19개(AC1·2·3·5·6·8·9·10·12·13·14·15·17·18·20·21·22·23·24)는 V1 그대로 유효하다. 유효 AC 는 **24개**다.
+- 사람 실기: 없음(V1 과 같음).
+
+### Decision
+
+- §3 Decision Ledger 의 **D-013**(코드 인용 좌표 = 파일 + 심볼·식)·**D-014**(`-` 행 = 기준 커밋 인용 대조)가 이 delta 의 결정이다.
+
+### Node delta / supersession
+
+| Node | 레벨 | provenance | 기준선 / 대체 및 계약 |
+|---|---|---|---|
+| AT-01 · AT-02 | AT | SUPERSEDED | 각각 AT-01-D1 · AT-02-D1 로 대체 |
+| AT-01-D1 | AT | CHANGED | V1 AT-01 + AC4·AC7·AC11 좌표 술어(D-013) + AC16 자리 범위(§5.5·§7·§11·§14) |
+| AT-02-D1 | AT | CHANGED | V1 AT-02 + `-` 행 인용 대조(D-014) |
+| MD-01 · UT-01 | MD · UT | SUPERSEDED | 각각 MD-01-D1 · UT-01-D1 로 대체 |
+| MD-01-D1 | MD | CHANGED | `drift-check.sh` 판정 함수 4 — 단언 · 표식 · 커버리지(구문) · **커버리지 `-` 행 인용 대조**(기준 커밋 상수 `COVERAGE_BASE=6ee2d4db`, preflight 가 `git cat-file -t` 로 실재 확인) |
+| UT-01-D1 | UT | CHANGED | V1 UT-01 ①~④ + **⑤** 0222 행을 `-` 로 되돌림 → red · **⑥** `COVERAGE_BASE` 를 부재 해시로 → preflight exit 2 |
+| R-01 · R-02 · 그 밖 node | — | INHERITED | V1 그대로 |
+
+### Pair delta / 증거 이관
+
+| Pair | V node | requiredness | start → edges → end / 직접 oracle | 선택 적대 증거 | §10 자리 |
+|---|---|---|---|---|---|
+| VP-01-D1 (VP-01 대체) | R-01 ↔ AT-01-D1 | REQUIRED | V1 VP-01 경로 + 해설 미러 채택 표기 자리 → DA 행 → `check` | V1 UT-01 ① 4자리 승계 + **권한 우회 §11 자리를 "미사용 확정" 으로 되돌림 → 그 행 red** + **§7.3 을 "❌ 미사용" 으로 되돌림 → 그 행 red** | EP-01~07 · **EP-15 · EP-16** |
+| VP-02-D1 (VP-02 대체) | R-02 ↔ AT-02-D1 | REQUIRED | 디렉토리 → 커버리지 행 → 문서 grep(+ `-` 행 기준 커밋 인용 대조) → `check` | V1 ③·확인어 변이 승계 + **⑤** | EP-09-D1 |
+| VP-08-D1 (VP-08 대체) | MD-01-D1 ↔ UT-01-D1 | REQUIRED | TSV 행 → 판정 함수 4 → exit/출력 | UT-01-D1 ①~⑥ + 형식 2 + SCOPE 사본 2 | EP-13-D1 |
+
+- 증거 이관: superseded VP-01·02·08 의 AC·선택 변이는 각각 -D1 pair 로 전부 승계한다. 폐기 증거 0.
+- 유효 pair: V1 9 − 대체 3 + ΔV1 3 = **9 (REQUIRED 9)**. VP-03~07·VP-09 는 V1 그대로다.
+
+### §10 강제 지점 정정
+
+| 행 | 현재 계약 / 실패 의미 | 자리 |
+|---|---|---|
+| EP-09-D1 (EP-09 대체) | 커버리지 전건 + `-` 행은 기준 커밋 인용 0. 실패 = 결손·확인어 미매치·`-` 인용 적중 | 디렉토리 67 + `-` 행 전부 |
+| EP-13-D1 (EP-13 대체) | 판정 함수 4 + 형식 검사. 실패 = 장치가 결함을 못 본다 | 5자리(함수 4 + 형식 1) |
+| **EP-15** (신규) | 해설 미러의 권한 우회·세션 분기 표기 = 코드(`permission-mode.ts` `menuModes` 의 `bypass` · `send.ts` `forkSession`). 실패 = 같은 문서 안 모순 | `claude-code-spec.md` §5.5 · §7.3 · §11(세션 분기·도구 권한 행) · §14.3 = 5자리 |
+| **EP-16** (신규) | 코드 인용 좌표 = 파일 + 심볼·식(D-013). 실패 = 줄번호 인용 재등장 | `rg -nE '\.(ts\|tsx)\`?:[0-9]+' <범위 문서>` = 0 · AC4·AC7·AC11 의 3자리 |
+
+- §10 나머지 행 불변. §11 `drift-check.sh` 설계에 `COVERAGE_BASE` 상수와 `-` 행 대조 함수를 더한다(파일 이름은 `git log --grep='Handoff: docs/handoff/<slug>/'` 커밋의 `--diff-filter=DR` `app/src` 비테스트 파일, 인용은 `git grep -l` 로 기준 커밋 범위 문서에서 찾는다).
+- §8 정정(본문 오기): `verify.md` 없는 디렉토리는 **5**(0205·0208·0214·0219·0220)다.
+
+### ΔV1 READY self-review / 관측
+
+- `git cat-file -t 0b53bbfa` = commit — 공유 V1 기준선을 잠갔다.
+- ACTIVE 결정 ↔ AC: D-013 ↔ AC4·AC7·AC11(줄번호 술어 대체) · D-014 ↔ AC19 · 나머지 D-001~D-012 ↔ V1 AC 일치. D-013 은 D-011 의 확장이고 충돌 0.
+- 변경 AT·MD/UT 마다 같은 레벨 REQUIRED 대체 pair 가 있다. 선택 적대 증거는 V1 것을 전부 승계하고 새 자리(EP-15 2변이·⑤·⑥)를 더했다.
+- 바뀐 AC 5개에 동작 기준·직접 oracle·production 경로가 있다. 공개 계약·저장 포맷·신규 의존성 변경 0. 정정 설계는 구현 산출과 별도 커밋한다.
+
 # Part II — Technical Design
 
 ## 8. Research — 현재 코드와 계약
@@ -247,7 +313,7 @@
 | 대상 | 검색/방법 | N | 의미 |
 |---|---|---:|---|
 | 범위 문서 | `find docs -name '*.md'` − `handoff/archive/etc/spec` | 46 | 그중 stub 2·생성물 1·ADR 8 은 본문 비편집 |
-| 핸드오프 0193~0259 디렉토리 | `ls -d docs/handoff/0[12]*/` 중 번호 ≥193 | 67 | 커버리지 TSV 분모. `verify.md` 없는 것 6(0205·0208·0214·0219·0220 — 0219/0220 은 사용자 보류) |
+| 핸드오프 0193~0259 디렉토리 | `ls -d docs/handoff/0[12]*/` 중 번호 ≥193 | 67 | 커버리지 TSV 분모. `verify.md` 없는 것 5(0205·0208·0214·0219·0220 — 0219/0220 은 사용자 보류; ΔV1 정정) |
 | 현재 문서가 번호로 인용하는 핸드오프(0193~0259) | `rg -l '\b0NNN\b'` 범위 문서, N=0193..0259 | 22 | 45건은 번호 인용 없음 → 커버리지 행에서 확인어로 잠근다 |
 | `settingSources` 후보 사이트 | `rg -n settingSources` 범위 문서 | 13 | EP-01 분모 |
 | `disallowedTools` 후보 | 같은 방식 | 21 | EP-02 분모 |
