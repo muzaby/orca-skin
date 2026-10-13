@@ -13,6 +13,7 @@
 #                          줄 이동에는 안정하고, 표식 근처 문장이 바뀌면 재판정을 요구한다.
 #   handoff-coverage.tsv   handoff \t docs(;구분|-) \t 확인어(ERE|-) \t 비고
 #                          docs 가 있으면 확인어도 있어야 하고, 확인어는 docs 중 하나에서 매치해야 한다.
+#                          `-` 행은 그 핸드오프가 지우거나 옮긴 app/src 이름이 COVERAGE_BASE 범위 문서에 인용됐으면 거부한다.
 #
 # SCOPE 는 0192 doc-gate.sh `scope_files()` 와 같은 find 식·EXTRA_SCOPE 의 사본이다 — preflight 가 원본 두 줄의 존재를 대조한다.
 # 완결성 주장의 관측값은 차집합이다. 정본: docs/handoff/0260-docs-handoff-resync/plan.md
@@ -30,6 +31,8 @@ EXTRA_SCOPE=(app/AGENTS.md app/src/main/AGENTS.md app/src/renderer/AGENTS.md)
 MARKERS=('⏳' '🚧' '미구현' '잔여' 'TBD' 'Phase 4\+')
 CONTEXT=24
 RANGE_LO=193; RANGE_HI=259
+# `-` 행 인용 대조의 기준 커밋 — 0260 구현 전(plan READY 의 부모). 범위가 0193~0259 로 고정이라 상수다(D-014).
+COVERAGE_BASE=6ee2d4db
 
 die() { echo "drift-check: $*" >&2; exit 2; }
 
@@ -51,6 +54,7 @@ preflight() {
   [ -e "$DOCGATE" ] || die "doc-gate 없음: $DOCGATE"
   grep -qF "$SCOPE_EXPR" "$DOCGATE" || die "SCOPE 식이 doc-gate.sh 원본과 다르다 — 사본을 맞춘다"
   grep -qxF "EXTRA_SCOPE=(${EXTRA_SCOPE[*]})" "$DOCGATE" || die "EXTRA_SCOPE 가 doc-gate.sh 원본과 다르다 — 사본을 맞춘다"
+  [ "$(git cat-file -t "$COVERAGE_BASE" 2>/dev/null)" = commit ] || die "COVERAGE_BASE 커밋이 없다: $COVERAGE_BASE"
   for f in drift-assertions.tsv status-marks.tsv handoff-coverage.tsv; do
     [ -e "$HERE/$f" ] || die "TSV 없음: $f"
     [ "$(rows "$f" | wc -l)" -gt 0 ] || die "TSV 가 비었다: $f"
@@ -123,8 +127,22 @@ check_marks() {
   rm -f "$out" "$have" "$bad" "$miss" "$stale"
 }
 
+# `-` 행은 "문서 영향 없음" 주장이다. 그 핸드오프 커밋이 지우거나 옮긴 app/src 비테스트 파일의
+# 이름(`stem`·stem.ts·stem.tsx)이 기준 커밋의 범위 문서에 인용돼 있었다면 주장이 거짓이다(D-014).
+dash_citations() {  # $1 = slug → "이름 in 파일" 줄
+  local c f stem
+  for c in $(git log --format=%H --grep="Handoff: docs/handoff/$1/"); do
+    git show --diff-filter=DR --name-status --format= "$c" -- app/src
+  done | awk '$1 ~ /^[DR]/ {print $2}' | grep -v '\.test\.' | sort -u | while read -r f; do
+    stem=$(basename "$f"); stem=${stem%.*}
+    git grep -lw -e "\`$stem\`" -e "$stem\.ts" -e "$stem\.tsx" "$COVERAGE_BASE" -- \
+      'docs/*.md' ':!docs/handoff' ':!docs/archive' ':!docs/etc' ':!docs/spec' "${EXTRA_SCOPE[@]}" 2>/dev/null \
+      | sed "s|^$COVERAGE_BASE:|$stem in |"
+  done
+}
+
 check_coverage() {
-  local out have bad miss stale h docs kw note d ok
+  local out have bad miss stale h docs kw note d ok cites
   out=$(mktemp); have=$(mktemp); bad=$(mktemp); miss=$(mktemp); stale=$(mktemp)
   sweep_handoffs > "$out"
   rows handoff-coverage.tsv | cut -f1 | sort -u > "$have"
@@ -132,7 +150,10 @@ check_coverage() {
   while IFS=$'\t' read -r h docs kw note; do
     if [ -z "$h" ] || [ -z "$docs" ] || [ -z "$kw" ] || [ -z "${note:-}" ]; then echo "형식오류(빈 칸): $h" >> "$bad"; continue; fi
     if [ "$docs" = "-" ]; then
-      [ "$kw" = "-" ] || echo "형식오류(docs 없이 확인어): $h" >> "$bad"; continue; fi
+      [ "$kw" = "-" ] || echo "형식오류(docs 없이 확인어): $h" >> "$bad"
+      cites=$(dash_citations "$h" | tr '\n' ';')
+      [ -z "$cites" ] || echo "$h: '-' 인데 기준 커밋 인용 ${cites%;}" >> "$bad"
+      continue; fi
     [ "$kw" != "-" ] || { echo "형식오류(docs 있는데 확인어 없음): $h" >> "$bad"; continue; }
     ok=0
     IFS=';' read -ra arr <<< "$docs"
