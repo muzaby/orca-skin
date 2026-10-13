@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-13 |
 | 매핑 | PR #501 (브랜치 `ccr-0d9ab133-25ay9c`) — 0260 질의 3·4 의 사용자 응답 |
-| 상태 | READY → impl/IMPL_DONE (r1) |
+| 상태 | verify/PASS (r1 · 기계 범위) — AC1·AC7 사람 실기 대기 |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
 | 이번 V revision | `V1` |
@@ -504,3 +504,9 @@ createWindow/openWindow → BrowserWindow(devTools) → 메뉴·단축키·openD
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
+| N1 | DA 행 없이 추가된 새 사실 4줄(claude-code-spec §5.5 글머리 3 · security.md §1.1 아래 문장) — 내용은 실측과 일치 | verify r1 · VP-08 · AC8 기준(9자리) 밖 | 다음 문서 handoff 에서 DA 행 추가 | NON_BLOCKING | open |
+| N2 | security.md §1.5 단축키 표기가 Windows 기준 — macOS 는 Alt+Cmd+I·Cmd+R | verify r1 · 문서 정밀도 | 기록 | NON_BLOCKING | open |
+| N3 | drift-check `LC_ALL=C` 가 ERE 문자 클래스의 비ASCII 를 바이트로 읽는다 — 장치 헤더 경고 없음 | verify r1 · 0260 장치 | 헤더 경고 후보 | NON_BLOCKING | open |
+| X1 | 원격 디버깅·Node inspect 진입(Electron fuses) | plan §6 비범위 | 사용자 결정 후 새 handoff | NEXT_HANDOFF | open |
+| X2 | bypass 에서 `canUseTool` 게이트 미적용 구간이 세션 도중 진입으로 넓어짐 | plan §17 | 사용자 보고 · 후보 | NEXT_HANDOFF | open |
+| X3 | 정책 disable 환경의 bypass 메뉴 노출 | plan §6 | 후보 | NEXT_HANDOFF | open |
