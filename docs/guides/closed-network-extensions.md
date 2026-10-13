@@ -242,9 +242,9 @@ service : { sessionGroup: 'corp', allowedOrigins: ['https://wiki…'] }
 
 | 층 | 파일 | 성격 |
 |---|---|---|
-| 요청 빌더 | `service/<sp>/rest.ts` | **순수** — 경로·컨텍스트 prefix·인코딩·특수 헤더. 네트워크 0 |
-| 오케스트레이션 | `service/<sp>/connector.ts` | 좁힌 포트만 받는다 |
-| 노출 표면 | `service/<sp>/tools.ts` | 정책 SSOT |
+| 요청 빌더 | `features/plugins/<sp>/rest.ts` | **순수** — 경로·컨텍스트 prefix·인코딩·특수 헤더. 네트워크 0 |
+| 오케스트레이션 | `features/plugins/<sp>/connector.ts`(Jira 는 `service.ts`) | 좁힌 포트만 받는다 |
+| 노출 표면 | `features/plugins/<sp>/tools.ts` | 정책 SSOT |
 
 **소비자가 포트를 받는 방법은 위치에 따라 셋이다.**
 
@@ -1048,7 +1048,7 @@ return createPluginBinding({
   (fail-closed). 빈 문자열로 채우지 않는다.
 - **세션 grant(쿠키)는 값이 아니므로 `null` 이다** — SSO 는 MCP 로 반출되지 않는다(0178 결정).
   MCP 에는 PAT·ID/비밀번호·토큰을 쓴다.
-- 해석된 값은 `dist/plugins/orcinus-orca/.mcp.json` 에 평문으로 렌더된다(문서화된 예외 1,
+- 해석된 값은 `dist/<engine>/plugins/orcinus-orca/.mcp.json` 에 평문으로 렌더된다(문서화된 예외 1,
   [`arch/backend/security.md §1.4-b`](../arch/backend/security.md)) — claude CLI 가 그 파일을 읽어
   서버를 spawn 하기 때문이다.
 
@@ -1284,10 +1284,10 @@ export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher | un
 
 | 빌드 | gate membership 0개 | membership N개 |
 |---|---|---|
-| **prod** | **통과** — OSS/기본 배포가 로그인 화면에 갇히지 않게 하는 안전장치 | 전부 `valid` 여야 통과 |
-| **DEV** (`npm run dev`) | **차단** — 로그인 화면을 항상 볼 수 있어야 한다 | 전부 `valid` 여야 통과 |
+| **prod** | **통과** — OSS/기본 배포가 로그인 화면에 갇히지 않게 하는 안전장치 | 전부 `valid`·`verified`·일일 재로그인 미요구여야 통과 |
+| **DEV** (`npm run dev`) | **차단** — 로그인 화면을 항상 볼 수 있어야 한다 | 전부 `valid`·`verified`·일일 재로그인 미요구여야 통과 |
 
-전체 진리표는 [`arch/backend/auth.md §7`](../arch/backend/auth.md) 이 정본이다. 절차상
+전체 진리표는 [`arch/backend/auth.md §5`](../arch/backend/auth.md#5-게이트) 가 정본이다(일일 재로그인은 §5.3). 절차상
 알아야 할 것은 하나 — **`npm run dev` 는 선언이 비어 있어도 로그인 화면에서 시작한다.** 그 빌드의
 **탈출구는 우회 토글 하나뿐**이다(로그인할 상대가 없으므로 화면이 그 사실을 안내한다).
 
@@ -1425,7 +1425,7 @@ export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher | un
 | dev 에서 로그인 화면이 **안 뜬다** | 우회 토글이 켜져 있다 | 디버그 패널 "로그인" 그룹 (§6.2) |
 | 우회 토글을 켰는데 **화면이 그대로** | 상태 push 경로가 끊겼다 | `app/handlers/settings.ts` — `authBypass` 변경 시 provider 상태 broadcast |
 | 우회 토글이 **보이지 않는다** | prod 빌드다 | prod 에는 디버그 패널 자체가 없다 (§6.2) |
-| 선언했는데 provider 가 **목록에 없다** | 등록 거부(중복 `id` 또는 `origin` 형태) | 로그 `providers.declaration.rejected` 의 `reason` |
+| 선언했는데 provider 가 **목록에 없다** | 등록 거부(중복 `id` 또는 `origin` 형태) | 로그 `auth.declaration.rejected` 의 `reason` |
 | 로그인 창이 **중간에 멈춘다** | `allowedOrigins` 누락 | 로그가 막힌 origin 을 지목한다 |
 | `doneUrlPrefix` 에 닿았는데 **실패**로 끝난다 | probe 가 미인증을 봤다(로그인 폼이 200 으로 뜨는 배포) | 로그 `auth.probe.result` 의 `ok`·`returnedToOrigin` — `returnedToOrigin:false` 면 체인이 origin 으로 못 돌아왔다 |
 | 토큰 교환이 **인가 코드를 못 찾는다** | `code.urlParam` 이 SP 가 쓰는 이름과 다르다(생략 시 기본은 `code`) | 로그 `providers.session.exchange.no-code` 가 찾던 `urlParam` 을 찍는다 (§2-b) |

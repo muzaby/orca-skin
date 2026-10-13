@@ -26,6 +26,7 @@
 
 - 서로 다른 세션은 **동시 턴**을 돌린다(멀티세션). `chat:cancel` 은 해당 세션의 턴만 중단(장수명 채널은 `interrupt` 로 채널을 살린 채 현재 턴만 멈춤 — 0067).
 - 구독 순서·팬아웃 배선의 SSOT 는 `app/bootstrap.ts` 한 곳(§2.4).
+- 격리 세션(managed worktree)은 `app/chat-turn/prepare-worktree.ts` 가 send 전에 worktree 를 준비하고(`features/worktrees/service.ts`) 준비가 끝난 뒤 턴을 시작한다(0209~0211). 표시명·경로 정본은 `managed_worktrees` 행([persistence.md](./persistence.md)), Stop 훅의 git sync 와 git 호출 게이트웨이는 [security.md §1.10](./security.md).
 - 각 IPC handler는 `RouterContext`에서 실제 쓰는 속성만 받는다. 연결 인증·gate는 연결 handler에 따로 주입하며 일반 context에 포함하지 않는다.
 - `Bootstrap`은 `TitleGenerator`를 소유하고 DB 종료 전에 `dispose()`한다. 진행 요청·타이머를 회수하며 취소를 무시하고 끝난 completion도 DB를 갱신하지 않는다.
 
@@ -86,7 +87,7 @@ Decision rationale: [ADR-007](../../decisions/007-queued-input-next-turn.md).
 ### 1.5 자원 상한 (cap / LRU)
 
 - cap count 대상 = **SessionRuntime population**(active registry + idle pool). eviction victim = **idle runtime only**(active 턴 핸들을 닫아 cap 을 맞추지 않는다).
-- 기본 정책 `UnlimitedRuntimeCapPolicy`(무제한). `BoundedRuntimeCapPolicy`(cap 초과 시 idle 축출)는 동일 production 경로로 검증 가능하되 reject/queue admission UX 는 별도 소관(handoff 0056).
+- 기본 정책은 `BoundedRuntimeCapPolicy`(cap 초과 시 idle 축출) — `app/bootstrap.ts` 가 용량과 함께 주입한다(`UnlimitedRuntimeCapPolicy` 는 같은 포트의 대안 구현, `features/sessions/runtime-cap-policy.ts`). reject/queue admission UX 는 별도 소관(handoff 0056).
 
 ### 1.6 Rate Limit / 재시도
 
@@ -122,7 +123,7 @@ handle(CHANNELS.chatSend, SendChatMessageSchema, /* 실패=error 이벤트 */, a
 ### 2.3 에러 처리
 
 - 핸들러 실패 정책은 등록부에 명시(`'reject'` = zod 에러로 reject, `{ fallback }` = 무해 폴백). `chat:send` 는 특례 — 실패를 `error` 이벤트로 회신.
-- 에러는 직렬화 가능한 형태로 변환: `{ code: ErrorCode, message: string, recoverable: boolean }` ([IPC_CONTRACT.md](../../IPC_CONTRACT.md) §4). 정규화는 `infra/errors` + [provider-runtime.md](./provider-runtime.md) ErrorClassifier.
+- 에러는 직렬화 가능한 `ClassifiedError`(`shared/ipc.ts` — `category: ErrorCategory`·`message`·`retryable`)로 변환한다([IPC_CONTRACT.md](../../IPC_CONTRACT.md) §4). 정규화는 `infra/errors` + [provider-runtime.md](./provider-runtime.md) ErrorClassifier.
 - 민감 정보 (자격증명 / 파일 전체 경로 등) 는 마스킹 의무.
 
 ### 2.4 단일 턴 이벤트 파이프라인 (`infra/bus`)
@@ -156,18 +157,15 @@ usage(집계) → history(영속) → title(제목) → relay(renderer 중계)
 
 ### 3.2 로깅
 
-- **라이브러리 TBD** (adapters.md §2.4 참조). 후보: electron-log.
-- 레벨: error / warn / info / debug (도입 시).
-- 프로덕션 기본: info. 사용자 설정으로 debug 활성화 가능.
-- 크래시 리포팅: PRD OQ4 미정 (Sentry 등).
+중앙 LogManager(`infra/log/` — JSONL·로테이션·redaction·suppress)가 정본이다: [observability.md](./observability.md). 외부 로깅 라이브러리는 도입하지 않았다. 크래시 리포팅·원격 텔레메트리는 PRD OQ4 미결(observability.md §6).
 
 ### 3.3 플랫폼 차이
 
 | 항목 | macOS | Windows | Linux |
 |---|---|---|---|
-| safeStorage 가용성 (Phase 3+) | Keychain | DPAPI | libsecret (추가 의존성) |
+| safeStorage 가용성 | Keychain | DPAPI | libsecret (추가 의존성) |
 | 단축키 modifier | Cmd | Ctrl | Ctrl |
 | 메뉴 위치 | 시스템 상단바 | 윈도우 내부 | 윈도우 내부 |
-| userData 경로 | `~/Library/Application Support/orca/` | `%APPDATA%/orcinus-orca/` | `~/.config/orcinus-orca/` |
+| userData 경로 (`app.getPath('userData')`, dev 는 `orcinus-orca-dev`) | `~/Library/Application Support/orcinus-orca/` | `%APPDATA%/orcinus-orca/` | `~/.config/orcinus-orca/` |
 
 ---

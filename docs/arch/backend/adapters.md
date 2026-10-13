@@ -34,7 +34,7 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 | 설정 탐색 범위 | `settingSources: ['project', 'local']` | `adaptSettingSources`; 사용자 전역 설정과 provider 설정 분리 |
 | 턴 실행 env | 비어 있지 않으면 `Options.env` | `adaptEnv`; provider settings의 env와 별도 입력 |
 | 파일 기반 MCP·스킬 | 로컬 plugin 경로 | 배포가 산출물을 만들고 `adaptPlugins`가 매니페스트 확인 |
-| 인프로세스 도구 | `mcpServers`와 `allowedTools` | `claude-runtime-tools.ts`의 `adaptRuntimeTools` |
+| 인프로세스 도구 | `mcpServers` | `claude-runtime-tools.ts`의 `adaptRuntimeTools` — 대화 query 는 `allowedTools` 를 쓰지 않는다 |
 | 시스템 지침·스킬 선택·hook | 대화 query 옵션 조각 | `adaptSystemPrompt`·`adaptSkills`·`adaptHooks` |
 
 제목용 `complete`는 도구 없는 단발 실행이고, 대화는 plugin·runtime tool·권한 hook을 사용한다. `~/.claude/skills`는 사용자 스킬 래퍼 plugin으로 전달한다. 정확한 호출 옵션은 [claude.ts](../../../app/src/main/adapters/claude.ts)가 정본이다.
@@ -61,45 +61,33 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 
 `build(sessionId, projectId, profile?)`는 resume이면 세션에 연결된 프로젝트를, 새 채팅이면 전달된 프로젝트를 읽는다. 프로젝트 지침은 `# Project`, Work 프로필은 `# Agent` 섹션으로 합성한다([system-prompt.md](./system-prompt.md) §2A). 지침은 매 턴 재조회하지만 SDK append는 query 생성 시 적용된다. `agentProfileKey` 변경은 최초·자동 연속 실행의 공통 respawn 판정을 거치고, 같은 key는 기존 warm 채널을 유지한다. 스킬 목록은 bootstrap의 스캔 캐시를 읽는다.
 
-### 1.5 SDKMessage → ChatEvent 정규화
+### 1.5 SDKMessage → NormalizedEvent 정규화
 
-`adapters/claude-map.ts` 의 정규화 (구 claude-code.ts `normalize()` — 순수 함수로 분리):
-
-| SDKMessage | → ChatEvent |
-|---|---|
-| `SDKSystemMessage { subtype: 'init', session_id, model? }` | `{ type: 'init', data: { sessionId, model, cwd } }` |
-| `SDKPartialAssistantMessage` 의 `event.delta.type === 'text_delta'` | `{ type: 'assistant_delta', data: { text } }` |
-| `SDKAssistantMessage` 의 `content` 내 text block (완성본) | `{ type: 'assistant_message', data: { text } }` |
-| `SDKAssistantMessage` 의 `content` 내 `tool_use` block | `{ type: 'tool_use', data: { toolUseId, name, input } }` |
-| `SDKUserMessage` 의 `content` 내 `tool_result` block | `{ type: 'tool_result', data: { toolUseId, output, isError, durationMs? } }` |
-| `SDKResultMessage { subtype: 'success' \| 'error_*', usage, total_cost_usd }` | `{ type: 'result', data: { usage } }` |
-| `SDKPermissionDeniedMessage` (Phase 4) | (현재 무시 — 권한 정책 도입 시 매핑) |
-| 어댑터 catch → Error | `{ type: 'error', data: { code: 'sdk.*' \| 'auth.expired' \| ..., message, recoverable } }` |
-
-> **정규화 계층**: 위 표는 claude-code 결합 형태의 구 `ChatEvent` 어휘다. 와이어(`orca:chat:event`)는 provider 중립 `NormalizedEvent`(`permission.requested` 포함)로 전환됐고 매핑은 `adapters/claude-map.ts` 가 갖는다 — 전수 매핑표는 **provider-runtime.md §2** 참조.
+`adapters/claude-map.ts` 의 `claudeToNormalized` 가 SDK 메시지를 `NormalizedEvent` 로 직접 정규화한다(순수 함수). 와이어(`orca:chat:event`)의 유일한 페이로드는 `NormalizedEvent` 이고, variant 전수는 [IPC_CONTRACT.md §3](../../IPC_CONTRACT.md) 이 SSOT, SDKMessage → variant 매핑표는 [provider-runtime.md §2](./provider-runtime.md) 가 갖는다. 구 `ChatEvent` 어휘는 제거됐다([GLOSSARY.md](../../GLOSSARY.md) NormalizedEvent 항목).
 
 ### 1.6 인증 만료 감지
 
 SDK 가 throw 하는 에러 메시지/코드에서 `401` / `OAuth` / `expired` 패턴 매칭 → `error / auth.expired` 이벤트 발행 → UI 의 AuthExpiredModal 로 `claude /login` 안내.
 
-### 1.7 SDK 채택 범위 (Phase 3 MVP)
+### 1.7 SDK 채택 범위 (현행)
 
-| SDK 기능 | Orca | Phase | 비고 |
+| SDK 기능 | Orca | 상태 | 비고 |
 |---|---|---|---|
-| `query({ prompt, options })` 단일 진입점 | ✅ | Phase 3 | CLI `claude -p` 의 대체 |
-| `options.resume: sessionId` | ✅ | Phase 3 | `--resume` 직접 대응 |
-| `options.includePartialMessages: true` | ✅ | Phase 3 | delta 스트리밍 |
-| `options.cwd` | ✅ | Phase 3 | spawn `{ cwd }` 대체 |
-| `result.total_cost_usd` / `usage` / `modelUsage` / `duration_ms` | ✅ | Phase 3++ | `ProviderReportedTelemetry` 로 정규화(cost·model·캐시 토큰·duration·numTurns) → UsagePanel (provider-runtime.md §8) |
-| `options.permissionMode` / `canUseTool` | ⏳ | Phase 4 (OQ9) | 도구 권한 정책 미정 |
-| `options.hooks` (PreToolUse / PostToolUse / Stop) | ⏳ | Phase 4 | 도구 호출 감사 |
-| `createSdkMcpServer` + `tool()` | ⏳ | Phase 4+ | in-process MCP 서버(별건) |
-| `options.mcpServers` | ✅ | MCP&Skill 통합 레이어 | 정규 소스(`mcp.json`) → `toClaudeConfig` → 활성 서버 주입. `allowedTools`=`mcp__<name>__*` |
-| `options.skills: 'all'` (+ `settingSources` 생략) | ✅ | 표준 정렬 | skill 은 SDK 기본 `settingSources` 경로(user/project/local)로 발견. dist 는 `.claude/skills` 거울(추후 cwd 설치 복사). ✅ 0024 구현됨 — `plugins` 주입 제거 |
-| `options.disallowedTools` | ✅ | 표준 정렬 | 격리 해제로 끌려오는 사용자 allow 규칙을 확정 차단(deny/disallowed > allow > canUseTool). **D1 사용자 결정 전 보류** |
-| `options.plugins` (로컬 플러그인) | ⏳ | claude plugin 지원(future) | agents·commands·full-plugin 등 engine-specific 자산 주입 채널. `~/.claude/plugins` 스캔 + query 주입(§3.1) |
-| `prompt: AsyncIterable<SDKUserMessage>` | ⏳ | Phase 4 | 다중 이미지 / 실시간 중단 |
-| `forkSession` / `listSessions` / `loadSession` | ⏳ | Phase 3+/4 | 과거 대화 / 멀티 세션 anchor (persistence.md 의 로컬 DB 가 진실의 기준이 되므로 SDK 메서드는 *동기화 소스* 로만) |
+| `query({ prompt, options })` 단일 진입점 | ✅ | 구현 | CLI `claude -p` 의 대체. 대화는 장수명 채널(`pushTurn`), 제목은 `complete()` 단발 |
+| `options.resume: sessionId` | ✅ | 구현 | `--resume` 직접 대응 |
+| `options.includePartialMessages: true` | ✅ | 구현 | delta 스트리밍 |
+| `options.cwd` | ✅ | 구현 | 세션 cwd — 격리 세션은 managed worktree 경로(`features/worktrees`) |
+| `result.total_cost_usd` / `usage` / `modelUsage` / `duration_ms` | ✅ | 구현 | `ProviderReportedTelemetry` 로 정규화(cost·model·캐시 토큰·duration·numTurns) → UsagePanel (provider-runtime.md §8) |
+| `options.permissionMode` / `canUseTool` | ✅ | 구현 | `shared/permission-mode.ts` + `features/approvals/permission-mode-controller.ts`(세션 SSOT); `canUseTool` 은 RISKY_TOOLS(`adapters/risky-tools.ts`) 승인 브리지. **기본 정책값은 PRD OQ9 로 열려 있다** |
+| `options.hooks` (PreToolUse / Stop …) | ✅ | 구현 | `adaptHooks(extensions.hooks)` + 어댑터 내부 훅(workspace guard PreToolUse · Stop git sync · Stop 출력 수집)을 `claude.ts` 가 병합 — in-process 콜백(§3.2.5) |
+| `createSdkMcpServer` + `tool()` | ✅ | 구현 | 인프로세스 runtime tool(`claude-runtime-tools.ts` `adaptRuntimeTools` → `mcpServers`) — 산출물 게시 도구 등 |
+| `options.mcpServers` | ✅ (runtime tool 전용) | 구현 | 파일 기반 MCP 는 plugin `.mcp.json` 으로 로드([standardization.md §5.1](./standardization.md)); `options.mcpServers` 는 인프로세스 runtime tool 서버에만 쓴다 |
+| `options.skills` + `settingSources: ['project','local']` | ✅ | 구현 | `adaptSkills`·`adaptSettingSources`(§1.3, 0117) — 사용자 전역 settings 는 상속하지 않고, 사용자 `~/.claude/skills` 는 wrapper plugin 으로 전달 |
+| `options.disallowedTools` | ✅ | 구현 | `['WebSearch']` — 대화 실행에서 WebSearch 를 차단하는 용도 하나(`claude.ts`). 격리 해제 보완 용도가 아니다 |
+| `options.plugins` (로컬 플러그인) | ✅ | 구현 | `dist/<engine>/plugins/orcinus-orca` + 사용자 skill wrapper 를 `{ type: 'local', path }` 로 주입(`adaptPlugins`, 0058) |
+| `prompt: AsyncIterable<SDKUserMessage>` | ✅ | 구현 | `streaming-input.ts` 턴-스코프 입력 — 장수명 채널 `pushTurn` 의 토대 |
+| `forkSession` | ✅ | 구현 | Fork(분기)가 SDK 네이티브 `forkSession` 에 위임([GLOSSARY.md](../../GLOSSARY.md) Fork) |
+| `listSessions` / `loadSession` | ❌ | 미사용 | 로컬 DB 가 진실의 기준이라 외부 jsonl 을 읽지 않는다([persistence.md](./persistence.md)) |
 
 자세한 SDK API 시그니처는 [`docs/spec/claude/agent-sdk/typescript.md`](../../spec/claude/agent-sdk/typescript.md) (SSOT).
 
@@ -112,7 +100,7 @@ opencode 등 다중 어댑터 환경 대비:
 | 책임 | 현재 (claude-code 전용) | Future 인터페이스 |
 |---|---|---|
 | Skills 스캔 경로 | `Bootstrap.skillRoots()` 에 orca `sources/skills` + `~/.claude/skills` 하드코딩 (`features/extensions/skills/scan.ts` 는 루트 주입식) | `SessionAdapter.getSkillPaths(cwd): string[]` 인터페이스로 책임 이관 — §2 참조 |
-| 자격증명 키 이름 | 없음 (SDK 가 `~/.claude` 자동 사용) | 각 어댑터가 `getCredentialKeys(): string[]` 등으로 base URL / API key 키 이름 정의 — security.md 참조 |
+| 자격증명 주입 | Auth 플랫폼 — Harness `RuntimeConfigAugmenter`(`features/harnesses/runtime-config.ts`)가 선택된 Harness+ModelProvider 에 자격증명 env overlay 를 붙여 `options.env` 로 넘긴다([auth.md](./auth.md)). 어댑터는 키 이름을 모른다 | 어댑터별 자격증명 요구를 선언으로 노출하는 seam — security.md §1.4 |
 | 외부 세션 저장소 → Orca DB 동기화 | 없음 (현재 SDK 의 jsonl 을 직접 읽지 않음) | `listSessions / loadSession` 옵셔널 메서드로 외부 jsonl/SQLite 등을 Orca 로컬 DB 로 단방향 동기화 — persistence.md 참조 |
 | 설치 / binary 해소 | SDK `optionalDependencies` 가 자동 처리 → `install()` 즉시 `done: true` 반환 | opencode 등은 별도 install 스크립트 필요 |
 
@@ -150,11 +138,11 @@ OpenCode 적용 시의 추가 선행조건·레이어별 gate는 [마이그레�
 
 **번들 스킬 시딩 (0078)**: 부팅 시퀀스의 `builtin-skill-seed` 단계에서 `skills/seed.ts` 의 `seedBuiltinSkills(builtinDir, sourcesSkillsDir)` 가 앱에 번들된 스킬을 `sources/skills/` 로 1회 시딩한다. `app/builtin-resources.ts` 가 dev/패키지 빌드의 번들 경로를 해석하고, manifest/marker 버전 게이트로 이미 시딩된(또는 사용자가 수정한) 스킬을 덮어쓰지 않는다.
 
-**Skill/MCP 머티리얼라이즈** (0024 구현됨 / disallowedTools 보류, standardization.md §5.1/§5.2):
-- ExtensionDeployer 가 호환 자산을 SDK 표준 경로 거울로 배포 = 설치 스테이징: skill → `dist/<engine>/.claude/skills/`, mcp → `dist/<engine>/.mcp.json`(${VAR} 보존). 추후 "cwd 설치(복사)" 기능이 설치 대상으로 복사한다.
-- `adaptSkills()` (§1.3) 은 `skills:'all'` 만 두고 skill 은 `settingSources` 경로(SDK 기본 user/project/local — 옵션 생략)로 발견한다(`plugins` 주입 제거).
-- MCP 는 `options.mcpServers` 로 주입 (런타임 ${VAR} 확장). settings.json 은 query flag(`options.settings`)로 주입 (거울 예외, TRD §6.8).
-- agents·commands·hooks·plugin 은 engine-specific 이라 배포하지 않는다 — 추후 claude plugin 지원으로 연기(§3.1). (0024에서 구 `plugin/` 컨테이너 + manifest + `plugins:[{local}]` 경로를 제거했다.)
+**Skill/MCP 배포와 주입** (정본 [standardization.md §5.1](./standardization.md)):
+- ExtensionDeployer 가 `sources` 를 `dist/<engine>/plugins/orcinus-orca/{skills,.mcp.json}` plugin 패키지로 렌더하고(0058), `adaptPlugins()` 가 그 경로를 `options.plugins` 로 주입한다. 세션 cwd 로 복사하지 않는다.
+- `adaptSkills()`·`adaptSettingSources()`(§1.3) — `settingSources: ['project','local']` 로 사용자 전역 settings 를 상속하지 않고(0117), 사용자 `~/.claude/skills` 는 별도 wrapper plugin 으로 전달한다.
+- 파일 기반 MCP 는 plugin `.mcp.json` 으로 로드되고(`${VAR}` 는 배포 시 resolver 가 해석 — [security.md §1.4](./security.md)), `options.mcpServers` 는 인프로세스 runtime tool 서버에만 쓴다. provider settings 는 query flag(`options.settings`)로 주입한다(TRD §6.8).
+- agents·commands 는 engine-specific 이라 배포하지 않는다(§3.1). 런타임 hook 은 `options.hooks` in-process 경로다(§3.2.5).
 
 ### 2.2 어댑터별 Skills 경로 분리 (Future 채택 결정)
 
@@ -168,11 +156,9 @@ OpenCode 적용 시의 추가 선행조건·레이어별 gate는 [마이그레�
 
 - IPC `orca:skills:list` 의 응답은 활성 어댑터의 경로만 반영 (또는 모든 등록된 어댑터의 경로 통합 — 결정 필요).
 
-### 2.3 Artifacts 디렉토리 (Phase 3+ 도입)
+### 2.3 게시 원본 파일 (Artifacts)
 
-- 경로: `<userData>/artifacts/<sessionId>/<uuid>.<ext>`
-- GC 전략: 세션 삭제 시 디렉토리째 제거 + DB CASCADE
-- 동기화 안 됨 (로컬 only). 클라우드 백업은 export/import 단위로만.
+보관 경로·세션과 파일의 수명·휴지통 규칙은 [persistence.md §1.4](./persistence.md) 가 정본이다 — 본 문서는 중복 서술하지 않는다. 게시 도구의 실행 문맥은 [runtime-ipc.md §1](./runtime-ipc.md) "게시 도구의 실행 문맥".
 
 ### 2.4 로그
 
@@ -192,8 +178,8 @@ OpenCode 적용 시의 추가 선행조건·레이어별 gate는 [마이그레�
 
 | 자산 | 정규 소스 (Tier A, 중립) | claude 어댑트 | opencode 어댑트 | 정규화도 |
 |---|---|---|---|---|
-| **MCP** | `mcp.json` (`OrcaMcpConfig`) | `toClaudeConfig` → `options.mcpServers` + `allowedTools`; 디스크 거울 `dist/<engine>/.mcp.json`(${VAR} 보존) | (opencode 변환기 미구현 — `opencode.json` `mcp` 는 목표 형식) | ✅ claude 축 구현됨 |
-| **Skill** | `skills/<n>/SKILL.md` | `dist/<engine>/.claude/skills/` 배포 → `settingSources` 경로로 발견(`skills:'all'`) | 네이티브 글로빙 경로로 심링크/복사 | ✅ 변환 불필요(양 백엔드 공통) |
+| **MCP** | `mcp.json` (`OrcaMcpConfig`) | `toClaudeConfig` → plugin `.mcp.json`(`dist/<engine>/plugins/orcinus-orca/`, 배포 시 `${VAR}` 해석); 인프로세스 runtime tool 은 `options.mcpServers` | (opencode 변환기 미구현 — `opencode.json` `mcp` 는 목표 형식) | ✅ claude 축 구현됨 |
+| **Skill** | `skills/<n>/SKILL.md` | `dist/<engine>/plugins/orcinus-orca/skills/` 배포 → `options.plugins` 로 로드(`settingSources: ['project','local']`) | 네이티브 글로빙 경로로 심링크/복사 | ✅ 변환 불필요(양 백엔드 공통) |
 | **systemPrompt** | 중립 문자열(프로젝트 지침) | `preset:'claude_code' + append` | opencode system prompt 옵션 | ⏳ |
 | **Hook(런타임)** | **런타임 전용** — 배포 자산 아님 | `options.hooks` in-process 콜백(claude-side `NormalizedHookSet`, §3.2.5) | 네이티브 플러그인 모듈 | ❌ 정규화 안 함(§3.2) |
 
@@ -229,7 +215,7 @@ claude SDK 이벤트(`docs/spec/claude/agent-sdk/hooks.md`)를 Orca 중립 어�
 | `before-compact` | `PreCompact` | (없을 수 있음) | claude 전용 |
 | (없음) | `WorktreeCreate` 등 claude TS 전용 다수 | — | claude 전용 |
 
-**한계 명시**: claude 의 hook 이벤트 목록(`hooks.md` 표)은 opencode 보다 훨씬 풍부하다(`PostToolBatch`, `Worktree*`, `TeammateIdle` 등). → `NormalizedHookEvent` 의 각 항목에 **`supportedBackends` 메타**를 달고, 미지원 백엔드에서는 UI 에서 해당 hook 을 비활성/경고한다. 정규화는 *교집합* 에서 무손실, *전용 영역* 은 §3.2.5 이스케이프 해치로.
+**한계 명시**: claude 의 hook 이벤트 목록(`hooks.md` 표)은 opencode 보다 훨씬 풍부하다(`PostToolBatch`, `Worktree*`, `TeammateIdle` 등). → (설계 — 미구현, 코드 현실은 §3.2.5) `NormalizedHookEvent` 의 각 항목에 **`supportedBackends` 메타**를 달고, 미지원 백엔드에서는 UI 에서 해당 hook 을 비활성/경고한다. 정규화는 *교집합* 에서 무손실, *전용 영역* 은 §3.2.5 이스케이프 해치로.
 
 #### 3.2.3 중립 입출력 형식
 
@@ -289,7 +275,7 @@ const protectEnv: NormalizedHookHandler = (ctx) =>
 > (`NormalizedHookEvent` 9종 · `NormalizedHookContext` · `NormalizedHookDecision` · `NormalizedHookHandler` ·
 > `NormalizedHookSet` · `resolveHookDecisions`), `adapters/claude-adapt.ts`(`adaptHooks()` + `NORMALIZED_TO_CLAUDE_EVENT`),
 > `claude-adapt.test.ts`(`describe('adaptHooks')`), `adapters/turn.ts` 의 `TurnExtensions.hooks: NormalizedHookSet`,
-> `features/extensions/builder.ts:73`(현재 `hooks: { normalized: {} }` — 빈 핸들러). 이는 **claude 어댑터가 SDK
+> `features/extensions/builder.ts`(현재 `hooks: { normalized: {} }` — 빈 핸들러; 어댑터 내부 훅은 `claude.ts` 가 병합). 이는 **claude 어댑터가 SDK
 > `query().options.hooks` 로 넘기는 in-process 콜백**의 형태이며, **교차-엔진(claude+opencode) 정규화 표준이 아니다**.
 > §3.2 정정에 따라 `normalized` 는 *앱이 주입하는 claude 전용 in-process hook* 의 컨테이너로 재해석하고,
 > `backendSpecific` 슬롯이 엔진별 분리(§2 채택)의 코드 표현이다. opencode 의 hook 은 `backendSpecific.opencode`

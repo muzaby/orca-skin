@@ -92,8 +92,11 @@ config API 를 불러 URL·모델 식별자·실행 token 을 한꺼번에 받�
 | `features/harnesses/settings.ts` | native settings 해석 + mtime cache + `sourceRevision` |
 | `features/harnesses/runtime-config.ts` | 동적 실행 구성 — augmenter · 세대 cache · fence · single-flight · expiry |
 | `features/harnesses/runtime-boundary.ts` | respawn 경계 판정(순수) |
+| `features/harnesses/runtime-catalog.ts` | 인증 뒤 Claude Code `availableModels` 수집 — settings 모델 파싱 규칙(`runtimeEnv.ANTHROPIC_MODEL`)을 공유하는 런타임 카탈로그 |
 | `features/plugins/confluence/` | Confluence REST · Markdown 변환 · 첨부 · Runtime Tool |
-| `app/deployment/` | 배포별 concrete — `auth-definitions`·`gate-auth`·`harness-runtime`·`plugins`·`connections`·`usage-fetcher` |
+| `features/plugins/jira/` | Jira Data Center REST · 첨부 저장(숨은 stage → batch 공개) · Runtime Tool — [security.md §1.8](./security.md) |
+| `features/plugins/mail/` | POP3 수집(UIDL 증분) · 계정별 `mail.db` FTS 검색 · 첨부 · Runtime Tool — [persistence.md](./persistence.md) "Mail Plugin 캐시" |
+| `app/deployment/` | 배포별 concrete — `auth-definitions`·`gate-auth`·`harness-runtime`·`plugins`·`connections`·`usage-fetcher`·`spawn-env`(폐쇄망 subprocess env 주입점) |
 | `app/connection-views.ts` | view source → 기존 `ProviderInfo`/`ProviderPlatformState` |
 | `app/auth-resume.ts` | 부팅 복원 순서(게이트 우선 → 나머지 병렬 → push 1회) |
 

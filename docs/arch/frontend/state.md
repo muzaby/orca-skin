@@ -61,7 +61,7 @@ interface SessionEntry {
 - **키 라우팅 (0013)**: IPC 이벤트는 `ev.sessionId` 로 해당 엔트리에 라우팅 — 비활성 세션의 턴이 백그라운드 누적되고 활성 UI 를 깨우지 않는다. sessionId 없는 이벤트는 활성 폴백, 미지 sessionId(엔트리 삭제 후 늦은 도착)는 폐기. `session.updated` 가 `NEW_CHAT_KEY` 엔트리를 sessionId 키로 승격(활성이면 activeKey 추종 — `useChatRouteSync` 방향 2 의 URL 승격 트리거).
 - **구 `sessionCache`(snapshot Map) 폐기** — sessions Record 가 캐시를 흡수: 본 적 있는 세션 재진입은 IPC 없이 `activeKey` 전환. LRU cap 은 Future Scope.
 - 스트리밍 델타 누적(구 `pendingDelta`/`pendingReasoning`)은 **reducer 에서 제거** — 엔트리별 `live` 슬라이스가 소유하고, `message.completed`(완성본 페이로드)·`telemetry`(잔여분 `COMMIT_PENDING_TEXT` 폴백) 시 parts 로 커밋된다.
-- 컴포넌트 접근은 selector 훅(`useChatSession`/`useLiveText`/`useLiveReasoning` — 활성 엔트리 구독)과 안정 액션 묶음 `chatActions`, imperative read 는 `getActiveChatSession()` — `UseChat` 객체 전달/Context 전파 모델 폐기.
+- 컴포넌트 접근은 selector 훅(`useChatSession`/`useLiveText`/`useLiveReasoning` — 활성 엔트리 구독)과 안정 액션 묶음 `chatActions`, imperative read 는 `getActiveChatSession()` 이다. 채팅 상태는 Context 로 전파하지 않는다.
 - 코얼레서는 단일 FIFO(세션 간 순서도 보존)이며 delta window를 `DeltaEvent[]`로 넘긴다. store는 batch 전체를 단일 `setState` transaction으로 반영해 flush당 notification을 1회로 제한한다. 세션 전환 시 dispose 하지 않는다(키 라우팅이 스테일 오염 방지).
 - 엔트리 교체는 store 내부 `patchEntry`가 소유한다. reducer가 같은 상태를 돌려주면 root 참조와 구독을 유지한다. `message.completed`와 `telemetry`의 committed/live 반영도 같은 transaction에서 처리하고, 다음 대기 입력 전송은 기존 이벤트 처리 순서를 따른다.
 - 파일 자동완성 조회 수명은 cwd·디렉토리·활성 토큰 유무로 정한다. 같은 디렉토리의 prefix·caret 변화는 진행 중 listing을 유지하며 후보 필터와 선택은 최신 match를 사용한다.
@@ -95,61 +95,17 @@ interface SessionEntry {
 - ❌ **`features/` hook 에서 `window.orca.*` 직접 호출** — `shared/api/ipc.ts` 타입드 래퍼 (PR #29 에서 도입) 를 경유한다. 직접 호출은 ESLint 위반은 아니지만 테스트 진입점 / IPC 계약 변경 추적성을 망가뜨린다.
 - ❌ **`useEffect` 안에서 store→다른 store 갱신** — 무한 루프 위험. reducer 의 단일 액션으로 묶을 것.
 - ❌ **`messages` 배열을 mutate** — reducer 는 `.slice()` 후 새 배열 반환 (`chatReducer.ts` 패턴).
-- ❌ **Tailwind 클래스에 raw hex 색상** — 시맨틱 토큰 (`bg-bg`, `text-ink`, `border-border`) 우선. 새 색이 필요하면 `tokens.css` 의 `@theme` 에 추가하고 세 테마 스코프 모두 채움.
+- ❌ **Tailwind 클래스에 raw hex 색상** — 시맨틱 토큰 (`bg-bg`, `text-ink`, `border-border`) 우선. 새 색이 필요하면 `tokens.css` 의 `@theme` 에 추가하고 두 테마(white/dark) 스코프 모두 채움.
 
-### 1.4 Zustand 전환 (채택 결정)
+### 1.4 상태 라이브러리 — Zustand (이행 완료)
 
-> **확정 사항 (사용자 결정)**:
-> 1. **단일 root store + `sessions: Record<sessionId, SessionState>` 슬라이스** 패턴 채택. `Map<sessionId, store>` factory 패턴은 폐기.
-> 2. ~~도입 시점은 Phase 4 멀티세션 진입과 동시 / Phase 3 사전 마이그레이션 금지~~ → **개정 (2026-06-11, 0008)**: 스트리밍 렌더 파이프라인 재설계가 selector 구독을 요구해 **chat 스코프만 선행 도입**. 현 외피는 단일 세션(`session`+`live`)이며, Phase 4 에서 `sessions: Record<sessionId, …>` 외피 변경(+`ChatEvent.sessionId` 라우팅)과 전역 슬라이스(Tweaks/Backend/Skills) 흡수를 수행한다 — 액션이 "활성 세션 1개" 단위로 캡슐화돼 있어 기계적 치환.
-
-#### 4.4.1 도입의 핵심 명분 — selector 기반 구독
-
-Context + useReducer 도 외피 (`sessions: Record<sessionId, ChatState>`) 변경만으로 *동작* 은 한다. 도입 명분은 **선택적 리렌더**:
-
-- Phase 4 동시 스트리밍 시, 비활성 세션의 델타 누적(구 `pendingDelta`)이 16ms 간격으로 갱신된다. 단일 Context 모델은 모든 consumer 를 리렌더 → 활성 세션 UI 의 입력 응답성 저하.
-- Zustand 의 `useChatStore((s) => s.sessions[activeId].messages)` selector 만으로 해결. Context split / `useContextSelector` 서드파티 패치 의존을 피한다.
-
-#### 4.4.2 store 외부 접근 활용
-
-`useChatStore.getState().recv(ev)` 로 IPC `chat:event` 핸들러가 **React 트리 밖에서 직접 dispatch** 가능. `webContents.send('orca:chat:event', ev)` 는 ordered+lossless 1채널이므로, renderer 의 1개 핸들러가 `ev.data.sessionId` 로 라우팅해 해당 세션 슬라이스만 갱신한다.
-
-#### 4.4.3 store 슬라이스 분리
-
-| 슬라이스 | 위치 | 필드 |
-|---|---|---|
-| **세션별** | `sessions[key]: SessionEntry` | `session`(`ChatState`) / `live` / `subagentMeta` / `pendingSteer` |
-| **전역** | root state | `activeSessionId` / `inflight` (Phase 4 에서는 세션별로 분리 검토) / `turnStartedAt` / `Tweaks` / `Backend` / `Skills` |
-
-세션 삭제: `delete state.sessions[id]` + 해당 세션의 진행 중 `AbortController.abort()` 호출.
-
-#### 4.4.4 대안 비교
-
-| 옵션 | 선택적 리렌더 | 외부 dispatch | 미채택 이유 |
-|---|---|---|---|
-| Context + useReducer (현행) | ❌ | ❌ | 동시 스트리밍 시 활성 UI 리렌더 |
-| Context split + `useContextSelector` | ✅ | ❌ | 서드파티 패치 의존 |
-| **Zustand (단일 root + sessions 슬라이스)** | ✅ | ✅ | **채택** |
-| Zustand store factory (`Map<sessionId, store>`) | ✅ | ✅ | 전역 공유 필드용 root store 가 또 필요 → 분산. 영속성 hydration 도 2회 |
-| Jotai (`atomFamily(sessionId)`) | ✅ | △ atom 외부 접근 우회 필요 | atom 폭증 + 학습 비용 |
-| TanStack Store | ✅ | ✅ | Zustand 와 동급 — 채택 이유 약함 |
-| Valtio (proxy mutable) | ✅ | ✅ | mutable 패턴이 reducer 일관성과 충돌 |
-| 손수 `useSyncExternalStore` | ✅ | ✅ | Zustand 가 본질적으로 이것의 얇은 wrapper — 직접 구현 이득 적음 |
-
-#### 4.4.5 전환 시 영향 범위
-
-- ✅ **(0008 완료)** `features/chat/store/chatStore.ts` 도입 — 단, reducer 를 폐기하지 않고 **순수 `chatReducer` 를 store 액션이 래핑**한다(테스트 자산·불변식 보존). Phase 4 에 `sessionId` 인자 추가.
-- ✅ **(0008 완료)** 구 `useChat.ts` 의 useReducer/Context 패턴 → `useChatSession(selector)`/`chatActions` 로 교체 (`UseChat` 객체·`useChatContext` 폐기, `ChatProvider` 는 부트스트랩 effect 전용).
-- ✅ **(0008 완료)** IPC onEvent 핸들러 → 코얼레서 → store `receive(ev)` 외부 dispatch.
-- Backend/Sessions/Projects/Cost는 feature별 Zustand store를 사용한다. 초기화와 이벤트 구독은 각 기존 진입점이 담당한다. Tweaks는 provider별 store, Skills/Agents는 기존 hook 진입점을 사용한다.
-- `app/AppLayout.tsx` 의 props drilling (현 `pinnedSlot` / `sessionsSlot` / `footerSlot` — `app/hooks/useSidebarSlots.tsx`) 은 store 직접 구독으로 단순화 가능 — 단, `shared/ui/` 의 presentational 규칙 (layers.md §1.1) 은 유지.
-
-#### 4.4.6 도입 PR 에서 결정할 사항 (Open Questions)
-
-| OQ | 내용 |
-|---|---|
-| persist middleware vs custom subscribe | Zustand `persist` middleware 의 기본 storage 는 localStorage/AsyncStorage. Electron 에선 custom storage 어댑터 (electron-store 또는 로컬 DB IPC bridge) 필요. zod 검증 흐름과의 정합성 검토. ../backend/overview.md §4 참조. |
-| devtools middleware | Redux DevTools 호환 Zustand devtools 사용 여부 — 개발 모드에서만 활성화 권장. |
+- **구조**: feature 별 store + chat 의 `sessions: Record<key, SessionEntry>` 외피(§1.2). `Map<sessionId, store>` factory 는 채택하지 않았다 — 전역 공유 필드용 root store 가 또 필요해지고 영속성 hydration 이 2회가 된다(선택 근거는 handoff 0008·0013 plan).
+- **선택적 리렌더**: `useChatSession(selector)`·`useLiveText` 등 selector 구독으로 비활성 세션의 델타 누적이 활성 UI 를 깨우지 않는다(§1.2 · rendering.md §1.2). `ChatProvider` 는 부팅 effect(`bootstrapChat()`)만 가지며 Context·useReducer 를 쓰지 않는다.
+- **외부 dispatch**: IPC `orca:chat:event` 핸들러가 React 트리 밖에서 코얼레서 → `chatStore` 로 직접 넣는다(ux-domains.md §3.2). 모든 `NormalizedEvent` 가 `sessionId` 를 가져 store 가 키 라우팅한다(GLOSSARY NormalizedEvent).
+- **슬라이스**: 세션별 `sessions[key]`(`session`·`live`·`subagentMeta`·`pendingSteer` …) — `inflight` 도 세션별이다. 전역은 feature store(§1.1 표).
+- **세션 삭제**: 엔트리 제거 + 진행 중 턴 abort.
+- **사이드바 슬롯**: `app/hooks/useSidebarSlots.tsx` 의 `projectsSlot`·`pinnedSlot`·`sessionsSlot`·`footerSlot` 을 `AppLayout` 이 props 로 받는다 — `shared/ui/` presentational 규칙(layers.md §1.1) 유지.
+- **미결(OQ)**: persist middleware vs custom subscribe(Electron 은 custom storage 어댑터 — electron-store 또는 로컬 DB IPC bridge — 가 필요) · devtools middleware(개발 모드 한정) — ../backend/overview.md §4 "Zustand persist 전략".
 
 ### 1.5 Tweaks 적용 흐름
 
@@ -188,26 +144,24 @@ Sidebar는 고정됨→프로젝트→최근 대화 순서다. 고정 프로젝�
 
 ---
 
-## 2. 멀티세션 UI 동작 (Phase 4 anchor)
+## 2. 멀티세션 UI 동작
 
-> **현재 상태 (0011+0013)**: **멀티세션 외피 완료.** main 은 `SessionRuntimeRegistry`(`features/sessions/session-registry.ts`, sessionId 키 — 서로 다른 세션의 동시 턴 허용), renderer 는 `sessions: Record` store. 비활성 세션 턴이 백그라운드 누적된다. 남은 것은 *UX*(사이드바 배지·세션 탭·스크롤 위치 기억 등 §2.1 일부)뿐.
+> **현재 상태**: main 은 세션별 `SessionRuntime`(../backend/runtime-ipc.md §1)으로 서로 다른 세션의 동시 턴을 돌리고, renderer 는 `sessions: Record` store(§1.2)로 비활성 세션 턴을 백그라운드 누적한다. 사이드바 세션 행은 생성 중(회전) · 완료 · 응답 대기를 아이콘으로 알린다(§1.1 `unseenAttention`·`generatingSessionIds`, rendering.md "채팅 행" 단락 — 0249·0254).
 
-### 2.1 Phase 4 확장점
+### 2.1 설계 결정
 
-`docs/ARCHITECTURE.md` 가 다루던 Phase 4 anchor 를 이 절에 흡수:
-
-| 변경 | 위치 | 영향 범위 |
+| 항목 | 현재 | 위치 |
 |---|---|---|
-| `ChatState` 외피 변경 | `features/chat/reducer/chatReducer.ts` | `{ sessions: Record<sessionId, ChatState>; activeSessionId: sessionId }` 형태. 내부 reducer 로직은 "세션 1개 단위" 로 캡슐화되어 있어 외피 변경만으로 흡수 가능. |
-| `ChatEvent.sessionId` 필드 추가 | `app/src/shared/ipc.ts` | 현재 `init` variant 만 sessionId 보유. Phase 4 진입 시 *모든 variant* (`assistant_delta` 등) 에 `sessionId: string` 필드 추가 — 동시 흐름의 출처 식별. |
-| IPC 1채널 그대로 유지 | `orca:chat:event` | Electron `webContents.send` 가 V8 microtask queue 위에서 ordered + lossless 보장. 별도 메시지큐 도입 *중복 레이어* 이므로 미채택. |
-| Sidebar 세션 탭 UI | `features/sessions/components/SessionList.tsx` + `app/Sidebar.tsx` 의 sessions 슬롯 | 활성 세션 전환 + 비활성 세션 배지 (스트리밍 중 표시). |
-| 세션 전환 시 스크롤 위치 기억 | `features/chat/components/ChatTile.tsx` | 세션별 scrollTop 보관. |
+| `ChatState` 외피 | `sessions: Record<key, SessionEntry>` + `activeKey` — reducer 는 세션 1개 단위 순수 함수 | `features/chat/store/chatStore.ts` |
+| 이벤트 출처 식별 | 모든 `NormalizedEvent` 가 `sessionId` 를 갖고 store 가 키 라우팅한다(GLOSSARY NormalizedEvent) | `app/src/shared/ipc.ts` |
+| IPC 1채널 | `orca:chat:event` 하나 — Electron `webContents.send` 가 ordered + lossless 를 보장하므로 별도 메시지큐를 두지 않는다 | — |
+| 세션 전환 수단 | 사이드바 목록(고정됨 · 프로젝트 · 최근 대화, §1.6) — 세션 탭 UI 는 두지 않았다 | `app/Sidebar.tsx` · `features/sessions/` |
+| 비활성 세션 알림 | 행 아이콘 — 생성 중 회전(0254) · 완료/응답 대기 굵은 파란 아이콘(0249), 세션을 열면 해제 | `sessionsStore.unseenAttention` |
 
-### 2.2 동시 스트리밍 (Phase 4)
+### 2.2 동시 스트리밍
 
-- 여러 세션이 동시에 응답을 받을 수 있다 (각 세션 독립 `AbortController` — ../backend/runtime-ipc.md §1).
-- 비활성 세션도 백그라운드에서 메시지 누적 (이전 세션 전환해도 스트리밍 중단되지 않음).
-- 비활성 세션에 새 응답이 도착하면 Sidebar 에 배지 (예: 굵게).
+- 여러 세션이 동시에 응답을 받는다(각 세션 독립 abort — ../backend/runtime-ipc.md §1).
+- 비활성 세션도 백그라운드에서 메시지를 누적하고, 전환해도 스트리밍이 끊기지 않는다.
+- 세션 전환 시 스크롤 위치는 기억하지 않는다 — 로드·캐시 복원은 `useScrollAnchor` 가 바닥으로 점프한다(rendering.md §1.8 "세션 전환 판정").
 
 ---

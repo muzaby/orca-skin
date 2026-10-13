@@ -41,8 +41,8 @@ html[data-theme][data-platform]
             │   │   [data-state="expanded|collapsed"]
             │   │   ├── .app-frame-sidebar-body
             │   │   │   ├── .app-frame-sidebar-brand    (🐋 + "Orca" 브랜드 로고)
-            │   │   │   ├── nav.app-frame-sidebar-nav   (4-항목: 새 대화 · 프로젝트 · 엔진 & 모델 · 플러그인 모달; 자동화는 Future Scope 로 nav 미노출)
-            │   │   │   ├── .app-frame-sidebar-sessions
+            │   │   │   ├── nav.app-frame-sidebar-nav   (새 대화 · 프로젝트 · 아티팩트 · 엔진 & 모델 · 플러그인 — 정본 `app/navItems.ts`; 자동화는 Future Scope 로 nav 미노출)
+            │   │   │   ├── .app-frame-sidebar-sessions (고정됨 · 프로젝트 · 최근 대화 구획 — state.md §1.6)
             │   │   │   └── .app-frame-sidebar-footer
             │   │   └── .app-frame-resize-handle          (aside 자식 — collapse 시 함께 사라짐)
             │   │

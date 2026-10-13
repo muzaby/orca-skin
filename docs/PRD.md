@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 제품명 (코드네임) | **Orca** |
-| 문서 버전 | v1 (MVP 정의) — 최종 동기화 2026-07-11 (handoff 0095: OQ1/OQ3/OQ8 해소 표기·§7/§8/§9 구현 완료분 반영. 의도 변경 없음) |
+| 문서 버전 | v1 (MVP 정의) — 최종 동기화 2026-10-13 (handoff 0260: §6.2·§7·§8·§9·§11 비고·§12 사실 정정과 구현 완료 표기. 의도 변경 없음 — 미결 OQ 비접촉) |
 | 1차 소스 | `docs/etc/llm-chat-desktop-strategy.md` |
 | 2차 소스 | `project/` 프로토타입 (Variation A · "Claude Desktop classic"), `chats/chat1.md` |
 | 작성 의도 | 무엇을 만들고 무엇을 만들지 *않는지* 를 합의된 결정에 한해 정리. 새 결정은 만들지 않으며, 미정 항목은 §11 Open Questions 로 모은다. |
@@ -94,9 +94,9 @@ v1 의 기능 표면은 P2 만으로도 충분히 커버 가능하다. P1 의 �
 | N1 | 플랫폼 | macOS / Windows / Linux. Electron 다중 빌드. |
 | N2 | i18n | 한국어 1차. 일부 기술 라벨/터미널 출력은 영어 그대로. |
 | N3 | 접근성 | 키보드 내비게이션, 다크모드 지원 (Tweaks 경유). |
-| N4 | 데이터 위치 | 세션 본체는 CLI 저장소 (`~/.claude/projects/<cwd>/<id>.jsonl`, `~/.local/share/opencode/`). 앱 자체는 메모리에 `sessionId` 만 보유. |
+| N4 | 데이터 위치 | 세션 본체는 CLI 저장소 (`~/.claude/projects/<cwd>/<id>.jsonl`, `~/.local/share/opencode/`). 앱 자체는 메모리에 `sessionId` 만 보유. *(Phase 1·2 기준 — Phase 3+ 는 로컬 DB 가 대화 기록의 진실이다. NG1 · TRD §3 N4)* |
 | N5 | 응답 지연 가이드 | 첫 토큰까지의 지연 / 시작 시간 SLA — §11 OQ. |
-| N6 | 보안 | OAuth/API 키 자체 저장 없음. CLI 가 처리. |
+| N6 | 보안 | OAuth/API 키 자체 저장 없음. CLI 가 처리. *(Phase 1·2 기준 — 앱이 관리하는 자격증명은 이후 Auth vault 가 소유한다. TRD §3 N6)* |
 
 ---
 
@@ -114,8 +114,8 @@ v1 의 기능 표면은 P2 만으로도 충분히 커버 가능하다. P1 의 �
 | 스타일링 | **Tailwind CSS** | TRD §4 채택. 디자인 토큰은 §10 CSS 커스텀 프로퍼티 그대로, 컴포넌트 클래스만 Tailwind 유틸리티 |
 | LLM 백엔드 SDK (Claude) | **`@anthropic-ai/claude-agent-sdk`** (Phase 3 채택, 2026-05-18) | 진입점 `query()`, 세션 재개 `options.resume`, 토큰 스트리밍 `options.includePartialMessages`. TRD §4·§7.1, [`claude-code-spec.md §10`](./claude-code-spec.md) |
 | 상태 관리 (Renderer) | **Zustand 전환 완료** (0008 chat 선행 + 0013 전면 — feature별 store + chat `sessions: Record` 외피) | 순수 `chatReducer` 유지 + store 가 키 라우팅. 외부 dispatch (`receive(ev)`). 상세 [arch/frontend/state.md](arch/frontend/state.md) §1 |
-| 영속화 | **구현 완료**: `electron-store` (키 카탈로그 TRD §6.7, 개수는 [생성물](generated/inventory.md)) + 로컬 DB better-sqlite3 (메시지·세션 SSOT). **잔여**: `<userData>/artifacts/` FS (Artifact) | 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
-| 자격증명 | **현재**: SDK 가 `~/.claude` 자동 사용 + MCP 인증 비밀은 safeStorage secret-store **구현 완료**. **잔여**: 어댑터별 base URL + API key 저장 | [arch/backend/security.md](arch/backend/security.md) §1.4 |
+| 영속화 | **구현 완료**: `electron-store` (키 카탈로그 TRD §6.7, 개수는 [생성물](generated/inventory.md)) + 로컬 DB better-sqlite3 (메시지·세션 SSOT) + 게시 원본 파일(`~/.config/orcinus-orca/artifacts/`, 0223) | 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
+| 자격증명 | **구현 완료**: 앱이 관리하는 자격증명은 Auth Grant → vault(safeStorage, 0181·0188)가 소유한다 — LLM 게이트웨이·사내 서비스·MCP `${BINDING:}` 공통. SDK 자체 OAuth 로그인 자격증명(`~/.claude`)은 앱이 다루지 않는다 | [arch/backend/security.md](arch/backend/security.md) §1.4 |
 
 ### 7.2 CLI 연결 패턴 (전략 §3)
 
@@ -127,7 +127,7 @@ v1 의 기능 표면은 P2 만으로도 충분히 커버 가능하다. P1 의 �
 
 ### 7.3 SessionAdapter (전략 §8.2)
 
-> **구현 노트 (0016)**: 아래 `ChatEvent` 는 전략 소화 당시의 스케치다 — 실제 와이어 타입은 provider 중립 **`NormalizedEvent`** 로 정규화됐다(변이 카탈로그 = IPC_CONTRACT §3). 본 블록은 역사 보존.
+> **구현 노트 (0016)**: 아래 `ChatEvent`·`SessionAdapter`·`SessionInfo` 는 전략 소화 당시의 스케치다 — 실제 와이어 타입은 provider 중립 **`NormalizedEvent`**(변이 카탈로그 = IPC_CONTRACT §3), 어댑터 계약은 `app/src/main/adapters/types.ts`(GLOSSARY SessionAdapter), 세션 목록 DTO 는 `SessionListItem` 이다. 본 블록은 역사 보존.
 
 ```typescript
 export type Backend = 'claude-code' | 'opencode';
@@ -164,11 +164,11 @@ Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또�
 
 | 항목 | Claude Code | opencode *(예약 사양 — Phase 1·2 미구현)* |
 |---|---|---|
-| 프로세스 모델 | One-shot: 매 턴 새 `query()` 호출 (SDK 가 내부 binary 라이프사이클 관리) | Long-running server: 한 번 띄워 유지 |
+| 프로세스 모델 | 장수명 채널: 세션당 `query()` 하나를 열고 턴마다 `pushTurn` 으로 입력 (SDK 가 binary 라이프사이클 관리, [runtime-ipc.md](arch/backend/runtime-ipc.md) §1.3) | Long-running server: 한 번 띄워 유지 |
 | 컨텍스트 보관 위치 | `~/.claude/projects/<cwd>/<session-id>.jsonl` | 서버 메모리 + SQLite (`~/.local/share/opencode/`) |
 | 세션 ID 발급 시점 | 첫 응답의 `SDKSystemMessage(subtype: 'init')` 의 `session_id` | `POST /session` 응답 |
 | 이어가기 | `query({ prompt, options: { resume: id } })` | 같은 `session_id` 로 HTTP 재호출 |
-| GUI 호출 방식 | `@anthropic-ai/claude-agent-sdk` 의 `query()` 매 턴 | HTTP 클라이언트 (SDK) |
+| GUI 호출 방식 | `@anthropic-ai/claude-agent-sdk` 의 장수명 `query()` + `pushTurn` (채널 사망 시 spawn + `resume`) | HTTP 클라이언트 (SDK) |
 | 스트리밍 | SDKPartialAssistantMessage / SDKAssistantMessage 메시지 union | HTTP SSE/스트림 |
 | GUI 보유 상태 | `sessionId` 문자열 1개 | `sessionId` + 서버 핸들 |
 | **GUI 의 컨텍스트 관리 코드** | **0 줄** | **0 줄** |
@@ -195,8 +195,8 @@ Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또�
 |---|---|---|
 | **Phase 1 (MVP)** ✅ | 단일 활성 대화 컨텍스트 유지 | `sessionId` 메모리 변수 1개 |
 | Phase 2 ✅ | 앱 재시작 후 마지막 대화 재개 | `electron-store` 로 `sessionId` 영속화 |
-| Phase 3 ✅ | 사이드바에 과거 대화 목록 + 로컬 영속성 도입 | 로컬 DB (`<userData>/orcinus-orca.db`) 가 메시지·세션 메타 SSOT. Artifact FS 는 잔여. 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
-| Phase 4 (진행 중) | 멀티 세션 전환 모드 + **Zustand 상태 관리 전환** | **런타임·상태 전환은 완료** (세션별 SessionRuntime + chat `sessions: Record` 외피, 0008~0013·0051~0069) — 동시 스트리밍 *UX*(배지·탭)가 잔여. 진행 이력 정본 [archive/PHASES.md](archive/PHASES.md), 상태 상세 [arch/frontend/state.md](arch/frontend/state.md) §1 |
+| Phase 3 ✅ | 사이드바에 과거 대화 목록 + 로컬 영속성 도입 | 로컬 DB (`<userData>/orcinus-orca.db`) 가 메시지·세션 메타 SSOT. 게시 원본 파일은 0223 에서 구현. 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
+| Phase 4 ✅ | 멀티 세션 전환 모드 + **Zustand 상태 관리 전환** | 세션별 SessionRuntime + chat `sessions: Record` 외피(0008~0013·0051~0069) + 비활성 세션 상태 아이콘(nav 세션 행 — 0249·0254). 세션 탭은 두지 않는다. 진행 이력 정본 [archive/PHASES.md](archive/PHASES.md), 상태 상세 [arch/frontend/state.md](arch/frontend/state.md) §1·§2 |
 
 ---
 
@@ -206,7 +206,7 @@ Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또�
 
 | 영역 | 무엇 | 프로토타입 참조 |
 |---|---|---|
-| **Projects** ✅ 구현 | 프로젝트 단위 워크스페이스(지침·cwd 스코프), CRUD 5채널 + 카드 그리드 + 랜딩 | `project/variations/v1-screens.jsx` (Projects 카드 그리드) — 구현 IPC_CONTRACT §2.7-b |
+| **Projects** ✅ 구현 | 프로젝트 단위 워크스페이스(지침·cwd 스코프), `project` 채널(개수는 [생성물](generated/inventory.md)) + 카드 그리드 + 랜딩 | `project/variations/v1-screens.jsx` (Projects 카드 그리드) — 구현 IPC_CONTRACT §2.7-b |
 | **Engine & Model 레지스트리** ✅ 구현 (claude 축) | 모델 선택·턴 단위 스위치(0010) + provider CRUD·`/agent` 화면(0021·0090). 멀티 엔진(opencode/llama.cpp/OpenAI 호환)은 잔여 | `project/variations/v1-screens.jsx` (Engine & Model 패널) |
 | **Skills** ✅ 부분 구현 | 스킬 카탈로그(스캔·토글·업로드 UI) + 번들 시딩(0078). 도메인 스킬(bayer-analysis, mtf-sfr 등) 자체는 잔여 | `project/variations/v1-screens.jsx` (Skills/MCP 좌측) |
 | **MCP 서버** ✅ 구현 | MCP 서버 등록/토글/삭제 + safeStorage 인증 + 세션 주입. 세분화된 권한 패널은 잔여 | 동 우측 — 구현 IPC_CONTRACT §2.10 |
@@ -270,7 +270,7 @@ Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또�
 |---|---|---|
 | ~~OQ1~~ | ~~UI 프레임워크는 React 로 확정하는가? 버전(18/19)?~~ | **확정** (2026-05-20): React ^19. TRD §4 갱신. |
 | ~~OQ2~~ | ~~마크다운/하이라이트 라이브러리는 react-markdown + shiki 로 확정?~~ | **확정** (2026-05-14, Phase A `feat-pretty-ui`): react-markdown@^9 + remark-gfm@^4 + shiki@^1. TRD §2 갱신. |
-| ~~OQ3~~ | ~~패키징/배포 (electron-builder target, macOS notarization, Windows code signing, 자동 업데이트 채널)?~~ | **대부분 확정** (0084~0089): Windows **unsigned NSIS** + GitHub Releases **draft**(수동 Publish) + electron-updater(stable 단일 채널, autoDownload=false) + CI/CD(`ci.yml`/`release.yml`). **잔여**: Windows code signing · macOS notarization · staged rollout. 정본 `docs/guides/release-operations.md` / TRD §9.2. |
+| ~~OQ3~~ | ~~패키징/배포 (electron-builder target, macOS notarization, Windows code signing, 자동 업데이트 채널)?~~ | **대부분 확정** (0084~0089): Windows **unsigned NSIS** + GitHub Releases **즉시 게시**(`v*` 태그 push — 수동 dispatch 는 dry-run) + electron-updater(stable 단일 채널, autoDownload=false) + CI/CD(`ci.yml`/`release.yml`). **잔여**: Windows code signing · macOS notarization · staged rollout. 정본 `docs/guides/release-operations.md` / TRD §9.2. |
 | OQ4 | 텔레메트리/에러 리포팅 정책? 옵트인? | 전략 비커버. |
 | OQ5 | 라이센스 (오픈/상용)? | 전략 비커버. |
 | OQ6 | 시작 시간 / 첫 토큰 지연 SLA 수치? | N5 와 연결. |
@@ -286,8 +286,7 @@ Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또�
 | 출처 | 용도 |
 |---|---|
 | `docs/etc/llm-chat-desktop-strategy.md` | 백엔드 / 어댑터 / 세션 / 설치 (§§2–11 핵심 입력) |
-| `docs/ARCHITECTURE.md` | Renderer 구조·상태 관리 (Zustand 채택 §4.4)·도메인 화면 카탈로그 |
-| `docs/ARCHITECTURE.md` | Main 구조·SessionAdapter §4·영속성 §6 (로컬 DB + FS)·자격증명 §8.4 |
+| `docs/ARCHITECTURE.md` | arch 파일 맵 — `arch/frontend`(Renderer 구조·상태 관리·도메인 화면 카탈로그) · `arch/backend`(Main 구조·SessionAdapter·영속성·자격증명) |
 | `docs/IPC_CONTRACT.md` | Main ↔ Renderer 채널 SSOT — 채널 계약 · NormalizedEvent variant · ErrorCategory (수치는 [생성물](generated/inventory.md)) |
 | `docs/GLOSSARY.md` | 용어 단일 출처 (Session / Backend / SessionAdapter / Artifact / Credential 등, 사용 금지 어휘) |
 | `docs/claude-code-spec.md` | Claude Code CLI 공식 스펙 미러 (§7.2~7.4, OQ9 의 참조점) |

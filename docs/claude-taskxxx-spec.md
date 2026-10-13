@@ -46,7 +46,7 @@ TaskXXX 는 **한 도구군이 아니라 두 네임스페이스**다. 키 표기
 |---|---|---|---|---|
 | 입력 | `subject` | `string` (필수) | 짧은 제목 | ✅ |
 | 입력 | `description` | `string` (필수) | 무엇을 해야 하는가 | ✅ |
-| 입력 | `activeForm` | `string?` | **진행 중 스피너에 보일 현재진행형** ("Running tests") | ⏳ 0212 |
+| 입력 | `activeForm` | `string?` | **진행 중 스피너에 보일 현재진행형** ("Running tests") | ✅ 진행 중 행의 현재진행형 (`shared/task-tool.ts` → `taskBoard.ts`, 0212) |
 | 입력 | `metadata` | `object?` | 임의 메타데이터 | ⛔ 소비처가 없다 (0212 §6) |
 | 출력 | `task.id` | `string` | SDK 가 배정한 id — **입력에는 없다** | ✅ |
 | 출력 | `task.subject` | `string` | SDK 정규화본 | ✅ |
@@ -70,9 +70,9 @@ TaskXXX 는 **한 도구군이 아니라 두 네임스페이스**다. 키 표기
 |---|---|---|---|---|
 | 입력 | `taskId` | `string` (필수) | 대상 id | ✅ |
 | 입력 | `subject` · `description` | `string?` | 새 값 | ✅ |
-| 입력 | `activeForm` | `string?` | 새 현재진행형 | ⏳ 0212 |
+| 입력 | `activeForm` | `string?` | 새 현재진행형 | ✅ §2.1 과 같다 (0212) |
 | 입력 | `status` | `'pending'\|'in_progress'\|'completed'\|'deleted'` | **`deleted` 는 상태가 아니라 제거 신호** | ✅ |
-| 입력 | `addBlocks` | `string[]?` | 내가 막을 id **가산** | ⏳ 0212 — 역방향 간선 |
+| 입력 | `addBlocks` | `string[]?` | 내가 막을 id **가산** | ✅ 역방향 간선 가산 (`taskBoard.ts`, 0212) |
 | 입력 | `addBlockedBy` | `string[]?` | 나를 막을 id **가산** | ✅ 가산 병합 (0204 D-029) |
 | 입력 | `owner` | `string?` | 담당자 | ⛔ 패널에 담당자 자리가 없다 |
 | 입력 | `metadata` | `object?` | 키별 병합 · `null` 로 키 삭제 | ⛔ §2.1 과 같다 |
@@ -80,7 +80,7 @@ TaskXXX 는 **한 도구군이 아니라 두 네임스페이스**다. 키 표기
 | 출력 | `taskId` | `string` | **정규화된** id | ✅ 입력보다 우선 |
 | 출력 | `updatedFields` | `string[]` | 무엇이 바뀌었는가의 권위 | ✅ 게이트로 사용 |
 | 출력 | `statusChange` | `{from,to}?` | 상태 전이 | ✅ 입력보다 우선 |
-| 출력 | `error` | `string?` | **실패 사유 문구** | ⏳ 0212 |
+| 출력 | `error` | `string?` | **실패 사유 문구** | ✅ 대화록 도구 카드에만 표시 (`TaskToolBody`, 0212 D-016) |
 
 `add-` 접두가 의미를 가른다. `blockedBy`(출력)는 그 시점의 전량이라 **교체**하고, `addBlockedBy`(입력)는
 **가산**한다. 한 필드에 담으면 `TaskUpdate` 한 번이 기존 간선을 통째로 지운다.
@@ -163,12 +163,12 @@ TaskXXX 는 **한 도구군이 아니라 두 네임스페이스**다. 키 표기
 
 | 필드 | 의미 | Orca |
 |---|---|---|
-| `task_id` | 대상 | ⏳ 0212 |
-| `patch.status` | `pending`\|`running`\|`completed`\|`failed`\|**`killed`**\|**`paused`** | ⏳ 0212 |
+| `task_id` | 대상 | ✅ 호출 `toolUseId` 로 대응 (`claude-map.ts`, 0212) |
+| `patch.status` | `pending`\|`running`\|`completed`\|`failed`\|**`killed`**\|**`paused`** | ✅ `killed`·`completed`·`failed` 는 정착(`killed`→중단), `paused`·`running` 은 실행 상태 (0212) |
 | `patch.description` | 태스크 설명 변경 | ❌ |
-| `patch.is_backgrounded` | foreground → background 전환 확정 | ⏳ 0212 |
-| `patch.error` | 실패 사유 | ⏳ 0212 |
-| `patch.{end_time,total_paused_ms}` | 종료 시각 · 누적 일시정지 시간 | ⏳ 0212 |
+| `patch.is_backgrounded` | foreground → background 전환 확정 | ✅ (0212) |
+| `patch.error` | 실패 사유 | ✅ 중단 정착의 사유 `cause` 로만 싣는다 (0212 D-026) |
+| `patch.{end_time,total_paused_ms}` | 종료 시각 · 누적 일시정지 시간 | ✅ 상태까지 — 백그라운드 journal 이 보존(`shared/background-task.ts`), 화면 소비처는 없다 (0231) |
 
 SDK 주석이 범위를 못박는다 — *"Wire-safe subset of TaskState fields that changed. Clients merge into
 their local task map."* **누락 필드는 무변경**이지 초기화가 아니다. `killed`·`paused` 는 `task_notification`
@@ -178,7 +178,7 @@ their local task map."* **누락 필드는 무변경**이지 초기화가 아니
 
 | 필드 | 의미 | Orca |
 |---|---|---|
-| `tasks[].{task_id,task_type,description}` | **변화 후 살아 있는 전량** | ⏳ 0212 |
+| `tasks[].{task_id,task_type,description}` | **변화 후 살아 있는 전량** | ✅ live 집합 전량 교체 (`claude-map.ts`·`claude-background.ts`, 0212·0231) |
 
 SDK 주석이 사용법과 존재 이유를 함께 적는다.
 
@@ -203,7 +203,7 @@ SDK 주석이 사용법과 존재 이유를 함께 적는다.
 | API | 의미 | Orca |
 |---|---|---|
 | `stopTask(taskId)` | 실행 태스크 중단 — `status:'stopped'` 인 `task_notification` 이 뒤따른다 | ✅ 두 타일의 행별 중단 버튼 |
-| `backgroundTasks(toolUseId)` | **그 tool_use 의 foreground 태스크 하나**를 background 로 | ⏳ 0212 — 현재는 `stopTask` 앞의 내부 폴백 전용이고 사용자 진입점이 없다 |
+| `backgroundTasks(toolUseId)` | **그 tool_use 의 foreground 태스크 하나**를 background 로 | ✅ Code foreground Bash/PowerShell 의 백그라운드 전환 버튼(`BackgroundController.promote`, 0231) + `stopTask` 앞의 내부 폴백 |
 | `backgroundTasks()` (인자 없음) | **모든 foreground 태스크**를 background 로 (Ctrl+B 시맨틱) | ⛔ Bash 까지 포함하므로 TaskXXX 범위 밖 (0212 D-020) |
 | `interrupt()` | 턴 전체 중단 | ✅ 기존 취소 경로 |
 
@@ -242,8 +242,8 @@ Orca 는 이 구분을 `async_launched` 영수증으로 이미 판별한다(0136
 
 `canUseTool` 권한 콜백과 `PreToolUse` 훅은 Task 도구 호출도 가로챌 수 있다.
 
-> ⛔ **Orca 의도적 미채택.** `RISKY_TOOLS` 는 상태를 바꾸는 도구(`Bash`·`Write`·`Edit`·`MultiEdit`·
-> `NotebookEdit`)만 담는다. Task 도구는 할 일 목록만 바꾸므로 승인 카드 대상이 아니다 — 넣으면
+> ⛔ **Orca 의도적 미채택.** `RISKY_TOOLS` 는 상태를 바꾸는 도구(`Bash`·`PowerShell`·`Write`·`Edit`·
+> `MultiEdit`·`NotebookEdit` — `adapters/risky-tools.ts`)만 담는다. Task 도구는 할 일 목록만 바꾸므로 승인 카드 대상이 아니다 — 넣으면
 > 할 일이 갱신될 때마다 승인 카드가 뜬다.
 
 `stopTask` 는 **확정을 기다려야 한다**. 클릭 즉시 `중단됨` 으로 확정하지 않고 `중단 중` 을 거쳐
@@ -276,8 +276,8 @@ Orca 는 이 구분을 `async_launched` 영수증으로 이미 판별한다(0136
 `capabilities` 의 SDK 주석이 원칙을 준다 — *"so SDK consumers can feature-detect instead of
 version-sniffing"*. `tools` 에 `TaskCreate` 가 있는지 보는 것이 버전 비교보다 정확하다.
 
-> ⏳ **0212 가 닫는다.** `tools` 부재(`undefined`)와 `TaskCreate` 부재(`[]` 안에 없음)는 **다른 사실**이다 —
-> 전자는 판정 불가라 안내하지 않고, 후자만 원인을 말한다.
+> ✅ **0212 채택** — `session.updated.patch.agentTools`. `tools` 부재(`undefined`)와 `TaskCreate` 부재(`[]` 안에 없음)는
+> **다른 사실**이다 — 전자는 판정 불가라 안내하지 않고, 후자만 원인을 말한다.
 
 ### 6.2 `TodoWrite` — 레거시 경로
 

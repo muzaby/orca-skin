@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-13 |
 | 매핑 | 없음 (문서 전수 재동기화 — 0191/0192 의 후속 접촉) |
-| 상태 | READY |
+| 상태 | impl/IMPL_DONE (r1) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0191/0192 는 구 템플릿(V 없음). 게이트 장치(`doc-gate.sh`)만 운영 gate 로 승계 |
 | 이번 V revision | `V1` |
@@ -491,70 +491,118 @@
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: (구현 턴)
-- 이견 / 현실성 문제: (구현 턴)
-- ACTIVE Decision과 충돌하는 설계 발견: (구현 턴)
+- 동의 / 그대로 진행: D-001~D-012 를 그대로 수행했다. 정정 사실마다 DA 행을 두고 `drift-check.sh check` 로 관측했다(행 수는 `check` 산출 — AC20).
+- 이견 / 현실성 문제: ① AC7 "§1.1 줄번호 `210-213`"·AC11 "§3.2 `:1920`" 은 줄번호를 새 값으로 바꾸라는 술어다 — 줄번호는 다음 편집에 다시 낡으므로 심볼 좌표(`webPreferences` 블록·`ingestChatEvent`)로 바꿨다(아래 설계 대비 차이, AC 자기보고 ⚠️). ② §8 전수 조사 표 "`verify.md` 없는 것 6" 은 실측 5다(`0205·0208·0214·0219·0220`, 커버리지 TSV `verify` 열 기준). ③ AC10 `mockup` 0 은 파일 전체 술어라 참인 Phase 1 행(`mockup 시각 재현`)도 걸렸다 — 그 행을 "디자인 프로토타입(`project/`) 시각 재현" 으로 바꿔 술어를 그대로 지켰다(DA-F12).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. D-007 의 "세 파일 1줄" 범위는 넘겼다 — `app/AGENTS.md` 의 같은 문서 낡은 사실 5곳(DevTools·OQ2·`:50` 삭제 모듈·CI 단계·package name)을 선조치했다(DA-AG5~AG8). D-005 에 따라 ADR-005:36 의 `cold/idle/…` 는 비접촉.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 남긴 곳 |
 |---|---|---|---|---|---|
-| (구현 턴) | | | | | |
+| VP-05 | EP-01 settingSources | 13 후보 | **12/12** — 현재값 서술 자리 | `rg -n settingSources <scope>` = 15줄 → 현재값 12(TRD 320·371·507 · adapters 34·85·143·182 · security 228 · standardization 117·119 · spec 392·476) = DA-TR11·TR21·TR20·A09·A10·A11·A12·SE08·S06·S08·CS3·CS1 | 이력·외부 3줄(TRD:329·security:230 이력, system-prompt:141 가이드 처방 — Orca 행은 DA-SY1). workspace 가이드는 HEAD 에도 0줄 |
+| VP-05 | EP-02 disallowedTools | 21 후보 | **9/9** — Orca 값 서술 자리 | `rg -n disallowedTools <scope>` = 18줄 → TRD:320(TR12)·adapters:86(A04)·std:119(S07)·spec:392(CS3)·471(CS2)·guide 37·331·333·380(GD1 파일 단위 must_not `미채택` + must) | guide 4자리는 자리별 must 없음 — 파일 단위 must_not 이 회귀를 잡는다. 나머지 9줄은 CLI 참조·OQ9 질문·가이드 일반 예시 |
+| VP-05 | EP-03 dist 레이아웃 | adapters §2.1·§3.1 · std §5.2 · TRD §6.8·§6.8.1 | **낡은 자리 0** + 양성 5파일 | `rg -nE 'dist/[^ ]*\.claude/skills\|dist/<engine>/\.mcp\|dist/plugins/orcinus' <scope>` = 0 · DA-A05·S03·TR13·SE10·GD6 | 없음 — §10 밖 2자리(security §1.4-b·closed-network §1)의 `<engine>` 누락도 정정 |
+| VP-05 | EP-04 릴리스 즉시 게시 | security §1.7 · PRD OQ3 · TRD §4·§9.2·§10 | **낡은 자리 0** + 양성 6 | `rg -nE '수동 Publish\|draft\(수동\|Releases \*\*draft' <scope>` = 0 · DA-SE06·PR2·TR14·TR15·TR16·O19 | 없음 |
+| VP-05 | EP-05 nav 5항목 | frontend overview · dom-arch · ux-domains · terms | **낡은 자리 0** + 양성 4 | `rg -nE '4-항목\|4 항목\|플러그인 모달' <scope>` = 0 · DA-F05·D01·UX5·FT2 | 없음(`4항` 1줄은 rendering §1.9 패널 서술 — DA-RN4 로 정정) |
+| VP-05 | EP-06 상태 어휘 | GLOSSARY · 그 밖 1 | **1/2** | `rg -nE 'cold/idle\|idle/busy' <scope>` = 1 (ADR-005:36) · DA-G01 | ADR-005:36 — ADR 본문 비접촉(D-005) |
+| VP-05 | EP-07 자격증명 모델 | GLOSSARY · security §1.3·§1.4 · TRD N6 · PRD §7.1 | **4/4** + TRD §4·§10 | DA-G04·SE02·TR17·PR5 (+TR18·TR19) | 없음 |
+| VP-03 | EP-08 표식 전건 | 산출 사이트 전부 | **82/82** | `drift-check.sh check` 표식 축 미등재 0·잔류 0 | 없음 |
+| VP-02 | EP-09 커버리지 | 디렉토리 67 | **67/67** | 같은 명령 커버리지 축 결손 0·잔류 0·미매치 0 | 없음 |
+| VP-07 | EP-10 사본 일치 | plan 메타·INDEX·trailer | **2/3** | plan 메타 `상태`·INDEX 행 = `impl/IMPL_DONE (r1)` | trailer — 커밋 직후 `git log -1 --format='%(trailers:only=true)'` 로 관측(검증 턴 기록) |
+| VP-06 | EP-11 baseline 3 TSV | 3 | **3/3** | `doc-gate.sh check` 형식오류·미분류·미판정·잔류 전부 0, `전부 공집합 — 통과` | 없음 |
+| VP-04 | EP-12 inventory | 명령 1 | **1/1** | `node scripts/check-doc-inventory.mjs --check` ok 3줄 · `git diff --stat docs/generated` 0 | 없음 |
+| VP-08 | EP-13 판정 함수 3 + 형식 1 | 4 | **4/4** | 아래 잠금 표 1~10 | 없음 |
+| VP-09 | EP-14 limits 해석 | 1 | **1/1** | `doc-gate.sh limits` non-ts-paths 72 → 47 → 결함 삽입 48 | 없음 |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: (구현 턴)
+- §10에 없는데 같은 불변식이 필요했던 지점: SCOPE 사본 대조에 `EXTRA_SCOPE` 배열도 포함(preflight 2행). EP-03 의 `dist/plugins/orcinus-orca`(`<engine>` 누락) 2자리.
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| (구현 턴) | | | | |
+| VP-01 | REQUIRED | SELF_PASS | `gate:bash docs/handoff/0260-docs-handoff-resync/drift-check.sh check` 단언 축 불일치 0 | 잠금 1~4 red |
+| VP-02 | REQUIRED | SELF_PASS | 같은 명령 커버리지 축 67/67 | 잠금 6·7 red |
+| VP-03 | REQUIRED | SELF_PASS | 같은 명령 표식 축 82/82 | 잠금 5 red (+ 구현 중 신규 `미구현` 표식 1건을 미등재로 자연 검출) |
+| VP-04 | REQUIRED | SELF_PASS | `gate:doc-gate.sh check` 통과 · `gate:check-doc-inventory.mjs --check` ok 3줄 | not selected |
+| VP-05 | REQUIRED | SELF_PASS | 자리별 DA 행(위 표) | 잠금 1·11·12 — 되돌린 자리의 행만 red |
+| VP-06 | REQUIRED | SELF_PASS | `gate:doc-gate.sh check` — regen 후 미분류 21 심볼·7 경로·104 시제 → 0 | not selected |
+| VP-07 | REQUIRED | SELF_PASS(2/3) | plan 메타 ↔ INDEX 행 나란히 대조 | not selected — trailer 는 커밋 후 |
+| VP-08 | REQUIRED | SELF_PASS | 잠금 1~10·13·14 | 전부 red |
+| VP-09 | REQUIRED | SELF_PASS | `gate:doc-gate.sh limits` 전후 | 잠금 15 (+1) |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| (구현 턴) | | | | |
+| 1. TRD §6.8 settingSources → "생략" | VP-01 ① EP-01 · VP-05 | 해당 없음(r1) | `check` exit 1 · DA-TR11 만 | red |
+| 2. standardization §5.1 disallowedTools → "넘기지 않는다" | VP-01 ① EP-02 | 해당 없음 | DA-S07 | red |
+| 3. adapters §3.1 dist → `.claude/skills` | VP-01 ① EP-03 | 해당 없음 | DA-A05(must_not) | red |
+| 4. GLOSSARY 상태 어휘 → `cold/idle` | VP-01 ① 단일 파일 | 해당 없음 | DA-G01(must_not·must) | red |
+| 5. status-marks 행 1개 삭제(ux-domains ⏳) | UT-01 ② | 해당 없음 | 미등재 1 | red |
+| 6. coverage 행 삭제(0231) | UT-01 ③ | 해당 없음 | 결손 1 | red |
+| 7. coverage 확인어 → 부재 단어 | VP-02 | 해당 없음 | 확인어 미매치 1 | red |
+| 8. anchor → 부재 경로 | UT-01 ④ | 해당 없음 | DA-A03 anchor 없음 | red |
+| 9. must_not 단독 행 추가 | EP-13 형식 | 해당 없음 | 형식오류(0건 단독) 1 | red |
+| 10. 빈 칸 행 추가 | EP-13 형식 | 해당 없음 | 형식오류(빈 칸) 1 | red |
+| 11. adapters §2.1 자리만 되돌림 | VP-05 형제 | 해당 없음 | DA-A11 만(A09·A10·A12 green) | red |
+| 12. standardization §5.1 자리만 되돌림 | VP-05 형제 | 해당 없음 | DA-S02·S08 만(S06·S07 green) | red |
+| 13. doc-gate SCOPE 식 변경 | 새 oracle(preflight 사본) | 해당 없음 | exit 2 "SCOPE 식이 … 다르다" | red |
+| 14. doc-gate EXTRA_SCOPE 변경 | 새 oracle(preflight 사본) | 해당 없음 | exit 2 "EXTRA_SCOPE 가 … 다르다" | red |
+| 15. 부재 상대경로 인용 삽입(`docs/guides/AGENTS.md`) | VP-09 UT-02 | 해당 없음 | non-ts-paths 47 → 48 | +1 |
 
-- **분모 검산**: (구현 턴)
-- **덮개 회귀**: (구현 턴)
+- **분모 검산**: 선택 증거 6 pair(VP-01 4행 · VP-02 2행 · VP-03 1행 · VP-05 3행(1 공유) · VP-08 형식 2행 + UT-01 ①~④ 공유 · VP-09 1행) · 인용 변이 0(r1) · 새 oracle 1(preflight 사본 대조 2행) = 표 행 15. 변이 후 원복은 `drift-check.sh check` 통과·`*.mutbak` 0 으로 확인.
+- **덮개 회귀**: 해당 없음 — 0192 장치(`doc-gate.sh`)의 `check` 경로는 바꾸지 않았다(`limits` 만 F2). 0192 AC1 의 baseline 1행 삭제 red 는 그대로다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| (구현 턴) | | |
+| 새 사용자 대면 문자열·상태에 소비자가 있는가 | 문서 독자(에이전트) + `drift-check.sh` 가 세 TSV 를 소비 — 산출은 실패 행 id 를 출력 | 없음 |
+| 실패가 "아무 일도 안 일어남"으로 보이는가 | 아니오 — 축별 차집합과 행 id 를 인쇄하고 exit 1, preflight 는 exit 2 + 사유 | 없음 |
+| 새 핸드오프가 들어오면 | 커버리지 축은 0193~0259 만 센다(상시 게이트 아님, plan §6 비범위) | 상시화는 사용자 결정 — NEXT_HANDOFF 후보 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| (구현 턴) | | | |
+| 1 | 구현 중 내가 쓴 문장 2건이 틀렸다 — IPC telemetry 행에서 `sessionCostUsd` 를 지웠고, adapters 가 runtime tool 에 `allowedTools` 를 준다고 적었다 | 둘 다 되돌려 정정(DA-IP9·DA-A13) | `chatReducer.ts` 누산·`StatusPopover` 표시 / `adaptRuntimeTools` 는 `{ mcpServers }` 만 반환 |
+| 2 | 시제 판정 중 낡은 단언 7사이트 발견(`chatStore.ts:48`·`SEND` 액션·`rg RevertManager = 주석 1건`·`provider` 필드·`supportedBackends` 현재형·IPC `options.env` "앱 env 만") | 정정 후 `정정됨` 판정 | `tense-sites.tsv` 정정됨 7행 |
+| 3 | 프로덕션 DevTools 를 코드가 막지 않는다 | 보고만 — 제품 보안 결정 | `openDevTools`·`webPreferences.devTools`·메뉴 설정 0건 |
+| 4 | `app/src/main/AGENTS.md` chat-turn 표에 `background`·`permission-mode-observer`·`prepare-worktree`·`project-binding` 모듈이 없다 | 보고만 — 범위 밖 | `ls app/src/main/app/chat-turn/` |
+| 5 | 0193 이전 미기재 TRD §2 기능 행 | NEXT_HANDOFF 후보(§6 비범위) | plan §6 표 |
+| 6 | ADR-005:36 의 구 상태 어휘 | 비접촉(D-005) — GLOSSARY 가 SSOT | `rg 'cold/idle'` = ADR 1줄 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: (구현 턴)
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: ① `status-marks.tsv` 키 = **표식 앞뒤 24자 문맥(UTF-8 문자 단위)** — plan §11 의 "줄 앞 60자 snippet" 대신. 한 줄의 표식 여러 개를 구분하고, 표식 근처 문장이 바뀌면 재판정을 요구한다. ② SCOPE 사본 대조 = **식·`EXTRA_SCOPE` 문자열 동일성** — plan §10 의 "파일 수 비교" 대신. 수가 같고 집합이 다른 경우도 잡는다. ③ AC7·AC11 의 줄번호 술어 → 심볼 좌표. ④ D-007 범위 밖 `app/AGENTS.md` 5곳 선조치.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| (구현 턴) | | |
+| 공유 | ① 같은 파일 안 동일 문맥 두 사이트가 `sort -u` 로 한 행이 된다 | AC18 — raw 82 = unique 82(0건) |
+| 만료 | 해당 없음 — TSV 는 시간에 의존하지 않는다 | — |
+| 재진입 | 해당 없음 — 읽기 전용 스크립트 | — |
+| 다른 무효화 축 | ② `scope_files()` 의 두 줄 밖 변경(grep 추가 등)은 동일성 대조가 못 본다 · ① 표식 앞뒤 24자 안의 편집이 재판정을 강제한다(의도) | EP-11 — 잠금 13·14 exit 2 · 구현 중 RISKY_TOOLS 문맥 변경이 미등재 1 + 잔류 1 로 검출됨 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | (구현 턴) |
-| 실행 명령 | (구현 턴) |
-| **관측한 게이트 산출** | (구현 턴) |
-| V-pair 자기확인 | (구현 턴) |
-| 강제 지점 전수 | (구현 턴) |
-| **AC 자기보고**(`Criteria-Met`) | (구현 턴) |
-| **합계 검산** | (구현 턴) |
-| 블로커 / 역질문 | (구현 턴) |
+| 변경 파일 | 범위 문서(`docs/**`) + 루트/`docs`/`app` AGENTS 3 + `0192/{doc-gate.sh, plan.md, baselines/*.tsv}` + 신규 `0260/{drift-check.sh, drift-assertions.tsv, status-marks.tsv, handoff-coverage.tsv}` — 목록은 `git show --stat` 이 정본 |
+| 실행 명령 | `bash docs/handoff/0260-docs-handoff-resync/drift-check.sh check` · `bash docs/handoff/0192-doc-gate-baselines-as-data/doc-gate.sh {regen,check,limits}` · `cd app && node scripts/check-doc-inventory.mjs --check` |
+| **관측한 게이트 산출** | drift-check `단언 축 불일치 0 · 표식 82/82 · 커버리지 67/67 · 전부 공집합 — 통과` exit 0 · doc-gate `심볼 276사이트/165심볼 · 경로 13줄 · 시제 126사이트 · 전부 공집합 — 통과` exit 0 · inventory `generated doc ok · prose ok · links ok` exit 0 · `git diff --stat docs/generated` 0 · AC23 술어 0 · PRD OQ4~7·9·10 행 diff 0 |
+| V-pair 자기확인 | SELF_PASS 9 (VP-07 은 trailer 제외 2/3) |
+| 강제 지점 전수 | EP-01 12/12 · EP-02 9/9 · EP-03~05 낡은 자리 0 · EP-06 1/2(ADR) · EP-07 4/4 · EP-08 82/82 · EP-09 67/67 · EP-10 2/3 · EP-11 3/3 · EP-12 1/1 · EP-13 4/4 · EP-14 1/1 |
+| **AC 자기보고**(`Criteria-Met`) | ✅ AC1·2·3·4·5·6·8·9·10·12·13·14·15·16·17·18·19·20·21·22·23 (DA 행 green + 각 축 차집합 0) · ⚠️ AC7·AC11(줄번호 술어 → 심볼 좌표) · ⚠️ AC24(커밋 후 trailer 파싱 미관측) |
+| **합계 검산** | ✅ 21 · ⚠️ 3 · ❌ 0 = 총 24 (분모 변경 없음) |
+| 블로커 / 역질문 | D-003(PRD/TRD 정정 깊이)·D-007(AGENTS 범위)은 설계자 기본값 — 사용자 확인 대상으로 남는다 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- (구현 턴)
+- 라운드 r1. 같은 축 반복 없음(최초 구현).
+- 0192 baseline 은 0193~0259 동안 regen 되지 않아 시제 104·심볼 21·경로 7 이 쌓여 있었다 — 장치는 있었으나 상시 게이트가 아니었다(0192 D-003).
+- 구현 중 장치가 내 편집을 두 번 잡았다(신규 `미구현` 표식 · RISKY_TOOLS 문맥 변경) — 문맥 키 설계가 의도대로 동작.
+- 환경 한계: `app/node_modules` 없음 — SDK 타입 확인은 고정 핀 tarball(`npm pack @anthropic-ai/claude-agent-sdk@0.3.296`)로 대신했다.
 
 ---
 

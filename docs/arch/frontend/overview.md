@@ -9,7 +9,7 @@
 **다루는 것**
 - Electron Renderer Process 의 UI 렌더링, 상태 관리, 사용자 입력 처리
 - 컴포넌트 구조 및 디렉토리 컨벤션
-- 도메인 화면 카탈로그 (Chat / Projects / Engine / SkillsMcp / Tweaks)
+- 도메인 화면 카탈로그 (Chat / Projects / Artifacts / Engine & Model / Plugins / Settings)
 - IPC 호출 방식 (Renderer 측 관점)
 - Tailwind v4 + CSS 토큰 기반 테마 시스템
 
@@ -23,7 +23,7 @@
 
 ## 2. 기술 스택
 
-`app/package.json` 기준 (2026-05-20).
+`app/package.json` 이 정본이다 — 아래 버전은 2026-10-13 기준 요약이고 갈리면 package.json 이 맞다.
 
 | 영역 | 선택 | 버전 | 비고 |
 |---|---|---|---|
@@ -48,9 +48,9 @@
 
 | 영역 | Phase | 상태 | 비고 |
 |---|---|---|---|
-| Frame / Titlebar / Sidebar (collapsed/expanded) | Phase 1 | ✅ 완료 | mockup 시각 재현 |
+| Frame / Titlebar / Sidebar (collapsed/expanded) | Phase 1 | ✅ 완료 | 디자인 프로토타입(`project/`) 시각 재현 |
 | ChatTile 메시지 리스트 + 스트리밍 표시 | Phase 2 | ✅ 완료 | 16ms throttle. 메시지 컴포넌트는 `features/chat/components/transcript/` |
-| Composer 3-chip + Skill picker | Phase 2++ | ✅ 완료 | Popover + `openSkillPicker`(`composer/ComposerInputController.tsx`) |
+| Composer `+` 계단식 메뉴 (첨부 · 스킬 ▸ · 플러그인 ▸) | Phase 2++ → 0259 | ✅ 완료 | `composer/AttachMenu.tsx` + `shared/ui/CascadeMenu.tsx`(순수부 `cascadeMenuState.ts`) — 선택 시 `/이름 `·`@id ` 삽입. ux-domains.md §1.2 |
 | Composer `/skill` 인라인 자동완성 | Phase 2++ | ✅ 완료 | `SkillAutocomplete` + `useSkillAutocomplete` |
 | Composer `@` 경로·Plugin 자동완성 | Phase 2++ | ✅ 완료 | `MentionAutocomplete` + `useMentionAutocomplete` |
 | Markdown 렌더링 (react-markdown + GFM) | Phase 2 | ✅ 완료 | `shared/ui/markdown/Markdown.tsx` (features/chat 에는 StreamingMarkdown 만 잔류) |
@@ -58,7 +58,7 @@
 | ToolCard 렌더링 (input/output 토글) | Phase 2 | ✅ 완료 | `features/chat/components/transcript/ToolCard.tsx` |
 | AuthExpiredModal | Phase 2 | ✅ 완료 | `features/backend/components/AuthExpiredModal.tsx` — `error / auth.expired` 이벤트 트리거 |
 | InstallerDialog | Phase 2 | ✅ 완료 | `features/backend/components/InstallerDialog.tsx` — claude-code 는 SDK 자동 처리로 즉시 done |
-| Tweaks (theme/대화 텍스트 크기·너비/sidebar) + electron-store 영속화 | Phase 2+ | ✅ 완료 | `shared/theme/TweakProvider` — 컨트롤 UI 는 dev 전용 `features/debug/components/DebugPanel.tsx` (구 shared/ui/TweaksPanel 부재). 테마는 white/dark 2종 |
+| Tweaks (theme/대화 텍스트 크기·너비/sidebar) + electron-store 영속화 | Phase 2+ → 0256 | ✅ 완료 | `shared/theme/TweakProvider` — 컨트롤 UI 는 설정 모달 일반 탭(`features/settings/components/GeneralTab.tsx` — 테마·글꼴·언어·알림·대화 텍스트 크기·너비, 0256)과 dev 전용 `features/debug/components/DebugPanel.tsx`. 테마는 white/dark 2종 |
 | 세션 재개 (lastSessionId 부팅 복원) | Phase 2+ | ✅ 완료 | 부팅 스텝 `landing-target`(`app/boot/steps.ts`)이 `settings.lastSessionId` 로 랜딩 경로를 정한다 |
 | DOM Architecture 마커 체계 (`app-frame-*` + `data-*`) | Phase 3+ | ✅ 완료 | dom-architecture.md — 단일 PR 일괄 적용 (`45e129f`) |
 | Custom titlebar (`frame: false` + 윈도우 컨트롤 IPC) | Phase 3+ | ✅ 완료 | rendering.md §1.5 — 플랫폼 분기 + IPC 3채널 |
@@ -67,18 +67,18 @@
 | Tile structure (`pane-host > pane-row > tile`) | Phase 3+ | ✅ 마크업만 | dom-architecture.md.2 — 우측 분할 콘텐츠는 후속 |
 | Zustand 전환 | Phase 4 | ✅ 완료 (0008 chat 선행 + 0013 전면) | state.md §1 — feature별 store + chat `sessions` Record 외피. Context 4종 흡수(Provider 는 bootstrap-only) |
 | **App Shell 정규화** (`frame/` 해체 + AppLayout.tsx 직접 조립) | PR #29 | ✅ 완료 | layers.md §1.A — `ChatTile.tsx` → `features/chat/`. `ModalLayer+DebugLayer` → `OverlayLayer` 통합 3슬롯. Sidebar `React.memo` 적용. |
-| **`features/<domain>/` 도입** (`screens/` + `state/` 흡수) | PR #29 | ✅ 완료 | 도메인 목록은 `renderer/src/features/` 디렉토리가 진실이고 개수는 [생성물](../../generated/inventory.md) 이다 — chat · sessions · projects · backend · engine · skills · camera · captures · cost · settings · update · providers · debug (layers.md §1-1). 6-슬롯 구조 (components/hooks/reducer/providers/types/index). |
+| **`features/<domain>/` 도입** (`screens/` + `state/` 흡수) | PR #29 | ✅ 완료 | 도메인 목록은 `renderer/src/features/` 디렉토리가 진실이고 개수는 [생성물](../../generated/inventory.md) 이다 — artifacts · backend · camera · captures · chat · cost · debug · engine · projects · providers · sessions · settings · skills · update (layers.md §1-1). 6-슬롯 구조 (components/hooks/reducer/providers/types/index). |
 | **`shared/` 도입** (`shared/api/ipc.ts` + `shared/ui/` + `shared/hooks/` + `shared/config/` + `shared/navigation/` + `shared/theme/` + `shared/types/`) | PR #29 | ✅ 완료 | `window.orca.*` 래퍼 (chatApi/backendApi/installApi/settingsApi/skillApi/fileApi/sessionApi/projectApi/windowApi) 경유. `features/` 내 직접 호출 0건. ESLint boundaries v6 로 layer 방향 강제. |
-| **Sidebar brand 교체 + nav 4-항목화** | Phase 3++ → 0083 | ✅ 완료 | `app-frame-sidebar-brand` = 🐋 + "Orca" 로고 (이전 newChatSlot 폐기, `NewChatButton.tsx` 삭제). nav = 새 대화 (`/new`) · 프로젝트 (`/projects`) · 엔진 & 모델 (`/agent`) · Skills & MCP (`/skills`) — 자동화(`/routines`)는 0083 에서 nav 제외(Future Scope, 라우트 미정의). | (0159 r3: 플러그인 모달로 전환)
+| **Sidebar brand + nav 구성** | Phase 3++ → 0083 → 0203·0223 | ✅ 완료 | `app-frame-sidebar-brand` 브랜드 로고. nav = 새 대화(`/new`) · 프로젝트(`/projects`) · 아티팩트(`/artifacts`) · 엔진 & 모델(`/agent`) · 플러그인(`/plugins`) — 정본 `app/navItems.ts`·`app/router.tsx`. 자동화(`/routines`)는 라우트 미정의(Future Scope). 좌측 구획은 고정됨 → 프로젝트 → 최근 대화(0203, state.md §1.6) |
 | **Header 액션 5-버튼 툴바** | Phase 3++ | ✅ 완료 | menu (popover · 종료 menuitem → windowApi.close) · panelL (사이드바 접기 토글) · search (대화 검색 모달) · arrowL/arrowR (navigate ∓1, 항상 enabled). HeaderProps `onOpenSearch` prop 만 노출. |
 | **FTS5 대화 검색 모달** | Phase 3++ | ✅ 완료 | `0003_messages_fts.sql` 마이그레이션 (가상 테이블 + 3 트리거 + 백필). `orca:search:messages` IPC (IPC_CONTRACT §2.9). `features/sessions/components/SearchModal.tsx` (150ms debounce + request id supersede + `<mark>` split-parse XSS 방어). `toFtsMatch` 가 모든 토큰에 prefix wildcard `*` 부착. |
 | **활성 효과 URL 동기화** | Phase 3++ | ✅ 완료 | `useSessionHandlers` 의 `currentSessionId` 를 `matchPath('/chat/:sessionId', pathname)` 로 도출 — `ChatContext.state.sessionId` 의존 제거 (캐시/IPC 용도로만 잔존). Sidebar nav '새 대화' isActive 도 `p === '/new'` 로 좁힘. |
-| **MCP 서버 지원 + nav Skills & MCP 항목** | Phase 3++ | ✅ 완료 | nav 4번째 항목 'Skills & MCP'(`/skills`) 신설. `ExtensionsCatalogView`(구 SkillsMcpView·SkillsCustomizeView) MCP 섹션 실 연동 (`orca:mcp:*` + `AddMcpServerModal` stdio/http). `McpStore`(파일-백드 mcp.json, 인증값 `safeStorage` 암호화). 활성 서버를 `query().options.mcpServers`+`allowedTools`(`mcp__<name>__*`) 에 전역 주입. | (0159 r3: 플러그인 모달로 전환)
-| Projects 화면 | Phase 1 | 🚧 mockup 만 | Future Scope |
+| **MCP 서버 지원 (플러그인 카탈로그 MCP 탭)** | Phase 3++ → 0217 | ✅ 완료 | `/plugins` 페이지의 카탈로그(플러그인 → 스킬 → MCP 탭, rendering.md 카탈로그 단락)에서 MCP 섹션 실 연동(`orca:mcp:*` + `AddMcpServerModal` stdio/http, 상세 토글·케밥 삭제 0217). 정의는 파일-백드 `mcp.json`, 비밀은 `${VAR}` 참조. 활성 서버는 배포기가 plugin `.mcp.json` 으로 렌더해 `options.plugins` 로 로드한다([../backend/standardization.md §5.1](../backend/standardization.md)) |
+| Projects 화면 (`/projects` · `/projects/:projectId`) | Phase 3 → 0233 | ✅ 완료 | `ProjectsScreen` 카드 그리드 + `ProjectLandingPage`(제목·메뉴·Composer·대화 목록). 시작 폴더 `cwd` 식별, Nav 펼침 동기(`useProjectCatalogSync`, state.md §1.6) |
 | 엔진 & 모델 화면 (`/agent`) | Phase 4 | ✅ CRUD 활성 (0021·0090) | `AgentEnvironmentView` + provider CRUD(`EngineFormModal` 단일 화면 + `~/.claude/settings.json` 불러오기, 0090) |
-| SkillsMcp 화면 — Skills 좌측·권한 토글 | Phase 1 | 🚧 mockup 만 (MCP 섹션은 Phase 3++ 실 연동) | Phase 4+ (`canUseTool`/`permissionMode`) |
+| 플러그인 카탈로그 — 스킬 탭 토글 · 연결(Auth) 상세 | Phase 4 | ✅ 완료 (0181·0236·0238) | 스킬 on/off 는 `Settings.skillEnabled`, 연결 상세는 `ProviderDetail` + 인증 액션(`ProviderAuthActions`). 도구 권한은 승인 UI와 권한 모드 메뉴가 담당(ux-domains.md §1.6) |
 | 메시지 가상 스크롤 | Phase 4 | ✅ 완료 (0102) | `features/chat/hooks/useTranscriptVirtualizer.ts` — `@tanstack/react-virtual` 기반 transcript 가상화 |
-| 멀티세션 UI | Phase 4 | ❌ 미구현 | §5 확장점 anchor |
+| 멀티세션 UI (nav 세션 행 상태 아이콘 · 주의 표시) | Phase 4 | ✅ 완료 (0249·0254) | 다른 세션의 생성 중(회전) · 완료 · 응답 대기를 행 아이콘으로 표시 — `sessionsStore.unseenAttention`·`generatingSessionIds`(state.md §1.1·§2). 세션 탭 UI 는 두지 않았다(사이드바 목록이 전환 수단) |
 | 키보드 단축키 (Cmd/Ctrl+N 등) | Future | ❌ 미구현 | OQ 추가 후보 |
 | 네트워크 단절 배너 | Future | ❌ 미구현 | — |
 | ARIA / 스크린리더 audit | Future | 🚧 부분 적용 | 체계적 audit TBD |
@@ -92,8 +92,18 @@
 | **UI polish — 버전 모달·인라인 rename·삭제 확인** | Phase 4 | ✅ 완료 (0083) | `HeaderVersionModal`(Header) + `ChatTitleBar`(폴더 아이콘·`RenameInput`) + `ConfirmDialogHost`/`confirmDialogStore` |
 | **로그인 게이트** | Phase 4 | ✅ **0181 재작성 완료** | `app/RootGate` 가 부팅 위에 게이트를 얹는다 — 부팅 실패(`app/BootFailureFrame`) → 부팅 미완료(`BootScreen`) → **게이트 미판정/미통과(`app/GateFrame`)** → 메인 UI. 판정 전(`gate=null`)에는 통과시키지 않는다(fail-closed). 상태·액션은 `features/providers/hooks/useProviderGate`(app → features 는 허용 방향, `GateFrame` 은 `WinControls`(app)를 쓰므로 app 에 산다). **prod** 는 게이트 provider 선언이 0개면 즉시 통과, **DEV 는 선언 0개여도 게이트를 세운다**(로그인 화면 도달성 — 탈출구는 디버그 패널 우회 토글). 로그인 랜딩은 `features/providers/components/GateLogin.tsx`(구 `AuthView` 복원 — Orca 제목·이미지·입력 카드). `Settings.authBypass` 는 **DEV 전용 우회**로 소비자 복귀 |
 | **연결(provider) 카탈로그 탭** | Phase 4 | ✅ 완료 (0181) | 설정 카탈로그 3번째 탭 — 상태·방식 선택·인증·재인증·해제. 순수 판정은 `features/skills/lib/providerRows.ts`(AC5 회귀), 상세 패널은 `features/skills/components/customize/ProviderDetail.tsx`. **추가 버튼 없음**(빌드타임 선언) |
-
-> 이 표는 코드 변경 시 함께 갱신한다.
+| **산출물 게시 카드 · `/artifacts` 화면 · 공통 파일 뷰어** | Phase 4 | ✅ 완료 (0223·0226·0252·0257) | `ArtifactCard(s)` · `features/artifacts` 목록(전체/고정 탭·검색) + `ArtifactViewer`(RightPanel — Markdown/HTML sandbox·코드·이미지) · 저장/탐색기/휴지통 피드백. rendering.md "산출물 게시 카드" |
+| **Work / Code 에이전트 모드** | Phase 4 | ✅ 완료 (0224·0228·0234) | 랜딩 `AgentModeToggle`(선택 기억) · `agentPresentation` 표시 정책 · Work transcript 투영(`createWorkProjector`·`WorkToolTimeline`) · 작업 타일. rendering.md "Work/Code 표현", state.md "제품 에이전트 종류" |
+| **TaskXXX 우측 패널 · 작업 타일** | Phase 4 | ✅ 완료 (0204·0212·0213·0215) | `TaskToolBody`(`task_list` kind) + 계획/작업 패널 — [`claude-taskxxx-spec.md`](../../claude-taskxxx-spec.md) |
+| **백그라운드 작업 패널 · 전환 버튼** | Phase 4 | ✅ 완료 (0231·0232·0239) | `CanonicalBackgroundContent` · `backgroundStore` · Code Bash/PowerShell 백그라운드 전환 버튼. rendering.md "백그라운드 작업 패널" |
+| **Git worktree 격리 · 컴포저 git 행 · diff 타일** | Phase 4 | ✅ 완료 (0201·0206·0209~0211·0241) | 랜딩 브랜치/워크트리 체크박스(`CwdPanel`·`WorktreeToggle`) · `GitRow` · `DiffTileContent` 와 댓글 anchor. state.md §1.2.1 |
+| **컨텍스트 도넛 프록시 폴백** | Phase 4 | ✅ 완료 (0247) | `message_delta.usage` 폴백 — rendering.md §1.9. 큰 첨부 정책은 main([../backend/adapters.md §1.3](../backend/adapters.md), 0245) |
+| **전역 오류 토스트** | Phase 4 | ✅ 완료 (0242) | `shared/ui/ErrorToastHost.tsx` + `app/ErrorToastLayer.tsx` — 게이트 화면에서도 표시. [../backend/observability.md §7](../backend/observability.md) |
+| **일일 로그인 게이트 UI** | Phase 4 | ✅ 완료 (0255) | 실행 중 날짜 경계를 넘으면 `RootGate` 가 다시 `GateFrame` 을 세운다 — 규칙은 [../backend/auth.md §5.3](../backend/auth.md) |
+| **설정 일반 탭 — 대화 텍스트 크기·너비** | Phase 4 | ✅ 완료 (0256) | `features/settings/components/GeneralTab.tsx` → `transcriptTextSize`·`transcriptWidth`(state.md §1.5) |
+| **큐 입력 즉시 보내기** | Phase 4 | ✅ 완료 (0250) | 응답 중 입력은 대기, '즉시 보내기' 는 `chat:steerSendNow` — [../backend/runtime-ipc.md §1.4](../backend/runtime-ipc.md) · ADR-007 |
+| **툴팁 호스트 · 사용자 버블 접기 · Edit 진행 중 미리보기** | Phase 4 | ✅ 완료 (0229·0257) | `TooltipHost` · `UserBubbleText`(ux-domains.md §1.3-b) · `DiffBody`/`DiffTable`(rendering.md §1.6 표) |
+| **진행 스피너(Spark) 아트워크** | Phase 4 | ✅ 완료 (0208·0216) | 첨부 SVG 기반 마크 교체 — 상태 줄은 rendering.md "Spark 상태 줄" 단락 |
 
 ---
 

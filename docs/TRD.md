@@ -1,6 +1,6 @@
 # Orca — Technical Requirements Document (v1)
 
-> `docs/PRD.md` 의 *WHAT* 을 *HOW* 로 옮기는 기술 사양. 기능·스택·API·데이터 모델을 다룬다. 시스템 구성·프로세스 모델·모듈 레이아웃·데이터 흐름 등 아키텍처 구조는 `docs/ARCHITECTURE.md` (Renderer) + `docs/ARCHITECTURE.md` (Main) + `docs/IPC_CONTRACT.md` (채널 SSOT) + `docs/GLOSSARY.md` (용어 SSOT) 4 문서 참조.
+> `docs/PRD.md` 의 *WHAT* 을 *HOW* 로 옮기는 기술 사양. 기능·스택·API·데이터 모델을 다룬다. 시스템 구성·프로세스 모델·모듈 레이아웃·데이터 흐름 등 아키텍처 구조는 `docs/ARCHITECTURE.md` (파일 맵 — `arch/frontend`·`arch/backend`) + `docs/IPC_CONTRACT.md` (채널 SSOT) + `docs/GLOSSARY.md` (용어 SSOT) 참조.
 
 | 항목 | 값 |
 |---|---|
@@ -22,15 +22,17 @@
 
 본 문서는 Orca v1 MVP (Phase 1) 가 **무엇을 기능으로 제공하고, 어떤 기술 스택으로 만드는가** 를 검증 가능한 형태로 정의한다.
 
-본문은 Phase 1 만 다루며, Phase 2~4 확장 구조는 §10 의 anchor 로만 언급한다. 하드웨어·Skills·MCP·Captures·Projects 등 도메인 기능은 `docs/PRD.md` §9 Future Scope 를 참조.
+본문은 Phase 1 사양을 기준으로 쓰고, 이후 구현된 기능은 §2 F11+ 표가, 미구현 확장은 §10 의 anchor 가 갖는다. 하드웨어·Captures 등 미구현 도메인의 범위는 `docs/PRD.md` §9 Future Scope 를 참조.
 
-시스템이 **어떻게 구성되어 있고 입력이 어디로 흘러가는가** 는 `docs/ARCHITECTURE.md` / `docs/ARCHITECTURE.md` / `docs/IPC_CONTRACT.md` 4문서에서 다룬다 (2026-05-20 이전 `architecture.md` 단일 파일에서 분할).
+시스템이 **어떻게 구성되어 있고 입력이 어디로 흘러가는가** 는 `docs/ARCHITECTURE.md`(`arch/` 파일 맵) / `docs/IPC_CONTRACT.md` / `docs/GLOSSARY.md` 에서 다룬다.
 
 ---
 
 ## 2. Functional Spec (Phase 1)
 
 PRD §6.1 의 F1~F10 을 *수용 기준* 으로 구체화한다.
+
+> F1~F10 은 **Phase 1 수용 기준의 기록**이다 — 이벤트·모듈 이름(`assistant_delta`·`useEngineStream`·`ChatShell`·`BackendSelector`)은 당시 어휘다. 현재 이름은 이벤트 [IPC_CONTRACT §3](./IPC_CONTRACT.md) · 모듈 [ARCHITECTURE.md](./ARCHITECTURE.md) 가 정본이고, 설치 자동화(F7·F8)는 opencode 전용으로 축소됐다(§8).
 
 | ID | 요구사항 | 구현 책임 모듈 | 수용 기준 | PRD |
 |---|---|---|---|---|
@@ -43,7 +45,7 @@ PRD §6.1 의 F1~F10 을 *수용 기준* 으로 구체화한다.
 | F7 | **CLI 설치 자동화** | Installer (IPC `orca:install:*`) | 둘 다 미설치 → 다이얼로그 (npm / curl 선택) → child_process 실행 → 라인 단위 status 스트림 → 완료/실패 표시 | §6.1 |
 | F8 | **설치 실패 폴백** | Installer | 자동 실패 → 수동 명령 전체 텍스트 UI에 표시 + 복사 버튼. Node.js 미설치 (Windows: choco, macOS: brew 안내), npm 글로벌 권한 부족 (sudo / npm config 안내) | §6.1 |
 | F9 | **인증 만료 처리** | ClaudeAdapter, Auth modal | Claude Code OAuth 401 감지 (stdout/stderr `"401"` / `"expired"` 패턴) → `error / auth.expired` 이벤트 → UI 모달 "`claude /login` 을 터미널에서 실행 후 새 대화" | §6.1 |
-| F10 | **Tweaks 패널** | DebugPanel(dev 전용, 구 TweaksPanel), useTweaks | 테마 선택 (**white/dark 2종** — 구 Classic/Dark/Cool 3종에서 축소) + 사이드바 접기 토글 → `data-theme` 속성 갱신 → Tailwind `@theme` 토큰 스코프 cascade → 전 화면 반영. 선택값은 `electron-store` 영속(§6.7 키 카탈로그의 일부). 트리 remount 불요 (CSS 변수 재설정으로 충분) | §6.1 |
+| F10 | **Tweaks 패널** | 설정 일반 탭(`GeneralTab`) + DebugPanel(dev 전용), `TweakProvider` | 테마 선택 (**white/dark 2종** — 구 Classic/Dark/Cool 3종에서 축소) + 사이드바 접기 토글 → `data-theme` 속성 갱신 → Tailwind `@theme` 토큰 스코프 cascade → 전 화면 반영. 선택값은 `electron-store` 영속(§6.7 키 카탈로그의 일부). 트리 remount 불요 (CSS 변수 재설정으로 충분) | §6.1 |
 
 **Phase 4 에서 추가 구현된 기능** (F1~F10 이후 — 인수 기준 상세는 각 handoff plan/verify 가 정본):
 
@@ -53,7 +55,24 @@ PRD §6.1 의 F1~F10 을 *수용 기준* 으로 구체화한다.
 | F12 | **사용량 한도** | `features/usage`(main) + UsagePanel·설정 탭(renderer) | 월간 `spendingLimitUsd` + provider별 한도(`provider_limits`). **Main 이 `UsageLimitsView` 정본을 만들고**(`usage-compose` + `shared/usage/limits.ts`) renderer 는 `shared/stores/usageStore` 로 mirror 만 한다. 도넛 팝오버 = 컨텍스트바+주간/월간 한도 바. 원격 사용량 조회는 `UsageFetcher` 포트를 주입한 배포에서만 도는 선택 기능 | 0079~0082, 0186 |
 | F13 | **주기 실행 (스케줄러)** | `features/scheduler/`(croner + interval) | job 등록·겹침 방지·`schedule_runs` 이력. 스펙 2종 — cron(벽시계 정렬) / `intervalMs`(schedule 시각 anchor, 0156). 소비처 = 주기 사용량 recompute(`scheduler.usageRecompute`, cron·설정 노출형) · 자동 업데이트 확인(`scheduler.updateCheck`, interval) · **코어 고정형 사용량 잡 2종**(`usage-boundary` 자정 cron 항상 · `usage-fetch` fetcher 주입 시에만, 0186). **기간 경계 불변식은 `usage-boundary` 가 소유한다** — `scheduler.usageRecompute`(기본 off)는 사용자가 임의 주기로 켜는 호환용이라 경계를 보장하지 않고, 둘 다 켜져 시각이 겹쳐도 각자 전역을 재계산할 뿐이라 값이 어긋나지 않는다(중복 계산일 뿐) | 0091, 0156, 0186 |
 | F14 | **번들 스킬 시딩** | `features/extensions/skills/seed.ts` + `builtin-resources.ts` | 부팅 1회 번들 스킬 → `sources/skills` 시딩, manifest/marker 버전 게이트로 사용자 수정 보호 | 0078 |
-| F15 | **CI/CD 릴리스** | `.github/workflows/{ci,release}.yml` + `scripts/validate-*` | main push 게이트 + `v*` 태그 → unsigned NSIS → GitHub Releases 즉시 게시(수동 dispatch 는 dry-run). §9 참조 | 0087~0089 |
+| F15 | **CI/CD 릴리스** | `.github/workflows/{ci,release}.yml` + `scripts/validate-*` | main push·PR 게이트 + `v*` 태그 → unsigned NSIS → GitHub Releases 즉시 게시(수동 dispatch 는 dry-run). §9 참조 | 0087~0089 |
+| F16 | **자격증명 회복** | `features/auth/login.ts`·`app/auth-resume.ts`·`features/auth/browser-session/` | 부팅 복원 실패 시 자동 재로그인 재시도 · OAuth refresh · browser-session 인가 코드 → 토큰 교환. [auth.md](arch/backend/auth.md) §4·§5.2 | 0193~0196 |
+| F17 | **로그인 프리 Plugin** | `features/auth/login-free.ts` · `LOGIN_FREE_DEFINITIONS` | 앱 로그인과 무관하게 항상 도구를 제공 — 앱은 키를 저장·검증하지 않는다. auth.md §7 · [ADR-006](decisions/006-login-free-auth-scheme.md) | 0248 |
+| F18 | **일일 로그인 게이트** | `features/gate/daily.ts` · `app/daily-gate.ts` | 실행 중 로컬 날짜 경계에서 게이트 통과만 해제하고 다시 로그인을 요구. auth.md §5.3 · [ADR-008](decisions/008-daily-login-gate.md) | 0255 |
+| F19 | **런타임 모델 카탈로그** | `features/harnesses/runtime-catalog.ts` | 인증 뒤 Claude Code `availableModels` 수집 · 무효화 범위 · Fable 계열 · SDK 고정 핀 갱신. [ux-domains.md](arch/frontend/ux-domains.md) "Agent/model UX" | 0198·0202·0238·0246·0258 |
+| F20 | **실행 env 확장** | `adapters/harness-config.ts` · `app/deployment/spawn-env.ts` · `SessionAdapter.agentSpawnEnv` | host-managed provider 표식 · 폐쇄망 spawn env 주입점 · Code/Work 종류별 env. [security.md](arch/backend/security.md) "Agent provider auth token" | 0200·0207·0235 |
+| F21 | **Git 컴포저 행 · diff 타일** | `GitRow` · `DiffTileContent` · `infra/git/` 게이트웨이 | 브랜치·변경량·커밋별 패치·댓글 anchor, git 실행 횟수 축소. [IPC_CONTRACT §2.6-b](./IPC_CONTRACT.md) · [state.md](arch/frontend/state.md) §1.2.1 | 0201·0206·0241 |
+| F22 | **Git worktree 격리 세션** | `features/worktrees/` · `app/chat-turn/prepare-worktree.ts` | 신규 세션을 managed worktree 에서 실행 · 수명·표시명(`managed_worktrees`). IPC_CONTRACT §2.6-b 주석·§3 `worktree.preparing` | 0209~0211 |
+| F23 | **TaskXXX 패널** | `TaskToolBody` · 계획/작업 패널 | 할 일 도구 4종 표시 · 기능 가용성 판정 · 재개. [claude-taskxxx-spec.md](claude-taskxxx-spec.md) | 0204·0212·0213·0215 |
+| F24 | **산출물 게시 · 아티팩트** | `features/artifacts`(main·renderer) · `publish_artifact` runtime tool | 게시 카드 · `/artifacts` 목록 · 공통 파일 뷰어 · Temp 앱 폴더 범위. [persistence.md](arch/backend/persistence.md) §1.4 · IPC_CONTRACT §2.6-a | 0223·0226·0230·0252·0257 |
+| F25 | **Work / Code 에이전트** | `features/agents` · `AgentModeToggle` · Work transcript 투영 | 종류별 프롬프트(`# Agent`)·권한 정책·표시. [system-prompt.md](arch/backend/system-prompt.md) · [rendering.md](arch/frontend/rendering.md) "Work/Code 표현" | 0224·0228·0234 |
+| F26 | **백그라운드 작업** | `features/chat/background-controller.ts` · `background_task_events` | 원본 journal · 출력 읽기 · 중단 정착 · 패널. [background-tasks.md](arch/backend/background-tasks.md) | 0231·0232·0239 |
+| F27 | **사내 서비스 Plugin** | `features/plugins/{jira,mail}` | Jira Data Center 조회·첨부 · POP3 메일 수집·검색. auth.md §7 · persistence.md "Mail Plugin 캐시" | 0236·0237 |
+| F28 | **전역 오류 토스트** | `infra/error-report` · `shared/ui/ErrorToastHost.tsx` | 소비되지 않은 실패를 로그와 함께 토스트로 게시. [observability.md](arch/backend/observability.md) §7 · IPC_CONTRACT §2.13-d | 0242 |
+| F29 | **컨텍스트 · 사용량 보강** | `adapters/claude-context-policy.ts` · `provider_usage_periods` | 게이트웨이 1M 판정 · 프록시 `message_delta` usage 폴백 · 원격 일/월 내역. [adapters.md](arch/backend/adapters.md) §1.3 · rendering.md §1.9 | 0245·0247·0251 |
+| F30 | **탐색 · 입력 UX** | `sessionsStore` · `chat:steerSendNow` | nav 구획(고정됨→프로젝트→최근) · 세션 상태 아이콘 · 응답 중 입력 즉시 보내기. state.md §1.1·§1.6 · [runtime-ipc.md](arch/backend/runtime-ipc.md) §1.4 | 0203·0233·0249·0250·0254 |
+| F31 | **표시 · 환경설정 polish** | `GeneralTab` · `TooltipHost` · `CascadeMenu` | 대화 텍스트 크기·너비 · 툴팁 · 버블 접기 · `+` 계단식 메뉴 · Edit 진행 중 미리보기 · MCP 상세 토글. ux-domains.md §1.2·§1.3-b | 0217·0229·0256·0257·0259 |
+| F32 | **앱 이름 · 안정성** | `app/legacy-paths.ts` · `infra/config/paths.ts` | `orcinus-orca` 이름·저장 경로 이관 · 로고 · 실행 시간 상한 제거 · 테마 부팅 경쟁 해소. [release-operations.md](guides/release-operations.md) | 0225·0227·0243·0244 |
 
 **비고**: 모듈 경로·정확한 IPC 채널·컴포넌트 트리는 [ARCHITECTURE.md](./ARCHITECTURE.md) / [IPC_CONTRACT.md](./IPC_CONTRACT.md) 참조. 위 표는 *기능 정의* 에만 집중.
 
@@ -67,10 +86,10 @@ PRD §6.2 의 N1~N6 을 구현 가능한 형태로 변환한다.
 |---|---|---|
 | N1 | **플랫폼** | Windows x64 1차 지원. macOS (arm64 + x64), Linux (x64) 는 후순위. Electron 다중 빌드 (`electron-builder.yml`) |
 | N2 | **i18n** | i18next 기반 리소스 번들 (`app/src/renderer/src/shared/i18n/`). UI 라벨은 한국어, 기술 용어/터미널 출력은 영어 그대로. |
-| N3 | **접근성** | 키보드 단축키: 새 대화 (Ctrl+N), **전송 (Enter), 줄바꿈 (Shift+Enter)**, Tweaks 패널 (Shift+T 등, [arch/frontend/ux-domains.md](arch/frontend/ux-domains.md) §1.1 참조). 다크모드는 Tweaks 경유 (CSS 변수 override). ARIA label은 주요 UI 요소에. (전송 키 결정: 2026-05-13 — chat 류 앱 관례를 따라 Ctrl+Enter 대신 Enter 단일 키로 변경) |
-| N4 | **데이터 위치** | 세션 본체: CLI 저장소 (Claude Code: `~/.claude/projects/<cwd>/<id>.jsonl`, opencode: `~/.local/share/opencode/` 등). 앱: 메모리에 `sessionId` 변수 1개만 보유. Phase 2+ `electron-store` (선택값·마지막 세션 ID 등) |
+| N3 | **접근성** | 키보드: **전송 (Enter), 줄바꿈 (Shift+Enter)**, 자동완성 ↑/↓·Tab/Enter·Esc ([arch/frontend/ux-domains.md](arch/frontend/ux-domains.md) §1.1). 새 대화 단축키(Ctrl+N)는 **미구현**. 다크모드는 설정 일반 탭의 테마 (CSS 변수 override). ARIA label은 주요 UI 요소에. (전송 키 결정: 2026-05-13 — chat 류 앱 관례를 따라 Ctrl+Enter 대신 Enter 단일 키로 변경) |
+| N4 | **데이터 위치** | 대화 기록의 진실은 로컬 DB(`<userData>/orcinus-orca.db`) — SDK jsonl(`~/.claude/projects/<cwd>/<id>.jsonl`)은 resume context 일 뿐이다([ADR-001](decisions/001-orca-db-session-ssot.md)). 설정은 `electron-store`(§6.7), 게시 원본 파일은 `~/.config/orcinus-orca/artifacts/` |
 | N5 | **응답 지연 가이드** | 첫 토큰까지 지연, 시작 시간 SLA = OQ6. 목표치가 정해지면 본 섹션 갱신. |
-| N6 | **보안** | 현재 (Phase 2): OAuth/API 키 미저장 (SDK 가 `~/.claude` 자동 사용). **Phase 3+ 채택 결정**: 어댑터별 base URL + API key 를 safeStorage 로 저장 ([arch/backend/security.md](arch/backend/security.md) §1.4). 마크다운 렌더링 시 XSS sanitize (react-markdown 기본). Electron contextIsolation=true, sandbox=true 적용 (상세는 [arch/backend/security.md](arch/backend/security.md)). |
+| N6 | **보안** | 앱이 관리하는 자격증명은 Auth Grant → vault(safeStorage)가 소유한다 ([arch/backend/security.md](arch/backend/security.md) §1.4) — SDK 자체 OAuth 로그인 자격증명(`~/.claude`)은 앱이 다루지 않는다. 마크다운 렌더링 시 XSS sanitize (react-markdown 기본). Electron contextIsolation=true, sandbox=true 적용 (상세는 [arch/backend/security.md](arch/backend/security.md)). |
 
 ---
 
@@ -84,32 +103,33 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | 빌드 아키텍처 | electron-vite | ^5 | 확정 | main/preload/renderer 3 sub-config |
 | 번들러 | Vite | ^7 | 확정 | electron-vite가 sub-config 통합 |
 | 언어 | TypeScript | strict, `target: ES2022` | 확정 | 타입 안정성 |
-| UI 프레임워크 | React | ^19 | 확정 (~~OQ1~~ 해소, 2026-05-20) | React Hooks + Context/reducer |
+| UI 프레임워크 | React | ^19 | 확정 (~~OQ1~~ 해소, 2026-05-20) | React Hooks + Zustand(아래 상태 관리 행) |
 | 상태 관리 (Renderer) | Zustand — **전환 완료 (0008 chat 선행 + 0013 전면)** + 순수 `chatReducer` 래핑 | `zustand@^5` | 확정 (완료) | chat store = `sessions: Record<sessionId, { session, live }>` 멀티세션 외피 + `activeKey`. Backend/Sessions/Projects/Cost Context 도 feature별 store 로 흡수(Provider 는 bootstrap-only). selector 구독으로 델타 프레임 재렌더를 라이브 리프에 한정. 상세 [arch/frontend/state.md](arch/frontend/state.md) §1 |
 | 스타일링 | Tailwind CSS | **^4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme`) | 확정 (Phase 1 완료) | utility-first. `styles/tokens.css` 의 `@theme` 블록으로 시맨틱 디자인 토큰 정의 (`--color-{bg,sidebar,ink,...}`). `[data-theme]` 스코프로 **white/dark 2테마** 전환. 자세한 정책은 `app/AGENTS.md` "스타일링 정책" 참조 |
 | 마크다운 렌더링 | react-markdown + remark-gfm + shiki | `^9` / `^4` / `^1` | 확정 (Phase A `feat-pretty-ui` 도입) | GFM (표·체크박스) + 코드 블록 syntax highlighting. shiki 번들은 11개 언어 (ts/js/tsx/jsx/python/bash/json/yaml/html/css/markdown) 로 제한 |
-| LLM 백엔드 SDK (Claude) | `@anthropic-ai/claude-agent-sdk` | latest | 확정 (Phase 3 채택, 2026-05-18) | TypeScript SDK. 진입점 `query({ prompt, options })`. 플랫폼별 native binary 는 `optionalDependencies` 자동 처리. 최소 요구 Node.js 18+. API 명세 SSOT 는 `docs/spec/claude/agent-sdk/typescript.md` |
+| LLM 백엔드 SDK (Claude) | `@anthropic-ai/claude-agent-sdk` | **exact pin** (`app/package.json` — 모델 세대 추가 시 갱신) | 확정 (Phase 3 채택, 2026-05-18) | TypeScript SDK. 진입점 `query({ prompt, options })` — 대화는 세션당 장수명 채널(§7.1). 플랫폼별 native binary 는 `optionalDependencies` 자동 처리. 최소 요구 Node.js 18+. API 명세 SSOT 는 `docs/spec/claude/agent-sdk/typescript.md` |
 | HTTP (opencode) | `@opencode-ai/sdk` | 1.18.27 (exact) | 조사·계약 검증용 설치 | runtime 미채택; [기준/제약](opencode-sdk-spec.md) |
-| IPC | Electron 기본 ipcRenderer/ipcMain | — | 확정 | 별도 RPC 라이브러리 금지. main→renderer 는 Electron 가 ordered + lossless 보장 — 별도 메시지큐 미도입 (멀티 세션 도입 시 §11.3 anchor) |
+| IPC | Electron 기본 ipcRenderer/ipcMain | — | 확정 | 별도 RPC 라이브러리 금지. main→renderer 는 Electron 가 ordered + lossless 보장 — 별도 메시지큐 미도입 (멀티 세션도 1채널 + `sessionId` 라우팅, [arch/frontend/state.md](arch/frontend/state.md) §2) |
 | IPC 보안 | `@electron-toolkit/preload` + contextBridge | ^3 | 확정 | preload 화이트리스트 |
-| 입력 검증 | zod | latest | 확정 | IPC 메시지 + SDK / SSE 응답 파싱 |
-| 앱 내 스케줄링 | croner | latest | **확정 (0091)** | main 프로세스 in-app cron. 앱 실행 중에만 발화하며, 첫 소비처는 사용량 recompute. |
+| 입력 검증 | zod | ^4 | 확정 | IPC 메시지 + SDK / SSE 응답 파싱 |
+| 앱 내 스케줄링 | croner | ^10 | **확정 (0091)** | main 프로세스 in-app cron. 앱 실행 중에만 발화하며, 첫 소비처는 사용량 recompute. |
 | 라우팅 (Renderer) | react-router-dom | ^7 | 확정 | `app://` 커스텀 스킴 + BrowserRouter. [arch/frontend/overview.md](arch/frontend/overview.md) §2 |
 | diff 렌더링 | diff | ^9 | 확정 | 도구 카드의 파일 편집 diff 표시 |
 | transcript 가상화 (Renderer) | `@tanstack/react-virtual` | ^3 | **확정 (0102)** | 긴 세션 transcript 의 과거(확정) 교환만 가상화해 화면 밖 shiki/DOM 상주 비용 제한. 마지막(스트리밍) 교환은 비가상 tail 로 유지해 0008 예약공간 앵커 보존 ("virtualized head + unvirtualized tail"). |
 | 차트 (Renderer) | recharts | ^3 | **확정 (0112, 사용자 승인)** | 설정 사용량 요약의 일별 토큰 바 차트. 선언적 React 컴포넌트 + SVG 렌더링이라 `tokens.css` 시맨틱 토큰(CSS 변수)·white/dark 테마와 직결. 색은 `--color-indigo`(사용량 지정색)만 사용. |
 | 영속화 (설정) | `electron-store` | ^8 | **확정 (완료)** | theme·transcriptTextSize·transcriptWidth·sidebar*·lastBackend·lastSessionId·windowBounds·mcp*·skillEnabled·authBypass·language·uiLocale·accountInstructions·appFont·notifyOnComplete·spendingLimitUsd·scheduler). §6.7 참조 |
 | 자동 업데이트 | `electron-updater` | ^6 | **확정 (0084~0086)** | `app/updater.ts` UpdateController — autoDownload=false·사용자 게이트. [arch/backend/runtime-ipc.md](arch/backend/runtime-ipc.md) §3.1 |
-| 로컬 DB (Phase 3+) | better-sqlite3 (Phase 3 MVP raw) / Drizzle 후보 (Phase 4 재검토) | — | **채택 (Phase 3+)** | 메시지·세션 메타 SSOT. 어댑터 외부 저장 (jsonl 등) 은 단방향 동기화 소스로 격하. 마이그레이션 `src/main/db/migrations/NNN_<name>.sql`. **Phase 3 MVP: raw better-sqlite3 + prepared statements (쿼리 6 개 내외, ORM 가치 작음). Drizzle 은 Phase 4 멀티 세션·artifact·권한·통계 도입 시 재검토 (2026-05-20).** 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
+| 로컬 DB (Phase 3+) | better-sqlite3 (raw + prepared statements) | ^12 | **채택 (Phase 3+)** | 메시지·세션 메타 SSOT. 어댑터 외부 저장 (jsonl 등) 은 단방향 동기화 소스로 격하. 마이그레이션 `src/main/infra/db/migrations/NNNN_<name>.sql`(append-only). ORM(Drizzle)은 미도입 — 2026-05-20 에 Phase 4 재검토로 미뤘고 현재까지 채택하지 않았다(도입 시 사용자 승인). 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
+| HTML/Markdown 변환 | cheerio · turndown(+`turndown-plugin-gfm`) | ^1 / ^7 | 확정 | HTML 미리보기 정제(`features/artifacts/html-preview.ts`) · Confluence storage → Markdown(`features/plugins/confluence/`) |
 | POP3 메일 수집 | `infra/net/pop3-session.ts` + 격리 소켓 factory | 앱 내부 구현 | **Mail Plugin opt-in** | `UIDL` 증분 수집·`TOP`/`RETR`·TLS. 기본 배포에는 binding을 만들지 않으며, 명령 whitelist와 대량 소실 보호를 적용한다. |
 | MIME 정규화 | `postal-mime` | exact package version in `app/package.json` | **Mail Plugin opt-in** | 헤더·본문·첨부를 `mail.db` 문서로 정규화하고 FTS 검색 문서를 만든다. |
-| 자격증명 | Electron `safeStorage` (OS keychain) | — | **부분 구현** | MCP 인증 비밀 = secret-store(`orcinus-orca-secrets`) 구현 완료. 어댑터별 base URL/API key 저장은 Future. [arch/backend/security.md](arch/backend/security.md) §1.4 |
+| 자격증명 | Electron `safeStorage` (OS keychain) | — | **확정 (0181·0188)** | Auth Grant → vault(`infra/vault.ts`)가 LLM 게이트웨이·사내 서비스·MCP `${BINDING:}` 자격증명을 소유한다. MCP `${VAR}` 비밀은 secret-store(`orcinus-orca-secrets`). [arch/backend/security.md](arch/backend/security.md) §1.4 |
 | Python 런타임 | ~~uv + python-build-standalone~~ | — | **제거됨 (0050 PR-B)** | 구 `<userData>/runtime` 격리 Python 환경·runtime IPC 채널은 main 에서 삭제. uv 규약 정책 append 도 정적 정책 체인과 함께 제거 |
-| 패키징 | electron-builder | ^26 | **확정 (0087~0089)** | Windows **unsigned NSIS** + GitHub Releases **draft**(수동 Publish 게이트). 잔여 = 코드 서명/공증(macOS 포함). 정본 `docs/guides/release-operations.md` |
-| 테스트 (단위) | Vitest | latest | 확정 | 어댑터·reducer·IPC zod·scheduler·usage·updater 등 (+`node --test` 스크립트 스위트 4종) |
-| 테스트 (E2E) | Playwright | latest | **미도입** | TRD 채택 목록에 있었으나 devDependency 미설치 — 도입 시 사용자 승인 + 설치. §11 참조 |
+| 패키징 | electron-builder | ^26 | **확정 (0087~0089)** | Windows **unsigned NSIS** + GitHub Releases **즉시 게시**(`v*` 태그 push). 잔여 = 코드 서명/공증(macOS 포함). 정본 `docs/guides/release-operations.md` |
+| 테스트 (단위) | Vitest | ^4 | 확정 | 어댑터·reducer·IPC zod·scheduler·usage·updater 등 (+`node --test "scripts/*.test.mjs"` 스크립트 스위트 — 목록은 디렉토리가 정본) |
+| 테스트 (E2E) | Playwright | — | **미도입** | TRD 채택 목록에 있었으나 devDependency 미설치 — 도입 시 사용자 승인 + 설치. §11 참조 |
 
-**정책**: 위 표 외의 패키지 (예: date-fns, lodash, redux 등) 도입 시 먼저 사용자 확인. (`zustand` 는 채택 완료 — chat 스코프 선행 도입(0008), 전역 확장은 Phase 4.)
+**정책**: 위 표 외의 패키지 (예: date-fns, lodash, redux 등) 도입 시 먼저 사용자 확인. (`zustand` 는 채택 완료 — 0008·0013.) 버전의 정본은 `app/package.json` 이다.
 
 ---
 
@@ -125,7 +145,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 
 > **SSOT 는 [`IPC_CONTRACT.md`](./IPC_CONTRACT.md) §2** — 본 표는 TRD 의 가독성용 미러. 충돌 시 IPC_CONTRACT 우선. 채널 변경 절차는 IPC_CONTRACT §6 참조.
 
-채널 카탈로그의 SSOT 는 IPC_CONTRACT §2, 수치는 [생성물](generated/inventory.md) 다. 아래 표는 **Phase 2 코어 도메인**(chat / backend / install / settings / skills / files)의 역사적 미러만 유지한다 — 이후 추가된 도메인(session·project·window·search·mcp·engine·agent·update·cost·boot·concurrency·permission·notify·debug·log·auth·plugin)은 재서술하지 않는다(드리프트 방지).
+채널 카탈로그의 SSOT 는 IPC_CONTRACT §2, 수치는 [생성물](generated/inventory.md) 다. 아래 표는 **Phase 2 코어 도메인**(chat / backend / install / settings / skills / files)의 역사적 미러만 유지한다 — 이후 추가된 도메인(session·project·window·search·mcp·engine·agent·update·cost·boot·concurrency·permission·notify·debug·log·provider·artifact·git·error)은 재서술하지 않는다(드리프트 방지).
 
 | 채널 | 방향 | 요청 페이로드 (TS) | 응답·스트림 | zod 스키마 |
 |---|---|---|---|---|
@@ -146,9 +166,9 @@ Phase 2 범위 밖 (예약 — 도입 시점에 재등록):
 | 채널 | 도입 시점 | 사유 |
 |---|---|---|
 | `orca:backend:select` | opencode 어댑터 활성화 시 | 단일 백엔드 운영, 선택 호출자 없음 |
-| `orca:message:*` (list / append / delete) | **Phase 3+** | 로컬 DB SSOT 도입과 함께 ([arch/backend/persistence.md](arch/backend/persistence.md)) |
-| `orca:session:list` / `:load` / `:delete` | **Phase 3+** | `SessionAdapter.listSessions?()` / `loadSession?()` 옵셔널 메서드 노출 |
-| `orca:credentials:set` / `:hasKey` | **Phase 3+** | safeStorage 자격증명 ([arch/backend/security.md](arch/backend/security.md) §1.4) |
+| `orca:message:*` (list / append / delete) | **Future** | 현재는 chat 턴 단위로 main 이 일괄 persist (IPC_CONTRACT §2.14) |
+| ~~`orca:session:list` / `:load` / `:delete`~~ | **구현됨** | 로컬 DB 기반 — SDK `listSessions`/`loadSession` 은 쓰지 않는다 (IPC_CONTRACT §2.7) |
+| ~~`orca:credentials:set` / `:hasKey`~~ | **폐기** | 자격증명은 `provider` 도메인(IPC_CONTRACT §2.13-c)과 Auth vault 가 소유 ([arch/backend/security.md](arch/backend/security.md) §1.4) |
 | `orca:skills:reload` | **Future** | 핫리로드 도입 시 |
 
 > **Phase 3+ 이후 추가 도메인** (본 표는 Phase 2 미러라 누락): 채널·도메인 전수와 개수의 SSOT 는 [IPC_CONTRACT.md](./IPC_CONTRACT.md) §2 와 [생성물 인벤토리](generated/inventory.md) 다. 구 `runtime` 채널(Python uv 런타임)은 renderer 소비처 부재로 제거됐다(handoff 0012 · IPC_CONTRACT §2.11).
@@ -192,13 +212,13 @@ declare global {
 }
 ```
 
-Renderer 코드는 `window.orca.*` 만으로 통신 (ipcRenderer 직접 접근 금지). `backend.select` / `credentials.*` / `message.*` / `session.list|load|delete` 는 §5.2 의 예약 표대로 도입 시점에 노출한다.
+Renderer 코드는 `window.orca.*` 만으로 통신 (ipcRenderer 직접 접근 금지). `backend.select` / `message.*` 는 §5.2 의 예약 표대로 도입 시점에 노출한다.
 
 **Preload 안전 import 정책**: preload 는 `sandbox: true` 로 실행되므로 Node `require` 가 화이트리스트 (`electron`, `events`, `timers`, `url`) 로 제한된다. 따라서 preload 는 zod 가 끼어있는 `src/shared/protocol.ts` 를 **import 하지 않는다**. CHANNELS 상수와 순수 TS 타입은 별도 파일 `src/shared/ipc.ts` (zod 0 의존) 에 두고, preload + renderer 가 이 파일을 import 한다. zod 스키마는 main 측 IPC 라우터에서만 사용.
 
 ### 5.4 스트림 종료 신호
 
-- `orca:chat:event` 스트림: `NormalizedEvent` 의 `telemetry`(구 `result`) 또는 `error` 도착 시 **턴 종료** → Renderer가 `inflight` 플래그 해제.
+- `orca:chat:event` 스트림: `NormalizedEvent` 의 `telemetry`(구 `result`)·`error`·`turn.aborted` 중 하나가 **턴을 닫는다** → Renderer가 `inflight` 플래그 해제. `turn.ended`(Stop hook)는 terminal 이 아니다 (IPC_CONTRACT §3).
 - `orca:install:status` 스트림: `{ step: 'complete' | 'failed' }` 도착 시 설치 프로세스 종료.
 
 ---
@@ -226,69 +246,17 @@ type Backend = 'claude';
 `sendMessage(req)`는 `LiveTurn`을 반환하고 소비자는 `eventBatches`를 읽는다. `describe`·`complete`·`classifyError`와 제어 메서드도 새 어댑터의 이식 범위이며, 단순 HTTP prompt 연결만으로 구현이 끝나지 않는다.
 현행 책임은 [adapters.md](arch/backend/adapters.md), OpenCode와의 차이는 [연구 가이드](etc/study/opencode/orca-migration-guide.md)를 참조한다.
 
-### 6.4 SessionInfo
+### 6.4 세션 목록 DTO
 
-```typescript
-interface SessionInfo {
-  id: string;
-  createdAt: string;      // ISO8601, 예: "2026-05-12T10:30:00Z"
-  title?: string;         // CLI가 제공하는 경우만
-  cwd: string;
-  backend: Backend;
-}
-```
+세션 목록·로드 DTO 는 `SessionListItem`·`LoadedSession`(`app/src/shared/ipc.ts`)이 정본이다 — 필드는 코드가 갖고, 채널은 [IPC_CONTRACT §2.7](./IPC_CONTRACT.md). 대화 기록의 출처는 로컬 DB 이며 SDK 의 세션 열거 API 는 쓰지 않는다(N4).
 
 ### 6.5 ChatState (Renderer 상태 모델)
 
-```typescript
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-  toolCalls?: Array<{
-    toolUseId: string;
-    name: string;
-    input: unknown;
-    result?: { output: string | unknown; isError: boolean; durationMs?: number; };
-  }>;
-}
+chat store 외피(`sessions: Record<key, { session, live }>` + `activeKey`)와 세션 단위 `ChatState` 필드는 [arch/frontend/state.md](arch/frontend/state.md) §1.2 와 `features/chat/reducer/chatReducer.ts` 가 정본이다. 스트리밍 텍스트는 reducer 가 아니라 엔트리별 `live` 슬라이스에 누적되고(구 `pendingDelta`), 오류는 `ClassifiedError`(§6.6)로 담긴다.
 
-interface ChatState {
-  sessionId: string | null;        // 활성 세션 ID (메모리만 보관)
-  backend: Backend | null;         // 활성 백엔드
-  messages: Message[];             // 누적 메시지
-  pendingDelta: string;            // 진행 중인 assistant_delta 누적
-  inflight: boolean;               // 현재 턴 진행 중 (전송 중/응답 대기)
-  error?: {
-    code: string;
-    message: string;
-    recoverable: boolean;
-  };
-}
-```
+### 6.6 오류 분류 (ErrorCategory)
 
-**리듀서 액션**:
-- `SEND_USER_MESSAGE(text)` → message 추가, `inflight = true`
-- `RECV_EVENT(ev: ChatEvent)` → ev 타입별로 상태 업데이트
-- `NEW_CHAT` → `sessionId = null`, messages 초기화, `live` 슬라이스 초기화
-- `CANCEL_CHAT` → `inflight = false`, 에러 표시
-
-### 6.6 Error 코드 표
-
-`IPC_CONTRACT.md` §4 와 1:1. 충돌 시 IPC_CONTRACT 우선.
-
-| 코드 | 의미 | 복구 가능 | 사용자 표시 |
-|---|---|---|---|
-| `sdk.crashed` | SDK `query()` 내부 예외 (claude 어댑터) | yes | 새 대화 안내 |
-| `sdk.spawn-failed` | SDK 가 platform binary 해소 실패 (부팅 시점) | yes | 인스톨러 다이얼로그 트리거 |
-| `cli.not-installed` *(deprecated)* | 백엔드 CLI 미발견 (CLI spawn 시기) | yes | (Phase 3 SDK 마이그레이션 이후 사실상 미발생) |
-| `cli.spawn-failed` *(deprecated)* | spawn 실패 / EACCES / 경로 문제 | yes | (legacy) |
-| `cli.crashed` *(deprecated)* | 프로세스 비정상 종료 (exit code ≠ 0) | yes | (legacy) |
-| `cli.timeout` *(deprecated)* | CLI 무응답 (타임아웃 값은 OQ6) | yes | (legacy) |
-| `auth.expired` | SDK 가 401 / OAuth / expired 패턴 throw | yes | "`claude /login` 실행 후 새 대화" 모달 (AuthExpiredModal) |
-| `protocol.parse` | 어댑터 정규화 실패 (예상치 못한 SDKMessage 형태) | no | 디버그 로그 + "일반 오류" 표시 |
-| `internal` | 어댑터/Main 내부 버그 | no | 디버그 로그 + "문제가 발생했습니다" |
-
-> `cli.*` 코드 그룹은 Phase 3 SDK 마이그레이션 이후 deprecated. 후속 PR 에서 정리 예정.
+턴 오류는 `ClassifiedError` = `{ category; message; retryable; provider?; cause? }` 로 전달된다 — `category` 값과 의미는 [IPC_CONTRACT §4](./IPC_CONTRACT.md) 가 정본이다(구 `sdk.*`·`cli.*` 코드 모델은 폐기). 인증 만료는 `auth_error` 로 분류되어 AuthExpiredModal(`claude /login` 안내)을 띄운다.
 
 ### 6.7 Settings 키 카탈로그
 
@@ -331,7 +299,7 @@ interface OrcaConfig {
 | 구 orcinus-orca.json agents[] 필드 | 새 위치 |
 |---|---|
 | `adapter`+`provider` (식별) | `sources/settings/<adapter>/<provider>/` **디렉토리 이름** |
-| `authToken` | secret-store(`provider:${providerKey}`, 앱 UI) 또는 settings.json `env.ANTHROPIC_API_KEY`(`${VAR}` 권장) |
+| `authToken` | settings.json `env.ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN`(사용자 직접 기입, 0028) 또는 Auth 연결의 Harness 실행 구성 overlay([auth.md](arch/backend/auth.md) §6) |
 | `baseUrl` | settings.json `env.ANTHROPIC_BASE_URL` |
 | `env` | settings.json `env` 블록 |
 | `models` | `sources/settings/<adapter>/<provider>/settings.json` 의 `env` 모델 키에서 파싱 (`claude/model-parser.ts`) |
@@ -347,18 +315,18 @@ interface OrcaConfig {
 - **모델 파싱 규약**(`features/harnesses/claude/model-parser.ts`, 순수 함수): `env.ANTHROPIC_DEFAULT_{SONNET,OPUS,HAIKU,FABLE}_MODEL` 키가 있으면 그 alias 만 노출(=`isCustom`), 전무하면 sonnet/opus/haiku/fable 4개를 `model:null` 로 노출한다 — **그 4개 폴백은 노출 목록이 끝내 빌 때만** 쓴다(`env.ANTHROPIC_MODEL` 만 있어도 폴백하지 않는다; 목록에 들어가지 않는 top-level `model` 은 폴백을 막지 못한다). `[1m]` 접미사는 분리해 `oneMillionContext` 로 보존하며 **모델 동일성 판정은 `(모델명, 1M)` 한 쌍**이다 — `X` 와 `X[1m]` 은 서로 다른 실행 대상이라 둘 다 노출된다. `env.ANTHROPIC_MODEL` 은 **노출 목록에도 더한다**(중복이면 추가하지 않는다); top-level `model` 은 default 선정에만 쓴다. default 는 그 명시 모델(`env.ANTHROPIC_MODEL`>`model`)·alias 폴백(sonnet→haiku→opus→fable)을 노출 목록 안에서 평가해 **정확히 1개** 부여한다. `model:null` 항목은 SDK 가 bare alias 를 해석한다(모델명 추측 금지). 같은 규칙을 runtime 카탈로그(`runtime-catalog.ts`)가 `runtimeEnv.ANTHROPIC_MODEL` 로 공유한다.
 - provider key 는 `${adapter}-${provider}`(0010 규약 유지, 디렉토리 이름 = provider, `[A-Za-z0-9_-]` 제한). 중복은 디렉토리 구조상 불가능하다.
 - 최초 부팅 시 `anthropic/settings.json`(`{"env":{}}`)을 스캐폴드한다(`features/extensions/scaffold.ts`, 멱등 — 기존 파일 불가침).
-- provider settings.json 은 **dist 로 배포하지 않는다** — query flag(`options.settings`)로 주입한다(아래 "런타임 주입", standardization.md §5.1 거울 예외). skill 은 `dist/<engine>/.claude/skills/`, mcp 는 `dist/<engine>/.mcp.json` 로 배포한다(설치 스테이징 — standardization.md §5.2).
+- provider settings.json 은 **dist 로 배포하지 않는다** — query flag(`options.settings`)로 주입한다(아래 "런타임 주입", standardization.md §5.1 예외). skill·mcp 는 `dist/<engine>/plugins/orcinus-orca/{skills,.mcp.json}` plugin 패키지로 배포해 `options.plugins` 로 로드한다(standardization.md §5.1·§5.2).
 
-**런타임 주입 (격리 해제 — 0024 구현됨 / disallowedTools 보류)**: 턴/completion 의 `query()` 는 `settingSources` 옵션을 **생략**해 SDK 기본값(`user`+`project`+`local` 전부)으로 실행한다 — 사용자 전역 `~/.claude` skill·설정을 상속한다. provider settings 는 SDK `resolveSettings`(@alpha, CLI 동일 머지 엔진)로 해석한 effective 를 flag 레이어(`options.settings`)로 주입한다(settingSources 와 직교·최우선). 격리 해제로 끌려오는 사용자 allow 규칙은 **`disallowedTools` 옵션으로 확정 차단**한다(SDK 권한 평가: hooks→deny/disallowed→ask→allow→canUseTool — disallowed 가 allow·canUseTool 보다 상위). settings.json 의 escalating `permissions.defaultMode`(bypassPermissions·acceptEdits·auto)는 무력화된다 — SDK `filterEscalatingDefaultMode` 를 부르는 것이 아니라 `adapters/claude-settings.ts` 의 `ESCALATING_MODES` 목록으로 **동등한 필터를 직접 적용**한다 — **의도된 동작**(권한은 Orca 의 canUseTool + disallowedTools 게이트가 담당). 해석·캐시는 `features/harnesses/settings.ts` 의 `HarnessSettingsService`(mtime 캐시, deploy 후 무효화), claude 종속 어휘는 `adapters/claude-settings.ts` 에 격리된다. resolveSettings 함수 부재(SDK 버전 변동) 시 flat JSON 읽기로 폴백한다. (`claude-adapt.ts` 는 0024에서 `settingSources` 를 생략하도록 정렬됐다. `disallowedTools` 는 D1 사용자 결정 전이라 보류.)
+**런타임 주입 (0117 현행)**: 턴/completion 의 `query()` 는 `settingSources: ['project','local']` 로 실행한다(`claude-adapt.ts` `adaptSettingSources`) — 사용자 전역 `~/.claude/settings.json` 은 상속하지 않고, 사용자 `~/.claude/skills` 만 wrapper plugin 으로 전달한다([adapters.md](arch/backend/adapters.md) §1.3). provider settings 는 `adapters/claude-settings.ts` 가 파일을 flat-read 해 **verbatim** 으로 flag 레이어(`options.settings`)에 주입한다. settings.json 의 escalating `permissions.defaultMode`(bypassPermissions·acceptEdits·auto)는 같은 파일의 `ESCALATING_MODES` 필터로 제거된다 — **의도된 동작**(권한은 Orca 의 canUseTool 게이트와 권한 모드가 담당). `disallowedTools` 는 `['WebSearch']` 하나로 대화의 WebSearch 를 차단한다(`claude.ts`). 해석·캐시는 `features/harnesses/settings.ts` 의 `HarnessSettingsService`(mtime 캐시, deploy 후 무효화)가 소유한다.
 
-주입 채널은 settings 와 시스템 env **두 레이어**다(handoff 0028 — provider settings == `~/.claude/settings.json`):
+주입 채널은 settings 와 subprocess env **두 레이어**다(handoff 0028 — provider settings == `~/.claude/settings.json`):
 
-- **settings(env 포함) → `options.settings`(flag 레이어, `--settings` 동등)에 인라인 JSON 문자열**로 넣는다. SDK 의 `Options.settings` 는 d.ts 상 `string | Settings` 지만 **런타임 transport 는 값을 직렬화 없이 CLI argv 에 그대로 push** 한다(0.3.143~0.3.175 확인). 따라서 객체를 넘기면 spawn 이 `"[object Object]"` 로 강제 변환해 settings 가 적용되지 않으므로 `JSON.stringify` 한 문자열을 넘긴다(CLI `--settings` 는 "JSON 파일 경로 또는 인라인 JSON 문자열" 을 허용 — cli-reference.md). `settingSources` 를 생략해 상속한 사용자 `~/.claude/settings.json` 위에 이 flag settings 가 얹혀 **덮어쓰므로**, provider settings 의 `env`(auth key 등)가 그 안에 함께 실려 사용자 전역 env 를 이긴다.
-- **시스템 env → `options.env`(subprocess env)**: 턴 env(uv 런타임 + orcinus-orca.json 앱 env 병합 결과)만 싣는다. provider env 는 settings 레이어로 흐르므로 여기엔 없다.
+- **settings(env 포함) → `options.settings`(flag 레이어, `--settings` 동등)에 인라인 JSON 문자열**로 넣는다. SDK 의 `Options.settings` 는 d.ts 상 `string | Settings` 지만 **런타임 transport 는 값을 직렬화 없이 CLI argv 에 그대로 push** 한다(0.3.143~0.3.175 확인). 따라서 객체를 넘기면 spawn 이 `"[object Object]"` 로 강제 변환해 settings 가 적용되지 않으므로 `JSON.stringify` 한 문자열을 넘긴다(CLI `--settings` 는 "JSON 파일 경로 또는 인라인 JSON 문자열" 을 허용 — cli-reference.md). 사용자 전역 settings 를 상속하지 않으므로 이 flag settings 가 앱 환경구성의 settings 원천이다.
+- **턴 env → `options.env`(subprocess env)**: `adapters/harness-config.ts` 가 orcinus-orca.json 앱 env · Harness 실행 구성 overlay([auth.md](arch/backend/auth.md) §6) · 배포 spawn env 주입점(`app/deployment/spawn-env.ts`) · 에이전트 종류별 env(`SessionAdapter.agentSpawnEnv`)를 조립한다. provider settings 의 env 는 settings 레이어로 흐르므로 여기엔 없다.
 
-> **argv 노출 트레이드오프 (handoff 0028 — 0015/0018 폐기)**: `options.settings` 는 argv 로 push 되므로 env(평문 auth key 포함)가 same-user process list 에 노출된다. 이는 "앱 환경구성으로 `~/.claude/settings.json` 을 덮어쓴다"는 요구를 위해 수용한다(Claude Code `--settings` 와 동일 특성). 0015/0018 의 env↛argv 분리(`splitProviderSettings`·branded 타입 `ArgvSafeSettings`/`SubprocessEnv`·음성 타입 테스트)와 Orca 고유 `${VAR}` 확장·secret-store 토큰 주입은 제거했다(security.md §1.4). 0015/0018 문서는 historical 보존.
+> **argv 노출 트레이드오프 (handoff 0028 — 0015/0018 폐기)**: `options.settings` 는 argv 로 push 되므로 env(평문 auth key 포함)가 same-user process list 에 노출된다. 이는 "앱 환경구성이 settings 를 소유한다"는 요구를 위해 수용한다(Claude Code `--settings` 와 동일 특성). 0015/0018 의 env↛argv 분리(`splitProviderSettings`·branded 타입 `ArgvSafeSettings`/`SubprocessEnv`·음성 타입 테스트)와 Orca 고유 `${VAR}` 확장·secret-store 토큰 주입은 제거했다(security.md §1.4). 0015/0018 문서는 historical 보존.
 
-> **격리 해제 — handoff 0014/0015 격리모드 폐기(supersede)**: 0014/0015 가 도입한 `settingSources: []` 격리모드는 폐기한다. `settingSources` 옵션을 **생략(전 소스 로드)**하는 0005 의 원래 입장으로 되돌리되, 그로 끌려오는 사용자 allow 규칙은 `disallowedTools` 로 차단한다(deny/disallowed > allow > canUseTool). **`disallowedTools` 는 D1 사용자 결정 전이라 코드 주입 보류** — 목표 계약이고 현재 코드는 이 옵션을 넘기지 않는다(§6.8 런타임 주입·standardization.md §5.1). 목적은 사용자가 `~/.claude` 에 전역 설치한 skill·설정을 Orca 세션이 상속하게 하는 것이다. OAuth 자격증명(`~/.claude/.credentials.json`/keychain)은 settings 와 무관하게 동작한다. handoff 0014/0015 문서 자체는 historical 기록으로 보존하고 supersession 만 본 절·standardization §5.1·PHASES 에 기재한다.
+> **설정 범위 결정 이력**: handoff 0014/0015 의 `settingSources: []` 격리모드 → 생략(전 소스 상속, 0024) → **`['project','local']`(0117, 현행)** 순으로 바뀌었다. 사용자 전역 skill 은 settings 상속이 아니라 wrapper plugin 으로 전달한다. OAuth 자격증명(`~/.claude/.credentials.json`/keychain)은 settings 와 무관하게 동작한다. 0014/0015/0024 문서는 historical 기록으로 보존한다.
 
 **provider env 레시피** (`~/.claude/settings.json` 과 동일 — 사용자가 네이티브 env 값을 직접 작성. Orca 는 `${VAR}` 확장 안 함):
 
@@ -369,7 +337,7 @@ interface OrcaConfig {
 | vertex | `{ "env": { "CLAUDE_CODE_USE_VERTEX": "1" } }` |
 | 게이트웨이 | `{ "env": { "ANTHROPIC_BASE_URL": "https://gw.example.com", "ANTHROPIC_AUTH_TOKEN": "<token>" } }` |
 
-provider settings 의 `env` 는 `options.settings`(flag) 로 verbatim 주입되어 사용자 `~/.claude/settings.json` 의 env 를 덮어쓴다(handoff 0028). Orca 는 그 env 에 `${VAR}` 확장도 secret-store 토큰 주입도 하지 않는다(Claude 정책 그대로). 한편 orcinus-orca.json 의 `env`(시스템/앱 전역 env)는 settings 가 아니라 subprocess env 베이스(`options.env`)로 병합된다(여기엔 `expandEnvRecord` 의 `${VAR}` 확장이 그대로 적용 — settings 경로와 별개).
+provider settings 의 `env` 는 `options.settings`(flag) 로 verbatim 주입된다(handoff 0028 — 사용자 전역 settings 는 상속하지 않는다, 0117). Orca 는 그 env 에 `${VAR}` 확장도 secret-store 토큰 주입도 하지 않는다(Claude 정책 그대로). 한편 orcinus-orca.json 의 `env`(시스템/앱 전역 env)는 settings 가 아니라 subprocess env 베이스(`options.env`)로 병합된다(여기엔 `expandEnvRecord` 의 `${VAR}` 확장이 그대로 적용 — settings 경로와 별개).
 
 ## 7. Backend Adapters (외부 인터페이스 계약)
 
@@ -389,24 +357,25 @@ provider settings 의 `env` 는 `options.settings`(flag) 로 verbatim 주입되�
 
 **자동 설치**: 별도 절차 없음 — Claude Code 는 SDK 패키지의 `npm install` 시점에 platform binary 가 자동 설치된다. (CLI 글로벌 설치 `npm install -g @anthropic-ai/claude-code` 는 폐기.) 인스톨러 모듈은 **opencode 전용** 으로 축소 — §8 참조.
 
-**메시지 전송** (매 턴):
+**메시지 전송** (세션당 장수명 채널):
 ```typescript
 import { query } from '@anthropic-ai/claude-agent-sdk';
 
-for await (const msg of query({
-  prompt: text,
+// 설명용 축약 — 옵션 조립은 claude-adapt.ts, 채널·프레임은 runtime-ipc.md §1.3
+const q = query({
+  prompt: turnInput,              // AsyncIterable<SDKUserMessage> — streaming-input.ts
   options: {
     resume: sessionId ?? undefined,
     includePartialMessages: true,
-    cwd,
-    // permissionMode / canUseTool / hooks: Phase 4 anchor (§10)
+    cwd,                          // 격리 세션이면 managed worktree 경로
+    settingSources: ['project', 'local'],
+    // permissionMode · canUseTool · hooks · plugins · settings · env — adapters.md §1.3·§1.7
   }
-})) {
-  yield normalize(msg);  // 설명용 축약. 현행 SDKMessage → NormalizedEvent[] 변환은 claude-map.ts 참조
-}
+});
+for await (const msg of q) yield claudeToNormalized(msg); // SDKMessage → NormalizedEvent[] (claude-map.ts)
 ```
 
-- `prompt: string`: single-shot 입력 (사용자 메시지). `AsyncIterable<SDKUserMessage>` 형태는 Phase 4 anchor (다중 이미지·실시간 중단 필요 시).
+- `prompt: AsyncIterable<SDKUserMessage>`: 한 번 spawn 한 채널에 턴마다 `pushTurn` 으로 입력을 넣는다(첨부 이미지·텍스트 블록 포함 — `buildTurnContent`). 채널이 죽으면 다음 send 가 spawn+resume 콜드 패스로 간다.
 - `options.includePartialMessages: true`: `SDKPartialAssistantMessage` (text_delta) 스트리밍 — CLI 의 `--verbose --include-partial-messages` 대체.
 - `options.resume`: 2턴 이상에서 조건부 — `sessionId != null` 시 첫 턴의 ID 전달. CLI `--resume <id>` 와 1:1 대응.
 - `options.cwd`: 작업 디렉토리 — CLI spawn 의 `{ cwd }` 대체.
@@ -417,15 +386,15 @@ for await (const msg of query({
 - Renderer 가 받아서 `state.sessionId` 에 저장
 
 **인증 만료 감지**:
-- SDK 가 throw 하는 에러 객체의 메시지/코드에서 `401` / `OAuth` / `expired` 패턴 매칭 → `error / auth.expired`
-- UI: `claude /login` 명령 카피 버튼 + 새 대화 권유 (정책은 CLI 시기와 동일)
+- `adapters/error-classifier.ts` 가 SDK 오류의 `401` / `OAuth` / `expired` 패턴을 `ClassifiedError{ category: 'auth_error' }` 로 분류한다(§6.6)
+- UI: AuthExpiredModal — `claude /login` 명령 카피 버튼 + 새 대화 권유
 
 **환경변수**:
 
 | 변수 | 값 | 용도 |
 |---|---|---|
 | `HOME` | 사용자 홈 디렉토리 | SDK 가 `~/.claude` 의 OAuth/API 자격증명 자동 사용 + 세션 jsonl 저장 (`~/.claude/projects/<cwd>/`) |
-| `CLAUDE_*` | (OQ에서 확정) | 필요 시만 |
+| 턴 env | `adapters/harness-config.ts` 조립 결과 | 앱 env · Harness overlay · 배포 spawn env · 종류별 env(§6.8) — host-managed provider 표식(`CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST`)도 여기서 싣는다 |
 
 PATH 의존성 (npm 글로벌 bin) 은 폐기 — SDK 의 `optionalDependencies` 가 platform binary 를 패키지 내부에서 해소한다.
 
@@ -509,8 +478,8 @@ PATH 의존성 (npm 글로벌 bin) 은 폐기 — SDK 의 `optionalDependencies`
 
 - 설정 파일: `electron-builder.yml`. Windows: **x64 unsigned NSIS installer** (1차 타깃, SmartScreen 경고 수용).
 - macOS: DMG (arm64 + x64), notarization 미도입 / Linux: AppImage — 둘 다 후순위.
-- **CI** (`.github/workflows/ci.yml`): `main` push(paths `app/**`) — 마이그레이션 append-only 가드 → lint → typecheck → test (windows-latest·Node 22).
-- **릴리스** (`.github/workflows/release.yml`): `v*` 태그 → 버전 검증(`validate-release-version.mjs`) → 게이트 → `build:win` → **draft** GitHub Release(installer·latest.yml·blockmap) → sha512 검증(`validate-dist.mjs`). Publish = 수동 게이트. 절차 정본 `docs/guides/release-operations.md`.
+- **CI** (`.github/workflows/ci.yml`): `push`(`main`) · `pull_request`(모든 PR) — 둘 다 paths `app/**`·`.github/workflows/**` · `workflow_dispatch`(수동) — 마이그레이션 append-only 가드 → 문서 인벤토리 가드(`check-doc-inventory.mjs --check`) → 테스트 예산 가드 → lint → typecheck → test (windows-latest·Node 22).
+- **릴리스** (`.github/workflows/release.yml`): `v*` 태그 → 버전 검증(`validate-release-version.mjs`) → 게이트 → `build:win -- --publish always` → GitHub Release **즉시 게시**(installer·latest.yml·blockmap) → sha512 검증(`validate-dist.mjs`). 수동 dispatch 는 `--publish never` dry-run. 절차 정본 `docs/guides/release-operations.md`.
 - 잔여 OQ3: **코드 서명 / macOS 공증 / staged rollout** (§10 anchor).
 
 ### 9.3 환경변수
@@ -518,7 +487,7 @@ PATH 의존성 (npm 글로벌 bin) 은 폐기 — SDK 의 `optionalDependencies`
 | 변수 | 값 (dev/build) | 용도 |
 |---|---|---|
 | `NODE_ENV` | `"development"` / `"production"` | 빌드 최적화 |
-| DevTools | dev 빌드에서만 F12로 열기 | 보안 (production 제한) |
+| DevTools | 코드가 열거나 막지 않는다 | `openDevTools`·`webPreferences.devTools`·애플리케이션 메뉴 설정이 없어 Electron 기본 동작을 따른다 ([security.md](arch/backend/security.md) §1.5) |
 
 ---
 
@@ -532,17 +501,17 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - **(anchor) 하드웨어 어댑터 (BoardAdapter)** — USB/카메라 제어. `adapters/` 에 board 어댑터를 두는 자리를 예약(파일 미생성), 네이티브 모듈 (`orca-board.node`, libusb) Phase 2~3.
 - **(anchor) opencode 어댑터** — SDK는 설치됐으나 어댑터·서버 lifecycle·백엔드 선택·OpenCode MCP 변환기는 미구현이다(`Backend`=`'claude'`). [SDK 해설](opencode-sdk-spec.md)과 [마이그레이션 연구](etc/study/opencode/orca-migration-guide.md)를 후속 설계 입력으로 쓰며, OQ7/OQ10·권한·서버 소유권을 결정한 뒤 활성화한다. 기존 `toClaudeConfig`의 OpenCode 대응 변환기 목표는 유지하되 실제 SDK 설정 형상과 보안 경계는 별도 검증한다.
 - **(anchor) OpenAI Compatible 백엔드** — `SessionAdapter` 인터페이스 재활용 가능. 3번째 어댑터 구현체 추가.
-- **(anchor) Agent SDK 고급 기능** — `permissionMode` / `canUseTool` / `hooks` / `createSdkMcpServer` (in-process custom tools) / 외부 `mcpServers` / `forkSession` / `startup()` (사전 워밍) / `AsyncIterable<SDKUserMessage>` 스트리밍 입력. 채택 표는 [arch/backend/adapters.md](arch/backend/adapters.md) §1.7 의 ⏳ 행 참조. Phase 4+ — 도구 권한 정책(OQ9) 결정 후 진행.
+- ~~(anchor) Agent SDK 고급 기능~~ — **구현됨**: `permissionMode` / `canUseTool` / `hooks` / `createSdkMcpServer`(runtime tool) / `plugins` / `forkSession` / `AsyncIterable<SDKUserMessage>` 스트리밍 입력 — 채택 표는 [arch/backend/adapters.md](arch/backend/adapters.md) §1.7. `startup()` 사전 워밍은 쓰지 않는다. 권한 **기본 정책값**은 OQ9 로 열려 있다.
 - **(anchor) 어댑터 도구명 정규화 (OQ10)** — claude vs opencode 의 `tool_use.name` / `tool_use.input` 차이 해소 정책. PRD §11 OQ10 결정 후 어댑터별 매핑 표 확정.
-- **(anchor) ChatEvent sessionId 확장** — Phase 4 멀티 세션 진입 시 모든 변형(`assistant_delta` / `assistant_message` / `tool_use` / `tool_result` / `result` / `error`)에 `sessionId` 필드 추가. main↔renderer IPC 는 Electron 의 ordered+lossless 보장을 그대로 활용 (별도 메시지큐 미도입). 상세 anchor 는 [arch/frontend/state.md](arch/frontend/state.md) §2.
-- **(구현됨) MCP & Skill 통합 레이어** — 정규 소스 = `~/.config/orcinus-orca/mcp.json`(순정 Claude `mcpServers` 스키마 + `${VAR}`, 평문 비밀 0). 비밀은 secret-store(safeStorage, env-var 이름 키잉), enabled/description 은 settings. `${VAR}` resolver = safeStorage→process.env(미해결 시 서버 드롭). **변환기**(`toClaudeConfig`, 순수 — opencode 대칭 짝은 미구현). **확장 정규 레이어**: `~/.config/orcinus-orca` 디렉토리 자체를 Claude 로컬 플러그인으로 머티리얼라이즈(`.claude-plugin/plugin.json` + 정규 소스 `skills/`·`agents/`·`commands/`) → query() 에 `plugins:[{local, path: ~/.config/orca}]`+`skills:'all'`. Skill 은 양 백엔드 공통(opencode `.claude/skills` 네이티브), Hook/full-plugin 은 백엔드 종속이라 정규화 제외. 레거시 `orca-mcp` 1회 마이그레이션. **(재정의 — 0024 코드 정렬됨 / disallowedTools 보류)** skill 로드는 plugin 컨테이너 폐기 후 `settingSources` 경로로, mcp 는 `dist/<engine>/.mcp.json` 거울로 정렬되고 agents·commands·hooks·plugin 은 engine-specific 으로 연기된다(standardization.md §5.1, adapters.md §3.1). 상세 [arch/backend/security.md](arch/backend/security.md) §1.4.
-- **(anchor) Captures / Projects 확장** — PRD §9 Future Scope. 별도 IPC 도메인 + 모듈 추가.
-- ~~(anchor) 멀티 세션 / 과거 대화 목록~~ — **구현 완료** (세션별 SessionRuntime + 사이드바 세션 목록 + FTS 검색 — runtime-ipc.md §1). 동시 스트리밍 *UX*(배지·탭)만 잔여.
+- ~~(anchor) ChatEvent sessionId 확장~~ — **구현됨**: 모든 `NormalizedEvent` 가 `sessionId` 를 싣고 renderer store 가 키 라우팅한다(IPC 1채널 유지 — [arch/frontend/state.md](arch/frontend/state.md) §2).
+- **(구현됨) MCP & Skill 통합 레이어** — 정규 소스 = `~/.config/orcinus-orca/sources/mcp/mcp.json`(순정 Claude `mcpServers` 스키마 + `${VAR}`, 평문 비밀 0). 비밀은 secret-store(safeStorage, env-var 이름 키잉), enabled/description 은 settings. `${VAR}` resolver = `${BINDING:<id>}` → secret-store → allowlist env(미해결 시 서버 드롭). **변환기**(`toClaudeConfig`, 순수 — opencode 대칭 짝은 미구현). 배포기가 활성 MCP·skill 을 `dist/<engine>/plugins/orcinus-orca/` plugin 패키지로 렌더하고 query 는 `options.plugins` 로 로드한다(0058). 사용자 `~/.claude/skills` 는 wrapper plugin, 설정 범위는 `settingSources: ['project','local']`(0117). agents·commands 는 engine-specific 이라 배포하지 않는다. 상세 [standardization.md](arch/backend/standardization.md) §5.1 · [security.md](arch/backend/security.md) §1.4.
+- **(anchor) Captures 확장** — PRD §9 Future Scope. 별도 IPC 도메인 + 모듈 추가. (Projects 는 구현됨 — §2 F30·IPC_CONTRACT §2.7-b.)
+- ~~(anchor) 멀티 세션 / 과거 대화 목록~~ — **구현 완료** (세션별 SessionRuntime + 사이드바 세션 목록 + FTS 검색 — runtime-ipc.md §1). 비활성 세션 표시는 nav 세션 행 상태 아이콘(0249·0254)으로 구현했고 세션 탭은 두지 않는다.
 - ~~(anchor) 재시작 재개~~ — **구현 완료** (`lastSessionId` 부트 복원 — BootRedirector).
 - ~~(anchor) Zustand 전환~~ — **구현 완료 (0008/0013)** — feature별 store + chat `sessions: Record` 외피 + 외부 dispatch(`receive(ev)`). 상세 [arch/frontend/state.md](arch/frontend/state.md) §1.
 - ~~(anchor) 로컬 DB (Phase 3+)~~ — **구현 완료** (better-sqlite3, `infra/db/migrations/`, DB=SSOT). 상세 [arch/backend/persistence.md](arch/backend/persistence.md).
 - **Artifact 게시·보관** — 모델의 `publish_artifact` 호출로 HTML/Markdown·텍스트/코드·이미지를 `~/.config/orcinus-orca/artifacts/<fileId>/<filename>`에 보관한다. 개발 파일은 `.dev` 하위에 분리한다. DB는 파일 메타데이터와 세션별 게시 참조를 가지며 대화 삭제로 파일을 지우지 않는다. 파일 소실 시 게시 기록을 유지하고 파일 없음으로 표시한다. 출력 목록과 transcript 카드에서 우측 뷰어를 열어 미리보기·줄번호 코드·복사·다운로드를 사용한다. HTML은 격리된 정적 문서로 표시한다. 상세 [arch/backend/persistence.md](arch/backend/persistence.md), [렌더링](arch/frontend/rendering.md).
-- **(anchor) safeStorage 자격증명** — MCP 인증 비밀은 **구현 완료**(secret-store). 어댑터별 base URL + API key 저장은 잔여. [arch/backend/security.md](arch/backend/security.md) §1.4.
+- ~~(anchor) safeStorage 자격증명~~ — **구현됨**: Auth Grant → vault(0181·0188)가 LLM 게이트웨이·사내 서비스·MCP `${BINDING:}` 자격증명을 소유한다. [arch/backend/security.md](arch/backend/security.md) §1.4.
 - ~~(anchor) 추가 IPC 도메인 (Phase 3+/Future)~~ — `session`·`project`·`search`·`mcp`·`cost`·`update` 등 대부분 도입 완료(IPC_CONTRACT §2). 잔여 예약은 IPC_CONTRACT §2.14.
 - **PRD §11 OQ** — 미정 항목은 여기서 결정하지 않음. 결정값 도착 시 본 문서 갱신. (OQ1 React 19·OQ3 패키징/자동업데이트는 해소 — PRD §11 표기 참조.)
 
@@ -556,8 +525,8 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - **Reducer**: `chatReducer` 액션별 상태 전이 정확성 (parts/ask/permission 계열 스위트)
 - **IPC 검증**: zod 스키마 (SendChatMessage, Settings, InstallStatus 등 — `protocol.*.test.ts`)
 - **런타임/기능 슬라이스**: scheduler(cron 검증·겹침 방지)·usage(집계/한도 파생)·updater(재시작 게이트)·boot-report 등 — 각 슬라이스 동거 `*.test.ts`
-- **(구현됨) MCP 변환 파이프라인**: `expandEnv`(${VAR} 정의/미정의 드롭·다중 변수·빈 소스) + `toClaudeConfig`(구조 항등·sse 보존)·dropped 전파·빈 소스 — opencode 변환기(stdio→local·http/sse→remote)는 미구현 — `features/extensions/mcp/{expand,convert}.test.ts`. electron 비의존 순수 함수.
-- **스크립트 스위트** (`node --test "scripts/*.test.mjs"`, `npm test` 가 자동 실행): ensure-sqlite-abi · check-migrations-appendonly · validate-dist · validate-release-version.
+- **(구현됨) MCP 변환 파이프라인**: `infra/vars.ts` `expandVars`(${VAR} 치환) + `mcp/resolver.ts`(BINDING → secret-store → allowlist env) + `toClaudeConfig`(구조 항등·sse 보존·미해결 서버 드롭) — opencode 변환기(stdio→local·http/sse→remote)는 미구현 — `infra/vars.test.ts`·`features/extensions/mcp/{resolver,convert}.test.ts`. electron 비의존 순수 함수.
+- **스크립트 스위트** (`node --test "scripts/*.test.mjs"`, `npm test` 가 자동 실행): `app/scripts/*.test.mjs` 전부 — 목록은 디렉토리가 정본(마이그레이션 append-only·릴리스 버전·dist 검증·문서 인벤토리 등).
 
 ### 통합 테스트
 
@@ -573,14 +542,14 @@ Playwright 는 아직 devDependency 로 설치되지 않았다(§4). 도입 시 
 - 대화 1개 축적 후 새 대화 → sessionId 리셋 확인
 - 설치 실패 시 수동 명령 표시 (mock CLI 설치 미지원)
 
-현재 GUI 검증은 dev 디버그 하네스(MockAdapter 시나리오 13종 — IPC_CONTRACT §2.13) + 사람 수동 체크리스트로 갈음한다.
+현재 GUI 검증은 dev 디버그 하네스(MockAdapter 시나리오 — `MOCK_SCENARIO_IDS`, IPC_CONTRACT §2.13) + 사람 수동 체크리스트로 갈음한다.
 
 ### 매뉴얼 체크리스트 (QA)
 
-- Claude Code / opencode 각각 테스트 (둘 다 설치된 환경)
-- 백엔드 선택 → 메시지 전송 → 응답 스트리밍 → 종료
-- Tweaks 테마 변경 → 전 화면 반영 검증
-- 키보드 단축키 (Ctrl+N, Enter (전송) / Shift+Enter (줄바꿈) — N3 2026-05-13 결정)
+- Claude Code 테스트 (opencode 는 어댑터 활성화 후)
+- 메시지 전송 → 응답 스트리밍 → 종료
+- 테마 변경 → 전 화면 반영 검증
+- 키보드 단축키 (Enter (전송) / Shift+Enter (줄바꿈) — N3 2026-05-13 결정)
 - 에러 복구 (재시도, "claude /login" 안내 등)
 
 ---
@@ -589,11 +558,10 @@ Playwright 는 아직 devDependency 로 설치되지 않았다(§4). 도입 시 
 
 - `docs/PRD.md` — 제품 정의 (WHAT)
 - `docs/etc/llm-chat-desktop-strategy.md` — 기술 결정 근거
-- `docs/ARCHITECTURE.md` — Renderer 구조·상태 관리·도메인 화면 카탈로그
-- `docs/ARCHITECTURE.md` — Main 구조·Adapter·영속성·자격증명·보안
+- `docs/ARCHITECTURE.md` — arch 파일 맵: `arch/frontend`(Renderer 구조·상태·화면) · `arch/backend`(Main 구조·어댑터·영속성·자격증명·보안)
 - `docs/IPC_CONTRACT.md` — Main ↔ Renderer 채널 SSOT
 - `docs/GLOSSARY.md` — 용어 단일 출처
-- `docs/claude-code-spec.md` — Claude Code CLI 공식 스펙 미러 (§7.1 외부 계약의 단일 출처)
+- `docs/claude-code-spec.md` — Claude Code 해설 미러 (원문은 `docs/spec/claude/`, SDK 계약은 `spec/claude/agent-sdk/typescript.md`)
 - `app/AGENTS.md` — 코드 작업 가이드
 - `project/electron/` — 시각 기준 프로토타입
 
@@ -603,6 +571,6 @@ Playwright 는 아직 devDependency 로 설치되지 않았다(§4). 도입 시 
 - provider 환경은 provider key(`${adapter}-${provider}`)로 식별한다. 원천은 0014 부터 orcinus-orca.json agents[] 가 아니라 **`sources/settings/<adapter>/` 디렉토리 트리**다 (§6.8) — 중복 키는 구조상 불가능.
 - Composer 는 `orca:agent:list` DTO(`key`, `adapter`, `provider`, `models`, `supported`)로 `${providerKey}/${alias}` 모델 메뉴를 구성한다. `models` 항목은 `{alias, model, isCustom, oneMillionContext, isDefault}`(`AgentModelView`) 이며 settings.json 파싱 결과다. wire/state 는 표시 문자열이 아니라 `providerKey` 와 `modelFamily` 구조 필드를 사용한다. **`modelFamily` = 모델 선택 식별자 = SDK 에 넘기는 모델 문자열**(`model ?? alias` + 1M 이면 `[1m]`)이고 규칙은 `shared/model-identity.ts` 하나가 갖는다 — main(`features/harnesses/models.ts`)과 renderer(`composer/modelSelection.ts`)가 위임한다.
 - 세션은 adapter(`sessions.backend`) 단위로 잠기며 같은 adapter 안에서는 provider/model family 를 턴 단위로 전환할 수 있다. `sessions.provider_key` 는 바인딩 제약이 아니라 마지막 사용 provider 기록이다. 턴 해석 폴백: payload providerKey(어댑터 일치 시) → 세션 provider_key → 기본 provider(anthropic 우선, 없으면 이름순 첫 디렉토리).
-- 앱 추가 provider 의 auth token 은 secret store `provider:${provider key}` 에만 저장한다. DB/renderer/agent list DTO 는 토큰·env 를 노출하지 않는다.
+- provider 자격증명은 settings.json `env`(사용자 직접 기입, 0028) 또는 Auth Grant(vault — Harness 실행 구성 overlay)가 소유한다. 구 secret-store `provider:${provider key}` 토큰 경로는 폐지됐다(security.md "Agent provider auth token"). DB/renderer/agent list DTO 는 토큰·env 를 노출하지 않는다.
 - Composer의 `@` 자동완성은 main이 Plugin source에만 싣는 cached `tools`가 비어 있지 않은 provider를 내장 Plugin 후보로 투영한다. `catalog`는 gate·harness·plugin·usage의 공용 표시 입력이므로 후보 판별에 사용하지 않는다. root plain 토큰에서는 경로 그룹을 먼저, Plugin 그룹을 마지막에 표시하고, slash/quoted 토큰에서는 기존 파일 경로 그룹만 표시한다. 입력 전체 삭제로 token이 사라진 뒤 같은 Composer에서 다시 `@`를 입력하면 dismissal과 active index를 초기화해 팝업을 다시 연다. 선택값과 decoration은 표시 label이 아닌 `ProviderInfo.id`를 사용하며 인증 상태(`none`·`valid`·`expired`·`unknown`)는 후보 자격을 바꾸지 않는다.
 - 플러그인 상세의 인증 액션은 `status === 'none'`이면 검정 `인증` 단일 버튼, 그 외에는 `재인증` primary dropdown(메뉴의 재인증·위험 색상 `연결 해제`)으로 렌더링한다. 기존 `login`·`reauth`·`revoke` IPC 계약을 그대로 사용한다.

@@ -1,0 +1,192 @@
+# id	file	must_not(ERE|-)	must(ERE|-)	anchor(path|path:ERE|-)	note — 정본은 plan.md §7·§10. must_not 만 있는 행은 거부된다.
+DA-A01	docs/arch/backend/adapters.md	SDKMessage → ChatEvent 정규화	claudeToNormalized	app/src/main/adapters/claude-map.ts:claudeToNormalized	AC4 §1.5 구 ChatEvent 표 삭제+링크(D-002)
+DA-A02	docs/arch/backend/adapters.md	\| ⏳ \| Phase 4	adaptHooks\(extensions\.hooks\)	app/src/main/adapters/claude.ts:adaptHooks	AC4 §1.7 hooks ✅
+DA-A03	docs/arch/backend/adapters.md	settingSources. 생략|옵션 생략	settingSources: \['project', ?'local'\]	app/src/main/adapters/claude-adapt.ts:adaptSettingSources	AC4 EP-01 settingSources
+DA-A04	docs/arch/backend/adapters.md	D1 사용자 결정 전 보류|disallowedTools 보류	\['WebSearch'\]	app/src/main/adapters/claude.ts:disallowedTools: \['WebSearch'\]	AC4 EP-02 disallowedTools
+DA-A05	docs/arch/backend/adapters.md	dist/<engine>/\.claude/skills|dist/<engine>/\.mcp\.json	plugins/orcinus-orca	app/src/main/infra/config/paths.ts:plugins/orcinus-orca	AC4 EP-03 dist 레이아웃
+DA-A06	docs/arch/backend/adapters.md	<userData>/artifacts/<sessionId>	persistence\.md §1\.4	docs/arch/backend/persistence.md:1\.4 계층 2	AC4 §2.3 Artifacts → persistence 링크
+DA-A07	docs/arch/backend/adapters.md	builder\.ts:73	hooks: \{ normalized: \{\} \}	app/src/main/features/extensions/builder.ts:normalized: \{\}	AC4 §3.2.5 줄번호 제거
+DA-A08	docs/arch/backend/adapters.md	getCredentialKeys	RuntimeConfigAugmenter	app/src/main/features/harnesses/runtime-config.ts	AC4 §1.8 자격증명 행 현행화(EP-07)
+DA-P01	docs/arch/backend/persistence.md	Application Support/orcinus-orca-settings	orcinus-orca-settings\.json	app/src/main/infra/settings-store.ts:PRODUCT_SLUG\}-settings	AC5 §1.1 electron-store 경로
+DA-P02	docs/arch/backend/persistence.md	-	`0019_session_baseline\.sql`	app/src/main/infra/db/migrations/0019_session_baseline.sql	AC5 마이그레이션 표 0019
+DA-P03	docs/arch/backend/persistence.md	-	`0020_session_baseline_ref\.sql`	app/src/main/infra/db/migrations/0020_session_baseline_ref.sql	AC5 마이그레이션 표 0020
+DA-P04	docs/arch/backend/persistence.md	-	`0021_artifacts\.sql`	app/src/main/infra/db/migrations/0021_artifacts.sql	AC5 마이그레이션 표 0021
+DA-P05	docs/arch/backend/persistence.md	-	`0022_session_agent_kind\.sql`	app/src/main/infra/db/migrations/0022_session_agent_kind.sql	AC5 마이그레이션 표 0022
+DA-P06	docs/arch/backend/persistence.md	-	`0023_session_agent_kind_code\.sql`	app/src/main/infra/db/migrations/0023_session_agent_kind_code.sql	AC5 마이그레이션 표 0023
+DA-P07	docs/arch/backend/persistence.md	-	`0024_artifact_preview_formats\.sql`	app/src/main/infra/db/migrations/0024_artifact_preview_formats.sql	AC5 마이그레이션 표 0024
+DA-P08	docs/arch/backend/persistence.md	-	`0025_artifact_catalog\.sql`	app/src/main/infra/db/migrations/0025_artifact_catalog.sql	AC5 마이그레이션 표 0025
+DA-P09	docs/arch/backend/persistence.md	-	`0026_project_paths\.sql`	app/src/main/infra/db/migrations/0026_project_paths.sql	AC5 마이그레이션 표 0026
+DA-P10	docs/arch/backend/persistence.md	-	`0027_background_events\.sql`	app/src/main/infra/db/migrations/0027_background_events.sql	AC5 마이그레이션 표 0027
+DA-P11	docs/arch/backend/persistence.md	-	\| `managed_worktrees` \|	app/src/main/infra/db/migrations/0018_managed_worktrees.sql	AC5 저장 대상 표
+DA-P12	docs/arch/backend/persistence.md	-	`artifact_files` / `session_artifacts`	app/src/main/infra/db/migrations/0021_artifacts.sql	AC5 저장 대상 표
+DA-P13	docs/arch/backend/persistence.md	-	\| `background_task_events` \|	app/src/main/infra/db/migrations/0027_background_events.sql	AC5 저장 대상 표
+DA-P14	docs/arch/backend/persistence.md	-	baseline_oid, baseline_ref	app/src/main/infra/db/migrations/0020_session_baseline_ref.sql:baseline_ref	AC5 sessions 컬럼
+DA-S01	docs/arch/backend/standardization.md	두 SDK 미설치	두 SDK 는 설치돼 있다	app/package.json:"@opencode-ai/sdk"	AC6 헤더 SDK 설치 상태
+DA-S02	docs/arch/backend/standardization.md	옵션을 \*\*생략\*\*|현재 코드는 이 옵션을 넘기지 않는다	settingSources: \['project','local'\]	app/src/main/adapters/claude-adapt.ts:adaptSettingSources	AC6 EP-01·EP-02 §5.1
+DA-S03	docs/arch/backend/standardization.md	dist/<engine>/\.claude/skills|dist/<engine>/\.mcp\.json	plugins/orcinus-orca/skills	app/src/main/features/extensions/deployer.ts:plugins/orcinus-orca/skills	AC6 EP-03 §5.2 표
+DA-S04	docs/arch/backend/standardization.md	ProviderSettingsLoader	scaffold\.ts	app/src/main/features/extensions/scaffold.ts	AC6 부재 심볼 정리
+DA-S05	docs/arch/backend/standardization.md	`isInstalled`/`install`/`sendMessage`	classifyError	app/src/main/adapters/types.ts:classifyError	AC6 §4 SessionAdapter 메서드
+DA-SE01	docs/arch/backend/security.md	줄 21-23	webPreferences. 블록	app/src/main/index.ts:contextIsolation: true	AC7 §1.1 줄번호 제거
+DA-SE02	docs/arch/backend/security.md	앱은 비밀을 디스크에 저장하지 않는다|저장 위치 \| \*\*TBD|EngineSettings 화면	Grant → vault	app/src/main/infra/vault.ts	AC7 §1.3·§1.4 EP-07 자격증명 모델
+DA-SE03	docs/arch/backend/security.md	DevTools 자동 오픈	Electron 기본 동작을 따른다	app/src/main/index.ts:webPreferences	AC7 §1.5 DevTools 문장(openDevTools 호출 0건)
+DA-SE04	docs/arch/backend/security.md	그 외 외부 도메인 금지	assets-proxy\.anthropic\.com	app/src/renderer/index.html:assets-proxy	AC7 §1.6 CSP 전문
+DA-SE05	docs/arch/backend/security.md	전부 `valid` 일 때만	dailyReloginRequired	app/src/main/features/gate/index.ts:dailyReloginRequired	AC7 §1.7 게이트 조건
+DA-SE06	docs/arch/backend/security.md	draft\(수동 Publish	즉시 게시	.github/workflows/release.yml:publish always	AC7 EP-04 릴리스 게시
+DA-SE07	docs/arch/backend/security.md	uv 런타임 \+	agentSpawnEnv	app/src/main/adapters/types.ts:agentSpawnEnv	AC7 토큰 절 options.env 구성
+DA-SE08	docs/arch/backend/security.md	settingSources. 를 생략해	settingSources: \['project','local'\]`\(0117\)	app/src/main/adapters/claude-adapt.ts:adaptSettingSources	AC7 EP-01 토큰 절
+DA-SE09	docs/arch/backend/security.md	bootstrap\.ts:481|contracts/usage-source\.ts	UsageFetcher	app/src/main/app/deployment/usage-fetcher.ts	AC7 §1.7 줄번호·이력 문장 정리
+DA-R01	docs/arch/backend/runtime-ipc.md	기본 정책 `UnlimitedRuntimeCapPolicy`	기본 정책은 `BoundedRuntimeCapPolicy`	app/src/main/app/bootstrap.ts:new BoundedRuntimeCapPolicy\(\)	AC3 §1.5 cap 정책
+DA-R02	docs/arch/backend/runtime-ipc.md	electron-log|라이브러리 TBD	observability\.md	app/src/main/infra/log	AC3 §3.2 로깅 → observability
+DA-R03	docs/arch/backend/runtime-ipc.md	Application Support/orca/	Application Support/orcinus-orca/	app/package.json:"name": "orcinus-orca"	AC3 §3.3 userData 이름
+DA-R04	docs/arch/backend/runtime-ipc.md	code: ErrorCode	ClassifiedError	app/src/shared/ipc.ts:export interface ClassifiedError	AC3 §2.3 오류 형상
+DA-R05	docs/arch/backend/runtime-ipc.md	-	prepare-worktree\.ts	app/src/main/app/chat-turn/prepare-worktree.ts	AC3 worktree 준비 단계
+DA-T01	docs/arch/backend/terms.md	sessionId·provider	provider. 필드는 없다	app/src/shared/ipc.ts:toolRunId	AC8 §6 provider 필드
+DA-T02	docs/arch/backend/terms.md	`isInstalled`/`install`/`sendMessage`	classifyError	app/src/main/adapters/types.ts:classifyError	AC8 §2 메서드
+DA-T03	docs/arch/backend/terms.md	8종류로 분류	ErrorCategory	app/src/shared/ipc.ts:ErrorCategory	AC8 수치 제거
+DA-OB1	docs/arch/backend/observability.md	0124-log-wiring/plan\.md	rg -o	app/src/main/infra/log	AC8 §5 정본 = 코드 열거(D-008)
+DA-O01	docs/arch/backend/overview.md	\| latest \|	exact pin	app/package.json:"@anthropic-ai/claude-agent-sdk": "[0-9]	AC2 §2 SDK 버전(D-011)
+DA-O02	docs/arch/backend/overview.md	Artifacts 디렉토리 \(큰 산출물\)	features/artifacts	app/src/main/features/artifacts	AC2 §4 Artifacts ✅
+DA-O03	docs/arch/backend/overview.md	완전 구현 \(도구 감사 외부 핸들러\)	adaptHooks	app/src/main/adapters/claude.ts:adaptHooks	AC2 §4 hooks ✅
+DA-O04	docs/arch/backend/overview.md	-	├── worktrees/	app/src/main/features/worktrees	AC2 §3 트리 features
+DA-O05	docs/arch/backend/overview.md	-	├── agents/	app/src/main/features/agents	AC2 §3 트리 features
+DA-O06	docs/arch/backend/overview.md	-	├── artifacts/	app/src/main/features/artifacts	AC2 §3 트리 features
+DA-O07	docs/arch/backend/overview.md	-	confluence/ · jira/ · mail/	app/src/main/features/plugins/jira	AC2 §3 트리 plugins
+DA-O08	docs/arch/backend/overview.md	-	handlers/.*artifacts · boot · context-file	app/src/main/app/handlers/session-directory.ts	AC2 §3 트리 handlers
+DA-O09	docs/arch/backend/overview.md	-	├── error-report/	app/src/main/infra/error-report	AC2 §3 트리 infra
+DA-O10	docs/arch/backend/overview.md	-	├── git/	app/src/main/infra/git	AC2 §3 트리 infra
+DA-O11	docs/arch/backend/overview.md	-	daily-gate\.ts	app/src/main/app/daily-gate.ts	AC2 §3 트리 app
+DA-O12	docs/arch/backend/overview.md	-	legacy-paths\.ts	app/src/main/app/legacy-paths.ts	AC2 §3 트리 app
+DA-O13	docs/arch/backend/overview.md	기준 \(2026-05-20\)	2026-10-13 기준	app/package.json	AC2 §2 기준일
+DA-O14	docs/arch/backend/overview.md	settle · timers · title	background-controller\(백그라운드 작업\)	app/src/main/features/chat/background-controller.ts	AC2 §3 트리 chat(timers 제거 0243)
+DA-O15	docs/arch/backend/overview.md	-	cheerio · turndown	app/src/main/features/artifacts/html-preview.ts	AC2 §2 의존성 행
+DA-G01	docs/GLOSSARY.md	cold/idle/busy	cold/live/busy/interrupting/error/closed	app/src/main/contracts/session-state.ts:'live'	AC1 EP-06 SessionRuntime 상태
+DA-G02	docs/GLOSSARY.md	CRUD 5채널	orca:project:\*. 채널\(개수는	app/src/main/app/handlers/project.ts	AC1 수치 제거
+DA-G03	docs/GLOSSARY.md	-	\*\*일일 로그인 게이트\*\*	app/src/main/features/gate/daily.ts:dailyReloginRequired	AC1 표제어 신설
+DA-G04	docs/GLOSSARY.md	저장은 Future \(claude 어댑터는	Grant.*vault	app/src/main/infra/vault.ts	AC1 EP-07 Credential 행
+DA-G05	docs/GLOSSARY.md	isInstalled / install / sendMessage	classifyError	app/src/main/adapters/types.ts:classifyError	AC1 SessionAdapter 메서드
+DA-G06	docs/GLOSSARY.md	-	\*\*AgentKind \(Code / Work\)\*\*	app/src/shared/agent-kind.ts:'code', 'work'	AC1 표제어 신설
+DA-G07	docs/GLOSSARY.md	-	\*\*Managed worktree	app/src/main/features/worktrees/service.ts	AC1 표제어 신설
+DA-G08	docs/GLOSSARY.md	-	\*\*백그라운드 작업	app/src/main/features/chat/background-controller.ts	AC1 표제어 신설
+DA-G09	docs/GLOSSARY.md	-	일일 재로그인 미요구	app/src/main/features/gate/index.ts:dailyReloginRequired	AC1 로그인 게이트 행 조건
+DA-O16	docs/arch/backend/overview.md	-	a-2\. legacy-paths	app/src/main/app/bootstrap.ts:'legacy-paths'	AC2 §3.1 부트 단계
+DA-O17	docs/arch/backend/overview.md	-	a-3\. chat-recovery	app/src/main/app/bootstrap.ts:'chat-recovery'	AC2 §3.1 부트 단계
+DA-O18	docs/arch/backend/overview.md	호스트 관리 실행 env	SPAWN_ENV_INJECTOR	app/src/main/app/deployment/spawn-env.ts:SPAWN_ENV_INJECTOR	AC2 §4 spawn-env 행
+DA-F01	docs/arch/frontend/overview.md	openSkillPicker	AttachMenu\.tsx	app/src/renderer/src/features/chat/components/composer/AttachMenu.tsx	AC10 Composer 행
+DA-F02	docs/arch/frontend/overview.md	컨트롤 UI 는 dev 전용	GeneralTab\.tsx	app/src/renderer/src/features/settings/components/GeneralTab.tsx:transcriptTextSize	AC10 Tweaks 행
+DA-F03	docs/arch/frontend/overview.md	🚧 mockup 만	ProjectLandingPage	app/src/renderer/src/pages/ProjectLandingPage.tsx	AC10 Projects·플러그인 행
+DA-F04	docs/arch/frontend/overview.md	멀티세션 UI \| Phase 4 \| ❌ 미구현	unseenAttention	app/src/renderer/src/features/sessions/store/sessionsStore.ts:unseenAttention	AC10 멀티세션 행
+DA-F05	docs/arch/frontend/overview.md	nav 4-항목화|Skills & MCP.*/skills	아티팩트\(`/artifacts`\)	app/src/renderer/src/app/navItems.ts:/artifacts	AC10 EP-05 nav
+DA-F06	docs/arch/frontend/overview.md	options\.mcpServers.\+.allowedTools	options\.plugins. 로 로드	app/src/main/adapters/claude-adapt.ts:adaptPlugins	AC10 MCP 행 주입 서술
+DA-F07	docs/arch/frontend/overview.md	기준 \(2026-05-20\)	2026-10-13 기준	app/package.json	AC10 §2 기준일
+DA-F08	docs/arch/frontend/overview.md	-	ArtifactViewer	app/src/renderer/src/features/artifacts	AC10 0223 행
+DA-F09	docs/arch/frontend/overview.md	-	AgentModeToggle	app/src/renderer/src/features/chat	AC10 0224 행
+DA-F10	docs/arch/frontend/overview.md	-	ErrorToastHost\.tsx	app/src/renderer/src/shared/ui/ErrorToastHost.tsx	AC10 0242 행
+DA-F11	docs/arch/frontend/overview.md	-	— artifacts · backend	app/src/renderer/src/features/artifacts	AC10 features 목록
+DA-D01	docs/arch/frontend/dom-architecture.md	4-항목	아티팩트 · 엔진 & 모델 · 플러그인	app/src/renderer/src/app/navItems.ts:/plugins	AC11 EP-05 nav
+DA-ST1	docs/arch/frontend/state.md	세 테마 스코프	두 테마\(white/dark\)	app/src/shared/protocol.ts:'white'	AC11 테마 수
+DA-ST2	docs/arch/frontend/state.md	useChat\.ts|UseChat. 객체	useChatSession\(selector\)	app/src/renderer/src/features/chat/store/chatStore.ts:useChatSession	AC11 useChat 인용
+DA-ST3	docs/arch/frontend/state.md	Context \+ useReducer \(현행\)|ChatEvent\.sessionId	Zustand \(이행 완료\)	app/src/renderer/src/features/chat/store/chatStore.ts	AC11 §1.4 이력 정리(D-002)
+DA-ST4	docs/arch/frontend/state.md	-	projectsSlot	app/src/renderer/src/app/hooks/useSidebarSlots.tsx:projectsSlot	AC11 슬롯
+DA-ST5	docs/arch/frontend/state.md	Phase 4 anchor\)|Sidebar 세션 탭 UI	세션 탭 UI 는 두지 않았다	app/src/renderer/src/features/sessions/store/sessionsStore.ts:unseenAttention	AC11 §2 현행화
+DA-ST6	docs/arch/frontend/state.md	Context \+ useReducer 는 bootstrap effect	부팅 effect\(.bootstrapChat\(\).\)만	app/src/renderer/src/features/chat/providers/ChatProvider.tsx:bootstrapChat\(\)	AC11 §1.2 ChatProvider 현행(형제 문장)
+DA-RN1	docs/arch/frontend/rendering.md	현재: 미사용	useTranscriptVirtualizer\.ts	app/src/renderer/src/features/chat/hooks/useTranscriptVirtualizer.ts	AC11 §1.1 가상화
+DA-RN2	docs/arch/frontend/rendering.md	LiveStatus	StatusLine. 출력 토큰 근사	app/src/renderer/src/features/chat/components/StatusLine.tsx	AC11 부재 심볼
+DA-RN3	docs/arch/frontend/rendering.md	16ms throttle \+ `assistant_delta`	rAF 코얼레서 \+ `message\.delta`	app/src/renderer/src/features/chat/lib/eventCoalescer.ts	AC11 §1.8 어휘
+DA-UX1	docs/arch/frontend/ux-domains.md	3-chip 행	\+. 메뉴\(아래\)	app/src/renderer/src/features/chat/components/composer/AttachMenu.tsx	AC11 §1.2
+DA-UX2	docs/arch/frontend/ux-domains.md	Bash/Write/Edit/MultiEdit/NotebookEdit\)	Bash/PowerShell/Write/Edit/MultiEdit/NotebookEdit	app/src/main/adapters/risky-tools.ts:'PowerShell'	AC11 §1.6 RISKY_TOOLS
+DA-UX3	docs/arch/frontend/ux-domains.md	PermissionModeController\(6종 런타임 전환\) 미연동|ModeMenu	composer/modes\.ts	app/src/renderer/src/features/chat/components/composer/modes.ts:'accept_edits'	AC11 §1.6 권한 모드
+DA-UX4	docs/arch/frontend/ux-domains.md	pendingApprovals. 큐에 적재	pendingToolApprovals	app/src/renderer/src/features/chat/reducer/chatReducer.ts:pendingToolApprovals	AC11 §1.6 ④
+DA-UX5	docs/arch/frontend/ux-domains.md	4-항목|플러그인 모달	pages/PluginsPage\.tsx	app/src/renderer/src/pages/PluginsPage.tsx	AC11 §2 EP-05
+DA-UX6	docs/arch/frontend/ux-domains.md	-	pages/ArtifactsPage\.tsx	app/src/renderer/src/pages/ArtifactsPage.tsx	AC11 §2 artifacts 행
+DA-UX7	docs/arch/frontend/ux-domains.md	SSO bypass	authBypass	app/src/shared/protocol.ts:authBypass	AC11 §2 Debug 행
+DA-UX8	docs/arch/frontend/ux-domains.md	handleChatSend.*mcpServers|EngineSettings\*\*: Phase 3\+	options\.plugins. 로 로드	app/src/main/adapters/claude-adapt.ts:adaptPlugins	AC11 §2.1
+DA-UX9	docs/arch/frontend/ux-domains.md	chatStore\.ts:1243|RECV_EVENT	ingestChatEvent	app/src/renderer/src/features/chat/store/chatStore.ts:ingestChatEvent	AC11 §3.2
+DA-UX10	docs/arch/frontend/ux-domains.md	\{ code, message, recoverable \}	ClassifiedError	app/src/shared/ipc.ts:export interface ClassifiedError	AC11 §3.1
+DA-FT1	docs/arch/frontend/terms.md	\*\*useChat / chatReducer\*\*	\*\*chatStore / chatReducer\*\*	app/src/renderer/src/features/chat/store/chatStore.ts	AC11 terms
+DA-FT2	docs/arch/frontend/terms.md	-	/artifacts.*/plugins	app/src/renderer/src/app/router.tsx:/plugins	AC11 라우트 목록
+DA-PR1	docs/PRD.md	One-shot	장수명 채널: 세션당 `query\(\)` 하나	app/src/main/adapters/claude.ts:pushTurn	AC12 §7.4 프로세스 모델
+DA-PR2	docs/PRD.md	수동 Publish	즉시 게시	.github/workflows/release.yml:publish always	AC12 OQ3 비고(질문 비접촉)
+DA-PR3	docs/PRD.md	5채널	`project` 채널\(개수는	app/src/main/app/handlers/project.ts	AC12 §9 Projects 수치 제거
+DA-PR4	docs/PRD.md	Renderer 구조·상태 관리 \(Zustand 채택 §4\.4\)	arch 파일 맵	docs/ARCHITECTURE.md	AC12 §12 중복 행 병합
+DA-TR1	docs/TRD.md	SessionInfo	SessionListItem	app/src/shared/ipc.ts:SessionListItem	AC13 §6.4
+DA-TR2	docs/TRD.md	ErrorCode\b	ErrorCategory	app/src/shared/ipc.ts:ErrorCategory	AC13 §6.6
+DA-TR3	docs/TRD.md	src/main/db/migrations	infra/db/migrations	app/src/main/infra/db/migrations	AC13 §4 마이그레이션 경로
+DA-TR4	docs/TRD.md	13종	MOCK_SCENARIO_IDS	app/src/shared/ipc.ts:MOCK_SCENARIO_IDS	AC13 §11 시나리오 수치 제거
+DA-TR5	docs/TRD.md	스위트 4종	목록은 디렉토리가 정본	app/scripts	AC13 §4 테스트 스위트 수치 제거
+DA-TR6	docs/TRD.md	\| latest \|	\*\*exact pin\*\*	app/package.json:"@anthropic-ai/claude-agent-sdk": "[0-9]	AC13 §4 버전 칸(D-011)
+DA-TR7	docs/TRD.md	-	\| F16 \|	app/src/main/app/auth-resume.ts	AC13 §2 F16+ 행
+DA-TR8	docs/TRD.md	-	`pull_request`\(모든 PR\)	.github/workflows/ci.yml:pull_request:	AC13 §9.2 CI 트리거
+DA-TR9	docs/TRD.md	ARCHITECTURE\.md \(Renderer\)	파일 맵 — `arch/frontend`·`arch/backend`	docs/ARCHITECTURE.md	AC13 헤더 중복 정리
+DA-IP1	docs/IPC_CONTRACT.md	<cwd>/\.claude/skills|cwd>/\.claude	세션 cwd 아래 `\.claude/skills` 는 스캔하지 않는다	app/src/main/features/extensions/skills/scan.ts	AC14 §2.5 스캔 경로
+DA-IP2	docs/IPC_CONTRACT.md	worktree 범위 아님	worktreeIsolation	app/src/shared/ipc.ts:worktreeIsolation	AC14 §2.6-b worktree 경로
+DA-IP3	docs/IPC_CONTRACT.md	allowedTools 주입|mcpServers.*주입	\$\{BINDING:<id>\}	app/src/main/features/extensions/mcp/resolver.ts:BINDING	AC14 §2.10 MCP 배포 경로
+DA-IP4	docs/IPC_CONTRACT.md	-	ClassifiedError	app/src/shared/ipc.ts:export interface ClassifiedError	AC14 §7 오류 형상
+DA-IP5	docs/IPC_CONTRACT.md	FRONTEND_ARCHITECTURE|BACKEND_ARCHITECTURE	`arch/frontend`·`arch/backend` 문서 갱신	docs/arch/backend/overview.md	AC14 §6 절차
+DA-IP6	docs/IPC_CONTRACT.md	-	`artifact` · `chat`.*`git`.*`error`	app/src/shared/ipc.ts:orca:error:	AC14 §2 도메인 목록
+DA-IP7	docs/IPC_CONTRACT.md	-	~~`credentials:set` / `credentials:hasKey`~~ \| \*\*폐기\*\*	app/src/main/infra/vault.ts	AC14 §2.14 credentials 폐기
+DA-GD1	docs/guides/workspace-isolation-permissions.md	미채택	\['WebSearch'\]	app/src/main/adapters/claude.ts:disallowedTools: \['WebSearch'\]	AC15 §1·§6·§8 disallowedTools
+DA-GD2	docs/guides/workspace-isolation-permissions.md	/\.config/orca[^-i]	~/\.config/orcinus-orca	app/src/shared/product.ts:orcinus-orca	AC15 §3.4 스케치 경로
+DA-GD3	docs/guides/closed-network-extensions.md	-	features/plugins/<	app/src/main/features/plugins/jira	AC15 §1.7 Plugin 경로 패턴
+DA-GD4	docs/guides/closed-network-extensions.md	-	auth\.md.{0,3}§ ?7	docs/arch/backend/auth.md:^## 7	AC15 auth.md §7 참조 실재
+DA-GD5	docs/guides/closed-network-extensions.md	providers\.declaration\.rejected	auth\.declaration\.rejected	app/src/main/app/bootstrap.ts:auth\.declaration\.rejected	AC15 §6.1 로그 이름
+DA-SP1	docs/claude-code-spec.md	Phase 4\+	✅ \*\*append 채택\*\*	app/src/main/features/extensions/system-header.ts	AC16 §6·§11 시스템 프롬프트
+DA-SP2	docs/claude-taskxxx-spec.md	Phase 4\+	PowerShell	app/src/main/adapters/risky-tools.ts:PowerShell	AC16 §5.4 RISKY_TOOLS
+DA-SP3	docs/claude-taskxxx-spec.md	⏳.*0212|0212.*⏳	✅ \*\*0212 채택\*\*	app/src/shared/ipc.ts:agentTools	AC16 0212 행 ✅
+DA-AR1	docs/ARCHITECTURE.md	-	background-tasks\.md	docs/arch/backend/background-tasks.md	AC17 파일 맵
+DA-AR2	docs/ARCHITECTURE.md	-	decisions/	docs/decisions/README.md	AC17 그 외 표
+DA-AR3	docs/ARCHITECTURE.md	-	generated/	docs/generated/inventory.md	AC17 그 외 표
+DA-AG1	AGENTS.md	TRD §15	TRD §10	docs/TRD.md:^## 10	AC17 D-007
+DA-AG2	docs/AGENTS.md	TRD §15	TRD §10	docs/TRD.md:^## 10	AC17 D-007
+DA-AG3	app/AGENTS.md	TRD §15	TRD §10	docs/TRD.md:^## 10	AC17 D-007
+DA-AG4	app/AGENTS.md	-	assets-proxy	app/src/renderer/index.html:assets-proxy	AC17 D-007 CSP
+DA-AG5	app/AGENTS.md	마크다운 라이브러리 최종 결정	DevTools 는 코드가 열거나 막지 않는다	app/src/main/index.ts:webPreferences	AC17 같은 줄 사실 선조치
+DA-AG6	app/AGENTS.md	`busy-reserve`|`turn-setup`	`usage-fetcher`·`spawn-env`	app/src/main/app/deployment/spawn-env.ts	AC17 같은 표 행 사실 선조치(삭제 모듈명)
+DA-G10	docs/GLOSSARY.md	shared/hooks/useTweaks\.ts	shared/theme/TweakProvider\.tsx	app/src/renderer/src/shared/theme/TweakProvider.tsx	AC1 Tweaks 코드 위치(0222 이동)
+DA-IP8	docs/IPC_CONTRACT.md	앱 env 만 SDK	"Agent provider auth token" 절이 정본	app/src/main/app/chat-turn/resolve-turn.ts:customEnv: SPAWN_ENV_INJECTOR	AC14 §2.11 options.env 구성 → security 링크
+DA-AG7	app/AGENTS.md	name=`orca`	name=`orcinus-orca`	app/package.json:"name": "orcinus-orca"	AC17 같은 문서 사실 선조치(0225)
+DA-AG8	app/AGENTS.md	-	문서 인벤토리 가드 → 테스트 예산 가드	.github/workflows/ci.yml:check-test-budgets	AC17 같은 문서 사실 선조치(CI 단계)
+DA-S06	docs/arch/backend/standardization.md	상속한 `~/\.claude/settings\.json` 을 덮어씀|변환 함수는 레거시 안전화	사용자 전역 `~/\.claude/settings\.json` 은 읽지 않는다	app/src/main/adapters/claude-runtime-tools.ts:adaptRuntimeTools	AC6 EP-01 §5.2 settings 예외·mcpServers 용도
+DA-TR10	docs/TRD.md	settings\.json` 을 덮어쓴다"는 요구	앱 환경구성이 settings 를 소유한다	app/src/main/adapters/claude-adapt.ts:adaptSettingSources	AC13 EP-01 §6.8 트레이드오프 문장
+DA-TR11	docs/TRD.md	-	`settingSources: \['project','local'\]` 로 실행한다	app/src/main/adapters/claude-adapt.ts:adaptSettingSources	AC13 EP-01 §6.8 런타임 주입
+DA-CS1	docs/claude-code-spec.md	-	\| `--setting-sources` \| `settingSources: \['project','local'\]` \(0117\)	app/src/main/adapters/claude-adapt.ts:adaptSettingSources	AC16 EP-01 §11
+DA-SY1	docs/arch/backend/system-prompt.md	-	`adaptSettingSources\(\)`가 `\['project','local'\]`을 명시한다	app/src/main/adapters/claude-adapt.ts:adaptSettingSources	AC8 EP-01 Orca 현재 행
+DA-TR12	docs/TRD.md	disallowedTools.{0,20}(넘기지 않는다|미채택|보류)	`disallowedTools` 는 `\['WebSearch'\]` 하나로	app/src/main/adapters/claude.ts:disallowedTools: \['WebSearch'\]	AC13 EP-02 §6.8
+DA-S07	docs/arch/backend/standardization.md	-	`disallowedTools` 는 `\['WebSearch'\]` 하나로	app/src/main/adapters/claude.ts:disallowedTools: \['WebSearch'\]	AC6 EP-02 §5.1
+DA-CS2	docs/claude-code-spec.md	-	\| `--disallowedTools` \| `disallowedTools: \['WebSearch'\]`	app/src/main/adapters/claude.ts:disallowedTools: \['WebSearch'\]	AC16 EP-02 §11
+DA-TR13	docs/TRD.md	dist/<engine>/\.claude/skills|dist/<engine>/\.mcp\.json	`dist/<engine>/plugins/orcinus-orca/\{skills,\.mcp	app/src/main/infra/config/paths.ts:plugins/orcinus-orca	AC13 EP-03 §6.8
+DA-SE10	docs/arch/backend/security.md	`dist/plugins/orcinus-orca	`dist/<engine>/plugins/orcinus-orca/\.mcp\.json`	app/src/main/infra/config/paths.ts:dist/<engine>/	AC7 EP-03 §1.4 경계표
+DA-GD6	docs/guides/closed-network-extensions.md	`dist/plugins/orcinus-orca	`dist/<engine>/plugins/orcinus-orca/\.mcp\.json`	app/src/main/infra/config/paths.ts:dist/<engine>/	AC15 EP-03 MCP 렌더 경로
+DA-TR14	docs/TRD.md	draft\(수동|수동 Publish	GitHub Releases 즉시 게시\(수동 dispatch 는 dry-run\)	.github/workflows/release.yml:publish always	AC13 EP-04 §2 F15
+DA-TR15	docs/TRD.md	-	GitHub Releases \*\*즉시 게시\*\*\(`v\*` 태그 push\)	.github/workflows/release.yml:publish always	AC13 EP-04 §4 패키징
+DA-TR16	docs/TRD.md	-	--publish always` → GitHub Release \*\*즉시 게시\*\*	.github/workflows/release.yml:publish always	AC13 EP-04 §9.2
+DA-O19	docs/arch/backend/overview.md	draft\(수동|수동 Publish	GitHub Releases \*\*즉시 게시\*\*\(`v\*` 태그 push 시	.github/workflows/release.yml:publish always	AC2 EP-04 §4 CI/CD 행
+DA-RN4	docs/arch/frontend/rendering.md	컨텍스트 4항목	`UsagePanel` 팝오버 — 컨텍스트 창 프로그레스바 \+ 주간/월간	app/src/renderer/src/features/chat/components/UsagePanel.tsx:usage\.weekly	AC11 §1.9 ① 패널 구성
+DA-TR17	docs/TRD.md	-	\| N6 \| \*\*보안\*\* \| 앱이 관리하는 자격증명은 Auth Grant → vault	app/src/main/contracts/auth.ts:Grant	AC13 EP-07 §3 N6
+DA-TR18	docs/TRD.md	-	\*\*확정 \(0181·0188\)\*\* \| Auth Grant → vault	app/src/main/infra/vault.ts	AC13 EP-07 §4 자격증명 행
+DA-TR19	docs/TRD.md	-	~~\(anchor\) safeStorage 자격증명~~ — \*\*구현됨\*\*	app/src/main/infra/vault.ts	AC13 EP-07 §10 anchor
+DA-PR5	docs/PRD.md	-	\*\*구현 완료\*\*: 앱이 관리하는 자격증명은 Auth Grant → vault	app/src/main/contracts/auth.ts:Grant	AC12 EP-07 §7.1 자격증명
+DA-AU1	docs/arch/backend/auth.md	-	\| `features/harnesses/runtime-catalog\.ts` \|	app/src/main/features/harnesses/runtime-catalog.ts	AC9 §3 모듈 지도
+DA-AU2	docs/arch/backend/auth.md	-	\| `features/plugins/jira/` \|	app/src/main/features/plugins/jira	AC9 §3 모듈 지도
+DA-AU3	docs/arch/backend/auth.md	-	\| `features/plugins/mail/` \|	app/src/main/features/plugins/mail	AC9 §3 모듈 지도
+DA-AU4	docs/arch/backend/auth.md	-	`usage-fetcher`·`spawn-env`\(폐쇄망 subprocess env 주입점\)	app/src/main/app/deployment/spawn-env.ts	AC9 §3 모듈 지도
+DA-O20	docs/arch/backend/overview.md	-	error-report-sink\.ts · error-report-drain\.ts	app/src/main/app/error-report-drain.ts	AC2 §3 트리 app
+DA-O21	docs/arch/backend/overview.md	-	artifact-sender\.ts	app/src/main/app/artifact-sender.ts	AC2 §3 트리 app
+DA-O22	docs/arch/backend/overview.md	-	agent-extension-profile\.ts · runtime-model-startup\.ts · settings-reactions\.ts	app/src/main/app/runtime-model-startup.ts	AC2 §3 트리 app
+DA-O23	docs/arch/backend/overview.md	-	background-output\.ts	app/src/main/infra/background-output.ts	AC2 §3 트리 infra
+DA-SE11	docs/arch/backend/security.md	\buv\b	SessionAdapter\.agentSpawnEnv	app/src/main/adapters/types.ts:agentSpawnEnv	AC7 토큰 절 uv 0
+DA-F12	docs/arch/frontend/overview.md	mockup	디자인 프로토타입\(`project/`\) 시각 재현	project	AC10 mockup 0
+DA-PRT1	docs/arch/backend/provider-runtime.md	`sessionId`/`provider`/`toolRunId`	정규화 후엔 `sessionId`/`toolRunId` 를 가진	app/src/shared/ipc.ts:export type NormalizedEvent	AC9 §2 예시 provider 필드 0
+DA-PRT2	docs/arch/backend/provider-runtime.md	주석 1건뿐	`rg RevertManager app/src` = 0건	app/src/main/adapters/descriptor.ts	AC9 §5 RevertManager 실측
+DA-PRT3	docs/arch/backend/provider-runtime.md	잔여: 풀 크로스턴 멀티세션	세션별 마지막 정착 모드 — 인메모리	app/src/main/features/approvals/permission-mode-controller.ts:setMode	AC9 §3 PermissionModeController 행
+DA-PRT4	docs/arch/backend/provider-runtime.md	-	승인 지정 runtime tool\(`runtimeApprovalToolNames`\) 밖의 도구	app/src/main/adapters/claude.ts:runtimeApprovalToolNames	AC9 §3 승인 게이트 잔여 갭
+DA-PRT5	docs/arch/backend/provider-runtime.md	-	Composer 상태 팝오버\(`StatusPopover`\)가 세션 비용 합계를 표시	app/src/renderer/src/features/chat/components/composer/StatusPopover.tsx	AC9 §8 telemetry 표시처
+DA-A09	docs/arch/backend/adapters.md	-	\| 설정 탐색 범위 \| `settingSources: \['project', 'local'\]` \|	app/src/main/adapters/claude-adapt.ts:adaptSettingSources	AC4 EP-01 §1.3 자리
+DA-A10	docs/arch/backend/adapters.md	-	\| `options\.skills` \+ `settingSources: \['project','local'\]` \| ✅	app/src/main/adapters/claude-adapt.ts:adaptSettingSources	AC4 EP-01 §1.7 자리
+DA-A11	docs/arch/backend/adapters.md	-	`adaptSettingSources\(\)`\(§1\.3\) — `settingSources: \['project','local'\]` 로	app/src/main/adapters/claude-adapt.ts:adaptSettingSources	AC4 EP-01 §2.1 자리
+DA-A12	docs/arch/backend/adapters.md	-	`options\.plugins` 로 로드\(`settingSources: \['project','local'\]`\)	app/src/main/adapters/claude-adapt.ts:adaptSettingSources	AC4 EP-01 §3.1 자리
+DA-S08	docs/arch/backend/standardization.md	-	`query\(\)` 는 `settingSources: \['project','local'\]` 로 호출한다	app/src/main/adapters/claude-adapt.ts:adaptSettingSources	AC6 EP-01 §5.1 자리
+DA-TR20	docs/TRD.md	-	설정 범위는 `settingSources: \['project','local'\]`\(0117\)	app/src/main/adapters/claude-adapt.ts:adaptSettingSources	AC13 EP-01 §10 MCP·Skill 자리
+DA-TR21	docs/TRD.md	-	^    settingSources: \['project', 'local'\],	app/src/main/adapters/claude-adapt.ts:adaptSettingSources	AC13 EP-01 §7.1 샘플 자리
+DA-CS3	docs/claude-code-spec.md	-	`forkSession` · `settingSources: \['project','local'\]` · `disallowedTools: \['WebSearch'\]`	app/src/main/adapters/claude.ts:disallowedTools: \['WebSearch'\]	AC16 EP-01·EP-02 §14 채택 범위 자리
+DA-A13	docs/arch/backend/adapters.md	-	대화 query 는 `allowedTools` 를 쓰지 않는다	app/src/main/adapters/claude-runtime-tools.ts:return \{ mcpServers \}	AC4 §1.3 인프로세스 도구(구현 중 자기 오기 정정)
+DA-IP9	docs/IPC_CONTRACT.md	-	\| `telemetry` .*sessionCostUsd	app/src/renderer/src/features/chat/reducer/chatReducer.ts:sessionCostUsd	AC14 §3 telemetry 행(구현 중 자기 오기 정정)

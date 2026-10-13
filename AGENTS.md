@@ -39,7 +39,7 @@
 ## 핵심 원칙 (모든 에이전트 공통)
 
 1. **진실에는 순서가 있다.** 코드·타입·테스트 > 현재 아키텍처(`docs/arch/`·`IPC_CONTRACT.md`·`GLOSSARY.md`) > 현재 제품 의도(PRD/TRD) > 작업 규칙(`AGENTS.md`) > 결정 근거(`docs/decisions/`) > 과거 증거(`git log`·`docs/archive/`·`chats/`·`project/`). **과거 문서를 현재 사양처럼 쓰지 마라.**
-2. **PRD §11 / TRD §15 의 Open Questions 는 미정 항목.** 에이전트가 단독으로 결정하지 마라. 사용자에게 묻는다.
+2. **PRD §11 / TRD §10 의 Open Questions 는 미정 항목.** 에이전트가 단독으로 결정하지 마라. 사용자에게 묻는다.
 3. **문서와 코드가 어긋나면 무엇이 어긋났는지 먼저 가른다.** 문서가 낡았거나 코드가 명백한 버그면 조사 후 고친다. **제품 동작·공개 계약·데이터 포맷·되돌리기 어려운 결정·유효한 두 설계 중 선택**은 사용자에게 묻는다 (판별 표는 `docs/AGENTS.md`).
 4. **코드에서 셀 수 있는 수치를 문서에 적지 마라.** 채널·슬라이스·설정 키·마이그레이션 개수 등은 [`docs/generated/inventory.md`](docs/generated/inventory.md) 가 갖는다 — `app/scripts/check-doc-inventory.mjs` 가 CI 에서 강제한다.
 5. **`docs/arch/` 는 현재 상태만 서술한다.** 델타 이력(`0180에서 제거`·`77 → 76`)은 changelog 지 architecture 가 아니다 — 이유는 `docs/decisions/` 의 ADR 로 링크한다.

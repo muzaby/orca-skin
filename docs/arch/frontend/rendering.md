@@ -60,13 +60,12 @@ Composer에서 전송한 첨부 파일과 이미지는 컨텍스트에 원래 �
 
 ### 1.1 메시지 리스트 가상화
 
-- **현재: 미사용.** `features/chat/components/ChatTile.tsx` 의 메시지 리스트는 일반 `messages.map(...)` 렌더링.
-- 도입 임계값·라이브러리·시점 모두 **TBD**. Phase 1 mockup 단계에서는 메시지 수가 적어 문제 없음.
-- Phase 3+ 로컬 DB 도입과 함께 검토 권장.
+- **현재: 사용.** `features/chat/hooks/useTranscriptVirtualizer.ts` 가 `@tanstack/react-virtual` 로 transcript 를 가상화한다(0102). 스크롤 컨테이너는 `.app-frame-transcript[data-behavior="virtualizable"]`(dom-architecture.md §1.2).
+- 교환(Exchange) 단위 wrapper 와 50% 미드라인 예약(§1.8)은 가상화 위에서 유지된다. 사용자 버블 접기 상태는 키별 메모리로 재마운트에도 보존된다(ux-domains.md §1.3-b).
 
 ### 1.2 스트리밍 렌더링 최적화 (0008 재설계)
 
-- **델타 경로는 reducer 를 우회한다.** `features/chat/lib/eventCoalescer.ts` 가 델타(message.delta·message.reasoning.delta)를 rAF 한 틱마다 `DeltaEvent[]` 하나로 넘긴다(비-델타는 버퍼 선-flush 로 순서 보존, §1.7 Option B). `chatStore.receiveDeltaBatch` 는 배열을 event 순서대로 session별 `live`(`{text, reasoning}`)에 연결하고 **flush당 단일 Zustand `setState` transaction**으로 반영한다. `BEGIN_TURN`이 필요한 첫 활동 외에는 커밋 슬라이스(`session`) identity도 불변이다. 결과: selector 팬아웃·store notification은 프레임당 1회이고, 실제 재렌더는 live 구독 리프뿐이다 — text 델타 → `LiveText`(+`LiveStatus` 토큰 근사), reasoning 델타 → `LiveReasoning`(`ReasoningBlock streaming` → `StreamingMarkdown` 경유 — 델타 프레임당 전문 재파스 없이 꼬리만 재파스, 0093). transcript(커밋 메시지)·Composer shell·호스트는 깨어나지 않는다(state.md §1.2).
+- **델타 경로는 reducer 를 우회한다.** `features/chat/lib/eventCoalescer.ts` 가 델타(message.delta·message.reasoning.delta)를 rAF 한 틱마다 `DeltaEvent[]` 하나로 넘긴다(비-델타는 버퍼 선-flush 로 순서 보존, §1.7 Option B). `chatStore.receiveDeltaBatch` 는 배열을 event 순서대로 session별 `live`(`{text, reasoning}`)에 연결하고 **flush당 단일 Zustand `setState` transaction**으로 반영한다. `BEGIN_TURN`이 필요한 첫 활동 외에는 커밋 슬라이스(`session`) identity도 불변이다. 결과: selector 팬아웃·store notification은 프레임당 1회이고, 실제 재렌더는 live 구독 리프뿐이다 — text 델타 → `PendingAssistant` 의 `LiveText`(+ `StatusLine` 출력 토큰 근사), reasoning 델타 → `LiveReasoning`(`ReasoningBlock streaming` → `StreamingMarkdown` 경유 — 델타 프레임당 전문 재파스 없이 꼬리만 재파스, 0093). transcript(커밋 메시지)·Composer shell·호스트는 깨어나지 않는다(state.md §1.2).
 - **라이브 마크다운은 꼬리 블록만 재파스** — `StreamingMarkdown` 이 누적 소스를 `lib/markdownBlocks.ts` 의 `splitStableBlocks` 로 "확정 블록들 + 꼬리"로 분할, 확정 블록은 memo 된 `<Markdown>`(string shallow)으로 고정하고 꼬리만 매 델타 unified 재파스한다(프레임당 O(전문)→O(꼬리)). 분할 경계는 보수적(펜스/loose list/들여쓰기 코드 비분할, 완결 줄 뒤만 확정 = append-stable). 코드 블록 하이라이팅(shiki)은 ToolCard 첫 오픈까지 지연(비용 회피).
 - **커밋 경로는 카드 단위로 격리** — `message.completed`(완성본 text 파트 커밋)·`tool.call.*` 는 reducer 커밋으로 마지막 message identity 만 교체하고, `AssistantMessage` 가 `reconcileSegments`(lib/parts.ts) 로 직전 렌더와 대조해 내용 미변경 세그먼트/ToolCall view 의 identity 를 재사용한다 → memo 된 `ToolGroup`/`ToolCard`/`ReasoningBlock`/`Markdown` 이 shallow 로 bail — **tool.call.completed 1건 = 결과가 도착한 ToolCard 1개 재렌더**. `message.completed` 없이 끝난 턴의 잔여 live.text 는 telemetry 시점에 `COMMIT_PENDING_TEXT` 폴백으로 굳힌다(error/cancel 은 폐기 — 기존 동작 동형).
 
@@ -143,7 +142,7 @@ interface ToolRendererRegistry { register(r: ToolRenderer): void; resolve(input:
 | `SessionGraphCard` / `ContextInjectionCard` | `children`·`fork`·`revert` / `noReply` | 🔴 seam (OpenCode 전용) |
 | `StructuredOutputCard`(`structured_output`) | `format:json_schema` 결과 | ⏳ 최소 구현(`StructuredOutputCard` — value→pretty JSON. claude 미와이어라 소스 없음) — §1.7 |
 | `ErrorCard`(`error`) | error 파트 | ✅ `ErrorCard`(트랜스크립트 인라인) + `state.error` 배너(라이브 턴) |
-| `UsagePanel`(`telemetry`) | usage·한도 | ✅ `UsagePanel`(구 TelemetryPanel — 컨텍스트 프로그레스바 + 주간/월간 한도 바, 0079~0082) — Composer usage 도넛 트리거 Popover, §1.9 |
+| `UsagePanel`(`telemetry`) | usage·한도 | ✅ `UsagePanel`(컨텍스트 프로그레스바 + 주간/월간 한도 바, 0079~0082) — Composer usage 도넛 트리거 Popover, §1.9 |
 
 ### 1.7 StructuredOutput · reasoning 렌더링 (부분 구현)
 
@@ -166,7 +165,7 @@ type StructuredOutputState =
 
 **① 설명.** OpenCode SSE 와 Claude async iterator 를 단일 lifecycle 로 정규화: `open → streaming → (reconnect)* → closed`. partial 재조립 / 중복 dedup(eventId) / 순서 보장(monotonic seq) / 긴 tool 출력 버퍼링·절단.
 
-**③ 현재 코드 갭.** 현행은 §1.2 의 16ms throttle + `assistant_delta` 누적만. dedup/재연결/절단 정책 없음(`orca:chat:event` 가 ordered+lossless 1채널이라 단일 세션에선 충분).
+**③ 현재 코드 갭.** 현행은 §1.2 의 rAF 코얼레서 + `message.delta` 누적만. dedup/재연결/절단 정책 없음(`orca:chat:event` 가 ordered+lossless 1채널이라 claude 단일 백엔드에선 충분).
 
 **④ 인터페이스.**
 
@@ -187,15 +186,15 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 
 ### 1.9 컨텍스트 사용량 도넛/패널 (구현 완료)
 
-**① 설명.** Composer 풋터 usage 도넛 = **마지막 턴 컨텍스트 비율**. 클릭 시 패널에 컨텍스트 4항목.
+**① 설명.** Composer 풋터 usage 도넛 = **마지막 턴 컨텍스트 비율**. 클릭 시 `UsagePanel` 팝오버 — 컨텍스트 창 프로그레스바 + 주간/월간 사용량 한도(②).
 
-**② 구현.** 도넛/패널은 **`state.lastTelemetry` 단일 소스로 구동**한다(`pendingInputTokens` 폐기). 컨텍스트 사용량 토큰 = `contextTokens = input + cacheRead + cacheCreation`(**출력 제외**, `features/chat/lib/telemetry.ts`) = **`/context` 상단 분자와 같은 정의**(전체 컨텍스트 점유). 도넛 비율 = `contextTokens / contextWindowOf(telemetry)`. 분모는 CLI 보고 `contextWindow` → `modelUsage[model].contextWindow` → 모델명 기본 정책(200k, `1m` 표기 시 1M) 순으로 해석한다(`features/chat/lib/contextWindow.ts`). 패널 컴포넌트는 **`UsagePanel.tsx`**(0079 에서 `TelemetryPanel.tsx` 대체): **컨텍스트 창 프로그레스바(`Meter`, `used / window (pct%)`) + 구분선 + 주간/월간 사용량 한도 바 + 우측 `>` 버튼(설정 사용량 탭 이동)**. 구 신규입력/캐시읽기/캐시생성 분해 행은 제거됐다(0079 AC4). 한도 바는 **Main 이 완성한 `UsageLimitsView`** 를 props 로 받아 표시만 한다 — 파생은 `computeUsageLimits`(`src/shared/usage/limits.ts`)가 main 에서 한 번 수행하고 renderer 는 `shared/stores/usageStore` 로 mirror 한다(renderer 재계산 0). 기준 provider 는 **마지막 telemetry 시점**의 것이라 모델 선택만 바꿔서는 숫자가 바뀌지 않는다. `state.lastTelemetry` 없으면 컨텍스트 섹션 미표시, 사용량 뷰 미도착이면 한도 섹션 숨김.
+**② 구현.** 도넛/패널은 **`state.lastTelemetry` 단일 소스로 구동**한다(`pendingInputTokens` 폐기). 컨텍스트 사용량 토큰 = `contextTokens = input + cacheRead + cacheCreation`(**출력 제외**, `features/chat/lib/telemetry.ts`) = **`/context` 상단 분자와 같은 정의**(전체 컨텍스트 점유). 도넛 비율 = `contextTokens / contextWindowOf(telemetry)`. 분모는 CLI 보고 `contextWindow` → `modelUsage[model].contextWindow` → 모델명 기본 정책(200k, `1m` 표기 시 1M) 순으로 해석한다(`features/chat/lib/contextWindow.ts`). 패널 컴포넌트는 **`UsagePanel.tsx`**: **컨텍스트 창 프로그레스바(`Meter`, `used / window (pct%)`) + 구분선 + 주간/월간 사용량 한도 바 + 우측 `>` 버튼(설정 사용량 탭 이동)**. 구 신규입력/캐시읽기/캐시생성 분해 행은 제거됐다(0079 AC4). 한도 바는 **Main 이 완성한 `UsageLimitsView`** 를 props 로 받아 표시만 한다 — 파생은 `computeUsageLimits`(`src/shared/usage/limits.ts`)가 main 에서 한 번 수행하고 renderer 는 `shared/stores/usageStore` 로 mirror 한다(renderer 재계산 0). 기준 provider 는 **마지막 telemetry 시점**의 것이라 모델 선택만 바꿔서는 숫자가 바뀌지 않는다. `state.lastTelemetry` 없으면 컨텍스트 섹션 미표시, 사용량 뷰 미도착이면 한도 섹션 숨김.
 
 - **컨텍스트 입력의 원천**: 정상 보고 환경에서는 마지막 메인 assistant usage를 사용한다. 이번 턴 assistant 컨텍스트 합이 0이거나 부재하면 마지막 양수 메인 `message_delta.usage`를 폴백으로 사용하며, 둘 다 컨텍스트를 보고하지 않으면 도넛을 갱신하지 않는다. 필드 병합·턴 경계·압축·핸드오프 판정과 비용 보존의 정본은 [사용량 수집](../backend/provider-runtime.md#8-telemetryservice)이다.
 - **컨텍스트 0 턴은 도넛 소스 미갱신 (`/context` 등 로컬 슬래시 명령)**: `/context`·`/help` 등은 모델을 호출하지 않아 컨텍스트(=비용)가 없는 빈 telemetry 를 만든다. 이 빈 값이 직전 도넛을 0 으로 덮지 않게 두 지점에서 가드: ① **라이브** — reducer `telemetry` case 가 `contextTokens(telemetry) > 0` 일 때만 `lastTelemetry` 교체(턴 종료 `inflight:false` 등은 그대로). ② **복원** — main `features/usage/tracker.ts` 가 `hasContextTokens(usage)`(`features/usage/tracker.ts`) 일 때만 `turn_usage` 적재 → 빈 행이 최신 행으로 복원돼 0 으로 덮는 일 방지(`getLatestTurnUsage` 단순 최신행 쿼리 유지).
 - **compaction 임박 경고**: `nearCompaction(used, window)`(`contextWindow.ts`) = `used ≥ (window - AUTOCOMPACT_BUFFER) * 0.835`. `AUTOCOMPACT_BUFFER`(~33k)는 CLI 버전·`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` 에 따라 가변인 *추정값*. true 면 도넛 progress arc 가 경고색(`--color-warn`, `UsageCircle.warn` prop), title 에 "컨텍스트 한계 임박", 패널에 "곧 컨텍스트 정리(compaction)" 경고 행(추정값 캡션 포함).
 
-**③ 세션 영속 + 비용 원장 (구현 완료).** 과거엔 메모리 전용이라 `SEND`/세션 전환/재시작 시 도넛이 사라졌다. 이제 턴 종료마다 **per-turn 원장**(`0006_turn_usage.sql` 의 `turn_usage` + `turn_model_usage` — `session_id`(세션 삭제 시 `SET NULL`)·`created_at`·input/output/cache 토큰·`total_cost_usd`)에 적재한다(`features/usage/tracker.ts` 의 `recordTurnUsage` → `DbQueries.usage.insertTurnUsage`/`DbQueries.usage.insertTurnModelUsage`). 세션 로드 시 **최신 행에서 `lastTelemetry` 재구성**(`DbQueries.usage.getLatestTurnUsage` + main `infra/ipc/dto.ts` `usageRowToTelemetry`, 복원 조립은 `features/history/reader.ts`, IPC 배선은 `app/handlers/session.ts`) → `LoadedSession.lastTelemetry` 로 복원(reducer `LOAD_SESSION`. 구 `LOAD_SESSION_FROM_CACHE`·`CachedSession` 스냅샷 Map 은 0013 멀티세션 외피의 `sessions` Record 가 흡수했다 — `chatStore.ts:48`). `SEND` 는 `lastTelemetry` 를 비우지 않아 턴 진행 중에도 유지 → 컨텍스트는 세션 수명(새 대화에서만 0) 동안 항상 표시. **비용/지연/모델 행은 패널에서 제거** — 비용은 원장이 SSOT 이며 시간(`created_at`)·모델별 집계로 1일/주/월 사용량을 산출(추후 usage 화면; 스키마만 준비). `sessionCostUsd`/`lastTurnLatencyMs` state 필드 폐기.
+**③ 세션 영속 + 비용 원장 (구현 완료).** 턴 종료마다 **per-turn 원장**(`0006_turn_usage.sql` 의 `turn_usage` + `turn_model_usage` — `session_id`(세션 삭제 시 `SET NULL`)·`created_at`·input/output/cache 토큰·`total_cost_usd`)에 적재한다(`features/usage/tracker.ts` 의 `recordTurnUsage` → `DbQueries.usage.insertTurnUsage`/`DbQueries.usage.insertTurnModelUsage`). 세션 로드 시 **최신 행에서 `lastTelemetry` 재구성**(`DbQueries.usage.getLatestTurnUsage` + main `infra/ipc/dto.ts` `usageRowToTelemetry`, 복원 조립은 `features/history/reader.ts`, IPC 배선은 `app/handlers/session.ts`) → `LoadedSession.lastTelemetry` 로 복원(reducer `LOAD_SESSION`. 구 `LOAD_SESSION_FROM_CACHE`·`CachedSession` 스냅샷 Map 은 0013 멀티세션 외피의 `sessions` Record(`chatStore.ts`)가 흡수했다). `BEGIN_TURN` 은 `lastTelemetry` 를 비우지 않아 턴 진행 중에도 유지 → 컨텍스트는 세션 수명(새 대화에서만 0) 동안 항상 표시. **패널은 비용/지연/모델 행을 두지 않는다** — 비용은 원장이 SSOT 이며 시간(`created_at`)·모델별 집계로 1일/주/월 사용량을 산출한다(설정 사용량 탭). 세션 비용 합계 `sessionCostUsd`(로드 시 `LoadedSession.costUsd` 시드 + telemetry 누산, `chatReducer`)는 Composer 상태 팝오버(`StatusPopover`)가 표시한다. `lastTurnLatencyMs` 필드는 폐기됐다.
 
 **⑤ 빈 reasoning 카드 스킵 (구현 완료).** 빈/공백 "사고 과정" 카드가 뜨던 문제 해소 — `claude-map`(빈 `thinking` emit 안 함)·`messageSegments`(빈 reasoning 파트 스킵)·`ReasoningBlock`(합친 텍스트 공백이면 `null`) 3층 가드. 라이브 경로 `PendingAssistant` 는 기존 `{pendingReasoning && …}` 로 이미 가드됨.
 

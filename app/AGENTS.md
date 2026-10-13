@@ -47,7 +47,7 @@ shared     → shared 내부만                               (순수 타입/상
 
 | 경로                          | 책임                                                                                          |
 | ----------------------------- | --------------------------------------------------------------------------------------------- |
-| `src/main/app/`               | 컴포지션 루트 — `bootstrap.ts`(부팅 배선·버스 구독 순서) · `chat-turn/`(턴 셋업 — 한 클로저였던 `handleChatSend` 를 단계별 모듈로 분해. 진입점 `index.ts`(배럴) · 순서 `send.ts` · 순수 판정 `admission.ts` · 순수 조립 `turn-context.ts`·`continuation.ts` · `resolve-turn`·`runtime-entry`·`respawn-inputs`·`enqueue`·`turn-request`·`approval`·`post-turn`·`busy-reserve`·`turn-setup`·`deps`) + `chat-turn-continuation.ts`(자동 연속 턴) · **`deployment/`**(배포별 concrete — `auth-definitions`·`gate-auth`·`harness-runtime`·`plugins`·`connections`·`usage-fetcher`. build-time TypeScript, 런타임 동적 로딩 아님) · `auth-resume.ts`(부팅 복원 순서) · `connection-views.ts`(Auth → GUI DTO) · `settings-reactions.ts`(설정 변경 반응) · `handlers/*`(도메인별 IPC 핸들러 — 목록·개수는 디렉토리가 진실) · `context.ts`(RouterContext) · `boot-report.ts`(부팅 진단, 0077) · `updater.ts`+`updater-feed.ts`(자동 업데이트 + object storage/GHE 피드, 0084~0086·0133) · `builtin-resources.ts`(번들 스킬 리소스 해석, 0078) |
+| `src/main/app/`               | 컴포지션 루트 — `bootstrap.ts`(부팅 배선·버스 구독 순서) · `chat-turn/`(턴 셋업 — 한 클로저였던 `handleChatSend` 를 단계별 모듈로 분해. 진입점 `index.ts`(배럴) · 순서 `send.ts` · 순수 판정 `admission.ts` · 순수 조립 `turn-context.ts`·`continuation.ts` · `resolve-turn`·`runtime-entry`·`respawn-inputs`·`enqueue`·`turn-request`·`approval`·`post-turn`·`deps` 등 — 표는 [`src/main/AGENTS.md`](src/main/AGENTS.md) "`app/chat-turn/` 분해") + `chat-turn-continuation.ts`(자동 연속 턴) · **`deployment/`**(배포별 concrete — `auth-definitions`·`gate-auth`·`harness-runtime`·`plugins`·`connections`·`usage-fetcher`·`spawn-env`. build-time TypeScript, 런타임 동적 로딩 아님) · `auth-resume.ts`(부팅 복원 순서) · `connection-views.ts`(Auth → GUI DTO) · `settings-reactions.ts`(설정 변경 반응) · `handlers/*`(도메인별 IPC 핸들러 — 목록·개수는 디렉토리가 진실) · `context.ts`(RouterContext) · `boot-report.ts`(부팅 진단, 0077) · `updater.ts`+`updater-feed.ts`(자동 업데이트 + object storage/GHE 피드, 0084~0086·0133) · `builtin-resources.ts`(번들 스킬 리소스 해석, 0078) |
 | `src/main/adapters/`          | claude 어댑터 — `claude.ts`(query) · `claude-map.ts`(SDK→`NormalizedEvent`) · `claude-adapt.ts`(outbound) + 포트(`types`·`turn`·`descriptor`…) + **`harness-config.ts`**(실행 구성 계약 + spawn 입력 조립 `PreparedHarnessConfig`). mock 은 dev, opencode 는 future |
 | `src/main/features/`          | 수직 슬라이스 — `approvals` · `chat`(턴 오케스트레이션) · `extensions`(MCP·skill·deploy·seed) · `history`(persist) · `orchestration`(대화 연속성 fork/handoff, 순수 로직) · **`auth`**(인증 lifecycle) · **`gate`**(앱 접근 정책) · **`harnesses`**(settings·Model·실행 구성) · **`plugins`**(제품 기능 단위, 0188) · `scheduler`(croner 주기 실행, 0091) · `sessions`(런타임 거버넌스) · `usage` |
 | `src/main/contracts/`         | 공유 타입 계약 — `turn`(`TurnContext`) · `bus-events` · `ports` · `session-state` · **`auth`**(0188 — `AuthDefinition`·`AuthMethod`·`Grant`·`BoundAuth`·`AuthSecretReader`. 소비 슬롯 없음) |
@@ -71,8 +71,8 @@ new BrowserWindow({
 })
 ```
 
-- **CSP** (`src/renderer/index.html`): Google Fonts 만 허용 — `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com`.
-- **외부 URL 로드 금지** — `webContents.setWindowOpenHandler` 로 차단 + OS 기본 브라우저 위임. DevTools 자동 오픈은 dev 빌드 한정.
+- **CSP** (`src/renderer/index.html`): 외부 출처는 Google Fonts(`style-src … https://fonts.googleapis.com; font-src … https://fonts.gstatic.com`)와 Anthropic 자산 프록시(`img-src 'self' data: https://assets-proxy.anthropic.com`)만 허용 — 지시어 전문은 `../docs/arch/backend/security.md §1.6`.
+- **외부 URL 로드 금지** — `webContents.setWindowOpenHandler` 로 차단 + OS 기본 브라우저 위임. DevTools 는 코드가 열거나 막지 않는다(`openDevTools`·`webPreferences.devTools` 지정 없음 — `../docs/arch/backend/security.md §1.5`).
 - 비밀은 `safeStorage` 로만 봉인한다 — MCP 인증값 + provider vault(`infra/vault.ts`, 0181). raw secret 이 **나가는** 예외 **3곳**(MCP `.mcp.json` · LLM `--settings` argv · **LLM `Options.env`**, 0181)은 `../docs/arch/backend/security.md §1.4-b` 의 경계표에 고정돼 있다 — 표 밖의 신규 노출 금지.
 - **main 에서 Node 전역 `fetch` 를 쓰지 않는다** (0173/0174). 전역 `fetch(` 를 부를 수 있는 파일은 `infra/net/net-fetch.ts` 하나뿐이고, 소비자는 `typeof fetch` 포트로 **주입받는다**(기본값 금지 — 기본값은 곧 조용한 Node 스택 복귀). 위반은 `infra/net/no-node-fetch.test.ts` 가 잡는다. Chromium 스택을 무는 파일은 `net-fetch`·`net-request`·`browser-session` 셋뿐이다 — 근거·`redirect:'manual'` 의미차 → `../docs/arch/backend/security.md` §1.8·§1.9.
 - 근거 · credential 모델 상세 → [`../docs/arch/backend/security.md`](../docs/arch/backend/security.md).
@@ -95,7 +95,7 @@ Tailwind 시맨틱 토큰 · 그룹 스코프 격리(`group/<이름>`) · 단일
 
 - TRD §2 Stack 표 **밖**의 패키지 추가는 **사용자 승인 필수** + PR 설명에 _왜_ 명시.
 - 이미 채택 (도입 시점만 자유): React, react-markdown(+remark-gfm), shiki, electron-store, zod, zustand@5, vitest, Tailwind v4, better-sqlite3@12, react-router-dom v7, croner, electron-updater@6, diff, `@tanstack/react-virtual`@3(transcript 가상화, 0102), i18next/react-i18next(0096, devDeps), recharts(설정 사용량 차트, 0112), Confluence storage→markdown 변환 3종(`cheerio`·`turndown`·`turndown-plugin-gfm`, 0160 승인 — **0188 이설**: `features/plugins/confluence/`), undici(devDeps). 템플릿 동봉(사전 승인): `@electron-toolkit/{utils,preload}`. (playwright 는 TRD 채택 목록에 있으나 아직 미설치 — 도입 시 devDependency 추가.)
-- 미정 항목 (PRD §11 / TRD §15 — 단독 결정 금지): 마크다운 라이브러리 최종 결정 · 코드 서명(현재 unsigned NSIS) · 텔레메트리 · 라이센스 · 성능 SLA · 기본 백엔드. (패키징=electron-builder NSIS·자동 업데이트=electron-updater 는 0084~0089 로 채택 완료.)
+- 미정 항목 (PRD §11 / TRD §10 — 단독 결정 금지): 코드 서명(현재 unsigned NSIS) · 텔레메트리 · 라이센스 · 성능 SLA · 기본 백엔드. (패키징=electron-builder NSIS·자동 업데이트=electron-updater 는 0084~0089 로 채택 완료.)
 
 ## 빌드 / 실행
 
@@ -154,7 +154,7 @@ Tailwind 시맨틱 토큰 · 그룹 스코프 격리(`group/<이름>`) · 단일
 
 | 워크플로우 | 트리거 | 동작 |
 | --- | --- | --- |
-| `.github/workflows/ci.yml` | `main` push + 모든 PR (둘 다 paths `app/**`·`.github/workflows/**`) + 수동 dispatch | windows-latest · Node 22 — `npm ci` → 마이그레이션 append-only 가드 → lint → typecheck → test. PR CI 추가(0113 — 0088 "PR CI 없음" supersede), 로컬 게이트는 유지 |
+| `.github/workflows/ci.yml` | `main` push + 모든 PR (둘 다 paths `app/**`·`.github/workflows/**`) + 수동 dispatch | windows-latest · Node 22 — `npm ci` → 마이그레이션 append-only 가드 → 문서 인벤토리 가드 → 테스트 예산 가드 → lint → typecheck → test. PR CI 추가(0113 — 0088 "PR CI 없음" supersede), 로컬 게이트는 유지 |
 | `.github/workflows/release.yml` | `v*` 태그 push (수동 dispatch = 항상 dry-run) | 버전 검증(fail-fast) → 게이트 → NSIS `build:win` → GitHub Release **즉시 게시**(installer·latest.yml·blockmap) → sha512 검증 |
 
 - 릴리스 절차·수동 체크리스트·롤백 정본은 [`../docs/guides/release-operations.md`](../docs/guides/release-operations.md).
@@ -168,4 +168,4 @@ Tailwind 시맨틱 토큰 · 그룹 스코프 격리(`group/<이름>`) · 단일
 2. **레이어 경계를 지켜라.** `boundaries` 위반은 `npm run lint` error. cross-feature 흐름이 필요하면 pages/ 또는 app/ 에서 props 로 전달한다.
 3. **Electron 보안 옵션은 항상 명시**(위 블록), **새 의존성은 사용자 확인**. 스타일 규칙은 `src/renderer/AGENTS.md`.
 4. **테스트 동반.** 어댑터 정규화 · reducer · IPC 스키마 · 순수 변환기는 단위 테스트와 함께 작성 (UI 는 시각 검증으로 갈음).
-5. **`package.json` 메타데이터는 실값이다** (0089 에서 정리 — name=`orca`·description·author·homepage). **버전은 수동 편집하지 않는다** — `npm run release:{patch,minor,major}` 가 bump·커밋·태그를 원샷 처리한다 (SemVer pre-1.0 정책은 `../docs/guides/release-operations.md`).
+5. **`package.json` 메타데이터는 실값이다** (name=`orcinus-orca`·description·author·homepage — 앱 식별자는 `../docs/guides/release-operations.md`). **버전은 수동 편집하지 않는다** — `npm run release:{patch,minor,major}` 가 bump·커밋·태그를 원샷 처리한다 (SemVer pre-1.0 정책은 `../docs/guides/release-operations.md`).

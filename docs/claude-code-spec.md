@@ -271,7 +271,7 @@ gh pr diff "$1" | claude -p \
 
 자세한 옵션은 공식 [시스템 프롬프트 플래그](https://code.claude.com/docs/ko/cli-reference#system-prompt-flags) 참조.
 
-⏳ **Open Question** — Phase 1 MVP 는 **미사용**. Orca 가 *어떤 페르소나* 의 검증 엔지니어 비서가 되어야 하는지는 Skills 단계(Phase 3+)에서 결정한다. 결정 시 본 절 갱신 + TRD §7.1 에 적용 플래그 명시.
+✅ **append 채택** — SDK `systemPrompt: { type:'preset', preset:'claude_code', append }`(`--append-system-prompt` 대응)로 `# Orca` 구조화 헤더(+Work `# Agent`)를 덧붙인다([system-prompt.md](./arch/backend/system-prompt.md)). 완전 교체(`--system-prompt`)와 프롬프트 파일 플래그는 쓰지 않는다.
 
 ---
 
@@ -389,7 +389,7 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 
 ✅ **Orca v1 채택** (Phase 3 마이그레이션, 2026-05-18) — TypeScript SDK `@anthropic-ai/claude-agent-sdk` 의 `query()` 함수를 진입점으로 사용. CLI spawn (§1, §3) 의 기능은 SDK `Options` 와 1:1 대응 (예: `--resume <id>` ↔ `options.resume`, `--include-partial-messages` ↔ `options.includePartialMessages`, `--output-format stream-json` 은 SDK 의 SDKMessage union 으로 대체됨). SDK API 시그니처·`Options` 필드 명세는 [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md) 원문 미러가 단일 출처. SDKMessage → `NormalizedEvent` 매핑·내부 구현 패턴·MVP 채택 범위는 [`arch/backend/adapters.md` §1](./arch/backend/adapters.md) 참조.
 
-Phase 3 가 사용하는 기능은 *최소* — `query()` + `options.includePartialMessages` + `options.resume` + `options.cwd`. 고급 기능 (`permissionMode` / `canUseTool` / `hooks` / `createSdkMcpServer` / custom tools / external `mcpServers` / `forkSession` / `startup()` / `AsyncIterable<SDKUserMessage>` 스트리밍 입력) 은 ⏳ Phase 4+ anchor.
+현재 채택 범위 — 세션당 장수명 `query()` 채널(`AsyncIterable<SDKUserMessage>` 입력 + 턴별 `pushTurn`) · `resume` · `includePartialMessages` · `cwd`·`additionalDirectories` · `permissionMode`/`canUseTool` · `hooks` · `createSdkMcpServer`(인프로세스 runtime tool) · `plugins` · `forkSession` · `settingSources: ['project','local']` · `disallowedTools: ['WebSearch']` · `systemPrompt` preset + append. 기능별 표는 [`arch/backend/adapters.md` §1.7](./arch/backend/adapters.md) 이 정본이다. `startup()` 사전 워밍은 쓰지 않는다.
 
 ---
 
@@ -400,25 +400,25 @@ Phase 3 가 사용하는 기능은 *최소* — `query()` + `options.includePart
 | 진입 경로 | **SDK `query()`** — `@anthropic-ai/claude-agent-sdk` (Phase 3 채택, 2026-05-18). CLI `claude -p` + `child_process.spawn` 은 폐기됨(코드 0건) |
 | 출력 포맷 | SDKMessage union (`SDKSystemMessage` / `SDKAssistantMessage` / `SDKPartialAssistantMessage` / `SDKResultMessage`) — CLI 의 `--output-format stream-json` 대체 |
 | 토큰 스트리밍 | `options.includePartialMessages: true` — CLI 의 `--verbose --include-partial-messages` 대체 |
-| 세션 재개 | `options.resume: sessionId` — CLI 의 `--resume <sessionId>` 와 1:1 대응. 2턴 이상에서 |
+| 세션 재개 | `options.resume: sessionId` — CLI 의 `--resume <sessionId>` 와 1:1 대응. 채널이 죽은 뒤 다음 send 의 spawn 에서 쓴다 |
 | 세션 ID 발급 | 첫 `SDKSystemMessage(subtype: 'init')` 의 `session_id` (수신). 사전 발급 (`options.sessionId` 또는 CLI `--session-id`) 은 OQ — §7.4 |
-| 세션 분기 | `--fork-session` 미사용 — Phase 3 *대화 분기* UI anchor |
-| 세션 이름 | `--name` / `-n` 미사용 — Phase 3 (세션 목록) anchor |
+| 세션 분기 | ✅ **채택 (0064)** — SDK `forkSession`(resume 복사본 + 새 session id). Fork·Handoff 가 사용한다([GLOSSARY](./GLOSSARY.md) Fork·Handoff) |
+| 세션 이름 | `--name` / `-n` 미사용 — 제목은 Orca DB(`sessions.title`·`title_source`)가 소유한다 |
 | 세션 저장 비활성화 | `--no-session-persistence` 미사용 — *시크릿 모드* anchor |
 | 베어 모드 | 미사용 (`~/.claude` 환경 활용) |
 | 도구 권한 | **OQ9 부분 진전** — 승인 오버레이(0022)·workspace guard(0075) 구현, 기본 정책값만 미정. 권한 우회(`--dangerously-skip-permissions`) 는 미사용 확정 |
-| 시스템 프롬프트 | 미사용 (Skills 단계 재검토) — `--system-prompt`, `--system-prompt-file`, `--append-*` 모두 |
+| 시스템 프롬프트 | ✅ **append 채택** — `systemPrompt: { type:'preset', preset:'claude_code', append }` 로 `# Orca` 구조화 헤더(+Work `# Agent`)를 덧붙인다([system-prompt.md](./arch/backend/system-prompt.md)). 교체(`--system-prompt`·`--system-prompt-file`)는 미사용 |
 | 구조화 출력 | 미사용 (`--json-schema`) |
 | 모델 선택 | ✅ **채택 (0010)** — SDK `options.model` per-turn 전달 (Composer ModelMenu, `SendChatMessage.modelFamily`). 미지정 시 사용자 `~/.claude` 설정 폴백 |
 | 노력 수준 | ✅ **채택** — 모델 선택 시 [모델별 기본값](../app/src/shared/model-effort.ts)을 적용하고 수동 선택은 같은 모델 동안 유지한다. spawn은 `options.effort`, 후속 턴은 `applyFlagSettings({ effortLevel })`로 입력 전송 전에 적용한다. EffortMenu는 모델 기본 수준 옆에 '추천'을 표시한다 |
 | 디버그 출력 | `--debug` / `--debug-file` — Phase 1 미사용, 개발자 빌드에서 옵션화 anchor |
 | 턴/비용 제한 | `--max-turns` / `--max-budget-usd` — Phase 1 미사용, Phase 3 *Skills 안전장치* 후보 |
-| 작업 디렉토리 | `--add-dir` 미사용 — spawn 의 `cwd` 만 사용 |
-| Hook 가시성 | SDK `options.hooks` (PreToolUse/PostToolUse/Stop/...) — Phase 4 anchor (도구 권한 정책 OQ9 결정 후) |
-| Agent SDK | ✅ **채택 (Phase 3)** — TypeScript SDK `query()` + 최소 옵션 (`resume`, `includePartialMessages`, `cwd`). `arch/backend/adapters.md §1` SSOT |
-| 인증 만료 감지 | SDK 가 throw 하는 에러 메시지/코드에서 `401` / `OAuth` / `expired` 패턴 매칭 (CLI 의 stdout/stderr 패턴 매칭 대체) |
-| 환경변수 | HOME (`~/.claude` 자격증명), `CLAUDE_*` (필요 시). PATH 의존성 (npm 글로벌 bin) 폐기 — SDK 가 `optionalDependencies` 로 platform binary 자동 처리 |
-| `cwd` | `options.cwd` 로 전달 — `app.getPath('home')` 기본. 프로젝트별 cwd 선택 UI 는 future work |
+| 작업 디렉토리 | ✅ `options.additionalDirectories`(`--add-dir` 대응) — 앱 임시 루트 + 세션 extraDirs(Work 폴더 추가). workspace guard 훅과 같은 배열을 공유한다([workspace 가이드](./guides/workspace-isolation-permissions.md) §5) |
+| Hook 가시성 | ✅ **채택** — SDK `options.hooks` in-process 콜백(workspace guard PreToolUse · Stop git sync · Stop 출력 수집 · PostCompact). [adapters.md §3.2.5](./arch/backend/adapters.md) |
+| Agent SDK | ✅ **채택 (Phase 3)** — TypeScript SDK `query()` 장수명 채널 + 위 옵션 묶음(§10). `arch/backend/adapters.md §1` SSOT |
+| 인증 만료 감지 | `adapters/error-classifier.ts` 가 SDK 오류의 `401` / `OAuth` / `expired` 패턴을 `auth_error` 로 분류 (CLI 의 stdout/stderr 패턴 매칭 대체) |
+| 환경변수 | HOME (`~/.claude` 자격증명) + 턴 env(`adapters/harness-config.ts` 조립 — 앱 env · Harness overlay · 배포 spawn env · 종류별 env, [TRD §6.8](./TRD.md)). PATH 의존성 (npm 글로벌 bin) 폐기 — SDK 가 `optionalDependencies` 로 platform binary 자동 처리 |
+| `cwd` | `options.cwd` 로 전달 — 랜딩에서 고른 작업 경로·프로젝트 cwd, 격리 세션이면 managed worktree 경로([state.md](./arch/frontend/state.md) §1.6 · [GLOSSARY](./GLOSSARY.md) Managed worktree) |
 
 ---
 
@@ -431,8 +431,8 @@ Phase 3 가 사용하는 기능은 *최소* — `query()` + `options.includePart
 | **OQ9** | 도구 권한 정책 — SDK `permissionMode` / `canUseTool` / `disallowedTools` 의 MVP 기본값. (CLI 표현: `--allowedTools` / `--permission-mode` / `--bare`) | §5.6 |
 | **OQ10** | 어댑터 `tool_use.name` / `tool_use.input` 정규화 — claude vs opencode 도구명 차이 해소. 후보: (a) raw 전달 + Renderer 매핑 (b) 어댑터 공통 vocabulary 정규화 (c) raw + 패턴 매칭. PRD §11 OQ10 진실 원천 — opencode 어댑터 활성화 PR 에서 결정 | (본 spec 범위 밖) |
 | (신규) | 세션 ID *발급 vs 수신* — SDK `options.sessionId` / CLI `--session-id` 활용 여부 | §7.4 |
-| (Skills 단계) | 시스템 프롬프트 페르소나 | §6 |
-| (Phase 4+) | Agent SDK 고급 기능 — hooks / canUseTool / MCP / custom tools | §10 |
+| (닫힘) | ~~시스템 프롬프트 페르소나~~ — append 채택(§6 · §11 시스템 프롬프트 행) | §6 |
+| (닫힘) | ~~Agent SDK 고급 기능~~ — 채택(§10). 남은 미결은 OQ9 의 기본 정책값 | §10 |
 
 ---
 
@@ -459,29 +459,33 @@ Phase 3 가 사용하는 기능은 *최소* — `query()` + `options.includePart
 
 > **(2026-05-18)** 본 카탈로그는 *CLI 플래그* 단위 분류이지만 Orca 는 Phase 3 부터 SDK `query()` 를 사용한다. 각 CLI 플래그는 SDK `Options` 필드와 1:1 대응 — 본 카탈로그는 *어떤 기능을 채택했는지* 의 지도로 계속 유효하다 (예: `--include-partial-messages` ↔ `options.includePartialMessages`, `--resume` ↔ `options.resume`, `--allowedTools` ↔ `options.allowedTools`). SDK 측 필드명·시그니처는 `docs/spec/claude/agent-sdk/typescript.md` 가 단일 출처.
 
-### 14.1 ✅ Orca v1 사용 (Phase 1 MVP)
+### 14.1 ✅ Orca 사용 (SDK `Options` 대응)
 
-| 플래그 | 본 문서 절 |
-|---|---|
-| `-p` / `--print` | §1 |
-| `--output-format stream-json` | §3 |
-| `--verbose` (스트리밍 토큰 시) | §4 |
-| `--include-partial-messages` | §4 |
-| `--resume <id>` / `-r` | §7.2 |
+| 플래그 | SDK 대응 / 쓰임 | 본 문서 절 |
+|---|---|---|
+| `-p` / `--print` · `--output-format stream-json` · `--verbose` | `query()` SDKMessage union | §1 · §3 |
+| `--include-partial-messages` | `includePartialMessages` | §4 |
+| `--resume <id>` / `-r` | `resume` — 채널 사망 뒤 spawn | §7.2 |
+| `--fork-session` | `forkSession` — Fork·Handoff (0064) | §7.3 |
+| `--permission-mode` | `permissionMode` — Composer 권한 메뉴·라이브 전환. **기본 정책값은 OQ9** | §5.2, §5.6 |
+| `--disallowedTools` | `disallowedTools: ['WebSearch']` | §5.4 |
+| `--append-system-prompt` | `systemPrompt` preset + append(`# Orca` 헤더) | §6 |
+| `--add-dir` | `additionalDirectories` — 앱 임시 루트 + 세션 extraDirs | §11 |
+| `--model`, `--effort` | `model`(턴 단위) · `effort`/`applyFlagSettings` (0010·0020) | §11 |
+| `--settings` | provider settings 인라인 JSON (0028) | [TRD §6.8](./TRD.md) |
+| `--setting-sources` | `settingSources: ['project','local']` (0117) | [adapters.md §1.3](./arch/backend/adapters.md) |
+| `--plugin-dir` | `plugins: [{ type:'local', path }]` — Orca plugin + 사용자 skill wrapper (0058·0117) | §2 |
 
-### 14.2 ⏳ Orca 후보 (OQ / Phase 2~3 anchor)
+### 14.2 ⏳ Orca 후보 (미결)
 
 | 플래그 | 후보 시점 | 본 문서 절 |
 |---|---|---|
-| `--allowedTools`, `--disallowedTools`, `--tools` | OQ9 결정 시 | §5.1, §5.4 |
-| `--permission-mode acceptEdits` | OQ9 결정 시 | §5.2, §5.6 |
+| `--allowedTools`, `--tools` | OQ9 결정 시 (대화 query 는 현재 쓰지 않는다) | §5.1, §5.4 |
 | `--session-id <UUID>` | 세션 ID 사전 발급 결정 시 | §7.4 |
-| `--fork-session` | 대화 분기 UI | §7.3 |
-| `--name <text>` / `-n` | 세션 목록 UI | §7.5 |
-| `--max-turns`, `--max-budget-usd` | Skills 안전장치 | §11 |
+| `--max-turns`, `--max-budget-usd` | 대화 안전장치 결정 시 (제목 생성 `complete()` 만 `maxTurns: 1`) | §11 |
 | `--debug`, `--debug-file` | 개발자 빌드 | §11 |
-| `--include-hook-events`, `--init`, `--init-only` | Hook 단계 | §11 |
-| `--system-prompt-file`, `--append-system-prompt-file` | Skills 페르소나 단계 | §6 |
+| `--include-hook-events`, `--init`, `--init-only` | Hook 이벤트 표시 결정 시 (훅 자체는 in-process `hooks` 로 채택) | §11 |
+| `--system-prompt-file`, `--append-system-prompt-file` | 파일 기반 프롬프트가 필요할 때 (append 는 문자열로 채택) | §6 |
 
 ### 14.3 ❌ Orca v1 미사용 (의도적)
 
@@ -493,8 +497,7 @@ Phase 3 가 사용하는 기능은 *최소* — `query()` + `options.includePart
 | `--json-schema` | 자유 텍스트 챗 | §9 |
 | `--dangerously-skip-permissions`, `--allow-dangerously-skip-permissions` | 안전 마진 | §5.5 |
 | `--no-session-persistence` | 영속화 가치 (재개 시 컨텍스트 복원) | §7.5 |
-| `--add-dir` | spawn `cwd` 만 사용 (SDK `additionalDirectories` 는 workspace guard 0075 에서 별도 채택) | §11 |
-| ~~`--model`, `--effort`~~ | **채택으로 전환** (0010/0020 — SDK options per-turn). 본 행은 역사 보존 | §11 |
+| `--name <text>` / `-n` | 제목은 Orca DB(`sessions.title`·`title_source`)가 소유 | §7.5 |
 | stdin 파이프 입력 | UI 가 입력 채널, `-p` 인자만 사용 | §8 |
 
 ### 14.4 ◯ Orca 무관 (CLI 자체 운영)

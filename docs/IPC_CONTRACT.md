@@ -26,11 +26,11 @@
 
 ## 2. 채널 카탈로그
 
-도메인별 분포(개수는 [생성물](./generated/inventory.md)): `chat`(`send`·`event`·`cancel`·`stopSubagent`·`steerCancel`·`steerSendNow`) · `boot`(`report`·`whenReady`) · `backend` · `agent` · `engine` · `install` · `update` · `settings` · `skills` · `files` · `git`(§2.6-b) · `session` · `project` · `window` · `search` · `mcp` · `cost` · `concurrency` · `permission`(`respond`·`setMode`) · `notify`(`show` — §2.12-c) · `debug`(dev 전용 — `getMock`·`setMock`) · `log`(`emit` — §2.13-b) · `provider`(§2.13-c — `list`·`state`·`login`·`continue`·`reauth`·`revoke`).
+도메인별 분포(개수는 [생성물](./generated/inventory.md)): `chat`(`send`·`event`·`cancel`·`stopSubagent`·`steerCancel`·`steerSendNow`) · `boot`(`report`·`whenReady`) · `backend` · `agent` · `engine` · `install` · `update` · `settings` · `skills` · `files` · `artifact`(§2.6-a) · `git`(§2.6-b) · `session` · `project` · `window` · `search` · `mcp` · `cost` · `concurrency` · `permission`(`respond`·`setMode`) · `notify`(`show` — §2.12-c) · `debug`(dev 전용 — `getMock`·`setMock`) · `log`(`emit` — §2.13-b) · `provider`(§2.13-c — `list`·`state`·`login`·`continue`·`reauth`·`revoke`) · `error`(§2.13-d — `reportEvent`·`drain`·`revealLog`).
 
 > **`provider` 도메인이 구 `auth`·`plugin` 채널을 대체한다.**
-> 앱 로그인·서비스 연결·LLM 자격증명이 **같은 채널 묶음**을 쓴다 — 셋의 차이는 `ProviderInfo.kind`
-> (`gate`·`llm`·`service`) 뿐이고 별도 인증 인터페이스가 없다.
+> 앱 로그인·서비스 연결·LLM 자격증명·로그인 프리 Plugin 이 **같은 채널 묶음**을 쓴다 — view 분류는
+> `ProviderInfo.kind`(`gate`·`llm`·`service`), 인증 체계는 `ProviderInfo.authScheme` 이 가르고 별도 인증 인터페이스가 없다(§2.13-c).
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치. **단, `debug` 2채널은 `import.meta.env.DEV` 일 때만 `ipcMain.handle` 로 등록된다** (CHANNELS 상수 문자열은 상존하나 prod 핸들러 미등록 — §2.13 참조).
 
@@ -162,12 +162,12 @@ interface Settings {
 | `orca:skills:list`         | R→M (invoke) | —                                                        | `SkillInfo[]` = `{ name; description; argumentHint?; sourceId; sourceLabel; sourceKind; enabled; canToggle; canRemove; skillPath; skillDir; body?; createdAt?; updatedAt? }[]` | Orca sources + 어댑터/워크스페이스 SKILL.md 카탈로그.                                |
 | `orca:skills:author`       | R→M (invoke) | `AuthorSkillRequest` = `{ name; description; body }`     | `SkillInfo[]`                                                                                                                                                                  | `~/.config/orcinus-orca/sources/skills/<name>/SKILL.md` 작성 후 refresh.                     |
 | `orca:skills:upload`       | R→M (invoke) | `UploadSkillRequest` = `{ fileName; content }`           | `SkillInfo[]`                                                                                                                                                                  | `.md`/`.skill` 파일 내용을 Orca skill source 로 저장 후 refresh.                     |
-| `orca:skills:setEnabled`   | R→M (invoke) | `SetSkillEnabledRequest` = `{ name; sourceId; enabled }` | `SkillInfo[]`                                                                                                                                                                  | Orca source 스킬만 settings `skillEnabled[sourceId/name]` 을 갱신하고 dist/cwd 싱크. |
+| `orca:skills:setEnabled`   | R→M (invoke) | `SetSkillEnabledRequest` = `{ name; sourceId; enabled }` | `SkillInfo[]`                                                                                                                                                                  | 토글 가능한 스킬만 settings `skillEnabled[sourceId/name]` 을 갱신하고 캐시를 새로 고친다. 파일은 재배포하지 않는다 — 활성 여부는 런타임 `options.skills` 필터가 반영한다. |
 | `orca:skills:open`         | R→M (invoke) | `SkillTargetRequest` = `{ name; sourceId }`              | `Promise<void>`                                                                                                                                                                | SKILL.md 를 OS 기본 앱으로 연다.                                                     |
 | `orca:skills:showInFolder` | R→M (invoke) | `SkillTargetRequest`                                     | `Promise<void>`                                                                                                                                                                | SKILL.md 위치를 OS 파일 관리자에서 표시한다.                                         |
 | `orca:skills:remove`       | R→M (invoke) | `SkillTargetRequest`                                     | `SkillInfo[]`                                                                                                                                                                  | Orca source 스킬 폴더를 제거하고 refresh/sync 한다.                                  |
 
-> **현재 스캔 경로**: `~/.config/orcinus-orca/sources/skills/<name>/SKILL.md` + 어댑터 네이티브 경로(`~/.claude/skills/<name>/SKILL.md`) + workspace 경로(`<cwd>/.claude/skills/<name>/SKILL.md`).
+> **현재 스캔 경로**: `~/.config/orcinus-orca/sources/skills/<name>/SKILL.md` + 어댑터 네이티브 경로(`~/.claude/skills/<name>/SKILL.md`). 세션 cwd 아래 `.claude/skills` 는 스캔하지 않는다([GLOSSARY](GLOSSARY.md) Skill). `author`·`upload`·`remove` 는 저장 뒤 확장을 재배포한다(`deployExtensions`).
 
 ### 2.6 Files
 
@@ -218,7 +218,7 @@ interface Settings {
 
 `GitDirtyStat` = `{ files: number; insertions: number; deletions: number }`.
 
-> **worktree 는 이 도메인의 범위가 아니다** (제품 결정) — 채널도 UI 도 두지 않는다.
+> **worktree 격리는 이 도메인의 채널로 다루지 않는다.** 요청은 `orca:chat:send` 의 `worktreeIsolation`·`worktreeBaseRef`(§2.1, 신규 일반 세션 전용), 진행·결과는 `worktree.preparing`·`session.updated.patch.worktree` 이벤트(§3)로 흐른다(0209~0211). git 도메인은 worktree 를 만들거나 나열하지 않는다 — 생성·명명·안전 삭제는 main `features/worktrees/` 가 소유한다.
 
 ### 2.7 Session
 
@@ -295,7 +295,7 @@ interface SearchHit {
 
 ### 2.10 MCP (Phase 3++)
 
-전역 MCP 서버 설정 CRUD. 플러그인 모달(`ExtensionsCatalogModal`)이 단일 호출자. **영속화는 파일-백드 모델** — 정의의 진실은 `~/.config/orcinus-orca/sources/mcp/mcp.json`(순정 Claude `mcpServers` 스키마 + `${VAR}`), **인증 비밀은 secret-store(`orcinus-orca-secrets` + `safeStorage`)에 env-var 이름으로 암호화 저장**(mcp.json 엔 `${VAR}` 만, renderer 엔 `hasAuth` boolean 만), enabled/description 은 settings(`mcpEnabled`/`mcpMeta`). 활성화된 서버는 `handleChatSend` 가 `McpStore.buildQueryOptions()`(→ `toClaudeConfig`)로 변환해 매 query 의 `mcpServers` + `allowedTools`(`mcp__<name>__*`) 옵션에 주입. 상세 = [arch/backend/security.md](arch/backend/security.md) §1.4.
+전역 MCP 서버 설정 CRUD. 플러그인 카탈로그(`/plugins` → `ExtensionsCatalogView` 의 MCP 탭, `useMcpServers` 훅)가 단일 호출자. **영속화는 파일-백드 모델** — 정의의 진실은 `~/.config/orcinus-orca/sources/mcp/mcp.json`(순정 Claude `mcpServers` 스키마 + `${VAR}`), **인증 비밀은 secret-store(`orcinus-orca-secrets` + `safeStorage`)에 env-var 이름으로 암호화 저장**(mcp.json 엔 `${VAR}` 만, renderer 엔 `hasAuth` boolean 만), enabled/description 은 settings(`mcpEnabled`/`mcpMeta`). add·update·delete 는 저장 뒤 확장을 재배포한다(`deployExtensions`) — 배포기가 활성 서버를 resolver 로 해석·`toClaudeConfig` 로 변환해 `dist/claude/plugins/orcinus-orca/.mcp.json` 에 렌더하고, 대화 query 는 그 plugin 을 `options.plugins` 로 로드한다. 상세 = [arch/backend/security.md](arch/backend/security.md) §1.4 · [standardization.md §5.1](arch/backend/standardization.md).
 
 > IPC DTO 표면(`McpServer` + 4채널)은 파일-백드 재설계 전후로 **불변**이다(preload/renderer 무영향). `id` = 서버 `name`(고유 키), `authEnvKey` 는 stdio·http 양쪽에서 비밀을 주입할 env-var 이름.
 
@@ -323,11 +323,11 @@ interface McpServer {
 }
 ```
 
-소스(mcp.json)→SDK 매핑(`toClaudeConfig`, 구조 항등): stdio → `{ command, args, env: { [authEnvKey]: '${authEnvKey}' } }`, http → `{ type:'http', url, headers: { Authorization: 'Bearer ${authEnvKey}' } }`, sse → 그대로 보존(SDK 가 sse 트랜스포트 지원). `${VAR}` 는 query 직전 resolver(safeStorage→process.env)로 확장되며, 미해결 시 해당 서버는 드롭된다.
+소스(mcp.json)→SDK 매핑(`toClaudeConfig`, 구조 항등): stdio → `{ command, args, env: { [authEnvKey]: '${authEnvKey}' } }`, http → `{ type:'http', url, headers: { Authorization: 'Bearer ${authEnvKey}' } }`, sse → 그대로 보존(SDK 가 sse 트랜스포트 지원). `${VAR}` 는 배포 시 resolver(`${BINDING:<id>}` → secret-store → `secrets.envAllowlist` 에 적힌 process.env 만)로 확장되며, 미해결 시 해당 서버는 드롭된다(security.md §1.4).
 
 ### 2.11 Runtime — **제거됨 (handoff 0012)**
 
-구 `orca:runtime:{status,prepare,statusEvent}` 3채널은 renderer 소비처(과거 `features/runtime` RuntimeStatus 위젯)가 제거된 뒤 preload 에만 노출된 고아 채널이라 **2026-06-11 제거**됐다. 0050 PR-B 에서 main 내부 `PythonRuntime`/uv 격리 인터프리터도 제거됐다. 현재 chat send 는 orcinus-orca.json 앱 env 만 SDK `query().options.env` 로 병합한다. 런타임 UI/채널 재도입 시 §6 변경 절차로 새로 추가한다.
+구 `orca:runtime:{status,prepare,statusEvent}` 3채널은 renderer 소비처(과거 `features/runtime` RuntimeStatus 위젯)가 제거된 뒤 preload 에만 노출된 고아 채널이라 **2026-06-11 제거**됐다. 0050 PR-B 에서 main 내부 `PythonRuntime`/uv 격리 인터프리터도 제거됐다. 현재 `query().options.env` 구성은 [security.md](arch/backend/security.md) "Agent provider auth token" 절이 정본이다. 런타임 UI/채널 재도입 시 §6 변경 절차로 새로 추가한다.
 
 ### 2.12 Cost (Phase 3++)
 
@@ -493,7 +493,7 @@ wire 체계의 정본은 `app/src/shared/ipc.ts`의 `ProviderAuthScheme`이고 m
 | ---------------------------------------- | ------------------------- | -------------------------------------------------------------------------------- |
 | `backend:select`                         | opencode 어댑터 활성화 시 | 단일 백엔드라 현재 미노출                                                        |
 | `message:*` (개별 append / delete 등)    | **Future**                | 현재는 chat 턴 단위로 main 이 일괄 persist — 개별 메시지 조작 API 필요 시 도입   |
-| `credentials:set` / `credentials:hasKey` | **Phase 3+**              | safeStorage 자격증명 저장 ([arch/backend/security.md](arch/backend/security.md)) |
+| ~~`credentials:set` / `credentials:hasKey`~~ | **폐기**              | 자격증명은 `provider` 도메인(§2.13-c)과 Auth vault 가 소유한다 ([arch/backend/security.md](arch/backend/security.md) §1.4) |
 | `skills:reload`                          | **Future**                | 핫리로드 도입 시                                                                 |
 | `routines:*`                             | **Future**                | Sidebar nav 의 `/routines` placeholder 가 활성 페이지로 승격될 때                |
 
@@ -545,7 +545,7 @@ Work에는 Main이 `{ type: 'response.boundary', sessionId, boundary }`를 발�
 | `subagent.backgroundSet` | `toolUseIds: string[]` | 레거시 호환 variant. Claude 어댑터의 현재 수신 경로는 `BackgroundEvent`다. | 이 variant로 terminal 상태를 합성하지 않는다. 현재 live 집합은 별도 background 채널의 전체 snapshot을 따른다. |
 | `worktree.preparing`      | `step: WorktreePrepareStep` (`sessionId` **없음**) | 격리 **신규 세션**의 준비 경계 5곳 — `repo`·`base`·`branch`·`worktree`(`WorktreeService.prepare` 내부 4) + `session`(`prepare-worktree.ts` 격리 분기 1) (0211 AR-01) | 세션 id 발급 **전**이라 `sessionId` 가 없다 — renderer 는 `message.queued` 와 같은 규칙으로 `pendingNewChatKey` 에 라우팅한다. 미영속 UI 신호다(버스 미경유 — history·usage 미소비). 준비가 끝나거나 거부되면 상태를 비운다(`BEGIN_TURN`·`session.updated`·`TURN_END_RESET` 세 지점, 0211 §10 EP-04). 비격리·resume 경로는 이 이벤트를 한 번도 내지 않는다(D-005) |
 | `chat.activity`           | `sessionId; revision; foreground:'idle'\|'preparing'\|'streaming'; transport:'idle'\|'ready'\|'listening'; queuedCount; deliveryPendingCount; residualCount; backgroundTaskCount; sessionSchedules?: SessionSchedule[]; pendingSessionWakeup?:boolean` | lease·pending queue·background tracker·채널 활동·세션 예약의 단일 활동 스냅샷. 의미가 달라질 때만 세션별 단조 `revision`으로 모든 살아 있는 renderer에 broadcast한다. `ready`는 채널이 유휴이고 미소비 backlog 없이 입력을 받을 수 있는 수신 상태다. 실제 자동 응답·배출·held 입력 전송 중은 `listening`이며, count는 고유 사용자 메시지 수다. | 낮거나 같은 revision은 무시한다. Renderer의 `listening`은 ready/listening 모두에 세션 점유를 유지하고 `activityTransport`로 답변 표면을 구별한다. ready에서는 스피너·대기 문구·중단 버튼 없이 일반 전송을 표시하되 main의 held→flush·commit 순서를 유지한다. 라이브 `inflight`는 renderer가 소유하고 세션 로드 시에는 snapshot으로 복원한다. `sessionSchedules` 부재는 미조회, 빈 배열은 예약 없음이다. pendingSessionWakeup은 목록 도착 전 확인된 깨우기 대기이며 임의 ID·개수를 만들지 않는다. `residualCount>0`이면 상태 Notice와 '세션 전체 중단' 탈출구를 제공한다. |
-| `telemetry`               | `usage?: ProviderReportedTelemetry` (model·input/output·캐시 토큰·costUsd·durationMs·numTurns·modelUsage·contextWindow) | 어댑터 턴 종료 (SDK `SDKResultMessage`, 또는 터미널 이벤트 누락 시 폴백)                         | `inflight = false`, `lastTelemetry`·`sessionCostUsd`(누산) 갱신 → 컨텍스트 도넛/TelemetryPanel. `contextWindow`(0134) = SDK `modelUsage[].contextWindow` 실측 — renderer 도넛 분모 1차 소스(`contextWindowOf`), 부재 시(재로드 복원 등) 모델명 휴리스틱 폴백                                                                         |
+| `telemetry`               | `usage?: ProviderReportedTelemetry` (model·input/output·캐시 토큰·costUsd·durationMs·numTurns·modelUsage·contextWindow) | 어댑터 턴 종료 (SDK `SDKResultMessage`, 또는 터미널 이벤트 누락 시 폴백)                         | `inflight = false`, `lastTelemetry`(컨텍스트 0 telemetry 는 도넛 소스를 바꾸지 않는다 — rendering.md §1.9)·`sessionCostUsd`(누산) 갱신 → 컨텍스트 도넛/UsagePanel · 상태 팝오버 세션 비용. `contextWindow`(0134) = SDK `modelUsage[].contextWindow` 실측 — renderer 도넛 분모 1차 소스(`contextWindowOf`), 부재 시(재로드 복원 등) 모델명 휴리스틱 폴백                                                                         |
 | `turn.retrying`           | `attempt; maxRetries; error: ClassifiedError` (`sessionId?`)                                              | 어댑터 catch 후 retryable error 를 재시도하기 직전                                              | `inflight` 유지, PendingAssistant 에 `재시도 N/M` 표시. 다음 이벤트/터미널 이벤트에서 표시 해제                                                                        |
 | `error`                   | `error: ClassifiedError` (`sessionId?`)                                                                  | 어댑터 catch 또는 SDK 에러                            | `state.error` 설정, `inflight = false`                                                                                                                                 |
 | `turn.aborted`            | `reason: 'user_cancelled' \| 'interrupted'` (`sessionId?`)                                             | 사용자 중단의 main 권위 ack 또는 비사용자 중단의 coordinator 종료 신호             | 에러 없이 `inflight = false`, 보류 승인 카드 정리, 해당 `sessionId` 세션만 종료                                                                                         |
@@ -567,7 +567,7 @@ Work에는 Main이 `{ type: 'response.boundary', sessionId, boundary }`를 발�
 
 ## 4. 에러 분류 (ErrorCategory)
 
-`orca:chat:event` 의 `error` 이벤트는 `ClassifiedError` = `{ category; message; retryable; provider?; cause? }` 를 싣는다 (`app/src/shared/ipc.ts` `ErrorCategory` 8종 — provider-runtime.md §6 정본). 구 `ErrorCode`(`sdk.*`/`cli.*`) 모델은 표준화 리팩토링(PR #47)에서 폐기됐다. **코어 중립(0016): `provider` 는 optional(표시용)** — 어댑터 컨텍스트가 있을 때만 분류기가 채우고, 세션-이전 오케스트레이션 에러(스키마 검증 실패·활성 백엔드 없음)는 provider 부재로 발행한다.
+`orca:chat:event` 의 `error` 이벤트는 `ClassifiedError` = `{ category; message; retryable; provider?; cause? }` 를 싣는다 (`app/src/shared/ipc.ts` `ErrorCategory` — provider-runtime.md §6 정본). 구 `ErrorCode`(`sdk.*`/`cli.*`) 모델은 표준화 리팩토링(PR #47)에서 폐기됐다. **코어 중립(0016): `provider` 는 optional(표시용)** — 어댑터 컨텍스트가 있을 때만 분류기가 채우고, 세션-이전 오케스트레이션 에러(스키마 검증 실패·활성 백엔드 없음)는 provider 부재로 발행한다.
 
 | category                    | 의미                                                                      | 발생 위치               | retryable 기본 |
 | --------------------------- | ------------------------------------------------------------------------- | ----------------------- | -------------- |
@@ -598,13 +598,13 @@ Work에는 Main이 `{ type: 'response.boundary', sessionId, boundary }`를 발�
 3. `app/src/main/app/handlers/<domain>.ts`(또는 chat 계열이면 `app/chat-turn/`) — `handle(channel, schema, invalid, fn)` 또는 `handlePlain` 으로 등록(실패 정책 명시). 새 도메인이면 파일 신설 후 `Bootstrap.register()` 에서 호출
 4. `app/src/preload/index.ts` — `window.orca.<domain>.<action>` 노출 추가
 5. Renderer 사용처 (`app/src/renderer/src/shared/api/ipc.ts`, feature provider/hook 또는 컴포넌트)
-6. **이 문서 §2 의 표 갱신** (도메인 추가 시 §2.x 신설, 총 채널 수/도메인별 분포도 동시 갱신)
-7. 영향 받는 FRONTEND/BACKEND 문서 anchor 업데이트
+6. **이 문서 §2 의 표 갱신** (도메인 추가 시 §2.x 신설 + §2 머리 도메인 목록 갱신). 채널 수는 산문에 쓰지 않는다 — `node app/scripts/check-doc-inventory.mjs` 로 [생성물](./generated/inventory.md)을 재생성한다
+7. 영향 받는 `arch/frontend`·`arch/backend` 문서 갱신
 8. PR 설명에 IPC 변경 사항 명시
 
 ## 7. 보안 / 제약
 
 - preload 는 명시된 채널만 노출. `ipcRenderer` 직접 노출 금지.
 - Renderer 에서 채널 이름 문자열 하드코딩 금지 — `window.orca.*` 만 사용.
-- 모든 invoke 핸들러는 `try/catch` + 직렬화 가능한 에러 (`{ code, message, recoverable }`) 반환.
+- 모든 invoke 핸들러는 `infra/ipc/handle.ts` 의 검증·실패 정책(`'reject'` | `{ fallback }`, §1)을 거친다. 턴 오류는 `ClassifiedError`(§4)로 `error` 이벤트에 싣는다.
 - 민감 정보 (자격증명·파일 전체 경로 등) 는 로그에 마스킹.

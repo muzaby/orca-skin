@@ -1,0 +1,68 @@
+# handoff	반영 문서(;구분, 없으면 -)	확인어(ERE, 없으면 -)	비고 — 정본은 plan.md AC19. 확인어는 결과 사실의 표식이다(핸드오프 번호 아님).
+0193-auth-resume-relogin-retry	docs/arch/backend/auth.md	강등된 나머지 Auth 의 자동 재로그인	부팅 복원 실패 → 자동 재로그인 재시도
+0194-auth-refresh-and-resume-window	docs/arch/backend/auth.md;docs/guides/closed-network-extensions.md	refreshToken	OAuth refresh · 대기 화면
+0195-browser-session-token-exchange	docs/arch/backend/auth.md;docs/guides/closed-network-extensions.md	exchange	browser-session 인가 코드 → 토큰 교환
+0196-session-exchange-json-request	docs/arch/backend/auth.md;docs/guides/closed-network-extensions.md	application/json	교환 요청 JSON 본문
+0197-simplify-191-196-cleanup	-	-	비기능 정리 — 동작 불변, 문서가 서술할 사실 변화 없음
+0198-runtime-model-catalog	docs/arch/backend/overview.md;docs/arch/backend/auth.md	availableModels	런타임 모델 카탈로그
+0199-simplify-0198-cleanup	-	-	비기능 정리 — 동작 불변
+0200-host-managed-runtime-env	docs/arch/backend/auth.md;docs/TRD.md	CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST	host-managed provider 표식
+0201-composer-work-context-row	docs/arch/frontend/overview.md;docs/arch/frontend/state.md	GitRow	컴포저 작업 맥락 행
+0202-runtime-catalog-invalidation-scope	docs/arch/backend/auth.md	invalidat	카탈로그 무효화 범위
+0203-left-nav-section-layout	docs/arch/frontend/dom-architecture.md;docs/arch/frontend/state.md	고정됨	nav 구획
+0204-taskxxx-right-panel	docs/claude-taskxxx-spec.md	TaskCreate	TaskXXX 우측 패널
+0205-cowork-study-and-task-tile-suspend	-	-	연구(verify 없음) — 결론은 0226 뷰어로 반영
+0206-composer-git-row-and-diff-tile	docs/arch/frontend/overview.md;docs/arch/frontend/state.md	DiffTile	git 행 · diff 타일
+0207-closed-network-custom-env	docs/arch/backend/overview.md;docs/guides/closed-network-extensions.md	SPAWN_ENV_INJECTOR	폐쇄망 spawn env 주입점
+0208-spinner-instructions-usage-tooltip	docs/arch/frontend/overview.md;docs/arch/frontend/rendering.md	Spark	진행 스피너(verify 없음 — 아트워크는 0216 이 교체)
+0209-git-worktree-isolation	docs/GLOSSARY.md;docs/arch/backend/persistence.md	managed_worktrees	worktree 격리 세션
+0210-worktree-lifecycle	docs/IPC_CONTRACT.md	worktreeBaseRef	worktree 수명 · 기준 ref
+0211-worktree-session-ux	docs/IPC_CONTRACT.md	worktree\.preparing	격리 준비 표시
+0212-taskxxx-surface-gaps	docs/claude-taskxxx-spec.md	activeForm	TaskXXX SDK 표면
+0213-task-tile-resume	docs/claude-taskxxx-spec.md	기능 가용성	기능 존재 게이트 도달
+0214-opencode-sdk-install-migration-research	docs/arch/backend/overview.md;docs/opencode-sdk-spec.md	@opencode-ai/sdk	OpenCode SDK 설치(연구, verify 없음)
+0215-plan-panel-and-model-selection-bugs	docs/claude-taskxxx-spec.md	pathToClaudeCodeExecutable	번들 실행 경로 · 계획 패널
+0216-spinner-artwork-swap	docs/arch/frontend/overview.md	스피너\(Spark\) 아트워크	스피너 아트워크 교체
+0217-mcp-detail-toggle-and-kebab	docs/arch/frontend/overview.md	케밥 삭제	MCP 상세 토글 · 삭제
+0218-simplify-200-217-cleanup	-	-	비기능 정리 — 동작 불변
+0219-srt-windows-preflight	-	-	사용자 보류(verify 없음) — 구현 산출 없음
+0220-srt-execution-integration	-	-	사용자 보류(verify 없음) — 구현 산출 없음
+0221-main-structural-simplification	-	-	구조 정리 — 외부 동작·계약 불변
+0222-preload-renderer-structural-simplification	-	-	구조 정리 — 외부 동작·계약 불변
+0223-artifact-publisher	docs/arch/backend/persistence.md	artifact_files	산출물 게시
+0224-work-agent-layer	docs/GLOSSARY.md	AgentKind	Work/Code 에이전트 종류
+0225-orcinus-orca-naming	docs/arch/backend/persistence.md;docs/arch/backend/runtime-ipc.md	orcinus-orca	앱 이름 · 저장 경로 이관
+0226-cowork-transcript-viewer	docs/arch/frontend/overview.md	Work transcript	Work transcript 투영 · 출력 뷰어
+0227-logo-asset-replacement	docs/TRD.md	로고	로고 자산(시각 변경 — 구조 서술 없음)
+0228-landing-mode-memory-and-edit-diff-rendering	docs/IPC_CONTRACT.md	lastAgentKind	랜딩 종류 기억
+0229-edit-preview-while-running	docs/IPC_CONTRACT.md	editPreview	Edit 진행 중 미리보기
+0230-temp-scope	docs/arch/backend/persistence.md;docs/guides/workspace-isolation-permissions.md	앱 임시 폴더|앱 루트	임시 접근 범위
+0231-background-task-conformance	docs/GLOSSARY.md;docs/arch/backend/persistence.md	background_task_events	백그라운드 작업 journal
+0232-background-transcript-ux	docs/arch/frontend/overview.md	백그라운드 전환 버튼	백그라운드 transcript UX
+0233-project-session-ui-consistency	docs/arch/frontend/overview.md	useProjectCatalogSync	프로젝트 ↔ Nav 동기
+0234-work-prompt-profile	docs/arch/backend/system-prompt.md	# Agent	Work 프롬프트 프로필
+0235-adapter-agent-kind-env	docs/GLOSSARY.md	agentSpawnEnv	종류별 spawn env
+0236-jira-plugin-catalog-presentation	docs/guides/closed-network-extensions.md	ProviderCatalogPresentationInput	카탈로그 표시 정보
+0237-pop3-mail-search-plugin	docs/arch/backend/auth.md	POP3	POP3 메일 Plugin
+0238-fable-plugin-composer-auth-ui	docs/arch/backend/auth.md;docs/arch/frontend/ux-domains.md	ANTHROPIC_DEFAULT_FABLE_MODEL	Fable 계열
+0239-foreground-cancel-settlement	docs/arch/backend/background-tasks.md	정착	포그라운드 취소 정착
+0240-simplify-0223-0239	-	-	비기능 정리 — 동작 불변
+0241-git-gateway-spawn-reduction	docs/arch/backend/overview.md	mutation queue	git 게이트웨이
+0242-error-toast-reporter	docs/arch/backend/observability.md	error-report	전역 오류 토스트
+0243-execution-timer-removal	docs/arch/backend/runtime-ipc.md	실행 시간 상한은 없	실행 시간 상한 제거
+0244-theme-boot-settings-race	docs/IPC_CONTRACT.md	창 생성 전 조기 등록	테마 부팅 경쟁
+0245-context-policy-cli-parity	docs/arch/backend/adapters.md	claude-context-policy	컨텍스트 정책
+0246-sdk-update-model-default-effort	docs/claude-code-spec.md	모델별 기본값	SDK 갱신 · 모델 기본 effort
+0247-proxy-context-usage-fallback	docs/arch/frontend/overview.md	message_delta\.usage	프록시 usage 폴백
+0248-login-free-plugin-auth	docs/arch/backend/auth.md;docs/GLOSSARY.md	authScheme	로그인 프리 Plugin
+0249-nav-attention-plan-file-output-cards	docs/arch/frontend/state.md	굵은 파란 아이콘	nav 주의 표시
+0250-queued-input-send-now	docs/IPC_CONTRACT.md	steerSendNow	응답 중 입력 즉시 보내기
+0251-remote-usage-breakdown	docs/arch/backend/persistence.md	provider_usage_periods	원격 사용량 내역
+0252-work-file-open-feedback	docs/arch/frontend/overview.md	휴지통 피드백	파일 동작 피드백
+0253-simplify-0241-0252	-	-	비기능 정리 — 동작 불변
+0254-nav-session-progress-spinner	docs/arch/frontend/state.md	생성 중 회전	nav 진행 스피너
+0255-daily-login-gate	docs/GLOSSARY.md	일일 로그인 게이트	일일 로그인 게이트
+0256-preferences-text-size-width	docs/IPC_CONTRACT.md	transcriptTextSize	텍스트 크기 · 너비
+0257-tooltip-bubble-ui-polish	docs/arch/frontend/ux-domains.md	TooltipHost	툴팁 · 버블 접기
+0258-sdk-update-haiku-5-5	docs/arch/backend/adapters.md	Haiku 5\.5	Haiku 5.5 · SDK 핀
+0259-composer-menu-grouping	docs/arch/frontend/ux-domains.md	계단식	`+` 계단식 메뉴

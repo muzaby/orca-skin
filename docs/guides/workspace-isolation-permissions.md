@@ -34,7 +34,7 @@
 | 경로 격리 실판정 (밖=차단) | **PreToolUse 훅** — 모드 독립, 항상 최우선 |
 | permission mode | 앱이 필요대로 선택 (**default 권장**; `acceptEdits`·`plan` 도 안전). `dontAsk` **아님** |
 | 툴 표면 축소 (선택) | `allowedTools` |
-| 위험 명령 이중 차단 (**Orca 미채택**, §6) | `disallowedTools` (deny 규칙) |
+| 위험 명령 이중 차단 (Orca 는 이 deny 패턴을 쓰지 않는다 — Orca 의 `disallowedTools` 는 `['WebSearch']` 전용, §6) | `disallowedTools` (deny 규칙) |
 
 격리는 훅이 지고, permissionMode 는 대화·자동진행 UX 를 위해 자유롭게 고른다. 이것이 요구사항 1·2 를 동시에 만족시키는 유일한 배치다.
 
@@ -84,7 +84,8 @@ const options = {
     "AskUserQuestion", "ExitPlanMode",
   ],
 
-  // 위험 명령 이중 차단. deny 규칙은 bypassPermissions 에서도 유효. **Orca 미채택** (§6).
+  // 위험 명령 이중 차단(가이드 예시). deny 규칙은 bypassPermissions 에서도 유효.
+  // Orca 는 이 패턴 대신 ['WebSearch'] 하나만 넘긴다 (§6).
   disallowedTools: [
     "Bash(sudo *)",
     "Bash(rm -rf /*)",
@@ -249,6 +250,8 @@ export function makeWorkspaceGuardHook(
 > 대신 Bash 격리는 시스템 프롬프트 도구-사용 정책(`# Tools` — 파일 작업을 전용 툴로 라우팅 + Bash 를
 > workspace 스코프로 유도, opencode `anthropic.txt` 참고)으로 옮겼다. 즉 **구조 파일툴(Read/Write/Edit/
 > Glob/Grep)=훅으로 코드 강제, Bash=프롬프트로 유도**(코드 강제 불가). 본 §3.5 는 일반 참고로 보존한다.
+> 현재 Orca 대화가 노출하는 셸 도구는 `PowerShell` 이고(`Bash` 제외 — [system-prompt.md](../arch/backend/system-prompt.md)),
+> 같은 원칙(프롬프트로 유도 · 경로 비격리 · 승인 카드)이 그대로 적용된다.
 
 Bash 는 임의 문자열이라 완벽한 정적 판별이 불가능하다. 전략은 **"절대경로 화이트리스트 + 상위 탈출 차단"** best-effort 다.
 
@@ -325,12 +328,12 @@ const options = {
 
 ---
 
-## 6. `disallowedTools` 로 보강 (deny 규칙 — **Orca 미채택**)
+## 6. `disallowedTools` 로 보강 (deny 규칙 — Orca 는 `['WebSearch']` 만 사용)
 
-> **현재 Orca 는 `disallowedTools` 를 SDK 에 넘기지 않는다** (`rg disallowedTools app/src` = 0건).
-> 아래는 도입할 경우의 형태이지 지금 켜져 있는 설정이 아니다 — 켜려면 `adapters/claude.ts` 의
-> `query()` 옵션 조립(`allowedTools` 옆)에 필드를 더하는 코드 변경이 필요하다. 현재 위험 도구 게이트는
-> `RISKY_TOOLS` 화이트리스트(`adapters/risky-tools.ts`)를 통한 **승인 카드**가 담당한다.
+> **현재 Orca 는 `disallowedTools` 에 `['WebSearch']` 하나만 넘긴다** (`adapters/claude.ts` — 대화의 WebSearch 차단).
+> 아래 위험 명령 deny 규칙은 도입할 경우의 형태이지 지금 켜져 있는 설정이 아니다 — 켜려면 그 배열에
+> 패턴을 더하는 코드 변경이 필요하다. 현재 위험 도구 게이트는 `RISKY_TOOLS` 화이트리스트
+> (`adapters/risky-tools.ts` — Bash·PowerShell 포함)를 통한 **승인 카드**가 담당한다.
 
 훅이 놓치는 명령류를 deny 규칙으로 못박는다. deny 규칙은 훅보다 뒤(2단계)지만 **훅이 pass-through 해도 deny 규칙이 있으면 차단**된다 — 이중 안전망. `bypassPermissions` 에서도 유효.
 
@@ -374,7 +377,7 @@ disallowedTools: [
 | **PreToolUse 훅** | 경로 격리 실판정 (모든 툴·모든 모드 최우선). 밖=deny, 안=pass-through | `makeWorkspaceGuardHook` |
 | **permissionMode** | 대화·자동진행 UX 다이얼. `default` 권장, `dontAsk` **아님** | `permissionMode: "default"` |
 | `allowedTools` | (선택) 허용 툴 표면 축소 | Read/Write/Edit/Bash/AskUserQuestion/… |
-| `disallowedTools` | 위험 명령 이중 차단 — **Orca 미채택**(§6) | `Bash(sudo *)` 등 |
+| `disallowedTools` | 현행은 `['WebSearch']` 차단. 위험 명령 이중 차단 패턴은 쓰지 않는다(§6) | `Bash(sudo *)` 등은 예시 |
 | `additionalDirectories` | 앱 임시 루트 + 사용자 추가 경로 | 훅과 동일 배열 공유 |
 
 **핵심 원칙 재확인:**

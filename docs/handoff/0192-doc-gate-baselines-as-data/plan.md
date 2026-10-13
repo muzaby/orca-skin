@@ -272,7 +272,7 @@ doc-gate.sh sweep {symbols|paths|tense}   ← 정의의 정본 (실행 가능)
 
 | 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
 |---|---|---|---|
-| `docs/handoff/0192-.../doc-gate.sh` | 스윕 정의 + 대조 + 재생성 + **한계 크기 산출** | `sweep`·`check`·`regen` + **`limits`**(r3). `limits` 는 게이트가 아니다 — exit 0 고정, 산출이 §19 등록부의 정본 | 결함 심기 12지점(AC10) · limits 계산 지점 6 · baseline 1행 삭제(AC1) |
+| `docs/handoff/0192-.../doc-gate.sh` | 스윕 정의 + 대조 + 재생성 + **한계 크기 산출** | `sweep`·`check`·`regen` + **`limits`**(r3). `limits` 는 게이트가 아니다 — 한계 크기는 exit 를 바꾸지 않는다(preflight 실패만 exit 2), 산출이 §19 등록부의 정본 | 결함 심기 12지점(AC10) · limits 계산 지점 6 · baseline 1행 삭제(AC1) |
 | `docs/handoff/0192-.../baselines/symbol-buckets.tsv` | 심볼 → 버킷 | 신규. 범위 내 심볼 전건 (PRD 전용 심볼 제외) | AC2·AC3·AC5·AC7 |
 | `docs/handoff/0192-.../baselines/path-exceptions.tsv` | 경로 예외 등재 | 신규. 0191 §19 예외표를 사이트 단위로 펼쳐 승계 | AC8 |
 | `docs/handoff/0192-.../baselines/tense-sites.tsv` | 시제 판정 결과 | 신규. 산출 전건 + 판정 — N3 를 닫는다 | AC9 |
@@ -376,7 +376,7 @@ doc-gate.sh sweep {symbols|paths|tense}   ← 정의의 정본 (실행 가능)
 - **환경 제약**: 이 컨테이너에 `app/node_modules` 가 없다(§8) — `npm run lint`·`typecheck`·`vitest` 는 설치 없이 돌지 않는다. 코드 diff 0 이므로 **실행하지 않는 것이 맞고, 그 사실을 구현 보고에 분리해 적는다.**
 - **기본 정적 게이트**: `cd app && node scripts/check-doc-inventory.mjs --check` (순수 Node, ABI 무관 — AC13).
 - **이 handoff 의 주 게이트**: `bash docs/handoff/0192-doc-gate-baselines-as-data/doc-gate.sh check` — 세 축의 양방향 차집합과 exit code.
-- **한계 크기 산출**: `bash docs/handoff/0192-doc-gate-baselines-as-data/doc-gate.sh limits` — **게이트가 아니다**(exit 0 고정). 한계 크기의 변동은 결함이 아니라 코퍼스 이동이므로 pass/fail 로 두지 않는다.
+- **한계 크기 산출**: `bash docs/handoff/0192-doc-gate-baselines-as-data/doc-gate.sh limits` — **게이트가 아니다**(한계 크기는 exit 를 바꾸지 않는다 — preflight 실패만 exit 2). 한계 크기의 변동은 결함이 아니라 코퍼스 이동이므로 pass/fail 로 두지 않는다.
 - **적대 검사**: §10 의 12지점 각각 + limits 계산 지점 6개 각각 + baseline 3축 각각 1행 삭제(AC1·AC10). 심은 뒤 복원하고 `git status --short --untracked-files=all` 빈 출력을 확인한다.
 - **사람 실기**: 시제 축의 참/거짓 판정. 순수 로직이 아니라 **자연어 문장의 사실성**이라 기계로 내릴 수 없다 — 산출 목록 생성과 미판정 검출까지가 기계다.
 
@@ -397,7 +397,7 @@ doc-gate.sh sweep {symbols|paths|tense}   ← 정의의 정본 (실행 가능)
 
 | 축 | 판정 | 이유 | `limits` 라벨 |
 |---|---|---|---|
-| 추출 / 맨 CamelCase 산문 | 넓히지 않는다 | 추출 4축이 잡는 심볼을 뺀 차집합의 상위가 제품·벤더명이라 노이즈가 지배한다. 실심볼도 섞여 **수확이 0은 아니다** — 노이즈 비율 때문에 미루는 것이지 가치가 없어서가 아니다 | `bare-camelcase` |
+| 추출 / 맨 CamelCase (산문+펜스) | 넓히지 않는다 | 추출 4축이 잡는 심볼을 뺀 차집합의 상위가 제품·벤더명이라 노이즈가 지배한다. 실심볼도 섞여 **수확이 0은 아니다** — 노이즈 비율 때문에 미루는 것이지 가치가 없어서가 아니다 | `bare-camelcase` |
 | 위치 축 (주장한 레이어에 있는가) | 게이트로 두지 않는다 | 저장소 전체 grep 은 통과한다("main 은 `X`" 인데 `X` 가 renderer 에만 있는 경우). 정규식화하면 오탐이 지배하므로 **레이어를 명시하는 사이트만 육안** | `layer-axis` (계측불가) |
 | 산문 서술의 사실성 (이름은 맞고 설명이 틀림) | **계측 불가** | grep 이 판정할 수 없다. 시제 축의 육안 판정이 부분적으로만 덮는다 | `prose-veracity` (계측불가) |
 | 경로 축 / 비-ts 확장자 (`.md`·`.sql`·`.json`) | 상시 게이트 밖 | 대부분 doc↔doc 링크라 `check-doc-inventory.mjs` 의 `links ok` 와 신호가 중복된다 | `non-ts-paths` |
@@ -592,7 +592,7 @@ doc-gate.sh sweep {symbols|paths|tense}   ← 정의의 정본 (실행 가능)
 | `STRIP_HASH` 변형이 `check` 로 새는가 | 안 샌다 | `limits` 전용 분기이고 위 diff 가 같은 것을 보인다 |
 | 저장소 두 곳 쓰기 / 잔여 | 없다 | `limits` 는 읽기 전용, 임시파일 7개 전부 `rm`. 실행 전후 `/tmp/tmp.*` **0 → 0** |
 | 실패가 "아무 일도 안 일어남" 인가 | 아니다 | 계측 불가 축도 `계측불가` 로 인쇄한다 — 축이 목록에서 사라지지 않는다 |
-| 게이트로 두지 않은 이유 | 의도 | 한계 크기의 변동은 결함이 아니라 코퍼스 이동이다. gating 하면 문서를 정상적으로 고칠 때마다 빨개진다 — **exit 0 고정** |
+| 게이트로 두지 않은 이유 | 의도 | 한계 크기의 변동은 결함이 아니라 코퍼스 이동이다. gating 하면 문서를 정상적으로 고칠 때마다 빨개진다 — **한계 크기는 exit 를 바꾸지 않는다**(preflight 실패만 exit 2) |
 
 ### 강제 지점 전수 (r3 · §10 대조)
 
@@ -638,7 +638,7 @@ doc-gate.sh sweep {symbols|paths|tense}   ← 정의의 정본 (실행 가능)
 | 새 산출에 소비자가 있는가 | **있다** | §19 등록부가 `limits` 라벨을 가리킨다 — producer 만 만들고 끝나지 않았다 |
 | 소비자가 라벨을 못 찾으면 | 이름이 계약이다 | 등록부 표의 `limits 라벨` 열과 산출 라벨이 같은 문자열이다 |
 | 42초가 소비를 막는가 | 막지 않는다 | 게이트가 아니라 on-demand 다. `check`(19초)는 영향 없음 — 위 diff 0줄 |
-| 실패가 화면에서 보이는가 | 해당 없음 | exit 0 고정이 의도다. 대신 축이 목록에서 사라지지 않는다(`계측불가` 인쇄) |
+| 실패가 화면에서 보이는가 | 해당 없음 | 한계 크기가 exit 를 바꾸지 않는 것이 의도다(preflight 실패만 exit 2). 대신 축이 목록에서 사라지지 않는다(`계측불가` 인쇄) |
 
 ### 선조치 / 보고만 / 설계 대비 차이
 

@@ -18,12 +18,13 @@
 | [adapters.md](./arch/backend/adapters.md) | SessionAdapter·ClaudeAdapter 호출·ExtensionBuilder·SDKMessage→NormalizedEvent 정규화·인증 만료·SDK 채택 범위·확장 / 파일·리소스(Skills·Artifacts·로그) / **자산 변환 매트릭스 + Hook 정규화 모델**(구 ADAPTER_DESIGN_REVIEW 흡수) |
 | [provider-runtime.md](./arch/backend/provider-runtime.md) | **범용 정규화 계층(정본 SSOT)** — NormalizedEvent·권한 정규화(PermissionBridge·ApprovalResolution·AppCommandPolicy·PermissionModeController)·SessionCapability·RevertManager·ErrorClassifier·AppMessagePart·Telemetry·AuthStore·AuditLog·ModelProviderConfig·매핑표·SDK 확정 절차 |
 | [standardization.md](./arch/backend/standardization.md) | **배포 계층 표준화(정본 SSOT — provider-runtime.md 와 *짝*)** — standards-first 원칙·표준 택소노미(AGENTS.md·MCP·SKILL.md·hook)·표준/런타임 2계층·Engine 구체클래스(rule of three)·sources/dist+ExtensionDeployer·StandardConformance·AGENTS.md 채택 |
-| [persistence.md](./arch/backend/persistence.md) | 2계층 영속성·로컬 DB·FTS5 |
+| [persistence.md](./arch/backend/persistence.md) | 2계층 영속성·로컬 DB·FTS5·게시 원본 파일·Mail Plugin 캐시 |
+| [background-tasks.md](./arch/backend/background-tasks.md) | 백그라운드 작업 — 원본 journal·live 집합·출력 읽기·중단 정착 |
 | [auth.md](./arch/backend/auth.md) | **인증과 그 소비 경계 정본** — 책임 지도(Auth·Gate·Harness·Plugin·Usage)·`AuthDefinition`(소비 슬롯 없음)·`AuthMethod` 5분기(OAuth code→token 포함)·`Grant`·`AuthChange` 분류표·게이트 진리표와 이중 강제·Harness 실행 구성(augmenter·세대 fence·두 주입 채널·fingerprint)·Plugin/HarnessPlugin 구분·부팅 순서·뒤집으면 안 되는 결정 |
-| [security.md](./arch/backend/security.md) | webPreferences·자격증명 모델(safeStorage)·MCP&Skill 통합 레이어·CSP·**§1.8 원격 전송 스택 단일화(Node `fetch` 금지 → Electron `net.fetch`, 0173/0174)**·**§1.9 `infra/net/` 인벤토리** |
+| [security.md](./arch/backend/security.md) | webPreferences·자격증명 모델(vault·Grant)·MCP&Skill 통합 레이어·CSP·**§1.8 원격 전송 스택 단일화(Node `fetch` 금지 → Electron `net.fetch`, 0173/0174)**·**§1.9 `infra/net/` 인벤토리**·§1.10 Git 실행·Plugin 호스트 프로그램 경계 |
 | [runtime-ipc.md](./arch/backend/runtime-ipc.md) | 동시성 모델·IPC 핸들러 구조·시스템 통합 |
-| [system-prompt.md](./arch/backend/system-prompt.md) | 시스템 프롬프트 조립 — preset + 구조화 헤더(`# Orca`/`# User`/`# Project`)·변동성 계층 |
-| [observability.md](./arch/backend/observability.md) | 로깅 — 중앙 LogManager·JSONL 로테이션·redact·suppress |
+| [system-prompt.md](./arch/backend/system-prompt.md) | 시스템 프롬프트 조립 — preset + 구조화 헤더(`# Orca`/`# Agent`/`# Tools`/`# User`/`# Project`)·변동성 계층 |
+| [observability.md](./arch/backend/observability.md) | 로깅 — 중앙 LogManager·JSONL 로테이션·redact·suppress · §7 오류 보고(toast) |
 | [terms.md](./arch/backend/terms.md) | **사람용 용어 해설** — 백엔드 요소 이름을 쉬운 한국어로(정의는 GLOSSARY/arch 정본 링크). AI 정본 아님 |
 
 ### Frontend (`arch/frontend/`)
@@ -33,8 +34,8 @@
 | [overview.md](./arch/frontend/overview.md) | 범위·기술 스택·구현 상태·참고 |
 | [layers.md](./arch/frontend/layers.md) | 4-layer(app/pages/features/shared)·디렉토리 책임·ESLint boundaries·App Shell 조립 |
 | [dom-architecture.md](./arch/frontend/dom-architecture.md) | `app-frame-*` 마커 체계·`data-*` 속성·z-stack·custom titlebar |
-| [state.md](./arch/frontend/state.md) | 상태 관리·Zustand 전환 결정·멀티세션 anchor |
-| [rendering.md](./arch/frontend/rendering.md) | 렌더링 전략·**ToolRendererRegistry**·StructuredOutput·Streaming lifecycle·UsagePanel(사용량 도넛/한도) |
+| [state.md](./arch/frontend/state.md) | 상태 관리·Zustand·멀티세션·Git 패치·세션 목록 membership |
+| [rendering.md](./arch/frontend/rendering.md) | 렌더링 전략·**ToolRendererRegistry**·Work/Code 표현·백그라운드 패널·산출물 카드·StructuredOutput·Streaming lifecycle·UsagePanel(사용량 도넛/한도) |
 | [ux-domains.md](./arch/frontend/ux-domains.md) | UX 패턴·**승인 UI(plan·tool·ask)**·도메인 카탈로그·IPC 호출 |
 | [terms.md](./arch/frontend/terms.md) | **사람용 용어 해설** — 프론트엔드 요소 이름을 쉬운 한국어로(정의는 GLOSSARY/arch 정본 링크). AI 정본 아님 |
 
@@ -44,7 +45,10 @@
 |---|---|
 | [IPC_CONTRACT.md](./IPC_CONTRACT.md) · [GLOSSARY.md](./GLOSSARY.md) | SSOT (채널 / 용어) — 분해 안 함 |
 | [claude-code-spec.md](./claude-code-spec.md) | `spec/claude/` 원문 미러로 가는 **라우터**(Orca 합성분은 arch/backend 로 이관됨) |
-| `spec/claude/` | 외부 공식 문서 원문 미러 (편집 금지) |
+| [claude-taskxxx-spec.md](./claude-taskxxx-spec.md) · [opencode-sdk-spec.md](./opencode-sdk-spec.md) | 해설 미러 — TaskXXX 도구군 / OpenCode SDK 표면과 Orca 채택 표기 |
+| `spec/claude/` · `spec/opencode/` | 외부 공식 문서 원문 미러 (편집 금지) |
+| [decisions/](./decisions/) | ADR — 왜 그렇게 결정했나 |
+| [generated/inventory.md](./generated/inventory.md) | 코드에서 센 수치 (생성물 — 직접 편집 금지) |
 | `etc/` | 전략·별도 제품 방향·외부 사례 연구 문서 (llm-chat-desktop-strategy · lightweight-llm-strategy · `study/`) |
 | `guides/` | 운영 절차서 — 릴리스·폐쇄망 확장·workspace 권한 구성. 디렉토리 정책은 [guides/AGENTS.md](./guides/AGENTS.md) |
 
