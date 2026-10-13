@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-13 |
 | 매핑 | 없음 (문서 전수 재동기화 — 0191/0192 의 후속 접촉) |
-| 상태 | verify/PASS (r2 · V1 + ΔV1 · 기계 범위) — D-003·D-007 사람 확인 대기 |
+| 상태 | verify/PASS (r2 · V1 + ΔV1 · 기계 범위) — D-003·D-007 사용자 확인 완료(2026-10-13) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0191/0192 는 구 템플릿(V 없음). 게이트 장치(`doc-gate.sh`)만 운영 gate 로 승계 |
 | 이번 V revision | `ΔV1` |
@@ -41,11 +41,11 @@
 |---|---|---|---|---|---|
 | D-001 | 범위 문서 전수를 0193~0259 반영 상태로 갱신한다 | 사용자 원문 "전체적으로" · "모두 적용" | 사용자 턴 1 | ACTIVE | — |
 | D-002 | 이력 서술은 삭제 + 링크로 처리하고 `arch/` 에 델타 서술을 새로 쓰지 않는다 | `docs/AGENTS.md` 작성 규칙 4 · 0191 D-003(구 ChatEvent 표 등 이력 표는 삭제+링크) | 저장소 규칙 · 0191 plan | ACTIVE | — |
-| D-003 | PRD/TRD 는 **사실 정정 · 구현 완료 표기 · TRD §2 F16+ 기능 행 추가**만 한다. PRD §11 의 미결 OQ 는 결정하지 않고, 해소된 OQ3 의 비고에 적힌 낡은 사실(draft 게시)만 정정한다 | 루트 `AGENTS.md` 원칙 2(OQ 단독 결정 금지) · 재구성은 사용자 요구가 아님 | 설계자 기본값 — **사용자 확인 대상** | ACTIVE | — |
+| D-003 | PRD/TRD 는 **사실 정정 · 구현 완료 표기 · TRD §2 F16+ 기능 행 추가**만 한다. PRD §11 의 미결 OQ 는 결정하지 않고, 해소된 OQ3 의 비고에 적힌 낡은 사실(draft 게시)만 정정한다 | 루트 `AGENTS.md` 원칙 2(OQ 단독 결정 금지) · 재구성은 사용자 요구가 아님 | 설계자 기본값 → **사용자 확인(2026-10-13)** | ACTIVE | — |
 | D-004 | 보드의 `verify/PASS` 45행(사람 실기 대기)은 archive 로 옮기지 않는다 | 각 행 비고 "archive 이동은 ACxx 실기 뒤" 가 기존 결정이다 | `docs/handoff/INDEX.md` 비고 | ACTIVE | — |
 | D-005 | ADR 본문은 고치지 않는다. ADR 의 구 경로(`orca.db`·`orca-dev`)는 doc-gate baseline 에 `역사` 로 분류한다 | `decisions/README.md` "기존 ADR 을 고쳐 쓰지 않는다" | 저장소 규칙 | ACTIVE | — |
 | D-006 | `docs/handoff/<past>`·`archive/`·`etc/`·`spec/<vendor>/` 는 비범위. `spec/` 원문 미러는 편집 금지 | `docs/AGENTS.md` 표 · doc-gate SCOPE | 저장소 규칙 | ACTIVE | — |
-| D-007 | **범위 확장 2건**: 루트 `AGENTS.md`·`app/AGENTS.md` 의 "TRD §15" 참조(TRD 는 12절, Future Work 는 §10)와 `app/AGENTS.md:74` CSP 문장(`img-src` 누락)은 `docs/` 밖이지만 `docs/AGENTS.md:59`·`security.md §1.6` 과 같은 사실의 사본이라 함께 정정한다 | 사본을 한쪽만 고치면 갈라진다(`docs/AGENTS.md` 작성 규칙 3) · 1줄 정정 | 설계자 기본값 — **사용자 확인 대상** | ACTIVE | — |
+| D-007 | **범위 확장 2건**: 루트 `AGENTS.md`·`app/AGENTS.md` 의 "TRD §15" 참조(TRD 는 12절, Future Work 는 §10)와 `app/AGENTS.md:74` CSP 문장(`img-src` 누락)은 `docs/` 밖이지만 `docs/AGENTS.md:59`·`security.md §1.6` 과 같은 사실의 사본이라 함께 정정한다 | 사본을 한쪽만 고치면 갈라진다(`docs/AGENTS.md` 작성 규칙 3) · 1줄 정정 | 설계자 기본값 → **사용자 확인(2026-10-13)** | ACTIVE | — |
 | D-008 | `observability.md §5` 로그 이벤트 카탈로그의 정본은 **코드 열거 명령**이다. handoff 0124 plan 포인터는 폐지한다 | 코드 열거 28종 ≠ 0124 표(`app.legacy.migrated`·`auth.grant.orphaned` 등 추가분) — 핸드오프 plan 은 과거 증거 | 코드 `rg "info\('" app/src/main` | ACTIVE | — |
 | D-009 | 0192 verify F1·F2·F3 를 이번 접촉에서 닫는다 — `limits` 라벨 문구(F1)·비-ts 경로의 인용 파일 기준 상대경로 해석(F2)·"exit 0 고정" 문구(F3) | 0192 verify "다음 접촉 시 함께 닫는다" — 이번이 다음 접촉 | `0192/verify.md:164,183-185,209` | ACTIVE | — |
 | D-010 | 검증 장치는 **데이터(TSV) + 스크립트** 다 — `drift-assertions.tsv`(사실 단언)·`status-marks.tsv`(상태 표식 유지 판정)·`handoff-coverage.tsv`(핸드오프→문서) 를 `drift-check.sh check` 가 대조한다. 수치는 산문이 아니라 `check` 산출이 갖는다 | 0192 원칙(손으로 적은 수치는 재현되지 않는다) 승계 | 0192 plan §19 · verify r2 E1 | ACTIVE | — |
@@ -60,6 +60,7 @@
 - 변경된 결정: 없음. **ΔV1(2026-10-13)** 에서 D-013·D-014 추가 — 기존 결정 대체 없음.
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: 0191 D-003(이력 표 삭제+링크 — D-002 로 승계) · 0192 D-003(`doc-gate.sh` 는 CI 밖, 사람이 돌린다 — 유지).
 - 사용자 미질의 기본값 2건(D-003·D-007)은 READY 보고에서 사용자에게 명시한다 — 거부 시 D-003 은 PRD/TRD 범위 축소, D-007 은 세 파일 1줄 되돌림으로 닫힌다(둘 다 one-way door 아님).
+- **사용자 확인(2026-10-13)**: D-003 "이 범위로 괜찮다" · D-007 "Ok" — 두 기본값 모두 ACTIVE 로 확정.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-002 ↔ AC4(adapters §1.5 "삭제+링크") 일치 · D-003 ↔ AC12·AC13("사실 정정·완료 표기·F16+ 행만", OQ 미결 항목 비접촉) 일치 · D-005 ↔ AC21(ADR 사이트는 baseline 분류만) 일치 · D-007 ↔ AC17(세 파일 1줄) 일치 · D-010 ↔ AC18~AC20(TSV 장치) 일치 · D-011 ↔ AC2·AC3(값 대신 정본 파일) 일치.
 
 ## 4. 요구 비판적 검토
