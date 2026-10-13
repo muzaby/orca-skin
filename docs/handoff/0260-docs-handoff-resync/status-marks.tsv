@@ -1,0 +1,83 @@
+# file	marker	문맥(표식 앞뒤 24자)	유지 근거 — 정본은 plan.md AC18. 낡은 표식은 이 표가 아니라 문서에서 고친다.
+docs/GLOSSARY.md	미구현	audeConfig`(opencode 짝은 미구현). 정본 standardization.md	opencode MCP 변환기 부재 — `features/extensions/mcp/` 는 `toClaudeConfig` 만
+docs/IPC_CONTRACT.md	잔여	der 큐 개별 취소 표면이 없어 Stop 잔여를 없애는 유일한 수단. **백그라운드 서브	상태 표식 아님 — '잔여'는 residual(남은 것) 기술 용어
+docs/IPC_CONTRACT.md	잔여	| 연결 해제 — grant 와 vault 잔여물(값·metadata·index)을 함께	상태 표식 아님 — '잔여'는 residual(남은 것) 기술 용어
+docs/IPC_CONTRACT.md	잔여	속/세션 전환 시 현재 준비·스트리밍·대기·잔여 상태를 추가 왕복 없이 복원한다. live	상태 표식 아님 — '잔여'는 residual(남은 것) 기술 용어
+docs/IPC_CONTRACT.md	잔여	타임(서브프로세스) 폐기로 CLI 입력 큐 잔여를 통째로 소멸시킨다. 공개 SDK 에 pr	상태 표식 아님 — '잔여'는 residual(남은 것) 기술 용어
+docs/IPC_CONTRACT.md	잔여	하고 live를 제한적으로 다시 확인한다. 잔여와 연결 미확인을 숨기지 않는다. |	상태 표식 아님 — '잔여'는 residual(남은 것) 기술 용어
+docs/PRD.md	미구현	ode *(예약 사양 — Phase 1·2 미구현)* |	OpenCode 어댑터 미구현 — `Backend = 'claude'`(`shared/ipc.ts`)·AdapterRegistry claude 단일
+docs/PRD.md	잔여	.yml`/`release.yml`). **잔여**: Windows code signing	코드 서명·공증 미도입 — `release.yml` 헤더 '서명 없음(사내용)'·`electron-builder.yml` mac `notarize: false`
+docs/PRD.md	잔여	e/llama.cpp/OpenAI 호환)은 잔여 | `project/variations/v	멀티 엔진 미구현 — `Backend = 'claude'`
+docs/PRD.md	잔여	nalysis, mtf-sfr 등) 자체는 잔여 | `project/variations/v	도메인 스킬 미번들 — `app/resources/builtin/skills` 에 manifest 만
+docs/PRD.md	잔여	인증 + 세션 주입. 세분화된 권한 패널은 잔여 | 동 우측 — 구현 IPC_CONTRAC	MCP 세분 권한 패널 없음 — 카탈로그 MCP 탭은 CRUD·토글만
+docs/TRD.md	미구현	**미구현.** SDK 설치와 실제 OpenCode	OpenCode 어댑터 미구현 — `Backend = 'claude'`(`shared/ipc.ts`)·AdapterRegistry claude 단일
+docs/TRD.md	미구현	1). 새 대화 단축키(Ctrl+N)는 **미구현**. 다크모드는 설정 일반 탭의 테마 (C	새 대화 단축키 없음 — renderer 키 처리에 Ctrl/Cmd+N 핸들러 0건
+docs/TRD.md	미구현	g`, 순수 — opencode 대칭 짝은 미구현). 배포기가 활성 MCP·skill 을 `	opencode MCP 변환기 부재 — `features/extensions/mcp/` 는 `toClaudeConfig` 만
+docs/TRD.md	미구현	local·http/sse→remote)는 미구현 — `infra/vars.test.ts`·	opencode MCP 변환기 부재 — `features/extensions/mcp/` 는 `toClaudeConfig` 만
+docs/TRD.md	미구현	엔드 선택·OpenCode MCP 변환기는 미구현이다(`Backend`=`'claude'`)	OpenCode 어댑터 미구현 — `Backend = 'claude'`(`shared/ipc.ts`)·AdapterRegistry claude 단일
+docs/TRD.md	미구현	이후 구현된 기능은 §2 F11+ 표가, 미구현 확장은 §10 의 anchor 가 갖는다.	문서 구조 서술 — 상태 판정 대상 아님
+docs/TRD.md	미구현	치했으나 `OpencodeAdapter`는 미구현이며 AdapterRegistry에 등록하지	OpenCode 어댑터 미구현 — `Backend = 'claude'`(`shared/ipc.ts`)·AdapterRegistry claude 단일
+docs/TRD.md	미구현	하드웨어·Captures 등 미구현 도메인의 범위는 `docs/PRD.md`	하드웨어·Captures 기능 없음 — `CapturesView` 는 제목 placeholder
+docs/TRD.md	잔여	*즉시 게시**(`v*` 태그 push). 잔여 = 코드 서명/공증(macOS 포함). 정	코드 서명·공증 미도입 — `release.yml` 헤더 '서명 없음(사내용)'·`electron-builder.yml` mac `notarize: false`
+docs/TRD.md	잔여	- 잔여 OQ3: **코드 서명 / macOS 공증	코드 서명·공증 미도입 — `release.yml` 헤더 '서명 없음(사내용)'·`electron-builder.yml` mac `notarize: false`
+docs/TRD.md	잔여	= electron-updater 확정. 잔여 = 코드 서명/공증 |	코드 서명·공증 미도입 — `release.yml` 헤더 '서명 없음(사내용)'·`electron-builder.yml` mac `notarize: false`
+docs/TRD.md	잔여	도입 완료(IPC_CONTRACT §2). 잔여 예약은 IPC_CONTRACT §2.14.	예약 채널 실재 — IPC_CONTRACT §2.14
+docs/TRD.md	잔여	완료 (0084~0089, §9.2)**. 잔여 = 코드 서명/공증/staged rollo	코드 서명·공증 미도입 — `release.yml` 헤더 '서명 없음(사내용)'·`electron-builder.yml` mac `notarize: false`
+docs/arch/backend/adapters.md	TBD	nfig/opencode/skills/` (TBD — opencode 공식 경로 확인 필요)	opencode 스킬 경로 근거 없음 — opencode-sdk-spec.md 미기재·어댑터 미구현
+docs/arch/backend/adapters.md	⏳	) | SDK 조사·계약 검증용 설치만 | ⏳ adapter 미구현 (PRD OQ7);	OpenCode 어댑터 미구현 — `Backend = 'claude'`(`shared/ipc.ts`)·AdapterRegistry claude 단일
+docs/arch/backend/adapters.md	⏳	code system prompt 옵션 | ⏳ |	systemPrompt 교차엔진 정규화 미완 — opencode 어댑터 미구현
+docs/arch/backend/adapters.md	미구현	ammateIdle` 등). → (설계 — 미구현, 코드 현실은 §3.2.5) `Normal	hook `supportedBackends` 메타 미구현 — `claude-adapt.ts` 는 NormalizedHookEvent→claude 매핑만(§3.2.5)
+docs/arch/backend/adapters.md	미구현	ervers` | (opencode 변환기 미구현 — `opencode.json` `mcp`	opencode MCP 변환기 부재 — `features/extensions/mcp/` 는 `toClaudeConfig` 만
+docs/arch/backend/adapters.md	미구현	·계약 검증용 설치만 | ⏳ adapter 미구현 (PRD OQ7); [SDK 해설](../	OpenCode 어댑터 미구현 — `Backend = 'claude'`(`shared/ipc.ts`)·AdapterRegistry claude 단일
+docs/arch/backend/overview.md	미구현	odeAdapter | Future | ❌ 미구현 | PRD OQ7 |	OpenCode 어댑터 미구현 — `Backend = 'claude'`(`shared/ipc.ts`)·AdapterRegistry claude 단일
+docs/arch/backend/overview.md	미구현	r` 축 claude 고정(opencode 미구현). 절별 상태는 [provider-runt	`provider` 축 claude 고정 — `ProviderId` 에 opencode seam 만(provider-runtime §2)
+docs/arch/backend/persistence.md	TBD	- export 형식: TBD (zip / tar.gz / DB dump	백업·export 기능 없음 — 형식 미정(persistence.md 백업 전략)
+docs/arch/backend/provider-runtime.md	미구현	- **OpenCode (agent, 미구현)**: permission 이벤트를 bro	OpenCode 어댑터 미구현 — `Backend = 'claude'`(`shared/ipc.ts`)·AdapterRegistry claude 단일
+docs/arch/backend/provider-runtime.md	미구현	` 축은 claude 고정(opencode 미구현)이다. 여기 정의한 타입은 **정본(SSO	OpenCode 어댑터 미구현 — `Backend = 'claude'`(`shared/ipc.ts`)·AdapterRegistry claude 단일
+docs/arch/backend/provider-runtime.md	미구현	`[검증-타입]`; Orca mapper 미구현 |	OpenCode 어댑터 미구현 — `Backend = 'claude'`(`shared/ipc.ts`)·AdapterRegistry claude 단일
+docs/arch/backend/provider-runtime.md	미구현	r 별 응답 표현 (OpenCode 연결은 미구현)**:	OpenCode 어댑터 미구현 — `Backend = 'claude'`(`shared/ipc.ts`)·AdapterRegistry claude 단일
+docs/arch/backend/provider-runtime.md	미구현	| OpenCode (미구현) | legacy `event.subscr	OpenCode 어댑터 미구현 — `Backend = 'claude'`(`shared/ipc.ts`)·AdapterRegistry claude 단일
+docs/arch/backend/provider-runtime.md	미구현	우선한다; OpenCode mapper는 미구현이다.	OpenCode 어댑터 미구현 — `Backend = 'claude'`(`shared/ipc.ts`)·AdapterRegistry claude 단일
+docs/arch/backend/provider-runtime.md	미구현	정본이다. OpenCode는 adapter 미구현이며 아래는 연결 대상의 개요다; 구체적인	OpenCode 어댑터 미구현 — `Backend = 'claude'`(`shared/ipc.ts`)·AdapterRegistry claude 단일
+docs/arch/backend/provider-runtime.md	잔여	, `claudeToNormalized`. 잔여: `provider` 축 claude 고정	`provider` 축 claude 고정 — `ProviderId` 에 opencode seam 만(provider-runtime §2)
+docs/arch/backend/provider-runtime.md	잔여	.ts` 가 그 hook 을 주입한다. **잔여 갭**: 이 가드는 claude 어댑터 층	provider-중립 WorkspaceManager 없음 — guard 는 `adapters/workspace-guard.ts`(claude 층)
+docs/arch/backend/provider-runtime.md	잔여	`toolRunId` 정규화 축 확보. **잔여 갭**: `provider` 축은 clau	`provider` 축 claude 고정 — `ProviderId` 에 opencode seam 만(provider-runtime §2)
+docs/arch/backend/provider-runtime.md	잔여	dAuth.request()` 뿐이다. **잔여 갭**: claude 자체 자격증명은 여전	claude SDK OAuth 자격증명은 Auth 전략 밖 — security.md §1.3
+docs/arch/backend/provider-runtime.md	잔여	d_out` 분기 + `onSettle`. 잔여: OpenCode 이벤트형 편입) |	OpenCode 이벤트형 권한 미편입 — 어댑터 미구현
+docs/arch/backend/provider-runtime.md	잔여	mission TTL 도입 시 소비). **잔여: OpenCode 이벤트형 편입**(SSE	OpenCode 이벤트형 권한 미편입 — 어댑터 미구현
+docs/arch/backend/provider-runtime.md	잔여	ovalResolution>` 단일 통합. 잔여: OpenCode 이벤트형) |	OpenCode 이벤트형 권한 미편입 — 어댑터 미구현
+docs/arch/backend/provider-runtime.md	잔여	over`)가 세션 비용 합계를 표시. **잔여(후속)**: AppMeasured 전체 집	AppMeasured 집계(eventCount 등) 코드 없음 — telemetry 는 provider 보고값만
+docs/arch/backend/provider-runtime.md	잔여	tedPermissions` 미사용). **잔여 갭**: `RISKY_TOOLS`·승인 지	위험 화이트리스트는 정적 Set(`adapters/risky-tools.ts`) — 등급·정규식 없음
+docs/arch/backend/provider-runtime.md	잔여	에서 중지하면 현재 응답만 중단하고, 취소 잔여 출력을 비운 뒤 같은 채널에서 새 list	상태 표식 아님 — '잔여'는 residual(남은 것) 기술 용어
+docs/arch/backend/runtime-ipc.md	미구현	neshot`** 또는 `pushTurn` 미구현(mock): 턴-스코프(매 턴 fresh	MockAdapter 에 `pushTurn` 없음(`adapters/mock.ts`) — 사실 서술
+docs/arch/backend/runtime-ipc.md	잔여	spawn+resume 콜드 패스. 이월 잔여(미소비 flushed 재주입 + held)	상태 표식 아님 — '잔여'는 residual(남은 것) 기술 용어
+docs/arch/backend/runtime-ipc.md	잔여	| 취소·retry 로 중단 신호 발신됨(잔여 드레인은 배경에서 terminal 까지 →	상태 표식 아님 — '잔여'는 residual(남은 것) 기술 용어
+docs/arch/backend/runtime-ipc.md	잔여	→ `interruptResponse` → 잔여 드레인 → post-turn flush |	상태 표식 아님 — '잔여'는 residual(남은 것) 기술 용어
+docs/arch/backend/security.md	미구현	다. OpenCode 변환기와 실행 연동은 미구현이다.	OpenCode 어댑터 미구현 — `Backend = 'claude'`(`shared/ipc.ts`)·AdapterRegistry claude 단일
+docs/arch/backend/security.md	미구현	티리얼라이즈**(future anchor, 미구현): 설정은 디스크 파일만 가능한 모델이 아	OpenCode 어댑터 미구현 — `Backend = 'claude'`(`shared/ipc.ts`)·AdapterRegistry claude 단일
+docs/arch/backend/standardization.md	미구현	ity.md)). OpenCode 변환기는 미구현이다.	opencode MCP 변환기 부재 — `features/extensions/mcp/` 는 `toClaudeConfig` 만
+docs/arch/backend/standardization.md	미구현	위 `OpenCodeEngine`은 미구현 설계 예시다. 설치 SDK의 import별	OpenCode 어댑터 미구현 — `Backend = 'claude'`(`shared/ipc.ts`)·AdapterRegistry claude 단일
+docs/arch/backend/standardization.md	잔여	현 완료 (스테이지 A, PR #47) · 잔여 표준(agents/commands 변환·h	agents/commands 변환·hook full-plugin 미구현 — 배포기는 skills·mcp 만(`deployer.ts`)
+docs/arch/backend/system-prompt.md	미구현	atile preamble 자체가 없음 → 미구현(기능 도입 시 재검토) |	메모리 기능 없음 — volatile preamble 대상 부재(system-prompt.md)
+docs/arch/frontend/overview.md	TBD	e | 🚧 부분 적용 | 체계적 audit TBD |	체계적 접근성 audit 미수행 — 수행 기록 없음
+docs/arch/frontend/overview.md	미구현	/Ctrl+N 등) | Future | ❌ 미구현 | OQ 추가 후보 |	새 대화 단축키 없음 — renderer 키 처리에 Ctrl/Cmd+N 핸들러 0건
+docs/arch/frontend/overview.md	미구현	네트워크 단절 배너 | Future | ❌ 미구현 | — |	네트워크 단절 배너 없음 — renderer online/offline 처리 0건(테스트 제외)
+docs/arch/frontend/overview.md	🚧	스크린리더 audit | Future | 🚧 부분 적용 | 체계적 audit TBD |	체계적 접근성 audit 미수행 — 수행 기록 없음
+docs/arch/frontend/rendering.md	⏳	ormat:json_schema` 결과 | ⏳ 최소 구현(`StructuredOutput	StructuredOutputCard 최소 구현 — claude 소스 미와이어(rendering §1.6)
+docs/arch/frontend/rendering.md	미구현	ted` props 로 "잘림" 표시. **미구현** — 현재 코드에 버퍼 상한이 없다.	도구 출력 버퍼 상한 없음 — `BashBody.tsx` 절단 로직 0건
+docs/arch/frontend/rendering.md	잔여	06-11)**: 턴 완료 후 짧은 답변의 잔여 여백은 회수하지 않는다(보이는 중 제거 =	상태 표식 아님 — '잔여'는 residual(남은 것) 기술 용어
+docs/arch/frontend/rendering.md	잔여	age.completed` 없이 끝난 턴의 잔여 live.text 는 telemetry 시	상태 표식 아님 — '잔여'는 residual(남은 것) 기술 용어
+docs/arch/frontend/state.md	잔여	`(완성본 페이로드)·`telemetry`(잔여분 `COMMIT_PENDING_TEXT`	상태 표식 아님 — '잔여'는 residual(남은 것) 기술 용어
+docs/arch/frontend/ux-domains.md	TBD	네트워크 단절              | TBD (전역 배너 미구현)	네트워크 단절 배너 없음 — renderer online/offline 처리 0건(테스트 제외)
+docs/arch/frontend/ux-domains.md	TBD	블 / 스크린리더 지원: 현재 부분 적용 (TBD — 체계적 audit 필요)	체계적 접근성 audit 미수행 — 수행 기록 없음
+docs/arch/frontend/ux-domains.md	⏳	ure Scope, nav 미노출) | **⏳ Future Scope**       |	`/routines` 라우트 미정의 — `renderer/src/app/router.tsx` catch-all 이 `/new` 로 흡수
+docs/arch/frontend/ux-domains.md	미구현	d/Ctrl+N 새 대화 등) 는 **현재 미구현**. PRD §11 OQ 추가 후보.	새 대화 단축키 없음 — renderer 키 처리에 Ctrl/Cmd+N 핸들러 0건
+docs/arch/frontend/ux-domains.md	미구현	| TBD (전역 배너 미구현)	네트워크 단절 배너 없음 — renderer online/offline 처리 0건(테스트 제외)
+docs/claude-code-spec.md	⏳	### 14.2 ⏳ Orca 후보 (미결)	미결 후보 표 — 행마다 결정 조건 명시
+docs/claude-code-spec.md	⏳	>   - ⏳ **Open Question** — Pha	범례 정의 — 표식 사용처 아님
+docs/claude-code-spec.md	⏳	⏳ **Open Question (PRD §1	PRD §11 OQ9 미결 — 기본 정책값
+docs/claude-code-spec.md	⏳	⏳ **Open Question** — Orc	세션 ID 사전 발급 미결 — 현재 init 수신(`claude.ts` MapContext)
+docs/claude-code-spec.md	⏳	⏳ **Open Question** — Pha	`--bare` 미사용·도입 미결 — §14.3 과 같은 판단
+docs/claude-taskxxx-spec.md	⏳	>   - ⏳ **채택 예정** — 진행 중 handof	범례 정의 — 표식 사용처 아님
+docs/guides/release-operations.md	잔여	4. 제거 후에도 남는 잔여 폴더는 지워도 된다: `%APPDATA%\	상태 표식 아님 — '잔여'는 residual(남은 것) 기술 용어
+docs/guides/release-operations.md	잔여	끝났다면 셋 다 비어 있거나 옮겨지지 않은 잔여물만 남는다.	상태 표식 아님 — '잔여'는 residual(남은 것) 기술 용어

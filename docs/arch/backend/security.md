@@ -10,7 +10,7 @@
 
 ### 1.1 BrowserWindow webPreferences (실제 값)
 
-`app/src/main/index.ts` 의 명시 값 (줄 21-23):
+`app/src/main/index.ts` `createWindow` 의 `webPreferences` 블록 명시 값:
 
 ```typescript
 new BrowserWindow({
@@ -36,11 +36,11 @@ new BrowserWindow({
 
 → 모든 접근은 IPC 채널을 통해서만 가능하며, 채널은 [IPC_CONTRACT.md](../../IPC_CONTRACT.md) 에 정의된 것만 사용한다.
 
-### 1.3 현재 자격증명 (Phase 2)
+### 1.3 자격증명의 소유 경계
 
-- 앱은 비밀을 디스크에 저장하지 않는다.
-- claude-code SDK 가 `~/.claude` 디렉토리의 자격증명 (OAuth / API key) 을 자동 사용.
-- 디스크 암호화는 OS 에 위임.
+- 앱이 관리하는 자격증명은 Auth 플랫폼(§1.4-b)의 **Grant → vault** 가 소유한다 — 게이트·Harness 실행 구성·Plugin·MCP `${BINDING:}` 이 그 소비자다(정본 [auth.md](./auth.md)).
+- claude-code SDK 자체의 OAuth 로그인 자격증명(`~/.claude/.credentials.json`·keychain)은 앱이 읽거나 저장하지 않는다 — 사용자가 `claude /login` 으로 관리한다. (`~/.claude/settings.json` 은 provider 스캐폴드·불러오기에서 읽는다 — overview.md §3.1 i · 0090.)
+- 디스크 암호화는 OS(safeStorage 키체인)에 위임한다.
 
 ### 1.4-b Provider 플랫폼 — credential 3계층 (0181)
 
@@ -60,7 +60,7 @@ new BrowserWindow({
 
 | # | 경로 | 왜 불가피한가 | 완화 |
 |---|---|---|---|
-| 1 | **MCP `.mcp.json`** — `dist/plugins/orcinus-orca/.mcp.json` 에 해석된 값이 평문으로 렌더된다 | claude CLI 가 그 파일을 읽어 MCP 서버를 spawn 한다 — Orca 가 요청 주체가 아니다 | 미해결 참조는 그 **서버를 통째로 드롭**(fail-closed). 소유권이 provider 하나로 일원화돼 회전·해제가 한 곳 |
+| 1 | **MCP `.mcp.json`** — `dist/<engine>/plugins/orcinus-orca/.mcp.json` 에 해석된 값이 평문으로 렌더된다 | claude CLI 가 그 파일을 읽어 MCP 서버를 spawn 한다 — Orca 가 요청 주체가 아니다 | 미해결 참조는 그 **서버를 통째로 드롭**(fail-closed). 소유권이 provider 하나로 일원화돼 회전·해제가 한 곳 |
 | 2 | **LLM `--settings` argv** — provider `settings.json` 의 `env` 블록 | 사용자가 `~/.claude/settings.json` 과 같은 방식으로 직접 적는 값(0028) | Orca 는 이 파일에 **쓰지 않는다**. 확장·주입도 하지 않고 verbatim 으로 읽는다 |
 | 3 | **LLM `Options.env`** (0181 신규) — 인증된 provider 의 자격증명을 subprocess 환경변수로 병합 | SDK 가 subprocess 를 띄우므로 자격증명은 프로세스 경계를 넘어야 한다 | **디스크에 남지 않는다**(subprocess 수명). 미인증이면 그 키를 **드롭**(빈 문자열 치환 금지). 0028 이 없앤 "설정 파일에 토큰 기록" 은 되살리지 않는다 |
 
@@ -73,20 +73,18 @@ new BrowserWindow({
 반출 경계이고, 로컬 키를 앱 credential로 승격하는 근거가 되지 않는다. 플러그인은 로컬 키를
 로그·도구 결과·renderer DTO에 싣지 않는다.
 
-### 1.4 채택된 자격증명 모델 (Phase 3+ 도입 결정)
+### 1.4 자격증명 모델 (현행)
 
-> **사용자 결정**: 어댑터별 base URL + API key 직접 저장 필요 (custom 백엔드 / 호스트 선택 지원). SDK 자격증명 위임 단독 의존 폐기.
-
-| 항목 | 채택 결정 |
+| 항목 | 현행 |
 |---|---|
-| 저장 메커니즘 | **Electron safeStorage** (OS keychain — macOS Keychain / Windows DPAPI / Linux libsecret) |
-| 저장 대상 | 어댑터별 base URL + API key (+ 필요 시 추가 키) |
-| 저장 위치 | **TBD (신규 OQ)** — 로컬 DB 의 `credentials` 테이블 (암호화 blob) vs electron-store + safeStorage 조합 |
-| 입력 UI | EngineSettings 화면 (../frontend/ux-domains.md §2) |
-| 로그 / 에러 메시지 노출 | **절대 금지** — 마스킹 의무 |
+| 저장 메커니즘 | **Electron safeStorage** 위 vault(`infra/vault.ts`) — OS keychain(macOS Keychain / Windows DPAPI / Linux libsecret) |
+| 저장 대상 | Auth 선언(`AuthDefinition`)에 대한 Grant 의 비밀값(`secret`·`token`·refresh) — LLM 게이트웨이·사내 서비스·MCP 서버가 같은 축이다 |
+| 저장 위치 | vault 키 `provider:<authId>:<authKind>@<세대>` + grant store(electron-store, 비밀 없음) — §1.4-b |
+| 입력 UI | 연결(플러그인 카탈로그) 탭 — [../frontend/ux-domains.md](../frontend/ux-domains.md) §2 |
+| 로그 / 에러 메시지 노출 | **절대 금지** — 마스킹 의무([observability.md](./observability.md) redaction) |
 | Linux 추가 의존성 | libsecret 필요 (배포 시 의존성 명시) |
 
-> **첫 실사용처 (MCP 서버 설정)**: 전역 MCP 서버 설정의 인증값(stdio API 키 / http Bearer 토큰)이 본 모델의 첫 구현이다. **저장 위치는 electron-store(`orcinus-orca-secrets`) + safeStorage 조합**. 활성 MCP 설정을 배포할 때 resolver가 비밀을 해석한다. 확장된 값의 배포 파일 사용은 아래에 서술한다. `isEncryptionAvailable()` 이 false 면 저장을 거부(에러). EngineSettings 의 어댑터별 base URL/API key 는 동일 패턴을 따른다(후속).
+> **MCP 서버 인증값**: 전역 MCP 설정의 인증값(stdio API 키 / http Bearer 토큰)은 `${VAR}` 참조로 적고 배포 시 resolver 가 해석한다(`${BINDING:<id>}` → vault → allowlist env, 아래). `isEncryptionAvailable()` 이 false 면 저장을 거부(에러).
 >
 > **MCP & Skill 통합 레이어 (파일-백드 모델로 재설계)**: 초기 구현은 `orca-mcp` 스토어에 풍부한 per-server 레코드(authEnc 포함)를 담았으나, 이후 **정규 소스 = `~/.config/orcinus-orca/mcp.json`** (순정 Claude `mcpServers` 스키마 + `${VAR}` 플레이스홀더) 로 이전했다. 3출처 분할:
 > - **소스** (`mcp.json`, `~/.config/orcinus-orca`): 정의의 진실. 순정 Claude 스키마만 — Claude Code 로 그대로 복사 가능. `${VAR}` 만 있고 **평문 비밀 0**. atomic write(temp+rename).
@@ -119,17 +117,21 @@ new BrowserWindow({
 - 외부 링크: `shell.openExternal` 경유, 절대 `webContents` 에서 직접 열지 않음.
 - `will-navigate` / `setWindowOpenHandler` 에서 외부 URL 모두 거부.
 - **의도적 예외 — 통제된 로그인 창**: `infra/browser-session.ts` 의 `openLoginWindow` 는 배포 선언(`app/deployment/`, 컴파일 타임)이 지정한 URL 을 **전용 격리 창**에 로드한다. 앱 본창 정책은 불변이며, 이 창은 (a) `session.fromPartition(partitionFor(sessionGroup))`(`persist:auth.<group>`) 으로 앱 세션과 쿠키 격리, (b) preload 없음 + `contextIsolation`/`sandbox` 강제 + `nodeIntegration:false`, (c) `isDone(url)` 매칭 또는 타임아웃 시 즉시 destroy 로 경계를 좁힌다. 쿠키를 호출자에게 돌려주지 않고 handle 과 최종 URL·probe 판정만 준다.
-- DevTools 자동 오픈: dev 빌드 (`process.env.NODE_ENV !== 'production'`) 한정.
+- DevTools: 코드가 열거나 막지 않는다 — `openDevTools` 호출·`webPreferences.devTools` 지정·애플리케이션 메뉴 설정이 모두 없어 Electron 기본 동작을 따른다.
 
 ### 1.6 CSP
 
-`src/renderer/index.html`:
+`src/renderer/index.html` 의 `<meta http-equiv="Content-Security-Policy">` 가 정본이다. 현행 지시어:
+
 ```
+default-src 'self'; script-src 'self';
 style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-font-src 'self' https://fonts.gstatic.com
+font-src 'self' https://fonts.gstatic.com;
+img-src 'self' data: https://assets-proxy.anthropic.com;
+connect-src 'self'
 ```
 
-— Google Fonts CDN 허용. 그 외 외부 도메인 금지.
+— 외부 출처는 Google Fonts(style·font)와 Anthropic 자산 프록시(img)만 허용한다. 지시어를 바꾸면 이 절과 [`app/AGENTS.md`](../../../app/AGENTS.md) 의 CSP 문장을 같은 커밋에서 갱신한다.
 
 ### 1.7 로그인 게이트 · 배포/업데이트 신뢰 (0072 / 0086 / 0087~0089)
 
@@ -137,12 +139,12 @@ font-src 'self' https://fonts.gstatic.com
   - **prod 는 선언이 0개면 통과**(`required:false`) — OSS/기본 배포가 로그인 화면에 갇히지 않게 하는 안전장치이며 `gate.test.ts` 가 회귀로 고정한다.
   - **DEV 는 선언이 0개여도 게이트를 세운다**(`alwaysRequired`, 0089/0130 동작 복원) — 폐쇄망 실값 없이도 로그인 화면을 보고 고칠 수 있어야 하기 때문이다. 그 빌드의 유일한 탈출구가 우회 토글이라, 디버그 패널이 로그인 화면에도 마운트된다.
   - **판정 전에는 통과시키지 않는다**(`gate=null` → 부팅 화면 유지). main 이 잠깐 응답하지 못하는 사이 로그인 강제 빌드가 무인증으로 열리면 안 된다(fail-closed).
-  - 게이트 멤버가 여럿이면 **전부 `valid` 일 때만** 통과한다 — 로그인이 체인이라 멤버 하나만 풀려도 인증이 아니다.
+  - 게이트 멤버가 여럿이면 **전부 `valid` ∧ `verified` ∧ 일일 재로그인 미요구(`!dailyReloginRequired`)** 일 때만 통과한다(`features/gate/index.ts`) — 로그인이 체인이라 멤버 하나만 풀려도 인증이 아니다. 실행 중 로컬 날짜 경계를 넘으면 통과만 해제하고 다시 로그인을 요구한다(`features/gate/daily.ts` · [ADR-008](../../decisions/008-daily-login-gate.md), 현재 규칙은 [auth.md §5.3](./auth.md)).
   - `Settings.authBypass` 는 **DEV 빌드 전용 우회**로 소비자가 돌아왔다(prod 번들에서는 `import.meta.env.DEV` 가 false 로 접혀 분기 자체가 사라진다). 토글은 디버그 패널의 "로그인" 그룹이며 **게이트 화면과 메인 셸 양쪽에** 뜬다 — 메인 셸에만 두면 게이트에 막혔을 때 스위치에 도달할 수 없다. 값이 바뀌면 `settings:set` 핸들러가 provider 상태를 push 해 재시작 없이 반영된다.
   - 게이트는 **UX 게이트이지 보안 경계가 아니다** — 인증 전에도 main IPC 는 열려 있다. 로그인 화면은 창 컨트롤(닫기)을 항상 살려 둬 재시도 루프에 갇히지 않게 한다.
 
-> **0157 이 지운 두 경로 (되살리지 말 것)**: ⓐ 구 `features/sso/modules/` + `contracts/sso.ts` 는 auth-platform 으로 승계돼 **더 이상 없다**. ⓑ 구 `setProviderEnv` sink — 획득 토큰을 provider `settings.json` 의 env 블록에 **평문으로 병합 기록**하던 경로로, 0157 에서 제거됐다(`app/bootstrap.ts:481-483` 주석이 근거를 보존한다). 이제 credential 은 binding·vault 가 소유하고, LLM 백엔드로 나가는 env 값은 **사용자가 직접 적은 것만** 남는다. 구 SecretStore 네임스페이스 `provider:<key>:`(0130 핸드셰이크)도 0157 이후 **쓰는 쪽이 0곳**이며, 인증이 필요한 사용량 조회는 구독 모델로 대체됐다(0176 — `contracts/usage-source.ts`).
-- **업데이트/배포 신뢰**: 릴리스는 **unsigned NSIS**(코드 서명 미도입 — OQ, SmartScreen 경고 수용) + GitHub Releases draft(수동 Publish 게이트). electron-updater 는 `latest.yml` sha512 로 산출물 무결성을 검증하고, 릴리스 파이프라인의 `validate-dist.mjs` 가 게시 전 sha512 를 재계산 검증한다(0087). 자동 다운로드는 하지 않는다(`autoDownload=false`, runtime-ipc.md §3.1).
+> **0157 이 지운 두 경로 (되살리지 말 것)**: ⓐ 구 `features/sso/modules/` + `contracts/sso.ts` 는 auth-platform 으로 승계돼 **더 이상 없다**. ⓑ 구 `setProviderEnv` sink — 획득 토큰을 provider `settings.json` 의 env 블록에 **평문으로 병합 기록**하던 경로로, 더 이상 없다(0157 — `app/bootstrap.ts` 주석이 근거를 보존한다). 이제 credential 은 Grant·vault 가 소유하고, LLM 백엔드로 나가는 settings env 값은 **사용자가 직접 적은 것만** 남는다(Harness 실행 구성 overlay 는 `options.env` 경로 — §1.4-b 예외 3). 구 SecretStore 네임스페이스 `provider:<key>:`(0130 핸드셰이크)도 0157 이후 **쓰는 쪽이 0곳**이며, 인증이 필요한 원격 사용량 조회는 배포가 `UsageFetcher` 포트(`app/deployment/usage-fetcher.ts`)를 주입할 때만 돈다 — 사용량 전용 확장점은 없다(standardization.md §5.1).
+- **업데이트/배포 신뢰**: 릴리스는 **unsigned NSIS**(코드 서명 미도입 — OQ, SmartScreen 경고 수용) + GitHub Releases **즉시 게시**(`v*` 태그 push — [`release-operations.md`](../../guides/release-operations.md); 수동 dispatch 는 dry-run). electron-updater 는 `latest.yml` sha512 로 산출물 무결성을 검증하고, 릴리스 파이프라인의 `validate-dist.mjs` 가 게시 전 sha512 를 재계산 검증한다(0087). 자동 다운로드는 하지 않는다(`autoDownload=false`, runtime-ipc.md §3.1).
 
 ### 1.8 원격 전송 스택 단일화 — main 은 Node `fetch` 를 쓰지 않는다 (0173 / 0174)
 
@@ -221,9 +223,9 @@ Plugin의 테스트는 그 프로그램을 추가하는 작업이 소유한다.
 
 ### Agent provider auth token
 
-provider `settings.json`(`sources/settings/<adapter>/<provider>/`)은 `~/.claude/settings.json` 과 **동일 스키마·동일 취급**이다(handoff 0028). 접근 토큰·base URL 등 인증 env 는 사용자가 그 파일의 `env` 블록에 **직접** 적어 관리한다(Claude Code 정책 그대로). Orca 는 이 env 에 대해 `${VAR}` 확장도, secret-store 토큰 주입(구 `provider:${key}`→`ANTHROPIC_API_KEY`, 0010/0015)도 **하지 않는다** — settings 를 verbatim 으로 읽어 그대로 주입한다. (secret-store `provider:` 토큰 경로는 0028 에서 폐지. secret-store/safeStorage 자체는 MCP 인증값 전용으로 유지.) provider settings 는 dist 에 배포하지 않고 sources 파일만 읽으므로 **디스크 평문 0** 은 유지된다.
+provider `settings.json`(`sources/settings/<adapter>/<provider>/`)은 `~/.claude/settings.json` 과 **동일 스키마·동일 취급**이다(handoff 0028). 접근 토큰·base URL 등 인증 env 는 사용자가 그 파일의 `env` 블록에 **직접** 적어 관리한다(Claude Code 정책 그대로). Orca 는 이 env 에 대해 `${VAR}` 확장도, secret-store 토큰 주입(구 `provider:${key}`→`ANTHROPIC_API_KEY`, 0010/0015)도 **하지 않는다** — settings 를 verbatim 으로 읽어 그대로 주입한다. (secret-store `provider:` 토큰 경로는 0028 에서 폐지. safeStorage 는 이제 Auth vault(§1.4-b)가 쓴다.) provider settings 는 dist 에 배포하지 않고 sources 파일만 읽으므로 **디스크 평문 0** 은 유지된다.
 
-**env→`options.settings` 주입 (handoff 0028 — 0015/0018 "env↛argv" 불변식 폐기)**: provider settings 는 `query()` 의 flag 레이어(`options.settings` → CLI `--settings`)로 주입된다. `settingSources` 를 생략해 상속한 사용자 `~/.claude/settings.json` 위에 이 flag settings 가 얹혀 **덮어쓰므로**, 앱 환경구성(env 포함)이 사용자 전역 env 를 이기려면 env 가 settings 레이어에 있어야 한다. 따라서 env 를 settings 안에 그대로 실어 주입한다. 이 값은 SDK 가 직렬화 없이 CLI argv 에 push 하므로 env(auth key 포함)가 **process list(같은 사용자에게 가시)에 노출**되는데, 이는 "앱 환경구성으로 ~/.claude 를 덮어쓴다"는 요구를 위한 **수용된 트레이드오프**다(same-user 한정 — Claude Code 의 `--settings` 와 동일 노출 특성). `options.env` 에는 시스템(턴) env(uv 런타임 + orcinus-orca.json 앱 env)만 싣는다.
+**env→`options.settings` 주입 (handoff 0028 — 0015/0018 "env↛argv" 불변식 폐기)**: provider settings 는 `query()` 의 flag 레이어(`options.settings` → CLI `--settings`)로 주입된다. `settingSources: ['project','local']`(0117) 이라 사용자 전역 `~/.claude/settings.json` 은 상속되지 않고, 이 flag settings 가 **앱 환경구성의 유일한 settings 원천**이 된다 — env 도 settings 안에 그대로 실어 주입한다. 이 값은 SDK 가 직렬화 없이 CLI argv 에 push 하므로 env(auth key 포함)가 **process list(같은 사용자에게 가시)에 노출**되는데, 이는 "앱 환경구성이 settings 를 소유한다"는 요구를 위한 **수용된 트레이드오프**다(same-user 한정 — Claude Code 의 `--settings` 와 동일 노출 특성). `options.env` 에는 턴 env 만 싣는다 — `orcinus-orca.json` 앱 env · Harness 실행 구성 overlay([auth.md](./auth.md)) · 배포 custom env(`app/deployment/spawn-env.ts`) · 에이전트 종류별 spawn env(`SessionAdapter.agentSpawnEnv`).
 
 > **이력**: 0015/0018 은 평문 비밀의 argv 노출을 막고자 env 를 settings 에서 떼어(`splitProviderSettings`) subprocess env 로만 흘리고, 이를 branded 타입(`ArgvSafeSettings`/`SubprocessEnv`) + 음성 타입 테스트로 컴파일타임 강제했다. 그러나 그 방식으로는 `options.env` 가 settingSources 의 `~/.claude/settings.json` env 를 덮어쓰지 못해 앱 환경구성이 무력화됐다. 0028 이 이 split·branded·음성 테스트를 제거(supersede)한다. 0015/0018 문서는 historical 로 보존한다.
 

@@ -4,7 +4,7 @@
 #   doc-gate.sh sweep {symbols|paths|tense}   정의 — 산출을 표준출력으로 낸다
 #   doc-gate.sh check                         대조 — baseline 과 양방향 차집합, exit 1 이면 어긋남
 #   doc-gate.sh regen                         승계 — 기존 판정 보존, 신규는 미분류 표식
-#   doc-gate.sh limits                        계측 한계의 크기 — 산문이 수치를 갖지 않게 한다 (exit 0 고정)
+#   doc-gate.sh limits                        계측 한계의 크기 — 산문이 수치를 갖지 않게 한다 (한계 크기는 exit 를 바꾸지 않는다)
 #
 # baseline 계약 (전부 TAB 구분, 빈 칸 금지):
 #   baselines/symbol-buckets.tsv    심볼 \t 버킷      버킷 ∈ 설계어휘|외부|역사|future|문서어휘
@@ -257,7 +257,8 @@ do_regen() {
 # ---- 계측 한계의 크기 ----------------------------------------------------
 # 이 서브커맨드가 한계 수치의 정본이다 — plan.md §19 는 값을 적지 않고 라벨을 가리킨다.
 # 손으로 적은 수치는 재현되지 않는다(0192 verify r2 E1: 등록부 136 ↔ 실측 137).
-# 한계 크기의 변동은 결함이 아니라 코퍼스 이동이므로 게이트로 두지 않는다 — exit 0 고정.
+# 한계 크기의 변동은 결함이 아니라 코퍼스 이동이므로 게이트로 두지 않는다 — 한계 크기는 exit 를
+# 바꾸지 않는다. preflight 실패(빈 SCOPE·경로 부재)만 exit 2 다.
 emit_limit() { printf '  %-22s %s\n' "$1" "$2"; }
 
 do_limits() {
@@ -276,7 +277,8 @@ do_limits() {
            done | wc -l)
   emit_limit tense-out-of-judgment "$(( sites - judged ))  (고유 사이트 $sites · 술어 있는 사이트 $judged)"
 
-  # 추출 / 맨 CamelCase 산문 — 추출 4축이 이미 잡는 심볼을 뺀 차집합이다.
+  # 추출 / 맨 CamelCase (산문+펜스) — 추출 4축이 이미 잡는 심볼을 뺀 차집합이다. 펜스 코드블록
+  # 안 토큰도 센다 — 추출 4축이 못 보는 자리라 이 축의 목적에 맞다(0192 verify F1).
   extract_pairs | cut -f1 | sort -u > "$extracted"
   for f in $(scope_files); do sed 's/`[^`]*`//g; s/\*\*[^*]*\*\*//g' "$f"; done \
     | grep -oE '(^|[^A-Za-z0-9_/`-])[A-Z][a-z0-9]+([A-Z][A-Za-z0-9]*)+' \
@@ -296,7 +298,10 @@ do_limits() {
     while IFS=: read -r ln p; do
       q=${p#app/}; q=${q#./}
       esc=$(printf '%s' "$q" | sed 's/[][\\.^$*+?(){}|]/\\&/g')
-      grep -qE "(^|/)${esc}\$" "$real" || printf '%s:%s\t%s\n' "$f" "$ln" "$p"
+      grep -qE "(^|/)${esc}\$" "$real" && continue
+      # 인용 파일 기준 상대경로로 실재하면 해석된 인용이다 — `app/AGENTS.md` 의 `../docs/…` 류(0192 verify F2).
+      [ -e "$(dirname "$f")/$p" ] && continue
+      printf '%s:%s\t%s\n' "$f" "$ln" "$p"
     done
   done | sort -u > "$paths"
   emit_limit non-ts-paths "$(wc -l < "$paths")"

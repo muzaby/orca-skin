@@ -14,7 +14,7 @@
 | Main 구조·성능 진단 및 경량화 결과 | [`etc/study/main-structure/diagnosis.md`](etc/study/main-structure/diagnosis.md) |
 | 세션 런타임 · 동시성 · IPC 핸들러 구조 | [`arch/backend/runtime-ipc.md`](arch/backend/runtime-ipc.md) |
 | chat turn · 어댑터 호출 · SDK→NormalizedEvent 정규화 | [`arch/backend/adapters.md`](arch/backend/adapters.md) |
-| **Claude CLI 컨텍스트 한도·파일/이미지 정책** (200k·1M·미확인 모델 · 게이트웨이 경유 차이) | [`etc/study/claude/08-컨텍스트-한도와-파일-정책.md`](etc/study/claude/08-컨텍스트-한도와-파일-정책.md) — 근거 · Orca 적용은 [`handoff/0245-context-policy-cli-parity/plan.md`](handoff/0245-context-policy-cli-parity/plan.md) |
+| **Claude CLI 컨텍스트 한도·파일/이미지 정책** (200k·1M·미확인 모델 · 게이트웨이 경유 차이) | 현재 동작은 [`arch/backend/adapters.md`](arch/backend/adapters.md) §1.3 "컨텍스트 모델과 파일 입력" · 근거는 [`etc/study/claude/08-컨텍스트-한도와-파일-정책.md`](etc/study/claude/08-컨텍스트-한도와-파일-정책.md) · 설계 기록은 [`handoff/0245`](handoff/0245-context-policy-cli-parity/plan.md) |
 | 백그라운드 작업 · 원본 journal · 출력 읽기 | [`arch/backend/background-tasks.md`](arch/backend/background-tasks.md) |
 | **TaskXXX 도구군** (할 일 목록 · background 태스크 · 기능 가용성) | [`claude-taskxxx-spec.md`](claude-taskxxx-spec.md) — SDK 표면 정본 |
 | **OpenCode SDK** (설치 버전 · API 표면 · 메시지/이벤트 · 오류/전송 제약) | [`opencode-sdk-spec.md`](opencode-sdk-spec.md) · 공식 원문은 [`spec/opencode/INDEX.md`](spec/opencode/INDEX.md) |
@@ -25,15 +25,17 @@
 | DB · 영속성 · FTS5 | [`arch/backend/persistence.md`](arch/backend/persistence.md) |
 | 확장 배포 (MCP · SKILL.md · AGENTS.md 표준) | [`arch/backend/standardization.md`](arch/backend/standardization.md) |
 | 시스템 프롬프트 · 정책 append | [`arch/backend/system-prompt.md`](arch/backend/system-prompt.md) |
-| **Work 프롬프트·전용 output style 구현** | [`handoff/0234-work-prompt-profile/plan.md`](handoff/0234-work-prompt-profile/plan.md) — 계약·구현 설계·번들 CLI 실증 |
+| **Work 프롬프트·전용 output style 구현** | 현재 구조는 [`arch/backend/system-prompt.md`](arch/backend/system-prompt.md) · 계약·번들 CLI 실증 기록은 [`handoff/0234-work-prompt-profile/plan.md`](handoff/0234-work-prompt-profile/plan.md) |
 | 로깅 | [`arch/backend/observability.md`](arch/backend/observability.md) |
 | Preload·Renderer 구조·성능 진단 및 경량화 결과 | [`etc/study/preload-renderer-structure/diagnosis.md`](etc/study/preload-renderer-structure/diagnosis.md) |
 | renderer 범위 · 스택 · 구현 상태 | [`arch/frontend/overview.md`](arch/frontend/overview.md) |
 | renderer 4-layer · 디렉토리 책임 | [`arch/frontend/layers.md`](arch/frontend/layers.md) |
 | renderer 상태 관리 (Zustand · 멀티세션) | [`arch/frontend/state.md`](arch/frontend/state.md) |
 | 렌더링 (ToolRendererRegistry · 스트리밍 · UsagePanel) | [`arch/frontend/rendering.md`](arch/frontend/rendering.md) |
-| **Work·Code 에이전트 계층** | [`handoff/0224-work-agent-layer/plan.md`](handoff/0224-work-agent-layer/plan.md) · 근거는 [`Cowork 연구`](etc/study/cowork/README.md) |
-| **산출물 게시 도구** (모델 직접 호출·HTML/Markdown 카드·우측 패널) | [`handoff/0223-artifact-publisher/plan.md`](handoff/0223-artifact-publisher/plan.md) — 계획 · [`검증`](handoff/0223-artifact-publisher/verify.md) · [`선행 검토`](etc/study/cowork/artifact-publisher-review.md) |
+| **Work·Code 에이전트 계층** | 현재 구조는 [`GLOSSARY.md`](GLOSSARY.md) AgentKind · [`arch/backend/adapters.md`](arch/backend/adapters.md) §1.1 · [`arch/frontend/state.md`](arch/frontend/state.md) "제품 에이전트 종류" · 설계 기록 [`handoff/0224`](handoff/0224-work-agent-layer/plan.md) · 근거 [`Cowork 연구`](etc/study/cowork/README.md) |
+| **산출물 게시 도구** (모델 직접 호출·HTML/Markdown 카드·우측 패널) | 현재 구조는 [`arch/backend/persistence.md`](arch/backend/persistence.md) §1.4 · [`IPC_CONTRACT.md`](IPC_CONTRACT.md) §2.6-a · [`arch/frontend/rendering.md`](arch/frontend/rendering.md) "산출물 게시 카드" · 설계 기록 [`handoff/0223`](handoff/0223-artifact-publisher/plan.md) · [`선행 검토`](etc/study/cowork/artifact-publisher-review.md) |
+| **Git worktree 격리 · Git 실행 경계** | [`GLOSSARY.md`](GLOSSARY.md) Managed worktree · [`IPC_CONTRACT.md`](IPC_CONTRACT.md) §2.6-b · [`arch/backend/security.md`](arch/backend/security.md) §1.10 |
+| **오류 토스트 (소비되지 않은 실패 보고)** | [`arch/backend/observability.md`](arch/backend/observability.md) §7 · [`IPC_CONTRACT.md`](IPC_CONTRACT.md) §2.13-d |
 | **Work transcript·출력 뷰어** (Cowork 참고·Markdown/HTML·텍스트/코드·이미지) | [`렌더링`](arch/frontend/rendering.md) · [`계약·검증 기준`](handoff/0226-cowork-transcript-viewer/plan.md) · [`검증`](handoff/0226-cowork-transcript-viewer/verify.md) |
 | UX 패턴 · 도메인 화면 카탈로그 | [`arch/frontend/ux-domains.md`](arch/frontend/ux-domains.md) |
 | DOM 마커 체계 · z-stack · custom titlebar | [`arch/frontend/dom-architecture.md`](arch/frontend/dom-architecture.md) |

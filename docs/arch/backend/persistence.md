@@ -11,7 +11,7 @@
 
 | 항목 | 위치 | 상태 |
 |---|---|---|
-| **electron-store** (`infra/settings-store.ts`) | `~/Library/Application Support/orcinus-orca-settings/...` (OS별 userData) | ✅ 완료 (키 카탈로그 §1.2) |
+| **electron-store** (`infra/settings-store.ts`) | `<userData>/orcinus-orca-settings.json` (userData 는 OS별 — [runtime-ipc.md §3.3](./runtime-ipc.md)) | ✅ 완료 (키 카탈로그 §1.2) |
 | **로컬 SQLite DB** (`db/`) | `<userData>/orcinus-orca.db` (better-sqlite3, WAL + foreign_keys) | ✅ Phase 3 완료 |
 | **FTS5 전문 검색** | `messages_fts` 가상 테이블 (3 트리거로 `messages` 와 동기 유지) | ✅ Phase 3++ 완료 |
 | **MCP 인증 비밀** | `orcinus-orca-secrets` (electron-store) + safeStorage 암호화 | ✅ Phase 3++ 완료 |
@@ -75,6 +75,15 @@
 | `0016_turn_model_context_window.sql` | `turn_model_usage.context_window`(nullable) — SDK 실측 컨텍스트 윈도 영속. 재로드 도넛 분모가 라이브와 같은 실측값을 쓰게 해 렌더러의 모델명 추측 목록을 걷어냈다 (0149). |
 | `0017_session_extra_dirs.sql` | `sessions.extra_dirs`(nullable JSON 배열) — 세션에 허용한 추가 참조 경로. Work는 유휴 상태의 명시 폴더 추가 명령으로 확장할 수 있다. |
 | `0018_managed_worktrees.sql` | `managed_worktrees` — Orca가 생성한 Git worktree의 저장소·경로·branch·base OID와 nullable 세션 연결. |
+| `0019_session_baseline.sql` | `sessions.baseline_oid` — 격리 세션이 시작된 기준 커밋 OID. |
+| `0020_session_baseline_ref.sql` | `sessions.baseline_ref` — 기준 ref 이름. |
+| `0021_artifacts.sql` | `artifact_files` + `session_artifacts` — 게시 원본 파일 메타와 세션별 게시 참조 (0223). |
+| `0022_session_agent_kind.sql` | `sessions.agent_kind` — 에이전트 종류 컬럼 도입 (0224). |
+| `0023_session_agent_kind_code.sql` | `agent_kind` 값 어휘를 `code`/`work` 로 확정 — 구 `coding` 이행. |
+| `0024_artifact_preview_formats.sql` | 게시 파일 `kind` 와 텍스트/코드·이미지 미리보기 형식 재구축. |
+| `0025_artifact_catalog.sql` | `kind: file` + `category` + `pinned` — 일반 출력 파일 등록과 카탈로그 고정. |
+| `0026_project_paths.sql` | `projects.cwd`·`cwd_key` + 부분 UNIQUE 인덱스 — 시작 폴더 식별. |
+| `0027_background_events.sql` | `background_task_events` — 백그라운드 작업 원본 journal (0231). |
 | `0028_provider_usage_periods.sql` | `provider_usage_periods`의 (provider, 일/월, 기간) 합계와 `provider_usage_period_models`의 기간별 모델 내역. 개별 미제공 수치는 NULL로 보존하며 빈 내역은 기존 행을 유지한다. 제공한 기간 합계와 모델 집합은 최신 보고로 교체하고 캐시와 같은 transaction으로 저장한다. 현재 목록은 [생성 인벤토리](../../generated/inventory.md)를 따른다. |
 
 **마이그레이션 규칙**:
@@ -92,7 +101,10 @@ Work의 표시 경계는 `message_parts`에 `response_boundary` JSON으로 저�
 
 | 테이블 | 저장 내용 |
 |---|---|
-| `sessions` | sessionId, title, title_source, backend, agent_kind, provider_key, cwd, projectId, createdAt, updatedAt, lastMessagePreview |
+| `sessions` | sessionId, title, title_source, backend, agent_kind, provider_key, cwd, extra_dirs, baseline_oid, baseline_ref, projectId, createdAt, updatedAt, lastMessagePreview |
+| `managed_worktrees` | Orca 가 만든 Git worktree — 저장소·경로·branch·base OID·nullable 세션 연결 (0209~0211). 표시명 정본 |
+| `artifact_files` / `session_artifacts` | 게시 원본 파일 메타(profile 상대 경로·hash·휴지통 이력) / 세션별 게시 참조 — §1.4 |
+| `background_task_events` | 백그라운드 작업 원본 journal — [background-tasks.md](./background-tasks.md) |
 | `messages` | sessionId FK, role, content(text — FTS5 text-cache), complete, createdAt, metadata(JSON) |
 | `message_parts` | messageId FK, 순서 보존 parts (text/tool/reasoning …, provider-runtime.md §7) |
 | `projects` | id, name, instructions, cwd, cwd_key, pinned_at, createdAt, updatedAt |

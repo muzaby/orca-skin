@@ -47,7 +47,13 @@ main ─ getLogger().child(scope).* ─────┘     enrich → suppress �
 
 ## 5. 이벤트 카탈로그 (prod `info` 화이트리스트)
 
-정본은 [`docs/handoff/0124-log-wiring/plan.md`](../../handoff/0124-log-wiring/plan.md) "이벤트 카탈로그" — 0124 완료 시 본 절로 승격한다. 원칙:
+카탈로그의 정본은 **코드**다 — main 의 `.info('<event>')` 호출이 곧 등재이고, 목록은 다음 명령으로 열거한다(산문에 복제하지 않는다 — 복제본은 갈린다):
+
+```sh
+rg -o "\.info\('[a-z.]+'" app/src/main --glob '!**/*.test.ts' | sed "s/.*'\(.*\)'/\1/" | sort -u
+```
+
+원칙:
 
 - prod 파일에 남는 것 = 카탈로그 `info` + 모든 `warn`/`error`. 그 외는 `debug`(dev 전용).
 - 앱 생명주기·부팅 스텝·DB 마이그레이션·세션 생성/재개·chat 턴 시작/완료/실패(메타만)·엔진 spawn·업데이터·스케줄러·확장 배포·설정 변경(키 이름만)·IPC 검증 실패.

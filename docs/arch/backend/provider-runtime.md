@@ -26,7 +26,7 @@ Phase 3++ 구현은 claude-code SDK 에 강하게 결합돼 있어, 범용(OpenC
 
 | 괴리 | 정규화 전 코드 | 목표 |
 |---|---|---|
-| 이벤트가 provider-specific | 구 `ChatEvent`(구 `src/shared/ipc.ts`, 9종) 가 Claude SDK 메시지 모양이었다. `sessionId`/`provider`/`toolRunId` 정규화 축 없음 | `NormalizedEvent` (§2) + `permission.requested` 1급 이벤트 |
+| 이벤트가 provider-specific | 구 `ChatEvent`(구 `src/shared/ipc.ts`, 9종) 가 Claude SDK 메시지 모양이었다. `sessionId`/`toolRunId` 정규화 축 없음(백엔드는 `session.backend` 로 파생) | `NormalizedEvent` (§2) + `permission.requested` 1급 이벤트 |
 | 일반 권한 승인 UX 부재 | `makeCanUseTool`(`src/main/adapters/claude.ts`) 가 `AskUserQuestion`/`ExitPlanMode` 만 surface, **그 외 모든 tool 을 무조건 allow** | PermissionBridge + ApprovalResolution 2분기 (§3) |
 | capability/revert/app-command/telemetry/audit/error 계층 부재 | 없음 | §4 ~ §11 |
 
@@ -36,7 +36,7 @@ Phase 3++ 구현은 claude-code SDK 에 강하게 결합돼 있어, 범용(OpenC
 
 **① 설명.** OpenCode legacy 이벤트는 `type/properties`, `/v2` import의 native `client.v2.event` 이벤트는 `type/data`와 추가 envelope 필드를 갖는다 `[검증-타입]` ([SDK 해설](../../opencode-sdk-spec.md)). Claude는 `query()` 메시지 async iterator와 `canUseTool` 콜백을 사용한다. Orca에 전달할 때만 session-scoped `NormalizedEvent`로 정규화하며, OpenCode의 전역 이벤트에도 세션 ID가 있다고 가정하지 않는다.
 
-**② 예시.** "Bash 한 줄 실행" 한 턴이 정규화 전에는 `tool_use` → `tool_result` 두 `ChatEvent` 로 흘렀다. 정규화 후엔 `sessionId`/`provider`/`toolRunId` 를 가진 `tool.call.started` → `tool.call.completed` 가 되어, 같은 `toolRunId` 로 start/complete 를 매칭하고 어느 provider/세션에서 왔는지 식별한다.
+**② 예시.** "Bash 한 줄 실행" 한 턴이 정규화 전에는 `tool_use` → `tool_result` 두 `ChatEvent` 로 흘렀다. 정규화 후엔 `sessionId`/`toolRunId` 를 가진 `tool.call.started` → `tool.call.completed` 가 되어, 같은 `toolRunId` 로 start/complete 를 매칭하고 어느 provider/세션에서 왔는지 식별한다.
 
 **③ 현재 코드 갭.** 스테이지 B1/B1′ (`f61658f`·`3973112`) 로 와이어가 `NormalizedEvent`(`session.updated`·`message.delta/completed`·`tool.call.started/completed`·`telemetry`·`error`)로 전면 전환되고 매핑이 `adapters/claude-map.ts` 의 `claudeToNormalized` 로 이관됨(구 `ChatEvent` 타입 완전 제거, PR #47). `sessionId`/`toolRunId` 정규화 축 확보. **잔여 갭**: `provider` 축은 claude 고정값(`ProviderId` 에 opencode seam만).
 
@@ -115,7 +115,7 @@ Claude 어댑터는 장수명 입력·출력 스트림과 SDK 훅을 함께 소�
 
 **② 예시.** 현재 자동 allow 되는 `Bash rm -rf build/` 가 `permission.requested{origin:'agent', action:{kind:'shell', label:'rm -rf build/', risk:'high'}}` 로 surface → 렌더러 ApprovalCard(../frontend/ux-domains.md §1.6) 가 뜨고, 사용자 결정이 콜백으로 회신된다.
 
-**③ 현재 코드 갭.** 스테이지 B2 (`a78a247`) 로 `permission.requested`/`permission.resolved` 가 **1급 `NormalizedEvent`** 가 됨 — router 가 ask/plan/tool 을 `permission.requested`(`approvalId=requestId`)로 emit, reducer 가 `action.kind`(ask_question/plan_review/tool_approval 3종)로 분기. `features/approvals/permission-bridge.ts` 가 합성·`AppCommandPolicy` 3분기 seam 보유. **스테이지 C 마무리로 `tool_approval` 게이트 활성** — `makeCanUseTool`(`src/main/adapters/claude.ts`)이 `RISKY_TOOLS` 화이트리스트(`Bash`·`PowerShell`·`Write`·`Edit`·`MultiEdit`·`NotebookEdit`, `adapters/risky-tools.ts` 의 `isRiskyTool`)에 든 도구를 `tool_approval` 로 surface 하고, 안전 도구(Read/Glob/Grep 등)는 `{behavior:'allow'}` passthrough(Claude Code 웹/CLI 기본 패턴). 권한 응답은 단일 `permissionRespond` 채널 + `ApprovalBroker<ApprovalResolution>` 로 통일됐다(구 askRespond/planRespond 2채널·ask/plan 2브로커 통합). "세션 동안 허용"은 `allow.updatedPermissions{scope:'session'}` → router 의 `sessionAllowedTools: Map<sessionId, Set<toolName>>` 로 앱 레벨 관리(SDK `updatedPermissions` 미사용). **잔여 갭**: `allowedTools=mcp__<name>__*` 와일드카드(adapters.md §1.3)는 여전히 "차단 안 함" 전제 · 위험 화이트리스트는 정적 상수(per-tool risk 등급·정규식 매칭은 후속).
+**③ 현재 코드 갭.** 스테이지 B2 (`a78a247`) 로 `permission.requested`/`permission.resolved` 가 **1급 `NormalizedEvent`** 가 됨 — router 가 ask/plan/tool 을 `permission.requested`(`approvalId=requestId`)로 emit, reducer 가 `action.kind`(ask_question/plan_review/tool_approval 3종)로 분기. `features/approvals/permission-bridge.ts` 가 합성·`AppCommandPolicy` 3분기 seam 보유. **스테이지 C 마무리로 `tool_approval` 게이트 활성** — `makeCanUseTool`(`src/main/adapters/claude.ts`)이 `RISKY_TOOLS` 화이트리스트(`Bash`·`PowerShell`·`Write`·`Edit`·`MultiEdit`·`NotebookEdit`, `adapters/risky-tools.ts` 의 `isRiskyTool`)에 든 도구를 `tool_approval` 로 surface 하고, 안전 도구(Read/Glob/Grep 등)는 `{behavior:'allow'}` passthrough(Claude Code 웹/CLI 기본 패턴). 권한 응답은 단일 `permissionRespond` 채널 + `ApprovalBroker<ApprovalResolution>` 로 통일됐다(구 askRespond/planRespond 2채널·ask/plan 2브로커 통합). "세션 동안 허용"은 `allow.updatedPermissions{scope:'session'}` → router 의 `sessionAllowedTools: Map<sessionId, Set<toolName>>` 로 앱 레벨 관리(SDK `updatedPermissions` 미사용). **잔여 갭**: `RISKY_TOOLS`·승인 지정 runtime tool(`runtimeApprovalToolNames`) 밖의 도구(파일 기반 MCP 도구 포함)는 승인 카드 없이 통과한다 · 위험 화이트리스트는 정적 상수(per-tool risk 등급·정규식 매칭은 후속).
 
 **④ 인터페이스 (정본).**
 
@@ -281,7 +281,7 @@ interface CapabilityProbe {
 
 **② 예시.** OpenCode `session.revert`/`unrevert` = 대화 상태 되돌리기 `[검증]`. Claude file checkpointing(실험적, `betas` 로 활성화) = 파일 snapshot/복원 `[검증]`. 한쪽만 있는 provider 에서 다른 쪽 버튼은 숨긴다.
 
-**③ 현재 코드 갭.** ❌ **구현 없음** — `RevertManager` 는 코드에 존재하지 않는다(`rg RevertManager app/src` = 주석 1건뿐). claude 가 revert cap 을 전부 false 로 서술해 호출자가 하나도 생기지 않았고, 테스트로만 운동되던 seam 은 이후 정리에서 제거됐다. 아래 ④ 인터페이스는 **목표 계약**으로 남는다. cap=true 백엔드(OpenCode 대화 revert / Claude file checkpoint beta) 도입 시 이 절을 근거로 세운다. **단일 revert() 금지** — conversation↔file 을 절대 병합하지 않는다(§5 의미 분리).
+**③ 현재 코드 갭.** ❌ **구현 없음** — `RevertManager` 는 코드에 존재하지 않는다(`rg RevertManager app/src` = 0건). claude 가 revert cap 을 전부 false 로 서술하므로 호출자가 없고 seam 코드도 없다. 아래 ④ 인터페이스는 **목표 계약**으로 남는다. cap=true 백엔드(OpenCode 대화 revert / Claude file checkpoint beta) 도입 시 이 절을 근거로 세운다. **단일 revert() 금지** — conversation↔file 을 절대 병합하지 않는다(§5 의미 분리).
 
 **④ 인터페이스 (정본).**
 
@@ -351,7 +351,7 @@ type AppMessagePart =
 
 **① 설명.** provider 가 usage/cost 를 제공하면 쓰고, 없으면 앱이 자체 집계. 2계층.
 
-**③ 구현 상태.** `claude-map.ts` 가 `result` 메시지에서 `ProviderReportedTelemetry`(cost·model·modelUsage·input/output·캐시 토큰·durationMs·numTurns)를 정규화해 `telemetry` 이벤트에 싣고, reducer(`chatReducer` telemetry case)가 `lastTelemetry` + 세션 누적 `sessionCostUsd`(턴별 누산 — cost-tracking.md §147 SDK 세션 합계 미제공)를 산출(app-measured 지연 필드는 도입되지 않았다). 렌더러 `UsagePanel`(구 TelemetryPanel, ../frontend/rendering.md §1.9)이 표시. **잔여(후속)**: AppMeasured 전체 집계(eventCount/bytesStreamed/errorRate/cancelRate)·DB 영속·세션 통계 화면.
+**③ 구현 상태.** `claude-map.ts` 가 `result` 메시지에서 `ProviderReportedTelemetry`(cost·model·modelUsage·input/output·캐시 토큰·durationMs·numTurns)를 정규화해 `telemetry` 이벤트에 싣고, reducer(`chatReducer` telemetry case)가 `lastTelemetry` + 세션 누적 `sessionCostUsd`(턴별 누산 — cost-tracking.md §147 SDK 세션 합계 미제공)를 산출(app-measured 지연 필드는 도입되지 않았다). 렌더러 `UsagePanel`(../frontend/rendering.md §1.9)이 컨텍스트를, Composer 상태 팝오버(`StatusPopover`)가 세션 비용 합계를 표시. **잔여(후속)**: AppMeasured 전체 집계(eventCount/bytesStreamed/errorRate/cancelRate)·DB 영속·세션 통계 화면.
 
 - **컨텍스트 입력 = 마지막 메인 assistant 스냅샷, 비용 = result 누적.** `claude-map.ts`는 채널 단위 `MapContext.lastAssistantUsage`에 메인 assistant usage를 보관하고, result의 컨텍스트 입력 필드에 병합한다. 스냅샷에 없는 필드는 `result.usage` 값을 보존하며, 비용·지연·`numTurns`·`modelUsage`·`model`은 result 값을 유지한다. 스냅샷 미수신 시 기존 result·압축·핸드오프 판정 체인을 따른다.
 - **프록시 usage 폴백.** 이번 턴의 메인 assistant 컨텍스트 합이 0이거나 부재하면 마지막 양수 메인 `message_delta.usage`로 컨텍스트 입력 필드를 병합한다. 사이드체인과 핸드오프 도착의 압축 전 관측은 제외하며, 턴 관측은 result와 압축 경계에서 비운다. assistant와 delta 둘 다 컨텍스트를 보고하지 않으면 도넛·원장을 갱신하지 않고, 별도 추정이나 JSONL 읽기를 하지 않는다.
@@ -582,7 +582,7 @@ interface ConfigManager {
 | PendingApprovalStateMachine | §3 — ✅ 구현 (register/settle + `timed_out` 분기 + `onSettle`. 잔여: OpenCode 이벤트형 편입) |
 | ApprovalResolution (2분기) | §3 — ✅ 구현 (`ipc.ts` allow/deny discriminated union + `protocol.ts` 스키마) |
 | AppCommandPolicy (3분기) | §3 — 🔴 seam (`classifyAppCommand`, 빈 표·fallback `require_approval`. claude 단독 기능 표면 0 — slash command/OpenCode 도입 시 채움) |
-| PermissionModeController | §3 — ✅ 구현 (라이브 `setPermissionMode` 위임 포함. 잔여: 풀 크로스턴 멀티세션 — Phase 4) |
+| PermissionModeController | §3 — ✅ 구현 (세션별 마지막 정착 모드 — 인메모리 · 라이브 `setPermissionMode` 위임 · 모델·종류 정책은 호출부가 적용, `permission-mode-controller.ts`) |
 | SessionCapability + CapabilityProbe | §4 / §15 — ✅ 구현 (claude 정적 probe `CLAUDE_DESCRIPTOR` + `SessionAdapter.describe()` + `backend:list` computed-on-the-fly 부착 + UI 사전 게이팅) |
 | RevertManager | §5 — ❌ 구현 없음 (목표 계약만. cap=true 백엔드 도입 시 착수) |
 

@@ -10,7 +10,7 @@
 **다루는 것**
 - Electron Main Process 구조 (`app/src/main/`)
 - Backend Adapter 추상화 (SessionAdapter — LLM Provider 가 아님)
-- 데이터 영속성 (electron-store 현재 + 로컬 DB + 파일 시스템 Phase 3+ 채택 결정)
+- 데이터 영속성 (electron-store + 로컬 DB + 게시 원본 파일 — [persistence.md](./persistence.md))
 - IPC 핸들러 구조 (채널 카탈로그는 [IPC_CONTRACT.md](../../IPC_CONTRACT.md))
 - 보안 경계 (BrowserWindow 옵션 + 자격증명 모델)
 - 시스템 통합 (자동 업데이트 / 로깅 / 플랫폼 차이)
@@ -24,14 +24,14 @@
 
 ## 2. 기술 스택
 
-`app/package.json` 기준 (2026-05-20).
+`app/package.json` 이 정본이다 — 아래 버전은 2026-10-13 기준 요약이고 갈리면 package.json 이 맞다.
 
 | 영역 | 선택 | 버전 | 비고 |
 |---|---|---|---|
 | 런타임 | Electron | ^39.2.6 | `app.whenReady()` 부트 |
 | 언어 | TypeScript | ~5.x (strict, target ES2022) | tsconfig.node.json 분리 |
 | 빌드 도구 | electron-vite | ^5.0.0 | main + preload sub-config |
-| LLM SDK (claude-code) | @anthropic-ai/claude-agent-sdk | latest | `query()` 함수 직접 사용 (Phase 3 채택) |
+| LLM SDK (claude-code) | @anthropic-ai/claude-agent-sdk | **exact pin** (`package.json` — 모델 세대 추가 시 갱신, 0246·0258) | `query()` 장수명 채널(`pushTurn`) + `complete()` 단발 |
 | LLM SDK (opencode) | @opencode-ai/sdk | 1.18.27 (exact) | **조사·계약 검증용 설치**; adapter 미등록·runtime 미활성 ([SDK 해설](../../opencode-sdk-spec.md)) |
 | 입력 검증 | zod | ^4.4.3 | `src/shared/protocol.ts` 스키마 |
 | 설정 저장 | electron-store | ^8.2.0 | 단일 객체 스토어 (`orcinus-orca-settings`) |
@@ -41,6 +41,7 @@
 | 자동 업데이트 | **electron-updater** | ^6.x | ✅ 채택·구현 완료 (0084~0086). `app/updater.ts` UpdateController — autoDownload=false·사용자 게이트. runtime-ipc.md §3.1 |
 | 스케줄링 | croner | ^10.x | ✅ 채택 (0091). `infra/cron.ts` 래퍼 + `features/scheduler/` — main in-app cron, 앱 실행 중만 발화 |
 | 로깅 | 자체 구현 (`infra/log/`) | — | ✅ 구현 완료 (0123/0124) — 외부 로깅 라이브러리 미도입 결정. 중앙 LogManager + JSONL. 정본 [observability.md](./observability.md) |
+| HTML/Markdown 변환 | cheerio · turndown(+gfm) | ^1 / ^7 | HTML 미리보기 정제(`features/artifacts/html-preview.ts`) · Confluence storage → Markdown(`features/plugins/confluence/storage-to-markdown.ts`) |
 | 패키저 | electron-builder | — | `electron-builder.yml` |
 | 유틸 | @electron-toolkit/utils | ^4.0.0 | 경로 / dev 모드 감지 |
 | Preload 유틸 | @electron-toolkit/preload | ^3.0.2 | contextBridge 헬퍼 |
@@ -69,12 +70,20 @@ Electron App
 │   │   ├── chat-turn-continuation.ts # 자동 연속 턴 배선 (실행 구성 전체 재resolve, 0126/0188)
 │   │   ├── auth-resume.ts      # 부팅 복원 순서 — gate 우선 → 나머지 병렬 → push 1회 (0188)
 │   │   ├── connection-views.ts # Auth descriptor/snapshot → 기존 GUI DTO (0188 compat mapper)
+│   │   ├── daily-gate.ts       # 실행 중 날짜 경계의 게이트 해제 배선 (0255, ADR-008)
+│   │   ├── legacy-paths.ts     # 구 `orca` 설정 루트 이관 뒤 DB 저장 경로 재기준·이동 worktree 복구 (0225)
+│   │   ├── error-report-sink.ts · error-report-drain.ts  # 오류 toast 의 창 전달·drain (0242, observability.md §7)
+│   │   ├── artifact-sender.ts  # 게시 알림 → renderer (0223)
+│   │   ├── agent-extension-profile.ts · runtime-model-startup.ts · settings-reactions.ts
+│   │   │                       #   Work/Code 프로필 선택 · 부팅 시 모델 카탈로그 준비 · 설정 변경 반응
 │   │   ├── deployment/         # 배포별 concrete (build-time) — auth-definitions · gate-auth ·
-│   │   │                       #   harness-runtime · plugins · usage-fetcher (0188)
-│   │   └── handlers/           # 도메인 IPC — boot · cost · engine · files · log · mcp · misc · project ·
-│   │                           #   providers(연결/Auth) · session · settings · skills · update
+│   │   │                       #   harness-runtime · plugins · usage-fetcher · spawn-env(배포별 subprocess env)
+│   │   └── handlers/           # 도메인 IPC — artifacts · boot · context-file · cost · engine · error · files · git ·
+│   │                           #   log · mcp · misc · project · providers(연결/Auth) · session · session-directory ·
+│   │                           #   settings · skills · update
 │   ├── features/               # 수직 슬라이스 (교차 import 금지)
-│   │   ├── chat/               # 턴 오케스트레이션 — turn-coordinator · pending-message-queue · settle · timers · title
+│   │   ├── chat/               # 턴 오케스트레이션 — turn-coordinator · pending-message-queue · settle · title ·
+│   │   │                       #   recovery · attachment-files · background-controller(백그라운드 작업)
 │   │   ├── sessions/           # 런타임 거버넌스 — supervisor · session-runtime · runtime-pool · eviction/cap-policy · active-turn-tracker
 │   │   ├── approvals/          # ApprovalCoordinator(도구 승인 broker) · permission-mode-controller
 │   │   ├── usage/              # UsageTracker — telemetry 원장 기록·집계·provider별 한도
@@ -86,7 +95,10 @@ Electron App
 │   │   ├── harnesses/          # settings 열거·해석(0014) · Model 해석 · 실행 구성(runtime-config) ·
 │   │   │                       #   respawn 경계 · claude/model-parser
 │   │   │                       #   (spawn 입력 조립은 adapters/harness-config.ts 소관)
-│   │   ├── plugins/            # 제품 기능 단위 — confluence/ (0188 이설)
+│   │   ├── plugins/            # 제품 기능 단위 — confluence/ · jira/ · mail/ (자격증명·로그인 프리 Plugin, 0188·0236·0237·0248)
+│   │   ├── agents/             # Work/Code 고정 프로필 + Work 시스템 프롬프트 (0224·0234)
+│   │   ├── artifacts/          # 게시 원본 파일 — 검증·보관·카탈로그·출력 수집·휴지통 (0223·0226·0232)
+│   │   ├── worktrees/          # managed Git worktree 생성·명명·안전 삭제 (0209~0211)
 │   │   ├── extensions/         # ExtensionBuilder(지침·plugin·skill 조립) + deployer · mcp/ · skills/(scan·seed) ·
 │   │   │                       #   harness-plugins/(하네스에 얹는 번들 플러그인) · runtime-tool-registry · system-header
 │   │   ├── orchestration/      # Conversation Continuity(fork/handoff) 순수 로직 (handoff 0051 §A.4)
@@ -122,6 +134,9 @@ Electron App
 │       │                       #   registry · log-context · serialize-error. 정본 observability.md
 │       ├── errors.ts           # 에러 정규화 (ErrorCategory) + errorMessage 헬퍼 (0092)
 │       ├── cron.ts             # croner 래퍼 (scheduler 의 타이머 프리미티브, 0091)
+│       ├── git/                # Git 게이트웨이·runner — 절대 경로 execFile·읽기 동시성·mutation queue (0241, security.md §1.10)
+│       ├── error-report/       # 소비되지 않은 오류 보고 API (0242, observability.md §7)
+│       ├── background-output.ts # 백그라운드 작업 출력 파일 읽기 (background-tasks.md)
 │       └── settings-store.ts   # electron-store 영속화 (+settings-migration.ts, persistence.md §1.2)
 │
 ├── Preload (src/preload/index.ts)
@@ -143,6 +158,8 @@ Electron App
       - legacy-migration (critical)          # 이관 등급 확인
       - 인증 스택 + registerConnectionHandlers # orca:provider:state 등 게이트 판정 채널 (0181/0188)
    a. db-init (critical)                    # initDb — better-sqlite3 초기화 + 마이그레이션(infra/db/migrations/) + 재시작 잔재 정착
+   a-2. legacy-paths                        # 구 `orca` 저장 경로에서 이관된 경우 저장된 cwd·worktree 경로 재기준 + 이동 worktree 복구 (app/legacy-paths.ts, 0225)
+   a-3. chat-recovery                       # recoverSessionHistory — 미완료 도구 호출 정착 + FTS text-cache 공백 복구 (features/chat/recovery, persistence.md §1.3)
    b. cost-recompute (critical)             # new UsageTracker(db, …) → 부팅 1회 일/주/월 합산 + 비용 요약 push 배선
    c. new Scheduler(DbRunRecorder)          # 'usage-recompute' job 등록(action = cost.recordAndBroadcast 주입)
       → scheduler.applySettings(settings.scheduler)  # croner 스케줄 시작 (0091, 실패 시 비활성 시작)
@@ -202,7 +219,7 @@ Electron App
 | 로컬 DB (sessions / messages / parts / projects) | Phase 3 | ✅ 완료 | better-sqlite3 + 마이그레이션(`infra/db/migrations/`, `0001_initial` 부터 순번). |
 | FTS5 전문 검색 (`messages_fts`) | Phase 3++ | ✅ 완료 | `0003_messages_fts.sql` + `orca:search:messages` IPC |
 | MCP 서버 CRUD + safeStorage 인증 비밀 | Phase 3++ | ✅ 완료 | `features/extensions/mcp/store.ts` + `infra/config/secret-store.ts`. 파일-백드 모델. |
-| Artifacts 디렉토리 (큰 산출물) | Future | ❌ 미구현 | persistence.md §1.4 |
+| 산출물 게시 · 게시 원본 파일 (`features/artifacts`) | Phase 4 | ✅ 완료 (0223·0226·0232) | 모델 직접 호출 `publish_artifact` runtime tool + 우측 목록 + Work 일반 출력 파일 수집. 보관 규칙 persistence.md §1.4 |
 | 자동 업데이트 (electron-updater) | Phase 4 | ✅ 완료 (0084~0086) | `app/updater.ts` UpdateController + `handlers/update.ts`(update 6채널) + `shared/update-restart.ts` 재시작 게이트. runtime-ipc.md §3.1 |
 | 스케줄러 (주기 실행) | Phase 4 | ✅ 완료 (0091) | `features/scheduler/` (croner) — 첫 소비처 = 주기 사용량 recompute. `schedule_runs` 실행 이력(`0013`) |
 | provider별 사용량 한도 | Phase 4 | ✅ 완료 (0079~0082) | `provider_limits`(`0012`) + `cost:usage`/`cost:setProviderLimit` |
@@ -211,11 +228,20 @@ Electron App
 | **인증 + 소비 경계** (앱 로그인 + Harness 실행 구성 + Plugin) | Phase 4 | ✅ **0181 재작성 → 0188 경계 분리** | `contracts/auth.ts` 가 **인증만** 표현하고 `features/{auth,gate,harnesses,plugins}` 가 구현이다. 인증 5종(api-key·password·pat·**oauth code→token**·browser-session) · IPC `provider` 6채널(compat) · 카탈로그 연결 탭. 실값과 배선은 `app/deployment/` 에서 채운다. 구조 정본 [`auth.md`](./auth.md) |
 | **원격 전송 스택 단일화** (Node 전역 `fetch` 금지 → Chromium 스택) | Phase 4 | ✅ 완료 (0173/0174) | 전역 `fetch(` 호출은 `infra/net/net-fetch.ts` 에만 허용(`no-node-fetch.test.ts` 가 0건으로 고정), 소비자는 `typeof fetch` 포트 주입. Chromium 스택을 무는 파일은 **3개**(`net-fetch`·`net-request`·`browser-session`). [security.md](./security.md) §1.8 |
 | `options.permissionMode` (도구 권한) | Phase 4 | ✅ 완료 | `shared/permission-mode.ts`(`NormalizedPermissionMode` ↔ SDK 모드 변환) + `features/approvals/permission-mode-controller.ts`(세션 SSOT) + `orca:permission:setMode`. 진행 중 턴은 어댑터가 살아있는 `Query` 핸들에 즉시 위임한다. **MVP 기본값 정책은 PRD OQ9 로 계속 열려 있다** |
-| `options.hooks` 완전 구현 (도구 감사 외부 핸들러) | Phase 4 | ❌ 미구현 | 현재 인프로세스 `NormalizedHookSet`(`adapters/hooks.ts`) 은 구현됨 |
+| `options.hooks` (in-process 콜백) | Phase 4 | ✅ 완료 | `adaptHooks` + 어댑터 내부 훅(workspace guard · Stop git sync · Stop 출력 수집)을 `adapters/claude.ts` 가 병합 — adapters.md §3.2.5. 사용자 작성 hook 파일 배포는 하지 않는다(engine-specific) |
 | 멀티세션 + 장수명 세션 채널 | Phase 4 | ✅ main 런타임 완료 (handoff 0011·0051·0067) | 세션별 SessionRuntime + 동시 턴 + 장수명 채널(프레임)·idle 풀 LRU. runtime-ipc.md §1. renderer 외피는 ../frontend/state.md §2 |
 | Zustand persist 전략 (renderer store ↔ 로컬 DB / electron-store) | Phase 4 | ❌ 미정 OQ | ../frontend/state.md §1.4.6 |
 | i18n | Phase 4 | ✅ 완료 (0096/0097) | `renderer/src/shared/i18n/` — i18next + react-i18next. UI 라벨은 리소스 번들, 기술 용어·터미널 출력은 영어 |
 | **Provider Runtime Model (정규화 계층)** | Phase 4 | ✅ 와이어 전환 완료 · 일부 seam 미활성 | `NormalizedEvent`(`shared/ipc.ts`, variant 수는 [생성물](../../generated/inventory.md)) 이 `orca:chat:event` 의 유일한 페이로드이고 매핑은 `adapters/claude-map.ts` 다. PermissionBridge·PermissionModeController·ErrorClassifier·Telemetry 활성. **미활성 seam**: `RevertManager`(claude 는 전 cap false) · `provider` 축 claude 고정(opencode 미구현). 절별 상태는 [provider-runtime.md](./provider-runtime.md) |
+| Git worktree 격리 세션 (`features/worktrees`) | Phase 4 | ✅ 완료 (0209~0211·0241) | 세션별 managed worktree 생성·수명·표시명(`managed_worktrees`), Stop 시 git sync 훅, git 호출 게이트웨이(`infra/git/`, security.md §1.10) |
+| Work / Code 에이전트 종류 (`features/agents`) | Phase 4 | ✅ 완료 (0224·0234·0235) | 고정 프로필 + Work 시스템 프롬프트(`# Agent` 섹션) + 종류별 spawn env(`SessionAdapter.agentSpawnEnv`). 종류는 `sessions.agent_kind`(`code`/`work`) |
+| 백그라운드 작업 (`features/chat/background-controller.ts`) | Phase 4 | ✅ 완료 (0231·0232·0239) | 원본 journal(`background_task_events`)·출력 읽기·중단 정착 — [background-tasks.md](./background-tasks.md) |
+| 런타임 모델 카탈로그 (`features/harnesses`) | Phase 4 | ✅ 완료 (0198·0202·0238·0246·0258) | 인증 뒤 Claude Code `availableModels` 수집·무효화 범위·모델 계열 판정 |
+| 사내 서비스 Plugin (`features/plugins/{confluence,jira,mail}`) | Phase 4 | ✅ 완료 (0188·0236·0237·0248) | 자격증명 Plugin 과 로그인 프리 Plugin 이 같은 binding(`app/deployment/plugins.ts`)으로 등록 — [auth.md §7](./auth.md) |
+| 전역 오류 보고(toast) (`infra/error-report`) | Phase 4 | ✅ 완료 (0242) | main/renderer 공통 `reportError` → 토스트 — observability.md §7 |
+| 일일 로그인 게이트 (`features/gate/daily.ts` · `app/daily-gate.ts`) | Phase 4 | ✅ 완료 (0255) | 실행 중 로컬 날짜 경계에서 통과 해제 — [ADR-008](../../decisions/008-daily-login-gate.md) · auth.md §5.3 |
+| 저장 경로 이관 (`infra/config/migrate-legacy.ts` · `app/legacy-paths.ts`) | Phase 4 | ✅ 완료 (0225) | 구 `orca` 설정 루트 → `orcinus-orca` 이관(critical `legacy-migration`) 뒤 DB 저장 경로 재기준·이동 worktree 복구(비-critical `legacy-paths`, §3.1) |
+| 폐쇄망 spawn env 주입점 (`app/deployment/spawn-env.ts`) | Phase 4 | ✅ 완료 (0207) | 배포가 `SPAWN_ENV_INJECTOR` 를 채우면 모든 Harness+ModelProvider subprocess env 에 실린다(최상위 레이어, 기본 배포는 비움). host-managed provider 표식(0200)은 `adapters/harness-config.ts` 가 조립 — security.md "Agent provider auth token" |
 
 > 이 표는 코드 변경 시 함께 갱신한다.
 

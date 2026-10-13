@@ -14,7 +14,7 @@
 | `@`           | Composer 에서 Plugin 식별자와 파일 경로 자동완성 트리거 — 루트 plain 입력은 경로 그룹을 먼저, Plugin 그룹을 마지막에 표시 | `MentionAutocomplete.tsx`·`useMentionAutocomplete.ts` |
 | ↑ / ↓         | 자동완성 dropdown 내 navigate                | 동일                                             |
 | Tab / Enter   | 자동완성 항목 선택                           | 동일                                             |
-| Esc           | 자동완성 dismiss / 스트리밍 취소             | TBD (스트리밍 취소는 명시적 키 미정)             |
+| Esc           | 자동완성 dismiss                             | `composer/autocompleteKeys.ts` — 스트리밍 취소 키는 없다(중단 버튼) |
 | Enter         | 메시지 전송                                  | `features/chat/components/ChatTile.tsx` Composer |
 | Shift + Enter | 줄바꿈                                       | 동일                                             |
 
@@ -25,7 +25,7 @@
 `features/chat/components/ChatTile.tsx` 의 Composer 섹션 + `features/chat/components/composer/` 부속:
 
 - 멀티라인 textarea + 자동 높이 조절
-- 3-chip 행: 첨부 / 현재 프레임 / Skill 선택 (`Popover` 기반 picker)
+- 컨트롤 행: `+` 메뉴(아래) · 권한 모드 칩 · 모델 칩 · 사용량 도넛 — Skill 선택은 `+` 메뉴의 계단식 하위 항목이다(구 Popover picker 는 0259 에서 대체)
 - `+` 메뉴는 계단식이다(0259): 파일 또는 사진 추가 / 스킬 ▸(출처 ▸ 스킬) / 플러그인 ▸(목록 · 플러그인 관리). 스킬·플러그인을 고르면 커서 자리에 `/이름 `·`@id ` 를 넣고, 항목 hover 설명은 `title` 툴팁이다. 틀 = `shared/ui/CascadeMenu.tsx`(상태·좌표 순수부 `cascadeMenuState.ts`), 트리 = `lib/attachMenuModel.ts`, '플러그인 관리' 이동은 페이지가 `onManagePlugins` 로 주입한다
 - `/` 자동완성 후보는 출처 라벨 섹션으로 묶이고, `/`·`@` 헤더는 `AutocompleteSectionHeader` 하나를 쓴다
 - `/skillname` 토큰을 **활성 스킬일 때만** 파란 chip 으로 mirror overlay 강조 (`composer/ComposerDecorationLayer.tsx` + `composer/composerDecoration.ts`, `knownSkillNames: ReadonlySet<string>`)
@@ -41,7 +41,7 @@
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | 요청 대기                  | StatusLine "Thinking... (Ns · ~Mtokens)"                                                                                            | `features/chat/components/StatusLine.tsx` (0093 에서 shared/ui 로부터 이동) |
 | 스트리밍 중                | StatusLine + 응답 메시지에 누적 텍스트                                                                                              | `features/chat/components/ChatTile.tsx`                 |
-| 에러 (`recoverable: true`) | 메시지 영역에 에러 카드                                                                                                             | `features/chat/reducer/chatReducer.ts` 의 `state.error` |
+| 에러 (`retryable: true`)   | 메시지 영역에 에러 카드                                                                                                             | `features/chat/reducer/chatReducer.ts` 의 `state.error` |
 | 에러 (`auth.expired`)      | AuthExpiredModal (`claude /login` 안내) — `#app-frame-modal` 슬롯, backdrop 은 `#app-frame-overlay` 가 담당 (dom-architecture.md.5) | `features/backend/components/AuthExpiredModal.tsx`      |
 | CLI 설치 진행              | InstallerDialog (라인별 로그 + 수동 명령 복사) — 동일하게 `#app-frame-modal` + `#app-frame-overlay` backdrop                        | `features/backend/components/InstallerDialog.tsx`       |
 | 네트워크 단절              | TBD (전역 배너 미구현)                                                                                                              | —                                                       |
@@ -84,9 +84,9 @@
 
 **② 예시.** Bash `rm -rf …` 승인 카드에서 (a) 인자를 고쳐 승인 → `allow{updatedInput}`, (b) "이 세션 동안 Read 자동 허용" 토글 → `allow{updatedPermissions}`, (c) 거부 + 에이전트 중단 → `deny{interrupt:true}`. **OpenCode 세션이면** `updatedInput`/`updatedPermissions` 가 boolean 으로 downcast 되어 손실됨을 카드에 배지로 명시(../backend/provider-runtime.md §3 손실표).
 
-**③ 현재 코드 갭.** 스테이지 C2 (`2d4ab8f`) 로 `PlanApprovalCard` → `features/chat/components/ApprovalCard.tsx` 일반화 — `permission.requested` 의 `action.kind` 분기. **스테이지 C 마무리로 `tool_approval` 게이트 활성** — `ApprovalCard` 가 `pendingPlanReview`/`pendingToolApprovals` 둘 다 디스패치하고, `ToolApprovalBody`(거부/세션 동안 허용/허용 3지)가 위험 도구 승인을 surface 한다. main 의 `makeCanUseTool` 이 `RISKY_TOOLS` 화이트리스트(Bash/Write/Edit/MultiEdit/NotebookEdit)만 게이트하고 안전 도구는 자동 통과(../backend/provider-runtime.md §3 ③). `AskUserQuestionCard.tsx`(명확화 질문)는 별도 유지. **잔여 갭**: `pendingApprovals` 단일 큐 미통합(도메인별 분리 저장 `pendingAsks`/`pendingPlanReview`/`pendingToolApprovals` 으로 충족 — 불필요) · PermissionModeController(6종 런타임 전환) 미연동(현재 Composer `ModeMenu` 가 per-turn 2종 plan/acceptEdits 만).
+**③ 현재 코드 갭.** 스테이지 C2 (`2d4ab8f`) 로 `PlanApprovalCard` → `features/chat/components/ApprovalCard.tsx` 일반화 — `permission.requested` 의 `action.kind` 분기. **스테이지 C 마무리로 `tool_approval` 게이트 활성** — `ApprovalCard` 가 `pendingPlanReview`/`pendingToolApprovals` 둘 다 디스패치하고, `ToolApprovalBody`(거부/세션 동안 허용/허용 3지)가 위험 도구 승인을 surface 한다. main 의 `makeCanUseTool` 이 `RISKY_TOOLS`(Bash/PowerShell/Write/Edit/MultiEdit/NotebookEdit — `adapters/risky-tools.ts`)만 게이트하고 안전 도구는 자동 통과(../backend/provider-runtime.md §3 ③). `AskUserQuestionCard.tsx`(명확화 질문)는 별도 유지. **현재 구조**: 승인 대기는 도메인별 분리 저장(`pendingAsks`/`pendingPlanReview`/`pendingToolApprovals`)이고 단일 큐로 합치지 않는다. 권한 모드는 Composer 권한 메뉴(`composer/modes.ts` — Code 와 Work 가 다른 선택지, rendering.md "Work/Code 표현")가 `orca:permission:setMode` 로 PermissionModeController 와 연동되고 진행 중 턴에도 라이브 적용된다(../backend/overview.md §4 `options.permissionMode` 행). 단일 카드 일반화(`origin`/`risk`/`provider` 배지)는 미착수.
 
-**④ 연동.** `permission.requested` 이벤트 → reducer 가 `pendingApprovals` 큐에 적재 → `ApprovalCard.tsx` 가 Composer 입력창을 대체(구 `PlanApprovalCard` 에서 일반화한 패턴 — ③) → 결정은 PermissionBridge(../backend/provider-runtime.md §3)로 회신. 렌더링은 ToolRendererRegistry 의 `'approval'` kind(rendering.md §1.6).
+**④ 연동.** `permission.requested` 이벤트 → reducer 가 종류별 대기 슬롯(`pendingPlanReview`·`pendingToolApprovals`·`pendingAsks`)에 적재 → `ApprovalCard.tsx` 가 Composer 입력창을 대체하거나 입력 위에 additive 로 뜬다(③) → 결정은 PermissionBridge(../backend/provider-runtime.md §3)로 회신. 렌더링은 ToolRendererRegistry 의 `'approval'` kind(rendering.md §1.6).
 
 ---
 
@@ -100,19 +100,21 @@
 | `projects` (`features/projects/components/ProjectsScreen.tsx`) | 02 프로젝트                             | 프로젝트            | ✅ '프로젝트'                 | **✅ Phase 3 활성**       | 카드 그리드 + 생성 다이얼로그. ProjectDetail 은 `pages/ProjectLandingPage.tsx` 단일 파일.                                                                                    |
 | `routines` (placeholder, 라우트 미정의)                        | 자동화                                  | —                   | ❌ (Future Scope, nav 미노출) | **⏳ Future Scope**       | 라우트는 미정의 — `router.tsx` catch-all 이 `/new` 로 흡수. 후속 PR 에서 `pages/RoutinesPage.tsx` + 라우트 등록 시 nav 복귀 가능.                                            |
 | `engine` (`features/engine/components/AgentEnvironmentView.tsx`, 구 EngineView) | 03 엔진 & 모델                          | 설정 · 엔진 & 모델  | ✅ '엔진 & 모델'              | **✅ Phase 4 CRUD 활성 (0021·0090)** | nav 항목으로 노출. 라우트 `/agent`. provider CRUD(`EngineFormModal` — 단일 화면 모달 + `~/.claude/settings.json` 불러오기, 0090) + `EngineCard`/`EngineModelList`. 제목 옆 개수는 settings·배포 runtime을 합친 화면 카드 수이며 단위는 '개'다. |
-| `skills` (`features/skills/components/customize/ExtensionsCatalogView.tsx`, 구 SkillsMcpView·SkillsCustomizeView) | 04 Skills / MCP                         | 플러그인 모달 | ✅ '플러그인'             | **✅ Phase 3++ MCP 활성** | nav 4번째 항목이 공용 Modal로 연다. **MCP 섹션 실 연동** (`orca:mcp:*` + `AddMcpServerModal` 추가/편집/토글/삭제, 전역 적용) + customize rail/list/detail 재구성.                        |
-| (Debug Panel) `features/debug/components/DebugPanel.tsx`       | (플로팅 패널 — `#app-frame-debug` 슬롯, dev 전용) | —                   | —                             | **✅ Phase 2+ 영속**      | theme / sidebarCollapsed / sidebarWidth 등 Tweaks 컨트롤 흡수(구 shared/ui/TweaksPanel 부재) — electron-store 동기화. 더미 업데이트·wire log·SSO bypass 토글 포함. |
+| `plugins` (`pages/PluginsPage.tsx` → `features/skills/components/customize/ExtensionsCatalogView.tsx`) | 04 플러그인                             | 플러그인            | ✅ '플러그인' (`/plugins`)   | **✅ Phase 4 활성 (0159·0217·0236)** | 플러그인 → 스킬 → MCP 탭 카탈로그(rendering.md 카탈로그 단락). **MCP 섹션 실 연동**(`orca:mcp:*` + `AddMcpServerModal` 추가/편집/토글/삭제) · 연결(Auth) 상세와 인증 액션.                 |
+| `artifacts` (`pages/ArtifactsPage.tsx` → `features/artifacts/`) | 05 아티팩트                             | 아티팩트            | ✅ '아티팩트' (`/artifacts`) | **✅ Phase 4 활성 (0223·0257)** | 전체/고정 탭 · 검색 · 세로 목록 · 우측 공통 파일 뷰어(rendering.md "산출물 게시 카드"). 일반 출력 파일은 목록 밖.                                                                       |
+| (Debug Panel) `features/debug/components/DebugPanel.tsx`       | (플로팅 패널 — `#app-frame-debug` 슬롯, dev 전용) | —                   | —                             | **✅ Phase 2+ 영속**      | theme / sidebarCollapsed / sidebarWidth 등 Tweaks 컨트롤 — electron-store 동기화. 더미 업데이트·wire log·로그인 게이트 우회(`authBypass`) 토글 포함. |
 | (SearchModal) `features/sessions/components/SearchModal.tsx`                            | (모달 — `#app-frame-modal` 슬롯)        | —                   | —                             | **✅ Phase 3++ 활성**     | FTS5 대화 검색. Header 검색 버튼 → `searchOpen` lift → OverlayLayer conditional mount.                                                                                       |
 
 > **CameraView** 와 **CapturesView** 는 `features/camera/` · `features/captures/` 에 존재하지만 도메인 카탈로그에서 제외 (GLOSSARY §3 사용자 결정). Sidebar nav 에도 없음.
 >
-> **Sidebar nav 재구성 (Phase 3++)**: nav 노출은 4-항목 (새 대화·프로젝트·엔진 & 모델·플러그인 모달). 자동화/captures 는 _Future Scope 로 nav 미노출_ — URL 직접 진입 또는 향후 nav 복귀 가능. (skills 는 MCP 지원 도입과 함께 nav 복귀.)
+> **Sidebar nav 구성**: 정본은 `app/navItems.ts` — 새 대화 · 프로젝트 · 아티팩트 · 엔진 & 모델 · 플러그인. 자동화/captures 는 _Future Scope 로 nav 미노출_ — 향후 nav 복귀 가능.
 
-### 2.1 Future Scope 도메인의 IPC 연결 시점
+### 2.1 도메인별 IPC 연결 상태
 
-- **Projects**: Phase 3+ 로컬 DB 도입 (../backend/persistence.md) 과 함께. 세션을 프로젝트별로 그룹화하는 메타데이터.
-- **EngineSettings**: Phase 3+ 어댑터별 자격증명 저장 (../backend/security.md) 과 함께. base URL + API key 입력 UI.
-- **SkillsMcp — MCP 서버**: ✅ Phase 3++ 구현 완료 — `orca:mcp:*` CRUD + `McpStore`(safeStorage) + `handleChatSend` 가 `query().options.mcpServers`+`allowedTools` 주입 (전역). 권한 섹션 + Skills 좌측 토글 + `options.permissionMode`/`canUseTool` 는 Phase 4+ (PRD OQ9 미정).
+- **Projects**: ✅ 로컬 DB(`projects` + `sessions.project_id`, ../backend/persistence.md) — 카드 그리드·랜딩·삭제(`useProjectDeletion`).
+- **Engine & Model / 연결**: ✅ Harness settings CRUD(`orca:engine:*`) + Auth 연결 탭(`orca:provider:*`, ../backend/auth.md §9). 자격증명은 Auth Grant → vault 가 소유한다(../backend/security.md §1.4).
+- **플러그인 카탈로그 — MCP 서버**: ✅ `orca:mcp:*` CRUD + 파일-백드 `mcp.json`. 활성 서버는 배포기가 plugin `.mcp.json` 으로 렌더해 `options.plugins` 로 로드한다(../backend/standardization.md §5.1). 도구 권한은 승인 UI(§1.6)와 권한 모드 메뉴가 담당하고, **기본 정책값은 PRD OQ9** 로 열려 있다.
+- **Artifacts**: ✅ `orca:artifact:*`(IPC_CONTRACT §2.6-a) — 목록·뷰어·휴지통.
 
 ---
 
@@ -123,22 +125,15 @@
 - 직접 `window.orca.*` 호출은 **금지**. 모두 `shared/api/ipc.ts` 의 타입드 래퍼 (`chatApi`/`backendApi`/`installApi`/`settingsApi`/`skillApi`/`fileApi`/`sessionApi`/`projectApi`/`windowApi`) 를 경유한다.
 - 래퍼 호출은 `features/<domain>/hooks/use*.ts` 안에 캡슐화. 컴포넌트가 직접 호출 금지.
 - 모든 IPC 호출은 타입이 있어야 한다 (채널 정의는 [IPC_CONTRACT.md](../../IPC_CONTRACT.md) 참조).
-- 에러는 throw 로 전달 (Main 측에서 직렬화된 `{ code, message, recoverable }` 객체).
+- 에러는 throw 로 전달 (Main 측에서 직렬화된 `ClassifiedError` — `category`·`message`·`retryable`, IPC_CONTRACT §4).
 
 ### 3.2 스트리밍 응답 수신
 
-수신 배선은 `features/chat/store/chatStore.ts` 가 갖는다 — 스토어 초기화가 `chatApi.onEvent(ingestChatEvent)`(`chatStore.ts:1243`, `shared/api/ipc.ts` 래퍼 경유)를 구독한다:
+수신 배선은 `features/chat/store/chatStore.ts` 가 갖는다 — 스토어 초기화가 `chatApi.onEvent(ingestChatEvent)`(`shared/api/ipc.ts` 래퍼 경유)를 1회 구독하고, 코얼레서를 거쳐 store 에 외부 dispatch 한다(state.md §1.2 · §1.4):
 
 ```typescript
-import { chatApi } from "../../../shared/api/ipc";
-
-useEffect(() => {
-  // 1회 구독
-  const unsubscribe = chatApi.onEvent((ev) => {
-    dispatch({ type: "RECV_EVENT", payload: ev });
-  });
-  return unsubscribe; // cleanup 필수
-}, []);
+// features/chat/store/chatStore.ts (개념)
+chatApi.onEvent(ingestChatEvent) // 1회 구독 — 델타는 rAF 코얼레서, 그 외는 즉시 store.receive(ev)
 ```
 
 - main→renderer 의 `orca:chat:event` 채널은 ordered + lossless (Electron `webContents.send` 가 V8 microtask queue 위에서 보장).

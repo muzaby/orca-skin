@@ -23,7 +23,7 @@
 | 이름 | 쉬운 설명 | 정본 |
 |---|---|---|
 | **Backend** | LLM 실행 백엔드 식별자. 지금은 `'claude'` 하나, 나중에 `'opencode'` 등. ("LLM Provider" 라 부르지 않음.) | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
-| **SessionAdapter** | 모든 백엔드가 따르는 공통 인터페이스 (`isInstalled`/`install`/`sendMessage`). LLM 직접 호출이 아니라 외부 CLI/SDK 래퍼. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
+| **SessionAdapter** | 모든 백엔드가 따르는 공통 인터페이스 (`isInstalled`·`install`·`describe`·`complete`·`sendMessage`·`classifyError`·`agentSpawnEnv`). LLM 직접 호출이 아니라 외부 CLI/SDK 래퍼. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 | **AdapterRegistry** | 등록된 어댑터들의 설치 상태를 추적하고 활성 백엔드를 고른다. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 | **claude 어댑터** | claude-code SDK 의 `query()` 를 직접 부르고, 그 메시지를 `NormalizedEvent` 로 정규화하는 구현체(`adapters/claude.ts`). | [adapters.md §1](./adapters.md) |
 | **ExtensionBuilder / TurnExtensions** | DB 지침·settings·Skills·plugin 경로·runtime tool snapshot을 모아 턴의 확장 입력을 만든다. 파일 기반 MCP 구성은 배포 경로가 소유한다. | [adapters.md §1](./adapters.md) |
@@ -45,7 +45,7 @@
 |---|---|---|
 | **Skill** | `SKILL.md` 로 정의된 슬래시 명령(`/이름`). 입력창에서 호출. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 | **McpStore** | MCP 서버 추가/삭제/목록 관리. 설정 + 비밀값 저장을 묶어 다룬다. | [security.md §1](./security.md) |
-| **Secret Store** | Electron safeStorage(OS 키체인) 래퍼. API 키 등 비밀을 평문 없이 암호화 저장. | [GLOSSARY §1 (Credential)](../../GLOSSARY.md#1-도메인-용어) |
+| **Secret Store / Vault** | Electron safeStorage(OS 키체인) 위의 암호화 저장. Auth 비밀은 `infra/vault.ts` 가 네임스페이스 키로 보관하고 Grant 가 그 키를 가리킨다. | [GLOSSARY §1 (Credential)](../../GLOSSARY.md#1-도메인-용어) · [security.md §1.4-b](./security.md) |
 | **Skills Scan** | Orca `sources/skills/` 와 `~/.claude/skills/` 를 훑어 SKILL.md frontmatter 를 읽는 스캐너. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 
 ## 5. Python 런타임
@@ -60,14 +60,14 @@
 
 | 이름 | 쉬운 설명 | 정본 |
 |---|---|---|
-| **NormalizedEvent** | 서로 다른 SDK 의 이벤트를 *하나의 공통 이벤트* 로 통일한 것. 모든 이벤트가 sessionId·provider 를 갖는다. | [provider-runtime.md §2](./provider-runtime.md) |
+| **NormalizedEvent** | 서로 다른 SDK 의 이벤트를 *하나의 공통 이벤트* 로 통일한 것. 모든 이벤트가 `sessionId` 를 갖고(`provider` 필드는 없다 — 백엔드 중립 코어), tool 이벤트는 `toolRunId` 를 갖는다. | [provider-runtime.md §2](./provider-runtime.md) |
 | **PermissionBridge** | 에이전트가 도구를 쓰려 할 때의 *승인 요청* 을 한 경로로 모아 처리하는 다리. 모듈을 가리키는 설계 이름 — 코드 진입점은 `features/approvals/permission-bridge.ts` 의 `agentPermissionRequest()`/`classifyAppCommand()` 다. | [provider-runtime.md §3](./provider-runtime.md) |
 | **ApprovalResolution** | 승인 결과. 허용(allow, 입력 수정 가능) / 거부(deny, 중단 가능) **2갈래**. | [provider-runtime.md §3](./provider-runtime.md) |
 | **AppCommandPolicy** | 앱이 *직접* 부르는 명령의 정책. read-only / 권한우회 / 상태변경 **3갈래**. | [provider-runtime.md §3](./provider-runtime.md) |
 | **PermissionModeController** | 세션 도중 신뢰 수준을 올리는 스위치(예: 계획만 보기 → 자동 편집 허용). | [provider-runtime.md §3](./provider-runtime.md) |
 | **SessionCapability** | 백엔드마다 가능한 세션 기능이 다르므로, 가능한 것만 런타임에 탐지해 버튼을 켜고 끈다. | [provider-runtime.md §4](./provider-runtime.md) |
 | **RevertManager** | 되돌리기. *대화 되돌리기* 와 *파일 되돌리기* 는 다른 개념 — 절대 합치지 않는다. | [provider-runtime.md §5](./provider-runtime.md) |
-| **ErrorClassifier** | 에러를 8종류로 분류하고 재시도 가능 여부를 붙인다. | [provider-runtime.md §6](./provider-runtime.md) |
+| **ErrorClassifier** | 에러를 `ErrorCategory` 로 분류하고 재시도 가능 여부를 붙인다. | [provider-runtime.md §6](./provider-runtime.md) |
 | **DirectBackendAPI** | OpenCode 의 `find.*`/`file.*` 같은 직접 호출 API. 백엔드가 가진 만큼만 노출(optional). | [provider-runtime.md §17](./provider-runtime.md) |
 | **WorkspaceManager** | 작업 경로·허용 디렉토리·sandbox 범위를 한 곳에서 관리. | [provider-runtime.md §18](./provider-runtime.md) |
 | **ConfigManager** | Claude options 와 OpenCode config 를 병합하는 설정 계층. | [provider-runtime.md §19](./provider-runtime.md) |
