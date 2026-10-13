@@ -487,7 +487,7 @@ PATH 의존성 (npm 글로벌 bin) 은 폐기 — SDK 의 `optionalDependencies`
 | 변수 | 값 (dev/build) | 용도 |
 |---|---|---|
 | `NODE_ENV` | `"development"` / `"production"` | 빌드 최적화 |
-| DevTools | 코드가 열거나 막지 않는다 | `openDevTools`·`webPreferences.devTools`·애플리케이션 메뉴 설정이 없어 Electron 기본 동작을 따른다 ([security.md](arch/backend/security.md) §1.5) |
+| DevTools | dev 열림 / build 차단 | 창 `webPreferences.devTools: import.meta.env.DEV` — production 빌드(`electron-vite build`)에서 `false` 로 접혀 메뉴·단축키·`openDevTools()` 가 무효 ([security.md](arch/backend/security.md) §1.5) |
 
 ---
 

@@ -120,6 +120,7 @@ continueConversation	외부
 createOpencodeClient	외부
 data-platform	외부
 detectError	설계어휘
+disableBypassPermissionsMode	외부
 envKey	역사
 excludeDynamicSections	외부
 feat-pretty-ui	외부

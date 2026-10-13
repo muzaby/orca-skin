@@ -18,10 +18,13 @@ new BrowserWindow({
     contextIsolation: true,    // ✅ 필수
     nodeIntegration: false,    // ✅ 필수
     sandbox: true,             // ✅ 필수
+    devTools: import.meta.env.DEV, // ✅ production 빌드는 false (§1.5)
     preload: join(__dirname, '../preload/index.js')
   }
 })
 ```
+
+로그인 창(`infra/browser-session.ts` `openWindow`)도 같은 3키와 `devTools` 를 명시한다 — 모든 창 생성자 자리는 `infra/browser-window-devtools.test.ts` 가 강제한다.
 
 기타 보안 옵션:
 - `webSecurity: true` (기본값 유지 — CORS, 외부 리소스 제한)
@@ -117,7 +120,7 @@ new BrowserWindow({
 - 외부 링크: `shell.openExternal` 경유, 절대 `webContents` 에서 직접 열지 않음.
 - `will-navigate` / `setWindowOpenHandler` 에서 외부 URL 모두 거부.
 - **의도적 예외 — 통제된 로그인 창**: `infra/browser-session.ts` 의 `openLoginWindow` 는 배포 선언(`app/deployment/`, 컴파일 타임)이 지정한 URL 을 **전용 격리 창**에 로드한다. 앱 본창 정책은 불변이며, 이 창은 (a) `session.fromPartition(partitionFor(sessionGroup))`(`persist:auth.<group>`) 으로 앱 세션과 쿠키 격리, (b) preload 없음 + `contextIsolation`/`sandbox` 강제 + `nodeIntegration:false`, (c) `isDone(url)` 매칭 또는 타임아웃 시 즉시 destroy 로 경계를 좁힌다. 쿠키를 호출자에게 돌려주지 않고 handle 과 최종 URL·probe 판정만 준다.
-- DevTools: 코드가 열거나 막지 않는다 — `openDevTools` 호출·`webPreferences.devTools` 지정·애플리케이션 메뉴 설정이 모두 없어 Electron 기본 동작을 따른다.
+- DevTools: **production 빌드에서 막는다.** 두 창(본창 `index.ts` `createWindow` · 로그인 창 `infra/browser-session.ts` `openWindow`)이 `webPreferences.devTools: import.meta.env.DEV` 를 명시해 `electron-vite build` 산출에서 `false` 로 접힌다 — 메뉴·단축키·`openDevTools()` 가 모두 무효다. dev(`npm run dev`)에서만 열린다 — `@electron-toolkit/utils` `optimizer.watchWindowShortcuts`(`browser-window-created`)는 미패키징 실행에서 F12 를 `openDevTools()` 로 잇고(production 번들이면 무효), 패키징 실행에서는 Ctrl+Shift+I·Ctrl+R 을 가로챈다. 새 창이 이 키를 빠뜨리면 `infra/browser-window-devtools.test.ts` 가 실패한다.
 
 ### 1.6 CSP
 

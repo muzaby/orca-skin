@@ -28,7 +28,7 @@ DA-S04	docs/arch/backend/standardization.md	ProviderSettingsLoader	scaffold\.ts	
 DA-S05	docs/arch/backend/standardization.md	`isInstalled`/`install`/`sendMessage`	classifyError	app/src/main/adapters/types.ts:classifyError	AC6 §4 SessionAdapter 메서드
 DA-SE01	docs/arch/backend/security.md	줄 21-23	webPreferences. 블록	app/src/main/index.ts:contextIsolation: true	AC7 §1.1 줄번호 제거
 DA-SE02	docs/arch/backend/security.md	앱은 비밀을 디스크에 저장하지 않는다|저장 위치 \| \*\*TBD|EngineSettings 화면	Grant → vault	app/src/main/infra/vault.ts	AC7 §1.3·§1.4 EP-07 자격증명 모델
-DA-SE03	docs/arch/backend/security.md	DevTools 자동 오픈	Electron 기본 동작을 따른다	app/src/main/index.ts:webPreferences	AC7 §1.5 DevTools 문장(openDevTools 호출 0건)
+DA-SE03	docs/arch/backend/security.md	DevTools 자동 오픈|코드가 열거나 막지 않는다|Electron 기본 동작을 따른다	DevTools: \*\*production 빌드에서 막는다\.\*\*	app/src/main/index.ts:devTools: import\.meta\.env\.DEV	0261 EP-04 ⑥ §1.5 DevTools — 사실 교체(0260 AC7 행)
 DA-SE04	docs/arch/backend/security.md	그 외 외부 도메인 금지	assets-proxy\.anthropic\.com	app/src/renderer/index.html:assets-proxy	AC7 §1.6 CSP 전문
 DA-SE05	docs/arch/backend/security.md	전부 `valid` 일 때만	dailyReloginRequired	app/src/main/features/gate/index.ts:dailyReloginRequired	AC7 §1.7 게이트 조건
 DA-SE06	docs/arch/backend/security.md	draft\(수동 Publish	즉시 게시	.github/workflows/release.yml:publish always	AC7 EP-04 릴리스 게시
@@ -139,7 +139,7 @@ DA-AG1	AGENTS.md	TRD §15	TRD §10	docs/TRD.md:^## 10	AC17 D-007
 DA-AG2	docs/AGENTS.md	TRD §15	TRD §10	docs/TRD.md:^## 10	AC17 D-007
 DA-AG3	app/AGENTS.md	TRD §15	TRD §10	docs/TRD.md:^## 10	AC17 D-007
 DA-AG4	app/AGENTS.md	-	assets-proxy	app/src/renderer/index.html:assets-proxy	AC17 D-007 CSP
-DA-AG5	app/AGENTS.md	마크다운 라이브러리 최종 결정	DevTools 는 코드가 열거나 막지 않는다	app/src/main/index.ts:webPreferences	AC17 같은 줄 사실 선조치
+DA-AG5	app/AGENTS.md	마크다운 라이브러리 최종 결정|DevTools 는 코드가 열거나 막지 않는다	DevTools 는 production 빌드에서 막는다	app/src/main/infra/browser-session.ts:devTools: import\.meta\.env\.DEV	0261 EP-04 ⑨ — 사실 교체(0260 AC17 행)
 DA-AG6	app/AGENTS.md	`busy-reserve`|`turn-setup`	`usage-fetcher`·`spawn-env`	app/src/main/app/deployment/spawn-env.ts	AC17 같은 표 행 사실 선조치(삭제 모듈명)
 DA-G10	docs/GLOSSARY.md	shared/hooks/useTweaks\.ts	shared/theme/TweakProvider\.tsx	app/src/renderer/src/shared/theme/TweakProvider.tsx	AC1 Tweaks 코드 위치(0222 이동)
 DA-IP8	docs/IPC_CONTRACT.md	앱 env 만 SDK	"Agent provider auth token" 절이 정본	app/src/main/app/chat-turn/resolve-turn.ts:customEnv: SPAWN_ENV_INJECTOR	AC14 §2.11 options.env 구성 → security 링크
@@ -191,12 +191,17 @@ DA-CS3	docs/claude-code-spec.md	-	`forkSession` · `settingSources: \['project',
 DA-A13	docs/arch/backend/adapters.md	-	대화 query 는 `allowedTools` 를 쓰지 않는다	app/src/main/adapters/claude-runtime-tools.ts:return \{ mcpServers \}	AC4 §1.3 인프로세스 도구(구현 중 자기 오기 정정)
 DA-IP9	docs/IPC_CONTRACT.md	-	\| `telemetry` .*sessionCostUsd	app/src/renderer/src/features/chat/reducer/chatReducer.ts:sessionCostUsd	AC14 §3 telemetry 행(구현 중 자기 오기 정정)
 DA-SE12	docs/arch/backend/security.md	index\.ts:[0-9]	`createWindow` 의 `webPreferences` 블록	app/src/main/index.ts:webPreferences	AC7-D1 §1.1 식 좌표(D-013)
-DA-CS4	docs/claude-code-spec.md	양쪽 모두 사용 안 함|미사용 확정	✅ \*\*Orca v1 채택 \(`--dangerously-skip-permissions` 쪽\)\*\*	app/src/shared/permission-mode.ts:menuModes: \['default', 'auto_classified', 'bypass'\]	AC16-D1 EP-15 §5.5
+DA-CS4	docs/claude-code-spec.md	양쪽 모두 사용 안 함|미사용 확정|Orca v1 채택 \(`--dangerously-skip-permissions` 쪽\)	✅ \*\*Orca v1 채택 \(두 플래그 모두\)\*\*	app/src/shared/permission-mode.ts:menuModes: \['default', 'auto_classified', 'bypass'\]	0261 EP-04 ② §5.5 — 사실 교체(0260 AC16-D1 EP-15 행)
 DA-CS5	docs/claude-code-spec.md	-	권한 우회\(`bypassPermissions`\)는 Composer 권한 메뉴 `bypass` 로 고를 수 있다	app/src/shared/permission-mode.ts:bypass: 'bypassPermissions'	AC16-D1 EP-15 §11 도구 권한
-DA-CS6	docs/claude-code-spec.md	\| `--dangerously-skip-permissions`, `--allow-dangerously-skip-permissions` \|	\| `--allow-dangerously-skip-permissions` \| `allowDangerouslySkipPermissions` 를 넘기지 않는다	app/src/main/adapters/claude.ts:permissionMode: toClaudePermissionMode	AC16-D1 EP-15 §14.3
+DA-CS6	docs/claude-code-spec.md	\| `--dangerously-skip-permissions`, `--allow-dangerously-skip-permissions` \||`allowDangerouslySkipPermissions` (를|는) 넘기지 않는다	\| `--allow-dangerously-skip-permissions` \| `allowDangerouslySkipPermissions: true` — 대화 query 가 명시 시작 모드와 함께 넘긴다	app/src/main/adapters/claude.ts:allowDangerouslySkipPermissions: true	0261 EP-04 ③ §14.1 신규 행 · §5.5/§14.3 옛 문장 must_not — 사실 교체(0260 AC16-D1 EP-15 행)
 DA-CS7	docs/claude-code-spec.md	분기\* UI 후보 anchor	✅ \*\*Orca v1 채택 \(0064\)\*\* — SDK `forkSession`	app/src/main/app/chat-turn/send.ts:forkSession	AC16-D1 EP-15 §7.3
 DA-CS8	docs/claude-code-spec.md	-	`bypass` = `--dangerously-skip-permissions` 와 같은 `bypassPermissions`	app/src/shared/permission-mode.ts:bypass: 'bypassPermissions'	AC16-D1 EP-15 §14.1
 DA-CS9	docs/claude-code-spec.md	명시적 세션 선택 UI 도입 예정	세션 목록에서 고른 세션을 `resume` 으로 잇는다	app/src/main/adapters/claude.ts:resume	AC16-D1 §7.2 사유(N2)
 DA-CS10	docs/claude-code-spec.md	Phase 3 \(세션 목록 UI\) 진입 시	`persistSession: false` 는 제목 생성 단발 호출	app/src/main/adapters/claude.ts:persistSession: false	AC16-D1 §7.5 사유(N2)
 DA-A14	docs/arch/backend/adapters.md	부팅 시 1회 스캔|❌ 없음 \(재시작 필요\)	재스캔\(`refreshSkills`	app/src/main/app/handlers/skills.ts:refreshSkills	AC4 스킬 스캔 표(N3)
 DA-CS11	docs/claude-code-spec.md	-	\| 세션 분기 \| ✅ \*\*채택 \(0064\)\*\*	app/src/main/app/chat-turn/send.ts:forkSession	AC16-D1 EP-15 §11 세션 분기
+DA-CS12	docs/claude-code-spec.md	-	라이브 `setPermissionMode\('bypassPermissions'\)` 도 이 플래그\(또는 bypass 시작\) 없이 spawn 한 세션에서는 거부된다	docs/handoff/0261-bypass-flag-prod-devtools/probe-live-bypass.mjs:not launched	0261 EP-04 ① §5.5 플래그 표 행
+DA-A15	docs/arch/backend/adapters.md	-	\| `options\.allowDangerouslySkipPermissions` \| ✅ \| 구현 \|	app/src/main/adapters/claude.ts:allowDangerouslySkipPermissions: true	0261 EP-04 ④ §1.7
+DA-SE13	docs/arch/backend/security.md	-	devTools: import\.meta\.env\.DEV, // ✅ production 빌드는 false	app/src/main/index.ts:devTools: import\.meta\.env\.DEV	0261 EP-04 ⑤ §1.1 코드 블록
+DA-TR22	docs/TRD.md	코드가 열거나 막지 않는다	\| DevTools \| dev 열림 / build 차단 \|	app/src/main/infra/browser-session.ts:devTools: import\.meta\.env\.DEV	0261 EP-04 ⑦ §9.3
+DA-AG9	app/AGENTS.md	-	devTools: import\.meta\.env\.DEV, // 필수	app/src/main/infra/browser-window-devtools.test.ts:\['devTools', /\^import	0261 EP-04 ⑧ 보안 베이스라인 블록

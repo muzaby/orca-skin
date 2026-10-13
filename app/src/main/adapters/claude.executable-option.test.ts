@@ -395,3 +395,41 @@ describe('Claude 공통 실행 옵션', () => {
     }
   )
 })
+
+// 0261 AC3 · EP-01 — bypass 가용성 플래그는 **시작 모드를 명시한 대화 spawn 에만** 실린다(D-001·D-004).
+// 이 플래그가 빠지면 default 등으로 시작한 장수명 채널의 라이브 bypass 전환을 CLI 가 거부한다
+// (`…not launched with --dangerously-skip-permissions`). 형제 슬롯(대화 ↔ 제목 complete)은 계약이 달라
+// 두 query 를 각각 단언한다.
+describe('allowDangerouslySkipPermissions (0261 AC3 · EP-01)', () => {
+  const base: TurnRequest = {
+    sessionId: null,
+    text: 'hello',
+    cwd: '/ws/project',
+    extensions: { skills: [], hooks: { normalized: {} } }
+  }
+
+  it.each([
+    ['default', 'default'],
+    ['bypass', 'bypassPermissions']
+  ] as const)('대화 query 는 명시 모드(%s)와 함께 플래그를 싣는다', (mode, sdk) => {
+    queryMock.mockClear()
+    new ClaudeAdapter().sendMessage({ ...base, permissionMode: mode })
+    const options = optionsOfFirstCall()
+    expect(options.permissionMode).toBe(sdk)
+    expect(options.allowDangerouslySkipPermissions).toBe(true)
+  })
+
+  it('모드를 명시하지 않은 대화 query 는 플래그도 싣지 않는다', () => {
+    queryMock.mockClear()
+    new ClaudeAdapter().sendMessage(base)
+    const options = optionsOfFirstCall()
+    expect(options).not.toHaveProperty('permissionMode')
+    expect(options).not.toHaveProperty('allowDangerouslySkipPermissions')
+  })
+
+  it('제목 생성 complete() 는 플래그를 싣지 않는다', async () => {
+    queryMock.mockClear()
+    await new ClaudeAdapter().complete({ prompt: 'title please' })
+    expect(optionsOfFirstCall()).not.toHaveProperty('allowDangerouslySkipPermissions')
+  })
+})

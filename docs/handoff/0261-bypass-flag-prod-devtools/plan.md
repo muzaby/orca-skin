@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-13 |
 | 매핑 | PR #501 (브랜치 `ccr-0d9ab133-25ay9c`) — 0260 질의 3·4 의 사용자 응답 |
-| 상태 | READY |
+| 상태 | READY → impl/IMPL_DONE (r1) |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
 | 이번 V revision | `V1` |
@@ -400,47 +400,103 @@ createWindow/openWindow → BrowserWindow(devTools) → 메뉴·단축키·openD
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은
 > [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-- (r1 구현 턴에서 기입)
+- 동의 / 그대로 진행: D-001~D-006 · §10 EP-01~EP-04 · §11 파일 표 그대로 구현했다.
+- 이견 / 현실성 문제: 없음. VP-03 케이스 이름은 `'대화 query 는 명시 모드(%s)와 함께 플래그를 싣는다'`(`it.each` default·bypass 2행)로 구현했다 — 단언 행동은 plan 과 같다.
+- ACTIVE Decision 과 충돌하는 설계 발견: 없음.
 
-## [구현자 기입] 강제 지점 전수 (§10 대조)
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 남긴 곳 |
 |---|---|---|---|---|---|
-| (r1) | | | | | |
+| VP-03 | EP-01 플래그 | sendMessage · runCompletion (2) | 2/2 | `rg -n 'query\(\{' app/src/main -g '!*.test.ts'` → 2 · `rg -n allowDangerouslySkipPermissions app/src/main -g '!*.test.ts'` → 1(`claude.ts` sendMessage) · ① → `claude.executable-option.test.ts:'대화 query 는 명시 모드(%s)와 함께 플래그를 싣는다'`(2) · `'모드를 명시하지 않은 대화 query 는 플래그도 싣지 않는다'` · ② → `'제목 생성 complete() 는 플래그를 싣지 않는다'` — 파일 20/20 green | — |
+| VP-04·VP-07 | EP-02 webPreferences | index.ts · browser-session.ts (2) | 2/2 | `rg -n 'new\s+(\w+\.)?(BrowserWindow\|BrowserView\|WebContentsView)\s*\(' app/src/main -g '!*.test.ts'` → 2 · ① → `browser-window-devtools.test.ts:'%s — webPreferences 보안 베이스라인'`(index.ts) · ② → 같은 케이스(infra/browser-session.ts) + `browser-session.devtools.test.ts:'production 빌드(DEV=false)에서는 devTools 를 끈다 — 보안 3키·파티션은 그대로'`·`'dev 빌드(DEV=true)에서는 devTools 를 연다'` — 5/5 green | — |
+| VP-05 | EP-03 번들 | 번들 생성자 (2) | 2/2 | `gate:(cd app && npx electron-vite build) && node docs/handoff/0261-bypass-flag-prod-devtools/check-prod-bundle.mjs` → `out/main/index.js:15186`·`:23124` devTools=false · 소스 2 = 번들 2 · exit 0 | — |
+| VP-02 | EP-01 ① CLI 가용성 | (1) | 1/1 | `gate:node docs/handoff/0261-bypass-flag-prod-devtools/probe-live-bypass.mjs` → A·B·C PASS · exit 0 | — |
+| VP-08 | EP-04 문서 | 새 9 · 옛 5 · DA 9 | 9/9 · 5/5 · 9/9 | `gate:bash docs/handoff/0260-docs-handoff-resync/drift-check.sh check` → 206행 공집합 · scope(50파일) 옛 사실 `grep -nE` 0줄 · 새 사실 표식 TRD:490 · adapters:82 · security:21·:123 · spec:236·:240·:475 · AGENTS:69·:76 | — |
 
-## [구현자 기입] 이번 라운드 수정의 잠금
+- §10에 없는데 같은 불변식이 필요했던 지점: 없음 — webContents 생성자 반례(`BrowserView`·`WebContentsView`·`<webview`) 0건.
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_BLOCKED — 사람 실기 AC1 대기 | edge (a) `coordinator.permission.test.ts:'%s %s settles %s'` green · spawn → VP-03 · CLI → VP-02 | not selected |
+| VP-02 | REQUIRED | SELF_PASS | probe A·B·C | required — A(음성 대조)가 `not launched` 거부를 관측 |
+| VP-03 | REQUIRED | SELF_PASS | 위 4케이스 | not selected — options 직접 관측 |
+| VP-04 | REQUIRED | SELF_PASS | 스캔 3케이스 + 행동 2케이스 | required — M1~M8b 9/9 red |
+| VP-05 | REQUIRED | SELF_PASS | 번들 gate | required — M9a·M9b 2/2 red |
+| VP-06 | REQUIRED | SELF_BLOCKED — 사람 실기 AC7 대기 | 하위 VP-04·VP-05 | not selected |
+| VP-07 | REQUIRED | SELF_PASS | `browser-session.devtools.test.ts:'dev 빌드(DEV=true)에서는 devTools 를 연다'` · 스캔 표현식 단언(index.ts) | not selected — M2·M4 가 표현식 훼손을 덮음 |
+| VP-08 | REQUIRED | SELF_PASS | drift-check DA 9행 + scope sweep | required — M10 9/9 · M11 5/5 red(DA-CS6 결함 수정 후) |
+| VP-09 | REGRESSION | SELF_PASS | `claude.executable-option.test.ts` 기존 16케이스 · `src/main/{adapters,infra,features/approvals,features/sessions}` 120파일 green | not selected |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| (r1) | | | | |
+| M1 `index.ts` devTools 줄 삭제 | VP-04 선택 증거 | 최초 | `index.ts — webPreferences 보안 베이스라인` 1 | 잠김 |
+| M2 `index.ts` `devTools: true` | VP-04 | 최초 | 같은 케이스 1 | 잠김 |
+| M3 `browser-session.ts` devTools 줄 삭제 | VP-04 | 최초 | 스캔 1 + 행동 2 = 3 | 잠김 |
+| M4 `browser-session.ts` `devTools: !import.meta.env.DEV` | VP-04 | 최초 | 3 | 잠김 |
+| M5 `index.ts` 뒤에 `devTools: true` 중복 | VP-04 | 최초 | 1 | 잠김 |
+| M6 `index.ts` devTools 를 webPreferences 밖 최상위 옵션으로(형제 슬롯 맞바꿈) | VP-04 | 최초 | 1 | 잠김 |
+| M7 새 파일 `app/m7-window.ts` 에 devTools 없는 생성자 | VP-04 | 최초 | `app/m7-window.ts — …` 1 | 잠김 |
+| M8a webPreferences 안 끝 `...extraPrefs` | VP-04 | 최초 | 1 | 잠김 |
+| M8b webPreferences 뒤 `...overrides` | VP-04 | 최초 | 1 | 잠김 |
+| M9a `browser-session.ts` `devTools: true` → 빌드 | VP-05 | 최초 | 번들 위반 1(`index.js:15186`) · exit 1 | 잠김 |
+| M9b `index.ts` `devTools: true` → 빌드 | VP-05 | 최초 | 번들 위반 1(`index.js:23124`) · exit 1 | 잠김 |
+| M10 DA 9행 must 문자열 각각 훼손 | VP-08 | 최초 | 9/9 해당 id 보고 · exit 1 | 잠김 |
+| M11 옛 사실 5자리 각각 복원 | VP-08 | 최초 | 첫 실행 3/5 → DA-CS6 수정 후 5/5 | 잠김 |
+| probe 케이스 A(플래그 없음) | VP-02 | 최초 | A 가 거부를 관측 | 잠김 |
 
-## [구현자 기입] Product/UX 파생 검토
+- **분모 검산**: 선택 증거 14행(자리 26) · 인용 변이 0 · 새 oracle 0 — 새 장치 4개(스캔·번들·probe·DA 행)의 민감도는 위 선택 증거 행이 겸한다 = 표 행 14.
+- **덮개 회귀**: 0건 — 교체한 DA 4행은 옛 must_not 을 그대로 두고 옛 사실 must_not 을 더했다. 매 변이 후 원본 복원 상태 green(스캔·행동 5/5, 번들 exit 0, drift 공집합).
+
+## [구현자 기입] Product/UX 파생 검토 (r1)
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| (r1) | | |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — 새 문구 없음. 전환 결과는 기존 IPC 응답·`session.updated` 가 운반 | — |
+| seam 재배치 | 재배치 없음 | — |
+| 이번에 만든 실패 경로가 Part I 상태표의 어느 행인가 | 정책 disable 거부 = 상태표 3행(기존 계약) | — |
+| 실패가 “아무 일도 안 일어남”으로 보이지 않는가 | 정책 환경에서 턴 중 bypass 선택은 `undefined` → 선택 미적용 — 기존 동작 | §6 후보(정책 환경 bypass 메뉴) |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 불변 — 코디네이터 세대 검사 유지 | — |
 
-## [구현자 기입] 놓친 잠재 문제 + 대응
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| (r1) | | | |
+| 1 | DA-CS6 must_not 의 `[를는]` 이 drift-check 의 `LC_ALL=C` 에서 바이트 클래스로 읽혀 옛 문장 복원을 못 잡았다 | ✅ 선조치 — `(를\|는)` 교대식. 0260 TSV 의 다른 비ASCII 문자 클래스 0건 | M11 3/5 → 5/5 · `grep -cP` 0 |
+| 2 | doc-gate `regen` 이 줄 번호를 키로 써서 이동한 기존 판정 14건(시제 13 · 경로 1)을 미판정으로 되돌렸다 | ✅ 선조치 — 이동량(security +3 · adapters +1 · AGENTS +1)으로 같은 키 판정 승계, 신규 2건 판정(`disableBypassPermissionsMode`=외부 · §1.5 `openDevTools`=참) | `doc-gate.sh check` 공집합 |
+| 3 | `npm start`(production 번들·미패키징)에서 optimizer 의 F12 는 `openDevTools()` 를 부르지만 무효 | ⚠️ 보고만 — D-003 결과, security.md §1.5 에 적었다 | `index.ts` `browser-window-created` |
+| 4 | root(비샌드박스) Linux/macOS 실행에서 CLI root 거부 분기가 이 플래그로도 열리는지 | ⚠️ 보고만 — plan §17. 이 환경은 `IS_SANDBOX` 가 설정돼 관측 불가 | `env` |
 
 ### 설계 대비 명시적 차이
 
-- (r1)
+- 없음 — 케이스 이름 표기만 다르다(설계 리뷰). 대체물이 없으므로 4축 표는 해당 없음.
 
-## [구현자 기입] 구현 보고
+## [구현자 기입] 구현 보고 (r1)
 
 | 항목 | 내용 |
 |---|---|
-| (r1) | |
+| 변경 파일 | app: `adapters/claude.ts` · `index.ts` · `infra/browser-session.ts` · `adapters/claude.executable-option.test.ts` · `infra/browser-window-devtools.test.ts`(신규) · `infra/browser-session.devtools.test.ts`(신규) · `app/AGENTS.md` / docs: `claude-code-spec.md` · `arch/backend/adapters.md` · `arch/backend/security.md` · `TRD.md` / handoff: 0260 `drift-assertions.tsv` · 0192 baselines 3 · 0261 `probe-live-bypass.mjs` · `check-prod-bundle.mjs` · plan · INDEX |
+| 실행 명령 | §19 전부 + 변이 M1~M11 (scratch 러너, 매번 원본 복원) |
+| **관측한 게이트 산출** | lint 0 error · 1 warning(`renderer/…/useTranscriptVirtualizer.ts` — 0261 무관 기존) · typecheck exit 0(`error TS` 0) · 대상 3파일 25/25 · 관련 스위트 129파일 중 120 green(1364 통과) — 실패 9파일은 전부 `infra/db/*`, 서명 `better_sqlite3.node … NODE_MODULE_VERSION` 9건(ABI 환경 기인) · doc-gate 공집합 · drift-check 206행 공집합 · inventory ok · probe exit 0 · 번들 exit 0 |
+| V-pair 자기확인 | SELF_PASS 7 / SELF_BLOCKED 2(사람 실기 VP-01·VP-06) |
+| 강제 지점 전수 | EP-01 2/2 · EP-02 2/2 · EP-03 2/2 · EP-04 새 9/9 · 옛 5/5 · DA 9/9 |
+| **AC 자기보고**(`Criteria-Met`) | AC1 ⚠️ 사람 실기 · AC2 ✅ probe A·B·C PASS · AC3 ✅ 4케이스 green · AC4 ✅ 스캔 3케이스 + M1~M8b red · AC5 ✅ 2케이스 green · AC6 ✅ 번들 exit 0 · AC7 ⚠️ 사람 실기 · AC8 ✅ drift 공집합 + sweep 0줄 |
+| **합계 검산** | `✅ 6 · ⚠️ 2 · ❌ 0 = 총 8` — 분모는 plan §7 의 AC1~AC8 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
-## [구현자 기입] Review Signals — 사실만
+## [구현자 기입] Review Signals — 사실만 (r1)
 
-- (r1)
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 최초 라운드. 0260 이 만든 drift-check DA 행에서 C 로캘 바이트 클래스 결함이 이번 턴 변이(M11)로 처음 드러났다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: `handoff-impl` §3 "선택한 적대 증거를 자리마다 심는다"가 잡았다.
+- 반복해서 부딪히는 환경 한계: Electron 바이너리 없음(AC1·AC7 사람 실기) · better-sqlite3 ABI(DB 9파일).
+- 현재 라운드·impl 턴: `r1`.
 
 ---
 

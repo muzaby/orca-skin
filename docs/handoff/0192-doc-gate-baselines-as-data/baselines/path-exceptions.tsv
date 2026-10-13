@@ -1,5 +1,5 @@
 B	docs/GLOSSARY.md:86	capabilities/revert-manager.ts	역사
-B	docs/arch/backend/security.md:146	contracts/sso.ts	역사
+B	docs/arch/backend/security.md:149	contracts/sso.ts	역사
 B	docs/arch/frontend/layers.md:110	pages/XxxPage.tsx	설계어휘
 B	docs/arch/frontend/layers.md:154	pages/XxxPage.tsx	설계어휘
 B	docs/arch/frontend/ux-domains.md:101	pages/RoutinesPage.tsx	future
