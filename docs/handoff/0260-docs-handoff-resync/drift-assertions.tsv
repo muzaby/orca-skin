@@ -5,7 +5,7 @@ DA-A03	docs/arch/backend/adapters.md	settingSources. 생략|옵션 생략	settin
 DA-A04	docs/arch/backend/adapters.md	D1 사용자 결정 전 보류|disallowedTools 보류	\['WebSearch'\]	app/src/main/adapters/claude.ts:disallowedTools: \['WebSearch'\]	AC4 EP-02 disallowedTools
 DA-A05	docs/arch/backend/adapters.md	dist/<engine>/\.claude/skills|dist/<engine>/\.mcp\.json	plugins/orcinus-orca	app/src/main/infra/config/paths.ts:plugins/orcinus-orca	AC4 EP-03 dist 레이아웃
 DA-A06	docs/arch/backend/adapters.md	<userData>/artifacts/<sessionId>	persistence\.md §1\.4	docs/arch/backend/persistence.md:1\.4 계층 2	AC4 §2.3 Artifacts → persistence 링크
-DA-A07	docs/arch/backend/adapters.md	builder\.ts:73	hooks: \{ normalized: \{\} \}	app/src/main/features/extensions/builder.ts:normalized: \{\}	AC4 §3.2.5 줄번호 제거
+DA-A07	docs/arch/backend/adapters.md	builder\.ts:[0-9]	hooks: \{ normalized: \{\} \}	app/src/main/features/extensions/builder.ts:normalized: \{\}	AC4-D1 §3.2.5 줄번호 0(D-013)
 DA-A08	docs/arch/backend/adapters.md	getCredentialKeys	RuntimeConfigAugmenter	app/src/main/features/harnesses/runtime-config.ts	AC4 §1.8 자격증명 행 현행화(EP-07)
 DA-P01	docs/arch/backend/persistence.md	Application Support/orcinus-orca-settings	orcinus-orca-settings\.json	app/src/main/infra/settings-store.ts:PRODUCT_SLUG\}-settings	AC5 §1.1 electron-store 경로
 DA-P02	docs/arch/backend/persistence.md	-	`0019_session_baseline\.sql`	app/src/main/infra/db/migrations/0019_session_baseline.sql	AC5 마이그레이션 표 0019
@@ -100,7 +100,7 @@ DA-UX5	docs/arch/frontend/ux-domains.md	4-항목|플러그인 모달	pages/Plugi
 DA-UX6	docs/arch/frontend/ux-domains.md	-	pages/ArtifactsPage\.tsx	app/src/renderer/src/pages/ArtifactsPage.tsx	AC11 §2 artifacts 행
 DA-UX7	docs/arch/frontend/ux-domains.md	SSO bypass	authBypass	app/src/shared/protocol.ts:authBypass	AC11 §2 Debug 행
 DA-UX8	docs/arch/frontend/ux-domains.md	handleChatSend.*mcpServers|EngineSettings\*\*: Phase 3\+	options\.plugins. 로 로드	app/src/main/adapters/claude-adapt.ts:adaptPlugins	AC11 §2.1
-DA-UX9	docs/arch/frontend/ux-domains.md	chatStore\.ts:1243|RECV_EVENT	ingestChatEvent	app/src/renderer/src/features/chat/store/chatStore.ts:ingestChatEvent	AC11 §3.2
+DA-UX9	docs/arch/frontend/ux-domains.md	chatStore\.ts:[0-9]|RECV_EVENT	chatApi\.onEvent\(ingestChatEvent\)	app/src/renderer/src/features/chat/store/chatStore.ts:chatApi\.onEvent\(ingestChatEvent\)	AC11-D1 §3.2 식 좌표(D-013)
 DA-UX10	docs/arch/frontend/ux-domains.md	\{ code, message, recoverable \}	ClassifiedError	app/src/shared/ipc.ts:export interface ClassifiedError	AC11 §3.1
 DA-FT1	docs/arch/frontend/terms.md	\*\*useChat / chatReducer\*\*	\*\*chatStore / chatReducer\*\*	app/src/renderer/src/features/chat/store/chatStore.ts	AC11 terms
 DA-FT2	docs/arch/frontend/terms.md	-	/artifacts.*/plugins	app/src/renderer/src/app/router.tsx:/plugins	AC11 라우트 목록
@@ -190,3 +190,13 @@ DA-TR21	docs/TRD.md	-	^    settingSources: \['project', 'local'\],	app/src/main/
 DA-CS3	docs/claude-code-spec.md	-	`forkSession` · `settingSources: \['project','local'\]` · `disallowedTools: \['WebSearch'\]`	app/src/main/adapters/claude.ts:disallowedTools: \['WebSearch'\]	AC16 EP-01·EP-02 §14 채택 범위 자리
 DA-A13	docs/arch/backend/adapters.md	-	대화 query 는 `allowedTools` 를 쓰지 않는다	app/src/main/adapters/claude-runtime-tools.ts:return \{ mcpServers \}	AC4 §1.3 인프로세스 도구(구현 중 자기 오기 정정)
 DA-IP9	docs/IPC_CONTRACT.md	-	\| `telemetry` .*sessionCostUsd	app/src/renderer/src/features/chat/reducer/chatReducer.ts:sessionCostUsd	AC14 §3 telemetry 행(구현 중 자기 오기 정정)
+DA-SE12	docs/arch/backend/security.md	index\.ts:[0-9]	`createWindow` 의 `webPreferences` 블록	app/src/main/index.ts:webPreferences	AC7-D1 §1.1 식 좌표(D-013)
+DA-CS4	docs/claude-code-spec.md	양쪽 모두 사용 안 함|미사용 확정	✅ \*\*Orca v1 채택 \(`--dangerously-skip-permissions` 쪽\)\*\*	app/src/shared/permission-mode.ts:menuModes: \['default', 'auto_classified', 'bypass'\]	AC16-D1 EP-15 §5.5
+DA-CS5	docs/claude-code-spec.md	-	권한 우회\(`bypassPermissions`\)는 Composer 권한 메뉴 `bypass` 로 고를 수 있다	app/src/shared/permission-mode.ts:bypass: 'bypassPermissions'	AC16-D1 EP-15 §11 도구 권한
+DA-CS6	docs/claude-code-spec.md	\| `--dangerously-skip-permissions`, `--allow-dangerously-skip-permissions` \|	\| `--allow-dangerously-skip-permissions` \| `allowDangerouslySkipPermissions` 를 넘기지 않는다	app/src/main/adapters/claude.ts:permissionMode: toClaudePermissionMode	AC16-D1 EP-15 §14.3
+DA-CS7	docs/claude-code-spec.md	분기\* UI 후보 anchor	✅ \*\*Orca v1 채택 \(0064\)\*\* — SDK `forkSession`	app/src/main/app/chat-turn/send.ts:forkSession	AC16-D1 EP-15 §7.3
+DA-CS8	docs/claude-code-spec.md	-	`bypass` = `--dangerously-skip-permissions` 와 같은 `bypassPermissions`	app/src/shared/permission-mode.ts:bypass: 'bypassPermissions'	AC16-D1 EP-15 §14.1
+DA-CS9	docs/claude-code-spec.md	명시적 세션 선택 UI 도입 예정	세션 목록에서 고른 세션을 `resume` 으로 잇는다	app/src/main/adapters/claude.ts:resume	AC16-D1 §7.2 사유(N2)
+DA-CS10	docs/claude-code-spec.md	Phase 3 \(세션 목록 UI\) 진입 시	`persistSession: false` 는 제목 생성 단발 호출	app/src/main/adapters/claude.ts:persistSession: false	AC16-D1 §7.5 사유(N2)
+DA-A14	docs/arch/backend/adapters.md	부팅 시 1회 스캔|❌ 없음 \(재시작 필요\)	재스캔\(`refreshSkills`	app/src/main/app/handlers/skills.ts:refreshSkills	AC4 스킬 스캔 표(N3)
+DA-CS11	docs/claude-code-spec.md	-	\| 세션 분기 \| ✅ \*\*채택 \(0064\)\*\*	app/src/main/app/chat-turn/send.ts:forkSession	AC16-D1 EP-15 §11 세션 분기

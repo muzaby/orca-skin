@@ -8,10 +8,10 @@
 0199-simplify-0198-cleanup	-	-	비기능 정리 — 동작 불변
 0200-host-managed-runtime-env	docs/arch/backend/auth.md;docs/TRD.md	CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST	host-managed provider 표식
 0201-composer-work-context-row	docs/arch/frontend/overview.md;docs/arch/frontend/state.md	GitRow	컴포저 작업 맥락 행
-0202-runtime-catalog-invalidation-scope	docs/arch/backend/auth.md	invalidat	카탈로그 무효화 범위
+0202-runtime-catalog-invalidation-scope	docs/arch/backend/overview.md	무효화 범위	런타임 카탈로그 무효화 범위
 0203-left-nav-section-layout	docs/arch/frontend/dom-architecture.md;docs/arch/frontend/state.md	고정됨	nav 구획
 0204-taskxxx-right-panel	docs/claude-taskxxx-spec.md	TaskCreate	TaskXXX 우측 패널
-0205-cowork-study-and-task-tile-suspend	-	-	연구(verify 없음) — 결론은 0226 뷰어로 반영
+0205-cowork-study-and-task-tile-suspend	-	-	연구(verify 없음) — `작업` 타일 정지는 0213 이 재개해 현재 문서에 남길 사실 없음 · 삭제·이동 파일 0
 0206-composer-git-row-and-diff-tile	docs/arch/frontend/overview.md;docs/arch/frontend/state.md	DiffTile	git 행 · diff 타일
 0207-closed-network-custom-env	docs/arch/backend/overview.md;docs/guides/closed-network-extensions.md	SPAWN_ENV_INJECTOR	폐쇄망 spawn env 주입점
 0208-spinner-instructions-usage-tooltip	docs/arch/frontend/overview.md;docs/arch/frontend/rendering.md	Spark	진행 스피너(verify 없음 — 아트워크는 0216 이 교체)
@@ -19,7 +19,7 @@
 0210-worktree-lifecycle	docs/IPC_CONTRACT.md	worktreeBaseRef	worktree 수명 · 기준 ref
 0211-worktree-session-ux	docs/IPC_CONTRACT.md	worktree\.preparing	격리 준비 표시
 0212-taskxxx-surface-gaps	docs/claude-taskxxx-spec.md	activeForm	TaskXXX SDK 표면
-0213-task-tile-resume	docs/claude-taskxxx-spec.md	기능 가용성	기능 존재 게이트 도달
+0213-task-tile-resume	docs/arch/frontend/overview.md	TaskXXX 우측 패널 · 작업 타일	작업 타일 재개
 0214-opencode-sdk-install-migration-research	docs/arch/backend/overview.md;docs/opencode-sdk-spec.md	@opencode-ai/sdk	OpenCode SDK 설치(연구, verify 없음)
 0215-plan-panel-and-model-selection-bugs	docs/claude-taskxxx-spec.md	pathToClaudeCodeExecutable	번들 실행 경로 · 계획 패널
 0216-spinner-artwork-swap	docs/arch/frontend/overview.md	스피너\(Spark\) 아트워크	스피너 아트워크 교체
@@ -27,8 +27,8 @@
 0218-simplify-200-217-cleanup	-	-	비기능 정리 — 동작 불변
 0219-srt-windows-preflight	-	-	사용자 보류(verify 없음) — 구현 산출 없음
 0220-srt-execution-integration	-	-	사용자 보류(verify 없음) — 구현 산출 없음
-0221-main-structural-simplification	-	-	구조 정리 — 외부 동작·계약 불변
-0222-preload-renderer-structural-simplification	-	-	구조 정리 — 외부 동작·계약 불변
+0221-main-structural-simplification	app/src/main/AGENTS.md;app/AGENTS.md	신규·busy·프렐류드 배치 적재	chat-turn 모듈 재편 — `busy-reserve`·`turn-setup` 삭제(app/AGENTS.md:50 은 0260 이 정정)
+0222-preload-renderer-structural-simplification	docs/GLOSSARY.md;docs/TRD.md	shared/theme/TweakProvider\.tsx|`TweakProvider`	renderer 재편 — `useTweaks.ts` 삭제·`SearchModal` 이동(인용은 0260 이 정정)
 0223-artifact-publisher	docs/arch/backend/persistence.md	artifact_files	산출물 게시
 0224-work-agent-layer	docs/GLOSSARY.md	AgentKind	Work/Code 에이전트 종류
 0225-orcinus-orca-naming	docs/arch/backend/persistence.md;docs/arch/backend/runtime-ipc.md	orcinus-orca	앱 이름 · 저장 경로 이관
@@ -45,7 +45,7 @@
 0236-jira-plugin-catalog-presentation	docs/guides/closed-network-extensions.md	ProviderCatalogPresentationInput	카탈로그 표시 정보
 0237-pop3-mail-search-plugin	docs/arch/backend/auth.md	POP3	POP3 메일 Plugin
 0238-fable-plugin-composer-auth-ui	docs/arch/backend/auth.md;docs/arch/frontend/ux-domains.md	ANTHROPIC_DEFAULT_FABLE_MODEL	Fable 계열
-0239-foreground-cancel-settlement	docs/arch/backend/background-tasks.md	정착	포그라운드 취소 정착
+0239-foreground-cancel-settlement	docs/arch/backend/background-tasks.md	host 정착 사유	포그라운드 취소 정착
 0240-simplify-0223-0239	-	-	비기능 정리 — 동작 불변
 0241-git-gateway-spawn-reduction	docs/arch/backend/overview.md	mutation queue	git 게이트웨이
 0242-error-toast-reporter	docs/arch/backend/observability.md	error-report	전역 오류 토스트

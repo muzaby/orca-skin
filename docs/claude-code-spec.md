@@ -235,7 +235,7 @@ claude -p "Apply the lint fixes" --permission-mode acceptEdits
 | `--dangerously-skip-permissions` | `--permission-mode bypassPermissions` 와 동일. 모든 권한 프롬프트 건너뜀 |
 | `--allow-dangerously-skip-permissions` | Shift+Tab 모드 사이클에 `bypassPermissions` 를 *옵션* 으로 추가. 시작은 다른 모드로 |
 
-❌ **Orca v1 미사용** — 양쪽 모두 사용 안 함. 데스크톱 챗 UX 의 안전 마진을 유지한다.
+✅ **Orca v1 채택 (`--dangerously-skip-permissions` 쪽)** — 같은 의미의 `permissionMode: 'bypassPermissions'` 를 Composer 권한 메뉴의 `bypass`(Work·Code)로 사용자가 고를 수 있다(`shared/permission-mode.ts` `menuModes`, 0224). 기본값이 아니며(기본 정책은 OQ9), workspace guard 훅의 deny 는 이 모드에서도 유효하다. `--allow-dangerously-skip-permissions` 대응 `allowDangerouslySkipPermissions` 는 넘기지 않는다(`adapters/claude.ts`).
 
 ### 5.6 Orca 채택 (OQ9)
 
@@ -306,7 +306,7 @@ claude -p "Continue that review" --resume "$session_id"
 
 근거: `docs/etc/llm-chat-desktop-strategy.md §6.2~6.3`, `docs/TRD.md §7.1`, `docs/arch/backend/adapters.md §1`.
 
-❌ `--continue` 미사용 — Orca 는 단일 세션 이외에 *이전 세션 자동 이어가기* 시나리오가 없다 (Phase 3 에서 명시적 세션 선택 UI 도입 예정).
+❌ `--continue` 미사용 — Orca 는 세션 목록에서 고른 세션을 `resume` 으로 잇는다. *직전 세션 자동 이어가기* 는 없다.
 
 ### 7.3 `--fork-session` (재개 시 새 세션 ID)
 
@@ -316,7 +316,7 @@ claude -p "Continue that review" --resume "$session_id"
 claude --resume <id> --fork-session -p "..."
 ```
 
-❌ **Orca v1 미사용** — Phase 1 은 단일 세션. Phase 3 *"이 대화 가지고 갈래" / 분기* UI 후보 anchor.
+✅ **Orca v1 채택 (0064)** — SDK `forkSession`(resume 복사본 + 새 session id)으로 Fork·Handoff 가 쓴다(`app/chat-turn/send.ts`, §11 세션 분기).
 
 ### 7.4 `--session-id <UUID>` (호출자가 ID 지정)
 
@@ -340,7 +340,7 @@ Phase 1 은 (1) 을 유지. Phase 3 진입 시 재검토 — 본 항목을 §12 
 | `--name <text>` / `-n` | 세션의 *표시 이름* 을 설정. `claude --resume <name>` 으로 이름으로 재개 가능. 세션 중 `/rename` 으로 변경 |
 | `--no-session-persistence` | 세션을 디스크에 저장하지 않음. 재개 불가. *인쇄 모드 한정*. 환경변수 `CLAUDE_CODE_SKIP_PROMPT_HISTORY` 와 동일 효과 |
 
-❌ **Orca v1 미사용** — Phase 1 은 *직전 한 세션* 만 다룬다. Phase 3 (세션 목록 UI) 진입 시 `--name` 검토. `--no-session-persistence` 는 *시크릿 모드* anchor 로 보관.
+❌ **Orca v1 미사용 (`--name`)** — 제목은 Orca DB(`sessions.title`·`title_source`)가 소유한다(§11 세션 이름). `--no-session-persistence` 대응 `persistSession: false` 는 제목 생성 단발 호출(`complete()`)에만 쓴다(`adapters/claude.ts`).
 
 ---
 
@@ -406,7 +406,7 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 | 세션 이름 | `--name` / `-n` 미사용 — 제목은 Orca DB(`sessions.title`·`title_source`)가 소유한다 |
 | 세션 저장 비활성화 | `--no-session-persistence` 미사용 — *시크릿 모드* anchor |
 | 베어 모드 | 미사용 (`~/.claude` 환경 활용) |
-| 도구 권한 | **OQ9 부분 진전** — 승인 오버레이(0022)·workspace guard(0075) 구현, 기본 정책값만 미정. 권한 우회(`--dangerously-skip-permissions`) 는 미사용 확정 |
+| 도구 권한 | **OQ9 부분 진전** — 승인 오버레이(0022)·workspace guard(0075) 구현, 기본 정책값만 미정. 권한 우회(`bypassPermissions`)는 Composer 권한 메뉴 `bypass` 로 고를 수 있다(0224, §5.5) |
 | 시스템 프롬프트 | ✅ **append 채택** — `systemPrompt: { type:'preset', preset:'claude_code', append }` 로 `# Orca` 구조화 헤더(+Work `# Agent`)를 덧붙인다([system-prompt.md](./arch/backend/system-prompt.md)). 교체(`--system-prompt`·`--system-prompt-file`)는 미사용 |
 | 구조화 출력 | 미사용 (`--json-schema`) |
 | 모델 선택 | ✅ **채택 (0010)** — SDK `options.model` per-turn 전달 (Composer ModelMenu, `SendChatMessage.modelFamily`). 미지정 시 사용자 `~/.claude` 설정 폴백 |
@@ -467,7 +467,7 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 | `--include-partial-messages` | `includePartialMessages` | §4 |
 | `--resume <id>` / `-r` | `resume` — 채널 사망 뒤 spawn | §7.2 |
 | `--fork-session` | `forkSession` — Fork·Handoff (0064) | §7.3 |
-| `--permission-mode` | `permissionMode` — Composer 권한 메뉴·라이브 전환. **기본 정책값은 OQ9** | §5.2, §5.6 |
+| `--permission-mode` | `permissionMode` — Composer 권한 메뉴·라이브 전환(`bypass` = `--dangerously-skip-permissions` 와 같은 `bypassPermissions`). **기본 정책값은 OQ9** | §5.2, §5.5, §5.6 |
 | `--disallowedTools` | `disallowedTools: ['WebSearch']` | §5.4 |
 | `--append-system-prompt` | `systemPrompt` preset + append(`# Orca` 헤더) | §6 |
 | `--add-dir` | `additionalDirectories` — 앱 임시 루트 + 세션 extraDirs | §11 |
@@ -495,7 +495,7 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 | `--continue` / `-c` | 단일 세션 시나리오, ID 기반 재개로 충분 | §7.1 |
 | `--system-prompt` (완전 교체) | Claude Code 정체성 유지 | §6 |
 | `--json-schema` | 자유 텍스트 챗 | §9 |
-| `--dangerously-skip-permissions`, `--allow-dangerously-skip-permissions` | 안전 마진 | §5.5 |
+| `--allow-dangerously-skip-permissions` | `allowDangerouslySkipPermissions` 를 넘기지 않는다 — 권한 우회는 `--permission-mode`(`bypassPermissions`)로만(§14.1) | §5.5 |
 | `--no-session-persistence` | 영속화 가치 (재개 시 컨텍스트 복원) | §7.5 |
 | `--name <text>` / `-n` | 제목은 Orca DB(`sessions.title`·`title_source`)가 소유 | §7.5 |
 | stdin 파이프 입력 | UI 가 입력 채널, `-p` 인자만 사용 | §8 |

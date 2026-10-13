@@ -131,8 +131,8 @@ OpenCode 적용 시의 추가 선행조건·레이어별 gate는 [마이그레�
 | 스캔 루트 | `sources/skills/<name>/SKILL.md` (sourceId=`orca`) + `~/.claude/skills/<name>/SKILL.md` (sourceId=`adapter:claude`). **`<cwd>/.claude/skills` 루트는 제거됨** |
 | 파서 | frontmatter 정규식 (`^---\s*\n...\n---`) |
 | 인식 키 | `name`, `description`, `argument-hint` |
-| 캐싱 | 부팅 시 1회 스캔 → `Bootstrap.skillsCache` |
-| 핫리로드 | ❌ 없음 (재시작 필요) |
+| 캐싱 | 부팅 스캔 + Orca 의 작성·업로드·토글·삭제 뒤 재스캔(`refreshSkills`, `app/handlers/skills.ts`) → `Bootstrap.skillsCache` |
+| 핫리로드 | 파일 감시 없음 — 바깥에서 고친 스킬은 다음 재스캔(위 동작) 또는 재시작에 반영 |
 
 > **⚠️ `~/.claude/skills` 루트는 claude-code 어댑터 전용** (Claude Code 의 표준 경로). 다른 어댑터 (opencode 등) 도 지원하면 스캔 경로 분리 필요 — 사용자 결정.
 
