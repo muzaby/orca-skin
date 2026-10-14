@@ -8,10 +8,10 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | IMPL_DONE — r1.10 오류 안내·하네스 문구 수정 및 후속 CUA, AC11 최종 인수·독립 검증 대기 |
-| V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 |
+| 상태 | READY — ΔV7 사용자 제공 데스크톱 소스의 UI 이식 |
+| V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
-| 이번 V revision / 유효 V | ΔV6 / V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 |
+| 이번 V revision / 유효 V | ΔV7 / V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 |
 
 # Part I — Product & UX Contract
 
@@ -54,6 +54,8 @@ Orca는 Claude만 실행하고 composer·모델·패널이 그 기능을 전제�
 
 | D-017 | OpenCode 공통 계약과 현재 1.x 구현을 분리해 향후 2.x 구현을 연결할 경계를 둔다 | 사용자: "opencode는 1.x, 추후 2.x도 고려하여 계층분리". 현재 2.x 실행 지원을 추가하는 요청으로 해석하지 않는다 | 2026-10-14 사용자 추가 요구 | ACTIVE | D-015/016 보완 |
 | D-018 | 도구 호출·카드는 OpenCode 원본을 참고하고 transcript 출력 스타일을 하네스별로 분리한다 | 원본 v1.19.0의 탐색 묶음·셸 출력·파일 diff·reasoning을 참고한다. Claude 스타일, 공통 배경(D-011), 원본 도구 보존(D-007)은 유지 | 2026-10-14 사용자 추가 요구 | ACTIVE | ΔV5에서 공통 카드 스타일을 재사용한 OpenCode 경로만 대체 |
+
+| D-019 | 사용자 제공 `.tmp/opencode-dev`의 데스크톱 transcript·도구·테마·composer·질문 렌더링을 차용한다 | transcript canvas 배경은 현재 값 유지. UI 참조는 2.0.29, 실행 API는 기존 1.x. 참조 다운로드는 커밋 제외 | 2026-10-15 사용자 추가 요구 | ACTIVE | D-018의 UI 참조를 보완, D-004/011/015~017 유지 |
 
 갱신 메모: D-017/018 추가. D-015의 2.x 미지원과 향후 계층 확장은 양립하며 D-004/011의 Claude 스타일·배경은 유지한다. ACTIVE 결정 ↔ AC22~25 대조: 충돌 0, 미정 제품 결정 없음.
 
@@ -479,6 +481,53 @@ MessageSegment 전수는 `reasoning/tools/ask/structured/text/error/compact/fork
 게이트: 전체 lint/typecheck, 실패 3파일과 변경 관련 Vitest, ABI를 보존한 전체 테스트(필요한 DB만 Electron), scripts 경계/문서/예산 검사, main/preload/renderer build, 수정 head 원격 CI. source 검사를 수정하면 그 검사가 보던 원래 실패를 다시 주입해 감도를 확인한다. 새 구조적 proxy를 발명하지 않고 직접 행동 검사를 우선한다.
 
 READY 대조: D-004/007/011/015~018 ↔ AC22~25 충돌 0. public SessionAdapter와 정규 DTO 유지, 추가 저장소·IPC·의존성 없음. 원본과 현재 코드의 경로 및 기존 실패 테스트 케이스를 직접 읽었고, 신규 decoder/renderer oracle은 위 자리별로 구현한다.
+
+# ΔV7 — 사용자 제공 데스크톱 UI 이식 (READY)
+
+## 제품 계약·출처와 AC
+
+사용자가 제공한 `.tmp/opencode-dev`는 package.json상 2.0.29 소스 아카이브다. 별도 `.git`이 없으므로 부모 저장소의 HEAD를 upstream revision으로 기록하지 않는다. 데스크톱은 `packages/app`의 timeline이 `packages/session-ui`를 호출한다. UI를 React로 이식하며 2.x SDK·서버 API를 도입하지 않는다. 이 추가 범위는 같은 OpenCode 화면의 연속 작업이므로 기존 handoff에 AC26~28을 더한다.
+
+| AC / 노드 | 관측 결과 | 직접 oracle |
+|---|---|---|
+| AC26 / R-26↔AT-26 NEW | OpenCode의 도구 행·탐색 그룹·셸 명령/결과·파일 diff·오류·Q&A와 본문은 데스크톱의 간격·위계·oc-2 두 테마를 따른다. transcript canvas 배경은 그대로다 | 실제 renderer의 종류·상태·펼침/복사/Q&A 렌더, light/dark Computer Use |
+| AC27 / R-27↔AT-27 NEW | OpenCode composer는 radius 12, 13px 본문, 44px toolbar, 28px 제어/전송 버튼을 사용한다. 좁은 폭에서 toolbar는 스크롤하며 전송과 겹치지 않는다 | 실제 composer 입력/초안/IME 회귀 및 좁은 폭 시각 확인 |
+| AC28 / R-28↔AT-28 NEW | 질문은 헤더·진행 막대·radio/checkbox 선택·직접 입력·접기·뒤로/다음/제출을 가진 dock, 승인은 같은 dock의 도구 설명·거부/세션 허용/허용으로 표시한다 | 실제 질문 컴포넌트의 선택·다중/기타·이전/다음·접기·IME·Ctrl+Enter·Esc·응답 payload 및 승인 callback 전달 |
+
+AC24/25의 도구 순서·상태·스트리밍·원본 보존은 INHERITED이며 표시만 갱신한다. 기존 Claude의 질문과 composer는 유지한다. 질문 선택은 자동 진행하지 않고 다음 버튼/제출 단축키로 진행한다. 마지막 제출은 모든 질문에 답이 있을 때만 가능하다. 접어도 답을 보존하고 새 requestId에서는 초기화한다. 기존 `answerAsk/skipAsk/approveTool`의 요청·오류·중복 방지 계약을 유지하며 UI를 위해 승인 정책을 바꾸지 않는다. 중단/실패/거절을 성공으로 꾸미지 않는다.
+
+## 조사와 기술 설계
+
+- `packages/app/src/session/timeline/message-timeline.tsx` → `packages/session-ui/src/timeline/row`: 실제 desktop transcript 경로.
+- `session-ui/src/components/{basic-tool,message-part,tool-error-card,question-prompt}.css`: tool 28px/13px, shell 명령과 결과 분리, 파일 헤더/통계, 240px 출력 스크롤, 질문 6px 옵션·10px dock.
+- `app/src/composer/editor/{editor.tsx,editor.css}`: textarea 영역 60~180px, toolbar 44px와 가로 스크롤, 버튼 28px. Orca의 동일 textarea/controller와 첨부·IME 수명을 유지한다.
+- `app/src/session/requests/session-{question,permission}-dock.tsx`: radio/checkbox, 직접 입력, Ctrl+Enter·Alt+Left·숫자/화살표, permission 세 동작. `form.reply` 등 2.x API는 복제하지 않는다.
+- `ui/src/theme/themes/oc-2.json`: 실제 기본 테마의 v2Overrides를 해석해 OpenCode 전용 의미 토큰을 만든다. light base #fff/layer01 #fafafa/layer02 #f2f2f2/text #161616, dark base #161616/layer01 #242424/layer02 #2e2e2e/text #fafafa. 현재 공통 `bg`·transcript surface/fade 토큰은 수정하지 않는다.
+
+전용 `harnesses/opencode/{composer,transcript}`가 외형과 질문 UI 상태를 소유한다. 공통 Composer/ToolApprovalBody는 normalized request와 기존 action만 전달한다. 질문 DTO와 v1 decoder는 그대로다. 공통 DiffTable은 의미 색상만 주입 가능하게 하여 같은 줄 파싱·syntax 계산을 사용한다. 토큰은 tokens.css의 light/dark에 추가하고 스타일은 Tailwind 유틸리티로 표현한다. OpenCode MIT notice를 앱 배포 resources에 포함한다. 새 의존성·IPC·저장 형식 변경 없음.
+
+## §10 강제 지점과 V
+
+| 자리 | 실패 의미 | 직접 oracle |
+|---|---|---|
+| EP-27a: ToolGroup/Card/Body | 상태·원문·diff·복사 손실, 셸 명령/결과 혼동 | 기존 ToolCard interaction + 셸 영역/오류 확장 DOM |
+| EP-27b: assistant/user/Q&A·토큰 | Claude 스타일 누출 또는 canvas 배경 변경 | 실제 segment/Q&A 렌더 + 두 테마 CUA |
+| EP-28a: Composer→input toolbar | 입력 재마운트/초안 손실·컨트롤 겹침 | ComposerInputController 기존 interaction + CUA 좁은 폭 |
+| EP-29a: Composer→질문 선택 | OpenCode가 Claude 질문 화면을 사용 | 실제 Composer 분기 렌더 또는 CUA 질문 dock |
+| EP-29b: 질문→answerAsk/skipAsk | 답 소실·빈 제출·IME 중 전송·잘못된 요청 | 실제 질문 state/keyboard/callback DOM test |
+| EP-29c: ToolApprovalBody→dock actions | 하네스·approvalId·범위 오배선 | 실제 ToolApprovalBody→allow once/session/reject callback test |
+
+| pair | requiredness | production path / oracle |
+|---|---|---|
+| VP-46 / R-26↔AT-26 | REQUIRED | EP-27a/b, 실제 도구/Q&A DOM 및 두 테마 시각 |
+| VP-47 / R-27↔AT-27 | REQUIRED | EP-28a, 입력/IME 기존 회귀 및 toolbar 시각 |
+| VP-48 / R-28↔AT-28 | REQUIRED | EP-29a/b/c, 실제 질문/승인 UI와 callback payload |
+| VP-49 / MD-08↔UT-08 | REQUIRED | 질문 선택 상태→normalized 답, 단일/다중/기타/왕복/취소 직접 행동 |
+| VP-43/44/45, V1 VP-11/18, ΔV2 배경·ΔV5 경계 | REGRESSION | 기존 도구/committed/live/composer/runtime·정규화 회귀, Claude 표시·1.x 경계 |
+
+강제 지점은 6자리다. 직접 행동 oracle을 사용하며 선택 적대 증거는 없음. 게이트는 관련 Vitest, 전체 typecheck·readonly ESLint, build, 문서 inventory/links, 원격 CI. ABI를 변경하는 npm pretest는 피하고 DB 검증 필요 시 Electron Node 모드로 실행한다. 다운로드 소스가 doc link scanner에 들어오면 사용자 파일을 수정하지 않고 repo scope 검사와 baseline 실패를 분리 보고한다.
+
+READY 대조: D-019와 기존 ACTIVE D-004/007/011/015~018 충돌 없음. 사용자 명시 추가 요청으로 설계→구현을 계속한다. 원본과 Orca의 경로를 읽었고 별도 제품 결정·패키지 승인은 필요하지 않다.
 
 # [구현자 기입]
 
