@@ -1088,6 +1088,7 @@ export const en: typeof ko = {
     approval: {
       toolAria: 'Tool execution approval',
       toolRequest: 'Claude is requesting permission to run {{tool}}',
+      toolRequestOpenCode: 'OpenCode is requesting permission to run {{tool}}',
       deny: 'Deny',
       allowSessionTitle: 'Auto-allow the same tool for this session',
       allowSession: 'Allow for session',
@@ -1177,6 +1178,7 @@ export const en: typeof ko = {
         'The model did not send the plan. Review the conversation before approving.',
       planEmptyTitle: 'No plan yet',
       planEmptyDesc: 'It will appear here as Claude explores and builds a plan.',
+      planEmptyDescOpenCode: 'It will appear here as OpenCode explores and builds a plan.',
       planSelectHint: 'Select text to leave feedback for Claude',
       reservedTitle: 'Reserved tile',
       reservedDesc: 'This area is reserved for an upcoming auxiliary panel feature.',

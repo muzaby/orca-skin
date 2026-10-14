@@ -30,6 +30,8 @@ function fixture(): {
   onPrompt: (body: Record<string, unknown>) => void
   onReply: (path: string) => void
   failPrompt: boolean
+  promptError?: { status: number; body: unknown }
+  completionError?: unknown
 } {
   const requests: Request[] = []
   let controller: ReadableStreamDefaultController<Uint8Array> | undefined
@@ -57,11 +59,19 @@ function fixture(): {
     }
     if (path === '/session' && req.method === 'POST') return jsonResponse({ id: 's1' })
     if (path.endsWith('/prompt_async')) {
+      if (result.promptError)
+        return jsonResponse(result.promptError.body, result.promptError.status)
       if (result.failPrompt)
         return jsonResponse({ name: 'BadRequest', data: { message: 'bad prompt' } }, 400)
       result.onPrompt((await req.json()) as Record<string, unknown>)
       return new Response(null, { status: 204 })
     }
+    if (path.endsWith('/message') && req.method === 'POST')
+      return jsonResponse({
+        info: { ...assistantMessage(), error: result.completionError },
+        parts: []
+      })
+    if (path === '/session/s1' && req.method === 'DELETE') return jsonResponse(true)
     if (path.endsWith('/abort')) return jsonResponse(true)
     if (path.endsWith('/reply') || path.endsWith('/reject')) {
       result.onReply(path)
@@ -75,7 +85,7 @@ function fixture(): {
       headers: { Authorization: 'Basic fixture' }
     }))
   } as unknown as OpenCodeServerPool
-  const result = {
+  const result: ReturnType<typeof fixture> = {
     adapter: new OpenCodeAdapter(servers, transport),
     requests,
     emit,
@@ -113,6 +123,63 @@ function finish(f: ReturnType<typeof fixture>, promptId: string): void {
 }
 
 describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE transport', () => {
+  const denied = {
+    name: 'APIError' as const,
+    data: {
+      message: "OpenCode's free tier can only be used from within OpenCode. secret-message",
+      statusCode: 403,
+      isRetryable: false,
+      responseHeaders: { authorization: 'secret-header' },
+      responseBody: JSON.stringify({ error: { type: 'FreeTierError', detail: 'secret-body' } })
+    }
+  }
+
+  it.each(['session.error', 'message.updated', 'http'] as const)(
+    'explains provider free-tier rejection from %s without secrets, retry or false success',
+    async (ingress) => {
+      const f = fixture()
+      if (ingress === 'http') f.promptError = { status: 403, body: denied }
+      else
+        f.onPrompt = (body) => {
+          f.emit(
+            ingress === 'session.error'
+              ? event('session.error', { sessionID: 's1', error: denied })
+              : event('message.updated', {
+                  sessionID: 's1',
+                  info: { ...assistantMessage('s1', String(body.messageID)), error: denied }
+                })
+          )
+        }
+      const rollback = vi.fn()
+      const events = await collect(f.adapter, request({ rollbackInitialSubmission: rollback }))
+      expect(events.filter((e) => e.type === 'error')).toEqual([
+        expect.objectContaining({
+          error: {
+            category: 'permission_denied',
+            provider: 'opencode',
+            retryable: false,
+            message: expect.stringContaining('OpenCode 무료 모델은 공급자 정책상')
+          }
+        })
+      ])
+      expect(JSON.stringify(events)).not.toContain('secret-')
+      expect(events.some((e) => e.type === 'turn.ended')).toBe(false)
+      expect(
+        f.requests.filter((r) => new URL(r.url).pathname.endsWith('/prompt_async'))
+      ).toHaveLength(1)
+      expect(rollback).toHaveBeenCalledTimes(ingress === 'http' ? 1 : 0)
+    }
+  )
+
+  it('rejects a failed auxiliary response and still deletes its temporary session', async () => {
+    const f = fixture()
+    f.completionError = denied
+    await expect(f.adapter.complete({ cwd: 'C:/work', prompt: 'title' })).rejects.toThrow(
+      'OpenCode 무료 모델'
+    )
+    expect(f.requests.filter((r) => r.method === 'DELETE')).toHaveLength(1)
+  })
+
   it('reports an unsupported CLI as a turn error before any server or HTTP request', async () => {
     const transport = vi.fn<typeof fetch>()
     const servers = new OpenCodeServerPool({

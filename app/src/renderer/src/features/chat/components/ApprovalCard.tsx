@@ -7,6 +7,7 @@ import type { PlanComment } from '../reducer/chatReducer'
 import { useI18n } from '../../../shared/i18n'
 import { Markdown } from '../../../shared/ui/markdown/Markdown'
 import { agentUiPolicy } from '../lib/agentPresentation'
+import { toolApprovalRequestKey } from '../harnesses/presentation'
 
 // ApprovalCard — Composer 의 입력 패널을 *대체*하는 **계획(plan_review)** 승인 게이트
 // (rendering.md §7.6). 입력 위 additive 패턴인 tool_approval/ask_question 은 Composer 가
@@ -59,6 +60,7 @@ export function ToolApprovalBody({
 }): React.JSX.Element {
   const { tr } = useI18n()
   const { approveTool, approveToolForSession, denyTool } = chatActions
+  const backend = useChatSession((s) => s.backend)
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) {
@@ -81,7 +83,7 @@ export function ToolApprovalBody({
     >
       <div className="flex items-center gap-g3">
         <span className="text-footnote font-medium text-t9">
-          {tr('chat.approval.toolRequest', { tool: toolName })}
+          {tr(toolApprovalRequestKey(backend === 'opencode'), { tool: toolName })}
         </span>
       </div>
 

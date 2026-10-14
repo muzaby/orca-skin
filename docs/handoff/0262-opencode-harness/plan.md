@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | IMPL_DONE |
+| 상태 | IMPL_DONE — r1.10 오류 안내·하네스 문구 수정, 실공급자/도구 승인 시각 검증 잔여 |
 | V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV6 / V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 |
@@ -1135,3 +1135,67 @@ r1.9는 사용자 CI 실패와 추가 구조/표현 요구에 대한 ΔV6 구현
 부분 확인 — 사용자 요청으로 실행 중인 Orca를 Computer Use로 직접 조작한 결과는 [디자인 증거](design-evidence.md#실행-중인-orca-시각-관측-2026-10-14-r19-후속)에 기록했다. 두 테마의 랜딩/composer·초안 하네스 왕복·확정 본문/reasoning·배경·패널 범주/빈 상태를 확인했다.
 
 CUA-01: 검증용 새 대화에서 스피너 뒤 스트림 오류가 재현되어 정상 스트리밍과 도구 카드·내용이 있는 패널의 실앱 검사는 미확인이다. CUA-02: OpenCode 계획 패널의 빈 상태에 Claude 고정 안내가 남아 있다. 원인 수정·전체 독립 verify를 수행한 턴이 아니므로 기존 AC 자기보고를 새 통과 판정으로 승격하지 않으며, AC11은 두 발견과 최종 인수를 남긴다.
+
+# [구현자 기입 — r1.10 공급자 오류·하네스 문구 수정]
+
+## 설계 리뷰
+
+기존 V1 + ΔV1~6 범위의 버그 수정이다. 사용자가 CUA-01/02 수정·Computer Use 재검증·push를 명시했다. `opencode/big-pickle`의 실패 원인은 공급자의 HTTP 403 `FreeTierError`이며, 두 SSE 오류 경로가 원인을 일반 스트림 오류로 덮었다. SDK HTTP 실패와 보조 응답에도 같은 오류 의미가 적용되도록 정리했다. 공급자 정책 우회·새 의존성·공개 계약 변경은 없다.
+
+## 강제 지점 전수와 V-pair 자기확인
+
+검색: `rg -n 'message.error|session.error|classifyError|answer.data' app/src/main/adapters/opencode/v1`, `rg -n 'Claude|toolRequest|planEmptyDesc' app/src/renderer/src/features/chat/components app/src/renderer/src/shared/i18n/resources`. 아래는 이번 수정의 영향 지점 분모이며 V1 전체 분모로 바꾸지 않는다.
+
+| 지점 / 관련 pair | 관측 좌표 | 자기확인 |
+|---|---|---|
+| SSE `session.error` / VP-05·18 | `v1/adapter.test.ts:explains provider free-tier rejection from session.error…` | 403 사유·비밀 제외·재전송 0·성공 종료 0 |
+| SSE `message.updated.info.error` / VP-05·18 | 같은 테스트의 `message.updated` 행 | 같은 불변식 직접 관측 |
+| SDK HTTP throw / VP-05·15 | 같은 테스트의 `http` 행 | SDK cause의 status/body 해석, 초기 제출 rollback 1회 |
+| 보조 응답 / VP-05 영향 경로 | `v1/adapter.test.ts:rejects a failed auxiliary response and still deletes its temporary session` | 빈 성공 대신 reject, 임시 세션 DELETE 1회 |
+| 계획 빈 상태 / VP-10·11·17 | `planTasks0224.render.test.ts:빈 계획 안내가 %s 세션의 하네스를 따른다` | Claude/OpenCode 실제 PlanTileContent 렌더 2행 |
+| 도구 승인 제목 / VP-06·11·17 | `ApprovalCard.harness.test.ts:identifies the %s session without changing the approval` | Claude/OpenCode 실제 ToolApprovalBody 렌더 2행 |
+
+이번 직접 오류 지점 4/4, 하네스 문구 지점 2/2. VP-05/06/18의 영향 구간은 실제 SDK transport·mapper·승인 wire 회귀로 SELF_PASS다. VP-10/11/15/17의 기존 배선 증거 부족·시각 인수 한계는 유지하며 전체 pair를 승격하지 않는다. VP-43/44의 실제 성공 도구 카드 시각 범위는 승인 대기로 SELF_BLOCKED다. 기존 VP-40~45 자기보고는 이번 실앱 부분 관측으로 독립 판정이 되지 않는다.
+
+## 이번 라운드 수정의 잠금
+
+해당 없음 — 오류 ingress 3종·보조 응답·두 하네스 렌더 모두 실제 production 함수/컴포넌트의 직접 출력 oracle이다. 새 구조 스윕이나 mutation을 만들지 않았다. 선택 증거 0 · 인용 변이 0 · 새 구조 oracle 0 = 표 행 0. 기존 분류의 다른 공급자 인증·403·429·컨텍스트 오류는 `errors.test.ts`에서 원문/헤더/cause가 결과에 남지 않는 값 단언으로 확인했다.
+
+## Product/UX 파생 검토
+
+무료 모델 거절은 다른 공급자 설정이 필요하다는 안내로 표시하며 같은 요청을 자동 재전송하지 않는다. 일반 403·401·429도 별도 안내를 갖고 오류 body/헤더를 transcript에 저장하지 않는다. Claude 계획/승인 문구는 유지한다. 실행 카드의 권한 요청이 누구에게서 왔는지 알 수 있도록 OpenCode 승인 제목도 함께 수정했다.
+
+실앱에서 외부 무료 모델 403 안내·OpenCode 계획 문구·로컬 공급자 스트리밍 완료·실행 중/중단된 읽기 카드·실제 Git diff 표시를 관측했다. 상세와 검증 경계는 [디자인 증거](design-evidence.md#오류-수정-후-실앱-관측-2026-10-15-r110)에 있다. 외부 실모델 성공과 완료된 도구 카드 검증은 아직 아니다.
+
+## 놓친 잠재 문제 + 대응
+
+- 보조 `complete()`가 `info.error`를 무시해 빈 문자열을 성공 반환했다. 같은 오류 분류로 reject하고 finally 삭제는 유지했다.
+- 도구 승인 카드에도 Claude 고정 제목이 남아 있어 하네스별 composer 문구 선택과 ko/en 리소스로 수정했다.
+- 개발 리로드 중 대기 도구 카드가 중단 이력으로 보였다. 남은 검증 턴을 앱의 중단 버튼으로 정리하고 새 요청으로 재현했다. 개발 리로드의 승인 복원 자체는 이번 변경에서 고치거나 보장하지 않는다.
+- 로컬 fixture의 성공은 외부 공급자의 사용 권한을 입증하지 않는다. 기존 HF 인증 재사용 여부를 사용자에게 물었으며 회신 없이 키를 사용하지 않았다.
+- Computer Use 지침은 권한 승인 조작을 금지한다. 실제 파일 접근 승인 버튼은 사용자가 조작하도록 요청했으며, 도구 완료는 미확인으로 남겼다.
+
+## 구현 보고
+
+| 영향 AC | 결과 | 이번 관측 |
+|---|---|---|
+| AC5 | ✅ | SDK 오류 ingress·정상 텍스트/도구/세션 격리 회귀, 로컬 HTTP fixture를 거친 실앱 스트리밍 완료 |
+| AC6 | ✅ | 기존 approval reply/reject/abort wire 회귀 유지. 승인 UI 동작 정책은 변경하지 않음 |
+| AC10 | ✅ | 계획 문구 2하네스 실제 렌더와 OpenCode 패널 직접 조작 |
+| AC11 | ⚠️ | 오류·계획·승인 문구·로컬 응답·diff는 관측. 실공급자 성공, 도구 완료와 최종 사용자 인수는 대기 |
+| AC24/25 | ✅ | 기존 전용 카드/본문 자동 회귀. 실앱 도구 완료까지 확대하지 않음 |
+
+이번 영향 ✅5 · ⚠️1 · ❌0 = 6. 나머지 AC의 이전 자기보고를 재검증한 것으로 간주하지 않는다. 누적 자기보고의 AC11 대기는 유지하며 전체 독립 verify를 선점하지 않는다.
+
+| 게이트 | 관측 |
+|---|---|
+| 최종 영향 회귀 | 17파일 122케이스 통과 — OpenCode adapter/mapper/server/SDK/settings·runtime·본문/card·composer·계획/승인·패널 policy |
+| 타입 | `npm run typecheck`: node/web/test 모두 통과 |
+| lint | 전체 오류 0, 기존 useTranscriptVirtualizer의 incompatible-library 경고 1 |
+| build | main/preload/renderer 산출 완료. 기존 SubAgentTileContent 혼합 import 경고 1 |
+| 운영 | 문서 inventory/prose/links, test budgets, diff whitespace 통과. DB/마이그레이션·의존성 변경 없음 |
+| CUA | 실제 403 안내·하네스 문구·로컬 스트림·실행/중단 카드·커밋 diff 확인. 승인 완료/실공급자 성공은 미확인 |
+
+## Review Signals
+
+r1.10은 사용자 지시의 오류·문구 수정 턴이다. 기존 테스트는 일반 오류 terminal과 auth category를 보았으나 실제 공급자의 403 의미를 보존하는지 단언하지 않았다. 이번에는 SDK 오류 ingress 3종을 같은 직접 oracle로 잠갔다. 자동 테스트와 실제 UI 검증의 경계를 구분하고, 승인/공급자 회신 대기는 성공으로 기록하지 않는다.

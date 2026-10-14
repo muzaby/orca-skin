@@ -1,6 +1,6 @@
 import type { Event, Part, AssistantMessage } from '@opencode-ai/sdk/v2'
 import type { NormalizedEvent, ProviderReportedTelemetry } from '../../../../shared/ipc'
-import { makeClassifiedError } from '../../../infra/errors'
+import { classifyOpenCodeError } from './errors'
 
 const TOOL_NAMES: Record<string, string> = {
   read: 'Read',
@@ -86,11 +86,7 @@ export class OpenCodeEventMapper {
             {
               type: 'error',
               sessionId: this.sessionId,
-              error: makeClassifiedError(
-                message.error.name === 'ProviderAuthError' ? 'auth_error' : 'stream_error',
-                'OpenCode 응답이 실패했습니다. 모델 인증과 서버 설정을 확인해 주세요.',
-                { provider: 'opencode', retryable: false }
-              )
+              error: classifyOpenCodeError(message.error)
             }
           ]
         }
@@ -123,11 +119,7 @@ export class OpenCodeEventMapper {
           {
             type: 'error',
             sessionId: this.sessionId,
-            error: makeClassifiedError(
-              'stream_error',
-              'OpenCode 실행 중 오류가 발생했습니다. 모델과 서버 설정을 확인한 뒤 다시 시도해 주세요.',
-              { provider: 'opencode', retryable: false }
-            )
+            error: classifyOpenCodeError(event.properties.error)
           }
         ]
       case 'session.compacted':

@@ -1,4 +1,7 @@
 import type { RightPanelAgentPolicy } from '../../lib/rightPanelTiles'
+import type { MessageKey } from '../../../../shared/i18n'
+
+export const planEmptyDescriptionKey: MessageKey = 'chat.rightpanel.planEmptyDescOpenCode'
 export const OPEN_CODE_PANEL_POLICY: RightPanelAgentPolicy = {
   visibleIds: ['plan', 'diff'],
   taskTarget: 'plan',

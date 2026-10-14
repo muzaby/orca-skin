@@ -7,6 +7,7 @@ import { Icon } from '../../../../shared/ui/Icon'
 
 const { state } = vi.hoisted(() => ({
   state: {
+    backend: 'claude' as 'claude' | 'opencode',
     planContent: '## 계획 본문\n\n이 문장만 계획 댓글 범위입니다.' as string | null,
     pendingPlanReview: null as unknown,
     planComments: [] as unknown[],
@@ -94,6 +95,7 @@ function rowsBySubject(html: string): Record<string, string> {
 }
 
 beforeEach(() => {
+  state.backend = 'claude'
   state.planContent = '## 계획 본문\n\n이 문장만 계획 댓글 범위입니다.'
   state.pendingPlanReview = null
   state.messages = messages()
@@ -102,6 +104,18 @@ beforeEach(() => {
 })
 
 describe('0224 r3 — Code 콘텐츠 존재·진행 표시 (VP-R3-01/07 · EP1)', () => {
+  it.each(['claude', 'opencode'] as const)(
+    '빈 계획 안내가 %s 세션의 하네스를 따른다',
+    (backend) => {
+      state.backend = backend
+      state.planContent = null
+      state.messages = []
+      const html = render()
+      expect(html).toContain(backend === 'opencode' ? 'OpenCode가 탐색하며' : 'Claude 가 탐색하며')
+      expect(html).not.toContain(backend === 'opencode' ? 'Claude' : 'OpenCode')
+    }
+  )
+
   it('계획 다음에 작업 section을 두고 id 순서와 세 상태를 실제 행에 표시한다', () => {
     const html = render()
     const planAt = html.indexOf('이 문장만 계획 댓글 범위입니다.')

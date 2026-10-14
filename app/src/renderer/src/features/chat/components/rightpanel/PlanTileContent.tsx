@@ -11,6 +11,7 @@ import { useI18n } from '../../../../shared/i18n'
 import { TaskProgressList } from './TaskProgressList'
 import { useTaskBoard } from '../../hooks/useTaskBoard'
 import { TaskPanelContent } from './TaskPanelContent'
+import { planEmptyDescriptionKey } from '../../harnesses/presentation'
 
 // 계획 타일 헤더 액션 — 본문이 아닌 타일 헤더(RightPanelTile)에서 렌더된다.
 // planContent 를 직접 구독하므로 RightPanelTile 은 타일별 액션을 모른 채 슬롯만 받는다.
@@ -66,6 +67,7 @@ export function PlanTileContent(): React.JSX.Element {
 // 댓글 오프셋은 이 문서 본문만 기준으로 삼는다. 아래 작업 목록·상세는 ref 밖의 형제다.
 function PlanDocument({ emptySupplement }: { emptySupplement: ReactNode }): React.JSX.Element {
   const { tr } = useI18n()
+  const backend = useChatSession((s) => s.backend)
   const planContent = useChatSession((s) => s.planContent)
   // 계획 검토 중일 때만 드래그→코멘트 활성(전송 가능한 상태와 일치).
   const enabled = useChatSession((s) => s.pendingPlanReview != null)
@@ -141,7 +143,9 @@ function PlanDocument({ emptySupplement }: { emptySupplement: ReactNode }): Reac
           </p>
           <p className="text-caption text-ink3">
             {tr(
-              unavailable ? 'chat.rightpanel.planUnavailableDesc' : 'chat.rightpanel.planEmptyDesc'
+              unavailable
+                ? 'chat.rightpanel.planUnavailableDesc'
+                : planEmptyDescriptionKey(backend === 'opencode')
             )}
           </p>
           {emptySupplement}

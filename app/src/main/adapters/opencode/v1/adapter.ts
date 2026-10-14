@@ -9,13 +9,13 @@ import type {
   PermissionAction
 } from '../../../../shared/ipc'
 import { isRecord } from '../../../../shared/obj'
-import { makeClassifiedError } from '../../../infra/errors'
 import type { CompleteRequest, LiveTurn, ProviderMessageBatch, SessionAdapter } from '../../types'
 import type { TurnRequest } from '../../turn'
 import type { OpenCodeServer } from '../implementation'
 import { OPENCODE_DESCRIPTOR } from './descriptor'
 import { OpenCodeEventMapper, normalizeOpenCodeTool } from './map'
 import { openCodeCatalog } from './catalog'
+import { classifyOpenCodeError } from './errors'
 
 export class OpenCodeAdapter implements SessionAdapter {
   private readonly catalogs = new WeakMap<
@@ -113,6 +113,11 @@ export class OpenCodeAdapter implements SessionAdapter {
         },
         { signal: req.signal, throwOnError: true }
       )
+      if (answer.data?.info.error) {
+        throw new Error(classifyOpenCodeError(answer.data.info.error).message, {
+          cause: answer.data.info.error
+        })
+      }
       return (
         answer.data?.parts
           .filter((part) => part.type === 'text')
@@ -333,11 +338,7 @@ export class OpenCodeAdapter implements SessionAdapter {
   }
 
   classifyError(error: unknown): ClassifiedError {
-    const message = error instanceof Error ? error.message : 'OpenCode 요청이 실패했습니다.'
-    return makeClassifiedError('provider_connection_error', message, {
-      provider: this.id,
-      retryable: false
-    })
+    return classifyOpenCodeError(error, 'provider_connection_error')
   }
 }
 
