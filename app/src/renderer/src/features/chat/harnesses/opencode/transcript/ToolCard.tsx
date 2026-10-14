@@ -59,11 +59,9 @@ export const OpenCodeToolCard = memo(function OpenCodeToolCard({
           <span className="truncate" title={view.subtitle}>
             {view.subtitle}
           </span>
-          {view.arguments && <span className="shrink-0 text-[inherit]">{view.arguments}</span>}
+          {view.arguments && <span className="shrink-0">{view.arguments}</span>}
           {!running && view.outcome !== 'completed' && (
-            <span className="shrink-0 text-[inherit]">
-              {tr(`chat.toolMeta.agentStatus.${view.outcome}`)}
-            </span>
+            <span className="shrink-0">{tr(`chat.toolMeta.agentStatus.${view.outcome}`)}</span>
           )}
         </span>
         {running && <span className="sr-only">{tr('common.running')}</span>}

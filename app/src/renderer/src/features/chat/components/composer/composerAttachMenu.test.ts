@@ -116,6 +116,7 @@ describe('runAttachMenuAction (AC2·AC3)', () => {
       [
         '              <ComposerChip',
         '                ref={attachButtonRef}',
+        '                openCode={openCode}',
         '                icon="plus"',
         '                onClick={() => setAttachMenuOpen((value) => !value)}',
         '                ariaHasPopup',

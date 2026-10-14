@@ -1276,7 +1276,13 @@ r1.10은 사용자 지시의 오류·문구 수정 턴이다. 기존 테스트�
 
 ## 이번 라운드 수정의 잠금
 
-해당 없음 — 직접 행동·출력 oracle과 시각 관측을 사용했다. 선택 적대 증거 0 · 인용 변이 0 · 새 구조 oracle 0 = 표 행 0. 기존 assertion의 select DOM은 실제 OpenCode menu trigger로 변경하고 별도 interaction에서 선택 payload·초점 복귀를 확인했다. 사용자 버블 assertion은 원본 local-session blue 표면으로 변경했다.
+직접 행동·출력 oracle과 시각 관측을 사용했다. 기존 assertion의 select DOM은 실제 OpenCode menu trigger로 변경하고 별도 interaction에서 선택 payload·초점 복귀를 확인했다. 사용자 버블 assertion은 원본 local-session blue 표면으로 변경했다.
+
+| 수정한 기존 구조 oracle | 적대 입력 | 관측 |
+|---|---|---|
+| composerAttachMenu의 '+' trigger 원문 검사 | 읽은 production source에서 메뉴 열기 onClick만 no-op으로 교체 | 동일 assertion 1실패, exit 1. 정상 원본은 통과 |
+
+선택 적대 증거 0 · 인용 변이 0 · 수정 구조 oracle 1 = 표 행 1. 변이 테스트 복제본을 실행 후 제거했고 production 파일은 변이하지 않았다.
 
 ## Product/UX 파생 검토
 
@@ -1290,6 +1296,7 @@ r1.10은 사용자 지시의 오류·문구 수정 턴이다. 기존 테스트�
 - 원본 아카이브에서 Git 명령은 부모 Orca SHA를 반환한다. upstream revision으로 인용하지 않고 세 원본 파일의 hash를 기록했다.
 - rem 기반 치수가 실제 14.5px root에서 줄어드는 것을 preview에서 발견했다. toolbar 44px·버튼 28px·radius 12px를 재측정했다.
 - 사용자 다운로드의 깨진 상대 링크 5건 때문에 전체 doc scanner는 실패한다. 사용자 파일이나 검사기를 바꾸지 않고 `.tmp`를 제외한 저장소 검사에서 broken 0을 확인했다.
+- CI #746의 전체 회귀에서 공통 typeScale guard와 첨부 trigger source assertion 2실패가 드러났다. 모호한 `text-[inherit]`를 제거하고 diff에는 명시적 배율 calc를 적용했다. source assertion은 새 openCode prop을 반영하되 기존 onClick·anchor·닫기 검사를 유지하고 핸들러 제거 변이로 검출력을 확인했다. 최초 관련 회귀 집합에 두 공통 검사가 빠져 있었다.
 - 네이티브 Computer Use의 창 연결 실패로 실앱 시각 재검증은 미완료다. production 컴포넌트 preview의 결과와 기존 r1.10 실제 모델 관측을 구분했다.
 
 ## 구현 보고
@@ -1299,7 +1306,7 @@ r1.10은 사용자 지시의 오류·문구 수정 턴이다. 기존 테스트�
 | AC26 | ✅ | 실제 도구·Q&A·상태/복사 회귀, 두 테마 preview, 공통 bg 유지 |
 | AC27 | ✅ | 입력/IME 회귀, 360px에서 toolbar 44px·전송 28px·radius 12px 확인, 메뉴 선택 callback |
 | AC28 | ✅ | 실제 질문 선택/답 payload와 승인 dispatcher 세 action, CUA에서 다중/직접 입력 제출 |
-| AC11 | ⚠️ | 기존 최종 사용자 인수 대기. 이번 실앱 연결 실패와 마지막 메뉴 시각 미확인 유지 |
+| AC11 | ⚠️ | 기존 최종 사용자 인수 대기. 이번 실앱 연결 실패 유지; 최종 메뉴는 실제 컴포넌트 preview로 두 테마 확인 |
 
 증분 ✅3 · ⚠️0 · ❌0 = 3. 이전 ✅24 · ⚠️1에 더한 누적은 ✅27 · ⚠️1 · ❌0 = AC 28. 이전 AC를 이번 턴에 전부 재검증한 것으로 주장하지 않는다.
 
@@ -1310,7 +1317,7 @@ r1.10은 사용자 지시의 오류·문구 수정 턴이다. 기존 테스트�
 | readonly ESLint | 전체 오류 0, 기존 useTranscriptVirtualizer 경고 1 |
 | build | main/preload/renderer 생성 완료. 기존 SubAgentTileContent 혼합 import 경고 유지 |
 | 운영 | test budgets 16 real-git suites·diff whitespace·문서 inventory/prose 통과. 원본 `.tmp` 링크 5건 실패는 기존 상태이며 제외한 저장소 링크 broken 0 |
-| 원격 CI | push 후 관측 예정 |
+| 원격 CI | CI #746: 688파일/6885케이스 통과·기존 1skip, 위 2파일/2케이스 실패. 수정 후 관련 6파일/57케이스·변경 파일 lint 통과, 재빌드 통과, 후속 CI 확인 중 |
 
 ## Review Signals
 

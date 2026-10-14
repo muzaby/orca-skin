@@ -56,7 +56,7 @@ function ContextTools({ calls }: { calls: ToolCall[] }): React.JSX.Element {
                 : 'chat.opencode.explorationDone'
           )}
         </span>
-        <span className="text-[inherit]">
+        <span>
           {(['read', 'search', 'list'] as const)
             .filter((kind) => views.some((view) => view.kind === kind))
             .map(

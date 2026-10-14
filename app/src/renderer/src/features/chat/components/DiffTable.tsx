@@ -24,7 +24,7 @@ export function DiffTable({
 
   return (
     <table
-      className={`w-full border-collapse font-mono ${appearance === 'opencode' ? 'text-[calc(13px*var(--transcript-text-scale,1))] leading-5 [&_pre]:text-[inherit] [&_pre]:leading-[inherit]' : ''}`}
+      className={`w-full border-collapse font-mono ${appearance === 'opencode' ? 'text-[calc(13px*var(--transcript-text-scale,1))] leading-5 [&_pre]:text-[calc(13px*var(--transcript-text-scale,1))] [&_pre]:leading-[inherit]' : ''}`}
       style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
     >
       <colgroup>

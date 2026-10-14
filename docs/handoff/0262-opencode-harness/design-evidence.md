@@ -155,4 +155,4 @@ HF 연결은 [HF 공식 OpenAI 호환 엔드포인트](https://huggingface.co/do
 | 질문 선택 → 다음 → 다중 선택·직접 입력 → 제출 | 첫 답 `현재 작업 공간`, 두 번째 답 `[타입 검사, 테스트, 문서 검사]`로 조립됨 |
 | 원본과 치수 대조 | Orca root rem이 14.5px이므로 OpenCode의 핵심 치수를 명시적 px로 보정. 선택 표시도 원본의 고정 blue accent로 보정 |
 
-미리보기의 에이전트/모델/변형 라벨은 합성 칩이다. 최종 에이전트·변형 메뉴의 실제 선택/기본값·초점/키보드 배선은 `Controls.interaction.test.ts`에서 확인했다. 최종 메뉴의 실앱 시각 관측은 주장하지 않는다. 임시 미리보기는 소스 트리에서 제거하여 `.tmp`에 보관했고 브라우저 탭을 닫았다. 다운로드 소스·미리보기는 커밋하지 않는다. AC11 최종 사용자 인수와 독립 verify는 대기다.
+후속 preview에서 에이전트·변형 합성 칩을 실제 `OpenCodeAgentControl`·`OpenCodeVariantControl`로 교체했다. dark 360px와 light 720px에서 메뉴를 열고 `build`·`high`를 선택해 trigger 값에 반영됨을 확인했다. 메뉴의 실제 배경은 dark `rgb(22, 22, 22)` / light `rgb(255, 255, 255)`, radius 8px·padding 4px였다. 모델 라벨은 합성 칩이다. 기본값·초점/키보드 배선은 `Controls.interaction.test.ts`에서도 확인했다. 실앱 시각 관측으로 확대하지 않는다. 임시 미리보기는 소스 트리에서 제거하여 `.tmp`에 보관했고 브라우저 탭을 닫았다. 다운로드 소스·미리보기는 커밋하지 않는다. AC11 최종 사용자 인수와 독립 verify는 대기다.
