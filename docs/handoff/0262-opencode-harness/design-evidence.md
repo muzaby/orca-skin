@@ -110,3 +110,21 @@ AC11 최종 사용자 시각 인수와 독립 verify는 대기 상태를 유지�
 임시 Git 저장소는 `.tmp/0262-cua-app-workspace`, 로컬 HTTP fixture는 `.tmp/0262-provider.mjs`이며 외부 네트워크·기존 공급자 키를 사용하지 않는다. diff 패널은 현재 제품 계약상 커밋 간 차이만 표시하므로 미커밋 테스트 변경은 커밋 후 새로고침했다. 테스트 데이터는 기존 작업 파일과 분리했다.
 
 CUA-01의 오류 안내 누락과 CUA-02는 수정했다. 실공급자 정상 응답은 허용된 공급자 선택 회신을 기다리며, 완료된 읽기/편집 카드와 편집 결과의 연속 경로는 사용자의 파일 접근 승인 후 재검증해야 한다. AC11·독립 verify는 완료로 승격하지 않는다.
+
+### r1.10 후속 — 사용자 승인 후 실모델·완료 카드 관측
+
+2026-10-15 사용자 회신으로 기존 HF 엔진 인증 재사용과 로컬 테스트의 읽기·편집 승인 완료를 확인했다. 아래는 앞 절의 대기 항목을 보완하는 Computer Use 직접 관측이며, 제품 코드 변경이나 독립 verify가 아니다.
+
+| 대상 / 조작 | 직접 관측 | 판정 범위 |
+|---|---|---|
+| 로컬 공급자 읽기 카드 펼침 | native `read` 결과에 `sample.md`의 줄 번호와 `# Before`, 테스트 본문 표시 | 실제 OpenCode CLI 도구 완료. 공급자 응답 생성은 로컬 fixture |
+| 로컬 공급자 편집 카드 펼침 | `Edit applied successfully.`, 인라인 diff `+1 −1`, 붉은 `# Before`와 초록 `# After`, 원본 도구 입력 접기 표시 | 승인 → 파일 편집 → 완료 카드 경로 확인. 디스크 파일도 `# After`로 일치 |
+| 우측 변경사항 새로고침 | 편집 결과를 격리 저장소에 커밋한 뒤 `sample.md +3 −1`과 제목 교체 표시 | 기존 합성 추가 행과 OpenCode 편집을 합친 커밋 간 diff. 미커밋 diff 지원으로 확대하지 않음 |
+| OpenCode HF 엔진 연결 | 사용자 승인한 기존 HF 토큰·모델을 별도 `opencode/hf/settings.json`에 구성. 엔진 목록과 모델 메뉴에 `Granite 4.2 3B (HF / DeepInfra)` 표시 | Claude HF 설정 보존. 키·설정 원문은 저장소와 검증 기록에서 제외 |
+| HF 실제 정상 응답 | 도구 없는 한국어 인사 요청 → 격자 스피너 → 사고 과정과 한국어 답변 → 스피너 종료·입력 가능 | `hf/ibm-granite/granite-4.2-3b:deepinfra`의 실제 외부 응답. 로컬 fixture와 다른 새 세션 |
+
+HF 연결은 [HF 공식 OpenAI 호환 엔드포인트](https://huggingface.co/docs/inference-providers/index)와 [OpenCode 공급자 설정](https://opencode.ai/docs/providers/)을 확인해 `@ai-sdk/openai-compatible` 및 `https://router.huggingface.co/v1`을 사용했다. 인증 값은 로컬 파일 간 변환에서만 취급했고 도구 출력·문서에 노출하지 않았다.
+
+디스크에 추가한 엔진은 실행 중 목록 캐시 때문에 모델 새로고침만으로 나타나지 않았다. 기존 로컬 테스트 엔진의 설정을 그대로 저장해 설정 목록을 무효화한 뒤 HF 엔진을 확인했다. 앱 재시작이나 제품 코드 수정은 수행하지 않았다.
+
+추가 HF 도구 요청(`sample.md` 읽기 후 `# After` → `# HF Verified`)은 native `read` 호출과 `OpenCode가 Read 실행 권한을 요청합니다`까지 관측했다. 새 HF 세션의 승인 대기 상태로 남겼으며, 이 요청의 읽기/편집 완료를 위 로컬 공급자 성공과 합쳐 보고하지 않는다. AC11 최종 시각 인수와 독립 verify도 대기다.
