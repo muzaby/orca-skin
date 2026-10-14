@@ -5,7 +5,7 @@ import { useI18n } from '../../../../../shared/i18n'
 import type { ReasoningItem } from '../../../lib/parts'
 
 const prose =
-  'text-inherit leading-inherit [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_a]:text-oc-ink [&_a]:underline [&_code]:border-oc-border [&_code]:bg-oc-surface [&_code]:text-oc-ink'
+  'text-inherit leading-[inherit] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_a]:text-oc-ink [&_a]:underline [&_code]:border-oc-border [&_code]:bg-oc-surface [&_code]:text-oc-ink'
 
 export const OpenCodeText = memo(function OpenCodeText({
   source,

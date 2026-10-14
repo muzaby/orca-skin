@@ -101,7 +101,7 @@ export function ToolBody({ view }: { view: OpenCodeToolView }): React.JSX.Elemen
           href={view.url}
           target="_blank"
           rel="noreferrer"
-          className="break-all text-link underline"
+          className="break-all text-oc-ink underline"
         >
           {view.url}
         </a>
