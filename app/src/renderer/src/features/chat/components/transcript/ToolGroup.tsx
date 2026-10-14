@@ -1,3 +1,4 @@
+import { OpenCodeToolGroup } from './OpenCodeToolGroup'
 import { memo, useState } from 'react'
 import { Icon } from '../../../../shared/ui/Icon'
 import { useI18n } from '../../../../shared/i18n'
@@ -27,6 +28,8 @@ export const ToolGroup = memo(function ToolGroup({
 }): React.JSX.Element | null {
   const { tr } = useI18n()
   const [open, setOpen] = useState(true)
+  if (transcriptPolicy.surface === 'opencode')
+    return <OpenCodeToolGroup calls={calls} transcriptPolicy={transcriptPolicy} />
   // 단일 도구: 그룹 헤더 없이 카드만(카드 자체가 border/bg 보유).
   if (calls.length <= 1)
     return calls[0] ? <ToolCard call={calls[0]} transcriptPolicy={transcriptPolicy} /> : null

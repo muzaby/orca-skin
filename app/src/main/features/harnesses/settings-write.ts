@@ -15,25 +15,26 @@ import { providerKeyOf, parseProviderKey, PROVIDER_NAME_RE } from '../../infra/c
 import { orcaConfigDir } from '../../infra/config/paths'
 import { writeJsonAtomic } from '../../infra/config/json-file'
 
-const SUPPORTED_HARNESS = 'claude'
+import { HARNESS_IDS, isBackend } from '../../../shared/harness'
+import type { Backend } from '../../../shared/ipc'
 
 export interface HarnessSettingsReadResult {
   key: string
-  engine: typeof SUPPORTED_HARNESS
+  engine: Backend
   provider: string
   settingsJson: string
 }
 
 export interface HarnessSettingsWriteResult {
   key: string
-  engine: typeof SUPPORTED_HARNESS
+  engine: Backend
   provider: string
 }
 
-function requireClaudeHarness(engine: string): asserts engine is typeof SUPPORTED_HARNESS {
+function requireHarness(engine: string): asserts engine is Backend {
   // 메시지 어휘는 Harness 다 (r10). 반환 객체의 `engine` **key** 는 wire 호환이라 그대로다 —
   // 바꾸는 것은 사람이 읽는 문장뿐이고 채널·DTO·DB 는 손대지 않는다(D-005).
-  if (engine !== SUPPORTED_HARNESS) throw new Error('claude Harness 만 수정할 수 있습니다')
+  if (!isBackend(engine)) throw new Error('지원하지 않는 하네스입니다')
 }
 
 function normalizeProvider(provider: string): string {
@@ -44,16 +45,16 @@ function normalizeProvider(provider: string): string {
   return normalized
 }
 
-function settingsBase(root: string): string {
-  return join(root, 'sources', 'settings', SUPPORTED_HARNESS)
+function settingsBase(engine: Backend, root: string): string {
+  return join(root, 'sources', 'settings', engine)
 }
 
-function providerDir(provider: string, root: string): string {
-  return join(settingsBase(root), provider)
+function providerDir(engine: Backend, provider: string, root: string): string {
+  return join(settingsBase(engine, root), provider)
 }
 
-function settingsPath(provider: string, root: string): string {
-  return join(providerDir(provider, root), 'settings.json')
+function settingsPath(engine: Backend, provider: string, root: string): string {
+  return join(providerDir(engine, provider, root), 'settings.json')
 }
 
 function readSettingsObject(settingsJson: string): Record<string, unknown> {
@@ -64,41 +65,42 @@ function readSettingsObject(settingsJson: string): Record<string, unknown> {
 }
 
 function parseHarnessSettingsKey(key: string): {
-  engine: typeof SUPPORTED_HARNESS
+  engine: Backend
   provider: string
 } {
-  const parsed = parseProviderKey(key, [SUPPORTED_HARNESS])
-  if (!parsed || parsed.adapter !== SUPPORTED_HARNESS || !parsed.provider) {
+  const parsed = parseProviderKey(key, [...HARNESS_IDS])
+  if (!parsed || !isBackend(parsed.adapter) || !parsed.provider) {
     throw new Error('유효하지 않은 Harness key 입니다')
   }
-  return { engine: SUPPORTED_HARNESS, provider: normalizeProvider(parsed.provider) }
+  return { engine: parsed.adapter, provider: normalizeProvider(parsed.provider) }
 }
 
 // settings.json 만 원자적으로 기록한다. 모델 목록은 더 이상 캐시(meta.json)에 박지 않고
 // 열거 시점(provider-registry.listProviders)에 settings.json 을 파싱해 얻는다.
 function writeHarnessSettings(
-  engine: typeof SUPPORTED_HARNESS,
+  engine: Backend,
   provider: string,
   settingsJson: string,
   root: string = orcaConfigDir()
 ): HarnessSettingsWriteResult {
-  requireClaudeHarness(engine)
+  requireHarness(engine)
   const normalized = normalizeProvider(provider)
   const settings = readSettingsObject(settingsJson)
-  const dir = providerDir(normalized, root)
+  const dir = providerDir(engine, normalized, root)
   mkdirSync(dir, { recursive: true })
   writeJsonAtomic(join(dir, 'settings.json'), settings)
   return { key: providerKeyOf(engine, normalized), engine, provider: normalized }
 }
 
 export function addHarnessSettings(
-  engine: typeof SUPPORTED_HARNESS,
+  engine: Backend,
   provider: string,
   settingsJson: string,
   root: string = orcaConfigDir()
 ): HarnessSettingsWriteResult {
   const normalized = normalizeProvider(provider)
-  if (existsSync(providerDir(normalized, root))) throw new Error('이미 존재하는 provider 입니다')
+  if (existsSync(providerDir(engine, normalized, root)))
+    throw new Error('이미 존재하는 provider 입니다')
   return writeHarnessSettings(engine, normalized, settingsJson, root)
 }
 
@@ -108,7 +110,8 @@ export function updateHarnessSettings(
   root: string = orcaConfigDir()
 ): HarnessSettingsWriteResult {
   const { engine, provider } = parseHarnessSettingsKey(key)
-  if (!existsSync(providerDir(provider, root))) throw new Error('provider 를 찾을 수 없습니다')
+  if (!existsSync(providerDir(engine, provider, root)))
+    throw new Error('provider 를 찾을 수 없습니다')
   return writeHarnessSettings(engine, provider, settingsJson, root)
 }
 
@@ -117,7 +120,7 @@ export function readHarnessSettings(
   root: string = orcaConfigDir()
 ): HarnessSettingsReadResult {
   const { engine, provider } = parseHarnessSettingsKey(key)
-  const path = settingsPath(provider, root)
+  const path = settingsPath(engine, provider, root)
   return {
     key: providerKeyOf(engine, provider),
     engine,
@@ -127,8 +130,8 @@ export function readHarnessSettings(
 }
 
 export function deleteHarnessSettings(key: string, root: string = orcaConfigDir()): void {
-  const { provider } = parseHarnessSettingsKey(key)
-  const dir = providerDir(provider, root)
+  const { engine, provider } = parseHarnessSettingsKey(key)
+  const dir = providerDir(engine, provider, root)
   if (!existsSync(dir)) throw new Error('provider 를 찾을 수 없습니다')
   rmSync(dir, { recursive: true, force: true })
 }

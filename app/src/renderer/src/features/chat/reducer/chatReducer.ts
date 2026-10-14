@@ -29,6 +29,7 @@ import {
   readLegacyAgentKind
 } from '../../../../../shared/agent-kind'
 import { agentSessionPolicy } from '../../../../../shared/agent-session-policy'
+import { isBackend, supportsAgentKind } from '../../../../../shared/harness'
 import { responseBoundaryPart } from '../../../../../shared/response-boundary'
 import { planReviewToolInput } from '../../../../../shared/plan-review-input'
 import type {
@@ -47,7 +48,7 @@ import type { MessageKey } from '../../../shared/i18n'
 import { contextTokens } from '../lib/telemetry'
 import { agentTaskKey, backgroundTaskKey } from '../lib/taskBoard'
 import { settleOrphanToolParts, settleStaleAsyncLaunchParts } from '../lib/parts'
-import { RIGHT_PANEL_POLICY, rightPanelTarget, type RightPanelTileId } from '../lib/rightPanelTiles'
+import { rightPanelPolicy, rightPanelTarget, type RightPanelTileId } from '../lib/rightPanelTiles'
 import type { BranchSnapshot } from '../components/composer/branchChipState'
 import {
   reanchorDiffRequirementItem,
@@ -73,6 +74,7 @@ import {
 // transcript 렌더가 쓰는 도구 호출 view — parts 의 tool_call+tool_result 를 toolRunId 로
 // 페어링한 결과(lib/parts.ts partsToolCalls). 더 이상 Message 의 필드가 아니다.
 export interface ToolCall {
+  providerTool?: { name: string; input: unknown }
   toolUseId: string
   name: string
   input: unknown
@@ -278,6 +280,8 @@ export interface ChatState {
   pendingProjectId: string | null
   projectId: string | null
   backend: Backend | null
+  harnessAgent?: string
+  modelVariant?: string
   providerKey: string | null
   modelFamily: string | null
   // 선택 모델의 계열(0215) — `modelFamily` 는 SDK 식별자라 alias 를 잃는다. `자동` 권한 강등이
@@ -626,6 +630,7 @@ export type ChatAction =
       adapter?: string | null
     }
   | { type: 'SET_EFFORT'; effort: EffortLevel }
+  | { type: 'SET_HARNESS_OPTIONS'; agent?: string; variant?: string }
   | { type: 'RECV_EVENT'; event: NormalizedEvent }
   // 턴이 message.completed 없이 끝났을 때(telemetry 도착 시점) live 버퍼의 잔여 텍스트를
   // text 파트로 굳힌다. 버퍼 소유자는 chatStore — reducer 는 텍스트만 받는다.
@@ -805,6 +810,7 @@ function diffRequirementDraftsEqual(
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
     case 'SET_AGENT_KIND':
+      if (state.backend && !supportsAgentKind(state.backend, action.kind)) return state
       if (state.agentKindLocked || state.sessionId || state.agentKind === action.kind) return state
       return {
         ...state,
@@ -815,7 +821,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           action.kind
         ),
         permissionModeError: false,
-        rightPanelTiles: rightPanelColumnsForAgent(state.rightPanelTiles, action.kind),
+        rightPanelTiles: rightPanelColumnsForAgent(
+          state.rightPanelTiles,
+          action.kind,
+          state.backend
+        ),
         rightPanelColWidths: [],
         rightPanelRowSplits: []
       }
@@ -825,9 +835,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         agentKindLocked: true,
         agentPanelInitialized: true,
         rightPanelTiles:
-          RIGHT_PANEL_POLICY[state.agentKind].initialTile && !state.agentPanelInitialized
-            ? activateTile(state, RIGHT_PANEL_POLICY[state.agentKind].initialTile!)
-            : rightPanelColumnsForAgent(state.rightPanelTiles, state.agentKind),
+          rightPanelPolicy(state.agentKind, state.backend).initialTile &&
+          !state.agentPanelInitialized
+            ? activateTile(state, rightPanelPolicy(state.agentKind, state.backend).initialTile!)
+            : rightPanelColumnsForAgent(state.rightPanelTiles, state.agentKind, state.backend),
         sendCount: state.sendCount + 1,
         inflight: true,
         // 0119: 이 턴이 쓰는 provider 고정 — 이후 SET_MODEL 이 providerKey 를 바꿔도
@@ -905,7 +916,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
               ev.patch.permissionMode !== undefined ? false : state.permissionModeError,
             agentKindLocked: true,
             sessionId: ev.sessionId,
-            backend: 'claude',
+            backend: state.sessionId
+              ? state.backend
+              : (ev.patch.backend ?? state.backend ?? 'claude'),
             cwd: ev.patch.cwd ?? state.cwd,
             ...(ev.patch.cwd !== undefined && ev.patch.cwd !== state.cwd
               ? resetGitReview(state)
@@ -998,6 +1011,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
               toolRunId: ev.toolRunId,
               toolName: ev.toolName,
               args: ev.args,
+              ...(ev.providerTool ? { providerTool: ev.providerTool } : {}),
               ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {}),
               // 실행 전 편집 미리보기(0229) — 결과가 오기 전까지 카드가 실제 줄번호를 그리는
               // 유일한 입력이다. 영속되지 않으므로 재로드 후에는 결과 패치가 같은 자리를 채운다.
@@ -1386,13 +1400,14 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         rightPanelTiles: rightPanelColumnsForAgent(
           state.agentPanelInitialized && state.sessionId === action.session.id
             ? state.rightPanelTiles
-            : RIGHT_PANEL_POLICY[agentKind].initialTile
+            : rightPanelPolicy(agentKind, action.session.backend).initialTile
               ? activateTile(
-                  { ...state, agentKind, rightPanelTiles: [] },
-                  RIGHT_PANEL_POLICY[agentKind].initialTile!
+                  { ...state, agentKind, backend: action.session.backend, rightPanelTiles: [] },
+                  rightPanelPolicy(agentKind, action.session.backend).initialTile!
                 )
               : [],
-          agentKind
+          agentKind,
+          action.session.backend
         ),
         cwd: action.session.cwd ?? state.cwd,
         extraDirs: action.session.extraDirs ?? [],
@@ -1498,15 +1513,28 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, permissionModeError: action.failed }
 
     case 'SET_MODEL': {
-      if (state.sessionId && state.backend && action.adapter && action.adapter !== state.backend) {
+      if (
+        (state.sessionId || state.agentKindLocked) &&
+        state.backend &&
+        action.adapter &&
+        action.adapter !== state.backend
+      ) {
         return state
       }
+      const backend = isBackend(action.adapter) ? action.adapter : state.backend
+      const kind =
+        backend && !supportsAgentKind(backend, state.agentKind) ? 'code' : state.agentKind
       const selectionChanged =
         action.providerKey !== state.providerKey || action.modelFamily !== state.modelFamily
       // 지원하지 않는 권한 모드는 모델과 함께 내려앉는다(0215 D-010) — haiku 는 SDK 'auto' 를
       // 받지 못한다. 규칙은 `shared/permission-mode.ts` 하나가 갖고 여기가 상태 정본이다.
       return {
         ...state,
+        backend,
+        agentKind: kind,
+        rightPanelTiles: rightPanelColumnsForAgent(state.rightPanelTiles, kind, backend),
+        harnessAgent: backend !== state.backend ? undefined : state.harnessAgent,
+        modelVariant: selectionChanged ? undefined : state.modelVariant,
         providerKey: action.providerKey,
         modelFamily: action.modelFamily,
         modelAlias: action.modelAlias,
@@ -1517,7 +1545,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             alias: action.modelAlias ?? '',
             model: action.modelFamily
           },
-          state.agentKind
+          kind
         ),
         permissionModeError: false
       }
@@ -1525,6 +1553,13 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
     case 'SET_EFFORT':
       return { ...state, effort: action.effort }
+
+    case 'SET_HARNESS_OPTIONS':
+      return {
+        ...state,
+        ...(action.agent !== undefined ? { harnessAgent: action.agent } : {}),
+        ...(action.variant !== undefined ? { modelVariant: action.variant } : {})
+      }
 
     case 'RESOLVE_PLAN':
       // 액션 게이트를 닫고 코멘트를 비운다(승인/수정/거부 후 코멘트 소비 완료) — planContent/
@@ -1573,7 +1608,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }
 
     case 'TOGGLE_RIGHT_PANEL_TILE': {
-      const target = rightPanelTarget(action.id, state.agentKind)
+      const target = rightPanelTarget(action.id, state.agentKind, state.backend)
       if (!target) return state
       return columnsContain(state.rightPanelTiles, target)
         ? removeTile(state, target)
@@ -1583,7 +1618,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'SET_RIGHT_PANEL_TILE_ACTIVE':
       return action.active
         ? { ...state, rightPanelTiles: activateTile(state, action.id) }
-        : removeTile(state, rightPanelTarget(action.id, state.agentKind) ?? action.id)
+        : removeTile(
+            state,
+            rightPanelTarget(action.id, state.agentKind, state.backend) ?? action.id
+          )
 
     case 'RENAME_RIGHT_PANEL_TILE': {
       const label = action.label.trim()
@@ -1993,8 +2031,8 @@ function findToolCallPart(
 // **reducer 가 `addTileColumnMajor` 를 직접 부르지 않는다**: 지점이 5곳이라 한 곳만 막으면
 // 나머지로 정지가 뚫리고, 대표 경로 테스트는 그대로 통과한다. 게이트는 여기 하나다.
 function activateTile(state: ChatState, id: RightPanelTileId): RightPanelColumns {
-  const cols = rightPanelColumnsForAgent(state.rightPanelTiles, state.agentKind)
-  const target = rightPanelTarget(id, state.agentKind)
+  const cols = rightPanelColumnsForAgent(state.rightPanelTiles, state.agentKind, state.backend)
+  const target = rightPanelTarget(id, state.agentKind, state.backend)
   return target ? addTileColumnMajor(cols, target) : cols
 }
 

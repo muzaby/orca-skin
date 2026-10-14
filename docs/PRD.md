@@ -162,7 +162,7 @@ Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또�
 
 ### 7.4 Claude Code vs opencode 책임 분리 (전략 §5.1, §8.3)
 
-| 항목 | Claude Code | opencode *(예약 사양 — Phase 1·2 미구현)* |
+| 항목 | Claude Code | OpenCode (Code 전용) |
 |---|---|---|
 | 프로세스 모델 | 장수명 채널: 세션당 `query()` 하나를 열고 턴마다 `pushTurn` 으로 입력 (SDK 가 binary 라이프사이클 관리, [runtime-ipc.md](arch/backend/runtime-ipc.md) §1.3) | Long-running server: 한 번 띄워 유지 |
 | 컨텍스트 보관 위치 | `~/.claude/projects/<cwd>/<session-id>.jsonl` | 서버 메모리 + SQLite (`~/.local/share/opencode/`) |
@@ -207,7 +207,7 @@ Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또�
 | 영역 | 무엇 | 프로토타입 참조 |
 |---|---|---|
 | **Projects** ✅ 구현 | 프로젝트 단위 워크스페이스(지침·cwd 스코프), `project` 채널(개수는 [생성물](generated/inventory.md)) + 카드 그리드 + 랜딩 | `project/variations/v1-screens.jsx` (Projects 카드 그리드) — 구현 IPC_CONTRACT §2.7-b |
-| **Engine & Model 레지스트리** ✅ 구현 (claude 축) | 모델 선택·턴 단위 스위치(0010) + provider CRUD·`/agent` 화면(0021·0090). 멀티 엔진(opencode/llama.cpp/OpenAI 호환)은 잔여 | `project/variations/v1-screens.jsx` (Engine & Model 패널) |
+| **Engine & Model 레지스트리** | Claude·OpenCode 하네스별 provider CRUD·모델 카탈로그와 하네스 설정. OpenCode는 Code만 지원하고 Orca가 로컬 서버를 관리한다. | `arch/backend/adapters.md` |
 | **Skills** ✅ 부분 구현 | 스킬 카탈로그(스캔·토글·업로드 UI) + 번들 시딩(0078). 도메인 스킬(bayer-analysis, mtf-sfr 등) 자체는 잔여 | `project/variations/v1-screens.jsx` (Skills/MCP 좌측) |
 | **MCP 서버** ✅ 구현 | MCP 서버 등록/토글/삭제 + safeStorage 인증 + 세션 주입. 세분화된 권한 패널은 잔여 | 동 우측 — 구현 IPC_CONTRACT §2.10 |
 | **Captures** | 캡처 리스트(248개) → 상세(Bayer 뷰어 + AI 분석 + 품질 메트릭 + 채널 히스토그램 + EXIF) | `project/variations/v1-screens.jsx` (Captures 분할 페인) |
@@ -274,10 +274,10 @@ Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또�
 | OQ4 | 텔레메트리/에러 리포팅 정책? 옵트인? | 전략 비커버. |
 | OQ5 | 라이센스 (오픈/상용)? | 전략 비커버. |
 | OQ6 | 시작 시간 / 첫 토큰 지연 SLA 수치? | N5 와 연결. |
-| OQ7 | 두 CLI 가 모두 설치된 경우 기본 백엔드 선택 정책 (사용자 명시 / 마지막 사용 / Claude Code 우선)? | F6 보강. **Phase 1·2 는 claude-code 단일 백엔드 결정 (TRD 머리말 2026-05-13) 으로 자동 해소** — opencode 어댑터 활성화 시점에 재검토. 현재 `lastBackend` 는 `electron-store` 에 영속 (TRD §6.7). |
+| OQ7 | 두 하네스가 준비된 경우 새 대화의 기본 선택은? | **확정 (2026-10-13 사용자): 마지막으로 선택한 하네스, 최초 Claude.** 준비된 모델이 없으면 다른 준비된 카탈로그로 폴백한다. 생성된 대화는 저장된 하네스를 유지한다. |
 | ~~OQ8~~ | ~~"새 대화" 시 직전 세션을 Phase 3 목록에 어떻게 노출할지?~~ | **해소** (Phase 3): 사이드바 "최근 대화" 세션 목록 + FTS 검색으로 직전 세션 상시 노출 — 별도 정책 불요. |
 | OQ9 | Claude 도구 권한 정책 — SDK `options.permissionMode` / `options.canUseTool` 콜백 / `options.disallowedTools` 의 MVP **기본값**? | [`claude-code-spec.md`](./claude-code-spec.md) §5 참조. **부분 진전**: 도구 승인 오버레이(`canUseTool` RISKY_TOOLS 게이트, 0022) + workspace guard(PreToolUse hook·permissionMode, 0075) 구현됨. **기본 정책값(사전승인 범위·`acceptEdits` 기본 여부)은 여전히 미정** ([arch/backend/adapters.md](arch/backend/adapters.md) §1.7). |
-| OQ10 | 어댑터 `tool_use.name` / `tool_use.input` 정규화 정책 — claude vs opencode 도구명 차이 해소? | 후보: (a) raw 그대로 전달 + Renderer 가 도구명 매핑 (b) 어댑터에서 공통 vocabulary (`read`/`write`/`shell`/`edit`/`grep`) 정규화 + raw 는 메타 (c) raw + Renderer 아이콘 패턴 매칭. Phase 3 단일 백엔드 운영에서는 의미 없음 — opencode 어댑터 활성화 PR 에서 결정. TRD §10 anchor. |
+| OQ10 | 하네스별 도구 이름·입력 정규화 정책은? | **확정 (2026-10-13 사용자): 공통 도구 종류로 정규화하고 원본 이름·입력을 메타데이터로 보존한다.** OpenCode 도구 상세에서 원본을 펼쳐 볼 수 있다. |
 
 ---
 

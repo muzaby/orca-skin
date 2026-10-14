@@ -2,7 +2,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ResizableSidePane } from '../../../../shared/ui/ResizableSidePane'
 import { PANEL_DEFAULT_ROW_SPLIT, PANEL_DEFAULT_WIDTH } from '../../reducer/chatReducer'
 import { useChatSession, useChatStore } from '../../store/chatStore'
-import { RIGHT_PANEL_POLICY, type RightPanelTileId } from '../../lib/rightPanelTiles'
+import { rightPanelPolicy, type RightPanelTileId } from '../../lib/rightPanelTiles'
 import { deriveRightPanelLayout, rightPanelColumnsForAgent } from '../../lib/rightPanelLayout'
 import { adjustPanelViewport } from '../../lib/rightPanelViewport'
 import { ColumnResizeSeparator } from './PanelResizeSeparators'
@@ -26,7 +26,8 @@ export function RightPanel({
   const { tr } = useI18n()
   const activeTiles = useChatSession((s) => s.rightPanelTiles)
   const agentKind = useChatSession((s) => s.agentKind)
-  const panelPolicy = RIGHT_PANEL_POLICY[agentKind]
+  const backend = useChatSession((s) => s.backend)
+  const panelPolicy = rightPanelPolicy(agentKind, backend)
   const activeKey = useChatStore((s) => s.activeKey)
   const selection = useArtifactViewerStore((state) => state.selection)
   const viewer = selection?.sessionKey === activeKey ? selection : null
@@ -39,8 +40,8 @@ export function RightPanel({
   const reveal = useChatStore((state) => state.sessions[state.activeKey]?.panelReveal)
   const viewportRef = useRef<HTMLDivElement>(null)
   const layout = useMemo(
-    () => deriveRightPanelLayout(rightPanelColumnsForAgent(activeTiles, agentKind)),
-    [activeTiles, agentKind]
+    () => deriveRightPanelLayout(rightPanelColumnsForAgent(activeTiles, agentKind, backend)),
+    [activeTiles, agentKind, backend]
   )
   const expandedTile =
     expansion?.key === activeKey && layout.columns.some((col) => col.tiles.includes(expansion.id))

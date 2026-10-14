@@ -41,7 +41,7 @@ import { isAbsolutePath, isFilesystemRoot } from './absolute-path'
 import { LOG_EVENT_PATTERN, LOG_SCOPE_MAX_LENGTH, LOG_STRING_MAX_LENGTH } from './logging'
 import type { LogInput, SerializedError as LogSerializedError } from './logging'
 
-const BackendSchema: z.ZodType<Backend> = z.enum(['claude'])
+const BackendSchema: z.ZodType<Backend> = z.enum(['claude', 'opencode'])
 const EffortLevelSchema: z.ZodType<EffortLevel> = z.enum(['low', 'medium', 'high', 'xhigh', 'max'])
 
 const AttachmentSourceKindSchema = z.enum(['dialog', 'drag_drop', 'clipboard'])
@@ -143,6 +143,9 @@ export const DiffRequirementAnchorSchema: z.ZodType<DiffRequirementAnchor> = z.o
 export const SendChatMessageSchema = z
   .object({
     sessionId: z.string().nullable(),
+    backend: BackendSchema.optional(),
+    harnessAgent: z.string().min(1).max(200).optional(),
+    modelVariant: z.string().max(200).optional(),
     agentKind: AgentKindSchema.optional(),
     projectId: z.string().nullable(),
     // handoffFrom 이 있으면 main 이 자동 메시지로 대체하므로 빈 문자열을 허용한다(아래 refine).
@@ -563,7 +566,7 @@ export const UpdateMcpServerSchema = McpServerBaseSchema.partial()
 
 export const DeleteMcpServerSchema = z.object({ id: z.string().min(1) })
 
-const EngineSchema = z.literal('claude')
+const EngineSchema = BackendSchema
 const ProviderNameSchema = z
   .string()
   .trim()
@@ -679,7 +682,17 @@ const SchedulerSettingsSchema = z
 
 export const DEFAULT_SCHEDULER_SETTINGS = SchedulerSettingsSchema.parse({})
 
+const HarnessPreferencesSchema = z.object({
+  instructions: z.string().default(''),
+  executablePath: z.string().optional()
+})
+const HarnessSettingsSchema = z.object({
+  claude: HarnessPreferencesSchema.optional(),
+  opencode: HarnessPreferencesSchema.optional()
+})
+
 export const SettingsSchema = z.object({
+  harnesses: HarnessSettingsSchema.default({}),
   theme: z.enum(['white', 'dark']).catch('white').default('white'),
   // 대화 내용 텍스트 크기 · 대화 기록 너비(0256). 손상 값은 부팅을 막지 않고 'medium' 으로 복구.
   transcriptTextSize: z.enum(TRANSCRIPT_TEXT_SIZES).catch('medium').default('medium'),
@@ -728,6 +741,7 @@ export const SettingsSchema = z.object({
 
 export const SettingsPatchSchema = z
   .object({
+    harnesses: HarnessSettingsSchema,
     theme: z.enum(['white', 'dark']),
     transcriptTextSize: z.enum(TRANSCRIPT_TEXT_SIZES),
     transcriptWidth: z.enum(TRANSCRIPT_WIDTHS),

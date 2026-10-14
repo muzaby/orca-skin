@@ -232,22 +232,156 @@ PRD OQ7/OQ10, TRD backend, `arch/backend/adapters.md`, `arch/frontend/rendering.
 # [구현자 기입]
 
 ## 설계 리뷰
-구현 착수 전. 미해결 제품 결정 없음.
+
+r1 구현. ACTIVE Decision은 유지했고 신규 패키지는 추가하지 않았다. 제품 선택을 바꿔야 하는 PLAN_GAP은 발견하지 않았다. 호스트 CLI 1.19.0의 실제 실행과 SDK/CLI 분리 근거는 [runtime-compatibility.md](runtime-compatibility.md)에 기록했다.
+
+서버는 설정 fingerprint별로 소유하며 카탈로그만 60초 캐시한다. engine 목록 새로고침은 캐시를 우회하고 설정 변경은 다른 fingerprint를 사용한다. 만료는 모델 조회만 다시 수행하고 prompt를 재전송하지 않는다. 다른 세션이 같은 서버를 공유해도 취소는 session abort이며 pool close는 앱 종료에서만 호출한다.
 
 ## 강제 지점 전수와 V-pair 자기확인
-미실행. 실제 변경 경로와 테스트 관측으로 채운다.
+
+직접 oracle은 아래 테스트의 실행 구간으로 제한했다. 실제 UI 조작·코드 읽기·typecheck만 있는 자리는 자동 잠금으로 세지 않았다. 아래 숫자는 §10을 세분한 관측 자리의 자기점검이며, 전체 호출 그래프에 누락이 없다는 증명은 아니다.
+
+검색 명령(작업 디렉터리 app):
+
+- `rg -n 'backend|lastBackend|harnessAgent|modelVariant|providerTool|rightPanelTarget|rightPanelTileDefinitionsForAgent' src/main src/renderer/src src/shared`
+- `rg -n 'acquire|spawn|kill|close|abort|permission|question|subscribe|prompt|catalog' src/main/adapters --glob 'opencode*.ts' --glob '!*.test*'`
+- `rg -n 'harnesses|settingsJson|catalogError|includeExtensions|includePlugins' src/main src/renderer/src src/shared`
+
+| EP | 직접 잠금 / 조사 자리 | 직접 oracle 좌표와 관측 | 자동 잠금을 남긴 자리 |
+|---|---:|---|---|
+| EP-01 | 2/4 | chatStore.harness: `defaults to Claude, remembers model selection and sends native options`; chatReducer.harness: `switches an unsent Work draft to OpenCode Code without losing context` | ModelMenu onPick 연결, 전환 전후 Controller 인스턴스·첨부 유지. CUA에서는 둘 다 관측 |
+| EP-02 | 9/12 | send.harness의 저장 backend·위조 backend/provider·await 후 비교, send.agent-profile의 실제 runtime 진입, resolve-turn.agent의 session/fork/handoff 재검증, chatReducer.harness의 LOAD_SESSION/session.updated | Send schema의 harness 값 거절, send의 source/기존 lease 비교 각각을 겨냥한 직접 테스트 |
+| EP-03 | 3/3 | chatReducer.harness의 SET_MODEL·SET_AGENT_KIND, send.harness의 `rejects cross-harness and Work requests`: Code 전환/Work 거부 | 없음 |
+| EP-04 | 9/10 | opencode-server의 binary·동시 시작·timeout·spawn error·health 오류·구성 격리·close, registry의 `registers an injected OpenCode adapter and closes its owned server pool`, bootstrap.shutdown의 registry close | Bootstrap 생성자의 실제 adapter/pool 구성 주입. 실제 CLI smoke는 별도 관측 |
+| EP-05 | 6/6 | opencode.test의 `subscribes before admission, scopes the turn and emits each completion exactly once`, `surfaces a disconnected stream…`: subscription/admission/dedup/session scope/terminal/disconnect | 없음 |
+| EP-06 | 6/6 | opencode.test의 `replies to permission and question approvals once, including rejection`, `aborts the server and cancels a pending approval when interrupted`: permission allow/reject, question reply/reject, abort/pending cancel | 없음 |
+| EP-07 | 5/5 | opencode-map → opencode-history의 `reloads normalized arguments and the exact provider name/input together` → chatReducer.harness raw 보존 → TranscriptView.harness 원문 disclosure | mapper/history part/loaded part/reducer/view를 각각 관측 |
+| EP-08 | 7/10 | settings-write의 `keeps equal provider names in separate harness namespaces through CRUD`(write/read/update/delete), opencode-settings/catalog, misc.runtime-catalog, EngineFormModal.harness | IPC schema, engine handler CRUD 연결, EngineCard 실제 클릭. 카드·편집은 CUA 관측 |
+| EP-09 | 5/6 | settings-store의 기본값/병합/재시작, HarnessSettingsTab 렌더, opencode-server의 preferences 입력, send.agent-profile의 하네스별 instructions | SettingsTab 저장 클릭→IPC는 CUA의 메모리 fixture 관측 |
+| EP-10 | 7/10 | rightPanelTiles.harness의 definitions/groups/column 필터, chatReducer.harness의 toggle/set-active/open-subagent, chatStore.harness의 stale panel reveal 거부 | title menu 연결, OPEN_TASK의 OpenCode 경로, RightPanel 렌더 전달. 지원 범주는 CUA 관측 |
+| EP-11 | 3/5 | Composer.harness의 하네스별 frame, TranscriptView.harness의 본문/도구 렌더 | right panel frame·두 테마 토큰은 CUA/코드 확인. 사용자 시각 인수 대기 |
+| EP-12 | 5/6 | chatStore.harness의 lastBackend 저장/준비 모델 fallback, steps.harness의 부팅 restore, chatReducer.harness의 session.updated/LOAD_SESSION | freshEntry로 새 draft를 만드는 배선의 별도 직접 테스트 |
+
+조사 자리 83 중 직접 잠금 67, 남긴 자리 16. 이 수치를 전체 경로 전수 완료 또는 독립 검증 PASS로 해석하지 않는다.
+
+| Pair | 자기 상태 | 근거/남긴 범위 |
+|---|---|---|
+| VP-01 | SELF_BLOCKED | EP-01의 UI 전환 연결은 직접 조작으로 확인, 자동 이벤트 oracle 부족 |
+| VP-02 | SELF_BLOCKED | EP-02의 schema/source/lease 개별 잠금 남음 |
+| VP-03 | SELF_PASS | EP-03 직접 상태·send 거부 관측 |
+| VP-04 | SELF_BLOCKED | pool/registry/shutdown 동작 통과, Bootstrap 생성 배선 자동 잠금 남음 |
+| VP-05 | SELF_PASS | EP-05 실제 SDK HTTP/SSE fixture 통과 |
+| VP-06 | SELF_PASS | EP-06 승인/거절/중단 wire 관측 |
+| VP-07 | SELF_PASS | EP-07 정규화·원문 roundtrip/표시 관측 |
+| VP-08 | SELF_BLOCKED | EP-08 handler/schema/card 연결 자동 잠금 남음 |
+| VP-09 | SELF_BLOCKED | EP-09 설정 UI 저장→IPC 자동 잠금 남음 |
+| VP-10 | SELF_BLOCKED | EP-10 메뉴/OPEN_TASK/렌더 연결 자동 잠금 남음 |
+| VP-11 | SELF_BLOCKED | EP-11 두 테마 직접 조작 완료, 최종 시각 인수 대기 |
+| VP-12 | SELF_BLOCKED | EP-12 freshEntry 배선 자동 잠금 남음 |
+| VP-13 | SELF_BLOCKED | send→runtime, SDK, history 경계별 결과 있음; VP-02 미잠금 상속 |
+| VP-14 | SELF_BLOCKED | VP-08/09/11 미잠금 상속 |
+| VP-15 | SELF_BLOCKED | transport/process 동작 통과; VP-04 생성 배선 미잠금 상속 |
+| VP-16 | SELF_BLOCKED | VP-02 미잠금 상속; raw history 통과 |
+| VP-17 | SELF_BLOCKED | VP-01/10/11 미잠금 상속 |
+| VP-18 | SELF_PASS | mapper/catalog/settings 순수 출력 및 실제 파일 CRUD 통과 |
+| VP-19 | SELF_BLOCKED | reducer/policy/default 함수 관측, freshEntry 자동 잠금 남음 |
+
+SELF_PASS 5 · SELF_BLOCKED 14 = REQUIRED 19. REGRESSION 지정 pair는 없으며 Claude 관련 기존 실행 집합을 별도로 실행했다. 위 부족분은 구현 결함 발견이나 제품 결정 변경이 아니라 직접 oracle 범위의 한계다.
 
 ## 이번 라운드 수정의 잠금
-선택적 적대 증거 미선택 — 직접 행동 oracle. 신규 proxy를 추가하면 감도 검증을 별도로 기록한다.
+
+| 대상 | 민감도 관측 | 복원 |
+|---|---|---|
+| send의 저장 backend→adapter 배선 | 실제 runtime 진입 테스트에서 registry.get을 Claude로 고정하면 assertion 1건 실패 | 원본 바이트 복원 후 대상 1건 통과 |
+| send의 하네스 instructions 주입 | 같은 테스트에서 instructions를 제거하면 assertion 1건 실패 | 원본 바이트 복원 후 대상 1건 통과 |
+| reportSites의 새 T37 오류 보고 | 기존 mutation suite의 report 제거와 같은 파일의 6개 형제 event 맞바꿈 모두 검출 | 프로덕션 변경 없이 문자열 mutant 검사 |
+| reportSites의 새 CONSUMED 3자리 | AgentEnvironmentView delete catch, HarnessSettingsTab load/save catch에 금지 보고를 넣으면 각각 검출 | 프로덕션 변경 없이 문자열 mutant 검사 |
+
+선택 증거 0 · 이전 파생 이슈 인용 변이 0 · 새 oracle 계열 4 = 표 행 4. 개별 주입은 send 2 + 오류 보고 7 + CONSUMED 3 = 12. 그 밖은 해당 없음 — 직접 행동 oracle이다. 이 감도 결과로 위 SELF_BLOCKED를 SELF_PASS로 올리지 않았다.
 
 ## Product/UX 파생 검토
-미실행.
+
+실제 production React 컴포넌트와 store를 임시 Electron 창에 조립하고 Computer Use로 클릭·입력했다. IPC는 메모리 fixture였으며 사용자 설정·모델 인증을 쓰지 않았다. native 원본 디자인 근거는 [design-evidence.md](design-evidence.md)다.
+
+| 시나리오 | 관측 |
+|---|---|
+| OpenCode ↔ Claude 모델 선택 | 동일 초안과 readme.txt 첨부 유지, 해당 하네스 컨트롤·transcript로 제자리 변경 |
+| 생성된 세션의 모델 메뉴 | 같은 하네스만 노출, Escape로 닫힘 |
+| OpenCode composer | build/모델 표시명/variant, 파일 추가, 하단 전송 버튼. Claude 전용 skill/plugin 제안 제거 |
+| 우측 패널 | 검토→변경사항, 세션→계획만 노출 |
+| 도구 원문 | edit의 filePath/oldString/newString 보존, diff +1/-1 표시 |
+| 하네스 설정 | 수정→저장 뒤 dirty 해제. 로딩/오류/재시도 UI 제공 |
+| OpenCode 엔진 편집 | 하네스 변경 불가, 잘못된 JSON 입력 시 한국어 오류와 저장 비활성 |
+| 밝은/어두운 테마 | composer·본문·도구·패널 토큰과 전송 버튼 대비 확인 |
+
+직접 조작 중 발견한 공통 Button의 위치 충돌은 OpenCode 전송 버튼을 전용 요소로 바꿔 수정했다. 최종 회귀에서는 lastBackend 저장 실패가 무시되던 경로를 reportError로 바꿨고, stale 패널 reveal도 backend 정책을 통과하게 했다.
 
 ## 놓친 잠재 문제 + 대응
-미실행.
+
+- 실제 인증·외부 모델을 사용하는 설치 앱 전체 E2E는 실행하지 않았다. 실제 CLI smoke는 격리된 로컬 응답 fixture로 실행했다.
+- CLI 2.x는 현재 SDK의 legacy API와 호환되지 않는다. 비호환 health 응답을 명시적 오류로 처리하고 소유 child를 정리한다.
+- CLI 버전을 내릴 때 새 버전이 쓴 데이터가 호환되지 않을 수 있다. 호환성 smoke는 버전별 새 데이터로 수행했으며 사용자 데이터는 수정하지 않았다.
+- SSE는 durable replay가 없다. 단절 시 오류로 끝내며 prompt 자동 재전송은 없다.
+- provider 세션 생성 뒤 Orca 기록 전 실패하면 provider 쪽 고아 세션 가능성이 남는다(§13 기존 리스크).
+- 최종 시각 인수와 위 직접 oracle 부족분은 독립 검증에 남긴다. 알려진 게이트 실패를 정상으로 처리하지 않는다.
 
 ## 구현 보고
-미착수. AC ✅0 · ⚠️12 · ❌0 = 총 12.
+
+대상: (r1 구현 — 좌표는 INDEX). AC 자기보고는 기능 관측이며 위 자리별 자동 잠금과 구분한다.
+
+| AC | 결과 | 이번 관측 |
+|---|---|---|
+| AC1 | ✅ | 실제 모델 메뉴 전환에서 초안·첨부 유지, Composer/reducer/store 테스트 |
+| AC2 | ✅ | 저장 OpenCode 세션이 Claude 전역 선택과 무관하게 실제 runtime 진입, 위조 요청 거부 |
+| AC3 | ✅ | 모델 선택→Code, Work reducer·main send 거부 |
+| AC4 | ✅ | 동시 시작 합치기, 실패 후 재시도, 소유 child 종료와 bootstrap shutdown |
+| AC5 | ✅ | 실제 SDK fixture 및 CLI 1.19.0 text/read-tool/telemetry/terminal |
+| AC6 | ✅ | permission/question 응답·거절·abort/pending 승인 취소 wire |
+| AC7 | ✅ | normalized/raw 입력 history→loaded part→reducer→도구 원문 |
+| AC8 | ✅ | 하네스 namespace CRUD, 실제 catalog, 폼 잠금·JSON 오류, 카드 조작 |
+| AC9 | ✅ | 별도 저장·재시작, server preferences와 instructions 분리 적용, UI 저장 |
+| AC10 | ✅ | 패널 policy/reducer/store 거부, CUA 지원 범주 확인 |
+| AC11 | ⚠️ | 두 하네스 SSR와 두 테마 CUA 확인. 최종 사용자 시각 인수 대기 |
+| AC12 | ✅ | 기본 Claude·lastBackend 저장·부팅 restore·기존 세션 유지·카탈로그 fallback |
+
+검산: ✅11 · ⚠️1 · ❌0 = AC 총 12. Criteria-Met은 11/12이며 독립 검증 결과가 아니다.
+
+최종 실행 집합(작업 디렉터리 app):
+
+| 게이트 | 관측 |
+|---|---|
+| OpenCode 및 영향 테스트 | 23파일 119케이스 통과. 명령 A |
+| 부팅·종료·오류 보고 회귀 | 6파일 315케이스 통과. 명령 B |
+| Chromium transport 경계 | no-node-fetch.test.ts 1파일 3케이스 통과 |
+| Git/child_process 경계 | node --test scripts/git-boundary.test.mjs: 14케이스 통과 |
+| 타입 검사 | npm run typecheck: node/web/test 3구성, 진단 0, exit 0 |
+| 린트 | npm run lint: error 0, 기존 useTranscriptVirtualizer의 incompatible-library warning 1, exit 0 |
+| 빌드 | electron-vite build: main/preload/renderer 모두 산출, exit 0 |
+| 문서 | check-doc-inventory.mjs --check: generated/prose/relative links 통과 |
+| 공백 | git diff --check: 오류 0 |
+
+명령 A: `node node_modules/vitest/vitest.mjs run opencode .harness.test.ts resolve-turn.agent.test.ts send.agent-profile.test.ts settings-store.test.ts settings-write.test.ts HarnessSettingsTab.test.ts attachMenuModel.test.ts useMentionAutocomplete.test.ts modelSelection.test.ts --maxWorkers=2`
+
+명령 B: `node node_modules/vitest/vitest.mjs run src/main/adapters/registry.test.ts src/renderer/src/app/boot/steps.harness.test.ts src/renderer/src/shared/errors/reportSites.registry.test.ts src/main/error-report.registry.test.ts src/main/app/handlers/misc.runtime-catalog.test.ts src/main/app/bootstrap.shutdown.test.ts --maxWorkers=1 --testTimeout=120000`
+
+이전 광역 회귀는 157파일 중 156파일 통과·Composer SSR fixture 1파일 실패였다. fixture 수정 뒤 해당 Composer·패널 5케이스와 위 최종 실행 집합은 통과했다. 광역 157파일 전건 재실행 통과로 보고하지 않는다. 부팅/카탈로그 확장 실행의 나머지 11파일은 통과했고, 실패했던 오류 보고 두 파일은 명령 B로 재검증했다.
 
 ## Review Signals
-r1 최초 구현. 기존 SDK 조사와 제품 구현을 분리했다.
+
+### main 리베이스 검증 (2026-10-14)
+
+통합 완료 — 원격 main의 0261까지 포함하고, 번호 충돌을 피하려 이 핸드오프를 0262로 옮겼다. OpenCode adapter/send는 리베이스 전과 동일하며, Claude adapter와 창 생성부는 main의 bypass·production DevTools 수정과 동일하다(`git diff` 각 경로 0건).
+
+| 검사 | 관측 |
+|---|---|
+| 관련 회귀 | 명령 A에 `claude.executable-option.test.ts browser-session.devtools.test.ts browser-window-devtools.test.ts` 추가: 26파일 144케이스 통과 |
+| 정적 검사·빌드 | typecheck node/web/test, 0261 변경 파일 ESLint, electron-vite build 통과 |
+| production DevTools | `node ../docs/handoff/0261-bypass-flag-prod-devtools/check-prod-bundle.mjs`: 모든 창 생성자 `devTools:false` |
+| 문서 기준값 | 구현으로 사라진 상태 표식 5곳을 `0260-docs-handoff-resync/status-marks.tsv`에서 제거 |
+| 문서 검사 한계 | drift-check의 단언·커버리지 차집합 0. Windows Git Bash가 `🚧`를 찾지 못하는 기존 표식 1곳은 main의 동일 문서에서도 재현되어 기준값 유지 |
+
+미충족 시각 인수·직접 oracle 범위와 Criteria-Met 11/12는 유지한다. 리베이스 검사는 독립 검증을 대체하지 않는다.
+
+r1 최초 구현을 이어서 완료한 턴이다. verify/FAIL 이후 재구현은 아니다. 기존 native SDK 조사와 제품 실행·UI 검증을 구분했다. 사용자 CLI 변경에 따라 호환성 조사 범위가 늘었지만 배포 결정을 변경하지 않았다.
+
+샌드박스의 사용자 디렉터리 lstat EPERM은 동일 명령을 승인된 실행으로 재시도해 해소했다. 오류 보고 전수 검사 첫 실행의 main 2건은 20초 시간 초과였고 단일 worker 재실행에서 통과했다. renderer 2건은 새 catch 누락/무시 경로였으며 수정 후 회귀 통과했다. ABI를 전환하는 npm test/prebuild는 실행하지 않았다.

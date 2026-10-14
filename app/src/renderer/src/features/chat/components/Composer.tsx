@@ -11,10 +11,11 @@ import { RequirementTray } from './composer/RequirementTray'
 import { ModeMenu } from './composer/ModeMenu'
 import { ModelMenu } from './composer/ModelMenu'
 import { EffortMenu } from './composer/EffortMenu'
+import { OpenCodeAgentControl, OpenCodeVariantControl } from './composer/OpenCodeControls'
 import { defaultEffortForModel } from '../../../../../shared/model-effort'
 import { EFFORT_LABEL_KEYS } from './composer/effort'
 import {
-  defaultSelection,
+  draftSelection,
   modelKey,
   selectedModelShape,
   selectionExists,
@@ -140,6 +141,8 @@ export function Composer({
   const sessionCostUsd = useChatSession((s) => s.sessionCostUsd)
   const permissionMode = useChatSession((s) => s.permissionMode)
   const backend = useChatSession((s) => s.backend)
+  const harnessLocked = useChatSession((s) => !!s.sessionId || s.agentKindLocked)
+  const openCode = backend === 'opencode'
   const providerKey = useChatSession((s) => s.providerKey)
   const modelFamily = useChatSession((s) => s.modelFamily)
   const modelAlias = useChatSession((s) => s.modelAlias)
@@ -188,14 +191,14 @@ export function Composer({
         adapter: agents.find((a) => a.key === providerKey)?.adapter ?? backend ?? 'claude',
         provider: agents.find((a) => a.key === providerKey)?.provider
       }
-    return defaultSelection(agents, backend)
-  }, [agents, backend, providerKey, modelFamily, modelAlias])
+    return draftSelection(agents, backend, harnessLocked)
+  }, [agents, backend, harnessLocked, providerKey, modelFamily, modelAlias])
 
   useEffect(() => {
     if (agents.length === 0) return
     // 선택이 없거나 원천이 사라졌으면(런타임 contribution 회수 포함) default 로 되돌린다.
     if (!providerKey || !selectionExists(agents, providerKey, modelFamily)) {
-      const next = defaultSelection(agents, backend)
+      const next = draftSelection(agents, backend, harnessLocked)
       if (next) setModel(next.providerKey, next.modelFamily, next.modelAlias, next.adapter)
       return
     }
@@ -204,7 +207,7 @@ export function Composer({
     const agent = agents.find((a) => a.key === providerKey)
     const model = agent?.models.find((m) => m.isDefault) ?? agent?.models[0]
     if (agent && model) setModel(providerKey, modelKey(model), model.alias, agent.adapter)
-  }, [agents, backend, modelFamily, providerKey, setModel])
+  }, [agents, backend, harnessLocked, modelFamily, providerKey, setModel])
 
   const conversationStatusModel = useMemo(() => {
     // TODO(후속 핸드오프): 정식 상태 판정 신호로 교체 — 현재는 임시 근사
@@ -232,7 +235,7 @@ export function Composer({
   // warn 단계 권장 액션(0064 r2, 사용자 확정) — 현재 세션에 `/compact` 를 사용자 턴으로
   // 전송한다. SDK 네이티브 압축이 돌고 완료 시 session.compacted → 압축 경계 구분선 표시.
   const onCompact = (): void => {
-    if (chatActions.send('/compact')) setConversationStatusOpen(false)
+    if (!openCode && chatActions.send('/compact')) setConversationStatusOpen(false)
   }
 
   // 0064 handoff — 가드 3종: 확정 세션(sessionId) · mid-turn 거부(inflight) · 사용자 턴 2회
@@ -277,14 +280,16 @@ export function Composer({
         </button>
       )}
       <ColumnWrap flush={flush}>
-        <ConversationStatusLine
-          ref={conversationStatusButtonRef}
-          model={conversationStatusModel}
-          open={conversationStatusOpen}
-          onToggle={toggleConversationStatus}
-          popoverId={conversationStatusPopoverId}
-        />
-        {conversationStatusModel && (
+        {!openCode && (
+          <ConversationStatusLine
+            ref={conversationStatusButtonRef}
+            model={conversationStatusModel}
+            open={conversationStatusOpen}
+            onToggle={toggleConversationStatus}
+            popoverId={conversationStatusPopoverId}
+          />
+        )}
+        {!openCode && conversationStatusModel && (
           <Popover
             open={conversationStatusOpen}
             anchorRef={conversationStatusButtonRef}
@@ -367,7 +372,7 @@ export function Composer({
           composerInput={
             <ComposerInputController
               active={!pendingPlanReview}
-              backendLabel={backendLabel}
+              backendLabel={openCode ? 'OpenCode' : backendLabel}
               canAbort={canAbort}
               inflight={inflight}
               steerBlocked={steerBlocked}
@@ -389,18 +394,24 @@ export function Composer({
               onCancel={cancel}
               onManagePlugins={onManagePlugins}
               controlsStart={
-                <ComposerChip
-                  ref={modeButtonRef}
-                  label={tr(
-                    permissionModeError
-                      ? 'chat.composer.permissionUpdateFailedLabel'
-                      : permissionModeLabelKey(permissionMode, agentKind)
-                  )}
-                  onClick={() => setModeMenuOpen((value) => !value)}
-                  ariaHasPopup
-                  ariaExpanded={modeMenuOpen}
-                  title={tr('chat.composer.permissionModeTitle')}
-                />
+                openCode ? (
+                  <OpenCodeAgentControl
+                    agents={agents.find((entry) => entry.key === providerKey)?.agents}
+                  />
+                ) : (
+                  <ComposerChip
+                    ref={modeButtonRef}
+                    label={tr(
+                      permissionModeError
+                        ? 'chat.composer.permissionUpdateFailedLabel'
+                        : permissionModeLabelKey(permissionMode, agentKind)
+                    )}
+                    onClick={() => setModeMenuOpen((value) => !value)}
+                    ariaHasPopup
+                    ariaExpanded={modeMenuOpen}
+                    title={tr('chat.composer.permissionModeTitle')}
+                  />
+                )
               }
               controlsEnd={
                 <>
@@ -414,14 +425,24 @@ export function Composer({
                       title={tr('chat.composer.modelSelectTitle')}
                     />
                   )}
-                  <ComposerChip
-                    ref={effortButtonRef}
-                    label={tr(EFFORT_LABEL_KEYS[effort])}
-                    onClick={() => setEffortMenuOpen((v) => !v)}
-                    ariaHasPopup
-                    ariaExpanded={effortMenuOpen}
-                    title={tr('chat.composer.effortTitle')}
-                  />
+                  {openCode ? (
+                    <OpenCodeVariantControl
+                      variants={
+                        agents
+                          .find((entry) => entry.key === providerKey)
+                          ?.models.find((model) => modelKey(model) === modelFamily)?.variants ?? []
+                      }
+                    />
+                  ) : (
+                    <ComposerChip
+                      ref={effortButtonRef}
+                      label={tr(EFFORT_LABEL_KEYS[effort])}
+                      onClick={() => setEffortMenuOpen((v) => !v)}
+                      ariaHasPopup
+                      ariaExpanded={effortMenuOpen}
+                      title={tr('chat.composer.effortTitle')}
+                    />
+                  )}
                   {lastTelemetry &&
                     (() => {
                       // 컨텍스트 사용량 = (입력+캐시)/모델 윈도우(마지막 턴 기준). 세션 동안 lastTelemetry
@@ -511,7 +532,7 @@ export function Composer({
       >
         <ModelMenu
           agents={agents}
-          sessionBackend={backend}
+          sessionBackend={harnessLocked ? backend : null}
           selection={selectedModel}
           onPick={(selection) => {
             setModel(

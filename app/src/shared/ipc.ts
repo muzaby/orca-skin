@@ -300,7 +300,7 @@ export interface SessionTitleEvent {
 }
 
 // Backend (Phase 2: claude 단일. opencode 는 future work)
-export type Backend = 'claude'
+export type Backend = 'claude' | 'opencode'
 
 export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
@@ -310,6 +310,8 @@ export interface AgentModelView {
   isCustom: boolean
   oneMillionContext: boolean
   isDefault: boolean
+  variants?: string[]
+  providerId?: string
 }
 
 export interface AgentEnvironment {
@@ -320,10 +322,12 @@ export interface AgentEnvironment {
   supported: boolean
   source?: 'settings' | 'runtime'
   readOnly?: boolean
+  agents?: { name: string; description?: string }[]
+  catalogError?: string
 }
 
 export interface CreateEngineRequest {
-  engine: 'claude'
+  engine: Backend
   provider: string
   settingsJson: string
 }
@@ -343,14 +347,14 @@ export interface ReadEngineRequest {
 
 export interface EngineReadResult {
   key: string
-  engine: 'claude'
+  engine: Backend
   provider: string
   settingsJson: string
 }
 
 export interface EngineWriteResult {
   key: string
-  engine: 'claude'
+  engine: Backend
   provider: string
 }
 
@@ -507,6 +511,7 @@ export type NormalizedEvent =
       //               부재는 "판정 불가" 라 기능 안내를 띄우지 않는다(0212 D-005 · EP-01).
       //   cliVersion  init 의 `claude_code_version`. 안내 문구가 실제 버전을 말하게 한다.
       patch: {
+        backend?: Backend
         projectId?: string | null
         // 이번 신규 세션이 실제 프로젝트 행을 생성했을 때만 보내는 일회성 nav 신호.
         projectCreated?: boolean
@@ -615,6 +620,7 @@ export type NormalizedEvent =
       toolRunId: string
       toolName: string
       args: unknown
+      providerTool?: { name: string; input: unknown }
       parentToolRunId?: string
       // `Edit` 실행 **전** 미리보기 패치 `{ structuredPatch }`(0229) — 진행 중 카드가 완료 카드와
       // 같은 줄번호·전체 줄을 그리게 한다. SDK 는 실행 전 diff 를 주지 않아 main 이 편집 전 파일을
@@ -886,6 +892,9 @@ export interface ConcurrencyEvent {
 
 // IPC payloads (TRD §5.2 의 활성 부분)
 export interface SendChatMessage {
+  backend?: Backend
+  harnessAgent?: string
+  modelVariant?: string
   sessionId: string | null
   // 신규의 생략은 code, 기존/준비/파생 요청의 생략은 소유 세션 종류 상속.
   agentKind?: AgentKind
@@ -1089,6 +1098,7 @@ export interface SchedulerSettings {
 }
 
 export interface Settings {
+  harnesses?: import('./harness').HarnessSettings
   theme: ThemePref
   // 트랜스크립트 글자 배율 단계. 기본 'medium'.
   transcriptTextSize: TranscriptTextSize
@@ -1484,6 +1494,7 @@ export type AppMessagePart =
   | { type: 'reasoning'; text: string; signature?: string; parentToolRunId?: string }
   | {
       type: 'tool_call'
+      providerTool?: { name: string; input: unknown }
       toolRunId: string
       toolName: string
       args: unknown

@@ -46,11 +46,25 @@ describe('engine settings writes', () => {
     expect(existsSync(join(root, 'sources/settings/claude/bedrock'))).toBe(false)
   })
 
-  it('rejects non claude engines and duplicate providers', () => {
+  it('rejects duplicate providers within the same harness', () => {
     const root = tempRoot()
     addHarnessSettings('claude', 'anthropic', '{}', root)
     expect(() => addHarnessSettings('claude', 'anthropic', '{}', root)).toThrow(
       '이미 존재하는 provider'
     )
+  })
+})
+
+describe('OpenCode engine settings', () => {
+  it('keeps equal provider names in separate harness namespaces through CRUD', () => {
+    const root = tempRoot()
+    addHarnessSettings('claude', 'local', '{"env":{"ANTHROPIC_MODEL":"claude-model"}}', root)
+    const created = addHarnessSettings('opencode', 'local', '{"model":"vendor/model"}', root)
+    expect(created).toEqual({ key: 'opencode-local', engine: 'opencode', provider: 'local' })
+    expect(readHarnessSettings(created.key, root).engine).toBe('opencode')
+    updateHarnessSettings(created.key, '{"model":"vendor/next"}', root)
+    expect(readHarnessSettings(created.key, root).settingsJson).toContain('vendor/next')
+    deleteHarnessSettings(created.key, root)
+    expect(readHarnessSettings('claude-local', root).settingsJson).toContain('claude-model')
   })
 })

@@ -66,6 +66,12 @@ export interface CompleteRequest {
 }
 
 export interface SessionAdapter {
+  close?(): void
+  catalog?(
+    entry: import('../../shared/ipc').AgentEnvironment,
+    config: Record<string, unknown>,
+    refresh?: boolean
+  ): Promise<import('../../shared/ipc').AgentEnvironment>
   readonly id: Backend
   // Adapter-native subprocess policy selected by the session's immutable Code/Work kind.
   // Reserved values are finalized after generic env layers; null explicitly removes a key.

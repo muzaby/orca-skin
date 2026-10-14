@@ -9,6 +9,7 @@ import {
   type ReactNode
 } from 'react'
 import { Button } from '../../../../shared/ui/Button'
+import { Icon } from '../../../../shared/ui/Icon'
 import { useI18n } from '../../../../shared/i18n'
 import { useChatSession } from '../../store/chatStore'
 import { agentPresentation } from '../../lib/agentPresentation'
@@ -105,6 +106,7 @@ export function ComposerInputController({
 }: ComposerInputControllerProps): React.JSX.Element {
   const { tr } = useI18n()
   const agentKind = useChatSession((session) => session.agentKind)
+  const openCode = useChatSession((session) => session.backend === 'opencode')
   const [snapshot, setSnapshotState] = useState(createDraftSnapshot)
   const snapshotRef = useRef(snapshot)
   const updateSnapshot = useCallback((update: (current: DraftSnapshot) => DraftSnapshot): void => {
@@ -127,7 +129,8 @@ export function ComposerInputController({
     buildAttachmentViews,
     resetIfUnchanged: resetAttachmentsIfUnchanged
   } = useAttachments()
-  const skills = useSkills()
+  const availableSkills = useSkills()
+  const skills = useMemo(() => (openCode ? [] : availableSkills), [openCode, availableSkills])
   const knownSkillNames = useMemo(() => new Set(skills.map((skill) => skill.name)), [skills])
   const surfaceRef = useRef<ComposerInputSurfaceHandle>(null)
   const surfaceWrapRef = useRef<HTMLDivElement>(null)
@@ -186,7 +189,8 @@ export function ComposerInputController({
     derivedText,
     derivedCaret,
     active ? cwd : null,
-    active
+    active,
+    !openCode
   )
   const skillOpen = active && derivedCurrent && autocomplete.open
   const mentionOpen = active && derivedCurrent && mentionAutocomplete.open
@@ -299,7 +303,12 @@ export function ComposerInputController({
     <>
       {active && (
         <div
-          className="contents"
+          className={
+            openCode
+              ? 'relative rounded-[10px] border border-oc-border bg-oc-surface text-oc-ink shadow-oc-raised'
+              : 'contents'
+          }
+          data-harness={openCode ? 'opencode' : 'claude'}
           onPaste={onPaste}
           onDragOver={(event) => {
             event.preventDefault()
@@ -313,9 +322,13 @@ export function ComposerInputController({
           }}
         >
           <div
-            className={`epitaxy-prompt rounded-r7 border bg-panel px-3 py-2.5 shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-colors ${
-              draggingAttachment ? 'border-accent ring-2 ring-accent/40' : 'border-border'
-            }`}
+            className={
+              openCode
+                ? 'min-h-[60px] px-4 pb-2 pt-4'
+                : `epitaxy-prompt rounded-r7 border bg-panel px-3 py-2.5 shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-colors ${
+                    draggingAttachment ? 'border-accent ring-2 ring-accent/40' : 'border-border'
+                  }`
+            }
             data-surface="prompt"
             data-state={draggingAttachment ? 'drag-over' : undefined}
             title={tr('chat.composer.backendTitle', { label: backendLabel })}
@@ -334,6 +347,7 @@ export function ComposerInputController({
               >
                 <ComposerInputSurface
                   ref={surfaceRef}
+                  openCode={openCode}
                   snapshot={snapshot}
                   onTextChange={(text, selectionStart, selectionEnd) =>
                     updateSnapshot((current) =>
@@ -359,12 +373,40 @@ export function ComposerInputController({
                       ? steerBlocked
                         ? tr('chat.composer.placeholderProviderBoundary')
                         : tr('chat.composer.placeholderFeedback')
-                      : tr(agentPresentation[agentKind].placeholder)
+                      : tr(
+                          openCode
+                            ? 'harness.promptPlaceholder'
+                            : agentPresentation[agentKind].placeholder
+                        )
                   }
                   ariaLabel={tr('chat.composer.inputAria')}
                 />
               </div>
-              {showCancelButton ? (
+              {openCode ? (
+                <button
+                  type="button"
+                  onClick={showCancelButton ? onCancel : submit}
+                  disabled={showCancelButton ? !canAbort : snapshot.text.trim() === ''}
+                  aria-label={tr(
+                    showCancelButton
+                      ? 'common.stop'
+                      : feedbackMode
+                        ? 'chat.composer.sendFeedback'
+                        : 'chat.composer.send'
+                  )}
+                  title={tr(showCancelButton ? 'common.stop' : 'chat.composer.sendEnter')}
+                  data-behavior={
+                    showCancelButton
+                      ? 'action:cancel-turn'
+                      : feedbackMode
+                        ? 'action:send-feedback'
+                        : 'action:send'
+                  }
+                  className="absolute bottom-2 right-2 z-10 flex size-8 items-center justify-center rounded-[7px] border-0 bg-oc-ink text-oc-surface outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-40"
+                >
+                  <Icon name={showCancelButton ? 'stop' : 'enter'} size={16} />
+                </button>
+              ) : showCancelButton ? (
                 <Button
                   iconOnly
                   variant="uncontained"
@@ -374,7 +416,11 @@ export function ComposerInputController({
                   title={canAbort ? tr('common.stop') : tr('chat.composer.abortUnsupported')}
                   aria-label={tr('common.stop')}
                   data-behavior="action:cancel-turn"
-                  className="mb-1 shrink-0 rounded-full"
+                  className={
+                    openCode
+                      ? 'absolute bottom-2 right-2 z-10 size-8 shrink-0 rounded-[7px] bg-oc-ink text-oc-surface'
+                      : 'mb-1 shrink-0 rounded-full'
+                  }
                 />
               ) : (
                 <Button
@@ -392,17 +438,27 @@ export function ComposerInputController({
                     feedbackMode ? tr('chat.composer.sendFeedback') : tr('chat.composer.send')
                   }
                   data-behavior={feedbackMode ? 'action:send-feedback' : 'action:send'}
-                  className="mb-1 shrink-0 rounded-full"
+                  className={
+                    openCode
+                      ? 'absolute bottom-2 right-2 z-10 size-8 shrink-0 rounded-[7px] bg-oc-ink text-oc-surface'
+                      : 'mb-1 shrink-0 rounded-full'
+                  }
                 />
               )}
             </div>
           </div>
-          <div className="app-frame-composer-controls flex items-center gap-1.5 px-1">
+          <div
+            className={
+              openCode
+                ? 'app-frame-composer-controls flex min-h-12 items-center gap-1 px-2 pb-1 pr-12'
+                : 'app-frame-composer-controls flex items-center gap-1.5 px-1'
+            }
+          >
             <div
               className="app-frame-composer-repo flex items-center gap-1.5"
               data-behavior="dismissible"
             >
-              {controlsStart}
+              {!openCode && controlsStart}
               <ComposerChip
                 ref={attachButtonRef}
                 icon="plus"
@@ -411,8 +467,15 @@ export function ComposerInputController({
                 ariaExpanded={attachMenuOpen}
                 title={tr('chat.composer.attachMenuTitle')}
               />
+              {openCode && controlsStart}
             </div>
-            <span className="ml-auto flex items-center gap-g4">{controlsEnd}</span>
+            <span
+              className={
+                openCode ? 'flex min-w-0 items-center gap-1' : 'ml-auto flex items-center gap-g4'
+              }
+            >
+              {controlsEnd}
+            </span>
           </div>
         </div>
       )}
@@ -421,6 +484,7 @@ export function ComposerInputController({
         anchorRef={attachButtonRef}
         onClose={() => setAttachMenuOpen(false)}
         skills={skills}
+        includeExtensions={!openCode}
         plugins={mentionAutocomplete.plugins}
         onAction={onAttachMenuAction}
         onManagePlugins={

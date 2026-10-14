@@ -7,7 +7,7 @@ interface InstalledInfo {
   version?: string
 }
 
-// Phase 1: 단일 백엔드 (claude). opencode 는 future work — TRD §10 anchor.
+// 등록된 하네스와 설치 상태를 소유한다. 생성된 세션은 저장된 backend로 get()을 호출한다.
 export class AdapterRegistry {
   private readonly adapters = new Map<Backend, SessionAdapter>()
   private active: Backend | null = null
@@ -15,10 +15,11 @@ export class AdapterRegistry {
 
   // MCP 는 0058 이후 plugin .mcp.json 으로 배포되어 로드된다. options.mcpServers 는 레거시로 남지만
   // 기본 query 경로에서 호출하지 않는다.
-  constructor() {
+  constructor(extraAdapters: SessionAdapter[] = []) {
     const claude = new ClaudeAdapter()
     this.adapters.set(claude.id, claude)
     this.active = claude.id
+    for (const adapter of extraAdapters) this.adapters.set(adapter.id, adapter)
   }
 
   async refreshInstallState(): Promise<void> {
@@ -40,6 +41,10 @@ export class AdapterRegistry {
   getActive(): SessionAdapter | null {
     if (!this.active) return null
     return this.adapters.get(this.active) ?? null
+  }
+
+  close(): void {
+    for (const adapter of this.adapters.values()) adapter.close?.()
   }
 
   getActiveId(): Backend | null {

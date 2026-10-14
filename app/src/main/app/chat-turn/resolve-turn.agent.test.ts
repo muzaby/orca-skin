@@ -7,6 +7,36 @@ vi.mock('../../infra/config/orca-config', () => ({ appEnv: () => ({}) }))
 afterEach(() => vi.clearAllMocks())
 
 it.each(['sessionId', 'forkFrom', 'handoffFrom'] as const)(
+  'rejects a changed source harness after provider preparation (%s)',
+  async (sourceField) => {
+    let source = { agent_kind: 'code', backend: 'opencode', project_id: null, cwd: '/workspace' }
+    const ctx = {
+      db: { getSessionById: () => source },
+      harnessSettings: { list: () => [] },
+      mcp: { resolver: () => () => undefined }
+    }
+    const pending = resolveTurn(
+      ctx as never,
+      { hasSession: () => false } as never,
+      { id: 'opencode', agentSpawnEnv: () => ({}) } as never,
+      {
+        sessionId: null,
+        [sourceField]: 'source',
+        projectId: null,
+        text: 'continue',
+        agentKind: 'code'
+      } as never
+    )
+    source = { ...source, backend: 'claude' }
+    expect(await pending).toMatchObject({
+      ok: false,
+      error: { category: 'schema_validation_error' }
+    })
+    expect(recoverSessionHistory).not.toHaveBeenCalled()
+  }
+)
+
+it.each(['sessionId', 'forkFrom', 'handoffFrom'] as const)(
   'rejects source deletion during asynchronous provider preparation (%s)',
   async (sourceField) => {
     const agentSpawnEnv = vi.fn(() => ({ SESSION_KIND: 'work' }))

@@ -1,3 +1,4 @@
+import { HARNESS_CAPABILITIES, isBackend } from '../../../../../shared/harness'
 import type { AgentEnvironment } from '../../../../../shared/ipc'
 import { Button } from '../../../shared/ui/Button'
 import { useI18n } from '../../../shared/i18n'
@@ -17,13 +18,15 @@ export function EngineCard({
   onDelete
 }: EngineCardProps): React.JSX.Element {
   const { tr } = useI18n()
-  const canMutate = agent.adapter === 'claude' && agent.readOnly !== true
+  const canMutate = isBackend(agent.adapter) && agent.readOnly !== true
   return (
     <div className="rounded-xl border border-border bg-panel px-4 py-3.5">
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-[14px] font-semibold text-ink">{agent.adapter}</span>
+            <span className="text-[14px] font-semibold text-ink">
+              {isBackend(agent.adapter) ? HARNESS_CAPABILITIES[agent.adapter].label : agent.adapter}
+            </span>
             <span className="text-[11px] text-ink3">{agent.provider ?? 'default'}</span>
             {!agent.supported && (
               <span className="rounded-sm bg-bg2 px-1.5 py-px text-[10px] font-semibold tracking-[0.04em] text-ink3">
@@ -54,6 +57,11 @@ export function EngineCard({
           </>
         )}
       </div>
+      {agent.catalogError && (
+        <p role="alert" className="mt-3 rounded-md bg-bad/10 p-2 text-[12px] text-bad">
+          {tr('engine.catalogFailed')} {agent.catalogError}
+        </p>
+      )}
       <EngineModelList models={agent.models} />
     </div>
   )

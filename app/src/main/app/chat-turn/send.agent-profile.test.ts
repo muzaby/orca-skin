@@ -4,7 +4,9 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { AgentKind } from '../../../shared/agent-kind'
-import type { TurnExtensions } from '../../adapters/turn'
+import type { TurnExtensions, TurnRequest } from '../../adapters/turn'
+import { SessionRuntime } from '../../features/sessions/session-runtime'
+import type { RuntimeSessionAdapter } from '../../contracts/ports'
 import type { DbQueries } from '../../infra/db'
 import type { Settings } from '../../../shared/ipc'
 
@@ -161,6 +163,86 @@ beforeEach(() => {
 })
 
 describe('Work profile production send wiring', () => {
+  it('routes a saved OpenCode session through its runtime and keeps harness instructions isolated', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'orca-send-harness-'))
+    const sendMessage = vi.fn<RuntimeSessionAdapter['sendMessage']>(() => ({
+      eventBatches: (async function* () {
+        yield { sequence: 1, events: [{ type: 'turn.ended' as const, sessionId: 'existing' }] }
+      })(),
+      close: () => {},
+      setPermissionMode: async () => {},
+      interrupt: async () => ({ stillQueued: [] }),
+      setModel: async () => {},
+      stopTask: async () => {},
+      backgroundTask: async () => false
+    }))
+    const adapter = {
+      id: 'opencode',
+      sendMessage,
+      complete: async () => '',
+      classifyError: (error: unknown) => ({
+        category: 'stream_error' as const,
+        message: String(error),
+        retryable: false
+      })
+    } as RuntimeSessionAdapter
+    const claudeSend = vi.fn()
+    const current = harness(cwd)
+    const runtime = new SessionRuntime(adapter)
+    Object.assign(current.deps.ctx.registry, {
+      getActive: () => ({ id: 'claude', sendMessage: claudeSend }),
+      get: (id: string) => (id === 'opencode' ? adapter : undefined)
+    })
+    Object.assign(current.deps.ctx.db, {
+      getSessionById: () => ({ backend: 'opencode', agent_kind: 'code' })
+    })
+    Object.assign(current.deps.ctx, {
+      settings: {
+        getAll: () => ({
+          harnesses: {
+            claude: { instructions: 'Claude private instructions' },
+            opencode: { instructions: 'OpenCode isolated instructions' }
+          }
+        })
+      }
+    })
+    mocks.acquire.mockImplementation(async (input) => {
+      expect(input.adapter).toBe(adapter)
+      input.onRuntimeAcquired(runtime)
+      return { ok: true, runtime, extensions: input.buildExtensions() }
+    })
+    mocks.run.mockImplementation(async (_input, _turn, request: TurnRequest) => {
+      for await (const event of runtime.send(request)) expect(event.type).toBe('turn.ended')
+    })
+    try {
+      await handleChatSend(current.deps as never, { sender: current.sender } as never, {
+        text: 'fixture',
+        cwd,
+        sessionId: 'existing',
+        agentKind: 'code',
+        attachmentViews: [],
+        harnessAgent: 'plan',
+        modelVariant: 'high'
+      })
+      expect(sendMessage).toHaveBeenCalledOnce()
+      expect(sendMessage.mock.calls[0]![0]).toMatchObject({
+        sessionId: 'existing',
+        harnessAgent: 'plan',
+        modelVariant: 'high',
+        extensions: {
+          systemPromptAppend: expect.stringContaining('OpenCode isolated instructions')
+        }
+      })
+      expect(sendMessage.mock.calls[0]![0].extensions.systemPromptAppend).not.toContain(
+        'Claude private instructions'
+      )
+      expect(claudeSend).not.toHaveBeenCalled()
+      expect(current.supervisor.releaseChain).toHaveBeenCalledWith('lease')
+    } finally {
+      runtime.close()
+      await rm(cwd, { recursive: true, force: true })
+    }
+  })
   it.each(['new', 'resume', 'forkFrom', 'handoffFrom'])(
     'keeps Work and Code isolated at %s and both automatic continuation preparations',
     async (arrival) => {

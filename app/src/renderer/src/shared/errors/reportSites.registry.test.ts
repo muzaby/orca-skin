@@ -312,6 +312,15 @@ export const sites: Site[] = [
   },
   { file: 'features/chat/store/chatStore.ts', ordinal: 9, line: 1513, disposition: 'CONSUMED' },
   {
+    file: 'features/chat/store/chatStore.ts',
+    ordinal: 10,
+    line: 1685,
+    disposition: 'TOAST',
+    id: 'T37',
+    event: 'chat.harness-preference.save-failed',
+    title: 'saveFailed'
+  },
+  {
     file: 'features/debug/hooks/useDebugMock.ts',
     ordinal: 0,
     line: 25,
@@ -333,6 +342,24 @@ export const sites: Site[] = [
     file: 'features/engine/components/AgentEnvironmentView.tsx',
     ordinal: 0,
     line: 29,
+    disposition: 'CONSUMED'
+  },
+  {
+    file: 'features/engine/components/AgentEnvironmentView.tsx',
+    ordinal: 1,
+    line: 42,
+    disposition: 'CONSUMED'
+  },
+  {
+    file: 'features/settings/components/HarnessSettingsTab.tsx',
+    ordinal: 0,
+    line: 35,
+    disposition: 'CONSUMED'
+  },
+  {
+    file: 'features/settings/components/HarnessSettingsTab.tsx',
+    ordinal: 1,
+    line: 66,
     disposition: 'CONSUMED'
   },
   {

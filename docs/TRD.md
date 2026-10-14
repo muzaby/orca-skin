@@ -10,8 +10,8 @@
 | 범위 | Phase 1 MVP 본문. Phase 2~4 / Future Scope = §10 anchor only |
 | 미정 항목 처리 | PRD §11 Open Questions 는 **여기서 결정하지 않는다.** "결정 후 결정값으로 대체" 표시만 둔다. |
 
-> **Phase 1 단일 백엔드 결정 (2026-05-13)**
-> 앱은 **`claude` 단일 백엔드**로 동작한다. `@opencode-ai/sdk`는 배포 코드 분석·계약 검증을 위해 설치했으나 `OpencodeAdapter`는 미구현이며 AdapterRegistry에 등록하지 않았다. 설치 기준과 실제 API는 [OpenCode SDK 해설](opencode-sdk-spec.md), 전환 권고는 [마이그레이션 연구](etc/study/opencode/orca-migration-guide.md)를 따른다. SDK 설치는 OQ7의 기본 백엔드 결정이나 런타임 전환을 뜻하지 않는다.
+> **하네스 실행 정책**
+> `claude`와 `opencode`를 지원한다. 새 대화의 모델 선택이 하네스를 결정하며, 생성 후에는 DB의 backend로 고정한다. OpenCode는 Code만 지원하고 설치된 CLI의 로컬 서버를 Orca가 자동 관리한다. 마지막 하네스를 기억하며 최초 기본값은 Claude다. UI 전용 슬라이스·서버·SDK 계약은 [어댑터 구조](arch/backend/adapters.md)와 [IPC 계약](IPC_CONTRACT.md)을 따른다.
 
 > **Preload 노출 표면 축소 결정 (2026-05-13)**
 > preload `window.orca` 는 **renderer 가 실제 호출하는 채널만** 노출한다 (principle of least privilege). Phase 2 활성 6채널: `chat:send`/`chat:event`/`chat:cancel`/`backend:list`/`install:start`/`install:status`. 이전 Q1 ("`backend:select` 유지") 결정은 본 정책 도입으로 **취소** — 단일 백엔드에서 사용처가 없으므로 main 핸들러까지 함께 제거했다. `settings:get`/`settings:set` 도 동일 사유로 Phase 2 범위 밖. 향후 사용처가 생기면 (멀티 백엔드 / 영속화) 한 PR 에서 preload+main+CHANNELS 를 함께 다시 등록한다. zod 스키마 (`shared/protocol.ts`) 는 main 전용이며, preload 는 zod 비종속의 `shared/ipc.ts` 만 import 한다 (`sandbox: true` 호환).

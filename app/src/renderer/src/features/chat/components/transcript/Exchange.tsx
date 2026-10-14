@@ -51,7 +51,11 @@ export const Exchange = memo(
       >
         {exchange.turns.map((turn) =>
           turn.role === 'user' ? (
-            <UserTurn key={turn.startIndex} turn={turn} />
+            <UserTurn
+              key={turn.startIndex}
+              turn={turn}
+              openCode={transcriptPolicy.surface === 'opencode'}
+            />
           ) : (
             <AssistantTurn
               transcriptPolicy={transcriptPolicy}
@@ -65,7 +69,9 @@ export const Exchange = memo(
             />
           )
         )}
-        {pending && lastTurn?.role !== 'assistant' && <PendingAssistant />}
+        {pending && lastTurn?.role !== 'assistant' && (
+          <PendingAssistant openCode={transcriptPolicy.surface === 'opencode'} />
+        )}
         {pendingSteer.length > 0 && (
           <PendingSteerTurn items={pendingSteer} onRestoreDraft={onRestoreSteerDraft} />
         )}

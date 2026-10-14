@@ -32,6 +32,7 @@ export function RightPanelTile({
 }: RightPanelTileProps): React.JSX.Element {
   const { tr } = useI18n()
   const label = useChatSession((s) => s.rightPanelTileLabels[id]) ?? tr(defaultLabelKey)
+  const openCode = useChatSession((s) => s.backend === 'opencode')
   const isDiff = id === 'diff'
   const isWorkTask = taskTileChrome === 'work-overview' && id === 'task'
   const expandButton = (id === 'plan' || id === 'task') && onToggleExpand && (
@@ -45,8 +46,9 @@ export function RightPanelTile({
 
   return (
     <div
-      className={`app-frame-tile effect-primary-elevated relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-r6 border border-border bg-panel ${isWorkTask ? 'max-h-full' : ''} ${className}`}
+      className={`app-frame-tile relative flex min-h-0 flex-1 flex-col overflow-hidden ${openCode ? 'rounded-[10px] border border-oc-border bg-oc-surface text-oc-ink shadow-oc-raised' : 'effect-primary-elevated rounded-r6 border border-border bg-panel'} ${isWorkTask ? 'max-h-full' : ''} ${className}`}
       data-context={id}
+      data-harness={openCode ? 'opencode' : 'claude'}
     >
       {isWorkTask && <div className="absolute right-2 top-1 z-10">{expandButton}</div>}
       {!isWorkTask && (
@@ -55,7 +57,9 @@ export function RightPanelTile({
           className={`app-frame-tile-header flex shrink-0 items-center ${isDiff ? 'h-[32px] gap-[2px] px-[4px] font-sans' : 'gap-2 border-b border-t5 px-3 py-2'}`}
         >
           {headerContent ?? (
-            <span className="min-w-0 truncate font-serif text-[13px] font-semibold tracking-tight text-t9">
+            <span
+              className={`min-w-0 truncate text-[13px] font-semibold tracking-tight ${openCode ? 'font-sans text-oc-ink' : 'font-serif text-t9'}`}
+            >
               {label}
             </span>
           )}

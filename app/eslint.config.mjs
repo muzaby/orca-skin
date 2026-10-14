@@ -174,10 +174,10 @@ export default defineConfig(
       ]
     }
   },
-  // 호스트 프로그램 실행은 Git gateway → runner 및 Plugin 구현만 허용한다.
+  // 호스트 프로그램 실행은 Git runner, Plugin 구현, 소유 로컬 OpenCode 서버로 한정한다.
   {
     files: ['src/main/**/*.ts'],
-    ignores: ['src/main/infra/git/gateway.ts', 'src/main/infra/git/runner.ts', 'src/main/features/plugins/**', '**/*.test.ts', '**/*.testfixture.ts'],
+    ignores: ['src/main/infra/git/gateway.ts', 'src/main/infra/git/runner.ts', 'src/main/adapters/opencode-server.ts', 'src/main/features/plugins/**', '**/*.test.ts', '**/*.testfixture.ts'],
     rules: {
       'no-restricted-imports': ['error', { paths: [{ name: 'child_process' }, { name: 'node:child_process' }] }],
       'no-restricted-syntax': ['error',

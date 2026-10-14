@@ -24,6 +24,19 @@ const plugins = [
 ]
 
 describe('buildAttachMenu', () => {
+  it('OpenCode는 연결하지 않은 Claude 스킬·플러그인을 제공하지 않는다', () => {
+    expect(
+      buildAttachMenu({ skills, plugins, labels, canManagePlugins: true, includeExtensions: false })
+    ).toEqual([
+      {
+        kind: 'action',
+        id: 'attach',
+        label: labels.addFiles,
+        icon: 'plus',
+        action: { type: 'attach' }
+      }
+    ])
+  })
   const tree = buildAttachMenu({ skills, plugins, labels, canManagePlugins: true })
 
   it('최상위 = 파일 추가 · 구분선 · 스킬 ▸ · 플러그인 ▸ (AC1)', () => {

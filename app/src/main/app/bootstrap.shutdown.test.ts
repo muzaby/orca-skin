@@ -94,11 +94,20 @@ describe('Bootstrap turn event registration', () => {
 })
 
 describe('Bootstrap title ownership', () => {
+  it('closes the owned adapter registry during shutdown before full startup', () => {
+    const close = vi.fn()
+    const bootstrap: Bootstrap = Object.assign(Object.create(Bootstrap.prototype), {
+      registry: { close }
+    })
+    bootstrap.shutdown()
+    expect(close).toHaveBeenCalledOnce()
+  })
   it('disposes title work during shutdown even before turn runtime initialization completed', () => {
     const order: string[] = []
     const titles = { dispose: vi.fn(() => order.push('titles')) }
     // No constructor: the lifecycle entry runs with its actual prototype and owned fields.
     const bootstrap: Bootstrap = Object.assign(Object.create(Bootstrap.prototype), {
+      registry: { close: vi.fn() },
       titles,
       pendingMessages: {
         freeze: () => order.push('freeze'),

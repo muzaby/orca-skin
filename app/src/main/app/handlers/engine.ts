@@ -8,6 +8,7 @@ import {
   type EngineUserSettingsResult,
   type EngineWriteResult
 } from '../../../shared/protocol'
+import { HARNESS_IDS } from '../../../shared/harness'
 import { readUserClaudeSettings } from '../../adapters/claude-settings'
 import {
   addHarnessSettings,
@@ -42,7 +43,7 @@ async function refreshHarnessSettings(ctx: EngineHandlerContext, key: string): P
 
 export function registerEngineHandlers(ctx: EngineHandlerContext): void {
   const assertMutable = (key: string): string => {
-    const canonical = canonicalProviderKey(key, ['claude'])
+    const canonical = canonicalProviderKey(key, [...HARNESS_IDS])
     if (ctx.runtimeModelCatalog?.isReadOnly(canonical)) {
       throw new Error(`runtime-managed engine is read-only: ${canonical}`)
     }

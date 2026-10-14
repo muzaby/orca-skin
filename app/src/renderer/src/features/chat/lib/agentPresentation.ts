@@ -1,3 +1,4 @@
+import type { Backend } from '../../../../../shared/ipc'
 import type { AgentKind } from '../../../../../shared/agent-kind'
 import type { MessageKey } from '../../../shared/i18n'
 import type { IconName } from '../../../shared/ui/Icon'
@@ -8,6 +9,7 @@ export interface AgentComposerPresentation {
 }
 
 export interface AgentTranscriptPresentation {
+  surface?: 'opencode'
   turnProjection: 'standard' | 'work-activity'
   inlineSubagentDetail: boolean
   showTaskAgentLabel: boolean
@@ -66,4 +68,18 @@ export const agentPresentation = {
 
 export function agentUiPolicy(kind: AgentKind): (typeof agentPresentation)[AgentKind] {
   return agentPresentation[kind]
+}
+
+const openCodeTranscript: AgentTranscriptPresentation = {
+  ...agentPresentation.code.transcript,
+  surface: 'opencode',
+  inlineSubagentDetail: true,
+  showTaskAgentLabel: false
+}
+
+export function transcriptPresentation(
+  kind: AgentKind,
+  backend: Backend | null
+): AgentTranscriptPresentation {
+  return backend === 'opencode' ? openCodeTranscript : agentPresentation[kind].transcript
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { isBackend } from '../../../../../shared/harness'
 import type { AgentEnvironment } from '../../../../../shared/ipc'
 import { Button } from '../../../shared/ui/Button'
 import { uiMessageText, useI18n } from '../../../shared/i18n'
@@ -36,7 +37,11 @@ export function AgentEnvironmentView(): React.JSX.Element {
 
   const deleteAgent = async (agent: AgentEnvironment): Promise<void> => {
     if (!window.confirm(tr('engine.deleteConfirm', { name: agent.provider ?? agent.key }))) return
-    await remove(agent.key)
+    try {
+      await remove(agent.key)
+    } catch {
+      // useEngines가 저장 오류를 화면 상태에 남긴다.
+    }
   }
 
   return (
@@ -49,10 +54,18 @@ export function AgentEnvironmentView(): React.JSX.Element {
           {tr('common.count', { count: agents.length })}
         </span>
         <Button
+          variant="contained"
+          size="small"
+          className="ml-auto"
+          disabled={state.busy}
+          onClick={() => void refresh()}
+        >
+          {state.busy ? tr('common.loading') : tr('engine.refresh')}
+        </Button>
+        <Button
           variant="primary"
           size="small"
           leadingIcon="plus"
-          className="ml-auto"
           onClick={() => setModal({ mode: 'add' })}
         >
           {tr('engine.addEngine')}
@@ -87,15 +100,16 @@ export function AgentEnvironmentView(): React.JSX.Element {
           mode="add"
           busy={state.busy}
           onClose={() => setModal(null)}
-          onSubmit={async ({ provider, settingsJson }) => {
-            await add({ engine: 'claude', provider, settingsJson })
+          onSubmit={async (payload) => {
+            await add(payload)
             setModal(null)
           }}
         />
       )}
-      {modal?.mode === 'edit' && (
+      {modal?.mode === 'edit' && isBackend(modal.agent.adapter) && (
         <EngineFormModal
           mode="edit"
+          engine={modal.agent.adapter}
           provider={modal.agent.provider ?? modal.agent.key}
           initialSettingsJson={modal.settingsJson}
           busy={state.busy}

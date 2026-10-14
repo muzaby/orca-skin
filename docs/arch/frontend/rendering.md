@@ -217,3 +217,9 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 프로젝트·아티팩트·플러그인 목록의 탭은 `CatalogTabs`로 방향키·Home/End·ARIA 연결을 공유한다. Plugin 카탈로그는 플러그인→스킬→MCP 순서이고 첫 진입도 플러그인이다. Plugin 행은 main이 전달한 허용 Material icon과 현재 locale의 title·body를 표시하며 locale 선택은 exact→base→ko→en 순서다. 상세는 body와 분리해 source·version·GitHub·license attribution을 표시한다. catalog가 없는 Plugin은 `electrical_services`와 Auth label, Plugin이 아닌 연결은 기존 power icon과 Auth label을 사용한다. 프로젝트와 아티팩트 검색은 `CatalogSearch`와 `useCatalogSearch`로 열기·Escape·초점 복귀를 공유하며 검색어와 필터·총계는 각 feature가 소유한다. 플러그인의 최종 행 순서는 `catalogOrder`에서 정하고 표시하지 않는 그룹 헤더나 빈 그룹 모델을 만들지 않는다.
 
 뷰어 패널과 작업 타일은 도메인에 독립적인 공통 `ResizableSidePane`을 사용한다. Transcript와 아티팩트 화면의 뷰어 좌측 핸들은 포인터·키보드로 폭을 조절하며 iframe 위를 지나는 드래그도 유지한다. 확대는 가장 가까운 현재 pane 전체를 덮고 nav에는 영향을 주지 않는다. Code 변경사항의 `GitContextBar`도 registry 헤더 props로 같은 확대 상태를 전달받는다. 본문을 다시 mount하지 않으며 복원 시 일반 폭과 스크롤을 되돌린다. 확대한 타일을 닫으면 확대 상태도 해제한다. 세션·대상 전환, 창 초점 이탈, 취소와 unmount에서 드래그 자원을 정리한다.
+
+## 하네스 전용 표시
+
+새 대화의 모델 선택은 `chatReducer.SET_MODEL`에서 backend를 함께 바꾼다. OpenCode 선택은 Code를 강제하며 생성·입장 이후 backend는 잠긴다. `ComposerInputController`는 동일 인스턴스를 유지하고 테두리·컨트롤만 전환한다. OpenCode의 에이전트·variant는 실제 카탈로그에서 제공한다. Claude의 권한·effort 컨트롤은 기존 정책을 유지한다.
+
+`TranscriptView`는 하네스별 presentation을 공유 메시지 모델에 적용하며 가상화와 마지막 스트리밍 교환을 유지한다. OpenCode 탐색 도구는 접기 행으로 묶고, 수정 도구는 본문을 펼친다. `providerTool` 원본은 상세 disclosure에서 읽는다. `rightPanelTiles`의 하네스 정책이 메뉴 범주·reducer 활성화·패널 렌더링을 함께 제한한다. OpenCode에는 공통 할 일/계획과 변경 검토 패널을 제공한다. 전용 색·표면·그림자는 두 테마의 `oc-*` 토큰이 갖는다.

@@ -8,11 +8,12 @@ import { Icon } from '../../../../shared/ui/Icon'
 
 interface UserMessageProps {
   message: Message
+  openCode?: boolean
 }
 
 // 본문 전용 — 메타(복사/시간)는 턴 단위로 UserTurn 이 한 번만 렌더한다.
 // 첨부가 있으면 버블 위에 read-only 썸네일 행(이미지=썸네일/파일=확장자, hover=파일명)을 둔다.
-export function UserMessage({ message }: UserMessageProps): React.JSX.Element {
+export function UserMessage({ message, openCode = false }: UserMessageProps): React.JSX.Element {
   const { tr } = useI18n()
   const attachments = partsAttachments(message.parts)
   const requirements = partsDiffRequirements(message.parts)
@@ -50,7 +51,7 @@ export function UserMessage({ message }: UserMessageProps): React.JSX.Element {
       )}
       {text && (
         <UserBubbleText
-          className="max-w-[80%] rounded-r6 bg-bubble-user px-p7 py-p5 text-body text-ink"
+          className={`max-w-[80%] ${openCode ? 'rounded-[10px] border border-oc-border bg-oc-surface px-4 py-3 text-[calc(14px*var(--transcript-text-scale,1))] leading-[1.6] font-[440] text-oc-ink' : 'rounded-r6 bg-bubble-user px-p7 py-p5 text-body text-ink'}`}
           // 0257 — 전체 문장 title 은 없다(접기가 전체 보기 수단). Message 에 id 가 없어 생성 시각을 키로 쓴다.
           collapseKey={`user:${message.createdAt}`}
         >

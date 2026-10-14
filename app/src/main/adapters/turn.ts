@@ -131,6 +131,8 @@ export interface TurnContinuation {
 
 // 한 턴 실행 요청. sendMessage 의 인자 증식(7개)을 단일 객체로 통합한다 (설계검토 §9 1단계).
 export interface TurnRequest {
+  harnessAgent?: string
+  modelVariant?: string
   onProviderEvent?: (event: BackgroundEvent | ProviderMessageEvent) => void
   // Runtime이 cold spawn에만 주입하는 채널 소유 문맥. frame delegate가 아니다.
   runtimeToolContext?: RuntimeToolContext

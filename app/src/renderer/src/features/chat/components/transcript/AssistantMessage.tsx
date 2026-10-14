@@ -40,7 +40,9 @@ export const AssistantMessage = memo(function AssistantMessage({
   const segments = reconcileSegments(prevRef.current, messageSegments(message.parts))
   prevRef.current = segments
   return (
-    <div className="flex flex-col gap-[var(--chat-item-gap)] text-[calc(14px*var(--transcript-text-scale,1))] leading-[1.7] text-ink">
+    <div
+      className={`flex flex-col gap-[var(--chat-item-gap)] text-[calc(14px*var(--transcript-text-scale,1))] ${transcriptPolicy.surface === 'opencode' ? 'leading-[1.6] font-[440] text-oc-ink' : 'leading-[1.7] text-ink'}`}
+    >
       {segments.map((segment, index) => (
         <AssistantSegment key={index} segment={segment} transcriptPolicy={transcriptPolicy} />
       ))}

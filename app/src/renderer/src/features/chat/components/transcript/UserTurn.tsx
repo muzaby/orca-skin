@@ -7,16 +7,22 @@ import { turnCopyText, turnEquals, type Turn } from '../../lib/turns'
 // memo(turnEquals): 스트리밍 델타 프레임마다 transcript 전체가 재렌더되지 않도록
 // 내용이 같은 턴은 건너뛴다 (0007-transcript-render-memo).
 export const UserTurn = memo(
-  function UserTurn({ turn }: { turn: Turn }): React.JSX.Element {
+  function UserTurn({
+    turn,
+    openCode = false
+  }: {
+    turn: Turn
+    openCode?: boolean
+  }): React.JSX.Element {
     const last = turn.messages[turn.messages.length - 1]
     return (
       <div className="group/msg flex flex-col gap-[var(--chat-item-gap)]">
         {turn.messages.map((m, i) => (
-          <UserMessage key={i} message={m} />
+          <UserMessage key={i} message={m} openCode={openCode} />
         ))}
         <MessageMeta text={turnCopyText(turn)} createdAt={last.createdAt} align="right" />
       </div>
     )
   },
-  (prev, next) => turnEquals(prev.turn, next.turn)
+  (prev, next) => prev.openCode === next.openCode && turnEquals(prev.turn, next.turn)
 )

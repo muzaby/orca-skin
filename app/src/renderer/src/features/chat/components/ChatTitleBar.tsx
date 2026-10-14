@@ -15,13 +15,13 @@ import {
 import { partsText } from '../lib/parts'
 import type { ChatState } from '../reducer/chatReducer'
 import {
-  RIGHT_PANEL_POLICY,
+  rightPanelPolicy,
+  rightPanelGroups,
   showsUnseenTaskBadge,
   SUSPENDED_RIGHT_PANEL_TILES,
   type RightPanelTileId
 } from '../lib/rightPanelTiles'
 import { flattenColumns, rightPanelColumnsForAgent } from '../lib/rightPanelLayout'
-import { VISIBLE_TILE_REGISTRY } from './rightpanel/tileRegistry'
 import { CwdButton } from './CwdButton'
 
 // 사이드바 메타 (state.title) 가 즉시 채워지므로 사용자가 세션을 선택한 순간부터
@@ -57,22 +57,24 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   const worktree = useChatSession((s) => s.worktree)
   const sessionId = useChatSession((s) => s.sessionId)
   const agentKind = useChatSession((s) => s.agentKind)
+  const backend = useChatSession((s) => s.backend)
   // 열 구조(stable ref)를 구독하고 평탄 뷰는 메모로 파생 — selector 가 새 배열을 반환하면
   // zustand Object.is 비교가 매번 깨져 불필요 재렌더가 난다.
   const tileColumns = useChatSession((s) => s.rightPanelTiles)
   const activeTiles = useMemo(
-    () => flattenColumns(rightPanelColumnsForAgent(tileColumns, agentKind)),
-    [tileColumns, agentKind]
+    () => flattenColumns(rightPanelColumnsForAgent(tileColumns, agentKind, backend)),
+    [tileColumns, agentKind, backend]
   )
   const unseenSettledTasks = useUnseenSettledTaskCount()
   // 배지 판정은 SSOT 가 갖고 여기는 결과만 그린다(§10 EP-03) — 정지된 타일을 가리키는
   // 배지는 애초에 뜨지 않는다.
-  const panelPolicy = RIGHT_PANEL_POLICY[agentKind]
+  const panelPolicy = rightPanelPolicy(agentKind, backend)
   const showTaskBadge = showsUnseenTaskBadge(
     unseenSettledTasks,
     activeTiles,
     SUSPENDED_RIGHT_PANEL_TILES,
-    agentKind
+    agentKind,
+    backend
   )
   const labels = useChatSession((s) => s.rightPanelTileLabels)
   const [open, setOpen] = useState(false)
@@ -102,12 +104,12 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   // 전체 대화를 마크다운으로 직렬화해 클립보드에 복사한다. text 파트만 추출(partsText)하므로
   // 도구 호출/첨부는 제외 — 사람이 읽을 대화 본문 위주.
   const copyConversation = useCallback(async (): Promise<void> => {
-    const { messages } = getActiveChatSession()
+    const { messages, backend: conversationBackend } = getActiveChatSession()
     const text = messages
       .map((m) => {
         const body = partsText(m.parts).trim()
         if (!body) return ''
-        return `## ${m.role === 'user' ? tr('chat.titleBar.roleUser') : 'Claude'}\n\n${body}`
+        return `## ${m.role === 'user' ? tr('chat.titleBar.roleUser') : conversationBackend === 'opencode' ? 'OpenCode' : 'Claude'}\n\n${body}`
       })
       .filter(Boolean)
       .join('\n\n')
@@ -206,31 +208,38 @@ export const ChatTitleBar = memo(function ChatTitleBar({
           <div className="px-2 py-1 text-[11px] font-medium text-t6">
             {tr('chat.titleBar.tilesHeader')}
           </div>
-          {VISIBLE_TILE_REGISTRY[agentKind].map((tile) => {
-            const active = activeTiles.includes(tile.id)
-            return (
-              <MenuItem
-                key={tile.id}
-                icon={active ? 'check' : 'plus'}
-                iconSize={13}
-                onClick={() => {
-                  chatActions.toggleRightPanelTile(tile.id)
-                  setOpen(false)
-                }}
-                role="menuitemcheckbox"
-                aria-checked={active}
-              >
-                <span>{labels[tile.id as RightPanelTileId] ?? tr(tile.defaultLabelKey)}</span>
-                {/* 0213 D-001 로 `작업` 이 목록에 돌아와 이 배지가 다시 도달한다 — 메뉴를 연
+          {rightPanelGroups(agentKind, backend).map((category) => (
+            <div key={category.id} role="group" aria-label={tr(category.labelKey)}>
+              <div className="px-2 pt-2 pb-1 text-[11px] font-medium text-t6">
+                {tr(category.labelKey)}
+              </div>
+              {category.tiles.map((tile) => {
+                const active = activeTiles.includes(tile.id)
+                return (
+                  <MenuItem
+                    key={tile.id}
+                    icon={active ? 'check' : 'plus'}
+                    iconSize={13}
+                    onClick={() => {
+                      chatActions.toggleRightPanelTile(tile.id)
+                      setOpen(false)
+                    }}
+                    role="menuitemcheckbox"
+                    aria-checked={active}
+                  >
+                    <span>{labels[tile.id as RightPanelTileId] ?? tr(tile.defaultLabelKey)}</span>
+                    {/* 0213 D-001 로 `작업` 이 목록에 돌아와 이 배지가 다시 도달한다 — 메뉴를 연
                     채로도 미확인 완료 수가 보인다(0205 §10 EP-03 이 지우지 말라고 남긴 자리). */}
-                {tile.id === panelPolicy.taskBadgeTile && showTaskBadge && (
-                  <span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] px-1.5 text-[10px] font-medium text-accent">
-                    {unseenSettledTasks}
-                  </span>
-                )}
-              </MenuItem>
-            )
-          })}
+                    {tile.id === panelPolicy.taskBadgeTile && showTaskBadge && (
+                      <span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] px-1.5 text-[10px] font-medium text-accent">
+                        {unseenSettledTasks}
+                      </span>
+                    )}
+                  </MenuItem>
+                )
+              })}
+            </div>
+          ))}
           <div className="my-1 h-px bg-border" />
           <MenuItem
             icon="pin"

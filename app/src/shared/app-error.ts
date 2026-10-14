@@ -40,7 +40,8 @@ export function appErrorKey(report: Pick<AppErrorReport, 'title' | 'detail'>): s
   return `${report.title}\0${report.detail ?? ''}`
 }
 
-export type AppSettingsTab = 'general' | 'usage' | `provider:${string}`
+export type AppSettingsTab =
+  'general' | 'usage' | 'harness:claude' | 'harness:opencode' | `provider:${string}`
 export type AppErrorTarget =
   { kind: 'page'; path: `/${string}` } | { kind: 'settings'; tab: AppSettingsTab }
 

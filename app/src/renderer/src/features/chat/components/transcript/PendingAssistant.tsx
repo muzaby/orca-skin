@@ -18,12 +18,16 @@ import { errorCategoryKey } from '../../lib/errorLabels'
 //   · reasoning 델타 → LiveReasoning (streaming — 확정 블록 memo, 꼬리만 재파스)
 // transcript(커밋 메시지)·Composer·셸은 어느 델타에도 재렌더되지 않는다.
 export function PendingAssistant({
-  showStatus = true
+  showStatus = true,
+  openCode = false
 }: {
   showStatus?: boolean
+  openCode?: boolean
 }): React.JSX.Element {
   return (
-    <div className="flex flex-col gap-2.5 text-[calc(14px*var(--transcript-text-scale,1))] leading-[1.7] text-ink">
+    <div
+      className={`flex flex-col gap-2.5 text-[calc(14px*var(--transcript-text-scale,1))] ${openCode ? 'leading-[1.6] font-[440] text-oc-ink' : 'leading-[1.7] text-ink'}`}
+    >
       <LiveReasoning />
       <LiveText />
       <RetryStatus />

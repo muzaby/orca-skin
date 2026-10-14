@@ -19,6 +19,7 @@ export {
   chatActions,
   getActiveChatSession,
   seedLandingAgentKind,
+  seedLandingBackend,
   useChatRecentsEpoch,
   useChatBusy,
   useChatSession,

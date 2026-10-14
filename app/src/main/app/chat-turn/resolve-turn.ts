@@ -36,7 +36,7 @@ import type { SendChatPayload } from './admission'
 import type { RouterContext } from '../context'
 import type { ContinuitySourceMeta } from './turn-context'
 
-type TurnPreparationAdapter = Pick<SessionAdapter, 'id' | 'agentSpawnEnv'>
+type TurnPreparationAdapter = Pick<SessionAdapter, 'id' | 'agentSpawnEnv' | 'catalog'>
 
 interface ResolvedTurn {
   continuitySource: string | undefined
@@ -98,7 +98,9 @@ export async function resolveTurn(
   const currentSource = sourceId ? ctx.db.getSessionById(sourceId) : undefined
   if (
     sourceId &&
-    (!currentSource || !resolveAgentKind(identity.kind, currentSource.agent_kind).ok)
+    (!currentSource ||
+      currentSource.backend !== adapter.id ||
+      !resolveAgentKind(identity.kind, currentSource.agent_kind).ok)
   ) {
     return {
       ok: false,
@@ -224,11 +226,19 @@ export async function resolveTurnProvider(
     adapterEnvPatch
   })
 
-  const modelFamily = req.modelFamily ?? defaultModelFamily(selected.models)
-  const model = modelNameForFamily(selected.models, modelFamily)
+  const catalog =
+    req.adapter.catalog && prepared.providerSettings
+      ? await req.adapter.catalog(
+          toAgentEnvironments([selected], [req.adapter.id])[0]!,
+          prepared.providerSettings.settings
+        )
+      : undefined
+  const models = catalog?.models ?? selected.models
+  const modelFamily = req.modelFamily ?? defaultModelFamily(models)
+  const model = modelNameForFamily(models, modelFamily)
   // 제목 생성 모델은 요청 전에 사전 선택한다 (저가 모델 보유 시 그것, 없으면 default — 정책은
   // settings 레이어 resolveTitleModel 에 둔다).
-  const titleModel = resolveTitleModel(selected.models)
+  const titleModel = resolveTitleModel(models)
   return {
     providerKey: selected.key,
     prepared,

@@ -39,13 +39,33 @@ export function registerMiscHandlers(ctx: MiscHandlerContext): void {
 
   // 원천 = sources/settings/<adapter>/ 트리 (handoff 0014 — 구 orca.json agents[] 대체).
   // 페이로드 shape(AgentEnvironment)는 0010 과 동일 유지 — renderer ModelMenu 변경 0.
-  handlePlain(CHANNELS.agentList, (): AgentEnvironment[] => {
+  handlePlain(CHANNELS.agentList, async (): Promise<AgentEnvironment[]> => {
     const supported = ctx.registry.list().map((adapter) => adapter.id)
     const entries = ctx.harnessSettings
       .adapters()
       .flatMap((adapter) => ctx.harnessSettings.list(adapter))
     const settings = toAgentEnvironments(entries, supported)
-    return ctx.runtimeModelCatalog?.merge(settings) ?? settings
+    const merged = ctx.runtimeModelCatalog?.merge(settings) ?? settings
+    return Promise.all(
+      merged.map(async (entry) => {
+        const adapter = ctx.registry.get(entry.adapter as import('../../../shared/ipc').Backend)
+        if (!adapter?.catalog) return entry
+        try {
+          const config = await ctx.harnessSettings.resolve({
+            key: entry.key,
+            harnessId: entry.adapter,
+            modelProviderId: entry.provider ?? ''
+          })
+          if (!config) throw new Error('하네스 설정을 읽을 수 없습니다.')
+          return await adapter.catalog(entry, config.settings, true)
+        } catch (error) {
+          return {
+            ...entry,
+            catalogError: error instanceof Error ? error.message : '모델 조회에 실패했습니다.'
+          }
+        }
+      })
+    )
   })
 
   // 백엔드 설치 — 어댑터의 install() 스트림을 renderer 로 중계하고 완료 후 설치 상태를 갱신한다.

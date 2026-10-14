@@ -14,6 +14,7 @@ interface AttachMenuProps {
   onAction: (action: AttachMenuAction) => void
   /** '플러그인 관리' — 페이지가 주입한다(0259 D-010). 없으면 그 항목을 그리지 않는다. */
   onManagePlugins?: () => void
+  includeExtensions?: boolean
 }
 
 // 컴포저 '+' 메뉴(0259) — 파일 추가 / 스킬 ▸(출처 ▸ 스킬) / 플러그인 ▸(목록 · 관리).
@@ -24,7 +25,8 @@ export function AttachMenu({
   skills,
   plugins,
   onAction,
-  onManagePlugins
+  onManagePlugins,
+  includeExtensions = true
 }: AttachMenuProps): React.JSX.Element | null {
   const { tr } = useI18n()
   const items = useMemo(
@@ -33,6 +35,7 @@ export function AttachMenu({
         skills,
         plugins,
         canManagePlugins: !!onManagePlugins,
+        includeExtensions,
         labels: {
           addFiles: tr('chat.composer.attachMenu.addFiles'),
           skills: tr('chat.composer.attachMenu.skills'),
@@ -42,7 +45,7 @@ export function AttachMenu({
           noPlugins: tr('chat.composer.attachMenu.noPlugins')
         }
       }),
-    [skills, plugins, onManagePlugins, tr]
+    [skills, plugins, onManagePlugins, includeExtensions, tr]
   )
   return (
     <CascadeMenu

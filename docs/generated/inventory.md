@@ -13,7 +13,7 @@
 | IPC 채널 | **102** | `app/src/shared/ipc.ts` |
 | IPC 도메인 | **25** | `app/src/shared/ipc.ts` |
 | NormalizedEvent variant | **30** | `app/src/shared/ipc.ts` |
-| settings 키 | **20** | `app/src/shared/protocol.ts` |
+| settings 키 | **21** | `app/src/shared/protocol.ts` |
 | main 수직 슬라이스 | **15** | `app/src/main/features/` |
 | main contracts 모듈 | **5** | `app/src/main/contracts/` |
 | IPC 핸들러 | **18** | `app/src/main/app/handlers/` |
@@ -34,9 +34,9 @@
 
 `ChatActivitySnapshot` · `artifact.published` · `error` · `input.echo` · `input.received` · `message.cancelled` · `message.committed` · `message.completed` · `message.delta` · `message.queued` · `message.reasoning` · `message.reasoning.delta` · `message.submitted` · `output.captured` · `permission.requested` · `permission.resolved` · `response.boundary` · `session.compacted` · `session.schedules` · `session.updated` · `subagent.backgroundSet` · `subagent.task` · `telemetry` · `tool.call.completed` · `tool.call.retracted` · `tool.call.started` · `turn.aborted` · `turn.ended` · `turn.retrying` · `worktree.preparing`
 
-### settings 키 (20)
+### settings 키 (21)
 
-`accountInstructions` · `appFont` · `authBypass` · `language` · `lastAgentKind` · `lastBackend` · `lastSessionId` · `mcpEnabled` · `mcpMeta` · `notifyOnComplete` · `scheduler` · `sidebarCollapsed` · `sidebarWidth` · `skillEnabled` · `spendingLimitUsd` · `theme` · `transcriptTextSize` · `transcriptWidth` · `uiLocale` · `windowBounds`
+`accountInstructions` · `appFont` · `authBypass` · `harnesses` · `language` · `lastAgentKind` · `lastBackend` · `lastSessionId` · `mcpEnabled` · `mcpMeta` · `notifyOnComplete` · `scheduler` · `sidebarCollapsed` · `sidebarWidth` · `skillEnabled` · `spendingLimitUsd` · `theme` · `transcriptTextSize` · `transcriptWidth` · `uiLocale` · `windowBounds`
 
 ### main 수직 슬라이스 (15)
 

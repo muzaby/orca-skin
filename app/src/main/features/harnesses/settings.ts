@@ -4,7 +4,7 @@ import { reportError } from '../../infra/error-report'
 // Harness-네이티브 settings 를 로더로 해석해 캐시한다.
 //
 // settings blob 해석은 주입된 `HarnessSettingsLoader` 가 담당한다. 소스 열거의 모델 목록은
-// 현재 Claude 파서를 사용하며, blob 자체는 Harness-네이티브 스키마 그대로 흐른다.
+// 하네스별 주입 파서를 사용하며, blob 자체는 Harness-네이티브 스키마 그대로 흐른다.
 //
 // 캐시: key → {settings, mtimeMs}. sources 파일 mtime 변화 시 재해석, deploy 후
 // `invalidateAll()`. 비밀 확장은 로더 내부(해석 시점)에서만 — 디스크/캐시 외부로 평문이
@@ -45,7 +45,11 @@ export class HarnessSettingsService {
 
   constructor(
     private readonly loaders: Record<string, HarnessSettingsLoader>,
-    private readonly root: string = orcaConfigDir()
+    private readonly root: string = orcaConfigDir(),
+    private readonly modelParsers: Record<
+      string,
+      (settings: Record<string, unknown>) => ParsedModel[]
+    > = {}
   ) {}
 
   adapters(): string[] {
@@ -56,7 +60,7 @@ export class HarnessSettingsService {
   list(adapter: string): HarnessModelProviderEntry[] {
     const hit = this.listCache.get(adapter)
     if (hit) return hit
-    const entries = listProviders(adapter, this.root)
+    const entries = listProviders(adapter, this.root, this.modelParsers[adapter])
     this.listCache.set(adapter, entries)
     return entries
   }
@@ -68,7 +72,7 @@ export class HarnessSettingsService {
     this.adaptersCache = null
   }
 
-  // entry 의 settings 를 해석해 blob 으로 반환. 로더 미등록 어댑터(미래 opencode 전 단계)는
+  // entry 의 settings 를 해석해 blob 으로 반환. 로더 미등록 어댑터는
   // undefined — caller 는 settings 없이 진행한다. 해석 실패도 동일(경고 후).
   async resolve(
     entry: Pick<HarnessModelProviderEntry, 'key' | 'harnessId' | 'modelProviderId'>
@@ -152,12 +156,15 @@ export interface HarnessModelProviderEntry {
 
 // provider 의 settings.json 을 관용 파싱 → 모델 목록. 파일 부재/손상/비객체는 빈 설정({})으로
 // 취급해 provider 가 여전히 기본 alias 목록으로 열거되게 한다(디렉토리 = 열거 SSOT 불변식).
-function modelsForProvider(settingsFile: string): ParsedModel[] {
+function modelsForProvider(
+  settingsFile: string,
+  parse: (settings: Record<string, unknown>) => ParsedModel[]
+): ParsedModel[] {
   let raw: string
   try {
     raw = readFileSync(settingsFile, 'utf8')
   } catch {
-    return parseClaudeModels({})
+    return parse({})
   }
   let json: unknown
   try {
@@ -173,7 +180,7 @@ function modelsForProvider(settingsFile: string): ParsedModel[] {
         fallback: 'default models'
       }
     })
-    return parseClaudeModels({})
+    return parse({})
   }
   if (!isRecord(json)) {
     getLogger().child('providers').warn('providers.settings.invalid', {
@@ -181,9 +188,9 @@ function modelsForProvider(settingsFile: string): ParsedModel[] {
       reason: 'top-level value must be an object',
       fallback: 'default models'
     })
-    return parseClaudeModels({})
+    return parse({})
   }
-  return parseClaudeModels(json)
+  return parse(json)
 }
 
 // sources/settings/ 의 어댑터 디렉토리 열거 — agent:list 가 미지원 어댑터(supported:false)도
@@ -203,7 +210,8 @@ export function listAdapters(root: string = orcaConfigDir()): string[] {
 // 각 provider 의 settings.json 을 파싱해 모델 목록을 채운다.
 export function listProviders(
   adapter: string,
-  root: string = orcaConfigDir()
+  root: string = orcaConfigDir(),
+  parse: (settings: Record<string, unknown>) => ParsedModel[] = parseClaudeModels
 ): HarnessModelProviderEntry[] {
   const settingsDir = join(root, 'sources', 'settings', adapter)
   let entries: Dirent[]
@@ -220,6 +228,6 @@ export function listProviders(
       key: providerKeyOf(adapter, provider),
       harnessId: adapter,
       modelProviderId: provider,
-      models: modelsForProvider(join(settingsDir, provider, 'settings.json'))
+      models: modelsForProvider(join(settingsDir, provider, 'settings.json'), parse)
     }))
 }

@@ -7,10 +7,7 @@ version/dist-tags.latest를 조회한 뒤 app dependencies에 범위 연산자 �
 package.json, package-lock.json, 설치본 package.json과 npm ls 결과가 같은 버전이다.
 이 날짜 이후의 latest를 뜻하지 않는다.
 
-SDK는 설치됐지만 Orca의 OpenCode adapter, CLI/server, 인증·모델 연결은 구현하거나 실행하지
-않았다. Backend와 활성 registry는 Claude를 유지한다. 레이어별 전환 제안은
-[Orca 마이그레이션 연구 가이드](etc/study/opencode/orca-migration-guide.md)에 있으며,
-현재 구조의 정본은 [backend overview](arch/backend/overview.md)와 코드다.
+Orca는 `OpenCodeAdapter`와 소유 로컬 서버를 등록하며 `/v2/client`의 legacy 호환 API를 사용한다. native `/api/...`와 혼용하지 않는다. 설치 SDK의 주입 fetch 계약·SSE fixture를 실행하며, CLI 버전 호환성은 실제 health/catalog 검증과 별도로 기록한다. 실행 구조와 제한은 [어댑터 문서](arch/backend/adapters.md)가 정본이다.
 
 | 증거 수준 | 이 문서에서 뜻하는 것 |
 | --- | --- |

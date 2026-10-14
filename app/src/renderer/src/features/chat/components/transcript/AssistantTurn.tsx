@@ -51,7 +51,9 @@ export const AssistantTurn = memo(
             <AssistantMessage key={i} message={m} transcriptPolicy={transcriptPolicy} />
           ))
         )}
-        {pending && <PendingAssistant showStatus={false} />}
+        {pending && (
+          <PendingAssistant showStatus={false} openCode={transcriptPolicy.surface === 'opencode'} />
+        )}
         {artifacts.length > 0 && <ArtifactCards artifacts={artifacts} />}
         {!pending && (
           <MessageMeta

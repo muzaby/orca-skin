@@ -18,6 +18,7 @@
 | 백그라운드 작업 · 원본 journal · 출력 읽기 | [`arch/backend/background-tasks.md`](arch/backend/background-tasks.md) |
 | **TaskXXX 도구군** (할 일 목록 · background 태스크 · 기능 가용성) | [`claude-taskxxx-spec.md`](claude-taskxxx-spec.md) — SDK 표면 정본 |
 | **OpenCode SDK** (설치 버전 · API 표면 · 메시지/이벤트 · 오류/전송 제약) | [`opencode-sdk-spec.md`](opencode-sdk-spec.md) · 공식 원문은 [`spec/opencode/INDEX.md`](spec/opencode/INDEX.md) |
+| **OpenCode 하네스 구현·CLI 호환성** | [`구현 계약`](handoff/0262-opencode-harness/plan.md) · [`native 디자인 실측`](handoff/0262-opencode-harness/design-evidence.md) · [`실행 패키지와 실제 CLI 검증`](handoff/0262-opencode-harness/runtime-compatibility.md) |
 | **Orca → OpenCode 마이그레이션 연구** (레이어별 작업 · 매핑 · 단계별 gate) | [`etc/study/opencode/orca-migration-guide.md`](etc/study/opencode/orca-migration-guide.md) · 기존 연구 지도는 [`etc/study/opencode/00-index.md`](etc/study/opencode/00-index.md) |
 | 턴 이벤트 정규화 계층 (NormalizedEvent · 권한 브리지) | [`arch/backend/provider-runtime.md`](arch/backend/provider-runtime.md) |
 | **인증 provider · 로그인 프리 Plugin** (로그인 게이트 · LLM 자격증명 · 사내 서비스 · 기본 제공 도구) | [`arch/backend/auth.md`](arch/backend/auth.md) |

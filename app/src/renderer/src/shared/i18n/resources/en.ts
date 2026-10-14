@@ -390,8 +390,10 @@ export const en: typeof ko = {
     title: 'Engine & Models',
     subtitle: 'Provider settings environment',
     addEngine: 'Add engine',
+    refresh: 'Refresh models',
+    catalogFailed: 'Could not load the model catalog.',
     blurb: `The Composer model menu is built from the provider settings in <c>~/.config/${PRODUCT_SLUG}/sources/settings</c>. After editing, the model menu refreshes without restarting the app.`,
-    emptyState: 'No providers registered. Use the Add engine button to create a claude provider.',
+    emptyState: 'No providers registered. Add an engine to configure a harness and model provider.',
     deleteConfirm: 'Delete provider {{name}}?',
     card: { unsupportedAdapter: 'Unsupported adapter', readOnly: 'Read-only' },
     readSettingsFailed: 'Failed to load the settings.',
@@ -412,6 +414,9 @@ export const en: typeof ko = {
       topLevelObject: 'The top level must be an object { … }.'
     },
     form: {
+      harness: 'Harness',
+      openCodeHint:
+        'Native OpenCode configuration JSON. Configure model providers and authentication under <c>provider</c>. Orca manages a separate local server automatically.',
       titleEdit: 'Edit engine settings',
       titleAdd: 'Add engine',
       provider: 'Provider',
@@ -430,6 +435,13 @@ export const en: typeof ko = {
       adding: 'Adding…',
       addAction: 'Add'
     }
+  },
+  harness: {
+    agent: 'Agent',
+    variant: 'Variant',
+    defaultAgent: 'Default agent',
+    defaultVariant: 'Default',
+    promptPlaceholder: 'Ask OpenCode to work on something.'
   },
   backend: {
     installed: 'Installed',
@@ -568,6 +580,12 @@ export const en: typeof ko = {
     completeBody: 'The response is complete.'
   },
   chat: {
+    opencode: {
+      originalTool: 'Original tool input',
+      explorationDone: 'Exploration complete',
+      explorationRunning: 'Exploring',
+      todosEmpty: 'No todos recorded yet'
+    },
     agent: {
       choose: 'Choose a mode',
       work: 'Work',
@@ -1082,6 +1100,7 @@ export const en: typeof ko = {
       next: 'Next'
     },
     rightpanel: {
+      category: { review: 'Review', session: 'Session', tasks: 'Tasks' },
       tiles: {
         plan: 'Plan',
         subagent: 'Background tasks',
@@ -1182,6 +1201,22 @@ export const en: typeof ko = {
     versionModalAria: `${PRODUCT_DISPLAY_NAME} version`
   },
   settings: {
+    harness: {
+      title: 'Harnesses',
+      description: 'Harness settings are saved independently and apply to the next run.',
+      managedServer:
+        'Orca starts and stops the local OpenCode server automatically. Available in Code mode.',
+      instructions: 'Harness instructions',
+      instructionsHint: 'Additional instructions for conversations using this harness.',
+      instructionsPlaceholder: 'For example: Explain changed files and validation results.',
+      executablePath: 'OpenCode executable',
+      executablePathHint:
+        'Absolute path to an installed executable. Leave blank to locate it on PATH.',
+      executablePathPlaceholder: 'Auto-detect (opencode.exe)',
+      loadFailed: 'Could not load harness settings.',
+      saveFailed: 'Could not save harness settings.',
+      retry: 'Retry'
+    },
     title: 'Settings',
     tabs: {
       general: 'General',

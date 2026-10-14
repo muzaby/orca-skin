@@ -18,6 +18,9 @@ import type { RestartGateState } from '../../shared/update-restart'
 import { parseAgentKind } from '../../shared/agent-kind'
 import type { TurnContext } from '../contracts/turn'
 import { AdapterRegistry } from '../adapters/registry'
+import { OpenCodeAdapter } from '../adapters/opencode'
+import { OpenCodeServerPool } from '../adapters/opencode-server'
+import { loadOpenCodeProviderSettings, parseOpenCodeModels } from '../adapters/opencode-settings'
 import { MockAdapter } from '../adapters/mock'
 import { SettingsStore } from '../infra/settings-store'
 import { McpStore } from '../features/extensions/mcp/store'
@@ -149,7 +152,16 @@ export class Bootstrap {
   private readonly bootReport = createBootReportRecorder()
   readonly settings = new SettingsStore(app.getVersion())
   readonly mcp = new McpStore(this.settings)
-  private readonly registry = new AdapterRegistry()
+  private readonly registry = new AdapterRegistry([
+    new OpenCodeAdapter(
+      new OpenCodeServerPool({
+        dataDirectory: join(app.getPath('userData'), 'opencode'),
+        preferences: () => this.settings.getAll().harnesses?.opencode,
+        fetchImpl: netFetch
+      }),
+      netFetch
+    )
+  ])
   // 부팅 시 1회 스캔하여 메모리에 캐시. fs.watch hot-reload 는 본 PR 범위 밖 (재시작).
   private skillsCache: SkillInfo[] = []
   // chat send 와 files list, session cwd 노출에서 모두 동일하게 사용하는 단일
@@ -588,7 +600,11 @@ export class Bootstrap {
     // 0157: 구 SSO 의 setProviderEnv sink 를 제거했다. 획득 토큰을 settings.json 의 env 블록에
     // **평문으로 병합 기록**하던 경로였다. 이제 credential 은 vault 가 소유하고, settings.json
     // 으로 나가는 값은 사용자가 직접 적은 것만 남는다(0028 결정 유지).
-    const harnessSettings = new HarnessSettingsService({ claude: loadClaudeProviderSettings })
+    const harnessSettings = new HarnessSettingsService(
+      { claude: loadClaudeProviderSettings, opencode: loadOpenCodeProviderSettings },
+      undefined,
+      { opencode: parseOpenCodeModels }
+    )
     const harnessRuntime = createHarnessRuntimeConfigService({
       settings: harnessSettings,
       augmenters: createRuntimeConfigAugmenters({
@@ -886,6 +902,7 @@ export class Bootstrap {
     // admission freeze 를 **가장 먼저**(0151 AC9) — 이후 send/steer 예약을 거부해, 종료 중
     // 게이트 flush·자동 연속 턴이 큐 폐기와 경합하며 메시지를 뒤늦게 제출하는 것을 막는다.
     this.pendingMessages?.freeze()
+    this.registry.close()
     this.dailyGate?.dispose()
     void this.artifacts?.close()
     this.titles?.dispose()

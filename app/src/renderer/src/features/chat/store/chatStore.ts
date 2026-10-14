@@ -164,6 +164,30 @@ let cwdCache: string | null = null
 // 컴포저 랜딩이 열 종류 — 부트스트랩이 설정에서 1회 시드한다(cwdCache 동형, 0228 D-004).
 // 시드 전 기본값은 첫 실행 고정값이라, 시드가 늦거나 실패해도 랜딩이 `code` 로 번쩍이지 않는다.
 let landingAgentKind: AgentKind = DEFAULT_LANDING_AGENT_KIND
+let landingBackend: import('../../../../../shared/ipc').Backend = 'claude'
+
+export function seedLandingBackend(
+  backend: import('../../../../../shared/ipc').Backend | null
+): void {
+  landingBackend = backend ?? 'claude'
+  setState((state) => ({
+    sessions: Object.fromEntries(
+      Object.entries(state.sessions).map(([key, entry]) => [
+        key,
+        !entry.session.sessionId && !entry.session.agentKindLocked
+          ? {
+              ...entry,
+              session: {
+                ...entry.session,
+                backend: landingBackend,
+                agentKind: landingBackend === 'opencode' ? 'code' : entry.session.agentKind
+              }
+            }
+          : entry
+      ])
+    )
+  }))
+}
 
 // 삭제된 프로젝트 ID는 현재 renderer 수명 동안 기억한다. 지각 조회/이벤트의 본문과
 // 실행 정보는 수용하되, DB가 해제한 프로젝트 연결만 다시 붙지 않게 한다.
@@ -207,6 +231,8 @@ function freshEntry(projectId: string | null = null, cwd?: string | null): Sessi
   return {
     session: withoutDeletedProject({
       ...withLandingAgentKind(initialChatState, landingAgentKind),
+      backend: landingBackend,
+      ...(landingBackend === 'opencode' ? { agentKind: 'code' as const } : {}),
       cwd: cwd ?? cwdCache,
       pendingProjectId: projectId
     }),
@@ -287,7 +313,7 @@ function dispatchActive(action: ChatAction): void {
 
 function revealRightPanelTile(id: RightPanelTileId): void {
   patchEntry(getState().activeKey, (entry) => {
-    const target = rightPanelTarget(id, entry.session.agentKind)
+    const target = rightPanelTarget(id, entry.session.agentKind, entry.session.backend)
     return target && entry.session.rightPanelTiles.some((column) => column.tiles.includes(target))
       ? { ...entry, panelReveal: { id: target } }
       : entry
@@ -846,8 +872,7 @@ function receive(ev: NormalizedEvent): void {
         }
       }
       // 마지막 활성 세션 영속화 — 백그라운드 턴이 lastSessionId 를 가로채지 않도록 활성만.
-      // 코어 중립(0016): chat store 는 backend 를 모른다(이벤트에 provider 없음·레이어 경계상
-      // backend store 의존 불가). lastBackend 영속은 backend store 소관 — 여기선 세션만 기록한다.
+      // 재열기용 세션만 기록한다. 새 대화의 lastBackend는 모델 선택 시 setModel이 저장한다.
       if (key === getState().activeKey) {
         void settingsApi.set({ lastSessionId: ev.sessionId })
       }
@@ -908,6 +933,9 @@ function send(
     const requestId = crypto.randomUUID()
     const payload: SendChatMessage = {
       agentKind: cur.agentKind,
+      ...(cur.backend ? { backend: cur.backend } : {}),
+      ...(cur.harnessAgent ? { harnessAgent: cur.harnessAgent } : {}),
+      ...(cur.modelVariant ? { modelVariant: cur.modelVariant } : {}),
       sessionId: null,
       projectId: cur.pendingProjectId,
       text: trimmed,
@@ -1040,6 +1068,9 @@ function send(
   void chatApi
     .send({
       agentKind: cur.agentKind,
+      ...(cur.backend ? { backend: cur.backend } : {}),
+      ...(cur.harnessAgent ? { harnessAgent: cur.harnessAgent } : {}),
+      ...(cur.modelVariant ? { modelVariant: cur.modelVariant } : {}),
       sessionId: cur.sessionId,
       projectId: null,
       text: trimmed,
@@ -1389,7 +1420,7 @@ function continuityDraftSession(src: ChatState, kind: 'fork' | 'handoff'): ChatS
 function startForkDraft(): boolean {
   const s = getState()
   const src = s.sessions[s.activeKey]?.session
-  if (!src?.sessionId || src.loadingSession) return false
+  if (!src?.sessionId || src.loadingSession || src.backend === 'opencode') return false
   pruneUnsentContinuityDrafts(src.sessionId)
   const draftKey = `draft:${crypto.randomUUID()}`
   const draft: SessionEntry = {
@@ -1438,7 +1469,8 @@ function startHandoff(): boolean {
   // 가드: 확정 세션 + 턴 비진행 + 사용자 턴 2회 이상(Composer 비활성 가드와 이중 방어).
   // 0149 — listen 대기(main 의 턴-후 루프 진행 중)도 busy 로 센다(sessionBusy 단일 정의):
   // 백그라운드 서브에이전트를 기다리는 동안 핸드오프가 열리던 구멍을 막는다.
-  if (!src?.sessionId || sessionBusy(src) || src.loadingSession) return false
+  if (!src?.sessionId || sessionBusy(src) || src.loadingSession || src.backend === 'opencode')
+    return false
   if (src.messages.filter((m) => m.role === 'user').length < 2) return false
   // 다른 새-채팅 전송이 pending 이면 조용한 큐 대기 대신 거부 — silent stuck 방지(r2).
   if (s.pendingNewChatKey != null) return false
@@ -1647,6 +1679,18 @@ function setModel(
   const beforeSession = getActiveChatSession()
   const before = beforeSession.permissionMode
   dispatchTo(key, { type: 'SET_MODEL', providerKey, modelFamily, modelAlias, adapter })
+  const selected = getState().sessions[key]?.session
+  if (selected?.backend && !selected.sessionId && selected !== beforeSession) {
+    landingBackend = selected.backend
+    void settingsApi.set({ lastBackend: selected.backend }).catch((error) =>
+      reportError({
+        event: 'chat.harness-preference.save-failed',
+        scope: 'chat',
+        title: 'saveFailed',
+        error
+      })
+    )
+  }
   if (
     getState().sessions[key]?.session.permissionMode !== before ||
     beforeSession.permissionModeError
@@ -1791,6 +1835,8 @@ export const chatActions = {
   skipAsk,
   setPermissionMode,
   setModel,
+  setHarnessOptions: (options: { agent?: string; variant?: string }): void =>
+    dispatchActive({ type: 'SET_HARNESS_OPTIONS', ...options }),
   setEffort,
   approvePlan,
   revisePlan,

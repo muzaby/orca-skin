@@ -12,6 +12,7 @@ import { composerDecorationTransform } from './composerScrollProjection'
 import type { DraftSnapshot } from './draftSnapshot'
 
 interface ComposerInputSurfaceProps {
+  openCode?: boolean
   snapshot: DraftSnapshot
   onTextChange: (text: string, selectionStart: number, selectionEnd: number) => void
   onSelectionChange: (selectionStart: number, selectionEnd: number) => void
@@ -43,6 +44,7 @@ export const ComposerInputSurface = forwardRef<
   ComposerInputSurfaceProps
 >(function ComposerInputSurface(
   {
+    openCode = false,
     snapshot,
     onTextChange,
     onSelectionChange,
@@ -56,6 +58,9 @@ export const ComposerInputSurface = forwardRef<
   },
   ref
 ): React.JSX.Element {
+  const typography = openCode
+    ? 'block w-full p-0 text-[13px] leading-5 font-sans whitespace-pre-wrap break-words [scrollbar-gutter:stable]'
+    : TYPOGRAPHY
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const decorationProjectionRef = useRef<HTMLDivElement>(null)
 
@@ -99,7 +104,7 @@ export const ComposerInputSurface = forwardRef<
         knownSkillNames={knownSkillNames}
         validFilePaths={validFilePaths}
         validPluginIds={validPluginIds ?? EMPTY_PLUGIN_IDS}
-        typographyClassName={TYPOGRAPHY}
+        typographyClassName={typography}
       />
       <textarea
         ref={textareaRef}
@@ -115,7 +120,7 @@ export const ComposerInputSurface = forwardRef<
         placeholder={placeholder}
         rows={1}
         aria-label={ariaLabel}
-        className={`${TYPOGRAPHY} relative max-h-56 min-h-9 resize-none overflow-y-auto border-0 bg-transparent text-ink caret-ink outline-none placeholder:text-ink3 [field-sizing:content]`}
+        className={`${typography} relative ${openCode ? 'max-h-[180px] min-h-9 text-oc-ink caret-oc-ink placeholder:text-oc-muted' : 'max-h-56 min-h-9 text-ink caret-ink placeholder:text-ink3'} resize-none overflow-y-auto border-0 bg-transparent outline-none [field-sizing:content]`}
       />
     </div>
   )

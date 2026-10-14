@@ -20,9 +20,17 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 | Backend | 어댑터 파일 | 구현 방식 | 상태 |
 |---|---|---|---|
 | `claude` | `adapters/claude.ts` (+`claude-map.ts` 정규화) | `@anthropic-ai/claude-agent-sdk`의 `query()` 호출 | ✅ 활성 |
-| `opencode` | (없음) | SDK 조사·계약 검증용 설치만 | ⏳ adapter 미구현 (PRD OQ7); [SDK 해설](../../opencode-sdk-spec.md) |
+| `opencode` | `adapters/opencode.ts`·`opencode-server.ts`·`opencode-map.ts` | 소유 CLI 서버 + 주입 fetch의 SDK HTTP/SSE | Code 전용; [SDK 해설](../../opencode-sdk-spec.md) |
 
-`AdapterRegistry` (`adapters/registry.ts`)는 현재 `claude` 단일 어댑터만 등록하고 활성화한다. SDK 의존성 추가만으로 이 registry나 `Backend` union이 확장되지는 않는다.
+`AdapterRegistry`에 bootstrap이 하네스 어댑터를 등록한다. 신규 요청은 선택 backend로, 기존 요청은 DB backend로 라우팅한다. payload·provider key·준비 중 lease·설정 해석 이후 DB를 대조해 하네스 변경을 거부한다.
+
+#### OpenCode 실행과 격리
+
+`OpenCodeServerPool`은 실행 파일·구성·환경 fingerprint별 시작을 합치고 loopback 임의 포트, 임의 인증 암호, Orca 전용 XDG 데이터 경로를 사용한다. 앱 종료는 자신이 spawn한 child만 종료한다. 설치된 CLI를 PATH와 npm 설치 경로에서 찾거나 하네스 설정의 절대 실행 파일 경로를 사용한다. 자동 CLI 설치·사용자 OpenCode 프로세스 재사용은 제공하지 않는다.
+
+`OpenCodeAdapter`는 `/v2/client`의 legacy 호환 API(`/session`, `/event`)를 사용한다. catalog는 구성별 캐시를 사용하며 목록 새로고침은 다시 조회한다. 입력 전에 SSE 연결을 준비하고, session ID·prompt parent ID·event/part ID로 턴과 중복을 격리한다. 스트림 단절은 오류로 끝내고 프롬프트를 자동 재전송하지 않는다. 권한·질문은 공통 approval broker를 거쳐 해당 요청으로 회신하고, 취소는 해당 세션만 abort한다.
+
+도구 종류·입력은 공통 어휘로 변환하고 `providerTool: { name, input }`을 history에 함께 저장한다. 시스템 지침은 prompt의 system에 추가한다. Claude 전용 plugin·hook·runtime tool 변환은 제공하지 않으며 OpenCode native config를 사용한다. fork·share·revert·개별 background 제어는 descriptor에서 비활성이다.
 
 ### 1.3 ClaudeCodeAdapter 호출 패턴
 

@@ -394,8 +394,10 @@ export const ko = {
     title: '엔진 & 모델',
     subtitle: 'provider settings 환경',
     addEngine: '엔진 추가',
+    refresh: '모델 새로고침',
+    catalogFailed: '모델 목록을 불러오지 못했습니다.',
     blurb: `<c>~/.config/${PRODUCT_SLUG}/sources/settings</c> 의 provider settings 를 기반으로 Composer 모델 메뉴가 구성됩니다. 편집 후 앱 재시작 없이 모델 메뉴가 갱신됩니다.`,
-    emptyState: '등록된 provider 가 없습니다. 엔진 추가 버튼으로 claude provider 를 생성하세요.',
+    emptyState: '등록된 공급자가 없습니다. 엔진 추가에서 하네스와 모델 공급자를 설정하세요.',
     deleteConfirm: '{{name}} provider 를 삭제할까요?',
     card: { unsupportedAdapter: '미지원 adapter', readOnly: '읽기 전용' },
     readSettingsFailed: '설정을 불러오지 못했어요.',
@@ -417,6 +419,9 @@ export const ko = {
       topLevelObject: '최상위는 객체 { … } 형태여야 해요.'
     },
     form: {
+      harness: '하네스',
+      openCodeHint:
+        'OpenCode 기본 설정 JSON입니다. <c>provider</c>에 모델 공급자와 인증을 구성하세요. Orca가 별도 로컬 서버를 자동 관리합니다.',
       titleEdit: '엔진 설정 편집',
       titleAdd: '엔진 추가',
       provider: '공급자',
@@ -435,6 +440,13 @@ export const ko = {
       adding: '추가 중…',
       addAction: '추가하기'
     }
+  },
+  harness: {
+    agent: '에이전트',
+    variant: '추론 수준',
+    defaultAgent: '기본 에이전트',
+    defaultVariant: '기본',
+    promptPlaceholder: 'OpenCode에 작업을 요청하세요.'
   },
   backend: {
     installed: '설치됨',
@@ -573,6 +585,12 @@ export const ko = {
     completeBody: '응답이 완료되었습니다.'
   },
   chat: {
+    opencode: {
+      originalTool: '원본 도구 입력',
+      explorationDone: '탐색 완료',
+      explorationRunning: '탐색 중',
+      todosEmpty: '아직 기록된 할 일이 없습니다'
+    },
     agent: {
       choose: '작업 종류 선택',
       work: '작업',
@@ -1089,6 +1107,7 @@ export const ko = {
       next: '다음'
     },
     rightpanel: {
+      category: { review: '검토', session: '세션', tasks: '작업' },
       tiles: {
         plan: '계획',
         subagent: '백그라운드 작업',
@@ -1189,6 +1208,22 @@ export const ko = {
     versionModalAria: `${PRODUCT_DISPLAY_NAME} 버전`
   },
   settings: {
+    harness: {
+      title: '하네스',
+      description: '하네스별 설정은 서로 독립적으로 저장되며 다음 실행부터 적용됩니다.',
+      managedServer:
+        'Orca가 OpenCode 로컬 서버를 자동으로 시작하고 종료합니다. Code 모드에서 사용할 수 있습니다.',
+      instructions: '하네스 지침',
+      instructionsHint: '이 하네스의 대화에만 추가되는 지침입니다.',
+      instructionsPlaceholder: '예: 변경한 파일과 검증 결과를 함께 설명하세요.',
+      executablePath: 'OpenCode 실행 파일',
+      executablePathHint:
+        '설치된 실행 파일의 전체 경로입니다. 비워 두면 PATH에서 자동으로 찾습니다.',
+      executablePathPlaceholder: '자동 검색 (opencode.exe)',
+      loadFailed: '하네스 설정을 불러오지 못했습니다.',
+      saveFailed: '하네스 설정을 저장하지 못했습니다.',
+      retry: '다시 불러오기'
+    },
     title: '설정',
     tabs: {
       general: '일반',

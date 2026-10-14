@@ -1,9 +1,23 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { AdapterRegistry } from './registry'
+import { OpenCodeAdapter } from './opencode'
+import type { OpenCodeServerPool } from './opencode-server'
 
 const makeRegistry = (): AdapterRegistry => new AdapterRegistry()
 
 describe('AdapterRegistry capability 서술', () => {
+  it('registers an injected OpenCode adapter and closes its owned server pool', () => {
+    const close = vi.fn()
+    const adapter = new OpenCodeAdapter(
+      { close } as unknown as OpenCodeServerPool,
+      vi.fn<typeof fetch>()
+    )
+    const reg = new AdapterRegistry([adapter])
+    expect(reg.get('opencode')).toBe(adapter)
+    expect(reg.describeAll().opencode.provider).toBe('opencode')
+    reg.close()
+    expect(close).toHaveBeenCalledOnce()
+  })
   it('describeActive() 는 활성 백엔드(claude)의 서술자를 반환', () => {
     const reg = makeRegistry()
     const desc = reg.describeActive()

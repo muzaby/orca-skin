@@ -18,7 +18,9 @@ export function MessageMeta({
   forkable = false
 }: MessageMetaProps): React.JSX.Element {
   // fork 는 확정 세션에서만 — 미전송 draft/새 채팅(sessionId=null)이나 로딩 중엔 숨긴다.
-  const canFork = useChatSession((s) => s.sessionId != null && !s.loadingSession)
+  const canFork = useChatSession(
+    (s) => s.sessionId != null && !s.loadingSession && s.backend !== 'opencode'
+  )
   const { tr, locale } = useI18n()
   return (
     <div

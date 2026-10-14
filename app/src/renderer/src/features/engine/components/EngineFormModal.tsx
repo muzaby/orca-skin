@@ -1,3 +1,5 @@
+import type { Backend, CreateEngineRequest } from '../../../../../shared/ipc'
+import { HARNESS_CAPABILITIES, HARNESS_IDS, isBackend } from '../../../../../shared/harness'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { engineApi } from '../../../shared/api/ipc'
 import { Button } from '../../../shared/ui/Button'
@@ -17,18 +19,18 @@ import {
 interface EngineFormModalProps {
   mode: 'add' | 'edit'
   // edit 모드에서만 의미 — 고정된 provider 와 기존 settings.json.
+  engine?: Backend
   provider?: string
   initialSettingsJson?: string
   busy?: boolean
   onClose: () => void
-  onSubmit: (payload: { provider: string; settingsJson: string }) => Promise<void>
+  onSubmit: (payload: CreateEngineRequest) => Promise<void>
 }
 
-// 단일 화면 폼 (handoff 0090) — adapter 는 claude 하나뿐이라 엔진/공급자 선택 단계를
-// 없앴다. 공급자는 드롭다운, adapter 는 claude 칩 고정 표기. 닫기는 취소 버튼 · 백드롭
-// 클릭 · Esc 세 경로.
+// 새 엔진은 하네스를 선택하고, 기존 엔진의 하네스는 고정한다.
 export function EngineFormModal({
   mode,
+  engine: initialEngine = 'claude',
   provider: editProvider = '',
   initialSettingsJson = '{\n  "env": {}\n}',
   busy = false,
@@ -37,10 +39,17 @@ export function EngineFormModal({
 }: EngineFormModalProps): React.JSX.Element {
   const { tr } = useI18n()
   const editing = mode === 'edit'
+  const [engine, setEngine] = useState<Backend>(initialEngine)
   const [providerId, setProviderId] = useState(editing ? 'custom' : DEFAULT_PROVIDER_ID)
-  const [providerName, setProviderName] = useState(editing ? editProvider : DEFAULT_PROVIDER_ID)
+  const [providerName, setProviderName] = useState(
+    editing ? editProvider : initialEngine === 'opencode' ? 'default' : DEFAULT_PROVIDER_ID
+  )
   const [settingsJson, setSettingsJson] = useState(
-    editing ? initialSettingsJson : (providerOption(DEFAULT_PROVIDER_ID)?.template ?? '{}')
+    editing
+      ? initialSettingsJson
+      : initialEngine === 'opencode'
+        ? '{}'
+        : (providerOption(DEFAULT_PROVIDER_ID)?.template ?? '{}')
   )
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -49,7 +58,7 @@ export function EngineFormModal({
   const menuAnchorRef = useRef<HTMLButtonElement>(null)
   const nameRef = useRef<HTMLInputElement>(null)
 
-  const isCustom = editing || providerOption(providerId)?.custom === true
+  const isCustom = editing || engine === 'opencode' || providerOption(providerId)?.custom === true
   const jsonCheck = useMemo(() => validateSettingsJson(settingsJson), [settingsJson])
   const nameCheck = useMemo(() => validateProviderName(providerName), [providerName])
   const canSubmit = jsonCheck.ok && nameCheck.ok && !busy
@@ -65,6 +74,18 @@ export function EngineFormModal({
   useEffect(() => {
     if (isCustom) queueMicrotask(() => nameRef.current?.focus())
   }, [isCustom])
+
+  const pickEngine = (next: Backend): void => {
+    setEngine(next)
+    setProviderId(DEFAULT_PROVIDER_ID)
+    setProviderName(next === 'opencode' ? 'default' : DEFAULT_PROVIDER_ID)
+    setSettingsJson(
+      next === 'opencode' ? '{}' : (providerOption(DEFAULT_PROVIDER_ID)?.template ?? '{}')
+    )
+    setMenuOpen(false)
+    setImportError(null)
+    setSubmitError(null)
+  }
 
   // 공급자를 고르면 해당 템플릿으로 settings.json 을 채우고 이름 기본값도 맞춘다.
   const pickProvider = (id: string): void => {
@@ -99,7 +120,7 @@ export function EngineFormModal({
     setSubmitError(null)
     if (!canSubmit) return
     try {
-      await onSubmit({ provider: providerName.trim(), settingsJson })
+      await onSubmit({ engine, provider: providerName.trim(), settingsJson })
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : tr('engine.form.saveFailed'))
     }
@@ -120,9 +141,26 @@ export function EngineFormModal({
         </div>
 
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
-          {/* adapter 는 claude 고정 — 편집 모드에선 고정된 provider 도 함께 표기 */}
+          {/* 편집에서는 하네스를 고정해 provider 저장 경로를 유지한다. */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-ink2">
-            <span className="rounded-md bg-sidebar px-2 py-0.5 font-medium text-ink">claude</span>
+            <label className="flex items-center gap-2">
+              <span>{tr('engine.form.harness')}</span>
+              <select
+                aria-label={tr('engine.form.harness')}
+                value={engine}
+                disabled={editing || busy}
+                onChange={(event) => {
+                  if (isBackend(event.target.value)) pickEngine(event.target.value)
+                }}
+                className="rounded-md border border-border bg-bg px-2 py-1 text-ink disabled:opacity-70"
+              >
+                {HARNESS_IDS.map((id) => (
+                  <option key={id} value={id}>
+                    {HARNESS_CAPABILITIES[id].label}
+                  </option>
+                ))}
+              </select>
+            </label>
             {editing && (
               <>
                 <span className="text-ink3">/</span>
@@ -133,7 +171,7 @@ export function EngineFormModal({
             )}
           </div>
 
-          {!editing && (
+          {!editing && engine === 'claude' && (
             <div className="flex flex-col gap-1.5">
               <span className="text-[12px] font-medium text-ink2">
                 {tr('engine.form.provider')}
@@ -213,16 +251,18 @@ export function EngineFormModal({
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[12px] font-medium text-ink2">settings.json</span>
-              <button
-                type="button"
-                onClick={() => void importUserSettings()}
-                disabled={importBusy}
-                title={tr('engine.form.importTitle')}
-                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[11.5px] font-medium text-ink2 hover:bg-sidebar hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Icon name="fileOpen" size={13} />
-                {importBusy ? tr('common.loading') : tr('engine.form.importButton')}
-              </button>
+              {engine === 'claude' && (
+                <button
+                  type="button"
+                  onClick={() => void importUserSettings()}
+                  disabled={importBusy}
+                  title={tr('engine.form.importTitle')}
+                  className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[11.5px] font-medium text-ink2 hover:bg-sidebar hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Icon name="fileOpen" size={13} />
+                  {importBusy ? tr('common.loading') : tr('engine.form.importButton')}
+                </button>
+              )}
             </div>
             <textarea
               value={settingsJson}
@@ -247,7 +287,7 @@ export function EngineFormModal({
             <span className="text-[11px] text-ink3">
               {/* 카탈로그 값의 <c> 태그가 code 요소로 치환된다. */}
               <Trans
-                i18nKey="engine.form.envHint"
+                i18nKey={engine === 'opencode' ? 'engine.form.openCodeHint' : 'engine.form.envHint'}
                 values={{ varToken: '${VAR}' }}
                 components={{ c: <code /> }}
               />

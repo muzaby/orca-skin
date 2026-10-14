@@ -1,3 +1,4 @@
+import type { Backend } from '../../../shared/ipc'
 import { randomUUID } from 'node:crypto'
 import { DEFAULT_AGENT_KIND, type AgentKind } from '../../../shared/agent-kind'
 import type { ManagedRuntime } from '../../contracts/ports'
@@ -16,6 +17,7 @@ export interface SessionControl {
 }
 
 interface LeaseBase<W> {
+  readonly backend?: Backend
   readonly agentKind: AgentKind
   leaseId: string
   chainId: string
@@ -47,6 +49,7 @@ export type SessionChainLease<W> =
     })
 
 export interface AcquireLeaseInput<W> {
+  backend?: Backend
   agentKind?: AgentKind
   logicalKey: string
   sessionId: string | null
@@ -63,6 +66,7 @@ export class SessionChainLeaseRegistry<W> {
     if (existing) return { lease: existing, acquired: false }
     const lease: SessionChainLease<W> = {
       agentKind: input.agentKind ?? DEFAULT_AGENT_KIND,
+      backend: input.backend,
       kind: 'preparing',
       leaseId: randomUUID(),
       chainId: randomUUID(),

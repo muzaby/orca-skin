@@ -77,6 +77,7 @@ export function toAgentEnvironment(
     source: provenance.source,
     readOnly: provenance.readOnly,
     models: entry.models.map((model): AgentModelView => ({
+      ...model,
       alias: model.alias,
       model: model.model,
       isCustom: model.isCustom,

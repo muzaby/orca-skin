@@ -8,12 +8,13 @@ import { groupExchanges } from '../../lib/turns'
 import { useTranscriptVirtualizer } from '../../hooks/useTranscriptVirtualizer'
 import type { Message } from '../../reducer/chatReducer'
 import type { PendingSteerState } from '../../store/chatStore'
-import type { ClassifiedError } from '../../../../../../shared/ipc'
+import type { Backend, ClassifiedError } from '../../../../../../shared/ipc'
 import type { AgentKind } from '../../../../../../shared/agent-kind'
 import { createWorkToolResultSelector } from '../../lib/workToolResults'
-import { agentUiPolicy } from '../../lib/agentPresentation'
+import { transcriptPresentation } from '../../lib/agentPresentation'
 
 interface TranscriptViewProps {
+  backend?: Backend | null
   agentKind: AgentKind
   messages: Message[]
   pendingSteer: PendingSteerState[]
@@ -40,6 +41,7 @@ interface TranscriptViewProps {
 // 보정을 차단한다.
 export const TranscriptView = memo(function TranscriptView({
   agentKind,
+  backend = 'claude',
   messages,
   pendingSteer,
   onRestoreSteerDraft,
@@ -55,7 +57,8 @@ export const TranscriptView = memo(function TranscriptView({
   // 델타 프레임(messages 참조 불변)에서 Exchange/Turn 객체 identity 를 고정 — memo 된
   // 컴포넌트가 props 비교만으로 재렌더를 건너뛴다 (0007-transcript-render-memo 계승).
   const exchanges = useMemo(() => groupExchanges(messages), [messages])
-  const transcriptPolicy = agentUiPolicy(agentKind).transcript
+  const transcriptPolicy = transcriptPresentation(agentKind, backend)
+  const openCode = backend === 'opencode'
   const [selectWorkResults] = useState(createWorkToolResultSelector)
   const workResults = useMemo(
     () =>
@@ -82,7 +85,8 @@ export const TranscriptView = memo(function TranscriptView({
       onScroll={onScroll}
       // 대화 내용 텍스트 크기(0256 D-009) — 전역 설정값을 이 루트만 범위 변수로 받아들인다.
       // 컴포저·우측 패널·포털 팝오버는 선언 밖이라 배율 1이다.
-      className="app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] [--transcript-text-scale:var(--chat-text-scale,1)]"
+      className={`app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] [--transcript-text-scale:var(--chat-text-scale,1)] ${openCode ? 'bg-oc-background text-oc-ink' : ''}`}
+      data-harness={backend ?? 'claude'}
       data-behavior="virtualizable"
     >
       {/* gap 은 flex 가 아니라 각 항목의 pb-[--chat-turn-gap] 로 준다 — 가상 head 아이템은
@@ -139,7 +143,7 @@ export const TranscriptView = memo(function TranscriptView({
             reserve={anchored}
             pending={inflight}
             // 분기(fork) 아이콘은 transcript 의 마지막 어시스턴트 턴에서만(r2 피드백).
-            forkable
+            forkable={!openCode}
             error={error}
             // pending-first(0067) — 유휴 중에도 미커밋(pending) 메시지는 계속 보인다.
             pendingSteer={pendingSteer}
@@ -152,7 +156,7 @@ export const TranscriptView = memo(function TranscriptView({
         )}
         {/* 교환이 없는데 턴이 진행 중(핸드오프 직후 init 대기 등, r2) — 라이브 인디케이터로
             빈 화면을 막는다. 교환이 생기면 마지막 Exchange 내부 PendingAssistant 로 넘어간다. */}
-        {inflight && exchanges.length === 0 && <PendingAssistant />}
+        {inflight && exchanges.length === 0 && <PendingAssistant openCode={openCode} />}
         {/* 교환이 없는데 에러만 있는 엣지(전송 실패 직후 등) — 최상위 fallback. */}
         {error && exchanges.length === 0 && <TurnErrorBanner error={error} />}
       </ReadingColumn>

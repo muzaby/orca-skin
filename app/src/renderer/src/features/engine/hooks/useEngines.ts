@@ -24,7 +24,8 @@ export function useEngines(): {
   read: typeof engineApi.read
 } {
   const agents = useAgentStore((store) => store.agents)
-  const ensureLoaded = useAgentStore((store) => store.ensureLoaded)
+  const catalogLoading = useAgentStore((store) => store.loading)
+  const catalogError = useAgentStore((store) => store.error)
   const [state, setState] = useState<EngineMutationState>({ busy: false, error: null })
 
   useEffect(() => subscribeAgents(), [])
@@ -44,12 +45,12 @@ export function useEngines(): {
   }, [])
 
   const refresh = useCallback(async (): Promise<void> => {
-    await ensureLoaded()
-  }, [ensureLoaded])
+    await refreshAgents()
+  }, [])
 
   return {
     agents,
-    state,
+    state: { busy: state.busy || catalogLoading, error: state.error ?? catalogError },
     refresh,
     add: (req) => mutate(() => engineApi.add(req)),
     update: (req) => mutate(() => engineApi.update(req)),
