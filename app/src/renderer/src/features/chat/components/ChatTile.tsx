@@ -51,7 +51,6 @@ export function ChatTile({
 }: ChatTileProps): React.JSX.Element {
   const messages = useChatSession((s) => s.messages)
   const backend = useChatSession((s) => s.backend)
-  const openCode = backend === 'opencode'
   const agentKind = useChatSession((s) => s.agentKind)
   const policy = agentUiPolicy(agentKind)
   const sessionId = useChatSession((s) => s.sessionId)
@@ -83,16 +82,14 @@ export function ChatTile({
   })
 
   return (
-    <section
-      className={`app-frame-pane-host flex min-h-0 min-w-0 flex-1 flex-col ${openCode ? 'bg-oc-background' : 'bg-bg'}`}
-    >
+    <section className="app-frame-pane-host flex min-h-0 min-w-0 flex-1 flex-col bg-bg">
       <div data-side-pane-host="" className="app-frame-pane-row relative flex min-h-0 flex-1">
         {/* Claude Code 룩: transcript 는 별도 카드 없이 bg 평면 위에 그대로 — 우측
             plan tile 만 보더 카드로 분리된다. */}
         <div
           inert={panelExpanded}
           data-chat-pane-content=""
-          className={`app-frame-tile flex min-w-0 flex-1 flex-col overflow-hidden ${openCode ? 'bg-oc-background' : 'bg-bg'}`}
+          className="app-frame-tile flex min-w-0 flex-1 flex-col overflow-hidden bg-bg"
           data-behavior="resizable"
         >
           <ChatTitleBar
@@ -109,9 +106,7 @@ export function ChatTile({
               내용이 배경색(from-bg)으로 흐려진다. pointer-events-none 으로 스크롤·선택·
               클릭을 방해하지 않는다. */}
           <div className="relative flex min-h-0 flex-1 flex-col">
-            <div
-              className={`pointer-events-none absolute inset-x-0 top-0 z-10 h-8 bg-gradient-to-b ${openCode ? 'from-oc-background' : 'from-bg'} to-transparent`}
-            />
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-8 bg-gradient-to-b from-bg to-transparent" />
             <TranscriptView
               key={policy.transcript.remountTranscriptBySession ? activeKey : undefined}
               agentKind={agentKind}
@@ -127,9 +122,7 @@ export function ChatTile({
               contentRef={contentRef}
               onScroll={onScroll}
             />
-            <div
-              className={`pointer-events-none absolute inset-x-0 bottom-0 z-10 h-8 bg-gradient-to-t ${openCode ? 'from-oc-background' : 'from-bg'} to-transparent`}
-            />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-8 bg-gradient-to-t from-bg to-transparent" />
           </div>
 
           <Composer

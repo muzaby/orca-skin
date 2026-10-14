@@ -30,7 +30,7 @@ describe('OpenCode transcript presentation', () => {
     expect(load(html)(`[data-harness="${backend}"]`)).toHaveLength(1)
     expect(html).toContain('User prompt')
     expect(html).toContain('Answer body')
-    expect(html.includes('bg-oc-background')).toBe(backend === 'opencode')
+    expect(load(html)(`[data-harness="${backend}"]`).hasClass('bg-bg')).toBe(true)
   })
   it('shows normalized edit detail and preserved provider input in an accessible disclosure', () => {
     const html = renderToStaticMarkup(

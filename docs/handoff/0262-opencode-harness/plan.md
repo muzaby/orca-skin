@@ -611,3 +611,65 @@ VP-20~24는 위 oracle로 SELF_PASS다. VP-08/14/18의 영향 회귀는 settings
 ## Review Signals
 
 r1.4는 사용자 추가 요구에 따른 ΔV1 구현이다. 설정 불러오기에서 누락됐던 하네스 선택 경계를 보완했고, 기존 V1 시각 인수·직접 oracle 부족 보고는 독립 검증에 남긴다.
+
+# [구현자 기입 — r1.5 새 대화 화면]
+
+## 설계 리뷰
+
+ΔV2 구현 완료. D-011의 공통 배경과 D-012/013의 OpenCode 원본 로고·랜딩 순서를 적용했다. Claude/프로젝트 랜딩은 기존 구성이며 신규 의존성·IPC·저장 포맷 변경은 없다. 두 화면이 공통 입력 컨트롤러를 유지하도록 ColumnWrap의 조건부 컴포넌트 타입을 없앴다.
+
+## 강제 지점 전수와 V-pair 자기확인
+
+검색: `rg -n 'openCodeLanding|afterComposerInput|opencode-landing-context|appearance="opencode"|<ReadingColumn|bg-bg|from-bg'`를 NewChatLandingPage·Composer·CwdPanel·ChatTile·TranscriptView·ReadingColumn에 적용했다.
+
+| 강제 자리 | 직접 oracle / 관측 |
+|---|---|
+| EP-15a/b/c/d/e: 부모·fade·본문 5자리 | ChatTile.harness.test.ts의 `shares the transcript background and fades for %s`가 실제 ChatTile→TranscriptView를 렌더해 공통 배경 및 fade를 관측. TranscriptView.harness.test.ts는 본문 출력도 확인 |
+| EP-16a/b/c: backend→페이지→Composer→하단 컨텍스트 3자리 | NewChatLandingPage.harness.test.ts의 `renders the harness landing and preserves draft and attachment state`가 실제 페이지·컴포저·입력·경로 패널의 DOM 순서를 하네스 왕복마다 관측 |
+| EP-16d: 패널→폴더/브랜치 제어 | 같은 파일의 `selects workspace and branch from the footer`: 실제 CwdButton·BranchChip·BranchMenu·WorktreeToggle 클릭, 선택 경로의 status/checkout 입력, 격리 ON의 유예와 checkout 추가 호출 없음 |
+| EP-17a/b/c: 페이지 자식·flush wrapper·입력 슬롯 수명 3자리 | 같은 왕복 테스트에서 실제 textarea에 넣은 초안과 useAttachments가 수집한 파일이 유지됨 |
+
+등록 5+4+3=12자리를 확인했다. 계획의 CwdPanel.harness.test.ts 좌표는 중복 fixture를 만들지 않고 실제 부모 경로를 포함하는 NewChatLandingPage.harness.test.ts의 동일 이름 케이스로 합쳤다. 테스트의 React/DOM·IPC·store 경계는 모형이며 page→Composer→입력/첨부·컨텍스트는 production 코드다. 실제 모델 선택의 store 변경 정책은 이번 테스트의 범위 밖이다.
+
+VP-25~28은 위 직접 oracle과 실행 화면 관측으로 SELF_PASS다. V1 VP-01/11의 영향 회귀는 Composer.harness·modelSelection·agentModeLanding·ChatTile.workLifetime 및 기존 분기/격리 테스트에서 확인했으며 기존 직접 oracle 부족분은 유지한다.
+
+## 이번 라운드 수정의 잠금
+
+선택 적대 증거 0 · 인용 변이 0 · 새 소스 스캔 0 = 잠금 표 행 0. 배경은 실제 렌더의 스타일 토큰과 두 테마 화면을 함께 확인했고, 입력 보존은 사용자 입력/첨부 결과를 직접 관측했다. 기존 CwdPanel의 단일 JSX 호출 형태 검사는 실제 하네스별 앞/뒤 렌더 순서 검사로 대체했다. typeScale의 ReadingColumn 검사는 prop 추가를 허용하도록 태그 경계로 바꿨고 기존 검사 범위는 유지했다.
+
+## Product/UX 파생 검토
+
+실행 중인 Orca 창을 Computer Use로 조작해 새 대화의 원본 워드마크·컴포저·아래 경로 행, OpenCode/Claude 기존 대화의 같은 배경을 white/dark에서 확인했다. 새 메시지를 전송하지 않았고 테마는 원래 white로 복원했다. non-Git 경로의 조회 placeholder가 사라지고 폴더 제어가 유지되는 것도 화면에서 관측했다. 저장소 밖 참조 소스와 인증/사용자 설정 내용은 커밋에 포함하지 않는다.
+
+## 놓친 잠재 문제 + 대응
+
+- flush 조건으로 div↔ReadingColumn을 바꾸면 하네스 전환 때 하위 입력이 remount될 수 있었다. 동일 ReadingColumn의 외형만 바꾸고 실제 초안·첨부 왕복 회귀로 보완했다.
+- 추가 typeScale 회귀에서 기존 OpenCode 도구 행의 13px 고정 크기가 transcript 배율 계약을 어기는 것을 발견했다. 기본 13px을 유지하며 배율 calc와 비례 행간으로 수정해 설정을 따르게 했다.
+- 문서 검사기는 ignored clone의 README도 읽어 sparse checkout의 상대 링크를 실패로 보고했다. 검사 규칙을 바꾸지 않고 clone을 `%TEMP%/orca-opencode-reference-v1.19.0`으로 옮겼고 원본 SHA를 다시 확인했다.
+- 네이티브 시각 관측은 현재 창 크기에서 수행했다. 짧은 창의 overflow는 코드에 허용했지만 여러 해상도의 자동 시각 회귀는 수행하지 않았다.
+
+## 구현 보고
+
+| AC | 결과 | 관측 |
+|---|---|---|
+| AC15 | ✅ | 본문·두 부모·두 fade 공통 bg, 두 하네스/두 테마 실행 화면 |
+| AC16 | ✅ | OpenCode 로고→입력→경로, 원본 폭/간격, 경로·브랜치·격리 조작, 초안/첨부 보존 |
+
+증분 ✅2 · ⚠️0 · ❌0 = 2. 누적 ✅15 · ⚠️1 · ❌0 = 16. AC11 최종 사용자 시각 인수와 독립 검증은 대기한다.
+
+| 게이트 | 관측 |
+|---|---|
+| 랜딩·composer·transcript·branch 회귀 | 명령 A: 12파일 39케이스 통과 |
+| 폭·텍스트 배율·기존 페이지/세션 수명 | 명령 B: 4파일 27케이스 통과. TranscriptView 3케이스는 A와 중복이며 합산하지 않음 |
+| 타입 | 전체 node/web/test 통과 |
+| 린트 | 전체 오류 0, 기존 useTranscriptVirtualizer warning 1. 후속 도구 행·typeScale 변경도 targeted ESLint 통과 |
+| 빌드 | 도구 행 배율 수정 후 electron-vite main/preload/renderer 재빌드 통과 |
+| 문서·공백·참조 소스 | doc inventory generated/prose/relative links 통과; diff whitespace 오류 0; clone은 저장소 밖이며 원본 SHA 일치 |
+
+명령 A: `node node_modules/vitest/vitest.mjs run NewChatLandingPage.harness.test.ts CwdPanel. BranchChip. ChatTile.harness.test.ts TranscriptView.harness.test.ts Composer.harness.test.ts Composer.activity.test.ts Composer.requirements.render.test.ts modelSelection.test.ts --maxWorkers=2`
+
+명령 B: `node node_modules/vitest/vitest.mjs run agentModeLanding.render.test.ts typeScale.test.ts ChatTile.workLifetime.test.ts TranscriptView.harness.test.ts --maxWorkers=2`
+
+## Review Signals
+
+r1.5는 사용자 추가 요구 ΔV2 구현이며 verify 실패 뒤 재구현이 아니다. 실제 앱 화면을 확인했고 테스트는 입력 수명과 경로/브랜치 조작에 집중했다. 기존 미검증 범위·독립 검증 대기는 유지한다.

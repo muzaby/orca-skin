@@ -1,6 +1,7 @@
 interface ReadingColumnProps {
   children: React.ReactNode
   className?: string
+  flush?: boolean
   // React 19 ref-as-prop — transcript 가 콘텐츠 성장 관찰(ResizeObserver) 대상으로 쓴다.
   ref?: React.Ref<HTMLDivElement>
 }
@@ -10,12 +11,13 @@ interface ReadingColumnProps {
 export function ReadingColumn({
   children,
   className = '',
+  flush = false,
   ref
 }: ReadingColumnProps): React.JSX.Element {
   return (
     <div
       ref={ref}
-      className={`mx-auto w-full min-w-0 max-w-[var(--reading-column)] px-[var(--reading-gutter)] ${className}`}
+      className={`w-full min-w-0 ${flush ? '' : 'mx-auto max-w-[var(--reading-column)] px-[var(--reading-gutter)]'} ${className}`}
     >
       {children}
     </div>

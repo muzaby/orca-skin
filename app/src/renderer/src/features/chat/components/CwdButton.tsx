@@ -16,6 +16,7 @@ interface CwdButtonProps {
   variant?: ChipVariant
   iconOnly?: boolean
   className?: string
+  showChevron?: boolean
   // 0211 — 격리 세션의 표시 정본. 라벨만 이 값을 쓰고 **클릭은 `cwd`(실행 경로)** 다.
   worktree?: WorktreeDisplay | null
 }
@@ -27,6 +28,7 @@ export function CwdButton({
   variant = 'flat',
   iconOnly = false,
   className = '',
+  showChevron = false,
   worktree = null
 }: CwdButtonProps): React.JSX.Element {
   const { tr } = useI18n()
@@ -74,6 +76,7 @@ export function CwdButton({
         className="shrink-0"
       />
       {!iconOnly && <span className="min-w-0 truncate">{label}</span>}
+      {showChevron && <Icon name="chevD" size={12} className="shrink-0" />}
     </button>
   )
 }

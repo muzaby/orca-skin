@@ -75,6 +75,8 @@ interface ComposerProps {
   // 랜딩 페이지가 직접 주입하는 cwd 패널. sessionId null 같은 내부 상태가 아니라
   // page 컨텍스트로만 노출해 첫 전송 직후 ChatTile 전환 중에는 렌더하지 않는다.
   showLandingCwdPanel?: boolean
+  // OpenCode 새 대화의 컨텍스트는 입력 아래. 모델 전환에도 입력 인스턴스를 유지한다.
+  openCodeLanding?: boolean
   // 세션이 시작됐는가 — git 행의 노출 조건 절반(나머지 절반은 git 저장소 여부, 0206 D-002).
   showGitRow?: boolean
   // '+' 메뉴 '플러그인 관리' — 페이지가 navigate('/plugins') 를 주입한다(0259 D-010).
@@ -86,13 +88,15 @@ interface ComposerPanelStackViewProps {
   gitRow: ReactNode
   afterGitRow: ReactNode
   composerInput: ReactNode
+  afterComposerInput?: ReactNode
 }
 
 export function ComposerPanelStackView({
   beforeGitRow,
   gitRow,
   afterGitRow,
-  composerInput
+  composerInput,
+  afterComposerInput
 }: ComposerPanelStackViewProps): React.JSX.Element {
   return (
     <div className="flex flex-col gap-2">
@@ -100,6 +104,7 @@ export function ComposerPanelStackView({
       {gitRow}
       {afterGitRow}
       {composerInput}
+      {afterComposerInput}
     </div>
   )
 }
@@ -119,6 +124,7 @@ export function Composer({
   restoredDraft,
   flush,
   showLandingCwdPanel = false,
+  openCodeLanding = false,
   showGitRow = false,
   onManagePlugins
 }: ComposerProps): React.JSX.Element {
@@ -266,7 +272,9 @@ export function Composer({
 
   const toolApprovalPending = pendingToolApprovals.length > 0
   return (
-    <div className="app-frame-composer relative pb-[18px] pt-3">
+    <div
+      className={`app-frame-composer relative ${openCodeLanding && openCode ? '' : 'pb-[18px] pt-3'}`}
+    >
       {showScrollToBottom && (
         <button
           type="button"
@@ -329,7 +337,9 @@ export function Composer({
                   input={p.input}
                 />
               ))}
-              {showLandingCwdPanel && <CwdPanel cwd={cwd} inflight={leaseBusy} />}
+              {showLandingCwdPanel && !(openCodeLanding && openCode) && (
+                <CwdPanel cwd={cwd} inflight={leaseBusy} />
+              )}
             </>
           }
           gitRow={
@@ -497,6 +507,13 @@ export function Composer({
               }
             />
           }
+          afterComposerInput={
+            showLandingCwdPanel && openCodeLanding && openCode ? (
+              <div className="pt-6" data-surface="opencode-landing-context">
+                <CwdPanel cwd={cwd} inflight={leaseBusy} appearance="opencode" />
+              </div>
+            ) : null
+          }
         />
       </ColumnWrap>
       <Popover open={modeMenuOpen} anchorRef={modeButtonRef} onClose={() => setModeMenuOpen(false)}>
@@ -558,6 +575,5 @@ function ColumnWrap({
   flush?: boolean
   children: React.ReactNode
 }): React.JSX.Element {
-  if (flush) return <div className="w-full min-w-0">{children}</div>
-  return <ReadingColumn>{children}</ReadingColumn>
+  return <ReadingColumn flush={flush}>{children}</ReadingColumn>
 }

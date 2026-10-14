@@ -10,6 +10,7 @@ export {
   useArtifactViewerStore
 } from './store/artifactViewerStore'
 export { Composer } from './components/Composer'
+export { OpenCodeWordmark } from './components/OpenCodeWordmark'
 export { AgentModeToggle } from './components/AgentModeToggle'
 export { agentPresentation } from './lib/agentPresentation'
 export { useUsageForTelemetryProvider } from './hooks/useUsageForTelemetryProvider'

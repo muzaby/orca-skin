@@ -42,7 +42,7 @@ src/renderer/
     │       └── useSidebarSlots.tsx      # Sidebar React.memo 효과 위한 slot ReactNode 안정화
     │
     ├── pages/                       ✅ 조립 전용 — store 읽기 + features 배치. 비즈니스 로직 0.
-    │   ├── NewChatLandingPage.tsx   # `/new` — empty 시 중앙 Composer (랜딩), 메시지 있으면 ChatTile
+    │   ├── NewChatLandingPage.tsx   # `/new` — 하네스별 랜딩. OpenCode는 로고→Composer→작업 컨텍스트, 메시지 있으면 ChatTile
     │   ├── ChatPage.tsx             # `/chat/:sessionId` — backend store → ChatView.backendLabel wiring
     │   ├── ProjectsPage.tsx         # ProjectsView 단순 배치
     │   ├── ProjectLandingPage.tsx   # 프로젝트 제목 → Composer → ProjectSessionsPanel. 랜딩 cwd·전환은 useChatRouteSync, 지침 편집은 제목 메뉴의 dialog가 담당

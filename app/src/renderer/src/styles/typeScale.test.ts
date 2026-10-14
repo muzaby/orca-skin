@@ -124,7 +124,7 @@ describe('0256 AC9·AC10 — 대화 기록 너비', () => {
   it('트랜스크립트·컴포저·프로젝트 랜딩이 같은 ReadingColumn 폭을 쓰고 랜딩은 720px 상한을 유지한다', () => {
     const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8')
     expect(read('shared/ui/ReadingColumn.tsx')).toContain('max-w-[var(--reading-column)]')
-    expect(read('features/chat/components/Composer.tsx')).toContain('<ReadingColumn>')
+    expect(read('features/chat/components/Composer.tsx')).toMatch(/<ReadingColumn\b/)
     expect(read('features/chat/components/transcript/TranscriptView.tsx')).toContain(
       '<ReadingColumn'
     )

@@ -24,7 +24,7 @@ export function OpenCodeToolGroup({
   return (
     <div
       data-component="tool-part-wrapper"
-      className="flex flex-col gap-2 text-[13px] leading-[21px] text-oc-muted"
+      className="flex flex-col gap-2 text-[calc(13px*var(--transcript-text-scale,1))] leading-[1.615] text-oc-muted"
     >
       {exploration && (
         <button
