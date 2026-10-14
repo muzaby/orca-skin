@@ -9,9 +9,9 @@
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
 | 상태 | READY |
-| V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 |
+| V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
-| 이번 V revision / 유효 V | ΔV4 / V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 |
+| 이번 V revision / 유효 V | ΔV5 / V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 |
 
 # Part I — Product & UX Contract
 
@@ -50,6 +50,7 @@ Orca는 Claude만 실행하고 composer·모델·패널이 그 기능을 전제�
 | D-013 | 새 대화의 브랜드 로고는 OpenCode를 사용한다 | 원본 워드마크 적용 | 로고 선택 비동기 답변 | ACTIVE | ΔV2의 기본 해석 확정 |
 | D-014 | OpenCode 대화 중 스피너를 OpenCode 원본으로 바꾼다 | D-004에 따라 Claude 스피너는 유지 | 2026-10-14 추가 사용자 요구 | ACTIVE | 기존 공통 SparkSpinner의 OpenCode 적용만 대체 |
 | D-015 | OpenCode 2.x 계열 API 사용·CLI 지원 잔재를 제거한다 | 사용자: "V2 api가 이번에 릴리즈된 opencode v2 용이 맞는가? 맞다면 모두 제거하라." SDK `/v2/client`는 v1.19.0 공식 앱의 기존 client export라 유지하고, 별도 `client.v2` API 호출/테스트와 2.x CLI 지원은 제거 | 2026-10-14 사용자 요구·공식 v1.19.0 소스 대조 | ACTIVE | 0214 native API 비교 테스트의 현행 유지 요구 대체, 과거 연구 기록은 보존 |
+| D-016 | Claude/OpenCode 구현을 디렉터리로 분리하고 OpenCode의 1.x 의존 API는 `v1` 아래에 둔다 | adapter 구현·composer·엔진/모델·기타 하네스 전용 기능을 분리한다. 공통 기능은 공유하고 기존 UI·입력 수명·외부 계약을 유지한다 | 2026-10-14 사용자 추가 요구 | ACTIVE | 평면 파일 배치와 공통 컴포넌트의 전용 구현만 대체 |
 
 갱신 메모: 기존 결정 전부 유지. ACTIVE 결정 ↔ AC 충돌 없음. 미정 제품 결정 없음.
 
@@ -374,6 +375,45 @@ AC18 / R-18↔AT-18 (NEW): Orca의 OpenCode 경로는 기존 1.x API로 세션·
 EP-19는 7자리다. 제거 대조는 OpenCode 소유 source/tests에서 `client.v2`, `V2EventSubscribeResponse`, `SessionInputAdmitted`, `InvalidRequestError` 및 native API URL 호출의 부재를 확인한다. SDK export 경로·2.x 거부 fixture·과거 문서는 허용 예외다. 음성 검색은 기존 API 실제 요청·응답 회귀와 짝지으며 새 자동 구조 검사기는 만들지 않는다.
 
 운영 gate: 관련 Vitest, lint, 전체 typecheck, main/preload/renderer build, doc inventory, diff/trailer, 참조 clone 제외. D-015↔AC18 범위와 D-005 소유 child 정리 계약을 대조했으며 충돌 0. 기존 UI·세션 잠금·AC11 시각 인수는 이번 변경으로 승격하지 않는다.
+
+# ΔV5 — 하네스 구현 디렉터리와 OpenCode v1 경계 (READY)
+
+상속 기준: V1 + ΔV1~4, 공유 구현 `3e247837bc7f55943dab8e82e001c342f726aff0`. 사용자 추가 요구에 따른 r1.8이다. 런타임 제품 동작·공개 IPC·저장 형식은 유지한다.
+
+## Product / UX 및 범위
+
+- AC19 / R-19↔AT-19 NEW: main의 Claude/OpenCode 전용 구현을 각 디렉터리에 격리한다. OpenCode SDK import·프로토콜 매핑·CLI 시작/버전·설정 스키마/모델 해석은 `adapters/opencode/v1/`에 두고, 등록 소비자는 `adapters/opencode/index.ts`를 통해 현재 구현을 선택한다. Claude 구현은 `adapters/claude/`, 중립 포트·등록·프롬프트/도구 공통 어휘는 adapters 공통 경로를 유지한다. 실제 요청·승인·중단 및 1.x 버전 경계는 기존대로 동작한다.
+- AC20 / R-20↔AT-20 NEW: renderer는 feature 내부 `harnesses/claude/`, `harnesses/opencode/`에 composer 제어/표현·transcript 표현·우측 패널 정책·엔진 설정/모델 표시·하네스 설정의 전용 구현을 둔다. 공통 입력 controller·초안/첨부·세션 store·모달 저장/가져오기 수명·정규화 도구 본문은 공유한다. OpenCode native config의 형상에 의존하는 엔진 기본값은 `opencode/v1/` 아래에 둔다. IPC 정규 DTO만 소비하는 UI·로고·스피너는 API 버전 디렉터리에 넣지 않는다.
+- AC21 / R-21↔AT-21 NEW: import와 소스 기반 회귀·정본 문서의 경로를 함께 갱신한다. OpenCode SDK를 v1 밖에서 import하거나 하네스 구현끼리 참조하면 lint가 거부한다. 기존 layer DAG를 유지하고 하네스별 빈 wrapper에 구현을 복제하지 않는다.
+
+## 기술 설계 / §10 강제 지점
+
+| 자리 | 변경 경로 | 직접 oracle / 실패 의미 |
+|---|---|---|
+| EP-20a | main 등록/consumer → Claude 구현 | 이동한 Claude adapter query/설정/완료·승인 테스트, registry 테스트. 모듈 경로가 바뀌어도 실행 의미 보존 |
+| EP-20b | OpenCode public entry → v1 adapter/server/settings/catalog/map | 이동한 실제 SDK HTTP/SSE·server lifecycle·settings 테스트, app/chat-turn/opencode-runtime.test.ts. v1 API 외부 누출 또는 잘못된 선택 금지 |
+| EP-20c | extension 배포 및 shared Claude 기본값 → 전용 디렉터리 | harness plugin 및 settings defaults 기존 테스트. 생성 plugin·설정 값 보존 |
+| EP-21a | Composer → 하네스 제어/표현 → 공통 input | Composer.harness 및 NewChatLandingPage.harness 실제 렌더/전환/초안·첨부 보존. 전용 메뉴의 잘못된 선택·입력 remount 금지 |
+| EP-21b | transcript/StatusLine → 하네스 도구 그룹·스피너·표현 | TranscriptView.harness, StatusLine.harness, 기존 toolGroup 렌더. 두 하네스의 표시·진행·종료 보존 |
+| EP-21c | rightPanelPolicy/Tile → 하네스 정책/표현 | rightPanelTiles.harness 및 RightPanelTile.actions 테스트. 패널 가시성·행동 보존 |
+| EP-21d | 엔진 form/model → 하네스 템플릿·표시 | EngineFormModal.harness/import, EngineModelList.render, providerCatalog 테스트. 가져오기 경쟁·설정 초안·모델 이름 보존 |
+| EP-21e | HarnessSettingsTab → 하네스별 필드/저장 patch | 새 HarnessSettingsTab 렌더/저장 테스트: Claude 지침만, OpenCode 실행 파일과 지침 저장. 실제 탭과 IPC 경계 관측 |
+| EP-22a | SDK import → v1 경계 | 새 scripts/harness-boundary.test.mjs에서 실제 ESLint 설정을 호출: v1 밖 SDK import 거부, v1 안 허용 |
+| EP-22b | Claude/OpenCode 구현 → 동일 하네스 또는 공통 코드 | 같은 테스트에서 형제 구현 import 거부·공통 import 허용; 기존 전체 lint |
+| EP-22c | 이동 파일 → import/소스 기반 검사/현재 문서 | 실제 회귀·build·doc inventory. 상대 링크와 보안 예외의 정확한 새 경로 확인 |
+
+EP-20 3자리, EP-21 5자리, EP-22 3자리. 이동 목록은 구현 전 스크립트의 명시 mapping으로 기록하고 실제 import graph와 대조한다. 단순 파일 개수는 완료 근거가 아니며 각 자리의 실행 결과를 보고한다.
+
+| Pair / node | requiredness | 경로 | oracle / 적대 증거 |
+|---|---|---|---|
+| VP-35 / R-19↔AT-19 NEW | REQUIRED | EP-20a/b/c | 실제 adapter·registry·settings·plugin 기존 테스트. 행동 직접 관측; 추가 변이 미선택 |
+| VP-36 / R-20↔AT-20 NEW | REQUIRED | EP-21a~e | 위 실제 renderer 테스트 및 새 설정 저장 테스트. 행동 직접 관측; 추가 변이 미선택 |
+| VP-37 / AR-08↔IT-08 NEW | REQUIRED | EP-20b, EP-22a/b | 실제 ESLint import probe. 경계 규칙 제거 시 금지 import가 통과하는 red/원복 green 1회 |
+| VP-38 / MD-06↔UT-06 NEW | REQUIRED | EP-21d/e | 엔진 config 및 설정 필드의 실제 입력/출력 테스트. 직접 행동 oracle |
+| VP-39 / R-21↔AT-21 NEW | REQUIRED | EP-22c | lint/typecheck/build, 이동 영향 테스트, doc inventory. 경로 검사만으로 행동 통과를 대체하지 않음 |
+| V1 VP-01/04/05/06/07/08/11/18, ΔV1 VP-21~24, ΔV2 VP-25~28, ΔV3 VP-29/30, ΔV4 VP-31~34 INHERITED | REGRESSION | 이번 이동이 닿은 경로 | 기존 직접 oracle을 새 경로에서 실행. 기존 SELF_BLOCKED·최종 시각 인수·독립 검증 대기 유지 |
+
+운영 gate: 관련 Vitest(ABI 중립), lint, node/web/test typecheck, main/preload/renderer build, scripts 경계 테스트, doc inventory·diff/trailer. 새 의존성·데이터 변경·시각 재설계 없음. feature 교차 import 없이 각 feature 안에 하네스 폴더를 둔다. D-001~015와 충돌 없음. SDK가 없는 순수 UI에 API 버전 이름을 붙이지 않는 것은 공통 기능 예외의 구현 해석이다.
 
 # [구현자 기입]
 
