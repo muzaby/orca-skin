@@ -9,9 +9,9 @@
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
 | 상태 | READY |
-| V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 |
+| V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
-| 이번 V revision / 유효 V | ΔV5 / V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 |
+| 이번 V revision / 유효 V | ΔV6 / V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 |
 
 # Part I — Product & UX Contract
 
@@ -52,7 +52,10 @@ Orca는 Claude만 실행하고 composer·모델·패널이 그 기능을 전제�
 | D-015 | OpenCode 2.x 계열 API 사용·CLI 지원 잔재를 제거한다 | 사용자: "V2 api가 이번에 릴리즈된 opencode v2 용이 맞는가? 맞다면 모두 제거하라." SDK `/v2/client`는 v1.19.0 공식 앱의 기존 client export라 유지하고, 별도 `client.v2` API 호출/테스트와 2.x CLI 지원은 제거 | 2026-10-14 사용자 요구·공식 v1.19.0 소스 대조 | ACTIVE | 0214 native API 비교 테스트의 현행 유지 요구 대체, 과거 연구 기록은 보존 |
 | D-016 | Claude/OpenCode 구현을 디렉터리로 분리하고 OpenCode의 1.x 의존 API는 `v1` 아래에 둔다 | adapter 구현·composer·엔진/모델·기타 하네스 전용 기능을 분리한다. 공통 기능은 공유하고 기존 UI·입력 수명·외부 계약을 유지한다 | 2026-10-14 사용자 추가 요구 | ACTIVE | 평면 파일 배치와 공통 컴포넌트의 전용 구현만 대체 |
 
-갱신 메모: 기존 결정 전부 유지. ACTIVE 결정 ↔ AC 충돌 없음. 미정 제품 결정 없음.
+| D-017 | OpenCode 공통 계약과 현재 1.x 구현을 분리해 향후 2.x 구현을 연결할 경계를 둔다 | 사용자: "opencode는 1.x, 추후 2.x도 고려하여 계층분리". 현재 2.x 실행 지원을 추가하는 요청으로 해석하지 않는다 | 2026-10-14 사용자 추가 요구 | ACTIVE | D-015/016 보완 |
+| D-018 | 도구 호출·카드는 OpenCode 원본을 참고하고 transcript 출력 스타일을 하네스별로 분리한다 | 원본 v1.19.0의 탐색 묶음·셸 출력·파일 diff·reasoning을 참고한다. Claude 스타일, 공통 배경(D-011), 원본 도구 보존(D-007)은 유지 | 2026-10-14 사용자 추가 요구 | ACTIVE | ΔV5에서 공통 카드 스타일을 재사용한 OpenCode 경로만 대체 |
+
+갱신 메모: D-017/018 추가. D-015의 2.x 미지원과 향후 계층 확장은 양립하며 D-004/011의 Claude 스타일·배경은 유지한다. ACTIVE 결정 ↔ AC22~25 대조: 충돌 0, 미정 제품 결정 없음.
 
 ## 4. 요구 비판적 검토
 
@@ -414,6 +417,68 @@ EP-20 3자리, EP-21 5자리, EP-22 3자리. 이동 목록은 구현 전 스크�
 | V1 VP-01/04/05/06/07/08/11/18, ΔV1 VP-21~24, ΔV2 VP-25~28, ΔV3 VP-29/30, ΔV4 VP-31~34 INHERITED | REGRESSION | 이번 이동이 닿은 경로 | 기존 직접 oracle을 새 경로에서 실행. 기존 SELF_BLOCKED·최종 시각 인수·독립 검증 대기 유지 |
 
 운영 gate: 관련 Vitest(ABI 중립), lint, node/web/test typecheck, main/preload/renderer build, scripts 경계 테스트, doc inventory·diff/trailer. 새 의존성·데이터 변경·시각 재설계 없음. feature 교차 import 없이 각 feature 안에 하네스 폴더를 둔다. D-001~015와 충돌 없음. SDK가 없는 순수 UI에 API 버전 이름을 붙이지 않는 것은 공통 기능 예외의 구현 해석이다.
+
+# ΔV6 — CI 복구·버전 경계·transcript 전용 출력 (READY)
+
+## 제품 계약과 AC
+
+CI 실행 [738](https://github.com/muzaby/orca-skin/actions/runs/38540170786)의 gate job은 Test에서 3파일/8케이스가 실패했다. 삭제된 source 경로 두 종류, 랜딩 mock export 누락, OpenCode 추가 문구의 제품명 상수 미사용이 원인이다. 기존 AC21의 필수 gate 위반으로 고치며 검사를 삭제하거나 실패를 skip하지 않는다.
+
+| AC / 노드 | 관측 결과 | 경로·직접 oracle |
+|---|---|---|
+| AC22 / R-22↔AT-22 NEW | 보고된 CI 실패를 수정하고 수정 head의 CI gate가 통과한다 | error-report.registry·product-identity·agentModeLanding 테스트 + 원격 CI Test/전체 job |
+| AC23 / R-23↔AT-23 NEW | 앱은 OpenCode의 버전 중립 생성·설정 계약만 사용하고 현재 v1 구현이 실제 세션/카탈로그/종료를 처리한다 | public factory→v1→SessionRuntime 회귀. 생성자/SDK native 타입을 앱에 노출하지 않는다 |
+| AC24 / R-24↔AT-24 NEW | OpenCode 도구는 탐색 그룹, 셸 출력, 파일 diff/쓰기 카드, 작업·웹·기타 결과를 자체 스타일로 표시한다 | 실제 OpenCode ToolGroup/Card 렌더·펼침·복사·상태 테스트. 실패/중단을 성공·실행 중으로 표시하지 않음 |
+| AC25 / R-25↔AT-25 NEW | 사용자/assistant 본문, reasoning, 스트리밍, 오류/구조 출력이 하네스별 표현을 선택하고 순서·입력/결과·공통 배경을 보존한다 | TranscriptView→전용 segment, PendingAssistant→전용 text/reasoning의 실제 렌더. Claude 기존 회귀와 두 테마 시각 확인 |
+
+범위는 1.x 구현의 경계와 현재 UI다. 미래 2.x 서버/API 구현·자동 버전 전환·저장 스키마 migration·CLI 설치/업데이트는 포함하지 않는다. 실제 지원하는 1.x 데이터를 유지하며 원문 이름/입력은 펼쳐 확인할 수 있다.
+
+도구는 running→completed/failed/aborted/rejected/cancelled/not_executed 상태를 따른다. 초기 펼침은 기존 파일 편집/쓰기 유지, 탐색 묶음은 접힘, 셸·기타는 사용자가 펼치며 완료 뒤에도 펼침 상태를 보존한다. 텍스트→도구→텍스트 순서, 복사, 접근 가능한 버튼, 배율과 두 테마를 유지한다.
+
+## 조사·아키텍처
+
+원본은 저장소 밖 `orca-opencode-reference-v1.19.0`, tag v1.19.0의 SHA `733b2c627e5aec39cb33cc22373bdce33053ef2c`다. `packages/session-ui/src/components/{basic-tool,message-part}.{tsx,css}`의 BasicTool·ContextToolGroup·shell/edit/write·ReasoningPartDisplay를 읽었다. 원본은 동작/배치 참고이며 Solid 컴포넌트나 SDK native 타입을 renderer에 복제하지 않는다.
+
+| 현재 | 변경 후 책임 |
+|---|---|
+| public entry가 v1 class/server 타입을 그대로 재수출하고 bootstrap이 조립 | `opencode/implementation.ts` 중립 factory 계약 → `opencode/index.ts` 현재 선택 → `v1/index.ts` 내부 서버/adapter 조립. 앱은 `SessionAdapter`만 받음 |
+| OpenCode 행 내부에서 공통 ToolCard의 Claude 카드/registry를 재사용 | `harnesses/opencode/transcript/`가 행·카드·본문을 소유. 정규 ToolCall→중립 표시 모델, raw native metadata 해석은 `opencode/v1/` 아래 |
+| AssistantMessage/PendingAssistant가 Claude text/reasoning을 직접 렌더 | 공통은 순서·reconcile·stream 구독, `harnesses/{claude,opencode}/transcript/`는 출력 component/style. 버전 선택은 renderer OpenCode facade 한 곳 |
+| 사용자 bubble의 inline backend CSS 분기 | 공통 첨부/본문 수명 + 전용 하네스 bubble/presentation 선택 |
+
+공통 renderer 계약은 normalized MessageSegment/ToolCall을 받고 SDK를 import하지 않는다. raw metadata→파일 diff 표시 모델의 1.x 디코더만 native key를 해석한다. 다음 2.x 구현은 별도 디코더/서버 implementation을 이 중립 포트에 연결하며, 현행 1.x 파일을 공통 코드로 끌어올리지 않는다.
+
+MessageSegment 전수는 `reasoning/tools/ask/structured/text/error/compact/fork/subagent_notice`다. OpenCode는 text·reasoning·tools·error·structured를 전용 표현으로, 질문/경계/서브에이전트 의미는 기존 동작을 보존하는 공통 원자로 렌더한다. 도구 분류는 탐색(Read/Glob/Grep/List), 셸(Bash/PowerShell), 파일(Edit/Write/MultiEdit/patch), 웹(WebFetch/WebSearch), 작업(Task/Agent), 할 일(TodoWrite), 기타로 나누고 미지 도구에도 원문 폴백을 제공한다.
+
+## §10 강제 지점과 V
+
+| 자리 | 실패 의미 | 직접 oracle |
+|---|---|---|
+| EP-23a/b/c: CI source 경로·제품명·랜딩 export | 검사 누락 또는 잘못된 제품명 | 기존 실패 3파일의 전체 케이스를 재실행, 보고된 8건 직접 재현→통과 |
+| EP-24a: 앱→public factory→v1 | 잘못된 구현 생성/종료 누락 | 실제 public factory로 생성한 adapter→SessionRuntime 테스트, server lifecycle 회귀 |
+| EP-24b: import 경계 | 앱/renderer가 v1 detail 직접 참조 또는 버전 형제 참조 | 실제 ESLint 금지·허용 probe; 규칙 제거 red/원복 green |
+| EP-24c: native metadata→표시 모델 | 원문/patch 손실·다른 파일 표시 | v1 toolPresentation 순수 입력/출력: edit/write/patch·오류·손상/미지 입력 |
+| EP-25a: ToolGroup→전용 카드 | 탐색 묶음/순서/상태 오표시 | 실제 ToolGroup의 혼합 도구·탐색 구간·상태 DOM |
+| EP-25b: 카드→펼침/본문/복사 | 클릭 무반응·완료 시 닫힘·복사 불일치 | fake DOM 실제 카드 클릭/props 갱신/clipboard wrapper, shell/file/generic |
+| EP-26a: committed→하네스 segment | Claude 표현이 OpenCode로 새거나 역방향 | 실제 TranscriptView에 9종 segment·양 하네스 입력, 순서·문구·마커 관측 |
+| EP-26b: live→하네스 text/reasoning | 스트리밍 동안 다른 스타일, 종료 시 중복 | 실제 PendingAssistant/TranscriptView live store 및 완료 전이 |
+| EP-26c: user/meta→하네스 외형 | 사용자 입력/첨부/복사 소실 | UserMessage/TranscriptView의 사용자 text·첨부·meta, 배경/배율 회귀 및 시각 확인 |
+
+등록은 EP-23 3자리 + EP-24 3자리 + EP-25 2자리 + EP-26 3자리 = 11자리다.
+
+| pair | requiredness | path/자리 | oracle·선택 적대 증거 |
+|---|---|---|---|
+| VP-40 / R-22↔AT-22 | REQUIRED | EP-23a~c→CI | 기존 테스트 직접 결과 + 원격 job. 기존 검사 감도는 유지 |
+| VP-41 / AR-09↔IT-09 | REQUIRED | EP-24a/b | factory 실제 SDK 경계·ESLint probe. boundary 규칙 제거 변이만 선택 |
+| VP-42 / MD-07↔UT-07 | REQUIRED | EP-24c→EP-25 | v1 decoder의 실제 입력/출력. 직접 oracle, 변이 미선택 |
+| VP-43 / R-24↔AT-24 | REQUIRED | EP-25a/b | 도구 종류·실행 상태·펼침·복사 직접 oracle |
+| VP-44 / R-25↔AT-25 | REQUIRED | EP-26a/b/c | committed/live/user 실제 렌더와 시각. 직접 oracle |
+| VP-45 / SD-03↔ST-03 | REQUIRED | v1 message→normalized→harness transcript | 기존 mapper/history/runtime + renderer 출력의 구간별 이음매. 테스트가 mock한 구간은 닫힘에서 제외 |
+| V1 VP-05/06/07/11/18, ΔV1~5의 영향 pair | REGRESSION | 기존 서버/SDK/설정·composer/랜딩/배경/스피너·경계 | 해당 기존 테스트와 전체 운영 gate. 기존 SELF_BLOCKED·최종 시각 인수는 유지 |
+
+게이트: 전체 lint/typecheck, 실패 3파일과 변경 관련 Vitest, ABI를 보존한 전체 테스트(필요한 DB만 Electron), scripts 경계/문서/예산 검사, main/preload/renderer build, 수정 head 원격 CI. source 검사를 수정하면 그 검사가 보던 원래 실패를 다시 주입해 감도를 확인한다. 새 구조적 proxy를 발명하지 않고 직접 행동 검사를 우선한다.
+
+READY 대조: D-004/007/011/015~018 ↔ AC22~25 충돌 0. public SessionAdapter와 정규 DTO 유지, 추가 저장소·IPC·의존성 없음. 원본과 현재 코드의 경로 및 기존 실패 테스트 케이스를 직접 읽었고, 신규 decoder/renderer oracle은 위 자리별로 구현한다.
 
 # [구현자 기입]
 
