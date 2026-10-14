@@ -9,9 +9,9 @@
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
 | 상태 | READY |
-| V mode | Delta V — 기준 V1 + ΔV1 |
+| V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
-| 이번 V revision / 유효 V | ΔV1 / V1 + ΔV1 |
+| 이번 V revision / 유효 V | ΔV2 / V1 + ΔV1 + ΔV2 |
 
 # Part I — Product & UX Contract
 
@@ -45,6 +45,8 @@ Orca는 Claude만 실행하고 composer·모델·패널이 그 기능을 전제�
 | D-008 | 설정·모델 카탈로그는 하네스 범위를 갖는다 | Claude 설정을 OpenCode에 주입하지 않는다 | 사용자·코드 경계 | ACTIVE | — |
 | D-009 | native 화면을 Elements/Computed에서 조사한다 | URL 검증 또는 브라우저 재접속 요구 없음 | 사용자 | ACTIVE | 브라우저 조사 취소 |
 | D-010 | OpenCode 엔진 모달에도 Claude처럼 설정 불러오기 버튼을 배치하고 연결한다 | 선택 하네스의 전역 설정을 편집기에 채우고 기존 저장으로 확정 | 2026-10-14 추가 사용자 요구 | ACTIVE | — |
+| D-011 | OpenCode transcript 배경을 Claude와 동일하게 한다 | 본문·부모 배경·스크롤 fade를 함께 맞춘다 | 2026-10-14 추가 사용자 요구 | ACTIVE | V1의 transcript 전용 배경만 대체 |
+| D-012 | 새 대화 화면을 OpenCode 소스에 맞춰 로고→컴포저→워크스페이스·브랜치로 배치한다 | D-004에 따라 OpenCode 슬라이스만 적용. 내려받은 참조 저장소는 커밋 제외 | 2026-10-14 추가 사용자 요구 | ACTIVE | — |
 
 갱신 메모: 기존 결정 전부 유지. ACTIVE 결정 ↔ AC 충돌 없음. 미정 제품 결정 없음.
 
@@ -271,6 +273,49 @@ PRD OQ7/OQ10, TRD backend, `arch/backend/adapters.md`, `arch/frontend/rendering.
 운영 gate: 관련 Vitest(네 층), lint, 전체 typecheck, electron-vite build, doc inventory, diff whitespace, trailer 파싱. IPC 계약 문서를 같은 구현 커밋에서 갱신한다.
 
 READY 대조: D-010↔AC13/14 및 D-008의 하네스 격리 충돌 0. producer/consumer 경로의 강제 자리 EP-13 6곳·EP-14 3항목을 등록했다. 기존 저장 타입·Claude raw 읽기와 신규 원문 자동완성의 의미가 일치한다.
+
+# ΔV2 — transcript 배경과 OpenCode 새 대화 화면 (READY)
+
+상속 기준: V1 + ΔV1, 구현 `131dd85a512ee544cad2681bbe70ec9225e50630`. 이번 변경은 사용자 추가 요구이며 독립 verify 이전의 r1.5다.
+
+## Product / UX 추가 계약
+
+- 명시 요구: transcript 배경은 Claude와 같게 한다. `/new`의 OpenCode 화면은 브랜드 로고 위/컴포저 중앙/워크스페이스·브랜치 아래 순서로 배치한다.
+- 설계 해석: 현재 지원 CLI와 동일한 upstream v1.19.0을 기준으로 최대 폭 720px, 상단 시작 25.375%, 로고·컴포저·경로 행 간격 32px을 따른다. 짧은 창에서는 스크롤로 모든 제어에 접근한다.
+- 로고는 요청의 OpenCode 브랜드를 기본 해석으로 원본 워드마크를 사용한다. Orca/OpenCode 선택 질문은 선택적이며 후속 답변이 오면 반영한다. 외부 로고 출처·MIT 고지를 보존한다.
+- 기존 폴더 선택·브랜치 조회/선택·워크트리 격리·참조 경로 추가 기능은 하단 컨텍스트 행에서 유지한다. 데이터·IPC·모델 선택 정책은 변경하지 않는다.
+- Claude 랜딩과 프로젝트 랜딩은 기존 배치다. 새 대화에서 하네스를 왕복해도 작성 내용·첨부가 유지되며 첫 송신 후 기존 ChatTile 경로로 전환한다.
+
+| AC / node | 관측 가능한 기준 | 검증 수단 / 도달 경로 |
+|---|---|---|
+| AC15 / R-15↔AT-15 NEW | 두 하네스 transcript의 배경과 상하단 fade가 같은 앱 배경 토큰을 사용한다. 두 테마에서도 경계색이 이어진다 | ChatTile→TranscriptView 실제 렌더의 배경·fade 단언 및 두 테마 시각 확인 |
+| AC16 / R-16↔AT-16 NEW | OpenCode `/new`는 원본 로고·컴포저·하단 경로/브랜치 순서와 폭·간격을 따른다. 폴더/브랜치 제어가 동작하고 하네스 전환 중 입력/첨부가 유지된다 | NewChatLandingPage.harness.test.ts의 실제 페이지→Composer→컨트롤러 렌더·전환, CwdPanel의 실제 하단 컨트롤 및 기존 branch 회귀, 시각 확인 |
+
+## 조사 / 기술 설계
+
+원본은 `.tmp/opencode-upstream`의 GitHub `anomalyco/opencode` v1.19.0, SHA `733b2c627e5aec39cb33cc22373bdce33053ef2c`다. `git check-ignore`로 제외를 확인했다. 소스 위치와 관측은 [design-evidence.md](design-evidence.md)에 기록한다.
+
+- ChatTile의 부모 배경 두 자리와 fade 두 자리, TranscriptView의 배경 한 자리를 공통 `bg`로 맞춘다. 전용 본문/도구/패널 색과 전역 OpenCode 토큰은 유지한다.
+- 페이지는 기존 Composer 인스턴스 앞에 로고를 조건부 배치하고 랜딩 외형만 선택한다. Composer에는 명시적인 OpenCode 랜딩 prop을 전달해 CwdPanel을 입력 뒤 슬롯에 둔다. 기존 세션에서는 이 prop을 주지 않는다.
+- CwdPanel은 OpenCode 외형에서 중앙 정렬·flat 제어를 사용하고 BranchChip·CwdButton의 기존 동작을 재사용한다. non-Git/조회 중/격리 상태도 기존 정책이다.
+- ColumnWrap은 flush 전환 시에도 동일한 ReadingColumn 타입을 렌더한다. ReadingColumn이 외형만 바꿔 입력 컨트롤러의 로컬 초안/첨부가 remount로 초기화되지 않게 한다.
+- 새 의존성·저장 포맷·main/preload 계약 변경 없음.
+
+## V / §10 증분 강제 지점
+
+| Pair / node | requiredness | 경로 / 강제 자리 | 직접 oracle 좌표 | 적대 증거 |
+|---|---|---|---|---|
+| VP-25 / R-15↔AT-15 NEW | REQUIRED | EP-15a/b ChatTile 부모 두 곳; EP-15c/d 상하 fade; EP-15e TranscriptView 본문 | ChatTile.harness.test.ts: shares the transcript background and fades; TranscriptView.harness.test.ts: renders messages; 두 테마 화면 | 미선택: 실제 렌더 출력·시각 관측 |
+| VP-26 / R-16↔AT-16 NEW | REQUIRED | EP-16a backend→페이지 배치/로고; EP-16b 페이지→Composer 랜딩 prop; EP-16c Composer→하단 CwdPanel; EP-16d CwdPanel→폴더/브랜치 제어 | NewChatLandingPage.harness.test.ts: renders the harness landing and preserves draft and attachment state; CwdPanel.harness.test.ts: selects workspace and branch from the footer | 미선택: 실제 순서·클릭 결과 관측 |
+| VP-27 / SD-04↔ST-04 NEW | REQUIRED | EP-17a 하네스 전환→동일 페이지 자식; EP-17b flush→ReadingColumn; EP-17c 패널 이동→동일 입력 컨트롤러 | NewChatLandingPage.harness.test.ts: renders the harness landing and preserves draft and attachment state | 미선택: 왕복 후 사용자 입력/첨부 직접 관측 |
+| VP-28 / AR-05↔IT-05 NEW | REQUIRED | EP-16b/c/d 페이지→입력/컨텍스트→기존 IPC/스토어 | 같은 페이지 테스트 및 CwdPanel.harness.test.ts; 기존 BranchChip 테스트 | 미선택: 양 끝 동시 mock 없이 production 중간 경로 실행 |
+| VP-01/11 (V1 INHERITED, D-001/004) | REGRESSION | 모델 선택·공유 draft·Claude 표시 | Composer.harness.test.ts, modelSelection.test.ts, NewChatLandingPage.harness.test.ts; 기존 직접 oracle 부족 유지 | 기존 미검증 범위 승계 |
+
+변경은 조립·외형으로 새 알고리즘/모듈 불변식이 없어 MD↔UT 신규 pair는 없다. 기존 branchChipState·격리/visibility 회귀로 기능을 확인한다. 등록 강제 자리: EP-15 5자리, EP-16 4자리, EP-17 3자리. 실패 의미는 배경 경계의 다른 색, 로고/입력/경로 순서 오류, 편집 중 remount에 의한 초안 손실이다.
+
+운영 gate: 관련 Vitest, lint, 전체 typecheck, electron-vite build, doc inventory, diff whitespace, trailer 파싱, 참조 clone 제외 확인. UI 캡처는 실제 브라우저의 격리 fixture를 사용할 수 있으며 실제 사용자 세션/인증은 건드리지 않는다. AC11 최종 사용자 시각 인수와 독립 verify는 그대로 대기한다.
+
+READY 대조: D-011/012↔AC15/16, D-001/004의 전환 보존·슬라이스 제한과 충돌 없음. 12개 강제 자리와 직접 oracle을 등록했다.
 
 # [구현자 기입]
 
