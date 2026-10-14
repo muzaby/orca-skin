@@ -506,3 +506,62 @@ r1.2, 사용자 dev 부팅 실패 보고에 따른 운영 gate 복구다. 기존
 ## Review Signals
 
 r1.3, 사용자 무응답 보고에 따른 구현 결함 수정이다. r1 어댑터 단독 테스트와 mock 어댑터를 사용한 send 배선 테스트 사이의 실제 admission 상태 경계가 빠져 있었다. 원래의 직접 oracle 부족 보고를 독립 검증 통과로 바꾸지 않았다.
+
+# [구현자 기입 — r1.4 설정 불러오기]
+
+## 설계 리뷰
+
+ΔV1 구현 완료. D-010의 버튼·배선을 기존 편집기 헤더에 적용했고, D-008의 하네스 격리를 IPC 검증과 reader 선택에 유지했다. 신규 의존성·저장 포맷 변경과 설계 대비 차이는 없다.
+
+## 강제 지점 전수와 V-pair 자기확인
+
+검색: `rg -n 'importUserSettings|ImportEngineUserSettingsSchema|readUserOpenCodeSettings|cancelImport|importRevision' app/src`. production의 폼·wrapper·preload·handler·reader를 추적했다.
+
+| 강제 자리 | 직접 oracle / 관측 |
+|---|---|
+| EP-13a/f: 클릭→API, 결과→편집기 | EngineFormModal.import.test.ts: `loads selected harness into the draft and imports then submits without changing the provider` — 두 하네스 요청·편집기·제출 값 관측 |
+| EP-13b/c: wrapper→preload→invoke | preload/index.test.ts: `imports settings for the selected harness through the renderer wrapper and exposed preload` — 실제 노출 객체·하네스 payload·반환 값 |
+| EP-13d/e: 검증→handler→reader→파일 | engine.import.test.ts: `reads the selected harness global file and preserves legacy Claude callers`, `respects XDG_CONFIG_HOME without accepting renderer paths`, invalid payload 5종 — 실제 handle 검증과 임시 파일 |
+| EP-14a: 재클릭·저장 차단 2자리 | EngineFormModal.import.test.ts: `prevents duplicate imports and retries after failure` — 같은 처리기 연속 클릭은 요청 1회, 로딩 중 저장 disabled |
+| EP-14b: 하네스·공급자·본문·취소 버튼·모달 dismiss·unmount 6자리 | 같은 파일: `ignores stale results and errors after harness changes`, `discards responses after %s` — 지연 값이 새 초안을 덮지 않음 |
+| EP-14c: 성공·오류·finally 3자리 | 같은 파일: `ignores stale results and errors after harness changes` — 옛 resolve/reject 모두 무시, 현재 요청의 로딩 유지 후 정상 적용 |
+
+EP-13은 6자리, EP-14는 3항목을 11자리로 세분해 직접 관측했다. Modal 자체의 Escape/백드롭 처리는 기존 공용 컴포넌트 계약이며 이번 테스트는 폼에 전달한 dismiss 콜백부터 실행한다.
+
+VP-20~24는 위 oracle로 SELF_PASS다. VP-08/14/18의 영향 회귀는 settings-write·engine.deployment·engine.runtime-catalog·opencode-settings·기존 EngineFormModal.harness 테스트에서 통과했으며 V1의 미잠금 범위를 승격하지 않는다.
+
+## 이번 라운드 수정의 잠금
+
+직접 행동·반환 값 oracle을 사용했다. 선택 증거 0 · 인용 변이 0 · 새 구조적 oracle 0 = 잠금 표 행 0. UI 테스트는 production 컴포넌트와 API wrapper를 실행하며 React/DOM과 IPC의 외부 경계를 모형한다.
+
+## Product/UX 파생 검토
+
+불러오기는 공급자 이름을 유지하며 초안만 바꾼다. 부재·읽기 실패·IPC 실패는 본문 보존과 하네스별 오류로 표시하고 재시도할 수 있다. 잘못된 JSON도 원문을 편집할 수 있고 저장은 유효해질 때까지 비활성화된다.
+
+## 놓친 잠재 문제 + 대응
+
+기존 Claude 불러오기도 전환·편집 뒤 지연 응답에 취약해 공통 폼에서 함께 보호했다. 실제 사용자 설정 파일 내용과 인증 저장소를 읽거나 변경하지 않았고, OS 파일 테스트는 임시 디렉터리만 사용했다. JSONC 변환·프로젝트 설정 병합·외부 인증 이관은 ΔV1 비범위다.
+
+## 구현 보고
+
+| AC | 결과 | 관측 |
+|---|---|---|
+| AC13 | ✅ | UI 두 하네스 호출·원문 표시·제출, 실제 IPC 검증→파일 읽기, preload payload 보존 |
+| AC14 | ✅ | 로딩 재클릭·저장 차단, 전환/수정/닫기 이후 응답·오류 무효화, 실패 후 재시도 |
+
+증분 검산: ✅2 · ⚠️0 · ❌0 = 신규 AC 2. 기존 자기보고 11/12를 승계한 누적은 ✅13 · ⚠️1 · ❌0 = AC 14이며, 독립 검증과 AC11 최종 시각 인수는 대기한다.
+
+| 게이트 | 관측 |
+|---|---|
+| 엔진·IPC 회귀 | 12파일 89케이스 통과: settings-write, opencode-settings, claude-settings, engine.deployment, engine.runtime-catalog, features/engine, preload/index, engine.import |
+| 오류 보고 회귀 | reportSites.registry.test.ts 1파일 225케이스 통과 |
+| 타입 | 전체 node/web/test 통과. 첫 실행의 테스트 mock 타입 2건은 명시적 함수 타입으로 수정 후 재실행 |
+| 린트 | 전체 error 0, 기존 useTranscriptVirtualizer warning 1. 타입 수정한 테스트의 ESLint 재검사 오류 0 |
+| 빌드 | electron-vite build의 main/preload/renderer 산출 완료 |
+| 문서·공백 | doc inventory generated/prose/relative links 통과; git diff --check 오류 0 |
+
+타입 수정 뒤 폼 동작 14케이스를 재실행해 통과했다. 이 재실행은 89케이스에 중복 합산하지 않는다.
+
+## Review Signals
+
+r1.4는 사용자 추가 요구에 따른 ΔV1 구현이다. 설정 불러오기에서 누락됐던 하네스 선택 경계를 보완했고, 기존 V1 시각 인수·직접 oracle 부족 보고는 독립 검증에 남긴다.

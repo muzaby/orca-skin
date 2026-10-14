@@ -358,7 +358,7 @@ export interface EngineWriteResult {
   provider: string
 }
 
-// ~/.claude/settings.json 원문 조회 결과 — 파일 부재/읽기 실패면 exists=false.
+// 선택 하네스의 전역 설정 원문 조회 결과 — 파일 부재/읽기 실패면 exists=false.
 // 내용 검증은 하지 않는다(렌더러 실시간 JSON 검증이 담당).
 export interface EngineUserSettingsResult {
   exists: boolean

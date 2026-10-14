@@ -427,6 +427,11 @@ export const en: typeof ko = {
       importButton: 'Import ~/.claude/settings.json',
       importNotFound: 'Could not find ~/.claude/settings.json.',
       importFailed: 'Failed to load ~/.claude/settings.json.',
+      openCodeImportTitle:
+        'Fills the body with the global OpenCode opencode.json. Default: ~/.config/opencode/opencode.json (respects XDG_CONFIG_HOME).',
+      openCodeImportButton: 'Import opencode.json',
+      openCodeImportNotFound: 'Could not find or read the global OpenCode opencode.json.',
+      openCodeImportFailed: 'Failed to load OpenCode settings.',
       saveFailed: 'Failed to save.',
       jsonValid: '✓ Valid JSON.',
       envHint:

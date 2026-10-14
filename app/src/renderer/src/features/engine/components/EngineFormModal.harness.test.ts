@@ -38,5 +38,8 @@ describe('engine form harness selection', () => {
     expect($('select').attr('disabled')).toBeDefined()
     expect($('textarea').text()).toContain('vendor/model')
     expect($.text()).not.toContain('~/.claude/settings.json')
+    expect(
+      $('button').filter((_, element) => $(element).text().includes('opencode.json 불러오기'))
+    ).toHaveLength(1)
   })
 })

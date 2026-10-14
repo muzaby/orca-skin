@@ -1,7 +1,23 @@
 import { readFileSync } from 'node:fs'
-import type { AgentModelView } from '../../shared/ipc'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
+import type { AgentModelView, EngineUserSettingsResult } from '../../shared/ipc'
 import { isRecord } from '../../shared/obj'
 import type { HarnessSettingsLoader } from './harness-config'
+
+// 전역 설정의 원문만 읽는다. 파싱/저장은 엔진 모달의 기존 편집 흐름이 담당한다.
+export function readUserOpenCodeSettings(
+  configRoot = process.env.XDG_CONFIG_HOME || join(homedir(), '.config')
+): EngineUserSettingsResult {
+  try {
+    return {
+      exists: true,
+      settingsJson: readFileSync(join(configRoot, 'opencode', 'opencode.json'), 'utf8')
+    }
+  } catch {
+    return { exists: false, settingsJson: '' }
+  }
+}
 
 export const loadOpenCodeProviderSettings: HarnessSettingsLoader = async ({
   sourcesSettingsFile

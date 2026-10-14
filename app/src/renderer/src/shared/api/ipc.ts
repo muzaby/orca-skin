@@ -147,8 +147,8 @@ export const engineApi = {
   update: (req: UpdateEngineRequest): Promise<EngineWriteResult> => window.orca.engine.update(req),
   delete: (key: string): Promise<void> => window.orca.engine.delete(key),
   read: (key: string): Promise<EngineReadResult> => window.orca.engine.read(key),
-  importUserSettings: (): Promise<EngineUserSettingsResult> =>
-    window.orca.engine.importUserSettings()
+  importUserSettings: (engine: Backend = 'claude'): Promise<EngineUserSettingsResult> =>
+    window.orca.engine.importUserSettings(engine)
 }
 
 export const installApi = {

@@ -432,6 +432,11 @@ export const ko = {
       importButton: '~/.claude/settings.json 불러오기',
       importNotFound: '~/.claude/settings.json 을 찾을 수 없어요.',
       importFailed: '~/.claude/settings.json 을 불러오지 못했어요.',
+      openCodeImportTitle:
+        'OpenCode 전역 opencode.json의 내용으로 본문을 채웁니다. 기본 경로: ~/.config/opencode/opencode.json (XDG_CONFIG_HOME 지원).',
+      openCodeImportButton: 'opencode.json 불러오기',
+      openCodeImportNotFound: 'OpenCode 전역 opencode.json을 찾거나 읽을 수 없어요.',
+      openCodeImportFailed: 'OpenCode 설정을 불러오지 못했어요.',
       saveFailed: '저장에 실패했어요.',
       jsonValid: '✓ JSON 형식이 올바릅니다.',
       envHint:

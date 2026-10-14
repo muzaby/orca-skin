@@ -2,6 +2,7 @@ import {
   CHANNELS,
   CreateEngineSchema,
   DeleteEngineSchema,
+  ImportEngineUserSettingsSchema,
   ReadEngineSchema,
   UpdateEngineSchema,
   type EngineReadResult,
@@ -10,6 +11,7 @@ import {
 } from '../../../shared/protocol'
 import { HARNESS_IDS } from '../../../shared/harness'
 import { readUserClaudeSettings } from '../../adapters/claude-settings'
+import { readUserOpenCodeSettings } from '../../adapters/opencode-settings'
 import {
   addHarnessSettings,
   deleteHarnessSettings,
@@ -17,7 +19,7 @@ import {
   updateHarnessSettings
 } from '../../features/harnesses/settings-write'
 import type { RouterContext } from '../context'
-import { handle, handlePlain } from '../../infra/ipc/handle'
+import { handle } from '../../infra/ipc/handle'
 import { canonicalProviderKey, providerKeyOf } from '../../infra/config/provider-key'
 
 interface EngineHandlerContext extends Pick<RouterContext, 'deployExtensions'> {
@@ -84,8 +86,11 @@ export function registerEngineHandlers(ctx: EngineHandlerContext): void {
     return readHarnessSettings(req.key)
   })
 
-  // 사용자 전역 ~/.claude/settings.json 원문 — 모달 자동완성용 (무입력 read, 부재=exists:false).
-  handlePlain(CHANNELS.engineImportUserSettings, (): EngineUserSettingsResult =>
-    readUserClaudeSettings()
+  handle(
+    CHANNELS.engineImportUserSettings,
+    ImportEngineUserSettingsSchema,
+    'reject',
+    ({ engine }): EngineUserSettingsResult =>
+      engine === 'opencode' ? readUserOpenCodeSettings() : readUserClaudeSettings()
   )
 }

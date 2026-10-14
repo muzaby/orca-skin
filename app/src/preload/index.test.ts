@@ -43,6 +43,26 @@ Object.defineProperty(process, 'contextIsolated', { value: true, configurable: t
 
 await import('./index')
 
+it('imports settings for the selected harness through the renderer wrapper and exposed preload', async () => {
+  vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
+  try {
+    const { engineApi } = await import('../renderer/src/shared/api/ipc')
+    const result = { exists: true, settingsJson: '{"fixture":true}' }
+    harness.invoke.mockResolvedValue(result)
+    for (const engine of ['opencode', 'claude'] as const) {
+      expect(await engineApi.importUserSettings(engine)).toEqual(result)
+      expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.engineImportUserSettings, { engine })
+    }
+    await engineApi.importUserSettings()
+    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.engineImportUserSettings, {
+      engine: 'claude'
+    })
+  } finally {
+    harness.invoke.mockResolvedValue(undefined)
+    vi.unstubAllGlobals()
+  }
+})
+
 it('reveals logs through the renderer wrapper and exposed preload on the dedicated no-input channel', async () => {
   const api = harness.exposed.get('orca') as OrcaApi
   vi.stubGlobal('window', { orca: api })

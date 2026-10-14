@@ -1,7 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import { parseOpenCodeModels } from './opencode-settings'
+import { parseOpenCodeModels, readUserOpenCodeSettings } from './opencode-settings'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { openCodeCatalog } from './opencode-catalog'
 import type { Agent, Provider } from '@opencode-ai/sdk/v2'
+
+it('reads raw global settings including invalid JSON for editing', () => {
+  const root = mkdtempSync(join(tmpdir(), 'orca-opencode-import-'))
+  try {
+    expect(readUserOpenCodeSettings(root)).toEqual({ exists: false, settingsJson: '' })
+    mkdirSync(join(root, 'opencode'))
+    for (const raw of ['{ "model": "vendor/한글" }\n', '{broken', '']) {
+      writeFileSync(join(root, 'opencode', 'opencode.json'), raw)
+      expect(readUserOpenCodeSettings(root)).toEqual({ exists: true, settingsJson: raw })
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
 
 describe('OpenCode native model catalogs', () => {
   it('uses native provider/model IDs and filters disabled variants', () => {

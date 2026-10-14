@@ -180,8 +180,8 @@ const orca = {
     delete: (key: string): Promise<void> => ipcRenderer.invoke(CHANNELS.engineDelete, { key }),
     read: (key: string): Promise<EngineReadResult> =>
       ipcRenderer.invoke(CHANNELS.engineRead, { key }),
-    importUserSettings: (): Promise<EngineUserSettingsResult> =>
-      ipcRenderer.invoke(CHANNELS.engineImportUserSettings)
+    importUserSettings: (engine: Backend = 'claude'): Promise<EngineUserSettingsResult> =>
+      ipcRenderer.invoke(CHANNELS.engineImportUserSettings, { engine })
   },
   install: {
     start: (backend: Backend): Promise<void> =>

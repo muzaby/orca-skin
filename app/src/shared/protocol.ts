@@ -589,6 +589,11 @@ export const DeleteEngineSchema = z.object({ key: z.string().min(1) })
 
 export const ReadEngineSchema = z.object({ key: z.string().min(1) })
 
+// 무입력은 기존 Claude caller와의 호환 경로다. 파일 경로는 main만 결정한다.
+export const ImportEngineUserSettingsSchema = z
+  .object({ engine: EngineSchema })
+  .default({ engine: 'claude' })
+
 // 권한 응답 단일 스키마 (renderer → main, permissionRespond 채널). ask/plan/tool 세 종류의
 // 승인 응답을 ApprovalResolution 2분기로 통일한다. allow 는 updatedInput(ask 답변·plan 입력
 // echo)·updatedPermissions("세션 동안 허용")를 선택 동봉, deny 는 message(plan revise 피드백·

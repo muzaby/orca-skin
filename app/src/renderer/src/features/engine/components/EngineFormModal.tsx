@@ -57,18 +57,51 @@ export function EngineFormModal({
   const [importError, setImportError] = useState<string | null>(null)
   const menuAnchorRef = useRef<HTMLButtonElement>(null)
   const nameRef = useRef<HTMLInputElement>(null)
+  const importRevision = useRef(0)
+  const importPending = useRef(false)
+
+  useEffect(
+    () => () => {
+      importRevision.current += 1
+    },
+    []
+  )
 
   const isCustom = editing || engine === 'opencode' || providerOption(providerId)?.custom === true
   const jsonCheck = useMemo(() => validateSettingsJson(settingsJson), [settingsJson])
   const nameCheck = useMemo(() => validateProviderName(providerName), [providerName])
-  const canSubmit = jsonCheck.ok && nameCheck.ok && !busy
+  const canSubmit = jsonCheck.ok && nameCheck.ok && !busy && !importBusy
+  const importKeys =
+    engine === 'opencode'
+      ? ({
+          title: 'engine.form.openCodeImportTitle',
+          button: 'engine.form.openCodeImportButton',
+          notFound: 'engine.form.openCodeImportNotFound',
+          failed: 'engine.form.openCodeImportFailed'
+        } as const)
+      : ({
+          title: 'engine.form.importTitle',
+          button: 'engine.form.importButton',
+          notFound: 'engine.form.importNotFound',
+          failed: 'engine.form.importFailed'
+        } as const)
+
+  const cancelImport = (): void => {
+    importRevision.current += 1
+    importPending.current = false
+    setImportBusy(false)
+    setImportError(null)
+  }
 
   const selectedOption = providerOption(providerId)
 
   // 닫기(Esc·백드롭 클릭)는 공용 Modal 이 담당. 드롭다운이 열려 있으면 Popover 의
   // Esc 가 메뉴만 닫도록 모달 닫기는 건너뛴다.
   const requestClose = (): void => {
-    if (!menuOpen) onClose()
+    if (!menuOpen) {
+      cancelImport()
+      onClose()
+    }
   }
 
   useEffect(() => {
@@ -76,6 +109,7 @@ export function EngineFormModal({
   }, [isCustom])
 
   const pickEngine = (next: Backend): void => {
+    cancelImport()
     setEngine(next)
     setProviderId(DEFAULT_PROVIDER_ID)
     setProviderName(next === 'opencode' ? 'default' : DEFAULT_PROVIDER_ID)
@@ -91,6 +125,7 @@ export function EngineFormModal({
   const pickProvider = (id: string): void => {
     const opt = providerOption(id)
     if (!opt) return
+    cancelImport()
     setProviderId(id)
     setSettingsJson(opt.template)
     setProviderName(opt.custom ? '' : id)
@@ -98,27 +133,34 @@ export function EngineFormModal({
     setMenuOpen(false)
   }
 
-  // ~/.claude/settings.json 원문을 불러와 본문을 채운다 (자동완성).
+  // 선택한 하네스의 원문을 초안에만 적용한다. 중간 편집/전환 뒤의 응답은 버린다.
   const importUserSettings = async (): Promise<void> => {
+    if (busy || importPending.current) return
+    const revision = ++importRevision.current
+    importPending.current = true
     setImportError(null)
     setImportBusy(true)
     try {
-      const result = await engineApi.importUserSettings()
+      const result = await engineApi.importUserSettings(engine)
+      if (revision !== importRevision.current) return
       if (!result.exists) {
-        setImportError(tr('engine.form.importNotFound'))
+        setImportError(tr(importKeys.notFound))
         return
       }
       setSettingsJson(result.settingsJson)
     } catch {
-      setImportError(tr('engine.form.importFailed'))
+      if (revision === importRevision.current) setImportError(tr(importKeys.failed))
     } finally {
-      setImportBusy(false)
+      if (revision === importRevision.current) {
+        importPending.current = false
+        setImportBusy(false)
+      }
     }
   }
 
   const submit = async (): Promise<void> => {
     setSubmitError(null)
-    if (!canSubmit) return
+    if (!canSubmit || importPending.current) return
     try {
       await onSubmit({ engine, provider: providerName.trim(), settingsJson })
     } catch (e) {
@@ -251,22 +293,23 @@ export function EngineFormModal({
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[12px] font-medium text-ink2">settings.json</span>
-              {engine === 'claude' && (
-                <button
-                  type="button"
-                  onClick={() => void importUserSettings()}
-                  disabled={importBusy}
-                  title={tr('engine.form.importTitle')}
-                  className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[11.5px] font-medium text-ink2 hover:bg-sidebar hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Icon name="fileOpen" size={13} />
-                  {importBusy ? tr('common.loading') : tr('engine.form.importButton')}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => void importUserSettings()}
+                disabled={busy || importBusy}
+                title={tr(importKeys.title)}
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[11.5px] font-medium text-ink2 hover:bg-sidebar hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Icon name="fileOpen" size={13} />
+                {importBusy ? tr('common.loading') : tr(importKeys.button)}
+              </button>
             </div>
             <textarea
               value={settingsJson}
-              onChange={(e) => setSettingsJson(e.target.value)}
+              onChange={(e) => {
+                cancelImport()
+                setSettingsJson(e.target.value)
+              }}
               spellCheck={false}
               aria-label="settings.json"
               className={`min-h-[220px] resize-y rounded-xl border bg-bg p-3 font-mono text-[12px] leading-5 text-ink outline-none focus:border-border-strong ${
@@ -300,7 +343,13 @@ export function EngineFormModal({
         </div>
 
         <div className="flex justify-end gap-2 border-t border-border px-6 py-3.5">
-          <Button variant="contained" onClick={onClose}>
+          <Button
+            variant="contained"
+            onClick={() => {
+              cancelImport()
+              onClose()
+            }}
+          >
             {tr('common.cancel')}
           </Button>
           <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
