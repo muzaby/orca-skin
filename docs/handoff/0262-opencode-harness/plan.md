@@ -9,9 +9,9 @@
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
 | 상태 | READY |
-| V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 |
+| V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
-| 이번 V revision / 유효 V | ΔV3 / V1 + ΔV1 + ΔV2 + ΔV3 |
+| 이번 V revision / 유효 V | ΔV4 / V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 |
 
 # Part I — Product & UX Contract
 
@@ -49,6 +49,7 @@ Orca는 Claude만 실행하고 composer·모델·패널이 그 기능을 전제�
 | D-012 | 새 대화 화면을 OpenCode 소스에 맞춰 로고→컴포저→워크스페이스·브랜치로 배치한다 | D-004에 따라 OpenCode 슬라이스만 적용. 내려받은 참조 저장소는 커밋 제외 | 2026-10-14 추가 사용자 요구 | ACTIVE | — |
 | D-013 | 새 대화의 브랜드 로고는 OpenCode를 사용한다 | 원본 워드마크 적용 | 로고 선택 비동기 답변 | ACTIVE | ΔV2의 기본 해석 확정 |
 | D-014 | OpenCode 대화 중 스피너를 OpenCode 원본으로 바꾼다 | D-004에 따라 Claude 스피너는 유지 | 2026-10-14 추가 사용자 요구 | ACTIVE | 기존 공통 SparkSpinner의 OpenCode 적용만 대체 |
+| D-015 | OpenCode 2.x 계열 API 사용·CLI 지원 잔재를 제거한다 | 사용자: "V2 api가 이번에 릴리즈된 opencode v2 용이 맞는가? 맞다면 모두 제거하라." SDK `/v2/client`는 v1.19.0 공식 앱의 기존 client export라 유지하고, 별도 `client.v2` API 호출/테스트와 2.x CLI 지원은 제거 | 2026-10-14 사용자 요구·공식 v1.19.0 소스 대조 | ACTIVE | 0214 native API 비교 테스트의 현행 유지 요구 대체, 과거 연구 기록은 보존 |
 
 갱신 메모: 기존 결정 전부 유지. ACTIVE 결정 ↔ AC 충돌 없음. 미정 제품 결정 없음.
 
@@ -344,6 +345,35 @@ AC17 / R-17↔AT-17 (NEW): OpenCode 응답 중에는 원본의 4×4 격자 SVG �
 진행 lifecycle와 알고리즘은 그대로이므로 신규 SD/MD pair는 없다. EP-18은 5자리다. 실패 의미는 첫 응답에 Claude 스피너가 남거나, 완료 후 진행 표시가 남거나, reduced motion에서도 계속 점멸하는 것이다. 운영 gate는 관련 Vitest·lint·전체 typecheck·build·문서 inventory·diff·trailer·참조 clone 제외이며 기존 AC11 최종 인수는 대기한다.
 
 READY 대조: D-014↔AC17과 D-004의 하네스 범위 일치. 기존 spinner 정본의 공통 적용은 Claude 소비자 범위로 유지한다.
+
+# ΔV4 — OpenCode 2.x API 사용 제거와 실행 차단 (READY)
+
+상속 기준: V1 + ΔV1~3, 공유 구현 `eb203b5a1cf163eb4f68d840b2579c23cba17ad6`. 사용자 요구 변경에 따른 r1.7이다.
+
+## Product / UX 추가 계약
+
+AC18 / R-18↔AT-18 (NEW): Orca의 OpenCode 경로는 기존 1.x API로 세션·응답·승인을 처리한다. 2.x native API 호출과 비교 테스트, 2.x 전용 npm CLI 탐색 및 시작 로그 허용은 제거한다. 선택한 실행 파일이 2.x 또는 판독 불가 버전이면 서버 생성과 HTTP 요청 전에 1.x 필요 오류를 표시한다. 설치 정보는 실제 `--version`을 계속 보고하며 설치와 지원 여부를 혼동하지 않는다.
+
+`@opencode-ai/sdk@1.18.27`의 `/v2/client` export는 v1.19.0 공식 앱에서도 사용한다. `/v2` 디렉터리 이름·원본 `wordmark-v2`는 이번 제품 2.x 전용 API가 아니므로 제거하지 않는다. 외부 SDK 내부의 미사용 `client.v2` 정의를 수작업으로 지우거나 SDK를 fork하지 않으며, Orca 소유 코드의 해당 API 사용을 제거한다. 원본 연구 문서는 과거 근거로 보존하고 현재 지원 정책을 호환성 문서에 명시한다.
+
+## 기술 설계 / §10 강제 지점과 V
+
+- `opencode-sdk.test.ts`의 native API 비교 호출·타입·fixture를 제거하고 root client 및 현재 legacy client의 요청/SSE/에러 검증만 남긴다. 기존 `opencode.test.ts`가 `/session`, `/event`, `/session/:id/prompt_async` 실제 SDK 직렬화를 검증한다.
+- `OpenCodeServerPool`은 동일 실행 파일의 `--version` reader를 설치 조회·서버 생성에서 재사용한다. `execFile`에 기존 hidden/5초 제한을 유지하고 서버 시작 직전에 1.x semver를 확인한다. 실패는 acquire entry를 제거해 재시도할 수 있다.
+- 버전 조회 await 이후 shutdown을 다시 검사하여 닫힌 pool이 자식을 만들지 않게 한다. `readVersion` 포트만 테스트에서 대체하고 실제 pool/start/cleanup은 실행한다. `@opencode/cli` npm 경로와 prefix 없는 v2 시작 로그 허용은 삭제한다.
+- 설치 정보 계약·공개 IPC·데이터 포맷은 유지한다. 새 패키지나 버전 변경은 없다. 1.x의 미검증 minor 호환성을 보장하는 변경이 아니며 검증 조합은 CLI 1.19.0/SDK 1.18.27이다.
+
+| Pair / node | requiredness | 경로 / 강제 자리 | 직접 oracle | 적대 증거 |
+|---|---|---|---|---|
+| VP-31 / R-18↔AT-18 NEW | REQUIRED | EP-19a SDK 사용; EP-19b CLI 탐색; EP-19c 시작 전 버전 판정 | opencode.test.ts 실제 세션/stream/승인 wire; opencode-server.test.ts `rejects unsupported versions before spawning a server` 및 `does not discover the scoped CLI package` | 미선택: 실제 요청·spawn 결과 |
+| VP-32 / SD-05↔ST-05 NEW | REQUIRED | EP-19d 버전 조회→shutdown→spawn; EP-19e 실패→entry 제거→재시도 | opencode-server.test.ts `does not spawn after shutdown during version probing`; `retries after replacing an unsupported executable` | 미선택: 지연 promise와 실제 pool 경로 |
+| VP-33 / AR-07↔IT-07 NEW | REQUIRED | EP-19f 설치 조회→공통 version reader; EP-19g legacy 시작 로그→health | opencode-server.test.ts `reports the actual installed version`; `ignores the unprefixed startup announcement`; 기존 health/owned child lifecycle | 미선택: reader 결과·health 호출 직접 관측 |
+| VP-34 / MD-05↔UT-05 NEW | REQUIRED | EP-19c 1.x/2.x/빈 값/손상 출력 판정 | opencode-server.test.ts 위 버전 table 및 `accepts supported 1.x versions` | 미선택: 테이블의 양성/음성 결과 |
+| VP-04/05/06/18 (V1 INHERITED) | REGRESSION | 기존 서버·SDK·승인·정규화 | opencode-server, opencode-sdk, opencode, opencode-map, opencode-runtime, opencode-catalog 테스트 | 기존 직접 oracle 부족 유지 |
+
+EP-19는 7자리다. 제거 대조는 OpenCode 소유 source/tests에서 `client.v2`, `V2EventSubscribeResponse`, `SessionInputAdmitted`, `InvalidRequestError` 및 native API URL 호출의 부재를 확인한다. SDK export 경로·2.x 거부 fixture·과거 문서는 허용 예외다. 음성 검색은 기존 API 실제 요청·응답 회귀와 짝지으며 새 자동 구조 검사기는 만들지 않는다.
+
+운영 gate: 관련 Vitest, lint, 전체 typecheck, main/preload/renderer build, doc inventory, diff/trailer, 참조 clone 제외. D-015↔AC18 범위와 D-005 소유 child 정리 계약을 대조했으며 충돌 0. 기존 UI·세션 잠금·AC11 시각 인수는 이번 변경으로 승격하지 않는다.
 
 # [구현자 기입]
 
