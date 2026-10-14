@@ -423,3 +423,43 @@ SDK 오류 이후 로컬 SQLite 네이티브 모듈의 ABI 127/140 불일치가 
 ## Review Signals
 
 r1.2, 사용자 dev 부팅 실패 보고에 따른 운영 gate 복구다. 기존 build 검증은 파일 산출까지만 확인해 런타임의 ESM export 오류를 발견하지 못했다. 기존 시각 인수와 직접 oracle 부족 범위는 독립 검증에 남긴다.
+
+# [구현자 기입 — r1.3 무응답 복구]
+
+## 설계 리뷰
+
+선조치 — 사용자 대화는 `chat.turn.completed` 직후 `chat.steer.orphaned`로 끝났다. SessionRuntime의 commit 뒤 어댑터가 submitting 전용 `canSubmitInitial`을 다시 검사하는 중복 소유가 원인이며, 어댑터의 검사·commit 호출을 제거했다. ACTIVE Decision·AC·데이터 포맷은 변경하지 않았다.
+
+## 강제 지점 전수와 V-pair 자기확인
+
+수정 지점은 OpenCode `eventBatches`의 HTTP prompt 진입 1곳이다. `rg 'canSubmitInitial|commitInitialSubmission' app/src/main`으로 공통 런타임의 spawn·pushTurn 접수와 OpenCode 중복 호출을 대조했다. 새 직접 oracle은 `opencode-runtime.test.ts:delivers a reply after runtime admission for session %s`이며 실제 queue→buildTurnRequest→runtime→adapter→SDK를 실행한다.
+
+신규/기존 세션과 각 후속 턴의 응답 경계는 관측했지만, HTTP/SSE는 로컬 fixture이고 상위 handleChatSend·coordinator·history·renderer는 이 테스트에 포함하지 않는다. 기존 EP-01~12 및 VP-01~19의 직접 oracle 부족분은 유지하고 이번 결과로 SELF_PASS 범위를 늘리지 않았다.
+
+## 이번 라운드 수정의 잠금
+
+직접 회귀 — 수정 전 새 통합 테스트 4개 중 응답 2개·HTTP 오류 1개가 실패하고 접수 철회 1개는 통과했다. 수정 후 4개 모두 통과하며 첫 턴·후속 턴의 HTTP 전송과 message.completed·turn.ended를 단언한다. 선택 증거 0 · 인용 변이 0 · 새 구조적 oracle 0 = 잠금 표 행 0; 직접 행동 oracle이다.
+
+## Product/UX 파생 검토
+
+복구 확인 — 실제 CLI 1.19.0과 로컬 합성 모델에서 첫 턴·후속 턴 모두 입력 echo·응답 본문·telemetry·종료를 관측했다([호환성 기록](runtime-compatibility.md)). 접수 철회는 런타임에서 provider 호출 전에 거부하고, HTTP 거부는 echo나 가짜 응답 없이 error로 반환한다.
+
+## 놓친 잠재 문제 + 대응
+
+기존 어댑터 단독 테스트는 commit 콜백을 항상 true로 만들어 실제 큐의 submitted 상태를 재현하지 못했다. 새 테스트는 실제 큐와 요청 조립을 연결했고, 철회 거부는 올바른 소유자인 런타임에서 검증한다. 실제 모델 인증·외부 서비스 응답과 기존 시각 인수는 이번 로컬 fixture 관측 범위 밖이다.
+
+## 구현 보고
+
+대상: (r1.3 구현 — 좌표는 INDEX). r1 AC 자기보고 ✅11 · ⚠️1 · ❌0 = 12를 유지하며 이번 수정으로 미확인 AC를 올리지 않는다.
+
+| 검사 | 관측 |
+|---|---|
+| 회귀 | `vitest run opencode-runtime.test.ts opencode.test.ts session-runtime.test.ts pending-message-queue.test.ts --maxWorkers=2`: 4파일 139케이스 통과 |
+| 타입·린트 | node/web/test 진단 0; 전체 lint error 0, 기존 incompatible-library warning 1 |
+| 빌드 | electron-vite build main/preload/renderer 산출 완료 |
+| 실제 CLI | 격리 데이터·로컬 합성 모델 첫 턴/후속 턴 모두 commit 1회, 응답 본문과 turn.ended 관측 |
+| 문서·공백 | doc inventory generated/prose/relative links 통과, diff whitespace 오류 0 |
+
+## Review Signals
+
+r1.3, 사용자 무응답 보고에 따른 구현 결함 수정이다. r1 어댑터 단독 테스트와 mock 어댑터를 사용한 send 배선 테스트 사이의 실제 admission 상태 경계가 빠져 있었다. 원래의 직접 oracle 부족 보고를 독립 검증 통과로 바꾸지 않았다.

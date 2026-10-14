@@ -39,3 +39,9 @@
 `@opencode-ai/sdk/v2/client`의 `v2`는 SDK 내부 export 경로이며 npm 패키지 버전은 `1.18.27`이다. 이 export는 `import` 조건만 제공하므로 CommonJS main에 외부 의존성으로 남기면 `ERR_PACKAGE_PATH_NOT_EXPORTED`가 발생한다. `electron.vite.config.ts`의 main `build.externalizeDeps.exclude`로 SDK를 번들에 포함하며, 패키지 재설치나 CLI 버전 변경은 필요하지 않다.
 
 2026-10-14 실제 `npm run dev`에서 SDK 로딩 이후 `boot.sequence.completed`·`app.start.completed`를 확인했다. 함께 발견한 로컬 `better-sqlite3` ABI 127/140 불일치는 설치된 `@electron/rebuild`의 `--force --only better-sqlite3 --version 39.8.10`으로 복구했고, Electron의 메모리 DB 조회로 ABI 140을 확인했다.
+
+## 입력 접수와 실제 런타임 검증
+
+`SessionRuntime`이 입력을 submitted로 바꾼 뒤 OpenCode 어댑터가 `canSubmitInitial`을 다시 호출해 전송 없이 끝나는 결함을 수정했다. 입력 접수는 공통 런타임이 소유하고 어댑터는 접수된 입력을 HTTP로 전송한다. `opencode-runtime.test.ts`는 실제 PendingMessageQueue·buildTurnRequest·SessionRuntime·OpenCodeAdapter·SDK를 연결해 이 경계를 검증한다.
+
+CLI 1.19.0 + 실제 SessionRuntime + 로컬 OpenAI 호환 합성 모델로 첫 턴과 후속 턴을 확인했다. 두 턴 모두 commit 1회, `session.updated → input.echo → message.delta → message.completed → telemetry → turn.ended`를 관측했다. 저장소 내부 임시 폴더에서 실행한 앞선 검증은 저장소 탐색 중 45초 제한에 도달했으므로, 저장소 밖 격리된 임시 작업 폴더에서 재검증했고 사용자 인증·외부 모델 요청은 사용하지 않았다.

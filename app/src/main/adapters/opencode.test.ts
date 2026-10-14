@@ -122,7 +122,7 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
     vi.unstubAllGlobals()
   })
 
-  it('subscribes before admission, scopes the turn and emits each completion exactly once', async () => {
+  it('subscribes before sending, scopes the turn and leaves admission to the runtime', async () => {
     const f = fixture()
     f.onPrompt = (body) => {
       f.emit(
@@ -169,7 +169,7 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
         ]
       })
     )
-    expect(commit).toHaveBeenCalledOnce()
+    expect(commit).not.toHaveBeenCalled()
     expect(f.requests.map((req) => new URL(req.url).pathname)).toEqual([
       '/session',
       '/event',
@@ -330,12 +330,12 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
     expect(f.requests.some((req) => req.url.includes('/permission/'))).toBe(false)
   })
 
-  it('does not send after admission is withdrawn and rolls back a rejected submission', async () => {
+  it('does not send an aborted request and rolls back a rejected submission', async () => {
     const f = fixture()
     const commit = vi.fn(() => true)
     await collect(
       f.adapter,
-      request({ canSubmitInitial: () => false, commitInitialSubmission: commit })
+      request({ signal: AbortSignal.abort(), commitInitialSubmission: commit })
     )
     expect(commit).not.toHaveBeenCalled()
     expect(f.requests.some((req) => req.url.includes('prompt_async'))).toBe(false)

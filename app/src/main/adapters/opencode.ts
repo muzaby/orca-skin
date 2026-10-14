@@ -185,7 +185,7 @@ export class OpenCodeAdapter implements SessionAdapter {
           { signal, sseMaxRetryAttempts: 0 }
         )
         iterator = subscription.stream
-        // SSE is lazy. Await its connected event before admitting the prompt.
+        // SSE is lazy. Await its connected event before sending the prompt.
         const readyTimer = setTimeout(
           () => controller.abort(new Error('OpenCode 이벤트 연결 시간 초과')),
           15000
@@ -196,7 +196,8 @@ export class OpenCodeAdapter implements SessionAdapter {
         } finally {
           clearTimeout(readyTimer)
         }
-        if (req.canSubmitInitial?.() === false || req.commitInitialSubmission?.() === false) return
+        // SessionRuntime already admitted this input before consuming eventBatches.
+        // Rechecking the queue here would reject its now-submitted reservation.
         const promptId = `msg_${randomUUID().replaceAll('-', '')}`
         const promptText = [...(req.preludes ?? []).map((part) => part.text), req.text].join('\n\n')
         try {
