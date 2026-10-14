@@ -385,3 +385,41 @@ SELF_PASS 5 · SELF_BLOCKED 14 = REQUIRED 19. REGRESSION 지정 pair는 없으�
 r1 최초 구현을 이어서 완료한 턴이다. verify/FAIL 이후 재구현은 아니다. 기존 native SDK 조사와 제품 실행·UI 검증을 구분했다. 사용자 CLI 변경에 따라 호환성 조사 범위가 늘었지만 배포 결정을 변경하지 않았다.
 
 샌드박스의 사용자 디렉터리 lstat EPERM은 동일 명령을 승인된 실행으로 재시도해 해소했다. 오류 보고 전수 검사 첫 실행의 main 2건은 20초 시간 초과였고 단일 worker 재실행에서 통과했다. renderer 2건은 새 catch 누락/무시 경로였으며 수정 후 회귀 통과했다. ABI를 전환하는 npm test/prebuild는 실행하지 않았다.
+
+# [구현자 기입 — r1.2 dev 부팅 복구]
+
+## 설계 리뷰
+
+선조치 — CommonJS main이 ESM 전용 SDK export를 `require`하는 빌드 결함을 재현했다(`ERR_PACKAGE_PATH_NOT_EXPORTED`). main 번들에 SDK를 포함하도록 수정했으며 ACTIVE Decision·AC·패키지 버전은 변경하지 않았다.
+
+## 강제 지점 전수와 V-pair 자기확인
+
+운영 gate의 앱 부팅 경계가 이번 수정 대상이다. SDK 런타임 import는 `opencode.ts`의 `/v2/client`이며, mapper·catalog는 type-only import다(`rg '@opencode-ai/sdk' app/src/main`). 기존 EP-01~12 및 VP-01~19의 직접 oracle 부족분은 r1 표 그대로 남기고, 이번 부팅 관측으로 pair를 SELF_PASS로 올리지 않았다.
+
+## 이번 라운드 수정의 잠금
+
+해당 없음 — 실제 CommonJS 해석 오류 → 수정된 main 번들 → `npm run dev` 부팅 완료를 직접 관측했다. 선택 증거 0 · 인용 변이 0 · 새 구조적 oracle 0 = 잠금 표 행 0. 이번 관측은 자동 회귀 테스트 추가가 아니다.
+
+## Product/UX 파생 검토
+
+복구 확인 — 오류 상태의 개발 앱을 재시작한 뒤 `boot.sequence.completed`·`app.start.completed`와 창 `Responding=true`를 확인했다. 서버/모델 호출 및 최종 시각 인수를 새로 검증한 결과는 아니다.
+
+## 놓친 잠재 문제 + 대응
+
+SDK 오류 이후 로컬 SQLite 네이티브 모듈의 ABI 127/140 불일치가 나타났다. predev가 rebuilt를 출력했지만 실제 로드는 실패했으므로 `@electron/rebuild --force`로 복구하고 Electron 메모리 DB 조회로 ABI 140을 확인했다. ABI 보장 스크립트의 잘못된 성공 보고는 이번 SDK 번들 수정과 별개이며, 재현 근거를 [호환성 기록](runtime-compatibility.md)에 남겼다.
+
+## 구현 보고
+
+대상: (r1.2 구현 — 좌표는 INDEX). r1 AC 자기보고 ✅11 · ⚠️1 · ❌0 = 12를 유지하며 이번에는 새 AC 충족을 주장하지 않는다.
+
+| 검사 | 관측 |
+|---|---|
+| 관련 회귀 | 명령 A: 22파일 112케이스 통과, 사용자 경로 lstat EPERM 1파일 7케이스 실패. 동일 실패 파일을 승인된 실행으로 재검증해 7케이스 통과 |
+| 린트·형식 | 전체 lint error 0, 기존 incompatible-library warning 1; config ESLint·Prettier 통과 |
+| 타입 | node/web/test 3구성 진단 0 |
+| 빌드·실행 | production main/preload/renderer 산출; 실제 dev 부팅 완료 및 Electron ABI 140 메모리 DB 조회 성공 |
+| 문서·공백 | doc inventory generated/prose/relative links 통과, diff whitespace 오류 0 |
+
+## Review Signals
+
+r1.2, 사용자 dev 부팅 실패 보고에 따른 운영 gate 복구다. 기존 build 검증은 파일 산출까지만 확인해 런타임의 ESM export 오류를 발견하지 못했다. 기존 시각 인수와 직접 oracle 부족 범위는 독립 검증에 남긴다.

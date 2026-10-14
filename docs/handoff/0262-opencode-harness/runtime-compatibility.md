@@ -33,3 +33,9 @@
 사용자는 동봉 질문에 호스트 CLI를 **1.19.0으로 되돌렸음**을 답했다. 기존 승인 설계대로 호스트 CLI를 Orca가 자동 관리하며 신규 패키지·동봉 정책은 도입하지 않는다. package.json·lockfile·electron-builder는 변경하지 않았다.
 
 2.x CLI와 새 임베디드 SDK는 이번 지원 범위가 아니다. 사용자가 나중에 선택하면 API·실행 격리·lifecycle·배포 검증을 포함해 설계를 갱신해야 한다. 2.x로 생성된 임시 데이터로 1.x를 실행하면 서버가 시작 중 종료되어, 버전 호환성 검증은 새 데이터 디렉터리에서 수행했다.
+
+## Electron main 로딩
+
+`@opencode-ai/sdk/v2/client`의 `v2`는 SDK 내부 export 경로이며 npm 패키지 버전은 `1.18.27`이다. 이 export는 `import` 조건만 제공하므로 CommonJS main에 외부 의존성으로 남기면 `ERR_PACKAGE_PATH_NOT_EXPORTED`가 발생한다. `electron.vite.config.ts`의 main `build.externalizeDeps.exclude`로 SDK를 번들에 포함하며, 패키지 재설치나 CLI 버전 변경은 필요하지 않다.
+
+2026-10-14 실제 `npm run dev`에서 SDK 로딩 이후 `boot.sequence.completed`·`app.start.completed`를 확인했다. 함께 발견한 로컬 `better-sqlite3` ABI 127/140 불일치는 설치된 `@electron/rebuild`의 `--force --only better-sqlite3 --version 39.8.10`으로 복구했고, Electron의 메모리 DB 조회로 ABI 140을 확인했다.
