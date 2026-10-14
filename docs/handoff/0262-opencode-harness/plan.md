@@ -9,9 +9,9 @@
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
 | 상태 | READY |
-| V mode | Baseline V |
+| V mode | Delta V — 기준 V1 + ΔV1 |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
-| 이번 V revision / 유효 V | V1 / V1 |
+| 이번 V revision / 유효 V | ΔV1 / V1 + ΔV1 |
 
 # Part I — Product & UX Contract
 
@@ -44,6 +44,7 @@ Orca는 Claude만 실행하고 composer·모델·패널이 그 기능을 전제�
 | D-007 | 공통 도구 종류와 원본 이름·입력 모두 보존 | 기존 렌더러 재사용과 하네스 원문 확인 | OQ10 답변 | ACTIVE | — |
 | D-008 | 설정·모델 카탈로그는 하네스 범위를 갖는다 | Claude 설정을 OpenCode에 주입하지 않는다 | 사용자·코드 경계 | ACTIVE | — |
 | D-009 | native 화면을 Elements/Computed에서 조사한다 | URL 검증 또는 브라우저 재접속 요구 없음 | 사용자 | ACTIVE | 브라우저 조사 취소 |
+| D-010 | OpenCode 엔진 모달에도 Claude처럼 설정 불러오기 버튼을 배치하고 연결한다 | 선택 하네스의 전역 설정을 편집기에 채우고 기존 저장으로 확정 | 2026-10-14 추가 사용자 요구 | ACTIVE | — |
 
 갱신 메모: 기존 결정 전부 유지. ACTIVE 결정 ↔ AC 충돌 없음. 미정 제품 결정 없음.
 
@@ -228,6 +229,48 @@ legacy SSE는 durable replay를 보장하지 않는다. 현재 턴 단절은 오
 ## 18. 영향 문서
 
 PRD OQ7/OQ10, TRD backend, `arch/backend/adapters.md`, `arch/frontend/rendering.md`, IPC 계약, SDK 사양의 채택 상태, generated inventory. 디자인 실측은 본 폴더의 design-evidence.md.
+
+# ΔV1 — 엔진 모달의 하네스별 설정 불러오기 (READY)
+
+기준: V1, 공유 브랜치 `b910bc91`의 기존 설계·r1.3 구현. 사용자 추가 요구에 따른 r1.4이며 기존 검증 대기와 D-001~009를 유지한다. 새 요구를 먼저 구현하라는 사용자 지시에 따라 설계·구현을 이어간다.
+
+## Product / UX 추가 계약
+
+명시 요구: “엔진추가 모달애서 opencode의 경우에도 클로드처럼 세팅 불러오기 버튼 배치하고 배선하라”. 설정 편집기 헤더의 같은 자리에 하네스별 버튼을 제공한다. 추가·편집은 같은 폼을 쓰며 불러오기는 초안만 교체하고 자동 저장하지 않는다.
+
+| AC / R↔AT | 행동 기준 | 직접 검증 / production path |
+|---|---|---|
+| AC13 / R-13↔AT-13 (NEW) | OpenCode는 전역 opencode.json, Claude는 기존 settings.json을 불러온다. 부재·읽기 실패는 해당 하네스 오류를 표시하고 본문을 보존한다. 잘못된 JSON은 기존 편집기 검증으로 수정할 수 있다. | EngineFormModal.import.test.ts의 실제 클릭→API→폼 값, engine.import.test.ts의 IPC→실제 임시 파일, preload/index.test.ts의 wrapper→노출 API→invoke |
+| AC14 / R-14↔AT-14 (NEW) | 불러오기 중 재클릭·저장을 막고, 하네스·공급자 전환/본문 수정/닫기 뒤 도착한 결과는 적용하지 않는다. 실패 후 재시도할 수 있다. | EngineFormModal.import.test.ts의 지연 응답·거부·재시도·닫기·재클릭 |
+
+상태: 대기→로딩→성공/오류. 로딩은 버튼에 표시하며, 취소 동작은 늦은 응답을 무효화한다. 기존 공급자 이름은 불러오기로 바꾸지 않는다.
+
+범위: 전역 `opencode.json`의 원문을 불러오는 기존 JSON 편집기 자동완성. 프로젝트 설정 병합·인증 저장소 이관·JSONC 변환·CLI 실행은 포함하지 않는다. 기존 Claude도 원문 읽기이며 같은 검증/저장 경로를 따른다.
+
+## 조사 / 기술 설계
+
+- 현재 `EngineFormModal` 버튼이 Claude 조건으로 숨겨지고 `engineImportUserSettings`는 무입력으로 Claude reader만 호출한다. `rg 'importUserSettings|engineImportUserSettings' app/src`로 폼·renderer API·preload·handler의 네 실행 자리를 확인했다.
+- OpenCode 공식 [설정 문서](https://opencode.ai/docs/config/#global)는 전역 `~/.config/opencode/opencode.json`을 지정한다. main reader는 `XDG_CONFIG_HOME`이 있으면 해당 config root를 사용하고 그렇지 않으면 홈의 `.config`를 쓴다. renderer는 파일 경로를 지정할 수 없다.
+- `ImportEngineUserSettingsSchema = { engine: EngineSchema }`, 구형 무입력은 Claude로 정규화한다. API/preload는 선택 engine을 전달하고 handler는 검증 후 하네스별 reader를 호출한다. 반환 DTO와 저장 포맷은 유지한다.
+- OpenCode reader는 raw UTF-8 반환, 부재/읽기 실패는 `exists:false`다. 내용과 비밀은 로그에 남기지 않는다. 신규 패키지·DB 변경은 없다.
+- 폼은 요청 세대 ref를 사용한다. 전환·수정·닫기·unmount가 세대를 증가시키며 완료/오류/finally 모두 현재 세대에서만 반영한다. 저장 busy 동안 불러오기도 비활성화한다.
+
+## V / §10 증분 강제 지점
+
+| Pair / node | requiredness | 경로 / 강제 자리 | 직접 oracle 좌표 | 적대 증거 |
+|---|---|---|---|---|
+| VP-20 / R-13↔AT-13 NEW | REQUIRED | EP-13a 폼 버튼→API; EP-13b wrapper→preload; EP-13c preload→invoke; EP-13d schema→handler; EP-13e reader→파일→반환; EP-13f 결과→편집기 | EngineFormModal.import.test.ts: loads selected harness into the draft; preload/index.test.ts: imports settings for the selected harness; engine.import.test.ts: reads the selected harness global file; opencode-settings.test.ts: reads raw global settings | 미선택: 값·행동 직접 관측 |
+| VP-21 / R-14↔AT-14 NEW | REQUIRED | EP-14a 재클릭/저장 차단; EP-14b 전환/수정/닫기/unmount 무효화; EP-14c 성공·오류·finally 세대 검사 | EngineFormModal.import.test.ts: ignores stale results and errors; prevents duplicate imports and retries after failure | 미선택: 지연 promise 직접 관측 |
+| VP-22 / SD-03↔ST-03 NEW | REQUIRED | 불러오기→편집→저장 및 전환·오류; EP-13a/f, EP-14a/b/c | EngineFormModal.import.test.ts: imports then submits without changing the provider | 미선택: 제출 payload 관측 |
+| VP-23 / AR-04↔IT-04 NEW | REQUIRED | renderer→preload→검증 handler→reader; EP-13b/c/d/e | preload/index.test.ts + engine.import.test.ts | 미선택: 경계의 실제 진입 |
+| VP-24 / MD-03↔UT-03 NEW | REQUIRED | 전역 경로/UTF-8/부재 및 schema; EP-13d/e | opencode-settings.test.ts + engine.import.test.ts | 미선택: 파일/반환 값 관측 |
+| VP-08/14/18 (V1 INHERITED) | REGRESSION | 기존 엔진 CRUD·모델 파서·폼 고정 하네스 | settings-write.test.ts, opencode-settings.test.ts, EngineFormModal.harness.test.ts, engine.deployment.test.ts, engine.runtime-catalog.test.ts | 기존 미잠금 범위 승계; 전체 PASS로 승격하지 않음 |
+
+실패 의미: EP-13의 하네스 값이 소실되면 Claude 설정이 OpenCode 폼에 들어가며, EP-14가 누락되면 늦은 응답이 새 초안을 덮는다. 변경 없는 V1 pair는 이번 ΔV의 실행 범위 밖이며 기존 보고의 미검증 범위도 그대로 남긴다.
+
+운영 gate: 관련 Vitest(네 층), lint, 전체 typecheck, electron-vite build, doc inventory, diff whitespace, trailer 파싱. IPC 계약 문서를 같은 구현 커밋에서 갱신한다.
+
+READY 대조: D-010↔AC13/14 및 D-008의 하네스 격리 충돌 0. producer/consumer 경로의 강제 자리 EP-13 6곳·EP-14 3항목을 등록했다. 기존 저장 타입·Claude raw 읽기와 신규 원문 자동완성의 의미가 일치한다.
 
 # [구현자 기입]
 
