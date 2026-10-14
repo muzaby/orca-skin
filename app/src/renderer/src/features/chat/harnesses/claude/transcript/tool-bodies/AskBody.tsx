@@ -1,4 +1,4 @@
-import type { ToolCall } from '../../../reducer/chatReducer'
+import type { ToolCall } from '../../../../reducer/chatReducer'
 
 // AskUserQuestion 카드 본문 — 입력(JSON 와이어)을 pretty 아닌 compact plain text 로 그대로 출력.
 // (읽기 좋은 질문/답변 대화는 트랜스크립트의 AskExchange 가 담당.)

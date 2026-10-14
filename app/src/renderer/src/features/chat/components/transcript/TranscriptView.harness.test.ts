@@ -128,6 +128,7 @@ describe('OpenCode transcript presentation', () => {
     expect($('[data-slot="collapsible-trigger"]').attr('aria-expanded')).toBe('true')
     expect($('details pre').text()).toContain('filePath')
     expect($('details pre').text()).toContain('oldString')
-    expect($('[data-component="tool-trigger"]').text()).toContain('edit')
+    expect($('[data-component="tool-trigger"]').text()).toContain('편집')
+    expect($('[data-component="tool-trigger"] [title="edit"]')).toHaveLength(1)
   })
 })

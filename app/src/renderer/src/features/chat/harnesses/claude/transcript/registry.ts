@@ -1,15 +1,15 @@
 // ToolRendererRegistry — 도구 본문 렌더링을 도구 이름 switch 대신 시맨틱 RenderableKind 로 해소한다
 // (rendering.md §1.6). 새 도구/엔진은 도구이름 분기를 늘리는 대신 renderer 를 register 한다.
 // match 는 ToolCall(= tool_call+tool_result 파트 페어의 렌더 view) 기준 — 이름뿐 아니라 result
-// shape 도 검사할 수 있다(§1.6 "이벤트 타입이 아니라 의미로 분류"). OpenCode 도구도 같은 kind 로
-// 매핑된다(seam).
+// shape 도 검사할 수 있다(§1.6 "이벤트 타입이 아니라 의미로 분류"). Claude 전용 표현이며
+// OpenCode는 자체 view decoder와 카드 본문을 사용한다.
 //
 // 매칭 로직(resolve)은 순수 함수라 단위 테스트 대상. Body 는 JSX 를 반환하는 컴포넌트 참조.
 
-import type { ToolCall } from '../../reducer/chatReducer'
-import { FILE_EDIT_TOOLS } from '../../lib/toolMeta'
-import { isAgentTaskName } from '../../lib/parts'
-import { isTaskListToolName } from '../../../../../../shared/task-tool'
+import type { ToolCall } from '../../../reducer/chatReducer'
+import { FILE_EDIT_TOOLS } from '../../../lib/toolMeta'
+import { isAgentTaskName } from '../../../lib/parts'
+import { isTaskListToolName } from '../../../../../../../shared/task-tool'
 import { BashBody } from './tool-bodies/BashBody'
 import { DiffBody } from './tool-bodies/DiffBody'
 import { FileBody } from './tool-bodies/FileBody'
@@ -17,7 +17,7 @@ import { AskBody } from './tool-bodies/AskBody'
 import { AgentTaskBody } from './tool-bodies/AgentTaskBody'
 import { TaskToolBody } from './tool-bodies/TaskToolBody'
 import { KeyValueBody } from './tool-bodies/KeyValueBody'
-import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
+import type { AgentTranscriptPresentation } from '../../../lib/agentPresentation'
 
 // 렌더 카드의 시맨틱 종류 (rendering.md §1.6 정본 taxonomy). 도구 이름이 아니라 "무엇을
 // 보여주는가" 로 분류한다. 본 레지스트리는 *도구 본문*(tool_call 파트)만 다루므로 그중

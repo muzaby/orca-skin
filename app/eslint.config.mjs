@@ -266,6 +266,12 @@ export default defineConfig(
   // OpenCode SDK와 CLI 프로토콜은 v1 구현에만 둔다. 제품 공통 UI/포트는 SDK를 import하지 않는다.
   {
     files: ['src/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.ts', '**/*.test.tsx', '**/*.testfixture.ts'],
+    plugins: { harness: harnessBoundary },
+    rules: { 'harness/version-boundary': 'error' }
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
     ignores: ['src/main/adapters/opencode/v1/**'],
     plugins: { harness: harnessBoundary },
     rules: {

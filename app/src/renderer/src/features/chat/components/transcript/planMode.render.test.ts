@@ -35,7 +35,7 @@ import type {
 import { chatReducer, initialChatState, type ChatState } from '../../reducer/chatReducer'
 import { messageSegments, partsToolCalls } from '../../lib/parts'
 import { agentUiPolicy } from '../../lib/agentPresentation'
-import { ToolCard } from './ToolCard'
+import { ToolCard } from '../../harnesses/claude/transcript/ToolCard'
 import { WorkToolBody } from './WorkToolBody'
 
 const roots: string[] = []

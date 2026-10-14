@@ -1044,3 +1044,86 @@ V1 VP-01/04/08/11의 기존 SELF_BLOCKED·최종 시각 인수는 유지한다. 
 ## Review Signals
 
 r1.8은 사용자 추가 요구 ΔV5이며 verify 실패 뒤 재구현이 아니다. 파일 이동에서 import 외의 문자열과 source-based 검사도 영향을 받는 것을 실제 실패로 확인했다. 전용 구현을 복제하지 않고 레이어 내부로 옮겼으며 입력·저장 수명을 공통 경로에 유지했다. 독립 검증·시각 인수·기존 직접 oracle 한계는 유지한다.
+
+
+# [구현자 기입 — r1.9 CI 복구·버전 경계·transcript 분리]
+
+## 설계 리뷰
+
+ΔV6 코드 구현 완료. CI 738의 실패를 로컬에서 같은 3파일/8케이스로 재현한 뒤 수정했다. 테스트를 삭제하거나 기대 조건을 완화하지 않았다. 제품명은 PRODUCT_DISPLAY_NAME, 소스 검사 경로는 이동된 구현, 랜딩 mock은 실제 public export를 사용한다.
+
+OpenCode public factory가 SessionAdapter를 반환하고 구체 server/adapter 조립은 v1에 둔다. renderer의 native metadata decoder도 v1에 두고, 버전 중립 view를 전용 카드에 전달한다. Claude의 카드·레지스트리·도구 본문·reasoning·오류·구조화 결과를 Claude transcript 디렉터리로 이동했다. 새 의존성·IPC·저장 포맷·2.x 실행 지원은 추가하지 않았다. PLAN_GAP은 발견하지 않았다.
+
+## 강제 지점 전수와 V-pair 자기확인
+
+| 자리 | 직접 oracle / 관측 |
+|---|---|
+| EP-23a | main error-report.registry.test.ts의 M16 및 renderer reportSites.registry.test.ts의 AskBody 경로·원본 변이 검사 통과 |
+| EP-23b | product-identity.test.ts의 제품명·plugin 경로 검사 통과 |
+| EP-23c | agentModeLanding.render.test.ts의 public export 포함 랜딩 3케이스 통과 |
+| EP-24a | app/chat-turn/opencode-runtime.test.ts의 public factory→SessionRuntime→실제 SDK HTTP/SSE 첫 턴/후속 턴 통과 |
+| EP-24b | scripts/harness-boundary.test.mjs: 앱·중립 계약·UI의 직접 버전 접근 및 버전 간 접근 거부, public facade·동일 버전 허용 |
+| EP-24c | opencode/v1/toolPresentation.test.ts: native 종류·실제 filediff·patch files·normalized history·unknown·안전 URL·ANSI·todo 해석 통과 |
+| EP-25a | ToolCard.interaction.test.ts의 탐색 순서/실패 그룹, AssistantSegment.render.test.ts의 task/web/todo/unknown 본문과 중단/거부/취소/미실행 상태 통과 |
+| EP-25b | ToolCard.interaction.test.ts의 pending shell 열기→완료 후 열림 유지→현재 출력 복사, Edit 사용자 접기 유지 통과 |
+| EP-26a | AssistantSegment.render.test.ts의 모든 persisted segment kind 순서·비어 있지 않은 출력, reducer→reload의 실제 결과 diff/원본 입력 보존 통과 |
+| EP-26b | 같은 테스트의 두 하네스 확정/라이브 text·reasoning과 기존 streaming/store 회귀 통과 |
+| EP-26c | 같은 테스트의 사용자 bubble·copy/time 단일 행·OpenCode fork 숨김, TranscriptView.harness.test.ts의 공통 bg-bg·스피너/종료 경로 통과 |
+
+이번 경로 EP-23 3/3 · EP-24 3/3 · EP-25 2/2 · EP-26 3/3 = 11/11. VP-41~45 SELF_PASS. VP-45는 mapper·history·renderer/reload의 분절된 직접 증거이며 외부 제공자 인증 E2E로 확대하지 않는다. VP-40은 로컬 복구를 확인했으며 새 head의 원격 CI 결과까지 SELF_BLOCKED로 둔다.
+
+기존 V1 VP-01/04/08/11 SELF_BLOCKED와 AC11 최종 시각 인수는 유지한다. 전체 회귀의 adapter/server/map/settings·history·composer·엔진/설정·패널·스피너·배경 경로로 ΔV1~5의 이번 영향 범위를 재확인했다.
+
+## 이번 라운드 수정의 잠금
+
+| 변이 자리 | 종류 | 관측 |
+|---|---|---|
+| version-boundary off / app→v1 | VP-41 선택 증거 | 정상 금지 진단, off에서 같은 oracle red |
+| version-boundary off / 중립 implementation→v1 | VP-41 선택 증거 | 정상 금지 진단, off에서 같은 oracle red |
+| version-boundary off / main v1→v2 | VP-41 선택 증거 | 정상 금지 진단, off에서 같은 oracle red |
+| version-boundary off / renderer ToolCard→v1 | VP-41 선택 증거 | 정상 금지 진단, off에서 같은 oracle red |
+| version-boundary off / renderer v1→v2 | VP-41 선택 증거 | 정상 금지 진단, off에서 같은 oracle red |
+| M16 source 경로의 reporting 삭제 | 수정한 기존 구조 oracle | error-report.registry.test.ts의 detects removal 원본 검사 재통과 |
+| AskBody source 경로의 forbidden reporting 삽입 | 수정한 기존 구조 oracle | reportSites.registry.test.ts의 detects forbidden reporting 원본 검사 재통과 |
+
+선택 증거 5 · 인용 변이 0 · 수정 구조 oracle 2 = 표 행 7. version 규칙 정상 진단 5/5, off 0/5로 검출력 상실을 관측했으며 production 파일은 변이하지 않았다. 실제 ESLint의 import/re-export/dynamic import/require/타입 import 검사도 통과했다. 나머지는 직접 출력·동작 oracle이다.
+
+## Product/UX 파생 검토
+
+연속 탐색만 묶어 도구 순서를 유지하고, 결과 도착이 사용자가 닫은 카드를 열지 않는다. 실패·중단·취소·거부·미실행은 완료 문구로 표시하지 않는다. 셸은 실행 중에도 펼칠 수 있고 복사는 현재 명령/출력을 사용한다. 파일 metadata는 실제 결과가 입력 예측보다 우선한다. 원본 이름/입력은 접기 영역에 보존하고, unknown은 결과나 입력을 표시한다. 사용자·대기 버블과 메타는 각 하네스 스타일을 선택하고 공통 첨부·복사·시간·큐 수명은 유지한다.
+
+공식 v1.19.0 basic-tool/message-part/apply-patch-file 소스를 참조했다. 임시 preview는 실제 React 컴포넌트 SSR과 production CSS로 만들었지만, Edge browser connector 미연결·내장 browser attach timeout 후 Windows Computer Use도 URL 정책 확인 불가로 중단됐다. 새 화면의 시각 확인을 완료로 주장하지 않는다. 원본 clone과 preview는 커밋에 포함하지 않는다.
+
+## 놓친 잠재 문제 + 대응
+
+- 전체 검사에서 추가 이동한 AskBody를 읽는 renderer 오류 레지스트리의 이전 경로를 발견했다. 같은 불변식으로 새 경로를 적용하고 해당 3실패와 기존 변이 검사를 재통과시켰다.
+- Windows 경로를 POSIX resolve하면 drive 앞에 cwd가 붙어 public facade를 오탐했다. native path.resolve 후 slash를 정규화하고 금지/허용 양쪽 probe를 재통과시켰다.
+- 탐색 그룹 분류가 큰 도구 입력을 반복 직렬화하지 않도록 종류 해석만 별도로 호출한다. 코드 diff는 펼쳤을 때 계산하며 읽기 거터/줄 좌표는 공통 DiffTable을 사용한다.
+- 전체 테스트의 Electron fork worker가 종료 지연을 반복해 이번 테스트 트리만 종료하고 threads로 재실행했다. 시간대 변경과 node 실행 파일 복제 테스트는 Electron 특성 때문에 실패했고 CI와 같은 Node에서 재통과했다. SQLite ABI는 변경하지 않았다.
+- 스크립트 ABI 검사는 sandbox의 사용자 폴더 lstat EPERM으로 실패했다. 정상 파일 권한에서 같은 13케이스를 재실행해 통과했다. 제품 코드로 권한 문제를 우회하지 않았다.
+
+## 구현 보고
+
+| AC | 결과 | 관측 |
+|---|---|---|
+| AC22 | ⚠️ | 기존 CI 8실패 수정·직접 재검증 완료, 새 head 원격 CI 실행 대기 |
+| AC23 | ✅ | 중립 factory/view 계약과 v1 실제 구현, public runtime·금지/허용 import·변이 검사 |
+| AC24 | ✅ | 전용 탐색/셸/파일/작업/할 일/웹/unknown 본문, 상태·접기 유지·복사 직접 테스트 |
+| AC25 | ✅ | 하네스별 committed/live/user/meta 출력, 모든 segment kind와 history reload 테스트 |
+
+증분 ✅3 · ⚠️1 · ❌0 = 4. 이전 ✅20 · ⚠️1에 더한 누적은 ✅23 · ⚠️2 · ❌0 = AC 25. AC11 시각 인수와 AC22 원격 CI 관측이 대기한다.
+
+| 게이트 | 관측 |
+|---|---|
+| CI 실패 복구 + public factory | 초기 5파일 125케이스 통과, 최종 관련 경로 8파일 153케이스 통과 |
+| 전체 Vitest | Electron threads 687파일 중 683파일/6848케이스 통과, 1파일/1케이스 skip. 실패 3파일/5케이스는 위 경로 수정 및 Node 재검증 3파일 248케이스로 해소 |
+| 추가 본문·상태 | 후속 AssistantSegment.render 1파일 13케이스 통과. 위 집합과 중복 합산하지 않음 |
+| scripts | 전체 138케이스 중 130 통과, sandbox EPERM 8건은 같은 ABI 스위트 13케이스 재실행 통과. 최종 harness-boundary 4케이스 통과 |
+| 타입·lint | node/web/test 통과. 전체 lint 오류 0, 기존 useTranscriptVirtualizer 경고 1. 최종 테스트 추가 후 test typecheck 및 변경 파일 lint 재확인 |
+| build | main/preload/renderer 생성 완료. 기존 SubAgentTileContent 혼합 import 경고 유지 |
+| 운영 | 문서 inventory/prose/links, migration sync/append-only, test budgets, diff whitespace 통과 |
+| 원격 CI | push 후 관측을 아래에 추가한다 |
+
+## Review Signals
+
+r1.9는 사용자 CI 실패와 추가 구조/표현 요구에 대한 ΔV6 구현 턴이다. 앞선 제한 범위 회귀가 source-path 검사와 랜딩 mock 누락을 놓쳤다. 이번에는 원격 실패를 먼저 재현하고 전체 회귀를 수행해 새로 이동한 경로의 같은 결함도 닫았다. 독립 검증·시각 인수·이전 V1 증거 한계는 유지한다.

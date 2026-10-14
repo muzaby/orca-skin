@@ -15,7 +15,7 @@ import { isAgentTaskName } from '../../lib/parts'
 import { BackgroundModelLabel } from './BackgroundModelLabel'
 import { BackgroundTaskGroup } from './BackgroundTaskGroup'
 import { InlineSubagentDetail } from '../transcript/InlineSubagentDetail'
-import { ToolCard } from '../transcript/ToolCard'
+import { ToolCard } from '../../harnesses/claude/transcript/ToolCard'
 import { agentUiPolicy } from '../../lib/agentPresentation'
 import { useChatSession } from '../../store/chatStore'
 import {

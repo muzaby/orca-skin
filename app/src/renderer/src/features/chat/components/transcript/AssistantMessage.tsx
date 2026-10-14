@@ -1,16 +1,8 @@
+import { ClaudeAssistantSegment } from '../../harnesses/claude/transcript/AssistantSegment'
+import { OpenCodeAssistantSegment } from '../../harnesses/opencode/transcript/AssistantSegment'
 import { harnessSurfaces } from '../../harnesses/presentation'
 import { memo, useRef } from 'react'
-import { Markdown } from '../../../../shared/ui/markdown/Markdown'
 import { useI18n } from '../../../../shared/i18n'
-import { ToolGroup } from './ToolGroup'
-import { WorkToolTimeline } from './WorkToolTimeline'
-import { AskExchange } from './AskExchange'
-import { ReasoningBlock } from './ReasoningBlock'
-import { ErrorCard } from './ErrorCard'
-import { StructuredOutputCard } from './StructuredOutputCard'
-import { CompactBoundaryMarker } from './CompactBoundaryMarker'
-import { ForkBoundaryMarker } from './ForkBoundaryMarker'
-import { SubagentNoticeRow } from './SubagentNoticeRow'
 import { messageSegments, reconcileSegments, type MessageSegment } from '../../lib/parts'
 import type { Message } from '../../reducer/chatReducer'
 import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
@@ -42,7 +34,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   prevRef.current = segments
   return (
     <div
-      className={`flex flex-col gap-[var(--chat-item-gap)] text-[calc(14px*var(--transcript-text-scale,1))] ${harnessSurfaces(transcriptPolicy.surface === 'opencode').message}`}
+      className={`flex flex-col ${transcriptPolicy.surface === 'opencode' ? 'gap-5' : 'gap-[var(--chat-item-gap)]'} text-[calc(14px*var(--transcript-text-scale,1))] ${harnessSurfaces(transcriptPolicy.surface === 'opencode').message}`}
     >
       {segments.map((segment, index) => (
         <AssistantSegment key={index} segment={segment} transcriptPolicy={transcriptPolicy} />
@@ -56,50 +48,13 @@ export const AssistantMessage = memo(function AssistantMessage({
   )
 })
 
-// Work의 도구 행만 전용 표현을 사용한다. 질문·오류·서브에이전트 계약은 함께 유지한다.
-export const AssistantSegment = memo(function AssistantSegment({
-  segment: seg,
-  transcriptPolicy
-}: {
+export const AssistantSegment = memo(function AssistantSegment(props: {
   segment: MessageSegment
   transcriptPolicy: AgentTranscriptPresentation
 }): React.JSX.Element {
-  switch (seg.kind) {
-    case 'reasoning':
-      return <ReasoningBlock items={seg.items} />
-    case 'tools':
-      return transcriptPolicy.turnProjection === 'work-activity' ? (
-        <WorkToolTimeline calls={seg.calls} transcriptPolicy={transcriptPolicy} />
-      ) : (
-        <ToolGroup calls={seg.calls} transcriptPolicy={transcriptPolicy} />
-      )
-    case 'ask':
-      return <AskExchange call={seg.call} />
-    case 'structured':
-      return <StructuredOutputCard value={seg.value} />
-    case 'text':
-      return <Markdown source={seg.text} />
-    case 'error':
-      return <ErrorCard error={seg.error} />
-    case 'compact':
-      return (
-        <CompactBoundaryMarker
-          trigger={seg.trigger}
-          preTokens={seg.preTokens}
-          postTokens={seg.postTokens}
-        />
-      )
-    case 'fork':
-      return <ForkBoundaryMarker />
-    case 'subagent_notice':
-      return (
-        <SubagentNoticeRow
-          toolRunId={seg.toolRunId}
-          status={seg.status}
-          durationMs={seg.durationMs}
-          summary={seg.summary}
-          transcriptPolicy={transcriptPolicy}
-        />
-      )
-  }
+  return props.transcriptPolicy.surface === 'opencode' ? (
+    <OpenCodeAssistantSegment {...props} />
+  ) : (
+    <ClaudeAssistantSegment {...props} />
+  )
 })

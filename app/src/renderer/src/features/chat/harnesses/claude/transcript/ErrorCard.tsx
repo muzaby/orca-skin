@@ -1,6 +1,6 @@
-import { Icon } from '../../../../shared/ui/Icon'
-import { useI18n } from '../../../../shared/i18n'
-import { errorCategoryKey } from '../../lib/errorLabels'
+import { Icon } from '../../../../../shared/ui/Icon'
+import { useI18n } from '../../../../../shared/i18n/index'
+import { errorCategoryKey } from '../../../lib/errorLabels'
 
 interface ErrorCardProps {
   // error 파트 payload — 보통 ClassifiedError({ category, message, ... }) 이나 unknown 으로 방어.

@@ -1,7 +1,7 @@
 import { memo, useState } from 'react'
-import { Icon } from '../../../../shared/ui/Icon'
-import { CopyIconButton } from '../../../../shared/ui/CopyIconButton'
-import { useI18n, type MessageKey } from '../../../../shared/i18n'
+import { Icon } from '../../../../../shared/ui/Icon'
+import { CopyIconButton } from '../../../../../shared/ui/CopyIconButton'
+import { useI18n, type MessageKey } from '../../../../../shared/i18n/index'
 import {
   FILE_TOOLS,
   VERB_KEY,
@@ -10,14 +10,14 @@ import {
   toolDescription,
   toolDiffStat,
   toolVerbCategory
-} from '../../lib/toolMeta'
-import { isNonExecutionOutcome, toolRunOutcome, type ToolRunOutcome } from '../../lib/parts'
-import { stringify } from '../../format'
+} from '../../../lib/toolMeta'
+import { isNonExecutionOutcome, toolRunOutcome, type ToolRunOutcome } from '../../../lib/parts'
+import { stringify } from '../../../format'
 import { toolRendererRegistry } from './registry'
-import type { ToolCall } from '../../reducer/chatReducer'
-import { AgentTaskRow } from './AgentTaskRow'
-import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
-import { ForegroundShellActions } from './ForegroundShellActions'
+import type { ToolCall } from '../../../reducer/chatReducer'
+import { AgentTaskRow } from '../../../components/transcript/AgentTaskRow'
+import type { AgentTranscriptPresentation } from '../../../lib/agentPresentation'
+import { ForegroundShellActions } from '../../../components/transcript/ForegroundShellActions'
 
 const OUTCOME_VERB: Record<ToolRunOutcome, MessageKey | null> = {
   running: null,

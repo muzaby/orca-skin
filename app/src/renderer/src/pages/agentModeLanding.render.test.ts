@@ -24,7 +24,8 @@ vi.mock('react-router-dom', () => ({
 }))
 
 // 페이지의 실제 배치를 본다. feature 내부 수명/상호작용은 native 인수의 별도 범위다.
-vi.mock('../features/chat', () => ({
+vi.mock('../features/chat', async () => ({
+  harnessSurfaces: (await import('../features/chat/harnesses/presentation')).harnessSurfaces,
   useChatSession: (select: (state: typeof fixture.session) => unknown) => select(fixture.session),
   useChatBusy: () => fixture.session.inflight,
   useUsageForTelemetryProvider: () => null,

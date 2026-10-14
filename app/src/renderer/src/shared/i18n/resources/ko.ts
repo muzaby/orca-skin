@@ -420,8 +420,7 @@ export const ko = {
     },
     form: {
       harness: '하네스',
-      openCodeHint:
-        'OpenCode 기본 설정 JSON입니다. <c>provider</c>에 모델 공급자와 인증을 구성하세요. Orca가 별도 로컬 서버를 자동 관리합니다.',
+      openCodeHint: `OpenCode 기본 설정 JSON입니다. <c>provider</c>에 모델 공급자와 인증을 구성하세요. ${PRODUCT_DISPLAY_NAME}가 별도 로컬 서버를 자동 관리합니다.`,
       titleEdit: '엔진 설정 편집',
       titleAdd: '엔진 추가',
       provider: '공급자',
@@ -591,6 +590,19 @@ export const ko = {
   },
   chat: {
     opencode: {
+      explorationIncomplete: '탐색 종료 · 미완료',
+      fileDiff: '파일 변경 내용',
+      tool: {
+        read: '읽기',
+        search: '검색',
+        list: '목록',
+        shell: '셸',
+        edit: '편집',
+        write: '쓰기',
+        web: '웹',
+        task: '작업',
+        todo: '할 일'
+      },
       originalTool: '원본 도구 입력',
       explorationDone: '탐색 완료',
       explorationRunning: '탐색 중',
@@ -1216,8 +1228,7 @@ export const ko = {
     harness: {
       title: '하네스',
       description: '하네스별 설정은 서로 독립적으로 저장되며 다음 실행부터 적용됩니다.',
-      managedServer:
-        'Orca가 OpenCode 로컬 서버를 자동으로 시작하고 종료합니다. Code 모드에서 사용할 수 있습니다.',
+      managedServer: `${PRODUCT_DISPLAY_NAME}가 OpenCode 로컬 서버를 자동으로 시작하고 종료합니다. Code 모드에서 사용할 수 있습니다.`,
       instructions: '하네스 지침',
       instructionsHint: '이 하네스의 대화에만 추가되는 지침입니다.',
       instructionsPlaceholder: '예: 변경한 파일과 검증 결과를 함께 설명하세요.',

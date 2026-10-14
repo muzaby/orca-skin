@@ -19,8 +19,7 @@ import { parseAgentKind } from '../../shared/agent-kind'
 import type { TurnContext } from '../contracts/turn'
 import { AdapterRegistry } from '../adapters/registry'
 import {
-  OpenCodeAdapter,
-  OpenCodeServerPool,
+  createOpenCodeAdapter,
   loadOpenCodeProviderSettings,
   parseOpenCodeModels
 } from '../adapters/opencode'
@@ -156,14 +155,11 @@ export class Bootstrap {
   readonly settings = new SettingsStore(app.getVersion())
   readonly mcp = new McpStore(this.settings)
   private readonly registry = new AdapterRegistry([
-    new OpenCodeAdapter(
-      new OpenCodeServerPool({
-        dataDirectory: join(app.getPath('userData'), 'opencode'),
-        preferences: () => this.settings.getAll().harnesses?.opencode,
-        fetchImpl: netFetch
-      }),
-      netFetch
-    )
+    createOpenCodeAdapter({
+      dataDirectory: join(app.getPath('userData'), 'opencode'),
+      preferences: () => this.settings.getAll().harnesses?.opencode,
+      fetchImpl: netFetch
+    })
   ])
   // 부팅 시 1회 스캔하여 메모리에 캐시. fs.watch hot-reload 는 본 PR 범위 밖 (재시작).
   private skillsCache: SkillInfo[] = []

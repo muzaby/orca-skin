@@ -1,6 +1,6 @@
-import { CodeBlock } from '../../../../shared/ui/markdown/CodeBlock'
-import { useI18n } from '../../../../shared/i18n'
-import { stringify } from '../../format'
+import { CodeBlock } from '../../../../../shared/ui/markdown/CodeBlock'
+import { useI18n } from '../../../../../shared/i18n/index'
+import { stringify } from '../../../format'
 
 interface StructuredOutputCardProps {
   // structured_output 파트의 value(JSON Schema 결과). 형식은 unknown.

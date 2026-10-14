@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { transcriptAppearance } from '../../harnesses/presentation'
 import { chatActions, useChatSession, type PendingSteerState } from '../../store/chatStore'
 import { useI18n } from '../../../../shared/i18n'
 import { UserBubbleText } from '../UserBubbleText'
@@ -18,6 +19,7 @@ export const PendingSteerTurn = memo(function PendingSteerTurn({
   onRestoreDraft
 }: PendingSteerTurnProps): React.JSX.Element | null {
   const { tr } = useI18n()
+  const openCode = useChatSession((s) => s.backend === 'opencode')
   const activityForeground = useChatSession((s) => s.activityForeground)
   if (items.length === 0) return null
   return (
@@ -54,7 +56,7 @@ export const PendingSteerTurn = memo(function PendingSteerTurn({
             )}
             <UserBubbleText
               data-state={item.submitted ? 'submitted-steer' : 'pending-steer'}
-              className="rounded-r6 bg-bubble-user px-p7 py-p5 text-body italic text-ink3"
+              className={transcriptAppearance(openCode).pendingBubble}
               collapseKey={`steer:${item.id}`}
             >
               {item.text}

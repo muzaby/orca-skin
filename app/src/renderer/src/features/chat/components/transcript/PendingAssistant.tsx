@@ -1,7 +1,8 @@
+import { OpenCodeText, OpenCodeReasoning } from '../../harnesses/opencode/transcript/Text'
 import { harnessSurfaces } from '../../harnesses/presentation'
 import { useMemo } from 'react'
 import { StreamingMarkdown } from '../markdown/StreamingMarkdown'
-import { ReasoningBlock } from './ReasoningBlock'
+import { ReasoningBlock } from '../../harnesses/claude/transcript/ReasoningBlock'
 import { StatusLine } from '../StatusLine'
 import {
   chatActions,
@@ -29,24 +30,28 @@ export function PendingAssistant({
     <div
       className={`flex flex-col gap-2.5 text-[calc(14px*var(--transcript-text-scale,1))] ${harnessSurfaces(openCode).message}`}
     >
-      <LiveReasoning />
-      <LiveText />
+      <LiveReasoning openCode={openCode} />
+      <LiveText openCode={openCode} />
       <RetryStatus />
       {showStatus && <PendingAssistantStatus />}
     </div>
   )
 }
 
-function LiveReasoning(): React.JSX.Element | null {
+function LiveReasoning({ openCode }: { openCode: boolean }): React.JSX.Element | null {
   const reasoning = useLiveReasoning()
   if (reasoning === '') return null
-  return <ReasoningBlock items={[{ text: reasoning }]} defaultOpen streaming />
+  return openCode ? (
+    <OpenCodeReasoning items={[{ text: reasoning }]} streaming />
+  ) : (
+    <ReasoningBlock items={[{ text: reasoning }]} defaultOpen streaming />
+  )
 }
 
-function LiveText(): React.JSX.Element | null {
+function LiveText({ openCode }: { openCode: boolean }): React.JSX.Element | null {
   const text = useLiveText()
   if (text === '') return null
-  return <StreamingMarkdown source={text} />
+  return openCode ? <OpenCodeText source={text} streaming /> : <StreamingMarkdown source={text} />
 }
 
 export function PendingAssistantStatus(): React.JSX.Element {

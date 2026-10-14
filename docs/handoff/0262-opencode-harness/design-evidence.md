@@ -50,3 +50,16 @@
 `OpenCodeSpinner`에 원본 도형·타이밍과 MIT 고지를 이식했다. 색은 기존 OpenCode 테마 토큰을 쓰고 감속 모션에는 정적 격자를 제공한다. 기존 상태 문구와 진행 여부 판단은 유지한다.
 
 실제 StatusLine의 SSR 출력과 production 빌드 CSS를 사용하는 로컬 임시 페이지를 Computer Use로 열었다. white/dark에서 18×18px, rgb(111,111,111)/rgb(154,155,160), 숨겨진 모서리와 서로 다른 위상·밝기 변화를 관측했다. 감속 모션 utility가 빌드 CSS에 포함되는 것은 확인했으며 OS 감속 모션 설정 변경은 수행하지 않았다. 새 모델 요청 없이 외형을 확인한 것으로, 설치 앱 전체 대화 E2E를 대체하지 않는다.
+
+
+## transcript 도구·본문 소스 조사 (2026-10-14, ΔV6)
+
+같은 저장소 밖 v1.19.0 참조의 \packages/session-ui/src/components/\에서 basic-tool.tsx/css, message-part.tsx/css, apply-patch-file.ts를 읽었다. 원본 코드 복사 대신 React 컴포넌트와 기존 Orca 정규화 파트로 동작을 구현했다.
+
+| 원본 | 관측 | 적용 |
+|---|---|---|
+| [basic-tool.tsx](https://github.com/anomalyco/opencode/blob/733b2c627e5aec39cb33cc22373bdce33053ef2c/packages/session-ui/src/components/basic-tool.tsx) | 제목·부제·인자·chevron, 도구별 접기, 진행 상태 | OpenCode 전용 ToolCard, 결과 갱신에도 사용자의 펼침 상태 유지 |
+| [message-part.tsx](https://github.com/anomalyco/opencode/blob/733b2c627e5aec39cb33cc22373bdce33053ef2c/packages/session-ui/src/components/message-part.tsx) | 연속 read/glob/grep/list 그룹, shell 명령·출력 복사, 파일 accordion/diff, task 설명, inline reasoning | 연속 탐색 그룹과 전용 도구 본문, 접지 않는 reasoning, 라이브/확정 본문 스타일 |
+| [apply-patch-file.ts](https://github.com/anomalyco/opencode/blob/733b2c627e5aec39cb33cc22373bdce33053ef2c/packages/session-ui/src/components/apply-patch-file.ts) | metadata.files의 filePath/relativePath·before/after·patch/diff | v1 decoder에서 파일 view로 해석; 공통 unified diff 좌표·표로 표시 |
+
+도구 상태는 정규화된 outcome을 사용한다. 실패·중단·거부·미실행을 성공으로 바꾸지 않으며, 원본 도구명/입력은 별도 접기 영역에 남긴다. transcript 배경은 사용자 결정에 따라 Claude와 같은 bg 토큰이다. 원본의 프로젝트 전용 네비게이션은 실제 Orca 동작이 없는 버튼으로 복제하지 않았다.

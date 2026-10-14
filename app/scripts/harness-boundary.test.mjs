@@ -8,7 +8,9 @@ const forbiddenSdk = [
   "export { createOpencodeClient } from '@opencode-ai/sdk/v2/client'",
   "export * from '@opencode-ai/sdk'",
   "void import('@opencode-ai/sdk/v2/client')",
-  "require('@opencode-ai/sdk/v2/client')"
+  "require('@opencode-ai/sdk/v2/client')",
+  "export type SDK = import('@opencode-ai/sdk/v2/client').OpencodeClient",
+  "import sdk = require('@opencode-ai/sdk/v2/client'); void sdk"
 ]
 test('OpenCode SDK imports stay inside v1, including re-exports and dynamic access', async () => {
   for (const source of forbiddenSdk) {
@@ -61,7 +63,10 @@ test('harness implementations cannot import their sibling implementation', async
 })
 test('common ports and same-harness version selection remain allowed', async () => {
   for (const [filePath, source] of [
-    ['src/main/adapters/opencode/index.ts', "export { OpenCodeAdapter } from './v1/adapter'"],
+    [
+      'src/main/adapters/opencode/index.ts',
+      "import { implementation } from './v1'; void implementation"
+    ],
     [
       'src/main/adapters/opencode/v1/adapter.ts',
       "import type { SessionAdapter } from '../../types'; export type { SessionAdapter }"
@@ -80,5 +85,52 @@ test('common ports and same-harness version selection remain allowed', async () 
       ),
       []
     )
+  }
+})
+
+test('native version imports require the facade and cannot cross version trees', async () => {
+  for (const [filePath, target] of [
+    ['src/main/app/bootstrap.ts', '../adapters/opencode/v1/adapter'],
+    ['src/main/adapters/opencode/implementation.ts', './v1/adapter'],
+    ['src/main/adapters/opencode/v1/adapter.ts', '../v2/adapter'],
+    [
+      'src/renderer/src/features/chat/harnesses/opencode/transcript/ToolCard.tsx',
+      '../v1/toolPresentation'
+    ],
+    [
+      'src/renderer/src/features/chat/harnesses/opencode/v1/toolPresentation.ts',
+      '../v2/toolPresentation'
+    ]
+  ]) {
+    for (const source of [
+      `import '${target}'`,
+      `export * from '${target}'`,
+      `void import('${target}')`,
+      `require('${target}')`
+    ]) {
+      const [result] = await eslint.lintText(source, { filePath })
+      assert.ok(
+        result.messages.some((m) => m.ruleId === 'harness/version-boundary'),
+        `${filePath}: ${source}`
+      )
+    }
+  }
+  for (const [filePath, source] of [
+    [
+      'src/main/app/bootstrap.ts',
+      "import {createOpenCodeAdapter} from '../adapters/opencode'; void createOpenCodeAdapter"
+    ],
+    [
+      'src/main/adapters/opencode/index.ts',
+      "import {implementation} from './v1'; void implementation"
+    ],
+    ['src/main/adapters/opencode/v1/adapter.ts', "import './map'"],
+    [
+      'src/renderer/src/features/chat/harnesses/opencode/toolPresentation.ts',
+      "export {describeTool} from './v1/toolPresentation'"
+    ]
+  ]) {
+    const [result] = await eslint.lintText(source, { filePath })
+    assert.equal(result.messages.filter((m) => m.ruleId === 'harness/version-boundary').length, 0)
   }
 })

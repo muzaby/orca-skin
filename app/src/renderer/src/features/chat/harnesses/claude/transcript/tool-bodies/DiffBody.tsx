@@ -1,13 +1,13 @@
 import { useMemo } from 'react'
-import { stringify } from '../../../format'
-import { DiffTable } from '../../DiffTable'
-import { buildDiffLines, type DiffLine } from '../../../lib/diffLines'
-import { patchLinesToDiffLines } from '../../../lib/diffPatchLines'
+import { stringify } from '../../../../format'
+import { DiffTable } from '../../../../components/DiffTable'
+import { buildDiffLines, type DiffLine } from '../../../../lib/diffLines'
+import { patchLinesToDiffLines } from '../../../../lib/diffPatchLines'
 import {
   fileEditPatchLines,
   readFileEditStructuredPatch
-} from '../../../../../../../shared/file-edit-tool'
-import type { ToolCall } from '../../../reducer/chatReducer'
+} from '../../../../../../../../shared/file-edit-tool'
+import type { ToolCall } from '../../../../reducer/chatReducer'
 
 // 편집 도구(Write/Edit/MultiEdit)의 본문. **줄 파생과 줄 렌더는 갖지 않는다** — diff 타일과 같은
 // 표를 그려야 하므로 `lib/diffLines`·`lib/diffPatchLines`·`components/DiffTable` 이 소유한다

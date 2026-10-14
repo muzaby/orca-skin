@@ -2,6 +2,7 @@ import { Button } from '../../../../shared/ui/Button'
 import { CopyIconButton } from '../../../../shared/ui/CopyIconButton'
 import { formatTimeFull, formatTimeShort, useI18n } from '../../../../shared/i18n'
 import { chatActions, useChatSession } from '../../store/chatStore'
+import { transcriptAppearance } from '../../harnesses/presentation'
 
 interface MessageMetaProps {
   text: string
@@ -22,9 +23,10 @@ export function MessageMeta({
     (s) => s.sessionId != null && !s.loadingSession && s.backend !== 'opencode'
   )
   const { tr, locale } = useI18n()
+  const openCode = useChatSession((s) => s.backend === 'opencode')
   return (
     <div
-      className={`mt-1 flex items-center gap-1 text-t6 opacity-0 transition-opacity duration-200 group-hover/msg:opacity-100 focus-within:opacity-100 ${
+      className={`mt-1 flex items-center gap-1 ${transcriptAppearance(openCode).meta} ${
         align === 'right' ? 'justify-end' : 'justify-start'
       }`}
     >

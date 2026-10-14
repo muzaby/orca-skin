@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { toolRendererRegistry } from './registry'
 import { TaskToolBody } from './tool-bodies/TaskToolBody'
-import { TASK_LIST_TOOL_NAMES, TASK_TOOL_NAMES } from '../../../../../../shared/task-tool'
-import type { ToolCall } from '../../reducer/chatReducer'
+import { TASK_LIST_TOOL_NAMES, TASK_TOOL_NAMES } from '../../../../../../../shared/task-tool'
+import type { ToolCall } from '../../../reducer/chatReducer'
 
 const call = (name: string, result?: ToolCall['result']): ToolCall => ({
   toolUseId: 't',

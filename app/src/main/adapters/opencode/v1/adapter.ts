@@ -12,7 +12,7 @@ import { isRecord } from '../../../../shared/obj'
 import { makeClassifiedError } from '../../../infra/errors'
 import type { CompleteRequest, LiveTurn, ProviderMessageBatch, SessionAdapter } from '../../types'
 import type { TurnRequest } from '../../turn'
-import { OpenCodeServerPool } from './server'
+import type { OpenCodeServer } from '../implementation'
 import { OPENCODE_DESCRIPTOR } from './descriptor'
 import { OpenCodeEventMapper, normalizeOpenCodeTool } from './map'
 import { openCodeCatalog } from './catalog'
@@ -24,7 +24,7 @@ export class OpenCodeAdapter implements SessionAdapter {
   >()
   readonly id = 'opencode' as const
   constructor(
-    private readonly servers: OpenCodeServerPool,
+    private readonly servers: OpenCodeServer,
     private readonly fetchImpl: typeof fetch
   ) {}
   agentSpawnEnv(): Record<string, never> {
@@ -33,7 +33,7 @@ export class OpenCodeAdapter implements SessionAdapter {
   describe(): typeof OPENCODE_DESCRIPTOR {
     return OPENCODE_DESCRIPTOR
   }
-  isInstalled(): ReturnType<OpenCodeServerPool['installed']> {
+  isInstalled(): ReturnType<OpenCodeServer['installed']> {
     return this.servers.installed()
   }
   async *install(): AsyncIterable<{ step: string; error?: string; done?: boolean }> {

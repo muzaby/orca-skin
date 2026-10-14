@@ -9,7 +9,7 @@ import {
 import type { WorkToolPayload } from '../../lib/workToolPresentation'
 import type { ToolCall } from '../../reducer/chatReducer'
 import { isTaskListToolName } from '../../../../../../shared/task-tool'
-import { TaskToolBody } from './tool-bodies/TaskToolBody'
+import { TaskToolBody } from '../../harnesses/claude/transcript/tool-bodies/TaskToolBody'
 
 function Payload({
   payload,

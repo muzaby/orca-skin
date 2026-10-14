@@ -148,7 +148,7 @@ describe('표시명 (EP-04)', () => {
         '`${PRODUCT_DISPLAY_NAME} 스킬 sources 안의 항목만 제거할 수 있습니다.`'
       ],
       [
-        ['src', 'main', 'features', 'extensions', 'harness-plugins', 'claude.ts'],
+        ['src', 'main', 'features', 'extensions', 'harness-plugins', 'claude', 'plugin.ts'],
         '`${PRODUCT_DISPLAY_NAME}에서 구성된 skill 및 mcp`'
       ]
     ]
@@ -264,7 +264,7 @@ describe('내부 저장 이름 (EP-03)', () => {
   }
 
   it('플러그인 디렉토리 이름과 스킬 네임스페이스가 슬러그다 (D-015)', () => {
-    const source = read('src', 'main', 'adapters', 'claude-plugin.ts')
+    const source = read('src', 'main', 'adapters', 'claude', 'plugin.ts')
     expect(source).toContain('export const ORCA_PLUGIN_NAME = PRODUCT_SLUG')
     // sourceKind enum 은 코드 식별자라 불변이다 (D-012).
     expect(source).toContain("skill.sourceKind === 'orca'")

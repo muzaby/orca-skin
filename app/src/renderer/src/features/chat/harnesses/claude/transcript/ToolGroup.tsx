@@ -1,7 +1,7 @@
 import { memo, useState } from 'react'
 import { Icon } from '../../../../../shared/ui/Icon'
 import { useI18n } from '../../../../../shared/i18n'
-import { ToolCard } from '../../../components/transcript/ToolCard'
+import { ToolCard } from './ToolCard'
 import {
   UNIT_KEY,
   VERB_KEY,

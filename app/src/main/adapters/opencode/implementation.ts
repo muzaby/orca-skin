@@ -1,0 +1,31 @@
+import type { AgentModelView, EngineUserSettingsResult } from '../../../shared/ipc'
+import type { HarnessPreferences } from '../../../shared/harness'
+import type { HarnessSettingsLoader } from '../harness-config'
+import type { SessionAdapter } from '../types'
+
+// 앱이 소유하는 수명/전송 포트. SDK client와 버전별 설정 형상은 구현에서만 해석한다.
+export interface OpenCodeServer {
+  acquire(
+    config?: Record<string, unknown>,
+    env?: Record<string, string>
+  ): Promise<{
+    url: string
+    headers: Record<string, string>
+  }>
+  installed(): Promise<{ installed: boolean; binPath?: string; version?: string }>
+  close(): void
+}
+
+export interface OpenCodeRuntimeOptions {
+  dataDirectory: string
+  preferences: () => HarnessPreferences | undefined
+  fetchImpl: typeof fetch
+  server?: OpenCodeServer
+}
+
+export interface OpenCodeImplementation {
+  createAdapter: (options: OpenCodeRuntimeOptions) => SessionAdapter
+  loadSettings: HarnessSettingsLoader
+  parseModels: (config: Record<string, unknown>) => AgentModelView[]
+  readUserSettings: (configRoot?: string) => EngineUserSettingsResult
+}

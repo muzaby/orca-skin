@@ -164,7 +164,7 @@ export const sites: Site[] = [
     disposition: 'CONSUMED'
   },
   {
-    file: 'features/chat/components/transcript/tool-bodies/AskBody.tsx',
+    file: 'features/chat/harnesses/claude/transcript/tool-bodies/AskBody.tsx',
     ordinal: 0,
     line: 9,
     disposition: 'EXCLUDE'

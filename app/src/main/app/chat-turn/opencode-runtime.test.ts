@@ -2,8 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { WebContents } from 'electron'
 import type { NormalizedEvent } from '../../../shared/ipc'
 import type { TurnContext } from '../../contracts/turn'
-import { OpenCodeAdapter } from '../../adapters/opencode'
-import type { OpenCodeServerPool } from '../../adapters/opencode'
+import { createOpenCodeAdapter, type OpenCodeServer } from '../../adapters/opencode'
 import {
   assistantMessage,
   jsonResponse,
@@ -64,11 +63,20 @@ function fixture(): { runtime: SessionRuntime; requests: Request[]; rejectPrompt
     if (path.endsWith('/abort')) return jsonResponse(true)
     throw new Error(`Unexpected request: ${request.method} ${path}`)
   }
-  const servers = {
-    acquire: async () => ({ url: 'http://opencode.test', headers: {} })
-  } as unknown as OpenCodeServerPool
+  const server: OpenCodeServer = {
+    acquire: async () => ({ url: 'http://opencode.test', headers: {} }),
+    installed: async () => ({ installed: true, version: '1.19.0' }),
+    close: () => {}
+  }
   return {
-    runtime: new SessionRuntime(new OpenCodeAdapter(servers, fetchImpl)),
+    runtime: new SessionRuntime(
+      createOpenCodeAdapter({
+        dataDirectory: 'unused',
+        preferences: () => undefined,
+        fetchImpl,
+        server
+      })
+    ),
     requests,
     rejectPrompt: () => {
       rejected = true

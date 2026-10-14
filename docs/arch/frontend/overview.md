@@ -55,7 +55,7 @@
 | Composer `@` 경로·Plugin 자동완성 | Phase 2++ | ✅ 완료 | `MentionAutocomplete` + `useMentionAutocomplete` |
 | Markdown 렌더링 (react-markdown + GFM) | Phase 2 | ✅ 완료 | `shared/ui/markdown/Markdown.tsx` (features/chat 에는 StreamingMarkdown 만 잔류) |
 | Shiki 코드 블록 (shiki 3테마 + 11언어) | Phase 2 | ✅ 완료 | `shared/ui/markdown/CodeBlock.tsx` |
-| ToolCard 렌더링 (input/output 토글) | Phase 2 | ✅ 완료 | `features/chat/components/transcript/ToolCard.tsx` |
+| ToolCard 렌더링 (input/output 토글) | Phase 2 | ✅ 완료 | `features/chat/harnesses/claude/transcript/ToolCard.tsx` · `features/chat/harnesses/opencode/transcript/ToolCard.tsx` |
 | AuthExpiredModal | Phase 2 | ✅ 완료 | `features/backend/components/AuthExpiredModal.tsx` — `error / auth.expired` 이벤트 트리거 |
 | InstallerDialog | Phase 2 | ✅ 완료 | `features/backend/components/InstallerDialog.tsx` — claude-code 는 SDK 자동 처리로 즉시 done |
 | Tweaks (theme/대화 텍스트 크기·너비/sidebar) + electron-store 영속화 | Phase 2+ → 0256 | ✅ 완료 | `shared/theme/TweakProvider` — 컨트롤 UI 는 설정 모달 일반 탭(`features/settings/components/GeneralTab.tsx` — 테마·글꼴·언어·알림·대화 텍스트 크기·너비, 0256)과 dev 전용 `features/debug/components/DebugPanel.tsx`. 테마는 white/dark 2종 |
@@ -83,7 +83,7 @@
 | 네트워크 단절 배너 | Future | ❌ 미구현 | — |
 | ARIA / 스크린리더 audit | Future | 🚧 부분 적용 | 체계적 audit TBD |
 | i18n | Phase 4 | ✅ 완료 (0096/0097) | `shared/i18n/` — i18next + react-i18next 리소스 번들. 언어 전환은 사이드바 사용자 버튼 플라이아웃 |
-| **ToolRendererRegistry (semantic kind)** | 스테이지 C1 | ✅ 구현 | `features/chat/components/transcript/registry.ts` — RenderableKind taxonomy + registry, 미지 도구는 `generic` fallback. rendering.md §1.6 |
+| **ToolRendererRegistry (semantic kind)** | 스테이지 C1 | ✅ 구현 | `features/chat/harnesses/claude/transcript/registry.ts` — Claude 도구 본문. OpenCode는 전용 view decoder와 카드 선택. rendering.md §1.6 |
 | **승인 UI (plan · tool · ask) + PermissionModeController 연동** | 스테이지 C2 | ✅ 승인 3종 구현 · 단일 카드 일반화 미착수 | `ApprovalCard`(plan) + `ToolApprovalBody`·`AskUserQuestionCard`(additive). ux-domains.md §1.6 |
 | **StructuredOutput / Streaming lifecycle** | Phase 4 / Future | ✅ StructuredOutputCard·reasoning 라이브 스트리밍 구현 · 📐 lifecycle 정규화(dedup/재연결/절단) 미착수 | rendering.md §1.7·§1.8 |
 | **부팅 오케스트레이션 (BootScreen)** | Phase 4 | ✅ 완료 (0077) | `app/boot/` — bootStore + steps + `orca:boot:report` 진단 |

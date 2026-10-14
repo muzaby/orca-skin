@@ -415,8 +415,7 @@ export const en: typeof ko = {
     },
     form: {
       harness: 'Harness',
-      openCodeHint:
-        'Native OpenCode configuration JSON. Configure model providers and authentication under <c>provider</c>. Orca manages a separate local server automatically.',
+      openCodeHint: `Native OpenCode configuration JSON. Configure model providers and authentication under <c>provider</c>. ${PRODUCT_DISPLAY_NAME} manages a separate local server automatically.`,
       titleEdit: 'Edit engine settings',
       titleAdd: 'Add engine',
       provider: 'Provider',
@@ -586,6 +585,19 @@ export const en: typeof ko = {
   },
   chat: {
     opencode: {
+      explorationIncomplete: 'Exploration ended · incomplete',
+      fileDiff: 'File changes',
+      tool: {
+        read: 'Read',
+        search: 'Search',
+        list: 'List',
+        shell: 'Shell',
+        edit: 'Edit',
+        write: 'Write',
+        web: 'Web',
+        task: 'Task',
+        todo: 'Todo'
+      },
       originalTool: 'Original tool input',
       explorationDone: 'Exploration complete',
       explorationRunning: 'Exploring',
@@ -1209,8 +1221,7 @@ export const en: typeof ko = {
     harness: {
       title: 'Harnesses',
       description: 'Harness settings are saved independently and apply to the next run.',
-      managedServer:
-        'Orca starts and stops the local OpenCode server automatically. Available in Code mode.',
+      managedServer: `${PRODUCT_DISPLAY_NAME} starts and stops the local OpenCode server automatically. Available in Code mode.`,
       instructions: 'Harness instructions',
       instructionsHint: 'Additional instructions for conversations using this harness.',
       instructionsPlaceholder: 'For example: Explain changed files and validation results.',

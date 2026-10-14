@@ -1,5 +1,5 @@
-import { stringify } from '../../../format'
-import type { ToolCall } from '../../../reducer/chatReducer'
+import { stringify } from '../../../../format'
+import type { ToolCall } from '../../../../reducer/chatReducer'
 
 // Bash/PowerShell 본문 — 명령과 출력을 분리 렌더(Claude Code 양식). 명령 앞 '$' 는
 // select-none 으로 선택/복사에서 제외. 복사는 ToolCard 헤더 버튼이 담당.

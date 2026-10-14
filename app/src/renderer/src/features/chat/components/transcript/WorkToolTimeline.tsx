@@ -6,7 +6,7 @@ import { workToolPresentation } from '../../lib/workToolPresentation'
 import { NON_EXECUTION_LABEL } from '../../lib/toolMeta'
 import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
 import type { ToolCall } from '../../reducer/chatReducer'
-import { ToolCard } from './ToolCard'
+import { ToolCard } from '../../harnesses/claude/transcript/ToolCard'
 import { WorkToolBody } from './WorkToolBody'
 
 export const WorkToolRow = memo(function WorkToolRow({

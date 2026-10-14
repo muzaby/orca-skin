@@ -5,6 +5,7 @@ import type { Message } from '../../reducer/chatReducer'
 import { UserDiffRequirements } from './UserDiffRequirements'
 import { useI18n } from '../../../../shared/i18n'
 import { Icon } from '../../../../shared/ui/Icon'
+import { transcriptAppearance } from '../../harnesses/presentation'
 
 interface UserMessageProps {
   message: Message
@@ -51,7 +52,7 @@ export function UserMessage({ message, openCode = false }: UserMessageProps): Re
       )}
       {text && (
         <UserBubbleText
-          className={`max-w-[80%] ${openCode ? 'rounded-[10px] border border-oc-border bg-oc-surface px-4 py-3 text-[calc(14px*var(--transcript-text-scale,1))] leading-[1.6] font-[440] text-oc-ink' : 'rounded-r6 bg-bubble-user px-p7 py-p5 text-body text-ink'}`}
+          className={`max-w-[80%] ${transcriptAppearance(openCode).userBubble}`}
           // 0257 — 전체 문장 title 은 없다(접기가 전체 보기 수단). Message 에 id 가 없어 생성 시각을 키로 쓴다.
           collapseKey={`user:${message.createdAt}`}
         >

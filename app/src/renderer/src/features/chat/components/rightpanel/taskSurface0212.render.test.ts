@@ -18,7 +18,7 @@ import { subagentTasksFromMessages } from '../../lib/parts'
 import { taskBoardFromMessages, taskBoardOrdered } from '../../lib/taskBoard'
 // 메타 라인의 구분자는 **U+00A0 두 개**다 — 리터럴 공백으로 적으면 단언이 통과하지 않는다.
 import { META_GAP } from '../../lib/toolMeta'
-import { TaskToolBody } from '../transcript/tool-bodies/TaskToolBody'
+import { TaskToolBody } from '../../harnesses/claude/transcript/tool-bodies/TaskToolBody'
 import type { Message, ToolCall } from '../../reducer/chatReducer'
 import type { AppMessagePart } from '../../../../../../shared/ipc'
 

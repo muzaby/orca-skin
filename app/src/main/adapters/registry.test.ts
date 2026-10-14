@@ -1,17 +1,18 @@
 import { describe, it, expect, vi } from 'vitest'
 import { AdapterRegistry } from './registry'
-import { OpenCodeAdapter } from './opencode/v1/adapter'
-import type { OpenCodeServerPool } from './opencode/v1/server'
+import { createOpenCodeAdapter } from './opencode'
 
 const makeRegistry = (): AdapterRegistry => new AdapterRegistry()
 
 describe('AdapterRegistry capability 서술', () => {
   it('registers an injected OpenCode adapter and closes its owned server pool', () => {
     const close = vi.fn()
-    const adapter = new OpenCodeAdapter(
-      { close } as unknown as OpenCodeServerPool,
-      vi.fn<typeof fetch>()
-    )
+    const adapter = createOpenCodeAdapter({
+      dataDirectory: 'unused',
+      preferences: () => undefined,
+      fetchImpl: vi.fn<typeof fetch>(),
+      server: { close, acquire: vi.fn(), installed: async () => ({ installed: true }) }
+    })
     const reg = new AdapterRegistry([adapter])
     expect(reg.get('opencode')).toBe(adapter)
     expect(reg.describeAll().opencode.provider).toBe('opencode')

@@ -1,7 +1,7 @@
-import { extToLang, stripLineNumberGutter } from '../../../lib/lang'
-import { stringify } from '../../../format'
-import { CodeBlock } from '../../../../../shared/ui/markdown/CodeBlock'
-import type { ToolCall } from '../../../reducer/chatReducer'
+import { extToLang, stripLineNumberGutter } from '../../../../lib/lang'
+import { stringify } from '../../../../format'
+import { CodeBlock } from '../../../../../../shared/ui/markdown/CodeBlock'
+import type { ToolCall } from '../../../../reducer/chatReducer'
 
 function resultOutput(call: ToolCall): string {
   const o = call.result?.output

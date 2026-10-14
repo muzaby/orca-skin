@@ -1,6 +1,6 @@
-import { Markdown } from '../../../../../shared/ui/markdown/Markdown'
-import { stringify } from '../../../format'
-import type { ToolCall } from '../../../reducer/chatReducer'
+import { Markdown } from '../../../../../../shared/ui/markdown/Markdown'
+import { stringify } from '../../../../format'
+import type { ToolCall } from '../../../../reducer/chatReducer'
 
 // 미지정/검색류 도구의 기본 본문 — input 을 JSON 대신 `key: value` 줄바꿈 plain text 로,
 // 결과는 문자열이면 Markdown, 아니면 plain. (예: `query: …` / `max_results: …`)

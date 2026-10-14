@@ -117,7 +117,7 @@ const sites = [
   },
   {
     id: 'M16',
-    file: 'features/extensions/harness-plugins/claude-user-skills.ts',
+    file: 'features/extensions/harness-plugins/claude/user-skills.ts',
     event: 'extensions.plugin.wrapper-failed',
     title: 'extensionsFailed',
     method: 'reportError'

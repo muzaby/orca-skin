@@ -1,9 +1,9 @@
-import { Button } from '../../../../../shared/ui/Button'
-import { useI18n } from '../../../../../shared/i18n'
-import { chatActions } from '../../../store/chatStore'
-import { stringify } from '../../../format'
-import type { ToolCall } from '../../../reducer/chatReducer'
-import type { AgentTranscriptPresentation } from '../../../lib/agentPresentation'
+import { Button } from '../../../../../../shared/ui/Button'
+import { useI18n } from '../../../../../../shared/i18n/index'
+import { chatActions } from '../../../../store/chatStore'
+import { stringify } from '../../../../format'
+import type { ToolCall } from '../../../../reducer/chatReducer'
+import type { AgentTranscriptPresentation } from '../../../../lib/agentPresentation'
 
 function asRecord(input: unknown): Record<string, unknown> {
   return typeof input === 'object' && input !== null ? (input as Record<string, unknown>) : {}

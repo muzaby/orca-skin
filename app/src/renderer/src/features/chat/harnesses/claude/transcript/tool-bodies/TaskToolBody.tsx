@@ -1,8 +1,8 @@
-import { readTaskToolObservation } from '../../../../../../../shared/task-tool'
-import { useI18n, type MessageKey } from '../../../../../shared/i18n'
-import type { ToolCall } from '../../../reducer/chatReducer'
-import { isNonExecutionOutcome, toolRunOutcome } from '../../../lib/parts'
-import { NON_EXECUTION_LABEL } from '../../../lib/toolMeta'
+import { readTaskToolObservation } from '../../../../../../../../shared/task-tool'
+import { useI18n, type MessageKey } from '../../../../../../shared/i18n/index'
+import type { ToolCall } from '../../../../reducer/chatReducer'
+import { isNonExecutionOutcome, toolRunOutcome } from '../../../../lib/parts'
+import { NON_EXECUTION_LABEL } from '../../../../lib/toolMeta'
 
 // 세션 할 일 목록 도구(TaskCreate/TaskGet/TaskUpdate/TaskList) 전용 본문 — 0212 R-06.
 //
