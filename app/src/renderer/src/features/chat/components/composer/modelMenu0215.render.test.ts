@@ -3,8 +3,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import type { AgentEnvironment } from '../../../../../../shared/ipc'
 import { ModelMenu } from './ModelMenu'
-import { ModeMenu } from './ModeMenu'
-import { modeMenuOptions } from './modes'
+import { ModeMenu } from '../../harnesses/claude/composer/ModeMenu'
+import { modeMenuOptions } from '../../harnesses/claude/composer/modes'
 import { modelKey, selectedModelShape, type ModelSelection } from './modelSelection'
 
 // 0215 VP-09·VP-10·VP-12 — 두 `[1m]` 변형이 각각의 행이고, haiku 는 '자동'을 내걸지 않는다.

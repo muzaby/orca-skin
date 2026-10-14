@@ -96,6 +96,10 @@ src/renderer/
 
 ### 1.1 디렉토리 책임 규칙
 
+`features/chat`, `features/engine`, `features/settings`는 각 feature 안의 `harnesses/claude/`·`harnesses/opencode/`에 하네스 전용 구현을 둔다. Chat의 composer 제어·버튼·스타일, transcript 도구 그룹·스피너·로고, 우측 패널 정책과 표면이 그 대상이다. 초안·첨부를 가진 input controller, 정규화된 도구 본문, 세션 store와 패널 조립은 공통 경로에 남아 하네스 전환에도 입력 인스턴스를 유지한다.
+
+엔진 폼의 저장·가져오기 경쟁 제어·JSON 검증은 공통이고 native 공급자 템플릿과 가져오기 문구는 하네스별 configuration이 제공한다. OpenCode 1.x 설정 형상은 `features/engine/harnesses/opencode/v1/`에 있다. 정규 IPC DTO만 소비하는 chat UI·설정 필드·로고는 API 버전에 종속시키지 않는다. 하네스 구현끼리의 직접 import를 막으며 feature 간 데이터 전달은 기존 pages/app 조립 규칙을 따른다.
+
 > PR #29 로 강제됨 (ESLint `eslint-plugin-boundaries` v6 `boundaries/dependencies` 규칙). 의존 방향: `app/` → `pages/` → `features/` → `shared/`. 위반 시 `npm run lint` 가 차단.
 
 - **`app/`**: Provider 합성 + 라우터 + 앱 셸 레이아웃 원자. `router.tsx` = 어느 pages/를 보여줄지. `AppLayout.tsx` = 셸 조립 (wiring hook 호출 + JSX 만). Header/Sidebar/OverlayLayer/WinControls = 레이아웃 컴포넌트 — 셸의 *도메인 특정 설정값과 적용* (예: `SIDEBAR_MIN/MAX/DEFAULT_WIDTH` + `setTweak('sidebarWidth', n)`) 은 컴포넌트 자체에 잔류 (공용 인프라가 아니므로). cross-feature wiring (chat→sessions 동기화, 다중 도메인 핸들러 합성, slot 안정화 등) 은 **`app/hooks/`** 에 캡슐화. ❌ 도메인 비즈니스 로직 (UI 위젯 설정/적용을 넘어선 도메인 규칙) 금지.

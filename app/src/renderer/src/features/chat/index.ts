@@ -10,7 +10,7 @@ export {
   useArtifactViewerStore
 } from './store/artifactViewerStore'
 export { Composer } from './components/Composer'
-export { OpenCodeWordmark } from './components/OpenCodeWordmark'
+export { OpenCodeWordmark } from './harnesses/opencode/Wordmark'
 export { AgentModeToggle } from './components/AgentModeToggle'
 export { agentPresentation } from './lib/agentPresentation'
 export { useUsageForTelemetryProvider } from './hooks/useUsageForTelemetryProvider'
@@ -31,3 +31,5 @@ export {
   subscribeGeneratingSessions,
   type DraftRow
 } from './store/chatStore'
+
+export { harnessSurfaces } from './harnesses/presentation'

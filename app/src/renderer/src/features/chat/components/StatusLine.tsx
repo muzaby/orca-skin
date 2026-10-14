@@ -7,7 +7,7 @@ import { formatElapsed, useElapsed } from '../../../shared/ui/elapsed'
 import { SparkSpinner } from '../../../shared/ui/SparkSpinner'
 import { useI18n } from '../../../shared/i18n'
 import type { Backend, WorktreePrepareStep } from '../../../../../shared/ipc'
-import { OpenCodeSpinner } from './OpenCodeSpinner'
+import { OpenCodeSpinner } from '../harnesses/opencode/Spinner'
 import { deriveActivityLabel, MAX_VISIBLE_FACTS, type ActivityView } from '../lib/activityLabel'
 
 const VERBS = [

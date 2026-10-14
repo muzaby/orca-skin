@@ -1,5 +1,5 @@
 // 0212 — SDK 표면 결손 6건의 **화면 산출**을 잠근다. 파생 규칙은 `lib/taskBoard.test.ts` 가,
-// 정규화는 `main/adapters/claude-map.test.ts` 가 본다. 여기서는 그것들이 실제로 사용자에게
+// 정규화는 `main/adapters/claude/map.test.ts` 가 본다. 여기서는 그것들이 실제로 사용자에게
 // 도달하는지만 본다.
 //
 // JSX 를 쓰지 않는 이유: vitest include 가 `src/**/*.test.ts` 라 `.tsx` 를 잡지 않는다

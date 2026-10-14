@@ -1,3 +1,6 @@
+import { RIGHT_PANEL_POLICY } from '../harnesses/claude/rightPanel'
+import { OPEN_CODE_PANEL_POLICY } from '../harnesses/opencode/rightPanel'
+export { RIGHT_PANEL_POLICY } from '../harnesses/claude/rightPanel'
 import type { Backend } from '../../../../../shared/ipc'
 import type { AgentKind } from '../../../../../shared/agent-kind'
 import type { MessageKey } from '../../../shared/i18n'
@@ -28,34 +31,6 @@ export interface RightPanelAgentPolicy {
   initialTile: RightPanelTileId | null
   columnMode: 'standard-grid' | 'task-focus'
   taskTileChrome: 'standard' | 'work-overview'
-}
-
-export const RIGHT_PANEL_POLICY = {
-  work: {
-    visibleIds: ['task'],
-    taskTarget: 'task',
-    taskBadgeTile: 'task',
-    initialTile: 'task',
-    columnMode: 'task-focus',
-    taskTileChrome: 'work-overview'
-  },
-  code: {
-    visibleIds: ['plan', 'subagent', 'diff'],
-    taskTarget: 'plan',
-    taskBadgeTile: 'plan',
-    initialTile: null,
-    columnMode: 'standard-grid',
-    taskTileChrome: 'standard'
-  }
-} as const satisfies Record<AgentKind, RightPanelAgentPolicy>
-
-const OPEN_CODE_PANEL_POLICY: RightPanelAgentPolicy = {
-  visibleIds: ['plan', 'diff'],
-  taskTarget: 'plan',
-  taskBadgeTile: 'plan',
-  initialTile: null,
-  columnMode: 'standard-grid',
-  taskTileChrome: 'standard'
 }
 
 export function rightPanelPolicy(

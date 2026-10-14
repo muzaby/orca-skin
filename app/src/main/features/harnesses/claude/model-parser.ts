@@ -14,11 +14,8 @@
 // 순수 함수 — fs 비의존, vitest 대상.
 
 import { isRecord } from '../../../../shared/obj'
-import {
-  CLAUDE_MODEL_FAMILIES,
-  modelIdentity,
-  sameModelIdentity
-} from '../../../../shared/model-identity'
+import { CLAUDE_MODEL_FAMILIES } from '../../../../shared/harnesses/claude/model-policy'
+import { modelIdentity, sameModelIdentity } from '../../../../shared/model-identity'
 
 // settings의 기본 alias 노출 순서. Discovery 계열 분류는 shared 목록을 사용한다.
 const FAMILY_ORDER = ['sonnet', 'opus', 'haiku', 'fable'] as const

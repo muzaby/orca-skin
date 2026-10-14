@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { load } from 'cheerio'
-import { ClaudeBackgroundMapper } from '../../../../../../main/adapters/claude-background'
+import { ClaudeBackgroundMapper } from '../../../../../../main/adapters/claude/background'
 import { BackgroundTaskTracker } from '../../../../../../main/features/chat/background-tasks'
 import {
   applyBackgroundEvent,

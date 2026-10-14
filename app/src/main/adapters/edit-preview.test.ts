@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 import { buildEditPreview, nodeEditPreviewReader, EDIT_PREVIEW_MAX_BYTES } from './edit-preview'
-import { resolveGuardRoots } from './workspace-guard'
+import { resolveGuardRoots } from './claude/workspace-guard'
 
 const WS = path.resolve('/ws')
 const roots = resolveGuardRoots(WS)

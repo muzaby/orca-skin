@@ -207,7 +207,7 @@ Git 명령은 `infra/git/gateway.ts`를 거쳐 `runner.ts`의 `execFile`로 실�
 
 읽기는 `--no-optional-locks`와 `GIT_OPTIONAL_LOCKS=0`을 적용하며 전역 동시 실행을 제한한다. 같은 세대의 동일한 진행 중 요청만 공유하고 완료 결과는 저장하지 않는다. 쓰기는 저장소별 mutation queue를 사용하며 성공·실패 모두 세대를 전진시킨다. diff/log는 외부 diff·textconv 실행을 차단한다. Git 실행기 직접 import는 ESLint 경계가 제한한다.
 
-`child_process`·`node:child_process` 정적·동적 import는 소유 로컬 서버 모듈(`adapters/opencode-server.ts`), Git gateway·runner와
+`child_process`·`node:child_process` 정적·동적 import는 소유 로컬 서버 모듈(`adapters/opencode/v1/server.ts`), Git gateway·runner와
 `src/main/features/plugins/**`에서 허용한다. 그 밖 main의 실행 경계는 유지하며, Plugin도
 `infra/git/runner`를 직접 import할 수 없다. Plugin은 호스트에 설치된 프로그램을 직접 실행하고
 인자·timeout·취소·출력 처리를 소유한다. 공용 호스트 실행기를 추가하지 않는다.

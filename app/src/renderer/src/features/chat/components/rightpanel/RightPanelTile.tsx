@@ -1,3 +1,4 @@
+import { rightPanelAppearance } from '../../harnesses/presentation'
 import { useCallback, type ReactNode } from 'react'
 import { PanelCloseButton, PanelExpandButton } from '../../../../shared/ui/PanelControls'
 import { chatActions, useChatSession } from '../../store/chatStore'
@@ -33,6 +34,7 @@ export function RightPanelTile({
   const { tr } = useI18n()
   const label = useChatSession((s) => s.rightPanelTileLabels[id]) ?? tr(defaultLabelKey)
   const openCode = useChatSession((s) => s.backend === 'opencode')
+  const appearance = rightPanelAppearance(openCode)
   const isDiff = id === 'diff'
   const isWorkTask = taskTileChrome === 'work-overview' && id === 'task'
   const expandButton = (id === 'plan' || id === 'task') && onToggleExpand && (
@@ -46,7 +48,7 @@ export function RightPanelTile({
 
   return (
     <div
-      className={`app-frame-tile relative flex min-h-0 flex-1 flex-col overflow-hidden ${openCode ? 'rounded-[10px] border border-oc-border bg-oc-surface text-oc-ink shadow-oc-raised' : 'effect-primary-elevated rounded-r6 border border-border bg-panel'} ${isWorkTask ? 'max-h-full' : ''} ${className}`}
+      className={`app-frame-tile relative flex min-h-0 flex-1 flex-col overflow-hidden ${appearance.tile} ${isWorkTask ? 'max-h-full' : ''} ${className}`}
       data-context={id}
       data-harness={openCode ? 'opencode' : 'claude'}
     >
@@ -58,7 +60,7 @@ export function RightPanelTile({
         >
           {headerContent ?? (
             <span
-              className={`min-w-0 truncate text-[13px] font-semibold tracking-tight ${openCode ? 'font-sans text-oc-ink' : 'font-serif text-t9'}`}
+              className={`min-w-0 truncate text-[13px] font-semibold tracking-tight ${appearance.title}`}
             >
               {label}
             </span>

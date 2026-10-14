@@ -109,9 +109,10 @@ vi.mock('../features/chat/components/composer/AttachMenu', () => ({
     createElement('button', { 'data-test-attach': '', onClick: () => onAction({ type: 'attach' }) })
 }))
 vi.mock('../features/chat', async () => ({
+  harnessSurfaces: (await import('../features/chat/harnesses/presentation')).harnessSurfaces,
   Composer: (await import('../features/chat/components/Composer')).Composer,
   AgentModeToggle: (await import('../features/chat/components/AgentModeToggle')).AgentModeToggle,
-  OpenCodeWordmark: (await import('../features/chat/components/OpenCodeWordmark')).OpenCodeWordmark,
+  OpenCodeWordmark: (await import('../features/chat/harnesses/opencode/Wordmark')).OpenCodeWordmark,
   useChatSession: (await import('../features/chat/store/chatStore')).useChatSession,
   useUsageForTelemetryProvider: () => null,
   ChatTile: () => createElement('div', { 'data-test-chat-tile': '' })

@@ -24,7 +24,7 @@ vi.mock('../../features/harnesses/settings-write', () => ({
   deleteHarnessSettings: vi.fn(),
   readHarnessSettings: vi.fn(() => ({}))
 }))
-vi.mock('../../adapters/claude-settings', () => ({ readUserClaudeSettings: vi.fn() }))
+vi.mock('../../adapters/claude/settings', () => ({ readUserClaudeSettings: vi.fn() }))
 vi.mock('../../infra/log', () => ({ getLogger: () => ({ child: () => ({ warn: vi.fn() }) }) }))
 vi.mock('../../infra/log/registry', () => ({
   getLogger: () => ({ child: () => ({ warn: vi.fn() }) })

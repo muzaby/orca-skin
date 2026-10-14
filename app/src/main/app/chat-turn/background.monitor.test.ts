@@ -11,7 +11,7 @@ import type {
   SDKBackgroundTasksChangedMessage,
   SDKWorkerShuttingDownMessage
 } from '@anthropic-ai/claude-agent-sdk'
-import { ClaudeBackgroundMapper } from '../../adapters/claude-background'
+import { ClaudeBackgroundMapper } from '../../adapters/claude/background'
 import { BackgroundController } from '../../features/chat/background-controller'
 import { BackgroundTaskTracker } from '../../features/chat/background-tasks'
 import {

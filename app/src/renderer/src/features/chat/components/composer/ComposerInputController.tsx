@@ -1,3 +1,5 @@
+import { HarnessSubmitButton } from '../../harnesses/SubmitButton'
+import { composerAppearance } from '../../harnesses/presentation'
 import {
   useCallback,
   useDeferredValue,
@@ -8,8 +10,6 @@ import {
   type KeyboardEvent,
   type ReactNode
 } from 'react'
-import { Button } from '../../../../shared/ui/Button'
-import { Icon } from '../../../../shared/ui/Icon'
 import { useI18n } from '../../../../shared/i18n'
 import { useChatSession } from '../../store/chatStore'
 import { agentPresentation } from '../../lib/agentPresentation'
@@ -107,6 +107,7 @@ export function ComposerInputController({
   const { tr } = useI18n()
   const agentKind = useChatSession((session) => session.agentKind)
   const openCode = useChatSession((session) => session.backend === 'opencode')
+  const appearance = composerAppearance(openCode)
   const [snapshot, setSnapshotState] = useState(createDraftSnapshot)
   const snapshotRef = useRef(snapshot)
   const updateSnapshot = useCallback((update: (current: DraftSnapshot) => DraftSnapshot): void => {
@@ -303,11 +304,7 @@ export function ComposerInputController({
     <>
       {active && (
         <div
-          className={
-            openCode
-              ? 'relative rounded-[10px] border border-oc-border bg-oc-surface text-oc-ink shadow-oc-raised'
-              : 'contents'
-          }
+          className={appearance.shell}
           data-harness={openCode ? 'opencode' : 'claude'}
           onPaste={onPaste}
           onDragOver={(event) => {
@@ -322,13 +319,7 @@ export function ComposerInputController({
           }}
         >
           <div
-            className={
-              openCode
-                ? 'min-h-[60px] px-4 pb-2 pt-4'
-                : `epitaxy-prompt rounded-r7 border bg-panel px-3 py-2.5 shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-colors ${
-                    draggingAttachment ? 'border-accent ring-2 ring-accent/40' : 'border-border'
-                  }`
-            }
+            className={appearance.prompt(draggingAttachment)}
             data-surface="prompt"
             data-state={draggingAttachment ? 'drag-over' : undefined}
             title={tr('chat.composer.backendTitle', { label: backendLabel })}
@@ -382,78 +373,18 @@ export function ComposerInputController({
                   ariaLabel={tr('chat.composer.inputAria')}
                 />
               </div>
-              {openCode ? (
-                <button
-                  type="button"
-                  onClick={showCancelButton ? onCancel : submit}
-                  disabled={showCancelButton ? !canAbort : snapshot.text.trim() === ''}
-                  aria-label={tr(
-                    showCancelButton
-                      ? 'common.stop'
-                      : feedbackMode
-                        ? 'chat.composer.sendFeedback'
-                        : 'chat.composer.send'
-                  )}
-                  title={tr(showCancelButton ? 'common.stop' : 'chat.composer.sendEnter')}
-                  data-behavior={
-                    showCancelButton
-                      ? 'action:cancel-turn'
-                      : feedbackMode
-                        ? 'action:send-feedback'
-                        : 'action:send'
-                  }
-                  className="absolute bottom-2 right-2 z-10 flex size-8 items-center justify-center rounded-[7px] border-0 bg-oc-ink text-oc-surface outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-40"
-                >
-                  <Icon name={showCancelButton ? 'stop' : 'enter'} size={16} />
-                </button>
-              ) : showCancelButton ? (
-                <Button
-                  iconOnly
-                  variant="uncontained"
-                  leadingIcon="stop"
-                  onClick={onCancel}
-                  disabled={!canAbort}
-                  title={canAbort ? tr('common.stop') : tr('chat.composer.abortUnsupported')}
-                  aria-label={tr('common.stop')}
-                  data-behavior="action:cancel-turn"
-                  className={
-                    openCode
-                      ? 'absolute bottom-2 right-2 z-10 size-8 shrink-0 rounded-[7px] bg-oc-ink text-oc-surface'
-                      : 'mb-1 shrink-0 rounded-full'
-                  }
-                />
-              ) : (
-                <Button
-                  iconOnly
-                  variant="uncontained"
-                  leadingIcon="enter"
-                  onClick={submit}
-                  disabled={snapshot.text.trim() === ''}
-                  title={
-                    feedbackMode
-                      ? tr('chat.composer.sendFeedbackEnter')
-                      : tr('chat.composer.sendEnter')
-                  }
-                  aria-label={
-                    feedbackMode ? tr('chat.composer.sendFeedback') : tr('chat.composer.send')
-                  }
-                  data-behavior={feedbackMode ? 'action:send-feedback' : 'action:send'}
-                  className={
-                    openCode
-                      ? 'absolute bottom-2 right-2 z-10 size-8 shrink-0 rounded-[7px] bg-oc-ink text-oc-surface'
-                      : 'mb-1 shrink-0 rounded-full'
-                  }
-                />
-              )}
+              <HarnessSubmitButton
+                openCode={openCode}
+                showCancelButton={showCancelButton}
+                onCancel={onCancel}
+                submit={submit}
+                canAbort={canAbort}
+                text={snapshot.text}
+                feedbackMode={feedbackMode}
+              />
             </div>
           </div>
-          <div
-            className={
-              openCode
-                ? 'app-frame-composer-controls flex min-h-12 items-center gap-1 px-2 pb-1 pr-12'
-                : 'app-frame-composer-controls flex items-center gap-1.5 px-1'
-            }
-          >
+          <div className={appearance.controls}>
             <div
               className="app-frame-composer-repo flex items-center gap-1.5"
               data-behavior="dismissible"
@@ -469,13 +400,7 @@ export function ComposerInputController({
               />
               {openCode && controlsStart}
             </div>
-            <span
-              className={
-                openCode ? 'flex min-w-0 items-center gap-1' : 'ml-auto flex items-center gap-g4'
-              }
-            >
-              {controlsEnd}
-            </span>
+            <span className={appearance.controlsEnd}>{controlsEnd}</span>
           </div>
         </div>
       )}

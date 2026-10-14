@@ -54,7 +54,7 @@ const cases = [
   ],
   [
     'arbitrary adapter child_process',
-    'src/main/adapters/opencode.ts',
+    'src/main/adapters/opencode/v1/adapter.ts',
     "import { spawn } from 'node:child_process'; void spawn",
     'no-restricted-imports'
   ],
@@ -121,7 +121,7 @@ test('Plugin implementations may directly execute host programs', async () => {
 
 test('Only the OpenCode server owner may spawn its managed process', async () => {
   const [result] = await eslint.lintText("import { spawn } from 'node:child_process'; void spawn", {
-    filePath: 'src/main/adapters/opencode-server.ts'
+    filePath: 'src/main/adapters/opencode/v1/server.ts'
   })
   assert.deepEqual(
     result.messages.filter((message) =>

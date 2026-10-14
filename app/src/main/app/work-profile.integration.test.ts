@@ -22,7 +22,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', async (importOriginal) => ({
   query: queryMock
 }))
 
-import { ClaudeAdapter } from '../adapters/claude'
+import { ClaudeAdapter } from '../adapters/claude/adapter'
 import { resolveAgentProfile } from '../features/agents/profiles'
 import { ExtensionBuilder } from '../features/extensions/builder'
 import { applyMigrations } from '../infra/db/migrate'

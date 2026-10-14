@@ -19,10 +19,12 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 
 | Backend | 어댑터 파일 | 구현 방식 | 상태 |
 |---|---|---|---|
-| `claude` | `adapters/claude.ts` (+`claude-map.ts` 정규화) | `@anthropic-ai/claude-agent-sdk`의 `query()` 호출 | ✅ 활성 |
-| `opencode` | `adapters/opencode.ts`·`opencode-server.ts`·`opencode-map.ts` | 소유 CLI 서버 + 주입 fetch의 SDK HTTP/SSE | Code 전용; [SDK 해설](../../opencode-sdk-spec.md) |
+| `claude` | `adapters/claude/adapter.ts` (+`claude/map.ts` 정규화) | `@anthropic-ai/claude-agent-sdk`의 `query()` 호출 | ✅ 활성 |
+| `opencode` | `adapters/opencode/v1/adapter.ts`·`opencode/v1/server.ts`·`opencode/v1/map.ts` | 소유 CLI 서버 + 주입 fetch의 SDK HTTP/SSE | Code 전용; [SDK 해설](../../opencode-sdk-spec.md) |
 
 `AdapterRegistry`에 bootstrap이 하네스 어댑터를 등록한다. 신규 요청은 선택 backend로, 기존 요청은 DB backend로 라우팅한다. payload·provider key·준비 중 lease·설정 해석 이후 DB를 대조해 하네스 변경을 거부한다.
+
+하네스 중립 포트·등록·공통 프롬프트/도구 어휘는 `adapters/` 루트에 둔다. `claude/`는 SDK query·정규화·설정·hook·dev mock을 소유한다. `opencode/index.ts`는 현재 지원하는 구현을 선택하는 진입점이며 SDK import, HTTP/SSE 매핑, CLI 실행/버전 판정, native 설정/모델 해석은 `opencode/v1/`에 격리한다. 하네스 구현끼리의 직접 import와 v1 밖 OpenCode SDK import는 ESLint가 거부한다.
 
 #### OpenCode 실행과 격리
 
@@ -34,7 +36,7 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 
 ### 1.3 ClaudeCodeAdapter 호출 패턴
 
-공통 실행 설정은 `claude-adapt.ts`의 `adaptExecutionConfig`가 SDK `Options` 타입에 맞춰 조립한다. `complete`와 `sendMessage`는 이를 함께 사용하며, 실행별 도구·hook·plugin 정책은 각 호출부가 소유한다.
+공통 실행 설정은 `claude/adapt.ts`의 `adaptExecutionConfig`가 SDK `Options` 타입에 맞춰 조립한다. `complete`와 `sendMessage`는 이를 함께 사용하며, 실행별 도구·hook·plugin 정책은 각 호출부가 소유한다.
 
 | 입력 | SDK 전달 | 책임 |
 |---|---|---|
@@ -42,14 +44,14 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 | 설정 탐색 범위 | `settingSources: ['project', 'local']` | `adaptSettingSources`; 사용자 전역 설정과 provider 설정 분리 |
 | 턴 실행 env | 비어 있지 않으면 `Options.env` | `adaptEnv`; provider settings의 env와 별도 입력 |
 | 파일 기반 MCP·스킬 | 로컬 plugin 경로 | 배포가 산출물을 만들고 `adaptPlugins`가 매니페스트 확인 |
-| 인프로세스 도구 | `mcpServers` | `claude-runtime-tools.ts`의 `adaptRuntimeTools` — 대화 query 는 `allowedTools` 를 쓰지 않는다 |
+| 인프로세스 도구 | `mcpServers` | `claude/runtime-tools.ts`의 `adaptRuntimeTools` — 대화 query 는 `allowedTools` 를 쓰지 않는다 |
 | 시스템 지침·스킬 선택·hook | 대화 query 옵션 조각 | `adaptSystemPrompt`·`adaptSkills`·`adaptHooks` |
 
-제목용 `complete`는 도구 없는 단발 실행이고, 대화는 plugin·runtime tool·권한 hook을 사용한다. `~/.claude/skills`는 사용자 스킬 래퍼 plugin으로 전달한다. 정확한 호출 옵션은 [claude.ts](../../../app/src/main/adapters/claude.ts)가 정본이다.
+제목용 `complete`는 도구 없는 단발 실행이고, 대화는 plugin·runtime tool·권한 hook을 사용한다. `~/.claude/skills`는 사용자 스킬 래퍼 plugin으로 전달한다. 정확한 호출 옵션은 [claude.ts](../../../app/src/main/adapters/claude/adapter.ts)가 정본이다.
 
 #### 컨텍스트 모델과 파일 입력
 
-[claude-context-policy.ts](../../../app/src/main/adapters/claude-context-policy.ts)가 대화 실행 모델의 컨텍스트 정책을 해석한다. 명시 모델이 별칭이면 `ANTHROPIC_DEFAULT_<별칭>_MODEL`을 조회하고, 모델이 없으면 `ANTHROPIC_MODEL` 다음 settings `model`을 조회한다. 준비된 턴 env가 있으면 그 값을 읽고, 없으면 settings env 문자열이 process env보다 우선한다.
+[claude-context-policy.ts](../../../app/src/main/adapters/claude/context-policy.ts)가 대화 실행 모델의 컨텍스트 정책을 해석한다. 명시 모델이 별칭이면 `ANTHROPIC_DEFAULT_<별칭>_MODEL`을 조회하고, 모델이 없으면 `ANTHROPIC_MODEL` 다음 settings `model`을 조회한다. 준비된 턴 env가 있으면 그 값을 읽고, 없으면 settings env 문자열이 process env보다 우선한다.
 
 | 대상 | 현재 동작 |
 |---|---|
@@ -60,7 +62,7 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 | 이미지·도구 결과 | 첨부 이미지 원본 블록들을 먼저 두고 텍스트를 마지막에 둔다. 축소·미디어 제한·도구 결과 처리는 CLI에 맡긴다. |
 | 결과 오류 | 비어 있지 않은 SDK `result` → `errors` 줄바꿈 결합 → `message` → `error` → 합성 문구 순으로 원문을 표시한다. 분류는 `stream_error`다. |
 
-입력 조립은 [buildTurnContent](../../../app/src/main/adapters/claude.ts)가 소유하고 첫 입력·프렐류드·후속 턴이 공유한다. [첨부 저장](../../../app/src/main/features/chat/attachment-files.ts)은 보관 파일명에서 큰따옴표·`#` 등의 멘션 구분자를 정제하며, 화면에는 원래 첨부 이름을 표시한다. CLI 정책의 버전별 근거는 [컨텍스트·파일 연구](../../etc/study/claude/08-컨텍스트-한도와-파일-정책.md)를 참조한다.
+입력 조립은 [buildTurnContent](../../../app/src/main/adapters/claude/adapter.ts)가 소유하고 첫 입력·프렐류드·후속 턴이 공유한다. [첨부 저장](../../../app/src/main/features/chat/attachment-files.ts)은 보관 파일명에서 큰따옴표·`#` 등의 멘션 구분자를 정제하며, 화면에는 원래 첨부 이름을 표시한다. CLI 정책의 버전별 근거는 [컨텍스트·파일 연구](../../etc/study/claude/08-컨텍스트-한도와-파일-정책.md)를 참조한다.
 
 ### 1.4 ExtensionBuilder (턴 확장 입력 조립)
 
@@ -71,7 +73,7 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 
 ### 1.5 SDKMessage → NormalizedEvent 정규화
 
-`adapters/claude-map.ts` 의 `claudeToNormalized` 가 SDK 메시지를 `NormalizedEvent` 로 직접 정규화한다(순수 함수). 와이어(`orca:chat:event`)의 유일한 페이로드는 `NormalizedEvent` 이고, variant 전수는 [IPC_CONTRACT.md §3](../../IPC_CONTRACT.md) 이 SSOT, SDKMessage → variant 매핑표는 [provider-runtime.md §2](./provider-runtime.md) 가 갖는다. 구 `ChatEvent` 어휘는 제거됐다([GLOSSARY.md](../../GLOSSARY.md) NormalizedEvent 항목).
+`adapters/claude/map.ts` 의 `claudeToNormalized` 가 SDK 메시지를 `NormalizedEvent` 로 직접 정규화한다(순수 함수). 와이어(`orca:chat:event`)의 유일한 페이로드는 `NormalizedEvent` 이고, variant 전수는 [IPC_CONTRACT.md §3](../../IPC_CONTRACT.md) 이 SSOT, SDKMessage → variant 매핑표는 [provider-runtime.md §2](./provider-runtime.md) 가 갖는다. 구 `ChatEvent` 어휘는 제거됐다([GLOSSARY.md](../../GLOSSARY.md) NormalizedEvent 항목).
 
 ### 1.6 인증 만료 감지
 
@@ -88,11 +90,11 @@ SDK 가 throw 하는 에러 메시지/코드에서 `401` / `OAuth` / `expired` �
 | `result.total_cost_usd` / `usage` / `modelUsage` / `duration_ms` | ✅ | 구현 | `ProviderReportedTelemetry` 로 정규화(cost·model·캐시 토큰·duration·numTurns) → UsagePanel (provider-runtime.md §8) |
 | `options.permissionMode` / `canUseTool` | ✅ | 구현 | `shared/permission-mode.ts` + `features/approvals/permission-mode-controller.ts`(세션 SSOT); `canUseTool` 은 RISKY_TOOLS(`adapters/risky-tools.ts`) 승인 브리지. **기본 정책값은 PRD OQ9 로 열려 있다** |
 | `options.allowDangerouslySkipPermissions` | ✅ | 구현 | 대화 query 가 `permissionMode` 를 명시할 때 `true` — 장수명 채널의 라이브 `bypass` 전환 전제([claude-code-spec §5.5](../../claude-code-spec.md)). 제목 생성 `complete()` 는 넘기지 않는다 |
-| `options.hooks` (PreToolUse / Stop …) | ✅ | 구현 | `adaptHooks(extensions.hooks)` + 어댑터 내부 훅(workspace guard PreToolUse · Stop git sync · Stop 출력 수집)을 `claude.ts` 가 병합 — in-process 콜백(§3.2.5) |
-| `createSdkMcpServer` + `tool()` | ✅ | 구현 | 인프로세스 runtime tool(`claude-runtime-tools.ts` `adaptRuntimeTools` → `mcpServers`) — 산출물 게시 도구 등 |
+| `options.hooks` (PreToolUse / Stop …) | ✅ | 구현 | `adaptHooks(extensions.hooks)` + 어댑터 내부 훅(workspace guard PreToolUse · Stop git sync · Stop 출력 수집)을 `claude/adapter.ts` 가 병합 — in-process 콜백(§3.2.5) |
+| `createSdkMcpServer` + `tool()` | ✅ | 구현 | 인프로세스 runtime tool(`claude/runtime-tools.ts` `adaptRuntimeTools` → `mcpServers`) — 산출물 게시 도구 등 |
 | `options.mcpServers` | ✅ (runtime tool 전용) | 구현 | 파일 기반 MCP 는 plugin `.mcp.json` 으로 로드([standardization.md §5.1](./standardization.md)); `options.mcpServers` 는 인프로세스 runtime tool 서버에만 쓴다 |
 | `options.skills` + `settingSources: ['project','local']` | ✅ | 구현 | `adaptSkills`·`adaptSettingSources`(§1.3, 0117) — 사용자 전역 settings 는 상속하지 않고, 사용자 `~/.claude/skills` 는 wrapper plugin 으로 전달 |
-| `options.disallowedTools` | ✅ | 구현 | `['WebSearch']` — 대화 실행에서 WebSearch 를 차단하는 용도 하나(`claude.ts`). 격리 해제 보완 용도가 아니다 |
+| `options.disallowedTools` | ✅ | 구현 | `['WebSearch']` — 대화 실행에서 WebSearch 를 차단하는 용도 하나(`claude/adapter.ts`). 격리 해제 보완 용도가 아니다 |
 | `options.plugins` (로컬 플러그인) | ✅ | 구현 | `dist/<engine>/plugins/orcinus-orca` + 사용자 skill wrapper 를 `{ type: 'local', path }` 로 주입(`adaptPlugins`, 0058) |
 | `prompt: AsyncIterable<SDKUserMessage>` | ✅ | 구현 | `streaming-input.ts` 턴-스코프 입력 — 장수명 채널 `pushTurn` 의 토대 |
 | `forkSession` | ✅ | 구현 | Fork(분기)가 SDK 네이티브 `forkSession` 에 위임([GLOSSARY.md](../../GLOSSARY.md) Fork) |
@@ -282,9 +284,9 @@ const protectEnv: NormalizedHookHandler = (ctx) =>
 
 > **코드 진실**: 위 §3.2.2~3.2.4 가 설계한 중립 모델은 **`Normalized*` 이름으로 코드가 됐다** — `adapters/hooks.ts`
 > (`NormalizedHookEvent` 9종 · `NormalizedHookContext` · `NormalizedHookDecision` · `NormalizedHookHandler` ·
-> `NormalizedHookSet` · `resolveHookDecisions`), `adapters/claude-adapt.ts`(`adaptHooks()` + `NORMALIZED_TO_CLAUDE_EVENT`),
-> `claude-adapt.test.ts`(`describe('adaptHooks')`), `adapters/turn.ts` 의 `TurnExtensions.hooks: NormalizedHookSet`,
-> `features/extensions/builder.ts`(현재 `hooks: { normalized: {} }` — 빈 핸들러; 어댑터 내부 훅은 `claude.ts` 가 병합). 이는 **claude 어댑터가 SDK
+> `NormalizedHookSet` · `resolveHookDecisions`), `adapters/claude/adapt.ts`(`adaptHooks()` + `NORMALIZED_TO_CLAUDE_EVENT`),
+> `claude/adapt.test.ts`(`describe('adaptHooks')`), `adapters/turn.ts` 의 `TurnExtensions.hooks: NormalizedHookSet`,
+> `features/extensions/builder.ts`(현재 `hooks: { normalized: {} }` — 빈 핸들러; 어댑터 내부 훅은 `claude/adapter.ts` 가 병합). 이는 **claude 어댑터가 SDK
 > `query().options.hooks` 로 넘기는 in-process 콜백**의 형태이며, **교차-엔진(claude+opencode) 정규화 표준이 아니다**.
 > §3.2 정정에 따라 `normalized` 는 *앱이 주입하는 claude 전용 in-process hook* 의 컨테이너로 재해석하고,
 > `backendSpecific` 슬롯이 엔진별 분리(§2 채택)의 코드 표현이다. opencode 의 hook 은 `backendSpecific.opencode`

@@ -4,7 +4,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 import type { WebContents } from 'electron'
-import { claudeToNormalized, type MapContext } from '../../../../../main/adapters/claude-map'
+import { claudeToNormalized, type MapContext } from '../../../../../main/adapters/claude/map'
 import {
   TurnCoordinator,
   type CoordinatorRuntime

@@ -20,7 +20,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', async (original) => ({
   ...(await original<typeof import('@anthropic-ai/claude-agent-sdk')>()),
   query: mock.query
 }))
-import { ClaudeAdapter } from '../adapters/claude'
+import { ClaudeAdapter } from '../adapters/claude/adapter'
 import { ExtensionBuilder } from '../features/extensions/builder'
 import { prepareAgentExtensionProfile } from './agent-extension-profile'
 

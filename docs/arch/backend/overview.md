@@ -204,8 +204,8 @@ Electron App
 | 컴포지션 루트(Bootstrap) + 5-레이어 재편 | Phase 3++ | ✅ 완료 | `app/bootstrap.ts` + `app/handlers/` + `features/*` (handoff 0062, 채널 카탈로그는 IPC_CONTRACT §2) |
 | 모든 invoke 의 zod 검증 | Phase 2 | ✅ 완료 | `infra/ipc/handle.ts` 헬퍼 + `shared/protocol.ts` |
 | SessionAdapter 인터페이스 | Phase 2 | ✅ 완료 | `adapters/types.ts` |
-| ClaudeAdapter (SDK `query()` · 장수명 채널 pushTurn) | Phase 3 | ✅ 완료 | `adapters/claude.ts` (구 claude-code.ts). CLI spawn 폐기 (2026-05-18) |
-| `claude-adapt.ts` (TurnExtensions → claude 옵션 변환) | Phase 3++ | ✅ 완료 | 공통 실행 설정은 SDK 타입으로 조립하고 plugin·systemPrompt·skill·hook은 대화 호출부에서 합성 |
+| ClaudeAdapter (SDK `query()` · 장수명 채널 pushTurn) | Phase 3 | ✅ 완료 | `adapters/claude/adapter.ts` (구 claude-code.ts). CLI spawn 폐기 (2026-05-18) |
+| `claude/adapt.ts` (TurnExtensions → claude 옵션 변환) | Phase 3++ | ✅ 완료 | 공통 실행 설정은 SDK 타입으로 조립하고 plugin·systemPrompt·skill·hook은 대화 호출부에서 합성 |
 | ExtensionBuilder | Phase 3++ | ✅ 완료 | `features/extensions/builder.ts` — DB 지침·settings·Skills·plugin/runtime tool로 TurnExtensions 조립 |
 | SessionRuntime + RuntimeSupervisor (세션별 런타임 거버넌스) | Phase 4 | ✅ 완료 | `features/sessions/` — 장수명 세션 채널(프레임) · idle 풀 LRU cap 5 · 세션별 pending message queue(`features/chat/`). runtime-ipc.md §1 |
 | OpencodeAdapter | Future | ❌ 미구현 | PRD OQ7 |
@@ -228,11 +228,11 @@ Electron App
 | **인증 + 소비 경계** (앱 로그인 + Harness 실행 구성 + Plugin) | Phase 4 | ✅ **0181 재작성 → 0188 경계 분리** | `contracts/auth.ts` 가 **인증만** 표현하고 `features/{auth,gate,harnesses,plugins}` 가 구현이다. 인증 5종(api-key·password·pat·**oauth code→token**·browser-session) · IPC `provider` 6채널(compat) · 카탈로그 연결 탭. 실값과 배선은 `app/deployment/` 에서 채운다. 구조 정본 [`auth.md`](./auth.md) |
 | **원격 전송 스택 단일화** (Node 전역 `fetch` 금지 → Chromium 스택) | Phase 4 | ✅ 완료 (0173/0174) | 전역 `fetch(` 호출은 `infra/net/net-fetch.ts` 에만 허용(`no-node-fetch.test.ts` 가 0건으로 고정), 소비자는 `typeof fetch` 포트 주입. Chromium 스택을 무는 파일은 **3개**(`net-fetch`·`net-request`·`browser-session`). [security.md](./security.md) §1.8 |
 | `options.permissionMode` (도구 권한) | Phase 4 | ✅ 완료 | `shared/permission-mode.ts`(`NormalizedPermissionMode` ↔ SDK 모드 변환) + `features/approvals/permission-mode-controller.ts`(세션 SSOT) + `orca:permission:setMode`. 진행 중 턴은 어댑터가 살아있는 `Query` 핸들에 즉시 위임한다. **MVP 기본값 정책은 PRD OQ9 로 계속 열려 있다** |
-| `options.hooks` (in-process 콜백) | Phase 4 | ✅ 완료 | `adaptHooks` + 어댑터 내부 훅(workspace guard · Stop git sync · Stop 출력 수집)을 `adapters/claude.ts` 가 병합 — adapters.md §3.2.5. 사용자 작성 hook 파일 배포는 하지 않는다(engine-specific) |
+| `options.hooks` (in-process 콜백) | Phase 4 | ✅ 완료 | `adaptHooks` + 어댑터 내부 훅(workspace guard · Stop git sync · Stop 출력 수집)을 `adapters/claude/adapter.ts` 가 병합 — adapters.md §3.2.5. 사용자 작성 hook 파일 배포는 하지 않는다(engine-specific) |
 | 멀티세션 + 장수명 세션 채널 | Phase 4 | ✅ main 런타임 완료 (handoff 0011·0051·0067) | 세션별 SessionRuntime + 동시 턴 + 장수명 채널(프레임)·idle 풀 LRU. runtime-ipc.md §1. renderer 외피는 ../frontend/state.md §2 |
 | Zustand persist 전략 (renderer store ↔ 로컬 DB / electron-store) | Phase 4 | ❌ 미정 OQ | ../frontend/state.md §1.4.6 |
 | i18n | Phase 4 | ✅ 완료 (0096/0097) | `renderer/src/shared/i18n/` — i18next + react-i18next. UI 라벨은 리소스 번들, 기술 용어·터미널 출력은 영어 |
-| **Provider Runtime Model (정규화 계층)** | Phase 4 | ✅ 와이어 전환 완료 · 일부 seam 미활성 | `NormalizedEvent`(`shared/ipc.ts`, variant 수는 [생성물](../../generated/inventory.md)) 이 `orca:chat:event` 의 유일한 페이로드이고 매핑은 `adapters/claude-map.ts` 다. PermissionBridge·PermissionModeController·ErrorClassifier·Telemetry 활성. **미활성 seam**: `RevertManager`(claude 는 전 cap false) · `provider` 축 claude 고정(opencode 미구현). 절별 상태는 [provider-runtime.md](./provider-runtime.md) |
+| **Provider Runtime Model (정규화 계층)** | Phase 4 | ✅ 와이어 전환 완료 · 일부 seam 미활성 | `NormalizedEvent`(`shared/ipc.ts`, variant 수는 [생성물](../../generated/inventory.md)) 이 `orca:chat:event` 의 유일한 페이로드이고 매핑은 `adapters/claude/map.ts` 다. PermissionBridge·PermissionModeController·ErrorClassifier·Telemetry 활성. **미활성 seam**: `RevertManager`(claude 는 전 cap false) · `provider` 축 claude 고정(opencode 미구현). 절별 상태는 [provider-runtime.md](./provider-runtime.md) |
 | Git worktree 격리 세션 (`features/worktrees`) | Phase 4 | ✅ 완료 (0209~0211·0241) | 세션별 managed worktree 생성·수명·표시명(`managed_worktrees`), Stop 시 git sync 훅, git 호출 게이트웨이(`infra/git/`, security.md §1.10) |
 | Work / Code 에이전트 종류 (`features/agents`) | Phase 4 | ✅ 완료 (0224·0234·0235) | 고정 프로필 + Work 시스템 프롬프트(`# Agent` 섹션) + 종류별 spawn env(`SessionAdapter.agentSpawnEnv`). 종류는 `sessions.agent_kind`(`code`/`work`) |
 | 백그라운드 작업 (`features/chat/background-controller.ts`) | Phase 4 | ✅ 완료 (0231·0232·0239) | 원본 journal(`background_task_events`)·출력 읽기·중단 정착 — [background-tasks.md](./background-tasks.md) |

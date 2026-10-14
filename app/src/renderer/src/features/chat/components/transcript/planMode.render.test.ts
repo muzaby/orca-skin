@@ -19,7 +19,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
   })
 }))
 
-import { ClaudeAdapter } from '../../../../../../main/adapters/claude'
+import { ClaudeAdapter } from '../../../../../../main/adapters/claude/adapter'
 import type { LiveTurn } from '../../../../../../main/adapters/types'
 import { HistoryWriter } from '../../../../../../main/features/history/writer'
 import { partFromRow } from '../../../../../../main/infra/ipc/dto'

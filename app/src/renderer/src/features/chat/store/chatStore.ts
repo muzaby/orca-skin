@@ -1733,7 +1733,7 @@ function approvePlan(requestId: string): void {
   // 승인 = plan 모드 종료. 종류별 승인 목표로 칩을 전환 → 다음 턴이 plan 모드로 재진입하지
   // 않아 ExitPlanMode 재호출(단순 질문 시 계획 카드 재출현)을 막는다. 여기는 낙관적 UI 갱신이고,
   // SDK 세션 전환은 어댑터가 같은 allow 응답의 updatedPermissions 로 원자 처리한다
-  // (adapters/claude.ts) — 그래서 setPermissionMode() 처럼 별도 IPC 를 발행하지 않는다.
+  // (adapters/claude/adapter.ts) — 그래서 setPermissionMode() 처럼 별도 IPC 를 발행하지 않는다.
   dispatchTo(current.key, {
     type: 'SET_PERMISSION_MODE',
     mode: planApprovedMode(current.session.agentKind)

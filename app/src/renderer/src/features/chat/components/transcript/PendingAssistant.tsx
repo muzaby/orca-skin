@@ -1,3 +1,4 @@
+import { harnessSurfaces } from '../../harnesses/presentation'
 import { useMemo } from 'react'
 import { StreamingMarkdown } from '../markdown/StreamingMarkdown'
 import { ReasoningBlock } from './ReasoningBlock'
@@ -26,7 +27,7 @@ export function PendingAssistant({
 }): React.JSX.Element {
   return (
     <div
-      className={`flex flex-col gap-2.5 text-[calc(14px*var(--transcript-text-scale,1))] ${openCode ? 'leading-[1.6] font-[440] text-oc-ink' : 'leading-[1.7] text-ink'}`}
+      className={`flex flex-col gap-2.5 text-[calc(14px*var(--transcript-text-scale,1))] ${harnessSurfaces(openCode).message}`}
     >
       <LiveReasoning />
       <LiveText />

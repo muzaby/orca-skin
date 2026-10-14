@@ -414,7 +414,7 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 | 시스템 프롬프트 | ✅ **append 채택** — `systemPrompt: { type:'preset', preset:'claude_code', append }` 로 `# Orca` 구조화 헤더(+Work `# Agent`)를 덧붙인다([system-prompt.md](./arch/backend/system-prompt.md)). 교체(`--system-prompt`·`--system-prompt-file`)는 미사용 |
 | 구조화 출력 | 미사용 (`--json-schema`) |
 | 모델 선택 | ✅ **채택 (0010)** — SDK `options.model` per-turn 전달 (Composer ModelMenu, `SendChatMessage.modelFamily`). 미지정 시 사용자 `~/.claude` 설정 폴백 |
-| 노력 수준 | ✅ **채택** — 모델 선택 시 [모델별 기본값](../app/src/shared/model-effort.ts)을 적용하고 수동 선택은 같은 모델 동안 유지한다. spawn은 `options.effort`, 후속 턴은 `applyFlagSettings({ effortLevel })`로 입력 전송 전에 적용한다. EffortMenu는 모델 기본 수준 옆에 '추천'을 표시한다 |
+| 노력 수준 | ✅ **채택** — 모델 선택 시 [모델별 기본값](../app/src/shared/harnesses/claude/model-effort.ts)을 적용하고 수동 선택은 같은 모델 동안 유지한다. spawn은 `options.effort`, 후속 턴은 `applyFlagSettings({ effortLevel })`로 입력 전송 전에 적용한다. EffortMenu는 모델 기본 수준 옆에 '추천'을 표시한다 |
 | 디버그 출력 | `--debug` / `--debug-file` — Phase 1 미사용, 개발자 빌드에서 옵션화 anchor |
 | 턴/비용 제한 | `--max-turns` / `--max-budget-usd` — Phase 1 미사용, Phase 3 *Skills 안전장치* 후보 |
 | 작업 디렉토리 | ✅ `options.additionalDirectories`(`--add-dir` 대응) — 앱 임시 루트 + 세션 extraDirs(Work 폴더 추가). workspace guard 훅과 같은 배열을 공유한다([workspace 가이드](./guides/workspace-isolation-permissions.md) §5) |

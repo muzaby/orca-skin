@@ -1,3 +1,5 @@
+import type { EngineHarnessConfiguration } from '../harnesses/types'
+import { engineHarnessConfiguration } from '../harnesses/configuration'
 import type { Backend, CreateEngineRequest } from '../../../../../shared/ipc'
 import { HARNESS_CAPABILITIES, HARNESS_IDS, isBackend } from '../../../../../shared/harness'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -8,13 +10,7 @@ import { Modal } from '../../../shared/ui/Modal'
 import { Popover } from '../../../shared/ui/Popover'
 import { Trans } from 'react-i18next'
 import { useI18n } from '../../../shared/i18n'
-import {
-  DEFAULT_PROVIDER_ID,
-  PROVIDER_OPTIONS,
-  providerOption,
-  validateProviderName,
-  validateSettingsJson
-} from '../lib/providerCatalog'
+import { validateProviderName, validateSettingsJson } from '../lib/providerCatalog'
 
 interface EngineFormModalProps {
   mode: 'add' | 'edit'
@@ -40,16 +36,20 @@ export function EngineFormModal({
   const { tr } = useI18n()
   const editing = mode === 'edit'
   const [engine, setEngine] = useState<Backend>(initialEngine)
-  const [providerId, setProviderId] = useState(editing ? 'custom' : DEFAULT_PROVIDER_ID)
+  const configuration = engineHarnessConfiguration(engine)
+  const initialConfiguration = engineHarnessConfiguration(initialEngine)
+  const providerOption = (
+    id: string
+  ): EngineHarnessConfiguration['providers'][number] | undefined =>
+    configuration.providers.find((option) => option.id === id)
+  const [providerId, setProviderId] = useState(
+    editing ? 'custom' : initialConfiguration.defaultProvider
+  )
   const [providerName, setProviderName] = useState(
-    editing ? editProvider : initialEngine === 'opencode' ? 'default' : DEFAULT_PROVIDER_ID
+    editing ? editProvider : initialConfiguration.defaultProvider
   )
   const [settingsJson, setSettingsJson] = useState(
-    editing
-      ? initialSettingsJson
-      : initialEngine === 'opencode'
-        ? '{}'
-        : (providerOption(DEFAULT_PROVIDER_ID)?.template ?? '{}')
+    editing ? initialSettingsJson : initialConfiguration.defaultSettings
   )
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -67,24 +67,12 @@ export function EngineFormModal({
     []
   )
 
-  const isCustom = editing || engine === 'opencode' || providerOption(providerId)?.custom === true
+  const isCustom =
+    editing || configuration.providers.length === 0 || providerOption(providerId)?.custom === true
   const jsonCheck = useMemo(() => validateSettingsJson(settingsJson), [settingsJson])
   const nameCheck = useMemo(() => validateProviderName(providerName), [providerName])
   const canSubmit = jsonCheck.ok && nameCheck.ok && !busy && !importBusy
-  const importKeys =
-    engine === 'opencode'
-      ? ({
-          title: 'engine.form.openCodeImportTitle',
-          button: 'engine.form.openCodeImportButton',
-          notFound: 'engine.form.openCodeImportNotFound',
-          failed: 'engine.form.openCodeImportFailed'
-        } as const)
-      : ({
-          title: 'engine.form.importTitle',
-          button: 'engine.form.importButton',
-          notFound: 'engine.form.importNotFound',
-          failed: 'engine.form.importFailed'
-        } as const)
+  const importKeys = configuration.importKeys
 
   const cancelImport = (): void => {
     importRevision.current += 1
@@ -111,11 +99,10 @@ export function EngineFormModal({
   const pickEngine = (next: Backend): void => {
     cancelImport()
     setEngine(next)
-    setProviderId(DEFAULT_PROVIDER_ID)
-    setProviderName(next === 'opencode' ? 'default' : DEFAULT_PROVIDER_ID)
-    setSettingsJson(
-      next === 'opencode' ? '{}' : (providerOption(DEFAULT_PROVIDER_ID)?.template ?? '{}')
-    )
+    const nextConfiguration = engineHarnessConfiguration(next)
+    setProviderId(nextConfiguration.defaultProvider)
+    setProviderName(nextConfiguration.defaultProvider)
+    setSettingsJson(nextConfiguration.defaultSettings)
     setMenuOpen(false)
     setImportError(null)
     setSubmitError(null)
@@ -213,7 +200,7 @@ export function EngineFormModal({
             )}
           </div>
 
-          {!editing && engine === 'claude' && (
+          {!editing && configuration.providers.length > 0 && (
             <div className="flex flex-col gap-1.5">
               <span className="text-[12px] font-medium text-ink2">
                 {tr('engine.form.provider')}
@@ -243,7 +230,7 @@ export function EngineFormModal({
                 placement="bottom"
                 className="min-w-[300px]"
               >
-                {PROVIDER_OPTIONS.map((p) => (
+                {configuration.providers.map((p) => (
                   <button
                     key={p.id}
                     type="button"
@@ -330,7 +317,7 @@ export function EngineFormModal({
             <span className="text-[11px] text-ink3">
               {/* 카탈로그 값의 <c> 태그가 code 요소로 치환된다. */}
               <Trans
-                i18nKey={engine === 'opencode' ? 'engine.form.openCodeHint' : 'engine.form.envHint'}
+                i18nKey={configuration.hint}
                 values={{ varToken: '${VAR}' }}
                 components={{ c: <code /> }}
               />

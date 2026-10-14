@@ -15,9 +15,9 @@
 
 | 항목 | Orca 구현 | 근거 |
 |---|---|---|
-| `claude_code` preset + `append` | `adaptSystemPrompt()` 가 `{type:'preset', preset:'claude_code', append}` 반환 | `app/src/main/adapters/claude-adapt.ts` |
+| `claude_code` preset + `append` | `adaptSystemPrompt()` 가 `{type:'preset', preset:'claude_code', append}` 반환 | `app/src/main/adapters/claude/adapt.ts` |
 | `append` 는 **단일 문자열** | 빌더가 구조화 헤더(지침 포함) 단일 string 조립(다중 블록 4-블록 버그 회피) | `app/src/main/features/extensions/builder.ts` |
-| 세션 스코프 `query()` + 입력 스트림 | spawn에서 query를 만들고 후속 입력은 같은 LiveTurn으로 전달한다. 재생성이 필요하면 `resume`한다 | `app/src/main/adapters/claude.ts` · `features/sessions/session-runtime.ts` |
+| 세션 스코프 `query()` + 입력 스트림 | spawn에서 query를 만들고 후속 입력은 같은 LiveTurn으로 전달한다. 재생성이 필요하면 `resume`한다 | `app/src/main/adapters/claude/adapter.ts` · `features/sessions/session-runtime.ts` |
 | 제품 에이전트 프로필 | Work만 `# Agent` 지침을 추가한다. Code는 기존 append와 동일하다 | `features/agents/profiles.ts` · `system-header.ts` |
 | `excludeDynamicSections` 생략(=false) | 미사용 → cwd/플랫폼/메모리 경로 동적섹션을 시스템 프롬프트에 유지 | grep 0건 |
 | Work 전용 출력 스타일 | 앱 소유 local plugin의 `keep-coding-instructions: false`·`force-for-plugin: true`로 기본 코딩 지침을 제외한다. Work 행동은 `append`가 소유한다 | `resources/claude-plugins/work-profile/output-styles/work.md` |
@@ -84,8 +84,8 @@ Claude 대화는 Work/Code 모두 `Bash`·`WebSearch`를 제외한 SDK 기본 �
 provider 템플릿과 실행 설정은 `CLAUDE_CODE_USE_POWERSHELL_TOOL="1"`과
 `skipWebFetchPreflight=true`를 기본 제공하되 명시 설정과 기존 환경 변수 우선순위를 보존한다.
 기존 provider 파일은 일괄 수정하지 않으며 실행 시 누락값을 보완한다. 단발 completion의 도구는
-비활성으로 유지한다. 기본값 정본은 `app/src/shared/claude-settings-defaults.ts`, 실행 조립은
-`adapters/claude-adapt.ts`다.
+비활성으로 유지한다. 기본값 정본은 `app/src/shared/harnesses/claude/settings-defaults.ts`, 실행 조립은
+`adapters/claude/adapt.ts`다.
 
 ## 2. 정적 정책 append — 미채택
 
@@ -148,7 +148,7 @@ SDK `init.output_style` 표시값이 아닌 실제 모델 요청의 style 본문
 | | 내용 |
 |---|---|
 | 가이드 처방 | `settings:{ env: appEnv }` — 앱 env 를 settings 에 단일 주입 |
-| Orca 확정 | provider env→`options.settings`(JSON 문자열, `adaptSettings`) / 시스템(턴) env→`options.env`(`adaptEnv`)로 **분리**. 분리 지점은 `adapters/claude-adapt.ts` 의 `adaptSettings`/`adaptEnv` 두 함수다. (0015/0018 의 `splitProviderSettings`·branded 타입 컴파일타임 강제는 **0028 이 제거**했다 — [security.md §1.7](./security.md) 이력.) handoff 0015/0018/0028 |
+| Orca 확정 | provider env→`options.settings`(JSON 문자열, `adaptSettings`) / 시스템(턴) env→`options.env`(`adaptEnv`)로 **분리**. 분리 지점은 `adapters/claude/adapt.ts` 의 `adaptSettings`/`adaptEnv` 두 함수다. (0015/0018 의 `splitProviderSettings`·branded 타입 컴파일타임 강제는 **0028 이 제거**했다 — [security.md §1.7](./security.md) 이력.) handoff 0015/0018/0028 |
 | 분석 | Orca 분리 모델이 더 정밀(어떤 env 가 어느 레이어로 가는지 타입으로 고정). 가이드의 단일 주입은 이 구분을 잃음 |
 | 권고 | **현행 유지**(분리) |
 

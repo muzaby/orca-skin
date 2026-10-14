@@ -9,7 +9,7 @@ import type { HistoryWriter } from '../../features/history/writer'
 import { SessionRuntime } from '../../features/sessions/session-runtime'
 import { ApprovalCoordinator } from '../../features/approvals/coordinator'
 import { PermissionModeController } from '../../features/approvals/permission-mode-controller'
-import { makeCanUseTool } from '../../adapters/claude'
+import { makeCanUseTool } from '../../adapters/claude/adapter'
 import { createApprovalRequester } from './approval'
 
 const sendChatEvent = vi.hoisted(() => vi.fn())

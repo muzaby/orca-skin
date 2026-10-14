@@ -1,3 +1,4 @@
+import { harnessSurfaces } from '../harnesses/presentation'
 import { useI18n } from '../../../shared/i18n'
 import { agentUiPolicy } from '../lib/agentPresentation'
 import { chatActions, useChatSession } from '../store/chatStore'
@@ -35,7 +36,7 @@ export function CwdPanel({
 
   return (
     <div
-      className={`app-frame-composer-directory flex flex-wrap items-center ${openCode ? 'justify-center gap-1 text-oc-muted' : 'gap-g3 rounded-r7 border border-transparent bg-transparent px-1 py-1'}`}
+      className={`app-frame-composer-directory flex flex-wrap items-center ${harnessSurfaces(openCode).directory}`}
       data-surface="cwd-panel"
       data-state="landing"
       data-appearance={appearance}
@@ -45,7 +46,7 @@ export function CwdPanel({
         sessionStarted={false}
         inflight={inflight}
         variant={openCode ? 'flat' : 'outlined'}
-        className={openCode ? 'max-w-[203px]' : ''}
+        className={harnessSurfaces(openCode).pathWidth}
         showChevron={openCode}
       />
       {/* Code에서만 Git을 조회한다. 격리 ON이면 선택은 base ref로 유예된다. */}

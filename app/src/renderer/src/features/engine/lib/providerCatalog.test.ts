@@ -1,10 +1,6 @@
+import { validateProviderName, validateSettingsJson } from './providerCatalog'
 import { describe, expect, it } from 'vitest'
-import {
-  PROVIDER_OPTIONS,
-  providerOption,
-  validateProviderName,
-  validateSettingsJson
-} from './providerCatalog'
+import { PROVIDER_OPTIONS, providerOption } from '../harnesses/claude/providerCatalog'
 
 describe('validateSettingsJson', () => {
   it('빈 입력은 거부', () => {

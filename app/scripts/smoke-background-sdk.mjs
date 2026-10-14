@@ -30,7 +30,7 @@ let backgroundPending
 try {
   ;({ BackgroundOutputStore } = await loader.ssrLoadModule('/src/main/infra/background-output.ts'))
   ;({ ClaudeBackgroundMapper } = await loader.ssrLoadModule(
-    '/src/main/adapters/claude-background.ts'
+    '/src/main/adapters/claude/background.ts'
   ))
   ;({ emptyBackgroundState, applyBackgroundEvent, backgroundPending } = await loader.ssrLoadModule(
     '/src/shared/background-task.ts'

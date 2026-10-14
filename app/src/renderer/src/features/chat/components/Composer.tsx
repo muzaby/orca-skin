@@ -1,3 +1,5 @@
+import { ClaudeConversationStatus } from '../harnesses/claude/composer/ConversationStatus'
+import { ClaudeModeControl, ClaudeEffortControl } from '../harnesses/claude/composer/Controls'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { useI18n } from '../../../shared/i18n'
@@ -8,12 +10,11 @@ import { ReadingColumn } from '../../../shared/ui/ReadingColumn'
 import { ComposerInputController } from './composer/ComposerInputController'
 import { ComposerChip } from './composer/ComposerChip'
 import { RequirementTray } from './composer/RequirementTray'
-import { ModeMenu } from './composer/ModeMenu'
 import { ModelMenu } from './composer/ModelMenu'
-import { EffortMenu } from './composer/EffortMenu'
-import { OpenCodeAgentControl, OpenCodeVariantControl } from './composer/OpenCodeControls'
-import { defaultEffortForModel } from '../../../../../shared/model-effort'
-import { EFFORT_LABEL_KEYS } from './composer/effort'
+import {
+  OpenCodeAgentControl,
+  OpenCodeVariantControl
+} from '../harnesses/opencode/composer/Controls'
 import {
   draftSelection,
   modelKey,
@@ -22,15 +23,10 @@ import {
   selectionLabel
 } from './composer/modelSelection'
 import { steerBlockedByProviderBoundary } from '../lib/sendAdmission'
-import { ConversationStatusLine } from './composer/ConversationStatusLine'
 import { Button } from '../../../shared/ui/Button'
 import { CwdPanel } from './CwdPanel'
 import { GitRow } from './composer/GitRow'
 import { Notice } from './Notice'
-import { StatusPopover } from './composer/StatusPopover'
-import { conversationStatusModel as conversationStatusModelFactory } from './composer/statusViewModel'
-import { permissionModeLabelKey, modeMenuOptions } from './composer/modes'
-import type { ConversationStatus } from './composer/statusCopy'
 import { AskUserQuestionCard } from './AskUserQuestionCard'
 import { ApprovalCard, ToolApprovalBody } from './ApprovalCard'
 import { UsagePanel } from './UsagePanel'
@@ -129,23 +125,16 @@ export function Composer({
   onManagePlugins
 }: ComposerProps): React.JSX.Element {
   const { tr } = useI18n()
-  const { send, cancel, answerAsk, skipAsk, setPermissionMode, setModel, setEffort } = chatActions
+  const { send, cancel, answerAsk, skipAsk, setModel } = chatActions
   const leaseBusy = useChatBusy()
   const inflight = useChatResponding()
   // Stop 잔여(0151 r2) — 중단했는데 이미 전달된 예약이 CLI 큐에 살아남았다. 수동 배지로 덮지 않고
   // 완전 정지 수단을 그 자리에서 제시한다(런타임 폐기 = 백그라운드 작업도 종료, 본문에 명시).
   const residualSteer = useChatResidualSteer()
-  const sessionId = useChatSession((s) => s.sessionId)
-  // 0064 handoff 가드 — 사용자 턴 2회 미만 세션 제외(값이 바뀔 때만 재렌더).
-  const userTurnCount = useChatSession((s) =>
-    s.messages.reduce((n, m) => (m.role === 'user' ? n + 1 : n), 0)
-  )
   const agentKind = useChatSession((s) => s.agentKind)
   const permissionModeError = useChatSession((s) => s.permissionModeError)
   const cwd = useChatSession((s) => s.cwd)
   const lastTelemetry = useChatSession((s) => s.lastTelemetry)
-  const sessionCostUsd = useChatSession((s) => s.sessionCostUsd)
-  const permissionMode = useChatSession((s) => s.permissionMode)
   const backend = useChatSession((s) => s.backend)
   const harnessLocked = useChatSession((s) => !!s.sessionId || s.agentKindLocked)
   const openCode = backend === 'opencode'
@@ -153,7 +142,6 @@ export function Composer({
   const modelFamily = useChatSession((s) => s.modelFamily)
   const modelAlias = useChatSession((s) => s.modelAlias)
   const turnProviderKey = useChatSession((s) => s.turnProviderKey)
-  const effort = useChatSession((s) => s.effort)
   const pendingPlanReview = useChatSession((s) => s.pendingPlanReview)
   const projectId = useChatSession((s) => s.projectId ?? s.pendingProjectId)
   const pendingToolApprovals = useChatSession((s) => s.pendingToolApprovals)
@@ -162,18 +150,11 @@ export function Composer({
   const diffRequirementSnapshot = chatActions.captureDiffRequirementSnapshot()
   // 큐의 맨 앞 질문만 렌더(canUseTool 이 query 를 막아 보통 1개). 응답 시 다음 질문이 노출.
   const activeAsk = useChatSession((s) => s.pendingAsks[0])
-  const modeButtonRef = useRef<HTMLButtonElement>(null)
-  const [modeMenuOpen, setModeMenuOpen] = useState(false)
   const modelButtonRef = useRef<HTMLButtonElement>(null)
   const [modelMenuOpen, setModelMenuOpen] = useState(false)
-  const effortButtonRef = useRef<HTMLButtonElement>(null)
-  const [effortMenuOpen, setEffortMenuOpen] = useState(false)
   const agents = useAgents()
   const telemetryButtonRef = useRef<HTMLButtonElement>(null)
   const [telemetryOpen, setTelemetryOpen] = useState(false)
-  const conversationStatusButtonRef = useRef<HTMLButtonElement>(null)
-  const [conversationStatusOpen, setConversationStatusOpen] = useState(false)
-  const conversationStatusPopoverId = 'conversation-status-popover'
   const projectConcurrencyCount = useProjectConcurrencyCount(projectId)
   const newChatPending = useNewChatPending()
   // 같은 프로젝트에서 다른 작업이 실행 중인가(자기 턴 제외). × 닫기는 에피소드 단위 —
@@ -215,53 +196,6 @@ export function Composer({
     if (agent && model) setModel(providerKey, modelKey(model), model.alias, agent.adapter)
   }, [agents, backend, harnessLocked, modelFamily, providerKey, setModel])
 
-  const conversationStatusModel = useMemo(() => {
-    // TODO(후속 핸드오프): 정식 상태 판정 신호로 교체 — 현재는 임시 근사
-    let conversationStatus: ConversationStatus = 'safe'
-    let usage: { tokens: number; window: number } | undefined
-    if (lastTelemetry) {
-      const tokens = contextTokens(lastTelemetry)
-      const window = contextWindowOf(lastTelemetry)
-      const ratio = tokens / window
-      usage = { tokens, window }
-      if (nearCompaction(tokens, window) || ratio >= 0.85) {
-        conversationStatus = 'danger'
-      } else if (ratio >= 0.6) {
-        conversationStatus = 'warn'
-      }
-    }
-    return conversationStatusModelFactory(conversationStatus, usage, sessionCostUsd)
-  }, [lastTelemetry, sessionCostUsd])
-
-  const toggleConversationStatus = (): void => {
-    if (!conversationStatusModel) return
-    setConversationStatusOpen((v) => !v)
-  }
-
-  // warn 단계 권장 액션(0064 r2, 사용자 확정) — 현재 세션에 `/compact` 를 사용자 턴으로
-  // 전송한다. SDK 네이티브 압축이 돌고 완료 시 session.compacted → 압축 경계 구분선 표시.
-  const onCompact = (): void => {
-    if (!openCode && chatActions.send('/compact')) setConversationStatusOpen(false)
-  }
-
-  // 0064 handoff — 가드 3종: 확정 세션(sessionId) · mid-turn 거부(inflight) · 사용자 턴 2회
-  // 미만 제외. 클릭 = 즉시 물질화(startHandoff, 재클릭은 activeKey 전환으로 자연 차단).
-  const handoffDisabledReason =
-    sessionId == null
-      ? tr('chat.composer.handoffNoSession')
-      : leaseBusy
-        ? tr('chat.composer.handoffWaitTurn')
-        : userTurnCount < 2
-          ? tr('chat.composer.handoffNeedMoreTurns')
-          : null
-  const onHandoff = (): void => {
-    if (handoffDisabledReason != null) return
-    if (chatActions.startHandoff()) {
-      setConversationStatusOpen(false)
-      setTelemetryOpen(false)
-    }
-  }
-
   // 0119: busy 중 provider 경계를 넘는 모델이 선택된 동안 steer 차단 — 진행 턴의 채널은
   // 낡은 provider env 라 경계 너머 메시지를 실을 수 없다. 본래 provider 로 되돌리면 해제.
   const steerBlocked = steerBlockedByProviderBoundary({
@@ -288,33 +222,7 @@ export function Composer({
         </button>
       )}
       <ColumnWrap flush={flush}>
-        {!openCode && (
-          <ConversationStatusLine
-            ref={conversationStatusButtonRef}
-            model={conversationStatusModel}
-            open={conversationStatusOpen}
-            onToggle={toggleConversationStatus}
-            popoverId={conversationStatusPopoverId}
-          />
-        )}
-        {!openCode && conversationStatusModel && (
-          <Popover
-            open={conversationStatusOpen}
-            anchorRef={conversationStatusButtonRef}
-            onClose={() => setConversationStatusOpen(false)}
-            placement="top"
-            align="center"
-            className="p-0"
-          >
-            <StatusPopover
-              id={conversationStatusPopoverId}
-              model={conversationStatusModel}
-              onCompact={onCompact}
-              onHandoff={onHandoff}
-              handoffDisabledReason={handoffDisabledReason}
-            />
-          </Popover>
-        )}
+        {!openCode && <ClaudeConversationStatus onHandoffStarted={() => setTelemetryOpen(false)} />}
         {/* 패널 스택 — ask / 도구 승인 / git / 안내 / 입력 패널. 요구사항은 입력 안에 둔다. */}
         <ComposerPanelStackView
           beforeGitRow={
@@ -409,18 +317,7 @@ export function Composer({
                     agents={agents.find((entry) => entry.key === providerKey)?.agents}
                   />
                 ) : (
-                  <ComposerChip
-                    ref={modeButtonRef}
-                    label={tr(
-                      permissionModeError
-                        ? 'chat.composer.permissionUpdateFailedLabel'
-                        : permissionModeLabelKey(permissionMode, agentKind)
-                    )}
-                    onClick={() => setModeMenuOpen((value) => !value)}
-                    ariaHasPopup
-                    ariaExpanded={modeMenuOpen}
-                    title={tr('chat.composer.permissionModeTitle')}
-                  />
+                  <ClaudeModeControl model={selectedModelShape(agents, selectedModel)} />
                 )
               }
               controlsEnd={
@@ -444,14 +341,7 @@ export function Composer({
                       }
                     />
                   ) : (
-                    <ComposerChip
-                      ref={effortButtonRef}
-                      label={tr(EFFORT_LABEL_KEYS[effort])}
-                      onClick={() => setEffortMenuOpen((v) => !v)}
-                      ariaHasPopup
-                      ariaExpanded={effortMenuOpen}
-                      title={tr('chat.composer.effortTitle')}
-                    />
+                    <ClaudeEffortControl modelFamily={modelFamily} />
                   )}
                   {lastTelemetry &&
                     (() => {
@@ -516,31 +406,7 @@ export function Composer({
           }
         />
       </ColumnWrap>
-      <Popover open={modeMenuOpen} anchorRef={modeButtonRef} onClose={() => setModeMenuOpen(false)}>
-        <ModeMenu
-          mode={permissionMode}
-          options={modeMenuOptions(selectedModelShape(agents, selectedModel), agentKind)}
-          onPick={(mode) => {
-            setPermissionMode(mode)
-            setModeMenuOpen(false)
-          }}
-        />
-      </Popover>
-      <Popover
-        open={effortMenuOpen}
-        anchorRef={effortButtonRef}
-        onClose={() => setEffortMenuOpen(false)}
-        align="end"
-      >
-        <EffortMenu
-          effort={effort}
-          defaultEffort={defaultEffortForModel(modelFamily)}
-          onPick={(nextEffort) => {
-            setEffort(nextEffort)
-            setEffortMenuOpen(false)
-          }}
-        />
-      </Popover>
+
       <Popover
         open={modelMenuOpen}
         anchorRef={modelButtonRef}

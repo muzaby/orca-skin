@@ -10,8 +10,8 @@ import {
   type EngineWriteResult
 } from '../../../shared/protocol'
 import { HARNESS_IDS } from '../../../shared/harness'
-import { readUserClaudeSettings } from '../../adapters/claude-settings'
-import { readUserOpenCodeSettings } from '../../adapters/opencode-settings'
+import { readUserClaudeSettings } from '../../adapters/claude/settings'
+import { readUserOpenCodeSettings } from '../../adapters/opencode'
 import {
   addHarnessSettings,
   deleteHarnessSettings,

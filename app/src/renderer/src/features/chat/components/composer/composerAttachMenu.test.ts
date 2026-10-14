@@ -91,10 +91,14 @@ describe('runAttachMenuAction (AC2·AC3)', () => {
     )
     expect(source).toContain('onAction={onAttachMenuAction}')
     // r3 verify D6·D7 — 메뉴 데이터 = `/` 자동완성과 같은 useSkills 전체 · `@` 훅의 전체 후보(D-006).
-    expect(source.match(/const skills = useSkills\(\)/g)).toHaveLength(1)
+    expect(source.match(/const availableSkills = useSkills\(\)/g)).toHaveLength(1)
+    expect(source).toContain(
+      'useMemo(() => (openCode ? [] : availableSkills), [openCode, availableSkills])'
+    )
     expect(source).toContain(
       [
         '        skills={skills}',
+        '        includeExtensions={!openCode}',
         '        plugins={mentionAutocomplete.plugins}',
         '        onAction={onAttachMenuAction}'
       ].join('\n')
@@ -127,6 +131,7 @@ describe('runAttachMenuAction (AC2·AC3)', () => {
         '        anchorRef={attachButtonRef}',
         '        onClose={() => setAttachMenuOpen(false)}',
         '        skills={skills}',
+        '        includeExtensions={!openCode}',
         '        plugins={mentionAutocomplete.plugins}',
         '        onAction={onAttachMenuAction}',
         '        onManagePlugins={',

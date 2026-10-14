@@ -1,3 +1,6 @@
+import { agentPresentation } from '../harnesses/claude/presentation'
+import { openCodeTranscript } from '../harnesses/opencode/presentation'
+export { agentPresentation } from '../harnesses/claude/presentation'
 import type { Backend } from '../../../../../shared/ipc'
 import type { AgentKind } from '../../../../../shared/agent-kind'
 import type { MessageKey } from '../../../shared/i18n'
@@ -27,54 +30,8 @@ export interface AgentPresentation {
   transcript: AgentTranscriptPresentation
 }
 
-export const agentPresentation = {
-  work: {
-    icon: 'todo',
-    navIcon: 'checklist',
-    label: 'chat.agent.work',
-    greeting: 'chat.agent.workGreeting',
-    placeholder: 'chat.agent.workPlaceholder',
-    composer: {
-      showGitRow: false,
-      showLandingCwdControls: false
-    },
-    transcript: {
-      turnProjection: 'work-activity',
-      inlineSubagentDetail: true,
-      showTaskAgentLabel: false,
-      planBodyPlacement: 'approval-card',
-      remountTranscriptBySession: true
-    }
-  },
-  code: {
-    icon: 'terminal',
-    navIcon: 'terminal2',
-    label: 'chat.agent.code',
-    greeting: 'landing.newChatGreeting',
-    placeholder: 'chat.composer.placeholderIdle',
-    composer: {
-      showGitRow: true,
-      showLandingCwdControls: true
-    },
-    transcript: {
-      turnProjection: 'standard',
-      inlineSubagentDetail: false,
-      showTaskAgentLabel: true,
-      planBodyPlacement: 'right-panel',
-      remountTranscriptBySession: false
-    }
-  }
-} as const satisfies Record<AgentKind, AgentPresentation>
-
 export function agentUiPolicy(kind: AgentKind): (typeof agentPresentation)[AgentKind] {
   return agentPresentation[kind]
-}
-
-const openCodeTranscript: AgentTranscriptPresentation = {
-  ...agentPresentation.code.transcript,
-  surface: 'opencode',
-  inlineSubagentDetail: true,
-  showTaskAgentLabel: false
 }
 
 export function transcriptPresentation(

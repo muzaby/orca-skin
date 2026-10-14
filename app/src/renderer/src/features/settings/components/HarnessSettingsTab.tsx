@@ -1,3 +1,5 @@
+import { HarnessFields, HarnessDescription } from '../harnesses/fields'
+import { harnessPreferences } from '../harnesses/preferences'
 import { useEffect, useState } from 'react'
 import type { Backend } from '../../../../../shared/ipc'
 import { HARNESS_CAPABILITIES, type HarnessPreferences } from '../../../../../shared/harness'
@@ -47,11 +49,7 @@ export function HarnessSettingsTab({ backend }: { backend: Backend }): React.JSX
     if (!saved || saving || !dirty) return
     setSaving(true)
     setError(null)
-    const value: HarnessPreferences = {
-      ...saved,
-      instructions,
-      ...(backend === 'opencode' ? { executablePath: executablePath.trim() } : {})
-    }
+    const value = harnessPreferences(backend, saved, instructions, executablePath)
     try {
       await settingsApi.set({ harnesses: { [backend]: value } })
       setSaved(value)
@@ -67,11 +65,7 @@ export function HarnessSettingsTab({ backend }: { backend: Backend }): React.JSX
     <div data-harness-settings={backend}>
       <SettingsGroup title={HARNESS_CAPABILITIES[backend].label}>
         <p className="m-0 text-[12px] leading-5 text-ink3">{tr('settings.harness.description')}</p>
-        {backend === 'opencode' && (
-          <p className="m-0 text-[12px] leading-5 text-ink3">
-            {tr('settings.harness.managedServer')}
-          </p>
-        )}
+        <HarnessDescription backend={backend} />
         {loading && (
           <p role="status" className="text-[12px] text-ink3">
             {tr('common.loading')}
@@ -113,21 +107,11 @@ export function HarnessSettingsTab({ backend }: { backend: Backend }): React.JSX
                   className="min-h-[100px] max-h-64"
                 />
               </SettingsRow>
-              {backend === 'opencode' && (
-                <SettingsRow
-                  label={tr('settings.harness.executablePath')}
-                  description={tr('settings.harness.executablePathHint')}
-                  stacked
-                >
-                  <input
-                    value={executablePath}
-                    onChange={(event) => setExecutablePath(event.target.value)}
-                    aria-label={tr('settings.harness.executablePath')}
-                    placeholder={tr('settings.harness.executablePathPlaceholder')}
-                    className="rounded-md border border-border bg-bg px-3 py-2 font-mono text-[12px] text-ink outline-none focus:border-border-strong"
-                  />
-                </SettingsRow>
-              )}
+              <HarnessFields
+                backend={backend}
+                executablePath={executablePath}
+                setExecutablePath={setExecutablePath}
+              />
             </fieldset>
             <div className="flex justify-end gap-2">
               <Button

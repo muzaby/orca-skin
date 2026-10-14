@@ -145,7 +145,7 @@ const sites = [
   },
   {
     id: 'M19',
-    file: 'adapters/claude-settings.ts',
+    file: 'adapters/claude/settings.ts',
     event: 'providers.settings.parse-failed',
     title: 'configInvalid',
     method: 'reportError'

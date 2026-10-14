@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   AgentModeToggle,
+  harnessSurfaces,
   ChatTile,
   Composer,
   OpenCodeWordmark,
@@ -44,14 +45,14 @@ export function NewChatLandingPage(): React.JSX.Element {
   if (isEmpty) {
     return (
       <section
-        className={`flex min-h-0 min-w-0 flex-1 bg-bg ${openCode ? '[container-type:size]' : ''}`}
+        className={`flex min-h-0 min-w-0 flex-1 bg-bg ${harnessSurfaces(openCode).landingRoot}`}
         data-surface="new-chat-landing"
         data-harness={openCode ? 'opencode' : 'claude'}
       >
         <div
-          className={`flex min-w-0 flex-1 justify-center ${openCode ? 'items-start overflow-y-auto px-6' : 'items-center px-4'}`}
+          className={`flex min-w-0 flex-1 justify-center ${harnessSurfaces(openCode).landingAlign}`}
         >
-          <div className={`w-full max-w-[720px] ${openCode ? 'pt-[25.375cqh] pb-8' : ''}`}>
+          <div className={`w-full max-w-[720px] ${harnessSurfaces(openCode).landingColumn}`}>
             {openCode && <OpenCodeWordmark className="mb-8 h-auto w-full text-ink" />}
             {!openCode && <AgentModeToggle />}
             <Composer

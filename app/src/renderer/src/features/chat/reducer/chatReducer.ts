@@ -19,7 +19,7 @@ import type {
   GitDiffPatch
 } from '../../../../../shared/ipc'
 import { subagentNoticePart } from '../../../../../shared/ipc'
-import { defaultEffortForModel } from '../../../../../shared/model-effort'
+import { defaultEffortForModel } from '../../../../../shared/harnesses/claude/model-effort'
 import type { NonExecution } from '../../../../../shared/tool-outcome'
 import { isFilesystemRoot } from '../../../../../shared/absolute-path'
 import { directoryIdentity } from '../../../../../shared/extra-directories'

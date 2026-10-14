@@ -1,3 +1,4 @@
+import { composerAppearance } from '../../harnesses/presentation'
 import {
   forwardRef,
   useImperativeHandle,
@@ -35,8 +36,6 @@ export interface ComposerInputSurfaceHandle {
   setSelectionRange(start: number, end: number): void
 }
 
-const TYPOGRAPHY =
-  'block w-full px-1 py-1.5 text-[13px] leading-[1.6] font-sans whitespace-pre-wrap break-words [scrollbar-gutter:stable]'
 const EMPTY_PLUGIN_IDS = new Set<string>()
 
 export const ComposerInputSurface = forwardRef<
@@ -58,9 +57,8 @@ export const ComposerInputSurface = forwardRef<
   },
   ref
 ): React.JSX.Element {
-  const typography = openCode
-    ? 'block w-full p-0 text-[13px] leading-5 font-sans whitespace-pre-wrap break-words [scrollbar-gutter:stable]'
-    : TYPOGRAPHY
+  const appearance = composerAppearance(openCode)
+  const typography = appearance.typography
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const decorationProjectionRef = useRef<HTMLDivElement>(null)
 
@@ -120,7 +118,7 @@ export const ComposerInputSurface = forwardRef<
         placeholder={placeholder}
         rows={1}
         aria-label={ariaLabel}
-        className={`${typography} relative ${openCode ? 'max-h-[180px] min-h-9 text-oc-ink caret-oc-ink placeholder:text-oc-muted' : 'max-h-56 min-h-9 text-ink caret-ink placeholder:text-ink3'} resize-none overflow-y-auto border-0 bg-transparent outline-none [field-sizing:content]`}
+        className={`${typography} relative ${appearance.textarea} resize-none overflow-y-auto border-0 bg-transparent outline-none [field-sizing:content]`}
       />
     </div>
   )

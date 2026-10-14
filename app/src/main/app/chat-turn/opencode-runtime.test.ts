@@ -1,16 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { WebContents } from 'electron'
-import type { Event } from '@opencode-ai/sdk/v2'
 import type { NormalizedEvent } from '../../../shared/ipc'
 import type { TurnContext } from '../../contracts/turn'
 import { OpenCodeAdapter } from '../../adapters/opencode'
-import type { OpenCodeServerPool } from '../../adapters/opencode-server'
+import type { OpenCodeServerPool } from '../../adapters/opencode'
 import {
   assistantMessage,
   jsonResponse,
   openCodeEvent,
   textPart
-} from '../../adapters/opencode.testfixture'
+} from '../../adapters/opencode/v1/adapter.testfixture'
 import { PendingMessageQueue } from '../../features/chat/pending-message-queue'
 import type { SessionActivityProjector } from '../../features/chat/session-activity-projector'
 import { SessionRuntime } from '../../features/sessions/session-runtime'
@@ -24,7 +23,7 @@ function fixture(): { runtime: SessionRuntime; requests: Request[]; rejectPrompt
   const encoder = new TextEncoder()
   let stream: ReadableStreamDefaultController<Uint8Array>
   let rejected = false
-  const emit = (event: Event): void => {
+  const emit = (event: ReturnType<typeof openCodeEvent>): void => {
     stream.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
   }
   const fetchImpl: typeof fetch = async (input, init) => {

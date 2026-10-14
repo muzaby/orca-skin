@@ -18,10 +18,13 @@ import type { RestartGateState } from '../../shared/update-restart'
 import { parseAgentKind } from '../../shared/agent-kind'
 import type { TurnContext } from '../contracts/turn'
 import { AdapterRegistry } from '../adapters/registry'
-import { OpenCodeAdapter } from '../adapters/opencode'
-import { OpenCodeServerPool } from '../adapters/opencode-server'
-import { loadOpenCodeProviderSettings, parseOpenCodeModels } from '../adapters/opencode-settings'
-import { MockAdapter } from '../adapters/mock'
+import {
+  OpenCodeAdapter,
+  OpenCodeServerPool,
+  loadOpenCodeProviderSettings,
+  parseOpenCodeModels
+} from '../adapters/opencode'
+import { MockAdapter } from '../adapters/claude/mock'
 import { SettingsStore } from '../infra/settings-store'
 import { McpStore } from '../features/extensions/mcp/store'
 import {
@@ -31,8 +34,8 @@ import {
   sourcesSkillsDir,
   managedWorktreesDir
 } from '../infra/config/paths'
-import { builtInHarnessPluginRoot } from '../features/extensions/harness-plugins/claude'
-import { userClaudePluginRoot } from '../features/extensions/harness-plugins/claude-user-skills'
+import { builtInHarnessPluginRoot } from '../features/extensions/harness-plugins/claude/plugin'
+import { userClaudePluginRoot } from '../features/extensions/harness-plugins/claude/user-skills'
 import { loadOrcaConfig } from '../infra/config/orca-config'
 import { SecretStore } from '../infra/config/secret-store'
 import { deploy } from '../features/extensions/deployer'
@@ -41,7 +44,7 @@ import { toClaudeConfig } from '../features/extensions/mcp/convert'
 import { scaffoldProviderSettings } from '../features/extensions/scaffold'
 import { HarnessSettingsService } from '../features/harnesses/settings'
 import { netFetch } from '../infra/net/net-fetch'
-import { loadClaudeProviderSettings, readUserClaudeSettings } from '../adapters/claude-settings'
+import { loadClaudeProviderSettings, readUserClaudeSettings } from '../adapters/claude/settings'
 import { scanSkills, type SkillScanRoot } from '../features/extensions/skills/scan'
 import { seedBuiltinSkills } from '../features/extensions/skills/seed'
 import type { MigrationReport } from '../infra/config/migrate-legacy'

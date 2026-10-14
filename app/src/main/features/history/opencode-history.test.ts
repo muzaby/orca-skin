@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { OpenCodeEventMapper } from '../../adapters/opencode-map'
-import { assistantMessage, editTool, openCodeEvent } from '../../adapters/opencode.testfixture'
+import { OpenCodeEventMapper } from '../../adapters/opencode/v1/map'
+import {
+  assistantMessage,
+  editTool,
+  openCodeEvent
+} from '../../adapters/opencode/v1/adapter.testfixture'
 import { toolCallPartPayload } from './tool-call-payload'
 import { partFromRow } from '../../infra/ipc/dto'
 

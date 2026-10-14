@@ -27,7 +27,7 @@ Phase 3++ 구현은 claude-code SDK 에 강하게 결합돼 있어, 범용(OpenC
 | 괴리 | 정규화 전 코드 | 목표 |
 |---|---|---|
 | 이벤트가 provider-specific | 구 `ChatEvent`(구 `src/shared/ipc.ts`, 9종) 가 Claude SDK 메시지 모양이었다. `sessionId`/`toolRunId` 정규화 축 없음(백엔드는 `session.backend` 로 파생) | `NormalizedEvent` (§2) + `permission.requested` 1급 이벤트 |
-| 일반 권한 승인 UX 부재 | `makeCanUseTool`(`src/main/adapters/claude.ts`) 가 `AskUserQuestion`/`ExitPlanMode` 만 surface, **그 외 모든 tool 을 무조건 allow** | PermissionBridge + ApprovalResolution 2분기 (§3) |
+| 일반 권한 승인 UX 부재 | `makeCanUseTool`(`src/main/adapters/claude/adapter.ts`) 가 `AskUserQuestion`/`ExitPlanMode` 만 surface, **그 외 모든 tool 을 무조건 allow** | PermissionBridge + ApprovalResolution 2분기 (§3) |
 | capability/revert/app-command/telemetry/audit/error 계층 부재 | 없음 | §4 ~ §11 |
 
 > **2계층·Hook 연속성**: 본 정규화 계층은 신규 발명이 아니라 [adapters.md](./adapters.md) 의 **2계층 모델**(Tier A `TurnExtensions`(구 `OrcaCapabilities` — 0062 개명) / Tier B 얇은 `SessionAdapter`)과 **Hook 정규화 모델**([adapters.md §3](./adapters.md))의 *다음 단계*다. 그 모델의 `sendMessage(req: TurnRequest)` 객체 시그니처는 **이미 코드에 채택됨**([adapters.md §1.3](./adapters.md)) — 정규화 계층은 그 위에 `NormalizedEvent`(아웃바운드 이벤트)와 권한/세션/revert 정규화를 추가한다. `NormalizedHookSet`·`NormalizedHookDecision`(`adapters/hooks.ts`, [adapters.md §3](./adapters.md))은 §3 의 권한 결정 흐름과 의미가 겹치며, 구현 시 단일 결정 모델로 합류 검토.
@@ -38,7 +38,7 @@ Phase 3++ 구현은 claude-code SDK 에 강하게 결합돼 있어, 범용(OpenC
 
 **② 예시.** "Bash 한 줄 실행" 한 턴이 정규화 전에는 `tool_use` → `tool_result` 두 `ChatEvent` 로 흘렀다. 정규화 후엔 `sessionId`/`toolRunId` 를 가진 `tool.call.started` → `tool.call.completed` 가 되어, 같은 `toolRunId` 로 start/complete 를 매칭하고 어느 provider/세션에서 왔는지 식별한다.
 
-**③ 현재 코드 갭.** 스테이지 B1/B1′ (`f61658f`·`3973112`) 로 와이어가 `NormalizedEvent`(`session.updated`·`message.delta/completed`·`tool.call.started/completed`·`telemetry`·`error`)로 전면 전환되고 매핑이 `adapters/claude-map.ts` 의 `claudeToNormalized` 로 이관됨(구 `ChatEvent` 타입 완전 제거, PR #47). `sessionId`/`toolRunId` 정규화 축 확보. **잔여 갭**: `provider` 축은 claude 고정값(`ProviderId` 에 opencode seam만).
+**③ 현재 코드 갭.** 스테이지 B1/B1′ (`f61658f`·`3973112`) 로 와이어가 `NormalizedEvent`(`session.updated`·`message.delta/completed`·`tool.call.started/completed`·`telemetry`·`error`)로 전면 전환되고 매핑이 `adapters/claude/map.ts` 의 `claudeToNormalized` 로 이관됨(구 `ChatEvent` 타입 완전 제거, PR #47). `sessionId`/`toolRunId` 정규화 축 확보. **잔여 갭**: `provider` 축은 claude 고정값(`ProviderId` 에 opencode seam만).
 
 **④ 인터페이스 (정본).**
 
@@ -62,7 +62,7 @@ type NormalizedEvent =
 type ProviderEventMapper = { provider: ProviderId; map(raw: unknown): NormalizedEvent[] }
 ```
 
-**claude SDK 메시지 ↔ `NormalizedEvent` 매핑표** (`adapters/claude-map.ts` 의 `claudeToNormalized` 로 구현 — SDK 메시지를 `NormalizedEvent` 로 **직접** 정규화, 구 `ChatEvent` 중간표현 제거) `[검증: 현재 코드]`:
+**claude SDK 메시지 ↔ `NormalizedEvent` 매핑표** (`adapters/claude/map.ts` 의 `claudeToNormalized` 로 구현 — SDK 메시지를 `NormalizedEvent` 로 **직접** 정규화, 구 `ChatEvent` 중간표현 제거) `[검증: 현재 코드]`:
 
 | claude SDK 메시지(subtype) | → `NormalizedEvent` | 비고 |
 |---|---|---|
@@ -86,7 +86,7 @@ coordinator는 `telemetry`·`error`와 합성 terminal 전에 결과 없는 열�
 
 **서브에이전트(Agent/Task) 백그라운드 라이프사이클** (CLI 2.1.198+ / SDK 0.3.215, handoff 0136·**0143 기본화** — 0135 foreground 주입·0138 기본 배제는 0143 에서 폐기):
 
-- **기본 = 백그라운드, 주입 없음(0143)**: CLI 2.1.198 부터 서브에이전트는 `run_in_background` 미지정 시 **백그라운드가 기본**이며, Orca 는 이를 제품 기본으로 수용한다. `makeCanUseTool`(`adapters/claude.ts`)은 차단 deny(`isSubagentBlocked`)만 판정하고 입력을 passthrough 한다 — `run_in_background` 를 주입하지 않는다(모델 명시값, 동기 실행 opt-out `false` 포함, 그대로 존중). 구 `ORCA_SUBAGENT_BACKGROUND` env·0135 `false` 주입·0138 기본 경로 게이트는 전부 소거.
+- **기본 = 백그라운드, 주입 없음(0143)**: CLI 2.1.198 부터 서브에이전트는 `run_in_background` 미지정 시 **백그라운드가 기본**이며, Orca 는 이를 제품 기본으로 수용한다. `makeCanUseTool`(`adapters/claude/adapter.ts`)은 차단 deny(`isSubagentBlocked`)만 판정하고 입력을 passthrough 한다 — `run_in_background` 를 주입하지 않는다(모델 명시값, 동기 실행 opt-out `false` 포함, 그대로 존중). 구 `ORCA_SUBAGENT_BACKGROUND` env·0135 `false` 주입·0138 기본 경로 게이트는 전부 소거.
 - **런치 영수증 구조화 매핑(0136)**: 백그라운드로 뜬 Task 의 부모 `tool_result` 는 즉시 반환되며, wire `content` 는 모델용 텍스트라 renderer 의 `async_launched` 판정이 성립하지 않는다. `claude-map` 은 SDK user 메시지의 **별도 필드 `tool_use_result`**(status=`async_launched`, tool_result 블록이 정확히 1개일 때) 를 `tool.call.completed.result` 로 싣는다 — renderer 가 '실행 중'을 유지한다. 완료/실패 결과는 현행 content 유지.
 - **listen 턴(0136, 0143 상시화)**: 백그라운드 태스크의 진짜 종료(`task_notification`)·진행·완료 알림 턴은 메인 턴 종료(터미널) 후 도착해 `SessionRuntime` 의 `unframed` 버퍼에 적체된다. chat-turn 의 턴-후 루프가 순수 판정 `decidePostTurnStep`(`features/chat/post-turn.ts`)으로 **listen 턴**(`TurnRequest.listen` — 입력 push 없이 프레임만 소비)을 열어 라이브 배달한다. 실행 시간 상한 없이 수신하며 턴 중단은 프레임 종료와 renderer terminal로 전달한다.
 - **pushTurn 유휴 보장(0143·0165)**: `SessionRuntime` 이 CLI 메인 루프 mid-turn 상태와 `hasUnframedBacklog` 를 추적한다. 소속이 확인된 backlog는 listen 프레임만 인수한다. 프레임 밖 provider 턴이 이미 시작된 상태에서 사용자 입력이 오면 과거 이벤트를 새 사용자 프레임에 합치지 않고 **채널을 격리·재스폰**한다. provider 원본 메시지는 `ProviderMessageBatch`로 원자 라우팅해 `[telemetry,error]` 같은 꼬리가 다음 턴으로 새지 않는다.
@@ -115,7 +115,7 @@ Claude 어댑터는 장수명 입력·출력 스트림과 SDK 훅을 함께 소�
 
 **② 예시.** 현재 자동 allow 되는 `Bash rm -rf build/` 가 `permission.requested{origin:'agent', action:{kind:'shell', label:'rm -rf build/', risk:'high'}}` 로 surface → 렌더러 ApprovalCard(../frontend/ux-domains.md §1.6) 가 뜨고, 사용자 결정이 콜백으로 회신된다.
 
-**③ 현재 코드 갭.** 스테이지 B2 (`a78a247`) 로 `permission.requested`/`permission.resolved` 가 **1급 `NormalizedEvent`** 가 됨 — router 가 ask/plan/tool 을 `permission.requested`(`approvalId=requestId`)로 emit, reducer 가 `action.kind`(ask_question/plan_review/tool_approval 3종)로 분기. `features/approvals/permission-bridge.ts` 가 합성·`AppCommandPolicy` 3분기 seam 보유. **스테이지 C 마무리로 `tool_approval` 게이트 활성** — `makeCanUseTool`(`src/main/adapters/claude.ts`)이 `RISKY_TOOLS` 화이트리스트(`Bash`·`PowerShell`·`Write`·`Edit`·`MultiEdit`·`NotebookEdit`, `adapters/risky-tools.ts` 의 `isRiskyTool`)에 든 도구를 `tool_approval` 로 surface 하고, 안전 도구(Read/Glob/Grep 등)는 `{behavior:'allow'}` passthrough(Claude Code 웹/CLI 기본 패턴). 권한 응답은 단일 `permissionRespond` 채널 + `ApprovalBroker<ApprovalResolution>` 로 통일됐다(구 askRespond/planRespond 2채널·ask/plan 2브로커 통합). "세션 동안 허용"은 `allow.updatedPermissions{scope:'session'}` → router 의 `sessionAllowedTools: Map<sessionId, Set<toolName>>` 로 앱 레벨 관리(SDK `updatedPermissions` 미사용). **잔여 갭**: `RISKY_TOOLS`·승인 지정 runtime tool(`runtimeApprovalToolNames`) 밖의 도구(파일 기반 MCP 도구 포함)는 승인 카드 없이 통과한다 · 위험 화이트리스트는 정적 상수(per-tool risk 등급·정규식 매칭은 후속).
+**③ 현재 코드 갭.** 스테이지 B2 (`a78a247`) 로 `permission.requested`/`permission.resolved` 가 **1급 `NormalizedEvent`** 가 됨 — router 가 ask/plan/tool 을 `permission.requested`(`approvalId=requestId`)로 emit, reducer 가 `action.kind`(ask_question/plan_review/tool_approval 3종)로 분기. `features/approvals/permission-bridge.ts` 가 합성·`AppCommandPolicy` 3분기 seam 보유. **스테이지 C 마무리로 `tool_approval` 게이트 활성** — `makeCanUseTool`(`src/main/adapters/claude/adapter.ts`)이 `RISKY_TOOLS` 화이트리스트(`Bash`·`PowerShell`·`Write`·`Edit`·`MultiEdit`·`NotebookEdit`, `adapters/risky-tools.ts` 의 `isRiskyTool`)에 든 도구를 `tool_approval` 로 surface 하고, 안전 도구(Read/Glob/Grep 등)는 `{behavior:'allow'}` passthrough(Claude Code 웹/CLI 기본 패턴). 권한 응답은 단일 `permissionRespond` 채널 + `ApprovalBroker<ApprovalResolution>` 로 통일됐다(구 askRespond/planRespond 2채널·ask/plan 2브로커 통합). "세션 동안 허용"은 `allow.updatedPermissions{scope:'session'}` → router 의 `sessionAllowedTools: Map<sessionId, Set<toolName>>` 로 앱 레벨 관리(SDK `updatedPermissions` 미사용). **잔여 갭**: `RISKY_TOOLS`·승인 지정 runtime tool(`runtimeApprovalToolNames`) 밖의 도구(파일 기반 MCP 도구 포함)는 승인 카드 없이 통과한다 · 위험 화이트리스트는 정적 상수(per-tool risk 등급·정규식 매칭은 후속).
 
 **④ 인터페이스 (정본).**
 
@@ -205,7 +205,7 @@ const DEFAULT_APP_COMMAND_POLICY: Record<AppCommandKind, 'pass' | 'require_appro
 
 **② 예시.** 사용자가 "계획만 보기(plan)" 로 시작했다가, 신뢰가 쌓이면 런타임에 `accept_edits` 로 올려 파일 편집 자동 수락. 이후 `allow` 시 `updatedPermissions` 로 규칙 누적.
 
-**③ 현재 상태.** 어댑터(`adapters/claude.ts`)는 턴 경로에서 `prompt: input.stream`(`createSessionInputStream`)으로 `query()`를 호출해 살아있는 Query 핸들을 유지한다. 문자열 prompt 경로는 제목 생성용 complete()에 남아 있다. 전송 IPC는 정규화 permissionMode를 전달하고 라이브 변경은 `orca:permission:setMode`가 담당한다. 입력 큐가 살아있는 동안 generator를 종료하지 않아야 control 메서드가 열린다. 세션별 핸들은 SessionRuntimeRegistry가 관리한다.
+**③ 현재 상태.** 어댑터(`adapters/claude/adapter.ts`)는 턴 경로에서 `prompt: input.stream`(`createSessionInputStream`)으로 `query()`를 호출해 살아있는 Query 핸들을 유지한다. 문자열 prompt 경로는 제목 생성용 complete()에 남아 있다. 전송 IPC는 정규화 permissionMode를 전달하고 라이브 변경은 `orca:permission:setMode`가 담당한다. 입력 큐가 살아있는 동안 generator를 종료하지 않아야 control 메서드가 열린다. 세션별 핸들은 SessionRuntimeRegistry가 관리한다.
 
 **④ 인터페이스 (정본).**
 
@@ -244,7 +244,7 @@ interface PermissionModeController {
 
 **② 예시.** OpenCode 는 `session.children`/`share`/`init`(AGENTS.md) `[검증]`, Claude 는 `continueConversation`/`resume`/`forkSession` `[검증]`. 서로 대응이 없으므로 사이드바/메뉴가 가용한 액션만 노출.
 
-**③ 현재 코드 갭.** ✅ **해소** — `SessionAdapter.describe(): ProviderDescriptor` 추가(`src/main/adapters/types.ts`). claude 는 **정적 서술자** `CLAUDE_DESCRIPTOR`(`src/main/adapters/descriptor.ts`)를 반환한다 — 능력은 세션별이 아니라 backend 별 고정이고, 타입으로 확정되는 능력은 spec 문서로 검증되므로 런타임 introspection 이 불필요하다(`discover()` 가 async 인 건 opencode introspection seam 용). 능력은 `backend:list` 가 `registry.describeAll()` 로 computed-on-the-fly 부착(영속 안 함 — 백엔드의 함수). 순수 DTO 는 `src/shared/ipc.ts`(SSOT), main 재노출 + `CapabilityProbe` 는 `src/main/adapters/descriptor.ts`. UI 는 `BackendStatus` 지표 + Composer cancel 게이팅으로 소비. 필드별 출처 태그(`[검증-타입]`/`[검증-런타임]`/`[미확인-런타임]`/`[N/A-claude]`/`[미확인-opencode]`)로 audit trail 보존.
+**③ 현재 코드 갭.** ✅ **해소** — `SessionAdapter.describe(): ProviderDescriptor` 추가(`src/main/adapters/types.ts`). claude 는 **정적 서술자** `CLAUDE_DESCRIPTOR`(`src/main/adapters/claude/descriptor.ts`)를 반환한다 — 능력은 세션별이 아니라 backend 별 고정이고, 타입으로 확정되는 능력은 spec 문서로 검증되므로 런타임 introspection 이 불필요하다(`discover()` 가 async 인 건 opencode introspection seam 용). 능력은 `backend:list` 가 `registry.describeAll()` 로 computed-on-the-fly 부착(영속 안 함 — 백엔드의 함수). 순수 DTO 는 `src/shared/ipc.ts`(SSOT), main 재노출 + `CapabilityProbe` 는 `src/main/adapters/claude/descriptor.ts`. UI 는 `BackendStatus` 지표 + Composer cancel 게이팅으로 소비. 필드별 출처 태그(`[검증-타입]`/`[검증-런타임]`/`[미확인-런타임]`/`[N/A-claude]`/`[미확인-opencode]`)로 audit trail 보존.
 
 **④ 인터페이스 (정본).**
 
@@ -254,7 +254,7 @@ interface SessionCapabilities {
   continue?: boolean; resume?: boolean; fork?: boolean; persistSessionFalse?: boolean; delete?: boolean; update?: boolean
   // structure / control
   children?: boolean; summarize?: boolean; abort?: boolean; share?: boolean; init?: boolean
-  liveModeSwitch?: boolean  // 세션 중 권한 모드 라이브 전환 (Claude setPermissionMode, 스트리밍 입력 전용). ✅ 구현 완료(approvals/coordinator.ts + adapters/claude.ts).
+  liveModeSwitch?: boolean  // 세션 중 권한 모드 라이브 전환 (Claude setPermissionMode, 스트리밍 입력 전용). ✅ 구현 완료(approvals/coordinator.ts + adapters/claude/adapter.ts).
   // context
   contextInjectionNoReply?: boolean; structuredOutput?: boolean
   // revert (§5)
@@ -301,7 +301,7 @@ interface CancellationCapability {
 
 **① 설명.** `error` 이벤트는 분류돼야 재시도/표시 정책을 결정할 수 있다. 8 category + retryable 플래그.
 
-**③ 현재 코드 갭.** ✅ **해소** — `ErrorClassifier` 포트와 `makeClassifiedError`(`src/main/infra/errors.ts`)가 8 category + `retryable` 을 정규화한다. category 별 기본값은 `DEFAULT_RETRYABLE` 이고 호출처가 개별 override 할 수 있다. claude 구현체는 `claudeErrorClassifier`(`src/main/adapters/error-classifier.ts`)이며 `src/main/adapters/claude.ts` 가 턴·스트림 두 경로에서 호출한다. 구 휴리스틱/enum 에서 이 포트로의 매핑은 §12 표에 있다.
+**③ 현재 코드 갭.** ✅ **해소** — `ErrorClassifier` 포트와 `makeClassifiedError`(`src/main/infra/errors.ts`)가 8 category + `retryable` 을 정규화한다. category 별 기본값은 `DEFAULT_RETRYABLE` 이고 호출처가 개별 override 할 수 있다. claude 구현체는 `claudeErrorClassifier`(`src/main/adapters/claude/error-classifier.ts`)이며 `src/main/adapters/claude/adapter.ts` 가 턴·스트림 두 경로에서 호출한다. 구 휴리스틱/enum 에서 이 포트로의 매핑은 §12 표에 있다.
 
 **④ 인터페이스 (정본).**
 
@@ -351,9 +351,9 @@ type AppMessagePart =
 
 **① 설명.** provider 가 usage/cost 를 제공하면 쓰고, 없으면 앱이 자체 집계. 2계층.
 
-**③ 구현 상태.** `claude-map.ts` 가 `result` 메시지에서 `ProviderReportedTelemetry`(cost·model·modelUsage·input/output·캐시 토큰·durationMs·numTurns)를 정규화해 `telemetry` 이벤트에 싣고, reducer(`chatReducer` telemetry case)가 `lastTelemetry` + 세션 누적 `sessionCostUsd`(턴별 누산 — cost-tracking.md §147 SDK 세션 합계 미제공)를 산출(app-measured 지연 필드는 도입되지 않았다). 렌더러 `UsagePanel`(../frontend/rendering.md §1.9)이 컨텍스트를, Composer 상태 팝오버(`StatusPopover`)가 세션 비용 합계를 표시. **잔여(후속)**: AppMeasured 전체 집계(eventCount/bytesStreamed/errorRate/cancelRate)·DB 영속·세션 통계 화면.
+**③ 구현 상태.** `claude/map.ts` 가 `result` 메시지에서 `ProviderReportedTelemetry`(cost·model·modelUsage·input/output·캐시 토큰·durationMs·numTurns)를 정규화해 `telemetry` 이벤트에 싣고, reducer(`chatReducer` telemetry case)가 `lastTelemetry` + 세션 누적 `sessionCostUsd`(턴별 누산 — cost-tracking.md §147 SDK 세션 합계 미제공)를 산출(app-measured 지연 필드는 도입되지 않았다). 렌더러 `UsagePanel`(../frontend/rendering.md §1.9)이 컨텍스트를, Composer 상태 팝오버(`StatusPopover`)가 세션 비용 합계를 표시. **잔여(후속)**: AppMeasured 전체 집계(eventCount/bytesStreamed/errorRate/cancelRate)·DB 영속·세션 통계 화면.
 
-- **컨텍스트 입력 = 마지막 메인 assistant 스냅샷, 비용 = result 누적.** `claude-map.ts`는 채널 단위 `MapContext.lastAssistantUsage`에 메인 assistant usage를 보관하고, result의 컨텍스트 입력 필드에 병합한다. 스냅샷에 없는 필드는 `result.usage` 값을 보존하며, 비용·지연·`numTurns`·`modelUsage`·`model`은 result 값을 유지한다. 스냅샷 미수신 시 기존 result·압축·핸드오프 판정 체인을 따른다.
+- **컨텍스트 입력 = 마지막 메인 assistant 스냅샷, 비용 = result 누적.** `claude/map.ts`는 채널 단위 `MapContext.lastAssistantUsage`에 메인 assistant usage를 보관하고, result의 컨텍스트 입력 필드에 병합한다. 스냅샷에 없는 필드는 `result.usage` 값을 보존하며, 비용·지연·`numTurns`·`modelUsage`·`model`은 result 값을 유지한다. 스냅샷 미수신 시 기존 result·압축·핸드오프 판정 체인을 따른다.
 - **프록시 usage 폴백.** 이번 턴의 메인 assistant 컨텍스트 합이 0이거나 부재하면 마지막 양수 메인 `message_delta.usage`로 컨텍스트 입력 필드를 병합한다. 사이드체인과 핸드오프 도착의 압축 전 관측은 제외하며, 턴 관측은 result와 압축 경계에서 비운다. assistant와 delta 둘 다 컨텍스트를 보고하지 않으면 도넛·원장을 갱신하지 않고, 별도 추정이나 JSONL 읽기를 하지 않는다.
 - **핸드오프 도착 턴 컨텍스트 무효화 (0127).** `TurnRequest.handoff` → `MapContext.handoffArrival` 표식. 압축 경계(compact_boundary) *전* 의 assistant usage 는 원본 세션 전체 이력의 승계 컨텍스트라 스냅샷으로 캡처하지 않고, 경계 없이 끝난 result 는 telemetry 의 컨텍스트 3종을 제거한다(도넛/경고 '미측정' 시작 — 새 세션이 원본 사용량을 승계하지 않음). 경계 통과 후에는 기존 압축-후 근사(post_tokens/요약 크기)·실측 스냅샷 경로 그대로. 자동 연속 턴은 `forkFrom` 과 함께 플래그를 제거한다(chat-turn).
 - **빈 컨텍스트 턴 적재 스킵 (`/context` 등).** `features/usage/tracker.ts` 는 `usage` 가 있고 `hasContextTokens(usage)`(`features/usage/tracker.ts` — input+cacheRead+cacheCreation > 0) 일 때만 `turn_usage` 1행 적재한다. `/context`·`/help` 류 로컬 슬래시 명령은 모델 미호출이라 컨텍스트·비용 둘 다 없는 빈 행을 만드는데, 이를 적재하면 `getLatestTurnUsage`(최신행) 복원 시 직전 도넛을 0 으로 덮는다. 라이브 쪽 짝 가드는 reducer(`contextTokens > 0` 일 때만 `lastTelemetry` 교체, rendering.md §1.9).
@@ -433,13 +433,13 @@ type ModelProviderConfig =
 
 | 정규화 전 심볼 | 위치 | 목표명 | 비고 |
 |---|---|---|---|
-| `ChatEvent` | 구 `src/shared/ipc.ts` | `NormalizedEvent` | ✅ 전환 완료 — 구 중간표현은 PR #47 에서 제거됐고 `claude-map.ts` 가 SDK 메시지를 직접 정규화한다(§2 ③) |
+| `ChatEvent` | 구 `src/shared/ipc.ts` | `NormalizedEvent` | ✅ 전환 완료 — 구 중간표현은 PR #47 에서 제거됐고 `claude/map.ts` 가 SDK 메시지를 직접 정규화한다(§2 ③) |
 | `tool_use` / `tool_result` | `src/shared/ipc.ts` | `tool.call.started` / `tool.call.completed` | toolUseId→toolRunId |
 | `ask_question` / `plan_review` | 〃 (`:175`·`:176`) | `permission.requested(origin:'agent')` | 합성 |
 | `AskResult` / `PlanDecision` | 〃 | `ApprovalResolution` 특수형 | ✅ 와이어는 단일 `permissionRespond`(`{approvalId, resolution}`)로 2분기 일반화 완료(스테이지 C). `AskResult`/`PlanDecision` 은 어댑터/router 내부 도메인 표현으로 잔존 |
 | `ApprovalBroker` | `src/main/features/approvals/broker.ts` | `PermissionBridge` + `PendingApprovalStateMachine` | ✅ ask/plan 2브로커 → 단일 `ApprovalBroker<ApprovalResolution>`(전체 tool) 통합 완료(스테이지 C) |
-| `makeCanUseTool` | `src/main/adapters/claude.ts` | (PermissionBridge 어댑트) | ✅ 위험 도구 게이트(`RISKY_TOOLS`) 활성 — 단일 `requestApproval(action)` 콜백 소비(스테이지 C) |
-| `detectError` | 구 `src/main/adapters/claude.ts` | `ErrorClassifier.classify` | ✅ 전환 완료 — `claudeErrorClassifier`(`adapters/error-classifier.ts`)로 대체(§6) |
+| `makeCanUseTool` | `src/main/adapters/claude/adapter.ts` | (PermissionBridge 어댑트) | ✅ 위험 도구 게이트(`RISKY_TOOLS`) 활성 — 단일 `requestApproval(action)` 콜백 소비(스테이지 C) |
+| `detectError` | 구 `src/main/adapters/claude/adapter.ts` | `ErrorClassifier.classify` | ✅ 전환 완료 — `claudeErrorClassifier`(`adapters/claude/error-classifier.ts`)로 대체(§6) |
 | `permissionMode`(2종) | `src/shared/ipc.ts` | `NormalizedPermissionMode`(6종) | + 런타임 전환 |
 | `usage`(result) | adapters.md §1.5 | `ProviderReportedTelemetry`(구현됨 §8) | + AppMeasured(latency 만, 나머지 후속) |
 
@@ -466,7 +466,7 @@ type ModelProviderConfig =
 
 ## 14. Provider Event Mapping Table (구현 전 골격)
 
-현행 Claude 매핑은 [claude-map.ts](../../../app/src/main/adapters/claude-map.ts)가 정본이다. OpenCode는 adapter 미구현이며 아래는 연결 대상의 개요다; 구체적인 원본별 투영·손실·중복 제거는 [migration 연구](../../etc/study/opencode/orca-migration-guide.md)를 따른다.
+현행 Claude 매핑은 [claude-map.ts](../../../app/src/main/adapters/claude/map.ts)가 정본이다. OpenCode는 adapter 미구현이며 아래는 연결 대상의 개요다; 구체적인 원본별 투영·손실·중복 제거는 [migration 연구](../../etc/study/opencode/orca-migration-guide.md)를 따른다.
 
 | Provider | 원본 | → NormalizedEvent |
 |---|---|---|
@@ -539,7 +539,7 @@ interface DirectBackendCapabilities {
 
 **② 예시.** "이 세션은 `~/proj` 와 그 하위만 접근" → WorkspaceManager 가 allowed dirs 게이트. Electron `sandbox:true`([security.md](./security.md) §1)와 결합해 파일 mutation 범위를 워크스페이스로 제한.
 
-**③ 현재 코드 갭.** ✅ **부분 해소** — allowed-dirs 게이트가 실제로 강제된다. `src/main/adapters/workspace-guard.ts` 의 `resolveGuardRoots`(세션 cwd + `readOnlyExceptionRoots()`)와 `guardToolAccess` 를 `makeWorkspaceGuardHook` 이 SDK hook 으로 싸고, `src/main/adapters/claude.ts` 가 그 hook 을 주입한다. **잔여 갭**: 이 가드는 claude 어댑터 층에 있고 provider-중립 `WorkspaceManager` 추상은 아직 없다. file-context 도 미도입 — cwd 는 `AppSession.cwd`(§7) + `init` 이벤트(§2)로 흐른다. Electron `sandbox:true`(security.md §1)는 *프로세스 수준* 격리일 뿐 워크스페이스 범위 추상이 아니다.
+**③ 현재 코드 갭.** ✅ **부분 해소** — allowed-dirs 게이트가 실제로 강제된다. `src/main/adapters/claude/workspace-guard.ts` 의 `resolveGuardRoots`(세션 cwd + `readOnlyExceptionRoots()`)와 `guardToolAccess` 를 `makeWorkspaceGuardHook` 이 SDK hook 으로 싸고, `src/main/adapters/claude/adapter.ts` 가 그 hook 을 주입한다. **잔여 갭**: 이 가드는 claude 어댑터 층에 있고 provider-중립 `WorkspaceManager` 추상은 아직 없다. file-context 도 미도입 — cwd 는 `AppSession.cwd`(§7) + `init` 이벤트(§2)로 흐른다. Electron `sandbox:true`(security.md §1)는 *프로세스 수준* 격리일 뿐 워크스페이스 범위 추상이 아니다.
 
 **④ 인터페이스 (정본).**
 

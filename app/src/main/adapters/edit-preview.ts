@@ -16,7 +16,7 @@ import { readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { structuredPatch } from 'diff'
 import type { FileEditPatchHunk } from '../../shared/file-edit-tool'
-import { guardToolAccess, type GuardRoots } from './workspace-guard'
+import { guardToolAccess, type GuardRoots } from './claude/workspace-guard'
 
 /** 해석된 절대 경로를 본문으로 읽는다. 부재·상한 초과·읽기 실패는 전부 `null` 이다(E-010). */
 export type EditPreviewReader = (absolutePath: string) => string | null

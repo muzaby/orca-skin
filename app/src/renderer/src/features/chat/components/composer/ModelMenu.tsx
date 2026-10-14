@@ -2,6 +2,7 @@ import { Icon } from '../../../../shared/ui/Icon'
 import type { AgentEnvironment } from '../../../../../../shared/ipc'
 
 import { modelKey, type ModelSelection } from './modelSelection'
+import { modelPresentation } from '../../harnesses/modelPresentation'
 import { MenuItem, MenuTitle } from '../../../../shared/ui/MenuItem'
 import { useI18n } from '../../../../shared/i18n'
 
@@ -62,7 +63,7 @@ export function ModelMenu({
                 }
               >
                 <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">
-                  {agent.adapter === 'opencode' ? model.alias : modelId}
+                  {modelPresentation(agent.adapter).menu({ alias: model.alias, identity: modelId })}
                 </span>
                 {model.oneMillionContext && (
                   <span className="shrink-0 text-[11.5px] text-ink3">1M</span>

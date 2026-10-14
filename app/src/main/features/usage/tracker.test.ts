@@ -3,7 +3,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
-import { claudeToNormalized, type MapContext } from '../../adapters/claude-map'
+import { claudeToNormalized, type MapContext } from '../../adapters/claude/map'
 import type { UsageQueries } from '../../infra/db/usage-queries'
 import { usageRowToTelemetry } from '../../infra/ipc/dto'
 import type { NormalizedEvent, ProviderReportedTelemetry } from '../../../shared/ipc'

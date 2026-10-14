@@ -69,7 +69,7 @@ PRD §6.1 의 F1~F10 을 *수용 기준* 으로 구체화한다.
 | F26 | **백그라운드 작업** | `features/chat/background-controller.ts` · `background_task_events` | 원본 journal · 출력 읽기 · 중단 정착 · 패널. [background-tasks.md](arch/backend/background-tasks.md) | 0231·0232·0239 |
 | F27 | **사내 서비스 Plugin** | `features/plugins/{jira,mail}` | Jira Data Center 조회·첨부 · POP3 메일 수집·검색. auth.md §7 · persistence.md "Mail Plugin 캐시" | 0236·0237 |
 | F28 | **전역 오류 토스트** | `infra/error-report` · `shared/ui/ErrorToastHost.tsx` | 소비되지 않은 실패를 로그와 함께 토스트로 게시. [observability.md](arch/backend/observability.md) §7 · IPC_CONTRACT §2.13-d | 0242 |
-| F29 | **컨텍스트 · 사용량 보강** | `adapters/claude-context-policy.ts` · `provider_usage_periods` | 게이트웨이 1M 판정 · 프록시 `message_delta` usage 폴백 · 원격 일/월 내역. [adapters.md](arch/backend/adapters.md) §1.3 · rendering.md §1.9 | 0245·0247·0251 |
+| F29 | **컨텍스트 · 사용량 보강** | `adapters/claude/context-policy.ts` · `provider_usage_periods` | 게이트웨이 1M 판정 · 프록시 `message_delta` usage 폴백 · 원격 일/월 내역. [adapters.md](arch/backend/adapters.md) §1.3 · rendering.md §1.9 | 0245·0247·0251 |
 | F30 | **탐색 · 입력 UX** | `sessionsStore` · `chat:steerSendNow` | nav 구획(고정됨→프로젝트→최근) · 세션 상태 아이콘 · 응답 중 입력 즉시 보내기. state.md §1.1·§1.6 · [runtime-ipc.md](arch/backend/runtime-ipc.md) §1.4 | 0203·0233·0249·0250·0254 |
 | F31 | **표시 · 환경설정 polish** | `GeneralTab` · `TooltipHost` · `CascadeMenu` | 대화 텍스트 크기·너비 · 툴팁 · 버블 접기 · `+` 계단식 메뉴 · Edit 진행 중 미리보기 · MCP 상세 토글. ux-domains.md §1.2·§1.3-b | 0217·0229·0256·0257·0259 |
 | F32 | **앱 이름 · 안정성** | `app/legacy-paths.ts` · `infra/config/paths.ts` | `orcinus-orca` 이름·저장 경로 이관 · 로고 · 실행 시간 상한 제거 · 테마 부팅 경쟁 해소. [release-operations.md](guides/release-operations.md) | 0225·0227·0243·0244 |
@@ -235,7 +235,7 @@ type Backend = 'claude';
 
 ### 6.2 NormalizedEvent (어댑터→Renderer 정규화 스트림)
 
-와이어 `orca:chat:event`의 현행 타입은 [shared/ipc.ts](../app/src/shared/ipc.ts)의 `NormalizedEvent`다. Claude 원본은 [claude-map.ts](../app/src/main/adapters/claude-map.ts)가 정규화하며, 원본 SDK 타입을 renderer에 직접 전달하지 않는다.
+와이어 `orca:chat:event`의 현행 타입은 [shared/ipc.ts](../app/src/shared/ipc.ts)의 `NormalizedEvent`다. Claude 원본은 [claude-map.ts](../app/src/main/adapters/claude/map.ts)가 정규화하며, 원본 SDK 타입을 renderer에 직접 전달하지 않는다.
 멀티세션 이벤트는 `sessionId`로 라우팅한다. 동시성·큐는 [runtime-ipc.md](arch/backend/runtime-ipc.md), renderer 소비는 [state.md](arch/frontend/state.md)가 설명한다.
 
 도구 이름·입력의 백엔드 간 표준화는 PRD OQ10의 미결정이다. OpenCode mapping은 [연구 가이드](etc/study/opencode/orca-migration-guide.md)의 권고이며 아직 이 와이어에 연결하지 않았다.
@@ -317,7 +317,7 @@ interface OrcaConfig {
 - 최초 부팅 시 `anthropic/settings.json`(`{"env":{}}`)을 스캐폴드한다(`features/extensions/scaffold.ts`, 멱등 — 기존 파일 불가침).
 - provider settings.json 은 **dist 로 배포하지 않는다** — query flag(`options.settings`)로 주입한다(아래 "런타임 주입", standardization.md §5.1 예외). skill·mcp 는 `dist/<engine>/plugins/orcinus-orca/{skills,.mcp.json}` plugin 패키지로 배포해 `options.plugins` 로 로드한다(standardization.md §5.1·§5.2).
 
-**런타임 주입 (0117 현행)**: 턴/completion 의 `query()` 는 `settingSources: ['project','local']` 로 실행한다(`claude-adapt.ts` `adaptSettingSources`) — 사용자 전역 `~/.claude/settings.json` 은 상속하지 않고, 사용자 `~/.claude/skills` 만 wrapper plugin 으로 전달한다([adapters.md](arch/backend/adapters.md) §1.3). provider settings 는 `adapters/claude-settings.ts` 가 파일을 flat-read 해 **verbatim** 으로 flag 레이어(`options.settings`)에 주입한다. settings.json 의 escalating `permissions.defaultMode`(bypassPermissions·acceptEdits·auto)는 같은 파일의 `ESCALATING_MODES` 필터로 제거된다 — **의도된 동작**(권한은 Orca 의 canUseTool 게이트와 권한 모드가 담당). `disallowedTools` 는 `['WebSearch']` 하나로 대화의 WebSearch 를 차단한다(`claude.ts`). 해석·캐시는 `features/harnesses/settings.ts` 의 `HarnessSettingsService`(mtime 캐시, deploy 후 무효화)가 소유한다.
+**런타임 주입 (0117 현행)**: 턴/completion 의 `query()` 는 `settingSources: ['project','local']` 로 실행한다(`claude/adapt.ts` `adaptSettingSources`) — 사용자 전역 `~/.claude/settings.json` 은 상속하지 않고, 사용자 `~/.claude/skills` 만 wrapper plugin 으로 전달한다([adapters.md](arch/backend/adapters.md) §1.3). provider settings 는 `adapters/claude/settings.ts` 가 파일을 flat-read 해 **verbatim** 으로 flag 레이어(`options.settings`)에 주입한다. settings.json 의 escalating `permissions.defaultMode`(bypassPermissions·acceptEdits·auto)는 같은 파일의 `ESCALATING_MODES` 필터로 제거된다 — **의도된 동작**(권한은 Orca 의 canUseTool 게이트와 권한 모드가 담당). `disallowedTools` 는 `['WebSearch']` 하나로 대화의 WebSearch 를 차단한다(`claude/adapter.ts`). 해석·캐시는 `features/harnesses/settings.ts` 의 `HarnessSettingsService`(mtime 캐시, deploy 후 무효화)가 소유한다.
 
 주입 채널은 settings 와 subprocess env **두 레이어**다(handoff 0028 — provider settings == `~/.claude/settings.json`):
 
@@ -382,11 +382,11 @@ for await (const msg of q) yield claudeToNormalized(msg); // SDKMessage → Norm
 
 **첫 응답에서 sessionId 추출**:
 - 첫 SDKMessage 가 `SDKSystemMessage(subtype: 'init')` — 그 `session_id` 필드 추출
-- 현행 구현은 `session.updated` 등 `NormalizedEvent`로 정규화한다 ([claude-map.ts](../app/src/main/adapters/claude-map.ts), TRD §6.2).
+- 현행 구현은 `session.updated` 등 `NormalizedEvent`로 정규화한다 ([claude-map.ts](../app/src/main/adapters/claude/map.ts), TRD §6.2).
 - Renderer 가 받아서 `state.sessionId` 에 저장
 
 **인증 만료 감지**:
-- `adapters/error-classifier.ts` 가 SDK 오류의 `401` / `OAuth` / `expired` 패턴을 `ClassifiedError{ category: 'auth_error' }` 로 분류한다(§6.6)
+- `adapters/claude/error-classifier.ts` 가 SDK 오류의 `401` / `OAuth` / `expired` 패턴을 `ClassifiedError{ category: 'auth_error' }` 로 분류한다(§6.6)
 - UI: AuthExpiredModal — `claude /login` 명령 카피 버튼 + 새 대화 권유
 
 **환경변수**:
@@ -521,7 +521,7 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 
 ### 단위 테스트 (Vitest)
 
-- **어댑터**: `NormalizedEvent` 정규화 (`claude-map.ts` — SDKMessage→NormalizedEvent), 에러 감지 (auth.expired 패턴, SDK throw 처리)
+- **어댑터**: `NormalizedEvent` 정규화 (`claude/map.ts` — SDKMessage→NormalizedEvent), 에러 감지 (auth.expired 패턴, SDK throw 처리)
 - **Reducer**: `chatReducer` 액션별 상태 전이 정확성 (parts/ask/permission 계열 스위트)
 - **IPC 검증**: zod 스키마 (SendChatMessage, Settings, InstallStatus 등 — `protocol.*.test.ts`)
 - **런타임/기능 슬라이스**: scheduler(cron 검증·겹침 방지)·usage(집계/한도 파생)·updater(재시작 게이트)·boot-report 등 — 각 슬라이스 동거 `*.test.ts`

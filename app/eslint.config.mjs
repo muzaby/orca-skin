@@ -6,6 +6,7 @@ import eslintPluginReactHooks from 'eslint-plugin-react-hooks'
 import eslintPluginReactRefresh from 'eslint-plugin-react-refresh'
 import eslintPluginBoundaries from 'eslint-plugin-boundaries'
 import eslintPluginImport from 'eslint-plugin-import'
+import { harnessBoundary } from './scripts/harness-boundary.mjs'
 
 export default defineConfig(
   { ignores: ['**/node_modules', '**/dist', '**/out'] },
@@ -83,8 +84,14 @@ export default defineConfig(
         {
           default: 'disallow',
           rules: [
-            { from: { type: 'root' }, allow: { to: { type: ['app', 'pages', 'features', 'shared', 'root'] } } },
-            { from: { type: 'app' }, allow: { to: { type: ['app', 'pages', 'features', 'shared'] } } },
+            {
+              from: { type: 'root' },
+              allow: { to: { type: ['app', 'pages', 'features', 'shared', 'root'] } }
+            },
+            {
+              from: { type: 'app' },
+              allow: { to: { type: ['app', 'pages', 'features', 'shared'] } }
+            },
             { from: { type: 'pages' }, allow: { to: { type: ['pages', 'features', 'shared'] } } },
             { from: { type: 'features' }, allow: { to: { type: 'shared' } } },
             {
@@ -119,7 +126,12 @@ export default defineConfig(
         { type: 'main-root', pattern: 'src/main/*.ts', mode: 'file' },
         { type: 'app', pattern: 'src/main/app', mode: 'folder' },
         // 어댑터 구현체(claude·mock 서브폴더) — engine 별 격리. 루트 adapters 는 ports/registry.
-        { type: 'adapter-impl', pattern: 'src/main/adapters/*', mode: 'folder', capture: ['engine'] },
+        {
+          type: 'adapter-impl',
+          pattern: 'src/main/adapters/*',
+          mode: 'folder',
+          capture: ['engine']
+        },
         { type: 'adapters', pattern: 'src/main/adapters', mode: 'folder' },
         { type: 'features', pattern: 'src/main/features/*', mode: 'folder', capture: ['feature'] },
         { type: 'contracts', pattern: 'src/main/contracts', mode: 'folder' },
@@ -142,7 +154,16 @@ export default defineConfig(
               from: { type: 'main-root' },
               allow: {
                 to: {
-                  type: ['main-root', 'app', 'adapters', 'adapter-impl', 'features', 'contracts', 'infra', 'shared']
+                  type: [
+                    'main-root',
+                    'app',
+                    'adapters',
+                    'adapter-impl',
+                    'features',
+                    'contracts',
+                    'infra',
+                    'shared'
+                  ]
                 }
               }
             },
@@ -150,13 +171,32 @@ export default defineConfig(
               from: { type: 'app' },
               allow: {
                 to: {
-                  type: ['app', 'main-root', 'adapters', 'adapter-impl', 'features', 'contracts', 'infra', 'shared']
+                  type: [
+                    'app',
+                    'main-root',
+                    'adapters',
+                    'adapter-impl',
+                    'features',
+                    'contracts',
+                    'infra',
+                    'shared'
+                  ]
                 }
               }
             },
             // adapters(ports&adapters) → 구현체·infra·shared.
-            { from: { type: 'adapters' }, allow: { to: { type: ['adapters', 'adapter-impl', 'infra', 'shared'] } } },
-            { from: { type: 'adapter-impl' }, allow: { to: { type: ['adapter-impl', 'adapters', 'infra', 'shared'] } } },
+            {
+              from: { type: 'adapters' },
+              allow: { to: { type: ['adapters', 'adapter-impl', 'infra', 'shared'] } }
+            },
+            {
+              from: { type: 'adapter-impl' },
+              allow: { to: { type: 'adapter-impl', captured: { engine: '{{from.engine}}' } } }
+            },
+            {
+              from: { type: 'adapter-impl' },
+              allow: { to: { type: ['adapters', 'infra', 'shared'] } }
+            },
             // features → **같은 feature 만** (교차 차단) + contracts/adapters/infra/shared.
             {
               from: { type: 'features' },
@@ -166,7 +206,10 @@ export default defineConfig(
               from: { type: 'features' },
               allow: { to: { type: ['contracts', 'adapters', 'adapter-impl', 'infra', 'shared'] } }
             },
-            { from: { type: 'contracts' }, allow: { to: { type: ['contracts', 'adapters', 'infra', 'shared'] } } },
+            {
+              from: { type: 'contracts' },
+              allow: { to: { type: ['contracts', 'adapters', 'infra', 'shared'] } }
+            },
             { from: { type: 'infra' }, allow: { to: { type: ['infra', 'shared'] } } },
             { from: { type: 'shared' }, allow: { to: { type: 'shared' } } }
           ]
@@ -177,20 +220,81 @@ export default defineConfig(
   // 호스트 프로그램 실행은 Git runner, Plugin 구현, 소유 로컬 OpenCode 서버로 한정한다.
   {
     files: ['src/main/**/*.ts'],
-    ignores: ['src/main/infra/git/gateway.ts', 'src/main/infra/git/runner.ts', 'src/main/adapters/opencode-server.ts', 'src/main/features/plugins/**', '**/*.test.ts', '**/*.testfixture.ts'],
+    ignores: [
+      'src/main/infra/git/gateway.ts',
+      'src/main/infra/git/runner.ts',
+      'src/main/adapters/opencode/v1/server.ts',
+      'src/main/features/plugins/**',
+      '**/*.test.ts',
+      '**/*.testfixture.ts'
+    ],
     rules: {
-      'no-restricted-imports': ['error', { paths: [{ name: 'child_process' }, { name: 'node:child_process' }] }],
-      'no-restricted-syntax': ['error',
-        { selector: 'ImportExpression[source.value=/^(node:)?child_process$/]', message: 'Use the Git gateway or a Plugin implementation.' },
-        { selector: "CallExpression[callee.name='require'][arguments.0.value=/^(node:)?child_process$/]", message: 'Use the Git gateway or a Plugin implementation.' }]
+      'no-restricted-imports': [
+        'error',
+        { paths: [{ name: 'child_process' }, { name: 'node:child_process' }] }
+      ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'ImportExpression[source.value=/^(node:)?child_process$/]',
+          message: 'Use the Git gateway or a Plugin implementation.'
+        },
+        {
+          selector:
+            "CallExpression[callee.name='require'][arguments.0.value=/^(node:)?child_process$/]",
+          message: 'Use the Git gateway or a Plugin implementation.'
+        }
+      ]
     }
   },
   // Plugin도 Git runner를 직접 가져오지 못한다. 실행 import 예외와 분리한다.
   {
     files: ['src/main/**/*.ts'],
-    ignores: ['src/main/infra/git/gateway.ts', 'src/main/infra/git/runner.ts', '**/*.test.ts', '**/*.testfixture.ts'],
+    ignores: [
+      'src/main/infra/git/gateway.ts',
+      'src/main/infra/git/runner.ts',
+      '**/*.test.ts',
+      '**/*.testfixture.ts'
+    ],
     rules: {
-      'import/no-restricted-paths': ['error', { zones: [{ target: './src/main', from: './src/main/infra/git/runner.ts' }] }]
+      'import/no-restricted-paths': [
+        'error',
+        { zones: [{ target: './src/main', from: './src/main/infra/git/runner.ts' }] }
+      ]
+    }
+  },
+  // OpenCode SDK와 CLI 프로토콜은 v1 구현에만 둔다. 제품 공통 UI/포트는 SDK를 import하지 않는다.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/main/adapters/opencode/v1/**'],
+    plugins: { harness: harnessBoundary },
+    rules: {
+      'harness/sdk-version': 'error'
+    }
+  },
+  // renderer의 하네스 전용 구현은 형제를 참조하지 않고 feature 공통 구현을 사용한다.
+  {
+    files: [
+      'src/renderer/src/features/**/harnesses/claude/**/*.{ts,tsx}',
+      'src/renderer/src/features/**/harnesses/opencode/**/*.{ts,tsx}'
+    ],
+    plugins: { import: eslintPluginImport },
+    rules: {
+      'import/no-restricted-paths': [
+        'error',
+        {
+          zones: ['chat', 'engine', 'settings'].flatMap((feature) => [
+            {
+              target: `./src/renderer/src/features/${feature}/harnesses/claude`,
+              from: `./src/renderer/src/features/${feature}/harnesses/opencode`
+            },
+            {
+              target: `./src/renderer/src/features/${feature}/harnesses/opencode`,
+              from: `./src/renderer/src/features/${feature}/harnesses/claude`
+            }
+          ])
+        }
+      ]
     }
   },
   // no-console 예외(0124 AC3) — 로깅 인프라 내부의 emergency 경로·dev 콘솔 미러 구현부만.

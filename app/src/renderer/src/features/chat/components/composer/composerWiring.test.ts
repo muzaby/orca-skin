@@ -74,11 +74,17 @@ function topLevelArgs(argText: string): string[] {
 
 describe('0215 AT-23 — Composer 가 선택 모델 파생값을 메뉴/스토어로 공급한다', () => {
   it('축① ModeMenu 에 선택 모델에서 파생한 options 를 넘긴다', () => {
-    const tag = openingTag(SOURCE, 'ModeMenu')
+    const control = openingTag(SOURCE, 'ClaudeModeControl')
+    expect(control).toMatch(/model=\{\s*selectedModelShape\(agents, selectedModel\)\s*\}/)
+    const controls = readFileSync(
+      new URL('../../harnesses/claude/composer/Controls.tsx', import.meta.url),
+      'utf8'
+    )
+    const tag = openingTag(controls, 'ModeMenu')
     // 배선 단언 — `options` prop 을 지우면 red 다(verify r1 M-B).
     expect(tag).toMatch(/options=\{\s*modeMenuOptions\(/)
     // 인자가 선택 모델에서 온다 — 상수 목록을 넘기는 회귀도 red 다.
-    expect(tag).toMatch(/modeMenuOptions\(\s*selectedModelShape\([^)]*selectedModel\s*\)/)
+    expect(tag).toMatch(/modeMenuOptions\(model, agentKind\)/)
   })
 
   it('축② selectedModel memo 가 선택 상태 3필드를 싣는다 (§10 EP-20c)', () => {

@@ -6,7 +6,7 @@ import { formatDiffRequirementsPrompt } from './diff-requirements'
 const anchor = (overrides: Record<string, unknown> = {}): Record<string, unknown> => ({
   sessionId: 'session-1',
   baselineCommit: '3486398aecbc2b97e42d3dba1aae8d13b18d186c',
-  filePath: 'app/src/main/adapters/claude.ts',
+  filePath: 'app/src/main/adapters/claude/adapter.ts',
   oldLine: 41,
   newLine: 44,
   hunkHeader: '@@ -41,2 +44,5 @@',
@@ -59,7 +59,10 @@ describe('formatDiffRequirementsPrompt', () => {
       ['../app/chat-turn/continuation.ts', /requirements:\s*batch\.requirements \?\? \[\]/],
       ['../features/sessions/session-runtime.ts', /req\.requirements/],
       ['./turn.ts', /requirements\?: DiffRequirementAnchor\[\]/],
-      ['./claude.ts', /formatDiffRequirementsPrompt|requirements: DiffRequirementAnchor\[\]/]
+      [
+        './claude/adapter.ts',
+        /formatDiffRequirementsPrompt|requirements: DiffRequirementAnchor\[\]/
+      ]
     ] as const
 
     for (const [relativePath, pattern] of expectations) {

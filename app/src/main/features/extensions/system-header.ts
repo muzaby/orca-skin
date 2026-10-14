@@ -32,7 +32,7 @@ const ORCA_IDENTITY =
 // # Tools — 도구-사용 정책(opencode anthropic.txt "Tool usage policy" 를 Orca 격리 환경에 맞춰
 // 적용, handoff 0075 후속). 핵심 두 가지:
 //   1) 파일 작업은 전용 툴(Read/Write/Edit)로 — shell 우회를 막는다. 전용 툴은
-//      workspace 가드(adapters/workspace-guard.ts)가 실제로 경로 격리를 강제하므로, 파일 작업을
+//      workspace 가드(adapters/claude/workspace-guard.ts)가 실제로 경로 격리를 강제하므로, 파일 작업을
 //      이쪽으로 몰면 격리가 자동 성립한다.
 //   2) PowerShell은 경로 격리를 코드로 강제하지 않는다. 프롬프트로
 //      "workspace 안으로 스코프하라"를 명시한다.

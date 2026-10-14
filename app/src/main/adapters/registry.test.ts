@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { AdapterRegistry } from './registry'
-import { OpenCodeAdapter } from './opencode'
-import type { OpenCodeServerPool } from './opencode-server'
+import { OpenCodeAdapter } from './opencode/v1/adapter'
+import type { OpenCodeServerPool } from './opencode/v1/server'
 
 const makeRegistry = (): AdapterRegistry => new AdapterRegistry()
 

@@ -1,5 +1,6 @@
 import type { AgentEnvironment, AgentModelView } from '../../../../../../shared/ipc'
 import { modelIdentity } from '../../../../../../shared/model-identity'
+import { modelPresentation } from '../../harnesses/modelPresentation'
 
 export interface ModelSelection {
   providerKey: string
@@ -54,11 +55,7 @@ export function selectionExists(
 // 선택 없음(null)이면 null — '모델' 폴백 라벨은 렌더(Composer)가 tr 로 채운다(0097).
 export function selectionLabel(selection: ModelSelection | null): string | null {
   if (!selection) return null
-  if (selection.adapter === 'opencode')
-    return selection.modelAlias ?? selection.modelFamily ?? selection.providerKey
-  // adapter 제외 — provider 가 있으면 provider, 없으면 providerKey(=adapter 단독) 폴백.
-  const left = selection.provider ?? selection.providerKey
-  return selection.modelFamily ? `${left}/${selection.modelFamily}` : left
+  return modelPresentation(selection.adapter).selection(selection)
 }
 
 // 선택된 모델의 계열 형상 — 권한 모드 가부 판정의 입력(0215 D-009·D-011).

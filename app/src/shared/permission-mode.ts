@@ -10,7 +10,7 @@
 //   3) PermissionMode (./ipc) — 이전 UI 저장값을 읽는 호환 어휘(plan/acceptEdits).
 
 import type { PermissionMode } from './ipc'
-import { supportsAutoPermission } from './model-identity'
+import { supportsAutoPermission } from './harnesses/claude/model-policy'
 import type { AgentKind } from './agent-kind'
 
 // provider 중립 권한 모드 (정규화 어휘). UI/IPC/controller 가 공유하는 SSOT 표현.

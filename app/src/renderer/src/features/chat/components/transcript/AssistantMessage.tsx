@@ -1,3 +1,4 @@
+import { harnessSurfaces } from '../../harnesses/presentation'
 import { memo, useRef } from 'react'
 import { Markdown } from '../../../../shared/ui/markdown/Markdown'
 import { useI18n } from '../../../../shared/i18n'
@@ -41,7 +42,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   prevRef.current = segments
   return (
     <div
-      className={`flex flex-col gap-[var(--chat-item-gap)] text-[calc(14px*var(--transcript-text-scale,1))] ${transcriptPolicy.surface === 'opencode' ? 'leading-[1.6] font-[440] text-oc-ink' : 'leading-[1.7] text-ink'}`}
+      className={`flex flex-col gap-[var(--chat-item-gap)] text-[calc(14px*var(--transcript-text-scale,1))] ${harnessSurfaces(transcriptPolicy.surface === 'opencode').message}`}
     >
       {segments.map((segment, index) => (
         <AssistantSegment key={index} segment={segment} transcriptPolicy={transcriptPolicy} />

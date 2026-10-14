@@ -1,0 +1,180 @@
+// D-006 — `extraDirs` 는 SDK 옵션 `additionalDirectories` 와 workspace 가드 훅에 **같은 배열**로
+// 도달해야 한다. 두 스코프가 갈라지면 가드가 무의미해진다(옵션은 넓은데 가드는 좁거나 그 반대).
+//
+// **값 비교로는 이 계약이 안 잡힌다.** 두 곳이 각자 `[...extraDirs]` 로 복사해도 값은 같으므로,
+// 여기서는 참조 동일성(`toBe`)을 단언한다.
+
+import { describe, it, expect, vi } from 'vitest'
+import { tmpdir } from 'node:os'
+import { dirname, join, resolve } from 'node:path'
+
+const { queryMock } = vi.hoisted(() => ({
+  queryMock: vi.fn((req: unknown) => {
+    void req
+    const iterable = {
+      [Symbol.asyncIterator](): AsyncIterator<never> {
+        return { next: async () => ({ done: true, value: undefined as never }) }
+      }
+    } as AsyncIterable<never> & {
+      setPermissionMode: () => void
+      interrupt: () => void
+      setModel: () => void
+    }
+    iterable.setPermissionMode = vi.fn()
+    iterable.interrupt = vi.fn()
+    iterable.setModel = vi.fn()
+    return iterable
+  })
+}))
+
+vi.mock('@anthropic-ai/claude-agent-sdk', () => ({ query: queryMock }))
+
+// 실제 구현을 그대로 쓰되 인자만 들여다본다 — 훅 동작을 가짜로 바꾸면 배선이 아니라
+// 가짜를 단언하게 된다.
+vi.mock('./workspace-guard', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./workspace-guard')>()
+  return { ...actual, makeWorkspaceGuardHook: vi.fn(actual.makeWorkspaceGuardHook) }
+})
+
+import { ClaudeAdapter } from './adapter'
+import { makeWorkspaceGuardHook } from './workspace-guard'
+import type { TurnRequest } from '../turn'
+import type { RuntimeToolContext } from '../runtime-tools'
+import type { LiveTurn } from '../types'
+import type { NormalizedEvent } from '../../../shared/ipc'
+
+const guardHookMock = vi.mocked(makeWorkspaceGuardHook)
+const AUTOMATIC_TEMP = resolve(tmpdir(), 'orcinus-orca')
+
+const baseReq = (): TurnRequest => ({
+  sessionId: null,
+  text: 'hello',
+  cwd: '/tmp/work',
+  extensions: { skills: [], hooks: { normalized: {} } }
+})
+
+function capture(req: TurnRequest): { option: unknown; guardArg: unknown; live: LiveTurn } {
+  queryMock.mockClear()
+  guardHookMock.mockClear()
+  const live = new ClaudeAdapter().sendMessage(req)
+  const call = queryMock.mock.calls[0]?.[0] as
+    { options: { additionalDirectories?: string[] } } | undefined
+  return {
+    option: call?.options.additionalDirectories,
+    guardArg: guardHookMock.mock.calls[0]?.[1],
+    live
+  }
+}
+
+describe('ClaudeAdapter — extraDirs 는 옵션과 가드가 같은 배열을 본다 (AC11)', () => {
+  it('참조가 동일하다 — 값 복사본이 아니다', () => {
+    const extraDirs = ['/tmp/refs', '/tmp/docs']
+    const { option, guardArg } = capture({ ...baseReq(), extraDirs })
+
+    expect(option).toEqual([...extraDirs, AUTOMATIC_TEMP])
+    expect(guardArg).toBe(option)
+  })
+
+  it('Code 요청도 앱 임시 루트를 공유 배열로 자동 허용한다', () => {
+    const { option, guardArg } = capture(baseReq())
+
+    expect(option).toEqual([AUTOMATIC_TEMP])
+    expect(guardArg).toBe(option)
+  })
+
+  it('가드 훅은 cwd 를 workspace 루트로 함께 받는다', () => {
+    capture({ ...baseReq(), extraDirs: ['/tmp/refs'] })
+    expect(guardHookMock.mock.calls[0]?.[0]).toBe('/tmp/work')
+  })
+
+  it('Work output directory reaches the SDK and guard without mutating user extraDirs', async () => {
+    const extraDirs = ['/tmp/refs']
+    const context: RuntimeToolContext = {
+      cwd: '/tmp/work',
+      extraDirs,
+      getSignal: () => new AbortController().signal,
+      waitForSession: async () => 's1'
+    }
+    const captured = vi.fn(async () => {})
+    const request = baseReq()
+    request.extraDirs = extraDirs
+    request.runtimeToolContext = context
+    request.extensions.outputFiles = { directory: AUTOMATIC_TEMP, capture: captured }
+    const { option, guardArg, live } = capture(request)
+    expect(option).toEqual(['/tmp/refs', AUTOMATIC_TEMP])
+    expect(guardArg).toBe(option)
+    expect(extraDirs).toEqual(['/tmp/refs'])
+    const args = queryMock.mock.calls[0][0] as {
+      options: {
+        hooks: Record<
+          string,
+          { matcher?: string; hooks: ((...args: unknown[]) => Promise<unknown>)[] }[]
+        >
+      }
+    }
+    const invoke = async (
+      event: 'PostToolUse' | 'Stop',
+      value: Record<string, unknown>
+    ): Promise<void> => {
+      for (const matcher of args.options.hooks[event] ?? []) {
+        if (
+          event === 'PostToolUse' &&
+          matcher.matcher &&
+          !new RegExp(matcher.matcher).test(String(value.tool_name))
+        )
+          continue
+        for (const callback of matcher.hooks)
+          await callback({ hook_event_name: event, ...value }, undefined, {})
+      }
+    }
+    try {
+      await invoke('PostToolUse', {
+        tool_name: 'Write',
+        tool_input: { file_path: join(AUTOMATIC_TEMP, 'report.md') },
+        tool_response: 'success'
+      })
+      expect(captured).toHaveBeenCalledExactlyOnceWith(
+        join(AUTOMATIC_TEMP, 'report.md'),
+        expect.objectContaining({ cwd: '/tmp/work' })
+      )
+      const summaryPath = join(AUTOMATIC_TEMP, 'summary.md').replace(/\\/g, '/')
+      await invoke('Stop', { last_assistant_message: `[Summary](<${summaryPath}>)` })
+      expect(captured).toHaveBeenCalledTimes(2)
+      expect(captured).toHaveBeenLastCalledWith(
+        summaryPath,
+        expect.objectContaining({ cwd: '/tmp/work' })
+      )
+      const events: NormalizedEvent[] = []
+      for await (const batch of live.eventBatches) events.push(...batch.events)
+      expect(events.filter((event) => event.type === 'turn.ended')).toHaveLength(1)
+    } finally {
+      live.close()
+    }
+  })
+
+  it('앱 임시 루트는 통과시키고 OS Temp 부모와 형제는 자동 허용하지 않는다', async () => {
+    capture(baseReq())
+    const args = queryMock.mock.calls[0][0] as {
+      options: { hooks: Record<string, { hooks: ((...args: unknown[]) => Promise<unknown>)[] }[]> }
+    }
+    const guard = args.options.hooks.PreToolUse[0].hooks[0]
+    const check = (filePath: string): Promise<unknown> =>
+      guard(
+        {
+          hook_event_name: 'PreToolUse',
+          tool_name: 'Write',
+          tool_input: { file_path: filePath }
+        },
+        undefined,
+        {}
+      )
+
+    expect(await check(join(AUTOMATIC_TEMP, 'report.md'))).toEqual({})
+    expect(await check(join(dirname(AUTOMATIC_TEMP), 'parent-file.md'))).toMatchObject({
+      hookSpecificOutput: { permissionDecision: 'deny' }
+    })
+    expect(await check(`${AUTOMATIC_TEMP}-sibling/report.md`)).toMatchObject({
+      hookSpecificOutput: { permissionDecision: 'deny' }
+    })
+  })
+})

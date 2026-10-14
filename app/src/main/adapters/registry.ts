@@ -1,6 +1,6 @@
 import type { Backend, ProviderDescriptor } from '../../shared/ipc'
 import type { SessionAdapter } from './types'
-import { ClaudeAdapter } from './claude'
+import { ClaudeAdapter } from './claude/adapter'
 
 interface InstalledInfo {
   installed: boolean

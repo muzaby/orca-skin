@@ -83,7 +83,7 @@ import type { TurnRequest } from '../../adapters/turn'
 const requirement = (overrides: Partial<DiffRequirementAnchor> = {}): DiffRequirementAnchor => ({
   sessionId: 'session-1',
   baselineCommit: '3486398aecbc2b97e42d3dba1aae8d13b18d186c',
-  filePath: 'app/src/main/adapters/claude.ts',
+  filePath: 'app/src/main/adapters/claude/adapter.ts',
   oldLine: 10,
   newLine: 14,
   hunkHeader: '@@ -10,2 +14,3 @@',

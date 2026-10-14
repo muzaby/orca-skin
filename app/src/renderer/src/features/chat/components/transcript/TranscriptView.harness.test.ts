@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { load } from 'cheerio'
 import { describe, expect, it, vi } from 'vitest'
 import { TranscriptView } from './TranscriptView'
-import { OpenCodeToolGroup } from './OpenCodeToolGroup'
+import { OpenCodeToolGroup } from '../../harnesses/opencode/transcript/ToolGroup'
 import { transcriptPresentation } from '../../lib/agentPresentation'
 import { installChatStoreHarness } from '../../store/chatStore.testHarness'
 import {

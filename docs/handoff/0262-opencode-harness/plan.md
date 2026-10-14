@@ -897,3 +897,85 @@ EP-19 7/7자리를 직접 관측했다. VP-31~34 SELF_PASS. V1 영향 회귀 중
 ## Review Signals
 
 r1.7은 사용자 요구 ΔV4이며 verify 실패 뒤 재구현이 아니다. SDK export의 이름과 제품 버전을 공식 태그 소스에서 구분했고 제거·보존 범위를 명시했다. 새 비동기 경계의 shutdown과 재시도는 직접 행동 테스트로 닫았다. 검증 완료를 독립 verify/PASS로 승격하지 않는다.
+
+# [구현자 기입 — r1.8 하네스 구현 디렉터리 분리]
+
+## 설계 리뷰
+
+ΔV5 구현 완료. main은 `adapters/claude/`와 `adapters/opencode/v1/`, renderer는 feature 내부 `harnesses/claude/`와 `harnesses/opencode/`로 전용 구현을 옮겼다. OpenCode public entry가 v1 구현을 선택한다. SDK·CLI·native 설정/모델 해석은 v1 안에 있고, 정규 DTO 기반 UI와 공통 입력·상태·저장 수명은 버전과 분리했다. 제품 동작·IPC·의존성 변경은 없다.
+
+Claude 전용 확장 plugin·설정 기본값·모델 이름/effort 정책도 각 레이어의 Claude 디렉터리에 옮겼다. 엔진 카드와 모델 목록의 공통 DTO 렌더는 공유하며, composer의 모델 이름 표현과 엔진 native 템플릿은 전용 구현이 제공한다. PLAN_GAP은 발견하지 않았다.
+
+## 강제 지점 전수와 V-pair 자기확인
+
+| 자리 | 직접 oracle 좌표 / 이번 관측 |
+|---|---|
+| EP-20a | `main/adapters/claude/adapter.*.test.ts`의 query·승인·완료 회귀와 `adapters/registry.test.ts:describeActive() 는 활성 백엔드(claude)의 서술자를 반환` 통과 |
+| EP-20b | `adapters/opencode/v1/adapter.test.ts`의 실제 SDK HTTP/SSE·승인/중단, `server.test.ts`의 버전/수명, `app/chat-turn/opencode-runtime.test.ts`의 public entry→실제 런타임 첫 턴/후속 턴 통과 |
+| EP-20c | `features/extensions/harness-plugins/claude/user-skills.test.ts:매니페스트(name=claude) + skills 링크(→ 대상)를 렌더한다`, `engine/lib/providerCatalog.test.ts`의 Claude 기본값, shared 모델 정책 회귀 통과 |
+| EP-21a | `Composer.harness.test.ts`와 `NewChatLandingPage.harness.test.ts:renders the harness landing and preserves draft and attachment state` 통과. 모델 선택 라벨·메뉴는 `modelSelection.test.ts`, `modelMenu0215.render.test.ts` 재통과 |
+| EP-21b | `TranscriptView.harness.test.ts`, `StatusLine.harness.test.ts`, 기존 도구 그룹·plan 렌더 테스트에서 하네스별 본문/도구/스피너와 종료 표시 통과 |
+| EP-21c | `rightPanelTiles.harness.test.ts`, `RightPanelTile.actions.test.ts`에서 지원 패널 선택과 실제 타일 제어 통과 |
+| EP-21d | `EngineFormModal.harness.test.ts`, `EngineFormModal.import.test.ts`, `EngineModelList.render.test.ts`, `providerCatalog.test.ts`: 설정 기본값·가져오기 경쟁·모델 표시 통과 |
+| EP-21e | `HarnessSettingsTab.save.test.ts:saves only %s fields through the common tab` 두 하네스 통과. 실제 탭→전용 필드/patch→API wrapper의 저장 payload 관측 |
+| EP-22a | `scripts/harness-boundary.test.mjs`: 실제 ESLint로 v1 밖 SDK import/re-export/dynamic import/require 거부, v1 안 허용 |
+| EP-22b | 같은 테스트: main과 renderer의 양방향 형제 import 거부, 공통 포트·동일 하네스·public entry 허용 |
+| EP-22c | 이동한 실행 테스트, 전체 lint/typecheck, main/preload/renderer build, doc inventory의 상대 링크 검사 통과. host-process 예외의 새 경로는 `git-boundary.test.mjs`에서 재검증 |
+
+등록 EP-20 3/3 · EP-21 5/5 · EP-22 3/3 = 이번 경로 11/11. VP-35~39 SELF_PASS. 각 자리의 범위는 위 테스트가 실제 실행한 구간까지이며 bootstrap 전체 동작을 단위 테스트 결과로 확대하지 않는다.
+
+V1 VP-01/04/08/11의 기존 SELF_BLOCKED·최종 시각 인수는 유지한다. VP-05/06/18은 이동한 SDK·server·map/catalog/settings 직접 테스트, VP-07은 history 관련 기존 테스트와 DB settlement 회귀를 확인했다. ΔV1~4는 엔진 import·랜딩·스피너·1.x 실행 경계의 위 직접 oracle로 이번 이동 영향을 확인했으며 독립 검증 결과로 승격하지 않는다.
+
+## 이번 라운드 수정의 잠금
+
+| 변이 자리 | 종류 | 관측 |
+|---|---|---|
+| SDK import 경계 규칙 off | VP-37 선택 증거 | 금지 import 검사가 assertion red, 원복 후 통과 |
+| main 동일 하네스 capture 조건 제거 | VP-37 선택 증거 | 형제 import 검사가 assertion red, 원복 후 통과 |
+| Composer→ClaudeModeControl 모델을 null로 고정 | 새 배선 oracle | `composerWiring.test.ts` red, 원복 후 통과 |
+| ClaudeModeControl→ModeMenu 옵션을 빈 배열로 고정 | 새 배선 oracle | 같은 테스트 red, 원복 후 통과 |
+| 공통 composer의 OpenCode 스킬 필터 제거 | 이동으로 수정한 기존 oracle | `composerAttachMenu.test.ts` red, 원복 후 통과 |
+| 공통 첨부 메뉴의 extension 표시를 true로 고정 | 이동으로 수정한 기존 oracle | 같은 테스트 red, 원복 후 통과 |
+
+선택 증거 2 · 인용 변이 0 · 신규/수정 배선 oracle 4 = 표 행 6. 변이마다 원본 바이트를 복원했다. 경계 규칙 테스트 17건과 위 composer 검사 포함 UI 29건이 복원 후 통과했다. 나머지는 직접 행동 oracle이며 추가 변이는 미선택이다.
+
+## Product/UX 파생 검토
+
+공통 input controller와 surface는 같은 위치에서 유지하고 전용 메뉴·버튼·CSS만 선택한다. 실제 하네스 왕복 렌더에서 초안과 첨부 보존을 확인했다. 설정 모달의 로딩·실패·취소·재시도·늦은 응답 처리와 세션 하네스 잠금은 기존 실행 경로를 유지한다. UI 문구·브랜드·진행 상태를 새로 바꾸지 않았다. 이번 구조 변경에서는 별도 Computer Use 시각 검사를 반복하지 않았으며 AC11 최종 인수는 남는다.
+
+## 놓친 잠재 문제 + 대응
+
+- 상대 경로 일괄 변환이 테스트의 `join(p, '..')`를 import로 오인한 두 literal을 발견했다. 원문과 이동본의 AST literal을 대조해 복구하고 관련 settings·plan 파일 테스트를 재실행했다. production 로직 변경은 없었다.
+- 기존 소스 검사는 이전 파일명과 inline JSX를 읽었다. 실제 새 배선으로 좌표를 바꾸고 위 네 변이로 검출력을 확인했다. 랜딩 fixture의 feature barrel도 새 공통 selector를 노출하도록 갱신했다.
+- 설정 저장 테스트의 가짜 DOM에는 textarea 크기 측정이 없다. 공통 AutoGrowTextarea만 단순 입력으로 모형하고 실제 하네스 필드·저장 patch·API wrapper를 실행했다. 번역 함수 identity와 fake timer를 고정해 fixture 수명 문제를 제거했다.
+- 설치된 Claude SDK는 0.3.286, manifest 선언은 0.3.296이었다. 설치 identity 검사 기대값은 실제 package metadata에서 읽도록 고쳤다. 패키지 설치나 버전 변경은 하지 않았으며 이번 구조 회귀가 선언 버전의 CLI 실기까지 입증하지는 않는다.
+- SQLite는 Electron ABI로 설치돼 Node Vitest에서 로드되지 않았다. ABI를 바꾸지 않고 같은 DB 스위트를 Electron 런타임으로 실행해 5건 통과했다. sandbox의 상위 경로 stat 제한은 허용된 재실행에서 해소했다.
+
+## 구현 보고
+
+| AC | 결과 | 이번 관측 |
+|---|---|---|
+| AC19 | ✅ | Claude/OpenCode 실제 구현 이동, OpenCode public entry→v1의 SDK·CLI·설정 실행 회귀 |
+| AC20 | ✅ | composer·transcript·패널·엔진·설정 전용 구현 분리, 공유 입력/초안·첨부와 설정 저장 회귀 |
+| AC21 | ✅ | 금지/허용 import probe, 이동한 테스트·소스 검사·현재 문서, 타입·lint·빌드 통과 |
+
+증분 ✅3 · ⚠️0 · ❌0 = 3. 이전 r1.7의 ✅17 · ⚠️1에 합산한 누적은 ✅20 · ⚠️1 · ❌0 = AC 21이다. AC11 최종 시각 인수와 기존 V1 직접 oracle 부족·독립 검증은 남는다.
+
+| 게이트 | 관측 |
+|---|---|
+| 넓은 동작 회귀 | adapter·plugin·runtime·엔진 import·chat/engine/settings·랜딩: 301파일 중 300파일/2642케이스 통과. 남은 랜딩 fixture 3케이스를 수정해 재통과 |
+| 후속 UI 회귀 | 모델 표현 추출 후 6파일 29케이스 통과. 앞 행과 중복 합산하지 않음 |
+| 모델 정책 회귀 | shared identity/permission/effort·main harness/context·renderer 전용 제어/engine 22파일 392케이스 통과. 일부 넓은 회귀와 중복 |
+| DB 회귀 | Electron `ELECTRON_RUN_AS_NODE=1`로 settlement.integration 1파일 5케이스 통과 |
+| 경계 | Node scripts의 harness-boundary·git-boundary 17케이스 통과, 위 6변이 모두 red 후 원복 green |
+| 타입·린트 | 전체 node/web/test 통과. 마지막 renderer 추출 뒤 web 재통과. 전체 lint 오류 0, 기존 useTranscriptVirtualizer 경고 1 |
+| 빌드 | 최종 main/preload/renderer 산출 완료. 기존 SubAgentTileContent의 혼합 import 경고 유지 |
+| 문서·공백 | doc inventory generated/prose/relative links와 git diff --check 통과 |
+
+넓은 회귀 명령(app 기준): `node node_modules/vitest/vitest.mjs run src/main/adapters src/main/features/extensions/harness-plugins src/main/app/chat-turn/opencode-runtime.test.ts src/main/app/handlers/engine.import.test.ts src/renderer/src/features/chat src/renderer/src/features/engine src/renderer/src/features/settings/components/HarnessSettingsTab src/renderer/src/pages/NewChatLandingPage.harness.test.ts --exclude '**/settlement.integration.test.ts' --maxWorkers=2`.
+
+후속 UI 명령: `node node_modules/vitest/vitest.mjs run modelSelection.test.ts modelMenu0215.render.test.ts Composer.harness.test.ts NewChatLandingPage.harness.test.ts composerWiring.test.ts composerAttachMenu.test.ts --maxWorkers=2`.
+
+## Review Signals
+
+r1.8은 사용자 추가 요구 ΔV5이며 verify 실패 뒤 재구현이 아니다. 파일 이동에서 import 외의 문자열과 source-based 검사도 영향을 받는 것을 실제 실패로 확인했다. 전용 구현을 복제하지 않고 레이어 내부로 옮겼으며 입력·저장 수명을 공통 경로에 유지했다. 독립 검증·시각 인수·기존 직접 oracle 한계는 유지한다.

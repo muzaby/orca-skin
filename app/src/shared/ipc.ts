@@ -396,7 +396,7 @@ export interface ClassifiedError {
 // ── NormalizedEvent (provider-runtime.md §2) — 와이어(orca:chat:event)의 정규 이벤트 ─────────
 // 이벤트는 sessionId(멀티세션 라우팅)로 키잉되고 tool 은 toolRunId 로 start/complete 를 매칭한다.
 // 코어 중립(0016): 이벤트는 provider 를 싣지 않는다 — "어느 백엔드인지" 는 session.backend 파생.
-// claude 어댑터는 SDK 메시지를 claudeToNormalized(adapters/claude-map.ts)로 이 타입에 직접
+// claude 어댑터는 SDK 메시지를 claudeToNormalized(adapters/claude/map.ts)로 이 타입에 직접
 // 정규화한다. OpenCode 도 같은 union 으로 정규화(seam, provider 무관).
 // 권한 요청은 permission.requested 1급 이벤트(origin 으로 agent/app 구분, action.kind 로 종류 구분).
 export type ProviderId = 'claude' | 'opencode'

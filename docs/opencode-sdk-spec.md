@@ -69,7 +69,7 @@ native namespace를 함께 노출한다.
 
 ### 3.1 표면별 요청
 
-아래는 [실행 가능한 계약 테스트](../app/src/main/adapters/opencode-sdk.test.ts)의 호출
+아래는 [실행 가능한 계약 테스트](../app/src/main/adapters/opencode/v1/sdk.test.ts)의 호출
 형태를 축약한 것이다. 테스트는 fake fetch를 사용한다. 실제 앱에 baseUrl만 넣어 실행하라는
 예제가 아니며, Electron에서는 §6의 transport 검증이 선행돼야 한다.
 
@@ -380,7 +380,7 @@ Orca의 예전 문서에 있던 session.send, payload: true/false, ChatEvent 기
 
 ## 10. 검증 범위와 다음 구현의 진입 조건
 
-[opencode-sdk.test.ts](../app/src/main/adapters/opencode-sdk.test.ts)는 실제 공개 import의
+[opencode-sdk.test.ts](../app/src/main/adapters/opencode/v1/sdk.test.ts)는 실제 공개 import의
 root/v2 legacy/native 요청 직렬화, HTTP 성공·오류 envelope, throwOnError, 유한 SSE parser,
 주입 fetch 경계와 root SSE의 우회 한계를 검사한다. 전역 network guard를 사용해 외부
 server/model 요청을 차단한다. package typecheck도 이 테스트를 검사한다.
