@@ -9,9 +9,9 @@
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
 | 상태 | READY |
-| V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 |
+| V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
-| 이번 V revision / 유효 V | ΔV2 / V1 + ΔV1 + ΔV2 |
+| 이번 V revision / 유효 V | ΔV3 / V1 + ΔV1 + ΔV2 + ΔV3 |
 
 # Part I — Product & UX Contract
 
@@ -48,6 +48,7 @@ Orca는 Claude만 실행하고 composer·모델·패널이 그 기능을 전제�
 | D-011 | OpenCode transcript 배경을 Claude와 동일하게 한다 | 본문·부모 배경·스크롤 fade를 함께 맞춘다 | 2026-10-14 추가 사용자 요구 | ACTIVE | V1의 transcript 전용 배경만 대체 |
 | D-012 | 새 대화 화면을 OpenCode 소스에 맞춰 로고→컴포저→워크스페이스·브랜치로 배치한다 | D-004에 따라 OpenCode 슬라이스만 적용. 내려받은 참조 저장소는 커밋 제외 | 2026-10-14 추가 사용자 요구 | ACTIVE | — |
 | D-013 | 새 대화의 브랜드 로고는 OpenCode를 사용한다 | 원본 워드마크 적용 | 로고 선택 비동기 답변 | ACTIVE | ΔV2의 기본 해석 확정 |
+| D-014 | OpenCode 대화 중 스피너를 OpenCode 원본으로 바꾼다 | D-004에 따라 Claude 스피너는 유지 | 2026-10-14 추가 사용자 요구 | ACTIVE | 기존 공통 SparkSpinner의 OpenCode 적용만 대체 |
 
 갱신 메모: 기존 결정 전부 유지. ACTIVE 결정 ↔ AC 충돌 없음. 미정 제품 결정 없음.
 
@@ -317,6 +318,32 @@ READY 대조: D-010↔AC13/14 및 D-008의 하네스 격리 충돌 0. producer/c
 운영 gate: 관련 Vitest, lint, 전체 typecheck, electron-vite build, doc inventory, diff whitespace, trailer 파싱, 참조 clone 제외 확인. UI 캡처는 실제 브라우저의 격리 fixture를 사용할 수 있으며 실제 사용자 세션/인증은 건드리지 않는다. AC11 최종 사용자 시각 인수와 독립 verify는 그대로 대기한다.
 
 READY 대조: D-011/012↔AC15/16, D-001/004의 전환 보존·슬라이스 제한과 충돌 없음. 12개 강제 자리와 직접 oracle을 등록했다.
+
+# ΔV3 — OpenCode 응답 스피너 (READY)
+
+상속 기준: V1 + ΔV1 + ΔV2, 구현 `ec83eb6567c5fe326dd6dc899130df6dfc2f0f2b`. 사용자 추가 요구에 따른 r1.6이다.
+
+## Product / UX 추가 계약
+
+AC17 / R-17↔AT-17 (NEW): OpenCode 응답 중에는 원본의 4×4 격자 SVG 스피너(모서리 숨김, 안쪽 밝음·바깥 흐림)를 표시한다. Claude는 기존 SparkSpinner다. 빈 대화의 첫 응답·사용자 메시지 직후·어시스턴트 본문 스트리밍 경로 모두 같은 선택을 사용한다. 완료/중단 후에는 진행 스피너가 사라지며, 기존 상태 문구·접근성 안내는 유지한다. 감속 모션에서는 정적인 격자를 표시한다.
+
+범위는 응답 진행 StatusLine의 스피너 외형이다. 사이드바/파일 로딩 표시, 도구 행 구조, 상태 문구, 진행 여부 계산은 바꾸지 않는다. 원본 출처는 기존 참조 clone의 `packages/ui/src/components/spinner.tsx`·`styles/animations.css`이며 v1.19.0 SHA는 ΔV2와 동일하다.
+
+## 기술 설계 / §10 강제 지점과 V
+
+- `PendingAssistantStatus`가 활성 세션 backend를 `StatusLine`에 전달한다. `StatusLine`은 기본 Claude를 유지하고 backend=opencode인 경우에만 `OpenCodeSpinner`를 렌더한다. 기존 서브에이전트 패널의 Claude 경로도 기본값을 유지한다.
+- 원본 viewBox=15×15, 사각형 3×3/rx=1/간격 1, 표시 크기 18px, 밝기 0.4↔1 및 0.15↔0.35, 주기 1~2s, 시작 지연 0~1.5s를 보존한다. 모듈 초기화 때 생성한 위상은 재렌더 사이 고정이다. 새 React 타이머/프레임 상태는 없다.
+- Tailwind `@theme` 애니메이션 토큰을 정의하고 `motion-reduce:animate-none` 및 정적 opacity로 감속 모션에 대응한다. 색은 currentColor와 `text-oc-muted`로 두 테마를 따른다. SVG는 aria-hidden이며 상태 줄이 안내를 소유한다. MIT 고지를 함께 보존한다.
+
+| Pair / node | requiredness | 경로 / 강제 자리 | 직접 oracle 좌표 | 적대 증거 |
+|---|---|---|---|---|
+| VP-29 / R-17↔AT-17 NEW | REQUIRED | EP-18a 빈 교환 fallback→PendingAssistantStatus; EP-18b 사용자 턴→Exchange→PendingAssistantStatus; EP-18c 어시스턴트 턴→AssistantTurn→PendingAssistantStatus; EP-18d backend→StatusLine; EP-18e 하네스→SVG | TranscriptView.harness.test.ts: uses the harness spinner on each pending transcript path; StatusLine.harness.test.ts: renders the OpenCode grid with stable animation and accessible status; 브라우저 시각 확인 | 미선택: 실제 경로 렌더 및 애니메이션 관측 |
+| VP-30 / AR-06↔IT-06 NEW | REQUIRED | EP-18a~e 상태→기존 transcript→진행 표시 | 위 실제 TranscriptView 렌더의 backend별 SVG 및 종료 부재 단언 | 미선택: 배선 경로 양 끝을 동시에 mock하지 않음 |
+| VP-11 (V1 INHERITED, D-004) | REGRESSION | 기존 Claude 스피너·상태 표시 | statusLine.render.test.ts, StatusLine.interrupted.test.ts, statusLine.background.test.ts, typeScale.test.ts | 기존 직접 oracle 부족 유지 |
+
+진행 lifecycle와 알고리즘은 그대로이므로 신규 SD/MD pair는 없다. EP-18은 5자리다. 실패 의미는 첫 응답에 Claude 스피너가 남거나, 완료 후 진행 표시가 남거나, reduced motion에서도 계속 점멸하는 것이다. 운영 gate는 관련 Vitest·lint·전체 typecheck·build·문서 inventory·diff·trailer·참조 clone 제외이며 기존 AC11 최종 인수는 대기한다.
+
+READY 대조: D-014↔AC17과 D-004의 하네스 범위 일치. 기존 spinner 정본의 공통 적용은 Claude 소비자 범위로 유지한다.
 
 # [구현자 기입]
 
