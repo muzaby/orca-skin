@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | READY — ΔV7 사용자 제공 데스크톱 소스의 UI 이식 |
+| 상태 | IN_PROGRESS — ΔV7 코드·로컬 게이트 완료, 원격 CI 대기 |
 | V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV7 / V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 |
@@ -1252,3 +1252,66 @@ HF 추가 검증 생략 기록 시 inventory/prose와 whitespace는 통과했다
 ## Review Signals
 
 r1.10은 사용자 지시의 오류·문구 수정 턴이다. 기존 테스트는 일반 오류 terminal과 auth category를 보았으나 실제 공급자의 403 의미를 보존하는지 단언하지 않았다. 이번에는 SDK 오류 ingress 3종을 같은 직접 oracle로 잠갔다. 후속 사용자 회신 뒤 제품 코드 변경 없이 시각 증거를 보완했으며, 로컬 fixture·외부 HF·최종 사용자 인수 범위를 구분한다.
+
+# [구현자 기입 — r1.11 데스크톱 UI 이식]
+
+## 설계 리뷰
+
+ΔV7 구현 완료. D-019에 따라 사용자 제공 2.0.29 데스크톱 소스의 UI만 이식했다. 기존 1.x runtime·정규화 DTO·응답 action을 사용한다. transcript canvas와 Claude 화면은 기존 계약을 유지하며 새 의존성·IPC·DB 변경은 없다. 원본 경로·색상·치수·관측 한계는 [디자인 증거](design-evidence.md#사용자-제공-데스크톱-소스-이식-2026-10-15-r111)에 기록했다.
+
+## 강제 지점 전수와 V-pair 자기확인
+
+검색: `rg -n 'OpenCodeQuestionDock|OpenCodePermissionDock|OpenCodeAskExchange|appearance="opencode"|composer-controls' app/src/renderer/src/features/chat`, `rg -n 'oc-|--color-bg:' app/src/renderer/src/styles/tokens.css`. ΔV7 §10의 6자리와 아래 6행을 대조했다. 기존 V1 전체 증거가 새로 닫힌 것으로 해석하지 않는다.
+
+| 지점 / pair | 직접 관측 | 자기확인 |
+|---|---|---|
+| EP-27a / VP-46·43·44 | ToolCard interaction의 실행→완료 펼침 유지·명령/결과 복사, AssistantSegment의 종류·실패/중단/거부·diff 렌더 통과. CUA preview에서 셸/파일 diff 확인 | SELF_PASS |
+| EP-27b / VP-46·45 | 실제 assistant/live/user/Q&A 렌더 및 TranscriptView의 공통 bg 회귀 통과. light/dark preview와 기존 dark canvas RGB 확인 | SELF_PASS |
+| EP-28a / VP-47 | ComposerInputController 입력/초안/IME 회귀, 두 하네스 실제 composer surface, agent/variant 선택·기본값·키보드 callback 통과. 360px preview 치수 확인 | SELF_PASS |
+| EP-29a / VP-48 | Composer.activity의 Claude/OpenCode 질문 dispatcher 렌더 통과 | SELF_PASS |
+| EP-29b / VP-48·49 | QuestionDock의 단일/다중/기타·왕복·접기·새 request·IME·숫자/화살표·Ctrl+Enter·Esc·중복 제출 방지 통과 | SELF_PASS |
+| EP-29c / VP-48 | 실제 ToolApprovalBody에서 허용/세션 허용/거부의 approvalId와 도구명 callback 전달 3행 통과 | SELF_PASS |
+
+이번 범위는 EP-27 2/2 · EP-28 1/1 · EP-29 3/3 = 6/6. 기존 VP-11/18은 Claude 표시와 OpenCode adapter/mapper/runtime의 영향 회귀만 수행했고 V1의 기존 SELF_BLOCKED 및 AC11 인수 대기는 유지한다. 실제 모델 호출은 이번 턴에 수행하지 않았다.
+
+## 이번 라운드 수정의 잠금
+
+해당 없음 — 직접 행동·출력 oracle과 시각 관측을 사용했다. 선택 적대 증거 0 · 인용 변이 0 · 새 구조 oracle 0 = 표 행 0. 기존 assertion의 select DOM은 실제 OpenCode menu trigger로 변경하고 별도 interaction에서 선택 payload·초점 복귀를 확인했다. 사용자 버블 assertion은 원본 local-session blue 표면으로 변경했다.
+
+## Product/UX 파생 검토
+
+질문은 선택 후 자동으로 넘어가지 않고 명시적 다음/제출을 사용한다. 선택·직접 입력은 이전/다음/접기 중 유지되고 새 request에서 초기화한다. IME 조합·키 반복은 제출하지 않는다. 에이전트/변형 메뉴는 현재 선택에 초점을 두고 화살표·Home/End·Esc·Tab을 지원한다. 원본 desktop 스타일은 OpenCode 경로와 선택적 DiffTable appearance로 한정했다.
+
+컴포저 핵심 치수를 px로 명시하여 Orca의 root rem에 영향을 받지 않도록 했다. 좁은 폭에서는 제어 영역만 가로 스크롤하고 전송 버튼 공간을 확보한다. 공통 입력 controller는 유지하여 하네스 전환 중 초안과 IME 수명을 보존한다. 승인 범위·거부 동작은 기존 action 그대로다.
+
+## 놓친 잠재 문제 + 대응
+
+- 원본 2.x UI 소스를 실행 API로 혼동할 위험은 원본 버전·경로를 기록하고 v1 DTO를 그대로 사용하는 것으로 제한했다.
+- 원본 아카이브에서 Git 명령은 부모 Orca SHA를 반환한다. upstream revision으로 인용하지 않고 세 원본 파일의 hash를 기록했다.
+- rem 기반 치수가 실제 14.5px root에서 줄어드는 것을 preview에서 발견했다. toolbar 44px·버튼 28px·radius 12px를 재측정했다.
+- 사용자 다운로드의 깨진 상대 링크 5건 때문에 전체 doc scanner는 실패한다. 사용자 파일이나 검사기를 바꾸지 않고 `.tmp`를 제외한 저장소 검사에서 broken 0을 확인했다.
+- 네이티브 Computer Use의 창 연결 실패로 실앱 시각 재검증은 미완료다. production 컴포넌트 preview의 결과와 기존 r1.10 실제 모델 관측을 구분했다.
+
+## 구현 보고
+
+| AC | 결과 | 관측 |
+|---|---|---|
+| AC26 | ✅ | 실제 도구·Q&A·상태/복사 회귀, 두 테마 preview, 공통 bg 유지 |
+| AC27 | ✅ | 입력/IME 회귀, 360px에서 toolbar 44px·전송 28px·radius 12px 확인, 메뉴 선택 callback |
+| AC28 | ✅ | 실제 질문 선택/답 payload와 승인 dispatcher 세 action, CUA에서 다중/직접 입력 제출 |
+| AC11 | ⚠️ | 기존 최종 사용자 인수 대기. 이번 실앱 연결 실패와 마지막 메뉴 시각 미확인 유지 |
+
+증분 ✅3 · ⚠️0 · ❌0 = 3. 이전 ✅24 · ⚠️1에 더한 누적은 ✅27 · ⚠️1 · ❌0 = AC 28. 이전 AC를 이번 턴에 전부 재검증한 것으로 주장하지 않는다.
+
+| 게이트 | 관측 |
+|---|---|
+| 관련 Vitest | 최종 21파일 144케이스 통과: OpenCode adapter/mapper/runtime·도구/본문·질문/승인·composer/controller/store·Claude diff·i18n |
+| 타입 | 최종 `npm run typecheck`의 node/web/test 모두 통과 |
+| readonly ESLint | 전체 오류 0, 기존 useTranscriptVirtualizer 경고 1 |
+| build | main/preload/renderer 생성 완료. 기존 SubAgentTileContent 혼합 import 경고 유지 |
+| 운영 | test budgets 16 real-git suites·diff whitespace·문서 inventory/prose 통과. 원본 `.tmp` 링크 5건 실패는 기존 상태이며 제외한 저장소 링크 broken 0 |
+| 원격 CI | push 후 관측 예정 |
+
+## Review Signals
+
+이번 라운드는 사용자 추가 요구의 ΔV7 구현이다. 원본 소스에서 실제 desktop 경로를 확인한 뒤 표현을 이식하고 interaction과 CUA preview로 보완했다. 이전 UI의 구조만 비슷하게 구현한 한계와 rem 차이를 수정했다. 실앱 시각 인수와 독립 verify의 미완료 범위는 그대로 남긴다.

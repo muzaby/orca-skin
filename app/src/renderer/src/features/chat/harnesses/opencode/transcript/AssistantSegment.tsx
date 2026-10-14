@@ -5,7 +5,7 @@ import type { MessageSegment } from '../../../lib/parts'
 import type { AgentTranscriptPresentation } from '../../../lib/agentPresentation'
 import { errorCategoryKey } from '../../../lib/errorLabels'
 import { stringify } from '../../../format'
-import { AskExchange } from '../../../components/transcript/AskExchange'
+import { OpenCodeAskExchange } from './AskExchange'
 import { CompactBoundaryMarker } from '../../../components/transcript/CompactBoundaryMarker'
 import { ForkBoundaryMarker } from '../../../components/transcript/ForkBoundaryMarker'
 import { SubagentNoticeRow } from '../../../components/transcript/SubagentNoticeRow'
@@ -29,11 +29,11 @@ export const OpenCodeAssistantSegment = memo(function OpenCodeAssistantSegment({
     case 'tools':
       return <OpenCodeToolGroup calls={seg.calls} transcriptPolicy={transcriptPolicy} />
     case 'ask':
-      return <AskExchange call={seg.call} />
+      return <OpenCodeAskExchange call={seg.call} />
     case 'structured':
       return (
         <div data-component="opencode-structured">
-          <p className="mb-2 text-caption text-oc-muted">
+          <p className="mb-[8px] text-caption text-oc-muted">
             {tr('chat.transcript.structuredOutput')}
           </p>
           <OutputPanel
@@ -79,7 +79,7 @@ function OpenCodeError({ error }: { error: unknown }): React.JSX.Element {
   return (
     <div
       data-component="opencode-error"
-      className="flex gap-2 rounded-md border border-bad/40 px-3 py-2 text-[calc(13px*var(--transcript-text-scale,1))] text-bad"
+      className="flex gap-[8px] rounded-[6px] border border-oc-bad/40 px-[12px] py-[8px] text-[calc(13px*var(--transcript-text-scale,1))] text-oc-bad"
     >
       <Icon name="alert" size={16} />
       <div className="min-w-0">

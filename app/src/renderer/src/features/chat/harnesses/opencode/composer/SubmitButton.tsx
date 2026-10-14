@@ -30,7 +30,7 @@ export function SubmitButton({
             ? 'action:send-feedback'
             : 'action:send'
       }
-      className="absolute bottom-2 right-2 z-10 flex size-8 items-center justify-center rounded-[7px] border-0 bg-oc-ink text-oc-surface outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-40"
+      className="absolute bottom-[8px] right-[8px] z-10 flex size-[28px] items-center justify-center rounded-[6px] border-0 bg-oc-button text-oc-button-ink outline-none focus-visible:ring-2 focus-visible:ring-oc-focus disabled:opacity-40"
     >
       <Icon name={showCancelButton ? 'stop' : 'enter'} size={16} />
     </button>

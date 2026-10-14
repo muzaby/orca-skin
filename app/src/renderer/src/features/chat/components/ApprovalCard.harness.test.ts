@@ -1,12 +1,19 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
-const { state } = vi.hoisted(() => ({ state: { backend: 'claude' as 'claude' | 'opencode' } }))
+const { state, actions } = vi.hoisted(() => ({
+  state: { backend: 'claude' as 'claude' | 'opencode' },
+  actions: { approveTool: vi.fn(), approveToolForSession: vi.fn(), denyTool: vi.fn() }
+}))
 vi.mock('../store/chatStore', () => ({
   useChatSession: (selector: (value: typeof state) => unknown) => selector(state),
-  chatActions: { approveTool: vi.fn(), approveToolForSession: vi.fn(), denyTool: vi.fn() }
+  chatActions: actions
 }))
+vi.mock('../../../shared/i18n', async (original) => {
+  const module = await original<typeof import('../../../shared/i18n')>()
+  return { ...module, useI18n: () => ({ tr: module.i18n.t, locale: 'ko' }) }
+})
 const { ToolApprovalBody } = await import('./ApprovalCard')
 
 describe('tool approval harness identity', () => {
@@ -31,3 +38,42 @@ describe('tool approval harness identity', () => {
     }
   )
 })
+
+// Stateless dock callbacks are exercised through the production dispatcher.
+import {
+  installFakeDom,
+  type FakeDom,
+  type FakeNode
+} from '../../../shared/ui/renderHarness.testfixture'
+let dom: FakeDom
+beforeEach(() => {
+  vi.useFakeTimers()
+  dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+  vi.clearAllMocks()
+})
+afterEach(() => {
+  dom.unmount()
+  vi.unstubAllGlobals()
+  vi.useRealTimers()
+})
+it.each(['allow', 'session', 'deny'] as const)(
+  'routes OpenCode %s with the original approval identity',
+  (action) => {
+    state.backend = 'opencode'
+    dom.render(
+      createElement(ToolApprovalBody, {
+        approvalId: 'request-77',
+        toolName: 'Edit',
+        input: { file_path: 'sample.md' }
+      })
+    )
+    const all = (node: FakeNode): FakeNode[] => [node, ...node.children.flatMap(all)]
+    const label = action === 'allow' ? '허용' : action === 'session' ? '세션 동안 허용' : '거부'
+    dom.click(all(dom.body).find((node) => node.tag === 'button' && node.textContent === label)!)
+    if (action === 'allow')
+      expect(actions.approveTool).toHaveBeenCalledExactlyOnceWith('request-77')
+    if (action === 'session')
+      expect(actions.approveToolForSession).toHaveBeenCalledExactlyOnceWith('request-77', 'Edit')
+    if (action === 'deny') expect(actions.denyTool).toHaveBeenCalledExactlyOnceWith('request-77')
+  }
+)

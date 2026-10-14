@@ -198,7 +198,7 @@ describe('harness transcript routing', () => {
         createElement(MessageMeta, { text: 'prompt', createdAt: 1, align: 'right', forkable: true })
       )
     )
-    expect($('.bg-oc-surface')).toHaveLength(1)
+    expect($('.bg-oc-bubble')).toHaveLength(1)
     expect($('button')).toHaveLength(1)
     expect($.text()).toContain('prompt')
   })

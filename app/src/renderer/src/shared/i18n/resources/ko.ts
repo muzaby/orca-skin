@@ -590,6 +590,8 @@ export const ko = {
   },
   chat: {
     opencode: {
+      back: '뒤로',
+      toggleQuestion: '질문 접기 또는 펼치기',
       explorationIncomplete: '탐색 종료 · 미완료',
       fileDiff: '파일 변경 내용',
       tool: {

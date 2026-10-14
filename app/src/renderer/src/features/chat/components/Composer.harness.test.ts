@@ -68,7 +68,9 @@ describe('harness composer surface', () => {
       expect(load(input)('textarea').text()).toBe('my unchanged draft')
       expect($('textarea')).toHaveLength(1)
       expect($(`[data-harness="${backend}"]`)).toHaveLength(1)
-      expect($('select')).toHaveLength(backend === 'opencode' ? 1 : 0)
+      expect($('[data-component="opencode-select"][aria-haspopup="menu"]')).toHaveLength(
+        backend === 'opencode' ? 1 : 0
+      )
       expect(html.includes('shadow-oc-raised')).toBe(backend === 'opencode')
     }
   )

@@ -6,21 +6,52 @@ import { buildDiffLines } from '../../../lib/diffLines'
 import { unifiedDiffLines } from '../../../lib/unifiedDiffLines'
 import { stringify } from '../../../format'
 import type { OpenCodeFileView, OpenCodeToolView } from '../toolPresentation'
+import { OpenCodeIcon } from '../Icon'
 
-export function OutputPanel({ text, label }: { text: string; label: string }): React.JSX.Element {
+export function OutputPanel({
+  text,
+  label,
+  command,
+  error = false
+}: {
+  text: string
+  label: string
+  command?: string
+  error?: boolean
+}): React.JSX.Element {
   const { tr } = useI18n()
+  const shell = command !== undefined
+  const copied = shell ? `$ ${command}${text ? '\n\n' + text : ''}` : text
   return (
-    <div className="relative overflow-hidden rounded-md border border-oc-border">
-      <div className="absolute right-2 top-2">
-        <CopyIconButton text={text} title={tr('common.copy')} />
+    <div
+      data-component={shell ? 'opencode-shell-output' : 'opencode-tool-output'}
+      className="group/oc-output relative overflow-hidden rounded-[6px] border-[0.5px] border-oc-border bg-oc-surface"
+    >
+      <div className="absolute right-[4px] top-[4px] z-10 opacity-0 transition-opacity group-hover/oc-output:opacity-100 group-focus-within/oc-output:opacity-100">
+        <CopyIconButton text={copied} title={tr('common.copy')} />
       </div>
-      <pre
+      <div
         tabIndex={0}
         aria-label={label}
-        className="m-0 max-h-80 overflow-auto whitespace-pre-wrap break-words p-3 pr-10 font-mono text-[calc(12px*var(--transcript-text-scale,1))] leading-[1.7] text-oc-ink outline-none ring-focus"
+        className="max-h-[240px] overflow-auto outline-none ring-focus [scrollbar-width:none]"
       >
-        {text}
-      </pre>
+        {shell && (
+          <pre
+            data-slot="shell-command"
+            className="m-0 whitespace-pre-wrap break-words p-[12px] pr-[40px] font-mono text-[calc(13px*var(--transcript-text-scale,1))] font-[440] leading-[20px] text-oc-ink"
+          >
+            $ {command}
+          </pre>
+        )}
+        {text && (
+          <pre
+            data-slot="tool-output"
+            className={`m-0 whitespace-pre-wrap break-words p-[12px] pr-[40px] font-mono text-[calc(13px*var(--transcript-text-scale,1))] font-[440] leading-[20px] ${shell ? 'border-t-[0.5px] border-oc-border bg-oc-layer-1' : ''} ${error ? 'text-oc-bad' : shell ? 'text-oc-muted' : 'text-oc-ink'}`}
+          >
+            {text}
+          </pre>
+        )}
+      </div>
     </div>
   )
 }
@@ -38,26 +69,35 @@ function FilePanel({ file, write }: { file: OpenCodeFileView; write: boolean }):
   return (
     <details
       open
-      className="overflow-hidden rounded-md border border-oc-border"
+      className="group/oc-file overflow-hidden rounded-[8px] border-[0.5px] border-oc-border bg-oc-surface"
       data-component="opencode-file-diff"
     >
-      <summary className="cursor-pointer px-3 py-2 text-caption text-oc-ink">
-        <span className="break-all">{file.path}</span>
+      <summary className="flex min-h-[36px] cursor-pointer list-none items-center gap-[8px] px-[12px] py-[8px] text-[calc(13px*var(--transcript-text-scale,1))] leading-[20px] text-oc-ink outline-none ring-focus">
+        <OpenCodeIcon name="code-slash" className="text-oc-faint" />
+        <span className="min-w-0 flex-1 truncate" title={file.path}>
+          {file.path}
+        </span>
         {!write && lines.length > 0 && (
-          <span className="ml-3 font-mono">
-            <span className="text-good">+{added}</span> <span className="text-bad">−{removed}</span>
+          <span className="shrink-0 font-mono">
+            <span className="text-oc-good">+{added}</span>{' '}
+            <span className="text-oc-bad">−{removed}</span>
           </span>
         )}
+        <OpenCodeIcon
+          name="chevron-down"
+          size={14}
+          className="-rotate-90 text-oc-faint group-open/oc-file:rotate-0"
+        />
       </summary>
       {write ? (
         <OutputPanel text={file.after ?? file.patch ?? ''} label={file.path} />
       ) : lines.length > 0 ? (
         <div
-          className="max-h-96 overflow-auto border-t border-oc-border"
+          className="max-h-[384px] overflow-auto border-t border-oc-border"
           tabIndex={0}
           aria-label={tr('chat.opencode.fileDiff')}
         >
-          <DiffTable lines={lines} filePath={file.path} />
+          <DiffTable lines={lines} filePath={file.path} appearance="opencode" />
         </div>
       ) : (
         <OutputPanel text={file.patch ?? ''} label={file.path} />
@@ -67,28 +107,25 @@ function FilePanel({ file, write }: { file: OpenCodeFileView; write: boolean }):
 }
 export function ToolBody({ view }: { view: OpenCodeToolView }): React.JSX.Element {
   const { tr } = useI18n()
-  const content =
-    view.kind === 'shell'
-      ? `$ ${view.command ?? ''}${view.output ? '\n\n' + view.output : ''}`
-      : view.output || (view.kind === 'generic' ? view.inputText : '')
+  const content = view.output || (view.kind === 'generic' ? view.inputText : '')
   return (
-    <div className="flex min-w-0 flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-[8px]">
       {view.files.map((file, index) => (
         <FilePanel key={`${file.path}:${index}`} file={file} write={view.kind === 'write'} />
       ))}
       {view.kind === 'task' && (
         <div
           data-component="opencode-task"
-          className="rounded-md border border-oc-border px-3 py-2 text-oc-ink"
+          className="rounded-[8px] bg-oc-layer-2 px-[12px] py-[8px] text-oc-ink"
         >
-          <span className="text-caption font-medium">{tr('chat.opencode.tool.task')}</span>
-          <p className="mt-1 break-words">{view.subtitle}</p>
+          <span className="font-[530] leading-[20px]">{tr('chat.opencode.tool.task')}</span>
+          <p className="mt-[4px] break-words">{view.subtitle}</p>
         </div>
       )}
       {view.kind === 'todo' && (
-        <ul className="space-y-1 px-3 py-2">
+        <ul className="space-y-1 px-[12px] py-[8px]">
           {view.todos.map((todo, index) => (
-            <li key={index} className="flex gap-2">
+            <li key={index} className="flex gap-[8px]">
               <span aria-hidden>{todo.status === 'completed' ? '✓' : '○'}</span>
               <span className={todo.status === 'completed' ? 'line-through' : ''}>{todo.text}</span>
               <span className="sr-only">{todo.status}</span>
@@ -101,16 +138,23 @@ export function ToolBody({ view }: { view: OpenCodeToolView }): React.JSX.Elemen
           href={view.url}
           target="_blank"
           rel="noreferrer"
-          className="break-all text-oc-ink underline"
+          className="break-all text-oc-accent hover:underline"
         >
           {view.url}
         </a>
       )}
-      {content && <OutputPanel text={content} label={view.name} />}
+      {(content || view.kind === 'shell') && (
+        <OutputPanel
+          text={content}
+          label={view.name}
+          command={view.kind === 'shell' ? (view.command ?? '') : undefined}
+          error={view.outcome === 'failed'}
+        />
+      )}
       {view.original && (
         <details className="text-caption text-oc-muted">
           <summary className="cursor-pointer">{tr('chat.opencode.originalTool')}</summary>
-          <pre className="mt-2 max-h-60 overflow-auto whitespace-pre-wrap break-words font-mono">
+          <pre className="mt-[8px] max-h-[240px] overflow-auto whitespace-pre-wrap break-words font-mono">
             {stringify(view.original)}
           </pre>
         </details>

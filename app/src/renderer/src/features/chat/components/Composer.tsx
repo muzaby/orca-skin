@@ -28,6 +28,7 @@ import { CwdPanel } from './CwdPanel'
 import { GitRow } from './composer/GitRow'
 import { Notice } from './Notice'
 import { AskUserQuestionCard } from './AskUserQuestionCard'
+import { OpenCodeQuestionDock } from '../harnesses/opencode/composer/QuestionDock'
 import { ApprovalCard, ToolApprovalBody } from './ApprovalCard'
 import { UsagePanel } from './UsagePanel'
 import type { UsageLimitsView } from '../../../../../shared/usage/limits'
@@ -204,6 +205,7 @@ export function Composer({
     selectedProviderKey: selectedModel?.providerKey
   })
 
+  const QuestionCard = openCode ? OpenCodeQuestionDock : AskUserQuestionCard
   const toolApprovalPending = pendingToolApprovals.length > 0
   return (
     <div
@@ -228,7 +230,7 @@ export function Composer({
           beforeGitRow={
             <>
               {activeAsk && (
-                <AskUserQuestionCard
+                <QuestionCard
                   key={activeAsk.requestId}
                   ask={activeAsk}
                   onSubmit={(answers, response) =>
@@ -325,6 +327,7 @@ export function Composer({
                   {agents.some((agent) => agent.supported) && (
                     <ComposerChip
                       ref={modelButtonRef}
+                      openCode={openCode}
                       label={selectionLabel(selectedModel) ?? tr('chat.composer.modelFallback')}
                       onClick={() => setModelMenuOpen((v) => !v)}
                       ariaHasPopup

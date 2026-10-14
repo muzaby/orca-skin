@@ -1,3 +1,4 @@
+import { OpenCodeIcon } from '../../harnesses/opencode/Icon'
 import { forwardRef } from 'react'
 import { Icon, type IconName } from '../../../../shared/ui/Icon'
 import { chipSurface, type ChipVariant } from './chipSurface'
@@ -5,6 +6,7 @@ import { chipSurface, type ChipVariant } from './chipSurface'
 // mockup `project/variations/v1-shell.jsx:186-188` 의 chip1 — composer 좌측 하단의
 // 행위 chip. composer-repo zone (첨부/현재 프레임/Skill) 의 원자 단위.
 interface ComposerChipProps {
+  openCode?: boolean
   icon?: IconName
   label?: string
   disabled?: boolean
@@ -21,6 +23,7 @@ interface ComposerChipProps {
 
 export const ComposerChip = forwardRef<HTMLButtonElement, ComposerChipProps>(function ComposerChip(
   {
+    openCode = false,
     icon,
     label,
     disabled,
@@ -44,10 +47,20 @@ export const ComposerChip = forwardRef<HTMLButtonElement, ComposerChipProps>(fun
       aria-haspopup={ariaHasPopup ? 'menu' : undefined}
       aria-expanded={ariaHasPopup ? ariaExpanded : undefined}
       aria-pressed={ariaPressed}
-      className={`${chipSurface(variant, label === undefined, ariaPressed)} cursor-default outline-none hide-focus-ring ring-focus disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      className={`${openCode ? 'inline-flex h-[28px] shrink-0 items-center gap-[6px] rounded-[6px] border-0 bg-transparent px-[8px] text-[13px] font-[440] leading-[20px] text-oc-ink hover:bg-oc-hover' : chipSurface(variant, label === undefined, ariaPressed)} cursor-default outline-none hide-focus-ring ring-focus disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
     >
-      {icon && <Icon name={icon} size={12} className="shrink-0" />}
-      {label && <span className="min-w-0 truncate">{label}</span>}
+      {icon &&
+        (openCode && icon === 'plus' ? (
+          <OpenCodeIcon name="plus" />
+        ) : (
+          <Icon name={icon} size={openCode ? 16 : 12} className="shrink-0" />
+        ))}
+      {label && (
+        <span className={openCode ? 'max-w-[220px] truncate' : 'min-w-0 truncate'}>{label}</span>
+      )}
+      {openCode && label && ariaHasPopup && (
+        <OpenCodeIcon name="chevron-down" size={14} className="text-oc-faint" />
+      )}
     </button>
   )
 })

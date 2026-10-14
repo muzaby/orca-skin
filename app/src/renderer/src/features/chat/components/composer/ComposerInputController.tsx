@@ -392,15 +392,27 @@ export function ComposerInputController({
               {!openCode && controlsStart}
               <ComposerChip
                 ref={attachButtonRef}
+                openCode={openCode}
                 icon="plus"
                 onClick={() => setAttachMenuOpen((value) => !value)}
                 ariaHasPopup
                 ariaExpanded={attachMenuOpen}
                 title={tr('chat.composer.attachMenuTitle')}
               />
-              {openCode && controlsStart}
             </div>
-            <span className={appearance.controlsEnd}>{controlsEnd}</span>
+            {openCode ? (
+              <div
+                className="ml-[4px] h-full min-w-0 flex-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none]"
+                data-slot="composer-controls"
+              >
+                <span className={appearance.controlsEnd}>
+                  {controlsStart}
+                  {controlsEnd}
+                </span>
+              </div>
+            ) : (
+              <span className={appearance.controlsEnd}>{controlsEnd}</span>
+            )}
           </div>
         </div>
       )}

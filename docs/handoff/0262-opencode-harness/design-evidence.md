@@ -128,3 +128,31 @@ HF 연결은 [HF 공식 OpenAI 호환 엔드포인트](https://huggingface.co/do
 디스크에 추가한 엔진은 실행 중 목록 캐시 때문에 모델 새로고침만으로 나타나지 않았다. 기존 로컬 테스트 엔진의 설정을 그대로 저장해 설정 목록을 무효화한 뒤 HF 엔진을 확인했다. 앱 재시작이나 제품 코드 수정은 수행하지 않았다.
 
 추가 HF 도구 요청(`sample.md` 읽기 후 `# After` → `# HF Verified`)은 native `read` 호출과 `OpenCode가 Read 실행 권한을 요청합니다`까지 관측한 뒤 승인 대기로 남겼다. 이후 사용자가 이번 실모델 도구 검증 생략을 선택했다. 대기 요청 정리를 위해 같은 대화를 다시 열었을 때 이미 읽기·편집 결과와 `업데이트 완료: # HF Verified로 변경됨.`이 표시되고 중단 버튼 없이 전송 비활성 상태였다. 중단할 실행은 없었으며 추가 호출·카드 펼침·diff 재검증은 하지 않았다. 이 완료 이력을 전체 HF 도구 시각 검증 통과로 승격하지 않는다. AC11 최종 시각 인수와 독립 verify는 대기다.
+
+## 사용자 제공 데스크톱 소스 이식 (2026-10-15, r1.11)
+
+적용 — `.tmp/opencode-dev`의 desktop → app timeline → session-ui 경로를 읽고 OpenCode 전용 React 화면에 이식했다. 소스 package 버전은 2.0.29다. 별도 Git metadata가 없어 upstream commit은 확인하지 않았으며, 부모 Orca HEAD를 원본 revision으로 사용하지 않는다. 실행 SDK/CLI의 1.x 계약은 그대로다.
+
+| 원본 경로 (참조 폴더 기준) | 적용 |
+|---|---|
+| `packages/app/src/session/timeline/message-timeline.tsx`, `packages/session-ui/src/components/{basic-tool,message-part}.tsx/css` | 28px 도구 행, 13px 제목/보조 텍스트, 탐색 그룹, 셸 명령/결과 분리, 파일 헤더와 diff, Q&A |
+| `packages/app/src/composer/editor/editor.tsx/css` | radius 12px, 입력 60~180px, toolbar 44px, 제어/전송 28px, 좁은 폭 가로 스크롤 |
+| `packages/app/src/session/requests/session-question-dock.tsx`, `session-permission-dock.tsx` | 질문 진행 표시·radio/checkbox·직접 입력·접기·명시적 다음/제출, 승인 세 동작 |
+| `packages/ui/src/theme/themes/oc-2.json`, `packages/ui/src/icons/catalog.ts` | OpenCode 전용 light/dark 의미 토큰과 glyph. 공통 transcript canvas 토큰 유지 |
+| `LICENSE` | MIT 저작권 고지를 배포 resources의 `OPENCODE-LICENSE.txt`에 포함 |
+
+원본 식별용 SHA-256: `oc-2.json` = `B117300614F0FAF0D05C0894AF7EE4AFB4906F1C50F028FB8E39DD647120E3BA`, `session-question-dock.tsx` = `1605B13945A3C83DCDCDE5E55F975D24B4C2BA3EF941AD53263F51F3023E6A2D`, `message-part.css` = `2F1EC823E12E79F9899C0A5C79C1FC083C1459E3D6ADEE9C01254438C2470C67`.
+
+### 시각 관측 범위
+
+부분 확인 — Windows Computer Use는 새 창 목록으로 다시 연결한 뒤에도 `foreground window did not report a process id` 오류로 실제 앱의 화면을 얻지 못했다. 내장 브라우저의 로컬 미리보기에서 실제 production React 컴포넌트와 CSS를 조작했다. preview의 입력·도구 결과는 합성 fixture이며 실제 모델·IPC 검증으로 확대하지 않는다.
+
+| 조작 | 관측 |
+|---|---|
+| light / 720px 본문 | 탐색 그룹, 셸 명령/결과, 파일 +1/−1과 diff, 질문 dock의 위계·간격 확인 |
+| dark / 360px 본문 | 질문·직접 입력·footer·승인 세 버튼과 composer 표시. 전송 버튼과 toolbar 겹침 없음 |
+| 실제 DOM 계산값 | 기존 dark canvas `rgb(38, 38, 36)`, composer `rgb(36, 36, 36)`·폭 360px·radius 12px, toolbar 44px, 전송 28×28px |
+| 질문 선택 → 다음 → 다중 선택·직접 입력 → 제출 | 첫 답 `현재 작업 공간`, 두 번째 답 `[타입 검사, 테스트, 문서 검사]`로 조립됨 |
+| 원본과 치수 대조 | Orca root rem이 14.5px이므로 OpenCode의 핵심 치수를 명시적 px로 보정. 선택 표시도 원본의 고정 blue accent로 보정 |
+
+미리보기의 에이전트/모델/변형 라벨은 합성 칩이다. 최종 에이전트·변형 메뉴의 실제 선택/기본값·초점/키보드 배선은 `Controls.interaction.test.ts`에서 확인했다. 최종 메뉴의 실앱 시각 관측은 주장하지 않는다. 임시 미리보기는 소스 트리에서 제거하여 `.tmp`에 보관했고 브라우저 탭을 닫았다. 다운로드 소스·미리보기는 커밋하지 않는다. AC11 최종 사용자 인수와 독립 verify는 대기다.

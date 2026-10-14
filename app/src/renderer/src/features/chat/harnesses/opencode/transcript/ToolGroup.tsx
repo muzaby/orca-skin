@@ -17,7 +17,7 @@ export const OpenCodeToolGroup = memo(function OpenCodeToolGroup({
   return (
     <div
       data-component="tool-part-wrapper"
-      className="flex min-w-0 flex-col gap-3 text-[calc(14px*var(--transcript-text-scale,1))] leading-[1.6] text-oc-muted"
+      className="flex min-w-0 flex-col gap-[8px] text-[calc(13px*var(--transcript-text-scale,1))] font-[440] leading-[16px] text-oc-muted"
     >
       {groupTools(calls).map((group) =>
         group.length > 1 ? (
@@ -45,9 +45,9 @@ function ContextTools({ calls }: { calls: ToolCall[] }): React.JSX.Element {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className="flex max-w-full items-center gap-2 rounded-md text-left outline-none ring-focus"
+        className="flex min-h-[28px] max-w-full items-center gap-[6px] rounded-[6px] text-left outline-none ring-focus"
       >
-        <span className={failed ? 'font-medium text-bad' : 'font-medium text-oc-ink'}>
+        <span className={failed ? 'font-[530] text-oc-bad' : 'font-[530] text-oc-ink'}>
           {tr(
             running
               ? 'chat.opencode.explorationRunning'
@@ -56,7 +56,7 @@ function ContextTools({ calls }: { calls: ToolCall[] }): React.JSX.Element {
                 : 'chat.opencode.explorationDone'
           )}
         </span>
-        <span className="text-caption">
+        <span className="text-[inherit]">
           {(['read', 'search', 'list'] as const)
             .filter((kind) => views.some((view) => view.kind === kind))
             .map(
@@ -70,7 +70,7 @@ function ContextTools({ calls }: { calls: ToolCall[] }): React.JSX.Element {
         <Icon name={open ? 'chevD' : 'chevR'} size={12} />
       </button>
       {open && (
-        <div className="mt-2 flex flex-col gap-2 border-l border-oc-border pl-3">
+        <div className="mt-[8px] flex flex-col gap-[8px] border-l border-oc-border pl-[12px]">
           {calls.map((call) => (
             <OpenCodeToolCard key={call.toolUseId} call={call} />
           ))}

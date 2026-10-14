@@ -13,16 +13,18 @@ import { syntaxText } from './diffSyntaxText'
 // 분기하지 않도록 호출 자체는 무조건 한다.
 export function DiffTable({
   lines,
-  filePath
+  filePath,
+  appearance = 'default'
 }: {
   lines: readonly DiffLine[]
   filePath?: string
+  appearance?: 'default' | 'opencode'
 }): React.JSX.Element {
   const tokens = useDiffSyntax(lines, filePath ?? '')
 
   return (
     <table
-      className="w-full border-collapse font-mono"
+      className={`w-full border-collapse font-mono ${appearance === 'opencode' ? 'text-[calc(13px*var(--transcript-text-scale,1))] leading-5 [&_pre]:text-[inherit] [&_pre]:leading-[inherit]' : ''}`}
       style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
     >
       <colgroup>
@@ -35,27 +37,45 @@ export function DiffTable({
           const isAdded = line.type === 'added'
           const isRemoved = line.type === 'removed'
           const rowBg = isAdded
-            ? 'bg-[color-mix(in_srgb,var(--color-good)_14%,transparent)]'
+            ? appearance === 'opencode'
+              ? 'bg-oc-good-bg'
+              : 'bg-[color-mix(in_srgb,var(--color-good)_14%,transparent)]'
             : isRemoved
-              ? 'bg-[color-mix(in_srgb,var(--color-bad)_14%,transparent)]'
+              ? appearance === 'opencode'
+                ? 'bg-oc-bad-bg'
+                : 'bg-[color-mix(in_srgb,var(--color-bad)_14%,transparent)]'
               : ''
           const gutterBg = isAdded
-            ? 'bg-[color-mix(in_srgb,var(--color-good)_18%,transparent)]'
+            ? appearance === 'opencode'
+              ? 'bg-oc-good/15'
+              : 'bg-[color-mix(in_srgb,var(--color-good)_18%,transparent)]'
             : isRemoved
-              ? 'bg-[color-mix(in_srgb,var(--color-bad)_18%,transparent)]'
+              ? appearance === 'opencode'
+                ? 'bg-oc-bad/15'
+                : 'bg-[color-mix(in_srgb,var(--color-bad)_18%,transparent)]'
               : 'bg-transparent'
           return (
             <tr key={i} className={rowBg}>
               <td
                 className={`select-none whitespace-nowrap px-2 text-right align-baseline tabular-nums ${gutterBg}`}
               >
-                <pre className="m-0 text-code text-t6 opacity-60">{line.lineNo}</pre>
+                <pre
+                  className={`m-0 text-code opacity-60 ${appearance === 'opencode' ? 'text-oc-muted' : 'text-t6'}`}
+                >
+                  {line.lineNo}
+                </pre>
               </td>
               <td className={`select-none px-1 text-center align-baseline ${gutterBg}`}>
-                <pre className="m-0 text-code text-t6">{isAdded ? '+' : isRemoved ? '-' : ' '}</pre>
+                <pre
+                  className={`m-0 text-code ${appearance === 'opencode' ? 'text-oc-muted' : 'text-t6'}`}
+                >
+                  {isAdded ? '+' : isRemoved ? '-' : ' '}
+                </pre>
               </td>
               <td className="px-2 align-baseline">
-                <pre className="m-0 whitespace-pre-wrap break-all text-code text-t9">
+                <pre
+                  className={`m-0 whitespace-pre-wrap break-all text-code ${appearance === 'opencode' ? 'text-oc-ink' : 'text-t9'}`}
+                >
                   {syntaxText(line, tokens.get(line)?.[isRemoved ? 'old' : 'new'])}
                 </pre>
               </td>

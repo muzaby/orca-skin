@@ -585,6 +585,8 @@ export const en: typeof ko = {
   },
   chat: {
     opencode: {
+      back: 'Back',
+      toggleQuestion: 'Collapse or expand question',
       explorationIncomplete: 'Exploration ended · incomplete',
       fileDiff: 'File changes',
       tool: {

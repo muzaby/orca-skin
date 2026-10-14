@@ -7,6 +7,7 @@ import type { PlanComment } from '../reducer/chatReducer'
 import { useI18n } from '../../../shared/i18n'
 import { Markdown } from '../../../shared/ui/markdown/Markdown'
 import { agentUiPolicy } from '../lib/agentPresentation'
+import { OpenCodePermissionDock } from '../harnesses/opencode/composer/PermissionDock'
 import { toolApprovalRequestKey } from '../harnesses/presentation'
 
 // ApprovalCard — Composer 의 입력 패널을 *대체*하는 **계획(plan_review)** 승인 게이트
@@ -71,6 +72,17 @@ export function ToolApprovalBody({
 
   const summary = summarizeToolInput(input)
   const description = toolDescription(input)
+  if (backend === 'opencode')
+    return (
+      <OpenCodePermissionDock
+        toolName={toolName}
+        summary={summary}
+        description={description}
+        onAllow={() => approveTool(approvalId)}
+        onAllowSession={() => approveToolForSession(approvalId, toolName)}
+        onDeny={() => denyTool(approvalId)}
+      />
+    )
 
   return (
     <div
@@ -83,7 +95,7 @@ export function ToolApprovalBody({
     >
       <div className="flex items-center gap-g3">
         <span className="text-footnote font-medium text-t9">
-          {tr(toolApprovalRequestKey(backend === 'opencode'), { tool: toolName })}
+          {tr(toolApprovalRequestKey(false), { tool: toolName })}
         </span>
       </div>
 
