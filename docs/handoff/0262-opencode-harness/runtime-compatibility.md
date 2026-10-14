@@ -45,3 +45,15 @@
 `SessionRuntime`이 입력을 submitted로 바꾼 뒤 OpenCode 어댑터가 `canSubmitInitial`을 다시 호출해 전송 없이 끝나는 결함을 수정했다. 입력 접수는 공통 런타임이 소유하고 어댑터는 접수된 입력을 HTTP로 전송한다. `opencode-runtime.test.ts`는 실제 PendingMessageQueue·buildTurnRequest·SessionRuntime·OpenCodeAdapter·SDK를 연결해 이 경계를 검증한다.
 
 CLI 1.19.0 + 실제 SessionRuntime + 로컬 OpenAI 호환 합성 모델로 첫 턴과 후속 턴을 확인했다. 두 턴 모두 commit 1회, `session.updated → input.echo → message.delta → message.completed → telemetry → turn.ended`를 관측했다. 저장소 내부 임시 폴더에서 실행한 앞선 검증은 저장소 탐색 중 45초 제한에 도달했으므로, 저장소 밖 격리된 임시 작업 폴더에서 재검증했고 사용자 인증·외부 모델 요청은 사용하지 않았다.
+
+## SDK export와 제품 v2의 구분 및 제거 결과
+
+2026-10-14 사용자 요청으로 SDK import와 새 제품 API를 다시 대조했다. [공식 v1.19.0 앱 소스](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/app/src/utils/server.ts)는 `@opencode-ai/sdk/v2/client`를 import하여 기존 client를 만든다. 이 `/v2`는 flat-parameter SDK export 이름이며 CLI 2.x 전용이라는 뜻이 아니다.
+
+별도 `client.v2`는 `/api/session/:id/prompt`, `/api/event`를 호출한다. 이 native API 계열은 1.x 이행기 SDK에도 들어 있었고 현재 [제품 v2 API](https://dev.opencode.ai/v2/docs/api)로 이어졌다. 현행 v2의 [네트워크 client](https://dev.opencode.ai/v2/docs/build/client/)는 `@opencode/client`, [embedded SDK](https://dev.opencode.ai/v2/docs/build/sdk/)는 `@opencode/sdk`로 제공된다. 같은 `v2` 표기만으로 이 셋을 같은 버전이라고 판정할 수 없다.
+
+Orca에서는 native API 비교 테스트와 fixture를 제거했고, 실제 전송 경로는 계속 `/session`, `/event`, `/session/:id/prompt_async`다. `@opencode/cli` 자동 탐색과 prefix 없는 시작 로그 지원도 제거했다. 지정/PATH 실행 파일이 2.x 또는 판독 불가 버전을 출력하면 `serve` 전에 1.x 필요 오류로 끝난다. 설치 조회는 실제 버전 정보를 계속 반환한다.
+
+SDK 패키지는 1.18.27을 유지한다. 외부 패키지 내부에 포함된 미사용 native API 정의를 수정하거나 숨기지 않았으며, 제거 범위는 Orca 코드의 API 호출·테스트·CLI 지원이다. 과거 0214 연구는 조사 당시 근거로 남긴다.
+
+현재 실행 파일의 `--version`을 다시 실행해 1.19.0을 확인했다. 변경 후 실제 pool/version probe→CLI 1.19.0→SessionRuntime→로컬 합성 모델에서 첫 턴·후속 턴의 입력 접수와 응답·종료를 재확인했다. 두 턴 각각 commit 1회, 마지막 이벤트 turn.ended, 응답 본문 일치이며 외부 모델 API 요청은 없다.

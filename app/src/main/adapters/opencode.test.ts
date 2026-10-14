@@ -3,7 +3,7 @@ import type { Event } from '@opencode-ai/sdk/v2'
 import type { NormalizedEvent } from '../../shared/ipc'
 import type { TurnRequest } from './turn'
 import { OpenCodeAdapter } from './opencode'
-import type { OpenCodeServerPool } from './opencode-server'
+import { OpenCodeServerPool } from './opencode-server'
 import {
   assistantMessage,
   editTool,
@@ -113,6 +113,34 @@ function finish(f: ReturnType<typeof fixture>, promptId: string): void {
 }
 
 describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE transport', () => {
+  it('reports an unsupported CLI as a turn error before any server or HTTP request', async () => {
+    const transport = vi.fn<typeof fetch>()
+    const servers = new OpenCodeServerPool({
+      dataDirectory: 'unused',
+      preferences: () => undefined,
+      executable: () => 'unsupported-opencode',
+      readVersion: async () => '2.0.28',
+      fetchImpl: transport,
+      spawnProcess: () => {
+        throw new Error('unsupported CLI must never spawn')
+      }
+    })
+    try {
+      const events = await collect(new OpenCodeAdapter(servers, transport), request())
+      expect(events).toEqual([
+        expect.objectContaining({
+          type: 'error',
+          error: expect.objectContaining({
+            category: 'provider_connection_error',
+            message: expect.stringContaining('OpenCode CLI 1.x가 필요합니다')
+          })
+        })
+      ])
+      expect(transport).not.toHaveBeenCalled()
+    } finally {
+      servers.close()
+    }
+  })
   beforeEach(() => {
     vi.stubGlobal('fetch', () => {
       throw new Error('Global fetch must never be used')

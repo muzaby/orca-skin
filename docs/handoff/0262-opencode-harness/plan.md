@@ -794,3 +794,66 @@ production StatusLine과 빌드 CSS를 담은 임시 페이지를 Computer Use�
 ## Review Signals
 
 r1.6은 사용자 추가 요구 ΔV3이며 verify 실패 뒤 재구현이 아니다. 기존 스피너·상태 lifecycle을 유지하면서 하네스 선택 경계에 직접 렌더 검사를 추가했다. 감속 모션은 빌드된 조건부 CSS까지 확인했고 OS 설정을 바꾸는 실기는 남겼다. 기존 V1 미검증 범위와 독립 검증 대기는 유지한다.
+
+# [구현자 기입 — r1.7 제품 v2 API 제거]
+
+## 설계 리뷰
+
+ΔV4와 D-015를 구현했다. 공식 v1.19.0 앱이 사용하는 `/v2/client` export를 유지하고 Orca의 native `client.v2` 비교 테스트 5개·전용 타입/fixture, scoped CLI 탐색, prefix 없는 시작 로그 허용을 제거했다. 실행 파일의 제품 major는 별도로 검사한다. 외부 SDK에 포함된 미사용 native 정의까지 제거했다고 주장하지 않으며 의존성 수정·fork는 없다. 근거는 [런타임 호환성 기록](runtime-compatibility.md)에 남겼다. PLAN_GAP은 발견하지 않았다.
+
+## 강제 지점 전수와 V-pair 자기확인
+
+`rg -n 'OpenCodeServerPool|resolveOpenCodeExecutable|\.acquire\(|\.installed\(|readVersion|spawnProcess|listening on' app/src/main/adapters -g 'opencode*.ts' -g '!*.test.ts'`로 실행 파일 판정과 소비 경로를 세었다. 카탈로그와 턴의 acquire가 같은 pool 시작 경계를 거치고 설치 조회는 같은 reader를 사용한다. `rg -n '@opencode|/api/session|/api/event' app/src app/package.json -g '!*.test.ts' -g '!*.snap'` 및 native 호출·타입 검색에서 유지되는 SDK export와 설명 주석을 구분했다. native API 호출은 없으며 테스트의 2.x 문자열은 거부 입력이다.
+
+아래 파일명은 `app/src/main/adapters/` 기준이다.
+
+| 강제 자리 | 직접 oracle 좌표 / 관측 |
+|---|---|
+| EP-19a SDK 사용 | `opencode.test.ts:subscribes before sending, scopes the turn and leaves admission to the runtime`, `replies to permission and question approvals once, including rejection`: production SDK의 legacy 세션·prompt·stream·승인 URL/입출력 |
+| EP-19b 실행 파일 탐색 | `opencode-server.test.ts:does not discover the scoped CLI package`, `resolves configured and PATH npm executable files without invoking a shell`: scoped 경로 거부와 기존 npm/PATH 경로 탐색 |
+| EP-19c 서버 시작 전 버전 판정 | 같은 파일 `accepts supported 1.x versions`, `rejects unsupported versions before spawning a server`: 1.x 양성 6종, 2.x/손상 출력 음성 7종과 spawn·HTTP 0회. `opencode.test.ts:reports an unsupported CLI as a turn error before any server or HTTP request`는 실제 adapter→pool의 오류 정규화 |
+| EP-19d 조회 중 종료 | `opencode-server.test.ts:does not spawn after shutdown during version probing`: 지연 조회 뒤 close된 pool의 spawn·HTTP 0회 |
+| EP-19e 실패 뒤 재시도 | 같은 파일 `retries after replacing an unsupported executable`: 첫 거부 뒤 1.x로 교체하면 재조회·서버 시작 성공 |
+| EP-19f 설치 버전 조회 | 같은 파일 `reports the actual installed version`: 2.x도 실제 출력·경로를 보고하고 서버는 생성하지 않음 |
+| EP-19g 시작 로그→health | 같은 파일 `ignores the unprefixed startup announcement`, `coalesces concurrent startup and passes isolated configuration, auth and preferences to its owned child`: prefix 없는 로그는 health 0회·child 정리, 기존 로그는 인증 health 성공 |
+
+EP-19 7/7자리를 직접 관측했다. VP-31~34 SELF_PASS. V1 영향 회귀 중 VP-04는 위 lifecycle 통과와 별개로 기존 bootstrap 생성 배선 oracle 부재 때문에 SELF_BLOCKED를 유지한다. VP-05/06의 영향 경로는 위 SDK/승인 테스트와 단절·abort 케이스로 SELF_PASS다. VP-18의 이번 영향 범위는 `opencode-map.test.ts:normalizes tools without changing the original name or input`, `deduplicates delta/snapshot completion and places telemetry before the turn boundary`, `opencode-catalog.test.ts:keeps provider-qualified model IDs, names, defaults and enabled variants`에서 통과했다. settings 및 나머지 V1 범위의 검증 수준은 승격하지 않는다.
+
+## 이번 라운드 수정의 잠금
+
+선택 적대 증거 0 · 인용 변이 0 · 새 구조/배선 존재 oracle 0 = 잠금 표 행 0. 버전 판정과 lifecycle은 실제 pool에 제어된 버전·child·transport를 주입해 행동 결과를 관측한다. 제거 검색은 조사 근거이며 자동 구조 검사기를 추가하지 않았다. 기존 legacy wire 테스트와 실제 CLI 두 턴을 함께 실행했다.
+
+## Product/UX 파생 검토
+
+지원하지 않는 실행 파일은 시작 대기를 반복하는 대신 1.x 실행 파일 지정 안내를 기존 `provider_connection_error` 이벤트로 전달한다. 새 adapter 테스트가 실제 pool 오류에서 이 사용자 문구까지 관측한다. 설치 카드용 조회는 설치 사실과 실제 버전을 유지한다. 이번 턴에서는 2.x 오류의 화면 표시 실기를 추가하지 않았으며 renderer의 기존 오류 경로는 변경하지 않았다.
+
+## 놓친 잠재 문제 + 대응
+
+- 버전 확인 await가 생기면 그 사이 종료된 pool에서 서버를 만들 수 있다. 조회 직후 shutdown을 다시 확인하고 지연 promise 테스트로 차단을 확인했다.
+- 거부된 startup promise가 캐시에 남으면 CLI를 되돌려도 실패가 반복된다. 기존 entry 제거 경로를 그대로 사용하고 2.x→1.x 재시도를 직접 검증했다.
+- `installed`를 지원 여부로 바꾸면 설치된 2.x의 진단 정보를 잃는다. 조회 결과는 실제 버전을 유지하고 실행 경계에서만 거부한다.
+- 1.x 판정은 major 범위 제한이며 모든 minor의 호환성 보장이 아니다. 실제 검증 조합은 CLI 1.19.0 / SDK 1.18.27이고, SDK의 `/v2` export와 제품 버전을 혼동하지 않도록 주석과 호환성 기록을 남겼다.
+
+## 구현 보고
+
+| AC | 결과 | 관측 |
+|---|---|---|
+| AC18 | ✅ | native 비교 코드·2.x CLI 지원 제거, 1.x 실행 경계와 오류/종료/재시도, legacy SDK 회귀 및 실제 CLI 두 턴 |
+
+증분 ✅1 · ⚠️0 · ❌0 = 1. 누적 ✅17 · ⚠️1 · ❌0 = 18. AC11 최종 사용자 시각 인수와 독립 검증, 기존 V1 직접 oracle 부족 범위는 대기한다.
+
+| 게이트 | 관측 |
+|---|---|
+| 관련 Vitest | 아래 명령으로 7파일 48케이스 통과 |
+| 타입 | 전체 node/web/test 통과. 마지막 adapter 오류 테스트 추가 뒤 test typecheck 재통과 |
+| 린트 | 전체 오류 0, 기존 useTranscriptVirtualizer warning 1. 마지막 adapter 테스트 targeted ESLint 통과 |
+| 빌드 | electron-vite main/preload/renderer 통과. 기존 SubAgentTileContent 혼합 import 경고 유지 |
+| 실제 CLI | 호스트 `--version` = 1.19.0. 변경된 pool의 실제 버전 조회→CLI→SessionRuntime→로컬 합성 모델 첫 턴·후속 턴 모두 commit 1회, 응답 일치, turn.ended 관측. 별도 임시 작업 폴더·XDG 사용, 외부 모델 요청 없음, 소유 child 종료 |
+| 문서·공백 | inventory generated/prose/relative links 및 diff whitespace 통과 |
+| 참조 제외 | 원본 clone은 저장소 밖, smoke 소스/번들은 ignored `.tmp`, 사용자 첨부는 미추적 유지 |
+
+명령(app 기준): `node node_modules/vitest/vitest.mjs run src/main/adapters/opencode-sdk.test.ts src/main/adapters/opencode-server.test.ts src/main/adapters/opencode.test.ts src/main/adapters/opencode-map.test.ts src/main/adapters/opencode-catalog.test.ts src/main/app/chat-turn/opencode-runtime.test.ts src/main/infra/net/no-node-fetch.test.ts --maxWorkers=2`.
+
+## Review Signals
+
+r1.7은 사용자 요구 ΔV4이며 verify 실패 뒤 재구현이 아니다. SDK export의 이름과 제품 버전을 공식 태그 소스에서 구분했고 제거·보존 범위를 명시했다. 새 비동기 경계의 shutdown과 재시도는 직접 행동 테스트로 닫았다. 검증 완료를 독립 verify/PASS로 승격하지 않는다.

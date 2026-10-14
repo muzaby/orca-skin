@@ -1,3 +1,4 @@
+// /v2/client는 OpenCode 1.x의 flat-parameter SDK export다. 제품 2.x의 client.v2 API는 쓰지 않는다.
 import { createOpencodeClient, type Event, type OpencodeClient } from '@opencode-ai/sdk/v2/client'
 import { pathToFileURL } from 'node:url'
 import { randomUUID } from 'node:crypto'

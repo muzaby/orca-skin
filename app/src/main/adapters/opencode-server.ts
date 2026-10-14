@@ -25,8 +25,7 @@ export function resolveOpenCodeExecutable(configured = '', env = process.env): s
     if (!dir) continue
     for (const candidate of [
       join(dir, name),
-      join(dir, 'node_modules', 'opencode-ai', 'bin', name),
-      join(dir, 'node_modules', '@opencode', 'cli', 'bin', name)
+      join(dir, 'node_modules', 'opencode-ai', 'bin', name)
     ]) {
       if (existsSync(candidate)) return candidate
     }
@@ -42,6 +41,7 @@ export interface OpenCodeServerDependencies {
   fetchImpl: typeof fetch
   spawnProcess?: typeof spawn
   executable?: () => string
+  readVersion?: (executable: string) => Promise<string>
   timeoutMs?: number
 }
 
@@ -62,15 +62,27 @@ export class OpenCodeServerPool {
     )
   }
 
+  private async readVersion(executable: string): Promise<string> {
+    const output = this.deps.readVersion
+      ? await this.deps.readVersion(executable)
+      : await new Promise<string>((resolve, reject) => {
+          execFile(
+            executable,
+            ['--version'],
+            { windowsHide: true, timeout: 5000 },
+            (error, stdout) => {
+              if (error) reject(error)
+              else resolve(stdout)
+            }
+          )
+        })
+    return output.trim().slice(0, 100)
+  }
+
   async installed(): Promise<{ installed: boolean; binPath?: string; version?: string }> {
     try {
       const binPath = this.executable()
-      const version = await new Promise<string>((resolve, reject) => {
-        execFile(binPath, ['--version'], { windowsHide: true, timeout: 5000 }, (error, stdout) => {
-          if (error) reject(error)
-          else resolve(stdout.trim().slice(0, 100))
-        })
-      })
+      const version = await this.readVersion(binPath)
       return { installed: true, binPath, version }
     } catch {
       return { installed: false }
@@ -110,6 +122,15 @@ export class OpenCodeServerPool {
     env: Record<string, string> | undefined,
     own: (child: ChildProcess) => void
   ): Promise<OpenCodeConnection> {
+    const version = await this.readVersion(executable)
+    // SDK의 /v2/client export와 제품 CLI의 major는 별개다. 실행 대상은 1.x만 지원한다.
+    if (!/^(?:opencode\s+)?v?1\.\d+\.\d+(?:-[\w.-]+)?(?:\+[\w.-]+)?$/.test(version)) {
+      throw new Error(
+        'OpenCode CLI 1.x가 필요합니다. 하네스 설정에서 1.x 실행 파일을 지정해 주세요.'
+      )
+    }
+    // 버전 조회 중 close()가 호출됐다면 서버를 만들지 않는다.
+    this.shutdown.signal.throwIfAborted()
     mkdirSync(this.deps.dataDirectory, { recursive: true })
     const password = randomBytes(32).toString('base64url')
     const child = (this.deps.spawnProcess ?? spawn)(
@@ -164,7 +185,7 @@ export class OpenCodeServerPool {
           )
         const onData = (chunk: Buffer): void => {
           output = (output + chunk.toString()).slice(-8192)
-          const match = /(?:opencode )?server listening on (http:\/\/127\.0\.0\.1:\d+)/.exec(output)
+          const match = /opencode server listening on (http:\/\/127\.0\.0\.1:\d+)/.exec(output)
           if (match) finish(undefined, match[1])
         }
         child.stdout?.on('data', onData)
