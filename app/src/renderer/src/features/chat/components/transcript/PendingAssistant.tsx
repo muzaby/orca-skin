@@ -49,6 +49,7 @@ function LiveText(): React.JSX.Element | null {
 }
 
 export function PendingAssistantStatus(): React.JSX.Element {
+  const backend = useChatSession((s) => s.backend)
   const agentKind = useChatSession((s) => s.agentKind)
   const turnStartedAt = useChatSession((s) => s.turnStartedAt)
   // 0143 listen 대기 — 개별 알림 턴 종료가 turnStartedAt 을 비워도(TURN_END_RESET) listening
@@ -82,6 +83,7 @@ export function PendingAssistantStatus(): React.JSX.Element {
   )
   return (
     <StatusLine
+      backend={backend}
       turnStartedAt={turnStartedAt ?? listenStartedAt}
       outputApproxFromText={text}
       activity={activityView}

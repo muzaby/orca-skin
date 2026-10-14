@@ -700,3 +700,67 @@ VP-25~28은 위 직접 oracle과 실행 화면 관측으로 SELF_PASS다. V1 VP-
 ## Review Signals
 
 r1.5는 사용자 추가 요구 ΔV2 구현이며 verify 실패 뒤 재구현이 아니다. 실제 앱 화면을 확인했고 테스트는 입력 수명과 경로/브랜치 조작에 집중했다. 기존 미검증 범위·독립 검증 대기는 유지한다.
+
+# [구현자 기입 — r1.6 응답 스피너]
+
+## 설계 리뷰
+
+ΔV3 구현 완료. OpenCode 원본의 격자·밝기·주기·지연을 React/CSS로 이식하고 D-004에 따라 OpenCode 세션에 적용했다. 신규 의존성·공개 계약·진행 lifecycle 변경은 없다. PLAN_GAP은 발견하지 않았다.
+
+## 강제 지점 전수와 V-pair 자기확인
+
+`rg -n 'StatusLine|PendingAssistantStatus|<PendingAssistant'`로 transcript 호출부를 확인하고, 전체 renderer의 `<StatusLine|<SparkSpinner|<OpenCodeSpinner`도 대조했다.
+
+| 강제 자리 | 관측 |
+|---|---|
+| EP-18a 빈 교환 | TranscriptView→PendingAssistant→PendingAssistantStatus의 실제 렌더에 OpenCode SVG 1개 |
+| EP-18b 사용자 메시지 뒤 | Exchange의 pending 분기에서 같은 SVG 1개 |
+| EP-18c 어시스턴트 본문 뒤 | AssistantTurn의 별도 PendingAssistantStatus에서 같은 SVG 1개 |
+| EP-18d 세션→StatusLine | actual store 시드의 backend가 PendingAssistantStatus selector를 통해 전달됨. backend를 Claude로 고정하면 OpenCode 단언 실패 |
+| EP-18e StatusLine→SVG | OpenCode는 16개 rect 중 모서리 4개 숨김·중앙 4개/외곽 8개 점멸. Claude는 기존 SparkSpinner |
+
+EP-18은 5자리다. transcript 테스트가 두 하네스×세 경로의 진행 표시와 telemetry/turn.aborted 후 제거를 확인했다. SSR의 구독 훅만 actual 활성 store 스냅샷을 읽도록 연결했으며 PendingAssistantStatus·StatusLine·SVG·reducer는 production 구현이다. 서브에이전트 패널은 기존 StatusLine 기본값을 사용한다.
+
+VP-29/30 SELF_PASS. VP-11 영향 회귀는 기존 렌더·중단·배경 상태·Spark CSS·텍스트 배율 테스트로 통과했으며 V1의 직접 oracle 부족분과 AC11 최종 시각 인수는 유지한다.
+
+## 이번 라운드 수정의 잠금
+
+| 새 oracle | 주입 / 관측 / 복원 |
+|---|---|
+| 실제 transcript 하네스 배선 | PendingAssistantStatus의 backend prop을 Claude로 고정. OpenCode 기대 SVG 1개→실제 0개로 1 assertion red, Claude 케이스 green. bytes 원복 후 관련 전체 7파일 48케이스 green |
+
+선택 적대 증거 0 · 인용 변이 0 · 새 배선 oracle 1 = 표 행 1. 도형·접근성·타이밍은 실제 렌더 출력의 직접 oracle이며, 추가 구조 스캔 oracle은 만들지 않았다.
+
+## Product/UX 파생 검토
+
+production StatusLine과 빌드 CSS를 담은 임시 페이지를 Computer Use로 열어 두 테마의 18px 격자와 다른 시점의 opacity 변화를 관측했다. CSS에서 reduced-motion 조건의 animation:none 출력도 확인했다. SVG는 장식으로 숨기고 상태 줄의 aria-live/label을 유지한다. 실제 OS 감속 모션 설정 변경과 새 모델 요청은 수행하지 않았다.
+
+## 놓친 잠재 문제 + 대응
+
+- AssistantTurn은 PendingAssistant의 상태 표시를 끄고 별도 상태 줄을 렌더한다. 상위 openCode prop에만 의존하지 않고 상태 줄의 세션 selector에서 하네스를 전달해 세 경로를 함께 처리했다.
+- 기존 Spark CSS 색상 테스트가 같은 hex 색의 대소문자를 다르게 취급했다. production 색상은 그대로 두고 비교만 소문자로 정규화했다. 고정색 선언 수·값·테마 재정의 금지 단언은 유지했다.
+- 완료 신호 turn.ended는 턴을 닫는 이벤트가 아니다. 테스트의 완료 입력을 실제 종료 경계인 telemetry로 정정했으며 production lifecycle은 수정하지 않았다.
+- 원본과 같이 칸의 위상은 모듈 초기화 때 고정한다. 경과 시간 재렌더가 애니메이션을 다시 시작하지 않으며 React 프레임 타이머를 추가하지 않았다.
+
+## 구현 보고
+
+| AC | 결과 | 관측 |
+|---|---|---|
+| AC17 | ✅ | 두 하네스×세 진행 경로, 완료/중단 제거, SVG·aria·안정된 타이밍, 두 테마의 실제 CSS 애니메이션 |
+
+증분 ✅1 · ⚠️0 · ❌0 = 1. 기존 15/16을 승계한 누적 ✅16 · ⚠️1 · ❌0 = 17. AC11 최종 사용자 시각 인수와 독립 검증은 대기한다.
+
+| 게이트 | 관측 |
+|---|---|
+| 관련 Vitest | 7파일 48케이스 통과. 하네스 강제 변이에서 1 assertion red, 원복 후 동일 집합 green |
+| 타입 | 전체 node/web/test 통과 |
+| 린트 | 전체 오류 0, 기존 useTranscriptVirtualizer warning 1. 후속 테스트 수정의 targeted ESLint 오류 0 |
+| 빌드 | electron-vite main/preload/renderer 통과. 기존 SubAgentTileContent 혼합 import 경고 유지 |
+| 문서·공백 | inventory generated/prose/relative links 통과, diff whitespace 오류 0 |
+| 참조 제외 | 원본 clone은 저장소 밖, 임시 시각 페이지는 ignored `.tmp`, 사용자 첨부는 미추적 상태 유지 |
+
+명령: `node node_modules/vitest/vitest.mjs run StatusLine.harness.test.ts TranscriptView.harness.test.ts StatusLine.interrupted.test.ts statusLine.render.test.ts statusLine.background.test.ts sparkCss.test.ts typeScale.test.ts`.
+
+## Review Signals
+
+r1.6은 사용자 추가 요구 ΔV3이며 verify 실패 뒤 재구현이 아니다. 기존 스피너·상태 lifecycle을 유지하면서 하네스 선택 경계에 직접 렌더 검사를 추가했다. 감속 모션은 빌드된 조건부 CSS까지 확인했고 OS 설정을 바꾸는 실기는 남겼다. 기존 V1 미검증 범위와 독립 검증 대기는 유지한다.

@@ -1,12 +1,13 @@
 // 어시스턴트 턴 진행 표시(스트리밍 인디케이터) — 소비자가 chat 전용(transcript ·
 // 작업 타일 · 서브에이전트 타일 셋)이라 shared/ui 가 아닌 chat feature 에 둔다. 경과 틱은
 // 범용 useElapsed(shared/ui/elapsed)를 공유한다.
-// 스피너는 셋이 **분기 없이** 같은 것을 받는다(0208 D-002) — 소비자별 variant 를 두지 않는다.
+// Claude의 공통 스피너(0208)를 유지하고 OpenCode 세션만 원본 격자 스피너를 쓴다(0262 D-014).
 import { Fragment, useMemo } from 'react'
 import { formatElapsed, useElapsed } from '../../../shared/ui/elapsed'
 import { SparkSpinner } from '../../../shared/ui/SparkSpinner'
 import { useI18n } from '../../../shared/i18n'
-import type { WorktreePrepareStep } from '../../../../../shared/ipc'
+import type { Backend, WorktreePrepareStep } from '../../../../../shared/ipc'
+import { OpenCodeSpinner } from './OpenCodeSpinner'
 import { deriveActivityLabel, MAX_VISIBLE_FACTS, type ActivityView } from '../lib/activityLabel'
 
 const VERBS = [
@@ -36,6 +37,7 @@ function pickVerb(): string {
 }
 
 export interface StatusLineProps {
+  backend?: Backend | null
   turnStartedAt: number | null
   /** 스트리밍 중인 어시스턴트 응답 텍스트 — 출력 토큰 동적 추정용. 빈 문자열이면 토큰 절 미표시. */
   outputApproxFromText?: string
@@ -49,6 +51,7 @@ export interface StatusLineProps {
 }
 
 export function StatusLine({
+  backend = 'claude',
   turnStartedAt,
   outputApproxFromText,
   thinkingActive,
@@ -121,7 +124,11 @@ export function StatusLine({
     >
       {/* text-rust 가 아니라 전용 고정색 토큰이다 — rust 는 light 에서 #c96442 라 첨부 원본과
           다른 색이 된다(0208 D-016). 원본은 두 테마 모두 #d97757 하나다. */}
-      <SparkSpinner className="shrink-0 text-spinner" />
+      {backend === 'opencode' ? (
+        <OpenCodeSpinner />
+      ) : (
+        <SparkSpinner className="shrink-0 text-spinner" />
+      )}
       <span aria-hidden>{statusLabel}</span>
       {visibleFacts.facts.map((fact) => (
         <Fragment key={fact.key}>

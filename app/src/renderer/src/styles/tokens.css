@@ -11,6 +11,26 @@
   --color-oc-muted: #6f6f6f;
   --shadow-oc-raised:
     0 2px 4px rgb(0 0 0 / 4%), 0 1px 2px -1px rgb(0 0 0 / 8%), 0 0 0 0.5px rgb(0 0 0 / 12%);
+  --animate-oc-spinner-bright: oc-spinner-bright 1s ease-in-out infinite both;
+  --animate-oc-spinner-dim: oc-spinner-dim 1s ease-in-out infinite both;
+  @keyframes oc-spinner-bright {
+    0%,
+    100% {
+      opacity: 0.4;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+  @keyframes oc-spinner-dim {
+    0%,
+    100% {
+      opacity: 0.15;
+    }
+    50% {
+      opacity: 0.35;
+    }
+  }
   --animate-dot-wave: dot-wave 1.2s ease-in-out infinite;
   @keyframes dot-wave {
     0%,

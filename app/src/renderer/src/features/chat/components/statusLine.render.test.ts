@@ -2,8 +2,8 @@
 // 함께 본다.
 //
 // 소스 문자열이 아니라 렌더 출력을 보는 이유: 계약은 "StatusLine 이 세우는 스피너"이고,
-// SparkSpinner 를 따로 렌더하면 소비자까지의 배선을 잠그지 못한다. 세 소비자가 분기 없이 같은
-// StatusLine 을 부르므로 여기 출력이 곧 세 곳의 출력이다.
+// SparkSpinner 를 따로 렌더하면 소비자까지의 배선을 잠그지 못한다. Claude 세 소비자는 같은
+// StatusLine 기본값을 쓴다. OpenCode 분기는 StatusLine.harness.test.ts 에서 확인한다.
 //
 // 기하 기대값은 커밋된 원본 SVG 를 파싱해 얻는다 — 손으로 옮긴 값을 두지 않는다.
 //
@@ -126,7 +126,7 @@ describe('StatusLine — 스피너가 원본 아트워크다', () => {
   })
 })
 
-describe('StatusLine — 세 표면이 분기 없이 같은 스피너를 받는다', () => {
+describe('StatusLine — Claude 세 표면이 같은 스피너를 받는다', () => {
   it('JSX 렌더 지점 2 곳과 SparkSpinner 소비자 1 곳이 전수다', () => {
     // 술어를 문자열로만 재면 `<StatusLineModel` 2건이 분모에 섞인다 — 여는 태그의 다음 글자가
     // 식별자가 아닌 것만 센다. 작업 타일은 세 번째 지점이 아니라 PendingAssistant 를 재사용하는

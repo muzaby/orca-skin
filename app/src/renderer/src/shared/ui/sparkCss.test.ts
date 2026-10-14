@@ -165,7 +165,7 @@ describe('spark CSS — 고정색이 두 테마에서 같다', () => {
   it('원본 색이 tokens.css 에 정확히 한 번 정의된다', () => {
     const defs = tokensCss.match(/--color-spinner:\s*([^;]+);/g) ?? []
     expect(defs).toHaveLength(1)
-    expect(defs[0]).toBe(`--color-spinner: ${REF.color};`)
+    expect(defs[0]?.toLowerCase()).toBe(`--color-spinner: ${REF.color};`.toLowerCase())
     // 테마 스코프가 다시 정의하면 light 에서 원본과 다른 색이 된다.
     const themeScope = tokensCss.slice(tokensCss.indexOf("[data-theme='dark']"))
     expect(themeScope).not.toContain('--color-spinner')

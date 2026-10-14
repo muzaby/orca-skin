@@ -42,3 +42,11 @@
 | [prompt-workspace-selector.tsx](https://github.com/anomalyco/opencode/blob/733b2c627e5aec39cb33cc22373bdce33053ef2c/packages/app/src/components/prompt-workspace-selector.tsx) | 높이 28px, muted 텍스트·폴더/브랜치 아이콘, flat 행 | Orca의 폴더 선택·브랜치·워크트리 동작을 유지하며 외형 적용 |
 
 새 요구에 따라 transcript 본문·부모·fade 배경은 Claude의 `bg` 토큰을 공통 사용한다. 기존 composer·도구·우측 패널 전용 토큰은 유지한다.
+
+## 응답 스피너 소스 조사 (2026-10-14)
+
+같은 v1.19.0 참조에서 [spinner.tsx](https://github.com/anomalyco/opencode/blob/733b2c627e5aec39cb33cc22373bdce33053ef2c/packages/ui/src/components/spinner.tsx), [spinner.css](https://github.com/anomalyco/opencode/blob/733b2c627e5aec39cb33cc22373bdce33053ef2c/packages/ui/src/components/spinner.css), [animations.css](https://github.com/anomalyco/opencode/blob/733b2c627e5aec39cb33cc22373bdce33053ef2c/packages/ui/src/styles/animations.css)를 읽었다. SVG viewBox는 15×15, 표시 크기는 18px이며 3×3 사각형을 1px 간격으로 배치한다. 네 모서리는 숨기고 안쪽은 opacity 0.4↔1, 바깥쪽은 0.15↔0.35로 움직인다. 칸마다 주기 1~2초와 시작 지연 0~1.5초를 최초 한 번 결정한다.
+
+`OpenCodeSpinner`에 원본 도형·타이밍과 MIT 고지를 이식했다. 색은 기존 OpenCode 테마 토큰을 쓰고 감속 모션에는 정적 격자를 제공한다. 기존 상태 문구와 진행 여부 판단은 유지한다.
+
+실제 StatusLine의 SSR 출력과 production 빌드 CSS를 사용하는 로컬 임시 페이지를 Computer Use로 열었다. white/dark에서 18×18px, rgb(111,111,111)/rgb(154,155,160), 숨겨진 모서리와 서로 다른 위상·밝기 변화를 관측했다. 감속 모션 utility가 빌드 CSS에 포함되는 것은 확인했으며 OS 감속 모션 설정 변경은 수행하지 않았다. 새 모델 요청 없이 외형을 확인한 것으로, 설치 앱 전체 대화 E2E를 대체하지 않는다.
