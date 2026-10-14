@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | READY |
+| 상태 | IMPL_DONE |
 | V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV6 / V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 |
@@ -1070,7 +1070,7 @@ OpenCode public factory가 SessionAdapter를 반환하고 구체 server/adapter 
 | EP-26b | 같은 테스트의 두 하네스 확정/라이브 text·reasoning과 기존 streaming/store 회귀 통과 |
 | EP-26c | 같은 테스트의 사용자 bubble·copy/time 단일 행·OpenCode fork 숨김, TranscriptView.harness.test.ts의 공통 bg-bg·스피너/종료 경로 통과 |
 
-이번 경로 EP-23 3/3 · EP-24 3/3 · EP-25 2/2 · EP-26 3/3 = 11/11. VP-41~45 SELF_PASS. VP-45는 mapper·history·renderer/reload의 분절된 직접 증거이며 외부 제공자 인증 E2E로 확대하지 않는다. VP-40은 로컬 복구를 확인했으며 새 head의 원격 CI 결과까지 SELF_BLOCKED로 둔다.
+이번 경로 EP-23 3/3 · EP-24 3/3 · EP-25 2/2 · EP-26 3/3 = 11/11. VP-41~45 SELF_PASS. VP-45는 mapper·history·renderer/reload의 분절된 직접 증거이며 외부 제공자 인증 E2E로 확대하지 않는다. VP-40 SELF_PASS: 최종 코드의 CI #740 gate success, Vitest 686파일/6861케이스 및 scripts 138케이스 통과를 job log에서 관측했다.
 
 기존 V1 VP-01/04/08/11 SELF_BLOCKED와 AC11 최종 시각 인수는 유지한다. 전체 회귀의 adapter/server/map/settings·history·composer·엔진/설정·패널·스피너·배경 경로로 ΔV1~5의 이번 영향 범위를 재확인했다.
 
@@ -1106,12 +1106,12 @@ OpenCode public factory가 SessionAdapter를 반환하고 구체 server/adapter 
 
 | AC | 결과 | 관측 |
 |---|---|---|
-| AC22 | ⚠️ | 기존 CI 8실패 수정·직접 재검증 완료, 새 head 원격 CI 실행 대기 |
+| AC22 | ✅ | 기존 CI 8실패 재현·수정 후 최종 코드의 CI #740 전체 gate success |
 | AC23 | ✅ | 중립 factory/view 계약과 v1 실제 구현, public runtime·금지/허용 import·변이 검사 |
 | AC24 | ✅ | 전용 탐색/셸/파일/작업/할 일/웹/unknown 본문, 상태·접기 유지·복사 직접 테스트 |
 | AC25 | ✅ | 하네스별 committed/live/user/meta 출력, 모든 segment kind와 history reload 테스트 |
 
-증분 ✅3 · ⚠️1 · ❌0 = 4. 이전 ✅20 · ⚠️1에 더한 누적은 ✅23 · ⚠️2 · ❌0 = AC 25. AC11 시각 인수와 AC22 원격 CI 관측이 대기한다.
+증분 ✅4 · ⚠️0 · ❌0 = 4. 이전 ✅20 · ⚠️1에 더한 누적은 ✅24 · ⚠️1 · ❌0 = AC 25. AC11 최종 사용자 시각 인수는 대기한다.
 
 | 게이트 | 관측 |
 |---|---|
@@ -1122,8 +1122,10 @@ OpenCode public factory가 SessionAdapter를 반환하고 구체 server/adapter 
 | 타입·lint | node/web/test 통과. 전체 lint 오류 0, 기존 useTranscriptVirtualizer 경고 1. 최종 테스트 추가 후 test typecheck 및 변경 파일 lint 재확인 |
 | build | main/preload/renderer 생성 완료. 기존 SubAgentTileContent 혼합 import 경고 유지 |
 | 운영 | 문서 inventory/prose/links, migration sync/append-only, test budgets, diff whitespace 통과 |
-| 원격 CI | push 후 관측을 아래에 추가한다 |
+| 원격 CI | [CI #740](https://github.com/muzaby/orca-skin/actions/runs/38570022676) gate success. Windows Node 22의 npm ci→가드→lint→typecheck→test 전부 통과. Vitest 686파일/6861케이스 pass, 기존 1파일/1케이스 skip. scripts 138/138 pass, fail 0 |
 
 ## Review Signals
 
 r1.9는 사용자 CI 실패와 추가 구조/표현 요구에 대한 ΔV6 구현 턴이다. 앞선 제한 범위 회귀가 source-path 검사와 랜딩 mock 누락을 놓쳤다. 이번에는 원격 실패를 먼저 재현하고 전체 회귀를 수행해 새로 이동한 경로의 같은 결함도 닫았다. 독립 검증·시각 인수·이전 V1 증거 한계는 유지한다.
+
+최종 스타일 점검에서 웹 링크의 미정의 토큰을 OpenCode 본문 토큰으로 바꾸고 Markdown 행간 상속을 Tailwind arbitrary value로 명시했다. 재빌드한 CSS에서 두 utility 생성을 관측했으며 이 보정을 포함한 코드가 위 CI를 통과했다. 최종 타입·lint 확인 후 제품 코드 변경은 없다.
