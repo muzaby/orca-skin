@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { AttachmentView, DiffRequirementAnchor } from '../../../shared/ipc'
-import type { SteerFlush, SteerFlushBatch } from '../../adapters/turn'
-import type { ExtractedAttachmentImage, ExtractedAttachmentText } from '../../adapters/turn'
+import type { SteerFlush, SteerFlushBatch } from '../../adapters/common/turn'
+import type { ExtractedAttachmentImage, ExtractedAttachmentText } from '../../adapters/common/turn'
 
 // 큐 아이템 페이로드 — 구조 페이로드(0067 AC5): 텍스트 + 추출 첨부(어댑터가 content 블록으로
 // 굽는 입력) + 표시용 첨부 뷰(커밋 시 renderer/DB 로 흐른다).

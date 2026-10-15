@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import type { Options, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
 import { PRODUCT_SLUG } from '../../../shared/product'
-import type { ExtractedAttachmentImage, ExtractedAttachmentText, TurnRequest } from '../turn'
+import type { ExtractedAttachmentImage, ExtractedAttachmentText, TurnRequest } from '../common/turn'
 
 const { queryMock, setModel } = vi.hoisted(() => {
   const setModel = vi.fn<(model?: string) => Promise<void>>(async () => undefined)

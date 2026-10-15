@@ -48,9 +48,9 @@ import {
 } from '../../../../../shared/permission-mode'
 import { continuityLangFor, continuityTitle } from '../../../../../shared/continuity-lang'
 import { rightPanelTarget, type RightPanelTileId } from '../lib/rightPanelTiles'
-import type { BranchSnapshot } from '../components/composer/branchChipState'
-import { wireDiffRequirementAnchor } from '../components/rightpanel/diffRequirements'
-import type { DiffComparison } from '../components/rightpanel/diffComparison'
+import type { BranchSnapshot } from '../harnesses/common/composer/branchChipState'
+import { wireDiffRequirementAnchor } from '../harnesses/common/rightpanel/diffRequirements'
+import type { DiffComparison } from '../harnesses/common/rightpanel/diffComparison'
 import { forgetArtifacts, refreshArtifactList } from './artifactStore'
 import {
   ingestBackgroundEvent,

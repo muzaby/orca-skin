@@ -1,5 +1,5 @@
 import { readTaskToolObservation } from '../../../../../../../../shared/task-tool'
-import { useI18n, type MessageKey } from '../../../../../../shared/i18n/index'
+import { useI18n, type MessageKey } from '../../../../../../shared/i18n'
 import type { ToolCall } from '../../../../reducer/chatReducer'
 import { isNonExecutionOutcome, toolRunOutcome } from '../../../../lib/parts'
 import { NON_EXECUTION_LABEL } from '../../../../lib/toolMeta'

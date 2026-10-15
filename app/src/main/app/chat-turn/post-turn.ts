@@ -6,7 +6,7 @@
 // 여기는 그 판정에 따른 실행·정착·신호만 한다.
 
 import type { WebContents } from 'electron'
-import type { SteerFlushBatch, TurnRequest } from '../../adapters/turn'
+import type { SteerFlushBatch, TurnRequest } from '../../adapters/common/turn'
 import type { TurnContext } from '../../contracts/turn'
 import type { TurnCoordinator } from '../../features/chat/turn-coordinator'
 import type { PendingMessageQueue } from '../../features/chat/pending-message-queue'

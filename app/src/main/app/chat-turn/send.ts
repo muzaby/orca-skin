@@ -23,7 +23,7 @@ import {
 import type { AttachmentView, WorktreeDisplay } from '../../../shared/ipc'
 import { isBackend, supportsAgentKind } from '../../../shared/harness'
 import { parseProviderKey } from '../../infra/config/provider-key'
-import type { SteerFlushBatch, TurnExtensions, TurnRequest } from '../../adapters/turn'
+import type { SteerFlushBatch, TurnExtensions, TurnRequest } from '../../adapters/common/turn'
 import type { TurnContext } from '../../contracts/turn'
 import { normalizeAttachments } from '../../features/chat/attachments'
 import { TurnCoordinator } from '../../features/chat/turn-coordinator'
@@ -46,7 +46,7 @@ import { prepareTemporaryFilesPath } from '../../infra/config/temp-path'
 import { prepareTurnExecution } from './prepare-worktree'
 import { resolveAgentKind, resolveAgentProfile } from '../../features/agents/profiles'
 import { bindStartingProject } from './project-binding'
-import { prepareAgentExtensionProfile } from '../agent-extension-profile'
+import { prepareAgentExtensionProfile } from '../harnesses/registry'
 
 export async function handleChatSend(
   deps: ChatRuntimeDeps,

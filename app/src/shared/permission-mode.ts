@@ -3,11 +3,10 @@
 // 순수 타입/함수만 — zod·SDK 를 import 하지 않는다. shared/ 는 preload(sandbox=true) 와
 // renderer·main 이 모두 import 하므로 런타임 의존이 없어야 한다.
 //
-// 세 종류의 모드 어휘가 공존한다:
+// 공통 모드 어휘:
 //   1) NormalizedPermissionMode — provider 중립 정규화(6종, snake_case). 앱 내부 SSOT 어휘.
-//   2) ClaudePermissionMode     — Claude Agent SDK 의 PermissionMode 미러(6종, camelCase, sdk.d.ts:1865).
-//                                 SDK 를 직접 import 하지 않고 타입만 미러해 sandbox 안전을 지킨다.
-//   3) PermissionMode (./ipc) — 이전 UI 저장값을 읽는 호환 어휘(plan/acceptEdits).
+//   2) PermissionMode (./ipc) — 이전 UI 저장값을 읽는 호환 어휘(plan/acceptEdits).
+// SDK 어휘와 변환은 harnesses/claude/permission-mode.ts가 소유한다.
 
 import type { PermissionMode } from './ipc'
 import { supportsAutoPermission } from './harnesses/claude/model-policy'
@@ -16,10 +15,6 @@ import type { AgentKind } from './agent-kind'
 // provider 중립 권한 모드 (정규화 어휘). UI/IPC/controller 가 공유하는 SSOT 표현.
 export type NormalizedPermissionMode =
   'default' | 'accept_edits' | 'plan' | 'dont_ask' | 'bypass' | 'auto_classified'
-
-// Claude Agent SDK PermissionMode 미러 (sdk.d.ts:1865). SDK 직접 import 대신 타입 미러.
-export type ClaudePermissionMode =
-  'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'dontAsk' | 'auto'
 
 // Code의 계획 승인 기본 목표. 종류별 목표는 명시적 정책에서 선택한다.
 export const PLAN_APPROVED_MODE: NormalizedPermissionMode = 'accept_edits'
@@ -78,27 +73,6 @@ export const agentPermissionPolicy = {
     autoUnsupportedMode: AUTO_UNSUPPORTED_FALLBACK_MODE
   }
 } as const satisfies Record<AgentKind, AgentPermissionPolicy>
-
-// NormalizedPermissionMode → SDK PermissionMode 순수 매핑 (provider-runtime.md §3 정본).
-// auto_classified = TS 전용 모델 분류기('auto'). Record 타입이 6종 전수 대응을 컴파일 타임에 강제한다.
-const CLAUDE_PERMISSION_MODE = {
-  default: 'default',
-  accept_edits: 'acceptEdits',
-  plan: 'plan',
-  dont_ask: 'dontAsk',
-  bypass: 'bypassPermissions',
-  auto_classified: 'auto'
-} as const satisfies Record<NormalizedPermissionMode, ClaudePermissionMode>
-
-export function toClaudePermissionMode(mode: NormalizedPermissionMode): ClaudePermissionMode {
-  return CLAUDE_PERMISSION_MODE[mode]
-}
-
-// SDK의 실제 세션 보고를 정규화한다. 미지정·미지원 값에 기본값을 만들면 관측한 모드를
-// 선택 정책으로 덮어쓰므로, 알려진 SDK 어휘만 받아 나머지는 무시한다(0249 ΔV3).
-export function fromClaudePermissionMode(value: unknown): NormalizedPermissionMode | undefined {
-  return NORMALIZED_MODES.find((mode) => CLAUDE_PERMISSION_MODE[mode] === value)
-}
 
 // 이전 UI 저장값을 정규화된 모드로 읽는 호환 브리지.
 export function fromUiPermissionMode(mode: PermissionMode): NormalizedPermissionMode {

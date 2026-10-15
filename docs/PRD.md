@@ -127,7 +127,7 @@ v1 의 기능 표면은 P2 만으로도 충분히 커버 가능하다. P1 의 �
 
 ### 7.3 SessionAdapter (전략 §8.2)
 
-> **구현 노트 (0016)**: 아래 `ChatEvent`·`SessionAdapter`·`SessionInfo` 는 전략 소화 당시의 스케치다 — 실제 와이어 타입은 provider 중립 **`NormalizedEvent`**(변이 카탈로그 = IPC_CONTRACT §3), 어댑터 계약은 `app/src/main/adapters/types.ts`(GLOSSARY SessionAdapter), 세션 목록 DTO 는 `SessionListItem` 이다. 본 블록은 역사 보존.
+> **구현 노트 (0016)**: 아래 `ChatEvent`·`SessionAdapter`·`SessionInfo` 는 전략 소화 당시의 스케치다 — 실제 와이어 타입은 provider 중립 **`NormalizedEvent`**(변이 카탈로그 = IPC_CONTRACT §3), 어댑터 계약은 `app/src/main/adapters/common/types.ts`(GLOSSARY SessionAdapter), 세션 목록 DTO 는 `SessionListItem` 이다. 본 블록은 역사 보존.
 
 ```typescript
 export type Backend = 'claude-code' | 'opencode';

@@ -1,4 +1,4 @@
-import { ToolApprovalBody } from '../../../components/ApprovalCard'
+import { ToolApprovalBody } from './ToolApproval'
 import { chatActions } from '../../../store/chatStore'
 import { OpenCodeQuestionDock } from './QuestionDock'
 import type { OpenCodeRequest } from './requestQueue'

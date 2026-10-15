@@ -29,7 +29,7 @@ const { queryMock } = vi.hoisted(() => ({
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({ query: queryMock }))
 
 import { ClaudeAdapter } from './adapter'
-import type { TurnRequest } from '../turn'
+import type { TurnRequest } from '../common/turn'
 
 function optionsFor(cwd: string): { cwd?: string } {
   queryMock.mockClear()

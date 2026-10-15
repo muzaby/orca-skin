@@ -9,8 +9,8 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Options } from '@anthropic-ai/claude-agent-sdk'
-import { prepareHarnessConfig, type ResolvedHarnessSettings } from '../harness-config'
-import type { RuntimeToolSnapshot } from '../runtime-tools'
+import { prepareHarnessConfig, type ResolvedHarnessSettings } from '../common/harness-config'
+import type { RuntimeToolSnapshot } from '../common/runtime-tools'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 
@@ -42,7 +42,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', async (importOriginal) => ({
 vi.mock('./executable', () => ({ resolveClaudeExecutable: () => SENTINEL }))
 
 import { ClaudeAdapter } from './adapter'
-import type { TurnRequest } from '../turn'
+import type { TurnRequest } from '../common/turn'
 import { getTemporaryFilesPath } from '../../infra/config/temp-path'
 
 function optionsOfFirstCall(): Options {

@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { load } from 'cheerio'
 import { describe, expect, it, vi } from 'vitest'
 import { initialChatState } from '../reducer/chatReducer'
-import { useScrollAnchor } from '../hooks/useScrollAnchor'
+import { useScrollAnchor } from '../harnesses/claude/transcript/useScrollAnchor'
 
 const fixture = vi.hoisted(() => ({
   backend: 'claude' as 'claude' | 'opencode',
@@ -20,7 +20,7 @@ vi.mock('../store/chatStore', () => ({
   usePendingSteer: () => [],
   chatActions: {}
 }))
-vi.mock('../hooks/useScrollAnchor', () => ({
+vi.mock('../harnesses/claude/transcript/useScrollAnchor', () => ({
   useScrollAnchor: vi.fn(() => ({
     scrollRef: { current: null },
     contentRef: { current: null },

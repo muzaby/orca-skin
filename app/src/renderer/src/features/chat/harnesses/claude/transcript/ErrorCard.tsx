@@ -1,5 +1,5 @@
 import { Icon } from '../../../../../shared/ui/Icon'
-import { useI18n } from '../../../../../shared/i18n/index'
+import { useI18n } from '../../../../../shared/i18n'
 import { errorCategoryKey } from '../../../lib/errorLabels'
 
 interface ErrorCardProps {

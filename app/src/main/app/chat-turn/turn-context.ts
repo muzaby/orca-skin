@@ -11,7 +11,7 @@ import type { AgentKind } from '../../../shared/agent-kind'
 import { continuityTitle, type ContinuityLang } from '../../../shared/continuity-lang'
 import type { TurnContext } from '../../contracts/turn'
 import type { RuntimeTitleAdapter } from '../../contracts/ports'
-import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
+import type { ResolvedHarnessSettings } from '../../adapters/common/harness-config'
 import type { SessionControl } from '../../features/sessions/session-chain-lease'
 import { isFilesystemRoot } from '../../../shared/absolute-path'
 

@@ -1,5 +1,5 @@
 import type { PlanFeedback, PlanFeedbackComment } from '../../../shared/ipc'
-import { escapeAttribute } from '../prompt-escape'
+import { escapeAttribute } from '../common/prompt-escape'
 
 // 계획 검토(plan_review) revise 의 구조화 코멘트를 ExitPlanMode deny message 로 직렬화한다.
 // prompts/attachment.ts 와 동일 규율: 영문 instruction(모델 입력 안정성, handoff 0039) +

@@ -1,12 +1,7 @@
+import type { HarnessSettingsFieldsProps } from '../types'
 import { useI18n } from '../../../../shared/i18n'
 import { SettingsRow } from '../../components/parts'
-export function OpenCodeFields({
-  executablePath,
-  setExecutablePath
-}: {
-  executablePath: string
-  setExecutablePath: (value: string) => void
-}): React.JSX.Element {
+export function OpenCodeFields({ draft, onChange }: HarnessSettingsFieldsProps): React.JSX.Element {
   const { tr } = useI18n()
   return (
     <SettingsRow
@@ -15,8 +10,13 @@ export function OpenCodeFields({
       stacked
     >
       <input
-        value={executablePath}
-        onChange={(event) => setExecutablePath(event.target.value)}
+        value={draft.fields.executablePath}
+        onChange={(event) =>
+          onChange({
+            ...draft,
+            fields: { ...draft.fields, executablePath: event.target.value }
+          })
+        }
         aria-label={tr('settings.harness.executablePath')}
         placeholder={tr('settings.harness.executablePathPlaceholder')}
         className="rounded-md border border-border bg-bg px-3 py-2 font-mono text-[12px] text-ink outline-none focus:border-border-strong"

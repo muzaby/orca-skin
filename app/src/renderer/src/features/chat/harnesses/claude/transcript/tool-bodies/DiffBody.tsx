@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { stringify } from '../../../../format'
-import { DiffTable } from '../../../../components/DiffTable'
+import { DiffTable } from '../../../common/transcript/DiffTable'
 import { buildDiffLines, type DiffLine } from '../../../../lib/diffLines'
 import { patchLinesToDiffLines } from '../../../../lib/diffPatchLines'
 import {

@@ -1,7 +1,7 @@
 import { memo, useState } from 'react'
 import { Icon } from '../../../../../shared/ui/Icon'
 import { CopyIconButton } from '../../../../../shared/ui/CopyIconButton'
-import { useI18n, type MessageKey } from '../../../../../shared/i18n/index'
+import { useI18n, type MessageKey } from '../../../../../shared/i18n'
 import {
   FILE_TOOLS,
   VERB_KEY,
@@ -15,9 +15,9 @@ import { isNonExecutionOutcome, toolRunOutcome, type ToolRunOutcome } from '../.
 import { stringify } from '../../../format'
 import { toolRendererRegistry } from './registry'
 import type { ToolCall } from '../../../reducer/chatReducer'
-import { AgentTaskRow } from '../../../components/transcript/AgentTaskRow'
+import { AgentTaskRow } from '../../common/transcript/AgentTaskRow'
 import type { AgentTranscriptPresentation } from '../../../lib/agentPresentation'
-import { ForegroundShellActions } from '../../../components/transcript/ForegroundShellActions'
+import { ForegroundShellActions } from '../../common/transcript/ForegroundShellActions'
 
 const OUTCOME_VERB: Record<ToolRunOutcome, MessageKey | null> = {
   running: null,

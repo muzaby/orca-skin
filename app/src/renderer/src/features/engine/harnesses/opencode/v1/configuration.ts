@@ -1,6 +1,8 @@
 import type { EngineHarnessConfiguration } from '../../types'
 // OpenCode 1.x native opencode.json. UI state and import lifetime remain in the common form.
 export const openCodeEngineConfiguration: EngineHarnessConfiguration = {
+  cardLabel: 'OpenCode',
+  editHarnessChip: null,
   defaultProvider: 'default',
   defaultSettings: '{}',
   providers: [],

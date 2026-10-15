@@ -29,7 +29,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({ query: queryMock }))
 
 import { ClaudeAdapter } from './adapter'
 import type { ApprovalResolution, PermissionAction } from '../../../shared/ipc'
-import type { LiveTurn } from '../types'
+import type { LiveTurn } from '../common/types'
 
 const roots: string[] = []
 const lives: LiveTurn[] = []

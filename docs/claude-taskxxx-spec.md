@@ -243,7 +243,7 @@ Orca 는 이 구분을 `async_launched` 영수증으로 이미 판별한다(0136
 `canUseTool` 권한 콜백과 `PreToolUse` 훅은 Task 도구 호출도 가로챌 수 있다.
 
 > ⛔ **Orca 의도적 미채택.** `RISKY_TOOLS` 는 상태를 바꾸는 도구(`Bash`·`PowerShell`·`Write`·`Edit`·
-> `MultiEdit`·`NotebookEdit` — `adapters/risky-tools.ts`)만 담는다. Task 도구는 할 일 목록만 바꾸므로 승인 카드 대상이 아니다 — 넣으면
+> `MultiEdit`·`NotebookEdit` — `adapters/common/risky-tools.ts`)만 담는다. Task 도구는 할 일 목록만 바꾸므로 승인 카드 대상이 아니다 — 넣으면
 > 할 일이 갱신될 때마다 승인 카드가 뜬다.
 
 `stopTask` 는 **확정을 기다려야 한다**. 클릭 즉시 `중단됨` 으로 확정하지 않고 `중단 중` 을 거쳐

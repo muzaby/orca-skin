@@ -1,11 +1,12 @@
+import { composerHarness } from '../harnesses/registries/composer'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { load } from 'cheerio'
 import { describe, expect, it, vi } from 'vitest'
-import { ComposerInputController } from './composer/ComposerInputController'
+import { ComposerInputController } from '../harnesses/common/composer/ComposerInputController'
 import { OpenCodeAgentControl } from '../harnesses/opencode/composer/Controls'
-import { ComposerInputSurface } from './composer/ComposerInputSurface'
-import { createDraftSnapshot } from './composer/draftSnapshot'
+import { ComposerInputSurface } from '../harnesses/common/composer/ComposerInputSurface'
+import { createDraftSnapshot } from '../harnesses/common/composer/draftSnapshot'
 import { ModelMenu } from './composer/ModelMenu'
 import { installChatStoreHarness } from '../store/chatStore.testHarness'
 import type { AgentEnvironment } from '../../../../../shared/ipc'
@@ -27,6 +28,7 @@ describe('harness composer surface', () => {
       installChatStoreHarness({ sessionId: null, backend, agentKind: 'code' })
       const html = renderToStaticMarkup(
         createElement(ComposerInputController, {
+          presentation: composerHarness(backend),
           active: true,
           initialDraft: 'my unchanged draft',
           backendLabel: backend,
@@ -56,7 +58,7 @@ describe('harness composer surface', () => {
       expect($('textarea')).toHaveLength(1)
       const input = renderToStaticMarkup(
         createElement(ComposerInputSurface, {
-          openCode: backend === 'opencode',
+          appearance: composerHarness(backend).appearance,
           snapshot: createDraftSnapshot('my unchanged draft'),
           onTextChange: () => {},
           onSelectionChange: () => {},

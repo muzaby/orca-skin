@@ -4,7 +4,7 @@
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [provider-runtime.md](./provider-runtime.md) (런타임 정규화 — *짝 문서*), [adapters.md](./adapters.md) (자산 변환 매트릭스), [security.md](./security.md) (비밀·MCP credential), [terms.md](./terms.md) (사람용 용어)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
-> **상태**: 🛠 *§5.1 배포 계층 구현 완료 (스테이지 A, PR #47) · 잔여 표준(agents/commands 변환·hook full-plugin) 설계 대기*. 코드에 반영된 것은 **`sources/dist` 분리와 배포기**뿐이다 — 배포기의 실체는 [`features/extensions/deployer.ts`](../../../app/src/main/features/extensions/deployer.ts) 의 `deploy()`/`DeployResult` 이고 `ExtensionDeployer` 는 그 모듈을 가리키는 **설계 이름**(코드에는 헤더 주석으로만 있다). `StandardConformance` 와 `migrate-sources` 는 **아직 구현체가 없다**(§5.3 · `:146` 주석과 같은 판정). 신규 배포 타입(`ExtensionDeployer`·`StandardConformance`)은 본 문서가 **정본(SSOT)** 이고, 런타임 타입(`PermissionBridge`·`RevertManager`·`NormalizedEvent`)은 [provider-runtime.md](./provider-runtime.md) 가 정본 — 본 문서는 *참조만* 한다(중복 정의 금지).
+> **상태**: 🛠 *§5.1 배포 계층 구현 완료 (스테이지 A, PR #47) · 잔여 표준(agents/commands 변환·hook full-plugin) 설계 대기*. 코드에 반영된 것은 **`sources/dist` 분리와 배포기**뿐이다 — 배포기의 실체는 [`features/extensions/claude/deployer.ts`](../../../app/src/main/features/extensions/claude/deployer.ts) 의 `deploy()`/`DeployResult` 이고 `ExtensionDeployer` 는 그 모듈을 가리키는 **설계 이름**(코드에는 헤더 주석으로만 있다). `StandardConformance` 와 `migrate-sources` 는 **아직 구현체가 없다**(§5.3 · `:146` 주석과 같은 판정). 신규 배포 타입(`ExtensionDeployer`·`StandardConformance`)은 본 문서가 **정본(SSOT)** 이고, 런타임 타입(`PermissionBridge`·`RevertManager`·`NormalizedEvent`)은 [provider-runtime.md](./provider-runtime.md) 가 정본 — 본 문서는 *참조만* 한다(중복 정의 금지).
 >
 > **출처 신뢰 원칙**: 각 사실 옆에 `[검증]`(SDK 1차 출처/현재 코드 확인) / `[미확인]`(구현 전 실제 SDK 타입 확정 필요)을 표기한다. 두 SDK 는 설치돼 있다(`app/package.json` — claude 어댑터 활성, opencode 는 조사·계약 검증용) — `[미확인]` 은 OpenCode 런타임 배선 전 항목에 남는다.
 >
@@ -84,7 +84,7 @@ class OpenCodeEngine {
 
 위 `OpenCodeEngine`은 미구현 설계 예시다. 설치 SDK의 import별 호출·SSE 전송·권한 reply 차이는 [SDK 해설](../../opencode-sdk-spec.md)에 있으며, SDK 설치만으로 Engine 배선이나 배포 정책을 채택하지 않는다.
 
-> **현행 코드와의 관계**: `app/src/main/adapters/types.ts` 의 `SessionAdapter`(`isInstalled`·`install`·`describe`·`complete`·`sendMessage`·`classifyError`·`agentSpawnEnv`)는 **이미 존재하는 인터페이스**지만 현재 **claude 단일 구체** 구현뿐이다([adapters.md §1.1](./adapters.md)). 본 설계는 이를 부정하지 않는다 — `SessionAdapter` 는 세션 실행의 얇은 계약으로 두고, *엔진 전체*(인증·되돌리기·직접 API 등)를 묶는 범용 `BackendAdapter` 추출은 **3번째 엔진까지 미룬다**([adapters.md §1.9](./adapters.md) 새 백엔드 체크리스트와 연계).
+> **현행 코드와의 관계**: `app/src/main/adapters/common/types.ts` 의 `SessionAdapter`(`isInstalled`·`install`·`describe`·`complete`·`sendMessage`·`classifyError`·`agentSpawnEnv`)는 **이미 존재하는 인터페이스**지만 현재 **claude 단일 구체** 구현뿐이다([adapters.md §1.1](./adapters.md)). 본 설계는 이를 부정하지 않는다 — `SessionAdapter` 는 세션 실행의 얇은 계약으로 두고, *엔진 전체*(인증·되돌리기·직접 API 등)를 묶는 범용 `BackendAdapter` 추출은 **3번째 엔진까지 미룬다**([adapters.md §1.9](./adapters.md) 새 백엔드 체크리스트와 연계).
 
 ## 5. 표준 계층
 
@@ -118,7 +118,7 @@ class OpenCodeEngine {
 >
 > **설정 범위**: `query()` 는 `settingSources: ['project','local']` 로 호출한다(`claude/adapt.ts` `adaptSettingSources`, 0117) — 사용자 전역 `~/.claude/settings.json` 은 상속하지 않고, 사용자 `~/.claude/skills` 만 wrapper plugin 으로 전달한다([adapters.md §1.3](./adapters.md)). `disallowedTools` 는 `['WebSearch']` 하나로 대화 실행의 WebSearch 를 차단하는 용도다(`claude/adapter.ts`). handoff 0014/0015 의 `settingSources: []` 격리모드와 그 뒤의 "생략 = 전부 상속" 결정은 둘 다 0117 로 대체됐다 — 두 문서는 historical 기록으로 보존한다.
 >
-> **구현 상태 (0058 구현됨)**: 코드가 Claude plugin 레이아웃으로 정렬됐다. `features/extensions/deployer.ts` 는 `plugins/orcinus-orca` 패키지를 렌더하고, `claude/adapt.ts` 는 `options.plugins` 와 `orca:<skill>` 필터를 주입한다. `options.mcpServers` 경로는 레거시로 남아 있으나 기본 query 경로에서는 호출하지 않는다.
+> **구현 상태 (0058 구현됨)**: 코드가 Claude plugin 레이아웃으로 정렬됐다. `features/extensions/claude/deployer.ts` 는 `plugins/orcinus-orca` 패키지를 렌더하고, `claude/adapt.ts` 는 `options.plugins` 와 `orca:<skill>` 필터를 주입한다. `options.mcpServers` 경로는 레거시로 남아 있으나 기본 query 경로에서는 호출하지 않는다.
 
 ### 5.2 ExtensionDeployer
 
@@ -145,7 +145,7 @@ function deploy(engine: EngineId, opts: DeployOptions): DeployResult {
 
 `dist/<engine>` 산출물은 편집 대상이 아니다. 기존 파일이 마지막 배포와 다르면(사용자가 손댄 경우) 무단 덮어쓰기를 막기 위해 **항상 백업 후 기록**한다.
 
-> **구현 상태 (0058 레이아웃)**: [`features/extensions/deployer.ts`](../../../app/src/main/features/extensions/deployer.ts) 는 §5.1 의 plugin 패키지 레이아웃을 렌더하고 `deployer.test.ts` 가 같은 레이아웃을 검증한다. (⚠️ `conformance.ts` 는 **코드에 존재하지 않는다** — `StandardConformance` 는 설계 단계이고 구현체가 없다. 아래 §5.3 을 구현 완료로 읽지 말 것.) 최초 부팅 스캐폴드 [`features/extensions/scaffold.ts`](../../../app/src/main/features/extensions/scaffold.ts) 는 provider settings 만 시드하고, 번들 first-party 콘텐츠는 skill 시딩(`skills/seed.ts`, 0078)이 따로 맡는다 — agents·commands·hooks 번들은 없다. **claude-only — `engine` 파라미터가 OpenCode seam.**
+> **구현 상태 (0058 레이아웃)**: [`features/extensions/claude/deployer.ts`](../../../app/src/main/features/extensions/claude/deployer.ts) 는 §5.1 의 plugin 패키지 레이아웃을 렌더하고 `deployer.test.ts` 가 같은 레이아웃을 검증한다. (⚠️ `conformance.ts` 는 **코드에 존재하지 않는다** — `StandardConformance` 는 설계 단계이고 구현체가 없다. 아래 §5.3 을 구현 완료로 읽지 말 것.) 최초 부팅 스캐폴드 [`features/extensions/claude/scaffold.ts`](../../../app/src/main/features/extensions/claude/scaffold.ts) 는 provider settings 만 시드하고, 번들 first-party 콘텐츠는 skill 시딩(`skills/seed.ts`, 0078)이 따로 맡는다 — agents·commands·hooks 번들은 없다. **claude-only — `engine` 파라미터가 OpenCode seam.**
 
 > **현행 선례 재사용**: MCP 소스의 `${VAR}` 확장과 서버별 미해결 제외는 `mcp/convert.ts`의 순수 함수 `toClaudeConfig`가 함께 소유한다. 문자열 치환은 `infra/vars.ts`, 토큰·비밀·허용된 환경변수 해석은 `mcp/resolver.ts`가 맡는다. Bootstrap이 변환 결과를 기존 ExtensionDeployer에 전달한다([security.md §1.4](./security.md)). OpenCode 변환기는 미구현이다.
 

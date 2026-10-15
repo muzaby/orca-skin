@@ -125,6 +125,7 @@ export default defineConfig(
       'boundaries/elements': [
         { type: 'main-root', pattern: 'src/main/*.ts', mode: 'file' },
         { type: 'app', pattern: 'src/main/app', mode: 'folder' },
+        { type: 'adapter-common', pattern: 'src/main/adapters/common', mode: 'folder' },
         // 어댑터 구현체(claude·mock 서브폴더) — engine 별 격리. 루트 adapters 는 ports/registry.
         {
           type: 'adapter-impl',
@@ -158,6 +159,7 @@ export default defineConfig(
                     'main-root',
                     'app',
                     'adapters',
+                    'adapter-common',
                     'adapter-impl',
                     'features',
                     'contracts',
@@ -175,6 +177,7 @@ export default defineConfig(
                     'app',
                     'main-root',
                     'adapters',
+                    'adapter-common',
                     'adapter-impl',
                     'features',
                     'contracts',
@@ -187,7 +190,13 @@ export default defineConfig(
             // adapters(ports&adapters) → 구현체·infra·shared.
             {
               from: { type: 'adapters' },
-              allow: { to: { type: ['adapters', 'adapter-impl', 'infra', 'shared'] } }
+              allow: {
+                to: { type: ['adapters', 'adapter-common', 'adapter-impl', 'infra', 'shared'] }
+              }
+            },
+            {
+              from: { type: 'adapter-common' },
+              allow: { to: { type: ['adapter-common', 'infra', 'shared'] } }
             },
             {
               from: { type: 'adapter-impl' },
@@ -195,7 +204,7 @@ export default defineConfig(
             },
             {
               from: { type: 'adapter-impl' },
-              allow: { to: { type: ['adapters', 'infra', 'shared'] } }
+              allow: { to: { type: ['adapters', 'adapter-common', 'infra', 'shared'] } }
             },
             // features → **같은 feature 만** (교차 차단) + contracts/adapters/infra/shared.
             {
@@ -204,11 +213,24 @@ export default defineConfig(
             },
             {
               from: { type: 'features' },
-              allow: { to: { type: ['contracts', 'adapters', 'adapter-impl', 'infra', 'shared'] } }
+              allow: {
+                to: {
+                  type: [
+                    'contracts',
+                    'adapters',
+                    'adapter-common',
+                    'adapter-impl',
+                    'infra',
+                    'shared'
+                  ]
+                }
+              }
             },
             {
               from: { type: 'contracts' },
-              allow: { to: { type: ['contracts', 'adapters', 'infra', 'shared'] } }
+              allow: {
+                to: { type: ['contracts', 'adapters', 'adapter-common', 'infra', 'shared'] }
+              }
             },
             { from: { type: 'infra' }, allow: { to: { type: ['infra', 'shared'] } } },
             { from: { type: 'shared' }, allow: { to: { type: 'shared' } } }
@@ -268,7 +290,7 @@ export default defineConfig(
     files: ['src/**/*.{ts,tsx}'],
     ignores: ['**/*.test.ts', '**/*.test.tsx', '**/*.testfixture.ts'],
     plugins: { harness: harnessBoundary },
-    rules: { 'harness/version-boundary': 'error' }
+    rules: { 'harness/version-boundary': 'error', 'harness/ownership': 'error' }
   },
   {
     files: ['src/**/*.{ts,tsx}'],
@@ -276,31 +298,6 @@ export default defineConfig(
     plugins: { harness: harnessBoundary },
     rules: {
       'harness/sdk-version': 'error'
-    }
-  },
-  // renderer의 하네스 전용 구현은 형제를 참조하지 않고 feature 공통 구현을 사용한다.
-  {
-    files: [
-      'src/renderer/src/features/**/harnesses/claude/**/*.{ts,tsx}',
-      'src/renderer/src/features/**/harnesses/opencode/**/*.{ts,tsx}'
-    ],
-    plugins: { import: eslintPluginImport },
-    rules: {
-      'import/no-restricted-paths': [
-        'error',
-        {
-          zones: ['chat', 'engine', 'settings'].flatMap((feature) => [
-            {
-              target: `./src/renderer/src/features/${feature}/harnesses/claude`,
-              from: `./src/renderer/src/features/${feature}/harnesses/opencode`
-            },
-            {
-              target: `./src/renderer/src/features/${feature}/harnesses/opencode`,
-              from: `./src/renderer/src/features/${feature}/harnesses/claude`
-            }
-          ])
-        }
-      ]
     }
   },
   // no-console 예외(0124 AC3) — 로깅 인프라 내부의 emergency 경로·dev 콘솔 미러 구현부만.

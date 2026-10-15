@@ -1,4 +1,5 @@
 export const transcriptAppearance = {
+  userWidth: 'max-w-[min(82%,64ch)]',
   userBubble:
     'rounded-[10px] bg-bubble-user px-[12px] py-[8px] text-[calc(14px*var(--transcript-text-scale,1))] leading-[1.6] font-[440] text-ink',
   pendingBubble:

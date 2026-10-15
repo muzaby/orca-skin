@@ -12,8 +12,8 @@
 
 Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `features/agents/profiles.ts`의 고정 프로필을 app 컴포지션 루트가 선택하고 `ExtensionBuilder`에 지침·key만 전달한다. 어댑터는 제품 종류를 해석하지 않고 기존 `TurnExtensions`의 prompt·도구·plugin 입력을 실행한다. 별도 플러그인 인터페이스나 에이전트 등록 플랫폼은 없다.
 
-실행 계약 정본은 [adapters/types.ts](../../../app/src/main/adapters/types.ts)의 `SessionAdapter`·`LiveTurn`·`ProviderMessageBatch`다. `sendMessage(req: TurnRequest)`는 `LiveTurn`을 반환하고 `eventBatches`에 정규화 이벤트 묶음을 제공한다.
-설치 확인/안내 외에 `describe()`·`complete()`·`classifyError()`와 LiveTurn 제어도 어댑터 책임이다. 입력은 [adapters/turn.ts](../../../app/src/main/adapters/turn.ts), 와이어는 [shared/ipc.ts](../../../app/src/shared/ipc.ts)의 `NormalizedEvent`를 참조한다.
+실행 계약 정본은 [adapters/common/types.ts](../../../app/src/main/adapters/common/types.ts)의 `SessionAdapter`·`LiveTurn`·`ProviderMessageBatch`다. `sendMessage(req: TurnRequest)`는 `LiveTurn`을 반환하고 `eventBatches`에 정규화 이벤트 묶음을 제공한다.
+설치 확인/안내 외에 `describe()`·`complete()`·`classifyError()`와 LiveTurn 제어도 어댑터 책임이다. 입력은 [adapters/common/turn.ts](../../../app/src/main/adapters/common/turn.ts), 와이어는 [shared/ipc.ts](../../../app/src/shared/ipc.ts)의 `NormalizedEvent`를 참조한다.
 
 ### 1.2 등록된 백엔드 (현재 — Phase 3 SDK)
 
@@ -22,9 +22,11 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 | `claude` | `adapters/claude/adapter.ts` (+`claude/map.ts` 정규화) | `@anthropic-ai/claude-agent-sdk`의 `query()` 호출 | ✅ 활성 |
 | `opencode` | `adapters/opencode/v1/adapter.ts`·`opencode/v1/server.ts`·`opencode/v1/map.ts` | 소유 CLI 서버 + 주입 fetch의 SDK HTTP/SSE | Code 전용; [SDK 해설](../../opencode-sdk-spec.md) |
 
-`AdapterRegistry`에 bootstrap이 하네스 어댑터를 등록한다. 신규 요청은 선택 backend로, 기존 요청은 DB backend로 라우팅한다. payload·provider key·준비 중 lease·설정 해석 이후 DB를 대조해 하네스 변경을 거부한다.
+`app/harnesses`의 조립 모듈이 하네스 어댑터를 생성하고 bootstrap이 공통 `AdapterRegistry`에 명시적으로 등록한다. 공통 registry는 구체 어댑터를 생성하지 않는다. 신규 요청은 선택 backend로, 기존 요청은 DB backend로 라우팅하며 payload·provider key·준비 중 lease·설정 해석 이후 DB를 대조해 하네스 변경을 거부한다.
 
-하네스 중립 포트·등록·공통 프롬프트/도구 어휘는 `adapters/` 루트에 둔다. `claude/`는 SDK query·정규화·설정·hook·dev mock을 소유한다. `opencode/index.ts`는 현재 지원하는 구현을 선택하는 진입점이며 SDK import, HTTP/SSE 매핑, CLI 실행/버전 판정, native 설정/모델 해석은 `opencode/v1/`에 격리한다. 하네스 구현끼리의 직접 import와 v1 밖 OpenCode SDK import는 ESLint가 거부한다.
+하네스 중립 포트·등록·공통 프롬프트/도구 어휘는 `adapters/common/`에 둔다. `claude/`는 SDK query·정규화·설정·hook·dev mock을 소유한다. `opencode/index.ts`는 현재 지원하는 구현을 선택하는 진입점이며 SDK import, HTTP/SSE 매핑, CLI 실행/버전 판정, native 설정/모델 해석은 `opencode/v1/`에 격리한다.
+
+공통 구현은 하네스 구현이나 선택 registry를 import하지 않는다. 조립부가 모델 parser·설정 reader·실행 정책을 주입하고, 하네스 형제 간 import와 v1 밖 OpenCode SDK import는 ESLint가 거부한다. 공통 live permission 입력은 정규화 모드이며 Claude SDK 모드 변환은 Claude 어댑터 안에서 수행한다.
 
 #### OpenCode 실행과 격리
 
@@ -72,7 +74,7 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 
 ### 1.4 ExtensionBuilder (턴 확장 입력 조립)
 
-`features/extensions/builder.ts`의 `ExtensionBuilder`는 프로젝트 지침·앱 설정·스킬·plugin 경로·runtime tool snapshot으로 `TurnExtensions`를 조립한다. 실제 필드는 [adapters/turn.ts](../../../app/src/main/adapters/turn.ts)가 정본이다.
+`features/extensions/common/builder.ts`의 `ExtensionBuilder`는 프로젝트 지침·앱 설정·스킬·plugin 경로·runtime tool snapshot으로 `TurnExtensions`를 조립한다. 실제 필드는 [adapters/common/turn.ts](../../../app/src/main/adapters/common/turn.ts)가 정본이다.
 파일 기반 MCP의 설정 조회·변수 해석·배포는 bootstrap의 배포 closure가 소유하며, 턴 builder는 MCP store를 읽지 않는다. 인프로세스 runtime tool snapshot은 별도 입력으로 유지한다.
 
 `build(sessionId, projectId, profile?)`는 resume이면 세션에 연결된 프로젝트를, 새 채팅이면 전달된 프로젝트를 읽는다. 프로젝트 지침은 `# Project`, Work 프로필은 `# Agent` 섹션으로 합성한다([system-prompt.md](./system-prompt.md) §2A). 지침은 매 턴 재조회하지만 SDK append는 query 생성 시 적용된다. `agentProfileKey` 변경은 최초·자동 연속 실행의 공통 respawn 판정을 거치고, 같은 key는 기존 warm 채널을 유지한다. 스킬 목록은 bootstrap의 스캔 캐시를 읽는다.
@@ -94,7 +96,7 @@ SDK 가 throw 하는 에러 메시지/코드에서 `401` / `OAuth` / `expired` �
 | `options.includePartialMessages: true` | ✅ | 구현 | delta 스트리밍 |
 | `options.cwd` | ✅ | 구현 | 세션 cwd — 격리 세션은 managed worktree 경로(`features/worktrees`) |
 | `result.total_cost_usd` / `usage` / `modelUsage` / `duration_ms` | ✅ | 구현 | `ProviderReportedTelemetry` 로 정규화(cost·model·캐시 토큰·duration·numTurns) → UsagePanel (provider-runtime.md §8) |
-| `options.permissionMode` / `canUseTool` | ✅ | 구현 | `shared/permission-mode.ts` + `features/approvals/permission-mode-controller.ts`(세션 SSOT); `canUseTool` 은 RISKY_TOOLS(`adapters/risky-tools.ts`) 승인 브리지. **기본 정책값은 PRD OQ9 로 열려 있다** |
+| `options.permissionMode` / `canUseTool` | ✅ | 구현 | `shared/permission-mode.ts` + `features/approvals/permission-mode-controller.ts`(세션 SSOT); `canUseTool` 은 RISKY_TOOLS(`adapters/common/risky-tools.ts`) 승인 브리지. **기본 정책값은 PRD OQ9 로 열려 있다** |
 | `options.allowDangerouslySkipPermissions` | ✅ | 구현 | 대화 query 가 `permissionMode` 를 명시할 때 `true` — 장수명 채널의 라이브 `bypass` 전환 전제([claude-code-spec §5.5](../../claude-code-spec.md)). 제목 생성 `complete()` 는 넘기지 않는다 |
 | `options.hooks` (PreToolUse / Stop …) | ✅ | 구현 | `adaptHooks(extensions.hooks)` + 어댑터 내부 훅(workspace guard PreToolUse · Stop git sync · Stop 출력 수집)을 `claude/adapter.ts` 가 병합 — in-process 콜백(§3.2.5) |
 | `createSdkMcpServer` + `tool()` | ✅ | 구현 | 인프로세스 runtime tool(`claude/runtime-tools.ts` `adaptRuntimeTools` → `mcpServers`) — 산출물 게시 도구 등 |
@@ -116,8 +118,8 @@ opencode 등 다중 어댑터 환경 대비:
 
 | 책임 | 현재 (claude-code 전용) | Future 인터페이스 |
 |---|---|---|
-| Skills 스캔 경로 | `Bootstrap.skillRoots()` 에 orca `sources/skills` + `~/.claude/skills` 하드코딩 (`features/extensions/skills/scan.ts` 는 루트 주입식) | `SessionAdapter.getSkillPaths(cwd): string[]` 인터페이스로 책임 이관 — §2 참조 |
-| 자격증명 주입 | Auth 플랫폼 — Harness `RuntimeConfigAugmenter`(`features/harnesses/runtime-config.ts`)가 선택된 Harness+ModelProvider 에 자격증명 env overlay 를 붙여 `options.env` 로 넘긴다([auth.md](./auth.md)). 어댑터는 키 이름을 모른다 | 어댑터별 자격증명 요구를 선언으로 노출하는 seam — security.md §1.4 |
+| Skills 스캔 경로 | `Bootstrap.skillRoots()` 에 orca `sources/skills` + `~/.claude/skills` 하드코딩 (`features/extensions/common/skills/scan.ts` 는 루트 주입식) | `SessionAdapter.getSkillPaths(cwd): string[]` 인터페이스로 책임 이관 — §2 참조 |
+| 자격증명 주입 | Auth 플랫폼 — Harness `RuntimeConfigAugmenter`(`features/harnesses/common/runtime-config.ts`)가 선택된 Harness+ModelProvider 에 자격증명 env overlay 를 붙여 `options.env` 로 넘긴다([auth.md](./auth.md)). 어댑터는 키 이름을 모른다 | 어댑터별 자격증명 요구를 선언으로 노출하는 seam — security.md §1.4 |
 | 외부 세션 저장소 → Orca DB 동기화 | 없음 (현재 SDK 의 jsonl 을 직접 읽지 않음) | `listSessions / loadSession` 옵셔널 메서드로 외부 jsonl/SQLite 등을 Orca 로컬 DB 로 단방향 동기화 — persistence.md 참조 |
 | 설치 / binary 해소 | SDK `optionalDependencies` 가 자동 처리 → `install()` 즉시 `done: true` 반환 | opencode 등은 별도 install 스크립트 필요 |
 
@@ -125,7 +127,7 @@ opencode 등 다중 어댑터 환경 대비:
 
 1. `src/main/adapters/<id>.ts` 생성
 2. 현행 `SessionAdapter`·`LiveTurn` 구현 + 해당 SDK 이벤트를 `NormalizedEvent[]`를 담은 `ProviderMessageBatch`로 변환
-3. `adapters/registry.ts` 에 등록
+3. `adapters/common/registry.ts` 에 등록
 4. `Backend` union 에 ID 추가 (`src/shared/ipc.ts`)
 5. (Future) 어댑터별 Skills 스캔 경로 / 자격증명 키 / 세션 동기화 메서드 정의
 6. 설치가 필요하면 `install()` AsyncIterable 구현, 인스톨러 UI 안내 추가
@@ -141,7 +143,7 @@ OpenCode 적용 시의 추가 선행조건·레이어별 gate는 [마이그레�
 
 ### 2.1 Skills 스캔 (현재)
 
-`app/src/main/features/extensions/skills/scan.ts` (루트는 `Bootstrap.skillRoots()` 가 주입):
+`app/src/main/features/extensions/common/skills/scan.ts` (루트는 `Bootstrap.skillRoots()` 가 주입):
 
 | 항목 | 값 |
 |---|---|
@@ -288,18 +290,18 @@ const protectEnv: NormalizedHookHandler = (ctx) =>
 
 #### 3.2.5 코드 현실: claude-side in-process `NormalizedHookSet` (교차-tool 표준 아님)
 
-> **코드 진실**: 위 §3.2.2~3.2.4 가 설계한 중립 모델은 **`Normalized*` 이름으로 코드가 됐다** — `adapters/hooks.ts`
+> **코드 진실**: 위 §3.2.2~3.2.4 가 설계한 중립 모델은 **`Normalized*` 이름으로 코드가 됐다** — `adapters/common/hooks.ts`
 > (`NormalizedHookEvent` 9종 · `NormalizedHookContext` · `NormalizedHookDecision` · `NormalizedHookHandler` ·
 > `NormalizedHookSet` · `resolveHookDecisions`), `adapters/claude/adapt.ts`(`adaptHooks()` + `NORMALIZED_TO_CLAUDE_EVENT`),
-> `claude/adapt.test.ts`(`describe('adaptHooks')`), `adapters/turn.ts` 의 `TurnExtensions.hooks: NormalizedHookSet`,
-> `features/extensions/builder.ts`(현재 `hooks: { normalized: {} }` — 빈 핸들러; 어댑터 내부 훅은 `claude/adapter.ts` 가 병합). 이는 **claude 어댑터가 SDK
+> `claude/adapt.test.ts`(`describe('adaptHooks')`), `adapters/common/turn.ts` 의 `TurnExtensions.hooks: NormalizedHookSet`,
+> `features/extensions/common/builder.ts`(현재 `hooks: { normalized: {} }` — 빈 핸들러; 어댑터 내부 훅은 `claude/adapter.ts` 가 병합). 이는 **claude 어댑터가 SDK
 > `query().options.hooks` 로 넘기는 in-process 콜백**의 형태이며, **교차-엔진(claude+opencode) 정규화 표준이 아니다**.
 > §3.2 정정에 따라 `normalized` 는 *앱이 주입하는 claude 전용 in-process hook* 의 컨테이너로 재해석하고,
 > `backendSpecific` 슬롯이 엔진별 분리(§2 채택)의 코드 표현이다. opencode 의 hook 은 `backendSpecific.opencode`
 > (네이티브 플러그인 모듈 경로)로 분리되며 `normalized` 로 합치지 않는다.
 
 ```ts
-// 정본은 `adapters/hooks.ts`
+// 정본은 `adapters/common/hooks.ts`
 interface NormalizedHookSet {
   // 양 백엔드가 어댑트하는 중립 코어 (§3.2.2 교집합 이벤트만)
   normalized: Partial<Record<NormalizedHookEvent, NormalizedHookHandler[]>>

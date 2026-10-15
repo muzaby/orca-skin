@@ -32,7 +32,7 @@
 | 언어 | TypeScript | ~5.x (strict, target ES2022) | tsconfig.node.json 분리 |
 | 빌드 도구 | electron-vite | ^5.0.0 | main + preload sub-config |
 | LLM SDK (claude-code) | @anthropic-ai/claude-agent-sdk | **exact pin** (`package.json` — 모델 세대 추가 시 갱신, 0246·0258) | `query()` 장수명 채널(`pushTurn`) + `complete()` 단발 |
-| LLM SDK (opencode) | @opencode-ai/sdk | 1.18.27 (exact) | **조사·계약 검증용 설치**; adapter 미등록·runtime 미활성 ([SDK 해설](../../opencode-sdk-spec.md)) |
+| LLM SDK (opencode) | @opencode-ai/sdk | 1.18.27 (exact) | 앱 소유 로컬 CLI 서버의 HTTP/SSE 어댑터; Code 모드 지원 ([SDK 해설](../../opencode-sdk-spec.md)) |
 | 입력 검증 | zod | ^4.4.3 | `src/shared/protocol.ts` 스키마 |
 | 설정 저장 | electron-store | ^8.2.0 | 단일 객체 스토어 (`orcinus-orca-settings`) |
 | 로컬 DB | **better-sqlite3** | ^12.x | ✅ Phase 3 도입 완료. 동기 API, Electron 호환. 직접 마이그레이션 (`db/migrations/`). WAL + foreign_keys pragma. |
@@ -74,7 +74,7 @@ Electron App
 │   │   ├── legacy-paths.ts     # 구 `orca` 설정 루트 이관 뒤 DB 저장 경로 재기준·이동 worktree 복구 (0225)
 │   │   ├── error-report-sink.ts · error-report-drain.ts  # 오류 toast 의 창 전달·drain (0242, observability.md §7)
 │   │   ├── artifact-sender.ts  # 게시 알림 → renderer (0223)
-│   │   ├── agent-extension-profile.ts · runtime-model-startup.ts · settings-reactions.ts
+│   │   ├── harnesses/ · runtime-model-startup.ts · settings-reactions.ts
 │   │   │                       #   Work/Code 프로필 선택 · 부팅 시 모델 카탈로그 준비 · 설정 변경 반응
 │   │   ├── deployment/         # 배포별 concrete (build-time) — auth-definitions · gate-auth ·
 │   │   │                       #   harness-runtime · plugins · usage-fetcher · spawn-env(배포별 subprocess env)
@@ -94,7 +94,7 @@ Electron App
 │   │   ├── gate/               # Auth 상태를 앱 접근 조건으로 소비하는 정책 (0188)
 │   │   ├── harnesses/          # settings 열거·해석(0014) · Model 해석 · 실행 구성(runtime-config) ·
 │   │   │                       #   respawn 경계 · claude/model-parser
-│   │   │                       #   (spawn 입력 조립은 adapters/harness-config.ts 소관)
+│   │   │                       #   (spawn 입력 조립은 adapters/common/harness-config.ts 소관)
 │   │   ├── plugins/            # 제품 기능 단위 — confluence/ · jira/ · mail/ (자격증명·로그인 프리 Plugin, 0188·0236·0237·0248)
 │   │   ├── agents/             # Work/Code 고정 프로필 + Work 시스템 프롬프트 (0224·0234)
 │   │   ├── artifacts/          # 게시 원본 파일 — 검증·보관·카탈로그·출력 수집·휴지통 (0223·0226·0232)
@@ -203,22 +203,22 @@ Electron App
 | BrowserWindow + 보안 옵션 명시 | Phase 1 | ✅ 완료 | `main/index.ts` |
 | 컴포지션 루트(Bootstrap) + 5-레이어 재편 | Phase 3++ | ✅ 완료 | `app/bootstrap.ts` + `app/handlers/` + `features/*` (handoff 0062, 채널 카탈로그는 IPC_CONTRACT §2) |
 | 모든 invoke 의 zod 검증 | Phase 2 | ✅ 완료 | `infra/ipc/handle.ts` 헬퍼 + `shared/protocol.ts` |
-| SessionAdapter 인터페이스 | Phase 2 | ✅ 완료 | `adapters/types.ts` |
+| SessionAdapter 인터페이스 | Phase 2 | ✅ 완료 | `adapters/common/types.ts` |
 | ClaudeAdapter (SDK `query()` · 장수명 채널 pushTurn) | Phase 3 | ✅ 완료 | `adapters/claude/adapter.ts` (구 claude-code.ts). CLI spawn 폐기 (2026-05-18) |
 | `claude/adapt.ts` (TurnExtensions → claude 옵션 변환) | Phase 3++ | ✅ 완료 | 공통 실행 설정은 SDK 타입으로 조립하고 plugin·systemPrompt·skill·hook은 대화 호출부에서 합성 |
-| ExtensionBuilder | Phase 3++ | ✅ 완료 | `features/extensions/builder.ts` — DB 지침·settings·Skills·plugin/runtime tool로 TurnExtensions 조립 |
+| ExtensionBuilder | Phase 3++ | ✅ 완료 | `features/extensions/common/builder.ts` — DB 지침·settings·Skills·plugin/runtime tool로 TurnExtensions 조립 |
 | SessionRuntime + RuntimeSupervisor (세션별 런타임 거버넌스) | Phase 4 | ✅ 완료 | `features/sessions/` — 장수명 세션 채널(프레임) · idle 풀 LRU cap 5 · 세션별 pending message queue(`features/chat/`). runtime-ipc.md §1 |
 | OpencodeAdapter | Future | ❌ 미구현 | PRD OQ7 |
 | AdapterRegistry | Phase 2 | ✅ 완료 | claude 단일 등록 |
 | Installer (래퍼) | Phase 2 | ✅ 완료 | 4줄 — 어댑터의 `install()` yield |
 | electron-store | Phase 3++ | ✅ 완료 | `infra/settings-store.ts` (키 카탈로그는 persistence.md §1.2 / IPC_CONTRACT §2.4) |
-| Skills 스캔 (orca `sources/skills` + `~/.claude/skills`) | Phase 2 | ✅ 완료 | `features/extensions/skills/scan.ts` — `<cwd>/.claude/skills` 루트는 제거됨. 캐시는 `Bootstrap.skillsCache` |
-| Skills 번들 시딩 (부트 1회) | Phase 4 | ✅ 완료 (0078) | `features/extensions/skills/seed.ts` + `app/builtin-resources.ts` — manifest/marker 버전 게이트 |
-| ExtensionDeployer | Phase 3++ | ✅ 완료 | `features/extensions/deployer.ts` — sources → `dist/<engine>/` 렌더 (표준화 스테이지 A) |
+| Skills 스캔 (orca `sources/skills` + `~/.claude/skills`) | Phase 2 | ✅ 완료 | `features/extensions/common/skills/scan.ts` — `<cwd>/.claude/skills` 루트는 제거됨. 캐시는 `Bootstrap.skillsCache` |
+| Skills 번들 시딩 (부트 1회) | Phase 4 | ✅ 완료 (0078) | `features/extensions/common/skills/seed.ts` + `app/builtin-resources.ts` — manifest/marker 버전 게이트 |
+| ExtensionDeployer | Phase 3++ | ✅ 완료 | `features/extensions/claude/deployer.ts` — sources → `dist/<engine>/` 렌더 (표준화 스테이지 A) |
 | 인증 만료 감지 (`auth.expired`) | Phase 2 | ✅ 완료 | UI 에 AuthExpiredModal 노출 |
 | 로컬 DB (sessions / messages / parts / projects) | Phase 3 | ✅ 완료 | better-sqlite3 + 마이그레이션(`infra/db/migrations/`, `0001_initial` 부터 순번). |
 | FTS5 전문 검색 (`messages_fts`) | Phase 3++ | ✅ 완료 | `0003_messages_fts.sql` + `orca:search:messages` IPC |
-| MCP 서버 CRUD + safeStorage 인증 비밀 | Phase 3++ | ✅ 완료 | `features/extensions/mcp/store.ts` + `infra/config/secret-store.ts`. 파일-백드 모델. |
+| MCP 서버 CRUD + safeStorage 인증 비밀 | Phase 3++ | ✅ 완료 | `features/extensions/common/mcp/store.ts` + `infra/config/secret-store.ts`. 파일-백드 모델. |
 | 산출물 게시 · 게시 원본 파일 (`features/artifacts`) | Phase 4 | ✅ 완료 (0223·0226·0232) | 모델 직접 호출 `publish_artifact` runtime tool + 우측 목록 + Work 일반 출력 파일 수집. 보관 규칙 persistence.md §1.4 |
 | 자동 업데이트 (electron-updater) | Phase 4 | ✅ 완료 (0084~0086) | `app/updater.ts` UpdateController + `handlers/update.ts`(update 6채널) + `shared/update-restart.ts` 재시작 게이트. runtime-ipc.md §3.1 |
 | 스케줄러 (주기 실행) | Phase 4 | ✅ 완료 (0091) | `features/scheduler/` (croner) — 첫 소비처 = 주기 사용량 recompute. `schedule_runs` 실행 이력(`0013`) |
@@ -241,7 +241,7 @@ Electron App
 | 전역 오류 보고(toast) (`infra/error-report`) | Phase 4 | ✅ 완료 (0242) | main/renderer 공통 `reportError` → 토스트 — observability.md §7 |
 | 일일 로그인 게이트 (`features/gate/daily.ts` · `app/daily-gate.ts`) | Phase 4 | ✅ 완료 (0255) | 실행 중 로컬 날짜 경계에서 통과 해제 — [ADR-008](../../decisions/008-daily-login-gate.md) · auth.md §5.3 |
 | 저장 경로 이관 (`infra/config/migrate-legacy.ts` · `app/legacy-paths.ts`) | Phase 4 | ✅ 완료 (0225) | 구 `orca` 설정 루트 → `orcinus-orca` 이관(critical `legacy-migration`) 뒤 DB 저장 경로 재기준·이동 worktree 복구(비-critical `legacy-paths`, §3.1) |
-| 폐쇄망 spawn env 주입점 (`app/deployment/spawn-env.ts`) | Phase 4 | ✅ 완료 (0207) | 배포가 `SPAWN_ENV_INJECTOR` 를 채우면 모든 Harness+ModelProvider subprocess env 에 실린다(최상위 레이어, 기본 배포는 비움). host-managed provider 표식(0200)은 `adapters/harness-config.ts` 가 조립 — security.md "Agent provider auth token" |
+| 폐쇄망 spawn env 주입점 (`app/deployment/spawn-env.ts`) | Phase 4 | ✅ 완료 (0207) | 배포가 `SPAWN_ENV_INJECTOR` 를 채우면 모든 Harness+ModelProvider subprocess env 에 실린다(최상위 레이어, 기본 배포는 비움). host-managed provider 표식(0200)은 `adapters/common/harness-config.ts` 가 조립 — security.md "Agent provider auth token" |
 
 > 이 표는 코드 변경 시 함께 갱신한다.
 

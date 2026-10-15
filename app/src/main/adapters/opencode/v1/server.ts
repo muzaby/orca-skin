@@ -2,7 +2,7 @@ import { spawn, execFile, type ChildProcess } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'
 import { delimiter, isAbsolute, join } from 'node:path'
 import { randomBytes } from 'node:crypto'
-import { harnessEnvFingerprint } from '../../harness-config'
+import { harnessEnvFingerprint } from '../../common/harness-config'
 import type { HarnessPreferences } from '../../../../shared/harness'
 
 export interface OpenCodeConnection {

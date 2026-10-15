@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
+import type { ResolvedHarnessSettings } from '../../adapters/common/harness-config'
 import type { PrepareWorktreeResult } from '../../features/worktrees/service'
 import { prepareTurnExecution, prepareTurnWorktree } from './prepare-worktree'
 

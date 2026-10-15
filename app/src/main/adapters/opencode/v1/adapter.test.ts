@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Event } from '@opencode-ai/sdk/v2'
 import type { NormalizedEvent } from '../../../../shared/ipc'
-import type { TurnRequest } from '../../turn'
-import type { ProviderMessageBatch } from '../../types'
+import type { TurnRequest } from '../../common/turn'
+import type { ProviderMessageBatch } from '../../common/types'
 import { OpenCodeAdapter } from './adapter'
 import { OpenCodeServerPool } from './server'
 import {

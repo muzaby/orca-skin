@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useI18n } from '../../../../../shared/i18n'
 import { CopyIconButton } from '../../../../../shared/ui/CopyIconButton'
-import { DiffTable } from '../../../components/DiffTable'
+import { DiffTable } from '../../common/transcript/DiffTable'
 import { buildDiffLines } from '../../../lib/diffLines'
 import { unifiedDiffLines } from '../../../lib/unifiedDiffLines'
 import { stringify } from '../../../format'
@@ -115,7 +115,7 @@ function FilePanel({
           data-scrollable=""
           aria-label={tr('chat.opencode.fileDiff')}
         >
-          <DiffTable lines={lines} filePath={file.path} appearance="opencode" />
+          <DiffTable lines={lines} filePath={file.path} appearance={diffAppearance} />
         </div>
       ) : (
         <OutputPanel text={file.patch ?? ''} label={file.path} />
@@ -194,3 +194,4 @@ export function ToolBody({
     </div>
   )
 }
+import { diffAppearance } from './diffAppearance'

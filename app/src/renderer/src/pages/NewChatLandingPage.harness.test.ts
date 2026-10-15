@@ -104,11 +104,12 @@ vi.mock('../features/chat/store/chatStore', () => ({
     send: fixture.send
   }
 }))
-vi.mock('../features/chat/components/composer/AttachMenu', () => ({
+vi.mock('../features/chat/harnesses/common/composer/AttachMenu', () => ({
   AttachMenu: ({ onAction }: { onAction: (action: { type: 'attach' }) => void }) =>
     createElement('button', { 'data-test-attach': '', onClick: () => onAction({ type: 'attach' }) })
 }))
 vi.mock('../features/chat', async () => ({
+  Landing: (await import('../features/chat/components/Landing')).Landing,
   harnessSurfaces: (await import('../features/chat/harnesses/presentation')).harnessSurfaces,
   Composer: (await import('../features/chat/components/Composer')).Composer,
   AgentModeToggle: (await import('../features/chat/components/AgentModeToggle')).AgentModeToggle,

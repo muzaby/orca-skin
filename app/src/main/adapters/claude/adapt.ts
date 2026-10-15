@@ -24,7 +24,7 @@ import {
   CLAUDE_DEFAULT_SETTINGS,
   withClaudeSettingsDefaults
 } from '../../../shared/harnesses/claude/settings-defaults'
-import type { HarnessNativeSettings } from '../harness-config'
+import type { HarnessNativeSettings } from '../common/harness-config'
 import {
   resolveHookDecisions,
   type NormalizedHookContext,
@@ -32,7 +32,7 @@ import {
   type NormalizedHookEvent,
   type NormalizedHookHandler,
   type NormalizedHookSet
-} from '../hooks'
+} from '../common/hooks'
 
 // Claude Code plugin root 들을 SDK local plugin 옵션으로 변환한다(0117 에서 복수화 — Orca plugin +
 // 사용자 ~/.claude/skills 래퍼 plugin). 상대 경로는 cwd 기준이라 세션 cwd 변경과 얽힐 수 있으므로

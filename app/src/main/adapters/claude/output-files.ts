@@ -1,8 +1,8 @@
 import type { HookCallback, Options } from '@anthropic-ai/claude-agent-sdk'
 import { isAbsolutePath } from '../../../shared/absolute-path'
 import { isRecord } from '../../../shared/obj'
-import type { RuntimeToolContext } from '../runtime-tools'
-import type { TurnExtensions } from '../turn'
+import type { RuntimeToolContext } from '../common/runtime-tools'
+import type { TurnExtensions } from '../common/turn'
 import type { ArtifactRef } from '../../../shared/artifacts'
 
 // 일반 Markdown 전체를 렌더링하지 않는다. 명시적 링크의 목적지만 읽으며 코드 예시는 제외한다.

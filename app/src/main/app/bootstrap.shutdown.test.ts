@@ -13,9 +13,9 @@ vi.mock('electron', () => ({
 vi.mock('../infra/settings-store', () => ({ SettingsStore: class {} }))
 
 import { Bootstrap } from './bootstrap'
-import { ExtensionDeploymentService } from '../features/extensions/extension-deployment-service'
-import * as extensionDeployer from '../features/extensions/deployer'
-import type { OrcaMcpConfig } from '../adapters/mcp-config'
+import { ExtensionDeploymentService } from '../features/extensions/common/extension-deployment-service'
+import * as extensionDeployer from '../features/extensions/claude/deployer'
+import type { OrcaMcpConfig } from '../adapters/common/mcp-config'
 import type { RouterContext } from './context'
 import { TypedBus } from '../infra/bus'
 import type { MainBus, OrcaBusEvents } from '../contracts/bus-events'

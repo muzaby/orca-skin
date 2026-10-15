@@ -1,5 +1,5 @@
 import { Button } from '../../../../../../shared/ui/Button'
-import { useI18n } from '../../../../../../shared/i18n/index'
+import { useI18n } from '../../../../../../shared/i18n'
 import { chatActions } from '../../../../store/chatStore'
 import { stringify } from '../../../../format'
 import type { ToolCall } from '../../../../reducer/chatReducer'

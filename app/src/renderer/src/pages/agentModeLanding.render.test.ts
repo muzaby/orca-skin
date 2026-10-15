@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 const { fixture } = vi.hoisted(() => ({
   fixture: {
     session: {
+      backend: 'claude' as const,
       agentKind: 'code' as 'code' | 'work',
       sessionId: null as string | null,
       messages: [] as unknown[],
@@ -25,6 +26,7 @@ vi.mock('react-router-dom', () => ({
 
 // 페이지의 실제 배치를 본다. feature 내부 수명/상호작용은 native 인수의 별도 범위다.
 vi.mock('../features/chat', async () => ({
+  Landing: (await import('../features/chat/components/Landing')).Landing,
   harnessSurfaces: (await import('../features/chat/harnesses/presentation')).harnessSurfaces,
   useChatSession: (select: (state: typeof fixture.session) => unknown) => select(fixture.session),
   useChatBusy: () => fixture.session.inflight,
@@ -39,6 +41,19 @@ vi.mock('../features/chat', async () => ({
     }),
   ChatTile: () => createElement('div', { 'data-component': 'ChatTile' }),
   RightPanel: () => createElement('div', { 'data-component': 'RightPanel' })
+}))
+
+vi.mock('../features/chat/components/AgentModeToggle', () => ({
+  AgentModeToggle: () => createElement('div', { 'data-component': 'AgentModeToggle' })
+}))
+vi.mock('../features/chat/components/Composer', () => ({
+  Composer: (props: { initialDraft?: string; showLandingCwdPanel?: boolean; flush?: boolean }) =>
+    createElement('div', {
+      'data-component': 'Composer',
+      'data-initial-draft': props.initialDraft,
+      'data-landing-cwd': String(props.showLandingCwdPanel),
+      'data-flush': String(props.flush)
+    })
 }))
 
 vi.mock('../features/backend', () => ({
@@ -77,6 +92,7 @@ beforeEach(() => {
   fixture.projectsAvailable = true
   fixture.projectsLoading = false
   fixture.session = {
+    backend: 'claude',
     agentKind: 'code',
     sessionId: null,
     messages: [],

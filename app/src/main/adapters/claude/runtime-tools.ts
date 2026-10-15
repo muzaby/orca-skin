@@ -6,7 +6,7 @@ import type {
   RuntimeToolResult,
   RuntimeToolServer,
   RuntimeToolSnapshot
-} from '../runtime-tools'
+} from '../common/runtime-tools'
 
 // SDK 는 handler 반환값의 **형상을 검증하지 않는다** — `content` 가 없으면 그대로
 // `{content:[]}` 이 되어 모델에는 "성공했고 결과가 비었다" 로 보인다(0158 verify r1 D5 실측).

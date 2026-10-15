@@ -1,12 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import {
-  AgentModeToggle,
-  harnessSurfaces,
-  ChatTile,
-  Composer,
-  OpenCodeWordmark,
-  useChatSession
-} from '../features/chat'
+import { ChatTile, Landing, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
 import { useUsageForTelemetryProvider } from '../features/chat'
 import { useOpenSettings, providerTabId } from '../features/settings'
@@ -21,7 +14,7 @@ export function NewChatLandingPage(): React.JSX.Element {
   // 첫 send 의 낙관 커밋(0068)이 messages 를 즉시 채워 같은 렌더 사이클에 ChatTile 로
   // 전환된다. !inflight 는 이중 방어 — 어떤 경로로든 턴이 시작되면 랜딩에 갇히지 않는다.
   const isEmpty = useChatSession((s) => s.messages.length === 0 && !s.loadingSession && !s.inflight)
-  const openCode = useChatSession((s) => s.backend === 'opencode')
+  const backend = useChatSession((s) => s.backend)
   const backendLabel = useBackendLabel()
   const capabilities = useBackendCapabilities()
   // 능력 서술자가 로드됐는데 sessionAbort 가 아니면 중단 게이팅(미로드면 현행 동작 유지).
@@ -44,31 +37,17 @@ export function NewChatLandingPage(): React.JSX.Element {
 
   if (isEmpty) {
     return (
-      <section
-        className={`flex min-h-0 min-w-0 flex-1 bg-bg ${harnessSurfaces(openCode).landingRoot}`}
-        data-surface="new-chat-landing"
-        data-harness={openCode ? 'opencode' : 'claude'}
-      >
-        <div
-          className={`flex min-w-0 flex-1 justify-center ${harnessSurfaces(openCode).landingAlign}`}
-        >
-          <div className={`w-full max-w-[720px] ${harnessSurfaces(openCode).landingColumn}`}>
-            {openCode && <OpenCodeWordmark className="mb-8 h-auto w-full text-ink" />}
-            {!openCode && <AgentModeToggle />}
-            <Composer
-              backendLabel={backendLabel}
-              canAbort={canAbort}
-              usageLimits={usageLimits}
-              onOpenUsageSettings={onOpenUsageSettings}
-              onManagePlugins={onManagePlugins}
-              initialDraft={composerDraft}
-              showLandingCwdPanel
-              openCodeLanding={openCode}
-              flush={openCode}
-            />
-          </div>
-        </div>
-      </section>
+      <Landing
+        backend={backend}
+        composerProps={{
+          backendLabel,
+          canAbort,
+          usageLimits,
+          onOpenUsageSettings,
+          onManagePlugins,
+          initialDraft: composerDraft
+        }}
+      />
     )
   }
   return (

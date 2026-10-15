@@ -2,7 +2,7 @@ import path from 'node:path'
 import { describe, expect, it, vi, type Mock } from 'vitest'
 import type { HookCallback, HookInput } from '@anthropic-ai/claude-agent-sdk'
 import { explicitOutputLinks, makeOutputFilesHook } from './output-files'
-import type { RuntimeToolContext } from '../runtime-tools'
+import type { RuntimeToolContext } from '../common/runtime-tools'
 
 const directory = path.resolve('/orca/output')
 const output = (name: string): string => path.join(directory, name)

@@ -19,7 +19,7 @@
 import type { ProviderInfo, ProviderKind, ProviderPlatformState } from '../../shared/ipc'
 import type { AuthRuntime, BoundAuth } from '../contracts/auth'
 import type { Gate } from '../features/gate'
-import type { HarnessModelProviderKey } from '../features/harnesses/runtime-config'
+import type { HarnessModelProviderKey } from '../features/harnesses/common/runtime-config'
 import type { ProviderCatalogPresentation } from '../../shared/provider-catalog'
 
 // 이 모듈은 **읽기만** 한다 — 선언 설명과 현재 단계. `AuthRuntime` 전체를 받으면 view 조립이

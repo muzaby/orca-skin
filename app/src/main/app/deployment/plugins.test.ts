@@ -7,15 +7,15 @@
 //     올라 다음 턴이 런타임을 재spawn 한다.
 
 import { describe, expect, it, vi } from 'vitest'
-import type { RuntimeToolServer } from '../../adapters/runtime-tools'
+import type { RuntimeToolServer } from '../../adapters/common/runtime-tools'
 import type {
   AuthenticatedRequest,
   AuthSnapshot,
   AuthStatus,
   BoundAuth
 } from '../../contracts/auth'
-import { RuntimeToolRegistry } from '../../features/extensions/runtime-tool-registry'
-import { authToolServerId } from '../../adapters/runtime-tool-policy'
+import { RuntimeToolRegistry } from '../../features/extensions/common/runtime-tool-registry'
+import { authToolServerId } from '../../adapters/common/runtime-tool-policy'
 import { createPluginBinding } from './plugins'
 
 function server(authId: string): RuntimeToolServer {

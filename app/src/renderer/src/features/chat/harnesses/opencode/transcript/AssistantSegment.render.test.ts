@@ -1,11 +1,11 @@
 import { createElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
+import { renderOpenCodeTranscript as renderToStaticMarkup } from '../../registries/transcript.testfixture'
 import { load } from 'cheerio'
 import { describe, expect, it, vi } from 'vitest'
 import { AssistantMessage, AssistantSegment } from '../../../components/transcript/AssistantMessage'
-import { PendingAssistant } from '../../../components/transcript/PendingAssistant'
-import { UserMessage } from '../../../components/transcript/UserMessage'
-import { MessageMeta } from '../../../components/transcript/MessageMeta'
+import { PendingAssistant } from '../../claude/transcript/PendingAssistant'
+import { UserMessage } from '../../common/transcript/UserMessage'
+import { MessageMeta } from '../../common/transcript/MessageMeta'
 import { transcriptPresentation } from '../../../lib/agentPresentation'
 import { chatReducer, initialChatState, type Message } from '../../../reducer/chatReducer'
 import { installChatStoreHarness } from '../../../store/chatStore.testHarness'
@@ -67,7 +67,7 @@ describe('harness transcript routing', () => {
     if (name === 'WebFetch') expect($('a').attr('href')).toBe('https://example.com')
   })
   it.each(['claude', 'opencode'] as const)(
-    'separates committed and live text/reasoning for %s',
+    'separates committed text/reasoning for %s',
     (backend) => {
       installChatStoreHarness({ backend })
       const message: Message = {
@@ -87,16 +87,16 @@ describe('harness transcript routing', () => {
       expect($.text().indexOf('Reasoning')).toBeLessThan($.text().indexOf('Answer'))
       expect($('[data-component="opencode-text"]')).toHaveLength(backend === 'opencode' ? 1 : 0)
       expect($('details')).toHaveLength(backend === 'claude' ? 1 : 0)
-      const live = render(
-        createElement(PendingAssistant, { openCode: backend === 'opencode', showStatus: false })
-      )
-      expect(live.text()).toContain('Live answer')
-      expect(live('[data-component="opencode-reasoning"]')).toHaveLength(
-        backend === 'opencode' ? 1 : 0
-      )
-      expect(live('details')).toHaveLength(backend === 'claude' ? 1 : 0)
     }
   )
+  it('keeps Claude live text and reasoning in its own pending renderer', () => {
+    installChatStoreHarness({ backend: 'claude' })
+    const live = render(createElement(PendingAssistant, { showStatus: false }))
+    expect(live.text()).toContain('Live answer')
+    expect(live.text()).toContain('Live reasoning')
+    expect(live('[data-component="opencode-reasoning"]')).toHaveLength(0)
+    expect(live('details')).toHaveLength(1)
+  })
   it('handles every persisted segment kind in order', () => {
     installChatStoreHarness({ backend: 'opencode' })
     const segments: MessageSegment[] = [
@@ -194,7 +194,7 @@ describe('harness transcript routing', () => {
       createElement(
         'div',
         {},
-        createElement(UserMessage, { message, openCode: true }),
+        createElement(UserMessage, { message }),
         createElement(MessageMeta, { text: 'prompt', createdAt: 1, align: 'right', forkable: true })
       )
     )

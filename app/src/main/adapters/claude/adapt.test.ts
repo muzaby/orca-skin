@@ -18,7 +18,7 @@ import {
   extractCompactSummary,
   withPostCompactHook
 } from './adapt'
-import type { NormalizedHookHandler } from '../hooks'
+import type { NormalizedHookHandler } from '../common/hooks'
 import type { SkillInfo } from '../../../shared/ipc'
 import { PRODUCT_SLUG } from '../../../shared/product'
 

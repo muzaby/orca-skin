@@ -49,12 +49,12 @@ import { contextTokens } from '../lib/telemetry'
 import { agentTaskKey, backgroundTaskKey } from '../lib/taskBoard'
 import { settleOrphanToolParts, settleStaleAsyncLaunchParts } from '../lib/parts'
 import { rightPanelPolicy, rightPanelTarget, type RightPanelTileId } from '../lib/rightPanelTiles'
-import type { BranchSnapshot } from '../components/composer/branchChipState'
+import type { BranchSnapshot } from '../harnesses/common/composer/branchChipState'
 import {
   reanchorDiffRequirementItem,
   wireDiffRequirementAnchor,
   diffRequirementMatchesComparison
-} from '../components/rightpanel/diffRequirements'
+} from '../harnesses/common/rightpanel/diffRequirements'
 import { patchLinesToDiffLines } from '../lib/diffPatchLines'
 import { readGitPatchCache, writeGitPatchCache, type GitPatchCache } from '../lib/gitPatchCache'
 import {
@@ -69,7 +69,7 @@ import {
   diffComparisonKey,
   reconcileComparison,
   type DiffComparison
-} from '../components/rightpanel/diffComparison'
+} from '../harnesses/common/rightpanel/diffComparison'
 
 // transcript 렌더가 쓰는 도구 호출 view — parts 의 tool_call+tool_result 를 toolRunId 로
 // 페어링한 결과(lib/parts.ts partsToolCalls). 더 이상 Message 의 필드가 아니다.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildTurnContent } from './adapter'
-import type { ExtractedAttachmentImage, ExtractedAttachmentText } from '../turn'
+import type { ExtractedAttachmentImage, ExtractedAttachmentText } from '../common/turn'
 import type { DiffRequirementAnchor } from '../../../shared/ipc'
 
 const textAtt = (overrides: Partial<ExtractedAttachmentText> = {}): ExtractedAttachmentText => ({

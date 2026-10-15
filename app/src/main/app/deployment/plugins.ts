@@ -14,8 +14,8 @@
 // 않는다). sync 마다 서버를 새로 만들면 형상이 같아도 revision 이 올라 다음 턴이 런타임을
 // 재spawn 한다. 그래서 서버는 부팅에서 1회 만들고 `sync` 는 add/remove 만 한다.
 
-import type { RuntimeToolServer, RuntimeToolSink } from '../../adapters/runtime-tools'
-import { runtimeToolFullName } from '../../adapters/runtime-tool-policy'
+import type { RuntimeToolServer, RuntimeToolSink } from '../../adapters/common/runtime-tools'
+import { runtimeToolFullName } from '../../adapters/common/runtime-tool-policy'
 import type { AuthRuntime, BoundAuth } from '../../contracts/auth'
 import {
   normalizeProviderCatalogPresentation,

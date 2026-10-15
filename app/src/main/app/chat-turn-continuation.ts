@@ -13,10 +13,10 @@
 // 에 모두 싣는 이유는 **fingerprint 변경·도구 변경·모델 변경 또는 예기치 않은 channel 종료로
 // 어느 분기에서든 새 spawn 이 필요할 때 fresh env 가 빠지지 않아야** 하기 때문이다.
 
-import type { TurnExtensions } from '../adapters/turn'
-import type { ResolvedHarnessSettings } from '../adapters/harness-config'
+import type { TurnExtensions } from '../adapters/common/turn'
+import type { ResolvedHarnessSettings } from '../adapters/common/harness-config'
 import { respawnInputs } from './chat-turn/respawn-inputs'
-import type { PreparedHarnessConfig } from '../adapters/harness-config'
+import type { PreparedHarnessConfig } from '../adapters/common/harness-config'
 import { decideRespawn } from '../features/sessions/respawn-policy'
 
 export interface AutomaticContinuationRuntime {

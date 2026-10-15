@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import { Markdown } from '../../../../../shared/ui/markdown/Markdown'
 import { StreamingMarkdown } from '../../../components/markdown/StreamingMarkdown'
-import { useI18n } from '../../../../../shared/i18n/index'
+import { useI18n } from '../../../../../shared/i18n'
 import type { ReasoningItem } from '../../../lib/parts'
 
 interface ReasoningBlockProps {

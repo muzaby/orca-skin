@@ -27,7 +27,7 @@
 | **AdapterRegistry** | 등록된 어댑터들의 설치 상태를 추적하고 활성 백엔드를 고른다. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 | **claude 어댑터** | claude-code SDK 의 `query()` 를 직접 부르고, 그 메시지를 `NormalizedEvent` 로 정규화하는 구현체(`adapters/claude/adapter.ts`). | [adapters.md §1](./adapters.md) |
 | **ExtensionBuilder / TurnExtensions** | DB 지침·settings·Skills·plugin 경로·runtime tool snapshot을 모아 턴의 확장 입력을 만든다. 파일 기반 MCP 구성은 배포 경로가 소유한다. | [adapters.md §1](./adapters.md) |
-| **NormalizedHookSet** | before-tool·after-tool·on-prompt 같은 *시점별 콜백* 모음. 어댑터별 hook 을 정규화(`adapters/hooks.ts`). | [adapters.md §3](./adapters.md) |
+| **NormalizedHookSet** | before-tool·after-tool·on-prompt 같은 *시점별 콜백* 모음. 어댑터별 hook 을 정규화(`adapters/common/hooks.ts`). | [adapters.md §3](./adapters.md) |
 
 ## 3. 영속성 (데이터를 저장하는 곳)
 

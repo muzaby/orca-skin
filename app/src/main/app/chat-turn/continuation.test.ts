@@ -5,7 +5,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { buildFlushRequest, buildListenRequest } from './continuation'
-import type { SteerFlushBatch, TurnRequest } from '../../adapters/turn'
+import type { SteerFlushBatch, TurnRequest } from '../../adapters/common/turn'
 import type { DiffRequirementAnchor } from '../../../shared/ipc'
 
 // 0188 — settings 와 env 가 **한 객체**로 온다. listen 과 flush 가 둘 다 같은 값을 실어야

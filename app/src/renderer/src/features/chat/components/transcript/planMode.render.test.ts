@@ -20,7 +20,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
 }))
 
 import { ClaudeAdapter } from '../../../../../../main/adapters/claude/adapter'
-import type { LiveTurn } from '../../../../../../main/adapters/types'
+import type { LiveTurn } from '../../../../../../main/adapters/common/types'
 import { HistoryWriter } from '../../../../../../main/features/history/writer'
 import { partFromRow } from '../../../../../../main/infra/ipc/dto'
 import { agentPermissionRequest } from '../../../../../../main/features/approvals/permission-bridge'
@@ -36,7 +36,7 @@ import { chatReducer, initialChatState, type ChatState } from '../../reducer/cha
 import { messageSegments, partsToolCalls } from '../../lib/parts'
 import { agentUiPolicy } from '../../lib/agentPresentation'
 import { ToolCard } from '../../harnesses/claude/transcript/ToolCard'
-import { WorkToolBody } from './WorkToolBody'
+import { WorkToolBody } from '../../harnesses/claude/transcript/WorkToolBody'
 
 const roots: string[] = []
 const lives: LiveTurn[] = []

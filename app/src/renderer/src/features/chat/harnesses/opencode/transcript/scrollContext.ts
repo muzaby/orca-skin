@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { ScrollAnchor } from '../../../hooks/useScrollAnchor'
+import type { ScrollAnchor } from '../../common/transcript/scrollTypes'
 import type { TimelineViewState } from './viewState'
 
 export interface TimelineScroll extends ScrollAnchor {

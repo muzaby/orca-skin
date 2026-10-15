@@ -100,7 +100,7 @@ new BrowserWindow({
 >
 > **타입 모델**: 정규 컬렉션 타입은 `OrcaMcpConfig`(claude-code 스펙). Claude 형식은 이와 동일하므로 **별칭** `type ClaudeMcpConfig = OrcaMcpConfig` 로 못박는다. 단일 항목 타입 `ClaudeMcp` 의 http/sse 는 분리된 판별 멤버라 SDK `McpServerConfig`(stdio|http|sse) 유니온에 그대로 대입된다. **"IR(중간형)" 표현은 쓰지 않는다** — 정규형이 곧 claude-code 스펙.
 >
-> **MCP 변환 경계**: `features/extensions/mcp/convert.ts`의 `toClaudeConfig`가 서버별 env/header 확장과 미해결 제외를 함께 수행한다. `OrcaMcpConfig`와 `ClaudeMcpConfig`는 동형이며 http/sse/stdio 구조를 보존한다. OpenCode 변환기와 실행 연동은 미구현이다.
+> **MCP 변환 경계**: `features/extensions/claude/mcp/convert.ts`의 `toClaudeConfig`가 서버별 env/header 확장과 미해결 제외를 함께 수행한다. `OrcaMcpConfig`와 `ClaudeMcpConfig`는 동형이며 http/sse/stdio 구조를 보존한다. OpenCode 변환기와 실행 연동은 미구현이다.
 >
 > **소스와 배포 산출물**: `writeMcpFile`은 편집한 소스를 저장한다. Bootstrap은 활성 소스를 resolver로 확장해 `deploy`에 전달하며, 배포기는 `dist/claude/plugins/orcinus-orca/.mcp.json`에 렌더한다. 따라서 확장된 비밀이 배포 파일에 존재하는 현재 제약이 있다. 변환기는 입력 소스를 변경하지 않고 미해결 서버는 제외한다.
 >

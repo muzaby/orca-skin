@@ -1,7 +1,6 @@
-import { modelPresentation as claude } from './claude/composer/modelPresentation'
-import { modelPresentation as opencode } from './opencode/composer/modelPresentation'
-import type { ModelPresentation } from './types'
-
+import { harnessCatalog } from './catalog'
+import { isBackend } from '../../../../../shared/harness'
+import type { ModelPresentation } from './contracts'
 export function modelPresentation(adapter: string): ModelPresentation {
-  return adapter === 'opencode' ? opencode : claude
+  return harnessCatalog(isBackend(adapter) ? adapter : 'claude').model
 }

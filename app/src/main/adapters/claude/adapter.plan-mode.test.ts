@@ -27,7 +27,8 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
 }))
 import { ClaudeAdapter, makeCanUseTool } from './adapter'
 import type { ApprovalResolution, NormalizedEvent, PermissionAction } from '../../../shared/ipc'
-import { NORMALIZED_MODES, toClaudePermissionMode } from '../../../shared/permission-mode'
+import { NORMALIZED_MODES } from '../../../shared/permission-mode'
+import { toClaudePermissionMode } from '../../../shared/harnesses/claude/permission-mode'
 
 const roots: string[] = []
 afterEach(async () => {

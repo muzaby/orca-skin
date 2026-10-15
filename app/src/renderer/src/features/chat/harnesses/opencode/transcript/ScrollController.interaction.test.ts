@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { installFakeDom, type FakeDom } from '../../../../../shared/ui/renderHarness.testfixture'
 import { OpenCodeScrollController } from './ScrollController'
 import { timelineViewState } from './viewState'
-import type { ScrollAnchor } from '../../../hooks/useScrollAnchor'
+import type { ScrollAnchor } from '../../common/transcript/scrollTypes'
 
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),

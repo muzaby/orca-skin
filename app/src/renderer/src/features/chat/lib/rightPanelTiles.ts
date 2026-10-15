@@ -1,5 +1,4 @@
-import { RIGHT_PANEL_POLICY } from '../harnesses/claude/rightPanel'
-import { OPEN_CODE_PANEL_POLICY } from '../harnesses/opencode/rightPanel'
+import { harnessCatalog } from '../harnesses/catalog'
 export { RIGHT_PANEL_POLICY } from '../harnesses/claude/rightPanel'
 import type { Backend } from '../../../../../shared/ipc'
 import type { AgentKind } from '../../../../../shared/agent-kind'
@@ -38,7 +37,7 @@ export function rightPanelPolicy(
   kind: AgentKind,
   backend: Backend | null = 'claude'
 ): RightPanelAgentPolicy {
-  return backend === 'opencode' ? OPEN_CODE_PANEL_POLICY : RIGHT_PANEL_POLICY[kind]
+  return harnessCatalog(backend).panel(kind)
 }
 
 export const rightPanelTileIds = rightPanelTileDefinitions.map(
@@ -136,5 +135,5 @@ export function showsUnseenTaskBadge(
 ): boolean {
   if (backend === 'opencode') return false
   if (isRightPanelTileSuspended('task', suspended)) return false
-  return unseenCount > 0 && !activeTiles.includes(RIGHT_PANEL_POLICY[kind].taskBadgeTile)
+  return unseenCount > 0 && !activeTiles.includes(harnessCatalog(backend).panel(kind).taskBadgeTile)
 }

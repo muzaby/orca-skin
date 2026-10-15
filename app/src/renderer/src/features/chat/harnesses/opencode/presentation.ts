@@ -1,4 +1,4 @@
-import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
+import type { AgentTranscriptPresentation } from '../contracts'
 export const openCodeTranscript: AgentTranscriptPresentation = {
   surface: 'opencode',
   turnProjection: 'standard',

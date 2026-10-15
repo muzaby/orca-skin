@@ -21,7 +21,7 @@ vi.mock('electron', () => ({
 vi.mock('../../infra/log/registry', () => ({
   getLogger: () => ({ child: () => ({ warn: vi.fn() }) })
 }))
-vi.mock('../../features/harnesses/settings-write', () => ({
+vi.mock('../../features/harnesses/common/settings-write', () => ({
   addHarnessSettings: vi.fn(),
   updateHarnessSettings: vi.fn(),
   deleteHarnessSettings: vi.fn(),

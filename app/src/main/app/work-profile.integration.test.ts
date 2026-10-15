@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { Options } from '@anthropic-ai/claude-agent-sdk'
 import type { Settings } from '../../shared/ipc'
-import type { RuntimeToolSnapshot } from '../adapters/runtime-tools'
+import type { RuntimeToolSnapshot } from '../adapters/common/runtime-tools'
 
 const { queryMock } = vi.hoisted(() => ({
   queryMock: vi.fn((request: unknown) => {
@@ -24,10 +24,10 @@ vi.mock('@anthropic-ai/claude-agent-sdk', async (importOriginal) => ({
 
 import { ClaudeAdapter } from '../adapters/claude/adapter'
 import { resolveAgentProfile } from '../features/agents/profiles'
-import { ExtensionBuilder } from '../features/extensions/builder'
+import { ExtensionBuilder } from '../features/extensions/common/builder'
 import { applyMigrations } from '../infra/db/migrate'
 import { DbQueries } from '../infra/db/queries'
-import { prepareAgentExtensionProfile } from './agent-extension-profile'
+import { prepareAgentExtensionProfile } from './harnesses/registry'
 
 it('composes Work only into the SDK header while retaining Code execution, tools, plugins and approval', async () => {
   const root = mkdtempSync(join(tmpdir(), 'orca-profile-query-'))

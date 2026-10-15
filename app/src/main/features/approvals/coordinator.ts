@@ -10,7 +10,6 @@ import { PermissionRespondSchema, SetPermissionModeSchema } from '../../../share
 import {
   coerceAutoPermissionModeForModelName,
   permissionModeForAgent,
-  toClaudePermissionMode,
   type NormalizedPermissionMode
 } from '../../../shared/permission-mode'
 import { ApprovalBroker } from '../../features/approvals/broker'
@@ -108,7 +107,7 @@ export class ApprovalCoordinator {
             : permissionModeForAgent(mode, kind)
           if (turn?.live) {
             try {
-              await turn.live.setPermissionMode(toClaudePermissionMode(applied))
+              await turn.live.setPermissionMode(applied)
               if (
                 supervisor.getBySession(sessionId) !== turn ||
                 turn.live !== live ||

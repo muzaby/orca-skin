@@ -45,7 +45,7 @@ const h = vi.hoisted(() => {
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({ query: h.queryMock }))
 
 import { ClaudeAdapter } from './adapter'
-import type { TurnRequest } from '../turn'
+import type { TurnRequest } from '../common/turn'
 
 const INIT = { type: 'system', subtype: 'init', session_id: 's1', model: 'm' }
 const ASSISTANT = {

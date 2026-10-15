@@ -1,5 +1,5 @@
 import { createElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
+import { renderWithTranscript as renderToStaticMarkup } from '../../harnesses/registries/transcript.testfixture'
 import { describe, expect, it, vi } from 'vitest'
 import { TranscriptView } from './TranscriptView'
 import type { Message } from '../../reducer/chatReducer'
@@ -12,11 +12,11 @@ vi.mock('../../hooks/useTranscriptVirtualizer', () => ({
     measureElement: vi.fn()
   })
 }))
-vi.mock('./MessageMeta', () => ({ MessageMeta: () => null }))
+vi.mock('../../harnesses/common/transcript/MessageMeta', () => ({ MessageMeta: () => null }))
 vi.mock('../../../../shared/ui/markdown/Markdown', () => ({
   Markdown: ({ source }: { source: string }) => createElement('p', null, source)
 }))
-vi.mock('./WorkActivity', () => ({
+vi.mock('../../harnesses/claude/transcript/WorkActivity', () => ({
   WorkActivity: ({
     messages,
     toolResults

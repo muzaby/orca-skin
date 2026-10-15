@@ -230,28 +230,93 @@ READY — 사용자 요구와 기존 제품 결정을 AC에 대조했고 충돌 
 
 ## [구현자 기입] 설계 리뷰
 
-구현 착수 후 기입.
+r1, V1 구현. D01~D07 및 AC1~AC11의 동작·저장 계약을 유지했다. 공통 구현을 전역 폴더 하나로 모으지 않고 기존 feature/레이어 안에서 분리했으며, 앱 조립부가 중립 계약으로 구체 구현을 선택한다. Backend·IPC·DB·패키지 버전 변경은 없다.
+
+Part II의 단일 `chat/harnesses/registry.test.tsx` 대신 실제 진입점별 기존 렌더 테스트를 확장했다. `RequestDock` 역시 별도 모사 테스트 대신 실제 Composer를 통과하는 `Composer.approvalQueue.test.ts`로 검사한다. 같은 production path·행동 oracle을 유지하는 파일 배치 조정이며 규범 계약 변경은 없다. 정확한 실행 구간은 [직접 oracle 목록](implementation-evidence.md)에 기록한다.
 
 ## [구현자 기입] 강제 지점 전수 / V-pair 자기확인
 
-구현 착수 후 기입.
+전체 검색은 하네스 선택·parser·permission 값을 운반하는 호출부를 기준으로 했다. `rg -n 'backend|harnessId|parseModels|parseSettingsModels|setPermissionMode' app/src/main/app app/src/main/features/harnesses app/src/renderer/src/features/{chat,engine,settings}`에 해당하는 디렉터리별 검색과 `git diff --name-status`, 이동 manifest 대조로 public 진입점→registry→concrete/common 경로를 확인했다. 상세 28자리의 직접 `파일:테스트명`과 실행 범위는 [EP01~EP06](implementation-evidence.md)에 있으며, 함수 단위 검사를 전체 앱 E2E로 확대하지 않는다.
+
+| 강제 지점 | 자리 수 | 대응 |
+|---|---:|---|
+| EP01 | 6 | composer·transcript·rightpanel·engine·settings·landing의 실제 등록/렌더 |
+| EP02 | 6 | adapter 등록·settings/runtime parser·native reader·extension 배포·live permission |
+| EP03 | 4 | 형제 소유자·공통 역방향·SDK 위치·버전 facade |
+| EP04 | 7 | 입력 수명·폼 저장·FIFO·Todo·스크롤/선택·Claude 타일·OpenCode 상세 닫기 |
+| EP05 | 3 | 부팅/종료·카탈로그 generation·send/permission/session |
+| EP06 | 2 | 미사용 PlanTile·htmlRegion helper 제거 및 활성 대체 경로 |
+
+검산: 6+6+4+7+3+2=28. 직접 oracle로 28/28을 확인했다. EP02.1~3은 factory 내부 검사에 더해 실제 Bootstrap의 constructor/start가 전달하는 값까지 별도 검사했다. pair의 중복 참조는 다시 합산하지 않는다.
+
+| Pair | 자기판정 | 직접 근거 |
+|---|---|---|
+| VP01 | SELF_PASS | EP01 6표면의 실제 렌더·등록 슬롯 맞바꿈 |
+| VP02 | SELF_PASS | EP02 6자리의 등록/주입/변환, 실제 부팅 caller 3곳 포함 |
+| VP03 | SELF_PASS | EP03 실제 ESLint positive/negative fixture |
+| VP04 | SELF_PASS | EP04.1~2 입력 인스턴스·초안·첨부·저장 경쟁 |
+| VP05 | SELF_PASS | EP04.3~5 FIFO·Todo·스크롤/선택 interaction |
+| VP06 | SELF_PASS | EP04.6~7 Claude 타일·OpenCode overlay 닫기 |
+| VP07 | SELF_PASS | EP05 부팅/종료·generation·send/permission/session |
+| VP08 | SELF_PASS | EP06 참조 감사와 활성 대체 경로·빌드 |
+| VP09 | SELF_PASS | VP04~07 회귀와 renderer fixture Computer Use |
+| VP10 | SELF_PASS | EP01 실제 조립 및 EP03 역방향 의존 거부 |
+| VP11 | SELF_PASS | EP02 app 조립→중립 port→native 실행 |
+| VP12 | SELF_PASS | EP03 AST 종류·새 owner·버전 경계 diagnostic |
+| VP13 | SELF_PASS | EP01 슬롯 선택 및 EP02.1 명시 등록 |
+
+13/13은 구현자 자기확인이며 독립 verify 결과가 아니다. 원격 Windows CI는 별도 운영 gate로 아래에 기록한다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
-구현 착수 후 기입.
+VP01의 표면별 registry에서 Claude/OpenCode 슬롯을 맞바꾸는 등록 변이 6개를 각각 실행했다. 모두 assertion 실패·원본 바이트 복원·동일 필터 통과를 확인했고 현재 파일의 SHA256도 원본과 다시 대조했다. 결과와 직접 oracle은 [적대 증거](implementation-evidence.md)에 기록한다. rightpanel 첫 실행은 무관한 직접-detail fixture의 context 오류가 섞여 유효 증거로 세지 않았다. 실제 public RightPanel dispatch 테스트로 범위를 맞춰 재실행했을 때 assertion만 실패하고 복원 뒤 통과했다.
+
+VP03은 실제 ESLint를 실행하는 8개 테스트가 형제 소유자, 가상 Codex, common 역방향, alias/dynamic/require/re-export/type import, SDK 위치 및 v1 facade 우회를 검사한다. 가상 파일 fixture에서만 순환 탐색을 끄고 production DAG·순환 규칙은 유지했다. 직접 동작 oracle인 VP02·04~09·11에는 추가 mutation을 발명하지 않았다.
+
+소스 위치를 읽는 기존 테스트는 단언을 없애지 않고 새 실제 소유 경로로 갱신했다. 오류 보고 site registry도 이동한 catch 위치에 맞춰 수정했고 관련 225개 테스트를 재실행했다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
-구현 착수 후 기입.
+실제 renderer 컴포넌트를 사용하는 `scripts/fixtures/opencode-ui`를 Computer Use로 조작했다. 질문→도구 승인→다음 질문이 한 장씩 composer를 대체하고 소비 뒤 입력과 초안이 돌아오는 것, Todo의 전개·한 줄 접기·완료 후 퇴장, 도구 행과 편집 diff, 작업 요약→변경사항 상세→닫기 후 요약 복귀를 확인했다. Claude로 전환해 기존 사용자 버블·도구 행·컴포저를 대조했다.
+
+실행 환경은 in-app browser의 fixture이며 네이티브 Orca 전체 세션/실모델 검증으로 보고하지 않는다. 스크롤·선택은 실제 controller/Timeline interaction 테스트로 재검증했다. 기존 사용자 결정대로 실모델 도구 검증은 생략했다. 새 문구·승인 흐름·버튼·설정은 추가하지 않았다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
-구현 착수 후 기입.
+| 발견 | 대응 / 잔여 |
+|---|---|
+| 중립 registry가 Claude 컴포넌트의 inferred props에 의존 | 공통 `ToolApprovalBodyProps`·composer control 계약을 명시하고 양쪽 구현이 이를 사용 |
+| OpenCode가 Claude TurnErrorBanner를 직접 참조 | 동일 본문을 common으로 옮겨 형제 의존 제거 |
+| 경로만 옮기면 source 기반 회귀·오류 site 등록·현재 문서가 낡음 | 실제 파일 경로로 갱신하고 회귀·inventory·scoped link 검사 |
+| 기존 PendingAssistant와 presentation helper에 사용되지 않는 wrapper가 남음 | 실제 Claude 구현/소비자로 통합하고 미사용 helper 제거; 공통 공개 진입점은 소비가 있는 곳만 유지 |
+| 호스트 Node ABI127과 설치된 SQLite Electron ABI140 불일치 | 재설치·rebuild 없이 DB 관련 테스트를 Electron Node 모드/threads로 재검증 |
+| 사용자 TEMP 상위 디렉터리 접근 및 fork worker 종료 실패 | workspace TEMP를 사용하고 동일 소스를 threads로 재실행; 해당 초기 실패를 제품 PASS로 계산하지 않음 |
+| SubAgentTaskDetail의 static/dynamic 동시 import | 기존 즉시 렌더 수명을 유지했다. 빌드 경고가 남으며 별도 chunk로 분리되었다고 주장하지 않음 |
+
+독립 verify는 수행하지 않았다. 현재 범위에서 새로운 제품 결정이 필요한 PLAN_GAP은 발견하지 않았다.
 
 ## [구현자 기입] 구현 보고
 
-구현 착수 후 기입.
+renderer는 feature별 `harnesses/{common,claude,opencode}`와 typed registry로 실제 구현을 나눴다. main은 `adapters/common`, `features/harnesses/{common,claude,opencode}`, `features/extensions/{common,claude}`, `app/harnesses`로 소유권을 분리했다. native Claude 권한 변환·배포와 OpenCode v1 구현이 공통 내부에 들어오지 않는다.
+
+tracked 삭제 경로는 이동·통합 257개와 확인된 dead code 2개로 대조했다. 삭제한 미사용 코드는 `components/PlanTile.tsx`, `shared/ui/htmlRegion.testlib.ts`이다. 사용자 첨부·ignored OpenCode 소스·디자인 증거·브랜드 원본과 활성 fixture는 보존했다. package/lock 변경은 없다.
+
+| 게이트 | 결과 |
+|---|---|
+| 전체 typecheck | node/web/test 통과. 최종 중립 props 수정 후 전체 재확인 통과 |
+| readonly ESLint | 전체 오류 0. 포맷·memo 의존 경고 보완 후 잔여 6개(React refresh 4, 기존 Virtual 2) |
+| renderer 회귀 | 전체 347파일 실행 후 이동 경로/오류등록 수정과 ABI 환경 분리로 실패 재검증. 추가 UI 회귀 27파일·126개 및 composer/Todo 2파일·4개 통과 |
+| main 회귀 | 관련 176파일 실행 후 ABI/TEMP 실패를 분리 재검증. Electron 21파일·202개, send 3파일·42개 통과. 실제 Bootstrap caller 2테스트 추가 통과 |
+| script tests | 142개 통과; harness boundary 8개 포함 |
+| build | 최종 소스의 main/preload/renderer 빌드 성공. SubAgentTaskDetail 혼합 import 경고 유지 |
+| 문서/정리 | inventory/prose 및 scoped links 오류 0, 현재 문서의 이전 경로 잔여 0, diff check 통과 |
+| 선택 변이 | 6/6 assertion red → byte 복원 → 동일 필터 green |
+| 원격 Windows CI | 구현 커밋 게시 후 확인 |
+
+전체 링크 검사에서 ignored `.tmp/opencode-dev`의 기존 링크 오류 5개는 보존된 외부 아카이브에 한정된다. 검사 범위를 숨기지 않고 제품 문서 범위의 링크 검사와 구분했다. 초기 실패가 있던 실행을 전체 green으로 표현하지 않으며, 로그별 재검증을 합산해 중복 테스트 수를 만들지 않는다.
+
+AC 자기확인: AC1(chat)·AC2(engine/settings/landing)·AC3(main 등록)·AC4(parser)·AC5(native 배포/권한)·AC6(경계)·AC7(입력/폼)·AC8(FIFO/Todo/transcript)·AC9(패널)·AC10(runtime)·AC11(정리) = 11/11. 원격 CI 확인 전에는 INDEX를 구현 진행 상태로 유지한다.
 
 ## [구현자 기입] Review Signals
 
-r1 — 새 사용자 리팩토링 요구. 독립 검증은 구현 완료 후 별도 수행한다.
+r1 — 새 사용자 리팩토링 요구. 과거 verify 실패를 고치는 라운드가 아니다. 기존 표현·수명 계약이 있었고 이동으로 생기는 import, source guard, 오류 site 등록이 주요 검증 축이었다. 반복 환경 한계는 Electron/Node ABI와 TEMP 접근이며 의존성을 재설치하지 않고 실행 환경을 맞췄다. 다음 단계는 Claude 독립 검증이다.

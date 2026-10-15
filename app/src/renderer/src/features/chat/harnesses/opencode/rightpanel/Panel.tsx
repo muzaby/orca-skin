@@ -1,7 +1,7 @@
 import { useLayoutEffect, useReducer, type ComponentProps } from 'react'
-import { TilePanel, type TilePanelDetail } from '../../../components/rightpanel/TilePanel'
-import { RightPanelTile } from '../../../components/rightpanel/RightPanelTile'
-import { tileById } from '../../../components/rightpanel/tileRegistry'
+import { TilePanel, type TilePanelDetail } from '../../common/rightpanel/TilePanel'
+import { RightPanelTile } from '../../common/rightpanel/RightPanelTile'
+import { openCodeTileById } from './tileRegistry'
 import { useChatStore } from '../../../store/chatStore'
 import {
   initialOpenCodeDetailState,
@@ -23,7 +23,7 @@ export function OpenCodeRightPanel(
   }
   let detail: TilePanelDetail | undefined
   if (state.selection) {
-    const tile = tileById(state.selection.id, 'opencode')
+    const tile = openCodeTileById(state.selection.id)
     const { Content, HeaderContent, HeaderActions } = tile
     const toggleExpand = (): void => dispatch({ type: 'expand' })
     const close = (): void => dispatch({ type: 'close' })
@@ -43,6 +43,7 @@ export function OpenCodeRightPanel(
           }}
         >
           <RightPanelTile
+            configuration={props.configuration}
             id={tile.id}
             defaultLabelKey={tile.defaultLabelKey}
             taskTileChrome="opencode-overview"

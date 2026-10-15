@@ -1,4 +1,4 @@
-import type { LiveTurn, SessionAdapter } from '../adapters/types'
+import type { LiveTurn, SessionAdapter } from '../adapters/common/types'
 import type { SessionRuntimeState } from './session-state'
 
 // 런타임 거버넌스 계약. adapters 의 ports&adapters 정본(`LiveTurn`·`SessionAdapter`·`CompleteRequest`)을

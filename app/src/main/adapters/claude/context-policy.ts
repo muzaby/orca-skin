@@ -4,7 +4,7 @@ import {
   type ClaudeNameFamily
 } from '../../../shared/harnesses/claude/model-policy'
 import { isRecord } from '../../../shared/obj'
-import type { HarnessNativeSettings } from '../harness-config'
+import type { HarnessNativeSettings } from '../common/harness-config'
 
 export type ContextEnvLookup = (key: string) => string | undefined
 

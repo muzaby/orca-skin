@@ -1,0 +1,433 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { HarnessSettingsService } from './settings'
+import { parseClaudeModels } from '../claude/model-parser'
+import { defaultProvider, resolveTitleModel } from '../claude/model-policy'
+const parseSettings = (_harnessId: string, settings: Record<string, unknown>): ParsedModel[] =>
+  parseClaudeModels(settings)
+import { expandEnvRecord } from './env'
+import { createHarnessRuntimeConfigService } from './runtime-config'
+import {
+  canonicalAgentKey,
+  defaultModelFamily,
+  mergeAgentEnvironments,
+  modelNameForFamily,
+  toAgentEnvironments,
+  type ParsedModel
+} from './models'
+import { listAdapters, listProviders, type HarnessModelProviderEntry } from './settings'
+
+let root: string
+const settingsDir = (): string => join(root, 'sources', 'settings', 'claude')
+
+function writeFile(p: string, content: string): void {
+  mkdirSync(join(p, '..'), { recursive: true })
+  writeFileSync(p, content, 'utf8')
+}
+
+beforeEach(() => {
+  root = mkdtempSync(join(tmpdir(), 'orca-provider-settings-'))
+})
+afterEach(() => {
+  rmSync(root, { recursive: true, force: true })
+  vi.restoreAllMocks()
+})
+
+describe('listProviders / listAdapters', () => {
+  it('디렉토리가 열거 SSOT — 각 provider 의 settings.json 을 파싱해 모델을 채운다', () => {
+    writeFile(
+      join(settingsDir(), 'anthropic', 'settings.json'),
+      JSON.stringify({ env: { ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-6' } })
+    )
+    writeFile(join(settingsDir(), 'bedrock', 'settings.json'), '{}')
+
+    const entries = listProviders('claude', root, parseClaudeModels)
+    expect(entries.map((e) => e.key)).toEqual(['claude-anthropic', 'claude-bedrock'])
+    // 커스텀(sonnet) 만 노출, default.
+    expect(entries[0].models).toEqual([
+      {
+        alias: 'sonnet',
+        model: 'claude-sonnet-4-6',
+        isCustom: false,
+        oneMillionContext: false,
+        isDefault: true
+      }
+    ])
+    // 빈 settings → 4개 alias, sonnet default.
+    expect(entries[1].models.map((m) => m.alias)).toEqual(['sonnet', 'opus', 'haiku', 'fable'])
+    expect(entries[1].models.filter((m) => m.isDefault)).toHaveLength(1)
+    expect(listAdapters(root)).toEqual(['claude'])
+  })
+
+  it('settings.json 부재/손상은 기본 모델(4 alias)로 열거 — 디렉토리=열거 SSOT', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mkdirSync(join(settingsDir(), 'anthropic'), { recursive: true })
+    expect(listProviders('claude', root, parseClaudeModels)[0].models.map((m) => m.alias)).toEqual([
+      'sonnet',
+      'opus',
+      'haiku',
+      'fable'
+    ])
+
+    writeFile(join(settingsDir(), 'anthropic', 'settings.json'), '{broken')
+    expect(listProviders('claude', root, parseClaudeModels)[0].models.map((m) => m.alias)).toEqual([
+      'sonnet',
+      'opus',
+      'haiku',
+      'fable'
+    ])
+  })
+
+  it('settings 트리 부재 시 빈 배열 (스캐폴드 전 안전)', () => {
+    expect(listProviders('claude', root, parseClaudeModels)).toEqual([])
+    expect(listAdapters(root)).toEqual([])
+  })
+
+  it('defaultProvider 는 anthropic 우선, 없으면 이름순 첫 항목', () => {
+    mkdirSync(join(settingsDir(), 'vertex'), { recursive: true })
+    mkdirSync(join(settingsDir(), 'bedrock'), { recursive: true })
+    expect(defaultProvider(listProviders('claude', root, parseClaudeModels))?.modelProviderId).toBe(
+      'bedrock'
+    )
+    mkdirSync(join(settingsDir(), 'anthropic'), { recursive: true })
+    expect(defaultProvider(listProviders('claude', root, parseClaudeModels))?.modelProviderId).toBe(
+      'anthropic'
+    )
+  })
+})
+
+describe('model helpers (alias 기준)', () => {
+  const models: ParsedModel[] = [
+    {
+      alias: 'sonnet',
+      model: 'claude-sonnet-4-6',
+      isCustom: false,
+      oneMillionContext: false,
+      isDefault: true
+    },
+    { alias: 'haiku', model: null, isCustom: false, oneMillionContext: false, isDefault: false }
+  ]
+
+  it('modelNameForFamily 는 alias/model 매칭 후 default, null 모델은 bare alias 반환', () => {
+    expect(modelNameForFamily(models, 'sonnet')).toBe('claude-sonnet-4-6')
+    expect(modelNameForFamily(models, 'claude-sonnet-4-6')).toBe('claude-sonnet-4-6')
+    // null 모델 alias → SDK 가 해석하도록 bare alias 그대로.
+    expect(modelNameForFamily(models, 'haiku')).toBe('haiku')
+    // 미매칭 → default 의 model.
+    expect(modelNameForFamily(models, 'missing')).toBe('claude-sonnet-4-6')
+    expect(modelNameForFamily([], 'sonnet')).toBeUndefined()
+  })
+
+  it('modelNameForFamily 는 oneMillionContext 면 [1m] 접미사를 재부착한다 (0142)', () => {
+    const oneM: ParsedModel[] = [
+      {
+        alias: 'opus',
+        model: 'global.anthropic.claude-opus-4-8',
+        isCustom: false,
+        oneMillionContext: true,
+        isDefault: true
+      }
+    ]
+    // 설정의 `[1m]` 이 SDK query 의 options.model 로 되살아나야 1M 베타가 켜진다.
+    expect(modelNameForFamily(oneM, 'opus')).toBe('global.anthropic.claude-opus-4-8[1m]')
+    // oneMillionContext=false 면 접미사 없음(무회귀).
+    expect(modelNameForFamily(models, 'sonnet')).toBe('claude-sonnet-4-6')
+  })
+
+  it('defaultModelFamily 는 default 항목의 고유 model key, 빈 배열이면 null', () => {
+    expect(defaultModelFamily(models)).toBe('claude-sonnet-4-6')
+    expect(defaultModelFamily([])).toBeNull()
+  })
+
+  it('custom 분류는 custom으로 표시하되 실행 모델은 self resolve된다', () => {
+    const custom = [
+      {
+        alias: 'custom',
+        model: 'orca-private-v1',
+        isCustom: true,
+        oneMillionContext: false,
+        isDefault: true
+      }
+    ]
+    expect(modelNameForFamily(custom, 'orca-private-v1')).toBe('orca-private-v1')
+  })
+
+  it('resolveTitleModel 은 haiku 보유 시 haiku, 없으면 default, 빈 배열이면 undefined', () => {
+    // haiku 보유 → bare alias(haiku, null 모델).
+    expect(resolveTitleModel(models)).toBe('haiku')
+    // haiku 없음 → default 모델로 폴백.
+    expect(resolveTitleModel([models[0]])).toBe('claude-sonnet-4-6')
+    expect(resolveTitleModel([])).toBeUndefined()
+  })
+})
+
+describe('toAgentEnvironments', () => {
+  it('ParsedModel 을 그대로 통과시키고 비밀 계열 필드를 노출하지 않는다', () => {
+    const entries: HarnessModelProviderEntry[] = [
+      {
+        key: 'claude-bedrock',
+        harnessId: 'claude',
+        modelProviderId: 'bedrock',
+        models: [
+          {
+            alias: 'sonnet',
+            model: 'claude-sonnet-4-6',
+            isCustom: true,
+            oneMillionContext: false,
+            isDefault: true
+          }
+        ]
+      },
+      { key: 'opencode-local', harnessId: 'opencode', modelProviderId: 'local', models: [] }
+    ]
+    const envs = toAgentEnvironments(entries, ['claude'])
+    // wire DTO 는 **compat 필드명을 유지한다** (0188 D-030) — 도메인 어휘는 이 경계에서 변환된다.
+    expect(envs[0]).toEqual({
+      key: 'claude-bedrock',
+      adapter: 'claude',
+      provider: 'bedrock',
+      supported: true,
+      source: 'settings',
+      readOnly: false,
+      models: [
+        {
+          alias: 'sonnet',
+          model: 'claude-sonnet-4-6',
+          isCustom: true,
+          oneMillionContext: false,
+          isDefault: true
+        }
+      ]
+    })
+    expect(envs[1].supported).toBe(false)
+    expect('authToken' in envs[0]).toBe(false)
+    expect('env' in envs[0]).toBe(false)
+  })
+})
+
+describe('mergeAgentEnvironments', () => {
+  it('uses one runtime-managed row when a persisted settings key collides', () => {
+    const settings = {
+      key: 'claude-corp',
+      adapter: 'claude',
+      provider: 'corp',
+      supported: true,
+      source: 'settings' as const,
+      readOnly: false,
+      models: []
+    }
+    const runtime = { ...settings, source: 'runtime' as const, readOnly: true }
+
+    expect(mergeAgentEnvironments([settings], [runtime])).toEqual([runtime])
+  })
+
+  it('hides a canonical settings collision while its runtime-managed cache is empty', () => {
+    const settings = {
+      key: ' Claude-Corp ',
+      adapter: 'claude',
+      provider: 'corp',
+      supported: true,
+      source: 'settings' as const,
+      readOnly: false,
+      models: []
+    }
+
+    expect(
+      mergeAgentEnvironments([settings], [], (key) => canonicalAgentKey(key) === 'claude-corp')
+    ).toEqual([])
+  })
+
+  it('preserves settings rows that do not collide with a runtime-managed key', () => {
+    const settings = {
+      key: 'claude-other',
+      adapter: 'claude',
+      provider: 'other',
+      supported: true,
+      source: 'settings' as const,
+      readOnly: false,
+      models: []
+    }
+
+    expect(mergeAgentEnvironments([settings], [], (key) => key === 'claude-corp')).toEqual([
+      settings
+    ])
+  })
+})
+
+describe('env 유틸', () => {
+  it('같은 미해결 변수와 binding이 반복된 모든 값을 제외하고 입력을 보존한다', () => {
+    const input = Object.freeze({
+      A: '${MISSING}',
+      B: '${MISSING}',
+      C: 'prefix-${OK}-${MISSING}',
+      D: '${BINDING:key}',
+      E: '${BINDING:key}-${MISSING}',
+      F: '${OK}',
+      G: 'plain',
+      H: ''
+    })
+    const result = expandEnvRecord(input, (name) => (name === 'OK' ? 'resolved' : undefined))
+    expect(result).toEqual({
+      env: { F: 'resolved', G: 'plain', H: '' },
+      missing: ['MISSING', 'BINDING:key']
+    })
+    expect(input.C).toBe('prefix-${OK}-${MISSING}')
+  })
+
+  it('expandEnvRecord 는 미해결 변수가 있는 키만 드롭한다', () => {
+    const { env, missing } = expandEnvRecord({ A: '${OK}', B: '${MISSING}', C: 'plain' }, (name) =>
+      name === 'OK' ? 'v' : undefined
+    )
+    expect(env).toEqual({ A: 'v', C: 'plain' })
+    expect(missing).toEqual(['MISSING'])
+  })
+})
+
+describe('HarnessSettingsService', () => {
+  it('모델 목록 보정 없이 최소 설정 좌표를 runtime 서비스에 직접 주입한다', async () => {
+    seedSource('anthropic', '{}')
+    const loader = vi.fn(async () => ({ settings: { model: 'configured-model' } }))
+    const settings = new HarnessSettingsService({ claude: loader }, root, parseSettings)
+    const runtime = createHarnessRuntimeConfigService({ settings })
+    const target = {
+      key: 'claude-anthropic',
+      harnessId: 'claude',
+      modelProviderId: 'anthropic'
+    } satisfies Parameters<HarnessSettingsService['resolve']>[0]
+
+    expect(await runtime.resolve(target)).toMatchObject({
+      ...target,
+      settings: { providerKey: target.key, settings: { model: 'configured-model' } },
+      runtimeEnv: {}
+    })
+    expect(loader).toHaveBeenCalledOnce()
+  })
+
+  function seedSource(modelProviderId: string, settings: string): string {
+    const file = join(root, 'sources', 'settings', 'claude', modelProviderId, 'settings.json')
+    writeFile(file, settings)
+    return file
+  }
+
+  function entryOf(modelProviderId: string): HarnessModelProviderEntry {
+    return {
+      key: `claude-${modelProviderId}`,
+      harnessId: 'claude',
+      modelProviderId,
+      models: []
+    }
+  }
+
+  it('로더에 sources 경로를 위임하고 결과를 blob({settings})으로 돌려준다', async () => {
+    seedSource('anthropic', '{"env":{"A":"1"}}')
+    let seenFile = ''
+    const loader = vi.fn(async (a: { sourcesSettingsFile: string }) => {
+      seenFile = a.sourcesSettingsFile
+      return { settings: { env: { A: '1' }, model: 'm' } }
+    })
+    const svc = new HarnessSettingsService({ claude: loader }, root, parseSettings)
+    const blob = await svc.resolve(entryOf('anthropic'))
+    expect(blob).toMatchObject({
+      providerKey: 'claude-anthropic',
+      // wire 필드명은 유지된다 — `ResolvedHarnessSettings.provider` 는 adapter 가 읽는다.
+      provider: 'anthropic',
+      settings: { env: { A: '1' }, model: 'm' }
+    })
+    expect(seenFile).toBe(join(root, 'sources', 'settings', 'claude', 'anthropic', 'settings.json'))
+  })
+
+  it('mtime 캐시 — 동일 mtime 재호출은 로더를 다시 부르지 않고 invalidateAll 후 재해석한다', async () => {
+    const file = seedSource('anthropic', '{}')
+    utimesSync(file, new Date(1000), new Date(1000))
+    const loader = vi.fn(async () => ({ settings: {} }))
+    const svc = new HarnessSettingsService({ claude: loader }, root, parseSettings)
+    await svc.resolve(entryOf('anthropic'))
+    await svc.resolve(entryOf('anthropic'))
+    expect(loader).toHaveBeenCalledTimes(1)
+
+    // 파일 변경(mtime) → 재해석.
+    utimesSync(file, new Date(2000), new Date(2000))
+    await svc.resolve(entryOf('anthropic'))
+    expect(loader).toHaveBeenCalledTimes(2)
+
+    svc.invalidateAll()
+    await svc.resolve(entryOf('anthropic'))
+    expect(loader).toHaveBeenCalledTimes(3)
+  })
+
+  it('로더 미등록 어댑터와 로더 실패는 undefined (settings 없이 진행)', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const failing = vi.fn(async () => {
+      throw new Error('boom')
+    })
+    const svc = new HarnessSettingsService({ claude: failing }, root, parseSettings)
+    expect(
+      await svc.resolve({
+        key: 'opencode-local',
+        harnessId: 'opencode',
+        modelProviderId: 'local'
+      })
+    ).toBeUndefined()
+    expect(await svc.resolve(entryOf('anthropic'))).toBeUndefined()
+  })
+
+  it('list 캐시 — 동일 어댑터 재호출은 디스크를 다시 읽지 않고 invalidateAll 후 재열거한다', () => {
+    seedSource('anthropic', '{}')
+    const svc = new HarnessSettingsService({}, root, parseSettings)
+    expect(svc.list('claude').map((e) => e.modelProviderId)).toEqual(['anthropic'])
+
+    // 디스크에 provider 추가 — 캐시 히트라 list 결과는 그대로.
+    seedSource('bedrock', '{}')
+    expect(svc.list('claude').map((e) => e.modelProviderId)).toEqual(['anthropic'])
+
+    // 무효화 후 재열거.
+    svc.invalidateAll()
+    expect(svc.list('claude').map((e) => e.modelProviderId)).toEqual(['anthropic', 'bedrock'])
+  })
+})
+
+// 0215 VP-09 (R-03 ↔ AT-09 · §10 EP-08) — 선택 식별자가 SDK 모델 문자열까지 그대로 간다.
+describe('modelNameForFamily — [1m] 변형 선택 (AT-09)', () => {
+  const both = [
+    {
+      alias: 'sonnet',
+      model: 'claude-sonnet-4-6',
+      isCustom: false,
+      oneMillionContext: false,
+      isDefault: true
+    },
+    {
+      alias: 'sonnet',
+      model: 'claude-sonnet-4-6',
+      isCustom: false,
+      oneMillionContext: true,
+      isDefault: false
+    }
+  ]
+
+  it('식별자로 두 변형을 구분해 해석한다', () => {
+    expect(modelNameForFamily(both, 'claude-sonnet-4-6')).toBe('claude-sonnet-4-6')
+    expect(modelNameForFamily(both, 'claude-sonnet-4-6[1m]')).toBe('claude-sonnet-4-6[1m]')
+  })
+
+  it('형제 슬롯을 맞바꾸면 결과도 바뀐다 — 존재만 보는 단언이 아니다', () => {
+    const swapped = [
+      { ...both[0], oneMillionContext: true },
+      { ...both[1], oneMillionContext: false }
+    ]
+    expect(modelNameForFamily(swapped, 'claude-sonnet-4-6')).toBe('claude-sonnet-4-6')
+    // 맞바꾼 목록에서도 요청한 식별자가 그대로 나온다 — 순서가 아니라 identity 로 찾는다.
+    expect(modelNameForFamily(swapped, 'claude-sonnet-4-6[1m]')).toBe('claude-sonnet-4-6[1m]')
+  })
+
+  it('구 형식 선택값(1M 없이 저장)은 폴백으로 이어진다', () => {
+    const onlyOneM = [both[1]]
+    expect(modelNameForFamily(onlyOneM, 'claude-sonnet-4-6')).toBe('claude-sonnet-4-6[1m]')
+  })
+
+  it('선택이 없으면 default → 첫 항목 순으로 떨어진다', () => {
+    expect(modelNameForFamily(both, null)).toBe('claude-sonnet-4-6')
+  })
+})

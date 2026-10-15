@@ -1,14 +1,14 @@
 // 0257 AC9·AC12 — 버블 렌더 구조와 4 소비처의 접기 키·title 제거.
 import { createElement, type ReactNode } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
+import { renderWithTranscript as renderToStaticMarkup } from '../harnesses/registries/transcript.testfixture'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({ bubbles: [] as Record<string, unknown>[] }))
 
-vi.mock('./UserBubbleText', async (original) => {
-  const actual = await original<typeof import('./UserBubbleText')>()
+vi.mock('../harnesses/common/transcript/UserBubbleText', async (original) => {
+  const actual = await original<typeof import('../harnesses/common/transcript/UserBubbleText')>()
   return {
     UserBubbleText: (props: Record<string, unknown> & { children: ReactNode }) => {
       h.bubbles.push(props)
@@ -17,8 +17,8 @@ vi.mock('./UserBubbleText', async (original) => {
   }
 })
 
-import { UserMessage } from './transcript/UserMessage'
-import { AskExchange } from './transcript/AskExchange'
+import { UserMessage } from '../harnesses/common/transcript/UserMessage'
+import { AskExchange } from '../harnesses/claude/transcript/AskExchange'
 import type { Message, ToolCall } from '../reducer/chatReducer'
 
 describe('UserBubbleText 구조', () => {
@@ -57,11 +57,23 @@ describe('소비처 원문 — 키 전달 · 전체 문장 title 제거', () => 
   const read = (rel: string): string =>
     readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8')
   it.each([
-    ['./transcript/UserMessage.tsx', 'collapseKey={`user:${message.createdAt}`}', 'title={text}'],
-    ['./transcript/PendingSteerTurn.tsx', 'collapseKey={`steer:${item.id}`}', 'title={item.text}'],
-    ['./transcript/AskExchange.tsx', 'collapseKey={`ask:${call.toolUseId}`}', null],
     [
-      './rightpanel/SubAgentTileContent.tsx',
+      '../harnesses/common/transcript/UserMessage.tsx',
+      'collapseKey={`user:${message.createdAt}`}',
+      'title={text}'
+    ],
+    [
+      '../harnesses/common/transcript/PendingSteerTurn.tsx',
+      'collapseKey={`steer:${item.id}`}',
+      'title={item.text}'
+    ],
+    [
+      '../harnesses/claude/transcript/AskExchange.tsx',
+      'collapseKey={`ask:${call.toolUseId}`}',
+      null
+    ],
+    [
+      '../harnesses/common/rightpanel/SubAgentTaskDetail.tsx',
       'collapseKey={`subagent:${selected.toolUseId}`}',
       'title={prompt}'
     ]

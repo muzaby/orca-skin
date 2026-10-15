@@ -56,8 +56,8 @@
 | Markdown 렌더링 (react-markdown + GFM) | Phase 2 | ✅ 완료 | `shared/ui/markdown/Markdown.tsx` (features/chat 에는 StreamingMarkdown 만 잔류) |
 | Shiki 코드 블록 (shiki 3테마 + 11언어) | Phase 2 | ✅ 완료 | `shared/ui/markdown/CodeBlock.tsx` |
 | ToolCard 렌더링 (input/output 토글) | Phase 2 | ✅ 완료 | `features/chat/harnesses/claude/transcript/ToolCard.tsx` · `features/chat/harnesses/opencode/transcript/ToolCard.tsx` |
-| AuthExpiredModal | Phase 2 | ✅ 완료 | `features/backend/components/AuthExpiredModal.tsx` — `error / auth.expired` 이벤트 트리거 |
-| InstallerDialog | Phase 2 | ✅ 완료 | `features/backend/components/InstallerDialog.tsx` — claude-code 는 SDK 자동 처리로 즉시 done |
+| AuthExpiredModal | Phase 2 | ✅ 완료 | `features/backend/harnesses/claude/components/AuthExpiredModal.tsx` — `error / auth.expired` 이벤트 트리거 |
+| InstallerDialog | Phase 2 | ✅ 완료 | `features/backend/harnesses/claude/components/InstallerDialog.tsx` — claude-code 는 SDK 자동 처리로 즉시 done |
 | Tweaks (theme/대화 텍스트 크기·너비/sidebar) + electron-store 영속화 | Phase 2+ → 0256 | ✅ 완료 | `shared/theme/TweakProvider` — 컨트롤 UI 는 설정 모달 일반 탭(`features/settings/components/GeneralTab.tsx` — 테마·글꼴·언어·알림·대화 텍스트 크기·너비, 0256)과 dev 전용 `features/debug/components/DebugPanel.tsx`. 테마는 white/dark 2종 |
 | 세션 재개 (lastSessionId 부팅 복원) | Phase 2+ | ✅ 완료 | 부팅 스텝 `landing-target`(`app/boot/steps.ts`)이 `settings.lastSessionId` 로 랜딩 경로를 정한다 |
 | DOM Architecture 마커 체계 (`app-frame-*` + `data-*`) | Phase 3+ | ✅ 완료 | dom-architecture.md — 단일 PR 일괄 적용 (`45e129f`) |

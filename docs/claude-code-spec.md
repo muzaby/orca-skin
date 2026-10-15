@@ -1,6 +1,6 @@
 # Claude Code CLI 실행 스펙 (`spec/claude/` 라우터 + Orca 채택 표기)
 
-> **역할 변경 (2026-06-04, docs 재구성)**: 본 문서는 1차적으로 **`docs/spec/claude/` 원문 미러로 가는 라우터**다 — 원문은 아래 "1차 원본" 링크가 SSOT. CLI/SDK 권한 매핑·정규화 같은 **Orca 합성 설계**는 [`arch/backend/provider-runtime.md`](./arch/backend/provider-runtime.md)(권한 정규화)·[`arch/backend/adapters.md`](./arch/backend/adapters.md)(SDK 채택)로 이관됐다. 본 문서의 **§ 번호(§3·§4·§5·§7·§13)는 하위 호환을 위해 보존**한다(PRD/TRD·`app/src/main/features/extensions/skills/scan.ts §5.3` 가 인용). 새 인용은 위 arch 문서를 우선한다.
+> **역할 변경 (2026-06-04, docs 재구성)**: 본 문서는 1차적으로 **`docs/spec/claude/` 원문 미러로 가는 라우터**다 — 원문은 아래 "1차 원본" 링크가 SSOT. CLI/SDK 권한 매핑·정규화 같은 **Orca 합성 설계**는 [`arch/backend/provider-runtime.md`](./arch/backend/provider-runtime.md)(권한 정규화)·[`arch/backend/adapters.md`](./arch/backend/adapters.md)(SDK 채택)로 이관됐다. 본 문서의 **§ 번호(§3·§4·§5·§7·§13)는 하위 호환을 위해 보존**한다(PRD/TRD·`app/src/main/features/extensions/common/skills/scan.ts §5.3` 가 인용). 새 인용은 위 arch 문서를 우선한다.
 
 > **본 문서의 위치**
 > 이 문서는 Claude Code 공식 한국어 문서의 **해설 미러** 이다. 원문은 본 저장소의 `docs/spec/claude/` 에 *원문 그대로* 보관되며, 본 문서는 그 원문을 *Orca 관점* 으로 정리하고 채택 표기를 덧붙인다. PRD/TRD/architecture 가 Claude Code CLI 의 동작·플래그·이벤트를 인용할 때 본 문서가 단일 출처(SSOT) 역할을 한다.
@@ -421,7 +421,7 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 | Hook 가시성 | ✅ **채택** — SDK `options.hooks` in-process 콜백(workspace guard PreToolUse · Stop git sync · Stop 출력 수집 · PostCompact). [adapters.md §3.2.5](./arch/backend/adapters.md) |
 | Agent SDK | ✅ **채택 (Phase 3)** — TypeScript SDK `query()` 장수명 채널 + 위 옵션 묶음(§10). `arch/backend/adapters.md §1` SSOT |
 | 인증 만료 감지 | `adapters/error-classifier.ts` 가 SDK 오류의 `401` / `OAuth` / `expired` 패턴을 `auth_error` 로 분류 (CLI 의 stdout/stderr 패턴 매칭 대체) |
-| 환경변수 | HOME (`~/.claude` 자격증명) + 턴 env(`adapters/harness-config.ts` 조립 — 앱 env · Harness overlay · 배포 spawn env · 종류별 env, [TRD §6.8](./TRD.md)). PATH 의존성 (npm 글로벌 bin) 폐기 — SDK 가 `optionalDependencies` 로 platform binary 자동 처리 |
+| 환경변수 | HOME (`~/.claude` 자격증명) + 턴 env(`adapters/common/harness-config.ts` 조립 — 앱 env · Harness overlay · 배포 spawn env · 종류별 env, [TRD §6.8](./TRD.md)). PATH 의존성 (npm 글로벌 bin) 폐기 — SDK 가 `optionalDependencies` 로 platform binary 자동 처리 |
 | `cwd` | `options.cwd` 로 전달 — 랜딩에서 고른 작업 경로·프로젝트 cwd, 격리 세션이면 managed worktree 경로([state.md](./arch/frontend/state.md) §1.6 · [GLOSSARY](./GLOSSARY.md) Managed worktree) |
 
 ---

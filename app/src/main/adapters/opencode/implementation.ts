@@ -1,7 +1,7 @@
 import type { AgentModelView, EngineUserSettingsResult } from '../../../shared/ipc'
 import type { HarnessPreferences } from '../../../shared/harness'
-import type { HarnessSettingsLoader } from '../harness-config'
-import type { SessionAdapter } from '../types'
+import type { HarnessSettingsLoader } from '../common/harness-config'
+import type { SessionAdapter } from '../common/types'
 
 // 앱이 소유하는 수명/전송 포트. SDK client와 버전별 설정 형상은 구현에서만 해석한다.
 export interface OpenCodeServer {

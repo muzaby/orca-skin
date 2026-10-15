@@ -13,6 +13,7 @@ export const OPEN_CODE_PANEL_POLICY: RightPanelAgentPolicy = {
 }
 
 export const rightPanelAppearance = {
+  overviewTile: 'rounded-[22px] border border-oc-border bg-oc-surface text-oc-ink shadow-oc-raised',
   tile: 'rounded-[10px] border border-oc-border bg-oc-surface text-oc-ink shadow-oc-raised',
   title: 'font-sans text-oc-ink'
 }

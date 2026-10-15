@@ -277,8 +277,8 @@ export async function main(args = process.argv.slice(2)) {
     try {
       modules = await Promise.all([
         loader.ssrLoadModule('/src/main/app/builtin-resources.ts'),
-        loader.ssrLoadModule('/src/main/app/agent-extension-profile.ts'),
-        loader.ssrLoadModule('/src/main/features/extensions/builder.ts'),
+        loader.ssrLoadModule('/src/main/app/harnesses/claude/extension-profile.ts'),
+        loader.ssrLoadModule('/src/main/features/extensions/common/builder.ts'),
         loader.ssrLoadModule('/src/main/adapters/claude/adapt.ts')
       ])
     } finally {

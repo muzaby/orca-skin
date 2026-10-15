@@ -1,5 +1,5 @@
 import { CodeBlock } from '../../../../../shared/ui/markdown/CodeBlock'
-import { useI18n } from '../../../../../shared/i18n/index'
+import { useI18n } from '../../../../../shared/i18n'
 import { stringify } from '../../../format'
 
 interface StructuredOutputCardProps {

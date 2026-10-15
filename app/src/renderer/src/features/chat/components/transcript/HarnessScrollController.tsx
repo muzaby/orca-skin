@@ -1,20 +1,17 @@
-import { useLayoutEffect, type ReactNode } from 'react'
+import { useLayoutEffect } from 'react'
 import type { Backend } from '../../../../../../shared/ipc'
-import type { Message } from '../../reducer/chatReducer'
-import { useScrollAnchor, type ScrollAnchor } from '../../hooks/useScrollAnchor'
-import { OpenCodeScrollController } from '../../harnesses/opencode/transcript/ScrollController'
+import { transcriptHarness } from '../../harnesses/registries/transcript'
+import type {
+  ScrollAnchor,
+  ScrollControls,
+  ScrollControllerProps
+} from '../../harnesses/common/transcript/scrollTypes'
 
-interface Props {
+export type { ScrollControls } from '../../harnesses/common/transcript/scrollTypes'
+interface Props extends ScrollControllerProps {
   backend: Backend | null
-  sessionKey: string
-  sessionId: string | null
-  messages: Message[]
-  sendCount: number
-  inflight: boolean
   onControls?: (controls: ScrollControls) => void
-  children: (scroll: ScrollAnchor) => ReactNode
 }
-export type ScrollControls = Pick<ScrollAnchor, 'showJump' | 'scrollToBottom'>
 function ScrollControlsPublisher({
   scroll,
   onControls
@@ -27,26 +24,16 @@ function ScrollControlsPublisher({
   }, [onControls, scroll.showJump, scroll.scrollToBottom])
   return null
 }
-function ClaudeScrollController({ children, onControls, ...props }: Props): React.JSX.Element {
-  const scroll = useScrollAnchor(props)
-  return (
-    <>
-      <ScrollControlsPublisher scroll={scroll} onControls={onControls} />
-      {children(scroll)}
-    </>
-  )
-}
 export function HarnessScrollController(props: Props): React.JSX.Element {
-  return props.backend === 'opencode' ? (
-    <OpenCodeScrollController key={props.sessionKey} sessionKey={props.sessionKey}>
+  const { ScrollController, remountScrollBySession } = transcriptHarness(props.backend)
+  return (
+    <ScrollController {...props} key={remountScrollBySession ? props.sessionKey : undefined}>
       {(scroll) => (
         <>
           <ScrollControlsPublisher scroll={scroll} onControls={props.onControls} />
           {props.children(scroll)}
         </>
       )}
-    </OpenCodeScrollController>
-  ) : (
-    <ClaudeScrollController {...props} />
+    </ScrollController>
   )
 }

@@ -8,26 +8,25 @@ import type { WebContents } from 'electron'
 import type { ClassifiedError } from '../../../shared/ipc'
 import type { AgentKind } from '../../../shared/agent-kind'
 import { continuityLangFor, type ContinuityLang } from '../../../shared/continuity-lang'
-import type { SessionAdapter } from '../../adapters/types'
+import type { SessionAdapter } from '../../adapters/common/types'
 import { buildHandoffMessage } from '../../features/orchestration/handoff'
 import { recoverSessionHistory } from '../../features/chat/recovery'
 import type { RuntimeSupervisor } from '../../features/sessions/supervisor'
 import { checkContinuitySource } from './admission'
 import { appEnv } from '../../infra/config/orca-config'
-import { expandEnvRecord, processEnvRecord } from '../../features/harnesses/env'
+import { expandEnvRecord, processEnvRecord } from '../../features/harnesses/common/env'
 import {
   prepareHarnessConfig,
   prepareUnresolvedHarnessConfig,
   type AdapterSpawnEnvPatch,
   type PreparedHarnessConfig
-} from '../../adapters/harness-config'
+} from '../../adapters/common/harness-config'
 import {
-  defaultProvider,
   defaultModelFamily,
   modelNameForFamily,
-  resolveTitleModel,
   toAgentEnvironments
-} from '../../features/harnesses/models'
+} from '../../features/harnesses/common/models'
+import { harnessModule, legacySettingsEnvHoist } from '../harnesses/registry'
 import { SPAWN_ENV_INJECTOR } from '../deployment/spawn-env'
 import { getLogger } from '../../infra/log'
 import { makeClassifiedError } from '../../infra/errors'
@@ -198,7 +197,7 @@ export async function resolveTurnProvider(
     selected = undefined
   }
   if (req.sessionId && !selected) selected = byKey(meta?.provider_key)
-  if (!selected) selected = defaultProvider(entries)
+  if (!selected) selected = harnessModule(req.adapter.id).defaultProvider(entries)
   if (!selected) {
     return { providerKey: null, prepared: unresolvedPrepared(ctx, adapterEnvPatch) }
   }
@@ -223,7 +222,8 @@ export async function resolveTurnProvider(
     appEnv: turnAppEnv(ctx),
     baseEnv: processEnvRecord,
     customEnv: SPAWN_ENV_INJECTOR,
-    adapterEnvPatch
+    adapterEnvPatch,
+    settingsEnvHoist: legacySettingsEnvHoist
   })
 
   const catalog =
@@ -238,7 +238,7 @@ export async function resolveTurnProvider(
   const model = modelNameForFamily(models, modelFamily)
   // 제목 생성 모델은 요청 전에 사전 선택한다 (저가 모델 보유 시 그것, 없으면 default — 정책은
   // settings 레이어 resolveTitleModel 에 둔다).
-  const titleModel = resolveTitleModel(models)
+  const titleModel = harnessModule(req.adapter.id).resolveTitleModel(models)
   return {
     providerKey: selected.key,
     prepared,

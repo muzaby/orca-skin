@@ -1,4 +1,4 @@
-import type { TurnExtensions } from '../../adapters/turn'
+import type { TurnExtensions } from '../../adapters/common/turn'
 import type { ArtifactRef } from '../../../shared/artifacts'
 import { prepareOutputDirectory } from './files'
 import type { ArtifactService } from './service'

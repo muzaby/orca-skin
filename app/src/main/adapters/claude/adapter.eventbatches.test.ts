@@ -21,8 +21,8 @@ const { queryMock, messages } = vi.hoisted(() => {
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({ query: queryMock }))
 
 import { ClaudeAdapter } from './adapter'
-import type { TurnRequest } from '../turn'
-import type { ProviderMessageBatch } from '../types'
+import type { TurnRequest } from '../common/turn'
+import type { ProviderMessageBatch } from '../common/types'
 
 const baseReq = (): TurnRequest => ({
   sessionId: 's1',

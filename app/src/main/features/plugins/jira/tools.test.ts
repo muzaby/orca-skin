@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
-import { runtimeApprovalToolNames } from '../../../adapters/runtime-tool-policy'
-import { authToolServerId } from '../../../adapters/runtime-tool-policy'
+import { runtimeApprovalToolNames } from '../../../adapters/common/runtime-tool-policy'
+import { authToolServerId } from '../../../adapters/common/runtime-tool-policy'
 import {
   createJiraToolServer,
   JIRA_TOOL_NAMES,

@@ -8,8 +8,13 @@ import type {
   PermissionAction
 } from '../../../../shared/ipc'
 import { isRecord } from '../../../../shared/obj'
-import type { CompleteRequest, LiveTurn, ProviderMessageBatch, SessionAdapter } from '../../types'
-import type { TurnRequest } from '../../turn'
+import type {
+  CompleteRequest,
+  LiveTurn,
+  ProviderMessageBatch,
+  SessionAdapter
+} from '../../common/types'
+import type { TurnRequest } from '../../common/turn'
 import type { OpenCodeServer } from '../implementation'
 import { OPENCODE_DESCRIPTOR } from './descriptor'
 import { normalizeOpenCodeTool } from './map'

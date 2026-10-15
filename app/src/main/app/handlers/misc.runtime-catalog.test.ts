@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../../shared/protocol'
-import { createRuntimeModelCatalog } from '../../features/harnesses/runtime-catalog'
+import { createRuntimeModelCatalog } from '../../features/harnesses/common/runtime-catalog'
 
 const callbacks = vi.hoisted(() => new Map<string, () => unknown>())
 
@@ -38,6 +38,7 @@ describe('agent:list runtime catalog wiring', () => {
         ]
       },
       runtimeModelCatalog: createRuntimeModelCatalog({
+        parseModels: parseHarnessRuntimeModels,
         contributions: [
           { authId: 'claude', key: 'shared', harnessId: 'claude', modelProviderId: 'claude' }
         ],
@@ -107,3 +108,5 @@ describe('agent:list runtime catalog wiring', () => {
     expect(failed.find((entry) => entry.adapter === 'claude')?.catalogError).toBeUndefined()
   })
 })
+
+import { parseHarnessRuntimeModels } from '../harnesses/registry'

@@ -1,0 +1,221 @@
+// 턴 실행 입력과 확장 정보. 앱은 필요한 값을 조립하고 어댑터가 SDK 형식으로 변환한다.
+//
+// ※ 어휘 주의: 여기의 "Extension"(주입 묶음, 앱→백엔드, 세션 전)과 capabilities/ 의
+//   "capability"(능력 탐지, 백엔드→앱, 세션 중)는 무관한 두 개념이다 (GLOSSARY §1/§2).
+//
+// 파일 기반 MCP 구성은 배포 경로가 소유한다. 턴은 plugin 경로와 runtime tool snapshot을
+// 전달하며, MCP 서버 구성이나 비밀 해석 책임을 중복해서 갖지 않는다.
+
+import type { ResolvedHarnessSettings } from './harness-config'
+import type { RuntimeToolContext, RuntimeToolSnapshot } from './runtime-tools'
+import type { ArtifactRef } from '../../../shared/artifacts'
+import type {
+  ApprovalResolution,
+  AttachmentSourceKind,
+  AttachmentView,
+  DiffRequirementAnchor,
+  EffortLevel,
+  PermissionAction,
+  SkillInfo
+} from '../../../shared/ipc'
+import type { NormalizedPermissionMode } from '../../../shared/permission-mode'
+import type { NormalizedHookSet } from './hooks'
+import type { BackgroundEvent, ProviderMessageEvent } from '../../../shared/background-task'
+
+// pending message flush 배치 계약 — 어댑터가 턴 프롬프트/프렐류드(0067)로 받아 자기
+// 입력 채널로 주입한다. 구조 페이로드(0067 AC5): 첨부
+// 추출분은 어댑터가 content 블록으로 굽고, attachmentViews 는 커밋 시 표시/영속용으로 흐른다.
+// 구현(PendingMessageQueue)은 features/chat 이지만 계약 타입은 어댑터 포트에 둔다.
+export interface SteerFlush {
+  ids: string[]
+  text: string
+  createdAt: number
+  attachmentTexts?: ExtractedAttachmentText[]
+  attachmentImages?: ExtractedAttachmentImage[]
+  requirements?: DiffRequirementAnchor[]
+  attachmentViews?: AttachmentView[]
+}
+export interface SteerFlushBatch extends SteerFlush {
+  // stdin 주입 배치의 uuid — echo 상관키(주입 user 메시지의 uuid). 병합 배치는 신규
+  // uuid, 턴 프롬프트/프렐류드 아이템 단위 배치는 item id 를 그대로 쓴다(renderer 정합).
+  uuid: string
+  attemptId?: string
+  chainId?: string
+}
+
+// 턴 중단 영수증(0151 AC10) — SDK `Query.interrupt()` 가 돌려주는 `SDKControlInterruptResponse`
+// 의 중립 형태. `stillQueued` = 이 인터럽트에서 살아남아 **여전히 실행될** 비동기 사용자 메시지
+// uuid 목록(`sdk.d.ts:3487`).
+//
+// 두 가지를 엄격히 구분해야 한다:
+//   `undefined`        = CLI 가 `interrupt_receipt_v1` capability 미보유(구형). 잔여 여부 **미상**.
+//   `{stillQueued: []}` = 영수증은 왔고 uuid 기반 생존 메시지가 없음.
+// 뭉개면 "잔여 없음" 을 오판한다.
+//
+// 주의: 목록에는 클라이언트가 보낸 적 없는 **내부 uuid**(cron 트리거·auto-resume continuation)가
+// 섞인다. 소비자는 자기가 아는 uuid 와 교집합만 취하고 나머지는 무시해야 한다 — Orca 는
+// 백그라운드 서브에이전트가 기본이라(0143) 내부 uuid 가 실제로 발생한다.
+export interface InterruptReceipt {
+  stillQueued: string[]
+}
+
+// 텍스트는 저장 경로를 CLI @파일로 전달한다. 본문 읽기·상한은 CLI가 소유한다.
+export interface ExtractedAttachmentText {
+  id: string
+  name: string
+  mimeType: string
+  sizeBytes?: number
+  sourceKind: AttachmentSourceKind
+  path: string
+  sha256?: string
+}
+
+export interface ExtractedAttachmentImage {
+  id: string
+  name: string
+  mimeType: string
+  sizeBytes?: number
+  data: string
+  sourceKind: AttachmentSourceKind
+  path?: string
+  sha256?: string
+}
+
+// SKILL.md 스캔 메타 DTO 를 그대로 재사용 (step 2 — 자산 가시화).
+type NormalizedSkillRef = SkillInfo
+
+// 한 턴에 적용할 백엔드 중립 보조기능 묶음. 어댑터가 이를 받아 자기 query 옵션으로 굽는다.
+export interface TurnExtensions {
+  // 앱의 고정 제품 프로필 구성 키. 어댑터는 의미를 해석하지 않고 runtime이 spawn 경계를 비교한다.
+  agentProfileKey?: string
+  // 인증된 내장 도구의 현재 메모리 snapshot. extensions feature가 조립하며, adapters는
+  // backend별 SDK 옵션으로만 변환한다. 미주입은 기존 MCP 배포 경로를 그대로 유지한다.
+  runtimeTools?: RuntimeToolSnapshot
+  // Work의 일반 출력 파일 수집. OS Temp 검증·메타데이터 등록은 앱이 주입한다.
+  outputFiles?: {
+    directory: string
+    capture(
+      path: string,
+      context: RuntimeToolContext,
+      expectedContent?: string
+    ): Promise<ArtifactRef | void>
+  }
+  // SDK options.plugins 로 로드할 plugin root 목록 — Orca plugin(dist/plugins/orca) + 사용자
+  // ~/.claude/skills 래퍼 plugin(dist/plugins/claude, 0117). 존재/매니페스트 검증은 어댑터
+  // (adaptPlugins)가 root 별로 수행하므로 조립 측(ExtensionBuilder)은 fs 를 만지지 않는다.
+  pluginRoots?: string[]
+  // SKILL.md 메타 (가시화 목적). 현재 어댑트는 항상-on skills 경로가 구동하므로
+  // 이 배열은 아직 옵션 생성을 구동하지 않는다 — 죽은 데이터가 아니라 "보여주기" 용도.
+  skills: NormalizedSkillRef[]
+  // 정규화된 Hook 핸들러 집합 (§6). 이번 PR 의 실런타임 경로는 {normalized:{}} 라 옵션 미주입.
+  hooks: NormalizedHookSet
+  // SDK 기본 시스템 프롬프트 뒤에 append 할 중립 텍스트 (구조화 헤더 # Orca/# User/# Project;
+  // 프로젝트 name·지침은 # Project 섹션 안에 포맷화 — ExtensionBuilder 가 system-header 로 조립).
+  systemPromptAppend?: string
+}
+
+// 장수명 채널에 이어붙이는 후속 턴 계약 — 어댑터가 model/permissionMode/effort 라이브 setter를
+// 적용한 뒤 content를 입력 채널로 push한다. providerSettings/extensions는 spawn에 묶여
+// 여기 없으며 변경 시 respawn한다.
+export interface TurnContinuation {
+  text: string
+  attachmentTexts?: ExtractedAttachmentText[]
+  attachmentImages?: ExtractedAttachmentImage[]
+  requirements?: DiffRequirementAnchor[]
+  // 이 턴 프롬프트의 echo 상관키(pending queue 아이템/배치 uuid) — 커밋 판정(0067 AC6).
+  promptUuid?: string
+  model?: string
+  permissionMode?: NormalizedPermissionMode
+  effort?: EffortLevel
+}
+
+// 한 턴 실행 요청. sendMessage 의 인자 증식(7개)을 단일 객체로 통합한다 (설계검토 §9 1단계).
+export interface TurnRequest {
+  harnessAgent?: string
+  modelVariant?: string
+  onProviderEvent?: (event: BackgroundEvent | ProviderMessageEvent) => void
+  // Runtime이 cold spawn에만 주입하는 채널 소유 문맥. frame delegate가 아니다.
+  runtimeToolContext?: RuntimeToolContext
+  sessionId: string | null
+  // 0064 continuity — 이 턴이 분기 출발점으로 삼을 세션 id (fork/handoff 공통). sessionId
+  // (resume=이어쓰기)와 달리 원본은 불변이고 백엔드가 **새 session id 를 발급**한다
+  // (claude = query resume+forkSession). sessionId 는 null(새 세션 의미론 유지).
+  forkFrom?: string
+  // 0127 — 이 fork 턴이 핸드오프 도착 턴인가. 어댑터가 매퍼 컨텍스트(handoffArrival)로 전달해,
+  // 압축 경계 이전의 승계 컨텍스트 usage(원본 세션 전체 이력)가 telemetry(도넛/경고·원장)를
+  // 오염하지 않게 한다. 자동 연속 턴은 forkFrom 과 함께 이 플래그도 제거된다(chat-turn).
+  handoff?: boolean
+  text: string
+  cwd: string
+  // cwd 밖 추가 참조 경로(CLI `/add-dir` 대응). 어댑터는 이것을 `additionalDirectories` 와
+  // workspace 가드 루트에 **같은 배열로** 넘겨 두 스코프가 갈라지지 않게 한다.
+  extraDirs?: string[]
+  signal?: AbortSignal
+  extensions: TurnExtensions
+  // subprocess env (orca.json 앱 전역 env 병합 결과). 확장 묶음이 아니라 자식
+  // 프로세스 env 주입이라 TurnRequest 직속 — router 호출처(ipc/chat/send.ts)에서 조립한다.
+  env?: Record<string, string>
+  // 위 `env` 의 fingerprint — 조립부가 이미 계산한 값을 spawn 기록부로 나른다(0190). 없으면
+  // `SessionRuntime` 이 직접 계산한다(주입 경로 밖에서 만든 요청). **main 내부 어댑터 포트
+  // 필드다** — IPC·DB·wire 를 타지 않는다.
+  envFingerprint?: string
+  // main(HarnessSettingsService)이 해석 완료한 provider settings blob (handoff 0014).
+  // 어댑터-네이티브 스키마 그대로이며 어댑터는 자기 query 옵션에 꽂기만 한다
+  // (claude = options.settings flag + SDK 기본 settingSources 상속 — adaptSettings).
+  providerSettings?: ResolvedHarnessSettings
+  // 해석 완료된 백엔드 모델 이름. family/provider key 어휘는 config 계층에서 소비한다.
+  model?: string
+  // 백엔드 중립 권한 승인 콜백 — ask_question·plan_review·tool_approval 세 종류를 단일
+  // PermissionAction 으로 받아 ApprovalResolution(allow/deny 2분기)을 돌려준다. 어댑터가
+  // 자기 SDK 의 권한 메커니즘(claude 는 canUseTool)으로 어댑트한다. router 가 broker
+  // 에 바인딩해 주입하며, 미주입(opencode 등)이면 어댑터가 현행 자동 통과 동작을 유지.
+  // signal: 어댑터(SDK)가 이 권한요청을 취소할 때 신호. 주어지면 router 가 턴 signal 과 합쳐
+  // broker 에 묶어, SDK 취소 시 보류가 deny 로 깔끔히 해소되게 한다(canUseTool 무한 await 방지).
+  requestApproval?: (action: PermissionAction, signal?: AbortSignal) => Promise<ApprovalResolution>
+  // 승인 콜백 진입 때 현재 메인 턴의 원래 신호를 캡처한다. 장수명 채널 신호와 분리하며,
+  // 독립 수명의 child 요청은 이 getter를 조회하지 않는다.
+  getMainApprovalSignal?: () => AbortSignal | undefined
+  // 이 턴의 권한 모드 (정규화 6종 — Composer 모드 버튼). 어댑터가 toClaudePermissionMode 로
+  // 자기 query 옵션(SDK PermissionMode)으로 어댑트. 확장 묶음이 아니라 query-레벨 제어라
+  // env/askUser 처럼 TurnRequest 직속.
+  permissionMode?: NormalizedPermissionMode
+  // Main이 작업 종류로 계산한 계획 승인 후 권한. 어댑터는 프로필 키를 해석하지 않는다.
+  planApprovalMode?: NormalizedPermissionMode
+  // Claude Code thinking effort. SDK Options.effort 로 per-turn 전달한다.
+  effort?: EffortLevel
+  // 스폰 입력(프렐류드+본 프롬프트)의 로컬 스트림 수용 직후 전량 commit한다.
+  canSubmitInitial?: () => boolean
+  commitInitialSubmission?: () => boolean
+  rollbackInitialSubmission?: () => void
+  // 턴 중단 영수증 수신(0151 AC10·AC11) — 런타임이 interrupt() 를 호출한 뒤 결과를 여기로 올린다.
+  // 잔여 uuid 와 자기 예약의 교집합 판정은 **컴포지션 루트**가 한다(features/sessions 가
+  // features/chat 을 참조하지 않도록 — main/AGENTS.md 해소책 ③).
+  //
+  // 영수증은 늦게 도착할 수 있으므로 **수신자를 interrupt 발행 순간에 만든다** — 그래야 그 시점의
+  // 큐/attempt 가 동결된다. 콜백을 직접 받던 형태(`onInterruptReceipt`)는 spawn 시점 값으로 굳어
+  // 체인이 바뀌면 어긋났다(0166 D7).
+  captureInterruptReceipt?: () => ((receipt: InterruptReceipt | undefined) => void) | undefined
+  // 채널 화신이 종료/교체되는 순간의 상향 통지. app 계층이 해당 채널에 묶인 백그라운드
+  // 작업을 합성 정착한다. token은 관측/멱등 키이며 chat 기능을 sessions가 직접 참조하지 않는다.
+  onChannelRetired?: (channelToken: number) => void
+  onSessionSchedules?: (
+    sessionId: string,
+    schedules: import('../../../shared/session-schedules').SessionSchedule[],
+    pendingWakeup?: boolean
+  ) => void
+  // SDK가 실제 정착한 세션 권한을 보고한다. 세션 생성/history 버스에 재발행하지 않고
+  // 컴포지션 루트가 controller와 renderer를 함께 갱신한다(0249 ΔV3).
+  onPermissionModeChanged?: (sessionId: string, mode: NormalizedPermissionMode) => void
+  // 중단된 서브에이전트 타입 재호출 차단 술어(가이드 §6-A). turn.blockedSubagents 를 읽는다.
+  isSubagentBlocked?: (subagentType: string | undefined) => boolean
+  attachmentTexts?: ExtractedAttachmentText[]
+  attachmentImages?: ExtractedAttachmentImage[]
+  requirements?: DiffRequirementAnchor[]
+  // 스폰 턴 프롬프트의 소비 상관키(0067 AC6) — TurnContinuation.promptUuid 와 대칭.
+  // 소비 확정 앵커는 응답 시작(첫 모델 출력, 0069 — echo 불요, coordinator 소유).
+  promptUuid?: string
+  // 스폰 시 본 프롬프트 *앞에* 선적재할 이월 배치(0067 — 채널 사망 후 잔여 pending 재전달).
+  // 각 배치는 자기 uuid 의 개별 user 메시지로 주입되고, 프롬프트와 함께 응답 시작에서
+  // 개별 배치로 커밋된다(버블 구조 보존, 0069).
+  preludes?: SteerFlushBatch[]
+}

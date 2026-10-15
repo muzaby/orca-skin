@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { ScrollAnchor } from '../../../hooks/useScrollAnchor'
+import type { ScrollAnchor } from '../../common/transcript/scrollTypes'
 import {
   canConsumeScroll,
   isTimelineBottom,

@@ -1,0 +1,380 @@
+import { assistantRuntime } from '../../registries/assistant'
+import { TranscriptRuntimeProvider } from '../transcript/TranscriptRuntime'
+import { SubAgentTaskDetail } from './SubAgentTaskDetail'
+// 0204 ΔV1 — 두 타일이 서로 다른 책임을 갖는다(D-015·D-019)는 것을 렌더 출력으로 잠근다.
+//
+//   `백그라운드 작업`(subagent) = `72766d2` 복구 — 상태 그룹 · 3줄 카드 · 대화록 상세 (AT-28)
+//   `작업`(task)               = 진행 상황 · 출력 · 컨텍스트. 진행 목록의 id 순·취소선 보존.
+//
+// JSX 를 쓰지 않는 이유: vitest include 가 `src/**/*.test.ts` 라 `.tsx` 를 잡지 않는다.
+// jsdom·testing-library 없이 react-dom/server 로 돈다(신규 의존성 0).
+//
+// **음성 단언에는 양성 짝을 둔다** — 아무것도 그리지 않는 출력에서 음성만 자동으로 참이 되는
+// 것을 막는다(0203 ΔV2 에서 실제로 겪은 형태다).
+
+import { beforeEach, describe, expect, it } from 'vitest'
+import { load } from 'cheerio'
+import { createElement } from 'react'
+import { renderToStaticMarkup as renderMarkup } from 'react-dom/server'
+import { SubAgentTaskList, SubAgentTileContent } from '../../claude/rightpanel/SubAgentTileContent'
+import { TaskProgressList, TaskTileContent } from '../../claude/rightpanel/TaskTileContent'
+import { childMessageForParentToolRunId, subagentTasksFromMessages } from '../../../lib/parts'
+import {
+  agentTaskKey,
+  backgroundTaskKey,
+  taskBoardFromMessages,
+  taskBoardOrdered
+} from '../../../lib/taskBoard'
+import type { Message } from '../../../reducer/chatReducer'
+import type { AppMessagePart } from '../../../../../../../shared/ipc'
+import { agentUiPolicy } from '../../../lib/agentPresentation'
+
+// 검증 대상은 **props 만 읽는 View** 다. store 연결 컴포넌트를 `renderToStaticMarkup` 으로
+// 돌리면 zustand 가 SSR 스냅샷(`getInitialState()`)을 돌려주어 시드가 반영되지 않는다 —
+// 0203 이 `PinnedSectionView` 로 잡은 것과 같은 seam 이다. `TaskTileContent`(store 연결)는
+// 섹션 골격 자체가 store 와 무관하므로 AT-29 에서만 직접 렌더한다.
+
+let runSeq = 0
+const nextRun = (): string => `run${(runSeq += 1)}`
+
+function agentTask(
+  subject: string,
+  id: string,
+  status?: 'in_progress' | 'completed'
+): AppMessagePart[] {
+  const createRun = nextRun()
+  const parts: AppMessagePart[] = [
+    { type: 'tool_call', toolRunId: createRun, toolName: 'TaskCreate', args: { subject } },
+    {
+      type: 'tool_result',
+      toolRunId: createRun,
+      result: 'wire',
+      isError: false,
+      structuredOutput: { task: { id, subject } }
+    }
+  ]
+  if (status) {
+    const updateRun = nextRun()
+    parts.push(
+      {
+        type: 'tool_call',
+        toolRunId: updateRun,
+        toolName: 'TaskUpdate',
+        args: { taskId: id, status }
+      },
+      {
+        type: 'tool_result',
+        toolRunId: updateRun,
+        result: 'wire',
+        isError: false,
+        structuredOutput: {
+          success: true,
+          taskId: id,
+          updatedFields: ['status'],
+          statusChange: { from: 'pending', to: status }
+        }
+      }
+    )
+  }
+  return parts
+}
+
+function backgroundTask(
+  toolRunId: string,
+  description: string,
+  result?: { output: unknown; isError: boolean }
+): AppMessagePart[] {
+  const parts: AppMessagePart[] = [
+    { type: 'tool_call', toolRunId, toolName: 'Task', args: { description, prompt: 'p' } }
+  ]
+  if (result) {
+    parts.push({
+      type: 'tool_result',
+      toolRunId,
+      result: result.output,
+      isError: result.isError,
+      subagentMeta: { durationMs: 134_000, toolUses: 24 }
+    })
+  }
+  return parts
+}
+
+const messages = (...parts: AppMessagePart[][]): Message[] => [
+  { role: 'assistant', createdAt: 1_700_000_000_000, parts: parts.flat() }
+]
+
+// 세션 parts → `진행 상황` 섹션 본문 HTML. 프로덕션과 같은 파생을 통과시킨다.
+const renderProgress = (msgs: Message[]): string =>
+  renderToStaticMarkup(
+    createElement(TaskProgressList, { items: taskBoardOrdered(taskBoardFromMessages(msgs)) })
+  )
+
+// 세션 parts → `백그라운드 작업` 목록 HTML.
+const renderSubagentList = (msgs: Message[], stoppingIds: string[] = []): string =>
+  renderToStaticMarkup(
+    createElement(SubAgentTaskList, {
+      tasks: subagentTasksFromMessages(msgs),
+      stoppingIds: new Set(stoppingIds),
+      stopErrors: {}
+    })
+  )
+
+// 섹션 제목 → 그 섹션 **본문** HTML. 산출의 존재만 단언하면 형제 섹션끼리 본문을 맞바꾼
+// 회귀가 초록으로 통과한다(verify r4 D15 / 변이 M-S) — 어느 섹션에 담겼는지까지 본다.
+// 섹션이 없으면 `undefined` 라 단언이 실패한다(fail-closed).
+function sectionBodies(html: string): Record<string, string> {
+  const $ = load(html)
+  return Object.fromEntries(
+    $('section[aria-label]')
+      .toArray()
+      .map((node) => [$(node).attr('aria-label')!, $(node).children('div').last().html() ?? ''])
+  )
+}
+
+beforeEach(() => {
+  runSeq = 0
+})
+
+// 0223 AC17·18 — 복원한 세 섹션의 순서뿐 아니라 각 본문 귀속을 잠근다.
+describe('작업 타일 — 진행 상황 / 출력 / 컨텍스트 (0223 AC17·18)', () => {
+  it('세 섹션이 순서대로 있고 각 본문은 자신의 섹션에만 있다', () => {
+    const html = renderToStaticMarkup(createElement(TaskTileContent))
+    // Work 빈 진행과 출력·컨텍스트가 각자 지정된 슬롯에 들어간다(0224 ΔV2).
+    expect(html).toContain('오래 걸리는 작업의 진행 상황을 확인하세요.')
+    const bodies = sectionBodies(html)
+    expect(Object.keys(bodies)).toEqual(['진행 상황', '출력', '컨텍스트'])
+    expect(bodies['진행 상황']).toContain('오래 걸리는 작업의 진행 상황')
+    expect(bodies['출력']).toContain('이 작업 중에 생성된 파일')
+    expect(bodies['컨텍스트']).toContain('이 작업에 사용할 폴더를 추가하세요.')
+    expect(bodies['진행 상황']).not.toContain('이 작업 중에 생성된 파일')
+    expect(bodies['출력']).not.toContain('오래 걸리는 작업의 진행 상황')
+    expect(bodies['컨텍스트']).not.toContain('이 작업 중에 생성된 파일')
+    expect(html.match(/aria-expanded="true"/g)).toHaveLength(3)
+  })
+
+  it('목록에 상태 그룹 헤더가 없다 — 한 줄로 나열한다 (AC10)', () => {
+    const html = renderProgress(
+      messages(agentTask('완료된 일', '1', 'completed'), agentTask('대기 중인 일', '2'))
+    )
+    // 양성 — 두 항목이 모두 한 목록에 있다(0215: 목록은 할 일만 담는다).
+    expect(html).toContain('완료된 일')
+    expect(html).toContain('대기 중인 일')
+    // 음성 — 그룹 헤더('대기 중'·'중단됨' 라벨)가 없다. '진행 상황' 섹션 제목과 구분된다.
+    expect(html).not.toContain('대기 중<')
+    expect(html).not.toContain('중단됨<')
+  })
+})
+
+describe('작업 타일 — 완료 항목 취소선 (AT-26)', () => {
+  it('완료 항목 제목에만 취소선이 걸린다', () => {
+    const html = renderProgress(
+      messages(
+        agentTask('완료된 일', '1', 'completed'),
+        agentTask('진행 중인 일', '2', 'in_progress')
+      )
+    )
+    const doneSpan = load(html)('[data-task-title]')
+      .filter((_, element) => load(html)(element).text() === '완료된 일')
+      .attr('class')
+    const runningSpan = load(html)('[data-task-title]')
+      .filter((_, element) => load(html)(element).text() === '진행 중인 일')
+      .attr('class')
+    expect(doneSpan).toContain('line-through')
+    // 양방향 — 미완료에는 걸리지 않는다.
+    expect(runningSpan).not.toContain('line-through')
+  })
+})
+
+describe('0215 AT-16·AT-17 — `작업` 타일에는 서브에이전트가 오지 않는다', () => {
+  it('서브에이전트만 있으면 목록이 비고 중단·전환 버튼도 없다', () => {
+    const html = renderProgress(messages(backgroundTask('bg1', '로그 파서 조사')))
+    expect(html).not.toContain('로그 파서 조사')
+    expect(html).not.toContain('aria-label="중단"')
+    expect(html).not.toContain('chat.taskTile.toBackgroundAria')
+  })
+
+  it('양성 짝 — 같은 세션의 할 일은 그대로 그려진다', () => {
+    const html = renderProgress(messages(agentTask('설계 정리', '1', 'in_progress')))
+    expect(html).toContain('설계 정리')
+  })
+
+  it('제목이 flex-1 을 갖지 않는다 (D-020 유지)', () => {
+    const html = renderProgress(messages(agentTask('로그 파서 조사', '1', 'in_progress')))
+    const titleSpan = load(html)('[data-task-title]').attr('class')
+    expect(titleSpan).not.toContain('flex-1')
+    expect(titleSpan).toContain('truncate')
+  })
+})
+
+describe('백그라운드 작업 타일 — 복구 (AT-28 · D-016)', () => {
+  it('빈 상태에서도 래퍼가 목록 View의 제목과 설명을 그린다', () => {
+    const html = renderToStaticMarkup(createElement(SubAgentTileContent))
+    // 래퍼 → 목록 View 배선의 양성 관측. SubAgentTaskList 를 래퍼에서 제거하면
+    // 두 문구가 함께 사라져야 한다(verify r3 D10 / V2).
+    expect(html).toContain('백그라운드 작업이 없습니다')
+    expect(html).toContain('Task 도구 호출이 감지되면 여기에 표시됩니다.')
+  })
+
+  it('상태 그룹을 진행 중 → 완료 → 중단됨 → 실패 순으로 그린다', () => {
+    const html = renderSubagentList(
+      messages(
+        backgroundTask('bg1', '진행 중 작업'),
+        backgroundTask('bg2', '완료 작업', { output: { summary: 'ok' }, isError: false }),
+        backgroundTask('bg3', '중단 작업', {
+          output: { reason: 'aborted', message: '중단됨' },
+          isError: true
+        }),
+        backgroundTask('bg4', '실패 작업', {
+          output: { reason: 'failed', message: '오류로 중단되었습니다' },
+          isError: true
+        })
+      )
+    )
+    const order = ['진행 중 작업', '완료 작업', '중단 작업', '실패 작업'].map((t) =>
+      html.indexOf(t)
+    )
+    expect(order.every((i) => i >= 0)).toBe(true)
+    expect([...order].sort((a, b) => a - b)).toEqual(order)
+  })
+
+  it('카드가 3줄 정보를 갖는다 — 제목 · 에이전트/상태/경과 · 도구수와 대화록 보기', () => {
+    const html = renderSubagentList(messages(backgroundTask('bg1', '로그 파서 조사')))
+    expect(html).toContain('로그 파서 조사')
+    expect(html).toContain('진행 중')
+    expect(html).toContain('대화록 보기')
+    // 복구된 자리 — 중단 버튼은 '대화록 보기' 우측이지 제목 우측이 아니다(D-016 vs D-020).
+    expect(html).toMatch(/대화록 보기<\/span>.*aria-label="중단"/s)
+    expect(html).not.toMatch(/로그 파서 조사<\/span><button/)
+  })
+
+  it('상세는 child transcript 를 그린다', () => {
+    const parts = backgroundTask('bg1', '로그 파서 조사')
+    parts.push(
+      {
+        type: 'tool_call',
+        toolRunId: 'child1',
+        toolName: 'Bash',
+        args: {},
+        parentToolRunId: 'bg1'
+      },
+      { type: 'text', text: '서브에이전트가 찾은 결과', parentToolRunId: 'bg1' } as AppMessagePart
+    )
+    const msgs = messages(parts)
+    const task = subagentTasksFromMessages(msgs)[0]
+    const html = renderToStaticMarkup(
+      createElement(SubAgentTaskDetail, {
+        task,
+        childMessage: childMessageForParentToolRunId(msgs, 'bg1'),
+        startedAtMs: null,
+        transcriptPolicy: agentUiPolicy('code').transcript
+      })
+    )
+    expect(html).toContain('서브에이전트가 찾은 결과')
+  })
+})
+
+describe('두 타일의 파생이 다르다 (AT-09a)', () => {
+  it('0215 — 두 파생이 서로 겹치지 않는다 (한 항목을 두 타일이 그리지 않는다)', () => {
+    const msgs = messages(agentTask('일반 할 일', '1'), backgroundTask('bg1', '백그라운드 작업'))
+    const backgroundOnly = subagentTasksFromMessages(msgs).map((t) =>
+      backgroundTaskKey(t.toolUseId)
+    )
+    const board = taskBoardFromMessages(msgs).map((i) => i.key)
+
+    expect(backgroundOnly).toEqual([backgroundTaskKey('bg1')])
+    expect(board).toEqual([agentTaskKey('1')])
+    // 교집합 0 — 차집합으로 본다(총계는 이 주장을 반증하지 못한다).
+    expect(board.filter((k) => backgroundOnly.includes(k))).toEqual([])
+  })
+})
+
+// 0204 ΔV1 §4 — 새로 만든 사용자 대면 문구에 **소비자가 있는지**를 화면 출력으로 본다.
+// producer(파생)만 만들고 consumer(렌더)가 없으면 그 문구는 아무도 보지 못한다.
+describe('새 문구의 소비자 (AT-31 · D-016a)', () => {
+  it('0232 — 실패/중단 카드에는 실행 결과 본문 없이 상태를 표시한다', () => {
+    const html = renderSubagentList(
+      messages(
+        backgroundTask('bg1', '실패한 작업', {
+          output: { reason: 'failed', message: '채널이 종료되어 서브에이전트가 중단되었습니다.' },
+          isError: true
+        })
+      )
+    )
+    expect(html).not.toContain('채널이 종료되어 서브에이전트가 중단되었습니다.')
+    expect(html).toContain('실패')
+    // 음성 짝 — `작업` 타일에는 그 행 자체가 없다.
+    const board = renderProgress(
+      messages(
+        backgroundTask('bg1', '실패한 작업', {
+          output: { reason: 'failed', message: '채널이 종료되어 서브에이전트가 중단되었습니다.' },
+          isError: true
+        })
+      )
+    )
+    expect(board).not.toContain('실패한 작업')
+    // 중단 상태는 유지하되 실행 결과 본문은 숨긴다.
+    const aborted = renderSubagentList(
+      messages(
+        backgroundTask('bg2', '중단한 작업', {
+          output: { reason: 'aborted', message: '서브에이전트가 중단되었습니다.' },
+          isError: true
+        })
+      )
+    )
+    expect(aborted).toContain('중단됨')
+    expect(aborted).not.toContain('서브에이전트가 중단되었습니다.')
+  })
+
+  it('백그라운드 작업 타일이 중단 확정 대기를 중단 중으로 보인다', () => {
+    const msgs = messages(backgroundTask('bg1', '로그 파서 조사'))
+    const waiting = renderSubagentList(msgs, ['bg1'])
+    expect(waiting).toContain('중단 중…')
+    // 확정 대기 중에는 버튼을 다시 낼 수 없다(중복 요청 차단).
+    expect(waiting).not.toContain('aria-label="중단"')
+    // 양성 짝 — 대기 전에는 '진행 중' 이고 버튼이 있다.
+    const running = renderSubagentList(msgs)
+    expect(running).toContain('진행 중')
+    expect(running).toContain('aria-label="중단"')
+  })
+})
+
+// 0215 VP-19 (SD-04 ↔ AT-19 · §10 EP-19) — 중단 실패 문구의 자리가 옮겨졌다.
+describe('0215 AT-19 — 중단 실패 문구는 `백그라운드 작업` 타일이 낸다', () => {
+  const withStopError = (msgs: Message[]): string =>
+    renderToStaticMarkup(
+      createElement(SubAgentTaskList, {
+        tasks: subagentTasksFromMessages(msgs),
+        stoppingIds: new Set<string>(),
+        stopErrors: { [backgroundTaskKey('bg1')]: { messageKey: 'chat.taskTile.stopFailed' } }
+      })
+    )
+
+  it('그 행 아래에 실패 문구가 뜬다', () => {
+    const html = withStopError(messages(backgroundTask('bg1', '로그 파서 조사')))
+    expect(html).toContain('중단하지 못했습니다')
+    // 양성 짝 — 행 자체가 그려졌다.
+    expect(html).toContain('로그 파서 조사')
+  })
+
+  it('실패가 없으면 문구도 없다 — 음성 짝', () => {
+    const html = renderSubagentList(messages(backgroundTask('bg1', '로그 파서 조사')))
+    expect(html).not.toContain('중단하지 못했습니다')
+  })
+
+  it('다른 항목의 실패는 이 행에 새지 않는다', () => {
+    const html = renderToStaticMarkup(
+      createElement(SubAgentTaskList, {
+        tasks: subagentTasksFromMessages(messages(backgroundTask('bg1', '로그 파서 조사'))),
+        stoppingIds: new Set<string>(),
+        stopErrors: { [backgroundTaskKey('other')]: { messageKey: 'chat.taskTile.stopFailed' } }
+      })
+    )
+    expect(html).not.toContain('중단하지 못했습니다')
+  })
+})
+
+function renderToStaticMarkup(node: React.ReactNode): string {
+  return renderMarkup(
+    createElement(TranscriptRuntimeProvider, { value: assistantRuntime('claude') }, node)
+  )
+}

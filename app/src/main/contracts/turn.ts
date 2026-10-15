@@ -1,6 +1,6 @@
 import type { AttachmentView, NormalizedEvent } from '../../shared/ipc'
 import type { AgentKind } from '../../shared/agent-kind'
-import type { ResolvedHarnessSettings } from '../adapters/harness-config'
+import type { ResolvedHarnessSettings } from '../adapters/common/harness-config'
 import type { LineageRelation } from '../infra/db/types'
 import type { GovernedLiveTurn, RuntimeTitleAdapter } from './ports'
 

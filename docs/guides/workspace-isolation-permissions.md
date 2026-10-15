@@ -333,7 +333,7 @@ const options = {
 > **현재 Orca 는 `disallowedTools` 에 `['WebSearch']` 하나만 넘긴다** (`adapters/claude.ts` — 대화의 WebSearch 차단).
 > 아래 위험 명령 deny 규칙은 도입할 경우의 형태이지 지금 켜져 있는 설정이 아니다 — 켜려면 그 배열에
 > 패턴을 더하는 코드 변경이 필요하다. 현재 위험 도구 게이트는 `RISKY_TOOLS` 화이트리스트
-> (`adapters/risky-tools.ts` — Bash·PowerShell 포함)를 통한 **승인 카드**가 담당한다.
+> (`adapters/common/risky-tools.ts` — Bash·PowerShell 포함)를 통한 **승인 카드**가 담당한다.
 
 훅이 놓치는 명령류를 deny 규칙으로 못박는다. deny 규칙은 훅보다 뒤(2단계)지만 **훅이 pass-through 해도 deny 규칙이 있으면 차단**된다 — 이중 안전망. `bypassPermissions` 에서도 유효.
 

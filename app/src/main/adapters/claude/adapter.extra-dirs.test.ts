@@ -38,9 +38,9 @@ vi.mock('./workspace-guard', async (importOriginal) => {
 
 import { ClaudeAdapter } from './adapter'
 import { makeWorkspaceGuardHook } from './workspace-guard'
-import type { TurnRequest } from '../turn'
-import type { RuntimeToolContext } from '../runtime-tools'
-import type { LiveTurn } from '../types'
+import type { TurnRequest } from '../common/turn'
+import type { RuntimeToolContext } from '../common/runtime-tools'
+import type { LiveTurn } from '../common/types'
 import type { NormalizedEvent } from '../../../shared/ipc'
 
 const guardHookMock = vi.mocked(makeWorkspaceGuardHook)

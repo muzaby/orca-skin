@@ -2,7 +2,7 @@ export { ChatProvider } from './providers/ChatProvider'
 export { ChatView } from './components/ChatView'
 export { ChatTile } from './components/ChatTile'
 export { RightPanel } from './components/rightpanel/RightPanel'
-export { ArtifactViewer } from './components/rightpanel/ArtifactViewer'
+export { ArtifactViewer } from './harnesses/common/rightpanel/ArtifactViewer'
 export {
   closeArtifactViewer,
   openArtifactViewer,
@@ -33,3 +33,4 @@ export {
 } from './store/chatStore'
 
 export { harnessSurfaces } from './harnesses/presentation'
+export { Landing } from './components/Landing'

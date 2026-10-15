@@ -20,12 +20,11 @@ import type {
   NormalizedEvent,
   PermissionAction
 } from '../../../shared/ipc'
+import { PLAN_APPROVED_MODE, type NormalizedPermissionMode } from '../../../shared/permission-mode'
 import {
-  PLAN_APPROVED_MODE,
   fromClaudePermissionMode,
-  toClaudePermissionMode,
-  type NormalizedPermissionMode
-} from '../../../shared/permission-mode'
+  toClaudePermissionMode
+} from '../../../shared/harnesses/claude/permission-mode'
 import { claudeToNormalized, type MapContext } from './map'
 import { ClaudeBackgroundMapper } from './background'
 import { readClaudeSessionSchedules } from './schedules'
@@ -36,8 +35,8 @@ import type { SessionSchedule } from '../../../shared/session-schedules'
 import { claudeErrorClassifier, errorEvent } from './error-classifier'
 import { createSessionInputStream, type TurnInputContent } from './streaming-input'
 import type { Base64ImageSource } from '@anthropic-ai/sdk/resources/messages'
-import { formatAttachmentPromptBlock } from '../attachment-prompt'
-import { formatDiffRequirementsPrompt } from '../diff-requirements'
+import { formatAttachmentPromptBlock } from '../common/attachment-prompt'
+import { formatDiffRequirementsPrompt } from '../common/diff-requirements'
 import { formatPlanFeedbackPrompt } from './plan-feedback'
 import { resolvePlanReview } from './plan-text'
 import {
@@ -49,12 +48,17 @@ import {
   type PlanFile,
   type PlanFileCell
 } from './plan-file'
-import type { CompleteRequest, LiveTurn, ProviderMessageBatch, SessionAdapter } from '../types'
-import type { TurnRequest } from '../turn'
-import type { ExtractedAttachmentImage, ExtractedAttachmentText } from '../turn'
-import { isRiskyTool } from '../risky-tools'
+import type {
+  CompleteRequest,
+  LiveTurn,
+  ProviderMessageBatch,
+  SessionAdapter
+} from '../common/types'
+import type { TurnRequest } from '../common/turn'
+import type { ExtractedAttachmentImage, ExtractedAttachmentText } from '../common/turn'
+import { isRiskyTool } from '../common/risky-tools'
 import { adaptRuntimeTools } from './runtime-tools'
-import { runtimeApprovalToolNames } from '../runtime-tool-policy'
+import { runtimeApprovalToolNames } from '../common/runtime-tool-policy'
 import {
   adaptExecutionConfig,
   adaptHooks,
@@ -68,11 +72,11 @@ import {
 } from './adapt'
 import { CLAUDE_DESCRIPTOR } from './descriptor'
 import { makeWorkspaceGuardHook, resolveGuardRoots } from './workspace-guard'
-import { buildEditPreview, nodeEditPreviewReader } from '../edit-preview'
+import { buildEditPreview, nodeEditPreviewReader } from './edit-preview'
 import { resolveClaudeExecutable, resolveClaudeExecutableIdentity } from './executable'
 import type { ProviderDescriptor } from '../../../shared/ipc'
 import type { AgentKind } from '../../../shared/agent-kind'
-import type { AdapterSpawnEnvPatch } from '../harness-config'
+import type { AdapterSpawnEnvPatch } from '../common/harness-config'
 import { claudeAgentKindEnv } from './agent-kind-env'
 import { getTemporaryFilesPath } from '../../infra/config/temp-path'
 
@@ -846,7 +850,7 @@ export class ClaudeAdapter implements SessionAdapter {
           : { kind: 'rejectedBeforeAccept' as const, reason: 'stream_closed' as const }
       },
       // 라이브 control — 스트리밍 입력 모드라야 동작하는 SDK Query 메서드에 위임.
-      setPermissionMode: (mode) => handle.setPermissionMode(mode),
+      setPermissionMode: (mode) => handle.setPermissionMode(toClaudePermissionMode(mode)),
       // 중단 영수증(0151 AC10) — SDK 0.3.2xx 의 `interrupt()` 는 `SDKControlInterruptResponse |
       // undefined` 를 돌려준다(`sdk.d.ts:2293`). 구 구현은 이를 폐기해 "중단 뒤에도 실행될 잔여"
       // 를 앱이 알 수 없었다. `undefined`(구형 CLI = `interrupt_receipt_v1` 미보유)는 **그대로**

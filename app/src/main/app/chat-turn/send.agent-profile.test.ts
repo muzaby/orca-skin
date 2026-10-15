@@ -4,7 +4,7 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { AgentKind } from '../../../shared/agent-kind'
-import type { TurnExtensions, TurnRequest } from '../../adapters/turn'
+import type { TurnExtensions, TurnRequest } from '../../adapters/common/turn'
 import { SessionRuntime } from '../../features/sessions/session-runtime'
 import type { RuntimeSessionAdapter } from '../../contracts/ports'
 import type { DbQueries } from '../../infra/db'
@@ -76,7 +76,7 @@ vi.mock('../../features/chat/turn-coordinator', () => ({
 }))
 
 import { handleChatSend } from './send'
-import { ExtensionBuilder } from '../../features/extensions/builder'
+import { ExtensionBuilder } from '../../features/extensions/common/builder'
 import { resolveAgentProfile } from '../../features/agents/profiles'
 
 const plugin = resolve('resources/claude-plugins/work-profile')

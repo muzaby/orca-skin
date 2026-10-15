@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { createArtifactToolServer } from './tool'
-import type { RuntimeToolServer, RuntimeToolContext } from '../../adapters/runtime-tools'
+import type { RuntimeToolServer, RuntimeToolContext } from '../../adapters/common/runtime-tools'
 import type { ArtifactReceipt } from './service'
 
 const artifact = {

@@ -173,9 +173,10 @@ describe('spark CSS — 고정색이 두 테마에서 같다', () => {
 
   it('소비자가 rust 가 아니라 전용 토큰을 준다', () => {
     // 코드 줄만 본다 — 주석이 `text-rust` 를 설명으로 언급해도 그건 회귀가 아니다.
-    const statusLine = codeOf(read('features/chat/components/StatusLine.tsx'))
-    expect(statusLine).toContain('text-spinner')
-    expect(statusLine).not.toContain('text-rust')
+    const consumer = codeOf(read('features/chat/harnesses/claude/Spinner.tsx'))
+    expect(consumer).toContain('<SparkSpinner')
+    expect(consumer).toContain('text-spinner')
+    expect(consumer).not.toContain('text-rust')
     // 컴포넌트는 색을 모른다 — raw hex 0건, currentColor 만.
     const spinner = codeOf(read('shared/ui/SparkSpinner.tsx'))
     expect(spinner).not.toMatch(/#[0-9a-fA-F]{6}/)

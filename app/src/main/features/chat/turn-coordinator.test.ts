@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { ClassifiedError, DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
-import type { TurnRequest } from '../../adapters/turn'
-import type { ProviderMessageBatch } from '../../adapters/types'
+import type { TurnRequest } from '../../adapters/common/turn'
+import type { ProviderMessageBatch } from '../../adapters/common/types'
 import type { TurnContext } from '../../contracts/turn'
 import {
   TurnCoordinator,

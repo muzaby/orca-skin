@@ -1,5 +1,5 @@
 import { createElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
+import { renderWithTranscript as renderToStaticMarkup } from '../../harnesses/registries/transcript.testfixture'
 import { load } from 'cheerio'
 import { describe, expect, it, vi } from 'vitest'
 import { TranscriptView } from './TranscriptView'

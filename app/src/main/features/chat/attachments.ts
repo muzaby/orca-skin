@@ -3,7 +3,7 @@ import { basename, extname, parse, resolve } from 'node:path'
 import { homedir, platform } from 'node:os'
 import type { AttachmentView, ComposerAttachment } from '../../../shared/ipc'
 import { SUPPORTED_IMAGE_MEDIA_TYPES } from './image'
-import type { ExtractedAttachmentText, ExtractedAttachmentImage } from '../../adapters/turn'
+import type { ExtractedAttachmentText, ExtractedAttachmentImage } from '../../adapters/common/turn'
 import {
   MAX_ATTACHMENT_BYTES,
   nativeAttachmentDirectory,

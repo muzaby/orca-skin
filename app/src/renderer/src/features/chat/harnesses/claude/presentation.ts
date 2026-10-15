@@ -1,5 +1,5 @@
 import type { AgentKind } from '../../../../../../shared/agent-kind'
-import type { AgentPresentation } from '../../lib/agentPresentation'
+import type { AgentPresentation } from '../contracts'
 export const agentPresentation = {
   work: {
     icon: 'todo',

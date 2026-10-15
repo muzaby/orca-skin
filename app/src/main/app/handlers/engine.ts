@@ -10,14 +10,13 @@ import {
   type EngineWriteResult
 } from '../../../shared/protocol'
 import { HARNESS_IDS } from '../../../shared/harness'
-import { readUserClaudeSettings } from '../../adapters/claude/settings'
-import { readUserOpenCodeSettings } from '../../adapters/opencode'
+import { harnessModule } from '../harnesses/registry'
 import {
   addHarnessSettings,
   deleteHarnessSettings,
   readHarnessSettings,
   updateHarnessSettings
-} from '../../features/harnesses/settings-write'
+} from '../../features/harnesses/common/settings-write'
 import type { RouterContext } from '../context'
 import { handle } from '../../infra/ipc/handle'
 import { canonicalProviderKey, providerKeyOf } from '../../infra/config/provider-key'
@@ -90,7 +89,6 @@ export function registerEngineHandlers(ctx: EngineHandlerContext): void {
     CHANNELS.engineImportUserSettings,
     ImportEngineUserSettingsSchema,
     'reject',
-    ({ engine }): EngineUserSettingsResult =>
-      engine === 'opencode' ? readUserOpenCodeSettings() : readUserClaudeSettings()
+    ({ engine }): EngineUserSettingsResult => harnessModule(engine).readUserSettings()
   )
 }

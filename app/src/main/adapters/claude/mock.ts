@@ -5,13 +5,13 @@ import type {
   InstallStatus,
   ProviderDescriptor
 } from '../../../shared/ipc'
-import type { TurnRequest } from '../turn'
+import type { TurnRequest } from '../common/turn'
 import { CLAUDE_DESCRIPTOR } from './descriptor'
 import { claudeErrorClassifier } from './error-classifier'
-import type { LiveTurn, SessionAdapter } from '../types'
+import type { LiveTurn, SessionAdapter } from '../common/types'
 import { runScenario, SCENARIOS } from './mock-scenarios'
 import type { AgentKind } from '../../../shared/agent-kind'
-import type { AdapterSpawnEnvPatch } from '../harness-config'
+import type { AdapterSpawnEnvPatch } from '../common/harness-config'
 import { claudeAgentKindEnv } from './agent-kind-env'
 
 export class MockAdapter implements SessionAdapter {

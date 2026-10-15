@@ -1,6 +1,8 @@
 import { DEFAULT_PROVIDER_ID, PROVIDER_OPTIONS, providerOption } from './providerCatalog'
 import type { EngineHarnessConfiguration } from '../types'
 export const claudeEngineConfiguration: EngineHarnessConfiguration = {
+  cardLabel: 'claude',
+  editHarnessChip: 'claude',
   defaultProvider: DEFAULT_PROVIDER_ID,
   defaultSettings: providerOption(DEFAULT_PROVIDER_ID)?.template ?? '{}',
   providers: PROVIDER_OPTIONS,

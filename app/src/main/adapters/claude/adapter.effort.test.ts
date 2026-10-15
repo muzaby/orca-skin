@@ -44,8 +44,8 @@ vi.mock('./streaming-input', async (importOriginal) => {
 })
 
 import { ClaudeAdapter } from './adapter'
-import type { TurnRequest } from '../turn'
-import type { LiveTurn } from '../types'
+import type { TurnRequest } from '../common/turn'
+import type { LiveTurn } from '../common/types'
 
 const baseReq = (): TurnRequest => ({
   sessionId: null,

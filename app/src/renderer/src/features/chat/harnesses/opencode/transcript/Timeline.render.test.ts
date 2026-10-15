@@ -1,12 +1,16 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { load } from 'cheerio'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Message } from '../../../reducer/chatReducer'
 import { installChatStoreHarness } from '../../../store/chatStore.testHarness'
 import { TranscriptView } from '../../../components/transcript/TranscriptView'
 
 const live = vi.hoisted(() => ({ text: '', reasoning: '' }))
+beforeEach(() => {
+  live.text = ''
+  live.reasoning = ''
+})
 vi.mock('../../../store/chatStore', async (original) => {
   const module = await original<typeof import('../../../store/chatStore')>()
   return {
@@ -48,6 +52,17 @@ function render(messages: Message[], inflight = false): ReturnType<typeof load> 
   )
 }
 describe('OpenCode production Timeline rendering', () => {
+  it('renders live text and reasoning through the production timeline', () => {
+    live.text = 'Live **answer**'
+    live.reasoning = 'Live reasoning'
+    const $ = render([user], true)
+    expect($('[data-component="opencode-text"]').text()).toContain('Live answer')
+    expect($('[data-component="opencode-text"] strong').text()).toBe('answer')
+    expect($('[data-component="opencode-reasoning"]')).toHaveLength(1)
+    expect($('[data-component="opencode-reasoning"]').text()).toContain('Live reasoning')
+    expect($.text().indexOf('Live reasoning')).toBeLessThan($.text().indexOf('Live answer'))
+    expect($('details')).toHaveLength(0)
+  })
   it('routes all nine segment kinds in order and renders native tool groups/file headers without Claude reserved tail', () => {
     live.text = ''
     const assistant: Message = {

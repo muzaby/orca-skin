@@ -11,12 +11,15 @@
 //
 // 판정 규칙 자체는 여전히 `decideRespawn` 이 소유한다. 여기서는 **입력만** 모은다.
 
-import type { PreparedHarnessConfig, ResolvedHarnessSettings } from '../../adapters/harness-config'
+import type {
+  PreparedHarnessConfig,
+  ResolvedHarnessSettings
+} from '../../adapters/common/harness-config'
 import {
   crossesProviderBoundary,
   providerSettingsChangedSinceSpawn,
   runtimeEnvChangedSinceSpawn
-} from '../../features/harnesses/runtime-boundary'
+} from '../../features/harnesses/common/runtime-boundary'
 import { sameExtraDirectories } from '../../../shared/extra-directories'
 import type { RespawnDecisionInput } from '../../features/sessions/respawn-policy'
 

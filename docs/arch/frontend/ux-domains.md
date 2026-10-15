@@ -42,8 +42,8 @@
 | 요청 대기                  | StatusLine "Thinking... (Ns · ~Mtokens)"                                                                                            | `features/chat/components/StatusLine.tsx` (0093 에서 shared/ui 로부터 이동) |
 | 스트리밍 중                | StatusLine + 응답 메시지에 누적 텍스트                                                                                              | `features/chat/components/ChatTile.tsx`                 |
 | 에러 (`retryable: true`)   | 메시지 영역에 에러 카드                                                                                                             | `features/chat/reducer/chatReducer.ts` 의 `state.error` |
-| 에러 (`auth.expired`)      | AuthExpiredModal (`claude /login` 안내) — `#app-frame-modal` 슬롯, backdrop 은 `#app-frame-overlay` 가 담당 (dom-architecture.md.5) | `features/backend/components/AuthExpiredModal.tsx`      |
-| CLI 설치 진행              | InstallerDialog (라인별 로그 + 수동 명령 복사) — 동일하게 `#app-frame-modal` + `#app-frame-overlay` backdrop                        | `features/backend/components/InstallerDialog.tsx`       |
+| 에러 (`auth.expired`)      | AuthExpiredModal (`claude /login` 안내) — `#app-frame-modal` 슬롯, backdrop 은 `#app-frame-overlay` 가 담당 (dom-architecture.md.5) | `features/backend/harnesses/claude/components/AuthExpiredModal.tsx`      |
+| CLI 설치 진행              | InstallerDialog (라인별 로그 + 수동 명령 복사) — 동일하게 `#app-frame-modal` + `#app-frame-overlay` backdrop                        | `features/backend/harnesses/claude/components/InstallerDialog.tsx`       |
 | 네트워크 단절              | TBD (전역 배너 미구현)                                                                                                              | —                                                       |
 
 ### 1.3-b 신규 UX (0083 / 0085~0086 / 0090)
@@ -57,7 +57,7 @@
 | 인앱 업데이트 | 업데이트 가용 시 헤더 버튼 + 파란 뱃지 → `UpdateDialog`(다운로드/재시작 사용자 게이트). dev 는 디버그 패널 더미 토글 | `features/update/` (0085/0086) |
 | 사용량 한도 | Composer 도넛 클릭 → `UsagePanel`(rendering.md §1.9) → `>` 로 설정 사용량 탭(provider 탭 포함) 이동, 월간 한도 편집 | `features/chat/components/UsagePanel.tsx` + `features/settings/` (0079~0082) |
 | 툴팁 | 모든 `title` 툴팁은 앱 루트 `TooltipHost` 가 hover 500ms 뒤 검은 배경·흰 글자 툴팁으로 그린다(OS 툴팁 대신, 두 테마 동일). 표면 클래스 SSOT = `shared/ui/tooltipStyle.ts` | `shared/ui/{TooltipHost.tsx,tooltipController.ts,tooltipTarget.ts}` (0257) |
-| 사용자 버블 접기 | 본문이 10줄을 넘으면 접고 마지막 줄을 흐린 뒤 버블 안 '더 보기'/'간략히 보기'로 오간다. 펼침 상태는 키별 메모리(가상화 재마운트에도 유지) | `features/chat/components/UserBubbleText.tsx` + `store/bubbleExpansionStore.ts` (0257) |
+| 사용자 버블 접기 | 본문이 10줄을 넘으면 접고 마지막 줄을 흐린 뒤 버블 안 '더 보기'/'간략히 보기'로 오간다. 펼침 상태는 키별 메모리(가상화 재마운트에도 유지) | `features/chat/harnesses/common/transcript/UserBubbleText.tsx` + `store/bubbleExpansionStore.ts` (0257) |
 | 엔진 추가 모달 | 단일 화면(마법사 폐기) — provider 드롭다운 + `~/.claude/settings.json` 불러오기(`orca:engine:importUserSettings`) | `features/engine/components/EngineFormModal.tsx` (0090) |
 
 ### 1.4 접근성
@@ -84,7 +84,7 @@
 
 **② 예시.** Bash `rm -rf …` 승인 카드에서 (a) 인자를 고쳐 승인 → `allow{updatedInput}`, (b) "이 세션 동안 Read 자동 허용" 토글 → `allow{updatedPermissions}`, (c) 거부 + 에이전트 중단 → `deny{interrupt:true}`. **OpenCode 세션이면** `updatedInput`/`updatedPermissions` 가 boolean 으로 downcast 되어 손실됨을 카드에 배지로 명시(../backend/provider-runtime.md §3 손실표).
 
-**③ 현재 코드 갭.** 스테이지 C2 (`2d4ab8f`) 로 `PlanApprovalCard` → `features/chat/components/ApprovalCard.tsx` 일반화 — `permission.requested` 의 `action.kind` 분기. **스테이지 C 마무리로 `tool_approval` 게이트 활성** — `ApprovalCard` 가 `pendingPlanReview`/`pendingToolApprovals` 둘 다 디스패치하고, `ToolApprovalBody`(거부/세션 동안 허용/허용 3지)가 위험 도구 승인을 surface 한다. main 의 `makeCanUseTool` 이 `RISKY_TOOLS`(Bash/PowerShell/Write/Edit/MultiEdit/NotebookEdit — `adapters/risky-tools.ts`)만 게이트하고 안전 도구는 자동 통과(../backend/provider-runtime.md §3 ③). `AskUserQuestionCard.tsx`(명확화 질문)는 별도 유지. **현재 구조**: 승인 대기는 도메인별 분리 저장(`pendingAsks`/`pendingPlanReview`/`pendingToolApprovals`)이고 단일 큐로 합치지 않는다. 권한 모드는 Composer 권한 메뉴(`composer/modes.ts` — Code 와 Work 가 다른 선택지, rendering.md "Work/Code 표현")가 `orca:permission:setMode` 로 PermissionModeController 와 연동되고 진행 중 턴에도 라이브 적용된다(../backend/overview.md §4 `options.permissionMode` 행). 단일 카드 일반화(`origin`/`risk`/`provider` 배지)는 미착수.
+**③ 현재 코드 갭.** 스테이지 C2 (`2d4ab8f`) 로 `PlanApprovalCard` → `features/chat/components/ApprovalCard.tsx` 일반화 — `permission.requested` 의 `action.kind` 분기. **스테이지 C 마무리로 `tool_approval` 게이트 활성** — `ApprovalCard` 가 `pendingPlanReview`/`pendingToolApprovals` 둘 다 디스패치하고, `ToolApprovalBody`(거부/세션 동안 허용/허용 3지)가 위험 도구 승인을 surface 한다. main 의 `makeCanUseTool` 이 `RISKY_TOOLS`(Bash/PowerShell/Write/Edit/MultiEdit/NotebookEdit — `adapters/common/risky-tools.ts`)만 게이트하고 안전 도구는 자동 통과(../backend/provider-runtime.md §3 ③). `AskUserQuestionCard.tsx`(명확화 질문)는 별도 유지. **현재 구조**: 승인 대기는 도메인별 분리 저장(`pendingAsks`/`pendingPlanReview`/`pendingToolApprovals`)이고 단일 큐로 합치지 않는다. 권한 모드는 Composer 권한 메뉴(`composer/modes.ts` — Code 와 Work 가 다른 선택지, rendering.md "Work/Code 표현")가 `orca:permission:setMode` 로 PermissionModeController 와 연동되고 진행 중 턴에도 라이브 적용된다(../backend/overview.md §4 `options.permissionMode` 행). 단일 카드 일반화(`origin`/`risk`/`provider` 배지)는 미착수.
 
 **④ 연동.** `permission.requested` 이벤트 → reducer 가 종류별 대기 슬롯(`pendingPlanReview`·`pendingToolApprovals`·`pendingAsks`)에 적재 → `ApprovalCard.tsx` 가 Composer 입력창을 대체하거나 입력 위에 additive 로 뜬다(③) → 결정은 PermissionBridge(../backend/provider-runtime.md §3)로 회신. 렌더링은 ToolRendererRegistry 의 `'approval'` kind(rendering.md §1.6).
 

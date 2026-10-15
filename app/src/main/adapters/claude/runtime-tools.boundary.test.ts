@@ -6,7 +6,7 @@ import type {
   RuntimeToolContext,
   RuntimeToolImplementation,
   RuntimeToolSnapshot
-} from '../runtime-tools'
+} from '../common/runtime-tools'
 
 // 형제 파일 `claude-runtime-tools.test.ts` 는 createSdkMcpServer 를 mock 해 **옵션 조립**만 본다.
 // 여기서는 mock 없이 실제 SDK 서버 인스턴스를 in-memory transport 로 물려 **경계 통과 후의

@@ -6,7 +6,11 @@ import { Icon } from '../../../shared/ui/Icon'
 import { chatActions } from '../store/chatStore'
 import { cwdDisplayName } from '../lib/worktreeDisplay'
 import { useI18n } from '../../../shared/i18n'
-import { chipSurface, OUTLINED_ICON_SIZE, type ChipVariant } from './composer/chipSurface'
+import {
+  chipSurface,
+  OUTLINED_ICON_SIZE,
+  type ChipVariant
+} from '../harnesses/common/composer/chipSurface'
 
 interface CwdButtonProps {
   cwd: string | null

@@ -29,7 +29,7 @@ const { queryMock, messages, captured } = vi.hoisted(() => {
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({ query: queryMock }))
 
 import { ClaudeAdapter } from './adapter'
-import type { TurnRequest } from '../turn'
+import type { TurnRequest } from '../common/turn'
 import type { ApprovalResolution, PermissionAction } from '../../../shared/ipc'
 
 type CanUseTool = (

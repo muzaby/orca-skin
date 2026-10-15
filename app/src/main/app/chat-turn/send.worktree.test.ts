@@ -78,7 +78,7 @@ import { normalizeAttachments } from '../../features/chat/attachments'
 import { enqueueTurnPrompt } from './enqueue'
 import { runTurnWithContinuations } from './post-turn'
 import { PendingMessageQueue } from '../../features/chat/pending-message-queue'
-import type { TurnRequest } from '../../adapters/turn'
+import type { TurnRequest } from '../../adapters/common/turn'
 
 const requirement = (overrides: Partial<DiffRequirementAnchor> = {}): DiffRequirementAnchor => ({
   sessionId: 'session-1',

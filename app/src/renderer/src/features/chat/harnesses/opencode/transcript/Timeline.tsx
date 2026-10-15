@@ -5,12 +5,12 @@ import { useI18n } from '../../../../../shared/i18n'
 import { useChatSession, useLiveReasoning, useLiveText } from '../../../store/chatStore'
 import { transcriptPresentation } from '../../../lib/agentPresentation'
 import { errorCategoryKey } from '../../../lib/errorLabels'
-import { UserTurn } from '../../../components/transcript/UserTurn'
-import { MessageMeta } from '../../../components/transcript/MessageMeta'
-import { ArtifactCards } from '../../../components/ArtifactCards'
-import { PendingAssistantStatus } from '../../../components/transcript/PendingAssistant'
-import { PendingSteerTurn } from '../../../components/transcript/PendingSteerTurn'
-import { TurnErrorBanner } from '../../../components/transcript/Exchange'
+import { UserTurn } from '../../common/transcript/UserTurn'
+import { MessageMeta } from '../../common/transcript/MessageMeta'
+import { ArtifactCards } from '../../common/transcript/ArtifactCards'
+import { PendingAssistantStatus } from '../../../components/transcript/PendingAssistantStatus'
+import { PendingSteerTurn } from '../../common/transcript/PendingSteerTurn'
+import { TurnErrorBanner } from '../../common/transcript/TurnErrorBanner'
 import type { TranscriptViewProps } from '../../../components/transcript/TranscriptView'
 import { OpenCodeAssistantSegment } from './AssistantSegment'
 import { OpenCodeText, OpenCodeReasoning } from './Text'
@@ -152,7 +152,7 @@ export const OpenCodeTimelineRow = memo(function OpenCodeTimelineRow({
   const streaming = useTimelineMarkdownMode(row.kind === 'segment' && row.streaming, selected)
   switch (row.kind) {
     case 'user':
-      return <UserTurn turn={row.turn} openCode />
+      return <UserTurn turn={row.turn} />
     case 'segment':
       if (row.segment.kind === 'text')
         return <OpenCodeText source={row.segment.text} streaming={streaming} />

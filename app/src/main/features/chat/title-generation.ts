@@ -3,7 +3,7 @@
 
 import type { DbQueries } from '../../infra/db'
 import type { RuntimeTitleAdapter } from '../../contracts/ports'
-import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
+import type { ResolvedHarnessSettings } from '../../adapters/common/harness-config'
 import { normalizeTitle, shouldGenerateTitle, titlePrompt } from '../../features/chat/title'
 import { broadcastSessionTitle } from '../../infra/ipc/send'
 import { getLogger } from '../../infra/log/registry'

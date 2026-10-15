@@ -24,7 +24,7 @@
 import { describe, expect, it } from 'vitest'
 import type { DiffRequirementItem, GitDiffSummary } from '../../../../../shared/ipc'
 import { chatReducer, initialChatState, type ChatState } from './chatReducer'
-import { ALL_CHANGES } from '../components/rightpanel/diffComparison'
+import { ALL_CHANGES } from '../harnesses/common/rightpanel/diffComparison'
 
 const SHA = 'a'.repeat(40)
 

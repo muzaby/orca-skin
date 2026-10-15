@@ -1,11 +1,11 @@
 import { describe, expect, it, vi, type Mock } from 'vitest'
 import type { DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
 import { makeClassifiedError } from '../../infra/errors'
-import type { TurnRequest, TurnContinuation } from '../../adapters/turn'
+import type { TurnRequest, TurnContinuation } from '../../adapters/common/turn'
 import type { AbortCause } from '../../contracts/session-state'
 import type { GovernedLiveTurn, RuntimeSessionAdapter } from '../../contracts/ports'
-import type { ClaudePermissionMode } from '../../../shared/permission-mode'
-import type { LiveTurn, ProviderMessageBatch } from '../../adapters/types'
+import type { NormalizedPermissionMode } from '../../../shared/permission-mode'
+import type { LiveTurn, ProviderMessageBatch } from '../../adapters/common/types'
 import { SessionRuntime, pickFrameDelegates } from './session-runtime'
 import { decideRespawn } from './respawn-policy'
 import { getLogger } from '../../infra/log/registry'
@@ -1786,7 +1786,7 @@ describe('SessionRuntime runtime tool revision (0158)', () => {
 // **인자를 두 번 서로 다른 값으로 넘긴다** — 한 번이면 상수로 굳힌 전달도 통과한다.
 describe('SessionRuntime — live 전달 홉 (0212 §10 EP-14)', () => {
   type ForwardSpy = {
-    setPermissionMode: Mock<(mode: ClaudePermissionMode) => Promise<void>>
+    setPermissionMode: Mock<(mode: NormalizedPermissionMode) => Promise<void>>
     setModel: Mock<(model?: string) => Promise<void>>
     stopTask: Mock<(taskId: string) => Promise<void>>
     backgroundTask: Mock<(toolUseId?: string) => Promise<boolean>>
@@ -1895,10 +1895,10 @@ describe('SessionRuntime — live 전달 홉 (0212 §10 EP-14)', () => {
     await runtime.setModel('opus')
     await runtime.setModel('sonnet')
     await runtime.setPermissionMode('plan')
-    await runtime.setPermissionMode('acceptEdits')
+    await runtime.setPermissionMode('accept_edits')
 
     expect(spy.setModel.mock.calls).toEqual([['opus'], ['sonnet']])
-    expect(spy.setPermissionMode.mock.calls).toEqual([['plan'], ['acceptEdits']])
+    expect(spy.setPermissionMode.mock.calls).toEqual([['plan'], ['accept_edits']])
     await done()
   })
 })

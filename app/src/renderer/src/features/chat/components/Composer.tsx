@@ -1,5 +1,4 @@
-import { ClaudeConversationStatus } from '../harnesses/claude/composer/ConversationStatus'
-import { ClaudeModeControl, ClaudeEffortControl } from '../harnesses/claude/composer/Controls'
+import { composerHarness } from '../harnesses/registries/composer'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { useI18n } from '../../../shared/i18n'
@@ -7,14 +6,9 @@ import { UsageCircle } from '../../../shared/ui/UsageCircle'
 import { agentUiPolicy } from '../lib/agentPresentation'
 import { Popover } from '../../../shared/ui/Popover'
 import { ReadingColumn } from '../../../shared/ui/ReadingColumn'
-import { ComposerInputController } from './composer/ComposerInputController'
-import { ComposerChip } from './composer/ComposerChip'
-import { RequirementTray } from './composer/RequirementTray'
+import { ComposerInputController } from '../harnesses/common/composer/ComposerInputController'
+import { RequirementTray } from '../harnesses/common/composer/RequirementTray'
 import { ModelMenu } from './composer/ModelMenu'
-import {
-  OpenCodeAgentControl,
-  OpenCodeVariantControl
-} from '../harnesses/opencode/composer/Controls'
 import {
   draftSelection,
   modelKey,
@@ -27,12 +21,7 @@ import { Button } from '../../../shared/ui/Button'
 import { CwdPanel } from './CwdPanel'
 import { GitRow } from './composer/GitRow'
 import { Notice } from './Notice'
-import { AskUserQuestionCard } from './AskUserQuestionCard'
-import { OpenCodeRequestDock } from '../harnesses/opencode/composer/RequestDock'
-import { selectOpenCodeRequest } from '../harnesses/opencode/composer/requestQueue'
-import { OpenCodeTodoDock } from '../harnesses/opencode/composer/TodoDock'
-import { selectOpenCodeTodos } from '../harnesses/opencode/composer/todoState'
-import { ApprovalCard, ToolApprovalBody } from './ApprovalCard'
+import { ApprovalCard } from './ApprovalCard'
 import { UsagePanel } from './UsagePanel'
 import type { UsageLimitsView } from '../../../../../shared/usage/limits'
 import {
@@ -41,7 +30,6 @@ import {
   useChatResponding,
   useChatResidualSteer,
   useChatSession,
-  useChatStore,
   useNewChatPending,
   useProjectConcurrencyCount
 } from '../store/chatStore'
@@ -130,7 +118,7 @@ export function Composer({
   onManagePlugins
 }: ComposerProps): React.JSX.Element {
   const { tr } = useI18n()
-  const { send, cancel, answerAsk, skipAsk, setModel } = chatActions
+  const { send, cancel, setModel } = chatActions
   const leaseBusy = useChatBusy()
   const inflight = useChatResponding()
   // Stop 잔여(0151 r2) — 중단했는데 이미 전달된 예약이 CLI 큐에 살아남았다. 수동 배지로 덮지 않고
@@ -142,16 +130,9 @@ export function Composer({
   const lastTelemetry = useChatSession((s) => s.lastTelemetry)
   const backend = useChatSession((s) => s.backend)
   const harnessLocked = useChatSession((s) => !!s.sessionId || s.agentKindLocked)
-  const openCode = backend === 'opencode'
-  const activeStoreKey = useChatStore((s) => s.activeKey)
-  const messages = useChatSession((s) => s.messages)
-  const sendCount = useChatSession((s) => s.sendCount)
-  const openCodeTodoTurnStartIndex = useChatSession((s) => s.openCodeTodoTurnStartIndex)
-  const openCodeTodoCollapsed = useChatSession((s) => s.openCodeTodoCollapsed)
-  const openCodeTodos = useMemo(
-    () => selectOpenCodeTodos({ backend, messages, sendCount, openCodeTodoTurnStartIndex }),
-    [backend, messages, sendCount, openCodeTodoTurnStartIndex]
-  )
+  const presentation = composerHarness(backend)
+  const { Status, Requests, AboveInput, ModeControl, EffortControl, Chip } = presentation
+  const contextBelow = presentation.landingContextBelow
   const providerKey = useChatSession((s) => s.providerKey)
   const modelFamily = useChatSession((s) => s.modelFamily)
   const modelAlias = useChatSession((s) => s.modelAlias)
@@ -165,14 +146,11 @@ export function Composer({
   // 큐의 맨 앞 질문만 렌더(canUseTool 이 query 를 막아 보통 1개). 응답 시 다음 질문이 노출.
   const pendingAsks = useChatSession((s) => s.pendingAsks)
   const pendingRequestOrder = useChatSession((s) => s.pendingRequestOrder)
-  const activeAsk = pendingAsks[0]
-  const openCodeRequest = useMemo(
-    () =>
-      openCode
-        ? selectOpenCodeRequest({ pendingAsks, pendingToolApprovals, pendingRequestOrder })
-        : undefined,
-    [openCode, pendingAsks, pendingToolApprovals, pendingRequestOrder]
-  )
+  const inputBlocked = presentation.inputBlocked({
+    pendingAsks,
+    pendingToolApprovals,
+    pendingRequestOrder
+  })
   const modelButtonRef = useRef<HTMLButtonElement>(null)
   const [modelMenuOpen, setModelMenuOpen] = useState(false)
   const agents = useAgents()
@@ -230,7 +208,7 @@ export function Composer({
   const toolApprovalPending = pendingToolApprovals.length > 0
   return (
     <div
-      className={`app-frame-composer relative ${openCodeLanding && openCode ? '' : 'pb-[18px] pt-3'}`}
+      className={`app-frame-composer relative ${openCodeLanding && contextBelow ? '' : 'pb-[18px] pt-3'}`}
     >
       {showScrollToBottom && (
         <button
@@ -245,31 +223,13 @@ export function Composer({
         </button>
       )}
       <ColumnWrap flush={flush}>
-        {!openCode && <ClaudeConversationStatus onHandoffStarted={() => setTelemetryOpen(false)} />}
+        <Status onHandoffStarted={() => setTelemetryOpen(false)} />
         {/* 패널 스택 — ask / 도구 승인 / git / 안내 / 입력 패널. 요구사항은 입력 안에 둔다. */}
         <ComposerPanelStackView
           beforeGitRow={
             <>
-              {!openCode && activeAsk && (
-                <AskUserQuestionCard
-                  key={activeAsk.requestId}
-                  ask={activeAsk}
-                  onSubmit={(answers, response) =>
-                    answerAsk(activeAsk.requestId, answers, response)
-                  }
-                  onSkip={() => skipAsk(activeAsk.requestId)}
-                />
-              )}
-              {!openCode &&
-                pendingToolApprovals.map((p) => (
-                  <ToolApprovalBody
-                    key={p.approvalId}
-                    approvalId={p.approvalId}
-                    toolName={p.toolName}
-                    input={p.input}
-                  />
-                ))}
-              {showLandingCwdPanel && !(openCodeLanding && openCode) && (
+              <Requests />
+              {showLandingCwdPanel && !(openCodeLanding && contextBelow) && (
                 <CwdPanel cwd={cwd} inflight={leaseBusy} />
               )}
             </>
@@ -313,22 +273,12 @@ export function Composer({
           }
           composerInput={
             <>
-              {openCode && (
-                <OpenCodeTodoDock
-                  sessionKey={activeStoreKey}
-                  turnKey={sendCount}
-                  todos={openCodeTodos}
-                  live={inflight || !!openCodeRequest}
-                  blocked={!!openCodeRequest}
-                  collapsed={openCodeTodoCollapsed}
-                  onCollapsedChange={chatActions.setOpenCodeTodoCollapsed}
-                />
-              )}
-              {openCodeRequest && <OpenCodeRequestDock request={openCodeRequest} />}
+              <AboveInput inflight={inflight} />
               <ComposerInputController
                 key="composer-input"
-                active={!pendingPlanReview && !openCodeRequest}
-                backendLabel={openCode ? 'OpenCode' : backendLabel}
+                active={!pendingPlanReview && !inputBlocked}
+                presentation={presentation}
+                backendLabel={presentation.label ?? backendLabel}
                 canAbort={canAbort}
                 inflight={inflight}
                 steerBlocked={steerBlocked}
@@ -350,20 +300,18 @@ export function Composer({
                 onCancel={cancel}
                 onManagePlugins={onManagePlugins}
                 controlsStart={
-                  openCode ? (
-                    <OpenCodeAgentControl
-                      agents={agents.find((entry) => entry.key === providerKey)?.agents}
-                    />
-                  ) : (
-                    <ClaudeModeControl model={selectedModelShape(agents, selectedModel)} />
-                  )
+                  <ModeControl
+                    agents={agents}
+                    providerKey={providerKey}
+                    modelFamily={modelFamily}
+                    model={selectedModelShape(agents, selectedModel)}
+                  />
                 }
                 controlsEnd={
                   <>
                     {agents.some((agent) => agent.supported) && (
-                      <ComposerChip
+                      <Chip
                         ref={modelButtonRef}
-                        openCode={openCode}
                         label={selectionLabel(selectedModel) ?? tr('chat.composer.modelFallback')}
                         onClick={() => setModelMenuOpen((v) => !v)}
                         ariaHasPopup
@@ -371,18 +319,12 @@ export function Composer({
                         title={tr('chat.composer.modelSelectTitle')}
                       />
                     )}
-                    {openCode ? (
-                      <OpenCodeVariantControl
-                        variants={
-                          agents
-                            .find((entry) => entry.key === providerKey)
-                            ?.models.find((model) => modelKey(model) === modelFamily)?.variants ??
-                          []
-                        }
-                      />
-                    ) : (
-                      <ClaudeEffortControl modelFamily={modelFamily} />
-                    )}
+                    <EffortControl
+                      agents={agents}
+                      providerKey={providerKey}
+                      modelFamily={modelFamily}
+                      model={selectedModelShape(agents, selectedModel)}
+                    />
                     {lastTelemetry &&
                       (() => {
                         // 컨텍스트 사용량 = (입력+캐시)/모델 윈도우(마지막 턴 기준). 세션 동안 lastTelemetry
@@ -439,7 +381,7 @@ export function Composer({
             </>
           }
           afterComposerInput={
-            showLandingCwdPanel && openCodeLanding && openCode ? (
+            showLandingCwdPanel && openCodeLanding && contextBelow ? (
               <div className="pt-6" data-surface="opencode-landing-context">
                 <CwdPanel cwd={cwd} inflight={leaseBusy} appearance="opencode" />
               </div>

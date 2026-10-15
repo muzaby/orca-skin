@@ -4,11 +4,11 @@ import { agentUiPolicy } from '../lib/agentPresentation'
 import { chatActions, useChatSession } from '../store/chatStore'
 import { CwdButton } from './CwdButton'
 import { useDirectoryPicker } from '../hooks/useDirectoryPicker'
-import { BranchChip } from './composer/BranchChip'
-import { chipGroupSurface } from './composer/chipSurface'
-import { ComposerChip } from './composer/ComposerChip'
-import { ExtraDirChip } from './composer/ExtraDirChip'
-import { WorktreeToggle } from './composer/WorktreeToggle'
+import { BranchChip } from '../harnesses/common/composer/BranchChip'
+import { chipGroupSurface } from '../harnesses/common/composer/chipSurface'
+import { ComposerChip } from '../harnesses/common/composer/ComposerChip'
+import { ExtraDirChip } from '../harnesses/common/composer/ExtraDirChip'
+import { WorktreeToggle } from '../harnesses/common/composer/WorktreeToggle'
 
 interface CwdPanelProps {
   cwd: string | null

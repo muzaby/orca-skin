@@ -1,5 +1,5 @@
 import type { AgentKind } from '../../../shared/agent-kind'
-import type { AdapterSpawnEnvPatch } from '../harness-config'
+import type { AdapterSpawnEnvPatch } from '../common/harness-config'
 
 const CLAUDE_WORK_ENV = Object.freeze({
   CLAUDE_CODE_ENABLE_TODO_TOOLS: '1',

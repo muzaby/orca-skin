@@ -3,7 +3,7 @@
 // 순수 타입/함수만 — zod·SDK·electron 을 import 하지 않는다. `shared/` 는 preload(sandbox=true)
 // 와 renderer·main 이 모두 import 하므로 런타임 의존이 없어야 한다(`permission-mode.ts` 와 동형).
 //
-// **왜 shared 인가**: 같은 규칙이 main(`features/harnesses/models.ts`)과 renderer
+// **왜 shared 인가**: 같은 규칙이 main(`features/harnesses/common/models.ts`)과 renderer
 // (`features/chat/.../modelSelection.ts`)에 복제돼 있었고, 그 복제가 `[1m]` 축을 한쪽만
 // 반영할 수 있는 자리였다. 규칙을 한 곳으로 올려 두 소비처가 위임만 하게 한다.
 

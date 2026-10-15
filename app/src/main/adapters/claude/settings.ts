@@ -15,7 +15,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { EngineUserSettingsResult } from '../../../shared/ipc'
 import { isRecord } from '../../../shared/obj'
-import type { HarnessSettingsLoader } from '../harness-config'
+import type { HarnessSettingsLoader } from '../common/harness-config'
 
 // CLI 가 repo-커밋 파일의 escalating 모드에 적용하는 trust 필터와 동등한 목록
 // (sdk.d.ts resolveSettings remarks). flat 폴백 경로에서 수동 적용한다.

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { DebugMockState, NormalizedEvent } from '../../../shared/ipc'
 import { MockAdapter } from './mock'
-import type { ProviderMessageBatch } from '../types'
+import type { ProviderMessageBatch } from '../common/types'
 
 const extensions = { skills: [], hooks: { normalized: {} } }
 

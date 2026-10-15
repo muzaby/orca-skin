@@ -11,7 +11,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', async (importOriginal) => ({
 }))
 
 import { adaptRuntimeTools } from './runtime-tools'
-import type { RuntimeToolSnapshot } from '../runtime-tools'
+import type { RuntimeToolSnapshot } from '../common/runtime-tools'
 
 const snapshot: RuntimeToolSnapshot = {
   revision: 1,

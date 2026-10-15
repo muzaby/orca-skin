@@ -6,7 +6,7 @@ import { Composer } from './Composer'
 import { RightPanel } from './rightpanel/RightPanel'
 import { initialChatState } from '../reducer/chatReducer'
 import { HarnessScrollController } from './transcript/HarnessScrollController'
-import { useScrollAnchor as mockScrollAnchor } from '../hooks/useScrollAnchor'
+import { useScrollAnchor as mockScrollAnchor } from '../harnesses/claude/transcript/useScrollAnchor'
 
 const harness = vi.hoisted(() => ({
   activeKey: 'first',
@@ -41,7 +41,7 @@ vi.mock('../store/chatStore', () => ({
   useChatResponding: () => harness.responding,
   usePendingSteer: () => []
 }))
-vi.mock('../hooks/useScrollAnchor', () => ({
+vi.mock('../harnesses/claude/transcript/useScrollAnchor', () => ({
   useScrollAnchor: () => ({
     scrollRef: { current: null },
     contentRef: { current: null },

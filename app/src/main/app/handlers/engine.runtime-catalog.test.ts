@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AgentEnvironment } from '../../../shared/ipc'
 import { CHANNELS } from '../../../shared/protocol'
-import { createRuntimeModelCatalog } from '../../features/harnesses/runtime-catalog'
-import { createHarnessRuntimeConfigService } from '../../features/harnesses/runtime-config'
+import { createRuntimeModelCatalog } from '../../features/harnesses/common/runtime-catalog'
+import { createHarnessRuntimeConfigService } from '../../features/harnesses/common/runtime-config'
 
 const callbacks = vi.hoisted(() => new Map<string, (...args: never[]) => unknown>())
 
@@ -12,13 +12,16 @@ vi.mock('../../infra/ipc/handle', () => ({
   }),
   handlePlain: vi.fn()
 }))
-vi.mock('../../features/harnesses/settings-write', () => ({
+vi.mock('../../features/harnesses/common/settings-write', () => ({
   addHarnessSettings: vi.fn(() => ({})),
   deleteHarnessSettings: vi.fn(),
   readHarnessSettings: vi.fn(() => ({})),
   updateHarnessSettings: vi.fn(() => ({}))
 }))
-vi.mock('../../adapters/claude/settings', () => ({ readUserClaudeSettings: vi.fn() }))
+vi.mock('../../adapters/claude/settings', async (original) => ({
+  ...(await original<typeof import('../../adapters/claude/settings')>()),
+  readUserClaudeSettings: vi.fn()
+}))
 vi.mock('../../infra/log', () => ({
   getLogger: () => ({ child: () => ({ warn: vi.fn() }) })
 }))
@@ -67,6 +70,7 @@ describe('engine runtime catalog invalidation wiring', () => {
       }
     })
     const runtimeModelCatalog = createRuntimeModelCatalog({
+      parseModels: parseHarnessRuntimeModels,
       contributions: [
         { authId: 'gate', key: 'claude-corp', harnessId: 'claude', modelProviderId: 'corp' }
       ],
@@ -140,3 +144,5 @@ describe('engine runtime catalog invalidation wiring', () => {
     expect(isReadOnly).toHaveBeenCalledWith('claude-corp')
   })
 })
+
+import { parseHarnessRuntimeModels } from '../harnesses/registry'

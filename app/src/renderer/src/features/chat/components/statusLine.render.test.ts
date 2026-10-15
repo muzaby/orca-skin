@@ -141,15 +141,15 @@ describe('StatusLine — Claude 세 표면이 같은 스피너를 받는다', ()
       return [...code.matchAll(site)].map(() => f)
     })
     expect(sites.sort()).toEqual([
-      'features/chat/components/rightpanel/SubAgentTileContent.tsx',
-      'features/chat/components/transcript/PendingAssistant.tsx'
+      'features/chat/components/transcript/PendingAssistantStatus.tsx',
+      'features/chat/harnesses/common/rightpanel/SubAgentTaskDetail.tsx'
     ])
     // 그 지점들이 분기 없이 같은 컴포넌트를 받는다 — 소비자가 둘이면 variant 가 생긴 것이다.
     // 분모는 프로덕션 파일이다 — 테스트가 스피너를 렌더하는 것은 variant 가 아니다.
     const consumers = files
       .filter((f) => !f.endsWith('.test.ts') && !f.endsWith('.testlib.ts'))
       .filter((f) => consumer.test(codeOf(readFileSync(join(RENDERER_SRC, f), 'utf8'))))
-    expect(consumers).toEqual(['features/chat/components/StatusLine.tsx'])
+    expect(consumers).toEqual(['features/chat/harnesses/claude/Spinner.tsx'])
   })
 })
 
@@ -158,11 +158,16 @@ describe('StatusLine — 스피너가 상태문구보다 크다', () => {
     // 자리를 말하는 불변식이라 세 값을 함께 단언한다 — 12 와 14 를 맞바꾼 회귀가
     // "두 문자열이 모두 남아 있다" 로 통과하지 않게 한다.
     const statusLine = codeOf(
-      readFileSync(fileURLToPath(new URL('./StatusLine.tsx', import.meta.url)), 'utf8')
+      readFileSync(
+        fileURLToPath(new URL('../harnesses/common/transcript/StatusLine.tsx', import.meta.url)),
+        'utf8'
+      )
     )
     const bubble = codeOf(
       readFileSync(
-        fileURLToPath(new URL('./transcript/AssistantMessage.tsx', import.meta.url)),
+        fileURLToPath(
+          new URL('../harnesses/common/transcript/AssistantMessage.tsx', import.meta.url)
+        ),
         'utf8'
       )
     )
@@ -202,16 +207,28 @@ describe('StatusLine — 실시간 출력 경로를 건드리지 않는다', () 
 
   it('프레임 진행에 React 상태·타이머가 없다', () => {
     // 주석은 뺀다 — 산문의 언급에 반응하는 술어는 회귀를 구분하지 못한다.
-    const code = codeOf(
-      readFileSync(fileURLToPath(new URL('./StatusLine.tsx', import.meta.url)), 'utf8')
+    const status = codeOf(
+      readFileSync(
+        fileURLToPath(new URL('../harnesses/common/transcript/StatusLine.tsx', import.meta.url)),
+        'utf8'
+      )
     )
-    for (const token of ['setInterval', 'SYMBOL_INTERVAL_MS', 'symbolIdx', 'useState']) {
-      expect(code, token).not.toContain(token)
+    const spinner = codeOf(
+      readFileSync(
+        fileURLToPath(new URL('../harnesses/claude/Spinner.tsx', import.meta.url)),
+        'utf8'
+      )
+    )
+    for (const code of [status, spinner]) {
+      for (const token of ['setInterval', 'SYMBOL_INTERVAL_MS', 'symbolIdx', 'useState']) {
+        expect(code, token).not.toContain(token)
+      }
+      // 인라인 style 로 배율을 그리면 프레임 진행이 다시 JS 로 올라온다.
+      expect(code).not.toContain('style={')
     }
-    // 인라인 style 로 배율을 그리면 프레임 진행이 다시 JS 로 올라온다.
-    expect(code).not.toContain('style={')
     // 양성 짝 — 경과 초 훅은 남아 있다(장치가 파일을 통째로 비웠을 때 통과하지 못하게).
-    expect(code).toContain('useElapsed')
-    expect(code).toContain('<SparkSpinner')
+    expect(status).toContain('useElapsed')
+    expect(status).toContain('<Spinner')
+    expect(spinner).toContain('<SparkSpinner')
   })
 })

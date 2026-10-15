@@ -3,8 +3,8 @@ import type {
   RuntimeModelCatalog,
   RuntimeModelCatalogBridge,
   RuntimeModelContribution
-} from '../features/harnesses/runtime-catalog'
-import { canonicalAgentKey } from '../features/harnesses/models'
+} from '../features/harnesses/common/runtime-catalog'
+import { canonicalAgentKey } from '../features/harnesses/common/models'
 
 export function affectedRuntimeModelAuthIds(
   keys: Iterable<string>,

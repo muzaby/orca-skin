@@ -34,7 +34,7 @@ const { queryMock, control } = vi.hoisted(() => {
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({ query: queryMock }))
 
 import { ClaudeAdapter } from './adapter'
-import type { TurnRequest } from '../turn'
+import type { TurnRequest } from '../common/turn'
 
 const baseReq = (): TurnRequest => ({
   sessionId: null,
@@ -44,6 +44,29 @@ const baseReq = (): TurnRequest => ({
 })
 
 describe('ClaudeAdapter — live 제어 위임의 인자 (0212 AC25 경로 끝)', () => {
+  it('converts every normalized live permission mode at the native SDK boundary', async () => {
+    control.setPermissionMode.mockClear()
+    const live = new ClaudeAdapter().sendMessage(baseReq())
+    for (const mode of [
+      'default',
+      'accept_edits',
+      'plan',
+      'dont_ask',
+      'bypass',
+      'auto_classified'
+    ] as const) {
+      await live.setPermissionMode(mode)
+    }
+    expect(control.setPermissionMode.mock.calls).toEqual([
+      ['default'],
+      ['acceptEdits'],
+      ['plan'],
+      ['dontAsk'],
+      ['bypassPermissions'],
+      ['auto']
+    ])
+    live.close()
+  })
   // 두 번 부르고 값을 다르게 준다 — 한 번이면 인자를 상수로 굳힌 위임도 통과한다.
   it('backgroundTask 는 받은 toolUseId 로 SDK backgroundTasks 를 부르고 반환을 그대로 돌려준다', async () => {
     const live = new ClaudeAdapter().sendMessage(baseReq())

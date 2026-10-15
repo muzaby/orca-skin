@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createHarnessRuntimeConfigService } from '../../features/harnesses/runtime-config'
-import { createRuntimeModelCatalog } from '../../features/harnesses/runtime-catalog'
+import { createHarnessRuntimeConfigService } from '../../features/harnesses/common/runtime-config'
+import { createRuntimeModelCatalog } from '../../features/harnesses/common/runtime-catalog'
 import { resolveTurnProvider } from './resolve-turn'
 import type { AgentKind } from '../../../shared/agent-kind'
-import type { AdapterSpawnEnvPatch } from '../../adapters/harness-config'
+import type { AdapterSpawnEnvPatch } from '../../adapters/common/harness-config'
 
 vi.mock('../../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
 vi.mock('../../infra/log', () => ({
@@ -38,6 +38,7 @@ describe('turn setup with the runtime model catalog', () => {
       clock: () => now
     })
     const catalog = createRuntimeModelCatalog({
+      parseModels: parseHarnessRuntimeModels,
       contributions: [contribution],
       snapshotOf: () =>
         ({ authId: 'gate', status: 'valid', verified: true, credentialRevision: 1 }) as never,
@@ -103,6 +104,7 @@ describe('turn setup with the runtime model catalog', () => {
       }
     })
     const catalog = createRuntimeModelCatalog({
+      parseModels: parseHarnessRuntimeModels,
       contributions: [contribution],
       snapshotOf: () =>
         ({ authId: 'gate', status: 'valid', verified: true, credentialRevision: 1 }) as never,
@@ -158,6 +160,7 @@ describe('turn setup with the runtime model catalog', () => {
       augmenters: { [contribution.key]: { resolve: async () => ({ runtimeEnv: {} }) } }
     })
     const catalog = createRuntimeModelCatalog({
+      parseModels: parseHarnessRuntimeModels,
       contributions: [contribution],
       snapshotOf: () =>
         ({ authId: 'gate', status: 'valid', verified: true, credentialRevision: 1 }) as never,
@@ -231,3 +234,5 @@ describe('turn setup with the runtime model catalog', () => {
     expect(result.prepared.runtimeEnvFingerprint === undefined).toBe(!resolved)
   })
 })
+
+import { parseHarnessRuntimeModels } from '../harnesses/registry'

@@ -23,7 +23,7 @@ const { messages, queryMock, closed } = vi.hoisted(() => {
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({ query: queryMock }))
 
 import { ClaudeAdapter } from './adapter'
-import type { LiveTurn, ProviderMessageBatch } from '../types'
+import type { LiveTurn, ProviderMessageBatch } from '../common/types'
 
 async function collect(): Promise<{
   live: LiveTurn

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useI18n } from '../../../../../shared/i18n'
 import { Popover } from '../../../../../shared/ui/Popover'
-import { ComposerChip } from '../../../components/composer/ComposerChip'
+import { ComposerChip } from '../../common/composer/ComposerChip'
 import { chatActions, useChatSession } from '../../../store/chatStore'
 import { ModeMenu } from './ModeMenu'
 import { EffortMenu } from './EffortMenu'

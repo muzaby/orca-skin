@@ -7,7 +7,7 @@ import {
   ALL_CHANGES,
   diffComparisonKey,
   type DiffComparison
-} from '../components/rightpanel/diffComparison'
+} from '../harnesses/common/rightpanel/diffComparison'
 
 /**
  * 패치를 지금 조회해야 하는가 — **순수 판정** (0211 ΔV4 D-078, §10 EP-34 ①).

@@ -31,7 +31,9 @@ vi.mock('../store/chatStore', () => ({
   usePendingSteer: () => [],
   chatActions: {}
 }))
-vi.mock('../hooks/useScrollAnchor', () => ({ useScrollAnchor: () => fixture.scroll }))
+vi.mock('../harnesses/claude/transcript/useScrollAnchor', () => ({
+  useScrollAnchor: () => fixture.scroll
+}))
 // Keep the actual harness dispatcher and its keyed controller boundary; only
 // browser scroll measurement is replaced in this React lifetime test.
 vi.mock('../harnesses/opencode/transcript/ScrollController', () => ({

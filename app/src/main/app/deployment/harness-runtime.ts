@@ -34,8 +34,8 @@
 //     key 별 등록이라 운영자가 나중에 만든 ModelProvider 에는 붙지 않는다.
 
 import type { AuthBinder, AuthId } from '../../contracts/auth'
-import type { RuntimeConfigAugmenters } from '../../features/harnesses/runtime-config'
-import type { RuntimeModelContribution } from '../../features/harnesses/runtime-catalog'
+import type { RuntimeConfigAugmenters } from '../../features/harnesses/common/runtime-config'
+import type { RuntimeModelContribution } from '../../features/harnesses/common/runtime-catalog'
 
 // ── 두 능력은 **타입으로** 갈라져 있다 (r5 D-048) ─────────────────────────────
 //

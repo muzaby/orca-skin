@@ -25,10 +25,20 @@ describe('CwdPanel — 랜딩 전용 (AC16)', () => {
     expect(COMPOSER).toMatch(/showLandingCwdPanel\s*=\s*false/)
   })
 
-  it('플래그를 켜는 호출부는 랜딩 페이지 둘뿐이다', () => {
-    for (const [name, source] of Object.entries(PAGES)) {
-      expect(source, `${name} 가 플래그를 켜지 않는다`).toMatch(/showLandingCwdPanel/)
+  it('새 대화의 Landing 중계와 프로젝트 랜딩에서만 플래그를 켠다', () => {
+    expect(PAGES['NewChatLandingPage.tsx']).toMatch(/if \(isEmpty\)[\s\S]*?<Landing\b/)
+    expect(read('./Landing.tsx')).toMatch(
+      /<Composer\s+\{\.\.\.composerProps\}\s+showLandingCwdPanel\s+\{\.\.\.presentation\.composer\}/
+    )
+    // 뒤쪽 spread가 플래그를 꺼버리는 경로도 잠근다.
+    for (const harness of ['claude', 'opencode']) {
+      expect(read(`../harnesses/${harness}/landing/presentation.ts`)).not.toMatch(
+        /showLandingCwdPanel/
+      )
     }
+    expect(PAGES['ProjectLandingPage.tsx']).toMatch(
+      /<Composer\b(?:(?!\/>).)*\bshowLandingCwdPanel/s
+    )
   })
 
   it('세션 뷰(ChatTile)는 플래그를 넘기지 않는다 — 세션이 붙으면 행이 없다', () => {
