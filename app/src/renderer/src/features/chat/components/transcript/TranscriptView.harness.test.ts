@@ -24,6 +24,17 @@ vi.mock('../../store/chatStore', async (original) => {
   }
 })
 
+// SSR에도 실제 virtualizer가 이전 교환을 그릴 수 있게 viewport 측정값만 제공한다.
+// TranscriptView, Exchange, UserTurn, UserMessage, UserBubbleText는 실제 구현을 실행한다.
+vi.mock('@tanstack/react-virtual', async (original) => {
+  const module = await original<typeof import('@tanstack/react-virtual')>()
+  return {
+    ...module,
+    useVirtualizer: (options: Parameters<typeof module.useVirtualizer>[0]) =>
+      module.useVirtualizer({ ...options, initialRect: { width: 1200, height: 900 } })
+  }
+})
+
 const userMessage: Message = {
   role: 'user',
   createdAt: 1,
@@ -36,6 +47,52 @@ const assistantMessage: Message = {
 }
 
 describe('OpenCode transcript presentation', () => {
+  it.each(['claude', 'opencode'] as const)(
+    'uses Claude user bubble colors in earlier and last exchanges (%s)',
+    (backend) => {
+      const messages: Message[] = [
+        { role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'Earlier prompt' }] },
+        { role: 'assistant', createdAt: 2, parts: [{ type: 'text', text: 'Earlier answer' }] },
+        { role: 'user', createdAt: 3, parts: [{ type: 'text', text: 'Last prompt' }] },
+        { role: 'assistant', createdAt: 4, parts: [{ type: 'text', text: 'Last answer' }] }
+      ]
+      installChatStoreHarness({ backend, messages })
+      const $ = load(
+        renderToStaticMarkup(
+          createElement(TranscriptView, {
+            backend,
+            agentKind: 'code',
+            messages,
+            pendingSteer: [],
+            inflight: false,
+            loadingSession: false,
+            anchored: false,
+            scrollRef: { current: null },
+            contentRef: { current: null },
+            onScroll: () => {}
+          })
+        )
+      )
+      const exchanges = $('[data-app-exchange]')
+      expect(exchanges).toHaveLength(2)
+      for (const [index, prompt] of ['Earlier prompt', 'Last prompt'].entries()) {
+        const bubble = exchanges.eq(index).find('.bg-bubble-user')
+        expect(bubble).toHaveLength(1)
+        expect(bubble.text()).toBe(prompt)
+        expect(bubble.hasClass('text-ink')).toBe(true)
+        expect(bubble.hasClass('bg-oc-bubble')).toBe(false)
+        expect(bubble.hasClass('text-oc-bubble-ink')).toBe(false)
+        expect(bubble.hasClass('rounded-[8px]')).toBe(backend === 'opencode')
+        expect(bubble.hasClass('rounded-r6')).toBe(backend === 'claude')
+        expect(bubble.hasClass('px-[12px]')).toBe(backend === 'opencode')
+        expect(bubble.hasClass('text-[calc(14px*var(--transcript-text-scale,1))]')).toBe(
+          backend === 'opencode'
+        )
+      }
+      expect($('[data-index="0"] [data-app-exchange]').text()).toContain('Earlier prompt')
+      expect($('[data-harness]').hasClass('bg-bg')).toBe(true)
+    }
+  )
   it.each(['claude', 'opencode'] as const)(
     'uses the harness spinner on each pending transcript path (%s)',
     (backend) => {
