@@ -423,6 +423,8 @@ export interface ChatState {
   // null 이면 목록 view. `selectedTaskKey` 와 **독립**이다(0204 §10 EP-12) — 두 타일이 서로
   // 다른 항목을 열어 둘 수 있고, 한 타일을 닫아도 다른 타일의 상세가 접히지 않는다.
   selectedSubagentTaskId: string | null
+  // OpenCode 셸 로그 타일의 선택. 다른 타일과 독립적인 세션 UI 상태다.
+  selectedProcessToolId: string | null
   // 중단 요청을 보내고 SDK 확정을 기다리는 background tool_use id 집합(0204 D-005). 확정되면
   // 파생 상태가 스스로 진행 중을 벗어나므로 그때 비운다.
   stoppingTaskIds: string[]
@@ -538,6 +540,7 @@ export const initialChatState: ChatState = {
   diffRequirementDraft: null,
   selectedTaskKey: null,
   selectedSubagentTaskId: null,
+  selectedProcessToolId: null,
   stoppingTaskIds: [],
   pausedTaskIds: [],
   backgroundedTaskIds: [],
@@ -718,6 +721,8 @@ export type ChatAction =
   | { type: 'OPEN_TASK'; key: string }
   | { type: 'SELECT_SUBAGENT_TASK'; toolRunId: string | null }
   | { type: 'OPEN_SUBAGENT_TASK'; toolRunId: string }
+  | { type: 'SELECT_PROCESS_TOOL'; toolRunId: string | null }
+  | { type: 'OPEN_PROCESS_TOOL'; toolRunId: string }
   // 항목 키는 `backgroundTaskKey(toolUseId)` 로 유도된다 — 두 필드를 함께 실으면 둘이
   // 어긋날 수 있고 타입이 그것을 막지 못한다.
   | { type: 'TASK_STOP_REQUESTED'; toolUseId: string }
@@ -1409,6 +1414,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           agentKind,
           action.session.backend
         ),
+        ...(action.session.backend === 'opencode' && state.sessionId === action.session.id
+          ? {
+              selectedSubagentTaskId: state.selectedSubagentTaskId,
+              selectedProcessToolId: state.selectedProcessToolId
+            }
+          : {}),
         cwd: action.session.cwd ?? state.cwd,
         extraDirs: action.session.extraDirs ?? [],
         // 0211 — 재시작 뒤에도 이름이 원본으로 복원되는 자리(§10 EP-06 둘째 지점).
@@ -1882,6 +1893,20 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         rightPanelTiles: activateTile(state, 'subagent')
       }
 
+    case 'SELECT_PROCESS_TOOL':
+      return rightPanelTarget('process', state.agentKind, state.backend)
+        ? { ...state, selectedProcessToolId: action.toolRunId }
+        : state
+
+    case 'OPEN_PROCESS_TOOL':
+      return rightPanelTarget('process', state.agentKind, state.backend)
+        ? {
+            ...state,
+            selectedProcessToolId: action.toolRunId,
+            rightPanelTiles: activateTile(state, 'process')
+          }
+        : state
+
     case 'TASK_STOP_REQUESTED': {
       if (state.stoppingTaskIds.includes(action.toolUseId)) return state
       const taskStopErrors = { ...state.taskStopErrors }
@@ -2038,10 +2063,18 @@ function activateTile(state: ChatState, id: RightPanelTileId): RightPanelColumns
 
 function removeTile(state: ChatState, id: RightPanelTileId): ChatState {
   const { columns, removedCol } = removeTileFromColumns(state.rightPanelTiles, id)
-  if (columns === state.rightPanelTiles) return state
-  if (removedCol === null) return { ...state, rightPanelTiles: columns }
+  const clearedSelection =
+    state.backend === 'opencode'
+      ? {
+          ...(id === 'process' ? { selectedProcessToolId: null } : {}),
+          ...(id === 'subagent' ? { selectedSubagentTaskId: null } : {})
+        }
+      : {}
+  if (columns === state.rightPanelTiles && Object.keys(clearedSelection).length === 0) return state
+  if (removedCol === null) return { ...state, ...clearedSelection, rightPanelTiles: columns }
   return {
     ...state,
+    ...clearedSelection,
     rightPanelTiles: columns,
     rightPanelColWidths: state.rightPanelColWidths.filter((_, i) => i !== removedCol),
     rightPanelRowSplits: state.rightPanelRowSplits.filter((_, i) => i !== removedCol)

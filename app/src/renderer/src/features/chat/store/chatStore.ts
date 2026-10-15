@@ -1920,6 +1920,12 @@ export const chatActions = {
   },
   selectSubagentTask: (toolRunId: string | null): void =>
     dispatchActive({ type: 'SELECT_SUBAGENT_TASK', toolRunId }),
+  selectProcessTool: (toolRunId: string | null): void =>
+    dispatchActive({ type: 'SELECT_PROCESS_TOOL', toolRunId }),
+  openProcessTool: (toolRunId: string): void => {
+    dispatchActive({ type: 'OPEN_PROCESS_TOOL', toolRunId })
+    revealRightPanelTile('process')
+  },
   openSubagentTask: (toolRunId: string): void => {
     dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId })
     revealRightPanelTile('subagent')

@@ -10,12 +10,28 @@ import { DiffTileContent } from './DiffTileContent'
 import { GitContextBar } from './GitContextBar'
 import { SubAgentTileContent, SubAgentTileHeader } from './SubAgentTileContent'
 import { TaskTileContent, TaskTileHeader } from './TaskTileContent'
+import type { Backend } from '../../../../../../shared/ipc'
+import {
+  OpenCodeAgentContent,
+  OpenCodeAgentHeader,
+  OpenCodeProcessContent,
+  OpenCodeSourceContent,
+  OpenCodeTaskContent
+} from '../../harnesses/opencode/rightpanel/tiles'
 
-const contentById: Record<RightPanelTileId, React.ComponentType> = {
+const contentById: Partial<Record<RightPanelTileId, React.ComponentType>> = {
   plan: PlanTileContent,
   subagent: SubAgentTileContent,
   task: TaskTileContent,
   diff: DiffTileContent
+}
+const openCodeContentById: Record<RightPanelTileId, React.ComponentType> = {
+  plan: PlanTileContent,
+  subagent: OpenCodeAgentContent,
+  task: OpenCodeTaskContent,
+  diff: DiffTileContent,
+  process: OpenCodeProcessContent,
+  source: OpenCodeSourceContent
 }
 
 // 타일별 헤더 액션(닫기 버튼 앞에 놓이는 추가 조작). 계획 타일만 복사 버튼을 갖고,
@@ -37,15 +53,32 @@ const headerContentById: Partial<
   diff: GitContextBar
 }
 
-export const tileRegistry = rightPanelTileDefinitions.map((tile) => ({
+export const tileRegistry = rightPanelTileDefinitions
+  .filter((tile) => !!contentById[tile.id])
+  .map((tile) => ({
+    ...tile,
+    Content: contentById[tile.id]!,
+    HeaderActions: headerActionsById[tile.id],
+    HeaderContent: headerContentById[tile.id]
+  }))
+const openCodeTileRegistry: typeof tileRegistry = rightPanelTileDefinitions.map((tile) => ({
   ...tile,
-  Content: contentById[tile.id],
+  Content: openCodeContentById[tile.id],
   HeaderActions: headerActionsById[tile.id],
-  HeaderContent: headerContentById[tile.id]
+  HeaderContent:
+    tile.id === 'subagent'
+      ? OpenCodeAgentHeader
+      : tile.id === 'task'
+        ? undefined
+        : headerContentById[tile.id]
 }))
 
-export function tileById(id: RightPanelTileId): (typeof tileRegistry)[number] {
-  return tileRegistry.find((tile) => tile.id === id) ?? tileRegistry[0]
+export function tileById(
+  id: RightPanelTileId,
+  backend: Backend | null = 'claude'
+): (typeof tileRegistry)[number] {
+  const registry = backend === 'opencode' ? openCodeTileRegistry : tileRegistry
+  return registry.find((tile) => tile.id === id) ?? registry[0]
 }
 
 // 같은 모드 정책으로 메뉴 목록을 모듈 로드 시 한 번 조립한다.

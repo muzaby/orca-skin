@@ -5,12 +5,14 @@ import type { deriveRightPanelLayout } from '../../lib/rightPanelLayout'
 import { tileById } from './tileRegistry'
 import { RightPanelTile } from './RightPanelTile'
 import { RowSeparator } from './PanelResizeSeparators'
+import type { Backend } from '../../../../../../shared/ipc'
 
 // 행 grow 트랜지션이 끝난 뒤 justify-end 고정을 푸는 시각.
 const ROW_GROW_MS = 230
 
 export function RightPanelColumn({
   sessionKey,
+  backend = 'claude',
   col,
   tiles,
   width,
@@ -20,6 +22,7 @@ export function RightPanelColumn({
   taskTileChrome
 }: {
   sessionKey: string
+  backend?: Backend | null
   col: number
   tiles: ReturnType<typeof deriveRightPanelLayout>['columns'][number]['tiles']
   width: number
@@ -53,7 +56,7 @@ export function RightPanelColumn({
 
   const children: React.JSX.Element[] = []
   tiles.forEach((id, index) => {
-    const tile = tileById(id)
+    const tile = tileById(id, backend)
     const Content = tile.Content
     const HeaderActions = tile.HeaderActions
     const HeaderContent = tile.HeaderContent
@@ -73,10 +76,16 @@ export function RightPanelColumn({
         data-work-panel-available={
           taskTileChrome === 'work-overview' && id === 'task' ? '' : undefined
         }
-        className={`flex min-h-0 ${expandedTile === id ? '' : 'animate-tile-in overflow-hidden transition-[flex-basis] duration-200 ease-out motion-reduce:animate-none motion-reduce:transition-none'} ${taskTileChrome === 'work-overview' && id === 'task' && expandedTile !== id ? 'items-start [container-type:size]' : ''}`}
+        className={`flex min-h-0 ${expandedTile === id ? '' : 'animate-tile-in overflow-hidden transition-[flex-basis] duration-200 ease-out motion-reduce:animate-none motion-reduce:transition-none'} ${taskTileChrome !== 'standard' && id === 'task' && expandedTile !== id ? 'items-start [container-type:size]' : ''}`}
         style={{ flexBasis: basis }}
       >
-        <ResizableSidePane expanded={expandedTile === id} lifecycleKey={`${sessionKey}:${id}`}>
+        <ResizableSidePane
+          expanded={expandedTile === id}
+          lifecycleKey={`${sessionKey}:${id}`}
+          className={
+            taskTileChrome === 'opencode-overview' && id === 'task' ? 'max-h-[100cqh]' : ''
+          }
+        >
           <RightPanelTile
             id={id}
             defaultLabelKey={tile.defaultLabelKey}

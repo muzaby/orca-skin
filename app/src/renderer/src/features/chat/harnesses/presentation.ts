@@ -4,11 +4,13 @@ import { toolApprovalRequestKey as claudeToolApproval } from './claude/composer/
 import { toolApprovalRequestKey as openCodeToolApproval } from './opencode/composer/approval'
 import {
   rightPanelAppearance as claudeRightPanel,
-  planEmptyDescriptionKey as claudePlanEmptyDescription
+  planEmptyDescriptionKey as claudePlanEmptyDescription,
+  planSelectHintKey as claudePlanSelectHint
 } from './claude/rightPanel'
 import {
   rightPanelAppearance as openCodeRightPanel,
-  planEmptyDescriptionKey as openCodePlanEmptyDescription
+  planEmptyDescriptionKey as openCodePlanEmptyDescription,
+  planSelectHintKey as openCodePlanSelectHint
 } from './opencode/rightPanel'
 import { surfaces as claudeSurfaces } from './claude/surfaces'
 import { surfaces as openCodeSurfaces } from './opencode/surfaces'
@@ -28,6 +30,10 @@ export function rightPanelAppearance(openCode: boolean): typeof claudeRightPanel
 
 export function planEmptyDescriptionKey(openCode: boolean): typeof claudePlanEmptyDescription {
   return openCode ? openCodePlanEmptyDescription : claudePlanEmptyDescription
+}
+
+export function planSelectHintKey(openCode: boolean): typeof claudePlanSelectHint {
+  return openCode ? openCodePlanSelectHint : claudePlanSelectHint
 }
 
 export function toolApprovalRequestKey(openCode: boolean): typeof claudeToolApproval {

@@ -22,7 +22,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [`0263-opencode-session-panel`](0263-opencode-session-panel/plan.md) | plan | **READY** | **Codex** | (ΔV3 설계 — 코드 미구현) | 1 | 작업 요약·조건부 그룹·평면 메뉴·기존 타일/헤더 복원. 후속 답변으로 요약 메뉴 버튼도 제거 확정. 기존 구현·검증 기록 보존. |
+| [`0263-opencode-session-panel`](0263-opencode-session-panel/plan.md) | impl | **IMPL_DONE** | **Claude** | (r1.3 구현 — 검증자 기입) | 1 | ΔV3 작업 요약·조건부 그룹·독립 타일·기존 헤더 구현. CUA 6절차와 관련919/SQLite73 테스트 통과. 독립 verify 대기. |
 | [`0262-opencode-harness`](0262-opencode-harness/plan.md) | impl | **IMPL_DONE** | **Claude** | (r1.12 구현 — 검증자 기입) | 1 | ΔV8 버블 공통 색상 구현. 이전/마지막 교환과 두 테마 computed 색상 확인. AC11 사용자 최종 시각 인수·독립 verify 대기. |
 | [`0261-bypass-flag-prod-devtools`](0261-bypass-flag-prod-devtools/plan.md) | verify | **PASS** (V1 r1 · 기계 범위) | **사람** (AC1·AC7 실기) | `cd7ea1a2`(V1 설계) · `fab363fd`(r1) | 1 | **r1 검증 = PASS** — 원문은 [`verify.md`](0261-bypass-flag-prod-devtools/verify.md). pair 7 PASS · VP-01·06 실기 대기 · PLAN_GAP 0 · AC ✅6·⚠️2·❌0.<br>등록 26자리 red · 독립 I1~I10 · gate(lint·typecheck·vitest 120/129 — DB 9 ABI·doc 3종·trailer) PASS. NON_BLOCKING N1~N3 · 후보 X1~X3. **archive 이동은 AC1·AC7 실기 뒤.** |
 | [`0259-composer-menu-grouping`](0259-composer-menu-grouping/plan.md) | verify | **PASS** (V1 r6 · 기계 범위) | **사람** (AC12 실기) | `7f6ed426`(V1 설계) · `8de244ee`(r1) · `cc041181`(r2) · `399a36ce`(r3) · `70c3b332`(r4) · `89a501e5`(r5) · `104b9a93`(r6) | 6 | **r6 검증 = PASS** — 원문은 [`verify.md`](0259-composer-menu-grouping/verify.md) r6. pair 10 PASS · VP-04 실기 대기 · PLAN_GAP 0 · AC ✅12·⚠️1·❌0.<br>D9 인용 8/8 red · 등록 7/7 · r5 red 9/9(덮개 회귀 0) · 독립 I1~I4·I9 red · gate(lint·typecheck·vitest 238/1886·trailer) PASS.<br>NON_BLOCKING N1(컨트롤러 edge 원문 proxy). **archive 이동은 AC12 실기 뒤.** |

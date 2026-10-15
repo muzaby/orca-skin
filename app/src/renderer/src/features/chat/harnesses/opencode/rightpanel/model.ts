@@ -9,6 +9,7 @@ import {
   type SubagentTaskSummary
 } from '../../../lib/parts'
 import { describeTool } from '../toolPresentation'
+import type { TaskContextDirectory, TaskContextSource } from '../../../lib/taskContext'
 
 export interface SessionPanelModel {
   agents: (SubagentTaskSummary & { model: string | null | undefined })[]
@@ -69,6 +70,9 @@ export function sessionPanelModel(
     })
   return { agents, processes }
 }
-export type PanelView =
-  | { kind: 'summary' | 'agents' | 'sources' | 'plan' | 'diff' }
-  | { kind: 'agent' | 'process'; id: string }
+export function hasPanelSources(
+  directories: readonly TaskContextDirectory[],
+  sources: readonly TaskContextSource[]
+): boolean {
+  return directories.some((directory) => !directory.working) || sources.length > 0
+}

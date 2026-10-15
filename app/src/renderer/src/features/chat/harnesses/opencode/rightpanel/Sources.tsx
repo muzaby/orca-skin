@@ -4,6 +4,7 @@ import { Icon } from '../../../../../shared/ui/Icon'
 import { basenameForDisplay } from '../../../../../../../shared/path-basename'
 import { useChatStore } from '../../../store/chatStore'
 import { PanelRow } from './chrome'
+import { hasPanelSources } from './model'
 
 export function OpenCodeSources({
   full = false,
@@ -11,7 +12,7 @@ export function OpenCodeSources({
 }: {
   full?: boolean
   onShowAll?: () => void
-}): React.JSX.Element {
+}): React.JSX.Element | null {
   const { tr } = useI18n()
   const context = useTaskContext()
   const { directories, sources, sessionId, activeKey, picker, openingPath, openContextPath } =
@@ -20,8 +21,12 @@ export function OpenCodeSources({
     ...directories.map((directory) => ({ kind: 'directory' as const, ...directory })),
     ...sources
   ]
+  if (!full && !hasPanelSources(directories, sources)) return null
   return (
-    <section data-component="opencode-sources">
+    <section
+      data-component="opencode-sources"
+      className={full ? '' : 'mt-3 border-t border-oc-border pt-3'}
+    >
       <div className="mb-2 flex items-center justify-between text-caption text-oc-muted">
         <span>{tr('chat.opencode.panel.sources')}</span>
         <button

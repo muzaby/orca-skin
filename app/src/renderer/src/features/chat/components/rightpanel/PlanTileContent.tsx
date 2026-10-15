@@ -11,7 +11,7 @@ import { useI18n } from '../../../../shared/i18n'
 import { TaskProgressList } from './TaskProgressList'
 import { useTaskBoard } from '../../hooks/useTaskBoard'
 import { TaskPanelContent } from './TaskPanelContent'
-import { planEmptyDescriptionKey } from '../../harnesses/presentation'
+import { planEmptyDescriptionKey, planSelectHintKey } from '../../harnesses/presentation'
 
 // 계획 타일 헤더 액션 — 본문이 아닌 타일 헤더(RightPanelTile)에서 렌더된다.
 // planContent 를 직접 구독하므로 RightPanelTile 은 타일별 액션을 모른 채 슬롯만 받는다.
@@ -158,7 +158,7 @@ function PlanDocument({ emptySupplement }: { emptySupplement: ReactNode }): Reac
     <div>
       <div className="mb-[var(--chat-item-gap)] flex items-center gap-g3 text-caption text-t6">
         <Icon name="doc" size={13} />
-        <span>{tr('chat.rightpanel.planSelectHint')}</span>
+        <span>{tr(planSelectHintKey(backend === 'opencode'))}</span>
       </div>
       <div ref={contentRef} className="relative">
         <Markdown source={planContent} />

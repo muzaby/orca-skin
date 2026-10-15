@@ -17,6 +17,7 @@ import type { ChatState } from '../reducer/chatReducer'
 import {
   rightPanelPolicy,
   rightPanelGroups,
+  rightPanelTileDefinitionsForAgent,
   showsUnseenTaskBadge,
   SUSPENDED_RIGHT_PANEL_TILES,
   type RightPanelTileId
@@ -69,6 +70,16 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   // 배지 판정은 SSOT 가 갖고 여기는 결과만 그린다(§10 EP-03) — 정지된 타일을 가리키는
   // 배지는 애초에 뜨지 않는다.
   const panelPolicy = rightPanelPolicy(agentKind, backend)
+  const tileMenuGroups =
+    backend === 'opencode'
+      ? [
+          {
+            id: 'opencode',
+            labelKey: null,
+            tiles: rightPanelTileDefinitionsForAgent(agentKind, backend)
+          }
+        ]
+      : rightPanelGroups(agentKind, backend)
   const showTaskBadge = showsUnseenTaskBadge(
     unseenSettledTasks,
     activeTiles,
@@ -208,11 +219,17 @@ export const ChatTitleBar = memo(function ChatTitleBar({
           <div className="px-2 py-1 text-[11px] font-medium text-t6">
             {tr('chat.titleBar.tilesHeader')}
           </div>
-          {rightPanelGroups(agentKind, backend).map((category) => (
-            <div key={category.id} role="group" aria-label={tr(category.labelKey)}>
-              <div className="px-2 pt-2 pb-1 text-[11px] font-medium text-t6">
-                {tr(category.labelKey)}
-              </div>
+          {tileMenuGroups.map((category) => (
+            <div
+              key={category.id}
+              role={category.labelKey ? 'group' : undefined}
+              aria-label={category.labelKey ? tr(category.labelKey) : undefined}
+            >
+              {category.labelKey && (
+                <div className="px-2 pt-2 pb-1 text-[11px] font-medium text-t6">
+                  {tr(category.labelKey)}
+                </div>
+              )}
               {category.tiles.map((tile) => {
                 const active = activeTiles.includes(tile.id)
                 return (

@@ -84,9 +84,9 @@ describe('harness identity and panel enforcement', () => {
   it.each([
     { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'task' },
     { type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id: 'task', active: true }
-  ] satisfies ChatAction[])('routes OpenCode task entry to plan via $type', (action) => {
+  ] satisfies ChatAction[])('opens the OpenCode task summary via $type', (action) => {
     const state = chatReducer(chatReducer(initialChatState, select), action)
-    expect(flattenColumns(state.rightPanelTiles)).toEqual(['plan'])
+    expect(flattenColumns(state.rightPanelTiles)).toEqual(['task'])
   })
   it('keeps OpenCode review available', () => {
     const state = chatReducer(initialChatState, select)
@@ -95,5 +95,55 @@ describe('harness identity and panel enforcement', () => {
         chatReducer(state, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'diff' }).rightPanelTiles
       )
     ).toEqual(['diff'])
+  })
+  it('opens the task summary once and preserves explicit close on later turns and reload', () => {
+    const session = {
+      id: 's',
+      backend: 'opencode' as const,
+      agentKind: 'code' as const,
+      title: null,
+      messages: []
+    }
+    const started = chatReducer(chatReducer(initialChatState, select), { type: 'BEGIN_TURN' })
+    expect(flattenColumns(started.rightPanelTiles)).toEqual(['task'])
+    const turnClosed = chatReducer(started, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'task' })
+    expect(flattenColumns(chatReducer(turnClosed, { type: 'BEGIN_TURN' }).rightPanelTiles)).toEqual(
+      []
+    )
+    const loaded = chatReducer(initialChatState, { type: 'LOAD_SESSION', session })
+    expect(flattenColumns(loaded.rightPanelTiles)).toEqual(['task'])
+    const closed = chatReducer(loaded, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'task' })
+    expect(
+      flattenColumns(chatReducer(closed, { type: 'LOAD_SESSION', session }).rightPanelTiles)
+    ).toEqual([])
+    const other = chatReducer(closed, {
+      type: 'LOAD_SESSION',
+      session: { ...session, id: 'other' }
+    })
+    expect(flattenColumns(other.rightPanelTiles)).toEqual(['task'])
+  })
+  it('preserves same-session selections on reload and clears them for another session', () => {
+    const session = {
+      id: 's',
+      backend: 'opencode' as const,
+      agentKind: 'code' as const,
+      title: null,
+      messages: []
+    }
+    let state = chatReducer(initialChatState, { type: 'LOAD_SESSION', session })
+    state = chatReducer(state, { type: 'OPEN_PROCESS_TOOL', toolRunId: 'shell' })
+    state = chatReducer(state, { type: 'OPEN_SUBAGENT_TASK', toolRunId: 'child' })
+    const refreshed = chatReducer(state, { type: 'LOAD_SESSION', session })
+    expect(refreshed.selectedProcessToolId).toBe('shell')
+    expect(refreshed.selectedSubagentTaskId).toBe('child')
+    expect(refreshed.rightPanelTiles).toBe(state.rightPanelTiles)
+    const other = chatReducer(state, { type: 'LOAD_SESSION', session: { ...session, id: 'other' } })
+    expect(other.selectedProcessToolId).toBeNull()
+    expect(other.selectedSubagentTaskId).toBeNull()
+  })
+  it.each(['code', 'work'] as const)('rejects process selection for Claude %s', (agentKind) => {
+    const state = { ...initialChatState, backend: 'claude' as const, agentKind }
+    expect(chatReducer(state, { type: 'OPEN_PROCESS_TOOL', toolRunId: 'shell' })).toBe(state)
+    expect(chatReducer(state, { type: 'SELECT_PROCESS_TOOL', toolRunId: 'shell' })).toBe(state)
   })
 })

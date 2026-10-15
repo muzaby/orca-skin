@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
@@ -9,6 +9,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 const { planState } = vi.hoisted(() => ({
   planState: {
     value: {
+      backend: 'claude' as 'claude' | 'opencode',
       planContent: null as string | null,
       pendingPlanReview: null as unknown,
       planComments: [] as unknown[],
@@ -33,9 +34,15 @@ vi.mock('../../store/chatStore', () => ({
 }))
 
 const { PlanTileContent } = await import('./PlanTileContent')
+const { i18n } = await import('../../../../shared/i18n')
+
+afterEach(async () => {
+  await i18n.changeLanguage('ko')
+})
 
 const render = (state: Partial<(typeof planState)['value']>): string => {
   planState.value = {
+    backend: 'claude',
     planContent: null,
     pendingPlanReview: null,
     planComments: [],
@@ -53,6 +60,19 @@ const EMPTY = '아직 플랜이 없습니다'
 const UNAVAILABLE = '계획 본문을 가져오지 못했습니다'
 
 describe('PlanTileContent — 본문 미해소 표시 (AT-03 · D-002)', () => {
+  it.each([
+    ['ko', 'claude', '텍스트를 선택해 Claude에게 의견을 남기세요'],
+    ['ko', 'opencode', '텍스트를 선택해 OpenCode에게 의견을 남기세요'],
+    ['en', 'claude', 'Select text to leave feedback for Claude'],
+    ['en', 'opencode', 'Select text to leave feedback for OpenCode']
+  ] as const)('uses the %s %s plan feedback hint', async (locale, backend, hint) => {
+    await i18n.changeLanguage(locale)
+    const html = render({ backend, planContent: '## Plan\nReview the changes' })
+    expect(html).toContain(hint)
+    expect(html).not.toContain(backend === 'opencode' ? 'Claude' : 'OpenCode')
+    expect(html).toContain('Review the changes')
+  })
+
   it('승인 대기 중인데 본문이 없으면 실패 문구를 낸다', () => {
     const html = render({ pendingPlanReview: { requestId: 'r1', plan: '' } })
     expect(html).toContain(UNAVAILABLE)

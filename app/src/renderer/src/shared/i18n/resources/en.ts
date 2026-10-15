@@ -1156,6 +1156,8 @@ export const en: typeof ko = {
         subagent: 'Background tasks',
         task: 'Tasks',
         diff: 'Changes',
+        process: 'Background processes',
+        source: 'Sources',
         artifacts: 'Artifacts'
       },
       diffAllChanges: 'All changes',
@@ -1212,6 +1214,7 @@ export const en: typeof ko = {
       planEmptyDesc: 'It will appear here as Claude explores and builds a plan.',
       planEmptyDescOpenCode: 'It will appear here as OpenCode explores and builds a plan.',
       planSelectHint: 'Select text to leave feedback for Claude',
+      planSelectHintOpenCode: 'Select text to leave feedback for OpenCode',
       reservedTitle: 'Reserved tile',
       reservedDesc: 'This area is reserved for an upcoming auxiliary panel feature.',
       commentViewAria: 'View comment',

@@ -1163,6 +1163,8 @@ export const ko = {
         subagent: '백그라운드 작업',
         task: '작업',
         diff: '변경사항',
+        process: '백그라운드 프로세스',
+        source: '소스',
         artifacts: '산출물'
       },
       diffAllChanges: '모든 변경사항',
@@ -1219,6 +1221,7 @@ export const ko = {
       planEmptyDesc: 'Claude 가 탐색하며 계획을 세우면 여기에 표시됩니다.',
       planEmptyDescOpenCode: 'OpenCode가 탐색하며 계획을 세우면 여기에 표시됩니다.',
       planSelectHint: '텍스트를 선택해 Claude에게 의견을 남기세요',
+      planSelectHintOpenCode: '텍스트를 선택해 OpenCode에게 의견을 남기세요',
       reservedTitle: '예약된 타일입니다',
       reservedDesc: '이 영역은 다음 보조 패널 기능을 위해 비워두었습니다.',
       commentViewAria: '코멘트 보기',

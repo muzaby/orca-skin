@@ -26,12 +26,14 @@ describe('우측 패널 타일 가시성 — 메뉴 목록 (AT-01)', () => {
       'plan',
       'subagent',
       'task',
-      'diff'
+      'diff',
+      'process',
+      'source'
     ])
   })
 
   it('독립 산출물 타일을 등록하지 않는다', () => {
-    expect(rightPanelTileIds).toEqual(['plan', 'subagent', 'task', 'diff'])
+    expect(rightPanelTileIds).toEqual(['plan', 'subagent', 'task', 'diff', 'process', 'source'])
   })
 
   it('메뉴에서 빠지는 타일이 없다 — 정지 목록이 비었고 예약 슬롯은 0206 이 diff 로 소진했다', () => {

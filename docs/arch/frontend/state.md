@@ -18,7 +18,15 @@
 
 공유 권한 정책은 종류·모델·모드 선택과 세션 복원에서 적용한다. 지원하지 않는 auto는 Work에서 default, Code에서 accept_edits로 정착한다. Work의 plan·accept_edits·dont_ask 선택은 default로 정착하며 계획 승인 후에도 default를 사용한다. 라이브 권한 응답은 요청 세대와 대상 세션을 확인한 뒤 Main이 적용한 모드를 반영하고, 실패 시 정책상 유효한 다음 요청값을 남기되 칩에 권한 적용 실패를 표시하여 SDK에 적용된 모드로 오해하지 않게 한다. 실제 실행 모델로 보정한 값은 session.updated의 권한 patch로 동기화한다.
 
-`agentPanelInitialized`는 Work 작업 패널의 최초 열기와 이후 사용자 선택을 구분한다. 표시 필터는 닫힌 배치를 보존하며, 첫 전송/처음 로드에서만 기본 작업 타일을 추가한다. 기존 캐시 복귀·다음 턴은 닫은 패널을 다시 열지 않는다. 입력 복원 신호는 대상 세션과 단조 순번을 갖고, 기본 교체와 작업 질문의 추가 모드를 구분한다. 실제 초안·첨부는 기존 입력 controller가 소유한다.
+`agentPanelInitialized`는 하네스·에이전트 정책에 따른 기본 작업 패널의 최초 열기와 이후 사용자 선택을 구분한다. Claude Work와 OpenCode Code는 첫 전송/처음 로드에서 기본 `task` 타일을 추가하며, 표시 필터는 닫힌 배치를 보존한다. 캐시 복귀·다음 턴은 닫은 패널을 다시 열지 않는다. 입력 복원 신호는 대상 세션과 단조 순번을 갖고, 기본 교체와 작업 질문의 추가 모드를 구분한다. 실제 초안·첨부는 기존 입력 controller가 소유한다.
+
+### 우측 타일 선택
+
+OpenCode의 `rightPanelTiles`는 작업 요약과 계획·하위 에이전트·변경 사항·프로세스·소스를 독립적으로 보관한다. `chatActions.openProcessTool`은 활성 세션의 `selectedProcessToolId`를 설정하고 `process` 타일을 열어 `panelReveal`로 해당 열을 드러낸다. 이미 열린 프로세스 타일에서는 선택만 바꾸고 다른 열린 타일과 `selectedSubagentTaskId`를 보존한다.
+
+프로세스 타일을 토글·비활성화·닫기로 제거하면 `removeTile`이 해당 선택만 비운다. 하위 에이전트 타일을 닫으면 그 선택만 비우며, 타일을 다시 열 때는 목록에서 시작한다. 셸 명령·상태·로그는 세션 메시지와 해당 sessionId의 background 상태에서 파생한다.
+
+선택과 닫힌 배치는 `sessions[key].session`의 메모리 상태다. 캐시 세션으로 돌아오거나 같은 OpenCode 세션을 다시 `LOAD_SESSION`하면 보존하며, 다른 세션의 첫 로드는 기본 타일과 빈 선택으로 시작한다. OpenCode 패널은 `activeKey`로 재마운트되어 로컬 확대 상태를 다른 세션에 옮기지 않는다. 타일 표시·헤더·소스 그룹 조건은 [렌더링](rendering.md#하네스-전용-표시)을 따른다.
 
 > **현재**: chat은 `features/chat/store/chatStore.ts`의 `sessions: Record<key, { session, live }>` + `activeKey` 외피를 갖는다(키 = sessionId, 새 채팅 = `NEW_CHAT_KEY` 슬롯 → `session.updated` 시 승격). Backend/Sessions/Projects/Cost는 feature별 Zustand store가 소유하고, projects 초기 조회는 `app/boot/steps`가 수행한다. Tweaks는 `TweakProvider` 인스턴스의 store와 필드 selector로 연결하며 Skills/Agents는 기존 hook 진입점을 유지한다.
 > **채택된 결정(이행 완료)**: 단일 root 대신 **feature 별 store + chat 의 sessions Record** 로 수렴 — `chatReducer` 는 세션-단위 순수 함수로 유지하고 **store 가 `ev.sessionId` 키 라우팅을 담당**한다(reducer 테스트·불변식 보존, "액션에 sessionId 인자" 안의 대체 — 사용자 결정 2026-06-11, handoff 0013). 세션 완료의 미확인 표시는 아래의 transient 상태로 관리한다.

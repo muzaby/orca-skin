@@ -37,6 +37,7 @@ export function RightPanelTile({
   const appearance = rightPanelAppearance(openCode)
   const isDiff = id === 'diff'
   const isWorkTask = taskTileChrome === 'work-overview' && id === 'task'
+  const isOpenCodeTask = taskTileChrome === 'opencode-overview' && id === 'task'
   const expandButton = (id === 'plan' || id === 'task') && onToggleExpand && (
     <PanelExpandButton expanded={expanded} targetLabel={label} onClick={onToggleExpand} />
   )
@@ -48,12 +49,12 @@ export function RightPanelTile({
 
   return (
     <div
-      className={`app-frame-tile relative flex min-h-0 flex-1 flex-col overflow-hidden ${appearance.tile} ${isWorkTask ? 'max-h-full' : ''} ${className}`}
+      className={`app-frame-tile relative flex min-h-0 flex-1 flex-col overflow-hidden ${isOpenCodeTask ? 'rounded-[22px] border border-oc-border bg-oc-surface text-oc-ink shadow-oc-raised' : appearance.tile} ${isWorkTask || isOpenCodeTask ? 'max-h-full' : ''} ${className}`}
       data-context={id}
       data-harness={openCode ? 'opencode' : 'claude'}
     >
       {isWorkTask && <div className="absolute right-2 top-1 z-10">{expandButton}</div>}
-      {!isWorkTask && (
+      {!isWorkTask && !isOpenCodeTask && (
         <div
           data-diff-tile-header={isDiff || undefined}
           className={`app-frame-tile-header flex shrink-0 items-center ${isDiff ? 'h-[32px] gap-[2px] px-[4px] font-sans' : 'gap-2 border-b border-t5 px-3 py-2'}`}

@@ -2,13 +2,14 @@ import type { RightPanelAgentPolicy } from '../../lib/rightPanelTiles'
 import type { MessageKey } from '../../../../shared/i18n'
 
 export const planEmptyDescriptionKey: MessageKey = 'chat.rightpanel.planEmptyDescOpenCode'
+export const planSelectHintKey: MessageKey = 'chat.rightpanel.planSelectHintOpenCode'
 export const OPEN_CODE_PANEL_POLICY: RightPanelAgentPolicy = {
-  visibleIds: ['plan', 'diff', 'subagent'],
-  taskTarget: 'plan',
-  taskBadgeTile: 'plan',
-  initialTile: null,
+  visibleIds: ['plan', 'subagent', 'task', 'diff', 'process', 'source'],
+  taskTarget: 'task',
+  taskBadgeTile: 'task',
+  initialTile: 'task',
   columnMode: 'standard-grid',
-  taskTileChrome: 'standard'
+  taskTileChrome: 'opencode-overview'
 }
 
 export const rightPanelAppearance = {

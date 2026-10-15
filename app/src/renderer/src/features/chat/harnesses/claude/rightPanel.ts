@@ -3,6 +3,7 @@ import type { RightPanelAgentPolicy } from '../../lib/rightPanelTiles'
 import type { MessageKey } from '../../../../shared/i18n'
 
 export const planEmptyDescriptionKey: MessageKey = 'chat.rightpanel.planEmptyDesc'
+export const planSelectHintKey: MessageKey = 'chat.rightpanel.planSelectHint'
 export const RIGHT_PANEL_POLICY = {
   work: {
     visibleIds: ['task'],

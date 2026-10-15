@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex / 2026-10-15 |
-| 상태 | READY — Delta V3 요구와 버튼 제거 결정 반영; 코드 미구현 |
+| 상태 | IMPL_DONE — Delta V3 구현·자기확인 완료, 독립 verify 대기 |
 | V mode / revision | Baseline V1 + Delta V2 + Delta V3 |
 | 기준 V | none — 0262의 완료 구현 위에 별도 기능 단위로 추가 |
 | 매핑 | PR #502, 0262 후속 |
@@ -400,3 +400,88 @@ Computer Use 증거: 실행 중인 Orca에서 기본 요약, 빈 목록, 변경 
 ## [검증자 기입] 파생 이슈
 
 없음.
+
+## [구현자 기입] Delta V3 — r1.3
+
+### 설계 리뷰
+
+D-07~13과 AC1′/2′/6′/8~11을 구현했다. 요약은 실제 `task` 타일이며, 항목 진입은 공통 타일 store·layout·reveal을 사용한다. 하네스 중립 `TilePanel`을 추출하고 registry에 backend를 전달하여 Claude/OpenCode 본문을 분리했다. 요약의 팝업과 버튼은 함께 제거했다. 새로운 SDK·IPC·의존성·영속 포맷은 없다.
+
+### 강제 지점 전수와 V-pair 자기확인
+
+| 자리 / 수 | 직접 oracle와 관측 |
+|---|---|
+| EP-09a/b/c/d / 4 | model의 Task/Bash·context 독립 0→1→0, 실제 Sources/Panel SSR; CUA-06에서 cwd-only 변경 사항만, 자료 추가 시 해당 그룹만 등장 |
+| EP-10a/b/c/d/e / 5 | rightPanelTiles.harness의 지원·task 타깃·열 필터, reducer.harness의 BEGIN_TURN/LOAD_SESSION; 실제 loadSession 갱신·후속 턴·A→B→A 뒤 닫기 보존 |
+| EP-11a/b/c/d/e/f / 6 | CUA-01/02 요약·타이틀·transcript Task 클릭→reveal→실제 타일. store.panelTiles는 활성·선택·reveal 상태를 별도 단언 |
+| EP-12a/b/c/d / 4 | Panel.render/native rightPanel 회귀와 CUA-03: diff Git 헤더+닫기 1행, 확대→닫기, plan 복사·확대, agent 원래 목록 복귀 |
+| EP-13a/b/c / 3 | reducer/store의 process 세션 선택·3종 닫기 경로; CUA-02/04/05의 선택 교체·세션 격리·artifact 복귀·행/열 리사이즈 |
+| EP-14a/b / 2 | 실제 Sources hook SSR와 CUA-01/06: 빈 source 메뉴 진입, cwd·+ 유지, fixture picker 취소 뒤 상태 유지 |
+| EP-15a/b / 2 | 실제 summary title에 버튼 없음; CUA-01/03 타이틀 메뉴에서 계획 열기·본문 접근 |
+
+등록된 UI 자리 26개를 위 행별로 확인했다. `rightPanelTileDefinitions|rightPanelPolicy|rightPanelTarget|initialTile|panelReveal|OPEN_SUBAGENT_TASK|OPEN_PROCESS_TOOL|tileById` 검색 결과를 정책·reducer/store·title·layout·registry·column 소비처로 대조했다.
+
+| Pair | 자기 결과 / 근거 |
+|---|---|
+| VP-09·10·11·12 REQUIRED | SELF_PASS — 위 EP-09~15, 관련 Node 104파일/919케이스, CUA-V3-01~06 |
+| VP-01의 R-03/04/05/07 REGRESSION | SELF_PASS — activity.integration·model·Panel·Sources 실제 투영/본문; CUA의 child Read/Edit 및 diff·셸 수신 로그 |
+| VP-03/05/06/07/08 REGRESSION | SELF_PASS — OpenCode activity/adapter·session directory·policy 포함 Node 회귀, SQLite 2파일/73케이스 |
+
+### 이번 라운드 수정의 잠금
+
+직접 상태·렌더 결과와 실제 클릭을 관측했다. 테스트의 DOM header/타일 개수는 실제 출력 계약을 읽으며 소스 텍스트 검색으로 클릭 동작을 대신하지 않는다. 선택 증거 0 · 인용 변이 0 · 새 구조 proxy/전수 배선 oracle 0 = 잠금 표 행 0.
+
+### Product/UX 파생 검토
+
+| 관측 | 대응 / 재측정 |
+|---|---|
+| 긴 task 요약이 두 행의 경계에서 잘림 | OpenCode 요약 pane에 해당 행 기준 max-height를 적용. 높이400/내용1102/scrollTop701.6으로 마지막 셸 행 도달 |
+| 계획 본문의 안내에 Claude 문구 잔존 | 하네스별 planSelectHintKey 추가. 2하네스×2언어 실제 렌더, CUA에서 OpenCode 문구 확인 |
+| 빈 소스 그룹을 숨기면 첫 폴더 진입 유실 가능 | 타이틀 source 타일은 항상 지원. full context는 cwd·+를 유지하고 picker 취소 후 변동 없음 |
+| process를 닫았다 열 때 이전 상세가 남을 가능성 | toggle/deactivate/remove에서 자기 선택만 정리. 재열기 UI는 명령 목록, agent 상세는 유지 |
+
+### 놓친 잠재 문제 + 대응
+
+| 축 | 조사 / 대응 |
+|---|---|
+| 공통 shell 이설의 Claude 영향 | Claude alias가 같은 공통 shell을 사용하되 registry/chrome 정책은 그대로. 전체 rightpanel 회귀와 CUA Claude Code 범주 메뉴 확인 |
+| 새 선택 상태의 공유·재진입 | selectedProcessToolId는 ChatState에 저장. 같은 세션 cache/load는 보존, 다른 세션에는 전달하지 않음; 관련 store/reducer 직접 관측 |
+| 확대와 artifact | activeKey별 확대 판정, 닫기에서 확대 해제. artifact는 overview를 hidden/inert로 보존하고 복귀 시 origin focus 확인 |
+| 실제 기록이 없는 시각 상태 | plan의 허용 방식대로 실제 컴포넌트 preview에 고정 데이터를 주입. 수신하지 않은 실모델 결과로 주장하지 않음 |
+
+명시 설계 차이 없음. 새 캐시/만료 없음; 공유 상태는 기존 세션 store, 재진입은 해당 세션 identity, 무효화는 타일 닫기와 기존 캐시 제거다. 기존 source의 권한/busy/늦은 응답 검사와 API 1.x 경계는 변경하지 않았다.
+
+### 구현 보고
+
+| AC | 자기 결과 | 관측 |
+|---|---|---|
+| AC1′ | ✅ | 실제 task 기본 요약·하네스 registry, Claude 메뉴·본문 회귀 |
+| AC2′ | ✅ | 요약과 대상 타일 공존, 같은 종류 선택 교체, Task 카드 중복 없음, 닫기/세션 상태 보존 |
+| AC3 | ✅ | OpenCode adapter/activity·실제 reducer projection 회귀 |
+| AC4 | ✅ | process 수신 로그·완료·실패·상한 자동 회귀, CUA 긴 로그 마지막 행 도달 |
+| AC5 | ✅ | Work context hook·실제 source 렌더·SQLite 경계·source + 취소 |
+| AC6′ | ✅ | CUA 계획·diff·child 카드·artifact 열기/닫기, 기존 타일 헤더 |
+| AC7 | ✅ | Claude policy/registry/menu 회귀, 공통 transcript canvas·버전 경계 유지 |
+| AC8 | ✅ | cwd-only 변경 사항만, agent/shell/extraDir/첨부/URL 각각 0→1→0 |
+| AC9 | ✅ | summary title 버튼·팝업 제거, 계획은 타이틀 메뉴로 접근 |
+| AC10 | ✅ | OpenCode 평면 메뉴, 작업 체크/닫기/재열기·동일 세션 갱신과 후속 턴 보존 |
+| AC11 | ✅ | diff GitContextBar+close 한 행, 추가 wrapper 없음, 원래 확대/복사/목록 복귀 |
+
+✅11 · ⚠️0 · ❌0 = 총11. 0262 AC11 사용자 최종 시각 인수와 독립 verify는 이 자기확인과 별개다.
+
+| Gate | 이번 관측 |
+|---|---|
+| 관련 Node Vitest | 104파일/919케이스 통과. 별도 오류 registry 2파일/301케이스 통과 |
+| SQLite | Electron RUN_AS_NODE 단독 2파일/73케이스 통과; 설치 ABI 변경 없음 |
+| 작은 추가 회귀 | 버블8파일/45케이스, 계획3파일/21케이스, model/Sources/Panel3파일/18케이스 통과(큰 묶음과 중복 합산하지 않음) |
+| 타입/린트 | node/web/test 통과, 마지막 코드의 web 재통과. 변경파일30개 읽기 전용 ESLint 오류/경고0. 전체 lint의 기존 useTranscriptVirtualizer 경고1 유지 |
+| 빌드/스크립트 | electron-vite main/preload/renderer 완료, 기존 SubAgentTileContent 정적/동적 import 경고. scripts138케이스 통과 |
+| 운영 문서 | migration sync/append-only, test-budget, generated/prose 통과. .tmp·첨부 제외한 기존 checkLinks 결과 [] |
+| 원본 링크 guard 제한 | 사용자 다운로드 `.tmp/opencode-dev` 안의 상대링크5건만 실패. 다운로드 자료는 수정·커밋하지 않음 |
+| 전체 로컬 실행 제한 | 전체 Electron Vitest는 worker 종료 timeout으로 중단. 별도 attachments/confluence/git-safety 실패는 sandbox 밖 홈경로 mkdir/lstat EPERM으로 분리. 전체 성공으로 보고하지 않음 |
+
+Computer Use는 Vite의 실제 renderer 컴포넌트·세션 store에서 수행했다. 개발 Electron은 창을 노출하지 않아 native 창 검증으로 보고하지 않는다. CUA 증거와 제한은 `.tmp/0263-v3-visual-evidence.md`, 캡처는 `.tmp/0263-v3-panel-light.png`·`0263-v3-panel-dark.png`다. 임시 preview는 `.tmp`로 이동했고 새 실모델 호출은 하지 않았다.
+
+### Review Signals
+
+r1.3은 사용자 Delta V3를 반영한 추가 구현 턴이다. 이전 depth 보고의 성공을 새 타일 조립의 증거로 재사용하지 않았다. 긴 요약 잘림과 계획 힌트의 하네스 누락을 실제 UI에서 찾아 수정했다. 로컬 전체 테스트는 권한·프로세스 경합을 분리했고 Windows CI에서 전체 gate를 다시 확인한다. 다음 주체는 Claude 독립 검증자다.
