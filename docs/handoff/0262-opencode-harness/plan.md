@@ -8,10 +8,10 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | IMPL_DONE — ΔV8 구현 자기확인 완료. AC11 사용자 최종 시각 인수·독립 verify 대기 |
-| V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 |
+| 상태 | READY — ΔV9 Claude GUI 복원. AC11 사용자 최종 시각 인수·독립 verify 대기 |
+| V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
-| 이번 V revision / 유효 V | ΔV8 / V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 |
+| 이번 V revision / 유효 V | ΔV9 / V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 |
 
 # Part I — Product & UX Contract
 
@@ -60,6 +60,7 @@ Orca는 Claude만 실행하고 composer·모델·패널이 그 기능을 전제�
 
 | D-019 | 사용자 제공 `.tmp/opencode-dev`의 데스크톱 transcript·도구·테마·composer·질문 렌더링을 차용한다 | transcript canvas 배경은 현재 값 유지. UI 참조는 2.0.29, 실행 API는 기존 1.x. 참조 다운로드는 커밋 제외 | 2026-10-15 사용자 추가 요구 | ACTIVE | 사용자 버블 색상 부분만 D-020으로 SUPERSEDED. 나머지 UI 참조·D-004/011/015~017 유지 |
 | D-020 | OpenCode 사용자 메시지 버블의 배경·글자색은 Claude 사용자 버블과 동일하게 한다 | 두 테마의 공통 `bubble-user`·`ink` 토큰 사용. OpenCode의 버블 배치·간격·반경·서체 크기와 transcript canvas는 유지 | 2026-10-15 추가 사용자 요구 | ACTIVE | D-019·AC26·EP-27b·VP-46의 사용자 버블 색상 부분만 대체 |
+| D-021 | Claude 세션 GUI는 OpenCode 도입 전 표시를 유지하고 추가된 메뉴 그룹 제목·엔진 새로고침을 제거한다 | 사용자: “수정하거나 추가된 것이 있으면 원래대로 복원하라.” 도입 전 main `0b8c1e9f`와 비교하며 명시된 OpenCode 카드·설정·신규 엔진 하네스 선택은 유지 | 2026-10-15 사용자 후속 요구 | ACTIVE | D-004 구체화. 공통 새로고침 버튼과 Claude 메뉴 그룹 표시는 대체 |
 
 갱신 메모: D-017/018 추가. D-015의 2.x 미지원과 향후 계층 확장은 양립하며 D-004/011의 Claude 스타일·배경은 유지한다. ACTIVE 결정 ↔ AC22~25 대조: 충돌 0, 미정 제품 결정 없음.
 
@@ -590,6 +591,57 @@ READY 대조: D-019와 기존 ACTIVE D-004/007/011/015~018 충돌 없음. 사용
 문서 턴 게이트는 변경 plan의 Decision/AC/V/§10 정합성, 링크·diff whitespace·INDEX 상태·커밋 trailer다. 다음 구현 턴은 관련 Vitest, 전체 typecheck·readonly ESLint, renderer build, 문서 inventory/links와 두 테마 Computer Use를 수행한다. 기존 실모델 도구 검증 생략 결정과 AC11 최종 시각 인수의 미완료 상태는 유지한다.
 
 READY 대조: D-020↔AC29, R-26 색상 부분→R-29의 이관과 EP-30a~g를 연결했고 새 pair의 직접 oracle은 최종 사용자 버블을 관측한다. 기존 메뉴의 범주명 표시를 유지한다는 해석은 0263 ΔV3가 대체하며 하네스별 지원 제한은 남는다. 이번 델타에 필요한 추가 사용자 결정은 없다.
+
+# ΔV9 — Claude GUI의 도입 전 표시 복원 (READY)
+
+## 제품 계약과 기준선
+
+상속 기준은 공유 브랜치 `841dff061d35a8ddf791317df1061e5463ac716e`의 V1+ΔV1~8이다. 비교 기준은 OpenCode 구현이 들어가기 전 `origin/main`과 공통 조상인 `0b8c1e9f296c06e6ca01ee8a8cd2f319c9245e3f`이며 두 객체를 `git cat-file -t`로 확인했다. 사용자가 직접 복원을 요청했으므로 설계 정정 뒤 같은 턴에서 구현하고 독립 verify는 별도로 유지한다.
+
+사용자 원문: “Claude 세션에서 보여지는 모든 gui (transcript, 패널 등) 은 모두 opencode 도입 전과 같아야 한다. 수정하거나 추가된 것이 있으면 원래대로 복원하라.” 예시로 타이틀 케밥 메뉴의 그룹 제목과 엔진·모델 새로고침 버튼 제거를 지정했다.
+
+| AC / 노드 | 사용자 결과 | 직접 oracle / production path |
+|---|---|---|
+| AC30 / R-30↔AT-30 NEW | Claude Code의 타일 메뉴는 계획→백그라운드 작업→변경사항, Work는 작업을 원래 평면 목록으로 표시. 기존 타일 표시 제목·토글·배지·헤더 유지. composer·transcript·패널의 원래 스타일 보존 | `ChatTitleBar.render.test.ts` 실제 메뉴 렌더와 CUA-CLAUDE-01; `TranscriptView.harness.test.ts` 실제 Claude/OpenCode viewport; 기존 composer/transcript/패널 회귀 |
+| AC31 / R-31↔AT-31 NEW | 엔진·모델 헤더는 우측 엔진 추가만 표시하고 새로고침 버튼은 없음. Claude 카드 라벨은 claude, 편집 모달은 기존 고정 chip과 provider 표시. 다른 카탈로그 조회가 기존 Claude 편집·삭제·저장을 잠그지 않음 | 새 `AgentEnvironmentView.render.test.ts`·`EngineCard.render.test.ts` 및 `EngineFormModal.harness.test.ts`, `useEngines.test.ts`, CUA-CLAUDE-02 |
+
+OpenCode 카드·설정·신규 엔진의 하네스 선택·설정 불러오기와 생성 세션의 하네스 잠금은 기존 명시 요구라 유지한다. 임시 상세 패널의 OpenCode 동작은 0263 ΔV4를 유지한다. 새로고침 제거를 다른 메뉴로 이동하는 것으로 대체하지 않으며, 최초 조회·저장 후 갱신·오류 표시는 기존 수명으로 처리한다.
+
+## 조사 / 변경 책임
+
+| 표면 | 기준선 대조 결과 | 변경 |
+|---|---|---|
+| ChatTitleBar | Claude만 rightPanelGroups를 렌더해 새 그룹 제목과 재정렬 발생 | 모든 하네스가 지원 tile definition의 원래 순서를 평면 렌더 |
+| 엔진 페이지·카드 | 새로고침 추가, 엔진 추가의 ml-auto 이동, Claude 라벨 변경 | 새로고침 제거·원래 정렬·claude 라벨 복원 |
+| Claude 엔진 편집 | 고정 chip이 disabled 하네스 select로 변경 | Claude 편집만 기존 chip 복원. 신규 선택과 OpenCode 편집은 유지 |
+| useEngines | 매 진입 강제 재조회 및 catalog loading을 mutation busy와 결합 | 원래 ensureLoaded와 mutation busy로 복원. 저장 후 refreshAgents와 오류 표시는 유지 |
+| TranscriptView | 모든 하네스 viewport에 bg-bg 추가 | OpenCode에만 적용. Claude는 원래 상위 ChatTile 배경을 사용 |
+| composer·transcript·landing·공유 UI | 이동된 Claude 파일과 appearance/surfaces를 대조, 위 viewport 외 클래스·색상·간격 차이 없음 | 이설·공통 입력 수명과 기존 표시 유지 |
+| 설정 | 기존 General/Usage 본문 차이 없음, 하네스 설정만 추가 | 명시된 하네스 설정 유지 |
+
+`ChatTitleBar.render.test.ts`의 VISIBLE_TILE_REGISTRY 비교는 현재 실제 메뉴의 그룹 조립을 보지 못한다. 실제 ChatTitleBar가 만든 메뉴 항목을 관측하는 테스트로 보완한다. 데이터/SDK/IPC/저장 포맷이나 신규 의존성 변경은 없다.
+
+## V / §10 증분 강제 지점
+
+| Pair | requiredness / provenance | 경로와 직접 oracle |
+|---|---|---|
+| VP-51 R-30/31↔AT-30/31 | REQUIRED / NEW | 아래 EP-31~33와 CUA-CLAUDE-01/02의 실제 메뉴·페이지·폼 표시 |
+| VP-52 AR-10↔IT-10 | REQUIRED / NEW | policy→ChatTitleBar→메뉴 및 useEngines→페이지→카드/폼의 기존 표시. 아래 실제 렌더 테스트 |
+| VP-53 SD-07↔ST-07 | REQUIRED / NEW | 페이지 진입 ensureLoaded→캐시 사용, 저장→갱신, 외부 catalog loading→기존 mutation 조작 가능. `useEngines.test.ts`의 실제 hook 입력/결과와 CUA-CLAUDE-02 |
+| VP-11/17/20/21/25/44/46/50 | REGRESSION / INHERITED | 기존 하네스 조립·엔진 CRUD/import·설정·composer/transcript 렌더. 기존 AC11 최종 사용자 인수는 이번 자기검증으로 대체하지 않음 |
+
+| 자리 / 수 | 실패 의미 | 직접 oracle 좌표 |
+|---|---|---|
+| EP-31a/b / 2 | Claude Code/Work 메뉴에 그룹명이나 다른 순서 노출 | `ChatTitleBar.render.test.ts`: 실제 메뉴의 Code/Work 순서·타일 표시 제목·토글 확인; CUA-CLAUDE-01 |
+| EP-32a/b/c / 3 | 새로고침 잔존·Claude 카드 이름 변경·편집 select 잔존 | `AgentEnvironmentView.render.test.ts`: 헤더 엔진 추가/정렬; `EngineCard.render.test.ts`: Claude/OpenCode 라벨; `EngineFormModal.harness.test.ts`: Claude chip/provider와 OpenCode 잠금 |
+| EP-32d/e/f / 3 | 진입 강제 재조회·외부 조회로 mutation 잠김·저장 후 미갱신 | `useEngines.test.ts`: ensureLoaded 경로, catalogLoading 중 busy=false, mutation 완료 후 refreshAgents 및 오류 보존 |
+| EP-33a / 1 | OpenCode 전용 viewport 스타일이 Claude에도 적용 | `TranscriptView.harness.test.ts`: 양 하네스 실제 viewport 클래스 및 공통 상위 canvas 회귀 |
+
+증분 분모는 2+3+3+1=9자리다. 새 상태·알고리즘을 만들지 않아 신규 MD pair는 없다. 렌더된 메뉴·컨트롤·hook 결과를 직접 관측하므로 별도 구조 proxy나 mutation을 선택하지 않는다. 기존 V1 카탈로그 오류/새로고침 행의 수동 버튼 부분은 AC31로 대체하며, 서버 실패의 재전송과 자동 카탈로그 갱신은 유지한다.
+
+CUA-CLAUDE-01은 Claude Code/Work 메뉴를 열고 순서·그룹 제목 제거·토글을 확인한 뒤 OpenCode 메뉴/요약 전환을 회귀 확인한다. CUA-CLAUDE-02는 엔진 페이지·Claude 편집 chip·신규 하네스 선택·OpenCode 카드를 확인한다. 로컬 실제 컴포넌트+native fixture 사용 시 증거 범위를 명시하고 새 실모델 호출은 하지 않는다.
+
+게이트: 관련 Vitest, 전체 typecheck·읽기 전용 ESLint, build, 문서 inventory/links, 원격 Windows CI. READY 대조: D-004/021↔AC30/31, 기존 OpenCode 기능↔AC8/9/13/14/20은 양립한다. 0263의 기존 보고 중 Claude 범주 유지 관측은 과거 이력이며 현재 Claude 메뉴 표시 정본은 이 ΔV9다. AC 총수는29→31, 기존 AC11 인수 대기는 유지한다.
 
 # [구현자 기입]
 
