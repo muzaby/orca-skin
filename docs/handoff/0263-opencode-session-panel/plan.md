@@ -647,7 +647,7 @@ D-14를 구현했다. 요약 클릭은 OpenCode 로컬 상세 상태를 열며, 
 | Build | main/preload/renderer 완료. 기존 SubAgentTileContent 정적/동적 import 경고 유지 |
 | 문서/운영 | generated/prose·migration sync/append-only·test-budget 통과. 다운로드·첨부 제외 checkLinks 결과 [] |
 | 원본 링크 guard 제한 | 사용자 다운로드 `.tmp/opencode-dev`의 상대링크5건만 실패. 해당 자료는 수정·커밋하지 않음 |
-| 원격 CI | 이번 제품 코드의 원격 CI 결과는 push 후 기록. 이전 CI #752를 이번 변경의 증거로 대체하지 않음 |
+| 원격 CI | 이번 제품 코드 `fbc15aba`의 [Windows CI #754](https://github.com/muzaby/orca-skin/actions/runs/38695989992) success. Vitest 699파일/6966케이스 통과·1파일/1케이스 skip, scripts138/138 통과. migration·문서·test-budget·lint·typecheck 모두 성공 |
 
 CUA는 실제 ChatTitleBar·TranscriptView·RightPanel·store에 고정 데이터를 넣은 renderer preview에서 수행했다. native API는 fixture이며 새 실모델 호출은 하지 않았다. 로컬 증거는 `.tmp/0263-v4-visual-evidence.md`, 캡처는 `0263-v4-summary.jpg`·`0263-v4-detail.jpg`·`0263-v4-dark-detail.jpg`다. 임시 preview와 다운로드 소스는 커밋하지 않는다.
 
