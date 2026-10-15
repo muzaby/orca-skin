@@ -36,6 +36,8 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 
 `OpenCodeAdapter`는 `/v2/client`의 legacy 호환 API(`/session`, `/event`)를 사용한다. catalog는 구성별 캐시를 사용하며 목록 새로고침은 다시 조회한다. 입력 전에 SSE 연결을 준비하고, session ID·prompt parent ID·event/part ID로 턴과 중복을 격리한다. 스트림 단절은 오류로 끝내고 프롬프트를 자동 재전송하지 않는다. 권한·질문은 공통 approval broker를 거쳐 해당 요청으로 회신하고, 취소는 해당 세션만 abort한다.
 
+사용자 메시지 ID는 `opencode/v1/message-id.ts`에서 native 1.x의 시간·동일 시각 카운터·난수 형식으로 생성한다. 같은 ID를 SDK 입력과 activity/mapper에 전달해 턴을 연결하며, 정상 종료는 소유한 응답을 받은 뒤 native idle로 판정한다. 개별 assistant의 finish만으로 서버 실행 완료를 가정하지 않는다.
+
 도구 종류·입력은 공통 어휘로 변환하고 `providerTool: { name, input }`을 history에 함께 저장한다. 시스템 지침은 prompt의 system에 추가한다. Claude 전용 plugin·hook·runtime tool 변환은 제공하지 않으며 OpenCode native config를 사용한다. fork·share·revert·개별 background 제어는 descriptor에서 비활성이다.
 
 ### 1.3 ClaudeCodeAdapter 호출 패턴

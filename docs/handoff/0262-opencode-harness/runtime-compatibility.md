@@ -57,3 +57,18 @@ Orca에서는 native API 비교 테스트와 fixture를 제거했고, 실제 전
 SDK 패키지는 1.18.27을 유지한다. 외부 패키지 내부에 포함된 미사용 native API 정의를 수정하거나 숨기지 않았으며, 제거 범위는 Orca 코드의 API 호출·테스트·CLI 지원이다. 과거 0214 연구는 조사 당시 근거로 남긴다.
 
 현재 실행 파일의 `--version`을 다시 실행해 1.19.0을 확인했다. 변경 후 실제 pool/version probe→CLI 1.19.0→SessionRuntime→로컬 합성 모델에서 첫 턴·후속 턴의 입력 접수와 응답·종료를 재확인했다. 두 턴 각각 commit 1회, 마지막 이벤트 turn.ended, 응답 본문 일치이며 외부 모델 API 요청은 없다.
+
+## Native 메시지 ID 검증 (2026-10-15 r1.14)
+
+기존 `msg_`+UUID는 native ID 형식과 다르다. [공식 앱 1.18.5](https://github.com/anomalyco/opencode/blob/v1.18.5/packages/app/src/utils/id.ts)와 [1.19.0 생성기](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/opencode/src/id/id.ts)의 시간·counter·base62 형식을 v1 helper에 반영했다. ID는 SDK 요청·parent 필터·activity generation에 같은 값으로 전달한다.
+
+사용자가 보고한 `<` 기반 종료는 [1.18.5 prompt](https://github.com/anomalyco/opencode/blob/v1.18.5/packages/opencode/src/session/prompt.ts)에서 확인했다. 현재 조회한 [1.19.0 prompt](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/opencode/src/session/prompt.ts)는 parentID equality를 사용한다. 같은 공식 ID 생성 형식을 적용하되 종료 조건 차이와 사용자의 실행 환경을 구분한다.
+
+| 실행 | 직접 관측 |
+|---|---|
+| 호스트 실행 파일 | `opencode-ai/bin/opencode.exe --version` → 1.19.0 |
+| 기존 UUID 코드, 실제 CLI 1.19.0 | 새 세션1턴·재개2턴 모두 본문1회씩, stop→turn.ended. UUID가 assistant보다 커도 정상. 해당 binary에서 반복 결함은 재현되지 않음 |
+| 수정 코드, 실제 CLI 1.19.0 | 새 세션2턴·기존 UUID 이력 세션 재개2턴 모두 본문1회/완료1회씩. parentID가 새 native ID와 일치, 기존 기록 유지 |
+| legacy 조건 transport 회귀 | 실제 SDK body를 native assistant ID와 비교하는 bounded fixture. UUID 변이에서 본문 생성 시도2회로 assertion 실패, 원본 복원 후 연속2턴 각1회 통과 |
+
+실제 CLI 관측은 제목용 aux 모델과 본문용 body 모델을 분리하고 외부 API·사용자 인증 없이 loopback provider로 수행했다. 소유한 테스트 프로세스는 모두 종료했다. `.tmp/0262-id-order-smoke.ts`와 `0262-id-order-s9FPJC/{red,red-resume,green-resume}.json`, `0262-id-order-mXbfWD/green-fresh.json`에 로컬 증거를 보관한다. 1.19.0 결과를 실패→성공 재현으로 표현하지 않으며, 사용자가 관측한 실행 파일·버전은 확인 요청 상태다. 원본과 같은 생성 규칙이므로 서로 다른 프로세스의 동일ms 순서나 시스템 시계 변경까지 새로 보장하지 않는다.

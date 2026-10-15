@@ -49,6 +49,7 @@ function fixture(): {
     if (path === '/event') {
       const stream = new ReadableStream<Uint8Array>({
         start(streamController) {
+          closed = false
           controller = streamController
           emit(event('server.connected', {}))
         },
@@ -124,6 +125,80 @@ function finish(f: ReturnType<typeof fixture>, promptId: string): void {
 }
 
 describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE transport', () => {
+  it('sends native ascending IDs and completes successive turns under the legacy stop ordering contract', async () => {
+    const f = fixture()
+    const promptIds: string[] = []
+    let assistantAttempts = 0
+    // Independent native vectors for one millisecond after each client prompt.
+    // The transport models the older 1.x loop, which gates stop on userID < assistantID.
+    const vectors = [
+      { now: 1792000000000, assistantId: 'msg_13b86000100100000000000000' },
+      { now: 1792000000010, assistantId: 'msg_13b86000b00100000000000000' }
+    ]
+    const clock = vi.spyOn(Date, 'now')
+    try {
+      for (const [index, vector] of vectors.entries()) {
+        clock.mockReturnValue(vector.now)
+        f.onPrompt = (body) => {
+          const promptId = String(body.messageID)
+          promptIds.push(promptId)
+          // A prior turn's late idle must not finish the current turn.
+          if (index > 0) {
+            f.emit(
+              event('message.updated', {
+                sessionID: 's1',
+                info: assistantMessage('s1', promptIds[index - 1], 'stale')
+              })
+            )
+            f.emit(event('session.idle', { sessionID: 's1' }))
+          }
+          assistantAttempts++
+          f.emit(
+            event('message.updated', {
+              sessionID: 's1',
+              info: { ...assistantMessage('s1', promptId, vector.assistantId), finish: 'stop' }
+            })
+          )
+          f.emit(
+            event('message.part.updated', {
+              sessionID: 's1',
+              time: vector.now + 2,
+              part: textPart(`Done ${index + 1}`, {
+                messageID: vector.assistantId,
+                time: { start: vector.now + 1, end: vector.now + 2 }
+              })
+            })
+          )
+          if (promptId < vector.assistantId) {
+            f.emit(event('session.idle', { sessionID: 's1' }))
+          } else {
+            // Bound the bad loop instead of hanging a test or hiding it with synthetic idle.
+            assistantAttempts++
+            f.end()
+          }
+        }
+        const events = await collect(f.adapter, request())
+        expect(assistantAttempts).toBe(index + 1)
+        expect(promptIds[index]).toMatch(/^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$/)
+        expect(promptIds[index] < vector.assistantId).toBe(true)
+        expect(events.filter((e) => e.type === 'message.completed')).toEqual([
+          expect.objectContaining({ message: { text: `Done ${index + 1}` } })
+        ])
+        expect(events.filter((e) => e.type === 'turn.ended')).toHaveLength(1)
+        expect(events.at(-1)?.type).toBe('turn.ended')
+        expect(events.some((e) => e.type === 'error')).toBe(false)
+      }
+      expect(assistantAttempts).toBe(2)
+      expect(new Set(promptIds).size).toBe(2)
+      expect(promptIds[0] < promptIds[1]).toBe(true)
+      expect(
+        f.requests.filter((r) => new URL(r.url).pathname.endsWith('/prompt_async'))
+      ).toHaveLength(2)
+    } finally {
+      clock.mockRestore()
+    }
+  })
+
   it('includes selected context directories in the prompt without changing native permissions', async () => {
     const f = fixture()
     let input: Record<string, unknown> = {}

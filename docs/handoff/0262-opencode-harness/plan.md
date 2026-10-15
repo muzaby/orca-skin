@@ -8,8 +8,8 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | READY — ΔV10 OpenCode native 메시지 ID 정렬 복구. AC11 사용자 최종 시각 인수·독립 verify 대기 |
-| V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 |
+| 상태 | IMPL_DONE (r1.14) — ΔV10 OpenCode native 메시지 ID 정렬 복구. AC11 사용자 최종 시각 인수·독립 verify 대기 |
+| V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 + ΔV10 |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV10 / V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 + ΔV10 |
 
@@ -1578,3 +1578,61 @@ Claude 편집에는 고정 chip을 복원하되 새 엔진 생성에는 하네�
 r1.13은 사용자 복원 지시에 따른 ΔV9다. D-004의 기존 Claude 보존 의도가 있었지만 실제 메뉴를 관측하지 않는 테스트가 그룹 제목 추가를 검출하지 못했다. 이번 보고는 확인한 경로의 복원과 사용자 최종 인수를 구분한다. 다음 주체는 Claude 독립 검증자다.
 
 CI 성공 후 후속 커밋은 결과 기록만 포함한다. plan 메타와 INDEX의 impl/IMPL_DONE·다음 Claude, 누적30/31 및 파싱된 구현 trailer를 다시 확인했다. 독립 verify와 AC11 사용자 인수는 유지한다.
+
+## [구현자 기입] ΔV10 — r1.14
+
+### 설계 리뷰
+
+native ID 형식 위반을 수정했다. `message-id.ts`의 시간/counter/난수 생성값을 기존 promptAsync→activity→mapper에 그대로 전달한다. finish를 조기 종료로 바꾸거나 서버 호출을 숨기는 우회는 하지 않았다. 실제1.19.0에서는 기존 UUID 코드도 정상 종료했으므로 사용자 환경의 반복 결함이 재현됐다고 주장하지 않는다.
+
+### 강제 지점 전수와 V-pair 자기확인
+
+검색 `rg -n 'messageID:|promptId =|promptAsync\(|session.prompt\(' .../opencode/v1/adapter.ts`에서 사용자 지정 messageID는 streaming 입력1곳이며 보조 complete는 서버 생성 ID를 사용함을 확인했다.
+
+| 자리 / pair | 직접 oracle / 관측 | 자기 결과 |
+|---|---|---|
+| EP-34a / VP-54 | message-id.test의 native lower-six-byte 고정벡터3종·동일ms 증가·다음ms reset·형식/길이 6케이스 | SELF_PASS |
+| EP-34b / VP-55 | adapter.test `sends native ascending IDs and completes successive turns under the legacy stop ordering contract`: 실제 SDK body·native 벡터 비교·본문 시도 각1회·연속2턴 종료 | SELF_PASS |
+| EP-34c / VP-55 | 같은 테스트에서 이전 parent의 assistant/idle 무시와 현재 parent 응답 각각1개. 기존 mapper stale/compaction 및 activity 격리 회귀 유지 | SELF_PASS |
+
+ΔV10 EP-34a/b/c =3자리. 관련 adapter/map/activity/server·history/send 11파일77케이스와 SessionRuntime1파일81케이스, 합계12파일158케이스 통과. VP-05/15/18은 변경 영향 구간만 확인했으며 과거 V 전체의 남은 증거를 닫은 것으로 해석하지 않는다.
+
+### 이번 라운드 수정의 잠금
+
+| 선택 증거 | 변이 자리 | 관측과 복원 |
+|---|---|---|
+| M-ID / VP-55 | adapter promptId 생성 및 import를 원래 randomUUID 식으로 복원 | 실제 SDK transport 테스트가 본문 시도2≠1로 실패. 파일 바이트 원복 확인 후 같은 테스트1케이스 통과 |
+
+선택 증거1 · 인용 변이0 · 새 구조 oracle0 = 표 행1. 이 검사는 과거1.x 종료 조건을 모형한 HTTP/SSE 계약 검사다. 실제CLI 내부 전체를 실행한 결과는 아래 별도 구분한다.
+
+### Product/UX 파생 검토
+
+동일 ID로 현재 턴을 식별하고 기존 stale·compaction 응답 격리를 유지한다. 취소·오류·도구·idle 수명과 UI는 변경하지 않는다. 임의 ID를 생성하는 신규 의존성 없이 OpenCode1.x 디렉터리에서 native 규칙을 사용한다. 원본 MIT 고지에 native ID 출처를 추가했다.
+
+### 놓친 잠재 문제 + 대응
+
+- 기존 fixture는 어떤 ID든 idle을 합성하여 native 정렬 계약을 검증하지 못했다. 새 fixture는 순서 조건이 false면 두 번째 본문 시도를 세고 스트림을 닫아 실패를 제한한다.
+- 실제1.19.0은 parentID equality로 종료하므로 기존 UUID에서도 새1턴+재개2턴이 정상이다. 사용자에게 관측한 버전/실행 경로를 확인 요청했고 결과를 [실행 증거](runtime-compatibility.md#native-메시지-id-검증-2026-10-15-r114)에 구분했다.
+- 잘못된 UUID가 남은1.19.0 세션도 수정 코드로2턴 재개되고 기존 기록을 보존했다. 과거 ID 자동 재작성이나 사용자 프로세스 종료는 하지 않았다.
+- timestamp/counter는 공식 생성기와 같은 프로세스 내 규칙이다. 서로 다른 프로세스의 동일ms/시계 역행까지 보장하는 추가 알고리즘은 도입하지 않았다. 설계 대비 대체 메커니즘 없음.
+
+### 구현 보고
+
+| AC | 자기 결과 | 관측 |
+|---|---|---|
+| AC5 영향 구간 | ✅ | native ID wire·legacy 종료조건·stale parent 회귀. 실제1.19.0 수정 후 새2턴+기존UUID이력 재개2턴 각각 본문1회/완료1회 |
+| AC11 | ⚠️ | 사용자 최종 시각 인수 및 독립 verify 대기 유지. 이번 UI 변경 없음 |
+
+AC 추가 없음. 이전 누적 자기보고 ✅30 · ⚠️1 · ❌0 =31을 유지하며 이번 턴의 관측 범위는 ID와 종료 영향 경로다. 사용자 환경에서 보고된 무한 요청의 실재현은 아직 확인되지 않았다.
+
+| 게이트 | 관측 |
+|---|---|
+| 자동 회귀 | 관련12파일158케이스 통과. M-ID red와 바이트 복원 후 동일 test green |
+| 타입/build | node/web/test 모두 통과. main/preload/renderer build 완료, 기존 SubAgentTileContent 혼합 import 경고 유지 |
+| readonly ESLint | 전체 오류0·기존 useTranscriptVirtualizer incompatible-library 경고1. 최종 수정 TypeScript4파일 별도 검사도 통과 |
+| 형식/운영 | Prettier·migration sync/append-only·test budgets·diff whitespace 통과. 문서 generated/prose 통과. 다운로드 내부 링크5건은 기존 실패이며 임시/첨부 제외 저장소 링크 빈 배열 |
+| 실제CLI |1.19.0+loopback provider, body/aux 모델 분리·본문2회 상한. 기존 코드도 정상, 수정 후 새/재개 각각2턴 정상. 생성한 테스트 프로세스 전부 종료 |
+
+### Review Signals
+
+r1.14는 사용자 결함 보고에 따른 계약 보완이다. 기존 실제SDK transport 테스트도 무조건 idle을 내는 fixture 탓에 native ID 의미를 보지 못했다. 로컬CLI 버전에서 재현하지 못한 범위는 명시하고 종료 조건 호환성 수정과 구분했다. 독립 verify는 별도다.

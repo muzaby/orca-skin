@@ -1,7 +1,6 @@
 // /v2/client는 OpenCode 1.x의 flat-parameter SDK export다. 제품 2.x의 client.v2 API는 쓰지 않는다.
 import { createOpencodeClient, type Event, type OpencodeClient } from '@opencode-ai/sdk/v2/client'
 import { pathToFileURL } from 'node:url'
-import { randomUUID } from 'node:crypto'
 import type {
   AgentEnvironment,
   ClassifiedError,
@@ -17,6 +16,7 @@ import { normalizeOpenCodeTool } from './map'
 import { OpenCodeActivityMapper } from './activity'
 import { openCodeCatalog } from './catalog'
 import { classifyOpenCodeError } from './errors'
+import { createOpenCodeMessageId } from './message-id'
 
 export class OpenCodeAdapter implements SessionAdapter {
   private readonly catalogs = new WeakMap<
@@ -205,7 +205,7 @@ export class OpenCodeAdapter implements SessionAdapter {
         }
         // SessionRuntime already admitted this input before consuming eventBatches.
         // Rechecking the queue here would reject its now-submitted reservation.
-        const promptId = `msg_${randomUUID().replaceAll('-', '')}`
+        const promptId = createOpenCodeMessageId()
         const promptText = [...(req.preludes ?? []).map((part) => part.text), req.text].join('\n\n')
         const system = [
           req.extensions.systemPromptAppend,
