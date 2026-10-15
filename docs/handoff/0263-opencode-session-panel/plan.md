@@ -176,7 +176,7 @@ V1 UI oracle 좌표 정정: 존재하지 않는 `RightPanel.render.test` 이름�
 
 ### 설계 리뷰
 
-r1 구현. V1의 컨텍스트 재사용에서 Work 전용 정책을 발견해 Delta V2를 별도 설계 커밋으로 보완했다. D-01~06과 AC1~7의 사용자 결과는 유지한다. 독립 verify는 수행하지 않았다.
+r1 구현 및 CI 보완. V1의 컨텍스트 재사용에서 Work 전용 정책을 발견해 Delta V2를 별도 설계 커밋으로 보완했다. D-01~06과 AC1~7의 사용자 결과는 유지한다. 독립 verify는 수행하지 않았다.
 
 ### 강제 지점 전수와 V-pair 자기확인
 
@@ -217,6 +217,7 @@ r1 구현. V1의 컨텍스트 재사용에서 Work 전용 정책을 발견해 De
 | context 허용 정책의 분산 | 공통 sessionContextPolicy를 Main/renderer에 적용, SQLite 실제 경계 테스트 통과 |
 | 과거 child·부모 종료 후 비동기 task | 수신하지 않은 기록 역수입과 상시 구독은 설계 범위 밖; 가짜 기록을 합성하지 않음 |
 | 로그 상한 | journal과 표시에서 후미 상한·잘림 문구; 최종 결과가 진행 snapshot보다 우선 |
+| CI의 기존 하네스 테스트 기대값 | CI #749에서 OpenCode 하위 에이전트를 미지원으로 기대한 1건 실패. 진입 3경로의 지원·선택과 작업→계획 전환을 단언하도록 갱신; Claude Work의 미지원 패널 차단 테스트 유지 |
 
 명시적 차이: V2의 UI oracle 정정 외 계약 대체 없음. 만료 캐시 없음; 공유 상태는 기존 세션별 store/journal; 재진입은 activeKey로 선택 초기화; 다른 무효화는 기존 picker busy·세션 identity 검사와 파일 경로 재검사를 유지한다.
 
@@ -244,6 +245,7 @@ r1 구현. V1의 컨텍스트 재사용에서 Work 전용 정책을 발견해 De
 | Build | main·preload·renderer 완료. 기존 SubAgentTileContent 정적/동적 중복 import 경고 |
 | 문서 | generated/prose 통과. 원본 링크 guard는 사용자 다운로드 `.tmp/opencode-dev`의 외부 문서 링크 5건 실패; `.tmp`·첨부를 제외한 저장소 링크 차집합은 빈 배열 |
 | 운영 | migration sync/append-only 및 test-budget 통과, git diff --check 오류 0 |
+| CI #749 후속 수정 | reducer·패널 28파일/264케이스 통과, 수정 파일 ESLint·Prettier 통과. Electron Vitest의 worker 종료 timeout 경고 2건이 있었으나 테스트와 프로세스 종료 코드는 성공 |
 
 Computer Use 증거: 실행 중인 Orca에서 기본 요약, 빈 목록, 변경 사항, 계획의 OpenCode 문구, 폴더 picker 취소, Claude Work 회귀를 확인했다. child·셸 데이터가 없는 기존 세션 대신 실제 컴포넌트 preview의 고정 데이터로 상세·로그·테마·세션 초기화를 확인했다. 새 실모델 호출은 하지 않았다. 로컬 캡처는 `.tmp/0263-orca-panel.png`, `.tmp/0263-panel-summary.png`이며 임시 preview와 다운로드 소스는 커밋에서 제외했다.
 
@@ -251,7 +253,7 @@ Computer Use 증거: 실행 중인 Orca에서 기본 요약, 빈 목록, 변경 
 
 - r1, verify 이전 최초 구현. 기존 같은 불변식의 재검증 라운드가 아니다.
 - V1은 Work context의 UI 재사용을 명시했지만 Main 허용 조합을 누락했다. 조사 후 V2로 보완했다.
-- 네이티브 창 연결은 이번에는 성공했다. CI는 별도 Windows 환경에서 전체 회귀를 확인한다.
+- 네이티브 창 연결은 이번에는 성공했다. CI #749는 migration·문서·test-budget·lint·typecheck 통과 후 기존 하네스 기대값 1건에서 실패했다. 해당 회귀 테스트를 갱신하고 별도 Windows 환경에서 전체 CI를 재실행한다.
 - 다음 주체는 Claude 독립 검증자다. PR #502는 draft 상태를 유지한다.
 
 ## [검증자 기입] 파생 이슈

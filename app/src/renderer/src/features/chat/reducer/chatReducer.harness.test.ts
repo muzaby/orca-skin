@@ -70,16 +70,26 @@ describe('harness identity and panel enforcement', () => {
     expect(updated.backend).toBe('opencode')
     expect(chatReducer(loaded, { ...select, adapter: 'claude' })).toBe(loaded)
   })
-  it('blocks unsupported panels at every reducer entry but keeps review available', () => {
-    let state = chatReducer(initialChatState, select)
-    for (const action of [
-      { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'subagent' },
-      { type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id: 'subagent', active: true },
-      { type: 'OPEN_SUBAGENT_TASK', toolRunId: 'child' }
-    ] satisfies ChatAction[]) {
-      state = chatReducer(state, action)
-      expect(flattenColumns(state.rightPanelTiles)).not.toContain('subagent')
+  it.each([
+    { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'subagent' },
+    { type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id: 'subagent', active: true },
+    { type: 'OPEN_SUBAGENT_TASK', toolRunId: 'child' }
+  ] satisfies ChatAction[])('opens OpenCode subagents via $type', (action) => {
+    const state = chatReducer(chatReducer(initialChatState, select), action)
+    expect(flattenColumns(state.rightPanelTiles)).toEqual(['subagent'])
+    if (action.type === 'OPEN_SUBAGENT_TASK') {
+      expect(state.selectedSubagentTaskId).toBe('child')
     }
+  })
+  it.each([
+    { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'task' },
+    { type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id: 'task', active: true }
+  ] satisfies ChatAction[])('routes OpenCode task entry to plan via $type', (action) => {
+    const state = chatReducer(chatReducer(initialChatState, select), action)
+    expect(flattenColumns(state.rightPanelTiles)).toEqual(['plan'])
+  })
+  it('keeps OpenCode review available', () => {
+    const state = chatReducer(initialChatState, select)
     expect(
       flattenColumns(
         chatReducer(state, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'diff' }).rightPanelTiles
