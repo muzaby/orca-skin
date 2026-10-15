@@ -1632,7 +1632,10 @@ AC 추가 없음. 이전 누적 자기보고 ✅30 · ⚠️1 · ❌0 =31을 유
 | readonly ESLint | 전체 오류0·기존 useTranscriptVirtualizer incompatible-library 경고1. 최종 수정 TypeScript4파일 별도 검사도 통과 |
 | 형식/운영 | Prettier·migration sync/append-only·test budgets·diff whitespace 통과. 문서 generated/prose 통과. 다운로드 내부 링크5건은 기존 실패이며 임시/첨부 제외 저장소 링크 빈 배열 |
 | 실제CLI |1.19.0+loopback provider, body/aux 모델 분리·본문2회 상한. 기존 코드도 정상, 수정 후 새/재개 각각2턴 정상. 생성한 테스트 프로세스 전부 종료 |
+| 원격 CI | 제품 커밋 `44f1df33`의 [Windows CI #758](https://github.com/muzaby/orca-skin/actions/runs/38717654242) success. Vitest703파일/6993케이스 및 scripts138/138 통과, 기존1파일/1케이스 skip. 문서·migration·test-budget·lint·typecheck 모두 성공 |
 
 ### Review Signals
 
 r1.14는 사용자 결함 보고에 따른 계약 보완이다. 기존 실제SDK transport 테스트도 무조건 idle을 내는 fixture 탓에 native ID 의미를 보지 못했다. 로컬CLI 버전에서 재현하지 못한 범위는 명시하고 종료 조건 호환성 수정과 구분했다. 독립 verify는 별도다.
+
+CI 성공 후 후속 커밋은 결과 기록만 포함한다. plan/INDEX의 impl·IMPL_DONE·다음 Claude와 누적30/31은 유지한다. 구현 trailer 파싱을 확인했으며 AC11 사용자 최종 시각 인수와 독립 verify를 선점하지 않는다.
