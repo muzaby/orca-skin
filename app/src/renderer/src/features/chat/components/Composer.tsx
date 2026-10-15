@@ -28,7 +28,10 @@ import { CwdPanel } from './CwdPanel'
 import { GitRow } from './composer/GitRow'
 import { Notice } from './Notice'
 import { AskUserQuestionCard } from './AskUserQuestionCard'
-import { OpenCodeQuestionDock } from '../harnesses/opencode/composer/QuestionDock'
+import { OpenCodeRequestDock } from '../harnesses/opencode/composer/RequestDock'
+import { selectOpenCodeRequest } from '../harnesses/opencode/composer/requestQueue'
+import { OpenCodeTodoDock } from '../harnesses/opencode/composer/TodoDock'
+import { selectOpenCodeTodos } from '../harnesses/opencode/composer/todoState'
 import { ApprovalCard, ToolApprovalBody } from './ApprovalCard'
 import { UsagePanel } from './UsagePanel'
 import type { UsageLimitsView } from '../../../../../shared/usage/limits'
@@ -38,6 +41,7 @@ import {
   useChatResponding,
   useChatResidualSteer,
   useChatSession,
+  useChatStore,
   useNewChatPending,
   useProjectConcurrencyCount
 } from '../store/chatStore'
@@ -139,6 +143,15 @@ export function Composer({
   const backend = useChatSession((s) => s.backend)
   const harnessLocked = useChatSession((s) => !!s.sessionId || s.agentKindLocked)
   const openCode = backend === 'opencode'
+  const activeStoreKey = useChatStore((s) => s.activeKey)
+  const messages = useChatSession((s) => s.messages)
+  const sendCount = useChatSession((s) => s.sendCount)
+  const openCodeTodoTurnStartIndex = useChatSession((s) => s.openCodeTodoTurnStartIndex)
+  const openCodeTodoCollapsed = useChatSession((s) => s.openCodeTodoCollapsed)
+  const openCodeTodos = useMemo(
+    () => selectOpenCodeTodos({ backend, messages, sendCount, openCodeTodoTurnStartIndex }),
+    [backend, messages, sendCount, openCodeTodoTurnStartIndex]
+  )
   const providerKey = useChatSession((s) => s.providerKey)
   const modelFamily = useChatSession((s) => s.modelFamily)
   const modelAlias = useChatSession((s) => s.modelAlias)
@@ -150,7 +163,16 @@ export function Composer({
   const activeDiffRequirementId = useChatSession((s) => s.activeDiffRequirementId)
   const diffRequirementSnapshot = chatActions.captureDiffRequirementSnapshot()
   // 큐의 맨 앞 질문만 렌더(canUseTool 이 query 를 막아 보통 1개). 응답 시 다음 질문이 노출.
-  const activeAsk = useChatSession((s) => s.pendingAsks[0])
+  const pendingAsks = useChatSession((s) => s.pendingAsks)
+  const pendingRequestOrder = useChatSession((s) => s.pendingRequestOrder)
+  const activeAsk = pendingAsks[0]
+  const openCodeRequest = useMemo(
+    () =>
+      openCode
+        ? selectOpenCodeRequest({ pendingAsks, pendingToolApprovals, pendingRequestOrder })
+        : undefined,
+    [openCode, pendingAsks, pendingToolApprovals, pendingRequestOrder]
+  )
   const modelButtonRef = useRef<HTMLButtonElement>(null)
   const [modelMenuOpen, setModelMenuOpen] = useState(false)
   const agents = useAgents()
@@ -205,7 +227,6 @@ export function Composer({
     selectedProviderKey: selectedModel?.providerKey
   })
 
-  const QuestionCard = openCode ? OpenCodeQuestionDock : AskUserQuestionCard
   const toolApprovalPending = pendingToolApprovals.length > 0
   return (
     <div
@@ -229,8 +250,8 @@ export function Composer({
         <ComposerPanelStackView
           beforeGitRow={
             <>
-              {activeAsk && (
-                <QuestionCard
+              {!openCode && activeAsk && (
+                <AskUserQuestionCard
                   key={activeAsk.requestId}
                   ask={activeAsk}
                   onSubmit={(answers, response) =>
@@ -239,14 +260,15 @@ export function Composer({
                   onSkip={() => skipAsk(activeAsk.requestId)}
                 />
               )}
-              {pendingToolApprovals.map((p) => (
-                <ToolApprovalBody
-                  key={p.approvalId}
-                  approvalId={p.approvalId}
-                  toolName={p.toolName}
-                  input={p.input}
-                />
-              ))}
+              {!openCode &&
+                pendingToolApprovals.map((p) => (
+                  <ToolApprovalBody
+                    key={p.approvalId}
+                    approvalId={p.approvalId}
+                    toolName={p.toolName}
+                    input={p.input}
+                  />
+                ))}
               {showLandingCwdPanel && !(openCodeLanding && openCode) && (
                 <CwdPanel cwd={cwd} inflight={leaseBusy} />
               )}
@@ -290,115 +312,131 @@ export function Composer({
             </>
           }
           composerInput={
-            <ComposerInputController
-              active={!pendingPlanReview}
-              backendLabel={openCode ? 'OpenCode' : backendLabel}
-              canAbort={canAbort}
-              inflight={inflight}
-              steerBlocked={steerBlocked}
-              toolApprovalPending={toolApprovalPending}
-              cwd={cwd}
-              initialDraft={initialDraft}
-              restoredDraft={restoredDraft}
-              onSend={send}
-              diffRequirementSnapshot={diffRequirementSnapshot}
-              requirementTray={
-                <RequirementTray
-                  requirements={diffRequirements}
-                  selectedId={activeDiffRequirementId}
-                  onSelect={chatActions.selectDiffRequirement}
-                  onRemove={chatActions.removeDiffRequirement}
+            <>
+              {openCode && (
+                <OpenCodeTodoDock
+                  sessionKey={activeStoreKey}
+                  turnKey={sendCount}
+                  todos={openCodeTodos}
+                  live={inflight || !!openCodeRequest}
+                  blocked={!!openCodeRequest}
+                  collapsed={openCodeTodoCollapsed}
+                  onCollapsedChange={chatActions.setOpenCodeTodoCollapsed}
                 />
-              }
-              onClearDiffRequirementsIfUnchanged={chatActions.clearDiffRequirementsIfUnchanged}
-              onCancel={cancel}
-              onManagePlugins={onManagePlugins}
-              controlsStart={
-                openCode ? (
-                  <OpenCodeAgentControl
-                    agents={agents.find((entry) => entry.key === providerKey)?.agents}
+              )}
+              {openCodeRequest && <OpenCodeRequestDock request={openCodeRequest} />}
+              <ComposerInputController
+                key="composer-input"
+                active={!pendingPlanReview && !openCodeRequest}
+                backendLabel={openCode ? 'OpenCode' : backendLabel}
+                canAbort={canAbort}
+                inflight={inflight}
+                steerBlocked={steerBlocked}
+                toolApprovalPending={toolApprovalPending}
+                cwd={cwd}
+                initialDraft={initialDraft}
+                restoredDraft={restoredDraft}
+                onSend={send}
+                diffRequirementSnapshot={diffRequirementSnapshot}
+                requirementTray={
+                  <RequirementTray
+                    requirements={diffRequirements}
+                    selectedId={activeDiffRequirementId}
+                    onSelect={chatActions.selectDiffRequirement}
+                    onRemove={chatActions.removeDiffRequirement}
                   />
-                ) : (
-                  <ClaudeModeControl model={selectedModelShape(agents, selectedModel)} />
-                )
-              }
-              controlsEnd={
-                <>
-                  {agents.some((agent) => agent.supported) && (
-                    <ComposerChip
-                      ref={modelButtonRef}
-                      openCode={openCode}
-                      label={selectionLabel(selectedModel) ?? tr('chat.composer.modelFallback')}
-                      onClick={() => setModelMenuOpen((v) => !v)}
-                      ariaHasPopup
-                      ariaExpanded={modelMenuOpen}
-                      title={tr('chat.composer.modelSelectTitle')}
-                    />
-                  )}
-                  {openCode ? (
-                    <OpenCodeVariantControl
-                      variants={
-                        agents
-                          .find((entry) => entry.key === providerKey)
-                          ?.models.find((model) => modelKey(model) === modelFamily)?.variants ?? []
-                      }
+                }
+                onClearDiffRequirementsIfUnchanged={chatActions.clearDiffRequirementsIfUnchanged}
+                onCancel={cancel}
+                onManagePlugins={onManagePlugins}
+                controlsStart={
+                  openCode ? (
+                    <OpenCodeAgentControl
+                      agents={agents.find((entry) => entry.key === providerKey)?.agents}
                     />
                   ) : (
-                    <ClaudeEffortControl modelFamily={modelFamily} />
-                  )}
-                  {lastTelemetry &&
-                    (() => {
-                      // 컨텍스트 사용량 = (입력+캐시)/모델 윈도우(마지막 턴 기준). 세션 동안 lastTelemetry
-                      // 가 유지·복원되므로 도넛도 세션 수명 동안 표시된다.
-                      const tokens = contextTokens(lastTelemetry)
-                      const window = contextWindowOf(lastTelemetry)
-                      const pct = Math.round((tokens / window) * 100)
-                      const warn = nearCompaction(tokens, window)
-                      return (
-                        <button
-                          ref={telemetryButtonRef}
-                          type="button"
-                          onClick={() => setTelemetryOpen((v) => !v)}
-                          className="flex items-center rounded-sm outline-none hide-focus-ring ring-focus"
-                          aria-haspopup="menu"
-                          aria-expanded={telemetryOpen}
-                          title={`${tr('chat.composer.contextTitle', {
-                            used: Math.round(tokens / 1000),
-                            window: window / 1000
-                          })}${warn ? ` · ${tr('chat.composer.contextLimitNear')}` : ''}`}
-                          data-behavior="action:toggle-telemetry"
-                        >
-                          <UsageCircle
-                            ratio={tokens / window}
-                            warn={warn}
-                            aria-label={tr('chat.composer.contextUsageAria', { pct })}
-                          />
-                        </button>
-                      )
-                    })()}
-                  {lastTelemetry && (
-                    <Popover
-                      open={telemetryOpen}
-                      anchorRef={telemetryButtonRef}
-                      onClose={() => setTelemetryOpen(false)}
-                      align="end"
-                    >
-                      {/* 컨텍스트(프로그레스바) + 사용량 한도(주간/월간). 실사용은 여기서
+                    <ClaudeModeControl model={selectedModelShape(agents, selectedModel)} />
+                  )
+                }
+                controlsEnd={
+                  <>
+                    {agents.some((agent) => agent.supported) && (
+                      <ComposerChip
+                        ref={modelButtonRef}
+                        openCode={openCode}
+                        label={selectionLabel(selectedModel) ?? tr('chat.composer.modelFallback')}
+                        onClick={() => setModelMenuOpen((v) => !v)}
+                        ariaHasPopup
+                        ariaExpanded={modelMenuOpen}
+                        title={tr('chat.composer.modelSelectTitle')}
+                      />
+                    )}
+                    {openCode ? (
+                      <OpenCodeVariantControl
+                        variants={
+                          agents
+                            .find((entry) => entry.key === providerKey)
+                            ?.models.find((model) => modelKey(model) === modelFamily)?.variants ??
+                          []
+                        }
+                      />
+                    ) : (
+                      <ClaudeEffortControl modelFamily={modelFamily} />
+                    )}
+                    {lastTelemetry &&
+                      (() => {
+                        // 컨텍스트 사용량 = (입력+캐시)/모델 윈도우(마지막 턴 기준). 세션 동안 lastTelemetry
+                        // 가 유지·복원되므로 도넛도 세션 수명 동안 표시된다.
+                        const tokens = contextTokens(lastTelemetry)
+                        const window = contextWindowOf(lastTelemetry)
+                        const pct = Math.round((tokens / window) * 100)
+                        const warn = nearCompaction(tokens, window)
+                        return (
+                          <button
+                            ref={telemetryButtonRef}
+                            type="button"
+                            onClick={() => setTelemetryOpen((v) => !v)}
+                            className="flex items-center rounded-sm outline-none hide-focus-ring ring-focus"
+                            aria-haspopup="menu"
+                            aria-expanded={telemetryOpen}
+                            title={`${tr('chat.composer.contextTitle', {
+                              used: Math.round(tokens / 1000),
+                              window: window / 1000
+                            })}${warn ? ` · ${tr('chat.composer.contextLimitNear')}` : ''}`}
+                            data-behavior="action:toggle-telemetry"
+                          >
+                            <UsageCircle
+                              ratio={tokens / window}
+                              warn={warn}
+                              aria-label={tr('chat.composer.contextUsageAria', { pct })}
+                            />
+                          </button>
+                        )
+                      })()}
+                    {lastTelemetry && (
+                      <Popover
+                        open={telemetryOpen}
+                        anchorRef={telemetryButtonRef}
+                        onClose={() => setTelemetryOpen(false)}
+                        align="end"
+                      >
+                        {/* 컨텍스트(프로그레스바) + 사용량 한도(주간/월간). 실사용은 여기서
                           계산하지 않고 주입된 usageLimits(공용 파생)를 참조만. 핸드오프 진입점은
                           StatusPopover(danger) 로 단일화(0064 r3). */}
-                      <UsagePanel
-                        telemetry={lastTelemetry}
-                        usageLimits={usageLimits ?? null}
-                        onOpenUsageSettings={() => {
-                          setTelemetryOpen(false)
-                          onOpenUsageSettings?.(providerKey ?? undefined)
-                        }}
-                      />
-                    </Popover>
-                  )}
-                </>
-              }
-            />
+                        <UsagePanel
+                          telemetry={lastTelemetry}
+                          usageLimits={usageLimits ?? null}
+                          onOpenUsageSettings={() => {
+                            setTelemetryOpen(false)
+                            onOpenUsageSettings?.(providerKey ?? undefined)
+                          }}
+                        />
+                      </Popover>
+                    )}
+                  </>
+                }
+              />
+            </>
           }
           afterComposerInput={
             showLandingCwdPanel && openCodeLanding && openCode ? (

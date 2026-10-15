@@ -230,7 +230,9 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 
 새 대화의 모델 선택은 `chatReducer.SET_MODEL`에서 backend를 함께 바꾼다. OpenCode 선택은 Code를 강제하며 생성·입장 이후 backend는 잠긴다. `ComposerInputController`는 동일 인스턴스를 유지하고 테두리·컨트롤만 전환한다. OpenCode의 에이전트·variant는 실제 카탈로그에서 제공한다. Claude의 권한·effort 컨트롤은 기존 정책을 유지한다.
 
-`TranscriptView`는 하네스별 presentation을 공유 메시지 모델에 적용하며 가상화와 마지막 스트리밍 교환을 유지한다. OpenCode 탐색 도구는 접기 행으로 묶고, 수정 도구는 본문을 펼친다. `providerTool` 원본은 상세 disclosure에서 읽는다.
+`TranscriptView`는 공유 메시지 모델을 하네스별 viewport로 보낸다. Claude는 기존 교환 단위 가상화와 `useScrollAnchor`를 사용한다. OpenCode는 `harnesses/opencode/transcript/Timeline`에서 텍스트·도구·메타를 안정된 행 key로 투영하고 행 단위로 가상화한다. 읽기 중인 행과 선택 범위를 보존하며, 세션별 위치·도구 펼침을 기억한다. 위로 스크롤하거나 텍스트를 선택하면 새 출력의 바닥 추종을 해제하고, 바닥 도달 또는 최신 이동으로 추종을 재개한다. 탐색 도구는 접기 행으로 묶고 수정 도구는 본문을 펼친다. `providerTool` 원본은 상세 disclosure에서 읽는다. 본문 배경과 사용자 버블 색상은 Claude와 공유한다.
+
+OpenCode의 질문과 도구 승인은 도착 순서대로 같은 입력 자리를 대체한다. 현재 요청만 mount하고 해소되면 다음 요청을 표시한다. 입력 controller는 비활성 상태로 인스턴스를 유지하므로 마지막 요청 후 초안·첨부가 복원된다. Todo 진행 카드는 현재 root 턴의 성공 결과에서 파생해 composer 바로 위에 펼친 목록 또는 한 줄 요약으로 표시한다. 요청 카드가 있으면 가리고, 전체 완료나 실행 종료 시 마지막 내용을 유지한 채 아래로 퇴장한다. 일반 OpenCode transcript에서는 Todo 행을 중복 표시하지 않으며 원본 이력은 보존한다.
 
 `components/rightpanel/tileRegistry.ts`는 하네스별 타일 본문과 헤더를 선택한다. `rightPanelTiles`의 하네스 정책은 타이틀의 평면 메뉴·reducer 활성화·패널 렌더링에서 같은 허용 범위를 사용한다.
 

@@ -77,7 +77,9 @@ describe('OpenCode transcript presentation', () => {
           })
         )
       )
-      const exchanges = $('[data-app-exchange]')
+      const exchanges = $(
+        backend === 'opencode' ? '[data-timeline-row="user"]' : '[data-app-exchange]'
+      )
       expect(exchanges).toHaveLength(2)
       for (const [index, prompt] of ['Earlier prompt', 'Last prompt'].entries()) {
         const bubble = exchanges.eq(index).find('.bg-bubble-user')
@@ -86,14 +88,22 @@ describe('OpenCode transcript presentation', () => {
         expect(bubble.hasClass('text-ink')).toBe(true)
         expect(bubble.hasClass('bg-oc-bubble')).toBe(false)
         expect(bubble.hasClass('text-oc-bubble-ink')).toBe(false)
-        expect(bubble.hasClass('rounded-[8px]')).toBe(backend === 'opencode')
+        expect(bubble.hasClass('rounded-[10px]')).toBe(backend === 'opencode')
+        expect(bubble.hasClass('max-w-[min(82%,64ch)]')).toBe(backend === 'opencode')
         expect(bubble.hasClass('rounded-r6')).toBe(backend === 'claude')
         expect(bubble.hasClass('px-[12px]')).toBe(backend === 'opencode')
         expect(bubble.hasClass('text-[calc(14px*var(--transcript-text-scale,1))]')).toBe(
           backend === 'opencode'
         )
       }
-      expect($('[data-index="0"] [data-app-exchange]').text()).toContain('Earlier prompt')
+      expect(
+        $(
+          backend === 'opencode'
+            ? '[data-index="0"][data-timeline-row="user"]'
+            : '[data-index="0"] [data-app-exchange]'
+        ).text()
+      ).toContain('Earlier prompt')
+      expect($('[data-timeline-scroll]')).toHaveLength(backend === 'opencode' ? 1 : 0)
       expect($('[data-harness]').hasClass('bg-bg')).toBe(backend === 'opencode')
     }
   )

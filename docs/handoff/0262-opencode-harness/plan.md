@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | READY — ΔV11 질문·승인 통합 순차 dock·ΔV12 transcript 상호작용·ΔV13 Todo 펼침/접힘·퇴장 설계. 기존 r1.14 및 AC11 인수 대기는 이력으로 유지 |
+| 상태 | IMPL_DONE — ΔV11~13 구현·로컬 게이트·Computer Use 완료. 누적33/34 자기확인, AC11 사용자 시각 인수·독립 verify 대기 |
 | V mode | Delta V — 기준 V1 + ΔV1~13 (각 델타의 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV11~13 / V1 + ΔV1~13 |
@@ -1833,3 +1833,129 @@ AC 추가 없음. 이전 누적 자기보고 ✅30 · ⚠️1 · ❌0 =31을 유
 r1.14는 사용자 결함 보고에 따른 계약 보완이다. 기존 실제SDK transport 테스트도 무조건 idle을 내는 fixture 탓에 native ID 의미를 보지 못했다. 로컬CLI 버전에서 재현하지 못한 범위는 명시하고 종료 조건 호환성 수정과 구분했다. 독립 verify는 별도다.
 
 CI 성공 후 후속 커밋은 결과 기록만 포함한다. plan/INDEX의 impl·IMPL_DONE·다음 Claude와 누적30/31은 유지한다. 구현 trailer 파싱을 확인했으며 AC11 사용자 최종 시각 인수와 독립 verify를 선점하지 않는다.
+
+## [구현자 기입] ΔV11~13 — r1.15
+
+
+### 설계 리뷰
+
+D-022의 종류 무관 도착 순서를 세션별 요청 참조로 기록하고, OpenCode 입력 자리에는 유효한 선두 하나만 mount한다. 질문·승인 payload와 기존 해소 action은 유지한다. 입력 controller는 숨겨도 mount를 유지하여 초안·첨부가 마지막 요청 뒤 복원된다. Claude의 질문·전체 승인·입력 배치는 그대로 둔다.
+
+D-023의 transcript는 OpenCode 전용 투영·행·스크롤 제어기로 분리했다. 실제 브라우저에서 긴 이력의 선택·가상화, 과거 읽기 중 출력, 최신 복귀, 도구 펼침, 폭·폰트 변경과 세션 왕복의 앵커를 확인했다. D-024의 Todo는 성공한 현재 root 턴 결과에서 파생하며 접힘 선택은 세션별로 보존한다. 새 턴 경계를 reducer가 기록하여 이전 Todo를 초기 카드로 재사용하지 않는다. 신규 패키지·IPC·DB 변경은 없다.
+
+### 강제 지점 전수와 V-pair 자기확인
+
+요청 수명의 검색 주어는 `pendingAsks|pendingToolApprovals|permission.requested|permission.resolved|RESOLVE_ASK|RESOLVE_TOOL_APPROVAL|childApprovalState`다. renderer 제품 검색에서 수신·해소는 `chatReducer.ts`, 사용자 해소는 `chatStore.ts`, 표시 소비는 `Composer.tsx` 및 OpenCode `requestQueue.ts`·`RequestDock.tsx`로 이어진다. NEW_CHAT·START_LOAD_SESSION·LOAD_SESSION의 초기화와 error·turn.aborted·CANCEL_CHAT의 child 보존을 각각 검사했다.
+
+아래 경로는 `app/src/renderer/src/features/chat/` 기준이다. `composer/Todo*`·`composer/todoState*`는 `harnesses/opencode/composer/`, `transcript/Timeline*`·`transcript/projection*`·`transcript/scrollPolicy*`·`transcript/ScrollController*`는 `harnesses/opencode/transcript/`의 축약이다. Composer 통합은 실제 reducer·store·selector·dock·action을 실행하며 React/DOM 런타임과 native IPC만 대역이다. Timeline SSR은 초기 측정값만 공급하고 실제 dispatcher·virtualizer·행을 실행한다. 선택 수명 단위는 Text 표시 대역으로 streaming/complete 전달을 검사하며 실제 문자열 선택은 CUA가 관측한다.
+
+| 자리 / 수 | 직접 oracle / 관측 |
+|---|---|
+| EP35a / 2 | `reducer/chatReducer.request-order.test.ts: records mixed requests in event arrival order, starting with %s` — Q/P/Q와 P/Q/P, 문자열 역순 ID에도 수신 순서 보존 |
+| EP35b / 1 | `harnesses/opencode/composer/requestQueue.test.ts: selects the earliest live request without sorting identifiers` — stale 참조 건너뛰기·선두 payload·빈 큐 |
+| EP35c / 1 | `components/Composer.approvalQueue.test.ts: renders only the earliest mixed request in the replacement slot: question first=%s` — dock 및 request ID 각각 하나, 편집기·뒤 요청 내용 부재. CUA-OC-REQ에서도 Q→P→Q/P→Q→Q 전체 소비 동안 현재 카드만 DOM에 존재 |
+| EP35d / 1 | 같은 파일 `keeps the draft and attachments until the mixed queue is empty` — 실제 입력 및 drop 첨부, 중간 숨김, 마지막 해소 후 값·파일 복원 |
+| EP35e / 2 | 같은 파일 `consumes question and permission requests in arrival order` — 실제 질문 선택·제출·건너뛰기와 answerAsk/skipAsk의 allow(updatedInput)/deny, 다음 카드 |
+| EP35f / 3 | 같은 테스트 — 실제 허용·세션 허용·거부 버튼과 approvalId·toolName/scope·interrupt payload, 다음 카드 |
+| EP35g / 2 | `reducer/chatReducer.request-order.test.ts: removes only the locally resolved request from mixed order: %j` — 두 로컬 action의 대상만 제거, 나머지 payload·상대 순서·멱등성 |
+| EP35h / 1 | `components/Composer.approvalQueue.test.ts: applies external resolution only to its session and request` — 외부 선두/비선두 취소, A/B 격리·왕복, 마지막 입력 복원 |
+| EP35i / 3 | `reducer/chatReducer.request-order.test.ts: clears request order on new chat and session loading: $type` — NEW_CHAT·START_LOAD_SESSION·LOAD_SESSION 각각 payload와 순서 초기화 |
+| EP35j / 3 | 같은 파일 `preserves surviving child requests in arrival order: %j` — error·turn.aborted·CANCEL_CHAT 각각 살아 있는 child의 상대 순서 유지 |
+| EP36a / 1 | `components/ChatTile.harness.test.ts: preserves the shared canvas and fades with the original $backend/$agentKind viewport` — 실제 ChatTile 분기와 Claude useScrollAnchor 호출1/OpenCode0. `Timeline.render.test.ts:51`의 실제 dispatcher/행, `ChatTile.composerLifetime.test.ts:74`의 하네스·draft→실세션 Composer mount1/unmount0 |
+| EP36b / 1 | `transcript/projection.test.ts`의 all nine segment kinds·streaming completion/history prepend·same-timestamp exchanges — 9종 내용/순서, live→commit 및 prepend key. 실제 행은 `Timeline.render.test.ts: routes all nine segment kinds in order and renders native tool groups/file headers without Claude reserved tail` |
+| EP36c / 1 | CUA-OC-SCROLL `long-history-selection`: 60 exchange, scrollHeight25515px 중8행 mount. 선택 문자열을 보존한 채3페이지 상하 왕복. `Timeline.selection.test.ts:24`는 선택 중 live→완료에서 streaming mode를 유지하고 선택 해제 후 complete mode로 전환함을 검사 |
+| EP36d / 1 | `transcript/scrollPolicy.test.ts:10,17,21,28`의 nested 경계·0.5px·unpin/repin·jump 임계, `ScrollController.interaction.test.ts:35`의 외부 pointerup 뒤 pin/추종. CUA에서 unpinned offset−26.2125px/top1662.4px 유지, 최신 height/top은 각각32px 증가 |
+| EP36e / 1 | CUA `resize-and-disclosure-anchor`: 실제 좌표 클릭으로 탐색 펼침/접기 시 top120px·user1 text offset−4.8125px 유지. 폭450px/font14.5px 전환 후 height2208→2245px·top120→123.199997px로 보정하면서 같은 offset 유지 |
+| EP36f / 1 | `Timeline.render.test.ts`의 9종 실제 행과 `projection.test.ts`의8/16/24px 경계; CUA 두 테마에서 OpenCode/Claude 사용자 버블 background/color 완전 동등. [두 테마 computed 색상](design-evidence.md#orca-요청스크롤todo-구현-관측-2026-10-15-r115) |
+| EP36g / 1 | `viewState.ts` 세션 cache·`ToolCard.interaction.test.ts` 펼침 복원과 `ScrollController.interaction.test.ts` cleanup 직접 검사. CUA A/B 왕복 앵커 offset 차0.025px, 비활성 세션 출력 시 활성 viewport 기하 변화0 |
+| EP37a / 1 | `harnesses/opencode/v1/toolPresentation.test.ts: only accepts successful root todo results, preferring metadata including an empty clear`; `composer/TodoDock.integration.test.ts`의 successful root results·BEGIN_TURN boundaries·successful completion order — 결과 우선, 실패/child/과거 턴 제외, 빈 목록과 완료 순서 |
+| EP37b / 1 | `composer/todoState.test.ts: counts completed only and treats unknown as unfinished`, `chooses in progress, pending, last completed, then first item for the summary` — 상태·완료수·대표 항목 |
+| EP37c / 1 | `components/Composer.approvalQueue.test.ts: overlaps the live Todo dock with the input and restores its collapse after mixed requests` — normalized TodoWrite→실제 Composer, overlap -36px, 접힘 저장, 질문/승인 중 input·Todo 숨김, 마지막 소비 뒤 요약 복귀 |
+| EP37d / 1 | `composer/TodoDock.render.test.ts: cancels old close timers on unfinished updates and hides/restores around requests`, `does not reuse an expired closure after switching sessions and returning`; state의 session/turn changes 검사 — 재개·세션 교체 후 옛 종료 타이머 무효화 |
+| EP37e / 1 | `composer/TodoDock.render.test.ts`의 measured height/overlap·400ms/300ms·idle snapshot·reduced-motion은 가짜 시계/DOM의 직접 값 검사. CUA-OC-TODO에서175.6px 카드/overlap−36px, 접힘1/3 요약, 완료3/3 뒤 제거. 캡처 간격으로0.3초를 실측했다고 주장하지 않음 |
+| EP37f / 1 | `harnesses/opencode/transcript/projection.test.ts: hides only OpenCode Todo rows without mutating raw parts or Claude projection` — 원본 parts 보존·OpenCode 행 제외·Claude 투영 유지. 계획의 TodoDock.integration 좌표에서 실제 소유자인 projection 검사로 옮김 |
+
+EP35 19/19 + EP36 7/7 + EP37 6/6 =32/32자리 직접 관측이다. 미관측 자리 집합은 비어 있으며 EP36의 geometry/selection과 EP37e의 실제 DOM 기하는 브라우저 관측으로 닫았다. 이 수는 전체 운영 게이트나 AC11 사용자 최종 인수를 뜻하지 않는다.
+
+| Pair | 초안 자기결과 / 근거 |
+|---|---|
+| VP56·변경 VP48 | SELF_PASS — 자동 혼합 FIFO·기존 질문 조작과 CUA-OC-REQ 두 시작 종류의 전체 소비·현재 한 카드·입력 복원 |
+| VP57·58·67 | SELF_PASS — 실제 Composer→store/reducer→selector→dock→action, 세션 격리·draft/첨부 복원·reset/child 19자리 직접 관측 |
+| VP59·61, 변경 VP46·50 | SELF_PASS — 실제 선택·가상화·읽기/추종·접기/크기·세션 왕복과 두 테마 색상을 EP36c~g 좌표로 관측 |
+| VP60·62 | SELF_PASS — 실제 TranscriptView dispatcher→OpenCodeTimeline→9종 행, 투영 identity·간격·스크롤 정책 직접 검사 |
+| VP63·65 | SELF_PASS — Todo 상태·타이머·실제 Composer 배선 및 CUA에서 전개/접힘·요청 가림/복귀·완료 후 제거·세션 왕복 접힘 유지 |
+| VP64·66 | SELF_PASS — normalized 결과→reducer/parts→목록→실제 Composer, 상태/요약/접힘/턴 경계 직접 검사 |
+| 영향 회귀 | Claude 배치=`Composer.approvalQueue.test.ts: retains Claude approval and question layout`; 질문·IME/controller·승인·child·v1 reply는 관련 회귀. 본문/결과/스피너/색상은 `TranscriptView.harness.test.ts`, `AssistantSegment.render.test.ts`와 CUA 두 테마 대조 |
+
+### 이번 라운드 수정의 잠금
+
+| 분류 | 이번 증거 |
+|---|---|
+| 직접 행동 oracle | 혼합 요청 이벤트→유일한 카드→실제 응답 payload→다음 DOM, 초안·첨부 복원, Todo 상태·타이머·접힘, 실제 Timeline9종 행·identity·selection 및 브라우저 앵커/색상 |
+| 새 구조적 proxy·0건/전수·배선 존재 oracle | 없음. DOM 현재 카드 수·숨김·행 순서와 실제 dispatcher 결과는 사용자 결과 직접 관측이며 소스 문자열이나 import 존재를 대신 세지 않음 |
+| 선택된 적대 증거·인용 변이 | ΔV11~13 설계는 직접 값/기하 관측으로 미선택. 이번 턴에 과거 M-ID를 다시 수행했다고 주장하지 않음 |
+
+잠금 검산: 선택 증거0 · 인용 변이0 · 새 구조 oracle0 = 적대 검사 행0. 직접 행동 테스트를 구조적 oracle로 바꾸거나 브라우저 기하를 SSR로 대체하지 않았다.
+
+### Product/UX 파생 검토
+
+대기 중 새 요청이 와도 현재 질문의 선택이 유지되고 뒤 요청은 mount하지 않는다. 입력 영역 대체 동안 전송·첨부 조작과 Todo는 숨기며, 데이터는 보존한다. 외부 비선두 해소는 현재 카드에 영향을 주지 않는다. Claude의 독립 질문·승인 카드와 입력·중단 표시를 실제 렌더로 다시 검사했다.
+
+Todo 접힘은 새 턴과 캐시 세션 왕복에서 유지하고 처음 보는 세션만 펼침으로 시작한다. 진행 목록과 UI 선호를 분리하여 이전 턴 목록의 재등장을 막는다. 실제 요청 소비 후 초안·sample.md 첨부·접힌 Todo가 함께 복귀했다. 폭·글자 크기 전환에서도 읽는 행 offset을 유지했고 두 테마의 사용자 버블 색상은 Claude와 같았다.
+
+### 놓친 잠재 문제 + 대응
+
+- 기존 질문/승인 두 배열만으로는 종류 간 도착 순서를 복원할 수 없었다. 별도 순서 참조만 추가하고 payload 정본은 기존 배열에 유지했다. IPC·DB 형식을 늘리지 않았다.
+- 실제 store를 쓰는 DOM 통합 검사에서 외부화된 Zustand React 바인딩이 테스트 React 런타임을 우회했다. Zustand vanilla store와 제품 store/actions는 유지하고 React 구독 바인딩만 테스트 런타임에 연결했다. 단순 action mock으로 대체하지 않았다.
+- Todo 도입 후 SSR 회귀에서 `window` 접근이 실패했다. reduced-motion 초기 조회에 브라우저 존재 가드를 적용했고 영향 Composer 검사 4파일28케이스가 다시 통과했다.
+- Todo 애니메이션은 기존 rAF의 ease-out으로 이식했다. 신규 spring 의존성 없이400ms 종료 대기·300ms 진행률·감속 모션과 타이머 무효화 계약을 직접 검사했다.
+- 재실행 fixture의 settings 기본값 누락과 `pickFiles`/`pickAttachments` 계약 불일치를 수정했다. 시나리오 초기화는 새 epoch A/B 키를 사용하여 과거 viewport cache가 새 시나리오 판정을 오염시키지 않게 했다.
+- 설계의 EP37c/f 테스트 좌표는 실제 소유 경로에 맞춰 Composer 통합 및 transcript projection 검사로 구체화했다. Timeline은 영속 Message ID를 추가하지 않고 role/createdAt와 동일 prefix occurrence로 key를 만든다. 서로 다른 timestamp prepend와 같은 timestamp의 서로 다른 교환은 직접 검사했다. 같은 timestamp의 완전히 동일한 과거 입력을 prepend할 때 occurrence를 완전히 복원하는 보장은 없다. 이는 식별 정보가 완전히 같은 과거 항목을 구분하지 못하는 기존 메시지 모델의 한계다. 현재 이력 로드는 전체 교체이며 정상 live append·서로 다른 과거 prepend는 보존한다. 해당 비정상 합성 입력의 identity 보장은 NON_BLOCKING 후속으로 기록하고 영속 계약을 이번에 늘리지 않는다.
+- 세션 cache는 top/pin/anchor/disclosure/size를 세션 key에 귀속한다. 공유 cache 왕복, 비활성 출력, 외부 pointerup 재진입, observer cleanup, live→commit renderer 전환을 각각 단위·CUA로 관측했다. 사용자 버블 색상·font scale은 유지하고 geometry만 radius10px/max-width min(82%,64ch)로 변경했다.
+- 탐색 펼침의 첫 좌표 비교는 locator.click의 자동 스크롤이 섞였다. 실제 화면 좌표 클릭으로 다시 관측하자 펼침/접기 모두 top120px·user1 text offset−4.8125px가 같았다. 자동화 도구가 만든 스크롤을 제품 앵커 결함으로 기록하지 않는다.
+
+- NON_BLOCKING: 전용 viewport Map은 세션 삭제 후에도 ID·높이·접힘 등 메타데이터를 보관한다. 메시지 본문·DOM·observer는 보관하지 않고 삭제 내용 재노출 경로도 없다. 기존 세션 store의 캐시 정책과 함께 삭제/무효화 시 eviction을 후속 정리한다.
+
+### 구현 보고
+
+| AC | 자기 결과 | 관측 |
+|---|---|---|
+| 기존 AC1~31 중 AC11·26·28·29 제외 27건 | 기존 자기보고 유지 | 이번 변경이 닿은 회귀만 위 좌표로 추가 확인. 과거 유효 V 전체를 새로 검증한 뜻은 아님 |
+| AC26·29 | ✅ 동작 자기확인 | OpenCode 전용 행·토큰·하네스 분기, 두 테마 색상 동등, 실제 스크롤·선택·앵커 |
+| AC28 | ✅ 동작 자기확인 | 실제 질문/승인 payload·한 장 대체·Claude 배치, CUA-OC-REQ |
+| AC32 NEW | ✅ 동작 자기확인 | Q→P→Q/P→Q→Q 전체 소비, 현재 한 카드·외부 해소·마지막 draft/sample.md 복원 |
+| AC33 NEW | ✅ 동작 자기확인 | 60 exchange의 선택 왕복, unpin/repin 출력·resize/font·세션 앵커 측정 |
+| AC34 NEW | ✅ 동작 자기확인 | 성공 root Todo·1/3 접힘·가림/복귀·3/3 완료 뒤 제거·이력 보존 |
+| AC11 | ⚠️ | 사용자 최종 시각 인수와 독립 verify 대기 유지 |
+
+분모는31→34다. 동작 자기확인 검산은 기존27 + 변경3 + 신규3 = ✅33 · ⚠️1 · ❌0 =34다. 로컬 필수 게이트 완료 후 plan/INDEX를 impl/IMPL_DONE·다음 Claude로 갱신했다. 구현 trailer는 Criteria-Met 33/34, Criteria-Pending AC11, Verified-By pending으로 남긴다.
+
+| 게이트 | 관측한 산출 |
+|---|---|
+| ΔV11 및 Todo Composer 직접 회귀 | 관련11파일66케이스: 첫 실행65통과·Todo SSR1실패, SSR 가드 후 영향4파일28케이스 재통과. 나머지7파일38케이스는 첫 실행 통과 |
+| Todo 상태/렌더/decoder | 담당자 최종4파일36케이스 통과. SSR 가드 후 Composer.activity/TodoDock.render 2파일10케이스 재통과. 재실행 중복 케이스를 전체 합계에 더하지 않음 |
+| ΔV12 직접 회귀 | 최종 계측 제거 후 담당자 실행11파일48케이스 통과(21:47:42 시작). 실제 Timeline/selection/controller·projection/policy·도구·ChatTile/TranscriptView/AssistantSegment 회귀 |
+| 전체 관련 Vitest | 직접 Vitest --maxWorkers=2: 요청·composer·Todo·reducer·우측 패널·엔진·v1 adapter 관련59파일363케이스 통과. 최종 transcript·controller·선택·Claude dispatcher·Composer 통합20파일94케이스 통과. 두 실행은 일부 중복이며 합산하지 않는다. skip/실패0. 로그 .tmp/0262-r115-tests.log 및 transcript-tests.log(로컬 증거, 미커밋). |
+| node/web/test typecheck | 최종 npm run typecheck의 node/web/test 모두 exit0. 초기 새 테스트의 FakeDom viewport 인자 타입 오류를 보완한 뒤 전체 재통과. |
+| readonly ESLint | 승인 소유9파일 오류0·경고0, fixture2파일 오류0·경고0. 전체는 전체 읽기 전용 검사 오류0. fixture export 경고를 보완하고 최종 변경파일 검사 오류0·TanStack useVirtualizer incompatible-library 경고1. 기존 공통 virtualizer도 같은 경고를 가진다. |
+| build | electron-vite 직접 build exit0: main/preload/renderer 생성 완료. 기존 SubAgentTileContent 정적/동적 import 경고 유지. ABI 변경 훅은 실행하지 않음. |
+| 형식/운영 | 소유 변경 `git diff --check` 통과. generated/prose·migration sync/append-only·test budgets·변경 TypeScript Prettier 통과. 전체 링크 guard는 사용자 다운로드 .tmp/opencode-dev 내부 기존5건만 실패. 다운로드·첨부를 제외한 저장소 링크는 빈 배열로 통과했다. |
+| Computer Use | 실제 fixture의 production 컴포넌트·메모리 IPC로 요청 큐/Todo/transcript 직접 조작 완료. 모델 호출 없음. 아래 측정표 및 [디자인 증거](design-evidence.md#orca-요청스크롤todo-구현-관측-2026-10-15-r115) |
+| 원격 Windows CI | 제품 커밋 push 후 실행 대기. 로컬 통과를 원격 CI 통과로 대신하지 않는다. |
+| 상태 사본·trailer | plan/INDEX impl/IMPL_DONE·다음 Claude로 기록. 구현 커밋 후 trailer의 실제 파싱을 확인한다. |
+
+| CUA 시나리오 | 실제 관측 |
+|---|---|
+| CUA-OC-REQ | Q→P→Q 및 P→Q→Q의 모든 카드 순차 소비. 한 카드만 DOM에 존재, 실제 응답 callback 확인, 마지막 뒤 초안·sample.md·접힌 Todo 복귀 |
+| CUA-OC-TODO | 높이175.6px·overlap−36px, 접힘1/3 요약, 완료3/3 뒤 제거. A/B 왕복 후 접힘 선택 유지 |
+| 긴 이력·선택 | 60 exchange/scrollHeight25515px에8행 mount. 선택 문자열을 유지한 채3페이지 상하 왕복 |
+| 출력·최신 추종 | unpinned user5 text offset−26.2125px/top1662.4px 유지. 최신에서는 height2652→2684px와 top2298.4→2330.4px가 함께32px 증가 |
+| 크기·전개 | 탐색 펼침/접기 실제 좌표 클릭 후 top120px/offset−4.8125px 유지. 폭450px/font14.5px 전환 후 height2208→2245px/top120→123.199997px, 동일 offset |
+| dock 크기 | Todo 전개·접기·Question 대체로 viewport 높이354→207→303→142px가 됐으나 scrollTop120px와 user1 text offset−1.6125px를 모두 유지 |
+| 세션·색상 | A/B 앵커 offset 차0.025px, 비활성 세션 출력 시 활성 기하 변화0. light/dark 각각 OpenCode/Claude 사용자 버블 배경·글자 색상 동등 |
+
+### Review Signals
+
+r1.15는 사용자 후속 요구로 확정한 ΔV11~13 구현 턴이다. 기존 원본의 독립 질문/승인 표시를 통합 FIFO로 바꾼 근거는 D-022 사용자 결정이며 원본의 기본 동작으로 기술하지 않는다. Todo UI는 공식1.19.0 근거를 사용하고 제공2.x 아카이브의 런타임 API를 도입하지 않았다.
+
+자동 직접 검사는 조작 결과·payload·수명까지, CUA는 실제 geometry·selection까지 관측했다. fixture의 native IPC는 메모리 대역이므로 이 결과를 실모델 응답 검증으로 확대하지 않는다. ABI를 변경하는 npm pretest/install/rebuild는 실행하지 않았다. 운영 gate의 다운로드 내부 링크 한계는 위에 분리했다. 사용자 AC11과 독립 verify는 대기이며 자기확인을 verify/PASS로 기록하지 않는다.

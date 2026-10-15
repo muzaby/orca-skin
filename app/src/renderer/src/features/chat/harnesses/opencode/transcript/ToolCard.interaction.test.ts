@@ -10,10 +10,14 @@ import { OpenCodeToolGroup } from './ToolGroup'
 import { groupTools } from './toolGrouping'
 import { transcriptPresentation } from '../../../lib/agentPresentation'
 import type { ToolCall } from '../../../reducer/chatReducer'
+import { timelineViewState, type TimelineViewState } from './viewState'
+
+const context = vi.hoisted(() => ({ state: null as TimelineViewState | null }))
 
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
-  ...(await import('../../../../../shared/ui/renderHarness.testfixture')).fakeHooks
+  ...(await import('../../../../../shared/ui/renderHarness.testfixture')).fakeHooks,
+  useContext: () => context.state
 }))
 vi.mock('../../../../../shared/i18n', () => ({ useI18n: () => ({ tr: (key: string) => key }) }))
 vi.mock('../../../hooks/useDiffSyntax', () => ({ useDiffSyntax: () => new Map() }))
@@ -26,6 +30,7 @@ const tool = (name: string, id = name): ToolCall => ({
   input: { command: 'echo hello' }
 })
 beforeEach(() => {
+  context.state = null
   vi.useFakeTimers()
   dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
   vi.stubGlobal('navigator', { clipboard: { writeText: copy } })
@@ -37,6 +42,34 @@ afterEach(() => {
   vi.useRealTimers()
 })
 describe('OpenCode tool interaction', () => {
+  it('restores disclosure after virtual unmount and isolates it by session', () => {
+    const first = timelineViewState('disclosure-first')
+    const second = timelineViewState('disclosure-second')
+    first.disclosures.clear()
+    second.disclosures.clear()
+    context.state = first
+    const render = (): void => dom.render(createElement(OpenCodeToolCard, { call: tool('Bash') }))
+    render()
+    dom.click(dom.body.querySelector('[data-slot="collapsible-trigger"]')!)
+    expect(first.disclosures.get('tool:Bash')).toBe(true)
+    dom.render(null)
+    render()
+    expect(
+      dom.body.querySelector('[data-slot="collapsible-trigger"]')!.getAttribute('aria-expanded')
+    ).toBe('true')
+    dom.render(null)
+    context.state = second
+    render()
+    expect(
+      dom.body.querySelector('[data-slot="collapsible-trigger"]')!.getAttribute('aria-expanded')
+    ).toBe('false')
+    dom.render(null)
+    context.state = first
+    render()
+    expect(
+      dom.body.querySelector('[data-slot="collapsible-trigger"]')!.getAttribute('aria-expanded')
+    ).toBe('true')
+  })
   it('opens a running shell, preserves expansion on completion, and copies current output', async () => {
     const pending = tool('Bash')
     const render = (call: ToolCall): void => dom.render(createElement(OpenCodeToolCard, { call }))

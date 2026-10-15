@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { load } from 'cheerio'
 import { describe, expect, it, vi } from 'vitest'
 import { initialChatState } from '../reducer/chatReducer'
+import { useScrollAnchor } from '../hooks/useScrollAnchor'
 
 const fixture = vi.hoisted(() => ({
   backend: 'claude' as 'claude' | 'opencode',
@@ -14,17 +15,19 @@ vi.mock('../store/chatStore', () => ({
   useChatStore: (select: (state: unknown) => unknown) =>
     select({ activeKey: 's', draftRestore: null }),
   useChatResponding: () => false,
+  useLiveText: () => '',
+  useLiveReasoning: () => '',
   usePendingSteer: () => [],
   chatActions: {}
 }))
 vi.mock('../hooks/useScrollAnchor', () => ({
-  useScrollAnchor: () => ({
+  useScrollAnchor: vi.fn(() => ({
     scrollRef: { current: null },
     contentRef: { current: null },
     onScroll: vi.fn(),
     showJump: false,
     anchored: false
-  })
+  }))
 }))
 vi.mock('./ChatTitleBar', () => ({ ChatTitleBar: () => null }))
 vi.mock('./transcript/LineageBanner', () => ({ LineageBanner: () => null }))
@@ -41,6 +44,7 @@ describe('harness transcript background', () => {
   ] as const)(
     'preserves the shared canvas and fades with the original $backend/$agentKind viewport',
     ({ backend, agentKind }) => {
+      vi.clearAllMocks()
       fixture.backend = backend
       fixture.agentKind = agentKind
       const $ = load(
@@ -55,6 +59,7 @@ describe('harness transcript background', () => {
       expect($('[class~="bg-gradient-to-b"]').hasClass('from-bg')).toBe(true)
       expect($('[class~="bg-gradient-to-t"]').hasClass('from-bg')).toBe(true)
       expect($('.app-frame-transcript').attr('data-harness')).toBe(backend)
+      expect(useScrollAnchor).toHaveBeenCalledTimes(backend === 'claude' ? 1 : 0)
     }
   )
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { describeTool } from '../toolPresentation'
+import { describeTool, readSuccessfulTodos } from '../toolPresentation'
 import type { ToolCall } from '../../../reducer/chatReducer'
 
 const call = (name: string, input: unknown = {}, metadata?: unknown): ToolCall => ({
@@ -10,6 +10,34 @@ const call = (name: string, input: unknown = {}, metadata?: unknown): ToolCall =
   ...(metadata ? { result: { output: 'done', isError: false, structuredOutput: metadata } } : {})
 })
 describe('OpenCode 1.x tool presentation decoder', () => {
+  it('only accepts successful root todo results, preferring metadata including an empty clear', () => {
+    const input = { todos: [{ content: 'input', status: 'unknown' }] }
+    const successful = call('todowrite', input, {
+      todos: [{ content: 'result', status: 'pending' }]
+    })
+    expect(readSuccessfulTodos(successful)).toEqual([{ text: 'result', status: 'pending' }])
+    expect(readSuccessfulTodos(call('TodoWrite', input, {}))).toEqual([
+      { text: 'input', status: 'unknown' }
+    ])
+    expect(readSuccessfulTodos(call('todowrite', input, { todos: [] }))).toEqual([])
+    expect(readSuccessfulTodos(call('todowrite', input))).toBeUndefined()
+    expect(readSuccessfulTodos({ ...successful, parentToolRunId: 'parent' })).toBeUndefined()
+    expect(
+      readSuccessfulTodos({
+        ...successful,
+        result: { ...successful.result!, parentToolRunId: 'parent' }
+      })
+    ).toBeUndefined()
+    expect(
+      readSuccessfulTodos({ ...successful, result: { ...successful.result!, isError: true } })
+    ).toBeUndefined()
+    expect(
+      readSuccessfulTodos({
+        ...successful,
+        result: { ...successful.result!, nonExecution: { source: 'sdk', kind: 'permission-rule' } }
+      })
+    ).toBeUndefined()
+  })
   it.each([
     ['Read', 'read'],
     ['glob', 'search'],

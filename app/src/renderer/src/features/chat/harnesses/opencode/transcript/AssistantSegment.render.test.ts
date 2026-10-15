@@ -201,7 +201,7 @@ describe('harness transcript routing', () => {
     const bubble = $('.bg-bubble-user')
     expect(bubble).toHaveLength(1)
     expect(bubble.hasClass('text-ink')).toBe(true)
-    expect(bubble.hasClass('rounded-[8px]')).toBe(true)
+    expect(bubble.hasClass('rounded-[10px]')).toBe(true)
     expect(bubble.hasClass('bg-oc-bubble')).toBe(false)
     expect(bubble.hasClass('text-oc-bubble-ink')).toBe(false)
     expect($('button')).toHaveLength(1)

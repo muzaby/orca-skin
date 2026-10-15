@@ -20,6 +20,12 @@
 
 `agentPanelInitialized`는 하네스·에이전트 정책에 따른 기본 작업 패널의 최초 열기와 이후 사용자 선택을 구분한다. Claude Work와 OpenCode Code는 첫 전송/처음 로드에서 기본 `task` 타일을 추가하며, 표시 필터는 닫힌 배치를 보존한다. 캐시 복귀·다음 턴은 닫은 패널을 다시 열지 않는다. 입력 복원 신호는 대상 세션과 단조 순번을 갖고, 기본 교체와 작업 질문의 추가 모드를 구분한다. 실제 초안·첨부는 기존 입력 controller가 소유한다.
 
+### OpenCode 요청과 Todo 상태
+
+`pendingRequestOrder`는 질문·도구 승인 수신 순서를 기록한다. payload는 기존 `pendingAsks`·`pendingToolApprovals`에 보관하고, selector가 살아 있는 첫 요청을 고른다. 응답·외부 해소는 해당 ID만 제거한다. 새 대화와 세션 로드는 순서를 초기화하며, 턴 중단·오류 뒤 살아 있는 child 요청의 상대 순서를 보존한다.
+
+`openCodeTodoTurnStartIndex`는 현재 턴 경계를 기록하고 성공한 root Todo 결과만 dock에 전달한다. `openCodeTodoCollapsed`는 세션 메모리 상태라 같은 세션의 다음 턴·캐시 복귀에서 유지하며 새 세션은 펼침으로 시작한다. 완료 후 퇴장 snapshot과 timer는 dock의 세션·턴 수명에 속한다. transcript의 행 크기·읽기 위치·도구 펼침은 OpenCode 전용 viewport 상태가 보관한다.
+
 ### 우측 타일 선택
 
 OpenCode의 `rightPanelTiles`는 작업 요약과 계획·하위 에이전트·변경 사항·프로세스·소스를 독립적으로 보관한다. 타이틀 메뉴와 transcript Task 카드는 직접 타일 열기 경로를 사용한다. `chatActions.openProcessTool`은 활성 세션의 `selectedProcessToolId`를 설정하고 `process` 타일을 열어 `panelReveal`로 해당 열을 드러낸다. 이미 열린 프로세스 타일에서는 선택만 바꾸고 다른 열린 타일과 `selectedSubagentTaskId`를 보존한다.
@@ -174,6 +180,6 @@ Sidebar는 고정됨→프로젝트→최근 대화 순서다. 고정 프로젝�
 
 - 여러 세션이 동시에 응답을 받는다(각 세션 독립 abort — ../backend/runtime-ipc.md §1).
 - 비활성 세션도 백그라운드에서 메시지를 누적하고, 전환해도 스트리밍이 끊기지 않는다.
-- 세션 전환 시 스크롤 위치는 기억하지 않는다 — 로드·캐시 복원은 `useScrollAnchor` 가 바닥으로 점프한다(rendering.md §1.8 "세션 전환 판정").
+- Claude 세션 전환은 `useScrollAnchor`가 바닥으로 이동한다. OpenCode는 세션별 읽는 행·상대 위치·도구 펼침을 복원한다([렌더링](rendering.md#하네스-전용-표시)).
 
 ---

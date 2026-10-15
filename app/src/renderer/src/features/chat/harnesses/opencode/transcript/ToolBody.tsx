@@ -7,6 +7,7 @@ import { unifiedDiffLines } from '../../../lib/unifiedDiffLines'
 import { stringify } from '../../../format'
 import type { OpenCodeFileView, OpenCodeToolView } from '../toolPresentation'
 import { OpenCodeIcon } from '../Icon'
+import { useToolDisclosure } from './viewState'
 
 export function OutputPanel({
   text,
@@ -32,6 +33,7 @@ export function OutputPanel({
       </div>
       <div
         tabIndex={0}
+        data-scrollable=""
         aria-label={label}
         className="max-h-[240px] overflow-auto outline-none ring-focus [scrollbar-width:none]"
       >
@@ -55,8 +57,17 @@ export function OutputPanel({
     </div>
   )
 }
-function FilePanel({ file, write }: { file: OpenCodeFileView; write: boolean }): React.JSX.Element {
+function FilePanel({
+  file,
+  write,
+  disclosureKey
+}: {
+  file: OpenCodeFileView
+  write: boolean
+  disclosureKey: string
+}): React.JSX.Element {
   const { tr } = useI18n()
+  const [open, setOpen] = useToolDisclosure(disclosureKey, true)
   const lines = useMemo(
     () =>
       file.before != null || file.after != null
@@ -68,11 +79,17 @@ function FilePanel({ file, write }: { file: OpenCodeFileView; write: boolean }):
   const removed = lines.filter((line) => line.type === 'removed').length
   return (
     <details
-      open
-      className="group/oc-file overflow-hidden rounded-[8px] border-[0.5px] border-oc-border bg-oc-surface"
+      open={open}
+      className="group/oc-file rounded-[8px] border-[0.5px] border-oc-border bg-oc-surface"
       data-component="opencode-file-diff"
     >
-      <summary className="flex min-h-[36px] cursor-pointer list-none items-center gap-[8px] px-[12px] py-[8px] text-[calc(13px*var(--transcript-text-scale,1))] leading-[20px] text-oc-ink outline-none ring-focus">
+      <summary
+        onClick={(event) => {
+          event.preventDefault()
+          setOpen((value) => !value)
+        }}
+        className="sticky top-[var(--oc-sticky-top)] z-10 flex min-h-[36px] cursor-pointer list-none items-center gap-[8px] rounded-[8px] bg-oc-surface px-[12px] py-[8px] text-[calc(13px*var(--transcript-text-scale,1))] leading-[20px] text-oc-ink outline-none ring-focus"
+      >
         <OpenCodeIcon name="code-slash" className="text-oc-faint" />
         <span className="min-w-0 flex-1 truncate" title={file.path}>
           {file.path}
@@ -95,6 +112,7 @@ function FilePanel({ file, write }: { file: OpenCodeFileView; write: boolean }):
         <div
           className="max-h-[384px] overflow-auto border-t border-oc-border"
           tabIndex={0}
+          data-scrollable=""
           aria-label={tr('chat.opencode.fileDiff')}
         >
           <DiffTable lines={lines} filePath={file.path} appearance="opencode" />
@@ -105,13 +123,24 @@ function FilePanel({ file, write }: { file: OpenCodeFileView; write: boolean }):
     </details>
   )
 }
-export function ToolBody({ view }: { view: OpenCodeToolView }): React.JSX.Element {
+export function ToolBody({
+  view,
+  disclosureKey = view.name
+}: {
+  view: OpenCodeToolView
+  disclosureKey?: string
+}): React.JSX.Element {
   const { tr } = useI18n()
   const content = view.output || (view.kind === 'generic' ? view.inputText : '')
   return (
     <div className="flex min-w-0 flex-col gap-[8px]">
       {view.files.map((file, index) => (
-        <FilePanel key={`${file.path}:${index}`} file={file} write={view.kind === 'write'} />
+        <FilePanel
+          key={`${file.path}:${index}`}
+          file={file}
+          write={view.kind === 'write'}
+          disclosureKey={`file:${disclosureKey}:${file.path}:${index}`}
+        />
       ))}
       {view.kind === 'task' && (
         <div
@@ -154,7 +183,10 @@ export function ToolBody({ view }: { view: OpenCodeToolView }): React.JSX.Elemen
       {view.original && (
         <details className="text-caption text-oc-muted">
           <summary className="cursor-pointer">{tr('chat.opencode.originalTool')}</summary>
-          <pre className="mt-[8px] max-h-[240px] overflow-auto whitespace-pre-wrap break-words font-mono">
+          <pre
+            data-scrollable=""
+            className="mt-[8px] max-h-[240px] overflow-auto whitespace-pre-wrap break-words font-mono"
+          >
             {stringify(view.original)}
           </pre>
         </details>

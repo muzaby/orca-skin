@@ -52,7 +52,7 @@ export function UserMessage({ message, openCode = false }: UserMessageProps): Re
       )}
       {text && (
         <UserBubbleText
-          className={`max-w-[80%] ${transcriptAppearance(openCode).userBubble}`}
+          className={`${openCode ? 'max-w-[min(82%,64ch)]' : 'max-w-[80%]'} ${transcriptAppearance(openCode).userBubble}`}
           // 0257 — 전체 문장 title 은 없다(접기가 전체 보기 수단). Message 에 id 가 없어 생성 시각을 키로 쓴다.
           collapseKey={`user:${message.createdAt}`}
         >

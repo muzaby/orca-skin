@@ -13,8 +13,9 @@ import type { Backend, ClassifiedError } from '../../../../../../shared/ipc'
 import type { AgentKind } from '../../../../../../shared/agent-kind'
 import { createWorkToolResultSelector } from '../../lib/workToolResults'
 import { transcriptPresentation } from '../../lib/agentPresentation'
+import { OpenCodeTimeline } from '../../harnesses/opencode/transcript/Timeline'
 
-interface TranscriptViewProps {
+export interface TranscriptViewProps {
   backend?: Backend | null
   agentKind: AgentKind
   messages: Message[]
@@ -40,7 +41,17 @@ interface TranscriptViewProps {
 // content-box 높이를 기준으로 풀리고, Composer 성장/윈도 리사이즈에도 CSS 가 자동 추종한다.
 // overflow-anchor:none — pin/앵커를 직접 제어하므로 네이티브 scroll anchoring 의 이중
 // 보정을 차단한다.
-export const TranscriptView = memo(function TranscriptView({
+export const TranscriptView = memo(function TranscriptView(
+  props: TranscriptViewProps
+): React.JSX.Element {
+  return props.backend === 'opencode' ? (
+    <OpenCodeTimeline {...props} />
+  ) : (
+    <ClaudeTranscriptView {...props} />
+  )
+})
+
+const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
   agentKind,
   backend = 'claude',
   messages,

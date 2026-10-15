@@ -372,6 +372,13 @@ export interface ChatState {
   // Claude 가 AskUserQuestion 으로 던진 미응답 질문 묶음 큐. canUseTool 이 query 를 일시
   // 중지한 채 응답을 기다리므로 보통 길이 0~1 이지만, 안전하게 큐로 모델링해 앞에서 소비한다.
   pendingAsks: Array<AskQuestionRequest & { providerRequest?: ProviderApprovalRequest }>
+  // Payloads remain in their domain queues; this records cross-kind arrival order for OpenCode.
+  pendingRequestOrder: Array<{
+    kind: 'ask_question' | 'tool_approval'
+    requestId: string
+  }>
+  openCodeTodoCollapsed: boolean
+  openCodeTodoTurnStartIndex: number
   // Composer 모드 버튼이 정하는 이 대화의 권한 모드. send 시 IPC 페이로드로 실린다.
   // 새 대화마다 기본값 'plan' 으로 리셋(initialChatState).
   permissionMode: NormalizedPermissionMode
@@ -513,6 +520,9 @@ export const initialChatState: ChatState = {
   worktreePrepareStep: null,
   worktree: null,
   pendingAsks: [],
+  pendingRequestOrder: [],
+  openCodeTodoCollapsed: false,
+  openCodeTodoTurnStartIndex: 0,
   permissionMode: coercePermissionMode(DEFAULT_PERMISSION_MODE, null, DEFAULT_AGENT_KIND),
   permissionModeError: false,
   pendingPlanReview: null,
@@ -586,14 +596,24 @@ function isChildApproval(value: { providerRequest?: ProviderApprovalRequest }): 
 
 function childApprovalState(
   state: ChatState
-): Pick<ChatState, 'pendingAsks' | 'pendingPlanReview' | 'pendingToolApprovals'> {
+): Pick<
+  ChatState,
+  'pendingAsks' | 'pendingPlanReview' | 'pendingToolApprovals' | 'pendingRequestOrder'
+> {
+  const pendingAsks = state.pendingAsks.filter(isChildApproval)
+  const pendingToolApprovals = state.pendingToolApprovals.filter(isChildApproval)
   return {
-    pendingAsks: state.pendingAsks.filter(isChildApproval),
+    pendingAsks,
     pendingPlanReview:
       state.pendingPlanReview && isChildApproval(state.pendingPlanReview)
         ? state.pendingPlanReview
         : null,
-    pendingToolApprovals: state.pendingToolApprovals.filter(isChildApproval)
+    pendingToolApprovals,
+    pendingRequestOrder: state.pendingRequestOrder.filter((request) =>
+      request.kind === 'ask_question'
+        ? pendingAsks.some((ask) => ask.requestId === request.requestId)
+        : pendingToolApprovals.some((approval) => approval.approvalId === request.requestId)
+    )
   }
 }
 
@@ -661,6 +681,7 @@ export type ChatAction =
   | { type: 'RENAME_SESSION'; sessionId: string; title: string }
   // 사용자가 질문에 답하거나 건너뛰어 해당 requestId 의 카드를 큐에서 제거.
   | { type: 'RESOLVE_ASK'; requestId: string }
+  | { type: 'SET_OPENCODE_TODO_COLLAPSED'; collapsed: boolean }
   // Composer 모드 버튼 선택 (계획 / 편집 수락).
   | { type: 'SET_PERMISSION_MODE'; mode: NormalizedPermissionMode }
   | { type: 'SET_PERMISSION_MODE_ERROR'; failed: boolean }
@@ -845,6 +866,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             ? activateTile(state, rightPanelPolicy(state.agentKind, state.backend).initialTile!)
             : rightPanelColumnsForAgent(state.rightPanelTiles, state.agentKind, state.backend),
         sendCount: state.sendCount + 1,
+        openCodeTodoTurnStartIndex: state.messages.length,
         inflight: true,
         // 0119: 이 턴이 쓰는 provider 고정 — 이후 SET_MODEL 이 providerKey 를 바꿔도
         // steer 게이트가 진행 턴의 provider 를 기억한다.
@@ -1129,6 +1151,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             return {
               ...state,
               retry: undefined,
+              pendingRequestOrder: [
+                ...state.pendingRequestOrder,
+                { kind: 'ask_question', requestId: ev.action.request.requestId }
+              ],
               pendingAsks: [
                 ...state.pendingAsks,
                 {
@@ -1163,6 +1189,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           return {
             ...state,
             retry: undefined,
+            pendingRequestOrder: [
+              ...state.pendingRequestOrder,
+              { kind: 'tool_approval', requestId: ev.approvalId }
+            ],
             pendingToolApprovals: [
               ...state.pendingToolApprovals,
               {
@@ -1184,6 +1214,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             pendingAsks: state.pendingAsks.filter((a) => a.requestId !== ev.approvalId),
             pendingToolApprovals: state.pendingToolApprovals.filter(
               (a) => a.approvalId !== ev.approvalId
+            ),
+            pendingRequestOrder: state.pendingRequestOrder.filter(
+              (request) => request.requestId !== ev.approvalId
             ),
             ...(state.pendingPlanReview?.requestId === ev.approvalId
               ? { pendingPlanReview: null }
@@ -1398,6 +1431,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         state.sessionId === action.session.id && state.activityRevision > (activity?.revision ?? 0)
       return {
         ...initialChatState,
+        openCodeTodoCollapsed:
+          state.sessionId === action.session.id ? state.openCodeTodoCollapsed : false,
+        openCodeTodoTurnStartIndex: messages.length,
         agentKind,
         permissionMode: coercePermissionMode(DEFAULT_PERMISSION_MODE, null, agentKind),
         agentKindLocked: true,
@@ -1503,8 +1539,16 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'RESOLVE_ASK':
       return {
         ...state,
-        pendingAsks: state.pendingAsks.filter((a) => a.requestId !== action.requestId)
+        pendingAsks: state.pendingAsks.filter((a) => a.requestId !== action.requestId),
+        pendingRequestOrder: state.pendingRequestOrder.filter(
+          (request) => request.kind !== 'ask_question' || request.requestId !== action.requestId
+        )
       }
+
+    case 'SET_OPENCODE_TODO_COLLAPSED':
+      return state.backend === 'opencode'
+        ? { ...state, openCodeTodoCollapsed: action.collapsed }
+        : state
 
     case 'SET_PERMISSION_MODE':
       return {
@@ -1615,6 +1659,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         pendingToolApprovals: state.pendingToolApprovals.filter(
           (a) => a.approvalId !== action.approvalId
+        ),
+        pendingRequestOrder: state.pendingRequestOrder.filter(
+          (request) => request.kind !== 'tool_approval' || request.requestId !== action.approvalId
         )
       }
 

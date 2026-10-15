@@ -1,7 +1,7 @@
 import { stringify } from '../../../format'
 import { toolRunOutcome } from '../../../lib/parts'
 import type { ToolCall } from '../../../reducer/chatReducer'
-import type { OpenCodeFileView, OpenCodeToolView } from '../toolPresentation.types'
+import type { OpenCodeFileView, OpenCodeTodo, OpenCodeToolView } from '../toolPresentation.types'
 
 const record = (value: unknown): Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -47,6 +47,25 @@ export function toolKind(call: ToolCall): OpenCodeToolView['kind'] {
     kinds[call.name.toLowerCase()] ??
     'generic'
   )
+}
+
+/** Only executed root writes can replace the composer list; an empty list is a valid clear. */
+export function readSuccessfulTodos(call: ToolCall): OpenCodeTodo[] | undefined {
+  if (
+    toolKind(call) !== 'todo' ||
+    call.parentToolRunId !== undefined ||
+    call.result?.parentToolRunId !== undefined ||
+    toolRunOutcome(call.result) !== 'completed'
+  )
+    return undefined
+  const metadata = record(call.result?.structuredOutput)
+  const input = { ...record(call.input), ...record(call.providerTool?.input) }
+  const todos = Array.isArray(metadata.todos)
+    ? metadata.todos
+    : Array.isArray(input.todos)
+      ? input.todos
+      : undefined
+  return todos?.map(record).map((todo) => ({ text: text(todo.content), status: text(todo.status) }))
 }
 
 // OpenCode 1.x state.metadata(file diff, patch files, todos)와 native input 해석.

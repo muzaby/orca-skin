@@ -209,3 +209,30 @@ Todo의 전개/퇴장은 제공2.0.29에 없는 기능이므로 공식1.19.0의 
 원본1.19.0 [composer region](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/app/src/pages/session/composer/session-composer-region.tsx)은 질문·승인을 독립 선택해 동시에 각각 한 장을 표시할 수 있다. Orca는 사용자 결정에 따라 종류를 합친 도착 순서로 한 장만 표시한다. 현재 요청을 소비할 때까지 뒤 요청은 화면·접근성 트리에 렌더하지 않고, 입력기 위 스택이나 카드 가장자리 미리보기도 두지 않는다.
 
 확정 요구의 예외는 유지한다: Claude GUI 불변, transcript canvas 및 사용자 버블 배경/글자색 유지, 실행 API는1.x. 실제 Orca의 구현 후 두 테마·streaming중드래그·긴 파일/탐색 sticky·Todo 애니메이션 검증은 새 AC의 완료 조건이며 이번 원본 관측으로 대체하지 않는다.
+
+## Orca 요청·스크롤·Todo 구현 관측 (2026-10-15, r1.15)
+
+Computer Use로 `app/scripts/fixtures/opencode-ui/`의 실제 ChatTile·Composer·transcript·store·reducer·CSS를 조작했다. native IPC만 메모리 대역이며 실제 Electron 창이나 외부 모델을 실행한 검증은 아니다. 참조 OpenCode desktop 관측과 이번 Orca 구현 관측을 구분한다.
+
+| ID / 조작 | 실제 관측 |
+|---|---|
+| CUA-OC-REQ / 질문→승인→질문 | 현재 요청 한 장만 입력 자리에 표시됐다. 질문 제출 후 승인, 거부 후 다음 질문, 건너뛰기 후 입력으로 돌아왔다. 뒤 요청·편집기·Todo는 대기 중 DOM에 없었다. |
+| CUA-OC-REQ / 승인→질문→질문 | 세션 허용 후 질문이 나타나고 질문 둘을 순서대로 소비했다. 실제 응답 IPC의 ID·allow/deny·scope·updatedInput과 화면 순서가 일치했다. |
+| CUA-OC-REQ / 복원 | `보존할 초안`과 첨부 `sample.md`, 접힌 Todo 요약이 마지막 요청 후 복원됐다. 첨부 선택과 승인 응답은 메모리 대역 데이터에 한정했다. |
+| CUA-OC-SCROLL / 긴 대화·선택 | 교환 60개의 scrollHeight 25515px에서 화면 주변 8행만 mount됐다. 실제 본문 드래그로 선택한 문자열을 3페이지 위·아래 이동 후에도 유지했다. |
+| CUA-OC-SCROLL / 새 출력 | 과거를 읽는 동안 출력 추가 후 `user:5:2:text`의 상대 위치 −26.2125px와 scrollTop1662.4px를 유지했다. 맨 아래에서는 높이2652→2684px에 맞춰 scrollTop2298.4→2330.4px로 추종했다. |
+| CUA-OC-SCROLL / 선택과 추종 | 본문 문장 전체를 선택한 채 맨 아래로 이동한 뒤 외부 제어로 출력을 추가해도 선택 문자열을 유지하며 바닥을 추종했다. |
+| CUA-OC-SCROLL / 펼침·접기 | 화면 좌표로 탐색 카드를 직접 클릭해 펼치고 접었다. scrollTop120px, `user:1:0:text`의 상대 위치 −4.8125px가 두 조작 모두 같았다. |
+| CUA-OC-SCROLL / 크기 변경 | 너비450px·글자14.5px로 변경 후 같은 행의 상대 위치 −4.8125px를 유지했다. 높이2208→2245px에 따라 scrollTop120→123.2px로 보정됐다. |
+| CUA-OC-SCROLL / 세션 복귀 | A는 scrollTop1181.6px, B는0px로 구분했다. A의 비활성 출력 수신은 현재 화면 위치를 바꾸지 않았다. A/B 왕복 후 각 위치·탐색 펼침을 복원했으며 상대 위치 차이는0.025px였다. |
+| CUA-OC-TODO / 진행·접힘 | 3항목 중1개 완료 목록과 대표 항목의 한 줄 요약을 전환했다. 펼친 카드 실제 높이175.6px, 하단 겹침 −36px를 관측했다. 세션 왕복 후 접힘을 유지했다. |
+| CUA-OC-TODO / 완료·가림 | 혼합 요청 중 Todo가 숨고 마지막 요청 후 접힌 상태로 돌아왔다. 전체 완료3/3 표시 후 카드가 사라졌고 새 진행 목록에서 다시 나타났다. |
+| CUA-OC-COLOR / 두 테마 | OpenCode와 Claude 사용자 버블의 computed 배경/글자색이 일치했다. 밝은 테마는 rgb(244,244,243)/rgb(26,26,24), 어두운 테마는 rgb(48,48,46)/rgb(240,239,234)였다. transcript 배경 변경은 없다. |
+
+Todo의400ms 대기·300ms 퇴장과 아래 방향 translate는 직접 렌더·가짜 시계 검사로 확인했다. 브라우저에서는 전개·접힘·완료·제거 상태를 관측했으며 연속 프레임의 모션 시간을 실측했다고 주장하지 않는다.
+
+탐색 카드의 locator 자동 클릭은 클릭 전 화면을 스크롤하여 위치가 움직이는 것처럼 보였다. 실제 화면 좌표 클릭으로 다시 검사한 결과 펼침·접기 모두 동일 앵커를 유지했다. 임시 진단 DOM 속성은 제거했다. 입력 controller 재마운트, 짧은 내부 출력의 wheel 전파, 선택된 live 행의 완료 전환, 외부 pointerup에 의한 불필요한 unpin은 구현 중 보완하고 직접 회귀 검사를 추가했다.
+
+사용자 최종 시각 인수(AC11)와 독립 verify는 별도 대기로 유지한다.
+
+추가 통합 관측: 과거의 `user:1:0:text`를 읽는 동안 Todo 전개→접기→Question 대체로 viewport 높이가354→207→303→142px로 변했다. 모든 단계의 scrollTop120px와 해당 행의 상대 위치 −1.6125px가 같았다. dock 높이 변경도 현재 읽기 앵커를 보존했다.

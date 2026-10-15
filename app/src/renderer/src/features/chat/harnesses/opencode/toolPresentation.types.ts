@@ -23,3 +23,7 @@ export interface OpenCodeToolView {
   todos: { text: string; status: string }[]
   original?: { name: string; input: unknown }
 }
+export interface OpenCodeTodo {
+  text: string
+  status: string
+}

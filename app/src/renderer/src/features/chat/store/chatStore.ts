@@ -1807,6 +1807,8 @@ function denyTool(approvalId: string): void {
 // 안정 액션 묶음 — 모듈 상수라 컴포넌트가 deps/메모 걱정 없이 직접 import 하거나 props 로
 // 전달할 수 있다(컴포넌트는 selector / action 만 사용, state.md §1.3).
 export const chatActions = {
+  setOpenCodeTodoCollapsed: (collapsed: boolean): void =>
+    dispatchActive({ type: 'SET_OPENCODE_TODO_COLLAPSED', collapsed }),
   setAgentKind,
   send,
   sendSteerNow,

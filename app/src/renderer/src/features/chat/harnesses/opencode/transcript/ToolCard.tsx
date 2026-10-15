@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react'
+import { memo, useMemo } from 'react'
 import { OpenCodeIcon, type OpenCodeIconName } from '../Icon'
 import { useI18n } from '../../../../../shared/i18n'
 import type { ToolCall } from '../../../reducer/chatReducer'
@@ -6,6 +6,7 @@ import { describeTool } from '../toolPresentation'
 import { OpenCodeSpinner } from '../Spinner'
 import { ToolBody } from './ToolBody'
 import { chatActions } from '../../../store/chatStore'
+import { useToolDisclosure } from './viewState'
 
 const toolIcons: Record<ReturnType<typeof describeTool>['kind'], OpenCodeIconName> = {
   read: 'code-slash',
@@ -26,7 +27,10 @@ export const OpenCodeToolCard = memo(function OpenCodeToolCard({
 }): React.JSX.Element {
   const { tr } = useI18n()
   const view = useMemo(() => describeTool(call), [call])
-  const [open, setOpen] = useState(view.kind === 'edit' || view.kind === 'write')
+  const [open, setOpen] = useToolDisclosure(
+    `tool:${call.toolUseId}`,
+    view.kind === 'edit' || view.kind === 'write'
+  )
   const running = view.outcome === 'running'
   return (
     <div
@@ -78,7 +82,7 @@ export const OpenCodeToolCard = memo(function OpenCodeToolCard({
       </button>
       {open && (
         <div className="mt-[8px]">
-          <ToolBody view={view} />
+          <ToolBody view={view} disclosureKey={call.toolUseId} />
         </div>
       )}
     </div>

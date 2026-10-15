@@ -5,6 +5,8 @@ import { TranscriptView } from './transcript/TranscriptView'
 import { Composer } from './Composer'
 import { RightPanel } from './rightpanel/RightPanel'
 import { initialChatState } from '../reducer/chatReducer'
+import { HarnessScrollController } from './transcript/HarnessScrollController'
+import { useScrollAnchor as mockScrollAnchor } from '../hooks/useScrollAnchor'
 
 const harness = vi.hoisted(() => ({
   activeKey: 'first',
@@ -58,6 +60,10 @@ vi.mock('./rightpanel/RightPanel', () => ({ RightPanel: () => null }))
 function find(node: ReactNode, type: unknown): ReactElement | undefined {
   if (!isValidElement(node)) return undefined
   if (node.type === type) return node
+  if (node.type === HarnessScrollController) {
+    const props = node.props as Parameters<typeof HarnessScrollController>[0]
+    return find(props.children(mockScrollAnchor(props)), type)
+  }
   let found: ReactElement | undefined
   Children.forEach((node.props as { children?: ReactNode }).children, (child) => {
     found ??= find(child, type)

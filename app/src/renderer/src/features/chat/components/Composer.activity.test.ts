@@ -20,7 +20,11 @@ vi.mock('../store/chatStore', async (original) => ({
       sessionId: 's',
       cwd: '/work',
       backend: harness.backend,
-      pendingAsks: harness.pendingAsks
+      pendingAsks: harness.pendingAsks,
+      pendingRequestOrder: harness.pendingAsks.map((ask) => ({
+        kind: 'ask_question' as const,
+        requestId: ask.requestId
+      }))
     }),
   useChatBusy: () => true,
   useChatResponding: () => harness.responding,
@@ -83,7 +87,7 @@ it.each(['claude', 'opencode'] as const)(
     expect($('[data-component="opencode-question"]')).toHaveLength(backend === 'opencode' ? 1 : 0)
     expect($('[role="radio"]')).toHaveLength(backend === 'opencode' ? 2 : 0)
     expect($.text()).toContain('Choose one')
-    expect($('textarea')).toHaveLength(backend === 'opencode' ? 1 : 2)
+    expect($('textarea')).toHaveLength(backend === 'opencode' ? 0 : 2)
     harness.backend = 'claude'
     harness.pendingAsks = []
   }
