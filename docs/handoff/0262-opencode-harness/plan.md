@@ -8,10 +8,10 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | IMPL_DONE — ΔV7 데스크톱 UI·CI 완료, AC11 시각 인수 대기 |
-| V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 |
+| 상태 | READY — ΔV8 설계만 반영, 코드 미구현. ΔV7 구현·AC11 시각 인수 대기 기록 유지 |
+| V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
-| 이번 V revision / 유효 V | ΔV7 / V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 |
+| 이번 V revision / 유효 V | ΔV8 / V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 |
 
 # Part I — Product & UX Contract
 
@@ -30,6 +30,9 @@ Orca는 Claude만 실행하고 composer·모델·패널이 그 기능을 전제�
 | 명시 결정 | 마지막 하네스 기억, 최초 Claude. 공통 도구 정규화와 원본 보존 | OQ7/OQ10 비동기 질문 답변 |
 | 명시 변경 | 브라우저 분석 취소, 실행 중인 OpenCode의 개발자 도구 사용 | 최신 사용자 지시 |
 | 추론 의도 | 선택 전후 초안·첨부 보존, 지원하지 않는 제어 숨김 | 제자리 전환과 지원 패널 구분에서 도출 |
+| 명시 변경 | OpenCode 사용자 메시지 버블의 배경·글자색을 Claude와 동일하게 변경 | 2026-10-15 추가 사용자 요구, ΔV8 |
+
+패널 범주화 요구 중 타이틀 메뉴에 검토·세션·작업 그룹명을 표시하던 부분은 [0263 ΔV3](../0263-opencode-session-panel/plan.md)의 평면 메뉴와 `작업` 타일 계약으로 대체한다. 하네스별 지원 패널 필터는 유지하며, 메뉴·패널 상호작용의 규범 정본은 0263이다.
 
 ## 3. Decision Ledger
 
@@ -55,9 +58,12 @@ Orca는 Claude만 실행하고 composer·모델·패널이 그 기능을 전제�
 | D-017 | OpenCode 공통 계약과 현재 1.x 구현을 분리해 향후 2.x 구현을 연결할 경계를 둔다 | 사용자: "opencode는 1.x, 추후 2.x도 고려하여 계층분리". 현재 2.x 실행 지원을 추가하는 요청으로 해석하지 않는다 | 2026-10-14 사용자 추가 요구 | ACTIVE | D-015/016 보완 |
 | D-018 | 도구 호출·카드는 OpenCode 원본을 참고하고 transcript 출력 스타일을 하네스별로 분리한다 | 원본 v1.19.0의 탐색 묶음·셸 출력·파일 diff·reasoning을 참고한다. Claude 스타일, 공통 배경(D-011), 원본 도구 보존(D-007)은 유지 | 2026-10-14 사용자 추가 요구 | ACTIVE | ΔV5에서 공통 카드 스타일을 재사용한 OpenCode 경로만 대체 |
 
-| D-019 | 사용자 제공 `.tmp/opencode-dev`의 데스크톱 transcript·도구·테마·composer·질문 렌더링을 차용한다 | transcript canvas 배경은 현재 값 유지. UI 참조는 2.0.29, 실행 API는 기존 1.x. 참조 다운로드는 커밋 제외 | 2026-10-15 사용자 추가 요구 | ACTIVE | D-018의 UI 참조를 보완, D-004/011/015~017 유지 |
+| D-019 | 사용자 제공 `.tmp/opencode-dev`의 데스크톱 transcript·도구·테마·composer·질문 렌더링을 차용한다 | transcript canvas 배경은 현재 값 유지. UI 참조는 2.0.29, 실행 API는 기존 1.x. 참조 다운로드는 커밋 제외 | 2026-10-15 사용자 추가 요구 | ACTIVE | 사용자 버블 색상 부분만 D-020으로 SUPERSEDED. 나머지 UI 참조·D-004/011/015~017 유지 |
+| D-020 | OpenCode 사용자 메시지 버블의 배경·글자색은 Claude 사용자 버블과 동일하게 한다 | 두 테마의 공통 `bubble-user`·`ink` 토큰 사용. OpenCode의 버블 배치·간격·반경·서체 크기와 transcript canvas는 유지 | 2026-10-15 추가 사용자 요구 | ACTIVE | D-019·AC26·EP-27b·VP-46의 사용자 버블 색상 부분만 대체 |
 
 갱신 메모: D-017/018 추가. D-015의 2.x 미지원과 향후 계층 확장은 양립하며 D-004/011의 Claude 스타일·배경은 유지한다. ACTIVE 결정 ↔ AC22~25 대조: 충돌 0, 미정 제품 결정 없음.
+
+ΔV8 갱신 메모: D-020↔AC29와 D-004/011/019↔AC11/15/26을 대조했다. 사용자 버블 색상만 대체하므로 Claude 표시·canvas 유지 및 나머지 데스크톱 UI 계약과 충돌 0이다.
 
 ## 4. 요구 비판적 검토
 
@@ -113,6 +119,8 @@ Orca는 Claude만 실행하고 composer·모델·패널이 그 기능을 전제�
 | R-10 / AT-10 / AC10 | 우측 패널에 선택 하네스 지원 범주만 나타난다 | policy·메뉴·reducer 테스트 | title menu → panel policy → panel |
 | R-11 / AT-11 / AC11 | OpenCode 디자인만 바뀌고 Claude UI가 유지된다 | 실측 문서 + 렌더 비교·사람 시각 검사 | backend → composer/transcript/panel slice |
 | R-12 / AT-12 / AC12 | 새 세션은 마지막 하네스를 선택하고 재열기는 저장값을 쓴다 | 부팅·draft·load 회귀 | settings → draft / DB → loaded session |
+
+AC10의 지원 범위 제한은 유지한다. 화면의 범주 제목과 OpenCode `작업` 타일의 노출·열림 계약은 [0263 ΔV3](../0263-opencode-session-panel/plan.md)가 대체하며, 이 문서의 VP-10/17/19·EP-10은 해당 변경의 회귀 경로로 연결한다.
 
 시각 검사는 폰트·간격·그림자·레이아웃을 보며 자동 테스트의 행동 단언과 구분한다. 기존 테스트 이름을 가정하지 않고 신규 테스트에서 production entry를 호출한다.
 
@@ -496,6 +504,8 @@ READY 대조: D-004/007/011/015~018 ↔ AC22~25 충돌 0. public SessionAdapter�
 
 AC24/25의 도구 순서·상태·스트리밍·원본 보존은 INHERITED이며 표시만 갱신한다. 기존 Claude의 질문과 composer는 유지한다. 질문 선택은 자동 진행하지 않고 다음 버튼/제출 단축키로 진행한다. 마지막 제출은 모든 질문에 답이 있을 때만 가능하다. 접어도 답을 보존하고 새 requestId에서는 초기화한다. 기존 `answerAsk/skipAsk/approveTool`의 요청·오류·중복 방지 계약을 유지하며 UI를 위해 승인 정책을 바꾸지 않는다. 중단/실패/거절을 성공으로 꾸미지 않는다.
 
+ΔV8 적용 후 AC26·EP-27b·VP-46 중 사용자 버블 배경·글자색은 AC29·EP-30·VP-50이 대체한다. 도구·assistant·Q&A·composer와 나머지 버블 외형은 위 계약을 유지한다.
+
 ## 조사와 기술 설계
 
 - `packages/app/src/session/timeline/message-timeline.tsx` → `packages/session-ui/src/timeline/row`: 실제 desktop transcript 경로.
@@ -528,6 +538,58 @@ AC24/25의 도구 순서·상태·스트리밍·원본 보존은 INHERITED이며
 강제 지점은 6자리다. 직접 행동 oracle을 사용하며 선택 적대 증거는 없음. 게이트는 관련 Vitest, 전체 typecheck·readonly ESLint, build, 문서 inventory/links, 원격 CI. ABI를 변경하는 npm pretest는 피하고 DB 검증 필요 시 Electron Node 모드로 실행한다. 다운로드 소스가 doc link scanner에 들어오면 사용자 파일을 수정하지 않고 repo scope 검사와 baseline 실패를 분리 보고한다.
 
 READY 대조: D-019와 기존 ACTIVE D-004/007/011/015~018 충돌 없음. 사용자 명시 추가 요청으로 설계→구현을 계속한다. 원본과 Orca의 경로를 읽었고 별도 제품 결정·패키지 승인은 필요하지 않다.
+
+# ΔV8 — 사용자 메시지 버블의 Claude 공통 색상 (READY)
+
+## 제품 계약과 출처
+
+기준은 공유 브랜치의 `73681f8007c2ad9de2f89196095154558f7767c2`에 있는 V1+ΔV1~7이다(`git cat-file -t` 결과 `commit`). 이번 턴은 사용자가 요청한 기존 핸드오프의 설계 델타만 반영하며 코드·테스트 구현은 다음 구현 턴이다. 아래 기존 구현 보고와 AC11의 시각 인수 대기는 이전 범위의 기록으로 보존한다.
+
+사용자 원문: “사용자 메시지 버블의 배경 및 폰트 색상이 오픈코드 데스크톱과 다르다. Claude transcript의 서용자 메시지 버블과 똑같이 변경하라.”
+
+| AC / 노드 | 관측 결과 | 직접 oracle / production path |
+|---|---|---|
+| AC29 / R-29↔AT-29 NEW | OpenCode와 Claude의 사용자 메시지 버블 배경·글자색이 밝은/어두운 테마에서 각각 동일하다. 버블 본문·첨부·복사·접기와 OpenCode의 기존 배치·간격·반경·글자 크기는 유지한다 | 실제 `TranscriptView→Exchange→UserTurn→UserMessage→UserBubbleText` 렌더에서 본문 색 토큰·내용 관측, 두 테마 Computer Use에서 computed background/color 비교 |
+
+색상 두 속성이 변경 범위다. assistant·도구 카드·Q&A·전송 대기 버블의 스타일과 transcript canvas/fade는 현재 계약을 유지한다. 우측 패널과 타이틀 메뉴의 추가 요구는 [0263 ΔV3](../0263-opencode-session-panel/plan.md)에서 소유한다.
+
+## 조사 / AS-IS → TO-BE
+
+| 대상 / 검색 | 관측 | 변경 책임 |
+|---|---|---|
+| `harnesses/{opencode,claude}/transcript/appearance.ts`의 `userBubble` | OpenCode는 `bg-oc-bubble text-oc-bubble-ink`, Claude는 `bg-bubble-user text-ink` | OpenCode의 색상 두 클래스만 Claude와 같은 공통 의미 토큰으로 교체 |
+| `UserMessage.tsx`의 `transcriptAppearance(openCode).userBubble` | 공통 본문이 선택된 하네스의 외형을 `UserBubbleText`에 전달 | 기존 조립·memo·collapseKey를 유지하고 최종 버블 색상에서 판정 |
+| `TranscriptView.tsx`의 Exchange 두 경로와 `Exchange.tsx`·`UserTurn.tsx` | 가상화된 이전 교환과 마지막 교환이 같은 사용자 버블에 도달 | 두 경로 모두 전용 외형의 공통 색상을 사용하도록 회귀 잠금 |
+| `AssistantSegment.render.test.ts`: `selects the user bubble style while keeping one copy/time row and disabling OpenCode fork` | 기존 검사는 `bg-oc-bubble`을 기대 | 변경된 색상 기대만 갱신하고 본문·복사 수·fork 제한 단언은 유지 |
+
+색상 값은 `styles/tokens.css`의 기존 `bubble-user`·`ink`가 정본이다. OpenCode 외형 모듈에서 Claude 구현을 직접 import하거나 두 색을 별도 hex 값으로 복제하지 않는다. 새로운 토큰·의존성·IPC·저장 형식·서버 API는 필요하지 않다.
+
+## V / §10 증분 강제 지점
+
+| 노드 / 기존 증거 | provenance / 대체 관계 |
+|---|---|
+| R-26↔AT-26 중 사용자 버블 배경·글자색 | SUPERSEDED → R-29↔AT-29. 기존 AC26·VP-46의 이 부분은 VP-50으로 이관하며 선택 적대 증거는 원래 없음 |
+| R-26의 나머지 표시, R-25의 순서·수명·내용, R-11/15의 하네스 격리·canvas | INHERITED → VP-46/44/11/25의 해당 회귀 유지 |
+| R-29↔AT-29 | NEW → VP-50 REQUIRED |
+| AR-03↔IT-03의 하네스 외형→사용자 본문 배선 | INHERITED → VP-17 REGRESSION. 전달 구조는 그대로이며 색상 최종 소비를 추가 관측 |
+
+| 자리 | 실패 의미 | 직접 oracle 좌표 / 관측 대상 |
+|---|---|---|
+| EP-30a/b: OpenCode userBubble 배경 / 글자색 두 속성 (2) | 한 속성만 공통화하거나 전용 파란 색상이 잔존 | `AssistantSegment.render.test.ts`의 기존 사용자 버블 케이스 갱신: 실제 UserMessage 산출에서 두 공통 색 클래스와 기존 본문·복사 단언 |
+| EP-30c/d: TranscriptView의 이전 Exchange / 마지막 Exchange (2) | 이전 이력과 마지막 사용자 발화의 색상이 다름 | `TranscriptView.harness.test.ts` 신규 `uses Claude user bubble colors in earlier and last OpenCode exchanges`: 실제 두 교환을 렌더하고 각 사용자 본문 조상 버블의 두 토큰 관측. 가상 head가 실제 mount되도록 viewport/측정 환경을 제공 |
+| EP-30e/f/g: Exchange→UserTurn / UserTurn→UserMessage / UserMessage→UserBubbleText (3) | 하네스 선택값이나 색상 외형이 최종 사용자 버블까지 전달되지 않음 | 위 신규 TranscriptView 케이스에서 세 컴포넌트를 mock하지 않고 실제 버블의 색상·기존 OpenCode 반경·본문을 관측 |
+
+| pair | requiredness | path / 직접 oracle |
+|---|---|---|
+| VP-50 / R-29↔AT-29 | REQUIRED | EP-30a~g, 위 두 렌더 테스트 및 light/dark 실제 버블의 computed background/color 비교. Claude와 OpenCode는 동일 테마·같은 입력으로 비교 |
+| VP-17 / AR-03↔IT-03 INHERITED | REGRESSION | TranscriptView→두 Exchange→UserTurn→UserMessage→UserBubbleText. EP-30c~g의 새 케이스로 해당 경계만 잠그며 기존 composer/panel 미잠금 범위를 통과로 바꾸지 않음 |
+| VP-44/46·V1 VP-11·ΔV2 VP-25 INHERITED | REGRESSION | `AssistantSegment.render.test.ts`, `TranscriptView.harness.test.ts`, `ChatTile.harness.test.ts`, `UserMessage.requirements.test.ts`, `UserMessage.origin.test.ts`, `userBubble.render.test.ts`, `bubbleCollapse.test.ts`, `bubbleExpansionStore.test.ts`. 나머지 본문·첨부·복사·접기·배경·Claude 스타일 보존 |
+
+강제 지점은 색상 두 속성 및 실제 전달 다섯 자리, 총 7자리다. 직접 최종 DOM과 두 테마의 computed 색상을 비교하므로 별도 mutation은 선택하지 않는다. 상태·수명주기·알고리즘·모듈 경계를 바꾸지 않아 신규 SD/AR/MD pair는 없다.
+
+문서 턴 게이트는 변경 plan의 Decision/AC/V/§10 정합성, 링크·diff whitespace·INDEX 상태·커밋 trailer다. 다음 구현 턴은 관련 Vitest, 전체 typecheck·readonly ESLint, renderer build, 문서 inventory/links와 두 테마 Computer Use를 수행한다. 기존 실모델 도구 검증 생략 결정과 AC11 최종 시각 인수의 미완료 상태는 유지한다.
+
+READY 대조: D-020↔AC29, R-26 색상 부분→R-29의 이관과 EP-30a~g를 연결했고 새 pair의 직접 oracle은 최종 사용자 버블을 관측한다. 기존 메뉴의 범주명 표시를 유지한다는 해석은 0263 ΔV3가 대체하며 하네스별 지원 제한은 남는다. 이번 델타에 필요한 추가 사용자 결정은 없다.
 
 # [구현자 기입]
 
