@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex / 2026-10-16 |
-| 상태 | IN_PROGRESS — Delta V5 구현·자기검증 진행; V4 구현 이력 보존 |
+| 상태 | IMPL_DONE — Delta V5 구현·자기검증 완료; 다음 Claude 독립 검증 |
 | V mode / revision | Baseline V1 + Delta V2 + Delta V3 + Delta V4 + Delta V5 |
 | 기준 V | Delta V5는 V1~V4 @ `940bd44edc5625f79b377b885cbe559b1d66fdb6` 상속 |
 | 매핑 | PR #502, 0262 후속 |
@@ -649,7 +649,7 @@ D-14를 구현했다. 요약 클릭은 OpenCode 로컬 상세 상태를 열며, 
 | 관련 Node Vitest | 57파일/499케이스 통과. navigation·registry·host·store·reducer·artifact·sidePaneResize 포함 |
 | Typecheck | node/web/test 통과 |
 | ESLint | 최종 전체 읽기 전용 검사 오류0, 기존 useTranscriptVirtualizer 경고1 |
-| Build | main/preload/renderer 완료. 기존 SubAgentTaskDetail 정적/동적 import 혼용 경고 유지 |
+| Build | main/preload/renderer 완료. 기존 SubAgentTileContent 정적/동적 import 경고 유지 |
 | 문서/운영 | generated/prose·migration sync/append-only·test-budget 통과. 다운로드·첨부 제외 checkLinks 결과 [] |
 | 원본 링크 guard 제한 | 사용자 다운로드 `.tmp/opencode-dev`의 상대링크5건만 실패. 해당 자료는 수정·커밋하지 않음 |
 | 원격 CI | 이번 제품 코드 `fbc15aba`의 [Windows CI #754](https://github.com/muzaby/orca-skin/actions/runs/38695989992) success. Vitest 699파일/6966케이스 통과·1파일/1케이스 skip, scripts138/138 통과. migration·문서·test-budget·lint·typecheck 모두 성공 |
@@ -813,7 +813,7 @@ D-15~19를 구현했다. OpenCode 메뉴 투영은 지원 타일 정책과 분�
 | EP-23b | Panel이 navigation의 fallback을 detail config로 전달. 실제 완료 후 닫기에서 변경 사항 focus 관측 |
 | EP-23c | common host CUA: 연결된 origin은 원래 셸 버튼으로, 제거된 origin은 변경 사항으로 복귀. transcript scrollTop 468→468, artifact→상세→요약 및 A→B→A의 상세 수0 |
 
-제품 자리는 EP-20 5개·EP-21 3개·EP-22 4개·EP-23 3개로 15개다. DOC-V5a/b는 구현 단계의 plan 메타와 INDEX 상태를 함께 갱신·재조회하는 별도 2자리다.
+제품 자리는 EP-20 5개·EP-21 3개·EP-22 4개·EP-23 3개로 15개다. 요구 자리와 위 보고 행의 차집합은 비어 있다. DOC-V5a/b는 plan 메타 `IMPL_DONE`과 INDEX `impl/IMPL_DONE·다음 Claude·라운드1`을 함께 갱신·재조회한 별도 2자리다.
 
 | Pair | 자기 결과 / 근거 |
 |---|---|
@@ -871,13 +871,13 @@ D-15~19를 구현했다. OpenCode 메뉴 투영은 지원 타일 정책과 분�
 
 | Gate | 이번 관측 |
 |---|---|
-| 관련 Node Vitest | 통합 영향 집합 진행 중. 개별 menu 8파일/74케이스·model/Panel/activity 3파일/24케이스·focus/navigation/host 3파일/27케이스 통과 |
-| Typecheck | node/web/test 모두 통과 |
-| ESLint | 첫 전체 검사에서 테스트 helper 반환형 누락1건을 수정. 최종 재검 진행 중; 기존 경고6건은 변경 파일 밖 |
+| 관련 Node Vitest | 영향 집합 59파일/815케이스 통과. Main 오류 registry66·renderer225, panelFocus8·navigation9·model10·ChatTitleBar16 포함 |
+| Typecheck | node/web/test 모두 통과. 테스트 helper 반환형 수정 후 test 구성 재검 통과 |
+| ESLint | 최종 전체 읽기 전용 검사 오류0·기존 경고6. 첫 검사의 테스트 helper 반환형 누락1건 수정 후 재검 통과 |
 | Build | main/preload/renderer 완료. 기존 SubAgentTaskDetail 정적/동적 import 혼용 경고 유지 |
 | 문서/운영 | generated/prose·test-budget 통과. 다운로드·첨부 제외 checkLinks와 scanProse 결과 [] |
 | 원본 링크 guard 제한 | 사용자 다운로드 `.tmp/opencode-dev` 상대링크5건만 실패. 자료를 수정·커밋하지 않음 |
-| 원격 CI | push 후 확인 예정 |
+| 원격 CI | 제품 코드 `a74bbba0`의 [Windows CI #768](https://github.com/muzaby/orca-skin/actions/runs/38821406594) success. Vitest 719파일/7067케이스 통과·1파일/1케이스 skip, scripts142/142 통과. migration·문서·test-budget·lint·typecheck 모두 성공 |
 
 실행 중 Orca에서는 작업 메뉴 토글·변경 사항 상세 열기/닫기와 요약 복귀를 직접 조작했다. 다중 셸 상태·테마·세션 전환은 실제 ChatTitleBar/TranscriptView/RightPanel/store preview에서 수행했으며 native API만 메모리 fixture다. 새 실모델 호출은 하지 않았다. 로컬 증거는 `.tmp/0263-v5-visual-evidence.md`, 캡처는 `0263-v5-summary.jpg`·`0263-v5-dark-detail.jpg`다. 임시 fixture·다운로드·첨부는 커밋하지 않는다.
 
