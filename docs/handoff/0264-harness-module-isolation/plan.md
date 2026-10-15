@@ -288,6 +288,7 @@ VP03은 실제 ESLint를 실행하는 8개 테스트가 형제 소유자, 가상
 | 중립 registry가 Claude 컴포넌트의 inferred props에 의존 | 공통 `ToolApprovalBodyProps`·composer control 계약을 명시하고 양쪽 구현이 이를 사용 |
 | OpenCode가 Claude TurnErrorBanner를 직접 참조 | 동일 본문을 common으로 옮겨 형제 의존 제거 |
 | 경로만 옮기면 source 기반 회귀·오류 site 등록·현재 문서가 낡음 | 실제 파일 경로로 갱신하고 회귀·inventory·scoped link 검사 |
+| 원격 전체 검사에서 `product-identity.test.ts`의 분절된 경로 7곳 누락 발견 | Claude deployer/plugin과 common skills sources/seed/scan을 가리키도록 수정. 기존 표시명·저장 marker·sentinel 단언을 유지하고 34테스트 통과. AST로 문자열 및 경로 조각 배열/인자를 대조했으며 남은 과거 diff fixture의 경로 값은 파일 읽기 대상이 아님 |
 | 기존 PendingAssistant와 presentation helper에 사용되지 않는 wrapper가 남음 | 실제 Claude 구현/소비자로 통합하고 미사용 helper 제거; 공통 공개 진입점은 소비가 있는 곳만 유지 |
 | 호스트 Node ABI127과 설치된 SQLite Electron ABI140 불일치 | 재설치·rebuild 없이 DB 관련 테스트를 Electron Node 모드/threads로 재검증 |
 | 사용자 TEMP 상위 디렉터리 접근 및 fork worker 종료 실패 | workspace TEMP를 사용하고 동일 소스를 threads로 재실행; 해당 초기 실패를 제품 PASS로 계산하지 않음 |
@@ -311,7 +312,7 @@ tracked 삭제 경로는 이동·통합 257개와 확인된 dead code 2개로 �
 | build | 최종 소스의 main/preload/renderer 빌드 성공. SubAgentTaskDetail 혼합 import 경고 유지 |
 | 문서/정리 | inventory/prose 및 scoped links 오류 0, 현재 문서의 이전 경로 잔여 0, diff check 통과 |
 | 선택 변이 | 6/6 assertion red → byte 복원 → 동일 필터 green |
-| 원격 Windows CI | 구현 커밋 게시 후 확인 |
+| 원격 Windows CI | [#764](https://github.com/muzaby/orca-skin/actions/runs/38765288765): lint/typecheck/문서 통과, 717파일·7046테스트 통과/1 skip. product-identity의 이전 경로에서 4개 실패를 수정하고 해당 파일 34테스트·lint 통과. 수정 커밋 재검증 대기 |
 
 전체 링크 검사에서 ignored `.tmp/opencode-dev`의 기존 링크 오류 5개는 보존된 외부 아카이브에 한정된다. 검사 범위를 숨기지 않고 제품 문서 범위의 링크 검사와 구분했다. 초기 실패가 있던 실행을 전체 green으로 표현하지 않으며, 로그별 재검증을 합산해 중복 테스트 수를 만들지 않는다.
 
