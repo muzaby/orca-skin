@@ -1944,7 +1944,7 @@ Todo 접힘은 새 턴과 캐시 세션 왕복에서 유지하고 처음 보는 
 | build | electron-vite 직접 build exit0: main/preload/renderer 생성 완료. 기존 SubAgentTileContent 정적/동적 import 경고 유지. ABI 변경 훅은 실행하지 않음. |
 | 형식/운영 | 소유 변경 `git diff --check` 통과. generated/prose·migration sync/append-only·test budgets·변경 TypeScript Prettier 통과. 전체 링크 guard는 사용자 다운로드 .tmp/opencode-dev 내부 기존5건만 실패. 다운로드·첨부를 제외한 저장소 링크는 빈 배열로 통과했다. |
 | Computer Use | 실제 fixture의 production 컴포넌트·메모리 IPC로 요청 큐/Todo/transcript 직접 조작 완료. 모델 호출 없음. 아래 측정표 및 [디자인 증거](design-evidence.md#orca-요청스크롤todo-구현-관측-2026-10-15-r115) |
-| 원격 Windows CI | 최초 제품33ea3e38의 CI #761에서 타입·lint·문서·migration은 통과했으나 전체 테스트 중 typeScale AC7 한 건 실패(715파일7047케이스 통과, 기존1파일1케이스 skip). 단일 배율 선언 전달 보완 후 원격 재실행 대기. |
+| 원격 Windows CI | 최초 제품33ea3e38의 CI #761에서 타입·lint·문서·migration은 통과했으나 전체 테스트 중 typeScale AC7 한 건 실패(715파일7047케이스 통과, 기존1파일1케이스 skip). 보완5b7a64ca의 [Windows CI #762](https://github.com/muzaby/orca-skin/actions/runs/38740035320)는 success. 전체716파일7048케이스 및 scripts138/138 통과, 기존1파일1케이스 skip. 문서·migration·test-budget·lint·node/web/test 타입도 성공. |
 | 상태 사본·trailer | 제품 커밋33ea3e38의 git cat-file 결과 commit, git log trailer 파싱에서 Agent/Handoff/Status/Criteria-Met33/34/Criteria-PendingAC11/Verified-Bypending 모두 확인. plan/INDEX impl/IMPL_DONE·다음 Claude 재조회 일치. |
 
 | CUA 시나리오 | 실제 관측 |
@@ -1964,3 +1964,5 @@ r1.15는 사용자 후속 요구로 확정한 ΔV11~13 구현 턴이다. 기존 
 자동 직접 검사는 조작 결과·payload·수명까지, CUA는 실제 geometry·selection까지 관측했다. fixture의 native IPC는 메모리 대역이므로 이 결과를 실모델 응답 검증으로 확대하지 않는다. ABI를 변경하는 npm pretest/install/rebuild는 실행하지 않았다. 운영 gate의 다운로드 내부 링크 한계는 위에 분리했다. 사용자 AC11과 독립 verify는 대기이며 자기확인을 verify/PASS로 기록하지 않는다.
 
 CI 후속: 로컬 관련 테스트 집합에 공통 styles/typeScale 검사가 빠져 있었다. CI의 전체 검사로 확인한 단일 선언 위반을 제품 경계에서 고쳤고 기존 검사 기대값을 완화하지 않았다. 화면에 전달하는 CSS 값은 같으므로 앞선 CUA의 기하·색상 관측은 유지하며 배율 전달 경로를 직접 DOM 회귀로 추가 확인했다.
+
+최종 후속: 제품 커밋5b7a64ca의 원격 CI 성공 후 추가 커밋은 결과 기록만 포함한다. 두 구현 커밋의 trailer에서 Agent codex·Status implemented·Criteria-Met33/34·Verified-By pending을 확인했다. plan/INDEX의 impl/IMPL_DONE·다음 Claude와 AC11 대기는 유지하며 독립 verify를 선점하지 않는다. 검증용 브라우저 탭과 생성한 Vite 서버는 종료했다.
