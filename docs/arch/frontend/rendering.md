@@ -234,6 +234,10 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 
 `components/rightpanel/tileRegistry.ts`는 하네스별 타일 본문과 헤더를 선택한다. `rightPanelTiles`의 하네스 정책은 타이틀의 평면 메뉴·reducer 활성화·패널 렌더링에서 같은 허용 범위를 사용한다.
 
+타이틀 메뉴는 `타일 표시` 아래에 지원 항목을 정의 순서로 표시하며 범주 제목을 넣지 않는다. Claude Code는 계획·백그라운드 작업·변경사항, Claude Work는 작업을 표시한다. OpenCode의 전용 외형은 해당 하네스의 composer·transcript·패널에만 적용한다.
+
+엔진·모델 페이지의 헤더 액션은 엔진 추가다. Claude 카드에는 adapter 이름 `claude`, Claude 엔진 편집에는 고정 adapter/provider chip을 표시한다. 신규 엔진은 하네스를 선택할 수 있고 OpenCode 카드와 설정 폼은 전용 계약을 사용한다. 페이지 진입은 기존 카탈로그를 재사용하며 변경 저장과 공급자 상태 갱신은 목록을 다시 조회한다. 카탈로그 조회 상태는 엔진 변경 작업의 busy와 분리해 다른 하네스 조회가 기존 편집·삭제·저장을 잠그지 않는다.
+
 | OpenCode 타일 | 표시와 진입 |
 |---|---|
 | `task` | 기본 `작업` 요약 카드. 폴더 제목과 변경 사항 진입을 표시하고, 하위 에이전트·셸 실행·소스 그룹은 실제 항목이 있을 때 표시한다. 카드 자체의 메뉴 버튼·별도 헤더는 없다. |

@@ -156,3 +156,19 @@ HF 연결은 [HF 공식 OpenAI 호환 엔드포인트](https://huggingface.co/do
 | 원본과 치수 대조 | Orca root rem이 14.5px이므로 OpenCode의 핵심 치수를 명시적 px로 보정. 선택 표시도 원본의 고정 blue accent로 보정 |
 
 후속 preview에서 에이전트·변형 합성 칩을 실제 `OpenCodeAgentControl`·`OpenCodeVariantControl`로 교체했다. dark 360px와 light 720px에서 메뉴를 열고 `build`·`high`를 선택해 trigger 값에 반영됨을 확인했다. 메뉴의 실제 배경은 dark `rgb(22, 22, 22)` / light `rgb(255, 255, 255)`, radius 8px·padding 4px였다. 모델 라벨은 합성 칩이다. 기본값·초점/키보드 배선은 `Controls.interaction.test.ts`에서도 확인했다. 실앱 시각 관측으로 확대하지 않는다. 임시 미리보기는 소스 트리에서 제거하여 `.tmp`에 보관했고 브라우저 탭을 닫았다. 다운로드 소스·미리보기는 커밋하지 않는다. AC11 최종 사용자 인수와 독립 verify는 대기다.
+
+## Claude GUI 복원 (2026-10-15 r1.13)
+
+Computer Use의 내장 브라우저에서 실제 ChatTile·ChatTitleBar·RightPanel·AgentEnvironmentView·EngineFormModal과 production CSS/store를 조작했다. native API는 메모리 fixture이며 실제 엔진·파일·서버 설정을 변경하지 않았다. 새 실모델 호출이나 네이티브 Electron 검증으로 확대하지 않는다.
+
+| 조작 | 관측 |
+|---|---|
+| Claude Code 타이틀 메뉴 | 타일 표시 아래 계획→백그라운드 작업→변경사항. 추가 그룹 제목 없음. 계획 열기/기존 닫기 정상 |
+| Claude Work 메뉴/작업 열기 | 작업 항목만 표시. 진행 상황·출력·컨텍스트의 기존 작업 패널 유지 |
+| Claude 밝은/어두운 테마 | 원래 composer·도구 행·사용자 버블 표시. 마지막 사용자 본문 글자색 light rgb(26,26,24), dark rgb(240,239,234) |
+| 엔진 페이지 | 우측 엔진 추가만 표시. claude/OpenCode 카드 공존, 새로고침 없음 |
+| 카탈로그 loading=true → Claude 편집 | 편집 버튼 활성. 고정 claude/provider chip, 하네스 select 없음. 유효 provider 입력 후 저장 활성 |
+| 새 엔진 → OpenCode 선택, OpenCode 편집 | 새 엔진의 선택·opencode.json 불러오기 유지. 편집의 하네스 select는 비활성 |
+| OpenCode 타일 메뉴·작업→변경 사항→닫기 | 평면 지원 메뉴 유지. 기존 패널 위 상세를 열고 닫으면 작업 요약 복귀. 도구 diff 유지 |
+
+첫 Work 전환의 permission stub 반환 누락은 fixture를 수정한 후 다시 관측했다. 제품 변경은 없다. 스크린샷은 로컬 `.tmp/0262-v9-claude-menu.jpg`, `0262-v9-work-menu.jpg`, `0262-v9-claude-dark-menu.jpg`, `0262-v9-engines.jpg`, `0262-v9-claude-edit.jpg`에 보관했다. 임시 renderer 파일·서버·탭은 정리했다. 사용자 최종 인수와 독립 verify는 대기다.

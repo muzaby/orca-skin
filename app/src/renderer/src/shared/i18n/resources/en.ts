@@ -390,7 +390,6 @@ export const en: typeof ko = {
     title: 'Engine & Models',
     subtitle: 'Provider settings environment',
     addEngine: 'Add engine',
-    refresh: 'Refresh models',
     catalogFailed: 'Could not load the model catalog.',
     blurb: `The Composer model menu is built from the provider settings in <c>~/.config/${PRODUCT_SLUG}/sources/settings</c>. After editing, the model menu refreshes without restarting the app.`,
     emptyState: 'No providers registered. Add an engine to configure a harness and model provider.',
@@ -1150,7 +1149,6 @@ export const en: typeof ko = {
       next: 'Next'
     },
     rightpanel: {
-      category: { review: 'Review', session: 'Session', tasks: 'Tasks' },
       tiles: {
         plan: 'Plan',
         subagent: 'Background tasks',

@@ -172,24 +172,28 @@ export function EngineFormModal({
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
           {/* 편집에서는 하네스를 고정해 provider 저장 경로를 유지한다. */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-ink2">
-            <label className="flex items-center gap-2">
-              <span>{tr('engine.form.harness')}</span>
-              <select
-                aria-label={tr('engine.form.harness')}
-                value={engine}
-                disabled={editing || busy}
-                onChange={(event) => {
-                  if (isBackend(event.target.value)) pickEngine(event.target.value)
-                }}
-                className="rounded-md border border-border bg-bg px-2 py-1 text-ink disabled:opacity-70"
-              >
-                {HARNESS_IDS.map((id) => (
-                  <option key={id} value={id}>
-                    {HARNESS_CAPABILITIES[id].label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {editing && engine === 'claude' ? (
+              <span className="rounded-md bg-sidebar px-2 py-0.5 font-medium text-ink">claude</span>
+            ) : (
+              <label className="flex items-center gap-2">
+                <span>{tr('engine.form.harness')}</span>
+                <select
+                  aria-label={tr('engine.form.harness')}
+                  value={engine}
+                  disabled={editing || busy}
+                  onChange={(event) => {
+                    if (isBackend(event.target.value)) pickEngine(event.target.value)
+                  }}
+                  className="rounded-md border border-border bg-bg px-2 py-1 text-ink disabled:opacity-70"
+                >
+                  {HARNESS_IDS.map((id) => (
+                    <option key={id} value={id}>
+                      {HARNESS_CAPABILITIES[id].label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             {editing && (
               <>
                 <span className="text-ink3">/</span>

@@ -16,7 +16,6 @@ import { partsText } from '../lib/parts'
 import type { ChatState } from '../reducer/chatReducer'
 import {
   rightPanelPolicy,
-  rightPanelGroups,
   rightPanelTileDefinitionsForAgent,
   showsUnseenTaskBadge,
   SUSPENDED_RIGHT_PANEL_TILES,
@@ -70,16 +69,7 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   // 배지 판정은 SSOT 가 갖고 여기는 결과만 그린다(§10 EP-03) — 정지된 타일을 가리키는
   // 배지는 애초에 뜨지 않는다.
   const panelPolicy = rightPanelPolicy(agentKind, backend)
-  const tileMenuGroups =
-    backend === 'opencode'
-      ? [
-          {
-            id: 'opencode',
-            labelKey: null,
-            tiles: rightPanelTileDefinitionsForAgent(agentKind, backend)
-          }
-        ]
-      : rightPanelGroups(agentKind, backend)
+  const menuTiles = rightPanelTileDefinitionsForAgent(agentKind, backend)
   const showTaskBadge = showsUnseenTaskBadge(
     unseenSettledTasks,
     activeTiles,
@@ -219,44 +209,31 @@ export const ChatTitleBar = memo(function ChatTitleBar({
           <div className="px-2 py-1 text-[11px] font-medium text-t6">
             {tr('chat.titleBar.tilesHeader')}
           </div>
-          {tileMenuGroups.map((category) => (
-            <div
-              key={category.id}
-              role={category.labelKey ? 'group' : undefined}
-              aria-label={category.labelKey ? tr(category.labelKey) : undefined}
-            >
-              {category.labelKey && (
-                <div className="px-2 pt-2 pb-1 text-[11px] font-medium text-t6">
-                  {tr(category.labelKey)}
-                </div>
-              )}
-              {category.tiles.map((tile) => {
-                const active = activeTiles.includes(tile.id)
-                return (
-                  <MenuItem
-                    key={tile.id}
-                    icon={active ? 'check' : 'plus'}
-                    iconSize={13}
-                    onClick={() => {
-                      chatActions.toggleRightPanelTile(tile.id)
-                      setOpen(false)
-                    }}
-                    role="menuitemcheckbox"
-                    aria-checked={active}
-                  >
-                    <span>{labels[tile.id as RightPanelTileId] ?? tr(tile.defaultLabelKey)}</span>
-                    {/* 0213 D-001 로 `작업` 이 목록에 돌아와 이 배지가 다시 도달한다 — 메뉴를 연
+          {menuTiles.map((tile) => {
+            const active = activeTiles.includes(tile.id)
+            return (
+              <MenuItem
+                key={tile.id}
+                icon={active ? 'check' : 'plus'}
+                iconSize={13}
+                onClick={() => {
+                  chatActions.toggleRightPanelTile(tile.id)
+                  setOpen(false)
+                }}
+                role="menuitemcheckbox"
+                aria-checked={active}
+              >
+                <span>{labels[tile.id as RightPanelTileId] ?? tr(tile.defaultLabelKey)}</span>
+                {/* 0213 D-001 로 `작업` 이 목록에 돌아와 이 배지가 다시 도달한다 — 메뉴를 연
                     채로도 미확인 완료 수가 보인다(0205 §10 EP-03 이 지우지 말라고 남긴 자리). */}
-                    {tile.id === panelPolicy.taskBadgeTile && showTaskBadge && (
-                      <span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] px-1.5 text-[10px] font-medium text-accent">
-                        {unseenSettledTasks}
-                      </span>
-                    )}
-                  </MenuItem>
-                )
-              })}
-            </div>
-          ))}
+                {tile.id === panelPolicy.taskBadgeTile && showTaskBadge && (
+                  <span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] px-1.5 text-[10px] font-medium text-accent">
+                    {unseenSettledTasks}
+                  </span>
+                )}
+              </MenuItem>
+            )
+          })}
           <div className="my-1 h-px bg-border" />
           <MenuItem
             icon="pin"

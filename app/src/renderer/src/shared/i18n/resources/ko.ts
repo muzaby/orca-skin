@@ -394,7 +394,6 @@ export const ko = {
     title: '엔진 & 모델',
     subtitle: 'provider settings 환경',
     addEngine: '엔진 추가',
-    refresh: '모델 새로고침',
     catalogFailed: '모델 목록을 불러오지 못했습니다.',
     blurb: `<c>~/.config/${PRODUCT_SLUG}/sources/settings</c> 의 provider settings 를 기반으로 Composer 모델 메뉴가 구성됩니다. 편집 후 앱 재시작 없이 모델 메뉴가 갱신됩니다.`,
     emptyState: '등록된 공급자가 없습니다. 엔진 추가에서 하네스와 모델 공급자를 설정하세요.',
@@ -1157,7 +1156,6 @@ export const ko = {
       next: '다음'
     },
     rightpanel: {
-      category: { review: '검토', session: '세션', tasks: '작업' },
       tiles: {
         plan: '계획',
         subagent: '백그라운드 작업',

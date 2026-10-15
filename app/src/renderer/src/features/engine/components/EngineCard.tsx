@@ -25,7 +25,7 @@ export function EngineCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-[14px] font-semibold text-ink">
-              {isBackend(agent.adapter) ? HARNESS_CAPABILITIES[agent.adapter].label : agent.adapter}
+              {agent.adapter === 'opencode' ? HARNESS_CAPABILITIES.opencode.label : agent.adapter}
             </span>
             <span className="text-[11px] text-ink3">{agent.provider ?? 'default'}</span>
             {!agent.supported && (

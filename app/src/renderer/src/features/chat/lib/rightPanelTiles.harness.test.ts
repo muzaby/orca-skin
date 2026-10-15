@@ -1,24 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
-  rightPanelGroups,
   rightPanelPolicy,
   rightPanelTarget,
   rightPanelTileDefinitionsForAgent
 } from './rightPanelTiles'
 import { rightPanelColumnsForAgent } from './rightPanelLayout'
 
-describe('harness panel categories', () => {
-  it('groups only supported OpenCode categories and filters persisted columns', () => {
-    expect(
-      rightPanelGroups('code', 'opencode').map((group) => [
-        group.id,
-        group.tiles.map((tile) => tile.id)
-      ])
-    ).toEqual([
-      ['review', ['diff']],
-      ['session', ['plan', 'source']],
-      ['tasks', ['subagent', 'task', 'process']]
-    ])
+describe('harness panel policy', () => {
+  it('retains supported OpenCode targets and persisted columns', () => {
     expect(rightPanelTarget('subagent', 'code', 'opencode')).toBe('subagent')
     expect(
       rightPanelColumnsForAgent(

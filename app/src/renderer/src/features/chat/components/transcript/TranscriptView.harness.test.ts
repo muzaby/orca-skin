@@ -47,21 +47,25 @@ const assistantMessage: Message = {
 }
 
 describe('OpenCode transcript presentation', () => {
-  it.each(['claude', 'opencode'] as const)(
-    'uses Claude user bubble colors in earlier and last exchanges (%s)',
-    (backend) => {
+  it.each([
+    { backend: 'claude', agentKind: 'code' },
+    { backend: 'claude', agentKind: 'work' },
+    { backend: 'opencode', agentKind: 'code' }
+  ] as const)(
+    'preserves bubble colors and the harness viewport background in earlier and last exchanges ($backend/$agentKind)',
+    ({ backend, agentKind }) => {
       const messages: Message[] = [
         { role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'Earlier prompt' }] },
         { role: 'assistant', createdAt: 2, parts: [{ type: 'text', text: 'Earlier answer' }] },
         { role: 'user', createdAt: 3, parts: [{ type: 'text', text: 'Last prompt' }] },
         { role: 'assistant', createdAt: 4, parts: [{ type: 'text', text: 'Last answer' }] }
       ]
-      installChatStoreHarness({ backend, messages })
+      installChatStoreHarness({ backend, agentKind, messages })
       const $ = load(
         renderToStaticMarkup(
           createElement(TranscriptView, {
             backend,
-            agentKind: 'code',
+            agentKind,
             messages,
             pendingSteer: [],
             inflight: false,
@@ -90,7 +94,7 @@ describe('OpenCode transcript presentation', () => {
         )
       }
       expect($('[data-index="0"] [data-app-exchange]').text()).toContain('Earlier prompt')
-      expect($('[data-harness]').hasClass('bg-bg')).toBe(true)
+      expect($('[data-harness]').hasClass('bg-bg')).toBe(backend === 'opencode')
     }
   )
   it.each(['claude', 'opencode'] as const)(
@@ -162,7 +166,7 @@ describe('OpenCode transcript presentation', () => {
     expect(load(html)(`[data-harness="${backend}"]`)).toHaveLength(1)
     expect(html).toContain('User prompt')
     expect(html).toContain('Answer body')
-    expect(load(html)(`[data-harness="${backend}"]`).hasClass('bg-bg')).toBe(true)
+    expect(load(html)(`[data-harness="${backend}"]`).hasClass('bg-bg')).toBe(backend === 'opencode')
   })
   it('shows normalized edit detail and preserved provider input in an accessible disclosure', () => {
     const html = renderToStaticMarkup(

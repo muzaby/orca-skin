@@ -10,13 +10,13 @@ import type { MessageKey } from '../../../shared/i18n'
 // `백그라운드 작업`과 `작업`은 별개 타일이다. 정의 순서가 메뉴 순서이며,
 // 하네스 정책이 지원 집합을 고른다. process/source는 OpenCode에서만 제공한다.
 export const rightPanelTileDefinitions = [
-  { id: 'plan', category: 'session', defaultLabelKey: 'chat.rightpanel.tiles.plan' },
-  { id: 'subagent', category: 'tasks', defaultLabelKey: 'chat.rightpanel.tiles.subagent' },
-  { id: 'task', category: 'tasks', defaultLabelKey: 'chat.rightpanel.tiles.task' },
-  { id: 'diff', category: 'review', defaultLabelKey: 'chat.rightpanel.tiles.diff' },
-  { id: 'process', category: 'tasks', defaultLabelKey: 'chat.rightpanel.tiles.process' },
-  { id: 'source', category: 'session', defaultLabelKey: 'chat.rightpanel.tiles.source' }
-] as const satisfies readonly { id: string; category: string; defaultLabelKey: MessageKey }[]
+  { id: 'plan', defaultLabelKey: 'chat.rightpanel.tiles.plan' },
+  { id: 'subagent', defaultLabelKey: 'chat.rightpanel.tiles.subagent' },
+  { id: 'task', defaultLabelKey: 'chat.rightpanel.tiles.task' },
+  { id: 'diff', defaultLabelKey: 'chat.rightpanel.tiles.diff' },
+  { id: 'process', defaultLabelKey: 'chat.rightpanel.tiles.process' },
+  { id: 'source', defaultLabelKey: 'chat.rightpanel.tiles.source' }
+] as const satisfies readonly { id: string; defaultLabelKey: MessageKey }[]
 
 export type RightPanelTileId = (typeof rightPanelTileDefinitions)[number]['id']
 
@@ -39,27 +39,6 @@ export function rightPanelPolicy(
   backend: Backend | null = 'claude'
 ): RightPanelAgentPolicy {
   return backend === 'opencode' ? OPEN_CODE_PANEL_POLICY : RIGHT_PANEL_POLICY[kind]
-}
-
-export const rightPanelCategories = [
-  { id: 'review', labelKey: 'chat.rightpanel.category.review' },
-  { id: 'session', labelKey: 'chat.rightpanel.category.session' },
-  { id: 'tasks', labelKey: 'chat.rightpanel.category.tasks' }
-] as const satisfies readonly { id: string; labelKey: MessageKey }[]
-
-export function rightPanelGroups(
-  kind: AgentKind,
-  backend: Backend | null = 'claude'
-): Array<
-  (typeof rightPanelCategories)[number] & { tiles: (typeof rightPanelTileDefinitions)[number][] }
-> {
-  const tiles = rightPanelTileDefinitionsForAgent(kind, backend)
-  return rightPanelCategories
-    .map((category) => ({
-      ...category,
-      tiles: tiles.filter((tile) => tile.category === category.id)
-    }))
-    .filter((category) => category.tiles.length > 0)
 }
 
 export const rightPanelTileIds = rightPanelTileDefinitions.map(

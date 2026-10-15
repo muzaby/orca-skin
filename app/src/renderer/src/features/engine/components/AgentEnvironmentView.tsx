@@ -54,18 +54,10 @@ export function AgentEnvironmentView(): React.JSX.Element {
           {tr('common.count', { count: agents.length })}
         </span>
         <Button
-          variant="contained"
-          size="small"
-          className="ml-auto"
-          disabled={state.busy}
-          onClick={() => void refresh()}
-        >
-          {state.busy ? tr('common.loading') : tr('engine.refresh')}
-        </Button>
-        <Button
           variant="primary"
           size="small"
           leadingIcon="plus"
+          className="ml-auto"
           onClick={() => setModal({ mode: 'add' })}
         >
           {tr('engine.addEngine')}

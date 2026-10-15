@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | READY — ΔV9 Claude GUI 복원. AC11 사용자 최종 시각 인수·독립 verify 대기 |
+| 상태 | IMPL_DONE — ΔV9 Claude GUI 복원. AC11 사용자 최종 시각 인수·독립 verify 대기 |
 | V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV9 / V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 |
@@ -1483,3 +1483,59 @@ SSR에서 이전 교환을 생략하는 문제는 실제 virtualizer에 viewport
 ### Review Signals
 
 사용자 요구 변경에 따른 r1.12이며 독립 검증 결과를 선점하지 않는다. 새 실모델 도구 호출 없이 실제 컴포넌트 preview로 색상을 검증했다. 다음 주체는 Claude 독립 검증자다.
+
+## [구현자 기입] ΔV9 — r1.13
+
+### 설계 리뷰
+
+D-021/AC30·31 구현 완료. 도입 전 main과 변경 경로를 대조해 Claude 메뉴·엔진 표시·조회 수명을 복원했다. 이동된 Claude 본문·composer·패널·설정은 import/이름 변경을 구분해 비교했다. 명시된 OpenCode 카드·설정·새 엔진의 하네스 선택과 전용 UI는 유지한다. 신규 의존성·IPC·DB 변경과 설계 차이는 없다.
+
+### 강제 지점 전수와 V-pair 자기확인
+
+| 자리 / pair | 직접 관측 | 자기확인 |
+|---|---|---|
+| EP-31a/b / VP-51·52 | 실제 ChatTitleBar 렌더: Claude Code 계획→백그라운드 작업→변경사항, Work 작업. 체크·배지·개별 클릭 callback과 renderer 대응 통과. CUA에서 메뉴와 계획/작업 열기 확인 | SELF_PASS |
+| EP-32a/b/c / VP-51·52 | 실제 페이지 헤더의 우측 추가 버튼 1개, Claude/OpenCode 카드 라벨, Claude chip/provider·OpenCode 편집 잠금 단언. CUA에서 새로고침 부재·실제 편집 진입 확인 | SELF_PASS |
+| EP-32d/e/f / VP-53 | 실제 hook+agentStore의 최초 조회/캐시 재진입, 외부 조회 중 busy=false, add/update/remove 저장→갱신 대기 및 오류 보존 6케이스 통과. CUA loading=true 중 편집·유효 입력 저장 활성 확인 | SELF_PASS |
+| EP-33a / VP-51·52 | 실제 TranscriptView와 ChatTile의 Claude Code/Work viewport·공통 상위 canvas, OpenCode 전용 bg-bg 및 이전/마지막 발화 렌더 통과 | SELF_PASS |
+
+ΔV9의 EP-31 2자리 + EP-32 6자리 + EP-33 1자리 = 9자리. 표의 실제 production 경로와 설계의 9자리를 대조했다. 기존 VP-11/17/20/21/25/44/46/50 영향 회귀는 83파일/643케이스에서 확인했으며 V1의 남은 자동 배선 증거와 AC11 사용자 인수 전체를 새로 닫은 것으로 해석하지 않는다.
+
+### 이번 라운드 수정의 잠금
+
+해당 없음 — 실제 메뉴/페이지/폼 출력, 각 클릭 callback, hook/store 결과를 직접 관측했다. 기존 registry만 보던 메뉴 테스트를 실제 ChatTitleBar 렌더로 교체했다. 새 구조 proxy나 소스 0건 oracle을 추가하지 않았다. 선택 적대 증거 0 · 인용 변이 0 · 새 구조 oracle 0 = 잠금 표 행 0.
+
+### Product/UX 파생 검토
+
+Claude 편집에는 고정 chip을 복원하되 새 엔진 생성에는 하네스 선택을 유지한다. catalog loading과 mutation busy를 분리해 다른 하네스 조회가 기존 조작을 잠그지 않게 했다. 실제 저장 중에는 갱신 완료까지 busy를 유지한다. 새로고침 버튼을 다른 위치에 옮기지 않았다. OpenCode 요약→상세→닫기 복귀와 기존 도구 diff는 CUA 회귀에서 유지됐다.
+
+### 놓친 잠재 문제 + 대응
+
+- 기존 타이틀 테스트는 실제 그룹 조립 대신 별도 registry만 보아 Claude 메뉴 변경을 놓쳤다. 실제 메뉴 항목·순서·클릭을 검사하도록 바꿨다.
+- 카탈로그의 전체 loading을 합친 변경은 Claude 버튼까지 비활성화했다. 원래 캐시 진입과 mutation busy를 복원하고 저장 후 강제 갱신은 유지했다.
+- hook 테스트의 Zustand overload 타입 추론이 최초 전체 typecheck에서 실패했다. StateCreator/StoreApi generic으로 수정 후 hook 6케이스·전체 node/web/test를 재통과했다.
+- CUA fixture의 permission.setMode 반환 누락으로 Work 전환 시 오류가 표시됐다. native stub을 실제 반환 계약으로 고친 후 정상 수동 승인·평면 메뉴를 다시 관측했다. 제품 결함으로 기록하지 않는다.
+- 실제 Electron 창과 새 실모델 호출은 이번 시각 검증에 포함하지 않았다. 실제 컴포넌트·CSS·store를 사용한 메모리 native preview이며 사용자 최종 인수는 유지한다.
+
+### 구현 보고
+
+| AC | 자기 결과 | 관측 |
+|---|---|---|
+| AC30 | ✅ | Code/Work 실제 메뉴·토글/배지·viewport 렌더 회귀, CUA 평면 메뉴와 원래 계획/작업 패널 및 두 테마 표시 |
+| AC31 | ✅ | 실제 엔진 페이지·카드·폼/hook 테스트, CUA 새로고침 제거·chip·조회 중 편집/저장 활성·OpenCode 선택/잠금 유지 |
+| AC11 | ⚠️ | 사용자 최종 시각 인수와 독립 verify 대기 유지 |
+
+신규 ✅2 · ⚠️0 · ❌0 = 2. 이전 자기보고 ✅28 · ⚠️1을 합산한 누적 ✅30 · ⚠️1 · ❌0 = AC31개다. AC 분모는29→31이며 이전 AC 전부를 이번 턴에 재검증한 것으로 주장하지 않는다.
+
+| 게이트 | 관측 |
+|---|---|
+| 관련 Vitest | 83파일/643케이스 통과: 메뉴·composer/transcript·Claude/OpenCode 패널·엔진·하네스 설정·새 대화 |
+| 타입 | 최종 npm run typecheck의 node/web/test 모두 통과 |
+| readonly ESLint | 전체 오류0·기존 useTranscriptVirtualizer incompatible-library 경고1 |
+| build | main/preload/renderer 생성 완료. 기존 SubAgentTileContent 혼합 import 경고 유지 |
+| 운영 | migration sync/append-only·test budgets·Prettier·diff whitespace 통과. 문서 generated/prose 통과. 원본 링크 guard는 다운로드 `.tmp/opencode-dev` 내부 5건 실패, `.tmp`·첨부를 제외한 저장소 링크는 빈 배열. 원격 Windows CI는 후속 기록 |
+| CUA | [디자인 증거](design-evidence.md#claude-gui-복원-2026-10-15-r113). 메모리 native 실제 컴포넌트 preview, 새 실모델 호출 없음 |
+
+### Review Signals
+
+r1.13은 사용자 복원 지시에 따른 ΔV9다. D-004의 기존 Claude 보존 의도가 있었지만 실제 메뉴를 관측하지 않는 테스트가 그룹 제목 추가를 검출하지 못했다. 이번 보고는 확인한 경로의 복원과 사용자 최종 인수를 구분한다. 다음 주체는 Claude 독립 검증자다.
