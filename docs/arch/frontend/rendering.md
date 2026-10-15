@@ -218,7 +218,7 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 
 검증된 `tool.call.completed.artifact`는 원래 toolRunId가 속한 메시지만 교체한다. 목록 갱신 이벤트는 게시 카드를 임의의 메시지에 추가하거나 패널을 자동 선택하지 않는다. 일반 출력은 이 목록의 최신 파일을 Transcript 하단에서 표시하며 원래 메시지에 이미 연결된 파일은 중복 표시하지 않는다. `artifactStore`는 mount된 세션의 알려진 ID를 대상으로 상태 조회를 병합하고 세션/파일별 요청 세대로 지각 응답을 폐기한다. transcript 묶음 저장은 해당 메시지의 게시 집합, 타일은 Main이 반환한 최신 목록을 사용한다.
 
-`RightPanel`은 하네스별 진입점을 통해 공통 `components/rightpanel/TilePanel.tsx`를 렌더한다. `TilePanel`은 타일 registry·행/열 배치와 범용 상세 슬롯을 제공하고 세션·뷰어·확대 수명을 조립한다. `RightPanelColumn`은 타일과 행 애니메이션, `PanelResizeSeparators`는 행/열 조절을 담당한다. overview viewport 폭은 가용 영역의 절반 이내이며 넘치는 열은 가로 스크롤한다. 뷰어는 별도 저장한 폭을 사용한다. 직접 타일을 열면 이미 열린 화면 밖 열도 보여 주고, 열 리사이즈는 스크롤된 실제 DOM 좌표를 기준으로 계산한다. 카드와 액션은 기존 시맨틱 토큰·Button·DropdownMenu·확인창·번역 리소스를 공유한다.
+`RightPanel`은 하네스별 진입점을 통해 공통 `harnesses/common/rightpanel/TilePanel.tsx`를 렌더한다. `TilePanel`은 타일 registry·행/열 배치와 범용 상세 슬롯을 제공하고 세션·뷰어·확대 수명을 조립한다. `RightPanelColumn`은 타일과 행 애니메이션, `PanelResizeSeparators`는 행/열 조절을 담당한다. overview viewport 폭은 가용 영역의 절반 이내이며 넘치는 열은 가로 스크롤한다. 뷰어는 별도 저장한 폭을 사용한다. 직접 타일을 열면 이미 열린 화면 밖 열도 보여 주고, 열 리사이즈는 스크롤된 실제 DOM 좌표를 기준으로 계산한다. 카드와 액션은 기존 시맨틱 토큰·Button·DropdownMenu·확인창·번역 리소스를 공유한다.
 
 `useArtifactViewerActions`는 복사와 저장의 중복 실행 잠금·피드백·요청 소유권을 관리한다. 오류 문구는 `artifactFeedback`에서 해석하고 선택 전환·닫기 이후의 완료는 이전 화면을 갱신하지 않는다. 패널 펼치기·복원·닫기는 공통 `PanelControls`와 Material SVG를 사용한다. 같은 역할의 툴팁은 공통 번역을 사용하며 타일을 식별해야 하는 접근성 이름에는 대상명을 포함한다.
 
@@ -234,20 +234,24 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 
 OpenCode의 질문과 도구 승인은 도착 순서대로 같은 입력 자리를 대체한다. 현재 요청만 mount하고 해소되면 다음 요청을 표시한다. 입력 controller는 비활성 상태로 인스턴스를 유지하므로 마지막 요청 후 초안·첨부가 복원된다. Todo 진행 카드는 현재 root 턴의 성공 결과에서 파생해 composer 바로 위에 펼친 목록 또는 한 줄 요약으로 표시한다. 요청 카드가 있으면 가리고, 전체 완료나 실행 종료 시 마지막 내용을 유지한 채 아래로 퇴장한다. 일반 OpenCode transcript에서는 Todo 행을 중복 표시하지 않으며 원본 이력은 보존한다.
 
-`components/rightpanel/tileRegistry.ts`는 하네스별 타일 본문과 헤더를 선택한다. `rightPanelTiles`의 하네스 정책은 타이틀의 평면 메뉴·reducer 활성화·패널 렌더링에서 같은 허용 범위를 사용한다.
+`components/rightpanel/tileRegistry.ts`는 하네스별 타일 본문과 헤더를 선택한다. `rightPanelTiles`의 하네스 정책은 reducer 활성화·패널 렌더링의 지원 범위를 정의하고, 선택적 `menuIds`로 타이틀 메뉴의 노출 범위를 좁힌다. 메뉴 비노출은 저장된 타일·직접 활성화·상세 패널의 지원을 변경하지 않는다.
 
-타이틀 메뉴는 `타일 표시` 아래에 지원 항목을 정의 순서로 표시하며 범주 제목을 넣지 않는다. Claude Code는 계획·백그라운드 작업·변경사항, Claude Work는 작업을 표시한다. OpenCode의 전용 외형은 해당 하네스의 composer·transcript·패널에만 적용한다.
+타이틀 메뉴는 `타일 표시` 아래에 노출 항목을 정의 순서로 표시하며 범주 제목을 넣지 않는다. Claude Code는 계획·백그라운드 작업·변경사항, Claude Work와 OpenCode는 작업만 표시한다. OpenCode의 전용 외형은 해당 하네스의 composer·transcript·패널에만 적용한다.
 
 엔진·모델 페이지의 헤더 액션은 엔진 추가다. Claude 카드에는 adapter 이름 `claude`, Claude 엔진 편집에는 고정 adapter/provider chip을 표시한다. 신규 엔진은 하네스를 선택할 수 있고 OpenCode 카드와 설정 폼은 전용 계약을 사용한다. 페이지 진입은 기존 카탈로그를 재사용하며 변경 저장과 공급자 상태 갱신은 목록을 다시 조회한다. 카탈로그 조회 상태는 엔진 변경 작업의 busy와 분리해 다른 하네스 조회가 기존 편집·삭제·저장을 잠그지 않는다.
 
 | OpenCode 타일 | 표시와 진입 |
 |---|---|
-| `task` | 기본 `작업` 요약 카드. 폴더 제목과 변경 사항 진입을 표시하고, 하위 에이전트·셸 실행·소스 그룹은 실제 항목이 있을 때 표시한다. 카드 자체의 메뉴 버튼·별도 헤더는 없다. |
-| `plan` | 타이틀 메뉴로 여는 독립 타일. 공통 계획 본문·복사와 기존 타일 헤더를 사용한다. |
-| `diff`·`subagent`·`process`·`source` | 타이틀 메뉴에서는 독립 타일로, 작업 요약에서는 기존 패널 위의 상세로 연다. 같은 registry의 본문·헤더를 사용하며 diff는 Git 컨텍스트 헤더, 하위 에이전트는 목록 복귀 버튼을 유지한다. 셸 로그와 소스는 본문 안에서 스크롤한다. |
+| `task` | 기본 `작업` 요약 카드. 폴더 제목과 변경 사항 진입을 표시하고, 하위 에이전트·소스는 실제 자료가 있을 때, 셸 그룹은 활성 실행이 있을 때 표시한다. 카드 자체의 메뉴 버튼·별도 헤더는 없다. |
+| `plan` | 지원되는 독립 타일이며 저장된 배치·기존 활성화 경로를 유지한다. 공통 계획 본문·복사와 기존 타일 헤더를 사용한다. |
+| `diff`·`subagent`·`process`·`source` | 작업 요약에서 기존 패널 위의 상세로 연다. 기존 독립 타일과 같은 registry의 본문·헤더를 사용하며 diff는 Git 컨텍스트 헤더, 하위 에이전트는 목록 복귀 버튼을 유지한다. 셸 로그와 소스는 본문 안에서 스크롤한다. |
 
 작업 요약의 변경 사항·하위 에이전트·셸 행·소스 모두 보기는 OpenCode navigation Context를 통해 상세를 연다. 공통 호스트의 표시 우선순위는 artifact 뷰어 → 상세 → 기존 타일이며 가려진 층은 mounted·hidden·inert로 유지한다. artifact를 닫으면 상세로, 상세를 닫으면 원래 타일로 돌아간다. 상세에는 추가 제목·뒤로 행 없이 기존 헤더를 사용하고, `RightPanelTile`의 닫기 override가 상세만 닫아 뒤의 같은 종류 타일을 보존한다. 타이틀 메뉴와 transcript Task 카드는 직접 타일 열기 경로를 사용한다.
 
-소스 그룹의 활성 조건은 추가 폴더·첨부·참조 자료이며 작업 디렉터리만 있으면 그룹을 표시하지 않는다. 전체 소스 타일은 빈 상태에서도 메뉴로 열어 폴더를 추가할 수 있다. 소스 파일·URL 열기와 폴더 추가는 기존 컨텍스트 액션을 사용한다. PR 항목은 제공하지 않으며 전용 색·표면·그림자는 두 테마의 `oc-*` 토큰이 갖는다.
+소스 그룹의 활성 조건은 추가 폴더·전송된 첨부·참조 자료이며 작업 디렉터리만 있으면 그룹을 표시하지 않는다. 자료가 생긴 뒤 요약의 소스 그룹에서 폴더 추가·모두 보기를 사용한다. 소스 파일·URL 열기와 폴더 추가는 기존 컨텍스트 액션을 사용한다.
+
+요약의 셸 목록은 `activePanelProcesses`가 기존 outcome의 `running`만 선택한다. 종료된 행과 마지막 실행 종료 후 그룹은 숨기며, 열린 상세와 전체 기록에는 최종 상태·로그를 유지한다. PR 항목은 제공하지 않는다.
+
+OpenCode 패널의 외곽은 기존 보조 패널과 같은 `rounded-r6 border`를 사용하며, 전용 색·표면·그림자는 두 테마의 `oc-*` 토큰이 갖는다. 클릭 행의 안쪽 좌우 여백은 `PanelRow`·하위 에이전트 요약/목록·소스 URL에 일관되게 적용한다.
 
 OpenCode 소스는 Work 컨텍스트와 같은 `useTaskContext` 훅을 사용한다. 폴더·첨부·참조 목록과 열기/추가 기능을 공유하고, `sessionContextPolicy`가 OpenCode Code와 Claude Work의 컨텍스트 기능을 허용한다. child 도구와 대화는 부모 작업에 귀속하며 셸의 완료 결과를 진행 로그보다 우선하고 제한된 후미와 잘림 안내를 표시한다. 선택·닫기·세션 캐시의 수명은 [상태 관리](state.md#우측-타일-선택)를 따른다.

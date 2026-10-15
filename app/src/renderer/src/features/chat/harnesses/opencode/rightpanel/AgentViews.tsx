@@ -38,7 +38,7 @@ export function AgentList({
                 key={agent.toolUseId}
                 type="button"
                 onClick={() => onSelect(agent.toolUseId)}
-                className="flex w-full min-w-0 items-center gap-3 rounded-md py-3 text-left outline-none hover:bg-oc-layer-2 ring-focus"
+                className="flex w-full min-w-0 items-center gap-3 rounded-md px-2 py-3 text-left outline-none hover:bg-oc-layer-2 ring-focus"
               >
                 <AgentAvatar index={index} />
                 <span className="min-w-0 flex-1 truncate text-footnote text-oc-ink">

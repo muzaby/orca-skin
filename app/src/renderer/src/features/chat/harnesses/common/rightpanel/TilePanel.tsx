@@ -10,6 +10,7 @@ import { RightPanelColumn } from './RightPanelColumn'
 import { useColumnSlideOnReflow } from '../../../hooks/useColumnSlideOnReflow'
 import { useI18n } from '../../../../../shared/i18n'
 import { ArtifactViewer } from './ArtifactViewer'
+import { focusPanelOrigin } from './panelFocus'
 import {
   closeArtifactViewer,
   setArtifactViewerWidth,
@@ -20,6 +21,7 @@ export interface TilePanelDetail {
   key: string
   content: ReactNode
   origin?: HTMLElement
+  fallbackOrigin?: HTMLElement
   expanded: boolean
   width: number
   onWidthChange: (width: number) => void
@@ -42,6 +44,7 @@ export function TilePanel({
   const viewerOrigin = useRef<HTMLElement | undefined>(undefined)
   const viewerRequest = useRef<number | undefined>(undefined)
   const detailOrigin = useRef<HTMLElement | undefined>(undefined)
+  const detailFallbackOrigin = useRef<HTMLElement | undefined>(undefined)
   const detailKey = useRef<string | undefined>(undefined)
   const detailRef = useRef<HTMLDivElement>(null)
   const overlayOpen = !!viewer || !!detail
@@ -72,11 +75,6 @@ export function TilePanel({
 
   useLayoutEffect(() => {
     if (useChatStore.getState().activeKey !== activeKey) return
-    const focusOrigin = (origin?: HTMLElement): boolean => {
-      if (!origin?.isConnected || origin.closest('[inert], [hidden]')) return false
-      origin.focus({ preventScroll: true })
-      return true
-    }
     const focusDetail = (): void => {
       const root = detailRef.current
       ;(root?.querySelector<HTMLElement>('[data-panel-close]') ?? root)?.focus({
@@ -86,6 +84,7 @@ export function TilePanel({
     if (detail) {
       if (detailKey.current !== detail.key) {
         detailOrigin.current = detail.origin
+        detailFallbackOrigin.current = detail.fallbackOrigin
         if (!viewer) focusDetail()
       }
       detailKey.current = detail.key
@@ -101,16 +100,21 @@ export function TilePanel({
       const origin = viewerOrigin.current
       viewerOrigin.current = undefined
       viewerRequest.current = undefined
-      if (focusOrigin(origin)) {
-        if (!detail) detailOrigin.current = undefined
+      if (focusPanelOrigin(origin)) {
+        if (!detail) {
+          detailOrigin.current = undefined
+          detailFallbackOrigin.current = undefined
+        }
         return
       }
       if (detail) focusDetail()
     }
-    if (!detail && detailOrigin.current) {
+    if (!detail && (detailOrigin.current || detailFallbackOrigin.current)) {
       const origin = detailOrigin.current
+      const fallback = detailFallbackOrigin.current
       detailOrigin.current = undefined
-      focusOrigin(origin)
+      detailFallbackOrigin.current = undefined
+      focusPanelOrigin(origin, fallback)
     }
   }, [activeKey, viewer, detail])
   useLayoutEffect(() => {
@@ -122,6 +126,7 @@ export function TilePanel({
       viewerOrigin.current = undefined
       viewerRequest.current = undefined
       detailOrigin.current = undefined
+      detailFallbackOrigin.current = undefined
       detailKey.current = undefined
       closeArtifactViewer(activeKey)
     },

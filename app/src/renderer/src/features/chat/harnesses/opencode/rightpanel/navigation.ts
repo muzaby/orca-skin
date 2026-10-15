@@ -19,6 +19,7 @@ export function useOpenCodePanelNavigation(): OpenCodePanelNavigation | null {
 export interface OpenCodeDetailState {
   selection: OpenCodePanelSelection | null
   origin?: HTMLElement
+  fallbackOrigin?: HTMLElement
   request: number
   expanded: boolean
   width: number
@@ -32,7 +33,12 @@ export const initialOpenCodeDetailState: OpenCodeDetailState = {
 }
 
 export type OpenCodeDetailAction =
-  | { type: 'open'; selection: OpenCodePanelSelection; origin?: HTMLElement }
+  | {
+      type: 'open'
+      selection: OpenCodePanelSelection
+      origin?: HTMLElement
+      fallbackOrigin?: HTMLElement
+    }
   | { type: 'select'; selection: OpenCodePanelSelection }
   | { type: 'close' }
   | { type: 'expand' }
@@ -48,6 +54,7 @@ export function openCodeDetailReducer(
         ...state,
         selection: action.selection,
         origin: action.origin,
+        fallbackOrigin: action.fallbackOrigin,
         request: state.request + 1,
         expanded: false
       }
@@ -57,11 +64,25 @@ export function openCodeDetailReducer(
         : state
     case 'close':
       return state.selection
-        ? { ...state, selection: null, origin: undefined, expanded: false }
+        ? {
+            ...state,
+            selection: null,
+            origin: undefined,
+            fallbackOrigin: undefined,
+            expanded: false
+          }
         : state
     case 'expand':
       return state.selection ? { ...state, expanded: !state.expanded } : state
     case 'resize':
       return { ...state, width: action.width }
   }
+}
+
+export function openCodePanelFallbackOrigin(origin?: HTMLElement): HTMLElement | undefined {
+  return (
+    origin
+      ?.closest('[data-component="opencode-session-panel"]')
+      ?.querySelector<HTMLElement>('[data-panel-focus="changes"]') ?? undefined
+  )
 }

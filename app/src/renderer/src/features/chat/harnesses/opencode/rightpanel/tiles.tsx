@@ -7,7 +7,7 @@ import { useBackgroundStore } from '../../../store/backgroundStore'
 import { AgentDetail, AgentList } from './AgentViews'
 import { AgentAvatar, PanelRow } from './chrome'
 import { OpenCodeSources } from './Sources'
-import { sessionPanelModel } from './model'
+import { activePanelProcesses, sessionPanelModel } from './model'
 import type { Message } from '../../../reducer/chatReducer'
 import { useOpenCodePanelNavigation } from './navigation'
 
@@ -30,6 +30,7 @@ export function OpenCodeTaskContent(): React.JSX.Element {
   const navigation = useOpenCodePanelNavigation()
   const { model } = usePanelData()
   const active = model.agents.filter((agent) => agent.status === 'running').length
+  const processes = activePanelProcesses(model)
   return (
     <div data-component="opencode-session-panel" className="overflow-y-auto px-6 py-4">
       <div
@@ -41,6 +42,7 @@ export function OpenCodeTaskContent(): React.JSX.Element {
       </div>
       <PanelRow
         icon="commentAdd"
+        focusKey="changes"
         onClick={(event) => navigation?.open({ id: 'diff' }, event.currentTarget)}
       >
         {tr('chat.opencode.panel.changes')}
@@ -53,7 +55,7 @@ export function OpenCodeTaskContent(): React.JSX.Element {
             onClick={(event) =>
               navigation?.open({ id: 'subagent', selectedId: null }, event.currentTarget)
             }
-            className="flex w-full items-center gap-2 rounded-md py-2 text-footnote text-oc-muted outline-none hover:bg-oc-hover ring-focus"
+            className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-footnote text-oc-muted outline-none hover:bg-oc-hover ring-focus"
           >
             <span className="flex -space-x-1">
               {model.agents.slice(0, 3).map((agent, index) => (
@@ -67,10 +69,10 @@ export function OpenCodeTaskContent(): React.JSX.Element {
           </button>
         </section>
       )}
-      {model.processes.length > 0 && (
+      {processes.length > 0 && (
         <section data-panel-group="processes" className="mt-3 border-t border-oc-border py-4">
           <h3 className="mb-2 text-caption text-oc-muted">{tr('chat.opencode.panel.processes')}</h3>
-          {model.processes.map((process) => (
+          {processes.map((process) => (
             <PanelRow
               key={process.id}
               icon="terminal"

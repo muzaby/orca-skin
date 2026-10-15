@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex / 2026-10-16 |
-| 상태 | READY — Delta V5 설계, 구현 대기; V4 구현 이력 보존 |
+| 상태 | IN_PROGRESS — Delta V5 구현·자기검증 진행; V4 구현 이력 보존 |
 | V mode / revision | Baseline V1 + Delta V2 + Delta V3 + Delta V4 + Delta V5 |
 | 기준 V | Delta V5는 V1~V4 @ `940bd44edc5625f79b377b885cbe559b1d66fdb6` 상속 |
 | 매핑 | PR #502, 0262 후속 |
@@ -649,7 +649,7 @@ D-14를 구현했다. 요약 클릭은 OpenCode 로컬 상세 상태를 열며, 
 | 관련 Node Vitest | 57파일/499케이스 통과. navigation·registry·host·store·reducer·artifact·sidePaneResize 포함 |
 | Typecheck | node/web/test 통과 |
 | ESLint | 최종 전체 읽기 전용 검사 오류0, 기존 useTranscriptVirtualizer 경고1 |
-| Build | main/preload/renderer 완료. 기존 SubAgentTileContent 정적/동적 import 경고 유지 |
+| Build | main/preload/renderer 완료. 기존 SubAgentTaskDetail 정적/동적 import 혼용 경고 유지 |
 | 문서/운영 | generated/prose·migration sync/append-only·test-budget 통과. 다운로드·첨부 제외 checkLinks 결과 [] |
 | 원본 링크 guard 제한 | 사용자 다운로드 `.tmp/opencode-dev`의 상대링크5건만 실패. 해당 자료는 수정·커밋하지 않음 |
 | 원격 CI | 이번 제품 코드 `fbc15aba`의 [Windows CI #754](https://github.com/muzaby/orca-skin/actions/runs/38695989992) success. Vitest 699파일/6966케이스 통과·1파일/1케이스 skip, scripts138/138 통과. migration·문서·test-budget·lint·typecheck 모두 성공 |
@@ -786,3 +786,101 @@ V3 VP-09의 R-08~10 및 V4 VP-13의 R-06은 VP-17로, VP-12의 활성/메뉴 계
 신규·변경 R/SD/AR/MD는 모두 VP-17~20의 같은 레벨 REQUIRED pair와 §10 자리를 가진다. 새 테스트는 T-V5로 계획 좌표임을 표시했고 인용한 기존 케이스·정책/소비 경로는 현재 파일에서 확인했다. 이전 V4 self-pass·원격 CI는 기준선 증거이며 이번 제품 변경의 완료 판정이 아니다.
 
 설계 산출 gate: `git diff --check` 통과, `checkLinks`에서 사용자 다운로드 `.tmp`와 `.codex-remote-attachments` 제외 결과 0건, `scanProse` 위반 0건. plan/INDEX 모두 plan/READY·다음 Codex·라운드 1을 대조했다. 변경 파일은 이 plan과 INDEX뿐이며 앱 코드·첨부·현재 architecture는 변경하지 않았다.
+
+## [구현자 기입] Delta V5 — r1.5
+
+### 설계 리뷰
+
+D-15~19를 구현했다. OpenCode 메뉴 투영은 지원 타일 정책과 분리했고, 활성 셸 투영은 전체 이력과 분리했다. 외곽은 기존 `rounded-r6 border`를 사용하며 네 행 렌더에 `px-2`를 적용했다. 완료로 제거된 진입 행의 복귀 대상은 같은 작업 요약의 변경 사항 버튼이다.
+
+### 강제 지점 전수와 V-pair 자기확인
+
+| 자리 | 직접 oracle / 이번 관측 |
+|---|---|
+| EP-20a | CUA: OpenCode 요약·계획·상세와 Claude 계획·Work 작업의 computed radius 10.875px, 각 변 border 0.8px로 동일. 현재 글꼴/디스플레이 배율에서 측정한 값이며 고정 px를 새로 정의하지 않음 |
+| EP-20b | PanelRow의 변경 사항·셸·파일 실제 hover=true, 좌우 padding 7.25px. 좁은 폭의 셸·파일 scrollWidth=clientWidth |
+| EP-20c | agent 요약 버튼 hover=true, 좌우 padding 7.25px와 hover 배경 관측 |
+| EP-20d | source URL hover=true, 좌우 padding 7.25px, 행 가로 overflow=false |
+| EP-20e | agent 목록 버튼 hover=true, 좌우 padding 7.25px, 행 가로 overflow=false |
+| EP-21a | `model.test.ts`: 모든 outcome·async-launched·동시 실행·재실행에서 active IDs와 전체 기록을 함께 단언 |
+| EP-21b | 실제 reducer/store CUA: 활성 0→2→1→0, 마지막 종료 후 프로세스 heading 0개. agent/source 유지, 새 실행에서 그룹 재등장 |
+| EP-21c | CUA: 열린 셸 상세는 성공/실패 후에도 최종 상태·로그 유지. 저장 타일 복원에서 `old-completed-shell` 상세도 완료 기록 표시 |
+| EP-22a | `rightPanelTiles.harness.test.ts`: menu task만, 기존 target/columns 지원 집합 유지 |
+| EP-22b | 실행 중 Orca와 preview의 실제 케밥 메뉴에 작업만 표시. 다른 타일·범주 제목 없음 |
+| EP-22c | 실제 작업 클릭으로 요약 제거→aria-checked=false→재클릭으로 요약 복원 |
+| EP-22d | CUA: Claude Code 계획/백그라운드 작업/변경사항, Work 작업 유지. 메뉴의 고정/이름 변경/삭제 유지; 콜백·배지는 기존 및 확장 테스트 |
+| EP-23a | navigation 테스트와 CUA: origin에서 같은 summary의 변경 사항 버튼을 선택, 다른 세션/새 진입에는 이전 참조를 남기지 않음 |
+| EP-23b | Panel이 navigation의 fallback을 detail config로 전달. 실제 완료 후 닫기에서 변경 사항 focus 관측 |
+| EP-23c | common host CUA: 연결된 origin은 원래 셸 버튼으로, 제거된 origin은 변경 사항으로 복귀. transcript scrollTop 468→468, artifact→상세→요약 및 A→B→A의 상세 수0 |
+
+제품 자리는 EP-20 5개·EP-21 3개·EP-22 4개·EP-23 3개로 15개다. DOC-V5a/b는 구현 단계의 plan 메타와 INDEX 상태를 함께 갱신·재조회하는 별도 2자리다.
+
+| Pair | 자기 결과 / 근거 |
+|---|---|
+| VP-17 REQUIRED | SELF_PASS — T-V5-01~05와 CUA-V5-01~04의 표시·토글·상태 전환·복귀 |
+| VP-18 REQUIRED | SELF_PASS — 성공/실패 중 상세 유지, 행/그룹 제거, close/Escape 후 안정적인 focus와 스크롤 |
+| VP-19 REQUIRED | SELF_PASS — 실제 타일 외곽·메뉴 정책 소비·fallback 전달, Claude 정책 기본값 보존 |
+| VP-20 REQUIRED | SELF_PASS — active/menu 순수 투영의 직접 입력·출력 테스트 |
+| VP-06, VP-01의 R-04/05/07, VP-12 REGRESSION | SELF_PASS — 전체 로그·실패·상한·컨텍스트·독립 그룹 테스트와 source 추가/파일 열기 CUA |
+| VP-09의 R-01, VP-13의 R-02/11, VP-14~16 나머지 REGRESSION | SELF_PASS — 기존 타일/선택 복원, 네 상세 진입, artifact 순서, 세션 격리와 기존 헤더 회귀 |
+
+### 이번 라운드 수정의 잠금
+
+해당 없음 — 직접 입력·렌더·콜백·DOM oracle이다. 선택 증거 0 · 인용 변이 0 · 새 구조 proxy/전수 배선 oracle 0 = 잠금 표 행 0. SSR과 Node 테스트만으로 실제 구독·포커스를 주장하지 않고 실제 렌더러의 조작으로 보완했다.
+
+### Product/UX 파생 검토
+
+| 관측 / 위험 | 대응과 재측정 |
+|---|---|
+| 활성 필터를 전체 model에 적용하면 완료 상세가 사라짐 | summary에서만 selector 사용. CUA 성공/실패 상세와 기존 완료 타일 모두 유지 |
+| 메뉴 숨김을 지원 목록 축소로 구현하면 기존 배치가 삭제됨 | menuIds를 별도 투영. CUA task/plan/process/source 저장 배치와 완료 선택 복원 |
+| 종료 행 제거 뒤 키보드 복귀 대상이 없어짐 | 같은 요약의 변경 사항을 fallback으로 전달. 닫기/Escape 둘 다 실제 focus 확인 |
+| 도구 완료와 턴 종료는 다른 수명 | 검증 fixture에도 실제 턴 종료 이벤트를 추가. 턴 종료 뒤 source picker→addDirectory·openContextFile 호출 확인 |
+
+### 놓친 잠재 문제 + 대응
+
+| 축 | 조사 / 대응 |
+|---|---|
+| 설계 대비 차이 | T-V5-04의 focus 판단은 공통 `panelFocus.ts`로 추출해 `panelFocus.test.ts`에서 직접 단언. navigation/host 렌더와 CUA가 전달·실제 효과를 보완 |
+| 공유 | helper는 DOM 참조만 받으며 하네스 정책을 알지 못함. fallback을 전달하지 않는 Claude/artifact는 기존 origin 검사와 동일 |
+| 재진입 | open에서 fallback 교체, select/resize에서 보존, close와 host cleanup에서 제거. artifact 중첩 후 원래 셸 origin 복귀 |
+| 무효화/세션 | detached·hidden·inert 대상은 거부. activeKey guard와 OpenCode Panel remount로 A→B→A에서 이전 상세/포커스 참조 제거 |
+| 만료 | 캐시·서버 상태·시간 만료는 추가하지 않음. DOM 연결 수명은 직접 테스트와 완료 행 제거 CUA로 확인 |
+
+미해결 PLAN_GAP 없음. Main·SDK·IPC·DB·새 의존성·영속 포맷은 변경하지 않았다. 현재 architecture의 메뉴/요약/복귀 서술과 이동된 공통 TilePanel 경로를 정정했다.
+
+### 구현 보고
+
+| AC | 자기 결과 | 관측 |
+|---|---|---|
+| AC1′ | ✅ | 작업 기본 요약·하네스 registry와 실제 작업 토글 |
+| AC2″ | ✅ | 변경 사항/agent/셸/source 네 상위 상세 진입, 기존 타일 복원 |
+| AC3 | ✅ | agent 모델·활동 projection 회귀 및 목록→본문 진입 |
+| AC4 | ✅ | 전체 진행/최종/실패 로그 테스트, 실제 완료·실패 상세 유지 |
+| AC5 | ✅ | source picker/addDirectory/openContextFile 실제 호출 기록 |
+| AC6‴ | ✅ | 제거 origin의 fallback focus, scrollTop 468 보존, artifact 순서 및 세션 격리 |
+| AC7 | ✅ | Claude Code/Work 메뉴·외곽과 공통 host 회귀 |
+| AC8′ | ✅ | 자료 없는 요약은 변경 사항만, 활성 셸 0→2→1→0→재실행 |
+| AC9′ | ✅ | 요약 메뉴 버튼 없음, title에서 작업만 표시 |
+| AC10′ | ✅ | 실제 작업 체크/닫기/재열기, 다른 케밥 액션·Claude 기존 목록 |
+| AC11′ | ✅ | 실행 중 Orca의 기존 Git 헤더 닫기, 추가 wrapper 없음 |
+| AC12 | ✅ | 두 테마에서 OpenCode/Claude 공통 모서리·각 변 border 일치 |
+| AC13 | ✅ | 네 행 렌더의 실제 hover·padding, 좁은 폭 긴 파일/셸/URL 말줄임 |
+
+✅13 · ⚠️0 · ❌0 = 총13. Claude 독립 verify와 0262의 사용자 최종 시각 인수는 별도다.
+
+| Gate | 이번 관측 |
+|---|---|
+| 관련 Node Vitest | 통합 영향 집합 진행 중. 개별 menu 8파일/74케이스·model/Panel/activity 3파일/24케이스·focus/navigation/host 3파일/27케이스 통과 |
+| Typecheck | node/web/test 모두 통과 |
+| ESLint | 첫 전체 검사에서 테스트 helper 반환형 누락1건을 수정. 최종 재검 진행 중; 기존 경고6건은 변경 파일 밖 |
+| Build | main/preload/renderer 완료. 기존 SubAgentTaskDetail 정적/동적 import 혼용 경고 유지 |
+| 문서/운영 | generated/prose·test-budget 통과. 다운로드·첨부 제외 checkLinks와 scanProse 결과 [] |
+| 원본 링크 guard 제한 | 사용자 다운로드 `.tmp/opencode-dev` 상대링크5건만 실패. 자료를 수정·커밋하지 않음 |
+| 원격 CI | push 후 확인 예정 |
+
+실행 중 Orca에서는 작업 메뉴 토글·변경 사항 상세 열기/닫기와 요약 복귀를 직접 조작했다. 다중 셸 상태·테마·세션 전환은 실제 ChatTitleBar/TranscriptView/RightPanel/store preview에서 수행했으며 native API만 메모리 fixture다. 새 실모델 호출은 하지 않았다. 로컬 증거는 `.tmp/0263-v5-visual-evidence.md`, 캡처는 `0263-v5-summary.jpg`·`0263-v5-dark-detail.jpg`다. 임시 fixture·다운로드·첨부는 커밋하지 않는다.
+
+### Review Signals
+
+r1.5는 승인된 Delta V5의 구현 턴이다. 메뉴 노출·지원 집합, 요약 활성·전체 이력의 경계를 검증자가 우선 확인하면 된다. common host의 새 fallback은 OpenCode가 제공하는 선택적 참조이며 기존 Claude 외관 정책을 수정하지 않았다. 독립 판정은 Claude 검증자가 수행한다.

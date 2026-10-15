@@ -28,13 +28,17 @@
 
 ### 우측 타일 선택
 
-OpenCode의 `rightPanelTiles`는 작업 요약과 계획·하위 에이전트·변경 사항·프로세스·소스를 독립적으로 보관한다. 타이틀 메뉴와 transcript Task 카드는 직접 타일 열기 경로를 사용한다. `chatActions.openProcessTool`은 활성 세션의 `selectedProcessToolId`를 설정하고 `process` 타일을 열어 `panelReveal`로 해당 열을 드러낸다. 이미 열린 프로세스 타일에서는 선택만 바꾸고 다른 열린 타일과 `selectedSubagentTaskId`를 보존한다.
+OpenCode의 `rightPanelTiles`는 작업 요약과 계획·하위 에이전트·변경 사항·프로세스·소스를 독립적으로 보관한다. 타이틀 메뉴는 작업만 토글하며, 메뉴 노출 정책은 기존 타일 지원·저장 상태와 분리한다. transcript Task 카드는 기존 직접 타일 열기 경로를 사용한다.
+
+`chatActions.openProcessTool`은 활성 세션의 `selectedProcessToolId`를 설정하고 `process` 타일을 열어 `panelReveal`로 해당 열을 드러낸다. 이미 열린 프로세스 타일에서는 선택만 바꾸고 다른 열린 타일과 `selectedSubagentTaskId`를 보존한다.
 
 프로세스 타일을 토글·비활성화·닫기로 제거하면 `removeTile`이 해당 선택만 비운다. 하위 에이전트 타일을 닫으면 그 선택만 비우며, 타일을 다시 열 때는 목록에서 시작한다. 셸 명령·상태·로그는 세션 메시지와 해당 sessionId의 background 상태에서 파생한다.
 
 직접 타일의 선택과 닫힌 배치는 `sessions[key].session`의 메모리 상태다. 캐시 세션으로 돌아오거나 같은 OpenCode 세션을 다시 `LOAD_SESSION`하면 보존하며, 다른 세션의 첫 로드는 기본 타일과 빈 선택으로 시작한다.
 
 작업 요약에서 여는 상세는 `harnesses/opencode/rightpanel/Panel.tsx`의 로컬 UI 상태다. navigation Context가 `diff | subagent(selectedId) | process(selectedId) | source` 선택을 전달하며, 상세 안의 agent/process 선택은 뒤에 열린 타일의 ChatState 선택과 분리한다. 요약 진입은 `rightPanelTiles`나 `panelReveal`을 바꾸지 않는다. 상세의 폭·확대와 진입 버튼도 별도로 보관하며, 닫기 또는 내부 팝업이 처리하지 않은 Escape는 상세만 정리하고 원래 타일·스크롤·연결된 진입 버튼의 초점으로 복귀한다. 명시적인 직접 타일 활성화는 상세를 해제해 요청한 타일을 드러낸다.
+
+활성 셸 요약은 전체 기록에서 파생하며 종료 시 요약에서만 행을 제거한다. 종료로 진입 행이 사라진 경우를 위해 OpenCode는 변경 사항 버튼을 대체 초점으로 보관해 공통 상세 호스트에 전달한다. 상세를 닫으면 연결되고 표시된 원래 버튼을 우선하며, 사용할 수 없으면 같은 요약의 대체 버튼으로 복귀한다.
 
 artifact의 선택·요청 세대는 `artifactViewerStore`가 계속 소유한다. artifact를 여닫아도 그 아래 상세의 선택·폭·확대를 유지하며, 각 층의 초점 복귀는 현재 표시되는 층에만 적용한다. OpenCode 패널은 `activeKey`로 재마운트되어 임시 상세와 로컬 확대 상태를 다른 세션이나 캐시 복귀에 옮기지 않는다. 타일·상세의 표시 우선순위와 헤더·소스 그룹 조건은 [렌더링](rendering.md#하네스-전용-표시)을 따른다.
 

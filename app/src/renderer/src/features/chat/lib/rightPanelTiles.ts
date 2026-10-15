@@ -26,6 +26,8 @@ export interface RightPanelHeaderProps {
 
 export interface RightPanelAgentPolicy {
   visibleIds: readonly RightPanelTileId[]
+  /** 메뉴 진입점만 제한한다. 생략하면 지원 타일을 모두 표시한다. */
+  menuIds?: readonly RightPanelTileId[]
   taskTarget: RightPanelTileId
   taskBadgeTile: RightPanelTileId
   initialTile: RightPanelTileId | null
@@ -103,6 +105,17 @@ export function rightPanelTileDefinitionsForAgent(
 ): (typeof rightPanelTileDefinitions)[number][] {
   return visibleRightPanelTileDefinitions.filter((tile) =>
     isRightPanelTileVisible(tile.id, kind, backend)
+  )
+}
+
+export function rightPanelMenuTileDefinitionsForAgent(
+  kind: AgentKind,
+  backend: Backend | null = 'claude'
+): (typeof rightPanelTileDefinitions)[number][] {
+  const policy = rightPanelPolicy(kind, backend)
+  const menuIds = policy.menuIds ?? policy.visibleIds
+  return rightPanelTileDefinitionsForAgent(kind, backend).filter((tile) =>
+    menuIds.includes(tile.id)
   )
 }
 

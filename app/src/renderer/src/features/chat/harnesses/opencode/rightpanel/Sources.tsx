@@ -61,7 +61,7 @@ export function OpenCodeSources({
             onClick={(event) => {
               if (useChatStore.getState().activeKey !== activeKey) event.preventDefault()
             }}
-            className="flex min-w-0 items-center gap-3 rounded-md py-2 text-footnote text-oc-muted outline-none hover:bg-oc-layer-2 ring-focus"
+            className="flex min-w-0 items-center gap-3 rounded-md px-2 py-2 text-footnote text-oc-muted outline-none hover:bg-oc-layer-2 ring-focus"
           >
             <Icon name="globe" size={16} />
             <span className="truncate">{source.title}</span>

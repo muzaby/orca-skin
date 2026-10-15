@@ -70,6 +70,11 @@ export function sessionPanelModel(
     })
   return { agents, processes }
 }
+
+export function activePanelProcesses(model: SessionPanelModel): SessionPanelModel['processes'] {
+  return model.processes.filter((process) => process.status === 'running')
+}
+
 export function hasPanelSources(
   directories: readonly TaskContextDirectory[],
   sources: readonly TaskContextSource[]

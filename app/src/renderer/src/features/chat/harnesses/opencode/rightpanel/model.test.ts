@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Message } from '../../../reducer/chatReducer'
-import { hasPanelSources, sessionPanelModel } from './model'
+import { activePanelProcesses, hasPanelSources, sessionPanelModel } from './model'
 import { createTaskContextSourceSelector, taskContextDirectories } from '../../../lib/taskContext'
 import {
   applyBackgroundEvent,
@@ -112,6 +112,108 @@ describe('OpenCode panel projection', () => {
     const model = sessionPanelModel(nested)
     expect(model.processes[0]).toMatchObject({ status: 'failed', truncated: true })
     expect(model.processes[0].output).toHaveLength(65536)
+  })
+
+  it('selects only running processes without removing terminal history', () => {
+    type Result = Omit<
+      Extract<Message['parts'][number], { type: 'tool_result' }>,
+      'type' | 'toolRunId'
+    >
+    const results: Record<string, Result> = {
+      async: { result: { status: 'async_launched', agentId: 'shell' }, isError: false },
+      completed: { result: 'successful output', isError: false },
+      failed: { result: 'failed output', isError: true },
+      rejected: {
+        result: 'rejected output',
+        isError: true,
+        nonExecution: { source: 'sdk', kind: 'user-rejected' }
+      },
+      aborted: { result: { reason: 'aborted', message: 'partial output' }, isError: true },
+      cancelled: {
+        result: 'cancelled output',
+        isError: true,
+        nonExecution: { source: 'sdk', kind: 'cancelled' }
+      },
+      not_executed: {
+        result: 'unexecuted output',
+        isError: true,
+        nonExecution: { source: 'host', kind: 'no_result' }
+      }
+    }
+    const history: Message[] = [
+      {
+        role: 'assistant',
+        createdAt: 1,
+        parts: ['running', ...Object.keys(results)].flatMap((id): Message['parts'] => [
+          { type: 'tool_call', toolRunId: id, toolName: 'Bash', args: { command: `echo ${id}` } },
+          ...(results[id] ? [{ type: 'tool_result' as const, toolRunId: id, ...results[id] }] : [])
+        ])
+      }
+    ]
+    const model = sessionPanelModel(history)
+    const original = structuredClone(model)
+    expect(model.processes.map(({ id, status }) => [id, status])).toEqual([
+      ['running', 'running'],
+      ['async', 'running'],
+      ['completed', 'completed'],
+      ['failed', 'failed'],
+      ['rejected', 'rejected'],
+      ['aborted', 'aborted'],
+      ['cancelled', 'cancelled'],
+      ['not_executed', 'not_executed']
+    ])
+    const active = activePanelProcesses(model)
+    expect(active.map((process) => process.id)).toEqual(['running', 'async'])
+    expect(active[0]).toBe(model.processes[0])
+    expect(active[1]).toBe(model.processes[1])
+    expect(model).toEqual(original)
+    for (const [id, result] of Object.entries(results)) {
+      expect(model.processes.find((process) => process.id === id)?.output).toBe(
+        typeof result.result === 'string' ? result.result : JSON.stringify(result.result, null, 2)
+      )
+    }
+  })
+
+  it('removes each settled shell from the summary and shows a later run with its new ID', () => {
+    const history: Message[] = [{ role: 'assistant', createdAt: 1, parts: [] }]
+    const activeIds = (): string[] =>
+      activePanelProcesses(sessionPanelModel(history)).map((process) => process.id)
+    expect(activeIds()).toEqual([])
+    for (const id of ['first', 'second']) {
+      history[0].parts.push({
+        type: 'tool_call',
+        toolRunId: id,
+        toolName: 'Bash',
+        args: { command: 'npm test' }
+      })
+    }
+    expect(activeIds()).toEqual(['first', 'second'])
+    history[0].parts.push({
+      type: 'tool_result',
+      toolRunId: 'first',
+      result: 'first result',
+      isError: false
+    })
+    expect(activeIds()).toEqual(['second'])
+    history[0].parts.push({
+      type: 'tool_result',
+      toolRunId: 'second',
+      result: 'second failure',
+      isError: true
+    })
+    expect(activeIds()).toEqual([])
+    history[0].parts.push({
+      type: 'tool_call',
+      toolRunId: 'retry',
+      toolName: 'Bash',
+      args: { command: 'npm test' }
+    })
+    expect(activeIds()).toEqual(['retry'])
+    expect(sessionPanelModel(history).processes.map(({ id, output }) => [id, output])).toEqual([
+      ['first', 'first result'],
+      ['second', 'second failure'],
+      ['retry', '']
+    ])
   })
 })
 

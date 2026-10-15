@@ -6,6 +6,7 @@ import { useChatStore } from '../../../store/chatStore'
 import {
   initialOpenCodeDetailState,
   openCodeDetailReducer,
+  openCodePanelFallbackOrigin,
   OpenCodePanelNavigationContext,
   type OpenCodePanelNavigation
 } from './navigation'
@@ -19,7 +20,13 @@ export function OpenCodeRightPanel(
   // Explicit title-menu / transcript tile navigation reveals the requested base tile.
   useLayoutEffect(() => dispatch({ type: 'close' }), [reveal])
   const navigation: OpenCodePanelNavigation = {
-    open: (selection, origin) => dispatch({ type: 'open', selection, origin })
+    open: (selection, origin) =>
+      dispatch({
+        type: 'open',
+        selection,
+        origin,
+        fallbackOrigin: openCodePanelFallbackOrigin(origin)
+      })
   }
   let detail: TilePanelDetail | undefined
   if (state.selection) {
@@ -30,6 +37,7 @@ export function OpenCodeRightPanel(
     detail = {
       key: `${activeKey}:${state.request}`,
       origin: state.origin,
+      fallbackOrigin: state.fallbackOrigin,
       expanded: state.expanded,
       width: state.width,
       onWidthChange: (width) => dispatch({ type: 'resize', width }),

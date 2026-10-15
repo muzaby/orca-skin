@@ -150,6 +150,104 @@ describe('OpenCode panel rendering', () => {
       expect(render()('[data-panel-group]').length).toBe(0)
     }
   )
+  it('shows only active shell rows while keeping terminal detail readable', () => {
+    const messages: Message[] = [
+      {
+        role: 'assistant',
+        createdAt: 1,
+        parts: [
+          ...['first', 'second'].map((id): Message['parts'][number] => ({
+            type: 'tool_call',
+            toolRunId: id,
+            toolName: 'Bash',
+            args: { command: `echo ${id}` }
+          })),
+          {
+            type: 'tool_call',
+            toolRunId: 'agent',
+            toolName: 'Task',
+            args: { description: 'Independent agent' }
+          }
+        ]
+      }
+    ]
+    entry.session = {
+      ...original,
+      backend: 'opencode',
+      agentKind: 'code',
+      cwd: 'C:/orca',
+      extraDirs: ['C:/refs'],
+      messages,
+      rightPanelTiles: [{ id: 'task', tiles: ['task'] }]
+    }
+    const { Content } = tileById('process', 'opencode')
+    const render = (): ReturnType<typeof load> =>
+      load(
+        renderToStaticMarkup(
+          createElement(
+            'div',
+            null,
+            createElement(RightPanel),
+            createElement(
+              OpenCodePanelNavigationContext.Provider,
+              { value: { open: () => {}, selection: { id: 'process', selectedId: 'first' } } },
+              createElement('section', { 'data-test-layer': 'detail' }, createElement(Content))
+            )
+          )
+        )
+      )
+    const shellCommands = ($: ReturnType<typeof load>): string[] =>
+      $('[data-panel-group="processes"] button')
+        .toArray()
+        .map((button) => $(button).text())
+    expect(shellCommands(render())).toEqual(['echo first', 'echo second'])
+
+    messages[0].parts.push({
+      type: 'tool_result',
+      toolRunId: 'first',
+      result: 'first final log',
+      isError: false
+    })
+    const partiallyFinished = render()
+    expect(shellCommands(partiallyFinished)).toEqual(['echo second'])
+    expect(
+      partiallyFinished(
+        '[data-test-layer="detail"] [data-component="opencode-process-output"]'
+      ).text()
+    ).toBe('first final log')
+
+    messages[0].parts.push({
+      type: 'tool_result',
+      toolRunId: 'second',
+      result: 'second final failure',
+      isError: true
+    })
+    const finished = render()
+    expect(finished('[data-panel-group="processes"]')).toHaveLength(0)
+    expect(finished('[data-component="opencode-session-panel"]').text()).not.toContain(
+      '백그라운드 프로세스'
+    )
+    expect(finished('[data-panel-group="agents"]')).toHaveLength(1)
+    expect(finished('[data-component="opencode-sources"]')).toHaveLength(1)
+    expect(finished('[data-panel-focus="changes"]').text()).toBe('변경 사항')
+    expect(finished('[data-test-layer="detail"]').text()).toContain('first final log')
+    expect(finished('[data-test-layer="detail"]').text()).not.toContain(
+      '이 항목의 기록을 찾을 수 없습니다.'
+    )
+
+    messages[0].parts.push({
+      type: 'tool_call',
+      toolRunId: 'retry',
+      toolName: 'Bash',
+      args: { command: 'echo retry' }
+    })
+    expect(shellCommands(render())).toEqual(['echo retry'])
+    expect(sessionPanelModel(messages).processes.map((process) => process.id)).toEqual([
+      'first',
+      'second',
+      'retry'
+    ])
+  })
   it('keeps source add reachable in a full tile while hiding cwd-only summary context', () => {
     entry.session = {
       ...original,

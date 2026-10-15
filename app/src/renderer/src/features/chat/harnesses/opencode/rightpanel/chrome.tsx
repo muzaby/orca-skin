@@ -23,7 +23,7 @@ export function PanelRow({
       title={title}
       data-panel-focus={focusKey}
       disabled={disabled}
-      className="flex w-full min-w-0 items-center gap-3 rounded-md py-2 text-left text-footnote text-oc-muted outline-none hover:bg-oc-layer-2 ring-focus disabled:opacity-40"
+      className="flex w-full min-w-0 items-center gap-3 rounded-md px-2 py-2 text-left text-footnote text-oc-muted outline-none hover:bg-oc-layer-2 ring-focus disabled:opacity-40"
     >
       <Icon name={icon} size={16} className="shrink-0" />
       <span className="min-w-0 truncate">{children}</span>
