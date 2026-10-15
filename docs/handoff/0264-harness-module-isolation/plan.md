@@ -312,11 +312,11 @@ tracked 삭제 경로는 이동·통합 257개와 확인된 dead code 2개로 �
 | build | 최종 소스의 main/preload/renderer 빌드 성공. SubAgentTaskDetail 혼합 import 경고 유지 |
 | 문서/정리 | inventory/prose 및 scoped links 오류 0, 현재 문서의 이전 경로 잔여 0, diff check 통과 |
 | 선택 변이 | 6/6 assertion red → byte 복원 → 동일 필터 green |
-| 원격 Windows CI | [#764](https://github.com/muzaby/orca-skin/actions/runs/38765288765): lint/typecheck/문서 통과, 717파일·7046테스트 통과/1 skip. product-identity의 이전 경로에서 4개 실패를 수정하고 해당 파일 34테스트·lint 통과. 수정 커밋 재검증 대기 |
+| 원격 Windows CI | [#765](https://github.com/muzaby/orca-skin/actions/runs/38766807963), `c43bf948`: 전체 gate 성공. Vitest 718파일·7050테스트 통과/기존 1 skip, scripts 142 통과. 앞선 #764의 product-identity 경로 실패 4개도 해소 |
 
 전체 링크 검사에서 ignored `.tmp/opencode-dev`의 기존 링크 오류 5개는 보존된 외부 아카이브에 한정된다. 검사 범위를 숨기지 않고 제품 문서 범위의 링크 검사와 구분했다. 초기 실패가 있던 실행을 전체 green으로 표현하지 않으며, 로그별 재검증을 합산해 중복 테스트 수를 만들지 않는다.
 
-AC 자기확인: AC1(chat)·AC2(engine/settings/landing)·AC3(main 등록)·AC4(parser)·AC5(native 배포/권한)·AC6(경계)·AC7(입력/폼)·AC8(FIFO/Todo/transcript)·AC9(패널)·AC10(runtime)·AC11(정리) = 11/11. 원격 CI 확인 전에는 INDEX를 구현 진행 상태로 유지한다.
+AC 자기확인: AC1(chat)·AC2(engine/settings/landing)·AC3(main 등록)·AC4(parser)·AC5(native 배포/권한)·AC6(경계)·AC7(입력/폼)·AC8(FIFO/Todo/transcript)·AC9(패널)·AC10(runtime)·AC11(정리) = 11/11. 필수 운영 gate를 통과했으며 INDEX를 `impl/IMPL_DONE`·다음 주체 Claude로 함께 전환했다. 독립 verify 및 기존 사용자 인수 항목은 이 자기보고와 구분한다.
 
 ## [구현자 기입] Review Signals
 

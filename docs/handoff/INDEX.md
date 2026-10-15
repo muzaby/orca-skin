@@ -22,7 +22,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [`0264-harness-module-isolation`](0264-harness-module-isolation/plan.md) | impl | **IN_PROGRESS** | **Codex** | (r1 구현 중) | 1 | renderer·main의 하네스/공통 소유권 분리, 정적 등록·의존 경계, tracked 미사용 코드 정리. 기존 UI·세션 동작 보존. |
+| [`0264-harness-module-isolation`](0264-harness-module-isolation/plan.md) | impl | **IMPL_DONE** | **Claude** | (r1 구현 — 검증자 기입) | 1 | renderer·main 하네스/공통 구현 분리 및 미사용 코드 정리. AC11/11·EP28/28 자기확인, 등록 변이6종 검출. Windows CI #765 통과(7050 tests·scripts142). 독립 verify 대기. |
 | [`0263-opencode-session-panel`](0263-opencode-session-panel/plan.md) | impl | **IMPL_DONE** | **Claude** | (r1.4 구현 — 검증자 기입) | 1 | ΔV4: 요약 위 상세 패널·닫기 복귀 구현. 기존 헤더와 선택·스크롤 보존, artifact 중첩·세션 격리 CUA 확인. 독립 verify 대기. |
 | [`0262-opencode-harness`](0262-opencode-harness/plan.md) | impl | **IMPL_DONE** | **Claude** | `5b7a64ca` (r1.15) | 1 | 질문·승인 통합 FIFO, OpenCode 행·스크롤·선택, Todo 펼침/접힘·퇴장 구현. EP35~37 32자리 직접 확인, 누적33/34. CI #762 성공. AC11 사용자 인수·독립 verify 대기. |
 | [`0261-bypass-flag-prod-devtools`](0261-bypass-flag-prod-devtools/plan.md) | verify | **PASS** (V1 r1 · 기계 범위) | **사람** (AC1·AC7 실기) | `cd7ea1a2`(V1 설계) · `fab363fd`(r1) | 1 | **r1 검증 = PASS** — 원문은 [`verify.md`](0261-bypass-flag-prod-devtools/verify.md). pair 7 PASS · VP-01·06 실기 대기 · PLAN_GAP 0 · AC ✅6·⚠️2·❌0.<br>등록 26자리 red · 독립 I1~I10 · gate(lint·typecheck·vitest 120/129 — DB 9 ABI·doc 3종·trailer) PASS. NON_BLOCKING N1~N3 · 후보 X1~X3. **archive 이동은 AC1·AC7 실기 뒤.** |
