@@ -17,6 +17,7 @@ interface RightPanelTileProps {
   className?: string
   expanded?: boolean
   onToggleExpand?: () => void
+  onClose?: () => void
   taskTileChrome: RightPanelAgentPolicy['taskTileChrome']
 }
 
@@ -28,6 +29,7 @@ export function RightPanelTile({
   headerContent,
   expanded = false,
   onToggleExpand,
+  onClose,
   taskTileChrome,
   className = ''
 }: RightPanelTileProps): React.JSX.Element {
@@ -43,9 +45,10 @@ export function RightPanelTile({
   )
 
   const remove = useCallback((): void => {
+    if (onClose) return onClose()
     if (expanded) onToggleExpand?.()
     chatActions.removeRightPanelTile(id)
-  }, [expanded, id, onToggleExpand])
+  }, [expanded, id, onToggleExpand, onClose])
 
   return (
     <div
@@ -70,6 +73,7 @@ export function RightPanelTile({
             {headerActions}
             {expandButton}
             <PanelCloseButton
+              data-panel-close=""
               size={isDiff ? 'compact' : 'small'}
               onClick={remove}
               label={tr('chat.rightpanel.closeTile', { label })}

@@ -9,6 +9,7 @@ import { AgentAvatar, PanelRow } from './chrome'
 import { OpenCodeSources } from './Sources'
 import { sessionPanelModel } from './model'
 import type { Message } from '../../../reducer/chatReducer'
+import { useOpenCodePanelNavigation } from './navigation'
 
 function usePanelData(): {
   messages: Message[]
@@ -26,6 +27,7 @@ function usePanelData(): {
 export function OpenCodeTaskContent(): React.JSX.Element {
   const { tr } = useI18n()
   const cwd = useChatSession((state) => state.cwd)
+  const navigation = useOpenCodePanelNavigation()
   const { model } = usePanelData()
   const active = model.agents.filter((agent) => agent.status === 'running').length
   return (
@@ -37,7 +39,10 @@ export function OpenCodeTaskContent(): React.JSX.Element {
       >
         {cwd ? basenameForDisplay(cwd) : tr('chat.rightpanel.tiles.task')}
       </div>
-      <PanelRow icon="commentAdd" onClick={() => chatActions.setRightPanelTileActive('diff', true)}>
+      <PanelRow
+        icon="commentAdd"
+        onClick={(event) => navigation?.open({ id: 'diff' }, event.currentTarget)}
+      >
         {tr('chat.opencode.panel.changes')}
       </PanelRow>
       {model.agents.length > 0 && (
@@ -45,10 +50,9 @@ export function OpenCodeTaskContent(): React.JSX.Element {
           <h3 className="mb-2 text-caption text-oc-muted">{tr('chat.opencode.panel.agents')}</h3>
           <button
             type="button"
-            onClick={() => {
-              chatActions.selectSubagentTask(null)
-              chatActions.setRightPanelTileActive('subagent', true)
-            }}
+            onClick={(event) =>
+              navigation?.open({ id: 'subagent', selectedId: null }, event.currentTarget)
+            }
             className="flex w-full items-center gap-2 rounded-md py-2 text-footnote text-oc-muted outline-none hover:bg-oc-hover ring-focus"
           >
             <span className="flex -space-x-1">
@@ -71,14 +75,16 @@ export function OpenCodeTaskContent(): React.JSX.Element {
               key={process.id}
               icon="terminal"
               title={process.command}
-              onClick={() => chatActions.openProcessTool(process.id)}
+              onClick={(event) =>
+                navigation?.open({ id: 'process', selectedId: process.id }, event.currentTarget)
+              }
             >
               {process.command}
             </PanelRow>
           ))}
         </section>
       )}
-      <OpenCodeSources onShowAll={() => chatActions.setRightPanelTileActive('source', true)} />
+      <OpenCodeSources onShowAll={(origin) => navigation?.open({ id: 'source' }, origin)} />
     </div>
   )
 }
@@ -86,7 +92,10 @@ export function OpenCodeTaskContent(): React.JSX.Element {
 export function OpenCodeAgentContent(): React.JSX.Element {
   const { tr } = useI18n()
   const { messages, model } = usePanelData()
-  const selected = useChatSession((state) => state.selectedSubagentTaskId)
+  const baseSelected = useChatSession((state) => state.selectedSubagentTaskId)
+  const navigation = useOpenCodePanelNavigation()
+  const detail = navigation?.selection?.id === 'subagent' ? navigation.selection : undefined
+  const selected = detail ? detail.selectedId : baseSelected
   const agent = model.agents.find((item) => item.toolUseId === selected)
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
@@ -95,7 +104,14 @@ export function OpenCodeAgentContent(): React.JSX.Element {
       ) : selected ? (
         <p className="p-5 text-footnote text-oc-muted">{tr('chat.opencode.panel.unavailable')}</p>
       ) : (
-        <AgentList agents={model.agents} onSelect={chatActions.openSubagentTask} />
+        <AgentList
+          agents={model.agents}
+          onSelect={(selectedId) =>
+            detail
+              ? navigation?.select?.({ id: 'subagent', selectedId })
+              : chatActions.openSubagentTask(selectedId)
+          }
+        />
       )}
     </div>
   )
@@ -105,7 +121,10 @@ export function OpenCodeAgentContent(): React.JSX.Element {
 export function OpenCodeAgentHeader(): React.JSX.Element {
   const { tr } = useI18n()
   const { model } = usePanelData()
-  const selected = useChatSession((state) => state.selectedSubagentTaskId)
+  const baseSelected = useChatSession((state) => state.selectedSubagentTaskId)
+  const navigation = useOpenCodePanelNavigation()
+  const detail = navigation?.selection?.id === 'subagent' ? navigation.selection : undefined
+  const selected = detail ? detail.selectedId : baseSelected
   const agent = model.agents.find((item) => item.toolUseId === selected)
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -114,7 +133,11 @@ export function OpenCodeAgentHeader(): React.JSX.Element {
           iconOnly
           size="small"
           leadingIcon="arrowL"
-          onClick={() => chatActions.selectSubagentTask(null)}
+          onClick={() =>
+            detail
+              ? navigation?.select?.({ id: 'subagent', selectedId: null })
+              : chatActions.selectSubagentTask(null)
+          }
           aria-label={tr('chat.subagentTile.backToList')}
         />
       )}
@@ -136,7 +159,10 @@ export function OpenCodeAgentHeader(): React.JSX.Element {
 export function OpenCodeProcessContent(): React.JSX.Element {
   const { tr } = useI18n()
   const { model } = usePanelData()
-  const selected = useChatSession((state) => state.selectedProcessToolId)
+  const baseSelected = useChatSession((state) => state.selectedProcessToolId)
+  const navigation = useOpenCodePanelNavigation()
+  const detail = navigation?.selection?.id === 'process' ? navigation.selection : undefined
+  const selected = detail ? detail.selectedId : baseSelected
   const process = model.processes.find((item) => item.id === selected)
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -166,7 +192,11 @@ export function OpenCodeProcessContent(): React.JSX.Element {
             key={item.id}
             icon="terminal"
             title={item.command}
-            onClick={() => chatActions.openProcessTool(item.id)}
+            onClick={() =>
+              detail
+                ? navigation?.select?.({ id: 'process', selectedId: item.id })
+                : chatActions.openProcessTool(item.id)
+            }
           >
             {item.command}
           </PanelRow>

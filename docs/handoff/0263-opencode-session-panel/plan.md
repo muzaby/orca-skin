@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex / 2026-10-15 |
-| 상태 | READY — Delta V4 사용자 전환 방식 정정 |
+| 상태 | IMPL_DONE — Delta V4 구현, 독립 verify 대기 |
 | V mode / revision | Baseline V1 + Delta V2 + Delta V3 + Delta V4 |
 | 기준 V | none — 0262의 완료 구현 위에 별도 기능 단위로 추가 |
 | 매핑 | PR #502, 0262 후속 |
@@ -570,3 +570,87 @@ V3 VP-09의 R-02/06/11은 VP-13, VP-10의 summary 상세 수명은 VP-14, VP-11�
 현재 앱 창에 연결할 수 없으면 V3와 같이 실제 renderer/store preview와 native API fixture를 사용하고 증거 범위를 구분한다. 새 실모델 호출은 사용자의 생략 결정을 유지한다. 읽기 전용 ESLint·typecheck·관련 Node Vitest·renderer build·문서 inventory·원격 CI를 수행하며 임시 자료는 커밋하지 않는다.
 
 READY 대조: D-14↔AC2″/6″, D-12↔AC11′ 일치. D-07/11의 직접 타일 메뉴와 D-09/13의 그룹·버튼 제거는 변경 없음. 새로운 의존성/공개 계약/저장 포맷/OPEN 결정 없음. 구현 후 architecture rendering/state를 현재 동작으로 갱신한다.
+
+## [구현자 기입] Delta V4 — r1.4
+
+### 설계 리뷰
+
+D-14를 구현했다. 요약 클릭은 OpenCode 로컬 상세 상태를 열며, 공통 `TilePanel`이 기존 타일 위에 표시한다. artifact > 상세 > 기존 타일 순서로 숨김·inert를 적용하고 각 층의 DOM과 origin을 보존한다. 기존 타일 헤더의 닫기는 상세에서만 override하며 타이틀 메뉴·transcript Task 카드의 직접 타일 경로는 유지한다.
+
+### 강제 지점 전수와 V-pair 자기확인
+
+| 자리 / 수 | 직접 oracle와 관측 |
+|---|---|
+| EP-16a/b/c/d / 4 | CUA에서 변경 사항·agent 요약·셸 행·소스 모두 보기를 각각 클릭. 본문 전환 중 뒤의 columns는 불변, 닫기 뒤 원래 요약 표시 |
+| EP-17a/b/c / 3 | navigation reducer·실제 registry 본문/헤더·host 렌더 테스트. CUA에서는 숨겨진 overview와 표시된 detail 하나를 관측 |
+| EP-18a/b/c / 3 | base agent=task/process=shell 상태에서 상세의 Engine settings/두 번째 셸을 선택해도 base 선택 불변. 닫기 뒤 원래 진입 버튼 focus, summary scrollTop 848→848 |
+| EP-19a/b/c / 3 | 상세 로그 scrollTop 440.8→artifact→440.8, A→B→A에서 상세 해제. 폭560→580, 확대/축소와 두 테마·좁은 화면 표시 확인 |
+
+증분 자리 13개를 각 행의 상태·렌더·클릭 결과로 확인했다. 기존 직접 타일과 source 데이터 경계는 관련 회귀 테스트로 유지 여부를 확인했다.
+
+| Pair | 자기 결과 / 근거 |
+|---|---|
+| VP-13 REQUIRED | SELF_PASS — CUA-V4-01~03의 네 진입·닫기·복귀, 중복 wrapper 없이 기존 닫기 사용 |
+| VP-14 REQUIRED | SELF_PASS — navigation/host lifecycle 테스트, 실제 artifact 중첩·세션 전환·스크롤·포커스 복귀 |
+| VP-15 REQUIRED | SELF_PASS — registry Content/Header의 local/base 선택 분리와 common host 렌더, 실제 summary 클릭 |
+| VP-16 REQUIRED | SELF_PASS — navigation 7케이스: open/select/close/resize/expand와 종류 불일치 입력 |
+| VP-09/10/11 나머지·VP-12 REGRESSION | SELF_PASS — 관련 57파일/499케이스, CUA 직접 타일·Task 카드·Claude Code/Work artifact 회귀 |
+
+### 이번 라운드 수정의 잠금
+
+해당 없음 — 직접 상태·렌더·클릭 oracle을 사용했다. 선택 증거 0 · 인용 변이 0 · 새 구조 proxy/전수 배선 oracle 0 = 잠금 표 행 0. SSR은 mounted 세 층의 구성을 확인하고 실제 스크롤/포커스는 CUA로 별도 확인했다.
+
+### Product/UX 파생 검토
+
+| 관측 / 위험 | 대응과 재측정 |
+|---|---|
+| 상세와 뒤 타일이 같은 선택을 공유할 수 있음 | detail Context의 선택만 갱신. base task/shell을 유지한 채 Engine settings/두 번째 셸 상세를 열고 닫음 |
+| 상세를 닫은 후 이전 reveal이 가로 위치를 덮을 수 있음 | 이미 적용한 reveal을 구분. 표시 중 viewport 위치만 저장하고 상세 복귀 시 원래 위치 복원 |
+| Escape가 diff 팝업과 상세를 동시에 닫을 수 있음 | 표시된 popup의 처리를 우선. 실제 첫 Escape는 메뉴만, 다음 Escape는 상세를 닫음 |
+| 공통 host 변경이 Work 산출물 경로에 영향 | 실제 Work 출력 영역의 카드→뷰어→닫기에서 원래 작업 패널과 카드 focus 복원 |
+
+### 놓친 잠재 문제 + 대응
+
+| 축 | 조사 / 대응 |
+|---|---|
+| 세션 수명 | activeKey로 OpenCode Panel remount, detail origin/선택/확대 초기화. CUA A→B→A에서 detail 수0 |
+| 공유 | detail 선택은 Context, base 선택은 기존 ChatState. artifact도 실제 store를 사용하며 가짜 참조를 만들지 않음 |
+| 재진입 | request key는 새 진입에서 증가하고 같은 상세 내부 선택에서 유지. agent 목록 복귀와 artifact 로그 스크롤 유지 확인 |
+| 무효화 | 명시적인 panelReveal은 상세를 닫고 직접 타일 표시. 닫기 override가 뒤 타일 remove를 호출하지 않음 |
+| 만료 | 새 캐시·서버 상태·만료 정책 없음. 로컬 UI 수명만 변경 |
+
+설계 대비 명시적 차이와 미해결 PLAN_GAP 없음. 새 SDK·IPC·DB·의존성·영속 포맷 변경 없음.
+
+### 구현 보고
+
+| AC | 자기 결과 | 관측 |
+|---|---|---|
+| AC1′ | ✅ | task 기본 요약과 하네스 registry 회귀, Claude 메뉴 범주 유지 |
+| AC2″ | ✅ | 네 summary 진입의 상위 표시, columns/선택 불변, 닫기 복귀 |
+| AC3 | ✅ | model/activity projection과 subagent 본문 회귀 |
+| AC4 | ✅ | process 상태/로그 회귀 및 실제 긴 로그 스크롤 |
+| AC5 | ✅ | source hook/본문 회귀, 실제 full source 진입 |
+| AC6″ | ✅ | artifact 중첩 복귀·상세 폭560→580·확대/축소 |
+| AC7 | ✅ | Claude Code 메뉴 및 Work 출력물 뷰어 복귀 |
+| AC8 | ✅ | 조건부 그룹 model/Panel/Sources 회귀 |
+| AC9 | ✅ | 요약 버튼·팝업 제거 렌더 회귀 |
+| AC10 | ✅ | 직접 타일 메뉴·transcript Task 카드 및 세션별 store 회귀 |
+| AC11′ | ✅ | 기존 diff Git 헤더의 닫기, detail close override, 뒤 타일 보존 |
+
+✅11 · ⚠️0 · ❌0 = 총11. 사용자 최종 시각 인수(0262 AC11)와 Claude 독립 verify는 별도 대기다.
+
+| Gate | 이번 관측 |
+|---|---|
+| 관련 Node Vitest | 57파일/499케이스 통과. navigation·registry·host·store·reducer·artifact·sidePaneResize 포함 |
+| Typecheck | node/web/test 통과 |
+| ESLint | 최종 전체 읽기 전용 검사 오류0, 기존 useTranscriptVirtualizer 경고1 |
+| Build | main/preload/renderer 완료. 기존 SubAgentTileContent 정적/동적 import 경고 유지 |
+| 문서/운영 | generated/prose·migration sync/append-only·test-budget 통과. 다운로드·첨부 제외 checkLinks 결과 [] |
+| 원본 링크 guard 제한 | 사용자 다운로드 `.tmp/opencode-dev`의 상대링크5건만 실패. 해당 자료는 수정·커밋하지 않음 |
+| 원격 CI | 이번 제품 코드의 원격 CI 결과는 push 후 기록. 이전 CI #752를 이번 변경의 증거로 대체하지 않음 |
+
+CUA는 실제 ChatTitleBar·TranscriptView·RightPanel·store에 고정 데이터를 넣은 renderer preview에서 수행했다. native API는 fixture이며 새 실모델 호출은 하지 않았다. 로컬 증거는 `.tmp/0263-v4-visual-evidence.md`, 캡처는 `0263-v4-summary.jpg`·`0263-v4-detail.jpg`·`0263-v4-dark-detail.jpg`다. 임시 preview와 다운로드 소스는 커밋하지 않는다.
+
+### Review Signals
+
+r1.4는 사용자가 전환 의도를 정정한 Delta V4 구현 턴이다. 앞선 ‘독립 타일 추가’ 성공을 이번 상위 상세 동작의 증거로 재사용하지 않았다. 공통 host의 스크롤·포커스 및 기존 타일과의 선택 분리를 이번 기준으로 확인했다. 다음 주체는 Claude 독립 검증자다.

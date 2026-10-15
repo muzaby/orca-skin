@@ -19,6 +19,23 @@ beforeEach(() => {
   h.calls = []
 })
 describe('closing an expanded changes tile', () => {
+  it.each([false, true])('closes only the supplied detail when expanded=%s', (expanded) => {
+    const fixture: ComponentProps<typeof RightPanelTile> = {
+      id: 'diff',
+      defaultLabelKey: 'chat.rightpanel.tiles.diff',
+      taskTileChrome: 'standard',
+      expanded,
+      onToggleExpand: () => h.calls.push('restore'),
+      onClose: () => h.calls.push('close:detail'),
+      children: 'detail content'
+    }
+    renderToStaticMarkup(createElement(RightPanelTile, fixture))
+    const close = h.buttons.find((button) => button.leadingIcon === 'x')!
+    expect(close['data-panel-close']).toBe('')
+    ;(close.onClick as () => void)()
+    expect(h.calls).toEqual(['close:detail'])
+  })
+
   it.each([false, true])(
     'clears expansion before removing the tile when expanded=%s',
     (expanded) => {

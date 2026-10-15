@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { MouseEventHandler, ReactNode } from 'react'
 import { Icon, type IconName } from '../../../../../shared/ui/Icon'
 
 export function PanelRow({
@@ -11,7 +11,7 @@ export function PanelRow({
 }: {
   icon: IconName
   children: ReactNode
-  onClick?: () => void
+  onClick?: MouseEventHandler<HTMLButtonElement>
   title?: string
   focusKey?: string
   disabled?: boolean

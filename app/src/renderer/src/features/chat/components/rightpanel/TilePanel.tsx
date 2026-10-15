@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ResizableSidePane } from '../../../../shared/ui/ResizableSidePane'
 import { PANEL_DEFAULT_ROW_SPLIT, PANEL_DEFAULT_WIDTH } from '../../reducer/chatReducer'
 import { useChatSession, useChatStore } from '../../store/chatStore'
@@ -16,12 +16,24 @@ import {
   useArtifactViewerStore
 } from '../../store/artifactViewerStore'
 
+export interface TilePanelDetail {
+  key: string
+  content: ReactNode
+  origin?: HTMLElement
+  expanded: boolean
+  width: number
+  onWidthChange: (width: number) => void
+  onClose: () => void
+}
+
 export function TilePanel({
   className = '',
-  onExpandedChange
+  onExpandedChange,
+  detail
 }: {
   className?: string
   onExpandedChange?: (sessionKey: string, expanded: boolean) => void
+  detail?: TilePanelDetail
 }): React.JSX.Element | null {
   const { tr } = useI18n()
   const activeTiles = useChatSession((s) => s.rightPanelTiles)
@@ -33,11 +45,17 @@ export function TilePanel({
   const viewer = selection?.sessionKey === activeKey ? selection : null
   const viewerWidth = useArtifactViewerStore((state) => state.widths.transcript)
   const viewerOrigin = useRef<HTMLElement | undefined>(undefined)
+  const viewerRequest = useRef<number | undefined>(undefined)
+  const detailOrigin = useRef<HTMLElement | undefined>(undefined)
+  const detailKey = useRef<string | undefined>(undefined)
+  const detailRef = useRef<HTMLDivElement>(null)
+  const overlayOpen = !!viewer || !!detail
   const overviewViewportLeft = useRef(0)
   const [expansion, setExpansion] = useState<{ key: string; id: RightPanelTileId } | null>(null)
   const widths = useChatSession((s) => s.rightPanelColWidths)
   const splits = useChatSession((s) => s.rightPanelRowSplits)
   const reveal = useChatStore((state) => state.sessions[state.activeKey]?.panelReveal)
+  const appliedReveal = useRef<typeof reveal>(undefined)
   const viewportRef = useRef<HTMLDivElement>(null)
   const layout = useMemo(
     () => deriveRightPanelLayout(rightPanelColumnsForAgent(activeTiles, agentKind, backend)),
@@ -49,7 +67,7 @@ export function TilePanel({
       : null
   const toggleExpand = (id: RightPanelTileId): void =>
     setExpansion(expandedTile === id ? null : { key: activeKey, id })
-  const expanded = viewer ? viewer.expanded : !!expandedTile
+  const expanded = viewer ? viewer.expanded : detail ? detail.expanded : !!expandedTile
   useLayoutEffect(() => {
     onExpandedChange?.(activeKey, expanded)
     return () => onExpandedChange?.(activeKey, false)
@@ -62,54 +80,95 @@ export function TilePanel({
   const { registerColumn, columnRightOf } = useColumnSlideOnReflow(columnKeys)
 
   useLayoutEffect(() => {
+    if (useChatStore.getState().activeKey !== activeKey) return
+    const focusOrigin = (origin?: HTMLElement): boolean => {
+      if (!origin?.isConnected || origin.closest('[inert], [hidden]')) return false
+      origin.focus({ preventScroll: true })
+      return true
+    }
+    const focusDetail = (): void => {
+      const root = detailRef.current
+      ;(root?.querySelector<HTMLElement>('[data-panel-close]') ?? root)?.focus({
+        preventScroll: true
+      })
+    }
+    if (detail) {
+      if (detailKey.current !== detail.key) {
+        detailOrigin.current = detail.origin
+        if (!viewer) focusDetail()
+      }
+      detailKey.current = detail.key
+    } else {
+      detailKey.current = undefined
+    }
     if (viewer) {
       viewerOrigin.current = viewer.origin
-      if (viewportRef.current) viewportRef.current.scrollLeft = 0
-    } else if (viewerOrigin.current) {
+      viewerRequest.current = viewer.request
+      return
+    }
+    if (viewerRequest.current !== undefined) {
       const origin = viewerOrigin.current
       viewerOrigin.current = undefined
-      if (viewportRef.current) viewportRef.current.scrollLeft = overviewViewportLeft.current
-      if (origin.isConnected && !origin.closest('[inert]')) origin.focus({ preventScroll: true })
+      viewerRequest.current = undefined
+      if (focusOrigin(origin)) {
+        if (!detail) detailOrigin.current = undefined
+        return
+      }
+      if (detail) focusDetail()
     }
-  }, [viewer])
+    if (!detail && detailOrigin.current) {
+      const origin = detailOrigin.current
+      detailOrigin.current = undefined
+      focusOrigin(origin)
+    }
+  }, [activeKey, viewer, detail])
+  useLayoutEffect(() => {
+    if (viewportRef.current)
+      viewportRef.current.scrollLeft = overlayOpen ? 0 : overviewViewportLeft.current
+  }, [overlayOpen])
   useLayoutEffect(
     () => () => {
       viewerOrigin.current = undefined
+      viewerRequest.current = undefined
+      detailOrigin.current = undefined
+      detailKey.current = undefined
       closeArtifactViewer(activeKey)
     },
     [activeKey]
   )
 
   useLayoutEffect(() => {
+    if (overlayOpen || appliedReveal.current === reveal) return
+    appliedReveal.current = reveal
     if (viewportRef.current && reveal) adjustPanelViewport(viewportRef.current, reveal.id)
-  }, [reveal])
+  }, [reveal, overlayOpen])
   useLayoutEffect(() => {
     const viewport = viewportRef.current
-    if (!viewport) return
+    if (!viewport || overlayOpen) return
     const clamp = (): void => adjustPanelViewport(viewport)
     clamp()
     const observer = new ResizeObserver(clamp)
     observer.observe(viewport)
     return () => observer.disconnect()
-  }, [layout, widths])
+  }, [layout, widths, overlayOpen])
 
-  if (layout.columns.length === 0 && !viewer) return null
+  if (layout.columns.length === 0 && !overlayOpen) return null
 
   return (
     <div
       ref={viewportRef}
       onScroll={() => {
-        if (!viewer && viewportRef.current)
+        if (!overlayOpen && viewportRef.current)
           overviewViewportLeft.current = viewportRef.current.scrollLeft
       }}
       data-panel-expanded={expandedTile ?? undefined}
-      className={`${viewer ? 'contents' : `my-2 mr-2 min-h-0 min-w-0 w-max max-w-[calc(50%-0.5rem)] shrink-0 ${expandedTile ? 'overflow-visible' : 'overflow-x-auto'}`} ${className}`}
+      className={`${overlayOpen ? 'contents' : `my-2 mr-2 min-h-0 min-w-0 w-max max-w-[calc(50%-0.5rem)] shrink-0 ${expandedTile ? 'overflow-visible' : 'overflow-x-auto'}`} ${className}`}
     >
       <div
         data-artifact-overview=""
-        hidden={!!viewer}
-        inert={!!viewer}
-        className={`${viewer ? 'hidden' : 'flex'} h-full min-h-0 w-max`}
+        hidden={overlayOpen}
+        inert={overlayOpen}
+        className={`${overlayOpen ? 'hidden' : 'flex'} h-full min-h-0 w-max`}
       >
         {layout.columns.map((column, index) => (
           <div
@@ -140,6 +199,38 @@ export function TilePanel({
           </div>
         ))}
       </div>
+      {detail && (
+        <div
+          key={detail.key}
+          ref={detailRef}
+          data-panel-detail={detail.key}
+          hidden={!!viewer}
+          inert={!!viewer}
+          tabIndex={-1}
+          className={viewer ? 'hidden' : 'flex min-h-0 shrink-0 outline-none'}
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape' || event.defaultPrevented || viewer) return
+            const popups = event.currentTarget.ownerDocument.querySelectorAll(
+              '[data-context="floating"], [data-behavior="dismissible"]'
+            )
+            if ([...popups].some((popup) => !popup.closest('[hidden], [inert]'))) return
+            event.preventDefault()
+            event.stopPropagation()
+            detail.onClose()
+          }}
+        >
+          <ResizableSidePane
+            expanded={detail.expanded}
+            lifecycleKey={`${activeKey}:${detail.key}`}
+            width={detail.width}
+            onWidthChange={detail.onWidthChange}
+            label={tr('chat.rightpanel.panelResizeAria')}
+            className="my-2 mr-2"
+          >
+            {detail.content}
+          </ResizableSidePane>
+        </div>
+      )}
       {viewer && (
         <ResizableSidePane
           expanded={viewer.expanded}

@@ -11,7 +11,7 @@ export function OpenCodeSources({
   onShowAll
 }: {
   full?: boolean
-  onShowAll?: () => void
+  onShowAll?: (origin: HTMLElement) => void
 }): React.JSX.Element | null {
   const { tr } = useI18n()
   const context = useTaskContext()
@@ -93,7 +93,11 @@ export function OpenCodeSources({
         )
       )}
       {!full && items.length > 0 && (
-        <PanelRow icon="kebab" focusKey="sources" onClick={onShowAll}>
+        <PanelRow
+          icon="kebab"
+          focusKey="sources"
+          onClick={(event) => onShowAll?.(event.currentTarget)}
+        >
           {tr('chat.opencode.panel.showAll')}
         </PanelRow>
       )}

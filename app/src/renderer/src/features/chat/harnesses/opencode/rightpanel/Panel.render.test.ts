@@ -3,14 +3,84 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { load } from 'cheerio'
 import { RightPanel } from '../../../components/rightpanel/RightPanel'
+import { tileById } from '../../../components/rightpanel/tileRegistry'
 import { useChatStore } from '../../../store/chatStore'
 import { AgentDetail, AgentList } from './AgentViews'
 import { sessionPanelModel } from './model'
 import type { Message } from '../../../reducer/chatReducer'
+import { OpenCodePanelNavigationContext, type OpenCodePanelSelection } from './navigation'
 
 const initial = useChatStore.getInitialState()
 const entry = initial.sessions[initial.activeKey]
 const original = entry.session
+
+function renderSelectionLayers(
+  selection: Extract<OpenCodePanelSelection, { selectedId: string | null }>
+): ReturnType<typeof load> {
+  const messages: Message[] = [
+    {
+      role: 'assistant',
+      createdAt: 1,
+      parts: ['base', 'detail'].flatMap((layer): Message['parts'] => [
+        {
+          type: 'tool_call',
+          toolRunId: `${layer}-subagent`,
+          toolName: 'Task',
+          args: { description: `${layer} agent`, prompt: `${layer} agent prompt` }
+        },
+        {
+          type: 'tool_result',
+          toolRunId: `${layer}-subagent`,
+          result: `${layer} agent result`,
+          isError: false
+        },
+        {
+          type: 'tool_call',
+          toolRunId: `${layer}-process`,
+          toolName: 'Bash',
+          args: { command: `echo ${layer} process` }
+        },
+        {
+          type: 'tool_result',
+          toolRunId: `${layer}-process`,
+          result: `${layer} process result`,
+          isError: false
+        }
+      ])
+    }
+  ]
+  entry.session = {
+    ...original,
+    backend: 'opencode',
+    agentKind: 'code',
+    messages,
+    selectedSubagentTaskId: 'base-subagent',
+    selectedProcessToolId: 'base-process'
+  }
+  const { Content, HeaderContent } = tileById(selection.id, 'opencode')
+  const content = (layer: string): React.ReactElement =>
+    createElement(
+      'section',
+      { 'data-test-layer': layer },
+      HeaderContent && createElement(HeaderContent),
+      createElement(Content)
+    )
+  return load(
+    renderToStaticMarkup(
+      createElement(
+        OpenCodePanelNavigationContext.Provider,
+        { value: { open: () => {} } },
+        content('base'),
+        createElement(
+          OpenCodePanelNavigationContext.Provider,
+          { value: { open: () => {}, selection, select: () => {} } },
+          content('detail')
+        )
+      )
+    )
+  )
+}
+
 afterEach(() => {
   entry.session = original
 })
@@ -101,7 +171,7 @@ describe('OpenCode panel rendering', () => {
     entry.session = { ...entry.session, extraDirs: [] }
     expect(render()('[data-context="task"] [data-component="opencode-sources"]').length).toBe(0)
   })
-  it('keeps summary, diff and process tiles together with a single native diff header', () => {
+  it('renders directly configured task, diff and process tiles with a single native diff header', () => {
     entry.session = {
       ...original,
       backend: 'opencode',
@@ -116,6 +186,42 @@ describe('OpenCode panel rendering', () => {
     expect($('[data-context="diff"] .app-frame-tile-header')).toHaveLength(1)
     expect($('[data-diff-tile-header] button[aria-label="변경사항 닫기"]')).toHaveLength(1)
     expect($('[data-context="process"] .app-frame-tile-header')).toHaveLength(1)
+  })
+  describe.each(['subagent', 'process'] as const)('%s selection contexts', (id) => {
+    const label = id === 'subagent' ? 'agent' : 'process'
+
+    it('renders the local detail selection and preserves the base tile selection', () => {
+      const $ = renderSelectionLayers({ id, selectedId: `detail-${id}` })
+      const base = $('[data-test-layer="base"]')
+      const detail = $('[data-test-layer="detail"]')
+      expect(base.text()).toContain(`base ${label} result`)
+      expect(base.text()).not.toContain(`detail ${label} result`)
+      expect(detail.text()).toContain(`detail ${label} result`)
+      expect(detail.text()).not.toContain(`base ${label} result`)
+      if (id === 'subagent') {
+        expect(base.find('[title="base agent"]')).toHaveLength(1)
+        expect(detail.find('[title="detail agent"]')).toHaveLength(1)
+      }
+      expect(entry.session.selectedSubagentTaskId).toBe('base-subagent')
+      expect(entry.session.selectedProcessToolId).toBe('base-process')
+    })
+
+    it('renders a missing local record as unavailable without falling back to the base selection', () => {
+      const $ = renderSelectionLayers({ id, selectedId: 'missing-record' })
+      expect($('[data-test-layer="base"]').text()).toContain(`base ${label} result`)
+      expect($('[data-test-layer="detail"]').text()).toContain('이 항목의 기록을 찾을 수 없습니다.')
+      expect($('[data-test-layer="detail"]').text()).not.toContain(`base ${label} result`)
+      expect($('[data-test-layer="detail"]').text()).not.toContain(`detail ${label} result`)
+    })
+
+    it('renders the local list for null selection while the base stays on its selected record', () => {
+      const $ = renderSelectionLayers({ id, selectedId: null })
+      const detail = $('[data-test-layer="detail"]')
+      expect($('[data-test-layer="base"]').text()).toContain(`base ${label} result`)
+      expect(detail.find('button').text()).toContain(`base ${label}`)
+      expect(detail.find('button').text()).toContain(`detail ${label}`)
+      expect(detail.text()).not.toContain(`${label} result`)
+    })
   })
   it('renders grouped agents and child tool cards, result and model data', () => {
     const messages: Message[] = [
