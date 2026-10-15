@@ -8,10 +8,10 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | IMPL_DONE — ΔV9 Claude GUI 복원. AC11 사용자 최종 시각 인수·독립 verify 대기 |
+| 상태 | READY — ΔV10 OpenCode native 메시지 ID 정렬 복구. AC11 사용자 최종 시각 인수·독립 verify 대기 |
 | V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
-| 이번 V revision / 유효 V | ΔV9 / V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 |
+| 이번 V revision / 유효 V | ΔV10 / V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 + ΔV10 |
 
 # Part I — Product & UX Contract
 
@@ -642,6 +642,42 @@ OpenCode 카드·설정·신규 엔진의 하네스 선택·설정 불러오기�
 CUA-CLAUDE-01은 Claude Code/Work 메뉴를 열고 순서·그룹 제목 제거·토글을 확인한 뒤 OpenCode 메뉴/요약 전환을 회귀 확인한다. CUA-CLAUDE-02는 엔진 페이지·Claude 편집 chip·신규 하네스 선택·OpenCode 카드를 확인한다. 로컬 실제 컴포넌트+native fixture 사용 시 증거 범위를 명시하고 새 실모델 호출은 하지 않는다.
 
 게이트: 관련 Vitest, 전체 typecheck·읽기 전용 ESLint, build, 문서 inventory/links, 원격 Windows CI. READY 대조: D-004/021↔AC30/31, 기존 OpenCode 기능↔AC8/9/13/14/20은 양립한다. 0263의 기존 보고 중 Claude 범주 유지 관측은 과거 이력이며 현재 Claude 메뉴 표시 정본은 이 ΔV9다. AC 총수는29→31, 기존 AC11 인수 대기는 유지한다.
+
+# ΔV10 — native 메시지 ID와 턴 종료 회귀 (READY)
+
+기준은 공유 브랜치 `ce4b8496d7c99ad55164b3cb6226c51adbcf3b94`의 V1+ΔV1~9다. 사용자 보고: adapter의 랜덤 UUID가 OpenCode의 `lastUser.id < lastAssistant.id` 종료 조건을 만족하지 않아 정상 stop 뒤 같은 입력을 반복 요청한다. 기존 AC5의 정상 스트리밍·완료 계약 위반이며 제품 정책 변경이나 새 AC 추가가 아니다.
+
+## 조사와 계약
+
+현재 adapter는 `msg_`+UUID를 `promptAsync.messageID`에 보내고 같은 값을 activity generation과 root mapper의 parentID 필터에 사용한다. 이 값을 생략하거나 stop 수신만으로 Orca 턴을 조기 종료하면 응답 격리 또는 서버 실행 수명을 깨뜨릴 수 있으므로 기존 상관관계와 idle 종료를 유지한다.
+
+[공식 1.18.5 앱 ID](https://github.com/anomalyco/opencode/blob/v1.18.5/packages/app/src/utils/id.ts)와 [1.19.0 ID](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/opencode/src/id/id.ts)는 시각×4096+동일ms counter의 하위6byte hex12와 base62 random14를 사용한다. `<` 종료 조건은 1.18.5 소스에 있고 현재 조회한 1.19.0 태그는 parentID equality라 버전별 차이를 구분한다. 설치 실행 파일은 `--version=1.19.0`을 직접 확인했으며 실제 동작은 별도 CLI 관측으로 판정한다.
+
+| 변경 / 유지 | 구현 책임 |
+|---|---|
+| CHANGED MD-08↔UT-08 | `opencode/v1/message-id.ts`에 native ascending message ID 생성기를 둔다. 동일ms counter·다음ms reset·고정 prefix/길이·base62 suffix를 직접 값으로 검사한다 |
+| CHANGED AR-11↔IT-11 | adapter의 생성→promptAsync wire→activity/mapper에 같은 ID 전달. 실제 SDK transport에서 native 정렬에 따른 stop/idle 수명과 현재/이전 턴 격리를 검사한다 |
+| INHERITED R-05/SD-05 | 정상 stop 후 서버 내부의 불필요한 본문 모델 재요청이 없고 정상 idle→turn.ended로 끝나야 한다. tool/compaction·취소·실패 수명은 유지한다 |
+
+SDK·CLI·renderer·DB·공개 DTO 변경은 없다. 잘못된 과거 native ID의 자동 재작성은 하지 않는다. 격리된 테스트 세션에서 정상 후속 턴과 가능한 기존 UUID 이력의 재개를 관측하고 제한이 발견되면 별도 근거로 보고한다. 사용자 인증과 외부 모델을 사용하지 않는다.
+
+## Delta V / §10
+
+| Pair | requiredness / provenance | 경로 · 직접 oracle |
+|---|---|---|
+| VP-54 MD-08↔UT-08 | REQUIRED / NEW | native ID helper→문자열. `message-id.test.ts`의 형식·시각 prefix·동일ms 순서·다음ms reset |
+| VP-55 AR-11↔IT-11 | REQUIRED / NEW | adapter→실제 SDK body→SSE activity/mapper→턴 종료. `adapter.test.ts`의 native ID 순서와 현재 parentID, 순차 재개, 기존 stale/compaction 테스트 |
+| VP-05/15/18 | REGRESSION / INHERITED | 관련 adapter/map/activity/runtime 오류·중단·도구·완료 회귀. 실제CLI+로컬 provider의 bounded 본문 호출 수와 idle 관측은 보조 실행 증거 |
+
+| 자리 / 수 | 실패 의미 | oracle |
+|---|---|---|
+| EP-34a / 1 | UUID 또는 잘못된 timestamp/counter 때문에 native 시간순 정렬 불만족 | helper의 고정 clock 직접 값·연속 ID 순서 테스트 |
+| EP-34b / 1 | helper를 만들었으나 SDK에 이전 UUID 전달 | 실제 SDK prompt body의 native 형식/정렬 및 stop/idle 응답 테스트 |
+| EP-34c / 1 | wire와 mapper generation의 ID가 달라 응답 유실/오염 | 실제 adapter→activity/mapper의 현재 parentID 수락·이전 응답 무시·후속 턴 완료 테스트 |
+
+증분3자리. VP-55는 EP-34b에 기존 UUID 생성식을 복구하는 M-ID 변이를 선택한다. 기존 fixture가 무조건 idle을 내보내 실제 native ID 계약을 놓쳤으므로 새 oracle이 원래 결함에 실패하는지 확인한다. 원래 소스를 복원한 뒤 같은 테스트가 통과해야 한다.
+
+게이트는 관련 비DB Vitest, node/web/test typecheck, readonly ESLint, main/preload/renderer build, 문서·migration·test-budget와 원격 Windows CI다. CLI 보조 재현은 새 임시 data/workspace·loopback 합성 provider·본문2번째 호출 시 실패/중단하는 상한을 사용하고 제목 등 보조 호출을 구분한다. 기존 V 전체의 독립 검증이나 실모델 검증으로 확대하지 않는다. ACTIVE 결정과 충돌 없음, AC 총수31 및 AC11 인수 대기는 유지한다.
 
 # [구현자 기입]
 
