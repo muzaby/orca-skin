@@ -4,13 +4,13 @@
 
 | 항목 | 값 |
 |---|---|
-| 작성자 / 일자 | Codex / 2026-10-15 |
-| 상태 | IMPL_DONE — Delta V4 구현, 독립 verify 대기 |
-| V mode / revision | Baseline V1 + Delta V2 + Delta V3 + Delta V4 |
-| 기준 V | none — 0262의 완료 구현 위에 별도 기능 단위로 추가 |
+| 작성자 / 일자 | Codex / 2026-10-16 |
+| 상태 | READY — Delta V5 설계, 구현 대기; V4 구현 이력 보존 |
+| V mode / revision | Baseline V1 + Delta V2 + Delta V3 + Delta V4 + Delta V5 |
+| 기준 V | Delta V5는 V1~V4 @ `940bd44edc5625f79b377b885cbe559b1d66fdb6` 상속 |
 | 매핑 | PR #502, 0262 후속 |
 
-현재 규범은 V1에 V2·V3·[Delta V4](#delta-v4--요약-위에-상세-패널-열기)를 순서대로 적용한다. 구 본문과 구현 보고는 기준선 이력이며, V4는 요약에서 상세를 여는 동작만 상위 패널 표시·닫기 복귀로 정정한다. 타이틀 메뉴의 직접 타일 관리와 기존 헤더는 유지한다.
+현재 규범은 V1에 V2~[Delta V5](#delta-v5--패널-외곽행-여백활성-셸작업-메뉴)를 순서대로 적용한다. V5는 외곽·행 여백·활성 셸 요약과 타이틀 메뉴를 변경하며, V4의 상위 상세 표시·닫기 복귀와 기존 헤더는 유지한다. 구 본문과 구현 보고는 기준선 이력이며 과거의 전체 타일 메뉴 접근 보장은 V5의 작업 전용 메뉴로 대체한다.
 
 # Part I — Product & UX Contract
 
@@ -38,18 +38,23 @@ OpenCode 세션의 우측에 요약 카드를 기본 표시한다. 하위 에이
 | D-02 | 요약 → 활성/완료 하위 에이전트 목록 → 상세 대화, 뒤로 이동은 동일 패널 | 사용자 첨부 | SUPERSEDED → D-08; 요약을 교체하는 depth 전환 폐기 |
 | D-03 | 백그라운드 프로세스는 세션 셸 호출과 수신 로그의 읽기 전용 표시 | 사용자 답변 | ACTIVE |
 | D-04 | PR 항목 없음. 소스는 Work 컨텍스트의 폴더·첨부·참조 자료와 기존 추가/열기 기능 | 사용자 답변 | ACTIVE |
-| D-05 | transcript 배경, Claude 동작, 기존 diff·계획·artifact viewer 접근 유지 | 기존 합의 및 회귀 계약 | ACTIVE |
+| D-05 | transcript 배경, Claude 동작, 기존 diff·계획·artifact viewer 접근 유지 | 기존 합의 및 회귀 계약 | SUPERSEDED → D-19; 메뉴 직접 접근 보장만 후속 요구로 축소 |
 | D-06 | SDK 의존 수집은 opencode/v1, 공통 이력·상태 프로토콜 재사용 | 기존 합의 | ACTIVE |
 | D-07 | OpenCode 기본 요약은 `작업` 타일로 표시하고 타이틀의 타일 표시 메뉴에서 열고 닫는다 | 2026-10-15 추가 요구 | ACTIVE; D-01 대체 |
 | D-08 | 요약의 패널 진입 항목은 기존 타일 패널을 열며, 다른 열린 타일과 작업 요약을 교체하지 않는다 | 같은 요구 “depth 변경이 아니라 타일패널이 열려야 함” | SUPERSEDED → D-14; 병렬 타일 추가 해석 정정 |
-| D-09 | 기본 고정 항목은 변경 사항 하나. 하위 에이전트·백그라운드 프로세스·소스 그룹은 실제 하위 항목이 있을 때 노출 | 같은 요구 “그 하위 항목이 추가될때 활성화” | ACTIVE |
+| D-09 | 기본 고정 항목은 변경 사항 하나. 하위 에이전트·백그라운드 프로세스·소스 그룹은 실제 하위 항목이 있을 때 노출 | 같은 요구 “그 하위 항목이 추가될때 활성화” | SUPERSEDED → D-16; 프로세스 요약의 활성 조건만 축소 |
 | D-10 | 요약 케밥의 계획 팝업을 제거하고 아이콘은 미트볼로 변경 | 같은 요구 두 항목 | SUPERSEDED → D-13; 후속 사용자 답변 |
-| D-11 | OpenCode 타이틀의 타일 표시 목록에서 검토·세션·작업 범주명을 제거하고 평면 목록을 사용 | 같은 요구 | ACTIVE; 0262의 OpenCode 범주 표시 계약만 대체 |
+| D-11 | OpenCode 타이틀의 타일 표시 목록에서 검토·세션·작업 범주명을 제거하고 평면 목록을 사용 | 같은 요구 | SUPERSEDED → D-18; 평면 목록 유지, 항목은 작업만 |
 | D-12 | 0263에서 추가한 상세 wrapper 헤더를 제거하고 기존 타일 헤더를 복원. 변경 사항의 닫기는 기존 Git 컨텍스트 헤더에 배치 | 같은 요구 “클로드 변경사항 패널 참고” | ACTIVE |
 | D-13 | 작업 요약 상단의 팝업과 버튼을 모두 제거하며 미트볼 대체 버튼도 두지 않는다 | OQ-01 사용자 답변 “버튼도 제거” | ACTIVE; D-10 대체 |
 | D-14 | 요약의 항목은 Work 출력물처럼 기존 패널 위에 상세 패널을 연다. 닫으면 기존 패널과 상태로 돌아온다 | 사용자 “하위에 추가되는 형태가 아니다…해당 패널 위에 새 패널…종료 시 다시 기존 패널” | ACTIVE; D-08 대체 |
+| D-15 | OpenCode 요약·상세 외곽의 모서리와 테두리 두께를 Orca 기존 계획·Work 작업 보조 패널과 통일 | 2026-10-16 “border의 모양 및 굵기…다른 우측 보조 패널(계획, 작업 등)에 따른다” | ACTIVE |
+| D-16 | 변경 사항만 고정. agent·source는 기존 자료 조건, process는 활성 셸이 있을 때만 그룹 노출하고 완료 항목은 요약에서 제거 | 같은 요구 “활성 중인 것만 표시한다. 완료되면 항목을 비울 것” | ACTIVE; D-09 대체 |
+| D-17 | OpenCode 우측 패널의 클릭 행에 좌우 안쪽 여백을 늘려 호버 배경과 내용 사이 간격 확보 | 같은 요구 “호버시 텍스트 옆에 마진이 없는게 표시되어 미관상 별로임” | ACTIVE |
+| D-18 | OpenCode transcript 타이틀 케밥의 타일 표시 목록에는 작업만 노출. 범주 제목 없이 기존 체크·토글 유지 | 같은 요구 “'작업' 외 타일은 노출하지말것” | ACTIVE; D-11 대체 |
+| D-19 | Claude GUI·transcript 배경·기존 타일 지원/저장 상태·요약 상세·artifact 접근 유지. OpenCode 계획/빈 소스의 타이틀 단독 진입 보장은 제거 | D-18과 기존 보존 계약의 범위 대조 | ACTIVE; D-05 대체 |
 
-갱신 메모: D-01~06 추가. ACTIVE 결정 ↔ AC 대조: 충돌 0. 0262의 AC가 이미 25건을 넘으므로 독립 패널 기능을 분리한다.
+갱신 메모: V5에서 D-05/09/11을 D-19/16/18로 대체하고 D-15/17을 추가했다. 나머지 ACTIVE 결정은 유지하며 아래 V5의 AC·pair와 대조한 결과 충돌 0이다. 0262는 하네스/Claude 회귀, 0264는 구조 분리의 정본으로 유지한다.
 
 ## 4. 비판적 검토
 
@@ -654,3 +659,130 @@ CUA는 실제 ChatTitleBar·TranscriptView·RightPanel·store에 고정 데이�
 ### Review Signals
 
 r1.4는 사용자가 전환 의도를 정정한 Delta V4 구현 턴이다. 앞선 ‘독립 타일 추가’ 성공을 이번 상위 상세 동작의 증거로 재사용하지 않았다. 공통 host의 스크롤·포커스 및 기존 타일과의 선택 분리를 이번 기준으로 확인했다. 다음 주체는 Claude 독립 검증자다.
+
+## Delta V5 — 패널 외곽·행 여백·활성 셸·작업 메뉴
+
+판정: READY, 이번 턴은 요구 배분과 설계만 수행한다. 기준은 `0263 V1~V4 @ 940bd44edc5625f79b377b885cbe559b1d66fdb6`이며 `git cat-file -t`의 `commit`과 공유 원격 추적 ref의 동일 해시를 확인했다. 사용자 요구 변경이므로 라운드 1을 유지하고 V4의 구현 보고를 V5 완료 증거로 재사용하지 않는다.
+
+### Product / UX — 귀속과 사용자 결과
+
+| 사용자 요구 | 귀속 / 결정 | 완료 후 결과 |
+|---|---|---|
+| “우측 패널의 모양(border의 모양 및 굵기 포인트)…다른 우측 보조 패널(계획, 작업 등)에 따른다” | 0263 / D-15 | OpenCode 작업 요약·상세 외곽의 모서리와 선 두께가 Orca 기존 계획·Work 작업 패널과 같음 |
+| “백그라운드 프로세스 현황 표시는 활성 중인 것만…완료되면 항목을 비울 것” | 0263 / D-16 | 실행 중 셸만 요약에 나타나고 종료된 행은 즉시 사라짐. 마지막 활성 실행이 끝나면 그룹 제목·구분선도 사라짐 |
+| “항목에서 좌우 마진을 조금 더…호버시 텍스트 옆에 마진이 없는게 표시되어 미관상 별로임” | 0263 / D-17 | 호버 배경 안쪽에서 아이콘·텍스트가 양끝에 붙지 않음. 긴 이름은 여백을 침범하지 않고 말줄임 |
+| “타일 표시 중 '작업' 외 타일은 노출하지말것” | 0263 / D-18 | OpenCode 타이틀 케밥의 타일 표시에는 작업 체크 항목 하나만 존재하고 닫기·다시 열기 가능 |
+
+적용은 OpenCode 전용이다. 메뉴·패널의 정본은 이미 0263 V3가 소유하므로 [0262](../0262-opencode-harness/plan.md)에는 중복 델타를 만들지 않으며, 그 ΔV9의 Claude Code/Work 메뉴 보존을 회귀로 연결한다. [0264](../0264-harness-module-isolation/plan.md)의 하네스/공통 디렉터리 경계는 유지하고 구조 분리 작업의 완료 상태를 변경하지 않는다.
+
+| 상태 / 행동 | 표시·보존 계약 |
+|---|---|
+| 실행 전, 완료 이력만 존재 | 변경 사항 고정 항목 유지. 프로세스 그룹은 숨김; agent/source 그룹의 기존 조건은 그대로 |
+| 여러 셸 실행 중 하나 종료 | 그 행만 제거하고 나머지 활성 행 유지. 재실행은 새 실행 ID로 나타남 |
+| 셸 상세를 연 채 성공·실패·중단·거부·취소 | 요약 행은 제거하되 열린 상세는 유지하고 최종 상태·수신 로그를 표시. 전체 이력·transcript 기록을 삭제하지 않음 |
+| 종료로 진입 행이 사라진 후 상세 닫기/Escape | 원래 작업 요약·배치·스크롤로 복귀. 원래 버튼이 있으면 그 버튼, 사라졌으면 요약의 변경 사항 버튼에 포커스 |
+| 타일 표시 메뉴 열기 | 작업만 체크/토글 가능. 계획·백그라운드 작업·변경 사항·프로세스·소스 항목과 범주 제목은 없음 |
+| 기존 여러 타일이 저장된 세션 진입 | 저장된 배치·선택·개별 닫기와 기존 직접 활성화는 보존. 메뉴 비노출 때문에 지원 타일/상세를 차단하거나 저장 상태를 삭제하지 않음 |
+| 자료 없는 세션에서 소스 이용 | 타이틀의 빈 소스 진입은 제거. 기존 파일 첨부 전송 또는 Read/WebFetch/WebSearch 자료가 생기면 소스 그룹→+ / 모두 보기 경로 사용 |
+
+새 메뉴나 대체 계획 진입점은 추가하지 않는다. 소스 그룹은 초안의 첨부 선택만으로 나타나지 않으며 전송된 첨부·수집 자료·추가 폴더라는 기존 조건을 유지한다. 외곽의 색·배경·그림자, transcript/composer, 기존 헤더와 요약 메뉴 버튼 제거 계약은 변경하지 않는다.
+
+### Acceptance / supersede
+
+| R / AC / provenance | 사용자 관측 기준 | 직접 oracle / 도달 경로 |
+|---|---|---|
+| R-06 / AC6‴ CHANGED | 상세·artifact 순서대로 닫기와 원래 배치/스크롤 보존. 종료로 원래 행이 사라져도 안전하게 닫히고 변경 사항 버튼으로 포커스 복귀 | 아래 T-V5-04, CUA-V5-03; summary→detail→terminal update→close |
+| R-08 / AC8′ CHANGED | 기본 변경 사항만 고정, agent/source 기존 조건 유지. process는 활성 0→1→일부 종료→0에서 행·그룹이 정확히 갱신됨 | T-V5-01/02, CUA-V5-02; parts/background→model→summary |
+| R-09 / AC9′ CHANGED | 요약의 팝업·케밥·미트볼 버튼 없음. 계획의 타이틀 메뉴 접근 보장은 제거 | 기존 summary 렌더 및 T-V5-03, CUA-V5-04 |
+| R-10 / AC10′ CHANGED | OpenCode 타일 메뉴에 작업만 표시하고 체크·토글 정상. Claude Code/Work 목록·순서·배지와 케밥의 다른 액션 유지 | T-V5-03/05, CUA-V5-04; ChatTile→ChatTitleBar→menu→store |
+| R-12 / AC12 NEW | OpenCode 요약·일반/상위 상세 패널의 모서리와 테두리 두께가 기존 Orca 계획·Work 작업 패널과 같음 | CUA-V5-01의 실제 computed style·스크린샷 비교; appearance→공통 RightPanelTile |
+| R-13 / AC13 NEW | 변경 사항·셸·source 행, agent 요약/목록 버튼, URL 행의 호버 배경 안쪽 좌우 간격 확보. 좁은 폭·긴 이름에서도 overflow 없음 | CUA-V5-01의 실제 hover/치수·좁은 폭; PanelRow/agent summary·list/source link |
+
+V4 AC6″, V3 AC8~10은 위 행으로 대체하며 AC1′·2″·3~5·7·11′은 유지한다. 유효 AC는 13개다. AC4의 완료·실패·빈 로그와 AC5의 컨텍스트 추가/열기는 상세에서 유지하며 요약 활성 조건과 혼동하지 않는다.
+
+명시 폐기 범위: V3 AC9·EP-15b의 계획 메뉴 접근, EP-14a의 빈 소스 메뉴 진입, CUA-V3-01/06 및 CUA-V4-04의 OpenCode plan/diff/source 메뉴 토글만 대체한다. 해당 위치는 새 메뉴 음성 단언으로 이동하며 EP-14b의 picker/open, V4 요약 상세 네 진입은 유지한다. D-19는 D-05의 GUI/기능 보존을 승계하면서 위 메뉴 접근 예외를 명시한다.
+
+### 조사 / 기술 설계
+
+아래 경로는 `app/src/renderer/src/features/chat/` 기준이며 `styles/tokens.css`만 renderer `src/` 기준이다. 조사한 생산 경로는 0264 이후 실제 이동된 파일을 사용하며 과거 테스트 경로를 그대로 복사하지 않는다.
+
+| 대상 / 관측 | TO-BE / 책임 |
+|---|---|
+| `harnesses/opencode/rightPanel.ts`: overview 22px, 일반 tile 10px. `claude/rightPanel.ts`: `rounded-r6 border` | OpenCode tile의 외곽을 기존 `rounded-r6 border`로 통일. 동일해진 overview override는 생략하고 common의 fallback 사용; 전용 색·그림자 유지 |
+| `styles/tokens.css`: r6는 0.75rem, 공통 tile는 단일 `border` | 기존 토큰 재사용, 새로운 radius/선 굵기 토큰·CSS 없음. Claude 구현 import나 별도 외곽 추상화 추가 없음 |
+| `opencode/rightpanel/chrome.tsx` PanelRow, `tiles.tsx` agent button, `Sources.tsx` web anchor, `AgentViews.tsx` 목록 button: 세로 패딩만 존재 | 네 행 렌더 자리에 `px-2` 수준의 안쪽 간격 적용. 기존 summary `px-6`을 늘려 해결하지 않음; 공통 PanelRow 소비 행에도 일관 적용 |
+| `model.ts`: 전체 셸 기록을 `describeTool(call).outcome`으로 정규화; 요약/상세가 같은 processes 사용 | 순수 active selector는 `status === 'running'`만 선택해 요약에 사용. 전체 model과 상세의 선택 조회는 유지 |
+| `lib/parts.ts`: outcome = running/completed/failed/rejected/aborted/cancelled/not_executed | running만 포함. 미수신 결과와 async-launched는 기존 running 판정 유지; 나머지는 모두 제외. session inflight/OS PID로 활성 추정 금지 |
+| `lib/rightPanelTiles.ts`: 지원 목록이 메뉴·target·columns에 함께 사용됨 | `RightPanelAgentPolicy`에 선택적 `menuIds` 추가, 생략 시 기존 visibleIds. 새 메뉴 selector만 적용하고 기존 지원/target/columns selector는 유지 |
+| `ChatTitleBar.tsx`: `rightPanelTileDefinitionsForAgent` 직접 소비 | 메뉴 전용 selector로 교체. OpenCode 정책에 `menuIds: ['task']`, Claude 정책 기본값 유지; 공통 UI에 backend 분기 복제하지 않음 |
+| `common/rightpanel/TilePanel.tsx`: detached origin을 거르지만 대체 포커스 없음 | OpenCode가 안정적인 변경 사항 버튼을 fallback origin으로 전달. common detail host는 선택적 DOM 참조만 받고 하네스별 DOM 마커/정책을 모름 |
+
+`rightPanelTileDefinitionsForAgent`의 생산 소비처는 타이틀과 공통 `components/rightpanel/tileRegistry.ts`다. 새 selector는 타이틀만 사용하며 registry의 기존 목록은 유지한다. `visibleIds`와 `rightPanelTarget`을 축소하거나 전역 suspended 목록을 바꾸어 메뉴를 숨기는 구현은 금지한다.
+
+변경 사항 버튼은 OpenCode summary가 안정적인 fallback으로 식별하고, navigation 상태→Panel의 detail config→공통 host로 전달한다. host는 원래 origin을 우선하고, 닫힌 상세·inert/hidden·다른 세션·분리된 DOM에는 포커스하지 않는다. fallback을 전달하지 않는 Claude/artifact 기존 경로는 그대로 유지한다.
+
+Main·SDK·IPC·DB·저널 수집/보존·dependencies는 변경하지 않는다. 이번 활성 필터는 렌더 투영이며 완료 이력을 지우거나 프로세스 상세를 자동 닫지 않는다. 로그 상한과 완료 결과 우선 규칙은 기존 MD-02를 그대로 따른다.
+
+### Delta V / 직접 oracle
+
+| Node | provenance / 계약 |
+|---|---|
+| R-06/08/09/10, AT-06/08/09/10 | CHANGED — 위 AC6‴/8′/9′/10′ |
+| R-12/13, AT-12/13 | NEW — 외곽 일치·행 안쪽 여백 |
+| SD-01 / ST-01 | CHANGED — 실행 종료 중 요약 제거·상세 유지·복귀 포커스 |
+| AR-02 / IT-02 | CHANGED — 메뉴 노출 정책 분리, 하네스가 주입한 외곽·fallback과 공통 host |
+| MD-04 / UT-04 | CHANGED — 활성 프로세스/메뉴 투영, 기존 지원·agent/source 조건 유지 |
+| R-01/02/04/05/07/11, MD-02/05 | INHERITED — 작업 토글·상세·로그·소스·Claude·헤더/선택 수명 |
+
+아래 T-V5 항목은 구현 시 추가/확장할 테스트 좌표이며 이번 턴 실행 결과가 아니다. SSR은 정적 출력만, Node 콜백 테스트는 실행한 콜백만 검증하며 실제 클릭/구독/포커스는 CUA에서 닫는다.
+
+| ID | 테스트 파일:케이스 / 직접 단언 |
+|---|---|
+| T-V5-01 | `harnesses/opencode/rightpanel/model.test.ts`: 신규 `selects only running processes without removing terminal history` — 모든 outcome과 async-launched, 동시 실행·종료·재실행 입력에서 active IDs/전체 이력/최종 로그를 함께 단언 |
+| T-V5-02 | `harnesses/opencode/rightpanel/Panel.render.test.ts`: 신규 `shows only active shell rows while keeping terminal detail readable` — 혼합 상태의 summary와 선택된 terminal detail 출력, 마지막 활성 종료 시 그룹·구분선 제거 |
+| T-V5-03 | `components/ChatTitleBar.render.test.ts`: 기존 `$backend $kind의 기존 순서·지원 항목과 타일 표시 제목을 보존한다`, `모든 항목이 자신의 타일을 토글하고 현재 선택을 표시한다` 확장 — OpenCode 작업 하나/Claude 기존 목록, 실제 MenuItem 체크·toggle 인수; 신규 다른 케밥 액션 유지 단언 |
+| T-V5-04 | `harnesses/opencode/rightpanel/navigation.test.ts` 및 `harnesses/common/rightpanel/TilePanel.detail.test.ts`: 신규 `restores fallback focus only after a removed detail origin` — fallback 전달·연결/hidden/inert/세션 조건, 닫기 후 focus 대상. 실제 DOM 효과는 CUA-V5-03으로 보완 |
+| T-V5-05 | `lib/rightPanelTiles.harness.test.ts`: 신규 `limits only the OpenCode menu while retaining every supported target` — menu는 task, target/columns는 기존 지원 집합; 기존 `retains Claude Code and Work panel sets` 유지 |
+
+| Pair | requiredness / start→edges→end | 자리 / 직접 oracle |
+|---|---|---|
+| VP-17 R-06/08/09/10/12/13↔AT-06/08/09/10/12/13 | REQUIRED — 세션→요약/hover/타이틀→표시·클릭·상세/복귀 | EP-20~23의 15자리; T-V5-01~05와 CUA-V5-01~04 |
+| VP-18 SD-01↔ST-01 | REQUIRED — 실행 데이터 갱신→요약 제거/상세 유지→닫기→원래 화면·포커스 | EP-21b/c·23a/b/c의 5자리; T-V5-02/04, CUA-V5-02/03 |
+| VP-19 AR-02↔IT-02 | REQUIRED — appearance/메뉴 정책→common tile/ChatTitleBar, OpenCode origin→detail config→host | EP-20a·22a/b/c·23a/b/c의 7자리; T-V5-03/04/05, CUA-V5-01/03/04 |
+| VP-20 MD-04↔UT-04 | REQUIRED — 전체 상태→active selector, 지원 정책→메뉴 전용 selector | EP-21a·22a의 2자리; T-V5-01/05 |
+| VP-06 MD-02↔UT-02 | REGRESSION — 전체 셸 기록→진행/최종 출력·실패·상한 | 기존 `model.test.ts: shows received progress, then lets terminal results replace it`, `includes child shell calls, bounds long output and preserves failures` |
+| VP-01의 R-04/05/07, VP-12의 agent/source 조건 | REGRESSION — 로그·컨텍스트·Claude와 독립 그룹 조건 | 기존 `model.test.ts: never counts the implicit working directory as an added source`, `Sources.render.test.ts: hides cwd-only summary sources but keeps the full directory and add control reachable`, CUA-V5-02/04 |
+| VP-09의 R-01, VP-13의 R-02/11, VP-14~16의 변경되지 않은 경로 | REGRESSION — 작업 토글·요약 상세·artifact·세션 격리·기존 헤더/선택 | 기존 `Panel.render`, navigation, `TilePanel.detail`, store/reducer 테스트 및 CUA-V5-03/04 |
+
+V3 VP-09의 R-08~10 및 V4 VP-13의 R-06은 VP-17로, VP-12의 활성/메뉴 계산은 VP-20으로 이관한다. V4 VP-14/15 중 이번 종료·포커스·정책 edge는 VP-18/19로 대체하고 나머지는 회귀로 유지한다. 기존/이번 선택 mutation은 0개이며 실제 입력→출력과 DOM 조작을 직접 관측한다.
+
+### §10 증분 강제 지점 / 운영 gate
+
+| 자리 / 수 | 강제 내용 | 자리별 oracle / 실패 의미 |
+|---|---|---|
+| EP-20a/b/c/d/e / 5 | a appearance→요약·일반/상위 tile 외곽; b PanelRow; c agent 요약 버튼; d source URL 행; e agent 목록 행 | CUA-V5-01 a/b/c/d/e. a는 기존 보조 패널과 computed radius/각 변 border-width 비교; b/c/d/e는 호버 배경 양끝의 padding·실제 긴 내용/말줄임 관측 |
+| EP-21a/b/c / 3 | a model→active 투영; b active 목록→그룹 조건/행 렌더; c 전체 기록→열린 상세 결과 | T-V5-01 a, T-V5-02 b/c 정적 출력, CUA-V5-02/03 b/c 실제 store 갱신. 완료 이력 삭제·남은 활성 누락·상세 unavailable 회귀 검출 |
+| EP-22a/b/c/d / 4 | a 하네스 menu 정책→selector; b selector→실제 메뉴; c 작업 체크/클릭→store 토글; d 기존 다른 메뉴/Claude 항목 | T-V5-05 a, T-V5-03 b/c/d, CUA-V5-04 b/c/d. 지원 타일까지 축소하거나 숨긴 항목이 메뉴에 남는 회귀 검출 |
+| EP-23a/b/c / 3 | a OpenCode origin→안정적 fallback 식별/선택 상태; b 선택 상태→detail config; c common host close→유효 origin/fallback 포커스 | T-V5-04 a/b/c의 실행 구간, CUA-V5-03 전체. detached/hidden/다른 세션 focus·스크롤 손상 검출 |
+| DOC-V5a/b / 2 | a plan 메타 READY; b INDEX plan/READY·다음 Codex·동일 라운드 | `git diff -- docs/handoff/0263-opencode-session-panel/plan.md docs/handoff/INDEX.md` 양쪽 대조. 한쪽만 IMPL_DONE이면 실패 |
+
+제품 자리 분모는 `5+3+4+3=15`, 문서 상태 사본은 별도 2자리다. V3 EP-09b/d의 process 조건, EP-11b의 메뉴 선택은 EP-21/22로 대체한다. EP-14a/15b는 위 명시 폐기 범위대로 대체하고 기존 source 기능·summary 네 진입·host 수명은 회귀로 닫는다.
+
+| CUA ID | 실제 조작 / 필수 관측 |
+|---|---|
+| CUA-V5-01 | 밝고 어두운 테마에서 OpenCode 요약·계획/상세와 Claude 계획·Work 작업 외곽 비교. 변경 사항·셸·소스 파일·URL·agent 요약/목록 버튼을 hover하고 기본/좁은 폭에서 양쪽 간격·말줄임 확인 |
+| CUA-V5-02 | 실제 reducer/store를 사용하는 세션에 여러 셸 진행→일부 성공/실패→모든 terminal→새 실행을 공급. 행 단위 제거, 마지막 그룹 숨김, 독립 agent/source 그룹 보존 |
+| CUA-V5-03 | 활성 셸 행 클릭→상위 상세에서 종료 결과 수신→닫기/Escape. 최종 로그 유지·원래 배치/스크롤·fallback 포커스; artifact 중첩·연결된 origin·세션 전환 회귀 |
+| CUA-V5-04 | OpenCode 타이틀 케밥→작업 체크/닫기/재열기, 다른 tile 항목 부재. 기존 저장 타일·요약의 네 상세 진입·자료 생성 후 source 추가/열기, Claude Code/Work 메뉴·배지·다른 케밥 액션 보존 |
+
+구현 gate는 읽기 전용 ESLint·typecheck, 위 신규 및 영향받은 기존 순수 Vitest, renderer build, 문서 inventory·오류 처리 inventory·test-budget, 원격 CI와 위 CUA다. 기존 `chatReducer.harness`, `chatStore.panelTiles`, `rightPanelTiles.harness`, `Panel.render`, `Sources.render`, `TilePanel.detail`을 회귀 집합에 포함한다. native ABI는 뒤집지 않으며 Main/DB 실동작 회귀는 기존 CI에 위임한다.
+
+실앱 연결이 불가능하면 실제 ChatTitleBar·RightPanel·store를 mount한 renderer fixture를 사용하고 native API 대체와 실앱 미검증을 구분한다. 실모델 도구 검증 생략 결정은 유지하며 임시 fixture·다운로드·첨부는 커밋하지 않는다. 구현 시 현재 architecture의 메뉴/요약 서술을 코드와 함께 갱신하고 이번 계획 턴에서는 미래 상태로 수정하지 않는다.
+
+### READY self-review
+
+대조 결과: D-15↔AC12, D-16↔AC8′, D-17↔AC13, D-18↔AC9′/10′, D-19↔AC4/5/7 및 메뉴 예외가 일치한다. D-03/04/06/07/12/13/14는 기존 AC·회귀 pair로 유지하며 ACTIVE 결정 충돌 0, OPEN 결정 0이다. 계획/빈 소스 메뉴 접근의 과거 보장과 완료 상세 기록 보존을 각각 명시 대체/유지해 반대 방향 단언이 남지 않도록 했다.
+
+신규·변경 R/SD/AR/MD는 모두 VP-17~20의 같은 레벨 REQUIRED pair와 §10 자리를 가진다. 새 테스트는 T-V5로 계획 좌표임을 표시했고 인용한 기존 케이스·정책/소비 경로는 현재 파일에서 확인했다. 이전 V4 self-pass·원격 CI는 기준선 증거이며 이번 제품 변경의 완료 판정이 아니다.
+
+설계 산출 gate: `git diff --check` 통과, `checkLinks`에서 사용자 다운로드 `.tmp`와 `.codex-remote-attachments` 제외 결과 0건, `scanProse` 위반 0건. plan/INDEX 모두 plan/READY·다음 Codex·라운드 1을 대조했다. 변경 파일은 이 plan과 INDEX뿐이며 앱 코드·첨부·현재 architecture는 변경하지 않았다.
