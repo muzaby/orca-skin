@@ -15,6 +15,9 @@ import { createWorkToolResultSelector } from '../../lib/workToolResults'
 import { transcriptPresentation } from '../../lib/agentPresentation'
 import { OpenCodeTimeline } from '../../harnesses/opencode/transcript/Timeline'
 
+// 0256 D-009: both harness viewports accept the global scale at this shared boundary.
+const transcriptTextScaleClassName = '[--transcript-text-scale:var(--chat-text-scale,1)]'
+
 export interface TranscriptViewProps {
   backend?: Backend | null
   agentKind: AgentKind
@@ -45,7 +48,7 @@ export const TranscriptView = memo(function TranscriptView(
   props: TranscriptViewProps
 ): React.JSX.Element {
   return props.backend === 'opencode' ? (
-    <OpenCodeTimeline {...props} />
+    <OpenCodeTimeline {...props} textScaleClassName={transcriptTextScaleClassName} />
   ) : (
     <ClaudeTranscriptView {...props} />
   )
@@ -97,7 +100,7 @@ const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
       onScroll={onScroll}
       // 대화 내용 텍스트 크기(0256 D-009) — 전역 설정값을 이 루트만 범위 변수로 받아들인다.
       // 컴포저·우측 패널·포털 팝오버는 선언 밖이라 배율 1이다.
-      className={`app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] [--transcript-text-scale:var(--chat-text-scale,1)] ${openCode ? 'bg-bg' : ''} ${harnessSurfaces(openCode).transcriptRoot}`}
+      className={`app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] ${transcriptTextScaleClassName} ${openCode ? 'bg-bg' : ''} ${harnessSurfaces(openCode).transcriptRoot}`}
       data-harness={backend ?? 'claude'}
       data-behavior="virtualizable"
     >

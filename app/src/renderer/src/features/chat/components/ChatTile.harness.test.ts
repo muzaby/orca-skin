@@ -31,7 +31,9 @@ vi.mock('../hooks/useScrollAnchor', () => ({
 }))
 vi.mock('./ChatTitleBar', () => ({ ChatTitleBar: () => null }))
 vi.mock('./transcript/LineageBanner', () => ({ LineageBanner: () => null }))
-vi.mock('./Composer', () => ({ Composer: () => null }))
+vi.mock('./Composer', () => ({
+  Composer: () => createElement('div', { 'data-composer-probe': '' })
+}))
 vi.mock('./rightpanel/RightPanel', () => ({ RightPanel: () => null }))
 
 import { ChatTile } from './ChatTile'
@@ -42,7 +44,7 @@ describe('harness transcript background', () => {
     { backend: 'claude', agentKind: 'work' },
     { backend: 'opencode', agentKind: 'code' }
   ] as const)(
-    'preserves the shared canvas and fades with the original $backend/$agentKind viewport',
+    'preserves the shared canvas, fades and transcript-only text scale for $backend/$agentKind',
     ({ backend, agentKind }) => {
       vi.clearAllMocks()
       fixture.backend = backend
@@ -59,6 +61,17 @@ describe('harness transcript background', () => {
       expect($('[class~="bg-gradient-to-b"]').hasClass('from-bg')).toBe(true)
       expect($('[class~="bg-gradient-to-t"]').hasClass('from-bg')).toBe(true)
       expect($('.app-frame-transcript').attr('data-harness')).toBe(backend)
+      const textScaleClassName = '[--transcript-text-scale:var(--chat-text-scale,1)]'
+      const scaleOwners = $('[class]').filter((_, element) =>
+        $(element).hasClass(textScaleClassName)
+      )
+      expect(scaleOwners).toHaveLength(1)
+      expect(scaleOwners.is('.app-frame-transcript')).toBe(true)
+      const composer = $('[data-composer-probe]')
+      expect(composer).toHaveLength(1)
+      expect(
+        composer.parents().filter((_, element) => $(element).hasClass(textScaleClassName))
+      ).toHaveLength(0)
       expect(useScrollAnchor).toHaveBeenCalledTimes(backend === 'claude' ? 1 : 0)
     }
   )

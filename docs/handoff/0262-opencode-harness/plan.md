@@ -1905,6 +1905,8 @@ Todo 접힘은 새 턴과 캐시 세션 왕복에서 유지하고 처음 보는 
 
 ### 놓친 잠재 문제 + 대응
 
+- CI #761은 공통 글자 배율 선언의 단일 소유 규칙(typeScale AC7)을 새 OpenCode 루트가 중복 선언한 것을 검출했다. TranscriptView가 하나의 선언을 소유하고 OpenCode 루트에 prop으로 전달하도록 보완했다. 기존 구조 검사는 수정하지 않았으며 실제 ChatTile→dispatcher DOM에서 Claude Code/Work와 OpenCode 모두 transcript 루트 한 곳만 배율을 받고 composer 조상에는 없는지 직접 검사했다.
+
 - 기존 질문/승인 두 배열만으로는 종류 간 도착 순서를 복원할 수 없었다. 별도 순서 참조만 추가하고 payload 정본은 기존 배열에 유지했다. IPC·DB 형식을 늘리지 않았다.
 - 실제 store를 쓰는 DOM 통합 검사에서 외부화된 Zustand React 바인딩이 테스트 React 런타임을 우회했다. Zustand vanilla store와 제품 store/actions는 유지하고 React 구독 바인딩만 테스트 런타임에 연결했다. 단순 action mock으로 대체하지 않았다.
 - Todo 도입 후 SSR 회귀에서 `window` 접근이 실패했다. reduced-motion 초기 조회에 브라우저 존재 가드를 적용했고 영향 Composer 검사 4파일28케이스가 다시 통과했다.
@@ -1938,11 +1940,12 @@ Todo 접힘은 새 턴과 캐시 세션 왕복에서 유지하고 처음 보는 
 | 전체 관련 Vitest | 직접 Vitest --maxWorkers=2: 요청·composer·Todo·reducer·우측 패널·엔진·v1 adapter 관련59파일363케이스 통과. 최종 transcript·controller·선택·Claude dispatcher·Composer 통합20파일94케이스 통과. 두 실행은 일부 중복이며 합산하지 않는다. skip/실패0. 로그 .tmp/0262-r115-tests.log 및 transcript-tests.log(로컬 증거, 미커밋). |
 | node/web/test typecheck | 최종 npm run typecheck의 node/web/test 모두 exit0. 초기 새 테스트의 FakeDom viewport 인자 타입 오류를 보완한 뒤 전체 재통과. |
 | readonly ESLint | 승인 소유9파일 오류0·경고0, fixture2파일 오류0·경고0. 전체는 전체 읽기 전용 검사 오류0. fixture export 경고를 보완하고 최종 변경파일 검사 오류0·TanStack useVirtualizer incompatible-library 경고1. 기존 공통 virtualizer도 같은 경고를 가진다. |
+| CI 실패 보완 직접 검사 | typeScale 원형 유지·ChatTile.harness·TranscriptView.harness·Timeline.render 4파일23케이스 통과. 대상 ESLint 오류0·기존 useVirtualizer 경고1. 추가 제품 두 파일 수정 후 web 타입·build 재통과. |
 | build | electron-vite 직접 build exit0: main/preload/renderer 생성 완료. 기존 SubAgentTileContent 정적/동적 import 경고 유지. ABI 변경 훅은 실행하지 않음. |
 | 형식/운영 | 소유 변경 `git diff --check` 통과. generated/prose·migration sync/append-only·test budgets·변경 TypeScript Prettier 통과. 전체 링크 guard는 사용자 다운로드 .tmp/opencode-dev 내부 기존5건만 실패. 다운로드·첨부를 제외한 저장소 링크는 빈 배열로 통과했다. |
 | Computer Use | 실제 fixture의 production 컴포넌트·메모리 IPC로 요청 큐/Todo/transcript 직접 조작 완료. 모델 호출 없음. 아래 측정표 및 [디자인 증거](design-evidence.md#orca-요청스크롤todo-구현-관측-2026-10-15-r115) |
-| 원격 Windows CI | 제품 커밋 push 후 실행 대기. 로컬 통과를 원격 CI 통과로 대신하지 않는다. |
-| 상태 사본·trailer | plan/INDEX impl/IMPL_DONE·다음 Claude로 기록. 구현 커밋 후 trailer의 실제 파싱을 확인한다. |
+| 원격 Windows CI | 최초 제품33ea3e38의 CI #761에서 타입·lint·문서·migration은 통과했으나 전체 테스트 중 typeScale AC7 한 건 실패(715파일7047케이스 통과, 기존1파일1케이스 skip). 단일 배율 선언 전달 보완 후 원격 재실행 대기. |
+| 상태 사본·trailer | 제품 커밋33ea3e38의 git cat-file 결과 commit, git log trailer 파싱에서 Agent/Handoff/Status/Criteria-Met33/34/Criteria-PendingAC11/Verified-Bypending 모두 확인. plan/INDEX impl/IMPL_DONE·다음 Claude 재조회 일치. |
 
 | CUA 시나리오 | 실제 관측 |
 |---|---|
@@ -1959,3 +1962,5 @@ Todo 접힘은 새 턴과 캐시 세션 왕복에서 유지하고 처음 보는 
 r1.15는 사용자 후속 요구로 확정한 ΔV11~13 구현 턴이다. 기존 원본의 독립 질문/승인 표시를 통합 FIFO로 바꾼 근거는 D-022 사용자 결정이며 원본의 기본 동작으로 기술하지 않는다. Todo UI는 공식1.19.0 근거를 사용하고 제공2.x 아카이브의 런타임 API를 도입하지 않았다.
 
 자동 직접 검사는 조작 결과·payload·수명까지, CUA는 실제 geometry·selection까지 관측했다. fixture의 native IPC는 메모리 대역이므로 이 결과를 실모델 응답 검증으로 확대하지 않는다. ABI를 변경하는 npm pretest/install/rebuild는 실행하지 않았다. 운영 gate의 다운로드 내부 링크 한계는 위에 분리했다. 사용자 AC11과 독립 verify는 대기이며 자기확인을 verify/PASS로 기록하지 않는다.
+
+CI 후속: 로컬 관련 테스트 집합에 공통 styles/typeScale 검사가 빠져 있었다. CI의 전체 검사로 확인한 단일 선언 위반을 제품 경계에서 고쳤고 기존 검사 기대값을 완화하지 않았다. 화면에 전달하는 CSS 값은 같으므로 앞선 CUA의 기하·색상 관측은 유지하며 배율 전달 경로를 직접 DOM 회귀로 추가 확인했다.

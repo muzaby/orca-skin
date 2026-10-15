@@ -22,7 +22,7 @@ const policy = transcriptPresentation('code', 'opencode')
 const gaps = { 0: '', 8: 'pt-[8px]', 16: 'pt-[16px]', 24: 'pt-[24px]' } as const
 
 export const OpenCodeTimeline = memo(function OpenCodeTimeline(
-  props: TranscriptViewProps
+  props: TranscriptViewProps & { textScaleClassName: string }
 ): React.JSX.Element {
   const { tr } = useI18n()
   const liveText = useLiveText()
@@ -83,7 +83,7 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline(
         data-harness="opencode"
         data-behavior="virtualizable"
         data-timeline-scroll=""
-        className="app-frame-transcript flex-1 overflow-auto bg-bg py-5 outline-none [overflow-anchor:none] [--oc-sticky-top:0px] [--transcript-text-scale:var(--chat-text-scale,1)]"
+        className={`app-frame-transcript flex-1 overflow-auto bg-bg py-5 outline-none [overflow-anchor:none] [--oc-sticky-top:0px] ${props.textScaleClassName}`}
       >
         <ReadingColumn ref={props.contentRef} className="flex min-h-full flex-col pb-[64px]">
           {(props.loadingSession || empty) && (
