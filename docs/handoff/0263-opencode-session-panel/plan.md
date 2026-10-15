@@ -5,10 +5,12 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex / 2026-10-15 |
-| 상태 | READY |
-| V mode / revision | Baseline V1 + Delta V2 |
+| 상태 | READY — Delta V3 요구와 버튼 제거 결정 반영; 코드 미구현 |
+| V mode / revision | Baseline V1 + Delta V2 + Delta V3 |
 | 기준 V | none — 0262의 완료 구현 위에 별도 기능 단위로 추가 |
 | 매핑 | PR #502, 0262 후속 |
+
+현재 규범은 V1에 V2와 [Delta V3](#delta-v3--작업-요약과-기존-타일-동작-복원)를 순서대로 적용한다. 아래 V1/V2 본문과 구현 보고는 기준선 이력이며, V3가 명시적으로 대체한 화면 전환·헤더·빈 그룹 규칙은 구현 목표로 다시 사용하지 않는다.
 
 # Part I — Product & UX Contract
 
@@ -32,12 +34,19 @@ OpenCode 세션의 우측에 요약 카드를 기본 표시한다. 하위 에이
 
 | ID | 결정 | 출처 | 상태 |
 |---|---|---|---|
-| D-01 | OpenCode는 기본 요약 카드, Claude는 기존 타일 renderer | 사용자 | ACTIVE |
-| D-02 | 요약 → 활성/완료 하위 에이전트 목록 → 상세 대화, 뒤로 이동은 동일 패널 | 사용자 첨부 | ACTIVE |
+| D-01 | OpenCode는 기본 요약 카드, Claude는 기존 타일 renderer | 사용자 | SUPERSEDED → D-07; 기본 요약은 유지하며 OpenCode도 타일로 관리 |
+| D-02 | 요약 → 활성/완료 하위 에이전트 목록 → 상세 대화, 뒤로 이동은 동일 패널 | 사용자 첨부 | SUPERSEDED → D-08; 요약을 교체하는 depth 전환 폐기 |
 | D-03 | 백그라운드 프로세스는 세션 셸 호출과 수신 로그의 읽기 전용 표시 | 사용자 답변 | ACTIVE |
 | D-04 | PR 항목 없음. 소스는 Work 컨텍스트의 폴더·첨부·참조 자료와 기존 추가/열기 기능 | 사용자 답변 | ACTIVE |
 | D-05 | transcript 배경, Claude 동작, 기존 diff·계획·artifact viewer 접근 유지 | 기존 합의 및 회귀 계약 | ACTIVE |
 | D-06 | SDK 의존 수집은 opencode/v1, 공통 이력·상태 프로토콜 재사용 | 기존 합의 | ACTIVE |
+| D-07 | OpenCode 기본 요약은 `작업` 타일로 표시하고 타이틀의 타일 표시 메뉴에서 열고 닫는다 | 2026-10-15 추가 요구 | ACTIVE; D-01 대체 |
+| D-08 | 요약의 패널 진입 항목은 기존 타일 패널을 열며, 다른 열린 타일과 작업 요약을 교체하지 않는다 | 같은 요구 “depth 변경이 아니라 타일패널이 열려야 함” | ACTIVE; D-02 대체 |
+| D-09 | 기본 고정 항목은 변경 사항 하나. 하위 에이전트·백그라운드 프로세스·소스 그룹은 실제 하위 항목이 있을 때 노출 | 같은 요구 “그 하위 항목이 추가될때 활성화” | ACTIVE |
+| D-10 | 요약 케밥의 계획 팝업을 제거하고 아이콘은 미트볼로 변경 | 같은 요구 두 항목 | SUPERSEDED → D-13; 후속 사용자 답변 |
+| D-11 | OpenCode 타이틀의 타일 표시 목록에서 검토·세션·작업 범주명을 제거하고 평면 목록을 사용 | 같은 요구 | ACTIVE; 0262의 OpenCode 범주 표시 계약만 대체 |
+| D-12 | 0263에서 추가한 상세 wrapper 헤더를 제거하고 기존 타일 헤더를 복원. 변경 사항의 닫기는 기존 Git 컨텍스트 헤더에 배치 | 같은 요구 “클로드 변경사항 패널 참고” | ACTIVE |
+| D-13 | 작업 요약 상단의 팝업과 버튼을 모두 제거하며 미트볼 대체 버튼도 두지 않는다 | OQ-01 사용자 답변 “버튼도 제거” | ACTIVE; D-10 대체 |
 
 갱신 메모: D-01~06 추가. ACTIVE 결정 ↔ AC 대조: 충돌 0. 0262의 AC가 이미 25건을 넘으므로 독립 패널 기능을 분리한다.
 
@@ -171,6 +180,138 @@ v1 activity 수집기는 root mapper를 소유한다. 현재 prompt가 받아들
 V1 UI oracle 좌표 정정: 존재하지 않는 `RightPanel.render.test` 이름은 신규 `harnesses/opencode/rightpanel/Panel.render.test.ts`의 실제 dispatcher 렌더로 대체한다. VP-02의 클릭·복귀·세션 초기화는 실제 컴포넌트를 띄운 Computer Use로 관측하고, 모델 계산은 `model.test.ts`에 남긴다. SSR은 상태 전환을 실행하지 못하므로 클릭을 검증했다고 보고하지 않는다. 제품 동작·강제 지점 분모는 유지한다. 선택 적대 증거 없음 — 직접 입력과 표시 결과를 확인한다.
 
 갱신 self-review: D-01~06 충돌 없음. AC5의 정상 추가/열기와 기존 거부 조합을 함께 검증한다. 저장 포맷·의존성 변경 없음. V1 VP-01~06 중 위 oracle 좌표만 supersede하고 나머지 계약은 상속한다.
+
+## Delta V3 — 작업 요약과 기존 타일 동작 복원
+
+판정: READY. 사용자의 2026-10-15 추가 요구와 후속 “버튼도 제거” 결정을 반영하며 이번 턴은 설계 문서만 변경한다. 이전 구현의 자기검증을 이 델타의 완료 증거로 승계하지 않는다.
+
+기준선: `0263 V1+V2 @ 73681f8007c2ad9de2f89196095154558f7767c2` — `git cat-file -t`의 `commit`, `origin/codex-opencode-harness`의 동일 해시를 확인했다. 실패 verify가 아닌 사용자 요구 변경이므로 라운드는 1을 유지한다. 사용자 메시지 버블 색상은 [0262 ΔV8](../0262-opencode-harness/plan.md)에 귀속한다.
+
+### Product / UX — 요구 매핑과 해석
+
+| 사용자 추가 요구 | 이번 계약 / 귀속 |
+|---|---|
+| “사용자 메시지 버블… Claude transcript…똑같이 변경” | 0262 ΔV8; 여기서는 canvas 배경 유지 D-05를 상속 |
+| “기본적으로 노출하는 메뉴는 변경사항 1개” | D-09 / AC8: 변경 사항만 고정, 데이터가 없는 그룹은 제목·빈 문구·구분선을 함께 숨김 |
+| “케밥버튼 클릭시 팝업되는 메뉴를 제거” | D-13 / AC9: 요약의 계획 팝업과 버튼 제거, 계획은 기존 타이틀 타일 메뉴로 접근 |
+| “타일표시에서 검토, 세션, 작업 등의 그룹명을…제거…기존 우측패널을 '작업'으로” | D-07/11 / AC1′·AC10: 범주 제목 없는 타일 목록, 작업 항목은 요약 타일 토글 |
+| 변경 사항에 추가된 헤더 제거·닫기 복원 | D-12 / AC11: GitContextBar와 닫기를 기존 하나의 타일 헤더에 배치 |
+| “케밥버튼을 미트볼버튼으로 변경” → 후속 “버튼도 제거” | D-10 SUPERSEDED → D-13 / AC9: 세로점·가로점 버튼 모두 제공하지 않음 |
+| “depth 변경이 아니라 타일패널…뒤로가기 등의 새 헤더…모두 복구” | D-08/12 / AC2′·AC6′·AC11: 공통 타일 열기/닫기/확대 경로, 추가 wrapper 폐기 |
+
+해석 범위: OpenCode에만 적용한다(D-004/0262). `기본`은 작업 요약 본문을 뜻하며 타이틀의 타일 선택 목록을 변경 사항 하나로 제한하지 않는다. cwd는 세션 작업 위치이므로 요약 소스 그룹을 활성화하는 새 자료로 세지 않고, 전체 소스 내용에는 유지한다.
+
+| 상태 / 행동 | 사용자에게 보이는 결과 |
+|---|---|
+| 생성된 세션 최초 진입, 기록·첨부·추가 폴더 없음 | 작업 타일 안에 변경 사항만 표시. 하위 그룹과 빈 목록 문구 없음 |
+| task·shell·명시적 추가 자료가 도착 | 해당 그룹만 나타나며 수신 상태·항목을 표시. 마지막 항목이 사라지면 그 그룹만 숨김 |
+| 변경 사항·하위 에이전트·셸·소스 모두 보기 클릭 | 해당 타일을 열고 화면 밖이면 reveal. 작업 타일과 다른 타일의 내용/선택 유지 |
+| 같은 종류의 다른 항목 클릭 | 기존 해당 타일의 선택만 변경. 타일 복제나 요약 depth 교체 없음 |
+| 소스 그룹이 숨겨진 상태에서 첫 참조 폴더 추가 | 타이틀의 `소스` 타일 → 기존 + picker → 선택 성공 시 요약 그룹 표시. 취소/실패는 기존 상태 유지 |
+| 타일 닫기·재열기 / 세션 전환 | 닫은 타일만 제거, 체크 상태 동기화. 열린 세션을 다시 갱신해도 닫기를 되돌리지 않음; 다른 세션의 선택을 사용하지 않음 |
+| 하위 에이전트 타일 안의 목록·상세 | 원래 타일의 선택/목록 복귀 의미 유지. 요약으로 돌아가는 새 상위 헤더는 없음 |
+
+소스의 파일·URL 열기 및 +는 기존 컨텍스트 동작을 유지한다. `타일 열기`로 바꾸는 대상은 기존에 요약 전체를 교체하던 패널 진입이며, 파일 열기를 별도의 복제 파일 뷰어로 바꾸지 않는다. PR 미제공, 로그 수집 범위·상한, child 소유권, Claude 패널은 유지한다.
+
+OQ-01 해결: 사용자가 “버튼도 제거”를 선택했다. 요약의 계획 팝업·세로점 버튼을 제거하고 미트볼도 추가하지 않는다(D-13). transcript 타이틀의 기존 케밥과 diff의 원래 설정 메뉴는 제거 대상이 아니다.
+
+### Acceptance Criteria — 기존 기준의 대체와 추가
+
+| R / AC / provenance | 행동 기준 | 직접 oracle / production 경로 |
+|---|---|---|
+| R-01 / AC1′ CHANGED | OpenCode 세션의 기본 작업 요약이 실제 타일로 열리고 메뉴로 닫기·다시 열기 가능. Claude와 PR 미제공 유지 | `chatReducer.harness.test.ts` 초기/닫기 상태, `Panel.render.test.ts` 초기 표시, CUA-V3-01 실제 메뉴·닫기/재열기 |
+| R-02 / AC2′ CHANGED | 요약 클릭은 대상 타일을 추가·reveal하고 다른 타일을 유지. 같은 타일 재선택/항목 변경과 세션 전환 안전 | `chatStore.panelTiles.test.ts` 신규 선택/타일/reveal 결과, CUA-V3-02/04 병렬 타일·항목 재선택·세션 분리 |
+| R-06 / AC6′ CHANGED | plan/diff/artifact 기능과 테마·긴 로그 접근 유지, 타일 원래 제어로 확대·축소·닫기 | `RightPanelTile.actions.test.ts` 확장, CUA-V3-03/05 실제 헤더·뷰어·두 테마 |
+| R-08 / AC8 NEW | cwd만 있는 상태는 변경 사항만 표시. agent/process/명시적 context 각각 0→1→0에서 해당 그룹만 나타나고 사라짐 | `model.test.ts`/`Panel.render.test.ts` 확장: task·shell·extraDirs·첨부·URL 독립 fixture와 결과 DOM |
+| R-09 / AC9 NEW | 요약 상단에는 작업 위치와 본문만 있고 메뉴 버튼·계획 팝업이 없다. 계획은 타이틀 메뉴로 계속 열 수 있다 | 실제 summary DOM에서 버튼/팝업 미노출, 타이틀의 계획 클릭→plan 타일 표시 |
+| R-10 / AC10 NEW | OpenCode의 타일 표시 목록은 범주 제목 없이 실제 타일 라벨·체크 상태를 표시하며 `작업`은 요약을 가리킴 | `rightPanelTiles.harness.test.ts` 정의/정책, CUA-V3-01 실제 열린 Popover 라벨·체크·클릭→타일과 Claude 회귀 |
+| R-11 / AC11 NEW | diff의 Git 컨텍스트 헤더에 닫기·기존 확대가 있고 추가 back/title/expand 행은 없음. 다른 타일도 기존 헤더 하나 사용 | `rightPanelTiles.render.test.ts` 실제 헤더 구조, CUA-V3-03 헤더 안의 닫기/확대 클릭 결과 |
+
+AC1/2/6은 위 prime 행이 대체하고 AC3/4/5/7은 유지한다. AC4/5의 패널 진입 oracle은 depth가 아닌 타일 조립 테스트로 옮긴다. 이번 유효 AC는 기존 7개와 신규 4개이며 이 턴에서는 구현 충족을 보고하지 않는다.
+
+### 조사 / AS-IS → TO-BE
+
+| 대상 / 검색 | AS-IS 관측 | TO-BE 책임 |
+|---|---|---|
+| `Panel.tsx`: `setView`, `header`, `setMenu` | 로컬 view로 summary를 대체하고 wrapper 헤더·계획 팝업 추가 | summary를 `task` 내용으로 분리. 외부 depth/menu 상태를 제거하고 공통 타일 호스트 사용 |
+| `rightPanelTiles.ts`, OpenCode `rightPanel.ts` | plan/subagent/task/diff 정의; OpenCode의 taskTarget=plan, initialTile=null | OpenCode taskTarget/initialTile=task. process/source 타일은 OpenCode 정책에서만 허용 |
+| `ChatTitleBar.tsx`: `rightPanelGroups` | 범주 제목과 각 타일 체크 목록 | OpenCode는 정의의 평면 목록, Claude 표시 정책은 그대로 |
+| `tileRegistry.ts`, `RightPanelColumn.tsx`, `RightPanelTile.tsx` | registry는 하네스 입력 없이 공통 content 결정; diff 헤더가 GitContextBar+닫기를 조립 | registry에 backend를 전달해 전용 content 선택. 공통 열/타일/원래 헤더 기능 재사용 |
+| `Sources.tsx`→`useTaskContext` | cwd도 directories에 포함, 생성된 세션의 폴더 추가는 Sources +가 담당 | 그룹 활성은 extraDirs/수집 자료로 계산. 메뉴의 source 타일은 빈 상태에도 열 수 있어 첫 폴더 추가 보존 |
+| `chatReducer.ts`: `initialTile`, `activateTile`, `OPEN_SUBAGENT_TASK`; store `panelReveal` | 초기화·명시 열기·닫기/선택이 이미 세션별 상태 | 기존 수명 재사용, process 선택만 세션별로 추가. shell/child 데이터 프로토콜 변경 없음 |
+
+타일 계약: `plan/subagent/task/diff/process/source`를 전체 정의로 삼고 Claude의 허용 집합은 현재 정책을 유지한다. OpenCode `task`는 요약, `process`는 선택된 세션 셸 실행과 로그, `source`는 전체 컨텍스트다. 새 ID는 renderer 세션 UI 상태이며 DB/IPC/native API 계약을 추가하지 않는다.
+
+공통 타일 layout/chrome을 하네스 중립 조립으로 재사용하고 content/header registry만 backend로 선택한다. OpenCode가 Claude 전용 디렉터리를 import하는 방식은 사용하지 않는다. 기존 native subagent 목록 복귀는 타일 헤더 내용으로 유지할 수 있으나 0263의 요약 복귀용 wrapper는 제거한다.
+
+닫기는 해당 타일의 선택만 정리하고 다른 타일·다른 세션의 상태를 보존한다. root 세션 첫 진입은 task를 열되 사용자 닫기 후 reload/후속 턴에서 강제 재개방하지 않는다. artifact viewer의 origin 포커스·가로 스크롤·숨겨진 타일 상태 보존은 기존 공통 경로를 그대로 사용한다.
+
+### V registry / supersede와 회귀
+
+| Node | provenance / 계약 |
+|---|---|
+| R-01/02/06, AT-01/02/06 | CHANGED — 위 AC1′/2′/6′ |
+| R-08~11, AT-08~11 | NEW — 조건부 그룹·팝업/버튼 제거·평면 메뉴·헤더 |
+| SD-01 / ST-01 | CHANGED — 로컬 depth 대신 타일 열기/선택/닫기/세션 격리 |
+| AR-02 / IT-02 | CHANGED — dispatcher→하네스 registry→공통 열/타일→전용 본문 |
+| MD-04 / UT-04 | NEW — 요약 그룹 유무와 하네스별 tile target/initial/visible 계산 |
+| R-03/04/05/07, MD-01/02, AR-01/03, MD-03 | INHERITED — 수집·투영·컨텍스트·Claude/버전 경계 |
+
+| Pair | requiredness | 경로 / §10 자리 | 직접 oracle |
+|---|---|---|---|
+| VP-09 R-01/02/06/08~11↔AT-01/02/06/08~11 | REQUIRED | 요약/타이틀→열기→타일 본문·헤더, EP-09~15 | 위 AC의 순수/SSR 테스트와 CUA-V3-01~06 |
+| VP-10 SD-01↔ST-01 | REQUIRED | 최초 진입/명시 클릭→세션 상태→병렬 타일/닫기/재진입, EP-10/11/13 | `chatReducer.harness.test.ts` 초기/캐시/후속 턴, `chatStore.panelTiles.test.ts` 상태 결과, CUA-V3-01/02/04/05 실제 UI |
+| VP-11 AR-02↔IT-02 | REQUIRED | dispatcher→backend registry→column→tile header/body, EP-11/12 | `Panel.render.test.ts`, `rightPanelTiles.render.test.ts`, `RightPanelTile.actions.test.ts` 확장과 CUA-V3-02/03 |
+| VP-12 MD-04↔UT-04 | REQUIRED | messages/context→그룹 유무; backend→초기/지원/타깃, EP-09/10 | `model.test.ts` 신규 각 자료 독립 전이; `rightPanelTiles.harness.test.ts` 신규 task/process/source 정책 |
+| VP-01의 R-03/04/05/07 | REGRESSION | 수집된 child/로그·소스·Claude를 새 타일에서 표시, EP-11/12/14 | `activity.integration.test.ts`, `model.test.ts`, `Panel.render.test.ts`, `Sources.render.test.ts` 신규 실제 hook+본문 |
+| VP-03/05/06/07/08 | REGRESSION | 기존 수집·로그·컨텍스트 경계; V1/V2 자리 상속 | 기존 `activity.test.ts`, `adapter.test.ts`, `activity.integration.test.ts`, `model.test.ts`, `chatStore.sessionDirectory.test.ts`, `session-directory.test.ts`, `files.contextDirectory.test.ts`, `agent-session-policy.test.ts` |
+
+VP-01의 AC1/2/6 증거는 VP-09로, VP-02는 VP-10으로, VP-04는 VP-11로 이관한다. old SD-01/AR-02 중 외부 depth 전환·복귀 헤더만 SUPERSEDED이며 데이터·기능 계약은 유지한다. 선택 적대 증거는 기존과 동일하게 없음; 상태 결과·실제 DOM과 사용자 조작을 직접 관측한다.
+
+0262의 VP-10/19·EP-10 중 OpenCode 메뉴 범주/기존 task→plan 타깃 부분은 이 V3가 대체한다. 0262의 하네스별 지원 제한과 Claude 회귀 계약은 유지하며, 이번 메뉴·타일 기준의 정본은 여기 한 곳이다.
+
+### 실행 가능한 oracle — Node 테스트와 실제 Chromium 조작 분리
+
+현재 Vitest 환경은 Node이며 DOM runner 의존성은 없다. V2처럼 Vitest는 실제 reducer/store의 상태 결과·순수 투영·정적 렌더를 검증하고, 클릭→store→화면과 포커스는 아래 명명된 Computer Use 절차로 검증한다. 모든 절차는 구현 에이전트가 실행하며 순수 상태 계산을 사용자 실기에 맡기지 않는다.
+
+`chatStore.panelTiles.test.ts`는 기존 `chatStore.testHarness.ts`의 `installChatStoreHarness()`로 세션을 준비하고 실제 chatActions에 진입해 세션별 columns/selected/reveal을 관측하는 신규 Node 테스트다. SSR은 별도 fixture로 초기 렌더만 확인한다. Zustand SSR는 getInitialState를 읽으므로 setState 뒤 SSR을 호출한 것을 실제 구독/전환 증거로 보고하지 않는다.
+
+| 증거 ID | 실제 진입점·조작 | 필수 관측 |
+|---|---|---|
+| CUA-V3-01 | OpenCode 세션의 실제 ChatTitleBar→Popover에서 작업/계획/소스 선택, Claude 세션으로 전환 | 범주명 제거, 작업 체크/닫기/재열기, plan/source 접근, Claude 기존 메뉴 |
+| CUA-V3-02 | 작업 요약의 변경 사항·agent·shell 클릭, transcript Task 카드 클릭 | 작업과 대상 타일 동시 존재, 같은 항목 재클릭 중복 없음, 다른 선택은 자기 타일만 갱신 |
+| CUA-V3-03 | 열린 diff/plan/subagent/process/source의 실제 헤더 조작 | diff 컨텍스트+닫기 한 행, wrapper 없음, 닫기/확대/복사/원래 agent 목록 복귀 |
+| CUA-V3-04 | 세션 A에서 선택·확대→B→A, 닫기 뒤 후속 턴/같은 세션 갱신 | 선택·확대 누출 없음, 닫기 유지, 다른 타일 내용/선택 보존 |
+| CUA-V3-05 | 두 테마·좁은 폭, 긴 셸 로그·열/행 조절, artifact 열기/닫기 | 스크롤·리사이즈·원래 타일 상태/포커스 복원, 중복 헤더 없음 |
+| CUA-V3-06 | cwd만→각 agent/shell/extraDir/첨부/URL 추가·제거, 빈 source 타일 + 취소 | 그룹별 0→1→0, 첫 폴더 picker 도달·취소 보존, 요약 메뉴 버튼 없음 |
+
+실행 환경은 기존 `npm run dev`의 Electron/Vite다. 실앱에 필요한 기록이 없으면 renderer root에 임시 `__oc_panel_v3_preview.html/.tsx`를 두고 실제 ChatTitleBar/RightPanel/ToolCard와 세션 store를 mount하며 native API만 fixture로 대체한다. 같은 Vite의 preview URL을 Computer Use로 조작하고 이 파일은 제거하거나 `.tmp`로 옮겨 커밋에서 제외한다.
+
+증거는 `.tmp/0263-v3-visual-evidence.md`에 ID별 화면/DOM·접근성 출력·테마·실앱/fixture 구분과 함께 기록한다. CI는 기존 Vitest 및 정적 gate를 실행하고 Chromium 클릭 증거는 로컬 구현 gate다. Computer Use가 불가하면 해당 CUA pair를 미완료로 남기며 SSR로 대체 완료 처리하지 않는다.
+
+### §10 증분 강제 지점
+
+아래는 UI 선택·renderer/기능의 구 자리 행을 대체한다. 기본 경로 검색은 `rg 'rightPanelTileDefinitions|rightPanelPolicy|rightPanelTarget|initialTile|panelReveal|OPEN_SUBAGENT_TASK|tileById' app/src/renderer/src/features/chat`이며, 구현 시 새 ID의 모든 소비처를 같은 술어로 다시 확인한다.
+
+| 자리 / 수 | 강제 내용 | 자리별 직접 oracle / 실패 의미 |
+|---|---|---|
+| EP-09a/b/c/d, 4 | agents→그룹, processes→그룹, context의 implicit cwd 제외→그룹, 그룹 값→summary DOM | `model.test.ts` a/b/c의 독립 0→1→0 입력; `Panel.render.test.ts` d의 실제 렌더. 빈 그룹 노출/자료 누락 검출 |
+| EP-10a/b/c/d/e, 5 | 정의/지원; task target; BEGIN_TURN 초기화; LOAD_SESSION/캐시; column 필터 | `rightPanelTiles.harness.test.ts` a/b/e; `chatReducer.harness.test.ts` c/d. task가 plan으로 열림·닫기 유실·Claude 신규 타일 노출 검출 |
+| EP-11a/b/c/d/e/f, 6 | summary 클릭; 타이틀 클릭; transcript Task 클릭; store reveal; reducer 선택·활성; registry→column→본문 | CUA-V3-02 a/c/d/e/f, CUA-V3-01 b/d/e/f. Node `chatStore.panelTiles.test.ts`는 d/e 상태만 관측; 이벤트·구독 배선 증거로 확대하지 않음 |
+| EP-12a/b/c/d, 4 | registry header→tile; GitContextBar+닫기; 타일별 확대; plan 복사/agent 목록 복귀 | `rightPanelTiles.render.test.ts` a/b 구조, `RightPanelTile.actions.test.ts` 직접 action 결과와 CUA-V3-03 a/b/c/d 실제 조작 |
+| EP-13a/b/c, 3 | process 선택의 세션 귀속; close 시 자기 선택 정리; artifact/확대/리사이즈 수명 | `chatStore.panelTiles.test.ts` a/b 상태, CUA-V3-04 a/b/c와 CUA-V3-05 c. 기존 viewport 테스트도 회귀 |
+| EP-14a/b, 2 | source 메뉴 진입→빈 전체 소스; 전체 소스 +→공통 picker/open hook | CUA-V3-01 a, CUA-V3-06 a/b. `Sources.render.test.ts` 신규 초기 렌더와 기존 directory/context 테스트는 내용·하위 기능 회귀 |
+| EP-15a/b, 2 | summary 계획 팝업/버튼 제거; 타이틀 메뉴의 plan 접근 보존 | `Panel.render.test.ts`의 실제 요약 상단 DOM a, CUA-V3-06 a, CUA-V3-01 b. 버튼만 가리거나 계획 접근까지 제거하는 회귀 검출 |
+
+자리 분모는 `4+5+6+4+3+2+2=26`이며 수집·Main 컨텍스트 기존 회귀 자리는 V1/V2를 상속한다. 실제 Chromium 절차는 React/Popover/registry/store를 실행하며 native/file API만 fixture로 대체한다. Node 테스트와 실제 UI 조작 증거를 합쳐도 각각의 실행 구간 밖 자리까지 자동 통과로 세지 않는다.
+
+### 운영 gate / 문서 갱신 / self-review
+
+이번 설계 산출 gate는 상대 링크·Decision↔AC↔V 대조·`git diff --check`와 INDEX 상태 일치다. 구현 시에는 renderer 가이드의 ESLint/typecheck, 관련 Vitest, renderer build, 문서 inventory와 원격 CI, 두 테마 Computer Use를 적용한다. 기존 native DB 회귀는 Electron RUN_AS_NODE 또는 CI로 실행해 설치 ABI를 보존한다.
+
+구현 후 `docs/arch/frontend/rendering.md`의 depth 전환 서술과 `state.md`의 타일 상태 설명을 실제 코드에 맞춰 갱신한다. 이번에는 현재 코드의 architecture를 미래형으로 바꾸지 않는다. SDK/IPC/DB 변경은 없으며 다운로드 소스는 계속 커밋 제외다.
+
+대조: D-07↔AC1′/10, D-08↔AC2′, D-09↔AC8, D-13↔AC9, D-11↔AC10, D-12↔AC6′/11은 방향이 일치한다. D-03~06은 AC3~7과 기존 회귀 pair로 유지한다. D-10은 후속 사용자 답변으로 대체됐고 OPEN 결정은 없다.
 
 ## [구현자 기입]
 
