@@ -54,6 +54,10 @@ export class OpenCodeEventMapper {
     if (promptId) this.promptMessages.add(promptId)
   }
 
+  ownsMessage(id: string): boolean {
+    return this.messages.get(id) === 'assistant'
+  }
+
   map(event: Event): NormalizedEvent[] {
     if (this.terminal) return []
     const props = event.properties

@@ -10,7 +10,7 @@
 
 공통 `AssistantMessage`는 파트 순서와 identity를 보존하고 하네스별 `AssistantSegment`로 전달한다. Claude의 본문·reasoning·도구 카드·도구 본문 레지스트리는 `features/chat/harnesses/claude/transcript/`에 있다. OpenCode의 본문·reasoning·오류·구조화 결과·도구 카드는 `harnesses/opencode/transcript/`가 소유하며 Claude 카드 본문을 재사용하지 않는다. 입력 버블·대기 버블·메타 스타일도 각 transcript의 `appearance.ts`에서 선택한다. 질문·경계 표시·첨부·복사·diff 표·Markdown 파싱은 공통 기능이다.
 
-OpenCode는 연속한 read/search/list만 탐색 그룹으로 묶고 셸·편집 전후의 순서를 유지한다. 파일 편집/쓰기는 처음부터 펼치고 다른 도구는 사용자가 펼친다. 셸 출력은 명령과 결과를 복사할 수 있는 스크롤 패널, 파일 변경은 파일별 diff, 작업은 설명 카드로 표시한다. 실패·중단·거부·취소·미실행은 성공 완료와 구분한다. reasoning은 접지 않는 흐린 본문이며 라이브와 확정 텍스트는 같은 전용 스타일을 쓴다. transcript 배경은 두 하네스 모두 `bg-bg`다.
+OpenCode는 연속한 read/search/list만 탐색 그룹으로 묶고 셸·편집 전후의 순서를 유지한다. 파일 편집/쓰기는 처음부터 펼치고 다른 도구는 사용자가 펼친다. 셸 출력은 명령과 결과를 복사할 수 있는 스크롤 패널, 파일 변경은 파일별 diff, 작업 행을 누르면 우측 하위 에이전트 상세를 연다. 실패·중단·거부·취소·미실행은 성공 완료와 구분한다. reasoning은 접지 않는 흐린 본문이며 라이브와 확정 텍스트는 같은 전용 스타일을 쓴다. transcript 배경은 두 하네스 모두 `bg-bg`다.
 
 OpenCode native metadata는 `harnesses/opencode/v1/toolPresentation.ts`에서 중립 view로 해석하고 `toolPresentation.ts`가 현재 버전을 선택한다. 화면 컴포넌트는 이 진입점을 사용하며 버전 구현을 직접 import할 수 없다. 엔진의 native 설정 편집도 해당 feature의 `harnesses/opencode/v1/`에 둔다. 새 버전은 버전별 해석만 추가하고 정규화된 UI·store·파트 순서는 재사용할 수 있다.
 
@@ -218,7 +218,7 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 
 검증된 `tool.call.completed.artifact`는 원래 toolRunId가 속한 메시지만 교체한다. 목록 갱신 이벤트는 게시 카드를 임의의 메시지에 추가하거나 패널을 자동 선택하지 않는다. 일반 출력은 이 목록의 최신 파일을 Transcript 하단에서 표시하며 원래 메시지에 이미 연결된 파일은 중복 표시하지 않는다. `artifactStore`는 mount된 세션의 알려진 ID를 대상으로 상태 조회를 병합하고 세션/파일별 요청 세대로 지각 응답을 폐기한다. transcript 묶음 저장은 해당 메시지의 게시 집합, 타일은 Main이 반환한 최신 목록을 사용한다.
 
-우측 패널은 타일 registry·메뉴·행/열 배치를 사용한다. `RightPanel`은 세션·뷰어·확대 수명을 조립하고 `RightPanelColumn`은 타일과 행 애니메이션, `PanelResizeSeparators`는 행/열 조절을 담당한다. overview viewport 폭은 가용 영역의 절반 이내이며 넘치는 열은 가로 스크롤한다. 뷰어는 별도 저장한 폭을 사용한다. 명시적으로 타일을 열면 이미 열린 화면 밖 열도 보여 주고, 열 리사이즈는 스크롤된 실제 DOM 좌표를 기준으로 계산한다. 카드와 액션은 기존 시맨틱 토큰·Button·DropdownMenu·확인창·번역 리소스를 공유한다.
+`RightPanel`은 하네스별 renderer를 선택한다. Claude의 `harnesses/claude/rightpanel/Panel.tsx`는 타일 registry·메뉴·행/열 배치를 사용하며 세션·뷰어·확대 수명을 조립하고 `RightPanelColumn`은 타일과 행 애니메이션, `PanelResizeSeparators`는 행/열 조절을 담당한다. overview viewport 폭은 가용 영역의 절반 이내이며 넘치는 열은 가로 스크롤한다. 뷰어는 별도 저장한 폭을 사용한다. 명시적으로 타일을 열면 이미 열린 화면 밖 열도 보여 주고, 열 리사이즈는 스크롤된 실제 DOM 좌표를 기준으로 계산한다. 카드와 액션은 기존 시맨틱 토큰·Button·DropdownMenu·확인창·번역 리소스를 공유한다.
 
 `useArtifactViewerActions`는 복사와 저장의 중복 실행 잠금·피드백·요청 소유권을 관리한다. 오류 문구는 `artifactFeedback`에서 해석하고 선택 전환·닫기 이후의 완료는 이전 화면을 갱신하지 않는다. 패널 펼치기·복원·닫기는 공통 `PanelControls`와 Material SVG를 사용한다. 같은 역할의 툴팁은 공통 번역을 사용하며 타일을 식별해야 하는 접근성 이름에는 대상명을 포함한다.
 
@@ -230,4 +230,6 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 
 새 대화의 모델 선택은 `chatReducer.SET_MODEL`에서 backend를 함께 바꾼다. OpenCode 선택은 Code를 강제하며 생성·입장 이후 backend는 잠긴다. `ComposerInputController`는 동일 인스턴스를 유지하고 테두리·컨트롤만 전환한다. OpenCode의 에이전트·variant는 실제 카탈로그에서 제공한다. Claude의 권한·effort 컨트롤은 기존 정책을 유지한다.
 
-`TranscriptView`는 하네스별 presentation을 공유 메시지 모델에 적용하며 가상화와 마지막 스트리밍 교환을 유지한다. OpenCode 탐색 도구는 접기 행으로 묶고, 수정 도구는 본문을 펼친다. `providerTool` 원본은 상세 disclosure에서 읽는다. `rightPanelTiles`의 하네스 정책이 메뉴 범주·reducer 활성화·패널 렌더링을 함께 제한한다. OpenCode에는 공통 할 일/계획과 변경 검토 패널을 제공한다. 전용 색·표면·그림자는 두 테마의 `oc-*` 토큰이 갖는다.
+`TranscriptView`는 하네스별 presentation을 공유 메시지 모델에 적용하며 가상화와 마지막 스트리밍 교환을 유지한다. OpenCode 탐색 도구는 접기 행으로 묶고, 수정 도구는 본문을 펼친다. `providerTool` 원본은 상세 disclosure에서 읽는다. `rightPanelTiles`의 하네스 정책이 메뉴 범주·reducer 활성화·패널 렌더링을 함께 제한한다. OpenCode의 `harnesses/opencode/rightpanel/`은 기본 요약 카드에서 하위 에이전트 목록·상세, 세션 셸 실행 로그, 소스로 전환한다. 계획과 변경 검토는 같은 패널에 표시한다. PR 항목은 제공하지 않는다. 전용 색·표면·그림자는 두 테마의 `oc-*` 토큰이 갖는다.
+
+OpenCode 소스는 Work 컨텍스트와 같은 `useTaskContext` 훅을 사용한다. 추가 폴더·첨부·참조 목록과 열기/추가 기능을 공유하고, `sessionContextPolicy`가 OpenCode Code와 Claude Work의 컨텍스트 기능을 허용한다. 상세는 독립 스크롤·뒤로 이동·확대를 제공하며 세션 변경 시 선택과 확대를 초기화한다. child 도구와 대화는 부모 작업에 귀속하고 셸의 완료 결과를 진행 로그보다 우선한다. 로그는 제한된 후미를 표시하고 잘림을 알린다.

@@ -13,7 +13,8 @@ import type { CompleteRequest, LiveTurn, ProviderMessageBatch, SessionAdapter } 
 import type { TurnRequest } from '../../turn'
 import type { OpenCodeServer } from '../implementation'
 import { OPENCODE_DESCRIPTOR } from './descriptor'
-import { OpenCodeEventMapper, normalizeOpenCodeTool } from './map'
+import { normalizeOpenCodeTool } from './map'
+import { OpenCodeActivityMapper } from './activity'
 import { openCodeCatalog } from './catalog'
 import { classifyOpenCodeError } from './errors'
 
@@ -206,6 +207,14 @@ export class OpenCodeAdapter implements SessionAdapter {
         // Rechecking the queue here would reject its now-submitted reservation.
         const promptId = `msg_${randomUUID().replaceAll('-', '')}`
         const promptText = [...(req.preludes ?? []).map((part) => part.text), req.text].join('\n\n')
+        const system = [
+          req.extensions.systemPromptAppend,
+          req.extraDirs?.length
+            ? `Additional context directories selected for this session (JSON): ${JSON.stringify(req.extraDirs)}`
+            : undefined
+        ]
+          .filter(Boolean)
+          .join('\n\n')
         try {
           await client.session.promptAsync(
             {
@@ -215,9 +224,7 @@ export class OpenCodeAdapter implements SessionAdapter {
               ...(req.model ? { model: modelRef(req.model) } : {}),
               ...(req.harnessAgent ? { agent: req.harnessAgent } : {}),
               ...(req.modelVariant ? { variant: req.modelVariant } : {}),
-              ...(req.extensions.systemPromptAppend
-                ? { system: req.extensions.systemPromptAppend }
-                : {}),
+              ...(system ? { system } : {}),
               parts: [
                 { type: 'text', text: promptText },
                 ...(req.attachmentTexts ?? []).map((a) => ({
@@ -250,7 +257,8 @@ export class OpenCodeAdapter implements SessionAdapter {
             ...(req.promptUuid ? { uuid: req.promptUuid } : {})
           }
         ])
-        const mapper = new OpenCodeEventMapper(sessionId, promptId)
+        const activity = new OpenCodeActivityMapper(sessionId, promptId)
+        const mapper = activity.root
         const approvals = new Set<Promise<void>>()
         const requestedApprovals = new Set<string>()
         let approvalError: unknown
@@ -259,7 +267,8 @@ export class OpenCodeAdapter implements SessionAdapter {
           if (approvalError) throw approvalError
           if (
             'sessionID' in event.properties &&
-            event.properties.sessionID === sessionId &&
+            typeof event.properties.sessionID === 'string' &&
+            activity.ownsSession(event.properties.sessionID) &&
             (event.type === 'permission.asked' || event.type === 'question.asked') &&
             !requestedApprovals.has(event.properties.id)
           ) {
@@ -272,8 +281,9 @@ export class OpenCodeAdapter implements SessionAdapter {
               .finally(() => approvals.delete(pending))
             approvals.add(pending)
           }
-          const mapped = mapper.map(event)
-          if (mapped.length) yield emit(mapped)
+          const mapped = activity.map(event)
+          if (mapped.events.length || mapped.providerEvents.length)
+            yield { ...emit(mapped.events), providerEvents: mapped.providerEvents }
           if (mapper.terminal) {
             finished = true
             return
@@ -290,7 +300,7 @@ export class OpenCodeAdapter implements SessionAdapter {
             await Promise.all(approvals)
             if (approvalError) throw approvalError
             finished = true
-            yield emit(mapper.finish())
+            yield emit(activity.finish())
             return
           }
         }

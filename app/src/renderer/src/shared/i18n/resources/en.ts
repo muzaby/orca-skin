@@ -585,6 +585,36 @@ export const en: typeof ko = {
   },
   chat: {
     opencode: {
+      panel: {
+        title: 'Session details',
+        menu: 'Session panel menu',
+        sources: 'Sources',
+        showAll: 'Show all',
+        agents: 'Subagents',
+        active: 'Active',
+        completed: 'Completed',
+        agentCounts: 'Active {{active}} · Completed {{completed}}',
+        noAgents: 'No subagents in this group.',
+        waitingAgent: 'Waiting for the subagent response.',
+        changes: 'Changes',
+        processes: 'Background processes',
+        processStatus: {
+          running: 'Running',
+          completed: 'Completed',
+          failed: 'Failed',
+          aborted: 'Aborted',
+          cancelled: 'Cancelled',
+          rejected: 'Rejected',
+          not_executed: 'Not executed'
+        },
+        noProcesses: 'No recorded shell executions.',
+        noOutput: 'No output received.',
+        truncated: 'Showing the last 64K characters of output.',
+        back: 'Back',
+        expand: 'Expand panel',
+        collapse: 'Collapse panel',
+        unavailable: 'This record is unavailable.'
+      },
       back: 'Back',
       toggleQuestion: 'Collapse or expand question',
       explorationIncomplete: 'Exploration ended · incomplete',

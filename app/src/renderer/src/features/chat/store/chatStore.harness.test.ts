@@ -15,16 +15,16 @@ afterEach(() => {
   seedLandingAgentKind('work')
 })
 describe('remembered harness and request routing', () => {
-  it('does not reveal an unsupported stale panel through store actions', () => {
+  it('reveals the supported OpenCode subagent panel through store actions', () => {
     installChatStoreHarness({
       backend: 'opencode',
       agentKind: 'code',
       rightPanelTiles: [{ id: 'stale', tiles: ['subagent'] }]
     })
     chatActions.setRightPanelTileActive('subagent', true)
-    expect(useChatStore.getState().sessions.s.panelReveal).toBeUndefined()
+    expect(useChatStore.getState().sessions.s.panelReveal?.id).toBe('subagent')
     chatActions.toggleRightPanelTile('subagent')
-    expect(useChatStore.getState().sessions.s.panelReveal).toBeUndefined()
+    expect(useChatStore.getState().sessions.s.panelReveal?.id).toBe('subagent')
   })
   it('defaults to Claude, remembers model selection and sends native options', () => {
     const { settingsSet, chatSend } = installChatStoreHarness({ sessionId: null })

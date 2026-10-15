@@ -174,7 +174,85 @@ V1 UI oracle 좌표 정정: 존재하지 않는 `RightPanel.render.test` 이름�
 
 ## [구현자 기입]
 
-설계 리뷰·강제 지점 전수·V-pair 자기확인·수정 잠금·Product/UX 파생 검토·잠재 문제·명시적 차이·구현 보고·Review Signals: 구현 후 기입.
+### 설계 리뷰
+
+r1 구현. V1의 컨텍스트 재사용에서 Work 전용 정책을 발견해 Delta V2를 별도 설계 커밋으로 보완했다. D-01~06과 AC1~7의 사용자 결과는 유지한다. 독립 verify는 수행하지 않았다.
+
+### 강제 지점 전수와 V-pair 자기확인
+
+| Pair / 자기 상태 | 닫은 지점 / 분모 | 이번 관측 |
+|---|---|---|
+| VP-01 SELF_PASS | AC1~7 / 7 | 아래 AC별 관측표 |
+| VP-02 SELF_PASS | 진입·클릭·세션 변경 / 3 | Computer Use: 요약→목록→상세, 확대→다른 세션에서 요약·0건·360px 복원, 소스 뒤로 후 모두 보기 포커스 |
+| VP-03 SELF_PASS | SSE→batch→parts→projection / 3 | adapter.test의 owned child SSE, activity.integration.test의 실제 reducer 결과 `Found source`는 child에만 있고 셸 `tests running` 표시 |
+| VP-04 SELF_PASS | dispatcher·기능 배치 / 2 | Panel.render.test: OpenCode summary/Claude plan; 실앱에서 변경 사항·계획 진입 |
+| VP-05 SELF_PASS | 등록·child 정규화·종료 / 3 | activity.test: unrelated·duplicate·old prompt·child idle/error·resume·root finish flush; root turn.ended 1개 |
+| VP-06 SELF_PASS | 투영 / 1 | model.test: live→최종 빈/null 출력, nested shell 실패와 65,536자 상한 |
+| VP-07 SELF_PASS | renderer action·sync·dedup, Main 추가 전/후, 폴더·첨부 범위, SDK 입력 / 8 | sessionDirectory OpenCode canonical 동기화·대소문자 중복, Main busy/저장·범위 밖 거부, adapter system 경로 목록 |
+| VP-08 SELF_PASS | 공통 정책 / 1 | agent-session-policy.test: Claude Code 거부, Claude Work/OpenCode Code 허용 |
+
+컨텍스트 정책 소비처는 `rg sessionContextPolicy app/src`로 Main 4자리·renderer 3자리를 확인했다. 구 직접 조회 `agentSessionPolicy[`의 정의 파일 외 차집합은 0줄이다. SDK 입력은 `adapter.ts`의 system 구성에서 별도 확인했다.
+
+### 이번 라운드 수정의 잠금
+
+별도 적대 변이는 선택하지 않았다. 명시 입력→관측 출력의 직접 oracle을 사용한다. SSE·reducer·projection은 실제 함수 사이의 값과 화면 본문을 단언하며 호출 존재만 세지 않는다.
+
+선택 증거 0 · 인용 변이 0 · 새 구조 proxy/전수 배선 oracle 0 = 잠금 표 행 0. 위 정책 검색은 수정 위치 감사이며 행동 테스트의 대체물이 아니다.
+
+### Product/UX 파생 검토
+
+| 관측 | 조치 / 결과 |
+|---|---|
+| 요약 카드가 pane 전체 높이를 차지함 | 내용 높이로 수정, 실앱과 preview에서 확인 |
+| 셸 상태가 ‘에이전트 완료’로 표시됨 | 프로세스 전용 상태 문구, 화면에서 ‘완료’ 확인 |
+| 뒤로 복귀 시 기존 DOM 소멸로 초점 소실 | stable focus key로 복원, 소스의 모두 보기 버튼에 포커스 확인 |
+| 모델 미관측 시 에이전트 종류를 모델처럼 표시할 수 있음 | 수신된 model 값만 표시 |
+| viewer 전환 시 상세 DOM이 소멸함 | 패널을 숨김·inert로 유지하고 계획 복사 액션도 재사용 |
+
+### 놓친 잠재 문제 + 대응
+
+| 축 | 대응 / 제한 |
+|---|---|
+| 자식 종료가 부모보다 늦음 | root 정상 종료에서 child 텍스트를 flush; activity.test로 중복 종료 없음 확인 |
+| context 허용 정책의 분산 | 공통 sessionContextPolicy를 Main/renderer에 적용, SQLite 실제 경계 테스트 통과 |
+| 과거 child·부모 종료 후 비동기 task | 수신하지 않은 기록 역수입과 상시 구독은 설계 범위 밖; 가짜 기록을 합성하지 않음 |
+| 로그 상한 | journal과 표시에서 후미 상한·잘림 문구; 최종 결과가 진행 snapshot보다 우선 |
+
+명시적 차이: V2의 UI oracle 정정 외 계약 대체 없음. 만료 캐시 없음; 공유 상태는 기존 세션별 store/journal; 재진입은 activeKey로 선택 초기화; 다른 무효화는 기존 picker busy·세션 identity 검사와 파일 경로 재검사를 유지한다.
+
+### 구현 보고
+
+| AC | 자기 결과 | 관측 |
+|---|---|---|
+| AC1 | ✅ | 실제 dispatcher SSR: OpenCode 요약·PR 없음, Claude plan; 실앱 OpenCode 요약과 Claude Work 기존 패널 |
+| AC2 | ✅ | Computer Use: 목록·상세·뒤로·확대·세션 변경 초기화·포커스 복귀 |
+| AC3 | ✅ | SSE adapter 및 collector→실제 reducer→투영 테스트, child 텍스트와 namespace 도구 |
+| AC4 | ✅ | 진행/완료/실패/빈 출력 테스트; preview npm run dev 로그에서 #30까지 독립 스크롤 |
+| AC5 | ✅ | 공통 hook·selector 재사용, Main SQLite와 renderer 추가·열기 테스트; 실앱 폴더 선택창 열기·취소 |
+| AC6 | ✅ | preview light/dark의 Read/Edit·diff; 실앱 변경 사항·계획·복사; 공통 artifact viewer 조립 유지 |
+| AC7 | ✅ | 실앱 Claude Work 진행/출력/컨텍스트 보존; transcript bg-bg 유지; 하네스·v1 lint 경계 통과 |
+
+✅ 7 · ⚠️ 0 · ❌ 0 = 총 7. 이번 AC의 자기확인이며 0262의 사용자 최종 시각 인수나 독립 verify를 대체하지 않는다.
+
+| Gate | 관측한 산출 |
+|---|---|
+| 관련 Vitest | 24파일/403케이스 통과. 이후 child 종료 보완은 5파일/22케이스, 컨텍스트 중복·투영은 2파일/19케이스 통과 |
+| SQLite 경계 | Electron을 RUN_AS_NODE로 실행하여 2파일/73케이스 통과; 설치 ABI 변경 없음 |
+| 추가 context/렌더 | 3파일/12케이스 통과 |
+| Typecheck | node·web·test 완료, 오류 0 |
+| ESLint | 전체 읽기 전용 오류 0, 기존 useTranscriptVirtualizer 경고 1. 후속 수정 파일 검사 오류/경고 0 |
+| Build | main·preload·renderer 완료. 기존 SubAgentTileContent 정적/동적 중복 import 경고 |
+| 문서 | generated/prose 통과. 원본 링크 guard는 사용자 다운로드 `.tmp/opencode-dev`의 외부 문서 링크 5건 실패; `.tmp`·첨부를 제외한 저장소 링크 차집합은 빈 배열 |
+| 운영 | migration sync/append-only 및 test-budget 통과, git diff --check 오류 0 |
+
+Computer Use 증거: 실행 중인 Orca에서 기본 요약, 빈 목록, 변경 사항, 계획의 OpenCode 문구, 폴더 picker 취소, Claude Work 회귀를 확인했다. child·셸 데이터가 없는 기존 세션 대신 실제 컴포넌트 preview의 고정 데이터로 상세·로그·테마·세션 초기화를 확인했다. 새 실모델 호출은 하지 않았다. 로컬 캡처는 `.tmp/0263-orca-panel.png`, `.tmp/0263-panel-summary.png`이며 임시 preview와 다운로드 소스는 커밋에서 제외했다.
+
+### Review Signals
+
+- r1, verify 이전 최초 구현. 기존 같은 불변식의 재검증 라운드가 아니다.
+- V1은 Work context의 UI 재사용을 명시했지만 Main 허용 조합을 누락했다. 조사 후 V2로 보완했다.
+- 네이티브 창 연결은 이번에는 성공했다. CI는 별도 Windows 환경에서 전체 회귀를 확인한다.
+- 다음 주체는 Claude 독립 검증자다. PR #502는 draft 상태를 유지한다.
 
 ## [검증자 기입] 파생 이슈
 

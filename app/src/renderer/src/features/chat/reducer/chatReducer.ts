@@ -28,7 +28,7 @@ import {
   parseAgentKind,
   readLegacyAgentKind
 } from '../../../../../shared/agent-kind'
-import { agentSessionPolicy } from '../../../../../shared/agent-session-policy'
+import { sessionContextPolicy } from '../../../../../shared/agent-session-policy'
 import { isBackend, supportsAgentKind } from '../../../../../shared/harness'
 import { responseBoundaryPart } from '../../../../../shared/response-boundary'
 import { planReviewToolInput } from '../../../../../shared/plan-review-input'
@@ -1311,7 +1311,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'SYNC_SESSION_EXTRA_DIRS': {
       if (
         state.sessionId !== action.sessionId ||
-        !agentSessionPolicy[state.agentKind].allowDirectoryUpdates
+        !sessionContextPolicy(state.agentKind, state.backend).allowDirectoryUpdates
       )
         return state
       const extraDirs = [...new Set([...state.extraDirs, ...action.extraDirs])]
@@ -1325,7 +1325,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       if (isFilesystemRoot(action.dir)) return { ...state, extraDirRejection: 'root' }
       // Work는 직접 선택한 cwd도 컨텍스트에 남긴다. Code의 기존 cwd 제외 정책은 유지한다.
       if (
-        agentSessionPolicy[state.agentKind].directoryIdentity === 'windows'
+        sessionContextPolicy(state.agentKind, state.backend).directoryIdentity === 'windows'
           ? state.extraDirs.some((dir) => directoryIdentity(dir) === directoryIdentity(action.dir))
           : state.extraDirs.includes(action.dir) || action.dir === state.cwd
       )

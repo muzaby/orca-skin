@@ -15,9 +15,10 @@ describe('harness panel categories', () => {
       ])
     ).toEqual([
       ['review', ['diff']],
-      ['session', ['plan']]
+      ['session', ['plan']],
+      ['tasks', ['subagent']]
     ])
-    expect(rightPanelTarget('subagent', 'code', 'opencode')).toBeNull()
+    expect(rightPanelTarget('subagent', 'code', 'opencode')).toBe('subagent')
     expect(
       rightPanelColumnsForAgent(
         [
@@ -27,7 +28,10 @@ describe('harness panel categories', () => {
         'code',
         'opencode'
       )
-    ).toEqual([{ id: '2', tiles: ['diff'] }])
+    ).toEqual([
+      { id: '1', tiles: ['subagent'] },
+      { id: '2', tiles: ['diff'] }
+    ])
   })
   it('retains Claude Code and Work panel sets', () => {
     expect(rightPanelTileDefinitionsForAgent('code', 'claude').map((tile) => tile.id)).toEqual([

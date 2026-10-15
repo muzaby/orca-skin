@@ -8,7 +8,7 @@ import {
 } from '../../../shared/extra-directories'
 import type { AddSessionDirectoryRequest, AddSessionDirectoryResult } from '../../../shared/ipc'
 import { parseAgentKind } from '../../../shared/agent-kind'
-import { agentSessionPolicy } from '../../../shared/agent-session-policy'
+import { sessionContextPolicy } from '../../../shared/agent-session-policy'
 
 async function resolveDirectory(directory: string): Promise<string> {
   if (!isAbsolutePath(directory) || isFilesystemRoot(directory))
@@ -33,7 +33,9 @@ export async function addSessionDirectory(
 ): Promise<AddSessionDirectoryResult> {
   const initial = deps.db.getSessionById(request.sessionId)
   if (!initial) return { ok: false, reason: 'not-found' }
-  if (!agentSessionPolicy[parseAgentKind(initial.agent_kind)].allowDirectoryUpdates)
+  if (
+    !sessionContextPolicy(parseAgentKind(initial.agent_kind), initial.backend).allowDirectoryUpdates
+  )
     return { ok: false, reason: 'not-work' }
   if (deps.isSessionBusy(request.sessionId)) return { ok: false, reason: 'busy' }
   if (!isAbsolutePath(request.directory) || isFilesystemRoot(request.directory)) {
@@ -68,7 +70,9 @@ export async function addSessionDirectory(
   if (deps.isSessionBusy(request.sessionId)) return { ok: false, reason: 'busy' }
   const current = deps.db.getSessionById(request.sessionId)
   if (!current) return { ok: false, reason: 'not-found' }
-  if (!agentSessionPolicy[parseAgentKind(current.agent_kind)].allowDirectoryUpdates)
+  if (
+    !sessionContextPolicy(parseAgentKind(current.agent_kind), current.backend).allowDirectoryUpdates
+  )
     return { ok: false, reason: 'not-work' }
   const extraDirs = parseStoredExtraDirectories(current.extra_dirs)
   const key = directoryIdentity(canonical)

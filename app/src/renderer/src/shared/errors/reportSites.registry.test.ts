@@ -149,7 +149,7 @@ export const sites: Site[] = [
     title: 'openFailed'
   },
   {
-    file: 'features/chat/components/rightpanel/TaskContextContent.tsx',
+    file: 'features/chat/hooks/useTaskContext.ts',
     ordinal: 0,
     line: 61,
     disposition: 'TOAST',

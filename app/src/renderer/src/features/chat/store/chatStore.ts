@@ -5,7 +5,7 @@ import {
   parseAgentKind,
   type AgentKind
 } from '../../../../../shared/agent-kind'
-import { agentSessionPolicy } from '../../../../../shared/agent-session-policy'
+import { sessionContextPolicy } from '../../../../../shared/agent-session-policy'
 import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
 import {
@@ -1104,7 +1104,7 @@ async function addSessionDirectory(
   const session = state.sessions[target.key]?.session
   if (!session || session.sessionId !== target.sessionId) return { ok: false, reason: 'not-found' }
   if (state.activeKey !== target.key) return { ok: false, reason: 'not-found' }
-  if (!agentSessionPolicy[session.agentKind].allowDirectoryUpdates)
+  if (!sessionContextPolicy(session.agentKind, session.backend).allowDirectoryUpdates)
     return { ok: false, reason: 'not-work' }
   if (session.inflight || session.listening || session.loadingSession)
     return { ok: false, reason: 'busy' }

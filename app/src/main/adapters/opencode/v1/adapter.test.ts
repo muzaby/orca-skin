@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Event } from '@opencode-ai/sdk/v2'
 import type { NormalizedEvent } from '../../../../shared/ipc'
 import type { TurnRequest } from '../../turn'
+import type { ProviderMessageBatch } from '../../types'
 import { OpenCodeAdapter } from './adapter'
 import { OpenCodeServerPool } from './server'
 import {
@@ -123,6 +124,98 @@ function finish(f: ReturnType<typeof fixture>, promptId: string): void {
 }
 
 describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE transport', () => {
+  it('includes selected context directories in the prompt without changing native permissions', async () => {
+    const f = fixture()
+    let input: Record<string, unknown> = {}
+    f.onPrompt = (body) => {
+      input = body
+      finish(f, String(body.messageID))
+    }
+    await collect(
+      f.adapter,
+      request({
+        extraDirs: ['C:/references'],
+        extensions: {
+          skills: [],
+          hooks: { normalized: {} },
+          systemPromptAppend: 'Project instructions'
+        }
+      })
+    )
+    expect(input.system).toBe(
+      'Project instructions\n\nAdditional context directories selected for this session (JSON): ["C:/references"]'
+    )
+    expect(input.permission).toBeUndefined()
+  })
+  it('delivers owned child activity and shell journal events from the SSE stream', async () => {
+    const f = fixture()
+    f.onPrompt = (body) => {
+      const promptId = String(body.messageID)
+      f.emit(event('message.updated', { sessionID: 's1', info: assistantMessage('s1', promptId) }))
+      f.emit(
+        event('message.part.updated', {
+          sessionID: 's1',
+          time: 1,
+          part: editTool({
+            tool: 'task',
+            callID: 'task',
+            state: {
+              status: 'running',
+              input: { description: 'Inspect' },
+              metadata: { sessionId: 'child' },
+              time: { start: 1 }
+            }
+          })
+        })
+      )
+      f.emit(event('message.updated', { sessionID: 'child', info: assistantMessage('child') }))
+      f.emit(
+        event('message.part.updated', {
+          sessionID: 'child',
+          time: 2,
+          part: textPart('Child response', { sessionID: 'child', time: { start: 1, end: 2 } })
+        })
+      )
+      f.emit(
+        event('message.part.updated', {
+          sessionID: 'child',
+          time: 3,
+          part: editTool({
+            sessionID: 'child',
+            tool: 'bash',
+            state: {
+              status: 'running',
+              input: { command: 'npm test' },
+              metadata: { output: 'Running tests' },
+              time: { start: 3 }
+            }
+          })
+        })
+      )
+      f.emit(event('session.idle', { sessionID: 'child' }))
+      finish(f, promptId)
+    }
+    const batches: ProviderMessageBatch[] = []
+    for await (const batch of f.adapter.sendMessage(request()).eventBatches) batches.push(batch)
+    expect(batches.flatMap((batch) => batch.events)).toContainEqual(
+      expect.objectContaining({
+        type: 'message.completed',
+        parentToolRunId: 'task',
+        message: { text: 'Child response' }
+      })
+    )
+    expect(batches.flatMap((batch) => batch.providerEvents ?? [])).toContainEqual(
+      expect.objectContaining({
+        type: 'background.call',
+        toolName: 'Bash',
+        result: 'Running tests',
+        parentToolUseId: 'task'
+      })
+    )
+    expect(
+      batches.flatMap((batch) => batch.events).filter((value) => value.type === 'turn.ended')
+    ).toHaveLength(1)
+  })
   const denied = {
     name: 'APIError' as const,
     data: {

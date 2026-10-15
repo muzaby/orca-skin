@@ -28,6 +28,8 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 
 #### OpenCode 실행과 격리
 
+`opencode/v1/activity.ts`는 현재 prompt의 task metadata가 지정한 child만 수집한다. child 텍스트·도구는 root 세션과 parentToolRunId로 저장하며 도구 ID는 native session으로 구분한다. child 종료·오류·usage는 root 턴을 종료하지 않는다. task와 셸의 수신 상태·로그는 기존 providerEvents의 background.call journal로 보존하고, 부모 턴 종료 뒤의 상시 구독이나 독립 프로세스 제어는 제공하지 않는다. 추가 컨텍스트 폴더는 system 문맥의 JSON 목록으로 전달하며 native 도구 승인은 유지한다.
+
 앱은 `createOpenCodeAdapter`를 통해 `SessionAdapter`를 받고, `opencode/implementation.ts`의 전송·서버 수명·설정 로더 계약만 사용한다. 구체 adapter/server 생성은 `opencode/v1/index.ts`가 담당한다. 버전 디렉터리를 직접 소비하거나 버전 구현끼리 참조하는 import는 ESLint가 차단한다. 다른 버전 구현은 같은 계약을 제공하고 중립 진입점에서 선택해야 하며, 현재 실행 가능한 구현은 1.x다.
 
 `OpenCodeServerPool`은 실행 파일·구성·환경 fingerprint별 시작을 합치고 loopback 임의 포트, 임의 인증 암호, Orca 전용 XDG 데이터 경로를 사용한다. 앱 종료는 자신이 spawn한 child만 종료한다. 설치된 CLI를 PATH와 npm 설치 경로에서 찾거나 하네스 설정의 절대 실행 파일 경로를 사용한다. 자동 CLI 설치·사용자 OpenCode 프로세스 재사용은 제공하지 않는다.

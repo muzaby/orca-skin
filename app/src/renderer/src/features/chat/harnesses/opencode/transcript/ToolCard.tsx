@@ -5,6 +5,7 @@ import type { ToolCall } from '../../../reducer/chatReducer'
 import { describeTool } from '../toolPresentation'
 import { OpenCodeSpinner } from '../Spinner'
 import { ToolBody } from './ToolBody'
+import { chatActions } from '../../../store/chatStore'
 
 const toolIcons: Record<ReturnType<typeof describeTool>['kind'], OpenCodeIconName> = {
   read: 'code-slash',
@@ -37,8 +38,12 @@ export const OpenCodeToolCard = memo(function OpenCodeToolCard({
       <button
         type="button"
         data-slot="collapsible-trigger"
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
+        aria-expanded={view.kind === 'task' ? undefined : open}
+        onClick={() =>
+          view.kind === 'task'
+            ? chatActions.openSubagentTask(call.toolUseId)
+            : setOpen((value) => !value)
+        }
         className="group/oc-tool flex min-h-[28px] w-full min-w-0 items-center gap-[6px] rounded-[6px] text-left outline-none ring-focus"
       >
         {running ? (

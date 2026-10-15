@@ -1,80 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '../../../../shared/ui/Button'
 import { Icon } from '../../../../shared/ui/Icon'
-import { i18n, useI18n } from '../../../../shared/i18n'
-import { reportError } from '../../../../shared/errors'
+import { useI18n } from '../../../../shared/i18n'
 import { basenameForDisplay } from '../../../../../../shared/path-basename'
-import { fileApi } from '../../../../shared/api/ipc'
-import { useChatBusy, useChatSession, useChatStore } from '../../store/chatStore'
-import { useDirectoryPicker } from '../../hooks/useDirectoryPicker'
+import { useChatStore } from '../../store/chatStore'
+import { useTaskContext } from '../../hooks/useTaskContext'
 import { SectionPlaceholder, TileSection } from './TaskTileSections'
-import { createTaskContextSourceSelector, taskContextDirectories } from '../../lib/taskContext'
 
 export function TaskContextContent(): React.JSX.Element {
   const { tr } = useI18n()
-  const cwd = useChatSession((s) => s.cwd)
-  const extraDirs = useChatSession((s) => s.extraDirs)
-  const messages = useChatSession((s) => s.messages)
-  const [selectSources] = useState(createTaskContextSourceSelector)
-  const directories = useMemo(() => taskContextDirectories(cwd, extraDirs), [cwd, extraDirs])
-  const sources = useMemo(() => selectSources(messages), [selectSources, messages])
-  const sessionId = useChatSession((s) => s.sessionId)
-  const activeKey = useChatStore((s) => s.activeKey)
-  const busy = useChatBusy()
-  const picker = useDirectoryPicker(true)
-  const mounted = useRef(true)
-  const opening = useRef(false)
-  const [openingPath, setOpeningPath] = useState<string | null>(null)
-  useEffect(() => {
-    mounted.current = true
-    return () => {
-      mounted.current = false
-    }
-  }, [])
-  const openContextPath = async (path: string, mode: 'directory' | 'file'): Promise<void> => {
-    if (!sessionId || opening.current) return
-    const current = (): boolean => {
-      const state = useChatStore.getState()
-      return (
-        mounted.current &&
-        state.activeKey === activeKey &&
-        state.sessions[activeKey]?.session.sessionId === sessionId
-      )
-    }
-    if (!current()) return
-    opening.current = true
-    setOpeningPath(path)
-    try {
-      if (mode === 'directory') await fileApi.openPath({ path, mode, sessionId })
-      else {
-        const result = await fileApi.openContextFile({ path, sessionId })
-        if (result.outcome === 'missing')
-          reportError({
-            event: 'files.context-open.missing',
-            scope: 'files',
-            title: 'fileUnavailable',
-            detail: `${basenameForDisplay(path)}: ${i18n.t('chat.taskTile.sourceMissing')}`
-          })
-      }
-    } catch (error) {
-      // 0242 ΔV2 (D-011) — 열기를 요청한 사용자에게 사유를 toast 로 알린다(패널 안 alert 없음).
-      reportError({
-        event: 'files.context-open.failed',
-        scope: 'files',
-        title: 'openFailed',
-        error,
-        detail: `${basenameForDisplay(path)}: ${i18n.t(
-          mode === 'directory'
-            ? 'chat.taskTile.directoryOpenFailed'
-            : 'chat.taskTile.sourceOpenFailed'
-        )}`,
-        data: { mode }
-      })
-    } finally {
-      opening.current = false
-      if (mounted.current) setOpeningPath(null)
-    }
-  }
+  const { directories, sources, sessionId, activeKey, busy, picker, openingPath, openContextPath } =
+    useTaskContext()
   return (
     <TileSection
       titleKey="chat.taskTile.sections.context"

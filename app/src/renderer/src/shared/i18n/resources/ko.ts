@@ -590,6 +590,36 @@ export const ko = {
   },
   chat: {
     opencode: {
+      panel: {
+        title: '세션 정보',
+        menu: '세션 패널 메뉴',
+        sources: '소스',
+        showAll: '모두 보기',
+        agents: '하위 에이전트',
+        active: '활성',
+        completed: '완료',
+        agentCounts: '활성 {{active}} · 완료 {{completed}}',
+        noAgents: '해당하는 하위 에이전트가 없습니다.',
+        waitingAgent: '하위 에이전트의 응답을 기다리고 있습니다.',
+        changes: '변경 사항',
+        processes: '백그라운드 프로세스',
+        processStatus: {
+          running: '실행 중',
+          completed: '완료',
+          failed: '실패',
+          aborted: '중단됨',
+          cancelled: '취소됨',
+          rejected: '거부됨',
+          not_executed: '실행되지 않음'
+        },
+        noProcesses: '기록된 셸 실행이 없습니다.',
+        noOutput: '수신한 출력이 없습니다.',
+        truncated: '출력이 길어 마지막 64K 문자만 표시합니다.',
+        back: '뒤로',
+        expand: '패널 확대',
+        collapse: '패널 축소',
+        unavailable: '이 항목의 기록을 찾을 수 없습니다.'
+      },
       back: '뒤로',
       toggleQuestion: '질문 접기 또는 펼치기',
       explorationIncomplete: '탐색 종료 · 미완료',
