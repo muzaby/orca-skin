@@ -1533,9 +1533,12 @@ Claude 편집에는 고정 chip을 복원하되 새 엔진 생성에는 하네�
 | 타입 | 최종 npm run typecheck의 node/web/test 모두 통과 |
 | readonly ESLint | 전체 오류0·기존 useTranscriptVirtualizer incompatible-library 경고1 |
 | build | main/preload/renderer 생성 완료. 기존 SubAgentTileContent 혼합 import 경고 유지 |
-| 운영 | migration sync/append-only·test budgets·Prettier·diff whitespace 통과. 문서 generated/prose 통과. 원본 링크 guard는 다운로드 `.tmp/opencode-dev` 내부 5건 실패, `.tmp`·첨부를 제외한 저장소 링크는 빈 배열. 원격 Windows CI는 후속 기록 |
+| 운영 | migration sync/append-only·test budgets·Prettier·diff whitespace 통과. 문서 generated/prose 통과. 원본 링크 guard는 다운로드 `.tmp/opencode-dev` 내부 5건 실패, `.tmp`·첨부를 제외한 저장소 링크는 빈 배열 |
 | CUA | [디자인 증거](design-evidence.md#claude-gui-복원-2026-10-15-r113). 메모리 native 실제 컴포넌트 preview, 새 실모델 호출 없음 |
+| 원격 CI | 최종 제품 코드의 [Windows CI #756](https://github.com/muzaby/orca-skin/actions/runs/38709822117) success. Vitest702파일/6986케이스 및 scripts138/138 통과, 기존1파일/1케이스 skip. 문서·migration·test-budget·lint·typecheck 모두 성공 |
 
 ### Review Signals
 
 r1.13은 사용자 복원 지시에 따른 ΔV9다. D-004의 기존 Claude 보존 의도가 있었지만 실제 메뉴를 관측하지 않는 테스트가 그룹 제목 추가를 검출하지 못했다. 이번 보고는 확인한 경로의 복원과 사용자 최종 인수를 구분한다. 다음 주체는 Claude 독립 검증자다.
+
+CI 성공 후 후속 커밋은 결과 기록만 포함한다. plan 메타와 INDEX의 impl/IMPL_DONE·다음 Claude, 누적30/31 및 파싱된 구현 trailer를 다시 확인했다. 독립 verify와 AC11 사용자 인수는 유지한다.
