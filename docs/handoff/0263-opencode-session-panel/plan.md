@@ -6,7 +6,7 @@
 |---|---|
 | 작성자 / 일자 | Codex / 2026-10-15 |
 | 상태 | READY |
-| V mode / revision | Baseline V / V1 |
+| V mode / revision | Baseline V1 + Delta V2 |
 | 기준 V | none — 0262의 완료 구현 위에 별도 기능 단위로 추가 |
 | 매핑 | PR #502, 0262 후속 |
 
@@ -149,6 +149,28 @@ v1 activity 수집기는 root mapper를 소유한다. 현재 prompt가 받아들
 3. 현재 architecture/IPC provider event 의미 문서 갱신 → gate/시각 검증 → 구현 보고·push.
 
 교차 대조: D-01/AC1/AR-02, D-02/AC2~3/SD-01, D-03/AC4/MD-02, D-04/AC5, D-05~06/AC6~7 일치. 참조된 production 경로는 코드 조사로 존재 확인. 위 테스트 신규 좌표는 구현 시 실제 이름으로 보고한다.
+
+## Delta V2 — 컨텍스트 Main 경계 보완
+
+판정: READY. D-04와 AC5를 유지한다. 코드 조사에서 `agentSessionPolicy.code`가 폴더 추가와 컨텍스트 열기를 막는 것이 확인되었다. V1의 selector/picker 재사용만으로는 OpenCode의 기능 도달이 닫히지 않는다. 추가 IPC나 권한 우회 없이 하네스·모드 조합 정책을 공통으로 판정한다.
+
+| Node / provenance | 계약 |
+|---|---|
+| R-05 / INHERITED | Work와 같은 소스 추가·열기 |
+| AR-03 / NEW | picker→renderer action→Main 세션 정책→경로 검증→DB 또는 shell |
+| MD-03 / NEW | OpenCode Code와 Claude Work 허용, Claude Code 기존 거부; busy·비동기 후 재검사·경로 범위 유지 |
+
+| Pair | requiredness | 경로·강제 지점 | 직접 oracle |
+|---|---|---|---|
+| VP-07 AR-03↔IT-03 | REQUIRED | renderer 추가·동기화·중복 판정, Main 추가 전/후, 폴더/첨부 범위 판정과 기존 경로 검사 (7자리) | chatStore.sessionDirectory.test의 OpenCode 추가; session-directory.test의 OpenCode 저장·busy; files.contextDirectory.test의 폴더/파일 케이스의 OpenCode 열기·범위 거부 |
+| VP-08 MD-03↔UT-03 | REQUIRED | backend+agentKind→공통 정책 (1자리) | agent-session-policy.test의 조합·directory identity |
+| VP-01의 AC5, VP-04 | REGRESSION | Sources→공통 훅→동일 컨텍스트 의미 | Panel.render.test와 기존 context 테스트 |
+
+§10 추가: 컨텍스트 허용 조합은 renderer 추가 액션·동기화·중복 판정과 Main 추가의 await 전/후, 파일/폴더 열기에서 동일 정책을 사용한다. Main 파일 검증의 비동기 후 호출도 같은 resolver를 재실행한다. `sessionAddDirectory`의 기존 `not-work` 오류 값은 비허용 조합의 호환 오류로 유지한다. DB에서 읽은 extraDirs는 기존 다음 턴 입력 경로를 따른다. v1 adapter는 이 경로 목록을 system context에 JSON 문자열 목록으로 넣어 모델이 참조할 수 있게 한다. VP-07의 SDK 입력 자리를 추가하며 adapter.test의 system 본문 단언으로 닫는다(전체 8자리). OpenCode의 경로 접근 승인은 기존 native permission 설정을 그대로 따른다.
+
+V1 UI oracle 좌표 정정: 존재하지 않는 `RightPanel.render.test` 이름은 신규 `harnesses/opencode/rightpanel/Panel.render.test.ts`의 실제 dispatcher 렌더로 대체한다. VP-02의 클릭·복귀·세션 초기화는 실제 컴포넌트를 띄운 Computer Use로 관측하고, 모델 계산은 `model.test.ts`에 남긴다. SSR은 상태 전환을 실행하지 못하므로 클릭을 검증했다고 보고하지 않는다. 제품 동작·강제 지점 분모는 유지한다. 선택 적대 증거 없음 — 직접 입력과 표시 결과를 확인한다.
+
+갱신 self-review: D-01~06 충돌 없음. AC5의 정상 추가/열기와 기존 거부 조합을 함께 검증한다. 저장 포맷·의존성 변경 없음. V1 VP-01~06 중 위 oracle 좌표만 supersede하고 나머지 계약은 상속한다.
 
 ## [구현자 기입]
 
