@@ -5,12 +5,12 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex / 2026-10-15 |
-| 상태 | IMPL_DONE — Delta V3 구현·자기확인 완료, 독립 verify 대기 |
-| V mode / revision | Baseline V1 + Delta V2 + Delta V3 |
+| 상태 | READY — Delta V4 사용자 전환 방식 정정 |
+| V mode / revision | Baseline V1 + Delta V2 + Delta V3 + Delta V4 |
 | 기준 V | none — 0262의 완료 구현 위에 별도 기능 단위로 추가 |
 | 매핑 | PR #502, 0262 후속 |
 
-현재 규범은 V1에 V2와 [Delta V3](#delta-v3--작업-요약과-기존-타일-동작-복원)를 순서대로 적용한다. 아래 V1/V2 본문과 구현 보고는 기준선 이력이며, V3가 명시적으로 대체한 화면 전환·헤더·빈 그룹 규칙은 구현 목표로 다시 사용하지 않는다.
+현재 규범은 V1에 V2·V3·[Delta V4](#delta-v4--요약-위에-상세-패널-열기)를 순서대로 적용한다. 구 본문과 구현 보고는 기준선 이력이며, V4는 요약에서 상세를 여는 동작만 상위 패널 표시·닫기 복귀로 정정한다. 타이틀 메뉴의 직접 타일 관리와 기존 헤더는 유지한다.
 
 # Part I — Product & UX Contract
 
@@ -41,12 +41,13 @@ OpenCode 세션의 우측에 요약 카드를 기본 표시한다. 하위 에이
 | D-05 | transcript 배경, Claude 동작, 기존 diff·계획·artifact viewer 접근 유지 | 기존 합의 및 회귀 계약 | ACTIVE |
 | D-06 | SDK 의존 수집은 opencode/v1, 공통 이력·상태 프로토콜 재사용 | 기존 합의 | ACTIVE |
 | D-07 | OpenCode 기본 요약은 `작업` 타일로 표시하고 타이틀의 타일 표시 메뉴에서 열고 닫는다 | 2026-10-15 추가 요구 | ACTIVE; D-01 대체 |
-| D-08 | 요약의 패널 진입 항목은 기존 타일 패널을 열며, 다른 열린 타일과 작업 요약을 교체하지 않는다 | 같은 요구 “depth 변경이 아니라 타일패널이 열려야 함” | ACTIVE; D-02 대체 |
+| D-08 | 요약의 패널 진입 항목은 기존 타일 패널을 열며, 다른 열린 타일과 작업 요약을 교체하지 않는다 | 같은 요구 “depth 변경이 아니라 타일패널이 열려야 함” | SUPERSEDED → D-14; 병렬 타일 추가 해석 정정 |
 | D-09 | 기본 고정 항목은 변경 사항 하나. 하위 에이전트·백그라운드 프로세스·소스 그룹은 실제 하위 항목이 있을 때 노출 | 같은 요구 “그 하위 항목이 추가될때 활성화” | ACTIVE |
 | D-10 | 요약 케밥의 계획 팝업을 제거하고 아이콘은 미트볼로 변경 | 같은 요구 두 항목 | SUPERSEDED → D-13; 후속 사용자 답변 |
 | D-11 | OpenCode 타이틀의 타일 표시 목록에서 검토·세션·작업 범주명을 제거하고 평면 목록을 사용 | 같은 요구 | ACTIVE; 0262의 OpenCode 범주 표시 계약만 대체 |
 | D-12 | 0263에서 추가한 상세 wrapper 헤더를 제거하고 기존 타일 헤더를 복원. 변경 사항의 닫기는 기존 Git 컨텍스트 헤더에 배치 | 같은 요구 “클로드 변경사항 패널 참고” | ACTIVE |
 | D-13 | 작업 요약 상단의 팝업과 버튼을 모두 제거하며 미트볼 대체 버튼도 두지 않는다 | OQ-01 사용자 답변 “버튼도 제거” | ACTIVE; D-10 대체 |
+| D-14 | 요약의 항목은 Work 출력물처럼 기존 패널 위에 상세 패널을 연다. 닫으면 기존 패널과 상태로 돌아온다 | 사용자 “하위에 추가되는 형태가 아니다…해당 패널 위에 새 패널…종료 시 다시 기존 패널” | ACTIVE; D-08 대체 |
 
 갱신 메모: D-01~06 추가. ACTIVE 결정 ↔ AC 대조: 충돌 0. 0262의 AC가 이미 25건을 넘으므로 독립 패널 기능을 분리한다.
 
@@ -486,3 +487,86 @@ Computer Use는 Vite의 실제 renderer 컴포넌트·세션 store에서 수행�
 ### Review Signals
 
 r1.3은 사용자 Delta V3를 반영한 추가 구현 턴이다. 이전 depth 보고의 성공을 새 타일 조립의 증거로 재사용하지 않았다. 긴 요약 잘림과 계획 힌트의 하네스 누락을 실제 UI에서 찾아 수정했다. 로컬 전체 테스트의 권한·프로세스 경합은 별도로 기록하고 최종 제품 코드의 Windows CI에서 전체 gate 성공을 확인했다. 이후 변경은 이 결과를 기록한 문서뿐이다. 다음 주체는 Claude 독립 검증자다.
+
+
+## Delta V4 — 요약 위에 상세 패널 열기
+
+판정: READY. 기준선은 `V1+V2+V3 @ 48d9651a`이며 공유 원격 추적 ref와 `git cat-file -t`를 확인했다. 사용자가 전환 의도를 명시적으로 정정했으므로 별도 순서 질의 없이 설계 정정 후 구현하며 독립 verify 대기는 유지한다.
+
+### Product / UX 계약
+
+사용자 원문: “사용자 경험은 depth 가 추가되는거지만 실제로는 해당 패널 위에 새 패널을 여는 것. 새로 열린 패널 종료 시 다시 기존 패널로 …”. 기존 D-08의 ‘타일을 아래에 추가’ 해석을 D-14로 대체한다. D-03~07·09·11~13은 유지한다.
+
+| 행동 | 결과 |
+|---|---|
+| 요약의 변경 사항·하위 에이전트·셸 행·소스 모두 보기 | 기존 타일 목록을 바꾸지 않고 그 위에 해당 상세 패널 표시. 뒤의 패널은 숨김·inert로 유지 |
+| 상세의 기존 닫기 또는 Escape | 상세만 닫고 원래 타일·스크롤·선택 상태를 보여주며 연결된 원래 진입 버튼에 포커스 복귀 |
+| agent 목록→상세→목록, process 선택 | 상위 상세 안에서만 선택 갱신. 뒤에 이미 열린 같은 종류 타일의 선택은 보존 |
+| 상세 중 artifact 열기→닫기 | artifact가 최상단이고 닫으면 상세로, 상세 닫으면 원래 타일로 복귀 |
+| 세션 변경 | 임시 상세를 해제하고 다른 세션에 선택/확대/포커스를 전달하지 않음. 기존 세션 타일 캐시는 유지 |
+| 타이틀 메뉴·transcript Task 카드 | 기존 직접 타일 열기/선택 경로 유지. 요약 진입과 구분 |
+
+명시적 타일 활성화가 상세 중 발생하면 상세를 해제해 요청한 타일을 보여준다. 상세 안에 열린 popup의 Escape가 먼저 처리되도록 하고, 다음 Escape로 상세를 닫는다. 포커스 복귀는 각 층의 origin을 분리해 현재 표시되는 층으로만 수행한다.
+
+추가 wrapper 제목/뒤로 버튼을 만들지 않고 기존 diff GitContextBar·타일 헤더와 닫기를 재사용한다. 원래 agent 목록 복귀 버튼은 유지한다. 소스 파일·URL 열기, picker, 로그 수집·권한·SDK·DB는 변경하지 않는다.
+
+| AC / provenance | 사용자 결과 | 직접 oracle |
+|---|---|---|
+| AC2″ / R-02 CHANGED | 요약의 네 진입 종류가 기존 패널 위에 열리고 아래 타일 수·배치·선택을 바꾸지 않으며 닫으면 복귀 | OpenCode `Panel`/navigation 상태·본문 테스트, CUA-V4-01/02 |
+| AC6″ / R-06 CHANGED | 상세와 artifact를 순서대로 닫으면 직전 화면으로 복귀. 확대·리사이즈·포커스·긴 내용 접근 유지 | 공통 host 렌더·close 테스트, CUA-V4-02/03 |
+| AC11′ / R-11 CHANGED | 추가 wrapper 없이 기존 헤더의 닫기가 상위 상세만 닫음. 뒤에 같은 종류 타일이 있어도 제거하지 않음 | `RightPanelTile.actions.test.ts`, CUA-V4-01/02 |
+
+AC2′/6′/11은 위 행으로 대체한다. AC1′·3~5·7~10은 상속하고 유효 AC 총수는 11을 유지한다.
+
+### 조사와 기술 설계
+
+| 현재 코드 / 조사 | 변경 책임 |
+|---|---|
+| `tiles.tsx`: summary 네 진입이 chatActions의 activate/open을 호출 | OpenCode navigation Context로 상위 상세를 열고 원래 DOM origin 전달 |
+| `TilePanel.tsx`: artifact 시 overview를 mounted hidden/inert로 유지 | 같은 호스트에 범용 detail slot 추가. artifact > detail > 기존 타일 우선순위, 숨겨진 각 층 DOM 유지 |
+| `RightPanelTile.tsx`: close는 항상 removeRightPanelTile | 선택적 onClose override 추가. 기본 직접 타일 close 유지, 상세는 override만 호출 |
+| `RightPanel.tsx`: OpenCode 컴포넌트에 activeKey key 부여 | 전용 Panel이 로컬 discriminated selection/폭/확대를 소유, 세션 remount에서 정리 |
+| `OpenCodeAgentContent/Header`, `OpenCodeProcessContent` | detail Context 안에서는 로컬 선택을 읽고 변경, 일반 타일에서는 기존 ChatState/action 사용 |
+
+공통 호스트는 하네스별 상세 데이터나 native API를 모른다. OpenCode Panel→공통 TilePanel/RightPanelTile→기존 registry 방향으로 조립하되 navigation Context는 별도 파일로 분리해 registry→tiles→Panel 순환을 막는다. artifact store에 가짜 ArtifactRef를 넣지 않고 기존 실제 artifact lifecycle을 그대로 유지한다.
+
+상세 선택은 `diff | subagent(selectedId) | process(selectedId) | source` union이며 임시 UI 상태다. 열린 상세에서 artifact가 표시될 때 상세를 unmount하지 않는다. 상세의 확대/폭은 뒤 타일의 확대/폭과 분리하고 닫기 후에 원래 값으로 돌아간다.
+
+### Delta V와 §10
+
+| Node | provenance / 계약 |
+|---|---|
+| R-02/06/11, AT-02/06/11 | CHANGED — 위 AC2″/6″/11′ |
+| SD-01 / ST-01 | CHANGED — 상위 상세·복귀·세션 격리·중첩 artifact 수명 |
+| AR-02 / IT-02 | CHANGED — 요약 Context→OpenCode Panel→공통 host/detail slot→registry 본문/기존 헤더 |
+| MD-05 / UT-05 | NEW — 상세 선택/닫기·agent/process 내부 선택이 원래 타일 상태와 분리 |
+
+| Pair | requiredness / 경로 | 강제 지점·oracle |
+|---|---|---|
+| VP-13 R-02/06/11↔AT-02/06/11 | REQUIRED — 요약 클릭→실제 상세→닫기 복귀 | EP-16~19; CUA-V4-01~03 |
+| VP-14 SD-01↔ST-01 | REQUIRED — open→선택/확대→artifact→close→세션 변경 | EP-17/18/19; navigation/host 테스트 + CUA-V4-02/03 |
+| VP-15 AR-02↔IT-02 | REQUIRED — Context→Panel→TilePanel→RightPanelTile/registry | EP-16/17/18; `Panel.render.test.ts`/새 host 렌더 테스트와 CUA-V4-01 |
+| VP-16 MD-05↔UT-05 | REQUIRED — 상세 local 상태의 open/select/close | EP-17a/18a; 새 navigation 테스트의 실제 reducer 입력→선택 결과 |
+| VP-09/10/11 나머지, VP-12 | REGRESSION — 초기 task·타이틀·Task 카드·기존 타일/그룹/Claude | 기존 policy/reducer/store/Panel/Sources/RightPanel 테스트, CUA-V4-04 |
+
+V3 VP-09의 R-02/06/11은 VP-13, VP-10의 summary 상세 수명은 VP-14, VP-11의 summary renderer edge는 VP-15로 이관한다. 나머지 직접 타일 경로는 회귀로 유지한다. 선택된 mutation은 기존/이번 모두 없음: 실제 상태 결과·렌더·클릭/포커스를 관측한다.
+
+| 자리 / 수 | 강제 위치 | 직접 oracle / 실패 의미 |
+|---|---|---|
+| EP-16a/b/c/d / 4 | summary diff·agent·process·source 각각의 click→navigation | CUA-V4-01 네 버튼 실제 클릭→해당 본문; 아래 타일 추가 또는 다른 종류 표시 검출 |
+| EP-17a/b/c / 3 | Panel 선택→Context, detail slot→host 숨김/표시, registry→본문/헤더 | navigation 단위·`Panel.render.test.ts`/host 렌더·CUA-V4-01/02; 원래 DOM 소멸/잘못된 선택/중복 헤더 검출 |
+| EP-18a/b/c / 3 | 상세 agent/process 선택, 기존 닫기→override, close→원래 DOM/포커스 | navigation 단위·`RightPanelTile.actions.test.ts`·CUA-V4-02; 뒤 타일 선택/배치 손상·포커스 소실 검출 |
+| EP-19a/b/c / 3 | artifact 우선/복귀, activeKey remount, 확대/폭/스크롤 보존 | artifact 기존 테스트·host 렌더 및 CUA-V4-03; 숨겨진 화면 상호작용·다른 세션 누출·폭/스크롤 유실 검출 |
+
+증분 자리 분모는 4+3+3+3=13. V3 EP-11a의 summary activate는 EP-16으로, EP-11d/e/f 중 summary path는 EP-17로, EP-12/13의 상세 close/lifecycle은 EP-18/19로 대체한다. 기존 직접 타일 경로와 데이터/컨텍스트 경계는 상속하며 API/Main 변경이 없어 native DB 재실행은 원격 CI로 확인한다.
+
+### 실제 조작과 운영 gate
+
+- CUA-V4-01: summary 네 진입 각각 열기/닫기. 표시되는 상세 하나, 숨겨진 원래 타일 DOM 동일, 헤더 하나, 원래 columns 불변.
+- CUA-V4-02: agent 목록/상세/목록, 긴 process 상세, 같은 종류의 원래 타일이 열린 상태에서 상세 닫기. 원래 선택·스크롤·origin focus 보존.
+- CUA-V4-03: 상세 확대/축소·가로 크기 조절, 상세 중 artifact 열기/닫기/상세 닫기, A→B→A. 두 테마와 작은 화면에서 확인.
+- CUA-V4-04: 타이틀 메뉴 직접 diff/plan/source 토글·transcript Task 카드·Claude Code/Work와 기존 artifact 경로 회귀.
+
+현재 앱 창에 연결할 수 없으면 V3와 같이 실제 renderer/store preview와 native API fixture를 사용하고 증거 범위를 구분한다. 새 실모델 호출은 사용자의 생략 결정을 유지한다. 읽기 전용 ESLint·typecheck·관련 Node Vitest·renderer build·문서 inventory·원격 CI를 수행하며 임시 자료는 커밋하지 않는다.
+
+READY 대조: D-14↔AC2″/6″, D-12↔AC11′ 일치. D-07/11의 직접 타일 메뉴와 D-09/13의 그룹·버튼 제거는 변경 없음. 새로운 의존성/공개 계약/저장 포맷/OPEN 결정 없음. 구현 후 architecture rendering/state를 현재 동작으로 갱신한다.
