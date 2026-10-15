@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | IN_PROGRESS — ΔV7 코드·로컬 게이트 완료, 원격 CI 대기 |
+| 상태 | IMPL_DONE — ΔV7 데스크톱 UI·CI 완료, AC11 시각 인수 대기 |
 | V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV7 / V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 |
@@ -1317,8 +1317,11 @@ r1.10은 사용자 지시의 오류·문구 수정 턴이다. 기존 테스트�
 | readonly ESLint | 전체 오류 0, 기존 useTranscriptVirtualizer 경고 1 |
 | build | main/preload/renderer 생성 완료. 기존 SubAgentTileContent 혼합 import 경고 유지 |
 | 운영 | test budgets 16 real-git suites·diff whitespace·문서 inventory/prose 통과. 원본 `.tmp` 링크 5건 실패는 기존 상태이며 제외한 저장소 링크 broken 0 |
-| 원격 CI | CI #746: 688파일/6885케이스 통과·기존 1skip, 위 2파일/2케이스 실패. 수정 후 관련 6파일/57케이스·변경 파일 lint 통과, 재빌드 통과, 후속 CI 확인 중 |
+| CI 복구 | CI #746의 위 2실패 수정 후 관련 6파일/57케이스·변경 파일 lint·재빌드 통과. 생성 CSS의 diff pre에서 `font-size: calc(13px * var(--transcript-text-scale, 1))` 확인 |
+| 원격 CI | [CI #747](https://github.com/muzaby/orca-skin/actions/runs/38657371187) gate success. Windows Node 22에서 690파일/6887케이스 통과·기존 1파일/1케이스 skip. scripts 138/138, 가드·lint·node/web/test 모두 통과 |
 
 ## Review Signals
 
 이번 라운드는 사용자 추가 요구의 ΔV7 구현이다. 원본 소스에서 실제 desktop 경로를 확인한 뒤 표현을 이식하고 interaction과 CUA preview로 보완했다. 이전 UI의 구조만 비슷하게 구현한 한계와 rem 차이를 수정했다. 실앱 시각 인수와 독립 verify의 미완료 범위는 그대로 남긴다.
+
+최종 제품 코드의 CI #747 성공 후에는 구현 상태·검증 기록만 갱신했다. 보드의 `impl/IMPL_DONE`·다음 Claude와 메타 상태를 다시 읽었으며 독립 verify와 AC11 사용자 인수는 완료로 승격하지 않는다.
