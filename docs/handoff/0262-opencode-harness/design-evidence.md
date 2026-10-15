@@ -172,3 +172,40 @@ Computer Use의 내장 브라우저에서 실제 ChatTile·ChatTitleBar·RightPa
 | OpenCode 타일 메뉴·작업→변경 사항→닫기 | 평면 지원 메뉴 유지. 기존 패널 위 상세를 열고 닫으면 작업 요약 복귀. 도구 diff 유지 |
 
 첫 Work 전환의 permission stub 반환 누락은 fixture를 수정한 후 다시 관측했다. 제품 변경은 없다. 스크린샷은 로컬 `.tmp/0262-v9-claude-menu.jpg`, `0262-v9-work-menu.jpg`, `0262-v9-claude-dark-menu.jpg`, `0262-v9-engines.jpg`, `0262-v9-claude-edit.jpg`에 보관했다. 임시 renderer 파일·서버·탭은 정리했다. 사용자 최종 인수와 독립 verify는 대기다.
+
+## Desktop 직접 조작과 Todo 호출 (2026-10-15 설계 델타)
+
+실제 OpenCode Windows 창을 Computer Use로 조작했다. 처음에는 접근성 tree와 화면 캡처가 불일치해 입력을 멈췄고, 사용자가 OpenCode를 앞으로 전환한 뒤 일치하는 화면에서 재개했다. 제품 구현·Orca 검증 완료가 아니라 ΔV11~13의 참조 관측이다.
+
+| 식별 | 근거 |
+|---|---|
+| 실행 desktop | 반환된 OpenCode.exe 창을 선택. 설치 `resources/app.asar`의 package.json을 읽어 `@opencode-ai/desktop`, version1.19.0 확인 |
+| 제공 아카이브 | `.tmp/opencode-dev/package.json`2.0.29, 별도.git 없음. 부모 Orca SHA를 upstream으로 사용하지 않음 |
+| 소스 식별 | `package.json` SHA256 `A0D3F21A366EEA08DA3BEAEE0D54944D79DF5E750B79CC5AF31AC9AEFFD51094`; `timeline/virtualizer.tsx` `9F6259529CA6AAF9C3C8FA071722D6DE27E1E93ED7DD47F876EA1FD92BDF7C1B` |
+| 추가 식별 | `timeline/interaction.ts` SHA256 `51F75313A299EF00750A554913E130F3C2C502B3425127D764A00C7FC03BDC48`; message-part.css 해시는 앞 절과 동일 |
+
+### 직접 관측
+
+| ID / 조작 | 관측 | 한계 |
+|---|---|---|
+| CUA-OC-REQ / 기존 활성 도구 테스트 세션 | 하단 권한 설명·패턴·거부/항상 허용/한 번만 허용 dock이 입력기를 대체. 스크롤 중 같은 하단 자리 유지 | 한 장 상태를 관측. 복수 승인 FIFO는 사용자 명시 계약이며 이번 native 실기에서 동시3건을 만들지는 않음 |
+| CUA-OC-SCROLL-1 / 본문 드래그 | 두 줄 본문 선택과 긴 대화의3~5단계 블록 역방향 선택에서 선택 강조가 본문·블록 간 유지 | 실제 selection range나 streaming중측정 간섭을 자동 계측한 결과는 아님 |
+| CUA-OC-SCROLL-2 / 탐색·셸 펼침 | 탐색 완료 아래 Glob/Grep/읽기 행이 전개. 셸은 명령과 monospace 결과가 별도 영역으로 나타남 | 기존 읽기·셸 결과를 펼친 관측이며 새 셸 명령을 요청하지 않음 |
+| CUA-OC-SCROLL-3 / 스크롤바 상하 드래그 | 과거 사용자/도구 내용과 최신 본문 사이 이동, 상단 제목·하단 요청 dock 또는 composer는 위치 유지. 긴 검증 대화의 처음 메시지까지 다시 표시 | 펼친 탐색 그룹 자체 sticky의 경계 이동은 화면 길이 한계로 별도 실측하지 않음. 해당 규칙은 원본 CSS 근거 |
+| CUA-OC-TODO-1 / 새 세션 첫 호출 | ‘UI 검증용 할 일 항목 생성’에서 todowrite3항목 요청. ‘할 일 목록 업데이트’ 권한 카드가 composer를 대체. 사용자가 항상 허용을 직접 선택한 뒤 ‘생성 완료’와 입력기 복귀 | 첫 전개 모션은 승인 후 응답이 끝나 놓침 |
+| CUA-OC-TODO-2 / 진행→긴 본문→전체 완료 요청 | 약9초 뒤60개 검증 문장·전체 완료 및 Todo 카드 부재 | 중간 카드를 놓쳤으므로 전개를 관측했다고 주장하지 않음 |
+| CUA-OC-TODO-3 /6단계 별도 갱신 요청 | 진행 중 ‘6개의 할 일 중3개 완료’, 완료3행 취소선·체크, 진행중 행·대기행이 composer 바로 위에 표시. 다음 관측에서 전체 완료 본문과 카드 부재, transcript 가용 영역 확대 | 카드의 전개 상태→제거 상태를 직접 관측. 0.3초 모션의 연속 프레임·실측 시간은 확보하지 않음 |
+| CUA-OC-QUESTION / 실제 question 호출·선택·제출 | ‘검증할 표시 형태를 선택하세요’ 질문과 두 선택지·직접 입력·닫기/제출이 하단 입력기를 대체. ‘접힌 Todo’를 선택해 제출한 뒤 transcript에 답변 결과가 남고 composer 복귀 | 단일 질문만 호출. 제출 직후 접근성 tree와 화면 갱신 시점이 달랐으므로 다음 관측의 결과·입력기 존재까지 확인. 복수 요청의 통합 FIFO는 원본 관측이 아닌 사용자 확정 요구 |
+| CUA-OC-TODO-4 /8단계 갱신 중 접기 클릭 | 펼친 8개 목록의 우측 접기를 클릭. composer 바로 위 한 줄에 완료수와 대표 항목, 펼치기 화살표가 남음. 갱신 중에도 접힌 상태를 유지하며 화면은 5/8·‘카운트’를 표시. 전체 완료 후 카드 부재 | 같은 관측의 접근성 tree는 4/8·‘스크롤’, 화면은 다음 갱신 5/8이었다. 재펼침 클릭 시도 때 이미 완료 전환해 재펼침 성공은 주장하지 않음 |
+
+Todo·Question 검증은 사용자가 승인한 기존 모델로 실제 요청했다. 요청 내용은 검증용 항목과 본문뿐이며 파일·셸·네트워크 도구를 사용하지 않도록 지정했다. 검증 세션을 남기고 사용자가 직접 설정한 권한을 임의로 되돌리지 않는다.
+
+### 소스 근거와 이식 경계
+
+transcript 참조 경로는 제공 아카이브의 `desktop/src/renderer/desktop-app.tsx`→`app/src/session/timeline/{message-timeline,virtualizer,interaction}`→`session-ui/src/timeline/session-timeline-row.tsx`다. `virtualizer.tsx`는 pointer-held 위 이동과 텍스트 선택을 추종 해제 의도로 구분하고 실제 바닥 도착에서 재추종한다. `message-part.css`는 펼친 탐색 헤더의 sticky와 내부 파일 헤더 offset을 정의한다.
+
+Todo의 전개/퇴장은 제공2.0.29에 없는 기능이므로 공식1.19.0의 [state](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/app/src/pages/session/composer/session-composer-state.ts)·[region controller](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/app/src/pages/session/composer/session-composer-region-controller.ts)·[dock](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/app/src/pages/session/composer/session-todo-dock.tsx)를 별도 사용한다. 높이×진행률·composer overlap36px, spring visualDuration0.3/bounce0와 close400ms는 소스 값이다. 전체 completed/cancelled와 !live 정리는 구분하며 이식 시 퇴장 snapshot·새 턴의 stale 방지를 함께 잠근다.
+
+원본1.19.0 [composer region](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/app/src/pages/session/composer/session-composer-region.tsx)은 질문·승인을 독립 선택해 동시에 각각 한 장을 표시할 수 있다. Orca는 사용자 결정에 따라 종류를 합친 도착 순서로 한 장만 표시한다. 현재 요청을 소비할 때까지 뒤 요청은 화면·접근성 트리에 렌더하지 않고, 입력기 위 스택이나 카드 가장자리 미리보기도 두지 않는다.
+
+확정 요구의 예외는 유지한다: Claude GUI 불변, transcript canvas 및 사용자 버블 배경/글자색 유지, 실행 API는1.x. 실제 Orca의 구현 후 두 테마·streaming중드래그·긴 파일/탐색 sticky·Todo 애니메이션 검증은 새 AC의 완료 조건이며 이번 원본 관측으로 대체하지 않는다.

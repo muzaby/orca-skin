@@ -8,10 +8,10 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | IMPL_DONE (r1.14) — ΔV10 OpenCode native 메시지 ID 정렬 복구. AC11 사용자 최종 시각 인수·독립 verify 대기 |
-| V mode | Delta V — 기준 V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 + ΔV10 |
+| 상태 | READY — ΔV11 질문·승인 통합 순차 dock·ΔV12 transcript 상호작용·ΔV13 Todo 펼침/접힘·퇴장 설계. 기존 r1.14 및 AC11 인수 대기는 이력으로 유지 |
+| V mode | Delta V — 기준 V1 + ΔV1~13 (각 델타의 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
-| 이번 V revision / 유효 V | ΔV10 / V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 + ΔV10 |
+| 이번 V revision / 유효 V | ΔV11~13 / V1 + ΔV1~13 |
 
 # Part I — Product & UX Contract
 
@@ -31,6 +31,7 @@ Orca는 Claude만 실행하고 composer·모델·패널이 그 기능을 전제�
 | 명시 변경 | 브라우저 분석 취소, 실행 중인 OpenCode의 개발자 도구 사용 | 최신 사용자 지시 |
 | 추론 의도 | 선택 전후 초안·첨부 보존, 지원하지 않는 제어 숨김 | 제자리 전환과 지원 패널 구분에서 도출 |
 | 명시 변경 | OpenCode 사용자 메시지 버블의 배경·글자색을 Claude와 동일하게 변경 | 2026-10-15 추가 사용자 요구, ΔV8 |
+| 명시 추가 | 질문·도구 승인은 composer를 대체하며 종류 무관 도착 순서로 현재 한 장만 표시. 실행 desktop을 직접 조작하여 transcript와 Todo 펼침/접힘·완료 후 퇴장을 반영 | 2026-10-15 현재 사용자 요구, ΔV11~13 |
 
 패널 범주화 요구 중 타이틀 메뉴에 검토·세션·작업 그룹명을 표시하던 부분은 [0263 ΔV3](../0263-opencode-session-panel/plan.md)의 평면 메뉴와 `작업` 타일 계약으로 대체한다. 하네스별 지원 패널 필터는 유지하며, 메뉴·패널 상호작용의 규범 정본은 0263이다.
 
@@ -59,8 +60,11 @@ Orca는 Claude만 실행하고 composer·모델·패널이 그 기능을 전제�
 | D-018 | 도구 호출·카드는 OpenCode 원본을 참고하고 transcript 출력 스타일을 하네스별로 분리한다 | 원본 v1.19.0의 탐색 묶음·셸 출력·파일 diff·reasoning을 참고한다. Claude 스타일, 공통 배경(D-011), 원본 도구 보존(D-007)은 유지 | 2026-10-14 사용자 추가 요구 | ACTIVE | ΔV5에서 공통 카드 스타일을 재사용한 OpenCode 경로만 대체 |
 
 | D-019 | 사용자 제공 `.tmp/opencode-dev`의 데스크톱 transcript·도구·테마·composer·질문 렌더링을 차용한다 | transcript canvas 배경은 현재 값 유지. UI 참조는 2.0.29, 실행 API는 기존 1.x. 참조 다운로드는 커밋 제외 | 2026-10-15 사용자 추가 요구 | ACTIVE | 사용자 버블 색상 부분만 D-020으로 SUPERSEDED. 나머지 UI 참조·D-004/011/015~017 유지 |
-| D-020 | OpenCode 사용자 메시지 버블의 배경·글자색은 Claude 사용자 버블과 동일하게 한다 | 두 테마의 공통 `bubble-user`·`ink` 토큰 사용. OpenCode의 버블 배치·간격·반경·서체 크기와 transcript canvas는 유지 | 2026-10-15 추가 사용자 요구 | ACTIVE | D-019·AC26·EP-27b·VP-46의 사용자 버블 색상 부분만 대체 |
+| D-020 | OpenCode 사용자 메시지 버블의 배경·글자색은 Claude 사용자 버블과 동일하게 한다 | 두 테마의 공통 `bubble-user`·`ink` 토큰 사용. transcript canvas와 사용자 글자 크기 설정 유지 | 2026-10-15 추가 사용자 요구 | ACTIVE | D-019의 버블 색상 부분 대체. 당시 비변경 범위였던 배치·간격·반경은 후속 D-023 원본 이식으로 대체 |
 | D-021 | Claude 세션 GUI는 OpenCode 도입 전 표시를 유지하고 추가된 메뉴 그룹 제목·엔진 새로고침을 제거한다 | 사용자: “수정하거나 추가된 것이 있으면 원래대로 복원하라.” 도입 전 main `0b8c1e9f`와 비교하며 명시된 OpenCode 카드·설정·신규 엔진 하네스 선택은 유지 | 2026-10-15 사용자 후속 요구 | ACTIVE | D-004 구체화. 공통 새로고침 버튼과 Claude 메뉴 그룹 표시는 대체 |
+| D-022 | OpenCode 질문과 도구 승인은 종류와 관계없이 도착 순서로 composer를 대체하며 한 장씩 소비 | 현재 카드가 해소될 때까지 뒤 카드는 표시·mount하지 않는다. 순서와 요청 데이터를 보존하고 마지막 해소 후 초안·첨부 복원 | 2026-10-15 사용자: “Question 도구 또한 … composer를 덮는다”, 동시 대기는 종류 무관 도착 순서 한 장으로 확정 | ACTIVE | AC28의 질문·도구 승인 배치를 대체. Claude stack·질문 및 기존 응답 payload 유지 |
+| D-023 | OpenCode transcript는 실제 desktop 조작과 원본 소스에 맞춰 행 배치·도구 펼침·스크롤/선택 동작을 이식 | “Transcript를 드래그하며 … 똑같이 렌더링하라.” Claude GUI와 canvas·사용자 버블 색상 예외는 유지 | 2026-10-15 사용자 | ACTIVE | AC26 표시·공통 exchange 가상화의 OpenCode 적용 보완. D-020의 색상 유지, 당시 비변경 범위였던 외형은 이번 원본 대조 대상 |
+| D-024 | todowrite는 composer 바로 위에서 펼친 목록 또는 접힌 요약으로 표시되고 전체 수행 후 아래로 퇴장 | “접기 기능으로 composer 바로 위에 접힌 형태로도 노출될 수 있다.” 읽기 전용 진행 목록과 실제 호출 결과를 연결 | 2026-10-15 사용자 추가 지시·접기 보완 | ACTIVE | 일반 TodoWrite transcript 표시만 native처럼 숨김. 원본 호출·결과 저장 및 Claude 표시 유지 |
 
 갱신 메모: D-017/018 추가. D-015의 2.x 미지원과 향후 계층 확장은 양립하며 D-004/011의 Claude 스타일·배경은 유지한다. ACTIVE 결정 ↔ AC22~25 대조: 충돌 0, 미정 제품 결정 없음.
 
@@ -678,6 +682,196 @@ SDK·CLI·renderer·DB·공개 DTO 변경은 없다. 잘못된 과거 native ID�
 증분3자리. VP-55는 EP-34b에 기존 UUID 생성식을 복구하는 M-ID 변이를 선택한다. 기존 fixture가 무조건 idle을 내보내 실제 native ID 계약을 놓쳤으므로 새 oracle이 원래 결함에 실패하는지 확인한다. 원래 소스를 복원한 뒤 같은 테스트가 통과해야 한다.
 
 게이트는 관련 비DB Vitest, node/web/test typecheck, readonly ESLint, main/preload/renderer build, 문서·migration·test-budget와 원격 Windows CI다. CLI 보조 재현은 새 임시 data/workspace·loopback 합성 provider·본문2번째 호출 시 실패/중단하는 상한을 사용하고 제목 등 보조 호출을 구분한다. 기존 V 전체의 독립 검증이나 실모델 검증으로 확대하지 않는다. ACTIVE 결정과 충돌 없음, AC 총수31 및 AC11 인수 대기는 유지한다.
+
+# ΔV11 — 질문·도구 승인 dock의 입력 대체·통합 순차 소비 (READY)
+
+기준은 공유 브랜치 `556287e420d8bf3e1b66c894abadc954185fa307`의 V1+ΔV1~10이다(`git cat-file -t`=`commit`). 이번 턴은 요구 분배·설계이며 제품 코드 구현은 다음 턴이다. 0262의 기존 composer/승인 계약을 보완하므로 새 핸드오프를 만들지 않고, 0263 우측 패널 규범은 변경하지 않는다.
+
+## 제품 계약 / AC
+
+사용자 원문: “도구 승인 카드는 composer를 덮어써야 한다. 그리고 위로 스택되지 않으며, 차례대로 소비돼야 한다.” 후속 요구 “Question 도구 또한 composer 위에 쌓이는게 아닌 composer를 덮는다”와 동시 대기는 종류와 관계없이 도착 순서로 한 장씩 표시한다는 답변을 D-022에 반영한다. 현재 카드가 소비되기 전 뒤 카드의 노출·peek·오프셋·개별 선택 탭도 제공하지 않는다는 추가 확인을 따른다.
+
+| 노드 | 동작 기준 / 직접 검증 |
+|---|---|
+| R-28↔AT-28 / AC28 CHANGED | OpenCode 질문·도구 승인 dock은 입력 영역을 대체한다. 질문의 선택·직접 입력·접기·제출/건너뛰기와 도구의 허용/세션 허용/거부 payload는 유지하며 Claude 배치는 바꾸지 않는다 |
+| R-32↔AT-32 / AC32 NEW | 질문 Q1→승인 P1→질문 Q2와 반대 종류로 시작하는 순서를 각각 검사한다. 도착 순서의 현재 카드만 DOM·접근성 트리에 mount하고, 현재 ID 해소 후 다음 카드로 교체하며 마지막 해소 후 기존 초안·첨부와 composer를 복원한다 |
+
+입력기·전송·첨부 조작은 질문이나 승인 표시 동안 노출하지 않는다. 입력 영역의 단일 대체 슬롯에는 현재 카드 하나만 있고 뒤 카드·빈 카드 프레임·스택 높이·peek·요청별 탭을 만들지 않는다. 뒤 요청은 데이터로만 보존하며 다른 세션의 요청을 섞지 않는다.
+
+| 상태 / 사건 | 결과 |
+|---|---|
+| 빈 큐→첫 질문 또는 승인 | 입력 controller 상태를 유지한 채 표시를 숨기고 해당 종류의 dock 한 장 표시 |
+| 대기 중 종류가 같은/다른 요청 도착 | 도착 순서를 뒤에 보존. 현재 질문의 선택·직접 입력·접기 상태와 현재 dock을 유지하며 뒤 요청은 mount하지 않음 |
+| 질문 제출/건너뛰기, 도구 허용/세션 허용/거부 | 기존 action의 ID 해소 직후 다음 미해소 카드로 교체. 종류 우선순위나 native HTTP 성공 ACK를 기다리는 새 정책 없음 |
+| 외부 permission.resolved | 해당 ID의 payload와 순서 참조만 제거. 비선두 해소는 현재 카드 유지, 마지막 해소는 입력 복원 |
+| 중단/오류·새 대화/로드 | 기존 요청 수명에 맞춰 순서도 정리. child 요청을 보존하는 기존 경로에서는 살아남은 요청의 상대 순서를 보존 |
+| 세션 전환 | 해당 세션의 통합 선두를 표시. 캐시 왕복 시 세션별 pending 데이터·순서를 보존하며 다른 세션의 resolved로 현재 카드가 바뀌지 않음 |
+
+## 조사 / 기술 설계
+
+| 대상 / 검색 | 관측 / 적용 |
+|---|---|
+| `Composer.tsx:153,232~249,294`의 activeAsk·pendingToolApprovals·active | 질문 선두와 전체 승인 map을 별도 렌더한다. OpenCode만 통합 선두를 단일 입력 대체 슬롯에 배치하고 두 기존 additive 경로에서는 제외 |
+| `chatReducer.ts:1125~1187,1503,1613` | 질문·승인 배열은 종류 안의 순서만 보유한다. 각 배열을 이어 붙이거나 ID/시각으로 정렬해도 실제 종류 간 도착 순서를 복원할 수 없어 순서 메타데이터 추가 필요 |
+| `chatStore.ts:1606~1623,1785~1804` | answerAsk/skipAsk와 승인 세 액션은 기존 IPC payload·로컬 ID 해소를 유지. main broker와 v1 reply 경로를 변경하지 않음 |
+| `chatReducer.ts:587~597,1251,1260,1363,1274,1373,1384` | child 보존 helper와 새 대화/로드 reset에 순서 메타데이터 정리를 함께 배선. payload보다 먼저 지우거나 완료된 ID를 남기지 않음 |
+| 원본 v1.19.0 `pages/session/composer/session-composer-{region,state}.tsx/ts`, `session-request-tree.ts` | 질문·permission을 독립 선택하여 둘 다 표시할 수 있고 blocked가 입력을 숨긴다. 통합 한 장·종류 무관 FIFO는 원본에서 추정한 규칙이 아니라 D-022 사용자 확정으로 대체 |
+
+세션 휘발 상태에 `pendingRequestOrder: Array<{ kind: 'ask_question' | 'tool_approval'; requestId: string }>`만 추가한다. payload는 기존 `pendingAsks`·`pendingToolApprovals`가 계속 소유하며, `permission.requested`를 reducer가 처리한 순서대로 참조를 append한다. 하네스 확정 전의 draft 이벤트도 있으므로 수신 시 순서는 기록하되 이 순서로 화면을 선택하는 소비자는 OpenCode로 한정한다.
+
+`harnesses/opencode/composer/requestQueue.ts`의 순수 selector가 순서 참조와 해당 payload를 대조해 살아 있는 첫 요청 하나를 반환한다. 입력 배열의 결합 순서·UUID 정렬·같은 ms 시각 비교로 대체하지 않으며, payload가 없는 참조는 표시하지 않는다. 로컬 RESOLVE_ASK/RESOLVE_TOOL_APPROVAL과 외부 permission.resolved는 payload와 해당 순서 참조를 함께 제거하고, child 보존·reset도 같은 소유 범위를 유지한다.
+
+`harnesses/opencode/composer`가 단일 대체 슬롯과 종류별 dock 선택을 소유하고 공통 Composer는 normalized request·기존 callback을 전달한다. `ComposerInputController` 인스턴스는 항상 mount하고 selector의 유효 선두가 있으면 `active=false`로 두어 초안·첨부·IME 정리 수명을 재사용한다. Claude의 기존 질문·전체 승인 map·입력·중단 표시와 plan_review 수명은 그대로이며, 새 순서 필드는 IPC·DB·재시작 승인 복원 계약에 추가하지 않는다.
+
+## V / §10
+
+| Pair / provenance | requiredness | 경로 / 직접 oracle |
+|---|---|---|
+| VP-56 R-32↔AT-32 NEW, VP-48 R-28↔AT-28 CHANGED | REQUIRED | 실제 Composer에 혼합 요청→한 장 대체→응답/거절→입력 복원. `Composer.approvalQueue.test.ts: renders only the earliest mixed request in the replacement slot`, `consumes question and permission requests in arrival order` 및 CUA-OC-REQ |
+| VP-57 AR-12↔IT-12 NEW | REQUIRED | 실제 store/reducer→selector→Composer→QuestionDock 또는 ToolApprovalBody/PermissionDock→실제 chatActions. 위 테스트에서 IPC만 spy하여 각 requestId·질문 답·허용 범위·거부 payload와 다음 DOM을 관측 |
+| VP-58 SD-08↔ST-08 NEW | REQUIRED | 혼합 도착→응답/외부취소→다음→빈 큐 및 세션 왕복. `Composer.approvalQueue.test.ts: keeps the draft and attachments until the mixed queue is empty`, `applies external resolution only to its session and request`; 아래 reset/child 자리의 실제 reducer 테스트 연결 |
+| VP-67 MD-11↔UT-11 NEW | REQUIRED | 수신 순서 append→ID별 정리→유효 선두 선택. 새 `chatReducer.request-order.test.ts`와 `requestQueue.test.ts`의 혼합 순서·시각/ID 비정렬·stale 참조·reset·child 상대 순서 직접 값 검사 |
+| VP-11/49, VP-51/52 INHERITED 및 VP-48 비변경 질문 조작 | REGRESSION | `Composer.approvalQueue.test.ts: retains Claude approval and question layout`; 기존 QuestionDock 선택/접기/답변·`chatReducer.tool.test.ts`·`chatReducer.approval-lifetime.test.ts`; adapter의 `replies to permission and question approvals once, including rejection`·중단 검사 |
+
+| 강제 자리 / 수 | 실패 의미 | 직접 oracle 좌표 (구현 예정) |
+|---|---|---|
+| EP-35a / 2: 질문 수신·승인 수신→순서 append | 종류별 배열을 합쳐 실제 도착 순서 역전 | `chatReducer.request-order.test.ts: records mixed requests in event arrival order`; 실제 request 이벤트 Q/P/Q 및 P/Q/P와 역순 문자열 ID |
+| EP-35b / 1: 순서/payload→selector | stale 참조 표시·대기 요청 유실 | `requestQueue.test.ts: selects the earliest live request without sorting identifiers`; 살아 있는 첫 payload와 빈 큐 직접 단언 |
+| EP-35c / 1: Composer→단일 대체 슬롯 | 입력 위 스택·뒤 카드 peek/탭·숨은 interactive DOM 잔존 | `Composer.approvalQueue.test.ts: renders only the earliest mixed request in the replacement slot`; input-slot 부모·dock1개·뒤 ID/내용/조작 DOM 부재·composer 편집기 부재, CUA-OC-REQ 접근성 트리 확인 |
+| EP-35d / 1: controller active | 입력 remount로 초안·첨부 유실 또는 빈 큐 전에 복원 | `Composer.approvalQueue.test.ts: keeps the draft and attachments until the mixed queue is empty`; 실제 입력·첨부와 마지막 해소 후 값/파일 |
+| EP-35e / 2: 질문 제출·건너뛰기→action | 답 payload 소실·건너뛰기에 allow·다른 요청 소비 | `Composer.approvalQueue.test.ts: consumes question and permission requests in arrival order`; 실제 질문 조작→answerAsk/skipAsk→allow(updatedInput)/deny IPC와 다음 카드 |
+| EP-35f / 3: 도구 허용·세션 허용·거부→action | 다른 ID 해소·허용 범위 오배선 | 같은 테스트: 실제 dock 클릭→once/session/reject IPC payload, toolName/scope 및 다음 카드 |
+| EP-35g / 2: RESOLVE_ASK·RESOLVE_TOOL_APPROVAL→순서 정리 | 소비한 카드 재등장·다음 종류 삭제 | `chatReducer.request-order.test.ts: removes only the locally resolved request from mixed order`; 두 action별 나머지 payload·상대 순서, 위 Composer 소비 시나리오의 다음 DOM |
+| EP-35h / 1: 외부 permission.resolved→다음 표시 | 취소된 카드 잔존·비선두 취소가 현재 카드 교체 | `Composer.approvalQueue.test.ts: applies external resolution only to its session and request`; 질문/승인 선두·비선두 취소, A/B 세션 및 마지막 해소 |
+| EP-35i / 3: NEW_CHAT·START_LOAD_SESSION·LOAD_SESSION | 새 대화·재로드에 이전 pending 순서 잔존 | `chatReducer.request-order.test.ts: clears request order on new chat and session loading`; 세 action 각각 기존 payload reset과 빈 순서 직접 관측 |
+| EP-35j / 3: error·turn.aborted·CANCEL_CHAT→child 보존 | 남은 child 요청 유실·제거한 main 순서 잔존 | `chatReducer.request-order.test.ts: preserves surviving child requests in arrival order`; 세 경로 각각 혼합 main/child payload와 원래 상대 순서 관측 |
+
+19자리(2+1+1+1+2+3+2+1+3+3). 기존 SSR controller 검사나 action mock만으로 이 배선을 닫지 않고, 실제 Composer·selector·질문/승인 dock·store/reducer를 실행하여 대체 슬롯·유일한 현재 카드·응답 payload·다음 화면을 함께 관측한다. 순수 순서 oracle도 종류가 교차하고 문자열 ID는 역순인 입력을 사용하므로 별도 mutation은 미선택이다.
+
+구현 gate 실행 집합에는 위 신규 세 테스트와 기존 QuestionDock·Composer 입력/IME·도구 승인·child 수명·v1 승인/질문/중단 회귀를 포함한다. `CUA-OC-REQ`는 질문/승인 두 종류로 각각 시작하는 혼합 대기에서 현재 한 장만 보이고 뒤 카드는 접근성 트리에도 없으며, 마지막 해소 뒤 입력이 복원되는지 확인한다. 전체 운영 gate는 아래 ΔV11~13 통합 게이트를 따른다.
+
+# ΔV12 — desktop transcript의 행·스크롤·선택 이식 (READY)
+
+기준은 ΔV11과 같은 커밋의 AC26·D-019이며 ΔV11 입력 dock 높이 변화와 함께 검증한다. 실제 desktop의 탐색 그룹·셸 카드 펼침, 본문 선택, 스크롤바 상하 드래그를 관찰했다. 상세 범위와 미관측 항목은 [디자인 증거](design-evidence.md#desktop-직접-조작과-todo-호출-2026-10-15-설계-델타)에 둔다.
+
+## 제품 계약 / AC
+
+| 노드 | 동작 기준 / 검증 |
+|---|---|
+| R-26↔AT-26 / AC26 CHANGED | 원본의 도구/본문/턴 간격·탐색 그룹/파일 헤더·셸 명령/출력·접기·본문 위계를 적용. 기존 canvas와 사용자 버블 배경/글자색은 D-011/020대로 유지 |
+| R-29↔AT-29 / AC29 CHANGED | 두 테마의 사용자 버블 배경·글자색 동등성, 본문·첨부·복사·접기와 글자 크기 설정은 유지. ΔV8의 당시 배치·간격·반경 불변 부분만 D-023의 원본 외형 이식으로 대체 |
+| R-33↔AT-33 / AC33 NEW | 과거 내용을 스크롤바/휠/키보드/텍스트 선택으로 읽는 동안 새 출력·도구 높이 변화가 읽는 위치를 바닥으로 끌지 않는다. 바닥 또는 최신 이동으로 돌아오면 새 출력을 추종하고, 펼침 상태·선택·세션별 위치를 보존한다 |
+
+사용자 버블 외형은 원본의 폭 `min(82%,64ch)`·반경10px·padding8/12px를 기준으로 대조하되 공통 색상·사용자 글자 크기 설정은 유지한다. 도구 간8px·본문 경계16px·턴24px와 원본의 하단64px 여유를 적용한다. 기존 Claude의 50cqh 예약공간과 exchange 가상화 동작은 변경하지 않는다.
+
+## 조사 / 기술 설계
+
+| 대상 | 원본 / 현재 차이 / 책임 |
+|---|---|
+| desktop 진입 | `.tmp/opencode-dev/packages/desktop/src/renderer/desktop-app.tsx`→app screen→timeline→session-ui. 아카이브2.0.29이며 별도.git 없음; 설치 desktop1.19.0과 판본 구분 |
+| 가상행 | 원본 `timeline/virtualizer.tsx`·`session-ui/timeline/projection.ts`: 개별 사용자·assistant part·notice·gap. 현재 `TranscriptView.tsx`: 과거 exchange 가상화+마지막 비가상 tail |
+| 스크롤 의도 | 원본 `virtualizer.tsx:715~765`·`interaction.ts`: pointer-held 위 이동/선택 unpin, 실제 바닥 도착만 repin. 현재 `useScrollAnchor.ts`: 바닥24px 이내 판정과 공통 예약공간 |
+| 펼침 헤더 | 원본 `message-part.css:667~686`: 탐색 헤더 sticky 28+8px·내부 헤더 offset. 현재 `ToolGroup.tsx`: 일반 버튼·border-left 목록 |
+
+`TranscriptView`는 하네스 dispatcher로 분리하고 Claude 본문과 `useScrollAnchor`는 기존 구현을 유지한다. OpenCode의 `transcript/{Timeline,projection,scrollPolicy}`가 normalized messages/parts와 현재 live 상태를 받아 안정된 행 키·가상화·측정·선택·추종을 소유한다. 공통 ChatTile은 scroll/jump 인터페이스만 연결하며 두 스크롤 제어기가 동시에 같은 viewport를 조작하지 않게 한다.
+
+현재 `MessageSegment.kind`의 text/reasoning/tools/ask/structured/error/compact/fork/subagent_notice 9종을 누락 없이 투영한다. tools는 탐색 그룹·개별 도구로 세분하되 원래 text→tool→text 순서, toolUseId, raw input/result와 live→완료 행 identity를 보존한다. 가상행의 화면 밖 재마운트에도 도구 펼침은 세션별 key 상태에 남겨야 한다.
+
+원본 geometry에서 바닥 epsilon0.5px, 최신 이동 버튼 임계는 `max(400px, viewport 높이)`다. 중첩 셸/코드 스크롤은 해당 영역이 소유하며 selection 중인 노드와 펼친 앵커를 가상화로 제거하지 않는다. 세션 변경 시 observer·rAF·pointer listener를 정리하고, dock 높이·창 폭·글자 크기 변경 시 현재 읽는 행과 상대 위치를 유지한다.
+
+실제 browser 재현 진입점은 새 `app/scripts/fixtures/opencode-ui/{index.html,main.tsx,vite.config.ts}`로 고정한다. `app`에서 `node node_modules/vite/bin/vite.js --config scripts/fixtures/opencode-ui/vite.config.ts --host 127.0.0.1`로 실행하며 기존 React/Tailwind 플러그인과 실제 production 컴포넌트·store·CSS를 사용한다. native IPC만 메모리 대역을 연결하고 외부 모델을 호출하지 않는다. fixture는 아래 케이스 선택과 측정값(scrollTop, selection 문자열, 행 key·좌표, dock 높이)을 제공하며 Computer Use로 조작 후 관측을 기록한다. JS 순수 정책 검증은 Vitest가 담당하고 이 경로는 실제 레이아웃 검증을 담당한다.
+
+## V / §10
+
+| Pair / provenance | requiredness | 경로 / 직접 oracle |
+|---|---|---|
+| VP-59 R-33↔AT-33 NEW, VP-46 R-26↔AT-26 CHANGED | REQUIRED | 실제 OpenCode viewport의 과거 읽기/최신 복귀/도구 펼침. 새 `Timeline.browser` 검증 fixture 및 Computer Use CUA-OC-SCROLL |
+| VP-50 R-29↔AT-29 CHANGED | REQUIRED | `TranscriptView.harness.test.ts`·`AssistantSegment.render.test.ts`의 OpenCode 외형 기대만 원본 치수로 갱신. 기존 본문·복사·Claude 분기 단언과 두 테마 computed background/color 동등성 유지 |
+| VP-60 AR-13↔IT-13 NEW | REQUIRED | ChatTile→하네스 viewport→live/committed projection→실제 row. 새 `Timeline.render.test.ts`에서 실제 messages/store로 순서·identity·Claude 분기 관측 |
+| VP-61 SD-09↔ST-09 NEW | REQUIRED | 스트리밍→사용자 드래그→resize/새 출력→최신 복귀→세션 왕복. 실제 browser fixture에서 scrollTop·선택 텍스트·visible anchor 관측 |
+| VP-62 MD-09↔UT-09 NEW | REQUIRED | 새 `projection.test.ts`의9종·그룹 경계·prepend/live완료 key, `scrollPolicy.test.ts`의1px 위 이동·선택·재측정·실제 바닥 도착 |
+| VP-43/44/45/51/52 INHERITED | REGRESSION | `ToolCard.interaction.test.ts`, `AssistantSegment.render.test.ts`, `TranscriptView.harness.test.ts`; 원문·질문·오류·색상·Claude GUI. 0263 요약/상세·artifact 복귀는 영향 회귀만 |
+
+| 강제 자리 / 수 | 실패 의미 | 직접 oracle 좌표 (구현 예정) |
+|---|---|---|
+| EP-36a / 1: ChatTile→하네스 제어기 | Claude 변경·스크롤 제어 이중 실행 | `Timeline.render.test.ts` 실제 dispatcher + Claude 기존 viewport 회귀 |
+| EP-36b / 1: message/parts→rows | 도구 순서·9종 내용·행 key 손실 | `projection.test.ts` 전종·text/tool/text·prepend·live완료 |
+| EP-36c / 1: rows→가상 DOM | 화면 밖 내용 누락·선택 소멸 | `opencode-ui/main.tsx`의 `long-history-selection`: 긴 이력 양방향 드래그·selection 문자열·재진입 |
+| EP-36d / 1: gesture→pin/jump | 위로 읽는 사용자를 바닥으로 당김 | `scrollPolicy.test.ts` + 같은 fixture의 `streaming-unpin-repin`: pointer·wheel·keyboard 중 scrollTop·최신 복귀 |
+| EP-36e / 1: size/접기→anchor | 펼침/접기·dock 변경 때 읽는 행 점프 | 같은 fixture의 `resize-and-disclosure-anchor`: tool 펼침 전후 같은 헤더 key/좌표·dock/폭/글자 크기 변경 |
+| EP-36f / 1: 행 renderer/토큰 | 잘못된 간격·sticky 겹침·배경 변경 | `Timeline.render.test.ts` 실제 행 종류·상태, CUA 두 테마/색상/헤더 대조 |
+| EP-36g / 1: 세션 전환/cleanup | 다른 세션 위치·펼침·늦은 observer 오염 | 같은 fixture의 `session-switch-anchor`: A/B왕복의 행 key/좌표·펼침, 비활성 세션 갱신 후 위치 불변 |
+
+7자리. SSR은 geometry/selection oracle이 아니며 실제 browser 경로를 별도 완료 조건으로 둔다. 순수 정책은 직접 상태값, browser는 scroll/selection/앵커 좌표를 관측하므로 구조적 proxy에 대한 별도 변이는 미선택이다.
+
+# ΔV13 — todowrite 진행 카드와 전개·퇴장 (READY)
+
+같은 기준 커밋의 AC26/27을 보완한다. 사용자 원문: “특히 todowrite의 경우, 컴포저 상단에 별도 카드가 슬라이딩 형태로 전개되고 모두 수행하면 아래로 슬라이딩 되며 사라진다. 이것도 직접 호출하여 수행하고 관찰하여 반영하라.” 이후 접힌 형태도 composer 바로 위에 노출하도록 명시했다. 실제 desktop 1.19.0에서 진행 카드 3/6, 접기 조작 후 한 줄 요약, 전체 완료 후 부재를 관측했다.
+
+## 제품 계약 / AC
+
+| 노드 | 동작 기준 / 검증 |
+|---|---|
+| R-34↔AT-34 / AC34 NEW | 현재 OpenCode root 턴의 성공한 TodoWrite가 composer 바로 위 읽기 전용 진행 카드를 연다. 펼침은 항목·진행상태·완료수를, 접힘은 완료수·대표 항목 한 줄·펼치기 버튼을 남긴다. 접기 자체로 카드를 없애지 않으며 같은 턴 갱신에도 접힘 선택을 유지한다. 전체 completed/cancelled 또는 실행 종료 후 아래로 퇴장하고 다음 턴·세션에 이전 카드가 다시 나타나지 않는다 |
+
+completed는 완료수에 포함하고 cancelled는 종결·취소선으로 표시하되 완료수에 더하지 않는다. 미지 상태는 미완료다. OpenCode의 일반 todowrite transcript 행은 원본처럼 숨기되 이력 원문·입력·결과는 보존하고 Claude TodoWrite 표시를 변경하지 않는다.
+
+| 사건 | 카드 결과 |
+|---|---|
+| 현재 root 턴의 성공 목록, live, 미완료 있음 | 위로 전개; live는 실행 또는 승인/질문 대기 |
+| 접기 / 펼치기 | 같은 자리에서 한 줄 요약 ↔ 전체 목록. 도구 상태는 변경하지 않으며 갱신 중 접힘 선택 유지 |
+| 모두 completed/cancelled | closing 시작→아래로 퇴장→제거 |
+| closing 중 새 미완료 목록 | 기존 종료 타이머 취소·같은 세션 카드 재전개 |
+| 빈 목록/실행 종료/세션 전환 | 종료·정리; 이전 턴/세션의 목록 재등장 금지 |
+| 실패/거부된 TodoWrite, child TodoWrite | root 진행 목록을 갱신하지 않음 |
+| 도구 승인 또는 Question 대기 중 | ΔV11의 단일 요청 카드가 입력 자리를 소유. Todo 상태·접힘 선택은 보존하지만 입력기나 Todo 카드와 중복 노출되지 않음. 대기열이 비고 여전히 live·미완료면 기존 접힘 상태로 복귀 |
+
+## 원본·기술 설계
+
+Todo의 정본 UI 근거는 공식1.19.0의 [state](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/app/src/pages/session/composer/session-composer-state.ts), [controller](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/app/src/pages/session/composer/session-composer-region-controller.ts), [dock](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/app/src/pages/session/composer/session-todo-dock.tsx)다. 제공2.0.29 아카이브에는 같은 TodoDock이 없으므로 그 아카이브에서 찾았다고 기록하지 않는다. [message-part.tsx](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/session-ui/src/components/message-part.tsx)의 HIDDEN_TOOLS와 실제 renderer가 todowrite를 제외한다.
+
+| 현재 경로 | 변경 책임 |
+|---|---|
+| `opencode/v1/map.ts`→normalized tool_result metadata→reducer/parts→`opencode/v1/toolPresentation.ts` | 최신 성공 root TodoWrite의 metadata.todos를 우선 해석하고 성공 input만 호환 fallback. 1.x 필드 해석은 v1에 유지 |
+| 현재 일반 ToolBody 목록 | `harnesses/opencode/composer/{TodoDock,todoState}`로 현재 턴·세션 범위의 표시 상태를 파생. 별도 서버·DB·IPC나 원본2.x API 도입 없음 |
+| Composer/입력기 높이 | 전용 region에서 카드 실측 높이×진행률과 composer overlap36px를 조립. 기존 controller 초안/첨부 소유권은 유지 |
+
+카드 기준은 min-height78px·header42px·radius12px·목록 max-height168px, 진행중 점·읽기 전용 체크·종결 취소선이다. 접힘에서는 목록을 숨기고 header의 완료수 옆에 대표 항목을 표시한다. 대표 항목은 첫 in_progress → 첫 pending → 마지막 completed → 첫 항목 순으로 선택하며 긴 제목은 한 줄 말줄임한다. 헤더 토글의 aria-expanded와 접근 가능한 접기/펼치기 이름을 상태에 맞춘다. 접힘 선택은 목록 내용과 별개인 세션별 UI 상태로 보존하여 갱신·요청 dock 가림·새 턴·A/B 세션 왕복에도 유지하고, 처음 보는 세션만 펼침을 기본으로 한다. 원본 `context/layout.tsx`의 `sessionView[session].todoCollapsed`와 `pages/session.tsx`의 주입 경로를 따른다. 원본 spring visualDuration0.3초/bounce0, close timer400ms와 progress0.001 종료 기준을 참고하며 기존 의존성 안에서 이식한다. 감속 모션에서는 상태 전환 결과를 즉시 표시한다.
+
+원본은 완료와 idle 동시 도착 시 !live clear가 우선해 목록을 먼저 비울 수 있다. Orca 이식은 퇴장 중 마지막 표시 snapshot을 유지하고 완료 후 제거하여 빈 카드 깜빡임을 방지한다. 이 snapshot은 퇴장 전용이며 영속 데이터나 다음 턴의 초기 카드로 사용하지 않는다.
+
+## V / §10
+
+| Pair / provenance | requiredness | 경로 / 직접 oracle |
+|---|---|---|
+| VP-63 R-34↔AT-34 NEW | REQUIRED | 실제 TodoWrite→진행 카드→접기 요약→갱신 유지→펼치기→전체 완료→퇴장. 새 `TodoDock.render.test.ts`·CUA-OC-TODO |
+| VP-64 AR-14↔IT-14 NEW | REQUIRED | v1 result→실제 reducer/parts→selector→Composer region. 새 `TodoDock.integration.test.ts`에서 normalized events부터 actual dock까지 실행 |
+| VP-65 SD-10↔ST-10 NEW | REQUIRED | 부분 완료→전체 완료/idle→퇴장·재개·세션 전환. 위 integration 및 timer/browser fixture로 새 목록 오폐쇄·이전 목록 재등장 검사 |
+| VP-66 MD-10↔UT-10 NEW | REQUIRED | 새 `todoState.test.ts`·v1 todo decoder 테스트: root/child·결과 우선·실패·상태4종·unknown·빈 목록·대표 항목 우선순위·세션별 접힘 유지/최초 기본값·400ms timer·감속 모션 |
+| VP-43/44/45/47/56/57/61 INHERITED | REGRESSION | 일반 도구 저장·Claude TodoWrite·입력 초안·승인 대체·dock 높이 변화 중 transcript 읽기 위치 |
+
+| 강제 자리 / 수 | 실패 의미 | 직접 oracle 좌표 (구현 예정) |
+|---|---|---|
+| EP-37a / 1: v1결과→목록 | 거부된 input/child/과거 턴이 root를 덮음 | v1 decoder + `TodoDock.integration.test.ts` 실제 결과·턴 교체 |
+| EP-37b / 1: 목록→state | cancelled/unknown 오판·잘못된 카운트·대표 항목 오류 | `todoState.test.ts` pending/in_progress/completed/cancelled/unknown 및 요약 선택 |
+| EP-37c / 1: state→Composer region | 도구 행에만 표시·승인/질문과 중복·접기 시 제거·Claude 누출 | `TodoDock.integration.test.ts` 실제 슬롯·요청 가림/복귀·접기 요약/펼치기·Claude 기존 표시 |
+| EP-37d / 1: closing/timer→cleanup | 새 카드 지연 폐쇄·세션 간 누출 | `todoState.test.ts` fake timer, 세션/턴 token 및 재개 |
+| EP-37e / 1: 진행률/높이→DOM | 위/아래 방향 반전·빈 snapshot·클릭 잔존 | `opencode-ui/main.tsx: todo-dock-lifecycle`에서 전개→접기→펼치기→완료의 높이·위치·제거, 감속 모션 결과 및 CUA-OC-TODO |
+| EP-37f / 1: transcript 투영 | Todo 중복 표시 또는 저장 이력 삭제 | `TodoDock.integration.test.ts: keeps normalized TodoWrite history while hiding the OpenCode transcript row`의 parts 보존·OpenCode 행 부재·Claude 행 존재 |
+
+6자리. 상태·카운트·실제 슬롯·시간·기하를 직접 관측하며 별도 변이는 미선택이다. 화면 캡처 간격으로0.3초를 실측했다고 주장하지 않는다.
+
+## ΔV11~13 통합 게이트·READY 대조
+
+증분 AC32~34로 총31→34이며 기존 구현 자기보고30/31은 과거 범위의 기록이다. 새 요구3건은 미구현이고 AC11 최종 사용자 시각 인수도 유지한다. AC가25건을 넘지만 모두 기존0262 composer/transcript의 같은 소비 경로를 보완하므로 델타3개로 작업 단위를 구분하고, 독립 우측 패널0263에는 규범을 복제하지 않는다.
+
+구현 순서는 ΔV11→ΔV12→ΔV13이며 ΔV13 dock 높이 변화는 ΔV12 스크롤 회귀로 다시 검사한다. 추가 package·IPC·DB 변경 없음; 필요해지면 구현자가 PLAN_GAP으로 근거를 되먹인다. UI만참조2.x와 실행1.x 분리, Claude 불변, canvas·사용자 버블 색상 예외를 유지한다.
+
+현재 설계 산출물 gate는 문서 generated/prose/링크·diff·Decision/AC/V/§10 교차 대조·INDEX/trailer다. 다음 구현 gate는 관련 Vitest, node/web/test typecheck, readonly ESLint, build, 문서·migration·test-budget, 원격 Windows CI와 위 실제 browser/Computer Use다. ABI를 바꾸는 npm pretest와 사용자 다운로드 파일 수정은 피한다. 다운로드 소스·일회성 미리보기는 커밋에서 제외하되 위 REQUIRED 재현 fixture는 재실행 가능한 테스트 산출물로 포함한다.
+
+READY 대조: D-022↔AC28/32·EP35(19자리), D-023↔AC26/29/33·EP36(7자리), D-024↔AC34·EP37(6자리), 합계32자리다. 각 NEW/CHANGED 노드는 VP56~67과 기존 VP46/48/50에 연결했다. D-004/011/015~021과 색상·하네스·API 범위를 대조했고, AC29의 외형 비변경 조건만 후속 D-023으로 명시 대체했다. 우측 패널0263의 독립 완료 상태는 그대로 둔다.
+
+설계 검사는 generated/prose·저장소 상대 링크·변경 문서의 상대 링크·`git diff --check`를 통과했다. 원본 link guard는 사용자 다운로드 `.tmp/opencode-dev` 안의 기존 링크5건만 실패했으며 사용자 소스는 수정하지 않았다. 독립 설계 대조에서 확인한 AC29 외형 범위 충돌, Todo 접힘의 세션별 보존, 재현 fixture 좌표를 위 계약에 정정했다. 이번 산출물은 문서뿐이므로 제품 테스트·빌드는 새로 실행하지 않았다.
 
 # [구현자 기입]
 
