@@ -479,9 +479,10 @@ D-07~13과 AC1′/2′/6′/8~11을 구현했다. 요약은 실제 `task` 타일
 | 운영 문서 | migration sync/append-only, test-budget, generated/prose 통과. .tmp·첨부 제외한 기존 checkLinks 결과 [] |
 | 원본 링크 guard 제한 | 사용자 다운로드 `.tmp/opencode-dev` 안의 상대링크5건만 실패. 다운로드 자료는 수정·커밋하지 않음 |
 | 전체 로컬 실행 제한 | 전체 Electron Vitest는 worker 종료 timeout으로 중단. 별도 attachments/confluence/git-safety 실패는 sandbox 밖 홈경로 mkdir/lstat EPERM으로 분리. 전체 성공으로 보고하지 않음 |
+| 원격 전체 CI | 최종 제품 코드 `14d5fea0`의 [CI #752](https://github.com/muzaby/orca-skin/actions/runs/38691356449) success. Windows Vitest 697파일/6941케이스 통과·1파일/1케이스 skip, scripts 138/138 통과. migration·문서·test-budget·lint·typecheck 모두 성공 |
 
 Computer Use는 Vite의 실제 renderer 컴포넌트·세션 store에서 수행했다. 개발 Electron은 창을 노출하지 않아 native 창 검증으로 보고하지 않는다. CUA 증거와 제한은 `.tmp/0263-v3-visual-evidence.md`, 캡처는 `.tmp/0263-v3-panel-light.png`·`0263-v3-panel-dark.png`다. 임시 preview는 `.tmp`로 이동했고 새 실모델 호출은 하지 않았다.
 
 ### Review Signals
 
-r1.3은 사용자 Delta V3를 반영한 추가 구현 턴이다. 이전 depth 보고의 성공을 새 타일 조립의 증거로 재사용하지 않았다. 긴 요약 잘림과 계획 힌트의 하네스 누락을 실제 UI에서 찾아 수정했다. 로컬 전체 테스트는 권한·프로세스 경합을 분리했고 Windows CI에서 전체 gate를 다시 확인한다. 다음 주체는 Claude 독립 검증자다.
+r1.3은 사용자 Delta V3를 반영한 추가 구현 턴이다. 이전 depth 보고의 성공을 새 타일 조립의 증거로 재사용하지 않았다. 긴 요약 잘림과 계획 힌트의 하네스 누락을 실제 UI에서 찾아 수정했다. 로컬 전체 테스트의 권한·프로세스 경합은 별도로 기록하고 최종 제품 코드의 Windows CI에서 전체 gate 성공을 확인했다. 이후 변경은 이 결과를 기록한 문서뿐이다. 다음 주체는 Claude 독립 검증자다.

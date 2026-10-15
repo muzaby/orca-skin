@@ -1426,6 +1426,8 @@ SSR에서 이전 교환을 생략하는 문제는 실제 virtualizer에 viewport
 
 관련 8파일/45케이스, 수정 파일 ESLint·Prettier, node/web/test 타입 검사 통과. 통합 main/preload/renderer 빌드도 완료했다. 통합 패널·문서·환경 gate의 상세는 [0263 구현 보고](../0263-opencode-session-panel/plan.md)에 기록한다.
 
+최종 제품 코드 `14d5fea0`의 [CI #752](https://github.com/muzaby/orca-skin/actions/runs/38691356449)에서 Windows Vitest 697파일/6941케이스 및 scripts138케이스가 통과했다(1파일/1케이스 skip). 문서·migration·test-budget·lint·typecheck gate도 성공했다. 사용자 시각 인수와 독립 verify 상태는 유지한다.
+
 ### Review Signals
 
 사용자 요구 변경에 따른 r1.12이며 독립 검증 결과를 선점하지 않는다. 새 실모델 도구 호출 없이 실제 컴포넌트 preview로 색상을 검증했다. 다음 주체는 Claude 독립 검증자다.
