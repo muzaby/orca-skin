@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3'
+import { openFileDatabase } from '../../infra/db/file-database'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -253,7 +254,7 @@ describe('native retention recovery through the migrated archive', () => {
     const file = join(root, 'recovery.db')
     // The fixture is replaced with a file database; no user history is used.
     db.close()
-    db = new Database(file)
+    db = openFileDatabase(file)
     applyMigrations(db)
     queries = new DbQueries(db)
     queries.insertSession({
@@ -273,7 +274,7 @@ describe('native retention recovery through the migrated archive', () => {
       await prepareNativeSession(adapter, request, queries, cwd)
       queries.nativeHistory.recoveryPrompt(request.sessionId, 'receipt', 'only new input')
       db.close()
-      db = new Database(file)
+      db = openFileDatabase(file)
       queries = new DbQueries(db)
       expect(queries.nativeHistory.recovery(request.sessionId)).toMatchObject({
         native_id: 'native-new',

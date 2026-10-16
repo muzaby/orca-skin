@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | impl/IMPL_DONE — r2 로컬·Windows CI 통과, 독립 재검증 대기. 사람 시각 인수는 별도 |
+| 상태 | impl/IN_PROGRESS — r2.1 최신 CI 재실패 보완. 사람 시각 인수는 별도 |
 | V mode | Delta V — V1 + ΔV1~ΔV21 (각 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV21 / V1 + ΔV1~ΔV21, 기준 `5d2b36a2` |
@@ -3076,3 +3076,40 @@ r2는 첫 독립 verify 뒤 보완이다. 기존 7필드·직접 oracle 규칙�
 | CI 재개방 보완 | 초기 run38924566570은 DB 재개방2건 timeout. 이전 artifact timeout까지 관측된3스위트의 파일 DB를 운영 `openFileDatabase`(WAL/NORMAL)로 통일. 메모리 DB·재개방·영속 단언·20초 예산은 유지. 로컬 helper 포함4파일35통과, 원격 재실행도 전체 통과 |
 
 이번 재구현 AC 범위: 0262 ΔV20 3 + 0263 ΔV6 2 + 0264 11 + 0265 AC15~19 5 =21. ✅19 · ⚠️2(미관·외곽 간격 사람 인수) · ❌0. 이 합계는 이전 모든 델타의 인수 완료를 뜻하지 않는다. 원격 CI까지 통과해 impl/IMPL_DONE·Claude 재검증 대기로 넘긴다.
+
+## [구현자 기입] 설계 리뷰 — r2.1 CI 재실패
+
+문서 마감 뒤 run38927521805에서 native-cursor beforeEach 10초와 migrate의 파일 재개방 20초가 초과됐다. 이전 run38926046458 성공은 해당 실행의 사실이며 안정화 완료의 근거로 확대하지 않는다. 제품 계약·V·시간 예산은 바꾸지 않고 현재 산출물의 CI gate를 보완한다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — r2.1
+
+불변식은 기본 CI의 Orca 파일 DB fixture가 운영 저장 정책을 사용하는 것이다. `rg -n 'new Database\(|openFileDatabase\(' app/src/main -g '*.test.ts' -g '*.testfixture.ts'`로 초기 생성·재개방을 함께 조사했다.
+
+| 대상 | 조치 / 직접 oracle |
+|---|---|
+| Orca 파일 fixture 8파일14자리 | migrate3·agent-kind2·writer2·native-history.db1·native-session2·worktree-bind1·worktree-recover2·legacy-paths1을 `openFileDatabase`로 통일. 각 파일의 실제 close/reopen·FTS·FK·native receipt·경로 복원 결과 단언 유지, 관련 회귀 SELF_PASS |
+| native cursor 초기화 1자리 | 원본 스키마+seed를 한 transaction으로 생성하고 finally에서 닫는다. `native-cursor.test.ts:reads the actual native schema without writes or initialization`의 DELETE journal·읽기 전용 쓰기 거부·파일 바이트 불변은 그대로 SELF_PASS |
+| 기존 CI 수정 3파일 | context-usage·session-worktree-display·artifact service 재개방 회귀 SELF_PASS |
+| 직접 Database 생성 잔여 | native cursor3은 DELETE 보존 검증, migrate의 backup2는 readonly·조건부1은 memory, mail4는 운영 store가 만든 파일의 raw 검사, artifact-sdk-live1은 명시 opt-in(기본 CI 제외). 기존 warm helper는 최초 생성 비용 측정 목적이라 유지 |
+
+새 운영 경로는 없다. fixture 조립과 기존 직접 결과 oracle을 확인했으며 성능 보장이나 전체 V 재인수를 주장하지 않는다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r2.1
+
+선택 적대 증거0 · 인용 변이0 · 새 구조적 proxy0 = 잠금 표 대상0. fixture의 직접 영속·무변경 oracle을 유지했으며 운영 코드를 위한 변이는 추가하지 않았다. native cursor의 DELETE 모드를 WAL로 바꾸어 readonly 불변 검사를 약화하지 않았다.
+
+## [구현자 기입] Product/UX 파생 검토 — r2.1
+
+테스트 준비만 변경했다. 사용자 원본·앱 DB·GUI·모델 호출 정책은 바뀌지 않는다. 실제 파일 재개방, 마이그레이션 SQL, 실패/성공 단언, 기본 hook10초·case20초 예산을 유지한다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r2.1
+
+r2는 당시 실패한3스위트만 보완해 같은 초기화 비용이 남은 형제를 놓쳤다. 이번에는 기본 CI 파일 초기화 전체와 예외 목적을 대조했다. 명시 opt-in 실모델 fixture는 이번 실행 범위 밖이며 실행하지 않았다. native 초기화가 throw해도 파일 핸들이 열린 채 남지 않도록 finally를 추가했다.
+
+## [구현자 기입] 구현 보고 — r2.1
+
+관련 SQLite 회귀13파일114케이스 통과. 운영 file-database 정책, 이번9파일과 기존 CI 수정3파일을 함께 실행했다. AC20-1 사용량 영속 ✅1, 0265 AC15~19는 해당 plan r2.1에서 집계한다. 검산 ✅1 · ⚠️0 · ❌0 = 이번262 재확인1. 나머지 제품·시각 AC는 이번에 재인수하지 않는다. 원격 CI는 push 뒤 확인한다.
+
+## [구현자 기입] Review Signals — r2.1
+
+사용자가 최신 CI 실패를 알린 뒤 같은 라운드에서 보완한다. 원격 성공1회를 재실행 안정성으로 해석하지 않으며 이번에는 최종 push의 check까지 확인한다. 지침 변경이나 독립 verify는 수행하지 않는다.

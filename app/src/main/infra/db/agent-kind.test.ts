@@ -1,9 +1,10 @@
 import { expect, it } from 'vitest'
-import Database from 'better-sqlite3'
+import type Database from 'better-sqlite3'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { applyMigrations } from './migrate'
+import { openFileDatabase } from './file-database'
 import { DbQueries } from './queries'
 
 it('persists Work across reopen, defaults callers to Code, and preserves birth on conflict', () => {
@@ -11,7 +12,7 @@ it('persists Work across reopen, defaults callers to Code, and preserves birth o
   let db: Database.Database | undefined
   try {
     const path = join(root, 'fixture.db')
-    db = new Database(path)
+    db = openFileDatabase(path)
     applyMigrations(db)
     let queries = new DbQueries(db)
     queries.insertProject({ id: 'p', name: 'project', instructions: '', createdAt: 1 })
@@ -39,7 +40,7 @@ it('persists Work across reopen, defaults callers to Code, and preserves birth o
       agentKind: 'code'
     })
     db.close()
-    db = new Database(path)
+    db = openFileDatabase(path)
     queries = new DbQueries(db)
     expect(queries.getSessionById('w')?.agent_kind).toBe('work')
     expect(queries.getSessionById('c')?.agent_kind).toBe('code')

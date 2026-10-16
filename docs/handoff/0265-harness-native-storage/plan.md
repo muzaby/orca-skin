@@ -6,7 +6,7 @@
 |---|---|
 | slug | `0265-harness-native-storage` |
 | 작성자 / 일자 | Codex / 2026-10-16 |
-| 상태 | impl/IMPL_DONE — r2 로컬·Windows CI 통과, 독립 재검증 대기. 사람 시각 인수는 별도 |
+| 상태 | impl/IN_PROGRESS — r2.1 최신 CI 재실패 보완. 사람 시각 인수는 별도 |
 | V mode / revision | Delta V / V1 + ΔV1~3 |
 | 기준 V | V1@공유 브랜치 `8c94b449485771d5ea588e62e38c8cfbedc74e3b`. OpenCode 구체 커서는 0262 ΔV16, 의존 경계 회귀는 0264 |
 | 관련 | PR #502 · ADR-009 · 0262 · 0230 |
@@ -748,3 +748,31 @@ r1(V1+ΔV1+ΔV2) 독립 검증 = **RETURN_TO_PLAN**. 판정 원문은 [`verify.m
 ## [구현자 기입] Review Signals — ΔV3 r2
 
 실패 주입 fixture가 canonical 경로를 사용하지 않아 Windows/심볼릭 경로에서 주입 자체를 건너뛰었다. production reader 정책을 느슨하게 바꾸지 않고 테스트가 실제 실패를 주입했는지 확인했다. 저장 상한의 제품 선택은 사용자에게 확인했고 기본 저장 경로·전역 설정은 건드리지 않았다.
+
+## [구현자 기입] 설계 리뷰 — r2.1 CI 재실패
+
+run38927521805의 native cursor 준비와 migration 재개방 timeout은 현재 산출물의 CI gate 실패다. 0262 r2.1 공통 보고에 원인·적용 범위를 기록한다. V·사용자 정책 변경은 없다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — r2.1
+
+native-cursor의 무변경 probe7케이스, native-session 복구11케이스, native-history.db의 동기화·offset·재개방 oracle을 실제 파일/SQLite로 재실행했다. native seed1자리와 Orca recovery file2자리·history 재개방1자리의 fixture를 보완했다. 직접 결과 SELF_PASS이며 원격 전체 gate는 별도 확인한다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r2.1
+
+선택 증거0 · 인용 변이0 · 새 proxy0 = 대상0. production reader/복구 코드를 바꾸지 않았다. 기존 DELETE mode·파일 바이트 동일성·binding/receipt·FTS 단언을 유지했다.
+
+## [구현자 기입] Product/UX 파생 검토 — r2.1
+
+원본 읽기 전용과 DB 보관 정책은 불변이다. 원본 DB를 운영 Orca PRAGMA로 바꾸지 않고 seed transaction만 묶는다. 보관 대화나 실제 native 자원에는 접근하지 않았다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r2.1
+
+초기화 throw 시 db.close가 건너뛰는 native fixture를 finally로 정리했다. 최초 설정과 재개방의 내구성 설정 차이를 함께 제거했다. 전체 조사와 유지한 예외는 0262 r2.1 표를 참조한다.
+
+## [구현자 기입] 구현 보고 — r2.1
+
+공통 회귀13파일114케이스 통과. AC15~19의 보관·missing 복구·입력 표시 분리·영수증·상한 차단을 native-session/history 결과로 재확인했다. 검산 ✅5 · ⚠️0 · ❌0 = 5. 이번 합계는 0262의 사용량 영속1을 더해6/6이며 이전 전체 AC의 인수 수와 합산하지 않는다. 원격 CI는 push 뒤 확인한다.
+
+## [구현자 기입] Review Signals — r2.1
+
+verify 이후 두 번째 구현 턴(r2.1)이다. 기존 실패 경로3곳 정정과 이번 원격 fixture 초기화 timeout을 구분한다. 독립 검증과 기존 시각 인수는 별도로 남긴다.

@@ -5,7 +5,8 @@
 //
 // **컴포지션 루트에 둔다** — rebase 는 infra(db), repair 는 infra(git) 인데 계약은 둘의 합성이다.
 
-import Database from 'better-sqlite3'
+import type Database from 'better-sqlite3'
+import { openFileDatabase } from '../infra/db/file-database'
 import { existsSync, renameSync } from 'node:fs'
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -49,9 +50,8 @@ async function tempRoot(): Promise<string> {
 }
 
 function openDb(file: string): Database.Database {
-  const db = new Database(file)
+  const db = openFileDatabase(file)
   handles.push(db)
-  db.pragma('foreign_keys = ON')
   applyMigrations(db)
   return db
 }

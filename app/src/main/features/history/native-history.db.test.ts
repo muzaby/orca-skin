@@ -6,6 +6,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import Database from 'better-sqlite3'
+import { openFileDatabase } from '../../infra/db/file-database'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AppMessagePart, LoadedSession } from '../../../shared/ipc'
 import type {
@@ -510,7 +511,7 @@ it('persists the committed cursor after closing and reopening a file database', 
       })
     })
     await db.backup(file)
-    const reopened = new Database(file)
+    const reopened = openFileDatabase(file)
     try {
       applyMigrations(reopened)
       const restored = new DbQueries(reopened)

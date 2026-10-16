@@ -13,19 +13,26 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'orca-native-cursor-'))
   file = join(root, 'opencode.db')
   const db = new Database(file)
-  db.exec(nativeSchemaSql.join(';'))
-  db.exec(
-    "INSERT INTO project(id,worktree,time_created,time_updated,sandboxes) VALUES ('p','C:/work',1,1,'[]')"
-  )
-  const insert = db.prepare(
-    "INSERT INTO session(id,project_id,slug,directory,title,version,time_created,time_updated) VALUES (?, 'p', 'slug', 'C:/work', 'title', '1.19.0', 1, 1)"
-  )
-  insert.run('s')
-  insert.run('other')
-  db.exec(
-    "INSERT INTO event_sequence VALUES ('s', 4, NULL); INSERT INTO message VALUES ('m','s',1,1,'{}'); INSERT INTO part VALUES ('part','m','s',1,1,'{}')"
-  )
-  db.close()
+  try {
+    // Keep DELETE journal mode to prove readonly probing does not convert native storage to WAL.
+    // Seed once atomically: per-statement durable commits make Windows setup dominate the test.
+    db.transaction(() => {
+      db.exec(nativeSchemaSql.join(';'))
+      db.exec(
+        "INSERT INTO project(id,worktree,time_created,time_updated,sandboxes) VALUES ('p','C:/work',1,1,'[]')"
+      )
+      const insert = db.prepare(
+        "INSERT INTO session(id,project_id,slug,directory,title,version,time_created,time_updated) VALUES (?, 'p', 'slug', 'C:/work', 'title', '1.19.0', 1, 1)"
+      )
+      insert.run('s')
+      insert.run('other')
+      db.exec(
+        "INSERT INTO event_sequence VALUES ('s', 4, NULL); INSERT INTO message VALUES ('m','s',1,1,'{}'); INSERT INTO part VALUES ('part','m','s',1,1,'{}')"
+      )
+    })()
+  } finally {
+    db.close()
+  }
 })
 afterEach(() => rmSync(root, { recursive: true, force: true }))
 const probe = (): ReturnType<typeof probeNativeCursor> =>
