@@ -6,7 +6,7 @@
 |---|---|
 | slug | `0265-harness-native-storage` |
 | 작성자 / 일자 | Codex / 2026-10-16 |
-| 상태 | plan/DRAFT — ΔV1 DB 우선 표시·lazy 갱신·세션별 읽기 커서 설계. 원본 형식별 커서 결정 대기; V1 구현·자기보고와 독립 검증 대기는 보존 |
+| 상태 | plan/READY — ΔV1 DB 우선 표시·lazy 갱신·세션별 읽기 커서 설계. 원본 형식별 커서 결정 대기; V1 구현·자기보고와 독립 검증 대기는 보존 |
 | V mode / revision | Delta V / V1 + ΔV1 (초안) |
 | 기준 V | V1@공유 브랜치 `8c94b449485771d5ea588e62e38c8cfbedc74e3b`. OpenCode 구체 커서는 0262 ΔV16, 의존 경계 회귀는 0264 |
 | 관련 | PR #502 · ADR-009 · 0262 · 0230 |
@@ -389,7 +389,7 @@ G02/G06의 `.tmp` 실행기는 검증 중 생성한 로컬 보조 파일이며 �
 - 반복해서 부딪히는 환경 한계: Node/Electron better-sqlite3 ABI가 달라 DB 테스트를 설치 Electron으로 실행했다. sandbox의 fixture 경로 EPERM은 별도 재실행으로 구별했으며 사용자 DB·실제 세션은 조작하지 않았다.
 - 현재 라운드·impl 턴: `r1`. 구현자 자기확인과 운영 gate를 완료했다. 독립 verify는 수행하지 않았으며 INDEX의 검증 좌표를 선점하지 않았다.
 
-## ΔV1 — DB 우선 표시와 세션별 lazy 이력 갱신 (2026-10-16, DRAFT)
+## ΔV1 — DB 우선 표시와 세션별 lazy 이력 갱신 (2026-10-16, READY)
 
 ### Part I — 추가 Product & UX Contract
 
@@ -403,9 +403,9 @@ G02/G06의 `.tmp` 실행기는 검증 중 생성한 로컬 보조 파일이며 �
 | D09 | 첫 DB 표시 후 별도 lazy 조회로 외부 추가 대화를 확인하고 발견하면 같은 세션을 갱신한다. 명시적 사용자 전송 없이 모델 prompt/resume·자동 피드 재생을 시작하지 않는다 | ACTIVE / D06 보완. 원본 SSOT와 Orca 보관 정책은 유지 |
 | D10 | 알려진 각 세션마다 마지막으로 성공 반영한 원본 읽기 위치를 영속 추적한다. 실패·부분 기록·경합에서는 확정 위치를 앞당기지 않는다 | ACTIVE / 새 요구. 미조회 세션은 `미조회`로 구별하며 읽었다고 추정하지 않음 |
 | D11 | 로딩 중 기본 모델 선택·패널 변경 때문에 정상 DB 응답을 버리지 않는다. 저장 backend가 composer/transcript/패널과 다음 전송의 하네스를 결정한다 | ACTIVE / 0262 D-002의 복원 경합 보완. 새 세션 기본 하네스 D-006과 구별 |
-| D12 | Claude JSONL 바이트 offset과 OpenCode SQLite 변경 위치를 공통 읽기 커서로 추상화할지 결정 | OPEN / OQ1. 사용자의 `모든 세션 JSONL` 표현과 기존 native 형식 유지 정책을 확인 중 |
+| D12 | 기존 native 형식을 유지한다. Claude JSONL 바이트 offset과 OpenCode SQLite 변경 위치를 공통 읽기 커서로 추상화한다 | ACTIVE / 사용자의 후속 “수정하라” 및 기존 원본 SSOT 결정. OQ1 종결 |
 
-OQ1 질문: Claude는 JSONL, OpenCode 1.19는 SQLite 원본이다. 각 원본 형식의 커서를 사용할지, 모든 하네스에 별도 JSONL이 필요한지 비동기 질문했다. 답변 전에는 별도 JSONL 생성·원본 형식 변경을 승인된 것으로 보지 않는다.
+OQ1 종결: 기존 native 형식 유지 정책과 후속 구현 지시에 따라 형식별 커서를 사용한다. 별도 JSONL을 생성하거나 원본 포맷을 바꾸지 않는다.
 
 | 상황 | 사용자에게 보이는 결과 |
 |---|---|
@@ -418,7 +418,7 @@ OQ1 질문: Claude는 JSONL, OpenCode 1.19는 SQLite 원본이다. 각 원본 �
 | lazy 중 전송·라이브 수신·다른 세션 선택·목록 제거 | stale 결과가 현재 대화·하네스·새 입력을 덮지 않음. 다음 진입에서 재확인 |
 | native 파일 축소·교체·같은 크기 수정 | 이전 offset을 무조건 seek하지 않음. 검증된 전체 재수입 또는 명시 실패; 원본 무변경 |
 
-범위는 알려진 세션의 표시·읽기 위치·복원이다. 전역 native 세션 발견, 상시 polling/watch, 원본 포맷 변환, terminal 실행 강제 종료는 추가하지 않는다. OQ1이 원본 형식별 커서로 확정되면 아래 기술안이 적용되며, 별도 JSONL 답변이면 해당 부분을 다시 설계한다.
+범위는 알려진 세션의 표시·읽기 위치·복원이다. 전역 native 세션 발견, 상시 polling/watch, 원본 포맷 변환, terminal 실행 강제 종료는 추가하지 않는다. 원본 형식별 커서를 사용하는 아래 기술안을 적용한다.
 
 | AC / R↔AT | 관측 기준 | 도달 경로 / 직접 oracle 예정 |
 |---|---|---|
@@ -460,7 +460,7 @@ nav / boot restore → session.load(DB만) → LOAD_SESSION(저장 backend/본�
 4. 요청 token과 본문/live 세대를 구별한다. 모델·패널 변경으로 엔트리 객체가 교체되어도 정상 DB 응답을 폐기하지 않는다. 수신 이벤트(rAF 대기 포함), 낙관 전송, 삭제·새 조회는 stale 판정에 계속 포함한다.
 5. cold load 중 자동 모델 hydration·SET_MODEL·send를 보류한다. DB 수신 뒤 backend와 agentKind는 저장값으로 복원하고, 캐시 보존 분기에서도 원본 정체성을 제외하지 않는다. 기존 세션에 호환 모델이 없으면 안내/미선택 상태를 유지하며 다른 하네스로 폴백하지 않는다.
 
-**읽기 커서 — OQ1 권장안**
+**읽기 커서 — 확정안**
 
 - 공통 `NativeHistoryCursor`는 version·sourceKey·revision과 opaque adapter checkpoint를 갖는다. concrete byte/sequence 해석은 각 하네스 안에 두고, 공통 코드는 JSON envelope의 유효성만 검증한다. resume query와 cursor 조회를 같은 동작으로 취급하지 않는다.
 - read 포트는 이전 snapshot/cursor를 main DB에서 받아 `unchanged` 또는 안정된 `snapshot + cursor`를 돌려준다. 기존 cursor 없는 보관 자료는 lazy 최초 확인에서 전체 읽기로 초기화한다. `nativeSessionError` 등 기존 소비처도 새 결과 의미를 명시적으로 처리한다.
@@ -468,7 +468,7 @@ nav / boot restore → session.load(DB만) → LOAD_SESSION(저장 backend/본�
 - DB의 세션별 cursor 조회는 `미조회` 또는 마지막 성공 source/revision/checkpoint/syncedAt을 반환한다. 화면의 새 버튼을 요구사항으로 추가하지 않는다. 검증·진단에서 cursor를 확인할 수 있고, 경로·raw 본문·자격증명은 renderer DTO에 싣지 않는다.
 - 동일 revision은 no-op로 돌려 불필요한 FTS 교체와 화면 재구성을 생략한다. read 후 live/제거/DB 변경 guard와 transaction CAS를 통과하지 못하면 cursor도 그대로다. 출처가 바뀌면 기존 보관을 유지하고 이관 필요 상태로 분리한다.
 
-**Claude JSONL 경계 — OQ1 권장안**
+**Claude JSONL 경계 — 확정안**
 
 `claude/`의 reader/helper만 JSONL을 해석한다. checkpoint는 파일 identity(dev/ino 및 경로 hash), 성공한 UTF-8 byte offset, prefix digest, 완결 행/원본 UUID 정보다. 확정 byte offset은 정상적으로 파싱·현재 chain 선택·완료 판정을 거쳐 DB에 반영한 마지막 경계이며 문자열 길이로 계산하지 않는다.
 
@@ -506,11 +506,11 @@ R09~14/AT09~14는 NEW다. SD-Δ1/AR-Δ1/MD-Δ1~3도 NEW이며 아래 REQUIRED pa
 
 신규/변경 강제 자리 `4+4+3+4+4+3=22`. 기준 50자리와 겹치는 load/guard 지점은 더해 전수 합계로 보고하지 않는다. 모든 oracle은 직접 행동 검증을 예정하며 새 구조적 proxy·전수 스캔 oracle은 도입하지 않아 선택 mutation은 not selected다. 구현 시 실제로 등록한 테스트명과 각 실행 구간을 보고해야 한다.
 
-### 운영 gate / DRAFT 판정
+### 운영 gate / READY 판정
 
 main/renderer AGENTS의 하향 의존과 하네스별 구현 경계를 유지한다. typecheck 3구성, readonly lint, 관련 handler/store/adapter/실제 SQLite 회귀, migration append-only·sync, preload/IPC 계약, error registry, inventory/링크, build를 수행한다. 현재 Electron SQLite ABI를 재설치로 바꾸지 않는다.
 
-최종 대조: D08→AC9, D09→AC10, D10→AC11/12, D11→AC13/14가 연결된다. V1 native 원본·목록 제거·모델 오버라이드 결정은 유지하며, 원본 조회 선행 순서만 명시 대체한다. `D12=OPEN`이고 OpenCode 구체 checkpoint의 mutation 범위 검증이 남으므로 이번 Delta는 DRAFT이며 구현 완료를 주장하지 않는다.
+최종 대조: D08→AC9, D09→AC10, D10→AC11/12, D11→AC13/14가 연결된다. V1 native 원본·목록 제거·모델 오버라이드 결정은 유지하며, 원본 조회 선행 순서만 명시 대체한다. D12를 확정했다. OpenCode sequence 단독 비교 대신 session/message/part projection digest를 함께 검증하여 update/delete/revert를 포괄한다. 이번 Delta는 READY이며 구현·독립 검증은 아직 완료되지 않았다.
 
 ### [검증자 기입] 파생 이슈 — 사용자 보고의 구현 전 재현
 

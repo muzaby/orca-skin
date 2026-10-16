@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | plan/DRAFT — ΔV16 lazy native 커서·재시작 하네스 복원 보완 설계. 원본 형식별 커서 결정 대기. ΔV15 구현/자기보고·기존 AC11 사람 인수·독립 verify 대기는 보존 |
+| 상태 | plan/READY — ΔV16 lazy native 커서·재시작 하네스 복원 보완 설계. 원본 형식별 커서 결정 대기. ΔV15 구현/자기보고·기존 AC11 사람 인수·독립 verify 대기는 보존 |
 | V mode | Delta V — 기준 V1 + ΔV1~15 + ΔV16 초안 (각 델타의 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV16 초안 / 기준 ΔV15@공유 브랜치 `8c94b449485771d5ea588e62e38c8cfbedc74e3b`. 기존 구현 자기보고·AC11 미인수는 별도 보존. 확정 전에는 새 요구를 충족한 것으로 세지 않음 |
@@ -2433,7 +2433,7 @@ native GET 성공이 항상 우선이며 실패 중 404만 이관한다. 외부 
 
 사용자 저장 정책 변경을 받아 진행한 ΔV15 구현 턴이다. 기존 전용 XDG 결정은 최신 D-029로 대체했고, 설계 probe를 production oracle로 세지 않았다. 실제 이관을 테스트하면서 marker 일부 실패·교차 session FK·snapshot worktree·history partial error를 보완했다. 설치 Electron SQLite ABI를 유지한 채 runtime을 선택했으며 의존성 재설치는 없었다. 전체 gate와 함께 여러 CLI/tsc가 실행된 시도에서는 15초 서버 시작 제한과 buildinfo 파일 경쟁이 발생해 단독 CLI·별도 typecheck output으로 분리했다. 이는 제품 시작 제한을 없애는 근거로 쓰지 않았다. 다음 판정은 독립 verify다.
 
-## ΔV16 — lazy 읽기 커서와 재시작 하네스 복원 (2026-10-16, DRAFT)
+## ΔV16 — lazy 읽기 커서와 재시작 하네스 복원 (2026-10-16, READY)
 
 ### Part I — 요구 배분과 Decision
 
@@ -2443,7 +2443,7 @@ native GET 성공이 항상 우선이며 실패 중 404만 이관한다. 외부 
 |---|---|---|
 | D-033 | OpenCode 세션은 재시작/nav 진입에서도 저장된 backend로 composer·transcript·패널·다음 전송을 복원한다. 미확정 로딩 단계의 기본 Claude 선택은 세션 정체성이 아님 | ACTIVE / D-002 보완. 생성 후 하네스 변경 금지 유지 |
 | D-034 | session 표시의 native 조회는 DB 첫 표시 뒤 lazy로 실행하고 prompt/resume를 만들지 않는다 | ACTIVE / 0265 D08/09 참조. OpenCode 서버 지연을 첫 표시에서 분리 |
-| D-035 | native SQLite의 per-session 변경 위치를 공통 cursor의 OpenCode 1.x checkpoint로 사용할지 결정 | OPEN / 0265 OQ1과 같은 결정. 별도 질문·별도 JSONL 생성을 중복하지 않음 |
+| D-035 | native SQLite의 per-session sequence와 projection digest를 OpenCode 1.x checkpoint로 사용한다 | ACTIVE / 0265 D12와 같은 결정. 별도 JSONL 없음 |
 
 **제품 결과**: DB가 OpenCode라고 기록한 세션은 전역 default/lastBackend 및 Claude 카탈로그의 도착 순서와 관계없이 OpenCode로 열린다. 호환 엔진이 없으면 OpenCode를 유지하며 모델 선택 불가를 알리고, Claude로 대체하지 않는다. 실제 대화 재개는 사용자의 명시적 입력 이후에만 일어난다.
 
@@ -2461,12 +2461,12 @@ native GET 성공이 항상 우선이며 실패 중 404만 이관한다. 외부 
 
 DB insert/SELECT/LoadedSession에는 backend가 이미 존재한다. 사용자 데이터의 backend를 추측해 일괄 UPDATE하거나 `ses_` 접두사만으로 하네스를 바꾸지 않는다. 공통 store의 조회 token·본문 세대 분리, loading 중 모델 선택/전송 보류, 저장 정체성의 authoritative 복원은 0265에서 구현한다.
 
-**OpenCode 커서 권장안 — OQ1 확정 전 초안**
+**OpenCode 커서 확정안**
 
 - 1.19 native 원본은 SQLite다. `legacy-schema.testfixture.ts`의 실제 CLI 스키마에 `event_sequence(aggregate_id, seq)`·`event(aggregate_id, seq)`·message/part projection이 존재한다. SDK의 `/v2/client` import가 저장 포맷을 JSONL로 만드는 것은 아니다.
 - `opencode/v1/`만 checkpoint 형식을 해석한다. sourceKey는 실제 native DB identity, checkpoint는 검증된 per-session sequence/revision이며 공통 코드가 SQL table이나 seq 의미에 의존하지 않는다. 기존 준비 env·cwd·CLI `db path`와 같은 원본을 사용한다.
 - readonly cursor probe와 SDK snapshot 사이의 sequence/revision을 앞뒤로 확인한다. 동일 위치면 messages 전문 조회·Orca snapshot/FTS 교체를 건너뛰고, 달라지면 안정된 native snapshot을 읽어 기존 mapper로 정규화한다. 원본이 쓰는 event의 축적 수를 UI 메시지 수로 간주하지 않는다.
-- 읽기 checkpoint는 session별로만 비교하고 파일 mtime/WAL 크기만으로 대신하지 않는다. part 갱신·삭제·revert가 sequence에 반영되는지 실제 1.19 fixture로 검증해야 한다. 해당 변경을 검출하지 못하면 sequence 단독 fast path를 채택하지 않고 revision 기반 검증으로 돌아간다.
+- 읽기 checkpoint는 session별로만 비교하고 파일 mtime/WAL 크기만으로 대신하지 않는다. sequence 단독 fast path는 사용하지 않는다. readonly transaction에서 session/message/part projection 전체 digest를 함께 비교하여 part 갱신·삭제·revert를 검출한다. 지원하지 않는 schema는 SDK revision으로 안전하게 확인한다. SQL 읽기는 O(N)이지만 변경 없는 경우 SDK 전문 조회와 mapper/FTS 교체를 생략한다.
 - SQLite read는 기존 infra factory를 readonly/fileMustExist로 주입하고 schema initialize·migration·쓰기 PRAGMA를 수행하지 않는 경계를 확인한다. 필요한 readonly factory 보완도 실제 원본 바이트/SQL write0 테스트로 잠근다. 하네스 버전별 SQL을 공통 infra로 이동하지 않는다.
 - busy/원본 부재/다른 cwd/읽기 오류와 legacy 이관 조건은 ΔV15 계약을 유지한다. lazy 조회 자체가 session.create/prompt/resume를 호출하지 않으며, 원본 존재 확인을 위한 명시 전송 경로와 분리한다.
 
@@ -2494,6 +2494,6 @@ R43~45/AT43~45, SD-Δ16/AR-Δ16/MD-Δ16은 NEW다. D-002의 기존 하네스 잠
 
 OpenCode 내부 신규 자리 5곳과 공통 0265의 재사용 자리는 구별한다. 직접 행동 oracle를 예정하며 구조적 proxy/새 전수 장치를 만들지 않아 선택 mutation은 not selected다.
 
-### DRAFT 사유와 운영 gate
+### READY 판정과 운영 gate
 
-D-033→AC43, D-034→AC45, D-035 후보→AC44로 연결된다. 0265 OQ1의 원본 형식 결정 및 실제 1.19 journal의 update/delete/revert 포괄 검증이 남았으므로 READY가 아니다. 구현은 기존 native 환경·엔진 override·Claude GUI 계약을 유지하며 node/web/test typecheck·readonly lint·IPC/DB/renderer 회귀·실제 CLI fixture·문서/빌드 gate로 확인한다.
+D-033→AC43, D-034→AC45, D-035→AC44로 연결된다. 0265 D12의 원본 형식별 커서와 projection digest 검증을 확정하여 READY다. sequence에 모든 변이가 기록된다는 가정은 두지 않는다. 구현은 기존 native 환경·엔진 override·Claude GUI 계약을 유지하며 node/web/test typecheck·readonly lint·IPC/DB/renderer 회귀·실제 CLI fixture·문서/빌드 gate로 확인한다.
