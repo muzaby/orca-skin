@@ -2907,7 +2907,7 @@ CUA-19-04: 검증용 dev 앱을 정상 종료·재실행해 최신 main으로 �
 ### Decision / 제품 계약
 
 - D20-1 ACTIVE: OpenCode 도넛 분모는 선택 모델의 설정 `provider[id].models[id].limit.context` 양수 값, 없으면 200000. 분자는 마지막 assistant step의 input+cache.read+cache.write이며 마지막 step이 없는 구자료만 기존 합산으로 폴백한다. 비용·사용량 원장은 합산을 보존한다. 재시작 후에도 두 의미가 섞이지 않는다.
-- D20-2 ACTIVE: 즉시 보내기는 native abort를 호출하고 중단 정착 뒤 held 입력을 바로 보낸다. 자연 응답 완료를 기다리지 않는다. `MessageAbortedError`는 중단 상태로 정규화하며 SSE를 연결 오류로 닫지 않는다. 실제 연결/인증 오류는 유지한다.
+- D20-2 ACTIVE: OpenCode 즉시 보내기는 활성 채널에 `session.promptAsync`로 held 입력을 즉시 주입한다. 기존 실행을 abort하거나 idle/예외를 기다렸다가 재전송하지 않는다. 기존 프레임·SSE·승인을 유지하고 입력 영수증으로 한 번만 커밋한다. 명시적 전송 전 거절만 큐로 되돌리고 수락 여부가 불명확한 실패는 자동 재전송하지 않는다. 별도 중지 버튼의 `MessageAbortedError`는 중단 상태로 정규화하며 SSE를 연결 오류로 닫지 않는다. 실제 연결/인증 오류와 Claude의 기존 즉시 보내기 정책은 유지한다.
 - D20-3 ACTIVE: agent/effort 팝업은 모델 팝업의 공용 Popover·MenuItem·폰트 계층을 쓴다. 키보드 선택/포커스 복귀는 유지한다. 엔진 카드의 표시명은 Claude/OpenCode이며 식별자는 바꾸지 않는다.
 
 ### AC / Delta V / §10
@@ -2915,8 +2915,12 @@ CUA-19-04: 검증용 dev 앱을 정상 종료·재실행해 최신 main으로 �
 | AC / pair | requiredness / production path·강제 자리 | 직접 oracle / 실패 의미 |
 |---|---|---|
 | AC20-1 / VP20-1 R20-1↔AT20-1·MD20-1↔UT20-1 | REQUIRED / 설정→mapper→telemetry→DB→DTO→도넛 (6) | 다중 step·뒤늦은 이전 update·0·누락·limit fixture; SQLite 재개방. 합산을 컨텍스트로 표시하면 실패 |
-| AC20-2 / VP20-2 R20-2↔AT20-2·AR20-2↔IT20-2 | REQUIRED / send-now IPC→runtime interrupt→native abort→중단 event→held 재전송 (5) | 실제 orchestration+adapter synthetic stream, 중단 오류/idle 순서와 새 요청 횟수 확인. provider_connection_error 또는 자연완료 대기 실패 |
+| AC20-2 / VP20-2 R20-2↔AT20-2·AR20-2↔IT20-2 | REQUIRED / send-now IPC→held 예약→runtime capability→활성 promptAsync→영수증 커밋 (5) | 실제 orchestration+adapter synthetic stream, 기존 idle 이전 새 prompt·abort 0건·동일 SSE·한 번의 커밋·실패 자동 재전송 0건. 별도 중지의 오류/idle 순서도 검증. 중단·자연완료 대기 또는 provider_connection_error 오분류 실패 |
 | AC20-3 / VP20-3 R20-3↔AT20-3 | REQUIRED / 두 popup·engine card (3) | 렌더/선택 테스트 및 CUA 디자인 대조. Claude/OpenCode 라벨·공용 menu DOM |
 | VP20-R / SD20↔ST20 | REGRESSION / provider 설정·persistent channel·0250 큐·Claude UI | 기존 adapter persistent/continuation·engine modal·composer 회귀 |
 
 새 자리 14. 선택 적대 증거는 not selected(직접 oracle). 운영 gate: typecheck, readonly lint, 관련 Vitest, 실제 SQLite, migration sync/append-only, inventory, build. 네이티브 ABI 재설치 없이 Electron Node 모드 DB 검증. 구현 보고/독립 verify는 아직 미완료.
+
+### SDK steering 정책 확인에 따른 설계 정정
+
+사용자 지적에 따라 중단 후 전송이라는 초안 가정을 폐기했다. 설치 SDK `@opencode-ai/sdk@1.18.27`의 기존 세션 API는 실행 중 `promptAsync`를 허용한다. [OpenCode 1.19 데스크톱 호환 계층](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/app/src/utils/server-compat.ts#L189-L231)은 interrupt만 abort에 연결하고 prompt/steer는 promptAsync로 바로 보낸다. [1.19 runner](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/opencode/src/effect/runner.ts)의 실행 중 ensureRunning은 기존 실행을 기다리며 새 실행이나 취소를 만들지 않는다. prompt가 먼저 저장한 사용자 입력은 session prompt loop의 다음 스텝에서 읽힌다. 이 경로는 SDK의 별도 v2 프로토콜 `delivery` API로 전환할 필요가 없다. 즉시성은 현재 모델 토큰 생성의 강제 취소가 아니라 서버에 즉시 입력을 전달하는 뜻이다.
