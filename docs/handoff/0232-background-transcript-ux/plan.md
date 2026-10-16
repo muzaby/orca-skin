@@ -6,9 +6,9 @@
 |---|---|
 | 작성자 | Codex |
 | 일자 | 2026-09-13 |
-| 상태 | verify/PASS (r2) — 설치본 시각 실기 1건 남음 |
+| 상태 | plan/DRAFT — ΔV3 공통 자동 입력 속성·표시 정책 조사. 기존 r2 PASS와 설치본 시각 실기 대기는 보존 |
 | V mode / 기준 / revision | Baseline V / none / V1 |
-| 유효 V | V1 + ΔV1 + ΔV2 — 실제 모델·간결한 카드/상세·foreground 셸 전환과 표시 범위·Work 내부 출처 제외·Code 그룹과 완료 지우기. 0230·0231의 원본/수명/출력 보존 계약은 유지한다. |
+| 유효 V | V1 + ΔV1 + ΔV2. ΔV3는 표시 정책 질의 중인 DRAFT이며 기존 유효 V를 아직 대체하지 않는다. |
 
 # Part I — Product & UX Contract
 
@@ -50,6 +50,10 @@
 | D-17 | Work context 출처에서 Windows AppData/Local/Temp/orcinus-orca/claude 및 하위 경로 제외 | 사용자 추가 피드백; 출처 목록 투영만 변경 | ACTIVE | 신규 |
 | D-18 | Code 백그라운드 목록을 실행 중/완료 두 접기 그룹으로 표시. 완료 그룹 오른쪽에만 휴지통 | 사용자 첨부 `codex-clipboard-d650bec3-16b7-4687-abd3-eecf39283791.png`; 실패·중단도 완료 그룹 | ACTIVE | D-03 목록 구성 보완 |
 | D-19 | 휴지통은 현재 완료 카드만 목록에서 지우고 원본 대화·작업·출력은 보존 | 완료된 작업 지우기 요청의 표시 범위 해석; 실행 중 작업은 유지 | ACTIVE | 신규 |
+| D-20 | `system-reminder`를 Claude·OpenCode 공통 메시지 속성으로 처리한다 | 2026-10-16 사용자: “claude에도 적용돼야 한다. 공통 속성으로 하자” | ACTIVE | OpenCode 한정이라는 초기 조사 가정 폐기. 일반 GUI 보존의 명시적 변경 범위 |
+| D-21 | production에서 `system-reminder`를 숨길지 사용자 버블로 표시할지 | “해당 태그 외”의 예외 의미에 대한 비동기 질문 답변 대기 | OPEN | D-02를 아직 대체하지 않음 |
+| D-22 | 태그 비표시가 확인된 자동 피드에만 적용되는지 수기 XML/HTML 입력도 포함하는지 | 비동기 질문 답변 대기 | OPEN | D-02·AC4의 수기 태그 보존을 아직 대체하지 않음 |
+| D-23 | 디버그 별도 버튼이 피드 표시 전환인지 테스트 입력 전송인지 | 비동기 질문 답변 대기. 버튼·DEV 게이트 소유자는 0003 | OPEN | 0025 기존 콘솔 로그 토글은 유지 |
 
 ### 갱신 메모
 
@@ -496,3 +500,49 @@ r2 독립 검증 = **PASS**. 판정 원문은 [`verify.md`](verify.md).
 | D4 | `chatStopAllBackgroundTasks`·`chatReadBackgroundOutput`이 renderer 소비처 0이 됐다 | D-07·D-14 의도 | NON_BLOCKING | 현재 아키텍처 문서에 진입점 상태 반영 |
 
 남은 사람 몫: 설치본에서 전환 버튼 위치·그룹 접기·휴지통의 두 테마 시각 확인 1건.
+
+# ΔV3 — 공통 시스템 피드 분류·표시 (DRAFT, 2026-10-16)
+
+## Product / UX와 요구 분배
+
+Claude와 OpenCode의 시스템 피드를 공통 속성으로 식별한다. 모델에게 전달할 입력과 이미 모델이 소비한 입력의 수신 기록을 구분하고, 원본 본문·출처를 유지한다. 사용자 요청은 완료 알림 뒤 모델의 후속 처리가 이어지고, 개발 중에는 피드를 확인하며, production에서는 지정한 태그 피드를 숨기는 것이다.
+
+이번 표시 변경의 정본은 0232다. [0262 ΔV14](../0262-opencode-harness/plan.md#δv14--시스템-피드의-native-매핑-draft-2026-10-16)는 OpenCode 수신과 자동 재개 관측을, [0003 추가 설계](../0003-debug-panel-mock-adapter/plan.md#공통-시스템-피드-디버그-확장-draft-2026-10-16)는 DEV 버튼을 소유한다. [0264](../0264-harness-module-isolation/plan.md)의 shared/common 계약과 하네스별 SDK 구현 분리는 유지한다. 같은 표시 정책을 하네스별 plan에 복제하지 않는다.
+
+| 요구 | 상태 / 관측 가능한 완료 기준 |
+|---|---|
+| R-20 / AT-20 후보 | D-20 확정. 두 하네스의 시스템 피드에 동일한 공통 분류가 보존되고 live·재로드에서 같은 결과를 낸다. 원문과 기존 출처는 소실하지 않는다. |
+| R-21 / AT-21 후보 | 실제 SDK/CLI가 이미 소비한 입력을 Orca가 다시 보내지 않는다. host가 만든 미전송 입력은 기존 입력 접수 경로로 한 번 전달한다. SDK 영수증과 새로운 입력 요청을 혼동하지 않는다. |
+| R-22 / AT-22 후보 | D-21·22 OPEN. `system-reminder`의 버블 표시 여부와 수기 태그 범위 답변 후 production/DEV의 행·시간·복사·빈 교환 행렬을 확정한다. |
+| R-23 / AT-23 후보 | D-23 OPEN. 0003의 별도 버튼으로 공통 피드 표시 또는 테스트 전송을 제어한다. 기존 콘솔 로그 스위치와 결합하지 않는다. |
+
+기존 D-02·AC3/4는 답변 전까지 유효하다. 이번 DRAFT를 구현 승인 또는 기존 r2 검증 실패로 해석하지 않는다. 기존 백그라운드 카드·중단·출처·완료 지우기 요구는 변경하지 않는다.
+
+## 조사 / AS-IS → TO-BE 후보
+
+- 현재 `ReceivedMessageOrigin`은 `scheduled/channel/task/peer/automatic` 출처를 보존하지만 reminder 의미 속성은 없다. `input.received → commitUserMessage → message.committed → text.origin → groupTurns`가 공통 수신·저장·투영 경로다.
+- `groupTurns`는 origin이 있는 사용자 메시지를 DEV/production 모두 제외한다. `turns.received.test.ts`는 수기 태그와 assistant 출력, 원본 인덱스를 보존한다. 이 기존 회귀를 답변 없이 태그 정규식으로 대체하지 않는다.
+- Claude 설치 SDK의 사용자 입력은 `type: user`와 `isSynthetic/origin`으로 판별하며, 별도 `system/task_notification`은 작업 상태 신호다. coordinator의 `input.received`는 이미 소비된 입력 기록이며 새 전송 명령이 아니다.
+- 설치 Claude SDK 0.3.286의 `UserPromptSubmitHookInput.source`는 `user/sdk/system/loop_wakeup/schedule_wakeup/poll_event`를 구별한다. 현재 `input-receipts.ts`는 이를 저장하지 않는다. `SDKMessageOrigin`의 `auto-continuation` 등 명시 출처를 우선 검토하며 도구 결과 안의 reminder를 독립 user 입력으로 승격하지 않는다. 이 Claude 조사는 설치 타입·현재 코드·기존 `post-turn.schedules.test.ts`의 무입력 listen oracle 근거이며 신규 실제 wire 관측은 아니다.
+- OpenCode는 서버 내부에서 모델 입력에만 reminder를 넣기도 하고 synthetic user text 이벤트를 발행하기도 한다. [실행 조사](../0262-opencode-harness/system-feed-research.md)에 소스·실제 CLI 관측을 구분한다.
+
+공통 타입에는 **출처와 의미 분류를 분리하는 선택 속성**을 제안한다. 분류 helper는 common/shared에, SDK의 신뢰 가능한 출처를 판단하는 코드는 각 하네스 adapter에 둔다. 문자열에 태그가 있다는 이유로 전송 책임을 바꾸지 않는다. 표시를 위해 원본 이력을 삭제하지 않으며, 사람 본문/첨부와 synthetic part가 섞인 메시지는 메시지 전체 숨김의 위험을 별도로 검사한다. 필드명·혼합 part의 투영과 구형 이력 호환성은 READY 전에 확정한다.
+
+## V / §10 후보와 남은 설계
+
+ΔV3는 아직 유효 V가 아니다. 아래 검증 설계를 D-21~23 답변 및 native background 실측 뒤 정확한 AC·node/pair·자리별 oracle로 확정한다. 기존 VP-02·05·07 중 자동 입력/원본 유지 경로가 영향받는 REGRESSION 대상이다.
+
+| 레벨 / 후보 경로 | 직접 확인할 값 |
+|---|---|
+| MD↔UT — 공통 분류 helper | reminder/다른 wrapper/일반 텍스트/혼합 part/수기 태그와 출처 조합. 원본 불변 |
+| AR↔IT — Claude/OpenCode mapper→coordinator→persist/reducer | 동일 공통 속성·원문·중복 ID 처리. 수신 영수증으로 새 send 호출 0회 |
+| SD↔ST — 저장/재로드·부모 idle·후속 자동 입력 | 이미 소비된 입력의 중복 전송 없음, 실제 후속 assistant 출력의 수신·세션 격리 |
+| R↔AT — 두 Timeline·DEV 버튼 | 사용자 답변으로 확정할 DEV/production 표시 행렬, 빈 버블·메타 없음, 일반 대화 보존 |
+
+강제 지점 후보는 두 adapter의 provenance 판정, 공통 normalized/저장/재로드 경계, reducer, 공통 turn 투영, 두 Timeline, app의 DEV 조립 슬롯이다. 현재 위치와 직접 consumer 전수는 READY 전에 재열거한다. 변경되는 public IPC/저장 필드와 main 재개 수명은 타입·문서·테스트를 함께 닫는다. 신규 package·DB migration은 현재 조사에서 필요성이 확인되지 않았다.
+
+예정 운영 gate: 영향 범위 비DB Vitest, readonly ESLint, typecheck, production build의 DEV 기능 제거, 문서 inventory/링크·diff·trailer. 실제 모델 호출 대신 설치 SDK/CLI와 loopback 합성 모델로 중복 전송과 후속 응답을 검증한다. 순수 분류/표시 로직을 사람 실기로 넘기지 않는다.
+
+READY 미충족: D-21~23 답변, 공통 필드/혼합 입력 저장 계약, OpenCode 최초 idle 이후 수명 설계, §10 전수와 직접 oracle 확정. 이전 V1+ΔV1+ΔV2의 PASS를 이번 미구현 범위에 합산하지 않는다.
+
+이번 조사 산출 검사는 generated inventory 일치, prose 위반 없음, 저장소 링크 및 추가 링크 해석, `git diff --check`를 확인했다. 링크 전수의 대상에서는 사용자 다운로드 `.tmp`와 첨부 디렉터리를 제외했다. 제품 코드는 변경하지 않아 구현 테스트·build를 수행했다고 주장하지 않는다.

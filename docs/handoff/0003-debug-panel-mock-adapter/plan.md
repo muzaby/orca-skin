@@ -10,7 +10,19 @@
 | 작성자 | Claude Code                                          |
 | 일자   | 2026-06-10                                           |
 | 매핑   | PHASES "현재 작업 중" → 보드. PR 은 본 작업 단위 1개 |
-| 상태   | READY                                                |
+| 상태   | plan/DRAFT — 공통 시스템 피드 디버그 확장. 과거 구현·verify PASS는 보존 |
+
+## 공통 시스템 피드 디버그 확장 (DRAFT, 2026-10-16)
+
+Claude·OpenCode 공통 시스템 피드를 확인하기 위한 별도 버튼 요구를 받았다. 분류·production/DEV 표시 정책의 정본은 [0232 ΔV3](../0232-background-transcript-ux/plan.md#δv3--공통-시스템-피드-분류표시-draft-2026-10-16)이며, 이 문서는 디버그 UI와 DEV 게이트를 소유한다.
+
+버튼의 동작은 0232 D-23 OPEN이다. 숨긴 피드를 표시하는 전환 버튼인지, 테스트 `system-reminder`를 모델에 전송하는 버튼인지, 두 기능을 별도로 제공할지 사용자 답변을 기다린다. 기존 로그 버튼은 콘솔 출력만 제어하는 0025 계약이므로 다른 동작을 덧붙이지 않는다.
+
+현재 경로는 `app/OverlayLayer`·`app/GateFrame`의 `import.meta.env.DEV` 조립→`DebugPanel`이다. 표시 전환이라면 app 슬롯 주입으로 debug↔chat의 교차 feature 의존을 피하고 메모리 상태만 사용한다. 테스트 전송이라면 host가 만든 새 입력임을 구분해 기존 입력 접수·세션/전송 중 상태를 검증해야 하며, provider가 이미 소비한 수신 메시지를 다시 보내지 않는다. 답변 전 어느 쪽도 구현하지 않는다.
+
+READY 전에 이번 추가 범위의 Baseline V를 확정한다. 과거 plan에 명시적 V가 없으므로 존재하지 않는 Delta V를 상속했다고 쓰지 않는다. MD↔UT의 버튼 상태, AR↔IT의 app 조립/세션 경계, SD↔ST의 전환 또는 전송 수명, R↔AT의 실제 클릭·두 하네스 표시를 직접 oracle로 연결한다. production build에는 버튼과 작동 경로가 남지 않아야 한다. `tweakConsumers.render.test.ts`의 selector 검사나 main debug 채널 등록 검사만으로 실제 동작을 대체하지 않는다.
+
+예정 gate는 관련 비DB 테스트·readonly lint·typecheck·production build/DEV 미노출과 문서 정합성이다. 아래 과거 구현/검증 기록은 유지하며 이번 미확정 기능의 완료 증거로 재사용하지 않는다.
 
 ## Context (왜)
 

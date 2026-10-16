@@ -8,10 +8,10 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | IMPL_DONE — ΔV11~13 구현·로컬 게이트·Computer Use 완료. 누적33/34 자기확인, AC11 사용자 시각 인수·독립 verify 대기 |
+| 상태 | plan/DRAFT — ΔV14 native 시스템 피드 조사. ΔV11~13 기존 구현33/34와 AC11 사용자 인수·독립 verify 대기는 보존 |
 | V mode | Delta V — 기준 V1 + ΔV1~13 (각 델타의 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
-| 이번 V revision / 유효 V | ΔV11~13 / V1 + ΔV1~13 |
+| 이번 V revision / 유효 V | ΔV14 DRAFT / V1 + ΔV1~13. DRAFT는 기존 유효 V를 아직 대체하지 않음 |
 
 # Part I — Product & UX Contract
 
@@ -1966,3 +1966,25 @@ r1.15는 사용자 후속 요구로 확정한 ΔV11~13 구현 턴이다. 기존 
 CI 후속: 로컬 관련 테스트 집합에 공통 styles/typeScale 검사가 빠져 있었다. CI의 전체 검사로 확인한 단일 선언 위반을 제품 경계에서 고쳤고 기존 검사 기대값을 완화하지 않았다. 화면에 전달하는 CSS 값은 같으므로 앞선 CUA의 기하·색상 관측은 유지하며 배율 전달 경로를 직접 DOM 회귀로 추가 확인했다.
 
 최종 후속: 제품 커밋5b7a64ca의 원격 CI 성공 후 추가 커밋은 결과 기록만 포함한다. 두 구현 커밋의 trailer에서 Agent codex·Status implemented·Criteria-Met33/34·Verified-By pending을 확인했다. plan/INDEX의 impl/IMPL_DONE·다음 Claude와 AC11 대기는 유지하며 독립 verify를 선점하지 않는다. 검증용 브라우저 탭과 생성한 Vite 서버는 종료했다.
+
+# ΔV14 — 시스템 피드의 native 매핑 (DRAFT, 2026-10-16)
+
+## 요구와 공통 계약
+
+사용자는 `system-reminder`의 실제 메시지 타입과 모델 재입력을 확인하고, 이어서 Claude에도 같은 공통 속성을 적용하도록 확정했다. 분류·표시 정본은 [0232 ΔV3](../0232-background-transcript-ux/plan.md#δv3--공통-시스템-피드-분류표시-draft-2026-10-16)다. 0262는 OpenCode 1.x native 입력→공통 계약과 자동 후속 응답 수신만 소유한다. OpenCode 전용 표시 정책을 만들지 않는다.
+
+## 조사 결과와 변경 후보
+
+[실행 조사](system-feed-research.md): 실제 CLI 1.19.0의 reminder는 기본 모드에서 모델 입력에만 들어가며 SSE에 없을 수 있다. 실험 plan 모드에서는 `message.part.updated`의 `type: text`, `synthetic: true`로 관측된다. 자동 압축의 후속 입력과 background task의 완료 입력은 서버가 모델 루프에 직접 전달한다. 수신한 태그 본문을 무조건 다시 prompt하는 방식은 중복 입력을 만든다.
+
+현재 `OpenCodeEventMapper.part`는 user part를 제외하고, adapter는 부모의 첫 idle에서 구독을 종료한다. 실제 background 모드에서는 이 idle 뒤 서버가 synthetic `<task …>` 입력과 후속 assistant를 발행했다. 수정 후보는 출처·의미 메타데이터 정규화와 서버가 시작한 후속 응답의 수신 수명이다. 이미 소비된 입력의 재전송은 해결책이 아니다.
+
+## V / §10 확정 전 항목
+
+- 공통 속성은 0232에서 확정하고 mapper→coordinator→history/reducer 경로에서 같은 값을 보존한다. user part와 사람 입력/첨부의 혼합을 구분한다.
+- background 기능이 켜진 경우의 부모 idle→자동 입력→assistant→다음 idle, 취소·세션 전환·재접속을 설계한다. 기본적으로 꺼진 실험 기능을 이번 수정이 임의로 켜지 않는다.
+- prompt ID·native message/part ID·session ID로 기존 stale/중복 격리와 연결한다. 태그 텍스트를 중복 식별자로 쓰지 않는다.
+- 1.x 코드·fixture는 기존 `adapters/opencode/v1`에 둔다. 공통 runtime의 provider-owned listen 경로를 재사용할지 필요한 포트를 주입할지는 READY 전에 확정한다.
+- 기존 VP-05/15/18 및 ΔV10 입력 ID 회귀, 새 native synthetic mapping·첫 idle 뒤 수신·중복 prompt 0회 직접 검사를 연결한다. 정확한 node/pair·강제 지점 분모는 수명 설계 후 확정한다.
+
+이 DRAFT는 이전 AC11 인수 대기나 구현33/34를 완료 처리하지 않는다. 0232 D-21~23 답변과 공통 계약, native 자동 재개 수명·oracle 확정 후 별도 READY 설계 커밋에서 구현 기준을 잠근다.
