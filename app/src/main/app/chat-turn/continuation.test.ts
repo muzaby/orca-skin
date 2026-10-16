@@ -38,6 +38,8 @@ const requirement = (overrides: Partial<DiffRequirementAnchor> = {}): DiffRequir
 function baseRequest(): TurnRequest {
   return {
     sessionId: 's-1',
+    nativeSessionId: 'replacement-native',
+    recovery: { history: 'archived context', freshStart: true, onPrompt: vi.fn() },
     text: '원 프롬프트',
     promptUuid: 'uuid-origin',
     cwd: '/workspace',
@@ -65,6 +67,8 @@ describe('buildListenRequest', () => {
     const request = buildListenRequest({ base, sessionId: 's-1', signal, continuation })
 
     expect(request.text).toBe('')
+    expect(request.nativeSessionId).toBe('replacement-native')
+    expect(request.recovery).toBeUndefined()
     expect(request.attachmentTexts).toBeUndefined()
     expect(request.attachmentImages).toBeUndefined()
     expect(request.requirements).toBeUndefined()
@@ -104,6 +108,8 @@ describe('buildFlushRequest', () => {
     })
 
     expect(request.text).toBe('잔여 메시지')
+    expect(request.nativeSessionId).toBe('replacement-native')
+    expect(request.recovery).toBeUndefined()
     expect(request.promptUuid).toBe('batch-1')
     expect(request.attachmentTexts).toEqual(['잔여 첨부'])
     expect(request.attachmentImages).toEqual([])

@@ -117,7 +117,11 @@ export interface SessionEntry {
   live: LiveTurnState
   subagentMeta: Record<string, SubagentMetaState>
   pendingSteer?: PendingSteerState[]
-  panelReveal?: { id: RightPanelTileId }
+  panelReveal?: {
+    id: RightPanelTileId
+    detail?: { id: 'subagent'; selectedId: string }
+    origin?: HTMLElement
+  }
 }
 
 interface QueuedNewChat {
@@ -1587,18 +1591,6 @@ async function loadSession(sessionId: string, title: string | null = null): Prom
     )
     void refreshBackgroundState(sessionId)
     if (getState().activeKey === sessionId) void settingsApi.set({ lastSessionId: session.id })
-    if (
-      session.nativeSync &&
-      session.nativeSync.status !== 'busy' &&
-      (session.nativeSync.status !== 'ready' || session.nativeSync.message)
-    ) {
-      reportError({
-        event: 'chat.session-load.failed',
-        scope: 'chat',
-        title: 'sessionOpenFailed',
-        detail: session.nativeSync.message
-      })
-    }
   } catch (error) {
     if (!isCurrent()) return
     if (!hasCachedHistory) dropSession(sessionId)
@@ -1634,29 +1626,10 @@ async function loadSession(sessionId: string, title: string | null = null): Prom
           session: result.session,
           preserveLocalState: true
         })
-        if (result.session.nativeSync?.message)
-          reportError({
-            event: 'chat.session-refresh.failed',
-            scope: 'chat',
-            title: 'sessionOpenFailed',
-            detail: result.session.nativeSync.message
-          })
-      } else if ('message' in result) {
-        reportError({
-          event: 'chat.session-refresh.failed',
-          scope: 'chat',
-          title: 'sessionOpenFailed',
-          detail: result.message
-        })
       }
-    } catch (error) {
-      if (current())
-        reportError({
-          event: 'chat.session-refresh.failed',
-          scope: 'chat',
-          title: 'sessionOpenFailed',
-          error
-        })
+    } catch {
+      // Native retention or temporary unavailability must not turn a successful DB load into an error.
+      // Keep the archive; the next explicit send separately checks whether recovery is necessary.
     } finally {
       if (sessionLoads.get(sessionId) === request) sessionLoads.delete(sessionId)
     }
@@ -2026,9 +1999,22 @@ export const chatActions = {
     dispatchActive({ type: 'OPEN_PROCESS_TOOL', toolRunId })
     revealRightPanelTile('process')
   },
-  openSubagentTask: (toolRunId: string): void => {
-    dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId })
-    revealRightPanelTile('subagent')
+  closePanelDetail: (): void => {
+    patchEntry(getState().activeKey, (entry) =>
+      entry.panelReveal?.detail ? { ...entry, panelReveal: undefined } : entry
+    )
+  },
+  openSubagentTask: (toolRunId: string, origin?: HTMLElement): void => {
+    if (getState().sessions[getState().activeKey]?.session.backend === 'opencode') {
+      dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId })
+      patchEntry(getState().activeKey, (entry) => ({
+        ...entry,
+        panelReveal: { id: 'task', detail: { id: 'subagent', selectedId: toolRunId }, origin }
+      }))
+    } else {
+      dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId })
+      revealRightPanelTile('subagent')
+    }
     const sessionId = getState().sessions[getState().activeKey]?.session.sessionId
     const background = sessionId
       ? useBackgroundStore.getState().sessions[sessionId]?.state

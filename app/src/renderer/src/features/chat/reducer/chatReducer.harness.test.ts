@@ -10,6 +10,22 @@ const select: ChatAction = {
   modelAlias: 'Model'
 }
 describe('harness identity and panel enforcement', () => {
+  it('shows an explicitly measured zero context instead of retaining the previous step', () => {
+    const usage = { inputTokens: 100, contextTokens: 0, contextWindow: 123456 }
+    const state = chatReducer(
+      {
+        ...initialChatState,
+        sessionId: 's',
+        backend: 'opencode',
+        lastTelemetry: { inputTokens: 500 }
+      },
+      {
+        type: 'RECV_EVENT',
+        event: { type: 'telemetry', sessionId: 's', usage }
+      }
+    )
+    expect(state.lastTelemetry).toEqual(usage)
+  })
   it('keeps the original OpenCode tool input alongside its normalized arguments', () => {
     const raw = { name: 'read', input: { filePath: 'src/a.ts' } }
     const next = chatReducer(
@@ -76,7 +92,9 @@ describe('harness identity and panel enforcement', () => {
     { type: 'OPEN_SUBAGENT_TASK', toolRunId: 'child' }
   ] satisfies ChatAction[])('opens OpenCode subagents via $type', (action) => {
     const state = chatReducer(chatReducer(initialChatState, select), action)
-    expect(flattenColumns(state.rightPanelTiles)).toEqual(['subagent'])
+    expect(flattenColumns(state.rightPanelTiles)).toEqual([
+      action.type === 'OPEN_SUBAGENT_TASK' ? 'task' : 'subagent'
+    ])
     if (action.type === 'OPEN_SUBAGENT_TASK') {
       expect(state.selectedSubagentTaskId).toBe('child')
     }

@@ -101,6 +101,8 @@ Claude 어댑터는 장수명 입력·출력 스트림과 SDK 훅을 함께 소�
 
 응답의 취소 신호는 세션 lease와 분리한다. 예약이 있는 세션에서 중지하면 현재 응답만 중단하고, 취소 잔여 출력을 비운 뒤 같은 채널에서 새 listen 프레임으로 다음 예약을 받는다. 세션 전체 중단·창 소유자 종료는 lease도 취소하므로 수신을 재개하지 않는다. 예약 스냅샷은 프레임 소비보다 앞선 채널 pump에서 갱신해 늦은 프레임이 종료된 예약을 복원하지 못하게 한다.
 
+OpenCode의 즉시 보내기는 현재 모델/도구 실행에 SDK `session.abort()`를 즉시 요청하고, 중단 경계가 확인되면 같은 세션의 `promptAsync`로 대기 입력을 보낸다. 자연 응답 종료나 다음 도구 호출을 기다리지 않으며 예외가 발생해야 재전송하는 경로가 아니다. `MessageAbortedError`는 중단 결과로 정규화하고 SSE를 유지한다. 설정 준비 중 중단 경계가 먼저 소진되면 idle listener를 새로 열지 않고 대기 입력 전송으로 이어간다. 근거는 [0262 ΔV20](../../handoff/0262-opencode-harness/plan.md)에 있다.
+
 목록은 마지막 확인 상태다. 사용자 중단에는 Stop 훅이 실행되지 않으므로 일회성 예약이 발화한 직후 응답을 중단하면 다음 정상 Stop 또는 채널 종료까지 이전 항목이 남을 수 있다. 공개 수신 필드에는 발화한 예약 ID가 없어 원문으로 ID를 추측하거나 예약 전체를 삭제하지 않는다.
 
 Claude의 공급자 origin·synthetic 입력과 OpenCode의 소유 세션 synthetic user text는 `input.received`로 정규화한다. Claude SDK 메시지에 생략되는 입력은 `UserPromptSubmit`의 source로 보완하며, 앱 제출 UUID와 SDK echo를 대조해 중복을 제거한다. `poll_event`는 소비 확정 전 신호이므로 수신 입력으로 승격하지 않는다. 태그 본문만으로 사용자 입력을 자동 입력으로 추정하지 않는다.
@@ -358,19 +360,20 @@ type AppMessagePart =
 - **컨텍스트 입력 = 마지막 메인 assistant 스냅샷, 비용 = result 누적.** `claude/map.ts`는 채널 단위 `MapContext.lastAssistantUsage`에 메인 assistant usage를 보관하고, result의 컨텍스트 입력 필드에 병합한다. 스냅샷에 없는 필드는 `result.usage` 값을 보존하며, 비용·지연·`numTurns`·`modelUsage`·`model`은 result 값을 유지한다. 스냅샷 미수신 시 기존 result·압축·핸드오프 판정 체인을 따른다.
 - **프록시 usage 폴백.** 이번 턴의 메인 assistant 컨텍스트 합이 0이거나 부재하면 마지막 양수 메인 `message_delta.usage`로 컨텍스트 입력 필드를 병합한다. 사이드체인과 핸드오프 도착의 압축 전 관측은 제외하며, 턴 관측은 result와 압축 경계에서 비운다. assistant와 delta 둘 다 컨텍스트를 보고하지 않으면 도넛·원장을 갱신하지 않고, 별도 추정이나 JSONL 읽기를 하지 않는다.
 - **핸드오프 도착 턴 컨텍스트 무효화 (0127).** `TurnRequest.handoff` → `MapContext.handoffArrival` 표식. 압축 경계(compact_boundary) *전* 의 assistant usage 는 원본 세션 전체 이력의 승계 컨텍스트라 스냅샷으로 캡처하지 않고, 경계 없이 끝난 result 는 telemetry 의 컨텍스트 3종을 제거한다(도넛/경고 '미측정' 시작 — 새 세션이 원본 사용량을 승계하지 않음). 경계 통과 후에는 기존 압축-후 근사(post_tokens/요약 크기)·실측 스냅샷 경로 그대로. 자동 연속 턴은 `forkFrom` 과 함께 플래그를 제거한다(chat-turn).
-- **빈 컨텍스트 턴 적재 스킵 (`/context` 등).** `features/usage/tracker.ts` 는 `usage` 가 있고 `hasContextTokens(usage)`(`features/usage/tracker.ts` — input+cacheRead+cacheCreation > 0) 일 때만 `turn_usage` 1행 적재한다. `/context`·`/help` 류 로컬 슬래시 명령은 모델 미호출이라 컨텍스트·비용 둘 다 없는 빈 행을 만드는데, 이를 적재하면 `getLatestTurnUsage`(최신행) 복원 시 직전 도넛을 0 으로 덮는다. 라이브 쪽 짝 가드는 reducer(`contextTokens > 0` 일 때만 `lastTelemetry` 교체, rendering.md §1.9).
+- **OpenCode 컨텍스트와 합산 원장.** 마지막 메인 assistant 스텝의 `tokens.input + tokens.cache.read + tokens.cache.write`를 `contextTokens`로 전달한다. 도착 순서가 아닌 생성 시각/ID로 마지막 스텝을 고르며 누락 시 합산 토큰으로 폴백한다. 분모 `contextWindow`는 실행 엔진 문서의 해당 provider/model `limit.context`에서 읽고 유효한 양수가 없으면 200k다. 비용과 일반 input/output/cache 필드는 턴 합산을 유지한다. 컨텍스트 두 필드는 DB에 별도 보관하여 재열기에도 같은 도넛을 복원한다.
+- **빈 컨텍스트 턴 적재 스킵 (`/context` 등).** `features/usage/tracker.ts`는 명시된 유효 `contextTokens`(0 포함)가 있거나 기존 input+cacheRead+cacheCreation 합이 양수일 때 원장을 갱신한다. 모델 미호출 로컬 슬래시의 빈 telemetry는 직전 도넛을 유지한다. reducer도 명시적 0과 측정값 부재를 구분한다.
 
 **④ 인터페이스 (정본 — `[검증-런타임]` cost-tracking.md 로 필드 확정).** 구현된 정본 타입은 `src/shared/ipc.ts` 의 `ProviderReportedTelemetry`/`TelemetryModelUsage`(claude `result` 의 snake/camel 혼용을 camelCase 정규화).
 
 ```ts
 interface TelemetryModelUsage { costUsd?: number; inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheCreationTokens?: number; contextWindow?: number }
-interface ProviderReportedTelemetry { model?: string; inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheCreationTokens?: number; costUsd?: number; durationMs?: number; numTurns?: number; contextWindow?: number; modelUsage?: Record<string, TelemetryModelUsage> }
+interface ProviderReportedTelemetry { model?: string; inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheCreationTokens?: number; costUsd?: number; durationMs?: number; numTurns?: number; contextTokens?: number; contextWindow?: number; modelUsage?: Record<string, TelemetryModelUsage> }
 // contextWindow(0134/0139) = SDK result modelUsage[].contextWindow 실측. top-level 승격 = 단일
 // 모델이면 그 모델, 멀티모델(서브에이전트·동시 실행 제목 haiku 등 누적 다중 키)이면 *이번 턴*
 // 메인 모델(마지막 non-child assistant.model)을 승격 → 도넛 분모가 200k 로 붕괴/고착하지 않음.
 // renderer 분모 단일 진입점 contextWindowOf() 가 ① top-level ② modelUsage[model] ③ 모델명
-// 휴리스틱(contextWindowFor — 1M 패밀리 마커 + 200k 기본) 순으로 해석. DB 비영속 — 재로드 복원
-// 경로는 ③ 폴백(현행 패밀리는 정확, 미지 신모델만 다음 라이브 턴까지 기본값).
+// 휴리스틱(contextWindowFor — 1M 패밀리 마커 + 200k 기본) 순으로 해석. top-level 값은 DB에
+// 보관하며, 값이 없는 과거 행은 기존 모델명 폴백을 사용한다.
 interface AppMeasuredTelemetry { latencyMs?: number; toolDurationMs?: number; streamDurationMs?: number; eventCount?: number; bytesStreamed?: number; errorRate?: number; cancelRate?: number } // latencyMs 만 구현(reducer lastTurnLatencyMs), 나머지 후속
 ```
 

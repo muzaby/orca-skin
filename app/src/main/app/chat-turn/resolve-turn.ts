@@ -33,14 +33,15 @@ import { resolveAgentKind } from '../../features/agents/profiles'
 import type { SendChatPayload } from './admission'
 import type { RouterContext } from '../context'
 import type { ContinuitySourceMeta } from './turn-context'
-import { nativeSessionError } from './native-session'
+import { prepareNativeSession, type NativeSessionPreparation } from './native-session'
 
 type TurnPreparationAdapter = Pick<
   SessionAdapter,
-  'id' | 'agentSpawnEnv' | 'catalog' | 'readHistory'
+  'id' | 'agentSpawnEnv' | 'catalog' | 'readHistory' | 'recoverSession'
 >
 
 interface ResolvedTurn {
+  native: NativeSessionPreparation
   continuitySource: string | undefined
   continuityMeta: ContinuitySourceMeta | undefined
   continuityLang: ContinuityLang
@@ -115,19 +116,30 @@ export async function resolveTurn(
   const sessionMeta = payload.sessionId ? currentSource : undefined
   if (continuitySource) continuityMeta = currentSource
 
+  let native: NativeSessionPreparation = {
+    nativeSessionId: payload.sessionId
+      ? ctx.db.nativeHistory?.recovery?.(payload.sessionId)?.native_id
+      : undefined
+  }
   if (
     adapter.readHistory &&
     payload.sessionId &&
     sessionMeta &&
     !supervisor.peekRuntime(payload.sessionId)
   ) {
-    const error = await nativeSessionError(adapter, {
-      sessionId: payload.sessionId,
-      cwd: sessionMeta.cwd ?? ctx.getCwd(sessionMeta.project_id),
-      env: resolved.prepared.env,
-      providerSettings: resolved.prepared.providerSettings
-    })
-    if (error) return { ok: false, error }
+    const preparedNative = await prepareNativeSession(
+      adapter,
+      {
+        sessionId: payload.sessionId,
+        cwd: sessionMeta.cwd ?? ctx.getCwd(sessionMeta.project_id),
+        env: resolved.prepared.env,
+        providerSettings: resolved.prepared.providerSettings
+      },
+      ctx.db,
+      ctx.getCwd
+    )
+    if (!preparedNative.ok) return preparedNative
+    native = preparedNative.value
     if (!ctx.db.getSessionById(payload.sessionId)) {
       return {
         ok: false,
@@ -155,6 +167,7 @@ export async function resolveTurn(
   return {
     ok: true,
     value: {
+      native,
       continuitySource,
       continuityMeta,
       continuityLang,

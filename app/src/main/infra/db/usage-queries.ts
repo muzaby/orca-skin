@@ -52,10 +52,10 @@ export class UsageQueries {
     this.insertTurnUsageStmt = db.prepare(`
       INSERT INTO turn_usage
         (session_id, message_id, created_at, input_tokens, output_tokens,
-         cache_creation_input_tokens, cache_read_input_tokens, total_cost_usd)
+         cache_creation_input_tokens, cache_read_input_tokens, total_cost_usd, context_tokens, context_window)
       VALUES
         (@sessionId, @messageId, @createdAt, @inputTokens, @outputTokens,
-         @cacheCreationInputTokens, @cacheReadInputTokens, @totalCostUsd)
+         @cacheCreationInputTokens, @cacheReadInputTokens, @totalCostUsd, @contextTokens, @contextWindow)
     `)
     this.insertTurnModelUsageStmt = db.prepare(`
       INSERT INTO turn_model_usage
@@ -136,7 +136,7 @@ export class UsageQueries {
 
   // 턴 종료 시 turn_usage 부모 1행 적재. 반환 id 로 turn_model_usage 자식을 연결한다.
   insertTurnUsage(row: TurnUsageInsert): number {
-    const info = this.insertTurnUsageStmt.run(row)
+    const info = this.insertTurnUsageStmt.run({ contextTokens: null, contextWindow: null, ...row })
     return Number(info.lastInsertRowid)
   }
 

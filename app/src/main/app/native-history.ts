@@ -1,4 +1,5 @@
 import type { ChatActivitySnapshot, LoadedSession } from '../../shared/ipc'
+import { restoreRecoveryResult } from '../features/history/native-recovery'
 import { refreshNativeHistory } from '../features/history/native-sync'
 import { parseAgentKind } from '../../shared/agent-kind'
 import { resolveTurnProvider } from './chat-turn/resolve-turn'
@@ -44,13 +45,20 @@ export function createNativeHistoryRefresh(
           providerKey: meta.provider_key,
           modelFamily: null
         })
-        return adapter.readHistory!({
-          sessionId,
-          previous,
+        const recovery = ctx.db.nativeHistory?.recovery?.(sessionId)
+        const result = await adapter.readHistory!({
+          sessionId: recovery?.native_id ?? sessionId,
+          previous: previous
+            ? {
+                ...previous,
+                snapshot: { ...previous.snapshot, sessionId: recovery?.native_id ?? sessionId }
+              }
+            : undefined,
           cwd: meta.cwd ?? ctx.getCwd(meta.project_id),
           env: prepared.env,
           providerSettings: prepared.providerSettings
         })
+        return restoreRecoveryResult(result, sessionId, recovery)
       }
     })
   }

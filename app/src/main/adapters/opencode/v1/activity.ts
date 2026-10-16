@@ -59,9 +59,10 @@ export class OpenCodeActivityMapper {
   constructor(
     readonly sessionId: string,
     promptId: string,
-    private readonly generation: string = promptId
+    private readonly generation: string = promptId,
+    config: Record<string, unknown> = {}
   ) {
-    this.root = new OpenCodeEventMapper(sessionId, promptId)
+    this.root = new OpenCodeEventMapper(sessionId, promptId, config)
     this.inputs = new OpenCodeNativeInputs(sessionId, promptId)
   }
 

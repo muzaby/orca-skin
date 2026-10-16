@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | plan/READY — ΔV20 사용자 변경 요구 확정, 다음 Codex 구현. 기존 독립 검증 대기 보존 |
+| 상태 | impl/IMPL_DONE — ΔV20 구현 및 자기검증 완료. 다음 Claude 독립 검증. 기존 사용자 인수 대기 보존 |
 | V mode | Delta V — 기준 V1 + ΔV1~18 + ΔV19 (각 델타의 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV19 / 기준 ΔV18@공유 브랜치 `7edd119c3cfb3d720f51963753c8c7873ad0a726`. 기존 자기보고·AC11 인수와 이번 델타를 별도 집계 |
@@ -2924,3 +2924,29 @@ CUA-19-04: 검증용 dev 앱을 정상 종료·재실행해 최신 main으로 �
 ### SDK steering 정책 확인에 따른 설계 정정
 
 설치 SDK `@opencode-ai/sdk@1.18.27`의 기존 세션 API는 실행 중 `promptAsync`를 허용한다. [OpenCode 1.19 데스크톱 호환 계층](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/app/src/utils/server-compat.ts#L189-L231)은 interrupt만 abort에 연결하고 prompt/steer는 promptAsync로 바로 보낸다. [1.19 runner](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/opencode/src/effect/runner.ts)의 실행 중 ensureRunning은 기존 실행을 기다리므로 이 의미의 steer는 이번 사용자 요구를 충족하지 않는다. 같은 runner의 cancel은 모델 fiber/실행 중 shell을 interrupt하고 정상 중단 경계를 발행한다. [HTTP abort 핸들러](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/opencode/src/server/routes/instance/httpapi/handlers/session.ts)는 이 cancel을 기다린 뒤 성공을 반환한다. 따라서 예외 복구가 아니라 이 명시적 제어 API를 정상 경로로 사용한다. SDK의 별도 v2 프로토콜로 전환하지 않는다. 앞선 설계 정정의 '전달 즉시성' 해석은 사용자 명시 설명으로 폐기한다.
+
+
+## [구현자 기입] ΔV20 — 즉시 반응·컨텍스트·컨트롤 구현
+
+현재 유효 D20-2는 **진행 중 모델/도구 중단 → 중단 경계 → 같은 세션의 새 입력**이다. promptAsync 단독 전달이나 예외 발생 후 재시도로 해석하지 않았다. SDK abort가 보내는 MessageAbortedError는 연결 오류가 아닌 중단 결과로 처리한다. 설정 준비 await 중 idle이 이미 소진되면 listen을 다시 열지 않고 held 입력을 즉시 flush한다. SSE는 유지하고 새 입력은 한 번만 확정한다.
+
+컨텍스트는 마지막 assistant 생성 시각/ID로 선택하며 input+cache를 별도 contextTokens로 전달한다. 입력 누락은 유효한 합산값으로 폴백하고, 명시적 0은 이전 도넛을 되살리지 않는다. 엔진의 해당 provider/model limit.context와 함께 DB에 저장한다. 합산 입력·출력·과금은 별개로 유지한다. agent/effort는 공용 메뉴 부품을 사용하고 Claude 카드 표시명을 통일했다.
+
+| pair / 자리 | 직접 oracle 좌표 / 결과 |
+|---|---|
+| VP20-1 설정·mapper·telemetry (3) | `adapters/opencode/v1/adapter.persistent.test.ts:carries the selected engine model limit through the channel into telemetry`; `map.test.ts:retains valid aggregate usage as fallback when the latest step has no token report` — SELF_PASS |
+| VP20-1 DB·DTO·도넛 (3) | `app/chat-turn/context-usage.test.ts:keeps the latest step despite late prior updates, preserves billing totals and restores the donut after reopening` / `persists an explicitly empty latest step…`; `chat/lib/telemetry.test.ts`, `chatReducer.harness.test.ts` 명시적 0·합산 폴백 — SELF_PASS |
+| VP20-2 IPC·abort·중단 경계·held prompt·확정 (5) | `app/chat-turn/opencode-continuation.test.ts:send-now interrupts unfinished work immediately and starts one response without an error retry` (idle-only/message-error/session-error). 실제 IPC 등록·queue·runtime·coordinator·post-turn·adapter, HTTP/SSE만 fixture. 도구 자연 완료 0, controls=prompt_async/abort/prompt_async, 새 입력/commit 1, SSE 1, 늦은 이전 text 0, 오류/재시도 0 — SELF_PASS |
+| VP20-2 Stop 경쟁 회귀 | `post-turn.schedules.test.ts:다음 수신 준비 await 중 Stop도 취소된 child를 다음 예약에 재사용하지 않는다` / `Stop 직후 held 입력은 취소 tail을 비운 뒤 같은 채널로 한 번 전송한다` — SELF_PASS |
+| VP20-3 agent·effort·엔진 카드 (3) | `Controls.interaction.test.ts`의 키보드/선택/포커스 두 경로 및 `EngineCard.render.test.ts`의 Claude/OpenCode 표시. CUA로 실행 앱의 메뉴와 Claude 대문자 표기 확인 — SELF_PASS |
+| VP20-R | persistent/continuation·Claude adapter/map·engine form/catalog·chatStore/reducer 회귀 실행. 독립 verify 대기는 유지 |
+
+전수 검색: `rg -n 'contextTokens|contextWindow|inputTokens|cacheReadTokens' app/src/main/adapters/opencode app/src/main/features/usage app/src/main/infra/db app/src/main/infra/ipc/dto.ts app/src/renderer/src/features/chat/lib app/src/renderer/src/features/chat/reducer`; `rg -n 'sendNow|interrupt|prepareContinuation|reserveHeld|input.echo' app/src/main/app app/src/main/features/sessions app/src/main/adapters/opencode`. ΔV20 자리 14/14 자기확인, 선택 mutation not selected. AC20-1~3 자기확인 3/3이며 기존 사람 인수와 독립 verify를 완료로 바꾸지 않는다.
+
+### 운영 gate / Review Signals
+
+관련 회귀는 Electron Node(ABI 140)로 369파일을 분할 실행했다. 최초 실패 32개는 새 resolve 결과를 누락한 테스트 mock 3파일과 종전 subagent 타일 추가를 기대한 1파일이었다. 새 계약으로 보완한 전송 3파일/adapter 1파일 53케이스, panel store/continuation/post-turn 4파일 53케이스를 재실행해 전부 통과했다(중첩 집합). 마지막 mapper/persistent/즉시 보내기 3파일 27케이스도 통과했다. SQLite 복구·context·native projection·migration을 실제 임시 DB로 실행했다. 기존 모듈이나 사용자 DB를 테스트용으로 재설치/교체하지 않았다.
+
+전체 readonly ESLint 오류 0·기존 경고 6, node/web/test 타입 검사와 production build, scripts 142검사, migration sync/append-only, test-budget 통과. inventory 생성·prose 검사 통과. 일반 링크 검사는 사용자 다운로드 `.tmp/opencode-dev`의 기존 깨진 링크만 실패했고, 다운로드/첨부를 제외한 Orca 문서 범위는 같은 검사 함수로 통과했다. 최종 변경 파일 lint·빌드 로그는 `.tmp/current-changed-eslint.log`, `.tmp/current-final-bundle.log`(최종 타입 보완은 `current-final-web.log`·`current-final-test-types.log`); 회귀 원문은 `.tmp/current-regression*.log`·`current-repaired-tests.log`·`current-final-targeted.log`·`current-map-tests.log`에 있다(임시 산출물, 커밋 제외).
+
+사용자 뜻의 즉시 반응과 native steer의 다음 스텝 의미를 처음에 혼동했고, D20-2를 별도 설계 커밋으로 정정한 뒤 구현했다. 구현 중 찾은 idle 소진 경쟁과 explicit-zero/누락 usage를 직접 oracle로 잠갔다. 실모델의 중단 지연시간은 이번 턴에서 재측정하지 않았다. CUA는 기존 완료 세션의 표시/메뉴/패널을 조작했고 새 실모델 입력은 보내지 않았다. 다음 주체는 Claude 독립 검증이다.

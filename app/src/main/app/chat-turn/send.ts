@@ -265,7 +265,8 @@ export async function handleChatSend(
       resolved,
       sessionMeta,
       boundProjectId: requestedProjectId,
-      effectiveText
+      effectiveText,
+      native
     } = resolution.value
     let boundProjectId = requestedProjectId
     let projectCreated = false
@@ -556,6 +557,21 @@ export async function handleChatSend(
       },
       {
         sessionId: payload.sessionId,
+        ...(native.nativeSessionId ? { nativeSessionId: native.nativeSessionId } : {}),
+        ...(native.recoveryHistory !== undefined && payload.sessionId
+          ? {
+              recovery: {
+                history: native.recoveryHistory,
+                freshStart: native.recoveryFreshStart ?? false,
+                onPrompt: (nativeMessageId: string) =>
+                  ctx.db.nativeHistory.recoveryPrompt(
+                    payload.sessionId!,
+                    nativeMessageId,
+                    mainBatch.text
+                  )
+              }
+            }
+          : {}),
         ...(payload.harnessAgent ? { harnessAgent: payload.harnessAgent } : {}),
         ...(payload.modelVariant ? { modelVariant: payload.modelVariant } : {}),
         // 0064 continuity — 어댑터가 resume+forkSession 으로 어댑트해 새 session id 를 발급받는다.

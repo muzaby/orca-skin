@@ -314,10 +314,7 @@ export const sites: Site[] = [
     file: 'features/chat/store/chatStore.ts',
     ordinal: 9,
     line: 1652,
-    disposition: 'TOAST',
-    id: 'T38',
-    event: 'chat.session-refresh.failed',
-    title: 'sessionOpenFailed'
+    disposition: 'CONSUMED'
   },
   { file: 'features/chat/store/chatStore.ts', ordinal: 10, line: 1767, disposition: 'CONSUMED' },
   {

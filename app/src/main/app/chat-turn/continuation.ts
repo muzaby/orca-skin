@@ -36,6 +36,7 @@ export function buildListenRequest(input: {
   return {
     sessionId: input.sessionId,
     text: '',
+    ...(input.base.nativeSessionId ? { nativeSessionId: input.base.nativeSessionId } : {}),
     ...(input.base.planApprovalMode ? { planApprovalMode: input.base.planApprovalMode } : {}),
     cwd: input.base.cwd,
     ...(input.base.extraDirs ? { extraDirs: input.base.extraDirs } : {}),
@@ -79,6 +80,7 @@ export function buildFlushRequest(input: {
   }
   delete request.forkFrom
   delete request.handoff
+  delete request.recovery
   if (preludes.length > 0) request.preludes = preludes
   else delete request.preludes
   return request

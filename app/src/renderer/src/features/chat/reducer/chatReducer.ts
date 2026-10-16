@@ -1130,7 +1130,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             // 로컬 슬래시 명령 — 모델 미호출)은 직전 도넛 값을 덮어쓰지 않게 스킵한다.
             // 0186 — 같은 조건에서 **그 턴이 실제로 쓴 provider** 를 함께 굳힌다. BEGIN_TURN 이
             // 고정해 둔 turnProviderKey 를 쓴다(SET_MODEL 이 그 사이 바꿨어도 턴의 값이 남는다).
-            ...(telemetry && contextTokens(telemetry) > 0
+            ...(telemetry && (contextTokens(telemetry) > 0 || telemetry.contextTokens === 0)
               ? {
                   lastTelemetry: telemetry,
                   lastTelemetryProviderKey: state.turnProviderKey ?? state.providerKey
@@ -1971,7 +1971,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...state,
         selectedSubagentTaskId: action.toolRunId,
-        rightPanelTiles: activateTile(state, 'subagent')
+        rightPanelTiles: activateTile(state, state.backend === 'opencode' ? 'task' : 'subagent')
       }
 
     case 'SELECT_PROCESS_TOOL':

@@ -20,9 +20,96 @@ interface SearchableNativeMessage {
   content: string
 }
 
+export interface NativeRecoveryRow {
+  native_id: string
+  archive_json: string
+  local_frontier: number
+  fresh_start: number
+  prompt_id: string | null
+  prompt_text: string | null
+  accepted: number
+}
+
 /** Native formats stay outside infra. Snapshot and search rows commit together. */
 export class NativeHistoryQueries {
   constructor(private readonly db: Database.Database) {}
+
+  recovery(sessionId: string): NativeRecoveryRow | undefined {
+    return this.db
+      .prepare('SELECT * FROM native_session_recovery WHERE session_id = ?')
+      .get(sessionId) as NativeRecoveryRow | undefined
+  }
+
+  prepareRecovery(input: {
+    sessionId: string
+    nativeId: string
+    freshStart: boolean
+    archiveJson: string
+    frontier: number
+    expectedVersion: number
+    messages: SearchableNativeMessage[]
+  }): void {
+    this.db.transaction(() => {
+      if (
+        this.observe(input.sessionId).version !== input.expectedVersion ||
+        !this.db
+          .prepare('SELECT 1 FROM sessions WHERE id = ? AND hidden_at IS NULL')
+          .get(input.sessionId)
+      )
+        throw new Error('Conversation changed during native recovery')
+      this.db
+        .prepare(
+          `INSERT INTO native_session_recovery
+        (session_id, native_id, archive_json, local_frontier, fresh_start)
+        VALUES (?, ?, ?, ?, ?) ON CONFLICT(session_id) DO UPDATE SET
+        native_id=excluded.native_id, archive_json=excluded.archive_json,
+        local_frontier=excluded.local_frontier, fresh_start=excluded.fresh_start,
+        prompt_id=NULL, prompt_text=NULL, accepted=0`
+        )
+        .run(
+          input.sessionId,
+          input.nativeId,
+          input.archiveJson,
+          input.frontier,
+          Number(input.freshStart)
+        )
+      this.db
+        .prepare('DELETE FROM native_history_snapshots WHERE session_id = ?')
+        .run(input.sessionId)
+      this.db
+        .prepare('DELETE FROM native_history_messages WHERE session_id = ?')
+        .run(input.sessionId)
+      const insert = this.db.prepare(`INSERT INTO native_history_messages
+        (session_id, native_id, role, created_at, content) VALUES (?, ?, ?, ?, ?)`)
+      input.messages.forEach((message, index) =>
+        insert.run(
+          input.sessionId,
+          `orca-recovery:${index}`,
+          message.role,
+          message.createdAt,
+          message.content
+        )
+      )
+    })()
+  }
+
+  recoveryPrompt(sessionId: string, nativeMessageId: string, visibleText: string): void {
+    this.db
+      .prepare(
+        `UPDATE native_session_recovery SET prompt_id=?, prompt_text=?
+      WHERE session_id=? AND accepted=0`
+      )
+      .run(nativeMessageId, visibleText, sessionId)
+  }
+
+  acceptRecovery(sessionId: string, nativeMessageId: string): void {
+    this.db
+      .prepare(
+        `UPDATE native_session_recovery SET accepted=1, fresh_start=0
+      WHERE session_id=? AND prompt_id=?`
+      )
+      .run(sessionId, nativeMessageId)
+  }
 
   observe(sessionId: string): { version: number; frontier: number } {
     return this.db
@@ -90,7 +177,9 @@ export class NativeHistoryQueries {
           input.cursorJson ?? null
         )
       this.db
-        .prepare('DELETE FROM native_history_messages WHERE session_id = ?')
+        .prepare(
+          "DELETE FROM native_history_messages WHERE session_id = ? AND native_id NOT LIKE 'orca-recovery:%'"
+        )
         .run(input.sessionId)
       const insert = this.db.prepare(`INSERT INTO native_history_messages
         (session_id, native_id, role, created_at, content) VALUES (?, ?, ?, ?, ?)`)

@@ -35,6 +35,7 @@ vi.mock('./resolve-turn', () => ({
   resolveTurn: vi.fn(async (_ctx, _supervisor, _adapter, payload) => ({
     ok: true,
     value: {
+      native: {},
       continuitySource: null,
       continuityMeta: null,
       continuityLang: null,

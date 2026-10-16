@@ -85,6 +85,8 @@ export function usageRowToTelemetry(
   const primary = pickPrimaryModel(modelUsage)
   return {
     ...ifPresent('model', primary),
+    ...ifPresent('contextTokens', turn.context_tokens),
+    ...ifPresent('contextWindow', turn.context_window),
     ...ifPresent('inputTokens', turn.input_tokens),
     ...ifPresent('outputTokens', turn.output_tokens),
     ...ifPresent('cacheReadTokens', turn.cache_read_input_tokens),

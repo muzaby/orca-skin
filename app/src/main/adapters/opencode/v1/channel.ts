@@ -8,6 +8,7 @@ import { OpenCodeActivityMapper } from './activity'
 import { createOpenCodeMessageId } from './message-id'
 import { classifyOpenCodeError } from './errors'
 import { replyToApproval } from './approval'
+import { recoveredPrompt } from '../../common/recovery'
 import { modelRef } from './model-ref'
 import { reportError } from '../../../infra/error-report'
 
@@ -98,6 +99,7 @@ export function openCodeChannel(
     if (!client || !sessionId || !activity)
       throw new Error('OpenCode 이벤트 채널이 준비되지 않았습니다.')
     const messageID = createOpenCodeMessageId()
+    if (initial) req.recovery?.onPrompt(messageID)
     activity.acceptPrompt(messageID)
     interrupted = false
     responseOpen = true
@@ -127,7 +129,7 @@ export function openCodeChannel(
               type: 'text',
               text: [
                 ...(initial ? (req.preludes ?? []) : []).map((part) => part.text),
-                next.text
+                recoveredPrompt(initial ? req.recovery?.history : undefined, next.text)
               ].join('\n\n')
             },
             ...(next.attachmentTexts ?? []).map((part) => ({
@@ -209,7 +211,12 @@ export function openCodeChannel(
       } finally {
         clearTimeout(timer)
       }
-      activity = new OpenCodeActivityMapper(sessionId, createOpenCodeMessageId(), generation)
+      activity = new OpenCodeActivityMapper(
+        sessionId,
+        createOpenCodeMessageId(),
+        generation,
+        req.providerSettings?.settings
+      )
       try {
         await submit(req, true)
       } catch (error) {

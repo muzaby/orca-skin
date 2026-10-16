@@ -174,7 +174,7 @@ describe('OpenCode tool interaction', () => {
     expect(trigger.textContent).toContain('Explore')
     expect(trigger.textContent).toContain('Inspect files')
     dom.click(trigger)
-    expect(open).toHaveBeenCalledWith('task')
+    expect(open).toHaveBeenCalledWith('task', trigger)
     open.mockRestore()
   })
   it('collapses resolved question answers and restores the disclosure after virtual unmount', () => {

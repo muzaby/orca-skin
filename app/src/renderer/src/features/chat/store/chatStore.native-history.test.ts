@@ -224,7 +224,7 @@ describe('native history refresh on cached session reopen', () => {
   })
 
   it.each(['missing', 'unavailable', 'migration-required'] as const)(
-    'shows the retained archive and reports native %s',
+    'quietly shows the retained archive when native is %s',
     async (status) => {
       load.mockResolvedValueOnce(
         snapshot('last good snapshot and tail', { status, message: 'native warning' })
@@ -233,16 +233,11 @@ describe('native history refresh on cached session reopen', () => {
       expect(useChatStore.getState().sessions.s.session.messages).toEqual(
         snapshot('last good snapshot and tail').messages
       )
-      expect(report).toHaveBeenCalledWith(
-        expect.objectContaining({
-          event: 'chat.session-load.failed',
-          detail: 'native warning'
-        })
-      )
+      expect(report).not.toHaveBeenCalled()
     }
   )
 
-  it('does not toast for busy, but surfaces a ready snapshot with unassigned archive metadata', async () => {
+  it('does not toast for busy or ready native metadata', async () => {
     load.mockResolvedValueOnce(snapshot('cached', { status: 'busy', message: 'still active' }))
     await chatActions.loadSession('s')
     expect(report).not.toHaveBeenCalled()
@@ -251,9 +246,7 @@ describe('native history refresh on cached session reopen', () => {
       snapshot('native', { status: 'ready', message: 'archive metadata retained' })
     )
     await chatActions.loadSession('s')
-    expect(report).toHaveBeenCalledWith(
-      expect.objectContaining({ detail: 'archive metadata retained' })
-    )
+    expect(report).not.toHaveBeenCalled()
   })
 
   it('does not change the current selection or saved last session when another session is opened', async () => {
@@ -381,7 +374,7 @@ it('keeps DB body and backend when lazy native access fails', async () => {
   await frames()
   expect(useChatStore.getState().sessions.s).toBe(before)
   expect(before.session.backend).toBe('opencode')
-  expect(report).toHaveBeenCalledOnce()
+  expect(report).not.toHaveBeenCalled()
 })
 
 it('cancels an unstarted lazy check on navigation', async () => {

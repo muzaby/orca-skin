@@ -133,6 +133,9 @@ export interface TurnContinuation {
 
 // 한 턴 실행 요청. sendMessage 의 인자 증식(7개)을 단일 객체로 통합한다 (설계검토 §9 1단계).
 export interface TurnRequest {
+  /** Native identity can change after retention without changing Orca relationships. */
+  nativeSessionId?: string
+  recovery?: { history: string; freshStart: boolean; onPrompt: (nativeMessageId: string) => void }
   harnessAgent?: string
   modelVariant?: string
   onProviderEvent?: (event: BackgroundEvent | ProviderMessageEvent) => void

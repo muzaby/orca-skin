@@ -4,6 +4,7 @@ import { parseStoredExtraDirectories } from '../../../shared/extra-directories'
 import type { DbQueries } from '../../infra/db'
 import { parseAgentKind } from '../../../shared/agent-kind'
 import { usageRowToTelemetry } from '../../infra/ipc/dto'
+import { recoveryArchive } from './native-recovery'
 import { localMessages, projectNativeHistory } from './native-projection'
 
 // 영속 세션의 복원 조립. 현재 실행 상태(activity)는 IPC 조립 루트가 덧붙인다.
@@ -13,7 +14,10 @@ export function loadSession(
   getCwd: (projectId?: string | null) => string
 ): LoadedSession | null {
   // 세션의 모든 파트를 메시지 순서(message_idx) → 파트 순서(part_idx)로 조회해 재구성.
-  const partRows = db.loadParts(sessionId)
+  const recovery = db.nativeHistory?.recovery?.(sessionId)
+  const partRows = db
+    .loadParts(sessionId)
+    .filter((row) => !recovery || row.message_id > recovery.local_frontier)
   const meta = db.getSessionById(sessionId)
   if (!meta) return null
   const stored = db.nativeHistory?.get(sessionId)
@@ -76,7 +80,7 @@ export function loadSession(
     backend: meta.backend,
     agentKind: parseAgentKind(meta.agent_kind),
     title: meta.title,
-    messages,
+    messages: [...recoveryArchive(recovery), ...messages],
     ...(nativeSync ? { nativeSync } : {}),
     providerKey: meta.provider_key,
     projectId: meta.project_id,

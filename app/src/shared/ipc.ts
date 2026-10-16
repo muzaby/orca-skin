@@ -482,6 +482,8 @@ export interface TelemetryModelUsage {
 }
 
 export interface ProviderReportedTelemetry {
+  /** Latest step occupancy, independent of aggregate usage/cost. */
+  contextTokens?: number
   model?: string
   inputTokens?: number
   outputTokens?: number

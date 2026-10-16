@@ -2,7 +2,8 @@ import { useLayoutEffect, useReducer, type ComponentProps } from 'react'
 import { TilePanel, type TilePanelDetail } from '../../common/rightpanel/TilePanel'
 import { RightPanelTile } from '../../common/rightpanel/RightPanelTile'
 import { openCodeTileById } from './tileRegistry'
-import { useChatStore } from '../../../store/chatStore'
+import { PANEL_DEFAULT_WIDTH } from '../../../reducer/chatReducer'
+import { chatActions, useChatSession, useChatStore } from '../../../store/chatStore'
 import {
   initialOpenCodeDetailState,
   openCodeDetailReducer,
@@ -17,8 +18,18 @@ export function OpenCodeRightPanel(
   const [state, dispatch] = useReducer(openCodeDetailReducer, initialOpenCodeDetailState)
   const activeKey = useChatStore((store) => store.activeKey)
   const reveal = useChatStore((store) => store.sessions[store.activeKey]?.panelReveal)
-  // Explicit title-menu / transcript tile navigation reveals the requested base tile.
-  useLayoutEffect(() => dispatch({ type: 'close' }), [reveal])
+  const widths = useChatSession((session) => session.rightPanelColWidths)
+  const parentColumn =
+    props.layout.columns.find((column) => column.tiles.includes('task'))?.col ?? 0
+  // The detail occupies the parent's column, including its resize separator.
+  const parentWidth = widths[parentColumn] ?? PANEL_DEFAULT_WIDTH
+  useLayoutEffect(() => {
+    dispatch(
+      reveal?.detail
+        ? { type: 'open', selection: reveal.detail, origin: reveal.origin }
+        : { type: 'close' }
+    )
+  }, [reveal, activeKey])
   const navigation: OpenCodePanelNavigation = {
     open: (selection, origin) =>
       dispatch({
@@ -33,14 +44,17 @@ export function OpenCodeRightPanel(
     const tile = openCodeTileById(state.selection.id)
     const { Content, HeaderContent, HeaderActions } = tile
     const toggleExpand = (): void => dispatch({ type: 'expand' })
-    const close = (): void => dispatch({ type: 'close' })
+    const close = (): void => {
+      dispatch({ type: 'close' })
+      chatActions.closePanelDetail()
+    }
     detail = {
       key: `${activeKey}:${state.request}`,
       origin: state.origin,
       fallbackOrigin: state.fallbackOrigin,
       expanded: state.expanded,
-      width: state.width,
-      onWidthChange: (width) => dispatch({ type: 'resize', width }),
+      width: parentWidth + 8,
+      onWidthChange: (width) => chatActions.setRightPanelColWidth(parentColumn, width - 8),
       onClose: close,
       content: (
         <OpenCodePanelNavigationContext.Provider

@@ -56,9 +56,8 @@ describe('OpenCode upper panel selection', () => {
     expect(opened.request).toBe(1)
     const expanded = openCodeDetailReducer(opened, { type: 'expand' })
     expect(expanded.expanded).toBe(true)
-    const resized = openCodeDetailReducer(expanded, { type: 'resize', width: 650 })
-    const closed = openCodeDetailReducer(resized, { type: 'close' })
-    expect(closed).toEqual({ selection: null, request: 1, expanded: false, width: 650 })
+    const closed = openCodeDetailReducer(expanded, { type: 'close' })
+    expect(closed).toEqual({ selection: null, request: 1, expanded: false })
     expect(initialOpenCodeDetailState.selection).toBeNull()
   })
 

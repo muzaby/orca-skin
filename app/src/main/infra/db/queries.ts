@@ -343,8 +343,9 @@ export class DbQueries {
       JOIN sessions s ON s.id = m.session_id
       WHERE messages_fts MATCH @query
         AND s.hidden_at IS NULL
-        AND m.id > COALESCE((SELECT local_frontier FROM native_history_snapshots
-          WHERE session_id = s.id), 0)
+        AND m.id > MAX(COALESCE((SELECT local_frontier FROM native_history_snapshots
+          WHERE session_id = s.id), 0), COALESCE((SELECT local_frontier FROM native_session_recovery
+          WHERE session_id = s.id), 0))
       ORDER BY rank
       LIMIT @limit
     `)

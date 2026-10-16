@@ -22,14 +22,12 @@ export interface OpenCodeDetailState {
   fallbackOrigin?: HTMLElement
   request: number
   expanded: boolean
-  width: number
 }
 
 export const initialOpenCodeDetailState: OpenCodeDetailState = {
   selection: null,
   request: 0,
-  expanded: false,
-  width: 560
+  expanded: false
 }
 
 export type OpenCodeDetailAction =
@@ -42,7 +40,6 @@ export type OpenCodeDetailAction =
   | { type: 'select'; selection: OpenCodePanelSelection }
   | { type: 'close' }
   | { type: 'expand' }
-  | { type: 'resize'; width: number }
 
 export function openCodeDetailReducer(
   state: OpenCodeDetailState,
@@ -74,8 +71,6 @@ export function openCodeDetailReducer(
         : state
     case 'expand':
       return state.selection ? { ...state, expanded: !state.expanded } : state
-    case 'resize':
-      return { ...state, width: action.width }
   }
 }
 

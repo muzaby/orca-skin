@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex / 2026-10-16 |
-| 상태 | plan/READY — ΔV6 사용자 변경 요구 확정, 다음 Codex 구현. 기존 독립 검증 대기 보존 |
+| 상태 | impl/IMPL_DONE — ΔV6 구현 및 자기검증 완료. 다음 Claude 독립 검증. 기존 사용자 인수 대기 보존 |
 | V mode / revision | Baseline V1 + Delta V2 + Delta V3 + Delta V4 + Delta V5 |
 | 기준 V | Delta V5는 V1~V4 @ `940bd44edc5625f79b377b885cbe559b1d66fdb6` 상속 |
 | 매핑 | PR #502, 0262 후속 |
@@ -899,3 +899,25 @@ D6-2 ACTIVE: 상세의 폭과 외곽 여백은 부모 작업 패널 값을 공�
 | VP6-R / SD6↔ST6 | REGRESSION / Claude openSubagentTask·Work output overlay·요약 클릭 | 기존 panel/navigation/toolCard/store 회귀 |
 
 새 자리 8, 선택 mutation not selected(직접 행동 oracle). typecheck·readonly lint·관련 회귀·build와 CUA 수행. 기존 독립 verify 대기 보존.
+
+
+## [구현자 기입] ΔV6 — Task 상세 overlay와 부모 폭 공유
+
+Task pill은 OpenCode 전용 panelReveal.detail을 통해 작업 패널 위에 상세를 연다. 공통 store는 열기를 전달하고 OpenCode Panel이 상세 상태를 소유한다. Claude의 기존 subagent 타일 경로는 유지한다. 독립 560px 폭을 제거하고 부모 작업 열의 폭/리사이즈를 공유한다. 닫으면 같은 기본 타일·선택·스크롤로 복귀한다.
+
+닫기에서 소비된 detail 요청과 DOM origin도 함께 비운다. 그렇지 않으면 화면 재마운트 때 이미 닫은 상세가 다시 열리므로, `Panel.interaction.test.ts`에서 close→unmount→remount 후 상세 없음까지 확인했다.
+
+| pair / 자리 | 직접 oracle 좌표 / 결과 |
+|---|---|
+| VP6-1 card·store·OpenCode host (3) | `opencode/rightpanel/Panel.interaction.test.ts:opens one overlay with the selected task and parent width, resizes the parent, then closes without adding tiles` — 실제 Task click→store→Panel→detail 전달, ID·origin·하위 타일 추가 0. Host DOM은 아래 별도 검사 — SELF_PASS |
+| VP6-1 상세·닫기 (2) | `common/rightpanel/TilePanel.detail.test.ts:keeps the original tiles hidden and inert beneath a detail without changing their state` / `keeps detail content beneath an artifact, then exposes detail and the original tiles in order` / Escape case; `panelFocus.test.ts` 포커스 복귀 — SELF_PASS |
+| VP6-2 폭·여백·resize/다음 상세 (3) | 위 Panel.interaction의 부모 420→500/상세 separator 포함 428→508 및 다음 task 공유, TilePanel.detail의 실제 resizable host style. 실행 앱 CUA에서도 기본 360px→상세 동일 폭, 드래그 후 닫기→부모 같은 폭, 기존 헤더/외곽 간격 유지 관측 — SELF_PASS |
+| VP6-R | panelTiles store의 변경 계약, harness reducer의 Claude subagent 경로, Work artifact overlay·navigation·ToolCard·panel render 회귀 — SELF_PASS |
+
+전수 검색: `rg -n 'openSubagentTask|OPEN_SUBAGENT_TASK|panelReveal|parentWidth|onWidthChange' app/src/renderer/src/features/chat`. 새 자리 8/8, AC6-1~2 자기확인 2/2. 선택 mutation not selected. UI oracle은 hook/host 경계를 나누어 검사하며 CUA 관측을 자동 테스트가 실행한 DOM 범위로 주장하지 않는다.
+
+### 운영 gate / Review Signals
+
+0262 ΔV20과 같은 변경 집합으로 관련 369파일 회귀·수정된 기대값 별도 재검증·전체 readonly ESLint(오류 0, 기존 경고 6)·typecheck·production build를 수행했다. 2026-10-16 실행 중 Orca의 기존 OpenCode 완료 세션에서 요약→하위 에이전트 목록→닫기, transcript Task pill→상세→리사이즈→닫기를 직접 조작했다. 하단 타일 추가 없이 기존 작업 패널 위에서 전환됐고 transcript 위치가 유지됐다. 임시 캡처/첨부와 사용자 다운로드는 커밋하지 않는다.
+
+기존 store 회귀가 구 subagent 타일 추가를 기대하고 있어 새 overlay 계약으로 교체하되, 명시적으로 연 legacy 타일의 selection 정리와 Claude 경로의 단언은 보존했다. 독립 verify와 이전 사용자 인수 대기는 유지한다.

@@ -1,6 +1,11 @@
 import type { Event, Part, AssistantMessage } from '@opencode-ai/sdk/v2'
 import type { NormalizedEvent, ProviderReportedTelemetry } from '../../../../shared/ipc'
+import { lastOpenCodeStep, openCodeContextWindow, openCodeStepContext } from './context-usage'
 import { classifyOpenCodeError } from './errors'
+
+function reportedCount(value: number | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0
+}
 
 const TOOL_NAMES: Record<string, string> = {
   read: 'Read',
@@ -49,12 +54,14 @@ export class OpenCodeEventMapper {
   private readonly retiredMessages = new Set<string>()
   private readonly retiredPrompts = new Set<string>()
   private promptCreatedAt: number | undefined
+  private aborted = false
   terminal = false
   sawAssistant = false
 
   constructor(
     readonly sessionId: string,
-    private readonly promptId?: string
+    private readonly promptId?: string,
+    private readonly config: Record<string, unknown> = {}
   ) {
     if (promptId) this.promptMessages.add(promptId)
   }
@@ -72,6 +79,7 @@ export class OpenCodeEventMapper {
     this.promptMessages.clear()
     this.promptMessages.add(id)
     this.terminal = false
+    this.aborted = false
     this.sawAssistant = false
     this.texts.clear()
     this.usage.clear()
@@ -105,6 +113,10 @@ export class OpenCodeEventMapper {
         if (message.role !== 'assistant') return []
         this.sawAssistant = true
         this.usage.set(message.id, message)
+        if (message.error?.name === 'MessageAbortedError') {
+          this.aborted = true
+          return []
+        }
         if (message.error) {
           this.terminal = true
           return [
@@ -135,6 +147,10 @@ export class OpenCodeEventMapper {
         ]
       }
       case 'session.error':
+        if (event.properties.error?.name === 'MessageAbortedError') {
+          this.aborted = true
+          return []
+        }
         this.terminal = true
         return [
           {
@@ -240,16 +256,22 @@ export class OpenCodeEventMapper {
     for (const message of this.usage.values()) {
       this.retiredMessages.add(message.id)
       usage.model = `${message.providerID}/${message.modelID}`
-      usage.inputTokens! += message.tokens.input
-      usage.outputTokens! += message.tokens.output
-      usage.cacheReadTokens! += message.tokens.cache.read
-      usage.cacheCreationTokens! += message.tokens.cache.write
-      usage.costUsd! += message.cost
+      usage.inputTokens! += reportedCount(message.tokens?.input)
+      usage.outputTokens! += reportedCount(message.tokens?.output)
+      usage.cacheReadTokens! += reportedCount(message.tokens?.cache?.read)
+      usage.cacheCreationTokens! += reportedCount(message.tokens?.cache?.write)
+      usage.costUsd! += reportedCount(message.cost)
     }
+    const last = lastOpenCodeStep(this.usage.values())
+    if (last) usage.model = `${last.providerID}/${last.modelID}`
+    usage.contextTokens = openCodeStepContext(last)
+    usage.contextWindow = openCodeContextWindow(this.config, usage.model)
     return [
       ...events,
       { type: 'telemetry', sessionId: this.sessionId, usage },
-      { type: 'turn.ended', sessionId: this.sessionId }
+      this.aborted
+        ? { type: 'turn.aborted', sessionId: this.sessionId, reason: 'user_cancelled' }
+        : { type: 'turn.ended', sessionId: this.sessionId }
     ]
   }
 }

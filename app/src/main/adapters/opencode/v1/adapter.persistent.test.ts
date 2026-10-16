@@ -15,6 +15,7 @@ import { reportError } from '../../../infra/error-report'
 vi.mock('../../../infra/error-report', () => ({ reportError: vi.fn() }))
 
 function fixture(overrides: Partial<TurnRequest> = {}): {
+  adapter: OpenCodeAdapter
   live: LiveTurn
   requests: Request[]
   emit: (value: Event) => void
@@ -47,6 +48,7 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
     const request = new Request(input, init)
     requests.push(request.clone())
     const path = new URL(request.url).pathname
+    if (path === '/session' && request.method === 'POST') return jsonResponse({ id: 'replacement' })
     if (path === '/event')
       return new Response(
         new ReadableStream<Uint8Array>({
@@ -81,6 +83,7 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
     fetchImpl
   )
   return {
+    adapter,
     live: adapter.sendMessage({
       sessionId: 's1',
       cwd: 'C:/work',
@@ -127,6 +130,79 @@ async function dispose(
 }
 
 describe('OpenCode persistent SDK channel', () => {
+  it('carries the selected engine model limit through the channel into telemetry', async () => {
+    const f = fixture({
+      providerSettings: {
+        providerKey: 'engine',
+        provider: 'provider-1',
+        sourceRevision: 'r',
+        settings: {
+          provider: { 'provider-1': { models: { 'model-1': { limit: { context: 54321 } } } } }
+        }
+      }
+    })
+    const iterator = f.live.eventBatches[Symbol.asyncIterator]()
+    try {
+      const events = (await frame(iterator)).flatMap((batch) => batch.events)
+      expect(events.find((event) => event.type === 'telemetry')).toMatchObject({
+        usage: { contextWindow: 54321, contextTokens: 19 }
+      })
+    } finally {
+      await dispose(f.live, iterator)
+    }
+  })
+  it('creates a replacement native session without trying to reuse an expired server identity', async () => {
+    const f = fixture()
+    try {
+      expect(await f.adapter.recoverSession({ sessionId: 'expired', cwd: 'C:/work' })).toEqual({
+        sessionId: 'replacement',
+        freshStart: false
+      })
+      const request = f.requests.find((request) => new URL(request.url).pathname === '/session')!
+      expect(new URL(request.url).searchParams.get('directory')).toBe('C:/work')
+      expect(await request.json()).toEqual({
+        permission: [{ permission: '*', pattern: '*', action: 'ask' }]
+      })
+    } finally {
+      f.live.close()
+    }
+  })
+  it('sends archived context only to the model and routes the replacement native session to the existing Orca transcript', async () => {
+    const onPrompt = vi.fn()
+    const f = fixture({
+      sessionId: 'orca-archive',
+      nativeSessionId: 's1',
+      recovery: { history: 'archived conversation', freshStart: false, onPrompt }
+    })
+    const iterator = f.live.eventBatches[Symbol.asyncIterator]()
+    try {
+      const events = (await frame(iterator)).flatMap((batch) => batch.events)
+      const request = f.requests.find((req) => req.url.includes('/prompt_async'))!
+      const body = await request.json()
+      expect(new URL(request.url).pathname).toBe('/session/s1/prompt_async')
+      expect(body.parts[0].text).toContain('archived conversation')
+      expect(body.parts[0].text).toMatch(/First$/)
+      expect(onPrompt).toHaveBeenCalledWith(body.messageID)
+      expect(events.find((event) => event.type === 'input.echo')).toMatchObject({
+        sessionId: 'orca-archive',
+        text: 'First',
+        nativeMessageId: body.messageID
+      })
+      expect(
+        events.every((event) => !('sessionId' in event) || event.sessionId === 'orca-archive')
+      ).toBe(true)
+      f.setPrompt(async (next) => f.reply(next.messageID as string))
+      await f.live.pushTurn!({ text: 'Later', promptUuid: 'later' })
+      await frame(iterator)
+      expect(
+        (await f.requests.filter((req) => req.url.includes('/prompt_async'))[1].json()).parts[0]
+          .text
+      ).toBe('Later')
+      expect(onPrompt).toHaveBeenCalledTimes(1)
+    } finally {
+      await dispose(f.live, iterator)
+    }
+  })
   it('subscribes once before initial and subsequent prompts', async () => {
     const f = fixture()
     const iterator = f.live.eventBatches[Symbol.asyncIterator]()

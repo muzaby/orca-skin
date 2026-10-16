@@ -3,6 +3,40 @@ import { OpenCodeEventMapper, normalizeOpenCodeTool } from './map'
 import { assistantMessage, editTool, openCodeEvent as event, textPart } from './adapter.testfixture'
 
 describe('OpenCode event mapper', () => {
+  it('retains valid aggregate usage as fallback when the latest step has no token report', () => {
+    const mapper = new OpenCodeEventMapper('s1', 'user')
+    mapper.map(
+      event('message.updated', {
+        sessionID: 's1',
+        info: {
+          ...assistantMessage('s1', 'user', 'a1'),
+          time: { created: 1 }
+        }
+      })
+    )
+    mapper.map(
+      event('message.updated', {
+        sessionID: 's1',
+        info: {
+          ...assistantMessage('s1', 'user', 'a2'),
+          time: { created: 2 },
+          tokens: undefined,
+          cost: undefined
+        } as unknown as ReturnType<typeof assistantMessage>
+      })
+    )
+    expect(mapper.finish().find((event) => event.type === 'telemetry')).toMatchObject({
+      usage: {
+        inputTokens: 10,
+        outputTokens: 20,
+        cacheReadTokens: 4,
+        cacheCreationTokens: 5,
+        costUsd: 0.25,
+        contextTokens: undefined,
+        contextWindow: 200000
+      }
+    })
+  })
   it('rejects unseen assistant IDs with an old parent after a response boundary', () => {
     const mapper = new OpenCodeEventMapper('s1', 'first')
     mapper.map(
@@ -133,6 +167,8 @@ describe('OpenCode event mapper', () => {
         sessionId: 's1',
         usage: {
           model: 'provider-1/model-1',
+          contextTokens: 19,
+          contextWindow: 200000,
           inputTokens: 10,
           outputTokens: 20,
           cacheReadTokens: 4,

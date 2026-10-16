@@ -8,6 +8,7 @@ import { OPENCODE_DESCRIPTOR } from './descriptor'
 import { openCodeCatalog } from './catalog'
 import { classifyOpenCodeError } from './errors'
 import { openCodeChannel } from './channel'
+import { routeNativeSession } from '../../common/recovery'
 import { modelRef } from './model-ref'
 import type { NativeHistoryRequest, NativeHistoryResult } from '../../common/native-history'
 import { readOpenCodeHistory, nativeRevision } from './native-history'
@@ -104,8 +105,27 @@ export class OpenCodeAdapter implements SessionAdapter {
     }
   }
 
+  async recoverSession(
+    req: NativeHistoryRequest
+  ): Promise<{ sessionId: string; freshStart: boolean }> {
+    const client = await this.client(req.providerSettings?.settings, req.env, req.cwd)
+    const created = await client.session.create(
+      {
+        directory: req.cwd,
+        permission: [{ permission: '*', pattern: '*', action: 'ask' }]
+      },
+      { throwOnError: true }
+    )
+    if (!created.data?.id) throw new Error('OpenCode 복구 세션 생성 실패')
+    return { sessionId: created.data.id, freshStart: false }
+  }
+
   sendMessage(req: TurnRequest): LiveTurn {
-    return openCodeChannel(req, () => this.client(req.providerSettings?.settings, req.env, req.cwd))
+    const nativeId = req.nativeSessionId ?? req.sessionId
+    const live = openCodeChannel({ ...req, sessionId: nativeId }, () =>
+      this.client(req.providerSettings?.settings, req.env, req.cwd)
+    )
+    return nativeId && req.sessionId ? routeNativeSession(live, nativeId, req.sessionId) : live
   }
 
   readHistory(req: NativeHistoryRequest): Promise<NativeHistoryResult> {

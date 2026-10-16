@@ -178,7 +178,10 @@ export class HistoryWriter {
       batch.requirements,
       batch.origin
     )
-    if (batch.nativeMessageId) this.db.nativeHistory?.bind(id, batch.nativeMessageId)
+    if (batch.nativeMessageId) {
+      this.db.nativeHistory?.bind(id, batch.nativeMessageId)
+      this.db.nativeHistory?.acceptRecovery?.(sessionId, batch.nativeMessageId)
+    }
     this.db.updateSessionPreview(sessionId, previewOf(batch.text), batch.createdAt)
     this.db.updateSessionProviderKey(sessionId, turn.providerKey, batch.createdAt)
     return id

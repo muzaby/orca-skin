@@ -68,6 +68,9 @@ export interface CompleteRequest {
 
 export interface SessionAdapter {
   close?(): void
+  recoverSession?(
+    request: NativeHistoryRequest
+  ): Promise<{ sessionId: string; freshStart: boolean }>
   readHistory?(request: NativeHistoryRequest): Promise<NativeHistoryResult>
   catalog?(
     entry: import('../../../shared/ipc').AgentEnvironment,

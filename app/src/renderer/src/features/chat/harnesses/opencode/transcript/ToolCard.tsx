@@ -61,8 +61,10 @@ export const OpenCodeToolCard = memo(function OpenCodeToolCard({
           type="button"
           data-slot="collapsible-trigger"
           aria-expanded={task ? undefined : open}
-          onClick={() =>
-            task ? chatActions.openSubagentTask(call.toolUseId) : setOpen((value) => !value)
+          onClick={(event) =>
+            task
+              ? chatActions.openSubagentTask(call.toolUseId, event.currentTarget)
+              : setOpen((value) => !value)
           }
           className={`${chrome} ${task ? 'w-fit gap-[8px] rounded-[8px] bg-oc-layer-1 px-[12px] py-[8px] hover:bg-oc-layer-2' : 'w-full'}`}
         >

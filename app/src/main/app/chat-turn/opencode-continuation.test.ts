@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { WebContents } from 'electron'
-import type { NormalizedEvent } from '../../../shared/ipc'
+import { CHANNELS, type NormalizedEvent } from '../../../shared/ipc'
 import type { BackgroundEvent, ProviderMessageEvent } from '../../../shared/background-task'
 import type { TurnContext } from '../../contracts/turn'
 import type { OrcaBusEvents } from '../../contracts/bus-events'
@@ -32,9 +32,24 @@ import { sessionLeaseKey } from '../../../shared/lease-key'
 import { buildTurnRequest } from './turn-request'
 import { makeContinuationTurn } from './turn-context'
 import { runTurnWithContinuations } from './post-turn'
+import { registerChatHandlers } from './index'
+import { reserveOnBusySession } from './enqueue'
+
+const ipc = vi.hoisted(() => ({
+  handlers: new Map<string, (event: unknown, raw: unknown) => Promise<void>>()
+}))
+vi.mock('electron', () => ({
+  ipcMain: {
+    handle: (key: string, handler: (event: unknown, raw: unknown) => Promise<void>) =>
+      ipc.handlers.set(key, handler)
+  }
+}))
 
 vi.mock('../../infra/log', async () => import('../../infra/log/registry'))
-vi.mock('../../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
+vi.mock('../../infra/ipc/send', () => ({
+  sendChatEvent: vi.fn(),
+  broadcastBackgroundEvent: vi.fn()
+}))
 
 vi.setConfig({ testTimeout: 15_000 })
 
@@ -51,7 +66,7 @@ function deferred(): { promise: Promise<void>; resolve: () => void } {
 // The SDK HTTP/SSE transport and disk/IPC sinks are the only substitutes. The adapter,
 // runtime pump, provider controller/tracker, queue, coordinator and post-turn loop are real.
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-function fixture() {
+function fixture(abortEvents?: 'idle-only' | 'message-error' | 'session-error') {
   const encoder = new TextEncoder()
   const streams: Array<{
     controller: ReadableStreamDefaultController<Uint8Array>
@@ -125,7 +140,27 @@ function fixture() {
       nextPromptResponse = undefined
       return respond ? respond() : new Response(null, { status: 204 })
     }
-    if (path.endsWith('/abort')) return jsonResponse(true)
+    if (path.endsWith('/abort')) {
+      if (abortEvents === 'message-error')
+        emit(
+          openCodeEvent('message.updated', {
+            sessionID: 's1',
+            info: {
+              ...assistantMessage('s1', prompts.at(-1)!.messageID, 'interrupted-answer'),
+              error: { name: 'MessageAbortedError', data: { message: 'Aborted' } }
+            }
+          })
+        )
+      if (abortEvents === 'session-error')
+        emit(
+          openCodeEvent('session.error', {
+            sessionID: 's1',
+            error: { name: 'MessageAbortedError', data: { message: 'Aborted' } }
+          })
+        )
+      if (abortEvents) emit(openCodeEvent('session.idle', { sessionID: 's1' }))
+      return jsonResponse(true)
+    }
     throw new Error(`Unexpected request: ${request.method} ${path}`)
   }
   const server: OpenCodeServer = {
@@ -215,6 +250,18 @@ function fixture() {
       return commits.length
     }
   }
+  registerChatHandlers({
+    ctx: {},
+    supervisor,
+    bus,
+    persistence,
+    pendingMessages,
+    backgroundTasks,
+    activity,
+    approvals: {},
+    permissionModes: {},
+    isUpdateInstallPending: () => false
+  } as never)
   const coordinator = new TurnCoordinator({
     runtime,
     bus,
@@ -409,6 +456,18 @@ function fixture() {
     reply,
     idle,
     run,
+    sendNow: () =>
+      ipc.handlers.get(CHANNELS.chatSteerSendNow)!({ sender: owner }, { sessionId: 's1' }),
+    queueHeld: (text: string, id: string) =>
+      reserveOnBusySession(
+        { pendingMessages, listenRelease },
+        { sender: owner } as never,
+        's1',
+        's1',
+        supervisor.getChainBySession('s1')!,
+        { text, clientRequestId: id },
+        { attachmentTexts: [], attachmentImages: [] }
+      ),
     completedRuns: () => completedRuns,
     subscriptionCount: () => streams.length,
     beforePrepare: (callback: () => Promise<void>) => (beforePrepare = callback),
@@ -436,6 +495,89 @@ function fixture() {
 }
 
 describe('OpenCode provider continuations through the real session pipeline', () => {
+  it.each(['idle-only', 'message-error', 'session-error'] as const)(
+    'send-now interrupts unfinished work immediately and starts one response without an error retry (%s)',
+    async (abortEvents) => {
+      const f = fixture(abortEvents)
+      const running = f.run()
+      try {
+        await f.waitForPrompt()
+        f.emit(
+          openCodeEvent('message.updated', {
+            sessionID: 's1',
+            info: {
+              ...assistantMessage('s1', f.prompts[0].messageID, 'interrupted-answer'),
+              finish: undefined
+            }
+          })
+        )
+        f.emit(
+          openCodeEvent('message.part.updated', {
+            sessionID: 's1',
+            time: 1,
+            part: editTool({
+              messageID: 'interrupted-answer',
+              callID: 'unfinished-tool',
+              state: { status: 'running', input: { filePath: 'sample.md' }, time: { start: 1 } }
+            })
+          })
+        )
+        await waitFor(() =>
+          expect(f.events.some((ev) => ev.type === 'tool.call.started')).toBe(true)
+        )
+        f.queueHeld('Stop that and answer this instead.', 'immediate-input')
+        await f.sendNow()
+        // The fixture never completes the tool or sends a natural response end.
+        // Only the explicit abort produces a cancellation boundary.
+        await f.waitForPrompt(2)
+        const controls = f.requests
+          .map((req) => new URL(req.url).pathname)
+          .filter((path) => /\/(abort|prompt_async)$/.test(path))
+        expect(controls).toEqual([
+          '/session/s1/prompt_async',
+          '/session/s1/abort',
+          '/session/s1/prompt_async'
+        ])
+        expect(f.prompts[1].parts[0].text).toBe('Stop that and answer this instead.')
+        f.emit(
+          openCodeEvent('message.updated', {
+            sessionID: 's1',
+            info: {
+              ...assistantMessage('s1', f.prompts[0].messageID, 'interrupted-answer'),
+              error: { name: 'MessageAbortedError', data: { message: 'Interrupted' } }
+            }
+          })
+        )
+        f.emit(
+          openCodeEvent('message.part.updated', {
+            sessionID: 's1',
+            time: 3,
+            part: textPart('stale cancelled response', { messageID: 'interrupted-answer' })
+          })
+        )
+        f.reply(f.prompts[1].messageID, 'Switched immediately.', 'new-answer')
+        await running
+        expect(f.commits.map((commit) => commit.text)).toEqual([
+          'initial',
+          'Stop that and answer this instead.'
+        ])
+        expect(f.events.filter((ev) => ev.type === 'error' || ev.type === 'turn.retrying')).toEqual(
+          []
+        )
+        expect(f.events).toContainEqual(
+          expect.objectContaining({
+            type: 'message.completed',
+            message: { text: 'Switched immediately.' }
+          })
+        )
+        expect(f.subscriptionCount()).toBe(1)
+        expect(f.runtime.channelAlive).toBe(true)
+        expect(JSON.stringify(f.events)).not.toContain('stale cancelled response')
+      } finally {
+        await f.cleanup()
+      }
+    }
+  )
   it('receives the background completion after first idle without another prompt', async () => {
     const f = fixture()
     const running = f.run()

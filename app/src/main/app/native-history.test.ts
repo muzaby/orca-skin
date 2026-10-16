@@ -106,6 +106,42 @@ function setup(backend: 'claude' | 'opencode'): {
 }
 
 describe('native history composition', () => {
+  it('reads the replacement identity and masks its recovery input before refreshing the Orca snapshot', async () => {
+    const f = setup('opencode')
+    f.ctx.db.nativeHistory.recovery = () => ({
+      native_id: 'replacement',
+      archive_json: '[]',
+      local_frontier: 0,
+      fresh_start: 0,
+      accepted: 1,
+      prompt_id: 'first',
+      prompt_text: 'visible'
+    })
+    f.read.mockResolvedValue({
+      status: 'ready',
+      snapshot: {
+        sessionId: 'replacement',
+        cwd: '/actual/worktree',
+        sourceKey: 'new',
+        revision: 'new',
+        messages: [
+          {
+            id: 'first',
+            role: 'user',
+            createdAt: 1,
+            parts: [{ type: 'text', text: 'archive and visible' }]
+          }
+        ]
+      }
+    })
+    expect(await createNativeHistoryRefresh(f.ctx, f.runtime)('s')).toEqual({ status: 'ready' })
+    expect(f.read).toHaveBeenCalledWith(expect.objectContaining({ sessionId: 'replacement' }))
+    const replacement = (f.replace.mock.calls as unknown[][])[0][0] as { payloadJson: string }
+    expect(JSON.parse(replacement.payloadJson)).toMatchObject({
+      sessionId: 's',
+      messages: [{ id: 'first', parts: [{ type: 'text', text: 'visible' }] }]
+    })
+  })
   it('closes the real idle runtime and delivers the next input through a fresh same-ID resume', async () => {
     const f = setup('claude')
     const sendMessage = vi.fn((request: TurnRequest) => ({

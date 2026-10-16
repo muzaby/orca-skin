@@ -17,12 +17,15 @@ describe('OpenCode independent panel state', () => {
   it('keeps the summary and other selections while opening and revealing each target', () => {
     chatActions.setRightPanelTileActive('diff', true)
     chatActions.openSubagentTask('child')
+    expect(useChatStore.getState().sessions.s.panelReveal?.detail).toEqual({
+      id: 'subagent',
+      selectedId: 'child'
+    })
     chatActions.openProcessTool('shell-1')
     chatActions.setRightPanelTileActive('source', true)
     expect(flattenColumns(getActiveChatSession().rightPanelTiles)).toEqual([
       'task',
       'diff',
-      'subagent',
       'process',
       'source'
     ])
@@ -49,9 +52,10 @@ describe('OpenCode independent panel state', () => {
       if (method === 'remove') chatActions.removeRightPanelTile('process')
       expect(getActiveChatSession().selectedProcessToolId).toBeNull()
       expect(getActiveChatSession().selectedSubagentTaskId).toBe('child')
-      expect(flattenColumns(getActiveChatSession().rightPanelTiles)).toEqual(['task', 'subagent'])
+      expect(flattenColumns(getActiveChatSession().rightPanelTiles)).toEqual(['task'])
       chatActions.setRightPanelTileActive('process', true)
       expect(getActiveChatSession().selectedProcessToolId).toBeNull()
+      chatActions.setRightPanelTileActive('subagent', true)
       chatActions.toggleRightPanelTile('subagent')
       expect(getActiveChatSession().selectedSubagentTaskId).toBeNull()
     }

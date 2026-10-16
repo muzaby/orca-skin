@@ -41,7 +41,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
 import { ClaudeAdapter } from './adapter'
 import type { TurnRequest } from '../common/turn'
 import type { LiveTurn } from '../common/types'
-import type { ProviderReportedTelemetry } from '../../../shared/ipc'
+import type { NormalizedEvent, ProviderReportedTelemetry } from '../../../shared/ipc'
 
 const baseReq = (): TurnRequest => ({
   sessionId: null,
@@ -53,11 +53,50 @@ const baseReq = (): TurnRequest => ({
   }
 })
 
-type QueryOptions = { resume?: string; forkSession?: boolean }
+type QueryOptions = { resume?: string; forkSession?: boolean; sessionId?: string }
 const lastOptions = (): QueryOptions =>
   (queryMock.mock.calls.at(-1)?.[0] as { options: QueryOptions }).options
 
 describe('ClaudeAdapter — forkFrom (0064)', () => {
+  it('recreates an expired conversation with the original UUID and hides archived context in its receipt', async () => {
+    const adapter = new ClaudeAdapter()
+    const sessionId = '821292dc-0963-4a57-9b77-f0d678cf3121'
+    expect(await adapter.recoverSession({ sessionId, cwd: '/tmp' })).toEqual({
+      sessionId,
+      freshStart: true
+    })
+    const onPrompt = vi.fn()
+    sdkMessages.queue = [
+      {
+        type: 'user',
+        session_id: sessionId,
+        uuid: 'recovery-prompt',
+        message: { role: 'user', content: 'archived context + hello' }
+      }
+    ]
+    const live = adapter.sendMessage({
+      ...baseReq(),
+      sessionId,
+      promptUuid: 'recovery-prompt',
+      recovery: { history: 'archived context', freshStart: true, onPrompt }
+    })
+    expect(lastOptions()).toMatchObject({ sessionId })
+    expect(lastOptions().resume).toBeUndefined()
+    expect(onPrompt).toHaveBeenCalledWith('recovery-prompt')
+    const prompt = (
+      queryMock.mock.calls.at(-1)![0] as {
+        prompt: AsyncIterable<{ message: { content: unknown } }>
+      }
+    ).prompt
+    const first = await prompt[Symbol.asyncIterator]().next()
+    expect(JSON.stringify(first.value.message.content)).toContain('archived context')
+    const events: NormalizedEvent[] = []
+    for await (const batch of live.eventBatches) events.push(...batch.events)
+    expect(events).toContainEqual(
+      expect.objectContaining({ type: 'input.echo', text: 'hello', uuid: 'recovery-prompt' })
+    )
+    live.close()
+  })
   it('forkFrom 을 resume + forkSession:true 로 어댑트한다 (sessionId=null 새 세션 의미론)', () => {
     const adapter = new ClaudeAdapter()
     adapter.sendMessage({ ...baseReq(), forkFrom: 'src-session' })

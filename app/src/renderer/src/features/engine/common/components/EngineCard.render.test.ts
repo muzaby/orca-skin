@@ -6,7 +6,7 @@ import type { AgentEnvironment } from '../../../../../../shared/ipc'
 import { EngineCard } from '../../components/EngineCard'
 
 it.each([
-  ['claude', 'claude'],
+  ['claude', 'Claude'],
   ['opencode', 'OpenCode']
 ])('preserves the %s card label and editable actions (0262 AC31)', (adapter, label) => {
   const agent: AgentEnvironment = {

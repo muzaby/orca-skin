@@ -6,7 +6,7 @@
 |---|---|
 | slug | `0265-harness-native-storage` |
 | 작성자 / 일자 | Codex / 2026-10-16 |
-| 상태 | plan/READY — ΔV2 사용자 변경 요구 확정, 다음 Codex 구현. 기존 독립 검증 대기 보존 |
+| 상태 | impl/IMPL_DONE — ΔV2 구현 및 자기검증 완료. 다음 Claude 독립 검증. 기존 사용자 인수 대기 보존 |
 | V mode / revision | Delta V / V1 + ΔV1 |
 | 기준 V | V1@공유 브랜치 `8c94b449485771d5ea588e62e38c8cfbedc74e3b`. OpenCode 구체 커서는 0262 ΔV16, 의존 경계 회귀는 0264 |
 | 관련 | PR #502 · ADR-009 · 0262 · 0230 |
@@ -639,3 +639,26 @@ D16 ACTIVE: binding·보관 경계·첫 입력 영수증을 DB에 영속한다. 
 | VP2-R | REGRESSION / DB 선표시·live 가드·Claude/OpenCode native 읽기 | 기존 native sync/projection/readers·load/store·send 회귀 |
 
 새 자리16. 선택 mutation은 not selected(직접 oracle). 운영 gate: main/renderer 의존 lint·typecheck·관련 tests·SQLite·migration sync/append-only·inventory/IPC 문서·build. 자동 원본 삭제·사용자 전역 설정 편집은 도입하지 않는다. 기존 독립 verify와 사람 인수 대기 보존.
+
+
+## [구현자 기입] ΔV2 — 보관 만료 복구
+
+DB 선표시 뒤 lazy 조회의 실패는 조용히 소비하고 보관 transcript를 유지한다. 명시 재개에서는 missing만 복구하며 네트워크/권한/이관 상태는 새 세션 생성의 근거로 삼지 않는다. Claude fresh sessionId와 OpenCode create를 하네스별 adapter로 분리하고 native binding·보관 prefix·첫 입력 영수증을 append-only migration으로 영속했다. 원래 Orca key와 외래키 관계는 유지한다.
+
+첫 모델 입력에는 보관 대화와 새 입력이 포함되지만 echo/DB/native 재조회에는 새 사용자 텍스트만 보인다. 기존 prefix의 검색 인덱스를 유지하고 새 snapshot은 이전 cursor를 이어받지 않는다. 첫 입력 수신을 native ID로 확정한 뒤 후속 턴에는 prefix를 제거한다.
+
+| pair / 자리 | 직접 oracle 좌표 / 결과 |
+|---|---|
+| VP2-1 lazy status·catch (2) | `chatStore.native-history.test.ts`의 missing/unavailable/reject 보관 유지·오류 보고 0 및 DB 최초 load 실패 처리 — SELF_PASS |
+| VP2-2 cold resume·Claude fresh·OpenCode create·binding (4) | `native-session.test.ts:carries cold-resume recovery through provider resolution while keeping the visible input unchanged`; `claude/adapter.fork.test.ts:recreates an expired conversation with the original UUID and hides archived context in its receipt`; `opencode/v1/adapter.persistent.test.ts:creates a replacement native session without trying to reuse an expired server identity`; `native-session.test.ts:persists a replacement across restart and settles its receipt through the real history writer` — SELF_PASS |
+| VP2-3 archive·첫 prompt·echo·writer·재열기 (5) | `native-session.test.ts:replaces only a confirmed missing native identity…` / `keeps the recovery prefix out of native reload…`; `send.agent-profile.test.ts:routes a saved OpenCode session…(recovery:true)` 실제 send→TurnRequest→runtime 배선·onPrompt 저장; 두 adapter 복구 prompt/echo 검사; 실제 writer 재시작 case와 `app/native-history.test.ts:reads the replacement identity and masks its recovery input before refreshing the Orca snapshot` — SELF_PASS |
+| VP2-4 실패·receipt·재시작·재복구·cursor (5) | `native-session.test.ts:retains the archive when native creation fails or a concurrent write invalidates preparation`; 재시작 receipt case·두 번 만료 case(이전 snapshot/cursor 없음); `continuation.test.ts` listen/flush의 native ID 승계와 복구 prefix 제거; 기존 native-history.db cursor 원자 저장/경합 회귀 — SELF_PASS |
+| VP2-R | Claude JSONL/OpenCode native reader·native projection/sync·app routing·DB 선표시·live 가드·store/reducer/전송 회귀 — SELF_PASS |
+
+전수 검색: `rg -n 'readHistory|sessionId|nativeSessionId|recovery|input.echo|commitUserMessage' app/src/main/app/chat-turn app/src/main/app/native-history.ts app/src/main/adapters app/src/main/features/history app/src/main/infra/db/native-history-queries.ts`; `rg -n 'refresh|nativeSync|loadSession' app/src/renderer/src/features/chat/store`. ΔV2 자리 16/16 자기확인, AC15~18 4/4. 선택 mutation not selected. 단위 helper에 머무르지 않고 resolve→send→adapter 및 reader/writer/SQLite 경계를 각각 실행했다.
+
+### 운영 gate / Review Signals
+
+0262 ΔV20과 동일한 관련 369파일 회귀 및 수정된 test mock 재검증 집합을 사용했다. DB 검사는 Electron ABI 140의 임시 SQLite에서 migration·실제 파일 close/reopen·FTS·외래키 보존·복구 실패 경합을 확인했다. 전체 readonly ESLint 오류 0(기존 경고 6), node/web/test 타입 검사·production build·scripts142·migration/inventory/test-budget 통과. 사용자 다운로드의 기존 링크 오류는 제외 범위를 명시해 별도 판정했다. 로그는 0262 ΔV20 보고와 `.tmp/current-db-tests*.log`를 참조한다.
+
+native create 성공 후 Orca DB 경합 시 빈 원본 세션이 남을 수 있는 분산 경계는 D16대로 유지한다. 원본/사용자 전역 설정을 삭제하거나 덮지 않는다. 실제 사용자 원본을 지워 복구하는 실험은 하지 않았다. 모델 전송 내용·visible 버블·재시작은 fixture/native 프로토콜 및 임시 DB로 검증했으며, 실모델 복구의 실제 응답 내용은 이번 턴에서 검증하지 않았다. 기존 독립 verify와 사람 인수는 여전히 대기다.

@@ -35,6 +35,7 @@ import type { SessionSchedule } from '../../../shared/session-schedules'
 import { claudeErrorClassifier, errorEvent } from './error-classifier'
 import { createSessionInputStream, type TurnInputContent } from './streaming-input'
 import type { Base64ImageSource } from '@anthropic-ai/sdk/resources/messages'
+import { recoveredPrompt } from '../common/recovery'
 import { formatAttachmentPromptBlock } from '../common/attachment-prompt'
 import { formatDiffRequirementsPrompt } from '../common/diff-requirements'
 import { formatPlanFeedbackPrompt } from './plan-feedback'
@@ -324,6 +325,12 @@ export function makeCanUseTool(
 }
 
 export class ClaudeAdapter implements SessionAdapter {
+  async recoverSession(
+    req: NativeHistoryRequest
+  ): Promise<{ sessionId: string; freshStart: boolean }> {
+    return { sessionId: req.sessionId, freshStart: true }
+  }
+
   readHistory(req: NativeHistoryRequest): Promise<NativeHistoryResult> {
     return readClaudeNativeHistory(req)
   }
@@ -469,10 +476,16 @@ export class ClaudeAdapter implements SessionAdapter {
     const initialInputs = [
       ...(req.preludes ?? []).map((b) => ({ content: batchContent(b), uuid: b.uuid })),
       {
-        content: buildTurnContent(text, attachmentTexts, attachmentImages, requirements),
+        content: buildTurnContent(
+          recoveredPrompt(req.recovery?.history, text),
+          attachmentTexts,
+          attachmentImages,
+          requirements
+        ),
         ...(req.promptUuid !== undefined ? { uuid: req.promptUuid } : {})
       }
     ]
+    if (req.recovery && req.promptUuid) req.recovery.onPrompt(req.promptUuid)
     const receipts = new ClaudeInputReceipts()
     for (const item of initialInputs) receipts.submitted(item.content, item.uuid)
     const input = createSessionInputStream(initialInputs)
@@ -533,7 +546,9 @@ export class ClaudeAdapter implements SessionAdapter {
       options: {
         // fork/handoff(0064) — forkFrom 세션의 이력 복사본으로 시작하되 SDK 가 새 session_id
         // 를 발급한다(원본 불변). 새 id 는 init(session.updated)에서 ctx 로 흡수된다.
-        resume: req.forkFrom ?? sessionId ?? undefined,
+        ...(req.recovery?.freshStart
+          ? { sessionId: sessionId ?? undefined }
+          : { resume: req.forkFrom ?? sessionId ?? undefined }),
         ...(req.forkFrom !== undefined ? { forkSession: true } : {}),
         includePartialMessages: true,
         agentProgressSummaries: true,
@@ -827,7 +842,18 @@ export class ClaudeAdapter implements SessionAdapter {
       reinitialize: async () => {
         await handle.reinitialize()
       },
-      eventBatches: eventBatches(),
+      eventBatches: (async function* () {
+        for await (const batch of eventBatches()) {
+          yield {
+            ...batch,
+            events: batch.events.map((event) =>
+              req.recovery && event.type === 'input.echo' && event.uuid === req.promptUuid
+                ? { ...event, text: req.text }
+                : event
+            )
+          }
+        }
+      })(),
       close,
       // 후속 턴은 model/permissionMode/effort를 라이브 적용한 뒤 입력을 push한다.
       // providerSettings/extensions는 respawn 경계(호출자 소관)다. setter 실패는 입력 전송

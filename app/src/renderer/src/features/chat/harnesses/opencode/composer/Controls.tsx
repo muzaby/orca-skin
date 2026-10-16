@@ -3,6 +3,8 @@ import type { AgentEnvironment } from '../../../../../../../shared/ipc'
 import { useI18n } from '../../../../../shared/i18n'
 import { Popover } from '../../../../../shared/ui/Popover'
 import { chatActions, useChatSession } from '../../../store/chatStore'
+import { MenuItem, MenuTitle } from '../../../../../shared/ui/MenuItem'
+import { Icon } from '../../../../../shared/ui/Icon'
 import { OpenCodeIcon } from '../Icon'
 
 function OpenCodeSelect({
@@ -58,15 +60,11 @@ function OpenCodeSelect({
         </span>
         <OpenCodeIcon name="chevron-down" />
       </button>
-      <Popover
-        open={open}
-        anchorRef={anchorRef}
-        onClose={() => setOpen(false)}
-        className="rounded-[8px]! border-oc-border! bg-oc-surface! p-[4px]! shadow-oc-raised!"
-      >
+      <Popover open={open} anchorRef={anchorRef} onClose={() => setOpen(false)}>
         <div
           ref={itemsRef}
-          className="max-h-[240px] min-w-[160px] max-w-[280px] overflow-y-auto"
+          role="none"
+          className="flex max-h-[320px] w-[300px] flex-col overflow-auto"
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
               event.preventDefault()
@@ -98,22 +96,25 @@ function OpenCodeSelect({
             }
           }}
         >
+          <MenuTitle>{label}</MenuTitle>
           {options.map((option) => (
-            <button
+            <MenuItem
               key={option.value}
               type="button"
               role="menuitemradio"
               aria-checked={value === option.value}
               tabIndex={value === option.value ? 0 : -1}
-              className="flex min-h-[32px] w-full items-center justify-between gap-[12px] rounded-[4px] px-[8px] py-[6px] text-left text-[13px] font-[440] leading-[20px] text-oc-ink outline-none hover:bg-oc-hover focus:bg-oc-hover"
+
               onClick={() => {
                 onChange(option.value)
                 close()
               }}
             >
-              <span className="truncate">{option.label}</span>
-              {value === option.value && <OpenCodeIcon name="check" />}
-            </button>
+              <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">
+                {option.label}
+              </span>
+              {value === option.value && <Icon name="check" size={12} className="shrink-0" />}
+            </MenuItem>
           ))}
         </div>
       </Popover>
