@@ -1,14 +1,17 @@
-import { useEffect, useState, type ComponentType } from 'react'
-import { isBackend } from '../../../../../../shared/harness'
-import type { AgentEnvironment } from '../../../../../../shared/ipc'
+import { useEffect, useRef, useState, type ComponentType } from 'react'
+import { HARNESS_IDS, HARNESS_CAPABILITIES, isBackend } from '../../../../../../shared/harness'
+import type { AgentEnvironment, Backend } from '../../../../../../shared/ipc'
 import { Button } from '../../../../shared/ui/Button'
+import { Popover } from '../../../../shared/ui/Popover'
 import { uiMessageText, useI18n } from '../../../../shared/i18n'
 import type { EngineCardProps } from './EngineCard'
 import type { EngineFormModalProps } from './EngineFormModal'
 import { useEngines } from '../hooks/useEngines'
 
 type ModalState =
-  { mode: 'add' } | { mode: 'edit'; agent: AgentEnvironment; settingsJson: string } | null
+  | { mode: 'add'; engine: Backend }
+  | { mode: 'edit'; agent: AgentEnvironment; settingsJson: string }
+  | null
 
 export function AgentEnvironmentView({
   Card,
@@ -20,6 +23,8 @@ export function AgentEnvironmentView({
   const { tr } = useI18n()
   const { agents, state, refresh, add, update, remove, read } = useEngines()
   const [modal, setModal] = useState<ModalState>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const addRef = useRef<HTMLButtonElement>(null)
   const [loadingKey, setLoadingKey] = useState<string | null>(null)
   const [readError, setReadError] = useState<string | null>(null)
 
@@ -60,15 +65,42 @@ export function AgentEnvironmentView({
           {tr('common.count', { count: agents.length })}
         </span>
         <Button
+          ref={addRef}
+          dropdown
+          expanded={menuOpen}
+          aria-haspopup="menu"
           variant="primary"
           size="small"
           leadingIcon="plus"
           className="ml-auto"
-          onClick={() => setModal({ mode: 'add' })}
+          onClick={() => setMenuOpen((value) => !value)}
         >
           {tr('engine.addEngine')}
         </Button>
       </div>
+      <Popover
+        open={menuOpen}
+        anchorRef={addRef}
+        onClose={() => setMenuOpen(false)}
+        placement="bottom"
+      >
+        <div role="menu" className="min-w-[220px] p-1">
+          {HARNESS_IDS.map((engine) => (
+            <button
+              key={engine}
+              type="button"
+              role="menuitem"
+              className="flex w-full cursor-pointer items-center gap-g5 rounded-r4 border-0 bg-transparent px-p5 py-p3 text-left text-footnote text-ink hover:bg-fill-uncontained-hover"
+              onClick={() => {
+                setMenuOpen(false)
+                setModal({ mode: 'add', engine })
+              }}
+            >
+              {HARNESS_CAPABILITIES[engine].label}
+            </button>
+          ))}
+        </div>
+      </Popover>
       {(state.error || readError) && (
         <div className="mb-3 rounded-lg bg-bad/10 px-3 py-2 text-[12px] text-bad">
           {state.error ? uiMessageText(tr, state.error) : readError}
@@ -96,6 +128,7 @@ export function AgentEnvironmentView({
       {modal?.mode === 'add' && (
         <Form
           mode="add"
+          engine={modal.engine}
           busy={state.busy}
           onClose={() => setModal(null)}
           onSubmit={async (payload) => {

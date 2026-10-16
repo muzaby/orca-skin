@@ -417,6 +417,37 @@ export const ko = {
       jsonSyntaxUnknown: 'JSON 형식이 올바르지 않아요 — 알 수 없는 오류',
       topLevelObject: '최상위는 객체 { … } 형태여야 해요.'
     },
+    openCode: {
+      title: '사용자 지정 공급자',
+      description: 'OpenAI 호환 공급자를 구성합니다. 입력한 설정으로 OpenCode 엔진을 추가합니다.',
+      id: '공급자 ID',
+      idHint: '소문자, 숫자, 하이픈 또는 밑줄',
+      idFormat: '소문자 또는 숫자로 시작하고 소문자·숫자·하이픈·밑줄만 사용할 수 있습니다.',
+      name: '표시 이름',
+      namePlaceholder: '내 AI 공급자',
+      baseURL: '기본 URL',
+      urlFormat: 'http:// 또는 https://로 시작하는 URL을 입력하세요.',
+      apiKey: 'API 키',
+      apiKeyHint: '선택 사항입니다. 헤더로 인증하는 경우 비워 두세요.',
+      models: '모델',
+      modelId: '모델 ID {{count}}',
+      modelName: '모델 표시 이름 {{count}}',
+      addModel: '모델 추가',
+      removeModel: '모델 {{count}} 제거',
+      headers: '헤더 (선택 사항)',
+      headerKey: '헤더 이름 {{count}}',
+      headerValue: '헤더 값 {{count}}',
+      headerKeyPlaceholder: '헤더 이름',
+      headerValuePlaceholder: '값',
+      addHeader: '헤더 추가',
+      removeHeader: '헤더 {{count}} 제거',
+      submit: '제출',
+      required: '필수 항목입니다.',
+      duplicate: '중복된 값입니다.',
+      importedProvider: '불러온 공급자',
+      importUnsupported:
+        '불러올 OpenAI 호환 공급자가 없습니다. opencode.json의 provider 설정을 확인하세요.'
+    },
     form: {
       harness: '하네스',
       openCodeHint: `OpenCode 기본 설정 JSON입니다. <c>provider</c>에 모델 공급자와 인증을 구성하세요. ${PRODUCT_DISPLAY_NAME}가 별도 로컬 서버를 자동 관리합니다.`,
@@ -1268,21 +1299,6 @@ export const ko = {
     versionModalAria: `${PRODUCT_DISPLAY_NAME} 버전`
   },
   settings: {
-    harness: {
-      title: '하네스',
-      description: '하네스별 설정은 서로 독립적으로 저장되며 다음 실행부터 적용됩니다.',
-      managedServer: `${PRODUCT_DISPLAY_NAME}가 OpenCode 로컬 서버를 자동으로 시작하고 종료합니다. Code 모드에서 사용할 수 있습니다.`,
-      instructions: '하네스 지침',
-      instructionsHint: '이 하네스의 대화에만 추가되는 지침입니다.',
-      instructionsPlaceholder: '예: 변경한 파일과 검증 결과를 함께 설명하세요.',
-      executablePath: 'OpenCode 실행 파일',
-      executablePathHint:
-        '설치된 실행 파일의 전체 경로입니다. 비워 두면 PATH에서 자동으로 찾습니다.',
-      executablePathPlaceholder: '자동 검색 (opencode.exe)',
-      loadFailed: '하네스 설정을 불러오지 못했습니다.',
-      saveFailed: '하네스 설정을 저장하지 못했습니다.',
-      retry: '다시 불러오기'
-    },
     title: '설정',
     tabs: {
       general: '일반',

@@ -1,8 +1,6 @@
 // 설정 모달 열림 상태의 전역 스토어 — 사이드바 사용자 버튼뿐 아니라 도넛 팝오버의
 // `사용량 한도 >` 등 다른 곳에서도 특정 탭으로 열 수 있게 로컬 state 를 스토어로 승격.
 
-import { isBackend } from '../../../../../shared/harness'
-import type { Backend } from '../../../../../shared/ipc'
 import { create } from 'zustand'
 import type { AppSettingsTab } from '../../../../../shared/app-error'
 
@@ -16,15 +14,6 @@ export function providerTabId(key: string): SettingsTabId {
 
 export function providerKeyFromTab(tab: SettingsTabId): string | null {
   return tab.startsWith('provider:') ? tab.slice('provider:'.length) : null
-}
-
-export function harnessTabId(backend: Backend): SettingsTabId {
-  return `harness:${backend}`
-}
-
-export function harnessFromTab(tab: SettingsTabId): Backend | null {
-  const value = tab.startsWith('harness:') ? tab.slice('harness:'.length) : null
-  return isBackend(value) ? value : null
 }
 
 interface SettingsModalState {

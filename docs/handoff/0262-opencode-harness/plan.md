@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | plan/READY — ΔV18 엔진 추가 메뉴·OpenCode 공급자 폼·설정 하네스 탭 제거. 기존 독립 verify·AC11 인수 대기 보존 |
+| 상태 | impl/IMPL_DONE — ΔV18 r1.18 엔진 추가 메뉴·OpenCode 공급자 폼·설정 하네스 탭 제거 구현. 추가 AC3/3 자기확인, 기존 독립 verify·AC11 인수 대기 보존 |
 | V mode | Delta V — 기준 V1 + ΔV1~17 + ΔV18 (각 델타의 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV18 / 기준 ΔV17@공유 브랜치 `a067d521d8eb6d593f1e261be734b6e2e2ff4285`. 기존 자기보고·AC11 인수와 이번 델타를 별도 집계 |
@@ -2720,3 +2720,67 @@ OpenCode codec은 `{provider:{[id]:{npm:'@ai-sdk/openai-compatible',name,options
 신규 자리 EP50 2 + EP51 4 + EP52 1 = 7. 직접 실제 입력/출력·CUA oracle이며 별도 구조 proxy/선택 source mutation 없음. 운영 gate: readonly lint·node/web/test typecheck·관련 Vitest·production build·문서/오류 registry·git diff/trailer. 상태 사본 plan 메타/INDEX와 구현 trailer를 마지막에 다시 읽는다.
 
 READY 대조: D039→AC49, D040/D010→AC50, D041→AC51. 기본 Claude GUI 불변의 예외는 이번 사용자가 명시한 엔진 진입점과 설정 항목 제거에 한정한다. 기존 API1.x·native SSOT·원본/비밀 로그 정책은 유지하며 D008 저장 격리와 충돌하지 않는다. 기존 EngineFormModal.import 테스트의 내부 하네스 전환은 새 메뉴 재선택/모달 unmount 경로로 대체한다.
+
+## [구현자 기입] 설계 리뷰 — ΔV18 r1.18
+
+D-039~041과 D-010을 구현했다. 버전 중립 공급자 UI와1.x config codec을 분리하고 공통 조립점에서 OpenCode 추가만 분기한다. 기존 JSON 편집과 Claude 폼은 보존한다. 제거된 설정 탭의 렌더러·라우팅·문구·오류 등록을 함께 정리했으며 main 저장 스키마와 런타임 적용은 그대로다. 계획 메커니즘 대체·신규 의존성·IPC 변경 없음.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — ΔV18 r1.18
+
+`rg -n 'EngineFormModal|mode="add"|onSubmit|engineApi.add|importUserSettings|harness:|HarnessSettingsTab|setTab|providerTabId' app/src/renderer/src/features/engine app/src/renderer/src/features/settings app/src/shared/app-error.ts -g '*.tsx' -g '*.ts' -g '!*.test.*'`로 추가 진입·backend 전달·읽기/쓰기·탭 경계를 재열거했다. 아래 경로는 renderer의 `features/` 기준이다. UI 이름만 검사하지 않고 실제 조립→폼→codec 출력 구간을 실행했다.
+
+| 자리 | 직접 oracle / 관측 |
+|---|---|
+| EP50a 메뉴 | `engine/common/components/AgentEnvironmentView.interaction.test.ts:selects Claude or OpenCode before opening their production forms and closes the menu` — 두 menuitem·선택 후 닫힘·취소 후 재선택 |
+| EP50b backend 전달 | 같은 테스트의 실제 조립 Form에서 OpenCode 전용 제목과 Claude import가 구분됐다. `ProviderForm.interaction.test.ts:validates fields, adds and removes rows and submits native settings with the selected harness`는 production wrapper부터 DTO의 engine까지 관측 |
+| EP51a 필드/행 | 위 ProviderForm 테스트에서 필수 오류, 모델/헤더 추가·제거와 입력 반영. CUA-18-03 실제 반복 행·고정 footer 확인 |
+| EP51b codec | `engine/harnesses/opencode/v1/customProvider.test.ts`의 native config 생성·필수/형식/중복 거부·import/rename 세 테스트 — 미노출 옵션/모델 metadata·다른 공급자·기본 참조 보존 |
+| EP51c import | `engine/harnesses/opencode/ProviderForm.interaction.test.ts:imports compatible providers into fields without saving and preserves metadata in the submitted config`, `discards a pending import after %s`, `keeps the draft on %s import and supports retry` — 복수 공급자 선택·edit/cancel/dismiss/unmount 폐기·없음/미지원/파싱 오류 후 초안 유지 |
+| EP51d 제출/오류 | 같은 스위트의 실제 DTO 관측과 `retains the draft on save failure and prevents repeated synchronous submits` — 중복 제출1회·실패 문구·초안 유지. 기존 `useEngines.test.ts:%s keeps mutation busy until its write and catalog refresh finish`는 쓰기→카탈로그 갱신 대기를 유지 |
+| EP52a 설정 탭/라우터 | `settings/components/SettingsModal.render.test.ts:retains general, usage and provider navigation without harness tabs or pages` — 실제 store와 Modal의 general/usage/provider 선택, 제거 대상 문구 부재, hide 상태. CUA-18-04 실제 일반 화면 |
+
+EP50 2 + EP51 4 + EP52 1 = 7/7 자기확인. 새 컴포넌트의 실제 이름은 `ProviderForm`이며 계획의 `CustomProviderForm`과 동일 역할이다. 원격 engine IPC와 기존 main 저장은 이번 새 UI의 native 연결 실기를 대신하지 않으며, 직접 DTO/기존 저장 회귀까지만 관측했다.
+
+| pair | 자기판정 / 관측 |
+|---|---|
+| VP-Δ18-01 | SELF_PASS — EP50a/b, CUA-18-02·05 |
+| VP-Δ18-02 | SELF_PASS — EP51a~d, 오류·반복 행·초안/원본 보존 |
+| VP-Δ18-03 | SELF_PASS — EP52a, CUA-18-04 |
+| VP-Δ18-04 | SELF_PASS — production wrapper→전용 UI→v1 codec→onSubmit DTO |
+| VP-Δ18-05 | SELF_PASS — native config 생성·검증·import/rename fixture |
+| VP-Δ18-R1 | SELF_PASS — `EngineFormModal.harness/import`, `useEngines`, GeneralTab/ProviderUsageTab 회귀. main `settings-write:keeps equal provider names in separate harness namespaces through CRUD`, `bootstrap.harness:initializes its actual adapter registry with user data, live preferences and Chromium fetch` 통과 |
+
+검산 REQUIRED5 + REGRESSION1 = SELF_PASS6 · SELF_BLOCKED0. 독립 검증의 PASS는 아니다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — ΔV18 r1.18
+
+선택 mutation·인용 변이·새 구조 proxy는 해당 없음. 실제 컴포넌트/codec 입력·출력과 UI 조작을 직접 oracle로 썼다. 삭제된 하네스 설정 탭 테스트는 D-041이 폐기한 UI 계약이며 저장 격리·runtime preferences 회귀는 별도로 실행했다. 공통 JSON 폼의 하네스 전환 테스트는 새 메뉴 재선택과 이전 폼 unmount 후 지각 import 폐기로 대체했다.
+
+## [구현자 기입] Product/UX 파생 검토 — ΔV18 r1.18
+
+필수 오류는 해당 입력 아래, import/저장 실패는 폼 내부에 표시한다. 설정 불러오기는 초안만 바꾸고 저장하지 않는다. 사용자가 편집하거나 닫으면 늦은 결과를 버린다. 입력이 길어져도 헤더/footer가 남고 본문만 스크롤한다. 모델·헤더의 마지막 행은 제거하지 않으며 빈 헤더는 생략한다. API 키는 가려서 입력한다.
+
+실제 Orca에서 밝은·어두운 테마를 확인한 뒤 원래 밝은 테마로 복원했다. 테스트용 실제 엔진 생성·외부 모델 호출·native 인증 파일 변경은 하지 않았다. 기존 엔진 편집의 JSON 화면은 부가 설정을 손실 없이 유지하기 위한 D-040의 명시 범위다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — ΔV18 r1.18
+
+- import 후 ID/모델을 바꾸면 기본 모델 참조가 옛 이름을 가리킬 수 있다. codec에서 model/small_model·provider 활성 목록을 함께 갱신하고 다른 공급자 충돌은 막았다.
+- 폼 편집 직후 import가 완료되면 초안을 덮을 수 있다. 편집·취소·dismiss·unmount가 revision을 무효화하며 깨진 JSON도 해석 전에 폐기한다.
+- 같은 이벤트 구간에서 제출을 반복하면 state 반영 전 중복 저장이 가능하다. submitting ref로1회만 허용하며 실패 후 다시 입력할 수 있다.
+- 새 테스트의 초기 실패는 fake DOM viewport/타이머 및 테스트 helper 타입 누락이었다. 실행 환경을 수정했고 최종19파일312케이스가 통과했다. production에서 발견한 실패로 잘못 분류하지 않는다.
+
+## [구현자 기입] 구현 보고 — ΔV18 r1.18
+
+| AC | 자기판정 / 관측 |
+|---|---|
+| AC49 | ✅ 엔진 추가 dropdown·하네스별 실제 Form 조립, 메뉴/모달 interaction과 CUA |
+| AC50 | ✅ native 공급자 필드/행·DTO·검증·import·오류/중복 저장·원본 보존 및 두 테마 CUA |
+| AC51 | ✅ 설정 하네스 UI 제거·일반/사용량/provider 이동, 저장/런타임 preferences 회귀 |
+
+검산 이번 추가 AC ✅3 · ⚠️0 · ❌0 = 3. Criteria-Met은 이 델타이며 기존 AC11 사용자 인수와 독립 verify는 대기다.
+
+관측 gate: 관련 Vitest19파일312케이스 통과. node/web/test typecheck 진단0. 변경/신규 TS·TSX19파일 readonly ESLint 오류0·경고0. production main/preload/renderer build 성공, harness-boundary8검사와 test-budget16스위트 정상. 문서 inventory 일치·prose 위반0·링크 오류0(사용자 다운로드/첨부 제외), git diff --check 통과. package/lockfile·ABI 변경 없음.
+
+## [구현자 기입] Review Signals — ΔV18 r1.18
+
+현재 열린 OpenCode1.19 desktop 모달과 설치 renderer를 근거로 필드·검증을 정했다. Orca의 의미 토큰/공통 버튼·팝업·모달을 사용하고 별도 OpenCode 테마를 가져오지 않았다. 사용자 요구가 설정 UI 제거를 명시해 저장값 삭제로 확장하지 않았으며 기존 main 적용 테스트를 유지했다. 다음 주체는 Claude 독립 verify다.

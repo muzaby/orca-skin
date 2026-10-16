@@ -360,16 +360,22 @@ export const sites: Site[] = [
     disposition: 'CONSUMED'
   },
   {
-    file: 'features/settings/common/components/HarnessSettingsTab.tsx',
+    file: 'features/engine/harnesses/opencode/ProviderForm.tsx',
     ordinal: 0,
-    line: 35,
+    line: 1,
     disposition: 'CONSUMED'
   },
   {
-    file: 'features/settings/common/components/HarnessSettingsTab.tsx',
+    file: 'features/engine/harnesses/opencode/ProviderForm.tsx',
     ordinal: 1,
-    line: 66,
+    line: 1,
     disposition: 'CONSUMED'
+  },
+  {
+    file: 'features/engine/harnesses/opencode/v1/customProvider.ts',
+    ordinal: 0,
+    line: 1,
+    disposition: 'EXCLUDE'
   },
   {
     file: 'features/engine/common/components/EngineFormModal.tsx',

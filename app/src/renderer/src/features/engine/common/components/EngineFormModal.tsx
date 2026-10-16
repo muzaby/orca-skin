@@ -1,6 +1,6 @@
 import type { EngineConfigurationFor, EngineHarnessConfiguration } from '../../harnesses/types'
 import type { Backend, CreateEngineRequest } from '../../../../../../shared/ipc'
-import { HARNESS_CAPABILITIES, HARNESS_IDS, isBackend } from '../../../../../../shared/harness'
+import { HARNESS_CAPABILITIES } from '../../../../../../shared/harness'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { engineApi } from '../../../../shared/api/ipc'
 import { Button } from '../../../../shared/ui/Button'
@@ -28,7 +28,7 @@ export interface EngineFormPolicy {
   defaultInitialSettingsJson: string
 }
 
-// 새 엔진은 하네스를 선택하고, 기존 엔진의 하네스는 고정한다.
+// 하네스는 엔진 추가 메뉴 또는 기존 엔진에서 정해지며 모달에서는 고정한다.
 export function EngineFormModal({
   configurationFor,
   defaultEngine,
@@ -43,7 +43,7 @@ export function EngineFormModal({
 }: EngineFormModalProps & EngineFormPolicy): React.JSX.Element {
   const { tr } = useI18n()
   const editing = mode === 'edit'
-  const [engine, setEngine] = useState<Backend>(initialEngine)
+  const engine = initialEngine
   const configuration = configurationFor(engine)
   const initialConfiguration = configurationFor(initialEngine)
   const providerOption = (
@@ -103,18 +103,6 @@ export function EngineFormModal({
   useEffect(() => {
     if (isCustom) queueMicrotask(() => nameRef.current?.focus())
   }, [isCustom])
-
-  const pickEngine = (next: Backend): void => {
-    cancelImport()
-    setEngine(next)
-    const nextConfiguration = configurationFor(next)
-    setProviderId(nextConfiguration.defaultProvider)
-    setProviderName(nextConfiguration.defaultProvider)
-    setSettingsJson(nextConfiguration.defaultSettings)
-    setMenuOpen(false)
-    setImportError(null)
-    setSubmitError(null)
-  }
 
   // 공급자를 고르면 해당 템플릿으로 settings.json 을 채우고 이름 기본값도 맞춘다.
   const pickProvider = (id: string): void => {
@@ -180,30 +168,9 @@ export function EngineFormModal({
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
           {/* 편집에서는 하네스를 고정해 provider 저장 경로를 유지한다. */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-ink2">
-            {editing && configuration.editHarnessChip != null ? (
-              <span className="rounded-md bg-sidebar px-2 py-0.5 font-medium text-ink">
-                {configuration.editHarnessChip}
-              </span>
-            ) : (
-              <label className="flex items-center gap-2">
-                <span>{tr('engine.form.harness')}</span>
-                <select
-                  aria-label={tr('engine.form.harness')}
-                  value={engine}
-                  disabled={editing || busy}
-                  onChange={(event) => {
-                    if (isBackend(event.target.value)) pickEngine(event.target.value)
-                  }}
-                  className="rounded-md border border-border bg-bg px-2 py-1 text-ink disabled:opacity-70"
-                >
-                  {HARNESS_IDS.map((id) => (
-                    <option key={id} value={id}>
-                      {HARNESS_CAPABILITIES[id].label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
+            <span className="rounded-md bg-sidebar px-2 py-0.5 font-medium text-ink">
+              {configuration.editHarnessChip ?? HARNESS_CAPABILITIES[engine].label}
+            </span>
             {editing && (
               <>
                 <span className="text-ink3">/</span>

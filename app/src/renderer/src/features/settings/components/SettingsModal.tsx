@@ -1,5 +1,3 @@
-import { HARNESS_CAPABILITIES, HARNESS_IDS } from '../../../../../shared/harness'
-import { HarnessSettingsTab } from './HarnessSettingsTab'
 import { useEffect } from 'react'
 import { type IconName } from '../../../shared/ui/Icon'
 import { Modal } from '../../../shared/ui/Modal'
@@ -13,8 +11,6 @@ import { providerLabel } from '../lib/usageFormat'
 import {
   useSettingsModalStore,
   providerTabId,
-  harnessTabId,
-  harnessFromTab,
   providerKeyFromTab,
   type SettingsTabId
 } from '../store/settingsModalStore'
@@ -39,7 +35,6 @@ export function SettingsModal(): React.JSX.Element | null {
   const setTab = useSettingsModalStore((s) => s.setTab)
   const hide = useSettingsModalStore((s) => s.hide)
   const { tr } = useI18n()
-  const activeHarness = harnessFromTab(tab)
   const activeProviderKey = providerKeyFromTab(tab)
   // provider 카탈로그는 공유 agentStore 가 갖는다(사용량 전용 컨트롤러를 따로 두지 않는다).
   const providers = useAgentStore((s) => s.agents)
@@ -84,23 +79,11 @@ export function SettingsModal(): React.JSX.Element | null {
               })}
           </div>
         ))}
-        <div className="px-3 pb-1 pt-4 text-[11px] font-semibold text-ink3">
-          {tr('settings.harness.title')}
-        </div>
-        {HARNESS_IDS.map((id) => (
-          <RailItem
-            key={id}
-            label={HARNESS_CAPABILITIES[id].label}
-            active={activeHarness === id}
-            onClick={() => setTab(harnessTabId(id))}
-          />
-        ))}
       </Rail>
 
       {/* 우: 내용 — 닫기는 Esc·백드롭 클릭 (X 아이콘 없음, 0121 사용자 피드백) */}
       <div className="relative flex min-w-0 flex-1 flex-col">
         <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
-          {activeHarness && <HarnessSettingsTab key={activeHarness} backend={activeHarness} />}
           {tab === 'general' && <GeneralTab />}
           {tab === 'usage' && <UsageTab />}
           {/* `key` 로 provider 마다 인스턴스를 가른다 (0186 r6). 없으면 서브탭을 바꿔도 같은

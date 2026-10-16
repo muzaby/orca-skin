@@ -10,7 +10,8 @@ import type {
   CreateEngineRequest,
   EngineUserSettingsResult
 } from '../../../../../../shared/ipc'
-import { EngineFormModal } from '../../components/EngineFormModal'
+import { EngineFormModal } from './EngineFormModal'
+import { engineFormPolicy } from '../../harnesses/configuration'
 
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
@@ -35,7 +36,14 @@ let submit: ReturnType<typeof vi.fn<(payload: CreateEngineRequest) => Promise<vo
 let close: ReturnType<typeof vi.fn<() => void>>
 function mount(engine: Backend = 'opencode', busy = false): void {
   dom.render(
-    createElement(EngineFormModal, { mode: 'add', engine, busy, onSubmit: submit, onClose: close })
+    createElement(EngineFormModal, {
+      ...engineFormPolicy,
+      mode: 'add',
+      engine,
+      busy,
+      onSubmit: submit,
+      onClose: close
+    })
   )
 }
 function nodes(root = dom.body): FakeNode[] {
@@ -158,17 +166,15 @@ describe('engine form settings import', () => {
   })
 
   it.each(['resolve', 'reject'] as const)(
-    'ignores stale results and errors after harness changes: %s',
+    'ignores stale results and errors after the selected harness modal is replaced: %s',
     async (outcome) => {
       const old = deferred()
       const current = deferred()
       read.mockReturnValueOnce(old.promise).mockReturnValueOnce(current.promise)
       mount()
       dom.click(importButton())
-      change(
-        nodes().find((node) => node.tag === 'select')!,
-        'claude'
-      )
+      dom.render(null)
+      mount('claude')
       const draft = editor().props.value
       dom.click(importButton('claude'))
       if (outcome === 'resolve') old.resolve({ exists: true, settingsJson: '{"old":true}' })

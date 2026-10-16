@@ -412,6 +412,38 @@ export const en: typeof ko = {
       jsonSyntaxUnknown: 'Invalid JSON — unknown error',
       topLevelObject: 'The top level must be an object { … }.'
     },
+    openCode: {
+      title: 'Custom provider',
+      description: 'Configure an OpenAI-compatible provider to add an OpenCode engine.',
+      id: 'Provider ID',
+      idHint: 'Lowercase letters, numbers, hyphens or underscores',
+      idFormat:
+        'Start with a lowercase letter or number; use lowercase letters, numbers, hyphens or underscores.',
+      name: 'Display name',
+      namePlaceholder: 'My AI Provider',
+      baseURL: 'Base URL',
+      urlFormat: 'Enter a URL starting with http:// or https://.',
+      apiKey: 'API key',
+      apiKeyHint: 'Optional. Leave empty if you manage authentication through headers.',
+      models: 'Models',
+      modelId: 'Model ID {{count}}',
+      modelName: 'Model display name {{count}}',
+      addModel: 'Add model',
+      removeModel: 'Remove model {{count}}',
+      headers: 'Headers (optional)',
+      headerKey: 'Header name {{count}}',
+      headerValue: 'Header value {{count}}',
+      headerKeyPlaceholder: 'Header name',
+      headerValuePlaceholder: 'Value',
+      addHeader: 'Add header',
+      removeHeader: 'Remove header {{count}}',
+      submit: 'Submit',
+      required: 'Required.',
+      duplicate: 'Duplicate value.',
+      importedProvider: 'Imported provider',
+      importUnsupported:
+        'No OpenAI-compatible provider to import. Check the provider configuration in opencode.json.'
+    },
     form: {
       harness: 'Harness',
       openCodeHint: `Native OpenCode configuration JSON. Configure model providers and authentication under <c>provider</c>. ${PRODUCT_DISPLAY_NAME} manages a separate local server automatically.`,
@@ -1261,21 +1293,6 @@ export const en: typeof ko = {
     versionModalAria: `${PRODUCT_DISPLAY_NAME} version`
   },
   settings: {
-    harness: {
-      title: 'Harnesses',
-      description: 'Harness settings are saved independently and apply to the next run.',
-      managedServer: `${PRODUCT_DISPLAY_NAME} starts and stops the local OpenCode server automatically. Available in Code mode.`,
-      instructions: 'Harness instructions',
-      instructionsHint: 'Additional instructions for conversations using this harness.',
-      instructionsPlaceholder: 'For example: Explain changed files and validation results.',
-      executablePath: 'OpenCode executable',
-      executablePathHint:
-        'Absolute path to an installed executable. Leave blank to locate it on PATH.',
-      executablePathPlaceholder: 'Auto-detect (opencode.exe)',
-      loadFailed: 'Could not load harness settings.',
-      saveFailed: 'Could not save harness settings.',
-      retry: 'Retry'
-    },
     title: 'Settings',
     tabs: {
       general: 'General',

@@ -30,18 +30,20 @@ describe('engine form harness selection', () => {
     expect($('textarea').text()).toBe('{"env":{}}')
   })
 
-  it('offers both harnesses when adding an engine', () => {
+  it('opens the selected Claude form with a fixed harness', () => {
     const $ = load(
       renderToStaticMarkup(
-        createElement(EngineFormModal, { mode: 'add', onClose: () => {}, onSubmit: async () => {} })
+        createElement(EngineFormModal, {
+          mode: 'add',
+          engine: 'claude',
+          onClose: () => {},
+          onSubmit: async () => {}
+        })
       )
     )
-    expect(
-      $('select option')
-        .map((_, element) => $(element).attr('value'))
-        .get()
-    ).toEqual(['claude', 'opencode'])
-    expect($('select').attr('disabled')).toBeUndefined()
+    expect($('select')).toHaveLength(0)
+    expect($.text()).toContain('claude')
+    expect($.text()).toContain('~/.claude/settings.json 불러오기')
   })
   it('locks an existing OpenCode engine and uses its native settings', () => {
     const $ = load(
@@ -56,8 +58,8 @@ describe('engine form harness selection', () => {
         })
       )
     )
-    expect($('select option[selected]').attr('value')).toBe('opencode')
-    expect($('select').attr('disabled')).toBeDefined()
+    expect($('select')).toHaveLength(0)
+    expect($.text()).toContain('OpenCode')
     expect($('textarea').text()).toContain('vendor/model')
     expect($.text()).not.toContain('~/.claude/settings.json')
     expect(
