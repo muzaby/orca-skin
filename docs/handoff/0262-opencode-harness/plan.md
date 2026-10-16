@@ -8,10 +8,10 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | impl/IMPL_DONE — ΔV17 r1.17 동일 세션 desktop transcript 대조·보완 구현. 다음은 Claude 독립 verify이며 기존 AC11 인수 대기 보존 |
-| V mode | Delta V — 기준 V1 + ΔV1~16 + ΔV17 (각 델타의 대체 범위 적용) |
+| 상태 | plan/READY — ΔV18 엔진 추가 메뉴·OpenCode 공급자 폼·설정 하네스 탭 제거. 기존 독립 verify·AC11 인수 대기 보존 |
+| V mode | Delta V — 기준 V1 + ΔV1~17 + ΔV18 (각 델타의 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
-| 이번 V revision / 유효 V | ΔV17 / 기준 ΔV16@공유 브랜치 `bb6ce719cc349daa79cd633422c60825f0a08e02`. 기존 자기보고·AC11 인수와 이번 델타를 별도 집계 |
+| 이번 V revision / 유효 V | ΔV18 / 기준 ΔV17@공유 브랜치 `a067d521d8eb6d593f1e261be734b6e2e2ff4285`. 기존 자기보고·AC11 인수와 이번 델타를 별도 집계 |
 
 # Part I — Product & UX Contract
 
@@ -2673,3 +2673,50 @@ EP47 2 + EP48 6 + EP49 2 = 10자리 직접 자기확인. `projection→TimelineR
 ## [구현자 기입] Review Signals — ΔV17 r1.17
 
 실행 중인 두 앱의 동일 대화를 직접 비교한 사용자 요청이다. 제공 소스 버전만 보고 기본값을 추정하지 않고 설치1.19 renderer와 실제 화면을 대조했다. 질문 답변은 데이터 보존 테스트만으로 표시 누락을 찾을 수 없어 native metadata fixture→실제 AskExchange 및 CUA를 추가했다. 이전 전체 펼침 기대를 새 기본 접힘 기대와 혼동하지 않도록, 원본 metadata 검사는 명시적으로 펼친 상태에서 유지했다. 다음 주체는 Claude 독립 verify다.
+
+
+## ΔV18 — 엔진 추가 진입점·공급자 폼·설정 정리 (2026-10-16, READY)
+
+### Part I — Decision / Product & UX
+
+사용자: 엔진 추가를 “+엔진 추가∨”와 Claude/OpenCode 팝업으로 바꾸되 “플러그인 페이지→스킬 탭→추가 버튼이랑 똑같은 형식”을 사용한다. OpenCode 추가 모달은 현재 열린 desktop 모달의 구성 요소를 따르며 “디자인 테마 및 스타일은 orcinus-orca 의 디자인/테마 룰”을 따른다. 설정의 하네스 구분과 Claude Code/OpenCode 항목은 제거한다.
+
+| 결정 | 결과 / 대체 관계 |
+|---|---|
+| D-039 ACTIVE | 공통 Button dropdown·Popover로 추가 전에 Claude/OpenCode를 선택한다. 모달 안에서는 선택 하네스를 변경하지 않는다. 기존 모달 내부 신규 하네스 선택만 SUPERSEDED |
+| D-040 ACTIVE | OpenCode 신규 엔진은 사용자 지정 공급자 폼: 공급자 ID, 표시 이름, 기본 URL, 선택 API 키, 모델 ID/표시 이름 반복 행, 선택 헤더 이름/값 반복 행, 제출. Orca 토큰·Modal·Button을 사용한다. 기존 엔진 편집 JSON과 Claude 폼은 보존 |
+| D-041 ACTIVE | 설정의 하네스 제목·Claude Code/OpenCode 탭과 전용 페이지를 제거한다. 해당 UI 코드·미사용 라우팅은 제거하며 기존 저장값·런타임 적용은 보존. D-008의 UI 탭 요구와 AC9의 SettingsModal 진입만 SUPERSEDED; 저장 격리는 유지 |
+| D-010 INHERITED | 설정 불러오기는 신규 폼에서도 유지. OpenAI 호환 공급자를 선택해 필드를 채우되 저장 전 초안이다. 호환하지 않는/깨진 입력은 오류로 안내하고 기존 초안을 유지 |
+
+제품 흐름: 추가→팝업→하네스 선택→해당 폼→필드 검증→기존 engine.add→카탈로그 갱신. 메뉴 Esc/바깥 클릭은 메뉴만 닫고, 모달 취소는 저장하지 않는다. 저장 실패는 초안과 오류를 남긴다. 설정은 일반·사용량·공급자별 사용량만 노출한다.
+
+| AC / node | 직접 관측 기준 |
+|---|---|
+| AC49 / R49↔AT49 NEW | 추가 버튼의 +·chevron·팝업이 스킬 탭 형식과 같으며 Claude/OpenCode 선택이 올바른 폼으로 연결되고 모달 안에서 바뀌지 않는다 |
+| AC50 / R50↔AT50 NEW | desktop에서 관측한 필드와 모델/헤더 행 추가·제거를 제공하고 실제 native config를 만들어 저장한다. 필수·형식·중복 오류, API 키 생략, import 지연/실패/취소, 기존 설정 부가 필드 보존을 확인한다 |
+| AC51 / R51↔AT51 NEW | 설정의 하네스 제목·탭·페이지를 제거하며 일반·사용량·provider 이동은 동작한다. 저장된 하네스 환경·Claude 엔진 편집은 유지 |
+
+### Part II — 근거 / 구현 경계
+
+CUA-18-01: 열린 OpenCode1.19 사용자 지정 공급자 모달에서 공급자 ID·이름·URL·API 키를 읽고 스크롤해 모델/헤더 반복 행·제출을 확인했다. 모델 추가 클릭 시 두 번째 ID/이름 행이 생겼다. 설치 `dialog-connect-provider`의 validateCustomProvider는 소문자 ID, 필수 이름/URL/모델 이름, 모델 ID 중복, 대소문자 무관 헤더 중복을 검사한다. 제공2.0.29 소스로 현재 모달을 대신 추정하지 않았다.
+
+공통 엔진 view는 선택한 backend를 ModalState와 Form prop으로 전달한다. 조립용 EngineFormModal이 OpenCode add 전용 컴포넌트를 고르고 다른 경우 공통 JSON 폼을 사용한다. 새 native config codec은 `engine/harnesses/opencode/v1/`, 필드 UI는 버전 중립 `opencode/`에 둔다. 공통 코드는 구체 하네스 구현을 import하지 않는다.
+
+OpenCode codec은 `{provider:{[id]:{npm:'@ai-sdk/openai-compatible',name,options:{baseURL,apiKey?,headers?},models}}}`를 만든다. API 키는 기존 Orca 엔진 override 저장 경로를 사용하고 native 인증 파일에 새로 쓰지 않는다. import는 기존 IPC를 사용하며 복수 호환 공급자는 선택 목록으로 구분한다. 선택한 공급자의 미노출 옵션·모델 부가 필드와 다른 설정은 보존한다. provider ID 변경은 선택한 원본 key만 교체하고 이미 존재하는 다른 key와 충돌하면 막는다. 기본 모델 참조는 이름 변경 시 함께 갱신하며 제거한 모델을 기본값으로 남기지 않는다.
+
+기본 모델·헤더 행은 각각 하나이고 마지막 행은 제거하지 않는다. 모델은 ID/이름 필수, 헤더의 양쪽 빈 행은 생략·부분 입력/중복은 오류다. import 중 저장/중복 import를 막고 사용자가 필드를 편집·취소·닫으면 늦은 import는 폐기한다. 설정 페이지 제거는 저장 DB/schema의 삭제·이관을 뜻하지 않는다. 새 의존성/IPC 없음.
+
+### Delta V / §10
+
+| pair | requiredness / 생산 경로 | 자리 / 직접 oracle |
+|---|---|---|
+| VP-Δ18-01 R49↔AT49 | REQUIRED / Button→Popover→선택 modal→Form | EP50a 메뉴·EP50b backend 운반: 신규 AgentEnvironmentView.interaction 실제 조립으로 두 폼/취소. CUA 스킬 버튼 형식 대조 |
+| VP-Δ18-02 R50↔AT50 | REQUIRED / 전용 필드→codec→CreateEngineRequest→기존 add | EP51a 필드/행·EP51b validate/serialize·EP51c import/read→초안·EP51d submit/error: 신규 CustomProviderForm.interaction 및 v1 customProvider.test; 최종 payload·오류·late import 관측 |
+| VP-Δ18-03 R51↔AT51 | REQUIRED / SettingsModal rail/store→기존 General/Usage/provider | EP52a tab/router 제거: 신규 SettingsModal.render·store 이동 테스트, 실제 CUA. 삭제된 UI의 오류 분류 등록도 함께 정리 |
+| VP-Δ18-04 AR-Δ18↔IT-Δ18 NEW | REQUIRED / 엔진 조립→버전 중립 UI→v1 codec→공통 submit | EP50b/51d production wrapper와 form을 실제 실행하고 engine DTO 관측 |
+| VP-Δ18-05 MD-Δ18↔UT-Δ18 NEW | REQUIRED / draft/config→validation/roundtrip | EP51b 원본 보존·중복/필수·헤더/API 키·rename/default 모델 fixture |
+| VP-Δ18-R1 | REGRESSION / Claude/add-edit·OpenCode JSON edit·설정 저장 격리 | 기존 EngineFormModal.import/harness·useEngines·GeneralTab·ProviderUsageTab·main settings-write/bootstrap harness 테스트. UI 탭/내부 하네스 전환 기대만 대체 |
+
+신규 자리 EP50 2 + EP51 4 + EP52 1 = 7. 직접 실제 입력/출력·CUA oracle이며 별도 구조 proxy/선택 source mutation 없음. 운영 gate: readonly lint·node/web/test typecheck·관련 Vitest·production build·문서/오류 registry·git diff/trailer. 상태 사본 plan 메타/INDEX와 구현 trailer를 마지막에 다시 읽는다.
+
+READY 대조: D039→AC49, D040/D010→AC50, D041→AC51. 기본 Claude GUI 불변의 예외는 이번 사용자가 명시한 엔진 진입점과 설정 항목 제거에 한정한다. 기존 API1.x·native SSOT·원본/비밀 로그 정책은 유지하며 D008 저장 격리와 충돌하지 않는다. 기존 EngineFormModal.import 테스트의 내부 하네스 전환은 새 메뉴 재선택/모달 unmount 경로로 대체한다.
