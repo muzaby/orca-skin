@@ -6,7 +6,7 @@
 |---|---|
 | slug | `0265-harness-native-storage` |
 | 작성자 / 일자 | Codex / 2026-10-16 |
-| 상태 | plan/READY — r2, ΔV3 복구 상한 결정 반영. 기존 사용자 시각 인수 대기 보존 |
+| 상태 | impl/IN_PROGRESS — r2 코드·로컬 게이트 보완, 원격 CI 확인 중. 사람 시각 인수는 별도 |
 | V mode / revision | Delta V / V1 + ΔV1~3 |
 | 기준 V | V1@공유 브랜치 `8c94b449485771d5ea588e62e38c8cfbedc74e3b`. OpenCode 구체 커서는 0262 ΔV16, 의존 경계 회귀는 0264 |
 | 관련 | PR #502 · ADR-009 · 0262 · 0230 |
@@ -643,11 +643,13 @@ D16 ACTIVE: binding·보관 경계·첫 입력 영수증을 DB에 영속한다. 
 새 자리16. 선택 mutation은 not selected(직접 oracle). 운영 gate: main/renderer 의존 lint·typecheck·관련 tests·SQLite·migration sync/append-only·inventory/IPC 문서·build. 자동 원본 삭제·사용자 전역 설정 편집은 도입하지 않는다. 기존 독립 verify와 사람 인수 대기 보존.
 
 
-## [구현자 기입] ΔV2 — 보관 만료 복구
+## [구현자 기입] 설계 리뷰 — ΔV2 (r1 기록 필드 복원)
 
 DB 선표시 뒤 lazy 조회의 실패는 조용히 소비하고 보관 transcript를 유지한다. 명시 재개에서는 missing만 복구하며 네트워크/권한/이관 상태는 새 세션 생성의 근거로 삼지 않는다. Claude fresh sessionId와 OpenCode create를 하네스별 adapter로 분리하고 native binding·보관 prefix·첫 입력 영수증을 append-only migration으로 영속했다. 원래 Orca key와 외래키 관계는 유지한다.
 
 첫 모델 입력에는 보관 대화와 새 입력이 포함되지만 echo/DB/native 재조회에는 새 사용자 텍스트만 보인다. 기존 prefix의 검색 인덱스를 유지하고 새 snapshot은 이전 cursor를 이어받지 않는다. 첫 입력 수신을 native ID로 확정한 뒤 후속 턴에는 prefix를 제거한다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — ΔV2
 
 | pair / 자리 | 직접 oracle 좌표 / 결과 |
 |---|---|
@@ -659,9 +661,23 @@ DB 선표시 뒤 lazy 조회의 실패는 조용히 소비하고 보관 transcri
 
 전수 검색: `rg -n 'readHistory|sessionId|nativeSessionId|recovery|input.echo|commitUserMessage' app/src/main/app/chat-turn app/src/main/app/native-history.ts app/src/main/adapters app/src/main/features/history app/src/main/infra/db/native-history-queries.ts`; `rg -n 'refresh|nativeSync|loadSession' app/src/renderer/src/features/chat/store`. ΔV2 자리 16/16 자기확인, AC15~18 4/4. 선택 mutation not selected. 단위 helper에 머무르지 않고 resolve→send→adapter 및 reader/writer/SQLite 경계를 각각 실행했다.
 
-### 운영 gate / Review Signals
+## [구현자 기입] 이번 라운드 수정의 잠금 — ΔV2
+
+당시 선택 mutation은 not selected였고 위 직접 oracle을 사용했다. 이 기록은 r1 자기보고이며 verify가 지적한 미관측 자리를 닫았다는 뜻이 아니다. r2 잠금과 재판정은 아래 별도 보고를 따른다.
+
+## [구현자 기입] Product/UX 파생 검토 — ΔV2
+
+복구 전문은 모델에만 전달하고 새 사용자 버블은 새 입력만 표시한다. native 자료를 사용자 승인 없이 삭제하지 않는다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — ΔV2
+
+복구 상한과 기존 D02/AC5 대체 표시를 누락했다. ΔV3 사용자 결정으로 보완한다. 아래 로컬 gate 보고와 별개로 원격 Windows CI #773~#779의 native-history 3케이스는 실패했으며 r2 수정 대상이다.
+
+## [구현자 기입] 구현 보고 — ΔV2
 
 0262 ΔV20과 동일한 관련 369파일 회귀 및 수정된 test mock 재검증 집합을 사용했다. DB 검사는 Electron ABI 140의 임시 SQLite에서 migration·실제 파일 close/reopen·FTS·외래키 보존·복구 실패 경합을 확인했다. 전체 readonly ESLint 오류 0(기존 경고 6), node/web/test 타입 검사·production build·scripts142·migration/inventory/test-budget 통과. 사용자 다운로드의 기존 링크 오류는 제외 범위를 명시해 별도 판정했다. 로그는 0262 ΔV20 보고와 `.tmp/current-db-tests*.log`를 참조한다.
+
+## [구현자 기입] Review Signals — ΔV2
 
 native create 성공 후 Orca DB 경합 시 빈 원본 세션이 남을 수 있는 분산 경계는 D16대로 유지한다. 원본/사용자 전역 설정을 삭제하거나 덮지 않는다. 실제 사용자 원본을 지워 복구하는 실험은 하지 않았다. 모델 전송 내용·visible 버블·재시작은 fixture/native 프로토콜 및 임시 DB로 검증했으며, 실모델 복구의 실제 응답 내용은 이번 턴에서 검증하지 않았다. 기존 독립 verify와 사람 인수는 여전히 대기다.
 
@@ -696,3 +712,39 @@ r1(V1+ΔV1+ΔV2) 독립 검증 = **RETURN_TO_PLAN**. 판정 원문은 [`verify.m
 | D-0265-1 | `adapters/claude/native-history.test.ts` O22 3케이스가 Windows PR CI #773~#779에서 red. mock이 realpath 경로를 잡지 못함 | VP12 / PR CI | BLOCKING | mock 경로 정규화 후 CI green 확인 |
 | D-0265-2 | `[구현자 기입] ΔV2` 필드 접힘 | 재구현 턴 7필드 계약 | BLOCKING | 7필드 재기입 |
 | N-0265-1~4 | CLI fixture `PWD` 미격리 · 중복 가드 전용 oracle 없음 · CI red 미보고 · 메타 V mode | — | NON_BLOCKING | verify §8 |
+
+## [구현자 기입] 설계 리뷰 — ΔV3 r2
+
+사용자는 전체 대화가 한도를 넘으면 전송 중단·보관 유지를 선택했다. ΔV3 D17/18을 별도 설계 커밋한 뒤 구현했다. 확인된 missing만 복구하며 화면 표시·unavailable·인증·충돌은 재생성 근거로 쓰지 않는다. 상한은 정확한 tokenizer 측정이 아닌 보수적 UTF-8 예산이다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — ΔV3 r2
+
+| 자리 | 직접 oracle | 자기결과 |
+|---|---|---|
+| missing 준비·빈 replacement 재시도 (2) | `native-session.test.ts:rejects oversized recovery before creation and preserves the archive and receipt on retry`: 실제 SQLite 보관/receipt 동일·생성0 | SELF_PASS |
+| 모델·입력 배선 (1) | `uses the selected engine model context limit before creating a replacement` 작은/큰 모델 양방향; `passes new input and additional context through resolve before native recovery`; `send.harness.test.ts` 실제 조립 인자 | SELF_PASS |
+| byte 상한·context 정책 (2) | `bounds the complete UTF-8 recovery prompt including new text and attachments`; `registry.test.ts:uses each harness context policy through the registered module` | SELF_PASS |
+| VP12 / VP05 CI 실패 자리 | `native-history.test.ts` permission1·revision 경계2에서 realpath 비교와 실제 주입 발생 단언. 로컬14케이스 통과, 원격 CI 별도 확인 | SELF_PASS(로컬) |
+| VP2-1~4·VP3-R | native-session11·adapter 복구·history/db/store·continuation 기존 직접 좌표와 실제 native CLI 회귀 | SELF_PASS(기계) |
+
+검색: `rg -n 'prepareNativeSession|archivePrompt|recoverSession|recoveryHistory|recoveryContextWindow' app/src/main`. 새5/5자리, ΔV2 기존16자리 관련 회귀. native CLI fixture는 PWD를 제거하고 실제 잘못된 PWD 상속 환경에서 실행했다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — ΔV3 r2
+
+선택 변이0 · 인용 변이0 · 신규 구조 proxy0 = 표 대상0. 새 tests는 실제 budget 결과/DB 부작용을 직접 검사한다. Windows 원래 실패 주입이 무효가 되는 것을 막기 위해 denied와 lstat 호출 횟수를 함께 단언한다. CLI는 1.19.0 실제 바이너리와 합성 localhost 모델이다.
+
+## [구현자 기입] Product/UX 파생 검토 — ΔV3 r2
+
+과거를 조용히 자르거나 요약하지 않고 사용자에게 안전한 입력 한도 초과를 알린다. 허용되는 경우 모델은 보관 전체+새 입력을 받고 버블은 새 입력만 유지한다. 차단 시 native create·binding 변경·receipt 저장·새 DB 메시지는0이다. 더 큰 컨텍스트 모델 또는 새 대화를 안내한다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — ΔV3 r2
+
+상한이 SDK tokenizer와 동일하다고 주장하지 않는다. unknown은200k, 입력에80%를 할당하며 나머지는 하네스 instruction/tool/output 여유다. N-0265-2 중복 가드 전용 oracle은 비차단 유지. D-0265-2 기존 보고7필드 복원, N3 로컬/원격 결과 구분, N4 ΔV3 메타 갱신. D-0265-1은 원격 CI green 확인 전까지 최종 closed로 세지 않는다.
+
+## [구현자 기입] 구현 보고 — ΔV3 r2
+
+이번 AC15~19: DB 보관·missing 복구·표시 분리·영수증·상한 차단 ✅5. 검산 ✅5 · ⚠️0 · ❌0 = 5(기존4+새1). 앞선 Windows CI #773~#779 실패와 최신 verify head의 같은3실패는 사실로 보존한다. 최신 verify head에는 별도 artifact 재개방 timeout1건도 있었다. 이번 push의 결과는 0262 공통 게이트 표에 기록한다.
+
+## [구현자 기입] Review Signals — ΔV3 r2
+
+실패 주입 fixture가 canonical 경로를 사용하지 않아 Windows/심볼릭 경로에서 주입 자체를 건너뛰었다. production reader 정책을 느슨하게 바꾸지 않고 테스트가 실제 실패를 주입했는지 확인했다. 저장 상한의 제품 선택은 사용자에게 확인했고 기본 저장 경로·전역 설정은 건드리지 않았다.

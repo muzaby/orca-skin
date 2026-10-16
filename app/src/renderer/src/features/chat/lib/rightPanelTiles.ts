@@ -1,5 +1,4 @@
 import { harnessCatalog } from '../harnesses/catalog'
-export { RIGHT_PANEL_POLICY } from '../harnesses/claude/rightPanel'
 import type { Backend } from '../../../../../shared/ipc'
 import type { AgentKind } from '../../../../../shared/agent-kind'
 import type { MessageKey } from '../../../shared/i18n'

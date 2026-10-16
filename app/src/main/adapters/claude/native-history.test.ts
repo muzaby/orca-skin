@@ -61,15 +61,20 @@ describe('Claude native history reads', () => {
     const request = { sessionId, cwd: f.cwd, env: { CLAUDE_CONFIG_DIR: f.config } }
     const original = (await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises'))
       .lstat
+    const nativeFile = await fs.realpath(f.file)
+    let denied = false
     vi.spyOn(fs, 'lstat').mockImplementation(((
       target: Parameters<typeof fs.lstat>[0],
       ...args: unknown[]
     ) => {
-      if (String(target) === f.file)
+      if (String(target) === nativeFile) {
+        denied = true
         return Promise.reject(Object.assign(new Error('denied'), { code: 'EACCES' }))
+      }
       return Reflect.apply(original, fs, [target, ...args])
     }) as typeof fs.lstat)
     expect((await readClaudeNativeHistory(request)).status).toBe('unavailable')
+    expect(denied).toBe(true)
     vi.mocked(fs.lstat).mockImplementation(original)
     await fs.unlink(f.file)
     expect((await readClaudeNativeHistory(request)).status).toBe('missing')
@@ -166,13 +171,14 @@ describe('Claude native history reads', () => {
     async (boundary) => {
       const f = await fixture()
       const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')
+      const nativeFile = await actual.realpath(f.file)
       let calls = 0
       vi.mocked(fs.lstat).mockImplementation((async (
         target: Parameters<typeof fs.lstat>[0],
         ...args: unknown[]
       ) => {
         const stat = await Reflect.apply(actual.lstat, actual, [target, ...args])
-        if (String(target) === f.file && ++calls === boundary) stat.mtimeMs += 1
+        if (String(target) === nativeFile && ++calls === boundary) stat.mtimeMs += 1
         return stat
       }) as typeof fs.lstat)
       expect(
@@ -184,6 +190,7 @@ describe('Claude native history reads', () => {
           })
         ).status
       ).toBe('busy')
+      expect(calls).toBeGreaterThanOrEqual(boundary)
       vi.mocked(fs.lstat).mockImplementation(actual.lstat)
     }
   )

@@ -55,7 +55,7 @@ claude -p "What does the auth module do?"
 
 `-p` 와 함께 쓰는 모든 플래그의 정식 분류는 `docs/spec/claude/cli-reference.md` 가 SSOT. 본 문서는 *Orca 관점에서 의미가 있는 플래그* 만 다룬다 (§14 카탈로그 참조).
 
-⛔ **대체됨 (§13)** — Phase 1 은 구 ClaudeCodeAdapter 가 매 턴 `claude -p "<text>" --output-format stream-json --verbose --include-partial-messages [--resume <id>]` 형식으로 `child_process.spawn` 했다. Phase 3 부터는 CLI 를 띄우지 않고 SDK `query()` 를 인프로세스로 부른다 — 현행 어댑터는 `src/main/adapters/claude.ts` 다.
+⛔ **대체됨 (§13)** — Phase 1 은 구 ClaudeCodeAdapter 가 매 턴 `claude -p "<text>" --output-format stream-json --verbose --include-partial-messages [--resume <id>]` 형식으로 `child_process.spawn` 했다. Phase 3 부터는 CLI 를 띄우지 않고 SDK `query()` 를 인프로세스로 부른다 — 현행 어댑터는 `src/main/adapters/claude/adapter.ts` 다.
 
 ---
 
@@ -165,7 +165,7 @@ API 요청이 재시도 가능한 오류로 실패하면 Claude Code 가 재시�
 | `uuid` | 문자열 | 고유 이벤트 식별자 |
 | `session_id` | 문자열 | 소속 세션 |
 
-⛔ **대체됨 (§13)** — Phase 1 은 위 네 이벤트를 구 ClaudeCodeAdapter 가 1차 파싱해 구 `ChatEvent` 로 정규화했다. 현행은 SDK 메시지를 `adapters/claude-map.ts` 의 `claudeToNormalized` 가 `NormalizedEvent` 로 **직접** 정규화한다 — 아래 대응은 그 매핑의 전신으로 읽는다([provider-runtime.md §2](./arch/backend/provider-runtime.md)).
+⛔ **대체됨 (§13)** — Phase 1 은 위 네 이벤트를 구 ClaudeCodeAdapter 가 1차 파싱해 구 `ChatEvent` 로 정규화했다. 현행은 SDK 메시지를 `adapters/claude/map.ts` 의 `claudeToNormalized` 가 `NormalizedEvent` 로 **직접** 정규화한다 — 아래 대응은 그 매핑의 전신으로 읽는다([provider-runtime.md §2](./arch/backend/provider-runtime.md)).
 
 | Claude Code 이벤트 | 정규화 후 구 `ChatEvent.type` | 비고 |
 |---|---|---|
@@ -237,7 +237,7 @@ claude -p "Apply the lint fixes" --permission-mode acceptEdits
 
 ✅ **Orca v1 채택 (두 플래그 모두)** — 같은 의미의 `permissionMode: 'bypassPermissions'` 를 Composer 권한 메뉴의 `bypass`(Work·Code)로 사용자가 고를 수 있다(`shared/permission-mode.ts` `menuModes`, 0224). 기본값이 아니며(기본 정책은 OQ9), workspace guard 훅의 deny 는 이 모드에서도 유효하다.
 
-- 대화 query 는 시작 모드(`permissionMode`)를 명시할 때 `allowDangerouslySkipPermissions: true` 를 함께 넘긴다(`adapters/claude.ts`, 0261) — 다른 모드로 시작한 장수명 채널도 턴 중·다음 턴에 `bypass` 로 바뀐다.
+- 대화 query 는 시작 모드(`permissionMode`)를 명시할 때 `allowDangerouslySkipPermissions: true` 를 함께 넘긴다(`adapters/claude/adapter.ts`, 0261) — 다른 모드로 시작한 장수명 채널도 턴 중·다음 턴에 `bypass` 로 바뀐다.
 - 플래그는 가용성만 연다. 시작 모드는 명시값이고, 레포 settings 의 `defaultMode: bypassPermissions` 는 시작 모드가 되지 않으며, `disableBypassPermissionsMode` 정책은 전환을 계속 막는다(0261 실측 — SDK 를 갱신하면 `docs/handoff/0261-bypass-flag-prod-devtools/probe-live-bypass.mjs` 로 다시 잰다).
 - 제목 생성 `complete()` 는 넘기지 않는다(도구 0·모드 없음).
 
@@ -344,7 +344,7 @@ Phase 1 은 (1) 을 유지. Phase 3 진입 시 재검토 — 본 항목을 §12 
 | `--name <text>` / `-n` | 세션의 *표시 이름* 을 설정. `claude --resume <name>` 으로 이름으로 재개 가능. 세션 중 `/rename` 으로 변경 |
 | `--no-session-persistence` | 세션을 디스크에 저장하지 않음. 재개 불가. *인쇄 모드 한정*. 환경변수 `CLAUDE_CODE_SKIP_PROMPT_HISTORY` 와 동일 효과 |
 
-❌ **Orca v1 미사용 (`--name`)** — 제목은 Orca DB(`sessions.title`·`title_source`)가 소유한다(§11 세션 이름). `--no-session-persistence` 대응 `persistSession: false` 는 제목 생성 단발 호출(`complete()`)에만 쓴다(`adapters/claude.ts`).
+❌ **Orca v1 미사용 (`--name`)** — 제목은 Orca DB(`sessions.title`·`title_source`)가 소유한다(§11 세션 이름). `--no-session-persistence` 대응 `persistSession: false` 는 제목 생성 단발 호출(`complete()`)에만 쓴다(`adapters/claude/adapter.ts`).
 
 ---
 

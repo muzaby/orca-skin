@@ -24,5 +24,6 @@ export interface MainHarnessModule {
   parseRuntimeModels?: (config: HarnessRuntimeConfig) => ParsedModel[]
   readUserSettings(): EngineUserSettingsResult
   resolveTitleModel(models: ParsedModel[]): string | undefined
+  recoveryContextWindow(settings: Record<string, unknown>, model?: string): number
   defaultProvider<T extends { modelProviderId: string }>(entries: readonly T[]): T | undefined
 }

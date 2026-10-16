@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | plan/READY — r2 ΔV21 증거 경계 정정. 시각·실공급자 인수 대기 |
+| 상태 | impl/IN_PROGRESS — r2 코드·로컬 게이트 보완, 원격 CI 확인 중. 사람 시각 인수는 별도 |
 | V mode | Delta V — V1 + ΔV1~ΔV21 (각 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV21 / V1 + ΔV1~ΔV21, 기준 `5d2b36a2` |
@@ -192,7 +192,7 @@ TO-BE: 하네스 capability 정본 → ModelMenu·kind·패널 정책. Draft bac
 |---|---|---|---|
 | 실행 | 전역 Claude | 세션/draft별 registry route | VP-02/04/05 |
 | 구성 | Claude settings/parser | harness별 loader + 실제 server catalog | VP-08/09 |
-| 상태 | backend 고정 | 생성 전 선택·생성 후 불변 | VP-01/03/12 |
+| 상태 | impl/IN_PROGRESS — r2 코드·로컬 게이트 보완, 원격 CI 확인 중. 사람 시각 인수는 별도 |
 | 표시 | 공통 Claude UI | OpenCode slice + 공통 입력·history 재사용 | VP-10/11 |
 | 정리 | Claude Query 종료 | 소유 서버 종료와 세션별 abort | VP-04/06 |
 
@@ -2926,11 +2926,13 @@ CUA-19-04: 검증용 dev 앱을 정상 종료·재실행해 최신 main으로 �
 설치 SDK `@opencode-ai/sdk@1.18.27`의 기존 세션 API는 실행 중 `promptAsync`를 허용한다. [OpenCode 1.19 데스크톱 호환 계층](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/app/src/utils/server-compat.ts#L189-L231)은 interrupt만 abort에 연결하고 prompt/steer는 promptAsync로 바로 보낸다. [1.19 runner](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/opencode/src/effect/runner.ts)의 실행 중 ensureRunning은 기존 실행을 기다리므로 이 의미의 steer는 이번 사용자 요구를 충족하지 않는다. 같은 runner의 cancel은 모델 fiber/실행 중 shell을 interrupt하고 정상 중단 경계를 발행한다. [HTTP abort 핸들러](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/opencode/src/server/routes/instance/httpapi/handlers/session.ts)는 이 cancel을 기다린 뒤 성공을 반환한다. 따라서 예외 복구가 아니라 이 명시적 제어 API를 정상 경로로 사용한다. SDK의 별도 v2 프로토콜로 전환하지 않는다. 앞선 설계 정정의 '전달 즉시성' 해석은 사용자 명시 설명으로 폐기한다.
 
 
-## [구현자 기입] ΔV20 — 즉시 반응·컨텍스트·컨트롤 구현
+## [구현자 기입] 설계 리뷰 — ΔV20 (r1 기록 필드 복원)
 
 현재 유효 D20-2는 **진행 중 모델/도구 중단 → 중단 경계 → 같은 세션의 새 입력**이다. promptAsync 단독 전달이나 예외 발생 후 재시도로 해석하지 않았다. SDK abort가 보내는 MessageAbortedError는 연결 오류가 아닌 중단 결과로 처리한다. 설정 준비 await 중 idle이 이미 소진되면 listen을 다시 열지 않고 held 입력을 즉시 flush한다. SSE는 유지하고 새 입력은 한 번만 확정한다.
 
 컨텍스트는 마지막 assistant 생성 시각/ID로 선택하며 input+cache를 별도 contextTokens로 전달한다. 입력 누락은 유효한 합산값으로 폴백하고, 명시적 0은 이전 도넛을 되살리지 않는다. 엔진의 해당 provider/model limit.context와 함께 DB에 저장한다. 합산 입력·출력·과금은 별개로 유지한다. agent/effort는 공용 메뉴 부품을 사용하고 Claude 카드 표시명을 통일했다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — ΔV20
 
 | pair / 자리 | 직접 oracle 좌표 / 결과 |
 |---|---|
@@ -2943,11 +2945,25 @@ CUA-19-04: 검증용 dev 앱을 정상 종료·재실행해 최신 main으로 �
 
 전수 검색: `rg -n 'contextTokens|contextWindow|inputTokens|cacheReadTokens' app/src/main/adapters/opencode app/src/main/features/usage app/src/main/infra/db app/src/main/infra/ipc/dto.ts app/src/renderer/src/features/chat/lib app/src/renderer/src/features/chat/reducer`; `rg -n 'sendNow|interrupt|prepareContinuation|reserveHeld|input.echo' app/src/main/app app/src/main/features/sessions app/src/main/adapters/opencode`. ΔV20 자리 14/14 자기확인, 선택 mutation not selected. AC20-1~3 자기확인 3/3이며 기존 사람 인수와 독립 verify를 완료로 바꾸지 않는다.
 
-### 운영 gate / Review Signals
+## [구현자 기입] 이번 라운드 수정의 잠금 — ΔV20
+
+당시 선택 mutation은 not selected였고 위 직접 oracle을 사용했다. 이 기록은 r1 자기보고이며 verify가 지적한 미관측 자리를 닫았다는 뜻이 아니다. r2 잠금과 재판정은 아래 별도 보고를 따른다.
+
+## [구현자 기입] Product/UX 파생 검토 — ΔV20
+
+중단 시점과 입력 전달 시점을 구분하며 기존 Claude GUI를 유지했다. CUA 디자인 확인은 독립적인 사람 인수를 대신하지 않는다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — ΔV20
+
+verify G-0262-1의 자동/시각 증거 혼합과 N-0262-2의 fallback 규범 범위를 놓쳤다. ΔV21로 정정한다. N-0262-3 모델 limit 입력은 후속 사용자 결정 사항이다.
+
+## [구현자 기입] 구현 보고 — ΔV20
 
 관련 회귀는 Electron Node(ABI 140)로 369파일을 분할 실행했다. 최초 실패 32개는 새 resolve 결과를 누락한 테스트 mock 3파일과 종전 subagent 타일 추가를 기대한 1파일이었다. 새 계약으로 보완한 전송 3파일/adapter 1파일 53케이스, panel store/continuation/post-turn 4파일 53케이스를 재실행해 전부 통과했다(중첩 집합). 마지막 mapper/persistent/즉시 보내기 3파일 27케이스도 통과했다. SQLite 복구·context·native projection·migration을 실제 임시 DB로 실행했다. 기존 모듈이나 사용자 DB를 테스트용으로 재설치/교체하지 않았다.
 
 전체 readonly ESLint 오류 0·기존 경고 6, node/web/test 타입 검사와 production build, scripts 142검사, migration sync/append-only, test-budget 통과. inventory 생성·prose 검사 통과. 일반 링크 검사는 사용자 다운로드 `.tmp/opencode-dev`의 기존 깨진 링크만 실패했고, 다운로드/첨부를 제외한 Orca 문서 범위는 같은 검사 함수로 통과했다. 최종 변경 파일 lint·빌드 로그는 `.tmp/current-changed-eslint.log`, `.tmp/current-final-bundle.log`(최종 타입 보완은 `current-final-web.log`·`current-final-test-types.log`); 회귀 원문은 `.tmp/current-regression*.log`·`current-repaired-tests.log`·`current-final-targeted.log`·`current-map-tests.log`에 있다(임시 산출물, 커밋 제외).
+
+## [구현자 기입] Review Signals — ΔV20
 
 사용자 뜻의 즉시 반응과 native steer의 다음 스텝 의미를 처음에 혼동했고, D20-2를 별도 설계 커밋으로 정정한 뒤 구현했다. 구현 중 찾은 idle 소진 경쟁과 explicit-zero/누락 usage를 직접 oracle로 잠갔다. 실모델의 중단 지연시간은 이번 턴에서 재측정하지 않았다. CUA는 기존 완료 세션의 표시/메뉴/패널을 조작했고 새 실모델 입력은 보내지 않았다. 다음 주체는 Claude 독립 검증이다.
 
@@ -3000,3 +3016,62 @@ r1(V1~ΔV20) 독립 검증 = **RETURN_TO_PLAN**. 판정 원문은 [`verify.md`](
 | N-0262-3 | ΔV19 직렬화가 `limit.context` 미보존 → 폼 엔진 도넛 분모 항상 200000 | ΔV19×ΔV20 | NEXT_HANDOFF | 사용자 결정 |
 
 다음 재구현 전에 `handoff-review`를 수행한다 — 라운드 1의 verify 없는 비요구변경 impl 턴이 3을 넘었다(verify §9).
+
+## [구현자 기입] 설계 리뷰 — ΔV21 r2
+
+G-0262-1은 ΔV21에서 동작과 실제 geometry를 분리했다. 현재 renderer 운영 규칙에 따라 자동 시각 runner는 추가하지 않았다. D21-2는 누락/비정상 latest tokens의 합산 fallback과 명시적 0을 구별한다. 기존 사용자 시각 인수는 완료로 바꾸지 않는다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — ΔV21 r2
+
+| pair / 자리 | 직접 oracle / 자기결과 |
+|---|---|
+| VP21-F latest usage fallback (1/1) | `adapters/opencode/v1/map.test.ts:retains valid aggregate usage as fallback when the latest step has no token report` — SELF_PASS |
+| VP21-V 실제 geometry·시각 인수 | SELF_BLOCKED: 자동 자리0, ΔV21 이관 표의 실제 스크롤/선택/resize·Todo geometry·두 테마/좁은 폭·desktop 밀도는 사람 인수 대기 |
+| VP20-1 usage 6자리 | `app/chat-turn/context-usage.test.ts` 두 SQLite 재개방 case, `map.test.ts`, `adapter.persistent.test.ts:carries the selected engine model limit through the channel into telemetry`, renderer `telemetry.test.ts` — SELF_PASS |
+| VP20-2 즉시 보내기 5자리 | `opencode-continuation.test.ts:send-now interrupts unfinished work immediately and starts one response without an error retry`의 idle-only/message-error/session-error 및 Stop 경쟁 — SELF_PASS |
+| VP20-3 popup·card 3자리 | `Controls.interaction.test.ts` 선택/포커스와 `EngineCard.render.test.ts` 표시 — 기계 SELF_PASS, 미관 인수 대기 |
+| 이전 행동 회귀 | `ScrollController.test.ts`, `Timeline.selection.test.ts`, TodoDock/RequestDock/Composer·engine tests 포함 관련 실행 집합. 실제 geometry까지 실행했다는 주장 없음 |
+
+검색: `rg -n 'contextTokens|contextWindow|interrupt|prepareContinuation' app/src/main/adapters/opencode app/src/main/app/chat-turn`; `rg --files app/src/renderer/src/features/chat/harnesses/opencode`. 새 자동 자리1/1, 기존 ΔV20 기계 자리14/14. 시각 자리는 분모에서 분리했다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — ΔV21 r2
+
+선택 적대 증거0 · 닫은 finding 인용 변이0 · 새 구조적 proxy0 = 잠금 표 대상0. 직접 결과 oracle만 사용했다. N-0262-1의 M0262-03은 이번에 닫았다고 보고하지 않는다.
+
+## [구현자 기입] Product/UX 파생 검토 — ΔV21 r2
+
+자동 통과와 시각 인수를 구별해 기존 CUA 관측이 기계 증거로 재사용되는 것을 막았다. Claude GUI 변경은 없다. 모델 limit 필드를 폼에 새로 넣는 제품 결정(N-0262-3)은 NEXT_HANDOFF로 유지하며 이번 버그 보완에 끼워넣지 않았다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — ΔV21 r2
+
+N-0262-5: 현재 provider-runtime의 ‘미구현’ 검색5건을 실제 1.x mapper/승인/질문 코드에 맞춰 정정했다. 정정 뒤 같은 검색은0건이다. 실제 공급자 과금 검증과 localhost 합성 모델 검증은 구별한다. N-0262-1 중단 표시 분류는 비차단 유지, N-0262-3은 사용자 결정 후속이다. D-0262-1의 기존 ΔV20 보고를 7필드로 복원했다.
+
+## [구현자 기입] 구현 보고 — ΔV21 r2
+
+AC20-1 ✅ usage 결과·SQLite, AC20-2 ✅ 실제 continuation/adapter, AC20-3 ⚠️ 메뉴 동작·라벨 통과/미관 인수 대기. 검산 ✅2 · ⚠️1 · ❌0 = 이번 재확인3. 이전 AC11 등 이관된 시각 인수는 유지한다.
+
+공통 gate 및 현재 CI 결과는 아래 ‘r2 공통 게이트’ 표를 정본으로 참조한다. 첫 전체 테스트 실행은 최종 집계 없이 종료되어 성공 수에 포함하지 않았다. 로컬 실패 원인과 복구 후 관측을 나누어 기록한다.
+
+## [구현자 기입] Review Signals — ΔV21 r2
+
+r2는 첫 독립 verify 뒤 보완이다. 기존 7필드·직접 oracle 규칙이 있었으므로 SKILL 지침을 중복 추가하지 않았다. 환경 제약은 사용자 TEMP 접근, Electron/Node ABI와 큰 실행의 집계 없는 종료였으며 작은 집합과 적절한 런타임으로 검증했다. 다음 독립 판정은 Claude가 수행한다.
+
+### r2 공통 게이트 — 0262·0263·0264·0265
+
+| gate | 관측 |
+|---|---|
+| 관련 Main | 180파일/2182케이스 집합. 첫 분할 실행179파일·2181실행 중2실패는 send.harness의 추가 budget 인자 기대값이었다. 수정 후 해당6케이스 통과. optional native CLI1케이스는 별도 실제 실행 통과 |
+| 관련 renderer | 288파일/2220케이스 집합. 최초8실패 중5는 SQLite Node127/Electron140 ABI 차이,3은 rename된 registry source 경로. 수정/런타임 정정 후 해당3파일17케이스 통과. 최종 panel/Task3파일17케이스도 통과 |
+| 복구/loader/Windows reader | 실제 SQLite·factory·원본 파일4파일41케이스 통과. native-history14케이스 포함, 실패 주입 도달 단언 |
+| 실제 native CLI | OpenCode1.19.0 · 잘못된 PWD 상속→fixture 제거 · localhost 합성 모델1/1 통과(79초). native ID·터미널 추가 대화·전역 설정 불변·이관·외부 요청0 |
+| 선택/인용 변이 | loader 제거1 + 요약/부모열3 + 기존 패널6 =10개 AssertionError. M06 최초는 TypeError라 제외하고 존재 단언 보강 후 AssertionError 재확인. 복원된 panel/registry 회귀 통과 |
+| 타입 | node/web/test 진단0. 추가 테스트 타입 수정 뒤 web/test 재검 통과 |
+| lint | 전체 읽기 전용 검사에서 fixture 타입/빈 함수5건 수정 후 대상 재검0. react-refresh4건 해소, 기존 TanStack compiler 경고2건 유지 |
+| 빌드 | main/preload/renderer production build 성공. 기존 SubAgentTaskDetail 혼합 import 경고 유지 |
+| scripts | 기본 권한8실패는 TEMP lstat EPERM. 일반 권한 재실행142/142 통과 |
+| Git 환경 대조 | 저장소 안 TEMP 때문에 비저장소 판정 실패. 정상 OS TEMP에서 해당7파일 통과; executable 복제 safety는 Electron ICU 제약으로 Node에서2/2 통과 |
+| 문서/운영 | migration sync/append-only, test-budget 통과. generated/prose 일치. 전체 link guard는 사용자 다운로드의 기존5개 링크 오류, 동일 checker에서 다운로드/첨부를 제외한 관리 범위 brokenLinks/proseViolations=[] |
+| 전체 실행 시도 | 첫 전체 및 큰 Main 실행은 최종 집계 없이 종료되어 성공 수로 세지 않음. 위 분할 실행과 수정 후 명시 집합만 결과로 사용 |
+| 원격 Windows CI | verify head `5d2b36a2`의 run38917598427은 native-history3실패+artifact 재개방 timeout1로 실패. 이번 수정본은 push 후 확인 중이며 아직 성공으로 표시하지 않음 |
+
+이번 재구현 AC 범위: 0262 ΔV20 3 + 0263 ΔV6 2 + 0264 11 + 0265 AC15~19 5 =21. ✅19 · ⚠️2(미관·외곽 간격 사람 인수) · ❌0. 이 합계는 이전 모든 델타의 인수 완료를 뜻하지 않는다. 원격 CI 완료 전까지 상태는 impl/IN_PROGRESS·구현자다.

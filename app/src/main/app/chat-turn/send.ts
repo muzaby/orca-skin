@@ -253,7 +253,14 @@ export async function handleChatSend(
 
   try {
     // ── 4·5. continuity 검증 + provider·env·메타·텍스트 해석 (resolve-turn.ts) ─
-    const resolution = await resolveTurn(ctx, supervisor, activeAdapter, { ...payload, agentKind })
+    const resolution = await resolveTurn(
+      ctx,
+      supervisor,
+      activeAdapter,
+      { ...payload, agentKind },
+      JSON.stringify(normalizedAttachments) +
+        (ctx.settings?.getAll().harnesses?.[activeAdapter.id]?.instructions ?? '')
+    )
     if (!resolution.ok) {
       sendChatEvent(event.sender, { type: 'error', error: resolution.error })
       return

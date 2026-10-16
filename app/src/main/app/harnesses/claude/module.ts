@@ -18,7 +18,9 @@ export const claudeMainModule: MainHarnessModule = {
   parseRuntimeModels,
   readUserSettings: readUserClaudeSettings,
   defaultProvider,
-  resolveTitleModel
+  resolveTitleModel,
+  recoveryContextWindow: (_settings, model) =>
+    /(?:\[1m\]|-1m)(?:$|\b)/i.test(model ?? '') ? 1000000 : 200000
 }
 
 // Existing native blobs use this startup flag before settings are loaded.

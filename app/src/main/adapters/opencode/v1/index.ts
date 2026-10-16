@@ -2,6 +2,7 @@ import type { OpenCodeImplementation } from '../implementation'
 import { OpenCodeAdapter } from './adapter'
 import { OpenCodeServerPool } from './server'
 import { LegacyStorageMigration } from './legacy-storage-migration'
+import { openCodeContextWindow } from './context-usage'
 import {
   loadOpenCodeProviderSettings,
   parseOpenCodeModels,
@@ -23,5 +24,6 @@ export const implementation: OpenCodeImplementation = {
     ),
   loadSettings: loadOpenCodeProviderSettings,
   parseModels: parseOpenCodeModels,
-  readUserSettings: readUserOpenCodeSettings
+  readUserSettings: readUserOpenCodeSettings,
+  contextWindow: openCodeContextWindow
 }

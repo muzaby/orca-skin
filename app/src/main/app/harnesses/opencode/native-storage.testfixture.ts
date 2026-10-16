@@ -34,6 +34,7 @@ const environment: Record<string, string> = {
 }
 // Only this disposable fixture process's environment is changed.
 for (const key of [
+  'PWD',
   'XDG_DATA_HOME',
   'XDG_CONFIG_HOME',
   'XDG_STATE_HOME',

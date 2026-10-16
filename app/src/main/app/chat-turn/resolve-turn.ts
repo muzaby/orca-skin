@@ -63,7 +63,8 @@ export async function resolveTurn(
   ctx: RouterContext,
   supervisor: RuntimeSupervisor<WebContents>,
   adapter: TurnPreparationAdapter,
-  payload: SendChatPayload
+  payload: SendChatPayload,
+  recoveryExtra = ''
 ): Promise<{ ok: true; value: ResolvedTurn } | { ok: false; error: ClassifiedError }> {
   const continuitySource = payload.forkFrom ?? payload.handoffFrom
   let continuityMeta = continuitySource ? ctx.db.getSessionById(continuitySource) : undefined
@@ -136,7 +137,15 @@ export async function resolveTurn(
         providerSettings: resolved.prepared.providerSettings
       },
       ctx.db,
-      ctx.getCwd
+      ctx.getCwd,
+      {
+        text: payload.text,
+        contextWindow: harnessModule(adapter.id).recoveryContextWindow(
+          resolved.prepared.providerSettings?.settings ?? {},
+          resolved.model
+        ),
+        extra: recoveryExtra
+      }
     )
     if (!preparedNative.ok) return preparedNative
     native = preparedNative.value

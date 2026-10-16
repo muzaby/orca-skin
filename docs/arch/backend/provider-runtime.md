@@ -127,7 +127,7 @@ Claude의 공급자 origin·synthetic 입력과 OpenCode의 소유 세션 synthe
 type PermissionAction = { kind: string; label: string; input?: unknown; risk?: 'low' | 'medium' | 'high' }
 ```
 
-- **OpenCode (agent, 미구현)**: permission 이벤트를 broker에 연결하고 선택한 API의 응답 객체를 전송한다. root는 `body: { response: 'once' | 'always' | 'reject' }`이며 boolean은 HTTP 성공 응답이지 승인 요청 body가 아니다 `[검증-타입]` ([SDK 해설](../../opencode-sdk-spec.md)).
+- **OpenCode (agent)**: 1.x 구현의 permission 이벤트를 broker에 연결하고 SDK `permission.reply`로 `reply: 'once' | 'always' | 'reject'`를 보낸다. 질문은 `question.reply/reject`로 분리한다. 구현 정본은 [approval.ts](../../../app/src/main/adapters/opencode/v1/approval.ts)이며 SDK의 `/v2` import 경로는 npm 패키지 major와 구별한다([SDK 해설](../../opencode-sdk-spec.md)).
 - **Claude (agent)**: `canUseTool` 콜백 지점에서 합성 `permission.requested` 발행 → UI 결정 후 콜백을 `PermissionResult` 로 resolve. `canUseTool` 은 권한 평가의 마지막 단계 `[검증]`.
 
 #### ApprovalResolution — 2분기 (4값 모델 폐기)
@@ -136,7 +136,7 @@ type PermissionAction = { kind: string; label: string; input?: unknown; risk?: '
 
 **② 예시.** (a) 사용자가 Bash 인자를 `rm -rf build/` → `rm -rf build/tmp/` 로 고쳐 승인 = `allow{updatedInput}`. (b) "이 세션 동안 Read 는 자동 허용" = `allow{updatedPermissions:[addRules…]}`. (c) "거부하고 에이전트 중단" = `deny{interrupt:true}`.
 
-**③ 현재 코드 갭.** 현행 `AskResult`/`PlanDecision`(`src/shared/ipc.ts`)은 이 2분기의 *도메인 특수형*이다(answered/skipped, approved/rejected/revise). `makeCanUseTool` 이 Claude `PermissionResult` 를 직접 반환하지만 정규 `ApprovalResolution` 추상이 없어 OpenCode 와 공유 불가.
+**③ 현재 구현.** `AskResult`/`PlanDecision`(`src/shared/ipc.ts`)의 answered/skipped, approved/rejected/revise를 공통 승인 경로에서 해석한다. 하네스별 경계는 공통 결정의 allow/deny와 수정 입력을 Claude 콜백 결과 또는 OpenCode permission/question reply로 변환한다.
 
 **④ 인터페이스 (정본).**
 
@@ -151,14 +151,14 @@ type PermissionUpdate =
   | { type: 'setMode'; mode: NormalizedPermissionMode }
 ```
 
-**Provider 별 응답 표현 (OpenCode 연결은 미구현)**:
+**Provider 별 응답 표현**:
 
 | Provider | allow | deny |
 |---|---|---|
 | OpenCode | 일회 허용은 `once`, 영속 허용은 별도 정책을 거친 `always`; 요청 객체와 method는 API 표면별로 다름 | `reject`; 턴 interrupt는 별도 계약 |
 | Claude | `{behavior:'allow', updatedInput, updatedPermissions}` | `{behavior:'deny', message, interrupt}` |
 
-> `updatedInput`·Claude의 `PermissionUpdate`를 OpenCode reply로 그대로 보낼 수 없다. 조용히 버리는 정책을 채택하지 않으며, 입력 수정·규칙 저장·질문 답변은 [migration 연구](../../etc/study/opencode/orca-migration-guide.md)의 별도 검증/제품 결정 대상이다. OpenCode 승인 UI는 아직 활성화하지 않았다.
+> `updatedInput`·Claude의 `PermissionUpdate`를 OpenCode reply로 그대로 보내지 않는다. OpenCode 도구 승인과 질문 UI는 composer를 대체하며, 종류에 관계없이 도착 순서대로 한 장씩 소비한다. 하네스별 응답 변환은 각 adapter가 소유한다.
 
 #### PendingApprovalStateMachine
 
@@ -450,11 +450,11 @@ type ModelProviderConfig =
 
 ## 13. 구현 전 SDK 타입 확정 절차 (`[미확인]` 일괄)
 
-> **현재 근거**: Claude SDK 타입은 저장소의 공식 spec, OpenCode는 설치된 배포 패키지의 `dist/gen`·`dist/v2/gen` 선언과 JS를 참조한다. OpenCode의 실제 서버/모델 상호운용은 미실행이며, 아래 타입 확인과 구별한다. 버전·소스 위치 정본은 [SDK 해설](../../opencode-sdk-spec.md)이다.
+> **현재 근거**: Claude SDK 타입은 저장소의 공식 spec, OpenCode는 설치된 배포 패키지의 `dist/gen`·`dist/v2/gen` 선언과 JS를 참조한다. OpenCode 실제 CLI와 localhost 합성 모델의 native 저장 왕복은 `app/harnesses/opencode/native-storage.integration.test.ts`가 검증한다. 실제 공급자의 과금·모든 기능의 상호운용을 뜻하지는 않는다. 버전·소스 위치 정본은 [SDK 해설](../../opencode-sdk-spec.md)이다.
 
 | 항목 | 확인 위치 | 상태 |
 |---|---|---|
-| OpenCode raw Event·V2Event·Message·Part | 배포 `dist/{gen,v2/gen}/types.gen.d.ts`; [SDK 해설](../../opencode-sdk-spec.md) | `[검증-타입]`; Orca mapper 미구현 |
+| OpenCode raw Event·Message·Part | 배포 `dist/v2/gen/types.gen.d.ts`; [SDK 해설](../../opencode-sdk-spec.md) | 1.x mapper 구현: `adapters/opencode/v1/map.ts` 및 직접 fixture 테스트 |
 | Claude 권한 평가 순서 단일화(hooks/ask/Pre·PostToolUse 포함) | 대상 SDK 버전 permissions 문서 | `[부분 불확실]`(공식 문서 2서술 병존, §3) |
 | Claude usage/cost 노출 형식 (§8) | `result` 메시지 타입 (cost-tracking.md) | `[검증-타입]` 해소 — `total_cost_usd`·`modelUsage{costUSD,inputTokens,outputTokens,cacheReadInputTokens,cacheCreationInputTokens}`·`usage{cache_*_input_tokens}`·`duration_ms`·`num_turns` 로 §8 구현. 런타임 실측값 일치는 GUI 1회 확인 권장 |
 | OpenCode usage/cost 노출 형식 | legacy AssistantMessage/StepFinishPart, native SessionMessageAssistant.tokens/cost·SessionNextStepEnded.data.tokens/cost | `[검증-타입]`; 누적/턴 합산과 실제 금액은 `[미확인-런타임]` |
@@ -469,18 +469,18 @@ type ModelProviderConfig =
 ---
 
 
-## 14. Provider Event Mapping Table (구현 전 골격)
+## 14. Provider Event Mapping Table
 
-현행 Claude 매핑은 [claude-map.ts](../../../app/src/main/adapters/claude/map.ts)가 정본이다. OpenCode는 adapter 미구현이며 아래는 연결 대상의 개요다; 구체적인 원본별 투영·손실·중복 제거는 [migration 연구](../../etc/study/opencode/orca-migration-guide.md)를 따른다.
+현행 매핑은 [Claude map.ts](../../../app/src/main/adapters/claude/map.ts)와 [OpenCode 1.x map.ts](../../../app/src/main/adapters/opencode/v1/map.ts)가 정본이다. 원본 이벤트의 투영과 중복 제거는 각 mapper가 수행하며, 승인·질문 응답과 스트림 수명은 adapter의 turn 경로가 소유한다.
 
 | Provider | 원본 | → NormalizedEvent |
 |---|---|---|
-| OpenCode (미구현) | legacy `event.subscribe()` 또는 native `client.v2.event`/session events | raw envelope를 구분한 뒤 `message.*` / `tool.call.*` / `permission.*` / `session.updated`로 투영 검토 |
+| OpenCode 1.x | `event.subscribe()`의 message/part/session 이벤트 | `message.*` / `tool.call.*` / `permission.*` / `session.updated` / `telemetry`로 투영 |
 | Claude | `query()`/`ClaudeSDKClient` 메시지 | `message.delta` / `message.completed` / `tool.call.*` / `session.updated` / `telemetry` |
 | Claude | `canUseTool` 콜백 | `permission.requested(origin:agent)` 합성 |
 | App | `session.shell`/`command` 등 직접 호출 직전 | `permission.requested(origin:app)` 합성 (§3 AppCommandPolicy) |
 
-> 원본 하나가 여러 normalized 이벤트를 만들 수 있다. snapshot을 delta처럼 append하거나 legacy/native 스트림을 함께 소비해 중복 투영하지 않도록 해야 하며, 실제 구현은 후속이다.
+> 원본 하나가 여러 normalized 이벤트를 만들 수 있다. OpenCode mapper는 part별 반영 위치와 완료 상태를 보관해 반복 snapshot의 텍스트·도구 결과를 중복 투영하지 않는다.
 
 ## 15. Capability Discovery — 런타임 probe + 사전 게이팅
 

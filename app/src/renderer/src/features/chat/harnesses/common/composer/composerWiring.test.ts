@@ -81,7 +81,7 @@ describe('0215 AT-23 — Composer 가 선택 모델 파생값을 메뉴/스토�
     expect(control).toMatch(/model=\{\s*selectedModelShape\(agents, selectedModel\)\s*\}/)
     expect(SOURCE).toContain('const presentation = composerHarness(backend)')
     expect(SOURCE).toMatch(/const \{[^}]*\bModeControl\b[^}]*\} = presentation/)
-    const registry = readFileSync(new URL('../../registries/composer.tsx', import.meta.url), 'utf8')
+    const registry = readFileSync(new URL('../../registries/composer.ts', import.meta.url), 'utf8')
     expect(registry).toContain(
       "import { composerModule as claude } from '../claude/composer/Module'"
     )

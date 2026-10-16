@@ -117,6 +117,7 @@ describe('OpenCode task card to detail host', () => {
     const pill = nodes(dom.body).find((node) => node.tag === 'button')!
     dom.click(pill)
     render()
+    expect(captured.detail).toBeDefined()
     const detail = captured.detail!
     const context = detail.content as ReactElement<{ value: OpenCodePanelNavigation }>
     expect(context.props.value.selection).toEqual({ id: 'subagent', selectedId: 'task-1' })

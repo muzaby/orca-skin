@@ -246,5 +246,3 @@ function PlanApprovalBody(): React.JSX.Element | null {
     </div>
   )
 }
-
-export { ToolApprovalBody } from '../harnesses/registries/composer'

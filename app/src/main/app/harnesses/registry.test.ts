@@ -19,6 +19,53 @@ afterEach(() => {
 })
 
 describe('main harness composition', () => {
+  it('uses each harness context policy through the registered module', () => {
+    const config = { provider: { custom: { models: { small: { limit: { context: 4096 } } } } } }
+    expect(mainHarnessModules.opencode.recoveryContextWindow(config, 'custom/small')).toBe(4096)
+    expect(mainHarnessModules.opencode.recoveryContextWindow(config, 'custom/unknown')).toBe(200000)
+    expect(mainHarnessModules.claude.recoveryContextWindow(config, 'claude-sonnet-4-5')).toBe(
+      200000
+    )
+    expect(mainHarnessModules.claude.recoveryContextWindow(config, 'claude-sonnet-4-5-1m')).toBe(
+      1000000
+    )
+  })
+  it('resolves each registered native loader without mixing harness policies', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'orca-harness-loaders-'))
+    roots.push(root)
+    const source = {
+      permissions: { defaultMode: 'bypassPermissions', allow: ['Read'] },
+      provider: { custom: { models: { native: { name: 'Native model' } } } }
+    }
+    for (const harness of ['claude', 'opencode']) {
+      const dir = join(root, 'sources', 'settings', harness, 'fixture')
+      mkdirSync(dir, { recursive: true })
+      writeFileSync(join(dir, 'settings.json'), JSON.stringify(source))
+    }
+    const service = createHarnessSettingsService(root)
+    const resolve = (harnessId: string): ReturnType<typeof service.resolve> =>
+      service.resolve({ harnessId, modelProviderId: 'fixture', key: `${harnessId}-fixture` })
+    const claude = await resolve('claude')
+    const opencode = await resolve('opencode')
+    expect(claude).toMatchObject({
+      providerKey: 'claude-fixture',
+      provider: 'fixture',
+      settings: { ...source, permissions: { allow: ['Read'] } }
+    })
+    expect(opencode).toMatchObject({
+      providerKey: 'opencode-fixture',
+      provider: 'fixture',
+      settings: source
+    })
+    expect(claude?.settings.permissions).not.toHaveProperty('defaultMode')
+    expect(opencode?.sourceRevision).toContain(join(root, 'sources', 'settings', 'opencode'))
+    expect(await resolve('legacy')).toBeUndefined()
+    expect(await resolve('opencode')).toEqual(opencode)
+    service.invalidateAll()
+    expect(await resolve('claude')).toEqual(claude)
+    expect(await resolve('opencode')).toEqual(opencode)
+  })
+
   it('creates exactly the registered adapters, keeps Claude active, and closes each owner', () => {
     const claude = vi.spyOn(mainHarnessModules.claude, 'createAdapter')
     const opencode = vi.spyOn(mainHarnessModules.opencode, 'createAdapter')

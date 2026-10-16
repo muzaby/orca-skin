@@ -4,7 +4,8 @@ import {
   createOpenCodeAdapter,
   loadOpenCodeProviderSettings,
   parseOpenCodeModels,
-  readUserOpenCodeSettings
+  readUserOpenCodeSettings,
+  openCodeContextWindow
 } from '../../../adapters/opencode'
 import {
   defaultProvider,
@@ -25,5 +26,6 @@ export const openCodeMainModule: MainHarnessModule = {
   parseSettingsModels: parseOpenCodeModels,
   readUserSettings: readUserOpenCodeSettings,
   defaultProvider,
-  resolveTitleModel
+  resolveTitleModel,
+  recoveryContextWindow: openCodeContextWindow
 }

@@ -10,7 +10,7 @@ import {
   MENU_HIDDEN_RIGHT_PANEL_TILES,
   SUSPENDED_RIGHT_PANEL_TILES,
   isRightPanelTileSuspended,
-  RIGHT_PANEL_POLICY,
+  rightPanelPolicy,
   rightPanelTarget,
   rightPanelTileDefinitionsForAgent,
   rightPanelTileIds,
@@ -85,7 +85,7 @@ describe('미확인 완료 배지 (AT-04)', () => {
 
 describe('종류별 우측 패널 정책 (R8)', () => {
   it('Work와 Code가 가시 타일·대상·초기 타일을 각각 완전하게 정의한다', () => {
-    expect(RIGHT_PANEL_POLICY).toMatchObject({
+    expect({ work: rightPanelPolicy('work'), code: rightPanelPolicy('code') }).toMatchObject({
       work: {
         visibleIds: ['task'],
         taskTarget: 'task',

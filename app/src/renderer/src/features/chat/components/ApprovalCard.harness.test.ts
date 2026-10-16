@@ -14,7 +14,10 @@ vi.mock('../../../shared/i18n', async (original) => {
   const module = await original<typeof import('../../../shared/i18n')>()
   return { ...module, useI18n: () => ({ tr: module.i18n.t, locale: 'ko' }) }
 })
-const { ToolApprovalBody } = await import('./ApprovalCard')
+const { ToolApprovalBody: ClaudeApproval } =
+  await import('../harnesses/claude/composer/ToolApproval')
+const { ToolApprovalBody: OpenCodeApproval } =
+  await import('../harnesses/opencode/composer/ToolApproval')
 
 describe('tool approval harness identity', () => {
   it.each(['claude', 'opencode'] as const)(
@@ -22,7 +25,7 @@ describe('tool approval harness identity', () => {
     (backend) => {
       state.backend = backend
       const html = renderToStaticMarkup(
-        createElement(ToolApprovalBody, {
+        createElement(backend === 'claude' ? ClaudeApproval : OpenCodeApproval, {
           approvalId: 'approval-1',
           toolName: 'Read',
           input: { file_path: 'sample.md' }
@@ -39,7 +42,7 @@ describe('tool approval harness identity', () => {
   )
 })
 
-// Stateless dock callbacks are exercised through the production dispatcher.
+// Stateless dock callbacks are exercised through the concrete production body.
 import {
   installFakeDom,
   type FakeDom,
@@ -61,7 +64,7 @@ it.each(['allow', 'session', 'deny'] as const)(
   (action) => {
     state.backend = 'opencode'
     dom.render(
-      createElement(ToolApprovalBody, {
+      createElement(OpenCodeApproval, {
         approvalId: 'request-77',
         toolName: 'Edit',
         input: { file_path: 'sample.md' }

@@ -4,7 +4,11 @@ import { makeClassifiedError } from '../../infra/errors'
 import type { ClassifiedError } from '../../../shared/ipc'
 import type { DbQueries } from '../../infra/db'
 import { loadSession } from '../../features/history/reader'
-import { archivePrompt, recoveryArchive } from '../../features/history/native-recovery'
+import {
+  archivePrompt,
+  recoveryArchive,
+  recoveryFitsContext
+} from '../../features/history/native-recovery'
 
 export interface NativeSessionPreparation {
   nativeSessionId?: string
@@ -17,9 +21,23 @@ export async function prepareNativeSession(
   adapter: Pick<SessionAdapter, 'readHistory' | 'recoverSession'>,
   request: NativeHistoryRequest,
   db: DbQueries,
-  getCwd: (projectId?: string | null) => string
+  getCwd: (projectId?: string | null) => string,
+  input: { text: string; contextWindow: number; extra?: string } = {
+    text: '',
+    contextWindow: 200000
+  }
 ): Promise<{ ok: true; value: NativeSessionPreparation } | { ok: false; error: ClassifiedError }> {
   if (!adapter.readHistory) return { ok: true, value: {} }
+  const overBudget = (history: string): { ok: false; error: ClassifiedError } | undefined =>
+    recoveryFitsContext(history, input.text, input.contextWindow, input.extra)
+      ? undefined
+      : {
+          ok: false,
+          error: makeClassifiedError(
+            'schema_validation_error',
+            '보관 대화와 새 입력이 모델의 안전한 입력 한도를 초과하여 전송을 중단했습니다. 보관 대화는 유지됩니다. 더 큰 컨텍스트 모델을 선택하거나 새 대화에서 시작해 주세요.'
+          )
+        }
   try {
     const recovery = db.nativeHistory?.recovery?.(request.sessionId)
     const nativeId = recovery?.native_id ?? request.sessionId
@@ -27,6 +45,9 @@ export async function prepareNativeSession(
     if (result.status === 'missing' && adapter.recoverSession) {
       const archive = loadSession(db, request.sessionId, getCwd)
       if (!archive) throw new Error('Conversation was removed during recovery')
+      const history = archivePrompt(archive.messages)
+      const blocked = overBudget(history)
+      if (blocked) return blocked
       const before = db.nativeHistory.observe(request.sessionId)
       const created = await adapter.recoverSession({ ...request, sessionId: nativeId })
       db.nativeHistory.prepareRecovery({
@@ -50,7 +71,7 @@ export async function prepareNativeSession(
         ok: true,
         value: {
           nativeSessionId: created.sessionId,
-          recoveryHistory: archivePrompt(archive.messages),
+          recoveryHistory: history,
           recoveryFreshStart: created.freshStart
         }
       }
@@ -67,11 +88,14 @@ export async function prepareNativeSession(
         if (received && recovery.prompt_id)
           db.nativeHistory.acceptRecovery(request.sessionId, recovery.prompt_id)
         else if (result.status === 'ready' && result.snapshot.messages.length === 0) {
+          const history = archivePrompt(recoveryArchive(recovery))
+          const blocked = overBudget(history)
+          if (blocked) return blocked
           return {
             ok: true,
             value: {
               nativeSessionId: nativeId,
-              recoveryHistory: archivePrompt(recoveryArchive(recovery)),
+              recoveryHistory: history,
               recoveryFreshStart: false
             }
           }

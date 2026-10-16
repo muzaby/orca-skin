@@ -75,7 +75,8 @@ describe('send admission uses immutable harness identity', () => {
       f.deps.ctx,
       f.deps.supervisor,
       f.adapters.opencode,
-      expect.objectContaining({ agentKind: 'code' })
+      expect.objectContaining({ agentKind: 'code' }),
+      JSON.stringify({ attachmentTexts: [], attachmentImages: [] })
     )
     expect(f.acquire).toHaveBeenCalledWith(expect.objectContaining({ backend: 'opencode' }))
   })

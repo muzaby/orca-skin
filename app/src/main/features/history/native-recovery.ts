@@ -1,6 +1,20 @@
 import type { LoadedMessage } from '../../../shared/ipc'
 import type { NativeHistoryResult } from '../../adapters/common/native-history'
 import type { NativeRecoveryRow } from '../../infra/db/native-history-queries'
+import { recoveredPrompt } from '../../adapters/common/recovery'
+
+/** Conservative byte upper bound, leaving room for native instructions/tools and output. */
+export function recoveryFitsContext(
+  history: string,
+  text: string,
+  contextWindow: number,
+  extra = ''
+): boolean {
+  const window = Number.isFinite(contextWindow) && contextWindow > 0 ? contextWindow : 200000
+  return (
+    Buffer.byteLength(recoveredPrompt(history, text) + extra, 'utf8') <= Math.floor(window * 0.8)
+  )
+}
 
 /** Native storage still owns current history. The prefix is a sealed, expired generation. */
 export function recoveryArchive(row?: NativeRecoveryRow): LoadedMessage[] {

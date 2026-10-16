@@ -7,7 +7,7 @@
 | slug | `0264-harness-module-isolation` |
 | 작성자 | Codex — 사용자의 직접 리팩토링 요청 |
 | 일자 | 2026-10-15 |
-| 상태 | READY |
+| 상태 | impl/IN_PROGRESS — r2 코드·로컬 게이트 보완, 원격 CI 확인 중. 사람 시각 인수는 별도 |
 | V mode / revision | Baseline V / V1 |
 | 기준 V | 없음 — 0262·0263 제품 동작은 회귀 기준으로 유지 |
 | 매핑 | PR #502 / 하네스 모듈 소유권·재사용·추적 파일 정리 |
@@ -333,3 +333,38 @@ r1 독립 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md).
 | N-0264-2 | 두 하네스 `model-policy.ts` 동일 코드 | D07 | NON_BLOCKING | 의도면 기록 |
 | N-0264-3 | 0264가 만든 파일의 react-refresh 경고 4건 | lint warning | NON_BLOCKING | 후보 |
 | N-0264-4 | plan 메타 `상태`가 READY로 남음 | 상태 사본 | NON_BLOCKING | 다음 턴 갱신 |
+
+## [구현자 기입] 설계 리뷰 — r2
+
+VP11의 누락된 loader 배선은 실제 factory→HarnessSettingsService.resolve→native loader→파일 결과로 검사한다. loader/service를 mock하지 않는다. 새 제품 정책은 없으며 0265의 context 정책 조립은 해당 ΔV3가 소유한다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — r2
+
+`app/harnesses/registry.test.ts:resolves each registered native loader without mixing harness policies`가 Claude/OpenCode 동일 파일 입력에서 각각 bypass 정리/원문 유지 결과·캐시·invalidate 후 재조회와 미등록 harness를 단언한다. 누락 edge1/1 SELF_PASS. 기존 28자리는 `implementation-evidence.md`의 좌표로 관련 main/renderer 회귀에서 재확인했으며 기존 Settings 탭은 사용자 요구로 제거된 현행 범위로 해석한다. 총29자리 중 신규 복구1, 나머지는 기존 직접 좌표의 실행 범위다.
+
+검색: `rg -n 'createHarnessSettingsService|module.loadSettings|ToolApprovalBody|RIGHT_PANEL_POLICY' app/src`. 제거한 중간 approval 라우터를 통한 production 소비는 없었으며 concrete composer Requests와 OpenCode RequestDock가 승인 UI를 직접 소유한다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r2
+
+| 근거 | 변이와 관측 |
+|---|---|
+| D-0264-1 loader 인용 변이 | registry에서 OpenCode loader를 제거 → factory resolve 결과 AssertionError → 복원 뒤 registry8케이스 통과 |
+| 신규 loader 배선 oracle | 위와 같은 변이·관측을 재사용. parser mock으로 loader 결과를 흉내내지 않음 |
+
+선택 증거0 · 인용 변이1 · 새 배선 oracle1 = 표2행(동일 실행 공유). 기존 등록/경계 oracle은 관련 회귀 및 lint로 대조했다.
+
+## [구현자 기입] Product/UX 파생 검토 — r2
+
+미사용 approval 맵과 두 재수출을 제거했다. 하네스 모듈의 Requests/AboveInput을 컴포넌트 파일로 분리하고 JSX 없는 registry/TranscriptRuntime을 .ts로 정리했다. UI 결과와 입력 controller 수명은 유지했다. source-wiring 테스트의 확장자 경로도 함께 바꿨다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r2
+
+N-0264-2의 model-policy는 의도된 하네스 소유 경계다. 현재 동일한 호환 기본 정책이지만 공통 알고리즘은 이미 `modelForPreferredAlias/preferredModelProvider`에 있고 각 wrapper가 정책 선택을 소유하므로 형제 구현을 import해 합치지 않았다. N1 미사용 wrapper 제거, N3 react-refresh4건 제거, N4 상태 메타 정정, N5 현재 문서의 이동 전 경로 정정. 실제 보유한 TanStack compiler 경고2건은 유지한다.
+
+## [구현자 기입] 구현 보고 — r2
+
+이번 재확인 AC1~11: 모두 ✅(chat/engine/landing/main loader·parser/경계/승인/패널/runtime/정리). 검산 ✅11 · ⚠️0 · ❌0 = 11. 현재 설정 탭 제거와 native 복구 정책은 사용자 후속 델타를 따른다. 공통 게이트는 0262 r2 표 참조. 독립 verify를 선점하지 않는다.
+
+## [구현자 기입] Review Signals — r2
+
+첫 verify가 factory loader edge의 실관측 부재를 드러냈다. test-only wrapper는 운영 동작의 증거로 쓰지 않고 제거했다. 같은 정책인 두 wrapper의 교환은 등가 변이이므로 실패를 강제하려고 의미를 바꾸지 않았다.

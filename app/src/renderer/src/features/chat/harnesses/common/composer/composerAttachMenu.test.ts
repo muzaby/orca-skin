@@ -39,7 +39,7 @@ function expectPresentationWiring(): void {
   const composer = sourceAt('../../../components/Composer.tsx')
   expect(composer).toContain('const presentation = composerHarness(backend)')
   expect(composer).toMatch(/<ComposerInputController\b[\s\S]*?presentation=\{presentation\}/)
-  const registry = sourceAt('../../registries/composer.tsx')
+  const registry = sourceAt('../../registries/composer.ts')
   for (const harness of ['claude', 'opencode']) {
     expect(registry).toContain(
       `import { composerModule as ${harness} } from '../${harness}/composer/Module'`

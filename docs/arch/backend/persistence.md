@@ -181,6 +181,7 @@ POP3 Mail Plugin은 Core `orcinus-orca.db`와 분리된 계정별 `mail.db`를 `
 - `features/history/native-projection.ts`가 native 본문에 실제 message/tool ID로 Orca 첨부·도구 메타데이터를 결합하고 frontier 이후 live 행을 붙인다. 매핑이 없는 과거 부가 기록은 말미에 보존하며 안내한다. 원래 messages/parts·사용량·artifact·background journal은 삭제하거나 재발행하지 않는다.
 - 원본 미완료·접근 실패·부재·이관 미완료는 마지막 정상 사본을 유지하고 `nativeSync`로 반환한다. renderer의 보조 조회 실패는 기존 transcript를 유지하며 세션 열기 오류를 띄우지 않는다.
 - 명시 전송에서 원본 부재가 확인되면 하네스별 `recoverSession`으로 복구한다. Claude는 기존 UUID를 fresh `sessionId`로 사용하고 OpenCode는 서버가 발급한 새 native ID를 사용한다. Orca DB key와 관계는 유지하며 이후 원본 조회·실행의 native ID만 교체한다. 접근·인증 실패는 원본 부재로 간주하지 않는다.
+- 복구는 native 생성과 DB binding 변경 전에 입력 예산을 검사한다. 전체 보관 문맥·새 입력·정규화 첨부·추가 지시의 UTF-8 바이트 상한이 컨텍스트 창의 80%를 넘으면 전송을 중단하고 보관 대화를 유지한다. OpenCode는 선택된 설정 모델의 `limit.context`, Claude는 명시 1m 표시를 사용하며 모르는 창은 200k로 보수적으로 처리한다. 미수신 replacement 재시도도 같은 검사를 거친다. 임의 생략·요약은 하지 않는다.
 - `native_session_recovery`는 이전 표시 대화와 local frontier, native ID, 첫 입력의 native message ID·사용자 표시 텍스트·수신 여부를 저장한다. 복구 첫 prompt에만 보관 대화와 새 입력을 함께 전달하고, echo와 원본 재조회는 새 입력만 사용자 버블에 표시한다. 이전 대화는 보관 prefix로 유지하며 기존 native cursor는 폐기한다. 재만료하면 전체 표시 대화를 다시 보관한다.
 - native 생성과 Orca DB 저장은 분산 transaction이 아니다. 생성 후 DB 경합이 발생하면 빈 native 세션이 남을 수 있으나 보관 대화는 보존한다. 첫 prompt 수신 여부는 원본 message ID로 확인하여 재시작 후 동일 문맥을 반복 전송하지 않는다.
 - Orca 대화 제거는 `hidden_at`을 기록해 목록·검색·load·send에서 제외한다. native 세션과 작업 폴더, 보관 행·게시 참조를 보존한다. 늦게 도착한 insert는 숨김을 해제하지 않는다.

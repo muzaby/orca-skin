@@ -83,7 +83,7 @@ new BrowserWindow({
 - `better-sqlite3@^12` raw + prepared statements. 12.x 메이저 = Electron 39 V8 ABI 호환 (11.x 비호환, Windows prebuild 포함). ORM 미도입 — Drizzle 재검토는 Phase 4.
 - **DB 위치** `<userData>/orcinus-orca.db` (`app.getPath('userData')` 단일 출처). 부팅 PRAGMA `journal_mode=WAL` + `foreign_keys=ON`. **dev/prod 데이터 격리**: `import.meta.env.DEV`(정확히 `npm run dev`)면 `index.ts` 가 부팅 전 `userData` 를 sibling `orcinus-orca-dev` 로 리디렉션한다(`devUserDataDir`, `infra/config/paths.ts`) — DB·WAL·마이그레이션 백업·secret-store 가 실제 설치본과 통째로 분리된다. prod 번들에선 dead-code 제거.
 - **마이그레이션** `NNNN_<name>.sql` (4자리 zero-pad). **머지된 마이그레이션 파일은 절대 수정 금지** — 변경은 새 파일로. SQL 은 vite `?raw` 로 main 번들에 인라인. 상태는 `_migrations(name PK, applied_at)` 메타.
-- **하네스 원본이 SSOT.** 세션과 하네스 리소스는 native 경로를 사용하고 Orca DB는 대화 사본·검색·앱 메타데이터를 보관한다. 목록 제거는 `hidden_at`만 기록하며 native 원본·작업 폴더·기존 보관 행을 삭제하지 않는다. 원본 오류 때 DB 전문을 재전송해 새 세션을 만들지 않는다.
+- **하네스 원본이 SSOT.** 세션과 하네스 리소스는 native 경로를 사용하고 Orca DB는 대화 사본·검색·앱 메타데이터를 보관한다. 목록 제거는 `hidden_at`만 기록하며 native 원본·작업 폴더·기존 보관 행을 삭제하지 않는다. 화면 로딩은 자동 복구하지 않는다. 명시 전송에서 확인된 원본 missing만 보관 전체+새 입력으로 복구하며, 안전한 입력 한도 초과 시 전송을 중단하고 보관을 유지한다. unavailable·인증·경로 충돌에는 재생성·재전송하지 않는다.
 - **메모리 캐시**: `chatStore`의 `sessions`는 재열기 중 기존 화면을 유지한다. 캐시 재진입도 IPC로 native 이력을 확인하며 지각 응답·진행 중 실행은 덮어쓰지 않는다. 목록 제거 시 `invalidateSessionCache(id)`로 엔트리를 지운다. 크기 제한 없음 (LRU cap은 Future Scope).
 - 스키마 · FTS5 · WAL 상세 → [`../docs/arch/backend/persistence.md`](../docs/arch/backend/persistence.md).
 

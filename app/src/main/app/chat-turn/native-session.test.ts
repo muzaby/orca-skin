@@ -7,7 +7,12 @@ import { applyMigrations } from '../../infra/db/migrate'
 import { DbQueries } from '../../infra/db/queries'
 import { loadSession } from '../../features/history/reader'
 import { refreshNativeHistory } from '../../features/history/native-sync'
-import { restoreRecoveryResult } from '../../features/history/native-recovery'
+import {
+  restoreRecoveryResult,
+  recoveryFitsContext,
+  archivePrompt
+} from '../../features/history/native-recovery'
+import { recoveredPrompt } from '../../adapters/common/recovery'
 import type { NativeHistoryResult } from '../../adapters/common/native-history'
 import { prepareNativeSession } from './native-session'
 import { HistoryWriter } from '../../features/history/writer'
@@ -78,6 +83,133 @@ beforeEach(() => {
 afterEach(() => db.close())
 
 describe('native retention recovery through the migrated archive', () => {
+  it('uses the selected engine model context limit before creating a replacement', async () => {
+    const adapter = {
+      id: 'opencode' as const,
+      agentSpawnEnv: () => ({}),
+      readHistory: vi.fn(async () => missing),
+      recoverSession: vi.fn(async () => ({ sessionId: 'replacement', freshStart: false }))
+    }
+    const entry = { key: 'opencode-local', harnessId: 'opencode', modelProviderId: 'local' }
+    const ctx = {
+      db: queries,
+      getCwd: cwd,
+      mcp: { resolver: () => () => undefined },
+      harnessSettings: {
+        list: () => [
+          {
+            ...entry,
+            models: [{ model: 'local/large', isDefault: true }, { model: 'local/small' }]
+          }
+        ]
+      },
+      harnessRuntime: {
+        resolve: async () => ({
+          ...entry,
+          runtimeEnv: {},
+          settings: {
+            settings: {
+              provider: {
+                local: {
+                  models: {
+                    large: { limit: { context: 200000 } },
+                    small: { limit: { context: 100 } }
+                  }
+                }
+              }
+            }
+          }
+        })
+      }
+    } as unknown as RouterContext
+    const payload = {
+      sessionId: request.sessionId,
+      text: 'new request',
+      agentKind: 'code',
+      projectId: null,
+      providerKey: entry.key,
+      modelFamily: 'local/small'
+    } as never
+    const supervisor = { hasSession: () => false, peekRuntime: () => undefined } as never
+    expect(await resolveTurn(ctx, supervisor, adapter, payload)).toMatchObject({ ok: false })
+    expect(adapter.recoverSession).not.toHaveBeenCalled()
+    expect(queries.nativeHistory.recovery(request.sessionId)).toBeUndefined()
+    expect(texts()).toEqual(['archivedquestion', 'archivedanswer'])
+    expect(
+      await resolveTurn(ctx, supervisor, adapter, {
+        ...(payload as object),
+        modelFamily: 'local/large'
+      } as never)
+    ).toMatchObject({ ok: true })
+    expect(adapter.recoverSession).toHaveBeenCalledOnce()
+  })
+  it('bounds the complete UTF-8 recovery prompt including new text and attachments', () => {
+    const history = archivePrompt(loadSession(queries, request.sessionId, cwd)!.messages)
+    const text = '한글 입력'
+    const bytes = Buffer.byteLength(recoveredPrompt(history, text))
+    expect(recoveryFitsContext(history, text, bytes / 0.8)).toBe(true)
+    expect(recoveryFitsContext(history, text, (bytes - 1) / 0.8)).toBe(false)
+    expect(recoveryFitsContext(history, text, bytes / 0.8, 'attachment')).toBe(false)
+  })
+
+  it('rejects oversized recovery before creation and preserves the archive and receipt on retry', async () => {
+    const adapter = {
+      readHistory: vi.fn(async (): Promise<NativeHistoryResult> => missing),
+      recoverSession: vi.fn(async () => ({ sessionId: 'replacement', freshStart: false }))
+    }
+    const original = texts()
+    const input = { text: 'new input', contextWindow: 100 }
+    const blocked = await prepareNativeSession(adapter, request, queries, cwd, input)
+    expect(blocked).toMatchObject({
+      ok: false,
+      error: { message: expect.stringContaining('입력 한도') }
+    })
+    expect(adapter.recoverSession).not.toHaveBeenCalled()
+    expect(queries.nativeHistory.recovery(request.sessionId)).toBeUndefined()
+    expect(texts()).toEqual(original)
+    expect(
+      (
+        await prepareNativeSession(adapter, request, queries, cwd, {
+          ...input,
+          contextWindow: 200000
+        })
+      ).ok
+    ).toBe(true)
+    const before = queries.nativeHistory.recovery(request.sessionId)
+    adapter.readHistory.mockResolvedValue(native([]))
+    adapter.recoverSession.mockClear()
+    expect((await prepareNativeSession(adapter, request, queries, cwd, input)).ok).toBe(false)
+    expect(adapter.recoverSession).not.toHaveBeenCalled()
+    expect(queries.nativeHistory.recovery(request.sessionId)).toEqual(before)
+    expect(texts()).toEqual(original)
+  })
+
+  it('passes new input and additional context through resolve before native recovery', async () => {
+    const adapter = {
+      id: 'opencode' as const,
+      agentSpawnEnv: () => ({}),
+      readHistory: vi.fn(async () => missing),
+      recoverSession: vi.fn(async () => ({ sessionId: 'replacement', freshStart: false }))
+    }
+    const ctx = {
+      db: queries,
+      getCwd: cwd,
+      harnessSettings: { list: () => [] },
+      mcp: { resolver: () => () => undefined }
+    } as unknown as RouterContext
+    const payload = {
+      sessionId: request.sessionId,
+      text: 'x'.repeat(80000),
+      agentKind: 'code',
+      projectId: null
+    } as never
+    const supervisor = { hasSession: () => false, peekRuntime: () => undefined } as never
+    expect(await resolveTurn(ctx, supervisor, adapter, payload, 'a'.repeat(80000))).toMatchObject({
+      ok: false
+    })
+    expect(adapter.recoverSession).not.toHaveBeenCalled()
+    expect(texts()).toEqual(['archivedquestion', 'archivedanswer'])
+  })
   it('carries cold-resume recovery through provider resolution while keeping the visible input unchanged', async () => {
     const adapter = {
       id: 'opencode' as const,

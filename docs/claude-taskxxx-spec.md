@@ -301,7 +301,7 @@ SDK 는 `TodoWriteInput`/`TodoWriteOutput` 을 **여전히 정의한다**. 한 �
 |---|---|---|
 | 할 일 목록 파싱 | 관측 → 목록 지시 변환 | `app/src/shared/task-tool.ts` |
 | 목록 파생(fold) | transcript parts 의 순수 fold — main 에 스토어 없음 | `app/src/renderer/src/features/chat/lib/taskBoard.ts` |
-| 구조화 출력 동행 | `tool_result` 블록이 정확히 1개일 때만 귀속 | `app/src/main/adapters/claude-map.ts` |
+| 구조화 출력 동행 | `tool_result` 블록이 정확히 1개일 때만 귀속 | `app/src/main/adapters/claude/map.ts` |
 | background 이벤트 | `task_started`/`task_progress`/`task_notification` → `subagent.task` | 같은 파일 |
 | 중단 수명주기 | `중단 중` → SDK 확정 → 정착 (watchdog 병행) | `app/src/main/features/chat/` |
 

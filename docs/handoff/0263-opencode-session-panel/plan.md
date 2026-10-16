@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex / 2026-10-16 |
-| 상태 | plan/READY — r2 ΔV7 행동 증거 정정. 시각 인수 대기 |
+| 상태 | impl/IN_PROGRESS — r2 코드·로컬 게이트 보완, 원격 CI 확인 중. 사람 시각 인수는 별도 |
 | V mode / revision | Baseline V1 + Delta V2~V7, 기준 `5d2b36a2` |
 | 기준 V | Delta V5는 V1~V4 @ `940bd44edc5625f79b377b885cbe559b1d66fdb6` 상속 |
 | 매핑 | PR #502, 0262 후속 |
@@ -945,11 +945,13 @@ D6-2 ACTIVE: 상세의 폭과 외곽 여백은 부모 작업 패널 값을 공�
 새 자리 8, 선택 mutation not selected(직접 행동 oracle). typecheck·readonly lint·관련 회귀·build와 CUA 수행. 기존 독립 verify 대기 보존.
 
 
-## [구현자 기입] ΔV6 — Task 상세 overlay와 부모 폭 공유
+## [구현자 기입] 설계 리뷰 — ΔV6 (r1 기록 필드 복원)
 
 Task pill은 OpenCode 전용 panelReveal.detail을 통해 작업 패널 위에 상세를 연다. 공통 store는 열기를 전달하고 OpenCode Panel이 상세 상태를 소유한다. Claude의 기존 subagent 타일 경로는 유지한다. 독립 560px 폭을 제거하고 부모 작업 열의 폭/리사이즈를 공유한다. 닫으면 같은 기본 타일·선택·스크롤로 복귀한다.
 
 닫기에서 소비된 detail 요청과 DOM origin도 함께 비운다. 그렇지 않으면 화면 재마운트 때 이미 닫은 상세가 다시 열리므로, `Panel.interaction.test.ts`에서 close→unmount→remount 후 상세 없음까지 확인했다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — ΔV6
 
 | pair / 자리 | 직접 oracle 좌표 / 결과 |
 |---|---|
@@ -960,8 +962,65 @@ Task pill은 OpenCode 전용 panelReveal.detail을 통해 작업 패널 위에 �
 
 전수 검색: `rg -n 'openSubagentTask|OPEN_SUBAGENT_TASK|panelReveal|parentWidth|onWidthChange' app/src/renderer/src/features/chat`. 새 자리 8/8, AC6-1~2 자기확인 2/2. 선택 mutation not selected. UI oracle은 hook/host 경계를 나누어 검사하며 CUA 관측을 자동 테스트가 실행한 DOM 범위로 주장하지 않는다.
 
-### 운영 gate / Review Signals
+## [구현자 기입] 이번 라운드 수정의 잠금 — ΔV6
+
+당시 선택 mutation은 not selected였고 위 직접 oracle을 사용했다. 이 기록은 r1 자기보고이며 verify가 지적한 미관측 자리를 닫았다는 뜻이 아니다. r2 잠금과 재판정은 아래 별도 보고를 따른다.
+
+## [구현자 기입] Product/UX 파생 검토 — ΔV6
+
+Task 클릭은 하단 추가가 아닌 작업 위 overlay다. 외곽 간격의 기존 CUA 관측은 기계 증거로 세지 않으며 ΔV7에서 사람 인수로 분리한다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — ΔV6
+
+verify G-0263-1의 요약 진입·구독 갱신 직접 oracle 및 N-0263-1 부모 1열 사례를 놓쳤다. ΔV7의 실제 컴포넌트 lifecycle 테스트로 보완한다.
+
+## [구현자 기입] 구현 보고 — ΔV6
 
 0262 ΔV20과 같은 변경 집합으로 관련 369파일 회귀·수정된 기대값 별도 재검증·전체 readonly ESLint(오류 0, 기존 경고 6)·typecheck·production build를 수행했다. 2026-10-16 실행 중 Orca의 기존 OpenCode 완료 세션에서 요약→하위 에이전트 목록→닫기, transcript Task pill→상세→리사이즈→닫기를 직접 조작했다. 하단 타일 추가 없이 기존 작업 패널 위에서 전환됐고 transcript 위치가 유지됐다. 임시 캡처/첨부와 사용자 다운로드는 커밋하지 않는다.
 
+## [구현자 기입] Review Signals — ΔV6
+
 기존 store 회귀가 구 subagent 타일 추가를 기대하고 있어 새 overlay 계약으로 교체하되, 명시적으로 연 legacy 타일의 selection 정리와 Claude 경로의 단언은 보존했다. 독립 verify와 이전 사용자 인수 대기는 유지한다.
+
+## [구현자 기입] 설계 리뷰 — ΔV7 r2
+
+요약 진입은 실제 public RightPanel에서 시작한다. React/DOM 및 Zustand React binding만 테스트 환경으로 대체하고 production store 초기화·actions·구독·Context·TilePanel·각 tile 본문은 그대로 실행했다. 실제 geometry를 가장하지 않는다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — ΔV7 r2
+
+| 자리 | `Panel.lifecycle.test.ts` 직접 oracle | 자기결과 |
+|---|---|---|
+| EP16a~d (4) | `opens %s from the summary and closes back to the same overview`: diff/subagent/process/source 실제 클릭→해당 본문 | SELF_PASS |
+| EP17a~c (3) | 같은 네 case의 기존 헤더 닫기1·base tiles 불변·Escape 및 `selects an agent inside the overlay without changing the base selection` | SELF_PASS |
+| EP18a~c (3) | 같은 case의 원래 overview DOM/포커스, 완료 셸 origin 제거 시 변경사항 fallback | SELF_PASS |
+| EP19a~c (3) | `preserves detail state under an artifact and clears it on session change`, `inherits the task column width and restores detail scroll after expansion` | SELF_PASS |
+| EP21b/c (2) | `updates active processes through store subscriptions while preserving the open final log`: 실제 store 갱신→요약2/1/0·열린 최종 로그 보존 | SELF_PASS |
+| 부모 task 1열 (1) | width case의 [300,480]→상세488→키보드 resize→부모1열만 변경→확대/축소/닫기 | SELF_PASS |
+
+검색: `rg -n 'navigation.*open|panelReveal|onWidthChange|parentColumn|activeProcesses' app/src/renderer/src/features/chat/harnesses/opencode/rightpanel app/src/renderer/src/features/chat/store`. VP7-A/S/I 16/16 기계 자리. VP7-V EP20a~e 자동0/사람5자리 SELF_BLOCKED. VP7-R은 기존 Panel.interaction/TilePanel.detail·Task card·menu·store 회귀로 확인했다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — ΔV7 r2
+
+| finding 인용 변이 | 관측 |
+|---|---|
+| M0263-07 부모0열 고정 | 새 width case AssertionError → 복원 통과 |
+| M0263-08 diff→process | 새 summary case AssertionError → 복원 통과 |
+| M0263-09 diff 무동작 | 새 summary case AssertionError → 복원 통과 |
+
+선택 증거0 · 이번 닫은 finding 인용3 · 새 구조 proxy0 = 표3행. 직접 interaction oracle이며 컴파일/런타임 오류를 red로 세지 않았다. 기존 M01~06 회귀 관측은 공통 게이트 표에 별도 기록한다.
+
+## [구현자 기입] Product/UX 파생 검토 — ΔV7 r2
+
+base/상세/artifact가 겹치는 동안 부모 상태·본문 DOM·스크롤이 유지됨을 확인했다. 완료 셸은 요약에서 빠져도 이미 열린 로그는 남는다. 닫힌 버튼이 사라지면 변경사항으로 포커스를 돌린다. 실제 border/hover 간격·두 테마 미관은 사람 인수 대기다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — ΔV7 r2
+
+G-0263-1의 자동 증거 공백은 보완했고 N-0263-1 부모 열 선택을 잠갔다. N-0263-2 메타는 ΔV7까지 갱신했다. D-0263-1의 ΔV6 보고도 7필드로 복원했다. 시각 인수는 closed로 표현하지 않는다.
+
+## [구현자 기입] 구현 보고 — ΔV7 r2
+
+AC6-1 ✅ 실제 Task/요약/닫기 경로. AC6-2 ⚠️ 부모 열·폭·resize·복귀 동작 통과, 외곽 간격 사람 인수 대기. 검산 ✅1 · ⚠️1 · ❌0 = 이번 재확인2. 이전 AC12/13 사람 시각 인수도 유지한다. 공통 게이트는 0262의 r2 공통 게이트 표 참조.
+
+## [구현자 기입] Review Signals — ΔV7 r2
+
+이전 CUA 관측을 자동 자리로 세었던 공백을 실제 배선 테스트로 보완했다. primitive mock만으로는 외부 store 구독과 Context 전달을 검사하지 못하므로 shared fixture에 그 React 의미를 추가했다. 확장된 fixture는 관련 renderer 회귀로 대조했다. 독립 검증은 별도다.
