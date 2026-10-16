@@ -22,7 +22,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [`0265-harness-native-storage`](0265-harness-native-storage/plan.md) | impl | **IMPL_DONE** | **Claude** | (r1 ΔV2 구현 — 검증자 기입) | 1 | lazy 실패 보관 유지·원본 만료 복구·native binding/영수증 영속. ΔV2 AC4/4·자리16/16 자기확인, 임시 DB 재시작 검증. 독립 verify 대기. |
+| [`0265-harness-native-storage`](0265-harness-native-storage/plan.md) | verify | **RETURN_TO_PLAN** | **Claude** | `8dcf8ee3`(V1 설계) · `4dc81c8f`(r1) · `0aecaa8d`(ΔV1 설계) · `bb6ce719`(r1.2) · `350281c7`(ΔV2 설계) · `655fa0e0`(ΔV2 구현) | 2 | **r1 검증 = RETURN_TO_PLAN** — 원문 [`verify.md`](0265-harness-native-storage/verify.md). PLAN_GAP 2(복구 prompt 상한 부재·D02/AC5와 D14/D15 모순) + BLOCKING 2(Windows PR CI #773~#779의 Claude native-history 3케이스 red·ΔV2 구현자 기입 필드 접힘).<br>설계 정정 커밋 후 구현자 r2. |
 | [`0264-harness-module-isolation`](0264-harness-module-isolation/plan.md) | verify | **FAIL** | **Codex** | `b8b7c30e`(V1 설계) · `2b548cf0`·`c43bf948`(r1) · `940bd44e`(기록) | 2 | **r1 검증 = FAIL** — 원문 [`verify.md`](0264-harness-module-isolation/verify.md). VP11 PAIR_FAIL: `createHarnessSettingsService` loader 주입에 oracle 없음(OpenCode loader 제거 변이가 main 4,051케이스 green).<br>등록 변이 6/6 red · 경계 lint 실소스 7/7 · CI #765·#766 success. 다음 r2는 HEAD에서 oracle 추가. |
 | [`0263-opencode-session-panel`](0263-opencode-session-panel/plan.md) | impl | **IMPL_DONE** | **Claude** | (r1 ΔV6 구현 — 검증자 기입) | 1 | Task 상세 overlay·부모 폭 공유·닫기 요청 소비. ΔV6 AC2/2·자리8/8 자기확인, CUA 및 회귀 완료. 독립 verify 대기. |
 | [`0262-opencode-harness`](0262-opencode-harness/plan.md) | impl | **IMPL_DONE** | **Claude** | (r1 ΔV20 구현 — 검증자 기입) | 1 | 즉시 abort→새 입력·마지막 step 도넛·컨트롤 통일. ΔV20 AC3/3·자리14/14 자기확인, 관련 회귀·빌드·CUA 완료. 독립 verify 대기. |
