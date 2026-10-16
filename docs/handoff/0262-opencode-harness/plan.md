@@ -8,10 +8,10 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | impl/IMPL_DONE — ΔV14 native 시스템 피드·지속 수신 구현. 추가 AC35~38 자기확인4/4; 기존33/34·AC11 사용자 인수와 독립 verify 대기 보존 |
-| V mode | Delta V — 기준 V1 + ΔV1~14 (각 델타의 대체 범위 적용) |
+| 상태 | plan/DRAFT — ΔV15 native 저장 경로·기존 격리 세션 전환 설계. 이관 리소스와 중간 실패 복구의 기술 gap 미해소. ΔV14 구현 보고·기존 AC11 인수·독립 verify 대기 보존 |
+| V mode | Delta V — 기준 V1 + ΔV1~14 + ΔV15 초안 (각 델타의 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
-| 이번 V revision / 유효 V | ΔV14 / V1 + ΔV1~14. 첫 idle의 채널 종료만 지속 수신으로 대체하며 앞선 입력·UI 계약은 유지 |
+| 이번 V revision / 유효 V | ΔV15 초안 / V1 + ΔV1~14의 비대체 계약을 유지. 전용 XDG·DB history SSOT·기존 세션 전환 비범위는 D-029~032로 대체하며 구현 착수 전 READY 필요 |
 
 # Part I — Product & UX Contract
 
@@ -32,6 +32,7 @@ Orca는 Claude만 실행하고 composer·모델·패널이 그 기능을 전제�
 | 추론 의도 | 선택 전후 초안·첨부 보존, 지원하지 않는 제어 숨김 | 제자리 전환과 지원 패널 구분에서 도출 |
 | 명시 변경 | OpenCode 사용자 메시지 버블의 배경·글자색을 Claude와 동일하게 변경 | 2026-10-15 추가 사용자 요구, ΔV8 |
 | 명시 추가 | 질문·도구 승인은 composer를 대체하며 종류 무관 도착 순서로 현재 한 장만 표시. 실행 desktop을 직접 조작하여 transcript와 Todo 펼침/접힘·완료 후 퇴장을 반영 | 2026-10-15 현재 사용자 요구, ΔV11~13 |
+| 명시 변경 | 하네스 원본 저장 경로에서 세션·리소스를 관리하고 Orca 모델 설정 오버라이드는 유지. 터미널 추가 대화는 Orca 재열기에 반영하며 Orca 목록 제거는 native 원본·작업 폴더를 보존 | 2026-10-16 추가 요구·범위/삭제/재열기 답변. 공통 정책은 0265·ADR-009, OpenCode 경로·전환은 ΔV15 |
 
 패널 범주화 요구 중 타이틀 메뉴에 검토·세션·작업 그룹명을 표시하던 부분은 [0263 ΔV3](../0263-opencode-session-panel/plan.md)의 평면 메뉴와 `작업` 타일 계약으로 대체한다. 하네스별 지원 패널 필터는 유지하며, 메뉴·패널 상호작용의 규범 정본은 0263이다.
 
@@ -106,7 +107,9 @@ Orca는 Claude만 실행하고 composer·모델·패널이 그 기능을 전제�
 
 범위: 서버 lifecycle, SDK 실행·카탈로그·승인, 하네스 선택/잠금, OpenCode composer/transcript/지원 패널, 엔진 CRUD, 하네스 설정, 관련 문서와 테스트.
 
-비범위: 사용자 OpenCode 앱의 세션 이관, OpenCode 앱 자체 수정, Work 지원, 미지원 Claude 전용 background 제어의 가짜 구현, 자동 업데이트/CLI 다운로드. CLI는 설치된 실행 파일을 사용하고 설정에서 경로를 지정할 수 있다.
+비범위: OpenCode 앱 자체 수정, Work 지원, 미지원 Claude 전용 background 제어의 가짜 구현, 자동 업데이트/CLI 다운로드. CLI는 설치된 실행 파일을 사용하고 설정에서 경로를 지정할 수 있다.
+
+V1의 “사용자 OpenCode 앱의 세션 이관” 비범위는 ΔV15 D-031의 기존 Orca 격리 세션 전환과 0265의 알려진 native 세션 재열기 범위에 한해 SUPERSEDED다. 전역 native 세션 자동 발견 UI는 이번 범위가 아니다.
 
 ## 7. Requirements / Acceptance — R ↔ AT
 
@@ -183,7 +186,7 @@ AS-IS: ModelMenu → chat state → IPC → 전역 Claude adapter → 공통 his
 
 TO-BE: 하네스 capability 정본 → ModelMenu·kind·패널 정책. Draft backend를 IPC로 전달하고 기존 세션은 DB backend로 선택한다. OpenCode adapter는 주입된 Chromium fetch를 쓰는 `/v2/client`의 legacy 호환 API로 호출하고 typed `Event`를 공통 이벤트로 변환한다. `/v2` import와 native `/api` 표면을 혼용하지 않는다.
 
-서버는 adapter 소유 풀에서 구성 fingerprint별 lazy spawn, loopback 임의 포트와 개별 인증 암호를 사용한다. 기존 OpenCode 앱 서버와 포트를 공유하지 않는다. Orca 전용 데이터 경로를 사용해 backend session ID가 재시작 후 재사용 가능하게 한다. 전송·이력은 같은 OpenCode session ID로 Orca DB에 저장한다.
+서버는 adapter 소유 풀에서 구성 fingerprint별 lazy spawn, loopback 임의 포트와 개별 인증 암호를 사용한다. 기존 OpenCode 앱 서버와 포트를 공유하지 않는다. V1의 “Orca 전용 데이터 경로”는 ΔV15 D-029로 SUPERSEDED이며 새 계약은 native 기본 경로와 사용자 지정 native 환경을 따른다. 전송·이력은 같은 OpenCode session ID로 Orca DB에도 보관하지만 원본 권위는 [ADR-009](../../decisions/009-harness-native-storage-authority.md)를 따른다.
 
 | 축 | AS-IS | TO-BE | 연결 |
 |---|---|---|---|
@@ -244,7 +247,7 @@ OpenCode 실행 파일 경로와 native JSON config를 별도로 노출한다. m
 
 ## 16. 기존 결정·규칙
 
-하향 DAG, Chromium fetch 주입, DB history SSOT, 두 테마 토큰, 한국어 UI, append-only migration을 유지한다. OQ7/OQ10은 이번 사용자 답변으로 닫는다. 신규 패키지 없음. 0214 연구의 native API 권고는 미검증 권고이므로 호환 API 채택과 그 의미 차이를 명시했다.
+하향 DAG, Chromium fetch 주입, 두 테마 토큰, 한국어 UI, append-only migration을 유지한다. V1의 “DB history SSOT”는 ΔV15 D-029·0265·ADR-009로 SUPERSEDED이며 Orca DB 보관은 유지한다. OQ7/OQ10은 당시 사용자 답변으로 닫았고 신규 패키지 없음, 0214 native API 권고와 호환 API 채택의 구분은 유지한다.
 
 ## 17. 리스크 / 트레이드오프
 
@@ -2152,3 +2155,125 @@ warm HTTP 응답보다 SSE가 빠른 경우 accepted echo를 먼저 배달하도
 ### 7. Review Signals
 
 이번은 native 수신 수명 요구의 ΔV14 구현이다. 재사용 작업 identity 충돌은 기존 terminalEvidence 불변식과의 접점에서 발견해 설계로 되먹였고, HTTP 실패의 runtime 중복 방어는 직접 변이로 구별했다. `.tmp/opencode-dev`·사용자 첨부·설치 SDK/CLI를 변경하거나 커밋하지 않았으며 독립 verify와 기존 AC11 인수 대기를 유지한다.
+
+# ΔV15 — OpenCode native 저장 경로와 기존 격리 세션 전환 (DRAFT)
+
+## Part I — Product & UX Contract
+
+### 목표·근거·소유권
+
+Orca에서 만든 OpenCode 세션을 동일한 작업 디렉터리의 일반 `opencode -s <native ID>`로 이어간다. native 저장소를 원본으로 사용하고 Orca DB에는 표시·검색·앱 메타데이터를 위한 대화 사본을 보관한다. 모델 등 Orca 실행 오버라이드는 엔진&모델 페이지에서 계속 제공한다.
+
+사용자 원문: “대화내용 저장은 우리 db에 하고 있지만, opencode를 포함하여 claude, 후에 추가될 하네스에 대해서도 ssot는 그들의 작업경로이다. 다른 리소스도 똑같다.” 후속 답변에서 native 기본 저장 경로와 Orca 모델 설정 오버라이드를 구분했고, 목록 제거 시 원본·작업 폴더 보존 및 터미널 추가 대화의 Orca 재열기 반영을 확정했다.
+
+공통 원본/보관 계약·Claude 경로·목록 제거·외부 추가 이력 재수입은 [0265 V1](../0265-harness-native-storage/plan.md)과 [ADR-009](../../decisions/009-harness-native-storage-authority.md)가 소유한다. 이 델타는 OpenCode 1.x 프로세스의 native 저장 환경, 기존 격리 저장소 전환, 동일 native ID/cwd의 CLI 재개를 소유한다. 전역 native 세션 자동 발견 UI나 OpenCode 2.x 지원은 추가하지 않는다.
+
+### Decision Ledger 추가·대체
+
+| ID | 결정 / 조건 | 상태 / 출처 | 대체·연계 |
+|---|---|---|---|
+| D-029 | 세션·하네스 소유 리소스는 native 기본 경로와 사용자가 지정한 native 환경을 원본으로 사용. Orca가 별도 XDG·DB 루트를 자동 주입하지 않음 | ACTIVE / 사용자 SSOT 요구·범위 명확화 | V1 §9 전용 데이터 경로·§16 DB history SSOT를 SUPERSEDED. 0265 D01/02·ADR-009 |
+| D-030 | Orca 엔진&모델 설정은 실행 오버라이드로 유지하고 native 설정 파일을 자동 덮어쓰지 않음 | ACTIVE / 사용자 명확화 | D-008/010 유지. 저장 경로 공유를 이유로 engine CRUD·provider config를 제거하지 않음 |
+| D-031 | 기존 Orca 격리 세션은 native ID·실제 cwd·관련 리소스를 보존하는 전환 대상. 원본 삭제·충돌한 native 데이터 덮어쓰기·DB 전문 재전송으로 새 세션 생성 금지 | ACTIVE / 기존 세션 이어가기 요구의 무손상 조건 | V1 세션 이관 비범위를 해당 기존 세션에 한해 SUPERSEDED. 미완료 전환은 성공으로 숨기지 않음 |
+| D-032 | Orca 목록 제거는 native 세션·작업 폴더를 보존하고, 알려진 세션은 터미널 추가 대화를 Orca 재열기에 반영 | ACTIVE / 사용자 후속 답변 | 공통 동작·AC·재수입 정본은 0265. 본 델타는 OpenCode native 조회·전환 경계를 제공 |
+
+갱신 대조: D-029↔AC39, D-030↔AC40, D-031↔AC41/42. D-032는 0265의 목록 제거·재열기 AC로 추적하며 이 문서에 별도 UI 정책을 복제하지 않는다. D-005의 소유 서버 자동 관리, D-015~017의 1.x·모듈 경계, D-025~028의 자동 피드·지속 채널은 유지한다.
+
+### 흐름과 상태
+
+| 시작 / 상태 | 사용자가 받는 결과 |
+|---|---|
+| 새 OpenCode 대화 | native 경로에 세션 생성, Orca에도 보관. 일반 CLI가 같은 ID와 실제 cwd로 재개 가능 |
+| Orca 모델 설정 변경 | 다음 실행에 오버라이드 적용. native 세션 원본 위치·ID는 유지 |
+| 기존 Orca 격리 세션 재개 | 원본 확인→전환 검증→native 경로 사용. 검증 완료 전 구격리 원본을 삭제하거나 성공 표시하지 않음 |
+| native 대상 ID 충돌 / 실제 cwd 소실 | 대상 원본 보존, 전환 미완료 원인 표시. 임의 다른 cwd나 새 ID로 대체하지 않음 |
+| 연결 실패 / 권한 오류 / 일부 리소스 누락 | 원본 부재와 접근 실패를 구분하고 보관 기록 유지. 입력 자동 재전송 없이 재시도 가능 |
+| 전환 도중 종료·재시작 / 외부 실행과 경합 | 완료된 범위와 남은 범위를 다시 확인. 실행 중인 세션·리소스를 덮어쓰지 않음 |
+| 터미널에서 추가 대화 후 Orca 재열기 | 0265의 native 재수입 경로로 표시 갱신. 이 경로의 읽기는 모델 호출을 발생시키지 않음 |
+
+### Acceptance 초안
+
+| R / AT / AC | 관측 가능한 결과 | 검증 경로 / 직접 oracle 설계 |
+|---|---|---|
+| R-39 / AT-39 / AC39 NEW | 새 OpenCode 세션이 native 저장 경로에서 같은 ID/cwd로 CLI 재개된다. 사용자 지정 XDG·OPENCODE_DB도 native 규칙대로 적용 | Orca registry→server→SDK create→독립 CLI session 조회/재개. 신규 `opencode-native-storage.integration.test.ts: resumes the Orca-created session from native CLI roots`의 실제 CLI fixture |
+| R-40 / AT-40 / AC40 NEW | native global/project 설정을 유지하면서 Orca 엔진 모델 오버라이드가 실제 실행에 적용된다. native 설정 파일은 Orca 저장/시작 때문에 덮어써지지 않는다 | engine/runtime→adapter config/env→native 서버 effective config·선택 모델·설정 파일 전후 비교. 같은 신규 integration의 `keeps engine overrides without redirecting native storage` |
+| R-41 / AT-41 / AC41 NEW | 기존 격리 세션 전환 후 native ID·실제 cwd·부모/자식 관계·대화·참조 리소스를 다시 읽고 이어갈 수 있다. 구격리 원본은 보존한다 | 구격리 fixture→전환→native API/CLI 조회·리소스 사용. 신규 `legacy-storage-migration.integration.test.ts: preserves session identity, workdir and referenced resources` |
+| R-42 / AT-42 / AC42 NEW | 대상 충돌·접근 오류·리소스 누락·중간 종료·재실행에서 native 대상과 구격리 원본을 훼손하지 않고 미완료를 구분한다 | 같은 신규 migration integration의 충돌·중간 실패 fixture와 실제 source/target 전후 비교. prompt 호출 없이 복구 상태 관측 |
+
+새 AC39~42는 아직 구현·검증하지 않은 초안이다. ΔV14의 누적37/38 자기보고와 기존 AC11 사람 인수 대기를 승계하되 새 AC를 그 실적으로 합산하지 않는다.
+
+## Part II — Technical Design 조사
+
+### 기준선과 확인한 사실
+
+기준은 V1+ΔV1~14, 공유 커밋 `7c1b8bac11895d4b9388fbe9e2a979cf7d35af61`이며 `git cat-file -t` 결과는 commit이다. 사용자 결정 변경으로 생긴 같은 라운드의 설계 델타이며 이전 구현 보고를 FAIL로 재분류하지 않는다. 1.19.0 pinned 소스와 실제 설치 CLI의 도움말을 대조했고 사용자 DB·실행 세션·모델은 조작하지 않았다.
+
+| 조사 대상 / 검색 | 확인 결과 / 설계 영향 |
+|---|---|
+| `bootstrap.ts:153`→`app/harnesses/opencode/module.ts:20`→`v1/server.ts:134–150`; `rg 'XDG_|dataDirectory'` | userData/opencode를 서버 cwd로 지정하고 XDG data/config/state/cache를 강제로 변경. 원인 경계는 저장 환경이며 서버 소유권과 별개 |
+| `v1/channel.ts:172–188`→`features/history/writer.ts:299–320`; `rg 'session.updated|session.create'` | native create의 ID를 Orca 세션 ID로 보관. `directory:req.cwd`도 이미 전달하므로 ID 변환이 원인이 아님 |
+| [1.19 global.ts](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/core/src/global.ts)·[database.ts](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/core/src/database/database.ts) | xdg-basedir 루트 아래 opencode 경로 사용. OPENCODE_DB가 우선하며 배포 channel별 DB 이름도 있으므로 기본 DB 파일명을 독자적으로 고정하지 않음 |
+| [1.19 config.ts](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/opencode/src/config/config.ts) | native global/project 설정 이후 OPENCODE_CONFIG_CONTENT를 병합. 저장 루트 상속과 Orca 실행 오버라이드 유지가 양립 |
+| 실제 CLI `--version`, `--help`, `import --help`, `export --help` | 1.19.0, `-s/--session`, export/import 지원. 실제 세션 이관·모델 응답까지 검증한 것은 아님 |
+| [1.19 import.ts](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/opencode/src/cli/cmd/import.ts)·[export.ts](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/opencode/src/cli/cmd/export.ts) | export는 info/messages. import는 실행 cwd의 projectID/directory/path로 다시 쓰고 동일 ID의 해당 필드를 갱신하며 message/part 충돌은 건너뜀. 무검사 반복 import는 안전한 병합이 아님 |
+| [1.19 snapshot/index.ts](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/opencode/src/snapshot/index.ts)·[session.ts](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/opencode/src/session/session.ts) | snapshot Git 저장소는 data/snapshot/projectID/worktree hash에 별도 존재. parent의 children 조회는 별도이며 parent JSON만으로 자식·외부 파일·todo/permission/state·event journal 보존을 증명할 수 없음 |
+| 설치 SDK `dist/v2/gen/types.gen.d.ts`의 SessionCreate/Get/Messages·SyncReplay | create는 ID 지정 입력 없음. get/messages/children 조회는 가능하지만 표준 session import/export API 없음. sync.replay는 event journal 계약으로 JSON export의 대체 API가 아님 |
+
+### AS-IS → TO-BE
+
+| 축 | AS-IS | TO-BE / 소유 |
+|---|---|---|
+| 저장 환경 | userData/opencode 하위 XDG 강제 주입 | native 사용자 환경 계승. 경로 해석·환경 seam은 `adapters/opencode/v1` 소유 |
+| 서버 수명 | 구성 fingerprint별 소유 child·인증·loopback | 동일 정책 유지. 다른 사용자 프로세스에 연결·종료하지 않음 |
+| 실행 설정 | Orca config를 OPENCODE_CONFIG_CONTENT로 주입 | native 설정 위의 오버라이드 유지. 엔진 편집 저장은 기존 Orca 경로 유지 |
+| 신규 세션 | 실제 cwd의 native ID가 격리 DB와 Orca DB에 저장 | 같은 cwd/ID가 native 기본 저장소와 Orca 보관 DB에 존재 |
+| 기존 세션 | native ID가 구격리 DB에만 있을 수 있음 | 검증된 세션·리소스 전환 후 native 경로 사용. 이전 원본과 충돌 대상 보존 |
+| 외부 이력·제거 | Orca DB 조회/제거가 중심 | 0265의 native 재수입·목록 제거 계약에 v1 조회/전환 구현 제공 |
+
+공통 서비스에 OpenCode 파일 형식·SDK 타입을 노출하지 않는다. `app/harnesses`가 v1 구현과 0265의 중립 저장/이력 포트를 조립하고, 하위 공통 계약은 구체 하네스를 import하지 않는다. 서버 시작 cwd의 선택, native root identity를 포함한 풀 키, catalog/complete/send 전체 호출부는 아래 gap을 닫은 뒤 확정한다.
+
+### 무손상 전환 계약과 쓰기 경계
+
+전환 대상은 Orca가 이미 알고 있는 구격리 native 세션과 그 참조 리소스다. 동일 native ID가 대상에 있으면 내용을 무검사로 합치거나 경로를 재지정하지 않으며, source→target→Orca 보관 상태는 원자적 단일 쓰기가 아님을 전제로 설계한다. native 읽기/내보내기는 모델 prompt로 대체하지 않는다.
+
+| 쓰기 또는 실패 경계 | 필요한 결과 / 아직 정할 기술 사항 |
+|---|---|
+| source 조회·스냅샷 수집 | source 불변, 실행 중 변경 판정 필요. 세션과 resource manifest를 같은 시점으로 고정하는 방법 미확정 |
+| target 세션/메시지 쓰기 전 | ID·cwd·project·기존 데이터 충돌 확인. CLI import의 경로 재작성과 native 쓰기 경쟁을 차단하는 방식 미확정 |
+| 세션 쓰기 후 리소스 복사 전 | 불완전 세션을 완료로 승격하지 않음. 별도 리소스 목록·의존 순서·임시 위치·원자적 완료 표식 미확정 |
+| 리소스 일부 성공 뒤 종료 | source와 기존 target 보존. 재실행 시 이미 쓴 범위의 검증·중복 방지·정리 소유권 미확정 |
+| native 검증 후 Orca 전환 표식 쓰기 전 | native 성공과 Orca 미완료를 구분. 검증 재실행으로 복구하며 새 session ID나 본문 재전송 금지 |
+
+### Delta V 초안과 직접 검증 설계
+
+| 노드 / pair | 필요도 / 경로 | 직접 oracle / 현재 상태 |
+|---|---|---|
+| R39↔AT39 / VP-Δ15-01 NEW | REQUIRED / registry→server env→native create→독립 CLI 조회/재개 | AC39 신규 integration. 기본·custom XDG·OPENCODE_DB·재시작 fixture; 미구현 |
+| R40↔AT40 / VP-Δ15-02 NEW | REQUIRED / engine settings→native config→실행 모델 | AC40 신규 integration의 설정 파일 전후값·effective config; 미구현 |
+| R41↔AT41 / VP-Δ15-03 NEW | REQUIRED / legacy 세션/자식/리소스→전환→native 재개 | AC41 신규 migration integration; resource manifest gap으로 미확정 |
+| R42↔AT42 / VP-Δ15-04 NEW | REQUIRED / 충돌·오류·종료→재시작/재시도 | AC42 신규 migration integration; 부분 완료 프로토콜 gap으로 미확정 |
+| SD-Δ15-01↔ST-Δ15-01 / VP-Δ15-05 NEW | REQUIRED / 기존·신규 세션→종료→native CLI 재개→Orca 재열기 | 두 integration + 0265 재수입 integration을 연결. 외부 추가 메시지가 중복 없이 표시되는 끝점은 0265 소유 |
+| AR-Δ15-01↔IT-Δ15-01 / VP-Δ15-06 NEW | REQUIRED / composition root→native storage port→v1 process·migration | 실제 registry·adapter·CLI fixture, DB/IPC 경계만 대역 허용. 새 포트와 각 edge 미확정 |
+| MD-Δ15-01↔UT-Δ15-01 / VP-Δ15-07 NEW | REQUIRED / 환경 입력→native roots/override 분리 | 신규 `native-storage.test.ts: preserves inherited native roots and separates runtime overrides`; 순수 seam 미구현 |
+| MD-Δ15-02↔UT-Δ15-02 / VP-Δ15-08 NEW | REQUIRED / source/target identity·manifest→전환 판정 | 신규 `legacy-storage-migration.test.ts: rejects conflicting identities and resumes only verified stages`; 상태 모델 gap으로 미확정 |
+| V1 VP-04/08/09·ΔV14 지속 채널 INHERITED | REGRESSION / server 소유권·엔진 설정·prompt/승인·지속 수신 | 기존 server.test의 `isolates server configurations and only kills children returned by its spawn factory`, adapter.persistent·catalog·settings·opencode-continuation 회귀 |
+| V1 전용 XDG 강제 assertion CHANGED | REQUIRED / 기존 server.test의 startup env 결과 | `coalesces concurrent startup and passes isolated configuration, auth and preferences to its owned child` 중 전용 XDG assertion을 native 계승·override 직접 oracle로 대체. 인증·동시 시작·소유 child 검사는 유지 |
+
+### §10 강제 지점 후보와 READY 전 기술 gap
+
+| 지점 후보 | 계약을 운반하는 edge / 직접 oracle | 닫아야 할 gap |
+|---|---|---|
+| EP42a~c | bootstrap/harness module→v1 server options→spawn env/cwd. AC39/40 실제 CLI integration | catalog·complete·send에서 동일 native root를 사용하는 풀 identity와 cwd 정책 확정 |
+| EP43a~e | legacy source 조회→target 충돌 판정→native 쓰기→리소스 전달→전환 완료 표식. AC41/42 migration integration | 누락 리소스 전수 inventory, 각 writer 실패/경합·재시작 상태 모델과 native 검증 방법 확정 |
+| EP44a~b | v1 native session/message 조회→0265 중립 이력 포트→Orca 재열기. 0265 재수입 integration | 외부 추가/수정 이력과 live SSE 동시성·native message identity 보존 계약을 0265와 연결 |
+| EP45a~b | plan 메타/ΔV15↔INDEX 상태, 0265/ADR-009 소유권 | 설계 완료 시 상태 사본 재조회·링크 검사·설계 trailer 파싱 |
+
+위 표는 후보 자리이며 강제 지점 전수 분모 확정이나 SELF_PASS가 아니다. READY 전 source와 target의 실제 1.19 fixture로 export/import 보존 범위를 재현하고 snapshot·잘린 출력·todo·승인·자식·event journal 등 하네스 소유 리소스의 처리를 각각 분류해야 한다. export JSON만으로 모든 리소스가 이전된다는 가정, native DB 통째 덮어쓰기, 실패 시 기존 이력 삭제는 허용하지 않는다.
+
+설계 gate 미충족: 자원별 이관 방식·동시 쓰기/중간 종료 복구·구체 포트/시그니처·자리별 직접 oracle의 실행 경계가 미확정이다. 제품 결정은 확정됐으므로 이 기술 문제를 사용자 승인 대기로 넘기지 않고 조사·설계로 닫는다. 따라서 현재 상태는 DRAFT이며 0265와 함께 READY가 되기 전 코드 구현이나 사용자 데이터 이관을 시작하지 않는다.
+
+### 운영 gate와 현재 검토 결과
+
+이번 산출은 문서 설계만으로 코드·native DB·사용자 세션을 변경하지 않는다. 문서 링크·현재 Decision/AC/대체 문장·INDEX 상태 일치와 `git diff --check`를 확인하며, 구현 시에는 app 가이드의 ABI 중립 typecheck·readonly lint·관련 비DB 회귀·실제 CLI 임시 fixture를 사용한다. native DB 파일을 검증할 때는 사용자 DB 대신 격리 fixture를 사용하고 라이브 모델 호출 없이 조회·재개 경계를 먼저 잠근다.
+
+현재 Decision↔AC 대조 결과는 D-029→AC39, D-030→AC40, D-031→AC41/42, D-032→0265이며 명시 정책의 충돌은 없다. 기존 전용 경로·DB SSOT·세션 이관 비범위 문장에는 대체 관계를 적었고 과거 구현 보고는 보존했다. 완전 이관을 입증할 수 없는 기술 gap 때문에 READY·구현 완료·검증 통과를 주장하지 않는다.
