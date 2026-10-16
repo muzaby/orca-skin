@@ -8,7 +8,7 @@
 // 전체를 요구해 electron 을 물지만, 이 pair 가 잠그는 것은 row → `LoadedSession.worktree`
 // 매핑이다.
 
-import Database from 'better-sqlite3'
+import type Database from 'better-sqlite3'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -19,6 +19,7 @@ vi.mock('electron', () => ({
 }))
 
 import { applyMigrations } from '../../infra/db/migrate'
+import { openFileDatabase } from '../../infra/db/file-database'
 import { DbQueries } from '../../infra/db/queries'
 
 const dirs: string[] = []
@@ -30,9 +31,8 @@ afterEach(async () => {
 })
 
 function open(file: string): { db: Database.Database; q: DbQueries } {
-  const db = new Database(file)
+  const db = openFileDatabase(file, { initialize: applyMigrations })
   handles.push(db)
-  applyMigrations(db)
   return { db, q: new DbQueries(db) }
 }
 

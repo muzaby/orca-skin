@@ -14,6 +14,7 @@ import { unlinkSync, writeFileSync } from 'node:fs'
 import Database from 'better-sqlite3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { applyMigrations } from '../../infra/db/migrate'
+import { openFileDatabase } from '../../infra/db/file-database'
 import { DbQueries } from '../../infra/db/queries'
 import { ArtifactService, type ArtifactPublishContext } from './service'
 import { ArtifactFiles } from './files'
@@ -50,7 +51,7 @@ async function setup(fileDb = false): Promise<{
   const cwd = join(root, 'workspace')
   const rootDir = join(orcaConfigDir(), 'artifacts')
   await mkdir(cwd)
-  const db = new Database(fileDb ? join(root, 'orcinus-orca.db') : ':memory:')
+  const db = fileDb ? openFileDatabase(join(root, 'orcinus-orca.db')) : new Database(':memory:')
   databases.push(db)
   db.pragma('foreign_keys = ON')
   applyMigrations(db)
@@ -404,10 +405,10 @@ describe('artifact real filesystem and SQLite publication', () => {
     databases.splice(databases.indexOf(f.db), 1)
     await rm(join(f.cwd, 'report.md'))
 
-    const reopened = new Database(join(f.root, 'orcinus-orca.db'))
+    const reopened = openFileDatabase(join(f.root, 'orcinus-orca.db'), {
+      initialize: applyMigrations
+    })
     databases.push(reopened)
-    reopened.pragma('foreign_keys = ON')
-    applyMigrations(reopened)
     const queries = new DbQueries(reopened)
     const service = new ArtifactService({
       queries: queries.artifacts,

@@ -7,6 +7,7 @@ import { OpenCodeEventMapper } from '../../adapters/opencode/v1/map'
 import { openCodeContextWindow } from '../../adapters/opencode/v1/context-usage'
 import { assistantMessage, openCodeEvent } from '../../adapters/opencode/v1/adapter.testfixture'
 import { applyMigrations } from '../../infra/db/migrate'
+import { openFileDatabase } from '../../infra/db/file-database'
 import { DbQueries } from '../../infra/db/queries'
 import { UsageTracker } from '../../features/usage/tracker'
 import { loadSession } from '../../features/history/reader'
@@ -37,9 +38,8 @@ describe('OpenCode last-step context through persistence', () => {
     })
     const root = mkdtempSync(join(tmpdir(), 'orca-context-'))
     const file = join(root, 'test.db')
-    let db = new Database(file)
+    let db = openFileDatabase(file, { initialize: applyMigrations })
     try {
-      applyMigrations(db)
       let queries = new DbQueries(db)
       queries.insertSession({
         id: 's1',
@@ -54,7 +54,7 @@ describe('OpenCode last-step context through persistence', () => {
         telemetry
       )
       db.close()
-      db = new Database(file)
+      db = openFileDatabase(file, { initialize: applyMigrations })
       queries = new DbQueries(db)
       expect(loadSession(queries, 's1', () => 'C:/work')?.lastTelemetry).toMatchObject({
         contextTokens: 100,
