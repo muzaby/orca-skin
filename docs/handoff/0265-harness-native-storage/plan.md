@@ -6,9 +6,9 @@
 |---|---|
 | slug | `0265-harness-native-storage` |
 | 작성자 / 일자 | Codex / 2026-10-16 |
-| 상태 | impl/IMPL_DONE — native 원본·보관 갱신·목록 제외 구현 및 자기확인 완료; 독립 검증 대기 |
-| V mode / revision | Baseline V / V1 |
-| 기준 V | 없음. 0262 ΔV15는 OpenCode 구체 구현, 0264는 의존 경계 회귀 기준 |
+| 상태 | plan/DRAFT — ΔV1 DB 우선 표시·lazy 갱신·세션별 읽기 커서 설계. 원본 형식별 커서 결정 대기; V1 구현·자기보고와 독립 검증 대기는 보존 |
+| V mode / revision | Delta V / V1 + ΔV1 (초안) |
+| 기준 V | V1@공유 브랜치 `8c94b449485771d5ea588e62e38c8cfbedc74e3b`. OpenCode 구체 커서는 0262 ΔV16, 의존 경계 회귀는 0264 |
 | 관련 | PR #502 · ADR-009 · 0262 · 0230 |
 
 # Part I — Product & UX Contract
@@ -388,3 +388,132 @@ G02/G06의 `.tmp` 실행기는 검증 중 생성한 로컬 보조 파일이며 �
 - 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: D01/02/04/06 및 AC2/4/8은 있었지만 초기 §10에 영수증·catalog·background·bootstrap 전달 11자리가 개별 열거되지 않았다. 구현 조사 뒤 planner가 EP10~13을 추가했고 각 실제 호출부 테스트를 실행했다.
 - 반복해서 부딪히는 환경 한계: Node/Electron better-sqlite3 ABI가 달라 DB 테스트를 설치 Electron으로 실행했다. sandbox의 fixture 경로 EPERM은 별도 재실행으로 구별했으며 사용자 DB·실제 세션은 조작하지 않았다.
 - 현재 라운드·impl 턴: `r1`. 구현자 자기확인과 운영 gate를 완료했다. 독립 verify는 수행하지 않았으며 INDEX의 검증 좌표를 선점하지 않았다.
+
+## ΔV1 — DB 우선 표시와 세션별 lazy 이력 갱신 (2026-10-16, DRAFT)
+
+### Part I — 추가 Product & UX Contract
+
+사용자 요구는 “nav에서 세션항목 클릭시 transcript 로딩은 1차적으로 db에서 불러와 렌더링”, “로딩 후 레이지 로딩으로 추가 대화가 오갔는지 jsonl을 확인”, “모든 세션은 jsonl에서 어디까지 불러왔는지 offset을 확인할 수 있는 장치”, “세션 렌더링시(대화재개×) 위 순서대로 수행”이다. 재시작 뒤 OpenCode 세션이 Claude composer로 바뀌고 입력 검증 오류로 재개되지 않는 증상도 함께 접수했다.
+
+기준 V1은 공유 브랜치의 위 메타 커밋에서 확인했다(`git cat-file -t`=commit, 원격 추적 브랜치 ancestor 검사 성공). 사용자 요구 변경 턴이며 기존 독립 검증을 수행한 것으로 기록하지 않는다.
+
+| Decision | 결정·조건 | 상태 / 대체 관계 |
+|---|---|---|
+| D08 | nav 선택과 앱 부팅 복원은 Orca DB의 transcript·세션 backend를 먼저 표시한다. native 조회·서버 시작·catalog 응답을 첫 표시의 선행조건으로 삼지 않는다 | ACTIVE / V1 §8의 `sessionLoad` 안에서 native refresh를 기다리던 순서만 SUPERSEDED |
+| D09 | 첫 DB 표시 후 별도 lazy 조회로 외부 추가 대화를 확인하고 발견하면 같은 세션을 갱신한다. 명시적 사용자 전송 없이 모델 prompt/resume·자동 피드 재생을 시작하지 않는다 | ACTIVE / D06 보완. 원본 SSOT와 Orca 보관 정책은 유지 |
+| D10 | 알려진 각 세션마다 마지막으로 성공 반영한 원본 읽기 위치를 영속 추적한다. 실패·부분 기록·경합에서는 확정 위치를 앞당기지 않는다 | ACTIVE / 새 요구. 미조회 세션은 `미조회`로 구별하며 읽었다고 추정하지 않음 |
+| D11 | 로딩 중 기본 모델 선택·패널 변경 때문에 정상 DB 응답을 버리지 않는다. 저장 backend가 composer/transcript/패널과 다음 전송의 하네스를 결정한다 | ACTIVE / 0262 D-002의 복원 경합 보완. 새 세션 기본 하네스 D-006과 구별 |
+| D12 | Claude JSONL 바이트 offset과 OpenCode SQLite 변경 위치를 공통 읽기 커서로 추상화할지 결정 | OPEN / OQ1. 사용자의 `모든 세션 JSONL` 표현과 기존 native 형식 유지 정책을 확인 중 |
+
+OQ1 질문: Claude는 JSONL, OpenCode 1.19는 SQLite 원본이다. 각 원본 형식의 커서를 사용할지, 모든 하네스에 별도 JSONL이 필요한지 비동기 질문했다. 답변 전에는 별도 JSONL 생성·원본 형식 변경을 승인된 것으로 보지 않는다.
+
+| 상황 | 사용자에게 보이는 결과 |
+|---|---|
+| nav 선택 / 재시작의 cold load | DB 읽기만으로 본문·저장 하네스 표시. 그때까지 전송·자동 모델 확정 보류 |
+| DB 표시 완료 | 로딩 차단 해제. 화면이 commit된 뒤 lazy 확인 시작; 본문을 비우거나 다시 전체 로딩 상태로 만들지 않음 |
+| 기존 메모리 cache 존재 | 기존 화면은 유지하되 DB 재조회 후 lazy 순서 적용. 패널·초안·스크롤 등 표시 상태는 유지 |
+| native 추가 없음 | 본문 재구성·LLM 전송 없이 현재 표시 유지; 동일 커서로 완료 |
+| native 추가 있음 | 원본 ID로 반영하여 중복 방지. DB 보관과 커서를 함께 확정한 결과만 화면에 적용 |
+| native 접근 실패 / 미완료 응답 / 이관 보류 | DB 본문·저장 backend 유지. 기존 안전한 오류 안내 또는 busy 보류 |
+| lazy 중 전송·라이브 수신·다른 세션 선택·목록 제거 | stale 결과가 현재 대화·하네스·새 입력을 덮지 않음. 다음 진입에서 재확인 |
+| native 파일 축소·교체·같은 크기 수정 | 이전 offset을 무조건 seek하지 않음. 검증된 전체 재수입 또는 명시 실패; 원본 무변경 |
+
+범위는 알려진 세션의 표시·읽기 위치·복원이다. 전역 native 세션 발견, 상시 polling/watch, 원본 포맷 변환, terminal 실행 강제 종료는 추가하지 않는다. OQ1이 원본 형식별 커서로 확정되면 아래 기술안이 적용되며, 별도 JSONL 답변이면 해당 부분을 다시 설계한다.
+
+| AC / R↔AT | 관측 기준 | 도달 경로 / 직접 oracle 예정 |
+|---|---|---|
+| AC9 / R09↔AT09 NEW | native reader가 지연되거나 실패해도 DB 본문과 backend가 먼저 표시되고 loading이 해제된다 | `handlers/session.load.test.ts`: 실제 등록 load 핸들러, 지연 native 훅 호출0과 DB 결과. `chatStore.native-history.test.ts`: DB 응답 적용 후 프레임 경계 전/후 refresh 호출순서 |
+| AC10 / R10↔AT10 NEW | DB 첫 화면 이후 추가 대화를 lazy로 반영하고, 표시 동작으로 모델 요청을 만들지 않는다 | 실제 load→refresh 핸들러/DB와 store 테스트: 외부 fixture 추가, 같은 ID, prompt/send0, 두 번 열어 중복0 |
+| AC11 / R11↔AT11 NEW | 세션별 성공 읽기 위치를 재시작 후 조회할 수 있다. cursor 미존재·정상·실패 보류가 구분되고 snapshot·검색·cursor가 원자적으로 저장된다 | 실제 SQLite `native-history.db.test.ts`: 세션 두 개의 cursor, 재개방, 중간 SQL 실패·경합에서 이전 값 유지 |
+| AC12 / R12↔AT12 NEW | JSONL 추가분·부분 UTF-8/JSON 행·교체·축소·in-place 변경을 처리하고 확정 전 offset을 앞당기지 않는다 | Claude native reader의 임시 파일: bytes 기준 확인, 읽은 구간 관측, 실패/완료 재시도, 기존 current-chain 선택 |
+| AC13 / R13↔AT13 NEW | 재시작·nav 진입의 기본 모델 hydration이나 패널 변경 중에도 저장 하네스가 복원된다. 명시 전송은 그 하네스/ID로 재개된다 | 공통 store/reducer와 0262 ΔV16: 실제 deferred load 동안 모델 선택→DB 반환→composer/다음 send 인자 |
+| AC14 / R14↔AT14 NEW | 늦은 lazy 결과는 live 입력·대화 제거·새 조회를 덮지 않고 오류가 DB 본문을 지우지 않는다 | store deferred refresh + main refresh/DB CAS 테스트. UI 변경만 있는 경우 정상 결과는 허용 |
+
+기존 AC5의 보관/오류, AC8의 외부 이력 반영은 유지하며 그 도달 순서를 AC9/10이 구체화한다. 기존 AC1~4·6/7은 변경하지 않는다. 새로운 AC는 6개이며 기존 8개 자기보고와 합쳐 구현 완료로 세지 않는다.
+
+### Part II — 조사와 구현안
+
+| 대상 / 검색 | 실측 | 의미 |
+|---|---|---|
+| `handlers/session.ts`의 `sessionLoad`, `refreshHistory` | load 핸들러 1곳이 `await refreshHistory` 후 DB reader 호출 | native 초기화가 첫 DB 표시를 지연 |
+| `chatStore.ts`의 `sessionLoads`, `request.entry` | 조회 1곳이 엔트리 객체의 동일성까지 검사 | 본문과 무관한 모델/패널 변경도 DB 응답을 폐기 |
+| `Composer.tsx` hydration effect / reducer `SET_MODEL` | loading guard 없음; backend=null인 잠긴 세션에 모델의 backend 지정 가능 | cold load 중 Claude 기본값이 먼저 들어갈 수 있음 |
+| `writer.ts`→`queries.ts`→`reader.ts`→`LOAD_SESSION` | insert/SELECT/DTO 모두 backend를 운반 | backend 저장 칼럼 누락으로 단정할 근거 없음 |
+| `.tmp/native-load-repro.test.ts`에서 실제 store 진입 | 대조군 1통과, hydration 개입 1실패: 기대 opencode / 실제 claude | 응답 폐기 뒤 `loadingSession=false`가 되어 오류 상태가 확정됨. 사용자 DB 수정 없음 |
+| native reader 두 구현 | Claude 전체 JSONL read+revision; OpenCode SDK 전체 messages 2회+revision | 기존 `local_frontier`는 Orca message 행 ID이며 native byte offset이 아님 |
+
+조사 명령은 `rg -n 'sessionLoads|request.entry|loadingSession|SET_MODEL' app/src/renderer/src/features/chat`, `rg -n 'refreshHistory|sessionLoad|readHistory|nativeHistory' app/src/main/app app/src/main/features/history`, `rg -n 'backend|insertSession' app/src/main/features/history/writer.ts app/src/main/infra/db/queries.ts app/src/main/features/history/reader.ts`다. 실제 store 재현은 `.tmp/native-load-repro.config.mjs`로 실행했고 임시 자료는 커밋하지 않는다.
+
+**공통 흐름**
+
+```text
+nav / boot restore → session.load(DB만) → LOAD_SESSION(저장 backend/본문)
+  → React commit 및 다음 paint 경계 → session.refresh(읽기 전용 native 확인)
+  → unchanged / busy / 오류: 현재 화면 유지
+  → updated: snapshot+cursor+FTS DB transaction → 동일 조회 세대의 transcript 갱신
+명시 send → 기존 admission/native 존재 확인/resume (표시 경로와 별개)
+```
+
+1. `sessionLoad`는 DB reader·현재 activity만 반환한다. 유효한 세션의 보관 파트가 0개면 backend가 있는 빈 본문을 반환하고, 없는/숨긴 세션만 null이다. native read·catalog·server·runtime 폐기는 첫 IPC에 넣지 않는다.
+2. 별도 `sessionRefresh` IPC를 추가한다. request는 sessionId, result는 `updated + LoadedSession` / `unchanged` / `busy` / `missing|unavailable|migration-required + message`의 union이다. main이 저장 backend/config/cwd와 기존 활동 guard를 사용하며 renderer가 원본 경로·offset을 임의 지정하지 못한다.
+3. preload·renderer API·IPC 문서·inventory를 함께 배선한다. store는 DB 적용 후 두 rAF 경계(중간 paint 허용)에서 lazy 확인을 예약하고, 다른 세션으로 이동·삭제되면 미시작 작업을 취소한다. 이미 시작된 read의 안전한 보관은 main guard가 판단하되 다른 세션 UI에 응답을 적용하지 않는다.
+4. 요청 token과 본문/live 세대를 구별한다. 모델·패널 변경으로 엔트리 객체가 교체되어도 정상 DB 응답을 폐기하지 않는다. 수신 이벤트(rAF 대기 포함), 낙관 전송, 삭제·새 조회는 stale 판정에 계속 포함한다.
+5. cold load 중 자동 모델 hydration·SET_MODEL·send를 보류한다. DB 수신 뒤 backend와 agentKind는 저장값으로 복원하고, 캐시 보존 분기에서도 원본 정체성을 제외하지 않는다. 기존 세션에 호환 모델이 없으면 안내/미선택 상태를 유지하며 다른 하네스로 폴백하지 않는다.
+
+**읽기 커서 — OQ1 권장안**
+
+- 공통 `NativeHistoryCursor`는 version·sourceKey·revision과 opaque adapter checkpoint를 갖는다. concrete byte/sequence 해석은 각 하네스 안에 두고, 공통 코드는 JSON envelope의 유효성만 검증한다. resume query와 cursor 조회를 같은 동작으로 취급하지 않는다.
+- read 포트는 이전 snapshot/cursor를 main DB에서 받아 `unchanged` 또는 안정된 `snapshot + cursor`를 돌려준다. 기존 cursor 없는 보관 자료는 lazy 최초 확인에서 전체 읽기로 초기화한다. `nativeSessionError` 등 기존 소비처도 새 결과 의미를 명시적으로 처리한다.
+- append-only 신규 migration으로 snapshot 테이블에 nullable `cursor_json`을 추가한다(기존 migration 수정 금지). snapshot·raw·local frontier·FTS·cursor는 같은 Orca DB transaction에서 확정한다. native는 읽기 전용이고 원본과 Orca 사이 dual-write를 만들지 않는다.
+- DB의 세션별 cursor 조회는 `미조회` 또는 마지막 성공 source/revision/checkpoint/syncedAt을 반환한다. 화면의 새 버튼을 요구사항으로 추가하지 않는다. 검증·진단에서 cursor를 확인할 수 있고, 경로·raw 본문·자격증명은 renderer DTO에 싣지 않는다.
+- 동일 revision은 no-op로 돌려 불필요한 FTS 교체와 화면 재구성을 생략한다. read 후 live/제거/DB 변경 guard와 transaction CAS를 통과하지 못하면 cursor도 그대로다. 출처가 바뀌면 기존 보관을 유지하고 이관 필요 상태로 분리한다.
+
+**Claude JSONL 경계 — OQ1 권장안**
+
+`claude/`의 reader/helper만 JSONL을 해석한다. checkpoint는 파일 identity(dev/ino 및 경로 hash), 성공한 UTF-8 byte offset, prefix digest, 완결 행/원본 UUID 정보다. 확정 byte offset은 정상적으로 파싱·현재 chain 선택·완료 판정을 거쳐 DB에 반영한 마지막 경계이며 문자열 길이로 계산하지 않는다.
+
+변경 없는 stat+identity는 빠르게 확인한다. append 후보는 기존 prefix를 검증한 뒤 저장 raw에 tail을 결합하여 SDK current-chain 선택을 다시 수행한다. 앞부분 수정·축소·교체 시 잘못된 seek 대신 검증된 전체 재수입을 수행하고, 쓰기 중·부분 마지막 행·미완료 응답은 기존 cursor를 유지한다.
+
+prefix 검증은 데이터 보존을 위한 읽기이며 tail만 읽는다고 과장하지 않는다. 기존 원본 128MiB 상한 안에서 처리하고, 변경된 파일의 worst case는 prefix 검증+전체 재수입이다. 최대 크기·한글 UTF-8 경계·동일 길이 교체·앞부분 수정 후 append를 파일 fixture로 확인한다.
+
+### Delta V와 자리별 oracle
+
+R09~14/AT09~14는 NEW다. SD-Δ1/AR-Δ1/MD-Δ1~3도 NEW이며 아래 REQUIRED pair를 갖는다. V1 R05/R08·SD01·AR01·MD02의 보관/동기화/실행 보호 계약은 INHERITED이며 VP05/08/09/10/12를 아래 REGRESSION으로 연결한다. D08이 대체하는 첫 표시 순서와 새 cursor 의미는 이번 NEW node가 소유하고, 그 외 기준 V의 비영향 계약은 유지한다.
+
+| pair | 분류 / 경로 | §10 자리 / 직접 oracle 예정 |
+|---|---|---|
+| VP-Δ1-01 R09↔AT09 | REQUIRED / nav→DB→첫 화면→lazy 시작 | EP14a/b/c/d. 실제 등록 handler와 store+rAF 테스트, native 지연 상태에서 첫 DB 표시 |
+| VP-Δ1-02 R10↔AT10 | REQUIRED / refresh→native→DB→같은 화면 | EP15a/b/c/d. handler/DB 통합+store: 외부 내용 추가·prompt0·중복0 |
+| VP-Δ1-03 R11↔AT11 | REQUIRED / cursor read→DB commit→재시작 조회 | EP16a/b/c. 실제 SQLite cursor 저장·rollback·재개방 |
+| VP-Δ1-04 R12↔AT12 | REQUIRED / JSONL checkpoint→tail/재수입 | EP17a/b/c/d. 임시 JSONL 읽기 구간·byte offset·최종 parts 관측 |
+| VP-Δ1-05 R13↔AT13 | REQUIRED / cold load→composer 선택→same-ID send | EP18a/b/c/d. 0262 ΔV16의 실제 store/reducer/send 회귀 |
+| VP-Δ1-06 R14↔AT14 | REQUIRED / lazy 응답→세대 판정→화면 | EP19a/b/c. deferred store/DB: UI-only 변경 허용·live/제거/새 요청 폐기 |
+| VP-Δ1-07 SD-Δ1↔ST-Δ1 | REQUIRED / nav/boot→2단 로딩→오류/재시작 | EP14~19. 실제 handler+SQLite 및 renderer-store 경계를 각각 실행하고 DTO를 연결; 양 끝을 함께 mock하지 않음 |
+| VP-Δ1-08 AR-Δ1↔IT-Δ1 | REQUIRED / preload/API/handler/native port | EP14a·EP15a/b. 실제 IPC 계약/등록과 두 adapter 결과, 독립 하네스 경계 lint |
+| VP-Δ1-09 MD-Δ1↔UT-Δ1 | REQUIRED / checkpoint→조건부 교체 | EP16/17. 실제 reader·SQL transaction의 완료/실패 경계 |
+| VP-Δ1-10 MD-Δ2↔UT-Δ2 | REQUIRED / load token·본문세대→accept/discard | EP19. store deferred API, 모델·패널·live·send 각각 비교 |
+| VP-Δ1-11 MD-Δ3↔UT-Δ3 | REQUIRED / 저장 backend→hydrate/전송 guard | EP18. 실제 reducer·store 모델 선택/전송 인자 |
+| VP-Δ1-R1 | REGRESSION / V1 VP04/05/08/09/10/12/13 | 기존 delete.native-history·native-sync/projection/writer·Claude map·OpenCode native-history 회귀. 원본/부가 기록/실행 보호 유지 |
+
+| EP / 전수 자리 | 실패 의미 | 직접 oracle 진입·관측 |
+|---|---|---|
+| EP14a load handler, b preload/API, c DB 적용, d paint 후 예약 (4) | native 대기로 첫 화면 지연 또는 DB보다 먼저 refresh | `session.load.test.ts` 등록콜백; preload 계약; store 순서/rAF; 정상 DB body/backend |
+| EP15a refresh handler, b native port, c DB commit, d renderer 적용 (4) | 조회 결과가 보관/화면에 안 오거나 prompt 유발 | 신규 refresh handler/실제 DB 테스트 + store, 두 adapter fixture에서 query/send0 |
+| EP16a cursor 조회, b snapshot/FTS 동시 commit, c 기존 cursor 없는 자료 (3) | 위치만 진전·재시작 유실·기존 자료 읽기 불가 | `native-history.db.test.ts` real SQLite 재개방/SQL 실패 |
+| EP17a stat/identity, b prefix/tail byte read, c parse/current-chain, d 완료 snapshot (4) | UTF-8 절단·rewrite 누락·partial을 성공 표시 | `claude/native-history.test.ts` 임시 파일 교체/부분행/분기/완료/재시도 |
+| EP18a composer hydration, b SET_MODEL, c DB identity 복원, d send admission (4) | 로딩 중 Claude 선택 고착·다른 하네스 전송 | 공통 store/reducer 및 0262 ΔV16 실제 Composer effect·send payload |
+| EP19a 조회 token, b live/낙관본문 세대, c leave/drop/재진입 (3) | UI 변경을 stale로 오인하거나 늦은 응답이 새 입력 덮음 | store deferred API·coalescer rAF 및 기존 main CAS |
+
+신규/변경 강제 자리 `4+4+3+4+4+3=22`. 기준 50자리와 겹치는 load/guard 지점은 더해 전수 합계로 보고하지 않는다. 모든 oracle은 직접 행동 검증을 예정하며 새 구조적 proxy·전수 스캔 oracle은 도입하지 않아 선택 mutation은 not selected다. 구현 시 실제로 등록한 테스트명과 각 실행 구간을 보고해야 한다.
+
+### 운영 gate / DRAFT 판정
+
+main/renderer AGENTS의 하향 의존과 하네스별 구현 경계를 유지한다. typecheck 3구성, readonly lint, 관련 handler/store/adapter/실제 SQLite 회귀, migration append-only·sync, preload/IPC 계약, error registry, inventory/링크, build를 수행한다. 현재 Electron SQLite ABI를 재설치로 바꾸지 않는다.
+
+최종 대조: D08→AC9, D09→AC10, D10→AC11/12, D11→AC13/14가 연결된다. V1 native 원본·목록 제거·모델 오버라이드 결정은 유지하며, 원본 조회 선행 순서만 명시 대체한다. `D12=OPEN`이고 OpenCode 구체 checkpoint의 mutation 범위 검증이 남으므로 이번 Delta는 DRAFT이며 구현 완료를 주장하지 않는다.
+
+### [검증자 기입] 파생 이슈 — 사용자 보고의 구현 전 재현
+
+| ID | 출처 / 계약 | 재현한 관측 | 판정 / 다음 처리 |
+|---|---|---|---|
+| EXT-01 | 사용자 재시작 보고 / 0262 D-002, 본 ΔV1 D11·AC13 | 실제 store의 deferred load 중 `setModel(claude)` 호출 후 OpenCode DB 응답이 버려짐. 2케이스 중 대조군 통과·해당 케이스 실패 | 재현된 결함. 공통 로딩 token·hydration/전송 guard를 수정하고 영구 회귀로 옮길 것. 독립 verify 판정은 아님 |

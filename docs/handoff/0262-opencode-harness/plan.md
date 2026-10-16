@@ -8,10 +8,10 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | impl/IMPL_DONE — ΔV15 native 저장 경로·기존 격리 세션 전환 구현. 신규 AC39~42 4/4, 제품 강제 지점 15/15, 신규 pair 9개 SELF_PASS. 기존 AC11 사람 인수·독립 verify 대기 유지 |
-| V mode | Delta V — 기준 V1 + ΔV1~14 + ΔV15 (각 델타의 대체 범위 적용) |
+| 상태 | plan/DRAFT — ΔV16 lazy native 커서·재시작 하네스 복원 보완 설계. 원본 형식별 커서 결정 대기. ΔV15 구현/자기보고·기존 AC11 사람 인수·독립 verify 대기는 보존 |
+| V mode | Delta V — 기준 V1 + ΔV1~15 + ΔV16 초안 (각 델타의 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
-| 이번 V revision / 유효 V | ΔV15 / V1 + ΔV1~14의 비대체 계약 유지. 전용 XDG·DB history SSOT·기존 세션 전환 비범위는 D-029~032로 대체. 새 AC39~42는 이번 직접 oracle의 4/4 자기보고이며 ΔV14의 37/38 자기보고·AC11 미인수는 별도 보존 |
+| 이번 V revision / 유효 V | ΔV16 초안 / 기준 ΔV15@공유 브랜치 `8c94b449485771d5ea588e62e38c8cfbedc74e3b`. 기존 구현 자기보고·AC11 미인수는 별도 보존. 확정 전에는 새 요구를 충족한 것으로 세지 않음 |
 
 # Part I — Product & UX Contract
 
@@ -2432,3 +2432,68 @@ native GET 성공이 항상 우선이며 실패 중 404만 이관한다. 외부 
 ## ΔV15 [구현자 기입] Review Signals
 
 사용자 저장 정책 변경을 받아 진행한 ΔV15 구현 턴이다. 기존 전용 XDG 결정은 최신 D-029로 대체했고, 설계 probe를 production oracle로 세지 않았다. 실제 이관을 테스트하면서 marker 일부 실패·교차 session FK·snapshot worktree·history partial error를 보완했다. 설치 Electron SQLite ABI를 유지한 채 runtime을 선택했으며 의존성 재설치는 없었다. 전체 gate와 함께 여러 CLI/tsc가 실행된 시도에서는 15초 서버 시작 제한과 buildinfo 파일 경쟁이 발생해 단독 CLI·별도 typecheck output으로 분리했다. 이는 제품 시작 제한을 없애는 근거로 쓰지 않았다. 다음 판정은 독립 verify다.
+
+## ΔV16 — lazy 읽기 커서와 재시작 하네스 복원 (2026-10-16, DRAFT)
+
+### Part I — 요구 배분과 Decision
+
+사용자는 DB transcript를 먼저 표시한 뒤 원본 추가 이력을 lazy로 가져오고 세션마다 읽은 offset을 추적하도록 요구했다. 또한 “opencode로 종료한 세션인데 composer(하네스)가 claude”이고 전송 시 “입력 검증 오류”가 발생한다고 보고했다. 공통 2단 로딩·cursor 저장·응답 경합은 [0265 ΔV1](../0265-harness-native-storage/plan.md)이 소유하며, 이 델타는 OpenCode 1.x 원본 cursor와 잠긴 세션의 복원 결과를 검증한다.
+
+| ID | 결정 | 상태 / 관계 |
+|---|---|---|
+| D-033 | OpenCode 세션은 재시작/nav 진입에서도 저장된 backend로 composer·transcript·패널·다음 전송을 복원한다. 미확정 로딩 단계의 기본 Claude 선택은 세션 정체성이 아님 | ACTIVE / D-002 보완. 생성 후 하네스 변경 금지 유지 |
+| D-034 | session 표시의 native 조회는 DB 첫 표시 뒤 lazy로 실행하고 prompt/resume를 만들지 않는다 | ACTIVE / 0265 D08/09 참조. OpenCode 서버 지연을 첫 표시에서 분리 |
+| D-035 | native SQLite의 per-session 변경 위치를 공통 cursor의 OpenCode 1.x checkpoint로 사용할지 결정 | OPEN / 0265 OQ1과 같은 결정. 별도 질문·별도 JSONL 생성을 중복하지 않음 |
+
+**제품 결과**: DB가 OpenCode라고 기록한 세션은 전역 default/lastBackend 및 Claude 카탈로그의 도착 순서와 관계없이 OpenCode로 열린다. 호환 엔진이 없으면 OpenCode를 유지하며 모델 선택 불가를 알리고, Claude로 대체하지 않는다. 실제 대화 재개는 사용자의 명시적 입력 이후에만 일어난다.
+
+| AC / node | 관측 기준 | 직접 oracle 예정 |
+|---|---|---|
+| AC43 / R43↔AT43 NEW | cold boot/nav의 DB 로딩 중 Claude default가 먼저 도착해도 저장 OpenCode backend가 복원되며, 다음 전송은 동일 OpenCode ID/backend로 전달된다 | 실제 store deferred load + 실제 Composer hydration + send.harness: 기존 `.tmp/native-load-repro.test.ts`의 실패 순서를 영구 회귀 테스트로 이관 |
+| AC44 / R44↔AT44 NEW | OpenCode 원본의 추가 user/assistant/tool·기존 part 수정/삭제·revert를 감지하고 읽은 위치를 세션별로 확정한다. 확인 중/실패 시 cursor를 앞당기지 않는다 | 실제 native SQLite/SDK fixture: 이전 checkpoint→각 native 변경→동기화, 반복 조회 no-op·오류 rollback. 모델 prompt0 |
+| AC45 / R45↔AT45 NEW | native 서버/조회가 느리거나 실패해도 DB 첫 표시와 OpenCode composer가 먼저 준비된다 | 공통 load/refresh 등록 handler + store의 지연 OpenCode read: 첫 화면 표시 후 native 호출·실패 안내, 본문/하네스 유지 |
+
+신규 AC는 3개이고 기준 ΔV15의 4/4 자기보고 또는 AC11 사람 인수와 합산해 완료 처리하지 않는다. native 원본 경로·엔진 오버라이드·legacy 보존 이관은 계속 유지한다.
+
+### Part II — 실측과 구현 경계
+
+원인은 현재 `chatStore.loadSession`의 엔트리 객체 동일성 검사다. `START_LOAD_SESSION`은 backend=null로 시작하고, `Composer` hydration이 `SET_MODEL(claude)`로 객체를 바꾸면 뒤늦게 도착한 OpenCode DB 응답이 버려진다. 실제 store 재현 2케이스 중 대조군은 통과했고 hydration 개입 케이스는 `expected opencode, received claude`로 실패했다.
+
+DB insert/SELECT/LoadedSession에는 backend가 이미 존재한다. 사용자 데이터의 backend를 추측해 일괄 UPDATE하거나 `ses_` 접두사만으로 하네스를 바꾸지 않는다. 공통 store의 조회 token·본문 세대 분리, loading 중 모델 선택/전송 보류, 저장 정체성의 authoritative 복원은 0265에서 구현한다.
+
+**OpenCode 커서 권장안 — OQ1 확정 전 초안**
+
+- 1.19 native 원본은 SQLite다. `legacy-schema.testfixture.ts`의 실제 CLI 스키마에 `event_sequence(aggregate_id, seq)`·`event(aggregate_id, seq)`·message/part projection이 존재한다. SDK의 `/v2/client` import가 저장 포맷을 JSONL로 만드는 것은 아니다.
+- `opencode/v1/`만 checkpoint 형식을 해석한다. sourceKey는 실제 native DB identity, checkpoint는 검증된 per-session sequence/revision이며 공통 코드가 SQL table이나 seq 의미에 의존하지 않는다. 기존 준비 env·cwd·CLI `db path`와 같은 원본을 사용한다.
+- readonly cursor probe와 SDK snapshot 사이의 sequence/revision을 앞뒤로 확인한다. 동일 위치면 messages 전문 조회·Orca snapshot/FTS 교체를 건너뛰고, 달라지면 안정된 native snapshot을 읽어 기존 mapper로 정규화한다. 원본이 쓰는 event의 축적 수를 UI 메시지 수로 간주하지 않는다.
+- 읽기 checkpoint는 session별로만 비교하고 파일 mtime/WAL 크기만으로 대신하지 않는다. part 갱신·삭제·revert가 sequence에 반영되는지 실제 1.19 fixture로 검증해야 한다. 해당 변경을 검출하지 못하면 sequence 단독 fast path를 채택하지 않고 revision 기반 검증으로 돌아간다.
+- SQLite read는 기존 infra factory를 readonly/fileMustExist로 주입하고 schema initialize·migration·쓰기 PRAGMA를 수행하지 않는 경계를 확인한다. 필요한 readonly factory 보완도 실제 원본 바이트/SQL write0 테스트로 잠근다. 하네스 버전별 SQL을 공통 infra로 이동하지 않는다.
+- busy/원본 부재/다른 cwd/읽기 오류와 legacy 이관 조건은 ΔV15 계약을 유지한다. lazy 조회 자체가 session.create/prompt/resume를 호출하지 않으며, 원본 존재 확인을 위한 명시 전송 경로와 분리한다.
+
+### Delta V / §10 강제 지점
+
+R43~45/AT43~45, SD-Δ16/AR-Δ16/MD-Δ16은 NEW다. D-002의 기존 하네스 잠금과 ΔV15 native 조회 계약은 INHERITED/REGRESSION이며, 0265의 공통 구현 자리와 이 문서의 OpenCode adapter 자리를 중복 합산하지 않는다.
+
+| Pair | requiredness / production path | 자리·직접 oracle 예정 |
+|---|---|---|
+| VP-Δ16-01 R43↔AT43 | REQUIRED / DB backend→실제 store/Composer→전송→stored adapter | 공통 EP18a~d; `chatStore.native-history.test.ts` cold load 동안 hydration, Composer hook 실행, `send.harness.test.ts` 동일 ID/backend |
+| VP-Δ16-02 R44↔AT44 | REQUIRED / native checkpoint→stable read→공통 cursor commit | EP46a~e; 신규 `opencode/v1/native-cursor.test.ts`와 실제 SQLite integration, 공통 native-history DB 테스트 |
+| VP-Δ16-03 R45↔AT45 | REQUIRED / DB 화면→lazy OpenCode 지연/오류 | 공통 EP14/15/19; 실제 handler와 store deferred native 응답, body/backend·호출순서 |
+| VP-Δ16-04 SD-Δ16↔ST-Δ16 | REQUIRED / 재시작→DB→외부 추가→lazy→명시 재개 | OpenCode CLI synthetic fixture+공통 store/handler 연결: 각각 native ID·checkpoint·화면 DTO·prompt 호출 구분 |
+| VP-Δ16-05 AR-Δ16↔IT-Δ16 | REQUIRED / 준비 native env→readonly DB/SDK→공통 포트 | EP46a/b/c/d; 실제 module 등록과 readonly 연결, SDK 인자/파일 불변 |
+| VP-Δ16-06 MD-Δ16↔UT-Δ16 | REQUIRED / sequence/revision→unchanged/updated/busy | EP46b/c/d/e; append·기존 part update/delete·revert·원본 교체·부분 실패 fixture |
+| VP-Δ16-R1 | REGRESSION / ΔV15 VP01~09, D-002 저장 하네스 잠금 | native-storage/history·legacy migration·send.harness 기존 직접 회귀. 재수입이 모델 입력을 재전송하지 않음 |
+
+| 자리 | 실패 의미 | 직접 oracle |
+|---|---|---|
+| EP46a module→v1 native locator (1) | 모델 조회·이력 probe가 다른 native DB 사용 | 실제 module + custom env/cwd fixture의 같은 DB 경로 |
+| EP46b readonly open/schema (1) | cursor 확인이 원본을 쓰거나 다른 버전 schema를 오독 | 실제 SQLite readonly connection·지원/비지원 schema·전후 바이트 |
+| EP46c session checkpoint probe (1) | 다른 세션 변경을 가져오거나 part 수정/삭제를 놓침 | 실제 native mutation fixture 각각의 seq/revision 관측 |
+| EP46d probe→SDK snapshot→probe (1) | 서로 다른 시점의 snapshot과 offset 결합 | read 중 변경 fixture: busy·기존 cursor 유지 |
+| EP46e adapter 결과→공통 commit (1) | 읽기만 했는데 offset 저장·재시작 누락 | 공통 real DB commit/rollback와 OpenCode result를 연결 |
+
+OpenCode 내부 신규 자리 5곳과 공통 0265의 재사용 자리는 구별한다. 직접 행동 oracle를 예정하며 구조적 proxy/새 전수 장치를 만들지 않아 선택 mutation은 not selected다.
+
+### DRAFT 사유와 운영 gate
+
+D-033→AC43, D-034→AC45, D-035 후보→AC44로 연결된다. 0265 OQ1의 원본 형식 결정 및 실제 1.19 journal의 update/delete/revert 포괄 검증이 남았으므로 READY가 아니다. 구현은 기존 native 환경·엔진 override·Claude GUI 계약을 유지하며 node/web/test typecheck·readonly lint·IPC/DB/renderer 회귀·실제 CLI fixture·문서/빌드 gate로 확인한다.
