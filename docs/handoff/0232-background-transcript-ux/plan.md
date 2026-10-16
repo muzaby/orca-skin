@@ -611,3 +611,35 @@ DEV ON에서 과거 format 없는 reminder도 사용자 버블로 표시한다(`
 ### 7. Review Signals
 
 이번은 사용자 공통 속성 요구와 DEV 범위 정정에 따른 ΔV3 구현이다. 표시 해석 오류는 사용자 발언으로 정정했으며 source 신뢰·전송 소유권을 새 규칙으로 확대하지 않았다. 홈 lstat 권한과 설치 SDK/manifest 버전 차이는 로컬 환경 사실로 분리했고 CI의 고정 의존성 검증은 별도다.
+
+## [구현자 기입] ΔV3 CI 보완 — r2.2 (2026-10-16)
+
+### 1. 설계 리뷰
+
+[Windows CI #771](https://github.com/muzaby/orca-skin/actions/runs/38840634296/job/116779658475)의 유일한 테스트 실패를 수정했다. `OverlayLayer`가 새 `AutomaticFeedDebugSection`을 사용하지만 검색 배선 테스트의 chat 모듈 mock에 그 export가 없었다. 제품 코드·Decision·AC는 변경하지 않는다.
+
+### 2. 강제 지점 전수와 V-pair 자기확인
+
+`rg 'vi.mock\(.?\.\./features/chat|AutomaticFeedDebugSection' app/src/renderer/src/app -g '*test*'`로 소비 경계를 확인했다. 검색 테스트의 barrel mock 한 곳에 export를 추가했다. `OverlayLayer.search.test.ts: passes the session selection into navigation and retains the close callback`이 실제 OverlayLayer의 세션 선택·닫기 callback을 관측한다. `automaticFeedDebug.integration.test.ts`는 실제 컴포넌트와 store·Timeline을 계속 사용하므로 검색 대역이 자동 피드 동작의 oracle을 대신하지 않는다.
+
+### 3. 이번 라운드 수정의 잠금
+
+CI와 로컬 재현에서 누락 export 오류를 확인한 뒤 같은 검색 테스트가 통과했다. 기존 직접 행동 단언을 유지했고 신규 proxy·등록 적대 증거·인용 변이는 각각0이다. 이 보완으로 제품 pair나 완료 수를 추가하지 않는다.
+
+### 4. Product/UX 파생 검토
+
+검색 선택은 기존 경로로 이동하고 close callback을 유지한다. DEV 자동 피드 표시의 두 하네스 ON/OFF·production 동작은 기존 통합 테스트를 함께 실행해 확인했다. 사용자 화면이나 저장 정책은 바꾸지 않았다.
+
+### 5. 놓친 잠재 문제 + 대응
+
+이전 로컬 대상 실행에서 검색 배선 테스트가 빠져 mock 누락을 발견하지 못했다. 이번에는 실패한 검색 테스트와 실제 자동 피드 배선·컴포넌트·상태 테스트를 함께 실행했다. 원본 컴포넌트를 통째로 대역으로 바꿔 실패를 숨기는 수정은 하지 않았다.
+
+### 6. 구현 보고
+
+`vitest run`으로 `OverlayLayer.search.test.ts`, `automaticFeedDebug.integration.test.ts`, `AutomaticFeedDebugSection.interaction.test.ts`, `automaticFeedDebug.test.ts`를 실행해 **4파일·14테스트 통과**를 확인했다. 수정 파일 readonly ESLint는 오류·경고0이다. CI #771은 이 수정 전 결과로, 728파일 중726통과·1실패·1건너뜀, 7162테스트 중7160통과·1실패·1건너뜀이었다. lint·typecheck·문서·migration·test-budget 단계는 통과했다.
+
+node/web/test 전체 typecheck도 통과했다. 기존 ΔV3 추가 AC20~23의 자기보고4/4는 유지하며 이번 수정에서 새 AC 통과로 합산하지 않는다(✅4·⚠️0·❌0=4). 새 CI 결과와 독립 verify는 별도 확인 대상이다. 0262 ΔV15·0265의 새 저장 정책 DRAFT와 이 CI 수리는 서로 다른 산출물이다.
+
+### 7. Review Signals
+
+이번은 새 사용자 요구 구현이 아닌 필수 CI gate의 테스트 대역 보완이며 같은 라운드 r2.2다. 검색 테스트가 표현하지 않는 자동 피드 동작은 실제 DEV 통합 테스트가 계속 담당한다. 의존성·설치 파일·native ABI는 변경하지 않았다.
