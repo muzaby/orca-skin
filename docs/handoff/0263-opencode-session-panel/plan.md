@@ -405,7 +405,14 @@ Computer Use 증거: 실행 중인 Orca에서 기본 요약, 빈 목록, 변경 
 
 ## [검증자 기입] 파생 이슈
 
-없음.
+r1 독립 검증(V1~ΔV6) = **RETURN_TO_PLAN**. 판정 원문은 [`verify.md`](verify.md).
+
+| # | 이슈 | 출처 | disposition | 대응 방향 |
+|---|---|---|---|---|
+| G-0263-1 | ΔV3~ΔV5 §10이 행동 자리(EP-16a~d 요약 진입 click, EP-19c, EP-21b/c 등)의 유일 oracle을 CUA로 지정 — 좌표 아님. 시각 자리 EP-20a~e가 기계 분모에 섞임 | §10 / `§공통 V` | PLAN_GAP | 행동 자리는 fake DOM interaction 좌표, 시각 자리는 사람 시각 인수로 재지정 |
+| D-0263-1 | `[구현자 기입] ΔV6` 필드 접힘 | 재구현 턴 7필드 계약 | BLOCKING | 7필드 재기입 |
+| N-0263-1 | 상세 폭 부모 열 선택이 0열 배치에서만 관측 | VP6-2 | NON_BLOCKING | 다른 열 케이스 추가 후보 |
+| N-0263-2 | plan 메타 V mode에 ΔV6 없음 | 상태 사본 | NON_BLOCKING | 설계 정정 때 갱신 |
 
 ## [구현자 기입] Delta V3 — r1.3
 
