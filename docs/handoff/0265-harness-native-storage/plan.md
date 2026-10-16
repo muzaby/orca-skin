@@ -662,3 +662,15 @@ DB 선표시 뒤 lazy 조회의 실패는 조용히 소비하고 보관 transcri
 0262 ΔV20과 동일한 관련 369파일 회귀 및 수정된 test mock 재검증 집합을 사용했다. DB 검사는 Electron ABI 140의 임시 SQLite에서 migration·실제 파일 close/reopen·FTS·외래키 보존·복구 실패 경합을 확인했다. 전체 readonly ESLint 오류 0(기존 경고 6), node/web/test 타입 검사·production build·scripts142·migration/inventory/test-budget 통과. 사용자 다운로드의 기존 링크 오류는 제외 범위를 명시해 별도 판정했다. 로그는 0262 ΔV20 보고와 `.tmp/current-db-tests*.log`를 참조한다.
 
 native create 성공 후 Orca DB 경합 시 빈 원본 세션이 남을 수 있는 분산 경계는 D16대로 유지한다. 원본/사용자 전역 설정을 삭제하거나 덮지 않는다. 실제 사용자 원본을 지워 복구하는 실험은 하지 않았다. 모델 전송 내용·visible 버블·재시작은 fixture/native 프로토콜 및 임시 DB로 검증했으며, 실모델 복구의 실제 응답 내용은 이번 턴에서 검증하지 않았다. 기존 독립 verify와 사람 인수는 여전히 대기다.
+
+## [검증자 기입] 파생 이슈 — r1 검증
+
+r1(V1+ΔV1+ΔV2) 독립 검증 = **RETURN_TO_PLAN**. 판정 원문은 [`verify.md`](verify.md).
+
+| # | 이슈 | 출처 | disposition | 대응 방향 |
+|---|---|---|---|---|
+| G-0265-1 | 복구 첫 prompt의 보관 대화에 상한·초과 시 동작이 없다(`native-recovery.ts archivePrompt` 전체 직렬화) | D15·AC17·AC18 | PLAN_GAP | 상한과 초과 시 표시·영수증 의미를 사용자와 결정해 Delta V로 확정 |
+| G-0265-2 | D14·D15가 V1 D02·§8·AC5와 모순, SUPERSEDED 표시 없음. `app/AGENTS.md:86` 반대 규칙 유지 | Decision Ledger | PLAN_GAP | 대체 범위(missing만) 명시, AGENTS 정정 |
+| D-0265-1 | `adapters/claude/native-history.test.ts` O22 3케이스가 Windows PR CI #773~#779에서 red. mock이 realpath 경로를 잡지 못함 | VP12 / PR CI | BLOCKING | mock 경로 정규화 후 CI green 확인 |
+| D-0265-2 | `[구현자 기입] ΔV2` 필드 접힘 | 재구현 턴 7필드 계약 | BLOCKING | 7필드 재기입 |
+| N-0265-1~4 | CLI fixture `PWD` 미격리 · 중복 가드 전용 oracle 없음 · CI red 미보고 · 메타 V mode | — | NON_BLOCKING | verify §8 |
