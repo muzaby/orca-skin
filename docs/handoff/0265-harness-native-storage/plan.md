@@ -6,8 +6,8 @@
 |---|---|
 | slug | `0265-harness-native-storage` |
 | 작성자 / 일자 | Codex / 2026-10-16 |
-| 상태 | impl/IMPL_DONE — ΔV2 구현 및 자기검증 완료. 다음 Claude 독립 검증. 기존 사용자 인수 대기 보존 |
-| V mode / revision | Delta V / V1 + ΔV1 |
+| 상태 | plan/READY — r2, ΔV3 복구 상한 결정 반영. 기존 사용자 시각 인수 대기 보존 |
+| V mode / revision | Delta V / V1 + ΔV1~3 |
 | 기준 V | V1@공유 브랜치 `8c94b449485771d5ea588e62e38c8cfbedc74e3b`. OpenCode 구체 커서는 0262 ΔV16, 의존 경계 회귀는 0264 |
 | 관련 | PR #502 · ADR-009 · 0262 · 0230 |
 
@@ -31,7 +31,7 @@ Orca에서 만든 대화를 하네스 터미널에서 같은 native 세션으로
 | ID | 결정 / 조건 | 상태 / 근거 |
 |---|---|---|
 | D01 | native 세션·하네스 리소스의 원본은 하네스 기본 경로. 사용자가 지정한 native 환경도 존중 | ACTIVE / 사용자 |
-| D02 | Orca 대화 DB와 검색·앱 메타데이터 보관은 유지. 원본 실행 컨텍스트를 DB 전문 재전송으로 대체하지 않음 | ACTIVE / 사용자 SSOT 결정 |
+| D02 | Orca 대화 DB와 검색·앱 메타데이터 보관은 유지. 원본 실행 컨텍스트를 DB 전문 재전송으로 대체하지 않음 | PARTIALLY SUPERSEDED / ΔV2 D14·D15와 ΔV3 D17: 명시 전송의 확인된 missing만 복구 예외. unavailable·인증·경로 충돌 및 화면 로딩에는 유지 |
 | D03 | 엔진&모델과 Orca 제공 설정은 실행 오버라이드로 유지. native 설정 파일 자동 덮어쓰기·Orca sources/dist 일괄 이관 없음 | ACTIVE / 사용자 명확화 |
 | D04 | 대화 제거는 Orca 목록에서만 제거. native 세션·관련 파일·작업 폴더 보존 | ACTIVE / 사용자 답변 |
 | D05 | 공통 코드는 중립 계약을 받고 native 해석은 하네스 구현에서 수행. 미래 Codex 구현 자체를 이번에 추가하지 않음 | ACTIVE / 누적 구조 분리 요구·0264 |
@@ -49,7 +49,7 @@ ADR-001의 DB 단독 원본 정책은 ADR-009로 대체한다. 0264의 소유권
 | 모델·엔진 변경 | Orca 실행 오버라이드 반영. 세션 원본 경로·ID·하네스는 유지 |
 | 터미널에서 이어간 뒤 Orca 재열기 | native 원본의 추가 대화를 가져오고 같은 메시지를 중복 표시하지 않음. 후속 입력도 같은 native 세션에 전달 |
 | Orca 목록에서 대화 제거 | 목록/최근 세션에서 제외하고 native 세션과 실제 cwd 보존 |
-| native 저장소 없음 / 접근 실패 | 보관 기록을 유지하고 원본 접근 문제를 구분. 새 native 세션 생성이나 DB 전문 재전송으로 성공을 가장하지 않음 |
+| native 저장소 없음 / 접근 실패 | 보관 기록 유지. 화면 로딩은 자동 복구하지 않는다. 명시 전송의 missing은 ΔV2/3 복구, unavailable·인증·경로 충돌은 실행 차단 |
 | 구격리 원본과 native ID 충돌 | 기존 native 원본 무변경, 이관 미완료 표시·재시도 가능 |
 | native와 Orca에서 동시에 실행 중 | 자동 이력 교체/이관 금지. 기존 admission·실행 소유권과 외부 실행 충돌 조건을 설계에서 명시 |
 
@@ -74,7 +74,7 @@ ADR-001의 DB 단독 원본 정책은 ADR-009로 대체한다. 0264의 소유권
 | R02 / AT02 / AC2 | Orca 모델 오버라이드는 적용되고 native 설정 파일·기본 저장 루트는 유지 | engine/runtime → 실제 adapter spawn/query → 적용 모델과 파일 전후 비교 |
 | R03 / AT03 / AC3 | 명시한 native 사용자 root에 settings import·skill/plan 경로·실행이 일치 | Claude 경로 resolver와 실제 소비처 fixture, OpenCode ΔV15 연계 |
 | R04 / AT04 / AC4 | 목록 제거 후 native 세션·작업 폴더는 존재하고 재개 가능 | 실제 sessionDelete handler → DB 목록·lastSessionId·CLI 조회·worktree 존재 |
-| R05 / AT05 / AC5 | 새 실행 없이 native 접근 실패를 표시하고 Orca 보관 기록은 유지 | native missing/error fixture → session load/send. send/prompt 호출0 |
+| R05 / AT05 / AC5 | 보관 기록 유지. 화면 로딩은 실행0, 명시 전송에서 unavailable·인증·경로 충돌은 실행0. missing 전송만 AC16~19로 대체 | native missing/error fixture → session load/send. ΔV2/3 예외 외 send/prompt 호출0 |
 | R06 / AT06 / AC6 | native 구현은 각 하네스 모듈에 있고 공통 orchestration은 중립 포트 사용 | 실제 registry 조립·두 구현 결과, 기존 경계 lint |
 | R07 / AT07 / AC7 | 구격리 세션 전환이 ID/cwd 및 관련 리소스를 보존하거나 명시적 미완료로 남음 | 0262 이관 integration; 충돌·중간 실패·재실행 fixture |
 | R08 / AT08 / AC8 | 터미널에서 추가한 사용자·assistant·도구 이력이 재열기에 반영되고 반복 조회 시 중복 없음 | native fixture 변경 → 실제 sessionLoad → DB 보관·LoadedSession. 이어 보내기도 같은 native ID 사용 |
@@ -137,6 +137,8 @@ snapshot은 native 메시지 ID·순서·정규화 parts·raw·revision과 동�
 native 검색 인덱스에는 native ID별 최신 본문을 저장하고 숨겨진 세션은 제외한다. 기존 검색은 snapshot이 없는 세션 및 frontier 이후 live 행에 사용하여 동일 본문을 두 저장 계층에서 중복 노출하지 않는다. 보관 이력의 사용량 원장은 그대로 두고 재조회 비용을 새 과금으로 합산하지 않는다.
 
 ### 재열기·실행·오류
+
+ΔV2 D13~16 및 ΔV3 D17~18이 아래 V1의 missing 전송 차단·DB 재전송 금지를 부분 대체한다. 단순 재열기와 unavailable·인증·경로 충돌에는 자동 재생성·재전송을 하지 않는다.
 
 `sessionLoad`는 비동기 refresh 뒤 기존 DTO를 조립하며 `LoadedSession.nativeSync?`에 ready/busy/missing/unavailable/migration-required와 안전한 표시 문구를 싣는다. native 원본 부재와 접근 오류를 구별하고 보관 기록을 null로 바꾸지 않는다. 동기화중 세션 제거·DB 변경·실행 시작이 발생하면 결과를 폐기한다.
 
@@ -662,6 +664,26 @@ DB 선표시 뒤 lazy 조회의 실패는 조용히 소비하고 보관 transcri
 0262 ΔV20과 동일한 관련 369파일 회귀 및 수정된 test mock 재검증 집합을 사용했다. DB 검사는 Electron ABI 140의 임시 SQLite에서 migration·실제 파일 close/reopen·FTS·외래키 보존·복구 실패 경합을 확인했다. 전체 readonly ESLint 오류 0(기존 경고 6), node/web/test 타입 검사·production build·scripts142·migration/inventory/test-budget 통과. 사용자 다운로드의 기존 링크 오류는 제외 범위를 명시해 별도 판정했다. 로그는 0262 ΔV20 보고와 `.tmp/current-db-tests*.log`를 참조한다.
 
 native create 성공 후 Orca DB 경합 시 빈 원본 세션이 남을 수 있는 분산 경계는 D16대로 유지한다. 원본/사용자 전역 설정을 삭제하거나 덮지 않는다. 실제 사용자 원본을 지워 복구하는 실험은 하지 않았다. 모델 전송 내용·visible 버블·재시작은 fixture/native 프로토콜 및 임시 DB로 검증했으며, 실모델 복구의 실제 응답 내용은 이번 턴에서 검증하지 않았다. 기존 독립 verify와 사람 인수는 여전히 대기다.
+
+## ΔV3 — 복구 입력 상한과 이전 계약의 대체 범위 (READY)
+
+### Decision / Product & UX
+
+D17 ACTIVE: 사용자 답변 “전송을 중단하고 안내 — 보관 대화 유지”. 복구 첫 입력(보관 전체+새 입력)이 컨텍스트 예산을 넘으면 생략·요약 없이 전송 전에 중단한다. native create, binding 교체, receipt 저장을 하지 않으며 기존 DB와 작성한 입력을 유지한다. 이미 빈 replacement가 생성된 재시도에서도 같은 검사를 적용한다.
+
+D18 ACTIVE: D14·D15가 V1 D02·AC5·§3/§8의 금지에서 대체하는 범위는 명시 전송 시 확인된 missing뿐이다. 원본 접근 실패 일반, 화면 표시, 원본 삭제 정책은 유지한다. app/AGENTS도 이 구별을 따른다.
+
+### Technical Design / §10
+
+공통 복구 admission은 하네스 모듈이 제공한 context window를 소비한다. OpenCode는 선택된 provider/model의 `limit.context`를 재사용하고 부재·비정상은 200k, Claude는 명시 1m 모델 표시 외 200k를 쓴다. tokenizer API 호출 없이 보수적으로 실제 복구 prompt의 UTF-8 바이트 수를 입력 토큰 상한으로 계산하고 window의 80%까지만 허용한다. 나머지는 하네스 시스템·도구 정의 및 출력 여유다. 정규화된 첨부·추가 지시도 계산에 포함한다. 정확한 공급자 토큰 수를 안다는 주장은 하지 않는다. 안내는 ‘안전한 입력 한도 초과’로 표시한다.
+
+| AC / pair | requiredness / 강제 자리 | 직접 oracle / 실패 의미 |
+|---|---|---|
+| AC19 / VP3-A R19↔AT19·AR3↔IT3 | REQUIRED / 신규 missing 준비·미수신 replacement 재시도·resolve 모델/입력 배선 (3) | `native-session.test.ts`: 임시 SQLite와 실제 resolve, 초과 시 recoverSession/DB binding/receipt/신규 메시지0, 경계 이내 전체 입력 보존, 재시도도 동일 |
+| VP3-M MD3↔UT3 | REQUIRED / bytes+새 입력+첨부·context 모듈 정책 (2) | 복구 budget unit/registry test: 한글·경계·작은 모델·fallback·Claude/OpenCode 등록 함수 호출 |
+| VP3-R | REGRESSION / VP2-1~4·VP05·VP10·VP12 | 기존 native-session/send/adapter/history/store + Windows canonical path 실패 주입 실제 도달 |
+
+선택 mutation not selected — 직접 oracle. G-0265-1/2 규범 누락을 해소한다. native reader의 Windows 실패 주입은 fixture의 realpath와 동일 경로를 비교하고 실제 주입 횟수를 단언한다. CLI fixture는 PWD를 상속하지 않는다. 운영 gate는 app/AGENTS 및 기존 관련 gate, 원격 Windows CI 결과를 별도로 기록한다.
 
 ## [검증자 기입] 파생 이슈 — r1 검증
 
