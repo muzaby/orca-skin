@@ -615,7 +615,7 @@ Work에는 Main이 `{ type: 'response.boundary', sessionId, boundary }`를 발�
 ### 하네스별 구성과 기록
 
 - `Backend`는 `claude | opencode`다. `chat:send`의 optional backend는 기존 세션에서 생략하면 저장값을 쓰며, 저장값·provider key·lease와 불일치하면 실행 전에 오류를 반환한다. OpenCode의 Work 요청은 거부한다.
-- `agent:list`는 하네스별 `AgentEnvironment`를 반환한다. OpenCode 모델에는 native `provider/model`, `variants`, provider ID와 primary `agents` 목록이 포함된다. 서버 조회 실패는 해당 entry의 `catalogError`로 보고한다.
+- `agent:list`는 하네스별 `AgentEnvironment`를 반환한다. OpenCode 모델에는 엔진 문서에 명시된 native `provider/model`, `variants`, provider ID와 기본 build/plan 및 문서의 visible primary `agents` 목록이 포함된다. 목록 조회는 OpenCode 서버를 시작하거나 전역 카탈로그를 가져오지 않는다. 설정 해석 실패는 해당 entry의 `catalogError`로 보고한다.
 - 엔진 add/read/update/delete의 engine과 canonical key는 하네스 범위를 갖는다. native JSON은 다른 하네스 설정으로 변환하지 않는다.
 - `settings.harnesses[backend]`는 `instructions`와 optional `executablePath`를 저장한다. patch는 다른 하네스의 설정을 보존한다. 실행 파일 경로는 OpenCode 서버 설정에만 사용한다. `lastBackend`는 새 대화의 기본값이며 기존 대화의 실행 선택을 바꾸지 않는다.
 - `tool.call.started`와 저장 `tool_call`의 optional `providerTool: {name, input}`은 원본 이름·입력이다. 공통 `toolName`·`args`와 함께 보존하고 구형 이력에 합성하지 않는다. `session.updated.patch.backend`는 최초 세션 확정에 사용한다.

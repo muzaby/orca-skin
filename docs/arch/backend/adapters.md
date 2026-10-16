@@ -38,7 +38,7 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 
 `opencode/v1/native-history.ts`는 동일 native ID·cwd를 확인하고 변경 중이거나 응답이 미완료인 이력의 교체를 보류한다. 구격리 저장소의 알려진 세션은 `legacy-storage-migration.ts`가 원본과 native 대상의 ID·리소스를 확인한 뒤 연결하며, 충돌·불완전한 전환은 상태로 반환한다. 공통 조립은 snapshot을 Orca DB에 보관해 표시·검색에 사용한다. 목록 제거와 보관 계층의 수명은 [persistence.md](./persistence.md), 원본 소유 정책은 [ADR-009](../../decisions/009-harness-native-storage-authority.md)를 따른다.
 
-`OpenCodeAdapter`는 `/v2/client`의 legacy 호환 API(`/session`, `/event`)를 사용한다. catalog는 구성별 캐시를 사용하며 목록 새로고침은 다시 조회한다. `opencode/v1/channel.ts`는 입력 전에 SSE를 연결하고 같은 LiveTurn의 pushTurn으로 후속 입력을 제출한다. session ID·prompt parent ID·event/part ID로 소유권과 중복을 격리하며, 응답 idle은 해당 프레임만 종료한다. 이후 소유 background의 완료 입력과 응답은 기존 SessionRuntime pump·listen 경로로 받는다.
+`OpenCodeAdapter`는 `/v2/client`의 legacy 호환 API(`/session`, `/event`)를 사용한다. catalog는 엔진 문서에 명시된 모델과 에이전트를 로컬에서 파생하며 서버 실행·전역 공급자 조회를 하지 않는다. `opencode/v1/channel.ts`는 입력 전에 SSE를 연결하고 같은 LiveTurn의 pushTurn으로 후속 입력을 제출한다. session ID·prompt parent ID·event/part ID로 소유권과 중복을 격리하며, 응답 idle은 해당 프레임만 종료한다. 이후 소유 background의 완료 입력과 응답은 기존 SessionRuntime pump·listen 경로로 받는다.
 
 native user의 synthetic text만 공통 `input.received`로 기록하고, 모델 전달은 OpenCode 서버에 맡긴다. 완료 태그는 등록된 native job/child ID에 일치할 때 작업 상태와 같은 배치로 전달한다. 태그를 받은 이유로 prompt를 다시 보내거나 기본 reminder를 추측해서 합성하지 않는다. 공통 분류·영속 계약은 [provider-runtime.md](./provider-runtime.md)의 시스템 피드 설명을 따른다.
 

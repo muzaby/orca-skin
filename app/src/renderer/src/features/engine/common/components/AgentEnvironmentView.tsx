@@ -96,7 +96,7 @@ export function AgentEnvironmentView({
                 setModal({ mode: 'add', engine })
               }}
             >
-              {HARNESS_CAPABILITIES[engine].label}
+              {engine === 'claude' ? 'Claude' : HARNESS_CAPABILITIES[engine].label}
             </button>
           ))}
         </div>

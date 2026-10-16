@@ -19,7 +19,11 @@ import {
 } from '../../features/harnesses/common/settings-write'
 import type { RouterContext } from '../context'
 import { handle } from '../../infra/ipc/handle'
-import { canonicalProviderKey, providerKeyOf } from '../../infra/config/provider-key'
+import {
+  canonicalProviderKey,
+  parseProviderKey,
+  providerKeyOf
+} from '../../infra/config/provider-key'
 
 interface EngineHandlerContext extends Pick<RouterContext, 'deployExtensions'> {
   harnessSettings: Pick<RouterContext['harnessSettings'], 'invalidateAll'>
@@ -32,7 +36,8 @@ interface EngineHandlerContext extends Pick<RouterContext, 'deployExtensions'> {
 
 async function refreshHarnessSettings(ctx: EngineHandlerContext, key: string): Promise<void> {
   try {
-    await ctx.deployExtensions({ throwOnFailure: true })
+    if (parseProviderKey(key, [...HARNESS_IDS])?.adapter === 'claude')
+      await ctx.deployExtensions({ throwOnFailure: true })
   } finally {
     // **두 cache 를 함께 비운다** (0188) — settings 만 비우면 동적 runtime config 가 옛
     // sourceRevision 기준 값을 warm hit 로 계속 돌려준다.

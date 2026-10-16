@@ -1,32 +1,27 @@
 import type { AgentEnvironment } from '../../../../shared/ipc'
-import type { Agent, Provider } from '@opencode-ai/sdk/v2'
+import { isRecord } from '../../../../shared/obj'
+import { parseOpenCodeModels } from './settings'
 
 export function openCodeCatalog(
   entry: AgentEnvironment,
-  providers: Provider[],
-  agents: Agent[],
-  defaults: Record<string, string>
+  config: Record<string, unknown>
 ): AgentEnvironment {
+  const agents: Record<string, unknown> = {
+    build: { mode: 'primary' },
+    plan: { mode: 'primary' },
+    ...(isRecord(config.agent) ? config.agent : {})
+  }
   return {
     ...entry,
-    agents: agents
-      .filter((agent) => !agent.hidden && agent.mode !== 'subagent')
-      .map((agent) => ({
-        name: agent.name,
-        ...(agent.description ? { description: agent.description } : {})
-      })),
-    models: providers.flatMap((provider) =>
-      Object.values(provider.models).map((model) => ({
-        alias: model.name,
-        model: `${provider.id}/${model.id}`,
-        providerId: provider.id,
-        isCustom: true,
-        oneMillionContext: false,
-        isDefault: defaults[provider.id] === model.id,
-        variants: Object.entries(model.variants ?? {})
-          .filter(([, variant]) => variant.disabled !== true)
-          .map(([name]) => name)
-      }))
-    )
+    models: parseOpenCodeModels(config),
+    agents: Object.entries(agents).flatMap(([name, value]) => {
+      if (!isRecord(value) || value.hidden || value.disable || value.mode === 'subagent') return []
+      return [
+        {
+          name,
+          ...(typeof value.description === 'string' ? { description: value.description } : {})
+        }
+      ]
+    })
   }
 }

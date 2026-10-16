@@ -2,7 +2,6 @@ export interface ProviderModelRow {
   row: string
   id: string
   name: string
-  originalId?: string
 }
 export interface ProviderHeaderRow {
   row: string
@@ -16,6 +15,4 @@ export interface ProviderDraft {
   apiKey: string
   models: ProviderModelRow[]
   headers: ProviderHeaderRow[]
-  source?: Record<string, unknown>
-  originalId?: string
 }

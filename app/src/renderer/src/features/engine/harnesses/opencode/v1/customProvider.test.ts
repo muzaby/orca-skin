@@ -24,6 +24,7 @@ describe('OpenCode custom provider config', () => {
       npm: '@ai-sdk/openai-compatible',
       name: 'Local',
       options: { baseURL: 'http://localhost:1234/v1' },
+      whitelist: ['model'],
       models: { model: { name: 'Model' } }
     })
     draft.apiKey = '{env:LOCAL_KEY}'
@@ -61,7 +62,7 @@ describe('OpenCode custom provider config', () => {
     })
     expect(() => serializeProviderDraft(draft)).toThrow('Invalid provider draft')
   })
-  it('imports compatible providers and preserves other settings and model metadata when renamed', () => {
+  it('imports only visible fields and serializes a fresh document owned by the selected provider', () => {
     const original = {
       model: 'local/a',
       small_model: 'local/b',
@@ -85,20 +86,23 @@ describe('OpenCode custom provider config', () => {
     draft.models = [{ ...draft.models[0], id: 'new-a' }]
     draft.apiKey = ''
     const result = JSON.parse(serializeProviderDraft(draft))
-    expect(result).toMatchObject({
-      model: 'renamed/new-a',
-      small_model: 'renamed/new-a',
-      enabled_providers: ['renamed', 'other'],
-      instructions: ['keep.md'],
+    expect(result).toEqual({
+      $schema: 'https://opencode.ai/config.json',
+      enabled_providers: ['renamed'],
       provider: {
-        renamed: { options: { timeout: 1200 }, models: { 'new-a': { limit: { context: 5000 } } } },
-        other: original.provider.other
+        renamed: {
+          npm: '@ai-sdk/openai-compatible',
+          name: 'Local',
+          options: { baseURL: 'https://example.test/v1' },
+          whitelist: ['new-a'],
+          models: { 'new-a': { name: 'A' } }
+        }
       }
     })
     expect(result.provider.local).toBeUndefined()
     expect(result.provider.renamed.options.apiKey).toBeUndefined()
     expect(JSON.stringify(original)).toBe(before)
     draft.id = 'other'
-    expect(validateProviderDraft(draft).id).toBe('engine.openCode.duplicate')
+    expect(validateProviderDraft(draft)).toEqual({})
   })
 })

@@ -17,10 +17,6 @@ import type { openFileDatabase } from '../../../infra/db/file-database'
 import type { LegacyStorageMigration } from './legacy-storage-migration'
 
 export class OpenCodeAdapter implements SessionAdapter {
-  private readonly catalogs = new WeakMap<
-    object,
-    { expires: number; result: Promise<AgentEnvironment> }
-  >()
   readonly id = 'opencode' as const
   constructor(
     private readonly servers: OpenCodeServer,
@@ -62,39 +58,10 @@ export class OpenCodeAdapter implements SessionAdapter {
     })
   }
 
-  async catalog(
-    entry: AgentEnvironment,
-    config: Record<string, unknown>,
-    refresh = false,
-    env?: Record<string, string>
-  ): Promise<AgentEnvironment> {
-    const server = await this.servers.acquire(config, env)
-    const cached = this.catalogs.get(server)
-    if (!refresh && cached && cached.expires > Date.now())
-      return { ...entry, ...(await cached.result), key: entry.key, provider: entry.provider }
-    const client = createOpencodeClient({
-      baseUrl: server.url,
-      headers: server.headers,
-      fetch: this.fetchImpl,
-      throwOnError: true
-    })
-    const result = (async (): Promise<AgentEnvironment> => {
-      const [providers, agents] = await Promise.all([
-        client.config.providers({}, { signal: AbortSignal.timeout(15000), throwOnError: true }),
-        client.app.agents({}, { signal: AbortSignal.timeout(15000), throwOnError: true })
-      ])
-      if (!providers.data || !agents.data) throw new Error('OpenCode 모델 목록을 읽을 수 없습니다.')
-      return openCodeCatalog(entry, providers.data.providers, agents.data, providers.data.default)
-    })()
-    const cache = { expires: Date.now() + 60000, result }
-    this.catalogs.set(server, cache)
-    try {
-      return await result
-    } catch (error) {
-      if (this.catalogs.get(server) === cache) this.catalogs.delete(server)
-      throw error
-    }
-  }
+  catalog: NonNullable<SessionAdapter['catalog']> = async (
+    entry,
+    config
+  ): Promise<AgentEnvironment> => openCodeCatalog(entry, config)
 
   async complete(req: CompleteRequest): Promise<string> {
     const client = await this.client(req.providerSettings?.settings, req.env, req.cwd)

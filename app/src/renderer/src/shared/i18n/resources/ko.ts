@@ -418,8 +418,7 @@ export const ko = {
       topLevelObject: '최상위는 객체 { … } 형태여야 해요.'
     },
     openCode: {
-      title: '사용자 지정 공급자',
-      description: 'OpenAI 호환 공급자를 구성합니다. 입력한 설정으로 OpenCode 엔진을 추가합니다.',
+      importHint: '전역 opencode.json에서 입력 필드만 채웁니다. 원본 파일은 변경하지 않습니다.',
       id: '공급자 ID',
       idHint: '소문자, 숫자, 하이픈 또는 밑줄',
       idFormat: '소문자 또는 숫자로 시작하고 소문자·숫자·하이픈·밑줄만 사용할 수 있습니다.',
@@ -441,7 +440,6 @@ export const ko = {
       headerValuePlaceholder: '값',
       addHeader: '헤더 추가',
       removeHeader: '헤더 {{count}} 제거',
-      submit: '제출',
       required: '필수 항목입니다.',
       duplicate: '중복된 값입니다.',
       importedProvider: '불러온 공급자',

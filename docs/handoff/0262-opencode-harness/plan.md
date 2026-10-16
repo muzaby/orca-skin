@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | plan/READY — ΔV19 모달 통일·폼 전용 문서·오프라인 모델 목록. 사용자 직접 수정 요청, 기존 독립 verify·AC11 인수 대기 보존 |
+| 상태 | impl/IMPL_DONE — ΔV19 모달 통일·폼 전용 문서·오프라인 모델 목록 구현. 다음 Claude 독립 verify, 기존 AC11 인수 대기 보존 |
 | V mode | Delta V — 기준 V1 + ΔV1~18 + ΔV19 (각 델타의 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV19 / 기준 ΔV18@공유 브랜치 `7edd119c3cfb3d720f51963753c8c7873ad0a726`. 기존 자기보고·AC11 인수와 이번 델타를 별도 집계 |
@@ -2827,3 +2827,75 @@ EP50 2 + EP51 4 + EP52 1 = 7/7 자기확인. 새 컴포넌트의 실제 이름�
 EP53 2 + EP54 3 + EP55 5 = 10자리. 직접 데이터/실행 결과 oracle이므로 별도 source mutation/구조 proxy는 not selected. ΔV18 VP01/02/04/05의 문구·원문 보존 기대는 위 pair로 대체하며 import 오류·수명은 회귀한다. ΔV18 VP03/AC51 설정 제거는 비영향 승계다.
 
 운영 gate는 관련 Vitest·readonly lint·node/web/test typecheck·production build·문서/오류 registry·diff/trailer다. D042→AC52, D043→AC53, D044→AC54로 대조했으며 사용자 직접 변경 범위라 추가 승인/미정 선택 없음. 기존 AC11 사용자 인수·독립 verify는 보존한다.
+
+## [구현자 기입] 설계 리뷰 — ΔV19 r1.19
+
+사용자 변경 D-042~044를 구현했다. import 원문 보존과 전역 모델 확장은 이번 계약이 폐기하므로 해당 기대를 새 문서 소유 범위로 교체했다. 전역 설정 읽기·native 세션 경로·기존 JSON 편집은 유지한다. 추가와 목록은 네트워크 없이 완료되며 실제 대화의 서버 관리는 기존 경로에 남는다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — ΔV19 r1.19
+
+검색: `rg -n 'importUserSettings|serializeProviderDraft|openCodeCatalog|\.catalog\(|agentList|refreshHarnessSettings|parseOpenCodeModels|resolveTurnProvider' app/src/renderer/src/features/engine app/src/main/adapters/opencode app/src/main/app/handlers/{engine,misc}.ts app/src/main/app/chat-turn/resolve-turn.ts`. 소비자는 agent:list와 턴 선택이며 양쪽 모두 실제 adapter로 검사했다. CRUD 호출부 추가/수정/삭제는 같은 분기 함수를 통과하며 각각 실행했다.
+
+아래 경로는 renderer의 `features/engine/`, main의 `adapters/opencode/v1/`, `app/handlers/` 기준이다. I19는 `app/handlers/engine.opencode.integration.test.ts:imports fields, saves an independent document and lists/resolves only its model without a server`다.
+
+| 자리 | 직접 oracle / 관측 |
+|---|---|
+| EP53a | `common/components/AgentEnvironmentView.interaction.test.ts:selects Claude or OpenCode before opening their production forms and closes the menu` — 두 정확한 메뉴 이름과 하네스별 실제 폼 |
+| EP53b | 위 interaction과 `harnesses/opencode/ProviderForm.interaction.test.ts:validates fields, adds and removes rows and submits native settings with the selected harness` — 공통 제목/추가 문구·반복 필드. CUA-19-01~03으로 chrome/배치 보완 |
+| EP54a | `ProviderForm.interaction.test.ts:imports compatible provider fields and submits only the selected provider without hidden metadata` — 선택한 provider만 제출, 비노출 원본 미포함 |
+| EP54b | `v1/customProvider.test.ts:imports only visible fields and serializes a fresh document owned by the selected provider` — 새 provider/models/whitelist 문서, 다른 공급자·원본 옵션 없음 |
+| EP54c | I19 — 실제 전역 import→전용 파일 저장 후 문서 동등·전역 bytes 불변. `settings-write.test.ts:keeps equal provider names in separate harness namespaces through CRUD` 격리 회귀 |
+| EP55a | `catalog.test.ts:keeps provider-qualified model IDs, names, defaults and enabled variants` — 동명 모델 namespace·variant·visible agent와 config 불변 |
+| EP55b | `catalog.test.ts:rebuilds from only the engine document without starting a server or fetching global models` — 문서 교체/빈 문서 즉시 반영, acquire/fetch0 |
+| EP55c | `engine.deployment.test.ts:%s invalidates the OpenCode document without extension deployment` — 추가/수정/삭제 모두 deployment0, settings/runtime/catalog 무효화 순서 |
+| EP55d | I19 — 실제 agent:list의 local/first 하나, 별도 other/extra 하나, 서비스 재생성 후 동일 |
+| EP55e | I19 — 실제 resolveTurnProvider가 local/first 선택, 서버/fetch0 |
+
+EP53 2 + EP54 3 + EP55 5 = 10/10자리. 표 밖 미구현 지점은 조사에서 발견하지 않았다.
+
+| pair | 자기판정 / 근거 |
+|---|---|
+| VP-Δ19-01 | SELF_PASS — EP53a/b와 CUA-19-01~03 |
+| VP-Δ19-02 | SELF_PASS — EP54a~c, import 취소/지각·오류 회귀 |
+| VP-Δ19-03 | SELF_PASS — EP55a~e, 문서/DTO/턴 동일 모델 |
+| VP-Δ19-04 | SELF_PASS — I19의 임시 전역 파일·저장·재조회·서비스 재생성 |
+| VP-Δ19-05 | SELF_PASS — 실제 Form wrapper/codec과 IPC handler/settings/adapter 경계 |
+| VP-Δ19-06 | SELF_PASS — customProvider/catalog/settings 직접 데이터 fixture |
+| VP-Δ19-R1 | SELF_PASS — EngineFormModal/import, engine.deployment, settings-write, adapter/server/native-history 회귀 |
+
+검산 REQUIRED6 + REGRESSION1 = SELF_PASS7 · SELF_BLOCKED0. 독립 검증의 PASS는 아니다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — ΔV19 r1.19
+
+해당 없음 — 직접 oracle. 선택 mutation0 · 인용 변이0 · 새 구조 proxy0 = 잠금 표0행. 서버/fetch0은 실제 production catalog·handler를 실행한 spy 관측이며 소스 문자열 검색을 검증 oracle로 쓰지 않았다. 이전 원문 보존 단언은 사용자 D-043으로 대체했으며, 오류·취소·지각 응답·중복 제출 단언은 유지했다.
+
+## [구현자 기입] Product/UX 파생 검토 — ΔV19 r1.19
+
+CUA-19-01: 실제 Electron의 추가 메뉴 Claude/OpenCode와 두 폼의 ‘엔진 추가’·취소/추가하기를 확인했다. CUA-19-02: 밝은 테마에서560px 모달, OpenCode chip, 공급자/불러오기 행, ID/이름 병렬 입력과 모델/헤더 행을 확인했다. CUA-19-03: 어두운 테마에서 같은 배치와 본문 스크롤 중 고정 헤더/footer를 확인하고 밝은 테마로 복원했다.
+
+CUA-19-04: 검증용 dev 앱을 정상 종료·재실행해 최신 main으로 엔진 페이지를 열었다. 기존 테스트 엔진은 `cua-fixture/visual-test` 하나, HF 엔진은 자기 모델 하나, 모델 미지정 기본 엔진은 빈 목록이었다. 재시작 전 관측했던 전역 공급자 모델 혼입은 나타나지 않았다. 앱은 밝은 테마의 엔진 페이지에 열어 두었다.
+
+불러오기는 아직 저장하지 않은 폼만 채운다. 가져온 다른 공급자/미노출 옵션을 보존한다고 표시하지 않으며 안내는 버튼 tooltip으로 제공한다. 실사용 전역 설정이나 기존 엔진을 테스트 목적으로 다시 저장하지 않았다. 파일 생성·재로드·전역 불변은 임시 디렉터리의 실제 서비스 통합 검사로 확인했다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — ΔV19 r1.19
+
+- import 선택 ID와 편집 중 provider ID를 분리했다. 새 문서는 원본의 다른 공급자와 충돌할 이유가 없으며 기존 저장 엔진 중복은 main의 기존 검증에 남긴다.
+- catalog 서버 캐시를 제거해 수정된 문서가 곧바로 목록이 되도록 했다. 추가/수정/삭제의 settings/runtime/catalog 무효화는 유지한다. 실제 서비스 재생성 후에도 같은 모델을 읽는다.
+- renderer에서 SDK Config 타입을 직접 import하려던 중 하네스 경계 lint가 거절했다. import를 제거하고 renderer v1 codec을 독립 유지했다. 실제1.x 지원 필드는 설치 SDK 타입과 대조했다. 의존 패키지는 추가하지 않았다.
+- 기존 엔진 JSON에 여러 모델이 명시돼 있다면 그대로 표시한다. 사용자 파일을 자동 축소하지 않는다. 빈 문서는 전역 모델로 채우지 않는다.
+
+## [구현자 기입] 구현 보고 — ΔV19 r1.19
+
+| AC | 자기판정 / 관측 |
+|---|---|
+| AC52 | ✅ 실제 메뉴/폼 interaction 및 CUA 두 테마에서 통일된 이름·chrome·필드 배치 |
+| AC53 | ✅ 새 문서 exact 단언·다른 공급자/원본 metadata 제외·실제 전역 파일 bytes 불변 |
+| AC54 | ✅ 실제 저장/agent:list/턴 선택/재로드에서 각 엔진의 모델 하나, acquire/fetch/deployment0 |
+
+검산 이번 델타 AC ✅3 · ⚠️0 · ❌0 = 총3. Criteria-Met은 이 델타이며 기존 AC11 사용자 인수와 독립 verify는 대기다.
+
+관측 gate: 관련 Vitest24파일407케이스 통과(오류 registry·Claude 회귀 포함). node/web/test typecheck 진단0. 변경/신규 TS·TSX16파일 readonly ESLint는 마지막 formatter 경고를 정리한 재검사까지 오류0·경고0. production main/preload/renderer build 성공. harness-boundary/test-budget 스크립트36검사와 실제 git 예산16스위트 통과. 문서 inventory 일치·prose 위반0. 원래 링크 검사는 사용자 다운로드 `.tmp/opencode-dev`의 깨진 링크5건 때문에 실패했고, 다운로드·첨부를 제외한 저장소 링크는0건이다. 패키지/lockfile·ABI 변경 없음.
+
+## [구현자 기입] Review Signals — ΔV19 r1.19
+
+이번 턴은 사용자 요구 변경이며 ΔV18의 원문 보존 정책을 D-043으로 명시 대체했다. 모델 소유 범위를 serialize뿐 아니라 목록과 턴 선택까지 함께 잠갔다. 설계 규범은 구현과 분리 커밋했다. UI 검증은 기존 Electron 앱을 Computer Use로 직접 조작했고 저장 경로는 임시 파일 통합으로 확인했다. 독립 검증을 선점하지 않으며 다음 주체는 Claude다.

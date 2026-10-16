@@ -4,7 +4,6 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openCodeCatalog } from './catalog'
-import type { Agent, Provider } from '@opencode-ai/sdk/v2'
 
 it('reads raw global settings including invalid JSON for editing', () => {
   const root = mkdtempSync(join(tmpdir(), 'orca-opencode-import-'))
@@ -49,24 +48,23 @@ describe('OpenCode native model catalogs', () => {
     ])
     expect(parseOpenCodeModels({ env: { ANTHROPIC_MODEL: 'claude' } })).toEqual([])
   })
-  it('exposes server models and primary agents without hidden or subagent-only choices', () => {
-    const providers = [
-      {
-        id: 'vendor',
-        models: { m: { id: 'm', name: 'Model', variants: { high: {}, off: { disabled: true } } } }
+  it('exposes configured models and primary agents without hidden or subagent-only choices', () => {
+    const config = {
+      provider: {
+        vendor: {
+          models: { m: { id: 'm', name: 'Model', variants: { high: {}, off: { disabled: true } } } }
+        }
+      },
+      agent: {
+        build: { mode: 'primary' },
+        plan: { mode: 'all' },
+        internal: { hidden: true },
+        explore: { mode: 'subagent' }
       }
-    ] as unknown as Provider[]
-    const agents = [
-      { name: 'build', mode: 'primary' },
-      { name: 'plan', mode: 'all' },
-      { name: 'internal', hidden: true },
-      { name: 'explore', mode: 'subagent' }
-    ] as Agent[]
+    }
     const result = openCodeCatalog(
       { key: 'opencode-local', adapter: 'opencode', supported: true, models: [] },
-      providers,
-      agents,
-      { vendor: 'm' }
+      config
     )
     expect(result.models[0]).toMatchObject({
       model: 'vendor/m',

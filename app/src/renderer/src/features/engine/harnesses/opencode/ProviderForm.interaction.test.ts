@@ -130,7 +130,7 @@ describe('OpenCode provider form through production engine router', () => {
     expect(field('id').props.value).toBe('fixture')
     expect(close).not.toHaveBeenCalled()
   })
-  it('imports compatible providers into fields without saving and preserves metadata in the submitted config', async () => {
+  it('imports compatible provider fields and submits only the selected provider without hidden metadata', async () => {
     const source = {
       provider: Object.fromEntries(
         ['one', 'two'].map((id) => [
@@ -156,7 +156,19 @@ describe('OpenCode provider form through production engine router', () => {
     send()
     await settle()
     const payload = submit.mock.calls[0][0] as unknown as { settingsJson: string }
-    expect(JSON.parse(payload.settingsJson)).toEqual(source)
+    expect(JSON.parse(payload.settingsJson)).toEqual({
+      $schema: 'https://opencode.ai/config.json',
+      enabled_providers: ['two'],
+      provider: {
+        two: {
+          npm: '@ai-sdk/openai-compatible',
+          name: 'two',
+          options: { baseURL: 'https://example.test/v1' },
+          whitelist: ['model'],
+          models: { model: { name: 'Model' } }
+        }
+      }
+    })
   })
   it.each(['edit', 'cancel', 'dismiss', 'unmount'] as const)(
     'discards a pending import after %s',
@@ -170,7 +182,7 @@ describe('OpenCode provider form through production engine router', () => {
       mount()
       fill()
       dom.click(button('engine.form.openCodeImportButton'))
-      expect(button('engine.openCode.submit').props.disabled).toBe(true)
+      expect(button('engine.form.addAction').props.disabled).toBe(true)
       if (action === 'edit') change(field('name'), 'New name')
       if (action === 'cancel') dom.click(button('common.cancel'))
       if (action === 'dismiss')

@@ -98,6 +98,26 @@ describe('engine CRUD uses the shared extension deployment queue', () => {
     expect(invalidateAll).toHaveBeenCalledOnce()
   })
 
+  it.each([
+    [CHANNELS.engineAdd, { engine: 'opencode', provider: 'local', settingsJson: '{}' }],
+    [CHANNELS.engineUpdate, { key: 'opencode-local', settingsJson: '{}' }],
+    [CHANNELS.engineDelete, { key: 'opencode-local' }]
+  ])(
+    '%s invalidates the OpenCode document without extension deployment',
+    async (channel, request) => {
+      const deploy = vi.fn(async () => {}),
+        order: string[] = []
+      registerEngine(deploy, order)
+      await invoke(channel, request)
+      expect(deploy).not.toHaveBeenCalled()
+      expect(order).toEqual([
+        'settings',
+        'runtime:opencode-local:harness-settings-crud',
+        'catalog:opencode-local'
+      ])
+    }
+  )
+
   it.each(edits)(
     '%s waits for MCP deployment and the coalesced latest deployment',
     async (channel, request) => {

@@ -413,8 +413,7 @@ export const en: typeof ko = {
       topLevelObject: 'The top level must be an object { … }.'
     },
     openCode: {
-      title: 'Custom provider',
-      description: 'Configure an OpenAI-compatible provider to add an OpenCode engine.',
+      importHint: 'Fill fields from global opencode.json. The original file is never changed.',
       id: 'Provider ID',
       idHint: 'Lowercase letters, numbers, hyphens or underscores',
       idFormat:
@@ -437,7 +436,6 @@ export const en: typeof ko = {
       headerValuePlaceholder: 'Value',
       addHeader: 'Add header',
       removeHeader: 'Remove header {{count}}',
-      submit: 'Submit',
       required: 'Required.',
       duplicate: 'Duplicate value.',
       importedProvider: 'Imported provider',

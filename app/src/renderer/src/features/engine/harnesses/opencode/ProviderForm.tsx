@@ -3,6 +3,7 @@ import type { EngineFormModalProps } from '../../common/components/EngineFormMod
 import { engineApi } from '../../../../shared/api/ipc'
 import { useI18n, type MessageKey } from '../../../../shared/i18n'
 import { Button } from '../../../../shared/ui/Button'
+import { Icon } from '../../../../shared/ui/Icon'
 import { Modal } from '../../../../shared/ui/Modal'
 import type { ProviderDraft } from './providerForm.types'
 import {
@@ -60,6 +61,7 @@ export function OpenCodeProviderForm({
   const { tr } = useI18n()
   const [draft, setDraft] = useState(emptyProviderDraft)
   const [imports, setImports] = useState<ProviderDraft[]>([])
+  const [importedId, setImportedId] = useState('')
   const [importing, setImporting] = useState(false)
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<Record<string, MessageKey>>({})
@@ -110,7 +112,9 @@ export function OpenCodeProviderForm({
         return
       }
       setImports(values)
-      setDraft(values.find((value) => value.id === draft.id) ?? values[0])
+      const selected = values.find((value) => value.id === draft.id) ?? values[0]
+      setImportedId(selected.id)
+      setDraft(selected)
       setErrors({})
     } catch {
       if (revision === importRevision.current) setNotice(tr('engine.form.openCodeImportFailed'))
@@ -146,17 +150,13 @@ export function OpenCodeProviderForm({
     <Modal
       open
       onClose={close}
-      ariaLabel={tr('engine.openCode.title')}
-      panelClassName="flex max-h-[88vh] w-full max-w-[600px] flex-col overflow-hidden rounded-r6 border border-border bg-panel shadow-xl"
+      ariaLabel={tr('engine.form.titleAdd')}
+      panelClassName="flex max-h-[88vh] w-full max-w-[560px] flex-col overflow-hidden rounded-r6 border border-border bg-panel shadow-xl"
     >
-      <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
-        <div>
-          <span className="text-[11px] font-medium text-ink3">OpenCode</span>
-          <h2 className="m-0 font-serif text-[18px] font-semibold text-ink">
-            {tr('engine.openCode.title')}
-          </h2>
-        </div>
-        <Button iconOnly leadingIcon="x" aria-label={tr('common.close')} onClick={close} />
+      <div className="border-b border-border px-6 pb-3.5 pt-4">
+        <h2 className="m-0 font-serif text-[18px] font-semibold text-ink">
+          {tr('engine.form.titleAdd')}
+        </h2>
       </div>
       <form
         className="flex min-h-0 flex-1 flex-col overflow-hidden"
@@ -165,31 +165,37 @@ export function OpenCodeProviderForm({
           void submit()
         }}
       >
-        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
-          <p className="m-0 text-[12.5px] leading-5 text-ink2">
-            {tr('engine.openCode.description')}
-          </p>
-          <div className="flex justify-end">
-            <Button
-              size="small"
-              leadingIcon="fileOpen"
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
+          <div className="flex items-center text-[12px] text-ink2">
+            <span className="rounded-md bg-sidebar px-2 py-0.5 font-medium text-ink">OpenCode</span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[12px] font-medium text-ink2">{tr('engine.form.provider')}</span>
+            <button
+              type="button"
+              title={tr('engine.openCode.importHint')}
+              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[11.5px] font-medium text-ink2 hover:bg-sidebar hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
               disabled={disabled || importing}
               onClick={() => void load()}
             >
+              <Icon name="fileOpen" size={13} />
               {importing ? tr('common.loading') : tr('engine.form.openCodeImportButton')}
-            </Button>
+            </button>
           </div>
           {imports.length > 1 && (
             <label className="flex flex-col gap-1.5 text-[12px] text-ink2">
               {tr('engine.openCode.importedProvider')}
               <select
                 aria-label={tr('engine.openCode.importedProvider')}
-                value={draft.originalId}
+                value={importedId}
                 disabled={disabled}
                 className={inputClass}
                 onChange={(event) => {
                   const value = imports.find((item) => item.id === event.target.value)
-                  if (value) update(value)
+                  if (value) {
+                    setImportedId(value.id)
+                    update(value)
+                  }
                 }}
               >
                 {imports.map((value) => (
@@ -201,25 +207,27 @@ export function OpenCodeProviderForm({
             </label>
           )}
           <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
+            <div className="grid grid-cols-2 items-start gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Field
+                  label={tr('engine.openCode.id')}
+                  value={draft.id}
+                  placeholder="myprovider"
+                  error={error('id')}
+                  disabled={disabled}
+                  onChange={(id) => update({ ...draft, id })}
+                />
+                <span className="text-[11px] text-ink3">{tr('engine.openCode.idHint')}</span>
+              </div>
               <Field
-                label={tr('engine.openCode.id')}
-                value={draft.id}
-                placeholder="myprovider"
-                error={error('id')}
+                label={tr('engine.openCode.name')}
+                value={draft.name}
+                placeholder={tr('engine.openCode.namePlaceholder')}
+                error={error('name')}
                 disabled={disabled}
-                onChange={(id) => update({ ...draft, id })}
+                onChange={(name) => update({ ...draft, name })}
               />
-              <span className="text-[11px] text-ink3">{tr('engine.openCode.idHint')}</span>
             </div>
-            <Field
-              label={tr('engine.openCode.name')}
-              value={draft.name}
-              placeholder={tr('engine.openCode.namePlaceholder')}
-              error={error('name')}
-              disabled={disabled}
-              onChange={(name) => update({ ...draft, name })}
-            />
             <Field
               label={tr('engine.openCode.baseURL')}
               value={draft.baseURL}
@@ -379,7 +387,7 @@ export function OpenCodeProviderForm({
             {tr('common.cancel')}
           </Button>
           <Button type="submit" variant="primary" disabled={disabled || importing}>
-            {saving || busy ? tr('engine.form.adding') : tr('engine.openCode.submit')}
+            {saving || busy ? tr('engine.form.adding') : tr('engine.form.addAction')}
           </Button>
         </div>
       </form>
