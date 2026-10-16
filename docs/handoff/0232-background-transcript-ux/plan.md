@@ -6,9 +6,9 @@
 |---|---|
 | 작성자 | Codex |
 | 일자 | 2026-09-13 |
-| 상태 | plan/DRAFT — ΔV3 공통 자동 입력 속성·표시 정책 조사. 기존 r2 PASS와 설치본 시각 실기 대기는 보존 |
+| 상태 | plan/READY — ΔV3 공통 자동 입력 속성·표시. 기존 r2 PASS와 설치본 시각 실기 대기는 보존 |
 | V mode / 기준 / revision | Baseline V / none / V1 |
-| 유효 V | V1 + ΔV1 + ΔV2. ΔV3는 표시 정책 질의 중인 DRAFT이며 기존 유효 V를 아직 대체하지 않는다. |
+| 유효 V | V1 + ΔV1 + ΔV2 + ΔV3. ΔV3는 D-02의 DEV 표시 범위를 대체하고 production 숨김·원본·수기 입력 보존을 유지한다. |
 
 # Part I — Product & UX Contract
 
@@ -51,9 +51,9 @@
 | D-18 | Code 백그라운드 목록을 실행 중/완료 두 접기 그룹으로 표시. 완료 그룹 오른쪽에만 휴지통 | 사용자 첨부 `codex-clipboard-d650bec3-16b7-4687-abd3-eecf39283791.png`; 실패·중단도 완료 그룹 | ACTIVE | D-03 목록 구성 보완 |
 | D-19 | 휴지통은 현재 완료 카드만 목록에서 지우고 원본 대화·작업·출력은 보존 | 완료된 작업 지우기 요청의 표시 범위 해석; 실행 중 작업은 유지 | ACTIVE | 신규 |
 | D-20 | `system-reminder`를 Claude·OpenCode 공통 메시지 속성으로 처리한다 | 2026-10-16 사용자: “claude에도 적용돼야 한다. 공통 속성으로 하자” | ACTIVE | OpenCode 한정이라는 초기 조사 가정 폐기. 일반 GUI 보존의 명시적 변경 범위 |
-| D-21 | production에서 `system-reminder`를 숨길지 사용자 버블로 표시할지 | “해당 태그 외”의 예외 의미에 대한 비동기 질문 답변 대기 | OPEN | D-02를 아직 대체하지 않음 |
-| D-22 | 태그 비표시가 확인된 자동 피드에만 적용되는지 수기 XML/HTML 입력도 포함하는지 | 비동기 질문 답변 대기 | OPEN | D-02·AC4의 수기 태그 보존을 아직 대체하지 않음 |
-| D-23 | 디버그 별도 버튼이 피드 표시 전환인지 테스트 입력 전송인지 | 비동기 질문 답변 대기. 버튼·DEV 게이트 소유자는 0003 | OPEN | 0025 기존 콘솔 로그 토글은 유지 |
+| D-21 | 시스템 reminder는 모델 처리용으로 숨기고 다른 자동 피드는 DEV 표시를 켜면 사용자 버블로 노출. production은 자동 피드 숨김 유지 | 원요구와 후속 “구현하라”에 따라 알린 기본 해석. 선택지에 대한 사용자 답변으로 기록하지 않음 | ACTIVE | D-02의 DEV 일괄 비표시만 대체 |
+| D-22 | 출처가 확인된 자동 사용자 텍스트만 분류·숨김. 직접 작성한 XML/HTML·assistant 출력·도구 결과는 보존 | 구현 시 명시한 가역 표시 기본값. 원본 삭제 없음 | ACTIVE | D-02·AC4의 직접 입력 보존 유지 |
+| D-23 | 별도 DEV 버튼은 자동 피드 표시를 켜고 끈다. 테스트 입력을 보내지 않는다 | 구현 시 명시한 기본 해석. 버튼·DEV 게이트는 0003 소유 | ACTIVE | 0025 기존 콘솔 로그 토글은 유지 |
 
 ### 갱신 메모
 
@@ -501,48 +501,62 @@ r2 독립 검증 = **PASS**. 판정 원문은 [`verify.md`](verify.md).
 
 남은 사람 몫: 설치본에서 전환 버튼 위치·그룹 접기·휴지통의 두 테마 시각 확인 1건.
 
-# ΔV3 — 공통 시스템 피드 분류·표시 (DRAFT, 2026-10-16)
+# ΔV3 — 공통 시스템 피드 분류·표시 (READY, 2026-10-16)
 
 ## Product / UX와 요구 분배
 
-Claude와 OpenCode의 시스템 피드를 공통 속성으로 식별한다. 모델에게 전달할 입력과 이미 모델이 소비한 입력의 수신 기록을 구분하고, 원본 본문·출처를 유지한다. 사용자 요청은 완료 알림 뒤 모델의 후속 처리가 이어지고, 개발 중에는 피드를 확인하며, production에서는 지정한 태그 피드를 숨기는 것이다.
+Claude와 OpenCode의 시스템 피드를 공통 속성으로 식별한다. provider가 전달 책임을 가진 수신 기록과 host가 새로 보낼 입력을 구분하며 원문과 출처를 유지한다. 태그 발견만으로 새 모델 호출을 만들지 않는다.
 
-이번 표시 변경의 정본은 0232다. [0262 ΔV14](../0262-opencode-harness/plan.md#δv14--시스템-피드의-native-매핑-draft-2026-10-16)는 OpenCode 수신과 자동 재개 관측을, [0003 추가 설계](../0003-debug-panel-mock-adapter/plan.md#공통-시스템-피드-디버그-확장-draft-2026-10-16)는 DEV 버튼을 소유한다. [0264](../0264-harness-module-isolation/plan.md)의 shared/common 계약과 하네스별 SDK 구현 분리는 유지한다. 같은 표시 정책을 하네스별 plan에 복제하지 않는다.
+표시 정본은 0232, OpenCode 1.x 수신·자동 재개는 [0262 ΔV14](../0262-opencode-harness/plan.md), DEV 버튼은 [0003](../0003-debug-panel-mock-adapter/plan.md)다. [0264](../0264-harness-module-isolation/plan.md)의 common/shared 계약과 하네스별 SDK 구현 분리는 유지한다.
 
-| 요구 | 상태 / 관측 가능한 완료 기준 |
+이전 DRAFT의 질문에 선택지 답변은 없었다. 후속 구현 지시를 받아 D-21~23의 보수적인 기본값을 commentary로 명시했다. 이는 사용자 선택 답변을 소급 기록한 것이 아니다. 이번 변경은 원본 삭제 없이 표시만 바꾸며, 일반 Claude GUI 보존에서 명시적으로 추가한 시스템 피드 제어만 예외다.
+
+| R↔AT / AC | 완료 기준과 production 경로 |
 |---|---|
-| R-20 / AT-20 후보 | D-20 확정. 두 하네스의 시스템 피드에 동일한 공통 분류가 보존되고 live·재로드에서 같은 결과를 낸다. 원문과 기존 출처는 소실하지 않는다. |
-| R-21 / AT-21 후보 | 실제 SDK/CLI가 이미 소비한 입력을 Orca가 다시 보내지 않는다. host가 만든 미전송 입력은 기존 입력 접수 경로로 한 번 전달한다. SDK 영수증과 새로운 입력 요청을 혼동하지 않는다. |
-| R-22 / AT-22 후보 | D-21·22 OPEN. `system-reminder`의 버블 표시 여부와 수기 태그 범위 답변 후 production/DEV의 행·시간·복사·빈 교환 행렬을 확정한다. |
-| R-23 / AT-23 후보 | D-23 OPEN. 0003의 별도 버튼으로 공통 피드 표시 또는 테스트 전송을 제어한다. 기존 콘솔 로그 스위치와 결합하지 않는다. |
+| R-20↔AT-20 / AC20 NEW | provider 출처가 확인된 텍스트에 공통 format을 기록한다. Claude와 OpenCode 수신→coordinator→JSON 이력→live/reload에서 원문·출처·format이 보존된다. |
+| R-21↔AT-21 / AC21 NEW | provider 소유 수신 영수증은 기록만 하고 다시 전송하지 않는다. Claude hook/wire가 겹쳐도 한 번 기록하며 수기 태그·child·tool_result를 자동 user로 승격하지 않는다. OpenCode 실행 수명은 0262가 검증한다. |
+| R-22↔AT-22 / AC22 NEW | production과 DEV 기본값은 자동 입력 숨김. DEV 표시가 켜지면 system-reminder 외 자동 입력을 사용자 버블로 표시한다. reminder는 계속 숨기고 일반 입력·assistant·도구 출력은 유지한다. |
+| R-23↔AT-23 / AC23 NEW | 혼합 메시지에서 숨길 자동 text part만 제외하고 사람 본문/첨부는 남긴다. 빈 메시지·메타/교환을 만들지 않고 원본 배열·인덱스·이력을 보존한다. 두 하네스의 live/reload·토글 결과가 같다. |
 
-기존 D-02·AC3/4는 답변 전까지 유효하다. 이번 DRAFT를 구현 승인 또는 기존 r2 검증 실패로 해석하지 않는다. 기존 백그라운드 카드·중단·출처·완료 지우기 요구는 변경하지 않는다.
+## 조사 / 기술 설계
 
-## 조사 / AS-IS → TO-BE 후보
+`ReceivedMessageOrigin`에 선택 속성 `format?: 'system-reminder' | 'tagged' | 'plain'`을 추가한다. 기존 kind/label과 직렬화는 유지한다. `src/shared/received-input.ts`의 순수 `classifyReceivedInput(text)`와 `withReceivedInputFormat(text, origin)`이 의미 분류를 소유한다. 원문 전체를 감싸는 닫힌 태그 또는 연속 wrapper만 분류하며, 바깥의 일반 본문·코드 fence·불완전 태그는 plain이다. 전체 wrapper 중 system-reminder가 있으면 reminder가 우선한다. 이 속성은 명령 실행 권한이나 재전송 지시가 아니다.
 
-- 현재 `ReceivedMessageOrigin`은 `scheduled/channel/task/peer/automatic` 출처를 보존하지만 reminder 의미 속성은 없다. `input.received → commitUserMessage → message.committed → text.origin → groupTurns`가 공통 수신·저장·투영 경로다.
-- `groupTurns`는 origin이 있는 사용자 메시지를 DEV/production 모두 제외한다. `turns.received.test.ts`는 수기 태그와 assistant 출력, 원본 인덱스를 보존한다. 이 기존 회귀를 답변 없이 태그 정규식으로 대체하지 않는다.
-- Claude 설치 SDK의 사용자 입력은 `type: user`와 `isSynthetic/origin`으로 판별하며, 별도 `system/task_notification`은 작업 상태 신호다. coordinator의 `input.received`는 이미 소비된 입력 기록이며 새 전송 명령이 아니다.
-- 설치 Claude SDK 0.3.286의 `UserPromptSubmitHookInput.source`는 `user/sdk/system/loop_wakeup/schedule_wakeup/poll_event`를 구별한다. 현재 `input-receipts.ts`는 이를 저장하지 않는다. `SDKMessageOrigin`의 `auto-continuation` 등 명시 출처를 우선 검토하며 도구 결과 안의 reminder를 독립 user 입력으로 승격하지 않는다. 이 Claude 조사는 설치 타입·현재 코드·기존 `post-turn.schedules.test.ts`의 무입력 listen oracle 근거이며 신규 실제 wire 관측은 아니다.
-- OpenCode는 서버 내부에서 모델 입력에만 reminder를 넣기도 하고 synthetic user text 이벤트를 발행하기도 한다. [실행 조사](../0262-opencode-harness/system-feed-research.md)에 소스·실제 CLI 관측을 구분한다.
+Claude mapper는 native origin/isSynthetic이 확인된 user text만 분류한다. hook receipt는 설치 SDK의 source를 보존하며 user/sdk는 자동 입력으로 승격하지 않는다. poll_event는 접수 시점 신호이므로 hook만으로 소비 영수증을 확정하지 않는다. source 없는 구버전은 기존 own-input 대조 경로를 유지한다. shouldQuery:false도 provider 전달 책임이므로 Orca가 추가 전송하지 않는다. 도구 결과 내부 reminder는 사용자 입력과 별개다.
 
-공통 타입에는 **출처와 의미 분류를 분리하는 선택 속성**을 제안한다. 분류 helper는 common/shared에, SDK의 신뢰 가능한 출처를 판단하는 코드는 각 하네스 adapter에 둔다. 문자열에 태그가 있다는 이유로 전송 책임을 바꾸지 않는다. 표시를 위해 원본 이력을 삭제하지 않으며, 사람 본문/첨부와 synthetic part가 섞인 메시지는 메시지 전체 숨김의 위험을 별도로 검사한다. 필드명·혼합 part의 투영과 구형 이력 호환성은 READY 전에 확정한다.
+coordinator·writer·DTO·reader·store/reducer는 origin 객체를 그대로 운반한다. 새 IPC나 DB migration 없이 optional JSON 속성을 사용한다. 구형 origin에 format이 없으면 표시 경계에서 같은 helper로 보완하며 출처 없는 직접 입력에는 적용하지 않는다.
 
-## V / §10 후보와 남은 설계
+공통 turn 투영은 표시 옵션을 받고 숨길 자동 text만 제외한다. 원본 Message/parts는 수정하지 않으며 가시 part가 같으면 기존 identity를 유지한다. Claude Timeline과 OpenCode projection이 동일 옵션을 소비한다. DEV 제어의 소유권·주입 경계는 0003을 따른다.
 
-ΔV3는 아직 유효 V가 아니다. 아래 검증 설계를 D-21~23 답변 및 native background 실측 뒤 정확한 AC·node/pair·자리별 oracle로 확정한다. 기존 VP-02·05·07 중 자동 입력/원본 유지 경로가 영향받는 REGRESSION 대상이다.
+## V / §10 강제 지점
 
-| 레벨 / 후보 경로 | 직접 확인할 값 |
-|---|---|
-| MD↔UT — 공통 분류 helper | reminder/다른 wrapper/일반 텍스트/혼합 part/수기 태그와 출처 조합. 원본 불변 |
-| AR↔IT — Claude/OpenCode mapper→coordinator→persist/reducer | 동일 공통 속성·원문·중복 ID 처리. 수신 영수증으로 새 send 호출 0회 |
-| SD↔ST — 저장/재로드·부모 idle·후속 자동 입력 | 이미 소비된 입력의 중복 전송 없음, 실제 후속 assistant 출력의 수신·세션 격리 |
-| R↔AT — 두 Timeline·DEV 버튼 | 사용자 답변으로 확정할 DEV/production 표시 행렬, 빈 버블·메타 없음, 일반 대화 보존 |
+기준은 V1+ΔV1+ΔV2다. NEW R/AT20~23, MD-Δ3-01↔UT-Δ3-01(분류/투영), AR-Δ3-01↔IT-Δ3-01(출처 운반), SD-Δ3-01↔ST-Δ3-01(live/reload/중복)을 추가한다.
 
-강제 지점 후보는 두 adapter의 provenance 판정, 공통 normalized/저장/재로드 경계, reducer, 공통 turn 투영, 두 Timeline, app의 DEV 조립 슬롯이다. 현재 위치와 직접 consumer 전수는 READY 전에 재열거한다. 변경되는 public IPC/저장 필드와 main 재개 수명은 타입·문서·테스트를 함께 닫는다. 신규 package·DB migration은 현재 조사에서 필요성이 확인되지 않았다.
+| Pair | 필요도 | 직접 oracle / 경로 |
+|---|---|---|
+| VP-Δ3-01 R20↔AT20 | REQUIRED | shared `received-input.test.ts`, 새 history `writer.received.test.ts`: 실제 writer→DTO→reader의 동일 원문·format |
+| VP-Δ3-02 R21↔AT21 | REQUIRED | Claude `map.received.test.ts`·`input-receipts.test.ts`·`adapter.turnEnd.test.ts`, 기존 post-turn schedules listen: 재전송 없음·중복 영수증1회 |
+| VP-Δ3-03 R22↔AT22 | REQUIRED | `turns.received.test.ts`와 두 Timeline 실제 렌더: DEV off/on·reminder 제외·직접 입력 유지 |
+| VP-Δ3-04 R23↔AT23 | REQUIRED | 위 projection/렌더와 `chatStore.schedules.test.ts`: 혼합 part·첨부·인덱스·LOAD_SESSION·세션 왕복 |
+| VP-Δ3-05 MD-Δ3-01↔UT-Δ3-01 | REQUIRED | shared helper의 wrapper/속성/중첩/연속/불완전/코드·일반 본문, turn 투영의 원본 불변 |
+| VP-Δ3-06 AR-Δ3-01↔IT-Δ3-01 | REQUIRED | coordinator→persist/committed 및 writer→reader, store/reducer→실제 Timeline의 필드 직접 관측 |
+| VP-Δ3-07 SD-Δ3-01↔ST-Δ3-01 | REQUIRED | hook/wire 중복·동일본문 새 발화, live→reload·두 하네스 표시 전환 |
+| VP-02·05·07 영향 구간 | REGRESSION | 기존 origin 숨김의 production 기본값·원본 유지·노트/교환 identity. DEV만 명시 변경 |
 
-예정 운영 gate: 영향 범위 비DB Vitest, readonly ESLint, typecheck, production build의 DEV 기능 제거, 문서 inventory/링크·diff·trailer. 실제 모델 호출 대신 설치 SDK/CLI와 loopback 합성 모델로 중복 전송과 후속 응답을 검증한다. 순수 분류/표시 로직을 사람 실기로 넘기지 않는다.
+| §10 지점 / 자리 수 | 실패 의미 | 직접 oracle |
+|---|---|---|
+| EP-Δ3-01 shared 분류 / 1 | 문자열 훼손·잘못된 wrapper 분류 | `received-input.test.ts` 입력/출력 비교 |
+| EP-Δ3-02 Claude mapper·hook receipt / 2 | 수기/도구/child 승격·source 소실·중복 | `map.received.test.ts`·`input-receipts.test.ts`·`adapter.turnEnd.test.ts` 실제 hook→event |
+| EP-Δ3-03 coordinator / 1 | input.received를 재전송하거나 origin 누락 | `turn-coordinator.test.ts` persist·forward payload와 send 호출 |
+| EP-Δ3-04 writer·DTO·reader / 3 | 저장/재로드 format·원문 소실 | 새 `writer.received.test.ts` 실제 세 production 함수를 연결 |
+| EP-Δ3-05 store·reducer / 2 | live·LOAD_SESSION 메타 소실 | `chatStore.schedules.test.ts` 수신 및 reload의 실제 parts |
+| EP-Δ3-06 공통 투영 / 1 | 혼합 입력 전체 삭제·빈 교환·인덱스 변화 | `turns.received.test.ts` 원본/투영 비교 |
+| EP-Δ3-07 Claude·OpenCode Timeline / 2 | 한 하네스만 DEV 정책 적용 | 실제 Timeline 렌더/상호작용 테스트의 버블·텍스트·메타 |
 
-READY 미충족: D-21~23 답변, 공통 필드/혼합 입력 저장 계약, OpenCode 최초 idle 이후 수명 설계, §10 전수와 직접 oracle 확정. 이전 V1+ΔV1+ΔV2의 PASS를 이번 미구현 범위에 합산하지 않는다.
+분모는 1+2+1+3+2+1+2=12자리다. 신규 structural proxy를 쓰지 않고 각 자리 결과를 직접 관측하므로 등록 mutation은 없다. 구현 중 필드 운반의 추가 edge를 발견하면 전수와 oracle을 갱신한다. 비영향 카드/중단/완료 지우기 pair는 기존 verify r2 근거로 NOT_REQUIRED이며 새 완료 수에 합산하지 않는다.
 
-이번 조사 산출 검사는 generated inventory 일치, prose 위반 없음, 저장소 링크 및 추가 링크 해석, `git diff --check`를 확인했다. 링크 전수의 대상에서는 사용자 다운로드 `.tmp`와 첨부 디렉터리를 제외했다. 제품 코드는 변경하지 않아 구현 테스트·build를 수행했다고 주장하지 않는다.
+## 운영 gate·READY 대조
+
+관련 비DB Vitest, readonly ESLint, typecheck, production build의 DEV 코드 제거(0003), 문서 inventory/링크·diff·trailer를 수행한다. 기존 Electron ABI를 유지하고 npm pretest/install/rebuild로 바꾸지 않는다. 새 패키지·DB migration 없음. 실제 모델 호출 대신 설치 SDK/CLI+loopback 합성 모델을 사용한다.
+
+D-20↔AC20, D-21↔AC22, D-22↔AC21/23, D-23↔0003 버튼과 AC22 소비를 대조했다. D-02는 DEV에서만 부분 대체하며 직접 입력·원본·production 기본 숨김은 유지한다. 새 AC4건으로 누적19→23이며 과거 PASS19건을 이번 새 기능의 검증으로 주장하지 않는다. OpenCode 수신 수명은 별도0262 READY 계약에 따라 구현한다.

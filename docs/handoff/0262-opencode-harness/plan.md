@@ -1971,7 +1971,7 @@ CI 후속: 로컬 관련 테스트 집합에 공통 styles/typeScale 검사가 �
 
 ## 요구와 공통 계약
 
-사용자는 `system-reminder`의 실제 메시지 타입과 모델 재입력을 확인하고, 이어서 Claude에도 같은 공통 속성을 적용하도록 확정했다. 분류·표시 정본은 [0232 ΔV3](../0232-background-transcript-ux/plan.md#δv3--공통-시스템-피드-분류표시-draft-2026-10-16)다. 0262는 OpenCode 1.x native 입력→공통 계약과 자동 후속 응답 수신만 소유한다. OpenCode 전용 표시 정책을 만들지 않는다.
+사용자는 `system-reminder`의 실제 메시지 타입과 모델 재입력을 확인하고, 이어서 Claude에도 같은 공통 속성을 적용하도록 확정했다. 분류·표시 정본은 [0232 ΔV3](../0232-background-transcript-ux/plan.md)다. 0262는 OpenCode 1.x native 입력→공통 계약과 자동 후속 응답 수신만 소유한다. OpenCode 전용 표시 정책을 만들지 않는다.
 
 ## 조사 결과와 변경 후보
 
