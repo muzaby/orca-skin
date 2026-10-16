@@ -8,7 +8,7 @@
 >
 > **세로축 자원 supervision:** **`RuntimeSupervisor`**(`features/sessions/supervisor.ts`)가 활성 턴 registry와 장수명 runtime pool을 소유한다. 턴 release와 runtime close를 구분하며 cap admission·LRU 축출을 수행한다. 시간 기반 idle eviction은 사용하지 않는다. 실제 수명 정책은 [runtime-ipc.md §1](./runtime-ipc.md)에 서술한다.
 
-> **상태**: 절마다 다르다 — **절별 판정은 각 절의 "③ 현재 코드 갭" 이 갖고, 요약은 §12 매핑표·§13 이다.** 와이어(`orca:chat:event`)는 `NormalizedEvent` 로 전면 전환됐고 PermissionBridge·PermissionModeController·ErrorClassifier·Telemetry 는 구현돼 있다. `RevertManager`(§5) 는 구현 없음, `provider` 축은 claude 고정(opencode 미구현)이다. 여기 정의한 타입은 **정본(SSOT)** 이며, ../frontend/ 의 렌더링·UX 문서(rendering.md·ux-domains.md)은 이 타입들을 *참조만* 한다(중복 정의 금지).
+> **상태**: 절마다 다르다 — **절별 판정은 각 절의 "③ 현재 코드 갭" 이 갖고, 요약은 §12 매핑표·§13 이다.** 와이어(`orca:chat:event`)는 `NormalizedEvent` 로 전면 전환됐고 PermissionBridge·PermissionModeController·ErrorClassifier·Telemetry 는 구현돼 있다. `RevertManager`(§5) 는 구현 없음, 활성 하네스는 Claude와 OpenCode 1.x이며 실행 구현은 [adapters.md](./adapters.md)를 따른다. 여기 정의한 타입은 **정본(SSOT)** 이며, ../frontend/ 의 렌더링·UX 문서(rendering.md·ux-domains.md)은 이 타입들을 *참조만* 한다(중복 정의 금지).
 >
 > **계층 위치 + 방법론 (짝 문서 [standardization.md](./standardization.md))**: 이 문서는 **런타임 정규화**(세션 *실행 중* 의 이벤트·권한·세션 흐름)를 다룬다. **배포 계층 표준화**(무엇을 배포·주입하는가 — AGENTS.md·MCP·SKILL.md)는 standardization.md 가 짝으로 다루며, 그 **ExtensionDeployer 산출물이 런타임 설정 입력이 되는 단방향** 연결이다. 또한 여기 정의한 정본 인터페이스는 *목표 카탈로그*다 — 구현은 **rule of three** 로 점진 추출하며, **v1 은 `permission.requested` 를 우선 정규화**하고 나머지 이벤트는 소비자가 생길 때 케이스를 추가한다(EventStream union 미완성 허용, standardization.md §1·§6 과 정합).
 >
@@ -38,7 +38,7 @@ Phase 3++ 구현은 claude-code SDK 에 강하게 결합돼 있어, 범용(OpenC
 
 **② 예시.** "Bash 한 줄 실행" 한 턴이 정규화 전에는 `tool_use` → `tool_result` 두 `ChatEvent` 로 흘렀다. 정규화 후엔 `sessionId`/`toolRunId` 를 가진 `tool.call.started` → `tool.call.completed` 가 되어, 같은 `toolRunId` 로 start/complete 를 매칭하고 어느 provider/세션에서 왔는지 식별한다.
 
-**③ 현재 코드 갭.** 스테이지 B1/B1′ (`f61658f`·`3973112`) 로 와이어가 `NormalizedEvent`(`session.updated`·`message.delta/completed`·`tool.call.started/completed`·`telemetry`·`error`)로 전면 전환되고 매핑이 `adapters/claude/map.ts` 의 `claudeToNormalized` 로 이관됨(구 `ChatEvent` 타입 완전 제거, PR #47). `sessionId`/`toolRunId` 정규화 축 확보. **잔여 갭**: `provider` 축은 claude 고정값(`ProviderId` 에 opencode seam만).
+**③ 현재 코드 갭.** 스테이지 B1/B1′ (`f61658f`·`3973112`) 로 와이어가 `NormalizedEvent`(`session.updated`·`message.delta/completed`·`tool.call.started/completed`·`telemetry`·`error`)로 전면 전환되고 매핑이 `adapters/claude/map.ts` 의 `claudeToNormalized` 로 이관됨(구 `ChatEvent` 타입 완전 제거, PR #47). `sessionId`/`toolRunId` 정규화 축 확보. Claude와 OpenCode는 각 하네스 mapper를 통해 같은 NormalizedEvent 계약을 제공한다.
 
 **④ 인터페이스 (정본).**
 
@@ -78,7 +78,7 @@ type ProviderEventMapper = { provider: ProviderId; map(raw: unknown): Normalized
 | `ask_question` | `permission.requested`(`origin:'agent'`) | Claude `AskUserQuestion` 의 합성 — §3 |
 | `plan_review` | `permission.requested`(`origin:'agent'`) | Claude `ExitPlanMode` 의 합성 — §3 |
 
-> OpenCode raw 이벤트 계약은 [SDK 해설](../../opencode-sdk-spec.md), Orca 투영 권고는 [migration 연구](../../etc/study/opencode/orca-migration-guide.md)에 있다. 이 절의 도식보다 [shared/ipc.ts](../../../app/src/shared/ipc.ts)의 현행 `NormalizedEvent`가 우선한다; OpenCode mapper는 미구현이다.
+> OpenCode raw 이벤트 계약은 [SDK 해설](../../opencode-sdk-spec.md), Orca 투영 권고는 [migration 연구](../../etc/study/opencode/orca-migration-guide.md)에 있다. 이 절의 도식보다 [shared/ipc.ts](../../../app/src/shared/ipc.ts)의 현행 `NormalizedEvent`가 우선한다; 현재 OpenCode 1.x mapper는 `adapters/opencode/v1/map.ts`·`activity.ts`·`native-input.ts`다.
 
 SDK assistant UUID와 도구 ID 연결은 제한된 크기로 보관한다. 공개 철회 신호(`model_refusal_fallback`·`assistant.supersedes`)는 main 내부 `tool.call.retracted`로 변환하고 coordinator가 아직 열린 도구만 `nonExecution:{source:'host',kind:'retracted'}`로 정착한다. 이 내부 신호는 renderer나 DB로 전달하지 않는다.
 
@@ -103,7 +103,9 @@ Claude 어댑터는 장수명 입력·출력 스트림과 SDK 훅을 함께 소�
 
 목록은 마지막 확인 상태다. 사용자 중단에는 Stop 훅이 실행되지 않으므로 일회성 예약이 발화한 직후 응답을 중단하면 다음 정상 Stop 또는 채널 종료까지 이전 항목이 남을 수 있다. 공개 수신 필드에는 발화한 예약 ID가 없어 원문으로 ID를 추측하거나 예약 전체를 삭제하지 않는다.
 
-공급자 origin이 실린 수신 메시지는 `input.received`로 정규화한다. 일반 cron 프롬프트가 SDK 메시지에 생략되는 경로는 `UserPromptSubmit` 훅으로 보완하며 앱이 전송한 입력과 SDK echo를 중복 기록하지 않는다. 앱이 제출하지 않았고 구체적인 출처가 확정되지 않은 입력은 automatic origin으로 기록한다. 자동 수신은 내부 이력과 처리에 유지하며 Work/Code 대화 버블에는 표시하지 않는다. 코디네이터는 응답보다 먼저 기존 user 커밋 경로로 원문과 origin을 함께 기록한다. 타입 정본은 `app/src/shared/session-schedules.ts`, 와이어 의미는 [IPC 계약](../../IPC_CONTRACT.md)에 있다.
+Claude의 공급자 origin·synthetic 입력과 OpenCode의 소유 세션 synthetic user text는 `input.received`로 정규화한다. Claude SDK 메시지에 생략되는 입력은 `UserPromptSubmit`의 source로 보완하며, 앱 제출 UUID와 SDK echo를 대조해 중복을 제거한다. `poll_event`는 소비 확정 전 신호이므로 수신 입력으로 승격하지 않는다. 태그 본문만으로 사용자 입력을 자동 입력으로 추정하지 않는다.
+
+공통 `origin.format`은 확인된 자동 입력의 완결된 외곽 태그를 `system-reminder`·`tagged`·`plain`으로 구분한다. 정본은 `shared/session-schedules.ts`와 `shared/received-input.ts`이며 원문과 출처를 변경하지 않는다. 공급자가 이미 모델에 전달한 입력의 영수증이므로 태그를 받았다는 이유로 send/prompt를 다시 호출하지 않는다. 코디네이터는 후속 응답보다 먼저 원문과 origin을 기존 user 커밋 경로로 기록하며 저장·IPC·재로드가 같은 값을 보존한다. 표시 정책과 DEV 제어는 [렌더링](../frontend/rendering.md), 와이어 의미는 [IPC 계약](../../IPC_CONTRACT.md)에 있다.
 
 이 연결은 실행 중인 Orca의 세션 예약용이다. Claude Desktop 예약은 별도 세션 생성 경로이고 Routines는 별도 클라우드 서비스다. 현재 공개 Routines 실행 API의 토큰은 결과 읽기 권한을 제공하지 않으므로 해당 서비스의 결과 폴링을 구현하지 않는다. 근거: [Stop 훅](https://code.claude.com/docs/en/hooks#stop-input), [예약 실행](https://code.claude.com/docs/en/scheduled-tasks), [Routines 실행 API](https://platform.claude.com/docs/en/api/claude-code/routines-fire).
 

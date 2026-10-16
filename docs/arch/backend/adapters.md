@@ -30,13 +30,17 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 
 #### OpenCode 실행과 격리
 
-`opencode/v1/activity.ts`는 현재 prompt의 task metadata가 지정한 child만 수집한다. child 텍스트·도구는 root 세션과 parentToolRunId로 저장하며 도구 ID는 native session으로 구분한다. child 종료·오류·usage는 root 턴을 종료하지 않는다. task와 셸의 수신 상태·로그는 기존 providerEvents의 background.call journal로 보존하고, 부모 턴 종료 뒤의 상시 구독이나 독립 프로세스 제어는 제공하지 않는다. 추가 컨텍스트 폴더는 system 문맥의 JSON 목록으로 전달하며 native 도구 승인은 유지한다.
+`opencode/v1/activity.ts`는 소유 prompt의 task metadata가 지정한 child만 수집한다. child 텍스트·도구는 root 세션과 parentToolRunId로 저장하며 도구 ID는 native session으로 구분한다. child 종료·오류·usage는 root 응답을 종료하지 않는다. task와 셸의 수신 상태·로그는 providerEvents의 background.call journal로 보존한다. native background launch는 실제 완료 통지를 받을 때까지 canonical 작업을 pending으로 유지하며 독립 프로세스 제어는 제공하지 않는다. 추가 컨텍스트 폴더는 system 문맥의 JSON 목록으로 전달하며 native 도구 승인은 유지한다.
 
 앱은 `createOpenCodeAdapter`를 통해 `SessionAdapter`를 받고, `opencode/implementation.ts`의 전송·서버 수명·설정 로더 계약만 사용한다. 구체 adapter/server 생성은 `opencode/v1/index.ts`가 담당한다. 버전 디렉터리를 직접 소비하거나 버전 구현끼리 참조하는 import는 ESLint가 차단한다. 다른 버전 구현은 같은 계약을 제공하고 중립 진입점에서 선택해야 하며, 현재 실행 가능한 구현은 1.x다.
 
 `OpenCodeServerPool`은 실행 파일·구성·환경 fingerprint별 시작을 합치고 loopback 임의 포트, 임의 인증 암호, Orca 전용 XDG 데이터 경로를 사용한다. 앱 종료는 자신이 spawn한 child만 종료한다. 설치된 CLI를 PATH와 npm 설치 경로에서 찾거나 하네스 설정의 절대 실행 파일 경로를 사용한다. 자동 CLI 설치·사용자 OpenCode 프로세스 재사용은 제공하지 않는다.
 
-`OpenCodeAdapter`는 `/v2/client`의 legacy 호환 API(`/session`, `/event`)를 사용한다. catalog는 구성별 캐시를 사용하며 목록 새로고침은 다시 조회한다. 입력 전에 SSE 연결을 준비하고, session ID·prompt parent ID·event/part ID로 턴과 중복을 격리한다. 스트림 단절은 오류로 끝내고 프롬프트를 자동 재전송하지 않는다. 권한·질문은 공통 approval broker를 거쳐 해당 요청으로 회신하고, 취소는 해당 세션만 abort한다.
+`OpenCodeAdapter`는 `/v2/client`의 legacy 호환 API(`/session`, `/event`)를 사용한다. catalog는 구성별 캐시를 사용하며 목록 새로고침은 다시 조회한다. `opencode/v1/channel.ts`는 입력 전에 SSE를 연결하고 같은 LiveTurn의 pushTurn으로 후속 입력을 제출한다. session ID·prompt parent ID·event/part ID로 소유권과 중복을 격리하며, 응답 idle은 해당 프레임만 종료한다. 이후 소유 background의 완료 입력과 응답은 기존 SessionRuntime pump·listen 경로로 받는다.
+
+native user의 synthetic text만 공통 `input.received`로 기록하고, 모델 전달은 OpenCode 서버에 맡긴다. 완료 태그는 등록된 native job/child ID에 일치할 때 작업 상태와 같은 배치로 전달한다. 태그를 받은 이유로 prompt를 다시 보내거나 기본 reminder를 추측해서 합성하지 않는다. 공통 분류·영속 계약은 [provider-runtime.md](./provider-runtime.md)의 시스템 피드 설명을 따른다.
+
+권한·질문은 공통 approval broker를 거쳐 해당 요청으로 회신하며 main 응답 중단과 child 승인 수명을 구분한다. main 중단은 root session만 abort하고 채널은 유지한다. 채널 폐기는 소유 구독·요청을 정리하며, 스트림 단절이나 provider 오류에 자동 재전송하지 않는다. 다음 명시 입력은 새 구독을 사용한다. 후속 입력의 agent·variant·model·첨부는 해당 TurnContinuation에서 읽는다.
 
 사용자 메시지 ID는 `opencode/v1/message-id.ts`에서 native 1.x의 시간·동일 시각 카운터·난수 형식으로 생성한다. 같은 ID를 SDK 입력과 activity/mapper에 전달해 턴을 연결하며, 정상 종료는 소유한 응답을 받은 뒤 native idle로 판정한다. 개별 assistant의 finish만으로 서버 실행 완료를 가정하지 않는다.
 

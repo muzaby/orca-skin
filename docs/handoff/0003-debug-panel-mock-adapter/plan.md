@@ -10,7 +10,7 @@
 | 작성자 | Claude Code                                          |
 | 일자   | 2026-06-10                                           |
 | 매핑   | PHASES "현재 작업 중" → 보드. PR 은 본 작업 단위 1개 |
-| 상태   | plan/READY — 공통 시스템 피드 디버그 확장. 과거 구현·verify PASS는 보존 |
+| 상태   | impl/IMPL_DONE — 공통 시스템 피드 디버그 확장 구현. 추가 AC2건 자기확인2/2; 과거 구현·verify PASS 보존, 다음 Claude 독립 검증 |
 
 ## 공통 시스템 피드 디버그 확장 (READY, 2026-10-16)
 
@@ -47,6 +47,51 @@ chat feature 안의 공통 debug state와 `AutomaticFeedDebugSection`을 app 조
 분모 2+1+1+1=5자리다. 실제 상태/DOM과 production artifact로 관측하고 구조 문자열 검사만으로 배선을 대체하지 않는다. 번들 잔존 검사에만 의존하게 되면 DEV 가드 제거 변이를 등록해 감도를 확인한다.
 
 운영 gate: 관련 비DB Vitest·readonly lint·typecheck·production build, 문서 inventory/링크·diff·trailer. 0232의 두 Timeline integration이 버튼 동작의 downstream 결과를 함께 검증한다. 기존 기능과 이번 새 요구를 구분해 보고한다.
+
+### [구현자 기입] 공통 시스템 피드 디버그 확장
+
+#### 1. 설계 리뷰
+
+구현했다. 사용자 정정에 따라 버튼 ON은 system-reminder를 포함한 모든 자동 입력을 보여준다. chat feature가 비영속 표시 상태·제어를 소유하고 app이 DebugPanel 슬롯으로 주입해 feature 교차 import를 만들지 않았다.
+
+#### 2. 강제 지점 전수와 V-pair 자기확인
+
+| 자리 / 수 | 실제 경로·직접 관측 | 자기확인 |
+|---|---|---|
+| EP-F1 / 2 | `automaticFeedDebug.test.ts`: 초기 off·on/off·모듈 재생성 off·production 기존 true 거부 | SELF_PASS |
+| EP-F2 / 1 | `AutomaticFeedDebugSection.interaction.test.ts`: 실제 버튼 click→메모리 구독→aria-pressed 변화 | SELF_PASS |
+| EP-F3 / 1 | `app/automaticFeedDebug.integration.test.ts`: 실제 OverlayLayer·DebugPanel·section callback→두 Timeline의 ON/OFF·live/reload·전송0 | SELF_PASS |
+| EP-F4 / 1 | production renderer JS274개에서 제어 표식0; DEV UI 가드 제거 후1로 검출하고 원본 SHA256 복원 확인 | SELF_PASS |
+
+합계 2+1+1+1=5/5. VP-F1~4는 위 경로로 SELF_PASS다. section 컴포넌트를 대체한 가짜 출력을 쓰지 않고 실제 반환 버튼 handler를 관측했으며, 실제 click·구독 갱신은 별도 interaction oracle로 연결했다. 기존 tweak/debug 조립과 transcript 회귀를 포함한20파일120케이스가 통과했다.
+
+#### 3. 이번 라운드 수정의 잠금
+
+| 검사 | 적용 자리 / 관측 |
+|---|---|
+| UI 가드 제거 | OverlayLayer DEV mount + section early return 제거: production4케이스 FAIL, 복원 후 통과 |
+| state 가드 제거 | getter DEV gate 제거: 미리 켠 메모리 값으로 production4케이스 FAIL, 복원 후 통과 |
+| 번들 oracle 민감도 | 동일 UI 가드 제거로 실제 production build의 data-debug-control 표식0→1, 검사가 변이를 거부 |
+
+선택 증거1(UI 가드 번들)·인용 변이0·신규 oracle2(UI/state 직접 경계)=표3행. 각 변이 뒤 원본 바이트/SHA256이 일치했고 마지막 복원 회귀3파일13테스트가 통과했다. production 아티팩트 검사는 실제 DOM/상태 검사를 대체하지 않는다.
+
+#### 4. Product/UX 파생 검토
+
+표시 상태는 세션 왕복 동안 유지하되 재시작 시 false로 돌아온다. 원본·모델 입력·기존 로그 설정은 변경하지 않으며 DEV ON에서는 과거 format 없는 reminder도 보인다. production 번역 사전의 라벨 잔존을 버튼 잔존으로 오판하지 않도록 실제 제어 표식을 검사했다.
+
+#### 5. 놓친 잠재 문제 + 대응
+
+초기 reminder 제외 해석은 사용자 요구와 달라 정정했다. 토글을 켠 뒤 production으로 바뀐 환경에서도 메모리 값이 활성화되지 않는 경계를 직접 검사했다. renderer 표시가 format 재분류에 의존하지 않도록 불필요한 fallback을 제거했다.
+
+#### 6. 구현 보고
+
+AC-F1 ✅: 실제 표시 버튼→모든 자동 피드 ON/OFF, 전송 호출0. AC-F2 ✅: 기본 off·비영속·세션 교체 유지·production 제어 제거와 활성 거부. 이번 추가 AC는 ✅2·⚠️0·❌0=2이며 과거18 AC의 PASS를 새 기능 검증으로 합산하지 않는다.
+
+관련 회귀20파일120테스트, 직접 가드3파일13테스트와 변이 검출을 확인했다. 전체 readonly ESLint는 오류0·기존 경고6이며, 전체 typecheck/build·문서 gate 최종 결과는 공통0232 마무리 기록을 참조한다. 새 IPC나 DB 변경은 없다.
+
+#### 7. Review Signals
+
+이번은 추가 DEV 기능의 Baseline V1-F 구현이며 기존 MockAdapter 기능 변경이 아니다. 소비자가 없는 renderer format fallback은 사용자 정정과 함께 제거했다. 버튼 숨김만으로 production 정책을 주장하지 않고 state·실제 조립·번들 경계를 각각 관측했다.
 
 ## Context (왜)
 

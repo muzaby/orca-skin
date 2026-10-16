@@ -34,7 +34,11 @@ Spark 상태 줄은 상태·대기 사실·경과 시간을 표시한다. 백그
 
 ### Work/Code 표현
 
-Work의 예정 영역은 공급자 Stop 훅과 성공 영수증으로 마지막 확인한 세션 예약을 표시한다. 프롬프트·cron 식·반복 여부를 사용하며 실제로 제공되지 않는 다음 실행 시각을 만들지 않는다. 목록은 `chat.activity.sessionSchedules`의 세션 수명 스냅샷으로 재로드하고, 앱 재시작 시 과거 예약을 활성 상태로 복구하지 않는다. `pendingSessionWakeup`은 전체 목록 도착 전의 확인된 대기이며 ID·개수·시각 없이 예약 정보를 기다리는 상태로 표시한다. 자동 수신 프롬프트와 출처는 text 파트에 영속하지만 Work/Code transcript 투영에서 제외한다. 사용자가 직접 입력한 같은 태그 문자열은 표시한다. `ScheduleWakeup`은 반복 작업 대기·중단으로 표시하고 일반 cron 생성과 구분한다.
+Work의 예정 영역은 공급자 Stop 훅과 성공 영수증으로 마지막 확인한 세션 예약을 표시한다. 프롬프트·cron 식·반복 여부를 사용하며 실제로 제공되지 않는 다음 실행 시각을 만들지 않는다. 목록은 `chat.activity.sessionSchedules`의 세션 수명 스냅샷으로 재로드하고, 앱 재시작 시 과거 예약을 활성 상태로 복구하지 않는다. `pendingSessionWakeup`은 전체 목록 도착 전의 확인된 대기이며 ID·개수·시각 없이 예약 정보를 기다리는 상태로 표시한다. `ScheduleWakeup`은 반복 작업 대기·중단으로 표시하고 일반 cron 생성과 구분한다.
+
+자동 수신 프롬프트의 원문·출처·format은 text 파트에 영속한다. Claude Work/Code와 OpenCode는 공통 투영으로 해당 text만 기본 숨김 처리하며, 혼합 메시지의 사용자 본문·첨부와 원본 배열·메시지 index는 보존한다. 사용자 직접 태그 입력이나 assistant·tool 결과는 이 규칙으로 숨기지 않는다. 개별 버블 복사는 표시된 부분을, 전체 대화 복사는 원본 이력을 사용한다.
+
+DEV DebugPanel의 별도 `자동 피드 표시` 버튼은 `system-reminder`를 포함한 모든 자동 입력을 기존 사용자 버블로 표시한다. format이 없는 과거 자동 입력도 같은 방식으로 표시한다. 토글은 기본 꺼짐인 앱 메모리 상태로 세션 이동 동안 유지하며 재시작 시 초기화한다. app의 OverlayLayer가 chat의 제어 섹션을 debug 슬롯에 주입하고 production에서는 제어와 활성화 경로를 차단한다. 표시 변경은 모델 요청이나 원본 이력 변경을 일으키지 않는다.
 
 제품 종류별 표시 값은 chat의 순수 agentPresentation 정의가 소유한다. Composer·트랜스크립트는 선택한 정책을 사용하고, 하위 도구 카드는 상세 표시 속성을 전달받는다. 우측 패널의 허용 타일·진입/배지 대상·배치는 rightPanelTiles의 명시적 정의에서 선택한다. app/page는 세션 목록에 아이콘·라벨 해석기를 주입하며 sessions는 chat을 직접 import하지 않는다.
 
