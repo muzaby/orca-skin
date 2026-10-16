@@ -7,7 +7,7 @@
 | slug | `0264-harness-module-isolation` |
 | 작성자 | Codex — 사용자의 직접 리팩토링 요청 |
 | 일자 | 2026-10-15 |
-| 상태 | impl/IN_PROGRESS — r2 코드·로컬 게이트 보완, 원격 CI 확인 중. 사람 시각 인수는 별도 |
+| 상태 | impl/IMPL_DONE — r2 로컬·Windows CI 통과, 독립 재검증 대기. 사람 시각 인수는 별도 |
 | V mode / revision | Baseline V / V1 |
 | 기준 V | 없음 — 0262·0263 제품 동작은 회귀 기준으로 유지 |
 | 매핑 | PR #502 / 하네스 모듈 소유권·재사용·추적 파일 정리 |

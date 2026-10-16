@@ -6,7 +6,7 @@
 |---|---|
 | slug | `0265-harness-native-storage` |
 | 작성자 / 일자 | Codex / 2026-10-16 |
-| 상태 | impl/IN_PROGRESS — r2 코드·로컬 게이트 보완, 원격 CI 확인 중. 사람 시각 인수는 별도 |
+| 상태 | impl/IMPL_DONE — r2 로컬·Windows CI 통과, 독립 재검증 대기. 사람 시각 인수는 별도 |
 | V mode / revision | Delta V / V1 + ΔV1~3 |
 | 기준 V | V1@공유 브랜치 `8c94b449485771d5ea588e62e38c8cfbedc74e3b`. OpenCode 구체 커서는 0262 ΔV16, 의존 경계 회귀는 0264 |
 | 관련 | PR #502 · ADR-009 · 0262 · 0230 |
@@ -724,7 +724,7 @@ r1(V1+ΔV1+ΔV2) 독립 검증 = **RETURN_TO_PLAN**. 판정 원문은 [`verify.m
 | missing 준비·빈 replacement 재시도 (2) | `native-session.test.ts:rejects oversized recovery before creation and preserves the archive and receipt on retry`: 실제 SQLite 보관/receipt 동일·생성0 | SELF_PASS |
 | 모델·입력 배선 (1) | `uses the selected engine model context limit before creating a replacement` 작은/큰 모델 양방향; `passes new input and additional context through resolve before native recovery`; `send.harness.test.ts` 실제 조립 인자 | SELF_PASS |
 | byte 상한·context 정책 (2) | `bounds the complete UTF-8 recovery prompt including new text and attachments`; `registry.test.ts:uses each harness context policy through the registered module` | SELF_PASS |
-| VP12 / VP05 CI 실패 자리 | `native-history.test.ts` permission1·revision 경계2에서 realpath 비교와 실제 주입 발생 단언. 로컬14케이스 통과, 원격 CI 별도 확인 | SELF_PASS(로컬) |
+| VP12 / VP05 CI 실패 자리 | `native-history.test.ts` permission1·revision 경계2에서 realpath 비교와 실제 주입 발생 단언. 로컬14케이스와 원격 전체 CI 통과 | SELF_PASS |
 | VP2-1~4·VP3-R | native-session11·adapter 복구·history/db/store·continuation 기존 직접 좌표와 실제 native CLI 회귀 | SELF_PASS(기계) |
 
 검색: `rg -n 'prepareNativeSession|archivePrompt|recoverSession|recoveryHistory|recoveryContextWindow' app/src/main`. 새5/5자리, ΔV2 기존16자리 관련 회귀. native CLI fixture는 PWD를 제거하고 실제 잘못된 PWD 상속 환경에서 실행했다.
@@ -739,7 +739,7 @@ r1(V1+ΔV1+ΔV2) 독립 검증 = **RETURN_TO_PLAN**. 판정 원문은 [`verify.m
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 — ΔV3 r2
 
-상한이 SDK tokenizer와 동일하다고 주장하지 않는다. unknown은200k, 입력에80%를 할당하며 나머지는 하네스 instruction/tool/output 여유다. N-0265-2 중복 가드 전용 oracle은 비차단 유지. D-0265-2 기존 보고7필드 복원, N3 로컬/원격 결과 구분, N4 ΔV3 메타 갱신. D-0265-1은 원격 CI green 확인 전까지 최종 closed로 세지 않는다.
+상한이 SDK tokenizer와 동일하다고 주장하지 않는다. unknown은200k, 입력에80%를 할당하며 나머지는 하네스 instruction/tool/output 여유다. N-0265-2 중복 가드 전용 oracle은 비차단 유지. D-0265-2 기존 보고7필드 복원, N3 로컬/원격 결과 구분, N4 ΔV3 메타 갱신. D-0265-1은 원격 Windows run38926046458 전체 통과로 구현자 해소 보고하며 독립 판정은 검증자에게 넘긴다.
 
 ## [구현자 기입] 구현 보고 — ΔV3 r2
 

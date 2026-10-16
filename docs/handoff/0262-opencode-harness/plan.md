@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | impl/IN_PROGRESS — r2 코드·로컬 게이트 보완, 원격 CI 확인 중. 사람 시각 인수는 별도 |
+| 상태 | impl/IMPL_DONE — r2 로컬·Windows CI 통과, 독립 재검증 대기. 사람 시각 인수는 별도 |
 | V mode | Delta V — V1 + ΔV1~ΔV21 (각 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV21 / V1 + ΔV1~ΔV21, 기준 `5d2b36a2` |
@@ -3072,7 +3072,7 @@ r2는 첫 독립 verify 뒤 보완이다. 기존 7필드·직접 oracle 규칙�
 | Git 환경 대조 | 저장소 안 TEMP 때문에 비저장소 판정 실패. 정상 OS TEMP에서 해당7파일 통과; executable 복제 safety는 Electron ICU 제약으로 Node에서2/2 통과 |
 | 문서/운영 | migration sync/append-only, test-budget 통과. generated/prose 일치. 전체 link guard는 사용자 다운로드의 기존5개 링크 오류, 동일 checker에서 다운로드/첨부를 제외한 관리 범위 brokenLinks/proseViolations=[] |
 | 전체 실행 시도 | 첫 전체 및 큰 Main 실행은 최종 집계 없이 종료되어 성공 수로 세지 않음. 위 분할 실행과 수정 후 명시 집합만 결과로 사용 |
-| 원격 Windows CI | run38917598427의 native-history3실패는 해소. 수정본 run38924566570은 7400통과·2생략·DB 재개방2건 timeout. 기존 artifact timeout과 같은 파일 DB 설정 차이를 보완하고 재확인 중 |
-| CI 재개방 보완 | 관측된3스위트의 파일 DB를 운영 `openFileDatabase`(WAL/NORMAL)로 통일. 메모리 DB·재개방·영속 결과 단언과20초 예산은 유지. 로컬 기존3파일33통과(3.31초)→보완 뒤 helper 포함4파일35통과(2.55초); 원격 원인 해소는 CI로 확인 |
+| 원격 Windows CI | [run38926046458](https://github.com/muzaby/orca-skin/actions/runs/38926046458) 성공: Vitest752파일7402통과·선택 실행2생략, scripts142/142. 설치·migration·inventory·budget·lint·typecheck도 통과. 기존 Actions Node20 경고1건 |
+| CI 재개방 보완 | 초기 run38924566570은 DB 재개방2건 timeout. 이전 artifact timeout까지 관측된3스위트의 파일 DB를 운영 `openFileDatabase`(WAL/NORMAL)로 통일. 메모리 DB·재개방·영속 단언·20초 예산은 유지. 로컬 helper 포함4파일35통과, 원격 재실행도 전체 통과 |
 
-이번 재구현 AC 범위: 0262 ΔV20 3 + 0263 ΔV6 2 + 0264 11 + 0265 AC15~19 5 =21. ✅19 · ⚠️2(미관·외곽 간격 사람 인수) · ❌0. 이 합계는 이전 모든 델타의 인수 완료를 뜻하지 않는다. 원격 CI 완료 전까지 상태는 impl/IN_PROGRESS·구현자다.
+이번 재구현 AC 범위: 0262 ΔV20 3 + 0263 ΔV6 2 + 0264 11 + 0265 AC15~19 5 =21. ✅19 · ⚠️2(미관·외곽 간격 사람 인수) · ❌0. 이 합계는 이전 모든 델타의 인수 완료를 뜻하지 않는다. 원격 CI까지 통과해 impl/IMPL_DONE·Claude 재검증 대기로 넘긴다.
