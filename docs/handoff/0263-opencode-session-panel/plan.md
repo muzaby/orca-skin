@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex / 2026-10-16 |
-| 상태 | IMPL_DONE — Delta V5 구현·자기검증 완료; 다음 Claude 독립 검증 |
+| 상태 | plan/READY — ΔV6 사용자 변경 요구 확정, 다음 Codex 구현. 기존 독립 검증 대기 보존 |
 | V mode / revision | Baseline V1 + Delta V2 + Delta V3 + Delta V4 + Delta V5 |
 | 기준 V | Delta V5는 V1~V4 @ `940bd44edc5625f79b377b885cbe559b1d66fdb6` 상속 |
 | 매핑 | PR #502, 0262 후속 |
@@ -884,3 +884,18 @@ D-15~19를 구현했다. OpenCode 메뉴 투영은 지원 타일 정책과 분�
 ### Review Signals
 
 r1.5는 승인된 Delta V5의 구현 턴이다. 메뉴 노출·지원 집합, 요약 활성·전체 이력의 경계를 검증자가 우선 확인하면 된다. common host의 새 fallback은 OpenCode가 제공하는 선택적 참조이며 기존 Claude 외관 정책을 수정하지 않았다. 독립 판정은 Claude 검증자가 수행한다.
+
+## Delta V6 — transcript task 진입과 상위 패널 크기
+
+상태: plan/READY. V5 기본 작업 메뉴·Claude 타일 UX를 상속한다.
+
+D6-1 ACTIVE: OpenCode transcript task 클릭은 작업 패널의 하위 에이전트와 같은 상위 상세 패널을 연다. 아래 새 타일을 추가하지 않는다. 닫으면 작업 패널과 이전 선택·스크롤로 돌아가고 클릭한 task에 포커스를 돌려준다.
+D6-2 ACTIVE: 상세의 폭과 외곽 여백은 부모 작업 패널 값을 공유한다. 목록→상세에서도 폭이 뛰지 않고 기존 최대화/닫기 헤더를 쓴다. 세션 이동은 해당 세션의 패널 상태를 따르며 Claude 경로는 유지한다.
+
+| AC / pair | requiredness / §10 강제 자리 | 직접 oracle |
+|---|---|---|
+| AC6-1 / VP6-1 R6-1↔AT6-1·AR6-1↔IT6-1 | REQUIRED / task card→store→OpenCode panel→상세→닫기 (5) | 실제 click/store/host 통합, base subagent 타일 추가0, 선택 ID/복귀/포커스 확인 |
+| AC6-2 / VP6-2 R6-2↔AT6-2·MD6-2↔UT6-2 | REQUIRED / 부모 폭→상세 폭·외곽 여백→resize/다음 상세 (3) | 기존 host 렌더 test+CUA에서 폭/간격 유지 |
+| VP6-R / SD6↔ST6 | REGRESSION / Claude openSubagentTask·Work output overlay·요약 클릭 | 기존 panel/navigation/toolCard/store 회귀 |
+
+새 자리 8, 선택 mutation not selected(직접 행동 oracle). typecheck·readonly lint·관련 회귀·build와 CUA 수행. 기존 독립 verify 대기 보존.

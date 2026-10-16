@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | impl/IMPL_DONE — ΔV19 모달 통일·폼 전용 문서·오프라인 모델 목록 구현. 다음 Claude 독립 verify, 기존 AC11 인수 대기 보존 |
+| 상태 | plan/READY — ΔV20 사용자 변경 요구 확정, 다음 Codex 구현. 기존 독립 검증 대기 보존 |
 | V mode | Delta V — 기준 V1 + ΔV1~18 + ΔV19 (각 델타의 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV19 / 기준 ΔV18@공유 브랜치 `7edd119c3cfb3d720f51963753c8c7873ad0a726`. 기존 자기보고·AC11 인수와 이번 델타를 별도 집계 |
@@ -2899,3 +2899,24 @@ CUA-19-04: 검증용 dev 앱을 정상 종료·재실행해 최신 main으로 �
 ## [구현자 기입] Review Signals — ΔV19 r1.19
 
 이번 턴은 사용자 요구 변경이며 ΔV18의 원문 보존 정책을 D-043으로 명시 대체했다. 모델 소유 범위를 serialize뿐 아니라 목록과 턴 선택까지 함께 잠갔다. 설계 규범은 구현과 분리 커밋했다. UI 검증은 기존 Electron 앱을 Computer Use로 직접 조작했고 저장 경로는 임시 파일 통합으로 확인했다. 독립 검증을 선점하지 않으며 다음 주체는 Claude다.
+
+## Delta V20 — 컨텍스트·즉시 보내기·composer 메뉴·엔진 표기
+
+상태: plan/READY. 사용자 최신 일곱 요구 중 실행/telemetry/메뉴를 이 handoff가 소유한다. 기준 ΔV19의 모델 문서 소유 범위와 Claude GUI 보존은 상속한다.
+
+### Decision / 제품 계약
+
+- D20-1 ACTIVE: OpenCode 도넛 분모는 선택 모델의 설정 `provider[id].models[id].limit.context` 양수 값, 없으면 200000. 분자는 마지막 assistant step의 input+cache.read+cache.write이며 마지막 step이 없는 구자료만 기존 합산으로 폴백한다. 비용·사용량 원장은 합산을 보존한다. 재시작 후에도 두 의미가 섞이지 않는다.
+- D20-2 ACTIVE: 즉시 보내기는 native abort를 호출하고 중단 정착 뒤 held 입력을 바로 보낸다. 자연 응답 완료를 기다리지 않는다. `MessageAbortedError`는 중단 상태로 정규화하며 SSE를 연결 오류로 닫지 않는다. 실제 연결/인증 오류는 유지한다.
+- D20-3 ACTIVE: agent/effort 팝업은 모델 팝업의 공용 Popover·MenuItem·폰트 계층을 쓴다. 키보드 선택/포커스 복귀는 유지한다. 엔진 카드의 표시명은 Claude/OpenCode이며 식별자는 바꾸지 않는다.
+
+### AC / Delta V / §10
+
+| AC / pair | requiredness / production path·강제 자리 | 직접 oracle / 실패 의미 |
+|---|---|---|
+| AC20-1 / VP20-1 R20-1↔AT20-1·MD20-1↔UT20-1 | REQUIRED / 설정→mapper→telemetry→DB→DTO→도넛 (6) | 다중 step·뒤늦은 이전 update·0·누락·limit fixture; SQLite 재개방. 합산을 컨텍스트로 표시하면 실패 |
+| AC20-2 / VP20-2 R20-2↔AT20-2·AR20-2↔IT20-2 | REQUIRED / send-now IPC→runtime interrupt→native abort→중단 event→held 재전송 (5) | 실제 orchestration+adapter synthetic stream, 중단 오류/idle 순서와 새 요청 횟수 확인. provider_connection_error 또는 자연완료 대기 실패 |
+| AC20-3 / VP20-3 R20-3↔AT20-3 | REQUIRED / 두 popup·engine card (3) | 렌더/선택 테스트 및 CUA 디자인 대조. Claude/OpenCode 라벨·공용 menu DOM |
+| VP20-R / SD20↔ST20 | REGRESSION / provider 설정·persistent channel·0250 큐·Claude UI | 기존 adapter persistent/continuation·engine modal·composer 회귀 |
+
+새 자리 14. 선택 적대 증거는 not selected(직접 oracle). 운영 gate: typecheck, readonly lint, 관련 Vitest, 실제 SQLite, migration sync/append-only, inventory, build. 네이티브 ABI 재설치 없이 Electron Node 모드 DB 검증. 구현 보고/독립 verify는 아직 미완료.

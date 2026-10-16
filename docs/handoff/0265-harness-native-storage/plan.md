@@ -6,7 +6,7 @@
 |---|---|
 | slug | `0265-harness-native-storage` |
 | 작성자 / 일자 | Codex / 2026-10-16 |
-| 상태 | impl/IMPL_DONE — ΔV1 DB 우선 표시·lazy 갱신·세션별 읽기 커서 구현. 새 AC9~14 자기확인 6/6. V1 자기보고와 독립 verify 대기는 보존 |
+| 상태 | plan/READY — ΔV2 사용자 변경 요구 확정, 다음 Codex 구현. 기존 독립 검증 대기 보존 |
 | V mode / revision | Delta V / V1 + ΔV1 |
 | 기준 V | V1@공유 브랜치 `8c94b449485771d5ea588e62e38c8cfbedc74e3b`. OpenCode 구체 커서는 0262 ΔV16, 의존 경계 회귀는 0264 |
 | 관련 | PR #502 · ADR-009 · 0262 · 0230 |
@@ -614,3 +614,28 @@ DB 표시 후 native 실패는 본문을 비우지 않고 기존 오류 UI로 �
 ## [구현자 기입] Review Signals — ΔV1 r1.2
 
 이전 라운드의 native 보관 불변식은 유지하고 사용자 요구로 DB 선표시 순서를 바꿨다. 기존 entry 동일성 검사는 모델 hydration도 stale로 간주했지만 기존 native 재열기 테스트는 이미 backend가 있는 cached 상태만 다뤘다. 이번에는 cold loading과 actual Composer effect를 함께 잠갔다. 환경 제약은 Electron SQLite ABI 및 설치 CLI 접근 권한이며 임시 native root와 localhost 모델로 검증했다. 현재 r1.2, 다음 주체 Claude 독립 verify.
+
+## Delta V2 — 원본 보관 만료와 대화 복구
+
+상태: plan/READY. 사용자 요구로 원본 누락 시 재개를 차단하던 V1 계약과 ΔV1 lazy 오류 표시를 대체한다. DB 선표시와 native SSOT·원본 보존은 유지한다.
+
+### Decision / Product & UX
+
+D13 ACTIVE: DB 표시 후 보조 native 조회의 missing/unavailable/예외는 기존 transcript를 그대로 유지한다. 이 단계 실패는 세션 열기 오류로 표시하지 않는다. DB 자체 읽기 실패는 기존 오류 처리다.
+D14 ACTIVE: 명시 전송 시 native missing을 확인하면 보관 대화로 복구한다. unavailable/인증/경로 충돌은 missing으로 단정하지 않는다. Claude SDK는 fresh query의 sessionId(UUID)를 지원하므로 기존 ID로 재생성한다. OpenCode 1.x 공개 create는 사용자 지정 ID를 받지 않으므로 새 native ID를 발급받아 영속 binding을 교체한다. Orca 내부 DB key는 관계/프로젝트/메시지 보존을 위해 유지하며, 실제 하네스 읽기·실행은 교체된 native ID만 사용한다.
+D15 ACTIVE: 복구 첫 턴의 모델 입력은 Orca 보관 대화(역할·텍스트·도구 기록을 포함하는 데이터) + 새 입력이다. live/DB/재열기 사용자 버블에는 새 입력만 보인다. 이전 대화는 원래 순서대로 보존한다. recovery prefix를 시스템 명령으로 승격하지 않는다.
+D16 ACTIVE: binding·보관 경계·첫 입력 영수증을 DB에 영속한다. 원본/DB는 분산 transaction이 아니므로 create 성공 후 DB 실패는 빈 native 세션만 남을 수 있다. DB 보관은 지우지 않는다. 전송 전 실패는 재시도 가능하고 수신 확인 후 같은 context를 다음 턴에 반복하지 않는다. 다시 원본이 사라지면 누적 보관 전체로 재복구한다. 읽기·전송 경합/삭제 가드는 기존을 따른다.
+
+### Technical Design
+
+공통 adapters 계약에 복구 준비 capability와 첫 턴 context를 추가한다. 구현은 claude/ 및 opencode/v1/에 둔다. 공통 native binding은 원본 ID와 Orca ID의 대응만 소유하며 원본 DB schema를 편집하지 않는다. 별도 append-only migration으로 recovery archive·native ID·최초 echo 식별자를 저장한다. reader는 보관 prefix와 현재 native snapshot을 결합하고 receipt로 확정된 첫 user 메시지의 visible text만 복원한다. 새 snapshot/cursor는 새 native ID에 귀속하며 오래된 offset은 재사용하지 않는다.
+
+| AC / pair | requiredness / §10 강제 자리 | 직접 oracle / 실패 의미 |
+|---|---|---|
+| AC15 / VP2-1 R15↔AT15·MD2-1↔UT2-1 | REQUIRED / lazy status·catch (2) | store DB 유지+report0, DB 첫 로딩 에러는 유지 |
+| AC16 / VP2-2 R16↔AT16·AR2-2↔IT2-2 | REQUIRED / cold resume 판정·Claude fresh ID·OpenCode create·native ID binding (4) | 두 adapter/resolve 경로 fixture, missing만 복구·unavailable 차단·재시작 ID 유지 |
+| AC17 / VP2-3 R17↔AT17·SD2-3↔ST2-3 | REQUIRED / archive 조립·첫 prompt·echo·writer·native 재열기 (5) | 실제 DB/adapter/store 경계: 과거+새 입력 모델 수신, 새 버블에 과거0, 과거 transcript 보존 |
+| AC18 / VP2-4 R18↔AT18·MD2-4↔UT2-4 | REQUIRED / 준비 실패·receipt 정착·재시작·재복구·lazy cursor (5) | create/commit/echo 경계·SQLite 재개방·두 번 만료·오래된 cursor 재사용0 |
+| VP2-R | REGRESSION / DB 선표시·live 가드·Claude/OpenCode native 읽기 | 기존 native sync/projection/readers·load/store·send 회귀 |
+
+새 자리16. 선택 mutation은 not selected(직접 oracle). 운영 gate: main/renderer 의존 lint·typecheck·관련 tests·SQLite·migration sync/append-only·inventory/IPC 문서·build. 자동 원본 삭제·사용자 전역 설정 편집은 도입하지 않는다. 기존 독립 verify와 사람 인수 대기 보존.
