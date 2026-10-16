@@ -2950,3 +2950,16 @@ CUA-19-04: 검증용 dev 앱을 정상 종료·재실행해 최신 main으로 �
 전체 readonly ESLint 오류 0·기존 경고 6, node/web/test 타입 검사와 production build, scripts 142검사, migration sync/append-only, test-budget 통과. inventory 생성·prose 검사 통과. 일반 링크 검사는 사용자 다운로드 `.tmp/opencode-dev`의 기존 깨진 링크만 실패했고, 다운로드/첨부를 제외한 Orca 문서 범위는 같은 검사 함수로 통과했다. 최종 변경 파일 lint·빌드 로그는 `.tmp/current-changed-eslint.log`, `.tmp/current-final-bundle.log`(최종 타입 보완은 `current-final-web.log`·`current-final-test-types.log`); 회귀 원문은 `.tmp/current-regression*.log`·`current-repaired-tests.log`·`current-final-targeted.log`·`current-map-tests.log`에 있다(임시 산출물, 커밋 제외).
 
 사용자 뜻의 즉시 반응과 native steer의 다음 스텝 의미를 처음에 혼동했고, D20-2를 별도 설계 커밋으로 정정한 뒤 구현했다. 구현 중 찾은 idle 소진 경쟁과 explicit-zero/누락 usage를 직접 oracle로 잠갔다. 실모델의 중단 지연시간은 이번 턴에서 재측정하지 않았다. CUA는 기존 완료 세션의 표시/메뉴/패널을 조작했고 새 실모델 입력은 보내지 않았다. 다음 주체는 Claude 독립 검증이다.
+
+## [검증자 기입] 파생 이슈 — r1 검증
+
+r1(V1~ΔV20) 독립 검증 = **RETURN_TO_PLAN**. 판정 원문은 [`verify.md`](verify.md).
+
+| # | 이슈 | 출처 | disposition | 대응 방향 |
+|---|---|---|---|---|
+| G-0262-1 | geometry·시각 자리(EP36c·e, EP37e geometry, AC48/VP-Δ17-03, ΔV7 두 테마/좁은 폭)가 CUA 측정으로만 닫힘 — 좌표 아님 | §10 / `§공통 V` | PLAN_GAP | 사람 시각 인수로 재분류 또는 브라우저 runner 도입 결정(사용자 승인) |
+| D-0262-1 | `[구현자 기입] ΔV20` 필드 접힘 | 재구현 턴 7필드 계약 | BLOCKING | 7필드 재기입 |
+| N-0262-1~2·4 | 중단 경계 분류 미관측 · D20-1 폴백 범위 · 메타 revision | — | NON_BLOCKING | verify §8 |
+| N-0262-3 | ΔV19 직렬화가 `limit.context` 미보존 → 폼 엔진 도넛 분모 항상 200000 | ΔV19×ΔV20 | NEXT_HANDOFF | 사용자 결정 |
+
+다음 재구현 전에 `handoff-review`를 수행한다 — 라운드 1의 verify 없는 비요구변경 impl 턴이 3을 넘었다(verify §9).
