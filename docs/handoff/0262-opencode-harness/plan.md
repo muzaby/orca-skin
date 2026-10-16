@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | impl/IN_PROGRESS — r2.1 최신 CI 재실패 보완. 사람 시각 인수는 별도 |
+| 상태 | impl/IMPL_DONE — r2.1 CI 재실패 보완·Windows 전체 게이트 통과, 독립 재검증 대기 |
 | V mode | Delta V — V1 + ΔV1~ΔV21 (각 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV21 / V1 + ΔV1~ΔV21, 기준 `5d2b36a2` |
@@ -3108,7 +3108,14 @@ r2는 당시 실패한3스위트만 보완해 같은 초기화 비용이 남은 
 
 ## [구현자 기입] 구현 보고 — r2.1
 
-관련 SQLite 회귀13파일114케이스 통과. 운영 file-database 정책, 이번9파일과 기존 CI 수정3파일을 함께 실행했다. AC20-1 사용량 영속 ✅1, 0265 AC15~19는 해당 plan r2.1에서 집계한다. 검산 ✅1 · ⚠️0 · ❌0 = 이번262 재확인1. 나머지 제품·시각 AC는 이번에 재인수하지 않는다. 원격 CI는 push 뒤 확인한다.
+관련 SQLite 회귀13파일114케이스 통과. 운영 file-database 정책, 이번9파일과 기존 CI 수정3파일을 함께 실행했다. AC20-1 사용량 영속 ✅1, 0265 AC15~19는 해당 plan r2.1에서 집계한다. 검산 ✅1 · ⚠️0 · ❌0 = 이번262 재확인1. 나머지 제품·시각 AC는 이번에 재인수하지 않는다.
+
+| r2.1 gate | 관측 |
+|---|---|
+| 로컬 | 관련13파일114테스트, 변경 파일 ESLint 오류/경고0, test typecheck 진단0. app cwd의 migration sync/append-only·test-budget 통과. 관리 문서 brokenLinks/proseViolations=[] |
+| 원격 Windows | [run38983034999](https://github.com/muzaby/orca-skin/actions/runs/38983034999) 성공. Vitest752파일7402테스트 통과·선택 실행2생략, scripts142/142. 설치·migration·문서·예산·lint·전체 typecheck 통과 |
+| 재발 자리 | native cursor7테스트1387ms. 이전 실패 migration 재개방을 포함한 전체 Vitest 실패0. case/hook 예산과 검증 단언 유지 |
+| 남은 경계 | 기존 Actions Node20 경고는 실패가 아님. 실모델 opt-in·시각 인수는 이번 CI 수정 범위 밖. 마감 문서 push 후 결과는 해당 최종 HEAD의 PR check에서 확인 |
 
 ## [구현자 기입] Review Signals — r2.1
 

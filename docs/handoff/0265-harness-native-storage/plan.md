@@ -6,7 +6,7 @@
 |---|---|
 | slug | `0265-harness-native-storage` |
 | 작성자 / 일자 | Codex / 2026-10-16 |
-| 상태 | impl/IN_PROGRESS — r2.1 최신 CI 재실패 보완. 사람 시각 인수는 별도 |
+| 상태 | impl/IMPL_DONE — r2.1 CI 재실패 보완·Windows 전체 게이트 통과, 독립 재검증 대기 |
 | V mode / revision | Delta V / V1 + ΔV1~3 |
 | 기준 V | V1@공유 브랜치 `8c94b449485771d5ea588e62e38c8cfbedc74e3b`. OpenCode 구체 커서는 0262 ΔV16, 의존 경계 회귀는 0264 |
 | 관련 | PR #502 · ADR-009 · 0262 · 0230 |
@@ -771,7 +771,7 @@ native-cursor의 무변경 probe7케이스, native-session 복구11케이스, na
 
 ## [구현자 기입] 구현 보고 — r2.1
 
-공통 회귀13파일114케이스 통과. AC15~19의 보관·missing 복구·입력 표시 분리·영수증·상한 차단을 native-session/history 결과로 재확인했다. 검산 ✅5 · ⚠️0 · ❌0 = 5. 이번 합계는 0262의 사용량 영속1을 더해6/6이며 이전 전체 AC의 인수 수와 합산하지 않는다. 원격 CI는 push 뒤 확인한다.
+공통 회귀13파일114케이스 통과. AC15~19의 보관·missing 복구·입력 표시 분리·영수증·상한 차단을 native-session/history 결과로 재확인했다. 검산 ✅5 · ⚠️0 · ❌0 = 5. 이번 합계는 0262의 사용량 영속1을 더해6/6이며 이전 전체 AC의 인수 수와 합산하지 않는다. 원격 run38983034999에서 전체7402테스트·scripts142 통과, 상세 gate는 0262 r2.1 표를 참조한다.
 
 ## [구현자 기입] Review Signals — r2.1
 
