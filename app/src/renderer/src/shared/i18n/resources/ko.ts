@@ -511,6 +511,7 @@ export const ko = {
     scenario: '시나리오',
     contextUsage: '컨텍스트 사용량',
     log: '로그',
+    showAutomaticFeeds: '자동 피드 표시',
     themeSection: '테마',
     palette: '컬러 팔레트',
     layoutSection: '레이아웃',

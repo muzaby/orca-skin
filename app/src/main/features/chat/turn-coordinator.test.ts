@@ -91,6 +91,42 @@ it('does not replay channel-owned schedule state through a delayed turn frame', 
   expect(forwarded.some((event) => event.type === 'session.schedules')).toBe(false)
 })
 
+it.each(['system-reminder', 'tagged', 'plain'] as const)(
+  'records a provider-owned %s input during listen without sending it back',
+  async (format) => {
+    const origin = { kind: 'automatic' as const, format }
+    const text = format === 'plain' ? 'Continue.' : `<${format}>Continue.</${format}>`
+    const runtime = fakeRuntime([
+      [
+        { type: 'input.received', sessionId: 's1', text, uuid: 'provider-input', origin },
+        { type: 'message.completed', sessionId: 's1', message: { text: 'continued' } },
+        { type: 'turn.ended', sessionId: 's1' }
+      ]
+    ])
+    const send = vi.spyOn(runtime, 'send')
+    const listen = vi.spyOn(runtime, 'listen')
+    const deps = makeDeps(runtime)
+    const commit = vi.fn(() => 43)
+    deps.persist.commitUserMessage = commit
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+    await new TurnCoordinator(deps).run(turn, REQUEST, { kind: 'listen', boundProjectId: null })
+    expect(listen).toHaveBeenCalledTimes(1)
+    expect(send).not.toHaveBeenCalled()
+    expect(commit).toHaveBeenCalledTimes(1)
+    expect(commit).toHaveBeenCalledWith(turn, expect.objectContaining({ text, origin }))
+    const forwarded = vi.mocked(deps.forward.forward).mock.calls.map((call) => call[1])
+    expect(forwarded[0]).toMatchObject({
+      type: 'message.committed',
+      ids: [],
+      text,
+      origin,
+      messageId: 43
+    })
+    expect(forwarded.some((event) => event.type === 'input.received')).toBe(false)
+  }
+)
+
 // 스크립트된 이벤트 리스트(또는 attempt 별 동작)를 yield 하는 가짜 런타임.
 function fakeRuntime(
   scripts: Array<NormalizedEvent[] | (() => never)>

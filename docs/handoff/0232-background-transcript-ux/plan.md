@@ -6,7 +6,7 @@
 |---|---|
 | 작성자 | Codex |
 | 일자 | 2026-09-13 |
-| 상태 | plan/READY — ΔV3 공통 자동 입력 속성·표시. 기존 r2 PASS와 설치본 시각 실기 대기는 보존 |
+| 상태 | impl/IMPL_DONE — ΔV3 공통 자동 입력 속성·모든 피드 DEV 표시 구현. 기존 r2 PASS와 설치본 시각 실기 대기는 보존; 다음 Claude 독립 검증 |
 | V mode / 기준 / revision | Baseline V / none / V1 |
 | 유효 V | V1 + ΔV1 + ΔV2 + ΔV3. ΔV3는 D-02의 DEV 표시 범위를 대체하고 production 숨김·원본·수기 입력 보존을 유지한다. |
 
@@ -560,3 +560,54 @@ coordinator·writer·DTO·reader·store/reducer는 origin 객체를 그대로 �
 관련 비DB Vitest, readonly ESLint, typecheck, production build의 DEV 코드 제거(0003), 문서 inventory/링크·diff·trailer를 수행한다. 기존 Electron ABI를 유지하고 npm pretest/install/rebuild로 바꾸지 않는다. 새 패키지·DB migration 없음. 실제 모델 호출 대신 설치 SDK/CLI+loopback 합성 모델을 사용한다.
 
 D-20↔AC20, D-21↔AC22, D-22↔AC21/23, D-23↔0003 버튼과 AC22 소비를 대조했다. D-02는 DEV에서만 부분 대체하며 직접 입력·원본·production 기본 숨김은 유지한다. 새 AC4건으로 누적19→23이며 과거 PASS19건을 이번 새 기능의 검증으로 주장하지 않는다. OpenCode 수신 수명은 별도0262 READY 계약에 따라 구현한다.
+
+## [구현자 기입] ΔV3 — 공통 시스템 피드 (2026-10-16)
+
+### 1. 설계 리뷰
+
+구현했다. 사용자 정정에 따라 DEV ON은 system-reminder를 포함한 모든 자동 입력을 보여주며, 표시에서 format별 예외를 제거했다. origin.format 분류와 원문 보존은 main/shared의 공통 계약으로 유지한다.
+
+### 2. 강제 지점 전수와 V-pair 자기확인
+
+| 자리 / 수 | 직접 관측 | 자기확인 |
+|---|---|---|
+| EP-Δ3-01 / 1 | `shared/received-input.test.ts`의 wrapper·속성·중첩·연속·불완전·본문 원본 비교 | SELF_PASS |
+| EP-Δ3-02 / 2 | Claude `map.received.test.ts`·`input-receipts.test.ts`·`adapter.turnEnd.test.ts`: source/UUID·동일 본문·실제 SDK 입력 스트림 추가 전송0 | SELF_PASS |
+| EP-Δ3-03 / 1 | `turn-coordinator.test.ts: records a provider-owned %s input during listen without sending it back`: persist/forward exact origin, listen1/send0 | SELF_PASS |
+| EP-Δ3-04 / 3 | `history/writer.received.test.ts`: 실제 writer→JSON payload→DTO→reader의 두 backend 원문·format 동일 | SELF_PASS |
+| EP-Δ3-05 / 2 | `chatStore.schedules.test.ts`: 두 backend의 message.committed·LOAD_SESSION에서 text/origin/format 직접 관측 | SELF_PASS |
+| EP-Δ3-06 / 1 | `turns.received.test.ts`: 혼합 text·첨부·source 배열/part identity·원본 메시지 index 및 빈 교환 방지 | SELF_PASS |
+| EP-Δ3-07 / 2 | `app/automaticFeedDebug.integration.test.ts`: 실제 OverlayLayer/DebugPanel/두 Timeline, Claude Work/Code·OpenCode의 ON/OFF/production·live/reload | SELF_PASS |
+
+합계 1+2+1+3+2+1+2=12/12. VP-Δ3-01~07은 위 직접 경로로 SELF_PASS이며, 영향 REGRESSION VP-02·05·07은 `TranscriptView.received`·`UserMessage.origin`·Work projector/turn identity·OpenCode projection/selection/render를 포함한 renderer 20파일120케이스로 재확인했다. 투영 배열 안의 part ordinal은 바뀔 수 있으나 원본 배열과 남은 part 객체, 원본 메시지 startIndex를 보존한다.
+
+### 3. 이번 라운드 수정의 잠금
+
+직접 입력/출력 oracle을 사용했다. 이번 공통 범위의 등록 적대 증거0·인용 변이0·신규 구조 proxy0=잠금 표 대상0이며, DEV 제어/production 게이트의 변이 결과는 0003 구현 보고에 분리했다.
+
+### 4. Product/UX 파생 검토
+
+DEV ON에서 과거 format 없는 reminder도 사용자 버블로 표시한다(`turns.received`와 app integration). OFF/production은 자동 text만 숨기고 사용자 본문·첨부는 남기며, 개별 버블 복사는 투영 본문·전체 대화 복사는 기존 원본을 사용한다. 토글은 모델 요청이나 영속 이력을 변경하지 않는다.
+
+### 5. 놓친 잠재 문제 + 대응
+
+초기 reminder 제외 해석은 사용자 지적 후 D-21/AC22와 테스트를 정정했다. Claude의 명시 system source와 앱 입력이 같은 본문이어도 own UUID가 확인된 echo를 가로채지 않도록 잠갔고, poll_event는 소비 확정 영수증으로 승격하지 않는다. OpenCode의 첫 idle 이후 수신·재사용 작업 식별은 0262에서 구현·검증한다.
+
+### 6. 구현 보고
+
+| AC | 관측 / 자기보고 |
+|---|---|
+| AC20 | ✅ shared·native mapper·writer/DTO/reader·store/reducer에서 원문과 origin.format 보존 |
+| AC21 | ✅ Claude hook/wire·coordinator.listen 직접 검사: 수신1회·추가 prompt0, 수기/child/tool_result 제외 |
+| AC22 | ✅ 실제 두 Timeline의 모든 자동 입력 ON 표시·OFF/production 숨김, 일반 출력 보존 |
+| AC23 | ✅ 혼합 part/첨부·빈 메타 방지·source identity/index·live/reload 동일 |
+
+이번 추가 AC는 ✅4·⚠️0·❌0=4이며 기존19건의 과거 판정과 분리한다. 공통/Claude 최종 직접 재검은 6파일172테스트, renderer 회귀는 20파일120테스트가 통과했다. Claude 광역48파일685건 중 홈 디렉터리 lstat EPERM 11건은 테스트 자식의 TEMP/TMP를 저장소 임시 폴더로 지정한 해당3파일37건 재실행으로 해소했으며, 설치 SDK는0.3.286이고 의존성은 변경하지 않았다.
+
+운영 gate는 전체 typecheck(node/web/test) 통과, readonly ESLint 오류0·기존 경고6, 최종 electron-vite production build(main/preload/renderer) 통과다. ABI를 뒤집는 prebuild 대신 직접 electron-vite와 별도 typecheck를 실행하고 산출물은 저장소 임시 폴더에 격리했다. 기존 설치본 시각 인수 대기와 독립 verify를 완료 처리하지 않는다.
+
+문서 inventory 생성·수치 검사는 통과했고 전체 링크 검사는 비추적 `.tmp/opencode-dev`의 기존 링크5건만 실패했다. 같은 `checkLinks`에 `.tmp`·비추적 첨부 경로만 제외한 검사 결과는 `[]`이며 다운로드한 프로젝트를 수정하지 않았다. migration append-only/sync, 테스트 예산16스위트, diff 검사를 통과했고 DB migration·패키지 재설치·native ABI 전환은 수행하지 않았다.
+
+### 7. Review Signals
+
+이번은 사용자 공통 속성 요구와 DEV 범위 정정에 따른 ΔV3 구현이다. 표시 해석 오류는 사용자 발언으로 정정했으며 source 신뢰·전송 소유권을 새 규칙으로 확대하지 않았다. 홈 lstat 권한과 설치 SDK/manifest 버전 차이는 로컬 환경 사실로 분리했고 CI의 고정 의존성 검증은 별도다.

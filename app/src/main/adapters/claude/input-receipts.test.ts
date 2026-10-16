@@ -83,7 +83,7 @@ describe('Claude input hook correlation', () => {
       sessionId: 's1',
       text: 'tick',
       uuid: 'wire-1',
-      origin: { kind: 'automatic' }
+      origin: { kind: 'automatic', format: 'plain' }
     })
     expect(receipts.drain('s1')).toEqual([])
   })
@@ -122,5 +122,77 @@ describe('Claude input hook correlation', () => {
     receipts.drain('s1')
     receipts.finishResponse()
     expect(receipts.reconcile({ ...wire, uuid: 'c2' })).toEqual({ ...wire, uuid: 'c2' })
+  })
+
+  it.each([
+    ['system', 'automatic'],
+    ['loop_wakeup', 'automatic'],
+    ['schedule_wakeup', 'scheduled']
+  ])('keeps %s hook provenance and reminder format', (source, kind) => {
+    const receipts = new ClaudeInputReceipts()
+    const prompt = '<system-reminder>Continue.</system-reminder>'
+    receipts.prompt({ source, prompt })
+    expect(receipts.drain('s1')).toEqual([
+      {
+        type: 'input.received',
+        sessionId: 's1',
+        text: prompt,
+        uuid: expect.any(String),
+        origin: { kind, format: 'system-reminder' }
+      }
+    ])
+  })
+
+  it.each(['user', 'sdk', 'poll_event', 'future-source', null, 7])(
+    'does not infer an automatic input from a %s hook or its tags',
+    (source) => {
+      const receipts = new ClaudeInputReceipts()
+      receipts.prompt({ source, prompt: '<system-reminder>Manual text.</system-reminder>' })
+      expect(receipts.drain('s1')).toEqual([])
+    }
+  )
+
+  it('keeps an explicit system firing separate from a queued human input with identical text', () => {
+    const receipts = new ClaudeInputReceipts()
+    const text = '<task-notification>check again</task-notification>'
+    receipts.submitted(text, 'human-1')
+    receipts.prompt({ source: 'system', prompt: text })
+    expect(receipts.reconcile(echo(text, 'human-1'))).toEqual(echo(text, 'human-1'))
+    expect(receipts.drain('s1')).toMatchObject([
+      { type: 'input.received', text, origin: { kind: 'automatic', format: 'tagged' } }
+    ])
+    receipts.prompt({ source: 'sdk', prompt: text })
+    expect(receipts.drain('s1')).toEqual([])
+  })
+
+  it('keeps scheduled provenance when the later wire has no origin', () => {
+    const receipts = new ClaudeInputReceipts()
+    const text = '<system-reminder>Scheduled check.</system-reminder>'
+    receipts.prompt({ source: 'schedule_wakeup', prompt: text })
+    expect(receipts.reconcile(echo(text, 'wire-1'))).toMatchObject({
+      type: 'input.received',
+      uuid: 'wire-1',
+      text,
+      origin: { kind: 'scheduled', format: 'system-reminder' }
+    })
+    expect(receipts.drain('s1')).toEqual([])
+  })
+
+  it('prefers specific wire provenance while retaining its common format exactly once', () => {
+    const receipts = new ClaudeInputReceipts()
+    const text = '<task-notification>CI passed.</task-notification>'
+    receipts.prompt({ source: 'system', prompt: text })
+    const wire = {
+      type: 'input.received' as const,
+      sessionId: 's1',
+      uuid: 'wire-1',
+      text,
+      origin: { kind: 'channel' as const, label: 'CI', format: 'tagged' as const }
+    }
+    expect(receipts.reconcile(wire)).toEqual(wire)
+    expect(receipts.drain('s1')).toEqual([])
+    receipts.finishResponse()
+    receipts.prompt({ source: 'system', prompt: text })
+    expect(receipts.drain('s1')).toHaveLength(1)
   })
 })

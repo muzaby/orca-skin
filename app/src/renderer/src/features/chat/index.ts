@@ -1,4 +1,5 @@
 export { ChatProvider } from './providers/ChatProvider'
+export { AutomaticFeedDebugSection } from './components/AutomaticFeedDebugSection'
 export { ChatView } from './components/ChatView'
 export { ChatTile } from './components/ChatTile'
 export { RightPanel } from './components/rightpanel/RightPanel'

@@ -11,7 +11,7 @@ import { ArtifactCards } from '../../common/transcript/ArtifactCards'
 import { PendingAssistantStatus } from '../../../components/transcript/PendingAssistantStatus'
 import { PendingSteerTurn } from '../../common/transcript/PendingSteerTurn'
 import { TurnErrorBanner } from '../../common/transcript/TurnErrorBanner'
-import type { TranscriptViewProps } from '../../../components/transcript/TranscriptView'
+import type { TranscriptTimelineProps } from '../../contracts'
 import { OpenCodeAssistantSegment } from './AssistantSegment'
 import { OpenCodeText, OpenCodeReasoning } from './Text'
 import { projectTimeline, type TimelineRow } from './projection'
@@ -22,7 +22,7 @@ const policy = transcriptPresentation('code', 'opencode')
 const gaps = { 0: '', 8: 'pt-[8px]', 16: 'pt-[16px]', 24: 'pt-[24px]' } as const
 
 export const OpenCodeTimeline = memo(function OpenCodeTimeline(
-  props: TranscriptViewProps & { textScaleClassName: string }
+  props: TranscriptTimelineProps
 ): React.JSX.Element {
   const { tr } = useI18n()
   const liveText = useLiveText()
@@ -32,12 +32,16 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline(
   const state = scroll?.state ?? fallbackState
   const rows = useMemo(
     () =>
-      projectTimeline(props.messages, {
-        text: props.inflight ? liveText : '',
-        reasoning: props.inflight ? liveReasoning : '',
-        pending: props.inflight
-      }),
-    [props.messages, props.inflight, liveText, liveReasoning]
+      projectTimeline(
+        props.messages,
+        {
+          text: props.inflight ? liveText : '',
+          reasoning: props.inflight ? liveReasoning : '',
+          pending: props.inflight
+        },
+        { showAutomaticFeeds: props.showAutomaticFeeds }
+      ),
+    [props.messages, props.inflight, props.showAutomaticFeeds, liveText, liveReasoning]
   )
   const selectionIndexes = (scroll?.retained ?? [])
     .map((key) => rows.findIndex((row) => row.key === key))

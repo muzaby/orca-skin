@@ -49,6 +49,11 @@ export interface TranscriptViewProps {
   onScroll: () => void
 }
 
+export interface TranscriptTimelineProps extends TranscriptViewProps {
+  textScaleClassName: string
+  showAutomaticFeeds: boolean
+}
+
 export interface ComposerAppearance {
   shell: string
   prompt: (dragging: boolean) => string

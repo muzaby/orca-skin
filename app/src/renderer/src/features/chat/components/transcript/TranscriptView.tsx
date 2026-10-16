@@ -3,15 +3,21 @@ import { assistantRuntime } from '../../harnesses/registries/assistant'
 import { memo } from 'react'
 import { transcriptHarness } from '../../harnesses/registries/transcript'
 import type { TranscriptViewProps } from '../../harnesses/contracts'
+import { useAutomaticFeedVisibility } from '../../store/automaticFeedDebug'
 export type { TranscriptViewProps } from '../../harnesses/contracts'
 const transcriptTextScaleClassName = '[--transcript-text-scale:var(--chat-text-scale,1)]'
 export const TranscriptView = memo(function TranscriptView(
   props: TranscriptViewProps
 ): React.JSX.Element {
   const { Timeline } = transcriptHarness(props.backend)
+  const showAutomaticFeeds = useAutomaticFeedVisibility()
   return (
     <TranscriptRuntimeProvider value={assistantRuntime(props.backend)}>
-      <Timeline {...props} textScaleClassName={transcriptTextScaleClassName} />
+      <Timeline
+        {...props}
+        textScaleClassName={transcriptTextScaleClassName}
+        showAutomaticFeeds={showAutomaticFeeds}
+      />
     </TranscriptRuntimeProvider>
   )
 })

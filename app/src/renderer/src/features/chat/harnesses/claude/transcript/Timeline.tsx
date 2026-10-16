@@ -13,7 +13,7 @@ import { agentPresentation } from '../presentation'
 
 // 0256 D-009: both harness viewports accept the global scale at this shared boundary.
 
-import type { TranscriptViewProps } from '../../contracts'
+import type { TranscriptTimelineProps } from '../../contracts'
 export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
   agentKind,
   backend = 'claude',
@@ -27,12 +27,16 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
   scrollRef,
   contentRef,
   onScroll,
-  textScaleClassName
-}: TranscriptViewProps & { textScaleClassName: string }): React.JSX.Element {
+  textScaleClassName,
+  showAutomaticFeeds
+}: TranscriptTimelineProps): React.JSX.Element {
   const { tr } = useI18n()
   // 델타 프레임(messages 참조 불변)에서 Exchange/Turn 객체 identity 를 고정 — memo 된
   // 컴포넌트가 props 비교만으로 재렌더를 건너뛴다 (0007-transcript-render-memo 계승).
-  const exchanges = useMemo(() => groupExchanges(messages), [messages])
+  const exchanges = useMemo(
+    () => groupExchanges(messages, { showAutomaticFeeds }),
+    [messages, showAutomaticFeeds]
+  )
   const transcriptPolicy = agentPresentation[agentKind].transcript
   const [selectWorkResults] = useState(createWorkToolResultSelector)
   const workResults = useMemo(

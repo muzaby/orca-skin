@@ -22,23 +22,25 @@ const h = vi.hoisted(() => {
   }
   return {
     state,
-    queryMock: vi.fn((args: { options?: Record<string, unknown> }) => {
-      state.options = (args.options ?? {}) as (typeof state)['options']
-      return {
-        async *[Symbol.asyncIterator]() {
-          for (const step of state.script) {
-            if (typeof step === 'function') {
-              await step()
-              continue
+    queryMock: vi.fn(
+      (args: { options?: Record<string, unknown>; prompt?: AsyncIterable<unknown> }) => {
+        state.options = (args.options ?? {}) as (typeof state)['options']
+        return {
+          async *[Symbol.asyncIterator]() {
+            for (const step of state.script) {
+              if (typeof step === 'function') {
+                await step()
+                continue
+              }
+              yield step
             }
-            yield step
-          }
-        },
-        setPermissionMode: vi.fn(),
-        interrupt: vi.fn(),
-        setModel: vi.fn()
+          },
+          setPermissionMode: vi.fn(),
+          interrupt: vi.fn(),
+          setModel: vi.fn()
+        }
       }
-    })
+    )
   }
 })
 
@@ -101,10 +103,14 @@ const fireStop =
     await stopCallback()(input, undefined, {})
   }
 
-const firePrompt = (prompt: string) => async (): Promise<void> => {
+const firePrompt = (prompt: string, source?: string) => async (): Promise<void> => {
   const callback = h.state.options?.hooks?.UserPromptSubmit?.[0]?.hooks[0]
   expect(callback, 'SDK가 숨기는 자동 입력을 받는 UserPromptSubmit hook').toBeDefined()
-  await callback!({ hook_event_name: 'UserPromptSubmit', prompt }, undefined, {})
+  await callback!(
+    { hook_event_name: 'UserPromptSubmit', prompt, ...(source ? { source } : {}) },
+    undefined,
+    {}
+  )
 }
 
 beforeEach(() => {
@@ -508,7 +514,7 @@ describe('claude.ts 턴 종료 배선 (D25·D26 · VP-72 · EP-46 ①②)', () =
         type: 'input.received',
         sessionId: 's1',
         text: 'CI failed',
-        origin: { kind: 'channel', label: 'CI' },
+        origin: { kind: 'channel', label: 'CI', format: 'plain' },
         uuid: 'channel-1'
       }
     ])
@@ -552,5 +558,53 @@ describe('claude.ts 턴 종료 배선 (D25·D26 · VP-72 · EP-46 ①②)', () =
       }
     ])
     expect(batches.at(-1)?.map((event) => event.type)).toEqual(['input.received', 'error'])
+  })
+
+  it('records a provider reminder once before its response without adding another SDK prompt', async () => {
+    const text = '<system-reminder>Review the completed task.</system-reminder>'
+    h.state.script = [
+      INIT,
+      firePrompt('hello', 'sdk'),
+      ASSISTANT,
+      RESULT,
+      firePrompt(text, 'system'),
+      {
+        type: 'user',
+        session_id: 's1',
+        uuid: 'reminder-1',
+        parent_tool_use_id: null,
+        isSynthetic: true,
+        shouldQuery: false,
+        origin: { kind: 'auto-continuation' },
+        message: { content: text }
+      },
+      ASSISTANT,
+      RESULT
+    ]
+    const live = new ClaudeAdapter().sendMessage(req())
+    const input = h.queryMock.mock.calls[0][0].prompt![Symbol.asyncIterator]()
+    expect(await input.next()).toMatchObject({
+      done: false,
+      value: { type: 'user', message: { content: 'hello' } }
+    })
+    const events: NormalizedEvent[] = []
+    try {
+      for await (const batch of live.eventBatches) events.push(...batch.events)
+    } finally {
+      live.close()
+    }
+    expect(events.filter((event) => event.type === 'input.received')).toEqual([
+      {
+        type: 'input.received',
+        sessionId: 's1',
+        uuid: 'reminder-1',
+        text,
+        origin: { kind: 'automatic', format: 'system-reminder' }
+      }
+    ])
+    const receivedIndex = events.findIndex((event) => event.type === 'input.received')
+    expect(events[receivedIndex + 1]?.type).toBe('message.completed')
+    expect(await input.next()).toEqual({ done: true, value: undefined })
+    expect(h.queryMock).toHaveBeenCalledTimes(1)
   })
 })

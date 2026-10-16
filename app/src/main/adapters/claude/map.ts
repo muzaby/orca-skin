@@ -16,6 +16,7 @@ import type {
 } from '../../../shared/ipc'
 import { isRecord } from '../../../shared/obj'
 import type { ReceivedMessageOrigin, SessionSchedule } from '../../../shared/session-schedules'
+import { withReceivedInputFormat } from '../../../shared/received-input'
 import { isAsyncLaunchedPayload } from '../../../shared/subagent'
 import { carriesFileEditPatch, readFileEditStructuredPatch } from '../../../shared/file-edit-tool'
 import { isTaskToolName } from '../../../shared/task-tool'
@@ -27,7 +28,7 @@ import { applyClaudeScheduleReceipt, type ClaudeScheduleCall } from './schedules
 
 type ClaudePendingScheduleCall = ClaudeScheduleCall | { name: 'ScheduleWakeup'; input: unknown }
 
-// 기계 수신은 SDK가 부여한 origin만 따른다. 원문의 태그나 isSynthetic은 출처 증거가 아니다.
+// 기계 수신은 SDK의 origin/isSynthetic을 따른다. 원문의 태그만으로 출처를 추정하지 않는다.
 function receivedOrigin(message: unknown): ReceivedMessageOrigin | undefined {
   if (!isRecord(message)) return undefined
   if (!isRecord(message.origin))
@@ -50,7 +51,16 @@ function receivedOrigin(message: unknown): ReceivedMessageOrigin | undefined {
         typeof origin.name === 'string' && origin.name.trim() !== '' ? origin.name : origin.from
     }
   }
-  return undefined
+  if (
+    origin.kind === 'coordinator' ||
+    origin.kind === 'unclassified' ||
+    origin.kind === 'observer' ||
+    origin.kind === 'auto-continuation' ||
+    origin.kind === 'observer-activity'
+  ) {
+    return { kind: 'automatic' }
+  }
+  return message.isSynthetic === true ? { kind: 'automatic' } : undefined
 }
 
 // 매퍼 컨텍스트 — sessionId 는 턴 동안 system/init(=session.updated)에서 갱신된다
@@ -720,7 +730,9 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
           if (seen.size > 2048) seen.delete(seen.values().next().value!)
         }
         events.push(
-          origin ? { type: 'input.received', ...common, origin } : { type: 'input.echo', ...common }
+          origin
+            ? { type: 'input.received', ...common, origin: withReceivedInputFormat(text, origin) }
+            : { type: 'input.echo', ...common }
         )
       }
     }

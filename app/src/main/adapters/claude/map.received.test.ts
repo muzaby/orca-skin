@@ -38,7 +38,7 @@ describe('Claude provider-origin input', () => {
         sessionId: 's1',
         uuid: 'received-1',
         text: '예약 확인',
-        origin: normalized
+        origin: { ...normalized, format: 'plain' }
       }
     ])
   })
@@ -79,6 +79,61 @@ describe('Claude provider-origin input', () => {
     )
   })
 
+  it.each(['coordinator', 'unclassified', 'observer', 'auto-continuation', 'observer-activity'])(
+    'classifies SDK %s input without creating a host send request',
+    (kind) => {
+      const text = '<system-reminder>Continue after completion.</system-reminder>'
+      expect(map({ origin: { kind }, shouldQuery: false, message: { content: text } })).toEqual([
+        {
+          type: 'input.received',
+          sessionId: 's1',
+          uuid: 'received-1',
+          text,
+          origin: { kind: 'automatic', format: 'system-reminder' }
+        }
+      ])
+    }
+  )
+
+  it('keeps synthetic provenance when an optional origin is unsupported', () => {
+    expect(
+      map({
+        isSynthetic: true,
+        origin: { kind: 'future-origin' },
+        message: { content: '<task-notification>Finished.</task-notification>' }
+      })[0]
+    ).toMatchObject({
+      type: 'input.received',
+      origin: { kind: 'automatic', format: 'tagged' }
+    })
+  })
+
+  it('does not classify a human-authored reminder as a received input', () => {
+    const text = '<system-reminder>Explain this XML.</system-reminder>'
+    expect(map({ message: { content: text } })).toEqual([
+      { type: 'input.echo', sessionId: 's1', uuid: 'received-1', text }
+    ])
+  })
+
+  it('classifies multipart provider input after preserving its text order', () => {
+    expect(
+      map({
+        origin: { kind: 'channel', server: 'CI' },
+        message: {
+          content: [
+            { type: 'text', text: '<task-notification>done</task-notification>' },
+            { type: 'text', text: '<system-reminder>Review it.</system-reminder>' }
+          ]
+        }
+      })[0]
+    ).toMatchObject({
+      text:
+        '<task-notification>done</task-notification>\n' +
+        '<system-reminder>Review it.</system-reminder>',
+      origin: { kind: 'channel', label: 'CI', format: 'system-reminder' }
+    })
+  })
+
   it('isReplay is also used for live provider input; its explicit origin is retained', () => {
     expect(
       map({ origin: { kind: 'channel', server: 'events' }, isReplay: true, isSynthetic: true })[0]
@@ -111,6 +166,32 @@ describe('Claude provider-origin input', () => {
         isError: false
       }
     ])
+  })
+
+  it('does not promote a tool result reminder or a child reminder into top-level input', () => {
+    const text = '<system-reminder>Rate limit reached.</system-reminder>'
+    expect(
+      map({
+        isSynthetic: true,
+        message: {
+          content: [
+            { type: 'text', text },
+            { type: 'tool_result', tool_use_id: 'tool1', content: text }
+          ]
+        }
+      })
+    ).toEqual([
+      {
+        type: 'tool.call.completed',
+        sessionId: 's1',
+        toolRunId: 'tool1',
+        result: text,
+        isError: false
+      }
+    ])
+    expect(
+      map({ isSynthetic: true, parent_tool_use_id: 'child', message: { content: text } })
+    ).toEqual([])
   })
 
   it('deduplicates provider deliveries by UUID within the same live channel', () => {

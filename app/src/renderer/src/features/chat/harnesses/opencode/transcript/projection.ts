@@ -1,6 +1,11 @@
 import type { Message } from '../../../reducer/chatReducer'
 import { messageSegments, partsArtifacts, type MessageSegment } from '../../../lib/parts'
-import { groupExchanges, turnCopyText, type Turn } from '../../../lib/turns'
+import {
+  groupExchanges,
+  turnCopyText,
+  type Turn,
+  type TranscriptProjectionOptions
+} from '../../../lib/turns'
 import { groupTools } from './toolGrouping'
 import { toolKind } from '../toolPresentation'
 
@@ -17,11 +22,12 @@ export type TimelineRow = RowContent & { key: string; gap: 0 | 8 | 16 | 24 }
 // committing a streamed assistant message leave existing DOM keys intact.
 export function projectTimeline(
   messages: Message[],
-  live: { text: string; reasoning: string; pending: boolean }
+  live: { text: string; reasoning: string; pending: boolean },
+  options: TranscriptProjectionOptions = {}
 ): TimelineRow[] {
   const rows: TimelineRow[] = []
   const occurrences = new Map<string, number>()
-  const exchanges = groupExchanges(messages)
+  const exchanges = groupExchanges(messages, options)
   for (const [exchangeIndex, exchange] of exchanges.entries()) {
     const first = exchange.turns[0].messages[0]
     const base = `${first.role}:${first.createdAt}`

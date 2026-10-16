@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import type { NormalizedEvent } from '../../../shared/ipc'
 import { isRecord } from '../../../shared/obj'
+import { withReceivedInputFormat } from '../../../shared/received-input'
+import type { ReceivedMessageOrigin } from '../../../shared/session-schedules'
 import type { TurnInputContent } from './streaming-input'
 
 type InputEvent = Extract<NormalizedEvent, { type: 'input.echo' | 'input.received' }>
-type Receipt = { text: string; uuid: string }
+type Receipt = { text: string; uuid: string; origin: ReceivedMessageOrigin }
 
 // SDK 0.3.220의 Mz/MHm: 문자열 묶음은 LF로 결합, 블록 묶음은 text만 LF로 결합 후 trim.
 function hookText(contents: TurnInputContent[]): string {
@@ -57,20 +59,41 @@ export class ClaudeInputReceipts {
   prompt(input: unknown): void {
     if (this.closed || !isRecord(input) || typeof input.prompt !== 'string') return
     const prompt = input.prompt
-    for (let count = this.own.length; count > 0; count -= 1) {
-      if (hookText(this.own.slice(0, count).map((entry) => entry.content)) === prompt) {
-        this.own.splice(0, count)
-        return
+    const machineSource =
+      input.source === 'system' ||
+      input.source === 'loop_wakeup' ||
+      input.source === 'schedule_wakeup'
+    if (!machineSource) {
+      // poll_event는 접수/거절 전 훅이다. 출처 미지원 값도 모델 수신으로 확정하지 않는다.
+      if (input.source !== undefined && input.source !== 'user' && input.source !== 'sdk') return
+      for (let count = this.own.length; count > 0; count -= 1) {
+        if (hookText(this.own.slice(0, count).map((entry) => entry.content)) === prompt) {
+          this.own.splice(0, count)
+          return
+        }
       }
+      // 명시적 사람/SDK 입력은 본문이 달라져도 자동 입력이 아니다. 구형 훅만 본문 상관을 쓴다.
+      if (input.source !== undefined) return
     }
-    if (prompt.trim() !== '') this.pending.push({ text: prompt, uuid: randomUUID() })
+    if (prompt.trim() !== '') {
+      this.pending.push({
+        text: prompt,
+        uuid: randomUUID(),
+        origin: withReceivedInputFormat(prompt, {
+          kind: input.source === 'schedule_wakeup' ? 'scheduled' : 'automatic'
+        })
+      })
+    }
   }
 
   reconcile(event: InputEvent): InputEvent | undefined {
     if (event.type === 'input.echo') {
       const own = this.own.find((entry) => event.uuid !== undefined && entry.uuid === event.uuid)
+      const submitted = event.uuid !== undefined && this.submittedUuids.has(event.uuid)
       if (own) own.echoed = true
       if (event.uuid) this.submittedUuids.delete(event.uuid)
+      // 같은 본문의 시스템 발화가 대기해도 앱 송신 UUID가 확인된 echo를 가로채지 않는다.
+      if (own || submitted) return event
     }
     const pending = this.pending.findIndex((entry) => entry.text === event.text)
     if (pending !== -1) {
@@ -82,7 +105,7 @@ export class ClaudeInputReceipts {
             sessionId: event.sessionId,
             text: event.text,
             uuid: event.uuid ?? receipt.uuid,
-            origin: { kind: 'automatic' }
+            origin: receipt.origin
           }
     }
     if (event.type === 'input.received') {
@@ -104,8 +127,7 @@ export class ClaudeInputReceipts {
     return receipts.map((receipt) => ({
       type: 'input.received',
       sessionId,
-      ...receipt,
-      origin: { kind: 'automatic' }
+      ...receipt
     }))
   }
 

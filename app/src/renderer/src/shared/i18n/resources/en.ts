@@ -506,6 +506,7 @@ export const en: typeof ko = {
     scenario: 'Scenario',
     contextUsage: 'Context usage',
     log: 'Logs',
+    showAutomaticFeeds: 'Show automatic feeds',
     themeSection: 'Theme',
     palette: 'Color palette',
     layoutSection: 'Layout',

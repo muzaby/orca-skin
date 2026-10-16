@@ -3,11 +3,11 @@ import { ClaudeTranscriptView } from '../claude/transcript/Timeline'
 import { OpenCodeTimeline } from '../opencode/transcript/Timeline'
 import { ClaudeScrollController } from '../claude/transcript/ScrollController'
 import { OpenCodeScrollController } from '../opencode/transcript/ScrollController'
-import type { TranscriptViewProps } from '../contracts'
+import type { TranscriptTimelineProps } from '../contracts'
 import type { ScrollControllerProps } from '../common/transcript/scrollTypes'
 
 interface TranscriptHarness {
-  Timeline: React.ComponentType<TranscriptViewProps & { textScaleClassName: string }>
+  Timeline: React.ComponentType<TranscriptTimelineProps>
   ScrollController: React.ComponentType<ScrollControllerProps>
   remountScrollBySession: boolean
 }

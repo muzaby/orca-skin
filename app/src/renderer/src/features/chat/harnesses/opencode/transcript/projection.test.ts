@@ -6,6 +6,50 @@ import { messageSegments } from '../../../lib/parts'
 const user: Message = { role: 'user', createdAt: 10, parts: [{ type: 'text', text: 'prompt' }] }
 const idle = { text: '', reasoning: '', pending: false }
 describe('OpenCode timeline projection', () => {
+  it('uses the original visible message keys and indexes when reminders are hidden or revealed', () => {
+    const reminder: Message = {
+      role: 'user',
+      createdAt: 1,
+      parts: [
+        {
+          type: 'text',
+          text: '<system-reminder>internal</system-reminder>',
+          origin: { kind: 'automatic' }
+        }
+      ]
+    }
+    const answer: Message = {
+      role: 'assistant',
+      createdAt: 11,
+      parts: [{ type: 'text', text: 'answer' }]
+    }
+    const mixed: Message = { ...user, parts: [...reminder.parts, ...user.parts] }
+    const baseline = projectTimeline([user, answer], idle)
+    const source = [reminder, mixed, answer]
+    const original = structuredClone(source)
+    for (const showAutomaticFeeds of [false, true]) {
+      const rows = projectTimeline(source, idle, { showAutomaticFeeds })
+      expect(rows.map((row) => row.key)).toEqual(
+        showAutomaticFeeds
+          ? ['user:1:user', 'user:1:0:text', 'user:1:meta']
+          : baseline.map((row) => row.key)
+      )
+      const userRow = rows[0]
+      expect(userRow.kind).toBe('user')
+      if (userRow.kind !== 'user') throw new Error('missing visible user row')
+      expect(userRow.key).toBe(showAutomaticFeeds ? 'user:1:user' : 'user:10:user')
+      expect(userRow.turn.startIndex).toBe(showAutomaticFeeds ? 0 : 1)
+      if (showAutomaticFeeds) {
+        expect(userRow.turn.messages).toEqual([reminder, mixed])
+        expect(userRow.turn.messages[0]).toBe(reminder)
+        expect(userRow.turn.messages[1]).toBe(mixed)
+      } else {
+        expect(userRow.turn.messages[0].parts).toEqual(user.parts)
+      }
+      expect(source).toEqual(original)
+    }
+  })
+
   it('distinguishes same-timestamp exchanges and preserves their keys when unrelated history is prepended', () => {
     const answer: Message = {
       role: 'assistant',
