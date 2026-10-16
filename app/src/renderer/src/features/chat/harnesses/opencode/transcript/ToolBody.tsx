@@ -2,12 +2,11 @@ import { useMemo } from 'react'
 import { useI18n } from '../../../../../shared/i18n'
 import { CopyIconButton } from '../../../../../shared/ui/CopyIconButton'
 import { DiffTable } from '../../common/transcript/DiffTable'
-import { buildDiffLines } from '../../../lib/diffLines'
-import { unifiedDiffLines } from '../../../lib/unifiedDiffLines'
 import { stringify } from '../../../format'
 import type { OpenCodeFileView, OpenCodeToolView } from '../toolPresentation'
 import { OpenCodeIcon } from '../Icon'
 import { useToolDisclosure } from './viewState'
+import { fileDiffLines, fileName } from './filePresentation'
 
 export function OutputPanel({
   text,
@@ -68,13 +67,7 @@ function FilePanel({
 }): React.JSX.Element {
   const { tr } = useI18n()
   const [open, setOpen] = useToolDisclosure(disclosureKey, true)
-  const lines = useMemo(
-    () =>
-      file.before != null || file.after != null
-        ? buildDiffLines(file.before ?? '', file.after ?? '')
-        : unifiedDiffLines(file.patch ?? ''),
-    [file.before, file.after, file.patch]
-  )
+  const lines = useMemo(() => fileDiffLines(file), [file])
   const added = lines.filter((line) => line.type === 'added').length
   const removed = lines.filter((line) => line.type === 'removed').length
   return (
@@ -92,7 +85,7 @@ function FilePanel({
       >
         <OpenCodeIcon name="code-slash" className="text-oc-faint" />
         <span className="min-w-0 flex-1 truncate" title={file.path}>
-          {file.path}
+          {fileName(file.path)}
         </span>
         {!write && lines.length > 0 && (
           <span className="shrink-0 font-mono">
@@ -131,7 +124,10 @@ export function ToolBody({
   disclosureKey?: string
 }): React.JSX.Element {
   const { tr } = useI18n()
-  const content = view.output || (view.kind === 'generic' ? view.inputText : '')
+  const content =
+    view.files.length && view.outcome === 'completed'
+      ? ''
+      : view.output || (view.kind === 'generic' ? view.inputText : '')
   return (
     <div className="flex min-w-0 flex-col gap-[8px]">
       {view.files.map((file, index) => (

@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | plan/READY — ΔV17 동일 세션 desktop transcript 대조. 사용자 요청에 따라 시각 보완을 먼저 구현하며 기존 독립 verify·AC11 인수 대기 보존 |
+| 상태 | impl/IMPL_DONE — ΔV17 r1.17 동일 세션 desktop transcript 대조·보완 구현. 다음은 Claude 독립 verify이며 기존 AC11 인수 대기 보존 |
 | V mode | Delta V — 기준 V1 + ΔV1~16 + ΔV17 (각 델타의 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV17 / 기준 ΔV16@공유 브랜치 `bb6ce719cc349daa79cd633422c60825f0a08e02`. 기존 자기보고·AC11 인수와 이번 델타를 별도 집계 |
@@ -2603,3 +2603,73 @@ production: native parts→공통 messageSegments→OpenCode projection→Timeli
 EP47 2곳 + EP48 6곳 + EP49 2곳. 순수 변환/실제 interaction oracle이며 구조 proxy를 새로 만들지 않아 선택 mutation은 not selected. 새로운 IPC·DB·dependency·모델 요청은 없다. 운영 gate는 관련 Vitest, readonly lint, typecheck, build, 문서 링크/위생, git diff/trailer다.
 
 READY 대조: D-036↔AC46, D-037↔AC47, D-038↔AC48. 기존 UI 예외·실행 API1.x·native SSOT·승인 FIFO·Todo dock과 충돌 0. 기존 AC26/32의 reasoning 전문/파일 자동 펼침 기대만 이번 D-036/037로 대체하고 raw 보존·도구 결과 열람·선택/스크롤 회귀는 승계한다. 사용자 요청의 직접 구현 범위이며 새 의존성/미정 결정 없음. 독립 verify와 AC11 사용자 인수는 그대로 대기다.
+
+
+## [구현자 기입] 설계 리뷰 — ΔV17 r1.17
+
+D-036~038대로 OpenCode 전용 projection·본문·도구 표시를 수정했다. 완료 질문이 native `state.metadata.answers`에 저장되지만 기존 화면은 정규 결과의 answers만 읽는 누락을 실제 대조에서 발견했다. `opencode/v1/toolPresentation.questionAnswers`에서 위치별 답변을 해석해 EP48a/e 안에서 보완했다. 공통 저장 형식과 Claude 코드는 변경하지 않았다. 설계 메커니즘 대체와 신규 의존성 없음.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — ΔV17 r1.17
+
+아래 테스트 경로는 `features/chat/harnesses/opencode/` 기준이다. 직접 entry가 속한 파일과 행동 이름을 함께 기록한다.
+
+| 자리 | 직접 oracle / 관측 |
+|---|---|
+| EP47a projection | `transcript/projection.test.ts:omits reasoning from display while preserving input/result and the visible order` 및 `keeps reasoning in the source and stable visible keys during live, commit and prepend` — 추론 행 없음·원본 불변·보이는 key 동일 |
+| EP47b direct AssistantSegment | `transcript/AssistantSegment.render.test.ts:separates committed text/reasoning for %s`와 `keeps Claude live text and reasoning in its own pending renderer` — OpenCode만 추론 숨김·Claude 기존 details 유지 |
+| EP48a v1 decoder | `v1/toolPresentation.test.ts:keeps native paths and raw data while deriving compact shell, search, skill and agent summaries` 및 `reads native positional question answers without mutating the source or displaying rejected results` — 원본 경로/입력 보존·정규 답변 우선·잘못된 metadata 위치 유지 |
+| EP48b ToolCard | `transcript/ToolCard.interaction.test.ts:starts file tools collapsed, opens the diff and retains a user collapse after completion`와 `restores disclosure after virtual unmount and isolates it by session` — 기본 접힘·수동 상태/세션 격리. 웹 직접 링크와 실패 파일 output 열람도 같은 스위트에서 관측 |
+| EP48c ToolGroup | 같은 스위트 `groups contiguous searches without moving tools and does not call a failed group complete` — 도구 순서·실패 표시·탐색 펼침. CUA-17-03에서 실제 Glob/Grep/읽기 목록 확인 |
+| EP48d FilePanel | 같은 스위트 파일 diff의 before/after·증감 직접 렌더. CUA-17-02 실제 편집 +1/−1·삭제/추가 줄 확인 |
+| EP48e AskExchange | 같은 스위트 `collapses resolved question answers and restores the disclosure after virtual unmount` — native metadata fixture의 답변 표시·접기·재마운트·재펼침. CUA-17-04에서 같은 실제 답변 확인 |
+| EP48f task action | 같은 스위트 `opens the existing subagent detail from the agent pill` — 기존 action에 toolRunId 전달. CUA-17-05 실제 상세 열기·결과 열람·닫기 |
+| EP49a OpenCodeText | `Timeline.render.test.ts:renders live text without reasoning prose through the production timeline` + CUA-17-01 동일 본문 대조 — 라이브/완료가 같은 OpenCode prose 사용 |
+| EP49b tool chrome | CUA-17-02~05 — 기본 파일 행·증감·탐색 목록·직접 URL·task pill·질문 헤더 확인. 공통/Claude JSX·스타일 변경 없음 |
+
+EP47 2 + EP48 6 + EP49 2 = 10자리 직접 자기확인. `projection→TimelineRow`와 별도 `AssistantSegment` 경로를 모두 검사했다. 삭제한 OpenCodeReasoning의 남은 runtime import는 없으며 Claude ReasoningBlock은 그대로다.
+
+| pair | 자기판정 | 근거 |
+|---|---|---|
+| VP-Δ17-01 | SELF_PASS | EP47a/b, `Timeline.render.test.ts:keeps a progress indicator when only reasoning is arriving`의 spinner1·추론 본문0 |
+| VP-Δ17-02 | SELF_PASS | EP48a~f 직접 interaction과 CUA-17-02~05 |
+| VP-Δ17-03 | SELF_PASS | EP49a/b, 같은 native 기록의 두 실행 앱 밝은 테마 비교 |
+| VP-Δ17-04 | SELF_PASS | `Timeline.render.test.ts:routes visible segments and collapsed native file tools without Claude reserved tail` — production registry/projection/row 통합 |
+| VP-Δ17-05 | SELF_PASS | v1 decoder·projection 스위트의 정상·오류·unsafe URL·ANSI·raw 보존 |
+| VP-Δ17-R1 | SELF_PASS | Claude/common transcript, 사용자 버블·승인 FIFO·Todo 회귀 및 Timeline.selection/ScrollController/scrollPolicy 실행 |
+
+검산 REQUIRED5 + REGRESSION1 = SELF_PASS6 · SELF_BLOCKED0. 독립 검증의 PASS는 아니다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — ΔV17 r1.17
+
+선택 적대 증거·인용 source mutation·새 구조 proxy는 해당 없음. 실제 renderer/decoder 결과와 UI 조작을 oracle로 사용했다. 파일 기본 펼침·추론 표시를 기대하던 이전 테스트는 D-036/037에 맞게 수정했으며 원본 보존·실패 결과·세션별 상태 검사는 유지했다. native 답변 누락은 실제 문자열을 관측하는 fixture와 UI로 잠갔다.
+
+검산 선택 증거0 · 인용 변이0 · 새 oracle0 = 잠금 표 행0. 이는 새 행동 테스트가 없다는 뜻이 아니라 mutation/proxy 민감도 표의 대상이 없다는 뜻이다.
+
+## [구현자 기입] Product/UX 파생 검토 — ΔV17 r1.17
+
+추론만 들어오는 동안 빈 정지 화면처럼 보이지 않도록 기존 진행 표시가 남는 것을 실제 Timeline 테스트로 확인했다. 파일 도구를 접어도 파일명·변경량은 먼저 보이며 열면 diff와 원본 입력을 읽는다. 성공 파일의 중복 receipt는 감추고 실패 output은 남긴다. 웹 성공 행은 중첩 button 없이 안전한 URL 링크를 제공한다. 작업·질문 상태는 기존 세션별 disclosure를 재사용한다.
+
+이번 CUA는 기존 완료 세션의 밝은 테마를 대조했다. canvas·사용자 버블 색상과 테마 토큰은 변경하지 않았으며 두 테마의 이전 관측은 design-evidence에 보존한다. 새 실모델 요청·사용자 파일 변경·권한 대리 승인은 수행하지 않았다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — ΔV17 r1.17
+
+- 완료 질문의 답변이 없는 문제는 `structuredOutput.answers: string[][]` 해석 누락이었다. v1 경계에서만 보완하고 정규 답변 우선·잘못된 배열·거부 결과·원본 불변을 검사했다.
+- reasoning을 숨기며 segment ordinal을 재번호 부여하면 live→commit의 선택/key가 깨질 수 있어 원래 ordinal을 유지했다. 선택·prepend·commit 회귀가 통과했다.
+- 파일 요약과 본문의 diff 계산을 `filePresentation.ts`로 모아 증감 수치와 실제 줄이 같은 parser를 쓰도록 했다. Windows 경로도 basename만 표시하고 전체 경로는 title·원본에 남긴다.
+- readonly lint의 TanStack `useVirtualizer` 호환성 경고1은 기존 호출에서 발생한다. 호출·메모이제이션 정책은 수정하지 않았고 경고를 숨기는 지시문도 추가하지 않았다.
+
+## [구현자 기입] 구현 보고 — ΔV17 r1.17
+
+| AC | 자기판정 / 관측 |
+|---|---|
+| AC46 | ✅ production Timeline의 추론 숨김·진행 spinner, 원본/key 보존 및 동일 세션 CUA |
+| AC47 | ✅ 파일 기본 접힘·직접 diff·탐색·웹·task·질문 interaction과 실제 UI 조작 |
+| AC48 | ✅ OpenCode 본문/도구 시각 대조, Claude/common transcript·사용자 버블 회귀 |
+
+검산 이번 추가 AC ✅3 · ⚠️0 · ❌0 = 3. 구현 trailer의 Criteria-Met은 이 델타를 뜻하며 기존 AC11 사용자 인수와 독립 verify는 대기다.
+
+관측 gate: 최종 관련 Vitest33파일218케이스 통과. node/web/test typecheck의 진단0, 변경 TS/TSX22파일 readonly lint 오류0·기존 경고1(후속 Skill 표시 파일 단독 lint도0), production main/preload/renderer build 성공. 문서 inventory 일치·prose 위반0·링크 오류0(사용자 다운로드/첨부 경로 제외), test-budget16스위트 정상, git diff --check 통과. ABI 변경·package/lockfile 수정 없음.
+
+## [구현자 기입] Review Signals — ΔV17 r1.17
+
+실행 중인 두 앱의 동일 대화를 직접 비교한 사용자 요청이다. 제공 소스 버전만 보고 기본값을 추정하지 않고 설치1.19 renderer와 실제 화면을 대조했다. 질문 답변은 데이터 보존 테스트만으로 표시 누락을 찾을 수 없어 native metadata fixture→실제 AskExchange 및 CUA를 추가했다. 이전 전체 펼침 기대를 새 기본 접힘 기대와 혼동하지 않도록, 원본 metadata 검사는 명시적으로 펼친 상태에서 유지했다. 다음 주체는 Claude 독립 verify다.

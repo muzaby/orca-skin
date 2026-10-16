@@ -3,6 +3,10 @@ import { renderWithTranscript as renderToStaticMarkup } from '../../harnesses/re
 import { load } from 'cheerio'
 import { describe, expect, it, vi } from 'vitest'
 import { TranscriptView } from './TranscriptView'
+import {
+  TimelineDisclosureContext,
+  TimelineViewState
+} from '../../harnesses/opencode/transcript/viewState'
 import { OpenCodeToolGroup } from '../../harnesses/opencode/transcript/ToolGroup'
 import { transcriptPresentation } from '../../lib/agentPresentation'
 import { installChatStoreHarness } from '../../store/chatStore.testHarness'
@@ -178,22 +182,28 @@ describe('OpenCode transcript presentation', () => {
     expect(html).toContain('Answer body')
     expect(load(html)(`[data-harness="${backend}"]`).hasClass('bg-bg')).toBe(backend === 'opencode')
   })
-  it('shows normalized edit detail and preserved provider input in an accessible disclosure', () => {
+  it('shows normalized edit detail and preserved provider input in an opened disclosure', () => {
+    const disclosure = new TimelineViewState()
+    disclosure.disclosures.set('tool:edit1', true)
     const html = renderToStaticMarkup(
-      createElement(OpenCodeToolGroup, {
-        transcriptPolicy: transcriptPresentation('code', 'opencode'),
-        calls: [
-          {
-            toolUseId: 'edit1',
-            name: 'Edit',
-            input: { file_path: 'a.ts', old_string: 'before', new_string: 'after' },
-            providerTool: {
-              name: 'edit',
-              input: { filePath: 'a.ts', oldString: 'before', newString: 'after' }
+      createElement(
+        TimelineDisclosureContext.Provider,
+        { value: disclosure },
+        createElement(OpenCodeToolGroup, {
+          transcriptPolicy: transcriptPresentation('code', 'opencode'),
+          calls: [
+            {
+              toolUseId: 'edit1',
+              name: 'Edit',
+              input: { file_path: 'a.ts', old_string: 'before', new_string: 'after' },
+              providerTool: {
+                name: 'edit',
+                input: { filePath: 'a.ts', oldString: 'before', newString: 'after' }
+              }
             }
-          }
-        ]
-      })
+          ]
+        })
+      )
     )
     const $ = load(html)
     expect($('[data-slot="collapsible-trigger"]').attr('aria-expanded')).toBe('true')

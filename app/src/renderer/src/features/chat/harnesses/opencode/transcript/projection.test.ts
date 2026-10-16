@@ -74,7 +74,7 @@ describe('OpenCode timeline projection', () => {
     )
     expect(prepended.slice(-rows.length).map((row) => row.key)).toEqual(rows.map((row) => row.key))
   })
-  it('preserves all nine segment kinds, input/result, and original ordering', () => {
+  it('omits reasoning from display while preserving input/result and the visible order', () => {
     const assistant: Message = {
       role: 'assistant',
       createdAt: 20,
@@ -100,7 +100,6 @@ describe('OpenCode timeline projection', () => {
     const segments = rows.flatMap((row) => (row.kind === 'segment' ? [row.segment] : []))
     expect(segments.map((row) => row.kind)).toEqual([
       'text',
-      'reasoning',
       'tools',
       'ask',
       'structured',
@@ -109,7 +108,7 @@ describe('OpenCode timeline projection', () => {
       'fork',
       'subagent_notice'
     ])
-    expect(segments[2]).toMatchObject({
+    expect(segments[1]).toMatchObject({
       calls: [
         {
           toolUseId: 'read1',
@@ -187,6 +186,29 @@ describe('OpenCode timeline projection', () => {
       'tools',
       'text'
     ])
+  })
+  it('keeps reasoning in the source and stable visible keys during live, commit and prepend', () => {
+    const parts: Message['parts'] = [
+      { type: 'reasoning', text: 'Private intermediate notes' },
+      { type: 'text', text: 'Visible answer' }
+    ]
+    const assistant: Message = { role: 'assistant', createdAt: 20, parts }
+    const original = structuredClone(parts)
+    const streaming = projectTimeline([user], {
+      text: 'Visible answer',
+      reasoning: 'Private intermediate notes',
+      pending: true
+    })
+    const completed = projectTimeline([user, assistant], idle)
+    expect(streaming.filter((row) => row.kind === 'segment').map((row) => row.key)).toEqual(
+      completed.filter((row) => row.kind === 'segment').map((row) => row.key)
+    )
+    expect(
+      completed.filter((row) => row.kind === 'segment').map((row) => row.segment.kind)
+    ).toEqual(['text'])
+    expect(parts).toEqual(original)
+    expect(messageSegments(parts).map((segment) => segment.kind)).toEqual(['reasoning', 'text'])
+    expect(projectTimeline([], { ...idle, reasoning: 'only reasoning', pending: true })).toEqual([])
   })
   it('uses 8px between tool rows, 16px at content boundaries and 24px between turns', () => {
     const assistant: Message = {

@@ -236,3 +236,18 @@ Todo의400ms 대기·300ms 퇴장과 아래 방향 translate는 직접 렌더·�
 사용자 최종 시각 인수(AC11)와 독립 verify는 별도 대기로 유지한다.
 
 추가 통합 관측: 과거의 `user:1:0:text`를 읽는 동안 Todo 전개→접기→Question 대체로 viewport 높이가354→207→303→142px로 변했다. 모든 단계의 scrollTop120px와 해당 행의 상대 위치 −1.6125px가 같았다. dock 높이 변경도 현재 읽기 앵커를 보존했다.
+
+
+## 동일 세션의 desktop 대조와 Orca 보완 (2026-10-16, ΔV17)
+
+Computer Use로 실행 중인 OpenCode와 Orca의 같은 native 대화를 직접 스크롤하고 도구를 펼쳤다. 설치 앱의 package.json은1.19.0이며, 설치 renderer의 기본 reasoning 설정과 tool registry·CSS도 읽었다. 제공 `.tmp/opencode-dev`는2.0.29이므로 현재 화면의 기본값을 대신하는 근거로 사용하지 않았다. 추출 자료는 ignored 임시 경로에만 두었다.
+
+| 관측 | 수정 전 차이 / 수정 후 실제 동작 |
+|---|---|
+| CUA-17-01 / 추론·본문 | OpenCode는 영어 reasoning을 숨기고 한국어 응답과 도구를 순서대로 표시했다. Orca의 중간 추론 전문을 숨긴 뒤 동일 본문 순서를 확인했다. 문단·inline code·강조·heading은 OpenCode 전용 스타일로 조정했다. |
+| CUA-17-02 / 파일 | OpenCode의 작성·편집은 기본 파일명 행과 편집 증감이었다. Orca도 기본 접힘으로 바꿨다. 편집 행 클릭 후 실제 `v1` 삭제·`v2 (edited)` 추가와 +1/−1을 확인했다. 원본 desktop에서는 파일 헤더까지만 관측했으므로 desktop의 diff 본문까지 보았다고 주장하지 않는다. |
+| CUA-17-03 / 탐색·셸 | Orca 탐색 요약을 눌러 `Glob pattern=*.txt`, `Grep pattern=audit include=*.md`, `읽기 SKILL.md limit=5`가 들여써진 목록을 확인했다. 셸을 눌러 명령과 수신 출력, 원본 도구 입력 disclosure를 확인했다. |
+| CUA-17-04 / 질문 | desktop에는 완료 질문과 `정리 (Recommended)` 답변이 있었다. Orca는 native metadata의 positional answers를 읽지 못해 비어 있었다. v1 decoder 보완 후 같은 답변이 나타났고, 헤더 클릭으로 접기·재펼침했다. |
+| CUA-17-05 / 웹·task | 웹 가져오기는 URL과 외부 링크 표시, task는 Explore와 설명 pill로 표시했다. Orca의 pill을 눌러 기존 하위 에이전트 상세와 결과를 열고 닫았다. 실제 외부 링크 탐색·새 모델 실행은 하지 않았다. |
+
+이번 직접 대조는 밝은 테마의 기존 완료 세션이다. 이전 두 테마 색상 관측은 위 r1.15에 있으며 이번에는 canvas·사용자 버블·테마 토큰을 수정하지 않았다. 라이브 추론 단독 수신의 진행 표시와 가상화 후 접힘 상태는 production renderer interaction 테스트로 확인했다. 새 실모델 호출이나 권한 승인은 없었다.

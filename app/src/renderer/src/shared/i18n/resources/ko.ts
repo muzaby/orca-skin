@@ -630,12 +630,19 @@ export const ko = {
         list: '목록',
         shell: '셸',
         edit: '편집',
-        write: '쓰기',
-        web: '웹',
+        write: '작성',
+        web: '웹 가져오기',
         task: '작업',
         todo: '할 일'
       },
       originalTool: '원본 도구 입력',
+      question: '질문',
+      questionAnswered: '{{count}}개 답변됨',
+      explorationCount: {
+        read: '{{count}}개 읽음',
+        search: '{{count}}개 검색',
+        list: '{{count}}개 목록'
+      },
       explorationDone: '탐색 완료',
       explorationRunning: '탐색 중',
       todosEmpty: '아직 기록된 할 일이 없습니다'

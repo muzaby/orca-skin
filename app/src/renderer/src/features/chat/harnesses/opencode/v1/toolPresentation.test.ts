@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { describeTool, readSuccessfulTodos } from '../toolPresentation'
+import { describeTool, questionAnswers, readSuccessfulTodos } from '../toolPresentation'
 import type { ToolCall } from '../../../reducer/chatReducer'
 
 const call = (name: string, input: unknown = {}, metadata?: unknown): ToolCall => ({
@@ -135,5 +135,51 @@ describe('OpenCode 1.x tool presentation decoder', () => {
       describeTool(call('todowrite', input, { todos: [{ content: 'done', status: 'completed' }] }))
         .todos
     ).toEqual([{ text: 'done', status: 'completed' }])
+  })
+  it('keeps native paths and raw data while deriving compact shell, search, skill and agent summaries', () => {
+    const input = { filePath: 'C:\\workspace\\a.ts', offset: 5, limit: 10 }
+    const original = structuredClone(input)
+    expect(describeTool(call('read', input))).toMatchObject({
+      path: input.filePath,
+      arguments: 'offset=5 limit=10',
+      original: { name: 'read', input }
+    })
+    expect(input).toEqual(original)
+    expect(describeTool(call('bash', { command: 'Get-Date', description: 'Clock' })).subtitle).toBe(
+      'Get-Date'
+    )
+    expect(describeTool(call('grep', { pattern: 'audit', include: '*.md' })).arguments).toBe(
+      'pattern=audit include=*.md'
+    )
+    expect(describeTool(call('skill', { name: 'audit' })).subtitle).toBe('audit')
+    expect(
+      describeTool(call('task', { subagent_type: 'explore', description: 'Inspect' }))
+    ).toMatchObject({ agent: 'explore', subtitle: 'Inspect' })
+  })
+  it('reads native positional question answers without mutating the source or displaying rejected results', () => {
+    const input = {
+      questions: [
+        { question: 'First?', options: [] },
+        { question: 'Second?', options: [] }
+      ]
+    }
+    const source = call('question', input, { answers: [['A', 'B'], ['C']] })
+    const original = structuredClone(source)
+    expect(questionAnswers(source).items.map((item) => item.answer)).toEqual(['A, B', 'C'])
+    expect(source).toEqual(original)
+    expect(
+      questionAnswers({ ...source, result: { ...source.result!, isError: true } }).items.map(
+        (item) => item.answer
+      )
+    ).toEqual(['', ''])
+    expect(
+      questionAnswers(call('question', input, { answers: [null, ['C', 9]] })).items.map(
+        (item) => item.answer
+      )
+    ).toEqual(['', 'C'])
+    expect(
+      questionAnswers({ ...source, input: { ...input, answers: { 'First?': 'Override' } } })
+        .items[0].answer
+    ).toBe('Override')
   })
 })

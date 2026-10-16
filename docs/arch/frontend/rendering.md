@@ -10,7 +10,7 @@
 
 공통 `AssistantMessage`는 파트 순서와 identity를 보존하고 하네스별 `AssistantSegment`로 전달한다. Claude의 본문·reasoning·도구 카드·도구 본문 레지스트리는 `features/chat/harnesses/claude/transcript/`에 있다. OpenCode의 본문·reasoning·오류·구조화 결과·도구 카드는 `harnesses/opencode/transcript/`가 소유하며 Claude 카드 본문을 재사용하지 않는다. 입력 버블·대기 버블·메타 스타일도 각 transcript의 `appearance.ts`에서 선택한다. 질문·경계 표시·첨부·복사·diff 표·Markdown 파싱은 공통 기능이다.
 
-OpenCode는 연속한 read/search/list만 탐색 그룹으로 묶고 셸·편집 전후의 순서를 유지한다. 파일 편집/쓰기는 처음부터 펼치고 다른 도구는 사용자가 펼친다. 셸 출력은 명령과 결과를 복사할 수 있는 스크롤 패널, 파일 변경은 파일별 diff, 작업 행을 누르면 우측 하위 에이전트 상세를 연다. 실패·중단·거부·취소·미실행은 성공 완료와 구분한다. reasoning은 접지 않는 흐린 본문이며 라이브와 확정 텍스트는 같은 전용 스타일을 쓴다. transcript 배경은 두 하네스 모두 `bg-bg`다.
+OpenCode는 연속한 read/search/list만 탐색 그룹으로 묶고 셸·편집 전후의 순서를 유지한다. 파일 편집/쓰기는 파일명과 변경량을 한 줄로 표시하고 사용자가 펼친다. 탐색은 종류별 개수와 들여쓴 도구 목록을, 성공 웹 가져오기는 직접 링크를 표시한다. 완료 질문은 접을 수 있는 질문·답변으로 표시한다. 셸 출력은 명령과 결과를 복사할 수 있는 스크롤 패널, 파일 변경은 파일별 diff, 작업 행을 누르면 우측 하위 에이전트 상세를 연다. 실패·중단·거부·취소·미실행은 성공 완료와 구분한다. reasoning은 원본 이력에 보존하되 기본 transcript에서 숨기며, 라이브와 확정 텍스트는 같은 전용 문단·코드·heading 스타일을 쓴다. transcript 배경은 두 하네스 모두 `bg-bg`다.
 
 OpenCode native metadata는 `harnesses/opencode/v1/toolPresentation.ts`에서 중립 view로 해석하고 `toolPresentation.ts`가 현재 버전을 선택한다. 화면 컴포넌트는 이 진입점을 사용하며 버전 구현을 직접 import할 수 없다. 엔진의 native 설정 편집도 해당 feature의 `harnesses/opencode/v1/`에 둔다. 새 버전은 버전별 해석만 추가하고 정규화된 UI·store·파트 순서는 재사용할 수 있다.
 
@@ -234,7 +234,7 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 
 새 대화의 모델 선택은 `chatReducer.SET_MODEL`에서 backend를 함께 바꾼다. OpenCode 선택은 Code를 강제하며 생성·입장 이후 backend는 잠긴다. `ComposerInputController`는 동일 인스턴스를 유지하고 테두리·컨트롤만 전환한다. OpenCode의 에이전트·variant는 실제 카탈로그에서 제공한다. Claude의 권한·effort 컨트롤은 기존 정책을 유지한다.
 
-`TranscriptView`는 공유 메시지 모델을 하네스별 viewport로 보낸다. Claude는 기존 교환 단위 가상화와 `useScrollAnchor`를 사용한다. OpenCode는 `harnesses/opencode/transcript/Timeline`에서 텍스트·도구·메타를 안정된 행 key로 투영하고 행 단위로 가상화한다. 읽기 중인 행과 선택 범위를 보존하며, 세션별 위치·도구 펼침을 기억한다. 위로 스크롤하거나 텍스트를 선택하면 새 출력의 바닥 추종을 해제하고, 바닥 도달 또는 최신 이동으로 추종을 재개한다. 탐색 도구는 접기 행으로 묶고 수정 도구는 본문을 펼친다. `providerTool` 원본은 상세 disclosure에서 읽는다. 본문 배경과 사용자 버블 색상은 Claude와 공유한다.
+`TranscriptView`는 공유 메시지 모델을 하네스별 viewport로 보낸다. Claude는 기존 교환 단위 가상화와 `useScrollAnchor`를 사용한다. OpenCode는 `harnesses/opencode/transcript/Timeline`에서 텍스트·도구·메타를 안정된 행 key로 투영하고 행 단위로 가상화한다. 읽기 중인 행과 선택 범위를 보존하며, 세션별 위치·도구 펼침을 기억한다. 위로 스크롤하거나 텍스트를 선택하면 새 출력의 바닥 추종을 해제하고, 바닥 도달 또는 최신 이동으로 추종을 재개한다. 탐색 도구는 접기 행으로 묶고 수정 도구는 사용자가 펼칠 때 diff를 표시한다. `providerTool` 원본은 상세 disclosure에서 읽는다. 본문 배경과 사용자 버블 색상은 Claude와 공유한다.
 
 OpenCode의 질문과 도구 승인은 도착 순서대로 같은 입력 자리를 대체한다. 현재 요청만 mount하고 해소되면 다음 요청을 표시한다. 입력 controller는 비활성 상태로 인스턴스를 유지하므로 마지막 요청 후 초안·첨부가 복원된다. Todo 진행 카드는 현재 root 턴의 성공 결과에서 파생해 composer 바로 위에 펼친 목록 또는 한 줄 요약으로 표시한다. 요청 카드가 있으면 가리고, 전체 완료나 실행 종료 시 마지막 내용을 유지한 채 아래로 퇴장한다. 일반 OpenCode transcript에서는 Todo 행을 중복 표시하지 않으며 원본 이력은 보존한다.
 

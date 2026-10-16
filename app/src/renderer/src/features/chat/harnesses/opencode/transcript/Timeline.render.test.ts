@@ -33,7 +33,12 @@ vi.mock('@tanstack/react-virtual', async (original) => {
 })
 const user: Message = { role: 'user', createdAt: 10, parts: [{ type: 'text', text: 'Prompt' }] }
 function render(messages: Message[], inflight = false): ReturnType<typeof load> {
-  installChatStoreHarness({ backend: 'opencode', messages, inflight })
+  installChatStoreHarness({
+    backend: 'opencode',
+    messages,
+    inflight,
+    turnStartedAt: inflight ? Date.now() : null
+  })
   return load(
     renderToStaticMarkup(
       createElement(TranscriptView, {
@@ -52,18 +57,23 @@ function render(messages: Message[], inflight = false): ReturnType<typeof load> 
   )
 }
 describe('OpenCode production Timeline rendering', () => {
-  it('renders live text and reasoning through the production timeline', () => {
+  it('renders live text without reasoning prose through the production timeline', () => {
     live.text = 'Live **answer**'
     live.reasoning = 'Live reasoning'
     const $ = render([user], true)
     expect($('[data-component="opencode-text"]').text()).toContain('Live answer')
     expect($('[data-component="opencode-text"] strong').text()).toBe('answer')
-    expect($('[data-component="opencode-reasoning"]')).toHaveLength(1)
-    expect($('[data-component="opencode-reasoning"]').text()).toContain('Live reasoning')
-    expect($.text().indexOf('Live reasoning')).toBeLessThan($.text().indexOf('Live answer'))
+    expect($('[data-component="opencode-reasoning"]')).toHaveLength(0)
+    expect($.text()).not.toContain('Live reasoning')
     expect($('details')).toHaveLength(0)
   })
-  it('routes all nine segment kinds in order and renders native tool groups/file headers without Claude reserved tail', () => {
+  it('keeps a progress indicator when only reasoning is arriving', () => {
+    live.reasoning = 'Internal reasoning without text'
+    const $ = render([user], true)
+    expect($.text()).not.toContain(live.reasoning)
+    expect($('[data-component="opencode-spinner"]')).toHaveLength(1)
+  })
+  it('routes visible segments and collapsed native file tools without Claude reserved tail', () => {
     live.text = ''
     const assistant: Message = {
       role: 'assistant',
@@ -101,7 +111,6 @@ describe('OpenCode production Timeline rendering', () => {
     ).toEqual([
       'user',
       'text',
-      'reasoning',
       'tools',
       'tools',
       'ask',
@@ -115,10 +124,11 @@ describe('OpenCode production Timeline rendering', () => {
     expect($('[data-component="context-tool-group"]')).toHaveLength(1)
     const edit = $('[data-timeline-key="user:10:tool:edit"]')
     expect(edit.hasClass('pt-[8px]')).toBe(true)
-    expect(edit.find('[data-component="opencode-file-diff"] summary').hasClass('sticky')).toBe(true)
+    expect(edit.find('[data-component="opencode-file-diff"]')).toHaveLength(0)
+    expect(edit.find('[data-slot="tool-diff-summary"]').text()).toBe('+1−1')
     expect(edit.text()).toContain('a.ts')
-    expect(edit.text()).toContain('before')
-    expect(edit.text()).toContain('after')
+    expect(edit.text()).not.toContain('before')
+    expect(edit.text()).not.toContain('after')
     expect($('[data-timeline-row="text"]').hasClass('pt-[16px]')).toBe(true)
     expect($('[data-timeline-scroll]').find('[class~="pb-[64px]"]')).toHaveLength(1)
     expect($('[class~="min-h-[50cqh]"]')).toHaveLength(0)

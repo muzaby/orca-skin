@@ -19,6 +19,8 @@ export interface OpenCodeToolView {
   inputText: string
   command?: string
   url?: string
+  path?: string
+  agent?: string
   files: OpenCodeFileView[]
   todos: { text: string; status: string }[]
   original?: { name: string; input: unknown }

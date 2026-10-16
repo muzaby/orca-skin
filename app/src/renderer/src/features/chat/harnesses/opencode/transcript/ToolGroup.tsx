@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { useI18n } from '../../../../../shared/i18n'
-import { Icon } from '../../../../../shared/ui/Icon'
+import { OpenCodeIcon } from '../Icon'
 import type { ToolCall } from '../../../reducer/chatReducer'
 import type { AgentTranscriptPresentation } from '../../../lib/agentPresentation'
 import { toolKind } from '../toolPresentation'
@@ -47,7 +47,7 @@ function ContextTools({ calls }: { calls: ToolCall[] }): React.JSX.Element {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className={`flex max-w-full items-center gap-[6px] rounded-[6px] text-left outline-none ring-focus ${open ? 'sticky top-[var(--oc-sticky-top)] z-20 min-h-[36px] bg-bg pb-[8px]' : 'min-h-[28px]'}`}
+        className={`group/oc-context flex max-w-full items-center gap-[6px] rounded-[6px] text-left outline-none ring-focus ${open ? 'sticky top-[var(--oc-sticky-top)] z-20 min-h-[36px] bg-bg pb-[8px]' : 'min-h-[28px]'}`}
       >
         <span className={failed ? 'font-[530] text-oc-bad' : 'font-[530] text-oc-ink'}>
           {tr(
@@ -61,18 +61,21 @@ function ContextTools({ calls }: { calls: ToolCall[] }): React.JSX.Element {
         <span>
           {(['read', 'search', 'list'] as const)
             .filter((kind) => views.some((view) => view.kind === kind))
-            .map(
-              (kind) =>
-                tr(`chat.opencode.tool.${kind}`) +
-                ' ' +
-                views.filter((view) => view.kind === kind).length
+            .map((kind) =>
+              tr(`chat.opencode.explorationCount.${kind}`, {
+                count: views.filter((view) => view.kind === kind).length
+              })
             )
-            .join(' · ')}
+            .join(', ')}
         </span>
-        <Icon name={open ? 'chevD' : 'chevR'} size={12} />
+        <OpenCodeIcon
+          name="chevron-down"
+          size={14}
+          className={`${open ? '' : '-rotate-90 opacity-0 group-hover/oc-context:opacity-100 group-focus-visible/oc-context:opacity-100'} text-oc-faint`}
+        />
       </button>
       {open && (
-        <div className="flex flex-col gap-[8px] border-l border-oc-border pl-[12px] [--oc-sticky-top:36px]">
+        <div className="flex flex-col gap-[4px] pl-[12px] [--oc-sticky-top:36px]">
           {calls.map((call) => (
             <OpenCodeToolCard key={call.toolUseId} call={call} />
           ))}

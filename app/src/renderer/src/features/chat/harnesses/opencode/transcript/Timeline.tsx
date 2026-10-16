@@ -13,7 +13,7 @@ import { PendingSteerTurn } from '../../common/transcript/PendingSteerTurn'
 import { TurnErrorBanner } from '../../common/transcript/TurnErrorBanner'
 import type { TranscriptTimelineProps } from '../../contracts'
 import { OpenCodeAssistantSegment } from './AssistantSegment'
-import { OpenCodeText, OpenCodeReasoning } from './Text'
+import { OpenCodeText } from './Text'
 import { projectTimeline, type TimelineRow } from './projection'
 import { useTimelineScroll } from './scrollContext'
 import { TimelineDisclosureContext, TimelineViewState, useTimelineMarkdownMode } from './viewState'
@@ -151,7 +151,7 @@ export const OpenCodeTimelineRow = memo(function OpenCodeTimelineRow({
 }: {
   row: TimelineRow
   selected?: boolean
-}): React.JSX.Element {
+}): React.JSX.Element | null {
   const { tr } = useI18n()
   const streaming = useTimelineMarkdownMode(row.kind === 'segment' && row.streaming, selected)
   switch (row.kind) {
@@ -160,8 +160,7 @@ export const OpenCodeTimelineRow = memo(function OpenCodeTimelineRow({
     case 'segment':
       if (row.segment.kind === 'text')
         return <OpenCodeText source={row.segment.text} streaming={streaming} />
-      if (row.segment.kind === 'reasoning')
-        return <OpenCodeReasoning items={row.segment.items} streaming={streaming} />
+      if (row.segment.kind === 'reasoning') return null
       return <OpenCodeAssistantSegment segment={row.segment} transcriptPolicy={policy} />
     case 'meta':
       return <MessageMeta text={row.text} createdAt={row.createdAt} align="left" />

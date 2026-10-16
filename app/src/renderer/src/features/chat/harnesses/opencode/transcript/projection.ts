@@ -44,6 +44,9 @@ export function projectTimeline(
     if (active && live.text) parts.push({ type: 'text', text: live.text })
     const segments = messageSegments(parts)
     for (const [index, segment] of segments.entries()) {
+      // Desktop 1.19 hides reasoning summaries by default. Keep the source
+      // parts and ordinal keys intact; only omit this row from the viewport.
+      if (segment.kind === 'reasoning') continue
       const groups =
         segment.kind === 'tools'
           ? groupTools(segment.calls.filter((call) => toolKind(call) !== 'todo')).map(
@@ -87,14 +90,6 @@ export function projectTimeline(
   }
   // Initial live output may precede the first committed message.
   if (!exchanges.length) {
-    if (live.reasoning)
-      rows.push({
-        kind: 'segment',
-        segment: { kind: 'reasoning', items: [{ text: live.reasoning }] },
-        streaming: true,
-        key: 'initial:reasoning',
-        gap: 0
-      })
     if (live.text)
       rows.push({
         kind: 'segment',

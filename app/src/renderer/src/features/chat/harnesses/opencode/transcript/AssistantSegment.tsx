@@ -10,7 +10,7 @@ import { CompactBoundaryMarker } from '../../common/transcript/CompactBoundaryMa
 import { ForkBoundaryMarker } from '../../common/transcript/ForkBoundaryMarker'
 import { SubagentNoticeRow } from '../../common/transcript/SubagentNoticeRow'
 import { OpenCodeToolGroup } from './ToolGroup'
-import { OpenCodeText, OpenCodeReasoning } from './Text'
+import { OpenCodeText } from './Text'
 import { OutputPanel } from './ToolBody'
 
 export const OpenCodeAssistantSegment = memo(function OpenCodeAssistantSegment({
@@ -19,13 +19,13 @@ export const OpenCodeAssistantSegment = memo(function OpenCodeAssistantSegment({
 }: {
   segment: MessageSegment
   transcriptPolicy: AgentTranscriptPresentation
-}): React.JSX.Element {
+}): React.JSX.Element | null {
   const { tr } = useI18n()
   switch (seg.kind) {
     case 'text':
       return <OpenCodeText source={seg.text} />
     case 'reasoning':
-      return <OpenCodeReasoning items={seg.items} />
+      return null
     case 'tools':
       return <OpenCodeToolGroup calls={seg.calls} transcriptPolicy={transcriptPolicy} />
     case 'ask':

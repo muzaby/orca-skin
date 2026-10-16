@@ -13,7 +13,7 @@ vi.mock('./Text', async () => {
   const { createElement } = await import('react')
   const Text = ({ source, streaming }: { source: string; streaming: boolean }): React.JSX.Element =>
     createElement('span', { 'data-markdown-mode': streaming ? 'streaming' : 'complete' }, source)
-  return { OpenCodeText: Text, OpenCodeReasoning: Text }
+  return { OpenCodeText: Text }
 })
 let dom: FakeDom | undefined
 afterEach(() => {

@@ -1,5 +1,14 @@
 // Adapted from OpenCode icons/catalog.ts (MIT; resources/OPENCODE-LICENSE.txt).
 const glyphs = {
+  'outline-square-arrow': {
+    viewBox: '0 0 16 16',
+    body: (
+      <path
+        d="M13.5555 6.66656V2.44434H9.33326M13.5555 2.44434L7.99993 7.99989M13.5555 9.33324V13.5555H2.44438V2.44435H6.66661"
+        stroke="currentColor"
+      />
+    )
+  },
   plus: {
     viewBox: '0 0 16 16',
     body: (

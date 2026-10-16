@@ -626,11 +626,18 @@ export const en: typeof ko = {
         shell: 'Shell',
         edit: 'Edit',
         write: 'Write',
-        web: 'Web',
+        web: 'Web fetch',
         task: 'Task',
         todo: 'Todo'
       },
       originalTool: 'Original tool input',
+      question: 'Question',
+      questionAnswered: '{{count}} answered',
+      explorationCount: {
+        read: '{{count}} read',
+        search: '{{count}} searched',
+        list: '{{count}} listed'
+      },
       explorationDone: 'Exploration complete',
       explorationRunning: 'Exploring',
       todosEmpty: 'No todos recorded yet'

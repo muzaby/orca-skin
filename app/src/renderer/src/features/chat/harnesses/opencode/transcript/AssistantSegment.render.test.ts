@@ -14,6 +14,7 @@ import type { LoadedSession } from '../../../../../../../shared/ipc'
 import { OpenCodeToolCard } from './ToolCard'
 import { ToolBody } from './ToolBody'
 import { describeTool } from '../toolPresentation'
+import { TimelineDisclosureContext, TimelineViewState } from './viewState'
 
 vi.mock('../../../store/chatStore', async (original) => {
   const module = await original<typeof import('../../../store/chatStore')>()
@@ -84,7 +85,9 @@ describe('harness transcript routing', () => {
           transcriptPolicy: transcriptPresentation('code', backend)
         })
       )
-      expect($.text().indexOf('Reasoning')).toBeLessThan($.text().indexOf('Answer'))
+      if (backend === 'claude')
+        expect($.text().indexOf('Reasoning')).toBeLessThan($.text().indexOf('Answer'))
+      else expect($.text()).not.toContain('Reasoning')
       expect($('[data-component="opencode-text"]')).toHaveLength(backend === 'opencode' ? 1 : 0)
       expect($('details')).toHaveLength(backend === 'claude' ? 1 : 0)
     }
@@ -137,7 +140,12 @@ describe('harness transcript routing', () => {
         .map((_, el) => $(el).attr('data-segment'))
         .get()
     ).toEqual(segments.map((seg) => seg.kind))
-    expect($('[data-segment]').filter((_, el) => $(el).text().trim() === '')).toHaveLength(0)
+    expect(
+      $('[data-segment]')
+        .filter((_, el) => $(el).text().trim() === '')
+        .map((_, el) => $(el).attr('data-segment'))
+        .get()
+    ).toEqual(['reasoning'])
     expect($('[data-component="opencode-error"]').text()).toContain('native error')
     expect($('[data-component="opencode-structured"]').text()).toContain('42')
   })
@@ -172,12 +180,18 @@ describe('harness transcript routing', () => {
       type: 'LOAD_SESSION',
       session: { id: 's', backend: 'opencode', messages: state.messages } as LoadedSession
     })
+    const disclosure = new TimelineViewState()
+    disclosure.disclosures.set('tool:t', true)
     for (const current of [state, reloaded]) {
       const $ = render(
-        createElement(AssistantMessage, {
-          message: current.messages.at(-1)!,
-          transcriptPolicy: transcriptPresentation('code', 'opencode')
-        })
+        createElement(
+          TimelineDisclosureContext.Provider,
+          { value: disclosure },
+          createElement(AssistantMessage, {
+            message: current.messages.at(-1)!,
+            transcriptPolicy: transcriptPresentation('code', 'opencode')
+          })
+        )
       )
       expect($('[data-component="opencode-file-diff"]').text()).toContain('actual result')
       expect($('details pre').text()).toContain('filePath')

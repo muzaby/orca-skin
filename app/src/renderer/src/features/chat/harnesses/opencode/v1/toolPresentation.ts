@@ -1,5 +1,6 @@
 import { stringify } from '../../../format'
 import { toolRunOutcome } from '../../../lib/parts'
+import { parseAsk, type ParsedAsk } from '../../../lib/ask'
 import type { ToolCall } from '../../../reducer/chatReducer'
 import type { OpenCodeFileView, OpenCodeTodo, OpenCodeToolView } from '../toolPresentation.types'
 
@@ -47,6 +48,27 @@ export function toolKind(call: ToolCall): OpenCodeToolView['kind'] {
     kinds[call.name.toLowerCase()] ??
     'generic'
   )
+}
+
+/** Native 1.x question results keep positional answers in state.metadata. */
+export function questionAnswers(call: ToolCall): ParsedAsk {
+  const parsed = parseAsk({
+    ...call,
+    input: { ...record(call.providerTool?.input), ...record(call.input) }
+  })
+  const answers = record(call.result?.structuredOutput).answers
+  if (!Array.isArray(answers) || toolRunOutcome(call.result) !== 'completed') return parsed
+  return {
+    ...parsed,
+    items: parsed.items.map((item, index) => ({
+      ...item,
+      answer:
+        item.answer ||
+        (Array.isArray(answers[index])
+          ? answers[index].filter((answer: unknown) => typeof answer === 'string').join(', ')
+          : text(answers[index]))
+    }))
+  }
 }
 
 /** Only executed root writes can replace the composer list; an empty list is a valid clear. */
@@ -98,14 +120,21 @@ export function describeTool(call: ToolCall): OpenCodeToolView {
     kind,
     name,
     subtitle:
-      path || text(input.description) || text(input.pattern) || url || text(input.query) || command,
+      (kind === 'shell' ? command : '') ||
+      path ||
+      text(input.description) ||
+      (kind === 'search' ? '' : text(input.pattern)) ||
+      url ||
+      text(input.query) ||
+      (name.toLowerCase() === 'skill' ? text(input.name) : ''),
     arguments: [
+      kind === 'search' && input.pattern ? `pattern=${text(input.pattern)}` : '',
       input.offset != null ? `offset=${input.offset}` : '',
       input.limit != null ? `limit=${input.limit}` : '',
-      text(input.include)
+      input.include ? `include=${text(input.include)}` : ''
     ]
       .filter(Boolean)
-      .join(' · '),
+      .join(' '),
     outcome: toolRunOutcome(call.result),
     inputText: kind === 'generic' ? output(call.input) : '',
     // ANSI CSI를 제거하기 위한 ESC 매칭이다. 제어 문자를 실행하지 않는다.
@@ -113,6 +142,8 @@ export function describeTool(call: ToolCall): OpenCodeToolView {
     output: output(call.result?.output).replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, ''),
     command: command || undefined,
     url: /^https?:\/\//i.test(url) ? url : undefined,
+    path: path || undefined,
+    agent: text(input.subagent_type) || undefined,
     files,
     todos: todos
       .map(record)
