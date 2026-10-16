@@ -8,10 +8,10 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | impl/IMPL_DONE — ΔV18 r1.18 엔진 추가 메뉴·OpenCode 공급자 폼·설정 하네스 탭 제거 구현. 추가 AC3/3 자기확인, 기존 독립 verify·AC11 인수 대기 보존 |
-| V mode | Delta V — 기준 V1 + ΔV1~17 + ΔV18 (각 델타의 대체 범위 적용) |
+| 상태 | plan/READY — ΔV19 모달 통일·폼 전용 문서·오프라인 모델 목록. 사용자 직접 수정 요청, 기존 독립 verify·AC11 인수 대기 보존 |
+| V mode | Delta V — 기준 V1 + ΔV1~18 + ΔV19 (각 델타의 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
-| 이번 V revision / 유효 V | ΔV18 / 기준 ΔV17@공유 브랜치 `a067d521d8eb6d593f1e261be734b6e2e2ff4285`. 기존 자기보고·AC11 인수와 이번 델타를 별도 집계 |
+| 이번 V revision / 유효 V | ΔV19 / 기준 ΔV18@공유 브랜치 `7edd119c3cfb3d720f51963753c8c7873ad0a726`. 기존 자기보고·AC11 인수와 이번 델타를 별도 집계 |
 
 # Part I — Product & UX Contract
 
@@ -2784,3 +2784,46 @@ EP50 2 + EP51 4 + EP52 1 = 7/7 자기확인. 새 컴포넌트의 실제 이름�
 ## [구현자 기입] Review Signals — ΔV18 r1.18
 
 현재 열린 OpenCode1.19 desktop 모달과 설치 renderer를 근거로 필드·검증을 정했다. Orca의 의미 토큰/공통 버튼·팝업·모달을 사용하고 별도 OpenCode 테마를 가져오지 않았다. 사용자 요구가 설정 UI 제거를 명시해 저장값 삭제로 확장하지 않았으며 기존 main 적용 테스트를 유지했다. 다음 주체는 Claude 독립 verify다.
+
+## ΔV19 — 엔진 문서 소유 범위와 모달 통일 (2026-10-16, READY)
+
+### Part I — Decision / Product & UX
+
+사용자 명시 변경: 추가 메뉴는 “Claude, OpenCode”, 모달은 Claude와 타이틀·종료/추가 버튼·요소 배치를 통일한다. “저장 대상은 모달에서 설정한 provider가 전부”, “설정 불러오기는 필드를 채우는 용도만”, “저장되는 문서와 사용자가 보는 목록의 소유 범위를 같게 유지”한다. 추가는 구별된 설정 문서 생성이며 서버 실행·전역 카탈로그 조회를 하지 않는다.
+
+| 결정 | 결과 / 대체 |
+|---|---|
+| D-042 ACTIVE | 메뉴 Claude/OpenCode. OpenCode 추가도 제목 ‘엔진 추가’, 취소/추가하기, Claude와 같은 폭·헤더·footer·chip. 설명을 짧은 필드 안내로 줄이고 불러오기는 공급자 섹션 제목 옆에 배치. D-039/040의 문구·chrome만 대체 |
+| D-043 ACTIVE | import는 호환 공급자의 노출 필드만 채운다. 저장은 현재 provider 하나와 현재 모델·헤더·인증만 담는 새1.x 문서. 원본/미노출 metadata/다른 provider를 복사하지 않는다. ΔV18 D-010/AC50의 원문 보존·rename 충돌 요구를 SUPERSEDE |
+| D-044 ACTIVE | 엔진별 문서의 명시 모델이 카드·composer·턴 모델 해석의 동일 목록이다. OpenCode 목록 조회와 CRUD는 서버/전역 카탈로그를 호출하지 않는다. 사용자 전역 opencode.json은 읽기 전용. 기존 native 세션/리소스 SSOT 정책은 유지 |
+
+| AC / node | 관측 기준 |
+|---|---|
+| AC52 / R52↔AT52 NEW | 메뉴 정확한 두 이름, 두 추가 모달의 제목·취소·추가하기·폭·chrome 일치. 필드/불러오기 배치를 두 테마에서 확인 |
+| AC53 / R53↔AT53 NEW | 다른 provider와 미노출 옵션이 있는 전역 파일을 불러와도 폼의 provider·모델·헤더만 새 문서에 저장. 전역 원본 bytes 불변, import 지연/오류/취소의 초안 보존 유지 |
+| AC54 / R54↔AT54 NEW | 모델1개 추가→저장 문서/엔진 카드·composer 데이터/턴 선택에 정확히1개. 반복 조회·재열기·변경에도 서버 acquire/fetch0, 다른 엔진의 모델은 별도 행으로 유지 |
+
+### Part II — 조사 / 설계
+
+원인: `ProviderDraft.source`를 serialize가 spread해 전역 문서를 복사한다. `agent:list`→`adapter.catalog`는 서버 acquire 후 config.providers/app.agents로 모델을 전역 목록으로 덮는다. 엔진 CRUD는 OpenCode에도 Claude extension deployment를 실행한다. 세 경계를 함께 수정한다.
+
+1. ProviderDraft는 노출 필드만 갖는다. import 선택 식별자는 UI 상태로 분리하고 source/originalId를 없앤다. serialize는 `$schema`, `enabled_providers:[id]`, 해당 provider의 npm/name/options/models/whitelist를 새로 생성한다. whitelist와 enabled_providers는 폼 소유 범위에서 파생한1.x 필드이며 설치 SDK Config 타입에서 지원을 확인했다. 전역 파일에는 쓰지 않는다.
+2. OpenCode1.x catalog는 config의 명시 모델을 기존 parseOpenCodeModels로 읽는 순수 projection으로 바꾼다. 기본 build/plan 및 문서에 명시된 visible primary/all 에이전트를 제공한다. 전역/프로젝트 에이전트 자동 발견은 이 목록 경로에서 하지 않는다. adapter의 서버별 캐시와 config.providers/app.agents 호출은 제거하고, 실행/이력용 client는 보존한다.
+3. engine CRUD는 canonical key의 하네스를 보고 Claude만 extension deployment를 수행한다. OpenCode는 기존 전용 파일 원자 저장과 cache 무효화·목록 재조회만 수행한다. 파일 위치·IPC·DB 포맷은 바꾸지 않는다. 기존 multi-provider JSON 엔진 편집은 그대로이며 그 문서에 명시한 모델만 노출한다. 기존 사용자 파일을 자동 재작성하지 않는다.
+4. UI는 Claude의560px modal/header/footer를 따른다. OpenCode chip 아래 공급자 제목/불러오기 한 행, ID/표시 이름 한 행, URL/API 키, 모델/헤더 반복 행 순서다. 모델/헤더 추가·검증·저장 오류 수명은 유지한다.
+
+### Delta V / §10
+
+| pair | requiredness / 생산 경로 | 자리 / 직접 oracle |
+|---|---|---|
+| VP-Δ19-01 R52↔AT52 | REQUIRED / 추가 메뉴→두 Form | EP53a 메뉴, b modal chrome/필드: AgentEnvironmentView·ProviderForm interaction의 실제 문자열/배치, CUA 두 테마 |
+| VP-Δ19-02 R53↔AT53 | REQUIRED / import→draft→serialize→파일 | EP54a import 필드 투영, b 새 문서 codec, c 원자 저장/전역 불변: ProviderForm/customProvider 테스트와 신규 실제 임시 파일 engine 설정 통합 |
+| VP-Δ19-03 R54↔AT54 | REQUIRED / CRUD→agent:list→adapter catalog→DTO→턴 선택 | EP55a 순수 catalog, b adapter 무서버 실행, c CRUD 분기, d agent:list 실제 어댑터, e resolve-turn 모델 선택: catalog/adapter·engine.deployment·misc.runtime-catalog·resolve-turn 통합 테스트 |
+| VP-Δ19-04 SD19↔ST19 NEW | REQUIRED / 전역 import→독립 저장→반복 목록/재로드 | EP54c/55b~d, 임시 전역 파일과 실제 저장 서비스/어댑터를 사용해 저장 문서와 목록 동일성·전역 bytes·acquire/fetch0 관측 |
+| VP-Δ19-05 AR19↔IT19 NEW | REQUIRED / 조립→UI→v1 codec 및 settings→catalog→목록 | EP53b/54a~b/55d~e, 실제 production wrapper·handler/adapter 경계를 실행 |
+| VP-Δ19-06 MD19↔UT19 NEW | REQUIRED / config 필드·모델 projection | EP54b/55a, 여분 공급자/옵션·동명 모델·variant·disabled/hidden agent·원본 불변 fixture |
+| VP-Δ19-R1 | REGRESSION / Claude 추가/편집·CRUD·OpenCode 실행/이력·import 수명 | 기존 EngineFormModal/import, engine.deployment, adapter/server/native-history 및 설정 격리 테스트 |
+
+EP53 2 + EP54 3 + EP55 5 = 10자리. 직접 데이터/실행 결과 oracle이므로 별도 source mutation/구조 proxy는 not selected. ΔV18 VP01/02/04/05의 문구·원문 보존 기대는 위 pair로 대체하며 import 오류·수명은 회귀한다. ΔV18 VP03/AC51 설정 제거는 비영향 승계다.
+
+운영 gate는 관련 Vitest·readonly lint·node/web/test typecheck·production build·문서/오류 registry·diff/trailer다. D042→AC52, D043→AC53, D044→AC54로 대조했으며 사용자 직접 변경 범위라 추가 승인/미정 선택 없음. 기존 AC11 사용자 인수·독립 verify는 보존한다.
