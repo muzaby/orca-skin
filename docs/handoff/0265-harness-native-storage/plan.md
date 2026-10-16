@@ -191,8 +191,12 @@ R01~08과 AT01~08은 §5의 AC1~8이며 모두 NEW/REQUIRED다. 아래 SD/AR/MD�
 | EP07 / cache 재조회, 요청세대, live 경합, 오류 보관, 경고 소비 (5) | 오래된 응답 덮어쓰기·오류시 캐시 삭제 | VP05/08/09 실제 store deferred IPC |
 | EP08 / Claude settings, skills, plan, guard, native reader, resume (6) | custom root 일부만 적용·missing 새세션 생성 | VP01/03/12 각 실제 소비처와 SDK stub query 호출0 |
 | EP09 / quiescent 판정, runtime 폐기, 다음 resume, native 완료 snapshot 판정 (4) | background 중단·터미널 추가 문맥 미반영·외부 진행 이력 교체 | VP09 app 조립·활동 snapshot·resume 요청, native reader 미완료 fixture |
+| EP10 / Claude input-receipts response, reconcile (2) | echo 이외 영수증 경로에서 native ID 유실 | VP13 `adapters/claude/input-receipts.test.ts`: SDK 반환 UUID 보존 |
+| EP11 / turn catalog env, settings catalog env (2) | 모델 조회 서버와 실행 서버가 서로 다른 native root를 사용 | VP02 `resolve-turn.runtime-catalog.test.ts`, `misc.runtime-catalog.test.ts`: 실제 준비 env 전달 |
+| EP12 / background dispose 출력 보존, bootstrap 삭제 callback (2) | 목록 제거로 보관한 출력 파일이 지워짐 | VP04 controller·handler/DB/파일 통합·`bootstrap.native-history.test.ts` 실제 callback |
+| EP13 / refresh factory ctx, hasSession, discardRuntime, activity, session handler 연결 (5) | 단위 구현은 맞지만 부팅 배선에서 guard·재조회가 누락 | VP02/09 `bootstrap.native-history.test.ts`: 실제 register와 callback 인자·반환값 |
 
-설계 분모는 3+3+3+5+4+6+5+6+4=39자리이며 구현자가 호출부를 재검색해 추가 edge를 보고한다. OpenCode 내부 env/이관 자리는 0262 소유로 중복 합산하지 않는다. current-state 문서·INDEX·설계 trailer는 별도 운영 gate이며 제품 AC에 합산하지 않는다.
+기존 설계 39자리와 호출부 전수 조사로 구체화한 EP10~13의 11자리를 합쳐 50자리다. 추가 행은 D01/02/04/06의 기존 계약을 실행 경계까지 명시하며 제품 동작을 새로 결정하지 않는다. OpenCode 내부 env/이관 자리는 0262 소유로 중복 합산하지 않는다. current-state 문서·INDEX·설계 trailer는 별도 운영 gate이며 제품 AC에 합산하지 않는다.
 
 ## 11. 운영 gate와 READY 대조
 
