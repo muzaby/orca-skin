@@ -8,10 +8,10 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | plan/READY — ΔV15 native 저장 경로·기존 격리 세션 전환. 검증된 1.19 schema의 원자적 이관과 자원별 미완료 조건 확정. ΔV14 구현 보고·기존 AC11 인수·독립 verify 대기 보존 |
+| 상태 | impl/IMPL_DONE — ΔV15 native 저장 경로·기존 격리 세션 전환 구현. 신규 AC39~42 4/4, 제품 강제 지점 15/15, 신규 pair 9개 SELF_PASS. 기존 AC11 사람 인수·독립 verify 대기 유지 |
 | V mode | Delta V — 기준 V1 + ΔV1~14 + ΔV15 (각 델타의 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
-| 이번 V revision / 유효 V | ΔV15 / V1 + ΔV1~14의 비대체 계약 유지. 전용 XDG·DB history SSOT·기존 세션 전환 비범위는 D-029~032로 대체. 새 AC39~42는 구현·검증 대상이며 기존 실적에 미합산 |
+| 이번 V revision / 유효 V | ΔV15 / V1 + ΔV1~14의 비대체 계약 유지. 전용 XDG·DB history SSOT·기존 세션 전환 비범위는 D-029~032로 대체. 새 AC39~42는 이번 직접 oracle의 4/4 자기보고이며 ΔV14의 37/38 자기보고·AC11 미인수는 별도 보존 |
 
 # Part I — Product & UX Contract
 
@@ -2347,3 +2347,88 @@ source DB·target DB·리소스 파일·Orca sidecar는 하나의 transaction이
 현재는 설계이며 fixture 외 native DB·사용자 세션을 변경하지 않는다. 구현에서는 ABI 중립 typecheck·readonly lint·관련 비DB 회귀, Electron ABI의 DB migration integration, 임시 CLI/loopback fixture, build, error registry, 문서 inventory/links·diff·trailer를 수행한다. npm install/pretest/rebuild로 ABI를 바꾸지 않는다.
 
 D-029→AC39, D-030→AC40, D-031→AC41/42, D-032→0265다. 미검증 자원은 구체적 미완료 조건으로 닫았고 실제 plain/tree/journal 이관·snapshot 지원·복구 경로를 확정했다. 모든 legacy 자원의 자동 이관을 주장하지 않는다. 기존 전용 경로·DB SSOT·이관 비범위의 대체 관계와 과거 구현 보고를 보존한다. ΔV15는 READY이며 구현·독립 검증과 기존 AC11 인수는 남아 있다.
+
+## ΔV15 [구현자 기입] 설계 리뷰
+
+D-029~032와 pending/committed marker 보완 설계를 구현했다. 새 서버는 native HOME/XDG/OPENCODE_DB를 계승하고 실제 cwd에서 실행한다. Orca provider 설정은 실행 환경의 `OPENCODE_CONFIG_CONTENT`로 유지한다. 저장 경로는 SDK 버전 문자열로 추정하지 않고 동일 실행 환경의 CLI `db path`에서 확인한다. `dataDirectory/opencode`는 이전 격리 자료를 찾는 locator로만 남겼다.
+
+이관은 JSON export/import 대신 검증된 1.19 schema에서 session tree·message/part·todo·event journal을 transaction으로 옮긴다. 실제 CLI가 만든 격리 DB도 production migrator를 통과한 뒤 같은 ID로 terminal 입력을 이어 받았다. 미지원 schema/공유/별도 queue/context와 검증 불가 자원은 구체적인 미완료다. snapshot의 assistant worktree가 project worktree와 다르면 `snapshot-worktree`로 보류하며 다른 저장소를 성공으로 오인하지 않는다. 0265의 archive·재열기·목록 제외 계약은 중복 구현하지 않았다.
+
+## ΔV15 [구현자 기입] 강제 지점 전수와 V-pair 자기확인
+
+아래 `O/`는 `app/src/main/adapters/opencode/v1/`, `A/`는 `app/src/main/app/harnesses/opencode/`다. 예정 파일명을 기존 테스트 배치와 DAG에 맞춰 조정했다.
+
+| 좌표 | 실제 직접 oracle |
+|---|---|
+| N1 | `A/native-storage.integration.test.ts: creates, migrates and reopens the same native ID with a terminal followup and unchanged native config` — 실제 module·CLI·SDK·합성 localhost 모델·production SQLite migrator. 기본/custom root, 재시작, catalog/complete/send/readHistory, global/project 설정 bytes, native ID, 이관 후 journal 동일성 및 CLI 추가 후 증가 |
+| N2 | `O/legacy-storage-migration.integration.test.ts: preserves native rows/resources and rolls back interrupted writes without reinstalling SQLite` — 실제 infra SQLite factory/Electron ABI. parent/child/todo/journal 행 일치, source 불변, schema/cwd/다중 DB/active lock/PK 충돌, 일부 insert와 marker 실패, commit 직후 종료, native 삭제 보존, snapshot Git 객체·충돌·resource 배치 후 retry |
+| N3 | `O/legacy-resources.test.ts`의 `rejects directory links and a snapshot lock before copying`, `refuses a source whose bytes changed since inventory`, `never replaces an existing empty target directory`, `retains same-workspace files and reports a missing referenced file` |
+| N4 | `O/server.test.ts: separates native storage environments and working directories in the pool identity`, `coalesces concurrent startup and passes isolated configuration, auth and preferences to its owned child`; `O/native-storage.test.ts: preserves native storage paths while applying only runtime configuration`, `resolves relative XDG exactly against the spawned native working directory` |
+| N5 | `O/native-history.test.ts: reads a stable native snapshot twice with the original ID and cwd and does not invoke migration`, `runs migration only after 404 and revalidates the migrated native session`, `wires the registered adapter to the installed SDK for read-only native requests with the selected environment` 및 403·초기/최종 ID/cwd·revision·busy 표 |
+| N6 | 같은 파일의 `preserves native IDs, response grouping, normalized tools, question answers and immutable source data`, `keeps automatic-input provenance, skips ignored text, and preserves files, reasoning and compaction`, `retains a native user compaction marker`, `keeps partial content and completed tools when the assistant ends in a classified error` |
+| N7 | `O/adapter.persistent.test.ts: subscribes once before initial and subsequent prompts`, `O/native-input.test.ts: preserves native synthetic parts and rejects own text, ignored and foreign inputs` — native ID와 queue UUID 분리 |
+| C1 | 0265의 `features/history/writer.native-history.test.ts: binds native user and multiple assistant records to their local rows, excluding child IDs`, `features/history/native-history.db.test.ts: joins a user attachment only by its native ID and retains unmapped metadata without duplicate body text` — 실제 writer/DB/표시 join |
+| C2 | 0265의 `app/native-history.test.ts: checks native %s before cold resume with the same prepared input`, `closes the real idle runtime and delivers the next input through a fresh same-ID resume` — native 부재·오류는 prompt 0, 존재가 증명된 busy는 명시 입력만 same ID로 재개 |
+
+| §10 자리 | 닫은 지점 / 직접 관측 | 남긴 곳 |
+|---|---|---|
+| EP42a module→v1 | 1/1, N1의 실제 native DB 경로와 module 생성 | — |
+| EP42b pool identity | 1/1, N4의 root/cwd별 실제 spawn 인자·pool 분리 | — |
+| EP42c child env | 1/1, N1/N4의 native 경로·모델·설정 bytes | — |
+| EP42d/e/f/g catalog/complete/send/readHistory | 4/4, N1에서 네 진입을 직접 실행. complete 임시 session 수 불변, CLI export·추가 메시지 관측 | — |
+| EP43a locator/schema/tree | 1/1, N2의 다중 DB·schema·cwd·교차 session part 거부 | — |
+| EP43b source/target lock·충돌 | 1/1, N2의 별도 connection lock·target PK·양 DB 전후 행 일치 | — |
+| EP43c resource 준비·배치 | 1/1, N2의 실제 Git hash·snapshot 충돌·resource 배치 뒤 재시도, N3의 link/변경/빈 target 보존 | — |
+| EP43d tree/journal transaction | 1/1, N2의 중간 insert rollback, N1의 실제 CLI 이관 journal 일치·추가 입력 후 증가 | — |
+| EP43e commit/marker/native 확인 | 1/1, N2의 partial marker rollback 및 commit 이후 모호 상태, native 삭제 후 parent/child 재생성 0; N1의 native 재조회 | — |
+| EP44a native snapshot/mapper | 1/1, N5/N6의 안정성·closed 판정·원본 ID/parts 보존 | — |
+| EP44b 원본 ID→0265 join | 1/1, N7→C1의 실제 normalized event 및 writer/DB 기록 | — |
+| EP44c guard→same-ID prompt | 1/1, N5의 404+legacy busy는 migration-required, C2의 cold resume 입력 차단/허용 | — |
+| EP45a/b 문서·상태·trailer | 2/2, 문서 gate `current:true, links:[], prose:[]`; plan·INDEX의 `impl/IMPL_DONE`·검증자 대조 및 `git log -4 --format='%(trailers:only=true)'` 설계 trailer 확인 | — |
+
+제품 자리 `7+5+3=15/15`, 문서 자리 `2/2`는 위 oracle의 자기보고다. 0265의 C1/C2를 인용하되 그 공통 분모를 다시 추가하지 않았다. 전수 검색은 `rg -n 'acquire\(|nativeOpenCodeEnvironment|XDG_|OPENCODE_DB|readHistory|nativeMessageId' app/src/main/adapters/opencode app/src/main/app/harnesses/opencode -g '*.ts' -g '!*.test.ts' -g '!*.testfixture.ts'`와 각 caller의 인자/반환을 대조했다. 검색 총계만으로 미분류 0을 주장하지 않는다.
+
+VP-Δ15-01/02는 N1/N4, 03/04는 N1/N2/N3, 05는 N1과 0265 재열기 store/DB oracle, 06은 N1/N5, 07은 N4, 08은 N2/N3, 09는 N5/N6/C2로 추적하며 모두 SELF_PASS다. REQUIRED 자기확인 `9 SELF_PASS + 0 SELF_BLOCKED = 9`다. 최종 test-only fetch 주입 뒤 동일 native CLI integration도 102.17초에 통과했다. 운영 gate는 아래에 별도로 기록했고 독립 verify는 남아 있다.
+
+## ΔV15 [구현자 기입] 이번 라운드 수정의 잠금
+
+해당 없음 — 직접 oracle. schema를 갖춘 실제 SQLite·파일·Git 객체·CLI·SDK와 production adapter를 호출했다. phase hook은 실제 transaction/sidecar/copy 경계의 실패 후 원본과 target을 직접 관측한다. 선택 적대 증거 0 + 인용 변이 0 + 새 구조적 proxy 0 = 잠금 표 행 0이다. 기존 server 소유권/인증/1.x guard를 삭제하지 않았다.
+
+## ΔV15 [구현자 기입] Product/UX 파생 검토
+
+native GET 성공이 항상 우선이며 실패 중 404만 이관한다. 외부 CLI의 완료 응답을 재열기에서 보여 주지만 original snapshot을 LLM에 재전송하지 않는다. 읽기는 prompt를 호출하지 않는다. 원본 부재·접근 오류·이관 미완료는 0265의 보관 화면과 안내로 전달한다. `busy`는 native 존재 확인 뒤 갱신 보류에만 사용하고, 404 뒤 구격리 자료가 busy인 경우에는 resume를 허용하지 않는다. 지원하지 못하는 자원 때문에 세션 전체를 다른 ID로 복제하거나 성공으로 숨기지 않는다. Orca 목록 제거의 native 보존과 최종 화면 상태는 0265가 소유한다.
+
+## ΔV15 [구현자 기입] 놓친 잠재 문제 + 대응
+
+| 발견 | 대응 / 직접 관측 |
+|---|---|
+| legacy를 보존하면 native 삭제 뒤 다음 404가 원본을 되살릴 수 있음 | tree 각 ID에 pending/committed marker. committed+404는 missing, 모호 pending+404는 commit-state-unknown. N2의 parent/child 삭제 후 재생성 0 |
+| 여러 marker 중 일부 기록 실패가 영구 pending을 남김 | pending 쓰기 전에 intent 기록, 관측된 rollback 후 rolled-back 저장. N2 partial marker 재시도 성공 |
+| part FK만으로 session 일치가 보장되지 않음 | message/part/현재 event projection의 소속·JSON ID 검사. N2 foreign message 오염 0. 삭제된 과거 projection의 정상 event는 보존 |
+| relative XDG 및 Git worktree snapshot이 native와 다를 수 있음 | native cwd 기준 resolve, 불일치 snapshot은 명시 미완료. N4/N2 직접 관측 |
+| history에서 error가 부분 text/tool을 지우거나 user compaction이 누락됨 | mapper event 순서와 user part 보존을 수정. N6의 부분 응답/도구/compaction 결과 |
+| 실제 CLI fixture가 stdin을 열어 두어 terminal run을 멈춤 | 테스트 helper에서 stdin 종료. 기존 Orca 서버가 살아 있는 채로 독립 CLI 추가 입력 성공; native 프로젝트 lock으로 판정하지 않음 |
+| 테스트 fixture의 직접 global fetch가 production hygiene gate에 포함됨 | fixture를 명시 fetchImpl 포트로 바꾸고 integration test entry가 주입. 예외/alias 없이 no-node-fetch 회귀 통과 |
+
+구격리 tool-output/config/cache 절대 참조, 별도 queue/context/share, snapshot worktree 불일치·충돌 등은 설계한 미완료 경로다. 원본을 유지하며 종류를 알리고, 이 범위를 무손실 자동 이전 완료로 보고하지 않는다. 같은 native DB를 동시에 수정하는 외부 프로세스에 대한 OS 전역 lock을 보장하지 않는다.
+
+## ΔV15 [구현자 기입] 구현 보고
+
+- 변경: native 환경/cwd·실제 DB path, readHistory/ID 운반, v1 전용 schema/resource/transaction 이관, registry의 기존 SQLite factory 주입. 공통 DB 및 renderer 정책은 0265 구현을 사용한다.
+- 직접 검증: 최종 OpenCode와 no-node-fetch 전체 16파일129케이스 통과(7.14초). 실제 SQLite fixture는 9개 확인 그룹에서 source/target·marker·Git snapshot을 검증했고 resource 단위 4케이스도 포함된다. source schema는 임시 native 1.19 CLI에서 취득한 빈 table 정의이며 사용자 데이터가 아니다.
+- 실제 CLI 통합: native 생성/CLI 재개/재시작/구격리 이관/journal/설정/catalog/auxiliary/custom DB 전 경로를 통과했다. 합성 localhost 모델만 사용하고 외부 모델 요청은 0이다. test-only fetch 주입 이후 마지막 단독 integration은 1파일1케이스, 102.17초에 통과했다. 재현은 앱 폴더에서 `ORCA_TEST_OPENCODE_EXE`를 검증할 설치 CLI 1.x 절대 경로로 지정한 뒤 `node node_modules/vitest/vitest.mjs run src/main/app/harnesses/opencode/native-storage.integration.test.ts --maxWorkers=1 --pool=threads`다. CLI 환경 변수가 없는 일반 CI에서는 이 외부 실행 케이스만 명시 skip하고 순수/SQLite fixture는 실행한다.
+- 운영 gate: 최종 변경 TS/TSX 91파일 ESLint 0 errors/0 warnings, typecheck 3구성·build·migration·문서 gate 통과. 전체 Node 실행에서 발견한 strict native ID 기대값 11건과 global fetch 경계 1건은 수정 후 재검증했고, ABI 때문에 별도 실행한 39파일377케이스는 설치 Electron ABI에서 모두 통과했다. 상세 실행·환경 분류는 0265 구현 보고 G01~G13을 참조한다. npm install/pretest/rebuild와 사용자 DB 수정은 하지 않았다.
+- AC 자기보고: AC39(native 생성/터미널 재개), AC40(실행 오버라이드/설정 불변), AC41(실제 legacy 이관·재개), AC42(실패·충돌·복구 원본 보존)는 각각 N1, N1/N4, N1/N2, N2/N3의 직접 결과로 4/4다. 제품 강제 지점 15/15 및 신규 pair 9 SELF_PASS와 구분해 집계한다. ΔV14의 37/38 자기보고와 기존 AC11 사람 인수 대기는 유지하며 과거 실적을 새 AC 증거로 재사용하지 않는다. 독립 verify는 남아 있다.
+
+| 신규 AC | 자기보고 | 직접 관측 |
+|---|---|---|
+| AC39 | ✅ | N1: native 생성·독립 CLI의 같은 ID 추가 입력·재시작 후 조회 |
+| AC40 | ✅ | N1/N4: 준비 env 전달과 native 설정 파일 bytes 불변 |
+| AC41 | ✅ | N1/N2: 실제 legacy DB 이관 후 CLI 재개, journal seq 유지·증가 |
+| AC42 | ✅ | N2/N3: 충돌·중간 실패·재시도에서 source 보존, target 중복·삭제 후 부활 방지 |
+
+이번 ΔV15 검산: `✅ 4 · ⚠️ 0 · ❌ 0 = 총 4`. 구현 trailer의 `Criteria-Met: 4/4`는 신규 AC39~42를 가리킨다. 기준 ΔV14의 AC11 사람 인수는 별도 대기로 유지한다.
+
+## ΔV15 [구현자 기입] Review Signals
+
+사용자 저장 정책 변경을 받아 진행한 ΔV15 구현 턴이다. 기존 전용 XDG 결정은 최신 D-029로 대체했고, 설계 probe를 production oracle로 세지 않았다. 실제 이관을 테스트하면서 marker 일부 실패·교차 session FK·snapshot worktree·history partial error를 보완했다. 설치 Electron SQLite ABI를 유지한 채 runtime을 선택했으며 의존성 재설치는 없었다. 전체 gate와 함께 여러 CLI/tsc가 실행된 시도에서는 15초 서버 시작 제한과 buildinfo 파일 경쟁이 발생해 단독 CLI·별도 typecheck output으로 분리했다. 이는 제품 시작 제한을 없애는 근거로 쓰지 않았다. 다음 판정은 독립 verify다.

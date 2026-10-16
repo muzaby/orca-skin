@@ -36,7 +36,10 @@ export function normalizeOpenCodeTool(
 /** Per-turn state. Repeated snapshots cannot duplicate persisted parts or usage. */
 export class OpenCodeEventMapper {
   private readonly messages = new Map<string, 'assistant' | 'user'>()
-  private readonly texts = new Map<string, { type: 'text' | 'reasoning'; text: string }>()
+  private readonly texts = new Map<
+    string,
+    { type: 'text' | 'reasoning'; text: string; messageID: string }
+  >()
   private readonly completed = new Set<string>()
   private readonly startedTools = new Set<string>()
   private readonly finishedTools = new Set<string>()
@@ -153,7 +156,7 @@ export class OpenCodeEventMapper {
     if (part.type === 'text' || part.type === 'reasoning') {
       if (this.completed.has(part.id)) return []
       const previous = this.texts.get(part.id)?.text ?? ''
-      this.texts.set(part.id, { type: part.type, text: part.text })
+      this.texts.set(part.id, { type: part.type, text: part.text, messageID: part.messageID })
       const events: NormalizedEvent[] = []
       if (part.text.startsWith(previous) && part.text.length > previous.length) {
         events.push({
@@ -173,6 +176,7 @@ export class OpenCodeEventMapper {
       events.push({
         type: 'tool.call.started',
         sessionId: this.sessionId,
+        nativeMessageId: part.messageID,
         toolRunId: part.callID,
         toolName: normalized.name,
         args: normalized.input,
@@ -187,6 +191,7 @@ export class OpenCodeEventMapper {
       events.push({
         type: 'tool.call.completed',
         sessionId: this.sessionId,
+        nativeMessageId: part.messageID,
         toolRunId: part.callID,
         result: part.state.status === 'completed' ? part.state.output : part.state.error,
         isError: part.state.status === 'error',
@@ -203,8 +208,22 @@ export class OpenCodeEventMapper {
     this.completed.add(id)
     if (!part.text) return []
     return part.type === 'text'
-      ? [{ type: 'message.completed', sessionId: this.sessionId, message: { text: part.text } }]
-      : [{ type: 'message.reasoning', sessionId: this.sessionId, text: part.text }]
+      ? [
+          {
+            type: 'message.completed',
+            sessionId: this.sessionId,
+            nativeMessageId: part.messageID,
+            message: { text: part.text }
+          }
+        ]
+      : [
+          {
+            type: 'message.reasoning',
+            sessionId: this.sessionId,
+            nativeMessageId: part.messageID,
+            text: part.text
+          }
+        ]
   }
 
   finish(): NormalizedEvent[] {

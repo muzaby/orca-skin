@@ -169,6 +169,7 @@ describe('OpenCode submission through the production queue and session runtime',
       expect(events).toContainEqual({
         type: 'input.echo',
         sessionId: 's1',
+        nativeMessageId: payloads[1].messageID,
         text: 'Hello',
         uuid: next.promptUuid
       })
@@ -186,18 +187,25 @@ describe('OpenCode submission through the production queue and session runtime',
           const { request, commit } = admission(currentSession)
           expect(request.canSubmitInitial!()).toBe(true)
           const events = await collect(runtime, request)
+          const submitted = requests.findLast((item) =>
+            new URL(item.url).pathname.endsWith('/prompt_async')
+          )
+          if (!submitted) throw new Error('provider prompt was not submitted')
+          const { messageID } = (await submitted.clone().json()) as { messageID: string }
           expect(commit).toHaveBeenCalledOnce()
           // A committed claim is deliberately no longer eligible for admission.
           expect(request.canSubmitInitial!()).toBe(false)
           expect(events).toContainEqual({
             type: 'input.echo',
             sessionId: 's1',
+            nativeMessageId: messageID,
             text: 'Hello',
             uuid: request.promptUuid
           })
           expect(events).toContainEqual({
             type: 'message.completed',
             sessionId: 's1',
+            nativeMessageId: `assistant-${messageID}`,
             message: { text: 'Runtime reply' }
           })
           expect(events.at(-1)?.type).toBe('turn.ended')

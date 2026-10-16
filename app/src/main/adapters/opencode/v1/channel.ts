@@ -151,12 +151,21 @@ export function openCodeChannel(
     }
     if (closed) return
     for (const prelude of initial ? (req.preludes ?? []) : [])
-      publish([{ type: 'input.echo', sessionId, text: prelude.text, uuid: prelude.uuid }])
+      publish([
+        {
+          type: 'input.echo',
+          sessionId,
+          text: prelude.text,
+          uuid: prelude.uuid,
+          nativeMessageId: messageID
+        }
+      ])
     publish([
       {
         type: 'input.echo',
         sessionId,
         text: next.text,
+        nativeMessageId: messageID,
         ...(next.promptUuid ? { uuid: next.promptUuid } : {})
       }
     ])

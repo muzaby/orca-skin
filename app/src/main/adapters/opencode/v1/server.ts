@@ -1,9 +1,10 @@
 import { spawn, execFile, type ChildProcess } from 'node:child_process'
-import { existsSync, mkdirSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { delimiter, isAbsolute, join } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { harnessEnvFingerprint } from '../../common/harness-config'
 import type { HarnessPreferences } from '../../../../shared/harness'
+import { nativeOpenCodeEnvironment, nativeWorkingDirectory } from './native-storage'
 
 export interface OpenCodeConnection {
   url: string
@@ -69,7 +70,7 @@ export class OpenCodeServerPool {
           execFile(
             executable,
             ['--version'],
-            { windowsHide: true, timeout: 5000 },
+            { windowsHide: true, timeout: 15000 },
             (error, stdout) => {
               if (error) reject(error)
               else resolve(stdout)
@@ -91,13 +92,15 @@ export class OpenCodeServerPool {
 
   acquire(
     config: Record<string, unknown> = {},
-    env?: Record<string, string>
+    env?: Record<string, string>,
+    cwd?: string
   ): Promise<OpenCodeConnection> {
     if (this.stopped) return Promise.reject(new Error('OpenCode 서버 관리자가 종료되었습니다.'))
     const executable = this.executable()
     const key = harnessEnvFingerprint({
       config: JSON.stringify(config),
-      env: JSON.stringify(env),
+      env: JSON.stringify(nativeOpenCodeEnvironment(config, env)),
+      cwd: nativeWorkingDirectory(cwd),
       executable
     })
     const existing = this.entries.get(key)
@@ -106,7 +109,7 @@ export class OpenCodeServerPool {
       ready: Promise.resolve({ url: '', headers: {} })
     }
     this.entries.set(key, entry)
-    entry.ready = this.start(executable, config, env, (child) => {
+    entry.ready = this.start(executable, config, env, nativeWorkingDirectory(cwd), (child) => {
       entry.child = child
     }).catch((error) => {
       if (this.entries.get(key) === entry) this.entries.delete(key)
@@ -120,6 +123,7 @@ export class OpenCodeServerPool {
     executable: string,
     config: Record<string, unknown>,
     env: Record<string, string> | undefined,
+    cwd: string,
     own: (child: ChildProcess) => void
   ): Promise<OpenCodeConnection> {
     const version = await this.readVersion(executable)
@@ -131,23 +135,16 @@ export class OpenCodeServerPool {
     }
     // 버전 조회 중 close()가 호출됐다면 서버를 만들지 않는다.
     this.shutdown.signal.throwIfAborted()
-    mkdirSync(this.deps.dataDirectory, { recursive: true })
     const password = randomBytes(32).toString('base64url')
     const child = (this.deps.spawnProcess ?? spawn)(
       executable,
       ['serve', '--hostname=127.0.0.1', '--port=0'],
       {
         windowsHide: true,
-        cwd: this.deps.dataDirectory,
+        cwd,
         stdio: ['ignore', 'pipe', 'pipe'],
         env: {
-          ...process.env,
-          ...env,
-          XDG_DATA_HOME: join(this.deps.dataDirectory, 'data'),
-          XDG_CONFIG_HOME: join(this.deps.dataDirectory, 'config'),
-          XDG_STATE_HOME: join(this.deps.dataDirectory, 'state'),
-          XDG_CACHE_HOME: join(this.deps.dataDirectory, 'cache'),
-          OPENCODE_CONFIG_CONTENT: JSON.stringify({ ...config, share: 'disabled' }),
+          ...nativeOpenCodeEnvironment(config, env),
           OPENCODE_SERVER_USERNAME: 'opencode',
           OPENCODE_SERVER_PASSWORD: password
         }
@@ -218,6 +215,31 @@ export class OpenCodeServerPool {
     } finally {
       clearTimeout(timer)
     }
+  }
+
+  async databasePath(
+    config: Record<string, unknown>,
+    env?: Record<string, string>,
+    cwd?: string
+  ): Promise<string> {
+    await this.acquire(config, env, cwd)
+    const output = await new Promise<string>((resolveOutput, reject) => {
+      execFile(
+        this.executable(),
+        ['db', 'path'],
+        {
+          windowsHide: true,
+          timeout: 15000,
+          cwd: nativeWorkingDirectory(cwd),
+          env: nativeOpenCodeEnvironment(config, env)
+        },
+        (error, stdout) => (error ? reject(error) : resolveOutput(stdout))
+      )
+    })
+    const value = output.trim()
+    if (!isAbsolute(value) || /[\r\n]/.test(value) || !existsSync(value))
+      throw new Error('OpenCode 원본 저장 경로를 확인할 수 없습니다.')
+    return value
   }
 
   close(): void {

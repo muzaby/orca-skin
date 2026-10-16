@@ -60,6 +60,7 @@ describe('OpenCode event mapper', () => {
     expect(mapped).toEqual([
       {
         type: 'tool.call.started',
+        nativeMessageId: 'a1',
         sessionId: 's1',
         toolRunId: 'call-1',
         toolName: 'Edit',
@@ -75,6 +76,7 @@ describe('OpenCode event mapper', () => {
       },
       {
         type: 'tool.call.completed',
+        nativeMessageId: 'a1',
         sessionId: 's1',
         toolRunId: 'call-1',
         result: 'Updated file',
@@ -116,7 +118,14 @@ describe('OpenCode event mapper', () => {
           time: 2
         })
       )
-    ).toEqual([{ type: 'message.completed', sessionId: 's1', message: { text: 'Hi there' } }])
+    ).toEqual([
+      {
+        type: 'message.completed',
+        sessionId: 's1',
+        nativeMessageId: 'a1',
+        message: { text: 'Hi there' }
+      }
+    ])
     const result = mapper.finish()
     expect(result).toEqual([
       {
@@ -202,7 +211,7 @@ describe('OpenCode event mapper', () => {
       )
     ).toEqual([
       { type: 'message.reasoning.delta', sessionId: 's1', delta: { text: 'Think' } },
-      { type: 'message.reasoning', sessionId: 's1', text: 'Think' }
+      { type: 'message.reasoning', sessionId: 's1', nativeMessageId: 'a1', text: 'Think' }
     ])
     expect(
       mapper.map(

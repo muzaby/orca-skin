@@ -65,6 +65,7 @@ export class OpenCodeNativeInputs {
           sessionId: this.sessionId,
           text: part.text,
           uuid: part.id,
+          nativeMessageId: part.messageID,
           origin: withReceivedInputFormat(part.text, { kind: 'automatic' })
         }
       ]

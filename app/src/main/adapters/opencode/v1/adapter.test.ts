@@ -461,10 +461,21 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
       { type: 'file', url: 'data:image/png;base64,AAAA' }
     ])
     expect(events.filter((e) => e.type === 'input.echo')).toEqual([
-      { type: 'input.echo', sessionId: 's1', text: 'inspect', uuid: 'orca-prompt' }
+      {
+        type: 'input.echo',
+        sessionId: 's1',
+        text: 'inspect',
+        uuid: 'orca-prompt',
+        nativeMessageId: expect.any(String)
+      }
     ])
     expect(events.filter((e) => e.type === 'message.completed')).toEqual([
-      { type: 'message.completed', sessionId: 's1', message: { text: 'Done' } }
+      {
+        type: 'message.completed',
+        sessionId: 's1',
+        nativeMessageId: 'a1',
+        message: { text: 'Done' }
+      }
     ])
     expect(events.filter((e) => e.type === 'tool.call.started')).toHaveLength(1)
     expect(events.filter((e) => e.type === 'tool.call.completed')).toHaveLength(1)

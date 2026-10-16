@@ -9,6 +9,10 @@ import { openCodeCatalog } from './catalog'
 import { classifyOpenCodeError } from './errors'
 import { openCodeChannel } from './channel'
 import { modelRef } from './model-ref'
+import type { NativeHistoryRequest, NativeHistoryResult } from '../../common/native-history'
+import { readOpenCodeHistory, nativeRevision } from './native-history'
+import { nativeOpenCodeData, nativeOpenCodeEnvironment } from './native-storage'
+import type { LegacyStorageMigration } from './legacy-storage-migration'
 
 export class OpenCodeAdapter implements SessionAdapter {
   private readonly catalogs = new WeakMap<
@@ -18,7 +22,8 @@ export class OpenCodeAdapter implements SessionAdapter {
   readonly id = 'opencode' as const
   constructor(
     private readonly servers: OpenCodeServer,
-    private readonly fetchImpl: typeof fetch
+    private readonly fetchImpl: typeof fetch,
+    private readonly migration?: LegacyStorageMigration
   ) {}
   agentSpawnEnv(): Record<string, never> {
     return {}
@@ -42,9 +47,10 @@ export class OpenCodeAdapter implements SessionAdapter {
 
   async client(
     config: Record<string, unknown> = {},
-    env?: Record<string, string>
+    env?: Record<string, string>,
+    cwd?: string
   ): Promise<OpencodeClient> {
-    const server = await this.servers.acquire(config, env)
+    const server = await this.servers.acquire(config, env, cwd)
     return createOpencodeClient({
       baseUrl: server.url,
       headers: server.headers,
@@ -56,9 +62,10 @@ export class OpenCodeAdapter implements SessionAdapter {
   async catalog(
     entry: AgentEnvironment,
     config: Record<string, unknown>,
-    refresh = false
+    refresh = false,
+    env?: Record<string, string>
   ): Promise<AgentEnvironment> {
-    const server = await this.servers.acquire(config)
+    const server = await this.servers.acquire(config, env)
     const cached = this.catalogs.get(server)
     if (!refresh && cached && cached.expires > Date.now())
       return { ...entry, ...(await cached.result), key: entry.key, provider: entry.provider }
@@ -87,7 +94,7 @@ export class OpenCodeAdapter implements SessionAdapter {
   }
 
   async complete(req: CompleteRequest): Promise<string> {
-    const client = await this.client(req.providerSettings?.settings, req.env)
+    const client = await this.client(req.providerSettings?.settings, req.env, req.cwd)
     const session = (
       await client.session.create(
         { directory: req.cwd, permission: [{ permission: '*', pattern: '*', action: 'deny' }] },
@@ -128,7 +135,33 @@ export class OpenCodeAdapter implements SessionAdapter {
   }
 
   sendMessage(req: TurnRequest): LiveTurn {
-    return openCodeChannel(req, () => this.client(req.providerSettings?.settings, req.env))
+    return openCodeChannel(req, () => this.client(req.providerSettings?.settings, req.env, req.cwd))
+  }
+
+  readHistory(req: NativeHistoryRequest): Promise<NativeHistoryResult> {
+    const config = req.providerSettings?.settings ?? {}
+    const databasePath = (): Promise<string> => {
+      if (!this.servers.databasePath)
+        return Promise.resolve(
+          nativeOpenCodeData(nativeOpenCodeEnvironment(config, req.env), req.cwd)
+        )
+      return this.servers.databasePath(config, req.env, req.cwd)
+    }
+    return readOpenCodeHistory(req, {
+      client: () => this.client(config, req.env, req.cwd),
+      sourceKey: async () => nativeRevision([await databasePath(), req.cwd]),
+      ...(this.migration && this.servers.databasePath
+        ? {
+            migrate: async () =>
+              this.migration!.migrate({
+                sessionId: req.sessionId,
+                cwd: req.cwd,
+                targetDatabase: await databasePath(),
+                nativeData: nativeOpenCodeData(nativeOpenCodeEnvironment(config, req.env), req.cwd)
+              })
+          }
+        : {})
+    })
   }
 
   classifyError(error: unknown): ClassifiedError {

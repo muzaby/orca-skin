@@ -1,4 +1,5 @@
 import { join } from 'node:path'
+import { openFileDatabase } from '../../../infra/db/file-database'
 import {
   createOpenCodeAdapter,
   loadOpenCodeProviderSettings,
@@ -17,6 +18,7 @@ export const openCodeMainModule: MainHarnessModule = {
     createOpenCodeAdapter({
       ...options,
       preferences: () => options.preferences('opencode'),
+      openDatabase: openFileDatabase,
       dataDirectory: join(options.dataDirectory, 'opencode')
     }),
   loadSettings: loadOpenCodeProviderSettings,

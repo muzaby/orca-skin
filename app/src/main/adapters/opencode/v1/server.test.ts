@@ -4,6 +4,7 @@ import { PassThrough } from 'node:stream'
 import type { ChildProcess, spawn } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { OpenCodeServerPool, resolveOpenCodeExecutable } from './server'
 import { jsonResponse } from './adapter.testfixture'
@@ -80,6 +81,27 @@ function setup(
 }
 
 describe('owned OpenCode server lifecycle', () => {
+  it('separates native storage environments and working directories in the pool identity', async () => {
+    const { pool, spawnProcess } = setup()
+    const one = temporaryDirectory()
+    const two = temporaryDirectory()
+    await pool.acquire({}, { XDG_DATA_HOME: one }, one)
+    await pool.acquire({}, { XDG_DATA_HOME: one }, one)
+    await pool.acquire({}, { XDG_DATA_HOME: two }, one)
+    await pool.acquire({}, { XDG_DATA_HOME: two }, two)
+    expect(spawnProcess).toHaveBeenCalledTimes(3)
+    expect(
+      spawnProcess.mock.calls.map(
+        (call) => (call as unknown as [unknown, unknown, { cwd: string }])[2].cwd
+      )
+    ).toEqual([one, one, two])
+    expect(
+      spawnProcess.mock.calls.map(
+        (call) =>
+          (call as unknown as [unknown, unknown, { env: NodeJS.ProcessEnv }])[2].env.XDG_DATA_HOME
+      )
+    ).toEqual([one, two, two])
+  })
   it('resolves configured and PATH npm executable files without invoking a shell', () => {
     const directory = temporaryDirectory()
     const executable = join(directory, process.platform === 'win32' ? 'opencode.exe' : 'opencode')
@@ -178,7 +200,7 @@ describe('owned OpenCode server lifecycle', () => {
   })
 
   it('coalesces concurrent startup and passes isolated configuration, auth and preferences to its owned child', async () => {
-    const { pool, spawnProcess, fetchImpl, children, dataDirectory, preferences } = setup()
+    const { pool, spawnProcess, fetchImpl, children, preferences } = setup()
     const config = { model: 'test/model', provider: { test: { options: { apiKey: 'secret' } } } }
     const first = pool.acquire(config, { TEST_SETTING: 'value' })
     const second = pool.acquire(config, { TEST_SETTING: 'value' })
@@ -192,18 +214,20 @@ describe('owned OpenCode server lifecycle', () => {
     ]
     expect(command).toBe(preferences.executablePath)
     expect(args).toEqual(['serve', '--hostname=127.0.0.1', '--port=0'])
-    expect(options).toMatchObject({ cwd: dataDirectory, windowsHide: true })
+    expect(options).toMatchObject({ cwd: homedir(), windowsHide: true })
     expect(JSON.parse(options.env.OPENCODE_CONFIG_CONTENT!)).toEqual({
       ...config,
       share: 'disabled'
     })
-    expect(options.env).toMatchObject({
-      TEST_SETTING: 'value',
-      XDG_DATA_HOME: join(dataDirectory, 'data'),
-      XDG_CONFIG_HOME: join(dataDirectory, 'config'),
-      XDG_STATE_HOME: join(dataDirectory, 'state'),
-      XDG_CACHE_HOME: join(dataDirectory, 'cache')
-    })
+    expect(options.env.TEST_SETTING).toBe('value')
+    for (const key of [
+      'XDG_DATA_HOME',
+      'XDG_CONFIG_HOME',
+      'XDG_STATE_HOME',
+      'XDG_CACHE_HOME',
+      'OPENCODE_DB'
+    ])
+      expect(options.env[key]).toBe(process.env[key])
     expect(options.env.OPENCODE_SERVER_PASSWORD).toHaveLength(43)
     expect(connection.headers.Authorization).toBe(
       `Basic ${Buffer.from(`opencode:${options.env.OPENCODE_SERVER_PASSWORD}`).toString('base64')}`

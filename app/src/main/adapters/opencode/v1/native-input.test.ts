@@ -71,6 +71,7 @@ describe('OpenCode native input receipts', () => {
     expect(received.events).toEqual([
       {
         type: 'input.received',
+        nativeMessageId: 'host',
         sessionId: 's1',
         text: part.text,
         uuid: part.id,

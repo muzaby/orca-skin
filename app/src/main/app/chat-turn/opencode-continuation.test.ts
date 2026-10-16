@@ -472,6 +472,7 @@ describe('OpenCode provider continuations through the real session pipeline', ()
       expect(f.events).toContainEqual({
         type: 'message.completed',
         sessionId: 's1',
+        nativeMessageId: 'assistant-completion',
         message: { text: 'Background result received.' }
       })
       expect(f.prompts).toHaveLength(1)
@@ -545,6 +546,7 @@ describe('OpenCode provider continuations through the real session pipeline', ()
       expect(f.events).toContainEqual({
         type: 'message.completed',
         sessionId: 's1',
+        nativeMessageId: 'assistant-completion',
         message: { text: 'Reply between frames.' }
       })
       expect(f.backgroundTasks.hasPending('s1')).toBe(false)
@@ -656,7 +658,12 @@ describe('OpenCode provider continuations through the real session pipeline', ()
         expect.objectContaining({ error: expect.objectContaining({ retryable: false }) })
       ])
       expect(f.events.filter((event) => event.type === 'message.completed')).toEqual([
-        { type: 'message.completed', sessionId: 's1', message: { text: 'First reply.' } }
+        {
+          type: 'message.completed',
+          sessionId: 's1',
+          nativeMessageId: 'assistant-first',
+          message: { text: 'First reply.' }
+        }
       ])
 
       const next = f.run('new explicit input')
@@ -672,8 +679,18 @@ describe('OpenCode provider continuations through the real session pipeline', ()
       ])
       expect(f.commits.map((commit) => commit.text)).toEqual(['initial', 'new explicit input'])
       expect(f.events.filter((event) => event.type === 'message.completed')).toEqual([
-        { type: 'message.completed', sessionId: 's1', message: { text: 'First reply.' } },
-        { type: 'message.completed', sessionId: 's1', message: { text: 'Fresh reply.' } }
+        {
+          type: 'message.completed',
+          sessionId: 's1',
+          nativeMessageId: 'assistant-first',
+          message: { text: 'First reply.' }
+        },
+        {
+          type: 'message.completed',
+          sessionId: 's1',
+          nativeMessageId: 'assistant-fresh',
+          message: { text: 'Fresh reply.' }
+        }
       ])
     } finally {
       response.resolve()
@@ -747,6 +764,7 @@ describe('OpenCode provider continuations through the real session pipeline', ()
       expect(f.events).toContainEqual({
         type: 'message.completed',
         sessionId: 's1',
+        nativeMessageId: 'assistant-completion',
         message: { text: 'Still received completion.' }
       })
       expect(f.commits.filter((commit) => commit.origin)).toHaveLength(1)

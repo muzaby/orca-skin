@@ -148,7 +148,8 @@ describe('OpenCode owned activity', () => {
       type: 'message.completed',
       sessionId: 's1',
       parentToolRunId: 'task-a',
-      message: { text: 'ongoing' }
+      message: { text: 'ongoing' },
+      nativeMessageId: 'child-answer'
     })
     mapper.acceptPrompt('new-root')
     mapper.map(
@@ -199,7 +200,8 @@ describe('OpenCode owned activity', () => {
       type: 'message.completed',
       sessionId: 's1',
       parentToolRunId: 'task-1',
-      message: { text: 'Last child output' }
+      message: { text: 'Last child output' },
+      nativeMessageId: 'a1'
     })
     expect(events.filter((value) => value.type === 'turn.ended')).toHaveLength(1)
     expect(mapper.finish()).toEqual([])
@@ -225,7 +227,8 @@ describe('OpenCode owned activity', () => {
       type: 'message.completed',
       sessionId: 's1',
       parentToolRunId: 'task-1',
-      message: { text: 'Child answer' }
+      message: { text: 'Child answer' },
+      nativeMessageId: 'a1'
     })
     expect(mapper.map(message).events).toEqual([])
     const tool = mapper.map(
@@ -378,7 +381,8 @@ describe('OpenCode owned activity', () => {
       type: 'message.completed',
       sessionId: 's1',
       parentToolRunId: 'task-2',
-      message: { text: 'Resumed answer' }
+      message: { text: 'Resumed answer' },
+      nativeMessageId: 'next-answer'
     })
     expect(completed.events.some((value) => value.type === 'turn.ended')).toBe(false)
   })

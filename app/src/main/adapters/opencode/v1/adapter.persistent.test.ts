@@ -138,6 +138,7 @@ describe('OpenCode persistent SDK channel', () => {
       const next = (await frame(iterator)).flatMap((batch) => batch.events)
       expect(next).toContainEqual({
         type: 'input.echo',
+        nativeMessageId: expect.any(String),
         sessionId: 's1',
         text: 'Second',
         uuid: 'second'
@@ -171,6 +172,7 @@ describe('OpenCode persistent SDK channel', () => {
       const events = (await frame(iterator)).flatMap((batch) => batch.events)
       expect(events[0]).toEqual({
         type: 'input.echo',
+        nativeMessageId: expect.any(String),
         sessionId: 's1',
         text: 'Second',
         uuid: 'second'
