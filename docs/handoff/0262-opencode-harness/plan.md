@@ -2026,11 +2026,13 @@ LiveTurn은 채널 단위 providerGeneration·eventBatches·pushTurn을 제공�
 
 TurnContinuation과 SessionRuntime.runAttempt의 push 인자에 harnessAgent/modelVariant를 추가한다. OpenCode push는 next 요청의 값과 첨부를 사용하고 cwd·system append·extraDirs·settings는 기존 spawn 경계를 따른다. 후속 model 변경의 기존 respawn 판정은 유지하며 Claude는 새 optional 값을 해석할 필요가 없다.
 
-metadata.background:true가 있는 소유 task는 native jobId(없으면 확인된 child sessionId)로 canonical task identity를 만들고 background.call과 연결한다. launch receipt의 completed는 호출 반환이지 작업 종료가 아니므로 call mode=background와 task running을 유지한다. foreground task는 부모 결과에서 기존처럼 끝내며 listen을 붙잡지 않는다.
+metadata.background:true가 있는 소유 task는 native jobId(없으면 확인된 child sessionId)와 소유 parent call ID를 결합한 canonical task identity로 background.call과 연결한다. native job/child ID는 agentId 또는 metadata에 별도로 보존한다. launch receipt의 completed는 호출 반환이지 작업 종료가 아니므로 call mode=background와 task running을 유지한다. foreground task는 부모 결과에서 기존처럼 끝내며 listen을 붙잡지 않는다.
 
 background 완료는 root synthetic text의 정확한 native task envelope와 등록된 child/job ID·terminal state(completed/error)가 일치할 때 정착한다. 이 매핑은 v1 native 프로토콜 해석이며 공통 format helper의 의미 분류나 임의 태그 재피드와 분리한다. 완료 input.received와 canonical notification을 같은 ProviderMessageBatch로 내보내어 post-turn이 작업 정착과 후속 응답 사이에서 break하지 않게 한다; child idle만으로 이 수신 대기를 해제하지 않는다.
 
-canonical source.generation은 prompt마다 바꾸지 않고 채널에 고정하며 sequence는 모든 활동 배치에서 증가한다. 같은 child 재사용·복수 background는 native task ID와 소유 parent call을 대조하고, 같은 완료 part는 한 번만 정착한다. 전체 작업의 완료까지 post-turn listen이 이어지며 새 host 입력은 기존 held/flush 경로를 사용한다.
+canonical source.generation은 prompt마다 바꾸지 않고 채널에 고정하며 sequence는 모든 활동 배치에서 증가한다. 같은 child 재사용은 별도 호출 identity로 등록하고 native 완료 ID를 현재 소유 호출에 연결하여, 이전 호출의 terminalEvidence가 새 실행을 완료로 덮지 못하게 한다. 같은 완료 part는 한 번만 정착하며 전체 작업의 완료까지 post-turn listen이 이어진다. 새 host 입력은 기존 held/flush 경로를 사용한다.
+
+설계 정정 근거: 구현 조사에서 `shared/background-task.ts`가 동일 generation/taskId의 첫 terminalEvidence를 보존하고 OpenCode native job ID가 재사용 child ID와 같음을 확인했다. native ID만 canonical key로 쓰던 초기 ΔV14 기술행은 D-026의 재사용 요구와 충돌하므로 호출 identity를 추가했다. 공통 reducer와 사용자 화면 계약은 바꾸지 않으며 VP-Δ14-06·09 및 EP39h·40c의 재사용 직접 oracle이 이 경계를 검증한다.
 
 ### 취소·실패·승인·정리
 
