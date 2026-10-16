@@ -8,10 +8,10 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | plan/DRAFT — ΔV14 native 시스템 피드 조사. ΔV11~13 기존 구현33/34와 AC11 사용자 인수·독립 verify 대기는 보존 |
+| 상태 | plan/READY — ΔV14 native 시스템 피드·지속 수신 설계 확정. 기존 구현33/34와 AC11 사용자 인수·독립 verify 대기는 보존 |
 | V mode | Delta V — 기준 V1 + ΔV1~13 (각 델타의 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
-| 이번 V revision / 유효 V | ΔV14 DRAFT / V1 + ΔV1~13. DRAFT는 기존 유효 V를 아직 대체하지 않음 |
+| 이번 V revision / 유효 V | ΔV14 / V1 + ΔV1~14. 첫 idle의 채널 종료만 지속 수신으로 대체하며 앞선 입력·UI 계약은 유지 |
 
 # Part I — Product & UX Contract
 
@@ -1967,24 +1967,130 @@ CI 후속: 로컬 관련 테스트 집합에 공통 styles/typeScale 검사가 �
 
 최종 후속: 제품 커밋5b7a64ca의 원격 CI 성공 후 추가 커밋은 결과 기록만 포함한다. 두 구현 커밋의 trailer에서 Agent codex·Status implemented·Criteria-Met33/34·Verified-By pending을 확인했다. plan/INDEX의 impl/IMPL_DONE·다음 Claude와 AC11 대기는 유지하며 독립 verify를 선점하지 않는다. 검증용 브라우저 탭과 생성한 Vite 서버는 종료했다.
 
-# ΔV14 — 시스템 피드의 native 매핑 (DRAFT, 2026-10-16)
+# ΔV14 — native 시스템 피드와 지속 수신 (READY, 2026-10-16)
 
-## 요구와 공통 계약
+## Product / UX와 결정
 
-사용자는 `system-reminder`의 실제 메시지 타입과 모델 재입력을 확인하고, 이어서 Claude에도 같은 공통 속성을 적용하도록 확정했다. 분류·표시 정본은 [0232 ΔV3](../0232-background-transcript-ux/plan.md)다. 0262는 OpenCode 1.x native 입력→공통 계약과 자동 후속 응답 수신만 소유한다. OpenCode 전용 표시 정책을 만들지 않는다.
+사용자는 `system-reminder`의 실제 메시지 타입과 모델 재입력을 확인하고 Claude에도 같은 공통 속성을 적용하도록 요구한 뒤 구현을 지시했다. 분류·표시는 [0232 ΔV3](../0232-background-transcript-ux/plan.md), DEV 제어는 [0003](../0003-debug-panel-mock-adapter/plan.md)가 소유한다. 여기서는 OpenCode 1.x가 이미 모델에 보낸 입력과 그 후속 응답을 빠짐없이 수신하는 경로를 확정한다.
 
-## 조사 결과와 변경 후보
+| Decision | 계약 / 이유 | 상태·출처 |
+|---|---|---|
+| D-025 | 신뢰된 native synthetic user text를 공통 origin.format으로 기록한다. 태그는 실행 지시가 아니며 서버가 소유한 모델 전달을 Orca가 반복하지 않는다. | ACTIVE / 사용자 요구·0232 공통 계약·실측 |
+| D-026 | 부모 첫 idle은 응답 프레임만 끝낸다. 소유 background 작업의 완료 입력과 후속 assistant는 같은 채널에서 별도 수신 프레임으로 받는다. | ACTIVE / 누락 경로를 고치는 구현 설계 |
+| D-027 | 중단·오류·연결 종료에서 자동 재전송하지 않는다. main 응답 중단은 소유 background 수신과 분리하고, 채널 폐기는 구 세대 이벤트·승인을 차단한다. | ACTIVE / 기존 runtime 계약 승계 |
+| D-028 | 같은 채널의 후속 사용자 입력도 그 입력의 agent·variant·model·첨부를 사용한다. 1.x API·기존 admission·원본 보존·하네스 격리를 유지한다. | ACTIVE / 지속 수신에 따른 기존 동작 보존 |
 
-[실행 조사](system-feed-research.md): 실제 CLI 1.19.0의 reminder는 기본 모드에서 모델 입력에만 들어가며 SSE에 없을 수 있다. 실험 plan 모드에서는 `message.part.updated`의 `type: text`, `synthetic: true`로 관측된다. 자동 압축의 후속 입력과 background task의 완료 입력은 서버가 모델 루프에 직접 전달한다. 수신한 태그 본문을 무조건 다시 prompt하는 방식은 중복 입력을 만든다.
+사용자 화면은 부모 응답 완료→백그라운드 수신 대기→자동 후속 응답→완료로 전이한다. 시스템 피드 자체의 기본 숨김·DEV 표시·혼합 part 보존은 0232를 따른다. 실험 background 기능을 Orca가 새로 켜거나, OpenCode 2.x API·새 패키지·독립 프로세스 관리·새 child 중단 UI를 추가하지 않는다.
 
-현재 `OpenCodeEventMapper.part`는 user part를 제외하고, adapter는 부모의 첫 idle에서 구독을 종료한다. 실제 background 모드에서는 이 idle 뒤 서버가 synthetic `<task …>` 입력과 후속 assistant를 발행했다. 수정 후보는 출처·의미 메타데이터 정규화와 서버가 시작한 후속 응답의 수신 수명이다. 이미 소비된 입력의 재전송은 해결책이 아니다.
+| R↔AT / AC | 완료 기준 / production 경로 |
+|---|---|
+| R-35↔AT-35 / AC35 NEW | native root user의 synthetic text가 원문·출처·format을 가진 수신 입력으로 한 번 기록된다. 같은 본문의 다른 part는 별도 기록하고 동일 part 재수신·수기 태그·child text는 자동 root user로 만들지 않는다. SSE→native mapper→input.received→기존 coordinator 경로를 사용한다. |
+| R-36↔AT-36 / AC36 NEW | background launch 뒤 부모 첫 idle에서 응답은 끝나지만 수신은 유지된다. 서버의 완료 입력→후속 assistant→다음 idle까지 기록하며 부모 텍스트·usage를 중복 합산하지 않는다. 해당 시나리오의 client prompt는 최초 사용자 입력 한 번뿐이다. |
+| R-37↔AT-37 / AC37 NEW | main Stop·연결 끊김·provider 오류·세션 채널 폐기에서 중복 prompt나 옛 승인·이벤트의 새 턴 유입이 없다. main Stop은 같은 채널의 background 수신을 보존하고, 채널 폐기는 소유 요청을 종료한다. 연결 복구는 다음 명시 입력의 새 구독으로 수행하며 지난 synthetic 입력을 재송신하지 않는다. |
+| R-38↔AT-38 / AC38 NEW | 후속 입력의 agent·variant·model·첨부와 원래 queue UUID가 실제 prompt/echo에 대응한다. 두 입력은 native ascending ID가 각각 다르고, 반복 send의 SSE 구독은 채널당 한 번이며 admission 철회·HTTP 거절은 허위 응답을 만들지 않는다. |
 
-## V / §10 확정 전 항목
+## 조사와 변경 경계
 
-- 공통 속성은 0232에서 확정하고 mapper→coordinator→history/reducer 경로에서 같은 값을 보존한다. user part와 사람 입력/첨부의 혼합을 구분한다.
-- background 기능이 켜진 경우의 부모 idle→자동 입력→assistant→다음 idle, 취소·세션 전환·재접속을 설계한다. 기본적으로 꺼진 실험 기능을 이번 수정이 임의로 켜지 않는다.
-- prompt ID·native message/part ID·session ID로 기존 stale/중복 격리와 연결한다. 태그 텍스트를 중복 식별자로 쓰지 않는다.
-- 1.x 코드·fixture는 기존 `adapters/opencode/v1`에 둔다. 공통 runtime의 provider-owned listen 경로를 재사용할지 필요한 포트를 주입할지는 READY 전에 확정한다.
-- 기존 VP-05/15/18 및 ΔV10 입력 ID 회귀, 새 native synthetic mapping·첫 idle 뒤 수신·중복 prompt 0회 직접 검사를 연결한다. 정확한 node/pair·강제 지점 분모는 수명 설계 후 확정한다.
+| 대상 / 검색 | 관측 / 설계 영향 |
+|---|---|
+| [CLI 1.19 실행 조사](system-feed-research.md) | 기본 reminder는 모델 payload에만 있을 수 있다. 저장된 synthetic part·자동 압축·background 완료는 서버가 모델 loop에 전달하며, 실측 background는 client prompt 1회 뒤 첫 idle 이후 응답까지 발생했다. |
+| `opencode/v1/map.ts` user/part·finish | user role을 기억하지만 user part를 버린다. finish는 terminal을 영구 설정하고 usage를 합산하므로, 수신 채널과 응답별 mapper를 분리해야 한다. |
+| `opencode/v1/adapter.ts` subscribe·idle·interrupt | 첫 idle에서 iterator를 끝내고 interrupt도 transport를 abort한다. LiveTurn.pushTurn이 없어 runtime은 턴 단위 경로를 사용한다. |
+| `opencode/v1/activity.ts` child·background.call | 부모 Task completed를 foreground/returned로 취급하고 child를 닫는다. metadata.background/jobId/sessionId로 launch와 완료 통지를 구분해야 한다. |
+| `SessionRuntime` send/listen/pump + `chat-turn/post-turn.ts` | pushTurn이 있는 채널은 프레임 밖 이벤트도 unframed에 보관한다. post-turn은 canonical pending/busy/backlog가 있어야 listen을 열며, activity 구독은 표시 갱신만 한다. |
+| `common/turn.ts`·runtime push 인자 | TurnContinuation에 harnessAgent/modelVariant가 없어 현재 TurnRequest 값이 후속 채널에 전달되지 않는다. 선택 optional 필드를 기존 요청과 대칭으로 추가한다. |
 
-이 DRAFT는 이전 AC11 인수 대기나 구현33/34를 완료 처리하지 않는다. 0232 D-21~23 답변과 공통 계약, native 자동 재개 수명·oracle 확정 후 별도 READY 설계 커밋에서 구현 기준을 잠근다.
+기준 V는 V1+ΔV1~13의 기존 구현 기준(`f7c94554c28eba7024e7a66f3a3e93355389d868`, git cat-file: commit)이다. 첫 idle의 구독 종료만 D-026으로 대체하고, ΔV10의 ascending ID·정상 stop과 오류 분류·provider 경계·Claude 계약은 유지한다. 새 AC4건으로 총34→38이며 기존 자기확인33건과 AC11 대기는 새 검증 결과에 합산하지 않는다.
+
+## Technical Design
+
+### native 입력과 응답별 상태
+
+`adapters/opencode/v1` 안에 native 입력 영수증/작업 통지 해석의 순수 seam을 둔다. root session·user role·synthetic:true가 확인된 text만 `{type:'input.received', text, uuid, origin:{kind:'automatic', format}}`으로 변환하고, format은 0232의 `withReceivedInputFormat`을 호출한다. native session/message/part ID를 receipt 키로 사용하며 텍스트를 중복 키로 쓰지 않는다.
+
+host가 보낸 user message의 일반 본문은 기존 로컬 input.echo와 화해하고 자동 입력으로 재기록하지 않는다. 같은 user message 안에 추가된 synthetic part는 별도 수신 part로 처리하여 사람 본문·첨부를 덮어쓰지 않는다. ignored:true·이전 구독 이전의 stale 메시지·다른 세션·child synthetic은 root 입력으로 발행하지 않으며, SSE에 없는 기본 reminder를 추측해서 합성하지 않는다.
+
+채널은 소유 message/part 영수증과 child 관계를 유지하고 root 응답 mapper는 idle마다 flush·교체한다. idle 전에 본 native assistant/part는 다음 응답으로 재수용하지 않으며, 뒤에 도착한 synthetic user의 parentID를 갖는 새 assistant는 수용한다. root flush는 아직 실행 중인 background child를 finish하지 않고, child idle은 해당 child의 텍스트만 flush한다.
+
+### 채널·작업 소유권과 기존 runtime 재사용
+
+```text
+OpenCode SSE → 채널 입력/활동 mapper → ProviderMessageBatch
+  → SessionRuntime.startPump → 현재 frame 또는 unframed
+  → 첫 idle: telemetry + turn.ended / frame 종료
+  → canonical backgroundPending → runTurnWithContinuations.listen
+  → native 완료 입력 + task 정착 → 후속 assistant → 다음 idle
+```
+
+LiveTurn은 채널 단위 providerGeneration·eventBatches·pushTurn을 제공한다. SDK event.subscribe는 첫 prompt보다 먼저 한 번 열고, 최초·후속 prompt를 같은 채널에 제출한다. pushTurn은 실제 수용 결과를 runtime에 돌려주며 원래 pending UUID의 echo를 발행한다; runtime의 canSubmitInitial→push→commit 순서를 어댑터에서 재검사하거나 앞당기지 않는다.
+
+TurnContinuation과 SessionRuntime.runAttempt의 push 인자에 harnessAgent/modelVariant를 추가한다. OpenCode push는 next 요청의 값과 첨부를 사용하고 cwd·system append·extraDirs·settings는 기존 spawn 경계를 따른다. 후속 model 변경의 기존 respawn 판정은 유지하며 Claude는 새 optional 값을 해석할 필요가 없다.
+
+metadata.background:true가 있는 소유 task는 native jobId(없으면 확인된 child sessionId)로 canonical task identity를 만들고 background.call과 연결한다. launch receipt의 completed는 호출 반환이지 작업 종료가 아니므로 call mode=background와 task running을 유지한다. foreground task는 부모 결과에서 기존처럼 끝내며 listen을 붙잡지 않는다.
+
+background 완료는 root synthetic text의 정확한 native task envelope와 등록된 child/job ID·terminal state(completed/error)가 일치할 때 정착한다. 이 매핑은 v1 native 프로토콜 해석이며 공통 format helper의 의미 분류나 임의 태그 재피드와 분리한다. 완료 input.received와 canonical notification을 같은 ProviderMessageBatch로 내보내어 post-turn이 작업 정착과 후속 응답 사이에서 break하지 않게 한다; child idle만으로 이 수신 대기를 해제하지 않는다.
+
+canonical source.generation은 prompt마다 바꾸지 않고 채널에 고정하며 sequence는 모든 활동 배치에서 증가한다. 같은 child 재사용·복수 background는 native task ID와 소유 parent call을 대조하고, 같은 완료 part는 한 번만 정착한다. 전체 작업의 완료까지 post-turn listen이 이어지며 새 host 입력은 기존 held/flush 경로를 사용한다.
+
+### 취소·실패·승인·정리
+
+| 경계 | 동작 |
+|---|---|
+| 정상 root idle | 해당 응답의 text/usage/turn.ended를 한 번 발행하고 채널·다른 child·승인 수신을 유지. child 승인을 포함한 전역 Promise 집합을 기다려 root 완료를 막지 않는다. |
+| main interrupt | native root session.abort만 요청하고 SSE는 유지. 현재 main 승인은 해당 turn signal로 해소하며, assistant 없이 idle이 와도 취소 tail terminal을 한 번 제공해 runtime draining을 끝낸다. 기존 background reception 정책을 바꾸지 않는다. |
+| child 승인 | 확인된 소유 child 요청은 채널/child 수명에 결합하고 main turn 교체·중단 신호에 잘못 취소하지 않는다. 다음 listen 프레임의 최신 requestApproval delegate를 사용한다. |
+| close/채널 교체 | 즉시 generation·approval callback을 무효화하고 iterator/transport를 정리한다. 소유 root와 알려진 child에 종료 요청을 보내되 기존 사용자 서버·무관 세션을 종료하지 않는다. 중복 close는 추가 전송하지 않는다. |
+| provider 오류/SSE 종료 | 기존 retryable:false 오류와 채널 종료를 전달하고 원문/토큰을 오류로 노출하지 않는다. SSE 자동 재접속·기존 prompt 재제출을 하지 않으며, 다음 명시 send는 새 generation/구독으로 시작한다. |
+| 종료 요청 실패 | 성공·stopped를 꾸미지 않는다. 기존 canonical connection 종료/불확실 상태로 남기고 정리 오류는 민감 본문 없이 기록한다. 새 개별 stopTask/backgroundTask 지원은 추가하지 않는다. |
+
+prompt API 호출은 host가 제출을 시도한 입력당 최대 한 번이며 HTTP 거절도 그 한 번에 포함한다. native 피드 수신은 prompt 요청을 늘리지 않으며, root/child 이벤트의 원문은 기존 저장·journal 경로를 사용한다. 일반 사용자·모델 본문을 새 중복 캐시에 복제하지 않고 native ID와 필요한 현재 응답 상태만 유지한다.
+
+## V / 직접 oracle
+
+아래 신규 좌표는 구현할 테스트 이름이며 아직 존재하는 증거로 주장하지 않는다. `adapters/opencode/v1/native-input.test.ts`는 순수 입력/소유권 seam, 같은 디렉터리의 `adapter.persistent.test.ts`는 설치 SDK에 HTTP/SSE만 주입하는 실제 adapter, `app/chat-turn/opencode-continuation.test.ts`는 실제 adapter·SessionRuntime·BackgroundTaskTracker·runTurnWithContinuations·TurnCoordinator를 연결한다. 마지막 테스트의 DB 저장 sink/IPC transport만 메모리 대역으로 대체하고 input.received→persist/forward 호출 결과를 관측한다; 실제 DB round-trip은 0232가 소유한다.
+
+| Pair / provenance | 필요도 / 경로·§10 | 직접 oracle |
+|---|---|---|
+| VP-Δ14-01 R35↔AT35 NEW | REQUIRED / SSE→영수증→입력→coordinator, EP38a~c·39g | 신규 `native-input.test.ts: preserves native synthetic parts and rejects own text, ignored and foreign inputs`; 신규 `opencode-continuation.test.ts: commits each native feed once before its provider reply` |
+| VP-Δ14-02 R36↔AT36 NEW | REQUIRED / launch→첫 idle→listen→완료→응답, EP39a·d~h | 신규 `opencode-continuation.test.ts: receives the background completion after first idle without another prompt` |
+| VP-Δ14-03 R37↔AT37 NEW | REQUIRED / interrupt/error/retire→다음 수신, EP40a~d | 신규 `adapter.persistent.test.ts: preserves owned reception on interrupt and retires stale channel callbacks`; 신규 `opencode-continuation.test.ts: ends a disconnected chain without replaying accepted input` |
+| VP-Δ14-04 R38↔AT38 NEW | REQUIRED / 다음 request→runtime→push→SDK, EP39b·c | 신규 `opencode-runtime.test.ts: forwards changed agent and variant with attachments on the existing channel` |
+| VP-Δ14-05 MD-Δ14-01↔UT-Δ14-01 NEW | REQUIRED / native ID·part→영수증, EP38a·b | 신규 `native-input.test.ts: deduplicates native part IDs but preserves equal text from different parts`; 위 provenance table |
+| VP-Δ14-06 MD-Δ14-02↔UT-Δ14-02 NEW | REQUIRED / task metadata→소유권·정착, EP39h·40c | 신규 `activity.test.ts: keeps background launch pending until its owned synthetic completion`; `separates concurrent children and reused sessions across root frames` |
+| VP-Δ14-07 AR-Δ14-01↔IT-Δ14-01 NEW | REQUIRED / mapper→batch→pump→tracker/listen→coordinator, EP38c·39d~g | 신규 `opencode-continuation.test.ts` 위 두 정상 시나리오 및 `retains completion received between root idle and listen registration` |
+| VP-Δ14-08 AR-Δ14-02↔IT-Δ14-02 NEW | REQUIRED / request→push와 approval/retire, EP39a~c·40a~d | 신규 `adapter.persistent.test.ts: subscribes once before initial and subsequent prompts`, `keeps child approvals independent from interrupted root frames`; 위 option·disconnect 테스트 |
+| VP-Δ14-09 SD-Δ14-01↔ST-Δ14-01 NEW | REQUIRED / 첫 입력→다중 자동 응답→종료/재접속, EP38a~40d | 신규 `opencode-continuation.test.ts: receives concurrent background completions and a later user turn on one subscription`; disconnect/interrupt table |
+| VP-05·15·18 및 ΔV10 입력 ID 구간 INHERITED | REGRESSION / 기존 입력·오류·1.x SDK 경계 | 기존 `adapter.test.ts: sends native ascending IDs and completes successive turns under the legacy stop ordering contract`, `surfaces a disconnected stream and aborts only that session without resending the prompt`; `opencode-runtime.test.ts: delivers a reply after runtime admission for session %s` |
+| 공통 runtime listen·취소 계약 INHERITED | REGRESSION / 0067·0136·0143·0250 동작 | 기존 `session-runtime.test.ts: 채널 생존 중 listen 은 push 없이 프레임을 열어 이벤트를 소비한다`, `유휴 중 쌓인 백로그(unframed)를 listen 프레임이 선합류한다`, `idle listen 취소는 다음 예약 응답을 drain하지 않고 같은 채널에서 수신한다`; `post-turn.schedules.test.ts: 예약 없이 백그라운드 작업만 기다려도 ready이며 즉시 재개한다` |
+
+## §10 강제 지점 전수
+
+경로 접두어는 `app/src/main/`이며 표의 신규 테스트 파일은 바로 위 oracle 설계를 따른다. 복수 edge를 한 자리로 숨기지 않고 native 수신·분류·배치·pump·tracker·listen·coordinator를 나누었다.
+
+| 지점 / 자리 수 | production 위치 / 실패 의미 | 직접 oracle |
+|---|---|---|
+| EP38a / 1 | `adapters/opencode/v1/native-input.ts` native role/session/part receipt: 수기·child·stale 입력 승격 또는 중복 | native-input provenance·ID 두 테스트 |
+| EP38b / 1 | 같은 seam→shared withReceivedInputFormat: 원문·kind·format 누락 | native-input `preserves native synthetic parts and rejects own text, ignored and foreign inputs`의 exact event |
+| EP38c / 1 | `map.ts`/`activity.ts`→adapter batch: user part 유실·동일 host 본문 재커밋 | opencode-continuation `commits each native feed once before its provider reply`의 실제 SSE부터 commit/forward까지 |
+| EP39a / 1 | `adapter.ts` 첫 구독·prompt: 구독 전 송신·구독 중복·admission 재검사 | `adapter.persistent.test.ts: subscribes once before initial and subsequent prompts`의 HTTP 순서·subscription 수 + 기존 admission 검사 |
+| EP39b / 1 | `session-runtime.ts` runAttempt→pushTurn: agent/variant/options 누락 | opencode-runtime `forwards changed agent and variant with attachments on the existing channel` |
+| EP39c / 1 | adapter pushTurn→SDK prompt/echo: 낡은 옵션·첨부·UUID·ID 재사용 | 같은 테스트의 HTTP body·echo 및 native ascending ID 직접 단언 |
+| EP39d / 1 | adapter iterator→SessionRuntime.startPump/routeBatch: 첫 idle 채널 사망·usage 중복 | opencode-continuation `receives the background completion after first idle without another prompt`의 첫/후속 프레임·usage |
+| EP39e / 1 | routeProviderEvents→onProviderEvent→BackgroundTaskTracker: generation/작업 사실 누락 | `opencode-continuation.test.ts: receives the background completion after first idle without another prompt`의 실제 canonical task/call pending·terminal 값 |
+| EP39f / 1 | tracker.hasPending→post-turn decide/listen: launch를 완료로 오판·첫 idle 뒤 break | 같은 `receives the background completion after first idle without another prompt`의 첫 idle 뒤 ready·수신 상태와 후속 assistant 결과 |
+| EP39g / 1 | runtime.listen→TurnCoordinator input/response sink: 수신 입력·후속 응답 순서/영속 호출 누락 | opencode-continuation `commits each native feed once before its provider reply` |
+| EP39h / 1 | activity native completion→task notification+input batch: child idle 조기 정착·다른 작업 종료 | activity 소유권·동시 task 두 테스트 + opencode-continuation `retains completion received between root idle and listen registration` |
+| EP40a / 1 | runtime interrupt→adapter native abort: SSE까지 폐기·취소 tail drain 고착 | `adapter.persistent.test.ts: preserves owned reception on interrupt and retires stale channel callbacks`; 신규 `opencode-continuation.test.ts: resumes reception after interrupt without retaining cancelled tail`의 실제 runtime 취소 후속 프레임 |
+| EP40b / 1 | adapter close/error→runtime retireChannel: iterator/승인 누수·prompt 재전송 | opencode-continuation `ends a disconnected chain without replaying accepted input`; 신규 `adapter.persistent.test.ts: closes owned subscriptions once and reports uncertain abort failures` |
+| EP40c / 1 | 채널 generation/native ID→mapper admission: 이전 응답·세션·child/usage 재수용 | activity `separates concurrent children and reused sessions across root frames`; adapter.persistent `preserves owned reception on interrupt and retires stale channel callbacks`의 구 세대 SSE table |
+| EP40d / 1 | adapter approval scope→최신 runtime delegate: main 취소가 child 승인 취소·옛 frame 승인 반영 | adapter.persistent `keeps child approvals independent from interrupted root frames`; 기존 `approval.main-scope.test.ts`의 initial/followup/listen/respawn 회귀 |
+| EP41a / 1 | 이 plan 메타·ΔV14 | READY/유효 V·AC 분모·구현 보고 구분이 어긋남 | gate: 대상 `git diff --check`와 READY Decision↔AC↔pair↔EP 재조회 |
+| EP41b / 1 | `docs/handoff/INDEX.md` 0262 행 | plan과 보드의 단계/상태/다음 주체 불일치 | gate: plan·INDEX 상태 동시 재조회 및 설계 commit trailer 파싱 |
+
+제품 분모는 EP38 3 + EP39 8 + EP40 4 =15자리, 문서 운영은 EP41 2자리로 별도 보고한다. 직접 이벤트·HTTP body·callback·최종 상태를 관측하므로 구조 proxy용 mutation은 선택하지 않는다. 신규 oracle은 해당 경로 양끝을 mock하지 않으며 필요한 순서 race는 지연 가능한 SSE/HTTP fixture로 재현한다.
+
+## 운영 gate와 READY 대조
+
+관련 비DB Vitest는 native mapper/adapter/runtime·background/post-turn·Claude callback/취소 회귀를 포함한다. 전체 node/web/test typecheck·읽기 전용 ESLint·build·error-handling inventory·문서 inventory/링크·diff를 실행하고 설치 SDK1.18.27/CLI1.19 계약을 유지한다. npm pretest/install/rebuild·새 모델 호출은 필요하지 않으며 실제 CLI 검증을 추가할 때는 격리 loopback 합성 모델만 사용한다.
+
+ACTIVE 대조: D-025↔AC35, D-026↔AC36, D-027↔AC37, D-028↔AC38이며 D-004/015~017의 Claude·1.x 경계와 충돌하지 않는다. 공통 origin.format→저장/표시의 나머지 edge는 0232가 소유하고, 본문은 native 공급·수신 lifetime만 규정하므로 두 계획이 같은 표시 정책을 중복 소유하지 않는다. 기존 AC11 인수와 독립 verify는 유지하며 설계 READY를 구현 완료로 표시하지 않는다.
