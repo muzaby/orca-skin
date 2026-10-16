@@ -13,7 +13,7 @@
 Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `features/agents/profiles.ts`의 고정 프로필을 app 컴포지션 루트가 선택하고 `ExtensionBuilder`에 지침·key만 전달한다. 어댑터는 제품 종류를 해석하지 않고 기존 `TurnExtensions`의 prompt·도구·plugin 입력을 실행한다. 별도 플러그인 인터페이스나 에이전트 등록 플랫폼은 없다.
 
 실행 계약 정본은 [adapters/common/types.ts](../../../app/src/main/adapters/common/types.ts)의 `SessionAdapter`·`LiveTurn`·`ProviderMessageBatch`다. `sendMessage(req: TurnRequest)`는 `LiveTurn`을 반환하고 `eventBatches`에 정규화 이벤트 묶음을 제공한다.
-설치 확인/안내 외에 `describe()`·`complete()`·`classifyError()`와 LiveTurn 제어도 어댑터 책임이다. 입력은 [adapters/common/turn.ts](../../../app/src/main/adapters/common/turn.ts), 와이어는 [shared/ipc.ts](../../../app/src/shared/ipc.ts)의 `NormalizedEvent`를 참조한다.
+설치 확인/안내 외에 `describe()`·`complete()`·`classifyError()`와 LiveTurn 제어도 어댑터 책임이다. `readHistory()`는 알려진 native 세션의 ID·cwd·실행 설정을 받아 읽기 전용 snapshot 또는 접근 상태를 반환한다. 입력은 [adapters/common/turn.ts](../../../app/src/main/adapters/common/turn.ts), 조회 계약은 [adapters/common/native-history.ts](../../../app/src/main/adapters/common/native-history.ts), 와이어는 [shared/ipc.ts](../../../app/src/shared/ipc.ts)의 `NormalizedEvent`를 참조한다.
 
 ### 1.2 등록된 백엔드 (현재 — Phase 3 SDK)
 
@@ -28,13 +28,15 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 
 공통 구현은 하네스 구현이나 선택 registry를 import하지 않는다. 조립부가 모델 parser·설정 reader·실행 정책을 주입하고, 하네스 형제 간 import와 v1 밖 OpenCode SDK import는 ESLint가 거부한다. 공통 live permission 입력은 정규화 모드이며 Claude SDK 모드 변환은 Claude 어댑터 안에서 수행한다.
 
-#### OpenCode 실행과 격리
+#### OpenCode 실행과 native 저장소
 
 `opencode/v1/activity.ts`는 소유 prompt의 task metadata가 지정한 child만 수집한다. child 텍스트·도구는 root 세션과 parentToolRunId로 저장하며 도구 ID는 native session으로 구분한다. child 종료·오류·usage는 root 응답을 종료하지 않는다. task와 셸의 수신 상태·로그는 providerEvents의 background.call journal로 보존한다. native background launch는 실제 완료 통지를 받을 때까지 canonical 작업을 pending으로 유지하며 독립 프로세스 제어는 제공하지 않는다. 추가 컨텍스트 폴더는 system 문맥의 JSON 목록으로 전달하며 native 도구 승인은 유지한다.
 
 앱은 `createOpenCodeAdapter`를 통해 `SessionAdapter`를 받고, `opencode/implementation.ts`의 전송·서버 수명·설정 로더 계약만 사용한다. 구체 adapter/server 생성은 `opencode/v1/index.ts`가 담당한다. 버전 디렉터리를 직접 소비하거나 버전 구현끼리 참조하는 import는 ESLint가 차단한다. 다른 버전 구현은 같은 계약을 제공하고 중립 진입점에서 선택해야 하며, 현재 실행 가능한 구현은 1.x다.
 
-`OpenCodeServerPool`은 실행 파일·구성·환경 fingerprint별 시작을 합치고 loopback 임의 포트, 임의 인증 암호, Orca 전용 XDG 데이터 경로를 사용한다. 앱 종료는 자신이 spawn한 child만 종료한다. 설치된 CLI를 PATH와 npm 설치 경로에서 찾거나 하네스 설정의 절대 실행 파일 경로를 사용한다. 자동 CLI 설치·사용자 OpenCode 프로세스 재사용은 제공하지 않는다.
+`OpenCodeServerPool`은 실행 파일·구성·환경·cwd fingerprint별 시작을 합치고 loopback 임의 포트와 임의 인증 암호를 사용한다. 서버는 실제 작업 cwd에서 실행하며 하네스의 native 환경과 저장 경로를 따른다. 엔진 설정은 `OPENCODE_CONFIG_CONTENT` 실행 오버라이드로 전달하고 native 설정 파일은 덮어쓰지 않는다. 앱 종료는 자신이 spawn한 child만 종료한다. 설치된 CLI를 PATH와 npm 설치 경로에서 찾거나 하네스 설정의 절대 실행 파일 경로를 사용한다. 자동 CLI 설치·사용자 OpenCode 프로세스 재사용은 제공하지 않는다.
+
+`opencode/v1/native-history.ts`는 동일 native ID·cwd를 확인하고 변경 중이거나 응답이 미완료인 이력의 교체를 보류한다. 구격리 저장소의 알려진 세션은 `legacy-storage-migration.ts`가 원본과 native 대상의 ID·리소스를 확인한 뒤 연결하며, 충돌·불완전한 전환은 상태로 반환한다. 공통 조립은 snapshot을 Orca DB에 보관해 표시·검색에 사용한다. 목록 제거와 보관 계층의 수명은 [persistence.md](./persistence.md), 원본 소유 정책은 [ADR-009](../../decisions/009-harness-native-storage-authority.md)를 따른다.
 
 `OpenCodeAdapter`는 `/v2/client`의 legacy 호환 API(`/session`, `/event`)를 사용한다. catalog는 구성별 캐시를 사용하며 목록 새로고침은 다시 조회한다. `opencode/v1/channel.ts`는 입력 전에 SSE를 연결하고 같은 LiveTurn의 pushTurn으로 후속 입력을 제출한다. session ID·prompt parent ID·event/part ID로 소유권과 중복을 격리하며, 응답 idle은 해당 프레임만 종료한다. 이후 소유 background의 완료 입력과 응답은 기존 SessionRuntime pump·listen 경로로 받는다.
 
@@ -59,7 +61,7 @@ native user의 synthetic text만 공통 `input.received`로 기록하고, 모델
 | 인프로세스 도구 | `mcpServers` | `claude/runtime-tools.ts`의 `adaptRuntimeTools` — 대화 query 는 `allowedTools` 를 쓰지 않는다 |
 | 시스템 지침·스킬 선택·hook | 대화 query 옵션 조각 | `adaptSystemPrompt`·`adaptSkills`·`adaptHooks` |
 
-제목용 `complete`는 도구 없는 단발 실행이고, 대화는 plugin·runtime tool·권한 hook을 사용한다. `~/.claude/skills`는 사용자 스킬 래퍼 plugin으로 전달한다. 정확한 호출 옵션은 [claude.ts](../../../app/src/main/adapters/claude/adapter.ts)가 정본이다.
+제목용 `complete`는 도구 없는 단발 실행이고, 대화는 plugin·runtime tool·권한 hook을 사용한다. Claude native 루트는 `claude/native-paths.ts`가 `CLAUDE_CONFIG_DIR` 또는 기본 `~/.claude`로 해석하며 설정 불러오기·skills·plan·workspace guard·native 이력 조회가 이를 사용한다. 사용자 skills는 래퍼 plugin으로 전달하고 엔진 설정은 실행 오버라이드로 유지한다. 정확한 호출 옵션은 [claude.ts](../../../app/src/main/adapters/claude/adapter.ts)가 정본이다.
 
 #### 컨텍스트 모델과 파일 입력
 
@@ -105,27 +107,28 @@ SDK 가 throw 하는 에러 메시지/코드에서 `401` / `OAuth` / `expired` �
 | `options.hooks` (PreToolUse / Stop …) | ✅ | 구현 | `adaptHooks(extensions.hooks)` + 어댑터 내부 훅(workspace guard PreToolUse · Stop git sync · Stop 출력 수집)을 `claude/adapter.ts` 가 병합 — in-process 콜백(§3.2.5) |
 | `createSdkMcpServer` + `tool()` | ✅ | 구현 | 인프로세스 runtime tool(`claude/runtime-tools.ts` `adaptRuntimeTools` → `mcpServers`) — 산출물 게시 도구 등 |
 | `options.mcpServers` | ✅ (runtime tool 전용) | 구현 | 파일 기반 MCP 는 plugin `.mcp.json` 으로 로드([standardization.md §5.1](./standardization.md)); `options.mcpServers` 는 인프로세스 runtime tool 서버에만 쓴다 |
-| `options.skills` + `settingSources: ['project','local']` | ✅ | 구현 | `adaptSkills`·`adaptSettingSources`(§1.3, 0117) — 사용자 전역 settings 는 상속하지 않고, 사용자 `~/.claude/skills` 는 wrapper plugin 으로 전달 |
+| `options.skills` + `settingSources: ['project','local']` | ✅ | 구현 | `adaptSkills`·`adaptSettingSources`(§1.3) — 사용자 전역 settings 는 상속하지 않고, native 루트의 사용자 skills는 wrapper plugin 으로 전달 |
 | `options.disallowedTools` | ✅ | 구현 | `['WebSearch']` — 대화 실행에서 WebSearch 를 차단하는 용도 하나(`claude/adapter.ts`). 격리 해제 보완 용도가 아니다 |
 | `options.plugins` (로컬 플러그인) | ✅ | 구현 | `dist/<engine>/plugins/orcinus-orca` + 사용자 skill wrapper 를 `{ type: 'local', path }` 로 주입(`adaptPlugins`, 0058) |
 | `prompt: AsyncIterable<SDKUserMessage>` | ✅ | 구현 | `streaming-input.ts` 턴-스코프 입력 — 장수명 채널 `pushTurn` 의 토대 |
 | `forkSession` | ✅ | 구현 | Fork(분기)가 SDK 네이티브 `forkSession` 에 위임([GLOSSARY.md](../../GLOSSARY.md) Fork) |
-| `listSessions` / `loadSession` | ❌ | 미사용 | 로컬 DB 가 진실의 기준이라 외부 jsonl 을 읽지 않는다([persistence.md](./persistence.md)) |
+| `getSessionMessages` | ✅ | 조회 | `claude/native-history.ts`가 원본 JSONL의 ID·cwd·파일 일관성을 확인하고 SDK로 현재 chain을 선택한다. 조회용 메모리 저장소는 실행 query의 native persistence를 바꾸지 않는다([persistence.md](./persistence.md)) |
+| native 전체 세션 목록 가져오기 | ❌ | 미제공 | Orca에 알려진 세션만 재조회하며 native 저장소 전체를 목록으로 자동 가져오지 않는다 |
 
 자세한 SDK API 시그니처는 [`docs/spec/claude/agent-sdk/typescript.md`](../../spec/claude/agent-sdk/typescript.md) (SSOT).
 
 ### 1.8 Adapter 책임 확장 (Future anchor)
 
-> **rule of three ([standardization.md §4](./standardization.md))**: 현 `SessionAdapter`(§1.1)는 세션 실행의 얇은 계약이며 **claude 단일 구체** 구현뿐이다. *엔진 전체*(인증·되돌리기·직접 API 등)를 묶는 범용 `BackendAdapter` 추출은 **3번째 엔진까지 미룬다** — 두 엔진은 구체 클래스(`ClaudeEngine`/`OpenCodeEngine`)로 시작하고 겹치는 부분만 추출한다.
+> **rule of three ([standardization.md §4](./standardization.md))**: `SessionAdapter`(§1.1)는 하네스 실행·조회 계약이다. Claude와 OpenCode는 각 모듈에서 구현하고, 인증·되돌리기·직접 API를 모두 묶는 별도 범용 `BackendAdapter`는 도입하지 않는다.
 
 opencode 등 다중 어댑터 환경 대비:
 
-| 책임 | 현재 (claude-code 전용) | Future 인터페이스 |
+| 책임 | 현재 | 확장 경계 |
 |---|---|---|
-| Skills 스캔 경로 | `Bootstrap.skillRoots()` 에 orca `sources/skills` + `~/.claude/skills` 하드코딩 (`features/extensions/common/skills/scan.ts` 는 루트 주입식) | `SessionAdapter.getSkillPaths(cwd): string[]` 인터페이스로 책임 이관 — §2 참조 |
+| Skills 스캔 경로 | app 조립이 Orca sources와 하네스 native 루트를 제공하고 공통 scanner에 주입 | 하네스별 경로·지원 범위는 §2 참조 |
 | 자격증명 주입 | Auth 플랫폼 — Harness `RuntimeConfigAugmenter`(`features/harnesses/common/runtime-config.ts`)가 선택된 Harness+ModelProvider 에 자격증명 env overlay 를 붙여 `options.env` 로 넘긴다([auth.md](./auth.md)). 어댑터는 키 이름을 모른다 | 어댑터별 자격증명 요구를 선언으로 노출하는 seam — security.md §1.4 |
-| 외부 세션 저장소 → Orca DB 동기화 | 없음 (현재 SDK 의 jsonl 을 직접 읽지 않음) | `listSessions / loadSession` 옵셔널 메서드로 외부 jsonl/SQLite 등을 Orca 로컬 DB 로 단방향 동기화 — persistence.md 참조 |
-| 설치 / binary 해소 | SDK `optionalDependencies` 가 자동 처리 → `install()` 즉시 `done: true` 반환 | opencode 등은 별도 install 스크립트 필요 |
+| native 세션 → Orca 보관 | `readHistory()` → 공통 native sync → snapshot·검색·표시 projection | native 형식 해석은 하네스 모듈이 소유 — [persistence.md](./persistence.md) |
+| 설치 / binary 해소 | Claude는 SDK 번들 CLI, OpenCode는 설치된 CLI와 하네스 설정 경로 사용 | 설치·버전·수명은 각 구현이 소유 |
 
 ### 1.9 새 백엔드 추가 체크리스트
 
@@ -133,7 +136,7 @@ opencode 등 다중 어댑터 환경 대비:
 2. 현행 `SessionAdapter`·`LiveTurn` 구현 + 해당 SDK 이벤트를 `NormalizedEvent[]`를 담은 `ProviderMessageBatch`로 변환
 3. `adapters/common/registry.ts` 에 등록
 4. `Backend` union 에 ID 추가 (`src/shared/ipc.ts`)
-5. (Future) 어댑터별 Skills 스캔 경로 / 자격증명 키 / 세션 동기화 메서드 정의
+5. 하네스별 native 경로·`readHistory()`·설정 오버라이드 및 Skills 지원 범위 정의
 6. 설치가 필요하면 `install()` AsyncIterable 구현, 인스톨러 UI 안내 추가
 7. preload 의 `backend:select` 채널 재노출 (현재 미노출)
 8. 통합 테스트 추가
@@ -151,30 +154,30 @@ OpenCode 적용 시의 추가 선행조건·레이어별 gate는 [마이그레�
 
 | 항목 | 값 |
 |---|---|
-| 스캔 루트 | `sources/skills/<name>/SKILL.md` (sourceId=`orca`) + `~/.claude/skills/<name>/SKILL.md` (sourceId=`adapter:claude`). **`<cwd>/.claude/skills` 루트는 제거됨** |
+| 스캔 루트 | `sources/skills/<name>/SKILL.md` (sourceId=`orca`) + `<Claude native 루트>/skills/<name>/SKILL.md` (sourceId=`adapter:claude`). native 루트는 §1.3의 resolver를 따른다. 프로젝트별 `<cwd>/.claude/skills`는 이 목록에 포함하지 않는다 |
 | 파서 | frontmatter 정규식 (`^---\s*\n...\n---`) |
 | 인식 키 | `name`, `description`, `argument-hint` |
 | 캐싱 | 부팅 스캔 + Orca 의 작성·업로드·토글·삭제 뒤 재스캔(`refreshSkills`, `app/handlers/skills.ts`) → `Bootstrap.skillsCache` |
 | 핫리로드 | 파일 감시 없음 — 바깥에서 고친 스킬은 다음 재스캔(위 동작) 또는 재시작에 반영 |
 
-> **⚠️ `~/.claude/skills` 루트는 claude-code 어댑터 전용** (Claude Code 의 표준 경로). 다른 어댑터 (opencode 등) 도 지원하면 스캔 경로 분리 필요 — 사용자 결정.
+> 사용자 Claude skills 루트는 `app/harnesses/claude/extensions.ts`가 제공한다. OpenCode native 스킬 실행과 Orca의 스킬 목록·배포 지원은 별도 범위다.
 
 **번들 스킬 시딩 (0078)**: 부팅 시퀀스의 `builtin-skill-seed` 단계에서 `skills/seed.ts` 의 `seedBuiltinSkills(builtinDir, sourcesSkillsDir)` 가 앱에 번들된 스킬을 `sources/skills/` 로 1회 시딩한다. `app/builtin-resources.ts` 가 dev/패키지 빌드의 번들 경로를 해석하고, manifest/marker 버전 게이트로 이미 시딩된(또는 사용자가 수정한) 스킬을 덮어쓰지 않는다.
 
 **Skill/MCP 배포와 주입** (정본 [standardization.md §5.1](./standardization.md)):
 - ExtensionDeployer 가 `sources` 를 `dist/<engine>/plugins/orcinus-orca/{skills,.mcp.json}` plugin 패키지로 렌더하고(0058), `adaptPlugins()` 가 그 경로를 `options.plugins` 로 주입한다. 세션 cwd 로 복사하지 않는다.
-- `adaptSkills()`·`adaptSettingSources()`(§1.3) — `settingSources: ['project','local']` 로 사용자 전역 settings 를 상속하지 않고(0117), 사용자 `~/.claude/skills` 는 별도 wrapper plugin 으로 전달한다.
+- `adaptSkills()`·`adaptSettingSources()`(§1.3) — `settingSources: ['project','local']` 로 사용자 전역 settings 를 상속하지 않고, native 루트의 사용자 skills는 별도 wrapper plugin 으로 전달한다.
 - 파일 기반 MCP 는 plugin `.mcp.json` 으로 로드되고(`${VAR}` 는 배포 시 resolver 가 해석 — [security.md §1.4](./security.md)), `options.mcpServers` 는 인프로세스 runtime tool 서버에만 쓴다. provider settings 는 query flag(`options.settings`)로 주입한다(TRD §6.8).
 - agents·commands 는 engine-specific 이라 배포하지 않는다(§3.1). 런타임 hook 은 `options.hooks` in-process 경로다(§3.2.5).
 
 ### 2.2 어댑터별 Skills 경로 분리 (Future 채택 결정)
 
-- 현재 `Bootstrap.skillRoots()` 의 하드코딩을 `SessionAdapter.getSkillPaths(cwd): string[]` 인터페이스로 책임 이관.
+- 현재 스캔 루트는 app 하네스 조립부가 제공한다. `SessionAdapter.getSkillPaths(cwd)` 인터페이스는 도입하지 않았다.
 - 어댑터별 스캔 경로 예시 (도입 시):
 
 | Backend | 예상 경로 |
 |---|---|
-| `claude-code` | `~/.claude/skills/` (현재 — orca `sources/skills` 와 병행) |
+| `claude-code` | `<Claude native 루트>/skills/` (현재 — Orca `sources/skills` 와 병행) |
 | `opencode` | `~/.config/opencode/skills/` (TBD — opencode 공식 경로 확인 필요) |
 
 - IPC `orca:skills:list` 의 응답은 활성 어댑터의 경로만 반영 (또는 모든 등록된 어댑터의 경로 통합 — 결정 필요).

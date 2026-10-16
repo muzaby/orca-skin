@@ -1,5 +1,3 @@
-import { homedir } from 'node:os'
-import { join } from 'node:path'
 import type { McpStore } from '../../../features/extensions/common/mcp/store'
 import type { SkillScanRoot } from '../../../features/extensions/common/skills/scan'
 import { ExtensionDeploymentService } from '../../../features/extensions/common/extension-deployment-service'
@@ -9,6 +7,7 @@ import { scaffoldProviderSettings } from '../../../features/extensions/claude/sc
 import { builtInHarnessPluginRoot } from '../../../features/extensions/claude/plugin'
 import { userClaudePluginRoot } from '../../../features/extensions/claude/user-skills'
 import { readUserClaudeSettings } from '../../../adapters/claude/settings'
+import { claudeNativePaths } from '../../../adapters/claude/native-paths'
 import { orcaConfigDir } from '../../../infra/config/paths'
 import { reportError } from '../../../infra/error-report'
 import { getLogger } from '../../../infra/log'
@@ -19,7 +18,7 @@ export function claudeSkillRoots(): SkillScanRoot[] {
       sourceId: 'adapter:claude',
       sourceLabel: 'CLAUDE 스킬',
       sourceKind: 'adapter',
-      rootDir: join(homedir(), '.claude', 'skills')
+      rootDir: claudeNativePaths().skills
     }
   ]
 }

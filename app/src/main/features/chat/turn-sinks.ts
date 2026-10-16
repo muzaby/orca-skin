@@ -25,6 +25,7 @@ export interface TurnPersistSink<W = unknown> {
     batch: {
       text: string
       createdAt: number
+      nativeMessageId?: string
       origin?: ReceivedMessageOrigin
       attachmentViews?: AttachmentView[]
       requirements?: DiffRequirementAnchor[]

@@ -1,6 +1,6 @@
 # ADR-009 — 하네스 원본 경로를 유지하고 Orca 설정은 오버라이드한다
 
-상태: **사용자 결정 확정, 구현 전** (2026-10-16). 구현 범위·미정 항목은 [0265](../handoff/0265-harness-native-storage/plan.md), OpenCode 실행 경로는 [0262 ΔV15](../handoff/0262-opencode-harness/plan.md)에서 관리한다.
+상태: **채택** (2026-10-16). 구현 범위·검증 상태는 [0265](../handoff/0265-harness-native-storage/plan.md), OpenCode 실행 경로는 [0262 ΔV15](../handoff/0262-opencode-harness/plan.md)에서 관리한다.
 
 ## 문제
 
@@ -20,9 +20,9 @@ Orca 전용 native 저장소를 계속 쓰는 안은 일반 CLI와 경로가 갈
 
 ## 이전 결정과의 관계
 
-[ADR-001](001-orca-db-session-ssot.md)의 **Orca DB가 native 대화보다 우선한다**는 정책을 대체한다. DB 유지·FTS·append-only migration·Orca 자체 dev/prod 데이터 격리는 유지한다. 이전 문서는 과거 선택의 근거로 보존하며 현재 구현이 새 정책을 이미 만족한다고 해석하지 않는다.
+[ADR-001](001-orca-db-session-ssot.md)의 **Orca DB가 native 대화보다 우선한다**는 정책을 대체한다. DB 유지·FTS·append-only migration·Orca 자체 dev/prod 데이터 격리는 유지한다. 이전 문서는 과거 선택의 근거로 보존한다. 현재 구현과 검증 상태는 연결된 핸드오프에서 관리한다.
 
-0230의 앱 임시 입력/출력과 권한 범위, Orca 전용 UI 설정·통계·게시 사본은 native 세션 원본과 구별한다. 네이티브 영속 리소스와 임시 실행 오버라이드의 경계는 구현 전 전수 조사하며, 기존 명시 권한 정책을 경로 변경에 섞어 조용히 없애지 않는다.
+0230의 앱 임시 입력/출력과 권한 범위, Orca 전용 UI 설정·통계·게시 사본은 native 세션 원본과 구별한다. 네이티브 영속 리소스와 임시 실행 오버라이드의 경계는 구현에서 명시적으로 구분하며, 기존 명시 권한 정책을 경로 변경에 섞어 조용히 없애지 않는다.
 
 이 선택으로 Orca DB만 읽어 최신 대화라고 단정하는 단순함을 포기한다. 외부 CLI 변경·native 압축·원본 접근 실패를 다뤄야 하며, 그 비용을 하네스별 조회와 공통 보관/표시 경계에서 관리한다.
 

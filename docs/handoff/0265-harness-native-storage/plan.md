@@ -6,7 +6,7 @@
 |---|---|
 | slug | `0265-harness-native-storage` |
 | 작성자 / 일자 | Codex / 2026-10-16 |
-| 상태 | plan/READY — native snapshot·sidecar·목록 제외·현재 실행 보호 계약 확정 |
+| 상태 | impl/IMPL_DONE — native 원본·보관 갱신·목록 제외 구현 및 자기확인 완료; 독립 검증 대기 |
 | V mode / revision | Baseline V / V1 |
 | 기준 V | 없음. 0262 ΔV15는 OpenCode 구체 구현, 0264는 의존 경계 회귀 기준 |
 | 관련 | PR #502 · ADR-009 · 0262 · 0230 |
@@ -203,3 +203,188 @@ R01~08과 AT01~08은 §5의 AC1~8이며 모두 NEW/REQUIRED다. 아래 SD/AR/MD�
 관련 비DB Vitest·readonly ESLint·node/web/test typecheck, 설치 ABI를 유지한 migration/DB 통합 검증, native CLI 임시 fixture, build, 문서 inventory/links·diff·trailer를 수행한다. Electron용 better-sqlite3는 Electron Node 실행으로 검증하고 npm install/rebuild로 ABI를 바꾸지 않는다. 사용자 DB나 실행 중 세션 대신 fixture로 조회·실패·이관을 검증한다.
 
 ACTIVE D01→AC1/3, D02→AC5/8, D03→AC2, D04→AC4, D05→AC6, D06→AC8, D07→AC7을 대조했다. snapshot과 원래 DB 행 보존으로 기존 FK·usage를 유지하고, 오류와 동시성의 결과를 §8/VP09/EP02에 연결했다. 0262 이관 범위와 공통 재수입 범위를 구별했으며 신규 패키지·native 전역 자동발견·실모델 전송을 추가하지 않는다.
+
+## [구현자 기입] 설계 리뷰
+
+> r1 구현 보고. 정본 §10의 EP10~13 추가 후 분모는 50자리다. 구현자의 자기보고는 독립 검증을 대체하지 않는다. 최종 재검증 근거와 초기 실패의 분류는 아래 G11~G13에 기록했다.
+
+- 동의 / 그대로 진행: D01~07을 유지했다. native 원본은 하네스별 구현이 읽고, Orca의 원래 보관 행과 부가 기록은 보존한다. 모델·엔진 등의 실행 오버라이드는 유지하며 목록 제거는 native·worktree 삭제와 분리했다.
+- 이견 / 현실성 문제: §8의 외부 실행 판정은 닫힌 응답과 읽기 중 revision 안정성을 확인한다. OS 전역 잠금은 아니며, 중단된 세션은 명시 입력으로 같은 ID를 재개할 수 있다. §9의 예정 테스트 파일 일부는 기존 테스트 옆으로 배치했다(아래 명시적 차이).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. 영수증·catalog·background·bootstrap 전달 edge의 누락 후보 11자리는 설계자가 EP10~13으로 먼저 반영했다. 원본 식별자 없는 fork 부가 기록에 추정 매핑을 만들지 않는다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+아래 `M/`은 `app/src/main/`, `R/`은 `app/src/renderer/src/`다. 좌표의 콜론 뒤는 실제 테스트 이름이다. 실행 묶음 G01~G10은 구현 보고에 적었다.
+
+| 좌표 | 직접 oracle |
+|---|---|
+| O01 | `M/app/native-history.test.ts:uses stored %s backend, actual cwd and the execution configuration` — Claude/OpenCode 각각 실제 registry·factory에서 조회 인자 관측 |
+| O02 | `M/features/history/native-sync.test.ts:does not close or read a live session`, `discards a result after %s without replacing the archive` — read 전 및 change/hide/start 이후 guard |
+| O03 | `M/features/history/native-history.db.test.ts:rolls back snapshot, frontier, native rows and FTS when a write fails after partial insertion`, `rejects a stale transaction version and a late read after a local write` |
+| O04 | `M/features/history/native-history.db.test.ts:atomically stores the snapshot, local frontier and searchable native text without replacing local rows`, `replaces repeated native IDs and their old FTS content without accumulating duplicate messages`, `preserves live rows after the frontier and absorbs them once in the next complete native snapshot` |
+| O05 | `M/adapters/claude/map.received.test.ts:carries native message IDs on assistant parts and compact markers independently of tool IDs`, `does not classify a human-authored reminder as a received input`, `tool results are preserved without producing a received message` |
+| O06 | `M/adapters/opencode/v1/adapter.persistent.test.ts:subscribes once before initial and subsequent prompts`; `M/adapters/opencode/v1/native-input.test.ts:preserves native synthetic parts and rejects own text, ignored and foreign inputs`; `M/adapters/opencode/v1/native-history.test.ts:preserves native IDs, response grouping, normalized tools, question answers and immutable source data` |
+| O07 | `M/features/chat/turn-coordinator.test.ts:carries native IDs separately from queue UUIDs for matched echoes and automatic input`; `M/features/history/writer.native-history.test.ts:binds native user and multiple assistant records to their local rows, excluding child IDs` |
+| O08 | `M/features/history/native-projection.test.ts:matches sidecars by IDs, keeps every merged attachment, preserves orphan sidecars and live tail`, `enriches matching tool identities without replacing native output and retains child calls`, `restores question answers and plan corrections using exact tool IDs` |
+| O09 | `M/app/handlers/session.delete.native-history.test.ts:keeps native, worktree and output files when runtime cleanup fails: %s`; `M/features/history/native-history.db.test.ts:hides every discovery path while retaining snapshot, source rows, usage, artifacts, journal and worktree` |
+| O10 | `R/features/chat/store/chatStore.native-history.test.ts:keeps the cached screen during IPC and refreshes history without resetting model or panel state`, `accepts only the newest request for the same session`, `rejects a snapshot even before an already received delta reaches its animation frame` |
+| O11 | `R/features/chat/store/chatStore.native-history.test.ts:retains the cached history and reports an IPC failure, then allows a later retry`, `shows the retained archive and reports native %s`, `does not toast for busy, but surfaces a ready snapshot with unassigned archive metadata` |
+| O12 | `M/adapters/claude/native-paths.test.ts:imports settings and permits plan writes at the same custom native root`; `M/app/harnesses/claude/extensions.native-paths.test.ts:reads skill content from the configured native directory without copying or modifying it`; `M/adapters/claude/adapter.extra-dirs.test.ts:uses the execution environment native root for the actual workspace guard` |
+| O13 | `M/adapters/claude/adapter.native-history.test.ts:reads the same native session through the production adapter without submitting a prompt`, `resumes the read native ID and cwd with runtime overrides and default native persistence` |
+| O14 | `M/app/native-history.test.ts:does not close or replace an occupied session: %j`, `protects a lease even if the projected activity is idle`, `closes the real idle runtime and delivers the next input through a fresh same-ID resume`, `checks native %s before cold resume with the same prepared input` |
+| O15 | `M/adapters/claude/native-history.test.ts:returns busy for stable unfinished inputs and a partially written last line`; `M/adapters/claude/native-history-map.test.ts:honors a persisted requires-action marker after a completed assistant`; `M/adapters/opencode/v1/native-history.test.ts:defers a stable but incomplete native response`, `defers a %s tool even when the message has a stop marker` |
+| O16 | `M/adapters/claude/input-receipts.test.ts:uses merged and later changed response UUIDs to confirm each submitted input once`, `matches pending hook with an unattributed user wire instead of recording twice` |
+| O17 | `M/app/chat-turn/resolve-turn.runtime-catalog.test.ts:passes the prepared native environment to catalog and execution unchanged`; `M/app/handlers/misc.runtime-catalog.test.ts:loads native OpenCode models and preserves other harness rows when its catalog fails` |
+| O18 | `M/features/chat/background-controller.test.ts:disposes delivery while preserving archived output only when requested: %s`; `M/app/bootstrap.native-history.test.ts:preserves background snapshots while disposing the same session runtime and activity` |
+| O19 | `M/app/bootstrap.native-history.test.ts:forwards context and all native refresh runtime callbacks from the actual bootstrap registration` — 실제 `Bootstrap.register`가 생성한 콜백을 실행하여 ctx·세션 ID·반환값·handler 연결 관측 |
+| O20 | `M/app/handlers/session.load.test.ts:imports terminal user, assistant and tool messages and reopens twice without duplication`, `returns the last snapshot with a %s warning instead of an empty session`, `does not reopen or query a hidden session` |
+| O21 | `M/adapters/claude/native-history-map.test.ts:restores automatic meta input and compact metadata while excluding abandoned branches`, `uses SDK %s compaction rewiring`, `retains an image-only user identity for attachment sidecars`, `preserves queued metadata with explicit origin=%s` |
+| O22 | `M/adapters/claude/native-history.test.ts:distinguishes an absent original from permission failures`, `does not read a different cwd or substitute an invalid ID`, `does not replace a snapshot if its revision changes at read boundary %s` |
+| O23 | `M/app/harnesses/opencode/native-storage.integration.test.ts:creates, migrates and reopens the same native ID with a terminal followup and unchanged native config` — 실제 1.x CLI·SDK·production migrator, 로컬 합성 모델 사용 |
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP02/06 | EP01 조회 실행 구성 | adapter 포트·app config·저장 backend (3) | 3/3 | G03의 O01: 하네스별 read 호출 인자·미선택 adapter 호출0; 경계 gate G10/G11 | — |
+| VP09/10 | EP02 지각 snapshot 폐기 | read 전·read 후·transaction (3) | 3/3 | 전/후 O02(G04); transaction O03(G02) | — |
+| VP08/10 | EP03 snapshot/FTS/표시 | snapshot+frontier·FTS·reader projection (3) | 3/3 | O04(G02): 원래 행 불변, 검색 교체·중복0, live tail 흡수 | — |
+| VP13 | EP04 native ID 운반 | echo·received·assistant 정규화·sink·writer (5) | 5/5 | 하네스 입력·응답 O05/O06(G01/G08); sink/writer O07(G04) | — |
+| VP11 | EP05 부가 기록 | tool·user·unmapped·live tail (4) | 4/4 | tool O08 두 번째/세 번째; user/unmapped/tail O08 첫 번째(G04), 실제 DB O04(G02) | — |
+| VP04 | EP06 목록 제외 | handler·hide SQL·전체/프로젝트 목록·검색·getSessionById (6) | 6/6 | handler O09 첫 번째(G06), 나머지 O09 두 번째(G02): 실제 파일·보관 행 유지 및 숨김 | — |
+| VP05/08/09 | EP07 재열기 UI | cache·요청세대·live 경합·오류 보관·경고 소비 (5) | 5/5 | 처음 세 자리 O10; 오류/경고 O11(G05), IPC O20(G02/G06) | — |
+| VP01/03/12 | EP08 Claude native root | settings·skills·plan·guard·reader·resume (6) | 6/6 | settings/plan/guard O12(G01), 실제 skill 파일 O12(G03), reader/resume O13(G01) | — |
+| VP09 | EP09 외부·내부 실행 수명 | quiescent·runtime 폐기·다음 resume·native 완료 snapshot (4) | 4/4 | 앞 세 자리 O14(G03), 양 하네스 완료 판정 O15(G01/G08) | OS 전역 잠금은 계약 밖 |
+| VP13 | EP10 수신 영수증 | response·reconcile (2) | 2/2 | O16(G01): 실제 SDK UUID 유지, wire→received 변환의 native ID 유지 | — |
+| VP02 | EP11 catalog env | turn·settings catalog (2) | 2/2 | O17(G03/G07): 준비 env와 native root를 두 호출에서 관측 | — |
+| VP04 | EP12 출력 보존 | controller dispose·bootstrap callback (2) | 2/2 | O18(G06/G07) 및 실제 파일 O09(G06): preserve=true인 제거는 snapshot 삭제0 | — |
+| VP02/09 | EP13 refresh 부팅 배선 | ctx·hasSession·discardRuntime·activity·handler 연결 (5) | 5/5 | O19(G07): 실제 register→각 callback 실행, 인자·반환값·연결 함수 동일성 | — |
+
+자리 검산: 기존 `3+3+3+5+4+6+5+6+4=39`, 추가 `2+2+2+5=11`, 합계 `50/50`. OpenCode 내부 env/이관 자리는 0262에 남겨 중복 합산하지 않았다. 이 수치는 위 직접 oracle가 실행한 자리의 자기보고이며 전체 gate 완료 수가 아니다.
+
+전수 조사 명령은 아래와 같다. 결과를 메서드별 호출부와 대조하여 EP10~13을 추가했으며, 검색 결과 총계만으로 미분류 0을 주장하지 않는다.
+
+```powershell
+rg -n 'nativeMessageId|user_message_uuid|input\.echo|input\.received' app/src/main/adapters app/src/main/features/chat app/src/main/features/history -g '*.ts' -g '!*.test.ts' -g '!*.testfixture.ts'
+rg -n 'catalog\(|preserveOutputSnapshots|onSessionDisposed|discardRuntime|refreshHistory|readHistory' app/src/main/app app/src/main/features -g '*.ts' -g '!*.test.ts' -g '!*.testfixture.ts'
+rg -n 'hidden_at|hideSession|listSessions|listProjectSessions|searchMessages|getSessionById' app/src/main/infra/db app/src/main/app/handlers/session.ts
+rg -n 'CLAUDE_CONFIG_DIR|claudeNativePaths|claudePlansDirectory|resolveGuardRoots|harnessSkillRoots' app/src/main -g '*.ts' -g '!*.test.ts' -g '!*.testfixture.ts'
+```
+
+- §10에 없는데 같은 불변식이 필요했던 지점: 영수증 2·catalog 2·출력 보존 2·부팅 refresh 5를 planner에게 보고했고 EP10~13으로 규범 정정했다. 제품 계약은 유지했다.
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP01 | REQUIRED | SELF_PASS | O13 + O23: 같은 ID/cwd 조회·resume, CLI followup 재수입 | not selected — 직접 SDK/CLI 결과 |
+| VP02 | REQUIRED | SELF_PASS | O01/O13/O17/O19/O23: 설정 인자·준비 env 전달, native 설정 바이트 불변 | not selected — 실제 callback/파일 관측 |
+| VP03 | REQUIRED | SELF_PASS | O12: custom root에서 실제 settings·skill 읽기와 plan·guard 판정 | not selected — 실제 소비처 결과 |
+| VP04 | REQUIRED | SELF_PASS | O09/O18: 목록·검색·load 숨김, native/worktree/출력·보관 행 유지 | not selected — 실제 DB/파일/콜백 결과 |
+| VP05 | REQUIRED | SELF_PASS | O02/O11/O20/O22 + O14 cold resume: 실패시 보관 화면·경고·재시도, prompt 재구성 없음 | not selected — 오류/deferred 호출 관측 |
+| VP06 | REQUIRED | SELF_PASS | O01/O13 및 OpenCode `native-history.test.ts:wires the registered adapter to the installed SDK for read-only native requests with the selected environment`, 경계 lint·회귀 G08/G10/G11 | not selected — 실제 adapter 배선·경계 gate |
+| VP07 | REQUIRED | SELF_PASS | O23 및 0262 migration integration: 실제 legacy source→native 이관·재개, 충돌/실패 원본 유지 | not selected — 실제 임시 SQLite/CLI 관측 |
+| VP08 | REQUIRED | SELF_PASS | O04/O10/O20/O23: 외부 user/assistant/tool 반영, 두 번 load 중복0, 다음 입력 동일 ID | not selected — DB/IPC/store/CLI 결과 |
+| VP09 | REQUIRED | SELF_PASS | O02/O10/O11/O14/O15/O19: idle 폐기→cold resume, busy/live/late 오류 보관 | not selected — 실제 runtime 및 deferred 응답 |
+| VP10 | REQUIRED | SELF_PASS | O03/O04/O20: native port→실제 SQLite transaction→reader→DTO | not selected — commit/rollback·FTS 결과 |
+| VP11 | REQUIRED | SELF_PASS | O08 및 O04: ID exact join·child/orphan·live tail, 원본 불변 | not selected — 표시 parts 직접 비교 |
+| VP12 | REQUIRED | SELF_PASS | O13/O15/O21/O22: 실제 SDK chain 선택·compact/meta·branch·오류·revision | not selected — raw fixture와 SDK 출력 |
+| VP13 | REQUIRED | SELF_PASS | O05/O06/O07/O16: 하네스 native UUID→coordinator→writer, child ID 배제 | not selected — 이벤트/저장 인자 |
+
+REQUIRED 검산: `SELF_PASS 13 / SELF_BLOCKED 0 = 13`. §9 회귀 범위의 0262 지속 채널/승인/도구는 G08에서, 0232 DEV 자동 피드·0264 하네스 경계·reader/usage/artifact FK·0230/0231 권한은 G01/G05 및 G10~G12에서 확인했다. 초기 실패와 재검증의 대응은 아래에 기록했고 기존 회귀 스위트를 REQUIRED pair 수에 합산하지 않았다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+해당 없음 — 직접 oracle. native 파일·SQL transaction·projection 출력·IPC/store 상태·SDK/CLI·실제 Bootstrap 콜백을 실행했다. 새 source scan/AST 정적 배선 proxy를 만들지 않았다.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+
+- **분모 검산**: 선택 증거 0 · 인용 변이 0 · 새 구조적 proxy oracle 0 = 잠금 표 행 0. 직접 행동 테스트 증가는 이 분모에 넣지 않는다.
+- **덮개 회귀**: 첫 구현 라운드이며 이전 verify의 red 장치를 교체·삭제한 사례가 없다. 기존 하네스 경계 회귀의 선택 증거는 해당 회귀 정본을 유지한다.
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | `nativeSync`의 missing/unavailable/migration-required·orphan 안내를 store의 기존 오류 보고 경로가 소비한다. busy는 토스트를 만들지 않는다(O11). | G05/G11 renderer 회귀 확인 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | bootstrap runtime·activity 수명은 유지하고 refresh callback을 주입했다. O18/O19가 실제 register의 객체·callback을 실행한다. | 정리 후 native/출력 유지 O09 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 원본 부재·접근 실패는 보관 화면 유지, 실행 중은 갱신 보류, 제거 중 지각 응답은 폐기 상태에 대응한다. | O02/O11/O20 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | native 실패와 orphan 부가 기록은 안내하고 cached body는 유지한다. 후속 재열기에서 재시도한다. | O11 직접 오류 consumer 확인 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 요청세대·live mutation·낙관 입력 이후 snapshot을 적용하지 않는다. 다른 세션 선택과 lastSessionId를 덮지 않는다. | O10 및 store의 optimistic send/다른 세션 케이스 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 입력 wire mapper 밖 response/reconcile에서 native ID가 소실될 수 있음 | 선조치 및 설계 EP10 반영 | O16의 UUID/중복 receipt 결과 |
+| 2 | catalog 조회가 준비 env 없이 별도 native root 서버를 만들 수 있음 | 선조치 및 EP11 반영 | O17의 turn/settings 실제 인자 |
+| 3 | 목록 제거의 background 정리가 보관 output 파일까지 삭제할 수 있음 | 선조치 및 EP12 반영 | O09 실제 파일 바이트, O18 실제 callback |
+| 4 | refresh 안쪽 테스트만으로 실제 bootstrap의 runtime callback 연결을 검증할 수 없음 | EP13 반영 후 실제 Bootstrap.register 행동 테스트 추가 | O19의 ctx·3콜백·handler 연결 |
+| 5 | SDK 조회가 meta/queued 입력을 필터링하거나 compaction·분기를 전체 시간순으로 섞을 수 있음 | 조회용 복제본에서만 meta 필터 해제 후 UUID로 raw 메타 결합, current chain 선택 | O21. 실제 query에는 memory sessionStore를 넣지 않음(O13) |
+| 6 | raw 읽기 뒤 SDK chain 선택 중 파일이 바뀌면 서로 다른 revision이 섞임 | 선택 후 원본 signature 재확인, 바뀌면 busy | O22의 read boundary 3/4 |
+| 7 | native 질문 call에 결과 part가 없으면 Orca에 저장한 답변·교정이 누락될 수 있음 | exact tool ID에만 부가 결과 보충 | O08의 question/plan 결과 케이스 |
+| 8 | fork가 native UUID를 바꾸면 원래 세션의 매핑 복사는 잘못된 sidecar 연결이 됨 | 추정 복사하지 않음. 원본 보관 및 unmapped sidecar 표시 정책 유지 | SDK의 ID 재작성 확인, O08/O21의 distinct ID·orphan 결과 |
+| 9 | OpenCode migration marker 순서·기존 target 행 관계·부분 자원 이관이 false success를 만들 수 있음 | 0262 소유 구현에서 intent 순서·관계 검사·원본 불변·재시도 보강. 미지원 snapshot worktree는 명시 미완료로 분류 | 0262 migration integration 및 O23. 이 보고에 이관 내부 분모를 중복 합산하지 않음 |
+
+### 설계 대비 명시적 차이
+
+- §9 예정 `infra/db/native-history.test.ts`는 실제 `features/history/native-history.db.test.ts`, `session.native-history.test.ts`는 기존 `handlers/session.load.test.ts`, `writer.received.test.ts`의 신규 native ID 검증은 `writer.native-history.test.ts`에 배치했다. 기능 경계와 직접 행동 oracle는 유지했다.
+- Bootstrap 검증은 source proxy를 추가하지 않고 기존 테스트와 같은 실제 prototype 메서드 호출 방식으로 구현했다. 외부 IPC 등록 직전에 멈추고 생성된 실제 콜백을 실행한다.
+- native snapshot·원래 Orca 행의 보존 방식 및 사용자 결과는 §8과 동일하다. 실제모델 전송 없이 CLI fixture의 로컬 합성 모델을 사용했다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 테스트 배치 변경은 새로운 runtime cache/TTL을 도입하지 않음 | 해당 없음. 기존 조회 전후 revision 검사 O22 유지 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 새 저장 공유 방식 없음. 기존 외부 CLI와 Orca의 원본 공유는 계약 자체 | AC5/8·EP02/09: O02/O03/O15/O23 |
+| 재진입 | 파일명 변경은 동작을 바꾸지 않음. 실제 callback fixture가 일회성 등록만 확인하는 한계는 별도 store/runtime 테스트로 확인 | AC4/8·EP07/09/13: O10/O14/O19 |
+| 다른 무효화 축 | 신규 무효화 축 없음. 삭제·live 시작·로컬 write·원본 revision 변화는 각각 실행 | AC4/5/8·EP02/06/07: O02/O03/O09/O10/O22 |
+
+## [구현자 기입] 구현 보고
+
+| 실행 | 명령 / 범위 | 관측한 산출 |
+|---|---|---|
+| G01 | Claude adapter/mapper/input-receipts/native paths/history·기존 권한 회귀 Vitest 실행 | 53파일 715케이스 통과. 이후 camelCase native metadata 보강 mapper 13케이스 별도 통과 |
+| G02 | `node .tmp/0265-native-db-tests.cjs` — Electron Node로 native-history DB·queries·migration·session load | 4파일 64케이스 통과. SQLite 로드 ABI 140 유지 |
+| G03 | `node node_modules/vitest/vitest.mjs run src/main/app/native-history.test.ts src/main/app/harnesses/claude/extensions.native-paths.test.ts src/main/app/chat-turn/resolve-turn.runtime-catalog.test.ts` (app cwd) | 3파일 27케이스 통과. 실제 idle runtime 폐기→fresh same-ID resume 포함 |
+| G04 | common native-sync/projection/writer·turn-coordinator 관련 Vitest 묶음 | 담당 실행 기록 5파일 94케이스 통과. 각 자리 좌표 O02/O07/O08 |
+| G05 | renderer native-history store 및 관련 회귀 Vitest | 신규 store 17케이스, 관련 30파일 283케이스 통과. 두 결과는 중복 포함이므로 더하지 않음 |
+| G06 | `node .tmp/0265-session-remove-tests.cjs` — 실제 handler/DB/파일·delete·background·load | 4파일 31케이스 통과. 원본 JSONL·worktree·출력 snapshot 바이트 및 DB journal/parts/binding 유지 |
+| G07 | `node node_modules/vitest/vitest.mjs run src/main/app/bootstrap.native-history.test.ts src/main/app/handlers/misc.runtime-catalog.test.ts --pool=threads --maxWorkers=1` (app cwd) | 2파일 4케이스 통과. Bootstrap 2개와 settings catalog 2개 |
+| G08 | OpenCode adapter/persistent/map/input/server/native-history/native-storage 및 no-node-fetch 관련 Vitest | 최종 16파일 129케이스 통과. fixture의 fetch 주입 수정 포함 |
+| G09 | `app/harnesses/opencode/native-storage.testfixture.ts` 실제 CLI fixture와 integration wrapper | 최종 1파일 1케이스 통과(102.17초). native ID·터미널 followup·restart·legacy 이관 재개·custom XDG/DB·native config 불변·보조 세션 정리. 로컬 모델 8호출, 외부0 |
+| G10 | `npm run typecheck`; 변경 파일 readonly ESLint (app cwd) | node/web/test 3구성 통과. 변경 TS/TSX 91파일 ESLint 0 error/0 warning |
+| G11 | 전체 Node Vitest 및 실패한 변경 회귀 재실행 | 최초 743파일: 통과699·실패43·skip1; 7,297케이스: 통과6,929·실패281·skip87. 실패281=ABI269+strict native ID 기대값11+fetch guard1. 변경 회귀12개는 수정 후 통과 |
+| G12 | ABI 영향을 받은 39파일을 설치 Electron Node의 새 프로세스로 분할 실행 | 377케이스 통과. 초기 ABI 실패/전처리 skip 파일 집합과 재실행 파일 집합의 차집합0. 대량 실행의 `0xC0000409`는 격리 실행으로 해소; 앱 구조·성능 코드 변경 없음 |
+| G13 | build·문서 inventory/prose/링크·스크립트 gate | 최종 build 통과(renderer 23.45초), 기존 mixed-import warning1. 문서 검사 `current:true, links:[], prose:[]`. scripts142 중 sandbox EPERM8은 관련 ensure-sqlite-abi13 재실행 통과 |
+
+G02/G06의 `.tmp` 실행기는 검증 중 생성한 로컬 보조 파일이며 커밋 대상이 아니다. 재현 시 같은 네 테스트 파일을 설치된 Electron의 `ELECTRON_RUN_AS_NODE=1` 환경에서 Vitest `--pool=threads --maxWorkers=2`로 실행한다. G01/G04/G05/G08~G13은 담당자의 이번 라운드 실제 실행 보고를 합쳤다. 초기 전체 실행을 단일 green 실행으로 바꾸어 기록하지 않았으며, 실패 원인별 재실행으로 확인했다. 실행 묶음끼리 중복된 파일·케이스 수를 합산하지 않았다.
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | common native-history 포트·app native-history/resolve-turn/handlers/bootstrap; history sync/projection/reader/writer·DB query/migration; Claude native path/history/map/receipt 및 소비처; OpenCode 1.x native storage/history/migration; renderer chatStore/reducer 및 동반 테스트 |
+| 실행 명령 | G01~G13. 전체 Node 실행 뒤 ABI 파일은 Electron 새 프로세스로 분할하고 변경 회귀는 해당 직접 테스트에서 재실행 |
+| **관측한 게이트 산출** | 초기 실패281의 원인별 재검증 완료(G08/G11/G12). typecheck3·변경 lint·build·문서/스크립트 gate 통과. build의 기존 mixed-import warning1 |
+| 환경 기인 실패 분리 | ABI269와 전처리 skip은 G12에서 확인. scripts EPERM8은 허용 환경에서 해당13케이스 재실행 통과. ABI 재설치·사용자 DB 조작 없음. 무시된 `.tmp/opencode-dev` 링크5는 배포 문서 밖 |
+| V-pair 자기확인 | REQUIRED `SELF_PASS 13 / SELF_BLOCKED 0`; 회귀 근거는 G01/G05/G08/G10~G12 |
+| 강제 지점 전수 | EP01~13 `50/50` 직접 행동 oracle. 이전 분모39에 추가 전달 edge11 반영 |
+| **AC 자기보고** (`Criteria-Met`) | 아래 AC 표의 `8/8`. 구현자 자기확인 완료; 독립 검증은 후속 단계 |
+| **합계 검산** | `✅ 8 · ⚠️ 0 · ❌ 0 = 총 8`. AC 분모 변경 없음; EP 자리 분모만39→50 |
+| 블로커 / 역질문 | 없음. `no-node-fetch`가 지적한 CLI fixture의 전송 경계는 test-only fetch 주입으로 수정하고 G08/G09 재실행 통과 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+| AC | 자기보고 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | O13의 native persistence·동일 resume ID/cwd; O23의 실제 OpenCode CLI same-ID followup·재조회 |
+| AC2 | ✅ | O01/O13/O17/O19 실행 env/model 전달; O23 global/project native config 바이트 불변 |
+| AC3 | ✅ | O12의 실제 custom-root settings/skill·plan/guard, O13의 reader/query 동일 root |
+| AC4 | ✅ | O09 실제 native/worktree/출력·보관 행 유지, 목록/검색/load 숨김; O18 actual bootstrap 옵션 |
+| AC5 | ✅ | O02/O11/O20/O22 원본 오류 보관·경고·재시도; O14 cold resume 실패 차단·busy 동일 ID 허용 |
+| AC6 | ✅ | O01/O13 및 OpenCode SDK 배선 직접 테스트, G08/G10/G11 하네스 의존·전송 경계 회귀 통과 |
+| AC7 | ✅ | O23 실제 legacy CLI DB의 production migration→CLI 재개·source export 불변, 0262 충돌/롤백 fixture |
+| AC8 | ✅ | O04/O08/O10/O20 native IDs·sidecar·live tail·두 번 재열기; O23 외부 CLI 추가 내용 및 O14 fresh resume |
+
+## [구현자 기입] Review Signals — 사실만
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 이 핸드오프의 첫 구현 라운드다. 외부 재열기와 목록 제거에서 원본·보관 자료를 보존하는 동일 계약을 carrier edge까지 적용했다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: D01/02/04/06 및 AC2/4/8은 있었지만 초기 §10에 영수증·catalog·background·bootstrap 전달 11자리가 개별 열거되지 않았다. 구현 조사 뒤 planner가 EP10~13을 추가했고 각 실제 호출부 테스트를 실행했다.
+- 반복해서 부딪히는 환경 한계: Node/Electron better-sqlite3 ABI가 달라 DB 테스트를 설치 Electron으로 실행했다. sandbox의 fixture 경로 EPERM은 별도 재실행으로 구별했으며 사용자 DB·실제 세션은 조작하지 않았다.
+- 현재 라운드·impl 턴: `r1`. 구현자 자기확인과 운영 gate를 완료했다. 독립 verify는 수행하지 않았으며 INDEX의 검증 좌표를 선점하지 않았다.

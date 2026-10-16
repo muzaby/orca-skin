@@ -51,7 +51,13 @@ export class ClaudeInputReceipts {
       this.submittedUuids.delete(uuid)
       const own = this.own.find((entry) => entry.uuid === uuid)
       if (own) own.echoed = true
-      events.push({ type: 'input.echo', sessionId, uuid, text: hookText([content]) })
+      events.push({
+        type: 'input.echo',
+        sessionId,
+        uuid,
+        nativeMessageId: uuid,
+        text: hookText([content])
+      })
     }
     return events
   }
@@ -105,6 +111,7 @@ export class ClaudeInputReceipts {
             sessionId: event.sessionId,
             text: event.text,
             uuid: event.uuid ?? receipt.uuid,
+            ...(event.nativeMessageId ? { nativeMessageId: event.nativeMessageId } : {}),
             origin: receipt.origin
           }
     }

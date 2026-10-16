@@ -515,7 +515,8 @@ describe('claude.ts 턴 종료 배선 (D25·D26 · VP-72 · EP-46 ①②)', () =
         sessionId: 's1',
         text: 'CI failed',
         origin: { kind: 'channel', label: 'CI', format: 'plain' },
-        uuid: 'channel-1'
+        uuid: 'channel-1',
+        nativeMessageId: 'channel-1'
       }
     ])
   })
@@ -598,6 +599,7 @@ describe('claude.ts 턴 종료 배선 (D25·D26 · VP-72 · EP-46 ①②)', () =
         type: 'input.received',
         sessionId: 's1',
         uuid: 'reminder-1',
+        nativeMessageId: 'reminder-1',
         text,
         origin: { kind: 'automatic', format: 'system-reminder' }
       }

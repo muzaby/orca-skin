@@ -38,7 +38,7 @@ Orca 는 호스트에 이미 설치된 **Claude Code** 또는 **opencode** CLI �
 
 | # | 비-목표 | 이유 |
 |---|---|---|
-| NG1 | LLM/컨텍스트/세션 영속화를 GUI 가 직접 관리. | CLI 에 완전 위임 (전략 §8.3). **Phase 1·2 한정** — Phase 3+ 부터는 Orca 로컬 DB 가 메시지/메타데이터 SSOT 가 되고 어댑터 외부 저장 (jsonl 등) 은 단방향 동기화 소스로 격하됨 ([arch/backend/persistence.md](arch/backend/persistence.md), [`GLOSSARY.md`](./GLOSSARY.md) Session 항목). |
+| NG1 | LLM/컨텍스트/세션 영속화를 GUI 가 직접 관리. | CLI 에 완전 위임 (전략 §8.3). 하네스 native 저장소가 세션 원본이며 Orca DB는 대화 사본·검색·앱 메타데이터를 보관함 ([arch/backend/persistence.md](arch/backend/persistence.md), [`GLOSSARY.md`](./GLOSSARY.md) Session 항목). |
 | NG2 | 멀티 세션 동시 실행 (여러 대화를 한 번에 진행). | v1 비대상, Phase 4 검토 (전략 §11). |
 | NG3 | CLI 자체를 앱에 번들. | 호스트 설치 가정, 부재 시 가이드 (전략 §1.2). |
 | NG4 | 자체 모델 호스팅 / 프롬프트 로직. | CLI 가 담당 (전략 §1.1). |

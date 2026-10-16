@@ -6,7 +6,8 @@ const echo = (text: string, uuid: string): Extract<NormalizedEvent, { type: 'inp
   type: 'input.echo' as const,
   sessionId: 's1',
   text,
-  uuid
+  uuid,
+  nativeMessageId: uuid
 })
 
 describe('Claude input hook correlation', () => {
@@ -83,6 +84,7 @@ describe('Claude input hook correlation', () => {
       sessionId: 's1',
       text: 'tick',
       uuid: 'wire-1',
+      nativeMessageId: 'wire-1',
       origin: { kind: 'automatic', format: 'plain' }
     })
     expect(receipts.drain('s1')).toEqual([])

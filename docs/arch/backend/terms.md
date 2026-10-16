@@ -46,7 +46,7 @@
 | **Skill** | `SKILL.md` 로 정의된 슬래시 명령(`/이름`). 입력창에서 호출. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 | **McpStore** | MCP 서버 추가/삭제/목록 관리. 설정 + 비밀값 저장을 묶어 다룬다. | [security.md §1](./security.md) |
 | **Secret Store / Vault** | Electron safeStorage(OS 키체인) 위의 암호화 저장. Auth 비밀은 `infra/vault.ts` 가 네임스페이스 키로 보관하고 Grant 가 그 키를 가리킨다. | [GLOSSARY §1 (Credential)](../../GLOSSARY.md#1-도메인-용어) · [security.md §1.4-b](./security.md) |
-| **Skills Scan** | Orca `sources/skills/` 와 `~/.claude/skills/` 를 훑어 SKILL.md frontmatter 를 읽는 스캐너. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
+| **Skills Scan** | Orca `sources/skills/`와 하네스 조립부가 제공한 Claude native skills 루트에서 SKILL.md frontmatter를 읽는 스캐너. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 
 ## 5. Python 런타임
 

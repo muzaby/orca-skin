@@ -20,6 +20,33 @@ const map = (
   )
 
 describe('Claude provider-origin input', () => {
+  it('carries native message IDs on assistant parts and compact markers independently of tool IDs', () => {
+    const assistant = map({
+      type: 'assistant',
+      uuid: 'native-assistant',
+      message: {
+        content: [
+          { type: 'text', text: 'answer' },
+          { type: 'thinking', thinking: 'reason' },
+          { type: 'tool_use', id: 'tool-run', name: 'Read', input: {} }
+        ]
+      }
+    })
+    expect(assistant.map((event) => event.type)).toEqual([
+      'message.completed',
+      'message.reasoning',
+      'tool.call.started'
+    ])
+    expect(
+      assistant.every(
+        (event) => 'nativeMessageId' in event && event.nativeMessageId === 'native-assistant'
+      )
+    ).toBe(true)
+    expect(assistant[2]).toMatchObject({ toolRunId: 'tool-run' })
+    expect(
+      map({ type: 'system', subtype: 'compact_boundary', uuid: 'native-compact' })[0]
+    ).toMatchObject({ type: 'session.compacted', nativeMessageId: 'native-compact' })
+  })
   it.each([
     [{ kind: 'task-notification', subkind: 'scheduled-trigger' }, { kind: 'scheduled' }],
     [{ kind: 'task-notification' }, { kind: 'task' }],
@@ -37,6 +64,7 @@ describe('Claude provider-origin input', () => {
         type: 'input.received',
         sessionId: 's1',
         uuid: 'received-1',
+        nativeMessageId: 'received-1',
         text: '예약 확인',
         origin: { ...normalized, format: 'plain' }
       }
@@ -66,7 +94,13 @@ describe('Claude provider-origin input', () => {
     { isReplay: true }
   ])('unattributed, malformed and replay input stays an echo: %j', (patch) => {
     expect(map(patch)).toEqual([
-      { type: 'input.echo', sessionId: 's1', text: '예약 확인', uuid: 'received-1' }
+      {
+        type: 'input.echo',
+        sessionId: 's1',
+        text: '예약 확인',
+        uuid: 'received-1',
+        nativeMessageId: 'received-1'
+      }
     ])
   })
 
@@ -88,6 +122,7 @@ describe('Claude provider-origin input', () => {
           type: 'input.received',
           sessionId: 's1',
           uuid: 'received-1',
+          nativeMessageId: 'received-1',
           text,
           origin: { kind: 'automatic', format: 'system-reminder' }
         }
@@ -111,7 +146,13 @@ describe('Claude provider-origin input', () => {
   it('does not classify a human-authored reminder as a received input', () => {
     const text = '<system-reminder>Explain this XML.</system-reminder>'
     expect(map({ message: { content: text } })).toEqual([
-      { type: 'input.echo', sessionId: 's1', uuid: 'received-1', text }
+      {
+        type: 'input.echo',
+        sessionId: 's1',
+        uuid: 'received-1',
+        nativeMessageId: 'received-1',
+        text
+      }
     ])
   })
 
@@ -160,6 +201,7 @@ describe('Claude provider-origin input', () => {
     ).toEqual([
       {
         type: 'tool.call.completed',
+        nativeMessageId: 'received-1',
         sessionId: 's1',
         toolRunId: 'tool1',
         result: 'done',
@@ -183,6 +225,7 @@ describe('Claude provider-origin input', () => {
     ).toEqual([
       {
         type: 'tool.call.completed',
+        nativeMessageId: 'received-1',
         sessionId: 's1',
         toolRunId: 'tool1',
         result: text,

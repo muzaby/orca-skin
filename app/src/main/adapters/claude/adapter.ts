@@ -40,7 +40,6 @@ import { formatDiffRequirementsPrompt } from '../common/diff-requirements'
 import { formatPlanFeedbackPrompt } from './plan-feedback'
 import { resolvePlanReview } from './plan-text'
 import {
-  claudePlansDirectory,
   makePlanFileHook,
   nodePlanFileReader,
   readDeclaredPlanFile,
@@ -79,6 +78,9 @@ import type { AgentKind } from '../../../shared/agent-kind'
 import type { AdapterSpawnEnvPatch } from '../common/harness-config'
 import { claudeAgentKindEnv } from './agent-kind-env'
 import { getTemporaryFilesPath } from '../../infra/config/temp-path'
+import { claudeNativePaths } from './native-paths'
+import { readClaudeNativeHistory } from './native-history'
+import type { NativeHistoryRequest, NativeHistoryResult } from '../common/native-history'
 
 const requireFn = createRequire(import.meta.url)
 
@@ -322,6 +324,9 @@ export function makeCanUseTool(
 }
 
 export class ClaudeAdapter implements SessionAdapter {
+  readHistory(req: NativeHistoryRequest): Promise<NativeHistoryResult> {
+    return readClaudeNativeHistory(req)
+  }
   readonly id = 'claude' as const
 
   agentSpawnEnv(agentKind: AgentKind): AdapterSpawnEnvPatch {
@@ -510,9 +515,10 @@ export class ClaudeAdapter implements SessionAdapter {
     const runtimeToolApprovalNames = runtimeApprovalToolNames(extensions.runtimeTools)
     // 실행 전 편집 미리보기(0229) — 가드 훅과 **같은 입력**으로 루트를 턴당 1회 푼다. 편집이 쓸 수
     // 없는 경로는 미리보기로도 읽지 않는다.
-    const previewRoots = resolveGuardRoots(cwd, additionalDirectories)
+    const nativePaths = claudeNativePaths(contextEnv, undefined, cwd)
+    const previewRoots = resolveGuardRoots(cwd, additionalDirectories, nativePaths.root)
     const readForPreview = nodeEditPreviewReader()
-    const plansDir = claudePlansDirectory(contextEnv)
+    const plansDir = nativePaths.plans
     const planFileCell: PlanFileCell = {}
     const readForPlan = nodePlanFileReader()
     const getPlanFiles = async (
@@ -602,7 +608,7 @@ export class ClaudeAdapter implements SessionAdapter {
             }),
             // 격리 가드(PreToolUse) — 모든 툴·모든 모드보다 먼저 밖 경로를 자른다(0075). 안·예외는
             // pass-through 라 아래 canUseTool/permissionMode 흐름은 그대로 유지된다.
-            makeWorkspaceGuardHook(cwd, additionalDirectories)
+            makeWorkspaceGuardHook(cwd, additionalDirectories, nativePaths.root)
           ),
           (summary) => compactSummaries.push(summary)
         ),

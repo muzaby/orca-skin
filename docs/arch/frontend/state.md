@@ -49,7 +49,7 @@ artifact의 선택·요청 세대는 `artifactViewerStore`가 계속 소유한�
 
 | 상태 종류 | 위치 | 영속화 | 예시 |
 |---|---|---|---|
-| 채팅 세션 상태 (커밋) | `features/chat/store/chatStore.ts` 의 `sessions[key].session` — 변경은 순수 `chatReducer` 경유(스토어가 키 라우팅) | **Phase 3 부터**: 로컬 SQLite 영속화 (../backend/persistence.md). 메모리 캐시 + DB SSOT 병행. | sessionId, messages, inflight, permissionMode |
+| 채팅 세션 상태 (커밋) | `features/chat/store/chatStore.ts` 의 `sessions[key].session` — 변경은 순수 `chatReducer` 경유(스토어가 키 라우팅) | native 원본 + Orca 보관 DB + 재조회 캐시 ([영속성](../backend/persistence.md)). | sessionId, messages, inflight, permissionMode |
 | 채팅 스트리밍 라이브 버퍼 | `chatStore` 의 엔트리별 `live` 슬라이스 (transient — 턴 종료 시 리셋, 비활성 엔트리도 백그라운드 누적) | — | live.text(구 pendingDelta), live.reasoning |
 | Tweaks (theme/대화 텍스트 크기·너비/sidebar/한도) | `shared/theme/TweakProvider`의 provider별 store + electron-store | ✅ `orca:settings:get` / `set` | theme, transcriptTextSize, transcriptWidth, sidebarCollapsed, **sidebarWidth** (180–480, default 248 — Phase 3+), **spendingLimitUsd**(0079) |
 | 백엔드 설치 상태 | `features/backend/store/backendStore`(Zustand, 0013) | — | list, active, installerOpen |
@@ -81,7 +81,7 @@ interface SessionEntry {
 ```
 
 - **키 라우팅 (0013)**: IPC 이벤트는 `ev.sessionId` 로 해당 엔트리에 라우팅 — 비활성 세션의 턴이 백그라운드 누적되고 활성 UI 를 깨우지 않는다. sessionId 없는 이벤트는 활성 폴백, 미지 sessionId(엔트리 삭제 후 늦은 도착)는 폐기. `session.updated` 가 `NEW_CHAT_KEY` 엔트리를 sessionId 키로 승격(활성이면 activeKey 추종 — `useChatRouteSync` 방향 2 의 URL 승격 트리거).
-- **구 `sessionCache`(snapshot Map) 폐기** — sessions Record 가 캐시를 흡수: 본 적 있는 세션 재진입은 IPC 없이 `activeKey` 전환. LRU cap 은 Future Scope.
+- **세션 재열기** — sessions Record의 기존 화면을 즉시 표시하면서 IPC로 native 이력을 갱신한다. 요청 세대·삭제·live 이벤트·낙관 전송 경합을 확인해 늦은 응답을 버린다. 갱신은 모델·권한·패널 선택을 보존하고 실패는 기존 화면과 함께 안내한다. LRU cap은 Future Scope.
 - 스트리밍 델타 누적(구 `pendingDelta`/`pendingReasoning`)은 **reducer 에서 제거** — 엔트리별 `live` 슬라이스가 소유하고, `message.completed`(완성본 페이로드)·`telemetry`(잔여분 `COMMIT_PENDING_TEXT` 폴백) 시 parts 로 커밋된다.
 - 컴포넌트 접근은 selector 훅(`useChatSession`/`useLiveText`/`useLiveReasoning` — 활성 엔트리 구독)과 안정 액션 묶음 `chatActions`, imperative read 는 `getActiveChatSession()` 이다. 채팅 상태는 Context 로 전파하지 않는다.
 - 코얼레서는 단일 FIFO(세션 간 순서도 보존)이며 delta window를 `DeltaEvent[]`로 넘긴다. store는 batch 전체를 단일 `setState` transaction으로 반영해 flush당 notification을 1회로 제한한다. 세션 전환 시 dispose 하지 않는다(키 라우팅이 스테일 오염 방지).

@@ -509,7 +509,7 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - ~~(anchor) 멀티 세션 / 과거 대화 목록~~ — **구현 완료** (세션별 SessionRuntime + 사이드바 세션 목록 + FTS 검색 — runtime-ipc.md §1). 비활성 세션 표시는 nav 세션 행 상태 아이콘(0249·0254)으로 구현했고 세션 탭은 두지 않는다.
 - ~~(anchor) 재시작 재개~~ — **구현 완료** (`lastSessionId` 부트 복원 — BootRedirector).
 - ~~(anchor) Zustand 전환~~ — **구현 완료 (0008/0013)** — feature별 store + chat `sessions: Record` 외피 + 외부 dispatch(`receive(ev)`). 상세 [arch/frontend/state.md](arch/frontend/state.md) §1.
-- ~~(anchor) 로컬 DB (Phase 3+)~~ — **구현 완료** (better-sqlite3, `infra/db/migrations/`, DB=SSOT). 상세 [arch/backend/persistence.md](arch/backend/persistence.md).
+- ~~(anchor) 로컬 DB (Phase 3+)~~ — **구현 완료** (better-sqlite3, `infra/db/migrations/`, native 원본 + Orca 보관 DB). 상세 [arch/backend/persistence.md](arch/backend/persistence.md).
 - **Artifact 게시·보관** — 모델의 `publish_artifact` 호출로 HTML/Markdown·텍스트/코드·이미지를 `~/.config/orcinus-orca/artifacts/<fileId>/<filename>`에 보관한다. 개발 파일은 `.dev` 하위에 분리한다. DB는 파일 메타데이터와 세션별 게시 참조를 가지며 대화 삭제로 파일을 지우지 않는다. 파일 소실 시 게시 기록을 유지하고 파일 없음으로 표시한다. 출력 목록과 transcript 카드에서 우측 뷰어를 열어 미리보기·줄번호 코드·복사·다운로드를 사용한다. HTML은 격리된 정적 문서로 표시한다. 상세 [arch/backend/persistence.md](arch/backend/persistence.md), [렌더링](arch/frontend/rendering.md).
 - ~~(anchor) safeStorage 자격증명~~ — **구현됨**: Auth Grant → vault(0181·0188)가 LLM 게이트웨이·사내 서비스·MCP `${BINDING:}` 자격증명을 소유한다. [arch/backend/security.md](arch/backend/security.md) §1.4.
 - ~~(anchor) 추가 IPC 도메인 (Phase 3+/Future)~~ — `session`·`project`·`search`·`mcp`·`cost`·`update` 등 대부분 도입 완료(IPC_CONTRACT §2). 잔여 예약은 IPC_CONTRACT §2.14.

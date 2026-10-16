@@ -37,6 +37,8 @@ export interface TurnContext<W = unknown> {
   extraDirs: string[]
   titleGenerationStarted: boolean
   currentAssistantMessageId: number | null
+  // Queue receipts and native message identity are different namespaces.
+  nativeInputIds?: Map<string, string>
   // writer의 현재 표시 구간 주소. telemetry가 currentAssistantMessageId를 비워도 end의
   // 대상 메시지를 보존하며, 새/연속 턴에는 상속하지 않는다.
   responseBoundary?: { id: string; messageId: number }

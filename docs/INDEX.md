@@ -25,7 +25,7 @@
 | **인증 provider · 로그인 프리 Plugin** (로그인 게이트 · LLM 자격증명 · 사내 서비스 · 기본 제공 도구) | [`arch/backend/auth.md`](arch/backend/auth.md) |
 | Electron 보안 경계 · 자격증명 · 원격 전송 스택 | [`arch/backend/security.md`](arch/backend/security.md) |
 | DB · 영속성 · FTS5 | [`arch/backend/persistence.md`](arch/backend/persistence.md) |
-| **하네스 native 원본 경로·CLI 왕복 이어보기 정책 변경** | [`ADR-009`](decisions/009-harness-native-storage-authority.md) · [`0265 공통 설계`](handoff/0265-harness-native-storage/plan.md) · [`0262 OpenCode 경로 전환`](handoff/0262-opencode-harness/plan.md) — 구현 전 설계 |
+| **하네스 native 원본 경로·CLI 왕복 이어보기 정책 변경** | [`ADR-009`](decisions/009-harness-native-storage-authority.md) · [`0265 공통 설계`](handoff/0265-harness-native-storage/plan.md) · [`0262 OpenCode 경로 전환`](handoff/0262-opencode-harness/plan.md) |
 | 확장 배포 (MCP · SKILL.md · AGENTS.md 표준) | [`arch/backend/standardization.md`](arch/backend/standardization.md) |
 | 시스템 프롬프트 · 정책 append | [`arch/backend/system-prompt.md`](arch/backend/system-prompt.md) |
 | **Work 프롬프트·전용 output style 구현** | 현재 구조는 [`arch/backend/system-prompt.md`](arch/backend/system-prompt.md) · 계약·번들 CLI 실증 기록은 [`handoff/0234-work-prompt-profile/plan.md`](handoff/0234-work-prompt-profile/plan.md) |

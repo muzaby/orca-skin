@@ -36,6 +36,60 @@ function makeTurn(): TurnContext<W> {
 
 const REQUEST = { sessionId: null, text: 'hi' } as unknown as TurnRequest
 
+it('carries native IDs separately from queue UUIDs for matched echoes and automatic input', async () => {
+  const queue = new PendingMessageQueue()
+  queue.enqueue('s1', { text: 'next' }, 1, 'steer')
+  const batch = queue.reserveHeld('s1')!
+  queue.commit('s1', batch.attemptId!, batch.chainId)
+  const deps = makeDeps(
+    fakeRuntime([
+      [
+        {
+          type: 'input.echo',
+          sessionId: 's1',
+          uuid: batch.uuid,
+          nativeMessageId: 'native-user',
+          text: 'next'
+        },
+        {
+          type: 'input.received',
+          sessionId: 's1',
+          uuid: 'queue-receipt',
+          nativeMessageId: 'native-auto',
+          text: 'reminder',
+          origin: { kind: 'automatic' }
+        },
+        {
+          type: 'message.completed',
+          sessionId: 's1',
+          nativeMessageId: 'native-assistant',
+          message: { text: 'done' }
+        },
+        { type: 'telemetry', sessionId: 's1' }
+      ]
+    ]),
+    { pendingMessages: queue }
+  )
+  const commit = vi.fn(() => 42)
+  deps.persist.commitUserMessage = commit
+  const turn = makeTurn()
+  turn.dbSessionId = 's1'
+  await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+  expect(commit.mock.calls).toEqual([
+    [turn, expect.objectContaining({ text: 'next', nativeMessageId: 'native-user' })],
+    [turn, expect.objectContaining({ text: 'reminder', nativeMessageId: 'native-auto' })]
+  ])
+  expect(turn.nativeInputIds?.size).toBe(0)
+  expect(
+    vi
+      .mocked(deps.persist.persist)
+      .mock.calls.some(
+        ([, event]) =>
+          event.type === 'message.completed' && event.nativeMessageId === 'native-assistant'
+      )
+  ).toBe(true)
+})
+
 it('commits a received scheduled prompt before its response without consuming a queued user prompt', async () => {
   const runtime = fakeRuntime([
     [

@@ -15,7 +15,10 @@ vi.mock('../../infra/log', () => ({
   getLogger: () => ({ child: () => ({ debug: vi.fn() }) }),
   setConsoleMirror: vi.fn()
 }))
-vi.mock('../../infra/config/orca-config', () => ({ getOrcaConfig: () => ({}) }))
+vi.mock('../../infra/config/orca-config', () => ({
+  getOrcaConfig: () => ({}),
+  appEnv: () => ({ XDG_DATA_HOME: 'C:/native/data' })
+}))
 
 const { registerMiscHandlers } = await import('./misc')
 
@@ -71,7 +74,7 @@ describe('agent:list runtime catalog wiring', () => {
     registerMiscHandlers({
       registry: {
         list: () => [{ id: 'claude' }, { id: 'opencode' }],
-        get: (id: string) => (id === 'opencode' ? { catalog } : null)
+        get: (id: string) => (id === 'opencode' ? { catalog, agentSpawnEnv: () => ({}) } : null)
       },
       harnessSettings: {
         adapters: () => ['claude', 'opencode'],
@@ -80,7 +83,8 @@ describe('agent:list runtime catalog wiring', () => {
         ],
         resolve
       },
-      debugMock: { log: false }
+      debugMock: { log: false },
+      mcp: { resolver: () => () => undefined }
     } as never)
     const first = (await callbacks.get(CHANNELS.agentList)?.()) as Array<{
       adapter: string
@@ -93,7 +97,8 @@ describe('agent:list runtime catalog wiring', () => {
     expect(catalog).toHaveBeenCalledWith(
       expect.objectContaining({ key: 'opencode-local' }),
       { model: 'native/model' },
-      true
+      true,
+      expect.objectContaining({ XDG_DATA_HOME: 'C:/native/data' })
     )
     expect(resolve).toHaveBeenCalledWith({
       key: 'opencode-local',

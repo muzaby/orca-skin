@@ -10,7 +10,6 @@
 // 어댑터 내부 훅 조각으로 `{hooks:{PreToolUse:[…]}}`
 // 를 반환하고 claude.ts 가 mergeHooks 로 합성한다. 순수 판정부는 named export 로 단위 테스트한다.
 
-import { homedir } from 'node:os'
 import path from 'node:path'
 import type {
   HookCallback,
@@ -19,6 +18,7 @@ import type {
 } from '@anthropic-ai/claude-agent-sdk'
 import { isWithinDir, orcaConfigDir } from '../../infra/config/paths'
 import { isAbsolutePath, isFilesystemRoot } from '../../../shared/absolute-path'
+import { claudeNativePaths } from './native-paths'
 
 const WRITE_TOOLS = ['Write', 'Edit']
 const READ_TOOLS = ['Read', 'Glob', 'Grep']
@@ -26,8 +26,14 @@ const READ_TOOLS = ['Read', 'Glob', 'Grep']
 // read **와 write** 를 모두 허용하는 예외 루트. `~/.claude` 는 plan 모드 산출물·skill 설치가 쓰기를
 // 요구할 수 있어(예: `~/.claude/skills/<name>` 설치, plan 아티팩트 기록) write 까지 연다(사용자 결정
 // 0075 r2). 가이드(0074 §3.2)의 기본 read-only 스탠스에서 Orca 가 의도적으로 넓힌 지점 — 편차로 문서화.
-function writeExceptionRoots(): string[] {
-  return [path.join(homedir(), '.claude')].map((p) => path.resolve(p))
+function writeExceptionRoots(nativeRoot: string): string[] {
+  if (
+    !isAbsolutePath(nativeRoot) ||
+    isFilesystemRoot(nativeRoot) ||
+    isFilesystemRoot(path.resolve(nativeRoot))
+  )
+    throw new Error('Claude native root cannot broaden access to a filesystem root')
+  return [path.resolve(nativeRoot)]
 }
 
 // read 는 허용하되 write 는 막을 예외 루트(런타임·plugin/skill 소스). skill/plugin **로딩**은 CLI
@@ -53,7 +59,8 @@ export interface GuardRoots {
 
 export function resolveGuardRoots(
   workspaceRoot: string,
-  additionalDirs: string[] = []
+  additionalDirs: string[] = [],
+  nativeRoot = claudeNativePaths().root
 ): GuardRoots {
   const ws = path.resolve(workspaceRoot)
   // **도달 불가 전제를 소리내어 깬다** (D-021). 앞의 세 지점(선택·스키마·세션행 폴백)이
@@ -78,7 +85,7 @@ export function resolveGuardRoots(
     .map((d) => path.resolve(d))
     .filter((d) => !isFilesystemRoot(d))
   // write 허용 = cwd + additionalDirectories + write 예외(~/.claude)
-  const writeRoots = [ws, ...extra, ...writeExceptionRoots()]
+  const writeRoots = [ws, ...extra, ...writeExceptionRoots(nativeRoot)]
   // read 허용 = write + read-only 예외(~/.config/orca·런타임)
   const readRoots = [...writeRoots, ...readOnlyExceptionRoots()]
   return { ws, writeRoots, readRoots }
@@ -136,9 +143,10 @@ function deny(reason: string): HookJSONOutput {
 // 막는다(가이드 §5). callback 은 밖=deny, 안·예외·비파일툴=pass-through(`{}`).
 export function makeWorkspaceGuardHook(
   workspaceRoot: string,
-  additionalDirs: string[] = []
+  additionalDirs: string[] = [],
+  nativeRoot = claudeNativePaths().root
 ): object {
-  const roots = resolveGuardRoots(workspaceRoot, additionalDirs)
+  const roots = resolveGuardRoots(workspaceRoot, additionalDirs, nativeRoot)
   const callback: HookCallback = async (input) => {
     const i = input as {
       hook_event_name?: string

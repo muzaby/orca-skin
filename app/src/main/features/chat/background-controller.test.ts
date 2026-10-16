@@ -3,6 +3,50 @@ import { BackgroundController } from './background-controller'
 import { BackgroundTaskTracker } from './background-tasks'
 import { backgroundKey, type BackgroundEvent } from '../../../shared/background-task'
 
+it.each([false, true])(
+  'disposes delivery while preserving archived output only when requested: %s',
+  (preserveOutputSnapshots) => {
+    const source = { generation: 'g', sequence: 1, receivedAt: 1, replay: false }
+    const events: BackgroundEvent[] = [
+      {
+        type: 'background.task',
+        sessionId: 's',
+        source,
+        taskId: 't',
+        phase: 'notification',
+        patch: { status: 'completed' }
+      },
+      {
+        type: 'background.output',
+        sessionId: 's',
+        source: { ...source, sequence: 2 },
+        taskId: 't',
+        outputId: 'out',
+        snapshot: { id: 'snapshot', capturedAt: 1, size: 4, sha256: 'hash', partial: false }
+      }
+    ]
+    const removeSnapshot = vi.fn(async () => {})
+    const persist = vi.fn()
+    const controller = new BackgroundController({
+      tracker: new BackgroundTaskTracker(),
+      persist,
+      load: () => events,
+      publish: vi.fn(),
+      runtime: () => undefined,
+      roots: () => [],
+      outputs: { removeSnapshot } as never
+    })
+    const before = controller.state('s')
+    if (preserveOutputSnapshots) controller.dispose('s', { preserveOutputSnapshots: true })
+    else controller.dispose('s')
+    if (preserveOutputSnapshots) expect(removeSnapshot).not.toHaveBeenCalled()
+    else expect(removeSnapshot).toHaveBeenCalledExactlyOnceWith('snapshot')
+    controller.observe({ ...events[0], source: { ...source, sequence: 3 } })
+    expect(persist).not.toHaveBeenCalled()
+    expect(controller.state('s')).toEqual(before)
+  }
+)
+
 it('bounds a stop request whose SDK never acknowledges it', async () => {
   vi.useFakeTimers()
   try {

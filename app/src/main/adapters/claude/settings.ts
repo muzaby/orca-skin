@@ -11,11 +11,10 @@ import { reportError } from '../../infra/error-report'
 // Orca 의 canUseTool 게이트가 담당 — env 와 무관, TRD §6.8).
 
 import { existsSync, readFileSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
 import type { EngineUserSettingsResult } from '../../../shared/ipc'
 import { isRecord } from '../../../shared/obj'
 import type { HarnessSettingsLoader } from '../common/harness-config'
+import { claudeNativePaths } from './native-paths'
 
 // CLI 가 repo-커밋 파일의 escalating 모드에 적용하는 trust 필터와 동등한 목록
 // (sdk.d.ts resolveSettings remarks). flat 폴백 경로에서 수동 적용한다.
@@ -61,7 +60,7 @@ function stripEscalatingDefaultMode(settings: SettingsObject): SettingsObject {
 // 사용자 전역 ~/.claude/settings.json 원문. 검증 없이 raw 로 돌려준다 — 소비처(모달의
 // 실시간 JSON 검증, 스캐폴드의 파싱 폴백)가 각자 유효성을 판정한다. path 주입은 테스트용.
 export function readUserClaudeSettings(
-  path: string = join(homedir(), '.claude', 'settings.json')
+  path: string = claudeNativePaths().settings
 ): EngineUserSettingsResult {
   try {
     return { exists: true, settingsJson: readFileSync(path, 'utf8') }

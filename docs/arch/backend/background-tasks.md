@@ -40,7 +40,7 @@ Renderer는 경로 대신 기록된 outputId를 요청한다. main이 세션 cwd
 
 Claude query의 `CLAUDE_CODE_TMPDIR`는 앱 임시 루트로 고정하며 `options.env`와 명시 settings.env에서 같은 값을 사용한다. Windows SDK 내부 출력도 그 아래 `claude`에 생성된다. 부모 프로세스의 TEMP/TMP/TMPDIR는 바꾸지 않는다. 같은 파일의 다른 출력 참조가 도착해도 기존 읽기 거부는 유지한다.
 
-현재 파일은 페이지당 최대 64KiB를 읽으며 파일 교체와 축소를 cursor로 구분한다. 완료 출력은 `<userData>/background-outputs`에 최대 16MiB를 확보하고 확보 바이트의 SHA-256·크기·시각·부분 여부를 기록한다. 스냅샷 실패는 작업의 성공/실패를 변경하지 않는다. 세션 삭제는 journal과 보존 파일을 정리한다.
+현재 파일은 페이지당 최대 64KiB를 읽으며 파일 교체와 축소를 cursor로 구분한다. 완료 출력은 `<userData>/background-outputs`에 최대 16MiB를 확보하고 확보 바이트의 SHA-256·크기·시각·부분 여부를 기록한다. 스냅샷 실패는 작업의 성공/실패를 변경하지 않는다. 대화 목록 제거는 실행·메모리 상태만 정리하고 journal과 이미 보관한 출력 파일을 유지한다. 세션 보관 정책은 [persistence.md](./persistence.md)를 따른다.
 
 UTF-8 문자가 페이지 끝이나 성장 중인 파일 끝에서 잘리면 남은 바이트가 도착할 때까지 보류한다. 파일을 확보한 뒤 DB 참조 기록에 실패하면 그 보존 파일만 정리하고 확보 실패를 표시한다.
 

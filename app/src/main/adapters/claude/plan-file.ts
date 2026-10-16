@@ -6,6 +6,7 @@ import path from 'node:path'
 import type { HookCallback, Options } from '@anthropic-ai/claude-agent-sdk'
 import { isRecord } from '../../../shared/obj'
 import { isWithinDir } from '../../infra/config/paths'
+import { claudeNativePaths } from './native-paths'
 
 export const PLAN_FILE_MAX_BYTES = 256 * 1024
 export interface PlanFile {
@@ -26,9 +27,7 @@ export function claudePlansDirectory(
   lookup: (key: string) => string | undefined,
   home = homedir()
 ): string {
-  const configured = lookup('CLAUDE_CONFIG_DIR')
-  const root = configured?.trim() ? expandHome(configured, home) : path.join(home, '.claude')
-  return path.resolve(root, 'plans')
+  return claudeNativePaths(lookup, home).plans
 }
 
 export function planFileTarget(

@@ -25,7 +25,7 @@ interface SessionDisposeHooks {
   isSessionBusy?: (sessionId: string) => boolean
   onSessionDisposed?: (sessionId: string) => void
   getActivity?: (sessionId: string) => ChatActivitySnapshot
-  removeManagedWorktree?: (sessionId: string) => Promise<DeleteSessionResult>
+  refreshHistory?: (sessionId: string) => Promise<LoadedSession['nativeSync']>
 }
 
 type SessionHandlerContext = Pick<RouterContext, 'db' | 'getCwd'> & {
@@ -62,11 +62,18 @@ export function registerSessionHandlers(
     CHANNELS.sessionLoad,
     LoadSessionRequestSchema,
     { fallback: null },
-    (req): LoadedSession | null => {
+    async (req): Promise<LoadedSession | null> => {
+      const nativeSync = await hooks.refreshHistory?.(req.sessionId)
       const session = loadSession(ctx.db, req.sessionId, (projectId) => ctx.getCwd(projectId))
       if (!session) return null
       return {
         ...session,
+        ...(nativeSync
+          ? {
+              nativeSync:
+                nativeSync.status === 'ready' ? (session.nativeSync ?? nativeSync) : nativeSync
+            }
+          : {}),
         ...(hooks.getActivity ? { activity: hooks.getActivity(req.sessionId) } : {})
       }
     }
@@ -83,11 +90,9 @@ export function registerSessionHandlers(
       }
     },
     async (req): Promise<DeleteSessionResult> => {
-      const result = (await hooks.removeManagedWorktree?.(req.sessionId)) ?? { ok: true as const }
-      if (!result.ok) return result
       // 먼저 런타임·미커밋 입력을 닫아 삭제 뒤 지각 이벤트가 DB에 다시 쓰는 경쟁을 막는다.
       hooks.onSessionDisposed?.(req.sessionId)
-      ctx.db.deleteSession(req.sessionId)
+      ctx.db.hideSession(req.sessionId)
       // 영속화된 lastSessionId 가 삭제 대상이면 같이 해제.
       const current = ctx.settings.getAll()
       if (current.lastSessionId === req.sessionId) {

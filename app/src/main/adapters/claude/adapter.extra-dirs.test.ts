@@ -87,6 +87,12 @@ describe('ClaudeAdapter — extraDirs 는 옵션과 가드가 같은 배열을 �
     expect(guardHookMock.mock.calls[0]?.[0]).toBe('/tmp/work')
   })
 
+  it('uses the execution environment native root for the actual workspace guard', () => {
+    const nativeRoot = resolve('fixture-custom-claude')
+    capture({ ...baseReq(), env: { CLAUDE_CONFIG_DIR: nativeRoot } })
+    expect(guardHookMock.mock.calls[0]?.[2]).toBe(nativeRoot)
+  })
+
   it('Work output directory reaches the SDK and guard without mutating user extraDirs', async () => {
     const extraDirs = ['/tmp/refs']
     const context: RuntimeToolContext = {

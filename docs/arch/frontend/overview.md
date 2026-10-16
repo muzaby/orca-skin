@@ -75,7 +75,7 @@
 | **활성 효과 URL 동기화** | Phase 3++ | ✅ 완료 | `useSessionHandlers` 의 `currentSessionId` 를 `matchPath('/chat/:sessionId', pathname)` 로 도출 — `ChatContext.state.sessionId` 의존 제거 (캐시/IPC 용도로만 잔존). Sidebar nav '새 대화' isActive 도 `p === '/new'` 로 좁힘. |
 | **MCP 서버 지원 (플러그인 카탈로그 MCP 탭)** | Phase 3++ → 0217 | ✅ 완료 | `/plugins` 페이지의 카탈로그(플러그인 → 스킬 → MCP 탭, rendering.md 카탈로그 단락)에서 MCP 섹션 실 연동(`orca:mcp:*` + `AddMcpServerModal` stdio/http, 상세 토글·케밥 삭제 0217). 정의는 파일-백드 `mcp.json`, 비밀은 `${VAR}` 참조. 활성 서버는 배포기가 plugin `.mcp.json` 으로 렌더해 `options.plugins` 로 로드한다([../backend/standardization.md §5.1](../backend/standardization.md)) |
 | Projects 화면 (`/projects` · `/projects/:projectId`) | Phase 3 → 0233 | ✅ 완료 | `ProjectsScreen` 카드 그리드 + `ProjectLandingPage`(제목·메뉴·Composer·대화 목록). 시작 폴더 `cwd` 식별, Nav 펼침 동기(`useProjectCatalogSync`, state.md §1.6) |
-| 엔진 & 모델 화면 (`/agent`) | Phase 4 | ✅ CRUD 활성 (0021·0090) | `AgentEnvironmentView` + provider CRUD(`EngineFormModal` 단일 화면 + `~/.claude/settings.json` 불러오기, 0090) |
+| 엔진 & 모델 화면 (`/agent`) | Phase 4 | ✅ CRUD 활성 (0021·0090) | `AgentEnvironmentView` + provider CRUD(`EngineFormModal` 단일 화면 + 선택 하네스의 native 설정 불러오기, 0090) |
 | 플러그인 카탈로그 — 스킬 탭 토글 · 연결(Auth) 상세 | Phase 4 | ✅ 완료 (0181·0236·0238) | 스킬 on/off 는 `Settings.skillEnabled`, 연결 상세는 `ProviderDetail` + 인증 액션(`ProviderAuthActions`). 도구 권한은 승인 UI와 권한 모드 메뉴가 담당(ux-domains.md §1.6) |
 | 메시지 가상 스크롤 | Phase 4 | ✅ 완료 (0102) | `features/chat/hooks/useTranscriptVirtualizer.ts` — `@tanstack/react-virtual` 기반 transcript 가상화 |
 | 멀티세션 UI (nav 세션 행 상태 아이콘 · 주의 표시) | Phase 4 | ✅ 완료 (0249·0254) | 다른 세션의 생성 중(회전) · 완료 · 응답 대기를 행 아이콘으로 표시 — `sessionsStore.unseenAttention`·`generatingSessionIds`(state.md §1.1·§2). 세션 탭 UI 는 두지 않았다(사이드바 목록이 전환 수단) |

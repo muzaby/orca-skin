@@ -677,7 +677,7 @@ export type ChatAction =
   | { type: 'SYNC_SESSION_EXTRA_DIRS'; sessionId: string; extraDirs: string[] }
   | { type: 'REMOVE_EXTRA_DIR'; dir: string }
   | { type: 'START_LOAD_SESSION'; sessionId: string; title: string | null }
-  | { type: 'LOAD_SESSION'; session: LoadedSession }
+  | { type: 'LOAD_SESSION'; session: LoadedSession; preserveLocalState?: boolean }
   | { type: 'RENAME_SESSION'; sessionId: string; title: string }
   // 사용자가 질문에 답하거나 건너뛰어 해당 requestId 의 카드를 큐에서 제거.
   | { type: 'RESOLVE_ASK'; requestId: string }
@@ -1429,6 +1429,26 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       const activity = action.session.activity
       const preserveNewerLiveActivity =
         state.sessionId === action.session.id && state.activityRevision > (activity?.revision ?? 0)
+      if (action.preserveLocalState && state.sessionId === action.session.id) {
+        // Reopening an idle cached conversation refreshes its archive without resetting local UI.
+        return {
+          ...state,
+          messages,
+          loadingSession: false,
+          title: action.session.title,
+          projectId: action.session.projectId ?? null,
+          cwd: action.session.cwd ?? state.cwd,
+          extraDirs: action.session.extraDirs ?? state.extraDirs,
+          worktree: action.session.worktree ?? state.worktree,
+          ...(action.session.lastTelemetry
+            ? {
+                lastTelemetry: action.session.lastTelemetry,
+                lastTelemetryProviderKey: action.session.providerKey ?? null
+              }
+            : {}),
+          ...(action.session.costUsd != null ? { sessionCostUsd: action.session.costUsd } : {})
+        }
+      }
       return {
         ...initialChatState,
         openCodeTodoCollapsed:

@@ -25,6 +25,7 @@ import type {
 import { UsageQueries } from './usage-queries'
 import { ArtifactQueries } from './artifact-queries'
 import { BackgroundTaskQueries } from './background-task-queries'
+import { NativeHistoryQueries } from './native-history-queries'
 import { isWithinDir } from '../config/paths'
 import { getLogger } from '../log/registry'
 
@@ -32,6 +33,7 @@ export class DbQueries {
   readonly usage: UsageQueries
   readonly artifacts: ArtifactQueries
   readonly background: BackgroundTaskQueries
+  readonly nativeHistory: NativeHistoryQueries
   private readonly db: Database.Database
   private readonly insertSessionStmt: Database.Statement
   private readonly listSessionsStmt: Database.Statement
@@ -119,13 +121,14 @@ export class DbQueries {
     this.listSessionsStmt = db.prepare(`
       SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd, extra_dirs, pinned_at, agent_kind
       FROM sessions
+      WHERE hidden_at IS NULL
       ORDER BY updated_at DESC
       LIMIT @limit
     `)
     this.getSessionByIdStmt = db.prepare(`
       SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd, extra_dirs, agent_kind
       FROM sessions
-      WHERE id = @id
+      WHERE id = @id AND hidden_at IS NULL
     `)
     this.getSessionBaselineStmt = db.prepare(
       'SELECT baseline_oid, baseline_ref, created_at FROM sessions WHERE id = @sessionId'
@@ -276,6 +279,7 @@ export class DbQueries {
     this.usage = new UsageQueries(db)
     this.artifacts = new ArtifactQueries(db)
     this.background = new BackgroundTaskQueries(db)
+    this.nativeHistory = new NativeHistoryQueries(db)
     this.renameSessionStmt = db.prepare(`
       UPDATE sessions
       SET title = @title, title_source = 'user', updated_at = @updatedAt
@@ -314,17 +318,17 @@ export class DbQueries {
     this.listSessionsByProjectStmt = db.prepare(`
       SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd, pinned_at, agent_kind
       FROM sessions
-      WHERE project_id = @projectId
+      WHERE project_id = @projectId AND hidden_at IS NULL
       ORDER BY updated_at DESC
     `)
     this.sessionCwdExistsStmt = db.prepare(`
-      SELECT 1 FROM sessions WHERE cwd = @cwd LIMIT 1
+      SELECT 1 FROM sessions WHERE cwd = @cwd AND hidden_at IS NULL LIMIT 1
     `)
     this.getProjectContextForSessionStmt = db.prepare(`
       SELECT p.name AS name, p.instructions AS instructions
       FROM projects p
       JOIN sessions s ON s.project_id = p.id
-      WHERE s.id = @sessionId
+      WHERE s.id = @sessionId AND s.hidden_at IS NULL
     `)
     this.searchMessagesStmt = db.prepare(`
       SELECT
@@ -338,6 +342,9 @@ export class DbQueries {
       JOIN messages m ON m.id = messages_fts.rowid
       JOIN sessions s ON s.id = m.session_id
       WHERE messages_fts MATCH @query
+        AND s.hidden_at IS NULL
+        AND m.id > COALESCE((SELECT local_frontier FROM native_history_snapshots
+          WHERE session_id = s.id), 0)
       ORDER BY rank
       LIMIT @limit
     `)
@@ -635,6 +642,12 @@ export class DbQueries {
     this.deleteSessionStmt.run({ id })
   }
 
+  hideSession(id: string, now = Date.now()): void {
+    this.db
+      .prepare('UPDATE sessions SET hidden_at = COALESCE(hidden_at, ?) WHERE id = ?')
+      .run(now, id)
+  }
+
   insertManagedWorktree(row: ManagedWorktreeInsert): void {
     this.insertManagedWorktreeStmt.run(row)
   }
@@ -747,7 +760,8 @@ export class DbQueries {
   searchMessages(rawQuery: string, limit = 30): SearchHitRow[] {
     const fts = toFtsMatch(rawQuery)
     if (!fts) return []
-    return this.searchMessagesStmt.all({ query: fts, limit }) as SearchHitRow[]
+    const local = this.searchMessagesStmt.all({ query: fts, limit }) as SearchHitRow[]
+    return [...this.nativeHistory.search(fts, limit), ...local].slice(0, limit)
   }
 }
 

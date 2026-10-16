@@ -665,7 +665,13 @@ describe('claudeToNormalized', () => {
       ctx()
     )
     expect(out).toEqual([
-      { type: 'input.echo', sessionId: 's1', text: 'steer feedback', uuid: 'orca-steer-1' }
+      {
+        type: 'input.echo',
+        sessionId: 's1',
+        text: 'steer feedback',
+        uuid: 'orca-steer-1',
+        nativeMessageId: 'orca-steer-1'
+      }
     ])
   })
 

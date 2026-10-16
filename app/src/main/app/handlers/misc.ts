@@ -21,10 +21,11 @@ import { setWireSink } from '../../infra/ipc/wire-log'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import { getLogger, setConsoleMirror } from '../../infra/log'
 import { getOrcaConfig } from '../../infra/config/orca-config'
+import { prepareConfiguredHarnessInput } from '../harnesses/prepare-input'
 
 type MiscHandlerContext = Pick<
   RouterContext,
-  'registry' | 'harnessSettings' | 'runtimeModelCatalog' | 'debugMock'
+  'registry' | 'harnessSettings' | 'runtimeModelCatalog' | 'debugMock' | 'harnessRuntime' | 'mcp'
 >
 
 export function registerMiscHandlers(ctx: MiscHandlerContext): void {
@@ -51,13 +52,25 @@ export function registerMiscHandlers(ctx: MiscHandlerContext): void {
         const adapter = ctx.registry.get(entry.adapter as import('../../../shared/ipc').Backend)
         if (!adapter?.catalog) return entry
         try {
-          const config = await ctx.harnessSettings.resolve({
+          const target = {
             key: entry.key,
             harnessId: entry.adapter,
             modelProviderId: entry.provider ?? ''
-          })
-          if (!config) throw new Error('하네스 설정을 읽을 수 없습니다.')
-          return await adapter.catalog(entry, config.settings, true)
+          }
+          const config = ctx.harnessRuntime
+            ? ctx.runtimeModelCatalog?.isReadOnly(entry.key)
+              ? ctx.harnessRuntime.cached(entry.key)
+              : await ctx.harnessRuntime.resolve(target)
+            : { ...target, runtimeEnv: {}, settings: await ctx.harnessSettings.resolve(target) }
+          if (!config || (!ctx.harnessRuntime && !config.settings))
+            throw new Error('하네스 설정을 읽을 수 없습니다.')
+          const prepared = prepareConfiguredHarnessInput(ctx, config, adapter.agentSpawnEnv('code'))
+          return await adapter.catalog(
+            entry,
+            prepared.providerSettings?.settings ?? {},
+            true,
+            prepared.env
+          )
         } catch (error) {
           return {
             ...entry,

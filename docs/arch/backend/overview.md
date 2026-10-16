@@ -10,7 +10,7 @@
 **다루는 것**
 - Electron Main Process 구조 (`app/src/main/`)
 - Backend Adapter 추상화 (SessionAdapter — LLM Provider 가 아님)
-- 데이터 영속성 (electron-store + 로컬 DB + 게시 원본 파일 — [persistence.md](./persistence.md))
+- 데이터 영속성 (하네스 native 원본 + Orca 보관 DB + 앱 설정·게시 파일 — [persistence.md](./persistence.md))
 - IPC 핸들러 구조 (채널 카탈로그는 [IPC_CONTRACT.md](../../IPC_CONTRACT.md))
 - 보안 경계 (BrowserWindow 옵션 + 자격증명 모델)
 - 시스템 통합 (자동 업데이트 / 로깅 / 플랫폼 차이)
@@ -168,10 +168,10 @@ Electron App
    f. workspace                             # 기본 작업공간(~/.config/orcinus-orca/workspace) mkdir
    g. config-dir → orca-config              # ~/.config/orcinus-orca 보장 + orcinus-orca.json 부팅 1회 로드
    h. builtin-skill-seed                    # seedBuiltinSkills — 번들 스킬 → sources/skills 시딩 (0078, manifest/marker 버전 게이트)
-   i. provider-scaffold                     # 최초 1회 — readUserClaudeSettings() 로 ~/.claude/settings.json env 판별
+   i. provider-scaffold                     # 최초 1회 — Claude native 루트의 settings.json env 판별
                                             # (classifyClaudeEnv) 후 provider verbatim 시딩, 부재 시 anthropic 템플릿 (0090)
    j. extension-deploy                      # sources → dist/<engine> 렌더 (ExtensionDeploymentService)
-   k. skill-scan                            # 스킬 부팅 1회 스캔(orca sources/skills + ~/.claude/skills) → Bootstrap.skillsCache
+   k. skill-scan                            # Orca sources + 하네스가 제공한 native 스킬 루트 → Bootstrap.skillsCache
    l. register(ctx):                        # RouterContext 조립
         - RuntimeSupervisor(cap 5 · BoundedRuntimeCapPolicy · ActiveTurnTracker→concurrency push)
         - TypedBus 구독 순서 SSOT: usage → history → title → relay(sendChatEvent)  (§runtime-ipc §2.4)
@@ -212,7 +212,7 @@ Electron App
 | AdapterRegistry | Phase 2 | ✅ 완료 | claude 단일 등록 |
 | Installer (래퍼) | Phase 2 | ✅ 완료 | 4줄 — 어댑터의 `install()` yield |
 | electron-store | Phase 3++ | ✅ 완료 | `infra/settings-store.ts` (키 카탈로그는 persistence.md §1.2 / IPC_CONTRACT §2.4) |
-| Skills 스캔 (orca `sources/skills` + `~/.claude/skills`) | Phase 2 | ✅ 완료 | `features/extensions/common/skills/scan.ts` — `<cwd>/.claude/skills` 루트는 제거됨. 캐시는 `Bootstrap.skillsCache` |
+| Skills 스캔 (Orca sources + Claude native skills) | Phase 2 | ✅ 완료 | `features/extensions/common/skills/scan.ts` — 루트는 app 하네스 조립부가 제공. native 경로는 [adapters.md §1.3](./adapters.md#13-claudecodeadapter-호출-패턴), 캐시는 `Bootstrap.skillsCache` |
 | Skills 번들 시딩 (부트 1회) | Phase 4 | ✅ 완료 (0078) | `features/extensions/common/skills/seed.ts` + `app/builtin-resources.ts` — manifest/marker 버전 게이트 |
 | ExtensionDeployer | Phase 3++ | ✅ 완료 | `features/extensions/claude/deployer.ts` — sources → `dist/<engine>/` 렌더 (표준화 스테이지 A) |
 | 인증 만료 감지 (`auth.expired`) | Phase 2 | ✅ 완료 | UI 에 AuthExpiredModal 노출 |

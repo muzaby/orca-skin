@@ -546,10 +546,11 @@ export type NormalizedEvent =
   // main 내부 커밋 신호(renderer 미전달) — CLI 가 stdin 주입 입력을 흡수해 user 메시지로 echo 한
   // 순간(SDKUserMessageReplay). TurnCoordinator 가 pending 소비 확정에만 쓰고 persist/forward
   // 하지 않는다. uuid = 주입 배치 uuid(미보존 시 text 매칭 폴백, 0060 D1).
-  | { type: 'input.echo'; sessionId: string; text: string; uuid?: string }
+  | { type: 'input.echo'; sessionId: string; text: string; uuid?: string; nativeMessageId?: string }
   | {
       type: 'input.received'
       sessionId: string
+      nativeMessageId?: string
       text: string
       uuid?: string
       origin: ReceivedMessageOrigin
@@ -586,6 +587,7 @@ export type NormalizedEvent =
   | {
       type: 'session.compacted'
       sessionId: string
+      nativeMessageId?: string
       trigger?: 'manual' | 'auto'
       preTokens?: number
       postTokens?: number
@@ -593,6 +595,7 @@ export type NormalizedEvent =
   | {
       type: 'message.completed'
       sessionId: string
+      nativeMessageId?: string
       message: { text: string }
       // 서브에이전트(Task) 안에서 발생한 텍스트면 부모 Task 의 toolRunId. 최상위 턴이면 생략.
       parentToolRunId?: string
@@ -602,6 +605,7 @@ export type NormalizedEvent =
   | {
       type: 'message.reasoning'
       sessionId: string
+      nativeMessageId?: string
       text: string
       signature?: string
       parentToolRunId?: string
@@ -617,6 +621,7 @@ export type NormalizedEvent =
   | {
       type: 'tool.call.started'
       sessionId: string
+      nativeMessageId?: string
       toolRunId: string
       toolName: string
       args: unknown
@@ -631,6 +636,7 @@ export type NormalizedEvent =
   | {
       type: 'tool.call.completed'
       sessionId: string
+      nativeMessageId?: string
       toolRunId: string
       result: unknown
       isError: boolean
@@ -1582,6 +1588,11 @@ export interface LoadedSession {
   agentKind: AgentKind
   title: string | null
   messages: LoadedMessage[]
+  /** Native refresh diagnostics; cached conversation remains available on failure. */
+  nativeSync?: {
+    status: 'ready' | 'busy' | 'missing' | 'unavailable' | 'migration-required'
+    message?: string
+  }
   // 세션 마지막 턴의 provider-reported 통계 — 컨텍스트 도넛/UsagePanel 을 세션 수명 동안
   // 복원(turn_usage 최신 행에서 재구성). 비용 집계는 원장 SUM 으로 별도(추후 usage 화면).
   lastTelemetry?: ProviderReportedTelemetry

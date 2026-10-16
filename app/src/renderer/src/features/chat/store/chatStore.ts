@@ -73,8 +73,8 @@ import { backgroundCallKeyForToolUse } from '../lib/canonicalBackground'
 //               함수로 유지하고 store 가 키 라우팅을 담당한다(테스트/불변식 보존).
 //   live      : 스트리밍 transient 버퍼(text·reasoning). 델타는 reducer 에 닿지 않는다.
 //
-// 구 sessionCache(snapshot Map)는 sessions Record 가 흡수했다 — 본 적 있는 세션 재진입은
-// IPC 없이 activeKey 전환만으로 복원된다(LRU cap 은 Future Scope).
+// 구 sessionCache(snapshot Map)는 sessions Record 가 흡수했다. 재진입은 캐시를 먼저 표시하고
+// native 이력 재조회를 요청한다. 실행 중 도착한 응답은 live 상태를 덮지 않는다.
 
 export interface LiveTurnState {
   // 스트리밍 중 누적 텍스트(구 ChatState.pendingDelta).
@@ -274,6 +274,7 @@ function patchEntry(key: string, update: (entry: SessionEntry) => SessionEntry):
 
 const permissionUpdates = new Map<string, { request: number; settlement: number }>()
 let permissionUpdateSequence = 0
+const sessionLoads = new Map<string, { entry: SessionEntry; liveChanged: boolean }>()
 
 function dispatchTo(key: string, action: ChatAction): void {
   if (
@@ -558,6 +559,7 @@ function promotePendingNewChat(sessionId: string): boolean {
 
 // 엔트리 제거. 활성 엔트리였다면 깨끗한 새 채팅으로 전환한다.
 function dropSession(sessionId: string, fallbackProjectId: string | null = null): void {
+  sessionLoads.delete(sessionId)
   forgetBackgroundState(sessionId)
   permissionUpdates.delete(sessionId)
   forgetArtifacts(sessionId)
@@ -902,6 +904,10 @@ const coalescer = createEventCoalescer(
 
 // IPC 인바운드 이벤트 1개 라우팅(코얼레서 경유). ChatProvider 부트스트랩이 구독을 연결한다.
 export function ingestChatEvent(ev: NormalizedEvent): void {
+  // rAF를 기다리는 델타도 이미 수신한 live 데이터다. load가 먼저 완료되어도 덮지 않는다.
+  const key = 'sessionId' in ev && ev.sessionId ? ev.sessionId : getState().activeKey
+  const loading = sessionLoads.get(key)
+  if (loading) loading.liveChanged = true
   coalescer.push(ev)
 }
 
@@ -1515,53 +1521,91 @@ function startHandoff(): boolean {
   return true
 }
 
-// 사이드바 항목 클릭 / 부팅 자동 복원 공통. 엔트리가 이미 있으면(본 적 있는 세션)
-// IPC 없이 activeKey 전환만 — 구 메모리 캐시 hit 와 동일한 효과. 같은 세션 재클릭은 no-op.
+// 사이드바 항목 클릭 / 부팅 자동 복원 공통. 캐시가 있어도 재열기는 native 이력을 다시 읽되
+// 조회 중 본문·composer·패널을 유지한다. 이미 보고 있는 세션 재클릭은 no-op.
 // title 은 사이드바 메타에서 가져오는 낙관적 값 — 부팅 자동 복원 경로에선 생략되면
 // 도착한 LoadedSession.title 로 채워진다.
 async function loadSession(sessionId: string, title: string | null = null): Promise<void> {
-  const s = getState()
+  let s = getState()
   const existing = s.sessions[sessionId]
   if (s.activeKey === sessionId && existing && !existing.session.loadingSession) return
-
-  if (existing && !existing.session.loadingSession) {
+  coalescer.flush()
+  s = getState()
+  const cached = s.sessions[sessionId]
+  const hasCachedHistory = cached && !cached.session.loadingSession
+  if (hasCachedHistory) {
     setState({ activeKey: sessionId })
     void settingsApi.set({ lastSessionId: sessionId })
-    return
+  } else if (cached) {
+    setState({ activeKey: sessionId })
+  } else {
+    const loadingSession = chatReducer(
+      { ...initialChatState, cwd: cwdCache },
+      { type: 'START_LOAD_SESSION', sessionId, title }
+    )
+    setState((st) => ({
+      sessions: {
+        ...st.sessions,
+        [sessionId]: {
+          session: loadingSession,
+          live: EMPTY_LIVE,
+          subagentMeta: EMPTY_SUBAGENT_META
+        }
+      },
+      activeKey: sessionId
+    }))
   }
-
-  // 미보유 세션 — 로딩 엔트리를 만들고 IPC 로 채운다. 응답은 키로 라우팅되므로
-  // 사용자가 도착 전에 다른 세션으로 이동해도 올바른 엔트리에 적재된다.
-  const loadingSession = chatReducer(
-    { ...initialChatState, cwd: cwdCache },
-    { type: 'START_LOAD_SESSION', sessionId, title }
-  )
-  setState((st) => ({
-    sessions: {
-      ...st.sessions,
-      [sessionId]: { session: loadingSession, live: EMPTY_LIVE, subagentMeta: EMPTY_SUBAGENT_META }
-    },
-    activeKey: sessionId
-  }))
+  const request = { entry: getState().sessions[sessionId], liveChanged: false }
+  sessionLoads.set(sessionId, request)
+  const isCurrent = (): boolean =>
+    sessionLoads.get(sessionId) === request &&
+    getState().sessions[sessionId] === request.entry &&
+    !request.liveChanged
 
   try {
     const session = await sessionApi.load(sessionId)
+    if (!isCurrent()) return
     if (!session) {
+      const wasActive = getState().activeKey === sessionId
       dropSession(sessionId)
-      void settingsApi.set({ lastSessionId: null })
+      if (wasActive) void settingsApi.set({ lastSessionId: null })
       return
     }
-    dispatchTo(sessionId, { type: 'LOAD_SESSION', session })
+    // Cached live state is authoritative even when its next event has not arrived yet.
+    if (hasCachedHistory && sessionBusy(request.entry.session)) return
+    dispatchTo(sessionId, { type: 'LOAD_SESSION', session, preserveLocalState: !!hasCachedHistory })
     void refreshBackgroundState(sessionId)
-    void settingsApi.set({ lastSessionId: session.id })
+    if (getState().activeKey === sessionId) void settingsApi.set({ lastSessionId: session.id })
+    if (
+      session.nativeSync &&
+      session.nativeSync.status !== 'busy' &&
+      (session.nativeSync.status !== 'ready' || session.nativeSync.message)
+    ) {
+      reportError({
+        event: 'chat.session-load.failed',
+        scope: 'chat',
+        title: 'sessionOpenFailed',
+        detail: session.nativeSync.message
+      })
+    }
   } catch (error) {
-    dropSession(sessionId)
+    if (!isCurrent()) return
+    if (!hasCachedHistory) dropSession(sessionId)
     reportError({
       event: 'chat.session-load.failed',
       scope: 'chat',
       title: 'sessionOpenFailed',
       error: error
     })
+  } finally {
+    if (sessionLoads.get(sessionId) === request) {
+      sessionLoads.delete(sessionId)
+      patchEntry(sessionId, (entry) =>
+        entry.session.loadingSession
+          ? { ...entry, session: { ...entry.session, loadingSession: false } }
+          : entry
+      )
+    }
   }
 }
 

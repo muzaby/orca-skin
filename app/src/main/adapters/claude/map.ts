@@ -371,6 +371,26 @@ function mapTaskUpdated(msg: Record<string, unknown>, ctx: MapContext): Normaliz
 }
 
 export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): NormalizedEvent[] {
+  const events = mapClaudeMessage(msg, ctx)
+  const uuid = (msg as { uuid?: unknown }).uuid
+  if (typeof uuid !== 'string' || uuid === '') return events
+  return events.map((event) => {
+    switch (event.type) {
+      case 'input.echo':
+      case 'input.received':
+      case 'message.completed':
+      case 'message.reasoning':
+      case 'tool.call.started':
+      case 'tool.call.completed':
+      case 'session.compacted':
+        return { ...event, nativeMessageId: uuid }
+      default:
+        return event
+    }
+  })
+}
+
+function mapClaudeMessage(msg: SDKMessage, ctx: MapContext): NormalizedEvent[] {
   // SDKSystemMessage(subtype:'init') → session.updated (+ ctx.sessionId 갱신)
   if (msg.type === 'system' && (msg as { subtype?: string }).subtype === 'init') {
     const m = msg as unknown as {

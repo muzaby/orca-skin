@@ -55,6 +55,7 @@ import { ExtensionBuilder } from '../features/extensions/common/builder'
 import { PermissionModeController } from '../features/approvals/permission-mode-controller'
 import type { RouterContext } from './context'
 import { registerSessionHandlers } from './handlers/session'
+import { createNativeHistoryRefresh } from './native-history'
 import { registerProjectHandlers } from './handlers/project'
 import { registerMcpHandlers } from './handlers/mcp'
 import { registerEngineHandlers } from './handlers/engine'
@@ -996,7 +997,7 @@ export class Bootstrap {
     registerSessionHandlers(ctx, {
       isSessionBusy: (sessionId) => supervisor.hasSession(sessionId),
       onSessionDisposed: (sessionId) => {
-        background.dispose(sessionId)
+        background.dispose(sessionId, { preserveOutputSnapshots: true })
         persistence.forgetProviderSession(sessionId)
         // DB 행을 지우기 전에 호출되는 hook에서 active/idle provider 수명도 함께 끊는다. lease가
         // child 교체 중이어도 runtime을 직접 소유하므로 삭제된 세션이 뒤늦게 영속화를 재개하지 않는다.
@@ -1006,7 +1007,11 @@ export class Bootstrap {
         activity.clear(sessionId)
       },
       getActivity: (sessionId) => activity.current(sessionId),
-      removeManagedWorktree: (sessionId) => worktrees.removeForSession(sessionId)
+      refreshHistory: createNativeHistoryRefresh(ctx, {
+        hasSession: (sessionId) => supervisor.hasSession(sessionId),
+        discardRuntime: (sessionId) => supervisor.discardRuntime(sessionId),
+        activity: (sessionId) => activity.current(sessionId)
+      })
     })
     registerProjectHandlers(ctx)
     registerMcpHandlers(ctx)

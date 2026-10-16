@@ -9,6 +9,7 @@ import type { AgentKind } from '../../../shared/agent-kind'
 import type { InterruptReceipt, TurnContinuation, TurnRequest } from './turn'
 import type { AdapterSpawnEnvPatch, ResolvedHarnessSettings } from './harness-config'
 import type { BackgroundEvent, ProviderMessageEvent } from '../../../shared/background-task'
+import type { NativeHistoryRequest, NativeHistoryResult } from './native-history'
 
 export type { Backend, NormalizedEvent }
 
@@ -67,10 +68,12 @@ export interface CompleteRequest {
 
 export interface SessionAdapter {
   close?(): void
+  readHistory?(request: NativeHistoryRequest): Promise<NativeHistoryResult>
   catalog?(
     entry: import('../../../shared/ipc').AgentEnvironment,
     config: Record<string, unknown>,
-    refresh?: boolean
+    refresh?: boolean,
+    env?: Record<string, string>
   ): Promise<import('../../../shared/ipc').AgentEnvironment>
   readonly id: Backend
   // Adapter-native subprocess policy selected by the session's immutable Code/Work kind.

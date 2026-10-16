@@ -25,6 +25,44 @@ function adapter(
 }
 
 describe('turn setup with the runtime model catalog', () => {
+  it('passes the prepared native environment to catalog and execution unchanged', async () => {
+    const catalog = vi.fn(async (entry) => ({ ...entry, models: [] }))
+    const resolved = await resolveTurnProvider(
+      {
+        harnessSettings: {
+          list: () => [
+            { key: 'opencode-local', harnessId: 'opencode', modelProviderId: 'local', models: [] }
+          ]
+        },
+        harnessRuntime: {
+          resolve: async () => ({
+            key: 'opencode-local',
+            harnessId: 'opencode',
+            modelProviderId: 'local',
+            settings: { settings: { model: 'native/model' } },
+            runtimeEnv: { XDG_DATA_HOME: 'C:/native/custom' }
+          })
+        },
+        db: { getSessionById: () => undefined },
+        mcp: { resolver: () => () => undefined }
+      } as never,
+      {
+        adapter: { id: 'opencode', catalog, agentSpawnEnv: () => ({}) } as never,
+        agentKind: 'code',
+        sessionId: null,
+        providerKey: 'opencode-local',
+        modelFamily: null
+      }
+    )
+    expect(catalog).toHaveBeenCalledWith(
+      expect.objectContaining({ key: 'opencode-local' }),
+      { model: 'native/model' },
+      false,
+      resolved.prepared.env
+    )
+    expect(resolved.prepared.env?.XDG_DATA_HOME).toBe('C:/native/custom')
+  })
+
   it('uses the Gate-warmed cache without another augmenter fetch', async () => {
     let now = 0
     const fetchContribution = vi.fn(async () => ({
