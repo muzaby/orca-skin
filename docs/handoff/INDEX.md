@@ -22,7 +22,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [`0265-harness-native-storage`](0265-harness-native-storage/plan.md) | plan | **DRAFT** | **Claude** (설계) | (V1 요구·조사 — 검증자 기입) | 1 | native 원본 경로·Orca DB 보관·실행 오버라이드 유지·목록 제거만·터미널 대화 재반영 확정. 이력 ID 합성·이관·리소스 경계의 V/기술 설계 보강 전. ADR-001 정책은 ADR-009로 대체. |
+| [`0265-harness-native-storage`](0265-harness-native-storage/plan.md) | plan | **READY** | **Codex** | (V1 설계 — 검증자 기입) | 1 | native snapshot·부가 기록 ID 매핑·Orca 보관/검색·목록 제외·캐시 재조회·native 완료 경계와 오류 보존 확정. OpenCode 구체 이관은 0262 ΔV15 소유. |
 | [`0264-harness-module-isolation`](0264-harness-module-isolation/plan.md) | impl | **IMPL_DONE** | **Claude** | (r1 구현 — 검증자 기입) | 1 | renderer·main 하네스/공통 구현 분리 및 미사용 코드 정리. AC11/11·EP28/28 자기확인, 등록 변이6종 검출. Windows CI #765 통과(7050 tests·scripts142). 독립 verify 대기. |
 | [`0263-opencode-session-panel`](0263-opencode-session-panel/plan.md) | impl | **IMPL_DONE** | **Claude** (검증) | `52976413` (ΔV5 설계) · (r1.5 구현 — 검증자 기입) · PR [#502](https://github.com/muzaby/orca-skin/pull/502) | 1 | ΔV5 구현 완료: 공통 외곽·행 여백·활성 셸 요약·작업 전용 메뉴. 완료 상세와 복귀·Claude GUI 보존. AC13/13·CUA·로컬 59파일/815케이스 및 Windows CI #768 통과. |
 | [`0262-opencode-harness`](0262-opencode-harness/plan.md) | plan | **DRAFT** | **Claude** (설계) | (ΔV15 요구·조사 — 검증자 기입) | 1 | native 저장 경로로 전환하고 엔진 설정 오버라이드 유지. 구격리 세션·관련 리소스 이관 설계 필요. ΔV14 구현 자기확인37/38·AC11 사용자 인수와 독립 verify 대기는 보존. |
