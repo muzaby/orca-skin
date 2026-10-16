@@ -23,10 +23,10 @@ type AdapterSubmissionOutcome =
   { kind: 'accepted' } | { kind: 'rejectedBeforeAccept'; reason: 'stream_closed' }
 
 // 라이브 핸들 (provider-runtime.md §3). 0067 부터 두 수명 모델을 겸한다: `pushTurn` 을 구현한
-// 어댑터(claude)는 **장수명 세션 채널** — result 후에도 입력이 열려 있어 후속 턴을 이어붙이고,
-// `events` 는 close() 까지 다중 턴을 흘린다(프레임 절단은 SessionRuntime). `pushTurn` 미구현
+// 어댑터(Claude·OpenCode)는 **장수명 세션 채널** — 응답 뒤에도 입력과 수신을 유지하고,
+// `eventBatches`는 close()까지 다중 턴을 흘린다(프레임 절단은 SessionRuntime). `pushTurn` 미구현
 // 어댑터(mock)는 턴-스코프 — `events` 소비가 끝나면 핸들이 닫힌다(현행 보존). control 메서드는
-// 스트리밍 입력 모드에서만 동작하는 SDK Query 메서드에 위임된다.
+// 해당 하네스의 native 제어에 위임되며 지원하지 않는 제어는 성공을 가장하지 않는다.
 export interface LiveTurn {
   readonly providerGeneration?: string
   reinitialize?(): Promise<void>

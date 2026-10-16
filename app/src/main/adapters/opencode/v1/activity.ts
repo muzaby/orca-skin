@@ -2,9 +2,22 @@ import type { Event } from '@opencode-ai/sdk/v2'
 import type { NormalizedEvent } from '../../../../shared/ipc'
 import type { BackgroundEvent } from '../../../../shared/background-task'
 import { OpenCodeEventMapper } from './map'
+import { nativeTaskCompletion, OpenCodeNativeInputs } from './native-input'
 
 const OUTPUT_LIMIT = 64 * 1024
-type Child = { mapper: OpenCodeEventMapper; parent: string; owner: string }
+type Child = {
+  mapper: OpenCodeEventMapper
+  parent: string
+  owner: string
+  background: boolean
+  taskId: string
+  nativeId: string
+  settled: boolean
+}
+
+function taskIdentity(nativeId: string, parent: string): string {
+  return `opencode:${JSON.stringify([nativeId, parent])}`
+}
 
 function childEvents(
   events: NormalizedEvent[],
@@ -41,12 +54,27 @@ export class OpenCodeActivityMapper {
   private readonly children = new Map<string, Child>()
   private readonly snapshots = new Map<string, string>()
   private sequence = 0
+  private readonly inputs: OpenCodeNativeInputs
 
   constructor(
     readonly sessionId: string,
-    private readonly promptId: string
+    promptId: string,
+    private readonly generation: string = promptId
   ) {
     this.root = new OpenCodeEventMapper(sessionId, promptId)
+    this.inputs = new OpenCodeNativeInputs(sessionId, promptId)
+  }
+
+  acceptPrompt(id: string): void {
+    this.inputs.acceptPrompt(id, this.root.terminal)
+    this.root.acceptPrompt(id)
+  }
+
+  ownedSessions(): string[] {
+    return [
+      this.sessionId,
+      ...[...this.children].filter(([, child]) => !child.settled).map(([id]) => id)
+    ]
   }
 
   ownsSession(id: string): boolean {
@@ -55,7 +83,7 @@ export class OpenCodeActivityMapper {
 
   finish(): NormalizedEvent[] {
     const children = [...this.children].flatMap(([id, child]) =>
-      childEvents(child.mapper.finish(), child, this.sessionId, id)
+      child.background ? [] : childEvents(child.mapper.finish(), child, this.sessionId, id)
     )
     return [...children, ...this.root.finish()]
   }
@@ -68,9 +96,31 @@ export class OpenCodeActivityMapper {
     if (!('sessionID' in event.properties) || typeof event.properties.sessionID !== 'string')
       return result
     const id = event.properties.sessionID
+    const received = this.inputs.observe(event, this.root.terminal)
+    if (received.userId) this.root.acceptPrompt(received.userId)
+    result.events.push(...received.events)
+    for (const input of received.events) {
+      if (input.type !== 'input.received') continue
+      const completion = nativeTaskCompletion(input.text)
+      if (!completion) continue
+      const target =
+        this.children.get(completion.id) ??
+        [...this.children.values()].find((value) => value.nativeId === completion.id)
+      if (!target?.background || target.settled) continue
+      target.settled = true
+      result.providerEvents.push({
+        type: 'background.task',
+        sessionId: this.sessionId,
+        taskId: target.taskId,
+        toolUseId: target.parent,
+        phase: 'notification',
+        patch: { status: completion.status, isBackgrounded: true },
+        source: this.source()
+      })
+    }
     const child = this.children.get(id)
     const mapper = id === this.sessionId ? this.root : child?.mapper
-    if (!mapper || this.root.terminal) return result
+    if (!mapper || mapper.terminal) return result
     const toolId = (callId: string): string => (child ? `${id}:${callId}` : callId)
     const mapped = mapper.map(event)
     if (child) {
@@ -82,7 +132,7 @@ export class OpenCodeActivityMapper {
       }
       // Child failure is reported by its parent Task result; it must not end the root turn.
       result.events.push(...childEvents(mapped, child, this.sessionId, id))
-    } else result.events = mapped
+    } else result.events.push(...mapped)
     if (event.type !== 'message.part.updated') return result
     const part = event.properties.part
     if (
@@ -101,15 +151,41 @@ export class OpenCodeActivityMapper {
     ) {
       const prior = this.children.get(metadata.sessionId)
       const parent = toolId(part.callID)
+      const nativeId = typeof metadata.jobId === 'string' ? metadata.jobId : metadata.sessionId
       if (!prior || (prior.owner === id && prior.parent !== parent)) {
         this.children.set(metadata.sessionId, {
           mapper: new OpenCodeEventMapper(metadata.sessionId),
           parent,
-          owner: id
+          owner: id,
+          background: metadata.background === true,
+          taskId: taskIdentity(nativeId, parent),
+          nativeId,
+          settled: false
         })
       }
       const target = this.children.get(metadata.sessionId)
-      if (target?.parent === parent && state.status !== 'running') {
+      if (target?.parent === parent && metadata.background === true) {
+        target.background = true
+        target.nativeId = nativeId
+        target.taskId = taskIdentity(nativeId, parent)
+        if (!target.settled)
+          result.providerEvents.push({
+            type: 'background.task',
+            sessionId: this.sessionId,
+            taskId: target.taskId,
+            toolUseId: parent,
+            phase: state.status === 'error' ? 'notification' : 'started',
+            patch: {
+              status: state.status === 'error' ? 'error' : 'running',
+              isBackgrounded: true,
+              agentId: metadata.sessionId
+            },
+            source: this.source()
+          })
+        if (state.status === 'error') target.settled = true
+      }
+      if (target?.parent === parent && !target.background && state.status !== 'running') {
+        target.settled = true
         result.events.push(
           ...childEvents(target.mapper.finish(), target, this.sessionId, metadata.sessionId)
         )
@@ -124,7 +200,13 @@ export class OpenCodeActivityMapper {
           : typeof metadata?.output === 'string'
             ? metadata.output
             : ''
-    const snapshot = JSON.stringify([state.status, output, metadata?.model])
+    const snapshot = JSON.stringify([
+      state.status,
+      output,
+      metadata?.model,
+      metadata?.background,
+      metadata?.jobId
+    ])
     const key = toolId(part.callID)
     if (this.snapshots.get(key) === snapshot) return result
     this.snapshots.set(key, snapshot)
@@ -145,16 +227,29 @@ export class OpenCodeActivityMapper {
       meta: { truncated: output.length > OUTPUT_LIMIT },
       patch: {
         status: state.status,
-        mode: 'foreground',
+        mode: metadata?.background === true ? 'background' : 'foreground',
+        ...(metadata?.background === true && typeof metadata.sessionId === 'string'
+          ? {
+              taskId: taskIdentity(
+                typeof metadata.jobId === 'string' ? metadata.jobId : metadata.sessionId,
+                key
+              ),
+              agentId: metadata.sessionId
+            }
+          : {}),
         ...(modelName ? { model: modelName } : {})
       },
-      source: {
-        generation: this.promptId,
-        sequence: ++this.sequence,
-        receivedAt: Date.now(),
-        replay: false
-      }
+      source: this.source()
     })
     return result
+  }
+
+  private source(): BackgroundEvent['source'] {
+    return {
+      generation: this.generation,
+      sequence: ++this.sequence,
+      receivedAt: Date.now(),
+      replay: false
+    }
   }
 }

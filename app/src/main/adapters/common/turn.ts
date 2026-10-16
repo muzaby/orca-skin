@@ -118,6 +118,8 @@ export interface TurnExtensions {
 // 적용한 뒤 content를 입력 채널로 push한다. providerSettings/extensions는 spawn에 묶여
 // 여기 없으며 변경 시 respawn한다.
 export interface TurnContinuation {
+  harnessAgent?: string
+  modelVariant?: string
   text: string
   attachmentTexts?: ExtractedAttachmentText[]
   attachmentImages?: ExtractedAttachmentImage[]

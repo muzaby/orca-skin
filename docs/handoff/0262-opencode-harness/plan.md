@@ -8,8 +8,8 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | plan/READY — ΔV14 native 시스템 피드·지속 수신 설계 확정. 기존 구현33/34와 AC11 사용자 인수·독립 verify 대기는 보존 |
-| V mode | Delta V — 기준 V1 + ΔV1~13 (각 델타의 대체 범위 적용) |
+| 상태 | impl/IMPL_DONE — ΔV14 native 시스템 피드·지속 수신 구현. 추가 AC35~38 자기확인4/4; 기존33/34·AC11 사용자 인수와 독립 verify 대기 보존 |
+| V mode | Delta V — 기준 V1 + ΔV1~14 (각 델타의 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV14 / V1 + ΔV1~14. 첫 idle의 채널 종료만 지속 수신으로 대체하며 앞선 입력·UI 계약은 유지 |
 
@@ -2096,3 +2096,59 @@ prompt API 호출은 host가 제출을 시도한 입력당 최대 한 번이며 
 관련 비DB Vitest는 native mapper/adapter/runtime·background/post-turn·Claude callback/취소 회귀를 포함한다. 전체 node/web/test typecheck·읽기 전용 ESLint·build·error-handling inventory·문서 inventory/링크·diff를 실행하고 설치 SDK1.18.27/CLI1.19 계약을 유지한다. npm pretest/install/rebuild·새 모델 호출은 필요하지 않으며 실제 CLI 검증을 추가할 때는 격리 loopback 합성 모델만 사용한다.
 
 ACTIVE 대조: D-025↔AC35, D-026↔AC36, D-027↔AC37, D-028↔AC38이며 D-004/015~017의 Claude·1.x 경계와 충돌하지 않는다. 공통 origin.format→저장/표시의 나머지 edge는 0232가 소유하고, 본문은 native 공급·수신 lifetime만 규정하므로 두 계획이 같은 표시 정책을 중복 소유하지 않는다. 기존 AC11 인수와 독립 verify는 유지하며 설계 READY를 구현 완료로 표시하지 않는다.
+
+## [구현자 기입] ΔV14 — native 피드와 지속 채널 (2026-10-16)
+
+### 1. 설계 리뷰
+
+구현했다. `channel.ts`가 SDK SSE 수명·pushTurn·승인·중단을 소유하고 `native-input.ts`가 synthetic user의 출처·part receipt·format을 정규화한다. common runtime의 pump/listen·post-turn·history 경로를 재사용하며 background 실험 플래그를 새로 활성화하지 않는다.
+
+### 2. 강제 지점 전수와 V-pair 자기확인
+
+| 자리 / 수 | 직접 oracle / 관측 | 자기확인 |
+|---|---|---|
+| EP38a~c / 3 | `native-input.test.ts` provenance·part ID·동일 본문, `opencode-continuation.test.ts: commits each native feed once before its provider reply`: 실제 SSE→commit/forward 원문·origin | SELF_PASS |
+| EP39a~c / 3 | `adapter.persistent.test.ts: subscribes once before initial and subsequent prompts`, early SSE/지연 HTTP 테스트, `opencode-runtime.test.ts: forwards changed agent and variant with attachments on the existing channel`: 구독1·prompt/echo/옵션 일치 | SELF_PASS |
+| EP39d~g / 4 | `opencode-continuation.test.ts` 첫 idle 뒤 완료·프레임 사이 도착·복수 task/후속 입력: 실제 adapter→pump→controller/tracker→post-turn→coordinator의 pending/terminal·수신·commit/usage | SELF_PASS |
+| EP39h / 1 | `activity.test.ts` background launch·동시/reused child, continuation의 `keeps a reused child session pending until its new task invocation completes`: 두 호출의 상태 분리 | SELF_PASS |
+| EP40a~b / 2 | persistent interrupt/cleanup·continuation disconnect/interrupt/warm HTTP 거절: no replay·새 generation·취소 tail·불확실 종료 | SELF_PASS |
+| EP40c~d / 2 | map의 이전 parent 새 assistant·동일 timestamp stale user, persistent child approval/main interrupt·후속 frame 승인 scope: 늦은 이벤트/승인 격리 | SELF_PASS |
+| EP41a~b / 2(문서) | 현재 plan 메타·ΔV14 AC35~38·INDEX 행을 재조회하고 diff 검사·설계 commit trailer 파싱 | SELF_PASS |
+
+제품 3+3+4+1+2+2=15/15, 문서2/2. VP-Δ14-01~09는 위 직접 oracle로 SELF_PASS이며 기존 VP-05/15/18·ΔV10 입력 ID 및 공통 runtime/post-turn/approval scope 회귀를 함께 실행했다. 최종 실행은 native-input/activity/map/adapter/persistent·OpenCode runtime/continuation·session-runtime/post-turn schedules/approval scope·error registry 11파일247테스트 통과다.
+
+### 3. 이번 라운드 수정의 잠금
+
+| 증거 | 실제 결과 |
+|---|---|
+| 재사용 작업 identity | native ID만 사용한 상태에서 두 번째 호출이 ready 대신 idle로 끝나는 통합 테스트 FAIL → native ID+parent call tuple 적용 후 PASS |
+| standalone warm 실패 close | `pushTurn` catch의 close 제거 시 `adapter.persistent.test.ts`에서 두 번째 입력이 stream_closed 대신 HTTP503을 다시 요청해 FAIL → 복원 후 PASS |
+
+선택 적대 증거0·구현 중 인용 변이2·신규 구조 proxy0=표2행. warm close 제거 변이는 실제 SessionRuntime 통합에서는 GREEN이었다. 공통 runtime의 catch가 이미 teardown하므로 이 보강을 기존 사용자 경로의 장애 수정으로 주장하지 않고 standalone LiveTurn 계약 보강으로 구분한다.
+
+### 4. Product/UX 파생 검토
+
+첫 부모 idle 뒤에는 같은 채널에서 소유 background를 기다리고 자동 입력·후속 assistant를 별도 프레임에 기록한다. 중단은 main 응답과 child 승인 수명을 구분하며, 다음 입력은 그 요청의 agent·variant·model·첨부를 사용한다. DEV의 system-reminder 포함 표시 정책은 0232/0003을 그대로 소비하고 OpenCode 전용 예외를 만들지 않았다.
+
+### 5. 놓친 잠재 문제 + 대응
+
+native child ID만 canonical key로 쓰면 공통 reducer의 terminalEvidence가 새 실행을 완료로 덮는 PLAN_GAP을 발견했다. 별도 설계 정정 후 `opencode:${JSON.stringify([nativeId,parentCallId])}`로 호출을 구분하고 native ID는 agentId에 보존했다. 공통 reducer를 변경하지 않았다.
+
+warm HTTP 응답보다 SSE가 빠른 경우 accepted echo를 먼저 배달하도록 잠갔다. 제출 실패 때의 버퍼는 수용 여부가 불확실하므로 새 프레임으로 승격하지 않고 채널을 폐기하며, 다음 명시 입력만 새 구독을 연다. 정리 abort 실패는 원문·경로 없이 실패 개수를 `opencode.channel.abort.failed`로 보고하고 종료 성공을 합성하지 않는다.
+
+### 6. 구현 보고
+
+| AC | 관측 / 자기보고 |
+|---|---|
+| AC35 | ✅ native provenance·part 단위 중복 제거·공통 format·원문 수신, 사람/child/ignored/stale 제외 |
+| AC36 | ✅ 첫 idle→자동 완료 입력→후속 응답까지 같은 채널 수신, client prompt 추가0·부모 usage 중복 없음 |
+| AC37 | ✅ main interrupt·provider/stream 오류·채널 폐기·warm HTTP 실패에서 no replay와 generation/승인 격리 |
+| AC38 | ✅ 후속 agent/variant/model/첨부·UUID·native ascending ID, 단일 구독·admission/HTTP 거절 검사 |
+
+이번 추가 AC는 ✅4·⚠️0·❌0=4다. 누적은 기존33✅·AC11⚠️에 새4✅를 더한37/38이며, 기존33건을 이번에 모두 다시 검증했다고 주장하지 않는다. 최종11파일247테스트 이전에도 직접/registry9파일339테스트를 통과했고, 이후 추가 warm 경계와 공통 runtime을 포함해 재검증했다.
+
+전체 typecheck·readonly ESLint(오류0/기존 경고6)·production build를 통과했다. 문서 inventory 수치·scope 링크·migration·test budget gate는 0232 마무리와 동일하며, error-report registry는 새 cleanup 좌표까지 검사했다. 테스트는 설치 SDK에 HTTP/SSE를 주입하고 실제 adapter/runtime/controller/tracker/projector/coordinator/post-turn/settlement를 실행했다; DB/IPC는 메모리 sink이고 실제 모델·OS 단절 타이밍 검증으로 승격하지 않는다.
+
+### 7. Review Signals
+
+이번은 native 수신 수명 요구의 ΔV14 구현이다. 재사용 작업 identity 충돌은 기존 terminalEvidence 불변식과의 접점에서 발견해 설계로 되먹였고, HTTP 실패의 runtime 중복 방어는 직접 변이로 구별했다. `.tmp/opencode-dev`·사용자 첨부·설치 SDK/CLI를 변경하거나 커밋하지 않았으며 독립 verify와 기존 AC11 인수 대기를 유지한다.

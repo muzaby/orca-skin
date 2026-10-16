@@ -425,6 +425,8 @@ export class SessionRuntime implements ManagedRuntime {
           throw new Error('submission_stale:before-continuation')
         }
         const outcome = await live.pushTurn({
+          ...(req.harnessAgent !== undefined ? { harnessAgent: req.harnessAgent } : {}),
+          ...(req.modelVariant !== undefined ? { modelVariant: req.modelVariant } : {}),
           text: req.text,
           ...(req.attachmentTexts ? { attachmentTexts: req.attachmentTexts } : {}),
           ...(req.attachmentImages ? { attachmentImages: req.attachmentImages } : {}),
@@ -443,6 +445,7 @@ export class SessionRuntime implements ManagedRuntime {
           throw new Error('submission_stale:continuation')
         }
       } catch (err) {
+        this.teardownChannel()
         if (this.frame === frame) this.frame = null
         frame.end()
         if (!this.cancelled) this.status.markError(null)

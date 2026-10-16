@@ -3,6 +3,53 @@ import { OpenCodeEventMapper, normalizeOpenCodeTool } from './map'
 import { assistantMessage, editTool, openCodeEvent as event, textPart } from './adapter.testfixture'
 
 describe('OpenCode event mapper', () => {
+  it('rejects unseen assistant IDs with an old parent after a response boundary', () => {
+    const mapper = new OpenCodeEventMapper('s1', 'first')
+    mapper.map(
+      event('message.updated', { sessionID: 's1', info: assistantMessage('s1', 'first', 'old') })
+    )
+    mapper.finish()
+    mapper.acceptPrompt('second')
+    for (const id of ['second', 'first'])
+      mapper.map(
+        event('message.updated', {
+          sessionID: 's1',
+          info: {
+            id,
+            sessionID: 's1',
+            role: 'user',
+            time: { created: 10 },
+            agent: 'build',
+            model: { providerID: 'p', modelID: 'm' }
+          }
+        })
+      )
+    mapper.map(
+      event('message.updated', {
+        sessionID: 's1',
+        info: assistantMessage('s1', 'first', 'late-unseen')
+      })
+    )
+    expect(mapper.ownsMessage('late-unseen')).toBe(false)
+    expect(mapper.sawAssistant).toBe(false)
+    expect(
+      mapper.map(
+        event('message.part.updated', {
+          sessionID: 's1',
+          time: 5,
+          part: textPart('stale', { messageID: 'late-unseen' })
+        })
+      )
+    ).toEqual([])
+    mapper.map(
+      event('message.updated', { sessionID: 's1', info: assistantMessage('s1', 'second', 'new') })
+    )
+    expect(mapper.ownsMessage('new')).toBe(true)
+    expect(mapper.finish().find((value) => value.type === 'telemetry')).toMatchObject({
+      usage: { inputTokens: 10, outputTokens: 20, costUsd: 0.25 }
+    })
+  })
+
   it('normalizes tools without changing the original name or input', () => {
     const mapper = new OpenCodeEventMapper('s1')
     mapper.map(event('message.updated', { sessionID: 's1', info: assistantMessage() }))

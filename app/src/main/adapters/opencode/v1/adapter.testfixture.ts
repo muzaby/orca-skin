@@ -1,4 +1,5 @@
 import type { AssistantMessage, Event, TextPart, ToolPart } from '@opencode-ai/sdk/v2'
+export type { Event, UserMessage } from '@opencode-ai/sdk/v2'
 
 let eventSequence = 0
 export function openCodeEvent<T extends Event['type']>(

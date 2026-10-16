@@ -47,13 +47,17 @@ function fixture(): { runtime: SessionRuntime; requests: Request[]; rejectPrompt
       emit(
         openCodeEvent('message.updated', {
           sessionID: 's1',
-          info: assistantMessage('s1', body.messageID)
+          info: assistantMessage('s1', body.messageID, `assistant-${body.messageID}`)
         })
       )
       emit(
         openCodeEvent('message.part.updated', {
           sessionID: 's1',
-          part: textPart('Runtime reply', { time: { start: 1, end: 2 } }),
+          part: textPart('Runtime reply', {
+            id: `part-${body.messageID}`,
+            messageID: `assistant-${body.messageID}`,
+            time: { start: 1, end: 2 }
+          }),
           time: 2
         })
       )
@@ -127,6 +131,52 @@ async function collect(
 }
 
 describe('OpenCode submission through the production queue and session runtime', () => {
+  it('forwards changed agent and variant with attachments on the existing channel', async () => {
+    const { runtime, requests } = fixture()
+    try {
+      await collect(runtime, {
+        ...admission('s1').request,
+        harnessAgent: 'build',
+        modelVariant: 'low'
+      })
+      const next = admission('s1').request
+      const events = await collect(runtime, {
+        ...next,
+        harnessAgent: 'plan',
+        modelVariant: 'high',
+        attachmentImages: [
+          {
+            id: 'img',
+            name: 'image.png',
+            mimeType: 'image/png',
+            sourceKind: 'dialog',
+            data: 'AAAA'
+          }
+        ]
+      })
+      const submitted = requests.filter((item) => item.url.includes('prompt_async'))
+      const payloads = await Promise.all(submitted.map((item) => item.json()))
+      expect(payloads[0]).toMatchObject({ agent: 'build', variant: 'low' })
+      expect(payloads[1]).toMatchObject({
+        agent: 'plan',
+        variant: 'high',
+        parts: [
+          { type: 'text', text: 'Hello' },
+          { type: 'file', url: 'data:image/png;base64,AAAA' }
+        ]
+      })
+      expect(payloads[1].messageID).not.toBe(payloads[0].messageID)
+      expect(events).toContainEqual({
+        type: 'input.echo',
+        sessionId: 's1',
+        text: 'Hello',
+        uuid: next.promptUuid
+      })
+      expect(requests.filter((item) => new URL(item.url).pathname === '/event')).toHaveLength(1)
+    } finally {
+      runtime.close()
+    }
+  })
   it.each([null, 's1'])(
     'delivers a reply after runtime admission for session %s',
     async (sessionId) => {

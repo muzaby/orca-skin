@@ -170,6 +170,13 @@ const sites = [
     event: 'bus.listener.failed',
     title: 'eventDeliveryFailed',
     method: 'reportError'
+  },
+  {
+    id: 'M24',
+    file: 'adapters/opencode/v1/channel.ts',
+    event: 'opencode.channel.abort.failed',
+    title: 'engineInternal',
+    method: 'reportError'
   }
 ]
 const root = fileURLToPath(new URL('./', import.meta.url))
@@ -197,7 +204,8 @@ const slots: Record<string, number> = {
   M18: 0,
   M19: 0,
   M22: 0,
-  M23: 0
+  M23: 0,
+  M24: 0
 }
 function matchingCalls(site: (typeof sites)[number], text: string): ReturnType<typeof calls> {
   return calls(sourceTree(text), site.method).filter(

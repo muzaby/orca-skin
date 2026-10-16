@@ -19,6 +19,171 @@ function fixture(): OpenCodeActivityMapper {
   return mapper
 }
 describe('OpenCode owned activity', () => {
+  it('keeps background launch pending until its owned synthetic completion', () => {
+    const mapper = fixture()
+    const launch = mapper.map(
+      event('message.part.updated', {
+        sessionID: 's1',
+        time: 2,
+        part: editTool({
+          tool: 'task',
+          callID: 'task-1',
+          state: {
+            status: 'completed',
+            input: {},
+            output: 'Launched',
+            title: 'Task',
+            metadata: { sessionId: 'child', jobId: 'job', background: true },
+            time: { start: 1, end: 2 }
+          }
+        })
+      })
+    )
+    expect(launch.providerEvents).toContainEqual(
+      expect.objectContaining({
+        type: 'background.task',
+        taskId: 'opencode:["job","task-1"]',
+        phase: 'started',
+        patch: { status: 'running', isBackgrounded: true, agentId: 'child' }
+      })
+    )
+    expect(launch.providerEvents).toContainEqual(
+      expect.objectContaining({
+        type: 'background.call',
+        phase: 'returned',
+        patch: expect.objectContaining({ mode: 'background', taskId: 'opencode:["job","task-1"]' })
+      })
+    )
+    mapper.map(
+      event('message.updated', {
+        sessionID: 's1',
+        info: {
+          id: 'prompt-1',
+          sessionID: 's1',
+          role: 'user',
+          time: { created: 1 },
+          agent: 'build',
+          model: { providerID: 'p', modelID: 'm' }
+        }
+      })
+    )
+    mapper.finish()
+    expect(mapper.map(event('session.idle', { sessionID: 'child' })).providerEvents).toEqual([])
+    mapper.map(
+      event('message.updated', {
+        sessionID: 's1',
+        info: {
+          id: 'feed',
+          sessionID: 's1',
+          role: 'user',
+          time: { created: 3 },
+          agent: 'build',
+          model: { providerID: 'p', modelID: 'm' }
+        }
+      })
+    )
+    const completion = event('message.part.updated', {
+      sessionID: 's1',
+      time: 3,
+      part: textPart('<task id="child" state="completed"><task_result>Done</task_result></task>', {
+        id: 'feed-part',
+        messageID: 'feed',
+        synthetic: true
+      })
+    })
+    const done = mapper.map(completion)
+    expect(done.events).toMatchObject([
+      { type: 'input.received', origin: { kind: 'automatic', format: 'tagged' } }
+    ])
+    expect(done.providerEvents).toMatchObject([
+      {
+        type: 'background.task',
+        taskId: 'opencode:["job","task-1"]',
+        toolUseId: 'task-1',
+        phase: 'notification',
+        patch: { status: 'completed' }
+      }
+    ])
+    expect(mapper.map(completion)).toEqual({ events: [], providerEvents: [] })
+  })
+
+  it('separates concurrent children and reused sessions across root frames', () => {
+    const mapper = fixture()
+    for (const id of ['a', 'b'])
+      mapper.map(
+        event('message.part.updated', {
+          sessionID: 's1',
+          time: 2,
+          part: editTool({
+            tool: 'task',
+            callID: `task-${id}`,
+            state: {
+              status: 'running',
+              input: {},
+              metadata: { sessionId: id, background: true },
+              time: { start: 2 }
+            }
+          })
+        })
+      )
+    mapper.map(
+      event('message.updated', {
+        sessionID: 'a',
+        info: assistantMessage('a', 'child-input', 'child-answer')
+      })
+    )
+    mapper.map(
+      event('message.part.updated', {
+        sessionID: 'a',
+        time: 3,
+        part: textPart('ongoing', { sessionID: 'a', messageID: 'child-answer' })
+      })
+    )
+    const first = mapper.finish()
+    expect(
+      first.some((value) => 'parentToolRunId' in value && value.parentToolRunId === 'task-a')
+    ).toBe(false)
+    const childEnd = mapper.map(event('session.idle', { sessionID: 'a' }))
+    expect(childEnd.events).toContainEqual({
+      type: 'message.completed',
+      sessionId: 's1',
+      parentToolRunId: 'task-a',
+      message: { text: 'ongoing' }
+    })
+    mapper.acceptPrompt('new-root')
+    mapper.map(
+      event('message.updated', {
+        sessionID: 's1',
+        info: assistantMessage('s1', 'new-root', 'new-answer')
+      })
+    )
+    const next = mapper.map(
+      event('message.part.updated', {
+        sessionID: 's1',
+        time: 4,
+        part: editTool({
+          messageID: 'new-answer',
+          tool: 'task',
+          callID: 'task-a2',
+          state: {
+            status: 'running',
+            input: {},
+            metadata: { sessionId: 'a', background: true },
+            time: { start: 4 }
+          }
+        })
+      })
+    )
+    expect(next.providerEvents).toContainEqual(
+      expect.objectContaining({
+        type: 'background.task',
+        taskId: 'opencode:["a","task-a2"]',
+        toolUseId: 'task-a2'
+      })
+    )
+    expect(mapper.ownedSessions()).toEqual(expect.arrayContaining(['s1', 'a', 'b']))
+  })
+
   it('flushes a child snapshot when the root ends before a child terminal event', () => {
     const mapper = fixture()
     mapper.map(event('message.updated', { sessionID: 'child', info: assistantMessage('child') }))

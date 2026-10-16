@@ -43,6 +43,8 @@ export class OpenCodeEventMapper {
   private readonly usage = new Map<string, AssistantMessage>()
   private readonly seenEvents = new Set<string>()
   private readonly promptMessages = new Set<string>()
+  private readonly retiredMessages = new Set<string>()
+  private readonly retiredPrompts = new Set<string>()
   private promptCreatedAt: number | undefined
   terminal = false
   sawAssistant = false
@@ -55,7 +57,22 @@ export class OpenCodeEventMapper {
   }
 
   ownsMessage(id: string): boolean {
-    return this.messages.get(id) === 'assistant'
+    return this.messages.get(id) === 'assistant' && !this.retiredMessages.has(id)
+  }
+
+  acceptPrompt(id: string): void {
+    if (!this.terminal) {
+      this.promptMessages.add(id)
+      return
+    }
+    for (const prompt of this.promptMessages) this.retiredPrompts.add(prompt)
+    this.promptMessages.clear()
+    this.promptMessages.add(id)
+    this.terminal = false
+    this.sawAssistant = false
+    this.texts.clear()
+    this.usage.clear()
+    this.promptCreatedAt = undefined
   }
 
   map(event: Event): NormalizedEvent[] {
@@ -67,11 +84,12 @@ export class OpenCodeEventMapper {
     switch (event.type) {
       case 'message.updated': {
         const message = event.properties.info
+        if (this.retiredMessages.has(message.id) || this.retiredPrompts.has(message.id)) return []
         // A resumed session may still emit updates for an earlier turn. Synthetic
         // user messages created by compaction after this prompt remain in scope.
         if (this.promptId) {
           if (message.role === 'user') {
-            if (message.id === this.promptId) this.promptCreatedAt = message.time.created
+            if (this.promptMessages.has(message.id)) this.promptCreatedAt = message.time.created
             if (
               this.promptCreatedAt !== undefined &&
               message.time.created >= this.promptCreatedAt
@@ -100,11 +118,7 @@ export class OpenCodeEventMapper {
         return this.part(event.properties.part)
       case 'message.part.delta': {
         const p = event.properties
-        if (
-          this.messages.get(p.messageID) !== 'assistant' ||
-          p.field !== 'text' ||
-          this.completed.has(p.partID)
-        )
+        if (!this.ownsMessage(p.messageID) || p.field !== 'text' || this.completed.has(p.partID))
           return []
         const current = this.texts.get(p.partID)
         if (!current) return []
@@ -134,7 +148,7 @@ export class OpenCodeEventMapper {
   }
 
   private part(part: Part): NormalizedEvent[] {
-    if (this.messages.get(part.messageID) !== 'assistant') return []
+    if (!this.ownsMessage(part.messageID)) return []
     this.sawAssistant = true
     if (part.type === 'text' || part.type === 'reasoning') {
       if (this.completed.has(part.id)) return []
@@ -205,6 +219,7 @@ export class OpenCodeEventMapper {
       costUsd: 0
     }
     for (const message of this.usage.values()) {
+      this.retiredMessages.add(message.id)
       usage.model = `${message.providerID}/${message.modelID}`
       usage.inputTokens! += message.tokens.input
       usage.outputTokens! += message.tokens.output

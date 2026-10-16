@@ -109,7 +109,11 @@ function fixture(): {
 }
 async function collect(adapter: OpenCodeAdapter, req: TurnRequest): Promise<NormalizedEvent[]> {
   const events: NormalizedEvent[] = []
-  for await (const batch of adapter.sendMessage(req).eventBatches) events.push(...batch.events)
+  for await (const batch of adapter.sendMessage(req).eventBatches) {
+    events.push(...batch.events)
+    if (batch.events.some((value) => ['turn.ended', 'turn.aborted', 'error'].includes(value.type)))
+      break
+  }
   return events
 }
 function finish(f: ReturnType<typeof fixture>, promptId: string): void {
@@ -271,7 +275,10 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
       finish(f, promptId)
     }
     const batches: ProviderMessageBatch[] = []
-    for await (const batch of f.adapter.sendMessage(request()).eventBatches) batches.push(batch)
+    for await (const batch of f.adapter.sendMessage(request()).eventBatches) {
+      batches.push(batch)
+      if (batch.events.some((value) => value.type === 'turn.ended')) break
+    }
     expect(batches.flatMap((batch) => batch.events)).toContainEqual(
       expect.objectContaining({
         type: 'message.completed',
@@ -582,10 +589,14 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
     )
     const events: NormalizedEvent[] = []
     const reading = (async () => {
-      for await (const batch of turn.eventBatches) events.push(...batch.events)
+      for await (const batch of turn.eventBatches) {
+        events.push(...batch.events)
+        if (batch.events.some((value) => value.type === 'turn.aborted')) break
+      }
     })()
     await entered
     expect(await turn.interrupt?.()).toEqual({ stillQueued: [] })
+    f.emit(event('session.idle', { sessionID: 's1' }))
     await reading
     expect(approvalSignal?.aborted).toBe(true)
     expect(events.at(-1)?.type).toBe('turn.aborted')
