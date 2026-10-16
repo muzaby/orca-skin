@@ -51,7 +51,7 @@
 | D-18 | Code 백그라운드 목록을 실행 중/완료 두 접기 그룹으로 표시. 완료 그룹 오른쪽에만 휴지통 | 사용자 첨부 `codex-clipboard-d650bec3-16b7-4687-abd3-eecf39283791.png`; 실패·중단도 완료 그룹 | ACTIVE | D-03 목록 구성 보완 |
 | D-19 | 휴지통은 현재 완료 카드만 목록에서 지우고 원본 대화·작업·출력은 보존 | 완료된 작업 지우기 요청의 표시 범위 해석; 실행 중 작업은 유지 | ACTIVE | 신규 |
 | D-20 | `system-reminder`를 Claude·OpenCode 공통 메시지 속성으로 처리한다 | 2026-10-16 사용자: “claude에도 적용돼야 한다. 공통 속성으로 하자” | ACTIVE | OpenCode 한정이라는 초기 조사 가정 폐기. 일반 GUI 보존의 명시적 변경 범위 |
-| D-21 | 시스템 reminder는 모델 처리용으로 숨기고 다른 자동 피드는 DEV 표시를 켜면 사용자 버블로 노출. production은 자동 피드 숨김 유지 | 원요구와 후속 “구현하라”에 따라 알린 기본 해석. 선택지에 대한 사용자 답변으로 기록하지 않음 | ACTIVE | D-02의 DEV 일괄 비표시만 대체 |
+| D-21 | DEV 표시를 켜면 system-reminder를 포함한 모든 자동 피드를 사용자 버블로 노출. production과 DEV 기본값은 자동 피드 숨김 유지 | 2026-10-16 사용자 정정: “system-reminder를 포함한 자동 피드”. 구현자의 초기 reminder 제외 해석을 대체 | ACTIVE | D-02의 DEV 일괄 비표시만 대체 |
 | D-22 | 출처가 확인된 자동 사용자 텍스트만 분류·숨김. 직접 작성한 XML/HTML·assistant 출력·도구 결과는 보존 | 구현 시 명시한 가역 표시 기본값. 원본 삭제 없음 | ACTIVE | D-02·AC4의 직접 입력 보존 유지 |
 | D-23 | 별도 DEV 버튼은 자동 피드 표시를 켜고 끈다. 테스트 입력을 보내지 않는다 | 구현 시 명시한 기본 해석. 버튼·DEV 게이트는 0003 소유 | ACTIVE | 0025 기존 콘솔 로그 토글은 유지 |
 
@@ -509,13 +509,13 @@ Claude와 OpenCode의 시스템 피드를 공통 속성으로 식별한다. prov
 
 표시 정본은 0232, OpenCode 1.x 수신·자동 재개는 [0262 ΔV14](../0262-opencode-harness/plan.md), DEV 버튼은 [0003](../0003-debug-panel-mock-adapter/plan.md)다. [0264](../0264-harness-module-isolation/plan.md)의 common/shared 계약과 하네스별 SDK 구현 분리는 유지한다.
 
-이전 DRAFT의 질문에 선택지 답변은 없었다. 후속 구현 지시를 받아 D-21~23의 보수적인 기본값을 commentary로 명시했다. 이는 사용자 선택 답변을 소급 기록한 것이 아니다. 이번 변경은 원본 삭제 없이 표시만 바꾸며, 일반 Claude GUI 보존에서 명시적으로 추가한 시스템 피드 제어만 예외다.
+사용자는 DEV 표시 버튼이 system-reminder를 포함한 모든 자동 피드를 보여야 한다고 명시했다. 초기 구현 해석의 reminder 제외는 D-21과 AC22에서 폐기하며 표시 버튼의 전송 없음·기본 꺼짐·production 숨김은 유지한다. 원본 삭제 없이 표시만 바꾸고 일반 Claude GUI 보존에서 시스템 피드 제어만 예외로 둔다.
 
 | R↔AT / AC | 완료 기준과 production 경로 |
 |---|---|
 | R-20↔AT-20 / AC20 NEW | provider 출처가 확인된 텍스트에 공통 format을 기록한다. Claude와 OpenCode 수신→coordinator→JSON 이력→live/reload에서 원문·출처·format이 보존된다. |
 | R-21↔AT-21 / AC21 NEW | provider 소유 수신 영수증은 기록만 하고 다시 전송하지 않는다. Claude hook/wire가 겹쳐도 한 번 기록하며 수기 태그·child·tool_result를 자동 user로 승격하지 않는다. OpenCode 실행 수명은 0262가 검증한다. |
-| R-22↔AT-22 / AC22 NEW | production과 DEV 기본값은 자동 입력 숨김. DEV 표시가 켜지면 system-reminder 외 자동 입력을 사용자 버블로 표시한다. reminder는 계속 숨기고 일반 입력·assistant·도구 출력은 유지한다. |
+| R-22↔AT-22 / AC22 NEW | production과 DEV 기본값은 자동 입력 숨김. DEV 표시가 켜지면 system-reminder를 포함한 모든 자동 입력을 사용자 버블로 표시한다. format 유무와 무관하며 일반 입력·assistant·도구 출력은 유지한다. |
 | R-23↔AT-23 / AC23 NEW | 혼합 메시지에서 숨길 자동 text part만 제외하고 사람 본문/첨부는 남긴다. 빈 메시지·메타/교환을 만들지 않고 원본 배열·인덱스·이력을 보존한다. 두 하네스의 live/reload·토글 결과가 같다. |
 
 ## 조사 / 기술 설계
@@ -524,7 +524,7 @@ Claude와 OpenCode의 시스템 피드를 공통 속성으로 식별한다. prov
 
 Claude mapper는 native origin/isSynthetic이 확인된 user text만 분류한다. hook receipt는 설치 SDK의 source를 보존하며 user/sdk는 자동 입력으로 승격하지 않는다. poll_event는 접수 시점 신호이므로 hook만으로 소비 영수증을 확정하지 않는다. source 없는 구버전은 기존 own-input 대조 경로를 유지한다. shouldQuery:false도 provider 전달 책임이므로 Orca가 추가 전송하지 않는다. 도구 결과 내부 reminder는 사용자 입력과 별개다.
 
-coordinator·writer·DTO·reader·store/reducer는 origin 객체를 그대로 운반한다. 새 IPC나 DB migration 없이 optional JSON 속성을 사용한다. 구형 origin에 format이 없으면 표시 경계에서 같은 helper로 보완하며 출처 없는 직접 입력에는 적용하지 않는다.
+coordinator·writer·DTO·reader·store/reducer는 origin 객체를 그대로 운반한다. 새 IPC나 DB migration 없이 optional JSON 속성을 사용한다. 구형 origin에 format이 없어도 DEV ON에서는 그대로 표시한다. 표시 여부는 origin과 토글로만 판정하므로 renderer가 format을 재분류할 필요는 없고 출처 없는 직접 입력에는 이 필터를 적용하지 않는다.
 
 공통 turn 투영은 표시 옵션을 받고 숨길 자동 text만 제외한다. 원본 Message/parts는 수정하지 않으며 가시 part가 같으면 기존 identity를 유지한다. Claude Timeline과 OpenCode projection이 동일 옵션을 소비한다. DEV 제어의 소유권·주입 경계는 0003을 따른다.
 
@@ -536,7 +536,7 @@ coordinator·writer·DTO·reader·store/reducer는 origin 객체를 그대로 �
 |---|---|---|
 | VP-Δ3-01 R20↔AT20 | REQUIRED | shared `received-input.test.ts`, 새 history `writer.received.test.ts`: 실제 writer→DTO→reader의 동일 원문·format |
 | VP-Δ3-02 R21↔AT21 | REQUIRED | Claude `map.received.test.ts`·`input-receipts.test.ts`·`adapter.turnEnd.test.ts`, 기존 post-turn schedules listen: 재전송 없음·중복 영수증1회 |
-| VP-Δ3-03 R22↔AT22 | REQUIRED | `turns.received.test.ts`와 두 Timeline 실제 렌더: DEV off/on·reminder 제외·직접 입력 유지 |
+| VP-Δ3-03 R22↔AT22 | REQUIRED | `turns.received.test.ts`와 두 Timeline 실제 렌더: DEV off/on·명시/구형 reminder 포함·직접 입력 유지 |
 | VP-Δ3-04 R23↔AT23 | REQUIRED | 위 projection/렌더와 `chatStore.schedules.test.ts`: 혼합 part·첨부·인덱스·LOAD_SESSION·세션 왕복 |
 | VP-Δ3-05 MD-Δ3-01↔UT-Δ3-01 | REQUIRED | shared helper의 wrapper/속성/중첩/연속/불완전/코드·일반 본문, turn 투영의 원본 불변 |
 | VP-Δ3-06 AR-Δ3-01↔IT-Δ3-01 | REQUIRED | coordinator→persist/committed 및 writer→reader, store/reducer→실제 Timeline의 필드 직접 관측 |

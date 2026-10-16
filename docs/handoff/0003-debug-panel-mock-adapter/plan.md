@@ -14,12 +14,12 @@
 
 ## 공통 시스템 피드 디버그 확장 (READY, 2026-10-16)
 
-표시 계약은 [0232 ΔV3](../0232-background-transcript-ux/plan.md)이며, 이 문서는 별도 DEV 버튼과 노출 게이트를 소유한다. 후속 구현 지시에 따라 사용자에게 알린 기본 해석은 피드 표시 전환이다. 버튼은 모델 입력을 전송하지 않으며 기존 0025 로그 토글과 무관하다.
+표시 계약은 [0232 ΔV3](../0232-background-transcript-ux/plan.md)이며, 이 문서는 별도 DEV 버튼과 노출 게이트를 소유한다. 사용자 정정에 따라 ON일 때 system-reminder를 포함한 모든 자동 피드를 표시한다. 버튼은 모델 입력을 전송하지 않으며 기존 0025 로그 토글과 무관하다.
 
 ### 추가 제품 계약 / Decision
 
 - D-F1 ACTIVE: `자동 피드 표시` 버튼을 DEV 디버그 패널에 추가한다. 기본 꺼짐, 앱 프로세스 내 비영속 상태이며 두 하네스가 동일하게 소비한다.
-- D-F2 ACTIVE: 켜면 0232 정책에 따라 system-reminder 외 자동 사용자 피드가 기존 사용자 버블로 보이고, 끄면 숨는다. 입력 전송·DB 원문 변경은 없다.
+- D-F2 ACTIVE: 켜면 0232 정책에 따라 system-reminder를 포함한 모든 자동 사용자 피드가 기존 사용자 버블로 보이고, 끄면 숨는다. 입력 전송·DB 원문 변경은 없다.
 - D-F3 ACTIVE: production에는 버튼과 활성화 경로가 없다. renderer 조작으로 메모리 값을 바꿔도 production 정책은 false다. 기존 로그·Mock·테마·레이아웃 제어는 유지한다.
 
 ### 이번 추가 범위 Baseline V1-F
@@ -28,7 +28,7 @@
 
 | R↔AT / AC | 직접 확인할 완료 동작 |
 |---|---|
-| R-F1↔AT-F1 / AC-F1 | 실제 버튼 클릭→두 Timeline에서 기타 자동 피드 표시/숨김. reminder 제외·기존 대화 보존·전송 호출0 |
+| R-F1↔AT-F1 / AC-F1 | 실제 버튼 클릭→두 Timeline에서 system-reminder 포함 모든 자동 피드 표시/숨김. 기존 대화 보존·전송 호출0 |
 | R-F2↔AT-F2 / AC-F2 | 새 메모리 상태는 처음 false, 세션 왕복 시 같은 DEV 설정을 유지하되 재시작 시 false. production은 버튼/활성 경로 없음 |
 
 MD-F1↔UT-F1은 메모리 상태·DEV 게이트, AR-F1↔IT-F1은 app 슬롯→debug 버튼→chat 정책, SD-F1↔ST-F1은 클릭·세션 교체·live/reload 소비다. VP-F1(R-F1/2↔AT-F1/2), VP-F2(MD↔UT), VP-F3(AR↔IT), VP-F4(SD↔ST)는 REQUIRED이며 실제 interaction/생산 번들 관측으로 닫는다. 기존 debug mock/log/tweak 동작은 REGRESSION이다.
