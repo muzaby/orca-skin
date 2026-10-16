@@ -36,7 +36,7 @@ export function createNativeHistoryRefresh(
       releaseIdleRuntime: () => {
         runtime.discardRuntime(sessionId)
       },
-      read: async () => {
+      read: async (previous) => {
         const { prepared } = await resolveTurnProvider(ctx, {
           adapter,
           agentKind: parseAgentKind(meta.agent_kind),
@@ -46,6 +46,7 @@ export function createNativeHistoryRefresh(
         })
         return adapter.readHistory!({
           sessionId,
+          previous,
           cwd: meta.cwd ?? ctx.getCwd(meta.project_id),
           env: prepared.env,
           providerSettings: prepared.providerSettings

@@ -310,11 +310,20 @@ export const sites: Site[] = [
     event: 'chat.session-load.failed',
     title: 'sessionOpenFailed'
   },
-  { file: 'features/chat/store/chatStore.ts', ordinal: 9, line: 1513, disposition: 'CONSUMED' },
   {
     file: 'features/chat/store/chatStore.ts',
-    ordinal: 10,
-    line: 1685,
+    ordinal: 9,
+    line: 1652,
+    disposition: 'TOAST',
+    id: 'T38',
+    event: 'chat.session-refresh.failed',
+    title: 'sessionOpenFailed'
+  },
+  { file: 'features/chat/store/chatStore.ts', ordinal: 10, line: 1767, disposition: 'CONSUMED' },
+  {
+    file: 'features/chat/store/chatStore.ts',
+    ordinal: 11,
+    line: 1783,
     disposition: 'TOAST',
     id: 'T37',
     event: 'chat.harness-preference.save-failed',

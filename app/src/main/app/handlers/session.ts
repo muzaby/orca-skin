@@ -9,6 +9,7 @@ import {
   RenameSessionRequestSchema,
   SetSessionPinnedSchema,
   type LoadedSession,
+  type RefreshSessionResult,
   type SessionListItem
 } from '../../../shared/protocol'
 import { loadSession } from '../../features/history/reader'
@@ -62,19 +63,37 @@ export function registerSessionHandlers(
     CHANNELS.sessionLoad,
     LoadSessionRequestSchema,
     { fallback: null },
-    async (req): Promise<LoadedSession | null> => {
-      const nativeSync = await hooks.refreshHistory?.(req.sessionId)
+    (req): LoadedSession | null => {
       const session = loadSession(ctx.db, req.sessionId, (projectId) => ctx.getCwd(projectId))
-      if (!session) return null
+      return (
+        session && {
+          ...session,
+          ...(hooks.getActivity ? { activity: hooks.getActivity(req.sessionId) } : {})
+        }
+      )
+    }
+  )
+
+  handle(
+    CHANNELS.sessionRefresh,
+    LoadSessionRequestSchema,
+    {
+      fallback: { status: 'unavailable' as const, message: '대화 갱신 요청이 올바르지 않습니다.' }
+    },
+    async (req): Promise<RefreshSessionResult> => {
+      const sync = await hooks.refreshHistory?.(req.sessionId)
+      if (!sync || sync.status === 'unchanged') return { status: 'unchanged' }
+      if (sync.status === 'busy') return { status: 'busy' }
+      if (sync.status !== 'ready')
+        return { status: sync.status, message: sync.message ?? '원본 대화를 확인할 수 없습니다.' }
+      const session = loadSession(ctx.db, req.sessionId, (projectId) => ctx.getCwd(projectId))
+      if (!session) return { status: 'missing', message: '목록에서 제거된 대화입니다.' }
       return {
-        ...session,
-        ...(nativeSync
-          ? {
-              nativeSync:
-                nativeSync.status === 'ready' ? (session.nativeSync ?? nativeSync) : nativeSync
-            }
-          : {}),
-        ...(hooks.getActivity ? { activity: hooks.getActivity(req.sessionId) } : {})
+        status: 'updated',
+        session: {
+          ...session,
+          ...(hooks.getActivity ? { activity: hooks.getActivity(req.sessionId) } : {})
+        }
       }
     }
   )

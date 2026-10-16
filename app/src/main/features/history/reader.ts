@@ -17,7 +17,6 @@ export function loadSession(
   const meta = db.getSessionById(sessionId)
   if (!meta) return null
   const stored = db.nativeHistory?.get(sessionId)
-  if (partRows.length === 0 && !stored) return null
   let messages = localMessages(partRows)
   let nativeSync: LoadedSession['nativeSync']
   if (stored) {

@@ -1,3 +1,10 @@
+import {
+  readOpenCodeHistory,
+  type NativeReadDependencies
+} from '../../adapters/opencode/v1/native-history'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AppMessagePart, LoadedSession } from '../../../shared/ipc'
@@ -97,6 +104,7 @@ describe('native history with the migrated SQLite archive', () => {
     expect(await sync(value)).toEqual({ status: 'ready' })
     expect(queries.nativeHistory.get('session')).toEqual({
       payload_json: JSON.stringify(value),
+      cursor_json: null,
       local_frontier: frontier,
       synced_at: expect.any(Number)
     })
@@ -392,4 +400,196 @@ describe('native history with the migrated SQLite archive', () => {
     ).toBe(false)
     expect(tables.map((table) => db.prepare(`SELECT * FROM ${table}`).all())).toEqual(preserved)
   })
+})
+
+it('stores per-session cursors atomically, restores them through a new query owner, and preserves them on failure', async () => {
+  const value = snapshot([native('a1', 'cursororiginal')])
+  const cursor = {
+    version: 1 as const,
+    sourceKey: value.sourceKey,
+    revision: value.revision,
+    checkpoint: { offset: 123 }
+  }
+  expect(queries.nativeHistory.get('session')).toBeUndefined()
+  await refreshNativeHistory('session', {
+    db: queries,
+    isBusy: () => false,
+    read: async (previous) => {
+      expect(previous).toBeUndefined()
+      return { status: 'ready', snapshot: value, cursor }
+    }
+  })
+  const reopened = new DbQueries(db)
+  expect(JSON.parse(reopened.nativeHistory.get('session')!.cursor_json!)).toEqual(cursor)
+  queries.insertSession({
+    id: 'other',
+    backend: 'claude',
+    title: null,
+    projectId: null,
+    createdAt: 1
+  })
+  expect(queries.nativeHistory.get('other')).toBeUndefined()
+  const before = queries.nativeHistory.get('session')
+  const version = queries.nativeHistory.observe('session').version
+  expect(
+    await refreshNativeHistory('session', {
+      db: reopened,
+      isBusy: () => false,
+      read: async (previous) => {
+        expect(previous).toEqual({ snapshot: value, cursor })
+        return { status: 'unchanged' }
+      }
+    })
+  ).toEqual({ status: 'unchanged' })
+  expect(queries.nativeHistory.observe('session').version).toBe(version)
+  db.exec(
+    "CREATE TRIGGER cursor_failure BEFORE INSERT ON native_history_messages BEGIN SELECT RAISE(ABORT, 'fixture'); END"
+  )
+  const next = snapshot([native('a2', 'cursorchanged')], 'next')
+  expect(
+    (
+      await refreshNativeHistory('session', {
+        db: queries,
+        isBusy: () => false,
+        read: async () => ({
+          status: 'ready',
+          snapshot: next,
+          cursor: { ...cursor, revision: 'next', checkpoint: { offset: 999 } }
+        })
+      })
+    )?.status
+  ).toBe('unavailable')
+  expect(queries.nativeHistory.get('session')).toEqual(before)
+  expect(queries.searchMessages('cursororiginal')).toHaveLength(1)
+  expect(queries.searchMessages('cursorchanged')).toHaveLength(0)
+})
+
+it('upgrades a cursorless archive on its first native read', async () => {
+  const value = snapshot([native('a1', 'legacy')])
+  await sync(value)
+  await refreshNativeHistory('session', {
+    db: queries,
+    isBusy: () => false,
+    read: async (previous) => {
+      expect(previous?.cursor).toBeUndefined()
+      expect(previous?.snapshot).toEqual(value)
+      return {
+        status: 'ready',
+        snapshot: value,
+        cursor: {
+          version: 1,
+          sourceKey: value.sourceKey,
+          revision: value.revision,
+          checkpoint: { sequence: 8 }
+        }
+      }
+    }
+  })
+  expect(JSON.parse(queries.nativeHistory.get('session')!.cursor_json!).checkpoint).toEqual({
+    sequence: 8
+  })
+})
+
+it('persists the committed cursor after closing and reopening a file database', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'orca-cursor-restart-'))
+  const file = join(root, 'cache.db')
+  try {
+    const value = snapshot([native('saved', 'persisted')])
+    await refreshNativeHistory('session', {
+      db: queries,
+      isBusy: () => false,
+      read: async () => ({
+        status: 'ready',
+        snapshot: value,
+        cursor: {
+          version: 1,
+          sourceKey: value.sourceKey,
+          revision: value.revision,
+          checkpoint: { offset: 456 }
+        }
+      })
+    })
+    await db.backup(file)
+    const reopened = new Database(file)
+    try {
+      applyMigrations(reopened)
+      const restored = new DbQueries(reopened)
+      expect(
+        JSON.parse(restored.nativeHistory.get('session')!.cursor_json!).checkpoint.offset
+      ).toBe(456)
+      expect(loadSession(restored, 'session', () => 'C:/fallback')?.backend).toBe('opencode')
+      expect(restored.searchMessages('persisted')).toHaveLength(1)
+    } finally {
+      reopened.close()
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+it('commits the OpenCode reader result and checkpoint through the common transaction', async () => {
+  const source = { id: 'session', directory: 'C:/fixture/worktree' }
+  const body = [
+    {
+      info: { id: 'native-u', role: 'user', time: { created: 1 } },
+      parts: [
+        {
+          id: 'u-part',
+          messageID: 'native-u',
+          sessionID: 'session',
+          type: 'text',
+          text: 'external question'
+        }
+      ]
+    },
+    {
+      info: {
+        id: 'native-a',
+        role: 'assistant',
+        parentID: 'native-u',
+        cost: 0,
+        tokens: { input: 1, output: 1, reasoning: 0, cache: { read: 0, write: 0 } },
+        time: { created: 2, completed: 3 },
+        finish: 'stop'
+      },
+      parts: [
+        {
+          id: 'a-part',
+          messageID: 'native-a',
+          sessionID: 'session',
+          type: 'text',
+          text: 'external answer'
+        }
+      ]
+    }
+  ]
+  const request = { sessionId: 'session', cwd: source.directory }
+  const client = {
+    session: {
+      get: async () => ({ data: source, response: new Response() }),
+      messages: async () => ({ data: body, response: new Response() })
+    }
+  } as unknown as Awaited<ReturnType<NativeReadDependencies['client']>>
+  const read = async (
+    previous?: import('../../adapters/common/native-history').NativeHistoryRequest['previous']
+  ): Promise<NativeHistoryResult> =>
+    readOpenCodeHistory(
+      { ...request, previous },
+      {
+        client: async () => client,
+        sourceKey: async () => 'native-db',
+        probe: async () => ({ kind: 'opencode-sqlite', sequence: 4, digest: 'native-projection' })
+      }
+    )
+  expect(await refreshNativeHistory('session', { db: queries, isBusy: () => false, read })).toEqual(
+    { status: 'ready' }
+  )
+  expect(transcriptText()).toEqual(['external question', 'external answer'])
+  expect(JSON.parse(queries.nativeHistory.get('session')!.cursor_json!).checkpoint).toMatchObject({
+    sequence: 4,
+    digest: 'native-projection'
+  })
+  expect(await refreshNativeHistory('session', { db: queries, isBusy: () => false, read })).toEqual(
+    { status: 'unchanged' }
+  )
 })

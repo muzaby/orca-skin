@@ -855,6 +855,7 @@ export type {
   DeleteSessionRequest,
   RenameSessionRequest,
   LoadedSession,
+  RefreshSessionResult,
   LoadedMessage,
   AppMessagePart,
   ProviderReportedTelemetry,

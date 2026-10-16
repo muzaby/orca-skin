@@ -1,15 +1,18 @@
 import type { LoadedSession } from '../../../shared/ipc'
 import type {
+  NativeHistoryRequest,
+  NativeHistoryCursor,
   NativeHistoryResult,
   NativeHistorySnapshot
 } from '../../adapters/common/native-history'
+import { isRecord } from '../../../shared/obj'
 import type { DbQueries } from '../../infra/db'
 
 type SyncStatus = NonNullable<LoadedSession['nativeSync']>
 
 export interface NativeSyncDependencies {
   db: DbQueries
-  read: () => Promise<NativeHistoryResult>
+  read: (previous?: NativeHistoryRequest['previous']) => Promise<NativeHistoryResult>
   isBusy: () => boolean
   releaseIdleRuntime?: () => void
 }
@@ -53,7 +56,18 @@ export async function refreshNativeHistory(
   const before = deps.db.nativeHistory.observe(sessionId)
   let result: NativeHistoryResult
   try {
-    result = await deps.read()
+    const row = deps.db.nativeHistory.get(sessionId)
+    const snapshot = row ? (JSON.parse(row.payload_json) as NativeHistorySnapshot) : undefined
+    const candidate = row?.cursor_json
+      ? (JSON.parse(row.cursor_json) as NativeHistoryCursor)
+      : undefined
+    const cursor =
+      candidate?.version === 1 &&
+      candidate.sourceKey === snapshot?.sourceKey &&
+      candidate.revision === snapshot?.revision
+        ? candidate
+        : undefined
+    result = await deps.read(snapshot ? { snapshot, cursor } : undefined)
   } catch {
     return {
       status: 'unavailable',
@@ -68,7 +82,14 @@ export async function refreshNativeHistory(
   )
     return busy
   if (result.status !== 'ready') return result
-  if (!validNativeSnapshot(result.snapshot, sessionId)) {
+  if (
+    !validNativeSnapshot(result.snapshot, sessionId) ||
+    (result.cursor &&
+      (result.cursor.version !== 1 ||
+        result.cursor.sourceKey !== result.snapshot.sourceKey ||
+        result.cursor.revision !== result.snapshot.revision ||
+        !isRecord(result.cursor.checkpoint)))
+  ) {
     return {
       status: 'unavailable',
       message: '하네스 원본의 메시지 식별자를 확인할 수 없어 보관된 대화를 표시합니다.'
@@ -89,6 +110,7 @@ export async function refreshNativeHistory(
     const saved = deps.db.nativeHistory.replace({
       sessionId,
       payloadJson: JSON.stringify(result.snapshot),
+      cursorJson: result.cursor ? JSON.stringify(result.cursor) : undefined,
       frontier: before.frontier,
       expectedVersion: before.version,
       now: Date.now(),

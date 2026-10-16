@@ -33,6 +33,7 @@ import migration0026 from './migrations/0026_project_paths.sql?raw'
 import migration0027 from './migrations/0027_background_events.sql?raw'
 import migration0028 from './migrations/0028_provider_usage_periods.sql?raw'
 import migration0029 from './migrations/0029_native_history.sql?raw'
+import migration0030 from './migrations/0030_native_history_cursor.sql?raw'
 
 interface Migration {
   name: string
@@ -68,7 +69,8 @@ const MIGRATIONS: Migration[] = [
   { name: '0026_project_paths', sql: migration0026 },
   { name: '0027_background_events', sql: migration0027 },
   { name: '0028_provider_usage_periods', sql: migration0028 },
-  { name: '0029_native_history', sql: migration0029 }
+  { name: '0029_native_history', sql: migration0029 },
+  { name: '0030_native_history_cursor', sql: migration0030 }
 ]
 
 export const MIGRATION_NAMES = MIGRATIONS.map((m) => m.name)

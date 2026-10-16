@@ -76,7 +76,10 @@ vi.mock('../../../shared/i18n', async (original) => ({
   ...(await original<typeof import('../../../shared/i18n')>()),
   useI18n: () => ({ tr: (key: string) => key, locale: 'ko' })
 }))
-vi.mock('../../../shared/hooks/useAgents', () => ({ useAgents: () => [] }))
+const catalog = vi.hoisted(() => ({
+  agents: [] as import('../../../../../shared/ipc').AgentEnvironment[]
+}))
+vi.mock('../../../shared/hooks/useAgents', () => ({ useAgents: () => catalog.agents }))
 vi.mock('../../../shared/hooks/useSkills', () => ({ useSkills: () => [] }))
 
 let dom: FakeDom
@@ -147,6 +150,7 @@ const resolved = (approvalId: string, sessionId = 's'): NormalizedEvent => ({
 })
 
 beforeEach(() => {
+  catalog.agents = []
   vi.useFakeTimers()
   ;({ permissionRespond } = installChatStoreHarness({ backend: 'opencode', agentKind: 'code' }))
   const orca = window.orca
@@ -407,4 +411,55 @@ describe('OpenCode replacement request queue', () => {
     useChatStore.setState({ activeKey: 's' })
     expect(useChatStore.getState().sessions.s.session.openCodeTodoCollapsed).toBe(true)
   })
+})
+
+it('does not hydrate a Claude model before an OpenCode session finishes loading', async () => {
+  catalog.agents = [
+    {
+      adapter: 'claude',
+      key: 'claude-local',
+      supported: true,
+      models: [
+        {
+          alias: 'sonnet',
+          model: 'sonnet',
+          isCustom: false,
+          isDefault: true,
+          oneMillionContext: false
+        }
+      ]
+    }
+  ]
+  let resolve!: (session: import('../../../../../shared/ipc').LoadedSession) => void
+  Object.assign(window.orca, {
+    session: {
+      load: () =>
+        new Promise<import('../../../../../shared/ipc').LoadedSession>((yes) => {
+          resolve = yes
+        }),
+      refresh: async () => ({ status: 'unchanged' })
+    }
+  })
+  const operation = chatActions.loadSession('restore')
+  render()
+  expect(useChatStore.getState().sessions.restore.session).toMatchObject({
+    loadingSession: true,
+    backend: null,
+    providerKey: null
+  })
+  resolve({
+    id: 'restore',
+    backend: 'opencode',
+    agentKind: 'code',
+    title: 'restored',
+    messages: []
+  })
+  await operation
+  dom.act(() => {})
+  expect(useChatStore.getState().sessions.restore.session).toMatchObject({
+    loadingSession: false,
+    backend: 'opencode',
+    providerKey: null
+  })
+  expect(dom.queryAll('[data-harness="opencode"]')).toHaveLength(1)
 })

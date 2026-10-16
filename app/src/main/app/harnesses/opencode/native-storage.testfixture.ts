@@ -261,6 +261,19 @@ async function run(fetchImpl: typeof fetch): Promise<void> {
     providerSettings
   })
   assert.equal(restartedHistory.status, 'ready', JSON.stringify(restartedHistory))
+  if (restartedHistory.status !== 'ready') throw new Error('snapshot required')
+  assert.equal(restartedHistory.cursor?.checkpoint.kind, 'opencode-sqlite')
+  const requestsBeforeRead = requests.length
+  const unchanged = await restarted.readHistory({
+    sessionId,
+    cwd,
+    env: environment,
+    providerSettings,
+    previous: { snapshot: restartedHistory.snapshot, cursor: restartedHistory.cursor }
+  })
+  assert.equal(unchanged.status, 'unchanged', JSON.stringify(unchanged))
+  assert.equal(requests.length, requestsBeforeRead)
+
   // Reproduce the old Orca-only XDG root, then migrate via the actual module's 404 path.
   const legacyRoot = join(root, 'orca', 'opencode')
   const legacyEnv = {

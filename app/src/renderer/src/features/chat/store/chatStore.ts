@@ -924,7 +924,7 @@ function send(
 ): boolean {
   const trimmed = text.trim()
   const cur = getActiveChatSession()
-  if (trimmed === '') return false
+  if (trimmed === '' || cur.loadingSession) return false
   if (!requirementsBelongToCurrentSession(requirements, cur.sessionId)) return false
   // 발신 앵커 정규화는 **진입에서 한 번**이다 — 아래 세 발신 지점(새 세션 payload · 예약
   // 항목 · resume payload)이 각자 `.map` 을 걸고 있었고, 새 발신 경로가 하나 빠뜨리면 앵커가
@@ -1559,9 +1559,12 @@ async function loadSession(sessionId: string, title: string | null = null): Prom
   sessionLoads.set(sessionId, request)
   const isCurrent = (): boolean =>
     sessionLoads.get(sessionId) === request &&
-    getState().sessions[sessionId] === request.entry &&
+    !!getState().sessions[sessionId] &&
+    getState().sessions[sessionId].session.messages === request.entry.session.messages &&
+    getState().sessions[sessionId].live === request.entry.live &&
     !request.liveChanged
 
+  let refreshScheduled = false
   try {
     const session = await sessionApi.load(sessionId)
     if (!isCurrent()) return
@@ -1574,6 +1577,14 @@ async function loadSession(sessionId: string, title: string | null = null): Prom
     // Cached live state is authoritative even when its next event has not arrived yet.
     if (hasCachedHistory && sessionBusy(request.entry.session)) return
     dispatchTo(sessionId, { type: 'LOAD_SESSION', session, preserveLocalState: !!hasCachedHistory })
+    request.entry = getState().sessions[sessionId]
+    refreshScheduled = true
+    // Two frame callbacks give React a paint opportunity before native I/O starts.
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        void refresh()
+      })
+    )
     void refreshBackgroundState(sessionId)
     if (getState().activeKey === sessionId) void settingsApi.set({ lastSessionId: session.id })
     if (
@@ -1599,12 +1610,55 @@ async function loadSession(sessionId: string, title: string | null = null): Prom
     })
   } finally {
     if (sessionLoads.get(sessionId) === request) {
-      sessionLoads.delete(sessionId)
+      if (!refreshScheduled) sessionLoads.delete(sessionId)
       patchEntry(sessionId, (entry) =>
         entry.session.loadingSession
           ? { ...entry, session: { ...entry.session, loadingSession: false } }
           : entry
       )
+    }
+  }
+
+  async function refresh(): Promise<void> {
+    const current = (): boolean =>
+      isCurrent() &&
+      getState().activeKey === sessionId &&
+      !sessionBusy(getState().sessions[sessionId].session)
+    try {
+      if (!current()) return
+      const result = await sessionApi.refresh(sessionId)
+      if (!current()) return
+      if (result.status === 'updated') {
+        dispatchTo(sessionId, {
+          type: 'LOAD_SESSION',
+          session: result.session,
+          preserveLocalState: true
+        })
+        if (result.session.nativeSync?.message)
+          reportError({
+            event: 'chat.session-refresh.failed',
+            scope: 'chat',
+            title: 'sessionOpenFailed',
+            detail: result.session.nativeSync.message
+          })
+      } else if ('message' in result) {
+        reportError({
+          event: 'chat.session-refresh.failed',
+          scope: 'chat',
+          title: 'sessionOpenFailed',
+          detail: result.message
+        })
+      }
+    } catch (error) {
+      if (current())
+        reportError({
+          event: 'chat.session-refresh.failed',
+          scope: 'chat',
+          title: 'sessionOpenFailed',
+          error
+        })
+    } finally {
+      if (sessionLoads.get(sessionId) === request) sessionLoads.delete(sessionId)
     }
   }
 }

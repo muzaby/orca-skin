@@ -12,7 +12,8 @@ export async function nativeSessionError(
   try {
     const result = await adapter.readHistory(request)
     // Busy protects display refresh; it still proves the native session exists for an explicit resume.
-    if (result.status === 'ready' || result.status === 'busy') return undefined
+    if (result.status === 'ready' || result.status === 'busy' || result.status === 'unchanged')
+      return undefined
     return makeClassifiedError('schema_validation_error', result.message)
   } catch {
     return makeClassifiedError(

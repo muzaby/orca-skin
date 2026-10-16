@@ -188,3 +188,60 @@ describe('Claude native history reads', () => {
     }
   )
 })
+
+it('commits UTF-8 byte checkpoints, reuses complete prefixes and defers partial appends', async () => {
+  const f = await fixture()
+  const req = { sessionId, cwd: f.cwd, env: { CLAUDE_CONFIG_DIR: f.config } }
+  const first = await readClaudeNativeHistory(req)
+  if (first.status !== 'ready') throw new Error('snapshot required')
+  expect(first.cursor?.checkpoint.offset).toBe((await fs.stat(f.file)).size)
+  const previous = { snapshot: first.snapshot, cursor: first.cursor }
+  expect(await readClaudeNativeHistory({ ...req, previous })).toEqual({ status: 'unchanged' })
+  const tail =
+    [
+      historyEntry('u2', 'assistant-1', 'user', '한글 질문'),
+      historyEntry('a2', 'u2', 'assistant', [{ type: 'text', text: '응답' }])
+    ]
+      .map((entry) => JSON.stringify({ cwd: f.cwd, ...entry }))
+      .join('\n') + '\n'
+  const bytes = Buffer.from(tail)
+  const cut = bytes.indexOf(Buffer.from('한글')) + 1
+  await fs.appendFile(f.file, bytes.subarray(0, cut))
+  expect((await readClaudeNativeHistory({ ...req, previous })).status).toBe('busy')
+  await fs.appendFile(f.file, bytes.subarray(cut))
+  const next = await readClaudeNativeHistory({ ...req, previous })
+  if (next.status !== 'ready') throw new Error('completed append required')
+  expect(next.cursor?.checkpoint.offset).toBe((await fs.stat(f.file)).size)
+  expect(next.snapshot.messages.map((m) => m.id)).toEqual(['user-1', 'assistant-1', 'u2', 'a2'])
+  expect(next.snapshot.messages.at(-1)?.parts).toEqual([{ type: 'text', text: '응답' }])
+})
+
+it.each(['rewrite', 'truncate', 'replace', 'prefix-and-append'] as const)(
+  'invalidates stale JSONL offsets after %s',
+  async (kind) => {
+    const f = await fixture()
+    const req = { sessionId, cwd: f.cwd, env: { CLAUDE_CONFIG_DIR: f.config } }
+    const first = await readClaudeNativeHistory(req)
+    if (first.status !== 'ready') throw new Error('snapshot required')
+    const original = await fs.readFile(f.file, 'utf8')
+    let changed = original.replace('native answer', kind === 'truncate' ? 'short' : 'edited answer')
+    if (kind === 'replace') await fs.unlink(f.file)
+    if (kind === 'prefix-and-append')
+      changed +=
+        JSON.stringify({
+          cwd: f.cwd,
+          ...historyEntry('last', 'assistant-1', 'assistant', [{ type: 'text', text: 'extra' }])
+        }) + '\n'
+    await fs.writeFile(f.file, changed)
+    const next = await readClaudeNativeHistory({
+      ...req,
+      previous: { snapshot: first.snapshot, cursor: first.cursor }
+    })
+    if (next.status !== 'ready') throw new Error('replacement required')
+    expect(next.snapshot.revision).not.toBe(first.snapshot.revision)
+    expect(next.cursor?.checkpoint.offset).toBe(Buffer.byteLength(changed))
+    expect(JSON.stringify(next.snapshot.messages)).toContain(
+      kind === 'truncate' ? 'short' : 'edited answer'
+    )
+  }
+)

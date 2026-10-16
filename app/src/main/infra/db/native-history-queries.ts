@@ -3,6 +3,7 @@ import type { SearchHitRow } from './types'
 
 export interface NativeSnapshotRow {
   payload_json: string
+  cursor_json: string | null
   local_frontier: number
   synced_at: number
 }
@@ -35,7 +36,7 @@ export class NativeHistoryQueries {
   get(sessionId: string): NativeSnapshotRow | undefined {
     return this.db
       .prepare(
-        'SELECT payload_json, local_frontier, synced_at FROM native_history_snapshots WHERE session_id = ?'
+        'SELECT payload_json, cursor_json, local_frontier, synced_at FROM native_history_snapshots WHERE session_id = ?'
       )
       .get(sessionId) as NativeSnapshotRow | undefined
   }
@@ -61,6 +62,7 @@ export class NativeHistoryQueries {
   replace(input: {
     sessionId: string
     payloadJson: string
+    cursorJson?: string
     frontier: number
     expectedVersion: number
     messages: SearchableNativeMessage[]
@@ -76,11 +78,17 @@ export class NativeHistoryQueries {
         return false
       this.db
         .prepare(
-          `INSERT INTO native_history_snapshots (session_id, payload_json, local_frontier, synced_at)
-        VALUES (?, ?, ?, ?) ON CONFLICT(session_id) DO UPDATE SET
-        payload_json=excluded.payload_json, local_frontier=excluded.local_frontier, synced_at=excluded.synced_at`
+          `INSERT INTO native_history_snapshots (session_id, payload_json, local_frontier, synced_at, cursor_json)
+        VALUES (?, ?, ?, ?, ?) ON CONFLICT(session_id) DO UPDATE SET
+        payload_json=excluded.payload_json, local_frontier=excluded.local_frontier, synced_at=excluded.synced_at, cursor_json=excluded.cursor_json`
         )
-        .run(input.sessionId, input.payloadJson, input.frontier, input.now)
+        .run(
+          input.sessionId,
+          input.payloadJson,
+          input.frontier,
+          input.now,
+          input.cursorJson ?? null
+        )
       this.db
         .prepare('DELETE FROM native_history_messages WHERE session_id = ?')
         .run(input.sessionId)

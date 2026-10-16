@@ -1434,6 +1434,19 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         return {
           ...state,
           messages,
+          backend: action.session.backend,
+          agentKind,
+          agentKindLocked: true,
+          ...(state.backend !== action.session.backend
+            ? {
+                providerKey: action.session.providerKey ?? null,
+                modelFamily: null,
+                modelAlias: null,
+                harnessAgent: undefined,
+                modelVariant: undefined,
+                rightPanelTiles: rightPanelColumnsForAgent([], agentKind, action.session.backend)
+              }
+            : {}),
           loadingSession: false,
           title: action.session.title,
           projectId: action.session.projectId ?? null,
@@ -1588,6 +1601,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, permissionModeError: action.failed }
 
     case 'SET_MODEL': {
+      if (state.loadingSession) return state
       if (
         (state.sessionId || state.agentKindLocked) &&
         state.backend &&

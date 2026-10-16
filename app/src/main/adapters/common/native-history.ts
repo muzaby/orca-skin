@@ -7,6 +7,7 @@ export interface NativeHistoryRequest {
   cwd: string
   env?: Record<string, string>
   providerSettings?: ResolvedHarnessSettings
+  previous?: { snapshot: NativeHistorySnapshot; cursor?: NativeHistoryCursor }
 }
 
 export interface NativeHistoryMessage extends LoadedMessage {
@@ -25,8 +26,17 @@ export interface NativeHistorySnapshot {
   raw?: unknown
 }
 
+/** Adapter-owned checkpoint, committed atomically with the archive. */
+export interface NativeHistoryCursor {
+  version: 1
+  sourceKey: string
+  revision: string
+  checkpoint: Record<string, unknown>
+}
+
 export type NativeHistoryResult =
-  | { status: 'ready'; snapshot: NativeHistorySnapshot }
+  | { status: 'unchanged' }
+  | { status: 'ready'; snapshot: NativeHistorySnapshot; cursor?: NativeHistoryCursor }
   | {
       status: 'missing' | 'unavailable' | 'busy' | 'migration-required'
       message: string

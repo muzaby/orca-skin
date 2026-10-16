@@ -1,6 +1,11 @@
 import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { CHANNELS, type ChatActivitySnapshot, type LoadedSession } from '../../../shared/ipc'
+import {
+  CHANNELS,
+  type ChatActivitySnapshot,
+  type LoadedSession,
+  type RefreshSessionResult
+} from '../../../shared/ipc'
 import type {
   NativeHistoryResult,
   NativeHistorySnapshot
@@ -71,7 +76,7 @@ function session(id = 's1', cwd: string | null = null): number {
 }
 
 describe('session load IPC restores the complete persisted view', () => {
-  it('returns null for a missing session or a session without parts and does not request activity', async () => {
+  it('returns null only for missing sessions and restores the identity of an empty session', async () => {
     const activity = vi.fn()
     expect(await load('missing', activity)).toBeNull()
     queries.insertSession({
@@ -81,8 +86,12 @@ describe('session load IPC restores the complete persisted view', () => {
       projectId: null,
       createdAt: 1
     })
-    expect(await load('empty', activity)).toBeNull()
     expect(activity).not.toHaveBeenCalled()
+    expect(await load('empty', activity)).toMatchObject({
+      id: 'empty',
+      backend: 'claude',
+      messages: []
+    })
   })
 
   it('preserves ordered parts, incomplete state, usage, cost, lineage, worktree, cwd and activity', async () => {
@@ -307,13 +316,13 @@ describe('session load IPC refreshes native history before composing the archive
       .mockResolvedValue({ status: 'ready', snapshot: next })
     const refresh = refresher(read)
 
-    expect((await load('s1', undefined, refresh))?.messages).toHaveLength(1)
-    const reopened = await load('s1', undefined, refresh)
+    expect((await lazy('s1', refresh))?.messages).toHaveLength(1)
+    const reopened = await lazy('s1', refresh)
     expect(reopened?.messages).toEqual(
       next.messages.map(({ role, createdAt, parts }) => ({ role, createdAt, parts }))
     )
     expect(reopened?.nativeSync).toEqual({ status: 'ready' })
-    expect((await load('s1', undefined, refresh))?.messages).toEqual(reopened?.messages)
+    expect((await lazy('s1', refresh))?.messages).toEqual(reopened?.messages)
     expect(read).toHaveBeenCalledTimes(3)
     expect(queries.searchMessages('terminal')).toHaveLength(2)
     expect(queries.loadParts('s1')).toEqual(original)
@@ -330,8 +339,8 @@ describe('session load IPC refreshes native history before composing the archive
         .mockResolvedValueOnce({ status: 'ready', snapshot: value() })
         .mockResolvedValue({ status, message: 'fixture native problem' })
       const refresh = refresher(read)
-      const before = await load('s1', undefined, refresh)
-      const after = await load('s1', undefined, refresh)
+      const before = await lazy('s1', refresh)
+      const after = await lazy('s1', refresh)
 
       expect(after?.messages).toEqual(before?.messages)
       expect(after?.nativeSync).toEqual({ status, message: 'fixture native problem' })
@@ -350,4 +359,27 @@ describe('session load IPC refreshes native history before composing the archive
     expect(activity).not.toHaveBeenCalled()
     expect(queries.loadParts('s1')).toHaveLength(1)
   })
+})
+
+async function lazy(
+  sessionId: string,
+  refresh: (id: string) => Promise<LoadedSession['nativeSync']>
+): Promise<LoadedSession | null> {
+  const cached = await load(sessionId, undefined, refresh)
+  const result = (await callbacks.get(CHANNELS.sessionRefresh)!({
+    sessionId
+  })) as RefreshSessionResult
+  if (result.status === 'updated') return result.session
+  return cached && { ...cached, ...('message' in result ? { nativeSync: result } : {}) }
+}
+
+it('returns DB body and backend without starting the slow native reader', async () => {
+  session()
+  const refresh = vi.fn(() => new Promise<LoadedSession['nativeSync']>(() => {}))
+  const result = await load('s1', undefined, refresh)
+  expect(result?.messages[0].parts).toEqual([{ type: 'text', text: 'answer' }])
+  expect(result?.backend).toBe('claude')
+  expect(refresh).not.toHaveBeenCalled()
+  void callbacks.get(CHANNELS.sessionRefresh)!({ sessionId: 's1' })
+  expect(refresh).toHaveBeenCalledExactlyOnceWith('s1')
 })

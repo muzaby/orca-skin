@@ -449,7 +449,7 @@ describe('OpenCode native read through the SDK boundary', () => {
       })
       expect(f.get).toHaveBeenCalledTimes(3)
       expect(f.messages).toHaveBeenCalledTimes(2)
-      expect(f.deps.sourceKey).not.toHaveBeenCalled()
+      expect(f.deps.sourceKey).toHaveBeenCalledWith(request)
     }
   )
 
@@ -469,7 +469,7 @@ describe('OpenCode native read through the SDK boundary', () => {
       status: 'busy',
       message: expect.any(String)
     })
-    expect(f.deps.sourceKey).not.toHaveBeenCalled()
+    expect(f.deps.sourceKey).toHaveBeenCalledWith(request)
   })
 
   it('defers a stable but incomplete native response', async () => {
@@ -561,4 +561,52 @@ describe('OpenCode native read through the SDK boundary', () => {
       '/session/s1/message'
     ])
   })
+})
+
+it('skips SDK messages only when the committed per-session probe still matches', async () => {
+  const f = fixture()
+  const probe = vi
+    .fn()
+    .mockResolvedValue({ kind: 'opencode-sqlite', sequence: 4, digest: 'before' })
+  const deps = { ...f.deps, probe }
+  const first = await readOpenCodeHistory(request, deps)
+  if (first.status !== 'ready') throw new Error('snapshot required')
+  f.messages.mockClear()
+  const previous = { snapshot: first.snapshot, cursor: first.cursor }
+  expect(await readOpenCodeHistory({ ...request, previous }, deps)).toEqual({ status: 'unchanged' })
+  expect(f.messages).not.toHaveBeenCalled()
+  probe.mockResolvedValue({
+    kind: 'opencode-sqlite',
+    sequence: 4,
+    digest: 'part-updated-without-seq'
+  })
+  const changed = await readOpenCodeHistory({ ...request, previous }, deps)
+  expect(changed.status).toBe('ready')
+  expect(f.messages).toHaveBeenCalledTimes(2)
+  expect(changed.status === 'ready' && changed.cursor?.checkpoint.digest).toBe(
+    'part-updated-without-seq'
+  )
+})
+
+it('does not pair a cursor from after a concurrent mutation with an earlier SDK snapshot', async () => {
+  const f = fixture()
+  const probe = vi
+    .fn()
+    .mockResolvedValueOnce({ digest: 'before' })
+    .mockResolvedValue({ digest: 'after' })
+  const result = await readOpenCodeHistory(request, { ...f.deps, probe })
+  expect(result.status).toBe('busy')
+  expect(result).not.toHaveProperty('cursor')
+})
+
+it('uses a stable SDK revision when the native schema has no supported checkpoint', async () => {
+  const f = fixture()
+  const first = await readOpenCodeHistory(request, f.deps)
+  if (first.status !== 'ready') throw new Error('snapshot required')
+  expect(
+    await readOpenCodeHistory(
+      { ...request, previous: { snapshot: first.snapshot, cursor: first.cursor } },
+      f.deps
+    )
+  ).toEqual({ status: 'unchanged' })
 })

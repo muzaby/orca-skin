@@ -167,6 +167,7 @@ export function projectNativeMessages(
 
 export interface NativeReadDependencies {
   client(request: NativeHistoryRequest): Promise<OpencodeClient>
+  probe?(): Promise<Record<string, unknown> | undefined>
   sourceKey(request: NativeHistoryRequest): Promise<string>
   migrate?(
     request: NativeHistoryRequest
@@ -203,6 +204,20 @@ export async function readOpenCodeHistory(
         status: 'migration-required',
         message: 'OpenCode 원본 세션의 작업 폴더가 다릅니다. 원래 작업 폴더에서 다시 열어 주세요.'
       }
+    const sourceKey = await deps.sourceKey(request)
+    const checkpoint = await deps.probe?.()
+    const previous = request.previous
+    const reusable =
+      previous?.cursor?.version === 1 &&
+      previous.cursor.sourceKey === sourceKey &&
+      previous.snapshot.sourceKey === sourceKey &&
+      previous.cursor.revision === previous.snapshot.revision
+    if (
+      checkpoint &&
+      reusable &&
+      nativeRevision(checkpoint) === nativeRevision(previous.cursor?.checkpoint)
+    )
+      return { status: 'unchanged' }
     const read = async (): Promise<{ session: Session; messages: NativeMessages } | undefined> => {
       const header = await client.session.get(query, { throwOnError: false })
       const body = await client.session.messages(query, { throwOnError: false })
@@ -221,18 +236,37 @@ export async function readOpenCodeHistory(
         message:
           'OpenCode 원본 세션의 작업 폴더가 변경되었습니다. 원래 작업 폴더에서 다시 열어 주세요.'
       }
+    const after = await deps.probe?.()
+    if (nativeRevision(checkpoint ?? null) !== nativeRevision(after ?? null))
+      return {
+        status: 'busy',
+        message: 'OpenCode 원본 이력이 변경 중이어서 갱신을 보류했습니다.'
+      }
     const revision = nativeRevision(second)
     if (nativeRevision(first) !== revision || nativeHistoryBusy(second.messages))
       return {
         status: 'busy',
         message: 'OpenCode 원본 응답이 진행 중이어서 대화 갱신을 잠시 보류했습니다.'
       }
+    if (
+      reusable &&
+      previous.cursor?.revision === revision &&
+      nativeRevision(checkpoint ?? { kind: 'opencode-api' }) ===
+        nativeRevision(previous.cursor.checkpoint)
+    )
+      return { status: 'unchanged' }
     return {
       status: 'ready',
+      cursor: {
+        version: 1,
+        sourceKey,
+        revision,
+        checkpoint: checkpoint ?? { kind: 'opencode-api' }
+      },
       snapshot: {
         sessionId: request.sessionId,
         cwd: request.cwd,
-        sourceKey: await deps.sourceKey(request),
+        sourceKey,
         revision,
         messages: projectNativeMessages(request.sessionId, second.messages),
         raw: second

@@ -6,8 +6,8 @@
 |---|---|
 | slug | `0265-harness-native-storage` |
 | 작성자 / 일자 | Codex / 2026-10-16 |
-| 상태 | plan/READY — ΔV1 DB 우선 표시·lazy 갱신·세션별 읽기 커서 설계. 원본 형식별 커서 결정 대기; V1 구현·자기보고와 독립 검증 대기는 보존 |
-| V mode / revision | Delta V / V1 + ΔV1 (초안) |
+| 상태 | impl/IMPL_DONE — ΔV1 DB 우선 표시·lazy 갱신·세션별 읽기 커서 구현. 새 AC9~14 자기확인 6/6. V1 자기보고와 독립 verify 대기는 보존 |
+| V mode / revision | Delta V / V1 + ΔV1 |
 | 기준 V | V1@공유 브랜치 `8c94b449485771d5ea588e62e38c8cfbedc74e3b`. OpenCode 구체 커서는 0262 ΔV16, 의존 경계 회귀는 0264 |
 | 관련 | PR #502 · ADR-009 · 0262 · 0230 |
 
@@ -517,3 +517,100 @@ main/renderer AGENTS의 하향 의존과 하네스별 구현 경계를 유지한
 | ID | 출처 / 계약 | 재현한 관측 | 판정 / 다음 처리 |
 |---|---|---|---|
 | EXT-01 | 사용자 재시작 보고 / 0262 D-002, 본 ΔV1 D11·AC13 | 실제 store의 deferred load 중 `setModel(claude)` 호출 후 OpenCode DB 응답이 버려짐. 2케이스 중 대조군 통과·해당 케이스 실패 | 재현된 결함. 공통 로딩 token·hydration/전송 guard를 수정하고 영구 회귀로 옮길 것. 독립 verify 판정은 아님 |
+
+
+## [구현자 기입] 설계 리뷰 — ΔV1 r1.2
+
+DB 첫 표시와 native 조회를 `session.load`/`session.refresh`로 나눴다. 조회 중 entry 객체가 바뀌었다는 이유로 DB 응답을 폐기하던 EXT-01은 본문/live 참조와 조회 token으로 좁히고, loading 중 모델 hydration·SET_MODEL·send를 보류하여 수정했다.
+
+Part II 차이: Claude stat만으로 unchanged를 단정하지 않고 bounded bytes digest를 검증한다. 동일 길이 in-place 수정과 타임스탬프 복원을 놓치지 않기 위한 선택이다. 확정 prefix는 검증 후 raw record를 재사용하고 tail만 JSON 파싱한다. 파일 전체 byte 읽기는 남으므로 append-only I/O 최적화를 주장하지 않는다. 만료: 시간 TTL 없음. 공유: 세션별 영속 cursor이며 설정/출처 변경은 sourceKey 검사. 재진입: token/CAS 검사. 다른 무효화: rewrite/truncate/replace/부분 UTF-8 시험으로 AC12·EP17 재확인. 제품 계약·필수 pair 변경 없음.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — ΔV1 r1.2
+
+아래 좌표의 경로 접두사는 `app/src/`다. 테스트가 실제 실행한 구간만 자리로 센다.
+
+| Oracle | 파일:테스트명 / 관측 |
+|---|---|
+| L1 | `main/app/handlers/session.load.test.ts:returns DB body and backend without starting the slow native reader` — native 훅0, DB body/backend 반환 뒤 refresh 명시 호출1 |
+| L2 | `preload/index.test.ts:wires DB load and lazy refresh as separate calls with the same stored session ID` — renderer wrapper→실제 preload의 두 채널·ID·반환 확인 |
+| L3 | `renderer/src/features/chat/store/chatStore.native-history.test.ts:paints the DB body first, then lazily applies native additions without sending` — DB body→첫 rAF refresh0→다음 frame refresh1→native body; chat.send0 |
+| L4 | `main/app/handlers/session.load.test.ts:imports terminal user, assistant and tool messages and reopens twice without duplication` — 실제 load/refresh 등록 callback·SQLite·DTO·검색·보관 원행 확인 |
+| L5 | `main/features/history/native-history.db.test.ts:commits the OpenCode reader result and checkpoint through the common transaction` — v1 reader→공통 sync→실제 SQL→DTO, 재조회 unchanged |
+| L6 | 같은 파일 `stores per-session cursors atomically, restores them through a new query owner, and preserves them on failure` + `persists the committed cursor after closing and reopening a file database` + `upgrades a cursorless archive on its first native read` — source/revision/checkpoint 영속·SQL 실패 rollback·구자료 초기화 |
+| L7 | `main/adapters/claude/native-history.test.ts:commits UTF-8 byte checkpoints, reuses complete prefixes and defers partial appends` + `invalidates stale JSONL offsets after %s` — byte 경계·부분 입력 busy·완성 후 추가 반영·동일 길이 rewrite/축소/교체/prefix 수정 |
+| L8 | 같은 파일 `returns busy for stable unfinished inputs and a partially written last line`, `rejects oversized originals before allocating their content`; `native-history-map.test.ts:restores automatic meta input and compact metadata while excluding abandoned branches` — 불완전/상한/current chain 보존 |
+| L9 | `renderer/src/features/chat/components/Composer.approvalQueue.test.ts:does not hydrate a Claude model before an OpenCode session finishes loading` — 실제 Composer effect+store, DB 전 null 유지·복원 후 OpenCode DOM |
+| L10 | `renderer/src/features/chat/store/chatStore.native-history.test.ts:restores OpenCode after cold-load hydration attempts and sends with its saved identity` + `restores stored identity even when a cached entry contains an incompatible composer` — SET_MODEL/send 보류·backend 복원·동일 ID/backend/provider 전송 |
+| L11 | 같은 파일 `accepts only the newest request for the same session`, `rejects late lazy results after %s`, `allows model-only UI updates while native refresh is pending`, `cancels an unstarted lazy check on navigation` — 최신 요청·live/send/remove/leave/new-load·UI-only 구분 |
+| L12 | 같은 파일 `keeps DB body and backend when lazy native access fails`; `main/features/history/native-history.db.test.ts:rejects a stale transaction version and a late read after a local write` — 실패/경합 기존 화면·커서 유지 |
+
+| 자리 | 자기확인 / 직접 좌표 |
+|---|---|
+| EP14a/b/c/d | 4/4 — L1 / L2 / L3 / L3 |
+| EP15a/b/c/d | 4/4 — L4 / L5 및 Claude `adapter.native-history.test.ts:reads the same native session through the production adapter without submitting a prompt` / L5·L6 / L3 |
+| EP16a/b/c | 3/3 — L6 cursor 조회·재개방 / L6 SQL rollback / L6 cursorless 초기화 |
+| EP17a/b/c/d | 4/4 — L7 rewrite/identity / L7 UTF-8 bytes / L7·L8 파싱/current chain / L8 완료 판정 |
+| EP18a/b/c/d | 4/4 — L9 / L10 loading SET_MODEL / L10 저장 identity / L10 send payload |
+| EP19a/b/c | 3/3 — L11 newest request / L11 live·send / L11 leave·drop·재진입 |
+
+전수 검색: `rg -n 'sessionLoads|loadingSession|LOAD_SESSION|SET_MODEL|sessionApi.load|sessionApi.refresh' app/src/renderer`, `rg -n 'sessionLoad|sessionRefresh|readHistory|nativeHistory|cursor_json' app/src/main app/src/preload app/src/shared`. 읽기 경로, model hydration, 저장 identity와 송신 자리의 실제 caller를 대조했다. 합계는 이번 신규/변경 자리 22/22이며 기존 V1 50자리를 다시 더하지 않는다.
+
+| pair | 자기판정 | 근거 |
+|---|---|---|
+| VP-Δ1-01 | SELF_PASS | L1~L3 |
+| VP-Δ1-02 | SELF_PASS | L3~L5 |
+| VP-Δ1-03 | SELF_PASS | L6 |
+| VP-Δ1-04 | SELF_PASS | L7~L8 |
+| VP-Δ1-05 | SELF_PASS | L9~L10 |
+| VP-Δ1-06 | SELF_PASS | L11~L12 |
+| VP-Δ1-07 | SELF_PASS | L1~L12, main/renderer 경계 실행 |
+| VP-Δ1-08 | SELF_PASS | L2·L4·L5, 하네스 의존 lint |
+| VP-Δ1-09 | SELF_PASS | L6~L8 |
+| VP-Δ1-10 | SELF_PASS | L11 |
+| VP-Δ1-11 | SELF_PASS | L9~L10 |
+| VP-Δ1-R1 | SELF_PASS | native-sync/projection/writer/delete/Claude map/OpenCode history/실 CLI 회귀 |
+
+REQUIRED 11 + REGRESSION 1 = SELF_PASS 12, SELF_BLOCKED 0. 독립 verify 판정이 아니다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — ΔV1 r1.2
+
+제품 pair는 not selected — 직접 oracle. EXT-01의 deferred hydration 재현을 L9/L10으로 옮겼다. 등록된 제품 변이는 없다. 기존 error report registry에 lazy catch의 `chat.session-refresh.failed` 슬롯을 추가했고, registry의 보고 제거·형제 event 맞바꿈 검사가 통과했다. 기존 스캔 장치를 삭제하거나 범위를 줄이지 않았다.
+
+## [구현자 기입] Product/UX 파생 검토 — ΔV1 r1.2
+
+DB 표시 후 native 실패는 본문을 비우지 않고 기존 오류 UI로 알린다(L12). busy/unchanged는 안내를 반복하지 않는다. 세션 이동 전 예약된 lazy 작업은 실행하지 않고 이미 진행한 결과도 다른 화면을 덮지 않는다(L11). 새 UI 버튼이나 하네스별 시각 스타일 변경은 없다. 저장 backend 복원은 cached 분기에도 적용했다(L10).
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — ΔV1 r1.2
+
+- EXT-01 closed: UI 상태 변경이 DB 응답의 stale 근거가 되던 결함을 actual store/Composer 테스트로 재현 후 수정했다.
+- 초기 레지스트리 회귀는 새 lazy catch 등록 및 분리된 로그 event로 해결했다. registry의 동일 event 맞바꿈은 등가 변이였으므로 gate를 약화하는 대신 load/refresh 실패의 운영 로그를 구별했다.
+- 새 OpenCode→DB 연결 fixture에서 필수 SDK tokens/messageID가 누락되어 실패했다. fixture를 실제 필드로 보완했고 production mapper를 완화하지 않았다. SDK type import도 v1 경계 밖에서 직접 참조하지 않도록 정정했다.
+- Electron ABI 테스트는 실패 목록이 있어도 exit 0을 돌려주는 경우를 관측했다. 판정은 출력의 failed/pass 수로 확인했다. 의존성·ABI 변경 없음.
+- native 원본이 계속 변경되는 동안 갱신은 busy로 보류한다. 상시 polling은 범위 밖이며 다음 재열기에 다시 확인한다.
+
+## [구현자 기입] 구현 보고 — ΔV1 r1.2
+
+| AC | 자기판정 / 직접 관측 |
+|---|---|
+| AC9 | ✅ L1~L3: native 지연과 독립적으로 DB body/backend 먼저 표시 |
+| AC10 | ✅ L3~L5: lazy 추가분·tool 반영, 재열기 중복 없음, 화면 진입 모델 요청0 |
+| AC11 | ✅ L6: cursorless 구별, 영속 재개방, snapshot/FTS/cursor rollback |
+| AC12 | ✅ L7~L8: UTF-8 byte offset, 부분 입력 보류, rewrite/축소/교체/current chain |
+| AC13 | ✅ L9~L10: default Claude hydration에도 OpenCode 복원·동일 ID/backend 전송 |
+| AC14 | ✅ L11~L12: 지각 native 결과가 live/전송/제거/재진입을 덮지 않음 |
+
+검산: 이번 추가 AC ✅6 · ⚠️0 · ❌0 = 6. V1의 8/8과 이전 사람 인수·독립 검증 상태는 별도다.
+
+관측한 gate 산출:
+- 관련 Node 회귀 61파일857케이스 통과. 이후 cached identity 케이스를 추가한 store 단독 1파일28케이스 통과(중복 합산 안 함).
+- actual Composer/preload/main native 회귀 3파일46케이스 통과; main native/projection/adapter/send/registry 묶음의 renderer registry 외 9파일111케이스 통과. 레지스트리는 위 61파일 실행에서 수정 후 통과.
+- 실제 SQLite: handler/DB/migration 3파일35케이스, cursor/DB 2파일20케이스, reader/writer/delete/worktree/file factory 5파일10케이스 통과. 마지막 OpenCode reader→DB 연결을 포함한 DB 단독 1파일14케이스 통과. 실행 집합은 중첩되며 합산하지 않는다.
+- 실제 OpenCode 1.19 CLI: native 생성→독립 CLI 후속→Orca 조회→재시작→cursor unchanged, legacy 이관·custom DB·native 설정 불변 통과(1파일1케이스, 최종 67.47초). localhost 합성 모델만 사용, read 구간 모델 호출0.
+- node/web/test typecheck 통과. production build(main/preload/renderer) 통과; 기존 SubAgentTaskDetail의 정적/동적 import 혼용 경고는 유지.
+- 변경 TS/TSX readonly lint에서 SDK import 경계 오류를 수정했고 최종 33파일 오류0·경고0을 확인했다. migration sync/append-only·test budget·inventory/prose/links·diff check 통과. gate script 70케이스 통과.
+
+문서와 IPC inventory는 새 refresh 계약·cursor migration을 반영했다. 사용자 다운로드·첨부, package/lockfile은 수정/커밋 대상에서 제외했다. 독립 verify와 앱을 재시작한 실제 화면 인수는 수행한 것으로 주장하지 않는다.
+
+## [구현자 기입] Review Signals — ΔV1 r1.2
+
+이전 라운드의 native 보관 불변식은 유지하고 사용자 요구로 DB 선표시 순서를 바꿨다. 기존 entry 동일성 검사는 모델 hydration도 stale로 간주했지만 기존 native 재열기 테스트는 이미 backend가 있는 cached 상태만 다뤘다. 이번에는 cold loading과 actual Composer effect를 함께 잠갔다. 환경 제약은 Electron SQLite ABI 및 설치 CLI 접근 권한이며 임시 native root와 localhost 모델로 검증했다. 현재 r1.2, 다음 주체 Claude 독립 verify.

@@ -309,3 +309,26 @@ describe('preload public event subscriptions', () => {
     }
   )
 })
+
+it('wires DB load and lazy refresh as separate calls with the same stored session ID', async () => {
+  vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
+  try {
+    const { sessionApi } = await import('../renderer/src/shared/api/ipc')
+    const loaded = { id: 'native-session', backend: 'opencode', messages: [] }
+    harness.invoke
+      .mockClear()
+      .mockResolvedValueOnce(loaded)
+      .mockResolvedValueOnce({ status: 'unchanged' })
+    expect(await sessionApi.load('native-session')).toEqual(loaded)
+    expect(harness.invoke).toHaveBeenCalledExactlyOnceWith(CHANNELS.sessionLoad, {
+      sessionId: 'native-session'
+    })
+    expect(await sessionApi.refresh('native-session')).toEqual({ status: 'unchanged' })
+    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.sessionRefresh, {
+      sessionId: 'native-session'
+    })
+  } finally {
+    harness.invoke.mockResolvedValue(undefined)
+    vi.unstubAllGlobals()
+  }
+})

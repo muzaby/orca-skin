@@ -36,7 +36,7 @@ function code(error: unknown): string | undefined {
 async function readSnapshot(
   file: string,
   root: string
-): Promise<{ text: string; revision: string; signature: string }> {
+): Promise<{ bytes: Buffer; revision: string; signature: string; identity: string }> {
   const before = await lstat(file)
   if (!before.isFile() || before.isSymbolicLink() || before.size > CLAUDE_HISTORY_MAX_BYTES)
     throw new HistoryReadError('unavailable', 'Claude 원본 이력 파일을 안전하게 읽을 수 없습니다.')
@@ -81,7 +81,8 @@ async function readSnapshot(
       )
     const bytes = buffer.subarray(0, offset)
     return {
-      text: bytes.toString('utf8'),
+      bytes,
+      identity: JSON.stringify([current.dev, current.ino]),
       revision: createHash('sha256').update(bytes).digest('hex'),
       signature: JSON.stringify([
         current.ino,
@@ -161,7 +162,39 @@ export async function readClaudeNativeHistory(
       }
     const file = candidates[0]
     const snapshot = await readSnapshot(file, root)
-    const entries = parseEntries(snapshot.text)
+    const sourceKey = `claude:${createHash('sha256')
+      .update(JSON.stringify([file, cwd]))
+      .digest('hex')}`
+    const previous = req.previous
+    const cursor = previous?.cursor
+    const checkpoint = cursor?.checkpoint
+    const reusable =
+      cursor?.version === 1 &&
+      cursor.sourceKey === sourceKey &&
+      previous?.snapshot.sourceKey === sourceKey &&
+      cursor.revision === previous.snapshot.revision
+    if (reusable && cursor.revision === snapshot.revision) return { status: 'unchanged' }
+    const offset = checkpoint?.offset
+    const append =
+      reusable &&
+      checkpoint?.identity === snapshot.identity &&
+      checkpoint?.newline === true &&
+      typeof offset === 'number' &&
+      Number.isSafeInteger(offset) &&
+      offset > 0 &&
+      offset < snapshot.bytes.length &&
+      createHash('sha256').update(snapshot.bytes.subarray(0, offset)).digest('hex') ===
+        cursor.revision &&
+      Array.isArray(previous.snapshot.raw)
+    // Prefix bytes are verified, but already parsed records are reused only for a proven append.
+    const entries = append
+      ? [
+          ...(previous.snapshot.raw as ClaudeHistoryEntry[]),
+          ...parseEntries(
+            new TextDecoder('utf-8', { fatal: true }).decode(snapshot.bytes.subarray(offset))
+          )
+        ]
+      : parseEntries(new TextDecoder('utf-8', { fatal: true }).decode(snapshot.bytes))
     const identities = entries.filter((entry) => typeof entry.sessionId === 'string')
     if (identities.some((entry) => entry.sessionId !== req.sessionId) || identities.length === 0)
       return {
@@ -199,18 +232,30 @@ export async function readClaudeNativeHistory(
       }
     return {
       status: 'ready',
+      cursor: {
+        version: 1,
+        sourceKey,
+        revision: snapshot.revision,
+        checkpoint: {
+          kind: 'claude-jsonl',
+          identity: snapshot.identity,
+          offset: snapshot.bytes.length,
+          newline: snapshot.bytes.at(-1) === 10,
+          lastUuid: entries.findLast((entry) => typeof entry.uuid === 'string')?.uuid
+        }
+      },
       snapshot: {
         sessionId: req.sessionId,
         cwd: req.cwd,
-        sourceKey: `claude:${createHash('sha256')
-          .update(JSON.stringify([file, cwd]))
-          .digest('hex')}`,
+        sourceKey,
         revision: snapshot.revision,
         messages: mapClaudeHistory(selected, req.sessionId, req.cwd),
         raw: entries
       }
     }
   } catch (error) {
+    if (error instanceof TypeError && error.message.includes('encoded data'))
+      return { status: 'busy', message: 'Claude 원본 문자가 아직 기록 중입니다.' }
     if (error instanceof HistoryReadError) return { status: error.status, message: error.message }
     if (code(error) === 'ENOENT')
       return {

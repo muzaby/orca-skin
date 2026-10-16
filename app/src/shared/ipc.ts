@@ -87,6 +87,7 @@ export const CHANNELS = {
   sessionCwd: 'orca:session:cwd',
   sessionList: 'orca:session:list',
   sessionLoad: 'orca:session:load',
+  sessionRefresh: 'orca:session:refresh',
   sessionDelete: 'orca:session:delete',
   sessionRename: 'orca:session:rename',
   sessionSetPinned: 'orca:session:setPinned',
@@ -1582,6 +1583,11 @@ export interface LoadedMessage {
   incomplete?: boolean
 }
 
+export type RefreshSessionResult =
+  | { status: 'updated'; session: LoadedSession }
+  | { status: 'unchanged' | 'busy' }
+  | { status: 'missing' | 'unavailable' | 'migration-required'; message: string }
+
 export interface LoadedSession {
   id: string
   backend: Backend
@@ -1590,7 +1596,7 @@ export interface LoadedSession {
   messages: LoadedMessage[]
   /** Native refresh diagnostics; cached conversation remains available on failure. */
   nativeSync?: {
-    status: 'ready' | 'busy' | 'missing' | 'unavailable' | 'migration-required'
+    status: 'ready' | 'unchanged' | 'busy' | 'missing' | 'unavailable' | 'migration-required'
     message?: string
   }
   // 세션 마지막 턴의 provider-reported 통계 — 컨텍스트 도넛/UsagePanel 을 세션 수명 동안

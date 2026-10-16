@@ -136,3 +136,16 @@ describe('native snapshot synchronization', () => {
     expect(f.replace).not.toHaveBeenCalled()
   })
 })
+
+it('rejects a cursor from a different source or revision before committing anything', async () => {
+  for (const mismatch of [{ sourceKey: 'other' }, { revision: 'other' }]) {
+    const f = fixture()
+    f.read.mockResolvedValue({
+      status: 'ready',
+      snapshot: f.snapshot,
+      cursor: { version: 1, sourceKey: 'source', revision: 'r1', checkpoint: {}, ...mismatch }
+    })
+    expect((await refreshNativeHistory('s', f.deps)).status).toBe('unavailable')
+    expect(f.replace).not.toHaveBeenCalled()
+  }
+})

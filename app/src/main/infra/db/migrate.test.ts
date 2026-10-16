@@ -49,7 +49,8 @@ const EXPECTED_MIGRATIONS = [
   '0026_project_paths',
   '0027_background_events',
   '0028_provider_usage_periods',
-  '0029_native_history'
+  '0029_native_history',
+  '0030_native_history_cursor'
 ]
 
 const APPLIED_SQL = [

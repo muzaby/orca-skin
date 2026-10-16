@@ -56,6 +56,7 @@ import type {
   OpenContextFileResult,
   ReadAttachmentResult,
   InstallStatus,
+  RefreshSessionResult,
   LoadedSession,
   AddSessionDirectoryRequest,
   AddSessionDirectoryResult,
@@ -208,6 +209,8 @@ export const sessionApi = {
     window.orca.session.addDirectory(request),
   cwd: (): Promise<string> => window.orca.session.cwd(),
   list: (): Promise<SessionListItem[]> => window.orca.session.list(),
+  refresh: (sessionId: string): Promise<RefreshSessionResult> =>
+    window.orca.session.refresh(sessionId),
   load: (sessionId: string): Promise<LoadedSession | null> => window.orca.session.load(sessionId),
   delete: (sessionId: string): Promise<DeleteSessionResult> =>
     window.orca.session.delete(sessionId),

@@ -18,7 +18,8 @@ export const implementation: OpenCodeImplementation = {
             legacyRoot: options.dataDirectory,
             openDatabase: options.openDatabase
           })
-        : undefined
+        : undefined,
+      options.openDatabase
     ),
   loadSettings: loadOpenCodeProviderSettings,
   parseModels: parseOpenCodeModels,

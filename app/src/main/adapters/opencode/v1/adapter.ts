@@ -12,6 +12,8 @@ import { modelRef } from './model-ref'
 import type { NativeHistoryRequest, NativeHistoryResult } from '../../common/native-history'
 import { readOpenCodeHistory, nativeRevision } from './native-history'
 import { nativeOpenCodeData, nativeOpenCodeEnvironment } from './native-storage'
+import { probeNativeCursor } from './native-cursor'
+import type { openFileDatabase } from '../../../infra/db/file-database'
 import type { LegacyStorageMigration } from './legacy-storage-migration'
 
 export class OpenCodeAdapter implements SessionAdapter {
@@ -23,7 +25,8 @@ export class OpenCodeAdapter implements SessionAdapter {
   constructor(
     private readonly servers: OpenCodeServer,
     private readonly fetchImpl: typeof fetch,
-    private readonly migration?: LegacyStorageMigration
+    private readonly migration?: LegacyStorageMigration,
+    private readonly openDatabase?: typeof openFileDatabase
   ) {}
   agentSpawnEnv(): Record<string, never> {
     return {}
@@ -140,15 +143,21 @@ export class OpenCodeAdapter implements SessionAdapter {
 
   readHistory(req: NativeHistoryRequest): Promise<NativeHistoryResult> {
     const config = req.providerSettings?.settings ?? {}
+    let resolvedPath: Promise<string> | undefined
     const databasePath = (): Promise<string> => {
+      if (resolvedPath) return resolvedPath
       if (!this.servers.databasePath)
         return Promise.resolve(
           nativeOpenCodeData(nativeOpenCodeEnvironment(config, req.env), req.cwd)
         )
-      return this.servers.databasePath(config, req.env, req.cwd)
+      return (resolvedPath = this.servers.databasePath(config, req.env, req.cwd))
     }
     return readOpenCodeHistory(req, {
       client: () => this.client(config, req.env, req.cwd),
+      probe:
+        this.openDatabase && this.servers.databasePath
+          ? async () => probeNativeCursor(this.openDatabase!, await databasePath(), req.sessionId)
+          : undefined,
       sourceKey: async () => nativeRevision([await databasePath(), req.cwd]),
       ...(this.migration && this.servers.databasePath
         ? {

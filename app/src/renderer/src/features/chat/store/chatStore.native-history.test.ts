@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
-import type { LoadedSession } from '../../../../../shared/ipc'
+import type { LoadedSession, RefreshSessionResult } from '../../../../../shared/ipc'
 import * as errors from '../../../shared/errors'
 import { chatActions, ingestChatEvent, useChatStore } from './chatStore'
 import { flushRaf, installChatStoreHarness } from './chatStore.testHarness'
@@ -32,6 +32,7 @@ function snapshot(
   }
 }
 
+const refresh = vi.fn<() => Promise<RefreshSessionResult>>()
 const load = vi.fn<() => Promise<LoadedSession | null>>()
 let harness: ReturnType<typeof installChatStoreHarness>
 let report: MockInstance<typeof errors.reportError>
@@ -63,7 +64,8 @@ beforeEach(() => {
     activeKey: 'other'
   })
   load.mockReset().mockResolvedValue(snapshot())
-  Object.assign(window.orca, { session: { load } })
+  refresh.mockReset().mockResolvedValue({ status: 'unchanged' })
+  Object.assign(window.orca, { session: { load, refresh } })
   report = vi.spyOn(errors, 'reportError').mockImplementation(() => {})
 })
 
@@ -278,5 +280,133 @@ describe('native history refresh on cached session reopen', () => {
     const session = useChatStore.getState().sessions.s.session
     expect(session.loadingSession).toBe(false)
     expect(session.messages[0].parts).toContainEqual({ type: 'text', text: 'fresh live' })
+  })
+})
+
+const frames = async (): Promise<void> => {
+  flushRaf()
+  flushRaf()
+  await Promise.resolve()
+  await Promise.resolve()
+}
+
+it('paints the DB body first, then lazily applies native additions without sending', async () => {
+  load.mockResolvedValue(snapshot('DB body'))
+  const pending = deferred<RefreshSessionResult>()
+  refresh.mockReturnValue(pending.promise)
+  await chatActions.loadSession('s')
+  expect(useChatStore.getState().sessions.s.session.messages).toEqual(snapshot('DB body').messages)
+  expect(refresh).not.toHaveBeenCalled()
+  flushRaf()
+  expect(refresh).not.toHaveBeenCalled()
+  await frames()
+  expect(refresh).toHaveBeenCalledExactlyOnceWith('s')
+  expect(harness.chatSend).not.toHaveBeenCalled()
+  pending.resolve({ status: 'updated', session: snapshot('external addition') })
+  await Promise.resolve()
+  await Promise.resolve()
+  expect(useChatStore.getState().sessions.s.session.messages).toEqual(
+    snapshot('external addition').messages
+  )
+  expect(harness.chatSend).not.toHaveBeenCalled()
+})
+
+it('restores OpenCode after cold-load hydration attempts and sends with its saved identity', async () => {
+  const pending = deferred<LoadedSession>()
+  load.mockReturnValue(pending.promise)
+  const operation = chatActions.loadSession('cold')
+  chatActions.setModel('claude-local', 'sonnet', 'sonnet', 'claude')
+  expect(chatActions.send('too early')).toBe(false)
+  expect(harness.chatSend).not.toHaveBeenCalled()
+  pending.resolve({ ...snapshot('DB body'), id: 'cold', providerKey: 'opencode-local' })
+  await operation
+  expect(useChatStore.getState().sessions.cold.session).toMatchObject({
+    backend: 'opencode',
+    loadingSession: false,
+    providerKey: 'opencode-local'
+  })
+  expect(chatActions.send('continue')).toBe(true)
+  expect(harness.chatSend).toHaveBeenCalledWith(
+    expect.objectContaining({
+      sessionId: 'cold',
+      backend: 'opencode',
+      providerKey: 'opencode-local'
+    })
+  )
+})
+
+it.each(['live', 'send', 'remove', 'leave', 'new-load'] as const)(
+  'rejects late lazy results after %s',
+  async (change) => {
+    const pending = deferred<RefreshSessionResult>()
+    refresh.mockReturnValueOnce(pending.promise)
+    await chatActions.loadSession('s')
+    await frames()
+    if (change === 'live')
+      ingestChatEvent({ type: 'message.delta', sessionId: 's', delta: { text: 'live' } })
+    if (change === 'send') chatActions.send('new input')
+    if (change === 'remove') chatActions.handleSessionDeleted('s')
+    if (change === 'leave' || change === 'new-load') leaveSession()
+    if (change === 'new-load') {
+      load.mockResolvedValue(snapshot('new DB'))
+      await chatActions.loadSession('s')
+    }
+    const before = useChatStore.getState().sessions.s
+    pending.resolve({ status: 'updated', session: snapshot('stale native') })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(useChatStore.getState().sessions.s).toBe(before)
+  }
+)
+
+it('allows model-only UI updates while native refresh is pending', async () => {
+  const pending = deferred<RefreshSessionResult>()
+  refresh.mockReturnValue(pending.promise)
+  await chatActions.loadSession('s')
+  await frames()
+  chatActions.setModel('opencode-local', 'new-model', 'new-model', 'opencode')
+  pending.resolve({ status: 'updated', session: snapshot('terminal') })
+  await Promise.resolve()
+  await Promise.resolve()
+  expect(useChatStore.getState().sessions.s.session).toMatchObject({
+    modelFamily: 'new-model',
+    messages: snapshot('terminal').messages
+  })
+})
+
+it('keeps DB body and backend when lazy native access fails', async () => {
+  refresh.mockRejectedValue(new Error('offline'))
+  await chatActions.loadSession('s')
+  const before = useChatStore.getState().sessions.s
+  await frames()
+  expect(useChatStore.getState().sessions.s).toBe(before)
+  expect(before.session.backend).toBe('opencode')
+  expect(report).toHaveBeenCalledOnce()
+})
+
+it('cancels an unstarted lazy check on navigation', async () => {
+  await chatActions.loadSession('s')
+  leaveSession()
+  await frames()
+  expect(refresh).not.toHaveBeenCalled()
+})
+
+it('restores stored identity even when a cached entry contains an incompatible composer', async () => {
+  const before = useChatStore.getState().sessions.s
+  useChatStore.setState((state) => ({
+    sessions: {
+      ...state.sessions,
+      s: {
+        ...before,
+        session: { ...before.session, backend: 'claude', providerKey: 'claude-local' }
+      }
+    }
+  }))
+  await chatActions.loadSession('s')
+  expect(useChatStore.getState().sessions.s.session).toMatchObject({
+    backend: 'opencode',
+    agentKind: 'code',
+    providerKey: null,
+    modelFamily: null
   })
 })
