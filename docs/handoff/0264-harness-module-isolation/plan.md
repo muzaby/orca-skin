@@ -321,3 +321,15 @@ AC 자기확인: AC1(chat)·AC2(engine/settings/landing)·AC3(main 등록)·AC4(
 ## [구현자 기입] Review Signals
 
 r1 — 새 사용자 리팩토링 요구. 과거 verify 실패를 고치는 라운드가 아니다. 기존 표현·수명 계약이 있었고 이동으로 생기는 import, source guard, 오류 site 등록이 주요 검증 축이었다. 반복 환경 한계는 Electron/Node ABI와 TEMP 접근이며 의존성을 재설치하지 않고 실행 환경을 맞췄다. 다음 단계는 Claude 독립 검증이다.
+
+## [검증자 기입] 파생 이슈
+
+r1 독립 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md).
+
+| # | 이슈 | 출처 | disposition | 대응 방향 |
+|---|---|---|---|---|
+| D-0264-1 | `app/harnesses/registry.ts`의 `createHarnessSettingsService` loader 주입에 oracle이 없다. OpenCode loader를 빼도 main 4,051케이스 green | VP11 / §11 `loader/parser 조립` / AC4 | BLOCKING | 실제 서비스의 `resolve()`가 하네스별 loader 결과를 내는 직접 oracle을 HEAD에 추가 |
+| N-0264-1 | production 소비자 없는 pass-through(`registries/composer.tsx` approval+`ToolApprovalBody`, `lib/rightPanelTiles.ts` `RIGHT_PANEL_POLICY`) | D07·§15 | NON_BLOCKING | 제거 또는 사용처 명시 |
+| N-0264-2 | 두 하네스 `model-policy.ts` 동일 코드 | D07 | NON_BLOCKING | 의도면 기록 |
+| N-0264-3 | 0264가 만든 파일의 react-refresh 경고 4건 | lint warning | NON_BLOCKING | 후보 |
+| N-0264-4 | plan 메타 `상태`가 READY로 남음 | 상태 사본 | NON_BLOCKING | 다음 턴 갱신 |
