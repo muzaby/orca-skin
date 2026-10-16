@@ -123,7 +123,7 @@
 | N-0262-2 | D20-1 폴백 범위가 문면보다 넓음(불완전 토큰 보고) | D20-1 | NON_BLOCKING | 문면 정정 또는 폴백 축소 |
 | N-0262-3 | ΔV19 직렬화가 `limit.context`를 저장하지 않아 폼 엔진의 도넛 분모가 항상 200000 | ΔV19×ΔV20 | NEXT_HANDOFF | 모델 limit 입력/보존 여부 사용자 결정 |
 | N-0262-4 | plan 메타 V revision이 ΔV19 | 상태 사본 | NON_BLOCKING | 설계 정정 때 갱신 |
-| N-0262-5 | `docs/arch/backend/provider-runtime.md:130,154,457,474,478`이 OpenCode permission·응답·mapper·adapter를 여전히 "미구현"으로 서술 — 현재 코드와 모순(0260 drift 재점검에서 발견, 표식은 0260 유지 행이라 도구가 통과시킴) | `docs/AGENTS.md` arch는 현재 상태만 | NON_BLOCKING | 문서 정정 |
+| N-0262-5 | `docs/arch/backend/provider-runtime.md:130,154,457,474,478`이 OpenCode permission·응답·mapper·adapter를 여전히 "미구현"으로 서술 — 현재 코드와 모순(`grep -n '미구현' docs/arch/backend/provider-runtime.md` 5건) | `docs/AGENTS.md` arch는 현재 상태만 | NON_BLOCKING | 문서 정정 |
 
 ## 9. Review Signals — 사실만
 
