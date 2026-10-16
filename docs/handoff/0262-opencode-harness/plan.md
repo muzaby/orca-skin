@@ -8,10 +8,10 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | impl/IMPL_DONE — ΔV16 native cursor·재시작 하네스 복원 구현. 새 AC43~45 자기확인 3/3. ΔV15 자기보고·기존 AC11 사람 인수·독립 verify 대기는 보존 |
-| V mode | Delta V — 기준 V1 + ΔV1~15 + ΔV16 (각 델타의 대체 범위 적용) |
+| 상태 | plan/READY — ΔV17 동일 세션 desktop transcript 대조. 사용자 요청에 따라 시각 보완을 먼저 구현하며 기존 독립 verify·AC11 인수 대기 보존 |
+| V mode | Delta V — 기준 V1 + ΔV1~16 + ΔV17 (각 델타의 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
-| 이번 V revision / 유효 V | ΔV16 / 기준 ΔV15@공유 브랜치 `8c94b449485771d5ea588e62e38c8cfbedc74e3b`. 기존 구현 자기보고·AC11 미인수는 별도 보존. 이번 추가 AC와 기존 인수 대기는 별도 집계 |
+| 이번 V revision / 유효 V | ΔV17 / 기준 ΔV16@공유 브랜치 `bb6ce719cc349daa79cd633422c60825f0a08e02`. 기존 자기보고·AC11 인수와 이번 델타를 별도 집계 |
 
 # Part I — Product & UX Contract
 
@@ -2557,3 +2557,49 @@ native 서버 지연은 DB 첫 표시를 막지 않는다. 저장 backend가 Ope
 ## [구현자 기입] Review Signals — ΔV16 r1.16
 
 사용자 요구 변경에 따른 구현 턴이며 기존 renderer cold-load의 모델 hydration 경쟁을 같이 수정했다. 이전 cached 세션 회귀만으로는 restart에서 backend=null인 상태를 잠그지 못했다. 이번에는 actual Composer hook과 shared store를 함께 실행했다. CLI 외부 모델 검증은 기존 사용자 생략 결정을 유지하며 합성 localhost 모델만 사용했다. 다음 주체는 Claude 독립 verify다.
+
+
+## ΔV17 — 같은 세션의 desktop transcript 표현 일치 (2026-10-16, READY)
+
+### Part I — Decision / Product & UX
+
+사용자: “Opencode의 transcript를 집중하라. orcinus orca가 opencode와 어떻게 다른지 관찰하고 렌더링이 비슷하도록 수정하라”. 열린 두 앱을 Computer Use로 직접 스크롤·도구 펼침하여 비교했다. 참조 우선순위는 실제 1.19.0 desktop 화면과 설치 renderer이며, 제공 2.0.29 소스는 구조 참고로 사용한다.
+
+| 결정 | 결과 / 관계 |
+|---|---|
+| D-036 ACTIVE | OpenCode 기본 transcript는 추론 본문을 숨기고 assistant text·도구·오류 순서를 표시한다. 원본 parts/DB/전체 복사와 Claude reasoning은 유지. D-018/023의 항상 inline reasoning 표시를 이번 실제 desktop 기본값으로 대체 |
+| D-037 ACTIVE | 일반 도구는 아이콘 없는 compact 행, 파일은 기본 접힘·파일명·편집 증감, 탐색은 읽기/검색 개수와 들여쓴 목록, 웹은 직접 링크, task는 agent/설명 pill, 완료 질문은 접기 헤더+답변으로 표시. 실패·중단 결과와 원본 도구 입력은 펼쳐 확인 가능 |
+| D-038 ACTIVE | OpenCode 본문 문단·heading·목록·inline code의 서체·간격만 해당 렌더러에서 조정. D-004/011/020/021의 Claude GUI·canvas·사용자 버블 색상 예외 유지 |
+
+| AC / node | 행동 기준 | 검증 |
+|---|---|---|
+| AC46 / R46↔AT46 NEW | 같은 기록의 추론 전문이 본문 사이에 노출되지 않고 text/tool 순서는 유지. 추론만 수신 중에도 기존 진행 표시가 남음 | production Timeline의 live/committed 렌더와 원본 불변 projection 테스트, CUA 동일 세션 |
+| AC47 / R47↔AT47 NEW | 작성/편집은 기본 한 줄이고 클릭 후 내용/diff를 보여 준다. 탐색·웹 링크·task pill·완료 질문 접기와 가상화 후 펼침 상태 유지 | ToolCard/AskExchange interaction, decoder fixture, CUA 도구별 펼침/닫힘 |
+| AC48 / R48↔AT48 NEW | OpenCode 본문의 paragraph/code/heading과 compact 도구 밀도가 실제 desktop에 가까워지며 Claude·canvas·사용자 버블 색상을 보존 | CUA 같은 본문 비교 + 기존 harness routing/사용자 버블 회귀 |
+
+### Part II — 근거 / 경계
+
+| 관측 ID | 실제 차이 / 수정 경계 |
+|---|---|
+| CUA-17-01 | desktop은 같은 응답의 영어 reasoning을 숨김. Orca는 긴 reasoning과 중간 판단을 전부 표시. 설치 `defaultSettings.general.showReasoningSummaries=false`와 `renderable(part, showReasoning)` 확인 |
+| CUA-17-02 | desktop 작성/편집은 파일명 한 줄·편집 +1/-1. Orca는 절대 경로와 파일/성공 output을 처음부터 전개. desktop 편집 클릭→파일 헤더 확인 |
+| CUA-17-03 | desktop 탐색 목록은 Glob/Grep/읽기와 args, 웹은 링크, task는 Explore pill, 완료 질문은 “질문 1개 답변됨” 헤더+답변. Orca의 아이콘·일반명/경로·헤더 부재와 대조 |
+
+production: native parts→공통 messageSegments→OpenCode projection→TimelineRow/AssistantSegment→Text·ToolGroup·ToolCard·AskExchange. 데이터 변환은 `opencode/v1/toolPresentation`, UI 파생은 `opencode/transcript`에 둔다. 숨긴 reasoning은 segment key ordinal을 바꾸지 않으며 표시 gap만 제외한다. generic/오류·중단 output은 보존하고, 성공 file output 중복만 기본 본문에서 제거한다.
+
+기존 `useToolDisclosure`로 tool·file·question key별 상태를 보존한다. 웹 성공 링크는 button 내부 anchor 중첩 없이 표시하며 http(s) 검증을 유지한다. 파일 전체 경로는 title과 원본에 남기며 basename만 행에 표시한다. task 클릭은 기존 상세 패널을 연다. 공유 Markdown 변경 없이 OpenCode 전용 prose 스타일을 적용하고 stream/완료 모두 같은 규칙을 쓴다.
+
+### Delta V / §10
+
+| pair | requiredness / 경로 | 강제 지점 / 직접 oracle |
+|---|---|---|
+| VP-Δ17-01 R46↔AT46 | REQUIRED / stored/live parts→projection→Timeline | EP47a projection filtering, EP47b direct AssistantSegment reasoning: `projection.test.ts` 원본/순서/key 보존, `Timeline.render.test.ts` live/완료 및 진행 상태, `AssistantSegment.render.test.ts` dispatcher |
+| VP-Δ17-02 R47↔AT47 | REQUIRED / v1 decoder→도구/질문 UI→상세 | EP48a decoder 파일명/args/agent, EP48b ToolCard 기본/열기/가상화·실패, EP48c ToolGroup 순서/펼침, EP48d FilePanel diff, EP48e AskExchange 접기, EP48f task 기존 action. 각각 decoder·ToolCard interaction·AskExchange interaction의 실제 entry 관측 |
+| VP-Δ17-03 R48↔AT48 | REQUIRED / OpenCodeText→Markdown/StreamingMarkdown→화면 | EP49a OpenCodeText prose, EP49b tool chrome. CUA-17-01~03 수정 후 두 앱 비교와 실제 Orca 스크롤/펼침 |
+| VP-Δ17-04 AR-Δ17↔IT-Δ17 NEW | REQUIRED / stored native DTO→decoder→Timeline component | EP47/48; `Timeline.render.test.ts` 실제 registry·projection·row와 decoder 통합 |
+| VP-Δ17-05 MD-Δ17↔UT-Δ17 NEW | REQUIRED / native tool input→UI view, parts→visible rows | EP47a/48a; decoder/projection 정상·오류·ANSI·unsafe URL·native raw 보존 |
+| VP-Δ17-R1 | REGRESSION / D-004/011/020/021·ΔV13 선택/스크롤 | 기존 `AssistantSegment.render.test.ts` Claude reasoning/user bubble, `Timeline.selection.test.ts`·`ScrollController.interaction.test.ts`·`scrollPolicy.test.ts` 직접 관측 |
+
+EP47 2곳 + EP48 6곳 + EP49 2곳. 순수 변환/실제 interaction oracle이며 구조 proxy를 새로 만들지 않아 선택 mutation은 not selected. 새로운 IPC·DB·dependency·모델 요청은 없다. 운영 gate는 관련 Vitest, readonly lint, typecheck, build, 문서 링크/위생, git diff/trailer다.
+
+READY 대조: D-036↔AC46, D-037↔AC47, D-038↔AC48. 기존 UI 예외·실행 API1.x·native SSOT·승인 FIFO·Todo dock과 충돌 0. 기존 AC26/32의 reasoning 전문/파일 자동 펼침 기대만 이번 D-036/037로 대체하고 raw 보존·도구 결과 열람·선택/스크롤 회귀는 승계한다. 사용자 요청의 직접 구현 범위이며 새 의존성/미정 결정 없음. 독립 verify와 AC11 사용자 인수는 그대로 대기다.
