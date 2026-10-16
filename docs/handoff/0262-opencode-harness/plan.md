@@ -8,10 +8,10 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | impl/IMPL_DONE — ΔV20 구현 및 자기검증 완료. 다음 Claude 독립 검증. 기존 사용자 인수 대기 보존 |
-| V mode | Delta V — 기준 V1 + ΔV1~18 + ΔV19 (각 델타의 대체 범위 적용) |
+| 상태 | plan/READY — r2 ΔV21 증거 경계 정정. 시각·실공급자 인수 대기 |
+| V mode | Delta V — V1 + ΔV1~ΔV21 (각 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
-| 이번 V revision / 유효 V | ΔV19 / 기준 ΔV18@공유 브랜치 `7edd119c3cfb3d720f51963753c8c7873ad0a726`. 기존 자기보고·AC11 인수와 이번 델타를 별도 집계 |
+| 이번 V revision / 유효 V | ΔV21 / V1 + ΔV1~ΔV21, 기준 `5d2b36a2` |
 
 # Part I — Product & UX Contract
 
@@ -2950,6 +2950,43 @@ CUA-19-04: 검증용 dev 앱을 정상 종료·재실행해 최신 main으로 �
 전체 readonly ESLint 오류 0·기존 경고 6, node/web/test 타입 검사와 production build, scripts 142검사, migration sync/append-only, test-budget 통과. inventory 생성·prose 검사 통과. 일반 링크 검사는 사용자 다운로드 `.tmp/opencode-dev`의 기존 깨진 링크만 실패했고, 다운로드/첨부를 제외한 Orca 문서 범위는 같은 검사 함수로 통과했다. 최종 변경 파일 lint·빌드 로그는 `.tmp/current-changed-eslint.log`, `.tmp/current-final-bundle.log`(최종 타입 보완은 `current-final-web.log`·`current-final-test-types.log`); 회귀 원문은 `.tmp/current-regression*.log`·`current-repaired-tests.log`·`current-final-targeted.log`·`current-map-tests.log`에 있다(임시 산출물, 커밋 제외).
 
 사용자 뜻의 즉시 반응과 native steer의 다음 스텝 의미를 처음에 혼동했고, D20-2를 별도 설계 커밋으로 정정한 뒤 구현했다. 구현 중 찾은 idle 소진 경쟁과 explicit-zero/누락 usage를 직접 oracle로 잠갔다. 실모델의 중단 지연시간은 이번 턴에서 재측정하지 않았다. CUA는 기존 완료 세션의 표시/메뉴/패널을 조작했고 새 실모델 입력은 보내지 않았다. 다음 주체는 Claude 독립 검증이다.
+
+## ΔV21 — 행동 증거와 시각 인수 분리 (r2)
+
+판정: READY. 기준은 공유 브랜치 `5d2b36a2`의 V1~ΔV20과 r1 verify다. G-0262-1의 증거 분류와 N-0262-2의 문면을 정정하며 사용자 화면·입력·저장 정책은 유지한다.
+
+### 설계 전 handoff-review
+
+모드: APPLY — 사용자의 verify 보완 요청에 따른 진단이며 지침은 유지한다. plan §5/§5-A와 impl §2/§8은 이미 직접 oracle 좌표·사람 시각 경계·7필드·게이트 산출을 요구하므로 반복 실패는 B(실행 누락)다. native 정책은 D(사용자 후속 변경)의 supersede 기록 누락, 경로 비교는 F(테스트 결함)다.
+
+SKILL/template/handoff AGENTS 규범 변경이 없어 Tier 1/2 변경 회귀와 corpus 추가는 해당 없음이다. 같은 규칙을 중복 추가하지 않고 이번 plan·테스트·보고에서 실행한다. 기존 원격 CI red를 로컬 green과 구분하고, 시각 인수는 기계 완료 수에 넣지 않는다.
+
+### Decision / AC 대체
+
+| ID | 결정 / 대체 관계 | 상태 |
+|---|---|---|
+| D21-1 | 시각 기하·색상·밀도는 사람 인수, 이벤트·선택·상태 전이는 자동 행동 테스트로 분리. 과거 CUA는 참고 기록이며 자동 자리 완료 증거가 아님 | ACTIVE / renderer AGENTS 시각 검증 정책 |
+| D21-2 | D20-1 합산 폴백은 마지막 step 부재뿐 아니라 누락·비정상 토큰 보고에도 적용. 명시적 0은 유효 | ACTIVE / 사용자 “합산은 폴백”·기존 AC20-1 누락 fixture 구체화 |
+
+D20-1의 “마지막 step이 없는 구자료만” 한정은 D21-2로 SUPERSEDED다. 나머지 분모·마지막 step·과금 분리는 유지한다. ACTIVE↔AC 충돌 0, AC11 최종 시각·실공급자 인수는 대기다.
+
+### Delta V / §10 이관
+
+| 기존 자리 / pair | 자동 행동 증거 유지 | 사람 시각 인수로 이관 |
+|---|---|---|
+| ΔV12 EP36c·e / VP59·61 | `ScrollController.interaction.test.ts` 선택중 append·wheel·앵커 복원, `Timeline.selection.test.ts` 선택중 가상화. 주입 치수의 상태 전이까지만 | 실제 긴 transcript 드래그·다페이지 왕복·resize/disclosure 후 top/offset |
+| ΔV13 EP37e / VP63 | `TodoDock.render.test.ts` 타이머 취소·완료 퇴장·reduced motion·주입 높이 계산 | 실제 높이·composer overlap·슬라이드 외관 |
+| ΔV17 AC48 / VP-Δ17-03 | `Timeline.render.test.ts`·`ToolCard.render.test.ts` 요소/접힘 정책 | desktop과 본문 밀도·간격·색상 |
+| ΔV7 EP-27b·28a | 기존 해당 렌더/상태 테스트의 요소·콜백 | 두 테마·좁은 폭의 clipping·색상·배치 |
+| ΔV20 VP20-3 | `Controls.interaction.test.ts` 키보드/선택/복귀·`EngineCard.render.test.ts` 라벨 | 공용 메뉴의 실제 폰트/배치 |
+
+위 pair의 시각 하위 주장만 SUPERSEDED→VP21-V로 이관한다. R21-V↔AT21-V는 CHANGED/REQUIRED, 실제 앱→두 테마/폭→사람 비교, 기계 자리 0(layout·시각 품질)이므로 사람 인수 전 SELF_PASS로 세지 않는다. 자동 행동 경로는 기존 pair REGRESSION이며 해당 직접 좌표와 선택 증거를 유지한다.
+
+VP21-F(MD20-1↔UT20-1)는 CHANGED/REQUIRED, `map.ts` latest tokens→fallback 1자리다. 직접 좌표는 `map.test.ts:retains valid aggregate usage as fallback when the latest step has no token report`; mutation not selected(직접 결과)다. 신규 runner·패키지는 없다.
+
+### 운영 gate / READY 대조
+
+ScrollController·Timeline selection/render·TodoDock·Controls·mapper·ΔV20 continuation 회귀, readonly lint·typecheck·build·문서 inventory/prose/링크·diff·trailer·Windows CI를 확인한다. D-0262-1은 기존 ΔV20과 이번 r2의 7필드를 구분해 복구한다. N-0262-5는 현재 코드에 맞춰 architecture를 정정한다.
 
 ## [검증자 기입] 파생 이슈 — r1 검증
 

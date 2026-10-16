@@ -5,8 +5,8 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex / 2026-10-16 |
-| 상태 | impl/IMPL_DONE — ΔV6 구현 및 자기검증 완료. 다음 Claude 독립 검증. 기존 사용자 인수 대기 보존 |
-| V mode / revision | Baseline V1 + Delta V2 + Delta V3 + Delta V4 + Delta V5 |
+| 상태 | plan/READY — r2 ΔV7 행동 증거 정정. 시각 인수 대기 |
+| V mode / revision | Baseline V1 + Delta V2~V7, 기준 `5d2b36a2` |
 | 기준 V | Delta V5는 V1~V4 @ `940bd44edc5625f79b377b885cbe559b1d66fdb6` 상속 |
 | 매핑 | PR #502, 0262 후속 |
 
@@ -402,6 +402,43 @@ Computer Use 증거: 실행 중인 Orca에서 기본 요약, 빈 목록, 변경 
 - V1은 Work context의 UI 재사용을 명시했지만 Main 허용 조합을 누락했다. 조사 후 V2로 보완했다.
 - 네이티브 창 연결은 이번에는 성공했다. CI #749는 migration·문서·test-budget·lint·typecheck 통과 후 기존 하네스 기대값 1건에서 실패했다. 해당 회귀 테스트를 갱신하고 별도 Windows 환경에서 전체 CI를 재실행한다.
 - 다음 주체는 Claude 독립 검증자다. PR #502는 draft 상태를 유지한다.
+
+## Delta V7 — 패널 행동 oracle과 시각 인수 분리 (r2)
+
+판정: READY. 기준 `5d2b36a2`의 V1~ΔV6와 r1 verify에서 G-0263-1의 증거 경로를 정정한다. 요약 위 상세·닫기 복귀·부모 폭 공유·활성 셸 정책은 유지한다.
+
+### Product / UX와 대체 관계
+
+D7-1 ACTIVE: 클릭·구독 갱신·선택·닫기·포커스·DOM 수명은 fake DOM에서 production 컴포넌트와 store를 실행한다. 외곽·여백·실제 픽셀 기하는 사람 시각 인수다. ΔV3~5의 “실제 클릭/구독/포커스는 CUA에서 닫는다”를 SUPERSEDED 처리하며 AC2″/6‴/8′/11′ 결과는 유지한다.
+
+### Technical Design / §10 직접 oracle
+
+새 `harnesses/opencode/rightpanel/Panel.lifecycle.test.ts`는 public RightPanel→OpenCode Panel→공통 TilePanel→실제 tiles/Sources를 실행한다. React context/reducer/external-store와 DOM API만 대체하며 navigation·store·host·tile callback은 mock하지 않는다. 환경 보완은 `shared/ui/renderHarness.testfixture.ts`에 두고 중첩 context·store 구독 정리도 직접 검사한다.
+
+| 자리 | 테스트 예정 좌표 / 관측 | 수 |
+|---|---|---:|
+| EP-16a/b/c/d | `Panel.lifecycle.test.ts:opens %s from the summary and closes back to the same overview` — 네 버튼 실제 클릭, 올바른 본문·columns 불변 | 4 |
+| EP-17a/b/c | 같은 테스트 — Context 선택·host hidden/inert·기존 header/close 하나 | 3 |
+| EP-18a/b/c | `selects an agent inside the overlay without changing the base selection`; 요약 진입 close/Escape→동일 DOM·origin focus | 3 |
+| EP-19a/b/c | `preserves detail state under an artifact and clears it on session change` — artifact 복귀→동일 detail DOM/scroll, 확대·부모 폭, A→B→A 해제 | 3 |
+| EP-21b/c | `updates active processes through store subscriptions while preserving the open final log` — 수신→행/그룹 삭제·최종 로그 유지·fallback focus | 2 |
+| VP6-2 부모 열 | `Panel.interaction.test.ts` task 1열→폭/resize가 해당 열만 변경 | 1 |
+
+기계 자리 16. 실제 CSS layout·scroll 픽셀 정확성은 fake DOM으로 주장하지 않는다. EP-20a~e(5시각 자리)는 기존 기계 분모에서 빼고 AT7-V(두 테마 외곽·hover 여백·좁은 폭)로 이관한다. 최종 사람 인수는 대기이며 과거 CUA는 참고 증거다.
+
+| Pair / node provenance | requiredness / 경로·대체 |
+|---|---|
+| VP7-A R-02/06/08/11↔AT7-A CHANGED | REQUIRED / 네 진입→본문→갱신→복귀, 위16자리. 구 VP-09/13/17 해당 행동 증거 대체 |
+| VP7-S SD-01↔ST7-S CHANGED | REQUIRED / open→update/expand/artifact→close/session, EP-18/19/21. 구 VP-10/14/18 대체 |
+| VP7-I AR-02↔IT7-I CHANGED | REQUIRED / Context→Panel→host→tile, EP-16/17/18. 구 VP-15·VP-19 해당 증거 대체 |
+| VP7-V R-12/13↔AT7-V CHANGED | REQUIRED / 실제 앱→두 테마·폭→사람 인수, 자동 자리0. EP-20a~e 이관 |
+| VP7-R VP6-1/2·VP-12/16/20 INHERITED | REGRESSION / Task·닫기 소비·부모 폭·활성 selector·메뉴, 기존 tests |
+
+직접 행동 oracle의 신규 mutation은 not selected다. 닫는 finding의 인용 M0263-07(부모 열0), M08/09(diff→process/무동작)는 assertion red·복원 green을 남긴다. 기존 ΔV6 테스트는 삭제하지 않으며 M01~06을 회귀 확인한다.
+
+### 운영 gate / READY 대조
+
+Panel/TilePanel/focus/Task/store/menu/fixture tests, readonly lint·typecheck·build·문서 inventory/링크·Windows CI를 수행한다. D-0263-1의 기존 ΔV6 7필드와 r2 보고는 구분한다. ACTIVE↔AC 충돌0, 새 의존성·제품/native API 변경0이며 시각 인수는 기계 완료로 세지 않는다.
 
 ## [검증자 기입] 파생 이슈
 
