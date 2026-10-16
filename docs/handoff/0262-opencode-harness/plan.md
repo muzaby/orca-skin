@@ -2277,15 +2277,17 @@ source DB·target DB·리소스 파일·Orca sidecar는 하나의 transaction이
 1. 공통 활동 guard 뒤 경로·schema를 검사한다. 기존 factory의 WAL/FK/busy timeout을 사용하되 없는 source를 생성하지 않는다. source BEGIN IMMEDIATE로 writer를 막은 다음 target BEGIN IMMEDIATE를 획득한다. 실패는 busy이며 native 프로세스 종료·무한 재시도 없음. source 행은 쓰지 않는다.
 2. 잠금 안에서 tree·manifest·target 충돌을 다시 수집한다. 관측된 unfinished assistant/running tool·pending input은 busy다. 같은 PK의 다른 row를 덮어쓰지 않는다. 완성된 native ID가 이미 있으면 상위 reader가 원본으로 읽으며 이관을 다시 실행하지 않는다.
 3. target와 같은 volume의 전용 임시 디렉터리에 파일을 복사해 상대 경로·크기·SHA-256 manifest를 대조한다. source digest를 다시 읽어 변경을 감지한다. target snapshot이 없고 기존 다른 target session이 해당 project snapshot을 사용하지 않을 때만 rename으로 배치한다. rename 직전 target을 재확인하고 기존 디렉터리를 덮어쓰지 않는다. Windows fixture에서 기존 빈 target에도 EPERM이 발생하는 것을 확인했으며 구현 테스트가 잠근다. 동일 digest target은 재사용한다.
-4. project/project_directory→session root/children→message→part/todo→event_sequence/event를 target transaction에 insert한다. FK·원본 행 equality·resource 참조를 검사하고 commit 전에 source manifest를 재확인한다. 실패는 target ROLLBACK 및 source ROLLBACK으로 잠금만 해제한다.
-5. target COMMIT 뒤 source 잠금을 풀고 독립 native API로 session/messages/children/todo와 필요한 snapshot을 재검증한다. 같은 ID/cwd를 common reader로 전달한다. sidecar에는 source/target identity·manifest digest·stage만 원자적으로 저장하며 native 재조회가 완료의 권위다. sidecar 실패 때문에 prompt/insert를 반복하지 않는다.
+4. project/project_directory→session root/children→message→part/todo→event_sequence/event를 target transaction에 insert한다. FK·원본 행 equality·resource 참조를 검사하고 commit 전에 source manifest를 재확인한다. native 삭제 뒤 보존된 legacy를 재생성하지 않도록 tree의 각 ID/target digest에 pending sidecar를 먼저 기록한 후 target을 COMMIT한다. sidecar 기록 실패는 commit하지 않는다. 실패는 target ROLLBACK 및 source ROLLBACK으로 잠금만 해제하며 관측된 정상 rollback은 rolled-back으로 기록해 재시도를 허용한다.
+5. target COMMIT 뒤 source 잠금을 풀고 독립 native API로 session/messages/children/todo와 필요한 snapshot을 재검증한다. 같은 ID/cwd를 common reader로 전달한다. sidecar에는 identity digest·stage만 원자적으로 저장하며 native 재조회가 완료의 권위다. committed marker가 있는데 native가 404면 missing이며 legacy를 재복사하지 않는다. pending marker와 native 404는 commit 여부를 확정할 수 없으므로 commit-state-unknown 미완료다. sidecar 실패 때문에 prompt/insert를 반복하지 않는다.
 
 | 종료·실패 지점 | 관측·복구 |
 |---|---|
 | lock·임시 복사 전후 | DB row 미변경. 다음 요청에서 재수집. 자신이 만든 임시 경로만 정리 가능 |
 | resource 배치 후 commit 전 | native session 없음. 배치 자원은 manifest와 남기며 다른 프로세스가 사용할 수 있어 임의 삭제하지 않음. 재실행은 byte 동일한 자원만 재사용, 다르면 resource-conflict |
-| 일부 row insert 후 commit 전 | SQLite rollback으로 tree 전체 미노출. 기존 target 행 불변. 자원은 앞 행의 orphan 규칙 |
-| commit 후 native 검증/sidecar 전 | 같은 native ID가 존재하므로 다시 native 조회. insert·ID 생성·본문 replay 없음. 검증 실패는 unavailable이며 source 보존 |
+| 일부 row insert 후 pending 기록 전 | SQLite rollback으로 tree 전체 미노출. 기존 target 행 불변. 자원은 앞 행의 orphan 규칙 |
+| pending 기록 후 commit 전·후 종료 | native ID가 있으면 원본 조회. 없으면 commit-state-unknown 미완료로 자동 재이관하지 않음. 동일 프로세스에서 rollback 성공을 관측해 rolled-back marker를 쓴 경우만 재시도 허용 |
+| commit 후 native 검증/committed sidecar 전 | 같은 native ID가 존재하므로 다시 native 조회. insert·ID 생성·본문 replay 없음. 검증 실패는 unavailable이며 source 보존 |
+| committed marker 이후 native CLI에서 원본 삭제 | native 404는 missing. 보존된 legacy를 복사해 삭제를 되돌리지 않음. tree의 각 session ID에 동일 정책 적용 |
 | copy 중 source 변경·다른 writer 경합 | digest/lock/PK로 busy 또는 구체적인 미완료. 외부 파일 쓰기는 DB lock만으로 멈추지 않으므로 전후 digest 검사로 관측된 변경을 검출하며 전역 FS snapshot은 주장하지 않음 |
 
 성공 후에도 source DB·리소스를 삭제하지 않는다. 이후 native가 원본이며 옛 격리 프로세스의 추가 분기를 자동 병합하지 않는다. 이관기는 기존 프로세스를 종료하지 않는다. 이 제약은 지원 범위 안의 세션/tree/resource 실제 이전을 생략하는 근거가 아니다.
