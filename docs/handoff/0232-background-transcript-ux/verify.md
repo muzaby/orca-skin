@@ -301,3 +301,115 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh 4f4c5c8..aa55dbc
 - repository operation checks: trailer 2커밋 5키 파싱, 좌표 10건 실재, INDEX 갱신 완료
 - 남은 사람 확인: 설치본 시각 실기 1건(§8)
 - 다음 단계: 시각 실기 후 INDEX 행을 archive history로 이동
+
+---
+
+# ΔV3 검증 — 공통 시스템 피드 분류·표시 (2026-10-16)
+
+> 위 r2 판정(V1+ΔV1+ΔV2 PASS)은 보존하고 재서술하지 않는다. 이 절은 `# ΔV3`(AC20~23·VP-Δ3-01~07·EP-Δ3-01~07)과 영향 REGRESSION만 판정한다. DEV 버튼·노출 게이트는 [0003 V1-F 검증](../0003-debug-panel-mock-adapter/verify.md)이 판정했다.
+
+## Δ3-메타
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `fe935835..db2ff28e` — 구현 `6ab1bd19`, 기록 `7c1b8bac`(0003 trailer), CI 보완 `db2ff28e`(r2.2) |
+| 구현 전 plan 기준 | `fe935835`(D-21 사용자 정정 반영 READY) · 최초 READY `f7c94554` |
+| V mode / 유효 V | V1 + ΔV1 + ΔV2 + ΔV3 |
+| 검증 HEAD | `655fa0e0`(공유 브랜치 `origin/codex-opencode-harness`) |
+| 라운드 | 2 (ΔV3는 PASS 후 사용자 요구 변경 — 라운드 증가 없음) |
+| 상태 | **PASS** |
+| 자기 검증 여부 | 설계 Claude · 구현 Codex · 검증 Claude — 구현자 ≠ 검증자 |
+
+## Δ3-0. 기준선 / plan validity
+
+- 기준선 성립: 예 — `git diff fe935835 6ab1bd19 -- …/plan.md` 삭제 줄은 메타 `상태` 1행, `7c1b8bac..db2ff28e`는 추가만. D-20~23·AC20~23·§10 변경 없음.
+- Decision 대체: D-21이 D-02의 DEV 범위만 대체 — 근거 `fe935835` 커밋 본문의 사용자 정정. 정상.
+- pair: NEW 7 REQUIRED + VP-02·05·07 REGRESSION. §10 분모 1+2+1+3+2+1+2 = 12. 등록 mutation 없음(직접 oracle) — 선택 이유 있음.
+- PLAN_GAP 없음.
+
+## Δ3-1. 비판적 검토
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 재전송·false receipt | 없음 | `input-receipts.ts`: `poll_event`·미지원 source는 자동 영수증이 아니다. coordinator는 `input.received`를 commit·forward만 하고 send하지 않는다(`turn-coordinator.ts:380-401`) |
+| 앱 송신 echo 가로채기 | 없음 | own/submitted UUID가 확인된 echo는 대기 중인 같은 본문의 시스템 영수증보다 우선(`input-receipts.ts` reconcile) |
+| 원본 훼손 | 없음 | 분류는 `{...origin, format}` 사본. 투영은 원본 Message를 바꾸지 않고 숨길 part가 없으면 원 객체 identity 유지 |
+| 혼합 메시지 | 정상 | 자동 text만 제거하고 사람 text·첨부·diff 요구가 남으면 메시지 유지. 검증자 probe에서 "자동 text + 첨부만" 메시지도 첨부를 유지 |
+| `isSynthetic` 출처 | 설계 채택 | 설치 SDK 0.3.296의 CLI가 meta user 메시지에 `isSynthetic`을 붙인다. ΔV3 §조사가 명시 채택 |
+
+## Δ3-2. 독립 변이 (구현자 보고에 없던 축)
+
+등록 변이가 없는 pair라 blocking 증거로 쓰지 않고 oracle 민감도만 확인했다.
+
+| 변이 | 결과 |
+|---|---|
+| M0232-01~03 TranscriptView/Claude Timeline/OpenCode Timeline이 표시 옵션을 전달하지 않음 | 3/3 red (6·4·2 실패) |
+| M0232-04 투영이 토글 무시 · M0232-05 혼합 메시지 통째 제거 | 2/2 red (17·4) |
+| M0232-06 `hasContent`가 첨부·diff 요구를 무시 | **green** — 첨부만 남는 혼합 메시지 하위 분기에 영구 oracle 없음(N-Δ3-1) |
+| M0232-07·08 분류 reminder 우선·plain 판정 제거 | 2/2 red (13·4) |
+| M0232-09·11·12 영수증 own echo 가로채기·명시 user/sdk 자동화·format 누락 | 3/3 red (1·3·6) |
+| M0232-10 `poll_event` 거부 줄 제거 | green — 뒤의 `source !== undefined` 거부가 같은 입력을 막는 등가 변이 |
+| M0232-13a·b·c mapper `isSynthetic`·신규 origin kind 판정 제거 | 3/3 red |
+| M0232-14 mapper format 누락 · M0232-15·16 coordinator forward/persist origin 누락 · M0232-17 writer origin 직렬화 누락 | 4/4 red (11·4·4·2) |
+
+## Δ3-3. V-pair closeout — `UT → IT → ST → AT`
+
+좌표는 `app/src/` 기준이며 전부 이번 전체 실행에서 통과했다.
+
+| Pair | 결과 | 자리별 직접 oracle 좌표 | §10 |
+|---|---|---|---|
+| VP-Δ3-05 MD↔UT | PASS | `shared/received-input.test.ts:provider-owned input format classifies %s as %s`(17)·`…:adds meaning without changing the original input or source` · `renderer/src/features/chat/lib/turns.received.test.ts:retains human parts and attachments in mixed messages (reveal=%s)`·`…:adds no empty exchange and keeps the earlier turn identity across a received input` | EP-Δ3-01 1/1 · EP-Δ3-06 1/1 |
+| VP-Δ3-06 AR↔IT | PASS | `main/features/chat/turn-coordinator.test.ts:records a provider-owned %s input during listen without sending it back` · `main/features/history/writer.received.test.ts:received input format history preserves source, format and the exact input through %s writer, DTO and reader`(claude·opencode) · `renderer/src/features/chat/store/chatStore.schedules.test.ts:… preserves all received formats in %s live, duplicate delivery, reload and session return` | EP-Δ3-03 1/1 · EP-Δ3-04 3/3 · EP-Δ3-05 2/2 |
+| VP-Δ3-07 SD↔ST | PASS | `main/adapters/claude/adapter.turnEnd.test.ts:… hook와 실제 channel wire를 합쳐 출처가 있는 메시지 하나만 보존한다`·`…:records a provider reminder once before its response without adding another SDK prompt` · `renderer/src/app/automaticFeedDebug.integration.test.ts:$backend/$agentKind toggles live and reloaded automatic bubbles without sending or changing history` | live→reload·중복·두 하네스 |
+| VP-Δ3-01 R20↔AT20 | PASS | 위 writer·chatStore 좌표 + `main/adapters/claude/map.received.test.ts:… classifies multipart provider input after preserving its text order` | 원문·출처·format 보존 |
+| VP-Δ3-02 R21↔AT21 | PASS | `main/adapters/claude/input-receipts.test.ts:keeps %s hook provenance and reminder format`·`…:does not infer an automatic input from a %s hook or its tags`·`…:keeps an explicit system firing separate from a queued human input with identical text` · `map.received.test.ts:does not classify a human-authored reminder as a received input`·`…:child input never becomes a second top-level received message`·`…:tool results are preserved without producing a received message` | EP-Δ3-02 2/2 |
+| VP-Δ3-03 R22↔AT22 | PASS | `automaticFeedDebug.integration.test.ts` 3케이스 ×3 하네스 경로 · `turns.received.test.ts:reveals non-reminder automatic input with tagged format and preserves unchanged identity` | EP-Δ3-07 2/2 (M0232-02·03이 하네스별 자리를 각각 red) |
+| VP-Δ3-04 R23↔AT23 | PASS | `automaticFeedDebug.integration.test.ts:$backend/$agentKind preserves mixed human text and attachments without empty metadata rows` · `turns.received.test.ts:retains human parts and attachments in mixed messages (reveal=%s)` | 혼합 part·빈 메타 0·원본 불변 |
+| VP-02·05·07 REGRESSION | PASS | `renderer/src/features/chat/components/transcript/TranscriptView.received.test.ts`(5) · `harnesses/common/transcript/UserMessage.origin.test.ts`(6) · `lib/workActivity.test.ts`(19) · `harnesses/opencode/transcript/projection.test.ts`(7) — 전부 통과 | production 기본 숨김·노트/교환 identity |
+
+- 분모 재측정: 1+2+1+3+2+1+2 = **12/12**. 구현 보고 `12/12`와 일치.
+- 좌표 실행 구간: writer 테스트는 실제 writer→JSON payload→DTO→reader 세 production 함수를 지난다. chatStore 테스트는 실제 store `ingestChatEvent`·`LOAD_SESSION`을 지난다.
+
+### AT / AC 합계
+
+| AC | 결과 | 증거 |
+|---|---|---|
+| AC20 | ✅ | VP-Δ3-01·06 |
+| AC21 | ✅ | VP-Δ3-02·07 — 영수증 1회·추가 prompt 0·수기/child/tool_result 비승격 |
+| AC22 | ✅ | VP-Δ3-03 — 명시·구형 reminder 포함 ON 표시, OFF·production 숨김 |
+| AC23 | ✅ | VP-Δ3-04 |
+
+- 합계: `✅ 4 · ⚠️ 0 · ❌ 0 = 4`. 구현 보고 `4/4` · 커밋 `6ab1bd19`·`db2ff28e` trailer `Criteria-Met: 4/4` · INDEX 비고 `AC4/4` — 일치.
+
+## Δ3-4. 운영 gate
+
+[0003 F-4](../0003-debug-panel-mock-adapter/verify.md)와 같은 HEAD 실행을 쓴다. 이 절에 추가되는 관측만 적는다.
+
+| Gate | 결과 | 관측 산출 |
+|---|---|---|
+| 전체 Vitest (Node ABI, `ensure-sqlite-abi node` 후 직접 실행) | PASS | 1차 753파일: 737 통과 · 16파일 로딩 실패(`Electron failed to install correctly` — 검증 환경이 Electron 바이너리 없이 설치됨). 바이너리 설치 후 그 16파일 재실행 89/89 통과. 합계 7,390케이스 · 통과 7,383 · skip 7(기존 win32·실 SDK·CLI 조건부) · 실패 0 |
+| `node --test scripts/*.test.mjs` | PASS | 142 tests · pass 142 · fail 0 |
+| CI 보완(r2.2) 회귀 | PASS | `renderer/src/app/OverlayLayer.search.test.ts:passes the session selection into navigation and retains the close callback` 통과 |
+
+## Δ3-5. Repository operation
+
+- 문서: `7c1b8bac`가 IPC_CONTRACT(`origin.format`)·provider-runtime·rendering·adapters를 현재 상태로 갱신했다. `check-doc-inventory --check` 통과.
+- trailer: `6ab1bd19`·`db2ff28e`·`7c1b8bac` 모두 5키 파싱, 허용값.
+- `[구현자 기입]` ΔV3·r2.2 모두 7필드 존재.
+
+## Δ3-6. Finding disposition
+
+| # | finding | disposition | 후속 |
+|---|---|---|---|
+| N-Δ3-1 | "자동 text + 첨부/diff 요구만" 혼합 메시지의 첨부 보존이 영구 oracle에 없다(M0232-06 green). 실제 동작은 정상(검증자 probe 1/1) | NON_BLOCKING | `turns.received.test.ts`에 사람 text 없는 혼합 케이스 추가 후보 |
+
+## Δ3-7. Review Signals — 사실만
+
+- 초기 구현의 reminder 제외 해석은 사용자 정정으로 설계(`fe935835`)부터 바뀌었다 — 이전 라운드 실패 반복 아님.
+- 반복 환경 한계: 검증 환경의 Electron 바이너리 부재로 16파일이 1차 실행에서 로딩 실패했다(설치 후 해소).
+
+## Δ3-8. 결론
+
+- 상태: **PASS** — REQUIRED 7 + REGRESSION 3 PASS · PAIR_FAIL 0 · PLAN_GAP 0 · AC ✅4/4(누적 23) · 운영 gate PASS.
+- 남은 사람 확인: r2의 설치본 시각 실기 1건(§8)은 그대로 남는다.
+- 다음 단계: INDEX 0232 행을 `verify/PASS`로 두고 r2 시각 실기 뒤 archive 이동.
