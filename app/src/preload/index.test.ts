@@ -43,6 +43,44 @@ Object.defineProperty(process, 'contextIsolated', { value: true, configurable: t
 
 await import('./index')
 
+it.each(['claude', 'opencode'] as const)(
+  'preserves %s engine CRUD identities through the renderer API and actual preload',
+  async (engine) => {
+    vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
+    try {
+      const { engineApi, agentApi } = await import('../renderer/src/shared/api/ipc')
+      const key = `${engine}-nondefault`
+      const settingsJson = JSON.stringify({ fixture: `${engine}-settings` })
+      const created = { key, engine, provider: 'nondefault' }
+      harness.invoke.mockClear()
+      harness.invoke.mockResolvedValueOnce(created)
+      expect(await engineApi.add({ engine, provider: 'nondefault', settingsJson })).toBe(created)
+      expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.engineAdd, {
+        engine,
+        provider: 'nondefault',
+        settingsJson
+      })
+      const read = { ...created, settingsJson }
+      harness.invoke.mockResolvedValueOnce(read)
+      expect(await engineApi.read(key)).toBe(read)
+      expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.engineRead, { key })
+      harness.invoke.mockResolvedValueOnce(created)
+      expect(await engineApi.update({ key, settingsJson })).toBe(created)
+      expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.engineUpdate, { key, settingsJson })
+      await engineApi.delete(key)
+      expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.engineDelete, { key })
+      const catalog = [{ key, adapter: engine, supported: true, models: [] }]
+      harness.invoke.mockResolvedValueOnce(catalog)
+      expect(await agentApi.list()).toBe(catalog)
+      expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.agentList)
+      expect(harness.invoke).toHaveBeenCalledTimes(5)
+    } finally {
+      harness.invoke.mockResolvedValue(undefined)
+      vi.unstubAllGlobals()
+    }
+  }
+)
+
 it('imports settings for the selected harness through the renderer wrapper and exposed preload', async () => {
   vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
   try {

@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | impl/IMPL_DONE — r3 V1의 하네스 배선 6자리 자동 잠금 보완, 독립 재검증 대기 |
+| 상태 | impl/IMPL_DONE — r4 EP-08 실제 IPC 등록·엔진 편집/삭제 경로 잠금 보완, 독립 재검증 대기 |
 | V mode | Delta V — V1 + ΔV1~ΔV21 (각 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV21 / V1 + ΔV1~ΔV21, 기준 `5d2b36a2` |
@@ -3219,3 +3219,98 @@ r3(V1~ΔV21) 독립 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md)
 |---|---|---|---|---|
 | D-0262-6 | ① `main/app/handlers/engine.ts:59-60` `engineAdd`의 schema binding 미잠금 — 무검증 parser로 바꿔도 `src/main`+`src/shared` 4,896케이스 green(I1). 엔진 handler 테스트 4파일이 `handle` mock에서 `_schema`를 버린다. ② `renderer/…/engine/common/components/AgentEnvironmentView.tsx:121-122` 카드 편집 무동작(I2)·편집/삭제 맞바꿈(I3), `:149` 편집 저장 key 오배선(I5)이 renderer 2,889케이스 green — 테스트가 `useEngines` 빈 목록만 렌더 | VP-08 root · AC8 · V1 §10 EP-08 `schema`·`engine form/card` · D-0262-4 계약 | BLOCKING | 엔진 목록이 있는 실제 `AgentEnvironmentView`에서 편집 클릭→read(key)→편집 폼→`update({ key })`, 삭제 클릭→confirm→`remove(key)` 단언. `engine.import.test.ts`처럼 실제 `handle`로 `engineAdd`의 하네스 밖 engine 거절 단언. I1·I2·I3·I5 red |
 | N-0262-7 | plan 좌표 이름 20개가 현재 파일명과 다르다(ΔV5 이동 6·ΔV15 예정 4·이동/제거 5·기타 5) — 전부 대응 파일 확인 | 문서 | NON_BLOCKING | 다음 설계 정정 때 현재 이름 병기 |
+
+## [구현자 기입] 설계 리뷰 — r4
+
+SELF_PASS(AC8 자동 행동 범위). 불변식은 “엔진의 하네스·canonical key·설정 본문은 추가→읽기→편집/삭제→catalog→화면의 모든 경계에서 보존되며, 같은 provider 이름을 가진 다른 하네스의 설정을 변경하지 않는다”다. D-0262-6의 인용 네 자리와 V1 §10 EP-08 전체를 대조했고 production 동작·의존성·Decision·AC·V는 변경하지 않았다.
+
+원격 `4f5679f2`까지 fast-forward한 기준선에서 시작했다. 라운드4 선행 handoff-review는 이미 완료된 [round33](../../../.agents/skills/handoff-review/references/regression-coverage.md)를 적용하며, 이번 턴에 지침을 다시 바꾸지 않았다. r3에서 PASS인 0265는 변경하지 않는다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — r4
+
+아래 표는 EP-08의 `schema; write/read/delete; parser; agent list; engine form/card` 여섯 범주를 모두 펼친다. 자리 단위는 이름을 적은 schema/등록·연산·loader/parser·catalog/IPC 경계·화면 prop/hook이며, 한 연산 안의 내부 helper 호출은 해당 직접 oracle의 연속 실행 구간으로 함께 확인한다. r3 인용 변이4건을 분모로 삼지 않는다.
+
+재현 명령 T는 `cd app && ./node_modules/.bin/vitest run <좌표의 파일> --maxWorkers=1`이다. M=`src/main/app/handlers/engine.ipc.test.ts`, U=`src/renderer/src/features/engine/common/components/AgentEnvironmentView.crud.test.ts`, P=`src/preload/index.test.ts`이며, 아래 케이스명은 이 파일의 실제 테스트명이다. 전체 실행 집합에는 표에 병기한 기존 테스트도 포함한다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-08 | schema / engine·key·settingsJson | Add·Update·Read·Delete·Import schema 정의5 + 실제 IPC 등록5 | 10/10 | T M:`rejects an unregistered engine %j…` 6입력, `validates the registered %s payload` 5채널 — 실제 handle의 ZodError·거절 로그·파일/배포 무변경. `engine.import.test.ts:reads the selected harness global file and preserves legacy Claude callers`는 정상 import도 실행 | 없음 |
+| VP-08 | canonical key / 파일 격리 | add·update·read·delete4; 생성 key·canonical 검증·저장 key 해석3 | 7/7 | T M:`creates, reads, updates, lists and deletes only the selected %s engine` 양방향 — 실제 임시 파일·수정 JSON·삭제 결과·형제 파일 바이트. `settings-write.test.ts:keeps equal provider names in separate harness namespaces through CRUD`도 실행 | 없음 |
+| VP-08 | 하네스별 loader/parser | Claude·OpenCode 각각 module loader 등록→native loader→native model parser (각3) | 6/6 | T M:위 CRUD 케이스의 실제 createHarnessSettingsService→두 module→parser→모델명. `app/harnesses/registry.test.ts:runs registered parsers through the real settings service and preserves unsupported-directory fallback`, `resolves each registered native loader without mixing harness policies` | 없음 |
+| VP-08 | parser→catalog / 재조회 | settings adapters·list·resolve·invalidateAll4; DTO 변환·native catalog2 | 6/6 | T M:위 CRUD 케이스 — 실제 agentList→toAgentEnvironments→OpenCodeAdapter.catalog, 수정 전후 모델명·형제 DTO·삭제 후 목록. `misc.runtime-catalog.test.ts:loads native OpenCode models and preserves other harness rows when its catalog fails`는 실패 형제 경로 | 없음 |
+| VP-08 | catalog→renderer | main agentList 반환→preload agent.list→agentApi.list→agentStore (4) | 4/4 | T M:위 CRUD의 목록 결과; P:`preserves %s engine CRUD identities through the renderer API and actual preload`의 목록 반환·채널; U:편집/삭제 케이스의 실제 store 갱신→변경 모델/남은 카드 | 없음 |
+| VP-08 | renderer→IPC | engineApi add/read/update/delete4 + 실제 preload 해당4채널 | 8/8 | T P:위 케이스 양 하네스 — 구별되는 key·JSON·정확한 채널/페이로드/응답. U는 API wrapper를 mock하지 않고 호출하며 M이 같은 IPC 채널의 실제 등록·서비스를 실행 | 없음 |
+| VP-08 | engine form/card 조립 | public wrapper1; Card agent/onEdit/onDelete3; read key1; Form add/edit engine2·provider1·initial JSON1·add/edit submit2; delete key1 | 12/12 | T U:`adds the selected %s harness…`, `edits the selected nonfirst %s engine…`, `deletes only the confirmed %s engine…` — 실제 wrapper/View/Card/Form, 다른 폼·key·본문이면 관측 변경. 편집 두 대상은 모두 첫 카드가 아님 | Modal의 시각·Esc/포커스는 EP-11 사람/공용 UI 범위 |
+| VP-08 | hook/store 값 전달 | useEngines add/read/update/remove4; agentStore ensureLoaded/refresh2 | 6/6 | T U:위 추가·편집·삭제 케이스 — 실제 hook/API, 정확한 요청·refresh 횟수·store/화면 모델. `carries mutation busy state…`·`disables only the selected card…`는 false/true 대조도 실행 | 없음 |
+
+자리 합계는 10+7+6+6+4+8+12+6=59이며, EP-08 계약 값에 대한 직접 oracle 대응은 59/59다. provider는 두 하네스 모두 `shared`지만 파일/model/adapter/key는 서로 다르고, 편집 JSON은 읽은 JSON 및 기본값과 다르다. 따라서 첫 엔진·형제 하네스·이전 설정으로 바꾸어도 같아지는 fixture를 사용하지 않는다.
+
+검색은 `rg -n 'engine|adapter|provider|key|settingsJson|models|onEdit|onDelete|onSubmit|read\(|add\(|update\(|remove\('`를 main engine/misc handler·settings-write/settings/models·하네스 registry/module·renderer engine wrapper/common/hook·agentStore/API·preload에 적용했다. 반환값/등록/소비 경계를 위 여덟 행으로 대응하고, optional runtime catalog의 읽기 전용·무효화 분기는 기존 `engine.runtime-catalog.test.ts`·`engine.deployment.test.ts`의 직접 oracle을 유지한다. §10 밖의 새 제품 계약이나 PLAN_GAP은 발견하지 않았다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-08 | REQUIRED | SELF_PASS | 위 EP-08 표의 M/U/P 및 기존 CRUD/parser/import/catalog 좌표 | not selected: 직접 파일/DTO/폼. D-0262-6 인용 I1·I2·I3·I5는 아래 재측정 |
+| VP-14 | REQUIRED (영향 회귀) | SELF_PASS(자동 행동) | 위 EP-08; EP-09 `infra/settings-store.test.ts`·`adapters/opencode/v1/server.test.ts`; EP-11 `Composer.harness.test.ts`·`TranscriptView.harness.test.ts` | not selected: 경계별 직접 oracle. VP-11의 시각 인수는 기존대로 사람 대기 |
+| VP-Δ18-R1 | REGRESSION | SELF_PASS | U:양 하네스 추가/편집; `EngineFormModal.harness.test.ts:restores the fixed claude chip and provider when editing a Claude engine (0262 AC31)`; `EngineFormModal.import.test.ts`; `useEngines.test.ts` | not selected: 직접 요청·폼·파일 oracle |
+| VP-Δ19-R1 | REGRESSION | SELF_PASS | U/M:추가·편집·CRUD; `engine.import.test.ts`; `adapters/opencode/v1/adapter.test.ts`·`server.test.ts`·`native-history.test.ts` | not selected: 직접 요청·native 이력·import 수명 oracle |
+
+자기확인4행은 root1과 종속 회귀3이며 AC 완료 수로 중복 합산하지 않는다. 다른 V-pair의 r3 판정을 이번 표만으로 다시 승격하지 않고, VP-11·VP21-V의 사람 시각 인수를 유지한다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r4
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| I1 `engine.ts` engineAdd의 CreateEngineSchema를 무검증 parser로 대체 | D-0262-6 | r3 green; 기존 관련4파일29케이스도 green | M:`rejects an unregistered engine…` 외 **7/13 red** | 잠김 |
+| I2 `AgentEnvironmentView.tsx` Card onEdit 무동작 | D-0262-6 | r3 green; 기존 View3파일5케이스 green | U:실제 카드 편집·오류·busy·재시도 **6/10 red** | 잠김 |
+| I3 같은 View의 onEdit/onDelete 맞바꿈 | D-0262-6 | r3 green; 위 기존5케이스 green | U:편집/삭제의 요청·확인/오류 **8/10 red** | 잠김 |
+| I5 편집 update key를 첫 엔진 key로 대체 | D-0262-6 | r3 green; 위 기존5케이스 green | U:양 하네스 비첫 엔진 편집·재시도 **3/10 red** | 잠김 |
+
+분모 검산: 선택 증거0 · 인용 변이4 · 새 구조적 proxy oracle0 = 의무 표4행. 직접 행동 oracle을 추가했고 source scan/AST/0건 oracle을 새로 만들지 않았다. 위 기존 관련 파일 집합은 r3 전체 main/renderer 실행 수와 구별한다.
+
+추가 감도 대조는 `X-read-key`·`X-form-harness`·`X-settings`·`X-delete-confirm`·`X-add-submit`·`X-hook-key`·`X-preload-update`·`X-preload-swap`이다. 각각 3/10·1/10·3/10·2/10·2/10·3/10·2/21·2/21 케이스가 assertion red였으며, 새 테스트의 read key·Form engine·수정 JSON·확인 취소·추가 callback·hook key·preload 채널을 관측한다. 이 결과를 별도 AC 완료 수에 더하지 않는다.
+
+덮개 회귀는 P08b(EngineSchema 임의 문자열 허용) `protocol.harness.test.ts` 5/11 red, P08c(카드 내부 편집 무동작) `EngineCard.interaction.test.ts` 2/2 red, I1b(import 등록 무검증) `engine.import.test.ts` 1/8 red다. I1b의 이번 검출 케이스는 `reads the selected harness global file and preserves legacy Claude callers`이며 r3의 null 거절 케이스와 같은 이름이라고 주장하지 않는다. 변이마다 원본 바이트 SHA256을 확인해 복원했고, 복원 후 M/U/P는 3파일44/44 통과했다.
+
+## [구현자 기입] Product/UX 파생 검토 — r4
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 사용자 대면 문구·상태의 소비자 | 새 문구 없음. U의 read 실패는 화면 오류, save 실패는 같은 editor/본문 유지로 관측 | 없음 |
+| production 재배치 / 정리 스코프 | 재배치 없음. 실제 저장·catalog·UI 경로를 실행하는 테스트만 추가 | 없음 |
+| Part I 상태 전이 / 실패 표시 | §5 설정 변경·오류 행의 기존 동작. `shows read errors…`·`keeps the selected editor…`에서 오류 원문 및 재시도 관측 | 없음 |
+| 로딩 / 취소 / 재시도 | 읽기 중 선택 카드만 disable, 저장 중 모든 카드·저장 버튼 disable. 삭제 확인 취소는 무변경, save 재시도는 같은 key | U 직접 관측 |
+| 늦은 응답 / 공유 | 새 비동기 동작 없음. 기존 import의 edit/provider/cancel/dismiss/unmount 뒤 지각 응답 폐기는 `EngineFormModal.import.test.ts` 회귀 | 카드 간 동시 read 응답 순서는 이번 oracle 범위 밖 |
+| 시각 / 키보드 / 테마 | Modal chrome·실제 desktop 시각을 이번 fake DOM 결과로 대체하지 않음 | VP-11·VP21-V 사람 인수 유지 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r4
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| D-0262-6 | schema 정의·카드 내부 테스트가 등록/부모 배선을 실행하지 않음 | ✅ 구현자 해소 보고 | 실제 IPC validator 및 public View 조립, 인용 변이4건 red |
+| 인접 전송 경계 | UI/API가 맞아도 preload 채널·hook key가 틀릴 수 있음 | ✅ 직접 oracle 추가 | P:CRUD+목록 실제 bridge, U:실제 hook/store/API; 채널 맞바꿈·key 오배선 red |
+| fixture 퇴화 | 첫 카드·빈 목록·기본 JSON만으로 key/본문 유실을 못 잡음 | ✅ 구별 값 적용 | 첫 카드 별도, 양 하네스 비첫 카드·다른 모델/본문·동일 provider의 분리 파일 |
+| N-0262-1·3·7 | 중단 분류·모델 context limit·과거 좌표명 | 기존 NON_BLOCKING/NEXT_HANDOFF 유지 | r3 verify disposition 그대로; 이번 보완으로 닫지 않음 |
+
+설계 대비 명시적 차이는 없다. 새 production 저장소·cache·공유 수명·정리 작업을 만들지 않아 대체물 고유 실패 모드의 만료·공유·재진입·다른 무효화 축은 모두 해당 없음이다. 기존 cache 무효화는 실제 수정 전후 catalog 재조회 및 engine deployment 회귀에서 확인했다.
+
+## [구현자 기입] 구현 보고 — r4
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | main `engine.ipc.test.ts` 신규, renderer `AgentEnvironmentView.crud.test.ts` 신규, preload `index.test.ts` 보강. production 변경0 |
+| 실행 명령 | 위 T, 전체 Vitest(Electron Node 모드·worker2), readonly ESLint, `npm run typecheck`, `npm --ignore-scripts run build`, `node --test scripts/*.test.mjs`, inventory/migration/budget |
+| 관측한 게이트 산출 | 758파일7,454케이스: 환경35실패를 아래 조건으로 재확인하여 7,447 pass·0 fail·7 skip. 새25케이스, 변경3파일44/44. readonly ESLint1,738파일(변경3파일 재검사 반영) error0·기존 warning2, typecheck node/web/test3구성·production build 통과, scripts142/142·inventory·migration sync/append-only·test-budget 통과 |
+| V-pair 자기확인 | SELF_PASS4 / SELF_BLOCKED0(자동 행동). 독립 verify·사람 시각 인수는 별도 |
+| 강제 지점 전수 | 위 EP-08 운반 자리59/59. 공용 Modal 시각·키보드 및 동시 read 순서의 별도 한계는 위 남긴 곳/UX 표 |
+| AC 자기보고 (`Criteria-Met`) | AC8 ✅1/1 — 두 하네스의 실제 CRUD 파일 격리·catalog 모델·비첫 카드 편집 key/본문·삭제 확인·등록 schema 거절 관측 |
+| 합계 검산 | ✅1 · ⚠️0 · ❌0 = 이번 재구현 대상1(AC8). 유효 AC 총수57은 불변, 나머지56은 이번 자기보고 합계에 포함하지 않음 |
+| 블로커 / 역질문 | 없음. N-0262-1·3·7과 사람 인수 유지 |
+| 대상 커밋 | `(r4 구현 — 좌표는 INDEX)` |
+
+전체 실행의 환경 실패는 attachments 12건(읽기 전용 `os.homedir()` 아래 mkdtemp), Confluence connector 22건(같은 홈 쓰기 제약), git-safety 1건(복사한 Electron 실행 파일의 libffmpeg.so 탐색)이다. 세 파일만 일반 Node와 실행 전용 `os.homedir` 임시 경로로 재실행해 56/56 통과했고 HOME·production·테스트 단언은 바꾸지 않았다. OpenCode CLI 부재 등 선택 실행7건은 기존 skip이며 원격 Windows CI는 최종 push HEAD에서 별도 확인한다.
+
+## [구현자 기입] Review Signals — r4
+
+r3 FAIL 뒤 첫 구현 턴(r4)이다. 같은 EP-08 불변식에서 schema 정의/카드 내부가 실행하던 구간과 실제 IPC 등록/부모 callback 구간 사이의 공백이 원인이었다. 이번에는 계약 값을 처리하는 모듈을 유지하고 Electron IPC 수신기·home·로그/앱 설정 입력·React/브라우저·번역·Modal chrome을 대체해 들어간 곳과 관측한 곳을 표에 대응했다.
+
+운반 값을 첫 항목·빈 목록·동일 JSON으로만 채우면 key/하네스 배선 결함이 남는다는 round33 지침을 적용했다. 원격 review 지침과 기존 독립 verify 기록을 보존했으며 새 독립 PASS 판정을 작성하지 않는다. 최종 push의 Windows CI 결과는 해당 HEAD check에서 확인한다.
