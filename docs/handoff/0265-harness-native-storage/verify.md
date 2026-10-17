@@ -283,3 +283,119 @@
 - AC: ✅18 · ⚠️1(AC19) · ❌0. 운영 gate PASS.
 - NON_BLOCKING: N-0265-2·5·6.
 - 다음 단계: 구현자 r3 — D-0265-3 oracle 추가 후 R2-01 red 보고.
+
+---
+
+# r3 검증
+
+## 메타 (r3)
+
+| 항목 | 값 |
+|---|---|
+| 일자 | 2026-10-17 |
+| 대상 커밋/range | `4b4433b1..8868097f` — r3 구현 `0d2096c5`(0265) · 같은 테스트 파일을 고친 0262 r3 `8868097f` 포함 |
+| 구현 전 plan 기준 | `9d52e072`(ΔV3, 설계 단독 커밋) — r2 이후 규범 행 변경 없음 |
+| V mode / 유효 V | Baseline V1 + ΔV1 + ΔV2 + ΔV3 |
+| 검증 HEAD | `8868097f` (공유 브랜치 `origin/codex-opencode-harness`) |
+| 라운드 | 3 |
+| 상태 | **PASS** — root PAIR_FAIL 0 · PLAN_GAP 0 |
+| 자기 검증 여부 | 구현 Codex · 검증 Claude — 구현자 ≠ 검증자 |
+
+## 0. 기준선 / plan validity (r3)
+
+- 구현 커밋의 `plan.md` 삭제 줄은 메타 `상태` 1줄뿐이다(`git show 0d2096c5 -- …/plan.md`). Decision·AC·V·§10 변경 없음 → r2의 plan validity 판정 유지.
+- r3 범위의 `app/` 변경은 테스트 5파일 추가·수정뿐이다(`git diff --name-only 3c798ab5..8868097f -- app/ | grep -v '\.test\.'` 0건). production 변경 0.
+
+## 2. 비판적 읽기 (r3)
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 새 oracle이 production edge에 진입하는가 | 예 | `send.harness.test.ts:includes only the saved %s harness instructions in the recovery budget input` — 실제 `handleChatSend`가 `send.ts:256-263`에서 5번째 인자를 조립한다. mock은 `resolveTurn`·`normalizeAttachments`·`sendChatEvent`뿐 |
+| 하네스 오선택을 구별하는가 | 예 | 두 하네스 지시를 서로 다른 문자열로 두고 `toHaveBeenCalledExactlyOnceWith(…, JSON.stringify(attachments) + instructions[backend])` |
+| mock한 `resolveTurn` 안쪽은 누가 닫는가 | 기존 좌표 | `native-session.test.ts:passes new input and additional context through resolve before native recovery`(실제 resolve·SQLite) — 아래 R2-04·I-0265-1 red |
+
+## 4. 적대 증거 재측정 (r3)
+
+범위: 모든 변이 `src/main`(4,065케이스). 변이 후 원본 SHA256 일치 · `git status` clean.
+
+| 변이 | r2 | r3 | 귀속 |
+|---|---|---|---|
+| **R2-01** 하네스 추가 지시 항 제거(`send.ts:261-262`) | green 0/4,057 | **red** 2 — `send.harness.test.ts:includes only the saved claude/opencode harness instructions…` | D-0265-3 인용 |
+| X03 지시를 항상 `harnesses.claude`로(구현자 대조) | — | **red** 1 — `…saved opencode harness instructions…` | 형제 하네스 맞바꿈 |
+| R2-02 첨부 항 제거 | red 2 | **red** 4 — 위 2 + `routes OpenCode independently of global Claude (null)/(s)` | 덮개 유지 |
+| R2-03 새 입력 제외 · R2-04 extra 무시 | red 1 · 1 | **red** 1 · 1 — `native-session.test.ts:passes new input and additional context…` | 덮개 유지 |
+| R2-05 창 200000 고정 · R2-06 선택 모델 미전달 | red 1 · 1 | **red** 1 · 1 — `…uses the selected engine model context limit…` | 덮개 유지 |
+| R2-07 재시도 경로 검사 제거 · R2-08 missing 경로 검사 제거 | red 1 · 3 | **red** 1 · 3 | 덮개 유지 |
+| M0265-05 Claude recovery echo 마스킹 제거(`claude/adapter.ts:851`) | 미재실행 | **red** 1 — `adapter.fork.test.ts:recreates an expired conversation with the original UUID…` | r2가 재식별 못한 r1 변이 |
+| I-0265-1 `prepareNativeSession`이 `input.extra`를 예산에 미전달 | — | **red** 1 — `…passes new input and additional context…` | 검증자 독립 축(같은 계약의 다음 edge) |
+| I-0265-2 `recoveryFitsContext`의 `+ extra` 제거 | — | **red** 2 — `…bounds the complete UTF-8 recovery prompt…` 외 1 | 검증자 독립 축 |
+
+- 인용 변이 1/1 검출 → D-0265-3 closed. 구현자 보고 수(R2-01 2 · X03 1 · M0265-05 1)와 일치.
+- 이전 라운드 red 재실행 8/8 red — 덮개 회귀 0. 지시 조립(send) → resolve → `prepareNativeSession` → `recoveryFitsContext` 네 edge가 모두 red 좌표를 갖는다.
+- 미재실행: r2 red 중 R2-09~12·M0265-01~04·06~19·21~23은 검출 좌표 파일과 production이 `e024b87c..8868097f`에서 무변경이다(변경 테스트 5파일에 해당 좌표 없음). D-0265-1 realpath·N-0265-1 `PWD` 변이는 OpenCode CLI가 없는 이번 환경에서 재실행하지 않았다.
+
+## 5. V-pair closeout (r3)
+
+| Pair | r3 결과 | 근거 |
+|---|---|---|
+| **VP3-A R19↔AT19·AR3↔IT3** | **PASS** | 3자리 + 입력 배선 3 edge 전부 좌표: missing 준비 R2-08 · 재시도 R2-07 · 모델 R2-05/06 · 새 입력 R2-03 · 첨부 R2-02 · **추가 지시 R2-01·X03** |
+| VP3-M · VP3-R · VP2-1~4 · V1 · ΔV1 | PASS (r2 좌표) | 위 재실행 + HEAD 전체 Vitest 통과. r3 변경이 닿지 않음 |
+
+- root PAIR_FAIL 0 · BLOCKED_BY 0 · PLAN_GAP 0.
+- §10 분모: ΔV3 VP3-A 3자리(입력 배선을 edge로 세면 5) 5/5 · VP3-M 2/2.
+
+### AT / AC 합계 (r3)
+
+| 범위 | 결과 |
+|---|---|
+| V1 AC1~8 · ΔV1 AC9~14 · ΔV2 AC15~18 | ✅18 (r2 판정 유지) |
+| ΔV3 AC19 | ✅1 — r2 ⚠️ 해소 |
+
+- 합계: `✅ 19 · ⚠️ 0 · ❌ 0 = 19`.
+- 사본 대조: 구현 보고 `✅1 = 이번 대상 1(AC19)` ↔ trailer `0d2096c5` `Criteria-Met: 1/1` ↔ INDEX `AC19 자기확인 1/1` — 일치.
+
+## 9. 게이트 (r3)
+
+HEAD `8868097f`, `cd app`. 설치: `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` → `npm rebuild better-sqlite3`(Node ABI) → `node node_modules/electron/install.js`.
+
+| Gate | 관측 |
+|---|---|
+| `./node_modules/.bin/vitest run --reporter=json` 전체 | 756파일 · 7,429케이스 중 7,422 pass · 0 fail · 7 skip(구현자 보고와 동일) |
+| `npm run typecheck` | node/web/test 3구성 exit 0 |
+| `./node_modules/.bin/eslint ./src ./scripts --format json`(`--fix` 없음) | 1,736파일 · error 0 · warning 2(`react-hooks/incompatible-library` 기존 2) |
+| `node --test scripts/*.test.mjs` | 142/142 pass |
+| `check-doc-inventory --check` · `check-migrations-appendonly` · `check-test-budgets` | generated·prose·links ok · append-only ok since v0.3.1 · real-git 16 suites ok |
+| `npm --ignore-scripts run build` | main 378 · preload 3 · renderer 1,820 modules built, exit 0 |
+| `git diff --check 3c798ab5..8868097f` | 0 |
+| 원격 Windows CI | [#790](https://github.com/muzaby/orca-skin/actions/runs/38998153983) `head_sha 8868097f` · `gate` success |
+
+- 작업 트리: 게이트와 변이 36회(0265 12 · 0262 24) 뒤 `git status` clean. 잔여물은 ignore된 `node_modules`·`out`뿐.
+- 실제 OpenCode CLI 통합(O23)은 이번 환경에 실행 파일이 없어 skip 1이다. r2의 1/1(38.7초) 이후 그 경로 변경 0.
+
+## 11. Repository operation checks (r3)
+
+- INDEX 0265 행: `(r3 구현 — 검증자 기입)`을 `0d2096c5`로 채웠다(`git cat-file -t` commit, 공유 브랜치 ancestor). PASS라 행을 archive로 옮긴다 — 사람 인수 대기 AC 없음.
+- trailer: `0d2096c5` 5키(`Agent: codex`·`Handoff`·`Status: implemented`·`Criteria-Met: 1/1`·`Verified-By: pending`) 파싱·허용값 정상.
+- `[구현자 기입]` r3 7필드(설계 리뷰·강제 지점 전수·잠금·Product/UX·놓친 문제·구현 보고·Review Signals) 전수 존재.
+
+## 13. Finding disposition (r3)
+
+| # | finding | disposition | 후속 |
+|---|---|---|---|
+| D-0265-3 | 복구 상한의 하네스 추가 지시 edge 미잠금 | **closed** — R2-01 red 2 · X03 red 1 | — |
+| N-0265-2 | 중복 가드 전용 oracle 없음 | NON_BLOCKING 유지 | — |
+| N-0265-5 | 이미지 base64 바이트를 예산으로 세는 보수성 | NON_BLOCKING 유지 | 사용자 확인 후보 |
+| N-0265-6 | `prepareNativeSession` 예산 입력 기본값 | NON_BLOCKING 유지 | 기본값 제거 후보 |
+
+## 14. Review Signals (r3)
+
+- r2와 같은 축(VP3-A 추가 지시 edge)을 r3이 닫았다. 새 증상 없음.
+- 반복 환경 한계: 실제 OpenCode CLI 부재로 O23은 이번에 skip(r2 실측 승계).
+
+## 15. 결론 (r3)
+
+- 상태: **PASS**.
+- pair: REQUIRED/REGRESSION 전건 PASS · root PAIR_FAIL 0 · BLOCKED_BY 0 · PLAN_GAP 0.
+- AC: ✅19 · ⚠️0 · ❌0. 운영 gate PASS(원격 CI #790 포함).
+- NON_BLOCKING: N-0265-2·5·6.
+- 다음 단계: 완료 — INDEX 행을 archive로 이동. N-0265-5는 사용자 확인 후보로 남긴다.
