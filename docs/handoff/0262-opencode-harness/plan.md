@@ -3495,3 +3495,14 @@ SELF_PASS(D-0262-8 범위). 불변식: "production 조립이 주입하는 의존
 
 - r5 FAIL 뒤 첫 구현 턴(r6)이다. 같은 계약의 인접 자리(턴 선택)를 닫았고, round 35 범위 규칙으로 센 분모에서 새로 열린 자리는 없다.
 - 구현·검증·review가 계속 같은 에이전트다. 다음 검증은 verify §4 자기 검증 규칙의 대상이다.
+
+## [검증자 기입] 파생 이슈 — r6 검증
+
+r6(V1~ΔV21) 독립 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md) r6. 인용 K9·K9b가 red 1로 D-0262-8이 닫혔고 VP-Δ19-05·VP-Δ19-03이 PASS다. 보고에 없는 축에서 V1 VP-16의 provider config edge가 비어 VP-16이 root다.
+
+| # | finding | 귀속 | disposition | 대응 방향 |
+|---|---|---|---|---|
+| D-0262-9 | `main/app/chat-turn/resolve-turn.ts:256-260` 턴 실행 구성 target(`harnessId`·`modelProviderId`)과 상류 매핑 `:231-232` 미잠금 — `'claude'`(X8·X12)·`''`(X9)·`entry.key`(X11)로 바꿔도 `src/main`+`src/shared` 4,909케이스 green. I19는 `model`만, native-history는 입력을 무시하는 stub `resolve`로 이 값을 본다. 깨지면 OpenCode 턴의 `prepared.providerSettings`가 비어 엔진 오버라이드 없이 `local/first`를 요청한다(검증자 probe) | VP-16 root(AR-02 provider config) · VP-Δ15-02 BLOCKED_BY · D-008 · D-030 · AC40 | BLOCKING | production 조립(I19와 같은 `harnessSettings`·`harnessRuntime`·`runtimeModelCatalog`)으로 `resolveTurnProvider`를 실행해 `prepared.providerSettings.settings`가 선택 엔진 문서와 같고 형제 문서와 다름을 단언. X8·X9·X11·X12 red로 닫는다. 분모 술어는 "엔진 문서 → 턴 실행 구성을 운반하는 값"이고 범위는 `resolveTurnProvider` 호출처 3곳을 포함한 `src/main` 전체다 |
+| N-0262-11 | bootstrap ctx의 `runtimeModelCatalog` 주입(`bootstrap.ts:788`) 제거가 green(X4) — 기본 배포 contributions `[]`라 동치 | 0188 runtime catalog | NON_BLOCKING | runtime 행 배포의 조립 잠금은 0188 몫 |
+
+r6 보고의 조립 의존 분모 `9자리`는 재열거 차집합 0으로 맞다. 열린 자리는 운반 값 술어로만 나온다(verify §6). ΔV15 §10(EP42a~g)·V1 EP-02가 이 edge를 행으로 담지 않았다 — path가 명시하므로 PLAN_GAP은 아니며 다음 설계 정정 때 행으로 적는다. 다음 재구현 전에 `handoff-review`를 수행한다 — 라운드 7(verify §14).
