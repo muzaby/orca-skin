@@ -3314,3 +3314,14 @@ SELF_PASS(AC8 자동 행동 범위). 불변식은 “엔진의 하네스·canoni
 r3 FAIL 뒤 첫 구현 턴(r4)이다. 같은 EP-08 불변식에서 schema 정의/카드 내부가 실행하던 구간과 실제 IPC 등록/부모 callback 구간 사이의 공백이 원인이었다. 이번에는 계약 값을 처리하는 모듈을 유지하고 Electron IPC 수신기·home·로그/앱 설정 입력·React/브라우저·번역·Modal chrome을 대체해 들어간 곳과 관측한 곳을 표에 대응했다.
 
 운반 값을 첫 항목·빈 목록·동일 JSON으로만 채우면 key/하네스 배선 결함이 남는다는 round33 지침을 적용했다. 원격 review 지침과 기존 독립 verify 기록을 보존했으며 새 독립 PASS 판정을 작성하지 않는다. 최종 push의 Windows CI 결과는 해당 HEAD check에서 확인한다.
+
+## [검증자 기입] 파생 이슈 — r4 검증
+
+r4(V1~ΔV21) 독립 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md) r4. 인용 변이 I1·I2·I3·I5가 red 7·6·8·3으로 D-0262-6이 닫혔고 VP-Δ18-R1·VP-Δ19-R1이 PASS다. 같은 catalog 경로의 production 분기가 비어 ΔV19 VP-Δ19-05가 root다.
+
+| # | finding | 귀속 | disposition | 대응 방향 |
+|---|---|---|---|---|
+| D-0262-7 | `main/app/handlers/misc.ts:60-63` `agent:list`의 production 분기(`harnessRuntime.resolve`) 미잠금 — `cached(entry.key)`로 바꿔도 `src/main`+`src/shared` 4,909케이스 green(J2). production은 `harnessRuntime`을 항상 주입하는데(`bootstrap.ts:787`) r4 M과 `misc.runtime-catalog`는 미주입 fallback만 실행하고, EP55d 좌표 `engine.opencode.integration`은 주입하지만 catalog 실패 폴백과 같은 모델명만 단언한다. 깨지면 OpenCode 카드에 `catalogError`가 붙고 `agents`가 사라진다(검증자 probe) | VP-Δ19-05 root · ΔV19 EP55d · V1 EP-08 `agent list` · AC8·AC54 | BLOCKING | 실제 `createHarnessRuntimeConfigService`를 주입한 `agent:list`에서 OpenCode 행의 catalog 고유 산출(`catalogError` 부재·`agents`)을 편집 전후로 단언. J2 red로 닫힘 |
+| N-0262-8 | 삭제 확인 문구의 엔진 이름 인자 미관측(J15 green — U의 `tr` mock이 인자를 버림) | 문구 | NON_BLOCKING | 필요 시 `tr` 인자 단언 |
+
+r4 구현 보고의 `parser→catalog` 행 `6/6`은 재측정 `5/6`이다(EP-08 합계 58/59). M의 OpenCode 모델명은 parser·catalog·폴백 어느 경로로도 같아 J14·J16·J18이 M에서 green이며, 그 자리는 같은 행의 `registry.test`·`misc.runtime-catalog`가 닫는다. 다음 재구현 전에 `handoff-review`를 수행한다 — 라운드 5(verify §14).
