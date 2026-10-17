@@ -2726,3 +2726,74 @@ r6 구현은 프로덕션을 한 줄도 바꾸지 않고 렌더 테스트로만 
 
 - "항상 주입"의 판정은 조립 루트를 읽어야 한다. 조립이 조건부(배포·DEV 분기)면 그 조건마다 분기를 따로 본다.
 - `app/AGENTS.md`의 Electron 바이너리 미설치 서명은 문서에 없다(E, 사용자 미선택).
+
+---
+
+# review round 35 — 0262 (라운드 5→6): 분모 검색의 범위
+
+**발동/모드**: 0262 r5 verify FAIL(`b9a75f9`)로 라운드 6 > 3. 사용자가 `/handoff-review`를 인자 없이 호출해 DIAGNOSE_ONLY로 진단했고, 진단 질의에 **APPLY**를 선택했다. 제품 코드 변경 0.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | 분모 검색의 술어는 불변식의 주어였지만 범위를 지적이 인용한 파일로 좁혀, 같은 pair의 형제 소비처가 분모 밖에 남았다 | 0262 r5 구현 — `rg 'ctx\.(harnessRuntime\|runtimeModelCatalog)'`를 `engine.ts`·`misc.ts`에만 실행. ΔV19 EP55e `resolve-turn.ts:228` merge 변이 K9 green(D-0262-8). r5 검증이 `src/main` 전체로 넓히자 차집합 5줄 | **A** — 술어 규칙이 범위를 말하지 않았다. AGENTS 절차 2 · impl §2 · plan.template · verify §6 · corpus **P58** |
+| 2 | 표에 EP55e를 닫힘(I19)으로 적으며 조립을 production과 대조하지 않았다 | 0262 r5 구현 | **B** — round 34 impl §2가 이미 요구. 발견 1의 범위 규칙이 그 자리를 분모 행으로 올린다 |
+| 3 | 불변식 문장에 지점 이름(`agent:list`)이 들어갔다 | 0262 r5 설계 리뷰 | **B** — impl §5.1 |
+| 4 | 도달 불가 가드를 J2로 닫았다고 셌다(K7 green) | N-0262-10 | **B** — impl §3 |
+| 5 | 구현·검증·review가 같은 에이전트(같은 세션) | 0262 r4~r5 | **E** — verify §4 자기 검증 규칙이 작동(K9) |
+| 6 | 기본 배포 augmenter 산출이 비어 runtime config 분기가 구별되지 않음 | N-0262-9 · 0265 EP11 | **E** / NEXT_HANDOFF 후보 |
+| 7 | 사용자 결정 변경 | 없음 | **D** 오염 0 |
+
+## Tier
+
+**Tier 1.** 강제 지점 분모를 세는 절차(검색 범위)의 의미가 바뀐다. 6-A + 6-B + 6-C 전부 수행.
+
+## 6-A Operational Instruction Delta
+
+기준 `b9a75f9`. 삭제 줄 **4**(파일당 1, 줄 = 문단) — 추가 줄과 토큰 대조.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| AGENTS 절차 2 술어 문장 | **KEEP + 확장** | 범위 문장 추가. 잃은 토큰은 조사 `으` 1(`이름으로`→`이름이나 인용 파일로`) |
+| impl §2 술어 문장 | **KEEP + 확장** | 범위 문장 + 사례 1문장. 잃은 토큰 0 |
+| plan.template 전수 주석 | **KEEP + 확장** | `넣는다`→`넣고, … 좁히지 않는다`. 잃은 토큰 0 |
+| verify §6 | **KEEP + 확장** | 라벨 표본 문장 뒤 범위 재측정 문장 삽입. 잃은 토큰 0 |
+| corpus | **추가** | P58. 삭제 줄 0 |
+| 명령·gate·reference 삭제·이동 | **없음** | inbound `N`/semantic `M/M` 대상 없음 |
+
+- 방어 문구 23종(round 34의 22종 + `불변식의 주어`)의 출현 파일 집합을 변경 전후 8파일에서 대조 — 차이 **0**.
+
+## 6-B Historical Failure Regression
+
+- **58 P 전수**(P1~P57 + 신규 P58, 결번·중복 0) · 변경 후 **COVERED 58 / PARTIAL 0 / GAP 0 / OBSOLETE 0**.
+- P1~P38: 방어 지점이 변경 4줄과 겹치지 않는다(round 4 baseline 매핑 그대로).
+- 변경 파일을 방어로 인용하는 P39~P57: 바뀐 4줄은 잃은 토큰이 조사 1개뿐이라 방어 문장이 그대로 남는다. **P52**(자리 단위) — 같은 bullet의 자리 문장 불변 · **P41**(라벨 표본) — verify §6 문장 불변, 바로 뒤에 범위 재측정 삽입 · **P55·P56·P57**(실행 구간·운반 값·조립 차이) — 사이트 불변.
+- 관련 P: **P38**(지목 지점만 닫음) — 같은 class의 다른 메커니즘. 표 열 강제(round 33)와 범위 규칙이 함께 분모를 지킨다 · **P52** — 술어 규칙과 같은 bullet.
+
+### V/lifecycle replay — 거짓 PASS·FAIL inflation
+
+| anchor | 라운드 | 변경 전 | 새 규칙 | 방향 |
+|---|---|---|---|---|
+| 0262 | r5 impl 조립 의존 분모 | `5/6`(두 파일) · EP55e `SELF_PASS` | `src/main` 범위 → `resolve-turn.ts` 5줄 포함 → EP55e merge `남긴 곳` → `SELF_BLOCKED` | D-0262-8 구현 턴 안 노출 |
+| 0262 | r5 verify | root `PAIR_FAIL` VP-Δ19-05(독립 축 K9) | 같은 재측정을 규칙으로 수행 | 판정 불변 |
+| 0262 | r3 impl 분모(인용 6자리 파일) | `SELF_PASS` | 범위 확장 → 부모 편집 배선 노출(round 33 열 규칙과 중첩) | 조기 |
+| 범위 확장으로 나온 표 밖 지점 | 임의 | — | 현재 pair·ACTIVE Decision·AC에 귀속될 때만 `PLAN_GAP`/blocking, 아니면 별도 finding(impl §2 기존 문장) | inflation 0 |
+| 진행 중 plan | 다음 impl/verify | — | plan 형식 migration 없음 — 분모 검색 절차에만 걸림 | RETURN_TO_PLAN 0 |
+
+## 6-C Cross-document Consistency
+
+- **PASS.** "검색 범위" 규칙 **4사이트**: AGENTS 절차 2(최소 계약) · impl §2(정본) · plan.template 주석 · verify §6(대칭 재측정) (+ corpus P58). 각 사이트에 규칙 문장 1회(`rg` 1건씩).
+- **owner 충돌 0**: 구현자는 범위를 넓혀 세고, 검증자는 좁으면 넓혀 차집합을 본다. 설계자 절차는 불변.
+- **scope 충돌 0**: 새 명령·gate 없음 → `app/AGENTS.md`와 무관. root `AGENTS.md` 불변.
+- `node app/scripts/check-doc-inventory.mjs --check` — generated · prose · links ok. `git diff --check` 출력 0.
+- AGENTS 위생: 추가분에 비밀·개인정보·변동성 운영정보 없음. 새 `AGENTS.md`·`CLAUDE.md` 없음.
+
+## review 기록 정책
+
+`round35-review.md`를 만들지 않았다 — 사용자 보존 요구 없음, 압축으로 잃는 rationale 없음. 신규 P **1**(P58: 술어가 맞을 때 범위로 줄어드는 분모 — P38·P52와 다른 메커니즘).
+
+## 남은 한계
+
+- "pair path가 지나는 소스 전체"의 경계는 구현자가 정한다 — 경로가 여러 프로세스(main·preload·renderer)를 지나면 각 트리를 포함한다.
+- r2~r5는 매번 다른 메커니즘으로 같은 계약의 인접 자리가 비었다. 다음 재발이 또 다른 메커니즘이면, 메커니즘별 규칙을 더하기보다 같은 계약의 형제 좌표 전체를 다시 읽는 절차로 통합하는 것을 검토한다.
