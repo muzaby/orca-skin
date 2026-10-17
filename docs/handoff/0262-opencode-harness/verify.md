@@ -437,3 +437,171 @@
 - pair: root PAIR_FAIL 1(VP-08) · BLOCKED_BY 3(VP-14·VP-Δ18-R1·VP-Δ19-R1) · r2 root 3(VP-16·17·19)과 종속 4(VP-01·02·12·13) PASS · PLAN_GAP 0 · 사람 인수 대기 VP21-V·VP-11 시각.
 - AC(판정 범위 20): ✅12 · ⚠️8 · ❌0. 운영 gate PASS.
 - 다음 단계: handoff-review(라운드 4) → 구현자 r4 — D-0262-6의 I1·I2·I3·I5 red 보고. 이 자리 외 ΔV1~ΔV19 실행 구간 감사는 이번 라운드로 닫혔다.
+
+# r4 검증
+
+## 메타 (r4)
+
+| 항목 | 값 |
+|---|---|
+| 일자 | 2026-10-17 |
+| 대상 커밋/range | `4f5679f2..a41a8d89` — r4 구현 `a41a8d89`(테스트 3파일 + plan·INDEX) |
+| 구현 전 plan 기준 | `12c81cfa`(ΔV21, 설계 단독 커밋) |
+| V mode / 유효 V | V1 + ΔV1~ΔV21 |
+| 검증 HEAD | `a41a8d89` (공유 브랜치 `origin/codex-opencode-harness`) |
+| 라운드 | 4 |
+| 상태 | **FAIL** — root PAIR_FAIL 1(ΔV19 VP-Δ19-05) · BLOCKED_BY 4 · PLAN_GAP 0 |
+| 자기 검증 여부 | 구현 Codex · 검증 Claude — 구현자 ≠ 검증자. 보고에 없는 축 13개를 함께 심었다(§4) |
+
+## 0. 기준선 / plan validity (r4)
+
+- 구현 커밋의 `plan.md` 삭제 줄 1: 메타 `상태` 문구뿐이다(`git show a41a8d89 -- …/plan.md`). Decision·AC·V node/pair·§10 변경 없음 → r3 plan validity 유지.
+- r4의 `app/` 변경은 테스트 3파일 586줄 추가, 삭제 0줄, production 0파일(`git diff --stat 8868097f..a41a8d89 -- app/`).
+- 아래 D-0262-7의 자리는 ΔV19 §10 EP55d `agent:list 실제 어댑터`와 V1 §10 EP-08 `agent list`가 이미 명시한다. 구현자가 새 계약 없이 닫을 수 있으므로 PLAN_GAP 아님.
+- 라운드 4 선행 handoff-review: `4f5679f2`(round33, `Handoff: none`)가 r3 형태를 사례로 지침을 갱신했고 r4는 그 뒤에 구현됐다.
+
+## 2. 비판적 읽기 (r4) — 새 oracle의 실행 구간
+
+| 새 좌표 | 들어간 곳 → 관측한 곳 | 바꾼 path 구성요소 | 판정 |
+|---|---|---|---|
+| M `engine.ipc.test.ts` | `ipcMain.handle` 콜백 → 실제 `handle` → schema → 엔진 handler → settings-write(임시 home) → `agentList` → 실제 `ClaudeAdapter`·`OpenCodeAdapter` | electron 수신기·로그·`orca-config`(환경), `deployExtensions`(sink), `AdapterRegistry`(id→실제 adapter stub) | schema·CRUD·파일 격리는 구간 안. **`harnessRuntime`·`runtimeModelCatalog`를 주입하지 않아 `agentList`가 production이 타지 않는 fallback 분기를 실행** |
+| U `AgentEnvironmentView.crud.test.ts` | public wrapper → View → 실제 Card/Form → `useEngines` → `agentStore` → `engineApi`/`agentApi` → `window.orca` fixture | react·zustand 바인딩·react-dom·i18n(환경), `Modal` chrome, preload(외부 경계) | form/card·hook/store 자리 구간 안 |
+| P `preload/index.test.ts` 추가 케이스 | 실제 `engineApi`/`agentApi` → 노출된 preload → `ipcRenderer.invoke` 채널·payload | electron(환경) | U↔M 이음매: U는 `window.orca.engine.*` 인자, P는 그 인자→채널·payload, M은 같은 채널 콜백에서 시작 — 이음매 없음 |
+
+- 운반 값: U의 편집·삭제 대상은 둘 다 첫 카드가 아니고 수정 JSON은 읽은 JSON·기본값과 다르다. M의 두 하네스는 provider `shared`가 같아 하네스 항만 구별 값이다 — J7(쓰기 경로의 하네스를 `claude`로 고정)이 M 2케이스 red라 그 항을 잰다.
+- **M의 OpenCode 모델명은 settings parser·native catalog·catalog 실패 폴백 어느 경로로도 같은 값**(`openCodeCatalog`가 `parseOpenCodeModels`를 그대로 쓴다)이다. J14·J16·J18이 M에서 green이고 행에 함께 인용된 `misc.runtime-catalog`·`registry.test`만 red다 — parser·catalog 자리는 그 형제 좌표가 닫는다.
+
+## 4. 적대 증거 재측정 (r4)
+
+범위: main 변이 `src/main`+`src/shared`(4,909케이스), renderer 변이 `src/renderer`+`src/preload`(2,920케이스). 실행기는 변이마다 원본 SHA256 복원을 단언했고 종료 후 `git status` clean. 기준선은 같은 범위의 전체 실행에서 실패 0이다.
+
+### 인용 변이 (D-0262-6)
+
+| 변이 | r3 | r4 | 구현 보고 |
+|---|---|---|---|
+| I1 `engine.ts:59-60` `engineAdd` 무검증 parser | green 0 | **red 7** — M `rejects an unregistered engine %j…` 6 · `validates the registered orca:engine:add payload` | 7/13 일치 |
+| I2 `AgentEnvironmentView.tsx:121` 카드 `onEdit` 무동작 | green 0 | **red 6** — U 편집 2·read 대기·busy·오류·재시도 | 6/10 일치 |
+| I3 같은 자리 `onEdit`↔`onDelete` 맞바꿈 | green 0 | **red 8** — U 편집 2·삭제 2·busy·read 대기 외 | 8/10 일치 |
+| I5 `:149` 편집 저장 key를 `agents[0].key`로 | green 0 | **red 3** — U 비첫 엔진 편집 2·재시도 | 3/10 일치 |
+
+- 인용 4/4 red, 케이스 수까지 보고와 같다 → **D-0262-6 closed**.
+
+### 이전 라운드 red 재실행 (VP-08)
+
+| 변이 | r3 | r4 | 판정 |
+|---|---|---|---|
+| P08b `protocol.ts:569` `EngineSchema = z.string()` | red 5 | **red 10** — protocol 5 + M 5 | 덮개 유지·확장 |
+| P08c `EngineCard.tsx:45` 편집 클릭 무동작 | red 2 | **red 8** — EngineCard 2 + U 6 | 덮개 유지·확장 |
+| I1b `engineImportUserSettings` 무검증 parser | red 1 (`rejects an invalid harness payload null`) | **red 2** — `engine.import…reads the selected harness global file…` · M `validates the registered …importUserSettings payload` | red 유지. 검출 케이스 차이는 변이 형태 차이다 — 이번 형태에서 `null` 거절 케이스는 하위 TypeError로도 `rejects.toThrow()`를 만족한다. 검출 파일 무변경 |
+
+- 그 밖의 r3 red(P01a·X01·P02a~d·P12a·P12b·X02·X02s·I4·I7~I11)는 production과 검출 파일이 `8868097f..a41a8d89`에서 무변경(삭제 0줄)이라 재실행하지 않았다 — 덮개 회귀 0.
+
+### 보고에 없는 독립 축
+
+| 변이 | 자리 | r4 | 판정 |
+|---|---|---|---|
+| J1 `engine.ts:45` `harnessRuntime.invalidate(key)` 제거 | write 후 runtime cache 무효화 | red 13 — `engine.deployment` 10·`engine.runtime-catalog` 3 | 잠김 |
+| **J2** `misc.ts:63` `harnessRuntime.resolve(target)` → `cached(entry.key)` | `agent:list` production 분기 | **green 0/4,909** | **D-0262-7** |
+| J7 `settings-write.ts:93` 쓰기 경로 하네스를 `claude`로 | canonical key/파일 격리 | red 4 — M 2·`settings-write` 1·`engine.opencode.integration` 1 | 잠김 |
+| J14 `misc.ts:52` adapter를 `get('claude')`로 | agent list→adapter 선택 | red 1 — `misc.runtime-catalog…loads native OpenCode models…` | 잠김(M green) |
+| J16 `misc.ts:68` catalog 호출 전에 throw | native catalog | red 1 — 같은 케이스 | 잠김(M green) |
+| J18 `registry.ts:32` parser를 Claude 모듈로 고정 | 하네스별 parser | red 1 — `registry.test…runs registered parsers…` | 잠김(M green) |
+| J3 `:144` 편집 폼 provider를 key로 | form provider | red 2 — U 편집 2 | 잠김 |
+| J4 `:131` 추가 폼 engine을 `HARNESS_IDS[0]`로 | form add engine | red 2 — U OpenCode 추가·`interaction…selects Claude or OpenCode…` | 잠김 |
+| J13 `:143` 편집 폼 engine을 형제 하네스로 맞바꿈 | form edit engine | red 2 — U 편집 claude·opencode | 잠김(형제 맞바꿈 양방향) |
+| J10 `:40` 편집 modal의 agent를 `agents[0]`로 | read→modal 운반 | red 3 — U 편집 2·재시도 | 잠김 |
+| J5 `useEngines.ts:37` mutation 뒤 `refreshAgents()` 제거 | hook→catalog 재조회 | red 10 — U 7·`useEngines` 3 | 잠김 |
+| J12 `agentStore.ts:26` refresh가 기존 목록 유지 | store 갱신 | red 4 — U 편집 2·삭제 2 | 잠김 |
+| J15 `:50` 삭제 확인 문구의 이름 인자를 고정값으로 | 확인 문구 | **green 0/2,920** | N-0262-8 |
+
+- J2 probe(저장소에 남기지 않음): M의 조립에 실제 `createHarnessRuntimeConfigService({ settings })`를 주입한 임시 케이스가 원본에서 OpenCode 행 `catalogError` 없음·`agents` `['build','plan']`·편집 뒤 `shared/open-changed`로 green, J2에서 `expected '하네스 설정을 읽을 수 없습니다.' to be undefined`로 red였다.
+
+## 6. 강제 지점 재열거 (EP-08 + 같은 edge의 ΔV19 EP55d)
+
+| 구현 보고 행 | 보고 | 재측정 | 근거 |
+|---|---|---|---|
+| schema 정의5 + 실제 등록5 | 10/10 | 10/10 | I1·I1b·P08b red, M이 5채널 ZodError·거절 로그 관측 |
+| canonical key / 파일 격리 | 7/7 | 7/7 | J7 red, M CRUD 양방향 |
+| 하네스별 loader/parser | 6/6 | 6/6 | J18 red(`registry.test`) — M은 이 자리를 구별하지 못함 |
+| parser→catalog / 재조회 | 6/6 | **5/6** | **`resolve` 자리: production은 `harnessRuntime.resolve`(`misc.ts:60-63`, `bootstrap.ts:787`이 항상 주입)인데 M은 fallback `harnessSettings.resolve`만 실행 — J2 green**. native catalog는 J14·J16 red(`misc.runtime-catalog`) |
+| catalog→renderer 4 · renderer→IPC 8 | 12/12 | 12/12 | U·P, J5·J12 red |
+| form/card 12 · hook/store 6 | 18/18 | 18/18 | I2·I3·I5·P08c·J3·J4·J10·J13 red |
+
+- 합계: 보고 59/59 ↔ 재측정 **58/59**. 차집합 1 = `agent:list` production 분기의 config resolve.
+- 같은 edge가 ΔV19 EP55d(`I19 — 실제 agent:list의 local/first`)다. 그 좌표 `engine.opencode.integration.test.ts`는 `harnessRuntime`을 주입하지만 모델명만 단언하고, catalog 실패 폴백도 같은 모델명을 내므로(운반 값 = 형제 값) J2에 침묵한다 — r1~r3의 ΔV19 PASS는 이 자리를 닫지 않았다.
+
+## 5. V-pair closeout (r4)
+
+| Pair | r4 결과 | 근거 |
+|---|---|---|
+| **VP-Δ19-05 AR19↔IT19** | **PAIR_FAIL** | path `settings→catalog→목록, 실제 handler/adapter 경계` · EP55d production 분기 미잠금(J2). D-0262-7 |
+| VP-Δ19-04 SD19↔ST19 · VP-Δ19-03 R54↔AT54 | BLOCKED_BY:VP-Δ19-05 | 두 path가 EP55d `agent:list`를 지난다 |
+| VP-08 R-08↔AT-08 | BLOCKED_BY:VP-Δ19-05 | D-0262-6 자리는 closed(위 표). EP-08 `agent list`가 같은 edge |
+| VP-14 SD-02↔ST-02 | BLOCKED_BY:VP-Δ19-05 | path `engine/settings → catalog → UI` |
+| VP-Δ18-R1 | **PASS** (r3 BLOCKED_BY 해소) | Claude add/edit·OpenCode JSON edit: U(I2·I3·I5·J3·J4·J13 red) · 저장 격리 J7 · `useEngines` J5. catalog 경로 미포함 |
+| VP-Δ19-R1 | **PASS** (r3 BLOCKED_BY 해소) | 추가/편집 U · CRUD M(J7) · import(I1b) · OpenCode 실행/이력은 r2 좌표(검출 파일 무변경) |
+| VP-01·02·12·13·16·17·19 | PASS (r3 좌표) | r4 변경 무영향 |
+| 그 밖의 V1~ΔV21 | r3 판정 유지 · VP21-V·VP-11 시각은 사람 인수 대기 | — |
+
+- root PAIR_FAIL 1 · BLOCKED_BY 4 · PLAN_GAP 0. 같은 root를 상위 pair의 PAIR_FAIL로 다시 세지 않았다.
+
+### AT / AC 합계 (r4 판정 범위)
+
+| AC | 결과 |
+|---|---|
+| AC8 | ⚠️ — D-0262-6 자리 닫힘. production `agent:list` catalog 분기는 동작(probe green)하나 미잠금 |
+| AC54 (ΔV19) | ⚠️ — 같은 이유로 재판정(r1~r3 범위 밖 PASS) |
+| AC1·2·3·4·5·6·7·9·10·12 · AC20-1·20-2 | ✅ 12 (r3 유지) |
+| AC11 · AC20-3 · AC26·27·33·34·48 | ⚠️ 7 — 시각 사람 인수 대기 (r3 유지) |
+
+- 합계: `✅ 12 · ⚠️ 9 · ❌ 0 = 21`(r3 범위 20 + AC54). 나머지 36개는 r3 판정 유지.
+- 사본 대조: 구현 보고 `✅1 = 대상 1(AC8)` ↔ trailer `Criteria-Met: 1/1` ↔ INDEX `AC8 1/1` — 사본끼리 일치, 검증 결과와 AC8에서 갈림.
+
+## 9. 게이트 (r4)
+
+HEAD `a41a8d89`, `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 뒤 Electron 바이너리 설치, better-sqlite3 Node ABI.
+
+| gate | 관측 |
+|---|---|
+| Vitest 전체 | 758파일 7,454케이스 — 7,447 pass · 0 fail · 7 skip. 새 3파일 44/44 |
+| typecheck | node·web·test 3구성 exit 0, `error TS` 0 |
+| readonly ESLint(`--fix` 없음) | 1,738파일 error 0 · warning 2(기존 `react-hooks/incompatible-library` 2) |
+| `node --test scripts/*.test.mjs` | 142/142 |
+| inventory · migrations · test-budgets | ok · sync ok · 16 real-git suites ok |
+| `npm run build` | exit 0 (prebuild Electron ABI·typecheck·3 번들) |
+| 원격 Windows CI | run #793(`a41a8d89`, PR #502) success |
+
+- 첫 전체 실행은 Electron 바이너리 미설치로 16파일이 import 단계에서 실패했다 — 환경이며 설치 뒤 0 fail. 운영 gate PASS; 이번 FAIL은 gate가 아니라 pair 실패다.
+
+## 11. Repository operation checks (r4)
+
+- INDEX 0262 행: `(r4 구현 — 검증자 기입)`을 `a41a8d89`로 채웠다(`git cat-file -t` commit, `origin/codex-opencode-harness` 포함).
+- trailer: `a41a8d89` 5키(`Agent: codex`·`Handoff`·`Status: implemented`·`Criteria-Met: 1/1`·`Verified-By: pending`) 파싱·허용값 정상.
+- `[구현자 기입]` r4 7필드 전수 존재. 강제 지점 표는 EP-08 여섯 범주 전부와 `남긴 곳` 열을 담는다(접힘 아님).
+- INDEX 비고 3줄(≤5).
+- 라운드: 이번 FAIL로 5가 된다 — `docs/handoff/AGENTS.md §라운드` "라운드가 3을 초과하면 다음 재구현 전에 handoff-review".
+
+## 13. Finding disposition (r4)
+
+| # | finding | 귀속 | disposition | 후속 |
+|---|---|---|---|---|
+| D-0262-6 | `engineAdd` schema binding · 카드→편집 폼 배선 | VP-08 | **closed** — 인용 I1·I2·I3·I5 red 7·6·8·3 | — |
+| **D-0262-7** | `agent:list` production 분기(`misc.ts:60-63`) 미잠금 — J2 green 0/4,909. production은 `harnessRuntime`을 항상 주입하는데(`bootstrap.ts:787`) M·`misc.runtime-catalog`는 미주입 fallback을 실행하고, `engine.opencode.integration`은 주입하지만 catalog 실패 폴백과 같은 모델명만 본다. 깨지면 OpenCode 카드에 `catalogError`가 붙고 `agents`가 사라진다(probe) | VP-Δ19-05 root · ΔV19 EP55d · V1 EP-08 `agent list` · AC8·AC54 | **BLOCKING** | 실제 `createHarnessRuntimeConfigService`를 주입한 `agent:list`에서 편집 전후 OpenCode 행의 catalog 고유 산출(`catalogError` 부재·`agents`)을 단언. J2 red로 닫힘 |
+| N-0262-8 | 삭제 확인 문구의 엔진 이름 인자 미관측 — J15 green(U의 `tr` mock이 인자를 버림) | 문구 | NON_BLOCKING | 필요 시 `tr` 인자 단언 |
+| N-0262-1 · 3 · 7 | 중단 분류 · 폼 `limit.context` · 좌표 이름 | — | 기존 disposition 유지 | — |
+
+- 참고: 0265 EP11 `settings catalog env` 좌표(`misc.runtime-catalog`)도 같은 fallback 분기에서 실행된다. 0265 판정은 이 verify 범위 밖이며 D-0262-7 보완이 같은 분기를 실행하게 된다.
+
+## 14. Review Signals (r4)
+
+- r2·r3·r4에서 같은 형태가 반복됐다: 지목한 자리는 정확히 닫혔고 같은 경로의 인접 자리 하나가 비었다. 이번에는 mock이 아니라 **production이 항상 주입하는 선택 의존성(`harnessRuntime`)을 테스트가 생략해 다른 분기가 실행**된 형태다.
+- 관련 지침: `docs/handoff/AGENTS.md §공통 V` 실행 구간(mock·stub한 구성요소 제외)·운반 값 비퇴화(round33). 선택 의존성 생략에 따른 분기 전환은 문면에 이름이 없다.
+- 라운드 5(>3) — 다음 재구현 전 handoff-review 대상.
+- 반복 환경 한계: Electron 바이너리 기본 미설치(설치 후 해소), 실제 OpenCode CLI 부재(skip).
+
+## 15. 결론 (r4)
+
+- 상태: **FAIL**.
+- pair: root PAIR_FAIL 1(VP-Δ19-05) · BLOCKED_BY 4(VP-Δ19-03·04·VP-08·VP-14) · VP-Δ18-R1·VP-Δ19-R1 PASS · PLAN_GAP 0 · 사람 인수 대기 VP21-V·VP-11 시각.
+- AC(판정 범위 21): ✅12 · ⚠️9 · ❌0. 운영 gate PASS.
+- 다음 단계: handoff-review(라운드 5) → 구현자 r5 — D-0262-7의 J2 red 보고.
