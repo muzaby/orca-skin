@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | impl/IN_PROGRESS — r2.1 Windows CI 파일 I/O 경합 보완 후 전체 게이트 확인 중 |
+| 상태 | impl/IMPL_DONE — r2.1 Windows CI 파일 I/O 경합 보완·전체 직렬 게이트 통과, 독립 재검증 대기 |
 | V mode | Delta V — V1 + ΔV1~ΔV21 (각 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV21 / V1 + ΔV1~ΔV21, 기준 `5d2b36a2` |
@@ -3122,7 +3122,8 @@ r2는 당시 실패한3스위트만 보완해 같은 초기화 비용이 남은 
 | 원격 Windows | [run38983034999](https://github.com/muzaby/orca-skin/actions/runs/38983034999) 성공. Vitest752파일7402테스트 통과·선택 실행2생략, scripts142/142. 설치·migration·문서·예산·lint·전체 typecheck 통과 |
 | 재발 자리 | native cursor7테스트1387ms. 이전 실패 migration 재개방을 포함한 전체 Vitest 실패0. case/hook 예산과 검증 단언 유지 |
 | 남은 경계 | 기존 Actions Node20 경고는 실패가 아님. 실모델 opt-in·시각 인수는 이번 CI 수정 범위 밖. 마감 문서 push 후 결과는 해당 최종 HEAD의 PR check에서 확인 |
-| 후속 실패 / 보완 | run38983815532에서 mail.integration afterEach 정리 timeout1. Windows CI 파일 worker1 적용 후 관련6파일91테스트·node typecheck·config lint/format 통과. 원격 전체 직렬 실행 확인 중 |
+| 후속 실패 / 보완 | run38983815532에서 mail.integration afterEach 정리 timeout1. Windows CI 파일 worker1 적용 후 관련6파일91테스트·node typecheck·config lint/format 통과 |
+| 전체 직렬 Windows CI | [run38984772497](https://github.com/muzaby/orca-skin/actions/runs/38984772497) 성공:752파일7402테스트 통과·선택 실행2생략·scripts142/142. Vitest419.20초, mail 정리 훅을 포함해 실패0. 나머지 운영 gate도 통과 |
 
 ## [구현자 기입] Review Signals — r2.1
 
