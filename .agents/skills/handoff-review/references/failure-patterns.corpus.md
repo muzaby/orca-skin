@@ -1494,3 +1494,22 @@ mock·stub로 바꾼 path 구성요소를 뺀 것 — 안의 자리뿐이다(rea
 현재 방어: `docs/handoff/AGENTS.md §공통 V 추적 프로토콜`·§단계별 절차 2·3 · plan §5-A · `plan.template.md`
 `[구현자 기입] 강제 지점 전수` · impl §2 · verify §6 · `verify.template.md §5`. P55(실행 구간)와 P49(형제 슬롯 맞바꿈
 변이)는 유지한다 — 이 규칙은 구간 안 좌표가 자리를 닫기 위한 입력 조건을 정한다.
+
+## P57 — **테스트가 production 조립이 주입하는 의존성을 빼서, 좌표가 production이 타지 않는 분기를 실행했다**
+
+*출처: 0262 (라운드 4) · 0265 EP11 — review round 34.*
+
+`agent:list` handler는 `harnessRuntime`이 있으면 `harnessRuntime.resolve`로, 없으면 `harnessSettings.resolve`로 설정을
+읽는다. production 조립 루트(`bootstrap.ts`)는 항상 `harnessRuntime`을 주입한다. r4 구현자는 `harnessRuntime` 없이 조립한
+`engine.ipc.test.ts`로 EP-08 `resolve` 자리를 닫았다고 적었고, `misc.runtime-catalog.test.ts`(0265 EP11 좌표)도 같은 fallback을
+실행했다. production 분기의 `resolve`를 `cached`로 바꾼 변이 J2는 `src/main` 4,909케이스 green이었다(D-0262-7). 이 테스트들은
+mock하지 않았고 실행한 fallback도 production 코드라서, P55의 "mock·stub로 바꾼 구성요소 제외" 정의로는 구간 안처럼 읽혔다.
+r3 검증자의 133좌표 감사도 `vi.mock` 목록 기준이라 놓쳤다.
+
+→ **규칙.** **production 조립(조립 루트)이 주입하는 의존성을 테스트가 빼거나 바꾸면, 그 의존성으로 갈리는 production
+분기의 자리는 그 좌표의 실행 구간 밖이다.** 테스트의 조립을 production 조립 루트와 대조해 판정한다. 의존성이 없을 때의
+동작이 pair의 자기 계약이면 그 분기는 그 계약의 자리로 닫힌다.
+
+현재 방어: `docs/handoff/AGENTS.md §공통 V 추적 프로토콜`(실행 구간 bullet) · plan §5-A · `plan.template.md`
+`[구현자 기입] 강제 지점 전수` · impl §2 · verify §6 · `verify.template.md §5`. P55가 mock으로 줄어든 구간을, P56이 구간 안
+운반 값을 다루고, 이 규칙은 조립 차이로 바뀐 분기를 다룬다.
