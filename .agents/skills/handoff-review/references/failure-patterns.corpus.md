@@ -1528,3 +1528,19 @@ r4 검증은 `agent:list` production 분기(`misc.ts`)가 미잠금이라고 지
 
 현재 방어: `docs/handoff/AGENTS.md` §단계별 절차 2 · impl §2 · `plan.template.md` `[구현자 기입] 강제 지점 전수` 주석 · verify §6.
 P38(지목 지점만 닫음)·P52(§10 항목 단위)는 유지한다. 이 규칙은 술어가 맞을 때 범위로 줄어드는 분모를 다룬다.
+
+## P59 — **호출 변이의 red로 자리를 닫아, 그 자리가 운반하는 인자 항은 아무도 재지 않았다**
+
+*출처: 0262 (라운드 5~6) — review round 36.*
+
+ΔV19 EP55e의 턴 실행 구성 자리(`resolve-turn.ts:263-266`)는 `harnessRuntime.resolve(entry)`를 부르고, `entry`는 선택 행의
+`key`·`harnessId`·`modelProviderId`를 운반한다. r5 검증과 r6 구현(같은 에이전트)은 `resolve`→`cached`로 바꾼 호출 변이 K4가 red 11인 것을
+근거로 이 자리를 닫힘으로 셌다. 그 red를 낸 좌표 중 `native-history`는 stub `resolve`가 입력을 무시했고, I19는 `model`만 단언했다.
+r6 검증이 target `harnessId`를 `'claude'`로, `modelProviderId`를 `''`로 바꾸자(X8·X9, 상류 매핑 X11·X12) 4,909케이스가 green이었다.
+probe에서는 OpenCode 턴의 `providerSettings`가 비었다(D-0262-9).
+
+→ **규칙.** **변이의 red는 그 변이가 바꾼 항만 잠근다 — 호출·분기를 바꾼 변이로 그 자리가 운반하는 인자 항을 닫았다고 세지 않는다.**
+강제 지점 표는 닫힘으로 센 행마다 `운반 항 · 구별 값 · 관측`을 적는다. 셋 중 하나가 빠진 항은 `남긴 곳`으로 보낸다.
+
+현재 방어: `docs/handoff/AGENTS.md §공통 V`(운반 값 bullet) · impl §2 · verify §6 · `plan.template.md` 강제 지점 표 열 · `verify.template.md §5`.
+P55(관측하지 않은 출력·mock 가정)·P56(운반 값 비퇴화)은 유지한다. 이 규칙은 그 둘을 표 행마다 증거로 남기게 하고, 변이 결과가 닫는 범위를 정한다.
