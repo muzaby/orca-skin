@@ -155,3 +155,131 @@
 - pair: V1 13 중 PASS 11 · PAIR_FAIL 1(VP12) · BLOCKED_BY 1(VP05) / ΔV1 12 PASS / ΔV2 5 PASS(VP2-3·4는 G-0265-1 영향).
 - 운영 gate: PR CI FAIL, 로컬 gate PASS.
 - 다음 단계: 설계자가 G-0265-1·2를 새 Delta V로 정정(별도 설계 커밋) → 구현자가 D-0265-1·2와 정정분을 반영 → 재검증.
+
+---
+
+# r2 검증
+
+## 메타 (r2)
+
+| 항목 | 값 |
+|---|---|
+| 일자 | 2026-10-17 |
+| 대상 커밋/range | `9df1b3bb..e024b87c` — ΔV3 설계 `9d52e072` → r2 구현 `ce7aa102`, 기록 `7be5d723` → r2.1 fixture `6492828c`, 기록 `3e9cbf86` (0262 공통 `eb333bff`·`e7645433`·`e024b87c` 포함) |
+| 구현 전 plan 기준 | `9d52e072`(ΔV3, 설계 단독 커밋) |
+| V mode / 유효 V | Baseline V1 + ΔV1 + ΔV2 + ΔV3 |
+| 검증 HEAD | `e024b87c` |
+| 라운드 | 2 |
+| 상태 | **FAIL** — root PAIR_FAIL 1(VP3-A: 복구 상한의 하네스 추가 지시 edge 미잠금) · PLAN_GAP 0 |
+| 자기 검증 여부 | ΔV3 설계·구현 Codex(사용자 지시) · 검증 Claude — 구현자 ≠ 검증자 |
+
+## 0. 기준선 / plan validity (r2)
+
+- 구현 커밋의 `plan.md` 삭제 줄: 메타 상태 1 · ΔV2 기입 표제 1 · `### 운영 gate / Review Signals` 1(7필드 복원으로 교체). Decision·AC·V·§10 변경 없음(`git diff 9d52e072 e024b87c -- …/plan.md`).
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| G-0265-1 복구 상한 | 해소 | ΔV3 D17 — 사용자 답변 인용("전송을 중단하고 안내 — 보관 대화 유지"), 상한 공식(보관 prompt+새 입력+정규화 첨부+추가 지시의 UTF-8 bytes ≤ window×0.8)·초과 시 생성/binding/receipt 0 · VP3-A/M/R 신설 |
+| G-0265-2 D02·AC5 모순 | 해소 | D02 `PARTIALLY SUPERSEDED`, D18이 대체 범위(명시 전송의 확인된 missing)를 한정 · R05/AC5·§8 문장 정정 · `app/AGENTS.md:86`과 `docs/arch/backend/persistence.md`가 같은 구별을 따름 |
+| ΔV3 oracle | 유효 | 직접 oracle, 선택 mutation not selected · §10 VP3-A 3자리 + VP3-M 2자리 |
+
+## 2. 비판적 읽기 (r2)
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 상한이 외부 쓰기 전에 걸리는가 | 예 | `chat-turn/native-session.ts:49` missing 경로·`:92` 빈 replacement 재시도 경로 모두 `observe`/`recoverSession`/`prepareRecovery` 앞 |
+| false success | 없음 | 차단 시 `recoverSession` 호출 0 · recovery 행 불변 · 신규 DB 메시지 0(`native-session.test.ts:rejects oversized recovery before creation and preserves the archive and receipt on retry`) |
+| 안내의 소비자 | 있음 | 오류 문구가 `TurnErrorBanner.tsx:21` `error.message`로 표시 |
+| 첨부 이미지 계산 | 과차단 가능 | `send.ts:261` `JSON.stringify(normalizedAttachments)` — 이미지 `data`(base64, `attachments.ts:27`) 바이트까지 세므로 200k 창(예산 160,000 bytes)에서 원본 약 120KB 넘는 이미지 하나로도 짧은 보관 대화의 복구가 막힌다. 설계 문장 "정규화된 첨부 포함"의 보수적 결과(N-0265-5) |
+| 예산 기본값 | 우회 여지 | `prepareNativeSession`의 `input` 기본값 `{ text: '', contextWindow: 200000 }` — production 호출처 1(`resolve-turn.ts:131`)은 명시하지만 생략 호출은 새 입력·첨부를 세지 않는다(N-0265-6) |
+
+## 4. 적대 증거 재측정 (r2)
+
+범위: main 변이는 `src/main`(4,057케이스), store 변이는 `features/chat/{store,components}`(429케이스). 모든 변이 후 원본 SHA256 일치.
+
+| 변이 | r1 | r2 | 귀속 |
+|---|---|---|---|
+| D-0265-1 인용: O22 mock 비교를 `realpath` 이전(`f.file`)으로 되돌림 · symlink TMPDIR | (CI red 3) | **red** 3/14 — r1 CI와 같은 3케이스 | D-0265-1 |
+| 같은 되돌림 · 일반 TMPDIR(대조) | — | green 0/14 | 수정이 정확히 경로 정규화 차이를 닫음 |
+| N-0265-1 인용: fixture가 상속 `PWD` 유지(`PWD=…/app`) | red(timeout) | **red** 1/1 `Command failed` | N-0265-1 |
+| R2-02 첨부 제외 · R2-03 새 입력 제외 · R2-04 extra 무시 | — | **red** 2 · 1 · 1 | VP3-A 입력 배선 |
+| R2-05 창 200000 고정 · R2-06 선택 모델 미전달 | — | **red** 1 · 1 — `uses the selected engine model context limit before creating a replacement` | VP3-A 모델 배선 |
+| R2-07 재시도 경로 검사 제거 · R2-08 missing 경로 검사 제거 | — | **red** 1 · 3 | VP3-A 두 경로 |
+| R2-09 비율 0.8→1.0 · R2-12 bytes 대신 문자 수 | — | **red** 2 · 1 — `bounds the complete UTF-8 recovery prompt…` | VP3-M |
+| R2-10 Claude 1m 무시 · R2-11 OpenCode 엔진 limit 무시 | — | **red** 1 · 2 — `registry.test.ts:uses each harness context policy…` | VP3-M |
+| **R2-01 하네스 추가 지시(`harnesses[id].instructions`) 제외** | — | **green** 0/4,057 | **VP3-A root PAIR_FAIL (D-0265-3)** |
+| M0265-01~04·06~19 (r1 독립 18건) | red | **red** 전부 | 덮개 유지 |
+| M0265-21~23 (store 3건) | red | **red** 전부 | 덮개 유지 |
+
+- r1 red 22건 중 재실행 21건 red · 덮개 회귀 0. M0265-05(Claude echo 마스킹)는 r1 변이 자리를 이번에 재식별하지 못해 미재실행 — `adapter.fork.test.ts`·`adapters/claude/adapter.ts` 복구 경로는 `655fa0e0..e024b87c` 변경 0줄이다.
+- R2-01 green의 이유: `send.harness.test.ts:routes OpenCode independently of global Claude`가 5번째 인자를 `JSON.stringify({ attachmentTexts: [], attachmentImages: [] })`로 단언하지만 fixture에 하네스 지시가 없어 지시 항이 production·변이 모두 `''`이다.
+
+## 5. V-pair closeout (r2)
+
+| Pair | r2 결과 | 근거 |
+|---|---|---|
+| VP12 MD02↔UT02 | **PASS** | `adapters/claude/native-history.test.ts` 14/14 — symlink TMPDIR에서도 통과(r1 3 실패), 인용 변이 red · Windows CI #783·#785·#787·#788 success |
+| VP05 R05↔AT05 | **PASS** | r1 `BLOCKED_BY:VP12` 해소, AC5 문장은 D18 범위로 정정 |
+| **VP3-A R19↔AT19·AR3↔IT3** | **PAIR_FAIL** | 3자리 중 missing 준비(R2-08)·재시도(R2-07) 닫힘 · "resolve 모델/입력 배선" 자리는 모델(R2-05·06)·새 입력(R2-03)·첨부(R2-02)·extra(R2-04) red, **추가 지시 edge(`send.ts:261-262`) 좌표 없음** — R2-01 green |
+| VP3-M MD3↔UT3 | **PASS** | `native-session.test.ts:bounds the complete UTF-8 recovery prompt including new text and attachments` · `app/harnesses/registry.test.ts:uses each harness context policy through the registered module` · R2-09~12 red |
+| VP3-R REGRESSION | **PASS** | r1 독립 변이 21건 red · 실제 OpenCode 1.19.0 CLI 통합 1/1(38.7초, 상속 `PWD`) |
+| VP2-3·VP2-4 | **PASS** | r1 "G-0265-1 영향"은 ΔV3가 상한을 정의해 해소 — 정의된 상한의 잠금은 VP3-A/M이 소유 |
+| V1·ΔV1·VP2-1·VP2-2·VP2-R | PASS (r1 좌표) | r1 §5 좌표, HEAD 전체 실행 통과 |
+
+- root PAIR_FAIL: VP3-A. 종속 BLOCKED_BY: 없음(VP3-M·VP3-R은 독립 관측).
+- §10 분모: ΔV3 5자리(VP3-A 3 + VP3-M 2)를 계약 운반 edge로 다시 세면 VP3-A "입력 배선" 1자리 = 새 입력·첨부·추가 지시 3 edge → 닫힘 VP3-A 4/5 edge · VP3-M 2/2.
+
+### AT / AC 합계 (r2)
+
+| 범위 | 결과 |
+|---|---|
+| V1 AC1~8 | ✅8 (r1 ⚠️ AC5 해소) |
+| ΔV1 AC9~14 | ✅6 |
+| ΔV2 AC15~18 | ✅4 (r1 ⚠️ AC17·18 해소) |
+| ΔV3 AC19 | ⚠️1 — 코드는 지시를 포함하지만 그 edge가 미잠금 |
+
+- 합계: `✅ 18 · ⚠️ 1 · ❌ 0 = 19`.
+- 사본 대조: 구현 보고 ΔV3 r2·r2.1 `✅5`(AC15~19) ↔ trailer `ce7aa102`·`7be5d723` `19/21` 중 0265 몫 5 · `6492828c`·`3e9cbf86` `6/6` 중 5 — 사본끼리 일치, 검증 결과와 AC19에서 갈림.
+
+## 9. 게이트 (r2)
+
+[0264 r2 §9](../0264-harness-module-isolation/verify.md)의 HEAD `e024b87c` 공통 실행(typecheck exit 0 · ESLint error 0 · Vitest 754파일 7,404케이스 실패 0 · production build exit 0 · scripts 142/142 · inventory/migration/budget/diff check · 원격 Windows CI #788 success)에 더해:
+
+- symlink TMPDIR(`TMPDIR=<scratchpad>/linktmp` → 실제 디렉터리) `adapters/claude/native-history.test.ts` 14/14.
+- 실제 OpenCode 1.19.0 CLI(`ORCA_TEST_OPENCODE_EXE`, 상속 `PWD=/home/user/orca-skin/app`) `native-storage.integration.test.ts` 1/1 · 38.7초.
+- 원격 CI 이력: r2 범위 7회 중 #782(`ce7aa102`)·#784(`7be5d723`)·#786(`3e9cbf86`) red — DB 재개방·native cursor seed·mail 정리 훅 timeout, r2.1이 fixture 정리와 Windows CI 파일 worker 1로 보완. 최종 #787·#788 연속 success.
+- 잔여물: fixture 임시 디렉터리 `app/.tmp/native-cli-test-*`는 실행 뒤 비어 있음(`.gitignore:4`).
+
+## 11. Repository operation checks (r2)
+
+- INDEX 0265 행: 대상 커밋 `9d52e072`(ΔV3 설계)·`ce7aa102`(r2)·`7be5d723`·`6492828c`(r2.1)·`3e9cbf86` 기입 — 전부 commit, 공유 브랜치 ancestor.
+- trailer: `9d52e072` 3키(`designed`) · `ce7aa102`·`7be5d723` 9키 · `6492828c` 7키 · `3e9cbf86` 6키 파싱, 허용값 정상.
+- `[구현자 기입]` ΔV2 복원·ΔV3 r2·r2.1 각 7필드 전수 존재 → D-0265-2 closed.
+- `app/AGENTS.md:86` 변경: 비밀·일회성 정보 없음, 상위 규칙과 충돌 없음.
+
+## 13. Finding disposition (r2)
+
+| # | finding | 귀속 | disposition | 후속 |
+|---|---|---|---|---|
+| G-0265-1 · G-0265-2 | 복구 상한 부재 · D02/AC5 모순 | ΔV3 | closed | — |
+| D-0265-1 | O22 Windows realpath | VP12 | closed — 인용 변이 red, 대조 green, CI green | — |
+| D-0265-2 | ΔV2 기입 필드 접힘 | 필드 계약 | closed | — |
+| N-0265-1 · 3 · 4 | PWD 상속 · CI red 미보고 · 메타 V mode | — | closed | — |
+| N-0265-2 | 중복 가드 전용 oracle 없음 | — | NON_BLOCKING 유지 | — |
+| **D-0265-3** | 복구 상한의 하네스 추가 지시 edge(`send.ts:261-262` → `resolveTurn(…, recoveryExtra)`)가 어떤 oracle에도 없다 — R2-01(지시 항 제거) green 0/4,057. ΔV3 TD "정규화된 첨부·추가 지시도 계산에 포함" | VP3-A · AC19 · ΔV3 §10 | **BLOCKING** | 구현: `ctx.settings.getAll().harnesses[id].instructions`가 있는 fixture에서 실제 `handleChatSend`→`resolveTurn` 인자(또는 차단 결과)를 단언. R2-01 red로 닫힘 |
+| N-0265-5 | 이미지 첨부의 base64 바이트를 입력 예산으로 세어 짧은 보관 대화의 복구도 차단될 수 있다 | D17 공식의 결과 | NON_BLOCKING | 의도한 보수성인지 사용자 확인 후보 |
+| N-0265-6 | `prepareNativeSession` 예산 입력의 기본값이 새 입력·첨부를 세지 않는다 | 우회 여지 | NON_BLOCKING | 기본값 제거 후보 |
+
+## 14. Review Signals (r2)
+
+- r1과 다른 축의 새 실패다 — r1은 상한 계약 부재(PLAN_GAP), r2는 정의된 상한의 한 입력 edge 미잠금.
+- 관련 지침: `docs/handoff/AGENTS.md §공통 V` "계약 값을 운반하는 edge는 모두 자리" · 0264 r1 D-0264-1과 같은 형태(조립 인자 중 한 항이 fixture에서 빈 값).
+- 반복 환경 한계: 없음 — 이번 검증 환경은 Electron 바이너리·SQLite·OpenCode 1.19.0 CLI를 모두 갖췄다.
+
+## 15. 결론 (r2)
+
+- 상태: **FAIL**.
+- pair: root PAIR_FAIL 1(VP3-A) · 나머지 REQUIRED/REGRESSION PASS · BLOCKED_BY 0 · PLAN_GAP 0.
+- AC: ✅18 · ⚠️1(AC19) · ❌0. 운영 gate PASS.
+- NON_BLOCKING: N-0265-2·5·6.
+- 다음 단계: 구현자 r3 — D-0265-3 oracle 추가 후 R2-01 red 보고.

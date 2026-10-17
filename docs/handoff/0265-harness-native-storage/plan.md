@@ -776,3 +776,13 @@ native-cursor의 무변경 probe7케이스, native-session 복구11케이스, na
 ## [구현자 기입] Review Signals — r2.1
 
 verify 이후 두 번째 구현 턴(r2.1)이다. 기존 실패 경로3곳 정정과 이번 원격 fixture 초기화 timeout을 구분한다. 독립 검증과 기존 시각 인수는 별도로 남긴다.
+
+## [검증자 기입] 파생 이슈 — r2 검증
+
+r2(ΔV3) 독립 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md) r2.
+
+| # | finding | 귀속 | disposition | 대응 방향 |
+|---|---|---|---|---|
+| D-0265-3 | 복구 상한의 하네스 추가 지시 edge(`app/chat-turn/send.ts:261-262`의 `harnesses[id].instructions` → `resolveTurn(…, recoveryExtra)`)가 어떤 oracle에도 없다. 지시 항을 제거해도 `src/main` 4,057케이스 green | VP3-A · AC19 · ΔV3 §10 "추가 지시도 계산에 포함" | BLOCKING | 하네스 지시가 설정된 fixture로 실제 `handleChatSend`→`resolveTurn` 예산 입력 또는 차단 결과를 단언. 지시 항 제거 변이 red |
+| N-0265-5 | 이미지 첨부 base64 바이트를 예산으로 세어 짧은 보관 대화의 복구도 차단될 수 있다 | D17 공식 | NON_BLOCKING | 사용자 확인 후보 |
+| N-0265-6 | `prepareNativeSession` 예산 입력의 기본값 `{ text: '', contextWindow: 200000 }`이 생략 호출에서 입력·첨부를 세지 않는다 | 우회 여지 | NON_BLOCKING | 기본값 제거 후보 |
