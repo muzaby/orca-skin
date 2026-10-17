@@ -605,3 +605,175 @@ HEAD `a41a8d89`, `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 뒤 Electron 바이너
 - pair: root PAIR_FAIL 1(VP-Δ19-05) · BLOCKED_BY 4(VP-Δ19-03·04·VP-08·VP-14) · VP-Δ18-R1·VP-Δ19-R1 PASS · PLAN_GAP 0 · 사람 인수 대기 VP21-V·VP-11 시각.
 - AC(판정 범위 21): ✅12 · ⚠️9 · ❌0. 운영 gate PASS.
 - 다음 단계: handoff-review(라운드 5) → 구현자 r5 — D-0262-7의 J2 red 보고.
+
+# r5 검증
+
+## 메타 (r5)
+
+| 항목 | 값 |
+|---|---|
+| 일자 | 2026-10-17 |
+| 대상 커밋/range | `d16a71e3..9760e0a5` — round 34 review `e848ff3b`(`Handoff: none`) + r5 구현 `9760e0a5`(테스트 2파일 + plan·INDEX) |
+| 구현 전 plan 기준 | `12c81cfa`(ΔV21) — r4 검증 `d16a71e3` 이후 규범 행 변경 없음 |
+| V mode / 유효 V | V1 + ΔV1~ΔV21 |
+| 검증 HEAD | `9760e0a5` (`origin/ccr-f3743b30-7177zo`, PR #507 → base `codex-opencode-harness`) |
+| 라운드 | 5 |
+| 상태 | **FAIL** — root PAIR_FAIL 1(VP-Δ19-05) · BLOCKED_BY 1 · PLAN_GAP 0 |
+| 자기 검증 여부 | **구현·검증·round 34 review가 같은 에이전트(같은 세션)다.** 보고에 없는 축 11개(K1~K10·K9b)를 심었고 그중 K9·K9b가 D-0262-8을 냈다(§4) |
+
+## 0. 기준선 / plan validity (r5)
+
+- `9760e0a5`의 `plan.md` 삭제 줄 1: 메타 `상태` 문구뿐이다. Decision·AC·V node/pair·§10 변경 없음 → r4 plan validity 유지.
+- `app/` 변경: 테스트 2파일 +73/−3, production 0파일(`git diff --numstat d16a71e..9760e0a -- app/`). `scan-surface.sh`도 소스 변경 0.
+- 아래 D-0262-8의 자리는 ΔV19 §10 `EP55e resolve-turn 모델 선택`이 이미 명시한다. 구현자가 새 계약 없이 닫을 수 있으므로 PLAN_GAP 아님.
+- 라운드 5 선행 handoff-review: `e848ff3b`(round 34)가 실행 구간 정의에 "조립 루트가 주입하는 의존성을 빼서 실행되지 않은 production 분기"를 넣었고 r5는 그 뒤에 구현됐다.
+
+## 2. 비판적 읽기 (r5) — 새 조립과 production 조립 루트 대조
+
+| 좌표 | 테스트 조립 | production(`bootstrap.ts:557-590`·`:787-788`) | 판정 |
+|---|---|---|---|
+| M `agent:list`·엔진 CRUD | `harnessRuntime`(실제 서비스, augmenter `createRuntimeConfigAugmenters({auth:{},secrets:{}})`) · `runtimeModelCatalog`(contributions `[]`, 던지는 `snapshotOf`) | 같은 factory, 기본 배포 augmenter `{}`·contributions `[]`(`deployment/harness-runtime.ts`) | 동등. `snapshotOf`·`onChange`는 contribution이 있을 때만 호출(`runtime-catalog.ts:162-167`) |
+| I19 `agent:list` | 위와 같음(augmenter `{}`) | 같음 | 동등 |
+| **I19 `resolveTurnProvider`** | ctx에 `harnessRuntime`만 — **`runtimeModelCatalog` 없음** | `registerChatHandlers({ ctx })`(`bootstrap.ts:973`)의 ctx가 둘 다 가짐 → `resolve-turn.ts:93`·`send.ts:658` | **`resolve-turn.ts:228` merge가 `?? settings` fallback으로 실행 — production 분기 구간 밖** |
+
+- 운반 값: M의 편집 전후 모델명이 다르고, `agents`는 catalog 성공에서만 나와 폴백과 구별된다(`catalog.ts:5-27`). 비퇴화 확인.
+- I19의 턴 선택은 같은 `runtime`으로 먼저 `agent:list`를 돌려 cache를 데운다. 그래서 `resolve-turn.ts:266`을 `cached`로 바꾼 K4가 I19에서 green이고, 그 자리는 `native-history.test.ts`의 `uses stored %s backend…`(opencode 포함)가 닫는다.
+
+## 4. 적대 증거 재측정 (r5)
+
+범위: `src/main`+`src/shared` 425파일 4,909케이스(기준선 실패 0·skip 7). 실행기는 변이마다 원본 SHA256 복원을 단언했고 21회 모두 복원 확인, 종료 후 `git status` clean.
+
+### 인용 변이 (D-0262-7)
+
+| 변이 | r4 | r5 | 구현 보고 |
+|---|---|---|---|
+| J2 `misc.ts:63` `harnessRuntime.resolve(target)` → `cached(entry.key)` | green 0 | **red 3** — M `creates, reads, updates, lists and deletes only the selected claude/opencode engine` 2 · I19 1 | 3 일치 |
+
+- 인용 1/1 red → **D-0262-7 closed**.
+
+### 이전 라운드 red 재실행 (검출 파일 M이 바뀜)
+
+| 변이 | r4 | r5 | 판정 |
+|---|---|---|---|
+| I1 `engineAdd` 무검증 parser | red 7 | red 7 (M 7) | 유지 |
+| I1b `engineImportUserSettings` 무검증 parser | red 2 | red 2 (M 1 · `engine.import` 1) | 유지 |
+| P08b `EngineSchema = z.string()` | red 10 | red 10 (protocol 5 · M 5) | 유지 |
+| J7 쓰기 경로 하네스 `claude` 고정 | red 4 | red 4 (M 2 · I19 1 · settings-write 1) | 유지 |
+| J14 adapter `get('claude')` | red 1 | red 3 (M 2 · misc.runtime-catalog 1) | 확장 |
+| J16 catalog 호출 전 throw | red 1 | red 4 (M 2 · I19 1 · misc.runtime-catalog 1) | 확장 |
+| J1 `engine.ts:45` runtime 무효화 제거 | red 13 | red 13 | 유지 |
+
+- red → green 0 — 덮개 회귀 없음. renderer 쪽(I2·I3·I5·J3~J13)은 production·검출 파일이 `a41a8d89..9760e0a5`에서 무변경이라 재실행하지 않았다.
+- 보고 추가 감도 J20 red 1(`misc.runtime-catalog`)·J21 red 3(`engine.runtime-catalog`)도 재현했다.
+
+### 보고에 없는 독립 축
+
+| 변이 | 자리 | r5 | 판정 |
+|---|---|---|---|
+| K1 `misc.ts` catalog에 `prepared.providerSettings?.settings` 대신 `{}` | settings→catalog 운반 | red 4 (M 2 · I19 · misc.runtime-catalog) | 잠김 |
+| K2 `misc.ts` target `harnessId`를 `'claude'`로 | resolve target 하네스 | red 4 (같은 분포) | 잠김 |
+| K3 `misc.ts` target `modelProviderId`를 `''`로 | resolve target provider | red 4 (같은 분포) | 잠김 |
+| K8 `misc.ts:61` 읽기 전용 판정을 `true`로 | 분기 선택 | red 3 (M 2 · I19) | 잠김 |
+| K10 `misc.ts:49` `merge(settings)` → `merge([])` | agent:list merge | red 4 (M 2 · I19 · misc.runtime-catalog) | 잠김 |
+| K4 `resolve-turn.ts:266` `resolve(entry)` → `cached` | 턴 config | red 11 (native-history 9 · native-session 1 · resolve-turn.runtime-catalog 1) — **I19 green** | 잠김(다른 좌표) |
+| K5 `resolve-turn.ts` catalog settings `{}` | 턴 catalog 운반 | red 2 (I19 · resolve-turn.runtime-catalog) | 잠김 |
+| **K9** `resolve-turn.ts:228` `merge(settings, req.adapter.id)` → `merge(settings, 'claude')` | 턴 선택 merge(EP55e) | **green 0/4,909** | **D-0262-8** |
+| **K9b** 같은 자리 `merge([], req.adapter.id)` | 같음 | **green 0/4,909** | D-0262-8 |
+| K6 `misc.ts:63` production 분기를 fallback 계산(`harnessSettings.resolve`)으로 | runtime config vs settings | green 0 | N-0262-9 — 기본 배포에서 두 분기 산출이 같다 |
+| K7 `misc.ts:65` config 가드 제거 | 가드 | green 0 | N-0262-10 — 기본 배포에서 도달 불가·하위 TypeError도 `catalogError` |
+
+- K9 probe(저장소에 남기지 않음): I19 사본의 `resolveTurnProvider` ctx에 같은 `runtimeModelCatalog`를 넣으면 원본 green, K9에서 `expected undefined to be 'local/first'`로 red다. production에서는 OpenCode 턴이 provider·모델 없이 진행된다.
+
+## 6. 강제 지점 재열거 (r5)
+
+구현 보고의 분모 검색은 `engine.ts`·`misc.ts` 두 파일이다. 같은 술어를 `src/main` 비테스트 전체로 넓히면(`rg -n 'ctx\.(harnessRuntime|runtimeModelCatalog)' src/main --glob '!*.test.ts'`) 14줄이고, 차집합은 `resolve-turn.ts` 5줄 — ΔV19 EP55e 자리다.
+
+| 자리 | 보고 | 재측정 | 근거 |
+|---|---|---|---|
+| `engine.ts:45-46` 무효화 | 닫힘 | 닫힘 | J1 red 13 |
+| `engine.ts:53` 읽기 전용 가드 | 닫힘 | 닫힘 | J21 red 3 |
+| `misc.ts:49` merge | 닫힘 | 닫힘 | J20 red 1 · K10 red 4 |
+| `misc.ts:60-63` resolve | 닫힘 | 닫힘 | J2 red 3 · K1~K3·K8 red |
+| `misc.ts:61-62` 읽기 전용 cached | 도달 불가 | 도달 불가 | 기본 배포 contributions `[]` |
+| `misc.ts:65` config 가드 | 닫힘(J2) | **도달 불가·동치** | K7 green — J2에서만 인위로 도달하고 가드가 없어도 `catalogError`가 난다 |
+| `resolve-turn.ts:228` merge | (분모 밖) | **열림** | K9·K9b green |
+| `resolve-turn.ts:264-265` 읽기 전용 cached | (분모 밖) | 도달 불가 | 위와 같음 |
+| `resolve-turn.ts:266` resolve | (분모 밖) | 닫힘 | K4 red 11(I19 아님) |
+
+- 합계: 보고 `5/6` ↔ 재측정 9자리 중 닫힘 5 · 도달 불가/동치 3 · **열림 1**.
+- EP-08(VP-08) 59자리: r4 차집합 1(`agent:list` resolve)이 J2 red로 닫혀 **59/59**. EP55d도 J2·K1~K3·K8·K10 red로 닫힘. EP55e는 config resolve(K4)·catalog 운반(K5) 닫힘, **merge 열림 → 2/3**.
+
+## 5. V-pair closeout (r5)
+
+| Pair | r5 결과 | 근거 |
+|---|---|---|
+| **VP-Δ19-05 AR19↔IT19** | **PAIR_FAIL** | EP55d 닫힘(D-0262-7 closed). EP55e `resolve-turn.ts:228` production merge 미잠금(K9·K9b green). D-0262-8 |
+| VP-Δ19-03 R54↔AT54 | BLOCKED_BY:VP-Δ19-05 | path가 `→턴 선택`(EP55a~e)을 지난다 |
+| VP-Δ19-04 SD19↔ST19 | **PASS** (r4 BLOCKED_BY 해소) | path EP54c/55b~d — EP54c I19(J7 red) · EP55b `catalog.test.ts:rebuilds from only the engine document…` · EP55c `engine.deployment`(J1 red 10) · EP55d 위 |
+| VP-08 R-08↔AT-08 | **PASS** (r4 BLOCKED_BY 해소) | EP-08 59/59. 턴 선택은 EP-08 자리가 아니다 |
+| VP-14 SD-02↔ST-02 | **PASS** (자동 행동) | path `engine/settings→catalog→UI` = VP-08/09/11 실행 집합. VP-11 시각은 사람 |
+| VP-Δ18-R1 · VP-Δ19-R1 | PASS (r4 좌표) | M 검출 유지(J7 red 2·I1b red 1) |
+| 그 밖의 V1~ΔV21 | r4 판정 유지 · VP21-V·VP-11 시각은 사람 인수 대기 | — |
+
+- root PAIR_FAIL 1 · BLOCKED_BY 1 · PLAN_GAP 0.
+
+### AT / AC 합계 (r5 판정 범위)
+
+| AC | 결과 |
+|---|---|
+| AC8 | ✅ — production 조립의 CRUD 전후 catalog 산출(J2 red) |
+| AC54 (ΔV19) | ⚠️ — 목록 경로는 닫힘. 턴 선택의 production merge 분기 미잠금(probe에서는 동작) |
+| AC1·2·3·4·5·6·7·9·10·12 · AC20-1·20-2 | ✅ 12 (r4 유지) |
+| AC11 · AC20-3 · AC26·27·33·34·48 | ⚠️ 7 — 시각 사람 인수 대기 (r4 유지) |
+
+- 합계: `✅ 13 · ⚠️ 8 · ❌ 0 = 21`(r4 범위와 같음). 나머지 36개는 r3 판정 유지.
+- 사본 대조: 구현 보고 `✅2` ↔ trailer `Criteria-Met: 2/2` ↔ INDEX `AC8·AC54 2/2` — 사본끼리 일치, 검증 결과와 AC54에서 갈림.
+
+## 9. 게이트 (r5)
+
+HEAD `9760e0a5`, better-sqlite3 Node ABI(이후 build가 Electron ABI로 전환).
+
+| gate | 관측 |
+|---|---|
+| Vitest 전체 | 758파일 7,454케이스 — 7,447 pass · 0 fail · 7 skip. 변경 2파일 14/14 |
+| typecheck | node·web·test 3구성 exit 0, `error TS` 0 |
+| readonly ESLint(`--cache=false`, `--fix` 없음) | 1,738파일 error 0 · warning 2(기존 `react-hooks/incompatible-library` 2) |
+| `node --test scripts/*.test.mjs` | 142/142 |
+| inventory · migrations · test-budgets | prose·links ok · no-copies ok · 16 real-git suites ok |
+| `npm run build` | exit 0 (`[sqlite-abi] electron: rebuilt`·3 번들) |
+| 원격 Windows CI | PR #507 check `gate`(head `9760e0a5`) success |
+
+- 운영 gate PASS. 이번 FAIL은 gate가 아니라 pair 실패다. 각 명령 뒤 `git status` clean.
+
+## 11. Repository operation checks (r5)
+
+- INDEX 0262 행: `(r5 구현 — 검증자 기입)`을 `9760e0a5`로 채웠다(`git cat-file -t` commit, `origin/ccr-f3743b30-7177zo` 포함). r5는 아직 base `codex-opencode-harness`에 없고 PR #507로 올라가 있다.
+- trailer: `9760e0a5` 5키(`Agent: claude`·`Handoff`·`Status: implemented`·`Criteria-Met: 2/2`·`Verified-By: pending`), `e848ff3b` 3키(`Agent: claude`·`Handoff: none`·`Status: designed`) 파싱·허용값 정상.
+- `[구현자 기입]` r5 7필드 전수 존재. 강제 지점 표는 pair별 §10 자리와 `남긴 곳` 열을 담는다. 다만 분모 검색 범위가 두 파일이라 EP55e의 조립 의존 자리가 표에 없다(§6).
+- `e848ff3b`(handoff 지침) 위생: 비밀·이메일·IP 0. 지침 의미 검증은 round 34 review 자체의 책임이며 이 verify 범위 밖이다.
+- INDEX 비고 3줄(≤5). 라운드: 이번 FAIL로 6이 된다 — 3 초과라 다음 재구현 전에 handoff-review.
+
+## 13. Finding disposition (r5)
+
+| # | finding | 귀속 | disposition | 후속 |
+|---|---|---|---|---|
+| D-0262-7 | `agent:list` production 분기 | VP-Δ19-05 · EP55d · EP-08 | **closed** — 인용 J2 red 3 | — |
+| **D-0262-8** | 턴 선택 `resolve-turn.ts:228` production merge 미잠금 — K9(`'claude'` 고정)·K9b(`[]`) green 0/4,909. EP55e 좌표 I19의 `resolveTurnProvider` ctx가 production이 주입하는 `runtimeModelCatalog`를 빼 `?? settings` fallback을 실행한다. 깨지면 OpenCode 턴의 `model`이 `undefined`(probe) | VP-Δ19-05 root · ΔV19 EP55e · AC54 | **BLOCKING** | I19 턴 선택 ctx에 bootstrap과 같은 `runtimeModelCatalog`를 주입해 K9 red로 닫는다. 같은 파일의 다른 조립 의존 자리도 함께 대조 |
+| N-0262-9 | `misc.ts:63` production 분기를 settings fallback 계산으로 바꿔도 green(K6) — 기본 배포의 augmenter 산출(`runtimeEnv`·`availableModels`·`validUntil`)이 빈 값뿐이라 두 분기가 구별되지 않는다 | 0188 runtime config · 0265 EP11(구현자 보고) | NON_BLOCKING | 0262 계약(settings·key·실제 adapter)은 K1~K3로 잠김. augmenter 운반은 해당 핸드오프 몫 |
+| N-0262-10 | 구현 보고가 `misc.ts:65` 가드를 J2로 닫았다고 셌다 — K7 green, 기본 배포에서 도달 불가·동치 | 보고 정확성 | NON_BLOCKING | 분모 표에서 도달 불가로 분류 |
+| N-0262-1 · 3 · 7 · 8 | 중단 분류 · 폼 `limit.context` · 좌표 이름 · 확인 문구 인자 | — | 기존 disposition 유지 | — |
+
+## 14. Review Signals (r5)
+
+- r2·r3·r4·r5가 같은 형태다: 지목한 자리는 닫혔고 같은 계약의 인접 자리가 비었다. r5는 지목된 `agent:list`(handler) 대신 **형제 소비처 `resolve-turn`**(같은 조립 의존 분기, 같은 ΔV19 pair)이 비었다.
+- 관련 지침은 있었다: 구현자는 round 34 정의를 적용했다고 적었으나 분모 검색을 D-0262-7이 인용한 두 파일로 한정했다. `docs/handoff/AGENTS.md` 구현 최소 계약 "그 검색의 술어는 불변식의 주어로 쓴다 — 네가 쓴 해법의 이름이 아니다"가 이 형태에 해당한다.
+- 구현·검증·review가 같은 에이전트다. 이번 결함은 보고에 없는 형제 진입점 축(K9)에서만 나왔다.
+- 라운드 6(>3) — 다음 재구현 전 handoff-review 대상.
+- 반복 환경 한계: 실제 OpenCode CLI 부재(skip 7). Electron 바이너리는 이번 환경에 설치돼 있었다.
+
+## 15. 결론 (r5)
+
+- 상태: **FAIL**.
+- pair: root PAIR_FAIL 1(VP-Δ19-05) · BLOCKED_BY 1(VP-Δ19-03) · VP-08·VP-14·VP-Δ19-04 PASS(r4 BLOCKED_BY 해소) · PLAN_GAP 0 · 사람 인수 대기 VP21-V·VP-11 시각.
+- AC(판정 범위 21): ✅13 · ⚠️8 · ❌0. 운영 gate PASS.
+- 다음 단계: handoff-review(라운드 6) → 구현자 r6 — D-0262-8의 K9 red 보고.

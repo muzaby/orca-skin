@@ -3416,3 +3416,15 @@ SELF_PASS(D-0262-7 범위). 불변식은 "엔진 경로의 좌표는 production 
 - 막았어야 할 지침: round 34 이전에는 실행 구간 정의가 mock만 제외해, 조립 차이 분기를 구간 안으로 읽을 수 있었다. 이번 턴은 바뀐 정의를 적용했다.
 - 구현자·r4 검증자·round 34 리뷰어가 같은 에이전트다. 다음 검증이 같은 에이전트면 verify §4의 자기 검증 규칙(보고에 없는 적대 축)이 걸린다.
 - 반복 환경 한계: 기본 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 뒤 Electron 바이너리가 없다(`node node_modules/electron/install.js`로 해소). 실제 OpenCode CLI도 없다(skip).
+
+## [검증자 기입] 파생 이슈 — r5 검증
+
+r5(V1~ΔV21) 독립 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md) r5. 인용 J2가 red 3으로 D-0262-7이 닫혔고 VP-08·VP-14·VP-Δ19-04가 PASS다. 같은 ΔV19 pair의 턴 선택 자리가 비어 VP-Δ19-05가 root다.
+
+| # | finding | 귀속 | disposition | 대응 방향 |
+|---|---|---|---|---|
+| D-0262-8 | `main/app/chat-turn/resolve-turn.ts:228` 턴 선택의 production merge(`runtimeModelCatalog.merge(settings, req.adapter.id)`) 미잠금 — `'claude'` 고정(K9)·`[]`(K9b)으로 바꿔도 `src/main`+`src/shared` 4,909케이스 green. production은 `registerChatHandlers({ ctx })`(`bootstrap.ts:973`)로 `runtimeModelCatalog`를 주입하는데 EP55e 좌표 I19의 `resolveTurnProvider` ctx는 이를 빼 `?? settings` fallback을 실행한다. 깨지면 OpenCode 턴의 `model`이 `undefined`(검증자 probe) | VP-Δ19-05 root · ΔV19 EP55e · AC54 | BLOCKING | I19 턴 선택 ctx에 bootstrap과 같은 `runtimeModelCatalog`를 주입해 K9 red로 닫는다. 분모 검색은 handler 두 파일이 아니라 `src/main` 비테스트 전체(`resolve-turn.ts` 포함)로 센다 |
+| N-0262-9 | `misc.ts:63` production 분기를 settings fallback 계산으로 바꿔도 green(K6) — 기본 배포 augmenter 산출이 빈 값뿐 | 0188 runtime config · 0265 EP11 | NON_BLOCKING | 0262 계약은 K1~K3로 잠김 |
+| N-0262-10 | r5 보고가 `misc.ts:65` 가드를 J2로 닫았다고 셈 — K7 green, 기본 배포에서 도달 불가·동치 | 보고 정확성 | NON_BLOCKING | 분모 표에서 도달 불가로 분류 |
+
+r5 보고의 조립 의존 자리 `5/6`은 재측정 9자리 중 닫힘 5 · 도달 불가/동치 3 · 열림 1이다(verify §6). 다음 재구현 전에 `handoff-review`를 수행한다 — 라운드 6(verify §14).
