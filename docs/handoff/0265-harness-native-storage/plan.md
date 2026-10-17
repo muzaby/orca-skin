@@ -6,7 +6,7 @@
 |---|---|
 | slug | `0265-harness-native-storage` |
 | 작성자 / 일자 | Codex / 2026-10-16 |
-| 상태 | impl/IMPL_DONE — r2.1 CI 재실패 보완·Windows 전체 게이트 통과, 독립 재검증 대기 |
+| 상태 | impl/IMPL_DONE — r3 복구 예산의 하네스 지시 edge 자동 잠금 보완, 독립 재검증 대기 |
 | V mode / revision | Delta V / V1 + ΔV1~3 |
 | 기준 V | V1@공유 브랜치 `8c94b449485771d5ea588e62e38c8cfbedc74e3b`. OpenCode 구체 커서는 0262 ΔV16, 의존 경계 회귀는 0264 |
 | 관련 | PR #502 · ADR-009 · 0262 · 0230 |
@@ -786,3 +786,72 @@ r2(ΔV3) 독립 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md) r2.
 | D-0265-3 | 복구 상한의 하네스 추가 지시 edge(`app/chat-turn/send.ts:261-262`의 `harnesses[id].instructions` → `resolveTurn(…, recoveryExtra)`)가 어떤 oracle에도 없다. 지시 항을 제거해도 `src/main` 4,057케이스 green | VP3-A · AC19 · ΔV3 §10 "추가 지시도 계산에 포함" | BLOCKING | 하네스 지시가 설정된 fixture로 실제 `handleChatSend`→`resolveTurn` 예산 입력 또는 차단 결과를 단언. 지시 항 제거 변이 red |
 | N-0265-5 | 이미지 첨부 base64 바이트를 예산으로 세어 짧은 보관 대화의 복구도 차단될 수 있다 | D17 공식 | NON_BLOCKING | 사용자 확인 후보 |
 | N-0265-6 | `prepareNativeSession` 예산 입력의 기본값 `{ text: '', contextWindow: 200000 }`이 생략 호출에서 입력·첨부를 세지 않는다 | 우회 여지 | NON_BLOCKING | 기본값 제거 후보 |
+
+## [구현자 기입] 설계 리뷰 — r3
+
+SELF_PASS(AC19 보완 범위). r2 D-0265-3의 불변식은 “복구 예산에는 정규화된 첨부와 실행 대상 하네스의 추가 지시가 함께 들어간다”다. V1+ΔV1~3와 D17/18을 유지하고 테스트만 추가했다. 다른 하네스의 지시를 잘못 합치는 경우도 구별하도록 두 하네스의 지시를 서로 다르게 설정했다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — r3
+
+| pair / §10 자리 | 실제 실행 구간 / 직접 oracle | 자기결과 |
+|---|---|---|
+| VP3-A / missing 준비·빈 replacement 재시도 (2) | `native-session.test.ts:rejects oversized recovery before creation and preserves the archive and receipt on retry` — 실제 SQLite에서 생성0·binding/receipt 불변·보관 유지 | SELF_PASS |
+| VP3-A / resolve 모델·입력 배선 (1) | `native-session.test.ts:uses the selected engine model context limit before creating a replacement` 및 `passes new input and additional context through resolve before native recovery` — 실제 resolve→budget 차단 | SELF_PASS |
+| 위 배선의 첨부·하네스 지시 edge (2) | `send.harness.test.ts:includes only the saved %s harness instructions in the recovery budget input` — 실제 handleChatSend→resolveTurn 경계의 5번째 인자를 Claude/OpenCode 각각 단언 | SELF_PASS |
+| VP3-M / byte 상한·하네스 정책 (2) | `native-session.test.ts:bounds the complete UTF-8 recovery prompt including new text and attachments`; `app/harnesses/registry.test.ts:uses each harness context policy through the registered module` | SELF_PASS |
+| VP3-R / 복구·native 보관 회귀 | 전체 Vitest 실행에 기존 native-session·adapter 복구·history/SQLite·store 좌표 포함. 실제 CLI 선택 실행과 Windows CI는 아래 운영 gate와 구분 | SELF_PASS(자동 실행 범위) |
+
+전수 검색: `rg -n 'systemPromptAppend|instructions|recoveryExtra|contextWindow' app/src/main/app/chat-turn/{send,resolve-turn,native-session}.ts`; `rg -n 'recoveryFitsContext|extra|byteLength' app/src/main/features/history/native-recovery.ts`. §10의 기존 3+2자리를 유지하며, 세 번째 자리에서 지시를 합치는 `send.ts`와 전달된 extra를 읽는 `resolve-turn.ts`·budget 소비를 구분했다. 새 테스트가 mock하는 `resolveTurn` 안쪽은 기존 실제 resolve/SQLite 테스트로 관측하며 새 테스트 하나로 복구 전체를 닫지 않는다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r3
+
+| 심은 결함 | 출처 | r2 → r3 | 복원 |
+|---|---|---|---|
+| R2-01: `resolveTurn`에 넘기는 `harnesses[activeAdapter.id].instructions` 항 제거 | D-0265-3 인용 | green → assertion red 2/14(Claude·OpenCode) | 원본 SHA256 일치·동일 suite green |
+| X03: 위 항을 항상 Claude 지시로 대체 | 추가 형제 하네스 대조 | assertion red 1/14(OpenCode) | 원본 SHA256 일치·동일 suite green |
+
+분모 검산: 선택 증거 0 · 인용 변이 1 · 새 구조 proxy oracle 0 = 의무 표 행 1; 추가 대조 1행은 별도다. 재현은 `cd app && ./node_modules/.bin/vitest run src/main/app/chat-turn/send.harness.test.ts`; 표의 단일 식만 각각 바꿨다. 기존 테스트와 production 코드는 교체·삭제하지 않았고, r1/r2의 다른 변이 재실행 전체를 이번 실측으로 주장하지 않는다. r2가 재식별하지 못했던 M0265-05는 아래 별도 대조로 재실행했다.
+
+추가 회귀 M0265-05: `claude/adapter.ts`의 recovery `input.echo`에서 `text: req.text` 치환을 제거하면 `adapter.fork.test.ts:recreates an expired conversation with the original UUID and hides archived context in its receipt`가 assertion red 1/6다. 원본 SHA256 복원 뒤 같은 suite 6/6 green으로 r1의 검출을 재현했다. 이 결과는 다른 r1 변이 전체 재실행을 뜻하지 않는다.
+
+## [구현자 기입] Product/UX 파생 검토 — r3
+
+기존 사용자 동작을 유지한다. 새 테스트는 보관 원본·native 저장소에 접근하지 않고 두 종류의 첨부와 한글 지시를 계산 경계에서 관측한다. 상한 차단의 사용자 문구와 생성/receipt 부작용은 기존 native-session 직접 oracle로 재확인한다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r3
+
+D-0265-3은 R2-01 red 2건으로 구현자 해소 보고한다. N-0265-2·5·6은 비차단 상태를 유지한다. 실제 모델 토큰 수나 이미지 예산의 보수성은 테스트 추가로 제품 결정을 바꾸지 않았다.
+
+설계 대비 동작 차이는 없다. 만료·공유·재진입·무효화 축에 새 runtime 장치를 도입하지 않았으며, 테스트의 서로 다른 하네스 지시로 공유 설정의 오선택만 추가 관측했다.
+
+## [구현자 기입] 구현 보고 — r3
+
+| AC | 이번 관측 / 자기판정 |
+|---|---|
+| AC19 | ✅ 실제 send 예산 인자의 지시·첨부 보존(2하네스), 기존 실제 resolve·UTF-8·SQLite 상한 차단 회귀 |
+
+검산: ✅1 · ⚠️0 · ❌0 = 이번 재구현 대상 1(AC19). 유효 AC 총수는 19로 불변이며 AC1~18의 r2 결과를 새로 완료 수에 합산하지 않는다. 구현 좌표는 `(r3 구현 — 좌표는 INDEX)`이며 운영 gate 실측은 아래 공통 표를 따른다.
+
+### r3 공통 운영 gate
+
+0262·0265의 같은 작업 트리에서 실행했다. 설치 SQLite는 Electron ABI 140이며 Node 24(ABI 137)로 직접 로드하지 않고 Electron Node 모드를 사용했다.
+
+| gate / 명령 (cwd=app) | 관측 |
+|---|---|
+| `ELECTRON_RUN_AS_NODE=1 ./node_modules/electron/dist/electron ./node_modules/vitest/vitest.mjs run --maxWorkers=2` | 756파일·7,429케이스 중 최초 7,387 pass·35 fail·7 skip. 변경한 5파일 44케이스는 통과 |
+| 위 실패 3파일만 일반 Node로 재실행 | attachments 18·Confluence connector 36·git-safety 2 = 56/56 pass. 최초 실패 35건 해소 후 합산 7,422 pass·7 skip·실패0 |
+| 환경 재실행 조건 | 작업용 CJS preload가 `os.homedir()`만 작업 폴더 fixture로 대체(HOME 환경변수 유지). 홈 쓰기 EROFS와 복사된 Electron의 libffmpeg 부재를 분리; production/test 소스 변경 없음 |
+| `./node_modules/.bin/eslint ./src ./scripts --format json` | 1,736파일·오류0·기존 TanStack 경고2 |
+| `npm --ignore-scripts run build` | node/web/test 타입 검사 3종·main/preload/renderer production build 통과. ABI 훅 미실행 |
+| `node --test scripts/*.test.mjs` | 142/142 pass |
+| `node scripts/check-migrations-appendonly.mjs` | SQL/import 동기화·사본 없음·v0.3.1 이후 append-only 통과(원격 태그 fetch 후 재실행) |
+| `node scripts/check-test-budgets.mjs` | real-git 16 suites 통과 |
+| `node scripts/check-doc-inventory.mjs --check` | generated inventory·prose·상대 링크 통과 |
+| `git diff --check` | 공백 오류0 |
+| 원격 Windows CI / 독립 verify | PR #502 checks에서 별도로 확인. 로컬 자기보고로 원격 성공·독립 PASS를 대체하지 않음 |
+
+7 skip은 실 SDK 1·Windows 전용 경로 5·`ORCA_TEST_OPENCODE_EXE` 미설정 native CLI 1이다. 이번 턴은 실제 OpenCode CLI·실공급자 응답·사람 시각 인수를 수행한 것으로 세지 않는다.
+
+## [구현자 기입] Review Signals — r3
+
+r2 FAIL 뒤 첫 구현 턴(r3)이다. 빈 지시 fixture가 실제 전달 항의 삭제를 검출하지 못하던 자리에 서로 다른 비어 있지 않은 지시를 넣었다. Node ABI 137과 설치 SQLite ABI 140의 차이는 바이너리 변경 없이 Electron Node 모드로 구분 검증했다. 독립 verify와 원격 Windows 결과는 로컬 자기보고와 구분한다.

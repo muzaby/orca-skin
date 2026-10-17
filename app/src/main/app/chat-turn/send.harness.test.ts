@@ -63,6 +63,57 @@ const payload = {
   agentKind: 'code'
 }
 describe('send admission uses immutable harness identity', () => {
+  it.each(['claude', 'opencode'] as const)(
+    'includes only the saved %s harness instructions in the recovery budget input',
+    async (backend) => {
+      const f = fixture(backend)
+      const instructions = {
+        claude: 'Claude 복구에 포함할 지시',
+        opencode: 'OpenCode 복구에 포함할 다른 지시'
+      }
+      Object.assign(f.deps.ctx, {
+        settings: {
+          getAll: () => ({
+            harnesses: {
+              claude: { instructions: instructions.claude },
+              opencode: { instructions: instructions.opencode }
+            }
+          })
+        }
+      })
+      const attachments = {
+        attachmentTexts: [
+          {
+            id: 'document',
+            name: '첨부 문서',
+            mimeType: 'text/plain',
+            sourceKind: 'dialog' as const,
+            path: '/repo/document.txt'
+          }
+        ],
+        attachmentImages: [
+          {
+            id: 'image',
+            name: 'image.png',
+            data: 'aW1hZ2U=',
+            mimeType: 'image/png',
+            sourceKind: 'clipboard' as const
+          }
+        ]
+      }
+      vi.mocked(normalizeAttachments).mockResolvedValueOnce(attachments)
+
+      await handleChatSend(f.deps, f.event, { ...payload, sessionId: 's' })
+
+      expect(resolveTurn).toHaveBeenCalledExactlyOnceWith(
+        f.deps.ctx,
+        f.deps.supervisor,
+        f.adapters[backend],
+        expect.objectContaining({ sessionId: 's', text: 'hello' }),
+        JSON.stringify(attachments) + instructions[backend]
+      )
+    }
+  )
   it.each([null, 's'])('routes OpenCode independently of global Claude (%s)', async (sessionId) => {
     const f = fixture(sessionId ? 'opencode' : undefined)
     await handleChatSend(f.deps, f.event, {
