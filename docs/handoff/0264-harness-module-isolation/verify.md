@@ -157,3 +157,118 @@
 - 상태: **FAIL** — REQUIRED/REGRESSION 13 중 PASS 11 · root PAIR_FAIL 1(VP11) · BLOCKED_BY 1(VP02→VP11) · PLAN_GAP 0.
 - AC: ✅10 · ⚠️1 · ❌0. 운영 gate PASS(원격 CI #765·#766 포함).
 - 다음 단계: 구현자 r2 — D-0264-1 oracle 추가. 0264 코드는 이후 0262/0263/0265가 계속 변경했으므로 HEAD에서 보완한다.
+
+---
+
+# r2 검증
+
+## 메타 (r2)
+
+| 항목 | 값 |
+|---|---|
+| 일자 | 2026-10-17 |
+| 대상 커밋/range | `c37553b3..e024b87c` — r2 구현 `ce7aa102`, 기록 `7be5d723`. 같은 범위의 0262/0265 공통 커밋 `eb333bff`·`6492828c`·`3e9cbf86`·`e7645433`·`e024b87c`도 HEAD에 포함 |
+| 구현 전 plan 기준 | `b8b7c301`(V1) — r1 기준 그대로, r2 설계 커밋 없음. r1 본문의 `b8b7c30e`는 오기(실재 `b8b7c301`) |
+| V mode / 유효 V | Baseline V1 |
+| 검증 HEAD | `e024b87c` (= `origin/codex-opencode-harness`) |
+| 라운드 | 2 |
+| 상태 | **PASS** — VP11 root 해소, PAIR_FAIL 0 · PLAN_GAP 0 |
+| 자기 검증 여부 | 구현 Codex · 검증 Claude — 구현자 ≠ 검증자 |
+
+## 0. 기준선 (r2)
+
+- 구현 커밋의 `plan.md` 변경: 삭제 1줄(메타 `상태`), 추가는 `[구현자 기입]` r2 7절뿐(`git diff c37553b3 e024b87c -- …/plan.md`). Decision·AC·V·§10 변경 없음.
+- 채점 기준: r1 §0 그대로 + D-0264-1 대응 방향(실제 `createHarnessSettingsService().resolve()`의 하네스별 loader 결과 직접 oracle).
+
+## 2. 비판적 읽기 (r2)
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 새 loader oracle이 production 경로에 진입하는가 | 예 | `app/harnesses/registry.test.ts:resolves each registered native loader without mixing harness policies` — `vi.mock` 0, 실제 `createHarnessSettingsService(root)`→`HarnessSettingsService.resolve`→하네스 loader→임시 `sources/settings/<h>/fixture/settings.json` |
+| 두 loader를 구별하는가 | 예 | 같은 입력에서 Claude는 `permissions.defaultMode` 제거, OpenCode는 원문 유지 → 맞바꿈 양방향 red(§4) |
+| r2 renderer 분해(`Requests.tsx`·`AboveInput.tsx` 분리, `composer.ts`·`TranscriptRuntime.ts` 확장자) | 동작 보존 | r1 red 등록 변이 M01~04·06·08·09가 전부 red 유지, 전체 Vitest 실패 0 |
+| N-0264-1 미사용 wrapper 제거 | 정상 | `rg 'ToolApprovalBody|RIGHT_PANEL_POLICY' app/src/renderer` production 재수출 0 — 각 하네스 `Requests.tsx`/`RequestDock.tsx`가 자기 `ToolApproval`을 직접 렌더 |
+
+## 4. 적대 증거 재측정 (r2)
+
+실행기: scratchpad `mut.mjs` — 변이 1건 적용 → 지정 범위 `vitest --reporter=json` → 원본 bytes 복원·SHA256 일치 확인. 모든 변이 후 `restored=true`.
+
+| 변이 | 범위 | r1 | r2 | 귀속 |
+|---|---|---|---|---|
+| M0264-14b settings loader 맵에서 OpenCode 제외 | `src/main` | **green**(4,051) | **red** 1/4,057 — 위 loader oracle `expected undefined to match object` | D-0264-1 인용 |
+| M0264-14c 모든 하네스가 Claude loader | `src/main` | — | **red** 1/4,057 | 형제 맞바꿈(독립) |
+| M0264-14d 모든 하네스가 OpenCode loader | `src/main` | — | **red** 1/4,057 — `not to have property "defaultMode"` | 형제 맞바꿈(독립) |
+| M0264-13 adapter registry가 OpenCode 미생성 | `app/harnesses` | red | **red** 1/21 | 덮개 유지 |
+| M0264-01 composer registry 맞바꿈 | chat·pages | red | **red** 18/2,092 | VP01 등록 |
+| M0264-02 transcript 맞바꿈 | chat·pages | red | **red** 17/2,092 | VP01 등록 |
+| M0264-03 rightpanel 맞바꿈 | chat·pages | red | **red** 25/2,092 | VP01 등록 |
+| M0264-04 engine configuration 맞바꿈 | engine·pages | red | **red** 20/63 | VP01 등록 |
+| M0264-06 landing 맞바꿈 | chat·pages | red | **red** 3/2,092 | VP01 등록 |
+| M0264-08·09 status·assistant 맞바꿈 | chat | red | **red** 14·11/2,081 | 독립 |
+| M0264-10 `harness/ownership` off | `scripts/harness-boundary.test.mjs` | red 3/8 | **red** 3/8 — 복원 후 8/8 | VP03/12 |
+| M0264-05 settings registry · M0264-07 approval 맵 | — | red · green | 해당 없음 — settings registry는 0262 ΔV18이 삭제, approval 맵은 N-0264-1로 제거 | — |
+
+- 덮개 회귀(r1 red → r2 green): 0건.
+- 인용 변이 1/1 검출 → D-0264-1 closed.
+
+## 5. V-pair closeout (r2)
+
+| Pair | r2 결과 | 근거 |
+|---|---|---|
+| VP11 AR02↔IT02 | **PASS** | loader 주입 edge = 위 loader oracle + M14b·14c·14d red. parser·user-settings·deploy·permission 자리는 r1 좌표(`implementation-evidence.md`) 그대로 통과 |
+| VP02 R03~05↔AT03~05 | **PASS** | r1 `BLOCKED_BY:VP11` 해소 — AC4 parser·loader 주입 모두 좌표 있음 |
+| VP12·VP13·VP10·VP09·VP01·VP03·VP04~08 | PASS (r1 좌표) | r1 §5 좌표 실재·HEAD 전체 실행 통과 · 영향받은 VP01/04/05(composer 분해)는 §4 등록 변이 red로 재확인 |
+
+- §10 분모: r1 재측정 29 = 28 + loader 주입 edge 1 → 닫힘 29/29.
+- 실행 범위: 재검증 — root VP11·종속 VP02·r2 분해 영향 VP01/04/05 + 운영 gate. 나머지는 r1 좌표 참조(좌표 없이 난 PASS 없음).
+
+### AC 합계 (r2)
+
+- `✅ 11 · ⚠️ 0 · ❌ 0 = 11` — r1 ⚠️ AC4가 ✅로.
+- 사본 대조: 본문 r2 `✅11` ↔ 커밋 `ce7aa102`·`7be5d723` trailer `Criteria-Met: 19/21`(0262 3 + 0263 2 + 0264 11 + 0265 5 합산) — 0264 몫 11/11 일치.
+
+## 9. 게이트 (r2) — HEAD `e024b87c`
+
+| Gate | 결과 | 관측 |
+|---|---|---|
+| typecheck node/web/test | PASS | `npm run typecheck` exit 0, `error TS` 0 |
+| readonly ESLint (`eslint ./src ./scripts`, `--fix` 없음) | PASS | 1,734파일 · error 0 · warning 2(TanStack `incompatible-library` — `opencode/transcript/Timeline.tsx:49`·`hooks/useTranscriptVirtualizer.ts:22`). r1의 react-refresh 4건 해소(N-0264-3) |
+| production build (`npx electron-vite build`, ABI 훅 없이) | PASS | main 378 · preload 3 · renderer 1,820 modules, exit 0 — 기존 `SubAgentTaskDetail.tsx` 혼합 import 경고 1 |
+| 전체 Vitest (Linux, Node ABI) | PASS | 754파일 · 7,404케이스 = 통과 7,397 · skip 7 · 실패 0 |
+| scripts `node --test scripts/*.test.mjs` | PASS | 142/142 (harness-boundary 포함) |
+| doc inventory·migration·test-budget·`git diff --check` | PASS | `check-doc-inventory --check` ok · migrations sync ok · 16 real-git suites ok · diff check 0줄 |
+| 원격 Windows CI | PASS | run 38985768857(#788, `e024b87c`) success — Vitest 754파일 7,402 통과·2 skip, scripts 142/142 |
+
+- 게이트가 작업 트리를 바꿨는가: 아니오 — ESLint는 `--fix` 없이 실행, 모든 변이 후 `git status` clean.
+
+## 11. Repository operation checks (r2)
+
+- INDEX 0264 행: `impl/IMPL_DONE`·다음 Claude·라운드 2 일치. 대상 커밋 `ce7aa102`(r2)·`7be5d723`(기록) 기입(`git cat-file -t` commit, 공유 브랜치 ancestor).
+- r1 메타·INDEX의 V1 설계 해시 `b8b7c30e`는 실재하지 않는다 — 실재 `b8b7c301`로 archive 행을 적었다.
+- trailer: `ce7aa102`·`7be5d723` 각 9키 파싱 · 허용값 정상(`partial`+`Criteria-Pending`, `implemented`).
+- `[구현자 기입]` r2 7필드 전수 존재.
+- plan 메타 `상태` 갱신(N-0264-4 closed).
+
+## 13. Finding disposition (r2)
+
+| # | finding | disposition |
+|---|---|---|
+| D-0264-1 | settings loader 주입 edge oracle 부재 | **closed** — 인용 변이 M14b red, 형제 맞바꿈 2건 red |
+| N-0264-1 | 미사용 approval 맵·재수출 | closed — 제거, 재수출 0 |
+| N-0264-2 | 두 `model-policy.ts` 동일 코드 | 유지 — 구현자가 하네스별 정책 소유로 기록(맞바꿈은 등가) |
+| N-0264-3 | react-refresh 경고 4 | closed — 경고 2(TanStack, 0264 무관)만 남음 |
+| N-0264-4 | plan 메타 상태 | closed |
+| N-0264-5 | 이동 전 경로 인용 | 목록 5파일 closed. **형제 1건 잔존**: `docs/spec/AGENTS.md:34`의 `app/src/main/adapters/claude.ts`(실제 `adapters/claude/adapter.ts`) — 같은 파일을 `c43bf948`이 수정했으나 경로는 남김. NON_BLOCKING |
+
+## 14. Review Signals (r2)
+
+- 이전 라운드와 같은 축: D-0264-1 1건만 재구현, 새 증상 없음.
+- 반복 환경 한계: 없음(검증 환경에서 Electron 바이너리·Node ABI SQLite 모두 설치됨).
+
+## 15. 결론 (r2)
+
+- 상태: **PASS**.
+- pair: REQUIRED/REGRESSION 13 PASS · PAIR_FAIL 0 · BLOCKED_BY 0 · PLAN_GAP 0.
+- AC: ✅11 · ⚠️0 · ❌0. 운영 gate PASS(원격 CI #788 포함).
+- NON_BLOCKING: N-0264-5 형제 1건(`docs/spec/AGENTS.md:34`).
+- 다음 단계: INDEX 행을 archive로 이동.
