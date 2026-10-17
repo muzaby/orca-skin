@@ -132,3 +132,120 @@ plan이 인용한 테스트 파일 20개는 HEAD 전체 실행에서 전부 실�
 - PASS pair: VP-03·05~08·12·16·19·20·VP6-1·VP6-2·VP6-R 및 REGRESSION 행. PAIR_FAIL 0.
 - 운영 gate: 로컬 PASS, PR CI red는 0265 귀속.
 - 다음 단계: 설계자 Delta V 정정(별도 설계 커밋) → 구현자가 interaction 좌표 추가·D-0263-1 반영 → 재검증. 사람 몫: 외곽·여백 시각 인수.
+
+---
+
+# r2 검증
+
+## 메타 (r2)
+
+| 항목 | 값 |
+|---|---|
+| 일자 | 2026-10-17 |
+| 대상 커밋/range | `c6d745c5..e024b87c` — ΔV7 설계 `12c81cfa` → r2 구현 `ce7aa102`, 기록 `7be5d723` |
+| 구현 전 plan 기준 | `12c81cfa`(ΔV7, 설계 단독 커밋 — 0262 ΔV21과 공동) |
+| V mode / 유효 V | Baseline V1 + ΔV2~ΔV7 |
+| 검증 HEAD | `e024b87c` |
+| 라운드 | 2 |
+| 상태 | **PASS** (기계 범위) — PAIR_FAIL 0 · PLAN_GAP 0 · VP7-V 사람 시각 인수 대기 |
+| 자기 검증 여부 | ΔV7 설계·구현 Codex(사용자 지시) · 검증 Claude — 구현자 ≠ 검증자 |
+
+## 0. 기준선 / plan validity (r2)
+
+- 구현 커밋의 `plan.md` 변경: 삭제 3줄(메타 상태 1 · ΔV6 기입 표제 1 · `### 운영 gate / Review Signals` 1 — 7필드 복원으로 표제 교체), 나머지는 `[구현자 기입]` 추가. Decision·AC·V·§10 변경 없음(`git diff 12c81cfa e024b87c -- …/plan.md`).
+- G-0263-1 정정: ΔV7 D7-1이 ΔV3~ΔV5의 "실제 클릭/구독/포커스는 CUA에서 닫는다"를 SUPERSEDED하고 행동 16자리를 fake DOM 좌표로, 시각 EP-20a~e 5자리를 VP7-V 사람 인수로 분리했다.
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| SUPERSEDED 이관 | 유효 | 구 VP-09/13/17 → VP7-A, VP-10/14/18 → VP7-S, VP-15·VP-19 해당 증거 → VP7-I, EP-20a~e → VP7-V, VP6-1/2·VP-12/16/20 → VP7-R REGRESSION |
+| 행동 자리 좌표 가능성 | 유효 | 16자리 모두 `Panel.lifecycle.test.ts`/`Panel.interaction.test.ts` 좌표로 지정 — fake DOM `renderHarness.testfixture.ts` 사용 |
+| 시각 자리 분리 | 유효 | VP7-V 자동 자리 0, 기계 분모 밖. 과거 CUA는 참고 증거로만 남김 |
+| oracle 배치 차이 | 타당 | ΔV7은 부모 열 좌표를 `Panel.interaction`으로 적었고 구현은 `Panel.lifecycle.test.ts:inherits the task column width and restores detail scroll after expansion`에 두었다 — 같은 production 경로, 구현자 보고에 명시 |
+
+## 2. 비판적 읽기 (r2)
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| lifecycle 테스트의 실행 구간 | public `RightPanel` → OpenCode `Panel` → 공통 `TilePanel` → 실제 tiles/Sources | 대체는 `react`(fake hooks)·`react-dom`·Zustand React binding(실제 `createStore` 초기화·actions·구독 유지)·i18n뿐 — 실행 환경 대체이며 path 구성요소 mock 0 |
+| 공유 fixture 변경의 회귀 위험 | 낮음 | `renderHarness.testfixture.ts`가 Context·`useReducer`·`useSyncExternalStore`·React key 기반 instance 식별·`hidden`/`inert`를 추가. 전체 renderer 스위트 통과, r1 red 변이 M01~06 전부 red 유지(§4) |
+| 세션 전환 해제의 가드 | 이중 | `RightPanel.tsx:27` `key={module.resetBySession ? key : undefined}` remount와 `Panel.tsx` effect deps `[reveal, activeKey]`가 각각 단독으로 충분 — §4 M11·M11b green, 합성 M11c red |
+
+## 4. 적대 증거 재측정 (r2)
+
+범위: `src/renderer/src/features/chat`(2,081케이스). 모든 변이 후 원본 SHA256 일치.
+
+| 변이 | r1 | r2 | 귀속 |
+|---|---|---|---|
+| M0263-07 부모 열 0 고정 | green | **red** 1 — `inherits the task column width…` `{ width: 320 }` ≠ 488 | N-0263-1 인용 |
+| M0263-08 요약 '변경 사항' 진입 → process | green | **red** 2 — `opens diff from the summary…` | G-0263-1 인용 |
+| M0263-09 '변경 사항' 진입 무동작 | green | **red** 2 — 같음 | G-0263-1 인용 |
+| M0263-09b·09c·09d agent·셸·source 진입 무동작 | — | **red** 2·3·1 — `opens subagent/process/source …` | 인용 변이의 자리 미지정분을 EP-16 네 자리에 심음 |
+| M0263-09e agent 진입 → source | — | **red** 2 | 형제 맞바꿈 |
+| M0263-10 상세 안 agent 선택이 base 선택을 바꿈 | — | **red** 1 — `selects an agent inside the overlay…` | EP-18a 독립 |
+| M0263-12 요약 model이 store 갱신 무시(`useMemo` deps `[]`) | — | **red** 1 — `updates active processes through store subscriptions…` | EP-21b 독립 |
+| M0263-11 effect deps에서 `activeKey` 제거 · M11b remount key 제거 | — | green · green | 이중 가드 — 합성 M11c **red** 1(`clears it on session change`) |
+| M0263-01 Task 열기가 subagent 타일 추가 | red | **red** 6 | 덮개 유지 |
+| M0263-02 닫기가 store reveal 미정리 | red | **red** 1 | 덮개 유지 |
+| M0263-03 상세 폭 고정 · 04 resize 무시 | red | **red** 2 · 2 (`Panel.interaction` + 새 lifecycle) | 덮개 유지 |
+| M0263-05 Task pill origin 미전달 · 06 reveal.detail 무시 | red | **red** 2 · 1 | 덮개 유지 |
+
+- 인용 변이 3/3 red → G-0263-1·N-0263-1 closed. 덮개 회귀 0.
+- M11c의 실패 메시지는 `element.getAttributeNames is not a function`이다 — `expect(detail()).toBeNull()` 실패를 chai가 `HTMLElement`로 stub된 `FakeNode`를 출력하려다 낸 형식 오류이며 단언 자체는 실패했다(`node_modules/chai/index.js`만 이 API를 호출, `rg` app/src 0건).
+
+## 5. V-pair closeout (r2)
+
+| Pair | r2 결과 | 근거 / 자리 |
+|---|---|---|
+| VP7-I AR-02↔IT7-I | **PASS** | EP-16a~d `opens %s from the summary and closes back to the same overview`(4 case) + M08·09·09b~e red · EP-17a~c 같은 case의 `data-context`·`hidden`/`inert`·`[data-panel-close]` 1개 · EP-18 아래 |
+| VP7-S SD-01↔ST7-S | **PASS** | EP-18a `selects an agent inside the overlay…`+M10 · EP-18b/c 닫기→같은 overview DOM·origin focus(위 4 case)·셸 완료 뒤 fallback focus(`updates active processes…`) · EP-19a/b `preserves detail state under an artifact and clears it on session change`(+M11c) · EP-19c `inherits the task column width…`(+M03·04·07) · EP-21b/c `updates active processes…`(+M12) |
+| VP7-A R-02/06/08/11↔AT7-A | **PASS** | 위 16자리 공유 증거 — 네 진입→본문→갱신→복귀를 public `RightPanel`에서 관측 |
+| VP7-R REGRESSION | **PASS** | VP6-1/2 `Panel.interaction.test.ts:opens one overlay…`(M01~06 red) · VP-12/16/20 r1 좌표 |
+| VP7-V R-12/13↔AT7-V | **사람 인수 대기** | 자동 자리 0 — 두 테마 외곽·hover 여백·좁은 폭 |
+| r1 PASS pair(VP-03·05~08·12·16·19·20·VP6-1·VP6-2) | PASS (r1 좌표) | r1 §5 좌표, HEAD 전체 실행 통과 |
+
+- §10 분모: ΔV7 기계 16자리 = 코드 재열거 16(EP-16 4 · EP-17 3 · EP-18 3 · EP-19 3 · EP-21 2 · 부모 열 1) → 닫힘 16/16. 시각 5자리는 분모 밖.
+- 좌표 실행 구간: 위 표의 모든 좌표가 `RightPanel`부터 관측 DOM까지 production 컴포넌트를 실행 — mock한 path 구성요소 0.
+
+### AT / AC 합계 (r2)
+
+| 범위 | 결과 |
+|---|---|
+| AC1′·AC2″·AC3·AC4·AC5·AC6‴·AC7·AC8′·AC9′·AC10′·AC11′·AC6-1 | ✅ 12 |
+| AC12·AC13(EP-20 시각)·AC6-2(외곽 여백) | ⚠️ 3 — 사람 시각 인수(AC6-2의 폭·resize·부모 열은 ✅ 범위) |
+
+- 합계: `✅ 12 · ⚠️ 3 · ❌ 0 = 15`(현재 유효 AC 15를 plan에서 직접 셈). AC4의 긴 로그 픽셀 스크롤은 fake DOM으로 주장하지 않는다.
+- 사본 대조: 구현 보고 ΔV7 r2 `✅1·⚠️1`(AC6-1·AC6-2만 재확인) ↔ trailer `Criteria-Met: 19/21` 중 0263 몫 1/2 — 일치.
+
+## 9. 게이트 (r2)
+
+[0264 r2 §9](../0264-harness-module-isolation/verify.md)와 같은 HEAD `e024b87c` 공통 실행: typecheck exit 0 · readonly ESLint 1,734파일 error 0 · 전체 Vitest 754파일 7,404케이스(실패 0) · production build exit 0 · scripts 142/142 · inventory/migration/budget/diff check 통과 · 원격 Windows CI #788 success.
+
+## 11. Repository operation checks (r2)
+
+- INDEX 0263 행: 대상 커밋 `12c81cfa`(ΔV7 설계)·`ce7aa102`(r2)·`7be5d723`(기록) 기입 — 전부 `git cat-file -t` commit, 공유 브랜치 ancestor.
+- trailer: `12c81cfa` 4키(`Agent: codex`·`Status: designed`) · `ce7aa102`·`7be5d723` 9키 파싱.
+- `[구현자 기입]` ΔV6 복원 7필드 + ΔV7 r2 7필드 전수 존재 → D-0263-1 closed.
+- plan 메타 V mode가 ΔV7까지 표기(N-0263-2 closed).
+
+## 13. Finding disposition (r2)
+
+| # | finding | disposition |
+|---|---|---|
+| G-0263-1 | 행동 자리 유일 oracle이 CUA | **closed** — ΔV7 좌표 16/16, 인용 변이 M08·M09 red |
+| D-0263-1 | ΔV6 기입 필드 접힘 | **closed** — 7필드 복원 |
+| N-0263-1 | 부모 열 선택 미잠금 | closed — M07 red |
+| N-0263-2 | plan 메타 V mode | closed |
+| N-0263-3 | 세션 전환 해제가 remount key와 effect deps 이중 가드라 단독 제거는 등가(M11·M11b green, M11c red) | NON_BLOCKING — 기록 |
+
+## 14. Review Signals (r2)
+
+- r1 G-0263-1과 같은 축을 ΔV7 설계 정정 → 구현으로 닫았다. 새 증상 없음.
+- 반복 환경 한계: 실제 픽셀 layout은 fake DOM 밖 — VP7-V 사람 인수로 분리됨.
+
+## 15. 결론 (r2)
+
+- 상태: **PASS** (기계 범위).
+- pair: REQUIRED/REGRESSION 기계 pair 전부 PASS · PAIR_FAIL 0 · BLOCKED_BY 0 · PLAN_GAP 0 · VP7-V 사람 인수 대기.
+- AC: ✅12 · ⚠️3(시각) · ❌0. 운영 gate PASS.
+- 남은 사람 확인: 두 테마 외곽 radius·border·hover 여백·좁은 폭(EP-20a~e, AC12·AC13·AC6-2 외곽).
+- 다음 단계: 사람 시각 인수 → archive 이동.
