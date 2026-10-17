@@ -1,102 +1,29 @@
-import { memo, useRef } from 'react'
-import { Markdown } from '../../../../shared/ui/markdown/Markdown'
-import { useI18n } from '../../../../shared/i18n'
-import { ToolGroup } from './ToolGroup'
-import { WorkToolTimeline } from './WorkToolTimeline'
-import { AskExchange } from './AskExchange'
-import { ReasoningBlock } from './ReasoningBlock'
-import { ErrorCard } from './ErrorCard'
-import { StructuredOutputCard } from './StructuredOutputCard'
-import { CompactBoundaryMarker } from './CompactBoundaryMarker'
-import { ForkBoundaryMarker } from './ForkBoundaryMarker'
-import { SubagentNoticeRow } from './SubagentNoticeRow'
-import { messageSegments, reconcileSegments, type MessageSegment } from '../../lib/parts'
+import { memo } from 'react'
+import { AssistantMessage as MessageBody } from '../../harnesses/common/transcript/AssistantMessage'
+import { TranscriptRuntimeProvider } from '../../harnesses/common/transcript/TranscriptRuntime'
+import { assistantRuntime } from '../../harnesses/registries/assistant'
 import type { Message } from '../../reducer/chatReducer'
-import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
-
-interface AssistantMessageProps {
+import type { MessageSegment } from '../../lib/parts'
+import type { AgentTranscriptPresentation } from '../../harnesses/contracts'
+export const AssistantMessage = memo(function AssistantMessage(props: {
   message: Message
   transcriptPolicy: AgentTranscriptPresentation
-}
-
-// 본문 전용 — 메타(복사/시간)는 턴 단위로 AssistantTurn 이 한 번만 렌더한다.
-// parts 를 콘텐츠 순서 보존 세그먼트(messageSegments)로 투영해 만나는 순서대로 렌더한다 →
-// "텍스트 → 도구 → 텍스트" 가 모델이 말한 그대로 분절 표시된다(타입별 뭉치기 아님).
-// sub-agent(Task/Agent)는 별도 처리 없이 tools 세그먼트의 일반 도구 카드로 순서 안에 끼어 렌더된다.
-//
-// 재렌더 격리 2단 (0007 → 0008):
-//   · memo(message identity): reducer 가 마지막 메시지만 새 객체로 교체하므로 변하지 않은
-//     메시지는 통째로 건너뛴다.
-//   · reconcileSegments: 마지막 메시지가 교체돼 이 컴포넌트가 재실행돼도, 직전 렌더와
-//     내용이 같은 세그먼트/ToolCall 의 identity 를 재사용한다 → memo 된 자식(ToolGroup·
-//     ToolCard·ReasoningBlock·Markdown…)이 shallow 비교로 bail — tool.call.* 커밋 1건은
-//     "변경된 카드 1개" 재렌더로 좁혀진다.
-export const AssistantMessage = memo(function AssistantMessage({
-  message,
-  transcriptPolicy
-}: AssistantMessageProps): React.JSX.Element {
-  const { tr } = useI18n()
-  const prevRef = useRef<MessageSegment[] | null>(null)
-  const segments = reconcileSegments(prevRef.current, messageSegments(message.parts))
-  prevRef.current = segments
+}): React.JSX.Element {
+  const runtime = assistantRuntime(props.transcriptPolicy.surface)
   return (
-    <div className="flex flex-col gap-[var(--chat-item-gap)] text-[calc(14px*var(--transcript-text-scale,1))] leading-[1.7] text-ink">
-      {segments.map((segment, index) => (
-        <AssistantSegment key={index} segment={segment} transcriptPolicy={transcriptPolicy} />
-      ))}
-      {message.incomplete && (
-        <div className="inline-flex w-fit rounded-full border border-border bg-bg2 px-2 py-1 text-[calc(0.75rem*var(--transcript-text-scale,1))] leading-none text-ink3">
-          {tr('chat.transcript.incompleteResponse')}
-        </div>
-      )}
-    </div>
+    <TranscriptRuntimeProvider value={runtime}>
+      <MessageBody {...props} />
+    </TranscriptRuntimeProvider>
   )
 })
-
-// Work의 도구 행만 전용 표현을 사용한다. 질문·오류·서브에이전트 계약은 함께 유지한다.
-export const AssistantSegment = memo(function AssistantSegment({
-  segment: seg,
-  transcriptPolicy
-}: {
+export const AssistantSegment = memo(function AssistantSegment(props: {
   segment: MessageSegment
   transcriptPolicy: AgentTranscriptPresentation
 }): React.JSX.Element {
-  switch (seg.kind) {
-    case 'reasoning':
-      return <ReasoningBlock items={seg.items} />
-    case 'tools':
-      return transcriptPolicy.turnProjection === 'work-activity' ? (
-        <WorkToolTimeline calls={seg.calls} transcriptPolicy={transcriptPolicy} />
-      ) : (
-        <ToolGroup calls={seg.calls} transcriptPolicy={transcriptPolicy} />
-      )
-    case 'ask':
-      return <AskExchange call={seg.call} />
-    case 'structured':
-      return <StructuredOutputCard value={seg.value} />
-    case 'text':
-      return <Markdown source={seg.text} />
-    case 'error':
-      return <ErrorCard error={seg.error} />
-    case 'compact':
-      return (
-        <CompactBoundaryMarker
-          trigger={seg.trigger}
-          preTokens={seg.preTokens}
-          postTokens={seg.postTokens}
-        />
-      )
-    case 'fork':
-      return <ForkBoundaryMarker />
-    case 'subagent_notice':
-      return (
-        <SubagentNoticeRow
-          toolRunId={seg.toolRunId}
-          status={seg.status}
-          durationMs={seg.durationMs}
-          summary={seg.summary}
-          transcriptPolicy={transcriptPolicy}
-        />
-      )
-  }
+  const runtime = assistantRuntime(props.transcriptPolicy.surface)
+  return (
+    <TranscriptRuntimeProvider value={runtime}>
+      <runtime.Segment {...props} />
+    </TranscriptRuntimeProvider>
+  )
 })

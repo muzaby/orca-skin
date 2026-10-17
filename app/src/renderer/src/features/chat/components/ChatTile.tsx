@@ -4,7 +4,7 @@ import { LineageBanner } from './transcript/LineageBanner'
 import { TranscriptView } from './transcript/TranscriptView'
 import { Composer } from './Composer'
 import { RightPanel } from './rightpanel/RightPanel'
-import { useScrollAnchor } from '../hooks/useScrollAnchor'
+import { HarnessScrollController, type ScrollControls } from './transcript/HarnessScrollController'
 import {
   chatActions,
   useChatResponding,
@@ -50,6 +50,7 @@ export function ChatTile({
   onTogglePinSession
 }: ChatTileProps): React.JSX.Element {
   const messages = useChatSession((s) => s.messages)
+  const backend = useChatSession((s) => s.backend)
   const agentKind = useChatSession((s) => s.agentKind)
   const policy = agentUiPolicy(agentKind)
   const sessionId = useChatSession((s) => s.sessionId)
@@ -62,6 +63,15 @@ export function ChatTile({
   // Composer 입력에 전달한다. 작업 질문은 같은 신호의 append 모드를 쓴다(활성 세션만).
   const draftRestore = useChatStore((s) => s.draftRestore)
   const activeKey = useChatStore((s) => s.activeKey)
+  const [scrollControls, setScrollControls] = useState<(ScrollControls & { key: string }) | null>(
+    null
+  )
+  const onScrollControls = useCallback(
+    (controls: ScrollControls): void => {
+      setScrollControls({ ...controls, key: activeKey })
+    },
+    [activeKey]
+  )
   const [panelExpansion, setPanelExpansion] = useState<{ key: string; expanded: boolean } | null>(
     null
   )
@@ -73,12 +83,6 @@ export function ChatTile({
     draftRestore && draftRestore.key === activeKey
       ? { id: draftRestore.seq, text: draftRestore.text, mode: draftRestore.mode }
       : undefined
-  const { scrollRef, contentRef, onScroll, showJump, scrollToBottom, anchored } = useScrollAnchor({
-    messages,
-    sessionId,
-    sendCount,
-    inflight
-  })
 
   return (
     <section className="app-frame-pane-host flex min-h-0 min-w-0 flex-1 flex-col bg-bg">
@@ -101,34 +105,52 @@ export function ChatTile({
           {/* 0064 continuity — fork/handoff 파생 세션의 출처 안내(원본 링크). 비파생이면 null. */}
           <LineageBanner />
 
-          {/* transcript 상·하단 soft fade — 타이틀 아래/컴포저 위 경계에서 스크롤되는
+          <HarnessScrollController
+            backend={backend}
+            sessionKey={activeKey}
+            sessionId={sessionId}
+            messages={messages}
+            sendCount={sendCount}
+            inflight={inflight}
+            onControls={onScrollControls}
+          >
+            {({ scrollRef, contentRef, onScroll, anchored }) => (
+              <>
+                {/* transcript 상·하단 soft fade — 타이틀 아래/컴포저 위 경계에서 스크롤되는
               내용이 배경색(from-bg)으로 흐려진다. pointer-events-none 으로 스크롤·선택·
               클릭을 방해하지 않는다. */}
-          <div className="relative flex min-h-0 flex-1 flex-col">
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-8 bg-gradient-to-b from-bg to-transparent" />
-            <TranscriptView
-              key={policy.transcript.remountTranscriptBySession ? activeKey : undefined}
-              agentKind={agentKind}
-              messages={messages}
-              pendingSteer={pendingSteer}
-              onRestoreSteerDraft={(text) => chatActions.restoreComposerDraft(activeKey, text)}
-              inflight={inflight}
-              loadingSession={loadingSession}
-              error={error}
-              anchored={anchored}
-              scrollRef={scrollRef}
-              contentRef={contentRef}
-              onScroll={onScroll}
-            />
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-8 bg-gradient-to-t from-bg to-transparent" />
-          </div>
-
+                <div className="relative flex min-h-0 flex-1 flex-col">
+                  <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-8 bg-gradient-to-b from-bg to-transparent" />
+                  <TranscriptView
+                    key={policy.transcript.remountTranscriptBySession ? activeKey : undefined}
+                    agentKind={agentKind}
+                    backend={backend}
+                    messages={messages}
+                    pendingSteer={pendingSteer}
+                    onRestoreSteerDraft={(text) =>
+                      chatActions.restoreComposerDraft(activeKey, text)
+                    }
+                    inflight={inflight}
+                    loadingSession={loadingSession}
+                    error={error}
+                    anchored={anchored}
+                    scrollRef={scrollRef}
+                    contentRef={contentRef}
+                    onScroll={onScroll}
+                  />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-8 bg-gradient-to-t from-bg to-transparent" />
+                </div>
+              </>
+            )}
+          </HarnessScrollController>
           <Composer
             showGitRow={policy.composer.showGitRow}
             backendLabel={backendLabel}
             canAbort={canAbort}
-            showScrollToBottom={showJump}
-            onScrollToBottom={scrollToBottom}
+            showScrollToBottom={scrollControls?.key === activeKey && scrollControls.showJump}
+            onScrollToBottom={
+              scrollControls?.key === activeKey ? scrollControls.scrollToBottom : undefined
+            }
             usageLimits={usageLimits}
             onOpenUsageSettings={onOpenUsageSettings}
             onManagePlugins={onManagePlugins}

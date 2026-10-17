@@ -1,0 +1,42 @@
+import { memo } from 'react'
+import { Markdown } from '../../../../../shared/ui/markdown/Markdown'
+import { StreamingMarkdown } from '../../../components/markdown/StreamingMarkdown'
+import { useI18n } from '../../../../../shared/i18n'
+import type { ReasoningItem } from '../../../lib/parts'
+
+interface ReasoningBlockProps {
+  items: ReasoningItem[]
+  // 라이브 프리뷰(스트리밍 중)는 펼친 상태로 표시. 완성/로드된 블록은 기본 접힘.
+  defaultOpen?: boolean
+  // 스트리밍 중 본문 — StreamingMarkdown(확정 블록 memo + 꼬리만 재파스)으로 렌더해
+  // 델타 프레임마다 전문 재파스를 피한다. 커밋 경로는 단일 Markdown (text 경로와 동형, 0008).
+  streaming?: boolean
+}
+
+// 확장사고(reasoning) 블록 — 기본 접힘. 여러 블록이 있으면 줄바꿈으로 이어 한 카드에 표시한다.
+// signature 는 무결성용 opaque 값이라 표시하지 않는다(저장만).
+// memo(shallow): 커밋 경로에선 reconcileSegments 가 items identity 를 보존해 bail 하고,
+// 라이브 경로(LiveReasoning)는 델타마다 새 items 라 의도대로 재렌더된다 (0008).
+export const ReasoningBlock = memo(function ReasoningBlock({
+  items,
+  defaultOpen,
+  streaming
+}: ReasoningBlockProps): React.JSX.Element | null {
+  const { tr } = useI18n()
+  if (items.length === 0) return null
+  const source = items.map((i) => i.text).join('\n\n')
+  if (source.trim() === '') return null // 내용이 비면 빈 카드를 그리지 않는다(방어)
+  return (
+    <details
+      open={defaultOpen}
+      className="group/reasoning rounded-r6 border border-border bg-bg2 px-p5 py-p4 text-[calc(13px*var(--transcript-text-scale,1))] text-ink2"
+    >
+      <summary className="cursor-pointer select-none list-none font-mono text-[calc(11px*var(--transcript-text-scale,1))] uppercase tracking-[0.04em] text-ink3">
+        {tr('chat.transcript.reasoning')}
+      </summary>
+      <div className="mt-p3 leading-[1.6] text-ink2">
+        {streaming ? <StreamingMarkdown source={source} /> : <Markdown source={source} />}
+      </div>
+    </details>
+  )
+})

@@ -26,7 +26,7 @@ ADR 이 없으면 architecture 본문이 그 역할을 대신한다 — 실제�
 
 | ADR | 결정 | 관련 |
 |---|---|---|
-| [001](001-orca-db-session-ssot.md) | 대화의 진실은 Orca DB — SDK resume 은 컨텍스트일 뿐 | `arch/backend/persistence.md` |
+| [001](001-orca-db-session-ssot.md) | 과거 DB 단독 원본 정책 — ADR-009로 대체 | `arch/backend/persistence.md` |
 | [002](002-feature-slice-boundaries.md) | main 은 feature 수직 슬라이스, 교차 import 금지 | `app/src/main/AGENTS.md` |
 | [003](003-electron-network-stack.md) | main 의 원격 요청은 Chromium `net` 스택만 | `arch/backend/security.md` §1.8 |
 | [004](004-provider-single-axis.md) | 인증은 `Provider` 단일 축 — 프로토콜이 아니라 관계로 가른다 | `arch/backend/auth.md` |
@@ -34,6 +34,7 @@ ADR 이 없으면 architecture 본문이 그 역할을 대신한다 — 실제�
 | [006](006-login-free-auth-scheme.md) | 로그인 프리는 별도 인증 체계이며 같은 Plugin 소비 포트를 사용한다 | `arch/backend/auth.md` · `arch/backend/security.md` |
 | [007](007-queued-input-next-turn.md) | 응답 중 입력은 다음 턴까지 대기하며 즉시 보내기는 응답만 interrupt한다 | `arch/backend/runtime-ipc.md` §1.4 |
 | [008](008-daily-login-gate.md) | 실행 중 로컬 날짜 경계에서는 게이트 통과만 해제하고 다시 로그인을 요구한다 | `arch/backend/auth.md` §5.3 |
+| [009](009-harness-native-storage-authority.md) | native 저장 원본·Orca 보관·실행 오버라이드, CLI 왕복 이어보기 | `handoff/0265-harness-native-storage/plan.md` · `handoff/0262-opencode-harness/plan.md` |
 
 ## 새 ADR 을 쓸 때
 

@@ -1,6 +1,16 @@
 import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { CHANNELS, type ChatActivitySnapshot } from '../../../shared/ipc'
+import {
+  CHANNELS,
+  type ChatActivitySnapshot,
+  type LoadedSession,
+  type RefreshSessionResult
+} from '../../../shared/ipc'
+import type {
+  NativeHistoryResult,
+  NativeHistorySnapshot
+} from '../../adapters/common/native-history'
+import { refreshNativeHistory } from '../../features/history/native-sync'
 import { applyMigrations } from '../../infra/db/migrate'
 import { DbQueries } from '../../infra/db/queries'
 
@@ -30,14 +40,18 @@ beforeEach(() => {
 })
 afterEach(() => db.close())
 
-function load(sessionId: string, getActivity?: (id: string) => ChatActivitySnapshot): unknown {
+async function load(
+  sessionId: string,
+  getActivity?: (id: string) => ChatActivitySnapshot,
+  refreshHistory?: (id: string) => Promise<LoadedSession['nativeSync']>
+): Promise<LoadedSession | null> {
   registerSessionHandlers(
     { db: queries, getCwd: fallback, settings: { getAll: vi.fn(), patch: vi.fn() } },
-    getActivity ? { getActivity } : {}
+    { getActivity, refreshHistory }
   )
   const callback = callbacks.get(CHANNELS.sessionLoad)
   if (!callback) throw new Error('session load was not registered')
-  return callback({ sessionId })
+  return (await callback({ sessionId })) as LoadedSession | null
 }
 
 function session(id = 's1', cwd: string | null = null): number {
@@ -62,9 +76,9 @@ function session(id = 's1', cwd: string | null = null): number {
 }
 
 describe('session load IPC restores the complete persisted view', () => {
-  it('returns null for a missing session or a session without parts and does not request activity', () => {
+  it('returns null only for missing sessions and restores the identity of an empty session', async () => {
     const activity = vi.fn()
-    expect(load('missing', activity)).toBeNull()
+    expect(await load('missing', activity)).toBeNull()
     queries.insertSession({
       id: 'empty',
       backend: 'claude',
@@ -72,11 +86,15 @@ describe('session load IPC restores the complete persisted view', () => {
       projectId: null,
       createdAt: 1
     })
-    expect(load('empty', activity)).toBeNull()
     expect(activity).not.toHaveBeenCalled()
+    expect(await load('empty', activity)).toMatchObject({
+      id: 'empty',
+      backend: 'claude',
+      messages: []
+    })
   })
 
-  it('preserves ordered parts, incomplete state, usage, cost, lineage, worktree, cwd and activity', () => {
+  it('preserves ordered parts, incomplete state, usage, cost, lineage, worktree, cwd and activity', async () => {
     session('parent')
     queries.insertManagedWorktree({
       id: 'wt',
@@ -144,7 +162,7 @@ describe('session load IPC restores the complete persisted view', () => {
       residualCount: 0,
       backgroundTaskCount: 0
     }
-    expect(load('s1', () => activity)).toEqual({
+    expect(await load('s1', () => activity)).toEqual({
       id: 's1',
       backend: 'claude',
       agentKind: 'code',
@@ -182,7 +200,7 @@ describe('session load IPC restores the complete persisted view', () => {
     expect(fallback).not.toHaveBeenCalled()
   })
 
-  it('uses cwd fallback and omits absent metadata without inventing payload for invalid JSON', () => {
+  it('uses cwd fallback and omits absent metadata without inventing payload for invalid JSON', async () => {
     const id = session()
     queries.appendPart({
       messageId: id,
@@ -190,7 +208,7 @@ describe('session load IPC restores the complete persisted view', () => {
       toolRunId: null,
       payloadJson: 'invalid json'
     })
-    expect(load('s1')).toEqual({
+    expect(await load('s1')).toEqual({
       id: 's1',
       backend: 'claude',
       agentKind: 'code',
@@ -211,7 +229,7 @@ describe('session load IPC restores the complete persisted view', () => {
     expect(fallback).toHaveBeenCalledWith(null)
   })
 
-  it('omits lineage after parent deletion and returns null if metadata disappears', () => {
+  it('omits lineage after parent deletion and returns null if metadata disappears', async () => {
     session('parent')
     session()
     queries.insertLineage({
@@ -222,15 +240,146 @@ describe('session load IPC restores the complete persisted view', () => {
       createdAt: 3
     })
     queries.deleteSession('parent')
-    expect(load('s1')).not.toHaveProperty('lineage')
+    expect(await load('s1')).not.toHaveProperty('lineage')
     vi.spyOn(queries, 'getSessionById').mockReturnValue(undefined)
-    expect(load('s1')).toBeNull()
+    expect(await load('s1')).toBeNull()
   })
 
-  it('propagates storage errors', () => {
+  it('propagates storage errors', async () => {
     vi.spyOn(queries, 'loadParts').mockImplementation(() => {
       throw new Error('fixture read failure')
     })
-    expect(() => load('s1')).toThrow('fixture read failure')
+    await expect(load('s1')).rejects.toThrow('fixture read failure')
   })
+})
+
+describe('session load IPC refreshes native history before composing the archived view', () => {
+  function value(): NativeHistorySnapshot {
+    return {
+      sessionId: 's1',
+      cwd: '/fixture',
+      sourceKey: 'fixture-native-store',
+      revision: 'revision-1',
+      messages: [
+        {
+          id: 'native-original',
+          role: 'assistant',
+          createdAt: 2,
+          parts: [{ type: 'text', text: 'answer' }]
+        }
+      ],
+      raw: { mainOnly: true }
+    }
+  }
+
+  function refresher(
+    read: () => Promise<NativeHistoryResult>
+  ): (id: string) => Promise<LoadedSession['nativeSync']> {
+    return (id) => refreshNativeHistory(id, { db: queries, isBusy: () => false, read })
+  }
+
+  it('imports terminal user, assistant and tool messages and reopens twice without duplication', async () => {
+    session()
+    const original = queries.loadParts('s1')
+    const first = value()
+    const next: NativeHistorySnapshot = {
+      ...first,
+      revision: 'revision-2',
+      messages: [
+        ...first.messages,
+        {
+          id: 'native-user',
+          role: 'user',
+          createdAt: 3,
+          parts: [{ type: 'text', text: 'terminal question' }]
+        },
+        {
+          id: 'native-assistant',
+          role: 'assistant',
+          createdAt: 4,
+          parts: [
+            {
+              type: 'tool_call',
+              toolRunId: 'read-1',
+              toolName: 'Read',
+              args: { file_path: '/fixture/sample.md' }
+            },
+            { type: 'tool_result', toolRunId: 'read-1', result: 'sample contents', isError: false },
+            { type: 'text', text: 'terminal answer' }
+          ]
+        }
+      ]
+    }
+    const read = vi
+      .fn<() => Promise<NativeHistoryResult>>()
+      .mockResolvedValueOnce({ status: 'ready', snapshot: first })
+      .mockResolvedValue({ status: 'ready', snapshot: next })
+    const refresh = refresher(read)
+
+    expect((await lazy('s1', refresh))?.messages).toHaveLength(1)
+    const reopened = await lazy('s1', refresh)
+    expect(reopened?.messages).toEqual(
+      next.messages.map(({ role, createdAt, parts }) => ({ role, createdAt, parts }))
+    )
+    expect(reopened?.nativeSync).toEqual({ status: 'ready' })
+    expect((await lazy('s1', refresh))?.messages).toEqual(reopened?.messages)
+    expect(read).toHaveBeenCalledTimes(3)
+    expect(queries.searchMessages('terminal')).toHaveLength(2)
+    expect(queries.loadParts('s1')).toEqual(original)
+    expect(reopened).not.toHaveProperty('raw')
+    expect(reopened).not.toHaveProperty('sourceKey')
+  })
+
+  it.each(['missing', 'unavailable'] as const)(
+    'returns the last snapshot with a %s warning instead of an empty session',
+    async (status) => {
+      session()
+      const read = vi
+        .fn<() => Promise<NativeHistoryResult>>()
+        .mockResolvedValueOnce({ status: 'ready', snapshot: value() })
+        .mockResolvedValue({ status, message: 'fixture native problem' })
+      const refresh = refresher(read)
+      const before = await lazy('s1', refresh)
+      const after = await lazy('s1', refresh)
+
+      expect(after?.messages).toEqual(before?.messages)
+      expect(after?.nativeSync).toEqual({ status, message: 'fixture native problem' })
+      expect(after?.messages).toHaveLength(1)
+      expect(queries.nativeHistory.get('s1')).toBeDefined()
+    }
+  )
+
+  it('does not reopen or query a hidden session', async () => {
+    session()
+    queries.hideSession('s1')
+    const read = vi.fn<() => Promise<NativeHistoryResult>>()
+    const activity = vi.fn()
+    expect(await load('s1', activity, refresher(read))).toBeNull()
+    expect(read).not.toHaveBeenCalled()
+    expect(activity).not.toHaveBeenCalled()
+    expect(queries.loadParts('s1')).toHaveLength(1)
+  })
+})
+
+async function lazy(
+  sessionId: string,
+  refresh: (id: string) => Promise<LoadedSession['nativeSync']>
+): Promise<LoadedSession | null> {
+  const cached = await load(sessionId, undefined, refresh)
+  const result = (await callbacks.get(CHANNELS.sessionRefresh)!({
+    sessionId
+  })) as RefreshSessionResult
+  if (result.status === 'updated') return result.session
+  return cached && { ...cached, ...('message' in result ? { nativeSync: result } : {}) }
+}
+
+it('returns DB body and backend without starting the slow native reader', async () => {
+  session()
+  const refresh = vi.fn(() => new Promise<LoadedSession['nativeSync']>(() => {}))
+  const result = await load('s1', undefined, refresh)
+  expect(result?.messages[0].parts).toEqual([{ type: 'text', text: 'answer' }])
+  expect(result?.backend).toBe('claude')
+  expect(refresh).not.toHaveBeenCalled()
+  void callbacks.get(CHANNELS.sessionRefresh)!({ sessionId: 's1' })
+  expect(refresh).toHaveBeenCalledExactlyOnceWith('s1')
 })

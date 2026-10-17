@@ -3,8 +3,8 @@ import {
   jsonToolResult as result,
   type RuntimeToolResult,
   type RuntimeToolServer
-} from '../../../adapters/runtime-tools'
-import { authToolServerId } from '../../../adapters/runtime-tool-policy'
+} from '../../../adapters/common/runtime-tools'
+import { authToolServerId } from '../../../adapters/common/runtime-tool-policy'
 import { exportMailAttachment } from './attachment-export'
 import { createMailSyncManager, type MailSyncManager } from './sync-manager'
 import type { MailPluginOptions, MailSyncResult } from './types'

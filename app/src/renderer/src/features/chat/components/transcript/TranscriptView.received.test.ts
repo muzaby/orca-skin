@@ -1,5 +1,5 @@
 import { createElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
+import { renderWithTranscript as renderToStaticMarkup } from '../../harnesses/registries/transcript.testfixture'
 import { describe, expect, it, vi } from 'vitest'
 import { TranscriptView } from './TranscriptView'
 import { chatReducer, initialChatState, type Message } from '../../reducer/chatReducer'
@@ -14,7 +14,7 @@ vi.mock('../../hooks/useTranscriptVirtualizer', () => ({
     measureElement: vi.fn()
   })
 }))
-vi.mock('./MessageMeta', () => ({
+vi.mock('../../harnesses/common/transcript/MessageMeta', () => ({
   MessageMeta: ({ align, createdAt }: { align: string; createdAt: number }) =>
     createElement('span', { 'data-meta-align': align, 'data-meta-time': createdAt })
 }))

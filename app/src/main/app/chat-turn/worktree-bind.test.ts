@@ -8,7 +8,8 @@
 // **컴포지션 루트에 둔다** — 영속은 `features/history`, resume 은 `app/chat-turn` 이라 이 계약은
 // 두 레이어의 합성이다. feature 안에 두면 `boundaries/dependencies` 가 features→app 을 막는다.
 
-import Database from 'better-sqlite3'
+import type Database from 'better-sqlite3'
+import { openFileDatabase } from '../../infra/db/file-database'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -68,8 +69,7 @@ async function openDb(): Promise<{ file: string; db: Database.Database; q: DbQue
 // 모든 핸들이 이 한 곳을 지난다 — 등록되지 않은 핸들이 생기면 afterEach 가 못 닫는다.
 // 매번 **새 핸들**이다: 재시작 케이스는 닫힌 파일을 다시 여는 것이 계약이라 재사용하면 안 된다.
 function openHandle(file: string): Database.Database {
-  const db = new Database(file)
-  db.pragma('foreign_keys = ON')
+  const db = openFileDatabase(file)
   handles.push(db)
   return db
 }

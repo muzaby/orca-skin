@@ -138,17 +138,20 @@ describe('표시명 (EP-04)', () => {
       [['src', 'main', 'app', 'bootstrap.ts'], '`${PRODUCT_DISPLAY_NAME} 스킬`'],
       [['src', 'main', 'app', 'bootstrap.ts'], '`${PRODUCT_DISPLAY_NAME} 설정 디렉터리 보장`'],
       [['src', 'main', 'app', 'bootstrap.ts'], '`${PRODUCT_SLUG}.json 로드`'],
-      [['src', 'main', 'features', 'extensions', 'deployer.ts'], '`${PRODUCT_DISPLAY_NAME} 스킬`'],
+      [
+        ['src', 'main', 'features', 'extensions', 'claude', 'deployer.ts'],
+        '`${PRODUCT_DISPLAY_NAME} 스킬`'
+      ],
       [
         ['src', 'main', 'app', 'handlers', 'skills.ts'],
         '`${PRODUCT_DISPLAY_NAME} 스킬만 제거할 수 있습니다.`'
       ],
       [
-        ['src', 'main', 'features', 'extensions', 'skills', 'sources.ts'],
+        ['src', 'main', 'features', 'extensions', 'common', 'skills', 'sources.ts'],
         '`${PRODUCT_DISPLAY_NAME} 스킬 sources 안의 항목만 제거할 수 있습니다.`'
       ],
       [
-        ['src', 'main', 'features', 'extensions', 'harness-plugins', 'claude.ts'],
+        ['src', 'main', 'features', 'extensions', 'claude', 'plugin.ts'],
         '`${PRODUCT_DISPLAY_NAME}에서 구성된 skill 및 mcp`'
       ]
     ]
@@ -157,7 +160,9 @@ describe('표시명 (EP-04)', () => {
       expect(source, relative(join(APP_ROOT, ...parts))).toContain(expected)
     }
     expect(read('src', 'main', 'app', 'bootstrap.ts')).not.toContain("'Orca ")
-    expect(read('src', 'main', 'features', 'extensions', 'deployer.ts')).not.toContain("'Orca ")
+    expect(read('src', 'main', 'features', 'extensions', 'claude', 'deployer.ts')).not.toContain(
+      "'Orca "
+    )
     expect(read('src', 'main', 'app', 'bootstrap.ts')).not.toContain("'orca.json 로드'")
   })
 })
@@ -224,13 +229,13 @@ describe('내부 저장 이름 (EP-03)', () => {
     ],
     [
       'deploy marker',
-      ['src', 'main', 'features', 'extensions', 'deployer.ts'],
+      ['src', 'main', 'features', 'extensions', 'claude', 'deployer.ts'],
       '`.${PRODUCT_SLUG}-deploy.json`',
       "'.orca-deploy.json'"
     ],
     [
       'seed marker',
-      ['src', 'main', 'features', 'extensions', 'skills', 'seed.ts'],
+      ['src', 'main', 'features', 'extensions', 'common', 'skills', 'seed.ts'],
       '`.${PRODUCT_SLUG}-builtin.json`',
       "'.orca-builtin.json'"
     ],
@@ -264,7 +269,7 @@ describe('내부 저장 이름 (EP-03)', () => {
   }
 
   it('플러그인 디렉토리 이름과 스킬 네임스페이스가 슬러그다 (D-015)', () => {
-    const source = read('src', 'main', 'adapters', 'claude-plugin.ts')
+    const source = read('src', 'main', 'adapters', 'claude', 'plugin.ts')
     expect(source).toContain('export const ORCA_PLUGIN_NAME = PRODUCT_SLUG')
     // sourceKind enum 은 코드 식별자라 불변이다 (D-012).
     expect(source).toContain("skill.sourceKind === 'orca'")
@@ -286,7 +291,7 @@ describe('코드 식별자 불변 (EP-11)', () => {
   })
 
   it('sourceKind enum 과 프롬프트 sentinel 4군이 그대로다', () => {
-    expect(read('src', 'main', 'features', 'extensions', 'skills', 'scan.ts')).toContain(
+    expect(read('src', 'main', 'features', 'extensions', 'common', 'skills', 'scan.ts')).toContain(
       "sourceKind: 'orca' | 'adapter' | 'workspace'"
     )
     const protocolAndShared = walk(join(APP_ROOT, 'src'), PROD_SOURCE)

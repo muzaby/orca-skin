@@ -37,8 +37,17 @@ export function buildAttachMenu(input: {
   plugins: readonly PluginMention[]
   labels: AttachMenuLabels
   canManagePlugins: boolean
+  includeExtensions?: boolean
 }): CascadeItem<AttachMenuAction>[] {
   const { skills, plugins, labels, canManagePlugins } = input
+  const attachment: CascadeItem<AttachMenuAction> = {
+    kind: 'action',
+    id: 'attach',
+    label: labels.addFiles,
+    icon: 'plus',
+    action: { type: 'attach' }
+  }
+  if (input.includeExtensions === false) return [attachment]
 
   // 출처별 그룹 — 처음 나온 순서를 지킨다(목록은 출처 라벨 → 이름 순으로 온다).
   const bySource = new Map<string, { label: string; skills: SkillInfo[] }>()
@@ -88,13 +97,7 @@ export function buildAttachMenu(input: {
     )
 
   return [
-    {
-      kind: 'action',
-      id: 'attach',
-      label: labels.addFiles,
-      icon: 'plus',
-      action: { type: 'attach' }
-    },
+    attachment,
     { kind: 'separator', id: 'separator' },
     { kind: 'submenu', id: 'skills', label: labels.skills, icon: 'bolt', items: skillItems },
     {

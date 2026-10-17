@@ -6,6 +6,10 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    // Windows CI의 SQLite/git 파일 작업은 같은 디스크를 공유한다. 병렬 실행에서 준비뿐
+    // 아니라 닫힌 DB의 정리 훅도 제한을 넘겼으므로 파일 단위로 직렬화한다.
+    // 로컬 병렬도와 각 test/hook 예산은 유지한다.
+    maxWorkers: process.platform === 'win32' && process.env.CI === 'true' ? 1 : undefined,
     // **케이스 예산 20초** (0211 ΔV5 — CI run 33716628944·33718212925 와 로컬 병렬 실행 실측).
     //
     // 기본값 5초는 windows 에서 **임시 디렉토리 + sqlite/git 를 실제로 쓰는 스위트**를 병렬로

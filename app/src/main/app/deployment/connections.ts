@@ -17,7 +17,7 @@
 // - 이 배열을 AuthId 기반 feature join registry 로 쓰지 않는다 — 표시용 view source 다.
 
 import type { AuthBinder, BoundAuth } from '../../contracts/auth'
-import type { HarnessModelProviderKey } from '../../features/harnesses/runtime-config'
+import type { HarnessModelProviderKey } from '../../features/harnesses/common/runtime-config'
 import type { ConnectionViewSource } from '../connection-views'
 import type { PluginBinding } from './plugins'
 import {

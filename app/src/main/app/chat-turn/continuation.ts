@@ -4,8 +4,8 @@
 // 있어 회귀가 두 번 났다(0149 첨부 누수 · 0166 D7 위임 절반). 여기 두 함수로 고정한다.
 
 import { ifPresent } from '../../../shared/obj'
-import type { SteerFlushBatch, TurnRequest } from '../../adapters/turn'
-import type { PreparedHarnessConfig } from '../../adapters/harness-config'
+import type { SteerFlushBatch, TurnRequest } from '../../adapters/common/turn'
+import type { PreparedHarnessConfig } from '../../adapters/common/harness-config'
 import { pickFrameDelegates } from '../../features/sessions/session-runtime'
 
 // `prepareAutomaticContinuation` 결과 중 요청 조립이 쓰는 부분만. 구조적으로 받아 모듈 간
@@ -36,6 +36,7 @@ export function buildListenRequest(input: {
   return {
     sessionId: input.sessionId,
     text: '',
+    ...(input.base.nativeSessionId ? { nativeSessionId: input.base.nativeSessionId } : {}),
     ...(input.base.planApprovalMode ? { planApprovalMode: input.base.planApprovalMode } : {}),
     cwd: input.base.cwd,
     ...(input.base.extraDirs ? { extraDirs: input.base.extraDirs } : {}),
@@ -79,6 +80,7 @@ export function buildFlushRequest(input: {
   }
   delete request.forkFrom
   delete request.handoff
+  delete request.recovery
   if (preludes.length > 0) request.preludes = preludes
   else delete request.preludes
   return request

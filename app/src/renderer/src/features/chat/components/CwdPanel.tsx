@@ -1,24 +1,31 @@
+import { harnessSurfaces } from '../harnesses/presentation'
 import { useI18n } from '../../../shared/i18n'
 import { agentUiPolicy } from '../lib/agentPresentation'
 import { chatActions, useChatSession } from '../store/chatStore'
 import { CwdButton } from './CwdButton'
 import { useDirectoryPicker } from '../hooks/useDirectoryPicker'
-import { BranchChip } from './composer/BranchChip'
-import { chipGroupSurface } from './composer/chipSurface'
-import { ComposerChip } from './composer/ComposerChip'
-import { ExtraDirChip } from './composer/ExtraDirChip'
-import { WorktreeToggle } from './composer/WorktreeToggle'
+import { BranchChip } from '../harnesses/common/composer/BranchChip'
+import { chipGroupSurface } from '../harnesses/common/composer/chipSurface'
+import { ComposerChip } from '../harnesses/common/composer/ComposerChip'
+import { ExtraDirChip } from '../harnesses/common/composer/ExtraDirChip'
+import { WorktreeToggle } from '../harnesses/common/composer/WorktreeToggle'
 
 interface CwdPanelProps {
   cwd: string | null
   inflight: boolean
+  appearance?: 'default' | 'opencode'
 }
 
-// 컴포저 입력 위의 작업 컨텍스트 행 — [작업 경로] [브랜치] [참조 경로…] [＋].
+// 랜딩 작업 컨텍스트 행 — [작업 경로] [브랜치] [참조 경로…] [＋]. OpenCode는 입력 아래에 둔다.
 //
 // 세션이 확정되기 전(랜딩)에만 뜬다. cwd·브랜치·참조 경로는 새 세션 출생 시 고정되는 값이라
 // 편집 가능한 창이 여기뿐이다. Code의 브랜치 묶음은 조회 중에도 placeholder로 표시한다.
-export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
+export function CwdPanel({
+  cwd,
+  inflight,
+  appearance = 'default'
+}: CwdPanelProps): React.JSX.Element {
+  const openCode = appearance === 'opencode'
   const { tr } = useI18n()
   const agentKind = useChatSession((s) => s.agentKind)
   const extraDirs = useChatSession((s) => s.extraDirs)
@@ -29,27 +36,44 @@ export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
 
   return (
     <div
-      className="app-frame-composer-directory flex flex-wrap items-center gap-g3 rounded-r7 border border-transparent bg-transparent px-1 py-1"
+      className={`app-frame-composer-directory flex flex-wrap items-center ${harnessSurfaces(openCode).directory}`}
       data-surface="cwd-panel"
       data-state="landing"
+      data-appearance={appearance}
     >
-      <CwdButton cwd={cwd} sessionStarted={false} inflight={inflight} variant="outlined" />
+      <CwdButton
+        cwd={cwd}
+        sessionStarted={false}
+        inflight={inflight}
+        variant={openCode ? 'flat' : 'outlined'}
+        className={harnessSurfaces(openCode).pathWidth}
+        showChevron={openCode}
+      />
       {/* Code에서만 Git을 조회한다. 격리 ON이면 선택은 base ref로 유예된다. */}
       <BranchChip
         cwd={cwd}
         hidden={!agentUiPolicy(agentKind).composer.showLandingCwdControls}
         disabled={inflight}
-        variant="segment"
-        trailingDivider
+        variant={openCode ? 'flat' : 'segment'}
+        trailingDivider={!openCode}
         deferTo={worktreeIsolation ? (branch) => chatActions.setWorktreeBaseRef(branch) : undefined}
         deferred={worktreeIsolation ? worktreeBaseRef : null}
         renderTrigger={(branch, pending) => (
-          <div className={chipGroupSurface} data-surface="branch-worktree-group">
+          <div
+            className={openCode ? 'inline-flex h-7 max-w-full items-center' : chipGroupSurface}
+            data-surface="branch-worktree-group"
+          >
+            {openCode && (
+              <span aria-hidden="true" className="mx-1 select-none text-t5">
+                /
+              </span>
+            )}
             {branch}
             <WorktreeToggle
               checked={worktreeIsolation}
               disabled={inflight || !cwd || pending}
               onChange={chatActions.setWorktreeIsolation}
+              variant={openCode ? 'flat' : 'segment'}
             />
           </div>
         )}
@@ -64,7 +88,7 @@ export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
       ))}
       <ComposerChip
         icon="plus"
-        variant="outlined"
+        variant={openCode ? 'flat' : 'outlined'}
         disabled={picking || inflight}
         onClick={() => void pick()}
         title={tr('chat.composer.extraDirAdd')}

@@ -1,4 +1,4 @@
-import { jsonToolResult, type RuntimeToolResult } from '../../../adapters/runtime-tools'
+import { jsonToolResult, type RuntimeToolResult } from '../../../adapters/common/runtime-tools'
 
 export const JIRA_TOOL_OUTPUT_MAX_BYTES = 2 * 1024 * 1024
 

@@ -33,8 +33,8 @@ vi.mock('../../../shared/i18n', () => ({
 }))
 vi.mock('../../../shared/api/ipc', () => ({ fileApi: { pickDirectory: vi.fn() }, gitApi: {} }))
 vi.mock('./CwdButton', () => ({ CwdButton: () => null }))
-vi.mock('./composer/branchChipState', async (original) => ({
-  ...(await original<typeof import('./composer/branchChipState')>()),
+vi.mock('../harnesses/common/composer/branchChipState', async (original) => ({
+  ...(await original<typeof import('../harnesses/common/composer/branchChipState')>()),
   statusForCwd: () => ({
     isRepo: true,
     branch: 'main',
@@ -43,8 +43,8 @@ vi.mock('./composer/branchChipState', async (original) => ({
     root: '/repo'
   })
 }))
-vi.mock('./composer/BranchChip', async (original) => {
-  const actual = await original<typeof import('./composer/BranchChip')>()
+vi.mock('../harnesses/common/composer/BranchChip', async (original) => {
+  const actual = await original<typeof import('../harnesses/common/composer/BranchChip')>()
   return {
     BranchChip: (props: Record<string, unknown>) => {
       branchProps.push(props)
@@ -52,8 +52,8 @@ vi.mock('./composer/BranchChip', async (original) => {
     }
   }
 })
-vi.mock('./composer/WorktreeToggle', async (original) => {
-  const actual = await original<typeof import('./composer/WorktreeToggle')>()
+vi.mock('../harnesses/common/composer/WorktreeToggle', async (original) => {
+  const actual = await original<typeof import('../harnesses/common/composer/WorktreeToggle')>()
   return {
     WorktreeToggle: (props: Record<string, unknown>) => {
       chipProps.push(props)

@@ -1,0 +1,143 @@
+{
+  "scope": "Local fixture observation only; no production files changed, no real model requested, no existing user server used.",
+  "versions": {
+    "cli": "1.19.0",
+    "sdk": "1.18.27",
+    "downloadedSource": "2.0.29"
+  },
+  "scenarios": [
+    {
+      "mode": "default",
+      "experimentalPlanMode": false,
+      "clientPromptCalls": 4,
+      "clientSummarizeCalls": 1,
+      "providerCalls": 5,
+      "providerCallDeltas": {
+        "plan": 1,
+        "build": 1,
+        "noReplySynthetic": 0,
+        "replyingSynthetic": 1,
+        "automaticCompaction": 2
+      },
+      "planReminderInProviderUserPayload": true,
+      "buildReminderInProviderUserPayload": true,
+      "serverModeReminderSseTextParts": 0,
+      "userTextSyntheticPartCount": 3,
+      "compaction": {
+        "eventObserved": true,
+        "userRole": "user",
+        "textType": "text",
+        "synthetic": true,
+        "metadata": {
+          "compaction_continue": true
+        },
+        "systemReminderTag": false,
+        "assistantReplyToSyntheticObserved": true
+      }
+    },
+    {
+      "mode": "experimental-plan",
+      "experimentalPlanMode": true,
+      "clientPromptCalls": 4,
+      "clientSummarizeCalls": 1,
+      "providerCalls": 5,
+      "providerCallDeltas": {
+        "plan": 1,
+        "build": 1,
+        "noReplySynthetic": 0,
+        "replyingSynthetic": 1,
+        "automaticCompaction": 2
+      },
+      "planReminderInProviderUserPayload": true,
+      "buildReminderInProviderUserPayload": true,
+      "serverModeReminderSseTextParts": 2,
+      "userTextSyntheticPartCount": 5,
+      "compaction": {
+        "eventObserved": true,
+        "userRole": "user",
+        "textType": "text",
+        "synthetic": true,
+        "metadata": {
+          "compaction_continue": true
+        },
+        "systemReminderTag": false,
+        "assistantReplyToSyntheticObserved": true
+      }
+    }
+  ],
+  "background": {
+    "explicitFixtureFlag": {
+      "OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS": "true"
+    },
+    "upstreamDefault": "false unless OPENCODE_EXPERIMENTAL or the dedicated flag enables it",
+    "clientPromptCalls": 1,
+    "providerCalls": 4,
+    "providerRequestsReceivedWhenFirstPromptReturned": 3,
+    "providerCallRoles": [
+      "parent tool request",
+      "child response",
+      "parent first response",
+      "parent response to server completion input"
+    ],
+    "firstRootIdleIndex": 32,
+    "subsequentSyntheticUserMessageObserved": true,
+    "subsequentAssistantUpdatedEvents": 3,
+    "subsequentDistinctAssistantMessages": 1,
+    "subsequentIdleObserved": true,
+    "messageUpdatedPropertyKeys": [
+      "info,sessionID"
+    ],
+    "syntheticPartShape": {
+      "type": "text",
+      "synthetic": true,
+      "ignoredFieldPresent": false,
+      "outerTag": "task",
+      "state": "completed",
+      "nestedTags": [
+        "summary",
+        "task_result"
+      ],
+      "systemReminderTag": false
+    },
+    "outerTagAttributes": [
+      "id",
+      "state"
+    ],
+    "clientRefeedPerformed": false
+  },
+  "cleanup": {
+    "fixtureRunnerExitCodes": [
+      0,
+      0
+    ],
+    "actions": [
+      "SSE AbortController aborted",
+      "owned child.kill in finally",
+      "provider closeAllConnections and close"
+    ],
+    "processStartTimeAudit": {
+      "probeStart": "2026-10-16T09:19:19.4629676+09:00",
+      "opencodeProcessesWithUnreadableStartTime": 0,
+      "opencodeProcessesStartedAtOrAfterProbeStillRunning": 0
+    },
+    "existingUserProcessesUntouched": true,
+    "allArtifactsIgnoredByGit": true
+  },
+  "sourceCoordinates": {
+    "currentMapperDropsUserParts": "app/src/main/adapters/opencode/v1/map.ts:68-84,136-137",
+    "currentAdapterEndsOnFirstRootIdle": "app/src/main/adapters/opencode/v1/adapter.ts:295-309,327-331",
+    "currentRuntimeHasNoPersistentPumpWithoutPushTurn": "app/src/main/features/sessions/session-runtime.ts:391-397,503-509,531-533",
+    "inheritedEnvironment": "app/src/main/adapters/opencode/v1/server.ts:144-150",
+    "flagsNotExplicitlyEnabledByOrca": "rg OPENCODE_EXPERIMENTAL|experimentalBackground|BACKGROUND_SUBAGENTS app/src app/scripts returned no matches",
+    "upstreamFlags": "https://raw.githubusercontent.com/anomalyco/opencode/v1.19.0/packages/opencode/src/effect/runtime-flags.ts#L8-L12",
+    "upstreamBackgroundFlag": "https://raw.githubusercontent.com/anomalyco/opencode/v1.19.0/packages/opencode/src/effect/runtime-flags.ts#L40",
+    "upstreamBackgroundFeed": "https://raw.githubusercontent.com/anomalyco/opencode/v1.19.0/packages/opencode/src/tool/task.ts#L210-L246"
+  },
+  "rawEvidence": [
+    ".tmp/0265-reminder-probe-i62jAs/default.json",
+    ".tmp/0265-reminder-probe-i62jAs/experimental-plan.json",
+    ".tmp/0265-reminder-probe-MeyES6/background.json"
+  ],
+  "fixture": ".tmp/0265-reminder-probe.mjs",
+  "note": "Raw evidence contains full local provider system prompts; this summary intentionally retains only counts, shapes, marker names and source coordinates. Effective flags of the existing Orca process were not inspected."
+}

@@ -8,7 +8,7 @@ import type {
 import type { TurnContext } from '../../../../../main/contracts/turn'
 import type { HistoryWriter } from '../../../../../main/features/history/writer'
 import type { ApprovalCoordinator } from '../../../../../main/features/approvals/coordinator'
-import { makeCanUseTool } from '../../../../../main/adapters/claude'
+import { makeCanUseTool } from '../../../../../main/adapters/claude/adapter'
 import { createApprovalRequester } from '../../../../../main/app/chat-turn/approval'
 import { ApprovalBroker } from '../../../../../main/features/approvals/broker'
 import { PermissionModeController } from '../../../../../main/features/approvals/permission-mode-controller'

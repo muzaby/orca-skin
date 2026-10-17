@@ -10,7 +10,7 @@ import {
   MENU_HIDDEN_RIGHT_PANEL_TILES,
   SUSPENDED_RIGHT_PANEL_TILES,
   isRightPanelTileSuspended,
-  RIGHT_PANEL_POLICY,
+  rightPanelPolicy,
   rightPanelTarget,
   rightPanelTileDefinitionsForAgent,
   rightPanelTileIds,
@@ -26,12 +26,14 @@ describe('우측 패널 타일 가시성 — 메뉴 목록 (AT-01)', () => {
       'plan',
       'subagent',
       'task',
-      'diff'
+      'diff',
+      'process',
+      'source'
     ])
   })
 
   it('독립 산출물 타일을 등록하지 않는다', () => {
-    expect(rightPanelTileIds).toEqual(['plan', 'subagent', 'task', 'diff'])
+    expect(rightPanelTileIds).toEqual(['plan', 'subagent', 'task', 'diff', 'process', 'source'])
   })
 
   it('메뉴에서 빠지는 타일이 없다 — 정지 목록이 비었고 예약 슬롯은 0206 이 diff 로 소진했다', () => {
@@ -83,7 +85,7 @@ describe('미확인 완료 배지 (AT-04)', () => {
 
 describe('종류별 우측 패널 정책 (R8)', () => {
   it('Work와 Code가 가시 타일·대상·초기 타일을 각각 완전하게 정의한다', () => {
-    expect(RIGHT_PANEL_POLICY).toMatchObject({
+    expect({ work: rightPanelPolicy('work'), code: rightPanelPolicy('code') }).toMatchObject({
       work: {
         visibleIds: ['task'],
         taskTarget: 'task',

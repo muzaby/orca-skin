@@ -31,7 +31,7 @@ import type { RouterContext } from '../context'
 import { isAbsolutePath, isFilesystemRoot } from '../../../shared/absolute-path'
 import { directoryIdentity, parseStoredExtraDirectories } from '../../../shared/extra-directories'
 import { parseAgentKind } from '../../../shared/agent-kind'
-import { agentSessionPolicy } from '../../../shared/agent-session-policy'
+import { sessionContextPolicy } from '../../../shared/agent-session-policy'
 import { opensWithDefaultApp, resolveContextFile } from './context-file'
 
 interface FilesHandlerContext extends Pick<RouterContext, 'getCwd'> {
@@ -52,7 +52,11 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
 
   const recordedContextDirectories = (sessionId: string): string[] => {
     const session = ctx.db.getSessionById(sessionId)
-    if (!session || !agentSessionPolicy[parseAgentKind(session.agent_kind)].allowContextFileOpen)
+    if (
+      !session ||
+      !sessionContextPolicy(parseAgentKind(session.agent_kind), session.backend)
+        .allowContextFileOpen
+    )
       return []
     return [session.cwd, ...parseStoredExtraDirectories(session.extra_dirs)].filter(
       (directory): directory is string =>
@@ -67,7 +71,11 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
 
   const recordedAttachmentFiles = (sessionId: string): string[] => {
     const session = ctx.db.getSessionById(sessionId)
-    if (!session || !agentSessionPolicy[parseAgentKind(session.agent_kind)].allowContextFileOpen)
+    if (
+      !session ||
+      !sessionContextPolicy(parseAgentKind(session.agent_kind), session.backend)
+        .allowContextFileOpen
+    )
       return []
     return ctx.db.listSessionAttachmentFiles(sessionId).map((file) => file.path)
   }

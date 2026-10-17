@@ -10,7 +10,7 @@ import type {
   SDKTaskNotificationMessage,
   SDKTaskStartedMessage
 } from '@anthropic-ai/claude-agent-sdk'
-import { ClaudeBackgroundMapper } from '../../adapters/claude-background'
+import { ClaudeBackgroundMapper } from '../../adapters/claude/background'
 import { BackgroundTaskTracker } from '../../features/chat/background-tasks'
 import {
   backgroundKey,

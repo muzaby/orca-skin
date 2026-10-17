@@ -2,6 +2,7 @@ import { Icon } from '../../../../shared/ui/Icon'
 import type { AgentEnvironment } from '../../../../../../shared/ipc'
 
 import { modelKey, type ModelSelection } from './modelSelection'
+import { modelPresentation } from '../../harnesses/modelPresentation'
 import { MenuItem, MenuTitle } from '../../../../shared/ui/MenuItem'
 import { useI18n } from '../../../../shared/i18n'
 
@@ -13,8 +14,8 @@ interface ModelMenuProps {
 }
 
 // harness-provider 키(`<harnessId>-<modelProviderId>`)로만 묶고, 그 아래는 모델 한 줄씩.
-// 패밀리(alias)를 따로 세우지 않는다 — 행 라벨 `modelKey` 는 실행 경로가 SDK 에 넘기는
-// 식별자와 같은 값(model ?? alias)이라 목록이 곧 실제 선택지가 된다.
+// Claude는 실제 모델 식별자를, OpenCode는 native 카탈로그 이름을 표시한다.
+// 선택 키는 모두 modelKey로 유지하므로 표시 이름이 같아도 실행 대상을 구분한다.
 // 활자는 모드 팝오버와 같은 계단을 쓴다(MenuTitle 11px / 라벨 13px / 보조 11.5px).
 export function ModelMenu({
   agents,
@@ -62,7 +63,7 @@ export function ModelMenu({
                 }
               >
                 <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">
-                  {modelId}
+                  {modelPresentation(agent.adapter).menu({ alias: model.alias, identity: modelId })}
                 </span>
                 {model.oneMillionContext && (
                   <span className="shrink-0 text-[11.5px] text-ink3">1M</span>

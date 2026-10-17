@@ -6,7 +6,7 @@
 
 import type { IpcMainInvokeEvent, WebContents } from 'electron'
 import type { AttachmentView, DiffRequirementAnchor } from '../../../shared/ipc'
-import type { SteerFlushBatch } from '../../adapters/turn'
+import type { SteerFlushBatch } from '../../adapters/common/turn'
 import type { PendingMessageQueue } from '../../features/chat/pending-message-queue'
 import { sendChatEvent } from '../../infra/ipc/send'
 import type { NormalizedAttachments } from './deps'

@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 vi.mock('electron', () => ({ webContents: { getAllWebContents: () => [] } }))
-import { ClaudeBackgroundMapper } from '../../adapters/claude-background'
+import { ClaudeBackgroundMapper } from '../../adapters/claude/background'
 import { BackgroundController } from '../../features/chat/background-controller'
 import { BackgroundTaskTracker } from '../../features/chat/background-tasks'
 import { HistoryWriter } from '../../features/history/writer'

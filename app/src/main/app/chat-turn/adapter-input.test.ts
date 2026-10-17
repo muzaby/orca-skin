@@ -39,7 +39,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
   }
 }))
 
-import { ClaudeAdapter } from '../../adapters/claude'
+import { ClaudeAdapter } from '../../adapters/claude/adapter'
 
 describe('0250 IT-02 — 도구 경계 입력 무주입', () => {
   it('모든 PostToolBatch 훅을 반복해도 held 메시지는 SDK 입력으로 전송되지 않는다', async () => {

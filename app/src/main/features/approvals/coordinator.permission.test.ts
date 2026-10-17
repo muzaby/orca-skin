@@ -64,10 +64,10 @@ beforeEach(() => hooks.clear())
 describe('r4 live permission actual model and applied response', () => {
   it.each([
     ['work', 'claude-sonnet-4-5', 'default', 'default'],
-    ['code', 'claude-sonnet-4-5', 'accept_edits', 'acceptEdits'],
-    ['work', 'claude-sonnet-4-6', 'auto_classified', 'auto'],
+    ['code', 'claude-sonnet-4-5', 'accept_edits', 'accept_edits'],
+    ['work', 'claude-sonnet-4-6', 'auto_classified', 'auto_classified'],
     ['work', undefined, 'default', 'default'],
-    ['code', 'corp-sonnet-9', 'accept_edits', 'acceptEdits']
+    ['code', 'corp-sonnet-9', 'accept_edits', 'accept_edits']
   ] as const)('%s %s settles %s', async (kind, model, expected, sdk) => {
     const h = setup(kind, model)
     expect(await h.invoke('auto_classified')).toBe(expected)
@@ -110,10 +110,7 @@ describe('r4 Main live request lifetime', () => {
     finish()
     await first
     await second
-    expect(h.setPermissionMode.mock.calls.map((call) => call[0])).toEqual([
-      'bypassPermissions',
-      'default'
-    ])
+    expect(h.setPermissionMode.mock.calls.map((call) => call[0])).toEqual(['bypass', 'default'])
     expect(h.setMode).toHaveBeenLastCalledWith('s', 'default')
   })
   it('retired turn response does not overwrite a new turn or an idle controller', async () => {

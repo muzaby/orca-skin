@@ -86,6 +86,6 @@ describe('소유자는 하나다 (EP-34 ③)', () => {
       .filter((file) => !file.endsWith('useGitPatch.ts'))
       .filter((file) => /useGitPatch\s*\(/.test(readFileSync(`${RENDERER}${file}`, 'utf8')))
 
-    expect(files).toEqual(['src/features/chat/components/rightpanel/DiffTileContent.tsx'])
+    expect(files).toEqual(['src/features/chat/harnesses/common/rightpanel/DiffTileContent.tsx'])
   })
 })

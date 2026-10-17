@@ -25,6 +25,25 @@ function deferred(): {
 }
 
 describe('session directory action — bound target and persisted scope', () => {
+  it('adds and synchronizes context folders for OpenCode Code sessions', async () => {
+    const entry = useChatStore.getState().sessions.s
+    useChatStore.setState({
+      sessions: {
+        s: {
+          ...entry,
+          session: { ...entry.session, backend: 'opencode', agentKind: 'code' }
+        }
+      }
+    })
+    expect(await chatActions.addSessionDirectory(target, 'C:/chosen')).toEqual({
+      ok: true,
+      extraDirs: ['C:/canonical']
+    })
+    expect(addDirectory).toHaveBeenCalledWith({ sessionId: 's', directory: 'C:/chosen' })
+    expect(useChatStore.getState().sessions.s.session.extraDirs).toEqual(['C:/canonical'])
+    chatActions.addExtraDir('c:/CANONICAL')
+    expect(useChatStore.getState().sessions.s.session.extraDirs).toEqual(['C:/canonical'])
+  })
   it('uses the typed bridge and merges only successful canonical results', async () => {
     expect(await chatActions.addSessionDirectory(target, 'C:/chosen')).toEqual({
       ok: true,

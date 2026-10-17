@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import Database from 'better-sqlite3'
 import { DbQueries } from './queries'
+import { openFileDatabase } from './file-database'
 import { afterEach, describe, expect, it } from 'vitest'
 import migration0001 from './migrations/0001_initial.sql?raw'
 import migration0002 from './migrations/0002_projects.sql?raw'
@@ -48,7 +49,11 @@ const EXPECTED_MIGRATIONS = [
   '0025_artifact_catalog',
   '0026_project_paths',
   '0027_background_events',
-  '0028_provider_usage_periods'
+  '0028_provider_usage_periods',
+  '0029_native_history',
+  '0030_native_history_cursor',
+  '0031_turn_context_usage',
+  '0032_native_session_recovery'
 ]
 
 const APPLIED_SQL = [
@@ -71,9 +76,7 @@ function tmpRoot(): string {
 function createFileDb(): { db: Database.Database; path: string; root: string } {
   const root = tmpRoot()
   const path = join(root, 'orcinus-orca.db')
-  const db = new Database(path)
-  db.pragma('journal_mode = WAL')
-  db.pragma('foreign_keys = ON')
+  const db = openFileDatabase(path)
   return { db, path, root }
 }
 
@@ -365,7 +368,7 @@ describe('0023_session_agent_kind_code migration', () => {
   const migration0023Path = join(migrationsDir, '0023_session_agent_kind_code.sql')
 
   function databaseThrough0022(filename = ':memory:'): Database.Database {
-    const db = new Database(filename)
+    const db = filename === ':memory:' ? new Database(filename) : openFileDatabase(filename)
     db.pragma('foreign_keys = ON')
     for (const name of readdirSync(migrationsDir)
       .filter((name) => /^00(?:0\d|1\d|2[0-2])_/.test(name))
@@ -531,8 +534,7 @@ describe('0023_session_agent_kind_code migration', () => {
 
       db.transaction(() => db.exec(readFileSync(migration0023Path, 'utf8')))()
       db.close()
-      db = new Database(filename)
-      db.pragma('foreign_keys = ON')
+      db = openFileDatabase(filename)
 
       expect(db.prepare("SELECT agent_kind FROM sessions WHERE id='s1'").pluck().get()).toBe('code')
       expect(

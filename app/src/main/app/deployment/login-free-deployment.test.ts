@@ -10,13 +10,16 @@ import type {
   LoginFreeDefinition,
   LoginFreePluginAuth
 } from '../../contracts/auth'
-import type { RuntimeToolServer } from '../../adapters/runtime-tools'
-import { authToolServerId, runtimeApprovalToolNames } from '../../adapters/runtime-tool-policy'
+import type { RuntimeToolServer } from '../../adapters/common/runtime-tools'
+import {
+  authToolServerId,
+  runtimeApprovalToolNames
+} from '../../adapters/common/runtime-tool-policy'
 import { createAuthRuntime } from '../../features/auth/runtime'
 import { createMemoryGrantPersistence } from '../../features/auth/store'
 import { patSpec } from '../../features/auth/specs/credential'
 import { createGate, selectGateMembers, type Gate } from '../../features/gate'
-import { RuntimeToolRegistry } from '../../features/extensions/runtime-tool-registry'
+import { RuntimeToolRegistry } from '../../features/extensions/common/runtime-tool-registry'
 import { createVault } from '../../infra/vault'
 import { stripCommentsAndStrings } from '../../infra/source-scan'
 import { connectionState } from '../connection-views'

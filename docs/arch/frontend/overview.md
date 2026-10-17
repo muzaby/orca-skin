@@ -55,9 +55,9 @@
 | Composer `@` 경로·Plugin 자동완성 | Phase 2++ | ✅ 완료 | `MentionAutocomplete` + `useMentionAutocomplete` |
 | Markdown 렌더링 (react-markdown + GFM) | Phase 2 | ✅ 완료 | `shared/ui/markdown/Markdown.tsx` (features/chat 에는 StreamingMarkdown 만 잔류) |
 | Shiki 코드 블록 (shiki 3테마 + 11언어) | Phase 2 | ✅ 완료 | `shared/ui/markdown/CodeBlock.tsx` |
-| ToolCard 렌더링 (input/output 토글) | Phase 2 | ✅ 완료 | `features/chat/components/transcript/ToolCard.tsx` |
-| AuthExpiredModal | Phase 2 | ✅ 완료 | `features/backend/components/AuthExpiredModal.tsx` — `error / auth.expired` 이벤트 트리거 |
-| InstallerDialog | Phase 2 | ✅ 완료 | `features/backend/components/InstallerDialog.tsx` — claude-code 는 SDK 자동 처리로 즉시 done |
+| ToolCard 렌더링 (input/output 토글) | Phase 2 | ✅ 완료 | `features/chat/harnesses/claude/transcript/ToolCard.tsx` · `features/chat/harnesses/opencode/transcript/ToolCard.tsx` |
+| AuthExpiredModal | Phase 2 | ✅ 완료 | `features/backend/harnesses/claude/components/AuthExpiredModal.tsx` — `error / auth.expired` 이벤트 트리거 |
+| InstallerDialog | Phase 2 | ✅ 완료 | `features/backend/harnesses/claude/components/InstallerDialog.tsx` — claude-code 는 SDK 자동 처리로 즉시 done |
 | Tweaks (theme/대화 텍스트 크기·너비/sidebar) + electron-store 영속화 | Phase 2+ → 0256 | ✅ 완료 | `shared/theme/TweakProvider` — 컨트롤 UI 는 설정 모달 일반 탭(`features/settings/components/GeneralTab.tsx` — 테마·글꼴·언어·알림·대화 텍스트 크기·너비, 0256)과 dev 전용 `features/debug/components/DebugPanel.tsx`. 테마는 white/dark 2종 |
 | 세션 재개 (lastSessionId 부팅 복원) | Phase 2+ | ✅ 완료 | 부팅 스텝 `landing-target`(`app/boot/steps.ts`)이 `settings.lastSessionId` 로 랜딩 경로를 정한다 |
 | DOM Architecture 마커 체계 (`app-frame-*` + `data-*`) | Phase 3+ | ✅ 완료 | dom-architecture.md — 단일 PR 일괄 적용 (`45e129f`) |
@@ -75,7 +75,7 @@
 | **활성 효과 URL 동기화** | Phase 3++ | ✅ 완료 | `useSessionHandlers` 의 `currentSessionId` 를 `matchPath('/chat/:sessionId', pathname)` 로 도출 — `ChatContext.state.sessionId` 의존 제거 (캐시/IPC 용도로만 잔존). Sidebar nav '새 대화' isActive 도 `p === '/new'` 로 좁힘. |
 | **MCP 서버 지원 (플러그인 카탈로그 MCP 탭)** | Phase 3++ → 0217 | ✅ 완료 | `/plugins` 페이지의 카탈로그(플러그인 → 스킬 → MCP 탭, rendering.md 카탈로그 단락)에서 MCP 섹션 실 연동(`orca:mcp:*` + `AddMcpServerModal` stdio/http, 상세 토글·케밥 삭제 0217). 정의는 파일-백드 `mcp.json`, 비밀은 `${VAR}` 참조. 활성 서버는 배포기가 plugin `.mcp.json` 으로 렌더해 `options.plugins` 로 로드한다([../backend/standardization.md §5.1](../backend/standardization.md)) |
 | Projects 화면 (`/projects` · `/projects/:projectId`) | Phase 3 → 0233 | ✅ 완료 | `ProjectsScreen` 카드 그리드 + `ProjectLandingPage`(제목·메뉴·Composer·대화 목록). 시작 폴더 `cwd` 식별, Nav 펼침 동기(`useProjectCatalogSync`, state.md §1.6) |
-| 엔진 & 모델 화면 (`/agent`) | Phase 4 | ✅ CRUD 활성 (0021·0090) | `AgentEnvironmentView` + provider CRUD(`EngineFormModal` 단일 화면 + `~/.claude/settings.json` 불러오기, 0090) |
+| 엔진 & 모델 화면 (`/agent`) | Phase 4 | ✅ CRUD 활성 (0021·0090) | `AgentEnvironmentView` + provider CRUD(`EngineFormModal` 단일 화면 + 선택 하네스의 native 설정 불러오기, 0090) |
 | 플러그인 카탈로그 — 스킬 탭 토글 · 연결(Auth) 상세 | Phase 4 | ✅ 완료 (0181·0236·0238) | 스킬 on/off 는 `Settings.skillEnabled`, 연결 상세는 `ProviderDetail` + 인증 액션(`ProviderAuthActions`). 도구 권한은 승인 UI와 권한 모드 메뉴가 담당(ux-domains.md §1.6) |
 | 메시지 가상 스크롤 | Phase 4 | ✅ 완료 (0102) | `features/chat/hooks/useTranscriptVirtualizer.ts` — `@tanstack/react-virtual` 기반 transcript 가상화 |
 | 멀티세션 UI (nav 세션 행 상태 아이콘 · 주의 표시) | Phase 4 | ✅ 완료 (0249·0254) | 다른 세션의 생성 중(회전) · 완료 · 응답 대기를 행 아이콘으로 표시 — `sessionsStore.unseenAttention`·`generatingSessionIds`(state.md §1.1·§2). 세션 탭 UI 는 두지 않았다(사이드바 목록이 전환 수단) |
@@ -83,7 +83,7 @@
 | 네트워크 단절 배너 | Future | ❌ 미구현 | — |
 | ARIA / 스크린리더 audit | Future | 🚧 부분 적용 | 체계적 audit TBD |
 | i18n | Phase 4 | ✅ 완료 (0096/0097) | `shared/i18n/` — i18next + react-i18next 리소스 번들. 언어 전환은 사이드바 사용자 버튼 플라이아웃 |
-| **ToolRendererRegistry (semantic kind)** | 스테이지 C1 | ✅ 구현 | `features/chat/components/transcript/registry.ts` — RenderableKind taxonomy + registry, 미지 도구는 `generic` fallback. rendering.md §1.6 |
+| **ToolRendererRegistry (semantic kind)** | 스테이지 C1 | ✅ 구현 | `features/chat/harnesses/claude/transcript/registry.ts` — Claude 도구 본문. OpenCode는 전용 view decoder와 카드 선택. rendering.md §1.6 |
 | **승인 UI (plan · tool · ask) + PermissionModeController 연동** | 스테이지 C2 | ✅ 승인 3종 구현 · 단일 카드 일반화 미착수 | `ApprovalCard`(plan) + `ToolApprovalBody`·`AskUserQuestionCard`(additive). ux-domains.md §1.6 |
 | **StructuredOutput / Streaming lifecycle** | Phase 4 / Future | ✅ StructuredOutputCard·reasoning 라이브 스트리밍 구현 · 📐 lifecycle 정규화(dedup/재연결/절단) 미착수 | rendering.md §1.7·§1.8 |
 | **부팅 오케스트레이션 (BootScreen)** | Phase 4 | ✅ 완료 (0077) | `app/boot/` — bootStore + steps + `orca:boot:report` 진단 |

@@ -1,5 +1,7 @@
 # ADR-001 — 대화의 진실은 Orca DB 다 (SDK resume 은 컨텍스트일 뿐)
 
+> **정책 대체 (2026-10-16)**: 사용자가 하네스 원본 경로를 SSOT로 확정했다. 현재 결정은 [ADR-009](009-harness-native-storage-authority.md), 구현 설계는 [0265](../handoff/0265-harness-native-storage/plan.md)다. 아래는 과거 결정이며 DB 보관 자체는 유지한다.
+
 ## 문제
 
 Claude Agent SDK 는 세션을 자체 `jsonl` 로 보관하고 `resume` 으로 이어붙인다. 앱이 그것을

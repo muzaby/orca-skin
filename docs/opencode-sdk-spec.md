@@ -7,10 +7,7 @@ version/dist-tags.latest를 조회한 뒤 app dependencies에 범위 연산자 �
 package.json, package-lock.json, 설치본 package.json과 npm ls 결과가 같은 버전이다.
 이 날짜 이후의 latest를 뜻하지 않는다.
 
-SDK는 설치됐지만 Orca의 OpenCode adapter, CLI/server, 인증·모델 연결은 구현하거나 실행하지
-않았다. Backend와 활성 registry는 Claude를 유지한다. 레이어별 전환 제안은
-[Orca 마이그레이션 연구 가이드](etc/study/opencode/orca-migration-guide.md)에 있으며,
-현재 구조의 정본은 [backend overview](arch/backend/overview.md)와 코드다.
+Orca는 `OpenCodeAdapter`와 소유 로컬 서버를 등록하며 `/v2/client`의 legacy 호환 API를 사용한다. native `/api/...`와 혼용하지 않는다. 설치 SDK의 주입 fetch 계약·SSE fixture를 실행하며, CLI 버전 호환성은 실제 health/catalog 검증과 별도로 기록한다. 실행 구조와 제한은 [어댑터 문서](arch/backend/adapters.md)가 정본이다.
 
 | 증거 수준 | 이 문서에서 뜻하는 것 |
 | --- | --- |
@@ -72,7 +69,7 @@ native namespace를 함께 노출한다.
 
 ### 3.1 표면별 요청
 
-아래는 [실행 가능한 계약 테스트](../app/src/main/adapters/opencode-sdk.test.ts)의 호출
+아래는 [실행 가능한 계약 테스트](../app/src/main/adapters/opencode/v1/sdk.test.ts)의 호출
 형태를 축약한 것이다. 테스트는 fake fetch를 사용한다. 실제 앱에 baseUrl만 넣어 실행하라는
 예제가 아니며, Electron에서는 §6의 transport 검증이 선행돼야 한다.
 
@@ -383,7 +380,7 @@ Orca의 예전 문서에 있던 session.send, payload: true/false, ChatEvent 기
 
 ## 10. 검증 범위와 다음 구현의 진입 조건
 
-[opencode-sdk.test.ts](../app/src/main/adapters/opencode-sdk.test.ts)는 실제 공개 import의
+[opencode-sdk.test.ts](../app/src/main/adapters/opencode/v1/sdk.test.ts)는 실제 공개 import의
 root/v2 legacy/native 요청 직렬화, HTTP 성공·오류 envelope, throwOnError, 유한 SSE parser,
 주입 fetch 경계와 root SSE의 우회 한계를 검사한다. 전역 network guard를 사용해 외부
 server/model 요청을 차단한다. package typecheck도 이 테스트를 검사한다.

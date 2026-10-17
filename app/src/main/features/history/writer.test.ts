@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import Database from 'better-sqlite3'
+import { openFileDatabase } from '../../infra/db/file-database'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -116,7 +117,7 @@ describe('Work boundary persistence', () => {
   it('appends end to the completed original row, preserves FTS, and survives disk reopen and fork', () => {
     const directory = mkdtempSync(join(tmpdir(), 'orca-response-boundary-'))
     const filename = join(directory, 'history.db')
-    let connection = new Database(filename)
+    let connection = openFileDatabase(filename)
     try {
       applyMigrations(connection)
       const queries = new DbQueries(connection)
@@ -162,7 +163,7 @@ describe('Work boundary persistence', () => {
       expect(expected?.agentKind).toBe('work')
       expect(loadSession(queries, 'fork', () => '/fallback')?.messages).toEqual(expected?.messages)
       connection.close()
-      connection = new Database(filename)
+      connection = openFileDatabase(filename)
       const reopened = new DbQueries(connection)
       expect(loadSession(reopened, 's1', () => '/fallback')).toEqual(expected)
       expect(loadSession(reopened, 'fork', () => '/fallback')?.messages).toEqual(expected?.messages)

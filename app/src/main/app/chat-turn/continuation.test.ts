@@ -5,7 +5,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { buildFlushRequest, buildListenRequest } from './continuation'
-import type { SteerFlushBatch, TurnRequest } from '../../adapters/turn'
+import type { SteerFlushBatch, TurnRequest } from '../../adapters/common/turn'
 import type { DiffRequirementAnchor } from '../../../shared/ipc'
 
 // 0188 — settings 와 env 가 **한 객체**로 온다. listen 과 flush 가 둘 다 같은 값을 실어야
@@ -24,7 +24,7 @@ const continuation = {
 const requirement = (overrides: Partial<DiffRequirementAnchor> = {}): DiffRequirementAnchor => ({
   sessionId: 'session-1',
   baselineCommit: '3486398aecbc2b97e42d3dba1aae8d13b18d186c',
-  filePath: 'app/src/main/adapters/claude.ts',
+  filePath: 'app/src/main/adapters/claude/adapter.ts',
   oldLine: 5,
   newLine: 8,
   hunkHeader: '@@ -5,2 +8,3 @@',
@@ -38,6 +38,8 @@ const requirement = (overrides: Partial<DiffRequirementAnchor> = {}): DiffRequir
 function baseRequest(): TurnRequest {
   return {
     sessionId: 's-1',
+    nativeSessionId: 'replacement-native',
+    recovery: { history: 'archived context', freshStart: true, onPrompt: vi.fn() },
     text: '원 프롬프트',
     promptUuid: 'uuid-origin',
     cwd: '/workspace',
@@ -65,6 +67,8 @@ describe('buildListenRequest', () => {
     const request = buildListenRequest({ base, sessionId: 's-1', signal, continuation })
 
     expect(request.text).toBe('')
+    expect(request.nativeSessionId).toBe('replacement-native')
+    expect(request.recovery).toBeUndefined()
     expect(request.attachmentTexts).toBeUndefined()
     expect(request.attachmentImages).toBeUndefined()
     expect(request.requirements).toBeUndefined()
@@ -104,6 +108,8 @@ describe('buildFlushRequest', () => {
     })
 
     expect(request.text).toBe('잔여 메시지')
+    expect(request.nativeSessionId).toBe('replacement-native')
+    expect(request.recovery).toBeUndefined()
     expect(request.promptUuid).toBe('batch-1')
     expect(request.attachmentTexts).toEqual(['잔여 첨부'])
     expect(request.attachmentImages).toEqual([])

@@ -390,8 +390,9 @@ export const en: typeof ko = {
     title: 'Engine & Models',
     subtitle: 'Provider settings environment',
     addEngine: 'Add engine',
+    catalogFailed: 'Could not load the model catalog.',
     blurb: `The Composer model menu is built from the provider settings in <c>~/.config/${PRODUCT_SLUG}/sources/settings</c>. After editing, the model menu refreshes without restarting the app.`,
-    emptyState: 'No providers registered. Use the Add engine button to create a claude provider.',
+    emptyState: 'No providers registered. Add an engine to configure a harness and model provider.',
     deleteConfirm: 'Delete provider {{name}}?',
     card: { unsupportedAdapter: 'Unsupported adapter', readOnly: 'Read-only' },
     readSettingsFailed: 'Failed to load the settings.',
@@ -411,7 +412,39 @@ export const en: typeof ko = {
       jsonSyntaxUnknown: 'Invalid JSON — unknown error',
       topLevelObject: 'The top level must be an object { … }.'
     },
+    openCode: {
+      importHint: 'Fill fields from global opencode.json. The original file is never changed.',
+      id: 'Provider ID',
+      idHint: 'Lowercase letters, numbers, hyphens or underscores',
+      idFormat:
+        'Start with a lowercase letter or number; use lowercase letters, numbers, hyphens or underscores.',
+      name: 'Display name',
+      namePlaceholder: 'My AI Provider',
+      baseURL: 'Base URL',
+      urlFormat: 'Enter a URL starting with http:// or https://.',
+      apiKey: 'API key',
+      apiKeyHint: 'Optional. Leave empty if you manage authentication through headers.',
+      models: 'Models',
+      modelId: 'Model ID {{count}}',
+      modelName: 'Model display name {{count}}',
+      addModel: 'Add model',
+      removeModel: 'Remove model {{count}}',
+      headers: 'Headers (optional)',
+      headerKey: 'Header name {{count}}',
+      headerValue: 'Header value {{count}}',
+      headerKeyPlaceholder: 'Header name',
+      headerValuePlaceholder: 'Value',
+      addHeader: 'Add header',
+      removeHeader: 'Remove header {{count}}',
+      required: 'Required.',
+      duplicate: 'Duplicate value.',
+      importedProvider: 'Imported provider',
+      importUnsupported:
+        'No OpenAI-compatible provider to import. Check the provider configuration in opencode.json.'
+    },
     form: {
+      harness: 'Harness',
+      openCodeHint: `Native OpenCode configuration JSON. Configure model providers and authentication under <c>provider</c>. ${PRODUCT_DISPLAY_NAME} manages a separate local server automatically.`,
       titleEdit: 'Edit engine settings',
       titleAdd: 'Add engine',
       provider: 'Provider',
@@ -422,6 +455,11 @@ export const en: typeof ko = {
       importButton: 'Import ~/.claude/settings.json',
       importNotFound: 'Could not find ~/.claude/settings.json.',
       importFailed: 'Failed to load ~/.claude/settings.json.',
+      openCodeImportTitle:
+        'Fills the body with the global OpenCode opencode.json. Default: ~/.config/opencode/opencode.json (respects XDG_CONFIG_HOME).',
+      openCodeImportButton: 'Import opencode.json',
+      openCodeImportNotFound: 'Could not find or read the global OpenCode opencode.json.',
+      openCodeImportFailed: 'Failed to load OpenCode settings.',
       saveFailed: 'Failed to save.',
       jsonValid: '✓ Valid JSON.',
       envHint:
@@ -430,6 +468,13 @@ export const en: typeof ko = {
       adding: 'Adding…',
       addAction: 'Add'
     }
+  },
+  harness: {
+    agent: 'Agent',
+    variant: 'Variant',
+    defaultAgent: 'Default agent',
+    defaultVariant: 'Default',
+    promptPlaceholder: 'Ask OpenCode to work on something.'
   },
   backend: {
     installed: 'Installed',
@@ -491,6 +536,7 @@ export const en: typeof ko = {
     scenario: 'Scenario',
     contextUsage: 'Context usage',
     log: 'Logs',
+    showAutomaticFeeds: 'Show automatic feeds',
     themeSection: 'Theme',
     palette: 'Color palette',
     layoutSection: 'Layout',
@@ -568,6 +614,64 @@ export const en: typeof ko = {
     completeBody: 'The response is complete.'
   },
   chat: {
+    opencode: {
+      panel: {
+        title: 'Session details',
+        menu: 'Session panel menu',
+        sources: 'Sources',
+        showAll: 'Show all',
+        agents: 'Subagents',
+        active: 'Active',
+        completed: 'Completed',
+        agentCounts: 'Active {{active}} · Completed {{completed}}',
+        noAgents: 'No subagents in this group.',
+        waitingAgent: 'Waiting for the subagent response.',
+        changes: 'Changes',
+        processes: 'Background processes',
+        processStatus: {
+          running: 'Running',
+          completed: 'Completed',
+          failed: 'Failed',
+          aborted: 'Aborted',
+          cancelled: 'Cancelled',
+          rejected: 'Rejected',
+          not_executed: 'Not executed'
+        },
+        noProcesses: 'No recorded shell executions.',
+        noOutput: 'No output received.',
+        truncated: 'Showing the last 64K characters of output.',
+        back: 'Back',
+        expand: 'Expand panel',
+        collapse: 'Collapse panel',
+        unavailable: 'This record is unavailable.'
+      },
+      back: 'Back',
+      toggleQuestion: 'Collapse or expand question',
+      explorationIncomplete: 'Exploration ended · incomplete',
+      fileDiff: 'File changes',
+      tool: {
+        read: 'Read',
+        search: 'Search',
+        list: 'List',
+        shell: 'Shell',
+        edit: 'Edit',
+        write: 'Write',
+        web: 'Web fetch',
+        task: 'Task',
+        todo: 'Todo'
+      },
+      originalTool: 'Original tool input',
+      question: 'Question',
+      questionAnswered: '{{count}} answered',
+      explorationCount: {
+        read: '{{count}} read',
+        search: '{{count}} searched',
+        list: '{{count}} listed'
+      },
+      explorationDone: 'Exploration complete',
+      explorationRunning: 'Exploring',
+      todosEmpty: 'No todos recorded yet'
+    },
     agent: {
       choose: 'Choose a mode',
       work: 'Work',
@@ -1053,6 +1157,7 @@ export const en: typeof ko = {
     approval: {
       toolAria: 'Tool execution approval',
       toolRequest: 'Claude is requesting permission to run {{tool}}',
+      toolRequestOpenCode: 'OpenCode is requesting permission to run {{tool}}',
       deny: 'Deny',
       allowSessionTitle: 'Auto-allow the same tool for this session',
       allowSession: 'Allow for session',
@@ -1087,6 +1192,8 @@ export const en: typeof ko = {
         subagent: 'Background tasks',
         task: 'Tasks',
         diff: 'Changes',
+        process: 'Background processes',
+        source: 'Sources',
         artifacts: 'Artifacts'
       },
       diffAllChanges: 'All changes',
@@ -1141,7 +1248,9 @@ export const en: typeof ko = {
         'The model did not send the plan. Review the conversation before approving.',
       planEmptyTitle: 'No plan yet',
       planEmptyDesc: 'It will appear here as Claude explores and builds a plan.',
+      planEmptyDescOpenCode: 'It will appear here as OpenCode explores and builds a plan.',
       planSelectHint: 'Select text to leave feedback for Claude',
+      planSelectHintOpenCode: 'Select text to leave feedback for OpenCode',
       reservedTitle: 'Reserved tile',
       reservedDesc: 'This area is reserved for an upcoming auxiliary panel feature.',
       commentViewAria: 'View comment',

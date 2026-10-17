@@ -5,12 +5,14 @@ import {
   DEFAULT_PERMISSION_MODE,
   NORMALIZED_MODES,
   PLAN_APPROVED_MODE,
+  fromUiPermissionMode,
+  type NormalizedPermissionMode
+} from './permission-mode'
+import {
   toClaudePermissionMode,
   fromClaudePermissionMode,
-  fromUiPermissionMode,
-  type NormalizedPermissionMode,
   type ClaudePermissionMode
-} from './permission-mode'
+} from './harnesses/claude/permission-mode'
 
 describe('permission-mode 정규화', () => {
   it('NORMALIZED_MODES 는 6종이고 중복이 없다', () => {

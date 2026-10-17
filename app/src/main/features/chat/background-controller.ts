@@ -240,7 +240,7 @@ export class BackgroundController {
     return this.stoppingAll.has(sessionId)
   }
 
-  dispose(sessionId: string): void {
+  dispose(sessionId: string, options: { preserveOutputSnapshots?: boolean } = {}): void {
     const state = this.state(sessionId)
     this.disposed.add(sessionId)
     for (const [key, timer] of this.stopTimers)
@@ -248,9 +248,11 @@ export class BackgroundController {
         clearTimeout(timer)
         this.stopTimers.delete(key)
       }
-    for (const task of Object.values(state.tasks)) {
-      for (const snapshot of Object.values(task.outputSnapshots))
-        void this.deps.outputs.removeSnapshot?.(snapshot.id)
+    if (!options.preserveOutputSnapshots) {
+      for (const task of Object.values(state.tasks)) {
+        for (const snapshot of Object.values(task.outputSnapshots))
+          void this.deps.outputs.removeSnapshot?.(snapshot.id)
+      }
     }
   }
 

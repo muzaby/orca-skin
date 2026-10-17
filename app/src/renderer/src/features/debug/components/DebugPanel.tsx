@@ -37,10 +37,12 @@ const SCENARIO_LABEL_KEYS: Record<MockScenarioId, MessageKey> = {
 // 로그인 우회 토글이 메인 셸에만 있으면 정작 게이트에 막혔을 때 손이 닿지 않는다.
 export function DebugPanel({
   updateSection,
-  providerSection
+  providerSection,
+  automaticFeedSection
 }: {
   updateSection?: ReactNode
   providerSection?: ReactNode
+  automaticFeedSection?: ReactNode
 }): React.JSX.Element {
   const { t, setTweak } = useTweakContext((t) => ({
     theme: t.theme,
@@ -73,6 +75,7 @@ export function DebugPanel({
         onChange={(value) => setMock({ contextUsageRatio: value / 100 })}
       />
       <PanelToggle label={tr('debug.log')} value={state.log} onChange={(log) => setMock({ log })} />
+      {automaticFeedSection}
 
       <PanelSection label={tr('debug.themeSection')} />
       <PanelRadio

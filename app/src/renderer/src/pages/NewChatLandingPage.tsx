@@ -1,11 +1,11 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { AgentModeToggle, ChatTile, Composer, useChatSession } from '../features/chat'
+import { ChatTile, Landing, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
 import { useUsageForTelemetryProvider } from '../features/chat'
 import { useOpenSettings, providerTabId } from '../features/settings'
 
 // `/new` 라우트의 랜딩 페이지.
-// - 메시지가 아예 없을 때: 빈 화면 중앙에 Composer 만 노출 (ChatGPT 스타일).
+// - 빈 대화: 하네스별 랜딩. 입력 인스턴스는 유지하고 외형·컨텍스트 위치만 전환한다.
 // - 메시지가 한 번이라도 추가되면 (= 사용자가 첫 메시지를 송신한 직후): 일반
 //   ChatTile 레이아웃으로 자연 전환. init 이벤트로 `sessionId` 가 발급되는 즉시
 //   `useChatRouteSync` Direction 2 가 URL 을 `/chat/<id>` 로 replace 하여 ChatPage
@@ -14,6 +14,7 @@ export function NewChatLandingPage(): React.JSX.Element {
   // 첫 send 의 낙관 커밋(0068)이 messages 를 즉시 채워 같은 렌더 사이클에 ChatTile 로
   // 전환된다. !inflight 는 이중 방어 — 어떤 경로로든 턴이 시작되면 랜딩에 갇히지 않는다.
   const isEmpty = useChatSession((s) => s.messages.length === 0 && !s.loadingSession && !s.inflight)
+  const backend = useChatSession((s) => s.backend)
   const backendLabel = useBackendLabel()
   const capabilities = useBackendCapabilities()
   // 능력 서술자가 로드됐는데 sessionAbort 가 아니면 중단 게이팅(미로드면 현행 동작 유지).
@@ -36,22 +37,17 @@ export function NewChatLandingPage(): React.JSX.Element {
 
   if (isEmpty) {
     return (
-      <section className="flex min-h-0 min-w-0 flex-1 bg-bg">
-        <div className="flex min-w-0 flex-1 items-center justify-center px-4">
-          <div className="w-full max-w-[720px]">
-            <AgentModeToggle />
-            <Composer
-              backendLabel={backendLabel}
-              canAbort={canAbort}
-              usageLimits={usageLimits}
-              onOpenUsageSettings={onOpenUsageSettings}
-              onManagePlugins={onManagePlugins}
-              initialDraft={composerDraft}
-              showLandingCwdPanel
-            />
-          </div>
-        </div>
-      </section>
+      <Landing
+        backend={backend}
+        composerProps={{
+          backendLabel,
+          canAbort,
+          usageLimits,
+          onOpenUsageSettings,
+          onManagePlugins,
+          initialDraft: composerDraft
+        }}
+      />
     )
   }
   return (

@@ -394,8 +394,9 @@ export const ko = {
     title: '엔진 & 모델',
     subtitle: 'provider settings 환경',
     addEngine: '엔진 추가',
+    catalogFailed: '모델 목록을 불러오지 못했습니다.',
     blurb: `<c>~/.config/${PRODUCT_SLUG}/sources/settings</c> 의 provider settings 를 기반으로 Composer 모델 메뉴가 구성됩니다. 편집 후 앱 재시작 없이 모델 메뉴가 갱신됩니다.`,
-    emptyState: '등록된 provider 가 없습니다. 엔진 추가 버튼으로 claude provider 를 생성하세요.',
+    emptyState: '등록된 공급자가 없습니다. 엔진 추가에서 하네스와 모델 공급자를 설정하세요.',
     deleteConfirm: '{{name}} provider 를 삭제할까요?',
     card: { unsupportedAdapter: '미지원 adapter', readOnly: '읽기 전용' },
     readSettingsFailed: '설정을 불러오지 못했어요.',
@@ -416,7 +417,38 @@ export const ko = {
       jsonSyntaxUnknown: 'JSON 형식이 올바르지 않아요 — 알 수 없는 오류',
       topLevelObject: '최상위는 객체 { … } 형태여야 해요.'
     },
+    openCode: {
+      importHint: '전역 opencode.json에서 입력 필드만 채웁니다. 원본 파일은 변경하지 않습니다.',
+      id: '공급자 ID',
+      idHint: '소문자, 숫자, 하이픈 또는 밑줄',
+      idFormat: '소문자 또는 숫자로 시작하고 소문자·숫자·하이픈·밑줄만 사용할 수 있습니다.',
+      name: '표시 이름',
+      namePlaceholder: '내 AI 공급자',
+      baseURL: '기본 URL',
+      urlFormat: 'http:// 또는 https://로 시작하는 URL을 입력하세요.',
+      apiKey: 'API 키',
+      apiKeyHint: '선택 사항입니다. 헤더로 인증하는 경우 비워 두세요.',
+      models: '모델',
+      modelId: '모델 ID {{count}}',
+      modelName: '모델 표시 이름 {{count}}',
+      addModel: '모델 추가',
+      removeModel: '모델 {{count}} 제거',
+      headers: '헤더 (선택 사항)',
+      headerKey: '헤더 이름 {{count}}',
+      headerValue: '헤더 값 {{count}}',
+      headerKeyPlaceholder: '헤더 이름',
+      headerValuePlaceholder: '값',
+      addHeader: '헤더 추가',
+      removeHeader: '헤더 {{count}} 제거',
+      required: '필수 항목입니다.',
+      duplicate: '중복된 값입니다.',
+      importedProvider: '불러온 공급자',
+      importUnsupported:
+        '불러올 OpenAI 호환 공급자가 없습니다. opencode.json의 provider 설정을 확인하세요.'
+    },
     form: {
+      harness: '하네스',
+      openCodeHint: `OpenCode 기본 설정 JSON입니다. <c>provider</c>에 모델 공급자와 인증을 구성하세요. ${PRODUCT_DISPLAY_NAME}가 별도 로컬 서버를 자동 관리합니다.`,
       titleEdit: '엔진 설정 편집',
       titleAdd: '엔진 추가',
       provider: '공급자',
@@ -427,6 +459,11 @@ export const ko = {
       importButton: '~/.claude/settings.json 불러오기',
       importNotFound: '~/.claude/settings.json 을 찾을 수 없어요.',
       importFailed: '~/.claude/settings.json 을 불러오지 못했어요.',
+      openCodeImportTitle:
+        'OpenCode 전역 opencode.json의 내용으로 본문을 채웁니다. 기본 경로: ~/.config/opencode/opencode.json (XDG_CONFIG_HOME 지원).',
+      openCodeImportButton: 'opencode.json 불러오기',
+      openCodeImportNotFound: 'OpenCode 전역 opencode.json을 찾거나 읽을 수 없어요.',
+      openCodeImportFailed: 'OpenCode 설정을 불러오지 못했어요.',
       saveFailed: '저장에 실패했어요.',
       jsonValid: '✓ JSON 형식이 올바릅니다.',
       envHint:
@@ -435,6 +472,13 @@ export const ko = {
       adding: '추가 중…',
       addAction: '추가하기'
     }
+  },
+  harness: {
+    agent: '에이전트',
+    variant: '추론 수준',
+    defaultAgent: '기본 에이전트',
+    defaultVariant: '기본',
+    promptPlaceholder: 'OpenCode에 작업을 요청하세요.'
   },
   backend: {
     installed: '설치됨',
@@ -496,6 +540,7 @@ export const ko = {
     scenario: '시나리오',
     contextUsage: '컨텍스트 사용량',
     log: '로그',
+    showAutomaticFeeds: '자동 피드 표시',
     themeSection: '테마',
     palette: '컬러 팔레트',
     layoutSection: '레이아웃',
@@ -573,6 +618,64 @@ export const ko = {
     completeBody: '응답이 완료되었습니다.'
   },
   chat: {
+    opencode: {
+      panel: {
+        title: '세션 정보',
+        menu: '세션 패널 메뉴',
+        sources: '소스',
+        showAll: '모두 보기',
+        agents: '하위 에이전트',
+        active: '활성',
+        completed: '완료',
+        agentCounts: '활성 {{active}} · 완료 {{completed}}',
+        noAgents: '해당하는 하위 에이전트가 없습니다.',
+        waitingAgent: '하위 에이전트의 응답을 기다리고 있습니다.',
+        changes: '변경 사항',
+        processes: '백그라운드 프로세스',
+        processStatus: {
+          running: '실행 중',
+          completed: '완료',
+          failed: '실패',
+          aborted: '중단됨',
+          cancelled: '취소됨',
+          rejected: '거부됨',
+          not_executed: '실행되지 않음'
+        },
+        noProcesses: '기록된 셸 실행이 없습니다.',
+        noOutput: '수신한 출력이 없습니다.',
+        truncated: '출력이 길어 마지막 64K 문자만 표시합니다.',
+        back: '뒤로',
+        expand: '패널 확대',
+        collapse: '패널 축소',
+        unavailable: '이 항목의 기록을 찾을 수 없습니다.'
+      },
+      back: '뒤로',
+      toggleQuestion: '질문 접기 또는 펼치기',
+      explorationIncomplete: '탐색 종료 · 미완료',
+      fileDiff: '파일 변경 내용',
+      tool: {
+        read: '읽기',
+        search: '검색',
+        list: '목록',
+        shell: '셸',
+        edit: '편집',
+        write: '작성',
+        web: '웹 가져오기',
+        task: '작업',
+        todo: '할 일'
+      },
+      originalTool: '원본 도구 입력',
+      question: '질문',
+      questionAnswered: '{{count}}개 답변됨',
+      explorationCount: {
+        read: '{{count}}개 읽음',
+        search: '{{count}}개 검색',
+        list: '{{count}}개 목록'
+      },
+      explorationDone: '탐색 완료',
+      explorationRunning: '탐색 중',
+      todosEmpty: '아직 기록된 할 일이 없습니다'
+    },
     agent: {
       choose: '작업 종류 선택',
       work: '작업',
@@ -1060,6 +1163,7 @@ export const ko = {
     approval: {
       toolAria: '도구 실행 승인',
       toolRequest: 'Claude가 {{tool}} 실행 권한을 요청합니다',
+      toolRequestOpenCode: 'OpenCode가 {{tool}} 실행 권한을 요청합니다',
       deny: '거부',
       allowSessionTitle: '이 세션 동안 같은 도구를 자동 허용',
       allowSession: '세션 동안 허용',
@@ -1094,6 +1198,8 @@ export const ko = {
         subagent: '백그라운드 작업',
         task: '작업',
         diff: '변경사항',
+        process: '백그라운드 프로세스',
+        source: '소스',
         artifacts: '산출물'
       },
       diffAllChanges: '모든 변경사항',
@@ -1148,7 +1254,9 @@ export const ko = {
         '모델이 계획을 전달하지 않았습니다. 대화 내용을 보고 승인 여부를 결정하세요.',
       planEmptyTitle: '아직 플랜이 없습니다',
       planEmptyDesc: 'Claude 가 탐색하며 계획을 세우면 여기에 표시됩니다.',
+      planEmptyDescOpenCode: 'OpenCode가 탐색하며 계획을 세우면 여기에 표시됩니다.',
       planSelectHint: '텍스트를 선택해 Claude에게 의견을 남기세요',
+      planSelectHintOpenCode: '텍스트를 선택해 OpenCode에게 의견을 남기세요',
       reservedTitle: '예약된 타일입니다',
       reservedDesc: '이 영역은 다음 보조 패널 기능을 위해 비워두었습니다.',
       commentViewAria: '코멘트 보기',

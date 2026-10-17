@@ -15,8 +15,8 @@ import { installChatStoreHarness } from './chatStore.testHarness'
 import { initialChatState, type ChatState } from '../reducer/chatReducer'
 import { partsToolCalls } from '../lib/parts'
 import { agentUiPolicy } from '../lib/agentPresentation'
-import { ToolCard } from '../components/transcript/ToolCard'
-import { WorkToolBody } from '../components/transcript/WorkToolBody'
+import { ToolCard } from '../harnesses/claude/transcript/ToolCard'
+import { WorkToolBody } from '../harnesses/claude/transcript/WorkToolBody'
 import type {
   ApprovalResolution,
   NormalizedEvent,

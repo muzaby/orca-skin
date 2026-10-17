@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { ClassifiedError, DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
-import type { TurnRequest } from '../../adapters/turn'
-import type { ProviderMessageBatch } from '../../adapters/types'
+import type { TurnRequest } from '../../adapters/common/turn'
+import type { ProviderMessageBatch } from '../../adapters/common/types'
 import type { TurnContext } from '../../contracts/turn'
 import {
   TurnCoordinator,
@@ -35,6 +35,60 @@ function makeTurn(): TurnContext<W> {
 }
 
 const REQUEST = { sessionId: null, text: 'hi' } as unknown as TurnRequest
+
+it('carries native IDs separately from queue UUIDs for matched echoes and automatic input', async () => {
+  const queue = new PendingMessageQueue()
+  queue.enqueue('s1', { text: 'next' }, 1, 'steer')
+  const batch = queue.reserveHeld('s1')!
+  queue.commit('s1', batch.attemptId!, batch.chainId)
+  const deps = makeDeps(
+    fakeRuntime([
+      [
+        {
+          type: 'input.echo',
+          sessionId: 's1',
+          uuid: batch.uuid,
+          nativeMessageId: 'native-user',
+          text: 'next'
+        },
+        {
+          type: 'input.received',
+          sessionId: 's1',
+          uuid: 'queue-receipt',
+          nativeMessageId: 'native-auto',
+          text: 'reminder',
+          origin: { kind: 'automatic' }
+        },
+        {
+          type: 'message.completed',
+          sessionId: 's1',
+          nativeMessageId: 'native-assistant',
+          message: { text: 'done' }
+        },
+        { type: 'telemetry', sessionId: 's1' }
+      ]
+    ]),
+    { pendingMessages: queue }
+  )
+  const commit = vi.fn(() => 42)
+  deps.persist.commitUserMessage = commit
+  const turn = makeTurn()
+  turn.dbSessionId = 's1'
+  await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+  expect(commit.mock.calls).toEqual([
+    [turn, expect.objectContaining({ text: 'next', nativeMessageId: 'native-user' })],
+    [turn, expect.objectContaining({ text: 'reminder', nativeMessageId: 'native-auto' })]
+  ])
+  expect(turn.nativeInputIds?.size).toBe(0)
+  expect(
+    vi
+      .mocked(deps.persist.persist)
+      .mock.calls.some(
+        ([, event]) =>
+          event.type === 'message.completed' && event.nativeMessageId === 'native-assistant'
+      )
+  ).toBe(true)
+})
 
 it('commits a received scheduled prompt before its response without consuming a queued user prompt', async () => {
   const runtime = fakeRuntime([
@@ -90,6 +144,42 @@ it('does not replay channel-owned schedule state through a delayed turn frame', 
   const forwarded = vi.mocked(deps.forward.forward).mock.calls.map((call) => call[1])
   expect(forwarded.some((event) => event.type === 'session.schedules')).toBe(false)
 })
+
+it.each(['system-reminder', 'tagged', 'plain'] as const)(
+  'records a provider-owned %s input during listen without sending it back',
+  async (format) => {
+    const origin = { kind: 'automatic' as const, format }
+    const text = format === 'plain' ? 'Continue.' : `<${format}>Continue.</${format}>`
+    const runtime = fakeRuntime([
+      [
+        { type: 'input.received', sessionId: 's1', text, uuid: 'provider-input', origin },
+        { type: 'message.completed', sessionId: 's1', message: { text: 'continued' } },
+        { type: 'turn.ended', sessionId: 's1' }
+      ]
+    ])
+    const send = vi.spyOn(runtime, 'send')
+    const listen = vi.spyOn(runtime, 'listen')
+    const deps = makeDeps(runtime)
+    const commit = vi.fn(() => 43)
+    deps.persist.commitUserMessage = commit
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+    await new TurnCoordinator(deps).run(turn, REQUEST, { kind: 'listen', boundProjectId: null })
+    expect(listen).toHaveBeenCalledTimes(1)
+    expect(send).not.toHaveBeenCalled()
+    expect(commit).toHaveBeenCalledTimes(1)
+    expect(commit).toHaveBeenCalledWith(turn, expect.objectContaining({ text, origin }))
+    const forwarded = vi.mocked(deps.forward.forward).mock.calls.map((call) => call[1])
+    expect(forwarded[0]).toMatchObject({
+      type: 'message.committed',
+      ids: [],
+      text,
+      origin,
+      messageId: 43
+    })
+    expect(forwarded.some((event) => event.type === 'input.received')).toBe(false)
+  }
+)
 
 // 스크립트된 이벤트 리스트(또는 attempt 별 동작)를 yield 하는 가짜 런타임.
 function fakeRuntime(

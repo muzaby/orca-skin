@@ -63,6 +63,8 @@ export interface SessionListRow {
 
 // 0006 turn_usage — per-turn 사용량 원장. 모델별 분해는 turn_model_usage 자식 행에 저장.
 export interface TurnUsageInsert {
+  contextTokens?: number | null
+  contextWindow?: number | null
   sessionId: string | null
   messageId: number | null
   createdAt: number
@@ -74,6 +76,8 @@ export interface TurnUsageInsert {
 }
 
 export interface TurnUsageRow {
+  context_tokens?: number | null
+  context_window?: number | null
   id: number
   session_id: string | null
   message_id: number | null

@@ -15,9 +15,9 @@
 
 | 항목 | Orca 구현 | 근거 |
 |---|---|---|
-| `claude_code` preset + `append` | `adaptSystemPrompt()` 가 `{type:'preset', preset:'claude_code', append}` 반환 | `app/src/main/adapters/claude-adapt.ts` |
-| `append` 는 **단일 문자열** | 빌더가 구조화 헤더(지침 포함) 단일 string 조립(다중 블록 4-블록 버그 회피) | `app/src/main/features/extensions/builder.ts` |
-| 세션 스코프 `query()` + 입력 스트림 | spawn에서 query를 만들고 후속 입력은 같은 LiveTurn으로 전달한다. 재생성이 필요하면 `resume`한다 | `app/src/main/adapters/claude.ts` · `features/sessions/session-runtime.ts` |
+| `claude_code` preset + `append` | `adaptSystemPrompt()` 가 `{type:'preset', preset:'claude_code', append}` 반환 | `app/src/main/adapters/claude/adapt.ts` |
+| `append` 는 **단일 문자열** | 빌더가 구조화 헤더(지침 포함) 단일 string 조립(다중 블록 4-블록 버그 회피) | `app/src/main/features/extensions/common/builder.ts` |
+| 세션 스코프 `query()` + 입력 스트림 | spawn에서 query를 만들고 후속 입력은 같은 LiveTurn으로 전달한다. 재생성이 필요하면 `resume`한다 | `app/src/main/adapters/claude/adapter.ts` · `features/sessions/session-runtime.ts` |
 | 제품 에이전트 프로필 | Work만 `# Agent` 지침을 추가한다. Code는 기존 append와 동일하다 | `features/agents/profiles.ts` · `system-header.ts` |
 | `excludeDynamicSections` 생략(=false) | 미사용 → cwd/플랫폼/메모리 경로 동적섹션을 시스템 프롬프트에 유지 | grep 0건 |
 | Work 전용 출력 스타일 | 앱 소유 local plugin의 `keep-coding-instructions: false`·`force-for-plugin: true`로 기본 코딩 지침을 제외한다. Work 행동은 `append`가 소유한다 | `resources/claude-plugins/work-profile/output-styles/work.md` |
@@ -26,7 +26,7 @@
 > `구조화 헤더` 하나이고 프로젝트 지침은 `# Project` 섹션 안에 포맷화되어 편입된다 (§2A).
 > 정적 정책 체인을 두지 않는 이유는 §2.
 
-## 2A. 구조화 시스템 프롬프트 헤더 (`features/extensions/system-header.ts`, handoff 0073)
+## 2A. 구조화 시스템 프롬프트 헤더 (`features/extensions/common/system-header.ts`, handoff 0073)
 
 **현행 append 조립의 정본.** 역할·사용자 정보 + 실행환경 구성을 `# Orca / # Agent / # Tools / # User / # Project` 마크다운
 섹션으로 구조화해 프로젝트 지침 **앞**에 붙인다. study/opencode·hermes 의 "정체성/실행환경 framing 을
@@ -76,7 +76,7 @@ Project instructions:
   `Project instructions:` 라벨 줄 + 다음 줄부터 본문. 헤더는 `# Orca` 상시라 `append = 헤더`(빈 문자열 불가).
 - **실행환경 재주입 안 함**: cwd/platform/date/도구목록은 preset 동적섹션(`excludeDynamicSections:false`)이
   이미 주입 → 헤더는 preset 이 주지 못하는 Orca framing(GUI/markdown 표면)만 얹는다.
-- 근거 코드: `features/extensions/system-header.ts`(+`.test.ts`)·`builder.ts`(조립)·`app/bootstrap.ts`(version/settings 주입).
+- 근거 코드: `features/extensions/common/system-header.ts`(+`.test.ts`)·`builder.ts`(조립)·`app/bootstrap.ts`(version/settings 주입).
 
 Claude 대화는 Work/Code 모두 `Bash`·`WebSearch`를 제외한 SDK 기본 도구와 `PowerShell`을 노출한다.
 앱은 `allowedTools`로 PowerShell을 자동 허용하지 않는다. 기존 permission mode와 명시 권한
@@ -84,8 +84,8 @@ Claude 대화는 Work/Code 모두 `Bash`·`WebSearch`를 제외한 SDK 기본 �
 provider 템플릿과 실행 설정은 `CLAUDE_CODE_USE_POWERSHELL_TOOL="1"`과
 `skipWebFetchPreflight=true`를 기본 제공하되 명시 설정과 기존 환경 변수 우선순위를 보존한다.
 기존 provider 파일은 일괄 수정하지 않으며 실행 시 누락값을 보완한다. 단발 completion의 도구는
-비활성으로 유지한다. 기본값 정본은 `app/src/shared/claude-settings-defaults.ts`, 실행 조립은
-`adapters/claude-adapt.ts`다.
+비활성으로 유지한다. 기본값 정본은 `app/src/shared/harnesses/claude/settings-defaults.ts`, 실행 조립은
+`adapters/claude/adapt.ts`다.
 
 ## 2. 정적 정책 append — 미채택
 
@@ -108,7 +108,7 @@ append는 Orca→Agent(Work만)→Tools→User→Project 순서의 단일 문자
 
 Work plugin 경로는 `app/builtin-resources.ts`가 dev의 앱 resources 또는 패키지의
 `process.resourcesPath/claude-plugins/work-profile`에서 해석하고 bootstrap이 주입한다.
-`app/agent-extension-profile.ts`는 Work에서만 필수 리소스를 읽어 검증하며, 최초 전송과 자동 연속
+`app/harnesses/claude/extension-profile.ts`는 Work에서만 필수 리소스를 읽어 검증하며, 최초 전송과 자동 연속
 전송이 이 준비 함수를 공유한다. 후보는 기존 base plugin roots 뒤에 새 배열로 추가되어
 `adaptPlugins()`로 전달되며 Code의 후보와 workspace `.claude` 설정은 변경하지 않는다.
 
@@ -126,7 +126,7 @@ SDK `init.output_style` 표시값이 아닌 실제 모델 요청의 style 본문
 |---|---|
 | 3장 "대화마다 고유 cwd" | 현재 cwd 는 **프로젝트 단위**다 — `Bootstrap.getCwd(projectId)`(`app/bootstrap.ts`·`app/context.ts`)가 프로젝트 미소속이면 `projects/default`, 소속이면 `projects/<이름>-<프로젝트ID8>` 을 준다. **대화(세션)마다 고유 cwd 는 아니다** — Future Scope. `excludeDynamicSections:false` 결정은 유효하나 근거는 "동적섹션 유지" 자체이지 per-session cwd 가 아님 |
 | 6장 VOLATILE = 날짜·**메모리 스냅샷** → 첫 user 메시지 | Orca 에 **메모리 기능 없음**. 날짜는 preset 동적섹션이 이미 주입. 현재 격리할 volatile preamble 자체가 없음 → 미구현(기능 도입 시 재검토) |
-| 5.3 `src/agent/systemPrompt/` 경로 | Orca 엔 미존재. main feature 슬라이스에 맞춰 `features/extensions/system-header.ts`(빌더 동일 slice)로 매핑 |
+| 5.3 `src/agent/systemPrompt/` 경로 | Orca 엔 미존재. main feature 슬라이스에 맞춰 `features/extensions/common/system-header.ts`(빌더 동일 slice)로 매핑 |
 
 ## 5. Open Questions — 재검토 대상 (가이드 ↔ Orca 확정결정 충돌)
 
@@ -148,7 +148,7 @@ SDK `init.output_style` 표시값이 아닌 실제 모델 요청의 style 본문
 | | 내용 |
 |---|---|
 | 가이드 처방 | `settings:{ env: appEnv }` — 앱 env 를 settings 에 단일 주입 |
-| Orca 확정 | provider env→`options.settings`(JSON 문자열, `adaptSettings`) / 시스템(턴) env→`options.env`(`adaptEnv`)로 **분리**. 분리 지점은 `adapters/claude-adapt.ts` 의 `adaptSettings`/`adaptEnv` 두 함수다. (0015/0018 의 `splitProviderSettings`·branded 타입 컴파일타임 강제는 **0028 이 제거**했다 — [security.md §1.7](./security.md) 이력.) handoff 0015/0018/0028 |
+| Orca 확정 | provider env→`options.settings`(JSON 문자열, `adaptSettings`) / 시스템(턴) env→`options.env`(`adaptEnv`)로 **분리**. 분리 지점은 `adapters/claude/adapt.ts` 의 `adaptSettings`/`adaptEnv` 두 함수다. (0015/0018 의 `splitProviderSettings`·branded 타입 컴파일타임 강제는 **0028 이 제거**했다 — [security.md §1.7](./security.md) 이력.) handoff 0015/0018/0028 |
 | 분석 | Orca 분리 모델이 더 정밀(어떤 env 가 어느 레이어로 가는지 타입으로 고정). 가이드의 단일 주입은 이 구분을 잃음 |
 | 권고 | **현행 유지**(분리) |
 

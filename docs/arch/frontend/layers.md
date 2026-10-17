@@ -42,7 +42,7 @@ src/renderer/
     │       └── useSidebarSlots.tsx      # Sidebar React.memo 효과 위한 slot ReactNode 안정화
     │
     ├── pages/                       ✅ 조립 전용 — store 읽기 + features 배치. 비즈니스 로직 0.
-    │   ├── NewChatLandingPage.tsx   # `/new` — empty 시 중앙 Composer (랜딩), 메시지 있으면 ChatTile
+    │   ├── NewChatLandingPage.tsx   # `/new` — 하네스별 랜딩. OpenCode는 로고→Composer→작업 컨텍스트, 메시지 있으면 ChatTile
     │   ├── ChatPage.tsx             # `/chat/:sessionId` — backend store → ChatView.backendLabel wiring
     │   ├── ProjectsPage.tsx         # ProjectsView 단순 배치
     │   ├── ProjectLandingPage.tsx   # 프로젝트 제목 → Composer → ProjectSessionsPanel. 랜딩 cwd·전환은 useChatRouteSync, 지침 편집은 제목 메뉴의 dialog가 담당
@@ -95,6 +95,14 @@ src/renderer/
 > **부재 확인 (`frame/` · `screens/` · `state/` · `components/`)**: 위 네 디렉토리는 코드에 존재하지 않는다. 4-layer 로 완전 해체됐다(PR #29). 해체 전후 귀속 매핑은 `git log`(PR #29, 2026-05-27)가 갖는다 — 이력은 architecture 가 아니다(`docs/AGENTS.md` 규칙 4).
 
 ### 1.1 디렉토리 책임 규칙
+
+`features/chat`, `features/engine`은 각 feature 안의 `harnesses/claude/`·`harnesses/opencode/`에 하네스 전용 구현을 둔다. Chat의 공통 입력·메시지·패널 host는 `harnesses/common/`, engine의 공통 상태·폼은 각 feature의 `common/`이 소유한다. 도메인 지식을 가진 공통 코드를 전역 `shared/`로 올리지 않는다.
+
+페이지와 feature의 조립 진입점은 `Backend`로 하네스별 모듈을 선택하고 공통 구현에 정책·컴포넌트 슬롯을 주입한다. 순수 정책 catalog와 표면별 React registry를 구분해 store나 transcript가 관련 없는 화면 구현을 끌어오지 않게 한다. 등록은 정적 타입 검사로 누락을 확인하며, 공통 구현에서 구체 하네스나 선택 registry로 거슬러 올라가는 의존과 하네스 형제 간 의존은 ESLint가 거부한다.
+
+초안·첨부를 가진 input controller는 하네스별 컴포넌트 아래에서 다시 생성하지 않는다. 공통 부모와 입력 인스턴스는 유지하고 표현·controls·dock만 교체한다. 세션 store/reducer와 feature 간 데이터 전달은 기존 pages/app 조립 규칙을 따른다.
+
+엔진의 공통 JSON 편집 폼과 OpenCode 신규 공급자 폼은 조립 진입점에서 선택한다. 저장은 공통 engine API를 사용하며 native 공급자 템플릿·필드 변환은 하네스별 구현이 제공한다. OpenCode 1.x 설정 형상은 `features/engine/harnesses/opencode/v1/`에 있다. 정규 IPC DTO만 소비하는 chat UI·엔진 폼 UI·로고는 API 버전에 종속시키지 않는다. Claude 설치·로그인 만료 안내는 backend feature의 Claude 구현이 소유한다.
 
 > PR #29 로 강제됨 (ESLint `eslint-plugin-boundaries` v6 `boundaries/dependencies` 규칙). 의존 방향: `app/` → `pages/` → `features/` → `shared/`. 위반 시 `npm run lint` 가 차단.
 

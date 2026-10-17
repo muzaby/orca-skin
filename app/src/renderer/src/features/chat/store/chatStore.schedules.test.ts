@@ -10,6 +10,54 @@ const schedules: SessionSchedule[] = [
 ]
 
 describe('session scheduling receive path', () => {
+  it.each(['claude', 'opencode'] as const)(
+    'preserves all received formats in %s live, duplicate delivery, reload and session return',
+    (backend) => {
+      installChatStoreHarness({ backend })
+      const formats = ['system-reminder', 'tagged', 'plain'] as const
+      for (const [index, format] of formats.entries()) {
+        const event = {
+          type: 'message.committed' as const,
+          sessionId: 's',
+          ids: [`received-${index}`],
+          messageId: index + 1,
+          createdAt: index + 1,
+          text: `original ${format}\n`,
+          origin: { kind: 'automatic' as const, label: 'provider', format }
+        }
+        ingestChatEvent(event)
+        ingestChatEvent(event)
+      }
+      const live = harnessSession()
+      expect(live.messages.map((message) => message.parts)).toEqual(
+        formats.map((format) => [
+          {
+            type: 'text',
+            text: `original ${format}\n`,
+            origin: { kind: 'automatic', label: 'provider', format }
+          }
+        ])
+      )
+      const session = {
+        id: 's',
+        backend,
+        agentKind: 'code' as const,
+        title: null,
+        messages: structuredClone(live.messages)
+      }
+      const loaded = chatReducer(initialChatState, { type: 'LOAD_SESSION', session })
+      const other = chatReducer(loaded, {
+        type: 'LOAD_SESSION',
+        session: { ...session, id: 'other', messages: [] }
+      })
+      expect(other.messages).toEqual([])
+      const returned = chatReducer(other, { type: 'LOAD_SESSION', session })
+      const stored = live.messages.map(({ role, parts, createdAt }) => ({ role, parts, createdAt }))
+      expect(loaded.messages).toEqual(stored)
+      expect(returned.messages).toEqual(stored)
+    }
+  )
+
   it('ready 복원은 예약 수신 점유만 유지하고 오래된 복원이나 다른 세션으로 새지 않는다', () => {
     const loaded = chatReducer(initialChatState, {
       type: 'LOAD_SESSION',

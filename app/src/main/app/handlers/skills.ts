@@ -14,8 +14,8 @@ import {
   removeOrcaSkillDir,
   writeAuthoredSkill,
   writeUploadedSkill
-} from '../../features/extensions/skills/sources'
-import { skillEnabledKey } from '../../features/extensions/skills/scan'
+} from '../../features/extensions/common/skills/sources'
+import { skillEnabledKey } from '../../features/extensions/common/skills/scan'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import type { RouterContext } from '../context'
 

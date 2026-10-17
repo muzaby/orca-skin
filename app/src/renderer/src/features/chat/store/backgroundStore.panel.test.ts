@@ -9,7 +9,7 @@ import {
 } from '../../../../../shared/background-task'
 import { chatApi } from '../../../shared/api/ipc'
 import { projectBackgroundPanel } from '../lib/canonicalBackground'
-import { ClaudeBackgroundMapper } from '../../../../../main/adapters/claude-background'
+import { ClaudeBackgroundMapper } from '../../../../../main/adapters/claude/background'
 import {
   dismissCompletedBackgroundItems,
   forgetBackgroundState,

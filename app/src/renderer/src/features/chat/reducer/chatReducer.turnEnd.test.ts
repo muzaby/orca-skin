@@ -1,6 +1,6 @@
 // 0211 ΔV6 AT-70·AT-71 / VP-71·VP-72 — 턴 종료 tick 과 컴포저 행 닫기 (D-114·D-115).
 //
-// 배선의 두 끝을 잰다. main 이 `turn.ended` 를 내는 축은 `adapters/turn-end-hook.test.ts` 가
+// 배선의 두 끝을 잰다. main 이 `turn.ended` 를 내는 축은 `adapters/claude/turn-end-hook.test.ts` 가
 // 갖고, 여기서는 **renderer 가 그것을 세는가**(§10 EP-46 ④)와 **닫힘이 그 수로 풀리는가**
 // (§10 EP-48 ②)를 본다. 둘 중 하나만 있으면 이벤트는 오는데 아무도 세지 않거나, 한 번 닫은
 // 행이 영영 돌아오지 않는다.

@@ -1,0 +1,69 @@
+import { memo } from 'react'
+import { useTranscriptRuntime } from './TranscriptRuntime'
+import { chatActions, useChatSession, type PendingSteerState } from '../../../store/chatStore'
+import { useI18n } from '../../../../../shared/i18n'
+import { UserBubbleText } from './UserBubbleText'
+import { UserDiffRequirements } from './UserDiffRequirements'
+import { pendingSteerControls, runPendingSteerControl } from './pendingSteerControls'
+
+interface PendingSteerTurnProps {
+  items: PendingSteerState[]
+  onRestoreDraft?: (text: string) => void
+}
+
+// 미커밋(pending) 사용자 메시지 버블(0067 pending-first) — 일반 send·steer 예약 모두 이
+// 연회색/기울임 버블로 시작해, message.committed 수신 시 store 가 일반 커밋 사용자
+// 메시지로 승격한다. held 인 동안 hover 취소(단건 draft 복원) 가능.
+export const PendingSteerTurn = memo(function PendingSteerTurn({
+  items,
+  onRestoreDraft
+}: PendingSteerTurnProps): React.JSX.Element | null {
+  const { appearance } = useTranscriptRuntime()
+  const { tr } = useI18n()
+  const activityForeground = useChatSession((s) => s.activityForeground)
+  if (items.length === 0) return null
+  return (
+    <div className="group/msg flex flex-col items-end gap-[var(--chat-item-gap)]">
+      {items.map((item) => (
+        <div key={item.id} className="flex max-w-[80%] items-start gap-2">
+          {/* 소유권이 넘어간(stdin 주입 완료) 항목은 취소 버튼을 내린다(0151) — main 이 취소를
+              거부하므로, 버튼을 남겨두면 눌러도 아무 일이 없는 죽은 어포던스가 된다. */}
+          {item.submitted ? (
+            <span className="mt-1 select-none px-2 py-0.5 text-[calc(11px*var(--transcript-text-scale,1))] text-ink3 opacity-0 transition-opacity group-hover/msg:opacity-100">
+              {tr('chat.steer.submitted')}
+            </span>
+          ) : (
+            pendingSteerControls(item, activityForeground).map((kind) => (
+              <button
+                key={kind}
+                type="button"
+                data-control={kind}
+                className="mt-1 rounded-full border border-border px-2 py-0.5 text-[calc(11px*var(--transcript-text-scale,1))] text-ink3 opacity-0 transition-opacity hover:bg-fill-uncontained-hover group-hover/msg:opacity-100"
+                onClick={() => {
+                  const restored = runPendingSteerControl(kind, item, chatActions)
+                  if (restored) onRestoreDraft?.(restored)
+                }}
+              >
+                {tr(kind === 'send-now' ? 'chat.steer.sendNow' : 'common.cancel')}
+              </button>
+            ))
+          )}
+          <div className="flex min-w-0 flex-col items-end gap-1.5">
+            {item.requirements && item.requirements.length > 0 && (
+              <div className="flex flex-wrap justify-end gap-2">
+                <UserDiffRequirements requirements={item.requirements} />
+              </div>
+            )}
+            <UserBubbleText
+              data-state={item.submitted ? 'submitted-steer' : 'pending-steer'}
+              className={appearance.pendingBubble}
+              collapseKey={`steer:${item.id}`}
+            >
+              {item.text}
+            </UserBubbleText>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+})

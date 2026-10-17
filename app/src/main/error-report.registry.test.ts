@@ -33,14 +33,14 @@ const sites = [
   },
   {
     id: 'M4',
-    file: 'app/bootstrap.ts',
+    file: 'app/harnesses/claude/extensions.ts',
     event: 'mcp.server.skipped',
     title: 'mcpServerSkipped',
     method: 'reportError'
   },
   {
     id: 'M5',
-    file: 'app/bootstrap.ts',
+    file: 'app/harnesses/claude/extensions.ts',
     event: 'extensions.deploy.warning',
     title: 'extensionsFailed',
     method: 'reportError'
@@ -103,21 +103,21 @@ const sites = [
   },
   {
     id: 'M14',
-    file: 'features/harnesses/settings.ts',
+    file: 'features/harnesses/common/settings.ts',
     event: 'providers.settings.resolve-failed',
     title: 'configInvalid',
     method: 'reportError'
   },
   {
     id: 'M15',
-    file: 'features/harnesses/settings.ts',
+    file: 'features/harnesses/common/settings.ts',
     event: 'providers.settings.parse-failed',
     title: 'configInvalid',
     method: 'reportError'
   },
   {
     id: 'M16',
-    file: 'features/extensions/harness-plugins/claude-user-skills.ts',
+    file: 'features/extensions/claude/user-skills.ts',
     event: 'extensions.plugin.wrapper-failed',
     title: 'extensionsFailed',
     method: 'reportError'
@@ -145,7 +145,7 @@ const sites = [
   },
   {
     id: 'M19',
-    file: 'adapters/claude-settings.ts',
+    file: 'adapters/claude/settings.ts',
     event: 'providers.settings.parse-failed',
     title: 'configInvalid',
     method: 'reportError'
@@ -170,6 +170,13 @@ const sites = [
     event: 'bus.listener.failed',
     title: 'eventDeliveryFailed',
     method: 'reportError'
+  },
+  {
+    id: 'M24',
+    file: 'adapters/opencode/v1/channel.ts',
+    event: 'opencode.channel.abort.failed',
+    title: 'engineInternal',
+    method: 'reportError'
   }
 ]
 const root = fileURLToPath(new URL('./', import.meta.url))
@@ -181,11 +188,11 @@ const slots: Record<string, number> = {
   M3: 0,
   M4: 0,
   M5: 1,
-  M6: 2,
-  M7: 3,
-  M8: 4,
-  M9: 5,
-  M10: 6,
+  M6: 0,
+  M7: 1,
+  M8: 2,
+  M9: 3,
+  M10: 4,
   M11: 0,
   M12: 0,
   M13: 0,
@@ -197,7 +204,8 @@ const slots: Record<string, number> = {
   M18: 0,
   M19: 0,
   M22: 0,
-  M23: 0
+  M23: 0,
+  M24: 0
 }
 function matchingCalls(site: (typeof sites)[number], text: string): ReturnType<typeof calls> {
   return calls(sourceTree(text), site.method).filter(

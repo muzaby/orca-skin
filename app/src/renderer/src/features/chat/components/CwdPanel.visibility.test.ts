@@ -24,8 +24,8 @@ vi.mock('../../../shared/i18n', () => ({ useI18n: () => ({ tr: (key: string) => 
 vi.mock('./CwdButton', () => ({ CwdButton: () => null }))
 // SSR does not run the status effect. Supply only its resolved snapshot; keep the visibility rule,
 // BranchChip, CwdPanel and checkbox rendering real.
-vi.mock('./composer/branchChipState', async (original) => ({
-  ...(await original<typeof import('./composer/branchChipState')>()),
+vi.mock('../harnesses/common/composer/branchChipState', async (original) => ({
+  ...(await original<typeof import('../harnesses/common/composer/branchChipState')>()),
   statusForCwd: () => fixture.status
 }))
 

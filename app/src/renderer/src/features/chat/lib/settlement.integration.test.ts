@@ -4,7 +4,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 import type { WebContents } from 'electron'
-import { claudeToNormalized, type MapContext } from '../../../../../main/adapters/claude-map'
+import { claudeToNormalized, type MapContext } from '../../../../../main/adapters/claude/map'
 import {
   TurnCoordinator,
   type CoordinatorRuntime
@@ -18,7 +18,7 @@ import { TypedBus } from '../../../../../main/infra/bus'
 import { makeClassifiedError } from '../../../../../main/infra/errors'
 import type { OrcaBusEvents } from '../../../../../main/contracts/bus-events'
 import type { TurnContext } from '../../../../../main/contracts/turn'
-import type { TurnRequest } from '../../../../../main/adapters/turn'
+import type { TurnRequest } from '../../../../../main/adapters/common/turn'
 import type { NormalizedEvent } from '../../../../../shared/ipc'
 import { chatReducer, initialChatState } from '../reducer/chatReducer'
 import { AssistantMessage } from '../components/transcript/AssistantMessage'

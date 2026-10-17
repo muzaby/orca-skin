@@ -61,14 +61,14 @@ export const sites: Site[] = [
     disposition: 'CONSUMED'
   },
   {
-    file: 'features/backend/components/InstallerDialog.tsx',
+    file: 'features/backend/harnesses/claude/components/InstallerDialog.tsx',
     ordinal: 0,
     line: 56,
     disposition: 'CONSUMED'
   },
   { file: 'features/backend/store/backendStore.ts', ordinal: 0, line: 29, disposition: 'EXCLUDE' },
   {
-    file: 'features/chat/components/ApprovalCard.tsx',
+    file: 'features/chat/harnesses/common/composer/toolApproval.ts',
     ordinal: 0,
     line: 33,
     disposition: 'EXCLUDE'
@@ -83,13 +83,13 @@ export const sites: Site[] = [
     title: 'copyFailed'
   },
   {
-    file: 'features/chat/components/composer/BranchChip.tsx',
+    file: 'features/chat/harnesses/common/composer/BranchChip.tsx',
     ordinal: 0,
     line: 83,
     disposition: 'EXCLUDE'
   },
   {
-    file: 'features/chat/components/composer/BranchChip.tsx',
+    file: 'features/chat/harnesses/common/composer/BranchChip.tsx',
     ordinal: 1,
     line: 98,
     disposition: 'TOAST',
@@ -98,7 +98,7 @@ export const sites: Site[] = [
     title: 'loadFailed'
   },
   {
-    file: 'features/chat/components/composer/BranchChip.tsx',
+    file: 'features/chat/harnesses/common/composer/BranchChip.tsx',
     ordinal: 2,
     line: 115,
     disposition: 'TOAST',
@@ -107,19 +107,19 @@ export const sites: Site[] = [
     title: 'loadFailed'
   },
   {
-    file: 'features/chat/components/composer/BranchChip.tsx',
+    file: 'features/chat/harnesses/common/composer/BranchChip.tsx',
     ordinal: 3,
     line: 151,
     disposition: 'CONSUMED'
   },
   {
-    file: 'features/chat/components/composer/GitIdentityMenu.tsx',
+    file: 'features/chat/harnesses/common/composer/GitIdentityMenu.tsx',
     ordinal: 0,
     line: 48,
     disposition: 'CONSUMED'
   },
   {
-    file: 'features/chat/components/composer/useGitSnapshot.ts',
+    file: 'features/chat/harnesses/common/composer/useGitSnapshot.ts',
     ordinal: 0,
     line: 79,
     disposition: 'CONSUMED'
@@ -134,13 +134,13 @@ export const sites: Site[] = [
     title: 'actionFailed'
   },
   {
-    file: 'features/chat/components/rightpanel/CanonicalBackgroundContent.tsx',
+    file: 'features/chat/harnesses/claude/rightpanel/CanonicalBackgroundContent.tsx',
     ordinal: 0,
     line: 209,
     disposition: 'CONSUMED'
   },
   {
-    file: 'features/chat/components/rightpanel/DiffTileContent.tsx',
+    file: 'features/chat/harnesses/common/rightpanel/DiffTileContent.tsx',
     ordinal: 0,
     line: 82,
     disposition: 'TOAST',
@@ -149,7 +149,7 @@ export const sites: Site[] = [
     title: 'openFailed'
   },
   {
-    file: 'features/chat/components/rightpanel/TaskContextContent.tsx',
+    file: 'features/chat/hooks/useTaskContext.ts',
     ordinal: 0,
     line: 61,
     disposition: 'TOAST',
@@ -158,13 +158,13 @@ export const sites: Site[] = [
     title: 'openFailed'
   },
   {
-    file: 'features/chat/components/transcript/ForegroundShellActions.tsx',
+    file: 'features/chat/harnesses/common/transcript/ForegroundShellActions.tsx',
     ordinal: 0,
     line: 82,
     disposition: 'CONSUMED'
   },
   {
-    file: 'features/chat/components/transcript/tool-bodies/AskBody.tsx',
+    file: 'features/chat/harnesses/claude/transcript/tool-bodies/AskBody.tsx',
     ordinal: 0,
     line: 9,
     disposition: 'EXCLUDE'
@@ -310,7 +310,22 @@ export const sites: Site[] = [
     event: 'chat.session-load.failed',
     title: 'sessionOpenFailed'
   },
-  { file: 'features/chat/store/chatStore.ts', ordinal: 9, line: 1513, disposition: 'CONSUMED' },
+  {
+    file: 'features/chat/store/chatStore.ts',
+    ordinal: 9,
+    line: 1652,
+    disposition: 'CONSUMED'
+  },
+  { file: 'features/chat/store/chatStore.ts', ordinal: 10, line: 1767, disposition: 'CONSUMED' },
+  {
+    file: 'features/chat/store/chatStore.ts',
+    ordinal: 11,
+    line: 1783,
+    disposition: 'TOAST',
+    id: 'T37',
+    event: 'chat.harness-preference.save-failed',
+    title: 'saveFailed'
+  },
   {
     file: 'features/debug/hooks/useDebugMock.ts',
     ordinal: 0,
@@ -330,25 +345,59 @@ export const sites: Site[] = [
     title: 'saveFailed'
   },
   {
-    file: 'features/engine/components/AgentEnvironmentView.tsx',
+    file: 'features/engine/common/components/AgentEnvironmentView.tsx',
     ordinal: 0,
     line: 29,
     disposition: 'CONSUMED'
   },
   {
-    file: 'features/engine/components/EngineFormModal.tsx',
+    file: 'features/engine/common/components/AgentEnvironmentView.tsx',
+    ordinal: 1,
+    line: 42,
+    disposition: 'CONSUMED'
+  },
+  {
+    file: 'features/engine/harnesses/opencode/ProviderForm.tsx',
+    ordinal: 0,
+    line: 1,
+    disposition: 'CONSUMED'
+  },
+  {
+    file: 'features/engine/harnesses/opencode/ProviderForm.tsx',
+    ordinal: 1,
+    line: 1,
+    disposition: 'CONSUMED'
+  },
+  {
+    file: 'features/engine/harnesses/opencode/v1/customProvider.ts',
+    ordinal: 0,
+    line: 1,
+    disposition: 'EXCLUDE'
+  },
+  {
+    file: 'features/engine/common/components/EngineFormModal.tsx',
     ordinal: 0,
     line: 91,
     disposition: 'CONSUMED'
   },
   {
-    file: 'features/engine/components/EngineFormModal.tsx',
+    file: 'features/engine/common/components/EngineFormModal.tsx',
     ordinal: 1,
     line: 103,
     disposition: 'CONSUMED'
   },
-  { file: 'features/engine/hooks/useEngines.ts', ordinal: 0, line: 38, disposition: 'CONSUMED' },
-  { file: 'features/engine/lib/providerCatalog.ts', ordinal: 0, line: 107, disposition: 'EXCLUDE' },
+  {
+    file: 'features/engine/common/hooks/useEngines.ts',
+    ordinal: 0,
+    line: 38,
+    disposition: 'CONSUMED'
+  },
+  {
+    file: 'features/engine/common/lib/providerCatalog.ts',
+    ordinal: 0,
+    line: 107,
+    disposition: 'EXCLUDE'
+  },
   {
     file: 'features/projects/components/EditInstructionsModal.tsx',
     ordinal: 0,

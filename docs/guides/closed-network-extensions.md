@@ -694,7 +694,7 @@ augmenter 는 **key 별 등록**이라 운영자가 `sources/settings/` 에 나�
 |---|---|---|
 | 1 | `SPAWN_ENV_INJECTOR` 에 함수를 채운다 | `app/deployment/spawn-env.ts` — 이 파일 하나뿐이다 |
 | 2 | 전역값과 좁힌 값을 함수 안에서 가른다 | `target.resolved`·`target.harnessId`·`target.modelProviderId`·`target.key` |
-| 3 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/adapters/harness-config.test.ts src/main/app/deployment` | 순서·배선·형상 회귀 |
+| 3 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/adapters/common/harness-config.test.ts src/main/app/deployment` | 순서·배선·형상 회귀 |
 | 4 | 실기: 새 채팅 전송 → 사내 프록시 로그에 subprocess 요청이 도달하는지 | 사람 실기 |
 
 ```ts
@@ -1395,7 +1395,7 @@ export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher | un
 | 로그인 방식·probe | `features/auth/login.test.ts` · `oauth.test.ts` · `policy.test.ts` · `runtime.test.ts` · `browser-session/runner.test.ts` |
 | grant 저장·만료·vault 키 | `features/auth/store.test.ts` · `store-parse.test.ts` · `store-vault-keys.test.ts` |
 | 인증된 요청 (`BoundAuth.request`) | `features/auth/authenticated-request.test.ts` · `session-policies.test.ts` |
-| Harness 실행 구성 (`harness-runtime.ts`) | `features/harnesses/settings.test.ts` · `runtime-config.test.ts` · `runtime-boundary.test.ts` |
+| Harness 실행 구성 (`harness-runtime.ts`) | `features/harnesses/common/settings.test.ts` · `runtime-config.test.ts` · `runtime-boundary.test.ts` |
 | Plugin (`plugins.ts`) | `app/deployment/plugins.test.ts` · `features/plugins/confluence/*.test.ts` |
 | 게이트 화면·우회 토글 | renderer `features/providers/store/bypassStore.test.ts` · `features/providers/lib/principal.test.ts` |
 

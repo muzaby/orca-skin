@@ -3,7 +3,7 @@
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [overview.md](./overview.md), [adapters.md](./adapters.md), [provider-runtime.md](./provider-runtime.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
-> Decision rationale: [ADR-001](../../decisions/001-orca-db-session-ssot.md) — 왜 SDK jsonl 이 아니라 로컬 DB 가 대화의 진실인가.
+> Decision rationale: [ADR-009](../../decisions/009-harness-native-storage-authority.md) — native 원본과 Orca 보관 DB의 역할.
 
 ## 1. 데이터 영속성 — 2 계층 모델 (사용자 결정)
 
@@ -85,6 +85,10 @@
 | `0026_project_paths.sql` | `projects.cwd`·`cwd_key` + 부분 UNIQUE 인덱스 — 시작 폴더 식별. |
 | `0027_background_events.sql` | `background_task_events` — 백그라운드 작업 원본 journal (0231). |
 | `0028_provider_usage_periods.sql` | `provider_usage_periods`의 (provider, 일/월, 기간) 합계와 `provider_usage_period_models`의 기간별 모델 내역. 개별 미제공 수치는 NULL로 보존하며 빈 내역은 기존 행을 유지한다. 제공한 기간 합계와 모델 집합은 최신 보고로 교체하고 캐시와 같은 transaction으로 저장한다. 현재 목록은 [생성 인벤토리](../../generated/inventory.md)를 따른다. |
+| `0029_native_history.sql` | `sessions.hidden_at`·native snapshot/frontier·native 메시지 ID 연결·native 검색 인덱스. 기존 대화·사용량·게시 참조는 유지한다. |
+| `0030_native_history_cursor.sql` | native snapshot과 원자적으로 확정하는 nullable 읽기 커서. |
+| `0031_turn_context_usage.sql` | 마지막 모델 스텝의 컨텍스트 사용량과 한도를 턴 합산 원장과 구분해 보관한다. |
+| `0032_native_session_recovery.sql` | 원본 보관 만료 시 replacement native ID·보관 경계·첫 입력 영수증을 영속한다. |
 
 **마이그레이션 규칙**:
 - `src/main/infra/db/migrations/NNNN_<name>.sql` (NNNN = 0으로 패딩된 일련번호)
@@ -144,7 +148,7 @@ Work의 표시 경계는 `message_parts`에 `response_boundary` JSON으로 저�
 - 미리보기는 저장과 같은 파일 큐·제한 읽기·읽기 전후 소유권 검사를 사용한다. DB에 본문을 추가하지 않으며 현재 파일을 다시 검증해 경로 없는 본문 DTO로 전달한다.
 - 게시 성공은 파일과 세션 publication 확정이다. 실제 publisher tool_result 영수증과 원래 tool_call을 검증한 뒤 그 메시지에 artifact part를 연결한다. 중간 종료로 연결이 없더라도 우측 목록에 게시를 보존한다.
 - 파일은 외부에서 수정·삭제될 수 있다. missing/unavailable은 실제 상태 조회 결과이며 영속 삭제 플래그가 아니다. 게시 당시 hash를 불변 백업 보장이나 현재 소실 판정에 사용하지 않는다.
-- fork는 기존 메시지 복사 transaction 안에서 자식 publication과 part ID를 복제하고 같은 artifactFileId를 참조한다. 대화 삭제는 해당 참조만 제거하며 마지막 참조가 없어도 파일을 자동 삭제하지 않는다.
+- fork는 기존 메시지 복사 transaction 안에서 자식 publication과 part ID를 복제하고 같은 artifactFileId를 참조한다. 대화 목록 제거는 게시 참조와 파일을 보존한다.
 - 사용자 삭제는 OS 휴지통 이동이다. 게시 기록은 보존하며 `lastTrashedAt`는 과거 행위일 뿐 현재 파일 없음의 원인을 단정하지 않는다. 이동 후 DB 기록 실패는 별도로 보고한다.
 - 새 요청이 만든 임시/실패 파일만 정리한다. 전역 orphan scan·자동 GC는 없다. 종료는 신규 commit을 차단하며 강제 프로세스 종료 때 미등록 파일이 남을 수 있다.
 - Jira 첨부 저장은 DB나 세션 publication을 만들지 않는 Plugin 임시 산출물이다. 공통
@@ -170,12 +174,21 @@ POP3 Mail Plugin은 Core `orcinus-orca.db`와 분리된 계정별 `mail.db`를 `
 
 #### 어댑터 외부 저장과의 관계
 
-- 어댑터별 외부 저장 (claude-code 의 `~/.claude/projects/<cwd>/<sessionId>.jsonl` 등) 은 **단방향 동기화 소스** 로만 취급.
-- **Orca 로컬 DB 가 진실의 기준** — IPC 이벤트 흐름 (`TurnCoordinator` — `features/chat/turn-coordinator.ts`, runtime-ipc.md §1.1) 을 통해 DB 에 실시간 persist. 외부 jsonl 직접 읽기 없음.
+- 하네스의 native 저장소가 세션·실행 컨텍스트의 원본이다. Claude는 `CLAUDE_CONFIG_DIR` 또는 기본 루트, OpenCode는 native 환경의 DB·리소스를 사용한다. Orca 엔진 설정은 실행 오버라이드다.
+- `session.load`는 DB 본문과 backend를 즉시 반환한다. renderer는 첫 paint 기회를 준 후 `session.refresh`를 호출하며 조회 token과 본문/live 상태로 지각 응답을 거른다. 모델 선택·패널 변경은 로딩 응답을 무효화하지 않는다.
+- `native_history_snapshots.cursor_json`은 마지막 성공한 source/revision/checkpoint를 영속한다. null은 아직 커서를 확정하지 않은 자료다. Claude는 UTF-8 byte offset·파일 identity·prefix digest, OpenCode 1.x는 session별 sequence·projection digest를 사용한다. 실패/경합에서는 커서를 앞당기지 않는다.
+- `SessionAdapter.readHistory`는 모델 호출 없이 원본을 읽고, `app/native-history.ts`가 실행과 같은 backend/env/settings를 전달한다. `features/history/native-sync.ts`는 유휴 상태와 변경 토큰을 읽기 전후 확인한 뒤 snapshot·frontier·검색 인덱스·읽기 커서를 원자 교체한다. native 형식은 하네스 모듈만 해석한다.
+- `features/history/native-projection.ts`가 native 본문에 실제 message/tool ID로 Orca 첨부·도구 메타데이터를 결합하고 frontier 이후 live 행을 붙인다. 매핑이 없는 과거 부가 기록은 말미에 보존하며 안내한다. 원래 messages/parts·사용량·artifact·background journal은 삭제하거나 재발행하지 않는다.
+- 원본 미완료·접근 실패·부재·이관 미완료는 마지막 정상 사본을 유지하고 `nativeSync`로 반환한다. renderer의 보조 조회 실패는 기존 transcript를 유지하며 세션 열기 오류를 띄우지 않는다.
+- 명시 전송에서 원본 부재가 확인되면 하네스별 `recoverSession`으로 복구한다. Claude는 기존 UUID를 fresh `sessionId`로 사용하고 OpenCode는 서버가 발급한 새 native ID를 사용한다. Orca DB key와 관계는 유지하며 이후 원본 조회·실행의 native ID만 교체한다. 접근·인증 실패는 원본 부재로 간주하지 않는다.
+- 복구는 native 생성과 DB binding 변경 전에 입력 예산을 검사한다. 전체 보관 문맥·새 입력·정규화 첨부·추가 지시의 UTF-8 바이트 상한이 컨텍스트 창의 80%를 넘으면 전송을 중단하고 보관 대화를 유지한다. OpenCode는 선택된 설정 모델의 `limit.context`, Claude는 명시 1m 표시를 사용하며 모르는 창은 200k로 보수적으로 처리한다. 미수신 replacement 재시도도 같은 검사를 거친다. 임의 생략·요약은 하지 않는다.
+- `native_session_recovery`는 이전 표시 대화와 local frontier, native ID, 첫 입력의 native message ID·사용자 표시 텍스트·수신 여부를 저장한다. 복구 첫 prompt에만 보관 대화와 새 입력을 함께 전달하고, echo와 원본 재조회는 새 입력만 사용자 버블에 표시한다. 이전 대화는 보관 prefix로 유지하며 기존 native cursor는 폐기한다. 재만료하면 전체 표시 대화를 다시 보관한다.
+- native 생성과 Orca DB 저장은 분산 transaction이 아니다. 생성 후 DB 경합이 발생하면 빈 native 세션이 남을 수 있으나 보관 대화는 보존한다. 첫 prompt 수신 여부는 원본 message ID로 확인하여 재시작 후 동일 문맥을 반복 전송하지 않는다.
+- Orca 대화 제거는 `hidden_at`을 기록해 목록·검색·load·send에서 제외한다. native 세션과 작업 폴더, 보관 행·게시 참조를 보존한다. 늦게 도착한 insert는 숨김을 해제하지 않는다.
 
 #### 백업 전략
 
-- 앱 데이터 전체 백업은 해당 profile의 DB와 게시 원본 폴더를 함께 보존해야 한다. 현재 앱 내 전체 백업/복원 기능은 없다.
+- 앱 데이터 백업에는 해당 profile의 DB와 게시 원본 폴더가 필요하며, CLI 재개를 보존하려면 하네스 native 저장소와 작업 폴더도 별도로 보존해야 한다. 현재 앱 내 전체 백업/복원 기능은 없다.
 - export 형식: TBD (zip / tar.gz / DB dump)
 
 ---

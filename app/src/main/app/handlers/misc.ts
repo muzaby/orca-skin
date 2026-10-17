@@ -14,17 +14,18 @@ import {
   type DebugMockState
 } from '../../../shared/protocol'
 import { BrowserWindow, Notification } from 'electron'
-import { toAgentEnvironments } from '../../features/harnesses/models'
+import { toAgentEnvironments } from '../../features/harnesses/common/models'
 import type { RouterContext } from '../context'
 import { sendInstallStatus, setWireLog } from '../../infra/ipc/send'
 import { setWireSink } from '../../infra/ipc/wire-log'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import { getLogger, setConsoleMirror } from '../../infra/log'
 import { getOrcaConfig } from '../../infra/config/orca-config'
+import { prepareConfiguredHarnessInput } from '../harnesses/prepare-input'
 
 type MiscHandlerContext = Pick<
   RouterContext,
-  'registry' | 'harnessSettings' | 'runtimeModelCatalog' | 'debugMock'
+  'registry' | 'harnessSettings' | 'runtimeModelCatalog' | 'debugMock' | 'harnessRuntime' | 'mcp'
 >
 
 export function registerMiscHandlers(ctx: MiscHandlerContext): void {
@@ -39,13 +40,45 @@ export function registerMiscHandlers(ctx: MiscHandlerContext): void {
 
   // 원천 = sources/settings/<adapter>/ 트리 (handoff 0014 — 구 orca.json agents[] 대체).
   // 페이로드 shape(AgentEnvironment)는 0010 과 동일 유지 — renderer ModelMenu 변경 0.
-  handlePlain(CHANNELS.agentList, (): AgentEnvironment[] => {
+  handlePlain(CHANNELS.agentList, async (): Promise<AgentEnvironment[]> => {
     const supported = ctx.registry.list().map((adapter) => adapter.id)
     const entries = ctx.harnessSettings
       .adapters()
       .flatMap((adapter) => ctx.harnessSettings.list(adapter))
     const settings = toAgentEnvironments(entries, supported)
-    return ctx.runtimeModelCatalog?.merge(settings) ?? settings
+    const merged = ctx.runtimeModelCatalog?.merge(settings) ?? settings
+    return Promise.all(
+      merged.map(async (entry) => {
+        const adapter = ctx.registry.get(entry.adapter as import('../../../shared/ipc').Backend)
+        if (!adapter?.catalog) return entry
+        try {
+          const target = {
+            key: entry.key,
+            harnessId: entry.adapter,
+            modelProviderId: entry.provider ?? ''
+          }
+          const config = ctx.harnessRuntime
+            ? ctx.runtimeModelCatalog?.isReadOnly(entry.key)
+              ? ctx.harnessRuntime.cached(entry.key)
+              : await ctx.harnessRuntime.resolve(target)
+            : { ...target, runtimeEnv: {}, settings: await ctx.harnessSettings.resolve(target) }
+          if (!config || (!ctx.harnessRuntime && !config.settings))
+            throw new Error('하네스 설정을 읽을 수 없습니다.')
+          const prepared = prepareConfiguredHarnessInput(ctx, config, adapter.agentSpawnEnv('code'))
+          return await adapter.catalog(
+            entry,
+            prepared.providerSettings?.settings ?? {},
+            true,
+            prepared.env
+          )
+        } catch (error) {
+          return {
+            ...entry,
+            catalogError: error instanceof Error ? error.message : '모델 조회에 실패했습니다.'
+          }
+        }
+      })
+    )
   })
 
   // 백엔드 설치 — 어댑터의 install() 스트림을 renderer 로 중계하고 완료 후 설치 상태를 갱신한다.

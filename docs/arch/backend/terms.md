@@ -25,9 +25,9 @@
 | **Backend** | LLM 실행 백엔드 식별자. 지금은 `'claude'` 하나, 나중에 `'opencode'` 등. ("LLM Provider" 라 부르지 않음.) | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 | **SessionAdapter** | 모든 백엔드가 따르는 공통 인터페이스 (`isInstalled`·`install`·`describe`·`complete`·`sendMessage`·`classifyError`·`agentSpawnEnv`). LLM 직접 호출이 아니라 외부 CLI/SDK 래퍼. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 | **AdapterRegistry** | 등록된 어댑터들의 설치 상태를 추적하고 활성 백엔드를 고른다. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
-| **claude 어댑터** | claude-code SDK 의 `query()` 를 직접 부르고, 그 메시지를 `NormalizedEvent` 로 정규화하는 구현체(`adapters/claude.ts`). | [adapters.md §1](./adapters.md) |
+| **claude 어댑터** | claude-code SDK 의 `query()` 를 직접 부르고, 그 메시지를 `NormalizedEvent` 로 정규화하는 구현체(`adapters/claude/adapter.ts`). | [adapters.md §1](./adapters.md) |
 | **ExtensionBuilder / TurnExtensions** | DB 지침·settings·Skills·plugin 경로·runtime tool snapshot을 모아 턴의 확장 입력을 만든다. 파일 기반 MCP 구성은 배포 경로가 소유한다. | [adapters.md §1](./adapters.md) |
-| **NormalizedHookSet** | before-tool·after-tool·on-prompt 같은 *시점별 콜백* 모음. 어댑터별 hook 을 정규화(`adapters/hooks.ts`). | [adapters.md §3](./adapters.md) |
+| **NormalizedHookSet** | before-tool·after-tool·on-prompt 같은 *시점별 콜백* 모음. 어댑터별 hook 을 정규화(`adapters/common/hooks.ts`). | [adapters.md §3](./adapters.md) |
 
 ## 3. 영속성 (데이터를 저장하는 곳)
 
@@ -46,7 +46,7 @@
 | **Skill** | `SKILL.md` 로 정의된 슬래시 명령(`/이름`). 입력창에서 호출. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 | **McpStore** | MCP 서버 추가/삭제/목록 관리. 설정 + 비밀값 저장을 묶어 다룬다. | [security.md §1](./security.md) |
 | **Secret Store / Vault** | Electron safeStorage(OS 키체인) 위의 암호화 저장. Auth 비밀은 `infra/vault.ts` 가 네임스페이스 키로 보관하고 Grant 가 그 키를 가리킨다. | [GLOSSARY §1 (Credential)](../../GLOSSARY.md#1-도메인-용어) · [security.md §1.4-b](./security.md) |
-| **Skills Scan** | Orca `sources/skills/` 와 `~/.claude/skills/` 를 훑어 SKILL.md frontmatter 를 읽는 스캐너. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
+| **Skills Scan** | Orca `sources/skills/`와 하네스 조립부가 제공한 Claude native skills 루트에서 SKILL.md frontmatter를 읽는 스캐너. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 
 ## 5. Python 런타임
 

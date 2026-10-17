@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { respawnInputs } from './respawn-inputs'
-import type { PreparedHarnessConfig } from '../../adapters/harness-config'
+import type { PreparedHarnessConfig } from '../../adapters/common/harness-config'
 
 const runtime = {
   channelAlive: true,

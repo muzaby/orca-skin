@@ -62,7 +62,9 @@ export class UsageTracker {
       outputTokens: u.outputTokens ?? null,
       cacheCreationInputTokens: u.cacheCreationTokens ?? null,
       cacheReadInputTokens: u.cacheReadTokens ?? null,
-      totalCostUsd: u.costUsd ?? null
+      totalCostUsd: u.costUsd ?? null,
+      ...(u.contextTokens !== undefined ? { contextTokens: u.contextTokens } : {}),
+      ...(u.contextWindow !== undefined ? { contextWindow: u.contextWindow } : {})
     })
     const modelEntries = Object.entries(u.modelUsage ?? {})
     if (modelEntries.length > 0) {
@@ -348,6 +350,9 @@ function emptySummary(): CostSummary {
 // 이런 행을 적재하면 getLatestTurnUsage 가 복원 시 직전 도넛 값을 0으로 덮어쓴다 → 적재 자체를 스킵.
 function hasContextTokens(usage: ProviderReportedTelemetry): boolean {
   return (
+    (typeof usage.contextTokens === 'number' &&
+      Number.isFinite(usage.contextTokens) &&
+      usage.contextTokens >= 0) ||
     (usage.inputTokens ?? 0) + (usage.cacheReadTokens ?? 0) + (usage.cacheCreationTokens ?? 0) > 0
   )
 }

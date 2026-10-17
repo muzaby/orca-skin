@@ -158,10 +158,10 @@ async function oneTurn(model, effort) {
 
 try {
   const { CLAUDE_MODEL_DEFAULT_EFFORT, CLAUDE_ALIAS_VERSION } = await loader.ssrLoadModule(
-    '/src/shared/model-effort.ts'
+    '/src/shared/harnesses/claude/model-effort.ts'
   )
   const { parseClaudeModelName } = await loader.ssrLoadModule('/src/shared/model-identity.ts')
-  const { ClaudeAdapter } = await loader.ssrLoadModule('/src/main/adapters/claude.ts')
+  const { ClaudeAdapter } = await loader.ssrLoadModule('/src/main/adapters/claude/adapter.ts')
   const { SessionRuntime } = await loader.ssrLoadModule(
     '/src/main/features/sessions/session-runtime.ts'
   )

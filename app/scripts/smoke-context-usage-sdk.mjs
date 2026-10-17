@@ -184,7 +184,7 @@ function fixtureEnv(cwd, port, extraEnv) {
 }
 
 try {
-  const { ClaudeAdapter } = await loader.ssrLoadModule('/src/main/adapters/claude.ts')
+  const { ClaudeAdapter } = await loader.ssrLoadModule('/src/main/adapters/claude/adapter.ts')
   const { SessionRuntime } = await loader.ssrLoadModule(
     '/src/main/features/sessions/session-runtime.ts'
   )

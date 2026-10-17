@@ -18,7 +18,29 @@
 
 공유 권한 정책은 종류·모델·모드 선택과 세션 복원에서 적용한다. 지원하지 않는 auto는 Work에서 default, Code에서 accept_edits로 정착한다. Work의 plan·accept_edits·dont_ask 선택은 default로 정착하며 계획 승인 후에도 default를 사용한다. 라이브 권한 응답은 요청 세대와 대상 세션을 확인한 뒤 Main이 적용한 모드를 반영하고, 실패 시 정책상 유효한 다음 요청값을 남기되 칩에 권한 적용 실패를 표시하여 SDK에 적용된 모드로 오해하지 않게 한다. 실제 실행 모델로 보정한 값은 session.updated의 권한 patch로 동기화한다.
 
-`agentPanelInitialized`는 Work 작업 패널의 최초 열기와 이후 사용자 선택을 구분한다. 표시 필터는 닫힌 배치를 보존하며, 첫 전송/처음 로드에서만 기본 작업 타일을 추가한다. 기존 캐시 복귀·다음 턴은 닫은 패널을 다시 열지 않는다. 입력 복원 신호는 대상 세션과 단조 순번을 갖고, 기본 교체와 작업 질문의 추가 모드를 구분한다. 실제 초안·첨부는 기존 입력 controller가 소유한다.
+`agentPanelInitialized`는 하네스·에이전트 정책에 따른 기본 작업 패널의 최초 열기와 이후 사용자 선택을 구분한다. Claude Work와 OpenCode Code는 첫 전송/처음 로드에서 기본 `task` 타일을 추가하며, 표시 필터는 닫힌 배치를 보존한다. 캐시 복귀·다음 턴은 닫은 패널을 다시 열지 않는다. 입력 복원 신호는 대상 세션과 단조 순번을 갖고, 기본 교체와 작업 질문의 추가 모드를 구분한다. 실제 초안·첨부는 기존 입력 controller가 소유한다.
+
+### OpenCode 요청과 Todo 상태
+
+`pendingRequestOrder`는 질문·도구 승인 수신 순서를 기록한다. payload는 기존 `pendingAsks`·`pendingToolApprovals`에 보관하고, selector가 살아 있는 첫 요청을 고른다. 응답·외부 해소는 해당 ID만 제거한다. 새 대화와 세션 로드는 순서를 초기화하며, 턴 중단·오류 뒤 살아 있는 child 요청의 상대 순서를 보존한다.
+
+`openCodeTodoTurnStartIndex`는 현재 턴 경계를 기록하고 성공한 root Todo 결과만 dock에 전달한다. `openCodeTodoCollapsed`는 세션 메모리 상태라 같은 세션의 다음 턴·캐시 복귀에서 유지하며 새 세션은 펼침으로 시작한다. 완료 후 퇴장 snapshot과 timer는 dock의 세션·턴 수명에 속한다. transcript의 행 크기·읽기 위치·도구 펼침은 OpenCode 전용 viewport 상태가 보관한다.
+
+### 우측 타일 선택
+
+OpenCode의 `rightPanelTiles`는 작업 요약과 계획·하위 에이전트·변경 사항·프로세스·소스를 독립적으로 보관한다. 타이틀 메뉴는 작업만 토글하며, 메뉴 노출 정책은 기존 타일 지원·저장 상태와 분리한다. transcript Task 카드는 기존 직접 타일 열기 경로를 사용한다.
+
+`chatActions.openProcessTool`은 활성 세션의 `selectedProcessToolId`를 설정하고 `process` 타일을 열어 `panelReveal`로 해당 열을 드러낸다. 이미 열린 프로세스 타일에서는 선택만 바꾸고 다른 열린 타일과 `selectedSubagentTaskId`를 보존한다.
+
+프로세스 타일을 토글·비활성화·닫기로 제거하면 `removeTile`이 해당 선택만 비운다. 하위 에이전트 타일을 닫으면 그 선택만 비우며, 타일을 다시 열 때는 목록에서 시작한다. 셸 명령·상태·로그는 세션 메시지와 해당 sessionId의 background 상태에서 파생한다.
+
+직접 타일의 선택과 닫힌 배치는 `sessions[key].session`의 메모리 상태다. 캐시 세션으로 돌아오거나 같은 OpenCode 세션을 다시 `LOAD_SESSION`하면 보존하며, 다른 세션의 첫 로드는 기본 타일과 빈 선택으로 시작한다.
+
+작업 요약에서 여는 상세는 `harnesses/opencode/rightpanel/Panel.tsx`의 로컬 UI 상태다. navigation Context가 `diff | subagent(selectedId) | process(selectedId) | source` 선택을 전달하며, 상세 안의 agent/process 선택은 뒤에 열린 타일의 ChatState 선택과 분리한다. 요약 진입은 `rightPanelTiles`나 `panelReveal`을 바꾸지 않는다. 상세의 폭·확대와 진입 버튼도 별도로 보관하며, 닫기 또는 내부 팝업이 처리하지 않은 Escape는 상세만 정리하고 원래 타일·스크롤·연결된 진입 버튼의 초점으로 복귀한다. 명시적인 직접 타일 활성화는 상세를 해제해 요청한 타일을 드러낸다.
+
+활성 셸 요약은 전체 기록에서 파생하며 종료 시 요약에서만 행을 제거한다. 종료로 진입 행이 사라진 경우를 위해 OpenCode는 변경 사항 버튼을 대체 초점으로 보관해 공통 상세 호스트에 전달한다. 상세를 닫으면 연결되고 표시된 원래 버튼을 우선하며, 사용할 수 없으면 같은 요약의 대체 버튼으로 복귀한다.
+
+artifact의 선택·요청 세대는 `artifactViewerStore`가 계속 소유한다. artifact를 여닫아도 그 아래 상세의 선택·폭·확대를 유지하며, 각 층의 초점 복귀는 현재 표시되는 층에만 적용한다. OpenCode 패널은 `activeKey`로 재마운트되어 임시 상세와 로컬 확대 상태를 다른 세션이나 캐시 복귀에 옮기지 않는다. 타일·상세의 표시 우선순위와 헤더·소스 그룹 조건은 [렌더링](rendering.md#하네스-전용-표시)을 따른다.
 
 > **현재**: chat은 `features/chat/store/chatStore.ts`의 `sessions: Record<key, { session, live }>` + `activeKey` 외피를 갖는다(키 = sessionId, 새 채팅 = `NEW_CHAT_KEY` 슬롯 → `session.updated` 시 승격). Backend/Sessions/Projects/Cost는 feature별 Zustand store가 소유하고, projects 초기 조회는 `app/boot/steps`가 수행한다. Tweaks는 `TweakProvider` 인스턴스의 store와 필드 selector로 연결하며 Skills/Agents는 기존 hook 진입점을 유지한다.
 > **채택된 결정(이행 완료)**: 단일 root 대신 **feature 별 store + chat 의 sessions Record** 로 수렴 — `chatReducer` 는 세션-단위 순수 함수로 유지하고 **store 가 `ev.sessionId` 키 라우팅을 담당**한다(reducer 테스트·불변식 보존, "액션에 sessionId 인자" 안의 대체 — 사용자 결정 2026-06-11, handoff 0013). 세션 완료의 미확인 표시는 아래의 transient 상태로 관리한다.
@@ -27,7 +49,7 @@
 
 | 상태 종류 | 위치 | 영속화 | 예시 |
 |---|---|---|---|
-| 채팅 세션 상태 (커밋) | `features/chat/store/chatStore.ts` 의 `sessions[key].session` — 변경은 순수 `chatReducer` 경유(스토어가 키 라우팅) | **Phase 3 부터**: 로컬 SQLite 영속화 (../backend/persistence.md). 메모리 캐시 + DB SSOT 병행. | sessionId, messages, inflight, permissionMode |
+| 채팅 세션 상태 (커밋) | `features/chat/store/chatStore.ts` 의 `sessions[key].session` — 변경은 순수 `chatReducer` 경유(스토어가 키 라우팅) | native 원본 + Orca 보관 DB + 재조회 캐시 ([영속성](../backend/persistence.md)). | sessionId, messages, inflight, permissionMode |
 | 채팅 스트리밍 라이브 버퍼 | `chatStore` 의 엔트리별 `live` 슬라이스 (transient — 턴 종료 시 리셋, 비활성 엔트리도 백그라운드 누적) | — | live.text(구 pendingDelta), live.reasoning |
 | Tweaks (theme/대화 텍스트 크기·너비/sidebar/한도) | `shared/theme/TweakProvider`의 provider별 store + electron-store | ✅ `orca:settings:get` / `set` | theme, transcriptTextSize, transcriptWidth, sidebarCollapsed, **sidebarWidth** (180–480, default 248 — Phase 3+), **spendingLimitUsd**(0079) |
 | 백엔드 설치 상태 | `features/backend/store/backendStore`(Zustand, 0013) | — | list, active, installerOpen |
@@ -59,7 +81,7 @@ interface SessionEntry {
 ```
 
 - **키 라우팅 (0013)**: IPC 이벤트는 `ev.sessionId` 로 해당 엔트리에 라우팅 — 비활성 세션의 턴이 백그라운드 누적되고 활성 UI 를 깨우지 않는다. sessionId 없는 이벤트는 활성 폴백, 미지 sessionId(엔트리 삭제 후 늦은 도착)는 폐기. `session.updated` 가 `NEW_CHAT_KEY` 엔트리를 sessionId 키로 승격(활성이면 activeKey 추종 — `useChatRouteSync` 방향 2 의 URL 승격 트리거).
-- **구 `sessionCache`(snapshot Map) 폐기** — sessions Record 가 캐시를 흡수: 본 적 있는 세션 재진입은 IPC 없이 `activeKey` 전환. LRU cap 은 Future Scope.
+- **세션 재열기** — sessions Record의 기존 화면을 즉시 표시하면서 IPC로 native 이력을 갱신한다. 요청 세대·삭제·live 이벤트·낙관 전송 경합을 확인해 늦은 응답을 버린다. 갱신은 모델·권한·패널 선택을 보존하고 실패는 기존 화면과 함께 안내한다. LRU cap은 Future Scope.
 - 스트리밍 델타 누적(구 `pendingDelta`/`pendingReasoning`)은 **reducer 에서 제거** — 엔트리별 `live` 슬라이스가 소유하고, `message.completed`(완성본 페이로드)·`telemetry`(잔여분 `COMMIT_PENDING_TEXT` 폴백) 시 parts 로 커밋된다.
 - 컴포넌트 접근은 selector 훅(`useChatSession`/`useLiveText`/`useLiveReasoning` — 활성 엔트리 구독)과 안정 액션 묶음 `chatActions`, imperative read 는 `getActiveChatSession()` 이다. 채팅 상태는 Context 로 전파하지 않는다.
 - 코얼레서는 단일 FIFO(세션 간 순서도 보존)이며 delta window를 `DeltaEvent[]`로 넘긴다. store는 batch 전체를 단일 `setState` transaction으로 반영해 flush당 notification을 1회로 제한한다. 세션 전환 시 dispose 하지 않는다(키 라우팅이 스테일 오염 방지).
@@ -162,6 +184,6 @@ Sidebar는 고정됨→프로젝트→최근 대화 순서다. 고정 프로젝�
 
 - 여러 세션이 동시에 응답을 받는다(각 세션 독립 abort — ../backend/runtime-ipc.md §1).
 - 비활성 세션도 백그라운드에서 메시지를 누적하고, 전환해도 스트리밍이 끊기지 않는다.
-- 세션 전환 시 스크롤 위치는 기억하지 않는다 — 로드·캐시 복원은 `useScrollAnchor` 가 바닥으로 점프한다(rendering.md §1.8 "세션 전환 판정").
+- Claude 세션 전환은 `useScrollAnchor`가 바닥으로 이동한다. OpenCode는 세션별 읽는 행·상대 위치·도구 펼침을 복원한다([렌더링](rendering.md#하네스-전용-표시)).
 
 ---

@@ -3,9 +3,55 @@
    (e.g. `--color-ink` → `bg-ink`, `text-ink`, `border-ink`). */
 
 @theme {
+  --color-oc-background: #fafafa;
+  --color-oc-surface: #ffffffff;
+  --color-oc-layer-1: #fafafaff;
+  --color-oc-layer-2: #f2f2f2ff;
+  --color-oc-ink: #161616ff;
+  --color-oc-muted: #5c5c5cff;
+  --color-oc-faint: #808080ff;
+  --color-oc-accent: #3b5cf6ff;
+  --color-oc-focus: #7698fdff;
+  --color-oc-control-accent: #3b5cf6;
+  --color-oc-good: #198b43ff;
+  --color-oc-good-bg: #e7f9eaff;
+  --color-oc-bad: #b82d35ff;
+  --color-oc-bad-bg: #fcecebff;
+  --color-oc-hover: #0000000a;
+  --color-oc-border: #0000001a;
+  --color-oc-selected: #f5f8ff;
+  --color-oc-composer: #ffffff;
+  --color-oc-bubble: #f5f8ff;
+  --color-oc-bubble-ink: #0b34f4;
+  --color-oc-button: #242424;
+  --color-oc-button-ink: #ffffff;
+  --shadow-oc-raised:
+    0 2px 4px rgb(0 0 0 / 4%), 0 1px 2px -1px rgb(0 0 0 / 8%), 0 0 0 0.5px rgb(0 0 0 / 12%);
+  --animate-oc-spinner-bright: oc-spinner-bright 1s ease-in-out infinite both;
+  --animate-oc-spinner-dim: oc-spinner-dim 1s ease-in-out infinite both;
+  @keyframes oc-spinner-bright {
+    0%,
+    100% {
+      opacity: 0.4;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+  @keyframes oc-spinner-dim {
+    0%,
+    100% {
+      opacity: 0.15;
+    }
+    50% {
+      opacity: 0.35;
+    }
+  }
   --animate-dot-wave: dot-wave 1.2s ease-in-out infinite;
   @keyframes dot-wave {
-    0%, 80%, 100% {
+    0%,
+    80%,
+    100% {
       opacity: 0.3;
       transform: scale(0.8);
     }
@@ -88,7 +134,7 @@
      이 값이므로 `[data-theme]` 스코프에 **재정의하지 않는다**(재정의하면 light 에서 원본과
      다른 색이 나온다 — `--color-rust` 가 정확히 그 경우였다). raw 값은 여기 한 곳만 갖고
      `SparkSpinner` 는 currentColor 만 쓴다. 정의가 하나뿐임은 `sparkCss.test.ts` 가 센다. */
-  --color-spinner: #C15F3C;
+  --color-spinner: #c15f3c;
   /* 툴팁 — 첨부 7 실측 검은 배경·흰 글자(0257 D-004). 두 테마 공통이라 [data-theme]
      스코프에 재정의하지 않는다(spinner 와 같은 이유). 표면 클래스 SSOT = shared/ui/tooltipStyle.ts. */
   --color-tooltip: #0b0b0b;
@@ -237,6 +283,30 @@
    re-themes the whole tree without remounting. */
 
 [data-theme='dark'] {
+  --color-oc-background: #101113;
+  --color-oc-surface: #161616ff;
+  --color-oc-layer-1: #242424ff;
+  --color-oc-layer-2: #2e2e2eff;
+  --color-oc-ink: #fafafaff;
+  --color-oc-muted: #aeaeaeff;
+  --color-oc-faint: #808080ff;
+  --color-oc-accent: #a2bcffff;
+  --color-oc-focus: #7698fdff;
+  --color-oc-control-accent: #3b5cf6;
+  --color-oc-good: #6bd586ff;
+  --color-oc-good-bg: #14361dff;
+  --color-oc-bad: #f17471ff;
+  --color-oc-bad-bg: #461516ff;
+  --color-oc-hover: #ffffff0f;
+  --color-oc-border: #ffffff1a;
+  --color-oc-selected: #7698fd26;
+  --color-oc-composer: #242424;
+  --color-oc-bubble: #021945;
+  --color-oc-bubble-ink: #c3d4fd;
+  --color-oc-button: #3a3a3a;
+  --color-oc-button-ink: #fafafa;
+  --shadow-oc-raised:
+    0 2px 4px rgb(0 0 0 / 16%), 0 1px 2px -1px rgb(0 0 0 / 24%), 0 0 0 0.5px rgb(255 255 255 / 14%);
   --shadow-toast: 0 12px 34px rgb(0 0 0 / 0.35);
   /* Claude Code (claude.ai) dark theme: warm charcoal surfaces, ivory ink,
      lightened terracotta accent. */

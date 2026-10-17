@@ -14,7 +14,7 @@ import type { ClassifiedError, NormalizedEvent } from '../../../shared/ipc'
 import type { AgentKind } from '../../../shared/agent-kind'
 import type { ResponseBoundary } from '../../../shared/response-boundary'
 import { isResponseDisplayEvent, responseBoundaryOutcome } from './response-boundary'
-import type { TurnRequest } from '../../adapters/turn'
+import type { TurnRequest } from '../../adapters/common/turn'
 import { wireLog } from '../../infra/ipc/wire-log'
 import { getLogger } from '../../infra/log/registry'
 import type { TurnContext } from '../../contracts/turn'
@@ -160,17 +160,24 @@ export class TurnCoordinator<W = unknown> {
   // D1) — 0060 의 경계 관찰 근사(최상위 tool.call.completed settle/telemetry)를 대체한다.
   // uuid(게이트 flush 시 실은 pending queue 배치 uuid, D3·D4) 매칭 1차, echo 의 uuid 미보존 대비
   // 병합 텍스트 폴백. 매칭 실패(초기 프롬프트 echo 등)는 무시 — 허위 커밋이 구조적으로 불가능하다.
-  private markSteerConsumed(turn: TurnContext<W>, ev: { uuid?: string; text: string }): void {
+  private markSteerConsumed(
+    turn: TurnContext<W>,
+    ev: { uuid?: string; text: string; nativeMessageId?: string }
+  ): void {
     const sessionId = turn.dbSessionId
     if (!sessionId) return
     // 0151 — 신호를 종류로 실어 보낸다. 큐가 origin(steer/turn-open)과 대조해 **짝이 맞는 배치만**
     // 확정하므로, 늦게 도착한 턴-시작 echo 가 무해한 것이 우연이 아니라 구조적 거부가 된다.
     // uuid 가 실려 오면 큐는 uuid 로만 판정한다(텍스트 동일 배치 오확정 차단).
-    this.deps.pendingMessages?.confirm(sessionId, {
+    const confirmed = this.deps.pendingMessages?.confirm(sessionId, {
       kind: 'echo',
       ...(ev.uuid !== undefined ? { uuid: ev.uuid } : {}),
       text: ev.text
     })
+    // Only a matched receipt proves identity; text fallback alone must not bind native IDs.
+    if (ev.uuid && ev.nativeMessageId && confirmed?.some((batch) => batch.uuid === ev.uuid)) {
+      ;(turn.nativeInputIds ??= new Map()).set(ev.uuid, ev.nativeMessageId)
+    }
   }
 
   // 소비 확정 배치를 배치 단위로 커밋(persist∥forward) — echo 배치가 끝난 지점에서 호출된다.
@@ -183,9 +190,12 @@ export class TurnCoordinator<W = unknown> {
     if (!sessionId || !pendingMessages) return
     for (const batch of pendingMessages.drainConfirmed(sessionId)) {
       beforeCommit?.()
+      const nativeMessageId = turn.nativeInputIds?.get(batch.uuid)
+      turn.nativeInputIds?.delete(batch.uuid)
       const messageId = persist.commitUserMessage?.(turn, {
         text: batch.text,
         createdAt: batch.createdAt,
+        ...(nativeMessageId ? { nativeMessageId } : {}),
         ...(batch.requirements ? { requirements: batch.requirements } : {}),
         ...(batch.attachmentViews ? { attachmentViews: batch.attachmentViews } : {})
       })
@@ -375,7 +385,8 @@ export class TurnCoordinator<W = unknown> {
                 const messageId = persist.commitUserMessage?.(turn, {
                   text: ev.text,
                   createdAt,
-                  origin: ev.origin
+                  origin: ev.origin,
+                  ...(ev.nativeMessageId ? { nativeMessageId: ev.nativeMessageId } : {})
                 })
                 if (messageId != null) {
                   forward.forward(turn.owner, {
