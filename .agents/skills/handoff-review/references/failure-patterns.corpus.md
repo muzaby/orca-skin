@@ -1513,3 +1513,18 @@ r3 검증자의 133좌표 감사도 `vi.mock` 목록 기준이라 놓쳤다.
 현재 방어: `docs/handoff/AGENTS.md §공통 V 추적 프로토콜`(실행 구간 bullet) · plan §5-A · `plan.template.md`
 `[구현자 기입] 강제 지점 전수` · impl §2 · verify §6 · `verify.template.md §5`. P55가 mock으로 줄어든 구간을, P56이 구간 안
 운반 값을 다루고, 이 규칙은 조립 차이로 바뀐 분기를 다룬다.
+
+## P58 — **분모 검색의 술어는 맞았지만 범위를 지적이 인용한 파일로 좁혀, 같은 pair의 형제 소비처가 빠졌다**
+
+*출처: 0262 (라운드 5) — review round 35.*
+
+r4 검증은 `agent:list` production 분기(`misc.ts`)가 미잠금이라고 지적했다(D-0262-7). r5 구현자는 round 34 정의를 적용해
+불변식의 주어로 술어를 썼다(`ctx\.(harnessRuntime|runtimeModelCatalog)`). 그런데 검색 경로를 지적이 인용한 `engine.ts`·`misc.ts`로
+한정했고, 분모 6자리를 `5/6`으로 보고했다. 같은 ΔV19 pair의 EP55e 소비처 `resolve-turn.ts`도 같은 조립 의존 분기를 갖는다. 그 merge를
+`'claude'`로 고정한 변이 K9는 4,909케이스 green이었다(D-0262-8). r5 검증이 같은 술어를 `src/main` 전체로 넓히자 차집합 5줄이 나왔다.
+
+→ **규칙.** **분모 검색의 범위는 pair production path가 지나는 소스 전체이고, 지적이 인용한 파일로 좁히지 않는다.** 검증자는
+구현자의 범위가 좁으면 넓혀 차집합을 본다.
+
+현재 방어: `docs/handoff/AGENTS.md` §단계별 절차 2 · impl §2 · `plan.template.md` `[구현자 기입] 강제 지점 전수` 주석 · verify §6.
+P38(지목 지점만 닫음)·P52(§10 항목 단위)는 유지한다. 이 규칙은 술어가 맞을 때 범위로 줄어드는 분모를 다룬다.
