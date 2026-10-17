@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | impl/IMPL_DONE — r2.1 Windows CI 파일 I/O 경합 보완·전체 직렬 게이트 통과, 독립 재검증 대기 |
+| 상태 | impl/IMPL_DONE — r3 V1의 하네스 배선 6자리 자동 잠금 보완, 독립 재검증 대기 |
 | V mode | Delta V — V1 + ΔV1~ΔV21 (각 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV21 / V1 + ΔV1~ΔV21, 기준 `5d2b36a2` |
@@ -2992,7 +2992,7 @@ D20-1의 “마지막 step이 없는 구자료만” 한정은 D21-2로 SUPERSED
 |---|---|---|
 | ΔV12 EP36c·e / VP59·61 | `ScrollController.interaction.test.ts` 선택중 append·wheel·앵커 복원, `Timeline.selection.test.ts` 선택중 가상화. 주입 치수의 상태 전이까지만 | 실제 긴 transcript 드래그·다페이지 왕복·resize/disclosure 후 top/offset |
 | ΔV13 EP37e / VP63 | `TodoDock.render.test.ts` 타이머 취소·완료 퇴장·reduced motion·주입 높이 계산 | 실제 높이·composer overlap·슬라이드 외관 |
-| ΔV17 AC48 / VP-Δ17-03 | `Timeline.render.test.ts`·`ToolCard.render.test.ts` 요소/접힘 정책 | desktop과 본문 밀도·간격·색상 |
+| ΔV17 AC48 / VP-Δ17-03 | `Timeline.render.test.ts`·`ToolCard.interaction.test.ts` 요소/접힘 정책 | desktop과 본문 밀도·간격·색상 |
 | ΔV7 EP-27b·28a | 기존 해당 렌더/상태 테스트의 요소·콜백 | 두 테마·좁은 폭의 clipping·색상·배치 |
 | ΔV20 VP20-3 | `Controls.interaction.test.ts` 키보드/선택/복귀·`EngineCard.render.test.ts` 라벨 | 공용 메뉴의 실제 폰트/배치 |
 
@@ -3030,7 +3030,7 @@ G-0262-1은 ΔV21에서 동작과 실제 geometry를 분리했다. 현재 render
 | VP20-1 usage 6자리 | `app/chat-turn/context-usage.test.ts` 두 SQLite 재개방 case, `map.test.ts`, `adapter.persistent.test.ts:carries the selected engine model limit through the channel into telemetry`, renderer `telemetry.test.ts` — SELF_PASS |
 | VP20-2 즉시 보내기 5자리 | `opencode-continuation.test.ts:send-now interrupts unfinished work immediately and starts one response without an error retry`의 idle-only/message-error/session-error 및 Stop 경쟁 — SELF_PASS |
 | VP20-3 popup·card 3자리 | `Controls.interaction.test.ts` 선택/포커스와 `EngineCard.render.test.ts` 표시 — 기계 SELF_PASS, 미관 인수 대기 |
-| 이전 행동 회귀 | `ScrollController.test.ts`, `Timeline.selection.test.ts`, TodoDock/RequestDock/Composer·engine tests 포함 관련 실행 집합. 실제 geometry까지 실행했다는 주장 없음 |
+| 이전 행동 회귀 | `ScrollController.interaction.test.ts`, `Timeline.selection.test.ts`, TodoDock/RequestDock/Composer·engine tests 포함 관련 실행 집합. 실제 geometry까지 실행했다는 주장 없음 |
 
 검색: `rg -n 'contextTokens|contextWindow|interrupt|prepareContinuation' app/src/main/adapters/opencode app/src/main/app/chat-turn`; `rg --files app/src/renderer/src/features/chat/harnesses/opencode`. 새 자동 자리1/1, 기존 ΔV20 기계 자리14/14. 시각 자리는 분모에서 분리했다.
 
@@ -3140,3 +3140,73 @@ r2(V1~ΔV21) 독립 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md)
 | D-0262-4 | `shared/protocol.ts:569` engine IPC schema · `engine/common/components/EngineCard.tsx:45` 편집 클릭 미잠금 | VP-08 root · AC8 · EP-08 | BLOCKING | 하네스 밖 engine 거절, 편집 클릭→`onEdit` 단언 |
 | D-0262-5 | `renderer/…/store/chatStore.ts:238` `freshEntry`의 기억 하네스 배선 미잠금 | VP-19 root · AC12 · EP-12 | BLOCKING | OpenCode 기억 상태에서 새 draft 생성 결과 단언 |
 | N-0262-6 | 좌표 오기 `ToolCard.render.test.ts`(ΔV21 표)·`ScrollController.test.ts`(r2 보고) | 문서 | NON_BLOCKING | 실제 `ToolCard.interaction.test.ts`·`ScrollController.interaction.test.ts`로 정정 |
+
+## [구현자 기입] 설계 리뷰 — r3
+
+SELF_PASS(AC1·2·8·12의 r2 지적 범위). 불변식은 “선택한 하네스는 메뉴→스토어→새 초안에 보존되고, IPC와 기존 실행 lease는 허용되지 않은 하네스를 거절한다”다. V1+ΔV1~21·사용자 계약·production 코드는 유지하고 D-0262-2~5의 직접 oracle을 추가했다. ΔV1~19 전체의 실행 구간 감사는 r2가 지정한 검증자 r3 작업으로 남긴다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — r3
+
+| root pair / 자리 | 새 직접 oracle / 실제 실행 구간 | 자기결과 |
+|---|---|---|
+| VP-17 / EP-01 ModelMenu adapter edge | `Composer.approvalQueue.test.ts:switches harnesses by clicking model menu rows while preserving the editable draft and attachment` — 실제 Composer→Popover→ModelMenu 클릭→onPick→setModel→reducer→하네스 표면 | SELF_PASS(보완 경로) |
+| VP-16 / EP-02 Send schema | `shared/protocol.harness.test.ts:rejects an unregistered harness %j in send, engine creation and settings import` — 실제 schema의 잘못된 문자열·다른 축·null·boolean·숫자 거절 | SELF_PASS(보완 경로) |
+| VP-16 / EP-02 기존 lease backend | `send.harness.test.ts:rejects %s input on an existing %s lease before reservation (session=%s)` — 실제 lease registry→handleChatSend, 양방향×새/저장 대화 4경로·queue0·acquire0 | SELF_PASS(보완 경로) |
+| VP-08 / EP-08 engine schema | 위 protocol 테스트 — 실제 CreateEngineSchema·ImportEngineUserSettingsSchema의 허용/거절 및 구형 import 기본값 | SELF_PASS(보완 경로) |
+| VP-08 / EP-08 EngineCard 편집 | `EngineCard.interaction.test.ts:routes the %s card edit and delete clicks with the original engine` — 등록 wrapper→공통 카드→실제 Button 클릭→onEdit/onDelete, 각 원본 agent 객체 보존 | SELF_PASS(보완 경로) |
+| VP-19 / EP-12 freshEntry | `chatStore.harness.test.ts:creates a fresh draft using the boot-seeded %s harness`; `remembers model selection across repeated fresh draft creation` — seed/실제 setModel→newChat→freshEntry 결과 | SELF_PASS(보완 경로) |
+
+보완 6/6자리. Composer 테스트는 React/browser 실행 환경·외부 catalog/API만 대체하고 Composer·ModelMenu·store·reducer·입력 controller를 실행한다. 양방향 전환 뒤 같은 textarea 객체·초안 값·첨부 표시를 단언하며 Work→OpenCode Code 전환과 메뉴 닫힘도 관측한다.
+
+검색: `rg -n 'BackendSchema|EngineSchema|backend:|lastBackend' app/src/shared/protocol.ts app/src/renderer/src/features/chat/store/chatStore.ts app/src/main/app/chat-turn/send.ts`; `rg -n 'onPick|setModel|freshEntry|onEdit|onDelete' app/src/renderer/src/features/chat/{components,store} app/src/renderer/src/features/engine`. 같은 값의 인접 edge인 Composer의 adapter 전달·설정 import schema·편집/삭제 콜백·boot seed와 반복 draft 생성도 함께 실행했다. 분모는 r2 인용 6자리이며 다른 ΔV의 모든 자리를 6에 포함했다는 주장은 아니다.
+
+| 영향받은 상위 / 회귀 경로 | 이번 실행에 포함한 기존 직접 좌표 | 판정 경계 |
+|---|---|---|
+| VP-01 / EP-01 SET_MODEL·controller 보존 | 새 실제 Composer 왕복 클릭 및 `chatReducer.harness.test.ts:switches an unsent Work draft to OpenCode Code without losing context` | 새 연결과 입력/첨부 직접 관측 |
+| VP-02·13·16 / 저장/source/await/route | `send.harness.test.ts:routes OpenCode independently of global Claude (%s)`·`rechecks backend after attachment normalization yields`; `resolve-turn.agent.test.ts:rejects a changed source harness after provider preparation (%s)`; `send.agent-profile.test.ts` 실제 runtime/복구 요청 | 기존 저장 backend·source·runtime 좌표와 새 schema/lease 좌표를 구별 |
+| VP-08·14 / engine handler·parser·catalog·form | `engine.deployment.test.ts`·`engine.runtime-catalog.test.ts`·`settings-write.test.ts`·`opencode/v1/settings.test.ts`·`EngineFormModal.harness.test.ts`·`EngineFormModal.import.test.ts` | 기존 직접 좌표 + 새 schema/card; 시각 인수는 유지 |
+| VP-12·19 / 저장·부팅·재열기 | `chatStore.harness.test.ts:defaults to Claude, remembers model selection and sends native options`; `steps.harness.test.ts`; `chatReducer.harness.test.ts:restores the stored harness and ignores conflicting updates` | 기존 저장/복원 + 새 freshEntry |
+
+기존 pair 전체를 이 표만으로 새 PASS로 올리지 않는다. r2의 다른 경로 판정과 VP21-V·AC11 사람 인수를 유지하고 독립 검증자가 root 4와 종속 5의 closeout을 수행한다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r3
+
+| 심은 결함 | 출처 | r2 → r3 | 복원 |
+|---|---|---|---|
+| P01a: ModelMenu `adapter: agent.adapter` 제거 | D-0262-2 | green → assertion red 1/10 | SHA256 일치·동일 suite green |
+| P02a: 기존 lease backend 비교 제거 | D-0262-3 | green → assertion red 4/14 | 동일 |
+| P02d: Send backend schema를 임의 문자열 허용으로 변경 | D-0262-3 | green → assertion red 5/11 | 동일 |
+| P08b: EngineSchema를 임의 문자열 허용으로 변경 | D-0262-4 | green → assertion red 5/11 | 동일 |
+| P08c: EngineCard 편집 클릭을 무동작으로 변경 | D-0262-4 | green → assertion red 2/2 | 동일 |
+| P12a: freshEntry backend를 Claude로 고정 | D-0262-5 | green → assertion red 2/7 | 동일 |
+
+분모 검산: 선택 증거 0 · 인용 변이 6 · 새 구조 proxy oracle 0 = 의무 표 행 6. 직접 행동 oracle을 추가했으며 새로운 source scan/AST proxy는 없다. 실행은 표의 테스트 파일을 각각 `cd app && ./node_modules/.bin/vitest run <file> --maxWorkers=1`로 지정했다.
+
+추가 대조 X01(Composer `selection.adapter` 전달 제거)은 red 1/10, X02(편집을 삭제 콜백으로 오배선)와 X02-swap(편집·삭제 콜백 맞바꿈)은 각각 red 2/2였다. 원본 복원 후 추가한 5파일은 44/44 green이다. 기존 oracle을 교체·삭제하지 않았으며 이전 라운드 red 41건 전체 재실행은 이번 턴 결과로 주장하지 않는다.
+
+## [구현자 기입] Product/UX 파생 검토 — r3
+
+초안·첨부가 있는 상태에서 Claude→OpenCode→Claude 모델을 실제로 고른다. 입력 DOM 인스턴스·본문·첨부 표시를 모두 유지하고, 메뉴는 매번 닫히며 OpenCode에서 Code로 바뀐다. 편집과 삭제는 서로 다른 콜백에 원래 엔진 객체를 전달하고 동일 하네스의 busy 입력은 기존 준비 queue에 수용됨을 대조한다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r3
+
+D-0262-2~5는 인용 변이 6건 검출로 구현자 해소 보고한다. N-0262-6은 ΔV21 표의 ToolCard 좌표와 r2 보고의 ScrollController 좌표를 현재 파일명으로 정정했다. N-0262-1(중단 분류 oracle)·N-0262-3(폼의 모델 context limit)은 기존 disposition을 유지하며 이번 보완으로 닫지 않는다.
+
+설계 대비 동작 차이와 새 의존성은 없다. 만료·공유·재진입·무효화의 새 runtime 표면을 만들지 않았고, fixture의 boot-seeded 하네스와 반복 fresh draft로 기존 모듈 기억 상태를 검사했다.
+
+## [구현자 기입] 구현 보고 — r3
+
+| AC | 이번 관측 / 자기판정 |
+|---|---|
+| AC1 | ✅ 실제 모델 메뉴 왕복 클릭·하네스 표면·동일 입력 DOM·초안/첨부 보존 |
+| AC2 | ✅ 허용 목록 밖 Send backend 거절, 양방향 lease 충돌 4경로 거절, 동일 하네스 수용 대조 |
+| AC8 | ✅ engine/import schema 거절, Claude/OpenCode 카드 편집·삭제 클릭의 원본 객체 전달 |
+| AC12 | ✅ boot-seeded Claude/OpenCode 새 draft, 모델 선택 기억값으로 반복 새 draft 생성, 저장 세션 무변경 |
+
+검산: ✅4 · ⚠️0 · ❌0 = 이번 재구현 대상 4(AC1·2·8·12). 유효 AC 총수는 r2의 57개로 불변이며 나머지 53개를 이번 자기판정 합계에 포함하지 않는다. 구현 좌표는 `(r3 구현 — 좌표는 INDEX)`다.
+
+운영 gate는 0265 `r3 공통 운영 gate`와 같은 트리에서 실행했다. 테스트 추가 25케이스 중 0265의 지시 배선 2케이스와 0262의 23케이스를 구분한다. 독립 verify·사람 시각 인수·ΔV1~19 전체 실행 구간 감사는 별도다.
+
+## [구현자 기입] Review Signals — r3
+
+r2 FAIL 뒤 첫 구현 턴(r3)이다. 정적 렌더의 버튼 존재와 스토어 직접 호출만으로 메뉴/카드의 실제 클릭 배선을 검증하지 못하던 자리에 production 조립 진입을 추가했다. 앞선 보고 필드와 독립 verify 기록은 보존하고 새 결과를 별도 7필드로 남긴다.

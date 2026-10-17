@@ -7,7 +7,13 @@ import {
   type FakeNode
 } from '../../../shared/ui/renderHarness.testfixture'
 import { installChatStoreHarness } from '../store/chatStore.testHarness'
-import { ingestChatEvent, useChatStore, chatActions } from '../store/chatStore'
+import {
+  ingestChatEvent,
+  useChatStore,
+  chatActions,
+  seedLandingBackend,
+  seedLandingAgentKind
+} from '../store/chatStore'
 import { chatReducer, initialChatState } from '../reducer/chatReducer'
 import { Composer } from './Composer'
 
@@ -172,8 +178,75 @@ beforeEach(() => {
 })
 afterEach(() => {
   dom.unmount()
+  seedLandingBackend(null)
+  seedLandingAgentKind('work')
   vi.unstubAllGlobals()
   vi.useRealTimers()
+})
+
+it('switches harnesses by clicking model menu rows while preserving the editable draft and attachment', async () => {
+  useChatStore.setState((state) => ({
+    sessions: {
+      s: {
+        ...state.sessions.s,
+        session: {
+          ...state.sessions.s.session,
+          sessionId: null,
+          backend: 'claude',
+          agentKind: 'work'
+        }
+      }
+    }
+  }))
+  catalog.agents = (['claude', 'opencode'] as const).map((adapter) => ({
+    adapter,
+    key: `${adapter}-local`,
+    supported: true,
+    models: [
+      {
+        alias: `${adapter}/model`,
+        model: `${adapter}/model`,
+        isCustom: true,
+        isDefault: true,
+        oneMillionContext: false
+      }
+    ]
+  }))
+  render()
+  const input = find('aria-label', 'chat.composer.inputAria')!
+  dom.act(() =>
+    (input.props.onChange as (event: unknown) => void)({
+      currentTarget: { value: 'keep my model draft', selectionStart: 19, selectionEnd: 19 }
+    })
+  )
+  dom.act(() =>
+    (find('data-harness', 'claude')!.props.onDrop as (event: unknown) => void)({
+      preventDefault: () => {},
+      dataTransfer: { files: [{ name: 'note.txt', type: 'text/plain', size: 8 }] }
+    })
+  )
+  await settle()
+  expect(find('title', 'note.txt')).toBeDefined()
+
+  for (const backend of ['opencode', 'claude'] as const) {
+    dom.click(find('title', 'chat.composer.modelSelectTitle')!)
+    const row = dom
+      .queryAll('[role="menuitemradio"]')
+      .find((node) => node.textContent.includes(`${backend}/model`))!
+    expect(row).toBeDefined()
+    dom.click(row)
+    expect(useChatStore.getState().sessions.s.session).toMatchObject({
+      backend,
+      agentKind: 'code',
+      providerKey: `${backend}-local`,
+      modelFamily: `${backend}/model`
+    })
+    expect(find('data-harness', backend)).toBeDefined()
+    expect(find('aria-label', 'chat.composer.inputAria')).toBe(input)
+    expect(input.props.value).toBe('keep my model draft')
+    expect(find('title', 'note.txt')).toBeDefined()
+    expect(dom.queryAll('[role="menuitemradio"]')).toHaveLength(0)
+  }
 })
 
 describe('OpenCode replacement request queue', () => {

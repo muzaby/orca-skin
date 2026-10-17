@@ -4,7 +4,12 @@ import { handleChatSend } from './send'
 import { resolveTurn } from './resolve-turn'
 import { normalizeAttachments } from '../../features/chat/attachments'
 import { sendChatEvent } from '../../infra/ipc/send'
-import { SessionChainLeaseRegistry } from '../../features/sessions/session-chain-lease'
+import {
+  SessionChainLeaseRegistry,
+  clientLeaseKey,
+  sessionLeaseKey
+} from '../../features/sessions/session-chain-lease'
+import { PendingMessageQueue } from '../../features/chat/pending-message-queue'
 import type { Backend } from '../../../shared/ipc'
 
 vi.mock('../../features/chat/attachments', () => ({
@@ -25,18 +30,23 @@ function fixture(stored?: Backend): {
   event: Parameters<typeof handleChatSend>[1]
   adapters: Record<Backend, { id: Backend }>
   acquire: ReturnType<typeof vi.fn>
+  leases: SessionChainLeaseRegistry<unknown>
+  pendingMessages: PendingMessageQueue
   db: { getSessionById: ReturnType<typeof vi.fn> }
 } {
   const sender = new EventEmitter()
   const adapters = { claude: { id: 'claude' as const }, opencode: { id: 'opencode' as const } }
   const leases = new SessionChainLeaseRegistry()
   const acquire = vi.fn((input) => leases.acquire(input))
+  const pendingMessages = new PendingMessageQueue()
   const db = {
     getSessionById: vi.fn(() => (stored ? { backend: stored, agent_kind: 'code' } : undefined))
   }
   return {
     adapters,
     acquire,
+    leases,
+    pendingMessages,
     db,
     deps: {
       ctx: {
@@ -49,7 +59,8 @@ function fixture(stored?: Backend): {
         acquireChain: acquire,
         releaseChain: (id: string) => leases.release(id)
       },
-      pendingMessages: { cancelAllHeld: () => [] },
+      pendingMessages,
+      listenRelease: new Map(),
       isUpdateInstallPending: () => false
     } as unknown as Parameters<typeof handleChatSend>[0],
     event: { sender } as unknown as Parameters<typeof handleChatSend>[1]
@@ -154,4 +165,63 @@ describe('send admission uses immutable harness identity', () => {
     expect(f.acquire).not.toHaveBeenCalled()
     expect(resolveTurn).not.toHaveBeenCalled()
   })
+  it.each([
+    ['claude', 'opencode', null],
+    ['opencode', 'claude', null],
+    ['claude', 'opencode', 's'],
+    ['opencode', 'claude', 's']
+  ] as const)(
+    'rejects %s input on an existing %s lease before reservation (session=%s)',
+    async (backend, leasedBackend, sessionId) => {
+      const f = fixture(sessionId ? backend : undefined)
+      const logicalKey = sessionId ? sessionLeaseKey(sessionId) : clientLeaseKey('draft')
+      const { lease } = f.leases.acquire({
+        logicalKey,
+        backend: leasedBackend,
+        agentKind: 'code',
+        sessionId,
+        owner: f.event.sender,
+        requestedProviderKey: null
+      })
+
+      await handleChatSend(f.deps, f.event, { ...payload, sessionId, backend })
+
+      expect(f.acquire).not.toHaveBeenCalled()
+      expect(resolveTurn).not.toHaveBeenCalled()
+      expect(f.pendingMessages.pending(sessionId ?? 'draft')).toEqual([])
+      expect(f.leases.getByKey(logicalKey)).toBe(lease)
+      expect(lease.controller.signal.aborted).toBe(false)
+      expect(sendChatEvent).toHaveBeenCalledExactlyOnceWith(
+        f.event.sender,
+        expect.objectContaining({
+          type: 'error',
+          error: expect.objectContaining({ category: 'schema_validation_error' })
+        })
+      )
+    }
+  )
+  it.each(['claude', 'opencode'] as const)(
+    'keeps same-harness %s input on the preparing lease queue',
+    async (backend) => {
+      const f = fixture()
+      const { lease } = f.leases.acquire({
+        logicalKey: clientLeaseKey('draft'),
+        backend,
+        agentKind: 'code',
+        sessionId: null,
+        owner: f.event.sender,
+        requestedProviderKey: null
+      })
+      await handleChatSend(f.deps, f.event, { ...payload, backend })
+      expect(f.pendingMessages.pending('draft')).toEqual([
+        expect.objectContaining({ text: 'hello' })
+      ])
+      expect(resolveTurn).not.toHaveBeenCalled()
+      expect(f.leases.getByKey(clientLeaseKey('draft'))).toBe(lease)
+      expect(sendChatEvent).not.toHaveBeenCalledWith(
+        f.event.sender,
+        expect.objectContaining({ type: 'error' })
+      )
+    }
+  )
 })

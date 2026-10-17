@@ -48,6 +48,36 @@ describe('remembered harness and request routing', () => {
     seedLandingBackend('claude')
     expect(useChatStore.getState().sessions.s).toBe(before)
   })
+  it.each(['claude', 'opencode'] as const)(
+    'creates a fresh draft using the boot-seeded %s harness',
+    (backend) => {
+      installChatStoreHarness({ sessionId: 's', backend: 'claude' })
+      const saved = useChatStore.getState().sessions.s
+      seedLandingAgentKind('work')
+      seedLandingBackend(backend)
+
+      chatActions.newChat('project', '/repo')
+
+      expect(getActiveChatSession()).toMatchObject({
+        sessionId: null,
+        backend,
+        agentKind: backend === 'opencode' ? 'code' : 'work',
+        pendingProjectId: 'project',
+        cwd: '/repo'
+      })
+      expect(useChatStore.getState().sessions.s).toBe(saved)
+    }
+  )
+  it('remembers model selection across repeated fresh draft creation', () => {
+    const { settingsSet } = installChatStoreHarness({ sessionId: null })
+    seedLandingBackend(null)
+    for (const backend of ['opencode', 'claude', 'opencode'] as const) {
+      chatActions.setModel(`${backend}-local`, `${backend}/model`, backend, backend)
+      expect(settingsSet).toHaveBeenCalledWith({ lastBackend: backend })
+      chatActions.newChat()
+      expect(getActiveChatSession()).toMatchObject({ sessionId: null, backend })
+    }
+  })
   it('only unsent drafts fall back when the remembered harness has no models', () => {
     const agents: AgentEnvironment[] = [
       {
