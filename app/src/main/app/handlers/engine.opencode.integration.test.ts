@@ -14,6 +14,9 @@ import {
 } from '../../adapters/opencode/v1/settings'
 import { HarnessSettingsService } from '../../features/harnesses/common/settings'
 import { createHarnessRuntimeConfigService } from '../../features/harnesses/common/runtime-config'
+import { createRuntimeModelCatalog } from '../../features/harnesses/common/runtime-catalog'
+import { parseHarnessRuntimeModels } from '../harnesses/registry'
+import { RUNTIME_MODEL_CONTRIBUTIONS } from '../deployment/harness-runtime'
 import { registerEngineHandlers } from './engine'
 import { registerMiscHandlers } from './misc'
 import { resolveTurnProvider } from '../chat-turn/resolve-turn'
@@ -92,19 +95,38 @@ it('imports fields, saves an independent document and lists/resolves only its mo
       (_, config) => parseOpenCodeModels(config)
     )
   let settings = makeSettings()
-  const register = (): ReturnType<typeof createHarnessRuntimeConfigService> => {
+  const register = (): {
+    runtime: ReturnType<typeof createHarnessRuntimeConfigService>
+    runtimeModelCatalog: ReturnType<typeof createRuntimeModelCatalog>
+  } => {
     const runtime = createHarnessRuntimeConfigService({ settings, augmenters: {} })
-    registerEngineHandlers({ deployExtensions, harnessSettings: settings, harnessRuntime: runtime })
+    // Bootstrap injects the runtime catalog into every consumer; without it agent:list and turn
+    // selection skip their merge branch.
+    const runtimeModelCatalog = createRuntimeModelCatalog({
+      parseModels: parseHarnessRuntimeModels,
+      contributions: RUNTIME_MODEL_CONTRIBUTIONS,
+      runtime,
+      snapshotOf: () => {
+        throw new Error('the default deployment declares no runtime model contributions')
+      }
+    })
+    registerEngineHandlers({
+      deployExtensions,
+      harnessSettings: settings,
+      harnessRuntime: runtime,
+      runtimeModelCatalog
+    })
     registerMiscHandlers({
       registry: { list: () => [{ id: 'opencode' }], get: () => adapter },
       harnessSettings: settings,
       harnessRuntime: runtime,
+      runtimeModelCatalog,
       debugMock: { log: false },
       mcp: { resolver: () => () => undefined }
     } as never)
-    return runtime
+    return { runtime, runtimeModelCatalog }
   }
-  let runtime = register()
+  let { runtime, runtimeModelCatalog } = register()
   const call = async (channel: string, req?: unknown): Promise<unknown> =>
     fixture.callbacks.get(channel)!(req)
   const imported = (await call(CHANNELS.engineImportUserSettings, { engine: 'opencode' })) as {
@@ -140,10 +162,21 @@ it('imports fields, saves an independent document and lists/resolves only its mo
     expect(
       list.find((row) => row.key === 'opencode-other')?.models.map((model) => model.model)
     ).toEqual(['other/extra'])
+    // The catalog's failure fallback keeps the same model names; only native catalog output has
+    // agents and no catalog error.
+    expect(
+      list
+        .map((row) => [row.key, row.catalogError, row.agents?.map((agent) => agent.name)])
+        .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+    ).toEqual([
+      ['opencode-local', undefined, ['build', 'plan']],
+      ['opencode-other', undefined, ['build', 'plan']]
+    ])
     const selected = await resolveTurnProvider(
       {
         harnessSettings: settings,
         harnessRuntime: runtime,
+        runtimeModelCatalog,
         db: { getSessionById: () => undefined },
         mcp: { resolver: () => () => undefined }
       } as never,
@@ -157,7 +190,7 @@ it('imports fields, saves an independent document and lists/resolves only its mo
     )
     expect(selected.model).toBe('local/first')
     settings = makeSettings()
-    runtime = register()
+    ;({ runtime, runtimeModelCatalog } = register())
   }
   expect(readFileSync(globalFile, 'utf8')).toBe(source)
   expect(acquire).not.toHaveBeenCalled()

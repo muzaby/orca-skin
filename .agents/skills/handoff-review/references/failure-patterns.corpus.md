@@ -1494,3 +1494,53 @@ mock·stub로 바꾼 path 구성요소를 뺀 것 — 안의 자리뿐이다(rea
 현재 방어: `docs/handoff/AGENTS.md §공통 V 추적 프로토콜`·§단계별 절차 2·3 · plan §5-A · `plan.template.md`
 `[구현자 기입] 강제 지점 전수` · impl §2 · verify §6 · `verify.template.md §5`. P55(실행 구간)와 P49(형제 슬롯 맞바꿈
 변이)는 유지한다 — 이 규칙은 구간 안 좌표가 자리를 닫기 위한 입력 조건을 정한다.
+
+## P57 — **테스트가 production 조립이 주입하는 의존성을 빼서, 좌표가 production이 타지 않는 분기를 실행했다**
+
+*출처: 0262 (라운드 4) · 0265 EP11 — review round 34.*
+
+`agent:list` handler는 `harnessRuntime`이 있으면 `harnessRuntime.resolve`로, 없으면 `harnessSettings.resolve`로 설정을
+읽는다. production 조립 루트(`bootstrap.ts`)는 항상 `harnessRuntime`을 주입한다. r4 구현자는 `harnessRuntime` 없이 조립한
+`engine.ipc.test.ts`로 EP-08 `resolve` 자리를 닫았다고 적었고, `misc.runtime-catalog.test.ts`(0265 EP11 좌표)도 같은 fallback을
+실행했다. production 분기의 `resolve`를 `cached`로 바꾼 변이 J2는 `src/main` 4,909케이스 green이었다(D-0262-7). 이 테스트들은
+mock하지 않았고 실행한 fallback도 production 코드라서, P55의 "mock·stub로 바꾼 구성요소 제외" 정의로는 구간 안처럼 읽혔다.
+r3 검증자의 133좌표 감사도 `vi.mock` 목록 기준이라 놓쳤다.
+
+→ **규칙.** **production 조립(조립 루트)이 주입하는 의존성을 테스트가 빼거나 바꾸면, 그 의존성으로 갈리는 production
+분기의 자리는 그 좌표의 실행 구간 밖이다.** 테스트의 조립을 production 조립 루트와 대조해 판정한다. 의존성이 없을 때의
+동작이 pair의 자기 계약이면 그 분기는 그 계약의 자리로 닫힌다.
+
+현재 방어: `docs/handoff/AGENTS.md §공통 V 추적 프로토콜`(실행 구간 bullet) · plan §5-A · `plan.template.md`
+`[구현자 기입] 강제 지점 전수` · impl §2 · verify §6 · `verify.template.md §5`. P55가 mock으로 줄어든 구간을, P56이 구간 안
+운반 값을 다루고, 이 규칙은 조립 차이로 바뀐 분기를 다룬다.
+
+## P58 — **분모 검색의 술어는 맞았지만 범위를 지적이 인용한 파일로 좁혀, 같은 pair의 형제 소비처가 빠졌다**
+
+*출처: 0262 (라운드 5) — review round 35.*
+
+r4 검증은 `agent:list` production 분기(`misc.ts`)가 미잠금이라고 지적했다(D-0262-7). r5 구현자는 round 34 정의를 적용해
+불변식의 주어로 술어를 썼다(`ctx\.(harnessRuntime|runtimeModelCatalog)`). 그런데 검색 경로를 지적이 인용한 `engine.ts`·`misc.ts`로
+한정했고, 분모 6자리를 `5/6`으로 보고했다. 같은 ΔV19 pair의 EP55e 소비처 `resolve-turn.ts`도 같은 조립 의존 분기를 갖는다. 그 merge를
+`'claude'`로 고정한 변이 K9는 4,909케이스 green이었다(D-0262-8). r5 검증이 같은 술어를 `src/main` 전체로 넓히자 차집합 5줄이 나왔다.
+
+→ **규칙.** **분모 검색의 범위는 pair production path가 지나는 소스 전체이고, 지적이 인용한 파일로 좁히지 않는다.** 검증자는
+구현자의 범위가 좁으면 넓혀 차집합을 본다.
+
+현재 방어: `docs/handoff/AGENTS.md` §단계별 절차 2 · impl §2 · `plan.template.md` `[구현자 기입] 강제 지점 전수` 주석 · verify §6.
+P38(지목 지점만 닫음)·P52(§10 항목 단위)는 유지한다. 이 규칙은 술어가 맞을 때 범위로 줄어드는 분모를 다룬다.
+
+## P59 — **호출 변이의 red로 자리를 닫아, 그 자리가 운반하는 인자 항은 아무도 재지 않았다**
+
+*출처: 0262 (라운드 5~6) — review round 36.*
+
+ΔV19 EP55e의 턴 실행 구성 자리(`resolve-turn.ts:263-266`)는 `harnessRuntime.resolve(entry)`를 부르고, `entry`는 선택 행의
+`key`·`harnessId`·`modelProviderId`를 운반한다. r5 검증과 r6 구현(같은 에이전트)은 `resolve`→`cached`로 바꾼 호출 변이 K4가 red 11인 것을
+근거로 이 자리를 닫힘으로 셌다. 그 red를 낸 좌표 중 `native-history`는 stub `resolve`가 입력을 무시했고, I19는 `model`만 단언했다.
+r6 검증이 target `harnessId`를 `'claude'`로, `modelProviderId`를 `''`로 바꾸자(X8·X9, 상류 매핑 X11·X12) 4,909케이스가 green이었다.
+probe에서는 OpenCode 턴의 `providerSettings`가 비었다(D-0262-9).
+
+→ **규칙.** **변이의 red는 그 변이가 바꾼 항만 잠근다 — 호출·분기를 바꾼 변이로 그 자리가 운반하는 인자 항을 닫았다고 세지 않는다.**
+강제 지점 표는 닫힘으로 센 행마다 `운반 항 · 구별 값 · 관측`을 적는다. 셋 중 하나가 빠진 항은 `남긴 곳`으로 보낸다.
+
+현재 방어: `docs/handoff/AGENTS.md §공통 V`(운반 값 bullet) · impl §2 · verify §6 · `plan.template.md` 강제 지점 표 열 · `verify.template.md §5`.
+P55(관측하지 않은 출력·mock 가정)·P56(운반 값 비퇴화)은 유지한다. 이 규칙은 그 둘을 표 행마다 증거로 남기게 하고, 변이 결과가 닫는 범위를 정한다.
