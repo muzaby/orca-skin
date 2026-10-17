@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | impl/IMPL_DONE — r4 EP-08 실제 IPC 등록·엔진 편집/삭제 경로 잠금 보완, 독립 재검증 대기 |
+| 상태 | impl/IMPL_DONE — r5 `agent:list` production 조립 좌표 보완, 독립 재검증 대기 |
 | V mode | Delta V — V1 + ΔV1~ΔV21 (각 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV21 / V1 + ΔV1~ΔV21, 기준 `5d2b36a2` |
@@ -3325,3 +3325,94 @@ r4(V1~ΔV21) 독립 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md)
 | N-0262-8 | 삭제 확인 문구의 엔진 이름 인자 미관측(J15 green — U의 `tr` mock이 인자를 버림) | 문구 | NON_BLOCKING | 필요 시 `tr` 인자 단언 |
 
 r4 구현 보고의 `parser→catalog` 행 `6/6`은 재측정 `5/6`이다(EP-08 합계 58/59). M의 OpenCode 모델명은 parser·catalog·폴백 어느 경로로도 같아 J14·J16·J18이 M에서 green이며, 그 자리는 같은 행의 `registry.test`·`misc.runtime-catalog`가 닫는다. 다음 재구현 전에 `handoff-review`를 수행한다 — 라운드 5(verify §14).
+
+## [구현자 기입] 설계 리뷰 — r5
+
+SELF_PASS(D-0262-7 범위). 불변식은 "엔진 경로의 좌표는 production 조립 루트가 주입하는 runtime 서비스를 같은 방식으로 주입해 production이 타는 `agent:list` 분기를 실행하고, 그 분기만 내는 산출을 관측한다"이다. production 코드·Decision·AC·V는 변경하지 않았다.
+
+라운드 5 선행 handoff-review는 [round 34](../../../.agents/skills/handoff-review/references/regression-coverage.md)이며, 그 결과인 실행 구간 정의(조립 차이 분기 제외)를 이번 분모에 적용했다. 이번 구현자는 Claude로, 사용자가 `/handoff-impl`로 직접 요청했다. r4 검증과 round 34도 같은 에이전트가 수행했다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — r5
+
+분모 검색은 `rg -n 'ctx\.(harnessRuntime|runtimeModelCatalog)' app/src/main/app/handlers/engine.ts app/src/main/app/handlers/misc.ts`이다. 결과 9줄은 조립 의존성으로 갈리는 자리 6곳이다. 재현 명령 T는 `cd app && ./node_modules/.bin/vitest run <파일> --maxWorkers=1`이다. 파일 약칭은 M=`src/main/app/handlers/engine.ipc.test.ts`, I19=`src/main/app/handlers/engine.opencode.integration.test.ts`이다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-Δ19-05 (root) | 조립→UI→codec | EP53b 공통 제목/반복 필드 | 1/1 | `AgentEnvironmentView.interaction.test.ts:selects Claude or OpenCode before opening their production forms…` · `ProviderForm.interaction.test.ts:validates fields, adds and removes rows…` | 시각은 VP21-V 사람 인수 |
+| VP-Δ19-05 | import→draft→문서 | EP54a 선택 provider만 · EP54b 새 문서 codec | 2/2 | `ProviderForm.interaction.test.ts:imports compatible provider fields and submits only the selected provider…` · `v1/customProvider.test.ts:imports only visible fields and serializes a fresh document…` | 없음 |
+| VP-Δ19-05 | settings→catalog→목록 | **EP55d `agent:list` 실제 어댑터** | 1/1 | **I19·M CRUD 2 — bootstrap과 같이 `harnessRuntime`·`runtimeModelCatalog` 주입, OpenCode 행 `agents` `['build','plan']`·`catalogError` 부재를 편집 전후 단언**. J2 red 3 | 없음 |
+| VP-Δ19-05 | 턴 선택 | EP55e resolve-turn 모델 | 1/1 | I19 `resolveTurnProvider`(`harnessRuntime` 주입) `local/first` | 없음 |
+| VP-Δ19-03·04 | catalog·CRUD 분기·전역 import | EP54c · EP55a·b·c (+ EP55d·e 위와 공유) | 4/4 | I19 저장 문서·전역 bytes · `catalog.test.ts` 2케이스 · `engine.deployment.test.ts:%s invalidates the OpenCode document…` | 없음 |
+| VP-08 | schema 정의5 + 등록5 | r4 행 그대로 | 10/10 | M 거절 6입력·5채널 — I1 red 7 · I1b 2 · P08b 10(r4와 같은 수) | 없음 |
+| VP-08 | canonical key/파일 격리 | add·update·read·delete4 + key 해석3 | 7/7 | M CRUD 양방향 · `settings-write…keeps equal provider names…` — J7 red 4 | 없음 |
+| VP-08 | 하네스별 loader/parser | 각 3 × 2 | 6/6 | `app/harnesses/registry.test.ts` 2케이스(J18 red, r4 검증) | 없음 |
+| VP-08 | parser→catalog / 재조회 | adapters·list·resolve·invalidateAll4 · DTO·native catalog2 | **6/6** | **resolve·native catalog: M(production 조립) — J2 red · J14 red 3 · J16 red 4.** 실패 형제(catch)는 분기와 무관한 공통 코드라 `misc.runtime-catalog` 유지 | 없음 |
+| VP-08 | catalog→renderer · renderer→IPC · form/card · hook/store | r4 행 그대로 (4+8+12+6) | 30/30 | r4 좌표(U·P) 무변경 — r4 검증 I2·I3·I5·J3~J13 red | Modal 시각·Esc는 EP-11 사람 |
+| VP-08·Δ19 공통 | 조립 의존성 분기 | `misc.ts:49` merge · `:60-63` resolve · `:61-62` 읽기 전용 cached · `:65` config 가드 · `engine.ts:45-46` 무효화 · `:53` 읽기 전용 가드 (6) | 5/6 | merge J20 red 1(`misc.runtime-catalog…hide a colliding settings row`) · resolve·가드 J2 red 3 · 무효화 J1 red 13 · 읽기 전용 가드 J21 red 3 | `:61-62` 읽기 전용→`cached`: default 배포 `RUNTIME_MODEL_CONTRIBUTIONS = []`라 도달 불가(0188 계약) |
+| VP-14 | engine/settings→catalog→UI | VP-08/09/11 실행 집합 | 위 대응 | VP-08 위 표 · EP-09 r2 좌표 · EP-11 자동 행동(시각은 사람) | VP-11 시각 |
+
+- 합계: VP-Δ19-05 5/5 · VP-Δ19-03·04 공유 제외 4/4 · VP-08 59/59 · 조립 의존 자리 5/6(남긴 1 = 도달 불가).
+- 운반 값: M의 편집 전후 모델명이 다르다(`shared/open-original`→`shared/opencode-changed`). catalog 성공만 `agents`를 내므로, 폴백(같은 모델명)과 구별된다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-Δ19-05 | REQUIRED (root) | SELF_PASS | 위 표 EP53b·54a·54b·55d·55e | not selected. 인용 J2 red 3 |
+| VP-Δ19-03 · VP-Δ19-04 | REQUIRED | SELF_PASS | 위 표 + I19 | not selected |
+| VP-08 | REQUIRED | SELF_PASS | 위 표 59자리 | not selected |
+| VP-14 | REQUIRED | SELF_PASS(자동 행동) | VP-08/09/11 | not selected. 시각은 사람 |
+
+자기확인 5행은 root 1과 종속 4이며 AC 완료 수로 중복 합산하지 않는다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r5
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| J2 `misc.ts:63` `harnessRuntime.resolve(target)` → `cached(entry.key)` | D-0262-7 | r4 green 0/4,909 | M CRUD claude·opencode 2 · I19 1 = **red 3 / 4,909** | 잠김 |
+
+검산: 선택 증거 0 · 인용 변이 1 · 새 구조 proxy oracle 0 = 표 1행. 새 단언은 직접 행동 oracle이다.
+
+- 덮개 회귀 확인: r4에서 M이 잡던 I1·I1b·P08b·J7은 7·2·10·4로 r4와 같은 수다. M의 조립 교체가 잃은 검출은 없다.
+- 추가 감도: J14·J16이 r4 1·1에서 3·4로 늘었고 M이 처음 검출한다. J1 13 · J20 1 · J21 3. 완료 수에 더하지 않는다.
+- 실행 범위는 `src/main`+`src/shared` 4,909케이스다. 변이마다 원본 SHA256 복원을 단언했고, 종료 후 production 파일 변경은 0이다.
+
+## [구현자 기입] Product/UX 파생 검토 — r5
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 사용자 대면 문구·상태의 소비자 | 새 문구 없음. 잠근 결과는 OpenCode 카드의 `catalogError` 경고(`EngineCard` role=alert)와 `agents` 목록이다 | 없음 |
+| production 재배치 / 정리 스코프 | 재배치 없음. 테스트 조립만 bootstrap에 맞춤 | 없음 |
+| 실패 표시 | catalog 실패는 카드 경고로 보이고(`misc.runtime-catalog`), 다른 하네스 행은 유지 | 없음 |
+| 로딩·취소·늦은 응답 | 새 비동기 없음 | 해당 없음 |
+| 시각 | 해당 없음 | VP-11·VP21-V 사람 인수 유지 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r5
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| D-0262-7 | `agent:list` production 분기 미잠금 | ✅ 구현자 해소 보고 | M·I19 조립을 bootstrap과 같게 맞추고 catalog 산출을 단언. J2 red 3 |
+| 0265 EP11 | `misc.runtime-catalog`의 catalog env 단언이 `harnessRuntime` 없는 fallback에서만 실행돼, production 분기의 `runtimeEnv` 전달은 미관측 | 보고만 — 0265 범위 | 실제 OpenCode catalog는 env를 쓰지 않아 0262 경로에서는 관측 불가 |
+| 조립 경보 | M·I19의 `snapshotOf`는 호출되면 던진다. 배포가 runtime 기여를 채우면 두 테스트가 실패해 조립 차이를 알린다 | 의도 | 오류 문구에 사유 명시 |
+| N-0262-1·3·7·8 | 중단 분류·`limit.context`·좌표 이름·확인 문구 인자 | 기존 disposition 유지 | 이번 보완으로 닫지 않음 |
+
+설계 대비 차이와 새 production 표면이 없으므로 만료·공유·재진입·무효화 축은 해당 없음이다.
+
+## [구현자 기입] 구현 보고 — r5
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `src/main/app/handlers/engine.ipc.test.ts` · `engine.opencode.integration.test.ts`. production 변경 0 |
+| 실행 명령 | 위 T · 전체 `./node_modules/.bin/vitest run`(Node ABI) · readonly `eslint --cache=false ./src ./scripts` · `npm run typecheck` · `node --test scripts/*.test.mjs` · inventory/migrations/test-budgets · `npm run build` · prettier `--check`(변경 2파일) |
+| 관측한 게이트 산출 | Vitest 758파일 7,454케이스 — 7,447 pass·0 fail·7 skip(변경 2파일 14/14). ESLint 1,738파일 error 0·warning 2(기존). typecheck 3구성 `error TS` 0. scripts 142/142. inventory·migrations·budgets ok. build exit 0 |
+| V-pair 자기확인 | SELF_PASS 5 / SELF_BLOCKED 0 (자동 행동). 독립 verify·사람 시각 인수는 별도 |
+| 강제 지점 전수 | 위 표 — VP-Δ19-05 5/5 · VP-08 59/59 · 조립 의존 자리 5/6(남긴 1 = 도달 불가) |
+| AC 자기보고 (`Criteria-Met`) | AC8 ✅ — production 조립의 CRUD 전후 catalog 산출 · AC54 ✅ — I19 저장→목록→턴 선택을 production 조립으로 관측 |
+| 합계 검산 | ✅2 · ⚠️0 · ❌0 = 이번 재구현 대상 2(r4 verify ⚠️였던 AC8·AC54). 유효 AC 총수 57은 불변, 나머지 55는 이번 합계에 포함하지 않음 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r5 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — r5
+
+- r4 FAIL 뒤 첫 구현 턴(r5)이다. 같은 계약의 인접 자리가 비는 형태가 r2·r3·r4에 이어 네 번째다. 이번에는 production 조립과 테스트 조립의 차이가 원인이었다.
+- 막았어야 할 지침: round 34 이전에는 실행 구간 정의가 mock만 제외해, 조립 차이 분기를 구간 안으로 읽을 수 있었다. 이번 턴은 바뀐 정의를 적용했다.
+- 구현자·r4 검증자·round 34 리뷰어가 같은 에이전트다. 다음 검증이 같은 에이전트면 verify §4의 자기 검증 규칙(보고에 없는 적대 축)이 걸린다.
+- 반복 환경 한계: 기본 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 뒤 Electron 바이너리가 없다(`node node_modules/electron/install.js`로 해소). 실제 OpenCode CLI도 없다(skip).

@@ -5,7 +5,13 @@ import { join } from 'node:path'
 import { CHANNELS, type AgentEnvironment, type Backend } from '../../../shared/ipc'
 import { registerEngineHandlers } from './engine'
 import { registerMiscHandlers } from './misc'
-import { createHarnessSettingsService } from '../harnesses/registry'
+import { createHarnessSettingsService, parseHarnessRuntimeModels } from '../harnesses/registry'
+import {
+  createRuntimeConfigAugmenters,
+  RUNTIME_MODEL_CONTRIBUTIONS
+} from '../deployment/harness-runtime'
+import { createHarnessRuntimeConfigService } from '../../features/harnesses/common/runtime-config'
+import { createRuntimeModelCatalog } from '../../features/harnesses/common/runtime-catalog'
 import { ClaudeAdapter } from '../../adapters/claude/adapter'
 import { OpenCodeAdapter } from '../../adapters/opencode/v1/adapter'
 import { orcaConfigDir } from '../../infra/config/paths'
@@ -51,21 +57,55 @@ const settingsJson = (backend: Backend, model: string): string =>
   )
 const file = (backend: Backend): string =>
   join(orcaConfigDir(), 'sources', 'settings', backend, 'shared', 'settings.json')
+// Only a successful native catalog yields OpenCode agents; its failure fallback keeps the same
+// parsed models, so model names alone cannot tell the two apart.
+const catalogOutputs = (list: AgentEnvironment[]): Record<string, unknown> =>
+  Object.fromEntries(
+    list.map((agent) => [
+      agent.key,
+      { catalogError: agent.catalogError, agents: agent.agents?.map((item) => item.name) }
+    ])
+  )
+const nativeCatalog = {
+  'claude-shared': { catalogError: undefined, agents: undefined },
+  'opencode-shared': { catalogError: undefined, agents: ['build', 'plan'] }
+}
 
 beforeEach(() => {
   fixture.home = mkdtempSync(join(tmpdir(), 'orca-engine-ipc-'))
   fixture.callbacks.clear()
   vi.clearAllMocks()
+  // Assemble the runtime services the way bootstrap does: production always injects them, and
+  // omitting them would run agent:list's fallback branch instead of the production one.
   const settings = createHarnessSettingsService()
+  const harnessRuntime = createHarnessRuntimeConfigService({
+    settings,
+    augmenters: createRuntimeConfigAugmenters({ auth: {} as never, secrets: {} })
+  })
+  const runtimeModelCatalog = createRuntimeModelCatalog({
+    parseModels: parseHarnessRuntimeModels,
+    contributions: RUNTIME_MODEL_CONTRIBUTIONS,
+    runtime: harnessRuntime,
+    snapshotOf: () => {
+      throw new Error('the default deployment declares no runtime model contributions')
+    }
+  })
   const claude = new ClaudeAdapter()
   const opencode = new OpenCodeAdapter({ acquire, installed: vi.fn(), close: vi.fn() }, fetchImpl)
-  registerEngineHandlers({ deployExtensions: deploy, harnessSettings: settings })
+  registerEngineHandlers({
+    deployExtensions: deploy,
+    harnessSettings: settings,
+    harnessRuntime,
+    runtimeModelCatalog
+  })
   registerMiscHandlers({
     registry: {
       list: () => [{ id: 'claude' }, { id: 'opencode' }],
       get: (backend: Backend) => (backend === 'claude' ? claude : opencode)
     },
     harnessSettings: settings,
+    harnessRuntime,
+    runtimeModelCatalog,
     debugMock: { log: false },
     mcp: { resolver: () => () => undefined }
   } as never)
@@ -138,6 +178,7 @@ describe('engine IPC registration through the real validator and settings servic
       expect(
         before.find((agent) => agent.adapter === 'opencode')?.models.map((m) => m.model)
       ).toEqual(['shared/open-original'])
+      expect(catalogOutputs(before)).toEqual(nativeCatalog)
 
       const next = settingsJson(selected, `${selected}-changed`)
       deploy.mockClear()
@@ -151,6 +192,7 @@ describe('engine IPC registration through the real validator and settings servic
       expect(
         changed.find((agent) => agent.adapter === selected)?.models.map((m) => m.model)
       ).toEqual([selected === 'claude' ? 'claude-changed' : 'shared/opencode-changed'])
+      expect(catalogOutputs(changed)).toEqual(nativeCatalog)
       expect(changed.find((agent) => agent.adapter === other)).toEqual(
         before.find((agent) => agent.adapter === other)
       )
