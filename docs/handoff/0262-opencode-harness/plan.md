@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | impl/IMPL_DONE — r5 `agent:list` production 조립 좌표 보완, 독립 재검증 대기 |
+| 상태 | impl/IMPL_DONE — r6 턴 선택 production 조립 좌표 보완, 독립 재검증 대기 |
 | V mode | Delta V — V1 + ΔV1~ΔV21 (각 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV21 / V1 + ΔV1~ΔV21, 기준 `5d2b36a2` |
@@ -3428,3 +3428,70 @@ r5(V1~ΔV21) 독립 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md)
 | N-0262-10 | r5 보고가 `misc.ts:65` 가드를 J2로 닫았다고 셈 — K7 green, 기본 배포에서 도달 불가·동치 | 보고 정확성 | NON_BLOCKING | 분모 표에서 도달 불가로 분류 |
 
 r5 보고의 조립 의존 자리 `5/6`은 재측정 9자리 중 닫힘 5 · 도달 불가/동치 3 · 열림 1이다(verify §6). 다음 재구현 전에 `handoff-review`를 수행한다 — 라운드 6(verify §14).
+
+## [구현자 기입] 설계 리뷰 — r6
+
+SELF_PASS(D-0262-8 범위). 불변식: "production 조립이 주입하는 의존성으로 갈리는 분기는, 그 의존성을 production과 같이 주입한 좌표가 실행하고 관측한다." production·Decision·AC·V는 변경 0이다. 라운드 6 선행 review는 [round 35](../../../.agents/skills/handoff-review/references/regression-coverage.md)이고, 그 결과(분모 검색 범위 = pair path 소스 전체)를 적용했다. 이번 턴도 구현자는 Claude다(사용자 `/handoff-impl` 요청).
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — r6
+
+분모 검색: `rg -n 'ctx\.(harnessRuntime|runtimeModelCatalog)|deps\.(harnessRuntime|runtimeModelCatalog)' app/src/main --glob '!*.test.ts'` → 14줄, 자리 9곳(`engine.ts` 3 · `misc.ts` 4 · `resolve-turn.ts` 3 — 줄 묶음 기준). 범위는 인용 파일이 아니라 `src/main` 전체다. 재현 명령 T는 `cd app && ./node_modules/.bin/vitest run <파일>`이다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-Δ19-05 (root) | 조립→UI→codec·import | EP53b · EP54a · EP54b | 3/3 | r5 표 좌표 무변경(`AgentEnvironmentView.interaction`·`ProviderForm.interaction` 2·`customProvider.test`) | 시각은 VP21-V |
+| VP-Δ19-05 | settings→catalog→목록 | EP55d | 1/1 | M CRUD 2·I19 — J2 red 3(r5와 같은 수) | 없음 |
+| VP-Δ19-05 | 턴 선택 | **EP55e** — `resolve-turn.ts:228` merge · `:263-266` resolve · `:264-265` 읽기 전용 cached | **2/3** | **merge: I19 `resolveTurnProvider` ctx에 bootstrap과 같은 `runtimeModelCatalog`(같은 인스턴스) 주입 — K9 red 1 · K9b red 1.** resolve: `native-history.test.ts:uses stored %s backend…` 등(r5 검증 K4 red 11) | `:264-265`: default 배포 `RUNTIME_MODEL_CONTRIBUTIONS = []`라 도달 불가 |
+| VP-Δ19-03·04 | catalog·CRUD·import | EP54c · EP55a·b·c | 4/4 | r5 좌표 무변경 · I19(J7 red) | 없음 |
+| 조립 의존 자리 전체 | `engine.ts:45-46·53` · `misc.ts:49·60-63·61-62·65` · `resolve-turn.ts:228·263-266·264-265` | 9 | 닫힘 6 · 도달 불가/동치 3 | `engine.ts` J1 13·J21 3 · `misc.ts` J20 1·J2 3 · `resolve-turn.ts` K9 1·K4 11 | `misc.ts:61-62`·`:65`, `resolve-turn.ts:264-265` — 기본 배포에서 도달 불가(r5 검증 N-0262-10과 같은 분류) |
+
+- 운반 값: I19의 provider key `opencode-local`과 형제 `opencode-other`, 모델 `local/first`가 구별된다. merge를 `'claude'`나 `[]`로 바꾸면 선택 결과가 사라진다(K9·K9b red).
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-Δ19-05 | REQUIRED (root) | SELF_PASS | 위 표 EP53b·54a·54b·55d·55e | not selected. 인용 K9·K9b red |
+| VP-Δ19-03 | REQUIRED | SELF_PASS | 위 표 EP55a~e | not selected |
+
+자기확인 2행은 root 1과 종속 1이다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r6
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| K9 `resolve-turn.ts:228` `merge(settings, req.adapter.id)` → `merge(settings, 'claude')` | D-0262-8 | r5 green 0/4,909 | I19 1 / 4,909 | 잠김 |
+| K9b 같은 자리 `merge([], req.adapter.id)` | D-0262-8 | r5 green 0/4,909 | I19 1 / 4,909 | 잠김 |
+
+검산: 선택 증거 0 · 인용 변이 2 · 새 구조 proxy oracle 0 = 표 2행.
+
+- 덮개 회귀: I19가 잡던 J2 3 · J7 4 · J16 4는 r5와 같은 수다. 변이마다 원본 SHA256 복원을 단언했고, 종료 후 production 변경은 0이다.
+
+## [구현자 기입] Product/UX 파생 검토 — r6
+
+해당 없음 — 새 문구·상태·비동기 없음. 잠근 결과는 OpenCode 턴의 provider·모델 선택이다(깨지면 r5 검증 probe에서 `model`이 `undefined`).
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r6
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| D-0262-8 | 턴 선택 merge 미잠금 | ✅ 구현자 해소 보고 | K9·K9b red 1 |
+| 형제 테스트 | `native-history`·`native-session`·`resolve-turn.agent`도 `resolveTurnProvider`를 `runtimeModelCatalog` 없이 실행한다 | 보고만 — 이 테스트들은 `:228` merge를 자기 좌표로 주장하지 않는다(K9 전부 green) | 0265·VP-13 소관 좌표 |
+| N-0262-1·3·7·8·9·10 | 기존 | disposition 유지 | — |
+
+설계 대비 차이 없음 → 만료·공유·재진입·무효화 축 해당 없음.
+
+## [구현자 기입] 구현 보고 — r6
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `src/main/app/handlers/engine.opencode.integration.test.ts`. production 0 |
+| 관측한 게이트 산출 | Vitest 758파일 7,454케이스 — 7,447 pass·0 fail·7 skip. ESLint 1,738파일 error 0·warning 2(기존). typecheck `error TS` 0. scripts 142/142. inventory·test-budgets ok. build exit 0 |
+| V-pair 자기확인 | SELF_PASS 2 / SELF_BLOCKED 0 |
+| 강제 지점 전수 | 조립 의존 9자리: 닫힘 6 · 도달 불가 3. EP55e 2/3(남긴 1 = 도달 불가) |
+| AC 자기보고 (`Criteria-Met`) | AC54 ✅ — production 조립의 저장→목록→턴 선택(I19, K9 red) |
+| 합계 검산 | ✅1 · ⚠️0 · ❌0 = 이번 재구현 대상 1(r5 verify ⚠️ AC54). 유효 AC 57 불변 |
+| 대상 커밋 | `(r6 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — r6
+
+- r5 FAIL 뒤 첫 구현 턴(r6)이다. 같은 계약의 인접 자리(턴 선택)를 닫았고, round 35 범위 규칙으로 센 분모에서 새로 열린 자리는 없다.
+- 구현·검증·review가 계속 같은 에이전트다. 다음 검증은 verify §4 자기 검증 규칙의 대상이다.

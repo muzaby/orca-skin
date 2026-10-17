@@ -95,9 +95,13 @@ it('imports fields, saves an independent document and lists/resolves only its mo
       (_, config) => parseOpenCodeModels(config)
     )
   let settings = makeSettings()
-  const register = (): ReturnType<typeof createHarnessRuntimeConfigService> => {
+  const register = (): {
+    runtime: ReturnType<typeof createHarnessRuntimeConfigService>
+    runtimeModelCatalog: ReturnType<typeof createRuntimeModelCatalog>
+  } => {
     const runtime = createHarnessRuntimeConfigService({ settings, augmenters: {} })
-    // Bootstrap injects the runtime catalog too; without it agent:list skips the merge branch.
+    // Bootstrap injects the runtime catalog into every consumer; without it agent:list and turn
+    // selection skip their merge branch.
     const runtimeModelCatalog = createRuntimeModelCatalog({
       parseModels: parseHarnessRuntimeModels,
       contributions: RUNTIME_MODEL_CONTRIBUTIONS,
@@ -120,9 +124,9 @@ it('imports fields, saves an independent document and lists/resolves only its mo
       debugMock: { log: false },
       mcp: { resolver: () => () => undefined }
     } as never)
-    return runtime
+    return { runtime, runtimeModelCatalog }
   }
-  let runtime = register()
+  let { runtime, runtimeModelCatalog } = register()
   const call = async (channel: string, req?: unknown): Promise<unknown> =>
     fixture.callbacks.get(channel)!(req)
   const imported = (await call(CHANNELS.engineImportUserSettings, { engine: 'opencode' })) as {
@@ -172,6 +176,7 @@ it('imports fields, saves an independent document and lists/resolves only its mo
       {
         harnessSettings: settings,
         harnessRuntime: runtime,
+        runtimeModelCatalog,
         db: { getSessionById: () => undefined },
         mcp: { resolver: () => () => undefined }
       } as never,
@@ -185,7 +190,7 @@ it('imports fields, saves an independent document and lists/resolves only its mo
     )
     expect(selected.model).toBe('local/first')
     settings = makeSettings()
-    runtime = register()
+    ;({ runtime, runtimeModelCatalog } = register())
   }
   expect(readFileSync(globalFile, 'utf8')).toBe(source)
   expect(acquire).not.toHaveBeenCalled()
