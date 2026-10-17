@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | impl/IMPL_DONE — r2.1 CI 재실패 보완·Windows 전체 게이트 통과, 독립 재검증 대기 |
+| 상태 | impl/IN_PROGRESS — r2.1 Windows CI 파일 I/O 경합 보완 후 전체 게이트 확인 중 |
 | V mode | Delta V — V1 + ΔV1~ΔV21 (각 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV21 / V1 + ΔV1~ΔV21, 기준 `5d2b36a2` |
@@ -3081,6 +3081,8 @@ r2는 첫 독립 verify 뒤 보완이다. 기존 7필드·직접 oracle 규칙�
 
 문서 마감 뒤 run38927521805에서 native-cursor beforeEach 10초와 migrate의 파일 재개방 20초가 초과됐다. 이전 run38926046458 성공은 해당 실행의 사실이며 안정화 완료의 근거로 확대하지 않는다. 제품 계약·V·시간 예산은 바꾸지 않고 현재 산출물의 CI gate를 보완한다.
 
+후속 run38983815532에서는 위 두 자리가 통과했으나 mail.integration의 DB close 이후 임시 루트 제거 훅이10초를 넘었다. 서로 다른 파일 I/O 경로가 동일 코드의 병렬 실행에서 재발하므로 Windows CI는 파일 worker1로 제한한다. 로컬·다른 OS의 병렬도와 case/hook 상한은 유지한다.
+
 ## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — r2.1
 
 불변식은 기본 CI의 Orca 파일 DB fixture가 운영 저장 정책을 사용하는 것이다. `rg -n 'new Database\(|openFileDatabase\(' app/src/main -g '*.test.ts' -g '*.testfixture.ts'`로 초기 생성·재개방을 함께 조사했다.
@@ -3094,6 +3096,8 @@ r2는 첫 독립 verify 뒤 보완이다. 기존 7필드·직접 oracle 규칙�
 
 새 운영 경로는 없다. fixture 조립과 기존 직접 결과 oracle을 확인했으며 성능 보장이나 전체 V 재인수를 주장하지 않는다.
 
+CI 실행 설정1자리는 Vite의 실제 config loader로 Windows `CI=true`→maxWorkers1, `CI=false`→기본값을 확인했다. testTimeout20000과 hook 기본값도 동일했다. 해당 설정으로 mail/SQLite6파일91케이스를 실행해 정리 훅까지 통과했다.
+
 ## [구현자 기입] 이번 라운드 수정의 잠금 — r2.1
 
 선택 적대 증거0 · 인용 변이0 · 새 구조적 proxy0 = 잠금 표 대상0. fixture의 직접 영속·무변경 oracle을 유지했으며 운영 코드를 위한 변이는 추가하지 않았다. native cursor의 DELETE 모드를 WAL로 바꾸어 readonly 불변 검사를 약화하지 않았다.
@@ -3101,6 +3105,8 @@ r2는 첫 독립 verify 뒤 보완이다. 기존 7필드·직접 oracle 규칙�
 ## [구현자 기입] Product/UX 파생 검토 — r2.1
 
 테스트 준비만 변경했다. 사용자 원본·앱 DB·GUI·모델 호출 정책은 바뀌지 않는다. 실제 파일 재개방, 마이그레이션 SQL, 실패/성공 단언, 기본 hook10초·case20초 예산을 유지한다.
+
+파일 직렬화는 Windows CI의 총 시간을 늘릴 수 있다. 각 테스트가 병렬 디스크 작업의 지연을 제품 실패로 보고하는 경합을 줄이며 CI 작업 전체 상한30분은 그대로다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 — r2.1
 
@@ -3116,6 +3122,7 @@ r2는 당시 실패한3스위트만 보완해 같은 초기화 비용이 남은 
 | 원격 Windows | [run38983034999](https://github.com/muzaby/orca-skin/actions/runs/38983034999) 성공. Vitest752파일7402테스트 통과·선택 실행2생략, scripts142/142. 설치·migration·문서·예산·lint·전체 typecheck 통과 |
 | 재발 자리 | native cursor7테스트1387ms. 이전 실패 migration 재개방을 포함한 전체 Vitest 실패0. case/hook 예산과 검증 단언 유지 |
 | 남은 경계 | 기존 Actions Node20 경고는 실패가 아님. 실모델 opt-in·시각 인수는 이번 CI 수정 범위 밖. 마감 문서 push 후 결과는 해당 최종 HEAD의 PR check에서 확인 |
+| 후속 실패 / 보완 | run38983815532에서 mail.integration afterEach 정리 timeout1. Windows CI 파일 worker1 적용 후 관련6파일91테스트·node typecheck·config lint/format 통과. 원격 전체 직렬 실행 확인 중 |
 
 ## [구현자 기입] Review Signals — r2.1
 
