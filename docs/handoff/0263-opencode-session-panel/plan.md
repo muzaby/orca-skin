@@ -1024,3 +1024,12 @@ AC6-1 ✅ 실제 Task/요약/닫기 경로. AC6-2 ⚠️ 부모 열·폭·resize
 ## [구현자 기입] Review Signals — ΔV7 r2
 
 이전 CUA 관측을 자동 자리로 세었던 공백을 실제 배선 테스트로 보완했다. primitive mock만으로는 외부 store 구독과 Context 전달을 검사하지 못하므로 shared fixture에 그 React 의미를 추가했다. 확장된 fixture는 관련 renderer 회귀로 대조했다. 독립 검증은 별도다.
+
+## [검증자 기입] 파생 이슈 — r2 검증
+
+r2 독립 검증(ΔV7) = **PASS**(기계 범위). 판정 원문은 [`verify.md`](verify.md) r2. VP7-V 사람 시각 인수 대기.
+
+| # | finding | 귀속 | disposition | 후속 |
+|---|---|---|---|---|
+| G-0263-1 · D-0263-1 · N-0263-1·2 | r1 finding | ΔV7 | closed — 인용 변이 M0263-07·08·09 red, 7필드 복원 | — |
+| N-0263-3 | 세션 전환 해제가 `RightPanel` remount key와 `Panel` effect deps의 이중 가드 — 단독 제거 M11·M11b green, 합성 M11c red | VP7-S EP-19b | NON_BLOCKING | 기록 |
