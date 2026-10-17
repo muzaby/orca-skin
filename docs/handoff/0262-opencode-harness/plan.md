@@ -3128,3 +3128,15 @@ r2는 당시 실패한3스위트만 보완해 같은 초기화 비용이 남은 
 ## [구현자 기입] Review Signals — r2.1
 
 사용자가 최신 CI 실패를 알린 뒤 같은 라운드에서 보완한다. 원격 성공1회를 재실행 안정성으로 해석하지 않으며 이번에는 최종 push의 check까지 확인한다. 지침 변경이나 독립 verify는 수행하지 않는다.
+
+## [검증자 기입] 파생 이슈 — r2 검증
+
+r2(V1~ΔV21) 독립 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md) r2. r1 구현 보고가 남긴 V1 자리 16에 탐침 변이를 심어 6자리가 여전히 미잠금임을 확인했다.
+
+| # | finding | 귀속 | disposition | 대응 방향 |
+|---|---|---|---|---|
+| D-0262-2 | `renderer/…/composer/ModelMenu.tsx:61` `adapter` 전달 edge 미잠금(제거해도 green) | VP-17 root · AC1 · EP-01 | BLOCKING | 모델 항목 클릭→`Composer.onPick`→`setModel`→backend 전환 실제 렌더 단언 |
+| D-0262-3 | `shared/protocol.ts:146` Send schema backend 값 거절 · `main/app/chat-turn/send.ts:179` 기존 lease backend 비교 미잠금 | VP-16 root · AC2 · EP-02 | BLOCKING | 하네스 밖 값 거절, 다른 backend lease 요청 거절 단언 |
+| D-0262-4 | `shared/protocol.ts:569` engine IPC schema · `engine/common/components/EngineCard.tsx:45` 편집 클릭 미잠금 | VP-08 root · AC8 · EP-08 | BLOCKING | 하네스 밖 engine 거절, 편집 클릭→`onEdit` 단언 |
+| D-0262-5 | `renderer/…/store/chatStore.ts:238` `freshEntry`의 기억 하네스 배선 미잠금 | VP-19 root · AC12 · EP-12 | BLOCKING | OpenCode 기억 상태에서 새 draft 생성 결과 단언 |
+| N-0262-6 | 좌표 오기 `ToolCard.render.test.ts`(ΔV21 표)·`ScrollController.test.ts`(r2 보고) | 문서 | NON_BLOCKING | 실제 `ToolCard.interaction.test.ts`·`ScrollController.interaction.test.ts`로 정정 |
