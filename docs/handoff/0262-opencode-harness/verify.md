@@ -287,3 +287,153 @@
 - pair: root PAIR_FAIL 4(VP-08·16·17·19) · BLOCKED_BY 5(VP-01·02·12·13·14) · 사람 인수 대기 VP21-V·VP-11 시각 · PLAN_GAP 0.
 - AC(이번 판정 범위 20): ✅9 · ⚠️11 · ❌0. 운영 gate PASS.
 - 다음 단계: 구현자 r3 — D-0262-2~5의 6자리 직접 oracle 추가 후 P01a·P02a·P02d·P08b·P08c·P12a red 보고. 검증자 r3는 ΔV1~ΔV19 pair 실행 구간 대응을 함께 닫는다.
+
+---
+
+# r3 검증
+
+## 메타 (r3)
+
+| 항목 | 값 |
+|---|---|
+| 일자 | 2026-10-17 |
+| 대상 커밋/range | `3c798ab5..8868097f` — r3 구현 `8868097f`(0262) · 같은 트리의 0265 r3 `0d2096c5` 포함 |
+| 구현 전 plan 기준 | `12c81cfa`(ΔV21, 설계 단독 커밋) |
+| V mode / 유효 V | V1 + ΔV1~ΔV21 |
+| 검증 HEAD | `8868097f` (공유 브랜치 `origin/codex-opencode-harness`) |
+| 라운드 | 3 |
+| 상태 | **FAIL** — root PAIR_FAIL 1(V1 VP-08) · BLOCKED_BY 3 · PLAN_GAP 0 |
+| 자기 검증 여부 | 구현 Codex · 검증 Claude — 구현자 ≠ 검증자 |
+
+## 0. 기준선 / plan validity (r3)
+
+- 구현 커밋의 `plan.md` 삭제 줄 3: 메타 `상태` · ΔV21 이관 표 좌표 `ToolCard.render.test.ts`→`ToolCard.interaction.test.ts` · r2 구현 보고 좌표 `ScrollController.test.ts`→`.interaction.test.ts`. 뒤 둘은 N-0262-6이 요청한 파일명 정정이고 의미 불변 — 무단 규범 변경 아님.
+- Decision·AC·V node/pair·§10 변경 없음 → r2 plan validity 유지.
+- 아래 D-0262-6의 자리는 V1 §10 EP-08 `engine form/card`·`schema`와 VP-08 path `engine CRUD → catalog → UI`가 이미 명시한다. 구현자가 새 계약 없이 닫을 수 있으므로 PLAN_GAP 아님.
+- r3 범위의 `app/` 변경은 테스트 5파일뿐이다(non-test 0건).
+
+## 2. 비판적 읽기 (r3) — 새 oracle의 실행 구간
+
+| 새 좌표 | 들어간 곳 → 관측한 곳 | mock한 path 구성요소 | 판정 |
+|---|---|---|---|
+| `Composer.approvalQueue.test.ts:switches harnesses by clicking model menu rows…` | `Composer` 버튼 클릭 → `Popover` → `ModelMenu` 행 클릭 → `onPick` → `chatActions.setModel` → reducer → `data-harness` 표면·같은 textarea·첨부 | 없음 — react/react-dom/zustand 바인딩(실행 환경)·i18n·`useAgents`(catalog 입력)·`useSkills`만 | EP-01 세 자리 구간 안 |
+| `send.harness.test.ts:rejects %s input on an existing %s lease before reservation` | 실제 `SessionChainLeaseRegistry`·`PendingMessageQueue` → `handleChatSend` → `send.ts:179` 비교 → `sendChatEvent` 인자·queue·lease 불변 | `resolveTurn`(비교 뒤 단계) | EP-02 lease 자리 구간 안 |
+| `shared/protocol.harness.test.ts` | exported schema `safeParse` | — | schema 정의만. **IPC handler의 schema binding은 구간 밖** |
+| `EngineCard.interaction.test.ts` | wrapper `EngineCard` → 공통 카드 → `Button` 클릭 → `onEdit`/`onDelete` prop | — | 카드 내부만. **부모 `AgentEnvironmentView`의 `onEdit`→`openEdit`→폼은 구간 밖** |
+| `chatStore.harness.test.ts:creates a fresh draft using the boot-seeded %s harness` · `remembers model selection across repeated fresh draft creation` | `seedLandingBackend`/`setModel` → `newChat` → `freshEntry` → 활성 세션 | — | EP-12 draft 초기화 구간 안 |
+
+## 4. 적대 증거 재측정 (r3)
+
+범위: main 변이 `src/main`+`src/shared`(4,896케이스), renderer 변이 `src/renderer`(2,889케이스). 모든 변이 후 원본 SHA256 일치 · `git status` clean.
+
+| 변이 | r2 | r3 | 귀속 |
+|---|---|---|---|
+| P01a `ModelMenu.tsx:61` `adapter` 미전달 | green | **red** 1 — `Composer.approvalQueue…switches harnesses…` | D-0262-2 인용 |
+| X01 `Composer.tsx:410` `selection.adapter` 미전달 | — | **red** 2 — 위 + `composerWiring.test.ts:축③ setModel 호출 전건…` | 구현자 형제 대조 |
+| P02a `send.ts:179` 기존 lease backend 비교 제거 | green | **red** 4 — lease 4경로 | D-0262-3 인용 |
+| P02d `protocol.ts:146` Send backend를 `z.string()` | green | **red** 5 — `protocol.harness…rejects an unregistered harness …` | D-0262-3 인용 |
+| P08b `protocol.ts:569` `EngineSchema = z.string()` | green | **red** 5 — 같은 테스트 | D-0262-4 인용 |
+| P08c `EngineCard.tsx:45` 편집 클릭 무동작 | green | **red** 2 — `EngineCard.interaction…routes the %s card…` | D-0262-4 인용 |
+| X02 편집→`onDelete` · X02s 편집/삭제 맞바꿈 | — | **red** 2 · 2 | 구현자 형제 대조 |
+| P12a `chatStore.ts:238` `freshEntry` backend를 Claude 고정 | green | **red** 2 — `creates a fresh draft…(opencode)` · `remembers model selection across repeated…` | D-0262-5 인용 |
+| P02b payload/세션 backend 불일치 검사 제거 · P02c source 재검사 제거 | red 1 · 1 | **red** 1 · 1 | 덮개 유지(검출 파일이 r3에서 바뀜) |
+| P12b 모델 선택의 `lastBackend` 저장 제거 | red 1 | **red** 2 — 기존 + `remembers model selection across repeated…` | 덮개 유지(검출 파일 변경) |
+| I4 `setModel`의 `landingBackend` 갱신 제거 | — | **red** 1 — `remembers model selection across repeated…` | 검증자 독립 축 |
+| I7 `resolve-turn.ts:106` await 후 source backend 재검증 제거 | — | **red** 3 — `resolve-turn.agent…rejects a changed source harness…(sessionId/forkFrom/handoffFrom)` | 종속 pair closeout |
+| I8 `chatReducer.ts:1498` LOAD_SESSION backend 미복원 | — | **red** 6 — `chatReducer.harness…restores the stored harness…` 외 5 | 종속 pair closeout |
+| I9 `boot/steps.ts:68` `seedLandingBackend` 호출 제거 | — | **red** 1 — `steps.harness…applies the persisted harness through boot…` | 종속 pair closeout |
+| I10 `session.updated`가 잠긴 세션 backend를 patch로 교체 | — | **red** 1 — `chatReducer.harness…restores the stored harness and ignores conflicting updates` | 종속 pair closeout |
+| I11 `send.ts:417` runtime 진입 adapter를 `getActive()`로 | — | **red** 2 — `send.agent-profile…routes a saved OpenCode session through its runtime…(recovery: false/true)` | VP-13 이음매 |
+| **I1** `engine.ts:59-60` `engineAdd`를 무검증 parser로 등록 | — | **green** 0/4,896 | **VP-08 root (D-0262-6)** |
+| I1b `engineImportUserSettings`를 무검증 parser로 등록 | — | red 1 — `engine.import.test.ts:rejects an invalid harness payload null` | import 채널은 실제 `handle`로 부분 잠김 |
+| **I2** `AgentEnvironmentView.tsx:121` 카드 `onEdit` 무동작 | — | **green** 0/2,889 | **VP-08 root (D-0262-6)** |
+| **I3** 같은 자리 `onEdit`↔`onDelete` 배선 맞바꿈(편집 클릭이 삭제 확인) | — | **green** 0/2,889 | **VP-08 root (D-0262-6)** |
+| **I5** `AgentEnvironmentView.tsx:149` 편집 저장 key를 첫 엔진으로 | — | **green** 0/2,889 | **VP-08 root (D-0262-6)** — "서로의 설정 덮어씀" |
+
+- 인용 변이 6/6 검출(P01a·P02a·P02d·P08b·P08c·P12a) — 구현자 보고 수(1·4·5·5·2·2)와 일치. D-0262-2·3·5 closed. D-0262-4는 인용 변이가 닫혔으나 같은 계약(EP-08 `schema`·`engine form/card`)이 한 edge 위에서 미잠금이라 D-0262-6으로 이관.
+- I1 첫 실행은 `loopback-callback.test.ts:타임아웃은 LoopbackCancelledError 로 끝난다` 1건 red였다 — 그 파일은 `engine.ts`를 import하지 않고 단독 재실행에서 0/4,896 green이라 타이밍 flake로 분리했다(I1b 첫 실행의 같은 1건도 동일).
+- 이전 라운드 red 재실행: 검출 파일이 r3에서 바뀐 P02b·P02c·P12b 3/3 red — 덮개 회귀 0. 그 밖의 r2 red(P01b·P01c·P04a/b·P08a·P09a/b·P10a~d·D21-2)와 r1 red(M0262-01~13)는 검출 파일과 production이 `e024b87c..8868097f`에서 무변경이라 재실행하지 않았다.
+- I1·I2·I3·I5가 green인 이유: 엔진 handler 테스트 4파일(`engine.deployment`·`engine.runtime-catalog`·`engine.opencode.integration`·`misc.runtime-catalog`)이 `infra/ipc/handle`을 `(channel, _schema, …) => callbacks.set(…)`로 mock해 schema를 버린다. `AgentEnvironmentView.{interaction,render}.test.ts`는 `useEngines`를 `agents: []`로 mock해 카드 목록·`openEdit`·편집 저장이 한 번도 실행되지 않는다.
+
+## 5. V-pair closeout (r3)
+
+| Pair | r3 결과 | 근거 |
+|---|---|---|
+| **VP-17 AR-03↔IT-03** | **PASS** | EP-01 ModelMenu adapter(P01a)·Composer 전달(X01)·SET_MODEL(r2 P01b)·controller(r2 P01c) · EP-10 r2 P10a~d · EP-11 frame 0264 M01~03(시각은 VP-11) |
+| **VP-16 AR-02↔IT-02** | **PASS** | EP-02 Send schema(P02d)·adapter 선택(I11)·기존 lease(P02a)·source(P02c)·payload/세션(P02b)·await 후 재검증(I7)·load/reducer(I8·I10) · EP-07 r1/r2 좌표 |
+| **VP-19 MD-02↔UT-02** | **PASS** | EP-12 lastBackend 저장(P12b)·draft 초기화(P12a)·기억값 갱신(I4)·session.updated(I10)·LOAD_SESSION(I8) · EP-03/10 r2 |
+| VP-01 R-01↔AT-01 | **PASS** (r2 BLOCKED_BY:VP-17 해소) | 위 Composer 좌표가 path 전 edge를 한 구간에서 실행 — 같은 textarea 객체·초안·첨부 단언 |
+| VP-02 R-02↔AT-02 | **PASS** (r2 BLOCKED_BY:VP-16 해소) | chat:send→DB→registry→adapter: P02a~d·I11 |
+| VP-13 SD-01↔ST-01 | **PASS** (r2 BLOCKED_BY:VP-16 해소) | 이음매별: send→`acquireTurnRuntime` 인자(I11, `send.agent-profile`) → `runtime-entry.test.ts` → 실제 `SessionRuntime`+OpenCode adapter(`opencode-runtime.test.ts`) → history(VP-07 좌표) → reducer(I8) |
+| VP-12 R-12↔AT-12 | **PASS** (r2 BLOCKED_BY:VP-19 해소) | 부팅 seed(I9)·freshEntry(P12a)·lastBackend(P12b)·재열기(I8) |
+| **VP-08 R-08↔AT-08** | **PAIR_FAIL** | EP-08 `schema`: 정의(P08b red) ↔ IPC binding(I1 green). `engine form/card`: 카드 내부(P08c red) ↔ 부모 카드→`openEdit`→편집 폼→`update(key)`(I2·I3·I5 green). D-0262-6 |
+| VP-14 SD-02↔ST-02 | BLOCKED_BY:VP-08 | path `engine/settings → catalog → UI`가 위 편집 edge를 경유 |
+| ΔV18 VP-Δ18-R1 · ΔV19 VP-Δ19-R1 | BLOCKED_BY:VP-08(편집 하위 edge) | 두 REGRESSION path가 "Claude add-edit"·"추가/편집·CRUD"를 명시. 나머지 부분은 r2 좌표 PASS |
+| VP-03·04·05·06·07·09·10·15·18 · VP-11(기계) | PASS (r2 좌표) | r3 변경 무영향 |
+| ΔV1~ΔV19 나머지 · ΔV20 · ΔV21 | PASS (아래 실행 구간 감사) · VP21-V·VP-11 시각은 사람 인수 대기 | — |
+
+- root PAIR_FAIL 1(VP-08) · BLOCKED_BY 3(VP-14·VP-Δ18-R1·VP-Δ19-R1) · PLAN_GAP 0. 같은 root를 상위 pair의 PAIR_FAIL로 다시 세지 않았다.
+
+### ΔV1~ΔV19 실행 구간 감사 — r2가 이월한 작업
+
+방법: plan 전문에서 `*.test` 좌표 이름을 기계 추출(133개) → 현재 파일 해석 → 각 파일의 `vi.mock` 대상 중 실행 환경(react·react-dom·zustand·electron·node:·i18n·log·testfixture)을 뺀 목록을 pair path와 대조했다. 스크립트·결과는 검증자 scratchpad(`audit.py`·`audit.json`)에 있고 저장소에 남기지 않았다.
+
+| 축 | 관측 | 판정 |
+|---|---|---|
+| 좌표 이름 해석 | 133개 중 113개가 현재 파일로 직접 해석. 20개 미해석 | 아래 행 |
+| 미해석 20 | ΔV5 이동 전 이름 6(`opencode-{server,settings,catalog,map,sdk}.test`→`v1/{…}.test`, `opencode.test`→`v1/adapter.test`) · ΔV15 예정 좌표 4(`native-history.integration`·`opencode-native-storage.integration`·`legacy-storage-migration`·`legacy-schema` — 구현자 N1~N7 표가 실제 테스트로 대응) · 이동 1(`CwdPanel.harness`의 `selects workspace and branch from the footer`→`NewChatLandingPage.harness.test.ts:196`) · `claude.executable-option`→`adapter.executable-option.test.ts` · ΔV18 제거 탭 2(`HarnessSettingsTab.*`) · scripts `.mjs` 2 · N-0262-6 2 · 정규식 부산물 1 · `.tmp/native-load-repro` 1(ΔV16 AC43이 영구 회귀로 이관한다고 적은 임시 재현) | 전부 현재 대응 파일 존재 또는 SUPERSEDED — N-0262-7 |
+| 비-환경 mock 보유 46파일 | 입력·출력 sink(`ipc/send`·`shared/api/ipc`·`useAgents`/`useSkills`·`error-report`·`orca-config`·`paths`·`Modal`/`Popover` chrome·`react-virtual`·`useDiffSyntax`·`./Text`·`./scrollContext`) | path 구성요소 아님 |
+| 대상 보존 mock | `ChatTile.*Lifetime`이 `Composer`를 mock해 mount 횟수를 셈 · `SettingsModal.render`가 탭 본문 mock · `agentModeLanding.render` | 그 pair의 edge(부모의 mount·rail 선택)는 구간 안 |
+| path 구성요소 mock + 이음매 증거 | `send.agent-profile`(runtime-entry·post-turn 등 mock) — I11 red로 인자 관측, `runtime-entry.test`·`opencode-runtime.test`가 다음 구간 · `NewChatLandingPage.harness`(`../features/chat`은 실제 `Landing`·`Composer` 재수출, `chatStore`는 fixture 상태를 실제 selector에 주입) | 이음매 닫힘 |
+| **path 구성요소 mock + 이음매 없음** | 엔진 handler 4파일의 `handle` mock(schema 폐기) · `AgentEnvironmentView` 테스트의 `useEngines` 빈 목록 | **D-0262-6** |
+
+- 못 본 것: 자리마다 좌표가 대응하는지(site→coordinate)는 r1/r2가 좌표 실재·통과로 본 범위를 그대로 따랐다. 이번 감사는 좌표의 실행 구간(mock) 축을 133개 이름 전부에 대해 본 것이다. CUA·browser fixture 좌표(VP-59·61·65 등)는 ΔV21이 VP21-V로 사람 인수에 이관했다.
+
+### AT / AC 합계 (r3 판정 범위)
+
+| AC | 결과 |
+|---|---|
+| AC1·2·12 | ✅ 3 — r2 ⚠️ 해소 |
+| AC8 | ⚠️ 1 — 동작은 성립하나 편집 경로·IPC binding 자리 미잠금(D-0262-6) |
+| AC3·4·5·6·7·9·10 · AC20-1·20-2 | ✅ 9 (r2 판정 유지) |
+| AC11 · AC20-3 · AC26·27·33·34·48 | ⚠️ 7 — 자동 행동 ✅, 시각 사람 인수 대기 |
+
+- 합계: `✅ 12 · ⚠️ 8 · ❌ 0 = 20`(r2와 같은 판정 범위). 나머지 37개는 r1 좌표 통과 범위이며 이번 실행 구간 감사에서 D-0262-6 외 결함 없음.
+- 사본 대조: 구현 보고 `✅4 = 대상 4(AC1·2·8·12)` ↔ trailer `8868097f` `Criteria-Met: 4/4` ↔ INDEX `자기확인 4/4` — 사본끼리 일치. 검증 결과와 AC8에서 갈림.
+
+## 9. 게이트 (r3)
+
+[0265 r3 §9](../0265-harness-native-storage/verify.md)의 HEAD `8868097f` 공통 실행: Vitest 756파일 7,429케이스(7,422 pass·0 fail·7 skip) · typecheck exit 0 · readonly ESLint 1,736파일 error 0·warning 2 · scripts 142/142 · inventory/migration/budget ok · build exit 0 · `git diff --check` 0 · 원격 Windows CI #790 success. 운영 gate PASS — 이번 FAIL은 gate가 아니라 VP-08 pair 실패다.
+
+## 11. Repository operation checks (r3)
+
+- INDEX 0262 행: `(r3 구현 — 검증자 기입)`을 `8868097f`로 채웠다(`git cat-file -t` commit, 공유 브랜치 ancestor). 같은 행의 나머지 좌표는 `git cat-file -t` commit이고, `a09109bb`(V1 설계)만 이 shallow clone 밖이라 GitHub commit API로 실재를 확인했다.
+- trailer: `8868097f` 5키(`Agent: codex`·`Handoff`·`Status: implemented`·`Criteria-Met: 4/4`·`Verified-By: pending`) 파싱·허용값 정상.
+- `[구현자 기입]` r3 7필드 전수 존재.
+- 라운드: 이번 FAIL로 4가 된다 — `docs/handoff/AGENTS.md §라운드` "라운드가 3을 초과하면 다음 재구현 전에 handoff-review".
+
+## 13. Finding disposition (r3)
+
+| # | finding | 귀속 | disposition | 후속 |
+|---|---|---|---|---|
+| D-0262-2 · 3 · 5 | EP-01 ModelMenu · EP-02 schema/lease · EP-12 freshEntry 미잠금 | VP-17·16·19 | **closed** — 인용 변이 red | — |
+| D-0262-4 | EP-08 engine schema · EngineCard 편집 클릭 | VP-08 | **인용 변이 closed**(P08b·P08c red) · 계약 잔여는 D-0262-6 | — |
+| **D-0262-6** | EP-08의 두 자리가 한 edge 위에서 미잠금. ① IPC binding: `engine.ts:59-60` `engineAdd`가 어떤 parser로 등록돼도 green(I1) — 엔진 handler 테스트 4파일이 `handle` mock에서 `_schema`를 버린다. ② 카드→폼: `AgentEnvironmentView.tsx:121-122` 편집 무동작(I2)·편집/삭제 맞바꿈(I3), `:149` 편집 저장 key 오배선(I5) 전부 green — 테스트가 `useEngines` 빈 목록만 렌더 | VP-08 · AC8 · V1 §10 EP-08 `schema`·`engine form/card` · D-0262-4 계약 | **BLOCKING** | 구현: 엔진 목록이 있는 `AgentEnvironmentView` 실제 조립에서 카드 편집 클릭→read(key)→편집 폼→저장 `update({ key })`·삭제 클릭→confirm→`remove(key)`를 단언, `engine.import.test.ts`처럼 실제 `handle`로 `engineAdd`의 하네스 밖 engine 거절을 단언. I1·I2·I3·I5 red로 닫힘 |
+| N-0262-1 | 중단 경계 분류 oracle 없음 | D20-2 인접 | NON_BLOCKING 유지 | — |
+| N-0262-3 | 폼 엔진의 `limit.context` 미보존 | ΔV19×ΔV20 | NEXT_HANDOFF 유지 | — |
+| N-0262-6 | 좌표 오기 2건 | 문서 | **closed** — r3가 정정 | — |
+| N-0262-7 | plan 좌표 이름 20개가 ΔV5 이동·ΔV18 제거·ΔV15 예정 좌표 등으로 현재 파일명과 다르다(전부 대응 파일 확인) | 문서 | NON_BLOCKING | 다음 설계 정정 때 현재 이름 병기 |
+
+## 14. Review Signals (r3)
+
+- r2와 같은 형태가 반복됐다: 검증자가 지목한 자리(카드 내부·schema 정의)를 구현자가 정확히 닫았고, 같은 계약의 한 edge 위(부모 배선·IPC binding)는 비었다.
+- 관련 지침: `docs/handoff/AGENTS.md §공통 V` "계약 값을 운반하는 edge는 모두 자리" · "파생 이슈의 계약은 출처가 가리키는 V-pair·§10이고 대응 방향은 제안이다".
+- 라운드 4(>3) — 다음 재구현 전 handoff-review 대상.
+- 반복 환경 한계: 실제 OpenCode CLI 부재(native CLI 통합 skip 1).
+
+## 15. 결론 (r3)
+
+- 상태: **FAIL**.
+- pair: root PAIR_FAIL 1(VP-08) · BLOCKED_BY 3(VP-14·VP-Δ18-R1·VP-Δ19-R1) · r2 root 3(VP-16·17·19)과 종속 4(VP-01·02·12·13) PASS · PLAN_GAP 0 · 사람 인수 대기 VP21-V·VP-11 시각.
+- AC(판정 범위 20): ✅12 · ⚠️8 · ❌0. 운영 gate PASS.
+- 다음 단계: handoff-review(라운드 4) → 구현자 r4 — D-0262-6의 I1·I2·I3·I5 red 보고. 이 자리 외 ΔV1~ΔV19 실행 구간 감사는 이번 라운드로 닫혔다.

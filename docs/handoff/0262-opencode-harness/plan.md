@@ -3210,3 +3210,12 @@ D-0262-2~5는 인용 변이 6건 검출로 구현자 해소 보고한다. N-0262
 ## [구현자 기입] Review Signals — r3
 
 r2 FAIL 뒤 첫 구현 턴(r3)이다. 정적 렌더의 버튼 존재와 스토어 직접 호출만으로 메뉴/카드의 실제 클릭 배선을 검증하지 못하던 자리에 production 조립 진입을 추가했다. 앞선 보고 필드와 독립 verify 기록은 보존하고 새 결과를 별도 7필드로 남긴다.
+
+## [검증자 기입] 파생 이슈 — r3 검증
+
+r3(V1~ΔV21) 독립 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md) r3. 인용 변이 6/6 red로 D-0262-2·3·5가 닫혔고 VP-16·17·19와 종속 VP-01·02·12·13이 PASS다. VP-08은 같은 계약의 한 edge 위가 비어 root로 남는다.
+
+| # | finding | 귀속 | disposition | 대응 방향 |
+|---|---|---|---|---|
+| D-0262-6 | ① `main/app/handlers/engine.ts:59-60` `engineAdd`의 schema binding 미잠금 — 무검증 parser로 바꿔도 `src/main`+`src/shared` 4,896케이스 green(I1). 엔진 handler 테스트 4파일이 `handle` mock에서 `_schema`를 버린다. ② `renderer/…/engine/common/components/AgentEnvironmentView.tsx:121-122` 카드 편집 무동작(I2)·편집/삭제 맞바꿈(I3), `:149` 편집 저장 key 오배선(I5)이 renderer 2,889케이스 green — 테스트가 `useEngines` 빈 목록만 렌더 | VP-08 root · AC8 · V1 §10 EP-08 `schema`·`engine form/card` · D-0262-4 계약 | BLOCKING | 엔진 목록이 있는 실제 `AgentEnvironmentView`에서 편집 클릭→read(key)→편집 폼→`update({ key })`, 삭제 클릭→confirm→`remove(key)` 단언. `engine.import.test.ts`처럼 실제 `handle`로 `engineAdd`의 하네스 밖 engine 거절 단언. I1·I2·I3·I5 red |
+| N-0262-7 | plan 좌표 이름 20개가 현재 파일명과 다르다(ΔV5 이동 6·ΔV15 예정 4·이동/제거 5·기타 5) — 전부 대응 파일 확인 | 문서 | NON_BLOCKING | 다음 설계 정정 때 현재 이름 병기 |
