@@ -23,7 +23,6 @@
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
 | [`0265-harness-native-storage`](0265-harness-native-storage/plan.md) | impl | **IMPL_DONE** | **Claude** | (r2.1 구현 — 검증자 기입) | 2 | native cursor 초기화 timeout 보완. Windows 전체 CI 통과, 독립 재검증 대기. 상세는 plan r2.1. |
-| [`0264-harness-module-isolation`](0264-harness-module-isolation/plan.md) | impl | **IMPL_DONE** | **Claude** | (r2 구현 — 검증자 기입) | 2 | r2 실제 loader 배선 검증·미사용 코드 정리. 로컬 및 Windows CI 통과. 독립 재검증 대기, 상세는 plan r2. |
 | [`0263-opencode-session-panel`](0263-opencode-session-panel/plan.md) | impl | **IMPL_DONE** | **Claude** | (r2 구현 — 검증자 기입) | 2 | r2 실제 패널 수명주기·store 구독·부모 열 검증. Windows CI 통과. 시각 인수 별도, 독립 재검증 대기. |
 | [`0262-opencode-harness`](0262-opencode-harness/plan.md) | impl | **IMPL_DONE** | **Claude** | (r2.1 구현 — 검증자 기입) | 2 | 파일 fixture·Windows CI 경합 보완. 직렬 전체7402테스트·scripts142 통과, 독립 재검증 대기. |
 | [`0261-bypass-flag-prod-devtools`](0261-bypass-flag-prod-devtools/plan.md) | verify | **PASS** (V1 r1 · 기계 범위) | **사람** (AC1·AC7 실기) | `cd7ea1a2`(V1 설계) · `fab363fd`(r1) | 1 | **r1 검증 = PASS** — 원문은 [`verify.md`](0261-bypass-flag-prod-devtools/verify.md). pair 7 PASS · VP-01·06 실기 대기 · PLAN_GAP 0 · AC ✅6·⚠️2·❌0.<br>등록 26자리 red · 독립 I1~I10 · gate(lint·typecheck·vitest 120/129 — DB 9 ABI·doc 3종·trailer) PASS. NON_BLOCKING N1~N3 · 후보 X1~X3. **archive 이동은 AC1·AC7 실기 뒤.** |

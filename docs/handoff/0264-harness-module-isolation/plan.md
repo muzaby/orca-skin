@@ -368,3 +368,12 @@ N-0264-2의 model-policy는 의도된 하네스 소유 경계다. 현재 동일�
 ## [구현자 기입] Review Signals — r2
 
 첫 verify가 factory loader edge의 실관측 부재를 드러냈다. test-only wrapper는 운영 동작의 증거로 쓰지 않고 제거했다. 같은 정책인 두 wrapper의 교환은 등가 변이이므로 실패를 강제하려고 의미를 바꾸지 않았다.
+
+## [검증자 기입] 파생 이슈 — r2 검증
+
+r2 독립 검증 = **PASS**. 판정 원문은 [`verify.md`](verify.md) r2.
+
+| # | finding | 귀속 | disposition | 후속 |
+|---|---|---|---|---|
+| D-0264-1 | settings loader 주입 edge oracle 부재 | VP11 | closed — 인용 변이 M0264-14b red, 형제 맞바꿈 14c·14d red | — |
+| N-0264-5 형제 | `docs/spec/AGENTS.md:34`가 `app/src/main/adapters/claude.ts`(실제 `adapters/claude/adapter.ts`)를 인용 | §18 문서 영향 | NON_BLOCKING | 경로 정정 |
