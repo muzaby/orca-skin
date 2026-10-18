@@ -3932,3 +3932,71 @@ SCOPE="$S/features/harnesses/common/settings.ts $S/adapters/opencode/v1/settings
 
 - gate: readonly lint(`./node_modules/.bin/eslint --cache=false ./src ./scripts`) · typecheck · `src/main`+`src/shared` Vitest · scripts · doc inventory · `git diff --check` · trailer 파싱 · Windows CI. 명령은 `app/AGENTS.md`를 따른다.
 - READY 대조: V mode(ΔV22)·CHANGED pair 2·REQUIRED 유지 · 자리 검색 명령 + 분모 69 + 제외 112(미분류 0) · 자리별 상태·좌표 출처 · 적대 증거 not selected · gate 열거 — 누락 0. ACTIVE↔AC 충돌 0.
+
+## [구현자 기입] 설계 리뷰 — r9
+
+SELF_PASS(ΔV22 EP56 범위). 불변식은 D22-1 — "선택한 엔진의 key·문서·모델은 선택에서 이번 턴의 실행 요청·native 서버 구성·대화 기록까지 바뀌거나 빠지지 않는다"이고 production·Decision·AC 변경은 0이다. 구현자는 Claude다(사용자 "진행하라").
+
+계획 대비 차이 1건: P40(`adapter.ts:81`)은 `complete()` 안 — 제목·worktree 이름 생성만 호출(`title-generation.ts:67`·`prepare-worktree.ts:108`) — 이라 D22-1 주어 밖이고 같은 함수의 `:68`은 제외 그룹(complete)에 있다. 목록에서 빼지 않고 좌표로 닫았으며 정정 제안은 아래 §놓친 잠재 문제에 둔다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — r9
+
+분모 검색: ΔV22 §10 EP56 명령을 이번 턴 production 무변경 상태에서 다시 돌려 **221줄**, plan 표와 줄 단위 대조 **불일치 0**(자리 69 · 제외 112). production 줄 이동 없음.
+
+재현 명령 T = `cd app && ./node_modules/.bin/vitest run <파일>`. 변이 실행기는 앵커 1회 출현·원본 SHA256 복원을 단언하고 `src/main`+`src/shared`(4,925→4,929케이스)를 돌린다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-16 | EP56 열림 P28d·P34 + P29c | P28d `send.ts:661` · P34 `continuation.ts:79` · P29c `chat-turn-continuation.ts:65·70` | 3/3 | N1 `continues a live flush / closed flush with the saved engine document and model when the selected engine is deleted after the first turn` — A5 · M2 · C65 각 red 2 | sessionId·flush model·연속 모델: 엔진 3개, 저장 other(entries[0] 아님)·선택 third, 첫 턴 뒤 third 삭제 / flush 요청 model `other/extra`·문서 other | — |
+| VP-16 | P28c fallback 모델 | `send.ts:655` | 1/1 | N1 `keeps the first turn model on a listen turn when the continuation resolves the engine to no model` — C655 red(N1 단독) | `request.model`: 첫 턴 `other/extra` ↔ 재해석 모델 없음 / listen 요청 model | — |
+| VP-16 | P29b · P25 family | `chat-turn-continuation.ts:62` · `resolve-turn.ts:281-282` | 2/2 | `chat-turn.runtime-tools.test.ts:keeps the non-default selected model on a flush…` · `chat-turn-continuation.test.ts:preserves the selected model family…` — C62 red 5 · R281 red 4 | modelFamily: 비기본 ↔ 기본 / 연속·최초 요청 model | — |
+| VP-16 | P24 catalog | `adapter.ts:62-65` | 1/1 | `catalog.test.ts:rebuilds from only the engine document…` · N1 — AD65 red 17 | 문서: 엔진 문서 ↔ `{}` / 모델 목록·요청 model | — |
+| VP-16 | P07 runtime base | `runtime-config.ts:140-141·190` | 1/1 | N1 · `settings.test.ts` — RC142(문서 항 제거) red 18 · RC140(`modelProviderId`→harnessId) red 1 | 문서·modelProviderId / `prepared.providerSettings` | — |
+| VP-16 | P01 loader 선택 | `common/settings.ts:82` | 1/1 | `app/harnesses/registry.test.ts:resolves each registered native loader without mixing harness policies` — ST82(형제 loader 맞바꿈) red 4 | harnessId: opencode ↔ claude loader / 해석 문서 | — |
+| VP-16 | P37 live pushTurn 모델 | `session-runtime.ts:435` | 1/1 | `session-runtime.test.ts:후속 pushTurn 이 이번 턴에 해석된 엔진 모델을 싣는다 (0262 EP56 P37)` — SR435 red 1 | model: 첫 턴 `third/only` ↔ 연속 `other/extra` / pushTurn 인자 | — |
+| VP-Δ15-02 | P40 보조 completion 모델 | `adapter.ts:81` | 1/1 | `adapter.test.ts:asks the auxiliary completion with the model it was given (0262 EP56 P40)` — AD81 red 1 | model `other/extra` / `/message` body model | — |
+| VP-Δ15-02 | P44 live prompt 모델 | `channel.ts:123` | 1/1 | 기존 좌표 — CH123 red 1 | model / promptAsync body | — |
+| VP-Δ15-02 | P42 native data 경로 | `adapter.ts:138·140·156` | 1/3 | `:140` — `native-history.test.ts` AD140 red 1 | config / databasePath 인자 | `:138`·`:156` 동치 — `nativeOpenCodeData`는 HOME·USERPROFILE·XDG_DATA_HOME만 읽고 config는 그 뒤에 `OPENCODE_CONFIG_CONTENT`만 더한다(`native-storage.ts:5-21`). AD138·AD156 green 0/4,929 |
+| VP-Δ15-02 | P49 databasePath | `server.ts:225·234` | 2/2 | `server.database-path.test.ts:reads the database path through the server and CLI environment of the selected engine document` — SV225 · SV234 각 red 1 | config: 엔진 문서 ↔ `{}` / spawn 1회·`db path` env | — |
+| VP-Δ15-02 | P52b 복구 한도 | `native-session.ts:32` | 1/1 | `native-session.test.ts:uses the selected engine model context limit before creating a replacement` — NS32 red 2 | contextWindow / 교체 판정 | — |
+| VP-16·Δ15-02 | 나머지 EP56 자리(닫힘 49 · 동치 4 · 도달 불가 1) | ΔV22 표 | 회귀 | 위 전체 범위 실행 4,929케이스 0 fail · 좌표 파일 무변경(추가만) | ΔV22 표의 변이 정의 | 동치·도달 불가는 ΔV22 근거 유지 |
+
+- 합계(EP56 분모 69): **닫힘 64 · 동치 4 · 도달 불가 1 · 열림 0 = 69.** P42는 `:140` red로 자리를 닫고 `:138`·`:156` 항은 동치다. 이번 턴 닫음 15 = 열림 2 + 미측정 13.
+- §10 목록 밖에서 본 운반 자리: 없음.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-16 | REQUIRED (root) | SELF_PASS | 위 표 + ΔV22 닫힘 행 | not selected. 인용 A5·M2 red 2 |
+| VP-Δ15-02 | REQUIRED (종속) | SELF_PASS | 위 표 + ΔV22 P38~P53 | not selected. 실제 CLI 통합은 환경 skip |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r9
+
+| 변이 | 출처 | 결과(전체 범위) |
+|---|---|---|
+| A5 · M2 | D-0262-11 인용 | red 2 · red 2 |
+| C65 · C655 · C62 · R281 · AD65 · RC142 · RC140 · ST82 · SR435 · AD81 · CH123 · AD140 · SV225 · SV234 · NS32 | ΔV22 미측정 13자리 | 전부 red(C655는 N1 단독 red, 나머지 전체 범위 red 1~18) |
+
+- 검산: 선택 증거 0 · 인용 변이 2 · 미측정 자리 변이 15 = 변이 17(표 2행에 묶음). 새 oracle은 6케이스(삭제 연속 턴 2·모델 없는 listen 1·live pushTurn 모델 1·completion 모델 1·databasePath 1)이고 직접 행동 관측이라 민감도는 위 변이 행으로 보인다.
+- 덮개 회귀: 이번 턴은 기존 테스트를 지우거나 바꾸지 않았다(fixture `pushTurn` 기록에 model 항 추가만). r7·r8 red 변이는 좌표 파일 무변경이라 재실행하지 않았다.
+
+## [구현자 기입] Product/UX 파생 검토 — r9
+
+해당 없음 — production 변경 0. 엔진 삭제 후 연속 턴은 저장 엔진으로 이어진다(기존 동작, 이번 좌표가 잠금).
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r9
+
+| # | 발견 | 처리 |
+|---|---|---|
+| r9-1 | P40 `adapter.ts:81`은 `complete()`(제목·worktree) 경로라 D22-1 주어 밖이다 | 보고만 — 설계자 정정 후보(제외 그룹 complete로 이동). 좌표는 이미 둠 |
+| r9-2 | flush는 `...input.base`를 이어 받아 연속 모델이 비면 첫 턴 모델이 남고, listen만 fallback에 기댄다 | 기록 — 좌표를 listen 경로로 둠 |
+
+## [구현자 기입] 구현 보고 — r9
+
+- 변경: 테스트만 — `chat-turn.execution-config.test.ts`(케이스 3 추가·fixture 확장) · `session-runtime.test.ts`(케이스 1·fixture model 기록) · `adapter.test.ts`(케이스 1) · 신규 `server.database-path.test.ts`(1). production 0.
+- 게이트: 아래 관측값.
+- 대상 커밋: (r9 구현 — 좌표는 INDEX).
+
+## [구현자 기입] Review Signals — r9
+
+- 같은 축(VP-16 운반) — ΔV22 고정 목록 안에서 닫았고 목록 밖 발견 0.
+- 라운드 9, impl 턴 r9.
