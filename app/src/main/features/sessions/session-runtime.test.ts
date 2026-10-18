@@ -159,6 +159,7 @@ function channelLive(): {
         text: next.text,
         ...(next.promptUuid ? { promptUuid: next.promptUuid } : {}),
         ...(next.effort !== undefined ? { effort: next.effort } : {}),
+        ...(next.model !== undefined ? { model: next.model } : {}),
         ...(next.requirements ? { requirements: next.requirements } : {})
       })
       return { kind: 'accepted' }
@@ -572,6 +573,24 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
     const events2 = await f2
     expect(events2.map((e) => e.type)).toEqual(['telemetry'])
     expect(spawns).toBe(1)
+  })
+
+  it('후속 pushTurn 이 이번 턴에 해석된 엔진 모델을 싣는다 (0262 EP56 P37)', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+
+    const first = collect(runtime.send({ ...req(), model: 'third/only' }))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await first
+
+    // 연속 턴이 저장 엔진으로 다시 해석되면 살아있는 채널에도 그 모델이 가야 한다.
+    const second = collect(
+      runtime.send({ ...req(), text: 'next', promptUuid: 'batch-1', model: 'other/extra' })
+    )
+    await tick()
+    expect(ch.pushed).toEqual([{ text: 'next', promptUuid: 'batch-1', model: 'other/extra' }])
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await second
   })
 
   it('후속 pushTurn 이 requirements 를 누락하지 않는다', async () => {
