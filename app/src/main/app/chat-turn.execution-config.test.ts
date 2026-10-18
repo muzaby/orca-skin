@@ -442,8 +442,10 @@ describe('chat:send execution configuration from the selected engine document (0
     }
   )
 
-  it('keeps the first turn model when the continuation resolves the engine to no model', async () => {
-    const { runtime, pending, rewriteEngine } = install(['flush', 'break'], 'opencode-other')
+  it('keeps the first turn model on a listen turn when the continuation resolves the engine to no model', async () => {
+    // A listen request is built fresh (a flush inherits the first request), so only the
+    // continuation's fallback model can carry the model the turn ran with.
+    const { runtime, pending, rewriteEngine } = install(['listen', 'break'], 'opencode-other')
     const modelless = {
       provider: { other: { ...documents.other.provider.other, models: {} } }
     }
@@ -460,7 +462,7 @@ describe('chat:send execution configuration from the selected engine document (0
     await send({ sessionId: 'saved', providerKey: 'opencode-other', modelFamily: null })
 
     expect(harness.errors).toEqual([])
-    expect(harness.runs).toHaveLength(2)
+    expect(harness.runs.map((run) => run.kind)).toEqual([undefined, 'listen'])
     expect(harness.runs[0]?.request.model).toBe('other/extra')
     // The re-read document has no model, so the continuation keeps the one this turn ran with.
     expect(harness.runs[1]?.request.providerSettings?.settings).toEqual(modelless)
