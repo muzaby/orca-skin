@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | impl/IMPL_DONE — r6 턴 선택 production 조립 좌표 보완, 독립 재검증 대기 |
+| 상태 | impl/IMPL_DONE — r7 고른 엔진 문서 → 실행 요청·native 구성·대화 기록 좌표 보완, 독립 재검증 대기 |
 | V mode | Delta V — V1 + ΔV1~ΔV21 (각 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV21 / V1 + ΔV1~ΔV21, 기준 `5d2b36a2` |
@@ -3506,3 +3506,137 @@ r6(V1~ΔV21) 독립 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md)
 | N-0262-11 | bootstrap ctx의 `runtimeModelCatalog` 주입(`bootstrap.ts:788`) 제거가 green(X4) — 기본 배포 contributions `[]`라 동치 | 0188 runtime catalog | NON_BLOCKING | runtime 행 배포의 조립 잠금은 0188 몫 |
 
 r6 보고의 조립 의존 분모 `9자리`는 재열거 차집합 0으로 맞다. 열린 자리는 운반 값 술어로만 나온다(verify §6). ΔV15 §10(EP42a~g)·V1 EP-02가 이 edge를 행으로 담지 않았다 — path가 명시하므로 PLAN_GAP은 아니며 다음 설계 정정 때 행으로 적는다. 다음 재구현 전에 `handoff-review`를 수행한다 — 라운드 7(verify §14).
+
+## [구현자 기입] 설계 리뷰 — r7
+
+SELF_PASS(D-0262-9 범위). 불변식: "고른 엔진의 key·하네스·공급자·문서·모델은 선택에서 이 턴의 실행 요청·native 서버 구성·대화 기록까지 어느 경계에서도 바뀌거나 빠지지 않는다." 계약은 D-0262-9 출처(VP-16 path `backend/config → send/history` · VP-Δ15-02 path `engine settings → native config → 모델` · D-008 · D-030 · AC40)이고 production·Decision·AC·V 변경은 0이다.
+
+선행 review는 [round 36](../../../.agents/skills/handoff-review/references/regression-coverage.md)이다 — 변이의 red는 바꾼 항만 잠그므로 자리마다 `운반 항 · 구별 값 · 관측`을 적었다. 같은 값을 다루지만 다른 handoff 계약인 자리(제목 생성 0188 D-019 · worktree 이름 0211 · respawn 판정 0118/0125/0190 · busy 예약 0119 · 연속 턴 문서 신선도 0126 · Claude adapter 내부)는 분모에 넣지 않고 `놓친 잠재 문제`에 변이 결과와 함께 적었다. 이번 턴도 구현자는 Claude다(사용자 `/handoff-impl`).
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — r7
+
+분모 검색과 차집합(범위는 두 pair path가 지나는 `src/main` 전체):
+
+| 검색 | 줄(주석 제외) | 분류 | 미분류 |
+|---|---|---|---|
+| q1 `rg -n 'providerSettings\|titleSettings' app/src/main -g '!*.test.ts' -g '!*.testfixture.ts'` | 41 | 분모 안 13(행 1·5·6·9·11) · 분모 밖 17 · 타입 11 | 0 |
+| q2 `rg -n 'providerKey\|provider_key' app/src/main/app/chat-turn app/src/main/app/{chat-turn-continuation,native-history}.ts app/src/main/features/{history,sessions,chat} app/src/main/contracts/turn.ts -g '!*.test.ts'` | 44 | 분모 안 17(행 1~4·8) · VP-16 EP-02 r3 좌표 2(`send.ts:87-88`) · 분모 밖 11 · 타입 14 | 0 |
+| q3 리터럴 없는 운반 edge(path 읽기) | — | `resolve-turn.ts:93-99` 호출 인자 · `send.ts:602`·`continuation.ts:46·79` 모델 · `session-runtime.ts:849-850` spread · `adapter.ts:53·143` · `server.ts:100-104·112·147` · `native-storage.ts:13` | — |
+
+- 판정은 변이 실행이다. 실행기는 변이마다 앵커 1회 출현과 원본 SHA256 복원을 단언하고 `src/main`+`src/shared`를 돌린다 — 1차는 새 좌표 전 4,909케이스, 최종은 4,917케이스. 재현 명령 T = `cd app && ./node_modules/.bin/vitest run <파일>`.
+- 좌표 약칭: I19 = `app/handlers/engine.opencode.integration.test.ts:imports fields, saves an independent document and lists/resolves only its model without a server` · N1 = `app/chat-turn.execution-config.test.ts`의 5케이스(chat:send IPC → `resolveTurn` → 요청 조립 → coordinator, 설정 3서비스는 bootstrap과 같은 production factory, 엔진 문서 2개).
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-16 | 1. 선택 `resolve-turn.ts:226-290` 12자리(list·merge·매핑·byKey·guard·저장 폴백·default·target·resolve·prepare·catalog·반환) | 행 없음 — V1 EP-02/07은 backend·raw(r6 검증이 path 귀속, r7-1) | 10/12 | I19 · N1 — U1·K9·K9b·U4·X12·X11·X1·U6·X10·X8·X9·K4·U9·H2·K5·U10·U11 red | key·하네스·공급자·문서·모델: `opencode-local`↔`opencode-other`, 문서 local↔other / `prepared.providerSettings`(toEqual 문서)·`providerKey`·`model` | `:241` 도달 불가(U5) · `:250` 동치(U7) · `:264-265` cached 도달 불가(contributions `[]`) |
+| VP-16 | 2. 호출처 `resolve-turn.ts:93-99` | 〃 | 1/1 | N1 — A1·A3 red · `chat-turn.runtime-tools.test.ts` — F1 red | `providerKey` `opencode-other`(default는 local) · `sessionId`(지운 key + 저장 `opencode-other`) · `modelFamily`(비기본 `opus`↔기본 `sonnet`) / request·turn key·`model` | fork 상속 항 도달 불가(A2) |
+| VP-16 | 3. 호출처 연속 턴 `send.ts:653-663` · `chat-turn-continuation.ts:61` | 〃 | 1/1 | N1 listen·flush — D2·M1 red · runtime-tools — F2·F3 red · `chat-turn-continuation.test.ts:uses one fresh listen snapshot…` D15 red | 연속 턴 문서·key: 엔진 둘 · `modelFamily`: `opus`↔`sonnet` / listen·flush request·turn key·`model` | `:653`·`:660`·`:662` providerKey·sessionId 항 동치(A6·A5·D3) |
+| VP-16 | 4. 호출처 native 이력 `native-history.ts:41-47` | 〃 | 0/1 | — | — | 동치(D8b·A4). 결과 운반은 행 11 |
+| VP-16 | 5. 실행 요청 `send.ts:601·602` | 〃 | 2/2 | N1 — D1·D16 red · `chat-turn.runtime-tools.test.ts:carries Work profile…` D16 red | `providerSettings`·`model`: 문서 local↔other, `local/first`↔`other/extra` / coordinator가 받은 request | — |
+| VP-16 | 6. 연속 요청 `continuation.ts:95·46·79` | 〃 | 2/3 | `continuation.test.ts`·N1 — D2·M1 red | preparedFields·listen `model` / listen·flush request | `:79` flush 모델 동치(M2) |
+| VP-16 | 7. runtime → adapter `session-runtime.ts:849-850` | 〃 | 1/1 | `session-runtime.test.ts:콜드 스폰은 이번 턴의 엔진 settings 를 어댑터 요청에 그대로 싣는다` — S2 red | `providerSettings` `settingsOf('turn')` / adapter가 받은 request(toBe) | — |
+| VP-16 | 8. 대화 기록 `turn-context.ts:164·227` · `writer.ts:186·319·347` · `reader.ts:85` | 〃 | 5/6 | N1 D11 · `turn-context.test.ts` E2 · `writer.test.ts:stores the selected engine key at creation…` E3·E5 · `session.load.test.ts` H1 — red | `providerKey`: 생성 `opencode-other` → 커밋 `opencode-local` / DB `provider_key`·`loadSession().providerKey`·turn key | `writer.ts:319` 동치(E4) |
+| VP-Δ15-02 | 9. adapter 진입 `adapter.ts:53·68·111·126·132·143` · `channel.ts:218` | EP42d~g(complete·send·readHistory→pool) | 7/7 | `adapter.test.ts:starts the turn, completion and recovery on the server…` O1·O2·O3 · `native-history.test.ts:wires the registered adapter…` O4·O6·O7 · `adapter.persistent.test.ts` O5 — red | `settings`: 엔진 문서(빈 config와 구별) / `acquire`·`databasePath` 인자·telemetry 한도 | — |
+| VP-Δ15-02 | 10. native 서버 `server.ts:100-104·112·147` · `native-storage.ts:13` | EP42b·c | 4/4 | `server.test.ts:isolates server configurations…` V2b · `coalesces concurrent startup…` V3·V4 · `native-storage.test.ts` V5 — red | config: `{model:'a/one'}`↔`{model:'b/two'}`·`test/model` 문서 / spawn 수·`OPENCODE_CONFIG_CONTENT` | `:101` config 단독 항 동치(V2) |
+| VP-Δ15-02 | 11. native 준비 입력 `resolve-turn.ts:137·144` · `native-history.ts:59` | EP44c | 3/3 | `native-history.test.ts` D6·D8a · `native-session.test.ts` D7 — red | `providerSettings`·context 한도 / readHistory 입력·교체 판정 | — |
+
+- 합계: **41자리 — 닫힘 36 · 동치 4 · 도달 불가 1 · 열림 0.** 열림 0의 관측은 q1·q2 미분류 0과 아래 변이의 red이고, 동치·도달 불가 근거는 아래 표의 판정 칸이다.
+- §10에 없는데 같은 불변식이 필요했던 지점: 행 1~8 — V1 EP-02/07은 backend·raw만 적는다. r6 검증이 "path가 명시하므로 PLAN_GAP 아님, 다음 설계 정정 때 행으로 적는다"고 판정했다 → r7-1.
+
+변이 정의와 결과 — `1차`는 새 좌표 전 4,909케이스(I19 r7 포함), `최종`은 4,917케이스다. `N1 단독`은 N1 5케이스, `2파일 범위`는 runtime-tools·N1 12케이스만 돌린 결과다(부분 범위의 red는 전체 범위에서도 red다). K·J·X1·X2는 r5·r6 검증 표의 정의를 같은 문자열로 다시 만들었다(X1은 "요청 key가 아닌 첫 entry").
+
+| 행 | 변이 | 자리 → 바꾼 것 | 1차 | 최종 / N1 단독 | 판정 |
+|---|---|---|---|---|---|
+| 1 | U1 | `:227` `list(req.adapter.id)` → `list('claude')` | red 1(I19) | N1 5 | 잠김 |
+| 1 | K9·K9b | `:228` merge 하네스 `'claude'` · `merge([])`(r6 정의) | — | 6 · 6 | 잠김 |
+| 1 | U4 | `:230` 매핑 `key` → `entry.provider ?? entry.key` | red 3 | N1 5 | 잠김 |
+| 1 | X12·X11 | `:231` 매핑 `harnessId` → `'claude'` · `:232` `modelProviderId` → `entry.key` | red 1 · 1 | 6 · 6 | 잠김 |
+| 1 | X1 | `:240` `byKey(req.providerKey)` → 요청 key가 아닌 첫 entry | — | 6 | 잠김 |
+| 1 | U5 | `:241` guard 조건 앞 `false &&` | green | — | 도달 불가 — entries가 `list(req.adapter.id)`라 `harnessId`는 항상 그 adapter. backend 불일치는 `send.ts:84-88·178`이 먼저 거부 |
+| 1 | U6 | `:248` `byKey(meta?.provider_key)` → `byKey(undefined)` | red 1(I19) | N1 1 | 잠김 |
+| 1 | U7 | `:250` `harnessModule(req.adapter.id)` → `harnessModule('claude')` | green | — | 동치 — 두 `defaultProvider`가 같은 구현(`opencode/model-policy.ts:9-13`·`claude/model-policy.ts:8-12`) |
+| 1 | X10·X8·X9 | `:258` target `key` → `` `${key}-x` `` · `:259` `harnessId` → `'claude'` · `:260` `modelProviderId` → `''` | red 1 · 1 · 1 | N1 4 · 6 · 6 | 잠김(X10의 r6 동치는 key 라벨 단언이 없던 때다) |
+| 1 | K4 | `:266` `resolve` → `cached`(r6 정의) | r6 red 11, 검출 파일 무변경 | — | 잠김 |
+| 1 | U9·H2 | `:268` prepare 입력 `settings: undefined` · `harness-config.ts:391` `providerSettings` 항 제거 | red 9 · — | N1 5 · N1 5 | 잠김 |
+| 1 | K5·U10·U11 | `:275` catalog settings `{}` · `:287` 반환 `providerKey: null` · `:289` 반환 `model` 항 제거 | — · red 2 · — | 7 · N1 5 · N1 5 | 잠김 |
+| 2 | A1 | `:98` providerKey 인자 → `null` | green | 2(N1) | 잠김 |
+| 2 | A2 | `:98` fork 상속 제거 → `payload.providerKey ?? null` | green | — | 도달 불가(OpenCode) — `fork:false`(`descriptor.ts:8`)라 `send.ts:128-131`이 거부. Claude fork는 0064 계약 |
+| 2 | A3 | `:96` sessionId 인자 → `null` | green | 1(N1 저장 대화) | 잠김 |
+| 2 | F1 | `:99` modelFamily 인자 → `null` | — | runtime-tools 2(2파일 범위) | 잠김 |
+| 3 | A6·A5·D3 | `send.ts:653` 입력 providerKey · `:660` sessionId · `:662` providerKey → `null` | green | N1 0 | 동치 — 연속 턴 전에 writer가 같은 턴 key를 저장(`writer.ts:186·347`)해 `:248` 폴백이, sessionId가 없으면 명시 key가 같은 entry를 고른다 |
+| 3 | D15 | `chat-turn-continuation.ts:61` providerKey → `null` | red 1 | N1 0 | 단위 좌표 잠김 · 행동은 A6과 같은 근거로 동치 |
+| 3 | F2·F3 | `send.ts:654` 입력 · `:663` 인자 modelFamily → `null` | — | runtime-tools 3 · 3(2파일 범위) | 잠김 |
+| 4 | D8b·A4 | `native-history.ts:45` providerKey · `:44` sessionId → `null` | green | — | 동치 — 명시 key와 `:248` 폴백이 같은 `getSessionById(sessionId).provider_key` |
+| 5 | D1·D16 | `send.ts:601` `providerSettings` 항 · `:602` `model` 항 제거 | green · red 2 | 5 · N1 5 | 잠김 |
+| 6 | D2·M1 | `continuation.ts:95` preparedFields `providerSettings` · `:46` listen `model` 제거 | red 1 · 2 | N1 2 · 2 | 잠김 |
+| 6 | M2 | `continuation.ts:79` flush `model` 제거 | green | N1 0 | 동치(같은 문서) — flush는 `...input.base`(`:66`)를 잇는다. 턴 사이 문서 수정(신선도)은 0126(r7-5) |
+| 7 | S2 | `session-runtime.ts:850` spread 뒤 `providerSettings: undefined` | green | 1 | 잠김 |
+| 8 | D11·E2 | `turn-context.ts:164` · `:227` `providerKey: null` | green · red 1 | 5 · N1 4 | 잠김 |
+| 8 | E3·E5 | `writer.ts:186` 커밋 · `:347` 생성 갱신 key → `null` | green · green | 1 · 1 | 잠김 |
+| 8 | E4 | `writer.ts:319` insert key → `null` | green | — | 동치 — 같은 handler `:345-347`이 덮는다. 빈 text는 schema가 거부해(`protocol.ts` refine) 새 대화의 `pendingUserText`가 항상 있다 |
+| 8 | H1 | `reader.ts:85` `providerKey: null` | red 2 | — | 잠김 |
+| 9 | O6·O1·O2·O3 | `adapter.ts:53` `acquire({}, …)` · `:68`·`:111`·`:126` `client(undefined, …)` | red 1 · green · green · green | — · 1 · 1 · 1 | 잠김 |
+| 9 | O4·O7·O5 | `:132` readHistory config `{}` · `:143` client `{}` · `channel.ts:218` settings `undefined` | red 1 · 1 · 1 | — | 잠김 |
+| 10 | V2·V2b | `server.ts:101` key `config: ''` · `:101-102` config·env 두 항 모두 | green · — | server.test 1(V2b) | V2 동치 — `:102` env 항이 `OPENCODE_CONFIG_CONTENT`로 같은 config를 담는다. V2b 잠김 |
+| 10 | V3·V4·V5 | `:112` `start(…, {}, …)` · `:147` child env `({}, env)` · `native-storage.ts:13` config 제거 | red 1 · 1 · 2 | — | 잠김 |
+| 11 | D6·D7·D8a | `resolve-turn.ts:137` · `:144` · `native-history.ts:59` settings 제거 | red 4 · 1 · 2 | — | 잠김 |
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-16 | REQUIRED (root) | SELF_PASS | 위 표 행 1~8 | not selected. 인용 X8·X9·X11·X12 red(아래 잠금) |
+| VP-Δ15-02 | REQUIRED | SELF_PASS (r6 BLOCKED_BY 해소) | 행 1·5(상류) · 행 9~11 · 프롬프트 모델 `adapter.test.ts:subscribes before sending, scopes the turn and leaves admission to the runtime`(`model: { providerID, modelID }`) | not selected. 실제 CLI `native-storage.integration`은 `ORCA_TEST_OPENCODE_EXE` 없이 skip(환경) |
+
+자기확인 2행은 root 1과 종속 1이다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r7
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| X8 `resolve-turn.ts:259` target `harnessId` → `'claude'` | D-0262-9 인용 | r6 green 0/4,909 | N1 5 · I19 1 / 4,917 | 잠김 |
+| X9 `:260` target `modelProviderId` → `''` | D-0262-9 인용 | r6 green 0/4,909 | N1 5 · I19 1 / 4,917 | 잠김 |
+| X11 `:232` 매핑 `entry.provider ?? entry.key` → `entry.key` | D-0262-9 인용 | r6 green 0/4,909 | N1 5 · I19 1 / 4,917 | 잠김 |
+| X12 `:231` 매핑 `harnessId: entry.adapter` → `'claude'` | D-0262-9 인용 | r6 green 0/4,909 | N1 5 · I19 1 / 4,917 | 잠김 |
+
+- 분모 검산: `선택 증거 0 · 인용 변이 4 · 새 구조 proxy oracle 0 = 표 4행`. N1·adapter·writer·runtime 새 케이스는 결과를 직접 관측하는 oracle이고, 자리별 변이는 위 전수 표에 적었다.
+- 새로 닫은 자리(이번 턴 이전 green)의 최종 측정 10/10 red — N1: A1 2 · A3 1 · D1 5 · D11 5 / writer: E3 1 · E5 1 / runtime: S2 1 / adapter: O1 1 · O2 1 · O3 1 (각 /4,917).
+- 덮개 회귀: I19가 바뀌어 r6에서 I19가 검출하던 변이 13개를 다시 돌렸다(r6 → r7) — J2 3→3 · J7 4→4 · J16 4→4 · K1 4→4 · K2 4→4 · K3 4→4 · K8 3→3 · K10 4→4 · X2 4→4 · K9 1→6 · K9b 1→6 · K5 2→7 · X1 1→6. red → green 0이고 늘어난 수는 N1 검출분이다. 27회 모두 원본 SHA256 복원을 확인했다.
+
+## [구현자 기입] Product/UX 파생 검토 — r7
+
+해당 없음 — 새 문구·상태·비동기 없음. 잠근 결과는 OpenCode 턴이 고른 엔진의 문서·모델로 실행되고 대화가 그 엔진을 기억하는 것이다(깨지면 r6 probe처럼 엔진 오버라이드 없이 실행되거나 다음 턴이 다른 엔진으로 간다).
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r7
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| D-0262-9 | 엔진 문서 → 턴 실행 구성 운반 미잠금 | ✅ 구현자 해소 보고 | 인용 X8·X9·X11·X12 red · 41자리 열림 0(q1·q2 미분류 0) |
+| r7-1 | 📝 V1 §10에 엔진 문서·key 운반 행이 없다 — EP-02/07은 backend·raw만 적고, 선택·실행 요청·대화 기록 자리(위 표 행 1~8)는 path로만 귀속된다 | 📝 plan 수정 제안 — 다음 설계 정정 때 VP-16 §10에 "고른 엔진 key·문서 → 실행 요청·대화 기록" 행과 행 1~8 자리를 적는다 | r6 검증 §5 "PLAN_GAP 아님 — 설계 정정 때 함께 적을 사항" |
+| r7-2 | 제목 생성 내부의 settings 운반이 green — `title-generation.ts:38`(D13a)·`:71`(D13b) | ⚠️ 보고만 — 0188 D-019 소유. 진입 `send.ts:354`는 D4 red(`send.worktree.test`) | r7 1차 측정 green 0/4,909 |
+| r7-3 | worktree 이름 생성의 settings 운반이 green — `send.ts:307`(D5)·`prepare-worktree.ts:112`(D12) | ⚠️ 보고만 — 0211 소유 | green 0/4,909 |
+| r7-4 | respawn 입력의 엔진 key·문서 운반이 green — `respawn-inputs.ts:61-63`(D9) · `runtime-entry.ts:60`(D10)·`:85`(D14a) · `chat-turn-continuation.ts:76`(D14b). 엔진 전환은 provider 경계·settings 변경 두 축이 서로를 덮어 단독 변이가 동치지만, 같은 엔진 문서의 제자리 수정은 D9 하나로 respawn이 빠진다 | ⚠️ 보고만 — 0118/0125/0190 소유. ΔV14가 "settings는 기존 spawn 경계, 기존 respawn 판정 유지"로 상속(plan `:2030`) | 판정 `respawn-policy.ts:33`(P1)·기록부 `session-runtime.ts:499`(S1) red, 입력 D9·D10·D14a·D14b green |
+| r7-5 | flush 모델 신선도 — 턴 사이 문서 수정 시 `continuation.ts:79`(M2) | ⚠️ 보고만 — 0126 소유 | M2 green |
+| r7-6 | Claude native-history의 settings env 조회 `claude/native-history.ts:132`(C2) · OpenCode `db path` 조회 env의 config 항 `server.ts:234`(V6) | ⚠️ 보고만 — C2는 Claude·0265 소유. V6은 저장 경로 축(VP-Δ15-01·D-029)이라 엔진 override 실행 적용(AC40) 자리가 아니다 | C2·V6 green 0/4,909 (`claude/adapter.ts:397` C1은 red 3) |
+| r7-7 | 변이를 돌리지 않은 분모 밖 줄 — `turn-context.ts:161·224` titleSettings(0188) · `enqueue.ts:98-99`·`send.ts:220`·`session-chain-lease.ts:131·160`·`supervisor.ts:146` busy 예약·lease(0119) · `send.ts:437`·`chat-turn-continuation.ts:75`·`runtime-boundary.ts:19` respawn(0118/0125) · Claude `adapter.ts:436·583` · `misc.ts:70` 목록 catalog(VP-Δ19-05, r6 K1 red 4) | ⚠️ 측정 안 함 — 다른 계약 | r7-2~r7-7이 q1 분모 밖 17줄·q2 11줄을 모두 적는다 |
+| r7-8 | `infra/loopback-callback.test.ts:awaitLoopbackCallback 타임아웃은 LoopbackCancelledError 로 끝난다`가 E2·E3·V5 변이 실행 중 단독 red — 세 변이 파일의 import 그래프 밖이다 | ⚠️ 보고만 — 타임아웃 플레이크 후보 | 같은 케이스가 전체 기준선 실행(7,462)·최종 배치 27회에서 pass. 판정에서 이 케이스는 빼고 셌다 |
+| N-0262-1·3·7·8·9·10·11 | 기존 | disposition 유지 | — |
+
+설계 대비 차이 없음 → 만료·공유·재진입·무효화 축 해당 없음.
+
+## [구현자 기입] 구현 보고 — r7
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 테스트 5 — `app/chat-turn.execution-config.test.ts`(신규) · `app/handlers/engine.opencode.integration.test.ts`(설정 서비스를 bootstrap과 같은 `createHarnessSettingsService`(`bootstrap.ts:556`)로 바꾸고 턴 실행 구성 3요청 단언 추가) · `adapters/opencode/v1/adapter.test.ts`(fixture `acquire` 노출 + 1케이스) · `features/history/writer.test.ts`(1케이스) · `features/sessions/session-runtime.test.ts`(1케이스). production 0 |
+| 관측한 게이트 산출 | Vitest 759파일 7,462케이스 — 7,455 pass·0 fail·7 skip(r6 대비 +8 = 새 케이스). readonly ESLint(`--cache=false`) 1,739파일 error 0·warning 2(기존 `react-hooks/incompatible-library`). typecheck 3구성 `error TS` 0. scripts 142/142. migrations no-copies ok(1,710파일) · test-budgets 16 ok · inventory generated·prose·links ok. build exit 0(`electron: rebuilt`). `git diff --check` 출력 0 |
+| V-pair 자기확인 | SELF_PASS 2 / SELF_BLOCKED 0 |
+| 강제 지점 전수 | 41자리: 닫힘 36 · 동치 4 · 도달 불가 1 · 열림 0 (q1 41줄·q2 44줄 미분류 0) |
+| AC 자기보고 (`Criteria-Met`) | AC40 ✅ — 고른 엔진 문서가 실행 요청(N1)·adapter 서버 구성(adapter.test)·child env(server.test)까지 그대로 간다 |
+| 합계 검산 | ✅1 · ⚠️0 · ❌0 = 이번 재구현 대상 1(r6 verify ⚠️ AC40). 유효 AC 57 불변 |
+| 대상 커밋 | `(r7 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — r7
+
+- r6 FAIL 뒤 첫 구현 턴(r7)이다. 같은 계열(지목 자리 인접의 운반 값)이다 — 이번 턴은 술어를 "엔진 key·문서 운반"으로 두고 분모를 검색 줄 차집합(미분류 0)으로 냈다.
+- 이번 결함을 막았어야 할 지침은 운반 값 비퇴화(`docs/handoff/AGENTS.md §공통 V`)였고, round 36이 "변이의 red는 바꾼 항만 잠근다"와 `운반 항` 열을 더했다. 이번 턴이 그 열을 처음 채웠다.
+- 반복 환경 한계: OpenCode CLI 부재(`native-storage.integration` skip) · 변이 실행 중 loopback 타임아웃 플레이크.
+- 구현·검증·review가 같은 에이전트다. 다음 검증은 verify §4 자기 검증 규칙의 대상이다.
