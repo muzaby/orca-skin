@@ -356,6 +356,17 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
     expect(f.requests.filter((r) => r.method === 'DELETE')).toHaveLength(1)
   })
 
+  it('asks the auxiliary completion with the model it was given (0262 EP56 P40)', async () => {
+    const f = fixture()
+    await f.adapter.complete({ cwd: 'C:/work', prompt: 'title', model: 'other/extra' })
+    const message = f.requests.find(
+      (r) => r.method === 'POST' && new URL(r.url).pathname.endsWith('/message')
+    )
+    expect(await message?.json()).toMatchObject({
+      model: { providerID: 'other', modelID: 'extra' }
+    })
+  })
+
   it('starts the turn, completion and recovery on the server of the selected engine document', async () => {
     const f = fixture()
     // Without the document the server would start from the empty native-only configuration.

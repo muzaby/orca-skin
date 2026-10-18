@@ -117,6 +117,7 @@ function install(
   takeForRespawn: ReturnType<typeof vi.fn>
   batch: SteerFlushBatch
   removeEngine: (provider: string) => void
+  rewriteEngine: (provider: string, document: unknown) => void
 } {
   harness.handlers.clear()
   harness.runs.length = 0
@@ -289,7 +290,15 @@ function install(
     harnessSettings.invalidateAll()
     harnessRuntime.invalidate(`opencode-${provider}`, 'harness-settings-crud')
   }
-  return { acquire, runtime, pending, takeForRespawn, batch, removeEngine }
+  const rewriteEngine = (provider: string, document: unknown): void => {
+    writeFileSync(
+      join(root, 'sources', 'settings', 'opencode', provider, 'settings.json'),
+      JSON.stringify(document)
+    )
+    harnessSettings.invalidateAll()
+    harnessRuntime.invalidate(`opencode-${provider}`, 'harness-settings-crud')
+  }
+  return { acquire, runtime, pending, takeForRespawn, batch, removeEngine, rewriteEngine }
 }
 
 async function send(payload: Record<string, unknown>): Promise<void> {
@@ -432,6 +441,31 @@ describe('chat:send execution configuration from the selected engine document (0
       expect(flush.providerSettings?.settings).toEqual(documents.other)
     }
   )
+
+  it('keeps the first turn model when the continuation resolves the engine to no model', async () => {
+    const { runtime, pending, rewriteEngine } = install(['flush', 'break'], 'opencode-other')
+    const modelless = {
+      provider: { other: { ...documents.other.provider.other, models: {} } }
+    }
+    harness.afterRun = (request) => {
+      if (harness.runs.length === 1) rewriteEngine('other', modelless)
+      runtime.spawnedProviderSettings = request.providerSettings
+      runtime.spawnedModel = request.model
+      runtime.spawnedRuntimeToolsRevision = request.extensions.runtimeTools?.revision
+      runtime.spawnedRuntimeEnvFingerprint = request.envFingerprint
+      runtime.spawnedAgentProfileKey = request.extensions.agentProfileKey
+      pending.mockReturnValue([])
+    }
+
+    await send({ sessionId: 'saved', providerKey: 'opencode-other', modelFamily: null })
+
+    expect(harness.errors).toEqual([])
+    expect(harness.runs).toHaveLength(2)
+    expect(harness.runs[0]?.request.model).toBe('other/extra')
+    // The re-read document has no model, so the continuation keeps the one this turn ran with.
+    expect(harness.runs[1]?.request.providerSettings?.settings).toEqual(modelless)
+    expect(harness.runs[1]?.request.model).toBe('other/extra')
+  })
 
   it('falls back to the saved conversation engine when its selected engine no longer exists', async () => {
     install(['break'], 'opencode-other')
