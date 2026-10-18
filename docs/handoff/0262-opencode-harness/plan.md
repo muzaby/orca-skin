@@ -3640,3 +3640,16 @@ SELF_PASS(D-0262-9 범위). 불변식: "고른 엔진의 key·하네스·공급�
 - 이번 결함을 막았어야 할 지침은 운반 값 비퇴화(`docs/handoff/AGENTS.md §공통 V`)였고, round 36이 "변이의 red는 바꾼 항만 잠근다"와 `운반 항` 열을 더했다. 이번 턴이 그 열을 처음 채웠다.
 - 반복 환경 한계: OpenCode CLI 부재(`native-storage.integration` skip) · 변이 실행 중 loopback 타임아웃 플레이크.
 - 구현·검증·review가 같은 에이전트다. 다음 검증은 verify §4 자기 검증 규칙의 대상이다.
+
+## [검증자 기입] 파생 이슈 — r7 검증
+
+r7(V1~ΔV21) 독립 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md) r7. 인용 X8·X9·X11·X12가 red 6으로 D-0262-9가 닫혔다. 보고의 `동치` 칸에서 연속 턴 호출처의 엔진 key 운반이 열려 VP-16이 root로 남는다.
+
+| # | finding | 귀속 | disposition | 대응 방향 |
+|---|---|---|---|---|
+| D-0262-10 | `main/app/chat-turn/send.ts:653`(`providerKey: getActiveTurn().providerKey`)·`:662`(`resolveTurnProvider` 인자)의 엔진 key 운반 미잠금 — 둘 다 `null`로 바꿔도(A6·D3) `src/main`+`src/shared` 4,917케이스 green. 보고는 "연속 턴 전에 writer가 같은 턴 key를 저장"으로 동치 판정했다. 그러나 기존 대화에서 엔진을 바꾼 턴이 채널 연결(`session.updated`) 전에 끝나면 저장 key는 이전 엔진이고, 보류 입력의 flush(`features/chat/post-turn.ts:51`)가 그 엔진으로 실행된다(검증자 probe) | VP-16 root(AR-02 provider config) · VP-Δ15-02 BLOCKED_BY · D-008 · D-030 · AC40 | BLOCKING | N1에 기존 대화(저장 key `opencode-local`) → `opencode-other` 선택 → 첫 턴 뒤 flush·listen 케이스를 더해 두 요청이 고른 엔진 문서·key를 싣는지 단언한다. coordinator mock이라 writer 갱신이 없어 그 상태가 그대로 재현된다. A6·D3 red로 닫는다 |
+| N-0262-12 | 구현 보고의 분모 검색 q2가 일부 디렉터리로 한정돼 `features/harnesses/common/settings.ts` 5 · `runtime-config.ts:167` · OpenCode loader · `infra/db/queries.ts` 3의 운반 자리가 분모 밖이었다 | 보고 정확도 | NON_BLOCKING | 검증자 W1~W11이 전부 red라 열린 자리는 없다. 다음 보고는 pair path 소스 전체로 센다 |
+| N-0262-13 | 다른 계약의 엔진 설정 운반 좌표 green — 제목 생성 `title-generation.ts:38·71`(0188 D-019) · worktree 이름 `send.ts:307`·`prepare-worktree.ts:112`(0211) · respawn 입력 `respawn-inputs.ts:61-63`·`runtime-entry.ts:60·85`·`chat-turn-continuation.ts:76`(0118/0125 상속) | 0188 · 0211 · 0125 | NEXT_HANDOFF | 구현 보고 r7-2~r7-4의 변이 결과로 별도 handoff에서 좌표 보강 |
+| N-0262-14 | `infra/loopback-callback.test.ts` 2케이스가 변이 배치 중 각 3회 단독 red(변이 파일 import 그래프 밖) | 테스트 안정성 | NON_BLOCKING | 전체 기준선·CI pass. 타이머 의존 케이스의 부하 내성 점검 후보 |
+
+구현 보고 41자리는 검증에서 51자리로 다시 셌다 — 닫힘 45 · 동치 4 · 도달 불가 1 · 열림 1(verify §6). 보고 r7-1의 §10 행 추가 제안은 r6 판정대로 다음 설계 정정 때 함께 적는다. 다음 재구현 전에 `handoff-review`를 수행한다 — 라운드 8(verify §14).

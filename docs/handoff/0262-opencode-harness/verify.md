@@ -961,3 +961,186 @@ HEAD `1df6a970`, 실행 순서 readonly lint → typecheck → Vitest(Node ABI) 
 - pair: root PAIR_FAIL 1(VP-16) · BLOCKED_BY 1(VP-Δ15-02) · VP-Δ19-05·VP-Δ19-03 PASS(r5 FAIL 해소) · PLAN_GAP 0 · 사람 인수 대기 VP21-V·VP-11 시각.
 - AC(판정 범위 22): ✅14 · ⚠️8 · ❌0. 운영 gate PASS.
 - 다음 단계: handoff-review(라운드 7) → 구현자 r7 — D-0262-9의 X8·X9·X11·X12 red 보고.
+
+## 메타 (r7)
+
+| 항목 | 값 |
+|---|---|
+| 일자 | 2026-10-18 |
+| 대상 커밋/range | `1df6a970..6ad2af2b` — r6 검증 `c22160d9` + round 36 review `fd7a66c4`(`Handoff: none`) + r7 구현 `6ad2af2b`(테스트 5파일 + plan·INDEX) |
+| 구현 전 plan 기준 | `12c81cfa`(ΔV21) — 이후 규범 행 변경 없음 |
+| V mode / 유효 V | V1 + ΔV1~ΔV21 |
+| 검증 HEAD | `6ad2af2b` (`origin/ccr-f3743b30-7177zo`, PR #507 → base `codex-opencode-harness`) |
+| 라운드 | 7 |
+| 상태 | **FAIL** — root PAIR_FAIL 1(VP-16) · BLOCKED_BY 1(VP-Δ15-02) · PLAN_GAP 0 |
+| 자기 검증 여부 | **구현·검증·round 36 review가 같은 에이전트다.** 보고에 없는 축 3가지를 넣었다 — q2 술어를 `src/main` 전체로 넓힌 분모 재열거(경로 위 10자리, W1~W11), 보고의 `동치` 판정 반증 probe(A6·D3), coordinator 전달 경로 대조. probe가 D-0262-10을 냈다(§4·§6) |
+
+## 0. 기준선 / plan validity (r7)
+
+- `6ad2af2b`의 `plan.md` hunk는 2개다 — `@@ -11 +11`(메타 `상태`)·`@@ -3508,0 +3509,134`(`[구현자 기입]` r7). Decision·AC·V node/pair·§10 변경 없음 → r6 plan validity 유지.
+- `c22160d9`(r6 검증)·`fd7a66c4`(round 36 — skill·`docs/handoff/AGENTS.md`·template·reference)는 plan 규범 행을 건드리지 않는다.
+- `app/` 변경은 테스트 5파일이고 production은 0파일이다. `scan-surface.sh fd7a66c..6ad2af2` = "변경된 소스 파일이 없습니다".
+- 라운드 7 선행 handoff-review: `fd7a66c4`(round 36 — 변이는 바꾼 항만 잠근다, `운반 항` 열). r7은 그 뒤에 구현됐다.
+
+## 2. 비판적 읽기 (r7) — 새 좌표와 production 조립 루트 대조
+
+| 좌표 | 테스트 조립 | production | 판정 |
+|---|---|---|---|
+| N1 `app/chat-turn.execution-config.test.ts` | 설정 3서비스 = production factory(`createHarnessSettingsService(root)`·`createHarnessRuntimeConfigService({augmenters: {}})`·`createRuntimeModelCatalog`) · 실제 `registerChatHandlers`→`handleChatSend`→`resolveTurn`→요청 조립→`runTurnWithContinuations` · coordinator만 mock | `bootstrap.ts:556` 같은 factory · `registerChatHandlers({ctx})` | 동등(선택·조립 분기). coordinator는 받은 요청을 그대로 넘긴다(`turn-coordinator.ts:331` `runtime.send(request)`, `post-turn.ts:92·223·271`) — 관측 지점이 adapter 입력과 같다 |
+| N1 저장 대화 | `peekRuntime` → 살아 있는 runtime | native 읽기 생략 분기 | 동등(살아 있는 runtime 상태) |
+| N1 db fake | 저장 key = `storedProviderKey` 고정 | writer가 `session.updated`·커밋에서 갱신(`writer.ts:186·303·345-347`) | **고정 값이 턴 key와 같아** 저장 key와 턴 key가 갈리는 상태를 만들지 않는다 → §4 probe |
+| I19 | 설정 서비스를 production factory로 교체 | `bootstrap.ts:556` | 동등 |
+| `adapter.test.ts` 새 케이스 | 실제 SDK + 주입 transport, fake `acquire` | `servers.acquire(config, env, cwd)` | adapter → 서버 edge 직접 관측 |
+| `writer.test.ts` 새 케이스 | 실제 `DbQueries`(:memory: + migrations) · `loadSession` | production DB | 동등 |
+| `session-runtime.test.ts` 새 케이스 | fake adapter가 `sendMessage(request)` 캡처 | `adapter.sendMessage(this.wrapRequest(req))` | 동등 |
+
+## 4. 적대 증거 재측정 (r7)
+
+범위: `src/main`+`src/shared` 4,917케이스(기준선 7,462 중 해당 범위 — 4,910 pass · 0 fail · 7 skip). 실행기는 변이마다 앵커 1회 출현과 원본 SHA256 복원을 단언했다. 배치마다 종료 후 `git status`가 clean이었다. `infra/loopback-callback.test.ts`의 타임아웃 계열 케이스는 변이와 무관하게 부하 중 단독 red가 났다(N-0262-14) — 판정에서 뺐다.
+
+### 인용 변이 (D-0262-9)
+
+| 변이 | r6 | r7 | 구현 보고 |
+|---|---|---|---|
+| X8 `resolve-turn.ts:259` target `harnessId` → `'claude'` | green 0/4,909 | **red 6** — N1 5 · I19 1 | 6 일치 |
+| X9 `:260` target `modelProviderId` → `''` | green 0/4,909 | **red 6** | 6 일치 |
+| X11 `:232` 매핑 `entry.provider ?? entry.key` → `entry.key` | green 0/4,909 | **red 6** | 6 일치 |
+| X12 `:231` 매핑 `harnessId` → `'claude'` | green 0/4,909 | **red 6** | 6 일치 |
+
+- 인용 4/4 red → D-0262-9의 인용 변이 축 closed. 같은 이슈가 분모로 지정한 호출처 3곳 중 연속 턴 호출처는 아래 probe로 열려 있다 → D-0262-10.
+
+### 새로 닫은 자리 재측정 (구현 보고 10행)
+
+| 변이 | 자리 | 구현 보고 | 재측정 |
+|---|---|---|---|
+| A1 · A3 | `resolve-turn.ts:98` providerKey · `:96` sessionId 인자 → `null` | 2 · 1 | **2 · 1** — N1 |
+| D1 · D11 | `send.ts:601` `providerSettings` 항 제거 · `turn-context.ts:164` `providerKey: null` | 5 · 5 | **5 · 5** — N1 |
+| E3 · E5 · S2 | `writer.ts:186` 커밋 · `:347` 생성 갱신 key → `null` · `session-runtime.ts:850` spread 뒤 `providerSettings: undefined` | 1 · 1 · 1 | **1 · 1 · 1** — `writer.test.ts`·`session-runtime.test.ts` 새 케이스 |
+| O1 · O2 · O3 | `adapter.ts:68`·`:111`·`:126` `client(undefined, …)` | 1 · 1 · 1 | **1 · 1 · 1** — `adapter.test.ts` 새 케이스 |
+
+- 10/10 red, 수와 검출 파일이 보고와 일치한다.
+
+### 이전 라운드 red 재실행 — 검출 파일 I19가 바뀜
+
+| 변이 | r6 | r7 | 판정 |
+|---|---|---|---|
+| J2 `misc.ts:63` `resolve` → `cached` | red 3 | red 3 (M 2 · I19) | 유지 |
+| J7 `settings-write.ts:93` 쓰기 하네스 `'claude'` | red 4 | red 4 (M 2 · I19 · settings-write) | 유지 |
+| J16 `misc.ts:67` prepare·catalog 앞 throw | red 4 | red 4 (M 2 · I19 · misc.runtime-catalog) | 유지 |
+| K1 · K2 · K3 `misc.ts` catalog settings `{}` · target `harnessId: 'claude'` · `modelProviderId: ''` | red 4 · 4 · 4 | red 4 · 4 · 4 (같은 분포) | 유지 |
+| K8 `misc.ts:61` 읽기 전용 판정 `true` | red 3 | red 3 | 유지 |
+| K10 · X2 `misc.ts:49` `merge([])` · `merge(settings, 'claude')` | red 4 · 4 | red 4 · 4 | 유지 |
+| K5 `resolve-turn.ts:275` catalog settings `{}` | red 2 | red 7 (N1 5 · I19 · resolve-turn.runtime-catalog) | 유지(N1 추가) |
+| K9 · K9b `resolve-turn.ts:228` merge | red 1 · 1 | red 6 · 6 (N1 5 · I19) | 유지(N1 추가) |
+| X1 `resolve-turn.ts:240` 요청 key가 아닌 첫 entry | red 1 | red 6 (N1 5 · I19) | 유지(N1 추가) |
+
+- red → green 0 — 덮개 회귀 없음. K·J·X 문자열은 r5·r6 표의 정의로 다시 만들었다(X1은 "요청 key가 아닌 첫 entry"). 검출 파일이 무변경인 K4·X3·X7은 재실행하지 않았다.
+- 배치 하나가 백그라운드 시간 한도로 중단돼 `misc.ts`가 K8 변이 상태로 남았다. `git checkout`으로 되돌려 blob 해시가 `HEAD:app/src/main/app/handlers/misc.ts`와 같음(`496f16c5`)을 확인한 뒤 K8·K10·X1·X2를 다시 돌렸다. 27회 기록 모두 복원 단언이 통과했다.
+
+### 보고에 없는 독립 축
+
+| 축 | 변이 / 방법 | r7 | 판정 |
+|---|---|---|---|
+| 분모 재열거 | q2 술어(`providerKey\|provider_key`)를 디렉터리 제한 없이 `src/main` 전체로 — 170줄(보고 44 + 126). 126 = 사용량·비용 84 · DB 타입·스키마 19 · `queries.ts` 9 · `settings.ts` 5 · 엔진 CRUD 5 · `provider-key.ts` 2 · 타입 1 · bootstrap 1 | 경로 위 자리 10(아래 W) | 보고 분모 밖 — W 전부 red(N-0262-12) |
+| W1 | `settings.ts:89` 문서 경로 `entry.modelProviderId` → `entry.key` | red 11 | 잠김 |
+| W2·W3 | `settings.ts:110-111` miss 반환 `providerKey` ← `modelProviderId` · `provider` ← `key` | red 8 · 7 | 잠김 |
+| W4 | `:100` hit 반환 `provider` → `harnessId` | red 1(`registry.test`) | 잠김 — production에서는 runtime-config cache가 먼저 응답해 hit 반환은 `sourceRevision`에만 쓰인다 |
+| W5 | `:230` 목록 key `providerKeyOf(adapter, provider)` → `(adapter, '')` | red 9 | 잠김 |
+| W6 | `runtime-config.ts:167` `settings.resolve(entry)` → `modelProviderId: entry.harnessId` | red 8 | 잠김 |
+| W7 | `queries.ts:258` UPDATE → `COALESCE(provider_key, @providerKey)`(커밋 갱신 무시) | red 2 | 잠김 |
+| W8 | `queries.ts:129` `getSessionById` SELECT에서 `provider_key` 제거 | red 3 | 잠김 |
+| W9 | `queries.ts:103` INSERT `@providerKey` → `NULL` | red 3(`queries.test`·`session.load`) | 잠김 |
+| W10 | OpenCode loader `settings.ts:26` `{ settings: parsed }` → `{ settings: {} }` | red 9 | 잠김 |
+| W11 | `settings.ts:96-108` cache를 key 하나로 공유 + srcPath·mtime 검사 제거 | red 3 | 잠김 |
+| 동치 반증 probe | N1 사본에 1케이스: 기존 대화(저장 key `opencode-local`)에서 `opencode-other`를 골라 보내고, 첫 턴이 채널 연결 전에 끝난 상태로 flush(coordinator mock이라 writer 갱신 없음) | 원본 pass · **A6(`send.ts:653` 연속 턴 입력 providerKey → `null`) red · D3(`:662` → `null`) red** — flush 요청이 `opencode-local`로 실행 | **D-0262-10** — 보고의 `동치`(A6·D3)가 틀렸다 |
+| 전달 경로 대조 | coordinator·post-turn이 요청을 다시 만드는가(`turn-coordinator.ts:216-331`, `post-turn.ts:92·223·271`) | 참조 전달 · 재조립은 `continuation.ts` 두 builder뿐(D2·M1·M2 측정) | 표 밖 자리 0 |
+
+- probe의 상태는 production에서 도달한다. `decidePostTurnStep`은 채널이 죽었고 보류 입력이 있으면 flush한다(`features/chat/post-turn.ts:51`). 엔진을 바꾼 턴이 서버 시작 실패·중단으로 `session.updated`(`channel.ts:194-199`) 전에 끝나면 writer는 그 턴 key를 저장하지 않는다(`writer.ts:303·345-347`·`186`). 그 사이 보낸 입력은 busy 예약을 통과한다(같은 선택 key).
+- production은 원 턴 key(`getActiveTurn().providerKey`)로 고르므로 결과가 맞다. A6·D3에서는 `:248` 저장 key 폴백이 이전 엔진을 고르고, settings 변경 축으로 respawn해 보류 입력이 사용자가 고르지 않은 엔진으로 실행된다. probe 파일은 worktree(`git worktree add --detach … 6ad2af2`)에만 두었고 삭제했다.
+
+## 6. 강제 지점 재열거 (r7) — 엔진 key·문서 운반
+
+| 자리 | 보고 | 재측정 | 근거 |
+|---|---|---|---|
+| 행 1 선택 `resolve-turn.ts:226-290` 12자리 | 닫힘 10 · 도달 불가 1 · 동치 1 | 같음 | X8·X9·X11·X12 red 6 · 보고 행 재현(§4) · U5 도달 불가·U7 동치는 코드 대조로 확인(`list(req.adapter.id)` · 두 `defaultProvider` 같은 본문) |
+| 행 2 호출처 `resolve-turn.ts:93-99` | 닫힘 | 닫힘 | A1 red 2 · A3 red 1 |
+| 행 3 호출처 연속 턴 `send.ts:653-663` | 닫힘(providerKey·sessionId 항 동치) | **열림** | providerKey 항 A6·D3 green 0/4,917 · probe red. sessionId 항(A5)은 명시 key가 있어 동치 유지 |
+| 행 4 호출처 native 이력 `native-history.ts:41-47` | 동치 | 동치 | 명시 key와 `:248` 폴백이 같은 행(`getSessionById(sessionId).provider_key`)을 읽는다 — 턴 key가 끼지 않아 행 3의 창이 없다 |
+| 행 5~11 | 닫힘 21 · 동치 2 | 같음 | 보고 행 재현 · M2(flush `...input.base` 상속)·E4(`:345-347`이 덮음)·V2(env 항에 같은 config) 동치는 코드 대조로 확인 |
+| 보고 분모 밖 10자리(`settings.ts` 5 · `runtime-config.ts:167` · loader · `queries.ts` 3) | — | 닫힘 10 | W1~W11 red |
+
+- 합계: 구현 보고 41자리(닫힘 36 · 동치 4 · 도달 불가 1 · 열림 0) ↔ 재측정 **51자리 — 닫힘 45 · 동치 4 · 도달 불가 1 · 열림 1**.
+- 보고의 `열림 0` 근거(q1·q2 미분류 0)는 q2 범위를 디렉터리로 좁힌 검색과 `동치` 판정에 기댔다. 범위 축소분 10자리는 모두 잠겨 있었고, 열린 1자리는 `동치` 칸에서 나왔다.
+
+## 5. V-pair closeout (r7)
+
+| Pair | r7 결과 | 근거 |
+|---|---|---|
+| **VP-16 AR-02↔IT-02** | **PAIR_FAIL** (root 유지) | path `backend/config → send/history`의 연속 턴 호출처 providerKey 운반이 잠기지 않았다 — A6·D3 green, probe에서 보류 입력이 이전 엔진으로 실행. D-0262-10 |
+| VP-Δ15-02 R40↔AT40 | BLOCKED_BY:VP-16 | 연속 턴의 엔진 문서 → native config가 같은 edge를 지난다. 그 밖의 edge(행 9~11 adapter·서버·준비 입력, 프롬프트 모델 `adapter.test.ts:subscribes before sending…`)는 좌표가 있고 재측정 red다 |
+| 그 밖의 V1~ΔV21 | r6 판정 유지 · VP21-V·VP-11 시각은 사람 인수 대기 | 검출 파일이 바뀐 변이 13개 red → green 0(§4) |
+
+- root PAIR_FAIL 1(VP-16) · BLOCKED_BY 1(VP-Δ15-02) · PLAN_GAP 0.
+- PLAN_GAP 아님: D-0262-9가 분모를 "호출처 3곳을 포함한 `src/main` 전체"로 지정했고 path도 이 edge를 지난다. 구현자는 N1 하네스에 위 probe 형태의 케이스를 더해 닫을 수 있다.
+
+### AT / AC 합계 (r7 판정 범위)
+
+| AC | 결과 |
+|---|---|
+| AC40 (ΔV15) | ⚠️ — 첫 턴·adapter·서버·대화 기록 edge는 잠겼으나 연속 턴 호출처의 엔진 key 운반 미잠금(D-0262-10) |
+| AC54 · AC1·2·3·4·5·6·7·8·9·10·12 · AC20-1·20-2 | ✅ 14 (r6 유지) |
+| AC11 · AC20-3 · AC26·27·33·34·48 | ⚠️ 7 — 시각 사람 인수 대기 (r6 유지) |
+
+- 합계: `✅ 14 · ⚠️ 8 · ❌ 0 = 22`(r6과 같은 범위). 나머지 35개는 r5 판정 유지.
+- 사본 대조: 구현 보고 `✅1` ↔ trailer `Criteria-Met: 1/1` ↔ INDEX 비고 — 사본끼리 일치하고, 검증 결과와는 AC40에서 갈린다(⚠️).
+
+## 9. 게이트 (r7)
+
+HEAD `6ad2af2b`, 실행 순서 readonly lint → typecheck → Vitest(Node ABI) → scripts → 가드 → build(Electron ABI). 명령은 `app/AGENTS.md`를 따랐고 `npm run lint`(`--fix`) 대신 `eslint --cache=false`를 썼다.
+
+| gate | 관측 |
+|---|---|
+| readonly ESLint(`--cache=false`, `--fix` 없음) | 1,739파일 error 0 · warning 2(기존 `react-hooks/incompatible-library` 2) |
+| typecheck | node·web·test 3구성 exit 0, `error TS` 0 |
+| Vitest 전체 | 759파일 7,462케이스 — 7,455 pass · 0 fail · 7 skip |
+| `node --test scripts/*.test.mjs` | 142/142 |
+| inventory · migrations · test-budgets | generated·prose·links ok · no-copies ok(1,710파일) · 16 real-git suites ok |
+| `npm run build` | exit 0 (`[sqlite-abi] electron: rebuilt` · 3 번들) |
+| `git diff --check` | 출력 0 |
+| 원격 Windows CI | PR #507 check `gate`(head `6ad2af2b`) success |
+
+- 운영 gate PASS. 이번 FAIL은 gate가 아니라 pair 실패다. 각 단계 뒤 `git status` clean(`app/out/`은 ignore).
+
+## 11. Repository operation checks (r7)
+
+- INDEX 0262 행: `(r7 구현 — 검증자 기입)`을 `6ad2af2b`로 채웠다(`git cat-file -t` commit, `origin/ccr-f3743b30-7177zo` 포함, PR #507 head).
+- trailer: `6ad2af2b` 7키(`Agent: claude`·`Handoff`·`Status: implemented`·`Criteria-Met: 1/1`·`Verified-By: pending`·attribution 2) 파싱·허용값 정상. `fd7a66c4`(`Handoff: none`·`Status: designed`)·`c22160d9`(검증 5키)도 파싱 정상.
+- `[구현자 기입]` r7 7필드 전수 존재. 강제 지점 표는 round 36 7열(`운반 항 · 구별 값 · 관측` 포함)과 `남긴 곳`을 담는다. 분모 검색 q2의 디렉터리 축소는 N-0262-12.
+- `fd7a66c4`(handoff 지침) 위생: 이메일·IP·토큰 패턴 0(`git show fd7a66c | grep -E …`, attribution 제외). 지침 의미 검증은 round 36 review 자체 책임이다.
+- INDEX 비고 갱신분 ≤5줄. 라운드: 이번 FAIL로 8이 된다 — 3 초과라 다음 재구현 전에 handoff-review.
+
+## 13. Finding disposition (r7)
+
+| # | finding | 귀속 | disposition | 후속 |
+|---|---|---|---|---|
+| D-0262-9 | 엔진 문서 → 턴 실행 구성 target·매핑 | VP-16 · AC40 | **closed** — 인용 X8·X9·X11·X12 red 6. 지정 분모의 남은 자리는 D-0262-10 | — |
+| **D-0262-10** | 연속 턴 호출처의 엔진 key 운반 미잠금. `send.ts:653`(`providerKey: getActiveTurn().providerKey`)·`:662`(`resolveTurnProvider` 인자)를 `null`로 바꿔도 4,917케이스 green. 보고는 "writer가 같은 턴 key를 먼저 저장"으로 동치 판정했으나, 엔진을 바꾼 턴이 채널 연결 전에 끝나면 저장 key는 이전 엔진이고 보류 입력의 flush가 그 엔진으로 실행된다(probe) | VP-16 root(AR-02 provider config) · VP-Δ15-02 BLOCKED_BY · D-008 · D-030 · AC40 | **BLOCKING** | N1에 기존 대화(저장 key ≠ 고른 key)·첫 턴 후 flush·listen 케이스를 더해 두 요청이 고른 엔진 문서를 싣는지 단언 — A6·D3 red로 닫는다 |
+| N-0262-12 | 구현 보고 분모 축소 — q2를 일부 디렉터리로 한정해 `settings.ts`·`runtime-config.ts`·loader·`queries.ts`의 운반 10자리가 분모 밖이었다 | 보고 정확도 | NON_BLOCKING | W1~W11 전부 red라 열린 자리는 없다. 분모 검색은 pair path 소스 전체로 |
+| N-0262-13 | 다른 계약의 엔진 설정 운반 좌표 green — 제목 생성 `title-generation.ts:38·71`(0188 D-019) · worktree 이름 `send.ts:307`·`prepare-worktree.ts:112`(0211) · respawn 입력 `respawn-inputs.ts:61-63`·`runtime-entry.ts:60·85`·`chat-turn-continuation.ts:76`(0118/0125 — 같은 엔진 문서 제자리 수정 시 D9 단독으로 respawn 누락) | 0188·0211·0125(상속) | NEXT_HANDOFF | 구현 보고 r7-2~r7-4 변이 결과를 근거로 별도 handoff에서 좌표 보강 |
+| N-0262-14 | `infra/loopback-callback.test.ts`의 2케이스(`타임아웃은 LoopbackCancelledError 로 끝난다` · `경로가 다른 요청(favicon 등)은 흘려보내고 계속 기다린다`)가 변이 배치 중 각 3회 단독 red — 변이 파일의 import 그래프 밖 | 테스트 안정성 | NON_BLOCKING | 전체 기준선 실행·CI에서는 pass. 타이머 의존 케이스의 부하 내성 점검 후보 |
+| N-0262-1 · 3 · 7 · 8 · 9 · 10 · 11 | 기존 | — | 기존 disposition 유지 | — |
+
+## 14. Review Signals (r7)
+
+- r2~r7이 같은 형태다 — 지목한 자리는 닫혔고 같은 path의 인접 자리가 남았다. r7에서 남은 자리는 보고의 `동치` 칸에서 나왔다: "연속 턴 전에 writer가 같은 key를 저장한다"는 전제를 코드 읽기로만 세웠고, 그 전제가 깨지는 상태(채널 연결 전 종료 + 보류 입력)를 만들지 않았다.
+- 관련 지침: `docs/handoff/AGENTS.md §공통 V`는 좌표 없는 자리를 닫힘으로 세지 않게 하지만 `동치`·`도달 불가` 판정의 증거 형식은 정하지 않는다. r6 검증의 X10 `동치`도 r7에서 key 라벨 단언이 생기며 red가 됐다.
+- 구현·검증·review가 같은 에이전트다. 이번 결함은 보고에 없는 축(동치 반증 probe)에서만 나왔다.
+- 라운드 8(>3) — 다음 재구현 전 handoff-review 대상.
+- 반복 환경 한계: 실제 OpenCode CLI 부재(`native-storage.integration` skip) · 부하 중 loopback 타임아웃 플레이크.
+
+## 15. 결론 (r7)
+
+- 상태: **FAIL**.
+- pair: root PAIR_FAIL 1(VP-16) · BLOCKED_BY 1(VP-Δ15-02) · PLAN_GAP 0 · 사람 인수 대기 VP21-V·VP-11 시각.
+- AC(판정 범위 22): ✅14 · ⚠️8 · ❌0. 운영 gate PASS.
+- 다음 단계: handoff-review(라운드 8) → 구현자 r8 — D-0262-10의 A6·D3 red 보고.
