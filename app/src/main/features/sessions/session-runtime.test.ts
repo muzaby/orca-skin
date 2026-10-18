@@ -1469,6 +1469,26 @@ describe('SessionRuntime spawn settings 기록(0125)', () => {
     expect(runtime.spawnedProviderSettings).toBe(spawned)
   })
 
+  it('콜드 스폰은 이번 턴의 엔진 settings 를 어댑터 요청에 그대로 싣는다', async () => {
+    const ch = channelLive()
+    const sent: TurnRequest[] = []
+    const runtime = new SessionRuntime({
+      id: 'claude',
+      complete: async () => '',
+      sendMessage: (request) => {
+        sent.push(request)
+        return ch.liveTurn
+      },
+      classifyError: (err) => makeClassifiedError('stream_error', String(err), { retryable: true })
+    })
+    const settings = settingsOf('turn')
+    const done = collect(runtime.send({ ...req(), providerSettings: settings }))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await done
+    expect(sent).toHaveLength(1)
+    expect(sent[0]?.providerSettings).toBe(settings)
+  })
+
   it('teardownChannel() 은 기록을 해제하고, respawn 이 새 주입본을 기록한다', async () => {
     const ch = channelLive()
     const second = channelLive()

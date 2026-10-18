@@ -25,6 +25,7 @@ function request(overrides: Partial<TurnRequest> = {}): TurnRequest {
 }
 function fixture(): {
   adapter: OpenCodeAdapter
+  acquire: ReturnType<typeof vi.fn>
   requests: Request[]
   emit: (value: Event) => void
   end: () => void
@@ -81,14 +82,14 @@ function fixture(): {
     }
     throw new Error(`Unexpected SDK request: ${req.method} ${path}`)
   }
-  const servers = {
-    acquire: vi.fn(async () => ({
-      url: 'http://opencode.test',
-      headers: { Authorization: 'Basic fixture' }
-    }))
-  } as unknown as OpenCodeServerPool
+  const acquire = vi.fn(async () => ({
+    url: 'http://opencode.test',
+    headers: { Authorization: 'Basic fixture' }
+  }))
+  const servers = { acquire } as unknown as OpenCodeServerPool
   const result: ReturnType<typeof fixture> = {
     adapter: new OpenCodeAdapter(servers, transport),
+    acquire,
     requests,
     emit,
     end: () => {
@@ -353,6 +354,34 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
       'OpenCode 무료 모델'
     )
     expect(f.requests.filter((r) => r.method === 'DELETE')).toHaveLength(1)
+  })
+
+  it('starts the turn, completion and recovery on the server of the selected engine document', async () => {
+    const f = fixture()
+    // Without the document the server would start from the empty native-only configuration.
+    const providerSettings = {
+      providerKey: 'opencode-other',
+      provider: 'other',
+      sourceRevision: 'fixture',
+      settings: {
+        provider: {
+          other: {
+            options: { baseURL: 'https://other.test/v1' },
+            models: { extra: { name: 'Extra' } }
+          }
+        }
+      }
+    }
+    const env = { ORCA_SELECTED_ENGINE: 'other' }
+    f.onPrompt = (body) => finish(f, String(body.messageID))
+    await collect(f.adapter, request({ providerSettings, env }))
+    await f.adapter.complete({ cwd: 'C:/work', prompt: 'title', providerSettings, env })
+    await f.adapter.recoverSession({ sessionId: 's1', cwd: 'C:/work', env, providerSettings })
+    expect(f.acquire.mock.calls).toEqual([
+      [providerSettings.settings, env, 'C:/work'],
+      [providerSettings.settings, env, 'C:/work'],
+      [providerSettings.settings, env, 'C:/work']
+    ])
   })
 
   it('reports an unsupported CLI as a turn error before any server or HTTP request', async () => {

@@ -8,14 +8,10 @@ import {
   serializeProviderDraft
 } from '../../../renderer/src/features/engine/harnesses/opencode/v1/customProvider'
 import { OpenCodeAdapter } from '../../adapters/opencode/v1/adapter'
-import {
-  loadOpenCodeProviderSettings,
-  parseOpenCodeModels
-} from '../../adapters/opencode/v1/settings'
-import { HarnessSettingsService } from '../../features/harnesses/common/settings'
+import type { HarnessSettingsService } from '../../features/harnesses/common/settings'
 import { createHarnessRuntimeConfigService } from '../../features/harnesses/common/runtime-config'
 import { createRuntimeModelCatalog } from '../../features/harnesses/common/runtime-catalog'
-import { parseHarnessRuntimeModels } from '../harnesses/registry'
+import { createHarnessSettingsService, parseHarnessRuntimeModels } from '../harnesses/registry'
 import { RUNTIME_MODEL_CONTRIBUTIONS } from '../deployment/harness-runtime'
 import { registerEngineHandlers } from './engine'
 import { registerMiscHandlers } from './misc'
@@ -88,12 +84,8 @@ it('imports fields, saves an independent document and lists/resolves only its mo
     fetchImpl = vi.fn(),
     deployExtensions = vi.fn(async () => {})
   const adapter = new OpenCodeAdapter({ acquire, installed: vi.fn(), close: vi.fn() }, fetchImpl)
-  const makeSettings = (): HarnessSettingsService =>
-    new HarnessSettingsService(
-      { opencode: loadOpenCodeProviderSettings },
-      fixture.root,
-      (_, config) => parseOpenCodeModels(config)
-    )
+  // The production factory registers every harness module's loader and parser, as bootstrap does.
+  const makeSettings = (): HarnessSettingsService => createHarnessSettingsService(fixture.root)
   let settings = makeSettings()
   const register = (): {
     runtime: ReturnType<typeof createHarnessRuntimeConfigService>
@@ -141,9 +133,17 @@ it('imports fields, saves an independent document and lists/resolves only its mo
     provider: draft.id,
     settingsJson: serialized
   })
-  const stored = JSON.parse(
-    readFileSync(join(fixture.root, 'sources/settings/opencode/local/settings.json'), 'utf8')
-  )
+  const engineDocument = (provider: string): unknown =>
+    JSON.parse(
+      readFileSync(
+        join(fixture.root, `sources/settings/opencode/${provider}/settings.json`),
+        'utf8'
+      )
+    )
+  const stored = engineDocument('local') as {
+    provider: Record<string, { models: unknown; options: unknown }>
+    instructions?: unknown
+  }
   expect(stored).toEqual(JSON.parse(serialized))
   expect(Object.keys(stored.provider)).toEqual(['local'])
   expect(stored.provider.local.models).toEqual({ first: { name: 'First' } })
@@ -154,6 +154,7 @@ it('imports fields, saves an independent document and lists/resolves only its mo
     provider: drafts[1].id,
     settingsJson: serializeProviderDraft(drafts[1])
   })
+  expect(engineDocument('other')).not.toEqual(engineDocument('local'))
   for (let pass = 0; pass < 2; pass++) {
     const list = (await call(CHANNELS.agentList)) as AgentEnvironment[]
     expect(
@@ -172,23 +173,43 @@ it('imports fields, saves an independent document and lists/resolves only its mo
       ['opencode-local', undefined, ['build', 'plan']],
       ['opencode-other', undefined, ['build', 'plan']]
     ])
-    const selected = await resolveTurnProvider(
-      {
-        harnessSettings: settings,
-        harnessRuntime: runtime,
-        runtimeModelCatalog,
-        db: { getSessionById: () => undefined },
-        mcp: { resolver: () => () => undefined }
-      } as never,
-      {
-        adapter,
-        agentKind: 'code',
-        sessionId: null,
-        providerKey: 'opencode-local',
-        modelFamily: 'local/first'
-      }
-    )
-    expect(selected.model).toBe('local/first')
+    // The selected engine's identity and document must reach the turn's execution config
+    // unchanged. The sibling engine has a different document, so a dropped or swapped harness,
+    // provider or key changes what the turn would run with.
+    for (const [request, provider, model] of [
+      [{ providerKey: 'opencode-local', modelFamily: 'local/first' }, 'local', 'local/first'],
+      [{ providerKey: 'opencode-other' }, 'other', 'other/extra'],
+      [{ providerKey: null, sessionId: 'saved-with-other' }, 'other', 'other/extra']
+    ] as const) {
+      const selected = await resolveTurnProvider(
+        {
+          harnessSettings: settings,
+          harnessRuntime: runtime,
+          runtimeModelCatalog,
+          db: {
+            getSessionById: (id: string) =>
+              id === 'saved-with-other'
+                ? { backend: 'opencode', provider_key: 'opencode-other' }
+                : undefined
+          },
+          mcp: { resolver: () => () => undefined }
+        } as never,
+        {
+          adapter,
+          agentKind: 'code',
+          sessionId: 'sessionId' in request ? request.sessionId : null,
+          providerKey: request.providerKey,
+          modelFamily: 'modelFamily' in request ? request.modelFamily : null
+        }
+      )
+      expect(selected.providerKey).toBe(`opencode-${provider}`)
+      expect(selected.model).toBe(model)
+      expect(selected.prepared.providerSettings).toMatchObject({
+        providerKey: `opencode-${provider}`,
+        provider
+      })
+      expect(selected.prepared.providerSettings?.settings).toEqual(engineDocument(provider))
+    }
     settings = makeSettings()
     ;({ runtime, runtimeModelCatalog } = register())
   }

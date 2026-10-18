@@ -662,3 +662,44 @@ describe('HistoryWriter — 비실행 사유 영속 (0239)', () => {
     })
   })
 })
+
+describe('HistoryWriter — conversation engine key', () => {
+  it('stores the selected engine key at creation and replaces it with a later turn key on commit', () => {
+    const db = new Database(':memory:')
+    applyMigrations(db)
+    const queries = new DbQueries(db)
+    const persistence = new HistoryWriter(queries, () => false)
+    const turn = (providerKey: string, dbSessionId: string | null): TurnContext =>
+      ({
+        agentKind: 'code',
+        dbSessionId,
+        initialTitle: null,
+        pendingUserText: dbSessionId ? null : 'first',
+        pendingProjectId: null,
+        providerKey,
+        cwd: '/repo',
+        extraDirs: [],
+        sessionBaseline: null,
+        sessionBaselineRef: null,
+        titleAdapter: { id: 'opencode' },
+        isNewSession: dbSessionId === null,
+        currentAssistantMessageId: null,
+        assistantText: ''
+      }) as unknown as TurnContext
+
+    // A saved conversation selects its engine from this key when the request names none.
+    persistence.persist(turn('opencode-other', null), {
+      type: 'session.updated',
+      sessionId: 'conversation'
+    } as NormalizedEvent)
+    expect(queries.getSessionById('conversation')?.provider_key).toBe('opencode-other')
+
+    persistence.commitUserMessage(turn('opencode-local', 'conversation'), {
+      text: 'next',
+      createdAt: 2
+    })
+    expect(queries.getSessionById('conversation')?.provider_key).toBe('opencode-local')
+    expect(loadSession(queries, 'conversation', () => '/repo')?.providerKey).toBe('opencode-local')
+    db.close()
+  })
+})
