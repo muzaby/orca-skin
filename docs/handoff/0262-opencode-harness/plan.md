@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | impl/IMPL_DONE — r7 고른 엔진 문서 → 실행 요청·native 구성·대화 기록 좌표 보완, 독립 재검증 대기 |
+| 상태 | impl/IMPL_DONE — r8 저장 엔진과 선택 엔진이 다른 연속 턴의 전달 경로 보완, 독립 재검증 대기 |
 | V mode | Delta V — V1 + ΔV1~ΔV21 (각 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV21 / V1 + ΔV1~ΔV21, 기준 `5d2b36a2` |
@@ -3653,3 +3653,98 @@ r7(V1~ΔV21) 독립 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md)
 | N-0262-14 | `infra/loopback-callback.test.ts` 2케이스가 변이 배치 중 각 3회 단독 red(변이 파일 import 그래프 밖) | 테스트 안정성 | NON_BLOCKING | 전체 기준선·CI pass. 타이머 의존 케이스의 부하 내성 점검 후보 |
 
 구현 보고 41자리는 검증에서 51자리로 다시 셌다 — 닫힘 45 · 동치 4 · 도달 불가 1 · 열림 1(verify §6). 보고 r7-1의 §10 행 추가 제안은 r6 판정대로 다음 설계 정정 때 함께 적는다. 다음 재구현 전에 `handoff-review`를 수행한다 — 라운드 8(verify §14).
+
+## [구현자 기입] 설계 리뷰 — r8
+
+SELF_PASS(D-0262-10 보완 범위). 불변식은 **자동 연속 턴이 DB의 마지막 저장 엔진과 무관하게 현재 턴에서 선택한 엔진 key·문서·모델을 운반한다**는 것이다. V1+ΔV1~ΔV21, VP-16·VP-Δ15-02·D-008·D-030·AC40을 그대로 적용하며 production·Decision·AC·V 규범 행은 바꾸지 않았다.
+
+선행 `handoff-review` 모드: APPLY — 사용자 “실패를 보완하라”에 따른 r8 재구현. 원인은 B(실행 누락): impl §2의 기본값·형제 값과 구별되는 fixture 및 §3의 부분 실패 시 메모리/디스크 불일치 검토를 적용하면, 저장 key와 선택 key가 같은 r7 fixture로 `동치`를 주장할 수 없다. 지침은 유지하고 실제 테스트에 저장 key ≠ 선택 key·채널 연결 전 종료를 넣는다.
+
+SKILL/template/AGENTS/reference 변경이 없어 Tier 1/2 변경 회귀·corpus 갱신은 해당 없음이다. 기존 owner·gate·lifecycle은 유지하며 독립 verify를 대신하지 않는다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — r8
+
+검색 범위는 `app/src/main` 전체다. `rg -n 'providerKey|provider_key' ... -g '*.ts' -g '!*.test.ts' -g '!*.testfixture.ts'`는 주석·타입 포함 183줄, `providerSettings|harnessRuntime|runtimeModelCatalog`는 87줄이며, 검색 줄 수를 행동 자리 수로 세지 않았다. `resolveTurnProvider\(`의 호출처 집합은 최초 전송(`resolve-turn.ts:93`)·연속 턴(`send.ts:658`)·native 이력(`native-history.ts:41`) 3곳이다.
+
+이번 변경은 연속 턴 호출처의 전달 edge 3곳을 직접 실행한다. r7 verify §6의 51자리 분모는 기존 검증 기록이며 이번 3 edge와 더하지 않는다. N-0262-12가 지적한 설정 서비스·runtime config·loader·DB도 아래 회귀 범위에 포함한다.
+
+좌표 N1 = `app/src/main/app/chat-turn.execution-config.test.ts`. 신규 테스트명은 `saved engine %s, selected engine %s / keeps the selected engine through %s before history records the new key`이며 두 엔진 전환 방향 × `listen then flush`·`live flush`·`closed flush` = 6케이스다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-16 | 연속 턴 선택 엔진 | backend/config→send/history path; r7 verify §6 호출처 | 3/3 edge | N1 신규 6케이스. `send.ts:653` A6·`:662` D3·`chat-turn-continuation.ts:61` D15 각각 red 6 | 저장 local/선택 other 및 역방향; 모든 요청의 key·문서·모델과 실제 listen/flush 순서 | — |
+| VP-16 | 최초 전송·설정 선택 | EP-02 + provider config path | 회귀 | N1 기존 `runs %s with its own document…` 4케이스·`falls back to the saved conversation engine…`; `engine.opencode.integration.test.ts:imports fields, saves an independent document…` | 명시 key와 저장 key; 서로 다른 엔진 문서·모델 | — |
+| VP-16 | backend 불변 | EP-02 Send schema·adapter 선택·기존/source/lease 비교·await 후 재검증·load/reducer | 회귀 | `protocol.harness.test.ts:rejects an unregistered harness…`; `send.harness.test.ts:rejects %s input on an existing %s lease…`; `send.agent-profile.test.ts`·`resolve-turn.agent.test.ts`·`chatReducer.harness.test.ts` | Claude/OpenCode·새/저장 세션·위조 입력 | — |
+| VP-16 | raw 원본 보존 | EP-07 map→history→load→reducer→view | 회귀 | `map.test.ts`·`opencode-history.test.ts:reloads normalized arguments and the exact provider name/input together`·`chatReducer.harness.test.ts`·`TranscriptView.harness.test.ts` | 원본 도구명·입력 roundtrip/표시 | — |
+| VP-16 | 요청·runtime·대화 key | config→send/history path | 회귀 | N1; `session-runtime.test.ts:콜드 스폰은 이번 턴의 엔진 settings 를 어댑터 요청에 그대로 싣는다`; `writer.test.ts:stores the selected engine key at creation…`; `session.load.test.ts` | 실행 요청 settings·adapter 전달·DB provider_key·재로드 | — |
+| VP-16 | 설정 문서·runtime config·DB | r7 verify W1~W11의 추가 10자리 | 회귀 | `harnesses/registry.test.ts:resolves each registered native loader without mixing harness policies`·`runs registered parsers through the real settings service…`; `settings.test.ts:mtime 캐시…`; `runtime-config.test.ts:settings 파일 외부 편집…`; `queries.test.ts:insertSession 과 updateSessionProviderKey 로 마지막 provider 를 기록한다` | loader 대상·문서·캐시 key·저장/조회 key | — |
+| VP-16 | native 이력 호출처 | config→history path | 회귀 | `native-history.test.ts`·`native-session.test.ts:uses the selected engine model context limit before creating a replacement` | 저장 identity·선택 모델 한도·native reader 입력 | — |
+| VP-Δ15-02 | 실행 override→native config | EP42b/c pool identity·child env, EP42d~g catalog/complete/send/readHistory | 회귀 | `adapter.test.ts:starts the turn, completion and recovery on the server…`; `server.test.ts:isolates server configurations…`·`coalesces concurrent startup…`; `native-storage.test.ts`·`adapter.persistent.test.ts` | 서로 다른 settings·pool spawn·OPENCODE_CONFIG_CONTENT·요청 모델 | 실제 CLI 통합은 기존 환경 경계 |
+| VP-Δ15-02 | native module·실제 CLI | EP42a 등록 module→v1 및 EP42c 실제 CLI | 미실행 | `app/harnesses/opencode/native-storage.integration.test.ts:creates, migrates and reopens the same native ID…` | 실제 CLI 필요 | `ORCA_TEST_OPENCODE_EXE` 부재, 기존 skip |
+
+N1은 실제 IPC 등록→send→설정 서비스 3종→provider 해석→자동 연속 턴→요청 조립을 실행하고 coordinator가 받은 요청을 관측한다. coordinator·runtime·DB·queue는 fixture이므로 실제 서버 시작 실패·writer 자체를 이 테스트에서 검증했다고 주장하지 않는다. 신규 6케이스는 step 강제값 없이 production `decidePostTurnStep`이 채널 상태와 보류 입력으로 분기하며, `closed flush`는 `takeForRespawn('saved', 'chain-1')`까지 관측한다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-16 | REQUIRED(root) | SELF_PASS(이번 보완·기계 회귀) | 위 N1 3 edge 및 기존 경계별 회귀 좌표 | not selected; 이슈 인용 A6·D3 각각 red 6 |
+| VP-Δ15-02 | REQUIRED(종속) | SELF_PASS(이번 보완·기계 회귀) | N1 상류 + adapter/server/native-storage 회귀 | not selected; 실제 CLI skip은 완료 수에 넣지 않음 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r8
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| A6 `send.ts:653` 현재 턴 providerKey→null | D-0262-10 | 이번 턴 변경 전 N1 0/5, r7 verify 0/4,917 | 신규 양방향×3경로 6/11 | 잠김 |
+| D3 `send.ts:662` resolve 인자 providerKey→null | D-0262-10 | 이번 턴 변경 전 N1 0/5, r7 verify 0/4,917 | 신규 양방향×3경로 6/11 | 잠김 |
+
+분모 검산: `선택 증거 0 · 인용 변이 2 · 새 구조 proxy oracle 0 = 표 2행`. 신규 테스트는 요청 결과를 직접 관측한다. 같은 경로의 중간 전달 D15(`chat-turn-continuation.ts:61`)도 6/11 red이며, 각 변이 뒤 원본 SHA256 복원을 확인했다.
+
+기존 N1의 red도 보존했다. 같은 테스트 파일의 setup을 확장했으므로 아래 10개를 재실행했고, 기존 5케이스에서 red였던 케이스가 green으로 바뀐 것은 0이다.
+
+| 변이 | r7 N1 red | r8 N1 red |
+|---|---|---|
+| X8 | 5/5 | 11/11 (기존 5 + 신규 6) |
+| X9 | 5/5 | 11/11 (기존 5 + 신규 6) |
+| X11 | 5/5 | 11/11 (기존 5 + 신규 6) |
+| X12 | 5/5 | 11/11 (기존 5 + 신규 6) |
+| A1 | 2/5 | 8/11 (기존 2 + 신규 6) |
+| A3 | 1/5 | 1/11 (기존 1 + 신규 0) |
+| D1 | 5/5 | 11/11 (기존 5 + 신규 6) |
+| D11 | 5/5 | 11/11 (기존 5 + 신규 6) |
+| D2 | 2/5 | 4/11 (기존 2 + 신규 2) |
+| M1 | 2/5 | 4/11 (기존 2 + 신규 2) |
+
+## [구현자 기입] Product/UX 파생 검토 — r8
+
+새 화면·문구·제품 상태 변경 없음. 저장 엔진과 선택 엔진이 다른 상태에서도 첫 요청·수신·보류 입력 요청 모두 선택한 엔진 문서/모델을 사용함을 N1 신규 6케이스가 관측한다. 실제 SDK/화면 인수는 이 테스트의 관측 범위가 아니다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r8
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| D-0262-10 | 저장 key와 선택 key가 다른 연속 턴의 운반 미잠금 | ✅ 구현자 해소 보고, 독립 verify 대기 | A6·D3 각 6 red, 정상 N1 11/11 |
+| N-0262-12 | 이전 분모 검색의 일부 디렉터리 제한 | 전체 main 검색으로 보완 | 검색 183/87줄·호출처 3곳; settings/runtime/DB 회귀 포함 |
+| r7-1 | VP-16 §10의 엔진 문서 운반 행 추가 제안 | 기존 제안 유지 | r6/r7 verify가 기존 path 귀속으로 판정, 이번 규범 변경 없음 |
+| N-0262-13·14 및 기존 NON_BLOCKING | 제목·worktree·respawn 별도 계약, loopback 타이밍 | 기존 disposition 유지 | production 변경 없음; 이번 보완 범위로 확장하지 않음 |
+| 환경 | 로컬 SQLite가 Electron ABI여서 Node 테스트 불가 | Node ABI 재빌드 후 회귀, build에서 Electron ABI 복원 | 기본 cache가 read-only라 최초 실패; workspace cache로 재실행 성공 |
+| 환경 | 전체 검사 중 attachments 12·Confluence 22케이스가 읽기 전용 홈 쓰기로 실패 | 두 무변경 suite의 os.homedir만 workspace 임시 경로로 주입해 54/54 재검증 | 임시 Vitest config/setup은 저장소 밖; HOME 변경·실제 홈 쓰기·프로덕션/테스트 원본 변경 없음 |
+
+설계 대비 차이 없음. 만료·공유·재진입·무효화 정책 변경은 해당 없음이며 테스트 fixture의 가변 상태는 `install()`마다 초기화한다.
+
+## [구현자 기입] 구현 보고 — r8
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | N1 테스트 1파일 + plan/INDEX. production 0파일 |
+| 관측한 게이트 산출 | N1 11/11, 인용 A6·D3 및 중간 D15 각각 6 red, 기존 변이 10/10 red 유지. typecheck node/web/test 통과. readonly ESLint 1,739파일 error 0·기존 warning 2. scripts 142/142. inventory·test-budgets·v0.3.1 기준 append-only 통과. 전체 Vitest 759파일/7,468케이스: 7,427 pass·34 환경 실패·7 skip; 홈 경로를 임시 workspace로 대체한 두 무변경 suite 54/54(실패 34 포함). build Electron ABI 복원 및 main/preload/renderer 3번들 완료. diff whitespace 검사 출력 0 |
+| V-pair 자기확인 | 이번 보완 범위 SELF_PASS 2, 실제 CLI와 기존 사람 시각 인수는 별도 대기 |
+| 강제 지점 전수 | `resolveTurnProvider` 호출처 3곳을 대조, 연속 턴 providerKey 전달 edge 3/3을 신규 직접 oracle로 검증. 기존 pair 경계는 위 회귀 좌표로 확인 |
+| AC 자기보고 (`Criteria-Met`) | AC40의 이번 FAIL 범위 ✅ — 선택 엔진이 DB보다 앞선 상태에서도 자동 수신·보류 입력·채널 종료 뒤 재전송의 요청 구성 유지 |
+| 합계 검산 | ✅1 · ⚠️0 · ❌0 = 이번 재구현 대상 1. 유효 AC 57은 변경하지 않았으며 전체 AC/실제 CLI 인수를 새로 완료했다고 세지 않음 |
+| 대상 커밋 | `(r8 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — r8
+
+- r7 FAIL 뒤 첫 구현 턴 r8. 기존 “writer가 먼저 저장하므로 동치” 가정을 저장 key ≠ 선택 key fixture로 반증했고 A6·D3가 정상 11/11에서 각각 6 red로 바뀐다.
+- 규칙 추가 대신 impl §2/§3을 실행했다. step 강제값 없이 production 판정에 들어가 `listen→flush`와 dead-channel flush의 서로 다른 배출 경로를 관측한다.
+- 실행 환경의 SQLite ABI/cache 문제는 설정으로 해결했으며 production 변경 사유로 삼지 않았다. 실제 OpenCode CLI 및 사람 시각 인수는 기존 경계를 유지한다.
+- 독립 검증은 다음 주체 Claude. 이번 결과는 구현자의 SELF_PASS이며 verify/PASS가 아니다.
