@@ -99,7 +99,8 @@ afterEach(() => {
 
 function install(
   steps: Array<'listen' | 'flush' | 'break'>,
-  storedProviderKey: string
+  storedProviderKey: string,
+  extraDocuments: Record<string, unknown> = {}
 ): {
   acquire: ReturnType<typeof vi.fn>
   runtime: {
@@ -115,6 +116,7 @@ function install(
   pending: ReturnType<typeof vi.fn>
   takeForRespawn: ReturnType<typeof vi.fn>
   batch: SteerFlushBatch
+  removeEngine: (provider: string) => void
 } {
   harness.handlers.clear()
   harness.runs.length = 0
@@ -122,7 +124,7 @@ function install(
   harness.steps = [...steps]
   harness.afterRun = undefined
   root = mkdtempSync(join(tmpdir(), 'orca-turn-config-'))
-  for (const [provider, document] of Object.entries(documents)) {
+  for (const [provider, document] of Object.entries({ ...documents, ...extraDocuments })) {
     const directory = join(root, 'sources', 'settings', 'opencode', provider)
     mkdirSync(directory, { recursive: true })
     writeFileSync(join(directory, 'settings.json'), JSON.stringify(document))
@@ -281,7 +283,13 @@ function install(
       recoverMissingWorktree: vi.fn(async () => ({ kind: 'none' }))
     }
   } as never)
-  return { acquire, runtime, pending, takeForRespawn, batch }
+  // The engine delete handler removes the document and clears both settings caches.
+  const removeEngine = (provider: string): void => {
+    rmSync(join(root, 'sources', 'settings', 'opencode', provider), { recursive: true, force: true })
+    harnessSettings.invalidateAll()
+    harnessRuntime.invalidate(`opencode-${provider}`, 'harness-settings-crud')
+  }
+  return { acquire, runtime, pending, takeForRespawn, batch, removeEngine }
 }
 
 async function send(payload: Record<string, unknown>): Promise<void> {
@@ -372,6 +380,56 @@ describe('chat:send execution configuration from the selected engine document (0
       }
       // Selection and configuration come from the documents; no server is needed before the turn.
       expect(acquire).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each(['live flush', 'closed flush'] as const)(
+    'continues a %s with the saved engine document and model when the selected engine is deleted after the first turn',
+    async (path) => {
+      // Sorted engines are local, other, third: the saved engine is not the first entry, so a
+      // dropped conversation id falls to local and a kept first-turn model stays on third.
+      const third = {
+        provider: {
+          third: {
+            npm: '@ai-sdk/openai-compatible',
+            options: { baseURL: 'https://third.test/v1' },
+            models: { only: { name: 'Only' } }
+          }
+        }
+      }
+      const { runtime, pending, takeForRespawn, batch, removeEngine } = install(
+        [],
+        'opencode-other',
+        { third }
+      )
+      runtime.teardownChannel.mockImplementation(() => {
+        runtime.channelAlive = false
+      })
+      harness.afterRun = (request) => {
+        if (harness.runs.length === 1) {
+          takeForRespawn.mockClear()
+          takeForRespawn.mockImplementation(() => [batch])
+          removeEngine('third')
+        }
+        runtime.spawnedProviderSettings = request.providerSettings
+        runtime.spawnedModel = request.model
+        runtime.spawnedRuntimeToolsRevision = request.extensions.runtimeTools?.revision
+        runtime.spawnedRuntimeEnvFingerprint = request.envFingerprint
+        runtime.spawnedAgentProfileKey = request.extensions.agentProfileKey
+        runtime.channelAlive = path !== 'closed flush'
+        pending.mockReturnValue(harness.runs.length === 2 ? [] : [batch])
+      }
+
+      await send({ sessionId: 'saved', providerKey: 'opencode-third', modelFamily: null })
+
+      expect(harness.errors).toEqual([])
+      expect(harness.runs.map((run) => run.request.text)).toEqual(['initial', batch.text])
+      expect(harness.runs[0]?.request.model).toBe('third/only')
+      expect(harness.runs[0]?.request.providerSettings?.settings).toEqual(third)
+      const flush = harness.runs[1]!.request
+      expect(flush.model).toBe('other/extra')
+      expect(flush.providerSettings).toMatchObject({ providerKey: 'opencode-other', provider: 'other' })
+      expect(flush.providerSettings?.settings).toEqual(documents.other)
     }
   )
 
