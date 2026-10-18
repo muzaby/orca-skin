@@ -3748,3 +3748,15 @@ N1은 실제 IPC 등록→send→설정 서비스 3종→provider 해석→자�
 - 규칙 추가 대신 impl §2/§3을 실행했다. step 강제값 없이 production 판정에 들어가 `listen→flush`와 dead-channel flush의 서로 다른 배출 경로를 관측한다.
 - 실행 환경의 SQLite ABI/cache 문제는 설정으로 해결했으며 production 변경 사유로 삼지 않았다. 실제 OpenCode CLI 및 사람 시각 인수는 기존 경계를 유지한다.
 - 독립 검증은 다음 주체 Claude. 이번 결과는 구현자의 SELF_PASS이며 verify/PASS가 아니다.
+
+## [검증자 기입] 파생 이슈 — r8 검증
+
+r8(V1~ΔV21) 독립 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md) r8. 인용 A6·D3가 red 6으로 D-0262-10이 닫혔다. r7 보고의 `동치` 칸 두 자리가 선택 엔진 삭제 상태에서 반증돼 VP-16이 root로 남는다.
+
+| # | finding | 귀속 | disposition | 대응 방향 |
+|---|---|---|---|---|
+| D-0262-11 | 선택 엔진이 연속 턴 전에 삭제될 때의 운반 미잠금 — `main/app/chat-turn/send.ts:661` 연속 턴 `sessionId`(A5 → `null`)·`main/app/chat-turn/continuation.ts:79` flush `model` 항(M2 제거) 모두 `src/main`+`src/shared` 4,923케이스 green. r7 보고는 둘을 "명시 key가 있어"·"같은 문서"로 동치 판정했다. 그러나 `engineDelete`는 사용 중 엔진을 막지 않고(`handlers/engine.ts:82-86`), 엔진이 사라지면 `resolveTurnProvider`가 저장 key → `entries[0]`로 폴백한다(`resolve-turn.ts:240-249`). probe(엔진 3개, 저장 other · 선택 third, 첫 턴 뒤 third 삭제)에서 원본 flush는 other 문서·`other/extra`, A5는 `opencode-local` 문서·`local/first`, M2는 other 문서 + 삭제된 `third/only`로 실행된다 | VP-16 root(§10 행 3·6) · VP-Δ15-02 BLOCKED_BY · AC40 | BLOCKING | N1에 세 번째 엔진 문서를 두고, 저장 key ≠ 선택 key 대화에서 첫 턴 뒤 선택 엔진을 삭제(문서 제거 + `harnessSettings.invalidateAll()`·runtime invalidate — engineDelete와 같은 처리)한 다음 flush 요청이 저장 엔진의 문서·모델을 싣는지 단언한다. 저장 엔진은 `entries[0]`가 아니게 둔다. A5·M2 red로 닫는다 |
+| N-0262-15 | INDEX `대상 커밋` 칸의 누적 좌표(`a09109bb` … `6ad2af2b`)를 `(r8 구현 — 검증자 기입)`으로 덮어썼다 | 보고 운영 | NON_BLOCKING | 검증자가 복원했다. 자리표시자는 목록 끝에 덧붙인다 |
+| N-0262-13 | (갱신) respawn 경계 입력 `chat-turn-continuation.ts:75`(R1)·`:76`(R2) green 추가 | 0118/0125(상속) | NEXT_HANDOFF 유지 | — |
+
+r7-5(문서 수정 시 flush 모델 신선도)는 D-0262-11의 M2와 같은 자리라 M2 red가 함께 잠근다. 실제 OpenCode 1.19.0 CLI 통합은 검증 환경에서 1/1 통과했다(verify §4). 다음 재구현 전에 `handoff-review`를 수행한다 — 라운드 9(verify §14).
