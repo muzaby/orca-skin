@@ -1544,3 +1544,21 @@ probe에서는 OpenCode 턴의 `providerSettings`가 비었다(D-0262-9).
 
 현재 방어: `docs/handoff/AGENTS.md §공통 V`(운반 값 bullet) · impl §2 · verify §6 · `plan.template.md` 강제 지점 표 열 · `verify.template.md §5`.
 P55(관측하지 않은 출력·mock 가정)·P56(운반 값 비퇴화)은 유지한다. 이 규칙은 그 둘을 표 행마다 증거로 남기게 하고, 변이 결과가 닫는 범위를 정한다.
+
+---
+
+## P60 — **분모가 열려 있어 매 검증이 새 인접 자리의 잠금 부재를 구현자 FAIL로 올렸다**
+
+*출처: 0262 (라운드 4~8, `d16a71e`~`ae2a72f`) — review round 37.*
+
+V1 VP-16(`backend/config → send/history`)의 §10 행은 자리 목록 없이 계약만 적었고, 규칙은 "path의 계약 운반 edge는 모두 자리"였다.
+verify §0은 분모가 그 edge를 담지 않아도 "구현자가 닫을 수 있다"며 그 pair의 분모로 재측정했다. r6~r8 검증은 매번 새 자리(target 인자 →
+`send.ts` key → 연속 턴 `sessionId`·flush `model`)의 green 변이를 `PAIR_FAIL`로 올렸고, 다섯 FAIL 중 원본 동작 결함은 0건이었다(D-0262-11 probe: 원본 flush는 정상).
+round 34~36은 그때마다 좌표 규칙을 넓혀 분모를 더 열었다.
+
+→ **규칙.** **분모는 설계자가 자리 검색 명령으로 §10에 고정한 자리 목록이다.** 목록이 없는 pair에서 목록 밖 운반 자리가 나오면 `PLAN_GAP`으로
+설계자가 그 pair 목록을 한 번에 고정한다. 고정 목록 밖에서 살아남은 변이는 원본 동작 결함을 재현할 때만 blocking이고, 아니면 `NEXT_HANDOFF`다.
+
+현재 방어: `docs/handoff/AGENTS.md §공통 V`(N bullet)·§판정 범위와 운영 gate(자리 표)·§단계별 절차 2·3 · plan §5-A·READY·마무리 · impl §2 ·
+verify §0·§4·§6 · `plan.template.md` §10 표·강제 지점 주석 · `verify.template.md §0·§5·§13`.
+P52·P58(분모가 좁아 생기는 거짓 PASS)은 유지한다 — 술어·범위 규칙이 목록을 만드는 설계자에게 옮겨 갔고, 검증자는 §0에서 그 검색을 다시 돌린다.

@@ -37,7 +37,7 @@
 | Baseline V / Delta V mode·상속 기준 | 유효 / PLAN_GAP | … |
 | NEW/CHANGED node ↔ 같은 레벨 REQUIRED pair | 유효 / PLAN_GAP | … |
 | 영향받은 INHERITED ↔ REGRESSION pair | 유효 / PLAN_GAP | … |
-| pair별 path·§10 전수·직접 oracle | 유효 / PLAN_GAP | … |
+| pair별 path·§10 자리 목록(기록된 검색 재실행 차집합 · 술어 = 주어 · 범위 = path 파일 전부)·직접 oracle | 유효 / 목록 미고정 / PLAN_GAP | … |
 | 필요한 pair의 선택적 적대 증거·선택 이유 | 유효 / PLAN_GAP | … |
 | `SUPERSEDED` pair의 AC·적대 증거 이관 | 유효 / 해당 없음 / PLAN_GAP | … |
 | 현재 변경 산출물의 운영 gate·범위 | 유효 / PLAN_GAP | … |
@@ -137,9 +137,9 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 
 ### pair별 plan §10 강제 지점 분모
 
-| Pair | 계약/필드 | plan이 적은 강제 지점 | 코드에서 확인한 지점 | 결과 |
-|---|---|---|---|---|
-| VP-… | … | `commit·revoke·expiry·401` (4) | … (N/4) · 자리별 oracle 좌표 | PASS / PAIR_FAIL / PLAN_GAP |
+| Pair | 계약/필드 | plan §10 자리 목록 | 목록 자리별 확인 · oracle 좌표 | 목록 밖 발견 · 원본 동작 결함 재현 | 결과 |
+|---|---|---|---|---|---|
+| VP-… | … | `commit·revoke·expiry·401` (4) | … (N/4) · 자리별 oracle 좌표 | 없음 / `파일:줄` — 재현 명령 → 재현 / 미재현 | PASS / PAIR_FAIL / PLAN_GAP / 목록 밖 NEXT_HANDOFF |
 
 - 표에 없는데 같은 불변식이 필요한 지점: 없음 / … → 현재 pair·Decision·AC 필수면 PLAN_GAP, 아니면 NON_BLOCKING/NEXT_HANDOFF
 - `실패 의미`가 “다른 게이트가 막는다”고 적은 행의 재측정: 해당 없음 / …
@@ -247,6 +247,7 @@ $ ./node_modules/.bin/vitest run <relevant-suite>
 
 > plan의 `[검증자 기입] 파생 이슈`로 이관한다.
 > `PLAN_GAP`이 하나라도 있으면 결과는 `RETURN_TO_PLAN`이고 다음 주체는 설계자다. 명시 계약 위반은 `PAIR_FAIL`로 유지하며 gap으로 낮추지 않는다.
+> 살아남은 변이는 자리로 가른다 — §10 고정 목록 자리면 `PAIR_FAIL`, 목록 미고정 pair의 운반 자리면 `PLAN_GAP`, 고정 목록 밖은 원본 동작 결함 재현 시에만 `BLOCKING`+`PLAN_GAP`이고 잠금 부재뿐이면 `NEXT_HANDOFF`다(`docs/handoff/AGENTS.md §판정 범위와 운영 gate`).
 
 ## 14. Review Signals — 사실만
 
