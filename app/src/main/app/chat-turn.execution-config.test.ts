@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { CHANNELS } from '../../shared/ipc'
-import type { TurnRequest } from '../adapters/common/turn'
+import type { SteerFlushBatch, TurnRequest } from '../adapters/common/turn'
 import { OpenCodeAdapter } from '../adapters/opencode/v1/adapter'
 import { PermissionModeController } from '../features/approvals/permission-mode-controller'
 import { createHarnessRuntimeConfigService } from '../features/harnesses/common/runtime-config'
@@ -15,7 +15,8 @@ const harness = vi.hoisted(() => ({
   handlers: new Map<string, (event: unknown, raw: unknown) => Promise<unknown>>(),
   runs: [] as Array<{ providerKey: string | null; request: TurnRequest; kind?: string }>,
   errors: [] as unknown[],
-  steps: [] as Array<'listen' | 'flush' | 'break'>
+  steps: [] as Array<'listen' | 'flush' | 'break'>,
+  afterRun: undefined as ((request: TurnRequest) => void) | undefined
 }))
 
 vi.mock('electron', () => ({
@@ -42,11 +43,14 @@ vi.mock('../infra/ipc/send', () => ({
     if (event.type === 'error') harness.errors.push(event.error)
   })
 }))
-vi.mock('../features/chat/post-turn', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../features/chat/post-turn')>()),
-  decidePostTurnStep: () => harness.steps.shift() ?? 'break',
-  postTurnHoldsSession: (step: string) => step !== 'break'
-}))
+vi.mock('../features/chat/post-turn', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../features/chat/post-turn')>()
+  return {
+    ...actual,
+    decidePostTurnStep: (...args: Parameters<typeof actual.decidePostTurnStep>) =>
+      harness.steps.shift() ?? actual.decidePostTurnStep(...args)
+  }
+})
 // The coordinator hands each request to the session runtime unchanged, so this is the request
 // the adapter receives. The turn's provider key is what history stores for the conversation.
 vi.mock('../features/chat/turn-coordinator', () => ({
@@ -58,6 +62,7 @@ vi.mock('../features/chat/turn-coordinator', () => ({
     ): Promise<void> {
       harness.runs.push({ providerKey: turn.providerKey, request, kind: options?.kind })
       if (!turn.dbSessionId) turn.dbSessionId = 'session-1'
+      harness.afterRun?.(request)
     }
   }
 }))
@@ -95,11 +100,27 @@ afterEach(() => {
 function install(
   steps: Array<'listen' | 'flush' | 'break'>,
   storedProviderKey: string
-): { acquire: ReturnType<typeof vi.fn> } {
+): {
+  acquire: ReturnType<typeof vi.fn>
+  runtime: {
+    channelAlive: boolean
+    channelBusy: boolean
+    spawnedProviderSettings: TurnRequest['providerSettings']
+    spawnedModel: string | undefined
+    spawnedRuntimeToolsRevision: number | undefined
+    spawnedRuntimeEnvFingerprint: string | undefined
+    spawnedAgentProfileKey: string | undefined
+    teardownChannel: ReturnType<typeof vi.fn>
+  }
+  pending: ReturnType<typeof vi.fn>
+  takeForRespawn: ReturnType<typeof vi.fn>
+  batch: SteerFlushBatch
+} {
   harness.handlers.clear()
   harness.runs.length = 0
   harness.errors.length = 0
   harness.steps = [...steps]
+  harness.afterRun = undefined
   root = mkdtempSync(join(tmpdir(), 'orca-turn-config-'))
   for (const [provider, document] of Object.entries(documents)) {
     const directory = join(root, 'sources', 'settings', 'opencode', provider)
@@ -129,15 +150,19 @@ function install(
     channelAlive: true,
     channelBusy: false,
     hasUnframedBacklog: false,
-    spawnedProviderSettings: undefined,
-    spawnedModel: undefined,
-    spawnedRuntimeToolsRevision: undefined,
+    spawnedProviderSettings: undefined as TurnRequest['providerSettings'],
+    spawnedModel: undefined as string | undefined,
+    spawnedRuntimeToolsRevision: undefined as number | undefined,
+    spawnedRuntimeEnvFingerprint: undefined as string | undefined,
+    spawnedAgentProfileKey: undefined as string | undefined,
     subscribeChannelActivity: vi.fn(() => vi.fn()),
     teardownChannel: vi.fn(),
     endListenFrame: vi.fn(),
     close: vi.fn()
   }
   const batch = { uuid: 'batch-1', ids: ['batch-1'], text: 'queued text', createdAt: 1 }
+  const pending = vi.fn((): Array<typeof batch> => [])
+  const takeForRespawn = vi.fn((): Array<typeof batch> => [])
   registerChatHandlers({
     ctx: {
       mockAdapter: null,
@@ -224,8 +249,8 @@ function install(
         text: 'initial',
         createdAt: 1
       })),
-      takeForRespawn: vi.fn(() => []),
-      pending: vi.fn(() => []),
+      takeForRespawn,
+      pending,
       hasSubmitted: vi.fn(() => false),
       orphanUnconfirmed: vi.fn(() => []),
       reserveHeld: vi.fn(() => batch),
@@ -256,7 +281,7 @@ function install(
       recoverMissingWorktree: vi.fn(async () => ({ kind: 'none' }))
     }
   } as never)
-  return { acquire }
+  return { acquire, runtime, pending, takeForRespawn, batch }
 }
 
 async function send(payload: Record<string, unknown>): Promise<void> {
@@ -269,6 +294,61 @@ async function send(payload: Record<string, unknown>): Promise<void> {
 }
 
 describe('chat:send execution configuration from the selected engine document (0262)', () => {
+  describe.each([
+    ['opencode-local', 'opencode-other', 'other/extra', 'other'],
+    ['opencode-other', 'opencode-local', 'local/first', 'local']
+  ] as const)('saved engine %s, selected engine %s', (storedKey, providerKey, model, provider) => {
+    it.each(['listen then flush', 'live flush', 'closed flush'] as const)(
+      'keeps the selected engine through %s before history records the new key',
+      async (path) => {
+        // Empty overrides run the production post-turn decision from channel/queue state.
+        // The coordinator emits no session.updated/user commit, so DB still has storedKey.
+        const { acquire, runtime, pending, takeForRespawn, batch } = install([], storedKey)
+        runtime.teardownChannel.mockImplementation(() => {
+          runtime.channelAlive = false
+        })
+        harness.afterRun = (request) => {
+          if (harness.runs.length === 1) {
+            // The initial engine switch may drain the old channel before this input is queued.
+            takeForRespawn.mockClear()
+            takeForRespawn.mockImplementation(() => [batch])
+          }
+          runtime.spawnedProviderSettings = request.providerSettings
+          runtime.spawnedModel = request.model
+          runtime.spawnedRuntimeToolsRevision = request.extensions.runtimeTools?.revision
+          runtime.spawnedRuntimeEnvFingerprint = request.envFingerprint
+          runtime.spawnedAgentProfileKey = request.extensions.agentProfileKey
+          runtime.channelAlive = path !== 'closed flush'
+          runtime.channelBusy = path === 'listen then flush' && harness.runs.length === 1
+          const completed = harness.runs.length === (path === 'listen then flush' ? 3 : 2)
+          pending.mockReturnValue(completed ? [] : [batch])
+        }
+
+        await send({ sessionId: 'saved', providerKey, modelFamily: null })
+
+        expect(harness.errors).toEqual([])
+        expect(harness.runs.map((run) => run.kind)).toEqual(
+          path === 'listen then flush' ? [undefined, 'listen', undefined] : [undefined, undefined]
+        )
+        expect(harness.runs.map((run) => run.request.text)).toEqual(
+          path === 'listen then flush' ? ['initial', '', batch.text] : ['initial', batch.text]
+        )
+        for (const run of harness.runs) {
+          expect(run.providerKey).toBe(providerKey)
+          expect(run.request.model).toBe(model)
+          expect(run.request.providerSettings).toMatchObject({ providerKey, provider })
+          expect(run.request.providerSettings?.settings).toEqual(documents[provider])
+        }
+        if (path === 'closed flush') {
+          expect(takeForRespawn).toHaveBeenCalledWith('saved', 'chain-1')
+        } else {
+          expect(takeForRespawn).not.toHaveBeenCalled()
+        }
+        expect(acquire).not.toHaveBeenCalled()
+      }
+    )
+  })
+
   it.each([
     ['opencode-local', 'listen', 'local/first', 'local'],
     ['opencode-local', 'flush', 'local/first', 'local'],
