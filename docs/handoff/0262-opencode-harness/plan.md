@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | plan/READY — ΔV22 VP-16 provider config 자리 목록 고정(round 37 적용), r9 구현 대기 |
+| 상태 | impl/IMPL_DONE — r9 ΔV22 EP56 열림 2·미측정 13 닫음, 독립 검증 대기 |
 | V mode | Delta V — V1 + ΔV1~ΔV22 (각 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV22 / V1 + ΔV1~ΔV22, 기준 `aa14cb6a` |
@@ -3993,7 +3993,7 @@ SELF_PASS(ΔV22 EP56 범위). 불변식은 D22-1 — "선택한 엔진의 key·�
 ## [구현자 기입] 구현 보고 — r9
 
 - 변경: 테스트만 — `chat-turn.execution-config.test.ts`(케이스 3 추가·fixture 확장) · `session-runtime.test.ts`(케이스 1·fixture model 기록) · `adapter.test.ts`(케이스 1) · 신규 `server.database-path.test.ts`(1). production 0.
-- 게이트: 아래 관측값.
+- 게이트: readonly lint(`eslint --cache=false ./src ./scripts`) 1,740파일 error 0 · warning 4 · `npm run typecheck` 3구성 오류 0 · `vitest run src/main src/shared` 425파일 통과·2 skip, 4,922 통과·7 skip(4,929) · scripts 142/142 · doc inventory·링크 ok · `git diff --check` 0.
 - 대상 커밋: (r9 구현 — 좌표는 INDEX).
 
 ## [구현자 기입] Review Signals — r9
