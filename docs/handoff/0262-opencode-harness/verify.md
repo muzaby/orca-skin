@@ -1144,3 +1144,170 @@ HEAD `6ad2af2b`, 실행 순서 readonly lint → typecheck → Vitest(Node ABI) 
 - pair: root PAIR_FAIL 1(VP-16) · BLOCKED_BY 1(VP-Δ15-02) · PLAN_GAP 0 · 사람 인수 대기 VP21-V·VP-11 시각.
 - AC(판정 범위 22): ✅14 · ⚠️8 · ❌0. 운영 gate PASS.
 - 다음 단계: handoff-review(라운드 8) → 구현자 r8 — D-0262-10의 A6·D3 red 보고.
+
+# r8 검증
+
+## 메타 (r8)
+
+| 항목 | 값 |
+|---|---|
+| 일자 | 2026-10-18 |
+| 대상 커밋/range | `6ad2af2b..79e55671` — r7 검증 `630bd95b` + r8 구현 `79e55671`(테스트 1파일 + plan·INDEX) |
+| 구현 전 plan 기준 | `12c81cfa`(ΔV21) — 이후 규범 행 변경 없음 |
+| V mode / 유효 V | V1 + ΔV1~ΔV21 |
+| 검증 HEAD | `79e55671` (`origin/ccr-f3743b30-7177zo`, PR #507 head → base `codex-opencode-harness`) |
+| 라운드 | 8 |
+| 상태 | **FAIL** — root PAIR_FAIL 1(VP-16) · BLOCKED_BY 1(VP-Δ15-02) · PLAN_GAP 0 |
+| 자기 검증 여부 | 아니오 — 구현 `Agent: codex`, 검증 Claude. 보고에 없는 축: 변이 A5·I2·I3·M2·R1·R2, 실제 OpenCode 1.19.0 CLI 통합, r7 `동치` 칸 재판정 probe(§4). probe가 D-0262-11을 냈다 |
+
+## 0. 기준선 / plan validity (r8)
+
+- `79e55671`의 `plan.md` hunk는 2개다 — `@@ -8,7 +8,7 @@`(메타 `상태`)·`@@ -3653,3 +3653,98 @@`(`[구현자 기입]` r8). Decision·AC·V node/pair·§10 변경 없음 → r7 plan validity 유지.
+- `630bd95b`(r7 검증)는 verify·plan `[검증자 기입]`·INDEX만 바꿨다.
+- `app/` 변경은 테스트 1파일이고 production은 0파일이다. `scan-surface.sh 630bd95..79e5567` = "변경된 소스 파일이 없습니다".
+- 라운드 8 선행 handoff-review는 구현 턴의 `설계 리뷰 — r8`에 기록됐다(분류 B, 지침 유지). 지침 파일 변경과 별도 커밋은 없다(§14).
+
+## 2. 비판적 읽기 (r8) — 새 6케이스와 production 연속 턴 대조
+
+| 항목 | 테스트 | production | 판정 |
+|---|---|---|---|
+| 다음 스텝 판정 | mock이 `steps`가 비면 실제 `decidePostTurnStep` 호출(`chat-turn.execution-config.test.ts:46-53`) · 새 케이스는 `install([], …)` | `chat-turn/post-turn.ts:128-136` 같은 함수·같은 입력 | 동등. 기존 5케이스는 강제 step 그대로 |
+| 세 경로 | 첫 run 뒤 `channelAlive`·`channelBusy`·`pending` 설정 | listen→flush(`features/chat/post-turn.ts:54`) · live flush `reserveHeld`(`chat-turn/post-turn.ts:250`) · closed flush `takeForRespawn`(`:253`) | 세 분기 모두 production 코드로 실행 |
+| 저장 key | db fake `provider_key` = 저장 key ≠ 선택 key, 양방향 | writer 갱신은 채널 연결·커밋 뒤(r7 §4) | r7 probe 상태 재현 |
+| spawn 기록 | `afterRun`이 매 run 뒤 `spawned*`를 요청 값으로 | SessionRuntime이 spawn 때 기록 | 정상 코드에서 값이 같아 판정 무차이. 변이 시에는 단언이 먼저 깨진다 |
+| 운반 값 | key `opencode-local`↔`opencode-other` · 문서 baseURL·모델(`local/first`↔`other/extra`) 서로 다름 | — | 구별 값 |
+
+## 4. 적대 증거 재측정 (r8)
+
+범위: `src/main`+`src/shared` 4,923케이스(기준선 4,916 pass · 0 fail · 7 skip). 변이는 `git worktree add --detach 79e5567` 사본에서만 실행했다. 실행기는 앵커 1회 출현과 원본 SHA256 복원을 단언했고 26/26 통과, 종료 후 사본 `git status` clean.
+
+### 인용 변이 (D-0262-10)
+
+| 변이 | r7 | r8 | 구현 보고 |
+|---|---|---|---|
+| A6 `send.ts:653` 연속 턴 입력 providerKey → `null` | green 0/4,917 | **red 6** — N1 새 6 | 6 일치 |
+| D3 `send.ts:662` `resolveTurnProvider` 인자 providerKey → `null` | green 0/4,917 | **red 6** — N1 새 6 | 6 일치 |
+| D15 `chat-turn-continuation.ts:61` providerKey → `null` | red 1(단위) | **red 7** — N1 새 6 · `chat-turn-continuation.test` 1 | N1 6 일치 |
+
+- 인용 2/2 red → D-0262-10 closed.
+
+### 이전 라운드 red 재실행 — 검출 파일 N1이 바뀜
+
+| 변이 | r7 | r8 (N1 · 그 밖) | 판정 |
+|---|---|---|---|
+| X8 · X9 · X11 · X12 · X1 | red 6 각각 | red 12 각각 (11 · I19 1) | 유지 |
+| K9 · K9b | red 6 · 6 | red 12 · 12 (11 · I19 1) | 유지 |
+| K5 | red 7 | red 13 (11 · I19 · `resolve-turn.runtime-catalog`) | 유지 |
+| A1 · A3 · D1 · D11 | red 2 · 1 · 5 · 5 | red 8 · 1 · 11 · 11 (전부 N1) | 유지 |
+| U6 · D16 · E2 · D2 · M1 (r7 구현 보고 값) | N1 1+I19 1 · N1 5+2 · N1 4+1 · N1 2+1 · N1 2+2 | 2 (1 · I19) · 13 (11 · runtime-tools 2) · 11 (10 · turn-context 1) · 5 (4 · continuation 1) · 6 (4 · runtime-tools · continuation) | 유지 |
+
+- red → green 0 — 덮개 회귀 없음. N1 수는 `기존 + 새`로 보존된다(X8 N1 11 = 5 + 6).
+- W1~W11은 재실행하지 않았다. N1 기존 5케이스는 강제 step(`steps.shift()` 우선)이라 동작이 같고, 위 17개의 N1 기존 검출이 그대로다.
+
+### 보고에 없는 독립 축
+
+| 축 | 변이 / 방법 | r8 | 판정 |
+|---|---|---|---|
+| I2 | `send.ts:653` → `ctx.db.getSessionById(sessionId)?.provider_key ?? null`(저장 key 직접 읽기) | red 6 | 잠김 |
+| I3 | `resolve-turn.ts:240` 저장 key 우선 `(req.sessionId ? byKey(meta?.provider_key) : undefined) ?? byKey(req.providerKey)` | red 6(새 6만) | 잠김 — 저장 대화에서 엔진을 바꾼 첫 턴도 새 케이스가 잠근다 |
+| A5 | `send.ts:661` 연속 턴 sessionId → `null` | green 0/4,923 | **probe red → D-0262-11** |
+| M2 | `continuation.ts:79` flush `model` 항 제거 | green 0/4,923 | **probe red → D-0262-11** |
+| R1 · R2 | `chat-turn-continuation.ts:75` previousProviderKey · `:76` nextProviderKey → `null` | green · green | respawn 경계 입력(0118) — N-0262-13 |
+| 실제 CLI | OpenCode 1.19.0(`opencode-ai@1.19.0`, scratchpad 설치) · `ORCA_TEST_OPENCODE_EXE` · `native-storage.integration.test.ts` | 1/1 pass, 50.3초 | VP-Δ15-02 EP42a·c 실행 |
+| `동치` 재판정 probe | N1 사본에 엔진 3개(local·other·third). 저장 `opencode-other`, 선택 `opencode-third`, 첫 턴 뒤 third 문서 삭제 + `invalidateAll`(engineDelete와 같은 처리) → live flush | 원본 pass: flush = other 문서·`other/extra` | 기준 |
+| 〃 A5 | 같은 probe | **red** — flush = `opencode-local` 문서·`local/first` | r7 `동치` 반증 |
+| 〃 M2 | 같은 probe | **red** — flush = other 문서 + `third/only`(삭제된 엔진 모델) | r7 `동치` 반증 |
+
+- probe 상태는 production에서 도달한다. `engineDelete`(`handlers/engine.ts:82-86`)와 화면(`AgentEnvironmentView.tsx:49-55` 확인 대화상자)은 사용 중 엔진을 막지 않는다. 엔진이 사라지면 `resolveTurnProvider`는 저장 key → `entries[0]`(`models.ts:126`) 순으로 폴백한다(`resolve-turn.ts:240-249`).
+- M2는 선택 엔진 삭제만으로 갈린다 — 저장 key와 무관하고, 백그라운드 작업으로 listen이 길게 열린 동안 보류 입력이 있으면 된다. A5는 저장 key ≠ 선택 key(D-0262-10의 창) · 저장 엔진 ≠ `entries[0]`일 때 갈린다.
+- r7 판정 근거("명시 key가 있어 동치" · "같은 문서")는 선택 엔진이 연속 턴까지 남아 있다는 전제였다. probe 파일은 worktree에만 두었고 삭제했다.
+
+## 6. 강제 지점 재열거 (r8) — VP-16 행 3·6
+
+| 자리 | 보고 | 재측정 | 근거 |
+|---|---|---|---|
+| 행 3 providerKey `send.ts:653` · `chat-turn-continuation.ts:61` · `send.ts:662` | 닫힘 3/3 | 닫힘 3 | A6 · D15 · D3 red(§4) |
+| 행 3 sessionId `send.ts:661` | (r7 `동치`, r8 재판정 없음) | **열림** | A5 green 0/4,923 · probe red |
+| 행 3 modelFamily `send.ts:654` · `:663` | (r7 닫힘) | 닫힘 2 | F2·F3 r7 `runtime-tools` 좌표 — 검출 파일 무변경 |
+| 행 6 `continuation.ts:95` providerSettings · `:46` listen model | 회귀 | 닫힘 2 | D2 red 5 · M1 red 6 |
+| 행 6 `continuation.ts:79` flush model | (r7 `동치`) | **열림** | M2 green 0/4,923 · probe red |
+| r7 `동치` 나머지 — U7 `resolve-turn.ts:250` · 행 4 `native-history.ts:44-45` · E4 `writer.ts:319` · V2 `server.ts:101` | — | 동치 유지 | U7 두 `defaultProvider` 같은 본문 · 행 4는 명시 key = 저장 key라 삭제 시 둘 다 `entries[0]` · E4는 `:345-347`이 덮음 · V2는 `:102` env가 같은 config |
+
+- 행 3·6 재측정 9자리 — 닫힘 7 · 열림 2. r7의 열림 1(A6·D3 자리)은 닫혔고, r7 `동치` 2자리가 열림으로 바뀌었다.
+- 보고 표의 행 3 `3/3 edge`는 providerKey 항만 셌다. 같은 행의 sessionId 항과 행 6 flush model은 r7 `동치`를 재판정 없이 회귀 행에 묶었다.
+
+## 5. V-pair closeout (r8)
+
+| Pair | r8 결과 | 근거 |
+|---|---|---|
+| **VP-16 AR-02↔IT-02** | **PAIR_FAIL** (root 유지) | 연속 턴 providerKey 3자리 닫힘(D-0262-10 closed). 같은 path의 sessionId(`send.ts:661`)·flush model(`continuation.ts:79`)이 선택 엔진 삭제 상태에서 미잠금 — D-0262-11 |
+| VP-Δ15-02 R40↔AT40 | BLOCKED_BY:VP-16 | path `engine settings → native config → 모델`의 연속 턴 flush 모델 edge가 같은 원인으로 열려 있다(M2). 그 밖의 edge — 연속 턴 key A6·D3·D15 red · 행 9~11 r7 좌표 · 실제 CLI 1/1 — 는 닫혔다 |
+| 그 밖의 V1~ΔV21 | r7 판정 유지 · VP21-V·VP-11 시각은 사람 인수 대기 | 검출 파일이 바뀐 변이 17개 red → green 0(§4) |
+
+- root PAIR_FAIL 1(VP-16) · BLOCKED_BY 1(VP-Δ15-02) · PLAN_GAP 0.
+- PLAN_GAP 아님: 두 자리는 r7 구현 보고 §10 표 행 3·6에 `동치`로 올라 있고, 폴백 규칙은 `resolve-turn.ts:212-213` 주석과 첫 턴 호출처 좌표(`falls back to the saved conversation engine…`, A3 red)가 이미 정한다. 구현자는 N1 fixture에 엔진 하나와 삭제 단계를 더해 닫을 수 있다.
+
+### AT / AC 합계 (r8 판정 범위)
+
+| AC | 결과 |
+|---|---|
+| AC40 (ΔV15) | ⚠️ — 연속 턴 key 운반은 잠겼으나 선택 엔진 삭제 시 flush 모델·폴백 엔진 선택 미잠금(D-0262-11) |
+| AC54 · AC1·2·3·4·5·6·7·8·9·10·12 · AC20-1·20-2 | ✅ 14 (r7 유지) |
+| AC11 · AC20-3 · AC26·27·33·34·48 | ⚠️ 7 — 시각 사람 인수 대기 (r7 유지) |
+
+- 합계: `✅ 14 · ⚠️ 8 · ❌ 0 = 22`(r7과 같은 범위). 나머지 35개는 r5 판정 유지.
+- 사본 대조: 구현 보고 `✅1` ↔ trailer `Criteria-Met: 1/1` — 사본끼리 일치하고, 검증 결과와는 AC40에서 갈린다(⚠️).
+
+## 9. 게이트 (r8)
+
+HEAD `79e55671`, 실행 순서 readonly lint → typecheck → Vitest(Node ABI) → scripts → 가드 → build(Electron ABI). 명령은 `app/AGENTS.md`를 따랐고 `npm run lint`(`--fix`) 대신 `eslint --cache=false`를 썼다.
+
+| gate | 관측 |
+|---|---|
+| readonly ESLint(`--cache=false`, `--fix` 없음) | 1,739파일 error 0 · warning 2(기존 `react-hooks/incompatible-library` 2) |
+| typecheck | node·web·test 3구성 exit 0, `error TS` 0 |
+| Vitest 전체 | 759파일 7,468케이스 — 7,461 pass · 0 fail · 7 skip(부하 없는 재실행). 첫 실행은 probe 동시 실행 중 loopback 타이머 1건 red(N-0262-14) |
+| `node --test scripts/*.test.mjs` | 142/142 |
+| inventory · migrations · test-budgets | generated·prose·links ok · no-copies ok(1,710파일, 이 clone에 `v*` tag 없어 append-only 비교는 skip — r8 마이그레이션 변경 0) · 16 real-git suites ok |
+| `npm run build` | exit 0 (`[sqlite-abi] electron: rebuilt` · 3 번들) |
+| `git diff --check` | 출력 0 |
+| 원격 Windows CI | PR #507 check `gate`(head `79e55671`) success |
+
+- 운영 gate PASS. 이번 FAIL은 gate가 아니라 pair 실패다. 각 단계 뒤 `git status` clean(`app/out/`은 ignore).
+
+## 11. Repository operation checks (r8)
+
+- INDEX 0262 행: 구현자가 `대상 커밋` 칸 전체를 `(r8 구현 — 검증자 기입)`으로 바꿔 누적 좌표(`a09109bb` … `6ad2af2b`)가 사라졌다. `630bd95b` 판 목록을 복원하고 `79e55671`(r8)을 더했다 — N-0262-15.
+- `79e55671`: `git cat-file -t` commit, `origin/ccr-f3743b30-7177zo` 포함, PR #507 head.
+- trailer: `79e55671` 6키(`Agent: codex`·`Handoff`·`Status: implemented`·`Criteria-Met: 1/1`·`Verified-By: pending`·`Refs: #507`) 파싱·허용값 정상.
+- `[구현자 기입]` r8 7필드 전수 존재. 강제 지점 표는 7열(`운반 항 · 구별 값 · 관측` 포함)과 `남긴 곳`을 담는다.
+- INDEX 비고 갱신분 4줄(≤5). 라운드: 이번 FAIL로 9가 된다 — 3 초과라 다음 재구현 전에 handoff-review.
+
+## 13. Finding disposition (r8)
+
+| # | finding | 귀속 | disposition | 후속 |
+|---|---|---|---|---|
+| D-0262-10 | 연속 턴 호출처의 엔진 key 운반 | VP-16 · AC40 | **closed** — 인용 A6·D3 red 6 | — |
+| **D-0262-11** | 선택 엔진이 연속 턴 전에 삭제될 때의 운반 미잠금. `send.ts:661` sessionId(A5)·`continuation.ts:79` flush model(M2)을 바꿔도 4,923케이스 green. 깨지면 보류 입력이 저장 엔진 대신 `entries[0]` 엔진으로(A5), 또는 폴백 엔진 문서에 삭제된 엔진 모델을 실어(M2) 실행된다(probe) | VP-16 root(행 3·6) · VP-Δ15-02 BLOCKED_BY · AC40 | **BLOCKING** | N1에 엔진 3개 fixture를 두고 첫 턴 뒤 선택 엔진을 삭제(문서 제거 + `invalidateAll`)한 뒤 flush 요청이 폴백 엔진의 문서·모델을 싣는지 단언 — 저장 key ≠ 선택 key 대화에서 A5·M2 red로 닫는다 |
+| N-0262-13 | (갱신) respawn 경계 입력 `chat-turn-continuation.ts:75-76` R1·R2 green | 0118/0125(상속) | NEXT_HANDOFF 유지 | r7 목록에 `:75` 추가 |
+| N-0262-14 | (갱신) loopback 타이머 케이스가 전체 실행 중 1회 red(probe 동시 실행) · 단독 3/3 pass | 테스트 안정성 | NON_BLOCKING 유지 | — |
+| N-0262-15 | INDEX `대상 커밋` 칸 누적 좌표를 자리표시자로 덮어씀 | 보고 운영 | NON_BLOCKING | 검증자가 복원. 자리표시자는 목록 끝에 덧붙인다 |
+| N-0262-1 · 3 · 7 · 8 · 9 · 10 · 11 · 12 | 기존 | — | 기존 disposition 유지 | — |
+
+- r7-5(문서 수정 시 flush 모델 신선도, 0126)는 같은 `continuation.ts:79` 자리다. D-0262-11의 M2 red가 이 자리도 잠근다.
+
+## 14. Review Signals (r8)
+
+- r2~r8이 같은 형태다 — 지목한 자리는 닫혔고 같은 path의 인접 자리가 남았다. r8에서 남은 두 자리는 r7 보고의 `동치` 칸에서 나왔고, r7 검증(Claude)이 코드 읽기로 그 판정을 받아들였다.
+- 두 `동치`의 전제는 "선택 엔진이 연속 턴까지 남아 있다"였다. 그 전제가 깨지는 상태(사용 중 엔진 삭제)를 만든 것은 이번 probe가 처음이다.
+- 관련 지침: `docs/handoff/AGENTS.md §공통 V`는 `동치`·`도달 불가` 판정의 증거 형식을 정하지 않는다(r7 신호 반복).
+- 구현 Codex · 검증 Claude. 라운드 8 handoff-review는 구현 턴 안에서 B·지침 유지로 기록됐다(모드 `APPLY`, 파일 변경 0).
+- 반복 환경 한계: OpenCode CLI는 기본 설치되지 않았다 — 이번 검증은 `opencode-ai@1.19.0`을 scratchpad에 설치해 통합 1/1을 실행했다. 부하 중 loopback 타이머 플레이크.
+- 라운드 9(>3) — 다음 재구현 전 handoff-review 대상.
+
+## 15. 결론 (r8)
+
+- 상태: **FAIL**.
+- pair: root PAIR_FAIL 1(VP-16) · BLOCKED_BY 1(VP-Δ15-02) · PLAN_GAP 0 · 사람 인수 대기 VP21-V·VP-11 시각.
+- AC(판정 범위 22): ✅14 · ⚠️8 · ❌0. 운영 gate PASS.
+- 다음 단계: handoff-review(라운드 9) → 구현자 r9 — D-0262-11의 A5·M2 red 보고.
