@@ -5,8 +5,8 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | IMPL_DONE / r1.3 |
-| V mode / 기준 V / 유효 V | Delta V / V1+ΔV1+ΔV2+ΔV3 (`79e6ae6b`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5 |
+| 상태 / 라운드 | READY / r1.4 |
+| V mode / 기준 V / 유효 V | Delta V / r1.3 (`148f91c5`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
 # Part I — Product & UX Contract
@@ -483,7 +483,7 @@ LandingHeader는 chat feature 내부 registry를 재사용하는 얇은 공개 �
 | ID | 상태 | 결정 |
 |---|---|---|
 | D-14 | ACTIVE | 재진입/메뉴 재열기는 해당 세션을 새로 조회한다. 한 원천의 실패·무응답이 다른 원천의 목록을 지우지 않는다. 부분 조회 안내와 재시도를 제공하며 오래된 응답은 수용하지 않는다. |
-| D-15 | ACTIVE | 양 하네스의 `+ → 플러그인`에 네이티브 MCP·플러그인과 실제 하네스 명령을 표시한다. 선택은 입력만 채우며 전송은 사용자가 한다. 기존 Orca 커넥터·스킬 메뉴는 해당 하네스의 기존 정책대로 유지한다. |
+| D-15 | SUPERSEDED | 배치는 ΔV6 D-19로 대체한다. 명령 선택의 초안 보존·자동 전송 금지와 기존 Orca 커넥터 정책은 유지한다. |
 | D-16 | ACTIVE | 명령 이름을 설치명으로 추측하지 않는다. Claude supportedCommands/init, OpenCode command.list가 보고한 명령만 슬래시 명령으로 제시한다. 프롬프트 없는 MCP는 실행 중일 때 도구 사용 요청 문구로 안내한다. 로드되지 않은 확장은 상태와 명령 없음 안내를 표시한다. |
 | D-17 | SUPERSEDED | 자동 로딩 여부 질문은 사용자의 재개·갱신 요구를 반영한 ΔV5 D-18로 대체한다. 사용자 설정 자동 로딩을 허가한 것으로 해석하지 않는다. |
 
@@ -611,3 +611,33 @@ AC15 강화: A→B→A와 컴포넌트 재마운트에서도 A 관측 목록을 
 - 기존 메뉴 재마운트 조회만으로는 무응답·관측 유지·명령 진입 문제가 해결되지 않았다. 각각 deadline, snapshot, 실제 Controller oracle로 닫았다.
 - 테스트 중 발견한 submenu index 변화의 렌더 반복과 SSR 캐시 접근을 수정하고 실패했던 전체 파일을 재실행했다.
 - DB ABI는 바꾸지 않고 Electron Node 모드로 12케이스를 실행했다. UI·native 설정·인증을 통한 실제 외부 실행은 하지 않았다.
+
+## ΔV6 — 네이티브 스킬 배치와 플러그인 폴더 열기 (r1.4)
+
+사용자 정정: “하네스 플러그인은 스킬묶음이다. + -> 스킬에서 노출하라. e.g., 'superpowers::using-superpowers'. 설명은 툴팁으로 노출. + -> 플러그인에서는 노출하지 않는다”. 추가로 케밥 플러그인의 흐린 효과·토글을 없애고 설치 폴더 열기/설명 툴팁, MCP와 같은 플러그 SVG, “다시 불러오기 버튼 제거”를 요청했다.
+
+| 결정 | 상태 | 계약 |
+|---|---|---|
+| D-19 | ACTIVE | Composer의 네이티브 비MCP 명령을 `+ → 스킬`에 표시한다. `plugin:skill`은 `plugin::skill`로 표시하고 실제 삽입 토큰은 원래 SDK 이름을 보존한다. 설명은 title 툴팁이며 inline 설명은 없다. MCP와 Orca 커넥터는 기존 플러그인 메뉴에 유지한다. |
+| D-20 | ACTIVE | 케밥 플러그인은 일반 밝기의 폴더 열기 액션이다. 체크/토글은 없고 설명과 폴더 열기 안내를 툴팁에 둔다. 플러그인 그룹 아이콘은 MCP와 같은 electricalServices SVG다. |
+| D-21 | ACTIVE | 양 메뉴의 수동 다시 불러오기 버튼을 제거한다. 재진입·메뉴 재열기·실패 후 자동 재조회와 관측 유지(D-18)는 계속 수행한다. D-14/AC15의 재시도는 자동 갱신 또는 재열기로 해석한다. |
+| D-22 | ACTIVE | 폴더 열기는 sessionId+pluginId만 받고 main이 해당 세션의 실제 설치/라이브 관측으로 경로를 해석한다. 경로를 renderer에 노출하거나 플러그인을 실행/설치하지 않는다. 사라진 설치·알 수 없는 ID·조회 실패는 안전한 오류와 자동 재조회로 끝난다. |
+
+AC16은 D-19의 배치·표시 형식·툴팁으로 대체하며 기존 초안 보존/전송 금지 oracle은 승계한다. AC18: 케밥 플러그인은 흐림/토글 없이 설명 툴팁과 플러그 SVG를 갖고 클릭하면 해당 설치 디렉터리를 OS 탐색기로 연다. AC19: 수동 재조회 버튼은 양 메뉴에 없고 기존 세션 재진입·메뉴 재열기·실패 시 새 조회를 관측한다.
+
+기술: NativeResource에 optional description만 추가한다. LiveTurn/SessionRuntime의 nativePluginDirectory(id)와 MainHarnessModule의 configuredPluginDirectory(cwd,id)는 main 내부 포트다. 새 sessionOpenNativePlugin IPC는 strict sessionId/id schema, lookup 세션 검증, directory stat 후 shell.openPath와 오류 문자열 검사를 수행한다. plugin ID는 위치/명세의 hash로 안정화하며 OpenCode 배열 순서에 의존하지 않는다.
+
+Claude는 기존 scoped installed_plugins.json과 SDK init 경로에서 plugin.json.description을 읽는다. live 우선 합성에서도 구성 description을 유지한다. OpenCode는 config plugin의 file/path 또는 npm 설치 캐시의 package.json.description과 디렉터리를 읽으며, 프로세스와 같은 환경/cwd를 적용한다. SDK 1.18.27 대응 [native loader](https://raw.githubusercontent.com/anomalyco/opencode/v1.18.27/packages/opencode/src/plugin/shared.ts)·[Npm cache](https://raw.githubusercontent.com/anomalyco/opencode/v1.18.27/packages/core/src/npm.ts)를 근거로 사용하며 미설치/미해석 경로를 추측해 열지 않는다.
+
+| Pair | 노드 / requiredness | production 경로 / oracle |
+|---|---|---|
+| VP-17 | R-16·AR-04·MD-05 CHANGED REQUIRED | SDK commands→hook→AttachMenu 스킬/플러그인 분리→draft. attachMenuModel/Composer.native-menu/composerAttachMenu의 서로 다른 plugin/MCP 입력과 원래 slash 관측. 기존 EP14 6자리 승계. |
+| VP-19 | R-18↔AT-18, SD-04↔ST-04, AR-05↔IT-05, MD-06↔UT-06 NEW REQUIRED | native metadata→main lookup→DTO→메뉴→IPC→trusted directory→shell.openPath. 아래 EP17 자리별 좌표. |
+| VP-16 | R-15·SD-02 CHANGED REQUIRED | EP13/16의 수동 retry 자리를 메뉴 재열기·실패 후 자동 조회로 대체한다. useNativeResources/Composer.native-menu 실제 렌더에 버튼 부재·재조회·관측 유지 단언. |
+| VP-01~15,18 | INHERITED REGRESSION | 이전 좌표의 변경 subtree 재실행. EP1~12/15 유지. M1/M2 회귀 유지. |
+
+§10 EP17 고정 10자리: ①Claude configured metadata/ID→directory ②Claude live metadata→directory ③OpenCode live metadata→directory ④양 adapter LiveTurn 반환 ⑤SessionRuntime 위임/교체 fence ⑥bootstrap 저장 session scope→configured resolver ⑦IPC schema/handler stat·shell result ⑧preload/sessionApi transport ⑨hook action 실패 재조회 ⑩kebab model/component 액션·title·icon. 검색: `rg -n 'nativeResources|configuredResources|setNativeResource|nativeResourcesMenu' app/src/{main,shared,preload,renderer}`의 기존 운반 경로에 동일 포트를 추가한다.
+
+직접 oracle: ①configured-resources.test scope/id/path/description ②Claude native-resources.test injected 제외·init hash ③OpenCode native-resources.test file/npm fixture·ID 재정렬 ④adapter.live-control/persistent 포트 값 ⑤session-runtime.test 지각 resolver 거부 ⑥bootstrap.native-history.test 다른 cwd/backend ⑦session-resources.test 정상/없는 ID/경로주입/파일/OS오류 ⑧preload index.test·hook 실제 sessionApi ⑨useNativeResources.test 열기 실패 read ⑩nativeResourcesMenu.test·실제 NativeResourcesMenu render. 총 자리 56+10=66, 수동 재시도는 대체되어 분모를 늘리지 않는다.
+
+선택 변이 M3: attachMenuModel의 native 스킬/MCP 목적지를 맞바꿔 올바른 배치 단언이 red인지 확인한다. M1/M2 기존 선택 변이를 유지한다. 새 의존성/DB/설정 쓰기 없음. 운영 gate는 이전 lint/typecheck/관련 테스트/build/boundary/inventory/catalog를 승계한다. ACTIVE D-19~22↔AC16/18/19 대조 충돌 0; D-16 실제 명령 원천·D-18 관측 유지도 보존한다.
