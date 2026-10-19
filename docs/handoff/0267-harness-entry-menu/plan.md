@@ -6,7 +6,7 @@
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
 | 상태 / 라운드 | READY / r1.3 |
-| V mode / 기준 V / 유효 V | Delta V / V1+ΔV1+ΔV2+ΔV3 (`79e6ae6b`) / V1+ΔV1+ΔV2+ΔV3+ΔV4 |
+| V mode / 기준 V / 유효 V | Delta V / V1+ΔV1+ΔV2+ΔV3 (`79e6ae6b`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
 # Part I — Product & UX Contract
@@ -485,7 +485,7 @@ LandingHeader는 chat feature 내부 registry를 재사용하는 얇은 공개 �
 | D-14 | ACTIVE | 재진입/메뉴 재열기는 해당 세션을 새로 조회한다. 한 원천의 실패·무응답이 다른 원천의 목록을 지우지 않는다. 부분 조회 안내와 재시도를 제공하며 오래된 응답은 수용하지 않는다. |
 | D-15 | ACTIVE | 양 하네스의 `+ → 플러그인`에 네이티브 MCP·플러그인과 실제 하네스 명령을 표시한다. 선택은 입력만 채우며 전송은 사용자가 한다. 기존 Orca 커넥터·스킬 메뉴는 해당 하네스의 기존 정책대로 유지한다. |
 | D-16 | ACTIVE | 명령 이름을 설치명으로 추측하지 않는다. Claude supportedCommands/init, OpenCode command.list가 보고한 명령만 슬래시 명령으로 제시한다. 프롬프트 없는 MCP는 실행 중일 때 도구 사용 요청 문구로 안내한다. 로드되지 않은 확장은 상태와 명령 없음 안내를 표시한다. |
-| D-17 | OPEN | 활성 사용자 네이티브 플러그인 자동 로딩은 사용자 답변 대기. 현재 ΔV4는 기존 로딩 정책 안에서 조회·메뉴·기존 명령 실행 경로를 연결하며 자동 로딩 변경은 별도 결정으로 반영한다. |
+| D-17 | SUPERSEDED | 자동 로딩 여부 질문은 사용자의 재개·갱신 요구를 반영한 ΔV5 D-18로 대체한다. 사용자 설정 자동 로딩을 허가한 것으로 해석하지 않는다. |
 
 | AC | 행동 기준 | 직접 검증 / production 경로 |
 |---|---|---|
@@ -518,4 +518,22 @@ Claude supportedCommands는 별도 기한 안에 조회하고 init의 명령 이
 | EP14 (6자리) | ①Claude 명령 관측/projection ②OpenCode command.list projection ③adapter→NativeResources 운반 ④Composer session/backend→hook ⑤AttachMenu native 트리 운반 ⑥native action→draft. `rg -n 'supportedCommands|slash_commands|command.list|nativeResources|buildAttachMenu|runAttachMenuAction' app/src/main/adapters app/src/renderer/src/features/chat` | ①②native-resources tests 실제 DTO ③adapter.live-control/persistent 목록 ④⑤Composer 실제 UI에 session-B 고유 명령 ⑥composerAttachMenu 앞 삽입/IME/초안. 다른 하네스·가짜 명령·전송 발생 |
 | EP15 (1자리) | OpenCode channel submit command dispatch. `rg -n 'session.promptAsync|session.command' app/src/main/adapters/opencode` | persistent channel SDK args·event/approval while pending·error. slash가 일반 메시지로 전송되거나 승인 교착 |
 
-추가 10자리 + 기존42 = 52. 신규 적대 증거는 선택하지 않음(행동 직접 oracle), 상속 M1/M2 유지. gate: 수정 subtree lint/cache, typecheck 3종, 관련 비DB 테스트, build, boundary·문서 inventory·카탈로그. D-14~16↔AC15~17 충돌 없음; D-17에 의존하는 자동 로딩은 이 READY 범위 밖의 결정 대기다.
+추가 10자리 + 기존42 = 52. 신규 적대 증거는 선택하지 않음(행동 직접 oracle), 상속 M1/M2 유지. gate: 수정 subtree lint/cache, typecheck 3종, 관련 비DB 테스트, build, boundary·문서 inventory·카탈로그. D-14~16↔AC15~17 충돌 없음. D-17은 ΔV5에서 해소했다.
+
+## ΔV5 — 세션 관측 유지와 제어 실패 후 갱신 (r1.3)
+
+사용자 답변: “세션 재개시 로드된 정보를 계속해서 노출해야 한다. 재개할때마다 갱신이 되는 형태로 지속. 컨트롤 시도 시 실패할 때 재로드”. 기준은 ΔV4 설계 `d5214d7a`이며 AC15와 VP-16을 아래 계약으로 강화한다. AC16~17 및 VP-17~18은 REQUIRED 유지, VP-01~15는 REGRESSION 유지한다.
+
+| 결정 | 상태 | 제품 계약 |
+|---|---|---|
+| D-18 | ACTIVE | 같은 앱 창에서 세션별 마지막 관측 목록·명령을 유지한다. 재진입 및 메뉴 재열기마다 새 조회를 시작하고 갱신 중에도 기존 목록을 표시한다. 제어가 실패하면 성공으로 표시하지 않고 자동 재조회한다. 재조회 실패에도 기존 목록과 오류 안내를 유지한다. 자동 플러그인 로딩 정책은 변경하지 않는다. |
+
+AC15 강화: A→B→A와 컴포넌트 재마운트에서도 A 관측 목록을 즉시 표시하면서 갱신한다. 갱신 중/실패 후의 이전 정보로 제어하지 않는다. live 부재·부분 실패에는 마지막 관측 중 누락분을 읽기 전용으로 유지하고 이전 목록 안내를 표시하며, 완전한 live 재조회 성공은 삭제된 항목·명령까지 새 결과로 교체한다. 제어 실패 후 read를 자동 호출하고 결과와 오류 안내를 함께 표시한다. 세션/하네스 경계를 넘어 결과를 쓰지 않는다.
+
+기술: renderer 창 수명의 세션 ID+backend 메모리 관측 캐시를 사용한다. DB·설정 저장은 추가하지 않는다. hook은 refresh/error 동안 snapshot을 보존하고 refresh 중 제어를 잠근다. live 부재/partial 합성 시 현재 결과가 우선하고 과거 항목은 canToggle=false, connected→configured로 내려 현재 연결처럼 표시하지 않는다. 이전 명령은 이름 관측을 유지하되 마지막 관측임을 알린다. 전체 live 성공은 캐시를 교체한다. Composer가 활성 세션 진입 시 조회하며 + 메뉴 재열기는 추가 갱신한다. 캐시가 조회를 생략하지 않으므로 재개별 재검증 부수 효과를 유지한다. IPC의 runtime/generation 검사는 계속 최종 쓰기 권한이다.
+
+| Pair / node | 경로·자리 | 직접 oracle |
+|---|---|---|
+| VP-16 / R-15·SD-02 CHANGED REQUIRED | EP13 기존 3자리 중 hook의 관측 유지·실패 재조회 강화. 추가 EP16 ①Composer active/session→조회 ②hook 창/세션/backend snapshot 읽기·갱신 ③NativeResourcesMenu 갱신/오류 표시 ④AttachMenu 갱신/이전 정보 표시 | useNativeResources.test의 remount/pending refresh/failure/scope/complete replacement; Composer.native-menu.test의 closed-menu 세션 진입·재열기; 실제 두 메뉴의 feedback 렌더 |
+
+§10 EP16의 검색 범위: `rg -n 'useNativeResources|nativeAttachItems|nativeResourcesMenu|native\.refresh' app/src/renderer/src/features/chat`. 기존 EP13/14의 운반 자리는 유지하고 새 관측 저장·진입·feedback 의무 4자리를 더해 분모 56. 직접 행동 oracle을 사용하여 신규 변이는 선택하지 않는다. 기존 M1/M2와 운영 gate는 승계한다. D-18↔강화 AC15 및 AC16/17 충돌 0, D-17 자동 로딩 미결에 기대는 구현 없음. 앱 재시작 후 메모리 캐시 유지·실행 중이지 않은 하네스를 목록 조회만을 위해 실행하는 동작은 범위 밖이다.
