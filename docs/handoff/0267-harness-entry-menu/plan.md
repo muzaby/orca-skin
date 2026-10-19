@@ -5,8 +5,8 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | IMPL_DONE / r1 |
-| V mode / 기준 V / 유효 V | Baseline V / none / V1 |
+| 상태 / 라운드 | READY / r1.2 |
+| V mode / 기준 V / 유효 V | Delta V / V1+ΔV1+ΔV2 (`409ce04b`) / V1+ΔV1+ΔV2+ΔV3 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
 # Part I — Product & UX Contract
@@ -209,6 +209,63 @@ ACTIVE D-05~09 ↔ AC5~10 대조: 충돌 0. UI 두 하위 목록과 두 하네�
 기술 설계: ChatState에 메모리 전용 `harnessExplicitlySelected`를 둔다. setModel의 선택적 options가 true일 때 설정하고 이후 자동 모델 채움에도 보존한다. 초기 state는 false이며 새 초안에서 초기화한다. seedLandingBackend는 명시 선택 초안을 건너뛴다. Composer의 자동 폴백 두 자리만 saved/turn lock 또는 명시 선택 여부로 제약하고 수동 모델 메뉴의 필터는 변경하지 않는다. DB·설정 포맷·IPC 변경 없음.
 
 적대 증거: not selected — 실제 reducer·effect·표시 결과를 보는 직접 oracle. 기존 M1/M2 유지. gate는 기존과 동일하며 Composer/store/reducer 관련 비-DB 회귀를 추가한다. ACTIVE D-01~10 ↔ AC1~11 정합, 새 사용자 결정 없음; READY.
+
+## Delta V3 — 실제 네이티브 목록과 프로젝트 하네스 표시
+
+사용자는 실제 Orca에서도 Claude MCP·플러그인이 안 보인다고 확인했다. 하네스 그룹의 연결 요약 제거와 프로젝트 OpenCode 헤더도 명시 요청했다. 기존 r1 보고는 당시 런타임 전용 계약의 관측으로 보존하며, 아래 변경이 우선한다.
+
+### 결정 / 관측 계약
+
+| ID | 상태 | 내용 / 근거 |
+|---|---|---|
+| D-11 | ACTIVE | 하네스 그룹 제목 아래 연결 요약을 제거한다. 개별 MCP 상태와 하위 메뉴의 로딩·오류 안내는 유지한다. 사용자 요청. |
+| D-12 | ACTIVE | Claude 설치·설정 메타데이터를 읽어 세션이 실행 중이 아니어도 네이티브 목록을 노출한다. 활성 설정은 `설정에서 활성화`, 명시 비활성은 `비활성화`, 설치만 확인되면 `설치됨`으로 구별한다. 실제 실행 상태가 있으면 그 상태가 우선한다. 사용자의 누락 수정 요구를 위한 읽기 전용 보완이며 D-07·09의 런타임 전용/연결 없으면 빈 목록 부분을 대체한다. |
+| D-13 | ACTIVE | 프로젝트 빈 화면도 현재 backend의 기존 랜딩 헤더를 사용한다. Claude는 기존 로고+Work/Code 문구, OpenCode는 기존 브랜드 로고. Composer·프로젝트 정보·대화 목록을 유지한다. 사용자 요청. |
+
+D-08의 세션 한정 제어는 유지한다. 구성에서만 발견한 항목은 모두 읽기 전용이며 전역 파일 쓰기·설치·MCP 자동 실행·user settingSources 확대는 하지 않는다. 이는 표시 요청에 실행 정책 변경을 섞지 않기 위한 구현 경계다.
+
+| AC | 행동 기준 | 검증 수단 / production 경로 |
+|---|---|---|
+| AC12 | Claude/OpenCode 그룹은 제목과 MCP·플러그인만 표시하고 `연결됨` 요약을 표시하지 않는다. 하위 행 상태는 유지한다. | ChatTitleBar.native-resources.test.ts 실제 팝업·두 backend·늦은 응답과 submenu 행 |
+| AC13 | 저장 세션의 backend/cwd로 Claude 사용자·프로젝트·로컬 MCP와 설치 플러그인을 읽는다. 무관한 프로젝트 설치는 제외하고 비활성·설정 활성·실제 연결 상태를 구별한다. 실 실행과 동일 항목은 중복하지 않는다. live가 없어도 표시하고 조회 실패는 오류로 보인다. | configured-resources.test.ts 실제 임시 파일, bootstrap.native-history.test.ts DB→등록 callback, session-resources.test.ts IPC 합성, nativeResourcesMenu.test.ts offline 항목 |
+| AC14 | 프로젝트 Composer의 backend 변경에 맞춰 헤더가 바뀌며 Claude 복귀도 된다. 기존 프로젝트 정보·Composer props·목록과 loading 보호는 유지한다. | agentModeLanding.render.test.ts 실제 페이지+헤더 registry, 두 backend 렌더 |
+
+### 조사 / 기술 설계
+
+현재 session-resources handler는 supervisor의 live만 읽으며, ProjectLandingPage는 AgentModeToggle을 고정 배치한다. Claude는 기존 provider 격리 정책으로 settingSources=user를 제외한다. 설치된 네이티브 플러그인을 로딩했다고 거짓 표시하는 대신 구성 관측을 별도로 합친다.
+
+Claude reader는 native root의 settings.json, plugins/installed_plugins.json(v2), 사용자 `.claude.json`(CLAUDE_CONFIG_DIR 지정 시 그 root 아래), cwd의 프로젝트 root `.mcp.json`·`.claude/settings{,.local}.json`과 global config의 해당 project 항목만 읽는다. project/local 설치는 projectPath가 해당 root/cwd인 항목만 포함한다. plugin manifest의 inline/file MCP 및 기본 `.mcp.json`도 읽되 상대 경로를 plugin root 안으로 제한한다. 설정 우선순위는 user→project→local, MCP 동명은 user→project→local이며 live가 최종 우선한다. 파일 없음은 빈 구성, 읽기/JSON 오류는 경로·원문을 노출하지 않는 조회 오류다. 네이티브 자격증명·env·경로는 DTO에서 제거한다.
+
+새 `configured`·`installed` status를 공유 DTO와 i18n에 추가한다. plugin ID는 정규화된 설치 경로의 hash로 live/init과 inventory가 같은 키를 쓰며 경로를 renderer에 보내지 않는다. main harness module에 선택적 구성 조회 포트를 두고 bootstrap이 DB session의 backend/cwd를 해석해 주입한다. handler는 조회 및 toggle 후 새 runtime 상태에 read-only inventory를 합치며 쓰기 검증은 live 목록만 사용한다. renderer는 disconnected여도 items를 표시하고 실제 빈 경우에만 연결 없음 안내를 쓴다.
+
+LandingHeader는 chat feature 내부 registry를 재사용하는 얇은 공개 컴포넌트다. 새 대화와 프로젝트가 함께 소비하며 Composer를 key로 재생성하지 않는다.
+
+근거: [MCP scope](https://code.claude.com/docs/en/mcp), [plugin manifest](https://code.claude.com/docs/en/plugins-reference), 설치된 SDK 0.3.296 타입·runtime, 로컬 native 파일의 키/상태만 관측. 실제 로컬 설치에는 활성 2개·비활성 1개 플러그인이 있었고 검사한 해당 프로젝트·사용자 MCP 정의는 비어 있었다. 전체 비밀 설정은 출력하지 않았다.
+
+### V nodes / pairs / §10
+
+| 노드 | delta | 계약 |
+|---|---|---|
+| R-12~14 / AT-12~14 | NEW | AC12~14 |
+| SD-02 / ST-02 | CHANGED | offline 구성 조회→live 합성→toggle 재조회, 기존 stale 차단 유지 |
+| AR-03 / IT-03 | NEW | native file→harness module→DB scope/handler→DTO→메뉴 |
+| MD-04 / UT-04 | NEW | 범위·상태·메타데이터 projection·live 중복 제거 |
+
+| Pair | requiredness | start → edges → end / oracle | 지점 |
+|---|---|---|---|
+| VP-12 | R-12↔AT-12 / REQUIRED | titlebar→native group→두 submenu; ChatTitleBar.native-resources.test.ts: no group connection summary | EP10 |
+| VP-13 | R-13↔AT-13, SD-02↔ST-02, AR-03↔IT-03 / REQUIRED | native config→module→bootstrap scope→IPC merge→menu; 아래 자리별 테스트 | EP11 |
+| VP-14 | MD-04↔UT-04 / REQUIRED | 임시 native 파일→projection/merge; configured-resources.test.ts 및 session-resources.test.ts | EP11 |
+| VP-15 | R-14↔AT-14 / REQUIRED | ProjectLandingPage backend→LandingHeader registry→브랜드; agentModeLanding.render.test.ts | EP12 |
+| VP-01~11 | REGRESSION | 기존 직접 oracle·M1/M2 유지; D-07·09와 AC7·10의 runtime-only 부분은 AC13/VP13~14로 대체 | EP1~9 |
+
+| 지점 | 고정 자리 / 검색 | 직접 oracle / 실패 의미 |
+|---|---|---|
+| EP10 (1자리) | NativeResourcesMenu 그룹 제목/요약; `rg -n 'MenuTitle|nativeResources.connected' app/src/renderer/src/features/chat` | ChatTitleBar.native-resources: no group connection summary; 중복 연결 표시 |
+| EP11 (6자리) | ①native reader 범위·상태 projection ②live plugin identity ③harness module reader 선택 ④bootstrap DB backend/cwd 주입 ⑤handler read/toggle 후 합성과 live-only 쓰기 ⑥menu disconnected items 수용. `rg -n 'configuredResources|nativePluginId|registerSessionResourceHandlers|nativeResourcesMenu' app/src` | ① configured-resources: scopes/status/errors/secret projection ②native-resources + reader 같은 경로 ID ③④ bootstrap.native-history: stored scope callback 실제 module reader ⑤session-resources: offline/merge/toggle/replaced ⑥nativeResourcesMenu + useNativeResources: offline locked rows. 잘못된 범위·가짜 연결·중복·전역 제어·목록 누락 |
+| EP12 (2자리) | 프로젝트 backend 구독/헤더 전달, LandingHeader registry 선택. `rg -n 'LandingHeader|harnessLanding|AgentModeToggle' app/src/renderer/src/pages app/src/renderer/src/features/chat/components` | agentModeLanding.render: switch project header Claude→OpenCode→Claude, Composer/프로젝트/목록 관측; 잘못된 브랜드·초안 UI 누락 |
+
+추가 자리 합 9, 기존 33을 포함한 분모 42. 새 적대 증거는 선택하지 않는다(파일/실제 조립/최종 렌더 직접 oracle). 기존 M1/M2 회귀 수행. gate: lint·3종 typecheck·관련 main/renderer/preload tests·build, IPC 문서·카탈로그·inventory/문서 검사. 로컬 실제 reader smoke는 names/status만 출력하고 인증된 외부 MCP 실행 여부는 별도 한계로 보고한다. 신규 의존성·DB migration 없음. D-11~13↔AC12~14 일치, READY.
 
 ## [구현자 기입] 설계 리뷰
 
