@@ -82,7 +82,7 @@ V1은 문서 기반 R↔AT만 필요하다. 런타임 시스템·배선·알고�
 | Pair | left ↔ right | requiredness | path | 직접 oracle | 적대 증거 | §10 |
 |---|---|---|---|---|---|---|
 | VP-01 | R-01 ↔ AT-01 | REQUIRED | Git → main → upstream | `gate:git branch --show-current`·upstream | not selected — 직접 Git 관측 | EP-01 |
-| VP-02 | R-02 ↔ AT-02 | REQUIRED | 가이드 → 토큰·공통 UI | `gate:node app/scripts/check-doc-inventory.mjs --check-links` + 코드 대조 | not selected — 문서 의미는 직접 대조 | EP-02 |
+| VP-02 | R-02 ↔ AT-02 | REQUIRED | 가이드 → 토큰·공통 UI | `gate:cd app && node scripts/check-doc-inventory.mjs --check` + 코드 대조 | not selected — 문서 의미는 직접 대조 | EP-02 |
 | VP-03 | R-03 ↔ AT-03 | REQUIRED | 소스 집합 → 카탈로그 행 | `gate:python work/check-design-docs.py` | TSX 행 제거·가짜 경로 추가 시 red | EP-03 |
 | VP-04 | R-04 ↔ AT-04 | REQUIRED | AGENTS·INDEX → 가이드 | `gate:python work/check-design-docs.py` | 진입점 링크 제거 시 각 자리 red | EP-04 |
 
@@ -154,7 +154,7 @@ handoff 프로토콜·템플릿·skill은 변경하지 않는다.
 
 ## 19. 게이트
 
-- 문서: `node app/scripts/check-doc-inventory.mjs --check`·`--check-links`·`--check-counts`.
+- 문서: `cd app && node scripts/check-doc-inventory.mjs --check`로 생성물·수치 산문·상대 링크를 함께 검사한다.
 - 변경 subtree: `cd app && npm run lint && npm run typecheck`.
 - 직접 증거: `python work/check-design-docs.py`; 등록 음성 대조는 메모리 사본에서 수행한다.
 - 사람 실기: 해당 없음 — UI 미변경.
@@ -164,3 +164,5 @@ handoff 프로토콜·템플릿·skill은 변경하지 않는다.
 Decision↔AC 충돌 0. 본문의 AS-IS/TO-BE·AC·pair·§10이 같은 문서 경로를 가리킨다.
 선택된 적대 증거는 카탈로그 누락·허위 행·진입점 누락에 한정한다.
 기존 토큰·컴포넌트와 다른 새로운 제품 정책은 정하지 않는다.
+
+설계 정정: 실제 CLI의 cwd는 app이며 개별 링크/수치 flag 없이 `--check`가 검사를 함께 수행함을 소스 `runCli`에서 확인했다. 검증 범위는 유지하고 실행 명령만 정정했다.
