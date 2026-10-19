@@ -211,7 +211,9 @@ OpenCode 적용 시의 추가 선행조건·레이어별 gate는 [마이그레�
 
 → "어댑터를 Orca 범용 데이터 계층으로"라는 질문의 답은 이 표다: **어댑터는 표의 *세로 한 칸*(자기 백엔드 열)만 안다. 가로(자산 종류)와 정규 소스(Tier A)는 어댑터 밖이 소유한다.**
 
-> **engine-specific 자산 연기 (agents·commands·plugin·hooks 배포)**: **agents·commands·full-plugin 번들**은 cross-engine 표준이 아니라 **엔진 고유**다 — Orca SSOT 에서 제외하고 배포하지 않는다(standardization.md §2). 이들과 **hooks 의 파일 배포**(구 `sources/hooks/<engine>` → `dist/<engine>/plugin/hooks` 복사)는 추후 **claude plugin 지원**(가까운 미래: `~/.claude/plugins` 스캔 + query 호출 시 사용자 설정에 따라 주입 여부 결정 — `options.plugins` 채널 재사용)으로 도입한다. 단 **런타임 hook 기능**(`options.hooks` in-process, §3.2.5)은 위 표대로 별개 유지된다. (구 Agent/Command "로컬 플러그인 자동 로드" 행은 plugin 컨테이너 폐기로 제거.)
+> **엔진 고유 자산**: agents·commands·hooks·full-plugin 번들의 원본은 각 하네스가 관리하며 Orca sources/dist로 복사하지 않는다. Claude는 `plugin-catalog.ts`가 사용자·프로젝트·로컬 활성 설정과 설치 registry를 해석하고 `sendMessage`가 해당 local plugin 경로와 스킬 허용 목록을 SDK에 전달한다. provider 전역 설정 격리는 유지하며 사용자 인증·env·model을 함께 상속하지 않는다. 런타임 hook(`options.hooks`)은 별도 어댑터 경로다.
+
+네이티브 스킬 메뉴는 실행 채널이 있으면 SDK의 실제 명령을, 없으면 활성 설치 플러그인의 skill/command 파일에서 얻은 이름·설명·힌트를 사용한다. 설치 metadata는 매 조회/새 spawn에서 읽으며 사용자 호출 금지 스킬은 메뉴에서 제외한다. 메뉴의 `plugin::skill` 표시와 전송의 `/plugin:skill` 이름은 구분한다.
 
 ---
 

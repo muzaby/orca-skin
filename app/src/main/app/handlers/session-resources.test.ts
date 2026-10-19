@@ -289,3 +289,78 @@ describe('native resource IPC', () => {
     expect(write).not.toHaveBeenCalled()
   })
 })
+
+it('offers installed skills offline and replaces them with authoritative live commands', async () => {
+  const installed = [
+    {
+      name: 'frontend-design:frontend-design',
+      description: 'Design',
+      argumentHint: '[brief]',
+      source: 'plugin' as const
+    }
+  ]
+  let runtime: GovernedLiveTurn | undefined
+  const commands = vi.fn(async () => installed)
+  registerSessionResourceHandlers(() => runtime, undefined, undefined, commands)
+  expect(await invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })).toMatchObject({
+    state: 'disconnected',
+    commands: installed
+  })
+  expect(commands).toHaveBeenCalledWith('session-B')
+  commands.mockResolvedValueOnce([])
+  expect(await invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })).toMatchObject({
+    commands: []
+  })
+  runtime = {
+    nativeResources: async () => ({ ...snapshot(), commands: [] })
+  } as unknown as GovernedLiveTurn
+  expect(await invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })).toMatchObject({
+    commands: []
+  })
+  runtime = {
+    nativeResources: async () => {
+      throw new Error('unavailable')
+    }
+  } as unknown as GovernedLiveTurn
+  expect(await invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })).toMatchObject({
+    commands: installed,
+    partial: true
+  })
+})
+
+it('accepts only a read-only draft scope and never looks up or controls a live session', async () => {
+  const lookup = vi.fn()
+  const commands = [
+    {
+      name: 'frontend-design:frontend-design',
+      description: 'Design',
+      argumentHint: '',
+      source: 'plugin' as const
+    }
+  ]
+  const draft = vi.fn(async () => commands)
+  registerSessionResourceHandlers(lookup, undefined, undefined, undefined, draft)
+  const request = { backend: 'claude', cwd: 'C:/work-B', projectId: 'project-B' }
+  expect(await invoke(CHANNELS.sessionNativeResources, request)).toEqual({
+    state: 'disconnected',
+    items: [],
+    commands
+  })
+  expect(draft).toHaveBeenCalledExactlyOnceWith(request)
+  expect(lookup).not.toHaveBeenCalled()
+  await expect(
+    invoke(CHANNELS.sessionNativeResources, { ...request, sessionId: 'session-B' })
+  ).rejects.toThrow()
+  await expect(
+    invoke(CHANNELS.sessionNativeResources, { ...request, backend: 'unknown' })
+  ).rejects.toThrow()
+  await expect(
+    invoke(CHANNELS.sessionSetNativeResource, {
+      ...request,
+      id: 'x',
+      kind: 'mcp',
+      enabled: true,
+      generation: 'x'
+    })
+  ).rejects.toThrow()
+})

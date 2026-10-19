@@ -394,16 +394,24 @@ export const SetSkillEnabledSchema = SkillTargetSchema.extend({
 })
 
 export const LoadSessionRequestSchema = z.object({ sessionId: z.string().min(1) })
-export const NativeResourcesRequestSchema = z
-  .object({ sessionId: z.string().min(1).max(512) })
-  .strict()
-export const SetNativeResourceSchema = NativeResourcesRequestSchema.extend({
+const SessionResourceRequestSchema = z.object({ sessionId: z.string().min(1).max(512) }).strict()
+export const NativeResourcesRequestSchema = z.union([
+  SessionResourceRequestSchema,
+  z
+    .object({
+      backend: BackendSchema,
+      cwd: z.string().min(1).max(4096).nullable(),
+      projectId: z.string().min(1).max(512).nullable()
+    })
+    .strict()
+])
+export const SetNativeResourceSchema = SessionResourceRequestSchema.extend({
   generation: z.string().min(1).max(512),
   kind: z.enum(['mcp', 'plugin']),
   id: z.string().min(1).max(2048),
   enabled: z.boolean()
 }).strict()
-export const OpenNativePluginSchema = NativeResourcesRequestSchema.extend({
+export const OpenNativePluginSchema = SessionResourceRequestSchema.extend({
   id: z.string().min(1).max(2048)
 }).strict()
 

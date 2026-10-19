@@ -134,3 +134,42 @@ node --input-type=module -e "import {checkLinks,LINK_EXCLUDED} from './scripts/c
 브라우저 fixture에서 Claude/OpenCode, white/dark, 기본 좁은 viewport/1280×820를 확인하고 override를 reset했다. 플러그인 row의 computed opacity=1, role=menuitem, disabled=false, 설명+설치 폴더 열기 title을 관측했다. 스킬 선택의 원래 slash 삽입, +플러그인에는 MCP만 있음, 수동 새로고침 부재, 폴더 요청 fixture status를 확인했다.
 
 로컬 화면: `.codex-remote-attachments/0267/native-plugin-folder-r14.jpg`, `native-skills-r14.jpg`, `native-plugin-folder-final.jpg`(활성/설치 상태 표시 유지). 실제 사용자 설치본의 Explorer 창 실행·인증 CLI 실행은 수행하지 않았으며 OS 경계는 shell stub으로 검증했다. OpenCode 설치 조회는 관측한 file/path 및 npm registry 캐시를 지원하고 미해석 명세/없는 폴더는 오류 안내와 자동 재조회로 처리한다.
+
+## r1.5 — 활성 native plugin 스킬 발견과 실행 (ΔV7)
+
+2026-10-20. 사용자 설치 registry의 frontend-design 활성 상태·manifest·SKILL.md를 읽어 누락 원인을 확인했다. 설치 설정과 원본 파일은 수정하지 않았다. 설계 본문과 새 초안 진입점 보완을 각각 구현과 분리해 커밋했다.
+
+| 검사 | 명령 / 관측 |
+|---|---|
+| 새 catalog/query 집중 | `.tmp/0267-r15-targeted.log`: 7파일 69/69. 실제 설치 파일 fixture→metadata/SDK query options·기존 scan/allowlist 회귀 |
+| 광역 회귀 | `.tmp/0267-r15-regression.log`: 70파일 918케이스 중 최초 16실패. 실행 옵션 테스트 1건이 실제 사용자 plugin을 예상하지 않아 native config를 격리했다. 나머지 15건은 Windows tmp 조상 stat EPERM. 같은 5파일을 일반 권한으로 재실행한 `restricted-rerun.log`는 65/65. 대상 918케이스를 이 재실행과 함께 확인했다. |
+| 최종 saved/draft | `vitest run`에 session-resources, bootstrap.native-history, preload/index, useNativeResources, Composer.native-menu, composerAttachMenu 테스트를 지정: 6파일61/61(`final-focused.log`). 마지막 test fixture 타입 수정 후 session-resources 11/11(`handler-final.log`). |
+| 최종 메뉴 | ChatTitleBar.native-resources, nativeResourcesMenu, attachMenuModel, composerAttachMenu: 4파일22/22(`final-menu.log`) |
+| 회귀 포트 | Claude native-resources/adapter.live-control/configured-resources, OpenCode native-resources/plugin-installation/adapter.persistent, session-runtime: 7파일117/117(`ports-regression.log`) |
+| 타입 | `npm run typecheck`의 node/web 성공. test 단계 새 mock 호출 타입 오류를 수정한 후 `npm run typecheck:test` 성공(`typecheck-final.log`, `typecheck-test-final.log`). 오류 없이 지나간 앞 단계는 반복하지 않았다. |
+| lint | `node node_modules/eslint/bin/eslint.js --cache ./src ./scripts`: 오류0·기존 경고4(`lint-final.log`). 마지막 helper 주석·smoke 정리도 해당 파일 lint 통과 |
+| build | `node node_modules/electron-vite/bin/electron-vite.js build`: main/preload/renderer 성공(`build-final.log`). prebuild 없이 SQLite Electron ABI 유지 |
+| boundary | `node --test scripts/harness-boundary.test.mjs`: 8/8(`boundary.log`) |
+| docs | design checker source=292/rows=292·양방향 차집합[]·음성 대조 통과(`catalog.log`). inventory 생성물/산문 일치, ignored `.tmp/opencode-dev`의 기존 링크 오류5개. `.tmp` 제외 `checkLinks`=[](`inventory.log`, `links.log`) |
+| 선택 변이 | M2 MCP/plugin contents 맞바꿈→3failed; M3 스킬/MCP 목적지 맞바꿈→1failed. 원본 bytes 복원 후 2파일11/11(`mutations.log`) |
+
+로그 이름은 별도 표기가 없으면 `.tmp/0267-r15-` 접두사다. 집중·메뉴·포트 재실행은 광역 회귀와 겹치므로 테스트 합계에 다시 가산하지 않았다. 실제 하네스 SDK 호출/파일 읽기/생산 컴포넌트 입력 경로를 확인했으며, 이번 턴에 전체 저장소 테스트를 실행했다고 주장하지 않는다.
+
+### 실제 SDK/CLI와 설치 frontend-design
+
+재현 스크립트는 [smoke-native-plugin-skills.mjs](../../../../app/scripts/smoke-native-plugin-skills.mjs)다. production ClaudeAdapter와 번들 SDK/CLI를 실행하며 모델 엔드포인트만 loopback HTTP/SSE 대역을 쓴다. 별도의 `.tmp/native-skill-smoke-*` 환경에 registry·settings를 만들고 host 인증 환경을 상속하지 않는다.
+
+1. `node app/scripts/smoke-native-plugin-skills.mjs`: native plugin fixture + 비활성 Orca 스킬을 함께 전달한다. 실제 CLI가 frontend-design:frontend-design, frontmatter 별칭인 frontend-design:metadata-name을 보고하며 user-invocable:false 항목은 숨긴다.
+2. `node app/scripts/smoke-native-plugin-skills.mjs <실제 설치 frontend-design 경로>`: 설치된 원본 SKILL.md를 그대로 읽는다. 원본 내용은 전후 동일하고, CLI의 모델 요청에 실제 skill 본문과 design-brief-0267 인자가 포함됐다.
+3. 두 실행 모두 nativeResources에 frontend-design plugin/명령이 노출됐다. API 요청 1회, expanded=true, brief=true. 마지막 스크립트 정리 후 기본 fixture 재실행도 같은 결과다.
+
+증거는 `cli-naming-final.log`, `cli-installed.log`, `cli-final.log`다. raw 설정·키·skill 본문은 로그에 출력하지 않았다. 외부 유료 모델·사용자 인증으로 실행하지 않았으므로 모델 응답 품질 검증을 의미하지 않는다.
+
+### UI와 수명 관측
+
+- 실제 ComposerInputController→AttachMenu→CascadeBody에서 저장 세션과 새 초안 모두 frontend-design::frontend-design을 표시하고 tooltip에 설명·인자 힌트를 제공한다. 선택 결과는 `/frontend-design:frontend-design preserved draft`, onSend=0이다.
+- 초안 조회는 backend/cwd/pendingProjectId를 전달한다. A 폴더 요청 지연 중 B로 바꾸면 B 목록이 유지되고 A의 늦은 응답은 폐기한다. 새 초안 요청은 session lookup·토글·폴더 열기를 실행하지 않는다.
+- runtime이 없으면 실제 설치 skill 파일의 명령 metadata를 쓰고, live commands가 있으면 빈 배열도 우선한다. 성공한 빈 설치 목록은 제거된 스킬을 지우고, 지원하지 않는 OpenCode offline 원천은 기존 관측을 유지한다.
+- 네이티브 root는 SDK plugins와 skills에 합치되 Orca injected 제외 목록에는 넣지 않는다. 새/재개 spawn에 같은 정책을 적용하며 설정을 매번 다시 읽는다.
+
+브라우저 mock을 추가로 바꾸거나 실제 Orca 창을 재시작하지 않았다. 현재 UI 스타일은 r1.4를 유지하며 이번 변경은 실제 데이터 발견·실행 및 새 초안 연결이다. 독립 handoff verify는 다음 단계다.

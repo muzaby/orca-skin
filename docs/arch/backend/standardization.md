@@ -39,7 +39,7 @@ AGENTS.md 와 MCP 는 같은 재단(AAIF) 거버넌스로 수렴했으므로 공
 
 `commands` 는 독립 축이 아니다. Claude 가 custom commands 를 skills 로 병합했으므로, commands 는 skill 의 invocation surface 로 본다(adapters.md §3.1 Command 행).
 
-**호환성 기준 소유 모델**: 위 표의 처리는 "엔진 밖에서도 표준인가"(=cross-engine 호환)로 갈린다. Orca SSOT 가 관리·배포하는 **호환 자산은 AGENTS.md·MCP·SKILL.md** 셋이다. 반면 **agents·commands·hooks·full-plugin 번들**은 엔진 고유(엔진 *안에서만* 표준)라 **engine-specific 으로 분류**하고 Orca SSOT 에서 제외한다 — 각 엔진이 SSOT 이며 Orca 는 배포하지 않는다. 이들의 지원은 추후 **claude plugin 지원**(가까운 미래: `~/.claude/plugins` 스캔 + query 호출 시 사용자 설정에 따라 주입 여부 결정)으로 연기한다(adapters.md §3.1). 단 **런타임 hook**(`options.hooks` in-process 콜백)은 배포 자산이 아니라 어댑터 구현 디테일로 유지된다(adapters.md §3.2.5).
+**호환성 기준 소유 모델**: 위 표의 처리는 "엔진 밖에서도 표준인가"(=cross-engine 호환)로 갈린다. Orca SSOT 가 관리·배포하는 **호환 자산은 AGENTS.md·MCP·SKILL.md** 셋이다. 반면 **agents·commands·hooks·full-plugin 번들**은 엔진 고유(엔진 *안에서만* 표준)라 **engine-specific 으로 분류**하고 Orca SSOT 에서 제외한다 — 각 엔진이 SSOT 이며 Orca 는 배포하지 않는다. Claude 네이티브 플러그인은 설치 registry와 활성 설정을 읽어 기존 설치 경로에서 SDK로 로드한다. Orca 자산으로 재배포하지 않으며 로딩·스킬 목록 계약은 [adapters.md](./adapters.md)를 따른다. 단 **런타임 hook**(`options.hooks` in-process 콜백)은 배포 자산이 아니라 어댑터 구현 디테일로 유지된다(adapters.md §3.2.5).
 
 ## 3. 시스템 구조
 

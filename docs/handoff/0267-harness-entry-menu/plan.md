@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | READY / r1.5 |
+| 상태 / 라운드 | IMPL_DONE / r1.5 |
 | V mode / 기준 V / 유효 V | Delta V / r1.4 (`5c814855`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
@@ -798,3 +798,98 @@ READY. ComposerInputController→useNativeResources는 sessionId=null이면 IPC�
 EP21 (4자리)를 VP20~22 REQUIRED에 추가한다: ①Composer backend/cwd/projectId→hook 요청 ②preload/sessionApi→query IPC ③handler 초안 분기 ④bootstrap 하네스/cwd→파일 reader. 검색은 `rg -n 'nativeResources|useNativeResources|configuredCommands' app/src/main/app app/src/preload app/src/renderer/src/features/chat app/src/renderer/src/shared/api`다. 직접 oracle은 ①Composer.native-menu의 새 초안 선택/초안 보존·useNativeResources의 cwd 변경 지각 응답 ②preload/index.test ③session-resources.test strict union/읽기 전용 ④bootstrap.native-history.test 초안 실제 스킬 파일이다.
 
 이번 실행 분모는 신규 14 + 상속 회귀 30 = 44자리로 정정한다. 새 IPC 요청은 정보 조회만 수행하며 native 설정 쓰기·세션 생성은 하지 않는다. D-24 및 AC22의 누락된 production 진입점을 닫는 구현 전 계약 보완이며 신규 사용자 결정은 없다.
+
+## [구현자 기입] r1.5 설계 리뷰
+
+SELF_PASS. 설치된 frontend-design의 활성 flag·manifest·SKILL.md는 존재하지만 기존 query에는 native root가 없었고, Orca의 skills 허용 목록이 native 스킬을 제외했다. 메뉴 또한 실행 중인 SDK 명령만 읽었다. D-23~25를 별도 설계 커밋으로 확정하고 세 경로를 함께 연결했다.
+
+새 대화는 sessionId가 없어 기존 hook이 조회를 생략했다. EP21/strict draft 조회를 구현 전에 별도 설계 커밋으로 보완했다. 이 경로는 세션을 만들거나 CLI를 실행하지 않는다. D-19~22의 UI 계약은 유지했다.
+
+## [구현자 기입] r1.5 강제 지점 전수와 V-pair 자기확인
+
+| V-pair | 대상 불변식 | §10이 적은 지점 | 닫은 수 | 직접 oracle 좌표 | 이번 턴 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP20~23 | 활성 설치·메타데이터 | EP18 ①② / 2 | 2/2 | plugin-catalog.test: selects active installations… / discovers declared skill paths… | user/project/local/provider flag·scope, custom 경로·legacy command·설명·힌트·hidden | 없음 |
+| VP20~23 | SDK root·허용 목록 | EP18 ③④ / 2 | 2/2 | adapter.native-plugins.test: loads enabled native skills for session %s…; adapt.test | 신규/재개 옵션에 native+Orca enabled, disabled 제외, 다음 spawn의 설정 변경 반영 | 없음 |
+| VP20~22 | 오프라인 조회 배선 | EP19 ①②③ / 3 | 3/3 | bootstrap.native-history: reads native configuration through the registered module…; session-resources: offers installed skills offline… | 실제 module reader의 project-B 파일→commands, live=[] 우선, 성공한 configured=[]로 제거 반영 | 없음 |
+| VP20~22 | 관측·선택·실행 | EP20 ①②③ / 3 | 3/3 | adapter.native-plugins 실제 init; Composer.native-menu saved/draft; gate: node app/scripts/smoke-native-plugin-skills.mjs | native 노출·injected 제외, exact slash+초안, 실제 CLI 모델 요청에 skill 본문·인자 포함 | 없음 |
+| VP20~22 | 새 초안 범위 조회 | EP21 ①②③④ / 4 | 4/4 | Composer.native-menu saved/draft; useNativeResources: discovers draft skills by cwd…; preload/index.test; session-resources: accepts only a read-only draft scope…; bootstrap.native-history | pendingProjectId/cwd 전달, 다른 cwd 지각 응답 폐기, strict union·write 거부, 명시 cwd/프로젝트 기본 경로 | 없음 |
+| VP13~14 | 구성 목록 합성 | EP11 / 6 | 6/6 | Claude configured-resources/native-resources; bootstrap.native-history; session-resources; nativeResourcesMenu | 설치 scope·비밀 제외·동일 ID·저장 cwd·live 우선·구성 상태. r1.4 자리별 oracle 재실행 | 없음 |
+| VP16 | 재진입 관측·자동 갱신 | EP13 / 3 + EP16 / 4 | 7/7 | session-resources pending/failed; useNativeResources remount/refresh/failure/late; Composer.native-menu closed menu; NativeResourcesMenu 실제 렌더 | 이전 목록 유지, 실패 read 재시도, 세션/하네스 지각 응답 차단, 수동 버튼 없음 | 없음 |
+| VP17 | 스킬/MCP 분리·운반 | EP14 / 6 | 6/6 | 양 native-resources, Claude adapter.live-control, OpenCode persistent, Composer.native-menu, composerAttachMenu | SDK 이름·설명·힌트, session-B 고유 명령, 스킬에만 노출·초안 삽입·IME 보호 | 없음 |
+| VP18 | OpenCode 명령 실행 | EP15 / 1 | 1/1 | adapter.persistent: dispatches a real native slash command… / rejected command / unknown slash | command 인자·첨부·승인 비차단·지각 실패 회귀 | 없음 |
+| VP19 | 폴더 메타데이터 | EP17 ①②③ / 3 | 3/3 | Claude configured-resources/native-resources; OpenCode plugin-installation/native-resources | scoped/라이브 설치 경로, file/npm 실제 fixture·설명·재정렬 ID | 없음 |
+| VP19 | 폴더 main·IPC | EP17 ④⑤⑥⑦⑧ / 5 | 5/5 | 양 adapter live 포트; session-runtime; bootstrap.native-history; session-resources; preload/index.test | 교체 fence·저장 scope·파일/경로 주입 거부·shell 오류·ID 전송 | 없음 |
+| VP19 | 폴더 화면 액션 | EP17 ⑨⑩ / 2 | 2/2 | useNativeResources: opens a plugin directory…; nativeResourcesMenu 실제 CascadeBody | toggle 0·open 호출, 실패 자동 read·설명 title·일반 밝기·플러그 아이콘 | 없음 |
+
+계산: 신규 14 + 회귀 30 = 44/44. §10 검색을 `.tmp/0267-r15-ep18.txt`~`ep21.txt`로 다시 실행했다. 생산 경로를 읽어 등록/저장 scope/초안 scope/query/observer/메뉴/입력 경계를 위 자리에 대조했고, import·타입·테스트·기존 포트의 중복 운반을 제외한 목록 차집합은 없다. EP18의 공통 metadata helper는 기존 scan.test 회귀에도 포함했다.
+
+| pair | requiredness | 자기 상태 | 근거 |
+|---|---|---|---|
+| VP20~23 | REQUIRED | SELF_PASS | 위 신규 14자리 직접 oracle, 실제 SDK/CLI loopback smoke |
+| VP13~14,16~19 | REGRESSION | SELF_PASS | 위 회귀 30자리, M2/M3 red 후 원본 복원 green |
+| VP01~12,15 | NOT_REQUIRED | r1.4 결과 승계 | 이번 수정이 닿지 않은 nav·브랜딩·모델 선택은 이번 실행 분모에서 제외 |
+
+## [구현자 기입] r1.5 이번 라운드 수정의 잠금
+
+| 증거 | 변경 자리 / 결함 | 관측 | 복원 |
+|---|---|---|---|
+| M2 | nativeResourcesMenu MCP/plugin contents 맞바꿈 | 3 failed / 3 | 원본 bytes 복원 |
+| M3 | attachMenuModel 스킬/MCP 목적지 맞바꿈 | 1 failed / 8 | 원본 bytes 복원 |
+
+선택 증거 2 · 인용 변이 0 · 새 구조/proxy oracle 0 = 표 2행. 복원 후 2파일 11/11, 최종 메뉴 4파일 22/22. 신규 14자리는 실제 파일·함수·컴포넌트·CLI 요청의 직접 행동 oracle이라 변이 not selected다.
+
+## [구현자 기입] r1.5 Product/UX 파생 검토
+
+| 상황 | 사용자 관측 | 확인 |
+|---|---|---|
+| 첫 메시지 전 | +→스킬에 활성 설치 스킬, 설명·힌트 tooltip | Composer saved/draft 두 경로에서 frontend-design::frontend-design 선택 |
+| 선택 | /frontend-design:frontend-design 앞 삽입, 기존 초안 유지, 자동 전송 없음 | 실제 Controller→AttachMenu→CascadeBody→draft, onSend 0 |
+| 재개/설정 변경 | 저장 범위의 최신 목록, live 성공 목록 우선 | catalog 재조회·새/재개 spawn, live empty·configured empty 구별 |
+| 초안 작업 폴더 변경 | 이전 폴더 결과가 새 메뉴를 덮지 않음 | A 지연→B 완료→A 도착, B 명령 유지 |
+| 조회 실패/미지원 | 기존 partial/error·읽기 전용 처리 유지 | handler/hook 회귀; OpenCode는 미지원 offline 원천을 undefined로 구별해 관측 보존 |
+
+기존 +→플러그인에는 native 스킬을 넣지 않는다. 케밥 플러그인 토글·수동 재조회 버튼을 복원하지 않았다.
+
+## [구현자 기입] r1.5 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 새 초안에 세션 ID가 없어 조회가 생략됨 | ✅ EP21 설계 보완 후 읽기 전용 draft 요청 구현 | saved/draft 선택·bootstrap 실제 reader·strict union |
+| 2 | 활성 스킬을 제거해도 이전 commands가 남을 수 있음 | ✅ 성공한 빈 배열과 지원하지 않는 원천 undefined를 구분 | session-resources empty replacement·OpenCode 관측 회귀 |
+| 3 | native roots를 injected 제외 목록에 넣으면 다시 숨겨짐 | ✅ 제외 목록은 기존 Orca roots만 유지 | 실제 init native만 노출·CLI nativeResources 관측 |
+| 4 | 사용자 전역 설정 전체 상속 시 provider 구성 변경 | ✅ enabledPlugins와 설치 파일만 읽고 기존 settingSources 유지 | 옵션에 unwanted-model/secret 없음, 선택 model 유지 |
+| 5 | provider 전용 native root/flag와 실행 전 기본 구성 reader 차이 | 기존 offline reader 범위 유지. 실행 후 SDK 목록이 우선하며 provider 전용 offline 해석 확대는 후속 검토 | runtime catalog는 실행 env/root/override 사용, draft는 현재 process native root와 cwd 사용 |
+| 6 | 대규모 plugin tree 또는 비표준 YAML | 동기 spawn 계약·scalar metadata 범위 유지. 디렉터리 symlink 재귀 제외, 실제 CLI 명령 우선 | 기본/선언 경로·block description·hidden·metadata alias 테스트 |
+| 7 | 인증된 외부 모델·실제 앱 창 확인 | 이번에는 외부 모델을 호출하지 않음. 실제 CLI와 설치 skill을 loopback으로 검증 | 모델 요청 body/인자·원본 파일 불변 확인, 새 UI 시각 변경 없음 |
+
+## [구현자 기입] r1.5 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | Claude catalog/query/adapt·공통 metadata parser, module/bootstrap/IPC/preload, Composer/hook draft 조회, 테스트·CLI smoke·현재 계약 문서 |
+| 실행 명령 | [validation r1.5](evidence/validation.md)의 vitest, CLI smoke, typecheck, lint, build, boundary, catalog, inventory, M2/M3 |
+| 관측한 게이트 산출 | 회귀 70파일 918케이스 확인(환경 제한 재실행 포함). 최종 집중 6파일61·메뉴4파일22·포트7파일117·handler1파일11 통과. 타입3종·build 성공, lint 오류0·기존 경고4 |
+| V-pair 자기확인 | REQUIRED 4·REGRESSION 6 SELF_PASS, SELF_BLOCKED 0. 독립 verify 아님 |
+| 강제 지점 전수 | 이번 대상 44/44, 이전 비영향 36자리는 실행 분모에서 제외 |
+| AC 자기보고 | 누적 23/23 기계 자기검증. 이전 19에 AC20~23 추가; 비영향 AC는 r1.4 관측 승계 |
+| 합계 검산 | ✅23 · ⚠️0 · ❌0 = 총23. 실제 외부 모델·실제 앱 창 및 독립 verify는 별도 |
+| 블로커 / 역질문 | 없음. 위 잠재 문제 5~7은 범위와 검증 한계로 기록 |
+| 대상 커밋 | (r1.5 구현 — 좌표는 INDEX) |
+
+| AC | 관측 |
+|---|---|
+| AC1~5,11~12,14 | ✅ r1.4의 nav/brand/model/titlebar oracle 승계, 이번 변경 비영향 |
+| AC6~10,13 | ✅ native DTO·주입 제외·scope·read/control/늦은 응답 회귀 및 titlebar 메뉴 |
+| AC15~19 | ✅ hook 재진입/실패 자동 갱신·두 메뉴·exact slash·OpenCode command·폴더 open·refresh 부재 |
+| AC20 | ✅ 신규/재개 실제 sendMessage 옵션에 활성 native root, scope/비활성 제외와 다음 spawn 갱신 |
+| AC21 | ✅ catalog metadata/hidden/allowlist + 실제 CLI metadata-name 관측, 기존 disabled Orca 제외 |
+| AC22 | ✅ saved/draft 실제 +→스킬 선택, tooltip·초안 유지·live 우선·초안 cwd fence |
+| AC23 | ✅ 실제 설치 frontend-design을 CLI로 읽어 모델 요청에 확장·인자 유지·원본 불변; 외부 모델은 loopback 대역 |
+
+## [구현자 기입] r1.5 Review Signals
+
+- r1의 추가 구현 턴 r1.5이며 독립 verify 전이다. 기존 SDK 관측만으로는 설치된 plugin skill의 실제 로딩을 보장하지 못했다.
+- 사용자 요청으로 D-18의 자동 로딩 제한을 대체했다. 이전 표시-only 계약으로 실제 실행까지 완료했다고 주장하지 않는다.
+- 새 초안의 sessionId=null 경로가 별도 진입점이므로 구현 전 EP21을 추가했다.
+- Windows 임시 폴더 조상 stat 제한은 동일 실패 파일을 일반 권한으로 재실행해 분리했다. 기존 ignored 외부 clone 링크 오류 5건은 이번 변경과 무관하게 유지된다.

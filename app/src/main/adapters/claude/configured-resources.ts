@@ -5,12 +5,10 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { NativeResource } from '../../../shared/native-resources'
 import { isRecord } from '../../../shared/obj'
 import { claudeNativePaths } from './native-paths'
+import { selectClaudePlugins, pluginPathKey } from './plugin-catalog'
 
 const record = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {})
-const pathKey = (value: string): string => {
-  const normalized = resolve(value.replaceAll('\\', '/'))
-  return process.platform === 'win32' ? normalized.toLowerCase() : normalized
-}
+const pathKey = pluginPathKey
 
 /** Match init observations to installation records without sending paths over IPC. */
 export function nativePluginId(path: string): string {
@@ -117,31 +115,13 @@ async function readConfiguredClaudeResources(
     }
   }
   const plugins: NativeResource[] = []
-  const installations = record(installed.plugins)
-  for (const [name, entries] of Object.entries(installations)) {
-    if (!Array.isArray(entries)) continue
-    const applicable = entries.filter((entry): entry is Record<string, unknown> => {
-      if (!isRecord(entry) || typeof entry.installPath !== 'string') return false
-      if (entry.scope === 'user' || entry.scope === 'managed') return true
-      return (
-        (entry.scope === 'project' || entry.scope === 'local') &&
-        typeof entry.projectPath === 'string' &&
-        [root, cwd].some((path) => pathKey(path) === pathKey(entry.projectPath as string))
-      )
-    })
-    // The highest scope is the active installation for a plugin id.
-    const rank = (entry: Record<string, unknown>): number =>
-      ['user', 'project', 'local', 'managed'].indexOf(String(entry.scope))
-    const entry = applicable.sort((a, b) => rank(b) - rank(a))[0]
-    if (!entry) continue
-    const installPath = entry.installPath as string
-    const flag = enabledPlugins[name]
-    const enabled = flag === true || Array.isArray(flag) || isRecord(flag)
+  for (const entry of selectClaudePlugins(cwd, root, installed.plugins, enabledPlugins)) {
+    const { key: name, path: installPath, enabled, installedOnly } = entry
     const manifest = await readObject(join(installPath, '.claude-plugin', 'plugin.json'))
     const id = nativePluginId(installPath)
     directories.set(id, installPath)
     plugins.push({
-      ...configured(id, name, 'plugin', enabled, flag === undefined),
+      ...configured(id, name, 'plugin', enabled, installedOnly),
       ...(typeof manifest.description === 'string'
         ? { description: manifest.description.trim().slice(0, 4000) }
         : {})

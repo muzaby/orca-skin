@@ -208,6 +208,7 @@ describe('Claude 공통 실행 옵션', () => {
         sessionId: null,
         text: 'hello',
         cwd: '/ws/project',
+        env: { CLAUDE_CONFIG_DIR: join(pluginRoot, 'isolated-config') },
         extensions: {
           skills: [],
           hooks: { normalized: {} },

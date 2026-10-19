@@ -9,7 +9,8 @@ vi.mock(
   async () => (await import('../../../../../shared/ui/renderHarness.testfixture')).fakeReactDom
 )
 const fixture = vi.hoisted(() => ({
-  sessionId: 'session-B',
+  sessionId: 'session-B' as string | null,
+  pendingProjectId: 'project-B',
   backend: 'claude' as 'claude' | 'opencode',
   agentKind: 'code' as const
 }))
@@ -86,7 +87,7 @@ function render(): void {
       controlsStart: null,
       controlsEnd: null,
       diffRequirementSnapshot: {
-        sessionKey: fixture.sessionId,
+        sessionKey: fixture.sessionId ?? 'draft-B',
         sessionId: fixture.sessionId,
         ids: [],
         revision: 0,
@@ -170,5 +171,42 @@ it.each(['claude', 'opencode'] as const)(
         .queryAll('[role="menuitem"]')
         .some((item) => item.textContent.startsWith('session-B::review'))
     ).toBe(false)
+  }
+)
+
+it.each(['saved', 'draft'])(
+  'offers an installed frontend-design skill before the Claude runtime starts (%s)',
+  async (mode) => {
+    if (mode === 'draft') fixture.sessionId = null
+    fixture.backend = 'claude'
+    read.mockResolvedValue({
+      state: 'disconnected',
+      items: [],
+      commands: [
+        {
+          name: 'frontend-design:frontend-design',
+          description: 'Create a distinctive interface',
+          argumentHint: '[brief]',
+          source: 'plugin'
+        }
+      ]
+    })
+    render()
+    await settle()
+    dom.click(dom.query('[title="chat.composer.attachMenuTitle"]')!)
+    await settle()
+    clickLabel('chat.composer.attachMenu.skills')
+    const row = dom
+      .queryAll('[role="menuitem"]')
+      .find((item) => item.textContent === 'frontend-design::frontend-design')!
+    expect(row.props.title).toBe('Create a distinctive interface\n[brief]')
+    if (mode === 'draft')
+      expect(read).toHaveBeenCalledWith({ backend: 'claude', cwd: null, projectId: 'project-B' })
+    clickLabel('frontend-design::frontend-design')
+    await settle()
+    expect(dom.query('[data-native-draft]')!.props.value).toBe(
+      '/frontend-design:frontend-design preserved draft'
+    )
+    expect(onSend).not.toHaveBeenCalled()
   }
 )

@@ -1,3 +1,4 @@
+import { configuredClaudeCommands } from '../../../adapters/claude/plugin-catalog'
 import { ClaudeAdapter } from '../../../adapters/claude/adapter'
 import {
   configuredClaudeResources,
@@ -22,6 +23,7 @@ export const claudeMainModule: MainHarnessModule = {
   parseRuntimeModels,
   readUserSettings: readUserClaudeSettings,
   configuredResources: configuredClaudeResources,
+  configuredCommands: configuredClaudeCommands,
   configuredPluginDirectory: configuredClaudePluginDirectory,
   defaultProvider,
   resolveTitleModel,

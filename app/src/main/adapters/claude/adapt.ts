@@ -38,11 +38,17 @@ import {
 // 사용자 ~/.claude/skills 래퍼 plugin). 상대 경로는 cwd 기준이라 세션 cwd 변경과 얽힐 수 있으므로
 // 호출자는 절대 경로를 넘긴다. 경로가 비어 있거나 실제 플러그인 매니페스트(.claude-plugin/plugin.json)가
 // 없는 root 는 개별 생략한다 — deploy 실패/미실행 시 SDK 에 존재하지 않는 local plugin 경로를 넘겨
-// 오류를 내는 대신 해당 플러그인 없이 진행한다(설계 AC#5·엣지케이스#2). 전부 탈락이면 옵션 자체 생략.
-export function adaptPlugins(pluginRoots?: readonly (string | null | undefined)[]): object {
+// 오류를 내는 대신 해당 플러그인 없이 진행한다(설계 AC#5·엣지케이스#2). nativeRoots 는 설치
+// 카탈로그가 scope·활성 설정·디렉터리 존재를 확인한 네이티브 플러그인이다. 전부 탈락이면 옵션 생략.
+export function adaptPlugins(
+  pluginRoots?: readonly (string | null | undefined)[],
+  nativeRoots: readonly string[] = []
+): object {
   const plugins = (pluginRoots ?? [])
     .filter((p): p is string => typeof p === 'string' && p.trim() !== '')
     .filter((p) => existsSync(join(p, '.claude-plugin', 'plugin.json')))
+    .concat(nativeRoots)
+    .filter((path, index, paths) => paths.indexOf(path) === index)
     .map((path) => ({ type: 'local' as const, path }))
   return plugins.length > 0 ? { plugins } : {}
 }
@@ -59,13 +65,14 @@ export function adaptSystemPrompt(append?: string): object {
 // 래퍼, 0117) 에서 발견되고, SDK `options.skills`(string[]) 가 그중 **활성**만 필터한다. plugin 스킬은
 // `plugin-name:skill-name` 네임스페이스로 발견되므로 Orca 스킬은 `orca:`, 어댑터 스킬은 `claude:`
 // prefix 를 붙인다(adaptSkillNameForClaude). 어댑터 스킬은 토글 불가·항상 on. 알려진 스킬이
-// 하나도 없으면 'all' 로 둬 스캔 누락이 스킬을 통째로 가리지 않게 한다.
-export function adaptSkills(skills: SkillInfo[]): object {
+// 하나도 없으면 'all' 로 둬 스캔 누락이 스킬을 통째로 가리지 않게 한다. 네이티브 플러그인의
+// 원래 이름은 nativeSkills 로 합쳐 Orca 필터가 활성 네이티브 스킬을 차단하지 않게 한다.
+export function adaptSkills(skills: SkillInfo[], nativeSkills: readonly string[] = []): object {
   if (skills.length === 0) return { skills: 'all' as const }
   const active = skills
     .filter((s) => s.sourceKind !== 'orca' || s.enabled)
     .map((s) => adaptSkillNameForClaude(s))
-  return { skills: active }
+  return { skills: [...new Set([...active, ...nativeSkills])] }
 }
 
 // provider settings flag 주입 (handoff 0023/0024/0028). 해석 완료 blob 의 settings 를 flag settings

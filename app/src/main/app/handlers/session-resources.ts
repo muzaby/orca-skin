@@ -5,6 +5,8 @@ import {
   SetNativeResourceSchema
 } from '../../../shared/protocol'
 import type {
+  DraftNativeResourcesRequest,
+  NativeCommand,
   NativeResource,
   NativeResources,
   SetNativeResource
@@ -22,15 +24,18 @@ export function registerSessionResourceHandlers(
   configuredPluginDirectory: (
     sessionId: string,
     id: string
-  ) => Promise<string | undefined> = async () => undefined
+  ) => Promise<string | undefined> = async () => undefined,
+  configuredCommands?: (sessionId: string) => Promise<NativeCommand[] | undefined>,
+  draftCommands: (request: DraftNativeResourcesRequest) => Promise<NativeCommand[]> = async () => []
 ): void {
   const read = async (
     sessionId: string,
     runtime: GovernedLiveTurn | undefined
   ): Promise<NativeResources> => {
-    const [liveRead, configuredRead] = await Promise.allSettled([
+    const [liveRead, configuredRead, commandsRead] = await Promise.allSettled([
       resourceQuery(async () => runtime?.nativeResources?.()),
-      resourceQuery(() => configuredResources(sessionId))
+      resourceQuery(() => configuredResources(sessionId)),
+      resourceQuery(async () => configuredCommands?.(sessionId))
     ])
     if (lookup(sessionId) !== runtime)
       throw new Error('하네스 연결이 바뀌었습니다. 메뉴를 다시 열어 주세요.')
@@ -38,7 +43,12 @@ export function registerSessionResourceHandlers(
     if (configuredRead.status === 'rejected' && !live)
       throw new Error('하네스 목록을 불러오지 못했습니다. 다시 시도해 주세요.')
     const configured = configuredRead.status === 'fulfilled' ? configuredRead.value : []
-    const partial = liveRead.status === 'rejected' || configuredRead.status === 'rejected'
+    const partial =
+      liveRead.status === 'rejected' ||
+      configuredRead.status === 'rejected' ||
+      commandsRead.status === 'rejected'
+    const commands =
+      live?.commands ?? (commandsRead.status === 'fulfilled' ? commandsRead.value : undefined)
     const items = new Map(
       configured.map((item) => [`${item.kind}:${item.id}`, { ...item, canToggle: false }])
     )
@@ -50,6 +60,7 @@ export function registerSessionResourceHandlers(
       ...live,
       state: live?.state ?? 'disconnected',
       items: [...items.values()],
+      ...(commands ? { commands } : {}),
       ...(partial ? { partial: true } : {})
     }
   }
@@ -57,7 +68,19 @@ export function registerSessionResourceHandlers(
     CHANNELS.sessionNativeResources,
     NativeResourcesRequestSchema,
     'reject',
-    async ({ sessionId }): Promise<NativeResources> => {
+    async (request): Promise<NativeResources> => {
+      if (!('sessionId' in request)) {
+        try {
+          return {
+            state: 'disconnected',
+            items: [],
+            commands: await resourceQuery(() => draftCommands(request))
+          }
+        } catch {
+          throw new Error('하네스 목록을 불러오지 못했습니다. 다시 시도해 주세요.')
+        }
+      }
+      const { sessionId } = request
       const runtime = lookup(sessionId)
       return read(sessionId, runtime)
     }
