@@ -788,3 +788,13 @@ D-19~22의 표시 형식·툴팁·초안 보존·폴더 열기·수동 재조회
 신규 분모 10자리. 기존 회귀 EP11(6)+EP13(3)+EP14(6)+EP15(1)+EP16(4)+EP17(10)=30자리, 이번 실행 분모 40자리이며 비영향 자리를 재검증했다고 주장하지 않는다. 직접 결과 oracle이므로 신규 변이 not selected; 변경 전후 M2/M3만 재실행한다.
 
 운영 gate: lint·typecheck 3종·수정 adapter/IPC/renderer/확장 스캐너 회귀·build·boundary·문서 inventory. 실제 CLI 검증은 loopback 응답으로 수행하며 외부 유료 모델은 호출하지 않는다. AC20~23과 D-23~25 대조 충돌 0; D-16/D-18의 대체 문장 및 나머지 D-19~22 승계 확인. 독립 verify는 이후 별도 수행한다.
+
+### ΔV7 보완 — 첫 전송 전 새 대화
+
+READY. ComposerInputController→useNativeResources는 sessionId=null이면 IPC를 호출하지 않아, 설치 목록을 추가해도 새 대화 첫 전송 전에는 스킬이 보이지 않는다. AC22의 runtime 부재는 저장 세션뿐 아니라 새 대화 초안도 포함한다.
+
+조회 IPC는 기존 `{sessionId}`와 읽기 전용 초안 `{backend,cwd,projectId}`의 strict union으로 받는다. 초안은 main이 cwd(명시 절대 경로 또는 기존 프로젝트 기본 경로)를 해석해 configuredCommands만 조회하며 items=[]·disconnected다. 토글/폴더 열기는 기존 sessionId 필수 계약을 유지한다. 초안 scope가 바뀌면 이전 응답을 폐기하고 마지막 세션 관측 캐시와 섞지 않는다.
+
+EP21 (4자리)를 VP20~22 REQUIRED에 추가한다: ①Composer backend/cwd/projectId→hook 요청 ②preload/sessionApi→query IPC ③handler 초안 분기 ④bootstrap 하네스/cwd→파일 reader. 검색은 `rg -n 'nativeResources|useNativeResources|configuredCommands' app/src/main/app app/src/preload app/src/renderer/src/features/chat app/src/renderer/src/shared/api`다. 직접 oracle은 ①Composer.native-menu의 새 초안 선택/초안 보존·useNativeResources의 cwd 변경 지각 응답 ②preload/index.test ③session-resources.test strict union/읽기 전용 ④bootstrap.native-history.test 초안 실제 스킬 파일이다.
+
+이번 실행 분모는 신규 14 + 상속 회귀 30 = 44자리로 정정한다. 새 IPC 요청은 정보 조회만 수행하며 native 설정 쓰기·세션 생성은 하지 않는다. D-24 및 AC22의 누락된 production 진입점을 닫는 구현 전 계약 보완이며 신규 사용자 결정은 없다.
