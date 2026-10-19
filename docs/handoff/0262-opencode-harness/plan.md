@@ -4000,3 +4000,16 @@ SELF_PASS(ΔV22 EP56 범위). 불변식은 D22-1 — "선택한 엔진의 key·�
 
 - 같은 축(VP-16 운반) — ΔV22 고정 목록 안에서 닫았고 목록 밖 발견 0.
 - 라운드 9, impl 턴 r9.
+
+## [검증자 기입] 파생 이슈 — r9 검증
+
+r9(V1~ΔV22) 독립 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md) r9. 인용 A5·M2가 red 2로 D-0262-11이 닫혔고 r9 15자리도 전부 red다. 고정 목록 P36의 model 항이 열려 VP-16이 root로 남는다.
+
+| # | finding | 귀속 | disposition | 대응 방향 |
+|---|---|---|---|---|
+| D-0262-12 | EP56 P36 `main/features/sessions/session-runtime.ts:850` 콜드 spawn 요청의 model 항 미잠금 — spread 뒤 `model: undefined`(S2m)에 `src/main`+`src/shared` 4,929케이스 green. S2는 `providerSettings`만, `콜드 스폰이 model 을 기록하고…`는 `spawnedModel`만 본다. 깨지면 콜드 스폰 첫 프롬프트(`adapters/opencode/v1/channel.ts:221`→`:123`)가 고른 모델 없이 문서 기본 모델로 실행된다 | VP-16 root(EP56 P36 운반 항 "문서·모델") · VP-Δ15-02 BLOCKED_BY · AC40 | BLOCKING | `session-runtime.test`에 콜드 스폰의 adapter 요청 `model`을 기본값·직전 턴과 구별되게(`other/extra`) 채워 `toBe` 단언한다. S2m red로 닫는다 |
+| N-0262-16 | r9 N1에 `prettier/prettier` warning 2(`chat-turn.execution-config.test.ts:289`·`:440`) | 현재 산출물 형식 | NON_BLOCKING | 다음 코드 push에서 포맷 |
+| N-0262-17 | 구현 보고 — 이전 닫힘 49를 운반 항 재측정 없이 "회귀"로 묶었고, fixture가 바뀐 N1·`session-runtime.test`를 "무변경"으로 적어 이전 red를 재실행하지 않았다(검증 재실행 red→green 0) | 보고 운영 | NON_BLOCKING | 재구현 보고는 이전 닫힘 자리도 운반 항마다 좌표를 적는다 |
+| N-0262-18 | ΔV22 정확도 — P36 상태 "닫힘 — S2"는 문서 항만 잰 판정 · 제외 라벨 `harness-config.ts:316`("spawn env")은 `:367`→P22 문서 운반도 겸함(X367 red 40) · 범위 밖 path 파일 4개(기존 좌표 구간 안, 변이 red) · r9-1(P40 제외 그룹 후보) | ΔV22(설계자 후속) | NON_BLOCKING | 다음 설계 정정 때 상태·라벨·범위를 고친다 |
+
+EP56 재측정은 닫힘 63 · 동치 4 · 도달 불가 1 · 열림 1(P36) = 69다. 이전 red 60은 그대로 red이고 운영 gate는 통과했다(verify §4·§9). 다음 재구현 전에 `handoff-review`를 수행한다 — 라운드 10(verify §14).

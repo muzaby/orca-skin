@@ -1311,3 +1311,200 @@ HEAD `79e55671`, 실행 순서 readonly lint → typecheck → Vitest(Node ABI) 
 - pair: root PAIR_FAIL 1(VP-16) · BLOCKED_BY 1(VP-Δ15-02) · PLAN_GAP 0 · 사람 인수 대기 VP21-V·VP-11 시각.
 - AC(판정 범위 22): ✅14 · ⚠️8 · ❌0. 운영 gate PASS.
 - 다음 단계: handoff-review(라운드 9) → 구현자 r9 — D-0262-11의 A5·M2 red 보고.
+
+# r9 검증
+
+## 메타 (r9)
+
+| 항목 | 값 |
+|---|---|
+| 일자 | 2026-10-19 |
+| 대상 커밋/range | `ae2a72fe..24ab81c2` — round 37 `aa14cb6a` · ΔV22 설계 `fddd507c` · r9 구현 `a3afc5ef`·`b7990889`·`ebef11a7`·`24ab81c2`(테스트 4파일 + plan·INDEX) |
+| 구현 전 plan 기준 | `fddd507c`(ΔV22 READY) — 이후 규범 행 변경 없음 |
+| V mode / 유효 V | V1 + ΔV1~ΔV22 |
+| 검증 HEAD | `24ab81c2` (`origin/ccr-f3743b30-7177zo`, PR #507 head → base `codex-opencode-harness`) |
+| 라운드 | 9 |
+| 상태 | **FAIL** — root PAIR_FAIL 1(VP-16) · BLOCKED_BY 1(VP-Δ15-02) · PLAN_GAP 0 |
+| 자기 검증 여부 | **예 — r9 구현(`Agent: claude`)과 검증이 같은 에이전트다.** 보고에 없는 축: §10 범위 감사(같은 술어를 `src/main` 전체로) · 술어 확장 재열거 · 닫힘 자리 운반 항 재측정 16 · 형제·하류 변이 11(§4). 운반 항 재측정이 D-0262-12를 냈다 |
+
+## 0. 기준선 / plan validity (r9)
+
+- 기준선 성립: 설계 `fddd507c`와 구현 4커밋이 갈린다. 구현 커밋의 `plan.md` hunk는 `@@ -8,7`(메타 `상태`)·`@@ -3932,3 +3932,71`(`[구현자 기입]` r9) 2개 — Decision·AC·V node/pair·§10 변경 없음.
+- `app/` 변경은 테스트 4파일, production 0파일. `scan-surface.sh fddd507..24ab81c` = "변경된 소스 파일이 없습니다".
+- 라운드 9 선행 handoff-review는 round 37(`aa14cb6a`, `Handoff: none`)로 수행됐다.
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| V mode·상속 | 유효 | ΔV22 = `aa14cb6a`의 V1~ΔV21 + r8 verify `ae2a72fe` 위 Delta |
+| CHANGED node ↔ REQUIRED pair | 유효 | VP-16(root)·VP-Δ15-02(종속) 둘 다 REQUIRED |
+| §10 EP56 검색 재실행 | 유효 | 221줄 = 자리 69의 109줄 + 제외 112줄. 분류 스크립트 줄 단위 대조 — 미분류 0, 목록에 있으나 출력에 없는 줄 0 |
+| 술어 = 주어 · 범위 = path 파일 | 유효 | 범위 밖 path 파일 4개는 기존 좌표의 실행 구간 안이고 변이 red(§6) |
+| 선택 적대 증거 | not selected | 직접 oracle |
+| 운영 gate 열거 | 유효 | ΔV22 §운영 gate |
+
+## 2. 비판적 읽기 (r9) — 새 6케이스와 production 경로 대조
+
+| 케이스 | production 대조 | 판정 |
+|---|---|---|
+| N1 삭제 연속 턴 2(live·closed flush) | `removeEngine` = 문서 삭제 + `harnessSettings.invalidateAll()` + `harnessRuntime.invalidate(key, 'harness-settings-crud')` ↔ `handlers/engine.ts:36-47·82-86`. `runtimeModelCatalog.invalidate`만 빠짐 — 기본 배포 contribution 0(`deployment/harness-runtime.ts:120`)이라 merge 무변화 | 동등 |
+| 〃 운반 값 | 엔진 3개 정렬 local·other·third, 저장 other(`entries[0]` 아님)·선택 third. flush 단언 `other/extra`·문서 other — 폴백 `local/first`·삭제 `third/only`와 구별 | 구별 값 |
+| 〃 도달 | 저장 key ≠ 턴 key인 상태는 첫 턴이 user 커밋(`writer.ts:186·345-347`) 전에 끝나는 창(D-0262-10 probe)이고, 사용 중 엔진 삭제는 막히지 않는다(r8 §4) | production 도달 |
+| N1 모델 없는 listen 1 | `rewriteEngine` = engineUpdate와 같은 무효화. 문서 `models: {}` → catalog `[]` → `modelNameForFamily` undefined → `fallbackModel` | 도달 · 구별 값(`other/extra` ↔ undefined) |
+| `session-runtime` live pushTurn 1 | fixture `pushTurn` 기록에 model 항 추가. 첫 턴 `third/only` ↔ 연속 `other/extra` | 구별 값 |
+| `adapter.complete` 1 · `server.database-path` 1 | production `OpenCodeAdapter`·`OpenCodeServerPool`, `execFile`만 mock. 문서 ↔ `{}` — spawn 1회·`OPENCODE_CONFIG_CONTENT` | 구별 값 |
+
+- 보고 r9-2(flush는 `...input.base` 상속)는 `continuation.ts:66-80`과 일치한다.
+
+## 4. 적대 증거 재측정 (r9)
+
+범위: `src/main`+`src/shared` 4,929케이스(기준선 4,922 pass · 0 fail · 7 skip, 425파일 + 2 skip). 변이는 `git worktree add --detach 24ab81c` 사본에서만 실행했다. 실행기는 앵커 1회 출현과 원본 SHA256 복원을 단언했다. 111변이 중 73은 전체 범위, 38은 경로 테스트 27파일(455케이스) 부분집합 우선 — 부분집합 green이면 전체 범위로 재실행(`s` 표기 = 부분집합 red). 종료 후 사본은 `git checkout`으로 원복하고 제거했다.
+
+### 인용 변이 (D-0262-11)
+
+| 변이 | r8 | r9 | 구현 보고 |
+|---|---|---|---|
+| A5 `send.ts:661` 연속 턴 sessionId → `null` | green 0/4,923 | **red 2** — N1 삭제 2케이스 | 2 일치 |
+| M2 `continuation.ts:79` flush `model` 항 제거 | green 0/4,923 | **red 2** — N1 삭제 2케이스 | 2 일치 |
+
+- 인용 2/2 red → D-0262-11 closed.
+
+### r9가 닫은 15자리 재측정 (검증자 재정의)
+
+| 변이 | 자리 → 바꾼 것 | r9 | 보고 |
+|---|---|---|---|
+| C65 | `chat-turn-continuation.ts:65` `fallbackModel` 우선 | red 2 (N1) | 2 |
+| C655 | `send.ts:655` `fallbackModel: undefined` | red 1 (N1 listen) | N1 단독 |
+| C62 | `chat-turn-continuation.ts:62` family → `null` | red 5 | 5 |
+| R281 | `resolve-turn.ts:281` 요청 family 무시 | red 4 | 4 |
+| AD65 | `adapter.ts:65` catalog config `{}` | red 18 | 17 |
+| RC142 | `runtime-config.ts:142` base 문서 항 제거 | red 19 | 18 |
+| RC141 | `:141` modelProviderId ← harnessId | red 1 (`settings.test`) | 1 |
+| ST82 | `common/settings.ts:82` 형제 loader | red 4 | 4 |
+| SR435 | `session-runtime.ts:435` pushTurn model 제거 | red 1 | 1 |
+| AD81 · CH123 | `adapter.ts:81` · `channel.ts:123` model 제거 | red 1 · 1 | 1 · 1 |
+| AD140 | `adapter.ts:140` databasePath config `{}` | red 1 | 1 |
+| SV225 · SV234 | `server.ts:225` acquire · `:234` env config `{}` | red 1 · 1 | 1 · 1 |
+| NS32 | `native-session.ts:32` 한도 → 200000 | red 2 | 2 |
+| AD138 · AD156 | `adapter.ts:138·156` native data 경로 config `{}` | green 0/4,929 · 0/4,929 | 동치 |
+
+- 15자리 전부 red. AD65·RC142의 +1은 N1 마지막 수정(`ebef11a7`) 뒤 케이스 수다.
+- AD138·AD156 동치 확인: `nativeOpenCodeData`는 `USERPROFILE`/`HOME`·`XDG_DATA_HOME`만 읽고 config는 `OPENCODE_CONFIG_CONTENT`에만 들어간다(`native-storage.ts:5-21`).
+
+### 이전 라운드 red 재실행 — 검출 파일 N1·`session-runtime.test` fixture가 바뀜
+
+보고는 "좌표 파일 무변경(추가만)이라 재실행하지 않았다"고 적었다. 그러나 N1 `install()` 시그니처·문서 병합과 `session-runtime.test` `channelLive().pushTurn` 기록이 바뀌었다.
+
+| 변이 | r8 (또는 r7) | r9 | 판정 |
+|---|---|---|---|
+| X8 · X9 · X11 · X12 · X1 | 12 각각 | 16 · 15 · 15 · 15 · 15 (N1 14 · I19 1 · X8은 loopback 1 포함) | 유지 |
+| K9 · K9b · K5 | 12 · 12 · 13 | 15 · 15 · 16 | 유지 |
+| A1 · A3 · D1 · D11 | 8 · 1 · 11 · 11 | 10 · 1 · 13 · 11 | 유지 |
+| U6 · D16 · E2 · D2 · M1 | 2 · 13 · 11 · 5 · 6 | 4 · 16 · 11 · 8 · 7 | 유지 |
+| A6 · D3 · D15 | 6 · 6 · 7 | 6 · 6 · 7 | 유지 |
+| U1 · U4 · X10 · K4 · U9 · H2 · U10 · U11 | r7 red | 15 · 17 · 14 · 25 · 23 · 56 · 13 · 21 | 유지 |
+| F1 · F2 · F3 · S2 · E3 · E5 · H1 | r7 red | 3 · 3 · 3 · 1 · 1 · 1 · 3 | 유지 |
+| O1 · O2 · O3 · O4 · O5 · O6 · O7 · D6 · D7 · D8a | r7 red | 1 · 1 · 1s · 1s · 1s · 2 · 1s · 4s · 1s · 2 | 유지 |
+| V2b · V3 · V4 · V5 · W1~W11 | r7 red | 1s · 1s · 1s · 3s · W1 20s · W2 16s · W3 15s · W4 1s · W5 17s · W6 17s · W7 2s · W8 3s · W9 3s · W10 18s · W11 3s | 유지 |
+| U5 · U7 · A2 · A4 · D8b · E4 · V2 | green(도달 불가·동치) | green 0/4,929 각각 | 판정 유지 |
+
+- 이전 red 60개 → red 60. **red → green 0** — 덮개 회귀 없음.
+
+### 보고에 없는 독립 축
+
+| 축 | 변이 / 방법 | r9 | 판정 |
+|---|---|---|---|
+| 운반 항 재측정 | ΔV22 닫힘 자리의 운반 항 중 이전 변이가 바꾸지 않은 항: W1h(P02 harnessId) · W4k(P03 providerKey) · W101(P03 hit 문서) · W107·W112(P04 문서) · W5h·W5p(P05) · RC139·RC140·RC190(P07 key·harnessId·문서) · PI30(P21 prepare-input) · X367(P22 경로 `harness-config.ts:367`) · K5e(P23 env) · R145(P52 model) · AD125m(P39c 요청 model) · Q417(P59) · Q579(P61) | 18s · 1s · 1s · 19s · 20s · 17s · 19s · 1s · 2 · 19 · 25s · 40s · 1s · 1s · 1s · 3s · 2s | 잠김 |
+| 〃 P36 model | **S2m `session-runtime.ts:850` spread 뒤 `model: undefined`** | **green 0/4,929**(재실행. 첫 실행 red 1은 `loopback-callback.test` — 변이 import 그래프 밖, N-0262-14) | **D-0262-12** |
+| 〃 P25 models | R280 `resolve-turn.ts:280` `catalog?.models` 무시 | green 0/4,929 | 동치 — 목록(`modelsForProvider`)과 catalog(`openCodeCatalog`) 모두 같은 문서에 `parseOpenCodeModels`(`opencode/module.ts:26` · `catalog.ts:16`), `toAgentEnvironment`는 모델 무변환. Claude adapter는 `catalog` 없음 |
+| 형제·다른 지점 | C70(`chat-turn-continuation.ts:70` model 항) · R282(`:282` family) · SR435s(pushTurn에 spawn 시 모델) | red 9 · 4 · 1 | 잠김 |
+| 범위 밖 하류·조립 | I-act(`activity.ts:65` config `{}`) · I-map(`map.ts:268` config `{}`) · I-reg(`registry.ts` loader 맞바꿈) | red 1 · 2 · 1 | 잠김 — P45 O5·P01 좌표 실행 구간 안 |
+
+- S2m 상태는 production에서 갈린다. 콜드 스폰 요청(`session-runtime.ts:850`)은 adapter `sendMessage` → `openCodeChannel` → `submit(req, true)`(`channel.ts:221`) → `promptAsync` `model`(`:123`)로 간다. model이 빠지면 첫 프롬프트가 고른 모델 대신 문서 기본 모델로 실행된다.
+- 기존 좌표는 이 항을 보지 않는다. S2(`콜드 스폰은 이번 턴의 엔진 settings 를…`)는 `providerSettings`만 `toBe`로 보고, `콜드 스폰이 model 을 기록하고…`는 `spawnedModel`(`:503` 기록)만 본다.
+
+## 6. 강제 지점 재열거 (r9) — EP56 분모 69
+
+| 구분 | 보고 | 재측정 | 근거 |
+|---|---|---|---|
+| r9 15자리(열림 2 + 미측정 13) | 닫힘 15 | 닫힘 15 | §4 표 |
+| 이전 닫힘 49 | 회귀 | 닫힘 48 · **열림 1(P36)** | 운반 항마다 재측정(§4). P36 model 항 S2m green |
+| 동치 4(P17·P30a·P30b·P57) · 도달 불가 1(P15) | 유지 | 유지 | U7·A4·D8b·E4·U5 green 재현. 코드 근거: 두 `defaultProvider` 같은 본문(`opencode/model-policy.ts:9-13`·`claude/model-policy.ts:8-12`) · native 이력 adapter = `registry.get(meta.backend)`라 `:241` guard 미발동 · 새 세션 text는 schema가 비우지 않음(`protocol.ts:209`) |
+
+- 합계: 보고 **닫힘 64 · 동치 4 · 도달 불가 1 · 열림 0** ↔ 재측정 **닫힘 63 · 동치 4 · 도달 불가 1 · 열림 1 = 69**.
+- 범위 감사: EP56 술어를 `src/main` 비테스트 전체로 돌리면 범위 밖 매치 파일 79개다(`*.testfixture.ts` 포함). path 위는 4개 — `app/harnesses/registry.ts`(loader map, P01 좌표 구간 안·I-reg red) · `adapters/opencode/v1/activity.ts`·`map.ts`(P45 하류, O5 구간 안·I-act·I-map red) · `app/bootstrap.ts`(같은 factory 주입, 턴 운반 값 없음). 나머지는 사용량·인증·lease·respawn·`agent:list`(VP-18) 등 D22-1 끝점 밖이다.
+- 술어 확장: 범위 22파일에 `model|models|.settings|entry|selected.`를 더하면 88줄이 추가로 나온다. 운반 항은 5줄(`harness-config.ts:367` · `resolve-turn.ts:145`·`:280` · `common/settings.ts:101·112`)이고 각각 X367·R145·R280·W101·W112로 쟀다. 나머지는 타입·cache·로그·권한 모드(`send.ts:533·671`)다.
+- 제외 라벨 표본: `harness-config.ts:316`은 "spawn env"로 제외됐지만 `settings`가 `:367` → `:391`(P22)로 `providerSettings`에도 간다. X367 red 40이라 열린 자리는 아니다(N-0262-18).
+
+## 5. V-pair closeout (r9)
+
+| Pair | r9 결과 | 근거 |
+|---|---|---|
+| **VP-16 AR-02↔IT-02** | **PAIR_FAIL** (root 유지) | EP56 열림 2(P28d·P34)·미측정 13 닫힘(D-0262-11 closed). 고정 목록 P36 `session-runtime.ts:850`의 model 항 미잠금 — S2m green 0/4,929. D-0262-12 |
+| VP-Δ15-02 R40↔AT40 | BLOCKED_BY:VP-16 | 자기 자리 P38~P53은 닫힘(P40·P42·P44·P49·P52b 새 좌표 red, P42 `:138·156` 동치). AC40 "엔진 모델 오버라이드가 실제 실행에 적용"의 콜드 스폰 edge가 P36을 지난다 |
+| 그 밖의 V1~ΔV21 | r8 판정 유지 · VP21-V·VP-11 시각은 사람 인수 대기 | 이전 red 60 → red 60(§4) |
+
+- root PAIR_FAIL 1(VP-16) · BLOCKED_BY 1(VP-Δ15-02) · PLAN_GAP 0.
+- PLAN_GAP 아님: P36 행이 운반 항 "문서·모델(요청 전체)"을 이미 적는다. ΔV22 상태 칸의 "닫힘 — S2"가 문서 항만 잰 판정이었다. 구현자는 계약 추가 없이 콜드 스폰 adapter 요청의 model 단언 하나로 닫을 수 있다.
+
+### AT / AC 합계 (r9 판정 범위)
+
+| AC | 결과 |
+|---|---|
+| AC40 (ΔV15) | ⚠️ — 연속 턴·삭제 폴백·live pushTurn·native 구성은 잠겼으나 콜드 스폰 요청의 선택 모델 운반 미잠금(D-0262-12) |
+| AC54 · AC1·2·3·4·5·6·7·8·9·10·12 · AC20-1·20-2 | ✅ 14 (r8 유지) |
+| AC11 · AC20-3 · AC26·27·33·34·48 | ⚠️ 7 — 시각 사람 인수 대기 (r8 유지) |
+
+- 합계: `✅ 14 · ⚠️ 8 · ❌ 0 = 22`(r8과 같은 범위). 나머지 35개는 r5 판정 유지.
+- 사본 대조: 구현 보고 `닫힘 64 · 열림 0` ↔ trailer `Criteria-Met: 1/1`(`24ab81c2`) ↔ INDEX 비고 — 사본끼리 일치하고, 검증 결과와는 P36·AC40에서 갈린다.
+
+## 9. 게이트 (r9)
+
+HEAD `24ab81c2`, 실행 순서 readonly lint → typecheck → Vitest(Node ABI) → scripts → 가드 → build(Electron ABI). 명령은 `app/AGENTS.md`를 따랐고 `npm run lint`(`--fix`) 대신 `eslint --cache=false`를 썼다.
+
+| gate | 관측 |
+|---|---|
+| readonly ESLint(`--cache=false`) | error 0 · warning 4 — 기존 `react-hooks/incompatible-library` 2 + **r9 N1 `prettier/prettier` 2**(`chat-turn.execution-config.test.ts:289`·`:440`, N-0262-16) |
+| typecheck | node·web·test 3구성 exit 0, `error TS` 0 |
+| Vitest 전체 | 758파일 + 2 skip, 7,474케이스 — 7,467 pass · 0 fail · 7 skip |
+| `node --test scripts/*.test.mjs` | 142/142 |
+| inventory · migrations · test-budgets | generated·prose·links ok · no-copies ok(1,711파일, `v*` tag 없어 append-only skip — r9 마이그레이션 변경 0) · 16 real-git suites ok |
+| `npm run build` | exit 0 (`[sqlite-abi] electron: rebuilt` · 3 번들) |
+| `git diff --check fddd507..24ab81c` | 출력 0 |
+| 원격 Windows CI | PR #507 check `gate`(head `24ab81c2`) success |
+
+- 운영 gate PASS. 이번 FAIL은 gate가 아니라 pair 실패다. 각 단계 뒤 `git status` clean.
+
+## 11. Repository operation checks (r9)
+
+- INDEX 0262 행: 구현자가 누적 좌표 끝에 `(ΔV22 설계 — 검증자 기입) · (r9 구현 — 검증자 기입)`을 덧붙였다(N-0262-15 재발 없음). `aa14cb6a`(round 37) · `fddd507c`(ΔV22 설계) · `a3afc5ef`·`b7990889`·`ebef11a7`·`24ab81c2`(r9)로 채웠다.
+- 좌표 6개: `git cat-file -t` 전부 commit, `origin/ccr-f3743b30-7177zo` 포함.
+- trailer: r9 4커밋 모두 파싱된다 — `Agent: claude`·`Handoff`·`Status`(`partial`×3 → `implemented`)·`Criteria-Met`·`Verified-By: pending`(+`Criteria-Pending` 3커밋). `fddd507c` 설계 커밋은 `Status: designed`이고 `Criteria-*` 없음.
+- `[구현자 기입]` r9 7필드 전수 존재. 강제 지점 표는 7열이고 마지막 행이 나머지 54자리를 ΔV22 표로 묶는다 — 분모는 담았으나 그 행이 운반 항 재측정 없이 "회귀"로 적혀 P36이 빠졌다(N-0262-17).
+- INDEX 비고 갱신분 4줄(≤5). 라운드: 이번 FAIL로 10이 된다 — 3 초과라 다음 재구현 전에 handoff-review.
+
+## 13. Finding disposition (r9)
+
+| # | finding | 귀속 | disposition | 후속 |
+|---|---|---|---|---|
+| D-0262-11 | 선택 엔진 삭제 후 연속 턴 운반 | VP-16 · AC40 | **closed** — 인용 A5·M2 red 2 | — |
+| **D-0262-12** | P36 `session-runtime.ts:850` 콜드 spawn 요청의 model 항 미잠금. spread 뒤 `model: undefined`(S2m)에 4,929케이스 green. 깨지면 콜드 스폰 첫 프롬프트(`channel.ts:221`→`:123`)가 고른 모델 없이 문서 기본 모델로 실행된다 | VP-16 root(EP56 P36) · VP-Δ15-02 BLOCKED_BY · AC40 | **BLOCKING** | `session-runtime.test`에 콜드 스폰의 adapter 요청 `model`을 기본값·직전 턴과 구별되게 채워(`other/extra`) `toBe` 단언 — S2m red로 닫는다 |
+| N-0262-16 | r9 N1에 `prettier/prettier` warning 2(`:289`·`:440`) — readonly lint warning 2 → 4 | 현재 산출물 형식 | NON_BLOCKING | 다음 코드 push에서 포맷 |
+| N-0262-17 | 구현 보고 정확도 — "좌표 파일 무변경(추가만)·이전 red 재실행 안 함"(N1·`session-runtime.test` fixture는 바뀜, 검증 재실행 red→green 0) · AD65 17↔18 · RC142 18↔19 · 닫힘 49를 운반 항 재측정 없이 "회귀"로 묶음 | 보고 운영 | NON_BLOCKING | 재구현 보고는 이전 닫힘 자리도 운반 항마다 좌표를 적는다 |
+| N-0262-18 | plan 정확도(설계자 후속) — ΔV22 P36 상태 "닫힘 — S2"는 문서 항만 잰 판정 · 제외 라벨 `harness-config.ts:316` "spawn env"는 `:367`→P22 문서 운반도 겸함(X367 red 40) · EP56 범위 밖 path 파일 4개(전부 기존 좌표 구간 안, 변이 red) · r9-1(P40 complete 경로 제외 그룹 후보) | ΔV22 | NON_BLOCKING | 다음 설계 정정 때 상태·라벨·범위를 고친다. P40은 이미 좌표가 있다 |
+| N-0262-14 | (갱신) loopback 타이머 케이스가 변이 실행 중 3회 red(X8·X10·S2m 첫 실행) — 전부 변이 import 그래프 밖 | 테스트 안정성 | NON_BLOCKING 유지 | — |
+| N-0262-1 · 3 · 7 · 8 · 9 · 10 · 11 · 12 · 13 · 15 | 기존 | — | 기존 disposition 유지 | — |
+
+## 14. Review Signals (r9)
+
+- 고정 목록(round 37)은 작동했다. 범위 감사·술어 확장에서 목록 밖 열린 자리는 0이고, 남은 1자리는 목록 안 P36이다.
+- D-0262-12는 r6 신호(round 36 "변이의 red는 바꾼 항만 잠근다")와 같은 형태다. 이번에는 ΔV22 상태 칸(설계)에서 났고, 구현 보고의 "회귀" 행이 그 판정을 재측정 없이 이었다.
+- 구현·검증이 같은 에이전트였다. 보고된 15변이 재현만으로는 PASS였고, 결함은 보고에 없던 운반 항 재측정 축에서 나왔다.
+- 반복 환경 한계: 부하 중 loopback 타이머 플레이크. 전체 범위 직렬 변이(개당 약 60초)가 단일 작업 30분을 넘어 사용자가 hang으로 지적했다. 남은 38개는 경로 테스트 부분집합 우선(개당 7~8초, green만 전체 재확인)으로 바꿔 7분에 끝냈다.
+- 라운드 10(>3) — 다음 재구현 전 handoff-review 대상.
+
+## 15. 결론 (r9)
+
+- 상태: **FAIL**.
+- pair: root PAIR_FAIL 1(VP-16 — P36 model 항) · BLOCKED_BY 1(VP-Δ15-02) · PLAN_GAP 0 · 사람 인수 대기 VP21-V·VP-11 시각.
+- AC(판정 범위 22): ✅14 · ⚠️8 · ❌0. 운영 gate PASS.
+- 다음 단계: handoff-review(라운드 10) → 구현자 r10 — D-0262-12의 S2m red 보고.
