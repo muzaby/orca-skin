@@ -1,3 +1,4 @@
+import { openCodeNativeResources } from './native-resources'
 import type { Event, OpencodeClient } from '@opencode-ai/sdk/v2/client'
 import { randomUUID } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
@@ -316,6 +317,14 @@ export function openCodeChannel(
   }
   return {
     providerGeneration: generation,
+    nativeResources: async () => {
+      if (!client || closed || ended) return { state: 'disconnected', items: [] }
+      return {
+        state: 'connected',
+        generation,
+        items: await openCodeNativeResources(client, req.cwd)
+      }
+    },
     eventBatches: batches(),
     close,
     pushTurn: async (next) => {

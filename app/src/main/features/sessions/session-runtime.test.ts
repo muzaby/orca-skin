@@ -2123,3 +2123,103 @@ it('0231 main cancel preserves child frames received before the interrupt termin
   expect(await next).toEqual([child, { type: 'telemetry', sessionId: 's1' }])
   runtime.close()
 })
+
+describe('SessionRuntime native resource generation', () => {
+  async function setup(): Promise<{
+    runtime: SessionRuntime
+    nativeResources: Mock<() => Promise<import('../../../shared/native-resources').NativeResources>>
+    setNativeResource: Mock<
+      (request: import('../../../shared/native-resources').SetNativeResource) => Promise<void>
+    >
+    done: () => Promise<void>
+  }> {
+    const turn = live([{ type: 'message.delta', sessionId: 's1', delta: { text: 'a' } }])
+    const nativeResources = vi.fn(async () => ({
+      state: 'connected' as const,
+      generation: 'gen-B',
+      items: []
+    }))
+    const setNativeResource = vi.fn<
+      (request: import('../../../shared/native-resources').SetNativeResource) => Promise<void>
+    >(async () => {})
+    Object.assign(turn, { providerGeneration: 'gen-B', nativeResources, setNativeResource })
+    const runtime = new SessionRuntime(adapter(turn))
+    const stream = runtime.send(req())[Symbol.asyncIterator]()
+    await stream.next()
+    return {
+      runtime,
+      nativeResources,
+      setNativeResource,
+      done: async () => {
+        await stream.return?.(undefined)
+      }
+    }
+  }
+  it('reads and toggles the same live generation and rejects a stale identity', async () => {
+    const { runtime, setNativeResource, done } = await setup()
+    expect(await runtime.nativeResources()).toEqual({
+      state: 'connected',
+      generation: 'gen-B',
+      items: []
+    })
+    for (const enabled of [false, true]) {
+      const request = {
+        sessionId: 's1',
+        generation: 'gen-B',
+        kind: 'mcp' as const,
+        id: 'native-A',
+        enabled
+      }
+      await runtime.setNativeResource(request)
+      expect(setNativeResource).toHaveBeenLastCalledWith(request)
+    }
+    await expect(
+      runtime.setNativeResource({
+        sessionId: 's1',
+        generation: 'old',
+        kind: 'mcp',
+        id: 'native-A',
+        enabled: false
+      })
+    ).rejects.toThrow()
+    expect(setNativeResource).toHaveBeenCalledTimes(2)
+    runtime.close()
+    expect(await runtime.nativeResources()).toEqual({ state: 'disconnected', items: [] })
+    await done()
+  })
+  it.each(['read', 'write'] as const)(
+    'rejects a late %s result after channel retirement',
+    async (operation) => {
+      const { runtime, nativeResources, setNativeResource, done } = await setup()
+      let finish!: () => void
+      if (operation === 'read')
+        nativeResources.mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              finish = () => resolve({ state: 'connected', generation: 'gen-B', items: [] })
+            })
+        )
+      else
+        setNativeResource.mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              finish = resolve
+            })
+        )
+      const pending =
+        operation === 'read'
+          ? runtime.nativeResources()
+          : runtime.setNativeResource({
+              sessionId: 's1',
+              generation: 'gen-B',
+              kind: 'mcp',
+              id: 'native-A',
+              enabled: false
+            })
+      runtime.teardownChannel()
+      finish()
+      await expect(pending).rejects.toThrow('바뀌었습니다')
+      await done()
+    }
+  )
+})

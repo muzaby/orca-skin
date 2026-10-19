@@ -23,6 +23,7 @@ import {
 } from '../lib/rightPanelTiles'
 import { flattenColumns, rightPanelColumnsForAgent } from '../lib/rightPanelLayout'
 import { CwdButton } from './CwdButton'
+import { NativeResourcesMenu } from './NativeResourcesMenu'
 
 // 사이드바 메타 (state.title) 가 즉시 채워지므로 사용자가 세션을 선택한 순간부터
 // 헤더에 정확한 제목 표시. 메타가 없는 부팅 자동 복원 1회만 첫 user 메시지에서 fallback.
@@ -190,6 +191,8 @@ export const ChatTitleBar = memo(function ChatTitleBar({
             onClick={() => setOpen((v) => !v)}
             title={tr('chat.titleBar.tilesButton')}
             aria-label={tr('chat.titleBar.tilesButton')}
+            aria-haspopup="menu"
+            aria-expanded={open}
           />
           {showTaskBadge && (
             <span
@@ -234,6 +237,14 @@ export const ChatTitleBar = memo(function ChatTitleBar({
               </MenuItem>
             )
           })}
+          <div className="my-1 h-px bg-border" />
+          <NativeResourcesMenu
+            key={sessionId}
+            sessionId={sessionId}
+            backend={backend}
+            anchorRef={anchorRef}
+            onClose={() => setOpen(false)}
+          />
           <div className="my-1 h-px bg-border" />
           <MenuItem
             icon="pin"

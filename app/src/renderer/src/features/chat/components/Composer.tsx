@@ -131,6 +131,8 @@ export function Composer({
   const backend = useChatSession((s) => s.backend)
   const loadingSession = useChatSession((s) => s.loadingSession)
   const harnessLocked = useChatSession((s) => !!s.sessionId || s.agentKindLocked)
+  const harnessExplicitlySelected = useChatSession((s) => s.harnessExplicitlySelected)
+  const restrictModelFallback = harnessLocked || harnessExplicitlySelected
   const presentation = composerHarness(backend)
   const { Status, Requests, AboveInput, ModeControl, EffortControl, Chip } = presentation
   const contextBelow = presentation.landingContextBelow
@@ -181,14 +183,14 @@ export function Composer({
         adapter: agents.find((a) => a.key === providerKey)?.adapter ?? backend ?? 'claude',
         provider: agents.find((a) => a.key === providerKey)?.provider
       }
-    return draftSelection(agents, backend, harnessLocked)
-  }, [agents, backend, harnessLocked, providerKey, modelFamily, modelAlias, loadingSession])
+    return draftSelection(agents, backend, restrictModelFallback)
+  }, [agents, backend, restrictModelFallback, providerKey, modelFamily, modelAlias, loadingSession])
 
   useEffect(() => {
     if (loadingSession || agents.length === 0) return
     // 선택이 없거나 원천이 사라졌으면(런타임 contribution 회수 포함) default 로 되돌린다.
     if (!providerKey || !selectionExists(agents, providerKey, modelFamily)) {
-      const next = draftSelection(agents, backend, harnessLocked)
+      const next = draftSelection(agents, backend, restrictModelFallback)
       if (next) setModel(next.providerKey, next.modelFamily, next.modelAlias, next.adapter)
       return
     }
@@ -197,7 +199,7 @@ export function Composer({
     const agent = agents.find((a) => a.key === providerKey)
     const model = agent?.models.find((m) => m.isDefault) ?? agent?.models[0]
     if (agent && model) setModel(providerKey, modelKey(model), model.alias, agent.adapter)
-  }, [agents, backend, harnessLocked, modelFamily, providerKey, setModel, loadingSession])
+  }, [agents, backend, restrictModelFallback, modelFamily, providerKey, setModel, loadingSession])
 
   // 0119: busy 중 provider 경계를 넘는 모델이 선택된 동안 steer 차단 — 진행 턴의 채널은
   // 낡은 provider env 라 경계 너머 메시지를 실을 수 없다. 본래 provider 로 되돌리면 해제.

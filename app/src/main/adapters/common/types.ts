@@ -1,3 +1,4 @@
+import type { NativeResources, SetNativeResource } from '../../../shared/native-resources'
 import type {
   Backend,
   ClassifiedError,
@@ -29,6 +30,8 @@ type AdapterSubmissionOutcome =
 // 어댑터(mock)는 턴-스코프 — `events` 소비가 끝나면 핸들이 닫힌다(현행 보존). control 메서드는
 // 해당 하네스의 native 제어에 위임되며 지원하지 않는 제어는 성공을 가장하지 않는다.
 export interface LiveTurn {
+  nativeResources?(): Promise<NativeResources>
+  setNativeResource?(request: SetNativeResource): Promise<void>
   readonly providerGeneration?: string
   reinitialize?(): Promise<void>
   eventBatches: AsyncIterable<ProviderMessageBatch>

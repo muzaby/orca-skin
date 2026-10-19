@@ -1,3 +1,4 @@
+import { claudeNativeResources } from './native-resources'
 // ClaudeAdapter — @anthropic-ai/claude-agent-sdk 의 query() 함수를 통해 Claude Code 와 통신.
 // CLI spawn 방식은 폐기 (Phase 3, 2026-05-18) — 외부 계약은 TRD §7.1,
 // 내부 매핑은 architecture.md §5.4, SDK API 명세는 docs/spec/claude/agent-sdk/typescript.md 참조.
@@ -710,10 +711,16 @@ export class ClaudeAdapter implements SessionAdapter {
       }
     }
 
+    const resources = claudeNativeResources(handle, extensions.pluginRoots, [
+      ...(extensions.runtimeTools?.servers.keys() ?? [])
+    ])
+
     async function* eventBatches(): AsyncIterable<ProviderMessageBatch> {
       let sequence = 0
       try {
         for await (const msg of handle) {
+          if (msg.type === 'system' && msg.subtype === 'init')
+            resources.observePlugins(msg.plugins ?? [])
           const provider = backgroundMapper.map(msg, ctx.sessionId)
           if (!provider) continue
           if (
@@ -839,6 +846,16 @@ export class ClaudeAdapter implements SessionAdapter {
 
     return {
       providerGeneration: backgroundMapper.generation,
+      nativeResources: async () => ({
+        state: 'connected',
+        generation: backgroundMapper.generation,
+        items: await resources.list()
+      }),
+      setNativeResource: async (request) => {
+        if (request.generation !== backgroundMapper.generation || request.kind !== 'mcp')
+          throw new Error('이 항목은 세션별 제어를 지원하지 않습니다.')
+        await resources.set(request.id, request.enabled)
+      },
       reinitialize: async () => {
         await handle.reinitialize()
       },

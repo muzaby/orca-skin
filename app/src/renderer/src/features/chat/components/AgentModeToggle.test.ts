@@ -61,6 +61,11 @@ describe('actual draft mode toggle', () => {
   ])('places the %s hero below the icon controls exactly once', (kind, greeting) => {
     harness.state.agentKind = kind
     const html = renderToStaticMarkup(createElement(AgentModeToggle))
+    const $ = load(html)
+    const heading = $('[data-agent-mode-hero]')
+    expect(heading.children().first().prop('tagName')).toBe('SVG')
+    expect(heading.children().last().text()).toBe(greeting)
+    expect(heading.attr('class')).toContain('justify-center')
     expect(html).toContain(greeting)
     expect(html.split(greeting)).toHaveLength(2)
     const controls = html.indexOf('data-agent-mode-controls')

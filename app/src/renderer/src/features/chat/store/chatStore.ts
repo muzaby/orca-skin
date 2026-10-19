@@ -178,7 +178,9 @@ export function seedLandingBackend(
     sessions: Object.fromEntries(
       Object.entries(state.sessions).map(([key, entry]) => [
         key,
-        !entry.session.sessionId && !entry.session.agentKindLocked
+        !entry.session.sessionId &&
+        !entry.session.agentKindLocked &&
+        !entry.session.harnessExplicitlySelected
           ? {
               ...entry,
               session: {
@@ -1744,12 +1746,20 @@ function setModel(
   providerKey: string | null,
   modelFamily: string | null,
   modelAlias: string | null,
-  adapter?: string | null
+  adapter?: string | null,
+  options?: { explicitHarness?: boolean }
 ): void {
   const key = getState().activeKey
   const beforeSession = getActiveChatSession()
   const before = beforeSession.permissionMode
-  dispatchTo(key, { type: 'SET_MODEL', providerKey, modelFamily, modelAlias, adapter })
+  dispatchTo(key, {
+    type: 'SET_MODEL',
+    providerKey,
+    modelFamily,
+    modelAlias,
+    adapter,
+    explicitHarness: options?.explicitHarness
+  })
   const selected = getState().sessions[key]?.session
   if (selected?.backend && !selected.sessionId && selected !== beforeSession) {
     landingBackend = selected.backend

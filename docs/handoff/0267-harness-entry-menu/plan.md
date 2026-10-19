@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | READY / r1 |
+| 상태 / 라운드 | IMPL_DONE / r1 |
 | V mode / 기준 V / 유효 V | Baseline V / none / V1 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
@@ -202,12 +202,121 @@ ACTIVE D-05~09 ↔ AC5~10 대조: 충돌 0. UI 두 하위 목록과 두 하네�
 
 | 지점 | 언제 강제 / 자리 검색 | 실패 의미 / 직접 oracle |
 |---|---|---|
-| EP9 (7자리) | ①nav의 명시 선택 인자 ②store dispatch ③reducer SET_MODEL 보존 ④initialChatState→freshEntry 초기화 ⑤seedLandingBackend 보호 ⑥Composer selectedModel 파생 ⑦Composer effect 기본 모델 복원. `rg -n 'setModel|SET_MODEL|seedLandingBackend|draftSelection|initialChatState' app/src/renderer/src/app app/src/renderer/src/features/chat`의 production 결과와 대조 | 다른 하네스로 자동 전환. ① Sidebar.interaction 선택 상태; ②③④⑤ chatStore.harness explicit/reset/late seed; ⑥⑦ Composer.selection 실제 렌더 chip와 effect 후 state. |
+| EP9 (7자리) | ①nav의 명시 선택 인자 ②store dispatch ③reducer SET_MODEL 보존 ④initialChatState→freshEntry 초기화 ⑤seedLandingBackend 보호 ⑥Composer selectedModel 파생 ⑦Composer effect 기본 모델 복원. nav·store·reducer·Composer의 하네스/모델 선택 production 결과 전수 대조(아래 검색) | 다른 하네스로 자동 전환. ① Sidebar.interaction 선택 상태; ②③④⑤ chatStore.harness explicit/reset/late seed; ⑥⑦ Composer.selection 실제 렌더 chip와 effect 후 state. |
+
+자리 검색: `rg -n 'setModel|SET_MODEL|seedLandingBackend|draftSelection|initialChatState' app/src/renderer/src/app app/src/renderer/src/features/chat`. 테스트·주석·재수출과 기존 saved-session 복원 경로를 구분해 위 7자리에 매핑한다.
 
 기술 설계: ChatState에 메모리 전용 `harnessExplicitlySelected`를 둔다. setModel의 선택적 options가 true일 때 설정하고 이후 자동 모델 채움에도 보존한다. 초기 state는 false이며 새 초안에서 초기화한다. seedLandingBackend는 명시 선택 초안을 건너뛴다. Composer의 자동 폴백 두 자리만 saved/turn lock 또는 명시 선택 여부로 제약하고 수동 모델 메뉴의 필터는 변경하지 않는다. DB·설정 포맷·IPC 변경 없음.
 
 적대 증거: not selected — 실제 reducer·effect·표시 결과를 보는 직접 oracle. 기존 M1/M2 유지. gate는 기존과 동일하며 Composer/store/reducer 관련 비-DB 회귀를 추가한다. ACTIVE D-01~10 ↔ AC1~11 정합, 새 사용자 결정 없음; READY.
 
-## [구현자 기입]
+## [구현자 기입] 설계 리뷰
 
-구현 후 설계 리뷰·강제 지점·수정 잠금·Product/UX 검토·잠재 문제·구현 보고·Review Signals를 기입한다.
+- 유효 계약은 V1+ΔV1+ΔV2이다. 사용자 답변 세 가지를 그대로 적용했다.
+- 명시 선택을 모델 폴백이 덮는 PLAN_GAP을 ΔV2 설계 커밋 `9bdd2245`로 정정했다. 미해결 제품 계약 이견·PLAN_GAP 없음. 독립 verify는 수행하지 않았다.
+- OpenCode 설정의 plugin 목록은 활성 구성으로 표시하며 실제 연결 성공을 주장하지 않는다. Claude는 init의 로드 목록이다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+아래 테스트 경로는 `app/src/` 기준이다. [실행 집합·관측](evidence/validation.md)을 참조한다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 / 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01~03 | 새 대화 진입 | EP1: 펼침·접힘 버튼, 메뉴 조립 | 3/3 | renderer/src/app/Sidebar.interaction.test.ts: opens the branded menu… (false/true) | 두 nav에서 실제 클릭, store 참조 불변, 두 로고/라벨 | 없음 |
+| VP-01·03·04 | 경계 정렬 | EP2: 경계 전달·측정 호출·style | 3/3 | Sidebar.interaction: opens… 최종 style; shared/ui/popoverPosition.test.ts: attaches/clamps/retains | trigger right와 다른 nav right 256/64, top 60; overflow 168/40 | 없음 |
+| VP-01~03 | 선택값/초안/라우트 | EP3: backend·newChat/setModel·navigate | 3/3 | Sidebar.interaction: selects %s… 두 backend | 실제 store에 backend, sessionId null; 이전 entry 동일; /new 재진입 | 없음 |
+| VP-05 | 히어로 | EP4: h1 로고·문구 | 1/1 | features/chat/components/AgentModeToggle.test.ts: places the %s hero… | work/code 서로 다른 문구, SVG가 첫 자식, justify-center | 없음 |
+| VP-06·08·09 | native 원천 | EP5: Claude 주입/init, OpenCode client/cwd·DTO | 4/4 | main/adapters/claude/adapter.live-control.test.ts: wires native…; opencode/v1/adapter.persistent.test.ts: exposes native…; 두 native-resources.test.ts | 주입 plugin/runtime 서버 제외, gen 전달; C:/native-B GET; 비밀·경로 없는 DTO | 없음 |
+| VP-06~08 | 세대/지원 검사 | EP6: runtime 읽기·쓰기, bootstrap lookup, handler | 4/4 | session-runtime.test.ts: native resource generation; bootstrap.native-history.test.ts: wires native resource…; handlers/session-resources.test.ts | gen-B/old, teardown 후 거부, session-B lookup, read-only 거부 | 없음 |
+| VP-06~08 | IPC 운반 | EP7: 채널/schema·preload·sessionApi·hook | 4/4 | handlers/session-resources.test.ts: validates input…; preload/index.test.ts: preserves native…; useNativeResources.test.ts: carries session… | session-B/gen-B/native-B/mcp와 false/true를 서로 다르게 운반 | 없음 |
+| VP-06~09 | UI 수명/목록 | EP8: titlebar scope/open·hook 폐기·종류 매핑·checked/disabled | 4/4 | ChatTitleBar.native-resources.test.ts: loads… / replaces…; useNativeResources.test.ts; nativeResourcesMenu.test.ts | 닫힘 read 0, 열림 A→B, 늦은 A 폐기; MCP off mutable / plugin on locked | 없음 |
+| VP-10·11 | 명시 하네스 수명 | EP9: nav·store dispatch·reducer·초기화·seed·모델 표시·effect | 7/7 | Sidebar.interaction: selects %s…; chatStore.harness: preserves an explicit…; Composer.selection: keeps the explicitly… / still falls back… | explicit true→자동 model 보존→late seed 보호→newChat false; Claude만 있는 catalog에서 OpenCode 유지, 늦은 OpenCode 채움 | 없음 |
+
+분모는 §10의 자리 합 33, 닫은 자리 33이다. 선언·타입·재수출을 뺀 검색 결과를 위 운반 자리와 대조했다. nav 버튼 두 곳, 메뉴 조립 한 곳, 신규 native 조회/쓰기 경로는 위 표에 귀속되며 별도 우회 호출은 발견하지 않았다. 직전 verify의 못 잡음 행은 최초 구현이라 없다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle | 선택된 적대 증거 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | Sidebar.interaction + 브라우저 관측 | M1 red |
+| VP-02 | REQUIRED | SELF_PASS | Sidebar.interaction의 실제 store/route | M1 red |
+| VP-03 | REQUIRED | SELF_PASS | Sidebar→Menu→Popover 실행 | not selected — 직접 oracle |
+| VP-04 | REQUIRED | SELF_PASS | popoverPosition + Sidebar style | not selected — 직접 oracle |
+| VP-05 | REQUIRED | SELF_PASS | AgentModeToggle 두 모드 + 브라우저 | not selected — 직접 oracle |
+| VP-06 | REQUIRED | SELF_PASS | native 경계·runtime·IPC·UI 테스트 | M2 red |
+| VP-07 | REQUIRED | SELF_PASS | runtime/hook/titlebar의 세대 교체 | not selected — 직접 oracle |
+| VP-08 | REQUIRED | SELF_PASS | adapter·bootstrap·handler·preload·UI 운반 | not selected — 직접 oracle |
+| VP-09 | REQUIRED | SELF_PASS | native DTO·menu 렌더 | M2 red |
+| VP-10 | REQUIRED | SELF_PASS | Sidebar 선택 + Composer 실제 표시/복원 | not selected — 직접 oracle |
+| VP-11 | REQUIRED | SELF_PASS | store/reducer/seed/reset + Composer 효과 | not selected — 직접 oracle |
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| 선택 backend 반전 | M1 / VP-02 | 최초 | Sidebar.interaction의 두 backend 선택 / 2 | 잠김, 복원 후 통과 |
+| MCP/plugin 하위 목록 맞바꿈 | M2 / VP-06·09 | 최초 | nativeResourcesMenu의 종류·상태 매핑 / 2 | 잠김, 복원 후 통과 |
+
+분모 검산: 선택 증거 2 · 인용 변이 0 · 새 구조/배선 proxy oracle 0 = 표 행 2. 나머지는 직접 행동 oracle이다. 기존 Cascade/Popover 회귀 테스트도 통과했다.
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 / 관측 | 후속 |
+|---|---|---|
+| 새 문자열 소비자 | ko/en nativeResources 키를 그룹·하위 행이 소비 | 로딩/미연결/빈 목록/오류 구분 테스트 |
+| 실패 상태가 무반응인가 | toggle 실패 시 오류+다시 열기 안내, 성공 선반영 없음 | hook failure/reopen 테스트 |
+| 지각 응답 | epoch·메뉴 key·runtime 세대로 이전 결과 폐기 | A→B read/write 및 teardown 테스트 |
+| 취소/재진입 | 선택 전 store 불변, Escape 초점 복귀, /new에서도 새 초안 | Sidebar 테스트·브라우저 |
+| 미지원 제어 | 실제 활성 상태를 보존하고 disabled, 이유 title 제공 | plugin on/locked 렌더 + 서버 쓰기 거부 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 관측 |
+|---|---|---|---|
+| 1 | Orca 주입 리소스가 native 목록에 섞일 수 있음 | source=sdk·pluginRoots·runtime Map keys 제외 | adapter 테스트에 비기본 주입 root/server, DTO에서 제외 |
+| 2 | 세션 교체 뒤 조회/변경 결과가 성공으로 반환될 수 있음 | raw live/세대와 supervisor runtime 정체성 재확인 | teardown/lookup 교체 테스트 |
+| 3 | toggle 후 메뉴가 닫히면 결과 확인이 어려움 | CascadeBody closeOnSelect=false, 중복 입력 잠금 | 실제 NativeResourcesMenu 클릭 후 checked 갱신·onClose 0 |
+| 4 | 테스트 DOM이 자식 상태 변경에도 부모를 다시 실행 | native 메뉴 items를 useMemo로 안정화 | 실제 UI 경로 테스트 통과; 브라우저에서도 메뉴 유지 |
+| 5 | 문서 검사가 ignored 외부 clone까지 검사 | 기존 .tmp를 보존하고 실패를 환경 항목으로 분리 | 저장소 문서 링크만 같은 함수로 재검사 broken=[] |
+
+명시 선택의 폴백 충돌을 ΔV2로 닫았다. 설계 대비 제품 계약 차이 없음. open은 Popover가 자식을 mount/unmount하는 기존 수명으로 전달한다. 별도 캐시를 추가하지 않았다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인 |
+|---|---|---|
+| 만료 | 해당 없음 — 캐시 없음 | 열 때마다 조회 |
+| 공유 | OpenCode는 cwd 단위 상태 공유 | 쓰기 포트 미노출, UI/handler read-only |
+| 재진입 | unmount 뒤 지각 결과 | hook epoch·titlebar key 테스트 |
+| 다른 무효화 | raw live 교체 | runtime generation 테스트 |
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | nav 메뉴·로고·Claude 히어로, native DTO/adapter/runtime/IPC/preload/hook/menu, i18n, 테스트/시각 fixture, IPC/카탈로그/inventory 문서 |
+| 실행 명령 / 관측 | [validation](evidence/validation.md). 135파일 1,515 Vitest, 경계 8케이스 통과. lint 0 error·기존 warning 2, typecheck/build 성공. 문서 링크의 기존 .tmp 외부 clone 오류는 별도 기록. |
+| V-pair | SELF_PASS 11 / SELF_BLOCKED 0 |
+| 강제 지점 | EP1 3/3, EP2 3/3, EP3 3/3, EP4 1/1, EP5 4/4, EP6 4/4, EP7 4/4, EP8 4/4, EP9 7/7 |
+| 실제 검증 한계 | 브라우저는 실제 컴포넌트+메모리 IPC. 인증된 CLI/MCP와의 실사용 smoke는 미수행. |
+| 블로커 / 역질문 | 없음. 다음 단계는 독립 verify. |
+| 대상 커밋 | (r1 구현 — 좌표는 INDEX) |
+
+| AC | 자기보고 / 관측 |
+|---|---|
+| AC1 | ✅ 펼침/접힘 branded menu 테스트 |
+| AC2 | ✅ 실제 브라우저 nav.right=popup.left, trigger.top=popup.top; overflow 단위 테스트 |
+| AC3 | ✅ 두 backend·두 route에서 실제 초안/기존 세션 보존 |
+| AC4 | ✅ key/outside 취소, 초점 복귀, 실제 Down→Enter 선택 |
+| AC5 | ✅ 두 모드 로고/문구 순서·중앙 배치 |
+| AC6 | ✅ titlebar 두 그룹·두 하위 목록·우측 checked 제어 |
+| AC7 | ✅ native DTO와 주입 제외/비밀 필드 부재 |
+| AC8 | ✅ Query true/false 운반·오류 전파·동일 live 세대 |
+| AC9 | ✅ read-only UI와 handler 거부 |
+| AC10 | ✅ 상태 구분·열림 수명·A→B 지각 결과 폐기 |
+| AC11 | ✅ 명시 선택 유지·늦은 모델·지각 seed·새 초안 초기화·기억값 폴백 |
+
+합계 검산: ✅ 11 · ⚠️ 0 · ❌ 0 = 총 11. 이는 위 테스트/fixture 범위의 자기보고이며 독립 검증 또는 실 CLI smoke를 선점하지 않는다.
+
+## [구현자 기입] Review Signals
+
+- r1 최초 구현, 이전 라운드 반복 지적 없음.
+- 원격 main으로 전환·rebase 후 시작했으며 사용자 응답 확정 설계와 구현을 분리했다.
+- native 기능의 지원 차이를 미리 확정해 전역 설정 변경으로 세션 토글을 흉내내지 않았다.
+- 환경 차이: Python 기본 cp949는 UTF-8 flag로 해결. ignored 외부 clone 링크 오류는 제품 변경과 분리. Electron ABI는 그대로 유지했다.

@@ -1,3 +1,4 @@
+import type { NativeResources, SetNativeResource } from '../shared/native-resources'
 import type { AppErrorReport } from '../shared/app-error'
 import type {
   ArtifactRef,
@@ -252,6 +253,10 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.gitDiffPatch, req)
   },
   session: {
+    nativeResources: (sessionId: string): Promise<NativeResources> =>
+      ipcRenderer.invoke(CHANNELS.sessionNativeResources, { sessionId }),
+    setNativeResource: (request: SetNativeResource): Promise<NativeResources> =>
+      ipcRenderer.invoke(CHANNELS.sessionSetNativeResource, request),
     addDirectory: (request: AddSessionDirectoryRequest): Promise<AddSessionDirectoryResult> =>
       ipcRenderer.invoke(CHANNELS.sessionAddDirectory, request),
     cwd: (): Promise<string> => ipcRenderer.invoke(CHANNELS.sessionCwd),

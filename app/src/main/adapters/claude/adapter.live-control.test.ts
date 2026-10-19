@@ -8,9 +8,15 @@
 // 이 파일이 없으면 `claude.ts:503-507` 세 줄의 인자 전달을 보는 단언이 0이 된다.
 
 import { describe, it, expect, vi } from 'vitest'
+import type { McpServerStatus, SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 
-const { queryMock, control } = vi.hoisted(() => {
+const { queryMock, control, messages } = vi.hoisted(() => {
+  const messages: SDKMessage[] = []
   const control = {
+    mcpServerStatus: vi.fn(async (): Promise<McpServerStatus[]> => [
+      { name: 'native-A', status: 'connected' }
+    ]),
+    toggleMcpServer: vi.fn<(name: string, enabled: boolean) => Promise<void>>(async () => {}),
     setModel: vi.fn(async () => {}),
     stopTask: vi.fn(async () => {}),
     backgroundTasks: vi.fn(async () => true),
@@ -19,10 +25,11 @@ const { queryMock, control } = vi.hoisted(() => {
   }
   return {
     control,
+    messages,
     queryMock: vi.fn(() => {
       const iterable = {
-        [Symbol.asyncIterator](): AsyncIterator<never> {
-          return { next: async () => ({ done: true, value: undefined as never }) }
+        async *[Symbol.asyncIterator]() {
+          for (const message of messages) yield message
         },
         ...control
       }
@@ -31,7 +38,10 @@ const { queryMock, control } = vi.hoisted(() => {
   }
 })
 
-vi.mock('@anthropic-ai/claude-agent-sdk', () => ({ query: queryMock }))
+vi.mock('@anthropic-ai/claude-agent-sdk', async (original) => ({
+  ...(await original<typeof import('@anthropic-ai/claude-agent-sdk')>()),
+  query: queryMock
+}))
 
 import { ClaudeAdapter } from './adapter'
 import type { TurnRequest } from '../common/turn'
@@ -88,4 +98,97 @@ describe('ClaudeAdapter — live 제어 위임의 인자 (0212 AC25 경로 끝)'
     expect(control.stopTask.mock.calls).toEqual([['task-1'], ['task-2']])
     expect(control.setModel.mock.calls).toEqual([['opus'], ['sonnet']])
   })
+})
+
+it('wires native status, loaded plugins, injected exclusions and session-local toggles to the Query', async () => {
+  control.toggleMcpServer.mockClear()
+  messages.push({
+    type: 'system',
+    subtype: 'init',
+    session_id: 'native-session',
+    uuid: 'init-id',
+    tools: [],
+    mcp_servers: [],
+    plugins: [
+      { name: 'native-plugin', path: '/native' },
+      { name: 'orca', path: '/injected' }
+    ]
+  } as unknown as SDKMessage)
+  const request = baseReq()
+  request.extensions.pluginRoots = ['/injected']
+  request.extensions.runtimeTools = {
+    revision: 1,
+    servers: new Map([
+      [
+        'runtime-A',
+        { descriptor: { id: 'runtime-A', connectorId: 'fixture', tools: [] }, implementations: [] }
+      ]
+    ])
+  }
+  control.mcpServerStatus.mockResolvedValueOnce([
+    { name: 'native-A', status: 'connected' },
+    { name: 'runtime-A', status: 'connected' }
+  ])
+  const live = new ClaudeAdapter().sendMessage(request)
+  const iterator = live.eventBatches[Symbol.asyncIterator]()
+  try {
+    await iterator.next()
+    const result = await live.nativeResources?.()
+    expect(result).toEqual({
+      state: 'connected',
+      generation: live.providerGeneration,
+      items: [
+        {
+          id: 'native-A',
+          name: 'native-A',
+          kind: 'mcp',
+          status: 'connected',
+          enabled: true,
+          canToggle: true
+        },
+        {
+          id: 'plugin:0',
+          name: 'native-plugin',
+          kind: 'plugin',
+          status: 'enabled',
+          enabled: true,
+          canToggle: false
+        }
+      ]
+    })
+    for (const enabled of [false, true])
+      await live.setNativeResource?.({
+        sessionId: 'native-session',
+        generation: result!.generation!,
+        kind: 'mcp',
+        id: 'native-A',
+        enabled
+      })
+    expect(control.toggleMcpServer.mock.calls).toEqual([
+      ['native-A', false],
+      ['native-A', true]
+    ])
+    await expect(
+      live.setNativeResource?.({
+        sessionId: 'native-session',
+        generation: 'old',
+        kind: 'mcp',
+        id: 'native-A',
+        enabled: false
+      })
+    ).rejects.toThrow()
+    await expect(
+      live.setNativeResource?.({
+        sessionId: 'native-session',
+        generation: result!.generation!,
+        kind: 'plugin',
+        id: 'plugin:0',
+        enabled: false
+      })
+    ).rejects.toThrow()
+  } finally {
+    live.close()
+    await iterator.return?.()
+    messages.length = 0
+  }
 })

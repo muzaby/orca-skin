@@ -1,3 +1,4 @@
+import { registerSessionResourceHandlers } from './handlers/session-resources'
 import { reportError } from '../infra/error-report'
 // Bootstrap — main 측 컴포지션 루트(app 레이어). 의존성 생성 + 부팅 시퀀스 + 핸들러 등록 위임만
 // 담당한다. 도메인 핸들러는 app/handlers/, chat 턴 셋업은 app/chat-turn.ts, 턴 파이프라인 협력자는
@@ -994,6 +995,7 @@ export class Bootstrap {
 
     // 세션 삭제 시 미커밋 pending 도 함께 폐기한다(0151 AC8) — 루트가 chat 큐를 주입해
     // session 슬라이스가 chat 슬라이스를 참조하지 않게 한다.
+    registerSessionResourceHandlers((sessionId) => supervisor.peekRuntime(sessionId))
     registerSessionHandlers(ctx, {
       isSessionBusy: (sessionId) => supervisor.hasSession(sessionId),
       onSessionDisposed: (sessionId) => {

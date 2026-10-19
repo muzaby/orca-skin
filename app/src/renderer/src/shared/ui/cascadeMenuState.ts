@@ -10,6 +10,8 @@ export type CascadeItem<A> =
       /** hover 설명 — 0257 TooltipHost 가 검은 툴팁으로 그린다. */
       title?: string
       disabled?: boolean
+      checked?: boolean
+      description?: string
       action: A
     }
   | { kind: 'submenu'; id: string; label: string; icon?: IconName; items: CascadeItem<A>[] }

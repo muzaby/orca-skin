@@ -66,6 +66,8 @@ export function CascadeBody<A>({
   onClose,
   anchorRef,
   ariaLabel,
+  autoFocus = true,
+  closeOnSelect = true,
   initialState = INITIAL_CASCADE_STATE
 }: {
   items: CascadeItem<A>[]
@@ -73,6 +75,8 @@ export function CascadeBody<A>({
   onClose: () => void
   anchorRef: RefObject<HTMLElement | null>
   ariaLabel?: string
+  autoFocus?: boolean
+  closeOnSelect?: boolean
   initialState?: CascadeState
 }): React.JSX.Element {
   const [state, setState] = useState<CascadeState>(initialState)
@@ -86,7 +90,7 @@ export function CascadeBody<A>({
     setState(next)
     if (effect?.type === 'activate') {
       onSelect(effect.action)
-      onClose()
+      if (closeOnSelect) onClose()
     } else if (effect?.type === 'close') {
       onClose()
       anchorRef.current?.focus()
@@ -113,12 +117,12 @@ export function CascadeBody<A>({
   }
 
   useEffect(() => {
-    const cancelFocus = focusNextFrame(() => rootRef.current)
+    const cancelFocus = autoFocus ? focusNextFrame(() => rootRef.current) : () => {}
     return () => {
       cancelFocus()
       cancelHover()
     }
-  }, [])
+  }, [autoFocus])
 
   useEffect(() => {
     const focus = state.focus
@@ -136,7 +140,7 @@ export function CascadeBody<A>({
       ref={rootRef}
       role="menu"
       aria-label={ariaLabel}
-      tabIndex={-1}
+      tabIndex={autoFocus ? -1 : 0}
       className="outline-none"
       onKeyDown={(event) => {
         if (!HANDLED_KEYS.has(event.key)) return
@@ -220,7 +224,10 @@ function CascadePanel<A>({
         return (
           <MenuItem
             key={item.id}
-            role="menuitem"
+            role={
+              item.kind === 'action' && item.checked !== undefined ? 'menuitemcheckbox' : 'menuitem'
+            }
+            aria-checked={item.kind === 'action' ? item.checked : undefined}
             icon={item.icon}
             iconSize={13}
             tabIndex={-1}
@@ -235,7 +242,20 @@ function CascadePanel<A>({
             onPointerLeave={onLeave}
             onClick={() => onClick(index)}
           >
-            <span className="min-w-0 flex-1 truncate">{item.label}</span>
+            <span className="min-w-0 flex-1 truncate">
+              <span>{item.label}</span>
+              {item.kind === 'action' && item.description && (
+                <span className="block text-caption text-ink3">{item.description}</span>
+              )}
+            </span>
+            {item.kind === 'action' && item.checked !== undefined && (
+              <span
+                aria-hidden="true"
+                className={`ml-3 inline-flex h-4 w-7 shrink-0 items-center rounded-full p-0.5 ${item.checked ? 'justify-end bg-toggle-on' : 'justify-start bg-border-strong'}`}
+              >
+                <span className="size-3 rounded-full bg-white" />
+              </span>
+            )}
             {submenu && <Icon name="chevR" size={12} className="shrink-0 text-ink3" />}
           </MenuItem>
         )
