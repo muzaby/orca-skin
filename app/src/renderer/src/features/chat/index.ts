@@ -35,4 +35,5 @@ export {
 
 export { harnessSurfaces } from './harnesses/presentation'
 export { Landing } from './components/Landing'
+export { LandingHeader } from './components/LandingHeader'
 export { HarnessLogo } from './harnesses/registries/brand'

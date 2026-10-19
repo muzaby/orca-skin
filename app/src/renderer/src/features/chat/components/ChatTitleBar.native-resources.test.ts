@@ -65,6 +65,9 @@ it('loads native resources only while the actual titlebar popup is mounted and u
   await settle()
   expect(read).toHaveBeenCalledExactlyOnceWith('session-A')
   expect(dom.query('[data-native-resources="claude"]')).not.toBeNull()
+  expect(dom.query('[data-native-resources="claude"]')!.textContent).not.toContain(
+    'chat.nativeResources.connected'
+  )
   dom.click(trigger)
   expect(dom.query('[data-native-resources]')).toBeNull()
   fixture.state.sessionId = 'session-B'
@@ -74,6 +77,9 @@ it('loads native resources only while the actual titlebar popup is mounted and u
   await settle()
   expect(read).toHaveBeenLastCalledWith('session-B')
   expect(dom.query('[data-native-resources="opencode"]')).not.toBeNull()
+  expect(dom.query('[data-native-resources="opencode"]')!.textContent).not.toContain(
+    'chat.nativeResources.connected'
+  )
 })
 
 it('replaces the native menu on session change and ignores the previous session response', async () => {
@@ -94,7 +100,8 @@ it('replaces the native menu on session change and ignores the previous session 
   finish({ state: 'disconnected', items: [] })
   await settle()
   const section = dom.query('[data-native-resources="opencode"]')!
-  expect(section.textContent).toContain('chat.nativeResources.connected')
+  expect(section.textContent).toContain('chat.nativeResources.plugins')
+  expect(section.textContent).not.toContain('chat.nativeResources.connected')
   expect(section.textContent).not.toContain('chat.nativeResources.disconnected')
   expect(read.mock.calls).toEqual([['session-A'], ['session-B']])
 })

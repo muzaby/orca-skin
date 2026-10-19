@@ -7,11 +7,16 @@ import type { createNativeHistoryRefresh } from './native-history'
 import type { RuntimeSupervisor } from '../features/sessions/supervisor'
 import type { SessionActivityProjector } from '../features/chat/session-activity-projector'
 import type { HistoryWriter } from '../features/history/writer'
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import type { NativeResource } from '../../shared/native-resources'
 
 const fixture = vi.hoisted(() => ({
   stop: new Error('fixture: session handler callbacks captured'),
   hooks: undefined as Parameters<typeof registerSessionHandlers>[1],
   lookup: undefined as ((sessionId: string) => unknown) | undefined,
+  configured: undefined as ((sessionId: string) => Promise<NativeResource[]>) | undefined,
   refresh: vi.fn(),
   createRefresh: vi.fn(),
   disposeBackground: vi.fn()
@@ -42,8 +47,12 @@ vi.mock('./native-history', () => ({
   }
 }))
 vi.mock('./handlers/session-resources', () => ({
-  registerSessionResourceHandlers: (lookup: (sessionId: string) => unknown) => {
+  registerSessionResourceHandlers: (
+    lookup: (sessionId: string) => unknown,
+    configured: (sessionId: string) => Promise<NativeResource[]>
+  ) => {
     fixture.lookup = lookup
+    fixture.configured = configured
   }
 }))
 vi.mock('./handlers/session', () => ({
@@ -131,4 +140,52 @@ it('wires native resource lookups to the current supervisor runtime', () => {
   expect(fixture.lookup?.('session-B')).toBe(selected)
   expect(peek).toHaveBeenCalledExactlyOnceWith('session-B')
   activity.dispose()
+})
+
+it('reads native configuration through the registered module using stored backend and cwd', async () => {
+  const temp = await mkdtemp(join(tmpdir(), 'orca-bootstrap-native-'))
+  const root = join(temp, 'claude')
+  const cwd = join(temp, 'session-B')
+  const { ctx, activity } = register()
+  try {
+    await mkdir(root, { recursive: true })
+    await mkdir(cwd, { recursive: true })
+    await writeFile(
+      join(cwd, '.mcp.json'),
+      JSON.stringify({ mcpServers: { 'project-B': { command: 'hidden' } } })
+    )
+    vi.stubEnv('CLAUDE_CONFIG_DIR', root)
+    const row = { backend: 'claude', cwd, project_id: 'project-B' }
+    const get = vi.fn(() => row)
+    ctx.db.getSessionById = get as never
+    ctx.getCwd = vi.fn(() => join(temp, 'wrong-default'))
+    expect(await fixture.configured?.('session-B')).toEqual([
+      {
+        id: 'project-B',
+        name: 'project-B',
+        kind: 'mcp',
+        status: 'configured',
+        enabled: true,
+        canToggle: false
+      }
+    ])
+    expect(get).toHaveBeenCalledWith('session-B')
+    expect(ctx.getCwd).not.toHaveBeenCalled()
+    row.backend = 'opencode'
+    expect(await fixture.configured?.('session-B')).toEqual([])
+    get.mockReturnValueOnce({ ...row, backend: 'claude', cwd: null } as never)
+    get.mockReturnValueOnce({ ...row, backend: 'claude', cwd: null } as never)
+    ctx.getCwd = vi.fn(() => cwd)
+    expect((await fixture.configured?.('session-B'))?.[0].name).toBe('project-B')
+    expect(ctx.getCwd).toHaveBeenCalledWith('project-B')
+    get.mockReturnValueOnce({ ...row, backend: 'claude' })
+    get.mockReturnValueOnce({ ...row, backend: 'opencode' })
+    await expect(fixture.configured?.('session-B')).rejects.toThrow('바뀌었습니다')
+    get.mockReturnValue(undefined as never)
+    expect(await fixture.configured?.('missing')).toEqual([])
+  } finally {
+    activity.dispose()
+    vi.unstubAllEnvs()
+    await rm(temp, { recursive: true, force: true })
+  }
 })

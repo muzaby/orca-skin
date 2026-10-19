@@ -108,6 +108,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | [features/chat/components/CwdButton.tsx](../../../app/src/renderer/src/features/chat/components/CwdButton.tsx) — `CwdButton` | 작업 경로 진입 버튼의 축약·전체 경로 확인·키보드 이름을 유지한다. |
 | [features/chat/components/CwdPanel.tsx](../../../app/src/renderer/src/features/chat/components/CwdPanel.tsx) — `CwdPanel` | 작업 경로·추가 디렉터리 선택. 경로는 mono·긴 값은 안전한 줄바꿈. |
 | [features/chat/components/Landing.tsx](../../../app/src/renderer/src/features/chat/components/Landing.tsx) — `Landing` | 새 대화의 브랜드·읽기 열·입력 위계. 하네스별 브랜드 슬롯을 사용한다. |
+| [features/chat/components/LandingHeader.tsx](../../../app/src/renderer/src/features/chat/components/LandingHeader.tsx) — `LandingHeader` | 새 대화와 프로젝트에서 현재 하네스의 기존 헤더를 선택한다. Claude 모드 문구와 OpenCode 브랜드를 재사용하고 Composer 수명을 유지한다. |
 | [features/chat/components/Notice.tsx](../../../app/src/renderer/src/features/chat/components/Notice.tsx) — `Notice` | 대화 문맥의 안내·오류를 본문과 구별하고 과도한 강조색을 늘리지 않는다. |
 | [features/chat/components/StatusLine.tsx](../../../app/src/renderer/src/features/chat/components/StatusLine.tsx) — `StatusLine` | 진행 아이콘·상태 문구·경과값을 같은 작은 행에 정렬한다. |
 | [features/chat/components/UsagePanel.tsx](../../../app/src/renderer/src/features/chat/components/UsagePanel.tsx) — `UsagePanel` | 기간·비용·컨텍스트·설정 진입을 같은 공통 meter·숫자 표기로 표시한다. |
@@ -404,7 +405,7 @@ Provider와 registry는 시각 컴포넌트 선택/수명 책임만 갖는다. �
 | 소스 / 표시 단위 | 적용 규칙 |
 |---|---|
 | [app/NewChatHarnessMenu.tsx](../../../app/src/renderer/src/app/NewChatHarnessMenu.tsx) — `NewChatHarnessMenu` | Popover의 right 배치·nav boundary·gap 0. 같은 로고 칸, 키보드 탐색·취소 시 초점 복귀. |
-| [features/chat/components/NativeResourcesMenu.tsx](../../../app/src/renderer/src/features/chat/components/NativeResourcesMenu.tsx) — `NativeResourcesMenu` | 하네스 그룹 제목과 연결 상태, CascadeBody의 MCP·플러그인 하위 메뉴. 비활성 제어도 실제 상태를 보존한다. |
+| [features/chat/components/NativeResourcesMenu.tsx](../../../app/src/renderer/src/features/chat/components/NativeResourcesMenu.tsx) — `NativeResourcesMenu` | 하네스 그룹 제목과 CascadeBody의 MCP·플러그인 하위 메뉴. 그룹 연결 요약은 표시하지 않는다. 개별 구성/실행 상태를 구분하고 미지원 제어는 잠근다. |
 | [features/chat/harnesses/claude/Logo.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/Logo.tsx) — `ClaudeLogo` | 공식 Claude 마크, currentColor. 메뉴·히어로는 spinner 토큰. |
 | [features/chat/harnesses/opencode/Logo.tsx](../../../app/src/renderer/src/features/chat/harnesses/opencode/Logo.tsx) — `OpenCodeLogo` | 공식 OpenCode 마크, currentColor와 ink 토큰. 원본 비율을 유지한다. |
 | [features/chat/harnesses/registries/brand.tsx](../../../app/src/renderer/src/features/chat/harnesses/registries/brand.tsx) — `HarnessLogo` | 하네스별 마크 조립만 소유하며 기존 랜딩 presentation을 바꾸지 않는다. |

@@ -1,10 +1,12 @@
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import '../../../src/renderer/src/styles/app.css'
 import '../../../src/renderer/src/shared/i18n'
 import { Sidebar } from '../../../src/renderer/src/app/Sidebar'
 import { ChatTitleBar } from '../../../src/renderer/src/features/chat/components/ChatTitleBar'
 import { harnessLanding } from '../../../src/renderer/src/features/chat/harnesses/registries/landing'
+import { ProjectLandingPage } from '../../../src/renderer/src/pages/ProjectLandingPage'
+import { useProjectsStore } from '../../../src/renderer/src/features/projects/store/projectsStore'
 import { TweakProvider, useTweakContext } from '../../../src/renderer/src/shared/theme'
 import {
   useChatStore,
@@ -14,6 +16,20 @@ import { initialChatState } from '../../../src/renderer/src/features/chat/reduce
 import { installNativeFixture } from '../opencode-ui/native'
 import type { NativeResources, SetNativeResource } from '../../../src/shared/native-resources'
 installNativeFixture()
+useProjectsStore.setState({
+  loading: false,
+  list: [
+    {
+      id: 'fixture',
+      name: '하네스 프로젝트',
+      instructions: '',
+      cwd: 'C:/fixture',
+      createdAt: 0,
+      updatedAt: 0,
+      pinnedAt: null
+    }
+  ]
+})
 const base = window.orca
 let enabled = true
 const snapshot = (): NativeResources => ({
@@ -42,7 +58,7 @@ const snapshot = (): NativeResources => ({
       id: 'plugin',
       name: 'native-workflow',
       kind: 'plugin',
-      status: 'enabled',
+      status: 'configured',
       enabled: true,
       canToggle: false
     }
@@ -88,6 +104,7 @@ function seed(backend: 'claude' | 'opencode', saved = true): void {
 }
 seed('claude', false)
 export function App(): React.JSX.Element {
+  const navigate = useNavigate()
   const { t, setTweak } = useTweakContext((value) => value)
   const backend = useChatSession((value) => value.backend)
   const Header = harnessLanding(backend).Header
@@ -105,14 +122,34 @@ export function App(): React.JSX.Element {
         </button>
         <button onClick={() => seed('claude')}>Claude 세션</button>
         <button onClick={() => seed('opencode')}>OpenCode 세션</button>
+        <button
+          onClick={() => {
+            seed('claude', false)
+            navigate('/projects/fixture')
+          }}
+        >
+          프로젝트 화면
+        </button>
+        <button onClick={() => navigate('/new')}>메뉴 화면</button>
       </div>
       <div className="flex min-h-0 flex-1">
         <Sidebar projectsSlot={null} pinnedSlot={null} sessionsSlot={null} footerSlot={null} />
         <div className="flex min-w-0 flex-1 flex-col">
           <ChatTitleBar />
-          <div className="flex flex-1 items-center justify-center">
-            <Header />
-          </div>
+          <Routes>
+            <Route
+              path="/projects/:projectId"
+              element={<ProjectLandingPage onDeleteProject={() => {}} />}
+            />
+            <Route
+              path="*"
+              element={
+                <div className="flex flex-1 items-center justify-center">
+                  <Header />
+                </div>
+              }
+            />
+          </Routes>
         </div>
       </div>
     </main>

@@ -619,6 +619,8 @@ export const ko = {
   },
   chat: {
     nativeResources: {
+      configured: '설정에서 활성화',
+      installed: '설치됨',
       loading: '연결 상태 확인 중…',
       error: '상태를 불러오지 못했습니다. 메뉴를 다시 열어 주세요.',
       disconnected: '실행 중인 하네스 연결 없음',

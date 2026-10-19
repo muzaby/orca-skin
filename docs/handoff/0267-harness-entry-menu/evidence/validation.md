@@ -57,3 +57,29 @@ node --input-type=module -e "import {checkLinks,LINK_EXCLUDED} from './scripts/c
 ## 명시 하네스 선택 보완
 
 모델 목록이 없는 하네스를 명시 선택했을 때 기존 Composer 폴백이 다른 하네스로 바꾸는 경로를 발견했다. ΔV2를 별도 설계 커밋으로 확정한 뒤 메모리 전용 선택 표시를 nav→store→reducer로 전달했다. 실제 Composer 렌더와 effect를 실행해 다른 하네스의 모델을 표시/선택하지 않음, 해당 모델의 늦은 도착, 기억값의 기존 폴백을 확인했다. store action 테스트는 자동 모델 채움·지각 boot seed·newChat 초기화를 확인한다.
+
+## r1.2 — 사용자 지적 후속
+
+2026-10-19. ΔV3를 구현과 별도 커밋으로 확정했다. native 파일은 읽기만 하고 실제 앱의 설치·인증·전역 설정을 변경하지 않았다.
+
+| 검사 | 관측 |
+|---|---|
+| 위 Vitest 집합 + `pages/agentModeLanding.render.test.ts` + `pages/NewChatLandingPage.harness.test.ts`, `--maxWorkers=2` | 138파일 1,535케이스. 샌드박스 실행에서 135파일/1,524케이스 통과, 기존 plan-file 계열 3파일의 11케이스가 조상 파일 접근 제한으로 실패. 동일 3파일을 일반 권한으로 재실행: 37/37 통과. 합쳐서 대상 1,535케이스 통과. |
+| 변경 경로 집중 테스트 | reader·adapter·bootstrap·IPC·메뉴·프로젝트 9파일 38/38 통과 |
+| `node node_modules/eslint/bin/eslint.js --cache src scripts` | 최종 오류 0, 기존 경고 4(가상화 라이브러리 2, 무관한 chat-turn.execution-config.test.ts 포맷 2). 새 테스트 변수 선언 오류·변경 파일 포맷 경고는 수정했다. 이후 관련 3파일 10케이스 재통과. |
+| `npm run typecheck` | node/web/test 모두 exit 0 |
+| `node node_modules/electron-vite/bin/electron-vite.js build` | main/preload/renderer production 번들 성공. prebuild 없이 기존 Electron ABI 유지. |
+| `node --test scripts/harness-boundary.test.mjs` | 8/8 통과 |
+| design catalog 검사 | source=292, rows=292; source-minus-doc=[], doc-minus-source=[]; 기존 음성 대조도 통과 |
+| doc inventory / prose / links | 생성물·산문 통과. 기존 `.tmp/opencode-dev` 외부 clone 링크 오류 5개 유지. `.tmp` 제외 재검사 broken=[] |
+| 실제 native reader smoke | production reader를 esbuild로 임시 번들한 뒤 저장소 cwd로 실행. 로컬 설치 플러그인 3개(구성 활성 2, 비활성 1), canToggle 전부 false. 해당 사용자/프로젝트 MCP 정의 없음. names/status만 관측하고 인증값·경로는 출력하지 않음. |
+
+샌드박스 실패 재현 대상은 `adapters/claude/{plan-file,adapter.plan-file,adapter.plan-mode}.test.ts`다. 이번 변경의 reader는 영향을 받지 않았고 실제 파일 fixture 테스트도 통과했다. 완전한 인증 CLI/MCP 실행 smoke와 독립 verify는 수행하지 않았다.
+
+### 잠금 / 화면
+
+- M1의 backend 반전은 Sidebar 2 failed/4, M2의 MCP/plugin 맞바꿈은 메뉴 3 failed/3. 각 파일을 원본 바이트로 복원한 뒤 2파일 7/7 통과.
+- 브라우저 실제 ProjectLandingPage + Composer에서 초안을 입력하고 모델 메뉴로 Claude→OpenCode→Claude 전환. 브랜드, Claude Code 히어로, 입력한 초안, 프로젝트 제목과 대화 목록을 관측했다.
+- 1280×800 white/dark와 기본 좁은 pane에서 기존 헤더·Composer 표시 확인. 일시 viewport override는 reset했다.
+- 실제 ChatTitleBar 그룹에서 연결 요약이 없고 플러그인 하위 행은 `설정에서 활성화`·checked·disabled로 표시된다. 브라우저 IPC 데이터는 fixture다.
+- 증거 화면은 로컬 `.codex-remote-attachments/0267/project-opencode-r12.jpg`, `native-menu-r12.jpg`. 새 브라우저 세션 재연결 시 URL 대신 발견한 tab/browser ID를 사용해 복구했다.

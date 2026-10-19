@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 const { fixture } = vi.hoisted(() => ({
   fixture: {
     session: {
-      backend: 'claude' as const,
+      backend: 'claude' as 'claude' | 'opencode',
       agentKind: 'code' as 'code' | 'work',
       sessionId: null as string | null,
       messages: [] as unknown[],
@@ -27,6 +27,7 @@ vi.mock('react-router-dom', () => ({
 // 페이지의 실제 배치를 본다. feature 내부 수명/상호작용은 native 인수의 별도 범위다.
 vi.mock('../features/chat', async () => ({
   Landing: (await import('../features/chat/components/Landing')).Landing,
+  LandingHeader: (await import('../features/chat/components/LandingHeader')).LandingHeader,
   harnessSurfaces: (await import('../features/chat/harnesses/presentation')).harnessSurfaces,
   useChatSession: (select: (state: typeof fixture.session) => unknown) => select(fixture.session),
   useChatBusy: () => fixture.session.inflight,
@@ -105,6 +106,20 @@ const pages = [
   { label: '새 대화', Page: NewChatLandingPage },
   { label: '프로젝트', Page: ProjectLandingPage }
 ]
+
+it('switches the project header between Claude and OpenCode while preserving page composition', () => {
+  for (const backend of ['claude', 'opencode', 'claude'] as const) {
+    fixture.session.backend = backend
+    const html = renderToStaticMarkup(createElement(ProjectLandingPage))
+    expect(html.includes('data-surface="opencode-wordmark"')).toBe(backend === 'opencode')
+    expect(html.includes('data-component="AgentModeToggle"')).toBe(backend === 'claude')
+    expect(html.match(/data-component="Composer"/g)).toHaveLength(1)
+    expect(html).toContain('data-flush="true"')
+    expect(html).toContain('data-landing-cwd="true"')
+    expect(html).toContain('data-component="ProjectInfoHero"')
+    expect(html).toContain('data-component="ProjectSessionsPanel"')
+  }
+})
 
 it('a direct project URL cannot send with the global cwd while its project is loading', () => {
   fixture.projectsAvailable = false

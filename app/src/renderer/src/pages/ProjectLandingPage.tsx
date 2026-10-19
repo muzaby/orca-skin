@@ -1,7 +1,7 @@
 import { reportError } from '../shared/errors'
 import { agentUiPolicy } from '../features/chat/lib/agentPresentation'
 import { useNavigate, useParams } from 'react-router-dom'
-import { AgentModeToggle, ChatTile, Composer, useChatBusy, useChatSession } from '../features/chat'
+import { LandingHeader, ChatTile, Composer, useChatBusy, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
 import { useUsageForTelemetryProvider } from '../features/chat'
 import { useOpenSettings, providerTabId } from '../features/settings'
@@ -26,6 +26,7 @@ export function ProjectLandingPage({
   const { tr } = useI18n()
   const navigate = useNavigate()
   const sessionId = useChatSession((s) => s.sessionId)
+  const backend = useChatSession((s) => s.backend)
   const messages = useChatSession((s) => s.messages)
   const loadingSession = useChatSession((s) => s.loadingSession)
   // 0149 — listen 대기(백그라운드 서브에이전트)도 busy(useChatBusy 단일 정의).
@@ -101,7 +102,7 @@ export function ProjectLandingPage({
                 projectId={projectId}
                 onDeleteProject={onDeleteProject}
               />
-              <AgentModeToggle />
+              <LandingHeader backend={backend} />
               <Composer
                 backendLabel={backendLabel}
                 canAbort={canAbort}

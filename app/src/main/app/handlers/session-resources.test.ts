@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../../shared/ipc'
-import type { NativeResources } from '../../../shared/native-resources'
+import type { NativeResource, NativeResources } from '../../../shared/native-resources'
 import type { GovernedLiveTurn } from '../../contracts/ports'
 const callbacks = vi.hoisted(
   () => new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>()
@@ -38,6 +38,85 @@ const invoke = (channel: string, payload: unknown): Promise<unknown> =>
   callbacks.get(channel)!({}, payload)
 beforeEach(() => callbacks.clear())
 describe('native resource IPC', () => {
+  it('shows offline configuration and preserves it after live toggles without enabling configured-only writes', async () => {
+    const configured: NativeResource[] = [
+      { ...snapshot().items[0], status: 'configured', canToggle: false },
+      {
+        id: 'only-config',
+        name: 'Configured',
+        kind: 'mcp',
+        status: 'configured',
+        enabled: true,
+        canToggle: false
+      },
+      {
+        id: 'plugin-key',
+        name: 'Native plugin',
+        kind: 'plugin',
+        status: 'configured',
+        enabled: true,
+        canToggle: false
+      }
+    ]
+    let runtime: GovernedLiveTurn | undefined = undefined
+    const inventory = vi.fn(async () => configured)
+    registerSessionResourceHandlers(() => runtime, inventory)
+    expect(await invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })).toEqual({
+      state: 'disconnected',
+      items: configured
+    })
+    expect(inventory).toHaveBeenCalledWith('session-B')
+    await expect(invoke(CHANNELS.sessionSetNativeResource, request)).rejects.toThrow(
+      '연결되어 있지'
+    )
+    const live = snapshot()
+    live.items.push({ ...configured[2], name: 'Loaded plugin', status: 'enabled' })
+    const write = vi.fn(async () => {
+      live.items[0] = { ...live.items[0], enabled: false, status: 'disabled' }
+    })
+    runtime = {
+      nativeResources: async () => live,
+      setNativeResource: write
+    } as unknown as GovernedLiveTurn
+    const initial = (await invoke(CHANNELS.sessionNativeResources, {
+      sessionId: 'session-B'
+    })) as NativeResources
+    expect(initial.items).toHaveLength(3)
+    expect(initial.items[0]).toEqual(live.items[0])
+    expect(initial.items[2].status).toBe('enabled')
+    await expect(
+      invoke(CHANNELS.sessionSetNativeResource, { ...request, id: 'only-config' })
+    ).rejects.toThrow('지원하지')
+    expect(write).not.toHaveBeenCalled()
+    const result = (await invoke(CHANNELS.sessionSetNativeResource, request)) as NativeResources
+    expect(result.items).toEqual([live.items[0], configured[1], live.items[1]])
+    expect(write).toHaveBeenCalledOnce()
+  })
+
+  it('rejects failed discovery and runtime replacement during configuration reads', async () => {
+    registerSessionResourceHandlers(
+      () => undefined,
+      async () => {
+        throw new Error('discovery failed')
+      }
+    )
+    await expect(
+      invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })
+    ).rejects.toThrow('discovery failed')
+    let finish!: (items: NativeResource[]) => void
+    let runtime: GovernedLiveTurn | undefined = undefined
+    registerSessionResourceHandlers(
+      () => runtime,
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    const pending = invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })
+    runtime = {} as GovernedLiveTurn
+    finish([])
+    await expect(pending).rejects.toThrow('바뀌었습니다')
+  })
   it('validates input, resolves the current session and carries toggle fields and refreshed state', async () => {
     const nativeResources = vi.fn(async () => snapshot())
     const setNativeResource = vi.fn(async () => {})

@@ -19,11 +19,14 @@ export function nativeResourcesMenu(
           )
         }
       ]
-    if (view.value.state !== 'connected')
-      return [{ kind: 'empty', id: 'disconnected', label: tr('chat.nativeResources.disconnected') }]
     const resources = view.value.items.filter((resource) => resource.kind === kind)
-    if (resources.length === 0)
+    if (resources.length === 0) {
+      if (view.value.state !== 'connected')
+        return [
+          { kind: 'empty', id: 'disconnected', label: tr('chat.nativeResources.disconnected') }
+        ]
       return [{ kind: 'empty', id: 'empty', label: tr('chat.nativeResources.empty') }]
+    }
     return resources.map((resource) => ({
       kind: 'action',
       id: `${kind}:${resource.id}`,
