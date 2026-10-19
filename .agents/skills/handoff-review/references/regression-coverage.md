@@ -2945,3 +2945,64 @@ r6 구현은 프로덕션을 한 줄도 바꾸지 않고 렌더 테스트로만 
 
 - 목록의 질은 설계자의 검색 술어에 달려 있다. 술어가 놓친 자리의 잠금 부재는 이제 `NEXT_HANDOFF`로 간다 — 행동 결함이 아니므로 사용자 결정 2가 받아들인 비용이다.
 - 0262 VP-16은 아직 목록이 없다. 새 규칙을 0262 보드에 적용하면 다음 차례는 Codex r9가 아니라 설계자의 VP-16 목록 고정이며, 보드 변경은 사용자 결정 몫이다.
+
+---
+
+# review round 38 — 사용자 결정: 고장 표준·재량·이력, review 3라운드 주기, verify 9회 상한
+
+**발동/모드**: 사용자가 재발 방지 논의에서 다섯 가지를 결정했다(2026-10-19) — 고장 종류 표준화 · 구체 고장 선택은 수행 모델 재량(전수 불가 인정) · review는 3라운드마다 · verify마다 고장 이력, `못 잡음`은 목록 안팎 모두 다음 구현이 고침 · verify 9회면 종료. 질의 답: "목록 안팎 모두 고침" · "새 작업으로 넘기고 종료" · "0262 바로 적용". **APPLY**. 제품 코드 변경 0.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | 반복 라운드를 끝내는 상한이 없었다 — review가 매 라운드 돌며 규칙을 늘렸다 | 0262 r4~r9 · 0188 10회 · 0209 11회 | **D** — 사용자 결정. verify 9회 상한·`verify/CLOSED` 상태, review는 3·6회째(+9회째 종료 시) |
+| 2 | 고장 방식이 검증자마다 달라 지적 대상이 바뀌었다 | 0262 r6~r8 X·A·M 변이 | **D** — 표준 7종류, 자리·방식은 재량, 시도 이력 의무 |
+| 3 | round 37의 목록 밖 `NEXT_HANDOFF` 분기 | round 37 | **D** — SUPERSEDED: `못 잡음`은 목록 안팎 모두 다음 구현이 고친다. 반복은 9회 상한이 끝낸다 |
+
+## Tier
+
+**Tier 1.** trigger(review 주기), lifecycle(`verify/CLOSED`), failure semantics(목록 밖 `못 잡음` → `BLOCKING`), template 필수 필드(고장 이력 표)가 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+기준 `8121b48`. 삭제 줄 33 — 추가 줄과 대조.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| review 트리거 "라운드 3 초과"(AGENTS·impl §0·verify 마무리·review 실행 조건·plan.template) | **REPLACE** | 사용자 결정 — verify 3·6회째 + 9회째 종료 시. impl 턴 3 초과 트리거 KEEP |
+| 목록 밖 `원본 동작 결함`/`NEXT_HANDOFF` 분기와 정의(AGENTS·impl §2·verify §4·§6·plan §5-A·두 template) | **DELETE** | 사용자 결정 "목록 안팎 모두 고침"으로 분기가 필요 없다. `원본 동작 결함` 문자열 0건 |
+| 목록 미고정 pair → `PLAN_GAP`(round 37 결정 1) | **KEEP** | 고장은 이력에 남아 다음 구현이 함께 고친다 |
+| "새 mutation은 검증 범위를 정하지 않는다" | **REPLACE** | 고장 이력이 다음 라운드의 의무 범위를 정한다 |
+| 변이 하한(등록·인용·이전 잡음 재실행·자기검증 축·형제 맞바꿈) | **KEEP** | 재량의 바깥 하한으로 명시. P49·P50·P51 방어 유지 |
+| lifecycle·INDEX 범례·archive 규칙 | **확장** | `verify/CLOSED` 추가, CLOSED 행도 archive |
+| verify.template §4 변이 표 | **REPLACE** | 고장 이력 표(ID·위치·종류·바꾼 내용·직전/이번 결과·잡은 테스트) + 검산 줄 |
+| 명령·gate·reference | **없음** | inbound `N`/`M/M` 대상 없음 |
+
+- 방어 문구 24종의 출현 파일 집합 변경 전후 차이 **0**. `PLAN_GAP` 출현 70→67은 삭제한 목록 밖 분기 3건이다.
+
+## 6-B Historical Failure Regression
+
+- **60 P 전수** · 변경 후 COVERED 59 / **PARTIAL 1(P60, 사용자 결정으로 수용)** / GAP 0 / OBSOLETE 0.
+- **P60**(열린 분모의 FAIL 반복): 목록 밖 `못 잡음`이 다시 `BLOCKING`이라 반복 자체는 막지 않는다. 9회 상한과 3라운드 review로 끝을 정했고, 사용자가 이 교환을 택했다(D) — 회귀가 아니라 정책 교체로 기록한다.
+- P49·P50·P51·P52·P58·P59: 하한·좌표 규칙 문장 불변. P45: `PLAN_GAP`을 구현자에게 넘기지 않는 규칙 불변.
+
+### V/lifecycle replay
+
+| anchor | round 37 | round 38 | 방향 |
+|---|---|---|---|
+| 0262 r6~r8 목록 밖 `못 잡음` | `PLAN_GAP` 1 → 이후 `NEXT_HANDOFF` | `BLOCKING` — 다음 구현이 고침 | 거짓 PASS 0 · FAIL 수용 |
+| 0262 verify 9회째(r9, `8121b48`) | 계속 | `verify/CLOSED` — 남은 항목은 새 handoff 후보 | 종료 |
+| 0188(10)·0209(11) | 매 라운드 review | review 3·6·9, 9회째 종료 | 상한 |
+| 0194 r4·0209 r11 실제 결함 | `BLOCKING` | `BLOCKING` | 불변 |
+
+## 6-C Cross-document Consistency
+
+- **PASS.** 정본은 AGENTS §판정 범위(자리 표)·§고장 내 보기(표준·재량·이력)·§라운드(3회 주기·9회 상한)다. impl §0·§2·§3·§5, verify §4·§6·§11·마무리, plan §5-A, review 실행 조건, 두 template, INDEX 범례가 같은 문장으로 인용한다.
+- `verify/CLOSED`: AGENTS 상태표·다이어그램 = verify §11·마무리 = verify.template §15 = INDEX 범례.
+- `node scripts/check-doc-inventory.mjs --check`(app/) links ok · `git diff --check` 0.
+
+## 남은 한계
+
+- 재량 고장은 사람·세션마다 다르다. 표준 종류와 이력이 그 차이를 기록할 뿐 없애지는 않는다.
+- 고장 내 보기 스크립트는 아직 저장소에 없다(세션 임시 폴더). 같은 시험을 다른 세션이 그대로 재현하려면 별도 결정이 필요하다.

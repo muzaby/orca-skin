@@ -244,7 +244,7 @@
 |---|---|---|---|---|---|---|
 | AR-… / VP-… | … | … | … | `파일:심볼` 자리 N개 — 등록/연결/턴/저장 시점 | `rg …` → N건 · 술어 = 불변식의 주어 · 범위 = pair path가 지나는 소스 | … |
 
-- 자리 목록은 그 검색 출력과 차집합 0이어야 하고, 이 목록 밖에서 살아남은 변이는 원본 동작 결함이 아니면 `NEXT_HANDOFF`다(`docs/handoff/AGENTS.md §판정 범위와 운영 gate`).
+- 자리 목록은 그 검색 출력과 차집합 0이어야 한다. verify가 시도해 테스트가 잡지 못한 고장은 목록 안팎 모두 다음 구현이 고친다(`docs/handoff/AGENTS.md §판정 범위와 운영 gate`).
 
 - 같은/동일 규칙이 여러 레이어에 있다면 SSOT와 공유 방법: …
 - `실패 의미`에 “다른 게이트가 막는다”를 적었다면 그 범위를 이 턴에 측정한 근거: 해당 없음 / …
@@ -397,7 +397,8 @@ producer → contract/normalize → state/store → consumer/UI/tool
 |---|---|---|---|---|---|---|
 | VP-… | … | `commit·revoke·expiry·401` (4) | 4/4 | `rg …` → 4건 · commit → `a.test.ts:'…'` · revoke → … | commit: `key`(형제와 다른 값 → 저장 결과 단언) · … / 운반 항 없음 | — |
 
-- §10 자리 목록 밖에서 본 운반 자리: 없음 / … → 목록이 고정되지 않은 pair면 PLAN_GAP · 고정 목록 밖은 원본 동작 결함 재현 시 PLAN_GAP(목록 추가), 아니면 NEXT_HANDOFF 후보 · 현재 계약 비귀속이면 별도 finding
+- §10 자리 목록 밖에서 본 운반 자리: 없음 / … → 목록이 고정되지 않은 pair면 PLAN_GAP · 고정 목록 밖은 기록 · 현재 계약 비귀속이면 별도 finding
+- 직전 verify 고장 이력의 `못 잡음` 행: 없음 / ID → 잡은 테스트 `파일:테스트명`(재실행 결과) 또는 `동치` 근거·확인 실행 — 목록 안팎 모두 이번 턴에 닫는다
 
 **V-pair 자기확인** — 구현자의 `SELF_PASS`는 독립 검증의 `PASS`가 아니다. 이전 라운드 상태를 유지로 옮기는 행도 좌표를 인용하고, 좌표 없이 났던 `SELF_PASS`는 이번 턴에 재판정한다(impl §2).
 
@@ -476,7 +477,7 @@ producer → contract/normalize → state/store → consumer/UI/tool
 - 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음 / …
 - 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: …
 - 반복해서 부딪히는 환경 한계: 없음 / …
-- 현재 라운드·impl 턴: `rN` / `rN.k` (라운드 3 초과 또는 verify 없는 impl 턴 3 초과면 — 사용자 요구 변경 턴 제외 — 다음 재구현 전에 `handoff-review`)
+- 현재 라운드·impl 턴: `rN` / `rN.k` (verify 3·6회째 FAIL/RETURN_TO_PLAN 또는 verify 없는 impl 턴 3 초과면 — 사용자 요구 변경 턴 제외 — 다음 재구현 전에 `handoff-review`. verify 9회째가 PASS가 아니면 `verify/CLOSED` 종료)
 
 ---
 

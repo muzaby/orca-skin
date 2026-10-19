@@ -1562,3 +1562,5 @@ round 34~36은 그때마다 좌표 규칙을 넓혀 분모를 더 열었다.
 현재 방어: `docs/handoff/AGENTS.md §공통 V`(N bullet)·§판정 범위와 운영 gate(자리 표)·§단계별 절차 2·3 · plan §5-A·READY·마무리 · impl §2 ·
 verify §0·§4·§6 · `plan.template.md` §10 표·강제 지점 주석 · `verify.template.md §0·§5·§13`.
 P52·P58(분모가 좁아 생기는 거짓 PASS)은 유지한다 — 술어·범위 규칙이 목록을 만드는 설계자에게 옮겨 갔고, 검증자는 §0에서 그 검색을 다시 돌린다.
+
+> round 38(2026-10-19, 사용자 결정)이 위 규칙의 목록 밖 분기를 대체했다 — verify가 시도해 테스트가 잡지 못한 고장은 목록 안팎 모두 다음 구현이 고치고, 대신 verify는 handoff당 9회가 상한이며 handoff-review는 3·6회째에 돈다. 현재 규칙의 정본은 `docs/handoff/AGENTS.md §판정 범위와 운영 gate`·§라운드다.

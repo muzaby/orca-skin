@@ -100,9 +100,13 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 - **이전 라운드 대조** — 지난 라운드에 red였던 변이 중 이번에 green: 0건 / N건 → 덮개 회귀 finding
 - **자기검증 분모** — 구현자 ≠ 검증자: 해당 없음 / 구현자 = 검증자: 보고에 없던 축 N건(어떤 축인지와 결과)
 
-| 변이 | 범위 | 이전 라운드 | 이번 라운드 | 귀속 |
-|---|---|---|---|---|
-| M-… — 무엇을 어떻게 바꿨는가 | 스위트/게이트 | red / green / 미실행 | red / green | `VP-… 등록 변이` · `D<N> 인용 변이` · 덮개 회귀 |
+**고장 이력** — 이번 verify가 시도한 고장 전부. 종류는 제거·빈 값·다른 값·맞바꿈·뒤집기·고정값·호출 대체 중 하나이고, 자리·방식은 재량이다(`docs/handoff/AGENTS.md §고장 내 보기`). 직전 이력의 `못 잡음`·`동치` 행은 빠짐없이 다시 실행한다.
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 범위 | 직전 결과 | 이번 결과 | 잡은 테스트 / 동치 근거 | 귀속 |
+|---|---|---|---|---|---|---|---|---|
+| M-… | … | 제거 / 빈 값 / 다른 값 / 맞바꿈 / 뒤집기 / 고정값 / 호출 대체 | 원래 → 바꾼 것 | 스위트 | 잡음 / 못 잡음 / 동치 / 신규 | 잡음 / 못 잡음 / 동치 | `파일:테스트명` / 근거·확인 실행 | `VP-… 등록` · 직전 이력 · 재량 |
+
+- 검산: 시도 N = 잡음 a · 못 잡음 b · 동치 c. `못 잡음` b건은 §13에서 다음 구현의 의무로 이관한다.
 - 동작 보존 추출 라운드인가: 아니오 / 예 — hunk 되돌림의 초록은 판정 근거가 아니다
 - 소거 변이의 잔여물 수렴: 해당 없음 / N단계까지 밀어 진단 0 → 그 상태의 게이트 …
 - 형제 슬롯 맞바꿈 변이: 해당 없음 — 형제 슬롯 없음 / N슬롯 맞바꿔 검출 M …
@@ -137,9 +141,9 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 
 ### pair별 plan §10 강제 지점 분모
 
-| Pair | 계약/필드 | plan §10 자리 목록 | 목록 자리별 확인 · oracle 좌표 | 목록 밖 발견 · 원본 동작 결함 재현 | 결과 |
+| Pair | 계약/필드 | plan §10 자리 목록 | 목록 자리별 확인 · oracle 좌표 | 목록 밖 발견 · 고장 이력 ID | 결과 |
 |---|---|---|---|---|---|
-| VP-… | … | `commit·revoke·expiry·401` (4) | … (N/4) · 자리별 oracle 좌표 | 없음 / `파일:줄` — 재현 명령 → 재현 / 미재현 | PASS / PAIR_FAIL / PLAN_GAP / 목록 밖 NEXT_HANDOFF |
+| VP-… | … | `commit·revoke·expiry·401` (4) | … (N/4) · 자리별 oracle 좌표 | 없음 / `파일:줄` — 이력 ID | PASS / PAIR_FAIL / PLAN_GAP / 목록 밖 BLOCKING |
 
 - 표에 없는데 같은 불변식이 필요한 지점: 없음 / … → 현재 pair·Decision·AC 필수면 PLAN_GAP, 아니면 NON_BLOCKING/NEXT_HANDOFF
 - `실패 의미`가 “다른 게이트가 막는다”고 적은 행의 재측정: 해당 없음 / …
@@ -247,7 +251,7 @@ $ ./node_modules/.bin/vitest run <relevant-suite>
 
 > plan의 `[검증자 기입] 파생 이슈`로 이관한다.
 > `PLAN_GAP`이 하나라도 있으면 결과는 `RETURN_TO_PLAN`이고 다음 주체는 설계자다. 명시 계약 위반은 `PAIR_FAIL`로 유지하며 gap으로 낮추지 않는다.
-> 살아남은 변이는 자리로 가른다 — §10 고정 목록 자리면 `PAIR_FAIL`, 목록 미고정 pair의 운반 자리면 `PLAN_GAP`, 고정 목록 밖은 원본 동작 결함 재현 시에만 `BLOCKING`+`PLAN_GAP`이고 잠금 부재뿐이면 `NEXT_HANDOFF`다(`docs/handoff/AGENTS.md §판정 범위와 운영 gate`).
+> 고장 이력의 `못 잡음`은 자리로 가르되 모두 다음 구현이 고친다 — §10 고정 목록 자리면 `PAIR_FAIL`, 목록 미고정 pair의 운반 자리면 `PLAN_GAP`과 함께, 고정 목록 밖이면 `BLOCKING`이다(`docs/handoff/AGENTS.md §판정 범위와 운영 gate`).
 
 ## 14. Review Signals — 사실만
 
@@ -260,7 +264,9 @@ $ ./node_modules/.bin/vitest run <relevant-suite>
 
 ## 15. 결론
 
-- 상태: PASS / FAIL / RETURN_TO_PLAN
+- 상태: PASS / FAIL / RETURN_TO_PLAN / CLOSED(이 handoff의 verify 9회째, PASS 아님)
+- verify 횟수: N회째 (3·6회째 FAIL/RETURN_TO_PLAN이면 다음 재구현 전 handoff-review · 9회째면 종료)
+- 종료 이관 목록(CLOSED일 때만): 남은 BLOCKING · PLAN_GAP · 고장 이력 `못 잡음` → 새 handoff 후보
 - pair 결과: REQUIRED/REGRESSION PASS N · root PAIR_FAIL M · BLOCKED_BY K
 - PLAN_GAP: 없음 / root gap … → 영향 pair …
 - Product/UX 및 ACTIVE Decision 충족: …
