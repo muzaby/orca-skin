@@ -167,6 +167,6 @@ Tailwind 시맨틱 토큰 · 그룹 스코프 격리(`group/<이름>`) · 단일
 
 1. **TRD 먼저, 코드 나중.** 본 디렉토리 1차 사양은 `../docs/TRD.md`. TRD 와 코드가 충돌하면 사용자에게 묻고, TRD 갱신과 코드 변경은 같은(또는 짝) PR 로.
 2. **레이어 경계를 지켜라.** `boundaries` 위반은 `npm run lint` error. cross-feature 흐름이 필요하면 pages/ 또는 app/ 에서 props 로 전달한다.
-3. **Electron 보안 옵션은 항상 명시**(위 블록), **새 의존성은 사용자 확인**. 스타일 규칙은 `src/renderer/AGENTS.md`.
+3. **Electron 보안 옵션은 항상 명시**(위 블록), **새 의존성은 사용자 확인**. renderer 제작·컴포넌트 추가·UI 수정은 [디자인 시스템](../docs/arch/frontend/design-system.md)·[컴포넌트 카탈로그](../docs/arch/frontend/design-components.md)를 먼저 읽고 준수한다. 절차·스타일 규칙은 `src/renderer/AGENTS.md`.
 4. **테스트 동반.** 어댑터 정규화 · reducer · IPC 스키마 · 순수 변환기는 단위 테스트와 함께 작성 (UI 는 시각 검증으로 갈음).
 5. **`package.json` 메타데이터는 실값이다** (name=`orcinus-orca`·description·author·homepage — 앱 식별자는 `../docs/guides/release-operations.md`). **버전은 수동 편집하지 않는다** — `npm run release:{patch,minor,major}` 가 bump·커밋·태그를 원샷 처리한다 (SemVer pre-1.0 정책은 `../docs/guides/release-operations.md`).
