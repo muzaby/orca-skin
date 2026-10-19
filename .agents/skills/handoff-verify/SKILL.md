@@ -58,7 +58,7 @@ description: docs/handoff/ 의 verify.md를 작성할 때 쓴다. **구현이 �
 
 - V mode가 맞는가. 상속 기준이 없으면 Baseline V이고, Delta V라면 기준 handoff·plan revision·commit과 적용 순서로 유효 V를 재구성할 수 있는가.
 - 변경 효과에 필요한 레벨이 선택됐고 모든 `NEW`·`CHANGED` 왼쪽 node에 같은 레벨 `REQUIRED` pair, 영향받은 `INHERITED` 상위 node에 `REGRESSION` pair가 있는가.
-- 각 pair에 production path·§10 강제 지점 전수·직접 oracle이 있는가. 구조적 proxy·0건/전수·배선 존재처럼 적대 증거가 필요한 pair는 선택 이유와 변이가 있고, 나머지는 직접 oracle로 충분한 이유가 있는가. 분모가 path의 계약 운반 edge를 자리로 담지 않았어도 path가 그 edge를 명시하면 구현자가 닫을 수 있으므로 `PLAN_GAP`이 아니라 그 pair의 분모로 재측정한다.
+- 각 pair에 production path·§10 강제 지점 전수·직접 oracle이 있는가. 구조적 proxy·0건/전수·배선 존재처럼 적대 증거가 필요한 pair는 선택 이유와 변이가 있고, 나머지는 직접 oracle로 충분한 이유가 있는가. **§10 `언제 강제`의 자리 목록이 그 pair의 분모다** — 기록된 자리 검색 명령을 다시 돌려 목록과의 차집합을 보고, 술어가 불변식의 주어인지(해법 이름이 아닌지, 라벨이면 표본이 참인지)와 범위가 pair path가 지나는 파일을 모두 덮는지 확인한다. 차집합이 0이 아니거나 술어·범위가 좁거나, 목록을 고정하지 않은 pair에서 `언제 강제`에 없는 운반 자리를 찾았으면 구현자에게 보내지 않고 `PLAN_GAP`이다 — 설계자가 그 pair의 목록을 한 번에 고정한다(0262 r4~r8: 이 자리들을 그 pair의 분모로 재측정해 구현자에게 보내자 매 라운드 새 인접 자리가 FAIL이 되었다). 목록이 없다는 형식만으로는 `PLAN_GAP`을 만들지 않는다.
 - `SUPERSEDED`로 분해된 pair의 AC·선택 적대 증거가 대체 pair로 이관됐는가. 이관도 폐기 근거도 없으면 `PLAN_GAP`이다. 이 요구 전에 쓴 revision은 이관 매핑을 읽기 전용으로 합성하고, 사라진 증거가 현재 판정에 필요할 때만 gap이다.
 - 현재 변경 산출물에 적용되는 subtree·repository gate가 열거됐는가. 관련 없는 기존 실패를 새 blocking 범위로 올리지 않았는가.
 - 구현/검증에 필요한 계약·node·pair·경로·강제 지점·oracle이 빠졌거나 서로 모순되어 구현자가 선택해야 한다면 `PLAN_GAP`이다. 다만 이미 명시된 Decision·AC·코드 계약을 구현이 위반하면 pair 행 누락을 이유로 결함을 낮추지 않고 `PAIR_FAIL`로 판정하며 plan gap도 함께 기록할 수 있다.
@@ -121,7 +121,7 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 - **행을 다 센 뒤 합계와 분모를 따로 센다.** 행마다 관측값이 맞아도 합계는 틀린다 — 0187 r1·0189 r1·0190 r1이 전부 합계 축에서 어긋났고 0190 r1의 행 관측값은 재측정과 전부 일치했다. 자기보고 합계가 **본문·커밋 trailer·INDEX 비고에서 같은 값인지** 대조한다(0190 r1은 본문 `14/17` ↔ trailer 3개 `13/17`로 갈렸다).
 - 파일:라인은 “구현됨”이지 “검증됨”이 아니다.
 - **구현자가 보고한 “설계 대비 차이”는 타당 판정으로 닫히지 않는다.** 대체물이 갖고 원본이 갖지 않던 실패 모드를 실제로 만들어 그 메커니즘에 기대던 AC·§10 행을 다시 단언한다 — 0198 r2는 catalog cache↔runtime cache 결합을 “타당한 차이·warm-cache 테스트로 뒷받침”으로 적었고, 만료를 넣자 AC13이 깨졌다.
-- **등록된 적대 증거와 인용 변이를 검증자가 다시 센다.** 구현자가 무엇을 심었다고 보고했든 관계없이 pair가 선택한 변이, 파생 이슈가 인용한 변이, 이번 라운드가 새로 만든 구조적 proxy·0건/전수·배선 oracle의 민감도 검사를 그대로 재현한다. **자리가 적히지 않은 등록 변이는 이번 변경이 닿은 pair path의 자리마다 심는다** — 구현자·이전 검증자가 고른 한 자리의 red는 다른 자리를 재지 않는다(0238 r2: 컴포넌트 안 M13만 red, `ProviderDetail` 전달은 미측정). 일반 hunk를 자동 분모로 삼지 않고 직접 행동 oracle이 충분한 pair에 새 mutation을 발명하지 않는다.
+- **등록된 적대 증거와 인용 변이를 검증자가 다시 센다.** 구현자가 무엇을 심었다고 보고했든 관계없이 pair가 선택한 변이, 파생 이슈가 인용한 변이, 이번 라운드가 새로 만든 구조적 proxy·0건/전수·배선 oracle의 민감도 검사를 그대로 재현한다. **자리가 적히지 않은 등록 변이는 §10 목록에서 이번 변경이 닿은 자리마다 심는다** — 구현자·이전 검증자가 고른 한 자리의 red는 다른 자리를 재지 않는다(0238 r2: 컴포넌트 안 M13만 red, `ProviderDetail` 전달은 미측정). 일반 hunk를 자동 분모로 삼지 않고 직접 행동 oracle이 충분한 pair에 새 mutation을 발명하지 않는다.
 - **동작을 보존하는 추출·재배치 라운드에서 hunk 되돌림은 아무것도 재지 못한다.** 되돌리면 동작이 같은 이전 코드로 돌아갈 뿐이라 초록이 정답이므로, 그 초록을 `잠금 없음`이나 `잠김`으로 읽지 않는다.
 - **이전 라운드가 red로 관측한 변이를 이번 라운드에 다시 실행하고 결과를 나란히 적는다.** `red → green`은 **덮개 회귀**이고 그 자체가 finding이다 — 구현자가 장치를 교체하며 구 장치가 잡던 자리를 잃은 것이라, 새 장치가 무엇을 잡는지만 보면 보이지 않는다. 0209 r6은 r5에서 red였던 배선 삭제 변이를 green으로 되돌렸고, 같은 라운드가 D18을 `closed`로 적었다.
 - **형제 슬롯이 서로 다른 계약을 가지면 소거 변이만으로 부족하다.** 두 슬롯의 산출을 맞바꿔 장치가 red 인지 본다 — 존재만 보는 단언은 두 문자열이 모두 남아 침묵한다(0204 r4: `진행 상황`↔`출력` 본문 맞바꿈에 423케이스 전건 통과).
@@ -131,7 +131,8 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 > 사례(0209 r11). 구현·검증이 같은 에이전트인 첫 라운드였다. 보고된 10행은 전부 red로 재현됐고 그것만 보면 완결이었는데, 보고에 없던 세 변이(같은 계약을 seam 안쪽에서 깨기·형제 진입점 2개)와 §10 분모 독립 재열거에서 **read 라벨을 단 mutation 3건**이 나왔다(D29).
 
 - **검출되지 않은 인용 변이가 있으면 그 파생 이슈는 닫히지 않았다.** 구현자가 `closed`로 적었어도 상태를 되돌리고 §13으로 이관한다.
-- mutation은 현재 pair가 선택한 적대 증거 또는 닫는 이슈가 인용한 변이일 때만 blocking 증거가 된다. 새 mutation이 현재 계약 위반을 드러내면 기존 pair를 `PAIR_FAIL`, 필요한 oracle/pair 누락을 드러내면 `PLAN_GAP`, 현재 유효 V와 무관하면 `NON_BLOCKING`/`NEXT_HANDOFF`로 둔다.
+- **고장 내 보기는 표준 종류(제거·빈 값·다른 값·맞바꿈·뒤집기·고정값·호출 대체)에서 자리와 방식을 재량으로 고르고, 시도한 고장을 전부 §4 고장 이력 표에 남긴다** — ID · `파일:줄` · 종류 · 바꾼 내용 · 결과(`잡음`/`못 잡음`/`동치`) · 잡은 테스트(`docs/handoff/AGENTS.md §고장 내 보기`). 모든 경우를 시험할 수 없으므로 시도하지 않은 고장은 결함이 아니다. 재량이 아닌 하한은 아래 규칙들 — pair 등록 변이 · 닫는 이슈의 인용 변이 · 직전 고장 이력의 `못 잡음`·`동치` 행 재실행 · 이전 라운드 `잡음` 행 재실행(덮개 회귀) · 구현자=검증자일 때 보고에 없는 축 1개 · 형제 슬롯이 다른 계약일 때 맞바꿈 — 이다.
+- **`못 잡음`은 자리와 무관하게 다음 구현이 고친다** — §10 고정 목록 자리면 그 pair의 `PAIR_FAIL`, 목록 미고정 pair의 운반 자리면 `PLAN_GAP`(목록 고정)과 함께, 고정 목록 밖이면 `BLOCKING`이다. 필요한 oracle/pair 누락은 `PLAN_GAP`, 고장이 아닌 비귀속 발견은 `NON_BLOCKING`/`NEXT_HANDOFF`다.
 - 함수 호출 지점 1개, `Promise.all`, 특정 시그니처가 semantic 목표를 실제 보장하는지 적대 사례를 본다.
 - `N회`는 실제 관측 주체에서 횟수를 단언한다.
 - 순서 AC는 훅/로그/주입 경계에서 순서를 관측한다.
@@ -160,7 +161,7 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 
 하위 root 실패로 상위 pair를 독립 판정할 수 없을 때만 `BLOCKED_BY:<root-pair>`로 둔다. 상위 행동을 다른 경로에서 독립 관측할 수 있으면 실행하며, 같은 root 원인을 네 단계의 `PAIR_FAIL`로 부풀리지 않는다. 하나의 직접 증거가 여러 pair를 닫으면 각 행에 공유 증거와 판정 범위를 적는다.
 
-plan §10은 pair 안에서 **별도 분모**로 계속 걷는다. `언제 강제`에 열거된 지점을 코드에서 하나씩 다시 세고, `실패 의미`의 적대 상태를 만든다. **자리마다 직접 oracle 좌표를 다시 찾는다** — 그 `파일:테스트명`이 실재하고 이번 gate 실행 집합에 들며 그 자리가 테스트의 실행 구간 — 들어간 곳부터 관측한 곳까지 production 코드로 실행한 구간에서 mock·stub로 바꾼 path 구성요소를 뺀 것 — 안에 있는지 읽는다(`docs/handoff/AGENTS.md §공통 V`). **상위 pair를 하위 pair 좌표로 닫으면 상위 path의 edge마다 덮는 좌표를 대응시킨다** — 0259 VP-01은 r1~r3에 하위 pair 실패의 `BLOCKED_BY`, r4에 VP-05~10 좌표로 PASS가 나서 자기 path의 선택 edge가 한 번도 판정되지 않았고, r5에서 green 변이 4건으로 드러났다. typecheck·코드 읽기·일회성 실측만 있는 자리는 닫히지 않았다(`docs/handoff/AGENTS.md §공통 V`). **구현자가 분모를 코드의 라벨로 세었으면 그 라벨이 참인지 표본으로 확인한다** — 0209 r11의 `readOnly: true` 8건 중 셋은 `stash push`·`commit -a`·`reset --hard` 였다. “다른 게이트가 막는다”는 주장도 필요한 pair의 선택된 변이로 재측정한다. 표 밖 지점이 현재 pair·ACTIVE Decision·AC에 필수면 `PLAN_GAP`, 그 밖이면 `NON_BLOCKING`/`NEXT_HANDOFF`다.
+plan §10은 pair 안에서 **별도 분모**로 계속 걷는다. `언제 강제`에 열거된 지점을 코드에서 하나씩 다시 세고, `실패 의미`의 적대 상태를 만든다. **자리마다 직접 oracle 좌표를 다시 찾는다** — 그 `파일:테스트명`이 실재하고 이번 gate 실행 집합에 들며 그 자리가 테스트의 실행 구간 — 들어간 곳부터 관측한 곳까지 production 코드로 실행한 구간에서 mock·stub로 바꾼 path 구성요소를 뺀 것 — 안에 있는지 읽는다(`docs/handoff/AGENTS.md §공통 V`). **테스트의 조립을 production 조립 루트와 대조한다** — 주입하지 않거나 바꾼 의존성이 분기를 가르면 production 분기의 자리는 구간 밖이다(0262 r4: `harnessRuntime`을 주입하지 않은 `agent:list` 테스트들이 production 분기를 실행하지 않았고, r3의 133좌표 `vi.mock` 감사는 이를 보지 못했다). **그 자리의 운반 값이 테스트 입력에서 기본값·빈 값·형제와 같은 값뿐이면 그 좌표는 그 자리를 닫지 않은 것으로 판정한다** — 0265 r2의 조립 인자 단언은 하네스 지시가 빈 fixture여서 지시 항 제거 변이가 4,057케이스 green이었다. **변이의 red는 그 변이가 바꾼 항만 잠근다** — 구현자·이전 라운드가 호출·분기 변이로 닫은 자리는 운반 항마다 다시 읽는다(0262 r6: `resolve`→`cached` 호출 변이가 red 11이라 턴 실행 구성 `resolve` 자리를 닫았다고 셌고, 그 target의 `harnessId`·`modelProviderId`를 바꾼 변이는 4,909케이스 green이었다). **상위 pair를 하위 pair 좌표로 닫으면 상위 path의 edge마다 덮는 좌표를 대응시킨다** — 0259 VP-01은 r1~r3에 하위 pair 실패의 `BLOCKED_BY`, r4에 VP-05~10 좌표로 PASS가 나서 자기 path의 선택 edge가 한 번도 판정되지 않았고, r5에서 green 변이 4건으로 드러났다. typecheck·코드 읽기·일회성 실측만 있는 자리는 닫히지 않았다(`docs/handoff/AGENTS.md §공통 V`). **자리 검색의 술어가 코드의 라벨이면 그 라벨이 참인지 표본으로 확인한다** — 0209 r11의 `readOnly: true` 8건 중 셋은 `stash push`·`commit -a`·`reset --hard` 였다. **검색 범위가 지적이 인용한 파일로 좁혀졌으면 pair path 소스 전체로 넓혀 차집합을 본다** — 0262 r5는 두 파일로 센 분모 밖에 같은 pair의 `resolve-turn.ts` 5줄이 있었다. 이 둘의 차집합은 §0의 `PLAN_GAP`이다. “다른 게이트가 막는다”는 주장도 필요한 pair의 선택된 변이로 재측정한다. 고정 목록 밖 지점에서 시도한 고장이 `못 잡음`이면 `BLOCKING`(다음 구현이 고친다)이고, 고장이 아닌 비귀속 발견은 `NON_BLOCKING`이다 — 목록이 고정되지 않은 pair의 운반 자리는 §0의 `PLAN_GAP`이다.
 
 첫 검증 라운드는 유효 V의 모든 `REQUIRED`·`REGRESSION` pair와 현재 변경의 운영 gate를 실행한다. 재검증은 root 실패 pair·그 종속 pair·이번 변경으로 영향받은 pair·적용 gate를 실행하고, 영향받지 않은 이전 `PASS`는 증거 좌표를 참조한다 — **참조할 좌표는 위의 직접 oracle 좌표이고, 이전 PASS가 좌표 없이 났으면 영향 여부와 무관하게 이번 라운드에 재판정한다**(0259 r3: r1 VP-07 PASS의 근거가 코드 읽기 + typecheck였다). 이전 라운드 산문을 복사해 다시 PASS 수에 더하지 않는다.
 
@@ -202,7 +203,7 @@ plan §10은 pair 안에서 **별도 분모**로 계속 걷는다. `언제 강�
 - `AGENTS.md` 변경 시: 비밀/토큰/이메일/IP 등 위생, 일회성·변동성 정보 혼입, 부모↔자식 규칙 충돌을 확인한다. 새 `AGENTS.md`를 만들었다면 `CLAUDE.md` stub/루트 표 필요 여부도 본다.
 - `docs/handoff/INDEX.md`: 상태·다음 주체·대상 커밋·PASS archive 이동이 실제 상태와 맞는지 확인한다. **이번 턴에 갱신된 비고가 5줄을 넘으면 그것도 미스매치다** — 상세의 정본은 `plan.md`/`verify.md`다(`docs/handoff/AGENTS.md §산출물 문장 규칙 3`). 다른 행의 옛 비고는 대상이 아니다.
 - **대상 커밋 좌표는 검증자가 기입한다** — 구현자가 남긴 `(rN 구현 — 검증자 기입)`을 공유 브랜치의 실제 커밋으로 채운다. 구현자가 해시를 적어 놓았으면 그것도 자기 환경의 좌표이므로 `git cat-file -t <hash>`로 확인하고 교정한다. **좌표 정본은 INDEX 한 곳이다** — plan 구현 보고 행은 자리표시자로 둔다(사본이 둘이면 갈린다, P40).
-- **재구현 턴의 `[구현자 기입]`이 impl §8의 7개 필드를 모두 갖는지 센다** — 설계 리뷰·강제 지점 전수·이번 라운드 수정의 잠금·Product/UX 파생 검토·놓친 잠재 문제·구현 보고·Review Signals다. 산문으로 접힌 필드는 그 필드가 요구한 증거가 없는 것이다(0198 r6: `이번 라운드 수정의 잠금`이 표 대신 한 줄이 되며 5 hunk 중 3만 실렸다).
+- **재구현 턴의 `[구현자 기입]`이 impl §8의 7개 필드를 모두 갖는지 센다** — 설계 리뷰·강제 지점 전수·이번 라운드 수정의 잠금·Product/UX 파생 검토·놓친 잠재 문제·구현 보고·Review Signals다. 산문으로 접힌 필드는 그 필드가 요구한 증거가 없는 것이다(0198 r6: `이번 라운드 수정의 잠금`이 표 대신 한 줄이 되며 5 hunk 중 3만 실렸다). **강제 지점 전수 표는 열이 담는 분모까지 센다** — 열 이름이 달라도 그 pair의 §10 자리 전부와 `남긴 곳`이 표에 있으면 접힘이 아니고, 지목된 자리만 담은 표는 필드 접힘과 같이 판정한다(0262 r3: 세 열 표가 검증자 인용 6자리만 담아 EP-08 부모 편집 배선이 어느 행에도 없었다).
 - commit trailer: root `AGENTS.md` / `docs/git-template.md` 허용값을 따르고 **실제로 파싱된다**. 허용되지 않은 `Agent` 값 등을 통과시키지 않고, `git log -1 --format='%(trailers:only=true)' <커밋>`이 적힌 키를 그대로 돌려주는지 본다 — 값이 맞아도 파싱이 0건이면 메시지 버스가 끊긴 것이다(0198 r7: 본문이 리터럴 `\n`으로 한 줄이라 6키가 0건). 인용된 커밋 해시가 실재하는지 확인한다 — 죽은 좌표는 다음 라운드의 기준선을 깬다(0190 D3: `55cdbfe`, 실제는 `8bbd595`).
 - reference/script: 이동·삭제 후 살아 있는 소비처 또는 의도적 archive 근거가 있는지 확인한다.
 
@@ -225,6 +226,7 @@ plan §10은 pair 안에서 **별도 분모**로 계속 걷는다. `언제 강�
 - `PASS`: 모든 `REQUIRED`·`REGRESSION` pair와 이번 변경 산출물의 필수 gate가 PASS이고 ACTIVE Decision이 충족되며 `PLAN_GAP`이 없다. `NON_BLOCKING`·`NEXT_HANDOFF`는 기록하되 PASS를 막지 않는다.
 - `FAIL`: 하나 이상의 현재 pair 또는 이번 변경 산출물의 필수 gate가 실패했다. root `PAIR_FAIL`과 종속 `BLOCKED_BY`를 분리해 `[검증자 기입] 파생 이슈`로 이관한다.
 - `RETURN_TO_PLAN`: 구현자가 새 계약을 발명하지 않고는 닫을 수 없는 `PLAN_GAP`이 있다. root gap과 영향 pair를 적고 설계자로 돌린다.
+- `CLOSED`: 이번 verify가 이 handoff의 9회째이고 `PASS`가 아니다. 남은 `BLOCKING`·`PLAN_GAP`·고장 이력 `못 잡음` 행을 `[검증자 기입] 종료 이관 목록`으로 모아 새 handoff 후보로 넘기고 종료한다. PASS로 세지 않는다.
 
 제품 결정이 필요하면 해결안으로 위장하지 않는다. `FAIL`과 `PLAN_GAP`이 함께 있으면 둘 다 기록하고 다음 주체는 planner다. 명시 계약 위반을 gap으로 약화하지 않는다.
 
@@ -244,5 +246,6 @@ A~F 분류와 skill 변경은 `handoff-review`가 한다.
 - PASS: INDEX `verify/PASS`, 완료 행 archive 이동.
 - FAIL: INDEX `verify/FAIL`, 라운드 +1, 다음 주체는 구현자다. 라운드는 plan → impl → verify 한 주기이고 verify 없이 반복된 plan·impl 턴은 세지 않는다(`docs/handoff/AGENTS.md §라운드`).
 - RETURN_TO_PLAN 또는 FAIL과 함께 있는 PLAN_GAP: INDEX `verify/RETURN_TO_PLAN`, 라운드 +1, 다음 주체는 설계자다. 설계자는 Decision·AC·V node/pair·§10·oracle 중 영향받은 규범 행을 새 Delta V revision으로 고치고 별도 커밋으로 `plan/READY`에 돌린다.
-- 라운드가 3을 초과하거나 같은 라운드의 verify 없는 impl 턴이 3을 초과하면(사용자 요구 변경 턴 제외) 다음 재구현 전에 `handoff-review`를 수행한다.
+- verify가 3회째·6회째에 `FAIL`·`RETURN_TO_PLAN`으로 끝나면, 또는 같은 라운드의 verify 없는 impl 턴이 3을 초과하면(사용자 요구 변경 턴 제외) 다음 재구현 전에 `handoff-review`를 수행한다.
+- CLOSED(9회째, PASS 아님): INDEX `verify/CLOSED`, 다음 주체 `—`, 행을 archive history로 옮기고 비고에 종료 이관 목록과 새 handoff 후보를 링크한다. 같은 시점에 종료한 handoff를 대상으로 `handoff-review`를 수행한다.
 - 커밋 형식은 root `AGENTS.md`와 `docs/git-template.md`를 따른다.

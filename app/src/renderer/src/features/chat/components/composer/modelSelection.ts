@@ -1,5 +1,6 @@
 import type { AgentEnvironment, AgentModelView } from '../../../../../../shared/ipc'
 import { modelIdentity } from '../../../../../../shared/model-identity'
+import { modelPresentation } from '../../harnesses/modelPresentation'
 
 export interface ModelSelection {
   providerKey: string
@@ -23,7 +24,7 @@ export function defaultSelection(
   sessionBackend: string | null
 ): ModelSelection | null {
   for (const agent of agents) {
-    if (!agent.supported) continue
+    if (!agent.supported || agent.models.length === 0) continue
     if (sessionBackend && agent.adapter !== sessionBackend) continue
     const model = agent.models.find((m) => m.isDefault) ?? agent.models[0]
     return {
@@ -54,9 +55,7 @@ export function selectionExists(
 // 선택 없음(null)이면 null — '모델' 폴백 라벨은 렌더(Composer)가 tr 로 채운다(0097).
 export function selectionLabel(selection: ModelSelection | null): string | null {
   if (!selection) return null
-  // adapter 제외 — provider 가 있으면 provider, 없으면 providerKey(=adapter 단독) 폴백.
-  const left = selection.provider ?? selection.providerKey
-  return selection.modelFamily ? `${left}/${selection.modelFamily}` : left
+  return modelPresentation(selection.adapter).selection(selection)
 }
 
 // 선택된 모델의 계열 형상 — 권한 모드 가부 판정의 입력(0215 D-009·D-011).
@@ -74,4 +73,13 @@ export function selectedModelShape(
   // 카탈로그에서 못 찾으면(하이드레이션 지연·기여 회수) custom 여부도 확인할 수 없다.
   // 선택 문자열만으로 지원을 추측하지 않고 미확정으로 돌려준다.
   return null
+}
+
+// A missing remembered harness can fall back only before a session is created.
+export function draftSelection(
+  agents: AgentEnvironment[],
+  backend: string | null,
+  locked: boolean
+): ModelSelection | null {
+  return defaultSelection(agents, backend) ?? (locked ? null : defaultSelection(agents, null))
 }

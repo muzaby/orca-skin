@@ -16,8 +16,8 @@ import type {
   RuntimeToolImplementation,
   RuntimeToolResult,
   RuntimeToolServer
-} from '../../../adapters/runtime-tools'
-import { authToolServerId } from '../../../adapters/runtime-tool-policy'
+} from '../../../adapters/common/runtime-tools'
+import { authToolServerId } from '../../../adapters/common/runtime-tool-policy'
 import type { AuthenticatedRequest, AuthenticatedResponse } from '../../../contracts/auth'
 
 // Plugin 이 자기 도구를 만들 때 필요한 것 전부 (0188). 구 `ProviderToolContext` 는 **Auth

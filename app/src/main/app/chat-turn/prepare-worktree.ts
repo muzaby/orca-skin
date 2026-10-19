@@ -5,7 +5,7 @@
 // SDK는 그 실패를 "native binary … failed to launch"(libc 불일치)로 오진해 보고한다.
 
 import type { WorktreeDisplay, WorktreePrepareStep } from '../../../shared/ipc'
-import type { SessionAdapter } from '../../adapters/types'
+import type { SessionAdapter } from '../../adapters/common/types'
 import type { WorktreeService } from '../../features/worktrees/service'
 import { headName, headOid, probeRepo } from '../../infra/git/probe'
 

@@ -100,7 +100,7 @@ new BrowserWindow({
 >
 > **타입 모델**: 정규 컬렉션 타입은 `OrcaMcpConfig`(claude-code 스펙). Claude 형식은 이와 동일하므로 **별칭** `type ClaudeMcpConfig = OrcaMcpConfig` 로 못박는다. 단일 항목 타입 `ClaudeMcp` 의 http/sse 는 분리된 판별 멤버라 SDK `McpServerConfig`(stdio|http|sse) 유니온에 그대로 대입된다. **"IR(중간형)" 표현은 쓰지 않는다** — 정규형이 곧 claude-code 스펙.
 >
-> **MCP 변환 경계**: `features/extensions/mcp/convert.ts`의 `toClaudeConfig`가 서버별 env/header 확장과 미해결 제외를 함께 수행한다. `OrcaMcpConfig`와 `ClaudeMcpConfig`는 동형이며 http/sse/stdio 구조를 보존한다. OpenCode 변환기와 실행 연동은 미구현이다.
+> **MCP 변환 경계**: `features/extensions/claude/mcp/convert.ts`의 `toClaudeConfig`가 서버별 env/header 확장과 미해결 제외를 함께 수행한다. `OrcaMcpConfig`와 `ClaudeMcpConfig`는 동형이며 http/sse/stdio 구조를 보존한다. OpenCode 변환기와 실행 연동은 미구현이다.
 >
 > **소스와 배포 산출물**: `writeMcpFile`은 편집한 소스를 저장한다. Bootstrap은 활성 소스를 resolver로 확장해 `deploy`에 전달하며, 배포기는 `dist/claude/plugins/orcinus-orca/.mcp.json`에 렌더한다. 따라서 확장된 비밀이 배포 파일에 존재하는 현재 제약이 있다. 변환기는 입력 소스를 변경하지 않고 미해결 서버는 제외한다.
 >
@@ -207,7 +207,7 @@ Git 명령은 `infra/git/gateway.ts`를 거쳐 `runner.ts`의 `execFile`로 실�
 
 읽기는 `--no-optional-locks`와 `GIT_OPTIONAL_LOCKS=0`을 적용하며 전역 동시 실행을 제한한다. 같은 세대의 동일한 진행 중 요청만 공유하고 완료 결과는 저장하지 않는다. 쓰기는 저장소별 mutation queue를 사용하며 성공·실패 모두 세대를 전진시킨다. diff/log는 외부 diff·textconv 실행을 차단한다. Git 실행기 직접 import는 ESLint 경계가 제한한다.
 
-`child_process`·`node:child_process` 정적·동적 import는 Git gateway·runner와
+`child_process`·`node:child_process` 정적·동적 import는 소유 로컬 서버 모듈(`adapters/opencode/v1/server.ts`), Git gateway·runner와
 `src/main/features/plugins/**`에서 허용한다. 그 밖 main의 실행 경계는 유지하며, Plugin도
 `infra/git/runner`를 직접 import할 수 없다. Plugin은 호스트에 설치된 프로그램을 직접 실행하고
 인자·timeout·취소·출력 처리를 소유한다. 공용 호스트 실행기를 추가하지 않는다.

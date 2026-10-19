@@ -9,6 +9,7 @@ import {
   RenameSessionRequestSchema,
   SetSessionPinnedSchema,
   type LoadedSession,
+  type RefreshSessionResult,
   type SessionListItem
 } from '../../../shared/protocol'
 import { loadSession } from '../../features/history/reader'
@@ -25,7 +26,7 @@ interface SessionDisposeHooks {
   isSessionBusy?: (sessionId: string) => boolean
   onSessionDisposed?: (sessionId: string) => void
   getActivity?: (sessionId: string) => ChatActivitySnapshot
-  removeManagedWorktree?: (sessionId: string) => Promise<DeleteSessionResult>
+  refreshHistory?: (sessionId: string) => Promise<LoadedSession['nativeSync']>
 }
 
 type SessionHandlerContext = Pick<RouterContext, 'db' | 'getCwd'> & {
@@ -64,10 +65,35 @@ export function registerSessionHandlers(
     { fallback: null },
     (req): LoadedSession | null => {
       const session = loadSession(ctx.db, req.sessionId, (projectId) => ctx.getCwd(projectId))
-      if (!session) return null
+      return (
+        session && {
+          ...session,
+          ...(hooks.getActivity ? { activity: hooks.getActivity(req.sessionId) } : {})
+        }
+      )
+    }
+  )
+
+  handle(
+    CHANNELS.sessionRefresh,
+    LoadSessionRequestSchema,
+    {
+      fallback: { status: 'unavailable' as const, message: '대화 갱신 요청이 올바르지 않습니다.' }
+    },
+    async (req): Promise<RefreshSessionResult> => {
+      const sync = await hooks.refreshHistory?.(req.sessionId)
+      if (!sync || sync.status === 'unchanged') return { status: 'unchanged' }
+      if (sync.status === 'busy') return { status: 'busy' }
+      if (sync.status !== 'ready')
+        return { status: sync.status, message: sync.message ?? '원본 대화를 확인할 수 없습니다.' }
+      const session = loadSession(ctx.db, req.sessionId, (projectId) => ctx.getCwd(projectId))
+      if (!session) return { status: 'missing', message: '목록에서 제거된 대화입니다.' }
       return {
-        ...session,
-        ...(hooks.getActivity ? { activity: hooks.getActivity(req.sessionId) } : {})
+        status: 'updated',
+        session: {
+          ...session,
+          ...(hooks.getActivity ? { activity: hooks.getActivity(req.sessionId) } : {})
+        }
       }
     }
   )
@@ -83,11 +109,9 @@ export function registerSessionHandlers(
       }
     },
     async (req): Promise<DeleteSessionResult> => {
-      const result = (await hooks.removeManagedWorktree?.(req.sessionId)) ?? { ok: true as const }
-      if (!result.ok) return result
       // 먼저 런타임·미커밋 입력을 닫아 삭제 뒤 지각 이벤트가 DB에 다시 쓰는 경쟁을 막는다.
       hooks.onSessionDisposed?.(req.sessionId)
-      ctx.db.deleteSession(req.sessionId)
+      ctx.db.hideSession(req.sessionId)
       // 영속화된 lastSessionId 가 삭제 대상이면 같이 해제.
       const current = ctx.settings.getAll()
       if (current.lastSessionId === req.sessionId) {

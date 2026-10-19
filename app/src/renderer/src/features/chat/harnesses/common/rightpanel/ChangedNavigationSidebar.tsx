@@ -1,0 +1,202 @@
+import { useMemo, useState } from 'react'
+import { Icon } from '../../../../../shared/ui/Icon'
+import { useI18n } from '../../../../../shared/i18n'
+import { formatRelativeTime } from '../../../../../shared/i18n/datetime'
+import {
+  buildChangedFileTree,
+  visibleTreeRows,
+  type ChangedFileTreeNode
+} from '../../../lib/changedFileTree'
+import { ALL_CHANGES, type DiffComparison, type DiffSection } from './diffComparison'
+import type { GitDiffSummary } from '../../../../../../../shared/ipc'
+import { shortSha } from './sessionChangesData'
+
+export interface ChangedNavigationSidebarProps {
+  sections: readonly DiffSection[]
+  summary: GitDiffSummary | null
+  comparison: DiffComparison
+  onPickFile: (path: string) => void
+  onPickComparison: (comparison: DiffComparison) => void
+}
+
+/**
+ * 탐색 사이드바 (0211 ΔV4 D-083·D-084). **두 구획**이다 — 상단 변경 파일 트리 + 하단 커밋 목록.
+ *
+ * 트리는 저장소 탐색기가 아니라 **현재 비교 범위의 변경 파일만** 담고, 파일을 고르면 우측
+ * 본문의 그 섹션으로 이동한다(새 화면으로 가지 않는다). 하단 목록은 범위 선택 자리를 겸한다 —
+ * `모든 변경사항` 행과 커밋 카드. 선택은 **채움**으로 말한다(0211 ΔV6 D-119).
+ */
+export function ChangedNavigationSidebar({
+  sections,
+  summary,
+  comparison,
+  onPickFile,
+  onPickComparison
+}: ChangedNavigationSidebarProps): React.JSX.Element {
+  const { tr, locale } = useI18n()
+  const [collapsedDirs, setCollapsedDirs] = useState<ReadonlySet<string>>(() => new Set())
+  const tree = useMemo(
+    () =>
+      buildChangedFileTree(
+        sections.map((section) => ({
+          path: section.path,
+          added: section.added,
+          removed: section.removed
+        }))
+      ),
+    [sections]
+  )
+  const rows = useMemo(() => visibleTreeRows(tree, collapsedDirs), [tree, collapsedDirs])
+
+  const toggleDir = (path: string): void =>
+    setCollapsedDirs((current) => {
+      const next = new Set(current)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
+      return next
+    })
+
+  return (
+    <aside
+      data-diff-sidebar
+      className="flex w-[240px] min-w-0 max-w-[50%] shrink-0 animate-depth-in flex-col border-r border-border font-sans text-footnote font-normal"
+    >
+      <div data-diff-file-tree className="min-h-0 flex-1 overflow-y-auto p-[8px]">
+        {rows.map(({ node, depth }) => (
+          <TreeRow
+            key={`${node.kind}:${node.path}`}
+            node={node}
+            depth={depth}
+            collapsed={node.kind === 'dir' && collapsedDirs.has(node.path)}
+            onToggleDir={toggleDir}
+            onPickFile={onPickFile}
+          />
+        ))}
+      </div>
+      <div
+        data-diff-commit-list
+        className="flex max-h-[40%] shrink-0 flex-col gap-[2px] overflow-y-auto border-t border-border p-[8px]"
+      >
+        {/* 0211 ΔV5 D-107 — `미커밋 변경` 행은 참조 배치에 없어 사라졌고, ΔV6 D-111 이후
+            미커밋 파일 자체가 어느 목록에도 오지 않는다. `모든 변경사항` = 커밋된 것 전부. */}
+        <ScopeRow
+          label={tr('chat.rightpanel.diffAllChanges')}
+          active={comparison.kind === 'all'}
+          testKey="all"
+          onClick={() => onPickComparison(ALL_CHANGES)}
+        />
+        {(summary?.commits ?? []).map((commit) => (
+          <button
+            key={commit.sha}
+            type="button"
+            data-diff-commit-card={commit.sha}
+            aria-pressed={comparison.kind === 'commit' && comparison.sha === commit.sha}
+            onClick={() => onPickComparison({ kind: 'commit', sha: commit.sha })}
+            // 0211 ΔV6 D-119 — 선택은 **채움**이고 비선택은 테두리도 배경도 없다(실측 6·7행).
+            className={`group/commitcard flex w-full shrink-0 flex-col items-start gap-[2px] rounded-[4px] px-[4px] py-[6px] text-left outline-none transition-colors hide-focus-ring ring-focus ${
+              comparison.kind === 'commit' && comparison.sha === commit.sha
+                ? 'bg-fill-uncontained-active text-ink'
+                : 'text-ink2 hover:bg-fill-uncontained-hover'
+            }`}
+          >
+            <span className="w-full truncate text-footnote" title={commit.subject}>
+              {commit.subject}
+            </span>
+            <span className="flex w-full items-center gap-[4px] overflow-hidden text-footnote text-ink3">
+              <span className="shrink-0 font-mono text-footnote">{shortSha(commit.sha)}</span>
+              <span aria-hidden="true">·</span>
+              <span className="min-w-0 truncate">{commit.author}</span>
+              <span aria-hidden="true">·</span>
+              <span className="min-w-0 truncate">
+                {formatRelativeTime(commit.committedAt, locale)}
+              </span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </aside>
+  )
+}
+
+function ScopeRow({
+  label,
+  active,
+  testKey,
+  onClick
+}: {
+  label: string
+  active: boolean
+  testKey: string
+  onClick: () => void
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      data-diff-scope={testKey}
+      aria-pressed={active}
+      onClick={onClick}
+      // 0211 ΔV6 D-119 — 선택 표시는 채움이다. 체크 아이콘을 함께 두면 커밋 카드와 표시
+      // 문법이 갈린다(카드에는 체크 자리가 없다).
+      className={`group/scope flex w-full shrink-0 items-center rounded-[5px] px-[4px] py-[6px] text-left text-footnote outline-none transition-colors hide-focus-ring ring-focus ${
+        active ? 'bg-fill-uncontained-active text-ink' : 'text-ink2 hover:bg-fill-uncontained-hover'
+      }`}
+    >
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+    </button>
+  )
+}
+
+function TreeRow({
+  node,
+  depth,
+  collapsed,
+  onToggleDir,
+  onPickFile
+}: {
+  node: ChangedFileTreeNode
+  depth: number
+  collapsed: boolean
+  onToggleDir: (path: string) => void
+  onPickFile: (path: string) => void
+}): React.JSX.Element {
+  const indent = { paddingLeft: `${8 + depth * 12}px` }
+  if (node.kind === 'dir') {
+    return (
+      <button
+        type="button"
+        style={indent}
+        data-diff-tree-dir={node.path}
+        aria-expanded={!collapsed}
+        onClick={() => onToggleDir(node.path)}
+        className="group/treedir flex h-[24px] w-full items-center gap-[4px] rounded-[5px] pr-[8px] text-left text-footnote text-ink2 outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
+      >
+        <Icon
+          name={collapsed ? 'chevR' : 'chevD'}
+          size={12}
+          className="shrink-0 text-ink3 transition-colors group-hover/treedir:text-ink2"
+        />
+        <span className="min-w-0 flex-1 truncate">{node.label}</span>
+      </button>
+    )
+  }
+  return (
+    <button
+      type="button"
+      style={indent}
+      data-diff-tree-file={node.path}
+      onClick={() => onPickFile(node.path)}
+      className="group/treefile flex h-[24px] w-full items-center gap-[4px] rounded-[5px] pr-[8px] text-left text-footnote text-ink2 outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
+    >
+      <Icon
+        name="doc"
+        size={12}
+        className="shrink-0 text-ink3 transition-colors group-hover/treefile:text-ink2"
+      />
+      <span className="min-w-0 flex-1 truncate">{node.label}</span>
+      <span className="flex shrink-0 gap-[2px] text-footnote tabular-nums">
+        <span className="text-git-added">+{node.added}</span>
+        <span className="text-git-removed">−{node.removed}</span>
+      </span>
+    </button>
+  )
+}

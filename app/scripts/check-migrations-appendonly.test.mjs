@@ -162,7 +162,7 @@ test('findMigrationListCopies 는 windows 구분자 경로를 정규화해 비�
 test('checkNoListCopies 는 사본 파일명과 인용 개수를 오류에 싣는다', () => {
   const result = checkNoListCopies([
     {
-      path: 'src/main/features/extensions/builder.test.ts',
+      path: 'src/main/features/extensions/common/builder.test.ts',
       names: ['0001_initial', '0002_projects']
     }
   ])

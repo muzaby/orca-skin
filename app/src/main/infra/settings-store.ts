@@ -89,6 +89,7 @@ function mergeSettings(current: Settings, patch: SettingsPatch): Settings {
   return SettingsSchema.parse({
     ...current,
     ...patch,
+    harnesses: { ...current.harnesses, ...patch.harnesses },
     scheduler: patch.scheduler
       ? {
           usageRecompute: mergeGroup(

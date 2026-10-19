@@ -5,7 +5,10 @@
     "src/renderer/src/**/*",
     "src/renderer/src/**/*.tsx",
     "src/preload/*.d.ts",
-    "src/shared/**/*"
+    "src/shared/**/*",
+    "scripts/fixtures/opencode-ui/main.tsx",
+    "scripts/fixtures/opencode-ui/native.ts",
+    "scripts/fixtures/opencode-ui/scenarios.ts"
   ],
   "compilerOptions": {
     "composite": true,

@@ -1,7 +1,10 @@
 import { Button } from '../../../shared/ui/Button'
 import { Icon, type IconName } from '../../../shared/ui/Icon'
 import { useI18n } from '../../../shared/i18n'
-import { COMPOSER_PANEL_ICON_SIZE, composerPanelSurface } from './composer/composerPanel'
+import {
+  COMPOSER_PANEL_ICON_SIZE,
+  composerPanelSurface
+} from '../harnesses/common/composer/composerPanel'
 
 interface NoticeProps {
   title?: string

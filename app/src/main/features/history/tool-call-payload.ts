@@ -13,6 +13,7 @@ export function toolCallPartPayload(
   return {
     toolName: ev.toolName,
     args: ev.args ?? null,
+    ...(ev.providerTool ? { providerTool: ev.providerTool } : {}),
     ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {})
   }
 }

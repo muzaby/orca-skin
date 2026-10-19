@@ -76,6 +76,43 @@ const invoke = (payload: unknown): Promise<unknown> =>
   Promise.resolve(host.handlers.get(CHANNELS.filesOpenPath)!({}, payload))
 
 describe('Context directory open — actual registration, SQLite and filesystem', () => {
+  it('opens only recorded OpenCode Code folders and files through the context entry points', async () => {
+    queries.insertSession({
+      id: 'opencode',
+      backend: 'opencode',
+      title: null,
+      projectId: null,
+      createdAt: 1,
+      cwd,
+      agentKind: 'code'
+    })
+    queries.updateSessionExtraDirs('opencode', [realpathSync(directory)])
+    await invoke({ ...request(), sessionId: 'opencode' })
+    expect(host.openPath).toHaveBeenCalledExactlyOnceWith(await fs.realpath(directory))
+    const file = join(directory, 'context.md')
+    const outside = join(root, 'outside.md')
+    writeFileSync(file, 'context')
+    writeFileSync(outside, 'outside')
+    await host.handlers.get(CHANNELS.filesOpenContextFile)!(
+      {},
+      { path: file, sessionId: 'opencode' }
+    )
+    expect(host.openPath).toHaveBeenLastCalledWith(await fs.realpath(file))
+    await expect(invoke({ ...request(), sessionId: 'opencode', path: root })).rejects.toThrow(
+      '허용되지 않은'
+    )
+    await expect(
+      Promise.resolve(
+        host.handlers.get(CHANNELS.filesOpenContextFile)!(
+          {},
+          {
+            path: outside,
+            sessionId: 'opencode'
+          }
+        )
+      )
+    ).rejects.toThrow('허용되지 않은')
+  })
   it('opens the stored Work extra directory without changing cwd or allowed scope', async () => {
     const before = queries.getSessionById('work')!
     await invoke(request())

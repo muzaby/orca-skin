@@ -1,8 +1,27 @@
 // 메시지를 "턴"으로 묶는 순수 헬퍼. 한 에이전트 응답이 텍스트↔툴콜 교대로 여러 assistant
 // 메시지로 쪼개져도, 복사/시간 메타는 사용자 턴·에이전트 턴 단위로 한 번만 찍는다 (transcript 렌더).
 
-import { partsText } from './parts'
+import { partsAttachments, partsDiffRequirements, partsText } from './parts'
 import type { Message } from '../reducer/chatReducer'
+
+export interface TranscriptProjectionOptions {
+  showAutomaticFeeds?: boolean
+}
+
+function visibleMessage(
+  message: Message,
+  { showAutomaticFeeds = false }: TranscriptProjectionOptions
+): Message | undefined {
+  if (message.role !== 'user') return message
+  const parts = message.parts.filter((part) => {
+    if (part.type !== 'text' || !part.origin) return true
+    return showAutomaticFeeds
+  })
+  if (parts.length === message.parts.length) return message
+  const hasContent =
+    partsText(parts).trim() || partsAttachments(parts).length || partsDiffRequirements(parts).length
+  return hasContent ? { ...message, parts } : undefined
+}
 
 export interface Turn {
   role: 'user' | 'assistant'
@@ -12,13 +31,13 @@ export interface Turn {
 }
 
 // 연속 동일 role 메시지를 한 턴으로 그룹핑. 순서 보존.
-export function groupTurns(messages: Message[]): Turn[] {
+export function groupTurns(messages: Message[], options: TranscriptProjectionOptions = {}): Turn[] {
   const turns: Turn[] = []
   for (let i = 0; i < messages.length; i++) {
-    const m = messages[i]
-    // 자동 수신은 내부 이력에 남기고 표시에서만 제외한다. 원문 태그는 출처가 아니며,
-    // 필터 배열을 만들지 않아 뒤따르는 실제 메시지의 원본 index/key도 유지한다.
-    if (m.role === 'user' && m.parts.some((part) => part.type === 'text' && part.origin)) continue
+    // 원본 이력과 index/key는 보존하고, 혼합 메시지의 자동 text part만 제외한다.
+    // 출처 없는 수기 태그·첨부 및 assistant/tool 출력은 분류하지 않는다.
+    const m = visibleMessage(messages[i], options)
+    if (!m) continue
     const last = turns[turns.length - 1]
     if (last && last.role === m.role) {
       last.messages.push(m)
@@ -51,9 +70,12 @@ export interface Exchange {
   turns: Turn[]
 }
 
-export function groupExchanges(messages: Message[]): Exchange[] {
+export function groupExchanges(
+  messages: Message[],
+  options: TranscriptProjectionOptions = {}
+): Exchange[] {
   const exchanges: Exchange[] = []
-  for (const turn of groupTurns(messages)) {
+  for (const turn of groupTurns(messages, options)) {
     const last = exchanges[exchanges.length - 1]
     if (turn.role === 'user' || !last) {
       exchanges.push({ startIndex: turn.startIndex, turns: [turn] })

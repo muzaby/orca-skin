@@ -25,7 +25,12 @@ function absoluteRendererBase(): Plugin {
 }
 
 export default defineConfig({
-  main: {},
+  main: {
+    build: {
+      // SDK는 import 조건만 제공하므로 CommonJS main에서 require하지 않도록 번들에 포함한다.
+      externalizeDeps: { exclude: ['@opencode-ai/sdk'] }
+    }
+  },
   preload: {},
   renderer: {
     define: {

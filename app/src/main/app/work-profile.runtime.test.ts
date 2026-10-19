@@ -7,7 +7,7 @@ import type { ArtifactRef } from '../../shared/artifacts'
 import type { DbQueries } from '../infra/db'
 import type { NormalizedEvent, Settings } from '../../shared/ipc'
 import type { BackgroundEvent, ProviderMessageEvent } from '../../shared/background-task'
-import type { TurnExtensions } from '../adapters/turn'
+import type { TurnExtensions } from '../adapters/common/turn'
 
 const mock = vi.hoisted(() => ({
   messages: [] as unknown[],
@@ -20,9 +20,9 @@ vi.mock('@anthropic-ai/claude-agent-sdk', async (original) => ({
   ...(await original<typeof import('@anthropic-ai/claude-agent-sdk')>()),
   query: mock.query
 }))
-import { ClaudeAdapter } from '../adapters/claude'
-import { ExtensionBuilder } from '../features/extensions/builder'
-import { prepareAgentExtensionProfile } from './agent-extension-profile'
+import { ClaudeAdapter } from '../adapters/claude/adapter'
+import { ExtensionBuilder } from '../features/extensions/common/builder'
+import { prepareAgentExtensionProfile } from './harnesses/registry'
 
 beforeEach(() => {
   vi.clearAllMocks()

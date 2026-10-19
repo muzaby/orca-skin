@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { ArtifactRef } from '../../../shared/artifacts'
-import type { RuntimeToolServer } from '../../adapters/runtime-tools'
+import type { RuntimeToolServer } from '../../adapters/common/runtime-tools'
 import type { ArtifactService } from './service'
 import { artifactError } from './validation'
 

@@ -59,7 +59,7 @@ Bootstrap        : 위 객체를 생성하고 좁은 포트로 연결만 함
 | 없어진 슬롯 | 지금 누가 아는가 |
 |---|---|
 | `kind: 'gate'\|'llm'\|'service'` | `app/deployment/gate-auth.ts` 가 gate membership 을 **객체 참조**로 갖는다 |
-| `llm: { adapter, provider, envKey }` | `features/harnesses/runtime-config.ts` + `app/deployment/harness-runtime.ts` |
+| `llm: { adapter, provider, envKey }` | `features/harnesses/common/runtime-config.ts` + `app/deployment/harness-runtime.ts` |
 | `tools: (ctx) => RuntimeToolServer` | Plugin 모듈이 자기 도구를 만들고 `app/deployment/plugins.ts` 가 등록/회수한다 |
 | `ProviderApi.materialize()` | 없앴다 — 일반 소비는 `BoundAuth.request()`, raw 는 `AuthSecretReader` |
 
@@ -74,7 +74,7 @@ config API 를 불러 URL·모델 식별자·실행 token 을 한꺼번에 받�
 | 경로 | 책임 |
 |---|---|
 | `contracts/auth.ts` | 타입 계약 — `AuthDefinition`·`LoginFreeDefinition`·`AuthScheme`·`AuthMethod`·`AuthProbe`·`Grant`·`AuthenticatedRequest/Response`·`AuthSnapshot`·`AuthChange`·`BoundAuth`·`PluginAuth`·`LoginFreePluginAuth`·`AuthRuntime`·`AuthSecretReader` |
-| `adapters/harness-config.ts` | 실행 구성 계약 + spawn 입력 조립 — `options.settings` / `options.env` 두 채널과 env fingerprint(`PreparedHarnessConfig`). feature 가 아니라 어댑터 포트다 |
+| `adapters/common/harness-config.ts` | 실행 구성 계약 + spawn 입력 조립 — `options.settings` / `options.env` 두 채널과 env fingerprint(`PreparedHarnessConfig`). feature 가 아니라 어댑터 포트다 |
 | `features/auth/runtime.ts` | `createAuthRuntime()` — 체계별 바인딩·상태 설명과 자격증명 store·요청·로그인을 묶고 `{ runtime, secretReader }` 반환 |
 | `features/auth/registry.ts` | 별도 선언 목록의 빌드타임 검사 (공유 id 공간 · 케밥 id · bare origin). 자격증명 선언을 우선 등록하며 충돌한 로그인 프리 선언만 거부한다. **gate probe 검사는 여기 없다** |
 | `features/auth/store.ts` | `authId → Grant` 단일 맵 + `verified` + `credentialRevision` + 만료 정착 집합 |
@@ -88,11 +88,11 @@ config API 를 불러 URL·모델 식별자·실행 token 을 한꺼번에 받�
 | `features/gate/index.ts` | `evaluateGate`(순수 진리표) · `createGate` · `selectGateMembers`(fail-closed) |
 | `features/gate/daily.ts` | 로컬 날짜·다음 자정 계산 · 날짜 경계 감시 · 일일 재로그인 표식 판정 |
 | `app/daily-gate.ts` | 날짜 경계 → 게이트 통과 해제 → 상태 방송 · wake 구독과 종료 정리 |
-| `features/harnesses/settings.ts` | `sources/settings/<harness>/<modelProvider>/` 열거 |
-| `features/harnesses/settings.ts` | native settings 해석 + mtime cache + `sourceRevision` |
-| `features/harnesses/runtime-config.ts` | 동적 실행 구성 — augmenter · 세대 cache · fence · single-flight · expiry |
-| `features/harnesses/runtime-boundary.ts` | respawn 경계 판정(순수) |
-| `features/harnesses/runtime-catalog.ts` | 인증 뒤 Claude Code `availableModels` 수집 — settings 모델 파싱 규칙(`runtimeEnv.ANTHROPIC_MODEL`)을 공유하는 런타임 카탈로그 |
+| `features/harnesses/common/settings.ts` | `sources/settings/<harness>/<modelProvider>/` 열거 |
+| `features/harnesses/common/settings.ts` | native settings 해석 + mtime cache + `sourceRevision` |
+| `features/harnesses/common/runtime-config.ts` | 동적 실행 구성 — augmenter · 세대 cache · fence · single-flight · expiry |
+| `features/harnesses/common/runtime-boundary.ts` | respawn 경계 판정(순수) |
+| `features/harnesses/common/runtime-catalog.ts` | 인증 뒤 Claude Code `availableModels` 수집 — settings 모델 파싱 규칙(`runtimeEnv.ANTHROPIC_MODEL`)을 공유하는 런타임 카탈로그 |
 | `features/plugins/confluence/` | Confluence REST · Markdown 변환 · 첨부 · Runtime Tool |
 | `features/plugins/jira/` | Jira Data Center REST · 첨부 저장(숨은 stage → batch 공개) · Runtime Tool — [security.md §1.8](./security.md) |
 | `features/plugins/mail/` | POP3 수집(UIDL 증분) · 계정별 `mail.db` FTS 검색 · 첨부 · Runtime Tool — [persistence.md](./persistence.md) "Mail Plugin 캐시" |
@@ -586,7 +586,7 @@ LLM token 을 오인할 여지를 배선에서 제거한다.
 
 후자는 `app/deployment/spawn-env.ts` 의 상수 하나이고 **동기·순수**다 — `AbortSignal`·`AuthBinder`·
 `AuthSecretReader` 를 받지 않는다. 대상 좁히기는 등록이 아니라 함수 안에서 `target` 으로 한다.
-계약 타입은 `adapters/harness-config.ts`, 실행 절차는
+계약 타입은 `adapters/common/harness-config.ts`, 실행 절차는
 [`guides/closed-network-extensions.md`](../../guides/closed-network-extensions.md) §3-d.
 
 ### 6.3 cache 는 key 당 한 세대만 갖는다

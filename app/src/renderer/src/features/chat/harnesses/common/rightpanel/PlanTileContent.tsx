@@ -1,0 +1,209 @@
+import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Icon } from '../../../../../shared/ui/Icon'
+import { CopyIconButton } from '../../../../../shared/ui/CopyIconButton'
+import { Markdown } from '../../../../../shared/ui/markdown/Markdown'
+import { chatActions, useChatSession } from '../../../store/chatStore'
+import { usePlanCommentSelection } from '../../../hooks/usePlanCommentSelection'
+import { rangeFromOffsets, rectsForRange } from '../../../lib/planCommentDom'
+import { PlanCommentOverlay } from './PlanCommentOverlay'
+import { PlanCommentPopover, type PopoverAnchorPoint } from './PlanCommentPopover'
+import { useI18n, type MessageKey } from '../../../../../shared/i18n'
+import { TaskProgressList } from './TaskProgressList'
+import { useTaskBoard } from '../../../hooks/useTaskBoard'
+import { TaskPanelContent } from './TaskPanelContent'
+
+// 계획 타일 헤더 액션 — 본문이 아닌 타일 헤더(RightPanelTile)에서 렌더된다.
+// planContent 를 직접 구독하므로 RightPanelTile 은 타일별 액션을 모른 채 슬롯만 받는다.
+export function PlanTileHeaderActions(): React.JSX.Element {
+  const { tr } = useI18n()
+  const planContent = useChatSession((s) => s.planContent)
+  return <CopyIconButton text={planContent ?? ''} title={tr('chat.rightpanel.planCopy')} />
+}
+
+export function PlanTileContent(copy: {
+  emptyDescriptionKey: MessageKey
+  selectHintKey: MessageKey
+}): React.JSX.Element {
+  const { tr } = useI18n()
+  const items = useTaskBoard()
+  const planContent = useChatSession((s) => s.planContent)
+  const pendingPlanReview = useChatSession((s) => s.pendingPlanReview)
+  const agentTools = useChatSession((s) => s.agentTools)
+  const cliVersion = useChatSession((s) => s.cliVersion)
+  const hasTasks = items.length > 0
+  // 승인 대기의 본문 해소 실패는 빈 계획과 다르므로 작업만 있어도 감추지 않는다.
+  const showPlan = Boolean(planContent) || pendingPlanReview != null || !hasTasks
+  const unsupported = !hasTasks && agentTools != null && !agentTools.includes('TaskCreate')
+  return (
+    <TaskPanelContent
+      items={items}
+      mode="plan"
+      overviewClassName="flex flex-1 flex-col overflow-y-auto px-p5 py-p4 [scrollbar-gutter:stable]"
+    >
+      <div className="mx-auto w-full max-w-[68ch] text-[13px] text-ink">
+        {showPlan && (
+          <PlanDocument
+            {...copy}
+            emptySupplement={
+              unsupported ? (
+                <TaskProgressList items={items} agentTools={agentTools} cliVersion={cliVersion} />
+              ) : null
+            }
+          />
+        )}
+        {hasTasks && (
+          <section
+            aria-label={tr('chat.taskTile.headerTitle')}
+            className={showPlan ? 'mt-5' : undefined}
+          >
+            <h3 className="mb-g2 text-caption font-normal text-t6">
+              {tr('chat.taskTile.headerTitle')}
+            </h3>
+            <TaskProgressList items={items} />
+          </section>
+        )}
+      </div>
+    </TaskPanelContent>
+  )
+}
+
+// 댓글 오프셋은 이 문서 본문만 기준으로 삼는다. 아래 작업 목록·상세는 ref 밖의 형제다.
+function PlanDocument({
+  emptySupplement,
+  emptyDescriptionKey,
+  selectHintKey
+}: {
+  emptySupplement: ReactNode
+  emptyDescriptionKey: MessageKey
+  selectHintKey: MessageKey
+}): React.JSX.Element {
+  const { tr } = useI18n()
+  const planContent = useChatSession((s) => s.planContent)
+  // 계획 검토 중일 때만 드래그→코멘트 활성(전송 가능한 상태와 일치).
+  const enabled = useChatSession((s) => s.pendingPlanReview != null)
+  const comments = useChatSession((s) => s.planComments)
+  const activeId = useChatSession((s) => s.activePlanCommentId)
+
+  // 마크다운 본문만 감싸는 컨테이너(힌트 제외) — 선택 오프셋·하이라이트 rect 기준.
+  const contentRef = useRef<HTMLDivElement>(null)
+  const { draft, clear } = usePlanCommentSelection(contentRef, enabled)
+  const [editAnchor, setEditAnchor] = useState<PopoverAnchorPoint | null>(null)
+
+  const activeComment = comments.find((c) => c.id === activeId) ?? null
+
+  // 편집 대상 코멘트 선택 시 해당 구간으로 스크롤 + 팝오버 앵커 rect 계산. setState 는 rAF
+  // (비동기) 안에서만 — effect 본문 동기 setState 회피. activeComment 가 없을 땐 아래 렌더
+  // 가드(activeComment && editAnchor)가 팝오버를 숨기므로 editAnchor 를 비울 필요가 없다.
+  useLayoutEffect(() => {
+    if (!activeComment) return
+    const container = contentRef.current
+    if (!container) return
+    const range = rangeFromOffsets(container, activeComment.start, activeComment.end)
+    if (!range) return
+    range.startContainer.parentElement?.scrollIntoView({ block: 'nearest' })
+    const id = requestAnimationFrame(() => {
+      const rects = rectsForRange(range, container)
+      const first = rects[0]
+      if (!first) return
+      setEditAnchor({
+        x: first.left + first.width / 2,
+        top: first.top,
+        bottom: first.top + first.height,
+        containerWidth: container.clientWidth
+      })
+    })
+    return () => cancelAnimationFrame(id)
+  }, [activeComment])
+
+  const onCreateSave = useCallback(
+    (body: string): void => {
+      if (!draft) return
+      chatActions.addPlanComment({
+        id: crypto.randomUUID(),
+        quote: draft.quote,
+        start: draft.start,
+        end: draft.end,
+        body,
+        createdAt: Date.now()
+      })
+      clear()
+    },
+    [draft, clear]
+  )
+
+  if (!planContent) {
+    // **승인 대기 중인데 본문이 없으면 그것은 빈 계획이 아니라 해소 실패다**(0215 D-002).
+    // 같은 "아직 플랜이 없습니다" 를 내면 사용자는 카드가 왜 떠 있는지 알 수 없고, 실패가
+    // 화면에서 "아무 일도 안 일어남" 으로 보인다.
+    const unavailable = enabled
+    return (
+      <div className="flex min-h-[144px] flex-col py-p4">
+        <div className="m-auto flex max-w-[240px] flex-col items-center gap-g3 text-center text-t6">
+          <Icon
+            name={unavailable ? 'alert' : 'board'}
+            size={28}
+            style={{ color: 'var(--color-t6)' }}
+          />
+          <p className="text-footnote font-medium text-t6">
+            {tr(
+              unavailable
+                ? 'chat.rightpanel.planUnavailableTitle'
+                : 'chat.rightpanel.planEmptyTitle'
+            )}
+          </p>
+          <p className="text-caption text-ink3">
+            {tr(unavailable ? 'chat.rightpanel.planUnavailableDesc' : emptyDescriptionKey)}
+          </p>
+          {emptySupplement}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div className="mb-[var(--chat-item-gap)] flex items-center gap-g3 text-caption text-t6">
+        <Icon name="doc" size={13} />
+        <span>{tr(selectHintKey)}</span>
+      </div>
+      <div ref={contentRef} className="relative">
+        <Markdown source={planContent} />
+        <PlanCommentOverlay
+          containerRef={contentRef}
+          comments={comments}
+          activeId={activeId}
+          draft={draft ? { start: draft.start, end: draft.end } : null}
+          contentKey={planContent}
+          onSelect={(id) => chatActions.setActivePlanComment(id)}
+        />
+        {draft ? (
+          <PlanCommentPopover
+            key="create"
+            anchor={draft.anchor}
+            quote={draft.quote}
+            mode="create"
+            onSave={onCreateSave}
+            onClose={clear}
+          />
+        ) : (
+          activeComment &&
+          editAnchor && (
+            <PlanCommentPopover
+              key={activeComment.id}
+              anchor={editAnchor}
+              quote={activeComment.quote}
+              mode="edit"
+              initialBody={activeComment.body}
+              onSave={(body) => {
+                chatActions.updatePlanComment(activeComment.id, body)
+                chatActions.setActivePlanComment(null)
+              }}
+              onDelete={() => chatActions.removePlanComment(activeComment.id)}
+              onClose={() => chatActions.setActivePlanComment(null)}
+            />
+          )
+        )}
+      </div>
+    </div>
+  )
+}

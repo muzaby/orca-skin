@@ -18,11 +18,14 @@
 | 백그라운드 작업 · 원본 journal · 출력 읽기 | [`arch/backend/background-tasks.md`](arch/backend/background-tasks.md) |
 | **TaskXXX 도구군** (할 일 목록 · background 태스크 · 기능 가용성) | [`claude-taskxxx-spec.md`](claude-taskxxx-spec.md) — SDK 표면 정본 |
 | **OpenCode SDK** (설치 버전 · API 표면 · 메시지/이벤트 · 오류/전송 제약) | [`opencode-sdk-spec.md`](opencode-sdk-spec.md) · 공식 원문은 [`spec/opencode/INDEX.md`](spec/opencode/INDEX.md) |
+| **OpenCode 하네스 구현·CLI 호환성** | [`구현 계약`](handoff/0262-opencode-harness/plan.md) · [`native 디자인 실측`](handoff/0262-opencode-harness/design-evidence.md) · [`실행 패키지와 실제 CLI 검증`](handoff/0262-opencode-harness/runtime-compatibility.md) |
+| **공통 시스템 피드·reminder 표시 설계와 native 조사** | [`공통 계약 초안`](handoff/0232-background-transcript-ux/plan.md) · [`OpenCode 1.19 수신·자동 재개 실측`](handoff/0262-opencode-harness/system-feed-research.md) · [`DEV 제어 초안`](handoff/0003-debug-panel-mock-adapter/plan.md) |
 | **Orca → OpenCode 마이그레이션 연구** (레이어별 작업 · 매핑 · 단계별 gate) | [`etc/study/opencode/orca-migration-guide.md`](etc/study/opencode/orca-migration-guide.md) · 기존 연구 지도는 [`etc/study/opencode/00-index.md`](etc/study/opencode/00-index.md) |
 | 턴 이벤트 정규화 계층 (NormalizedEvent · 권한 브리지) | [`arch/backend/provider-runtime.md`](arch/backend/provider-runtime.md) |
 | **인증 provider · 로그인 프리 Plugin** (로그인 게이트 · LLM 자격증명 · 사내 서비스 · 기본 제공 도구) | [`arch/backend/auth.md`](arch/backend/auth.md) |
 | Electron 보안 경계 · 자격증명 · 원격 전송 스택 | [`arch/backend/security.md`](arch/backend/security.md) |
 | DB · 영속성 · FTS5 | [`arch/backend/persistence.md`](arch/backend/persistence.md) |
+| **하네스 native 원본 경로·CLI 왕복 이어보기 정책 변경** | [`ADR-009`](decisions/009-harness-native-storage-authority.md) · [`0265 공통 설계`](handoff/0265-harness-native-storage/plan.md) · [`0262 OpenCode 경로 전환`](handoff/0262-opencode-harness/plan.md) |
 | 확장 배포 (MCP · SKILL.md · AGENTS.md 표준) | [`arch/backend/standardization.md`](arch/backend/standardization.md) |
 | 시스템 프롬프트 · 정책 append | [`arch/backend/system-prompt.md`](arch/backend/system-prompt.md) |
 | **Work 프롬프트·전용 output style 구현** | 현재 구조는 [`arch/backend/system-prompt.md`](arch/backend/system-prompt.md) · 계약·번들 CLI 실증 기록은 [`handoff/0234-work-prompt-profile/plan.md`](handoff/0234-work-prompt-profile/plan.md) |

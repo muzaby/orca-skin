@@ -12,7 +12,7 @@
 // 아니고, `interrupt()` 는 인자가 없어 `cancel_queued:true` 도 못 보낸다). 그래서 이 함수는
 // **판정만** 하고 처분(런타임 폐기 여부)은 호출자·제품 정책에 맡긴다.
 
-import type { InterruptReceipt } from '../../adapters/turn'
+import type { InterruptReceipt } from '../../adapters/common/turn'
 
 type InterruptOutcome =
   // 영수증 미보유 — CLI 가 `interrupt_receipt_v1` capability 를 알리지 않는 구형. 잔여 **미상**

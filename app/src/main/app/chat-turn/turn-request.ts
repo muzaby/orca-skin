@@ -5,7 +5,7 @@
 // fence 가 어긋난다(0166 D7 과 같은 결함).
 
 import type { WebContents } from 'electron'
-import type { InterruptReceipt, SteerFlushBatch, TurnRequest } from '../../adapters/turn'
+import type { InterruptReceipt, SteerFlushBatch, TurnRequest } from '../../adapters/common/turn'
 import type { TurnContext } from '../../contracts/turn'
 import type { PendingMessageQueue } from '../../features/chat/pending-message-queue'
 import type { SessionActivityProjector } from '../../features/chat/session-activity-projector'

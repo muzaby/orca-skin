@@ -11,6 +11,8 @@ React 렌더러의 **레이어 경계 + 스타일 규칙**. 위반하면 `npm ru
 
 ## 4-layer DAG (하향 의존만)
 
+하네스 전용 구현은 feature 안의 `harnesses/<하네스>/`, 공통 구현은 feature-local `common/` 또는 `harnesses/common/`에 둔다. 조립 진입점이 정책·슬롯을 주입하며 공통에서 구체 하네스/registry를 import하거나 하네스 형제를 직접 참조하지 않는다. 순수 정책과 React 표면 등록을 분리하고 입력 controller를 하네스 전환 때 다시 생성하지 않는다.
+
 ```
 app/          → pages · features · shared      (셸: Provider 합성 · router · AppLayout)
 pages/        → features · shared              (조립만 — Context 읽기 + features 배치. 로직 0)

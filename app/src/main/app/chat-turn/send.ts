@@ -21,7 +21,9 @@ import {
   planApprovedMode
 } from '../../../shared/permission-mode'
 import type { AttachmentView, WorktreeDisplay } from '../../../shared/ipc'
-import type { SteerFlushBatch, TurnExtensions, TurnRequest } from '../../adapters/turn'
+import { isBackend, supportsAgentKind } from '../../../shared/harness'
+import { parseProviderKey } from '../../infra/config/provider-key'
+import type { SteerFlushBatch, TurnExtensions, TurnRequest } from '../../adapters/common/turn'
 import type { TurnContext } from '../../contracts/turn'
 import { normalizeAttachments } from '../../features/chat/attachments'
 import { TurnCoordinator } from '../../features/chat/turn-coordinator'
@@ -44,7 +46,7 @@ import { prepareTemporaryFilesPath } from '../../infra/config/temp-path'
 import { prepareTurnExecution } from './prepare-worktree'
 import { resolveAgentKind, resolveAgentProfile } from '../../features/agents/profiles'
 import { bindStartingProject } from './project-binding'
-import { prepareAgentExtensionProfile } from '../agent-extension-profile'
+import { prepareAgentExtensionProfile } from '../harnesses/registry'
 
 export async function handleChatSend(
   deps: ChatRuntimeDeps,
@@ -64,7 +66,7 @@ export async function handleChatSend(
   } = deps
 
   // ── 1. 진입 게이트 (순수 판정 — admission.ts) ───────────────────────────────
-  const adapter =
+  let adapter =
     ctx.mockAdapter && ctx.debugMock.enabled ? ctx.mockAdapter : ctx.registry.getActive()
   const admission = admitChatSend({
     raw,
@@ -76,6 +78,39 @@ export async function handleChatSend(
     return
   }
   const payload = admission.data
+  const boundId = payload.sessionId ?? payload.forkFrom ?? payload.handoffFrom
+  const boundSession = boundId ? ctx.db.getSessionById(boundId) : undefined
+  const selectedBackend = boundSession?.backend ?? payload.backend ?? adapter?.id
+  if (
+    (boundSession && payload.backend && payload.backend !== boundSession.backend) ||
+    (selectedBackend &&
+      payload.providerKey &&
+      parseProviderKey(payload.providerKey, [selectedBackend])?.adapter !== selectedBackend)
+  ) {
+    sendChatEvent(event.sender, {
+      type: 'error',
+      ...(payload.sessionId ? { sessionId: payload.sessionId } : {}),
+      error: makeClassifiedError(
+        'schema_validation_error',
+        '이 대화의 하네스 또는 작업 종류를 변경할 수 없습니다. 새 대화에서 선택해 주세요.'
+      )
+    })
+    return
+  }
+  if (
+    !(ctx.mockAdapter && ctx.debugMock.enabled) &&
+    selectedBackend &&
+    selectedBackend !== adapter?.id
+  ) {
+    adapter = ctx.registry.get(selectedBackend)
+  }
+  if (!adapter) {
+    sendChatEvent(event.sender, {
+      type: 'error',
+      error: makeClassifiedError('provider_connection_error', '선택한 하네스를 사용할 수 없습니다.')
+    })
+    return
+  }
   if (payload.sessionId && deps.background?.isStoppingAll(payload.sessionId)) {
     sendChatEvent(event.sender, {
       type: 'error',
@@ -89,7 +124,20 @@ export async function handleChatSend(
     return
   }
   // admitChatSend 가 hasActiveAdapter 를 이미 통과시켰다.
-  const activeAdapter = adapter!
+  const activeAdapter = adapter
+  if (
+    (payload.forkFrom || payload.handoffFrom) &&
+    activeAdapter.describe?.().session.fork === false
+  ) {
+    sendChatEvent(event.sender, {
+      type: 'error',
+      error: makeClassifiedError(
+        'capability_unsupported',
+        '선택한 하네스는 대화 분기와 핸드오프를 지원하지 않습니다.'
+      )
+    })
+    return
+  }
 
   // ── 2. 첨부 정규화 (busy 판정 앞 — 위 ①) ──────────────────────────────────
   let normalizedAttachments: NormalizedAttachments
@@ -124,7 +172,15 @@ export async function handleChatSend(
     payload.agentKind,
     source ? source.agent_kind : existingLease?.agentKind
   )
-  if (!identity.ok || (existingLease && existingLease.agentKind !== identity.kind)) {
+  if (
+    !identity.ok ||
+    (existingLease && existingLease.agentKind !== identity.kind) ||
+    (source?.backend && source.backend !== activeAdapter.id) ||
+    (existingLease?.backend && existingLease.backend !== activeAdapter.id) ||
+    (isBackend(activeAdapter.id) &&
+      identity.ok &&
+      !supportsAgentKind(activeAdapter.id, identity.kind))
+  ) {
     sendChatEvent(event.sender, {
       type: 'error',
       ...(payload.sessionId ? { sessionId: payload.sessionId } : {}),
@@ -137,16 +193,27 @@ export async function handleChatSend(
   }
   const agentKind = identity.kind
   let outputFiles: TurnExtensions['outputFiles']
-  const withOutputs = (extensions: TurnExtensions): TurnExtensions =>
-    outputFiles
+  const withOutputs = (baseExtensions: TurnExtensions): TurnExtensions => {
+    const instructions = ctx.settings?.getAll().harnesses?.[activeAdapter.id]?.instructions
+    const extensions = instructions
+      ? {
+          ...baseExtensions,
+          systemPromptAppend: [baseExtensions.systemPromptAppend, instructions]
+            .filter(Boolean)
+            .join('\n\n')
+        }
+      : baseExtensions
+    return outputFiles
       ? {
           ...extensions,
           outputFiles,
           systemPromptAppend: `${extensions.systemPromptAppend ?? ''}\nFinal ordinary output directory: ${outputFiles.directory} (the Orca-specific orcinus-orca folder under the OS user temporary directory). Use this exact absolute path in file operations and final Markdown links.`
         }
       : extensions
+  }
   const acquired = supervisor.acquireChain({
     agentKind,
+    backend: activeAdapter.id,
     logicalKey,
     sessionId: payload.sessionId,
     owner: event.sender,
@@ -186,7 +253,14 @@ export async function handleChatSend(
 
   try {
     // ── 4·5. continuity 검증 + provider·env·메타·텍스트 해석 (resolve-turn.ts) ─
-    const resolution = await resolveTurn(ctx, supervisor, activeAdapter, { ...payload, agentKind })
+    const resolution = await resolveTurn(
+      ctx,
+      supervisor,
+      activeAdapter,
+      { ...payload, agentKind },
+      JSON.stringify(normalizedAttachments) +
+        (ctx.settings?.getAll().harnesses?.[activeAdapter.id]?.instructions ?? '')
+    )
     if (!resolution.ok) {
       sendChatEvent(event.sender, { type: 'error', error: resolution.error })
       return
@@ -198,7 +272,8 @@ export async function handleChatSend(
       resolved,
       sessionMeta,
       boundProjectId: requestedProjectId,
-      effectiveText
+      effectiveText,
+      native
     } = resolution.value
     let boundProjectId = requestedProjectId
     let projectCreated = false
@@ -489,6 +564,23 @@ export async function handleChatSend(
       },
       {
         sessionId: payload.sessionId,
+        ...(native.nativeSessionId ? { nativeSessionId: native.nativeSessionId } : {}),
+        ...(native.recoveryHistory !== undefined && payload.sessionId
+          ? {
+              recovery: {
+                history: native.recoveryHistory,
+                freshStart: native.recoveryFreshStart ?? false,
+                onPrompt: (nativeMessageId: string) =>
+                  ctx.db.nativeHistory.recoveryPrompt(
+                    payload.sessionId!,
+                    nativeMessageId,
+                    mainBatch.text
+                  )
+              }
+            }
+          : {}),
+        ...(payload.harnessAgent ? { harnessAgent: payload.harnessAgent } : {}),
+        ...(payload.modelVariant ? { modelVariant: payload.modelVariant } : {}),
         // 0064 continuity — 어댑터가 resume+forkSession 으로 어댑트해 새 session id 를 발급받는다.
         ...(continuitySource ? { forkFrom: continuitySource } : {}),
         // 0127 — 핸드오프 도착 턴 표식: 매퍼가 압축 경계 전의 승계 컨텍스트 usage 를 무효화한다.

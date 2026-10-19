@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { TurnExtensions } from '../adapters/turn'
-import type { PreparedHarnessConfig } from '../adapters/harness-config'
+import type { TurnExtensions } from '../adapters/common/turn'
+import type { PreparedHarnessConfig } from '../adapters/common/harness-config'
 import {
   prepareAutomaticContinuation,
   type AutomaticContinuationRuntime

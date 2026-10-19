@@ -1,11 +1,14 @@
 import { reportError } from '../../infra/error-report'
 import type { NormalizedEvent } from '../../../shared/ipc'
 import type { SessionSchedule } from '../../../shared/session-schedules'
-import type { ClaudePermissionMode } from '../../../shared/permission-mode'
-import { harnessEnvFingerprint, type ResolvedHarnessSettings } from '../../adapters/harness-config'
-import type { TurnRequest } from '../../adapters/turn'
-import type { RuntimeToolContext } from '../../adapters/runtime-tools'
-import type { LiveTurn, ProviderMessageBatch } from '../../adapters/types'
+import type { NormalizedPermissionMode } from '../../../shared/permission-mode'
+import {
+  harnessEnvFingerprint,
+  type ResolvedHarnessSettings
+} from '../../adapters/common/harness-config'
+import type { TurnRequest } from '../../adapters/common/turn'
+import type { RuntimeToolContext } from '../../adapters/common/runtime-tools'
+import type { LiveTurn, ProviderMessageBatch } from '../../adapters/common/types'
 import type { BackgroundEventSource } from '../../../shared/background-task'
 import type { ManagedRuntime, RuntimeSessionAdapter } from '../../contracts/ports'
 import { getLogger } from '../../infra/log/registry'
@@ -422,6 +425,8 @@ export class SessionRuntime implements ManagedRuntime {
           throw new Error('submission_stale:before-continuation')
         }
         const outcome = await live.pushTurn({
+          ...(req.harnessAgent !== undefined ? { harnessAgent: req.harnessAgent } : {}),
+          ...(req.modelVariant !== undefined ? { modelVariant: req.modelVariant } : {}),
           text: req.text,
           ...(req.attachmentTexts ? { attachmentTexts: req.attachmentTexts } : {}),
           ...(req.attachmentImages ? { attachmentImages: req.attachmentImages } : {}),
@@ -440,6 +445,7 @@ export class SessionRuntime implements ManagedRuntime {
           throw new Error('submission_stale:continuation')
         }
       } catch (err) {
+        this.teardownChannel()
         if (this.frame === frame) this.frame = null
         frame.end()
         if (!this.cancelled) this.status.markError(null)
@@ -896,7 +902,7 @@ export class SessionRuntime implements ManagedRuntime {
     this.channelController.abort()
   }
 
-  async setPermissionMode(mode: ClaudePermissionMode): Promise<void> {
+  async setPermissionMode(mode: NormalizedPermissionMode): Promise<void> {
     const live = this.live
     if (!live) throw new Error('No live channel for permission update')
     await live.setPermissionMode(mode)

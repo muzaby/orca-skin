@@ -9,4 +9,6 @@ export interface SessionSchedule {
 export interface ReceivedMessageOrigin {
   kind: 'scheduled' | 'channel' | 'task' | 'peer' | 'automatic'
   label?: string
+  /** Meaning of a provider-owned input, independent of its source and delivery. */
+  format?: 'system-reminder' | 'tagged' | 'plain'
 }

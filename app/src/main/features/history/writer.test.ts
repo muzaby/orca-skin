@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import Database from 'better-sqlite3'
+import { openFileDatabase } from '../../infra/db/file-database'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -116,7 +117,7 @@ describe('Work boundary persistence', () => {
   it('appends end to the completed original row, preserves FTS, and survives disk reopen and fork', () => {
     const directory = mkdtempSync(join(tmpdir(), 'orca-response-boundary-'))
     const filename = join(directory, 'history.db')
-    let connection = new Database(filename)
+    let connection = openFileDatabase(filename)
     try {
       applyMigrations(connection)
       const queries = new DbQueries(connection)
@@ -162,7 +163,7 @@ describe('Work boundary persistence', () => {
       expect(expected?.agentKind).toBe('work')
       expect(loadSession(queries, 'fork', () => '/fallback')?.messages).toEqual(expected?.messages)
       connection.close()
-      connection = new Database(filename)
+      connection = openFileDatabase(filename)
       const reopened = new DbQueries(connection)
       expect(loadSession(reopened, 's1', () => '/fallback')).toEqual(expected)
       expect(loadSession(reopened, 'fork', () => '/fallback')?.messages).toEqual(expected?.messages)
@@ -659,5 +660,46 @@ describe('HistoryWriter — 비실행 사유 영속 (0239)', () => {
         { type: 'tool_result', toolRunId: 't1', result: 'late real output', isError: false }
       ])
     })
+  })
+})
+
+describe('HistoryWriter — conversation engine key', () => {
+  it('stores the selected engine key at creation and replaces it with a later turn key on commit', () => {
+    const db = new Database(':memory:')
+    applyMigrations(db)
+    const queries = new DbQueries(db)
+    const persistence = new HistoryWriter(queries, () => false)
+    const turn = (providerKey: string, dbSessionId: string | null): TurnContext =>
+      ({
+        agentKind: 'code',
+        dbSessionId,
+        initialTitle: null,
+        pendingUserText: dbSessionId ? null : 'first',
+        pendingProjectId: null,
+        providerKey,
+        cwd: '/repo',
+        extraDirs: [],
+        sessionBaseline: null,
+        sessionBaselineRef: null,
+        titleAdapter: { id: 'opencode' },
+        isNewSession: dbSessionId === null,
+        currentAssistantMessageId: null,
+        assistantText: ''
+      }) as unknown as TurnContext
+
+    // A saved conversation selects its engine from this key when the request names none.
+    persistence.persist(turn('opencode-other', null), {
+      type: 'session.updated',
+      sessionId: 'conversation'
+    } as NormalizedEvent)
+    expect(queries.getSessionById('conversation')?.provider_key).toBe('opencode-other')
+
+    persistence.commitUserMessage(turn('opencode-local', 'conversation'), {
+      text: 'next',
+      createdAt: 2
+    })
+    expect(queries.getSessionById('conversation')?.provider_key).toBe('opencode-local')
+    expect(loadSession(queries, 'conversation', () => '/repo')?.providerKey).toBe('opencode-local')
+    db.close()
   })
 })

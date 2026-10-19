@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { GitDiffPatch } from '../../../../../shared/ipc'
 import { chatReducer, initialChatState } from './chatReducer'
-import { createDiffRequirementItem } from '../components/rightpanel/diffRequirements'
+import { createDiffRequirementItem } from '../harnesses/common/rightpanel/diffRequirements'
 import { patchLinesToDiffLines } from '../lib/diffPatchLines'
 
 const a = { kind: 'commit' as const, sha: 'a'.repeat(40) }

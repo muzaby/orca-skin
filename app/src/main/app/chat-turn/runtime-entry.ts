@@ -6,8 +6,8 @@
 
 import type { WebContents } from 'electron'
 import type { TurnContext } from '../../contracts/turn'
-import type { TurnExtensions } from '../../adapters/turn'
-import type { PreparedHarnessConfig } from '../../adapters/harness-config'
+import type { TurnExtensions } from '../../adapters/common/turn'
+import type { PreparedHarnessConfig } from '../../adapters/common/harness-config'
 import type { RuntimeSessionAdapter } from '../../contracts/ports'
 import { decideRespawn } from '../../features/sessions/respawn-policy'
 import { SessionRuntime } from '../../features/sessions/session-runtime'

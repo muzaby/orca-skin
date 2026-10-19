@@ -145,3 +145,24 @@ describe('SettingsStore — 0256 대화 텍스트 크기·너비', () => {
     expect(backend.store).not.toHaveProperty('density')
   })
 })
+
+describe('SettingsStore harness isolation', () => {
+  it('merges separate harness preferences and restores them after restart', () => {
+    const backend = countingBackend()
+    const store = new SettingsStore('1.0.0', backend)
+    store.patch({ harnesses: { claude: { instructions: 'Claude only' } }, lastBackend: 'claude' })
+    store.patch({
+      harnesses: {
+        opencode: { instructions: 'OpenCode only', executablePath: 'C:/tools/opencode.exe' }
+      },
+      lastBackend: 'opencode'
+    })
+    expect(new SettingsStore('1.0.0', backend).getAll()).toMatchObject({
+      lastBackend: 'opencode',
+      harnesses: {
+        claude: { instructions: 'Claude only' },
+        opencode: { instructions: 'OpenCode only', executablePath: 'C:/tools/opencode.exe' }
+      }
+    })
+  })
+})

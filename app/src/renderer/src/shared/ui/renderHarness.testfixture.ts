@@ -24,6 +24,8 @@ const ELEMENT_TYPES = new Set([
 const FORWARD_REF = Symbol.for('react.forward_ref')
 const MEMO = Symbol.for('react.memo')
 const FRAGMENT = Symbol.for('react.fragment')
+const CONTEXT = Symbol.for('react.context')
+const PROVIDER = Symbol.for('react.provider')
 /** 마우스·focus() 로 포커스를 받는 태그(tabIndex 가 있으면 태그와 무관). */
 const FOCUSABLE_TAGS = new Set(['button', 'a', 'input', 'select', 'textarea'])
 /** 한 프레임(ms) — requestAnimationFrame 은 가짜 타이머 위에서 이만큼 뒤에 돈다. */
@@ -63,6 +65,37 @@ export class FakeNode {
   props: Props = {}
   children: FakeNode[] = []
   parent: FakeNode | null = null
+  scrollTop = 0
+  scrollLeft = 0
+  style: Record<string, unknown> = {}
+
+  get ownerDocument(): Document {
+    return document
+  }
+
+  get clientWidth(): number {
+    return this.getBoundingClientRect().width
+  }
+
+  scrollTo(position: { top?: number; left?: number }): void {
+    if (position.top !== undefined) this.scrollTop = position.top
+    if (position.left !== undefined) this.scrollLeft = position.left
+  }
+
+  closest(selector: string): FakeNode | null {
+    for (const node of this.path) {
+      if (
+        selector.split(',').some((part) => {
+          const match = part.trim().match(/^\[([\w-]+)(?:="([^"]*)")?\]$/)
+          if (!match) throw new Error(`unsupported closest selector: ${part}`)
+          const value = node.getAttribute(match[1])
+          return match[2] === undefined ? value !== null : value === match[2]
+        })
+      )
+        return node
+    }
+    return null
+  }
 
   constructor(
     readonly tag: string,
@@ -84,7 +117,10 @@ export class FakeNode {
   /** 자기 또는 조상의 inline style 이 visibility:hidden 이다. */
   get hidden(): boolean {
     return this.path.some(
-      (node) => (node.props.style as { visibility?: string } | undefined)?.visibility === 'hidden'
+      (node) =>
+        node.props.hidden === true ||
+        node.props.inert === true ||
+        (node.props.style as { visibility?: string } | undefined)?.visibility === 'hidden'
     )
   }
 
@@ -220,6 +256,28 @@ function queueEffect(kind: 'layout' | 'effect', run: () => Cleanup, deps: Deps):
 
 /** 'react' 를 덮을 훅 — 슬롯은 호출 순서, effect 는 deps 가 바뀐 커밋에서만 다시 돈다. */
 export const fakeHooks = {
+  useContext(context: { _currentValue: unknown }): unknown {
+    const { dom } = currentInstance('useContext')
+    return dom.contextValues.has(context) ? dom.contextValues.get(context) : context._currentValue
+  },
+  useReducer(
+    reduce: (state: unknown, action: unknown) => unknown,
+    initial: unknown
+  ): [unknown, (action: unknown) => void] {
+    const [state, set] = fakeHooks.useState(initial)
+    return [state, (action) => set((previous: unknown) => reduce(previous, action))]
+  },
+  useSyncExternalStore(
+    subscribe: (callback: () => void) => () => void,
+    snapshot: () => unknown
+  ): unknown {
+    const { dom } = currentInstance('useSyncExternalStore')
+    fakeHooks.useLayoutEffect(() => subscribe(() => dom.markDirty()), [subscribe])
+    return snapshot()
+  },
+  useDebugValue(): void {
+    /* DevTools-only hook has no DOM effect. */
+  },
   useState(initial: unknown): [unknown, (update: unknown) => void] {
     const { dom, inst } = currentInstance('useState')
     const index = inst.cursor.state++
@@ -299,6 +357,7 @@ function makeEvent(type: string, target: FakeNode, extra: { key?: string } = {})
 }
 
 export class FakeDom {
+  readonly contextValues = new Map<unknown, unknown>()
   readonly body: FakeNode
   readonly container: FakeNode
   readonly documentListeners = new Map<string, Set<(event: unknown) => void>>()
@@ -517,7 +576,25 @@ export class FakeDom {
       this.renderChild(props.children, `${path}:${type}/`, node, pass)
       return
     }
-    const typed = type as { $$typeof?: symbol; render?: unknown; type?: unknown }
+    const typed = type as {
+      $$typeof?: symbol
+      render?: unknown
+      type?: unknown
+      _context?: unknown
+    }
+    if (typed.$$typeof === CONTEXT || typed.$$typeof === PROVIDER) {
+      const context = typed._context ?? type
+      const present = this.contextValues.has(context)
+      const previous = this.contextValues.get(context)
+      this.contextValues.set(context, props.value)
+      try {
+        this.renderChild(props.children, `${path}.context`, parent, pass)
+      } finally {
+        if (present) this.contextValues.set(context, previous)
+        else this.contextValues.delete(context)
+      }
+      return
+    }
     if (typed.$$typeof === MEMO) {
       this.renderChild({ ...value, type: typed.type }, path, parent, pass)
       return
@@ -533,7 +610,7 @@ export class FakeDom {
     } else throw new Error('unsupported element type')
 
     if (!this.typeIds.has(type)) this.typeIds.set(type, this.typeIds.size)
-    const key = `${path}<${this.typeIds.get(type)}>`
+    const key = `${path}<${this.typeIds.get(type)}>:${value.key ?? ''}`
     let inst = this.instances.get(key)
     if (!inst) {
       inst = {
@@ -606,6 +683,8 @@ export function installFakeDom(options: {
   const listeners = dom.documentListeners
   vi.stubGlobal('document', {
     body: dom.body,
+    querySelectorAll: (selector: string) =>
+      selector.split(',').flatMap((part) => dom.queryAll(part.trim())),
     get activeElement() {
       return dom.activeElement
     },

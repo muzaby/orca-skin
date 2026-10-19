@@ -1,5 +1,8 @@
 import type { GitDiffPatch } from '../../../../../shared/ipc'
-import { diffComparisonKey, type DiffComparison } from '../components/rightpanel/diffComparison'
+import {
+  diffComparisonKey,
+  type DiffComparison
+} from '../harnesses/common/rightpanel/diffComparison'
 
 interface CachedPatch {
   key: string

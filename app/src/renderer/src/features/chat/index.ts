@@ -1,8 +1,9 @@
 export { ChatProvider } from './providers/ChatProvider'
+export { AutomaticFeedDebugSection } from './components/AutomaticFeedDebugSection'
 export { ChatView } from './components/ChatView'
 export { ChatTile } from './components/ChatTile'
 export { RightPanel } from './components/rightpanel/RightPanel'
-export { ArtifactViewer } from './components/rightpanel/ArtifactViewer'
+export { ArtifactViewer } from './harnesses/common/rightpanel/ArtifactViewer'
 export {
   closeArtifactViewer,
   openArtifactViewer,
@@ -10,6 +11,7 @@ export {
   useArtifactViewerStore
 } from './store/artifactViewerStore'
 export { Composer } from './components/Composer'
+export { OpenCodeWordmark } from './harnesses/opencode/Wordmark'
 export { AgentModeToggle } from './components/AgentModeToggle'
 export { agentPresentation } from './lib/agentPresentation'
 export { useUsageForTelemetryProvider } from './hooks/useUsageForTelemetryProvider'
@@ -19,6 +21,7 @@ export {
   chatActions,
   getActiveChatSession,
   seedLandingAgentKind,
+  seedLandingBackend,
   useChatRecentsEpoch,
   useChatBusy,
   useChatSession,
@@ -29,3 +32,6 @@ export {
   subscribeGeneratingSessions,
   type DraftRow
 } from './store/chatStore'
+
+export { harnessSurfaces } from './harnesses/presentation'
+export { Landing } from './components/Landing'

@@ -95,7 +95,7 @@ export function createApprovalRequester(
       }
     }
     // 계획 승인 후처리 — SDK 세션은 어댑터가 allow 응답의 updatedPermissions 로 이미 전환했다
-    // (adapters/claude.ts). 여기서는 main 세션 SSOT 를 같은 값으로 맞춰, 다음 턴 send 페이로드가
+    // (adapters/claude/adapter.ts). 여기서는 main 세션 SSOT 를 같은 값으로 맞춰, 다음 턴 send 페이로드가
     // 도착하기 전 구간에도 controller 가 plan 이라고 답하지 않게 한다.
     if (
       action.kind === 'plan_review' &&

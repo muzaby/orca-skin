@@ -6,7 +6,7 @@
 // 여기는 그 판정에 따른 실행·정착·신호만 한다.
 
 import type { WebContents } from 'electron'
-import type { SteerFlushBatch, TurnRequest } from '../../adapters/turn'
+import type { SteerFlushBatch, TurnRequest } from '../../adapters/common/turn'
 import type { TurnContext } from '../../contracts/turn'
 import type { TurnCoordinator } from '../../features/chat/turn-coordinator'
 import type { PendingMessageQueue } from '../../features/chat/pending-message-queue'
@@ -125,7 +125,7 @@ export async function runTurnWithContinuations(
       const haveTasks = backgroundTasks.hasPending(sessionId)
       const channelBusy = runtime.channelBusy
       const hasBacklog = runtime.hasUnframedBacklog
-      const step = decidePostTurnStep({
+      let step = decidePostTurnStep({
         havePending: pendingMessageCount > 0,
         haveTasks,
         haveSchedules: runtime.hasSchedules,
@@ -186,6 +186,7 @@ export async function runTurnWithContinuations(
         return continuation
       }
 
+      let preparedContinuation: Awaited<ReturnType<PostTurnDeps['prepareContinuation']>> | undefined
       if (step === 'listen') {
         // 유예를 1라운드로 묶는다(0154) — listen 을 여는 김에 미확정 예약을 orphaned 로 강등한다.
         // 강등해도 늦은 echo 는 여전히 확정할 수 있고(confirm 의 open 술어가 orphaned 포함),
@@ -194,38 +195,51 @@ export async function runTurnWithContinuations(
         const continuation = await prepareNext()
         if (continuation === 'break') break
         if (continuation === 'continue') continue
-        const listenTurn = makeContinuationTurn(deps.getActiveTurn())
-        supervisor.startResume(sessionId, listenTurn)
-        deps.setActiveTurn(listenTurn)
-        const listenRequest = buildListenRequest({
-          base: request,
-          sessionId,
-          signal: listenTurn.controller.signal,
-          continuation
-        })
-        // busy send 릴리즈 밸브 — 예약(held) 적재 직후 listen 프레임을 닫아 즉시 전환(0136).
-        // CLI 가 자동 턴 진행 중이면 no-op(0143 유예) — terminal 자연 마감 후 루프가 flush.
-        deps.listenRelease.set(sessionId, () => runtime.endListenFrame())
-        try {
-          await coordinator.run(listenTurn, listenRequest, { boundProjectId, kind: 'listen' })
-        } finally {
-          deps.listenRelease.delete(sessionId)
-          supervisor.release(listenTurn)
-        }
-        // 사용자 중단(0143, 사용자 확정) — 대기 종료와 함께 실행 중 태스크도 중지·정착한다.
-        if (listenTurn.controller.signal.aborted) {
-          const listenAbortPolicy = abortResumePolicy(listenTurn.abortContinuation)
-          if (!listenAbortPolicy.resume || listenAbortPolicy.stopTasks) {
-            await settleAbortedTasksOnce(listenTurn, sessionId)
+        // The explicit interrupt may settle while settings are being prepared.
+        // Do not open an idle listener after its terminal event was already drained:
+        // a held send-now input would then wait forever for another provider event.
+        if (
+          pendingMessages.pending(sessionId).length > 0 &&
+          runtime.channelAlive &&
+          !runtime.channelBusy &&
+          !runtime.hasUnframedBacklog
+        ) {
+          step = 'flush'
+          preparedContinuation = continuation
+        } else {
+          const listenTurn = makeContinuationTurn(deps.getActiveTurn())
+          supervisor.startResume(sessionId, listenTurn)
+          deps.setActiveTurn(listenTurn)
+          const listenRequest = buildListenRequest({
+            base: request,
+            sessionId,
+            signal: listenTurn.controller.signal,
+            continuation
+          })
+          // busy send 릴리즈 밸브 — 예약(held) 적재 직후 listen 프레임을 닫아 즉시 전환(0136).
+          // CLI 가 자동 턴 진행 중이면 no-op(0143 유예) — terminal 자연 마감 후 루프가 flush.
+          deps.listenRelease.set(sessionId, () => runtime.endListenFrame())
+          try {
+            await coordinator.run(listenTurn, listenRequest, { boundProjectId, kind: 'listen' })
+          } finally {
+            deps.listenRelease.delete(sessionId)
+            supervisor.release(listenTurn)
           }
+          // 사용자 중단(0143, 사용자 확정) — 대기 종료와 함께 실행 중 태스크도 중지·정착한다.
+          if (listenTurn.controller.signal.aborted) {
+            const listenAbortPolicy = abortResumePolicy(listenTurn.abortContinuation)
+            if (!listenAbortPolicy.resume || listenAbortPolicy.stopTasks) {
+              await settleAbortedTasksOnce(listenTurn, sessionId)
+            }
+          }
+          continue
         }
-        continue
       }
 
       // flush — 0126: 연속 턴 settings 신선도 재판정. providerKey 는 원 턴 키로 고정(선택
       // 변경은 다음 사용자 send 부터, 0119)하고 settings blob 만 재해석한다. 내용이 다르면
       // teardown — 아래 channelAlive 분기가 채널-사망 경로(takeForRespawn)로 자연 전환된다.
-      const continuation = await prepareNext()
+      const continuation = preparedContinuation ?? (await prepareNext())
       if (continuation === 'break') break
       if (continuation === 'continue') continue
       let contPreludes: SteerFlushBatch[] = []

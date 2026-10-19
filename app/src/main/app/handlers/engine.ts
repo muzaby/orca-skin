@@ -2,22 +2,28 @@ import {
   CHANNELS,
   CreateEngineSchema,
   DeleteEngineSchema,
+  ImportEngineUserSettingsSchema,
   ReadEngineSchema,
   UpdateEngineSchema,
   type EngineReadResult,
   type EngineUserSettingsResult,
   type EngineWriteResult
 } from '../../../shared/protocol'
-import { readUserClaudeSettings } from '../../adapters/claude-settings'
+import { HARNESS_IDS } from '../../../shared/harness'
+import { harnessModule } from '../harnesses/registry'
 import {
   addHarnessSettings,
   deleteHarnessSettings,
   readHarnessSettings,
   updateHarnessSettings
-} from '../../features/harnesses/settings-write'
+} from '../../features/harnesses/common/settings-write'
 import type { RouterContext } from '../context'
-import { handle, handlePlain } from '../../infra/ipc/handle'
-import { canonicalProviderKey, providerKeyOf } from '../../infra/config/provider-key'
+import { handle } from '../../infra/ipc/handle'
+import {
+  canonicalProviderKey,
+  parseProviderKey,
+  providerKeyOf
+} from '../../infra/config/provider-key'
 
 interface EngineHandlerContext extends Pick<RouterContext, 'deployExtensions'> {
   harnessSettings: Pick<RouterContext['harnessSettings'], 'invalidateAll'>
@@ -30,7 +36,8 @@ interface EngineHandlerContext extends Pick<RouterContext, 'deployExtensions'> {
 
 async function refreshHarnessSettings(ctx: EngineHandlerContext, key: string): Promise<void> {
   try {
-    await ctx.deployExtensions({ throwOnFailure: true })
+    if (parseProviderKey(key, [...HARNESS_IDS])?.adapter === 'claude')
+      await ctx.deployExtensions({ throwOnFailure: true })
   } finally {
     // **두 cache 를 함께 비운다** (0188) — settings 만 비우면 동적 runtime config 가 옛
     // sourceRevision 기준 값을 warm hit 로 계속 돌려준다.
@@ -42,7 +49,7 @@ async function refreshHarnessSettings(ctx: EngineHandlerContext, key: string): P
 
 export function registerEngineHandlers(ctx: EngineHandlerContext): void {
   const assertMutable = (key: string): string => {
-    const canonical = canonicalProviderKey(key, ['claude'])
+    const canonical = canonicalProviderKey(key, [...HARNESS_IDS])
     if (ctx.runtimeModelCatalog?.isReadOnly(canonical)) {
       throw new Error(`runtime-managed engine is read-only: ${canonical}`)
     }
@@ -83,8 +90,10 @@ export function registerEngineHandlers(ctx: EngineHandlerContext): void {
     return readHarnessSettings(req.key)
   })
 
-  // 사용자 전역 ~/.claude/settings.json 원문 — 모달 자동완성용 (무입력 read, 부재=exists:false).
-  handlePlain(CHANNELS.engineImportUserSettings, (): EngineUserSettingsResult =>
-    readUserClaudeSettings()
+  handle(
+    CHANNELS.engineImportUserSettings,
+    ImportEngineUserSettingsSchema,
+    'reject',
+    ({ engine }): EngineUserSettingsResult => harnessModule(engine).readUserSettings()
   )
 }

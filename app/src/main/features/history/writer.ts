@@ -161,6 +161,7 @@ export class HistoryWriter {
     batch: {
       text: string
       createdAt: number
+      nativeMessageId?: string
       origin?: ReceivedMessageOrigin
       attachmentViews?: AttachmentView[]
       requirements?: DiffRequirementAnchor[]
@@ -177,6 +178,10 @@ export class HistoryWriter {
       batch.requirements,
       batch.origin
     )
+    if (batch.nativeMessageId) {
+      this.db.nativeHistory?.bind(id, batch.nativeMessageId)
+      this.db.nativeHistory?.acceptRecovery?.(sessionId, batch.nativeMessageId)
+    }
     this.db.updateSessionPreview(sessionId, previewOf(batch.text), batch.createdAt)
     this.db.updateSessionProviderKey(sessionId, turn.providerKey, batch.createdAt)
     return id
@@ -559,6 +564,15 @@ export class HistoryWriter {
       // 위 통지 파트 외 transient — 메타 영속은
       // 부모 Task tool_result 의 subagentMeta(위 tool.call.completed)가 담당한다. activity 투영은
       // sendChatEvent 직행이라 여기 도달하지 않는다(도달해도 case 부재 = no-op).
+    }
+    if (
+      'nativeMessageId' in ev &&
+      ev.nativeMessageId &&
+      ev.sessionId === turn.dbSessionId &&
+      turn.currentAssistantMessageId != null &&
+      (!('parentToolRunId' in ev) || ev.parentToolRunId === undefined)
+    ) {
+      this.db.nativeHistory?.bind(turn.currentAssistantMessageId, ev.nativeMessageId)
     }
   }
 }

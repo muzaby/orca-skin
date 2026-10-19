@@ -72,8 +72,8 @@ describe('0256 AC8 — 타이포 토큰은 트랜스크립트 배율을 곱한�
     // 걷기 장치 생존 — 깊은 자리까지 닿아야 한다.
     for (const known of [
       'shared/ui/markdown/Markdown.tsx',
-      'features/chat/components/transcript/UserMessage.tsx',
-      'features/chat/components/StatusLine.tsx'
+      'features/chat/harnesses/common/transcript/UserMessage.tsx',
+      'features/chat/harnesses/common/transcript/StatusLine.tsx'
     ])
       expect(files).toContain(known)
     const violations: string[] = []
@@ -124,12 +124,12 @@ describe('0256 AC9·AC10 — 대화 기록 너비', () => {
   it('트랜스크립트·컴포저·프로젝트 랜딩이 같은 ReadingColumn 폭을 쓰고 랜딩은 720px 상한을 유지한다', () => {
     const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8')
     expect(read('shared/ui/ReadingColumn.tsx')).toContain('max-w-[var(--reading-column)]')
-    expect(read('features/chat/components/Composer.tsx')).toContain('<ReadingColumn>')
-    expect(read('features/chat/components/transcript/TranscriptView.tsx')).toContain(
+    expect(read('features/chat/components/Composer.tsx')).toMatch(/<ReadingColumn\b/)
+    expect(read('features/chat/harnesses/claude/transcript/Timeline.tsx')).toContain(
       '<ReadingColumn'
     )
     expect(read('pages/ProjectLandingPage.tsx')).toContain('<ReadingColumn>')
-    expect(read('pages/NewChatLandingPage.tsx')).toContain('max-w-[720px]')
+    expect(read('features/chat/components/Landing.tsx')).toContain('max-w-[720px]')
     expect(read('pages/ProjectLandingPage.tsx')).toContain('max-w-[720px]')
   })
 })

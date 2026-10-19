@@ -104,6 +104,31 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
 }
 
 describe('Work session:addDirectory — production registration, filesystem and SQLite', () => {
+  it('persists OpenCode Code context folders and still rejects updates while busy', async () => {
+    queries.insertSession({
+      id: 'opencode',
+      backend: 'opencode',
+      title: null,
+      projectId: null,
+      createdAt: 1,
+      cwd: root,
+      agentKind: 'code'
+    })
+    busy = true
+    expect(await invoke({ sessionId: 'opencode', directory })).toEqual({
+      ok: false,
+      reason: 'busy'
+    })
+    busy = false
+    expect(await invoke({ sessionId: 'opencode', directory })).toEqual({
+      ok: true,
+      extraDirs: [await realpath(directory)]
+    })
+    const meta = queries.getSessionById('opencode')!
+    expect(resolveTurnExtraDirs({ sessionId: 'opencode' }, meta)).toEqual([
+      await realpath(directory)
+    ])
+  })
   it('persists canonical directories, restores them and uses DB scope on resume', async () => {
     expect(await invoke(request())).toEqual({ ok: true, extraDirs: [await realpath(directory)] })
     const meta = queries.getSessionById('work')!

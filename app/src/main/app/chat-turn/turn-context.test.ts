@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { buildTurnContext, makeContinuationTurn, resolveTurnCwd } from './turn-context'
 import type { SessionControl } from '../../features/sessions/session-chain-lease'
 import type { RuntimeTitleAdapter } from '../../contracts/ports'
-import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
+import type { ResolvedHarnessSettings } from '../../adapters/common/harness-config'
 
 const control: SessionControl = {
   taskIds: new Map(),

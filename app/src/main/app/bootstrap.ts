@@ -6,7 +6,6 @@ import { reportError } from '../infra/error-report'
 import { app, powerMonitor, shell, webContents } from 'electron'
 import type { IpcMainInvokeEvent } from 'electron'
 import { mkdir } from 'node:fs/promises'
-import { homedir } from 'node:os'
 import { join } from 'node:path'
 import {
   CHANNELS,
@@ -17,10 +16,18 @@ import {
 import type { RestartGateState } from '../../shared/update-restart'
 import { parseAgentKind } from '../../shared/agent-kind'
 import type { TurnContext } from '../contracts/turn'
-import { AdapterRegistry } from '../adapters/registry'
-import { MockAdapter } from '../adapters/mock'
+import {
+  createAdapterRegistry,
+  createHarnessSettingsService,
+  parseHarnessRuntimeModels,
+  createHarnessDeploymentService,
+  harnessPluginRoots,
+  harnessSkillRoots,
+  scaffoldHarnessSettings,
+  MockAdapter
+} from './harnesses/registry'
 import { SettingsStore } from '../infra/settings-store'
-import { McpStore } from '../features/extensions/mcp/store'
+import { McpStore } from '../features/extensions/common/mcp/store'
 import {
   ensureConfigDir,
   getWorkspacePath,
@@ -28,19 +35,12 @@ import {
   sourcesSkillsDir,
   managedWorktreesDir
 } from '../infra/config/paths'
-import { builtInHarnessPluginRoot } from '../features/extensions/harness-plugins/claude'
-import { userClaudePluginRoot } from '../features/extensions/harness-plugins/claude-user-skills'
 import { loadOrcaConfig } from '../infra/config/orca-config'
 import { SecretStore } from '../infra/config/secret-store'
-import { deploy } from '../features/extensions/deployer'
-import { ExtensionDeploymentService } from '../features/extensions/extension-deployment-service'
-import { toClaudeConfig } from '../features/extensions/mcp/convert'
-import { scaffoldProviderSettings } from '../features/extensions/scaffold'
-import { HarnessSettingsService } from '../features/harnesses/settings'
+import { ExtensionDeploymentService } from '../features/extensions/common/extension-deployment-service'
 import { netFetch } from '../infra/net/net-fetch'
-import { loadClaudeProviderSettings, readUserClaudeSettings } from '../adapters/claude-settings'
-import { scanSkills, type SkillScanRoot } from '../features/extensions/skills/scan'
-import { seedBuiltinSkills } from '../features/extensions/skills/seed'
+import { scanSkills, type SkillScanRoot } from '../features/extensions/common/skills/scan'
+import { seedBuiltinSkills } from '../features/extensions/common/skills/seed'
 import type { MigrationReport } from '../infra/config/migrate-legacy'
 import { migrationBlocksBoot } from '../infra/config/migrate-legacy'
 import { rebaseStoredPaths, repairMovedWorktrees } from './legacy-paths'
@@ -51,10 +51,11 @@ import { UsageTracker } from '../features/usage/tracker'
 import { registerUsageJobs } from '../features/usage/jobs'
 import type { UsageFetcher } from '../features/usage/fetcher'
 import { DbRunRecorder, Scheduler } from '../features/scheduler'
-import { ExtensionBuilder } from '../features/extensions/builder'
+import { ExtensionBuilder } from '../features/extensions/common/builder'
 import { PermissionModeController } from '../features/approvals/permission-mode-controller'
 import type { RouterContext } from './context'
 import { registerSessionHandlers } from './handlers/session'
+import { createNativeHistoryRefresh } from './native-history'
 import { registerProjectHandlers } from './handlers/project'
 import { registerMcpHandlers } from './handlers/mcp'
 import { registerEngineHandlers } from './handlers/engine'
@@ -80,11 +81,11 @@ import { OAuthRunner } from '../features/auth/oauth-runner'
 import { createGate, selectGateMembers } from '../features/gate'
 import { startDailyGate } from './daily-gate'
 import { createAuthResume } from './auth-resume'
-import { createHarnessRuntimeConfigService } from '../features/harnesses/runtime-config'
+import { createHarnessRuntimeConfigService } from '../features/harnesses/common/runtime-config'
 import {
   createRuntimeModelCatalogBridge,
   createRuntimeModelCatalog
-} from '../features/harnesses/runtime-catalog'
+} from '../features/harnesses/common/runtime-catalog'
 import {
   createRuntimeModelAuthChangeHandler,
   createRuntimeModelAuthResume,
@@ -135,7 +136,7 @@ import {
   broadcastProviderState,
   sendChatEvent
 } from '../infra/ipc/send'
-import { RuntimeToolRegistry } from '../features/extensions/runtime-tool-registry'
+import { RuntimeToolRegistry } from '../features/extensions/common/runtime-tool-registry'
 import { resolveBuiltinSkillsDir, resolveWorkProfilePluginDir } from './builtin-resources'
 import { BackgroundTaskTracker } from '../features/chat/background-tasks'
 import {
@@ -149,7 +150,11 @@ export class Bootstrap {
   private readonly bootReport = createBootReportRecorder()
   readonly settings = new SettingsStore(app.getVersion())
   readonly mcp = new McpStore(this.settings)
-  private readonly registry = new AdapterRegistry()
+  private readonly registry = createAdapterRegistry({
+    dataDirectory: app.getPath('userData'),
+    preferences: (harnessId) => this.settings.getAll().harnesses?.[harnessId],
+    fetchImpl: netFetch
+  })
   // 부팅 시 1회 스캔하여 메모리에 캐시. fs.watch hot-reload 는 본 PR 범위 밖 (재시작).
   private skillsCache: SkillInfo[] = []
   // chat send 와 files list, session cwd 노출에서 모두 동일하게 사용하는 단일
@@ -205,12 +210,7 @@ export class Bootstrap {
         sourceKind: 'orca',
         rootDir: sourcesSkillsDir()
       },
-      {
-        sourceId: 'adapter:claude',
-        sourceLabel: 'CLAUDE 스킬',
-        sourceKind: 'adapter',
-        rootDir: join(homedir(), '.claude', 'skills')
-      }
+      ...harnessSkillRoots()
     ]
   }
 
@@ -223,42 +223,7 @@ export class Bootstrap {
   }
 
   private createDeploymentService(): ExtensionDeploymentService {
-    const log = getLogger().child('extensions')
-    return new ExtensionDeploymentService({
-      deploy: async () => {
-        const { config, dropped } = toClaudeConfig(this.mcp.enabledConfig(), this.mcp.resolver())
-        for (const d of dropped) {
-          reportError({
-            event: 'mcp.server.skipped',
-            scope: 'extensions',
-            title: 'mcpServerSkipped',
-            level: 'warn',
-            detail: d.name + ': ' + d.reason,
-            data: { name: d.name, reason: d.reason }
-          })
-        }
-        const result = await deploy('claude', {
-          skillRoots: this.skillRoots(),
-          mcpConfig: config
-        })
-        // 확장 배포 경계(0124 카탈로그) — 실패는 서비스가 삼키고 onWarning 으로 회귀하므로
-        // extensions.deploy.failed 는 아래 onWarning 배선(warn)이 담당한다.
-        log.info('extensions.deploy.completed', {
-          standard: 'claude',
-          validationOk: result.validation.ok
-        })
-        return result
-      },
-      onWarning: (message) =>
-        reportError({
-          event: 'extensions.deploy.warning',
-          scope: 'extensions',
-          title: 'extensionsFailed',
-          level: 'warn',
-          detail: message,
-          data: { message }
-        })
-    })
+    return createHarnessDeploymentService(this.mcp, () => this.skillRoots())
   }
 
   private async deployExtensions(options?: { throwOnFailure?: boolean }): Promise<void> {
@@ -588,7 +553,7 @@ export class Bootstrap {
     // 0157: 구 SSO 의 setProviderEnv sink 를 제거했다. 획득 토큰을 settings.json 의 env 블록에
     // **평문으로 병합 기록**하던 경로였다. 이제 credential 은 vault 가 소유하고, settings.json
     // 으로 나가는 값은 사용자가 직접 적은 것만 남는다(0028 결정 유지).
-    const harnessSettings = new HarnessSettingsService({ claude: loadClaudeProviderSettings })
+    const harnessSettings = createHarnessSettingsService()
     const harnessRuntime = createHarnessRuntimeConfigService({
       settings: harnessSettings,
       augmenters: createRuntimeConfigAugmenters({
@@ -619,6 +584,7 @@ export class Bootstrap {
       reconcile: reconcileRuntimeModelSnapshot
     })
     const runtimeModelCatalog = createRuntimeModelCatalog({
+      parseModels: parseHarnessRuntimeModels,
       contributions: RUNTIME_MODEL_CONTRIBUTIONS,
       runtime: harnessRuntime,
       snapshotOf: runtimeModelSnapshotOf,
@@ -707,10 +673,7 @@ export class Bootstrap {
       app.getVersion(),
       // Orca plugin + 사용자 ~/.claude/skills 래퍼 plugin(0117) — 존재 검증은 adaptPlugins 몫.
       // 경로는 각 플러그인 레이아웃을 소유한 feature 렌더러의 헬퍼에서 파생한다(이중 정의 방지).
-      () => [
-        builtInHarnessPluginRoot(orcaConfigDir(), 'claude'),
-        userClaudePluginRoot(orcaConfigDir(), 'claude')
-      ],
+      harnessPluginRoots,
       runtimeTools
     )
     await this.bootReport.step(
@@ -752,17 +715,7 @@ export class Bootstrap {
     this.bootReport.stepSync(
       'provider-scaffold',
       { critical: false, label: 'provider settings 스캐폴드' },
-      () => {
-        // 첫 시작(빈 상태)이면 사용자 전역 ~/.claude/settings.json 을 시드로 쓴다 (0090).
-        const userSettings = readUserClaudeSettings()
-        const s = scaffoldProviderSettings(
-          'claude',
-          undefined,
-          userSettings.exists ? userSettings.settingsJson : null
-        )
-        const scaffoldLog = getLogger().child('providers')
-        for (const path of s.created) scaffoldLog.debug('providers.scaffold.created', { path })
-      }
+      scaffoldHarnessSettings
     )
     // dist/claude/plugins/orcinus-orca 렌더를 boot 1회 수행한다. CRUD 는 즉시 재배포, 턴 진입은
     // ensureDeployed 로 실패/dirty 상태를 한 번 더 보장한다.
@@ -886,6 +839,7 @@ export class Bootstrap {
     // admission freeze 를 **가장 먼저**(0151 AC9) — 이후 send/steer 예약을 거부해, 종료 중
     // 게이트 flush·자동 연속 턴이 큐 폐기와 경합하며 메시지를 뒤늦게 제출하는 것을 막는다.
     this.pendingMessages?.freeze()
+    this.registry.close()
     this.dailyGate?.dispose()
     void this.artifacts?.close()
     this.titles?.dispose()
@@ -1043,7 +997,7 @@ export class Bootstrap {
     registerSessionHandlers(ctx, {
       isSessionBusy: (sessionId) => supervisor.hasSession(sessionId),
       onSessionDisposed: (sessionId) => {
-        background.dispose(sessionId)
+        background.dispose(sessionId, { preserveOutputSnapshots: true })
         persistence.forgetProviderSession(sessionId)
         // DB 행을 지우기 전에 호출되는 hook에서 active/idle provider 수명도 함께 끊는다. lease가
         // child 교체 중이어도 runtime을 직접 소유하므로 삭제된 세션이 뒤늦게 영속화를 재개하지 않는다.
@@ -1053,7 +1007,11 @@ export class Bootstrap {
         activity.clear(sessionId)
       },
       getActivity: (sessionId) => activity.current(sessionId),
-      removeManagedWorktree: (sessionId) => worktrees.removeForSession(sessionId)
+      refreshHistory: createNativeHistoryRefresh(ctx, {
+        hasSession: (sessionId) => supervisor.hasSession(sessionId),
+        discardRuntime: (sessionId) => supervisor.discardRuntime(sessionId),
+        activity: (sessionId) => activity.current(sessionId)
+      })
     })
     registerProjectHandlers(ctx)
     registerMcpHandlers(ctx)

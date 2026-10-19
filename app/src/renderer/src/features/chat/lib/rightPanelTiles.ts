@@ -1,16 +1,19 @@
+import { harnessCatalog } from '../harnesses/catalog'
+import type { Backend } from '../../../../../shared/ipc'
 import type { AgentKind } from '../../../../../shared/agent-kind'
 import type { MessageKey } from '../../../shared/i18n'
 
 // 타일 기본 라벨은 카탈로그 키만 두고 소비자(RightPanelTile/ChatTitleBar)가 렌더에서
 // tr() 해석한다(0096 stale-방지 패턴, 0097). 런타임 라벨(rightPanelTileLabels)이 있으면 우선.
-// 0204 D-021 — 4종. `백그라운드 작업`(전용 대화록 상세)과 `작업`(cowork 3섹션)은 별개 타일이고
-// (D-015), 늘어난 자리는 예약 슬롯 하나가 내준다. 정의 순서가 곧 타일 메뉴 순서다.
-// 0206 D-009 — 남은 예약 슬롯을 `diff` 가 소진한다(4종 유지).
+// `백그라운드 작업`과 `작업`은 별개 타일이다. 정의 순서가 메뉴 순서이며,
+// 하네스 정책이 지원 집합을 고른다. process/source는 OpenCode에서만 제공한다.
 export const rightPanelTileDefinitions = [
   { id: 'plan', defaultLabelKey: 'chat.rightpanel.tiles.plan' },
   { id: 'subagent', defaultLabelKey: 'chat.rightpanel.tiles.subagent' },
   { id: 'task', defaultLabelKey: 'chat.rightpanel.tiles.task' },
-  { id: 'diff', defaultLabelKey: 'chat.rightpanel.tiles.diff' }
+  { id: 'diff', defaultLabelKey: 'chat.rightpanel.tiles.diff' },
+  { id: 'process', defaultLabelKey: 'chat.rightpanel.tiles.process' },
+  { id: 'source', defaultLabelKey: 'chat.rightpanel.tiles.source' }
 ] as const satisfies readonly { id: string; defaultLabelKey: MessageKey }[]
 
 export type RightPanelTileId = (typeof rightPanelTileDefinitions)[number]['id']
@@ -22,31 +25,21 @@ export interface RightPanelHeaderProps {
 
 export interface RightPanelAgentPolicy {
   visibleIds: readonly RightPanelTileId[]
+  /** 메뉴 진입점만 제한한다. 생략하면 지원 타일을 모두 표시한다. */
+  menuIds?: readonly RightPanelTileId[]
   taskTarget: RightPanelTileId
   taskBadgeTile: RightPanelTileId
   initialTile: RightPanelTileId | null
   columnMode: 'standard-grid' | 'task-focus'
-  taskTileChrome: 'standard' | 'work-overview'
+  taskTileChrome: 'standard' | 'work-overview' | 'opencode-overview'
 }
 
-export const RIGHT_PANEL_POLICY = {
-  work: {
-    visibleIds: ['task'],
-    taskTarget: 'task',
-    taskBadgeTile: 'task',
-    initialTile: 'task',
-    columnMode: 'task-focus',
-    taskTileChrome: 'work-overview'
-  },
-  code: {
-    visibleIds: ['plan', 'subagent', 'diff'],
-    taskTarget: 'plan',
-    taskBadgeTile: 'plan',
-    initialTile: null,
-    columnMode: 'standard-grid',
-    taskTileChrome: 'standard'
-  }
-} as const satisfies Record<AgentKind, RightPanelAgentPolicy>
+export function rightPanelPolicy(
+  kind: AgentKind,
+  backend: Backend | null = 'claude'
+): RightPanelAgentPolicy {
+  return harnessCatalog(backend).panel(kind)
+}
 
 export const rightPanelTileIds = rightPanelTileDefinitions.map(
   (tile) => tile.id
@@ -96,21 +89,43 @@ export const visibleRightPanelTileDefinitions = rightPanelTileDefinitions.filter
 )
 
 // 제품 종류는 표시 정책만 소유한다. 도구·계획 승인 데이터는 숨긴 타일과 함께 버리지 않는다.
-export function isRightPanelTileVisible(id: RightPanelTileId, kind: AgentKind): boolean {
-  const visibleIds: readonly RightPanelTileId[] = RIGHT_PANEL_POLICY[kind].visibleIds
+export function isRightPanelTileVisible(
+  id: RightPanelTileId,
+  kind: AgentKind,
+  backend: Backend | null = 'claude'
+): boolean {
+  const visibleIds: readonly RightPanelTileId[] = rightPanelPolicy(kind, backend).visibleIds
   return !isRightPanelTileSuspended(id) && visibleIds.includes(id)
 }
 
 export function rightPanelTileDefinitionsForAgent(
-  kind: AgentKind
+  kind: AgentKind,
+  backend: Backend | null = 'claude'
 ): (typeof rightPanelTileDefinitions)[number][] {
-  return visibleRightPanelTileDefinitions.filter((tile) => isRightPanelTileVisible(tile.id, kind))
+  return visibleRightPanelTileDefinitions.filter((tile) =>
+    isRightPanelTileVisible(tile.id, kind, backend)
+  )
+}
+
+export function rightPanelMenuTileDefinitionsForAgent(
+  kind: AgentKind,
+  backend: Backend | null = 'claude'
+): (typeof rightPanelTileDefinitions)[number][] {
+  const policy = rightPanelPolicy(kind, backend)
+  const menuIds = policy.menuIds ?? policy.visibleIds
+  return rightPanelTileDefinitionsForAgent(kind, backend).filter((tile) =>
+    menuIds.includes(tile.id)
+  )
 }
 
 // 기존 작업 카드 진입은 Code의 통합 계획 영역을 연다.
-export function rightPanelTarget(id: RightPanelTileId, kind: AgentKind): RightPanelTileId | null {
-  const target = id === 'task' ? RIGHT_PANEL_POLICY[kind].taskTarget : id
-  return isRightPanelTileVisible(target, kind) ? target : null
+export function rightPanelTarget(
+  id: RightPanelTileId,
+  kind: AgentKind,
+  backend: Backend | null = 'claude'
+): RightPanelTileId | null {
+  const target = id === 'task' ? rightPanelPolicy(kind, backend).taskTarget : id
+  return isRightPanelTileVisible(target, kind, backend) ? target : null
 }
 
 // 타일 버튼의 미확인 완료 배지를 띄우는가.
@@ -127,8 +142,10 @@ export function showsUnseenTaskBadge(
   unseenCount: number,
   activeTiles: readonly RightPanelTileId[],
   suspended: readonly RightPanelTileId[],
-  kind: AgentKind
+  kind: AgentKind,
+  backend: Backend | null = 'claude'
 ): boolean {
+  if (backend === 'opencode') return false
   if (isRightPanelTileSuspended('task', suspended)) return false
-  return unseenCount > 0 && !activeTiles.includes(RIGHT_PANEL_POLICY[kind].taskBadgeTile)
+  return unseenCount > 0 && !activeTiles.includes(harnessCatalog(backend).panel(kind).taskBadgeTile)
 }

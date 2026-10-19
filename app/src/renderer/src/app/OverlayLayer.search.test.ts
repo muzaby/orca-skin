@@ -11,7 +11,11 @@ vi.mock('../features/backend', () => ({
   InstallerDialog: () => null,
   AuthExpiredModal: () => null
 }))
-vi.mock('../features/chat', () => ({ chatActions: {}, useChatSession: () => false }))
+vi.mock('../features/chat', () => ({
+  chatActions: {},
+  useChatSession: () => false,
+  AutomaticFeedDebugSection: () => null
+}))
 vi.mock('../features/update', () => ({
   UpdateDebugSection: () => null,
   UpdateDialog: () => null,

@@ -1,6 +1,6 @@
 # Claude Code CLI 실행 스펙 (`spec/claude/` 라우터 + Orca 채택 표기)
 
-> **역할 변경 (2026-06-04, docs 재구성)**: 본 문서는 1차적으로 **`docs/spec/claude/` 원문 미러로 가는 라우터**다 — 원문은 아래 "1차 원본" 링크가 SSOT. CLI/SDK 권한 매핑·정규화 같은 **Orca 합성 설계**는 [`arch/backend/provider-runtime.md`](./arch/backend/provider-runtime.md)(권한 정규화)·[`arch/backend/adapters.md`](./arch/backend/adapters.md)(SDK 채택)로 이관됐다. 본 문서의 **§ 번호(§3·§4·§5·§7·§13)는 하위 호환을 위해 보존**한다(PRD/TRD·`app/src/main/features/extensions/skills/scan.ts §5.3` 가 인용). 새 인용은 위 arch 문서를 우선한다.
+> **역할 변경 (2026-06-04, docs 재구성)**: 본 문서는 1차적으로 **`docs/spec/claude/` 원문 미러로 가는 라우터**다 — 원문은 아래 "1차 원본" 링크가 SSOT. CLI/SDK 권한 매핑·정규화 같은 **Orca 합성 설계**는 [`arch/backend/provider-runtime.md`](./arch/backend/provider-runtime.md)(권한 정규화)·[`arch/backend/adapters.md`](./arch/backend/adapters.md)(SDK 채택)로 이관됐다. 본 문서의 **§ 번호(§3·§4·§5·§7·§13)는 하위 호환을 위해 보존**한다(PRD/TRD·`app/src/main/features/extensions/common/skills/scan.ts §5.3` 가 인용). 새 인용은 위 arch 문서를 우선한다.
 
 > **본 문서의 위치**
 > 이 문서는 Claude Code 공식 한국어 문서의 **해설 미러** 이다. 원문은 본 저장소의 `docs/spec/claude/` 에 *원문 그대로* 보관되며, 본 문서는 그 원문을 *Orca 관점* 으로 정리하고 채택 표기를 덧붙인다. PRD/TRD/architecture 가 Claude Code CLI 의 동작·플래그·이벤트를 인용할 때 본 문서가 단일 출처(SSOT) 역할을 한다.
@@ -55,7 +55,7 @@ claude -p "What does the auth module do?"
 
 `-p` 와 함께 쓰는 모든 플래그의 정식 분류는 `docs/spec/claude/cli-reference.md` 가 SSOT. 본 문서는 *Orca 관점에서 의미가 있는 플래그* 만 다룬다 (§14 카탈로그 참조).
 
-⛔ **대체됨 (§13)** — Phase 1 은 구 ClaudeCodeAdapter 가 매 턴 `claude -p "<text>" --output-format stream-json --verbose --include-partial-messages [--resume <id>]` 형식으로 `child_process.spawn` 했다. Phase 3 부터는 CLI 를 띄우지 않고 SDK `query()` 를 인프로세스로 부른다 — 현행 어댑터는 `src/main/adapters/claude.ts` 다.
+⛔ **대체됨 (§13)** — Phase 1 은 구 ClaudeCodeAdapter 가 매 턴 `claude -p "<text>" --output-format stream-json --verbose --include-partial-messages [--resume <id>]` 형식으로 `child_process.spawn` 했다. Phase 3 부터는 CLI 를 띄우지 않고 SDK `query()` 를 인프로세스로 부른다 — 현행 어댑터는 `src/main/adapters/claude/adapter.ts` 다.
 
 ---
 
@@ -165,7 +165,7 @@ API 요청이 재시도 가능한 오류로 실패하면 Claude Code 가 재시�
 | `uuid` | 문자열 | 고유 이벤트 식별자 |
 | `session_id` | 문자열 | 소속 세션 |
 
-⛔ **대체됨 (§13)** — Phase 1 은 위 네 이벤트를 구 ClaudeCodeAdapter 가 1차 파싱해 구 `ChatEvent` 로 정규화했다. 현행은 SDK 메시지를 `adapters/claude-map.ts` 의 `claudeToNormalized` 가 `NormalizedEvent` 로 **직접** 정규화한다 — 아래 대응은 그 매핑의 전신으로 읽는다([provider-runtime.md §2](./arch/backend/provider-runtime.md)).
+⛔ **대체됨 (§13)** — Phase 1 은 위 네 이벤트를 구 ClaudeCodeAdapter 가 1차 파싱해 구 `ChatEvent` 로 정규화했다. 현행은 SDK 메시지를 `adapters/claude/map.ts` 의 `claudeToNormalized` 가 `NormalizedEvent` 로 **직접** 정규화한다 — 아래 대응은 그 매핑의 전신으로 읽는다([provider-runtime.md §2](./arch/backend/provider-runtime.md)).
 
 | Claude Code 이벤트 | 정규화 후 구 `ChatEvent.type` | 비고 |
 |---|---|---|
@@ -237,7 +237,7 @@ claude -p "Apply the lint fixes" --permission-mode acceptEdits
 
 ✅ **Orca v1 채택 (두 플래그 모두)** — 같은 의미의 `permissionMode: 'bypassPermissions'` 를 Composer 권한 메뉴의 `bypass`(Work·Code)로 사용자가 고를 수 있다(`shared/permission-mode.ts` `menuModes`, 0224). 기본값이 아니며(기본 정책은 OQ9), workspace guard 훅의 deny 는 이 모드에서도 유효하다.
 
-- 대화 query 는 시작 모드(`permissionMode`)를 명시할 때 `allowDangerouslySkipPermissions: true` 를 함께 넘긴다(`adapters/claude.ts`, 0261) — 다른 모드로 시작한 장수명 채널도 턴 중·다음 턴에 `bypass` 로 바뀐다.
+- 대화 query 는 시작 모드(`permissionMode`)를 명시할 때 `allowDangerouslySkipPermissions: true` 를 함께 넘긴다(`adapters/claude/adapter.ts`, 0261) — 다른 모드로 시작한 장수명 채널도 턴 중·다음 턴에 `bypass` 로 바뀐다.
 - 플래그는 가용성만 연다. 시작 모드는 명시값이고, 레포 settings 의 `defaultMode: bypassPermissions` 는 시작 모드가 되지 않으며, `disableBypassPermissionsMode` 정책은 전환을 계속 막는다(0261 실측 — SDK 를 갱신하면 `docs/handoff/0261-bypass-flag-prod-devtools/probe-live-bypass.mjs` 로 다시 잰다).
 - 제목 생성 `complete()` 는 넘기지 않는다(도구 0·모드 없음).
 
@@ -344,7 +344,7 @@ Phase 1 은 (1) 을 유지. Phase 3 진입 시 재검토 — 본 항목을 §12 
 | `--name <text>` / `-n` | 세션의 *표시 이름* 을 설정. `claude --resume <name>` 으로 이름으로 재개 가능. 세션 중 `/rename` 으로 변경 |
 | `--no-session-persistence` | 세션을 디스크에 저장하지 않음. 재개 불가. *인쇄 모드 한정*. 환경변수 `CLAUDE_CODE_SKIP_PROMPT_HISTORY` 와 동일 효과 |
 
-❌ **Orca v1 미사용 (`--name`)** — 제목은 Orca DB(`sessions.title`·`title_source`)가 소유한다(§11 세션 이름). `--no-session-persistence` 대응 `persistSession: false` 는 제목 생성 단발 호출(`complete()`)에만 쓴다(`adapters/claude.ts`).
+❌ **Orca v1 미사용 (`--name`)** — 제목은 Orca DB(`sessions.title`·`title_source`)가 소유한다(§11 세션 이름). `--no-session-persistence` 대응 `persistSession: false` 는 제목 생성 단발 호출(`complete()`)에만 쓴다(`adapters/claude/adapter.ts`).
 
 ---
 
@@ -414,14 +414,14 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 | 시스템 프롬프트 | ✅ **append 채택** — `systemPrompt: { type:'preset', preset:'claude_code', append }` 로 `# Orca` 구조화 헤더(+Work `# Agent`)를 덧붙인다([system-prompt.md](./arch/backend/system-prompt.md)). 교체(`--system-prompt`·`--system-prompt-file`)는 미사용 |
 | 구조화 출력 | 미사용 (`--json-schema`) |
 | 모델 선택 | ✅ **채택 (0010)** — SDK `options.model` per-turn 전달 (Composer ModelMenu, `SendChatMessage.modelFamily`). 미지정 시 사용자 `~/.claude` 설정 폴백 |
-| 노력 수준 | ✅ **채택** — 모델 선택 시 [모델별 기본값](../app/src/shared/model-effort.ts)을 적용하고 수동 선택은 같은 모델 동안 유지한다. spawn은 `options.effort`, 후속 턴은 `applyFlagSettings({ effortLevel })`로 입력 전송 전에 적용한다. EffortMenu는 모델 기본 수준 옆에 '추천'을 표시한다 |
+| 노력 수준 | ✅ **채택** — 모델 선택 시 [모델별 기본값](../app/src/shared/harnesses/claude/model-effort.ts)을 적용하고 수동 선택은 같은 모델 동안 유지한다. spawn은 `options.effort`, 후속 턴은 `applyFlagSettings({ effortLevel })`로 입력 전송 전에 적용한다. EffortMenu는 모델 기본 수준 옆에 '추천'을 표시한다 |
 | 디버그 출력 | `--debug` / `--debug-file` — Phase 1 미사용, 개발자 빌드에서 옵션화 anchor |
 | 턴/비용 제한 | `--max-turns` / `--max-budget-usd` — Phase 1 미사용, Phase 3 *Skills 안전장치* 후보 |
 | 작업 디렉토리 | ✅ `options.additionalDirectories`(`--add-dir` 대응) — 앱 임시 루트 + 세션 extraDirs(Work 폴더 추가). workspace guard 훅과 같은 배열을 공유한다([workspace 가이드](./guides/workspace-isolation-permissions.md) §5) |
 | Hook 가시성 | ✅ **채택** — SDK `options.hooks` in-process 콜백(workspace guard PreToolUse · Stop git sync · Stop 출력 수집 · PostCompact). [adapters.md §3.2.5](./arch/backend/adapters.md) |
 | Agent SDK | ✅ **채택 (Phase 3)** — TypeScript SDK `query()` 장수명 채널 + 위 옵션 묶음(§10). `arch/backend/adapters.md §1` SSOT |
 | 인증 만료 감지 | `adapters/error-classifier.ts` 가 SDK 오류의 `401` / `OAuth` / `expired` 패턴을 `auth_error` 로 분류 (CLI 의 stdout/stderr 패턴 매칭 대체) |
-| 환경변수 | HOME (`~/.claude` 자격증명) + 턴 env(`adapters/harness-config.ts` 조립 — 앱 env · Harness overlay · 배포 spawn env · 종류별 env, [TRD §6.8](./TRD.md)). PATH 의존성 (npm 글로벌 bin) 폐기 — SDK 가 `optionalDependencies` 로 platform binary 자동 처리 |
+| 환경변수 | HOME (`~/.claude` 자격증명) + 턴 env(`adapters/common/harness-config.ts` 조립 — 앱 env · Harness overlay · 배포 spawn env · 종류별 env, [TRD §6.8](./TRD.md)). PATH 의존성 (npm 글로벌 bin) 폐기 — SDK 가 `optionalDependencies` 로 platform binary 자동 처리 |
 | `cwd` | `options.cwd` 로 전달 — 랜딩에서 고른 작업 경로·프로젝트 cwd, 격리 세션이면 managed worktree 경로([state.md](./arch/frontend/state.md) §1.6 · [GLOSSARY](./GLOSSARY.md) Managed worktree) |
 
 ---

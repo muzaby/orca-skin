@@ -8,26 +8,24 @@ import type { WebContents } from 'electron'
 import type { ClassifiedError } from '../../../shared/ipc'
 import type { AgentKind } from '../../../shared/agent-kind'
 import { continuityLangFor, type ContinuityLang } from '../../../shared/continuity-lang'
-import type { SessionAdapter } from '../../adapters/types'
+import type { SessionAdapter } from '../../adapters/common/types'
 import { buildHandoffMessage } from '../../features/orchestration/handoff'
 import { recoverSessionHistory } from '../../features/chat/recovery'
 import type { RuntimeSupervisor } from '../../features/sessions/supervisor'
 import { checkContinuitySource } from './admission'
-import { appEnv } from '../../infra/config/orca-config'
-import { expandEnvRecord, processEnvRecord } from '../../features/harnesses/env'
+import { processEnvRecord } from '../../features/harnesses/common/env'
 import {
-  prepareHarnessConfig,
   prepareUnresolvedHarnessConfig,
   type AdapterSpawnEnvPatch,
   type PreparedHarnessConfig
-} from '../../adapters/harness-config'
+} from '../../adapters/common/harness-config'
 import {
-  defaultProvider,
   defaultModelFamily,
   modelNameForFamily,
-  resolveTitleModel,
   toAgentEnvironments
-} from '../../features/harnesses/models'
+} from '../../features/harnesses/common/models'
+import { harnessModule } from '../harnesses/registry'
+import { harnessAppEnv, prepareConfiguredHarnessInput } from '../harnesses/prepare-input'
 import { SPAWN_ENV_INJECTOR } from '../deployment/spawn-env'
 import { getLogger } from '../../infra/log'
 import { makeClassifiedError } from '../../infra/errors'
@@ -35,10 +33,15 @@ import { resolveAgentKind } from '../../features/agents/profiles'
 import type { SendChatPayload } from './admission'
 import type { RouterContext } from '../context'
 import type { ContinuitySourceMeta } from './turn-context'
+import { prepareNativeSession, type NativeSessionPreparation } from './native-session'
 
-type TurnPreparationAdapter = Pick<SessionAdapter, 'id' | 'agentSpawnEnv'>
+type TurnPreparationAdapter = Pick<
+  SessionAdapter,
+  'id' | 'agentSpawnEnv' | 'catalog' | 'readHistory' | 'recoverSession'
+>
 
 interface ResolvedTurn {
+  native: NativeSessionPreparation
   continuitySource: string | undefined
   continuityMeta: ContinuitySourceMeta | undefined
   continuityLang: ContinuityLang
@@ -60,7 +63,8 @@ export async function resolveTurn(
   ctx: RouterContext,
   supervisor: RuntimeSupervisor<WebContents>,
   adapter: TurnPreparationAdapter,
-  payload: SendChatPayload
+  payload: SendChatPayload,
+  recoveryExtra = ''
 ): Promise<{ ok: true; value: ResolvedTurn } | { ok: false; error: ClassifiedError }> {
   const continuitySource = payload.forkFrom ?? payload.handoffFrom
   let continuityMeta = continuitySource ? ctx.db.getSessionById(continuitySource) : undefined
@@ -98,7 +102,9 @@ export async function resolveTurn(
   const currentSource = sourceId ? ctx.db.getSessionById(sourceId) : undefined
   if (
     sourceId &&
-    (!currentSource || !resolveAgentKind(identity.kind, currentSource.agent_kind).ok)
+    (!currentSource ||
+      currentSource.backend !== adapter.id ||
+      !resolveAgentKind(identity.kind, currentSource.agent_kind).ok)
   ) {
     return {
       ok: false,
@@ -110,6 +116,49 @@ export async function resolveTurn(
   }
   const sessionMeta = payload.sessionId ? currentSource : undefined
   if (continuitySource) continuityMeta = currentSource
+
+  let native: NativeSessionPreparation = {
+    nativeSessionId: payload.sessionId
+      ? ctx.db.nativeHistory?.recovery?.(payload.sessionId)?.native_id
+      : undefined
+  }
+  if (
+    adapter.readHistory &&
+    payload.sessionId &&
+    sessionMeta &&
+    !supervisor.peekRuntime(payload.sessionId)
+  ) {
+    const preparedNative = await prepareNativeSession(
+      adapter,
+      {
+        sessionId: payload.sessionId,
+        cwd: sessionMeta.cwd ?? ctx.getCwd(sessionMeta.project_id),
+        env: resolved.prepared.env,
+        providerSettings: resolved.prepared.providerSettings
+      },
+      ctx.db,
+      ctx.getCwd,
+      {
+        text: payload.text,
+        contextWindow: harnessModule(adapter.id).recoveryContextWindow(
+          resolved.prepared.providerSettings?.settings ?? {},
+          resolved.model
+        ),
+        extra: recoveryExtra
+      }
+    )
+    if (!preparedNative.ok) return preparedNative
+    native = preparedNative.value
+    if (!ctx.db.getSessionById(payload.sessionId)) {
+      return {
+        ok: false,
+        error: makeClassifiedError(
+          'schema_validation_error',
+          '준비 중 대화가 목록에서 제거되었습니다.'
+        )
+      }
+    }
+  }
 
   // 0127 — continuity 산출물(제목 마커·자동 메시지) 언어: renderer draft 생성 시점 스냅샷
   // (payload continuityLang) 우선, 부재 시 settings.language(선호 언어) 파생 폴백.
@@ -127,6 +176,7 @@ export async function resolveTurn(
   return {
     ok: true,
     value: {
+      native,
       continuitySource,
       continuityMeta,
       continuityLang,
@@ -196,7 +246,7 @@ export async function resolveTurnProvider(
     selected = undefined
   }
   if (req.sessionId && !selected) selected = byKey(meta?.provider_key)
-  if (!selected) selected = defaultProvider(entries)
+  if (!selected) selected = harnessModule(req.adapter.id).defaultProvider(entries)
   if (!selected) {
     return { providerKey: null, prepared: unresolvedPrepared(ctx, adapterEnvPatch) }
   }
@@ -216,19 +266,23 @@ export async function resolveTurnProvider(
       : await ctx.harnessRuntime.resolve(entry)
     : { ...entry, runtimeEnv: {} }
   if (!config) throw new Error(`Runtime model cache is unavailable for "${selected.key}"`)
-  const prepared = prepareHarnessConfig({
-    config,
-    appEnv: turnAppEnv(ctx),
-    baseEnv: processEnvRecord,
-    customEnv: SPAWN_ENV_INJECTOR,
-    adapterEnvPatch
-  })
+  const prepared = prepareConfiguredHarnessInput(ctx, config, adapterEnvPatch)
 
-  const modelFamily = req.modelFamily ?? defaultModelFamily(selected.models)
-  const model = modelNameForFamily(selected.models, modelFamily)
+  const catalog =
+    req.adapter.catalog && prepared.providerSettings
+      ? await req.adapter.catalog(
+          toAgentEnvironments([selected], [req.adapter.id])[0]!,
+          prepared.providerSettings.settings,
+          false,
+          prepared.env
+        )
+      : undefined
+  const models = catalog?.models ?? selected.models
+  const modelFamily = req.modelFamily ?? defaultModelFamily(models)
+  const model = modelNameForFamily(models, modelFamily)
   // 제목 생성 모델은 요청 전에 사전 선택한다 (저가 모델 보유 시 그것, 없으면 default — 정책은
   // settings 레이어 resolveTitleModel 에 둔다).
-  const titleModel = resolveTitleModel(selected.models)
+  const titleModel = harnessModule(req.adapter.id).resolveTitleModel(models)
   return {
     providerKey: selected.key,
     prepared,
@@ -244,22 +298,9 @@ function unresolvedPrepared(
   adapterEnvPatch: AdapterSpawnEnvPatch
 ): PreparedHarnessConfig {
   return prepareUnresolvedHarnessConfig({
-    appEnv: turnAppEnv(ctx),
+    appEnv: harnessAppEnv(ctx),
     baseEnv: processEnvRecord,
     customEnv: SPAWN_ENV_INJECTOR,
     adapterEnvPatch
   })
-}
-
-// orca.json 앱 전역 env 의 `${VAR}` 확장. **미해결 키는 드롭**된다(빈 문자열 치환 금지 —
-// 조용한 미설정 진행 방지). 자격증명은 여기 없다 (0188): 실행 credential 은 Harness runtime
-// config 의 `runtimeEnv` 로 오고, 두 레이어의 우선순위는 `prepareHarnessConfig` 가 정한다.
-function turnAppEnv(ctx: RouterContext): Record<string, string> {
-  const { env: expanded, missing } = expandEnvRecord(appEnv(), ctx.mcp.resolver())
-  if (missing.length > 0) {
-    getLogger()
-      .child('config')
-      .warn('config.env.unresolved', { missing, reason: 'app env keys skipped' })
-  }
-  return expanded
 }

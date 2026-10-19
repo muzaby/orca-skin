@@ -10,7 +10,7 @@ import {
   createConfluenceToolServer,
   type ConfluencePluginContext
 } from './tools'
-import { authToolServerId } from '../../../adapters/runtime-tool-policy'
+import { authToolServerId } from '../../../adapters/common/runtime-tool-policy'
 import { CONFLUENCE_OPERATIONS, type ConfluenceResult, type ConfluenceRuntime } from './connector'
 
 // invoke 만 대체하는 최소 런타임 — 도구 계층이 런타임을 어떻게 부르는지에만 관심이 있다.

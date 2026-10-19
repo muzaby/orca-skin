@@ -1,11 +1,11 @@
 import { describe, expect, it, vi, type Mock } from 'vitest'
 import type { DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
 import { makeClassifiedError } from '../../infra/errors'
-import type { TurnRequest, TurnContinuation } from '../../adapters/turn'
+import type { TurnRequest, TurnContinuation } from '../../adapters/common/turn'
 import type { AbortCause } from '../../contracts/session-state'
 import type { GovernedLiveTurn, RuntimeSessionAdapter } from '../../contracts/ports'
-import type { ClaudePermissionMode } from '../../../shared/permission-mode'
-import type { LiveTurn, ProviderMessageBatch } from '../../adapters/types'
+import type { NormalizedPermissionMode } from '../../../shared/permission-mode'
+import type { LiveTurn, ProviderMessageBatch } from '../../adapters/common/types'
 import { SessionRuntime, pickFrameDelegates } from './session-runtime'
 import { decideRespawn } from './respawn-policy'
 import { getLogger } from '../../infra/log/registry'
@@ -23,7 +23,7 @@ function req(): TurnRequest {
 const requirement = (overrides: Partial<DiffRequirementAnchor> = {}): DiffRequirementAnchor => ({
   sessionId: 'session-1',
   baselineCommit: '3486398aecbc2b97e42d3dba1aae8d13b18d186c',
-  filePath: 'app/src/main/adapters/claude.ts',
+  filePath: 'app/src/main/adapters/claude/adapter.ts',
   oldLine: 10,
   newLine: 12,
   hunkHeader: '@@ -10,2 +12,3 @@',
@@ -159,6 +159,7 @@ function channelLive(): {
         text: next.text,
         ...(next.promptUuid ? { promptUuid: next.promptUuid } : {}),
         ...(next.effort !== undefined ? { effort: next.effort } : {}),
+        ...(next.model !== undefined ? { model: next.model } : {}),
         ...(next.requirements ? { requirements: next.requirements } : {})
       })
       return { kind: 'accepted' }
@@ -572,6 +573,24 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
     const events2 = await f2
     expect(events2.map((e) => e.type)).toEqual(['telemetry'])
     expect(spawns).toBe(1)
+  })
+
+  it('후속 pushTurn 이 이번 턴에 해석된 엔진 모델을 싣는다 (0262 EP56 P37)', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+
+    const first = collect(runtime.send({ ...req(), model: 'third/only' }))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await first
+
+    // 연속 턴이 저장 엔진으로 다시 해석되면 살아있는 채널에도 그 모델이 가야 한다.
+    const second = collect(
+      runtime.send({ ...req(), text: 'next', promptUuid: 'batch-1', model: 'other/extra' })
+    )
+    await tick()
+    expect(ch.pushed).toEqual([{ text: 'next', promptUuid: 'batch-1', model: 'other/extra' }])
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await second
   })
 
   it('후속 pushTurn 이 requirements 를 누락하지 않는다', async () => {
@@ -1469,6 +1488,26 @@ describe('SessionRuntime spawn settings 기록(0125)', () => {
     expect(runtime.spawnedProviderSettings).toBe(spawned)
   })
 
+  it('콜드 스폰은 이번 턴의 엔진 settings 를 어댑터 요청에 그대로 싣는다', async () => {
+    const ch = channelLive()
+    const sent: TurnRequest[] = []
+    const runtime = new SessionRuntime({
+      id: 'claude',
+      complete: async () => '',
+      sendMessage: (request) => {
+        sent.push(request)
+        return ch.liveTurn
+      },
+      classifyError: (err) => makeClassifiedError('stream_error', String(err), { retryable: true })
+    })
+    const settings = settingsOf('turn')
+    const done = collect(runtime.send({ ...req(), providerSettings: settings }))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await done
+    expect(sent).toHaveLength(1)
+    expect(sent[0]?.providerSettings).toBe(settings)
+  })
+
   it('teardownChannel() 은 기록을 해제하고, respawn 이 새 주입본을 기록한다', async () => {
     const ch = channelLive()
     const second = channelLive()
@@ -1786,7 +1825,7 @@ describe('SessionRuntime runtime tool revision (0158)', () => {
 // **인자를 두 번 서로 다른 값으로 넘긴다** — 한 번이면 상수로 굳힌 전달도 통과한다.
 describe('SessionRuntime — live 전달 홉 (0212 §10 EP-14)', () => {
   type ForwardSpy = {
-    setPermissionMode: Mock<(mode: ClaudePermissionMode) => Promise<void>>
+    setPermissionMode: Mock<(mode: NormalizedPermissionMode) => Promise<void>>
     setModel: Mock<(model?: string) => Promise<void>>
     stopTask: Mock<(taskId: string) => Promise<void>>
     backgroundTask: Mock<(toolUseId?: string) => Promise<boolean>>
@@ -1895,10 +1934,10 @@ describe('SessionRuntime — live 전달 홉 (0212 §10 EP-14)', () => {
     await runtime.setModel('opus')
     await runtime.setModel('sonnet')
     await runtime.setPermissionMode('plan')
-    await runtime.setPermissionMode('acceptEdits')
+    await runtime.setPermissionMode('accept_edits')
 
     expect(spy.setModel.mock.calls).toEqual([['opus'], ['sonnet']])
-    expect(spy.setPermissionMode.mock.calls).toEqual([['plan'], ['acceptEdits']])
+    expect(spy.setPermissionMode.mock.calls).toEqual([['plan'], ['accept_edits']])
     await done()
   })
 })

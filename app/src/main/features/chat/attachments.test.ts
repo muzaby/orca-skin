@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto'
 import { homedir, tmpdir } from 'node:os'
 import { afterEach, describe, expect, it } from 'vitest'
 import { PRODUCT_SLUG } from '../../../shared/product'
-import { buildTurnContent } from '../../adapters/claude'
+import { buildTurnContent } from '../../adapters/claude/adapter'
 import { bufferToBase64Chunked, normalizeAttachments } from './attachments'
 import { MAX_ATTACHMENT_BYTES, nativeAttachmentDirectory } from './attachment-files'
 

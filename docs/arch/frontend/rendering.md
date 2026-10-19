@@ -6,6 +6,14 @@
 
 ## 1. 컴포넌트 렌더링 전략
 
+### 하네스별 transcript
+
+공통 `AssistantMessage`는 파트 순서와 identity를 보존하고 하네스별 `AssistantSegment`로 전달한다. Claude의 본문·reasoning·도구 카드·도구 본문 레지스트리는 `features/chat/harnesses/claude/transcript/`에 있다. OpenCode의 본문·reasoning·오류·구조화 결과·도구 카드는 `harnesses/opencode/transcript/`가 소유하며 Claude 카드 본문을 재사용하지 않는다. 입력 버블·대기 버블·메타 스타일도 각 transcript의 `appearance.ts`에서 선택한다. 질문·경계 표시·첨부·복사·diff 표·Markdown 파싱은 공통 기능이다.
+
+OpenCode는 연속한 read/search/list만 탐색 그룹으로 묶고 셸·편집 전후의 순서를 유지한다. 파일 편집/쓰기는 파일명과 변경량을 한 줄로 표시하고 사용자가 펼친다. 탐색은 종류별 개수와 들여쓴 도구 목록을, 성공 웹 가져오기는 직접 링크를 표시한다. 완료 질문은 접을 수 있는 질문·답변으로 표시한다. 셸 출력은 명령과 결과를 복사할 수 있는 스크롤 패널, 파일 변경은 파일별 diff, 작업 행을 누르면 우측 하위 에이전트 상세를 연다. 실패·중단·거부·취소·미실행은 성공 완료와 구분한다. reasoning은 원본 이력에 보존하되 기본 transcript에서 숨기며, 라이브와 확정 텍스트는 같은 전용 문단·코드·heading 스타일을 쓴다. transcript 배경은 두 하네스 모두 `bg-bg`다.
+
+OpenCode native metadata는 `harnesses/opencode/v1/toolPresentation.ts`에서 중립 view로 해석하고 `toolPresentation.ts`가 현재 버전을 선택한다. 화면 컴포넌트는 이 진입점을 사용하며 버전 구현을 직접 import할 수 없다. 엔진의 native 설정 편집도 해당 feature의 `harnesses/opencode/v1/`에 둔다. 새 버전은 버전별 해석만 추가하고 정규화된 UI·store·파트 순서는 재사용할 수 있다.
+
 ### 백그라운드 작업 패널
 
 `CanonicalBackgroundContent`는 도구 종류와 무관하게 백그라운드 증거가 있는 호출·작업을 Agent 형태의 카드로 표시하며 ambient 작업은 제외한다. Spark가 사용하는 shared `countedBackgroundTaskIds`와 과거 백그라운드 관측을 표시 근거로 읽고 끝난 백그라운드 작업은 완료 그룹에 남는다. live 현재성이 확립된 정상 상태에서 실행 중 작업 집합은 Spark 집합과 같다. 종료 통지 없이 live에서 빠진 현재 작업과 이전 연결의 미종료 작업은 원격 여부와 무관하게 완료 그룹의 `종료 확인 불가`로 표시한다. live 포함 전의 실행 영수증, 첫 live 전의 시작·재연결, live 갱신 전의 종료 통지는 일시 차이를 만들 수 있다. 포그라운드 Agent·셸과 백그라운드가 아닌 실패 호출은 목록에서 제외한다. 카드에 제목·종류·상태·경과 시간과 개별 중단을 표시하며 Explorer는 실제 child 모델을 표시한다. 관측하지 못한 모델은 추정하지 않는다. 선택 좌표는 세션과 generation/taskId이며 기존 toolUseId 선택과 분리한다.
@@ -26,7 +34,11 @@ Spark 상태 줄은 상태·대기 사실·경과 시간을 표시한다. 백그
 
 ### Work/Code 표현
 
-Work의 예정 영역은 공급자 Stop 훅과 성공 영수증으로 마지막 확인한 세션 예약을 표시한다. 프롬프트·cron 식·반복 여부를 사용하며 실제로 제공되지 않는 다음 실행 시각을 만들지 않는다. 목록은 `chat.activity.sessionSchedules`의 세션 수명 스냅샷으로 재로드하고, 앱 재시작 시 과거 예약을 활성 상태로 복구하지 않는다. `pendingSessionWakeup`은 전체 목록 도착 전의 확인된 대기이며 ID·개수·시각 없이 예약 정보를 기다리는 상태로 표시한다. 자동 수신 프롬프트와 출처는 text 파트에 영속하지만 Work/Code transcript 투영에서 제외한다. 사용자가 직접 입력한 같은 태그 문자열은 표시한다. `ScheduleWakeup`은 반복 작업 대기·중단으로 표시하고 일반 cron 생성과 구분한다.
+Work의 예정 영역은 공급자 Stop 훅과 성공 영수증으로 마지막 확인한 세션 예약을 표시한다. 프롬프트·cron 식·반복 여부를 사용하며 실제로 제공되지 않는 다음 실행 시각을 만들지 않는다. 목록은 `chat.activity.sessionSchedules`의 세션 수명 스냅샷으로 재로드하고, 앱 재시작 시 과거 예약을 활성 상태로 복구하지 않는다. `pendingSessionWakeup`은 전체 목록 도착 전의 확인된 대기이며 ID·개수·시각 없이 예약 정보를 기다리는 상태로 표시한다. `ScheduleWakeup`은 반복 작업 대기·중단으로 표시하고 일반 cron 생성과 구분한다.
+
+자동 수신 프롬프트의 원문·출처·format은 text 파트에 영속한다. Claude Work/Code와 OpenCode는 공통 투영으로 해당 text만 기본 숨김 처리하며, 혼합 메시지의 사용자 본문·첨부와 원본 배열·메시지 index는 보존한다. 사용자 직접 태그 입력이나 assistant·tool 결과는 이 규칙으로 숨기지 않는다. 개별 버블 복사는 표시된 부분을, 전체 대화 복사는 원본 이력을 사용한다.
+
+DEV DebugPanel의 별도 `자동 피드 표시` 버튼은 `system-reminder`를 포함한 모든 자동 입력을 기존 사용자 버블로 표시한다. format이 없는 과거 자동 입력도 같은 방식으로 표시한다. 토글은 기본 꺼짐인 앱 메모리 상태로 세션 이동 동안 유지하며 재시작 시 초기화한다. app의 OverlayLayer가 chat의 제어 섹션을 debug 슬롯에 주입하고 production에서는 제어와 활성화 경로를 차단한다. 표시 변경은 모델 요청이나 원본 이력 변경을 일으키지 않는다.
 
 제품 종류별 표시 값은 chat의 순수 agentPresentation 정의가 소유한다. Composer·트랜스크립트는 선택한 정책을 사용하고, 하위 도구 카드는 상세 표시 속성을 전달받는다. 우측 패널의 허용 타일·진입/배지 대상·배치는 rightPanelTiles의 명시적 정의에서 선택한다. app/page는 세션 목록에 아이콘·라벨 해석기를 주입하며 sessions는 chat을 직접 import하지 않는다.
 
@@ -104,13 +116,13 @@ Composer에서 전송한 첨부 파일과 이미지는 컨텍스트에 원래 �
 
 ### 1.6 ToolRendererRegistry
 
-> **상태**: ✅ 구현. `features/chat/components/transcript/registry.ts` 가 `RenderableKind` taxonomy 와 `ToolRendererRegistry`(`match` → `Body`)를 갖고, 미지 도구는 `generic` 으로 떨어진다. 정본 타입(`NormalizedEvent`/`AppMessagePart`)은 [../backend/provider-runtime.md](../backend/provider-runtime.md) 가 소유 — 본 절은 *렌더링 계약*만 정의(참조).
+> **상태**: ✅ 구현. `features/chat/harnesses/claude/transcript/registry.ts` 가 `RenderableKind` taxonomy 와 `ToolRendererRegistry`(`match` → `Body`)를 갖고, 미지 도구는 `generic` 으로 떨어진다. 정본 타입(`NormalizedEvent`/`AppMessagePart`)은 [../backend/provider-runtime.md](../backend/provider-runtime.md) 가 소유 — 본 절은 *렌더링 계약*만 정의(참조).
 
 **① 설명.** 렌더러는 **이벤트 타입이 아니라 의미(semantic kind)** 로 카드를 선택한다. 같은 `tool.call.completed` 라도 결과 형태에 따라 다른 카드로 분기한다. 예: ../backend/provider-runtime.md §7 의 `file` part 가 `readType:'raw'` 면 `FilePreviewCard`, `'patch'` 면 `DiffCard`.
 
 **② 예시.** OpenCode `file.read` → `{ type:'raw'|'patch', content }` `[검증]`. `selectFileRenderer(read) = read.type==='patch' ? 'diff' : 'file_preview'`. `find.text/files/symbols` 는 agent tool result 일 수도, app-originated direct search(../backend/provider-runtime.md §17 DirectBackendAPI)일 수도 있어 둘 다 `SearchCard` 로 가되 `origin` 배지를 표시.
 
-**③ 현재 코드.** ✅ **표준화 완료** — `features/chat/components/transcript/registry.ts` 의 `RenderableKind` 가 정본 taxonomy(`terminal·file_preview·diff·search·approval·agent_task·task_list·session_graph·context_injection·structured_output·error·telemetry`) + 실용 fallback `generic` + AskUserQuestion 컴팩트 본문용 `ask`(비정본)로 정렬됐다. `match`/`resolve` 는 도구 이름이 아니라 **`ToolCall`(= tool_call+tool_result 파트 페어의 렌더 view)** 를 받아 result shape 까지 검사 가능(§1.6 "의미로 분류"). 본 레지스트리는 *도구 본문* 만 다루므로 `terminal`(Bash/PowerShell)·`file_preview`(Read)·`diff`(Write/Edit/MultiEdit)·`agent_task`(Task/Agent)·`task_list`(TaskCreate/TaskGet/TaskUpdate/TaskList — 0212)·`ask`·`generic` 만 등록한다. `search`·`agent_task`·`session_graph`·`context_injection`·`approval`(별도 `ApprovalCard`)·`telemetry`(§1.9)는 OpenCode/별도 표면 전용이라 미등록 seam. 매칭은 순수 함수라 단위 테스트 대상.
+**③ 현재 코드.** ✅ **표준화 완료** — `features/chat/harnesses/claude/transcript/registry.ts` 의 `RenderableKind` 가 정본 taxonomy(`terminal·file_preview·diff·search·approval·agent_task·task_list·session_graph·context_injection·structured_output·error·telemetry`) + 실용 fallback `generic` + AskUserQuestion 컴팩트 본문용 `ask`(비정본)로 정렬됐다. `match`/`resolve` 는 도구 이름이 아니라 **`ToolCall`(= tool_call+tool_result 파트 페어의 렌더 view)** 를 받아 result shape 까지 검사 가능(§1.6 "의미로 분류"). 본 레지스트리는 *도구 본문* 만 다루므로 `terminal`(Bash/PowerShell)·`file_preview`(Read)·`diff`(Write/Edit/MultiEdit)·`agent_task`(Task/Agent)·`task_list`(TaskCreate/TaskGet/TaskUpdate/TaskList — 0212)·`ask`·`generic` 만 등록한다. `search`·`agent_task`·`session_graph`·`context_injection`·`approval`(별도 `ApprovalCard`)·`telemetry`(§1.9)는 OpenCode/별도 표면 전용이라 미등록 seam. 매칭은 순수 함수라 단위 테스트 대상.
 
 **③′ 콘텐츠 순서 보존 렌더 (AssistantMessage).** `AssistantMessage` 는 더 이상 파트를 타입별로 뭉쳐(reasoning→도구그룹→텍스트…) 고정 순서로 렌더하지 않는다. `lib/parts.ts` 의 `messageSegments(parts)` 가 parts 를 **만나는 순서대로** "연속 동종" 으로 묶은 `MessageSegment[]`(`reasoning`/`tools`/`ask`/`text`/`structured`/`error`)로 투영하고, `AssistantMessage` 는 그 배열을 순서대로 기존 컴포넌트(`ReasoningBlock`/`ToolGroup`/`AskExchange`/`Markdown`/`StructuredOutputCard`/`ErrorCard`)에 1:1 매핑한다 → 모델이 말한 "텍스트 → 도구 → 텍스트" 흐름이 화면에 그대로 보인다. 단일 도구는 `ToolGroup` 이 헤더 없이 `ToolCard` 만, 연속 병렬 도구만 그룹으로 묶는다. **sub-agent(Task/Agent)는 별도 처리 없이 `tools` 세그먼트의 일반 도구 카드로 순서 안에 끼어 렌더된다(자동 충족).** 영속된 `error`/`structured_output` 파트가 로드 세션에서 안 보이던 갭도 이 디스패치로 메웠다. 이 순서 보존의 백엔드 짝은 `claude-map` 이 assistant content 블록을 **순서 그대로 emit**(텍스트 말미 합치기 폐기, provider-runtime.md §2)하는 것이다.
 
@@ -148,7 +160,7 @@ interface ToolRendererRegistry { register(r: ToolRenderer): void; resolve(input:
 
 **① 설명.** OpenCode `session.prompt({ format: { type:'json_schema', schema, retryCount? } })` 와 실패 시 `result.data.info.error`(`StructuredOutputError`)를 UI 상태로 정규화 `[검증]`. Claude 측 형식은 `[미확인]`(../backend/provider-runtime.md §13) — 동일 상태로 흡수 가능한지 구현 전 확인.
 
-**③ 현재 코드 갭.** structured_output 은 최소 구현(`StructuredOutputCard`, claude 소스 없음 — §1.6). reasoning 은 **라이브 스트리밍 구현됨** — `message.reasoning.delta`(claude `thinking_delta`) → live 슬라이스 `live.reasoning` 누적 → `PendingAssistant` 의 `LiveReasoning` 이 펼친 `ReasoningBlock`(`streaming` prop → `StreamingMarkdown`, 0093) 프리뷰로 표시, 완성 시 `message.reasoning` 이 영속 reasoning 파트(접이식)로 대체. 런타임이 `thinking_delta` 를 안 흘리면 완성 블록만 표시(graceful).
+**③ 현재 코드 갭.** structured_output 은 최소 구현(`StructuredOutputCard`, claude 소스 없음 — §1.6). Claude reasoning 은 **라이브 스트리밍 구현됨** — `message.reasoning.delta`(claude `thinking_delta`) → live 슬라이스 `live.reasoning` 누적 → `PendingAssistant` 의 `LiveReasoning` 이 펼친 `ReasoningBlock`(`streaming` prop → `StreamingMarkdown`, 0093) 프리뷰로 표시, 완성 시 `message.reasoning` 이 영속 reasoning 파트(접이식)로 대체. 런타임이 `thinking_delta` 를 안 흘리면 완성 블록만 표시(graceful).
 
 **④ 인터페이스.**
 
@@ -188,13 +200,13 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 
 **① 설명.** Composer 풋터 usage 도넛 = **마지막 턴 컨텍스트 비율**. 클릭 시 `UsagePanel` 팝오버 — 컨텍스트 창 프로그레스바 + 주간/월간 사용량 한도(②).
 
-**② 구현.** 도넛/패널은 **`state.lastTelemetry` 단일 소스로 구동**한다(`pendingInputTokens` 폐기). 컨텍스트 사용량 토큰 = `contextTokens = input + cacheRead + cacheCreation`(**출력 제외**, `features/chat/lib/telemetry.ts`) = **`/context` 상단 분자와 같은 정의**(전체 컨텍스트 점유). 도넛 비율 = `contextTokens / contextWindowOf(telemetry)`. 분모는 CLI 보고 `contextWindow` → `modelUsage[model].contextWindow` → 모델명 기본 정책(200k, `1m` 표기 시 1M) 순으로 해석한다(`features/chat/lib/contextWindow.ts`). 패널 컴포넌트는 **`UsagePanel.tsx`**: **컨텍스트 창 프로그레스바(`Meter`, `used / window (pct%)`) + 구분선 + 주간/월간 사용량 한도 바 + 우측 `>` 버튼(설정 사용량 탭 이동)**. 구 신규입력/캐시읽기/캐시생성 분해 행은 제거됐다(0079 AC4). 한도 바는 **Main 이 완성한 `UsageLimitsView`** 를 props 로 받아 표시만 한다 — 파생은 `computeUsageLimits`(`src/shared/usage/limits.ts`)가 main 에서 한 번 수행하고 renderer 는 `shared/stores/usageStore` 로 mirror 한다(renderer 재계산 0). 기준 provider 는 **마지막 telemetry 시점**의 것이라 모델 선택만 바꿔서는 숫자가 바뀌지 않는다. `state.lastTelemetry` 없으면 컨텍스트 섹션 미표시, 사용량 뷰 미도착이면 한도 섹션 숨김.
+**② 구현.** 도넛/패널은 **`state.lastTelemetry` 단일 소스로 구동**한다(`pendingInputTokens` 폐기). 컨텍스트 사용량은 명시적 `telemetry.contextTokens`(0 포함)를 우선하며 부재 시 `input + cacheRead + cacheCreation`(**출력 제외**, `features/chat/lib/telemetry.ts`) = **`/context` 상단 분자와 같은 정의**(전체 컨텍스트 점유). 도넛 비율 = `contextTokens / contextWindowOf(telemetry)`. 분모는 CLI 보고 `contextWindow` → `modelUsage[model].contextWindow` → 모델명 기본 정책(200k, `1m` 표기 시 1M) 순으로 해석한다(`features/chat/lib/contextWindow.ts`). 패널 컴포넌트는 **`UsagePanel.tsx`**: **컨텍스트 창 프로그레스바(`Meter`, `used / window (pct%)`) + 구분선 + 주간/월간 사용량 한도 바 + 우측 `>` 버튼(설정 사용량 탭 이동)**. 구 신규입력/캐시읽기/캐시생성 분해 행은 제거됐다(0079 AC4). 한도 바는 **Main 이 완성한 `UsageLimitsView`** 를 props 로 받아 표시만 한다 — 파생은 `computeUsageLimits`(`src/shared/usage/limits.ts`)가 main 에서 한 번 수행하고 renderer 는 `shared/stores/usageStore` 로 mirror 한다(renderer 재계산 0). 기준 provider 는 **마지막 telemetry 시점**의 것이라 모델 선택만 바꿔서는 숫자가 바뀌지 않는다. `state.lastTelemetry` 없으면 컨텍스트 섹션 미표시, 사용량 뷰 미도착이면 한도 섹션 숨김.
 
 - **컨텍스트 입력의 원천**: 정상 보고 환경에서는 마지막 메인 assistant usage를 사용한다. 이번 턴 assistant 컨텍스트 합이 0이거나 부재하면 마지막 양수 메인 `message_delta.usage`를 폴백으로 사용하며, 둘 다 컨텍스트를 보고하지 않으면 도넛을 갱신하지 않는다. 필드 병합·턴 경계·압축·핸드오프 판정과 비용 보존의 정본은 [사용량 수집](../backend/provider-runtime.md#8-telemetryservice)이다.
-- **컨텍스트 0 턴은 도넛 소스 미갱신 (`/context` 등 로컬 슬래시 명령)**: `/context`·`/help` 등은 모델을 호출하지 않아 컨텍스트(=비용)가 없는 빈 telemetry 를 만든다. 이 빈 값이 직전 도넛을 0 으로 덮지 않게 두 지점에서 가드: ① **라이브** — reducer `telemetry` case 가 `contextTokens(telemetry) > 0` 일 때만 `lastTelemetry` 교체(턴 종료 `inflight:false` 등은 그대로). ② **복원** — main `features/usage/tracker.ts` 가 `hasContextTokens(usage)`(`features/usage/tracker.ts`) 일 때만 `turn_usage` 적재 → 빈 행이 최신 행으로 복원돼 0 으로 덮는 일 방지(`getLatestTurnUsage` 단순 최신행 쿼리 유지).
+- **측정값 부재와 명시적인 0을 구별한다.** 모델 미호출 로컬 슬래시(`/context` 등)의 빈 telemetry는 기존 도넛을 유지한다. OpenCode 마지막 스텝이 명시적 `contextTokens: 0`을 제공하면 라이브 reducer와 main 원장 모두 반영한다. OpenCode 분모는 엔진 모델 문서의 `limit.context`이며 유효한 값이 없으면 200k다. 저장된 분자·분모는 세션 재열기에도 유지된다.
 - **compaction 임박 경고**: `nearCompaction(used, window)`(`contextWindow.ts`) = `used ≥ (window - AUTOCOMPACT_BUFFER) * 0.835`. `AUTOCOMPACT_BUFFER`(~33k)는 CLI 버전·`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` 에 따라 가변인 *추정값*. true 면 도넛 progress arc 가 경고색(`--color-warn`, `UsageCircle.warn` prop), title 에 "컨텍스트 한계 임박", 패널에 "곧 컨텍스트 정리(compaction)" 경고 행(추정값 캡션 포함).
 
-**③ 세션 영속 + 비용 원장 (구현 완료).** 턴 종료마다 **per-turn 원장**(`0006_turn_usage.sql` 의 `turn_usage` + `turn_model_usage` — `session_id`(세션 삭제 시 `SET NULL`)·`created_at`·input/output/cache 토큰·`total_cost_usd`)에 적재한다(`features/usage/tracker.ts` 의 `recordTurnUsage` → `DbQueries.usage.insertTurnUsage`/`DbQueries.usage.insertTurnModelUsage`). 세션 로드 시 **최신 행에서 `lastTelemetry` 재구성**(`DbQueries.usage.getLatestTurnUsage` + main `infra/ipc/dto.ts` `usageRowToTelemetry`, 복원 조립은 `features/history/reader.ts`, IPC 배선은 `app/handlers/session.ts`) → `LoadedSession.lastTelemetry` 로 복원(reducer `LOAD_SESSION`. 구 `LOAD_SESSION_FROM_CACHE`·`CachedSession` 스냅샷 Map 은 0013 멀티세션 외피의 `sessions` Record(`chatStore.ts`)가 흡수했다). `BEGIN_TURN` 은 `lastTelemetry` 를 비우지 않아 턴 진행 중에도 유지 → 컨텍스트는 세션 수명(새 대화에서만 0) 동안 항상 표시. **패널은 비용/지연/모델 행을 두지 않는다** — 비용은 원장이 SSOT 이며 시간(`created_at`)·모델별 집계로 1일/주/월 사용량을 산출한다(설정 사용량 탭). 세션 비용 합계 `sessionCostUsd`(로드 시 `LoadedSession.costUsd` 시드 + telemetry 누산, `chatReducer`)는 Composer 상태 팝오버(`StatusPopover`)가 표시한다. `lastTurnLatencyMs` 필드는 폐기됐다.
+**③ 세션 영속 + 비용 원장.** 턴 종료마다 `turn_usage`와 `turn_model_usage`에 사용량을 적재한다(`features/usage/tracker.ts`의 `recordTurnUsage`). 대화 목록에서 제거해도 비용 원장과 세션 연결은 보존한다. native 이력을 재조회할 때 과거 사용량을 새 과금으로 기록하지 않는다([persistence.md](../backend/persistence.md)). 세션 로드 시 최신 원장에서 `lastTelemetry`를 재구성하고(`DbQueries.usage.getLatestTurnUsage` → `usageRowToTelemetry` → `features/history/reader.ts`) `LoadedSession.lastTelemetry`로 복원한다. `BEGIN_TURN`은 이를 비우지 않아 턴 진행 중에도 컨텍스트 표시를 유지한다. 패널은 비용/지연/모델 행을 두지 않는다. 비용 원장으로 일·주·월 사용량을 집계하며 세션 비용 합계 `sessionCostUsd`는 Composer 상태 팝오버가 표시한다.
 
 **⑤ 빈 reasoning 카드 스킵 (구현 완료).** 빈/공백 "사고 과정" 카드가 뜨던 문제 해소 — `claude-map`(빈 `thinking` emit 안 함)·`messageSegments`(빈 reasoning 파트 스킵)·`ReasoningBlock`(합친 텍스트 공백이면 `null`) 3층 가드. 라이브 경로 `PendingAssistant` 는 기존 `{pendingReasoning && …}` 로 이미 가드됨.
 
@@ -210,10 +222,40 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 
 검증된 `tool.call.completed.artifact`는 원래 toolRunId가 속한 메시지만 교체한다. 목록 갱신 이벤트는 게시 카드를 임의의 메시지에 추가하거나 패널을 자동 선택하지 않는다. 일반 출력은 이 목록의 최신 파일을 Transcript 하단에서 표시하며 원래 메시지에 이미 연결된 파일은 중복 표시하지 않는다. `artifactStore`는 mount된 세션의 알려진 ID를 대상으로 상태 조회를 병합하고 세션/파일별 요청 세대로 지각 응답을 폐기한다. transcript 묶음 저장은 해당 메시지의 게시 집합, 타일은 Main이 반환한 최신 목록을 사용한다.
 
-우측 패널은 타일 registry·메뉴·행/열 배치를 사용한다. `RightPanel`은 세션·뷰어·확대 수명을 조립하고 `RightPanelColumn`은 타일과 행 애니메이션, `PanelResizeSeparators`는 행/열 조절을 담당한다. overview viewport 폭은 가용 영역의 절반 이내이며 넘치는 열은 가로 스크롤한다. 뷰어는 별도 저장한 폭을 사용한다. 명시적으로 타일을 열면 이미 열린 화면 밖 열도 보여 주고, 열 리사이즈는 스크롤된 실제 DOM 좌표를 기준으로 계산한다. 카드와 액션은 기존 시맨틱 토큰·Button·DropdownMenu·확인창·번역 리소스를 공유한다.
+`RightPanel`은 하네스별 진입점을 통해 공통 `harnesses/common/rightpanel/TilePanel.tsx`를 렌더한다. `TilePanel`은 타일 registry·행/열 배치와 범용 상세 슬롯을 제공하고 세션·뷰어·확대 수명을 조립한다. `RightPanelColumn`은 타일과 행 애니메이션, `PanelResizeSeparators`는 행/열 조절을 담당한다. overview viewport 폭은 가용 영역의 절반 이내이며 넘치는 열은 가로 스크롤한다. 뷰어는 별도 저장한 폭을 사용한다. 직접 타일을 열면 이미 열린 화면 밖 열도 보여 주고, 열 리사이즈는 스크롤된 실제 DOM 좌표를 기준으로 계산한다. 카드와 액션은 기존 시맨틱 토큰·Button·DropdownMenu·확인창·번역 리소스를 공유한다.
 
 `useArtifactViewerActions`는 복사와 저장의 중복 실행 잠금·피드백·요청 소유권을 관리한다. 오류 문구는 `artifactFeedback`에서 해석하고 선택 전환·닫기 이후의 완료는 이전 화면을 갱신하지 않는다. 패널 펼치기·복원·닫기는 공통 `PanelControls`와 Material SVG를 사용한다. 같은 역할의 툴팁은 공통 번역을 사용하며 타일을 식별해야 하는 접근성 이름에는 대상명을 포함한다.
 
 프로젝트·아티팩트·플러그인 목록의 탭은 `CatalogTabs`로 방향키·Home/End·ARIA 연결을 공유한다. Plugin 카탈로그는 플러그인→스킬→MCP 순서이고 첫 진입도 플러그인이다. Plugin 행은 main이 전달한 허용 Material icon과 현재 locale의 title·body를 표시하며 locale 선택은 exact→base→ko→en 순서다. 상세는 body와 분리해 source·version·GitHub·license attribution을 표시한다. catalog가 없는 Plugin은 `electrical_services`와 Auth label, Plugin이 아닌 연결은 기존 power icon과 Auth label을 사용한다. 프로젝트와 아티팩트 검색은 `CatalogSearch`와 `useCatalogSearch`로 열기·Escape·초점 복귀를 공유하며 검색어와 필터·총계는 각 feature가 소유한다. 플러그인의 최종 행 순서는 `catalogOrder`에서 정하고 표시하지 않는 그룹 헤더나 빈 그룹 모델을 만들지 않는다.
 
 뷰어 패널과 작업 타일은 도메인에 독립적인 공통 `ResizableSidePane`을 사용한다. Transcript와 아티팩트 화면의 뷰어 좌측 핸들은 포인터·키보드로 폭을 조절하며 iframe 위를 지나는 드래그도 유지한다. 확대는 가장 가까운 현재 pane 전체를 덮고 nav에는 영향을 주지 않는다. Code 변경사항의 `GitContextBar`도 registry 헤더 props로 같은 확대 상태를 전달받는다. 본문을 다시 mount하지 않으며 복원 시 일반 폭과 스크롤을 되돌린다. 확대한 타일을 닫으면 확대 상태도 해제한다. 세션·대상 전환, 창 초점 이탈, 취소와 unmount에서 드래그 자원을 정리한다.
+
+## 하네스 전용 표시
+
+새 대화의 모델 선택은 `chatReducer.SET_MODEL`에서 backend를 함께 바꾼다. OpenCode 선택은 Code를 강제하며 생성·입장 이후 backend는 잠긴다. `ComposerInputController`는 동일 인스턴스를 유지하고 테두리·컨트롤만 전환한다. OpenCode의 에이전트·variant는 실제 카탈로그에서 제공한다. Claude의 권한·effort 컨트롤은 기존 정책을 유지한다.
+
+`TranscriptView`는 공유 메시지 모델을 하네스별 viewport로 보낸다. Claude는 기존 교환 단위 가상화와 `useScrollAnchor`를 사용한다. OpenCode는 `harnesses/opencode/transcript/Timeline`에서 텍스트·도구·메타를 안정된 행 key로 투영하고 행 단위로 가상화한다. 읽기 중인 행과 선택 범위를 보존하며, 세션별 위치·도구 펼침을 기억한다. 위로 스크롤하거나 텍스트를 선택하면 새 출력의 바닥 추종을 해제하고, 바닥 도달 또는 최신 이동으로 추종을 재개한다. 탐색 도구는 접기 행으로 묶고 수정 도구는 사용자가 펼칠 때 diff를 표시한다. `providerTool` 원본은 상세 disclosure에서 읽는다. 본문 배경과 사용자 버블 색상은 Claude와 공유한다.
+
+OpenCode의 질문과 도구 승인은 도착 순서대로 같은 입력 자리를 대체한다. 현재 요청만 mount하고 해소되면 다음 요청을 표시한다. 입력 controller는 비활성 상태로 인스턴스를 유지하므로 마지막 요청 후 초안·첨부가 복원된다. Todo 진행 카드는 현재 root 턴의 성공 결과에서 파생해 composer 바로 위에 펼친 목록 또는 한 줄 요약으로 표시한다. 요청 카드가 있으면 가리고, 전체 완료나 실행 종료 시 마지막 내용을 유지한 채 아래로 퇴장한다. 일반 OpenCode transcript에서는 Todo 행을 중복 표시하지 않으며 원본 이력은 보존한다.
+
+`components/rightpanel/tileRegistry.ts`는 하네스별 타일 본문과 헤더를 선택한다. `rightPanelTiles`의 하네스 정책은 reducer 활성화·패널 렌더링의 지원 범위를 정의하고, 선택적 `menuIds`로 타이틀 메뉴의 노출 범위를 좁힌다. 메뉴 비노출은 저장된 타일·직접 활성화·상세 패널의 지원을 변경하지 않는다.
+
+타이틀 메뉴는 `타일 표시` 아래에 노출 항목을 정의 순서로 표시하며 범주 제목을 넣지 않는다. Claude Code는 계획·백그라운드 작업·변경사항, Claude Work와 OpenCode는 작업만 표시한다. OpenCode의 전용 외형은 해당 하네스의 composer·transcript·패널에만 적용한다.
+
+엔진·모델 페이지의 엔진 추가 dropdown은 Claude/OpenCode를 선택한 뒤 폼을 연다. 두 폼은 ‘엔진 추가’ 제목과 취소/추가하기 버튼, 모달 폭·헤더·footer 스타일을 공유한다. Claude 카드에는 adapter 이름 `claude`, Claude 엔진 편집에는 고정 adapter/provider chip을 표시한다. 폼 안의 하네스는 고정된다. OpenCode 신규 엔진은 공급자 ID·표시 이름·URL·선택 API 키와 모델/헤더 반복 행을 사용한다. 공급자 제목 옆의 불러오기는 전역 파일에서 노출 필드만 채우며 원본을 편집하지 않는다. v1 codec은 폼의 공급자와 모델만 소유하는 새 native override 문서를 생성한다. 모델 목록의 소유 범위는 [OpenCode 카탈로그 계약](../backend/adapters.md)을 따른다. 기존 엔진 편집은 JSON을 사용한다. 설정 모달은 일반·사용량·공급자별 사용량만 표시하며 하네스별 설정 탭은 제공하지 않는다. 페이지 진입은 기존 카탈로그를 재사용하며 변경 저장과 공급자 상태 갱신은 목록을 다시 조회한다. 카탈로그 조회 상태는 엔진 변경 작업의 busy와 분리해 다른 하네스 조회가 기존 편집·삭제·저장을 잠그지 않는다.
+
+| OpenCode 타일 | 표시와 진입 |
+|---|---|
+| `task` | 기본 `작업` 요약 카드. 폴더 제목과 변경 사항 진입을 표시하고, 하위 에이전트·소스는 실제 자료가 있을 때, 셸 그룹은 활성 실행이 있을 때 표시한다. 카드 자체의 메뉴 버튼·별도 헤더는 없다. |
+| `plan` | 지원되는 독립 타일이며 저장된 배치·기존 활성화 경로를 유지한다. 공통 계획 본문·복사와 기존 타일 헤더를 사용한다. |
+| `diff`·`subagent`·`process`·`source` | 작업 요약에서 기존 패널 위의 상세로 연다. 기존 독립 타일과 같은 registry의 본문·헤더를 사용하며 diff는 Git 컨텍스트 헤더, 하위 에이전트는 목록 복귀 버튼을 유지한다. 셸 로그와 소스는 본문 안에서 스크롤한다. |
+
+작업 요약의 변경 사항·하위 에이전트·셸 행·소스 모두 보기는 OpenCode navigation Context를 통해 상세를 연다. 공통 호스트의 표시 우선순위는 artifact 뷰어 → 상세 → 기존 타일이며 가려진 층은 mounted·hidden·inert로 유지한다. artifact를 닫으면 상세로, 상세를 닫으면 원래 타일로 돌아간다. 상세에는 추가 제목·뒤로 행 없이 기존 헤더를 사용하고, `RightPanelTile`의 닫기 override가 상세만 닫아 뒤의 같은 종류 타일을 보존한다. 타이틀 메뉴와 transcript Task 카드는 직접 타일 열기 경로를 사용한다.
+
+소스 그룹의 활성 조건은 추가 폴더·전송된 첨부·참조 자료이며 작업 디렉터리만 있으면 그룹을 표시하지 않는다. 자료가 생긴 뒤 요약의 소스 그룹에서 폴더 추가·모두 보기를 사용한다. 소스 파일·URL 열기와 폴더 추가는 기존 컨텍스트 액션을 사용한다.
+
+요약의 셸 목록은 `activePanelProcesses`가 기존 outcome의 `running`만 선택한다. 종료된 행과 마지막 실행 종료 후 그룹은 숨기며, 열린 상세와 전체 기록에는 최종 상태·로그를 유지한다. PR 항목은 제공하지 않는다.
+
+OpenCode 패널의 외곽은 기존 보조 패널과 같은 `rounded-r6 border`를 사용하며, 전용 색·표면·그림자는 두 테마의 `oc-*` 토큰이 갖는다. 클릭 행의 안쪽 좌우 여백은 `PanelRow`·하위 에이전트 요약/목록·소스 URL에 일관되게 적용한다.
+
+OpenCode 소스는 Work 컨텍스트와 같은 `useTaskContext` 훅을 사용한다. 폴더·첨부·참조 목록과 열기/추가 기능을 공유하고, `sessionContextPolicy`가 OpenCode Code와 Claude Work의 컨텍스트 기능을 허용한다. child 도구와 대화는 부모 작업에 귀속하며 셸의 완료 결과를 진행 로그보다 우선하고 제한된 후미와 잘림 안내를 표시한다. 선택·닫기·세션 캐시의 수명은 [상태 관리](state.md#우측-타일-선택)를 따른다.

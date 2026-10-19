@@ -16,7 +16,7 @@ import { load } from 'cheerio'
 import type { DiffRequirementItem } from '../../../../../shared/ipc'
 import { i18n } from '../../../shared/i18n'
 import { initialChatState, type ChatState } from '../reducer/chatReducer'
-import type { RequirementTray as RequirementTrayType } from './composer/RequirementTray'
+import type { RequirementTray as RequirementTrayType } from '../harnesses/common/composer/RequirementTray'
 
 type TrayProps = ComponentProps<typeof RequirementTrayType>
 
@@ -71,8 +71,9 @@ vi.mock('./composer/GitRow', () => ({
 
 // 실제 트레이를 그대로 그리면서 컨테이너가 건넨 props 도 잡는다 — 마크업 축과 콜백 축이
 // 같은 렌더에서 나온다(대역으로 갈아끼우면 소비자 쪽이 안 잠긴다).
-vi.mock('./composer/RequirementTray', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./composer/RequirementTray')>()
+vi.mock('../harnesses/common/composer/RequirementTray', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../harnesses/common/composer/RequirementTray')>()
   return {
     RequirementTray: (props: TrayProps) => {
       h.tray = props

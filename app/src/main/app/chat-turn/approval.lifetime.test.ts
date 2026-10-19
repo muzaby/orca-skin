@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import type { WebContents } from 'electron'
 import type { ApprovalResolution, NormalizedEvent, PermissionAction } from '../../../shared/ipc'
-import type { TurnRequest } from '../../adapters/turn'
-import type { LiveTurn, ProviderMessageBatch } from '../../adapters/types'
+import type { TurnRequest } from '../../adapters/common/turn'
+import type { LiveTurn, ProviderMessageBatch } from '../../adapters/common/types'
 import type { RuntimeSessionAdapter } from '../../contracts/ports'
 import type { TurnContext } from '../../contracts/turn'
 import type { HistoryWriter } from '../../features/history/writer'
 import { SessionRuntime } from '../../features/sessions/session-runtime'
 import { ApprovalCoordinator } from '../../features/approvals/coordinator'
 import { PermissionModeController } from '../../features/approvals/permission-mode-controller'
-import { makeCanUseTool } from '../../adapters/claude'
+import { makeCanUseTool } from '../../adapters/claude/adapter'
 import { createApprovalRequester } from './approval'
 
 const sendChatEvent = vi.hoisted(() => vi.fn())

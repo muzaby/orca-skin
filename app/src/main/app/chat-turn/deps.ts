@@ -17,7 +17,7 @@ import type { HistoryWriter } from '../../features/history/writer'
 import type { RuntimeSupervisor } from '../../features/sessions/supervisor'
 import type { RouterContext } from '../context'
 import type { WorktreeService } from '../../features/worktrees/service'
-import type { TurnExtensions } from '../../adapters/turn'
+import type { TurnExtensions } from '../../adapters/common/turn'
 import type { BackgroundController } from '../../features/chat/background-controller'
 
 export interface ChatDeps {

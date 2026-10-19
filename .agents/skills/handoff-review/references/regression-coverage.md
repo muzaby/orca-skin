@@ -2572,3 +2572,437 @@ r6 구현은 프로덕션을 한 줄도 바꾸지 않고 렌더 테스트로만 
 
 - 실행 구간 안 자리라도 테스트 입력이 운반 값을 바꾸지 않으면(0259 X9b: hover 레벨 0만) 그 자리는 잠기지 않는다 — 변이 축(P49·P51)이 잡는다.
 - 실행 환경 대체(react 훅 mock)가 실제 React의 effect 순서·재렌더를 다르게 매길 위험은 남는다 — DOM 테스트 환경 도입은 사용자 결정이다.
+
+---
+
+# review round 33 — 0262 (라운드 3→4) · 0265 (라운드 2): 운반 값 비퇴화와 강제 지점 표의 열
+
+**발동/모드**: 0262 r3 verify FAIL로 라운드 4 > 3. 사용자가 `/handoff-review`를 인자 없이 호출해 DIAGNOSE_ONLY로 진단했고, 진단 질의에 **APPLY(변경안 1+2)** 를 선택했다. 제품 코드 변경 0.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | 좌표가 실행 구간 안에서 자리를 실행했지만 운반 값이 빈 값이라, 그 항을 지워도 관측이 같았다 | 0265 r2 `send.harness.test.ts` 조립 인자 단언 — 하네스 지시가 빈 fixture, 지시 항 제거 변이 `src/main` 4,057 green(D-0265-3) · 0259 r5 X9b(round 32 남은 한계) | **A** — round 32 한계를 판정 규칙으로 교체. AGENTS §공통 V(정의) · 절차 2·3 · plan §5-A · plan.template · impl §2 · verify §6 · verify.template §5 · corpus **P56** |
+| 2 | 재구현 턴이 강제 지점 표를 `root pair / 자리 · 새 oracle · 자기결과` 세 열로 바꿔 분모를 검증자 인용 6자리로 줄였다. 같은 EP-08의 부모 편집 배선(`AgentEnvironmentView.tsx:121-122·149`)과 `engineAdd` schema 등록이 어느 열에도 없었다 | 0262 r3 `[구현자 기입]` "분모는 r2 인용 6자리" · r3 verify I1·I2·I3·I5 green(D-0262-6) | **B** — impl §5(출처 계약)·§2(자리 = 운반 edge)·template 열이 이미 요구(P38·P52). 같은 문장은 추가하지 않고 **증거 강제**: impl §8·AGENTS 절차 2·plan.template에 "표의 열을 줄이지 않는다·`§10이 적은 지점`은 pair §10 자리 전부", verify §9·verify.template §11에 열 내용 점검 |
+| 3 | r2 검증자가 r1 남긴 자리 "EngineCard 실제 클릭"을 카드 안 한 줄로만 탐침하고 대응 방향도 그만큼 좁혔다 | 0262 r2 P08c·D-0262-4 | **B** — P52 자리 규칙·verify §6 §10 재열거가 이미 요구. 문장 추가 없음 |
+| 4 | V1 `SELF_BLOCKED` 14가 ΔV 20회 동안 승계됐고, ΔV1~4 REGRESSION 행이 "기존 미잠금 범위 승계"로 적혔으며, r1 verify가 V1 pair를 "못 본 것"으로 넘겼다 | 0262 plan r1~ΔV19 · r1 verify | **B** — REGRESSION은 다시 닫는다(AGENTS §공통 V)·첫 검증은 전 pair 실행(verify §6). ΔV21 내장 리뷰도 B로 판정, r2·r3이 해소 중 |
+| 5 | ΔV1~ΔV21은 사용자 추가 요구 | 0262 Decision Ledger D-010~ | **D** — 오염 0 |
+| 6 | 검증 환경에 OpenCode CLI 부재 | 0262·0265 r3 | **E** — native CLI 통합 skip 1, r2 실측 승계 |
+
+## Tier
+
+**Tier 1.** 좌표가 자리를 닫는 조건(정의)과 재구현 턴 필수 필드·verify 필드 점검의 의미가 바뀐다. 6-A + 6-B + 6-C 전부 수행.
+
+## 6-A Operational Instruction Delta
+
+삭제 줄 **12**(`git diff -U0 af0521ef` — #505 병합본, 내용은 head `37fc5c27`과 동일, 줄 = 문단) — 추가 줄과 토큰 대조.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| AGENTS §공통 V | **추가** | 실행 구간 bullet 뒤 새 bullet 1. 삭제 줄 0 |
+| AGENTS 절차 2 좌표 문장 · 필드 문장 · 절차 3 좌표 문장 | **KEEP + 확장** | 잃은 토큰 `둔`→`두고 … 채운` · `필드를`→`필드와 표의 열을` · `있는지`→`있고 … 채워졌는지` |
+| impl §2 좌표 bullet | **KEEP + 확장** | 잃은 토큰 0 — 문장 덧붙임 |
+| impl §8 필드 문장 | **KEEP + 확장** | `필드를`→`필드와 표의 열을` + 문장 덧붙임 |
+| plan §5-A 만들 테스트 표기 | **KEEP + 확장** | `(파일·진입점·관측 대상 — … 않는다)`→`(파일·진입점·구별 입력·관측 대상 — … 않으며 … 준다)` |
+| plan.template 필드 주석·실행 구간 주석 | **KEEP + 확장** | `필드를`→`필드와 표의 열을` · 문장 덧붙임 + 주석 1줄 추가 |
+| verify §6 · §9 | **KEEP + 확장** | 잃은 토큰 0 — 문장 삽입·덧붙임 |
+| verify.template §5 · §11 | **KEEP + 확장** | `0):`→`0) · …:` |
+| corpus | **추가** | P56. 삭제 줄 0 |
+| 명령·gate·reference 삭제·이동 | **없음** | inbound `N`/semantic `M/M` 대상 없음 |
+
+- 방어 문구 21종(`다른 게이트가 막는다`·`라벨이 참인지`·`세는 단위는 §10 항목이 아니라 자리`·`들어간 곳 앞`·`npm test`·`Tier 1`·`Handoff: none`·`BLOCKED_BY`·`SUPERSEDED`·`실행 구간` 등)의 출현 파일 집합을 변경 전후 8파일에서 대조 — 차이 **0**.
+
+## 6-B Historical Failure Regression
+
+- **56 P 전수**(P1~P55 + 신규 P56, 번호 결번·중복 0) · 변경 후 **COVERED 56 / PARTIAL 0 / GAP 0 / OBSOLETE 0**. 모든 변경이 KEEP + 확장 또는 추가라 기존 mapping은 보존된다.
+- P1~P37: 방어 지점이 plan 조사·AC·Technical Design 등이고 이번 변경 사이트와 겹치지 않는다(round 4 baseline 매핑 그대로).
+- 변경 사이트를 방어로 인용하는 P 개별 확인: **P39**(자기보고 재현, impl §8·verify §9) — 해당 문장 불변, 필드 점검이 열로 확장 · **P41**(라벨 표본, verify §6) — 문장 불변 · **P44**(배선 미잠금, plan §5-A 선택 증거) — 선택 문장 불변 · **P47**(로컬 해시, verify §9 별도 bullet) — 불변 · **P48**("다른 게이트가 막는다") — 불변 · **P52**(자리 단위) — 절차 2 문장 보존 + 열 점검으로 강화 · **P54**(좌표 형식) — 보존 · **P55**(실행 구간) — 정의 bullet 그대로, 바로 뒤에 P56 조건 추가.
+- 관련 P: **P38**(지목 지점만 닫음) — 발견 2의 재발. 방어 문장 불변이고 `§10이 적은 지점` = pair §10 자리 전부가 그 분모를 표에 강제한다 · **P49**(형제 슬롯 맞바꿈) — 변이 축 유지, P56은 읽기 판정이라 mutation 정책과 겹치지 않는다.
+
+### V/lifecycle replay — 거짓 PASS·FAIL inflation
+
+| anchor | 라운드 | 변경 전 | 새 규칙 | 방향 |
+|---|---|---|---|---|
+| 0265 | r2 impl VP3-A | `SELF_PASS`(조립 인자 단언, 지시 빈 fixture) | 지시 항 운반 값이 빈 값 → `남긴 곳` | D-0265-3 구현 턴 안 노출, 1라운드 조기 |
+| 0265 | r2 verify | `PAIR_FAIL`(검증자 재량 탐침 R2-01) | 같은 판정을 읽기로 — 탐침 없이도 도달 | 판정 불변, inflation 0 |
+| 0259 | r5 X9b | green — P49 변이 축에 위임 | hover 레벨 0만 입력 → `남긴 곳` | 조기 |
+| 0262 | r3 impl VP-08 | `SELF_PASS`(보완 6/6) | VP-08 행에 EP-08 전 자리 → 부모 편집 배선·IPC 등록이 `남긴 곳` → `SELF_BLOCKED` | D-0262-6 구현 턴 안 노출 |
+| 0262 | r3 verify | root `PAIR_FAIL` VP-08(탐침 I1·I2·I3·I5) | 같은 root. 열 점검은 같은 분모의 증거라 별도 root로 세지 않는다 | 판정 불변 |
+| 0262 | r3 Composer 좌표 | 두 하네스·서로 다른 모델명 catalog | 구별 입력 → 닫힘 유지 | inflation 0 |
+| 부재 → 기본값 폴백 자리 | 0262 `defaults to Claude…` | 닫힘 | 부재 입력이 곧 구별 값 → 닫힘 유지 | inflation 0 |
+| 열 이름만 다른 표 | 임의 | — | §10 자리 전부와 `남긴 곳`이 있으면 접힘 아님 | inflation 0 |
+| 진행 중 plan | 다음 impl/verify | — | plan 형식 migration 없음 — 판정은 impl/verify 좌표 읽기와 [구현자 기입] 표에만 걸림 | RETURN_TO_PLAN 0 |
+
+## 6-C Cross-document Consistency
+
+- **PASS.** "운반 값" 규칙 **8사이트**: AGENTS §공통 V(정의) · AGENTS 절차 2·3 · plan §5-A · plan.template 전수 주석 · impl §2 · verify §6 · verify.template §5 (+ corpus P56). 정의 문장은 AGENTS 한 곳, 나머지는 인용·적용.
+- "표의 열" 규칙 **6사이트**: AGENTS 절차 2 · impl §8 · plan.template 두 주석 · verify §9 · verify.template §11. impl·template는 열을 줄이지 말라고 요구하고 verify는 열이 담는 분모로 판정한다 — 구현자에게 더 엄격하고 검증 gate는 내용 기준이라 금지↔요구 충돌 0.
+- **owner 충돌 0**: 설계자는 만들 테스트의 구별 입력을 적고, 구현자가 퇴화 입력 자리를 `남긴 곳`에 적고, 검증자가 다시 읽는다.
+- **scope 충돌 0**: 새 명령·gate 없음 → `app/AGENTS.md` ABI 규칙과 무관. root `AGENTS.md` skill·owner 표 불변.
+- `node app/scripts/check-doc-inventory.mjs --check` — generated · prose · links ok. `git diff --check` 출력 0.
+- AGENTS 위생: 추가분에 비밀·개인정보·변동성 운영정보 없음. 새 `AGENTS.md`·`CLAUDE.md` 없음.
+
+## review 기록 정책
+
+`round33-review.md`를 만들지 않았다 — 사용자 보존 요구 없음, 압축으로 잃는 rationale 없음. 신규 P **1**(P56: 구간 안 좌표의 입력 조건 — P55·P49와 다른 causal class). 발견 2는 P38 class의 재발이라 corpus를 늘리지 않았다.
+
+## 남은 한계
+
+- 운반 값이 구별돼도 그 값이 관측 출력에 이르지 않으면(중간에서 버려짐) 잠기지 않는다 — 관측 대상 지정(plan §5-A)과 실행 구간 규칙이 잡는다.
+- renderer 테스트의 DOM 없는 node 환경은 round 32 한계 그대로다(E, 사용자 결정 대상).
+
+---
+
+# review round 34 — 0262 (라운드 4→5): 조립 차이로 바뀐 분기
+
+**발동/모드**: 0262 r4 verify FAIL로 라운드 5 > 3. 사용자가 `/handoff-review`를 인자 없이 호출해 DIAGNOSE_ONLY로 진단했고, 진단 질의에 **APPLY(변경안 1)** 를 선택했다. 변경안 2(`app/AGENTS.md` Electron 바이너리 서명)는 선택하지 않았다. 제품 코드 변경 0.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | 테스트가 production 조립이 항상 주입하는 의존성을 빼서 같은 handler의 fallback 분기를 실행했다. fallback도 production 코드라 P55 정의("mock·stub로 바꾼 구성요소 제외")로는 구간 안으로 읽혔다 | 0262 r4 `engine.ipc.test.ts`·`misc.runtime-catalog.test.ts`·0265 EP11 — `agent:list`의 `harnessRuntime.resolve`→`cached` 변이 J2가 `src/main` 4,909 green(D-0262-7). r3의 133좌표 감사도 `vi.mock` 기준이라 놓침 | **A** — 실행 구간 정의를 정밀화. AGENTS §공통 V(정의) · impl §2 · verify §6 · plan §5-A · plan.template · verify.template §5 · corpus **P57** |
+| 2 | ΔV19 EP55d 좌표가 catalog 실패 폴백과 같은 모델명만 관측 | 0262 r1~r3 ΔV19 PASS | round 33 이전의 **A** — P56 판정 기준("그 항을 지웠을 때 관측이 달라지는가")이 이미 덮고 r4 verify가 그것으로 잡았다. 변경 없음 |
+| 3 | r2→r3→r4 "지목한 자리만 닫힘" 반복 | 0262 r3·r4 `[구현자 기입]` | **B 아님(해소)** — round 33의 열 강제가 r4에서 작동해 EP-08 59자리가 모두 표에 올랐다. r4의 누락은 발견 1의 다른 메커니즘 |
+| 4 | 삭제 확인 문구의 이름 인자 미관측(J15) | 0262 r4 N-0262-8 | **F** — 지침 무관 |
+| 5 | `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 뒤 electron을 import하는 16파일이 `Electron failed to install correctly`로 실패, `app/AGENTS.md`는 DB 5파일만 서술 | 0262 r4 검증 첫 실행 | **E** — verify §8이 미지 서명 분리를 요구해 방어됨. 문서 보강은 사용자 미선택 |
+| 6 | 사용자 결정 변경 | 없음 | **D** 오염 0 |
+
+## Tier
+
+**Tier 1.** 좌표가 자리를 닫는 조건(실행 구간 정의)의 의미가 넓어진다. 6-A + 6-B + 6-C 전부 수행.
+
+## 6-A Operational Instruction Delta
+
+기준 `d16a71e`. 삭제 줄 **6**(파일당 1, 줄 = 문단) — 추가 줄과 토큰 대조.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| AGENTS §공통 V 실행 구간 bullet | **KEEP + 확장** | "덮지 않는 것" 목록에 조립 차이 분기 추가 + 사례 1줄. 잃은 토큰 0 |
+| impl §2 좌표 bullet | **KEEP + 확장** | 읽을 항목에 "production 조립과 다르게 준 의존성" + 사례 1문장. 잃은 토큰 0 |
+| verify §6 | **KEEP + 확장** | 조립 대조 문장 삽입. 잃은 토큰 0 |
+| plan §5-A 만들 테스트 조건 | **KEEP + 확장** | "production 조립이 주입하는 의존성을 빼지 않고" 삽입. 잃은 토큰 0 |
+| plan.template 전수 주석 | **KEEP + 확장** | `단언한`→`단언하거나 … 탄` — 어미만 바뀜 |
+| verify.template §5 | **KEEP + 확장** | 항목 하나 삽입. 잃은 토큰 0 |
+| corpus | **추가** | P57. 삭제 줄 0 |
+| AGENTS 절차 2·3 | **KEEP** | §공통 V를 인용만 하므로 정의 변경이 그대로 적용 |
+| 명령·gate·reference 삭제·이동 | **없음** | inbound `N`/semantic `M/M` 대상 없음 |
+
+- 방어 문구 21종(`다른 게이트가 막는다`·`라벨이 참인지`·`세는 단위는 §10 항목이 아니라 자리`·`들어간 곳 앞`·`npm test`·`Tier 1`·`Handoff: none`·`BLOCKED_BY`·`SUPERSEDED`·`실행 구간`·`운반 값`·`남긴 곳`·`좌표 없이`·`덮개 회귀`·`형제`·`차집합`·`PLAN_GAP`·`REGRESSION`·`mock`·`git cat-file`·`trailers:only`)의 출현 파일 집합을 변경 전후 8파일에서 대조 — 차이 **0**. 새 문구 `production 조립`만 6파일에 추가.
+
+## 6-B Historical Failure Regression
+
+- **57 P 전수**(P1~P56 + 신규 P57, 결번·중복 0) · 변경 후 **COVERED 57 / PARTIAL 0 / GAP 0 / OBSOLETE 0**.
+- P1~P38: 방어 지점이 변경 6줄과 겹치지 않는다(round 4 baseline 매핑 그대로).
+- 변경 파일을 방어로 인용하는 P39~P56 개별 확인: 바뀐 6줄은 잃은 토큰 0(어미 1 제외)이라 각 P의 방어 문장이 그대로 남는다. **P55**(실행 구간) — 정의 문장 불변, 덮지 않는 목록만 확장 · **P56**(운반 값) — 바로 다음 bullet 불변 · **P54**(좌표 형식) · **P52**(자리 단위) · **P41**(라벨 표본) · **P48**("다른 게이트가 막는다") · **P44**(배선 선택 증거) — 문장 불변.
+- 관련 P: **P23**(분기가 한 번도 실행되지 않음) — 호출 인자 부재로 분기가 죽은 사례, P57은 조립 차이로 production 분기만 빠진 사례라 causal class가 다르다 · **P55** — mock으로 줄어든 구간, P57은 mock 없이 바뀐 분기.
+
+### V/lifecycle replay — 거짓 PASS·FAIL inflation
+
+| anchor | 라운드 | 변경 전 | 새 규칙 | 방향 |
+|---|---|---|---|---|
+| 0262 | r4 impl EP-08 `resolve` | `SELF_PASS`(M, `harnessRuntime` 미주입) | 조립 차이 → `남긴 곳` → `SELF_BLOCKED` | D-0262-7 구현 턴 안 노출 |
+| 0262 | r3 verify 133좌표 감사 | `vi.mock` 기준으로 통과 | 조립을 `bootstrap.ts`와 대조 → 엔진·misc 테스트의 미주입 노출 | 1라운드 조기 |
+| 0262 | r4 verify | root `PAIR_FAIL` VP-Δ19-05(독립 변이 J2) | 같은 root를 읽기로 도달 | 판정 불변 |
+| 0265 | EP11 settings catalog env (r3 PASS) | `misc.runtime-catalog` 좌표로 닫힘 | production 분기 자리 미닫힘 | 실재 침묵(J2 green) 확인 — inflation 아님. 0265 재판정은 이 review 범위 밖 |
+| 0262 | `engine.deployment…without optional runtime services` | 닫힘 | 의존성 부재 동작이 자기 계약 → 그 분기 자리로 닫힘 | inflation 0 |
+| 0262 | `engine.deployment` 의 `harnessRuntime` 기록 fake | 닫힘 | 주입은 하므로 production 분기 실행. fake 출력 가정은 P55가 다룸 | inflation 0 |
+| 진행 중 plan | 다음 impl/verify | — | plan 형식 migration 없음 — 판정은 좌표 읽기에만 걸림 | RETURN_TO_PLAN 0 |
+
+## 6-C Cross-document Consistency
+
+- **PASS.** "조립 차이" 규칙 **6사이트**: AGENTS §공통 V(정의) · impl §2 · verify §6 · plan §5-A · plan.template · verify.template §5 (+ corpus P57). AGENTS 절차 2·3은 §공통 V 인용.
+- **owner 충돌 0**: 설계자는 만들 테스트에 의존성을 빼지 않도록 적고, 구현자는 조립 차이 자리를 `남긴 곳`에 적고, 검증자는 조립을 production 조립 루트와 대조한다.
+- **scope 충돌 0**: 새 명령·gate 없음 → `app/AGENTS.md` ABI 규칙과 무관. root `AGENTS.md` skill·owner 표 불변.
+- `node app/scripts/check-doc-inventory.mjs --check` — generated · prose · links ok. `git diff --check` 출력 0.
+- AGENTS 위생: 추가분에 비밀·개인정보·변동성 운영정보 없음. 새 `AGENTS.md`·`CLAUDE.md` 없음.
+
+## review 기록 정책
+
+`round34-review.md`를 만들지 않았다 — 사용자 보존 요구 없음, 압축으로 잃는 rationale 없음. 신규 P **1**(P57: 조립 차이로 바뀐 분기 — P55·P23과 다른 causal class).
+
+## 남은 한계
+
+- "항상 주입"의 판정은 조립 루트를 읽어야 한다. 조립이 조건부(배포·DEV 분기)면 그 조건마다 분기를 따로 본다.
+- `app/AGENTS.md`의 Electron 바이너리 미설치 서명은 문서에 없다(E, 사용자 미선택).
+
+---
+
+# review round 35 — 0262 (라운드 5→6): 분모 검색의 범위
+
+**발동/모드**: 0262 r5 verify FAIL(`b9a75f9`)로 라운드 6 > 3. 사용자가 `/handoff-review`를 인자 없이 호출해 DIAGNOSE_ONLY로 진단했고, 진단 질의에 **APPLY**를 선택했다. 제품 코드 변경 0.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | 분모 검색의 술어는 불변식의 주어였지만 범위를 지적이 인용한 파일로 좁혀, 같은 pair의 형제 소비처가 분모 밖에 남았다 | 0262 r5 구현 — `rg 'ctx\.(harnessRuntime\|runtimeModelCatalog)'`를 `engine.ts`·`misc.ts`에만 실행. ΔV19 EP55e `resolve-turn.ts:228` merge 변이 K9 green(D-0262-8). r5 검증이 `src/main` 전체로 넓히자 차집합 5줄 | **A** — 술어 규칙이 범위를 말하지 않았다. AGENTS 절차 2 · impl §2 · plan.template · verify §6 · corpus **P58** |
+| 2 | 표에 EP55e를 닫힘(I19)으로 적으며 조립을 production과 대조하지 않았다 | 0262 r5 구현 | **B** — round 34 impl §2가 이미 요구. 발견 1의 범위 규칙이 그 자리를 분모 행으로 올린다 |
+| 3 | 불변식 문장에 지점 이름(`agent:list`)이 들어갔다 | 0262 r5 설계 리뷰 | **B** — impl §5.1 |
+| 4 | 도달 불가 가드를 J2로 닫았다고 셌다(K7 green) | N-0262-10 | **B** — impl §3 |
+| 5 | 구현·검증·review가 같은 에이전트(같은 세션) | 0262 r4~r5 | **E** — verify §4 자기 검증 규칙이 작동(K9) |
+| 6 | 기본 배포 augmenter 산출이 비어 runtime config 분기가 구별되지 않음 | N-0262-9 · 0265 EP11 | **E** / NEXT_HANDOFF 후보 |
+| 7 | 사용자 결정 변경 | 없음 | **D** 오염 0 |
+
+## Tier
+
+**Tier 1.** 강제 지점 분모를 세는 절차(검색 범위)의 의미가 바뀐다. 6-A + 6-B + 6-C 전부 수행.
+
+## 6-A Operational Instruction Delta
+
+기준 `b9a75f9`. 삭제 줄 **4**(파일당 1, 줄 = 문단) — 추가 줄과 토큰 대조.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| AGENTS 절차 2 술어 문장 | **KEEP + 확장** | 범위 문장 추가. 잃은 토큰은 조사 `으` 1(`이름으로`→`이름이나 인용 파일로`) |
+| impl §2 술어 문장 | **KEEP + 확장** | 범위 문장 + 사례 1문장. 잃은 토큰 0 |
+| plan.template 전수 주석 | **KEEP + 확장** | `넣는다`→`넣고, … 좁히지 않는다`. 잃은 토큰 0 |
+| verify §6 | **KEEP + 확장** | 라벨 표본 문장 뒤 범위 재측정 문장 삽입. 잃은 토큰 0 |
+| corpus | **추가** | P58. 삭제 줄 0 |
+| 명령·gate·reference 삭제·이동 | **없음** | inbound `N`/semantic `M/M` 대상 없음 |
+
+- 방어 문구 23종(round 34의 22종 + `불변식의 주어`)의 출현 파일 집합을 변경 전후 8파일에서 대조 — 차이 **0**.
+
+## 6-B Historical Failure Regression
+
+- **58 P 전수**(P1~P57 + 신규 P58, 결번·중복 0) · 변경 후 **COVERED 58 / PARTIAL 0 / GAP 0 / OBSOLETE 0**.
+- P1~P38: 방어 지점이 변경 4줄과 겹치지 않는다(round 4 baseline 매핑 그대로).
+- 변경 파일을 방어로 인용하는 P39~P57: 바뀐 4줄은 잃은 토큰이 조사 1개뿐이라 방어 문장이 그대로 남는다. **P52**(자리 단위) — 같은 bullet의 자리 문장 불변 · **P41**(라벨 표본) — verify §6 문장 불변, 바로 뒤에 범위 재측정 삽입 · **P55·P56·P57**(실행 구간·운반 값·조립 차이) — 사이트 불변.
+- 관련 P: **P38**(지목 지점만 닫음) — 같은 class의 다른 메커니즘. 표 열 강제(round 33)와 범위 규칙이 함께 분모를 지킨다 · **P52** — 술어 규칙과 같은 bullet.
+
+### V/lifecycle replay — 거짓 PASS·FAIL inflation
+
+| anchor | 라운드 | 변경 전 | 새 규칙 | 방향 |
+|---|---|---|---|---|
+| 0262 | r5 impl 조립 의존 분모 | `5/6`(두 파일) · EP55e `SELF_PASS` | `src/main` 범위 → `resolve-turn.ts` 5줄 포함 → EP55e merge `남긴 곳` → `SELF_BLOCKED` | D-0262-8 구현 턴 안 노출 |
+| 0262 | r5 verify | root `PAIR_FAIL` VP-Δ19-05(독립 축 K9) | 같은 재측정을 규칙으로 수행 | 판정 불변 |
+| 0262 | r3 impl 분모(인용 6자리 파일) | `SELF_PASS` | 범위 확장 → 부모 편집 배선 노출(round 33 열 규칙과 중첩) | 조기 |
+| 범위 확장으로 나온 표 밖 지점 | 임의 | — | 현재 pair·ACTIVE Decision·AC에 귀속될 때만 `PLAN_GAP`/blocking, 아니면 별도 finding(impl §2 기존 문장) | inflation 0 |
+| 진행 중 plan | 다음 impl/verify | — | plan 형식 migration 없음 — 분모 검색 절차에만 걸림 | RETURN_TO_PLAN 0 |
+
+## 6-C Cross-document Consistency
+
+- **PASS.** "검색 범위" 규칙 **4사이트**: AGENTS 절차 2(최소 계약) · impl §2(정본) · plan.template 주석 · verify §6(대칭 재측정) (+ corpus P58). 각 사이트에 규칙 문장 1회(`rg` 1건씩).
+- **owner 충돌 0**: 구현자는 범위를 넓혀 세고, 검증자는 좁으면 넓혀 차집합을 본다. 설계자 절차는 불변.
+- **scope 충돌 0**: 새 명령·gate 없음 → `app/AGENTS.md`와 무관. root `AGENTS.md` 불변.
+- `node app/scripts/check-doc-inventory.mjs --check` — generated · prose · links ok. `git diff --check` 출력 0.
+- AGENTS 위생: 추가분에 비밀·개인정보·변동성 운영정보 없음. 새 `AGENTS.md`·`CLAUDE.md` 없음.
+
+## review 기록 정책
+
+`round35-review.md`를 만들지 않았다 — 사용자 보존 요구 없음, 압축으로 잃는 rationale 없음. 신규 P **1**(P58: 술어가 맞을 때 범위로 줄어드는 분모 — P38·P52와 다른 메커니즘).
+
+## 남은 한계
+
+- "pair path가 지나는 소스 전체"의 경계는 구현자가 정한다 — 경로가 여러 프로세스(main·preload·renderer)를 지나면 각 트리를 포함한다.
+- r2~r5는 매번 다른 메커니즘으로 같은 계약의 인접 자리가 비었다. 다음 재발이 또 다른 메커니즘이면, 메커니즘별 규칙을 더하기보다 같은 계약의 형제 좌표 전체를 다시 읽는 절차로 통합하는 것을 검토한다.
+
+---
+
+# review round 36 — 0262 (라운드 6→7): 변이가 닫는 범위와 운반 항 열
+
+**발동/모드**: 0262 r6 verify FAIL(`c22160d`)로 라운드 7 > 3. 사용자가 `/handoff-review`를 인자 없이 호출해 DIAGNOSE_ONLY로 진단했고, 진단 질의에 **APPLY**를 선택했다. 제품 코드 변경 0.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | 호출 변이(K4 `resolve`→`cached`) red로 턴 실행 구성 자리를 닫힘으로 셌다. 그 자리의 인자 항(target `harnessId`·`modelProviderId`)은 재지 않았다 | 0262 r5 verify·r6 impl → X8·X9·X11·X12 green 0/4,909(D-0262-9) | **A(일부)** — "변이 red ≠ 닫힘"은 pair·이슈 수준에만 있었다. AGENTS §공통 V · impl §2 · verify §6에 "변이는 바꾼 항만 잠근다" + corpus **P59** |
+| 2 | 같은 행의 좌표가 mock 가정 출력(`native-history` stub)과 미관측 출력(I19 `model`만)이었다 | 0262 r6 EP55e 행 | **B** — P55·P56이 이미 요구. **증거 강제**: plan.template 강제 지점 표에 `운반 항 · 구별 값 · 관측` 열, verify.template §5에 운반 항별 구별·관측 |
+| 3 | r2→r6 다섯 라운드 연속 "지목한 자리는 닫히고 인접 자리 하나가 빔", 메커니즘이 매번 다름 | round 35 남은 한계 | 메커니즘 규칙 대신 **행마다 답하는 표 열로 통합**(발견 2) |
+| 4 | 구현·검증·review가 같은 에이전트 | r4~r6 | **E** — verify §4 자기 검증 축이 매번 결함을 잡음 |
+| 5 | 실제 OpenCode CLI 부재로 R40 oracle skip | r6 §14 | **E** |
+| 6 | 사용자 결정 변경 | 없음 | **D** 오염 0 |
+
+## Tier
+
+**Tier 1.** 변이 결과가 닫는 범위(failure semantics)와 `[구현자 기입]` 필수 표 열이 바뀐다. 6-A + 6-B + 6-C 전부 수행.
+
+## 6-A Operational Instruction Delta
+
+기준 `c22160d`. 삭제 줄 **8**(AGENTS 1 · impl 1 · verify 1 · verify.template 1 · plan.template 4 — 표 헤더·구분선·예시 행 + 주석 위치 이동) — 추가 줄과 토큰 대조.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| AGENTS §공통 V 운반 값 bullet | **KEEP + 확장** | 문장·사례 1 추가. 잃은 토큰 0 |
+| impl §2 · verify §6 | **KEEP + 확장** | 같은 규칙의 적용 문장 추가. 잃은 토큰 0 |
+| plan.template 강제 지점 표 | **KEEP + 확장** | 열 1개 추가(6→7), 기존 열 이름·순서 불변, 안내 주석 1줄 추가. 잃은 토큰 0 |
+| verify.template §5 | **KEEP + 확장** | `운반 값 입력`→`운반 항별 구별 입력·관측(…)`. 잃은 토큰 `값` 1 — 같은 줄에 `운반 값` 판정 문구 유지 |
+| corpus | **추가** | P59. 삭제 줄 0 |
+| 명령·gate·reference 삭제·이동 | **없음** | inbound `N`/semantic `M/M` 대상 없음 |
+
+- 방어 문구 24종(round 35의 23종 + `인용한 파일로 좁`)의 출현 파일 집합을 변경 전후 8파일에서 대조 — 차이 **0**.
+
+## 6-B Historical Failure Regression
+
+- **59 P 전수**(P1~P58 + 신규 P59, 결번·중복 0) · 변경 후 **COVERED 59 / PARTIAL 0 / GAP 0 / OBSOLETE 0**.
+- P1~P38: 방어 지점이 변경 줄과 겹치지 않는다(round 4 baseline 매핑 그대로).
+- 변경 사이트를 인용하는 P39~P58: 바뀐 줄은 잃은 토큰이 `값` 1개뿐이고 기존 문장이 그대로 남는다. **P56**(운반 값) — 정의 문장 불변, 뒤에 변이 범위 문장 · **P55**(실행 구간) — 불변 · **P49**(형제 맞바꿈) — 변이 축 유지, P59는 변이가 닫는 범위를 정할 뿐 변이를 금지하지 않는다 · **P38·P52·P58**(분모) — 열 추가로 행이 줄지 않는다(round 33 "열을 줄이지 않는다" 유지).
+
+### V/lifecycle replay — 거짓 PASS·FAIL inflation
+
+| anchor | 라운드 | 변경 전 | 새 규칙 | 방향 |
+|---|---|---|---|---|
+| 0262 | r6 impl EP55e `resolve` 행 | 닫힘(K4) | 운반 항 `harnessId`·`modelProviderId`에 관측 없음 → `남긴 곳` → `SELF_BLOCKED` | D-0262-9 구현 턴 안 노출 |
+| 0262 | r5 verify EP55e | 닫힘(K4) | 같은 행 미닫힘 | 1라운드 조기 |
+| 0262 | r6 verify | root `PAIR_FAIL` VP-16(독립 축 X8) | 같은 root를 읽기로 도달 | 판정 불변 |
+| 운반 항 없는 자리(가드·무효화 호출) | 0262 `engine.ts:53` 등 | 닫힘 | `운반 항: 없음` 또는 key 1항 + 기존 좌표 | inflation 0 |
+| 진행 중 plan | 다음 impl/verify | — | plan 형식 migration 없음 — 새 열은 `[구현자 기입]` 표에만 걸림 | RETURN_TO_PLAN 0 |
+
+## 6-C Cross-document Consistency
+
+- **PASS.** "변이는 바꾼 항만 잠근다" **4사이트**: AGENTS §공통 V(정의) · impl §2 · verify §6 · plan.template 주석(+ verify.template §5 괄호 · corpus P59). 표 열은 plan.template 한 곳이고, impl §8 "열을 줄이지 않는다"가 그대로 적용된다.
+- **owner 충돌 0**: 구현자는 열을 채우고, 검증자는 운반 항마다 다시 읽는다.
+- **scope 충돌 0**: 새 명령·gate 없음 → `app/AGENTS.md` 무관. root `AGENTS.md` 불변.
+- `node app/scripts/check-doc-inventory.mjs --check` — links ok. `git diff --check` 출력 0.
+- AGENTS 위생: 추가분에 비밀·개인정보·변동성 운영정보 없음.
+
+## review 기록 정책
+
+`round36-review.md`를 만들지 않았다 — 사용자 보존 요구 없음, 압축으로 잃는 rationale 없음. 신규 P **1**(P59: 변이 결과가 닫는 범위 — P55·P56을 행 증거로 강제).
+
+## 남은 한계
+
+- 열은 행마다 답을 요구하지만, 표에 오르지 않은 pair(이전 라운드 PASS)는 다시 읽지 않는다. r6 검증의 VP-16 재판정은 독립 축에서만 나왔다.
+- 0262의 V는 V1 + ΔV21로 커서, 한 라운드에 한 자리씩 닫히는 비용이 크다. 전 pair의 좌표를 새 열 기준으로 한 번에 재판정할지는 사용자 결정 몫이다.
+
+---
+
+# review round 37 — 0262 (라운드 4→9): 분모 고정과 차단 기준
+
+**발동/모드**: 0262 r8 verify FAIL(`ae2a72f`)로 라운드 9 > 3. 사용자가 원인 진단 뒤 "handoff-review 진행해서 두 가지 고쳐줘"로 **APPLY**를 명시했다 — (1) §10에 없는 운반 자리는 설계 정정(§10에 분모 고정)으로 보내고 (2) 고정 목록 밖에서 살아남은 변이는 원본 동작 결함이 아니면 `NEXT_HANDOFF`로 둔다. 제품 코드 변경 0.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | 분모가 열려 있었다 — "path의 계약 운반 edge는 모두 자리" + verify §0 "구현자가 닫을 수 있으므로 그 pair의 분모로 재측정" | r6~r8 blocking 3건이 매번 VP-16의 새 자리(D-0262-9·10·11) | **A** — 지침이 FAIL로 보냈다. AGENTS §공통 V N bullet · verify §0 교체 + 설계자가 자리 검색 명령으로 목록 고정, 목록 미고정 pair의 운반 자리는 `PLAN_GAP` |
+| 2 | "현재 계약 위반"이 정의되지 않아 잠금 부재(green 변이)를 위반으로 셌다 | r4~r8 blocking 5건 전부 미잠금, 원본 동작 결함 0(D-0262-11 probe: 원본 flush 정상) | **A** — §판정 범위에 자리 표 + **원본 동작 결함** 정의. verify §4·§6, impl §2 연결 |
+| 3 | round 34~36이 FAIL inflation을 변경 단위로만 replay해 누적 루프를 보지 못하고 좌표 규칙을 넓혔다 | round 34~36 replay 표 "inflation 0" | **B** — review §6-B가 이미 요구. 규칙 추가 없음, 이번 replay에 r4~r8 누적 행을 둔다 |
+| 4 | 구현·검증·review가 같은 에이전트 | r5~r7 | **E** — verify §4 자기 검증 축 유지 |
+| 5 | 차단 기준 변경 자체 | 사용자 결정 | **D** — 실패 패턴이 아니라 provenance. 위반 정의 축소는 사용자 결정으로 기록 |
+
+## Tier
+
+**Tier 1.** failure semantics(무엇이 `PAIR_FAIL`·`PLAN_GAP`·`NEXT_HANDOFF`인가)와 owner(분모 열거: 구현자 → 설계자), template 필수 열이 바뀐다. 6-A + 6-B + 6-C 전부 수행.
+
+## 6-A Operational Instruction Delta
+
+기준 `ae2a72f`. 삭제 줄 **27**(AGENTS 6 · impl 3 · plan 4 · plan.template 6 · verify 4 · verify.template 4) — 추가 줄과 토큰 대조.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| AGENTS §공통 V N bullet "운반 edge는 모두 자리" | **REPLACE** | 같은 edge를 설계자가 자리 검색 명령(술어 = 주어, 범위 = path 소스)으로 열거해 고정. 0238 사례·등록 변이 규칙 유지 |
+| verify §0 "`PLAN_GAP`이 아니라 그 pair의 분모로 재측정" | **REPLACE**(역전, 사용자 결정 1) | 목록 미고정 pair의 운반 자리 · 기록된 검색 차집합 · 좁은 술어/범위 → `PLAN_GAP`. 형식만으로는 gap 금지 |
+| AGENTS 판정 범위 "현재 node를 깨뜨리면 기존 pair 실패" · verify §4 "새 mutation이 현재 계약 위반이면 `PAIR_FAIL`" | **REPLACE**(사용자 결정 2) | 자리 표: 목록 자리 green → `PAIR_FAIL` · 목록 밖 원본 동작 결함 → `PAIR_FAIL`+`PLAN_GAP` · 목록 밖 잠금 부재 → `NEXT_HANDOFF` |
+| verify §6 "표 밖 지점이 필수면 `PLAN_GAP`" | **REPLACE** | 자리 표와 같은 분기. 라벨 표본·범위 확장 문장은 주어만 "구현자 분모" → "자리 검색"으로 바꿔 KEEP, 결과를 §0 `PLAN_GAP`으로 연결 |
+| impl §2 술어·범위·라벨 규칙 | **MOVE + KEEP** | 작성 owner는 plan §5-A, impl·verify는 다시 돌려 어긋나면 `PLAN_GAP`. 0194·0209·0238·0262 r5 사례 문장 그대로 |
+| impl §2 · AGENTS §단계별 절차 2 "표에 없는 지점 → `PLAN_GAP`" | **REPLACE** | 목록 미고정 → `PLAN_GAP` · 목록 밖 원본 결함 → `PLAN_GAP`(목록 추가) · 잠금 부재 → `NEXT_HANDOFF` 후보, 멈추지 않음 |
+| plan §5-A · READY · 체크리스트 · 마무리 | **KEEP + 확장** | 자리 목록 + 검색 명령 요구. 목록 gap은 그 pair를 다시 열거해 고정 |
+| plan.template §10 표 · V 주석 · 구현자 주석 2줄 | **KEEP + 확장 / REPLACE** | 열 1개 추가(6→7, `언제 강제` 유지). 주석은 같은 축을 목록 기준으로 교체 |
+| verify.template §0 행 · §5 분모 표 · §13 주석 | **KEEP + 확장** | 열 1개 추가(5→6, 목록 밖 원본 결함 재현 여부). 결과값에 `NEXT_HANDOFF` 추가 |
+| corpus | **추가** | P60. 삭제 줄 0 |
+| 명령·gate·reference 삭제·이동 | **없음** | inbound `N`/semantic `M/M` 대상 없음. 새 명령 없음 |
+
+- 방어 문구 24종(round 36 목록)의 출현 파일 집합을 변경 전후 8파일에서 대조 — **잃은 파일 0 · 출현 수 감소 0**(초안에서 `세는 단위는 §10 항목이 아니라 자리`·`인용한 파일로 좁` 손실을 잡아 복원). 늘어난 곳: `차집합` +verify.template · `불변식의 주어` +plan SKILL·plan.template·verify SKILL.
+
+## 6-B Historical Failure Regression
+
+- **60 P 전수**(P1~P59 + 신규 P60, 결번·중복 0) · 변경 후 **COVERED 60 / PARTIAL 0 / GAP 0 / OBSOLETE 0**.
+- 바뀐 줄이 방어 지점인 P: **P4**(전수 grep + N) — plan이 pair마다 검색 명령을 남겨 강화 · **P15**(누가/언제 강제) — `언제 강제` 유지 + 목록 열 · **P38**(지목 지점만 닫음) — impl §5 불변, 목록 gap도 pair 전체 재열거 · **P41**(술어 = 주어) — plan §5-A·impl §2·verify §0 · **P45**(규범 정정이 구현자에게 감) — 목록 gap이 설계자로 가는 경로가 늘어 강화 · **P51**(자기 검증 축·라벨) — verify §4 축 불변, 라벨 표본은 §6 · **P52**(자리 분모) — 운반 edge 열거가 설계자에게 이동, verify §0이 범위를 path 파일로 검사 · **P58**(범위 좁힘) — 같은 문구가 plan·impl·AGENTS·verify에 있다.
+- P49·P53~P57·P59: 방어 문장이 바뀌지 않았다. 그 밖의 P는 방어 지점이 변경 줄과 겹치지 않는다(round 4 baseline 매핑).
+- **의도한 범위 축소(사용자 결정 2)**: 고정 목록 밖 잠금 부재는 더 이상 blocking이 아니다. 행동 결함은 목록 밖에서도 blocking이고, 잠금 부재는 `NEXT_HANDOFF`로 기록돼 사라지지 않는다.
+
+### V/lifecycle replay — 거짓 PASS·FAIL inflation
+
+| anchor | 라운드 · finding | 변경 전 | 새 규칙 | 방향 |
+|---|---|---|---|---|
+| 0262 | r4 D-0262-7 `agent:list` 분기(§10 EP55d·EP-08 항목) | `PAIR_FAIL` | 목록 자리 → `PAIR_FAIL` | 불변 |
+| 0262 | r5 D-0262-8 `resolve-turn` merge(EP55e `resolveTurnProvider` 모델) | `PAIR_FAIL` | 항목 안 자리면 `PAIR_FAIL`, 미열거로 읽으면 `PLAN_GAP` | PASS 경로 0 |
+| 0262 | r6 D-0262-9 VP-16 target 인자(목록 없음) | `PAIR_FAIL` → 구현자 | `PLAN_GAP` → 설계자가 VP-16 목록을 한 번에 고정 | FAIL 1 → gap 1 |
+| 0262 | r7 D-0262-10 · r8 D-0262-11(같은 VP-16) | `PAIR_FAIL` ×2 | r6 고정 목록 안이면 같은 라운드에 함께 닫힘, 밖이면 원본 결함 0 → `NEXT_HANDOFF` | 라운드 2 감소 |
+| 0238 | r3 VP-10 `ProviderDetail` props 맞바꿈(EP-05 5곳, 검색 없음) | `PAIR_FAIL` | path가 `ProviderDetail`을 명시 → 목록 미고정 운반 자리 → `PLAN_GAP` | 거짓 PASS 0 |
+| 0194 | r4 `store-parse.ts` 3리터럴(술어 `compact<`) | BLOCKING D20 | 재시작 때 필드 소실 = 원본 동작 결함 → `PAIR_FAIL`+`PLAN_GAP` | 거짓 PASS 0 |
+| 0209 | r11 `readOnly: true` 거짓 라벨 3건 | BLOCKING D29 | 수정 전 코드가 상태 변경 명령을 read-only로 분류 = 원본 동작 결함 → blocking. 라벨 술어는 §0 표본 검사로 `PLAN_GAP`도 함께 | 거짓 PASS 0 |
+| 0198 | r4→r5 §10 두 행 신설 요구 | 구현자로 감(round 17 이전) | `PLAN_GAP` → 설계자 | 불변(P45) |
+| 진행 중 plan | 목록 없는 V1·ΔV pair | — | 형식만으로 gap 금지. 목록 밖 운반 자리를 찾았을 때만 그 pair를 고정 | migration 0 |
+
+## 6-C Cross-document Consistency
+
+- **PASS.** 자리 표 정본은 AGENTS §판정 범위와 운영 gate 한 곳이다. verify §4, impl §2, plan §5-A, plan.template §10 주석, verify.template §13 주석이 그 절을 링크하고, verify §6은 링크 없이 같은 분기를 적는다. `원본 동작 결함` 정의 문장은 AGENTS·impl·verify 3곳이 "변이를 심지 않은 현재 코드가 production 진입점에서 그 pair의 `실패 의미` 상태"로 같다.
+- **owner**: 목록 열거·정정 = 설계자(plan §5-A·마무리), 다시 돌린 검색의 차집합 = 구현자(impl §2)·검증자(verify §0). 구현자는 목록을 고치지 않고 `PLAN_GAP`으로 올린다 — AGENTS §라이프사이클 "`PLAN_GAP`을 구현자에게 넘기지 않는다"와 충돌 0.
+- **결과 전이**: 목록 밖 원본 결함 = `PAIR_FAIL`+`PLAN_GAP` → verify §11 "둘 다 기록하고 다음 주체는 planner"와 일치.
+- **migration**: verify §0 "형식만으로는 `PLAN_GAP`을 만들지 않는다" = AGENTS §신규 템플릿 적용 경계 = impl §0.
+- **scope**: 새 명령·gate 없음 → `app/AGENTS.md` 무관. root `AGENTS.md` 불변. `node scripts/check-doc-inventory.mjs --check`(app/) — links ok. `git diff --check` 출력 0.
+- AGENTS 위생: 추가분에 비밀·개인정보·변동성 운영정보 없음.
+
+## review 기록 정책
+
+`round37-review.md`를 만들지 않았다 — 사용자 보존 요구 없음, 압축으로 잃는 rationale 없음. 신규 P **1**(P60: 열린 분모의 FAIL inflation — P52·P58의 반대 방향 실패).
+
+## 남은 한계
+
+- 목록의 질은 설계자의 검색 술어에 달려 있다. 술어가 놓친 자리의 잠금 부재는 이제 `NEXT_HANDOFF`로 간다 — 행동 결함이 아니므로 사용자 결정 2가 받아들인 비용이다.
+- 0262 VP-16은 아직 목록이 없다. 새 규칙을 0262 보드에 적용하면 다음 차례는 Codex r9가 아니라 설계자의 VP-16 목록 고정이며, 보드 변경은 사용자 결정 몫이다.
+
+---
+
+# review round 38 — 사용자 결정: 고장 표준·재량·이력, review 3라운드 주기, verify 9회 상한
+
+**발동/모드**: 사용자가 재발 방지 논의에서 다섯 가지를 결정했다(2026-10-19) — 고장 종류 표준화 · 구체 고장 선택은 수행 모델 재량(전수 불가 인정) · review는 3라운드마다 · verify마다 고장 이력, `못 잡음`은 목록 안팎 모두 다음 구현이 고침 · verify 9회면 종료. 질의 답: "목록 안팎 모두 고침" · "새 작업으로 넘기고 종료" · "0262 바로 적용". **APPLY**. 제품 코드 변경 0.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | 반복 라운드를 끝내는 상한이 없었다 — review가 매 라운드 돌며 규칙을 늘렸다 | 0262 r4~r9 · 0188 10회 · 0209 11회 | **D** — 사용자 결정. verify 9회 상한·`verify/CLOSED` 상태, review는 3·6회째(+9회째 종료 시) |
+| 2 | 고장 방식이 검증자마다 달라 지적 대상이 바뀌었다 | 0262 r6~r8 X·A·M 변이 | **D** — 표준 7종류, 자리·방식은 재량, 시도 이력 의무 |
+| 3 | round 37의 목록 밖 `NEXT_HANDOFF` 분기 | round 37 | **D** — SUPERSEDED: `못 잡음`은 목록 안팎 모두 다음 구현이 고친다. 반복은 9회 상한이 끝낸다 |
+
+## Tier
+
+**Tier 1.** trigger(review 주기), lifecycle(`verify/CLOSED`), failure semantics(목록 밖 `못 잡음` → `BLOCKING`), template 필수 필드(고장 이력 표)가 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+기준 `8121b48`. 삭제 줄 33 — 추가 줄과 대조.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| review 트리거 "라운드 3 초과"(AGENTS·impl §0·verify 마무리·review 실행 조건·plan.template) | **REPLACE** | 사용자 결정 — verify 3·6회째 + 9회째 종료 시. impl 턴 3 초과 트리거 KEEP |
+| 목록 밖 `원본 동작 결함`/`NEXT_HANDOFF` 분기와 정의(AGENTS·impl §2·verify §4·§6·plan §5-A·두 template) | **DELETE** | 사용자 결정 "목록 안팎 모두 고침"으로 분기가 필요 없다. `원본 동작 결함` 문자열 0건 |
+| 목록 미고정 pair → `PLAN_GAP`(round 37 결정 1) | **KEEP** | 고장은 이력에 남아 다음 구현이 함께 고친다 |
+| "새 mutation은 검증 범위를 정하지 않는다" | **REPLACE** | 고장 이력이 다음 라운드의 의무 범위를 정한다 |
+| 변이 하한(등록·인용·이전 잡음 재실행·자기검증 축·형제 맞바꿈) | **KEEP** | 재량의 바깥 하한으로 명시. P49·P50·P51 방어 유지 |
+| lifecycle·INDEX 범례·archive 규칙 | **확장** | `verify/CLOSED` 추가, CLOSED 행도 archive |
+| verify.template §4 변이 표 | **REPLACE** | 고장 이력 표(ID·위치·종류·바꾼 내용·직전/이번 결과·잡은 테스트) + 검산 줄 |
+| 명령·gate·reference | **없음** | inbound `N`/`M/M` 대상 없음 |
+
+- 방어 문구 24종의 출현 파일 집합 변경 전후 차이 **0**. `PLAN_GAP` 출현 70→67은 삭제한 목록 밖 분기 3건이다.
+
+## 6-B Historical Failure Regression
+
+- **60 P 전수** · 변경 후 COVERED 59 / **PARTIAL 1(P60, 사용자 결정으로 수용)** / GAP 0 / OBSOLETE 0.
+- **P60**(열린 분모의 FAIL 반복): 목록 밖 `못 잡음`이 다시 `BLOCKING`이라 반복 자체는 막지 않는다. 9회 상한과 3라운드 review로 끝을 정했고, 사용자가 이 교환을 택했다(D) — 회귀가 아니라 정책 교체로 기록한다.
+- P49·P50·P51·P52·P58·P59: 하한·좌표 규칙 문장 불변. P45: `PLAN_GAP`을 구현자에게 넘기지 않는 규칙 불변.
+
+### V/lifecycle replay
+
+| anchor | round 37 | round 38 | 방향 |
+|---|---|---|---|
+| 0262 r6~r8 목록 밖 `못 잡음` | `PLAN_GAP` 1 → 이후 `NEXT_HANDOFF` | `BLOCKING` — 다음 구현이 고침 | 거짓 PASS 0 · FAIL 수용 |
+| 0262 verify 9회째(r9, `8121b48`) | 계속 | `verify/CLOSED` — 남은 항목은 새 handoff 후보 | 종료 |
+| 0188(10)·0209(11) | 매 라운드 review | review 3·6·9, 9회째 종료 | 상한 |
+| 0194 r4·0209 r11 실제 결함 | `BLOCKING` | `BLOCKING` | 불변 |
+
+## 6-C Cross-document Consistency
+
+- **PASS.** 정본은 AGENTS §판정 범위(자리 표)·§고장 내 보기(표준·재량·이력)·§라운드(3회 주기·9회 상한)다. impl §0·§2·§3·§5, verify §4·§6·§11·마무리, plan §5-A, review 실행 조건, 두 template, INDEX 범례가 같은 문장으로 인용한다.
+- `verify/CLOSED`: AGENTS 상태표·다이어그램 = verify §11·마무리 = verify.template §15 = INDEX 범례.
+- `node scripts/check-doc-inventory.mjs --check`(app/) links ok · `git diff --check` 0.
+
+## 남은 한계
+
+- 재량 고장은 사람·세션마다 다르다. 표준 종류와 이력이 그 차이를 기록할 뿐 없애지는 않는다.
+- 고장 내 보기 스크립트는 아직 저장소에 없다(세션 임시 폴더). 같은 시험을 다른 세션이 그대로 재현하려면 별도 결정이 필요하다.

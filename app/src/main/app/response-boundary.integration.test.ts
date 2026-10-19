@@ -11,7 +11,7 @@ import { applyMigrations } from '../infra/db/migrate'
 import { TypedBus } from '../infra/bus'
 import type { OrcaBusEvents } from '../contracts/bus-events'
 import type { TurnContext } from '../contracts/turn'
-import type { TurnRequest } from '../adapters/turn'
+import type { TurnRequest } from '../adapters/common/turn'
 import type { NormalizedEvent } from '../../shared/ipc'
 import { resolveAgentProfile } from '../features/agents/profiles'
 

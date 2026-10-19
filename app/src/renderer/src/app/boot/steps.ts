@@ -1,6 +1,6 @@
 import { reportError } from '../../shared/errors'
 import { settingsApi, bootApi } from '../../shared/api/ipc'
-import { seedLandingAgentKind } from '../../features/chat'
+import { seedLandingAgentKind, seedLandingBackend } from '../../features/chat'
 import { initBackend } from '../../features/backend/store/backendStore'
 import { initUsage } from '../../shared/stores/usageStore'
 import { initProjects } from '../../features/projects/store/projectsStore'
@@ -65,6 +65,7 @@ export const defaultBootDependencies: BootDependencies = {
   },
   applyLandingAgentKind: async () => {
     const settings = await settingsApi.get()
+    seedLandingBackend(settings.lastBackend)
     seedLandingAgentKind(settings.lastAgentKind)
   },
   initBackend,

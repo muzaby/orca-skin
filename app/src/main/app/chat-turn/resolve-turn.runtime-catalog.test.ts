@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createHarnessRuntimeConfigService } from '../../features/harnesses/runtime-config'
-import { createRuntimeModelCatalog } from '../../features/harnesses/runtime-catalog'
+import { createHarnessRuntimeConfigService } from '../../features/harnesses/common/runtime-config'
+import { createRuntimeModelCatalog } from '../../features/harnesses/common/runtime-catalog'
 import { resolveTurnProvider } from './resolve-turn'
 import type { AgentKind } from '../../../shared/agent-kind'
-import type { AdapterSpawnEnvPatch } from '../../adapters/harness-config'
+import type { AdapterSpawnEnvPatch } from '../../adapters/common/harness-config'
 
 vi.mock('../../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
 vi.mock('../../infra/log', () => ({
@@ -25,6 +25,44 @@ function adapter(
 }
 
 describe('turn setup with the runtime model catalog', () => {
+  it('passes the prepared native environment to catalog and execution unchanged', async () => {
+    const catalog = vi.fn(async (entry) => ({ ...entry, models: [] }))
+    const resolved = await resolveTurnProvider(
+      {
+        harnessSettings: {
+          list: () => [
+            { key: 'opencode-local', harnessId: 'opencode', modelProviderId: 'local', models: [] }
+          ]
+        },
+        harnessRuntime: {
+          resolve: async () => ({
+            key: 'opencode-local',
+            harnessId: 'opencode',
+            modelProviderId: 'local',
+            settings: { settings: { model: 'native/model' } },
+            runtimeEnv: { XDG_DATA_HOME: 'C:/native/custom' }
+          })
+        },
+        db: { getSessionById: () => undefined },
+        mcp: { resolver: () => () => undefined }
+      } as never,
+      {
+        adapter: { id: 'opencode', catalog, agentSpawnEnv: () => ({}) } as never,
+        agentKind: 'code',
+        sessionId: null,
+        providerKey: 'opencode-local',
+        modelFamily: null
+      }
+    )
+    expect(catalog).toHaveBeenCalledWith(
+      expect.objectContaining({ key: 'opencode-local' }),
+      { model: 'native/model' },
+      false,
+      resolved.prepared.env
+    )
+    expect(resolved.prepared.env?.XDG_DATA_HOME).toBe('C:/native/custom')
+  })
+
   it('uses the Gate-warmed cache without another augmenter fetch', async () => {
     let now = 0
     const fetchContribution = vi.fn(async () => ({
@@ -38,6 +76,7 @@ describe('turn setup with the runtime model catalog', () => {
       clock: () => now
     })
     const catalog = createRuntimeModelCatalog({
+      parseModels: parseHarnessRuntimeModels,
       contributions: [contribution],
       snapshotOf: () =>
         ({ authId: 'gate', status: 'valid', verified: true, credentialRevision: 1 }) as never,
@@ -103,6 +142,7 @@ describe('turn setup with the runtime model catalog', () => {
       }
     })
     const catalog = createRuntimeModelCatalog({
+      parseModels: parseHarnessRuntimeModels,
       contributions: [contribution],
       snapshotOf: () =>
         ({ authId: 'gate', status: 'valid', verified: true, credentialRevision: 1 }) as never,
@@ -158,6 +198,7 @@ describe('turn setup with the runtime model catalog', () => {
       augmenters: { [contribution.key]: { resolve: async () => ({ runtimeEnv: {} }) } }
     })
     const catalog = createRuntimeModelCatalog({
+      parseModels: parseHarnessRuntimeModels,
       contributions: [contribution],
       snapshotOf: () =>
         ({ authId: 'gate', status: 'valid', verified: true, credentialRevision: 1 }) as never,
@@ -231,3 +272,5 @@ describe('turn setup with the runtime model catalog', () => {
     expect(result.prepared.runtimeEnvFingerprint === undefined).toBe(!resolved)
   })
 })
+
+import { parseHarnessRuntimeModels } from '../harnesses/registry'

@@ -16,7 +16,7 @@
 //     사내 프록시·인증서가 빠진 채 spawn 하면 증상이 원인에서 멀어지기 때문이다.
 //   · **값이 없으면 그 키를 빼고 빈 객체를 돌려준다. 던지지 마라** — 던지면 그 턴이 실패한다.
 
-import type { SpawnEnvInjector } from '../../adapters/harness-config'
+import type { SpawnEnvInjector } from '../../adapters/common/harness-config'
 
 // 기본 배포는 주입점을 비워 둔다. `undefined` 는 오류가 아니라 정상 구성이며, 미등록 턴의
 // 조립 결과·참조·성능은 0207 이전과 같다 — 정적 배포는 `options.env` 자체를 만들지 않는다.

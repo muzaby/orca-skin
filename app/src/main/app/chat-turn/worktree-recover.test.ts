@@ -8,7 +8,8 @@
 // 이 계약은 두 레이어의 합성이다. feature 안에 두면 `boundaries/dependencies` 가 막는다
 // (`worktree-bind.test.ts` 와 같은 이유).
 
-import Database from 'better-sqlite3'
+import type Database from 'better-sqlite3'
+import { openFileDatabase } from '../../infra/db/file-database'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -41,9 +42,8 @@ async function fixture(): Promise<{
   const source = dir
   const worktreeRoot = join(dir, 'gone', 'work-x')
   const file = join(dir, 'orcinus-orca.db')
-  const db = new Database(file)
+  const db = openFileDatabase(file)
   handles.push(db)
-  db.pragma('foreign_keys = ON')
   applyMigrations(db)
   const queries = new DbQueries(db)
   queries.insertManagedWorktree({
@@ -94,7 +94,7 @@ describe('worktree 소실 폴백 (AC12 · AC15 · AC16)', () => {
       executionCwd: worktreeRoot
     })
 
-    const reopened = new Database(file)
+    const reopened = openFileDatabase(file)
     handles.push(reopened)
     const fresh = new DbQueries(reopened)
     const meta = fresh.getSessionById('s1')

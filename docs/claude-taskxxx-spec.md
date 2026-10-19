@@ -243,7 +243,7 @@ Orca 는 이 구분을 `async_launched` 영수증으로 이미 판별한다(0136
 `canUseTool` 권한 콜백과 `PreToolUse` 훅은 Task 도구 호출도 가로챌 수 있다.
 
 > ⛔ **Orca 의도적 미채택.** `RISKY_TOOLS` 는 상태를 바꾸는 도구(`Bash`·`PowerShell`·`Write`·`Edit`·
-> `MultiEdit`·`NotebookEdit` — `adapters/risky-tools.ts`)만 담는다. Task 도구는 할 일 목록만 바꾸므로 승인 카드 대상이 아니다 — 넣으면
+> `MultiEdit`·`NotebookEdit` — `adapters/common/risky-tools.ts`)만 담는다. Task 도구는 할 일 목록만 바꾸므로 승인 카드 대상이 아니다 — 넣으면
 > 할 일이 갱신될 때마다 승인 카드가 뜬다.
 
 `stopTask` 는 **확정을 기다려야 한다**. 클릭 즉시 `중단됨` 으로 확정하지 않고 `중단 중` 을 거쳐
@@ -301,7 +301,7 @@ SDK 는 `TodoWriteInput`/`TodoWriteOutput` 을 **여전히 정의한다**. 한 �
 |---|---|---|
 | 할 일 목록 파싱 | 관측 → 목록 지시 변환 | `app/src/shared/task-tool.ts` |
 | 목록 파생(fold) | transcript parts 의 순수 fold — main 에 스토어 없음 | `app/src/renderer/src/features/chat/lib/taskBoard.ts` |
-| 구조화 출력 동행 | `tool_result` 블록이 정확히 1개일 때만 귀속 | `app/src/main/adapters/claude-map.ts` |
+| 구조화 출력 동행 | `tool_result` 블록이 정확히 1개일 때만 귀속 | `app/src/main/adapters/claude/map.ts` |
 | background 이벤트 | `task_started`/`task_progress`/`task_notification` → `subagent.task` | 같은 파일 |
 | 중단 수명주기 | `중단 중` → SDK 확정 → 정착 (watchdog 병행) | `app/src/main/features/chat/` |
 

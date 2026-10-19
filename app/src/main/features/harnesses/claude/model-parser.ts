@@ -14,11 +14,9 @@
 // 순수 함수 — fs 비의존, vitest 대상.
 
 import { isRecord } from '../../../../shared/obj'
-import {
-  CLAUDE_MODEL_FAMILIES,
-  modelIdentity,
-  sameModelIdentity
-} from '../../../../shared/model-identity'
+import { CLAUDE_MODEL_FAMILIES } from '../../../../shared/harnesses/claude/model-policy'
+import { modelIdentity, sameModelIdentity } from '../../../../shared/model-identity'
+import type { ParsedModel } from '../common/model-types'
 
 // settings의 기본 alias 노출 순서. Discovery 계열 분류는 shared 목록을 사용한다.
 const FAMILY_ORDER = ['sonnet', 'opus', 'haiku', 'fable'] as const
@@ -35,13 +33,7 @@ const ALIAS_ENV_KEY: Record<ModelAlias, string> = {
 }
 
 // 모델 선택 UI 1행. meta.json 의 구 OrcaModelConfig({name,family,default}) 를 대체한다.
-export interface ParsedModel {
-  alias: string
-  model: string | null // env 에 구성된 model명. 미구성 시 null (추측 금지).
-  isCustom: boolean // family 식별자가 없는 실제 custom 모델인지 여부.
-  oneMillionContext: boolean // model/명시값에 [1m] 접미사가 있었으면 true.
-  isDefault: boolean // 노출 목록 전체에서 정확히 1개.
-}
+export type { ParsedModel } from '../common/model-types'
 
 interface AliasCandidate extends ParsedModel {}
 

@@ -1,5 +1,5 @@
 import { backendActions, useInstallerOpen } from '../features/backend'
-import { chatActions, useChatSession } from '../features/chat'
+import { AutomaticFeedDebugSection, chatActions, useChatSession } from '../features/chat'
 import { DebugPanel } from '../features/debug'
 import { InstallerDialog, AuthExpiredModal } from '../features/backend'
 import { ConfirmDialogHost } from '../shared/ui/ConfirmDialogHost'
@@ -73,6 +73,7 @@ export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): 
             <DebugPanel
               updateSection={<UpdateDebugSection />}
               providerSection={<ProviderDebugSection />}
+              automaticFeedSection={<AutomaticFeedDebugSection />}
             />
           )}
         </div>

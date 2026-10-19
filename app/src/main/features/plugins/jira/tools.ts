@@ -1,7 +1,10 @@
 import { z } from 'zod'
 import type { AuthenticatedRequest, AuthenticatedResponse } from '../../../contracts/auth'
-import type { RuntimeToolImplementation, RuntimeToolServer } from '../../../adapters/runtime-tools'
-import { authToolServerId } from '../../../adapters/runtime-tool-policy'
+import type {
+  RuntimeToolImplementation,
+  RuntimeToolServer
+} from '../../../adapters/common/runtime-tools'
+import { authToolServerId } from '../../../adapters/common/runtime-tool-policy'
 import {
   isJiraPreparedInvocation,
   JiraToolError,

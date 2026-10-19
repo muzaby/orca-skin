@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../../shared/protocol'
-import { ExtensionDeploymentService } from '../../features/extensions/extension-deployment-service'
-import type { DeployResult } from '../../features/extensions/deployer'
+import { ExtensionDeploymentService } from '../../features/extensions/common/extension-deployment-service'
+import type { DeployResult } from '../../features/extensions/claude/deployer'
 
 const { callbacks, directDeploy } = vi.hoisted(() => ({
   callbacks: new Map<string, (request: unknown) => unknown>(),
@@ -17,14 +17,17 @@ vi.mock('../../infra/ipc/handle', () => ({
   handlePlain: (channel: string, callback: (req: unknown) => unknown) =>
     callbacks.set(channel, callback)
 }))
-vi.mock('../../features/extensions/deployer', () => ({ deploy: directDeploy }))
-vi.mock('../../features/harnesses/settings-write', () => ({
+vi.mock('../../features/extensions/claude/deployer', () => ({ deploy: directDeploy }))
+vi.mock('../../features/harnesses/common/settings-write', () => ({
   addHarnessSettings: vi.fn(() => ({})),
   updateHarnessSettings: vi.fn(() => ({})),
   deleteHarnessSettings: vi.fn(),
   readHarnessSettings: vi.fn(() => ({}))
 }))
-vi.mock('../../adapters/claude-settings', () => ({ readUserClaudeSettings: vi.fn() }))
+vi.mock('../../adapters/claude/settings', async (original) => ({
+  ...(await original<typeof import('../../adapters/claude/settings')>()),
+  readUserClaudeSettings: vi.fn()
+}))
 vi.mock('../../infra/log', () => ({ getLogger: () => ({ child: () => ({ warn: vi.fn() }) }) }))
 vi.mock('../../infra/log/registry', () => ({
   getLogger: () => ({ child: () => ({ warn: vi.fn() }) })
@@ -94,6 +97,26 @@ describe('engine CRUD uses the shared extension deployment queue', () => {
     expect(deployExtensions).toHaveBeenCalledOnce()
     expect(invalidateAll).toHaveBeenCalledOnce()
   })
+
+  it.each([
+    [CHANNELS.engineAdd, { engine: 'opencode', provider: 'local', settingsJson: '{}' }],
+    [CHANNELS.engineUpdate, { key: 'opencode-local', settingsJson: '{}' }],
+    [CHANNELS.engineDelete, { key: 'opencode-local' }]
+  ])(
+    '%s invalidates the OpenCode document without extension deployment',
+    async (channel, request) => {
+      const deploy = vi.fn(async () => {}),
+        order: string[] = []
+      registerEngine(deploy, order)
+      await invoke(channel, request)
+      expect(deploy).not.toHaveBeenCalled()
+      expect(order).toEqual([
+        'settings',
+        'runtime:opencode-local:harness-settings-crud',
+        'catalog:opencode-local'
+      ])
+    }
+  )
 
   it.each(edits)(
     '%s waits for MCP deployment and the coalesced latest deployment',

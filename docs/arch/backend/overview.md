@@ -10,7 +10,7 @@
 **다루는 것**
 - Electron Main Process 구조 (`app/src/main/`)
 - Backend Adapter 추상화 (SessionAdapter — LLM Provider 가 아님)
-- 데이터 영속성 (electron-store + 로컬 DB + 게시 원본 파일 — [persistence.md](./persistence.md))
+- 데이터 영속성 (하네스 native 원본 + Orca 보관 DB + 앱 설정·게시 파일 — [persistence.md](./persistence.md))
 - IPC 핸들러 구조 (채널 카탈로그는 [IPC_CONTRACT.md](../../IPC_CONTRACT.md))
 - 보안 경계 (BrowserWindow 옵션 + 자격증명 모델)
 - 시스템 통합 (자동 업데이트 / 로깅 / 플랫폼 차이)
@@ -32,7 +32,7 @@
 | 언어 | TypeScript | ~5.x (strict, target ES2022) | tsconfig.node.json 분리 |
 | 빌드 도구 | electron-vite | ^5.0.0 | main + preload sub-config |
 | LLM SDK (claude-code) | @anthropic-ai/claude-agent-sdk | **exact pin** (`package.json` — 모델 세대 추가 시 갱신, 0246·0258) | `query()` 장수명 채널(`pushTurn`) + `complete()` 단발 |
-| LLM SDK (opencode) | @opencode-ai/sdk | 1.18.27 (exact) | **조사·계약 검증용 설치**; adapter 미등록·runtime 미활성 ([SDK 해설](../../opencode-sdk-spec.md)) |
+| LLM SDK (opencode) | @opencode-ai/sdk | 1.18.27 (exact) | 앱 소유 로컬 CLI 서버의 HTTP/SSE 어댑터; Code 모드 지원 ([SDK 해설](../../opencode-sdk-spec.md)) |
 | 입력 검증 | zod | ^4.4.3 | `src/shared/protocol.ts` 스키마 |
 | 설정 저장 | electron-store | ^8.2.0 | 단일 객체 스토어 (`orcinus-orca-settings`) |
 | 로컬 DB | **better-sqlite3** | ^12.x | ✅ Phase 3 도입 완료. 동기 API, Electron 호환. 직접 마이그레이션 (`db/migrations/`). WAL + foreign_keys pragma. |
@@ -74,7 +74,7 @@ Electron App
 │   │   ├── legacy-paths.ts     # 구 `orca` 설정 루트 이관 뒤 DB 저장 경로 재기준·이동 worktree 복구 (0225)
 │   │   ├── error-report-sink.ts · error-report-drain.ts  # 오류 toast 의 창 전달·drain (0242, observability.md §7)
 │   │   ├── artifact-sender.ts  # 게시 알림 → renderer (0223)
-│   │   ├── agent-extension-profile.ts · runtime-model-startup.ts · settings-reactions.ts
+│   │   ├── harnesses/ · runtime-model-startup.ts · settings-reactions.ts
 │   │   │                       #   Work/Code 프로필 선택 · 부팅 시 모델 카탈로그 준비 · 설정 변경 반응
 │   │   ├── deployment/         # 배포별 concrete (build-time) — auth-definitions · gate-auth ·
 │   │   │                       #   harness-runtime · plugins · usage-fetcher · spawn-env(배포별 subprocess env)
@@ -94,7 +94,7 @@ Electron App
 │   │   ├── gate/               # Auth 상태를 앱 접근 조건으로 소비하는 정책 (0188)
 │   │   ├── harnesses/          # settings 열거·해석(0014) · Model 해석 · 실행 구성(runtime-config) ·
 │   │   │                       #   respawn 경계 · claude/model-parser
-│   │   │                       #   (spawn 입력 조립은 adapters/harness-config.ts 소관)
+│   │   │                       #   (spawn 입력 조립은 adapters/common/harness-config.ts 소관)
 │   │   ├── plugins/            # 제품 기능 단위 — confluence/ · jira/ · mail/ (자격증명·로그인 프리 Plugin, 0188·0236·0237·0248)
 │   │   ├── agents/             # Work/Code 고정 프로필 + Work 시스템 프롬프트 (0224·0234)
 │   │   ├── artifacts/          # 게시 원본 파일 — 검증·보관·카탈로그·출력 수집·휴지통 (0223·0226·0232)
@@ -168,10 +168,10 @@ Electron App
    f. workspace                             # 기본 작업공간(~/.config/orcinus-orca/workspace) mkdir
    g. config-dir → orca-config              # ~/.config/orcinus-orca 보장 + orcinus-orca.json 부팅 1회 로드
    h. builtin-skill-seed                    # seedBuiltinSkills — 번들 스킬 → sources/skills 시딩 (0078, manifest/marker 버전 게이트)
-   i. provider-scaffold                     # 최초 1회 — readUserClaudeSettings() 로 ~/.claude/settings.json env 판별
+   i. provider-scaffold                     # 최초 1회 — Claude native 루트의 settings.json env 판별
                                             # (classifyClaudeEnv) 후 provider verbatim 시딩, 부재 시 anthropic 템플릿 (0090)
    j. extension-deploy                      # sources → dist/<engine> 렌더 (ExtensionDeploymentService)
-   k. skill-scan                            # 스킬 부팅 1회 스캔(orca sources/skills + ~/.claude/skills) → Bootstrap.skillsCache
+   k. skill-scan                            # Orca sources + 하네스가 제공한 native 스킬 루트 → Bootstrap.skillsCache
    l. register(ctx):                        # RouterContext 조립
         - RuntimeSupervisor(cap 5 · BoundedRuntimeCapPolicy · ActiveTurnTracker→concurrency push)
         - TypedBus 구독 순서 SSOT: usage → history → title → relay(sendChatEvent)  (§runtime-ipc §2.4)
@@ -203,22 +203,22 @@ Electron App
 | BrowserWindow + 보안 옵션 명시 | Phase 1 | ✅ 완료 | `main/index.ts` |
 | 컴포지션 루트(Bootstrap) + 5-레이어 재편 | Phase 3++ | ✅ 완료 | `app/bootstrap.ts` + `app/handlers/` + `features/*` (handoff 0062, 채널 카탈로그는 IPC_CONTRACT §2) |
 | 모든 invoke 의 zod 검증 | Phase 2 | ✅ 완료 | `infra/ipc/handle.ts` 헬퍼 + `shared/protocol.ts` |
-| SessionAdapter 인터페이스 | Phase 2 | ✅ 완료 | `adapters/types.ts` |
-| ClaudeAdapter (SDK `query()` · 장수명 채널 pushTurn) | Phase 3 | ✅ 완료 | `adapters/claude.ts` (구 claude-code.ts). CLI spawn 폐기 (2026-05-18) |
-| `claude-adapt.ts` (TurnExtensions → claude 옵션 변환) | Phase 3++ | ✅ 완료 | 공통 실행 설정은 SDK 타입으로 조립하고 plugin·systemPrompt·skill·hook은 대화 호출부에서 합성 |
-| ExtensionBuilder | Phase 3++ | ✅ 완료 | `features/extensions/builder.ts` — DB 지침·settings·Skills·plugin/runtime tool로 TurnExtensions 조립 |
+| SessionAdapter 인터페이스 | Phase 2 | ✅ 완료 | `adapters/common/types.ts` |
+| ClaudeAdapter (SDK `query()` · 장수명 채널 pushTurn) | Phase 3 | ✅ 완료 | `adapters/claude/adapter.ts` (구 claude-code.ts). CLI spawn 폐기 (2026-05-18) |
+| `claude/adapt.ts` (TurnExtensions → claude 옵션 변환) | Phase 3++ | ✅ 완료 | 공통 실행 설정은 SDK 타입으로 조립하고 plugin·systemPrompt·skill·hook은 대화 호출부에서 합성 |
+| ExtensionBuilder | Phase 3++ | ✅ 완료 | `features/extensions/common/builder.ts` — DB 지침·settings·Skills·plugin/runtime tool로 TurnExtensions 조립 |
 | SessionRuntime + RuntimeSupervisor (세션별 런타임 거버넌스) | Phase 4 | ✅ 완료 | `features/sessions/` — 장수명 세션 채널(프레임) · idle 풀 LRU cap 5 · 세션별 pending message queue(`features/chat/`). runtime-ipc.md §1 |
 | OpencodeAdapter | Future | ❌ 미구현 | PRD OQ7 |
 | AdapterRegistry | Phase 2 | ✅ 완료 | claude 단일 등록 |
 | Installer (래퍼) | Phase 2 | ✅ 완료 | 4줄 — 어댑터의 `install()` yield |
 | electron-store | Phase 3++ | ✅ 완료 | `infra/settings-store.ts` (키 카탈로그는 persistence.md §1.2 / IPC_CONTRACT §2.4) |
-| Skills 스캔 (orca `sources/skills` + `~/.claude/skills`) | Phase 2 | ✅ 완료 | `features/extensions/skills/scan.ts` — `<cwd>/.claude/skills` 루트는 제거됨. 캐시는 `Bootstrap.skillsCache` |
-| Skills 번들 시딩 (부트 1회) | Phase 4 | ✅ 완료 (0078) | `features/extensions/skills/seed.ts` + `app/builtin-resources.ts` — manifest/marker 버전 게이트 |
-| ExtensionDeployer | Phase 3++ | ✅ 완료 | `features/extensions/deployer.ts` — sources → `dist/<engine>/` 렌더 (표준화 스테이지 A) |
+| Skills 스캔 (Orca sources + Claude native skills) | Phase 2 | ✅ 완료 | `features/extensions/common/skills/scan.ts` — 루트는 app 하네스 조립부가 제공. native 경로는 [adapters.md §1.3](./adapters.md#13-claudecodeadapter-호출-패턴), 캐시는 `Bootstrap.skillsCache` |
+| Skills 번들 시딩 (부트 1회) | Phase 4 | ✅ 완료 (0078) | `features/extensions/common/skills/seed.ts` + `app/builtin-resources.ts` — manifest/marker 버전 게이트 |
+| ExtensionDeployer | Phase 3++ | ✅ 완료 | `features/extensions/claude/deployer.ts` — sources → `dist/<engine>/` 렌더 (표준화 스테이지 A) |
 | 인증 만료 감지 (`auth.expired`) | Phase 2 | ✅ 완료 | UI 에 AuthExpiredModal 노출 |
 | 로컬 DB (sessions / messages / parts / projects) | Phase 3 | ✅ 완료 | better-sqlite3 + 마이그레이션(`infra/db/migrations/`, `0001_initial` 부터 순번). |
 | FTS5 전문 검색 (`messages_fts`) | Phase 3++ | ✅ 완료 | `0003_messages_fts.sql` + `orca:search:messages` IPC |
-| MCP 서버 CRUD + safeStorage 인증 비밀 | Phase 3++ | ✅ 완료 | `features/extensions/mcp/store.ts` + `infra/config/secret-store.ts`. 파일-백드 모델. |
+| MCP 서버 CRUD + safeStorage 인증 비밀 | Phase 3++ | ✅ 완료 | `features/extensions/common/mcp/store.ts` + `infra/config/secret-store.ts`. 파일-백드 모델. |
 | 산출물 게시 · 게시 원본 파일 (`features/artifacts`) | Phase 4 | ✅ 완료 (0223·0226·0232) | 모델 직접 호출 `publish_artifact` runtime tool + 우측 목록 + Work 일반 출력 파일 수집. 보관 규칙 persistence.md §1.4 |
 | 자동 업데이트 (electron-updater) | Phase 4 | ✅ 완료 (0084~0086) | `app/updater.ts` UpdateController + `handlers/update.ts`(update 6채널) + `shared/update-restart.ts` 재시작 게이트. runtime-ipc.md §3.1 |
 | 스케줄러 (주기 실행) | Phase 4 | ✅ 완료 (0091) | `features/scheduler/` (croner) — 첫 소비처 = 주기 사용량 recompute. `schedule_runs` 실행 이력(`0013`) |
@@ -228,11 +228,11 @@ Electron App
 | **인증 + 소비 경계** (앱 로그인 + Harness 실행 구성 + Plugin) | Phase 4 | ✅ **0181 재작성 → 0188 경계 분리** | `contracts/auth.ts` 가 **인증만** 표현하고 `features/{auth,gate,harnesses,plugins}` 가 구현이다. 인증 5종(api-key·password·pat·**oauth code→token**·browser-session) · IPC `provider` 6채널(compat) · 카탈로그 연결 탭. 실값과 배선은 `app/deployment/` 에서 채운다. 구조 정본 [`auth.md`](./auth.md) |
 | **원격 전송 스택 단일화** (Node 전역 `fetch` 금지 → Chromium 스택) | Phase 4 | ✅ 완료 (0173/0174) | 전역 `fetch(` 호출은 `infra/net/net-fetch.ts` 에만 허용(`no-node-fetch.test.ts` 가 0건으로 고정), 소비자는 `typeof fetch` 포트 주입. Chromium 스택을 무는 파일은 **3개**(`net-fetch`·`net-request`·`browser-session`). [security.md](./security.md) §1.8 |
 | `options.permissionMode` (도구 권한) | Phase 4 | ✅ 완료 | `shared/permission-mode.ts`(`NormalizedPermissionMode` ↔ SDK 모드 변환) + `features/approvals/permission-mode-controller.ts`(세션 SSOT) + `orca:permission:setMode`. 진행 중 턴은 어댑터가 살아있는 `Query` 핸들에 즉시 위임한다. **MVP 기본값 정책은 PRD OQ9 로 계속 열려 있다** |
-| `options.hooks` (in-process 콜백) | Phase 4 | ✅ 완료 | `adaptHooks` + 어댑터 내부 훅(workspace guard · Stop git sync · Stop 출력 수집)을 `adapters/claude.ts` 가 병합 — adapters.md §3.2.5. 사용자 작성 hook 파일 배포는 하지 않는다(engine-specific) |
+| `options.hooks` (in-process 콜백) | Phase 4 | ✅ 완료 | `adaptHooks` + 어댑터 내부 훅(workspace guard · Stop git sync · Stop 출력 수집)을 `adapters/claude/adapter.ts` 가 병합 — adapters.md §3.2.5. 사용자 작성 hook 파일 배포는 하지 않는다(engine-specific) |
 | 멀티세션 + 장수명 세션 채널 | Phase 4 | ✅ main 런타임 완료 (handoff 0011·0051·0067) | 세션별 SessionRuntime + 동시 턴 + 장수명 채널(프레임)·idle 풀 LRU. runtime-ipc.md §1. renderer 외피는 ../frontend/state.md §2 |
 | Zustand persist 전략 (renderer store ↔ 로컬 DB / electron-store) | Phase 4 | ❌ 미정 OQ | ../frontend/state.md §1.4.6 |
 | i18n | Phase 4 | ✅ 완료 (0096/0097) | `renderer/src/shared/i18n/` — i18next + react-i18next. UI 라벨은 리소스 번들, 기술 용어·터미널 출력은 영어 |
-| **Provider Runtime Model (정규화 계층)** | Phase 4 | ✅ 와이어 전환 완료 · 일부 seam 미활성 | `NormalizedEvent`(`shared/ipc.ts`, variant 수는 [생성물](../../generated/inventory.md)) 이 `orca:chat:event` 의 유일한 페이로드이고 매핑은 `adapters/claude-map.ts` 다. PermissionBridge·PermissionModeController·ErrorClassifier·Telemetry 활성. **미활성 seam**: `RevertManager`(claude 는 전 cap false) · `provider` 축 claude 고정(opencode 미구현). 절별 상태는 [provider-runtime.md](./provider-runtime.md) |
+| **Provider Runtime Model (정규화 계층)** | Phase 4 | ✅ 와이어 전환 완료 · 일부 seam 미활성 | `NormalizedEvent`(`shared/ipc.ts`, variant 수는 [생성물](../../generated/inventory.md)) 이 `orca:chat:event` 의 유일한 페이로드이고 매핑은 `adapters/claude/map.ts` 다. PermissionBridge·PermissionModeController·ErrorClassifier·Telemetry 활성. **미활성 seam**: `RevertManager`(claude 는 전 cap false) · `provider` 축 claude 고정(opencode 미구현). 절별 상태는 [provider-runtime.md](./provider-runtime.md) |
 | Git worktree 격리 세션 (`features/worktrees`) | Phase 4 | ✅ 완료 (0209~0211·0241) | 세션별 managed worktree 생성·수명·표시명(`managed_worktrees`), Stop 시 git sync 훅, git 호출 게이트웨이(`infra/git/`, security.md §1.10) |
 | Work / Code 에이전트 종류 (`features/agents`) | Phase 4 | ✅ 완료 (0224·0234·0235) | 고정 프로필 + Work 시스템 프롬프트(`# Agent` 섹션) + 종류별 spawn env(`SessionAdapter.agentSpawnEnv`). 종류는 `sessions.agent_kind`(`code`/`work`) |
 | 백그라운드 작업 (`features/chat/background-controller.ts`) | Phase 4 | ✅ 완료 (0231·0232·0239) | 원본 journal(`background_task_events`)·출력 읽기·중단 정착 — [background-tasks.md](./background-tasks.md) |
@@ -241,7 +241,7 @@ Electron App
 | 전역 오류 보고(toast) (`infra/error-report`) | Phase 4 | ✅ 완료 (0242) | main/renderer 공통 `reportError` → 토스트 — observability.md §7 |
 | 일일 로그인 게이트 (`features/gate/daily.ts` · `app/daily-gate.ts`) | Phase 4 | ✅ 완료 (0255) | 실행 중 로컬 날짜 경계에서 통과 해제 — [ADR-008](../../decisions/008-daily-login-gate.md) · auth.md §5.3 |
 | 저장 경로 이관 (`infra/config/migrate-legacy.ts` · `app/legacy-paths.ts`) | Phase 4 | ✅ 완료 (0225) | 구 `orca` 설정 루트 → `orcinus-orca` 이관(critical `legacy-migration`) 뒤 DB 저장 경로 재기준·이동 worktree 복구(비-critical `legacy-paths`, §3.1) |
-| 폐쇄망 spawn env 주입점 (`app/deployment/spawn-env.ts`) | Phase 4 | ✅ 완료 (0207) | 배포가 `SPAWN_ENV_INJECTOR` 를 채우면 모든 Harness+ModelProvider subprocess env 에 실린다(최상위 레이어, 기본 배포는 비움). host-managed provider 표식(0200)은 `adapters/harness-config.ts` 가 조립 — security.md "Agent provider auth token" |
+| 폐쇄망 spawn env 주입점 (`app/deployment/spawn-env.ts`) | Phase 4 | ✅ 완료 (0207) | 배포가 `SPAWN_ENV_INJECTOR` 를 채우면 모든 Harness+ModelProvider subprocess env 에 실린다(최상위 레이어, 기본 배포는 비움). host-managed provider 표식(0200)은 `adapters/common/harness-config.ts` 가 조립 — security.md "Agent provider auth token" |
 
 > 이 표는 코드 변경 시 함께 갱신한다.
 

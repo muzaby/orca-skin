@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import {
-  modelIdentity,
-  sameModelIdentity,
-  supportsAutoPermission,
-  parseClaudeModelName
-} from './model-identity'
+import { supportsAutoPermission, parseClaudeModelName } from './harnesses/claude/model-policy'
+import { modelIdentity, sameModelIdentity } from './model-identity'
 
 describe('0246 AC5 — shared Claude name parser', () => {
   it.each([

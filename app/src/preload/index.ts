@@ -59,6 +59,7 @@ import {
   type OpenContextFileResult,
   type ReadAttachmentResult,
   type InstallStatus,
+  type RefreshSessionResult,
   type LoadedSession,
   type AddSessionDirectoryRequest,
   type AddSessionDirectoryResult,
@@ -180,8 +181,8 @@ const orca = {
     delete: (key: string): Promise<void> => ipcRenderer.invoke(CHANNELS.engineDelete, { key }),
     read: (key: string): Promise<EngineReadResult> =>
       ipcRenderer.invoke(CHANNELS.engineRead, { key }),
-    importUserSettings: (): Promise<EngineUserSettingsResult> =>
-      ipcRenderer.invoke(CHANNELS.engineImportUserSettings)
+    importUserSettings: (engine: Backend = 'claude'): Promise<EngineUserSettingsResult> =>
+      ipcRenderer.invoke(CHANNELS.engineImportUserSettings, { engine })
   },
   install: {
     start: (backend: Backend): Promise<void> =>
@@ -255,6 +256,8 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.sessionAddDirectory, request),
     cwd: (): Promise<string> => ipcRenderer.invoke(CHANNELS.sessionCwd),
     list: (): Promise<SessionListItem[]> => ipcRenderer.invoke(CHANNELS.sessionList),
+    refresh: (sessionId: string): Promise<RefreshSessionResult> =>
+      ipcRenderer.invoke(CHANNELS.sessionRefresh, { sessionId }),
     load: (sessionId: string): Promise<LoadedSession | null> =>
       ipcRenderer.invoke(CHANNELS.sessionLoad, { sessionId }),
     delete: (sessionId: string): Promise<DeleteSessionResult> =>

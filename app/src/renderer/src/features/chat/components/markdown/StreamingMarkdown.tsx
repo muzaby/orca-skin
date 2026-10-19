@@ -12,9 +12,11 @@ import { advanceStableBlocks, type StableBlocksCache } from '../../lib/markdownB
 // 참조 링크 정의가 블록을 가로지르면 라이브 중 미해소될 수 있으나, message.completed 가
 // 커밋한 단일 <Markdown> 렌더로 교체되며 자기교정된다.
 export const StreamingMarkdown = memo(function StreamingMarkdown({
-  source
+  source,
+  className
 }: {
   source: string
+  className?: string
 }): React.JSX.Element {
   const cacheRef = useRef<StableBlocksCache | null>(null)
   const { stable, tail } = useMemo(() => {
@@ -26,11 +28,11 @@ export const StreamingMarkdown = memo(function StreamingMarkdown({
     // 분할된 블록 사이 간격은 Markdown 문단 마진(my-2)과 동형인 gap-2 로 근사.
     <div className="flex flex-col gap-2">
       {stable.map((block, i) => (
-        <Markdown key={i} source={block} />
+        <Markdown key={i} source={block} className={className} />
       ))}
       {tail !== '' && (
         <MarkdownStreamingContext.Provider value={true}>
-          <Markdown source={tail} />
+          <Markdown source={tail} className={className} />
         </MarkdownStreamingContext.Provider>
       )}
     </div>

@@ -1,0 +1,156 @@
+import { useEffect, useRef, useState, type ComponentType } from 'react'
+import { HARNESS_IDS, HARNESS_CAPABILITIES, isBackend } from '../../../../../../shared/harness'
+import type { AgentEnvironment, Backend } from '../../../../../../shared/ipc'
+import { Button } from '../../../../shared/ui/Button'
+import { Popover } from '../../../../shared/ui/Popover'
+import { uiMessageText, useI18n } from '../../../../shared/i18n'
+import type { EngineCardProps } from './EngineCard'
+import type { EngineFormModalProps } from './EngineFormModal'
+import { useEngines } from '../hooks/useEngines'
+
+type ModalState =
+  | { mode: 'add'; engine: Backend }
+  | { mode: 'edit'; agent: AgentEnvironment; settingsJson: string }
+  | null
+
+export function AgentEnvironmentView({
+  Card,
+  Form
+}: {
+  Card: ComponentType<EngineCardProps>
+  Form: ComponentType<EngineFormModalProps>
+}): React.JSX.Element {
+  const { tr } = useI18n()
+  const { agents, state, refresh, add, update, remove, read } = useEngines()
+  const [modal, setModal] = useState<ModalState>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const addRef = useRef<HTMLButtonElement>(null)
+  const [loadingKey, setLoadingKey] = useState<string | null>(null)
+  const [readError, setReadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
+  const openEdit = async (agent: AgentEnvironment): Promise<void> => {
+    setLoadingKey(agent.key)
+    setReadError(null)
+    try {
+      const result = await read(agent.key)
+      setModal({ mode: 'edit', agent, settingsJson: result.settingsJson })
+    } catch (e) {
+      // 과거엔 read 실패가 조용히 삼켜져 "편집이 안 열린다"로 보였다 — 이제 사유를 표시한다.
+      setReadError(e instanceof Error ? e.message : tr('engine.readSettingsFailed'))
+    } finally {
+      setLoadingKey(null)
+    }
+  }
+
+  const deleteAgent = async (agent: AgentEnvironment): Promise<void> => {
+    if (!window.confirm(tr('engine.deleteConfirm', { name: agent.provider ?? agent.key }))) return
+    try {
+      await remove(agent.key)
+    } catch {
+      // useEngines가 저장 오류를 화면 상태에 남긴다.
+    }
+  }
+
+  return (
+    <section className="flex-1 overflow-auto px-8 pb-10 pt-6">
+      <div className="mb-6 flex items-baseline gap-3.5">
+        <h1 className="m-0 font-serif text-[28px] font-semibold tracking-[-0.02em] text-ink">
+          {tr('engine.title')}
+        </h1>
+        <span data-engine-catalog-count="" className="text-[13px] text-ink3">
+          {tr('common.count', { count: agents.length })}
+        </span>
+        <Button
+          ref={addRef}
+          dropdown
+          expanded={menuOpen}
+          aria-haspopup="menu"
+          variant="primary"
+          size="small"
+          leadingIcon="plus"
+          className="ml-auto"
+          onClick={() => setMenuOpen((value) => !value)}
+        >
+          {tr('engine.addEngine')}
+        </Button>
+      </div>
+      <Popover
+        open={menuOpen}
+        anchorRef={addRef}
+        onClose={() => setMenuOpen(false)}
+        placement="bottom"
+      >
+        <div role="menu" className="min-w-[220px] p-1">
+          {HARNESS_IDS.map((engine) => (
+            <button
+              key={engine}
+              type="button"
+              role="menuitem"
+              className="flex w-full cursor-pointer items-center gap-g5 rounded-r4 border-0 bg-transparent px-p5 py-p3 text-left text-footnote text-ink hover:bg-fill-uncontained-hover"
+              onClick={() => {
+                setMenuOpen(false)
+                setModal({ mode: 'add', engine })
+              }}
+            >
+              {engine === 'claude' ? 'Claude' : HARNESS_CAPABILITIES[engine].label}
+            </button>
+          ))}
+        </div>
+      </Popover>
+      {(state.error || readError) && (
+        <div className="mb-3 rounded-lg bg-bad/10 px-3 py-2 text-[12px] text-bad">
+          {state.error ? uiMessageText(tr, state.error) : readError}
+        </div>
+      )}
+
+      {agents.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border-strong bg-panel px-4 py-6 text-[13px] text-ink2">
+          {tr('engine.emptyState')}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {agents.map((agent) => (
+            <Card
+              key={agent.key}
+              agent={agent}
+              busy={state.busy || loadingKey === agent.key}
+              onEdit={(next) => void openEdit(next)}
+              onDelete={(next) => void deleteAgent(next)}
+            />
+          ))}
+        </div>
+      )}
+
+      {modal?.mode === 'add' && (
+        <Form
+          mode="add"
+          engine={modal.engine}
+          busy={state.busy}
+          onClose={() => setModal(null)}
+          onSubmit={async (payload) => {
+            await add(payload)
+            setModal(null)
+          }}
+        />
+      )}
+      {modal?.mode === 'edit' && isBackend(modal.agent.adapter) && (
+        <Form
+          mode="edit"
+          engine={modal.agent.adapter}
+          provider={modal.agent.provider ?? modal.agent.key}
+          initialSettingsJson={modal.settingsJson}
+          busy={state.busy}
+          onClose={() => setModal(null)}
+          onSubmit={async ({ settingsJson }) => {
+            await update({ key: modal.agent.key, settingsJson })
+            setModal(null)
+          }}
+        />
+      )}
+    </section>
+  )
+}

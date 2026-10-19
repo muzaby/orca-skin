@@ -1,9 +1,6 @@
+import type { Backend } from '../../../../../shared/ipc'
 import type { AgentKind } from '../../../../../shared/agent-kind'
-import {
-  isRightPanelTileVisible,
-  RIGHT_PANEL_POLICY,
-  type RightPanelTileId
-} from './rightPanelTiles'
+import { isRightPanelTileVisible, rightPanelPolicy, type RightPanelTileId } from './rightPanelTiles'
 
 export const ROWS_PER_COL = 2
 
@@ -36,17 +33,22 @@ export type RightPanelColumns = RightPanelColumnState[]
 // 캐시된 구버전 배치와 직접 진입도 같은 최종 표시 정책을 거친다. 이미 유효하면 참조를 보존한다.
 export function rightPanelColumnsForAgent(
   cols: RightPanelColumns,
-  kind: AgentKind
+  kind: AgentKind,
+  backend: Backend | null = 'claude'
 ): RightPanelColumns {
-  if (RIGHT_PANEL_POLICY[kind].columnMode === 'task-focus') {
+  if (rightPanelPolicy(kind, backend).columnMode === 'task-focus') {
     if (cols.length === 0) return cols
     if (cols.length === 1 && cols[0].tiles.length === 1 && cols[0].tiles[0] === 'task') return cols
     const owner = cols.find((col) => col.tiles.includes('task'))
     return owner ? [{ id: owner.id, tiles: ['task'] }] : []
   }
-  if (cols.every((col) => col.tiles.every((id) => isRightPanelTileVisible(id, kind)))) return cols
+  if (cols.every((col) => col.tiles.every((id) => isRightPanelTileVisible(id, kind, backend))))
+    return cols
   return cols
-    .map((col) => ({ ...col, tiles: col.tiles.filter((id) => isRightPanelTileVisible(id, kind)) }))
+    .map((col) => ({
+      ...col,
+      tiles: col.tiles.filter((id) => isRightPanelTileVisible(id, kind, backend))
+    }))
     .filter((col) => col.tiles.length > 0)
 }
 

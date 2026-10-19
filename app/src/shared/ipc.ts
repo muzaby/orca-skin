@@ -87,6 +87,7 @@ export const CHANNELS = {
   sessionCwd: 'orca:session:cwd',
   sessionList: 'orca:session:list',
   sessionLoad: 'orca:session:load',
+  sessionRefresh: 'orca:session:refresh',
   sessionDelete: 'orca:session:delete',
   sessionRename: 'orca:session:rename',
   sessionSetPinned: 'orca:session:setPinned',
@@ -300,7 +301,7 @@ export interface SessionTitleEvent {
 }
 
 // Backend (Phase 2: claude 단일. opencode 는 future work)
-export type Backend = 'claude'
+export type Backend = 'claude' | 'opencode'
 
 export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
@@ -310,6 +311,8 @@ export interface AgentModelView {
   isCustom: boolean
   oneMillionContext: boolean
   isDefault: boolean
+  variants?: string[]
+  providerId?: string
 }
 
 export interface AgentEnvironment {
@@ -320,10 +323,12 @@ export interface AgentEnvironment {
   supported: boolean
   source?: 'settings' | 'runtime'
   readOnly?: boolean
+  agents?: { name: string; description?: string }[]
+  catalogError?: string
 }
 
 export interface CreateEngineRequest {
-  engine: 'claude'
+  engine: Backend
   provider: string
   settingsJson: string
 }
@@ -343,18 +348,18 @@ export interface ReadEngineRequest {
 
 export interface EngineReadResult {
   key: string
-  engine: 'claude'
+  engine: Backend
   provider: string
   settingsJson: string
 }
 
 export interface EngineWriteResult {
   key: string
-  engine: 'claude'
+  engine: Backend
   provider: string
 }
 
-// ~/.claude/settings.json 원문 조회 결과 — 파일 부재/읽기 실패면 exists=false.
+// 선택 하네스의 전역 설정 원문 조회 결과 — 파일 부재/읽기 실패면 exists=false.
 // 내용 검증은 하지 않는다(렌더러 실시간 JSON 검증이 담당).
 export interface EngineUserSettingsResult {
   exists: boolean
@@ -392,7 +397,7 @@ export interface ClassifiedError {
 // ── NormalizedEvent (provider-runtime.md §2) — 와이어(orca:chat:event)의 정규 이벤트 ─────────
 // 이벤트는 sessionId(멀티세션 라우팅)로 키잉되고 tool 은 toolRunId 로 start/complete 를 매칭한다.
 // 코어 중립(0016): 이벤트는 provider 를 싣지 않는다 — "어느 백엔드인지" 는 session.backend 파생.
-// claude 어댑터는 SDK 메시지를 claudeToNormalized(adapters/claude-map.ts)로 이 타입에 직접
+// claude 어댑터는 SDK 메시지를 claudeToNormalized(adapters/claude/map.ts)로 이 타입에 직접
 // 정규화한다. OpenCode 도 같은 union 으로 정규화(seam, provider 무관).
 // 권한 요청은 permission.requested 1급 이벤트(origin 으로 agent/app 구분, action.kind 로 종류 구분).
 export type ProviderId = 'claude' | 'opencode'
@@ -477,6 +482,8 @@ export interface TelemetryModelUsage {
 }
 
 export interface ProviderReportedTelemetry {
+  /** Latest step occupancy, independent of aggregate usage/cost. */
+  contextTokens?: number
   model?: string
   inputTokens?: number
   outputTokens?: number
@@ -507,6 +514,7 @@ export type NormalizedEvent =
       //               부재는 "판정 불가" 라 기능 안내를 띄우지 않는다(0212 D-005 · EP-01).
       //   cliVersion  init 의 `claude_code_version`. 안내 문구가 실제 버전을 말하게 한다.
       patch: {
+        backend?: Backend
         projectId?: string | null
         // 이번 신규 세션이 실제 프로젝트 행을 생성했을 때만 보내는 일회성 nav 신호.
         projectCreated?: boolean
@@ -541,10 +549,11 @@ export type NormalizedEvent =
   // main 내부 커밋 신호(renderer 미전달) — CLI 가 stdin 주입 입력을 흡수해 user 메시지로 echo 한
   // 순간(SDKUserMessageReplay). TurnCoordinator 가 pending 소비 확정에만 쓰고 persist/forward
   // 하지 않는다. uuid = 주입 배치 uuid(미보존 시 text 매칭 폴백, 0060 D1).
-  | { type: 'input.echo'; sessionId: string; text: string; uuid?: string }
+  | { type: 'input.echo'; sessionId: string; text: string; uuid?: string; nativeMessageId?: string }
   | {
       type: 'input.received'
       sessionId: string
+      nativeMessageId?: string
       text: string
       uuid?: string
       origin: ReceivedMessageOrigin
@@ -581,6 +590,7 @@ export type NormalizedEvent =
   | {
       type: 'session.compacted'
       sessionId: string
+      nativeMessageId?: string
       trigger?: 'manual' | 'auto'
       preTokens?: number
       postTokens?: number
@@ -588,6 +598,7 @@ export type NormalizedEvent =
   | {
       type: 'message.completed'
       sessionId: string
+      nativeMessageId?: string
       message: { text: string }
       // 서브에이전트(Task) 안에서 발생한 텍스트면 부모 Task 의 toolRunId. 최상위 턴이면 생략.
       parentToolRunId?: string
@@ -597,6 +608,7 @@ export type NormalizedEvent =
   | {
       type: 'message.reasoning'
       sessionId: string
+      nativeMessageId?: string
       text: string
       signature?: string
       parentToolRunId?: string
@@ -612,9 +624,11 @@ export type NormalizedEvent =
   | {
       type: 'tool.call.started'
       sessionId: string
+      nativeMessageId?: string
       toolRunId: string
       toolName: string
       args: unknown
+      providerTool?: { name: string; input: unknown }
       parentToolRunId?: string
       // `Edit` 실행 **전** 미리보기 패치 `{ structuredPatch }`(0229) — 진행 중 카드가 완료 카드와
       // 같은 줄번호·전체 줄을 그리게 한다. SDK 는 실행 전 diff 를 주지 않아 main 이 편집 전 파일을
@@ -625,6 +639,7 @@ export type NormalizedEvent =
   | {
       type: 'tool.call.completed'
       sessionId: string
+      nativeMessageId?: string
       toolRunId: string
       result: unknown
       isError: boolean
@@ -886,6 +901,9 @@ export interface ConcurrencyEvent {
 
 // IPC payloads (TRD §5.2 의 활성 부분)
 export interface SendChatMessage {
+  backend?: Backend
+  harnessAgent?: string
+  modelVariant?: string
   sessionId: string | null
   // 신규의 생략은 code, 기존/준비/파생 요청의 생략은 소유 세션 종류 상속.
   agentKind?: AgentKind
@@ -1089,6 +1107,7 @@ export interface SchedulerSettings {
 }
 
 export interface Settings {
+  harnesses?: import('./harness').HarnessSettings
   theme: ThemePref
   // 트랜스크립트 글자 배율 단계. 기본 'medium'.
   transcriptTextSize: TranscriptTextSize
@@ -1484,6 +1503,7 @@ export type AppMessagePart =
   | { type: 'reasoning'; text: string; signature?: string; parentToolRunId?: string }
   | {
       type: 'tool_call'
+      providerTool?: { name: string; input: unknown }
       toolRunId: string
       toolName: string
       args: unknown
@@ -1565,12 +1585,22 @@ export interface LoadedMessage {
   incomplete?: boolean
 }
 
+export type RefreshSessionResult =
+  | { status: 'updated'; session: LoadedSession }
+  | { status: 'unchanged' | 'busy' }
+  | { status: 'missing' | 'unavailable' | 'migration-required'; message: string }
+
 export interface LoadedSession {
   id: string
   backend: Backend
   agentKind: AgentKind
   title: string | null
   messages: LoadedMessage[]
+  /** Native refresh diagnostics; cached conversation remains available on failure. */
+  nativeSync?: {
+    status: 'ready' | 'unchanged' | 'busy' | 'missing' | 'unavailable' | 'migration-required'
+    message?: string
+  }
   // 세션 마지막 턴의 provider-reported 통계 — 컨텍스트 도넛/UsagePanel 을 세션 수명 동안
   // 복원(turn_usage 최신 행에서 재구성). 비용 집계는 원장 SUM 으로 별도(추후 usage 화면).
   lastTelemetry?: ProviderReportedTelemetry

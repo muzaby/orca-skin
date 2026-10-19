@@ -10,8 +10,8 @@
 | 범위 | Phase 1 MVP 본문. Phase 2~4 / Future Scope = §10 anchor only |
 | 미정 항목 처리 | PRD §11 Open Questions 는 **여기서 결정하지 않는다.** "결정 후 결정값으로 대체" 표시만 둔다. |
 
-> **Phase 1 단일 백엔드 결정 (2026-05-13)**
-> 앱은 **`claude` 단일 백엔드**로 동작한다. `@opencode-ai/sdk`는 배포 코드 분석·계약 검증을 위해 설치했으나 `OpencodeAdapter`는 미구현이며 AdapterRegistry에 등록하지 않았다. 설치 기준과 실제 API는 [OpenCode SDK 해설](opencode-sdk-spec.md), 전환 권고는 [마이그레이션 연구](etc/study/opencode/orca-migration-guide.md)를 따른다. SDK 설치는 OQ7의 기본 백엔드 결정이나 런타임 전환을 뜻하지 않는다.
+> **하네스 실행 정책**
+> `claude`와 `opencode`를 지원한다. 새 대화의 모델 선택이 하네스를 결정하며, 생성 후에는 DB의 backend로 고정한다. OpenCode는 Code만 지원하고 설치된 CLI의 로컬 서버를 Orca가 자동 관리한다. 마지막 하네스를 기억하며 최초 기본값은 Claude다. UI 전용 슬라이스·서버·SDK 계약은 [어댑터 구조](arch/backend/adapters.md)와 [IPC 계약](IPC_CONTRACT.md)을 따른다.
 
 > **Preload 노출 표면 축소 결정 (2026-05-13)**
 > preload `window.orca` 는 **renderer 가 실제 호출하는 채널만** 노출한다 (principle of least privilege). Phase 2 활성 6채널: `chat:send`/`chat:event`/`chat:cancel`/`backend:list`/`install:start`/`install:status`. 이전 Q1 ("`backend:select` 유지") 결정은 본 정책 도입으로 **취소** — 단일 백엔드에서 사용처가 없으므로 main 핸들러까지 함께 제거했다. `settings:get`/`settings:set` 도 동일 사유로 Phase 2 범위 밖. 향후 사용처가 생기면 (멀티 백엔드 / 영속화) 한 PR 에서 preload+main+CHANNELS 를 함께 다시 등록한다. zod 스키마 (`shared/protocol.ts`) 는 main 전용이며, preload 는 zod 비종속의 `shared/ipc.ts` 만 import 한다 (`sandbox: true` 호환).
@@ -54,13 +54,13 @@ PRD §6.1 의 F1~F10 을 *수용 기준* 으로 구체화한다.
 | F11 | **자동 업데이트** | `app/updater.ts`(UpdateController) + `features/update/` | electron-updater — 시작 시 1회 체크, `autoDownload=false`(다운로드·설치 = 사용자 명시 액션), 재시작 게이트(`shared/update-restart.ts`), update 6채널 브로드캐스트 | 0084~0086 |
 | F12 | **사용량 한도** | `features/usage`(main) + UsagePanel·설정 탭(renderer) | 월간 `spendingLimitUsd` + provider별 한도(`provider_limits`). **Main 이 `UsageLimitsView` 정본을 만들고**(`usage-compose` + `shared/usage/limits.ts`) renderer 는 `shared/stores/usageStore` 로 mirror 만 한다. 도넛 팝오버 = 컨텍스트바+주간/월간 한도 바. 원격 사용량 조회는 `UsageFetcher` 포트를 주입한 배포에서만 도는 선택 기능 | 0079~0082, 0186 |
 | F13 | **주기 실행 (스케줄러)** | `features/scheduler/`(croner + interval) | job 등록·겹침 방지·`schedule_runs` 이력. 스펙 2종 — cron(벽시계 정렬) / `intervalMs`(schedule 시각 anchor, 0156). 소비처 = 주기 사용량 recompute(`scheduler.usageRecompute`, cron·설정 노출형) · 자동 업데이트 확인(`scheduler.updateCheck`, interval) · **코어 고정형 사용량 잡 2종**(`usage-boundary` 자정 cron 항상 · `usage-fetch` fetcher 주입 시에만, 0186). **기간 경계 불변식은 `usage-boundary` 가 소유한다** — `scheduler.usageRecompute`(기본 off)는 사용자가 임의 주기로 켜는 호환용이라 경계를 보장하지 않고, 둘 다 켜져 시각이 겹쳐도 각자 전역을 재계산할 뿐이라 값이 어긋나지 않는다(중복 계산일 뿐) | 0091, 0156, 0186 |
-| F14 | **번들 스킬 시딩** | `features/extensions/skills/seed.ts` + `builtin-resources.ts` | 부팅 1회 번들 스킬 → `sources/skills` 시딩, manifest/marker 버전 게이트로 사용자 수정 보호 | 0078 |
+| F14 | **번들 스킬 시딩** | `features/extensions/common/skills/seed.ts` + `builtin-resources.ts` | 부팅 1회 번들 스킬 → `sources/skills` 시딩, manifest/marker 버전 게이트로 사용자 수정 보호 | 0078 |
 | F15 | **CI/CD 릴리스** | `.github/workflows/{ci,release}.yml` + `scripts/validate-*` | main push·PR 게이트 + `v*` 태그 → unsigned NSIS → GitHub Releases 즉시 게시(수동 dispatch 는 dry-run). §9 참조 | 0087~0089 |
 | F16 | **자격증명 회복** | `features/auth/login.ts`·`app/auth-resume.ts`·`features/auth/browser-session/` | 부팅 복원 실패 시 자동 재로그인 재시도 · OAuth refresh · browser-session 인가 코드 → 토큰 교환. [auth.md](arch/backend/auth.md) §4·§5.2 | 0193~0196 |
 | F17 | **로그인 프리 Plugin** | `features/auth/login-free.ts` · `LOGIN_FREE_DEFINITIONS` | 앱 로그인과 무관하게 항상 도구를 제공 — 앱은 키를 저장·검증하지 않는다. auth.md §7 · [ADR-006](decisions/006-login-free-auth-scheme.md) | 0248 |
 | F18 | **일일 로그인 게이트** | `features/gate/daily.ts` · `app/daily-gate.ts` | 실행 중 로컬 날짜 경계에서 게이트 통과만 해제하고 다시 로그인을 요구. auth.md §5.3 · [ADR-008](decisions/008-daily-login-gate.md) | 0255 |
-| F19 | **런타임 모델 카탈로그** | `features/harnesses/runtime-catalog.ts` | 인증 뒤 Claude Code `availableModels` 수집 · 무효화 범위 · Fable 계열 · SDK 고정 핀 갱신. [ux-domains.md](arch/frontend/ux-domains.md) "Agent/model UX" | 0198·0202·0238·0246·0258 |
-| F20 | **실행 env 확장** | `adapters/harness-config.ts` · `app/deployment/spawn-env.ts` · `SessionAdapter.agentSpawnEnv` | host-managed provider 표식 · 폐쇄망 spawn env 주입점 · Code/Work 종류별 env. [security.md](arch/backend/security.md) "Agent provider auth token" | 0200·0207·0235 |
+| F19 | **런타임 모델 카탈로그** | `features/harnesses/common/runtime-catalog.ts` | 인증 뒤 Claude Code `availableModels` 수집 · 무효화 범위 · Fable 계열 · SDK 고정 핀 갱신. [ux-domains.md](arch/frontend/ux-domains.md) "Agent/model UX" | 0198·0202·0238·0246·0258 |
+| F20 | **실행 env 확장** | `adapters/common/harness-config.ts` · `app/deployment/spawn-env.ts` · `SessionAdapter.agentSpawnEnv` | host-managed provider 표식 · 폐쇄망 spawn env 주입점 · Code/Work 종류별 env. [security.md](arch/backend/security.md) "Agent provider auth token" | 0200·0207·0235 |
 | F21 | **Git 컴포저 행 · diff 타일** | `GitRow` · `DiffTileContent` · `infra/git/` 게이트웨이 | 브랜치·변경량·커밋별 패치·댓글 anchor, git 실행 횟수 축소. [IPC_CONTRACT §2.6-b](./IPC_CONTRACT.md) · [state.md](arch/frontend/state.md) §1.2.1 | 0201·0206·0241 |
 | F22 | **Git worktree 격리 세션** | `features/worktrees/` · `app/chat-turn/prepare-worktree.ts` | 신규 세션을 managed worktree 에서 실행 · 수명·표시명(`managed_worktrees`). IPC_CONTRACT §2.6-b 주석·§3 `worktree.preparing` | 0209~0211 |
 | F23 | **TaskXXX 패널** | `TaskToolBody` · 계획/작업 패널 | 할 일 도구 4종 표시 · 기능 가용성 판정 · 재개. [claude-taskxxx-spec.md](claude-taskxxx-spec.md) | 0204·0212·0213·0215 |
@@ -69,7 +69,7 @@ PRD §6.1 의 F1~F10 을 *수용 기준* 으로 구체화한다.
 | F26 | **백그라운드 작업** | `features/chat/background-controller.ts` · `background_task_events` | 원본 journal · 출력 읽기 · 중단 정착 · 패널. [background-tasks.md](arch/backend/background-tasks.md) | 0231·0232·0239 |
 | F27 | **사내 서비스 Plugin** | `features/plugins/{jira,mail}` | Jira Data Center 조회·첨부 · POP3 메일 수집·검색. auth.md §7 · persistence.md "Mail Plugin 캐시" | 0236·0237 |
 | F28 | **전역 오류 토스트** | `infra/error-report` · `shared/ui/ErrorToastHost.tsx` | 소비되지 않은 실패를 로그와 함께 토스트로 게시. [observability.md](arch/backend/observability.md) §7 · IPC_CONTRACT §2.13-d | 0242 |
-| F29 | **컨텍스트 · 사용량 보강** | `adapters/claude-context-policy.ts` · `provider_usage_periods` | 게이트웨이 1M 판정 · 프록시 `message_delta` usage 폴백 · 원격 일/월 내역. [adapters.md](arch/backend/adapters.md) §1.3 · rendering.md §1.9 | 0245·0247·0251 |
+| F29 | **컨텍스트 · 사용량 보강** | `adapters/claude/context-policy.ts` · `provider_usage_periods` | 게이트웨이 1M 판정 · 프록시 `message_delta` usage 폴백 · 원격 일/월 내역. [adapters.md](arch/backend/adapters.md) §1.3 · rendering.md §1.9 | 0245·0247·0251 |
 | F30 | **탐색 · 입력 UX** | `sessionsStore` · `chat:steerSendNow` | nav 구획(고정됨→프로젝트→최근) · 세션 상태 아이콘 · 응답 중 입력 즉시 보내기. state.md §1.1·§1.6 · [runtime-ipc.md](arch/backend/runtime-ipc.md) §1.4 | 0203·0233·0249·0250·0254 |
 | F31 | **표시 · 환경설정 polish** | `GeneralTab` · `TooltipHost` · `CascadeMenu` | 대화 텍스트 크기·너비 · 툴팁 · 버블 접기 · `+` 계단식 메뉴 · Edit 진행 중 미리보기 · MCP 상세 토글. ux-domains.md §1.2·§1.3-b | 0217·0229·0256·0257·0259 |
 | F32 | **앱 이름 · 안정성** | `app/legacy-paths.ts` · `infra/config/paths.ts` | `orcinus-orca` 이름·저장 경로 이관 · 로고 · 실행 시간 상한 제거 · 테마 부팅 경쟁 해소. [release-operations.md](guides/release-operations.md) | 0225·0227·0243·0244 |
@@ -225,7 +225,7 @@ Renderer 코드는 `window.orca.*` 만으로 통신 (ipcRenderer 직접 접근 �
 
 ## 6. Data Models
 
-TS 타입 정의의 단일 출처. 구현은 `app/src/shared/ipc.ts` (zod-free) + `app/src/shared/protocol.ts` (zod 스키마) + `app/src/main/adapters/types.ts`. 용어 정의는 [`GLOSSARY.md`](./GLOSSARY.md), IPC 채널 카탈로그는 [`IPC_CONTRACT.md`](./IPC_CONTRACT.md) §2 가 SSOT.
+TS 타입 정의의 단일 출처. 구현은 `app/src/shared/ipc.ts` (zod-free) + `app/src/shared/protocol.ts` (zod 스키마) + `app/src/main/adapters/common/types.ts`. 용어 정의는 [`GLOSSARY.md`](./GLOSSARY.md), IPC 채널 카탈로그는 [`IPC_CONTRACT.md`](./IPC_CONTRACT.md) §2 가 SSOT.
 
 ### 6.1 Backend (백엔드 선택)
 
@@ -235,14 +235,14 @@ type Backend = 'claude';
 
 ### 6.2 NormalizedEvent (어댑터→Renderer 정규화 스트림)
 
-와이어 `orca:chat:event`의 현행 타입은 [shared/ipc.ts](../app/src/shared/ipc.ts)의 `NormalizedEvent`다. Claude 원본은 [claude-map.ts](../app/src/main/adapters/claude-map.ts)가 정규화하며, 원본 SDK 타입을 renderer에 직접 전달하지 않는다.
+와이어 `orca:chat:event`의 현행 타입은 [shared/ipc.ts](../app/src/shared/ipc.ts)의 `NormalizedEvent`다. Claude 원본은 [claude-map.ts](../app/src/main/adapters/claude/map.ts)가 정규화하며, 원본 SDK 타입을 renderer에 직접 전달하지 않는다.
 멀티세션 이벤트는 `sessionId`로 라우팅한다. 동시성·큐는 [runtime-ipc.md](arch/backend/runtime-ipc.md), renderer 소비는 [state.md](arch/frontend/state.md)가 설명한다.
 
 도구 이름·입력의 백엔드 간 표준화는 PRD OQ10의 미결정이다. OpenCode mapping은 [연구 가이드](etc/study/opencode/orca-migration-guide.md)의 권고이며 아직 이 와이어에 연결하지 않았다.
 
 ### 6.3 SessionAdapter (공통 인터페이스)
 
-계약 정본은 [adapters/types.ts](../app/src/main/adapters/types.ts)의 `SessionAdapter`·`LiveTurn`·`ProviderMessageBatch`, 입력은 [adapters/turn.ts](../app/src/main/adapters/turn.ts)의 `TurnRequest`다.
+계약 정본은 [adapters/common/types.ts](../app/src/main/adapters/common/types.ts)의 `SessionAdapter`·`LiveTurn`·`ProviderMessageBatch`, 입력은 [adapters/common/turn.ts](../app/src/main/adapters/common/turn.ts)의 `TurnRequest`다.
 `sendMessage(req)`는 `LiveTurn`을 반환하고 소비자는 `eventBatches`를 읽는다. `describe`·`complete`·`classifyError`와 제어 메서드도 새 어댑터의 이식 범위이며, 단순 HTTP prompt 연결만으로 구현이 끝나지 않는다.
 현행 책임은 [adapters.md](arch/backend/adapters.md), OpenCode와의 차이는 [연구 가이드](etc/study/opencode/orca-migration-guide.md)를 참조한다.
 
@@ -314,15 +314,15 @@ interface OrcaConfig {
 - **열거 SSOT 는 디렉토리 목록**(`readdir`). 모델 목록은 파생 캐시 파일 없이 각 provider 의 `settings.json` 을 열거 시점에 `claude/model-parser.ts` 로 파싱해 얻는다(settings 부재/손상 시 기본 alias 목록으로 관용 열거).
 - **모델 파싱 규약**(`features/harnesses/claude/model-parser.ts`, 순수 함수): `env.ANTHROPIC_DEFAULT_{SONNET,OPUS,HAIKU,FABLE}_MODEL` 키가 있으면 그 alias 만 노출(=`isCustom`), 전무하면 sonnet/opus/haiku/fable 4개를 `model:null` 로 노출한다 — **그 4개 폴백은 노출 목록이 끝내 빌 때만** 쓴다(`env.ANTHROPIC_MODEL` 만 있어도 폴백하지 않는다; 목록에 들어가지 않는 top-level `model` 은 폴백을 막지 못한다). `[1m]` 접미사는 분리해 `oneMillionContext` 로 보존하며 **모델 동일성 판정은 `(모델명, 1M)` 한 쌍**이다 — `X` 와 `X[1m]` 은 서로 다른 실행 대상이라 둘 다 노출된다. `env.ANTHROPIC_MODEL` 은 **노출 목록에도 더한다**(중복이면 추가하지 않는다); top-level `model` 은 default 선정에만 쓴다. default 는 그 명시 모델(`env.ANTHROPIC_MODEL`>`model`)·alias 폴백(sonnet→haiku→opus→fable)을 노출 목록 안에서 평가해 **정확히 1개** 부여한다. `model:null` 항목은 SDK 가 bare alias 를 해석한다(모델명 추측 금지). 같은 규칙을 runtime 카탈로그(`runtime-catalog.ts`)가 `runtimeEnv.ANTHROPIC_MODEL` 로 공유한다.
 - provider key 는 `${adapter}-${provider}`(0010 규약 유지, 디렉토리 이름 = provider, `[A-Za-z0-9_-]` 제한). 중복은 디렉토리 구조상 불가능하다.
-- 최초 부팅 시 `anthropic/settings.json`(`{"env":{}}`)을 스캐폴드한다(`features/extensions/scaffold.ts`, 멱등 — 기존 파일 불가침).
+- 최초 부팅 시 `anthropic/settings.json`(`{"env":{}}`)을 스캐폴드한다(`features/extensions/claude/scaffold.ts`, 멱등 — 기존 파일 불가침).
 - provider settings.json 은 **dist 로 배포하지 않는다** — query flag(`options.settings`)로 주입한다(아래 "런타임 주입", standardization.md §5.1 예외). skill·mcp 는 `dist/<engine>/plugins/orcinus-orca/{skills,.mcp.json}` plugin 패키지로 배포해 `options.plugins` 로 로드한다(standardization.md §5.1·§5.2).
 
-**런타임 주입 (0117 현행)**: 턴/completion 의 `query()` 는 `settingSources: ['project','local']` 로 실행한다(`claude-adapt.ts` `adaptSettingSources`) — 사용자 전역 `~/.claude/settings.json` 은 상속하지 않고, 사용자 `~/.claude/skills` 만 wrapper plugin 으로 전달한다([adapters.md](arch/backend/adapters.md) §1.3). provider settings 는 `adapters/claude-settings.ts` 가 파일을 flat-read 해 **verbatim** 으로 flag 레이어(`options.settings`)에 주입한다. settings.json 의 escalating `permissions.defaultMode`(bypassPermissions·acceptEdits·auto)는 같은 파일의 `ESCALATING_MODES` 필터로 제거된다 — **의도된 동작**(권한은 Orca 의 canUseTool 게이트와 권한 모드가 담당). `disallowedTools` 는 `['WebSearch']` 하나로 대화의 WebSearch 를 차단한다(`claude.ts`). 해석·캐시는 `features/harnesses/settings.ts` 의 `HarnessSettingsService`(mtime 캐시, deploy 후 무효화)가 소유한다.
+**런타임 주입 (0117 현행)**: 턴/completion 의 `query()` 는 `settingSources: ['project','local']` 로 실행한다(`claude/adapt.ts` `adaptSettingSources`) — 사용자 전역 `~/.claude/settings.json` 은 상속하지 않고, 사용자 `~/.claude/skills` 만 wrapper plugin 으로 전달한다([adapters.md](arch/backend/adapters.md) §1.3). provider settings 는 `adapters/claude/settings.ts` 가 파일을 flat-read 해 **verbatim** 으로 flag 레이어(`options.settings`)에 주입한다. settings.json 의 escalating `permissions.defaultMode`(bypassPermissions·acceptEdits·auto)는 같은 파일의 `ESCALATING_MODES` 필터로 제거된다 — **의도된 동작**(권한은 Orca 의 canUseTool 게이트와 권한 모드가 담당). `disallowedTools` 는 `['WebSearch']` 하나로 대화의 WebSearch 를 차단한다(`claude/adapter.ts`). 해석·캐시는 `features/harnesses/common/settings.ts` 의 `HarnessSettingsService`(mtime 캐시, deploy 후 무효화)가 소유한다.
 
 주입 채널은 settings 와 subprocess env **두 레이어**다(handoff 0028 — provider settings == `~/.claude/settings.json`):
 
 - **settings(env 포함) → `options.settings`(flag 레이어, `--settings` 동등)에 인라인 JSON 문자열**로 넣는다. SDK 의 `Options.settings` 는 d.ts 상 `string | Settings` 지만 **런타임 transport 는 값을 직렬화 없이 CLI argv 에 그대로 push** 한다(0.3.143~0.3.175 확인). 따라서 객체를 넘기면 spawn 이 `"[object Object]"` 로 강제 변환해 settings 가 적용되지 않으므로 `JSON.stringify` 한 문자열을 넘긴다(CLI `--settings` 는 "JSON 파일 경로 또는 인라인 JSON 문자열" 을 허용 — cli-reference.md). 사용자 전역 settings 를 상속하지 않으므로 이 flag settings 가 앱 환경구성의 settings 원천이다.
-- **턴 env → `options.env`(subprocess env)**: `adapters/harness-config.ts` 가 orcinus-orca.json 앱 env · Harness 실행 구성 overlay([auth.md](arch/backend/auth.md) §6) · 배포 spawn env 주입점(`app/deployment/spawn-env.ts`) · 에이전트 종류별 env(`SessionAdapter.agentSpawnEnv`)를 조립한다. provider settings 의 env 는 settings 레이어로 흐르므로 여기엔 없다.
+- **턴 env → `options.env`(subprocess env)**: `adapters/common/harness-config.ts` 가 orcinus-orca.json 앱 env · Harness 실행 구성 overlay([auth.md](arch/backend/auth.md) §6) · 배포 spawn env 주입점(`app/deployment/spawn-env.ts`) · 에이전트 종류별 env(`SessionAdapter.agentSpawnEnv`)를 조립한다. provider settings 의 env 는 settings 레이어로 흐르므로 여기엔 없다.
 
 > **argv 노출 트레이드오프 (handoff 0028 — 0015/0018 폐기)**: `options.settings` 는 argv 로 push 되므로 env(평문 auth key 포함)가 same-user process list 에 노출된다. 이는 "앱 환경구성이 settings 를 소유한다"는 요구를 위해 수용한다(Claude Code `--settings` 와 동일 특성). 0015/0018 의 env↛argv 분리(`splitProviderSettings`·branded 타입 `ArgvSafeSettings`/`SubprocessEnv`·음성 타입 테스트)와 Orca 고유 `${VAR}` 확장·secret-store 토큰 주입은 제거했다(security.md §1.4). 0015/0018 문서는 historical 보존.
 
@@ -382,11 +382,11 @@ for await (const msg of q) yield claudeToNormalized(msg); // SDKMessage → Norm
 
 **첫 응답에서 sessionId 추출**:
 - 첫 SDKMessage 가 `SDKSystemMessage(subtype: 'init')` — 그 `session_id` 필드 추출
-- 현행 구현은 `session.updated` 등 `NormalizedEvent`로 정규화한다 ([claude-map.ts](../app/src/main/adapters/claude-map.ts), TRD §6.2).
+- 현행 구현은 `session.updated` 등 `NormalizedEvent`로 정규화한다 ([claude-map.ts](../app/src/main/adapters/claude/map.ts), TRD §6.2).
 - Renderer 가 받아서 `state.sessionId` 에 저장
 
 **인증 만료 감지**:
-- `adapters/error-classifier.ts` 가 SDK 오류의 `401` / `OAuth` / `expired` 패턴을 `ClassifiedError{ category: 'auth_error' }` 로 분류한다(§6.6)
+- `adapters/claude/error-classifier.ts` 가 SDK 오류의 `401` / `OAuth` / `expired` 패턴을 `ClassifiedError{ category: 'auth_error' }` 로 분류한다(§6.6)
 - UI: AuthExpiredModal — `claude /login` 명령 카피 버튼 + 새 대화 권유
 
 **환경변수**:
@@ -394,7 +394,7 @@ for await (const msg of q) yield claudeToNormalized(msg); // SDKMessage → Norm
 | 변수 | 값 | 용도 |
 |---|---|---|
 | `HOME` | 사용자 홈 디렉토리 | SDK 가 `~/.claude` 의 OAuth/API 자격증명 자동 사용 + 세션 jsonl 저장 (`~/.claude/projects/<cwd>/`) |
-| 턴 env | `adapters/harness-config.ts` 조립 결과 | 앱 env · Harness overlay · 배포 spawn env · 종류별 env(§6.8) — host-managed provider 표식(`CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST`)도 여기서 싣는다 |
+| 턴 env | `adapters/common/harness-config.ts` 조립 결과 | 앱 env · Harness overlay · 배포 spawn env · 종류별 env(§6.8) — host-managed provider 표식(`CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST`)도 여기서 싣는다 |
 
 PATH 의존성 (npm 글로벌 bin) 은 폐기 — SDK 의 `optionalDependencies` 가 platform binary 를 패키지 내부에서 해소한다.
 
@@ -509,7 +509,7 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - ~~(anchor) 멀티 세션 / 과거 대화 목록~~ — **구현 완료** (세션별 SessionRuntime + 사이드바 세션 목록 + FTS 검색 — runtime-ipc.md §1). 비활성 세션 표시는 nav 세션 행 상태 아이콘(0249·0254)으로 구현했고 세션 탭은 두지 않는다.
 - ~~(anchor) 재시작 재개~~ — **구현 완료** (`lastSessionId` 부트 복원 — BootRedirector).
 - ~~(anchor) Zustand 전환~~ — **구현 완료 (0008/0013)** — feature별 store + chat `sessions: Record` 외피 + 외부 dispatch(`receive(ev)`). 상세 [arch/frontend/state.md](arch/frontend/state.md) §1.
-- ~~(anchor) 로컬 DB (Phase 3+)~~ — **구현 완료** (better-sqlite3, `infra/db/migrations/`, DB=SSOT). 상세 [arch/backend/persistence.md](arch/backend/persistence.md).
+- ~~(anchor) 로컬 DB (Phase 3+)~~ — **구현 완료** (better-sqlite3, `infra/db/migrations/`, native 원본 + Orca 보관 DB). 상세 [arch/backend/persistence.md](arch/backend/persistence.md).
 - **Artifact 게시·보관** — 모델의 `publish_artifact` 호출로 HTML/Markdown·텍스트/코드·이미지를 `~/.config/orcinus-orca/artifacts/<fileId>/<filename>`에 보관한다. 개발 파일은 `.dev` 하위에 분리한다. DB는 파일 메타데이터와 세션별 게시 참조를 가지며 대화 삭제로 파일을 지우지 않는다. 파일 소실 시 게시 기록을 유지하고 파일 없음으로 표시한다. 출력 목록과 transcript 카드에서 우측 뷰어를 열어 미리보기·줄번호 코드·복사·다운로드를 사용한다. HTML은 격리된 정적 문서로 표시한다. 상세 [arch/backend/persistence.md](arch/backend/persistence.md), [렌더링](arch/frontend/rendering.md).
 - ~~(anchor) safeStorage 자격증명~~ — **구현됨**: Auth Grant → vault(0181·0188)가 LLM 게이트웨이·사내 서비스·MCP `${BINDING:}` 자격증명을 소유한다. [arch/backend/security.md](arch/backend/security.md) §1.4.
 - ~~(anchor) 추가 IPC 도메인 (Phase 3+/Future)~~ — `session`·`project`·`search`·`mcp`·`cost`·`update` 등 대부분 도입 완료(IPC_CONTRACT §2). 잔여 예약은 IPC_CONTRACT §2.14.
@@ -521,7 +521,7 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 
 ### 단위 테스트 (Vitest)
 
-- **어댑터**: `NormalizedEvent` 정규화 (`claude-map.ts` — SDKMessage→NormalizedEvent), 에러 감지 (auth.expired 패턴, SDK throw 처리)
+- **어댑터**: `NormalizedEvent` 정규화 (`claude/map.ts` — SDKMessage→NormalizedEvent), 에러 감지 (auth.expired 패턴, SDK throw 처리)
 - **Reducer**: `chatReducer` 액션별 상태 전이 정확성 (parts/ask/permission 계열 스위트)
 - **IPC 검증**: zod 스키마 (SendChatMessage, Settings, InstallStatus 등 — `protocol.*.test.ts`)
 - **런타임/기능 슬라이스**: scheduler(cron 검증·겹침 방지)·usage(집계/한도 파생)·updater(재시작 게이트)·boot-report 등 — 각 슬라이스 동거 `*.test.ts`
@@ -569,7 +569,7 @@ Playwright 는 아직 devDependency 로 설치되지 않았다(§4). 도입 시 
 ### 6.8.1 Agent/model 선택 (0010-agent-model-select → 0014 원천 교체)
 
 - provider 환경은 provider key(`${adapter}-${provider}`)로 식별한다. 원천은 0014 부터 orcinus-orca.json agents[] 가 아니라 **`sources/settings/<adapter>/` 디렉토리 트리**다 (§6.8) — 중복 키는 구조상 불가능.
-- Composer 는 `orca:agent:list` DTO(`key`, `adapter`, `provider`, `models`, `supported`)로 `${providerKey}/${alias}` 모델 메뉴를 구성한다. `models` 항목은 `{alias, model, isCustom, oneMillionContext, isDefault}`(`AgentModelView`) 이며 settings.json 파싱 결과다. wire/state 는 표시 문자열이 아니라 `providerKey` 와 `modelFamily` 구조 필드를 사용한다. **`modelFamily` = 모델 선택 식별자 = SDK 에 넘기는 모델 문자열**(`model ?? alias` + 1M 이면 `[1m]`)이고 규칙은 `shared/model-identity.ts` 하나가 갖는다 — main(`features/harnesses/models.ts`)과 renderer(`composer/modelSelection.ts`)가 위임한다.
+- Composer 는 `orca:agent:list` DTO(`key`, `adapter`, `provider`, `models`, `supported`)로 `${providerKey}/${alias}` 모델 메뉴를 구성한다. `models` 항목은 `{alias, model, isCustom, oneMillionContext, isDefault}`(`AgentModelView`) 이며 settings.json 파싱 결과다. wire/state 는 표시 문자열이 아니라 `providerKey` 와 `modelFamily` 구조 필드를 사용한다. **`modelFamily` = 모델 선택 식별자 = SDK 에 넘기는 모델 문자열**(`model ?? alias` + 1M 이면 `[1m]`)이고 규칙은 `shared/model-identity.ts` 하나가 갖는다 — main(`features/harnesses/common/models.ts`)과 renderer(`composer/modelSelection.ts`)가 위임한다.
 - 세션은 adapter(`sessions.backend`) 단위로 잠기며 같은 adapter 안에서는 provider/model family 를 턴 단위로 전환할 수 있다. `sessions.provider_key` 는 바인딩 제약이 아니라 마지막 사용 provider 기록이다. 턴 해석 폴백: payload providerKey(어댑터 일치 시) → 세션 provider_key → 기본 provider(anthropic 우선, 없으면 이름순 첫 디렉토리).
 - provider 자격증명은 settings.json `env`(사용자 직접 기입, 0028) 또는 Auth Grant(vault — Harness 실행 구성 overlay)가 소유한다. 구 secret-store `provider:${provider key}` 토큰 경로는 폐지됐다(security.md "Agent provider auth token"). DB/renderer/agent list DTO 는 토큰·env 를 노출하지 않는다.
 - Composer의 `@` 자동완성은 main이 Plugin source에만 싣는 cached `tools`가 비어 있지 않은 provider를 내장 Plugin 후보로 투영한다. `catalog`는 gate·harness·plugin·usage의 공용 표시 입력이므로 후보 판별에 사용하지 않는다. root plain 토큰에서는 경로 그룹을 먼저, Plugin 그룹을 마지막에 표시하고, slash/quoted 토큰에서는 기존 파일 경로 그룹만 표시한다. 입력 전체 삭제로 token이 사라진 뒤 같은 Composer에서 다시 `@`를 입력하면 dismissal과 active index를 초기화해 팝업을 다시 연다. 선택값과 decoration은 표시 label이 아닌 `ProviderInfo.id`를 사용하며 인증 상태(`none`·`valid`·`expired`·`unknown`)는 후보 자격을 바꾸지 않는다.

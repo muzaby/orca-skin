@@ -215,6 +215,7 @@ function toolCallFromPart(
   return {
     toolUseId: p.toolRunId,
     name: p.toolName,
+    ...(p.providerTool ? { providerTool: p.providerTool } : {}),
     input: p.args,
     ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {}),
     // 실행 전 편집 미리보기(0229) — 라이브 파트에만 있다. 영속 파트에는 없으므로 재로드 후에는

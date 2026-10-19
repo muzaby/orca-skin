@@ -42,17 +42,17 @@ SRT release `0.0.75`다. 상류 소스 확인과 Windows 배포본의 실제 실
 | 확인한 사실 | 설계 영향 | 근거 |
 |---|---|---|
 | Claude SDK에 custom spawn이 있다 | `query()`와 callback을 Main에 둘 수 있다 | [로컬 SDK 타입](../../../../app/node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts) |
-| Claude 채널은 장수명 입력 스트림이다 | 턴 완료마다 sandbox를 해제하지 않는다 | [Claude adapter](../../../../app/src/main/adapters/claude.ts) |
+| Claude 채널은 장수명 입력 스트림이다 | 턴 완료마다 sandbox를 해제하지 않는다 | [Claude adapter](../../../../app/src/main/adapters/claude/adapter.ts) |
 | OpenCode 기본 helper는 서버를 직접 spawn한다 | 후속 adapter는 SRT로 서버를 시작한 뒤 client만 연결한다 | [OpenCode SDK 조사 §8](../../../opencode-sdk-spec.md#8-설정모델인증mcp프로세스) |
 | SRT manager의 config·proxy·정리 상태는 모듈 전역이다 | 서로 다른 정책은 같은 manager를 재초기화하며 공유하지 않는다 | [S1] |
 | Windows의 per-exec allowRead/allowWrite는 지원하지 않는다 | 실행 전에 불변 정책을 확정한다 | [S1] |
 | Windows wrap 결과의 env는 바깥 broker용이다 | 실제 backend 환경을 별도로 전달해야 한다 | [S1] |
 | SDK custom spawn은 동기, SRT wrapping은 비동기다 | 준비 단계와 지연 시작을 지원하는 프로세스 핸들이 필요하다 | 로컬 SDK 타입·[S1] |
-| 현재 guard는 Bash를 검사하지 않는다 | guard를 유지해도 OS 격리 부족을 보완했다고 말할 수 없다 | [workspace guard](../../../../app/src/main/adapters/workspace-guard.ts) |
-| MCP에는 Main 내부 handler도 있다 | 모든 MCP를 sandbox 자식 프로세스로 취급하지 않는다 | [runtime tools](../../../../app/src/main/adapters/claude-runtime-tools.ts) |
+| 현재 guard는 Bash를 검사하지 않는다 | guard를 유지해도 OS 격리 부족을 보완했다고 말할 수 없다 | [workspace guard](../../../../app/src/main/adapters/claude/workspace-guard.ts) |
+| MCP에는 Main 내부 handler도 있다 | 모든 MCP를 sandbox 자식 프로세스로 취급하지 않는다 | [runtime tools](../../../../app/src/main/adapters/claude/runtime-tools.ts) |
 
 `security.md`의 사용자 settings 상속 설명 일부는 현재 코드와 다르다. 이번 설계는 실제
-[adaptSettingSources](../../../../app/src/main/adapters/claude-adapt.ts)의 `['project', 'local']`을 기준으로 한다.
+[adaptSettingSources](../../../../app/src/main/adapters/claude/adapt.ts)의 `['project', 'local']`을 기준으로 한다.
 기존 코드에서 Node·Python·uv·Git 전체를 Orca가 관리 배포한다는 근거는 찾지 못했다.
 Codex 개발 환경에 설치된 런타임을 Orca 제품 자산으로 간주하지 않는다.
 

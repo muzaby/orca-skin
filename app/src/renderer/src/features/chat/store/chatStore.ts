@@ -5,7 +5,7 @@ import {
   parseAgentKind,
   type AgentKind
 } from '../../../../../shared/agent-kind'
-import { agentSessionPolicy } from '../../../../../shared/agent-session-policy'
+import { sessionContextPolicy } from '../../../../../shared/agent-session-policy'
 import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
 import {
@@ -48,9 +48,9 @@ import {
 } from '../../../../../shared/permission-mode'
 import { continuityLangFor, continuityTitle } from '../../../../../shared/continuity-lang'
 import { rightPanelTarget, type RightPanelTileId } from '../lib/rightPanelTiles'
-import type { BranchSnapshot } from '../components/composer/branchChipState'
-import { wireDiffRequirementAnchor } from '../components/rightpanel/diffRequirements'
-import type { DiffComparison } from '../components/rightpanel/diffComparison'
+import type { BranchSnapshot } from '../harnesses/common/composer/branchChipState'
+import { wireDiffRequirementAnchor } from '../harnesses/common/rightpanel/diffRequirements'
+import type { DiffComparison } from '../harnesses/common/rightpanel/diffComparison'
 import { forgetArtifacts, refreshArtifactList } from './artifactStore'
 import {
   ingestBackgroundEvent,
@@ -73,8 +73,8 @@ import { backgroundCallKeyForToolUse } from '../lib/canonicalBackground'
 //               함수로 유지하고 store 가 키 라우팅을 담당한다(테스트/불변식 보존).
 //   live      : 스트리밍 transient 버퍼(text·reasoning). 델타는 reducer 에 닿지 않는다.
 //
-// 구 sessionCache(snapshot Map)는 sessions Record 가 흡수했다 — 본 적 있는 세션 재진입은
-// IPC 없이 activeKey 전환만으로 복원된다(LRU cap 은 Future Scope).
+// 구 sessionCache(snapshot Map)는 sessions Record 가 흡수했다. 재진입은 캐시를 먼저 표시하고
+// native 이력 재조회를 요청한다. 실행 중 도착한 응답은 live 상태를 덮지 않는다.
 
 export interface LiveTurnState {
   // 스트리밍 중 누적 텍스트(구 ChatState.pendingDelta).
@@ -117,7 +117,11 @@ export interface SessionEntry {
   live: LiveTurnState
   subagentMeta: Record<string, SubagentMetaState>
   pendingSteer?: PendingSteerState[]
-  panelReveal?: { id: RightPanelTileId }
+  panelReveal?: {
+    id: RightPanelTileId
+    detail?: { id: 'subagent'; selectedId: string }
+    origin?: HTMLElement
+  }
 }
 
 interface QueuedNewChat {
@@ -164,6 +168,30 @@ let cwdCache: string | null = null
 // 컴포저 랜딩이 열 종류 — 부트스트랩이 설정에서 1회 시드한다(cwdCache 동형, 0228 D-004).
 // 시드 전 기본값은 첫 실행 고정값이라, 시드가 늦거나 실패해도 랜딩이 `code` 로 번쩍이지 않는다.
 let landingAgentKind: AgentKind = DEFAULT_LANDING_AGENT_KIND
+let landingBackend: import('../../../../../shared/ipc').Backend = 'claude'
+
+export function seedLandingBackend(
+  backend: import('../../../../../shared/ipc').Backend | null
+): void {
+  landingBackend = backend ?? 'claude'
+  setState((state) => ({
+    sessions: Object.fromEntries(
+      Object.entries(state.sessions).map(([key, entry]) => [
+        key,
+        !entry.session.sessionId && !entry.session.agentKindLocked
+          ? {
+              ...entry,
+              session: {
+                ...entry.session,
+                backend: landingBackend,
+                agentKind: landingBackend === 'opencode' ? 'code' : entry.session.agentKind
+              }
+            }
+          : entry
+      ])
+    )
+  }))
+}
 
 // 삭제된 프로젝트 ID는 현재 renderer 수명 동안 기억한다. 지각 조회/이벤트의 본문과
 // 실행 정보는 수용하되, DB가 해제한 프로젝트 연결만 다시 붙지 않게 한다.
@@ -207,6 +235,8 @@ function freshEntry(projectId: string | null = null, cwd?: string | null): Sessi
   return {
     session: withoutDeletedProject({
       ...withLandingAgentKind(initialChatState, landingAgentKind),
+      backend: landingBackend,
+      ...(landingBackend === 'opencode' ? { agentKind: 'code' as const } : {}),
       cwd: cwd ?? cwdCache,
       pendingProjectId: projectId
     }),
@@ -248,6 +278,7 @@ function patchEntry(key: string, update: (entry: SessionEntry) => SessionEntry):
 
 const permissionUpdates = new Map<string, { request: number; settlement: number }>()
 let permissionUpdateSequence = 0
+const sessionLoads = new Map<string, { entry: SessionEntry; liveChanged: boolean }>()
 
 function dispatchTo(key: string, action: ChatAction): void {
   if (
@@ -287,7 +318,7 @@ function dispatchActive(action: ChatAction): void {
 
 function revealRightPanelTile(id: RightPanelTileId): void {
   patchEntry(getState().activeKey, (entry) => {
-    const target = rightPanelTarget(id, entry.session.agentKind)
+    const target = rightPanelTarget(id, entry.session.agentKind, entry.session.backend)
     return target && entry.session.rightPanelTiles.some((column) => column.tiles.includes(target))
       ? { ...entry, panelReveal: { id: target } }
       : entry
@@ -532,6 +563,7 @@ function promotePendingNewChat(sessionId: string): boolean {
 
 // 엔트리 제거. 활성 엔트리였다면 깨끗한 새 채팅으로 전환한다.
 function dropSession(sessionId: string, fallbackProjectId: string | null = null): void {
+  sessionLoads.delete(sessionId)
   forgetBackgroundState(sessionId)
   permissionUpdates.delete(sessionId)
   forgetArtifacts(sessionId)
@@ -846,8 +878,7 @@ function receive(ev: NormalizedEvent): void {
         }
       }
       // 마지막 활성 세션 영속화 — 백그라운드 턴이 lastSessionId 를 가로채지 않도록 활성만.
-      // 코어 중립(0016): chat store 는 backend 를 모른다(이벤트에 provider 없음·레이어 경계상
-      // backend store 의존 불가). lastBackend 영속은 backend store 소관 — 여기선 세션만 기록한다.
+      // 재열기용 세션만 기록한다. 새 대화의 lastBackend는 모델 선택 시 setModel이 저장한다.
       if (key === getState().activeKey) {
         void settingsApi.set({ lastSessionId: ev.sessionId })
       }
@@ -877,6 +908,10 @@ const coalescer = createEventCoalescer(
 
 // IPC 인바운드 이벤트 1개 라우팅(코얼레서 경유). ChatProvider 부트스트랩이 구독을 연결한다.
 export function ingestChatEvent(ev: NormalizedEvent): void {
+  // rAF를 기다리는 델타도 이미 수신한 live 데이터다. load가 먼저 완료되어도 덮지 않는다.
+  const key = 'sessionId' in ev && ev.sessionId ? ev.sessionId : getState().activeKey
+  const loading = sessionLoads.get(key)
+  if (loading) loading.liveChanged = true
   coalescer.push(ev)
 }
 
@@ -893,7 +928,7 @@ function send(
 ): boolean {
   const trimmed = text.trim()
   const cur = getActiveChatSession()
-  if (trimmed === '') return false
+  if (trimmed === '' || cur.loadingSession) return false
   if (!requirementsBelongToCurrentSession(requirements, cur.sessionId)) return false
   // 발신 앵커 정규화는 **진입에서 한 번**이다 — 아래 세 발신 지점(새 세션 payload · 예약
   // 항목 · resume payload)이 각자 `.map` 을 걸고 있었고, 새 발신 경로가 하나 빠뜨리면 앵커가
@@ -908,6 +943,9 @@ function send(
     const requestId = crypto.randomUUID()
     const payload: SendChatMessage = {
       agentKind: cur.agentKind,
+      ...(cur.backend ? { backend: cur.backend } : {}),
+      ...(cur.harnessAgent ? { harnessAgent: cur.harnessAgent } : {}),
+      ...(cur.modelVariant ? { modelVariant: cur.modelVariant } : {}),
       sessionId: null,
       projectId: cur.pendingProjectId,
       text: trimmed,
@@ -1040,6 +1078,9 @@ function send(
   void chatApi
     .send({
       agentKind: cur.agentKind,
+      ...(cur.backend ? { backend: cur.backend } : {}),
+      ...(cur.harnessAgent ? { harnessAgent: cur.harnessAgent } : {}),
+      ...(cur.modelVariant ? { modelVariant: cur.modelVariant } : {}),
       sessionId: cur.sessionId,
       projectId: null,
       text: trimmed,
@@ -1073,7 +1114,7 @@ async function addSessionDirectory(
   const session = state.sessions[target.key]?.session
   if (!session || session.sessionId !== target.sessionId) return { ok: false, reason: 'not-found' }
   if (state.activeKey !== target.key) return { ok: false, reason: 'not-found' }
-  if (!agentSessionPolicy[session.agentKind].allowDirectoryUpdates)
+  if (!sessionContextPolicy(session.agentKind, session.backend).allowDirectoryUpdates)
     return { ok: false, reason: 'not-work' }
   if (session.inflight || session.listening || session.loadingSession)
     return { ok: false, reason: 'busy' }
@@ -1389,7 +1430,7 @@ function continuityDraftSession(src: ChatState, kind: 'fork' | 'handoff'): ChatS
 function startForkDraft(): boolean {
   const s = getState()
   const src = s.sessions[s.activeKey]?.session
-  if (!src?.sessionId || src.loadingSession) return false
+  if (!src?.sessionId || src.loadingSession || src.backend === 'opencode') return false
   pruneUnsentContinuityDrafts(src.sessionId)
   const draftKey = `draft:${crypto.randomUUID()}`
   const draft: SessionEntry = {
@@ -1438,7 +1479,8 @@ function startHandoff(): boolean {
   // 가드: 확정 세션 + 턴 비진행 + 사용자 턴 2회 이상(Composer 비활성 가드와 이중 방어).
   // 0149 — listen 대기(main 의 턴-후 루프 진행 중)도 busy 로 센다(sessionBusy 단일 정의):
   // 백그라운드 서브에이전트를 기다리는 동안 핸드오프가 열리던 구멍을 막는다.
-  if (!src?.sessionId || sessionBusy(src) || src.loadingSession) return false
+  if (!src?.sessionId || sessionBusy(src) || src.loadingSession || src.backend === 'opencode')
+    return false
   if (src.messages.filter((m) => m.role === 'user').length < 2) return false
   // 다른 새-채팅 전송이 pending 이면 조용한 큐 대기 대신 거부 — silent stuck 방지(r2).
   if (s.pendingNewChatKey != null) return false
@@ -1483,53 +1525,114 @@ function startHandoff(): boolean {
   return true
 }
 
-// 사이드바 항목 클릭 / 부팅 자동 복원 공통. 엔트리가 이미 있으면(본 적 있는 세션)
-// IPC 없이 activeKey 전환만 — 구 메모리 캐시 hit 와 동일한 효과. 같은 세션 재클릭은 no-op.
+// 사이드바 항목 클릭 / 부팅 자동 복원 공통. 캐시가 있어도 재열기는 native 이력을 다시 읽되
+// 조회 중 본문·composer·패널을 유지한다. 이미 보고 있는 세션 재클릭은 no-op.
 // title 은 사이드바 메타에서 가져오는 낙관적 값 — 부팅 자동 복원 경로에선 생략되면
 // 도착한 LoadedSession.title 로 채워진다.
 async function loadSession(sessionId: string, title: string | null = null): Promise<void> {
-  const s = getState()
+  let s = getState()
   const existing = s.sessions[sessionId]
   if (s.activeKey === sessionId && existing && !existing.session.loadingSession) return
-
-  if (existing && !existing.session.loadingSession) {
+  coalescer.flush()
+  s = getState()
+  const cached = s.sessions[sessionId]
+  const hasCachedHistory = cached && !cached.session.loadingSession
+  if (hasCachedHistory) {
     setState({ activeKey: sessionId })
     void settingsApi.set({ lastSessionId: sessionId })
-    return
+  } else if (cached) {
+    setState({ activeKey: sessionId })
+  } else {
+    const loadingSession = chatReducer(
+      { ...initialChatState, cwd: cwdCache },
+      { type: 'START_LOAD_SESSION', sessionId, title }
+    )
+    setState((st) => ({
+      sessions: {
+        ...st.sessions,
+        [sessionId]: {
+          session: loadingSession,
+          live: EMPTY_LIVE,
+          subagentMeta: EMPTY_SUBAGENT_META
+        }
+      },
+      activeKey: sessionId
+    }))
   }
+  const request = { entry: getState().sessions[sessionId], liveChanged: false }
+  sessionLoads.set(sessionId, request)
+  const isCurrent = (): boolean =>
+    sessionLoads.get(sessionId) === request &&
+    !!getState().sessions[sessionId] &&
+    getState().sessions[sessionId].session.messages === request.entry.session.messages &&
+    getState().sessions[sessionId].live === request.entry.live &&
+    !request.liveChanged
 
-  // 미보유 세션 — 로딩 엔트리를 만들고 IPC 로 채운다. 응답은 키로 라우팅되므로
-  // 사용자가 도착 전에 다른 세션으로 이동해도 올바른 엔트리에 적재된다.
-  const loadingSession = chatReducer(
-    { ...initialChatState, cwd: cwdCache },
-    { type: 'START_LOAD_SESSION', sessionId, title }
-  )
-  setState((st) => ({
-    sessions: {
-      ...st.sessions,
-      [sessionId]: { session: loadingSession, live: EMPTY_LIVE, subagentMeta: EMPTY_SUBAGENT_META }
-    },
-    activeKey: sessionId
-  }))
-
+  let refreshScheduled = false
   try {
     const session = await sessionApi.load(sessionId)
+    if (!isCurrent()) return
     if (!session) {
+      const wasActive = getState().activeKey === sessionId
       dropSession(sessionId)
-      void settingsApi.set({ lastSessionId: null })
+      if (wasActive) void settingsApi.set({ lastSessionId: null })
       return
     }
-    dispatchTo(sessionId, { type: 'LOAD_SESSION', session })
+    // Cached live state is authoritative even when its next event has not arrived yet.
+    if (hasCachedHistory && sessionBusy(request.entry.session)) return
+    dispatchTo(sessionId, { type: 'LOAD_SESSION', session, preserveLocalState: !!hasCachedHistory })
+    request.entry = getState().sessions[sessionId]
+    refreshScheduled = true
+    // Two frame callbacks give React a paint opportunity before native I/O starts.
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        void refresh()
+      })
+    )
     void refreshBackgroundState(sessionId)
-    void settingsApi.set({ lastSessionId: session.id })
+    if (getState().activeKey === sessionId) void settingsApi.set({ lastSessionId: session.id })
   } catch (error) {
-    dropSession(sessionId)
+    if (!isCurrent()) return
+    if (!hasCachedHistory) dropSession(sessionId)
     reportError({
       event: 'chat.session-load.failed',
       scope: 'chat',
       title: 'sessionOpenFailed',
       error: error
     })
+  } finally {
+    if (sessionLoads.get(sessionId) === request) {
+      if (!refreshScheduled) sessionLoads.delete(sessionId)
+      patchEntry(sessionId, (entry) =>
+        entry.session.loadingSession
+          ? { ...entry, session: { ...entry.session, loadingSession: false } }
+          : entry
+      )
+    }
+  }
+
+  async function refresh(): Promise<void> {
+    const current = (): boolean =>
+      isCurrent() &&
+      getState().activeKey === sessionId &&
+      !sessionBusy(getState().sessions[sessionId].session)
+    try {
+      if (!current()) return
+      const result = await sessionApi.refresh(sessionId)
+      if (!current()) return
+      if (result.status === 'updated') {
+        dispatchTo(sessionId, {
+          type: 'LOAD_SESSION',
+          session: result.session,
+          preserveLocalState: true
+        })
+      }
+    } catch {
+      // Native retention or temporary unavailability must not turn a successful DB load into an error.
+      // Keep the archive; the next explicit send separately checks whether recovery is necessary.
+    } finally {
+      if (sessionLoads.get(sessionId) === request) sessionLoads.delete(sessionId)
+    }
   }
 }
 
@@ -1647,6 +1750,18 @@ function setModel(
   const beforeSession = getActiveChatSession()
   const before = beforeSession.permissionMode
   dispatchTo(key, { type: 'SET_MODEL', providerKey, modelFamily, modelAlias, adapter })
+  const selected = getState().sessions[key]?.session
+  if (selected?.backend && !selected.sessionId && selected !== beforeSession) {
+    landingBackend = selected.backend
+    void settingsApi.set({ lastBackend: selected.backend }).catch((error) =>
+      reportError({
+        event: 'chat.harness-preference.save-failed',
+        scope: 'chat',
+        title: 'saveFailed',
+        error
+      })
+    )
+  }
   if (
     getState().sessions[key]?.session.permissionMode !== before ||
     beforeSession.permissionModeError
@@ -1689,7 +1804,7 @@ function approvePlan(requestId: string): void {
   // 승인 = plan 모드 종료. 종류별 승인 목표로 칩을 전환 → 다음 턴이 plan 모드로 재진입하지
   // 않아 ExitPlanMode 재호출(단순 질문 시 계획 카드 재출현)을 막는다. 여기는 낙관적 UI 갱신이고,
   // SDK 세션 전환은 어댑터가 같은 allow 응답의 updatedPermissions 로 원자 처리한다
-  // (adapters/claude.ts) — 그래서 setPermissionMode() 처럼 별도 IPC 를 발행하지 않는다.
+  // (adapters/claude/adapter.ts) — 그래서 setPermissionMode() 처럼 별도 IPC 를 발행하지 않는다.
   dispatchTo(current.key, {
     type: 'SET_PERMISSION_MODE',
     mode: planApprovedMode(current.session.agentKind)
@@ -1763,6 +1878,8 @@ function denyTool(approvalId: string): void {
 // 안정 액션 묶음 — 모듈 상수라 컴포넌트가 deps/메모 걱정 없이 직접 import 하거나 props 로
 // 전달할 수 있다(컴포넌트는 selector / action 만 사용, state.md §1.3).
 export const chatActions = {
+  setOpenCodeTodoCollapsed: (collapsed: boolean): void =>
+    dispatchActive({ type: 'SET_OPENCODE_TODO_COLLAPSED', collapsed }),
   setAgentKind,
   send,
   sendSteerNow,
@@ -1791,6 +1908,8 @@ export const chatActions = {
   skipAsk,
   setPermissionMode,
   setModel,
+  setHarnessOptions: (options: { agent?: string; variant?: string }): void =>
+    dispatchActive({ type: 'SET_HARNESS_OPTIONS', ...options }),
   setEffort,
   approvePlan,
   revisePlan,
@@ -1874,9 +1993,28 @@ export const chatActions = {
   },
   selectSubagentTask: (toolRunId: string | null): void =>
     dispatchActive({ type: 'SELECT_SUBAGENT_TASK', toolRunId }),
-  openSubagentTask: (toolRunId: string): void => {
-    dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId })
-    revealRightPanelTile('subagent')
+  selectProcessTool: (toolRunId: string | null): void =>
+    dispatchActive({ type: 'SELECT_PROCESS_TOOL', toolRunId }),
+  openProcessTool: (toolRunId: string): void => {
+    dispatchActive({ type: 'OPEN_PROCESS_TOOL', toolRunId })
+    revealRightPanelTile('process')
+  },
+  closePanelDetail: (): void => {
+    patchEntry(getState().activeKey, (entry) =>
+      entry.panelReveal?.detail ? { ...entry, panelReveal: undefined } : entry
+    )
+  },
+  openSubagentTask: (toolRunId: string, origin?: HTMLElement): void => {
+    if (getState().sessions[getState().activeKey]?.session.backend === 'opencode') {
+      dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId })
+      patchEntry(getState().activeKey, (entry) => ({
+        ...entry,
+        panelReveal: { id: 'task', detail: { id: 'subagent', selectedId: toolRunId }, origin }
+      }))
+    } else {
+      dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId })
+      revealRightPanelTile('subagent')
+    }
     const sessionId = getState().sessions[getState().activeKey]?.session.sessionId
     const background = sessionId
       ? useBackgroundStore.getState().sessions[sessionId]?.state

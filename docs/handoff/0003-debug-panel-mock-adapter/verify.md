@@ -87,3 +87,116 @@ $ rg 'DebugPanel|Mock 모드|텍스트 스트리밍|useDebugMock|debugApi' out/r
 - **상태: PASS** — 인수 기준 18/18 기계 검증 충족, 게이트 4종(lint/typecheck/test/build) 통과, prod dead-code 제거 확인, 레이어 경계 위반 0.
 - INDEX `verify/PASS`, 다음 주체 `—`. `docs/PHASES.md` 표로 승격.
 - **사람 잔여(에이전트 판정 불가)**: `npm run dev` 시각 검증 — 시나리오별 카드 렌더 · plan reject 턴 중단 · "세션 동안 허용" 재전송 시 카드 미표시 · 슬라이더 90%+ → 컨텍스트 도넛/`nearCompaction` 경고. 제품 의도 부합 및 PR 머지 승인.
+
+---
+
+# V1-F 검증 — 공통 시스템 피드 디버그 확장 (2026-10-16)
+
+> 위 r1 판정(AC1~18 PASS)은 보존하고 재서술하지 않는다. 이 절은 plan `## 공통 시스템 피드 디버그 확장`의 Baseline V1-F만 판정한다.
+> 문장은 [`§산출물 문장 규칙`](../AGENTS.md)을 따른다.
+
+## F-메타
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 대상 커밋/range | `fe935835..7c1b8bac` (구현 `6ab1bd19` 코드 · `7c1b8bac` 기록) + CI 보완 `db2ff28e`(0232 r2.2) |
+| 구현 전 plan 기준 | `fe935835`(사용자 정정 반영 READY). 최초 READY `f7c94554` |
+| V mode / 유효 V | Baseline V: V1-F (과거 AC1~18은 회귀 기준, 합산 안 함) |
+| 검증 HEAD | `655fa0e0` (공유 브랜치 `origin/codex-opencode-harness`) |
+| 라운드 | 1 |
+| 상태 | **PASS** |
+| 자기 검증 여부 | 설계 Claude · 구현 Codex · 검증 Claude — 구현자 ≠ 검증자 |
+
+## F-0. 기준선 / plan validity
+
+- 기준선 성립: 예 — `git diff fe935835 7c1b8bac -- …/0003…/plan.md`의 삭제 줄은 메타 `상태` 1행뿐이다. Decision·AC·§10 변경 없음.
+- V mode: Baseline V1-F 유효. 4 pair 모두 REQUIRED, 기존 debug 동작 REGRESSION. §10 분모 2+1+1+1=5자리.
+- 등록 적대 증거: "번들 잔존 검사에만 의존하면 DEV 가드 제거 변이"(EP-F4) — 선택 이유 있음. 나머지는 직접 oracle.
+- 현재 변경 gate(관련 Vitest·readonly lint·typecheck·production build·문서·trailer)가 열거됐다. PLAN_GAP 없음.
+
+## F-1. 비판적 검토 — AC 전에
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| production 활성화 경로 | 없음 | getter가 `import.meta.env.DEV && visible`(`store/automaticFeedDebug.ts:8`) — 메모리 값이 남아도 false |
+| 전송·영속 부작용 | 없음 | 토글은 모듈 메모리만 바꾼다. 통합 테스트에서 `chatSend`·`settingsSet` 호출 0 |
+| 소비 경로 누락 | 없음 | `rg 'groupTurns\|groupExchanges\|projectTimeline\('` — 표시 소비자는 TranscriptView→두 Timeline 1경로 |
+| feature 교차 import | 없음 | app `OverlayLayer`가 chat의 section을 `DebugPanel` 슬롯에 주입. readonly ESLint 오류 0 |
+| 이중 가드 | 의도 | setter 가드 제거(M0003-04)는 green — getter가 정책을 소유하는 방어적 중복이며 번들에서는 DCE |
+
+## F-2. 등록 적대 증거·독립 변이 재측정
+
+변이 실행기: scratchpad `mut.mjs`(1변이씩 적용 → vitest JSON → 원본 bytes 복원·SHA256 대조). 실행 후 `git status` 깨끗함.
+
+| 변이 | 범위 | 결과 | 귀속 |
+|---|---|---|---|
+| M0003-01 section `if (!import.meta.env.DEV) return null` 제거 | section interaction + app integration | **red** 4/11 | EP-F4 등록(UI 가드) |
+| M0003-02 OverlayLayer DEV mount 제거 | app integration | **red** 3/9 | EP-F4 등록(UI 가드) |
+| M0003-03 getter DEV gate 제거 | state + integration | **red** 4/11 | EP-F1 등록(state 가드) |
+| M0003-01+02 동시 적용 후 `electron-vite build` | production 번들 | `data-debug-control` 파일 **0 → 1** | EP-F4 등록(번들 감도) |
+| M0003-04 setter DEV gate 제거 | state + integration | green | 독립 — 등가(getter가 정책 소유) |
+| M0003-05 초기값 true | state·section·integration | **red** 1/13 | 독립 — EP-F1 기본 off |
+| M0003-06 DebugPanel 슬롯 미렌더 | integration | **red** 3/9 | 독립 — EP-F3 |
+| M0003-07 OverlayLayer 슬롯 미전달 | integration | **red** 3/9 | 독립 — EP-F3 |
+| M0003-08 click handler가 같은 값 설정 | section + integration | **red** 4/11 | 독립 — EP-F2 |
+
+- 등록 변이 4/4 검출. 이전 라운드 red 변이 없음(V1-F 첫 검증) → 덮개 회귀 해당 없음.
+
+## F-3. V-pair closeout — `UT → IT → ST → AT`
+
+| Pair | 결과 | 자리별 직접 oracle 좌표 (`app/src/renderer/src/` 기준) | path / §10 |
+|---|---|---|---|
+| VP-F2 MD↔UT | PASS | `features/chat/store/automaticFeedDebug.test.ts:starts disabled, toggles in memory, and a fresh module starts disabled again` · `…:production refuses activation even when memory was previously enabled` | 메모리 state·DEV policy / EP-F1 2/2 |
+| VP-F3 AR↔IT | PASS | `features/chat/components/AutomaticFeedDebugSection.interaction.test.ts:updates the mounted native button through the actual memory subscription on each click` · `app/automaticFeedDebug.integration.test.ts:$backend/$agentKind toggles live and reloaded automatic bubbles without sending or changing history` | section click→구독 / EP-F2 1/1 · OverlayLayer→DebugPanel 슬롯→section / EP-F3 1/1 |
+| VP-F4 SD↔ST | PASS | 위 통합 테스트(live `message.committed`·`LOAD_SESSION`·빈 세션 렌더 후 재진입) · `…:$backend/$agentKind cannot expose feeds or the button in production` · 번들 검사 | 클릭·세션 왕복·production / EP-F4 1/1 |
+| VP-F1 R↔AT | PASS | 위 세 통합 케이스 ×3 하네스 경로(claude/code·claude/work·opencode/code) | AC-F1·AC-F2 |
+| REGRESSION 기존 debug | PASS | `main/adapters/claude/mock-scenarios.test.ts`(13)·`mock.test.ts`(4) 통과 · 검증자 임시 probe(통합 harness로 DEV 패널 렌더, `Mock 모드`·`로그`·`자동 피드 표시`·`테마`·`컬러 팔레트`·`레이아웃` 존재와 순서) 3/3 통과 후 파일 삭제 | 기존 Mock·로그·tweak 섹션 |
+
+- 좌표 실행 구간: 통합 테스트는 section을 **실제 구현을 호출하는 래퍼**로만 감싸 버튼 element를 포착한다(대체 아님). mock한 것은 backend·sessions·update·providers·ConfirmDialogHost·theme context·virtualizer로 이번 path 밖이다.
+- 구현 보고의 좌표는 파일+서술 형식이라 위 테스트명은 검증자가 다시 지정했다.
+- 분모 재측정: EP-F1 2 + F2 1 + F3 1 + F4 1 = **5/5**.
+
+### AT / AC 합계
+
+| AC | 결과 | 증거 |
+|---|---|---|
+| AC-F1 | ✅ | 실제 버튼 handler → 두 Timeline에서 system-reminder(명시·구형)·tagged·plain 자동 피드 표시/숨김, 직접 XML 입력·assistant 보존, 전송 0 |
+| AC-F2 | ✅ | 초기 false·모듈 재생성 false·세션 왕복 유지·production 버튼 0·메모리 true여도 getter false |
+
+- 합계: `✅ 2 · ⚠️ 0 · ❌ 0 = 2`. 자기보고 `2/2`, 커밋 `7c1b8bac` trailer `Criteria-Met: 2/2` — 일치.
+
+## F-4. 운영 gate (HEAD `655fa0e0`, 6개 handoff 공통 실행)
+
+| Gate | 결과 | 관측 산출 |
+|---|---|---|
+| readonly ESLint `eslint ./src ./scripts -f json` | PASS | 1,731파일 · error 0 · warning 6(react-refresh 4 · incompatible-library 2) |
+| `npm run typecheck` | PASS | node·web·test 3구성 exit 0 |
+| production `electron-vite build` | PASS | main/preload/renderer 생성, renderer JS 274개 중 `data-debug-control`·`automatic-feed` 0. main의 `orca:debug` 2건은 `CHANNELS` 상수뿐. 기존 SubAgentTaskDetail 혼합 import 경고 1 |
+| 관련 Vitest | PASS | 0003/0232 ΔV3 직접 13파일 221케이스 · 전체 753파일 7,390케이스 중 통과 7,383 · skip 7 · 실패 0(아래 0232 절 참조) |
+| 문서 `check-doc-inventory --check` | PASS | generated ok · prose ok · links ok |
+| `git diff --check` · trailer 파싱 | PASS | 범위 diff 0줄 · `7c1b8bac` 5키 파싱 |
+
+- 작업 트리: readonly ESLint는 `--fix` 없이 실행했다. 변이·임시 probe·빌드 산출(`out/`·scratchpad)은 커밋 대상이 아니며 `git status` 깨끗함.
+
+## F-5. Repository operation
+
+- INDEX 0003 행: 상태·다음 주체 일치. 대상 커밋 자리표시자를 검증자가 위 좌표로 기입한다(`git cat-file -t` 전부 commit, 공유 브랜치 ancestor).
+- `[구현자 기입]` 7필드 전수 존재(설계 리뷰~Review Signals).
+
+## F-6. Finding disposition
+
+| # | finding | disposition | 후속 |
+|---|---|---|---|
+| F1 | setter DEV 가드는 getter와 중복이라 제거 변이가 green | NON_BLOCKING | 기록 — 정책은 getter·번들 DCE가 보장 |
+
+## F-7. Review Signals — 사실만
+
+- 이전 라운드와 같은 증상 없음. 사용자 정정(reminder 포함)은 `fe935835` 설계 커밋에 근거가 있다.
+- 반복된 환경 한계 없음.
+
+## F-8. 결론
+
+- 상태: **PASS** — REQUIRED 4 + REGRESSION 1 PASS · PAIR_FAIL 0 · PLAN_GAP 0 · AC ✅2/2 · 운영 gate PASS.
+- 남은 사람 확인: `npm run dev`에서 버튼 시각·두 테마 확인(제품 시각 품질). 기능 판정은 위 기계 검증으로 닫았다.
+- 다음 단계: INDEX 0003 행 archive 이동.

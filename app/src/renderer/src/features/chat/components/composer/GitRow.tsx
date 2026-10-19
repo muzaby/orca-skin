@@ -2,14 +2,17 @@ import { Button } from '../../../../shared/ui/Button'
 import { Icon } from '../../../../shared/ui/Icon'
 import { useI18n } from '../../../../shared/i18n'
 import { chatActions, useChatSession } from '../../store/chatStore'
-import { gitStatusForCwd } from './branchChipState'
+import { gitStatusForCwd } from '../../harnesses/common/composer/branchChipState'
 import { agentUiPolicy } from '../../lib/agentPresentation'
 import { columnsContain } from '../../lib/rightPanelLayout'
 
-import { COMPOSER_PANEL_ICON_SIZE, composerPanelSurface } from './composerPanel'
-import { gitRowView, type GitRowView } from './gitRowState'
-import { useGitSnapshot } from './useGitSnapshot'
-import { GitIdentityMenus } from './GitIdentityMenus'
+import {
+  COMPOSER_PANEL_ICON_SIZE,
+  composerPanelSurface
+} from '../../harnesses/common/composer/composerPanel'
+import { gitRowView, type GitRowView } from '../../harnesses/common/composer/gitRowState'
+import { useGitSnapshot } from '../../harnesses/common/composer/useGitSnapshot'
+import { GitIdentityMenus } from '../../harnesses/common/composer/GitIdentityMenus'
 
 // 컴포저 입력 **위**의 git 행 — `[저장소] [브랜치] ─ [+N −M]`(0206 D-005).
 //

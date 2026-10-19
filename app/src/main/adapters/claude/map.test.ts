@@ -1,0 +1,1989 @@
+import { describe, it, expect } from 'vitest'
+import { claudeToNormalized, type MapContext } from './map'
+import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
+import type { ProviderReportedTelemetry } from '../../../shared/ipc'
+import { primaryModelScore } from '../../../shared/usage/primary-model'
+
+const ctx = (sessionId = 's1'): MapContext => ({ sessionId, cwd: '/w' })
+const sdk = (m: unknown): SDKMessage => m as SDKMessage
+
+describe('0247 — message_delta 컨텍스트 폴백 (AC1~AC8)', () => {
+  const assistantUsage = (c: MapContext, usage?: Record<string, unknown>): void => {
+    claudeToNormalized(sdk({ type: 'assistant', message: { content: [], usage } }), c)
+  }
+  const deltaUsage = (
+    c: MapContext,
+    usage: Record<string, unknown>,
+    parentToolRunId?: string
+  ): void => {
+    expect(
+      claudeToNormalized(
+        sdk({
+          type: 'stream_event',
+          event: { type: 'message_delta', usage },
+          ...(parentToolRunId !== undefined ? { parent_tool_use_id: parentToolRunId } : {})
+        }),
+        c
+      )
+    ).toEqual([])
+  }
+  const finish = (
+    c: MapContext,
+    fields: Record<string, unknown> = {}
+  ): ProviderReportedTelemetry | undefined => {
+    const event = claudeToNormalized(sdk({ type: 'result', ...fields }), c)[0]
+    if (event?.type !== 'telemetry') throw new Error('Expected result telemetry')
+    return event.usage
+  }
+  const zeroUsage = {
+    input_tokens: 0,
+    output_tokens: 0,
+    cache_read_input_tokens: 0,
+    cache_creation_input_tokens: 0
+  }
+
+  it('AC1 — 마지막 양수 메인 delta 17,023 을 쓰고 비용·모델·창은 result 값을 보존한다', () => {
+    const c = ctx()
+    deltaUsage(c, { input_tokens: 15_432, output_tokens: 10 })
+    assistantUsage(c, { input_tokens: 0, output_tokens: 0 })
+    deltaUsage(c, { input_tokens: 17_023, output_tokens: 30 })
+    assistantUsage(c, { input_tokens: 0, output_tokens: 0 })
+    const usage = finish(c, {
+      total_cost_usd: 0.02,
+      duration_ms: 900,
+      num_turns: 2,
+      usage: { input_tokens: 32_455, output_tokens: 40 },
+      modelUsage: {
+        'qwen3.8-27b': {
+          inputTokens: 32_455,
+          outputTokens: 40,
+          costUSD: 0.02,
+          contextWindow: 200_000
+        }
+      }
+    })
+    expect(usage).toEqual({
+      inputTokens: 17_023,
+      outputTokens: 40,
+      costUsd: 0.02,
+      durationMs: 900,
+      numTurns: 2,
+      model: 'qwen3.8-27b',
+      contextWindow: 200_000,
+      modelUsage: {
+        'qwen3.8-27b': {
+          inputTokens: 32_455,
+          outputTokens: 40,
+          costUsd: 0.02,
+          contextWindow: 200_000
+        }
+      }
+    })
+  })
+
+  it('AC2 — 양수 assistant 120·5,200 은 delta 999 보다 우선한다', () => {
+    const c = ctx()
+    assistantUsage(c, { input_tokens: 120, cache_read_input_tokens: 5_200 })
+    deltaUsage(c, { input_tokens: 999 })
+    expect(finish(c, { usage: { input_tokens: 1_119, cache_read_input_tokens: 5_200 } })).toEqual({
+      inputTokens: 120,
+      cacheReadTokens: 5_200
+    })
+  })
+
+  it('AC3 — output-only delta 는 컨텍스트 사용량으로 채택하지 않는다', () => {
+    const c = ctx()
+    assistantUsage(c, zeroUsage)
+    deltaUsage(c, { output_tokens: 50 })
+    expect(primaryModelScore(finish(c, { usage: zeroUsage }) ?? {})).toBe(0)
+  })
+
+  it('AC4 — 사이드체인 양수 delta 50,000 은 메인 컨텍스트에 섞지 않는다', () => {
+    const c = ctx()
+    assistantUsage(c, zeroUsage)
+    deltaUsage(c, { input_tokens: 50_000 }, 'agent-use-1')
+    expect(primaryModelScore(finish(c, { usage: zeroUsage }) ?? {})).toBe(0)
+  })
+
+  it('AC5 — 한 채널의 다음 턴에 이전 delta 17,023 이 새지 않는다', () => {
+    const c = ctx()
+    assistantUsage(c, zeroUsage)
+    deltaUsage(c, { input_tokens: 17_023 })
+    expect(finish(c, { usage: zeroUsage })?.inputTokens).toBe(17_023)
+    assistantUsage(c, zeroUsage)
+    expect(primaryModelScore(finish(c, { usage: zeroUsage }) ?? {})).toBe(0)
+  })
+
+  it('AC6 — 압축 전 delta 150,000 을 버리고 post_tokens 30,000 으로 근사한다', () => {
+    const c = ctx()
+    deltaUsage(c, { input_tokens: 150_000 })
+    claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'compact_boundary',
+        compact_metadata: { post_tokens: 30_000 }
+      }),
+      c
+    )
+    expect(finish(c, { usage: zeroUsage })?.inputTokens).toBe(30_000)
+  })
+
+  it('AC6 — 압축 후 delta 31,000 은 post_tokens 근사보다 우선한다', () => {
+    const c = ctx()
+    deltaUsage(c, { input_tokens: 150_000 })
+    claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'compact_boundary',
+        compact_metadata: { post_tokens: 30_000 }
+      }),
+      c
+    )
+    deltaUsage(c, { input_tokens: 31_000 })
+    expect(finish(c, { usage: zeroUsage })?.inputTokens).toBe(31_000)
+  })
+
+  it('AC7 — 핸드오프 도착 압축 전 delta 90,000 은 무효화 경로를 우회하지 않는다', () => {
+    const c = { ...ctx(), handoffArrival: true }
+    deltaUsage(c, { input_tokens: 90_000 })
+    const usage = finish(c, {
+      usage: {
+        input_tokens: 90_000,
+        cache_read_input_tokens: 500,
+        cache_creation_input_tokens: 100
+      }
+    })
+    expect(usage?.inputTokens).toBeUndefined()
+    expect(usage?.cacheReadTokens).toBeUndefined()
+    expect(usage?.cacheCreationTokens).toBeUndefined()
+  })
+
+  it('AC8 — delta 의 숫자 필드만 병합하고 null cache_creation 은 result 700 을 보존한다', () => {
+    const c = ctx()
+    assistantUsage(c, zeroUsage)
+    deltaUsage(c, {
+      input_tokens: 1_200,
+      cache_read_input_tokens: 30_000,
+      cache_creation_input_tokens: null,
+      output_tokens: 2
+    })
+    expect(
+      finish(c, {
+        usage: {
+          input_tokens: 5_000,
+          cache_read_input_tokens: 90_000,
+          cache_creation_input_tokens: 700,
+          output_tokens: 50
+        }
+      })
+    ).toEqual({
+      inputTokens: 1_200,
+      cacheReadTokens: 30_000,
+      cacheCreationTokens: 700,
+      outputTokens: 50
+    })
+  })
+
+  it('양수 delta 뒤 output-only·null·비숫자 delta 가 와도 마지막 양수를 유지한다', () => {
+    const c = ctx()
+    assistantUsage(c, zeroUsage)
+    deltaUsage(c, { input_tokens: 17_023 })
+    for (const usage of [
+      { output_tokens: 50 },
+      { input_tokens: null, cache_read_input_tokens: null, cache_creation_input_tokens: null },
+      { input_tokens: '20', cache_read_input_tokens: Number.NaN, cache_creation_input_tokens: 0 }
+    ]) {
+      deltaUsage(c, usage)
+    }
+    expect(finish(c, { usage: zeroUsage })?.inputTokens).toBe(17_023)
+  })
+
+  it('이번 턴 assistant usage 가 없으면 채널 이전 양수 snapshot 보다 턴 delta 가 우선한다', () => {
+    const c = ctx()
+    assistantUsage(c, { input_tokens: 120, cache_read_input_tokens: 5_200 })
+    finish(c, { usage: { input_tokens: 120, cache_read_input_tokens: 5_200 } })
+    assistantUsage(c)
+    deltaUsage(c, { input_tokens: 17_023 })
+    const usage = finish(c, { usage: { input_tokens: 17_023 } })
+    expect(usage?.inputTokens).toBe(17_023)
+    expect(usage?.cacheReadTokens).toBeUndefined()
+    expect(c.lastAssistantUsage).toEqual({ inputTokens: 120, cacheReadTokens: 5_200 })
+  })
+
+  it('중복 result UUID 는 다음 턴에 이미 관측한 delta 를 비우지 않는다', () => {
+    const c = ctx()
+    assistantUsage(c, zeroUsage)
+    finish(c, { uuid: 'result-1', usage: zeroUsage })
+    deltaUsage(c, { input_tokens: 17_023 })
+    expect(
+      claudeToNormalized(sdk({ type: 'result', uuid: 'result-1', usage: zeroUsage }), c)
+    ).toEqual([])
+    expect(finish(c, { uuid: 'result-2', usage: zeroUsage })?.inputTokens).toBe(17_023)
+  })
+
+  it('컨텍스트 합은 cache_read·cache_creation 도 포함하므로 cache-only assistant 가 우선한다', () => {
+    const c = ctx()
+    assistantUsage(c, {
+      input_tokens: 0,
+      cache_read_input_tokens: 5_200,
+      cache_creation_input_tokens: 10
+    })
+    deltaUsage(c, { input_tokens: 999 })
+    expect(finish(c, { usage: { input_tokens: 999, cache_read_input_tokens: 5_200 } })).toEqual({
+      inputTokens: 0,
+      cacheReadTokens: 5_200,
+      cacheCreationTokens: 10
+    })
+  })
+
+  it('컨텍스트가 cache-only 인 delta 도 폴백 관측으로 채택한다', () => {
+    const c = ctx()
+    assistantUsage(c, zeroUsage)
+    deltaUsage(c, {
+      input_tokens: 0,
+      cache_read_input_tokens: 30_000,
+      cache_creation_input_tokens: 700
+    })
+    expect(primaryModelScore(finish(c, { usage: zeroUsage }) ?? {})).toBe(30_700)
+  })
+})
+
+describe('claudeToNormalized', () => {
+  it('system/init → session.updated 이고 ctx.sessionId 를 갱신한다', () => {
+    const c = ctx('')
+    const out = claudeToNormalized(
+      sdk({ type: 'system', subtype: 'init', session_id: 'new1', model: 'opus' }),
+      c
+    )
+    expect(out).toEqual([
+      {
+        type: 'session.updated',
+        sessionId: 'new1',
+        patch: { model: 'opus', cwd: '/w' }
+      }
+    ])
+    expect(c.sessionId).toBe('new1')
+  })
+
+  // 0211 ΔV1 — resume 턴도 이 이벤트를 낸다. `writer.ts` 의 preview·providerKey·title 갱신이
+  // `session.updated` 안에만 있어(`writer.ts:192`~) 이것을 막으면 후속 메시지마다 세션 목록이
+  // 낡는다. D-022 의 키 유무 판정이 표시 정본을 이미 지키므로 이 이벤트를 죽일 이유가 없다.
+  it('resume 턴의 init 도 session.updated 를 낸다 — worktree 키는 싣지 않는다', () => {
+    const c = ctx('existing')
+    const out = claudeToNormalized(
+      sdk({ type: 'system', subtype: 'init', session_id: 'existing', model: 'opus' }),
+      c
+    )
+    expect(out).toEqual([
+      { type: 'session.updated', sessionId: 'existing', patch: { model: 'opus', cwd: '/w' } }
+    ])
+    expect(Object.hasOwn((out[0] as { patch: object }).patch, 'worktree')).toBe(false)
+  })
+
+  it('session_id 없는 init 은 무시([])', () => {
+    expect(claudeToNormalized(sdk({ type: 'system', subtype: 'init' }), ctx())).toEqual([])
+  })
+
+  it('stream_event(text_delta) → message.delta', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'stream_event', event: { delta: { type: 'text_delta', text: 'hi' } } }),
+      ctx()
+    )
+    expect(out).toEqual([{ type: 'message.delta', sessionId: 's1', delta: { text: 'hi' } }])
+  })
+
+  it('stream_event(thinking_delta) → message.reasoning.delta', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'stream_event',
+        event: { delta: { type: 'thinking_delta', thinking: '음...' } }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'message.reasoning.delta',
+        sessionId: 's1',
+        delta: { text: '음...' }
+      }
+    ])
+  })
+
+  it('stream_event(signature_delta) → [] (스트림에서 무시)', () => {
+    expect(
+      claudeToNormalized(
+        sdk({
+          type: 'stream_event',
+          event: { delta: { type: 'signature_delta', signature: 'x' } }
+        }),
+        ctx()
+      )
+    ).toEqual([])
+  })
+
+  it('assistant → 콘텐츠 순서 보존(text 먼저 → tool.call.started)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        parent_tool_use_id: 'parent-task-1',
+        message: {
+          content: [
+            { type: 'text', text: 'done' },
+            { type: 'tool_use', id: 't1', name: 'Bash', input: { cmd: 'ls' } }
+          ]
+        }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'message.completed',
+        sessionId: 's1',
+        message: { text: 'done' },
+        parentToolRunId: 'parent-task-1'
+      },
+      {
+        type: 'tool.call.started',
+        sessionId: 's1',
+        toolRunId: 't1',
+        toolName: 'Bash',
+        args: { cmd: 'ls' },
+        parentToolRunId: 'parent-task-1'
+      }
+    ])
+  })
+
+  it('assistant [text, tool, text] → text 가 도구 앞뒤로 분리 emit', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [
+            { type: 'text', text: '확인할게요' },
+            { type: 'tool_use', id: 't1', name: 'Read', input: { path: 'a.ts' } },
+            { type: 'text', text: '완료' }
+          ]
+        }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'message.completed',
+        sessionId: 's1',
+        message: { text: '확인할게요' }
+      },
+      {
+        type: 'tool.call.started',
+        sessionId: 's1',
+        toolRunId: 't1',
+        toolName: 'Read',
+        args: { path: 'a.ts' }
+      },
+      {
+        type: 'message.completed',
+        sessionId: 's1',
+        message: { text: '완료' }
+      }
+    ])
+  })
+
+  it('빈 텍스트 블록은 message.completed 를 만들지 않는다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [
+            { type: 'text', text: '' },
+            { type: 'tool_use', id: 't1', name: 'Bash', input: {} }
+          ]
+        }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'tool.call.started',
+        sessionId: 's1',
+        toolRunId: 't1',
+        toolName: 'Bash',
+        args: {}
+      }
+    ])
+  })
+
+  it('assistant thinking 블록 → message.reasoning (signature 보존, text 와 공존)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [
+            { type: 'thinking', thinking: '먼저 확인하자', signature: 'sig1' },
+            { type: 'text', text: '완료' }
+          ]
+        }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'message.reasoning',
+        sessionId: 's1',
+        text: '먼저 확인하자',
+        signature: 'sig1'
+      },
+      {
+        type: 'message.completed',
+        sessionId: 's1',
+        message: { text: '완료' }
+      }
+    ])
+  })
+
+  it('signature 없는 thinking 블록 → message.reasoning (signature 생략)', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'assistant', message: { content: [{ type: 'thinking', thinking: 't' }] } }),
+      ctx()
+    )
+    expect(out).toEqual([{ type: 'message.reasoning', sessionId: 's1', text: 't' }])
+  })
+
+  it('빈/공백 thinking 블록은 message.reasoning 을 emit 하지 않는다', () => {
+    expect(
+      claudeToNormalized(
+        sdk({ type: 'assistant', message: { content: [{ type: 'thinking', thinking: '' }] } }),
+        ctx()
+      )
+    ).toEqual([])
+    expect(
+      claudeToNormalized(
+        sdk({ type: 'assistant', message: { content: [{ type: 'thinking', thinking: '  \n ' }] } }),
+        ctx()
+      )
+    ).toEqual([])
+  })
+
+  it('user(tool_result) → tool.call.completed', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        message: {
+          content: [{ type: 'tool_result', tool_use_id: 't1', content: 'ok', is_error: false }]
+        }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'tool.call.completed',
+        sessionId: 's1',
+        toolRunId: 't1',
+        result: 'ok',
+        isError: false
+      }
+    ])
+  })
+
+  it('백그라운드 런치 영수증(tool_use_result.status=async_launched)을 result 로 싣는다 (0136)', () => {
+    const receipt = { status: 'async_launched', agentId: 'a1', description: 'x', prompt: 'y' }
+    const c = ctx()
+    c.toolNames = new Map([['t1', 'Agent']])
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        tool_use_result: receipt,
+        message: {
+          content: [
+            { type: 'tool_result', tool_use_id: 't1', content: 'Agent launched', is_error: false }
+          ]
+        }
+      }),
+      c
+    )
+    expect(out).toEqual([
+      {
+        type: 'tool.call.completed',
+        sessionId: 's1',
+        toolRunId: 't1',
+        result: receipt,
+        structuredOutput: receipt,
+        isError: false
+      }
+    ])
+  })
+
+  // 0204 §10 EP-01 — 구조화 출력은 TaskXXX 결과에만 실린다. `result` 는 모델용 wire content 라
+  // TaskCreate 의 task.id 를 담지 않으므로, 이 동행이 없으면 작업 타일이 목록을 만들 수 없다.
+  it('TaskXXX tool_result 에 SDK 구조화 출력을 structuredOutput 으로 동행시킨다 (0204)', () => {
+    const c = ctx()
+    const structured = { task: { id: '3', subject: '테스트 작성' } }
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [
+            { type: 'tool_use', id: 't1', name: 'TaskCreate', input: { subject: '테스트 작성' } }
+          ]
+        }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        tool_use_result: structured,
+        message: {
+          content: [{ type: 'tool_result', tool_use_id: 't1', content: 'ok', is_error: false }]
+        }
+      }),
+      c
+    )
+    expect(out).toEqual([
+      {
+        type: 'tool.call.completed',
+        sessionId: 's1',
+        toolRunId: 't1',
+        result: 'ok',
+        isError: false,
+        structuredOutput: structured
+      }
+    ])
+  })
+
+  it('일반 도구도 구조화 결과를 모델 콘텐츠와 별도로 보존한다 (0231)', () => {
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'tool_use', id: 't1', name: 'Read', input: { file_path: 'a.md' } }]
+        }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        tool_use_result: { file: { content: 'big payload' } },
+        message: {
+          content: [{ type: 'tool_result', tool_use_id: 't1', content: 'a.md', is_error: false }]
+        }
+      }),
+      c
+    )
+    expect(out[0]).toHaveProperty('structuredOutput', { file: { content: 'big payload' } })
+  })
+
+  it('tool_result 블록이 여러 개면 귀속이 모호해 structuredOutput 을 싣지 않는다 (0204)', () => {
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [
+            { type: 'tool_use', id: 't1', name: 'TaskCreate', input: { subject: 'a' } },
+            { type: 'tool_use', id: 't2', name: 'TaskCreate', input: { subject: 'b' } }
+          ]
+        }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        tool_use_result: { task: { id: '1', subject: 'a' } },
+        message: {
+          content: [
+            { type: 'tool_result', tool_use_id: 't1', content: 'ok', is_error: false },
+            { type: 'tool_result', tool_use_id: 't2', content: 'ok', is_error: false }
+          ]
+        }
+      }),
+      c
+    )
+    expect(out.every((ev) => !('structuredOutput' in ev))).toBe(true)
+  })
+
+  it('완료 구조화 출력과 wire content 를 모두 유지한다 (0231)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        tool_use_result: { status: 'completed', totalTokens: 5 },
+        message: {
+          content: [
+            { type: 'tool_result', tool_use_id: 't1', content: '최종 보고', is_error: false }
+          ]
+        }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'tool.call.completed',
+        sessionId: 's1',
+        toolRunId: 't1',
+        result: '최종 보고',
+        structuredOutput: { status: 'completed', totalTokens: 5 },
+        isError: false
+      }
+    ])
+  })
+
+  it('tool_result 블록이 복수면 런치 영수증 매핑을 미적용한다 (귀속 모호 — 0136)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        tool_use_result: { status: 'async_launched', agentId: 'a1' },
+        message: {
+          content: [
+            { type: 'tool_result', tool_use_id: 't1', content: 'a', is_error: false },
+            { type: 'tool_result', tool_use_id: 't2', content: 'b', is_error: false }
+          ]
+        }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'tool.call.completed',
+        sessionId: 's1',
+        toolRunId: 't1',
+        result: 'a',
+        isError: false
+      },
+      { type: 'tool.call.completed', sessionId: 's1', toolRunId: 't2', result: 'b', isError: false }
+    ])
+  })
+
+  it('user(텍스트 echo, 배열 content) → input.echo (uuid 보존)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        uuid: 'orca-steer-1',
+        message: { content: [{ type: 'text', text: 'steer feedback' }] }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'input.echo',
+        sessionId: 's1',
+        text: 'steer feedback',
+        uuid: 'orca-steer-1',
+        nativeMessageId: 'orca-steer-1'
+      }
+    ])
+  })
+
+  it('user(텍스트 echo, string content) → input.echo (uuid 없으면 생략)', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'user', message: { content: 'steer feedback' } }),
+      ctx()
+    )
+    expect(out).toEqual([{ type: 'input.echo', sessionId: 's1', text: 'steer feedback' }])
+  })
+
+  it('서브에이전트발 user 텍스트(parent_tool_use_id)는 input.echo 가 아니다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        parent_tool_use_id: 'task-1',
+        message: { content: [{ type: 'text', text: 'child text' }] }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([])
+  })
+
+  it('tool_result 를 동반한 user 메시지는 input.echo 를 내지 않는다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        message: {
+          content: [
+            { type: 'tool_result', tool_use_id: 't1', content: 'ok', is_error: false },
+            { type: 'text', text: 'note' }
+          ]
+        }
+      }),
+      ctx()
+    )
+    expect(out.map((e) => e.type)).toEqual(['tool.call.completed'])
+  })
+
+  it('공백뿐인 user 텍스트는 이벤트를 내지 않는다', () => {
+    expect(claudeToNormalized(sdk({ type: 'user', message: { content: '  \n ' } }), ctx())).toEqual(
+      []
+    )
+  })
+
+  it('result(usage) → telemetry', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'result', usage: { input_tokens: 10, output_tokens: 20 } }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'telemetry',
+        sessionId: 's1',
+        usage: { inputTokens: 10, outputTokens: 20 }
+      }
+    ])
+  })
+
+  it('result(usage 없음) → telemetry (usage 생략)', () => {
+    expect(claudeToNormalized(sdk({ type: 'result' }), ctx())).toEqual([
+      { type: 'telemetry', sessionId: 's1' }
+    ])
+  })
+
+  it('result → telemetry 가 cost·duration·num_turns·캐시 토큰을 정규화한다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        total_cost_usd: 0.0123,
+        duration_ms: 4200,
+        num_turns: 3,
+        usage: {
+          input_tokens: 100,
+          output_tokens: 50,
+          cache_read_input_tokens: 30,
+          cache_creation_input_tokens: 10
+        }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'telemetry',
+        sessionId: 's1',
+        usage: {
+          inputTokens: 100,
+          outputTokens: 50,
+          cacheReadTokens: 30,
+          cacheCreationTokens: 10,
+          costUsd: 0.0123,
+          durationMs: 4200,
+          numTurns: 3
+        }
+      }
+    ])
+  })
+
+  it('result.modelUsage → camelCase 정규화 + 단일 모델이면 top-level model 채움', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        modelUsage: {
+          'claude-opus-4': {
+            costUSD: 0.05,
+            inputTokens: 200,
+            outputTokens: 80,
+            cacheReadInputTokens: 5,
+            cacheCreationInputTokens: 0
+          }
+        }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'telemetry',
+        sessionId: 's1',
+        usage: {
+          model: 'claude-opus-4',
+          modelUsage: {
+            'claude-opus-4': {
+              costUsd: 0.05,
+              inputTokens: 200,
+              outputTokens: 80,
+              cacheReadTokens: 5,
+              cacheCreationTokens: 0
+            }
+          }
+        }
+      }
+    ])
+  })
+
+  it('다중 모델이면 실사용량(input+cache) 최대 모델을 top-level 승격 (argmax, 0141)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        modelUsage: {
+          'claude-opus-4': { costUSD: 0.05, inputTokens: 100 },
+          'claude-haiku-4': { costUSD: 0.001, inputTokens: 5 }
+        }
+      }),
+      ctx()
+    )
+    const ev = out[0] as { usage?: { model?: string; modelUsage?: Record<string, unknown> } }
+    expect(ev.usage?.model).toBe('claude-opus-4')
+    expect(Object.keys(ev.usage?.modelUsage ?? {})).toEqual(['claude-opus-4', 'claude-haiku-4'])
+  })
+
+  it('result.modelUsage.contextWindow → per-model 전달 + 단일 모델이면 top-level 승격 (0134)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        modelUsage: {
+          'claude-sonnet-5': { costUSD: 0.01, inputTokens: 100, contextWindow: 1_000_000 }
+        }
+      }),
+      ctx()
+    )
+    const ev = out[0] as {
+      usage?: {
+        model?: string
+        contextWindow?: number
+        modelUsage?: Record<string, { contextWindow?: number }>
+      }
+    }
+    expect(ev.usage?.model).toBe('claude-sonnet-5')
+    expect(ev.usage?.contextWindow).toBe(1_000_000)
+    expect(ev.usage?.modelUsage?.['claude-sonnet-5']?.contextWindow).toBe(1_000_000)
+  })
+
+  it('다중 모델 argmax → primary 의 contextWindow 를 top-level 승격 (0141)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        modelUsage: {
+          'claude-sonnet-5': { costUSD: 0.01, inputTokens: 1000, contextWindow: 1_000_000 },
+          'claude-haiku-4-5': { costUSD: 0.001, inputTokens: 10, contextWindow: 200_000 }
+        }
+      }),
+      ctx()
+    )
+    const ev = out[0] as {
+      usage?: {
+        model?: string
+        contextWindow?: number
+        modelUsage?: Record<string, { contextWindow?: number }>
+      }
+    }
+    expect(ev.usage?.model).toBe('claude-sonnet-5')
+    expect(ev.usage?.contextWindow).toBe(1_000_000)
+    expect(ev.usage?.modelUsage?.['claude-haiku-4-5']?.contextWindow).toBe(200_000)
+  })
+
+  it('Bedrock 해석 키(입력 alias 와 불일치)라도 argmax 로 분모 정답 — 입력 매칭 불필요 (0141)', () => {
+    // 실측: options.model=sonnet 입력이라도 modelUsage 키는 해석 ID(global.anthropic.claude-sonnet-5).
+    // argmax 는 입력측 문자열을 안 보고 실사용량만 보므로, 키 형태 불일치와 무관하게 대화 모델을 고른다.
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        modelUsage: {
+          'global.anthropic.claude-sonnet-5': { inputTokens: 5000, contextWindow: 1_000_000 },
+          'global.anthropic.claude-haiku-4-5': { inputTokens: 50, contextWindow: 200_000 }
+        }
+      }),
+      ctx()
+    )
+    const ev = out[0] as { usage?: { model?: string; contextWindow?: number } }
+    expect(ev.usage?.model).toBe('global.anthropic.claude-sonnet-5')
+    expect(ev.usage?.contextWindow).toBe(1_000_000)
+  })
+
+  it('누적 modelUsage 에 haiku 가 남아도 대화 모델(sonnet-5)이 대용량이면 분모 유지 — 200k 고착 방지 (0141)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        modelUsage: {
+          'claude-sonnet-5': { inputTokens: 500, contextWindow: 1_000_000 },
+          // 과거 턴(제목/서브에이전트)에서 누적 잔류한 haiku — 사용량 0 이라 argmax 대상 아님
+          'claude-haiku-4-5': { contextWindow: 200_000 }
+        }
+      }),
+      ctx()
+    )
+    const ev = out[0] as { usage?: { model?: string; contextWindow?: number } }
+    expect(ev.usage?.model).toBe('claude-sonnet-5')
+    expect(ev.usage?.contextWindow).toBe(1_000_000)
+  })
+
+  it('이번 턴 haiku 가 우세하면 분모도 haiku(200k) 추종 — argmax(모델 전환/respawn 후) (0141)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        modelUsage: {
+          // 잔류/전환 전 sonnet-5(사용량 0) vs 이번 턴 우세 haiku
+          'claude-sonnet-5': { contextWindow: 1_000_000 },
+          'claude-haiku-4-5': { inputTokens: 800, contextWindow: 200_000 }
+        }
+      }),
+      ctx()
+    )
+    const ev = out[0] as { usage?: { model?: string; contextWindow?: number } }
+    expect(ev.usage?.model).toBe('claude-haiku-4-5')
+    expect(ev.usage?.contextWindow).toBe(200_000)
+  })
+
+  it('modelUsage 전부 사용량 0 이면 첫 키(삽입 순서)로 폴백 승격 (0141)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        modelUsage: {
+          'claude-sonnet-5': { costUSD: 0.01, contextWindow: 1_000_000 },
+          'claude-haiku-4-5': { costUSD: 0.001, contextWindow: 200_000 }
+        }
+      }),
+      ctx()
+    )
+    const ev = out[0] as { usage?: { model?: string; contextWindow?: number } }
+    expect(ev.usage?.model).toBe('claude-sonnet-5')
+    expect(ev.usage?.contextWindow).toBe(1_000_000)
+  })
+
+  it('result.modelUsage.contextWindow 비숫자는 드롭 (num 가드, 0134)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        modelUsage: {
+          'claude-sonnet-5': { costUSD: 0.01, contextWindow: 'huge' as unknown as number }
+        }
+      }),
+      ctx()
+    )
+    const ev = out[0] as {
+      usage?: { contextWindow?: number; modelUsage?: Record<string, { contextWindow?: number }> }
+    }
+    expect(ev.usage?.contextWindow).toBeUndefined()
+    expect(ev.usage?.modelUsage?.['claude-sonnet-5']?.contextWindow).toBeUndefined()
+  })
+
+  it('result(잡음만, 의미있는 필드 없음) → telemetry (usage 생략)', () => {
+    expect(
+      claudeToNormalized(sdk({ type: 'result', subtype: 'success', is_error: false }), ctx())
+    ).toEqual([{ type: 'telemetry', sessionId: 's1' }])
+  })
+
+  it('멀티스텝 턴: telemetry 컨텍스트 입력은 마지막 assistant 스냅샷(누적 아님), 비용은 result', () => {
+    const c = ctx()
+    // assistant#1 → tool → assistant#2 → result(usage 누적). ctx 는 스트림 전체 공유.
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'tool_use', id: 't1', name: 'Read', input: {} }],
+          usage: { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 5000 }
+        }
+      }),
+      c
+    )
+    claudeToNormalized(
+      sdk({
+        type: 'user',
+        message: { content: [{ type: 'tool_result', tool_use_id: 't1', content: 'ok' }] }
+      }),
+      c
+    )
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'done' }],
+          usage: { input_tokens: 120, output_tokens: 30, cache_read_input_tokens: 5200 }
+        }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        total_cost_usd: 0.02,
+        usage: {
+          input_tokens: 220, // 단계별 누적(100+120) — 이 값이 아니라 마지막 스냅샷을 써야 함
+          output_tokens: 40,
+          cache_read_input_tokens: 10200
+        }
+      }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    // 컨텍스트 입력 3종 = 마지막 assistant(#2) 스냅샷. 누적(220/10200) 이 아님.
+    expect(ev.usage?.inputTokens).toBe(120)
+    expect(ev.usage?.cacheReadTokens).toBe(5200)
+    expect(ev.usage?.cacheCreationTokens).toBeUndefined() // 스냅샷에 없으면 빠진다
+    // 비용은 result 누적값 유지(사용자 결정).
+    expect(ev.usage?.costUsd).toBe(0.02)
+  })
+
+  it('assistant usage 가 없으면 result.usage 로 graceful fallback', () => {
+    const c = ctx()
+    // usage 없는 assistant → 스냅샷 미갱신. result.usage 가 그대로 telemetry 가 된다.
+    claudeToNormalized(
+      sdk({ type: 'assistant', message: { content: [{ type: 'text', text: 'hi' }] } }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({ type: 'result', usage: { input_tokens: 77, cache_read_input_tokens: 33 } }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(77)
+    expect(ev.usage?.cacheReadTokens).toBe(33)
+  })
+
+  it('스냅샷이 input 만 줄 때 result 의 cache_read 를 보존한다(붕괴 방지)', () => {
+    const c = ctx()
+    // assistant usage 가 input_tokens 만 담고 cache 필드를 안 줌. result 는 cache_read 보유.
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: { content: [{ type: 'text', text: 'done' }], usage: { input_tokens: 4 } }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        usage: { input_tokens: 4, cache_read_input_tokens: 35000, cache_creation_input_tokens: 700 }
+      }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    // input 은 스냅샷(=result 와 동일) 4. cache 는 스냅샷에 없으니 result 값 보존 — delete 금지.
+    expect(ev.usage?.inputTokens).toBe(4)
+    expect(ev.usage?.cacheReadTokens).toBe(35000)
+    expect(ev.usage?.cacheCreationTokens).toBe(700)
+  })
+
+  it('미사용 SDK 메시지 → []', () => {
+    // compact_boundary 는 0064 에서 session.compacted 로 정규화됨 — 미사용 예시는 status.
+    expect(claudeToNormalized(sdk({ type: 'system', subtype: 'status' }), ctx())).toEqual([])
+  })
+})
+
+it('result 에러는 telemetry 와 error 이벤트를 함께 낸다', () => {
+  const out = claudeToNormalized(
+    sdk({ type: 'result', subtype: 'error_max_turns', is_error: true, message: 'bad request' }),
+    ctx()
+  )
+  expect(out[0]).toEqual({ type: 'telemetry', sessionId: 's1' })
+  expect(out[1]).toMatchObject({
+    type: 'error',
+    sessionId: 's1',
+    error: { category: 'stream_error', message: 'bad request' }
+  })
+})
+
+describe('0245 AC11 — result error original message', () => {
+  it.each([
+    [
+      {
+        subtype: 'success',
+        is_error: true,
+        result: 'API Error: 400 prompt is too long',
+        errors: ['ignored'],
+        message: 'ignored'
+      },
+      'API Error: 400 prompt is too long'
+    ],
+    [
+      {
+        subtype: 'error_during_execution',
+        errors: ['first error', 'second error'],
+        message: 'ignored'
+      },
+      'first error\nsecond error'
+    ],
+    [
+      { subtype: 'error_max_turns', result: '  ', errors: ['', '  ', 42], message: 'bad request' },
+      'bad request'
+    ],
+    [{ subtype: 'error_during_execution', errors: ['  ', 'error'], message: 'ignored' }, 'error'],
+    [{ subtype: 'success', is_error: true, result: '\noriginal error\n' }, '\noriginal error\n'],
+    [
+      {
+        subtype: 'error_during_execution',
+        result: '',
+        errors: [],
+        message: '',
+        error: 'legacy error'
+      },
+      'legacy error'
+    ],
+    [
+      { subtype: 'error_during_execution', result: '', errors: [], message: '', error: '' },
+      'Claude result failed (error_during_execution)'
+    ],
+    [{ is_error: true }, 'Claude result failed']
+  ])('preserves priority for %j', (fields, expected) => {
+    const out = claudeToNormalized(sdk({ type: 'result', ...fields }), ctx())
+    expect(out[0]).toMatchObject({ type: 'telemetry' })
+    expect(out[1]).toMatchObject({
+      type: 'error',
+      error: { category: 'stream_error', message: expected, provider: 'claude' }
+    })
+  })
+
+  it('does not treat a successful result text as an error', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'result', subtype: 'success', is_error: false, result: 'answer' }),
+      ctx()
+    )
+    expect(out.map((event) => event.type)).toEqual(['telemetry'])
+  })
+})
+
+describe('claudeToNormalized — 서브에이전트(Task) 메타', () => {
+  it('system task_started → subagent.task(started) (tool_use_id 키)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'task_started',
+        task_id: 'task-1',
+        tool_use_id: 'agent-1',
+        subagent_type: 'Explore',
+        description: '구조 탐색'
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'subagent.task',
+        sessionId: 's1',
+        toolUseId: 'agent-1',
+        phase: 'started',
+        taskId: 'task-1',
+        subagentType: 'Explore',
+        description: '구조 탐색'
+      }
+    ])
+  })
+
+  it('system task_progress → subagent.task(progress) 에 duration/tool/last_tool 실린다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'task_progress',
+        task_id: 'task-1',
+        tool_use_id: 'agent-1',
+        usage: { duration_ms: 5000, tool_uses: 3, total_tokens: 1 },
+        last_tool_name: 'Bash'
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'subagent.task',
+        sessionId: 's1',
+        toolUseId: 'agent-1',
+        phase: 'progress',
+        taskId: 'task-1',
+        durationMs: 5000,
+        toolUses: 3,
+        lastToolName: 'Bash'
+      }
+    ])
+  })
+
+  it('tool_use_id 없는 task_notification 은 앞선 task_id 매핑으로 부모 toolUseId 를 복원한다', () => {
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'task_started',
+        task_id: 'task-1',
+        tool_use_id: 'agent-1',
+        description: '구조 탐색'
+      }),
+      c
+    )
+
+    const out = claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'task_notification',
+        task_id: 'task-1',
+        status: 'stopped',
+        summary: '사용자 중단'
+      }),
+      c
+    )
+
+    expect(out).toEqual([
+      {
+        type: 'subagent.task',
+        sessionId: 's1',
+        toolUseId: 'agent-1',
+        phase: 'settled',
+        taskId: 'task-1',
+        status: 'stopped',
+        summary: '사용자 중단'
+      }
+    ])
+  })
+
+  it('tool_use_id 없는 task_* / skip_transcript 는 드롭([])', () => {
+    expect(
+      claudeToNormalized(sdk({ type: 'system', subtype: 'task_started', task_id: 't' }), ctx())
+    ).toEqual([])
+    expect(
+      claudeToNormalized(
+        sdk({
+          type: 'system',
+          subtype: 'task_started',
+          task_id: 't',
+          tool_use_id: 'a',
+          skip_transcript: true
+        }),
+        ctx()
+      )
+    ).toEqual([])
+  })
+
+  it('child assistant 의 message.model 을 subagent.task(progress) 로 캡처한다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        parent_tool_use_id: 'agent-1',
+        message: { model: 'claude-haiku-4-5', content: [{ type: 'text', text: '답변' }] }
+      }),
+      ctx()
+    )
+    expect(out).toContainEqual({
+      type: 'subagent.task',
+      sessionId: 's1',
+      toolUseId: 'agent-1',
+      phase: 'progress',
+      model: 'claude-haiku-4-5'
+    })
+    // child 텍스트도 parentToolRunId 로 forward.
+    expect(out).toContainEqual({
+      type: 'message.completed',
+      sessionId: 's1',
+      message: { text: '답변' },
+      parentToolRunId: 'agent-1'
+    })
+  })
+
+  it('누산한 메타를 부모 Task tool_result(tool.call.completed)에 subagentMeta 로 영속한다', () => {
+    const c = ctx()
+    // 1) child assistant 모델 + 2) task_progress duration/tool 누산
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        parent_tool_use_id: 'agent-1',
+        message: { model: 'claude-haiku-4-5', content: [] }
+      }),
+      c
+    )
+    claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'task_notification',
+        task_id: 'task-1',
+        tool_use_id: 'agent-1',
+        status: 'completed',
+        usage: { duration_ms: 9000, tool_uses: 4, total_tokens: 1 }
+      }),
+      c
+    )
+    // 3) 부모 Task 의 tool_result → subagentMeta 부착
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        message: { content: [{ type: 'tool_result', tool_use_id: 'agent-1', content: 'ok' }] }
+      }),
+      c
+    )
+    expect(out).toEqual([
+      {
+        type: 'tool.call.completed',
+        sessionId: 's1',
+        toolRunId: 'agent-1',
+        result: 'ok',
+        isError: false,
+        subagentMeta: { model: 'claude-haiku-4-5', durationMs: 9000, toolUses: 4 }
+      }
+    ])
+  })
+})
+
+describe('claudeToNormalized — compact_boundary (0064)', () => {
+  it('system/compact_boundary → session.compacted (trigger·preTokens·postTokens 정규화)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'compact_boundary',
+        compact_metadata: { trigger: 'manual', pre_tokens: 155_000, post_tokens: 9_000 }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'session.compacted',
+        sessionId: 's1',
+        trigger: 'manual',
+        preTokens: 155_000,
+        postTokens: 9_000
+      }
+    ])
+  })
+
+  it('메타 필드가 없거나 미지 값이면 optional 을 생략한다(방어)', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'system', subtype: 'compact_boundary', compact_metadata: { trigger: '??' } }),
+      ctx()
+    )
+    expect(out).toEqual([{ type: 'session.compacted', sessionId: 's1' }])
+    expect(claudeToNormalized(sdk({ type: 'system', subtype: 'compact_boundary' }), ctx())).toEqual(
+      [{ type: 'session.compacted', sessionId: 's1' }]
+    )
+  })
+
+  it('압축 턴 result — 경계 이전 스냅샷을 무효화하고 컨텍스트를 요약 크기(출력)로 근사한다 (r5)', () => {
+    const c = ctx()
+    // 경계 *이전* 요약 요청 usage — 압축 전 전체 이력이 실린 입력(155k 컨텍스트 상당).
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'summary...' }],
+          usage: { input_tokens: 1200, output_tokens: 3000, cache_read_input_tokens: 150_000 }
+        }
+      }),
+      c
+    )
+    claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'compact_boundary',
+        compact_metadata: { trigger: 'manual', pre_tokens: 155_000 }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        total_cost_usd: 0.4,
+        usage: { input_tokens: 1200, output_tokens: 3000, cache_read_input_tokens: 150_000 }
+      }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    // 컨텍스트 점유 = 압축 후 근사(출력 토큰 = 요약 크기). 압축 전 값(150k)에 고착 금지 —
+    // 도넛/경고가 압축 완료 직후 해제되게 한다.
+    expect(ev.usage?.inputTokens).toBe(3000)
+    expect(ev.usage?.cacheReadTokens).toBeUndefined()
+    expect(ev.usage?.cacheCreationTokens).toBeUndefined()
+    // 비용·출력은 턴 누적 유지(원장 무손실).
+    expect(ev.usage?.costUsd).toBe(0.4)
+    expect(ev.usage?.outputTokens).toBe(3000)
+  })
+
+  it('순수 /compact 턴(실측 wire) — result.usage 전부 0, 요약 크기는 modelUsage 출력 합으로 폴백한다 (0065)', () => {
+    // 실측(2026-07-04): 순수 /compact 턴의 result.usage 는 전부 0 으로 오고 요약 요청 사용량은
+    // modelUsage 에만 계상된다. 0 인 채면 원장(hasContextTokens)·renderer(contextTokens>0)
+    // 게이트가 모두 스킵해 도넛이 압축 전 값에 고착된다 — r5 가 놓친 실기 결함.
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'compact_boundary',
+        compact_metadata: { trigger: 'manual', pre_tokens: 15_339 }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        total_cost_usd: 0.019,
+        usage: { input_tokens: 0, output_tokens: 0 },
+        modelUsage: {
+          'claude-sonnet-4-6': { costUSD: 0.019, inputTokens: 4, outputTokens: 350 }
+        }
+      }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(350)
+    expect(ev.usage?.cacheReadTokens).toBeUndefined()
+    expect(ev.usage?.cacheCreationTokens).toBeUndefined()
+    expect(ev.usage?.costUsd).toBe(0.019)
+  })
+
+  it('compact_metadata.post_tokens 가 있으면 요약 크기 근사보다 우선한다 (0065 r2 — 압축 후 실측)', () => {
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'compact_boundary',
+        compact_metadata: { trigger: 'manual', pre_tokens: 155_000, post_tokens: 9_000 }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        usage: { input_tokens: 0, output_tokens: 0 },
+        modelUsage: { 'claude-sonnet-4-6': { outputTokens: 350 } }
+      }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(9_000)
+  })
+
+  it('경계 이후 assistant usage 가 오면(auto 압축 후 턴 계속) 실측 스냅샷이 우선한다', () => {
+    const c = ctx()
+    claudeToNormalized(sdk({ type: 'system', subtype: 'compact_boundary' }), c)
+    // 압축 후 이어진 요청 — 작아진 실측 컨텍스트.
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'continue' }],
+          usage: { input_tokens: 80, output_tokens: 20, cache_read_input_tokens: 9000 }
+        }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({ type: 'result', usage: { input_tokens: 160_000, cache_read_input_tokens: 200_000 } }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(80)
+    expect(ev.usage?.cacheReadTokens).toBe(9000)
+  })
+})
+
+describe('claudeToNormalized — handoffArrival (0127, 핸드오프 도착 턴)', () => {
+  const handoffCtx = (): MapContext => ({ ...ctx(), handoffArrival: true })
+
+  it('경계 이전 assistant usage 는 스냅샷으로 캡처되지 않고, 경계 없는 result 의 컨텍스트 3종은 제거된다', () => {
+    const c = handoffCtx()
+    // 승계 컨텍스트(원본 세션 전체 이력)가 실린 assistant usage — 스냅샷 금지.
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'summary...' }],
+          usage: { input_tokens: 1200, output_tokens: 3000, cache_read_input_tokens: 150_000 }
+        }
+      }),
+      c
+    )
+    expect(c.lastAssistantUsage).toBeUndefined()
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        total_cost_usd: 0.4,
+        duration_ms: 7000,
+        usage: { input_tokens: 1200, output_tokens: 3000, cache_read_input_tokens: 150_000 },
+        modelUsage: { 'claude-sonnet-4-6': { costUSD: 0.4, outputTokens: 3000 } }
+      }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, unknown> }
+    // 도넛/경고 '미측정' 시작 — 원장(hasContextTokens)·renderer(contextTokens>0) 게이트가 스킵.
+    expect(ev.usage?.inputTokens).toBeUndefined()
+    expect(ev.usage?.cacheReadTokens).toBeUndefined()
+    expect(ev.usage?.cacheCreationTokens).toBeUndefined()
+    // 비용·시간·모델별 사용량은 유지.
+    expect(ev.usage?.costUsd).toBe(0.4)
+    expect(ev.usage?.durationMs).toBe(7000)
+    expect(ev.usage?.outputTokens).toBe(3000)
+    expect(ev.usage?.modelUsage).toBeDefined()
+  })
+
+  it('경계 통과 시 기존 압축 후 근사(post_tokens 우선)가 그대로 적용된다 (무회귀)', () => {
+    const c = handoffCtx()
+    // 경계 *이전* 승계 usage — 스냅샷 금지 대상.
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'summary...' }],
+          usage: { input_tokens: 1200, cache_read_input_tokens: 150_000 }
+        }
+      }),
+      c
+    )
+    claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'compact_boundary',
+        compact_metadata: { trigger: 'manual', pre_tokens: 155_000, post_tokens: 9_000 }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        usage: { input_tokens: 0, output_tokens: 0 },
+        modelUsage: { 'claude-sonnet-4-6': { outputTokens: 350 } }
+      }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(9_000)
+    expect(ev.usage?.cacheReadTokens).toBeUndefined()
+  })
+
+  it('경계 이후 assistant usage(압축 후 실측)는 기존대로 캡처돼 우선한다', () => {
+    const c = handoffCtx()
+    claudeToNormalized(sdk({ type: 'system', subtype: 'compact_boundary' }), c)
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'continue' }],
+          usage: { input_tokens: 80, output_tokens: 20, cache_read_input_tokens: 9000 }
+        }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({ type: 'result', usage: { input_tokens: 160_000, cache_read_input_tokens: 200_000 } }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(80)
+    expect(ev.usage?.cacheReadTokens).toBe(9000)
+  })
+
+  it('플래그 없는 턴(fork 포함)은 기존 경로 그대로 — 스냅샷 캡처·result 승계 유지 (무회귀)', () => {
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'hi' }],
+          usage: { input_tokens: 100, cache_read_input_tokens: 50_000 }
+        }
+      }),
+      c
+    )
+    expect(c.lastAssistantUsage).toEqual({ inputTokens: 100, cacheReadTokens: 50_000 })
+    const out = claudeToNormalized(sdk({ type: 'result', usage: { input_tokens: 999 } }), c)
+    const ev = out[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(100)
+    expect(ev.usage?.cacheReadTokens).toBe(50_000)
+  })
+})
+
+// ── 0212 — 기능 가용성 게이트 · task_updated · background_tasks_changed ────────
+
+describe('0212 — init 의 tools·claude_code_version (AT-01·02·03 · §10 EP-01)', () => {
+  it('tools 와 버전을 patch 에 싣는다 — TaskCreate 포함 여부가 곧 판정 입력이다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'init',
+        session_id: 's1',
+        model: 'opus',
+        tools: ['TaskCreate', 'Bash'],
+        claude_code_version: '2.1.200'
+      }),
+      ctx('')
+    )
+    expect(out).toEqual([
+      {
+        type: 'session.updated',
+        sessionId: 's1',
+        patch: {
+          model: 'opus',
+          cwd: '/w',
+          agentTools: ['TaskCreate', 'Bash'],
+          cliVersion: '2.1.200'
+        }
+      }
+    ])
+  })
+
+  it('AT-03 — tools 부재는 키를 싣지 않는다 (부재는 기능 없음과 다르다 · D-005)', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'system', subtype: 'init', session_id: 's1', claude_code_version: '2.1.100' }),
+      ctx('')
+    )
+    const patch = (out[0] as { patch: Record<string, unknown> }).patch
+    expect('agentTools' in patch).toBe(false)
+    // 양성 짝 — 같은 이벤트의 버전은 실린다(분기 자체가 죽지 않았다).
+    expect(patch.cliVersion).toBe('2.1.100')
+  })
+
+  it('AT-02 — TaskCreate 없는 tools 는 그대로 실린다 (판정은 소비자가 한다)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'init',
+        session_id: 's1',
+        tools: ['Bash', 'Read'],
+        claude_code_version: '2.1.100'
+      }),
+      ctx('')
+    )
+    const patch = (out[0] as { patch: Record<string, unknown> }).patch
+    expect(patch.agentTools).toEqual(['Bash', 'Read'])
+  })
+
+  it('문자열 아닌 원소가 섞이면 배열 전체를 버린다 — 반쪽 판정보다 미판정이 낫다', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'system', subtype: 'init', session_id: 's1', tools: ['Bash', 3] }),
+      ctx('')
+    )
+    const patch = (out[0] as { patch: Record<string, unknown> }).patch
+    expect('agentTools' in patch).toBe(false)
+  })
+})
+
+describe('0212 — task_updated (AT-18·20·21 · §10 EP-09)', () => {
+  // 매핑을 세워 두는 선행 이벤트 — task_updated 에는 tool_use_id 필드가 없다(SDK 타입).
+  const withMapping = (): MapContext => {
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'task_started',
+        task_id: 't1',
+        tool_use_id: 'use1',
+        description: '탐색'
+      }),
+      c
+    )
+    return c
+  }
+
+  it('AT-20 — killed 는 stopped 와 동형으로 정착한다', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'system', subtype: 'task_updated', task_id: 't1', patch: { status: 'killed' } }),
+      withMapping()
+    )
+    expect(out).toEqual([
+      {
+        type: 'subagent.task',
+        sessionId: 's1',
+        toolUseId: 'use1',
+        phase: 'settled',
+        taskId: 't1',
+        status: 'stopped'
+      }
+    ])
+  })
+
+  it('AT-21 — killed 와 함께 온 patch.error 가 정착 사유로 실린다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'task_updated',
+        task_id: 't1',
+        patch: { status: 'killed', error: '한도를 초과했습니다' }
+      }),
+      withMapping()
+    )
+    expect(out[0]).toMatchObject({ status: 'stopped', summary: '한도를 초과했습니다' })
+  })
+
+  it('paused 는 정착이 아니라 라이브 상태다 — 재개된 태스크가 돌아와야 한다', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'system', subtype: 'task_updated', task_id: 't1', patch: { status: 'paused' } }),
+      withMapping()
+    )
+    expect(out).toEqual([
+      {
+        type: 'subagent.task',
+        sessionId: 's1',
+        toolUseId: 'use1',
+        phase: 'updated',
+        taskId: 't1',
+        runState: 'paused'
+      }
+    ])
+  })
+
+  it('running 은 일시정지 해제로 온다', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'system', subtype: 'task_updated', task_id: 't1', patch: { status: 'running' } }),
+      withMapping()
+    )
+    expect(out[0]).toMatchObject({ phase: 'updated', runState: 'running' })
+  })
+
+  it('is_backgrounded 는 두 값 모두 나른다 — false 는 foreground 복귀다', () => {
+    for (const value of [true, false]) {
+      const out = claudeToNormalized(
+        sdk({
+          type: 'system',
+          subtype: 'task_updated',
+          task_id: 't1',
+          patch: { is_backgrounded: value }
+        }),
+        withMapping()
+      )
+      expect(out[0]).toMatchObject({ phase: 'updated', isBackgrounded: value })
+    }
+  })
+
+  it('completed·failed patch는 종료를 투영하고 pending은 종료하지 않는다 (0231)', () => {
+    for (const status of ['completed', 'failed', 'pending']) {
+      const out = claudeToNormalized(
+        sdk({ type: 'system', subtype: 'task_updated', task_id: 't1', patch: { status } }),
+        withMapping()
+      )
+      if (status === 'pending') expect(out).toEqual([])
+      else
+        expect(out).toEqual([
+          {
+            type: 'subagent.task',
+            sessionId: 's1',
+            toolUseId: 'use1',
+            phase: 'settled',
+            taskId: 't1',
+            status
+          }
+        ])
+    }
+  })
+
+  it('매핑이 없으면 드롭한다 — 표시·중단 키를 만들 수 없다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'task_updated',
+        task_id: 'unknown',
+        patch: { status: 'paused' }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([])
+  })
+})
+
+describe('0212 — background_tasks_changed (AT-14·16 · §10 EP-06)', () => {
+  const mapped = (): MapContext => {
+    const c = ctx()
+    for (const [taskId, useId] of [
+      ['t1', 'use1'],
+      ['t2', 'use2']
+    ]) {
+      claudeToNormalized(
+        sdk({
+          type: 'system',
+          subtype: 'task_started',
+          task_id: taskId,
+          tool_use_id: useId,
+          description: 'd'
+        }),
+        c
+      )
+    }
+    return c
+  }
+
+  it('매핑된 작업도 canonical lane만 live 집합을 소유한다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'background_tasks_changed',
+        tasks: [
+          { task_id: 't1', task_type: 'agent', description: 'd' },
+          { task_id: 't2', task_type: 'agent', description: 'd' }
+        ]
+      }),
+      mapped()
+    )
+    expect(out).toEqual([])
+  })
+
+  it('AT-16 — 매핑 없는 task_id 는 무시한다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'background_tasks_changed',
+        tasks: [{ task_id: 'other', task_type: 'agent', description: 'd' }]
+      }),
+      mapped()
+    )
+    expect(out).toEqual([])
+  })
+
+  it('빈 배열은 유효한 레벨이다 — 살아 있는 것이 없다는 사실을 말한다', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'system', subtype: 'background_tasks_changed', tasks: [] }),
+      mapped()
+    )
+    expect(out).toEqual([])
+  })
+
+  it('tasks 가 배열이 아니면 드롭한다 — 레벨을 만들 수 없다', () => {
+    expect(
+      claudeToNormalized(sdk({ type: 'system', subtype: 'background_tasks_changed' }), mapped())
+    ).toEqual([])
+  })
+})
+
+// 0215 VP-02 (SD-01 ↔ AT-04 · §10 EP-02·EP-03) — 계획 폴백 본문의 수명은 한 턴이다.
+describe('lastAssistantText — 계획 폴백 본문 (AT-04)', () => {
+  const assistant = (content: unknown[], parentToolRunId?: string): SDKMessage =>
+    sdk({
+      type: 'assistant',
+      message: { content },
+      ...(parentToolRunId ? { parent_tool_use_id: parentToolRunId } : {})
+    })
+
+  it('메인 에이전트의 텍스트를 담는다 — 마지막 값이 남는다', () => {
+    const c = ctx()
+    claudeToNormalized(assistant([{ type: 'text', text: '첫 문단' }]), c)
+    expect(c.lastAssistantText).toBe('첫 문단')
+    claudeToNormalized(assistant([{ type: 'text', text: '## 계획' }]), c)
+    expect(c.lastAssistantText).toBe('## 계획')
+  })
+
+  it('서브에이전트 child 텍스트는 담지 않는다 — 계획의 저자가 아니다', () => {
+    const c = ctx()
+    claudeToNormalized(assistant([{ type: 'text', text: '메인' }]), c)
+    claudeToNormalized(assistant([{ type: 'text', text: '자식' }], 'run1'), c)
+    expect(c.lastAssistantText).toBe('메인')
+  })
+
+  it('AT-04 — 턴이 끝나면 비운다 (다음 턴 계획으로 새지 않는다)', () => {
+    const c = ctx()
+    claudeToNormalized(assistant([{ type: 'text', text: '지난 턴 서술' }]), c)
+    claudeToNormalized(sdk({ type: 'result', subtype: 'success' }), c)
+    expect(c.lastAssistantText).toBeUndefined()
+  })
+
+  it('빈 텍스트 블록은 담지 않는다 — 직전 값을 지우지도 않는다', () => {
+    const c = ctx()
+    claudeToNormalized(assistant([{ type: 'text', text: '계획' }]), c)
+    claudeToNormalized(assistant([{ type: 'text', text: '' }]), c)
+    expect(c.lastAssistantText).toBe('계획')
+  })
+})
+
+// 0239 — 비실행 사유 운반(AC7)과 공개 철회 신호 매핑(UT-06 · AC4 · §10 EP-01 ① · EP-03 ①~③).
+describe('0239 — tool_result_meta 비실행 사유 (AC7)', () => {
+  const toolResult = (meta: unknown, id = 't1'): SDKMessage =>
+    sdk({
+      type: 'user',
+      message: {
+        content: [{ type: 'tool_result', tool_use_id: id, content: 'not run', is_error: true }]
+      },
+      ...(meta !== undefined ? { tool_result_meta: meta } : {})
+    })
+  const completed = (out: unknown[]): Record<string, unknown> =>
+    out.find((ev) => (ev as { type: string }).type === 'tool.call.completed') as Record<
+      string,
+      unknown
+    >
+
+  it('일치하는 id 의 사유를 nonExecution{source:sdk} 로 싣는다', () => {
+    const out = claudeToNormalized(
+      toolResult([{ id: 't1', non_execution_kind: 'user-rejected', user_feedback: '안 돼' }]),
+      ctx()
+    )
+    expect(completed(out).nonExecution).toEqual({
+      source: 'sdk',
+      kind: 'user-rejected',
+      userFeedback: '안 돼'
+    })
+  })
+  it('다른 id 의 사유는 싣지 않는다', () => {
+    const out = claudeToNormalized(
+      toolResult([{ id: 'other', non_execution_kind: 'cancelled' }]),
+      ctx()
+    )
+    expect('nonExecution' in completed(out)).toBe(false)
+  })
+  it('배열이 아니면 싣지 않는다', () => {
+    const out = claudeToNormalized(toolResult({ id: 't1', non_execution_kind: 'cancelled' }), ctx())
+    expect('nonExecution' in completed(out)).toBe(false)
+  })
+  it('kind 가 빈 문자열이면 싣지 않는다', () => {
+    const out = claudeToNormalized(toolResult([{ id: 't1', non_execution_kind: '' }]), ctx())
+    expect('nonExecution' in completed(out)).toBe(false)
+  })
+  it('한 메시지의 여러 tool_result 는 자기 id 의 사유만 받는다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        message: {
+          content: [
+            { type: 'tool_result', tool_use_id: 'a', content: 'x', is_error: true },
+            { type: 'tool_result', tool_use_id: 'b', content: 'y', is_error: false }
+          ]
+        },
+        tool_result_meta: [{ id: 'a', non_execution_kind: 'interrupted' }]
+      }),
+      ctx()
+    ) as Array<Record<string, unknown>>
+    expect(out.map((ev) => ev.nonExecution)).toEqual([
+      { source: 'sdk', kind: 'interrupted' },
+      undefined
+    ])
+  })
+})
+
+describe('0239 — 공개 철회 신호 → tool.call.retracted (UT-06)', () => {
+  const assistant = (
+    uuid: string,
+    ids: string[],
+    extra: Record<string, unknown> = {}
+  ): SDKMessage =>
+    sdk({
+      type: 'assistant',
+      uuid,
+      message: {
+        content: ids.map((id) => ({ type: 'tool_use', id, name: 'Bash', input: {} }))
+      },
+      ...extra
+    })
+  const refusal = (uuids: unknown): SDKMessage =>
+    sdk({
+      type: 'system',
+      subtype: 'model_refusal_fallback',
+      uuid: 'sys-1',
+      session_id: 's1',
+      retracted_message_uuids: uuids
+    })
+
+  it('model_refusal_fallback 이 지목한 wire uuid 의 tool_use id 를 낸다', () => {
+    const c = ctx()
+    claudeToNormalized(assistant('u1', ['a', 'b']), c)
+    claudeToNormalized(assistant('u2', ['c']), c)
+    expect(claudeToNormalized(refusal(['u1', 'text-only', 'u2']), c)).toEqual([
+      { type: 'tool.call.retracted', sessionId: 's1', toolRunIds: ['a', 'b', 'c'] }
+    ])
+  })
+  it('모르는 uuid·빈 목록·배열 아님은 아무것도 내지 않는다', () => {
+    const c = ctx()
+    claudeToNormalized(assistant('u1', ['a']), c)
+    expect(claudeToNormalized(refusal(['zzz']), c)).toEqual([])
+    expect(claudeToNormalized(refusal([]), c)).toEqual([])
+    expect(claudeToNormalized(refusal('u1'), c)).toEqual([])
+    expect(claudeToNormalized(refusal(undefined), c)).toEqual([])
+  })
+  it('한 번 철회한 uuid 는 다시 내지 않는다 — supersedes 뒤 audit notice 가 와도 1회', () => {
+    const c = ctx()
+    claudeToNormalized(assistant('u1', ['a']), c)
+    const replaced = claudeToNormalized(assistant('u9', ['z'], { supersedes: ['u1'] }), c)
+    expect(replaced[0]).toEqual({
+      type: 'tool.call.retracted',
+      sessionId: 's1',
+      toolRunIds: ['a']
+    })
+    expect(replaced.map((ev) => ev.type)).toEqual(['tool.call.retracted', 'tool.call.started'])
+    expect(claudeToNormalized(refusal(['u1']), c)).toEqual([])
+  })
+  it('tool_use 없는 assistant 는 기억하지 않는다', () => {
+    const c = ctx()
+    claudeToNormalized(
+      sdk({ type: 'assistant', uuid: 'txt', message: { content: [{ type: 'text', text: 'hi' }] } }),
+      c
+    )
+    expect(c.toolRunIdsByMessageUuid?.has('txt') ?? false).toBe(false)
+  })
+  it('기억은 상한 2048 에서 가장 오래된 것부터 버린다', () => {
+    const c = ctx()
+    for (let i = 0; i <= 2048; i++) claudeToNormalized(assistant(`u${i}`, [`t${i}`]), c)
+    expect(c.toolRunIdsByMessageUuid?.size).toBe(2048)
+    expect(claudeToNormalized(refusal(['u0']), c)).toEqual([])
+    expect(claudeToNormalized(refusal(['u2048']), c)).toEqual([
+      { type: 'tool.call.retracted', sessionId: 's1', toolRunIds: ['t2048'] }
+    ])
+  })
+})
