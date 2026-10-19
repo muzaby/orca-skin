@@ -5,8 +5,8 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | IMPL_DONE / r1.2 |
-| V mode / 기준 V / 유효 V | Delta V / V1+ΔV1+ΔV2 (`409ce04b`) / V1+ΔV1+ΔV2+ΔV3 |
+| 상태 / 라운드 | READY / r1.3 |
+| V mode / 기준 V / 유효 V | Delta V / V1+ΔV1+ΔV2+ΔV3 (`79e6ae6b`) / V1+ΔV1+ΔV2+ΔV3+ΔV4 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
 # Part I — Product & UX Contract
@@ -473,3 +473,49 @@ LandingHeader는 chat feature 내부 registry를 재사용하는 얇은 공개 �
 - 기존 AC7은 실행 중 원천만 보게 했으므로 installed/configured 누락을 잡지 못했다. 새 reader와 offline 합성 oracle로 관측 범위를 보완했다.
 - 샌드박스의 plan-file 조상 접근 실패는 일반 권한 동일 테스트로 재확인했다. ignored 외부 clone 링크 오류는 기존 한계로 보존했다.
 - 컴퓨터 UI의 좁은 기본 pane과 브라우저 재연결 지연은 fixture/뷰포트 검사로 분리했다. 제품 설정·인증은 변경하지 않았다.
+
+## ΔV4 — 재진입 조회와 Composer 네이티브 명령 (r1.3)
+
+기준은 공유 브랜치 `79e6ae6b`의 ΔV3다. 사용자 추가 요구: "세션을 나갔다가 들어왔을때" 목록이 로딩되지 않음, "composer의 + 버튼 -> 플러그인 팝업 메뉴"에서 MCP·네이티브 플러그인 사용을 안내할 것.
+
+### 결정 / 제품 계약
+
+| ID | 상태 | 결정 |
+|---|---|---|
+| D-14 | ACTIVE | 재진입/메뉴 재열기는 해당 세션을 새로 조회한다. 한 원천의 실패·무응답이 다른 원천의 목록을 지우지 않는다. 부분 조회 안내와 재시도를 제공하며 오래된 응답은 수용하지 않는다. |
+| D-15 | ACTIVE | 양 하네스의 `+ → 플러그인`에 네이티브 MCP·플러그인과 실제 하네스 명령을 표시한다. 선택은 입력만 채우며 전송은 사용자가 한다. 기존 Orca 커넥터·스킬 메뉴는 해당 하네스의 기존 정책대로 유지한다. |
+| D-16 | ACTIVE | 명령 이름을 설치명으로 추측하지 않는다. Claude supportedCommands/init, OpenCode command.list가 보고한 명령만 슬래시 명령으로 제시한다. 프롬프트 없는 MCP는 실행 중일 때 도구 사용 요청 문구로 안내한다. 로드되지 않은 확장은 상태와 명령 없음 안내를 표시한다. |
+| D-17 | OPEN | 활성 사용자 네이티브 플러그인 자동 로딩은 사용자 답변 대기. 현재 ΔV4는 기존 로딩 정책 안에서 조회·메뉴·기존 명령 실행 경로를 연결하며 자동 로딩 변경은 별도 결정으로 반영한다. |
+
+| AC | 행동 기준 | 직접 검증 / production 경로 |
+|---|---|---|
+| AC15 | A→B→A 재진입 및 재열기에서 새 목록을 읽는다. live 무응답/실패에도 구성 목록을 표시하고 부분 조회와 다시 시도를 안내한다. 늦은 A 응답이 B를 덮지 않는다. | session-resources.test: unresolved/rejected live + configured result; useNativeResources.test: A/B/A·close/reopen·retry |
+| AC16 | Composer +의 플러그인 메뉴에서 현재 하네스 네이티브 MCP·플러그인과 실제 slash 이름/설명을 보고 선택하면 명령을 입력 앞에 넣고 기존 초안을 보존한다. 전송하지 않는다. | native-resources 양 adapter tests; Composer 실제 render/AttachMenu + composerAttachMenu tests |
+| AC17 | Claude는 실제 slash prompt 경로를 그대로 사용한다. OpenCode의 알려진 slash는 session.command로 보내며 이벤트·승인 처리를 막지 않는다. 알 수 없는 slash는 기존 일반 prompt 경로, 첨부·모델·agent·variant·시스템/복구 문맥은 보존한다. | OpenCode persistent channel tests: recognized/unrecognized commands, pending command while approval/event consumed, rejected command |
+
+### 조사 / 기술 설계
+
+`session-resources`의 Promise.all은 live 조회가 정착하지 않으면 구성 목록도 반환하지 않는다. hook은 메뉴 재마운트 시 재조회하지만 timeout/수동 재시도가 없다. `AttachMenu`는 Orca provider tools 후보만 받고 OpenCode includeExtensions=false면 플러그인 진입 자체가 사라진다.
+
+공유 DTO에는 선택적 commands(name/description/argumentHint/source), partial을 추가한다. native resource projection은 경로·설정·인증값을 계속 제외한다. main 읽기는 live/구성을 독립적으로 3초 안에 정착시키고, 부분 성공이면 성공한 목록+partial, 양쪽 실패면 안전한 오류를 반환한다. runtime 교체 검사는 유지하고 쓰기 사전검사도 대기를 제한한다. renderer hook은 세션·backend 범위와 reload revision으로 응답을 fence하고 부분 실패/오류의 재시도를 제공한다.
+
+Claude supportedCommands는 별도 기한 안에 조회하고 init의 명령 이름을 초기 관측으로 사용한다. Orca 주입 prefix와 builtin을 제외한다. OpenCode command.list의 name/description/hints/source만 투영한다. 메뉴는 실제 명령과 리소스를 함께 표시하며 빈/미실행/부분/오류 상태를 안내한다. native slash 삽입은 줄 맨 앞(기존 본문 보존), MCP 도구 요청은 기존 커서 삽입 규칙이다. OpenCode command HTTP 완료를 event pump가 기다리지 않으며 지각 오류는 해당 channel만 종료한다.
+
+근거: 설치된 SDK Query.supportedCommands/SlashCommand, OpenCode Command/Session.command 타입; [Claude 명령](https://code.claude.com/docs/en/agent-sdk/slash-commands), [OpenCode SDK](https://opencode.ai/docs/sdk/). 새 의존성·DB 저장 없음. 조회를 위한 agent 실행·설정 쓰기는 하지 않는다.
+
+### V / §10
+
+| Pair | 노드 / requiredness | 경로·직접 oracle | 지점 |
+|---|---|---|---|
+| VP-16 | R-15↔AT-15, SD-02↔ST-02 CHANGED / REQUIRED | 두 원천→handler deadline/merge→hook 재진입→메뉴 재시도; session-resources.test, useNativeResources.test | EP13 |
+| VP-17 | R-16↔AT-16, AR-04↔IT-04, MD-05↔UT-05 NEW / REQUIRED | SDK→DTO→기존 IPC→hook→AttachMenu→draft; adapter native-resources, 실제 Composer render, attachMenuModel/composerAttachMenu tests | EP14 |
+| VP-18 | R-17↔AT-17, SD-03↔ST-03 NEW / REQUIRED | draft slash→channel submit→SDK command/event loop; adapter.persistent.test | EP15 |
+| VP-01~15 | INHERITED / REGRESSION | 기존 좌표 중 변경 subtree 회귀. M1/M2 재실행. | EP1~12 |
+
+| 지점 | 고정 자리 / 검색 | 직접 oracle / 실패 의미 |
+|---|---|---|
+| EP13 (3자리) | ①handler 두 원천 정착/세대 ②hook session/open/retry fence ③메뉴 재시도. `rg -n 'nativeResources|useNativeResources' app/src/main/app app/src/renderer/src/features/chat` | ①session-resources unresolved source/partial ②useNativeResources A→B→A/late/retry ③NativeResourcesMenu retry click. 무한 로딩·타 세션 오염·복구 불가 |
+| EP14 (6자리) | ①Claude 명령 관측/projection ②OpenCode command.list projection ③adapter→NativeResources 운반 ④Composer session/backend→hook ⑤AttachMenu native 트리 운반 ⑥native action→draft. `rg -n 'supportedCommands|slash_commands|command.list|nativeResources|buildAttachMenu|runAttachMenuAction' app/src/main/adapters app/src/renderer/src/features/chat` | ①②native-resources tests 실제 DTO ③adapter.live-control/persistent 목록 ④⑤Composer 실제 UI에 session-B 고유 명령 ⑥composerAttachMenu 앞 삽입/IME/초안. 다른 하네스·가짜 명령·전송 발생 |
+| EP15 (1자리) | OpenCode channel submit command dispatch. `rg -n 'session.promptAsync|session.command' app/src/main/adapters/opencode` | persistent channel SDK args·event/approval while pending·error. slash가 일반 메시지로 전송되거나 승인 교착 |
+
+추가 10자리 + 기존42 = 52. 신규 적대 증거는 선택하지 않음(행동 직접 oracle), 상속 M1/M2 유지. gate: 수정 subtree lint/cache, typecheck 3종, 관련 비DB 테스트, build, boundary·문서 inventory·카탈로그. D-14~16↔AC15~17 충돌 없음; D-17에 의존하는 자동 로딩은 이 READY 범위 밖의 결정 대기다.
