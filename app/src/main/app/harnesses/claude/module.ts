@@ -1,4 +1,5 @@
 import { ClaudeAdapter } from '../../../adapters/claude/adapter'
+import { configuredClaudeResources } from '../../../adapters/claude/configured-resources'
 import {
   loadClaudeProviderSettings,
   readUserClaudeSettings
@@ -17,6 +18,7 @@ export const claudeMainModule: MainHarnessModule = {
   parseSettingsModels: parseClaudeModels,
   parseRuntimeModels,
   readUserSettings: readUserClaudeSettings,
+  configuredResources: configuredClaudeResources,
   defaultProvider,
   resolveTitleModel,
   recoveryContextWindow: (_settings, model) =>

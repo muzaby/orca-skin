@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { McpServerStatus } from '@anthropic-ai/claude-agent-sdk'
 import { claudeNativeResources } from './native-resources'
+import { nativePluginId } from './configured-resources'
 
 describe('Claude native resources', () => {
   const servers: McpServerStatus[] = [
@@ -56,7 +57,7 @@ describe('Claude native resources', () => {
         canToggle: true
       },
       {
-        id: 'plugin:0',
+        id: nativePluginId('/private/plugin'),
         name: 'native-plugin',
         kind: 'plugin',
         status: 'enabled',

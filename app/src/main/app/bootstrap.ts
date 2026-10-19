@@ -24,6 +24,7 @@ import {
   createHarnessDeploymentService,
   harnessPluginRoots,
   harnessSkillRoots,
+  harnessModule,
   scaffoldHarnessSettings,
   MockAdapter
 } from './harnesses/registry'
@@ -995,7 +996,25 @@ export class Bootstrap {
 
     // 세션 삭제 시 미커밋 pending 도 함께 폐기한다(0151 AC8) — 루트가 chat 큐를 주입해
     // session 슬라이스가 chat 슬라이스를 참조하지 않게 한다.
-    registerSessionResourceHandlers((sessionId) => supervisor.peekRuntime(sessionId))
+    registerSessionResourceHandlers(
+      (sessionId) => supervisor.peekRuntime(sessionId),
+      async (sessionId) => {
+        const session = ctx.db.getSessionById(sessionId)
+        if (!session) return []
+        const items = await harnessModule(session.backend).configuredResources?.(
+          session.cwd ?? ctx.getCwd(session.project_id)
+        )
+        const current = ctx.db.getSessionById(sessionId)
+        if (
+          !current ||
+          current.backend !== session.backend ||
+          current.cwd !== session.cwd ||
+          current.project_id !== session.project_id
+        )
+          throw new Error('대화가 바뀌었습니다. 메뉴를 다시 열어 주세요.')
+        return items ?? []
+      }
+    )
     registerSessionHandlers(ctx, {
       isSessionBusy: (sessionId) => supervisor.hasSession(sessionId),
       onSessionDisposed: (sessionId) => {

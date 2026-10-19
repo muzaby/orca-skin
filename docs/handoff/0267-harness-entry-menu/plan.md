@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | READY / r1.2 |
+| 상태 / 라운드 | IMPL_DONE / r1.2 |
 | V mode / 기준 V / 유효 V | Delta V / V1+ΔV1+ΔV2 (`409ce04b`) / V1+ΔV1+ΔV2+ΔV3 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
@@ -377,3 +377,99 @@ LandingHeader는 chat feature 내부 registry를 재사용하는 얇은 공개 �
 - 원격 main으로 전환·rebase 후 시작했으며 사용자 응답 확정 설계와 구현을 분리했다.
 - native 기능의 지원 차이를 미리 확정해 전역 설정 변경으로 세션 토글을 흉내내지 않았다.
 - 환경 차이: Python 기본 cp949는 UTF-8 flag로 해결. ignored 외부 clone 링크 오류는 제품 변경과 분리. Electron ABI는 그대로 유지했다.
+
+## [구현자 기입] r1.2 설계 리뷰
+
+사용자 확인에 따라 ΔV3의 native 구성 관측과 표시 변경을 구현했다. D-08의 쓰기 제한은 유지하며 user settingSources를 넓히지 않았다. 미해결 PLAN_GAP 없음. r1의 runtime-only 보고는 ΔV3 범위에서 대체된다.
+
+## [구현자 기입] r1.2 강제 지점 전수와 V-pair 자기확인
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 / 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01~04 | 진입·정렬·선택 | EP1~3 각 3 | 9/9 | Sidebar.interaction·popoverPosition·Popover 회귀 | 두 backend·두 nav·두 route와 store 보존 | 없음 |
+| VP-05 | Claude 히어로 | EP4 1 | 1/1 | AgentModeToggle.test 두 모드 | SVG 좌측·각 문구·중앙 | 없음 |
+| VP-06~09 | 원천·세대·IPC·메뉴 | EP5~8 각 4 | 16/16 | r1 표의 adapter/runtime/bootstrap/handler/preload/hook/titlebar/menu 실제 oracle 재실행 | 기존 주입 제외·세대 차단·read-only 유지. 구성 수용은 EP11 증거로 대체 | 없음 |
+| VP-10~11 | 명시 선택 | EP9 7 | 7/7 | store/reducer/Composer/Sidebar 회귀 | 명시 OpenCode + Claude-only 모델, 늦은 모델·seed·초안 초기화 | 없음 |
+| VP-12 | 그룹 제목 | EP10 1 | 1/1 | ChatTitleBar.native-resources: loads native resources… / replaces the native menu… | Claude/OpenCode 그룹에서 connected 요약 부재, 두 submenu 존재 | 없음 |
+| VP-13~14 | 구성 범위·합성 | EP11 6 | 6/6 | ① configured-resources: reads scoped… / applies plugin scope… / reads bundled… / distinguishes absent… ② 동일 파일 init ID + native-resources/adapter.live-control ③④ bootstrap.native-history: reads native configuration… ⑤session-resources: shows offline… / rejects failed discovery… ⑥nativeResourcesMenu: renders configured… | project-B vs wrong-default/OpenCode, 동일 plugin hash, offline on/locked와 live 우선·중복 제거, 오류 redaction, 구성-only 쓰기 거부 | 없음 |
+| VP-15 | 프로젝트 브랜드 | EP12 2 | 2/2 | agentModeLanding.render: switches the project header…; 실제 브라우저 모델 선택 | Claude→OpenCode→Claude, 실제 초안 보존·프로젝트/목록 유지 | 없음 |
+
+분모 검산: 9+1+16+7+1+6+2=42, 닫은 자리 42. ΔV3 자리 검색 결과의 생산 호출을 EP10~12에 대조했다. 선언/재수출을 제외한 차집합은 []이다. Landing의 기존 registry 사용은 EP12 헤더 선택의 새 대화 회귀로 분류했으며 native configured 포트 추가와 ID helper 호출도 EP11에 포함했다. 기존 EP1~9는 r1 표의 동일 자리와 oracle을 재실행했다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle | 선택된 적대 증거 |
+|---|---|---|---|---|
+| VP-01~04 | REGRESSION | SELF_PASS | Sidebar·position·Popover | M1 재실행 red |
+| VP-05 | REGRESSION | SELF_PASS | AgentModeToggle | 해당 없음 — 직접 oracle |
+| VP-06~09 | REGRESSION | SELF_PASS | adapter/runtime/IPC/preload/hook/menu | M2 재실행 red |
+| VP-10~11 | REGRESSION | SELF_PASS | 선택 source/store/reducer/Composer | 해당 없음 — 직접 oracle |
+| VP-12 | REQUIRED | SELF_PASS | 실제 titlebar 양 하네스 그룹 | 해당 없음 — 직접 oracle |
+| VP-13~14 | REQUIRED | SELF_PASS | 파일 fixture→module/DB scope→IPC 합성→메뉴 | 해당 없음 — 직접 oracle |
+| VP-15 | REQUIRED | SELF_PASS | 실제 page/Header + 브라우저 모델 전환 | 해당 없음 — 직접 oracle |
+
+## [구현자 기입] r1.2 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| 선택 backend 반전 | M1 / VP-02 | r1 red | Sidebar.interaction / 2 | red, 복원 후 통과 |
+| MCP/plugin 하위 목록 맞바꿈 | M2 / VP-06·09 | r1 red | nativeResourcesMenu / 3 | red, 복원 후 통과 |
+
+선택 증거 2 · 인용 변이 0 · 새 구조/배선 proxy oracle 0 = 잠금 2행. 원본 복원 후 2파일 7케이스 통과. 추가 검증은 입력부터 실제 결과를 보는 직접 oracle이다.
+
+## [구현자 기입] r1.2 Product/UX 파생 검토
+
+| 질문 | 판정 / 관측 | 후속 |
+|---|---|---|
+| 설정 활성은 실제 로드인가 | 별개 상태. configured와 installed를 i18n 메뉴 설명에서 소비 | live가 같은 ID를 보고할 때 실제 상태 우선 |
+| offline 항목이 숨겨지는가 | disconnected + items 테스트에서 두 종류 표시 | 빈 목록일 때만 기존 안내 |
+| 실제 입력이 사라지는가 | 브라우저 모델 전환 후 입력 문자열 유지 | Composer 무재생성 |
+| 오류·재진입 | malformed 설정은 비밀 없는 오류, 새 메뉴 열기마다 재조회 | 기존 hook 지각 응답 폐기 유지 |
+
+## [구현자 기입] r1.2 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 관측 |
+|---|---|---|---|
+| 1 | 같은 플러그인이 설치 목록과 init에 중복 | 경로 hash SSOT로 합성 | 실제 reader와 init의 ID 동일 테스트 |
+| 2 | 다른 프로젝트 plugin이 섞임 | project/local scope의 projectPath 제한 | unrelated fixture 제외 |
+| 3 | 메타데이터를 실행 권한으로 오해 | 구성은 canToggle=false, 쓰기 검사는 live 목록만 | 구성-only MCP write reject |
+| 4 | 조회 중 세션 삭제/변경 | bootstrap 저장 scope와 runtime identity 재확인 | IPC runtime 교체 테스트·DB backend/cwd 전달 테스트 |
+| 5 | JSON 오류가 비밀/경로 노출 | 고정 오류 문장 | malformed 비밀 문자열 fixture 테스트 |
+
+원본 설정·설치 path는 main에만 남고 DTO로 반환하지 않는다. 캐시·설정 쓰기·추가 의존성·DB 변경 없음. 관리 정책의 완전한 native 유효 구성 해석은 이번 reader의 계약(사용자·프로젝트·로컬 구성)을 넘어서는 범위이며 실제 live 관측은 계속 최종 권위다.
+
+## [구현자 기입] r1.2 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | Claude 구성 reader/ID, harness module/bootstrap/IPC 합성, 메뉴 상태, LandingHeader/ProjectLandingPage, 테스트/fixture 및 IPC/카탈로그/보고 |
+| 실행 명령 / 관측 | [validation r1.2](evidence/validation.md). 138파일 1,535케이스를 환경 실패 재실행 포함 확인, typecheck 3종·production build·경계 8케이스 통과. lint 오류 0·기존 경고 4. 마지막 lint 수정 후 관련 3파일 10케이스 재통과. |
+| V-pair | SELF_PASS 15 / SELF_BLOCKED 0 |
+| 강제 지점 | EP1~9 33/33 + EP10 1/1 + EP11 6/6 + EP12 2/2 = 42/42 |
+| 실제 검증 한계 | 실제 로컬 설정 읽기까지 수행. 인증된 CLI/MCP 실행 smoke·독립 verify는 미수행. 브라우저 IPC는 fixture. |
+| 블로커 / 역질문 | 없음. 독립 verify 대기. |
+| 대상 커밋 | (r1.2 구현 — 검증자 기입, INDEX 정본) |
+
+| AC | 자기보고 / 관측 |
+|---|---|
+| AC1 | ✅ Sidebar 펼침/접힘 메뉴 |
+| AC2 | ✅ Sidebar position·Popover 회귀 |
+| AC3 | ✅ 두 backend 선택과 실제 store 보존 |
+| AC4 | ✅ Sidebar key/outside/Escape 회귀 |
+| AC5 | ✅ AgentModeToggle work/code 로고 순서 |
+| AC6 | ✅ titlebar 그룹·두 하위 목록 |
+| AC7 | ✅ native DTO/주입 제외 + 구성 reader의 비밀 projection |
+| AC8 | ✅ live Query true/false·세대 차단 |
+| AC9 | ✅ read-only UI와 직접 IPC 쓰기 거부 |
+| AC10 | ✅ hook 지각 응답 폐기·오류 및 offline 구성 표시 |
+| AC11 | ✅ 명시 선택·늦은 모델·seed·초안 초기화 회귀 |
+| AC12 | ✅ 두 하네스 그룹 연결 요약 제거 테스트·브라우저 |
+| AC13 | ✅ scoped 파일/상태/합성 테스트 및 실제 로컬 3개 플러그인 읽기 |
+| AC14 | ✅ 실제 프로젝트 헤더 전환 테스트·브라우저 초안 보존 |
+
+검산: ✅14 · ⚠️0 · ❌0 = 현재 AC14건. 이전 분모 11에서 ΔV3 AC12~14를 추가했다. 독립 verify의 PASS가 아니다.
+
+## [구현자 기입] r1.2 Review Signals
+
+- 같은 라운드 두 번째 impl 턴. 사용자 요구 변경과 실제 앱의 runtime-only 목록 누락을 ΔV3로 명시했다.
+- 기존 AC7은 실행 중 원천만 보게 했으므로 installed/configured 누락을 잡지 못했다. 새 reader와 offline 합성 oracle로 관측 범위를 보완했다.
+- 샌드박스의 plan-file 조상 접근 실패는 일반 권한 동일 테스트로 재확인했다. ignored 외부 clone 링크 오류는 기존 한계로 보존했다.
+- 컴퓨터 UI의 좁은 기본 pane과 브라우저 재연결 지연은 fixture/뷰포트 검사로 분리했다. 제품 설정·인증은 변경하지 않았다.

@@ -3,7 +3,15 @@ export interface NativeResource {
   id: string
   name: string
   kind: 'mcp' | 'plugin'
-  status: 'connected' | 'enabled' | 'disabled' | 'failed' | 'needs-auth' | 'pending'
+  status:
+    | 'connected'
+    | 'enabled'
+    | 'disabled'
+    | 'failed'
+    | 'needs-auth'
+    | 'pending'
+    | 'configured'
+    | 'installed'
   enabled: boolean
   canToggle: boolean
 }

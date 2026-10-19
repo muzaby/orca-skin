@@ -1,6 +1,7 @@
 import { resolve } from 'node:path'
 import type { McpServerStatus, Query } from '@anthropic-ai/claude-agent-sdk'
 import type { NativeResource } from '../../../shared/native-resources'
+import { nativePluginId } from './configured-resources'
 
 /** Owns native observations for one Query; Orca injected resources are excluded. */
 export function claudeNativeResources(
@@ -22,14 +23,14 @@ export function claudeNativeResources(
   return {
     observePlugins(entries) {
       injectedNames.clear()
-      plugins = entries.flatMap((plugin, index) => {
+      plugins = entries.flatMap((plugin) => {
         if (roots.has(resolve(plugin.path))) {
           injectedNames.add(plugin.name)
           return []
         }
         return [
           {
-            id: `plugin:${index}`,
+            id: nativePluginId(plugin.path),
             name: plugin.name,
             kind: 'plugin' as const,
             status: 'enabled' as const,

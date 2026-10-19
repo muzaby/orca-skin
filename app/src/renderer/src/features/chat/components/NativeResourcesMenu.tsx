@@ -24,17 +24,6 @@ export function NativeResourcesMenu({
   return (
     <div data-native-resources={backend ?? 'claude'}>
       <MenuTitle>{label}</MenuTitle>
-      <div className="px-2.5 pb-1 text-caption text-ink3" role="status">
-        {tr(
-          view.status === 'loading'
-            ? 'chat.nativeResources.loading'
-            : view.status === 'error'
-              ? 'chat.nativeResources.error'
-              : view.value.state === 'connected'
-                ? 'chat.nativeResources.connected'
-                : 'chat.nativeResources.disconnected'
-        )}
-      </div>
       <CascadeBody
         items={items}
         onSelect={(resource) => {

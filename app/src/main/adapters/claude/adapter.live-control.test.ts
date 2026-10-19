@@ -1,3 +1,4 @@
+import { nativePluginId } from './configured-resources'
 // 0212 r3 — **어댑터 → SDK 제어 홉의 인자 충실도**(AC25 production path 의 마지막 화살표).
 //
 // `SessionRuntime.backgroundTask` 가 부르는 포트의 실제 구현이 여기다. 상위 홉을 전부 잠가도
@@ -147,7 +148,7 @@ it('wires native status, loaded plugins, injected exclusions and session-local t
           canToggle: true
         },
         {
-          id: 'plugin:0',
+          id: nativePluginId('/native'),
           name: 'native-plugin',
           kind: 'plugin',
           status: 'enabled',
@@ -182,7 +183,7 @@ it('wires native status, loaded plugins, injected exclusions and session-local t
         sessionId: 'native-session',
         generation: result!.generation!,
         kind: 'plugin',
-        id: 'plugin:0',
+        id: nativePluginId('/native'),
         enabled: false
       })
     ).rejects.toThrow()

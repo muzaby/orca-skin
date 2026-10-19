@@ -23,6 +23,42 @@ const plugin: NativeResource = {
   canToggle: false
 }
 describe('native resource submenu projection', () => {
+  it('renders configured and installed resources while disconnected with locked controls', () => {
+    const items = nativeResourcesMenu(
+      {
+        status: 'ready',
+        value: {
+          state: 'disconnected',
+          items: [
+            { ...mcp, status: 'configured', enabled: true, canToggle: false },
+            { ...plugin, status: 'installed', enabled: false }
+          ]
+        }
+      },
+      false,
+      (key) => key
+    )
+    expect(items[0]).toMatchObject({
+      items: [
+        {
+          label: 'MCP server',
+          description: 'chat.nativeResources.configured',
+          checked: true,
+          disabled: true
+        }
+      ]
+    })
+    expect(items[1]).toMatchObject({
+      items: [
+        {
+          label: 'Native plugin',
+          description: 'chat.nativeResources.installed',
+          checked: false,
+          disabled: true
+        }
+      ]
+    })
+  })
   it('maps distinct MCP and plugin lists into checked and read-only right controls', () => {
     const items = nativeResourcesMenu(
       { status: 'ready', value: { state: 'connected', generation: 'g', items: [plugin, mcp] } },

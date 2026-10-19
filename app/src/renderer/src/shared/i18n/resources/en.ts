@@ -615,6 +615,8 @@ export const en: typeof ko = {
   },
   chat: {
     nativeResources: {
+      configured: 'Enabled in configuration',
+      installed: 'Installed',
       loading: 'Checking connection…',
       error: 'Unable to load status. Reopen this menu to retry.',
       disconnected: 'No running harness connection',
