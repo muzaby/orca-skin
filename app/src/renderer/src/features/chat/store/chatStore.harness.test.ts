@@ -15,6 +15,28 @@ afterEach(() => {
   seedLandingAgentKind('work')
 })
 describe('remembered harness and request routing', () => {
+  it('preserves an explicit harness through model hydration and late boot settings, then resets it for a new draft', () => {
+    installChatStoreHarness({ sessionId: null })
+    chatActions.setModel(null, null, null, 'opencode', { explicitHarness: true })
+    expect(getActiveChatSession()).toMatchObject({
+      backend: 'opencode',
+      harnessExplicitlySelected: true,
+      agentKindLocked: false
+    })
+    chatActions.setModel('opencode-local', 'vendor/model', 'Model', 'opencode')
+    seedLandingBackend('claude')
+    expect(getActiveChatSession()).toMatchObject({
+      backend: 'opencode',
+      providerKey: 'opencode-local',
+      harnessExplicitlySelected: true
+    })
+    chatActions.newChat()
+    expect(getActiveChatSession()).toMatchObject({
+      backend: 'claude',
+      harnessExplicitlySelected: false,
+      providerKey: null
+    })
+  })
   it('reveals the supported OpenCode subagent panel through store actions', () => {
     installChatStoreHarness({
       backend: 'opencode',

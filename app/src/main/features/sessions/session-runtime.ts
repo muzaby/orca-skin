@@ -1,3 +1,4 @@
+import type { NativeResources, SetNativeResource } from '../../../shared/native-resources'
 import { reportError } from '../../infra/error-report'
 import type { NormalizedEvent } from '../../../shared/ipc'
 import type { SessionSchedule } from '../../../shared/session-schedules'
@@ -900,6 +901,22 @@ export class SessionRuntime implements ManagedRuntime {
       return
     }
     this.channelController.abort()
+  }
+
+  async nativeResources(): Promise<NativeResources> {
+    const live = this.live
+    if (!live?.nativeResources) return { state: 'disconnected', items: [] }
+    const result = await live.nativeResources()
+    if (this.live !== live) throw new Error('하네스 연결이 바뀌었습니다. 메뉴를 다시 열어 주세요.')
+    return result
+  }
+
+  async setNativeResource(request: SetNativeResource): Promise<void> {
+    const live = this.live
+    if (!live?.setNativeResource || live.providerGeneration !== request.generation)
+      throw new Error('실행 중인 하네스 연결을 확인해 주세요.')
+    await live.setNativeResource(request)
+    if (this.live !== live) throw new Error('하네스 연결이 바뀌었습니다. 메뉴를 다시 열어 주세요.')
   }
 
   async setPermissionMode(mode: NormalizedPermissionMode): Promise<void> {

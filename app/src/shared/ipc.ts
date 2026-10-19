@@ -91,6 +91,8 @@ export const CHANNELS = {
   sessionDelete: 'orca:session:delete',
   sessionRename: 'orca:session:rename',
   sessionSetPinned: 'orca:session:setPinned',
+  sessionNativeResources: 'orca:session:native-resources',
+  sessionSetNativeResource: 'orca:session:set-native-resource',
   sessionAddDirectory: 'orca:session:addDirectory',
   sessionTitleEvent: 'orca:session:titleEvent',
   projectList: 'orca:project:list',

@@ -1,0 +1,127 @@
+import { createRoot } from 'react-dom/client'
+import { MemoryRouter } from 'react-router-dom'
+import '../../../src/renderer/src/styles/app.css'
+import '../../../src/renderer/src/shared/i18n'
+import { Sidebar } from '../../../src/renderer/src/app/Sidebar'
+import { ChatTitleBar } from '../../../src/renderer/src/features/chat/components/ChatTitleBar'
+import { harnessLanding } from '../../../src/renderer/src/features/chat/harnesses/registries/landing'
+import { TweakProvider, useTweakContext } from '../../../src/renderer/src/shared/theme'
+import {
+  useChatStore,
+  useChatSession
+} from '../../../src/renderer/src/features/chat/store/chatStore'
+import { initialChatState } from '../../../src/renderer/src/features/chat/reducer/chatReducer'
+import { installNativeFixture } from '../opencode-ui/native'
+import type { NativeResources, SetNativeResource } from '../../../src/shared/native-resources'
+installNativeFixture()
+const base = window.orca
+let enabled = true
+const snapshot = (): NativeResources => ({
+  state: 'connected',
+  generation: 'fixture',
+  items: [
+    {
+      id: 'native',
+      name: 'Filesystem',
+      kind: 'mcp',
+      status: enabled ? 'connected' : 'disabled',
+      enabled,
+      canToggle:
+        useChatStore.getState().sessions[useChatStore.getState().activeKey]?.session.backend ===
+        'claude'
+    },
+    {
+      id: 'auth',
+      name: 'GitHub',
+      kind: 'mcp',
+      status: 'needs-auth',
+      enabled: true,
+      canToggle: false
+    },
+    {
+      id: 'plugin',
+      name: 'native-workflow',
+      kind: 'plugin',
+      status: 'enabled',
+      enabled: true,
+      canToggle: false
+    }
+  ]
+})
+window.orca = new Proxy(base, {
+  get(target, name) {
+    if (name === 'session')
+      return {
+        ...target.session,
+        nativeResources: async () => snapshot(),
+        setNativeResource: async (request: SetNativeResource) => {
+          enabled = request.enabled
+          return snapshot()
+        }
+      }
+    return Reflect.get(target, name)
+  }
+})
+function seed(backend: 'claude' | 'opencode', saved = true): void {
+  useChatStore.setState({
+    sessions: {
+      fixture: {
+        session: {
+          ...initialChatState,
+          sessionId: saved ? 'fixture' : null,
+          title: '하네스 연결 확인',
+          backend,
+          agentKind: backend === 'opencode' ? 'code' : 'work',
+          cwd: 'C:/fixture'
+        },
+        live: { text: '', reasoning: '' },
+        subagentMeta: {}
+      }
+    },
+    activeKey: 'fixture',
+    pendingNewChatKey: null,
+    newChatQueue: [],
+    recentsEpoch: 0,
+    concurrencyByProjectId: {},
+    draftRestore: null
+  })
+}
+seed('claude', false)
+export function App(): React.JSX.Element {
+  const { t, setTweak } = useTweakContext((value) => value)
+  const backend = useChatSession((value) => value.backend)
+  const Header = harnessLanding(backend).Header
+  return (
+    <main className="flex h-screen w-full flex-col bg-bg text-ink [font-family:var(--font-app)]">
+      <div className="flex gap-4 p-3 text-footnote">
+        <button onClick={() => setTweak('theme', t.theme === 'white' ? 'dark' : 'white')}>
+          테마 전환
+        </button>
+        <button onClick={() => setTweak('sidebarCollapsed', !t.sidebarCollapsed)}>
+          nav 접기/펼치기
+        </button>
+        <button onClick={() => setTweak('sidebarWidth', t.sidebarWidth === 248 ? 380 : 248)}>
+          nav 너비
+        </button>
+        <button onClick={() => seed('claude')}>Claude 세션</button>
+        <button onClick={() => seed('opencode')}>OpenCode 세션</button>
+      </div>
+      <div className="flex min-h-0 flex-1">
+        <Sidebar projectsSlot={null} pinnedSlot={null} sessionsSlot={null} footerSlot={null} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <ChatTitleBar />
+          <div className="flex flex-1 items-center justify-center">
+            <Header />
+          </div>
+        </div>
+      </div>
+    </main>
+  )
+}
+createRoot(document.getElementById('root')!).render(
+  <MemoryRouter initialEntries={['/new']}>
+    <TweakProvider>
+      <App />
+    </TweakProvider>
+  </MemoryRouter>
+)

@@ -398,3 +398,15 @@ Provider와 registry는 시각 컴포넌트 선택/수명 책임만 갖는다. �
 | [features/skills/components/customize/SkillUploadModal.tsx](../../../app/src/renderer/src/features/skills/components/customize/SkillUploadModal.tsx) — `SkillUploadModal` | 드롭 영역·선택 파일·지원 형식·업로드 오류와 drag 상태를 구별한다. |
 | [features/update/components/UpdateDebugSection.tsx](../../../app/src/renderer/src/features/update/components/UpdateDebugSection.tsx) — `UpdateDebugSection` | 업데이트 개발 제어는 debug control 외형으로 표시한다. |
 | [features/update/components/UpdateDialog.tsx](../../../app/src/renderer/src/features/update/components/UpdateDialog.tsx) — `UpdateDialog` | 버전·진행률·릴리스 정보·다운로드/재시작·오류를 같은 Modal 흐름으로 표시한다. |
+
+## 하네스 진입·네이티브 상태
+
+| 소스 / 표시 단위 | 적용 규칙 |
+|---|---|
+| [app/NewChatHarnessMenu.tsx](../../../app/src/renderer/src/app/NewChatHarnessMenu.tsx) — `NewChatHarnessMenu` | Popover의 right 배치·nav boundary·gap 0. 같은 로고 칸, 키보드 탐색·취소 시 초점 복귀. |
+| [features/chat/components/NativeResourcesMenu.tsx](../../../app/src/renderer/src/features/chat/components/NativeResourcesMenu.tsx) — `NativeResourcesMenu` | 하네스 그룹 제목과 연결 상태, CascadeBody의 MCP·플러그인 하위 메뉴. 비활성 제어도 실제 상태를 보존한다. |
+| [features/chat/harnesses/claude/Logo.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/Logo.tsx) — `ClaudeLogo` | 공식 Claude 마크, currentColor. 메뉴·히어로는 spinner 토큰. |
+| [features/chat/harnesses/opencode/Logo.tsx](../../../app/src/renderer/src/features/chat/harnesses/opencode/Logo.tsx) — `OpenCodeLogo` | 공식 OpenCode 마크, currentColor와 ink 토큰. 원본 비율을 유지한다. |
+| [features/chat/harnesses/registries/brand.tsx](../../../app/src/renderer/src/features/chat/harnesses/registries/brand.tsx) — `HarnessLogo` | 하네스별 마크 조립만 소유하며 기존 랜딩 presentation을 바꾸지 않는다. |
+
+`Popover`의 `boundaryRef`는 right 배치의 가로 경계만 바꾼다. 세로 기준은 trigger이며 창·nav 리사이즈에 다시 측정한다. `CascadeBody`의 checked/description은 상태와 우측 표시 스위치를 함께 렌더한다. 상태 변경 중에는 중복 입력을 막고, 읽기 전용 항목은 disabled로 표시한다.

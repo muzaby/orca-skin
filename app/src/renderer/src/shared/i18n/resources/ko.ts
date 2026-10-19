@@ -618,6 +618,22 @@ export const ko = {
     completeBody: '응답이 완료되었습니다.'
   },
   chat: {
+    nativeResources: {
+      loading: '연결 상태 확인 중…',
+      error: '상태를 불러오지 못했습니다. 메뉴를 다시 열어 주세요.',
+      disconnected: '실행 중인 하네스 연결 없음',
+      connected: '연결됨',
+      empty: '연결된 항목 없음',
+      enabled: '활성화',
+      disabled: '비활성화',
+      failed: '연결 실패',
+      'needs-auth': '인증 필요',
+      pending: '연결 중',
+      unsupported: '세션별 제어 미지원',
+      enable: '이 세션에서 활성화',
+      disable: '이 세션에서 비활성화',
+      plugins: '플러그인'
+    },
     opencode: {
       panel: {
         title: '세션 정보',
@@ -810,7 +826,7 @@ export const ko = {
     titleBar: {
       renameAria: '대화 제목 편집',
       copyAll: '전체 대화 복사',
-      tilesButton: '우측 패널 타일',
+      tilesButton: '대화 메뉴',
       tilesHeader: '타일 표시',
       roleUser: '사용자'
     },

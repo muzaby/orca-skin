@@ -6,6 +6,7 @@ import { Children, createElement, isValidElement, type ComponentProps, type Reac
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { RightPanelColumns } from '../lib/rightPanelLayout'
 import type { RightPanelTileId } from '../lib/rightPanelTiles'
+import { NativeResourcesMenu } from './NativeResourcesMenu'
 import { MenuItem, type MenuItemProps } from '../../../shared/ui/MenuItem'
 
 const { sessionState, unseenCount, toggleTile, menu, confirmDialog } = vi.hoisted(() => ({
@@ -119,7 +120,10 @@ describe('실제 타일 메뉴 — 평면 목록과 토글 (0262 ΔV9 · 0263 Δ
         ids.map((id) => ({ label: TILE_LABEL + id, active: false }))
       )
       expect(markup).toContain('>chat.titleBar.tilesHeader</div>')
-      expect(markup).not.toContain('role="group"')
+      expect(markup).toContain(`data-native-resources="${backend}"`)
+      expect(markup).toContain(backend === 'claude' ? '>Claude<' : '>OpenCode<')
+      expect(markup).toContain('MCP')
+      expect(markup).toContain('chat.nativeResources.plugins')
       expect(markup).not.toContain('chat.rightpanel.category.')
       expect(markup).not.toContain(TILE_LABEL + 'artifacts')
       expect(markup.indexOf('chat.titleBar.tilesHeader')).toBeLessThan(markup.indexOf(TILE_LABEL))
@@ -245,4 +249,20 @@ describe('미확인 완료 배지 — 술어에서 실제 메뉴까지 (0213 AT-
     expect(markup).not.toContain(BADGE_ARIA)
     expect(markup).not.toContain('>2</span>')
   })
+})
+
+it('forwards the active session and harness to the native menu section', () => {
+  sessionState.value.backend = 'opencode'
+  sessionState.value.sessionId = 'native-session-B'
+  render()
+  const child = Children.toArray(menu.children).find(
+    (node) => isValidElement(node) && node.type === NativeResourcesMenu
+  )
+  expect(isValidElement(child) ? child.props : null).toMatchObject({
+    sessionId: 'native-session-B',
+    backend: 'opencode',
+    anchorRef: { current: null },
+    onClose: expect.any(Function)
+  })
+  sessionState.value.sessionId = 's1'
 })

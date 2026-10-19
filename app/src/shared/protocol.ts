@@ -394,6 +394,16 @@ export const SetSkillEnabledSchema = SkillTargetSchema.extend({
 })
 
 export const LoadSessionRequestSchema = z.object({ sessionId: z.string().min(1) })
+export const NativeResourcesRequestSchema = z
+  .object({ sessionId: z.string().min(1).max(512) })
+  .strict()
+export const SetNativeResourceSchema = NativeResourcesRequestSchema.extend({
+  generation: z.string().min(1).max(512),
+  kind: z.enum(['mcp', 'plugin']),
+  id: z.string().min(1).max(2048),
+  enabled: z.boolean()
+}).strict()
+
 export const DeleteSessionRequestSchema = z.object({ sessionId: z.string().min(1) })
 // 길이 상한 120 — UI 의 표시 한도 60 자보다 여유 있게. 빈 문자열은 무효.
 export const RenameSessionRequestSchema = z.object({

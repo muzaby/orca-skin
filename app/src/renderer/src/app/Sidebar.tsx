@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef, type ReactNode } from 'react'
+import { memo, useCallback, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Icon } from '../shared/ui/Icon'
 import { OrcaLogo } from '../shared/ui/OrcaLogo'
@@ -8,6 +8,7 @@ import { useTweakContext } from '../shared/theme'
 import { useI18n } from '../shared/i18n'
 import { useDragResize } from '../shared/hooks/useDragResize'
 import { SIDEBAR_NAV } from './navItems'
+import { NewChatHarnessMenu } from './NewChatHarnessMenu'
 
 // NAV 라벨은 언어 전환 시 stale 해지지 않도록 키만 상수로 두고 렌더에서 t() 해석(0096).
 // active 판정은 항목마다 다르다 — `isActive(pathname)` 가 그 차이를 흡수한다. `/agent` 는
@@ -55,6 +56,18 @@ function SidebarImpl({
   const width = t.sidebarWidth
 
   const asideRef = useRef<HTMLElement>(null)
+  const newChatRef = useRef<HTMLButtonElement>(null)
+  const [harnessMenuOpen, setHarnessMenuOpen] = useState(false)
+  const closeHarnessMenu = useCallback(() => setHarnessMenuOpen(false), [])
+  const harnessMenu = (
+    <NewChatHarnessMenu
+      key={collapsed ? 'collapsed' : 'expanded'}
+      open={harnessMenuOpen}
+      anchorRef={newChatRef}
+      boundaryRef={asideRef}
+      onClose={closeHarnessMenu}
+    />
+  )
 
   const handleWidthChange = useCallback(
     (n: number): void => setTweak('sidebarWidth', n),
@@ -75,38 +88,51 @@ function SidebarImpl({
   if (collapsed) {
     // 접힌 상태에서는 NAV 만 아이콘으로 표시. 도메인 슬롯은 노출하지 않는다.
     return (
-      <aside
-        className="app-frame-sidebar effect-primary-elevated relative my-2 ml-2 flex w-14 flex-none flex-col rounded-r6 border border-border bg-sidebar"
-        data-behavior="collapsible resizable"
-        data-state="collapsed"
-      >
-        <div
-          className="app-frame-sidebar-brand flex items-center justify-center px-3 pb-1.5 pt-2.5"
-          aria-hidden
+      <>
+        <aside
+          ref={asideRef}
+          className="app-frame-sidebar effect-primary-elevated relative my-2 ml-2 flex w-14 flex-none flex-col rounded-r6 border border-border bg-sidebar"
+          data-behavior="collapsible resizable"
+          data-state="collapsed"
         >
-          <OrcaLogo className="h-[18px] w-auto text-ink" />
-        </div>
-        <nav className="app-frame-sidebar-nav flex flex-col px-1.5 py-1">
-          {SIDEBAR_NAV.map((it) => {
-            const isActive = it.isActive(pathname)
-            return (
-              <button
-                key={it.labelKey}
-                onClick={() => navigate(it.path)}
-                aria-label={tr(it.labelKey)}
-                aria-current={isActive ? 'page' : undefined}
-                className={`flex items-center justify-center rounded-r4 border-0 px-2.5 py-1.5 outline-none hide-focus-ring ring-focus transition-colors ${
-                  isActive
-                    ? 'cursor-default bg-fill-uncontained-active text-t9'
-                    : 'cursor-default bg-transparent text-t6 hover:bg-fill-uncontained-hover hover:text-t7'
-                }`}
-              >
-                <Icon name={it.icon} size={14} />
-              </button>
-            )
-          })}
-        </nav>
-      </aside>
+          <div
+            className="app-frame-sidebar-brand flex items-center justify-center px-3 pb-1.5 pt-2.5"
+            aria-hidden
+          >
+            <OrcaLogo className="h-[18px] w-auto text-ink" />
+          </div>
+          <nav className="app-frame-sidebar-nav flex flex-col px-1.5 py-1">
+            {SIDEBAR_NAV.map((it) => {
+              const isActive = it.isActive(pathname)
+              return (
+                <button
+                  key={it.labelKey}
+                  ref={it.path === '/new' ? newChatRef : undefined}
+                  aria-haspopup={it.path === '/new' ? 'menu' : undefined}
+                  aria-expanded={it.path === '/new' ? harnessMenuOpen : undefined}
+                  onClick={() => {
+                    if (it.path === '/new') setHarnessMenuOpen((value) => !value)
+                    else {
+                      closeHarnessMenu()
+                      navigate(it.path)
+                    }
+                  }}
+                  aria-label={tr(it.labelKey)}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`flex items-center justify-center rounded-r4 border-0 px-2.5 py-1.5 outline-none hide-focus-ring ring-focus transition-colors ${
+                    isActive
+                      ? 'cursor-default bg-fill-uncontained-active text-t9'
+                      : 'cursor-default bg-transparent text-t6 hover:bg-fill-uncontained-hover hover:text-t7'
+                  }`}
+                >
+                  <Icon name={it.icon} size={14} />
+                </button>
+              )
+            })}
+          </nav>
+        </aside>
+        {harnessMenu}
+      </>
     )
   }
 
@@ -136,7 +162,16 @@ function SidebarImpl({
                 <button
                   key={it.labelKey}
                   type="button"
-                  onClick={() => navigate(it.path)}
+                  ref={it.path === '/new' ? newChatRef : undefined}
+                  aria-haspopup={it.path === '/new' ? 'menu' : undefined}
+                  aria-expanded={it.path === '/new' ? harnessMenuOpen : undefined}
+                  onClick={() => {
+                    if (it.path === '/new') setHarnessMenuOpen((value) => !value)
+                    else {
+                      closeHarnessMenu()
+                      navigate(it.path)
+                    }
+                  }}
                   aria-current={isActive ? 'page' : undefined}
                   className={`flex w-full items-center gap-g4 rounded-r4 border-0 px-2.5 py-1.5 text-left text-footnote outline-none hide-focus-ring ring-focus transition-colors ${
                     isActive
@@ -171,6 +206,7 @@ function SidebarImpl({
           )}
         </div>
       </aside>
+      {harnessMenu}
 
       {/* 폭 조절 핸들 — 카드 바깥 우측 거터에 형제로 배치. plan 타일 separator 와
           동일한 구조: hover 시 알약 그립(border-strong), press(:active) 중엔 ink3.

@@ -11,6 +11,7 @@ import type { HistoryWriter } from '../features/history/writer'
 const fixture = vi.hoisted(() => ({
   stop: new Error('fixture: session handler callbacks captured'),
   hooks: undefined as Parameters<typeof registerSessionHandlers>[1],
+  lookup: undefined as ((sessionId: string) => unknown) | undefined,
   refresh: vi.fn(),
   createRefresh: vi.fn(),
   disposeBackground: vi.fn()
@@ -38,6 +39,11 @@ vi.mock('./native-history', () => ({
   createNativeHistoryRefresh: (...args: Parameters<typeof createNativeHistoryRefresh>) => {
     fixture.createRefresh(...args)
     return fixture.refresh
+  }
+}))
+vi.mock('./handlers/session-resources', () => ({
+  registerSessionResourceHandlers: (lookup: (sessionId: string) => unknown) => {
+    fixture.lookup = lookup
   }
 }))
 vi.mock('./handlers/session', () => ({
@@ -116,4 +122,13 @@ describe('native history bootstrap callbacks', () => {
     expect(current).toHaveBeenCalledExactlyOnceWith('refresh-session')
     activity.dispose()
   })
+})
+
+it('wires native resource lookups to the current supervisor runtime', () => {
+  const { supervisor, activity } = register()
+  const selected = { marker: 'native-session-B' }
+  const peek = vi.spyOn(supervisor, 'peekRuntime').mockReturnValue(selected as never)
+  expect(fixture.lookup?.('session-B')).toBe(selected)
+  expect(peek).toHaveBeenCalledExactlyOnceWith('session-B')
+  activity.dispose()
 })

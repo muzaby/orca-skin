@@ -49,6 +49,8 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
     requests.push(request.clone())
     const path = new URL(request.url).pathname
     if (path === '/session' && request.method === 'POST') return jsonResponse({ id: 'replacement' })
+    if (path === '/mcp') return jsonResponse({ native: { status: 'connected' } })
+    if (path === '/config') return jsonResponse({ plugin: ['@native/plugin@1'] })
     if (path === '/event')
       return new Response(
         new ReadableStream<Uint8Array>({
@@ -430,4 +432,47 @@ describe('OpenCode persistent SDK channel', () => {
       })
     )
   })
+})
+
+it('exposes native resources from the live channel client and its directory without mutations', async () => {
+  const f = fixture({ cwd: 'C:/native-B' })
+  const iterator = f.live.eventBatches[Symbol.asyncIterator]()
+  try {
+    expect(await f.live.nativeResources?.()).toEqual({ state: 'disconnected', items: [] })
+    await frame(iterator)
+    expect(await f.live.nativeResources?.()).toEqual({
+      state: 'connected',
+      generation: f.live.providerGeneration,
+      items: [
+        {
+          id: 'native',
+          name: 'native',
+          kind: 'mcp',
+          status: 'connected',
+          enabled: true,
+          canToggle: false
+        },
+        {
+          id: 'plugin:0',
+          name: '@native/plugin@1',
+          kind: 'plugin',
+          status: 'enabled',
+          enabled: true,
+          canToggle: false
+        }
+      ]
+    })
+    const requests = f.requests.filter((request) =>
+      ['/mcp', '/config'].includes(new URL(request.url).pathname)
+    )
+    expect(requests).toHaveLength(2)
+    for (const request of requests) {
+      expect(new URL(request.url).searchParams.get('directory')).toBe('C:/native-B')
+      expect(request.method).toBe('GET')
+    }
+    expect(f.live.setNativeResource).toBeUndefined()
+  } finally {
+    await dispose(f.live, iterator)
+  }
+  expect(await f.live.nativeResources?.()).toEqual({ state: 'disconnected', items: [] })
 })

@@ -614,6 +614,22 @@ export const en: typeof ko = {
     completeBody: 'The response is complete.'
   },
   chat: {
+    nativeResources: {
+      loading: 'Checking connection…',
+      error: 'Unable to load status. Reopen this menu to retry.',
+      disconnected: 'No running harness connection',
+      connected: 'Connected',
+      empty: 'No connected items',
+      enabled: 'Enabled',
+      disabled: 'Disabled',
+      failed: 'Connection failed',
+      'needs-auth': 'Authentication required',
+      pending: 'Connecting',
+      unsupported: 'Session controls unavailable',
+      enable: 'Enable in this session',
+      disable: 'Disable in this session',
+      plugins: 'Plugins'
+    },
     opencode: {
       panel: {
         title: 'Session details',
@@ -803,7 +819,7 @@ export const en: typeof ko = {
     titleBar: {
       renameAria: 'Edit conversation title',
       copyAll: 'Copy entire conversation',
-      tilesButton: 'Right panel tiles',
+      tilesButton: 'Conversation menu',
       tilesHeader: 'Show tiles',
       roleUser: 'User'
     },

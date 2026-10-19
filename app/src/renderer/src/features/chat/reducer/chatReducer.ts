@@ -280,6 +280,8 @@ export interface ChatState {
   pendingProjectId: string | null
   projectId: string | null
   backend: Backend | null
+  // 새 대화 메뉴의 명시 선택. 자동 모델 복원이 다른 하네스로 바꾸지 않도록 한다.
+  harnessExplicitlySelected: boolean
   harnessAgent?: string
   modelVariant?: string
   providerKey: string | null
@@ -491,6 +493,7 @@ export const initialChatState: ChatState = {
   pendingProjectId: null,
   projectId: null,
   backend: null,
+  harnessExplicitlySelected: false,
   providerKey: null,
   modelFamily: null,
   modelAlias: null,
@@ -651,6 +654,7 @@ export type ChatAction =
       // **선택 필드가 아니다**(0215) — 빠뜨리면 haiku 판정이 조용히 false 가 된다.
       modelAlias: string | null
       adapter?: string | null
+      explicitHarness?: boolean
     }
   | { type: 'SET_EFFORT'; effort: EffortLevel }
   | { type: 'SET_HARNESS_OPTIONS'; agent?: string; variant?: string }
@@ -1620,6 +1624,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...state,
         backend,
+        harnessExplicitlySelected:
+          state.harnessExplicitlySelected || action.explicitHarness === true,
         agentKind: kind,
         rightPanelTiles: rightPanelColumnsForAgent(state.rightPanelTiles, kind, backend),
         harnessAgent: backend !== state.backend ? undefined : state.harnessAgent,

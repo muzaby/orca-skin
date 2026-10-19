@@ -370,3 +370,34 @@ it('wires DB load and lazy refresh as separate calls with the same stored sessio
     vi.unstubAllGlobals()
   }
 })
+
+it('preserves native resource state and toggle identity through renderer and preload', async () => {
+  vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
+  try {
+    const { sessionApi } = await import('../renderer/src/shared/api/ipc')
+    const result = {
+      state: 'connected',
+      generation: 'native-generation',
+      items: [{ id: 'a', kind: 'mcp', enabled: false }]
+    }
+    harness.invoke.mockResolvedValue(result)
+    expect(await sessionApi.nativeResources('session-B')).toBe(result)
+    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.sessionNativeResources, {
+      sessionId: 'session-B'
+    })
+    for (const enabled of [false, true]) {
+      const request = {
+        sessionId: 'session-B',
+        generation: 'native-generation',
+        kind: 'mcp' as const,
+        id: 'server-C',
+        enabled
+      }
+      expect(await sessionApi.setNativeResource(request)).toBe(result)
+      expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.sessionSetNativeResource, request)
+    }
+  } finally {
+    harness.invoke.mockResolvedValue(undefined)
+    vi.unstubAllGlobals()
+  }
+})

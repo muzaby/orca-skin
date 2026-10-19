@@ -3,6 +3,7 @@ import { Icon } from '../../../shared/ui/Icon'
 import { useI18n } from '../../../shared/i18n'
 import { chatActions, useChatSession } from '../store/chatStore'
 import { agentPresentation } from '../lib/agentPresentation'
+import { HarnessLogo } from '../harnesses/registries/brand'
 
 export function AgentModeToggle(): React.JSX.Element {
   const { tr } = useI18n()
@@ -51,9 +52,10 @@ export function AgentModeToggle(): React.JSX.Element {
       <h1
         data-agent-mode-hero
         aria-live="polite"
-        className="text-center font-serif text-[32px] font-normal tracking-tight text-ink"
+        className="flex items-center justify-center gap-3 text-center font-serif text-[32px] font-normal tracking-tight text-ink"
       >
-        {tr(agentPresentation[kind].greeting)}
+        <HarnessLogo backend="claude" className="size-9 shrink-0 text-spinner" />
+        <span>{tr(agentPresentation[kind].greeting)}</span>
       </h1>
     </div>
   )
