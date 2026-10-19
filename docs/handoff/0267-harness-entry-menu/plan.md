@@ -5,8 +5,8 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | IMPL_DONE / r1.4 |
-| V mode / 기준 V / 유효 V | Delta V / r1.3 (`148f91c5`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6 |
+| 상태 / 라운드 | READY / r1.5 |
+| V mode / 기준 V / 유효 V | Delta V / r1.4 (`5c814855`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
 # Part I — Product & UX Contract
@@ -738,3 +738,53 @@ Claude는 기존 scoped installed_plugins.json과 SDK init 경로에서 plugin.j
 - 기존 D-15의 메뉴 분류와 D-08의 플러그인 표시를 사용자 요청으로 대체했다.
 - Node/Electron DB ABI 차이는 140/127 오류를 확인하고 Electron에서 동일 5케이스를 재실행했다.
 - 문서 링크 gate는 ignored 외부 clone의 기존 5건이 남으며 실제 저장소 링크 차집합은 비었다.
+
+## ΔV7 — 활성 네이티브 플러그인 로딩과 설치 스킬 발견 (r1.5)
+
+READY. 사용자 원문: “frontend-design 포함해서 활성화된 하네스 플러그인의 스킬이 노출되고 실제로 사용되도록 수정해줘.” 실제 사용자 설치 registry·활성 설정·SKILL.md는 존재하지만, Claude query에는 Orca 주입 roots만 전달되고 adaptSkills는 기존 확장만 허용한다.
+
+### Decision / Product & UX Contract
+
+| 결정 | 상태 | 계약 / 대체 관계 |
+|---|---|---|
+| D-23 | ACTIVE | Claude 세션 생성·재개 spawn에서 해당 cwd/native root의 활성 설치 플러그인을 SDK local plugins로 로드한다. user→project→local→provider 플러그인 활성 설정을 적용하고 비활성/타 프로젝트/미설치는 제외한다. D-18의 자동 로딩 정책 불변 문장과 ΔV3의 자동 실행 비범위를 이 범위에서 대체한다. |
+| D-24 | ACTIVE | 실행 전에는 활성 설치 플러그인의 실제 skill/command 파일에서 이름·설명·힌트를 읽어 +→스킬에 제공한다. 실행 중에는 SDK 명령 관측이 우선한다. D-16의 SDK 전용 원천을 대체하되 설치명만으로 명령을 추측하지 않는 계약은 유지한다. |
+| D-25 | ACTIVE | 기존 활성 Orca/사용자/작업폴더 스킬과 활성 네이티브 스킬을 함께 허용한다. 비활성 Orca 스킬은 계속 제외한다. 사용자 env·인증·model·hooks 설정을 통째로 상속하지 않는다. |
+
+D-19~22의 표시 형식·툴팁·초안 보존·폴더 열기·수동 재조회 제거를 유지한다. 목록 조회는 파일 읽기만 하며 CLI 실행은 명시 전송에서만 수행한다. OpenCode는 기존 native command.list→session.command 경로를 유지한다.
+
+| AC | 관측 계약 | 직접 oracle / production 경로 |
+|---|---|---|
+| AC20 | 활성 frontend-design 및 다른 네이티브 플러그인이 신규/재개 Claude query의 plugins에 포함되고, disabled/무관 scope는 제외된다. | adapter.native-plugins.test: 실제 registry/settings 임시파일→sendMessage→SDK options, 두 spawn 사이 설정 갱신 |
+| AC21 | 기존 스킬이 있어도 native 스킬이 모델 허용 목록에 포함된다. 이름과 명령은 파일 metadata로 확인하며 사용자 호출 금지 스킬은 메뉴에서 제외한다. | plugin-catalog.test: 기본·사용자 지정 skills/commands·frontmatter·scope; adapt.test와 adapter.native-plugins.test SDK skills 관측 |
+| AC22 | runtime이 없어도 활성 plugin 스킬을 +→스킬에 표시하고 설명 tooltip·원래 slash 삽입·초안 보존을 수행한다. live 성공 목록이 설치 예상 목록보다 우선한다. | bootstrap.native-history.test 저장 scope→configured commands; session-resources.test offline/live/failure 합성; Composer.native-menu + attachMenuModel + composerAttachMenu |
+| AC23 | 선택된 slash가 실제 CLI에서 plugin skill로 해석된다. plugin 원본/설정은 쓰지 않고 provider 격리·Orca disabled·OpenCode 명령 경로를 보존한다. | 실제 bundled SDK/CLI + loopback mock API smoke에서 skill 본문이 모델 요청에 확장되는지 관측; adapter options 및 기존 OpenCode persistent 회귀 |
+
+### Technical Design / 조사
+
+- SDK 0.3.296 `Options.plugins`는 local path를 받으며 `Options.skills` 배열은 나머지 스킬을 숨기고 Skill 도구 호출을 거절한다. [공식 plugin 문서](https://code.claude.com/docs/en/agent-sdk/plugins)는 CLI 설치 경로의 명시 전달과 `/plugin:skill` 사용을 설명한다.
+- Claude adapter 내부 plugin catalog가 설치 scope·enabledPlugins 우선순위의 정본이 된다. registry→manifest→기본/manifest 지정 skills와 commands를 읽고 runtime roots·skills와 공개 명령 metadata를 분리한다. 추가 의존성·DB/원본 설정 쓰기 없음.
+- sendMessage의 동기 spawn 계약을 유지하며 catalog는 메타데이터만 읽는다. plugin 파일의 내용 전체를 renderer/로그로 전달하지 않는다. startup read 실패는 안전한 오류로 전송 실패, 메뉴 조회 실패는 기존 partial/error로 표시한다.
+- configured commands는 선택적 main harness 포트와 저장 session cwd의 callback으로 기존 native-resource 응답에 합친다. 현재 live.commands가 있으면 그것을 사용하고, live 조회 실패/부재 시 파일 metadata를 사용한다. 조회와 spawn은 각각 최신 파일을 읽는다.
+- native roots는 query plugins에 추가하되 `claudeNativeResources`의 Orca injected 제외 목록에는 넣지 않는다. custom native root는 실행 env의 CLAUDE_CONFIG_DIR를 따른다. 공통 프론트매터 변환은 하위 순수 helper로 분리해 기존 스킬 스캐너와 공유한다.
+
+### V / §10 고정 자리
+
+| Pair | 노드 / requiredness | start → edges → end / 직접 oracle | 자리 |
+|---|---|---|---|
+| VP-20 | R-20~23↔AT-20~23 NEW REQUIRED | 설치/활성 설정→spawn→native 명령→메뉴→slash→CLI skill 확장; AC20~23의 직접 oracle 조합 | EP18~20 |
+| VP-21 | SD-05↔ST-05 NEW REQUIRED | 최초/재개 spawn→설정 재조회→SDK plugins/skills, offline→live 목록 교체; adapter.native-plugins + session-resources | EP18~20 |
+| VP-22 | AR-06↔IT-06 NEW REQUIRED | catalog→adapter 옵션 및 module→bootstrap→handler→기존 renderer; adapter.native-plugins·bootstrap.native-history·session-resources·Composer.native-menu | EP18~20 |
+| VP-23 | MD-07↔UT-07 NEW REQUIRED | 설치 scope/flag→manifest/skill metadata→roots·skillNames·commands; plugin-catalog.test·adapt.test | EP18 |
+| VP-13~14,16~19 | INHERITED REGRESSION | 기존 구성 목록/폴더 resolver·재진입 snapshot·스킬/MCP 배치·OpenCode dispatch를 관련 테스트로 재확인. M2/M3 유지 | 기존 EP11,13~17 |
+| VP-01~12,15 | INHERITED NOT_REQUIRED | r1.4 기존 oracle 증거 유지. nav·브랜드·모델 선택·케밥 그룹 배치 코드에 이번 변경이 닿지 않음 | r1.4 보고 좌표 |
+
+| 지점 | 고정 자리 목록 / 검색 | 실패 의미 / 자리별 oracle |
+|---|---|---|
+| EP18 (4자리) | ①설치 scope/활성 선택 ②skill/command metadata ③query plugin roots ④query skills 허용 목록. `rg -n 'enabledPlugins|pluginRoots|adaptPlugins|adaptSkills|skills|commands' app/src/main/adapters/claude app/src/main/features/extensions/common/skills` | ①②plugin-catalog 실제 파일 입력 ③④adapter.native-plugins 실제 sendMessage options; 미활성 실행/활성 누락/기존 스킬 차단 |
+| EP19 (3자리) | ①harness configured commands 등록 ②bootstrap 저장 session scope 전달 ③handler offline/live 명령 선택. `rg -n 'configuredResources|configuredCommands|registerSessionResourceHandlers' app/src/main` | ①②bootstrap.native-history 실제 module 파일 reader ③session-resources IPC 결과; 다른 cwd·runtime 미실행 메뉴 누락·가짜 live 명령 |
+| EP20 (3자리) | ①native observer의 injected 제외 ②기존 + 스킬 트리→draft ③CLI slash skill 확장. `rg -n 'claudeNativeResources|nativeAttachItems|nativeCommand|prompt: input.stream' app/src/main/adapters/claude app/src/renderer/src/features/chat` | ①adapter.native-plugins/live-control ②Composer.native-menu/composerAttachMenu ③loopback smoke API request 본문; 로드했지만 숨김/명령 오타/일반 텍스트 전송 |
+
+신규 분모 10자리. 기존 회귀 EP11(6)+EP13(3)+EP14(6)+EP15(1)+EP16(4)+EP17(10)=30자리, 이번 실행 분모 40자리이며 비영향 자리를 재검증했다고 주장하지 않는다. 직접 결과 oracle이므로 신규 변이 not selected; 변경 전후 M2/M3만 재실행한다.
+
+운영 gate: lint·typecheck 3종·수정 adapter/IPC/renderer/확장 스캐너 회귀·build·boundary·문서 inventory. 실제 CLI 검증은 loopback 응답으로 수행하며 외부 유료 모델은 호출하지 않는다. AC20~23과 D-23~25 대조 충돌 0; D-16/D-18의 대체 문장 및 나머지 D-19~22 승계 확인. 독립 verify는 이후 별도 수행한다.
