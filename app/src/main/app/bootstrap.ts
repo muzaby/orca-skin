@@ -7,7 +7,7 @@ import { reportError } from '../infra/error-report'
 import { app, powerMonitor, shell, webContents } from 'electron'
 import type { IpcMainInvokeEvent } from 'electron'
 import { mkdir } from 'node:fs/promises'
-import { join } from 'node:path'
+import { isAbsolute, join } from 'node:path'
 import {
   CHANNELS,
   type DebugMockState,
@@ -1030,6 +1030,27 @@ export class Bootstrap {
         )
           throw new Error('대화가 바뀌었습니다. 메뉴를 다시 열어 주세요.')
         return directory
+      },
+      async (sessionId) => {
+        const session = ctx.db.getSessionById(sessionId)
+        if (!session) return []
+        const commands = await harnessModule(session.backend).configuredCommands?.(
+          session.cwd ?? ctx.getCwd(session.project_id)
+        )
+        const current = ctx.db.getSessionById(sessionId)
+        if (
+          !current ||
+          current.backend !== session.backend ||
+          current.cwd !== session.cwd ||
+          current.project_id !== session.project_id
+        )
+          throw new Error('대화가 바뀌었습니다. 메뉴를 다시 열어 주세요.')
+        return commands
+      },
+      async ({ backend, cwd, projectId }) => {
+        const directory = cwd ?? ctx.getCwd(projectId)
+        if (!isAbsolute(directory)) throw new Error('작업 폴더는 절대 경로여야 합니다.')
+        return (await harnessModule(backend).configuredCommands?.(directory)) ?? []
       }
     )
     registerSessionHandlers(ctx, {

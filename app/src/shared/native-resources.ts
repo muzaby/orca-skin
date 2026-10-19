@@ -1,3 +1,5 @@
+import type { Backend } from './ipc'
+
 /** Safe session-native resource view. Never includes configuration, credentials or paths. */
 export interface NativeResource {
   id: string
@@ -39,4 +41,11 @@ export interface SetNativeResource {
 export interface OpenNativePlugin {
   sessionId: string
   id: string
+}
+
+/** Read-only discovery before a draft has a persisted session. */
+export interface DraftNativeResourcesRequest {
+  backend: Backend
+  cwd: string | null
+  projectId: string | null
 }

@@ -11,7 +11,11 @@ import { createElement, useLayoutEffect } from 'react'
 import { installFakeDom, type FakeDom } from '../../../shared/ui/renderHarness.testfixture'
 import { NativeResourcesMenu } from '../components/NativeResourcesMenu'
 import { useNativeResources } from './useNativeResources'
-import type { NativeResource, NativeResources } from '../../../../../shared/native-resources'
+import type {
+  DraftNativeResourcesRequest,
+  NativeResource,
+  NativeResources
+} from '../../../../../shared/native-resources'
 
 const resource: NativeResource = {
   id: 'native-B',
@@ -34,13 +38,15 @@ const openFolder = vi.fn<(req: unknown) => Promise<void>>()
 function Probe({
   id,
   open = true,
-  scope = null
+  scope = null,
+  draft
 }: {
   id: string | null
   open?: boolean
   scope?: string | null
+  draft?: DraftNativeResourcesRequest
 }): null {
-  const result = useNativeResources(id, open, scope)
+  const result = useNativeResources(id, open, scope, draft)
   useLayoutEffect(() => {
     current = result
   }, [result])
@@ -379,4 +385,33 @@ it('renders the live session menu and keeps it open while the MCP toggle refresh
   dom.click(dom.query('[data-cascade-level="0"][data-cascade-index="0"]')!)
   dom.keyDown('Escape')
   expect(onClose).toHaveBeenCalledOnce()
+})
+
+it('discovers draft skills by cwd and ignores a late result from another draft folder', async () => {
+  let resolveA!: (value: NativeResources) => void
+  read.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveA = resolve
+      })
+  )
+  const draft = { backend: 'claude' as const, cwd: 'C:/draft-A', projectId: 'project-A' }
+  dom.render(createElement(Probe, { id: null, scope: 'claude', draft }))
+  await settle()
+  expect(read).toHaveBeenCalledWith(draft)
+  const b = {
+    state: 'disconnected' as const,
+    items: [],
+    commands: [{ name: 'B:design', description: '', argumentHint: '', source: 'plugin' as const }]
+  }
+  read.mockResolvedValue(b)
+  dom.render(
+    createElement(Probe, { id: null, scope: 'claude', draft: { ...draft, cwd: 'C:/draft-B' } })
+  )
+  await settle()
+  resolveA({ ...b, commands: [{ ...b.commands[0], name: 'A:old' }] })
+  await settle()
+  expect(current.view).toMatchObject({ status: 'ready', value: b })
+  await current.toggle(resource)
+  expect(write).not.toHaveBeenCalled()
 })

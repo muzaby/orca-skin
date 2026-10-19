@@ -1,6 +1,6 @@
 import type { Backend, EngineUserSettingsResult } from '../../../../shared/ipc'
 import type { HarnessPreferences } from '../../../../shared/harness'
-import type { NativeResource } from '../../../../shared/native-resources'
+import type { NativeCommand, NativeResource } from '../../../../shared/native-resources'
 import type { SessionAdapter } from '../../../adapters/common/types'
 import type {
   HarnessRuntimeConfig,
@@ -25,6 +25,7 @@ export interface MainHarnessModule {
   parseRuntimeModels?: (config: HarnessRuntimeConfig) => ParsedModel[]
   readUserSettings(): EngineUserSettingsResult
   configuredResources?(cwd: string): Promise<NativeResource[]>
+  configuredCommands?(cwd: string): Promise<NativeCommand[]>
   configuredPluginDirectory?(cwd: string, id: string): Promise<string | undefined>
   resolveTitleModel(models: ParsedModel[]): string | undefined
   recoveryContextWindow(settings: Record<string, unknown>, model?: string): number

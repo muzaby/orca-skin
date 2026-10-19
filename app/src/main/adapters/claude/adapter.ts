@@ -1,3 +1,4 @@
+import { readClaudePluginCatalog } from './plugin-catalog'
 import { claudeNativeResources } from './native-resources'
 // ClaudeAdapter — @anthropic-ai/claude-agent-sdk 의 query() 함수를 통해 Claude Code 와 통신.
 // CLI spawn 방식은 폐기 (Phase 3, 2026-05-18) — 외부 계약은 TRD §7.1,
@@ -530,6 +531,7 @@ export class ClaudeAdapter implements SessionAdapter {
     // 실행 전 편집 미리보기(0229) — 가드 훅과 **같은 입력**으로 루트를 턴당 1회 푼다. 편집이 쓸 수
     // 없는 경로는 미리보기로도 읽지 않는다.
     const nativePaths = claudeNativePaths(contextEnv, undefined, cwd)
+    const nativePlugins = readClaudePluginCatalog(cwd, nativePaths.root, settings)
     const previewRoots = resolveGuardRoots(cwd, additionalDirectories, nativePaths.root)
     const readForPreview = nodeEditPreviewReader()
     const plansDir = nativePaths.plans
@@ -574,8 +576,8 @@ export class ClaudeAdapter implements SessionAdapter {
         ...adaptSystemPrompt(extensions.systemPromptAppend),
         // Orca plugin + 사용자 ~/.claude/skills 래퍼 plugin(0117) — user 소스 배제로 끊긴
         // ~/.claude/skills 를 dist/claude/plugins/claude(정션/심링크)로 보전한다.
-        ...adaptPlugins(extensions.pluginRoots),
-        ...adaptSkills(extensions.skills),
+        ...adaptPlugins(extensions.pluginRoots, nativePlugins.roots),
+        ...adaptSkills(extensions.skills, nativePlugins.skills),
         // provider settings flag 주입 — settings(env 포함 인라인 JSON 문자열, flag 레이어).
         // settingSources 는 ['project','local'] 로 명시해 user 소스를 배제한다(handoff 0117 —
         // 0028 의 "생략=기본 소스 상속" supersede). provider settings 가 사용자 전역

@@ -1,4 +1,5 @@
 import type {
+  DraftNativeResourcesRequest,
   NativeResources,
   SetNativeResource,
   OpenNativePlugin
@@ -210,8 +211,8 @@ export const concurrencyApi = {
 }
 
 export const sessionApi = {
-  nativeResources: (sessionId: string): Promise<NativeResources> =>
-    window.orca.session.nativeResources(sessionId),
+  nativeResources: (request: string | DraftNativeResourcesRequest): Promise<NativeResources> =>
+    window.orca.session.nativeResources(request),
   openNativePlugin: (request: OpenNativePlugin): Promise<void> =>
     window.orca.session.openNativePlugin(request),
   setNativeResource: (request: SetNativeResource): Promise<NativeResources> =>

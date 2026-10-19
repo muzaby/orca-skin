@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { NativeResource, NativeResources } from '../../../../../shared/native-resources'
+import type {
+  DraftNativeResourcesRequest,
+  NativeResource,
+  NativeResources
+} from '../../../../../shared/native-resources'
 import { sessionApi } from '../../../shared/api/ipc'
 
 export type NativeResourcesView =
@@ -62,7 +66,8 @@ function observed(value: NativeResources, previous?: Snapshot): Snapshot {
 export function useNativeResources(
   sessionId: string | null,
   open: boolean,
-  scope: string | null = null
+  scope: string | null = null,
+  draft?: DraftNativeResourcesRequest
 ): {
   view: NativeResourcesView
   busy: boolean
@@ -70,26 +75,23 @@ export function useNativeResources(
   toggle: (resource: NativeResource) => Promise<void>
   openPlugin: (resource: NativeResource) => Promise<void>
 } {
-  const key = JSON.stringify([scope, sessionId])
+  const draftKey = JSON.stringify(draft)
+  const key = JSON.stringify([scope, sessionId, sessionId ? null : draftKey])
   const [result, setResult] = useState<{
-    sessionId: string | null
-    scope: string | null
+    key: string
     view: NativeResourcesView
   }>({
-    sessionId,
-    scope,
+    key,
     view: initialView(key)
   })
-  const view: NativeResourcesView =
-    result.sessionId === sessionId && result.scope === scope ? result.view : initialView(key)
+  const view: NativeResourcesView = result.key === key ? result.view : initialView(key)
   const [busy, setBusy] = useState(false)
   const [revision, setRevision] = useState(0)
   const refresh = useCallback(() => setRevision((value) => value + 1), [])
   const epoch = useRef(0)
   const pending = useRef(false)
   useEffect(() => {
-    const setView = (value: NativeResourcesView): void =>
-      setResult({ sessionId, scope, view: value })
+    const setView = (value: NativeResourcesView): void => setResult({ key, view: value })
     const generation = ++epoch.current
     pending.current = false
     if (!open) return
@@ -102,7 +104,9 @@ export function useNativeResources(
       try {
         const value = sessionId
           ? await sessionApi.nativeResources(sessionId)
-          : { state: 'disconnected' as const, items: [] }
+          : draftKey
+            ? await sessionApi.nativeResources(JSON.parse(draftKey) as DraftNativeResourcesRequest)
+            : { state: 'disconnected' as const, items: [] }
         if (epoch.current === generation) {
           const next = observed(value, previous)
           if (sessionId) snapshots().set(key, next)
@@ -120,15 +124,14 @@ export function useNativeResources(
     return () => {
       epoch.current = generation + 1
     }
-  }, [sessionId, open, scope, key, revision])
+  }, [sessionId, open, key, draftKey, revision])
 
   const reloadAfterFailure = async (
     issue: 'control' | 'open',
     generation: number
   ): Promise<void> => {
     if (epoch.current !== generation || !sessionId || view.status !== 'ready') return
-    const setView = (value: NativeResourcesView): void =>
-      setResult({ sessionId, scope, view: value })
+    const setView = (value: NativeResourcesView): void => setResult({ key, view: value })
     const previous = { ...view, value: readOnly(view.value), stale: true } as const
     setView({ ...previous, refreshing: true, issue })
     try {
@@ -176,8 +179,7 @@ export function useNativeResources(
         !view.value.generation
       )
         return
-      const setView = (value: NativeResourcesView): void =>
-        setResult({ sessionId, scope, view: value })
+      const setView = (value: NativeResourcesView): void => setResult({ key, view: value })
       const generation = epoch.current
       pending.current = true
       setBusy(true)

@@ -118,6 +118,17 @@ describe('adaptSkills', () => {
     expect(adaptSkills(skills)).toEqual({ skills: [`${PRODUCT_SLUG}:a`, 'claude:native'] })
   })
 
+  it('adds native plugin skills without enabling disabled Orca skills', () => {
+    expect(
+      adaptSkills(
+        [skill('on', 'orca', true), skill('off', 'orca', false)],
+        ['frontend-design:frontend-design']
+      )
+    ).toEqual({
+      skills: [`${PRODUCT_SLUG}:on`, 'frontend-design:frontend-design']
+    })
+  })
+
   it('이미 네임스페이스된 Orca 스킬은 중복 prefix 하지 않는다', () => {
     expect(adaptSkills([skill(`${PRODUCT_SLUG}:ready`, 'orca', true)])).toEqual({
       skills: [`${PRODUCT_SLUG}:ready`]

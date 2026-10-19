@@ -10,13 +10,20 @@ import type { HistoryWriter } from '../features/history/writer'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { NativeResource } from '../../shared/native-resources'
+import type {
+  DraftNativeResourcesRequest,
+  NativeCommand,
+  NativeResource
+} from '../../shared/native-resources'
 import { nativePluginId } from '../adapters/claude/configured-resources'
 
 const fixture = vi.hoisted(() => ({
   stop: new Error('fixture: session handler callbacks captured'),
   hooks: undefined as Parameters<typeof registerSessionHandlers>[1],
   lookup: undefined as ((sessionId: string) => unknown) | undefined,
+  draftCommands: undefined as
+    ((request: DraftNativeResourcesRequest) => Promise<NativeCommand[]>) | undefined,
+  commands: undefined as ((sessionId: string) => Promise<NativeCommand[] | undefined>) | undefined,
   configured: undefined as ((sessionId: string) => Promise<NativeResource[]>) | undefined,
   pluginDirectory: undefined as
     ((sessionId: string, id: string) => Promise<string | undefined>) | undefined,
@@ -53,8 +60,12 @@ vi.mock('./handlers/session-resources', () => ({
   registerSessionResourceHandlers: (
     lookup: (sessionId: string) => unknown,
     configured: (sessionId: string) => Promise<NativeResource[]>,
-    pluginDirectory: (sessionId: string, id: string) => Promise<string | undefined>
+    pluginDirectory: (sessionId: string, id: string) => Promise<string | undefined>,
+    commands: (sessionId: string) => Promise<NativeCommand[] | undefined>,
+    draftCommands: (request: DraftNativeResourcesRequest) => Promise<NativeCommand[]>
   ) => {
+    fixture.draftCommands = draftCommands
+    fixture.commands = commands
     fixture.lookup = lookup
     fixture.configured = configured
     fixture.pluginDirectory = pluginDirectory
@@ -186,9 +197,40 @@ it('reads native configuration through the registered module using stored backen
         }
       })
     )
+    await mkdir(join(installed, '.claude-plugin'), { recursive: true })
+    await mkdir(join(installed, 'skills', 'review'), { recursive: true })
+    await writeFile(
+      join(installed, '.claude-plugin/plugin.json'),
+      JSON.stringify({ name: 'native-B' })
+    )
+    await writeFile(
+      join(installed, 'skills/review/SKILL.md'),
+      '---\nname: review\ndescription: Native review\n---\nPrivate body'
+    )
+    await mkdir(join(cwd, '.claude'), { recursive: true })
+    await writeFile(
+      join(cwd, '.claude/settings.json'),
+      JSON.stringify({ enabledPlugins: { 'native@market': true } })
+    )
+    expect(await fixture.commands?.('session-B')).toEqual([
+      { name: 'native-B:review', description: 'Native review', argumentHint: '', source: 'plugin' }
+    ])
+    expect(
+      await fixture.draftCommands?.({ backend: 'claude', cwd, projectId: 'project-B' })
+    ).toEqual(await fixture.commands?.('session-B'))
+    ctx.getCwd = vi.fn(() => cwd)
+    expect(
+      await fixture.draftCommands?.({ backend: 'claude', cwd: null, projectId: 'project-B' })
+    ).toEqual(await fixture.commands?.('session-B'))
+    expect(ctx.getCwd).toHaveBeenCalledWith('project-B')
+    expect(await fixture.draftCommands?.({ backend: 'opencode', cwd, projectId: null })).toEqual([])
+    await expect(
+      fixture.draftCommands?.({ backend: 'claude', cwd: 'relative/path', projectId: null })
+    ).rejects.toThrow('절대 경로')
     expect(await fixture.pluginDirectory?.('session-B', nativePluginId(installed))).toBe(installed)
     expect(await fixture.pluginDirectory?.('session-B', installed)).toBeUndefined()
     row.backend = 'opencode'
+    expect(await fixture.commands?.('session-B')).toBeUndefined()
     expect(await fixture.pluginDirectory?.('session-B', nativePluginId(installed))).toBeUndefined()
     expect(await fixture.configured?.('session-B')).toEqual([])
     get.mockReturnValueOnce({ ...row, backend: 'claude', cwd: null } as never)
@@ -199,8 +241,12 @@ it('reads native configuration through the registered module using stored backen
     get.mockReturnValueOnce({ ...row, backend: 'claude' })
     get.mockReturnValueOnce({ ...row, backend: 'opencode' })
     await expect(fixture.configured?.('session-B')).rejects.toThrow('바뀌었습니다')
+    get.mockReturnValueOnce({ ...row, backend: 'claude' })
+    get.mockReturnValueOnce({ ...row, backend: 'opencode' })
+    await expect(fixture.commands?.('session-B')).rejects.toThrow('바뀌었습니다')
     get.mockReturnValue(undefined as never)
     expect(await fixture.configured?.('missing')).toEqual([])
+    expect(await fixture.commands?.('missing')).toEqual([])
   } finally {
     activity.dispose()
     vi.unstubAllEnvs()

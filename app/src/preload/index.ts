@@ -1,4 +1,5 @@
 import type {
+  DraftNativeResourcesRequest,
   NativeResources,
   SetNativeResource,
   OpenNativePlugin
@@ -257,8 +258,11 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.gitDiffPatch, req)
   },
   session: {
-    nativeResources: (sessionId: string): Promise<NativeResources> =>
-      ipcRenderer.invoke(CHANNELS.sessionNativeResources, { sessionId }),
+    nativeResources: (request: string | DraftNativeResourcesRequest): Promise<NativeResources> =>
+      ipcRenderer.invoke(
+        CHANNELS.sessionNativeResources,
+        typeof request === 'string' ? { sessionId: request } : request
+      ),
     openNativePlugin: (request: OpenNativePlugin): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.sessionOpenNativePlugin, request),
     setNativeResource: (request: SetNativeResource): Promise<NativeResources> =>

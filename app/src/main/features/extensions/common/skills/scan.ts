@@ -4,6 +4,7 @@
 
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
+import { skillMetadata } from '../../../../adapters/common/skill-metadata'
 import type { SkillInfo } from '../../../../../shared/ipc'
 
 export interface SkillScanRoot {
@@ -11,34 +12,6 @@ export interface SkillScanRoot {
   sourceLabel: string
   sourceKind: 'orca' | 'adapter' | 'workspace'
   rootDir: string
-}
-
-interface Frontmatter {
-  name?: string
-  description?: string
-  'argument-hint'?: string
-}
-
-function parseFrontmatter(text: string): Frontmatter {
-  const match = text.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/)
-  if (!match) return {}
-  const result: Frontmatter = {}
-  for (const rawLine of match[1].split(/\r?\n/)) {
-    const line = rawLine.trim()
-    if (line === '' || line.startsWith('#')) continue
-    const kv = line.match(/^([A-Za-z][A-Za-z0-9_-]*)\s*:\s*(.+)$/)
-    if (!kv) continue
-    const key = kv[1] as keyof Frontmatter
-    let value = kv[2].trim()
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1)
-    }
-    if (key === 'name' || key === 'description' || key === 'argument-hint') result[key] = value
-  }
-  return result
 }
 
 function bodyWithoutFrontmatter(text: string): string {
@@ -68,7 +41,7 @@ async function scanRoot(
           fs.stat(skillPath).catch(() => null)
         ])
         if (text === null) return null
-        const meta = parseFrontmatter(text)
+        const meta = skillMetadata(text)
         const name = meta.name ?? dir.name
         return {
           name,

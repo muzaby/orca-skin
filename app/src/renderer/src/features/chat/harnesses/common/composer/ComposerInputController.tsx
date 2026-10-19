@@ -108,6 +108,7 @@ export function ComposerInputController({
   const agentKind = useChatSession((session) => session.agentKind)
   const sessionId = useChatSession((session) => session.sessionId)
   const backend = useChatSession((session) => session.backend)
+  const projectId = useChatSession((session) => session.pendingProjectId)
   const { appearance, includeExtensions, controlsPlacement, Chip, SubmitButton } = presentation
   const [snapshot, setSnapshotState] = useState(createDraftSnapshot)
   const snapshotRef = useRef(snapshot)
@@ -141,7 +142,12 @@ export function ComposerInputController({
   const surfaceWrapRef = useRef<HTMLDivElement>(null)
   const attachButtonRef = useRef<HTMLButtonElement>(null)
   const [attachMenuOpen, setAttachMenuOpen] = useState(false)
-  const native = useNativeResources(sessionId, active, backend)
+  const native = useNativeResources(
+    sessionId,
+    active,
+    backend,
+    sessionId || !backend ? undefined : { backend, cwd, projectId }
+  )
   const refreshNative = native.refresh
   useEffect(() => {
     if (active && attachMenuOpen) refreshNative()
