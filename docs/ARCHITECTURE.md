@@ -33,6 +33,8 @@
 |---|---|
 | [overview.md](./arch/frontend/overview.md) | 범위·기술 스택·구현 상태·참고 |
 | [layers.md](./arch/frontend/layers.md) | 4-layer(app/pages/features/shared)·디렉토리 책임·ESLint boundaries·App Shell 조립 |
+| [design-system.md](./arch/frontend/design-system.md) | 디자인 테마·시맨틱 토큰 역할·활자·간격·컨트롤·상태·접근성 기준 |
+| [design-components.md](./arch/frontend/design-components.md) | renderer 컴포넌트별 테마 범위·재사용·표시 규칙과 소스 경로 |
 | [dom-architecture.md](./arch/frontend/dom-architecture.md) | `app-frame-*` 마커 체계·`data-*` 속성·z-stack·custom titlebar |
 | [state.md](./arch/frontend/state.md) | 상태 관리·Zustand·멀티세션·Git 패치·세션 목록 membership |
 | [rendering.md](./arch/frontend/rendering.md) | 렌더링 전략·**ToolRendererRegistry**·Work/Code 표현·백그라운드 패널·산출물 카드·StructuredOutput·Streaming lifecycle·UsagePanel(사용량 도넛/한도) |

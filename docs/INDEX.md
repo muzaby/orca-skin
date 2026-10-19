@@ -33,6 +33,8 @@
 | Preload·Renderer 구조·성능 진단 및 경량화 결과 | [`etc/study/preload-renderer-structure/diagnosis.md`](etc/study/preload-renderer-structure/diagnosis.md) |
 | renderer 범위 · 스택 · 구현 상태 | [`arch/frontend/overview.md`](arch/frontend/overview.md) |
 | renderer 4-layer · 디렉토리 책임 | [`arch/frontend/layers.md`](arch/frontend/layers.md) |
+| **renderer 제작·컴포넌트 추가·UI 수정: 디자인 테마·가이드라인** | [`arch/frontend/design-system.md`](arch/frontend/design-system.md) · [제작 절차](../app/src/renderer/AGENTS.md) |
+| **제품 컴포넌트별 디자인 기준·재사용 선례** | [`arch/frontend/design-components.md`](arch/frontend/design-components.md) |
 | renderer 상태 관리 (Zustand · 멀티세션) | [`arch/frontend/state.md`](arch/frontend/state.md) |
 | 렌더링 (ToolRendererRegistry · 스트리밍 · UsagePanel) | [`arch/frontend/rendering.md`](arch/frontend/rendering.md) |
 | **Work·Code 에이전트 계층** | 현재 구조는 [`GLOSSARY.md`](GLOSSARY.md) AgentKind · [`arch/backend/adapters.md`](arch/backend/adapters.md) §1.1 · [`arch/frontend/state.md`](arch/frontend/state.md) "제품 에이전트 종류" · 설계 기록 [`handoff/0224`](handoff/0224-work-agent-layer/plan.md) · 근거 [`Cowork 연구`](etc/study/cowork/README.md) |

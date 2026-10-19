@@ -9,6 +9,23 @@ React 렌더러의 **레이어 경계 + 스타일 규칙**. 위반하면 `npm ru
 > 상태 관리는 [`state.md`](../../../docs/arch/frontend/state.md) 가 갖는다.
 > 본 문서는 *코드를 짤 때의 규칙*만 담는다.
 
+## Renderer 제작 시 필수 디자인 계약
+
+renderer 제작·컴포넌트 추가·기존 UI 수정 전에
+[디자인 시스템](../../../docs/arch/frontend/design-system.md)과
+[컴포넌트 카탈로그](../../../docs/arch/frontend/design-components.md)의 해당 영역을 **읽고 준수한다**.
+AI도 동일하게 적용한다. 토큰 값·props는 연결된 현재 소스에서 확인한다.
+
+1. **역할과 범위 선택**: 공통 Orca·Claude / OpenCode 전용 chrome / 카메라 stage / 개발 패널 중 적용 범위를 정한다. 하네스별 표면을 공통 셸에 전파하지 않는다.
+2. **재사용 우선**: 카탈로그에서 같은 역할의 선례를 열고 Button·MenuItem·Modal·Catalog UI·PanelControls·ReadingColumn 등 기존 primitive를 사용한다. 새 범용 UI는 shared, 도메인 UI는 해당 feature, 조립은 pages/app에 둔다.
+3. **상태 설계**: 관련되는 기본·hover·focus·선택·disabled·busy·empty·error·success·펼침/닫힘을 정의한다. 키보드 경로·접근성 이름·초점 복귀·긴 텍스트·좁은 pane도 포함한다.
+4. **구현**: 아래 레이어·토큰·style·group 규칙과 디자인 시스템을 지킨다. 기존 원시 색·고정 크기를 새 컴포넌트의 관례로 복사하지 않는다.
+5. **완료 검토**: white/dark, 적용되는 상태, 긴 한국어/다른 locale 라벨, pane 축소·확대, 키보드 열기→선택→닫기→초점 복귀를 확인한다. 채팅은 본문 크기·읽기 폭 설정과 스트리밍·스크롤·선택·초안 보존도 확인한다.
+6. **같은 변경에서 문서 갱신**: 컴포넌트 신설·이동·삭제 시 카탈로그 행을, 공통 시각 규칙 변경 시 디자인 시스템과 해당 정본을 갱신한다. 완료 보고에 재사용 항목과 검증 결과·미확인 시각 항목을 적는다.
+
+가이드와 코드가 다르면 먼저 원인을 조사한다. 문서 드리프트는 정정하고, 새 제품 동작·전역 테마 교체는 컴포넌트 추가에 섞어 결정하지 않는다.
+접근성·테마·모션 검토를 했다는 문장만으로 완료 처리하지 않는다. 실제 확인한 흐름과 관측을 남긴다.
+
 ## 4-layer DAG (하향 의존만)
 
 하네스 전용 구현은 feature 안의 `harnesses/<하네스>/`, 공통 구현은 feature-local `common/` 또는 `harnesses/common/`에 둔다. 조립 진입점이 정책·슬롯을 주입하며 공통에서 구체 하네스/registry를 import하거나 하네스 형제를 직접 참조하지 않는다. 순수 정책과 React 표면 등록을 분리하고 입력 controller를 하네스 전환 때 다시 생성하지 않는다.
