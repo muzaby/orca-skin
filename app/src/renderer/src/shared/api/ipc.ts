@@ -1,4 +1,8 @@
-import type { NativeResources, SetNativeResource } from '../../../../shared/native-resources'
+import type {
+  NativeResources,
+  SetNativeResource,
+  OpenNativePlugin
+} from '../../../../shared/native-resources'
 import type { NormalizedPermissionMode } from '../../../../shared/permission-mode'
 import type {
   BackgroundEvent,
@@ -208,6 +212,8 @@ export const concurrencyApi = {
 export const sessionApi = {
   nativeResources: (sessionId: string): Promise<NativeResources> =>
     window.orca.session.nativeResources(sessionId),
+  openNativePlugin: (request: OpenNativePlugin): Promise<void> =>
+    window.orca.session.openNativePlugin(request),
   setNativeResource: (request: SetNativeResource): Promise<NativeResources> =>
     window.orca.session.setNativeResource(request),
   addDirectory: (request: AddSessionDirectoryRequest): Promise<AddSessionDirectoryResult> =>

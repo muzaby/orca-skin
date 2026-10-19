@@ -69,7 +69,7 @@ function pluginFile(root: string, value: string): string | undefined {
 }
 
 /** Metadata discovery only. Never loads a plugin, starts an MCP server or writes settings. */
-export async function configuredClaudeResources(
+async function readConfiguredClaudeResources(
   cwd: string,
   paths = {
     root: claudeNativePaths().root,
@@ -77,7 +77,8 @@ export async function configuredClaudeResources(
       ? join(claudeNativePaths().root, '.claude.json')
       : join(homedir(), '.claude.json')
   }
-): Promise<NativeResource[]> {
+): Promise<{ items: NativeResource[]; directories: Map<string, string> }> {
+  const directories = new Map<string, string>()
   const root = await projectRoot(cwd)
   const [global, user, project, local, mcp, installed] = await Promise.all([
     readObject(paths.globalConfig),
@@ -136,10 +137,15 @@ export async function configuredClaudeResources(
     const installPath = entry.installPath as string
     const flag = enabledPlugins[name]
     const enabled = flag === true || Array.isArray(flag) || isRecord(flag)
-    plugins.push(
-      configured(nativePluginId(installPath), name, 'plugin', enabled, flag === undefined)
-    )
     const manifest = await readObject(join(installPath, '.claude-plugin', 'plugin.json'))
+    const id = nativePluginId(installPath)
+    directories.set(id, installPath)
+    plugins.push({
+      ...configured(id, name, 'plugin', enabled, flag === undefined),
+      ...(typeof manifest.description === 'string'
+        ? { description: manifest.description.trim().slice(0, 4000) }
+        : {})
+    })
     const pluginName = typeof manifest.name === 'string' ? manifest.name : name.split('@')[0]
     const prefix = `plugin:${pluginName}:`
     const bundledMcp = await readObject(join(installPath, '.mcp.json'))
@@ -160,5 +166,19 @@ export async function configuredClaudeResources(
   addServers(global.mcpServers)
   addServers(mcp.mcpServers)
   addServers(current.mcpServers)
-  return [...servers.values(), ...plugins]
+  return { items: [...servers.values(), ...plugins], directories }
+}
+
+export async function configuredClaudeResources(
+  ...args: Parameters<typeof readConfiguredClaudeResources>
+): Promise<NativeResource[]> {
+  return (await readConfiguredClaudeResources(...args)).items
+}
+
+export async function configuredClaudePluginDirectory(
+  cwd: string,
+  id: string,
+  paths?: Parameters<typeof readConfiguredClaudeResources>[1]
+): Promise<string | undefined> {
+  return (await readConfiguredClaudeResources(cwd, paths)).directories.get(id)
 }

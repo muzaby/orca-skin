@@ -1,8 +1,9 @@
-import { resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import type { McpServerStatus, Query } from '@anthropic-ai/claude-agent-sdk'
 import type { NativeCommand, NativeResource } from '../../../shared/native-resources'
 import { nativePluginId } from './configured-resources'
 import { resourceQuery } from '../common/resource-query'
+import { pluginDescription } from '../common/plugin-description'
 
 /** Owns native observations for one Query; Orca injected resources are excluded. */
 export function claudeNativeResources(
@@ -15,9 +16,11 @@ export function claudeNativeResources(
   observeCommands(names: readonly string[]): void
   commands(): Promise<NativeCommand[]>
   list(): Promise<NativeResource[]>
+  directory(id: string): Promise<string | undefined>
   set(id: string, enabled: boolean): Promise<void>
 } {
   let plugins: NativeResource[] = []
+  const directories = new Map<string, string>()
   let commandNames: readonly string[] = []
   const injectedNames = new Set<string>()
   const roots = new Set(injectedRoots.map((root) => resolve(root)))
@@ -57,11 +60,13 @@ export function claudeNativeResources(
     },
     observePlugins(entries) {
       injectedNames.clear()
+      directories.clear()
       plugins = entries.flatMap((plugin) => {
         if (roots.has(resolve(plugin.path))) {
           injectedNames.add(plugin.name)
           return []
         }
+        directories.set(nativePluginId(plugin.path), plugin.path)
         return [
           {
             id: nativePluginId(plugin.path),
@@ -85,8 +90,18 @@ export function claudeNativeResources(
           enabled: server.status !== 'disabled',
           canToggle: true
         })),
-        ...plugins
+        ...(await Promise.all(
+          plugins.map(async (plugin) => {
+            const description = await pluginDescription(
+              join(directories.get(plugin.id)!, '.claude-plugin', 'plugin.json')
+            )
+            return { ...plugin, ...(description ? { description } : {}) }
+          })
+        ))
       ]
+    },
+    async directory(id) {
+      return directories.get(id)
     },
     async set(id, enabled) {
       const server = (await query.mcpServerStatus()).find(

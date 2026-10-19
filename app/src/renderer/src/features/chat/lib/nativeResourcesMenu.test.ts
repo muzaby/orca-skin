@@ -17,6 +17,7 @@ const mcp: NativeResource = {
 const plugin: NativeResource = {
   id: 'plugin',
   name: 'Native plugin',
+  description: 'Native workflow skills',
   kind: 'plugin',
   status: 'enabled',
   enabled: true,
@@ -53,8 +54,7 @@ describe('native resource submenu projection', () => {
         {
           label: 'Native plugin',
           description: 'chat.nativeResources.installed',
-          checked: false,
-          disabled: true
+          title: 'Native workflow skills\nchat.nativeResources.openFolder'
         }
       ]
     })
@@ -69,11 +69,8 @@ describe('native resource submenu projection', () => {
       const item = items[index]
       expect(item.kind).toBe('submenu')
       if (item.kind !== 'submenu') throw new Error('submenu missing')
-      expect(item.items[0]).toMatchObject({
-        action: resource,
-        checked: resource.enabled,
-        disabled: !resource.canToggle
-      })
+      expect(item.items[0]).toMatchObject({ action: resource })
+      expect(item.icon).toBe('electricalServices')
       const $ = load(
         renderToStaticMarkup(
           createElement(CascadeBody<NativeResource>, {
@@ -85,11 +82,20 @@ describe('native resource submenu projection', () => {
           })
         )
       )
-      const row = $('[role="menuitemcheckbox"]')
+      const row =
+        resource.kind === 'mcp'
+          ? $('[role="menuitemcheckbox"]')
+          : $('[role="menuitem"]').filter((_, el) => $(el).text().startsWith(resource.name))
       expect(row.text()).toContain(resource.name)
-      expect(row.attr('aria-checked')).toBe(String(resource.enabled))
-      expect(row.attr('disabled') !== undefined).toBe(!resource.canToggle)
-      expect(row.find('[aria-hidden="true"]').last().attr('class')).toContain('ml-3')
+      if (resource.kind === 'mcp') {
+        expect(row.attr('aria-checked')).toBe(String(resource.enabled))
+        expect(row.find('[aria-hidden="true"]').last().attr('class')).toContain('ml-3')
+      } else {
+        expect(row.attr('aria-checked')).toBeUndefined()
+        expect(row.attr('disabled')).toBeUndefined()
+        expect(row.attr('class')?.split(' ')).not.toContain('opacity-50')
+        expect(row.attr('title')).toBe('Native workflow skills\nchat.nativeResources.openFolder')
+      }
     }
   })
   it('distinguishes loading, error, disconnected and empty, and locks concurrent toggles', () => {

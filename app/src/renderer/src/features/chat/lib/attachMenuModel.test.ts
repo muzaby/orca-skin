@@ -34,9 +34,7 @@ describe('buildAttachMenu', () => {
       loading: 'loading',
       error: 'error',
       partial: 'partial',
-      refresh: 'reload',
       noCommands: 'no commands',
-      plugins: 'plugins',
       useMcp: (name: string) => `Use ${name} tools`,
       resourceStatus: (status: string) => status
     }
@@ -73,7 +71,8 @@ describe('buildAttachMenu', () => {
           ]
         }
       },
-      nativeLabels
+      nativeLabels,
+      'mcp'
     )
     const tree = buildAttachMenu({
       skills: [],
@@ -81,9 +80,23 @@ describe('buildAttachMenu', () => {
       labels,
       canManagePlugins: true,
       includeExtensions: false,
-      native: { label: 'OpenCode', items }
+      native: {
+        label: 'OpenCode',
+        items,
+        skills: [
+          {
+            kind: 'action',
+            id: 'skill-native',
+            label: 'superpowers::using-superpowers',
+            title: 'How to use skills',
+            action: { type: 'nativeCommand', name: 'superpowers:using-superpowers' }
+          }
+        ]
+      }
     })
-    expect(tree.map((item) => item.id)).toEqual(['attach', 'separator', 'plugins'])
+    expect(tree.map((item) => item.id)).toEqual(['attach', 'separator', 'skills', 'plugins'])
+    expect(tree[2]).toMatchObject({ items: [{ label: 'superpowers::using-superpowers' }] })
+    expect(JSON.stringify(tree[3])).not.toMatch(/superpowers|Hooks only/)
     expect(JSON.stringify(tree)).toContain('/docs:search')
     expect(JSON.stringify(tree)).not.toMatch(/@jira|plugins:manage|\/hooks/)
     expect(items[0]).toMatchObject({
@@ -92,12 +105,12 @@ describe('buildAttachMenu', () => {
         { action: { type: 'nativePrompt', text: 'Use Docs tools' }, disabled: false },
         {
           label: '/docs:search',
-          description: 'Search documents',
+          title: 'Search documents\nquery',
           action: { type: 'nativeCommand', name: 'docs:search' }
         }
       ]
     })
-    expect(items[1]).toMatchObject({ id: 'native:plugin', items: [{ disabled: true }] })
+    expect(items).toHaveLength(1)
   })
   it('OpenCode는 연결하지 않은 Claude 스킬·플러그인을 제공하지 않는다', () => {
     expect(

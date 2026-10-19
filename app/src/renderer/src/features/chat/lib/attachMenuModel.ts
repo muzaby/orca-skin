@@ -13,7 +13,6 @@ export type AttachMenuAction =
   | { type: 'managePlugins' }
   | { type: 'nativeCommand'; name: string }
   | { type: 'nativePrompt'; text: string }
-  | { type: 'refreshNative' }
 
 export interface AttachMenuLabels {
   addFiles: string
@@ -45,7 +44,11 @@ export function buildAttachMenu(input: {
   labels: AttachMenuLabels
   canManagePlugins: boolean
   includeExtensions?: boolean
-  native?: { label: string; items: CascadeItem<AttachMenuAction>[] }
+  native?: {
+    label: string
+    items: CascadeItem<AttachMenuAction>[]
+    skills: CascadeItem<AttachMenuAction>[]
+  }
 }): CascadeItem<AttachMenuAction>[] {
   const { skills, plugins, labels, canManagePlugins } = input
   const attachment: CascadeItem<AttachMenuAction> = {
@@ -93,6 +96,8 @@ export function buildAttachMenu(input: {
           action: { type: 'plugin' as const, id: plugin.id }
         }))
   if (input.native) {
+    if (bySource.size === 0) skillItems.length = 0
+    skillItems.unshift(...input.native.skills)
     if (plugins.length === 0) pluginItems.length = 0
     pluginItems.unshift({
       kind: 'submenu',
@@ -116,7 +121,7 @@ export function buildAttachMenu(input: {
   return [
     attachment,
     { kind: 'separator', id: 'separator' },
-    ...(input.includeExtensions !== false
+    ...(input.includeExtensions !== false || input.native
       ? [
           {
             kind: 'submenu' as const,
@@ -144,66 +149,56 @@ export function nativeAttachItems(
     error: string
     partial: string
     notice?: string
-    refresh: string
     noCommands: string
-    plugins: string
     useMcp: (name: string) => string
     resourceStatus: (status: NativeResource['status']) => string
-  }
+  },
+  kind: 'skills' | 'mcp'
 ): CascadeItem<AttachMenuAction>[] {
   const items: CascadeItem<AttachMenuAction>[] = []
   if (view.status !== 'ready') {
     items.push({ kind: 'empty', id: view.status, label: labels[view.status] })
   } else {
     const commands = view.value.commands ?? []
-    for (const kind of ['mcp', 'plugin'] as const) {
-      const children: CascadeItem<AttachMenuAction>[] = view.value.items
-        .filter((item) => item.kind === kind)
-        .map((item) => ({
+    const children: CascadeItem<AttachMenuAction>[] = view.value.items
+      .filter((item) => kind === 'mcp' && item.kind === 'mcp')
+      .map((item) => ({
+        kind: 'action',
+        id: `native-resource:${kind}:${item.id}`,
+        label: item.name,
+        description: labels.resourceStatus(item.status),
+        disabled: item.status !== 'connected',
+        title:
+          item.status === 'connected'
+            ? labels.useMcp(item.name)
+            : labels.resourceStatus(item.status),
+        action: { type: 'nativePrompt', text: labels.useMcp(item.name) }
+      }))
+    children.push(
+      ...commands
+        .filter((command) => (kind === 'mcp' ? command.source === 'mcp' : command.source !== 'mcp'))
+        .map((command): CascadeItem<AttachMenuAction> => ({
           kind: 'action',
-          id: `native-resource:${kind}:${item.id}`,
-          label: item.name,
-          description: labels.resourceStatus(item.status),
-          disabled: kind !== 'mcp' || item.status !== 'connected',
+          id: `native-command:${command.name}`,
+          label: kind === 'skills' ? command.name.replace(/:+/g, '::') : `/${command.name}`,
+          icon: kind === 'skills' ? 'bolt' : 'electricalServices',
           title:
-            kind === 'mcp' && item.status === 'connected'
-              ? labels.useMcp(item.name)
-              : labels.resourceStatus(item.status),
-          action: { type: 'nativePrompt', text: labels.useMcp(item.name) }
+            [command.description, command.argumentHint].filter(Boolean).join('\n') || command.name,
+          action: { type: 'nativeCommand', name: command.name }
         }))
-      children.push(
-        ...commands
-          .filter((command) =>
-            kind === 'mcp' ? command.source === 'mcp' : command.source !== 'mcp'
-          )
-          .map((command): CascadeItem<AttachMenuAction> => ({
-            kind: 'action',
-            id: `native-command:${command.name}`,
-            label: `/${command.name}`,
-            description: command.description || undefined,
-            title:
-              [command.description, command.argumentHint].filter(Boolean).join('\n') ||
-              command.name,
-            action: { type: 'nativeCommand', name: command.name }
-          }))
-      )
-      if (!children.length)
-        children.push({ kind: 'empty', id: `${kind}:empty`, label: labels.noCommands })
+    )
+    if (!children.length)
+      children.push({ kind: 'empty', id: `${kind}:empty`, label: labels.noCommands })
+    if (kind === 'skills') items.push(...children)
+    else
       items.push({
         kind: 'submenu',
         id: `native:${kind}`,
-        label: kind === 'mcp' ? 'MCP' : labels.plugins,
+        label: 'MCP',
+        icon: 'electricalServices',
         items: children
       })
-    }
   }
-  items.push({
-    kind: 'action',
-    id: 'native:refresh',
-    label: labels.refresh,
-    disabled: view.status === 'loading' || (view.status === 'ready' && !!view.refreshing),
-    action: { type: 'refreshNative' }
-  })
   // Keep submenu indices stable as a refresh notice appears/disappears while open.
   const notice =
     labels.notice ?? (view.status === 'ready' && view.value.partial ? labels.partial : undefined)

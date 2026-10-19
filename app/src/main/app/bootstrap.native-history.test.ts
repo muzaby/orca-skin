@@ -11,12 +11,15 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { NativeResource } from '../../shared/native-resources'
+import { nativePluginId } from '../adapters/claude/configured-resources'
 
 const fixture = vi.hoisted(() => ({
   stop: new Error('fixture: session handler callbacks captured'),
   hooks: undefined as Parameters<typeof registerSessionHandlers>[1],
   lookup: undefined as ((sessionId: string) => unknown) | undefined,
   configured: undefined as ((sessionId: string) => Promise<NativeResource[]>) | undefined,
+  pluginDirectory: undefined as
+    ((sessionId: string, id: string) => Promise<string | undefined>) | undefined,
   refresh: vi.fn(),
   createRefresh: vi.fn(),
   disposeBackground: vi.fn()
@@ -49,10 +52,12 @@ vi.mock('./native-history', () => ({
 vi.mock('./handlers/session-resources', () => ({
   registerSessionResourceHandlers: (
     lookup: (sessionId: string) => unknown,
-    configured: (sessionId: string) => Promise<NativeResource[]>
+    configured: (sessionId: string) => Promise<NativeResource[]>,
+    pluginDirectory: (sessionId: string, id: string) => Promise<string | undefined>
   ) => {
     fixture.lookup = lookup
     fixture.configured = configured
+    fixture.pluginDirectory = pluginDirectory
   }
 }))
 vi.mock('./handlers/session', () => ({
@@ -171,7 +176,20 @@ it('reads native configuration through the registered module using stored backen
     ])
     expect(get).toHaveBeenCalledWith('session-B')
     expect(ctx.getCwd).not.toHaveBeenCalled()
+    await mkdir(join(root, 'plugins'), { recursive: true })
+    const installed = join(temp, 'native-plugin-B')
+    await writeFile(
+      join(root, 'plugins', 'installed_plugins.json'),
+      JSON.stringify({
+        plugins: {
+          'native@market': [{ scope: 'project', projectPath: cwd, installPath: installed }]
+        }
+      })
+    )
+    expect(await fixture.pluginDirectory?.('session-B', nativePluginId(installed))).toBe(installed)
+    expect(await fixture.pluginDirectory?.('session-B', installed)).toBeUndefined()
     row.backend = 'opencode'
+    expect(await fixture.pluginDirectory?.('session-B', nativePluginId(installed))).toBeUndefined()
     expect(await fixture.configured?.('session-B')).toEqual([])
     get.mockReturnValueOnce({ ...row, backend: 'claude', cwd: null } as never)
     get.mockReturnValueOnce({ ...row, backend: 'claude', cwd: null } as never)

@@ -30,6 +30,7 @@ let dom: FakeDom
 let current: ReturnType<typeof useNativeResources>
 const read = vi.fn<(id: string) => Promise<NativeResources>>()
 const write = vi.fn<(req: unknown) => Promise<NativeResources>>()
+const openFolder = vi.fn<(req: unknown) => Promise<void>>()
 function Probe({
   id,
   open = true,
@@ -52,12 +53,17 @@ async function settle(): Promise<void> {
 beforeEach(() => {
   vi.useFakeTimers()
   read.mockReset().mockResolvedValue(snapshot())
+  openFolder.mockReset().mockResolvedValue(undefined)
   write.mockReset().mockResolvedValue({
     ...snapshot(),
     items: [{ ...resource, enabled: false, status: 'disabled' }]
   })
   dom = installFakeDom({ innerWidth: 1200, innerHeight: 800 })
-  Object.assign(window, { orca: { session: { nativeResources: read, setNativeResource: write } } })
+  Object.assign(window, {
+    orca: {
+      session: { nativeResources: read, setNativeResource: write, openNativePlugin: openFolder }
+    }
+  })
 })
 afterEach(() => {
   dom.unmount()
@@ -66,6 +72,47 @@ afterEach(() => {
 })
 
 describe('native resources session lifecycle', () => {
+  it('opens a plugin directory from the normal menu row and reloads after failure without toggling', async () => {
+    const plugin = {
+      ...resource,
+      kind: 'plugin' as const,
+      description: 'Workflow skills',
+      canToggle: false
+    }
+    read.mockResolvedValue({ ...snapshot(), items: [plugin] })
+    dom.render(
+      createElement(NativeResourcesMenu, {
+        sessionId: 'B',
+        backend: 'claude',
+        anchorRef: { current: null },
+        onClose: () => {}
+      })
+    )
+    await settle()
+    dom.click(dom.query('[data-cascade-level="0"][data-cascade-index="1"]')!)
+    const row = dom.query('[data-cascade-level="1"][data-cascade-index="0"]')!
+    expect(row.props.disabled).toBeFalsy()
+    expect(row.props['aria-checked']).toBeUndefined()
+    expect(row.props.title).toBe('Workflow skills\nchat.nativeResources.openFolder')
+    dom.click(row)
+    await settle()
+    expect(openFolder).toHaveBeenCalledExactlyOnceWith({ sessionId: 'B', id: 'native-B' })
+    expect(write).not.toHaveBeenCalled()
+    openFolder.mockRejectedValueOnce(new Error('folder missing'))
+    dom.click(row)
+    await settle()
+    expect(read).toHaveBeenCalledTimes(2)
+    expect(dom.query('[role="status"]')?.textContent).toBe('chat.nativeResources.openError')
+    dom.click(dom.query('[data-cascade-level="1"][data-cascade-index="0"]')!)
+    await settle()
+    expect(dom.query('[role="status"]')).toBeNull()
+    expect(openFolder).toHaveBeenCalledTimes(3)
+    expect(
+      dom
+        .queryAll('[type="button"]')
+        .some((item) => item.textContent === 'chat.nativeResources.refresh')
+    ).toBe(false)
+  })
   it('keeps observations across remount and refresh failure, scopes by backend and replaces complete results', async () => {
     read.mockResolvedValueOnce({
       ...snapshot(),
@@ -312,10 +359,20 @@ it('renders the live session menu and keeps it open while the MCP toggle refresh
   expect(dom.query('[data-cascade-level="1"][data-cascade-index="0"]')?.textContent).toContain(
     'Native B'
   )
-  const refresh = dom
-    .queryAll('[type="button"]')
-    .find((item) => item.textContent === 'chat.nativeResources.refresh')!
-  dom.click(refresh)
+  expect(
+    dom
+      .queryAll('[type="button"]')
+      .some((item) => item.textContent === 'chat.nativeResources.refresh')
+  ).toBe(false)
+  dom.render(createElement('div'))
+  dom.render(
+    createElement(NativeResourcesMenu, {
+      sessionId: 'session-B',
+      backend: 'opencode',
+      anchorRef: { current: null },
+      onClose
+    })
+  )
   await settle()
   expect(read).toHaveBeenCalledTimes(3)
   expect(dom.query('[role="status"]')).toBeNull()

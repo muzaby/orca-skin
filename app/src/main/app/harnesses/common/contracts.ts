@@ -25,6 +25,7 @@ export interface MainHarnessModule {
   parseRuntimeModels?: (config: HarnessRuntimeConfig) => ParsedModel[]
   readUserSettings(): EngineUserSettingsResult
   configuredResources?(cwd: string): Promise<NativeResource[]>
+  configuredPluginDirectory?(cwd: string, id: string): Promise<string | undefined>
   resolveTitleModel(models: ParsedModel[]): string | undefined
   recoveryContextWindow(settings: Record<string, unknown>, model?: string): number
   defaultProvider<T extends { modelProviderId: string }>(entries: readonly T[]): T | undefined

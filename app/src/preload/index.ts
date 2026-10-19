@@ -1,4 +1,8 @@
-import type { NativeResources, SetNativeResource } from '../shared/native-resources'
+import type {
+  NativeResources,
+  SetNativeResource,
+  OpenNativePlugin
+} from '../shared/native-resources'
 import type { AppErrorReport } from '../shared/app-error'
 import type {
   ArtifactRef,
@@ -255,6 +259,8 @@ const orca = {
   session: {
     nativeResources: (sessionId: string): Promise<NativeResources> =>
       ipcRenderer.invoke(CHANNELS.sessionNativeResources, { sessionId }),
+    openNativePlugin: (request: OpenNativePlugin): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.sessionOpenNativePlugin, request),
     setNativeResource: (request: SetNativeResource): Promise<NativeResources> =>
       ipcRenderer.invoke(CHANNELS.sessionSetNativeResource, request),
     addDirectory: (request: AddSessionDirectoryRequest): Promise<AddSessionDirectoryResult> =>

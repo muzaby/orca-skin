@@ -71,6 +71,9 @@ describe('Claude native resources', () => {
   it('projects statuses and loaded plugins without injected resources or private configuration', async () => {
     const { resources } = fixture()
     const items = await resources.list()
+    expect(await resources.directory(nativePluginId('/private/plugin'))).toBe('/private/plugin')
+    expect(await resources.directory(nativePluginId('/injected'))).toBeUndefined()
+    expect(await resources.directory('/private/plugin')).toBeUndefined()
     expect(items).toEqual([
       {
         id: 'native',

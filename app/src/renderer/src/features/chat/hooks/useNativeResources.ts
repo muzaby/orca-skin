@@ -10,7 +10,7 @@ export type NativeResourcesView =
       value: NativeResources
       refreshing?: boolean
       stale?: boolean
-      issue?: 'refresh' | 'control'
+      issue?: 'refresh' | 'control' | 'open'
     }
 
 type Snapshot = Extract<NativeResourcesView, { status: 'ready' }>
@@ -68,6 +68,7 @@ export function useNativeResources(
   busy: boolean
   refresh: () => void
   toggle: (resource: NativeResource) => Promise<void>
+  openPlugin: (resource: NativeResource) => Promise<void>
 } {
   const key = JSON.stringify([scope, sessionId])
   const [result, setResult] = useState<{
@@ -121,10 +122,49 @@ export function useNativeResources(
     }
   }, [sessionId, open, scope, key, revision])
 
+  const reloadAfterFailure = async (
+    issue: 'control' | 'open',
+    generation: number
+  ): Promise<void> => {
+    if (epoch.current !== generation || !sessionId || view.status !== 'ready') return
+    const setView = (value: NativeResourcesView): void =>
+      setResult({ sessionId, scope, view: value })
+    const previous = { ...view, value: readOnly(view.value), stale: true } as const
+    setView({ ...previous, refreshing: true, issue })
+    try {
+      const value = await sessionApi.nativeResources(sessionId)
+      if (epoch.current === generation) {
+        const next = observed(value, snapshots().get(key))
+        snapshots().set(key, next)
+        setView({ ...next, issue })
+      }
+    } catch {
+      if (epoch.current === generation) setView({ ...previous, refreshing: false, issue })
+    }
+  }
+
   return {
     view,
     busy,
     refresh,
+    openPlugin: async (resource) => {
+      if (!open || !sessionId || resource.kind !== 'plugin' || pending.current) return
+      const generation = epoch.current
+      pending.current = true
+      try {
+        await sessionApi.openNativePlugin({ sessionId, id: resource.id })
+        if (epoch.current === generation)
+          setResult((current) =>
+            current.view.status === 'ready' && current.view.issue === 'open'
+              ? { ...current, view: { ...current.view, issue: undefined } }
+              : current
+          )
+      } catch {
+        await reloadAfterFailure('open', generation)
+      } finally {
+        if (epoch.current === generation) pending.current = false
+      }
+    },
     toggle: async (resource) => {
       if (
         !open ||
@@ -155,22 +195,7 @@ export function useNativeResources(
           setView(next)
         }
       } catch {
-        if (epoch.current !== generation) return
-        const previous = { ...view, value: readOnly(view.value), stale: true } as const
-        setView({ ...previous, refreshing: true, issue: 'control' })
-        // A failed write may have changed the native state before its response failed.
-        // Read it again; never infer success or discard the last observed list.
-        try {
-          const value = await sessionApi.nativeResources(sessionId)
-          if (epoch.current === generation) {
-            const next = observed(value, snapshots().get(key))
-            snapshots().set(key, next)
-            setView({ ...next, issue: 'control' })
-          }
-        } catch {
-          if (epoch.current === generation)
-            setView({ ...previous, refreshing: false, issue: 'control' })
-        }
+        await reloadAfterFailure('control', generation)
       } finally {
         if (epoch.current === generation) {
           pending.current = false

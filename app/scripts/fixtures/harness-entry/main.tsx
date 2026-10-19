@@ -38,8 +38,8 @@ const snapshot = (): NativeResources => ({
   generation: 'fixture',
   commands: [
     {
-      name: 'native-workflow:review',
-      description: '변경한 코드를 검토합니다.',
+      name: 'superpowers:using-superpowers',
+      description: '스킬을 찾고 활용하는 방법을 안내합니다.',
       argumentHint: '<파일 또는 범위>',
       source: 'plugin'
     },
@@ -71,7 +71,8 @@ const snapshot = (): NativeResources => ({
     },
     {
       id: 'plugin',
-      name: 'native-workflow',
+      name: 'superpowers',
+      description: '개발 작업을 돕는 워크플로 스킬 모음입니다.',
       kind: 'plugin',
       status: 'enabled',
       enabled: true,
@@ -85,6 +86,14 @@ window.orca = new Proxy(base, {
       return {
         ...target.session,
         nativeResources: async () => snapshot(),
+        openNativePlugin: async () => {
+          document.querySelector('[data-fixture-open-folder]')?.remove()
+          const notice = document.createElement('p')
+          notice.setAttribute('data-fixture-open-folder', '')
+          notice.setAttribute('role', 'status')
+          notice.textContent = '목업: superpowers 설치 폴더 열기 요청'
+          document.body.append(notice)
+        },
         setNativeResource: async (request: SetNativeResource) => {
           enabled = request.enabled
           return snapshot()

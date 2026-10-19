@@ -2,6 +2,7 @@
 export interface NativeResource {
   id: string
   name: string
+  description?: string
   kind: 'mcp' | 'plugin'
   status:
     | 'connected'
@@ -34,4 +35,8 @@ export interface SetNativeResource {
   kind: NativeResource['kind']
   id: string
   enabled: boolean
+}
+export interface OpenNativePlugin {
+  sessionId: string
+  id: string
 }

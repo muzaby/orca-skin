@@ -2,10 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../../shared/ipc'
 import type { NativeResource, NativeResources } from '../../../shared/native-resources'
 import type { GovernedLiveTurn } from '../../contracts/ports'
+import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+const openPath = vi.hoisted(() => vi.fn(async () => ''))
 const callbacks = vi.hoisted(
   () => new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>()
 )
 vi.mock('electron', () => ({
+  shell: { openPath },
   ipcMain: {
     handle: (name: string, callback: (event: unknown, payload: unknown) => Promise<unknown>) =>
       callbacks.set(name, callback)
@@ -39,6 +44,52 @@ const invoke = (channel: string, payload: unknown): Promise<unknown> =>
 beforeEach(() => callbacks.clear())
 afterEach(() => vi.useRealTimers())
 describe('native resource IPC', () => {
+  it('opens only a resolved installed directory and rejects arbitrary paths, files and shell errors', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'orca-plugin-open-'))
+    try {
+      const lookup = vi.fn(async (sessionId: string, id: string) =>
+        sessionId === 'B' && id === 'plugin:hash' ? directory : undefined
+      )
+      registerSessionResourceHandlers(() => undefined, undefined, lookup)
+      openPath.mockClear().mockResolvedValue('')
+      await invoke(CHANNELS.sessionOpenNativePlugin, { sessionId: 'B', id: 'plugin:hash' })
+      expect(openPath).toHaveBeenCalledExactlyOnceWith(await realpath(directory))
+      expect(lookup).toHaveBeenCalledExactlyOnceWith('B', 'plugin:hash')
+      for (const payload of [
+        { sessionId: 'B', id: directory },
+        { sessionId: 'other', id: 'plugin:hash' },
+        { sessionId: 'B', id: 'plugin:hash', path: directory }
+      ])
+        await expect(invoke(CHANNELS.sessionOpenNativePlugin, payload)).rejects.toThrow()
+      expect(openPath).toHaveBeenCalledTimes(1)
+      openPath.mockResolvedValueOnce('private path error')
+      await expect(
+        invoke(CHANNELS.sessionOpenNativePlugin, { sessionId: 'B', id: 'plugin:hash' })
+      ).rejects.toThrow('설치 폴더')
+      const file = join(directory, 'plugin.exe')
+      await writeFile(file, '')
+      lookup.mockResolvedValueOnce(file)
+      await expect(
+        invoke(CHANNELS.sessionOpenNativePlugin, { sessionId: 'B', id: 'plugin:hash' })
+      ).rejects.toThrow('설치 폴더')
+      expect(openPath).toHaveBeenCalledTimes(2)
+      const runtime = {
+        nativePluginDirectory: vi.fn(async () => directory)
+      } as unknown as GovernedLiveTurn
+      registerSessionResourceHandlers(() => runtime, undefined, lookup)
+      await invoke(CHANNELS.sessionOpenNativePlugin, { sessionId: 'C', id: 'live-plugin' })
+      expect(runtime.nativePluginDirectory).toHaveBeenCalledWith('live-plugin')
+      expect(openPath).toHaveBeenCalledTimes(3)
+      const changingRuntime = vi.fn().mockReturnValueOnce(runtime).mockReturnValue(undefined)
+      registerSessionResourceHandlers(changingRuntime, undefined, lookup)
+      await expect(
+        invoke(CHANNELS.sessionOpenNativePlugin, { sessionId: 'C', id: 'live-plugin' })
+      ).rejects.toThrow('설치 폴더')
+      expect(openPath).toHaveBeenCalledTimes(3)
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
   it.each(['pending', 'failed'])(
     'returns configured resources when live metadata is %s and reads freshly on reentry',
     async (mode) => {
@@ -91,6 +142,7 @@ describe('native resource IPC', () => {
       {
         id: 'plugin-key',
         name: 'Native plugin',
+        description: 'Installed plugin skills',
         kind: 'plugin',
         status: 'configured',
         enabled: true,
@@ -110,6 +162,7 @@ describe('native resource IPC', () => {
     )
     const live = snapshot()
     live.items.push({ ...configured[2], name: 'Loaded plugin', status: 'enabled' })
+    delete live.items[1].description
     const write = vi.fn(async () => {
       live.items[0] = { ...live.items[0], enabled: false, status: 'disabled' }
     })
@@ -128,7 +181,11 @@ describe('native resource IPC', () => {
     ).rejects.toThrow('지원하지')
     expect(write).not.toHaveBeenCalled()
     const result = (await invoke(CHANNELS.sessionSetNativeResource, request)) as NativeResources
-    expect(result.items).toEqual([live.items[0], configured[1], live.items[1]])
+    expect(result.items).toEqual([
+      live.items[0],
+      configured[1],
+      { ...live.items[1], description: 'Installed plugin skills' }
+    ])
     expect(write).toHaveBeenCalledOnce()
   })
 

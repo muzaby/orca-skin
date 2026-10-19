@@ -31,6 +31,7 @@ type AdapterSubmissionOutcome =
 // 해당 하네스의 native 제어에 위임되며 지원하지 않는 제어는 성공을 가장하지 않는다.
 export interface LiveTurn {
   nativeResources?(): Promise<NativeResources>
+  nativePluginDirectory?(id: string): Promise<string | undefined>
   setNativeResource?(request: SetNativeResource): Promise<void>
   readonly providerGeneration?: string
   reinitialize?(): Promise<void>

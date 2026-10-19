@@ -136,6 +136,8 @@ it('wires native status, loaded plugins, injected exclusions and session-local t
   try {
     await iterator.next()
     const result = await live.nativeResources?.()
+    expect(await live.nativePluginDirectory?.(nativePluginId('/native'))).toBe('/native')
+    expect(await live.nativePluginDirectory?.(nativePluginId('/injected'))).toBeUndefined()
     expect(result).toEqual({
       state: 'connected',
       generation: live.providerGeneration,
