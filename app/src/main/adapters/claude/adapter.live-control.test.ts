@@ -109,6 +109,7 @@ it('wires native status, loaded plugins, injected exclusions and session-local t
     session_id: 'native-session',
     uuid: 'init-id',
     tools: [],
+    slash_commands: ['native-plugin:review', 'orca:internal'],
     mcp_servers: [],
     plugins: [
       { name: 'native-plugin', path: '/native' },
@@ -138,6 +139,9 @@ it('wires native status, loaded plugins, injected exclusions and session-local t
     expect(result).toEqual({
       state: 'connected',
       generation: live.providerGeneration,
+      commands: [
+        { name: 'native-plugin:review', description: '', argumentHint: '', source: 'plugin' }
+      ],
       items: [
         {
           id: 'native-A',

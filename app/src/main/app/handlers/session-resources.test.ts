@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../../shared/ipc'
 import type { NativeResource, NativeResources } from '../../../shared/native-resources'
 import type { GovernedLiveTurn } from '../../contracts/ports'
@@ -37,7 +37,46 @@ const snapshot = (): NativeResources => ({
 const invoke = (channel: string, payload: unknown): Promise<unknown> =>
   callbacks.get(channel)!({}, payload)
 beforeEach(() => callbacks.clear())
+afterEach(() => vi.useRealTimers())
 describe('native resource IPC', () => {
+  it.each(['pending', 'failed'])(
+    'returns configured resources when live metadata is %s and reads freshly on reentry',
+    async (mode) => {
+      vi.useFakeTimers()
+      const items = [{ ...snapshot().items[0], status: 'configured' as const, canToggle: false }]
+      const live = vi
+        .fn<() => Promise<NativeResources>>()
+        .mockImplementation(() =>
+          mode === 'pending' ? new Promise(() => {}) : Promise.reject(new Error('private error'))
+        )
+      const runtime = { nativeResources: live } as unknown as GovernedLiveTurn
+      registerSessionResourceHandlers(
+        () => runtime,
+        async () => items
+      )
+      const pending = invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })
+      await vi.advanceTimersByTimeAsync(3001)
+      expect(await pending).toEqual({ state: 'disconnected', items, partial: true })
+      live.mockResolvedValueOnce(snapshot())
+      expect(await invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })).toEqual(
+        snapshot()
+      )
+    }
+  )
+
+  it('keeps live resources when configuration fails without exposing the private error', async () => {
+    const runtime = { nativeResources: async () => snapshot() } as unknown as GovernedLiveTurn
+    registerSessionResourceHandlers(
+      () => runtime,
+      async () => {
+        throw new Error('secret path')
+      }
+    )
+    expect(await invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })).toEqual({
+      ...snapshot(),
+      partial: true
+    })
+  })
   it('shows offline configuration and preserves it after live toggles without enabling configured-only writes', async () => {
     const configured: NativeResource[] = [
       { ...snapshot().items[0], status: 'configured', canToggle: false },
@@ -102,7 +141,7 @@ describe('native resource IPC', () => {
     )
     await expect(
       invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })
-    ).rejects.toThrow('discovery failed')
+    ).rejects.toThrow('불러오지 못했습니다')
     let finish!: (items: NativeResource[]) => void
     let runtime: GovernedLiveTurn | undefined = undefined
     registerSessionResourceHandlers(
@@ -113,6 +152,7 @@ describe('native resource IPC', () => {
         })
     )
     const pending = invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })
+    await Promise.resolve()
     runtime = {} as GovernedLiveTurn
     finish([])
     await expect(pending).rejects.toThrow('바뀌었습니다')
@@ -185,6 +225,7 @@ describe('native resource IPC', () => {
     } as unknown as GovernedLiveTurn
     registerSessionResourceHandlers(() => runtime)
     const pending = invoke(CHANNELS.sessionSetNativeResource, request)
+    await Promise.resolve()
     runtime = undefined
     finish(snapshot())
     await expect(pending).rejects.toThrow('바뀌었습니다')

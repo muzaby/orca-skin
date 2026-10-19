@@ -615,10 +615,17 @@ export const en: typeof ko = {
   },
   chat: {
     nativeResources: {
+      refreshing: 'Refreshing resources…',
+      stale: 'Showing previously loaded resources.',
+      controlError: 'The change failed. Check the resources and try again.',
+      partial: 'Some resources could not be loaded.',
+      refresh: 'Reload resources',
+      noCommands: 'No commands are available in the running session.',
+      useMcp: 'Use the {{name}} MCP tools to ',
       configured: 'Enabled in configuration',
       installed: 'Installed',
       loading: 'Checking connection…',
-      error: 'Unable to load status. Reopen this menu to retry.',
+      error: 'Unable to refresh resources. Select Reload resources to retry.',
       disconnected: 'No running harness connection',
       connected: 'Connected',
       empty: 'No connected items',

@@ -4,6 +4,7 @@ import '../../../src/renderer/src/styles/app.css'
 import '../../../src/renderer/src/shared/i18n'
 import { Sidebar } from '../../../src/renderer/src/app/Sidebar'
 import { ChatTitleBar } from '../../../src/renderer/src/features/chat/components/ChatTitleBar'
+import { Composer } from '../../../src/renderer/src/features/chat/components/Composer'
 import { harnessLanding } from '../../../src/renderer/src/features/chat/harnesses/registries/landing'
 import { ProjectLandingPage } from '../../../src/renderer/src/pages/ProjectLandingPage'
 import { useProjectsStore } from '../../../src/renderer/src/features/projects/store/projectsStore'
@@ -35,6 +36,20 @@ let enabled = true
 const snapshot = (): NativeResources => ({
   state: 'connected',
   generation: 'fixture',
+  commands: [
+    {
+      name: 'native-workflow:review',
+      description: '변경한 코드를 검토합니다.',
+      argumentHint: '<파일 또는 범위>',
+      source: 'plugin'
+    },
+    {
+      name: 'mcp__filesystem__list',
+      description: '프로젝트 파일을 찾습니다.',
+      argumentHint: '<경로>',
+      source: 'mcp'
+    }
+  ],
   items: [
     {
       id: 'native',
@@ -58,7 +73,7 @@ const snapshot = (): NativeResources => ({
       id: 'plugin',
       name: 'native-workflow',
       kind: 'plugin',
-      status: 'configured',
+      status: 'enabled',
       enabled: true,
       canToggle: false
     }
@@ -144,9 +159,17 @@ export function App(): React.JSX.Element {
             <Route
               path="*"
               element={
-                <div className="flex flex-1 items-center justify-center">
-                  <Header />
-                </div>
+                <>
+                  <div className="flex flex-1 items-center justify-center">
+                    <Header />
+                  </div>
+                  <div className="mx-auto w-full max-w-3xl px-4 pb-6">
+                    <Composer
+                      backendLabel={backend === 'opencode' ? 'OpenCode' : 'Claude'}
+                      canAbort={true}
+                    />
+                  </div>
+                </>
               }
             />
           </Routes>

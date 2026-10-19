@@ -50,6 +50,17 @@ function expectPresentationWiring(): void {
 }
 
 describe('runAttachMenuAction (AC2·AC3)', () => {
+  it('puts a native command at the start, preserves the draft and only focuses the argument position', () => {
+    const { deps, read } = harness(at('keep my draft', 5))
+    runAttachMenuAction({ type: 'nativeCommand', name: 'native:review' }, deps)
+    expect(read().text).toBe('/native:review keep my draft')
+    expect(deps.focus).toHaveBeenCalledWith(15)
+    expect(deps.pickAttachments).not.toHaveBeenCalled()
+    expect(deps.closeMenu).toHaveBeenCalledOnce()
+    const ime = harness(at('keep', 0), true)
+    runAttachMenuAction({ type: 'nativeCommand', name: 'native:review' }, ime.deps)
+    expect(ime.read().text).toBe('keep')
+  })
   it.each([
     ['빈 입력', at('', 0), { type: 'skill', name: 'review' }, '/review ', 8],
     [
@@ -122,6 +133,7 @@ describe('runAttachMenuAction (AC2·AC3)', () => {
         '        skills={skills}',
         '        includeExtensions={includeExtensions}',
         '        plugins={mentionAutocomplete.plugins}',
+        '        native={nativeMenu}',
         '        onAction={onAttachMenuAction}'
       ].join('\n')
     )
@@ -165,6 +177,7 @@ describe('runAttachMenuAction (AC2·AC3)', () => {
         '        skills={skills}',
         '        includeExtensions={includeExtensions}',
         '        plugins={mentionAutocomplete.plugins}',
+        '        native={nativeMenu}',
         '        onAction={onAttachMenuAction}',
         '        onManagePlugins={',
         '          onManagePlugins',

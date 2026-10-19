@@ -1,7 +1,12 @@
 // 0259 AC1~AC5 · VP-08 — '+' 메뉴 트리.
 import { describe, expect, it } from 'vitest'
 import type { SkillInfo } from '../../../../../shared/ipc'
-import { attachMenuToken, buildAttachMenu, skillTooltip } from './attachMenuModel'
+import {
+  attachMenuToken,
+  buildAttachMenu,
+  nativeAttachItems,
+  skillTooltip
+} from './attachMenuModel'
 
 const labels = {
   addFiles: '파일 또는 사진 추가',
@@ -24,6 +29,76 @@ const plugins = [
 ]
 
 describe('buildAttachMenu', () => {
+  it('exposes native commands for OpenCode without exposing Orca integrations or inventing slash names', () => {
+    const nativeLabels = {
+      loading: 'loading',
+      error: 'error',
+      partial: 'partial',
+      refresh: 'reload',
+      noCommands: 'no commands',
+      plugins: 'plugins',
+      useMcp: (name: string) => `Use ${name} tools`,
+      resourceStatus: (status: string) => status
+    }
+    const items = nativeAttachItems(
+      {
+        status: 'ready',
+        value: {
+          state: 'connected',
+          items: [
+            {
+              kind: 'mcp',
+              id: 'docs',
+              name: 'Docs',
+              status: 'connected',
+              enabled: true,
+              canToggle: false
+            },
+            {
+              kind: 'plugin',
+              id: 'hooks',
+              name: 'Hooks only',
+              status: 'enabled',
+              enabled: true,
+              canToggle: false
+            }
+          ],
+          commands: [
+            {
+              name: 'docs:search',
+              description: 'Search documents',
+              argumentHint: 'query',
+              source: 'mcp'
+            }
+          ]
+        }
+      },
+      nativeLabels
+    )
+    const tree = buildAttachMenu({
+      skills: [],
+      plugins: [],
+      labels,
+      canManagePlugins: true,
+      includeExtensions: false,
+      native: { label: 'OpenCode', items }
+    })
+    expect(tree.map((item) => item.id)).toEqual(['attach', 'separator', 'plugins'])
+    expect(JSON.stringify(tree)).toContain('/docs:search')
+    expect(JSON.stringify(tree)).not.toMatch(/@jira|plugins:manage|\/hooks/)
+    expect(items[0]).toMatchObject({
+      id: 'native:mcp',
+      items: [
+        { action: { type: 'nativePrompt', text: 'Use Docs tools' }, disabled: false },
+        {
+          label: '/docs:search',
+          description: 'Search documents',
+          action: { type: 'nativeCommand', name: 'docs:search' }
+        }
+      ]
+    })
+    expect(items[1]).toMatchObject({ id: 'native:plugin', items: [{ disabled: true }] })
+  })
   it('OpenCode는 연결하지 않은 Claude 스킬·플러그인을 제공하지 않는다', () => {
     expect(
       buildAttachMenu({ skills, plugins, labels, canManagePlugins: true, includeExtensions: false })

@@ -4,6 +4,39 @@ import { claudeNativeResources } from './native-resources'
 import { nativePluginId } from './configured-resources'
 
 describe('Claude native resources', () => {
+  it('projects exact supported slash commands and descriptions while excluding builtins and injected plugins', async () => {
+    const resources = claudeNativeResources(
+      {
+        mcpServerStatus: async () => [],
+        toggleMcpServer: async () => {},
+        supportedCommands: async () => [
+          { name: 'native:review', description: 'Review code', argumentHint: '<file>' },
+          { name: 'mcp__docs__search', description: 'Search docs', argumentHint: '<query>' },
+          { name: 'orca:private', description: '', argumentHint: '' },
+          { name: 'mcp__runtime__private', description: '', argumentHint: '' },
+          { name: 'mcp__plugin:orca:tools__private', description: '', argumentHint: '' },
+          { name: 'compact', description: '', argumentHint: '', builtin: true }
+        ]
+      },
+      ['/injected'],
+      ['runtime']
+    )
+    resources.observePlugins([{ name: 'orca', path: '/injected' }])
+    expect(await resources.commands()).toEqual([
+      {
+        name: 'native:review',
+        description: 'Review code',
+        argumentHint: '<file>',
+        source: 'plugin'
+      },
+      {
+        name: 'mcp__docs__search',
+        description: 'Search docs',
+        argumentHint: '<query>',
+        source: 'mcp'
+      }
+    ])
+  })
   const servers: McpServerStatus[] = [
     {
       name: 'native',

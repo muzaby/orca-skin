@@ -719,8 +719,10 @@ export class ClaudeAdapter implements SessionAdapter {
       let sequence = 0
       try {
         for await (const msg of handle) {
-          if (msg.type === 'system' && msg.subtype === 'init')
+          if (msg.type === 'system' && msg.subtype === 'init') {
             resources.observePlugins(msg.plugins ?? [])
+            resources.observeCommands(msg.slash_commands ?? [])
+          }
           const provider = backgroundMapper.map(msg, ctx.sessionId)
           if (!provider) continue
           if (
@@ -846,11 +848,19 @@ export class ClaudeAdapter implements SessionAdapter {
 
     return {
       providerGeneration: backgroundMapper.generation,
-      nativeResources: async () => ({
-        state: 'connected',
-        generation: backgroundMapper.generation,
-        items: await resources.list()
-      }),
+      nativeResources: async () => {
+        const [items, commands] = await Promise.all([
+          resources.list(),
+          resources.commands().catch(() => undefined)
+        ])
+        return {
+          state: 'connected',
+          generation: backgroundMapper.generation,
+          items,
+          ...(commands !== undefined ? { commands } : {}),
+          ...(commands === undefined ? { partial: true } : {})
+        }
+      },
       setNativeResource: async (request) => {
         if (request.generation !== backgroundMapper.generation || request.kind !== 'mcp')
           throw new Error('이 항목은 세션별 제어를 지원하지 않습니다.')

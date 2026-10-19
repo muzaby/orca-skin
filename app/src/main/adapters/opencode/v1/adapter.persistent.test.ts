@@ -22,11 +22,25 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
   reply: (id: string) => void
   setPrompt: (callback: (body: Record<string, unknown>) => Promise<void | Response>) => void
   failAbort: () => void
+  setCommands: (
+    commands: {
+      name: string
+      description?: string
+      source?: 'command' | 'mcp' | 'skill'
+      hints: string[]
+    }[]
+  ) => void
 } {
   const requests: Request[] = []
   let stream: ReadableStreamDefaultController<Uint8Array> | undefined
   let closed = false
   let rejectAbort = false
+  let commands: {
+    name: string
+    description?: string
+    source?: 'command' | 'mcp' | 'skill'
+    hints: string[]
+  }[] = []
   const emit = (value: Event): void => {
     if (!closed) stream?.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(value)}\n\n`))
   }
@@ -51,6 +65,9 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
     if (path === '/session' && request.method === 'POST') return jsonResponse({ id: 'replacement' })
     if (path === '/mcp') return jsonResponse({ native: { status: 'connected' } })
     if (path === '/config') return jsonResponse({ plugin: ['@native/plugin@1'] })
+    if (path === '/command') return jsonResponse(commands)
+    if (path.endsWith('/message') && request.method === 'POST')
+      return jsonResponse({ info: {}, parts: [] })
     if (path === '/event')
       return new Response(
         new ReadableStream<Uint8Array>({
@@ -64,7 +81,7 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
         }),
         { headers: { 'content-type': 'text/event-stream' } }
       )
-    if (path.endsWith('/prompt_async')) {
+    if (path.endsWith('/prompt_async') || path.endsWith('/command')) {
       const response = await prompt(await request.json())
       return response ?? new Response(null, { status: 204 })
     }
@@ -102,6 +119,9 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
     },
     failAbort: () => {
       rejectAbort = true
+    },
+    setCommands: (value) => {
+      commands = value
     }
   }
 }
@@ -132,6 +152,138 @@ async function dispose(
 }
 
 describe('OpenCode persistent SDK channel', () => {
+  it('dispatches a real native slash command while its HTTP response is pending and retains context and files', async () => {
+    const approve = vi.fn(async () => ({ behavior: 'deny' as const }))
+    const f = fixture({
+      text: '/docs:search find auth',
+      model: 'provider/model-B',
+      harnessAgent: 'reviewer',
+      modelVariant: 'deep',
+      requestApproval: approve,
+      extensions: { skills: [], hooks: { normalized: {} }, systemPromptAppend: 'session policy B' },
+      attachmentTexts: [
+        {
+          id: 'file-B',
+          sourceKind: 'dialog',
+          path: 'C:/work/a.txt',
+          name: 'a.txt',
+          mimeType: 'text/plain'
+        }
+      ]
+    })
+    f.setCommands([
+      { name: 'docs:search', source: 'mcp', description: 'Search docs', hints: ['query'] }
+    ])
+    let finish!: () => void
+    f.setPrompt(async (body) => {
+      f.emit(
+        event('permission.asked', {
+          id: 'command-approval',
+          sessionID: 's1',
+          permission: 'read',
+          patterns: [],
+          always: [],
+          metadata: {}
+        })
+      )
+      f.reply(body.messageID as string)
+      await new Promise<void>((resolve) => {
+        finish = resolve
+      })
+    })
+    const iterator = f.live.eventBatches[Symbol.asyncIterator]()
+    try {
+      const result = await frame(iterator)
+      expect(
+        result.flatMap((batch) => batch.events).some((value) => value.type === 'turn.ended')
+      ).toBe(true)
+      const request = f.requests.find(
+        (item) => new URL(item.url).pathname.endsWith('/command') && item.method === 'POST'
+      )!
+      expect(await request.json()).toMatchObject({
+        command: 'docs:search',
+        arguments: 'find auth',
+        model: 'provider/model-B',
+        agent: 'reviewer',
+        variant: 'deep',
+        parts: [{ filename: 'a.txt', type: 'file' }]
+      })
+      const context = f.requests.find((item) => new URL(item.url).pathname.endsWith('/message'))!
+      expect(await context.json()).toMatchObject({
+        noReply: true,
+        parts: [{ text: 'session policy B', synthetic: true }]
+      })
+      await vi.waitFor(() =>
+        expect(f.requests.some((item) => item.url.includes('/command-approval/reply'))).toBe(true)
+      )
+      expect(approve).toHaveBeenCalledOnce()
+      expect((await f.live.nativeResources!()).commands).toEqual([
+        { name: 'docs:search', source: 'mcp', description: 'Search docs', argumentHint: 'query' }
+      ])
+      expect(f.requests.some((item) => item.url.includes('prompt_async'))).toBe(false)
+    } finally {
+      finish?.()
+      await dispose(f.live, iterator)
+    }
+  })
+
+  it('surfaces a rejected command and ignores a previous command error after a later submission', async () => {
+    const f = fixture({ text: '/native:review' })
+    f.setCommands([{ name: 'native:review', hints: [] }])
+    let fail!: () => void
+    f.setPrompt(async (body) => {
+      f.reply(body.messageID as string)
+      return new Promise<Response>((resolve) => {
+        fail = () => resolve(jsonResponse({ error: 'failed' }, 500))
+      })
+    })
+    const iterator = f.live.eventBatches[Symbol.asyncIterator]()
+    try {
+      await frame(iterator)
+      f.setPrompt(async (body) => {
+        f.reply(body.messageID as string)
+      })
+      await f.live.pushTurn!({ text: 'Next regular input' })
+      fail()
+      expect((await frame(iterator)).flatMap((batch) => batch.events).at(-1)?.type).toBe(
+        'turn.ended'
+      )
+      expect((await f.live.nativeResources!()).state).toBe('connected')
+    } finally {
+      await dispose(f.live, iterator)
+    }
+
+    const rejected = fixture({ text: '/native:review' })
+    rejected.setCommands([{ name: 'native:review', hints: [] }])
+    rejected.setPrompt(async () => jsonResponse({ error: 'failed' }, 500))
+    const receiving = rejected.live.eventBatches[Symbol.asyncIterator]()
+    const result = frame(receiving)
+    try {
+      await vi.waitFor(() =>
+        expect(
+          rejected.requests.some((item) => item.method === 'POST' && item.url.includes('/command'))
+        ).toBe(true)
+      )
+      rejected.emit(event('server.connected', {}))
+      expect(
+        (await result).flatMap((batch) => batch.events).some((value) => value.type === 'error')
+      ).toBe(true)
+    } finally {
+      await dispose(rejected.live, receiving)
+    }
+  })
+
+  it('sends an unknown slash through the ordinary prompt path', async () => {
+    const f = fixture({ text: '/unknown keep me' })
+    const iterator = f.live.eventBatches[Symbol.asyncIterator]()
+    try {
+      await frame(iterator)
+      const prompt = f.requests.find((item) => item.url.includes('prompt_async'))!
+      expect(await prompt.json()).toMatchObject({ parts: [{ text: '/unknown keep me' }] })
+    } finally {
+      await dispose(f.live, iterator)
+    }
+  })
   it('carries the selected engine model limit through the channel into telemetry', async () => {
     const f = fixture({
       providerSettings: {
@@ -443,6 +595,7 @@ it('exposes native resources from the live channel client and its directory with
     expect(await f.live.nativeResources?.()).toEqual({
       state: 'connected',
       generation: f.live.providerGeneration,
+      commands: [],
       items: [
         {
           id: 'native',

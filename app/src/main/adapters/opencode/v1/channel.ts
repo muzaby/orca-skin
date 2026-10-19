@@ -1,4 +1,4 @@
-import { openCodeNativeResources } from './native-resources'
+import { openCodeNativeCommands, openCodeNativeResources } from './native-resources'
 import type { Event, OpencodeClient } from '@opencode-ai/sdk/v2/client'
 import { randomUUID } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
@@ -30,6 +30,7 @@ export function openCodeChannel(
   let ended = false
   let interrupted = false
   let responseOpen = false
+  let submissionEpoch = 0
   let sequence = 0
   let cleanup: Promise<void> | undefined
   const queue: ProviderMessageBatch[] = []
@@ -100,6 +101,7 @@ export function openCodeChannel(
     if (!client || !sessionId || !activity)
       throw new Error('OpenCode 이벤트 채널이 준비되지 않았습니다.')
     const messageID = createOpenCodeMessageId()
+    const submission = ++submissionEpoch
     if (initial) req.recovery?.onPrompt(messageID)
     activity.acceptPrompt(messageID)
     interrupted = false
@@ -116,39 +118,85 @@ export function openCodeChannel(
     const pending: ProviderMessageBatch[] = []
     submitting = pending
     try {
-      await client.session.promptAsync(
-        {
-          sessionID: sessionId,
-          directory: req.cwd,
-          messageID,
-          ...(next.model ? { model: modelRef(next.model) } : {}),
-          ...(next.harnessAgent ? { agent: next.harnessAgent } : {}),
-          ...(next.modelVariant ? { variant: next.modelVariant } : {}),
-          ...(system ? { system } : {}),
-          parts: [
+      const slash = /^\s*\/([^\s]+)(?:\s+([\s\S]*))?$/.exec(next.text)
+      const command = slash
+        ? (await openCodeNativeCommands(client, req.cwd)).find((item) => item.name === slash[1])
+        : undefined
+      const files = [
+        ...(next.attachmentTexts ?? []).map((part) => ({
+          type: 'file' as const,
+          mime: part.mimeType,
+          filename: part.name,
+          url: pathToFileURL(part.path).href
+        })),
+        ...(next.attachmentImages ?? []).map((part) => ({
+          type: 'file' as const,
+          mime: part.mimeType,
+          filename: part.name,
+          url: `data:${part.mimeType};base64,${part.data}`
+        }))
+      ]
+      if (command) {
+        const context = [
+          system,
+          ...(initial ? (req.preludes ?? []) : []).map((part) => part.text),
+          initial && req.recovery ? recoveredPrompt(req.recovery.history, '') : ''
+        ]
+          .filter(Boolean)
+          .join('\n\n')
+        if (context)
+          await client.session.prompt(
             {
-              type: 'text',
-              text: [
-                ...(initial ? (req.preludes ?? []) : []).map((part) => part.text),
-                recoveredPrompt(initial ? req.recovery?.history : undefined, next.text)
-              ].join('\n\n')
+              sessionID: sessionId,
+              directory: req.cwd,
+              noReply: true,
+              parts: [{ type: 'text', text: context, synthetic: true }]
             },
-            ...(next.attachmentTexts ?? []).map((part) => ({
-              type: 'file' as const,
-              mime: part.mimeType,
-              filename: part.name,
-              url: pathToFileURL(part.path).href
-            })),
-            ...(next.attachmentImages ?? []).map((part) => ({
-              type: 'file' as const,
-              mime: part.mimeType,
-              filename: part.name,
-              url: `data:${part.mimeType};base64,${part.data}`
-            }))
-          ]
-        },
-        { signal, throwOnError: true }
-      )
+            { signal, throwOnError: true }
+          )
+        // command waits for the full model response. Keep the event pump free to process approvals.
+        void client.session
+          .command(
+            {
+              sessionID: sessionId,
+              directory: req.cwd,
+              messageID,
+              command: command.name,
+              arguments: slash?.[2] ?? '',
+              model: next.model,
+              agent: next.harnessAgent,
+              variant: next.modelVariant,
+              parts: files
+            },
+            { signal, throwOnError: true }
+          )
+          .catch((error: unknown) => {
+            if (!closed && !signal.aborted && submission === submissionEpoch)
+              controller.abort(error)
+          })
+      } else
+        await client.session.promptAsync(
+          {
+            sessionID: sessionId,
+            directory: req.cwd,
+            messageID,
+            ...(next.model ? { model: modelRef(next.model) } : {}),
+            ...(next.harnessAgent ? { agent: next.harnessAgent } : {}),
+            ...(next.modelVariant ? { variant: next.modelVariant } : {}),
+            ...(system ? { system } : {}),
+            parts: [
+              {
+                type: 'text',
+                text: [
+                  ...(initial ? (req.preludes ?? []) : []).map((part) => part.text),
+                  recoveredPrompt(initial ? req.recovery?.history : undefined, next.text)
+                ].join('\n\n')
+              },
+              ...files
+            ]
+          },
+          { signal, throwOnError: true }
+        )
     } finally {
       submitting = undefined
     }
@@ -319,10 +367,16 @@ export function openCodeChannel(
     providerGeneration: generation,
     nativeResources: async () => {
       if (!client || closed || ended) return { state: 'disconnected', items: [] }
+      const [items, commands] = await Promise.all([
+        openCodeNativeResources(client, req.cwd),
+        openCodeNativeCommands(client, req.cwd).catch(() => undefined)
+      ])
       return {
         state: 'connected',
         generation,
-        items: await openCodeNativeResources(client, req.cwd)
+        items,
+        ...(commands !== undefined ? { commands } : {}),
+        ...(commands === undefined ? { partial: true } : {})
       }
     },
     eventBatches: batches(),
@@ -343,6 +397,7 @@ export function openCodeChannel(
     interrupt: async () => {
       if (!sessionId || closed) return { stillQueued: [] }
       interrupted = responseOpen
+      submissionEpoch++
       mainApproval.abort()
       await abortSession(sessionId)
       return { stillQueued: [] }
