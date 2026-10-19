@@ -2,9 +2,9 @@ import { useMemo, type RefObject } from 'react'
 import type { Backend } from '../../../../../shared/ipc'
 import { useI18n } from '../../../shared/i18n'
 import { CascadeBody } from '../../../shared/ui/CascadeMenu'
-import { MenuTitle } from '../../../shared/ui/MenuItem'
+import { MenuItem, MenuTitle } from '../../../shared/ui/MenuItem'
 import { useNativeResources } from '../hooks/useNativeResources'
-import { nativeResourcesMenu } from '../lib/nativeResourcesMenu'
+import { nativeResourcesMenu, nativeResourcesNotice } from '../lib/nativeResourcesMenu'
 
 export function NativeResourcesMenu({
   sessionId,
@@ -18,12 +18,18 @@ export function NativeResourcesMenu({
   onClose: () => void
 }): React.JSX.Element {
   const { tr } = useI18n()
-  const { view, busy, toggle } = useNativeResources(sessionId, true)
+  const { view, busy, toggle, refresh } = useNativeResources(sessionId, true, backend)
   const items = useMemo(() => nativeResourcesMenu(view, busy, tr), [view, busy, tr])
   const label = backend === 'opencode' ? 'OpenCode' : 'Claude'
+  const notice = nativeResourcesNotice(view)
   return (
     <div data-native-resources={backend ?? 'claude'}>
       <MenuTitle>{label}</MenuTitle>
+      {notice && (
+        <p role="status" className="px-2.5 py-1 text-caption text-ink3">
+          {tr(notice)}
+        </p>
+      )}
       <CascadeBody
         items={items}
         onSelect={(resource) => {
@@ -35,6 +41,14 @@ export function NativeResourcesMenu({
         autoFocus={false}
         closeOnSelect={false}
       />
+      <MenuItem
+        onClick={refresh}
+        disabled={
+          busy || view.status === 'loading' || (view.status === 'ready' && !!view.refreshing)
+        }
+      >
+        {tr('chat.nativeResources.refresh')}
+      </MenuItem>
     </div>
   )
 }

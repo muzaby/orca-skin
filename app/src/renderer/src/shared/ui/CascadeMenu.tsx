@@ -24,6 +24,7 @@ interface CascadeMenuProps<A> {
   onSelect: (action: A) => void
   placement?: 'top' | 'bottom'
   ariaLabel?: string
+  closeOnSelect?: boolean
 }
 
 export function CascadeMenu<A>({
@@ -33,7 +34,8 @@ export function CascadeMenu<A>({
   items,
   onSelect,
   placement,
-  ariaLabel
+  ariaLabel,
+  closeOnSelect
 }: CascadeMenuProps<A>): React.JSX.Element | null {
   return (
     <Popover open={open} anchorRef={anchorRef} onClose={onClose} placement={placement}>
@@ -44,6 +46,7 @@ export function CascadeMenu<A>({
         onClose={onClose}
         anchorRef={anchorRef}
         ariaLabel={ariaLabel}
+        closeOnSelect={closeOnSelect}
       />
     </Popover>
   )

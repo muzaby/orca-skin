@@ -1,5 +1,21 @@
 import type { OpencodeClient } from '@opencode-ai/sdk/v2/client'
-import type { NativeResource } from '../../../../shared/native-resources'
+import type { NativeCommand, NativeResource } from '../../../../shared/native-resources'
+
+export async function openCodeNativeCommands(
+  client: OpencodeClient,
+  directory: string
+): Promise<NativeCommand[]> {
+  const result = await client.command.list(
+    { directory },
+    { throwOnError: true, signal: AbortSignal.timeout(2500) }
+  )
+  return (result.data ?? []).map((command) => ({
+    name: command.name,
+    description: command.description ?? '',
+    argumentHint: command.hints.join(' '),
+    source: command.source === 'mcp' ? 'mcp' : 'harness'
+  }))
+}
 
 function pluginName(source: string): string {
   // File references and URLs can carry machine paths or query secrets; expose only a name.

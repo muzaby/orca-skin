@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | READY / r1.3 |
+| 상태 / 라운드 | IMPL_DONE / r1.3 |
 | V mode / 기준 V / 유효 V | Delta V / V1+ΔV1+ΔV2+ΔV3 (`79e6ae6b`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
@@ -537,3 +537,77 @@ AC15 강화: A→B→A와 컴포넌트 재마운트에서도 A 관측 목록을 
 | VP-16 / R-15·SD-02 CHANGED REQUIRED | EP13 기존 3자리 중 hook의 관측 유지·실패 재조회 강화. 추가 EP16 ①Composer active/session→조회 ②hook 창/세션/backend snapshot 읽기·갱신 ③NativeResourcesMenu 갱신/오류 표시 ④AttachMenu 갱신/이전 정보 표시 | useNativeResources.test의 remount/pending refresh/failure/scope/complete replacement; Composer.native-menu.test의 closed-menu 세션 진입·재열기; 실제 두 메뉴의 feedback 렌더 |
 
 §10 EP16의 검색 범위: `rg -n 'useNativeResources|nativeAttachItems|nativeResourcesMenu|native\.refresh' app/src/renderer/src/features/chat`. 기존 EP13/14의 운반 자리는 유지하고 새 관측 저장·진입·feedback 의무 4자리를 더해 분모 56. 직접 행동 oracle을 사용하여 신규 변이는 선택하지 않는다. 기존 M1/M2와 운영 gate는 승계한다. D-18↔강화 AC15 및 AC16/17 충돌 0, D-17 자동 로딩 미결에 기대는 구현 없음. 앱 재시작 후 메모리 캐시 유지·실행 중이지 않은 하네스를 목록 조회만을 위해 실행하는 동작은 범위 밖이다.
+
+## [구현자 기입] r1.3 설계 리뷰
+
+ΔV4 `d5214d7a`와 사용자 답변을 반영한 ΔV5 `158a4e43`를 구현과 별도 커밋으로 확정했다. 목록을 보는 동작과 확장을 새로 로딩하는 동작을 구분했다. D-17은 D-18로 해소했고 설정 쓰기나 사용자 settingSources 확대는 없다. 활성 세션 진입과 메뉴 재열기 모두 갱신하며 관측 캐시는 재조회를 생략하지 않는다. 미해결 PLAN_GAP 없음.
+
+## [구현자 기입] r1.3 강제 지점 전수와 V-pair 자기확인
+
+| Pair | requiredness / 자기 상태 | §10 지점 / 닫은 수 | 자리별 직접 oracle 및 구별 값 |
+|---|---|---|---|
+| VP-01~04 | REGRESSION / SELF_PASS | EP1~3 / 9/9 | Sidebar.interaction의 실제 양 nav·양 backend 선택·key/outside, popoverPosition 좌표. M1 red·복원 green |
+| VP-05 | REGRESSION / SELF_PASS | EP4 / 1/1 | AgentModeToggle의 두 모드 브랜드·문구 순서 |
+| VP-06~09 | REGRESSION / SELF_PASS | EP5~8 / 16/16 | r1.2 표의 adapter.live-control·OpenCode persistent·session-runtime·bootstrap.native-history·session-resources·preload·useNativeResources·ChatTitleBar.native-resources·nativeResourcesMenu 좌표 재실행. 주입 제외/세대 운반/쓰기 제한. M2 red |
+| VP-10~11 | REGRESSION / SELF_PASS | EP9 / 7/7 | chatStore.harness·Composer.selection·components/composer/modelSelection·NewChatLandingPage.harness의 명시 OpenCode, 늦은 모델, seed/초안 보존 |
+| VP-12 | REGRESSION / SELF_PASS | EP10 / 1/1 | ChatTitleBar.native-resources의 양 backend 그룹 제목과 연결 요약 부재 |
+| VP-13~14 | REGRESSION / SELF_PASS | EP11 / 6/6 | configured-resources 파일 scope/비밀 projection, native-resources ID, bootstrap.native-history 저장 scope, session-resources 합성/읽기 전용, nativeResourcesMenu 구성 상태. r1.2 자리별 좌표를 같은 파일 테스트로 재실행 |
+| VP-15 | REGRESSION / SELF_PASS | EP12 / 2/2 | agentModeLanding.render의 project 브랜드 전환·초안 유지, NewChatLandingPage.harness |
+| VP-16 | REQUIRED / SELF_PASS | EP13 / 3/3 | ①session-resources `returns configured resources when live metadata is %s and reads freshly on reentry`·`keeps live resources when configuration fails…` ②useNativeResources `reloads A after A → B → A…`·late read/write ③같은 파일 `renders the live session menu…`의 실패/refresh 클릭 |
+| VP-17 | REQUIRED / SELF_PASS | EP14 / 6/6 | ①Claude native-resources `projects exact supported slash commands…` ②OpenCode native-resources `projects exact command names, hints and descriptions without templates or provider configuration` ③adapter.live-control의 native-plugin:review + persistent `dispatches a real native slash command…`의 docs:search DTO ④⑤Composer.native-menu 양 backend의 session-B:review, +/트리/초안 실제 렌더 ⑥composerAttachMenu의 nativeCommand 앞 삽입·IME 거부 |
+| VP-18 | REQUIRED / SELF_PASS | EP15 / 1/1 | persistent `dispatches a real native slash command while its HTTP response is pending…`, `sends an unknown slash…`, `surfaces a rejected command and ignores a previous command error after a later submission`: model-B/reviewer/deep·파일·문맥·승인 reply, 지각 HTTP 실패와 현재 실패 구별 |
+| VP-16 | REQUIRED / SELF_PASS | EP16 / 4/4 | ①Composer.native-menu: +가 닫힌 B→C→B에서 read 관측 ②useNativeResources `keeps observations across remount and refresh failure…`·`reloads after failed control…` 성공/실패 두 분기 ③실제 NativeResourcesMenu 오류/재시도 클릭 ④실제 Composer 메뉴 refresh 중 명령 유지와 빈 최신 결과 교체 |
+
+분모 검산: 기존42 + EP13~15 10 + EP16 4 = 56/56. 신규 자리 검색은 `.tmp/0267-r13-ep13.txt`, `ep14.txt`, `ep15-16.txt`에서 생산 호출과 운반 경로를 대조했다. import/type/i18n 문구 및 기존 EP5~8 호출은 중복 자리로 세지 않았다. EP16의 Composer 갱신 호출은 `refreshNative` 별칭까지 확인했다. 규범 목록과 생산 경로의 차집합 []·남긴 자리 없음. 보고의 SELF_PASS는 독립 verify를 대신하지 않는다.
+
+## [구현자 기입] r1.3 이번 라운드 수정의 잠금
+
+| 선택 결함 | 이전 결과 | 이번 관측 | 복원 |
+|---|---|---|---|
+| M1 backend 선택 반전 | r1.2 red 2 | Sidebar.interaction 2 failed/4 | 원본 바이트 복원 |
+| M2 MCP/plugin 목록 맞바꿈 | r1.2 red 3 | nativeResourcesMenu 3 failed/3 | 원본 바이트 복원 |
+
+복원 후 두 파일 7/7. 선택 증거 2·인용 변이 0·신규 구조 proxy 0 = 2행. 신규 동작은 실제 hook·Controller·메뉴·SDK transport 진입에서 직접 관측하므로 새 변이를 추가하지 않았다.
+
+## [구현자 기입] r1.3 Product/UX 파생 검토
+
+| 관측 | 대응 / 결과 |
+|---|---|
+| 갱신 상태를 목록 맨 앞에 넣으면 열린 submenu의 숫자 경로가 변함 | 안내를 고정 submenu/refresh 뒤에 배치했다. 실제 Composer 테스트가 갱신 중 열린 플러그인 목록과 완료 후 빈 명령 교체까지 단언한다. |
+| 예전 연결 표시가 현재 쓰기 권한으로 보일 수 있음 | 갱신 중 이전 snapshot은 generation 제거·canToggle=false, 이전 connected는 configured로 표시한다. 최신 IPC 검사는 별도로 유지한다. |
+| 명령 없는 native plugin 이름을 slash로 추측할 위험 | SDK가 보고한 이름만 제공한다. 리소스 행은 상태를 표시하고, 연결된 MCP는 자연어 도구 사용 문구를 제시한다. |
+| OpenCode command HTTP는 모델 완료까지 대기 | HTTP 응답을 event pump가 기다리지 않는다. 실제 SDK transport 테스트에서 HTTP 미완료 중 permission reply와 turn.ended를 관측했다. |
+| OpenCode command에는 system 필드가 없음 | 기존 시스템/복구/프리루드 문맥은 noReply synthetic 입력으로 전달한 뒤 command를 실행한다. 네이티브 이력에는 자동 입력으로 남을 수 있으며 시스템 메시지 역할과 동일하다는 주장은 하지 않는다. |
+
+## [구현자 기입] r1.3 놓친 잠재 문제 + 대응
+
+| 문제 | 대응 / 확인 |
+|---|---|
+| live metadata의 무응답이 구성 목록까지 가림 | 양 원천을 독립 3초 deadline으로 정착. fake clock 및 다음 read의 새 데이터 확인 |
+| 재마운트가 마지막 목록을 소거 | 창 수명 WeakMap에 session+backend 관측 저장. 재진입 조회는 유지, 타 범위에 유출하지 않음 |
+| 제어 실패 뒤 실제로는 상태가 바뀌었을 수 있음 | 낙관적 상태 변경 없이 read를 다시 호출. read까지 실패하면 이전 목록·오류·잠금 유지 |
+| 명령 조회 성공의 빈 배열과 실패를 혼동 | 성공은 commands:[], 실패는 undefined+partial. 완전 성공은 삭제된 명령을 제거 |
+| 이전 OpenCode 명령의 늦은 HTTP 오류가 다음 입력을 종료 | submission epoch로 이전 오류 폐기. 현재 실패는 채널 오류로 관측 |
+| SSR 테스트에서 window 없는 캐시 접근 | 초기 view를 loading으로 반환하고 effect에서만 browser 조회. 기존 Composer SSR 통과 |
+
+캐시는 앱 창 재시작까지 영속하지 않는다. 조회 때문에 실행 채널을 새로 만들거나 네이티브 설치·인증·전역 설정을 변경하지 않는다. 기본 좁은 브라우저 pane에서는 계단 메뉴가 방향을 바꾸어 표시되며, 열린 채 viewport 크기를 변경하면 일부 기존 하위 패널 위치가 재열기 전까지 남는다. 이 기존 CascadePanel resize 갱신 한계는 NON_BLOCKING 후속 관측으로 남긴다.
+
+## [구현자 기입] r1.3 구현 보고
+
+구현은 native commands/partial DTO, 원천별 조회 기한, renderer 세션 관측 유지/실패 재조회, 실제 Composer 플러그인 트리·draft 삽입, OpenCode command dispatch와 문서/fixture에 걸친다. 검증 상세와 명령은 [validation r1.3](evidence/validation.md)에 있다. 관련 회귀 집합은 실패 수정 후 해당 파일 재실행 및 Electron DB 실행을 합쳐 확인했으며 lint 오류 0·기존 경고 4, 타입 검사 3종·production build·boundary·카탈로그를 통과했다. 기존 ignored 외부 clone 링크 오류는 제품 변경과 분리했다.
+
+| AC | 자기 결과 |
+|---|---|
+| AC1~14 | ✅ 기존 진입·브랜드·메뉴·구성 관측·세대/읽기 전용·명시 선택 계약 회귀 |
+| AC15 | ✅ 매 재진입/재열기 갱신, snapshot 유지, 부분 실패/재시도, 제어 실패 자동 read, stale 폐기 |
+| AC16 | ✅ 양 하네스 + 메뉴 실제 명령·MCP 안내, 초안 보존/전송 없음 |
+| AC17 | ✅ 실제 SDK command 경로·일반 slash 폴백·문맥/첨부/모델 운반·승인 비차단 |
+
+✅17 · ⚠️0 · ❌0 = 총17(자기보고). 실 인증 CLI/MCP 실행 smoke와 독립 verify는 수행하지 않았다. 브라우저 증거는 production 컴포넌트와 fixture IPC로 확인했다.
+
+## [구현자 기입] r1.3 Review Signals
+
+- 같은 라운드의 사용자 추가 요구에 따른 구현. 외부 verify/FAIL 라운드 증가 없음.
+- 기존 메뉴 재마운트 조회만으로는 무응답·관측 유지·명령 진입 문제가 해결되지 않았다. 각각 deadline, snapshot, 실제 Controller oracle로 닫았다.
+- 테스트 중 발견한 submenu index 변화의 렌더 반복과 SSR 캐시 접근을 수정하고 실패했던 전체 파일을 재실행했다.
+- DB ABI는 바꾸지 않고 Electron Node 모드로 12케이스를 실행했다. UI·native 설정·인증을 통한 실제 외부 실행은 하지 않았다.

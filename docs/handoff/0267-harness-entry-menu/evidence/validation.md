@@ -83,3 +83,33 @@ node --input-type=module -e "import {checkLinks,LINK_EXCLUDED} from './scripts/c
 - 1280×800 white/dark와 기본 좁은 pane에서 기존 헤더·Composer 표시 확인. 일시 viewport override는 reset했다.
 - 실제 ChatTitleBar 그룹에서 연결 요약이 없고 플러그인 하위 행은 `설정에서 활성화`·checked·disabled로 표시된다. 브라우저 IPC 데이터는 fixture다.
 - 증거 화면은 로컬 `.codex-remote-attachments/0267/project-opencode-r12.jpg`, `native-menu-r12.jpg`. 새 브라우저 세션 재연결 시 URL 대신 발견한 tab/browser ID를 사용해 복구했다.
+
+## r1.3 — 재개 관측과 네이티브 명령
+
+2026-10-19. ΔV4·ΔV5 설계를 별도 커밋한 뒤 구현했다. 기존 목록을 유지하면서 새 원천을 읽고, 제어 실패 시 자동 read를 실행한다. 설정/DB 쓰기와 네이티브 플러그인 자동 로딩은 추가하지 않았다.
+
+| 검사 | 명령 / 관측 |
+|---|---|
+| 관련 회귀 | `node node_modules/vitest/vitest.mjs run src/main/adapters/claude src/main/adapters/opencode src/main/features/sessions/session-runtime.test.ts src/main/app/handlers/session-resources.test.ts src/main/app/bootstrap.native-history.test.ts src/preload/index.test.ts src/renderer/src/features/chat/hooks src/renderer/src/features/chat/lib src/renderer/src/features/chat/harnesses/common/composer src/renderer/src/features/chat/components/ChatTitleBar.native-resources.test.ts src/renderer/src/features/chat/components/Composer.selection.test.ts src/renderer/src/features/chat/components/AgentModeToggle.test.ts src/renderer/src/features/chat/store/chatStore.harness.test.ts src/renderer/src/app/Sidebar.interaction.test.ts src/renderer/src/pages/agentModeLanding.render.test.ts src/renderer/src/shared/ui/CascadeMenu.test.ts src/renderer/src/shared/ui/popoverPosition.test.ts --exclude src/main/adapters/opencode/v1/native-cursor.test.ts --exclude src/renderer/src/features/chat/lib/settlement.integration.test.ts`. 182파일 1,777케이스 중 최초 3실패. 빈 commands 계약의 기대값 1건과 refresh notice가 열린 submenu index를 바꾸던 실제 결함 2건을 수정했다. 실패한 2파일을 포함한 최종 집중 4파일 33/33 통과로 대상 전체 확인. |
+| 수정 파일 추가 확인 | Claude native-resources + CascadeMenu + attachMenuModel 3파일 18/18. 주입 MCP·플러그인 명령 제외, exact 이름/힌트 운반 확인 |
+| 이전 화면 회귀 | NewChatLandingPage.harness 1파일 3/3, CascadeMenu.flow 1파일 13/13, components/composer/modelSelection 1파일 4/4. Popover 단독 테스트 파일은 없으며 실제 래퍼 경로는 CascadeMenu.flow/CascadeMenu의 Popover 테스트에 있다. |
+| DB 회귀 | Electron 실행 파일을 `ELECTRON_RUN_AS_NODE=1`로 spawn하고 native-cursor·settlement.integration 실행: 2파일 12/12. Node ABI127과 설치 ABI140 차이를 재빌드 없이 해결. 초기 일반 Node 실패 12개는 이 실행으로 재확인 |
+| lint | `node node_modules/eslint/bin/eslint.js --cache src scripts`: 오류 0·기존 경고 4. 최종 변경 파일에 새 경고 없음 |
+| typecheck | `npm run typecheck`: node/web/test 모두 통과 |
+| build | `node node_modules/electron-vite/bin/electron-vite.js build`: main/preload/renderer 성공, prebuild 우회로 Electron ABI 유지 |
+| boundary | `node --test scripts/harness-boundary.test.mjs`: 8/8 |
+| catalog | `python -X utf8 docs/handoff/0266-renderer-design-guidelines/evidence/check-design-docs.py`: source=292/rows=292, 양방향 차집합 [], 기존 음성 대조 통과 |
+| inventory/links | `node scripts/check-doc-inventory.mjs --check`: 생성물·산문 통과. ignored `.tmp/opencode-dev`의 기존 링크 오류 5개 유지. `checkLinks('..',[...LINK_EXCLUDED,'.tmp'])` = [] |
+| M1/M2 | 기존 스크립트에서 파일명을 r1.3으로 바꾸어 실행. M1 2 failed/4, M2 3 failed/3. 원본 바이트 복원 후 7/7 |
+
+합산 고유 회귀 범위는 187파일 1,809케이스다(182/1,777 + DB 2/12 + 추가 화면/선택 3/20). 단일 전건 실행의 통과 수치가 아니라 위 실패 수정·동일 파일 재실행을 합친 확인 범위다. 최종 집중/추가 검사와 mutation 복원 실행은 이 수에 중복 가산하지 않는다. 재현 로그는 로컬 `.tmp/0267-r13-{regression2,final-targeted,last-suites,db2,inherited,cascade-flow,model-selection,typecheck5,lint-final,build,boundary,inventory,links,mutations}.log`다.
+
+### 직접 관측
+
+- Hook: A→B→A, 닫힘/재열기, 재마운트, backend 변경, 지각 read/write, live 부재·부분 실패·완전 성공의 교체. 갱신 전 항목은 잠금·generation 제거. 제어 실패/read 성공 및 제어 실패/read 실패 모두 자동 read와 이전 목록 보존 확인.
+- 실제 ComposerInputController→AttachMenu→CascadeMenu→draft: 양 backend에서 메뉴가 닫힌 진입부터 조회, `+ → 플러그인 → 하네스 → 플러그인`의 실제 이름 선택, `/session-B:review preserved draft`, onSend 0. 수동 refresh 중 명령 유지·메뉴 유지·완료 후 빈 명령 교체.
+- OpenCode SDK+fake transport: `/docs:search`의 command/arguments/model/agent/variant/파일, synthetic noReply 문맥, HTTP 응답 미완료 동안 permission reply와 turn.ended. 이전 요청 오류는 새 입력을 종료하지 않고 현재 오류는 표면화. 미등록 slash는 prompt_async.
+- 브라우저 production Composer fixture: `/native-workflow:review 기존 초안 유지`로 삽입되고 전송하지 않음. MCP에는 Filesystem 사용 안내·GitHub 인증 필요·`/mcp__filesystem__list`를 표시. refresh 클릭 후 메뉴 유지. 기본 좁은 pane과 1280×900에서 확인한 뒤 viewport override reset, 탭을 deliverable로 유지.
+- 증거 화면: 로컬 `.codex-remote-attachments/0267/native-commands-r13.jpg`, `native-mcp-commands-r13.jpg`. 데이터는 fixture이며 실제 인증 CLI/MCP 사용 성공을 나타내지 않는다.
+
+실 인증 CLI/MCP smoke 및 독립 handoff verify는 미실행이다. 앱 창 재시작 후 메모리 관측 보존은 범위 밖이며 실제 목록은 새 네이티브 원천 조회로 채운다.

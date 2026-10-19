@@ -15,10 +15,18 @@ export interface NativeResource {
   enabled: boolean
   canToggle: boolean
 }
+export interface NativeCommand {
+  name: string
+  description: string
+  argumentHint: string
+  source: 'mcp' | 'plugin' | 'harness'
+}
 export interface NativeResources {
   state: 'connected' | 'disconnected'
   generation?: string
   items: NativeResource[]
+  commands?: NativeCommand[]
+  partial?: boolean
 }
 export interface SetNativeResource {
   sessionId: string

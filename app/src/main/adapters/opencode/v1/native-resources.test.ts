@@ -1,8 +1,37 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { OpencodeClient } from '@opencode-ai/sdk/v2/client'
-import { openCodeNativeResources } from './native-resources'
+import { openCodeNativeCommands, openCodeNativeResources } from './native-resources'
 
 describe('OpenCode native resources', () => {
+  it('projects exact command names, hints and descriptions without templates or provider configuration', async () => {
+    const list = vi.fn(async () => ({
+      data: [
+        {
+          name: 'docs:find',
+          description: 'Find documentation',
+          hints: ['query'],
+          source: 'mcp',
+          template: 'private prompt'
+        },
+        { name: 'review', hints: [], source: 'command', model: 'private model' }
+      ]
+    }))
+    expect(
+      await openCodeNativeCommands({ command: { list } } as unknown as OpencodeClient, 'C:/B')
+    ).toEqual([
+      {
+        name: 'docs:find',
+        description: 'Find documentation',
+        argumentHint: 'query',
+        source: 'mcp'
+      },
+      { name: 'review', description: '', argumentHint: '', source: 'harness' }
+    ])
+    expect(list).toHaveBeenCalledWith(
+      { directory: 'C:/B' },
+      expect.objectContaining({ throwOnError: true })
+    )
+  })
   it('reads the channel directory and returns only read-only projected resources', async () => {
     const status = vi.fn(async () => ({
       data: {

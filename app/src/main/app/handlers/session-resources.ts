@@ -10,6 +10,7 @@ import type {
 } from '../../../shared/native-resources'
 import type { GovernedLiveTurn } from '../../contracts/ports'
 import { handle } from '../../infra/ipc/handle'
+import { resourceQuery } from '../../adapters/common/resource-query'
 
 export function registerSessionResourceHandlers(
   lookup: (sessionId: string) => GovernedLiveTurn | undefined,
@@ -19,17 +20,27 @@ export function registerSessionResourceHandlers(
     sessionId: string,
     runtime: GovernedLiveTurn | undefined
   ): Promise<NativeResources> => {
-    const [live, configured] = await Promise.all([
-      runtime?.nativeResources?.(),
-      configuredResources(sessionId)
+    const [liveRead, configuredRead] = await Promise.allSettled([
+      resourceQuery(async () => runtime?.nativeResources?.()),
+      resourceQuery(() => configuredResources(sessionId))
     ])
     if (lookup(sessionId) !== runtime)
       throw new Error('하네스 연결이 바뀌었습니다. 메뉴를 다시 열어 주세요.')
+    const live = liveRead.status === 'fulfilled' ? liveRead.value : undefined
+    if (configuredRead.status === 'rejected' && !live)
+      throw new Error('하네스 목록을 불러오지 못했습니다. 다시 시도해 주세요.')
+    const configured = configuredRead.status === 'fulfilled' ? configuredRead.value : []
+    const partial = liveRead.status === 'rejected' || configuredRead.status === 'rejected'
     const items = new Map(
       configured.map((item) => [`${item.kind}:${item.id}`, { ...item, canToggle: false }])
     )
     for (const item of live?.items ?? []) items.set(`${item.kind}:${item.id}`, item)
-    return { ...live, state: live?.state ?? 'disconnected', items: [...items.values()] }
+    return {
+      ...live,
+      state: live?.state ?? 'disconnected',
+      items: [...items.values()],
+      ...(partial ? { partial: true } : {})
+    }
   }
   handle(
     CHANNELS.sessionNativeResources,
@@ -47,7 +58,7 @@ export function registerSessionResourceHandlers(
     async (request: SetNativeResource): Promise<NativeResources> => {
       const runtime = lookup(request.sessionId)
       if (!runtime?.setNativeResource) throw new Error('실행 중인 하네스에 연결되어 있지 않습니다.')
-      const current = await runtime.nativeResources?.()
+      const current = await resourceQuery(async () => runtime.nativeResources?.())
       if (current?.generation !== request.generation || lookup(request.sessionId) !== runtime)
         throw new Error('하네스 연결이 바뀌었습니다. 메뉴를 다시 열어 주세요.')
       if (

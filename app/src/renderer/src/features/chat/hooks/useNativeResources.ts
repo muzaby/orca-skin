@@ -1,29 +1,94 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { NativeResource, NativeResources } from '../../../../../shared/native-resources'
 import { sessionApi } from '../../../shared/api/ipc'
 
 export type NativeResourcesView =
-  { status: 'loading' } | { status: 'error' } | { status: 'ready'; value: NativeResources }
+  | { status: 'loading' }
+  | { status: 'error' }
+  | {
+      status: 'ready'
+      value: NativeResources
+      refreshing?: boolean
+      stale?: boolean
+      issue?: 'refresh' | 'control'
+    }
+
+type Snapshot = Extract<NativeResourcesView, { status: 'ready' }>
+// Observations belong to this app window, never to the persisted session or native settings.
+const windows = new WeakMap<Window, Map<string, Snapshot>>()
+function snapshots(): Map<string, Snapshot> {
+  let cache = windows.get(window)
+  if (!cache) windows.set(window, (cache = new Map()))
+  return cache
+}
+function readOnly(value: NativeResources): NativeResources {
+  return {
+    ...value,
+    generation: undefined,
+    items: value.items.map((item) => ({
+      ...item,
+      canToggle: false,
+      status: item.status === 'connected' ? 'configured' : item.status
+    }))
+  }
+}
+function initialView(key: string): NativeResourcesView {
+  if (typeof window === 'undefined') return { status: 'loading' }
+  const previous = snapshots().get(key)
+  return previous
+    ? { ...previous, value: readOnly(previous.value), refreshing: true }
+    : { status: 'loading' }
+}
+function observed(value: NativeResources, previous?: Snapshot): Snapshot {
+  if (!previous || (value.state === 'connected' && !value.partial))
+    return { status: 'ready', value }
+  const currentIds = new Set(value.items.map((item) => `${item.kind}:${item.id}`))
+  const retained = readOnly(previous.value).items.filter(
+    (item) => !currentIds.has(`${item.kind}:${item.id}`)
+  )
+  const commands = value.commands ?? previous.value.commands
+  const stale = retained.length > 0 || (!value.commands && !!commands?.length)
+  return {
+    status: 'ready',
+    value: {
+      ...value,
+      items: [...value.items, ...retained],
+      ...(commands ? { commands } : {})
+    },
+    ...(stale ? { stale: true } : {})
+  }
+}
 
 export function useNativeResources(
   sessionId: string | null,
-  open: boolean
+  open: boolean,
+  scope: string | null = null
 ): {
   view: NativeResourcesView
   busy: boolean
+  refresh: () => void
   toggle: (resource: NativeResource) => Promise<void>
 } {
-  const [result, setResult] = useState<{ sessionId: string | null; view: NativeResourcesView }>({
+  const key = JSON.stringify([scope, sessionId])
+  const [result, setResult] = useState<{
+    sessionId: string | null
+    scope: string | null
+    view: NativeResourcesView
+  }>({
     sessionId,
-    view: { status: 'loading' }
+    scope,
+    view: initialView(key)
   })
   const view: NativeResourcesView =
-    result.sessionId === sessionId ? result.view : { status: 'loading' }
+    result.sessionId === sessionId && result.scope === scope ? result.view : initialView(key)
   const [busy, setBusy] = useState(false)
+  const [revision, setRevision] = useState(0)
+  const refresh = useCallback(() => setRevision((value) => value + 1), [])
   const epoch = useRef(0)
   const pending = useRef(false)
   useEffect(() => {
-    const setView = (value: NativeResourcesView): void => setResult({ sessionId, view: value })
+    const setView = (value: NativeResourcesView): void =>
+      setResult({ sessionId, scope, view: value })
     const generation = ++epoch.current
     pending.current = false
     if (!open) return
@@ -31,24 +96,35 @@ export function useNativeResources(
     void Promise.resolve().then(async () => {
       if (epoch.current !== generation) return
       setBusy(false)
-      setView({ status: 'loading' })
+      const previous = snapshots().get(key)
+      setView(initialView(key))
       try {
         const value = sessionId
           ? await sessionApi.nativeResources(sessionId)
           : { state: 'disconnected' as const, items: [] }
-        if (epoch.current === generation) setView({ status: 'ready', value })
+        if (epoch.current === generation) {
+          const next = observed(value, previous)
+          if (sessionId) snapshots().set(key, next)
+          setView(next)
+        }
       } catch {
-        if (epoch.current === generation) setView({ status: 'error' })
+        if (epoch.current === generation)
+          setView(
+            previous
+              ? { ...previous, value: readOnly(previous.value), stale: true, issue: 'refresh' }
+              : { status: 'error' }
+          )
       }
     })
     return () => {
       epoch.current = generation + 1
     }
-  }, [sessionId, open])
+  }, [sessionId, open, scope, key, revision])
 
   return {
     view,
     busy,
+    refresh,
     toggle: async (resource) => {
       if (
         !open ||
@@ -56,10 +132,12 @@ export function useNativeResources(
         !resource.canToggle ||
         pending.current ||
         view.status !== 'ready' ||
+        view.refreshing ||
         !view.value.generation
       )
         return
-      const setView = (value: NativeResourcesView): void => setResult({ sessionId, view: value })
+      const setView = (value: NativeResourcesView): void =>
+        setResult({ sessionId, scope, view: value })
       const generation = epoch.current
       pending.current = true
       setBusy(true)
@@ -71,9 +149,28 @@ export function useNativeResources(
           id: resource.id,
           enabled: !resource.enabled
         })
-        if (epoch.current === generation) setView({ status: 'ready', value })
+        if (epoch.current === generation) {
+          const next = observed(value, snapshots().get(key))
+          snapshots().set(key, next)
+          setView(next)
+        }
       } catch {
-        if (epoch.current === generation) setView({ status: 'error' })
+        if (epoch.current !== generation) return
+        const previous = { ...view, value: readOnly(view.value), stale: true } as const
+        setView({ ...previous, refreshing: true, issue: 'control' })
+        // A failed write may have changed the native state before its response failed.
+        // Read it again; never infer success or discard the last observed list.
+        try {
+          const value = await sessionApi.nativeResources(sessionId)
+          if (epoch.current === generation) {
+            const next = observed(value, snapshots().get(key))
+            snapshots().set(key, next)
+            setView({ ...next, issue: 'control' })
+          }
+        } catch {
+          if (epoch.current === generation)
+            setView({ ...previous, refreshing: false, issue: 'control' })
+        }
       } finally {
         if (epoch.current === generation) {
           pending.current = false

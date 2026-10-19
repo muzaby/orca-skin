@@ -23,6 +23,12 @@ export function runAttachMenuAction(action: AttachMenuAction, deps: AttachMenuAc
   const token = attachMenuToken(action)
   if (token === null || deps.compositionActive()) return
   const current = deps.snapshot()
+  if (action.type === 'nativeCommand') {
+    const prefix = `${token} `
+    deps.updateSnapshot((value) => replaceDraftRange(value, current.revision, 0, 0, prefix))
+    deps.focus(prefix.length)
+    return
+  }
   const inserted = insertComposerToken(current.text, current.selectionStart, token)
   deps.updateSnapshot((value) =>
     replaceDraftRange(value, current.revision, inserted.start, inserted.start, inserted.replacement)

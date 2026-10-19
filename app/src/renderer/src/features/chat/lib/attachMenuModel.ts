@@ -3,12 +3,17 @@
 import type { SkillInfo } from '../../../../../shared/ipc'
 import type { CascadeItem } from '../../../shared/ui/cascadeMenuState'
 import type { PluginMention } from './pluginMention'
+import type { NativeResourcesView } from '../hooks/useNativeResources'
+import type { NativeResource } from '../../../../../shared/native-resources'
 
 export type AttachMenuAction =
   | { type: 'attach' }
   | { type: 'skill'; name: string }
   | { type: 'plugin'; id: string }
   | { type: 'managePlugins' }
+  | { type: 'nativeCommand'; name: string }
+  | { type: 'nativePrompt'; text: string }
+  | { type: 'refreshNative' }
 
 export interface AttachMenuLabels {
   addFiles: string
@@ -23,6 +28,8 @@ export interface AttachMenuLabels {
 export function attachMenuToken(action: AttachMenuAction): string | null {
   if (action.type === 'skill') return `/${action.name}`
   if (action.type === 'plugin') return `@${action.id}`
+  if (action.type === 'nativeCommand') return `/${action.name}`
+  if (action.type === 'nativePrompt') return action.text
   return null
 }
 
@@ -38,6 +45,7 @@ export function buildAttachMenu(input: {
   labels: AttachMenuLabels
   canManagePlugins: boolean
   includeExtensions?: boolean
+  native?: { label: string; items: CascadeItem<AttachMenuAction>[] }
 }): CascadeItem<AttachMenuAction>[] {
   const { skills, plugins, labels, canManagePlugins } = input
   const attachment: CascadeItem<AttachMenuAction> = {
@@ -47,7 +55,7 @@ export function buildAttachMenu(input: {
     icon: 'plus',
     action: { type: 'attach' }
   }
-  if (input.includeExtensions === false) return [attachment]
+  if (input.includeExtensions === false && !input.native) return [attachment]
 
   // 출처별 그룹 — 처음 나온 순서를 지킨다(목록은 출처 라벨 → 이름 순으로 온다).
   const bySource = new Map<string, { label: string; skills: SkillInfo[] }>()
@@ -84,7 +92,16 @@ export function buildAttachMenu(input: {
           title: plugin.label,
           action: { type: 'plugin' as const, id: plugin.id }
         }))
-  if (canManagePlugins)
+  if (input.native) {
+    if (plugins.length === 0) pluginItems.length = 0
+    pluginItems.unshift({
+      kind: 'submenu',
+      id: 'native',
+      label: input.native.label,
+      items: input.native.items
+    })
+  }
+  if (canManagePlugins && input.includeExtensions !== false)
     pluginItems.push(
       { kind: 'separator', id: 'plugins:separator' },
       {
@@ -99,7 +116,17 @@ export function buildAttachMenu(input: {
   return [
     attachment,
     { kind: 'separator', id: 'separator' },
-    { kind: 'submenu', id: 'skills', label: labels.skills, icon: 'bolt', items: skillItems },
+    ...(input.includeExtensions !== false
+      ? [
+          {
+            kind: 'submenu' as const,
+            id: 'skills',
+            label: labels.skills,
+            icon: 'bolt' as const,
+            items: skillItems
+          }
+        ]
+      : []),
     {
       kind: 'submenu',
       id: 'plugins',
@@ -108,4 +135,78 @@ export function buildAttachMenu(input: {
       items: pluginItems
     }
   ]
+}
+
+export function nativeAttachItems(
+  view: NativeResourcesView,
+  labels: {
+    loading: string
+    error: string
+    partial: string
+    notice?: string
+    refresh: string
+    noCommands: string
+    plugins: string
+    useMcp: (name: string) => string
+    resourceStatus: (status: NativeResource['status']) => string
+  }
+): CascadeItem<AttachMenuAction>[] {
+  const items: CascadeItem<AttachMenuAction>[] = []
+  if (view.status !== 'ready') {
+    items.push({ kind: 'empty', id: view.status, label: labels[view.status] })
+  } else {
+    const commands = view.value.commands ?? []
+    for (const kind of ['mcp', 'plugin'] as const) {
+      const children: CascadeItem<AttachMenuAction>[] = view.value.items
+        .filter((item) => item.kind === kind)
+        .map((item) => ({
+          kind: 'action',
+          id: `native-resource:${kind}:${item.id}`,
+          label: item.name,
+          description: labels.resourceStatus(item.status),
+          disabled: kind !== 'mcp' || item.status !== 'connected',
+          title:
+            kind === 'mcp' && item.status === 'connected'
+              ? labels.useMcp(item.name)
+              : labels.resourceStatus(item.status),
+          action: { type: 'nativePrompt', text: labels.useMcp(item.name) }
+        }))
+      children.push(
+        ...commands
+          .filter((command) =>
+            kind === 'mcp' ? command.source === 'mcp' : command.source !== 'mcp'
+          )
+          .map((command): CascadeItem<AttachMenuAction> => ({
+            kind: 'action',
+            id: `native-command:${command.name}`,
+            label: `/${command.name}`,
+            description: command.description || undefined,
+            title:
+              [command.description, command.argumentHint].filter(Boolean).join('\n') ||
+              command.name,
+            action: { type: 'nativeCommand', name: command.name }
+          }))
+      )
+      if (!children.length)
+        children.push({ kind: 'empty', id: `${kind}:empty`, label: labels.noCommands })
+      items.push({
+        kind: 'submenu',
+        id: `native:${kind}`,
+        label: kind === 'mcp' ? 'MCP' : labels.plugins,
+        items: children
+      })
+    }
+  }
+  items.push({
+    kind: 'action',
+    id: 'native:refresh',
+    label: labels.refresh,
+    disabled: view.status === 'loading' || (view.status === 'ready' && !!view.refreshing),
+    action: { type: 'refreshNative' }
+  })
+  // Keep submenu indices stable as a refresh notice appears/disappears while open.
+  const notice =
+    labels.notice ?? (view.status === 'ready' && view.value.partial ? labels.partial : undefined)
+  if (notice) items.push({ kind: 'empty', id: 'notice', label: notice })
+  return items
 }

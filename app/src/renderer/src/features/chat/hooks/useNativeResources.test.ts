@@ -30,8 +30,16 @@ let dom: FakeDom
 let current: ReturnType<typeof useNativeResources>
 const read = vi.fn<(id: string) => Promise<NativeResources>>()
 const write = vi.fn<(req: unknown) => Promise<NativeResources>>()
-function Probe({ id, open = true }: { id: string | null; open?: boolean }): null {
-  const result = useNativeResources(id, open)
+function Probe({
+  id,
+  open = true,
+  scope = null
+}: {
+  id: string | null
+  open?: boolean
+  scope?: string | null
+}): null {
+  const result = useNativeResources(id, open, scope)
   useLayoutEffect(() => {
     current = result
   }, [result])
@@ -58,6 +66,123 @@ afterEach(() => {
 })
 
 describe('native resources session lifecycle', () => {
+  it('keeps observations across remount and refresh failure, scopes by backend and replaces complete results', async () => {
+    read.mockResolvedValueOnce({
+      ...snapshot(),
+      commands: [{ name: 'native:review', description: '', argumentHint: '', source: 'plugin' }]
+    })
+    dom.render(createElement(Probe, { id: 'A', scope: 'claude' }))
+    await settle()
+    dom.render(createElement('div'))
+    let finish!: (value: NativeResources) => void
+    read.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    dom.render(createElement(Probe, { id: 'A', scope: 'claude' }))
+    await settle()
+    expect(current.view).toMatchObject({
+      status: 'ready',
+      refreshing: true,
+      value: {
+        items: [{ name: 'Native B', canToggle: false }],
+        commands: [{ name: 'native:review' }]
+      }
+    })
+    await current.toggle(resource)
+    expect(write).not.toHaveBeenCalled()
+    finish({ state: 'disconnected', items: [] })
+    await settle()
+    expect(current.view).toMatchObject({
+      status: 'ready',
+      stale: true,
+      value: {
+        state: 'disconnected',
+        items: [{ name: 'Native B', status: 'configured', canToggle: false }],
+        commands: [{ name: 'native:review' }]
+      }
+    })
+    read.mockRejectedValueOnce(new Error('read failed'))
+    dom.act(() => current.refresh())
+    await settle()
+    expect(current.view).toMatchObject({
+      status: 'ready',
+      issue: 'refresh',
+      value: { items: [{ name: 'Native B' }] }
+    })
+    read.mockResolvedValueOnce({ state: 'connected', generation: 'new', items: [] })
+    dom.act(() => current.refresh())
+    await settle()
+    expect(current.view).toEqual({
+      status: 'ready',
+      value: { state: 'connected', generation: 'new', items: [] }
+    })
+    dom.render(createElement(Probe, { id: 'A', scope: 'opencode' }))
+    expect(current.view).toEqual({ status: 'loading' })
+    await settle()
+    expect(read).toHaveBeenCalledTimes(5)
+  })
+  it.each([false, true])(
+    'reloads after failed control, preserving the list if reload also fails (%s)',
+    async (readFails) => {
+      dom.render(createElement(Probe, { id: 'A' }))
+      await settle()
+      write.mockRejectedValueOnce(new Error('write failed'))
+      if (readFails) read.mockRejectedValueOnce(new Error('read failed'))
+      else
+        read.mockResolvedValueOnce({
+          ...snapshot('updated'),
+          items: [{ ...resource, enabled: false, status: 'disabled' }]
+        })
+      await current.toggle(resource)
+      await settle()
+      expect(read).toHaveBeenCalledTimes(2)
+      expect(current.view).toMatchObject({
+        status: 'ready',
+        issue: 'control',
+        value: { items: [{ id: resource.id, enabled: readFails, canToggle: !readFails }] }
+      })
+      expect(current.busy).toBe(false)
+      if (readFails) {
+        await current.toggle(resource)
+        expect(write).toHaveBeenCalledTimes(1)
+      }
+    }
+  )
+  it('reloads A after A → B → A, refreshes partial results, and drops a closed request', async () => {
+    dom.render(createElement(Probe, { id: 'A' }))
+    await settle()
+    dom.render(createElement(Probe, { id: 'B' }))
+    await settle()
+    read.mockResolvedValueOnce({ ...snapshot('A-new'), partial: true })
+    dom.render(createElement(Probe, { id: 'A' }))
+    await settle()
+    expect(read.mock.calls.map(([id]) => id)).toEqual(['A', 'B', 'A'])
+    expect(current.view).toEqual({
+      status: 'ready',
+      value: { ...snapshot('A-new'), partial: true }
+    })
+    dom.act(() => current.refresh())
+    await settle()
+    expect(current.view).toEqual({ status: 'ready', value: snapshot() })
+    let finish!: (value: NativeResources) => void
+    read.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    dom.act(() => current.refresh())
+    await settle()
+    dom.render(createElement(Probe, { id: 'A', open: false }))
+    dom.render(createElement(Probe, { id: 'A', open: true }))
+    await settle()
+    finish(snapshot('stale'))
+    await settle()
+    expect(current.view).toEqual({ status: 'ready', value: snapshot() })
+  })
   it('carries session/generation/resource fields and serializes toggles, without optimistic success', async () => {
     dom.render(createElement(Probe, { id: 'session-B' }))
     await settle()
@@ -145,7 +270,8 @@ describe('native resources session lifecycle', () => {
     write.mockRejectedValueOnce(new Error('denied'))
     await current.toggle(resource)
     await settle()
-    expect(current.view.status).toBe('error')
+    expect(current.view).toMatchObject({ status: 'ready', issue: 'control', value: snapshot() })
+    expect(read).toHaveBeenCalledTimes(3)
   })
 })
 
@@ -178,6 +304,22 @@ it('renders the live session menu and keeps it open while the MCP toggle refresh
     false
   )
   expect(onClose).not.toHaveBeenCalled()
+  write.mockRejectedValueOnce(new Error('write rejected'))
+  read.mockRejectedValueOnce(new Error('refresh rejected'))
+  dom.click(dom.query('[data-cascade-level="1"][data-cascade-index="0"]')!)
+  await settle()
+  expect(dom.query('[role="status"]')?.textContent).toBe('chat.nativeResources.controlError')
+  expect(dom.query('[data-cascade-level="1"][data-cascade-index="0"]')?.textContent).toContain(
+    'Native B'
+  )
+  const refresh = dom
+    .queryAll('[type="button"]')
+    .find((item) => item.textContent === 'chat.nativeResources.refresh')!
+  dom.click(refresh)
+  await settle()
+  expect(read).toHaveBeenCalledTimes(3)
+  expect(dom.query('[role="status"]')).toBeNull()
+  dom.click(dom.query('[data-cascade-level="0"][data-cascade-index="0"]')!)
   dom.keyDown('Escape')
   expect(onClose).toHaveBeenCalledOnce()
 })

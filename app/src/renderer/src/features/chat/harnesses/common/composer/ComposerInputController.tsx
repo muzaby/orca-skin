@@ -16,6 +16,7 @@ import { useSkills } from '../../../../../shared/hooks/useSkills'
 import { useAttachments } from '../../../hooks/useAttachments'
 import { useMentionAutocomplete } from '../../../hooks/useMentionAutocomplete'
 import { useSkillAutocomplete } from '../../../hooks/useSkillAutocomplete'
+import { useNativeResources } from '../../../hooks/useNativeResources'
 import type { AttachmentView, ComposerAttachment, SkillInfo } from '../../../../../../../shared/ipc'
 import type { DiffRequirementSubmitSnapshot } from '../../../store/chatStore'
 import { AttachMenu } from './AttachMenu'
@@ -105,6 +106,8 @@ export function ComposerInputController({
 }: ComposerInputControllerProps): React.JSX.Element {
   const { tr } = useI18n()
   const agentKind = useChatSession((session) => session.agentKind)
+  const sessionId = useChatSession((session) => session.sessionId)
+  const backend = useChatSession((session) => session.backend)
   const { appearance, includeExtensions, controlsPlacement, Chip, SubmitButton } = presentation
   const [snapshot, setSnapshotState] = useState(createDraftSnapshot)
   const snapshotRef = useRef(snapshot)
@@ -138,6 +141,19 @@ export function ComposerInputController({
   const surfaceWrapRef = useRef<HTMLDivElement>(null)
   const attachButtonRef = useRef<HTMLButtonElement>(null)
   const [attachMenuOpen, setAttachMenuOpen] = useState(false)
+  const native = useNativeResources(sessionId, active, backend)
+  const refreshNative = native.refresh
+  useEffect(() => {
+    if (active && attachMenuOpen) refreshNative()
+  }, [active, attachMenuOpen, refreshNative])
+  const nativeMenu = useMemo(
+    () => ({
+      label: backend === 'opencode' ? 'OpenCode' : 'Claude',
+      view: native.view,
+      refresh: native.refresh
+    }),
+    [backend, native.view, native.refresh]
+  )
 
   // 조합 상태는 스냅샷이 단일 소유한다(0149 — 별도 ref 미러 제거). 텍스트 변이 자체의 거부는
   // draftSnapshot 순수 함수가 하고, 여기 남은 용도는 **DOM 부수효과**(focus/setSelectionRange)와
@@ -418,6 +434,7 @@ export function ComposerInputController({
         skills={skills}
         includeExtensions={includeExtensions}
         plugins={mentionAutocomplete.plugins}
+        native={nativeMenu}
         onAction={onAttachMenuAction}
         onManagePlugins={
           onManagePlugins

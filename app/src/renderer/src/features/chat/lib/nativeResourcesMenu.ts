@@ -3,6 +3,16 @@ import type { CascadeItem } from '../../../shared/ui/cascadeMenuState'
 import type { NativeResourcesView } from '../hooks/useNativeResources'
 import type { MessageKey } from '../../../shared/i18n'
 
+export function nativeResourcesNotice(view: NativeResourcesView): MessageKey | undefined {
+  if (view.status !== 'ready') return
+  if (view.issue === 'control') return 'chat.nativeResources.controlError'
+  if (view.issue === 'refresh') return 'chat.nativeResources.error'
+  if (view.refreshing) return 'chat.nativeResources.refreshing'
+  if (view.value.partial) return 'chat.nativeResources.partial'
+  if (view.stale) return 'chat.nativeResources.stale'
+  return
+}
+
 export function nativeResourcesMenu(
   view: NativeResourcesView,
   busy: boolean,
@@ -36,7 +46,7 @@ export function nativeResourcesMenu(
         ? tr('chat.nativeResources.unsupported')
         : tr(resource.enabled ? 'chat.nativeResources.disable' : 'chat.nativeResources.enable'),
       checked: resource.enabled,
-      disabled: busy || !resource.canToggle,
+      disabled: busy || !!view.refreshing || !resource.canToggle,
       action: resource
     }))
   }

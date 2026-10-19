@@ -131,7 +131,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | 소스 / 표시 단위 | 적용 규칙 |
 |---|---|
 | [features/chat/harnesses/common/composer/AnchoredDropdown.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/composer/AnchoredDropdown.tsx) — `AnchoredDropdown` | 자동완성 anchor·폭·viewport 경계를 입력과 맞춘다. 메뉴를 입력 영역 밖에 방치하지 않는다. |
-| [features/chat/harnesses/common/composer/AttachMenu.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/composer/AttachMenu.tsx) — `AttachMenu` | 파일·스킬·플러그인의 CascadeMenu를 사용하고 선택 후 cursor/focus 복귀를 보존한다. |
+| [features/chat/harnesses/common/composer/AttachMenu.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/composer/AttachMenu.tsx) — `AttachMenu` | 파일·스킬·플러그인의 CascadeMenu를 사용한다. 플러그인 안에서 현재 하네스의 네이티브 MCP·플러그인·명령을 표시한다. 세션 진입·메뉴 재열기에서 갱신하며 마지막 관측 목록은 갱신 중에도 유지한다. 명령은 초안 앞, MCP 사용 요청은 커서에 삽입하며 자동 전송하지 않는다. |
 | [features/chat/harnesses/common/composer/AttachmentChip.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/composer/AttachmentChip.tsx) — `AttachmentChip` | 파일명·종류·제거를 조밀하게 표시한다. 긴 이름이 제거 버튼을 밀어내지 않게 한다. |
 | [features/chat/harnesses/common/composer/AttachmentThumb.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/composer/AttachmentThumb.tsx) — `AttachmentThumb` | 이미지 미리보기·크기·제거 위치를 유지하고 파일 chip과 간격을 맞춘다. |
 | [features/chat/harnesses/common/composer/AttachmentTray.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/composer/AttachmentTray.tsx) — `AttachmentTray` | 첨부 chip·thumb을 공통 간격으로 감싸고 입력·전송 영역을 가리지 않는다. |
@@ -405,7 +405,7 @@ Provider와 registry는 시각 컴포넌트 선택/수명 책임만 갖는다. �
 | 소스 / 표시 단위 | 적용 규칙 |
 |---|---|
 | [app/NewChatHarnessMenu.tsx](../../../app/src/renderer/src/app/NewChatHarnessMenu.tsx) — `NewChatHarnessMenu` | Popover의 right 배치·nav boundary·gap 0. 같은 로고 칸, 키보드 탐색·취소 시 초점 복귀. |
-| [features/chat/components/NativeResourcesMenu.tsx](../../../app/src/renderer/src/features/chat/components/NativeResourcesMenu.tsx) — `NativeResourcesMenu` | 하네스 그룹 제목과 CascadeBody의 MCP·플러그인 하위 메뉴. 그룹 연결 요약은 표시하지 않는다. 개별 구성/실행 상태를 구분하고 미지원 제어는 잠근다. |
+| [features/chat/components/NativeResourcesMenu.tsx](../../../app/src/renderer/src/features/chat/components/NativeResourcesMenu.tsx) — `NativeResourcesMenu` | 하네스 그룹 제목과 CascadeBody의 MCP·플러그인 하위 메뉴. 그룹 연결 요약은 표시하지 않는다. 개별 구성/실행 상태를 구분하고 미지원 제어와 갱신 전 정보의 제어를 잠근다. 제어 실패 시 자동 재조회하며 기존 목록과 오류 안내를 유지한다. 이전 관측·부분 조회·갱신 중 상태와 다시 불러오기를 제공한다. |
 | [features/chat/harnesses/claude/Logo.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/Logo.tsx) — `ClaudeLogo` | 공식 Claude 마크, currentColor. 메뉴·히어로는 spinner 토큰. |
 | [features/chat/harnesses/opencode/Logo.tsx](../../../app/src/renderer/src/features/chat/harnesses/opencode/Logo.tsx) — `OpenCodeLogo` | 공식 OpenCode 마크, currentColor와 ink 토큰. 원본 비율을 유지한다. |
 | [features/chat/harnesses/registries/brand.tsx](../../../app/src/renderer/src/features/chat/harnesses/registries/brand.tsx) — `HarnessLogo` | 하네스별 마크 조립만 소유하며 기존 랜딩 presentation을 바꾸지 않는다. |
