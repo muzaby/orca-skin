@@ -3,7 +3,7 @@
 > **두 에이전트 모두 착수 전 이 표를 가장 먼저 읽고, 작업 후 갱신한다.** "지금 누구 차례인가"의 단일 진실원.
 > 상태 머신·절차 정본은 [`AGENTS.md`](AGENTS.md).
 >
-> **이 보드에는 미완료 작업만 둔다.** `verify/PASS` 로 끝난 행은
+> **이 보드에는 미완료 작업만 둔다.** `verify/PASS`·`verify/CLOSED` 로 끝난 행은
 > [`../archive/handoffs/INDEX-history.md`](../archive/handoffs/INDEX-history.md) 로 옮긴다 —
 > 완료 이력의 정본은 `git log` 이고, 보드가 이력까지 안으면 "지금 누구 차례인가" 가 묻힌다.
 > 각 작업의 상세는 `<NNNN-slug>/{plan,verify}.md` 원본이 갖는다(제자리 보존).
@@ -11,7 +11,7 @@
 ## 단계 / 상태 범례
 
 - **단계**: `plan` → `impl` → `verify`
-- **상태**: `DRAFT` · `READY` · `IN_PROGRESS` · `IMPL_DONE` · `PASS` · `FAIL` · `RETURN_TO_PLAN`
+- **상태**: `DRAFT` · `READY` · `IN_PROGRESS` · `IMPL_DONE` · `PASS` · `FAIL` · `RETURN_TO_PLAN` · `CLOSED`(verify 9회 상한 종료 — PASS 아님)
 - **다음 주체**: `Claude` (설계/검증) · `Codex` (구현) · `—` (종료)
 - **라운드**: plan → impl → verify 한 주기. FAIL·RETURN_TO_PLAN verify로만 +1, verify 없이 반복된 plan·impl 턴은 같은 라운드(`rN.k`)다 — 정의는 [`AGENTS.md §라운드`](AGENTS.md).
 - `RETURN_TO_PLAN`은 verify에서 발견한 `PLAN_GAP` 상태다. pair별 `PAIR_FAIL`·`BLOCKED_BY`는 `verify.md`에 두고 보드 상태로 늘리지 않는다.
