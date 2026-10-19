@@ -403,6 +403,9 @@ export const SetNativeResourceSchema = NativeResourcesRequestSchema.extend({
   id: z.string().min(1).max(2048),
   enabled: z.boolean()
 }).strict()
+export const OpenNativePluginSchema = NativeResourcesRequestSchema.extend({
+  id: z.string().min(1).max(2048)
+}).strict()
 
 export const DeleteSessionRequestSchema = z.object({ sessionId: z.string().min(1) })
 // 길이 상한 120 — UI 의 표시 한도 60 자보다 여유 있게. 빈 문자열은 무효.

@@ -22,7 +22,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [`0267-harness-entry-menu`](0267-harness-entry-menu/plan.md) | plan | READY | Codex | (r1.4 설계 — 검증자 기입) | 1 | ΔV6: 네이티브 스킬 배치·툴팁, 플러그인 폴더 열기·아이콘, 수동 새로고침 제거. |
+| [`0267-harness-entry-menu`](0267-harness-entry-menu/plan.md) | impl | IMPL_DONE | Claude | (r1.4 구현 — 검증자 기입) | 1 | ΔV6: 스킬 메뉴·설명 툴팁, 플러그인 폴더 열기·플러그 SVG, 수동 새로고침 제거. 자기검증·빌드 통과, 실기와 독립 verify 대기. |
 | [`0266-renderer-design-guidelines`](0266-renderer-design-guidelines/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 디자인 시스템·전체 TSX 카탈로그·AI 제작 절차 반영. 문서·타입 게이트 통과, lint 오류 0·기존 경고 2. [관측·재현](0266-renderer-design-guidelines/evidence/validation.md). |
 | [`0263-opencode-session-panel`](0263-opencode-session-panel/plan.md) | verify | **PASS** (ΔV7 r2 · 기계 범위) | **사람** (VP7-V 시각 인수) | `308e2078`(V1·ΔV2 설계) · `736a85da`·`73681f80`(r1) · `56acfbfe`→`14d5fea0`(ΔV3) · `4b6f433c`→`fbc15aba`(ΔV4) · `52976413`→`a74bbba0`·`52207a59`(ΔV5) · `350281c7`→`655fa0e0`(ΔV6) · `12c81cfa`→`ce7aa102`(ΔV7 r2) | 2 | **r2 검증 = PASS** — 원문 [`verify.md`](0263-opencode-session-panel/verify.md) r2. 행동 16자리 좌표 16/16 · 인용 변이 M07~09 red · 진입 네 자리 무동작 4/4 red · r1 red 6/6 유지.<br>AC ✅12·⚠️3(시각). **archive 이동은 두 테마 외곽·hover 여백·좁은 폭 사람 인수 뒤.** |
 | [`0261-bypass-flag-prod-devtools`](0261-bypass-flag-prod-devtools/plan.md) | verify | **PASS** (V1 r1 · 기계 범위) | **사람** (AC1·AC7 실기) | `cd7ea1a2`(V1 설계) · `fab363fd`(r1) | 1 | **r1 검증 = PASS** — 원문은 [`verify.md`](0261-bypass-flag-prod-devtools/verify.md). pair 7 PASS · VP-01·06 실기 대기 · PLAN_GAP 0 · AC ✅6·⚠️2·❌0.<br>등록 26자리 red · 독립 I1~I10 · gate(lint·typecheck·vitest 120/129 — DB 9 ABI·doc 3종·trailer) PASS. NON_BLOCKING N1~N3 · 후보 X1~X3. **archive 이동은 AC1·AC7 실기 뒤.** |

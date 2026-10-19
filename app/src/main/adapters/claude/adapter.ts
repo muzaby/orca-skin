@@ -848,6 +848,7 @@ export class ClaudeAdapter implements SessionAdapter {
 
     return {
       providerGeneration: backgroundMapper.generation,
+      nativePluginDirectory: (id) => resources.directory(id),
       nativeResources: async () => {
         const [items, commands] = await Promise.all([
           resources.list(),

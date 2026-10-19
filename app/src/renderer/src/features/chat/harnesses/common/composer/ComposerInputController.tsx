@@ -149,10 +149,9 @@ export function ComposerInputController({
   const nativeMenu = useMemo(
     () => ({
       label: backend === 'opencode' ? 'OpenCode' : 'Claude',
-      view: native.view,
-      refresh: native.refresh
+      view: native.view
     }),
-    [backend, native.view, native.refresh]
+    [backend, native.view]
   )
 
   // 조합 상태는 스냅샷이 단일 소유한다(0149 — 별도 ref 미러 제거). 텍스트 변이 자체의 거부는

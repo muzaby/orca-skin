@@ -2,7 +2,7 @@ import { useMemo, type RefObject } from 'react'
 import type { Backend } from '../../../../../shared/ipc'
 import { useI18n } from '../../../shared/i18n'
 import { CascadeBody } from '../../../shared/ui/CascadeMenu'
-import { MenuItem, MenuTitle } from '../../../shared/ui/MenuItem'
+import { MenuTitle } from '../../../shared/ui/MenuItem'
 import { useNativeResources } from '../hooks/useNativeResources'
 import { nativeResourcesMenu, nativeResourcesNotice } from '../lib/nativeResourcesMenu'
 
@@ -18,7 +18,7 @@ export function NativeResourcesMenu({
   onClose: () => void
 }): React.JSX.Element {
   const { tr } = useI18n()
-  const { view, busy, toggle, refresh } = useNativeResources(sessionId, true, backend)
+  const { view, busy, toggle, openPlugin } = useNativeResources(sessionId, true, backend)
   const items = useMemo(() => nativeResourcesMenu(view, busy, tr), [view, busy, tr])
   const label = backend === 'opencode' ? 'OpenCode' : 'Claude'
   const notice = nativeResourcesNotice(view)
@@ -33,7 +33,8 @@ export function NativeResourcesMenu({
       <CascadeBody
         items={items}
         onSelect={(resource) => {
-          void toggle(resource)
+          if (resource.kind === 'plugin') void openPlugin(resource)
+          else void toggle(resource)
         }}
         onClose={onClose}
         anchorRef={anchorRef}
@@ -41,14 +42,6 @@ export function NativeResourcesMenu({
         autoFocus={false}
         closeOnSelect={false}
       />
-      <MenuItem
-        onClick={refresh}
-        disabled={
-          busy || view.status === 'loading' || (view.status === 'ready' && !!view.refreshing)
-        }
-      >
-        {tr('chat.nativeResources.refresh')}
-      </MenuItem>
     </div>
   )
 }

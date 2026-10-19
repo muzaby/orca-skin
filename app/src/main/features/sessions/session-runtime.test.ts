@@ -2131,6 +2131,7 @@ describe('SessionRuntime native resource generation', () => {
     setNativeResource: Mock<
       (request: import('../../../shared/native-resources').SetNativeResource) => Promise<void>
     >
+    nativePluginDirectory: Mock<(id: string) => Promise<string | undefined>>
     done: () => Promise<void>
   }> {
     const turn = live([{ type: 'message.delta', sessionId: 's1', delta: { text: 'a' } }])
@@ -2142,7 +2143,15 @@ describe('SessionRuntime native resource generation', () => {
     const setNativeResource = vi.fn<
       (request: import('../../../shared/native-resources').SetNativeResource) => Promise<void>
     >(async () => {})
-    Object.assign(turn, { providerGeneration: 'gen-B', nativeResources, setNativeResource })
+    const nativePluginDirectory = vi.fn<(id: string) => Promise<string | undefined>>(
+      async () => 'C:/plugin-B'
+    )
+    Object.assign(turn, {
+      providerGeneration: 'gen-B',
+      nativeResources,
+      setNativeResource,
+      nativePluginDirectory
+    })
     const runtime = new SessionRuntime(adapter(turn))
     const stream = runtime.send(req())[Symbol.asyncIterator]()
     await stream.next()
@@ -2150,11 +2159,31 @@ describe('SessionRuntime native resource generation', () => {
       runtime,
       nativeResources,
       setNativeResource,
+      nativePluginDirectory,
       done: async () => {
         await stream.return?.(undefined)
       }
     }
   }
+  it('forwards native plugin identity and rejects a result after channel retirement', async () => {
+    const { runtime, nativePluginDirectory, done } = await setup()
+    expect(await runtime.nativePluginDirectory('plugin-B')).toBe('C:/plugin-B')
+    expect(nativePluginDirectory).toHaveBeenCalledExactlyOnceWith('plugin-B')
+    let finish!: (value: string) => void
+    nativePluginDirectory.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    const pending = runtime.nativePluginDirectory('plugin-B')
+    const rejected = expect(pending).rejects.toThrow('바뀌었습니다')
+    runtime.close()
+    finish('C:/old')
+    await rejected
+    expect(await runtime.nativePluginDirectory('plugin-B')).toBeUndefined()
+    await done()
+  })
   it('reads and toggles the same live generation and rejects a stale identity', async () => {
     const { runtime, setNativeResource, done } = await setup()
     expect(await runtime.nativeResources()).toEqual({

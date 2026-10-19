@@ -114,10 +114,13 @@ it.each(['claude', 'opencode'] as const)(
     open()
     await settle()
     expect(read).toHaveBeenCalledWith('session-B')
-    clickLabel('chat.composer.attachMenu.plugins')
-    clickLabel(backend === 'claude' ? 'Claude' : 'OpenCode')
-    clickLabel('chat.nativeResources.plugins')
-    clickLabel('/session-B:review')
+    clickLabel('chat.composer.attachMenu.skills')
+    const command = dom
+      .queryAll('[role="menuitem"]')
+      .find((item) => item.textContent === 'session-B::review')!
+    expect(command.props.title).toBe('Review current code')
+    expect(command.textContent).not.toContain('Review current code')
+    clickLabel('session-B::review')
     await settle()
     expect(dom.query('[data-native-draft]')!.props.value).toBe('/session-B:review preserved draft')
     expect(onSend).not.toHaveBeenCalled()
@@ -131,8 +134,13 @@ it.each(['claude', 'opencode'] as const)(
     open()
     await settle()
     expect(read.mock.calls.filter(([id]) => id === 'session-B')).toHaveLength(4)
-    clickLabel('chat.composer.attachMenu.plugins')
-    clickLabel(backend === 'claude' ? 'Claude' : 'OpenCode')
+    clickLabel('chat.composer.attachMenu.skills')
+    expect(
+      dom
+        .queryAll('[role="menuitem"]')
+        .some((item) => item.textContent === 'chat.nativeResources.refresh')
+    ).toBe(false)
+    dom.keyDown('Escape')
     let finishRefresh!: (value: unknown) => void
     read.mockImplementationOnce(
       () =>
@@ -140,27 +148,27 @@ it.each(['claude', 'opencode'] as const)(
           finishRefresh = resolve
         })
     )
-    clickLabel('chat.nativeResources.refresh')
+    open()
     await settle()
     expect(read.mock.calls.filter(([id]) => id === 'session-B')).toHaveLength(5)
     expect(dom.query('[title="chat.composer.attachMenuTitle"]')!.props['aria-expanded']).toBe(true)
+    clickLabel('chat.composer.attachMenu.skills')
     expect(
       dom
         .queryAll('[role="menu"]')
         .some((menu) => menu.textContent.includes('chat.nativeResources.refreshing'))
     ).toBe(true)
-    clickLabel('chat.nativeResources.plugins')
     expect(
       dom
         .queryAll('[role="menuitem"]')
-        .some((item) => item.textContent.startsWith('/session-B:review'))
+        .some((item) => item.textContent.startsWith('session-B::review'))
     ).toBe(true)
     finishRefresh({ state: 'connected', items: [], commands: [] })
     await settle()
     expect(
       dom
         .queryAll('[role="menuitem"]')
-        .some((item) => item.textContent.startsWith('/session-B:review'))
+        .some((item) => item.textContent.startsWith('session-B::review'))
     ).toBe(false)
   }
 )

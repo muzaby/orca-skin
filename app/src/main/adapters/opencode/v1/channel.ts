@@ -1,4 +1,8 @@
-import { openCodeNativeCommands, openCodeNativeResources } from './native-resources'
+import {
+  openCodeNativeCommands,
+  openCodeNativeResources,
+  openCodeNativePluginDirectory
+} from './native-resources'
 import type { Event, OpencodeClient } from '@opencode-ai/sdk/v2/client'
 import { randomUUID } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
@@ -365,10 +369,14 @@ export function openCodeChannel(
   }
   return {
     providerGeneration: generation,
+    nativePluginDirectory: async (id) => {
+      if (!client || closed || ended) return undefined
+      return openCodeNativePluginDirectory(client, req.cwd, id, { ...process.env, ...req.env })
+    },
     nativeResources: async () => {
       if (!client || closed || ended) return { state: 'disconnected', items: [] }
       const [items, commands] = await Promise.all([
-        openCodeNativeResources(client, req.cwd),
+        openCodeNativeResources(client, req.cwd, { ...process.env, ...req.env }),
         openCodeNativeCommands(client, req.cwd).catch(() => undefined)
       ])
       return {

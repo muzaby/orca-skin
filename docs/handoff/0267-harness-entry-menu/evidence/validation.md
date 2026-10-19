@@ -113,3 +113,24 @@ node --input-type=module -e "import {checkLinks,LINK_EXCLUDED} from './scripts/c
 - 증거 화면: 로컬 `.codex-remote-attachments/0267/native-commands-r13.jpg`, `native-mcp-commands-r13.jpg`. 데이터는 fixture이며 실제 인증 CLI/MCP 사용 성공을 나타내지 않는다.
 
 실 인증 CLI/MCP smoke 및 독립 handoff verify는 미실행이다. 앱 창 재시작 후 메모리 관측 보존은 범위 밖이며 실제 목록은 새 네이티브 원천 조회로 채운다.
+
+## r1.4 — 네이티브 스킬과 설치 폴더 (ΔV6)
+
+자기 검증 통과. 관련 회귀 집합은 Node 282파일 2,281케이스와 ABI가 맞는 Electron에서 DB 1파일 5케이스, 합계 고유 283파일 2,286케이스다. 이후 변경한 동일 파일 재실행은 합계에 더하지 않았다.
+
+| 검사 | 명령 / 관측 |
+|---|---|
+| 회귀 | `vitest run src/renderer/src/features/chat` + Sidebar.interaction, NewChatLandingPage.harness, agentModeLanding.render, popoverPosition, CascadeMenu 및 main native/adapter/runtime/IPC/preload 테스트. `.tmp/0267-r14-regression.log`: 282 passed, DB 5건은 ABI 140/127 오류. |
+| DB | `.tmp/0267-r14-electron.cjs`: `ELECTRON_RUN_AS_NODE=1`, settlement.integration 5/5. ABI 재빌드 없음. |
+| 변경 후 재실행 | handler/hook/plugin-installation/session-runtime 4파일 107/107, Claude configured/handler 2파일 13/13. `.tmp/0267-r14-{final-tests,metadata-final}.log`. |
+| 타입·린트·빌드 | `npm run typecheck`: node/web/test 성공. `eslint --cache src scripts`: 오류 0·기존 경고 4. 직접 electron-vite build: main/preload/renderer 성공. `.tmp/0267-r14-{typecheck,lint-final,build,build-final}.log`. 최종 hook 변경 후 web 타입 검사, 최종 상태 표시 후 메뉴 2파일 13케이스도 통과. |
+| 문서·경계 | harness-boundary 8/8, design catalog source/rows 일치·양방향 차집합 []. inventory 생성물·산문 일치. ignored 외부 clone의 기존 링크 5건을 제외한 `checkLinks('..',[...LINK_EXCLUDED,'.tmp'])` = []. |
+| 변이 | M1 backend 반전 → Sidebar 2 failed; M2 MCP/plugin 맞바꿈 → nativeResourcesMenu 3 failed; M3 스킬/MCP 목적지 맞바꿈 → attachMenuModel 1 failed. 원본 bytes 복원 뒤 3파일 15/15. `.tmp/0267-r14-mutations.cjs`와 동일 prefix 로그. |
+
+실제 ComposerInputController→AttachMenu→CascadeMenu에서 양 backend의 스킬 선택은 `/session-B:review preserved draft`를 만든다. 화면 이름은 `session-B::review`, 설명은 title에만 있고 자동 전송은 없다. 플러그인 메뉴에 네이티브 스킬이 섞이지 않는 별도 트리 단언과 M3를 수행했다.
+
+실제 NativeResourcesMenu→hook→sessionApi는 정상 밝기의 플러그인 행에서 openNativePlugin(sessionId,id)만 호출한다. 열기 실패는 목록을 다시 읽고 오류를 표시하며 다음 성공에서 오류를 지운다. main에서는 scoped 설치/라이브 ID, 세션·runtime 변경, strict 경로 주입 거부, 파일 실행 차단, shell 오류 반환을 검증했다.
+
+브라우저 fixture에서 Claude/OpenCode, white/dark, 기본 좁은 viewport/1280×820를 확인하고 override를 reset했다. 플러그인 row의 computed opacity=1, role=menuitem, disabled=false, 설명+설치 폴더 열기 title을 관측했다. 스킬 선택의 원래 slash 삽입, +플러그인에는 MCP만 있음, 수동 새로고침 부재, 폴더 요청 fixture status를 확인했다.
+
+로컬 화면: `.codex-remote-attachments/0267/native-plugin-folder-r14.jpg`, `native-skills-r14.jpg`, `native-plugin-folder-final.jpg`(활성/설치 상태 표시 유지). 실제 사용자 설치본의 Explorer 창 실행·인증 CLI 실행은 수행하지 않았으며 OS 경계는 shell stub으로 검증했다. OpenCode 설치 조회는 관측한 file/path 및 npm registry 캐시를 지원하고 미해석 명세/없는 폴더는 오류 안내와 자동 재조회로 처리한다.

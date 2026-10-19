@@ -919,6 +919,13 @@ export class SessionRuntime implements ManagedRuntime {
     if (this.live !== live) throw new Error('하네스 연결이 바뀌었습니다. 메뉴를 다시 열어 주세요.')
   }
 
+  async nativePluginDirectory(id: string): Promise<string | undefined> {
+    const live = this.live
+    const directory = await live?.nativePluginDirectory?.(id)
+    if (this.live !== live) throw new Error('하네스 연결이 바뀌었습니다. 메뉴를 다시 열어 주세요.')
+    return directory
+  }
+
   async setPermissionMode(mode: NormalizedPermissionMode): Promise<void> {
     const live = this.live
     if (!live) throw new Error('No live channel for permission update')

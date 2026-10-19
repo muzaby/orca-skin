@@ -1,3 +1,7 @@
+import { openCodePluginId } from './plugin-installation'
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import type { Event } from '@opencode-ai/sdk/v2'
 import type { LiveTurn, ProviderMessageBatch } from '../../common/types'
@@ -606,7 +610,7 @@ it('exposes native resources from the live channel client and its directory with
           canToggle: false
         },
         {
-          id: 'plugin:0',
+          id: openCodePluginId('@native/plugin@1'),
           name: '@native/plugin@1',
           kind: 'plugin',
           status: 'enabled',
@@ -628,4 +632,39 @@ it('exposes native resources from the live channel client and its directory with
     await dispose(f.live, iterator)
   }
   expect(await f.live.nativeResources?.()).toEqual({ state: 'disconnected', items: [] })
+})
+
+it('resolves the native plugin directory with the same environment as the live channel', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'orca-channel-plugin-'))
+  const directory = join(
+    root,
+    'opencode',
+    'packages',
+    '@native/plugin@1',
+    'node_modules',
+    '@native/plugin'
+  )
+  await mkdir(directory, { recursive: true })
+  await writeFile(
+    join(directory, 'package.json'),
+    JSON.stringify({ description: 'Channel plugin skills' })
+  )
+  const f = fixture({ cwd: root, env: { XDG_CACHE_HOME: root } })
+  const iterator = f.live.eventBatches[Symbol.asyncIterator]()
+  try {
+    expect(
+      await f.live.nativePluginDirectory?.(openCodePluginId('@native/plugin@1'))
+    ).toBeUndefined()
+    await frame(iterator)
+    expect(
+      (await f.live.nativeResources?.())?.items.find((item) => item.kind === 'plugin')?.description
+    ).toBe('Channel plugin skills')
+    expect(await f.live.nativePluginDirectory?.(openCodePluginId('@native/plugin@1'))).toBe(
+      directory
+    )
+    expect(await f.live.nativePluginDirectory?.('plugin:0')).toBeUndefined()
+  } finally {
+    await dispose(f.live, iterator)
+    await rm(root, { recursive: true, force: true })
+  }
 })

@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | READY / r1.4 |
+| 상태 / 라운드 | IMPL_DONE / r1.4 |
 | V mode / 기준 V / 유효 V | Delta V / r1.3 (`148f91c5`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
@@ -641,3 +641,100 @@ Claude는 기존 scoped installed_plugins.json과 SDK init 경로에서 plugin.j
 직접 oracle: ①configured-resources.test scope/id/path/description ②Claude native-resources.test injected 제외·init hash ③OpenCode native-resources.test file/npm fixture·ID 재정렬 ④adapter.live-control/persistent 포트 값 ⑤session-runtime.test 지각 resolver 거부 ⑥bootstrap.native-history.test 다른 cwd/backend ⑦session-resources.test 정상/없는 ID/경로주입/파일/OS오류 ⑧preload index.test·hook 실제 sessionApi ⑨useNativeResources.test 열기 실패 read ⑩nativeResourcesMenu.test·실제 NativeResourcesMenu render. 총 자리 56+10=66, 수동 재시도는 대체되어 분모를 늘리지 않는다.
 
 선택 변이 M3: attachMenuModel의 native 스킬/MCP 목적지를 맞바꿔 올바른 배치 단언이 red인지 확인한다. M1/M2 기존 선택 변이를 유지한다. 새 의존성/DB/설정 쓰기 없음. 운영 gate는 이전 lint/typecheck/관련 테스트/build/boundary/inventory/catalog를 승계한다. ACTIVE D-19~22↔AC16/18/19 대조 충돌 0; D-16 실제 명령 원천·D-18 관측 유지도 보존한다.
+
+## [구현자 기입] r1.4 설계 리뷰
+
+유지/변경 구분 완료. D-19~22의 배치·폴더 액션·수동 갱신 제거를 구현했고 D-16 실제 명령 원천과 D-18 관측 유지/자동 갱신을 보존했다. D-20이 이전 플러그인 토글 표시 계약을 대체하는 범위를 별도 설계 커밋으로 명시했다.
+
+## [구현자 기입] r1.4 강제 지점 전수 (§10 대조)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01~04 | 진입·선택·좌표 | EP1~3 / 9 | 9/9 | Sidebar.interaction, popoverPosition 회귀·M1 red | 두 backend·nav 상태·클릭/키보드 | 없음 |
+| VP-05 | hero 브랜드 | EP4 / 1 | 1/1 | AgentModeToggle 테스트 | Work/Code 로고 앞 순서 | 없음 |
+| VP-06~09 | DTO/제어/전달 | EP5~8 / 16 | 16/16 | adapter.live-control/persistent, session-runtime, session-resources, preload, useNativeResources, ChatTitleBar/nativeResourcesMenu 회귀 | 서로 다른 MCP/plugin, generation-B·session-B, false/true. D-20 표시 변경 포함 | 없음 |
+| VP-10~11 | 명시 선택 | EP9 / 7 | 7/7 | chatStore.harness/Composer.selection/modelSelection/NewChatLandingPage.harness | 빈/늦은 모델에도 OpenCode 유지 | 없음 |
+| VP-12 | 그룹 요약 제거 | EP10 / 1 | 1/1 | ChatTitleBar.native-resources | 그룹 연결 요약 없음 | 없음 |
+| VP-13~14 | 구성 관측 | EP11 / 6 | 6/6 | configured-resources scope, bootstrap.native-history stored backend/cwd, session-resources merge/offline, nativeResourcesMenu | project-B·wrong-default 구분, native/plugin ID 일치 | 없음 |
+| VP-15 | 프로젝트 브랜드 | EP12 / 2 | 2/2 | agentModeLanding.render | backend 왕복·초안 유지 | 없음 |
+| VP-16 | 자동 갱신·관측 유지 | EP13 / 3 + EP16 / 4 | 7/7 | useNativeResources 실제 메뉴 재열기/실패 read, Composer.native-menu 재진입/재열기 | 이전 snapshot 표시, late 응답 폐기, refresh 버튼 부재 | 없음 |
+| VP-17 | 스킬·MCP 분리 | EP14 / 6 | 6/6 | 양 adapter native-resources, 실제 Composer.native-menu, attachMenuModel, composerAttachMenu | session-B::review 표시→원래 /session-B:review 삽입, MCP는 별도 목록 | 없음 |
+| VP-18 | OpenCode 명령 | EP15 / 1 | 1/1 | adapter.persistent command/event/approval 회귀 | 명령·첨부·모델·문맥, HTTP 대기 중 승인 | 없음 |
+| VP-19 | 설치 정보 | EP17 ①②③ / 3 | 3/3 | configured-resources scoped directory/description + live.list, OpenCode plugin-installation 파일/npm 실제 fixture | project-B 설치와 무관 scope, 로컬/Npm 설명, 재정렬 ID | 없음 |
+| VP-19 | main 포트·경계 | EP17 ④⑤⑥⑦⑧ / 5 | 5/5 | 양 adapter live port; session-runtime retirement; bootstrap.native-history resolver; session-resources open/install/error; preload native transport | /native vs injected, plugin-B, cwd-B, 파일/경로 주입/OS 오류/지각 runtime 거부 | 없음 |
+| VP-19 | 화면 액션 | EP17 ⑨⑩ / 2 | 2/2 | useNativeResources `opens a plugin directory…`, nativeResourcesMenu 실제 CascadeBody | 설명 title, checked/disabled 없음, open 호출·toggle 0, 실패 read→성공 오류 제거 | 없음 |
+
+계산: 이전 56 + EP17 10 = 66/66. EP1~16과 EP17 ①~⑩의 자리별 근거는 위 표에 대응했다. 실행 집합과 수치는 [validation r1.4](evidence/validation.md)에 기록했다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01~15,18 | REGRESSION | SELF_PASS | 위 상속 자리의 이번 회귀 실행 | M1/M2 red·복원 green |
+| VP-16 | REQUIRED | SELF_PASS | useNativeResources·Composer.native-menu 재열기/제어 실패/관측 보존 | 직접 행동 oracle |
+| VP-17 | REQUIRED | SELF_PASS | attachMenuModel 및 실제 Composer.native-menu의 명령 선택 | M3 red·복원 green |
+| VP-19 | REQUIRED | SELF_PASS | 위 EP17 자리별 파일·케이스 | 직접 파일/IPC/UI 행동 oracle |
+
+## [구현자 기입] r1.4 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| NewChatHarnessMenu 선택 backend 반전 | M1 / VP-02 | red 2 | Sidebar.interaction / 2 | 잠김 |
+| nativeResourcesMenu MCP/plugin 목록 맞바꿈 | M2 / VP-06·09 | red 3 | nativeResourcesMenu / 3 | 잠김 |
+| attachMenuModel 스킬/MCP 목적지 맞바꿈 | M3 / VP-17 | 최초 | attachMenuModel / 1 | 잠김 |
+
+원본 bytes 복원 후 3파일 15케이스 통과. 인용된 미검출 변이 없음, 추가 직접 oracle은 임의 변이를 의무화하지 않았다.
+
+## [구현자 기입] r1.4 Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 문구·상태의 소비자 | openError/openFolder를 NativeResourcesMenu title/status에서 관측 | 완료 |
+| production 재배치와 정리 범위 | reader를 metadata+directory로 감쌌으며 프로세스 실행/설치·새 수명 자원 없음 | 해당 없음 |
+| 실패 경로의 제품 행 | D-22의 없는 설치/조회 실패, D-18 자동 재조회 | hook·IPC 실패 테스트 |
+| 실패가 무반응으로 보이는가 | 오류 표시→자동 read, 후속 열기 성공 시 오류 제거 | 실제 메뉴 테스트 |
+| 지각 응답이 화면을 되돌리는가 | 기존 hook epoch와 runtime/DB scope fence 유지 | 기존 회귀 + 새 directory retirement |
+
+## [구현자 기입] r1.4 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | OpenCode 배열 index ID는 설정 재정렬 뒤 다른 폴더를 가리킬 수 있음 | ✅ 명세 hash로 교체 | 실제 파일/npm fixture 재정렬 후 동일 경로 |
+| 2 | live 합성이 구성 description을 덮어 없앨 수 있음 | ✅ live 상태 우선 + 구성 description 유지 | session-resources merge 단언 |
+| 3 | 폴더 열기 실패 뒤 재시도 성공에도 오류가 남음 | ✅ 같은 epoch 성공에서 open 오류만 제거 | hook 실제 메뉴 3회 클릭 |
+| 4 | OpenCode 미해석 명세/설치 없음 | 안전한 오류와 자동 갱신. 패키지 설치·임의 경로 추측 없음 | plugin-installation 미존재/URL 거부 |
+| 5 | 실제 Explorer와 인증 CLI | ⚠️ 실제 사용자 환경 실행 미확인 | OS 경계 stub·브라우저 fixture로 범위를 명시 |
+
+설계 메커니즘 대체 없음. 만료·공유·재진입·다른 무효화 축은 기존 창 snapshot과 조회 fence를 유지하며 useNativeResources의 scope/remount/late/read-failure 회귀로 확인했다.
+
+## [구현자 기입] r1.4 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | native DTO/adapter metadata와 directory 포트, runtime/bootstrap/IPC/preload, hook/두 메뉴/i18n, fixture·계약/카탈로그/inventory |
+| 실행 명령 | validation r1.4의 vitest, Electron DB, typecheck, eslint, build, boundary, inventory, catalog, 변이 |
+| 관측한 게이트 산출 | 고유 283파일 2,286케이스 확인(DB 5건 별도 Electron), 마지막 변경 4파일 107 + metadata 2파일 13 재실행. lint 0 error/기존 4 warning, 타입 3종·build 성공 |
+| V-pair 자기확인 | SELF_PASS 19 / SELF_BLOCKED 0, 독립 verify 아님 |
+| 강제 지점 전수 | 66/66, 위 자리별 관측 |
+| AC 자기보고 | 아래 표 19/19, 실제 외부 실행 한계는 별도 기록 |
+| 합계 검산 | ✅19 · ⚠️0 · ❌0 = 총19(기계 자기검증). ΔV6에서 AC18/19가 추가됨 |
+| 블로커 / 역질문 | 없음. 실제 Explorer·인증 CLI 및 독립 verify 미실행 |
+| 대상 커밋 | (r1.4 구현 — 좌표는 INDEX) |
+
+| AC | 이번 턴 관측 |
+|---|---|
+| AC1~4 | ✅ Sidebar 두 nav/두 backend 선택·위치·키보드·취소, M1 red |
+| AC5 | ✅ AgentModeToggle 모드별 로고/문구 |
+| AC6~10 | ✅ titlebar 두 그룹, native DTO/주입 제외, MCP true/false·권한/세대, 로딩/빈/오류/지각 응답 |
+| AC11 | ✅ 명시 선택 보존(store/Composer/model/page 회귀) |
+| AC12~14 | ✅ 연결 요약 부재, scoped 구성 목록, project 헤더 전환 |
+| AC15 | ✅ 관측 유지·재진입/재열기·제어 실패 자동 조회 |
+| AC16 | ✅ 스킬 표시와 tooltip, 원래 명령 삽입·초안/전송 보존, M3 red |
+| AC17 | ✅ OpenCode SDK command와 승인 비차단 경로 |
+| AC18 | ✅ 정상 밝기·플러그 SVG·토글 없음·설치 resolver→shell 경계. 실제 Explorer 창은 미확인 |
+| AC19 | ✅ 두 메뉴 refresh 버튼 없음·자동 조회 유지 |
+
+## [구현자 기입] r1.4 Review Signals
+
+- 같은 라운드의 사용자 정정에 따른 구현이며 독립 verify 실패 라운드는 아니다.
+- 기존 D-15의 메뉴 분류와 D-08의 플러그인 표시를 사용자 요청으로 대체했다.
+- Node/Electron DB ABI 차이는 140/127 오류를 확인하고 Electron에서 동일 5케이스를 재실행했다.
+- 문서 링크 gate는 ignored 외부 clone의 기존 5건이 남으며 실제 저장소 링크 차집합은 비었다.

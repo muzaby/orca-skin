@@ -1,5 +1,6 @@
 import type { OpencodeClient } from '@opencode-ai/sdk/v2/client'
 import type { NativeCommand, NativeResource } from '../../../../shared/native-resources'
+import { openCodePluginId, openCodePluginInstallation } from './plugin-installation'
 
 export async function openCodeNativeCommands(
   client: OpencodeClient,
@@ -34,7 +35,8 @@ function pluginName(source: string): string {
 
 export async function openCodeNativeResources(
   client: OpencodeClient,
-  directory: string
+  directory: string,
+  env: NodeJS.ProcessEnv = process.env
 ): Promise<NativeResource[]> {
   const [mcp, config] = await Promise.all([
     client.mcp.status({ directory }, { throwOnError: true }),
@@ -53,13 +55,36 @@ export async function openCodeNativeResources(
     enabled: value.status !== 'disabled',
     canToggle: false
   }))
-  const plugins = (config.data?.plugin ?? []).map((entry, index): NativeResource => ({
-    id: `plugin:${index}`,
-    name: pluginName(typeof entry === 'string' ? entry : entry[0]),
-    kind: 'plugin',
-    status: 'enabled',
-    enabled: true,
-    canToggle: false
-  }))
+  const plugins = await Promise.all(
+    (config.data?.plugin ?? []).map(async (entry): Promise<NativeResource> => {
+      const spec = typeof entry === 'string' ? entry : entry[0]
+      const installed = await openCodePluginInstallation(spec, directory, env)
+      return {
+        id: openCodePluginId(spec),
+        name: pluginName(spec),
+        kind: 'plugin',
+        status: 'enabled',
+        enabled: true,
+        canToggle: false,
+        ...(installed?.description ? { description: installed.description } : {})
+      }
+    })
+  )
   return [...servers, ...plugins]
+}
+
+export async function openCodeNativePluginDirectory(
+  client: OpencodeClient,
+  directory: string,
+  id: string,
+  env: NodeJS.ProcessEnv = process.env
+): Promise<string | undefined> {
+  const config = await client.config.get(
+    { directory },
+    { throwOnError: true, signal: AbortSignal.timeout(2500) }
+  )
+  const spec = (config.data?.plugin ?? [])
+    .map((entry) => (typeof entry === 'string' ? entry : entry[0]))
+    .find((value) => openCodePluginId(value) === id)
+  return spec ? (await openCodePluginInstallation(spec, directory, env))?.directory : undefined
 }

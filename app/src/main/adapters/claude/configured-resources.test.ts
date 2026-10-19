@@ -2,7 +2,11 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { configuredClaudeResources, nativePluginId } from './configured-resources'
+import {
+  configuredClaudeResources,
+  configuredClaudePluginDirectory,
+  nativePluginId
+} from './configured-resources'
 import { claudeNativeResources } from './native-resources'
 
 let temp: string
@@ -52,6 +56,10 @@ describe('configured Claude resources', () => {
     const active = join(temp, 'active')
     const off = join(temp, 'off')
     const installedOnly = join(temp, 'installed-only')
+    await json(join(active, '.claude-plugin/plugin.json'), {
+      name: 'active',
+      description: 'Active native skills'
+    })
     await json(join(paths.root, 'settings.json'), {
       enabledPlugins: { 'active@market': false, 'off@market': true }
     })
@@ -78,9 +86,18 @@ describe('configured Claude resources', () => {
       }
     })
     const rows = await configuredClaudeResources(cwd, paths)
+    expect(rows.find((item) => item.id === nativePluginId(active))?.description).toBe(
+      'Active native skills'
+    )
+    expect(await configuredClaudePluginDirectory(cwd, nativePluginId(active), paths)).toBe(active)
+    expect(
+      await configuredClaudePluginDirectory(join(temp, 'other'), nativePluginId(active), paths)
+    ).toBeUndefined()
+    expect(await configuredClaudePluginDirectory(cwd, active, paths)).toBeUndefined()
     expect(rows).toEqual([
       {
         id: nativePluginId(active),
+        description: 'Active native skills',
         name: 'active@market',
         kind: 'plugin',
         status: 'configured',
@@ -109,7 +126,10 @@ describe('configured Claude resources', () => {
       toggleMcpServer: async () => {}
     })
     live.observePlugins([{ name: 'active', path: active }])
-    expect((await live.list())[0].id).toBe(rows[0].id)
+    expect((await live.list())[0]).toMatchObject({
+      id: rows[0].id,
+      description: 'Active native skills'
+    })
     expect(JSON.stringify(rows)).not.toContain(temp)
   })
 

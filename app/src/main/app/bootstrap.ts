@@ -1013,6 +1013,23 @@ export class Bootstrap {
         )
           throw new Error('대화가 바뀌었습니다. 메뉴를 다시 열어 주세요.')
         return items ?? []
+      },
+      async (sessionId, id) => {
+        const session = ctx.db.getSessionById(sessionId)
+        if (!session) return undefined
+        const directory = await harnessModule(session.backend).configuredPluginDirectory?.(
+          session.cwd ?? ctx.getCwd(session.project_id),
+          id
+        )
+        const current = ctx.db.getSessionById(sessionId)
+        if (
+          !current ||
+          current.backend !== session.backend ||
+          current.cwd !== session.cwd ||
+          current.project_id !== session.project_id
+        )
+          throw new Error('대화가 바뀌었습니다. 메뉴를 다시 열어 주세요.')
+        return directory
       }
     )
     registerSessionHandlers(ctx, {
