@@ -1508,3 +1508,16 @@ HEAD `24ab81c2`, 실행 순서 readonly lint → typecheck → Vitest(Node ABI) 
 - pair: root PAIR_FAIL 1(VP-16 — P36 model 항) · BLOCKED_BY 1(VP-Δ15-02) · PLAN_GAP 0 · 사람 인수 대기 VP21-V·VP-11 시각.
 - AC(판정 범위 22): ✅14 · ⚠️8 · ❌0. 운영 gate PASS.
 - 다음 단계: handoff-review(라운드 10) → 구현자 r10 — D-0262-12의 S2m red 보고.
+
+# r9 종료 — verify 9회 상한 (round 38 적용)
+
+판정: **CLOSED** — 이 handoff의 verify는 r1~r9로 9회이고 r9(`8121b48e`)가 PASS가 아니다. 사용자 결정(2026-10-19, round 38 `83f15666`)의 상한 규칙과 "0262 바로 적용"에 따라 종료한다. PASS가 아니며 r9 판정 원문은 위 r9 절 그대로다.
+
+| 항목 | 종료 시점 상태 |
+|---|---|
+| root | VP-16 PAIR_FAIL 1 — D-0262-12(EP56 P36 콜드 spawn 요청의 model 항, 고장 S2m `못 잡음`) · VP-Δ15-02 BLOCKED_BY 1 |
+| EP56(분모 69) | 닫힘 63 · 동치 4 · 도달 불가 1 · 열림 1(r9 §6) |
+| 사람 인수 대기 | VP21-V·VP-11 시각 — AC11 · AC20-3 · AC26·27·33·34·48(⚠️ 7) |
+| 운영 gate | r9 §9 통과(vitest 7,474 · typecheck · lint error 0 · scripts 142 · build · PR #507 CI) |
+
+남은 항목은 plan.md `[검증자 기입] 종료 이관 목록`으로 옮겨 새 handoff 후보로 넘긴다. 같은 시점의 handoff-review는 round 38이 이 handoff를 대상으로 수행했다.

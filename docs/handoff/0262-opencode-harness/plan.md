@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-13 |
 | 선행 근거 | 0214 SDK 연구. 연구 완료 상태를 제품 구현 완료로 해석하지 않는다. |
-| 상태 | impl/IMPL_DONE — r9 ΔV22 EP56 열림 2·미측정 13 닫음, 독립 검증 대기 |
+| 상태 | verify/CLOSED — verify 9회 상한 종료(PASS 아님, round 38). 남은 항목은 `[검증자 기입] 종료 이관 목록` |
 | V mode | Delta V — V1 + ΔV1~ΔV22 (각 대체 범위 적용) |
 | 기준 V | none — 0214는 SDK 조사이며 이번 제품 계약을 갖지 않는다. |
 | 이번 V revision / 유효 V | ΔV22 / V1 + ΔV1~ΔV22, 기준 `aa14cb6a` |
@@ -4013,3 +4013,20 @@ r9(V1~ΔV22) 독립 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md)
 | N-0262-18 | ΔV22 정확도 — P36 상태 "닫힘 — S2"는 문서 항만 잰 판정 · 제외 라벨 `harness-config.ts:316`("spawn env")은 `:367`→P22 문서 운반도 겸함(X367 red 40) · 범위 밖 path 파일 4개(기존 좌표 구간 안, 변이 red) · r9-1(P40 제외 그룹 후보) | ΔV22(설계자 후속) | NON_BLOCKING | 다음 설계 정정 때 상태·라벨·범위를 고친다 |
 
 EP56 재측정은 닫힘 63 · 동치 4 · 도달 불가 1 · 열림 1(P36) = 69다. 이전 red 60은 그대로 red이고 운영 gate는 통과했다(verify §4·§9). 다음 재구현 전에 `handoff-review`를 수행한다 — 라운드 10(verify §14).
+
+## [검증자 기입] 종료 이관 목록 — verify 9회 상한
+
+0262는 r9 verify(9회째, FAIL)로 **`verify/CLOSED`** 종료한다(round 38 · 사용자 "바로 적용해 종료"). 아래 항목을 새 handoff 후보로 넘긴다. 새 handoff는 이 목록을 Decision·AC 입력으로 읽고 0262의 V를 기준 V로 상속할 수 있다.
+
+| # | 항목 | 출처 | 종료 시 disposition | 새 handoff에서의 처리 |
+|---|---|---|---|---|
+| 1 | D-0262-12 — 콜드 spawn 요청의 model 항(`session-runtime.ts:850`) 고장 S2m `못 잡음` | r9 verify §13 · EP56 P36 | BLOCKING(미해결) | `session-runtime.test`에 콜드 스폰 adapter 요청 `model`을 구별 값으로 단언 |
+| 2 | 사람 시각 인수 — AC11 · AC20-3 · AC26·27·33·34·48 (VP21-V·VP-11) | ΔV21 · r9 §AC | 사람 인수 대기 | 실제 앱 두 테마·좁은 폭에서 사람이 확인 |
+| 3 | N-0262-18 — ΔV22 정확도(P36 상태·`harness-config.ts:316` 라벨·범위 밖 path 파일 4개·P40 complete 경로) | r9 verify | NON_BLOCKING | 상속 V의 §10 목록 정정 |
+| 4 | N-0262-16 — N1 prettier warning 2 | r9 verify | NON_BLOCKING | 다음 코드 push에서 포맷 |
+| 5 | N-0262-13 — 제목 생성·worktree 이름·respawn 경계의 엔진 설정 운반 테스트 부재 | r7·r8 verify | NEXT_HANDOFF | 0188 D-019·0211·0118/0125 계약으로 별도 범위 |
+| 6 | N-0262-3 — ΔV19 직렬화가 `limit.context` 미보존 → 폼 엔진 도넛 분모 200000 고정 | r1 verify | NEXT_HANDOFF(사용자 결정) | 사용자 결정 후 범위 확정 |
+| 7 | N-0262-14 — `infra/loopback-callback.test.ts` 타이머 케이스 부하 중 단독 red | r7~r9 verify | NON_BLOCKING | 타이머 의존 케이스 점검 |
+| 8 | 그 밖 NON_BLOCKING — N-0262-1·7·8·9·10·11·12·15·17 | r1~r9 verify | NON_BLOCKING | 기록 유지, 필요 시 선택 |
+
+- 검산: 이관 8행 = BLOCKING 1 · 사람 인수 1 · NEXT_HANDOFF 2 · NON_BLOCKING 4(묶음 1 포함).
