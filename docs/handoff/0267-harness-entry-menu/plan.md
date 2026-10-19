@@ -171,6 +171,43 @@ OpenCode plugin 목록은 `config.get`의 유효 plugin 목록이며 연결 상�
 IPC_CONTRACT.md와 design-components.md, 생성 inventory를 갱신한다. lint·typecheck, 해당 main/renderer/preload 비-DB vitest, 문서 검사, build가 추가 게이트다.
 ACTIVE D-05~09 ↔ AC5~10 대조: 충돌 0. UI 두 하위 목록과 두 하네스의 서로 다른 제어 지원을 분리하고, 기본값이 다른 fixture로 매핑을 검증한다.
 
+## Delta V2 — 명시 선택과 모델 기본값 복원 충돌 보완
+
+기준은 ΔV1 설계 커밋 `adbfed2d`. Composer의 기본 모델 복원은 기억된 하네스의 모델이 없을 때 다른 하네스로 전환한다. 새 메뉴의 명시 선택까지 이 경로에 들어가 AC3를 위반할 수 있으므로, 구현 중 발견한 PLAN_GAP을 이번 설계 정정으로 닫는다.
+
+| 결정 | 상태 | 내용 / 출처 |
+|---|---|---|
+| D-10 | ACTIVE | 새 대화에서 직접 선택한 하네스는 모델 목록이 비거나 늦게 도착해도 유지한다. 기존 D-02·AC3의 선택값 보존을 구체화한다. 직접 다른 모델/하네스를 선택하는 동작과 기억된 기본값의 기존 폴백은 유지한다. |
+
+| AC | 행동 기준 | 검증 수단 / production 경로 |
+|---|---|---|
+| AC11 | OpenCode를 직접 선택하고 Claude 모델만 있을 때 랜딩과 모델 표시가 Claude로 바뀌지 않는다. 뒤늦게 OpenCode 모델이 도착하면 그것을 기본 선택한다. 지각 부트 설정도 직접 선택을 덮지 않는다. 새 초안은 표시를 초기화하고 기억된 값의 기존 폴백을 허용한다. | 실제 Sidebar 선택→store/reducer→Composer 렌더/effect; store seed/reset 테스트 |
+
+상태 전이: 명시 선택 + 모델 없음 → 선택한 하네스/모델 미선택 유지; 해당 모델 도착 → 동일 하네스 모델 채움; 새 초안 생성 → 명시 선택 표시 초기화. 사용자 모델 메뉴는 기존처럼 변경 가능하다.
+
+| 노드 | delta | 내용 / 연결 |
+|---|---|---|
+| R-11 / AT-11 | NEW | 명시 하네스 보존 / AC11 |
+| SD-01 / ST-01 | CHANGED | 선택 후 모델 목록 도착·부트 설정·새 초안 수명 추가; 기존 취소/route 보존 |
+| AR-01 / IT-01 | CHANGED | nav→store→reducer의 선택 출처 전달, Composer 두 소비처와 seed guard 추가 |
+| MD-03 / UT-03 | NEW | 메모리 전용 명시 선택 상태와 자동 폴백 제약 |
+
+| Pair | 수준 / requiredness | 경로 / 직접 oracle | §10 |
+|---|---|---|---|
+| VP-10 | R-11 ↔ AT-11 / REQUIRED | Sidebar.interaction.test.ts 선택→실제 store의 explicit 표식; Composer.selection.test.ts 실제 Composer의 모델 표시와 effect 후 backend·providerKey 관측 | EP9 |
+| VP-11 | MD-03 ↔ UT-03 / REQUIRED | chatStore.harness.test.ts 실제 action→reducer→seed/reset: true/false, OpenCode/Claude 구별; Composer.selection.test.ts 명시 선택/기억값 모델 없음·늦은 모델 | EP9 |
+| VP-02·03 | SD-01↔ST-01·AR-01↔IT-01 / REQUIRED | 기존 증거 유지 + 위 선택 수명·전달 테스트 | EP3·9 |
+
+### §10 추가 자리
+
+| 지점 | 언제 강제 / 자리 검색 | 실패 의미 / 직접 oracle |
+|---|---|---|
+| EP9 (7자리) | ①nav의 명시 선택 인자 ②store dispatch ③reducer SET_MODEL 보존 ④initialChatState→freshEntry 초기화 ⑤seedLandingBackend 보호 ⑥Composer selectedModel 파생 ⑦Composer effect 기본 모델 복원. `rg -n 'setModel|SET_MODEL|seedLandingBackend|draftSelection|initialChatState' app/src/renderer/src/app app/src/renderer/src/features/chat`의 production 결과와 대조 | 다른 하네스로 자동 전환. ① Sidebar.interaction 선택 상태; ②③④⑤ chatStore.harness explicit/reset/late seed; ⑥⑦ Composer.selection 실제 렌더 chip와 effect 후 state. |
+
+기술 설계: ChatState에 메모리 전용 `harnessExplicitlySelected`를 둔다. setModel의 선택적 options가 true일 때 설정하고 이후 자동 모델 채움에도 보존한다. 초기 state는 false이며 새 초안에서 초기화한다. seedLandingBackend는 명시 선택 초안을 건너뛴다. Composer의 자동 폴백 두 자리만 saved/turn lock 또는 명시 선택 여부로 제약하고 수동 모델 메뉴의 필터는 변경하지 않는다. DB·설정 포맷·IPC 변경 없음.
+
+적대 증거: not selected — 실제 reducer·effect·표시 결과를 보는 직접 oracle. 기존 M1/M2 유지. gate는 기존과 동일하며 Composer/store/reducer 관련 비-DB 회귀를 추가한다. ACTIVE D-01~10 ↔ AC1~11 정합, 새 사용자 결정 없음; READY.
+
 ## [구현자 기입]
 
 구현 후 설계 리뷰·강제 지점·수정 잠금·Product/UX 검토·잠재 문제·구현 보고·Review Signals를 기입한다.
