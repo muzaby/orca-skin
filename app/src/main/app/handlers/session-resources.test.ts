@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../../shared/ipc'
-import type { NativeResource, NativeResources } from '../../../shared/native-resources'
+import type {
+  NativeResource,
+  NativeResources,
+  SetNativeResource
+} from '../../../shared/native-resources'
 import type { GovernedLiveTurn } from '../../contracts/ports'
 import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -578,3 +582,145 @@ it.each([false, true])(
     expect(write.mock.calls.map(([req]) => req.id)).toEqual([request.id, second.id])
   }
 )
+
+it.each(['plugin', 'mcp'] as const)(
+  'shares %s writes between project peers using each live generation and publishes real results',
+  async (kind) => {
+    const runtimes = new Map<string, GovernedLiveTurn>()
+    const writes: SetNativeResource[] = []
+    for (const [id, canToggle] of [
+      ['session-B', true],
+      ['peer-A', true],
+      ['readonly', false],
+      ['missing', true]
+    ] as const) {
+      let enabled = true
+      runtimes.set(id, {
+        providerGeneration: id + '-generation',
+        nativeResources: async () => ({
+          state: 'connected',
+          generation: id + '-generation',
+          items:
+            id === 'missing'
+              ? []
+              : [
+                  {
+                    ...snapshot().items[0],
+                    kind,
+                    enabled,
+                    canToggle,
+                    status: enabled ? 'enabled' : 'disabled'
+                  }
+                ]
+        }),
+        setNativeResource: async (value: SetNativeResource) => {
+          writes.push(value)
+          enabled = value.enabled
+        }
+      } as GovernedLiveTurn)
+    }
+    const changed = vi.fn()
+    registerSessionResourceHandlers(
+      (id) => runtimes.get(id),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      {
+        scope: () => 'project-B',
+        peers: () => [...runtimes].map(([sessionId, runtime]) => ({ sessionId, runtime })),
+        changed
+      }
+    )
+    const result = await invoke(CHANNELS.sessionSetNativeResource, {
+      ...request,
+      generation: 'session-B-generation',
+      kind
+    })
+    expect(writes).toEqual([
+      { ...request, generation: 'session-B-generation', kind },
+      { ...request, sessionId: 'peer-A', generation: 'peer-A-generation', kind }
+    ])
+    expect(result).toMatchObject({ items: [{ enabled: false }] })
+    expect(changed.mock.calls.map(([id, value]) => [id, value.items[0].enabled])).toEqual([
+      ['session-B', false],
+      ['peer-A', false]
+    ])
+  }
+)
+
+it('serializes conflicting project requests and reports peer failures after publishing actual state', async () => {
+  const enabled = new Map([
+    ['session-B', true],
+    ['peer-A', true]
+  ])
+  let release!: () => void
+  const held = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const order: string[] = []
+  let shouldHold = true,
+    failPeer = false
+  const runtimes = new Map<string, GovernedLiveTurn>()
+  for (const id of enabled.keys())
+    runtimes.set(id, {
+      providerGeneration: id + '-generation',
+      nativeResources: async () => ({
+        ...snapshot(),
+        generation: id + '-generation',
+        items: [{ ...snapshot().items[0], enabled: enabled.get(id)! }]
+      }),
+      setNativeResource: async (value: SetNativeResource) => {
+        order.push(id + ':' + value.enabled)
+        if (shouldHold) {
+          shouldHold = false
+          await held
+        }
+        if (failPeer && id === 'peer-A') throw new Error('SDK peer failed')
+        enabled.set(id, value.enabled)
+      }
+    } as GovernedLiveTurn)
+  const changed = vi.fn()
+  registerSessionResourceHandlers(
+    (id) => runtimes.get(id),
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    {
+      scope: () => 'project-B',
+      peers: () => [...runtimes].map(([sessionId, runtime]) => ({ sessionId, runtime })),
+      changed
+    }
+  )
+  const first = invoke(CHANNELS.sessionSetNativeResource, {
+    ...request,
+    generation: 'session-B-generation'
+  })
+  const second = invoke(CHANNELS.sessionSetNativeResource, {
+    ...request,
+    sessionId: 'peer-A',
+    generation: 'peer-A-generation',
+    enabled: true
+  })
+  for (let i = 0; i < 20; i++) await Promise.resolve()
+  expect(order).toEqual(['session-B:false'])
+  release()
+  await Promise.all([first, second])
+  expect([...enabled.values()]).toEqual([true, true])
+  expect(order).toEqual(['session-B:false', 'peer-A:false', 'peer-A:true', 'session-B:true'])
+  failPeer = true
+  await expect(
+    invoke(CHANNELS.sessionSetNativeResource, { ...request, generation: 'session-B-generation' })
+  ).rejects.toThrow('일부 세션')
+  expect(changed.mock.calls.slice(-2).map(([id, value]) => [id, value.items[0].enabled])).toEqual([
+    ['session-B', false],
+    ['peer-A', true]
+  ])
+})

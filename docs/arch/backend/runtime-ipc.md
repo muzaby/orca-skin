@@ -169,3 +169,10 @@ usage(집계) → history(영속) → title(제목) → relay(renderer 중계)
 | userData 경로 (`app.getPath('userData')`, dev 는 `orcinus-orca-dev`) | `~/Library/Application Support/orcinus-orca/` | `%APPDATA%/orcinus-orca/` | `~/.config/orcinus-orca/` |
 
 ---
+
+
+### Native 리소스의 프로젝트 공유
+
+케밥의 native plugin/MCP 제어는 main이 세션의 backend·project_id를 확인하고 같은 프로젝트의 살아 있는 active/idle runtime에 전달한다. project_id가 없는 세션은 하네스가 해석한 프로젝트 root로 묶는다. Supervisor의 runtimeEntries는 두 수명의 실행을 함께 열거한다. 프로젝트별 mutation queue가 서로 다른 세션에서 온 변경도 순서대로 처리한다.
+
+각 peer의 현재 generation과 제어 가능한 공통 항목을 다시 확인하고 실제 SDK에 적용한다. 종료·교체·다른 프로젝트는 건너뛰고, 부분 실패는 다른 peer도 시도한 뒤 실제 조회를 통지하고 오류로 반환한다. GUI는 각 세션의 실제 snapshot을 받으며 성공 상태를 임의로 복제하지 않는다. 플러그인의 프로젝트 설정 저장은 유지하며 MCP에 새 영속 저장소를 추가하지 않는다. 통지 형식은 [IPC 정본](../../IPC_CONTRACT.md)의 session 채널을 따른다.

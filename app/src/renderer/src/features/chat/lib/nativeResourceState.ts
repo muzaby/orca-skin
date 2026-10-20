@@ -58,6 +58,7 @@ export class NativeResourceState {
   private operations = new Map<string, number>()
   private serial = 0
   private readSerial = 0
+  private pushSerial = 0
   private epoch = 0
   private retired = new Set<string>()
   private snapshot: { view: NativeResourcesView; pending: ReadonlySet<string> } = {
@@ -75,6 +76,12 @@ export class NativeResourceState {
   private publish(view = this.snapshot.view): void {
     this.snapshot = { view, pending: new Set(this.operations.keys()) }
     for (const listener of this.listeners) listener()
+  }
+  accept(value: NativeResources): void {
+    if (value.generation && this.retired.has(value.generation)) return
+    this.pushSerial++
+    this.readSerial++
+    this.apply(value)
   }
   private apply(value: NativeResources): void {
     if (value.generation && this.retired.has(value.generation)) return
@@ -201,6 +208,7 @@ export class NativeResourceState {
     )
     if (!current?.canToggle) return
     const generation = view.value.generation
+    const push = this.pushSerial
     const operation = this.begin(current)
     if (!operation) return
     try {
@@ -211,7 +219,12 @@ export class NativeResourceState {
         id: current.id,
         enabled: !current.enabled
       })
-      if (operation.epoch !== this.epoch || this.retired.has(generation)) return
+      if (
+        operation.epoch !== this.epoch ||
+        this.retired.has(generation) ||
+        push !== this.pushSerial
+      )
+        return
       this.readSerial++
       this.apply(value)
     } catch (error) {
@@ -241,6 +254,11 @@ export function nativeResourceState(
     cache = new Map()
     windows.set(window, cache)
     const owned = cache
+    window.orca?.session?.onNativeResourcesChanged?.(({ sessionId, resources }) => {
+      for (const state of owned.values()) {
+        if (state.request === sessionId) state.accept(resources)
+      }
+    })
     window.orca?.chat?.onBackgroundEvent?.((event) => {
       if (event.type !== 'background.connection') return
       for (const state of owned.values()) {

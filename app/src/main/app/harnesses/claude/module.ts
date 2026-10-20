@@ -1,4 +1,8 @@
-import { configuredClaudeCommands } from '../../../adapters/claude/plugin-catalog'
+import {
+  configuredClaudeCommands,
+  claudePluginProjectRoot,
+  pluginPathKey
+} from '../../../adapters/claude/plugin-catalog'
 import { ClaudeAdapter } from '../../../adapters/claude/adapter'
 import {
   configuredClaudeResources,
@@ -24,6 +28,7 @@ export const claudeMainModule: MainHarnessModule = {
   parseRuntimeModels,
   readUserSettings: readUserClaudeSettings,
   configuredResources: configuredClaudeResources,
+  nativeResourceScope: (cwd) => pluginPathKey(claudePluginProjectRoot(cwd)),
   configuredCommands: configuredClaudeCommands,
   configuredPluginDirectory: configuredClaudePluginDirectory,
   configuredMcpFile: configuredClaudeMcpFile,

@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | READY / r1.12 |
+| 상태 / 라운드 | IMPL_DONE / r1.12 |
 | V mode / 기준 V / 유효 V | Delta V / r1.9 (`64beff7e`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9+ΔV10+ΔV11+ΔV12+ΔV13+ΔV14 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
@@ -1660,3 +1660,106 @@ EP29 고정8자리: ①Supervisor active/idle runtime 열거 ②bootstrap DB pro
 검색: `rg -n 'runtimeEntries|nativeResourceScope|NativeResourceSharing|sessionNativeResourcesChanged|onNativeResourcesChanged|setNativeResource|readSerial' app/src/{main,preload,renderer/src/features/chat,shared} -g '!*.test.*'`.
 직접 oracle: 실제 Supervisor active/idle·bootstrap 등록 callback·IPC 두 runtime과 타 프로젝트·실패·동시 요청·실제 renderer hook의 push/late response·실제 ChatTitleBar Chromium. 실제 SDK/CLI 두 채널과 기존 fresh-process 복원을 확인한다. 신규 mutation은 선택하지 않으며 변경하지 않은 M2/M3 projection은 r1.10 기록 승계.
 게이트: 관련 비DB Vitest·lint·타입3종·build·boundary·inventory/links·UI catalog·실제 CLI/GUI fixture. 새 의존성·DB migration·native 저장 루트 변경 없음. 다른 프로세스에서 실행한 별도 Orca/외부 CLI의 실시간 통지는 범위 밖이다.
+
+
+## [구현자 기입] r1.12 설계 리뷰
+
+- 동의 / 그대로 진행: D48~50의 프로젝트 공유를 구현했다. 플러그인 프로젝트 저장은 유지하고 실행 세션과 GUI 통지 경로를 추가했다.
+- 이견 / 현실성 문제: 없음. SDK마다 별도 상태이므로 각 peer의 실제 generation으로 제어하며 GUI에는 실제 snapshot을 전달한다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. MCP 영속 정책·네이티브 원본 경로·다른 프로젝트 상태는 변경하지 않는다. PLAN_GAP 없음.
+
+## [구현자 기입] r1.12 강제 지점 전수 (§10 대조)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP44·46 | active/idle 전체 대상 | EP29 ① | 1/1 | supervisor.test: enumerates both active and idle live sessions… | active-A와 idle-B를 함께 반환. closed idle 제외 | 없음 |
+| VP44·46 | 프로젝트/하네스 범위 | EP29 ② | 1/1 | bootstrap.native-history.test: groups active and idle runtimes…; native-resource-sharing.test: canonical harness project… | DB shared/A,B만 포함, other project/C와 OpenCode/D 제외. 미지정 project는 root로 분류 | 별도 Orca 프로세스·외부 CLI는 대상 아님 |
+| VP44·46 | 원본 검증·그룹 순서 | EP29 ③ | 1/1 | session-resources.test: serializes conflicting project requests…; 기존 stale/unknown/read-only 검사 | A=false를 보류한 동안 B=true가 시작하지 않음. 완료 뒤 양쪽 true, 다음 실패 뒤에도 queue 정착 | 없음 |
+| VP44·46 | 실제 peer 제어·실패 | EP29 ④ | 1/1 | session-resources.test: shares plugin/mcp writes…; native-resource-sharing.test의 runtime/generation/project 교체 | source/peer의 서로 다른 세대·정확한 kind/id/enabled 운반. readonly/missing·교체 시 쓰기0, peer 실패 후 실제 false/true 관측 | native 서버 자체의 외부 인증은 미실기 |
+| VP45·46 | 실제 snapshot push | EP29 ⑤ | 1/1 | bootstrap.native-history.test의 두 webContents; session-resources.test의 changed payload | B-live generation과 실제 items를 양 창에 전송. source false/실패 peer true를 동일 성공으로 꾸미지 않음 | 없음 |
+| VP45 | preload→cache→popup | EP29 ⑥ | 1/1 | preload/index.test: session.onNativeResourcesChanged…; useNativeResources.test: updates a peer popup cache… | 실제 preload 채널·payload·구독해제. inactive A의 push가 재이동 후 즉시 보임 | IPC는 메모리 대역 |
+| VP45·46 | late 응답·종료 fence | EP29 ⑦ | 1/1 | 동일 hook test의 held read/write·terminated | push false 뒤 도착한 read/write true 폐기. terminated generation의 push 폐기 | 없음 |
+| VP44·45·47 | 실제 UI/CLI | EP29 ⑧ | 1/1 | harness-entry Chromium; smoke-native-plugin-skills.mjs | GUI 재조회 응답을 보류해도 A/B MCP·plugin off/on 8관측 일치. 실제 CLI 두 채널 공유·후속 턴·새 프로세스 복원 true | Windows 설치 앱 GUI는 미실기 |
+
+EP29 합계8/8. 지정 검색을 production에 재실행한 출력38행을 위8자리와 대조했다. 기존 공통/Claude/OpenCode setNativeResource 포트는 ③④, preload/renderer readSerial은 ⑤~⑦, module·Supervisor 배선은 ①②에 속한다. 고정 목록에 속하지 않는 새 계약 운반 자리 차집합은 []다. 검색 행 수를 자리 분모로 쓰지 않았다.
+
+- §10 자리 목록 밖에서 본 운반 자리: 없음. 새 shareNativeResource 서비스는 ②④⑤에 속한다.
+- 직전 verify 고장 이력의 못 잡음 행: 없음. 사용자 지적의 GUI peer cache 누락을 held-refresh Chromium과 hook의 실제 push로 검사했다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP44 | REQUIRED | SELF_PASS | Supervisor·bootstrap·IPC 두 runtime·실제 CLI | not selected — 서로 다른 세대와 실제 양쪽 상태 직접 관측 |
+| VP45 | REQUIRED | SELF_PASS | 실제 preload 공개 구독·hook·Chromium | not selected — 재조회 보류 중 두 popup 상태 직접 관측 |
+| VP46 | REQUIRED | SELF_PASS | scope·동시 요청·실패·세대·late 응답 tests | not selected — 타 대상/오래된 결과와 실제 결과를 구별 |
+| VP47 | REQUIRED | SELF_PASS | 실제 CLI smoke: warmTurn/restartEnabled/projectShared=true | not selected — 실제 파일과 새 subprocess 결과 |
+| 변경 관련 상속 경로 | REGRESSION | SELF_PASS | Claude native plugin·catalog·state, SessionRuntime/Pool, preload/hook | r1.11의 프로젝트 저장·오류 복구와 메뉴 수명 회귀 |
+| 비영향 메뉴 projection·브랜드·배포 | NOT_REQUIRED | r1.10~r1.11 관측 승계 | 이전 전수표·validation | M2/M3 대상은 변경하지 않음 |
+
+## [구현자 기입] r1.12 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| 해당 없음 | ΔV14 직접 oracle | 최초 | 서로 다른 프로젝트/세대·실제 peer SDK·GUI 결과 | 해당 없음 — 직접 oracle |
+
+- 분모 검산: 선택 증거0 · 인용 변이0 · 새 구조/배선 proxy oracle0 = 잠금 의무0행. 표는 해당 없음 표기다.
+- 덮개 회귀: 기존 M2/M3 장치와 대상 projection은 변경하지 않아 ΔV14에 따라 이전 증거를 승계한다. 새 red/green 주장은 없다.
+
+## [구현자 기입] r1.12 Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 사용자 대면 문구·상태에 소비자가 있는가 | peer 부분 실패→기존 control-failed 오류 토스트 | source/peer 실제 결과를 push한 뒤 reject |
+| production 재배치 시 정리 스코프가 유지되는가 | SDK/채널 재배치 없음 | 공통 peer 제어만 app 서비스로 분리, queue tail 정리 유지 |
+| 새 실패 경로가 Part I의 어느 행인가 | ΔV14 D49·AC46의 부분 실패 | peer SDK 실패 검사에서 source=false/peer=true 통지 뒤 reject |
+| 실패가 아무 일도 안 일어남으로 보이는가 | 원형 스위치의 기존 pending/spinner 유지, 실패 토스트 | 지원하지 않는 peer는 제어 제외, 성공으로 위장하지 않음 |
+| 늦은 응답이 화면을 되돌리지 않는가 | push 수신 시 read와 write 결과 fence | held read/write true 뒤 최신 false 유지, 종료 push 폐기 |
+
+## [구현자 기입] r1.12 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | idle pool의 살아 있는 CLI가 열거에서 빠짐 | ✅ 선조치: active registry·lease·idle pool 병합 | Supervisor active-A/idle-B/closed 검사 |
+| 2 | peer 요청에 source generation을 복사 | ✅ 선조치: peer의 실제 조회 세대 사용 | IPC 쓰기 payload 두 세대 직접 단언 |
+| 3 | source 응답을 다른 세션에 복제하면 실패도 같은 상태로 표시 | ✅ 선조치: peer별 실제 재조회 후 통지 | peer SDK 실패 때 false/true를 구분 |
+| 4 | 공유 push 뒤 늦은 read/write가 캐시를 되돌림 | ✅ 선조치: readSerial과 pushSerial을 별도로 fence | 초기 공용 readSerial fence는 기존 독립 제어8케이스를 깨뜨려 분리. 최종209/209 |
+| 5 | 여러 SDK는 원자적으로 함께 변경할 수 없음 | ⚠️ 보고: 성공한 source/peer는 유지하며 부분 실패를 명시 | D49 정책. 실제 상태 통지와 다음 요청의 재시도 가능 |
+
+### 설계 대비 명시적 차이
+
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: 없음.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 대체 없음 | 창 수명 cache·프로세스 종료 fence 회귀 |
+| 공유 | 해당 없음 — 계획한 프로젝트 공유 | AC45/46·②~⑥, 다른 backend/project 제외 |
+| 재진입 | 해당 없음 — 기존 cache를 실제 push로 갱신 | AC45·⑥⑧, A→B→A와 popup 재열기 |
+| 다른 무효화 축 | 해당 없음 — 세대·프로젝트 재검증 유지 | AC46·④⑦, runtime/generation/project 교체 쓰기0 |
+
+## [구현자 기입] r1.12 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | app의 프로젝트 공유 서비스·IPC/bootstrap, Supervisor/Pool, native 변경 push의 shared/preload/renderer, 관련 테스트·fixture·CLI smoke·문서 |
+| 실행 명령 | [validation r1.12](evidence/validation.md)의 관련 Vitest·lint·타입·build·boundary·inventory/catalog·CLI·Chromium |
+| 관측한 게이트 산출 | 관련12파일209/209, 최종 bootstrap 수정7/7. 타입3종 진단0, build 성공, lint 오류0·기존경고4, boundary8/8, 문서·UI catalog 차집합[] |
+| V-pair 자기확인 | 신규 SELF_PASS4 / SELF_BLOCKED0. 상속 변경 경로 회귀는 위 표 |
+| 강제 지점 전수 | EP29 8/8 |
+| AC 자기보고(Criteria-Met) | 46/46 — 기존44개는 이전 관측 승계, 이번 변경 관련 경로는12파일209케이스로 재확인 |
+| 합계 검산 | ✅46 · ⚠️0 · ❌0 = 총46. 이전44에 AC45/46 추가 |
+| 블로커 / 역질문 | 없음. Windows 설치 GUI·별도 Orca 프로세스 통지는 미실기/비범위 |
+| 대상 커밋 | (r1.12 구현 — 좌표는 INDEX) |
+
+| AC | 자기보고 / 이번 관측 |
+|---|---|
+| AC1~44 | ✅ r1.10/11 관측 승계. 프로젝트 저장·SDK 제어/명령·runtime 수명·preload·GUI 상태는 이번 회귀와 실제 CLI로 재확인 |
+| AC45 | ✅ source/peer 실제 쓰기·popup push. CLI requests=4/projectShared=true. GUI는 refreshHeld=true 상태에서도 MCP/plugin 양방향 off/on 8관측 일치 |
+| AC46 | ✅ 다른 backend/project·readonly/missing·runtime/generation/project 교체 제외. 프로젝트 요청 순서 정착, peer 부분 실패와 실제 false/true 통지, late read/write/terminated push 폐기 |
+
+plan 메타/INDEX는 r1.12 impl/IMPL_DONE·Claude 독립 검증 대기다. 이는 구현자 자기보고다.
+
+## [구현자 기입] r1.12 Review Signals — 사실만
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 같은 프로젝트의 선택 지속을 실행 중 peer·GUI 소비까지 연결한 같은 축이다.
+- 막았어야 할 plan 지침·AC가 있었는가: D46은 저장과 다음 spawn만 명시해 현재 다른 CLI 및 popup cache 전달을 검사하지 않았다. D48/49·AC45/46이 이를 명시했다.
+- 반복한 환경 한계: Windows 설치 앱 GUI 대신 실제 Chromium UI/메모리 IPC와 실제 SDK/로컬 모델 endpoint의 두 CLI를 구분했다. 초기 타입의 dbSessionId/거버넌스 interrupt 차이와 공용 readSerial fence 회귀를 수정했다.
+- 현재 라운드·impl 턴: r1.12 / r1.12. 독립 verify 대기.

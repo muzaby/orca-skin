@@ -25,6 +25,7 @@ export interface MainHarnessModule {
   parseRuntimeModels?: (config: HarnessRuntimeConfig) => ParsedModel[]
   readUserSettings(): EngineUserSettingsResult
   configuredResources?(cwd: string): Promise<NativeResource[]>
+  nativeResourceScope?(cwd: string): string
   /** Discovery for management/drafts; not authoritative over a live process. */
   draftResources?(cwd: string): Promise<NativeResource[]>
   configuredCommands?(cwd: string): Promise<NativeCommand[]>

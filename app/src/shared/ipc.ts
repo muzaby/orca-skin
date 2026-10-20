@@ -94,6 +94,7 @@ export const CHANNELS = {
   sessionNativeResources: 'orca:session:native-resources',
   sessionOpenNativePlugin: 'orca:session:open-native-plugin',
   sessionSetNativeResource: 'orca:session:set-native-resource',
+  sessionNativeResourcesChanged: 'orca:session:native-resources-changed',
   sessionAddDirectory: 'orca:session:addDirectory',
   sessionTitleEvent: 'orca:session:titleEvent',
   projectList: 'orca:project:list',

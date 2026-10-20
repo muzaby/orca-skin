@@ -16,6 +16,11 @@ import {
 
 import { wireLog } from './wire-log'
 import type { BackgroundEvent } from '../../../shared/background-task'
+import type { NativeResourcesChanged } from '../../../shared/native-resources'
+
+export function broadcastNativeResourcesChanged(event: NativeResourcesChanged): void {
+  broadcast(CHANNELS.sessionNativeResourcesChanged, event)
+}
 
 // Canonical task facts use a separate channel; provider raw messages never enter wire logging.
 export function broadcastBackgroundEvent(event: BackgroundEvent): void {

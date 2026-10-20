@@ -6,6 +6,7 @@ import type { registerSessionHandlers } from './handlers/session'
 import type { createNativeHistoryRefresh } from './native-history'
 import type { RuntimeSupervisor } from '../features/sessions/supervisor'
 import type { SessionActivityProjector } from '../features/chat/session-activity-projector'
+import type { NativeResourceSharing } from './native-resource-sharing'
 import type { HistoryWriter } from '../features/history/writer'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -38,6 +39,9 @@ const fixture = vi.hoisted(() => ({
         id: string
       ) => Promise<string | undefined>)
     | undefined,
+  sharing: undefined as NativeResourceSharing | undefined,
+  broadcasts: vi.fn(),
+  peerBroadcasts: vi.fn(),
   refresh: vi.fn(),
   createRefresh: vi.fn(),
   disposeBackground: vi.fn()
@@ -46,6 +50,12 @@ const fixture = vi.hoisted(() => ({
 vi.mock('electron', () => ({
   app: { getVersion: () => 'test', getPath: () => 'C:/fixture/user-data' },
   BrowserWindow: { getAllWindows: () => [] },
+  webContents: {
+    getAllWebContents: () => [
+      { isDestroyed: () => false, send: fixture.broadcasts },
+      { isDestroyed: () => false, send: fixture.peerBroadcasts }
+    ]
+  },
   ipcMain: {},
   net: {},
   session: {},
@@ -79,8 +89,10 @@ vi.mock('./handlers/session-resources', () => ({
       request: DraftNativeResourcesRequest,
       id: string
     ) => Promise<string | undefined>,
-    mcpFile: NonNullable<typeof fixture.mcpFile>
+    mcpFile: NonNullable<typeof fixture.mcpFile>,
+    sharing: NativeResourceSharing
   ) => {
+    fixture.sharing = sharing
     fixture.draftResources = draftResources
     fixture.draftDirectory = draftDirectory
     fixture.draftCommands = draftCommands
@@ -346,5 +358,56 @@ it('refreshes the bootstrap skill cache with native catalog sources and preserve
   } finally {
     vi.unstubAllEnvs()
     await rm(root, { recursive: true, force: true })
+  }
+})
+
+it('groups active and idle runtimes by the stored project and backend and broadcasts their real popup snapshots', () => {
+  const { ctx, supervisor, activity } = register()
+  const sessions = new Map([
+    ['A', { backend: 'claude', project_id: 'shared', cwd: '/same' }],
+    ['B', { backend: 'claude', project_id: 'shared', cwd: '/same/child' }],
+    ['C', { backend: 'claude', project_id: 'other', cwd: '/same' }],
+    ['D', { backend: 'opencode', project_id: 'shared', cwd: '/same' }]
+  ])
+  ctx.db.getSessionById = vi.fn((id) => sessions.get(id)) as never
+  const runtimes = ['A', 'B', 'C', 'D'].map((sessionId) => ({
+    sessionId,
+    runtime: { marker: sessionId } as never
+  }))
+  vi.spyOn(supervisor, 'runtimeEntries').mockReturnValue(runtimes)
+  const key = fixture.sharing!.scope('A')!
+  expect(fixture.sharing!.scope('B')).toBe(key)
+  expect(fixture.sharing!.peers(key)).toEqual(runtimes.slice(0, 2))
+  expect(fixture.sharing!.scope('missing')).toBeUndefined()
+  fixture.broadcasts.mockClear()
+  fixture.peerBroadcasts.mockClear()
+  const resources = { state: 'connected' as const, generation: 'B-live', items: [] }
+  fixture.sharing!.changed('B', resources)
+  expect(fixture.broadcasts).toHaveBeenCalledExactlyOnceWith(
+    'orca:session:native-resources-changed',
+    { sessionId: 'B', resources }
+  )
+  expect(fixture.peerBroadcasts).toHaveBeenCalledExactlyOnceWith(
+    'orca:session:native-resources-changed',
+    { sessionId: 'B', resources }
+  )
+  activity.dispose()
+})
+
+it('uses the real Claude project root when unassigned sessions have different child working directories', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'orca-sharing-root-'))
+  const { ctx, activity } = register()
+  try {
+    await mkdir(join(directory, '.git'))
+    ctx.db.getSessionById = vi.fn((id: string) => ({
+      backend: 'claude',
+      project_id: null,
+      cwd: id === 'A' ? directory : join(directory, 'child')
+    })) as never
+    expect(fixture.sharing!.scope('A')).toBe(fixture.sharing!.scope('B'))
+    expect(JSON.parse(fixture.sharing!.scope('A')!)[1]).toBe('directory')
+  } finally {
+    activity.dispose()
+    await rm(directory, { recursive: true, force: true })
   }
 })

@@ -283,3 +283,21 @@ it('0231 idle runtime lookup does not acquire or remove the pooled channel', () 
   expect(supervisor.acquireRuntime('s1', factory)).toBe(runtime)
   expect(factory).not.toHaveBeenCalled()
 })
+
+it('enumerates both active and idle live sessions for shared project control', () => {
+  const supervisor = new RuntimeSupervisor<object>()
+  const active = fakeManaged(),
+    idle = fakeManaged()
+  const turn = { ...fakeTurn(), live: active, dbSessionId: 'active-A' }
+  supervisor.startResume('active-A', turn)
+  supervisor.releaseRuntime('idle-B', idle)
+  expect(supervisor.runtimeEntries()).toEqual(
+    expect.arrayContaining([
+      { sessionId: 'active-A', runtime: active },
+      { sessionId: 'idle-B', runtime: idle }
+    ])
+  )
+  expect(supervisor.runtimeEntries()).toHaveLength(2)
+  idle.close()
+  expect(supervisor.runtimeEntries()).toEqual([{ sessionId: 'active-A', runtime: active }])
+})

@@ -40,6 +40,9 @@ useProjectsStore.setState({
 const base = window.orca
 let enabled = true
 let pluginEnabled = true
+const resourceListeners = new Set<
+  (event: import('../../../src/shared/native-resources').NativeResourcesChanged) => void
+>()
 const canControl = (): boolean => {
   const state = useChatStore.getState()
   const session = state.sessions[state.activeKey]?.session
@@ -165,6 +168,16 @@ window.orca = new Proxy(base, {
     if (name === 'session')
       return {
         ...target.session,
+        onNativeResourcesChanged: (
+          listener: (
+            event: import('../../../src/shared/native-resources').NativeResourcesChanged
+          ) => void
+        ) => {
+          resourceListeners.add(listener)
+          return () => {
+            resourceListeners.delete(listener)
+          }
+        },
         nativeResources: async (
           request: string | DraftNativeResourcesRequest
         ): Promise<NativeResources> =>
@@ -182,6 +195,9 @@ window.orca = new Proxy(base, {
         setNativeResource: async (request: SetNativeResource) => {
           if (request.kind === 'plugin') pluginEnabled = request.enabled
           else enabled = request.enabled
+          for (const sessionId of ['fixture', 'fixture-B']) {
+            for (const listener of resourceListeners) listener({ sessionId, resources: snapshot() })
+          }
           return snapshot()
         }
       }

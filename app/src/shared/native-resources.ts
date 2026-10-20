@@ -44,6 +44,10 @@ export interface SetNativeResource {
   id: string
   enabled: boolean
 }
+export interface NativeResourcesChanged {
+  sessionId: string
+  resources: NativeResources
+}
 export type OpenNativePlugin = ({ sessionId: string } | DraftNativeResourcesRequest) & {
   id: string
   /** Omitted for compatibility with plugin directory actions. MCP reveals its config file. */
