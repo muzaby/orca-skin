@@ -51,7 +51,7 @@ describe('native resource submenu projection', () => {
     expect(items[0]).toMatchObject({
       icon: 'mcp',
       disabled: false,
-      items: [{ label: 'MCP server', action: { type: 'toggle', resource: mcp } }]
+      items: [{ label: 'MCP server', action: { type: 'open', resource: mcp } }]
     })
     expect(items[1]).toMatchObject({
       icon: 'electricalServices',

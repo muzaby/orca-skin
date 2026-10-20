@@ -413,8 +413,14 @@ export const SetNativeResourceSchema = SessionResourceRequestSchema.extend({
   enabled: z.boolean()
 }).strict()
 export const OpenNativePluginSchema = z.union([
-  SessionResourceRequestSchema.extend({ id: z.string().min(1).max(2048) }).strict(),
-  DraftNativeResourcesRequestSchema.extend({ id: z.string().min(1).max(2048) }).strict()
+  SessionResourceRequestSchema.extend({
+    id: z.string().min(1).max(2048),
+    kind: z.enum(['mcp', 'plugin']).optional()
+  }).strict(),
+  DraftNativeResourcesRequestSchema.extend({
+    id: z.string().min(1).max(2048),
+    kind: z.enum(['mcp', 'plugin']).optional()
+  }).strict()
 ])
 
 export const DeleteSessionRequestSchema = z.object({ sessionId: z.string().min(1) })

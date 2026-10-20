@@ -91,6 +91,43 @@ const snapshot = (): NativeResources => ({
 })
 window.orca = new Proxy(base, {
   get(target, name) {
+    if (name === 'skills')
+      return {
+        ...target.skills,
+        list: async () => [
+          {
+            name: 'orca-review',
+            description: 'Orca 작업 검토',
+            sourceId: 'orca',
+            sourceLabel: 'Orcinus orca 스킬'
+          },
+          {
+            name: 'user-review',
+            description: '사용자 검토',
+            sourceId: 'adapter:claude',
+            sourceLabel: 'Claude 사용자 스킬'
+          }
+        ]
+      }
+    if (name === 'mcp')
+      return {
+        ...target.mcp,
+        list: async () => [
+          { id: 'custom-mcp', name: 'Orca Custom MCP', description: '등록한 MCP', enabled: true },
+          { id: 'disabled-mcp', name: 'Disabled MCP', description: '비활성 MCP', enabled: false }
+        ]
+      }
+    if (name === 'provider')
+      return {
+        ...target.provider,
+        onState: target.provider.onState,
+        state: async () => ({
+          providers: [
+            { id: 'jira', label: 'Jira', tools: ['issue'] },
+            { id: 'confluence', label: 'Confluence', tools: ['page'] }
+          ]
+        })
+      }
     if (name === 'session')
       return {
         ...target.session,

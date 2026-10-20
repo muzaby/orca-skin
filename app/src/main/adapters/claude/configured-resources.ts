@@ -75,8 +75,13 @@ async function readConfiguredClaudeResources(
       ? join(claudeNativePaths().root, '.claude.json')
       : join(homedir(), '.claude.json')
   }
-): Promise<{ items: NativeResource[]; directories: Map<string, string> }> {
+): Promise<{
+  items: NativeResource[]
+  directories: Map<string, string>
+  mcpFiles: Map<string, string>
+}> {
   const directories = new Map<string, string>()
+  const mcpFiles = new Map<string, string>()
   const root = await projectRoot(cwd)
   const [global, user, project, local, mcp, installed] = await Promise.all([
     readObject(paths.globalConfig),
@@ -107,11 +112,12 @@ async function readConfiguredClaudeResources(
     )
   )
   const servers = new Map<string, NativeResource>()
-  const addServers = (value: unknown, prefix = '', enabled = true): void => {
+  const addServers = (value: unknown, file: string, prefix = '', enabled = true): void => {
     for (const [name, config] of Object.entries(record(value))) {
       if (!isRecord(config) || config.type === 'sdk') continue
       const id = `${prefix}${name}`
       servers.set(id, configured(id, id, 'mcp', enabled && !disabled.has(id)))
+      mcpFiles.set(id, file)
     }
   }
   const plugins: NativeResource[] = []
@@ -133,7 +139,7 @@ async function readConfiguredClaudeResources(
     const pluginName = typeof manifest.name === 'string' ? manifest.name : name.split('@')[0]
     const prefix = `plugin:${pluginName}:`
     const bundledMcp = await readObject(join(installPath, '.mcp.json'))
-    addServers(bundledMcp.mcpServers ?? bundledMcp, prefix, enabled)
+    addServers(bundledMcp.mcpServers ?? bundledMcp, join(installPath, '.mcp.json'), prefix, enabled)
     const declarations = Array.isArray(manifest.mcpServers)
       ? manifest.mcpServers
       : [manifest.mcpServers]
@@ -142,15 +148,16 @@ async function readConfiguredClaudeResources(
         const file = pluginFile(installPath, declaration)
         if (file) {
           const extra = await readObject(file)
-          addServers(extra.mcpServers ?? extra, prefix, enabled)
+          addServers(extra.mcpServers ?? extra, file, prefix, enabled)
         }
-      } else addServers(declaration, prefix, enabled)
+      } else
+        addServers(declaration, join(installPath, '.claude-plugin', 'plugin.json'), prefix, enabled)
     }
   }
-  addServers(global.mcpServers)
-  addServers(mcp.mcpServers)
-  addServers(current.mcpServers)
-  return { items: [...servers.values(), ...plugins], directories }
+  addServers(global.mcpServers, paths.globalConfig)
+  addServers(mcp.mcpServers, join(root, '.mcp.json'))
+  addServers(current.mcpServers, paths.globalConfig)
+  return { items: [...servers.values(), ...plugins], directories, mcpFiles }
 }
 
 export async function configuredClaudeResources(
@@ -165,4 +172,12 @@ export async function configuredClaudePluginDirectory(
   paths?: Parameters<typeof readConfiguredClaudeResources>[1]
 ): Promise<string | undefined> {
   return (await readConfiguredClaudeResources(cwd, paths)).directories.get(id)
+}
+
+export async function configuredClaudeMcpFile(
+  cwd: string,
+  id: string,
+  paths?: Parameters<typeof readConfiguredClaudeResources>[1]
+): Promise<string | undefined> {
+  return (await readConfiguredClaudeResources(cwd, paths)).mcpFiles.get(id)
 }

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { Icon } from './Icon'
-import { MenuItem } from './MenuItem'
+import { MenuItem, MenuTitle } from './MenuItem'
 import { Dot } from './Status'
 import { ToggleIndicator } from './Toggle'
 import { Popover } from './Popover'
@@ -227,6 +227,12 @@ function CascadePanel<A>({
   const body = (
     <div className="flex min-w-[200px] flex-col">
       {items.map((item, index) => {
+        if (item.kind === 'heading')
+          return (
+            <MenuTitle key={item.id} leading={item.leading}>
+              {item.label}
+            </MenuTitle>
+          )
         if (item.kind === 'separator')
           return <div key={item.id} role="separator" className="mx-1 my-1 h-px bg-border" />
         if (item.kind === 'empty')

@@ -36,5 +36,6 @@ export interface OpenCodeImplementation {
   loadSettings: HarnessSettingsLoader
   parseModels: (config: Record<string, unknown>) => AgentModelView[]
   readUserSettings: (configRoot?: string) => EngineUserSettingsResult
+  configuredMcpFile: (cwd: string, id: string) => Promise<string | undefined>
   contextWindow: (config: Record<string, unknown>, model?: string) => number
 }

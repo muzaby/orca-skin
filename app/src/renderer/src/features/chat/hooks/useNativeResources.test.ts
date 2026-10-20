@@ -99,6 +99,30 @@ afterEach(() => {
 })
 
 describe('native resources session lifecycle', () => {
+  it('reveals an MCP configuration from the name while the separate switch controls its state', async () => {
+    dom.render(
+      createElement(NativeResourcesMenu, {
+        sessionId: 'session-B',
+        backend: 'claude',
+        anchorRef: { current: null },
+        onClose: () => {}
+      })
+    )
+    await settle()
+    dom.click(dom.query('[data-cascade-level="0"][data-cascade-index="0"]')!)
+    dom.click(dom.query('[data-cascade-level="1"][data-cascade-index="0"]')!)
+    await settle()
+    expect(openFolder).toHaveBeenCalledExactlyOnceWith({
+      sessionId: 'session-B',
+      id: 'native-B',
+      kind: 'mcp'
+    })
+    expect(write).not.toHaveBeenCalled()
+    dom.click(dom.query('[role="menuitemcheckbox"]')!)
+    await settle()
+    expect(write).toHaveBeenCalledWith(expect.objectContaining({ kind: 'mcp', enabled: false }))
+    expect(openFolder).toHaveBeenCalledTimes(1)
+  })
   it('opens a plugin directory from the normal menu row and reloads after failure without toggling', async () => {
     const plugin = {
       ...resource,
@@ -382,7 +406,7 @@ it('renders the live session menu and keeps it open while the MCP toggle refresh
   expect(onClose).not.toHaveBeenCalled()
   write.mockRejectedValueOnce(new Error('write rejected'))
   read.mockRejectedValueOnce(new Error('refresh rejected'))
-  dom.click(dom.query('[data-cascade-level="1"][data-cascade-index="0"]')!)
+  dom.click(dom.query('[role="menuitemcheckbox"]')!)
   await settle()
   expect(dom.query('[role="status"]')).toBeNull()
   expect(errorToastStore.getState().toasts).toMatchObject([
@@ -676,9 +700,9 @@ describe('process-owned state and independent async controls', () => {
     expect(dom.query('[data-cascade-level="0"][data-cascade-index="0"]')?.props.disabled).toBe(
       false
     )
-    expect(dom.query('[data-cascade-level="1"][data-cascade-index="0"]')?.props.disabled).toBe(
-      false
-    )
+    expect(
+      dom.query('[data-cascade-level="1"][data-cascade-index="0"]')?.props.disabled
+    ).toBeFalsy()
     finishes[0]({
       ...snapshot(),
       items: [{ ...resource, enabled: false, status: 'disabled' }, plugin]

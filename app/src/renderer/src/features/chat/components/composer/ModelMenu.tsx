@@ -5,6 +5,7 @@ import { modelKey, type ModelSelection } from './modelSelection'
 import { modelPresentation } from '../../harnesses/modelPresentation'
 import { MenuItem, MenuTitle } from '../../../../shared/ui/MenuItem'
 import { useI18n } from '../../../../shared/i18n'
+import { HarnessLogo } from '../../harnesses/registries/brand'
 
 interface ModelMenuProps {
   agents: AgentEnvironment[]
@@ -39,9 +40,15 @@ export function ModelMenu({
       <MenuTitle>{tr('chat.composer.modelMenuTitle')}</MenuTitle>
       {visible.map((agent) => (
         <div key={agent.key} className="pt-1">
-          <div className="px-2.5 pb-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-ink3">
-            {agent.key}
-          </div>
+          <MenuTitle
+            leading={
+              (agent.adapter === 'claude' || agent.adapter === 'opencode') && (
+                <HarnessLogo backend={agent.adapter} className="size-3.5 shrink-0" />
+              )
+            }
+          >
+            <span className="uppercase tracking-[0.06em]">{agent.key}</span>
+          </MenuTitle>
           {agent.models.map((model) => {
             // 행 식별자 = 선택 식별자(`modelKey`) — `[1m]` 을 실으므로 `X` 와 `X[1m]` 이 서로 다른
             // key 를 갖고 활성 표시도 한 행에만 켜진다. base 이름으로 돌아가면 두 행이 한 항목이

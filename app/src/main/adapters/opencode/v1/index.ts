@@ -3,6 +3,7 @@ import { OpenCodeAdapter } from './adapter'
 import { OpenCodeServerPool } from './server'
 import { LegacyStorageMigration } from './legacy-storage-migration'
 import { openCodeContextWindow } from './context-usage'
+import { configuredOpenCodeMcpFile } from './configured-resources'
 import {
   loadOpenCodeProviderSettings,
   parseOpenCodeModels,
@@ -25,5 +26,6 @@ export const implementation: OpenCodeImplementation = {
   loadSettings: loadOpenCodeProviderSettings,
   parseModels: parseOpenCodeModels,
   readUserSettings: readUserOpenCodeSettings,
+  configuredMcpFile: configuredOpenCodeMcpFile,
   contextWindow: openCodeContextWindow
 }

@@ -2,7 +2,8 @@ import { configuredClaudeCommands } from '../../../adapters/claude/plugin-catalo
 import { ClaudeAdapter } from '../../../adapters/claude/adapter'
 import {
   configuredClaudeResources,
-  configuredClaudePluginDirectory
+  configuredClaudePluginDirectory,
+  configuredClaudeMcpFile
 } from '../../../adapters/claude/configured-resources'
 import {
   loadClaudeProviderSettings,
@@ -25,6 +26,7 @@ export const claudeMainModule: MainHarnessModule = {
   configuredResources: configuredClaudeResources,
   configuredCommands: configuredClaudeCommands,
   configuredPluginDirectory: configuredClaudePluginDirectory,
+  configuredMcpFile: configuredClaudeMcpFile,
   defaultProvider,
   resolveTitleModel,
   recoveryContextWindow: (_settings, model) =>

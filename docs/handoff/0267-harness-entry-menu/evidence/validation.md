@@ -264,3 +264,52 @@ r1.6 최종 추가 검사: 실제 Composer.native-menu/attachMenu.flow/composerA
 브라우저는 실제 fixture React/메모리 IPC를 사용했다. white/dark 1280×800·dark 640×800에서 왼쪽 수동 상태 표시→제목→오른쪽 스위치 순서를 확인했다. primaryWidth=131.125, nestedButtons=false, horizontalOverflow=false. 수동 pending 응답 중 spinner의 bounding rect가 흰색 원형 손잡이 안에 포함됐으며 `stateIsPassive=true`, `stateHasSpinner=false`, `leftStatusThenTitleThenSwitch=true`, `spinnerInsideThumb=true`였다.
 
 동일 항목 중복은 차단하고 다른 항목 요청은 시작했다(requests=2). A→B→A의 pending/완료 결과 보존·빈 그룹 opacity0.5/확장0·초안 폴더·저장 세션 Space 제어·전역 실패 토스트를 다시 확인했다. reduced-motion의 spinner animationName=none, 런타임 exceptions=[]다. 관측 로그는 `work/ui-{verify,state}-r18.log`, 화면은 `work/native-menu-r18-*.png`다.
+
+## r1.9 — 재진입 runtime 보존과 출처별 단일 목록
+
+2026-10-20, Windows PowerShell/Chromium. 원격 `codex-harness-entry-menu`의 ΔV10을 가져온 뒤 ΔV11 설계를 별도 커밋으로 확정했다. 아래는 구현자 자기확인이며 독립 verify 결과가 아니다.
+
+| 검사 | 관측 |
+|---|---|
+| 관련 회귀 | 80파일/1,254케이스 집합 실행. 초기13실패는 로컬 native 설정 유입9건과 새 계약/fixture 기대값4건이었다. env를 실행 전체에 덮는 방식은 workspace-guard의 기존 홈 경로 기대를 바꾸므로 폐기했다. executable/live-control 테스트만 고유 빈 설정 경로로 격리했다. |
+| 수정 파일 집중 | executable-option·live-control·workspace-guard·Composer.native-menu·composerAttachMenu·nativeResourcesMenu: 최종6파일68/68. main 실제 runtime/포트+Composer 전달은 별도3파일33/33. |
+| Composer/nav 회귀 | common/composer 전체+navItems+Sidebar: 38파일221pass/1fail. 남은 정적 registry 기대값을 갱신하고 bootstrap·composerWiring·attachMenu.render·navItems 최종4파일16/16. 구조 변경으로 실패했던 모든 케이스는 정정 후 green이며 단언을 제거하지 않았다. |
+| DB load | Electron Node 모드로 실제 better-sqlite3를 유지해 `session.load.test.ts` 10/10. 세션 로드→refresh→보관 화면 경로를 실행했다. |
+| 타입/build | `npm run build`: Electron ABI already ok, node/web/test 타입 진단0, main/preload/renderer production build 성공. 테스트 fixture 마지막 수정 뒤 `npm run typecheck:test`도 진단0. 기존 dynamic/static import chunk 경고 유지. |
+| lint | 최종 `eslint --cache src scripts`: 오류0·기존 경고4. 최초 경계 오류는 common→brand registry 직접 import와 app→OpenCode v1 직접 import였고 slot 주입·version-neutral facade로 수정했다. `--fix`가 만든 무관 테스트 줄바꿈은 원복했다. |
+| CLI | `node scripts/smoke-native-plugin-skills.mjs`: expanded=true, brief=true, requests=1, runtimeToggle=true. 실제 번들 Claude CLI와 loopback 모델 서버이며 외부 모델 호출 없음. 스킬 본문/인자·초기 비활성·runtime off/on·설정 불변 확인. |
+| 경계 | `node --test scripts/harness-boundary.test.mjs`: 8/8. 최종 production import 경계는 lint에서도 통과. |
+| 문서 | `check-doc-inventory --check`: generated/prose 통과. 기존 `.tmp/opencode-dev` 외부 소스의 상대 링크5건으로 전체 명령 실패. `.tmp`와 첨부 디렉터리를 제외한 같은 checkLinks 함수는 `repositoryBrokenLinks=[]`. |
+| 디자인 카탈로그 | `python -X utf8 …/check-design-docs.py`: source=292/rows=292, 양방향 차집합[], 기존 음성 대조10건 red. 기본 Windows cp949 실행은 UTF-8 읽기 오류여서 `-X utf8`로 재실행했다. |
+| 선택 변이 | M2 MCP/plugin 목적지 맞바꿈→10failed/11. M3 AttachMenu 스킬/MCP 목적지 맞바꿈→6failed/6. 원본 bytes 복원 후 위 집중 실행에서 각각11/11·6/6. |
+
+### 핵심 행동 관측
+
+- `native-history.test.ts`는 실제 SessionRuntime+RuntimeSupervisor에 지속 이벤트 스트림과 pushTurn을 지원하는 adapter 대역을 연결한다. 양 backend 모두 반복 방문3회에서 같은 generation·MCP off·plugin on·native command를 관측하고 두 번째 메시지는 같은 채널에 붙인다(spawn1/close0). 종료 후 native history를 읽는다. 초기의 턴 종료형 대역이 실제 살아 있는 채널을 표현하지 못한 점을 정정했다.
+- `bootstrap.native-history.test.ts`는 실제 등록 callback으로 Claude와 OpenCode의 파일 resolver를 각각 호출한다. provider generation이 없는 잔존 객체는 이력 읽기를 막지 않는다.
+- `session-resources.test.ts`는 strict IPC에 saved/draft scope+kind=mcp를 넣고 실제 임시 파일의 realpath만 shell.showItemInFolder에 전달되는지 확인한다. renderer path 삽입과 디렉터리 오용은 거부한다. shell은 mock이며 OS 창 성공은 측정하지 않는다.
+- `useNativeResources.test.ts`는 실제 메뉴의 이름 클릭과 오른쪽 switch 입력을 구분한다. 이름은 open 요청, switch는 활성 변경만 실행한다. A→B→A·지각 응답·종료·독립 pending은 기존 행동 테스트를 재실행했다.
+- `Composer.native-menu.test.ts`는 전체 catalog IPC 응답에서 실제 registry/controller/AttachMenu/Cascade DOM까지 실행한다. 양 backend의 Orca/native 스킬·MCP·plugin, disabled 항목, Orca·하네스 로고, native 명령의 정확한 삽입과 초안 보존을 단언한다.
+
+### 실제 브라우저 범위
+
+`harness-entry`의 실제 React 컴포넌트·store·메모리 IPC를 사용했다. white/dark 1280×720에서 모델의 Claude/OpenCode 그룹 로고, 케밥 하네스 제목·MCP 본문 액션·독립 스위치, Composer source 제목+로고와 직접 항목 목록, nav plug·첨부 paperclip을 확인했다. OpenCode에서도 Orca 항목은 표시되며 미지원 항목은 disabled다.
+
+640×800에서 메뉴를 다시 열었을 때 스킬 패널은 left=72.05/right=313.25/top=628/bottom=793.49이고 horizontalOverflow=false였다. viewport를 열린 메뉴 상태에서 바꾸면 기존 submenu 좌표가 일시적으로 남는 공통 Cascade의 동작도 관측했다. 재열기 후 정상 배치되며 이번 변경은 resize 재배치 정책을 수정하지 않았다.
+
+초기 fixture에 빠진 provider.onState와 개발 중 HMR createRoot 경고는 fixture 재조립 과정의 오류였다. onState를 보완한 후 양 backend 메뉴가 정상 렌더됐다. 실제 설치 앱의 세션 전환과 Windows 탐색기 창은 자동 조작하지 않았다. CLI smoke·실제 runtime/IPC 테스트·브라우저 fixture를 합성한 자기확인이지 설치 앱 E2E 성공 주장이 아니다.
+
+### 재현 명령
+
+app에서 실행한다. 아래 범위에는 실제 DB 테스트를 넣지 않아 ABI를 뒤집지 않는다.
+
+```sh
+node node_modules/vitest/vitest.mjs run src/main/adapters/claude src/main/adapters/opencode/v1/native-resources.test.ts src/main/adapters/opencode/v1/plugin-installation.test.ts src/main/adapters/opencode/v1/configured-resources.test.ts src/main/features/sessions/session-runtime.test.ts src/main/features/history/native-sync.test.ts src/main/app/native-history.test.ts src/main/app/handlers/session-resources.test.ts src/main/app/bootstrap.native-history.test.ts src/preload/index.test.ts src/renderer/src/features/chat/hooks/useNativeResources.test.ts src/renderer/src/features/chat/lib/nativeResourcesMenu.test.ts src/renderer/src/features/chat/lib/attachMenuModel.test.ts src/renderer/src/features/chat/harnesses/common/composer src/renderer/src/features/chat/components/ChatTitleBar.native-resources.test.ts src/renderer/src/features/chat/components/Composer.harness.test.ts src/renderer/src/shared/ui/CascadeMenu src/renderer/src/shared/ui/cascadeMenuState.test.ts src/renderer/src/shared/errors src/renderer/src/app/navItems.test.ts src/renderer/src/app/Sidebar.interaction.test.ts --maxWorkers=2
+npx eslint --cache src scripts
+npm run build
+node scripts/smoke-native-plugin-skills.mjs
+node --test scripts/harness-boundary.test.mjs
+node scripts/check-doc-inventory.mjs --check
+```
+
+DB 검사는 `ELECTRON_RUN_AS_NODE=1`인 자식의 `node_modules/electron/dist/electron.exe node_modules/vitest/vitest.mjs run src/main/app/handlers/session.load.test.ts --maxWorkers=1`로 수행했다. Windows GUI 실행 파일의 반환만으로 완료로 간주하지 않고 Start-Process의 Hidden/Wait·stdout/stderr redirect를 사용해 10/10 산출을 읽었다.

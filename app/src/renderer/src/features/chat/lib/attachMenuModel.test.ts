@@ -99,31 +99,32 @@ describe('buildAttachMenu', () => {
     expect(JSON.stringify(tree[3])).not.toMatch(/superpowers|Hooks only/)
     expect(JSON.stringify(tree)).toContain('/docs:search')
     expect(JSON.stringify(tree)).not.toMatch(/@jira|plugins:manage|\/hooks/)
-    expect(items[0]).toMatchObject({
-      id: 'native:mcp',
-      items: [
-        { action: { type: 'nativePrompt', text: 'Use Docs tools' }, disabled: false },
-        {
-          label: '/docs:search',
-          title: 'Search documents\nquery',
-          action: { type: 'nativeCommand', name: 'docs:search' }
-        }
-      ]
-    })
-    expect(items).toHaveLength(1)
-  })
-  it('OpenCode는 연결하지 않은 Claude 스킬·플러그인을 제공하지 않는다', () => {
-    expect(
-      buildAttachMenu({ skills, plugins, labels, canManagePlugins: true, includeExtensions: false })
-    ).toEqual([
+    expect(items).toMatchObject([
+      { action: { type: 'nativePrompt', text: 'Use Docs tools' }, disabled: false },
       {
-        kind: 'action',
-        id: 'attach',
-        label: labels.addFiles,
-        icon: 'plus',
-        action: { type: 'attach' }
+        label: '/docs:search',
+        title: 'Search documents\nquery',
+        action: { type: 'nativeCommand', name: 'docs:search' }
       }
     ])
+  })
+  it('shows unsupported Orca entries disabled for OpenCode', () => {
+    const tree = buildAttachMenu({
+      skills,
+      plugins,
+      labels,
+      canManagePlugins: true,
+      includeExtensions: false
+    })
+    expect(tree[0]).toMatchObject({ icon: 'attachFile', action: { type: 'attach' } })
+    for (const menu of tree.slice(2)) {
+      if (menu.kind !== 'submenu') throw new Error('menu')
+      expect(
+        menu.items.filter((item) => item.kind === 'action').every((item) => item.disabled)
+      ).toBe(true)
+    }
+    expect(JSON.stringify(tree)).toContain('confluence')
+    expect(JSON.stringify(tree)).not.toContain('plugins:manage')
   })
   const tree = buildAttachMenu({ skills, plugins, labels, canManagePlugins: true })
 
@@ -136,18 +137,15 @@ describe('buildAttachMenu', () => {
     ])
   })
 
-  it('스킬 ▸ 출처 ▸ 스킬 이름 (AC2)', () => {
-    const skillsMenu = tree[2]
-    if (skillsMenu.kind !== 'submenu') throw new Error('skills')
-    expect(
-      skillsMenu.items.map((group) =>
-        group.kind === 'submenu'
-          ? [group.label, group.items.map((i) => ('label' in i ? i.label : ''))]
-          : null
-      )
-    ).toEqual([
-      ['Orcinus orca 스킬', ['a', 'b']],
-      ['CLAUDE 스킬', ['c']]
+  it('lists source headings and every skill in one panel', () => {
+    const menu = tree[2]
+    if (menu.kind !== 'submenu') throw new Error('skills')
+    expect(menu.items.map((item) => [item.kind, 'label' in item ? item.label : ''])).toEqual([
+      ['heading', 'Orcinus orca 스킬'],
+      ['action', 'a'],
+      ['action', 'b'],
+      ['heading', 'CLAUDE 스킬'],
+      ['action', 'c']
     ])
   })
 
@@ -155,13 +153,14 @@ describe('buildAttachMenu', () => {
     const pluginsMenu = tree[3]
     if (pluginsMenu.kind !== 'submenu') throw new Error('plugins')
     expect(pluginsMenu.items.map((i) => (i.kind === 'action' ? i.action : i.kind))).toEqual([
+      'heading',
       { type: 'plugin', id: 'confluence' },
       { type: 'plugin', id: 'jira' },
       'separator',
       { type: 'managePlugins' }
     ])
     const noManage = buildAttachMenu({ skills, plugins, labels, canManagePlugins: false })[3]
-    expect(noManage.kind === 'submenu' && noManage.items).toHaveLength(2)
+    expect(noManage.kind === 'submenu' && noManage.items).toHaveLength(3)
   })
 
   it('빈 상태 행 (AC4)', () => {
@@ -181,10 +180,10 @@ describe('buildAttachMenu', () => {
     expect(skillTooltip(skills[0])).toBe('설명 A\nOrcinus orca 스킬')
     expect(skillTooltip(skills[1])).toBe('Orcinus orca 스킬')
     const s = tree[2]
-    const first = s.kind === 'submenu' && s.items[0].kind === 'submenu' ? s.items[0].items[0] : null
+    const first = s.kind === 'submenu' ? s.items[1] : null
     expect(first?.kind === 'action' && first.title).toBe('설명 A\nOrcinus orca 스킬')
     const p = tree[3]
-    expect(p.kind === 'submenu' && p.items[0].kind === 'action' && p.items[0].title).toBe(
+    expect(p.kind === 'submenu' && p.items[1].kind === 'action' && p.items[1].title).toBe(
       'Confluence'
     )
   })

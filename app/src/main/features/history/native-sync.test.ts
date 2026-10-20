@@ -14,7 +14,6 @@ function fixture(): {
   snapshot: NativeHistorySnapshot
   replace: Mock<() => boolean>
   get: Mock<() => { payload_json: string } | undefined>
-  releaseIdleRuntime: Mock
   read: Mock<() => Promise<NativeHistoryResult>>
   deps: NativeSyncDependencies
   change: () => void
@@ -44,7 +43,6 @@ function fixture(): {
     getSessionById: () => (visible ? { id: 's' } : undefined),
     nativeHistory: { observe: () => ({ version, frontier: 4 }), get, replace }
   } as unknown as DbQueries
-  const releaseIdleRuntime = vi.fn()
   const read = vi.fn<() => Promise<NativeHistoryResult>>(async () => ({
     status: 'ready',
     snapshot
@@ -53,9 +51,8 @@ function fixture(): {
     snapshot,
     replace,
     get,
-    releaseIdleRuntime,
     read,
-    deps: { db, read, releaseIdleRuntime, isBusy: () => busy },
+    deps: { db, read, isBusy: () => busy },
     change: () => {
       version += 1
     },
@@ -69,10 +66,9 @@ function fixture(): {
 }
 
 describe('native snapshot synchronization', () => {
-  it('releases only idle runtime before reading and commits snapshot, frontier and search together', async () => {
+  it('reads without touching runtime lifetime and commits snapshot, frontier and search together', async () => {
     const f = fixture()
     f.read.mockImplementation(async () => {
-      expect(f.releaseIdleRuntime).toHaveBeenCalledOnce()
       return { status: 'ready', snapshot: f.snapshot }
     })
     expect(await refreshNativeHistory('s', f.deps)).toEqual({ status: 'ready' })
@@ -90,7 +86,6 @@ describe('native snapshot synchronization', () => {
     f.start()
     expect(await refreshNativeHistory('s', f.deps)).toEqual({ status: 'busy' })
     expect(f.read).not.toHaveBeenCalled()
-    expect(f.releaseIdleRuntime).not.toHaveBeenCalled()
   })
   it.each(['change', 'hide', 'start'] as const)(
     'discards a result after %s without replacing the archive',

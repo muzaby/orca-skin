@@ -6,11 +6,12 @@ import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 const openPath = vi.hoisted(() => vi.fn(async () => ''))
+const showItemInFolder = vi.hoisted(() => vi.fn())
 const callbacks = vi.hoisted(
   () => new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>()
 )
 vi.mock('electron', () => ({
-  shell: { openPath },
+  shell: { openPath, showItemInFolder },
   ipcMain: {
     handle: (name: string, callback: (event: unknown, payload: unknown) => Promise<unknown>) =>
       callbacks.set(name, callback)
@@ -44,6 +45,48 @@ const invoke = (channel: string, payload: unknown): Promise<unknown> =>
 beforeEach(() => callbacks.clear())
 afterEach(() => vi.useRealTimers())
 describe('native resource IPC', () => {
+  it('reveals only the resolved MCP configuration file for saved and draft requests', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'orca-mcp-reveal-'))
+    const file = join(directory, '.mcp.json')
+    try {
+      await writeFile(file, '{}')
+      const resolve = vi.fn(async () => file)
+      registerSessionResourceHandlers(
+        () => undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        resolve
+      )
+      showItemInFolder.mockClear()
+      const requests = [
+        { sessionId: 'saved-B', id: 'server-B', kind: 'mcp' },
+        { backend: 'opencode', cwd: directory, projectId: null, id: 'server-C', kind: 'mcp' }
+      ]
+      for (const request of requests) {
+        await invoke(CHANNELS.sessionOpenNativePlugin, request)
+        expect(resolve).toHaveBeenLastCalledWith(request, request.id)
+        expect(showItemInFolder).toHaveBeenLastCalledWith(await realpath(file))
+      }
+      expect(showItemInFolder).toHaveBeenCalledTimes(2)
+      await expect(
+        invoke(CHANNELS.sessionOpenNativePlugin, {
+          ...requests[0],
+          path: file
+        })
+      ).rejects.toThrow()
+      resolve.mockResolvedValueOnce(directory)
+      await expect(invoke(CHANNELS.sessionOpenNativePlugin, requests[0])).rejects.toThrow(
+        '설정 파일'
+      )
+      expect(showItemInFolder).toHaveBeenCalledTimes(2)
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
   it('opens only a resolved installed directory and rejects arbitrary paths, files and shell errors', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'orca-plugin-open-'))
     try {

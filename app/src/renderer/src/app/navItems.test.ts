@@ -15,6 +15,7 @@ describe('SIDEBAR_NAV', () => {
 
   it('플러그인 nav 항목은 카탈로그 페이지를 열고 활성 상태를 표시한다', () => {
     const item = SIDEBAR_NAV.find((entry) => entry.path === '/plugins')!
+    expect(item.icon).toBe('electricalServices')
     expect(item.isActive('/plugins')).toBe(true)
     expect(item.isActive('/new')).toBe(false)
     expect(ko.sidebar.nav.plugins).toBeTruthy()

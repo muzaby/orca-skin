@@ -36,6 +36,10 @@ export function registerSessionResourceHandlers(
   draftPluginDirectory: (
     request: DraftNativeResourcesRequest,
     id: string
+  ) => Promise<string | undefined> = async () => undefined,
+  configuredMcpFile: (
+    request: { sessionId: string } | DraftNativeResourcesRequest,
+    id: string
   ) => Promise<string | undefined> = async () => undefined
 ): void {
   const observations = new WeakMap<GovernedLiveTurn, NativeResources>()
@@ -145,6 +149,15 @@ export function registerSessionResourceHandlers(
         const sessionId = 'sessionId' in request ? request.sessionId : undefined
         const { id } = request
         const runtime = sessionId ? lookup(sessionId) : undefined
+        if (request.kind === 'mcp') {
+          const file = await resourceQuery(() => configuredMcpFile(request, id))
+          if (!file || !isAbsolute(file)) throw new Error('unknown configuration')
+          const resolved = await realpath(file)
+          if (!(await stat(resolved)).isFile() || (sessionId && lookup(sessionId) !== runtime))
+            throw new Error('configuration changed')
+          shell.showItemInFolder(resolved)
+          return
+        }
         const directory = await resourceQuery(async () => {
           if (!('sessionId' in request)) return draftPluginDirectory(request, id)
           const { sessionId } = request
@@ -162,6 +175,8 @@ export function registerSessionResourceHandlers(
         const error = await shell.openPath(resolved)
         if (error) throw new Error('open failed')
       } catch {
+        if (request.kind === 'mcp')
+          throw new Error('MCP 설정 파일 위치를 열 수 없습니다. 파일 기반 설정을 확인해 주세요.')
         throw new Error('플러그인 설치 폴더를 열 수 없습니다. 설치 상태를 확인해 주세요.')
       }
     }

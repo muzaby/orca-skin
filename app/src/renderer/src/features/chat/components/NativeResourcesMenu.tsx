@@ -5,6 +5,7 @@ import { CascadeBody } from '../../../shared/ui/CascadeMenu'
 import { MenuTitle } from '../../../shared/ui/MenuItem'
 import { useNativeResources } from '../hooks/useNativeResources'
 import { nativeResourcesMenu } from '../lib/nativeResourcesMenu'
+import { HarnessLogo } from '../harnesses/registries/brand'
 
 export function NativeResourcesMenu({
   sessionId,
@@ -32,7 +33,11 @@ export function NativeResourcesMenu({
   const label = backend === 'opencode' ? 'OpenCode' : 'Claude'
   return (
     <div data-native-resources={backend ?? 'claude'}>
-      <MenuTitle>{label}</MenuTitle>
+      <MenuTitle
+        leading={<HarnessLogo backend={backend ?? 'claude'} className="size-3.5 shrink-0" />}
+      >
+        {label}
+      </MenuTitle>
       <CascadeBody
         items={items}
         onSelect={({ type, resource }) =>

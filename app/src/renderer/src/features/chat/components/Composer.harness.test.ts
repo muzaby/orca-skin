@@ -95,7 +95,10 @@ describe('harness composer surface', () => {
       renderToStaticMarkup(
         createElement(ModelMenu, { agents, sessionBackend, selection: null, onPick: () => {} })
       )
-    expect(load(render(null))('[role="menuitemradio"]')).toHaveLength(2)
+    const $ = load(render(null))
+    expect($('[role="menuitemradio"]')).toHaveLength(2)
+    expect(render(null)).toContain('viewBox="0 0 248 248"')
+    expect(render(null)).toContain('viewBox="0 0 16 20"')
     const locked = render('opencode')
     expect(load(locked)('[role="menuitemradio"]')).toHaveLength(1)
     expect(locked).not.toContain('claude/model')

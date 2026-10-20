@@ -59,10 +59,17 @@ export const MenuItem = forwardRef<HTMLButtonElement, MenuItemProps>(function Me
  * 한 곳에서 정의한다 — 각자 클래스를 적어두면 한쪽만 바뀌어 팝오버끼리 어긋난다.
  * 좌측 인셋은 MenuItem 의 px-2.5 에 맞춘다.
  */
-export function MenuTitle({ children }: { children: ReactNode }): React.JSX.Element {
+export function MenuTitle({
+  children,
+  leading
+}: {
+  children: ReactNode
+  leading?: ReactNode
+}): React.JSX.Element {
   return (
-    <div className="px-2.5 pb-0.5 pt-1 text-[calc(11px*var(--transcript-text-scale,1))] font-medium text-ink3">
-      {children}
+    <div className="flex items-center gap-2 px-2.5 pb-0.5 pt-1 text-[calc(11px*var(--transcript-text-scale,1))] font-medium text-ink3">
+      {leading}
+      <span className="min-w-0 truncate">{children}</span>
     </div>
   )
 }

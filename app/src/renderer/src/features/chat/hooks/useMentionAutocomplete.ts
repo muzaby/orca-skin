@@ -48,7 +48,7 @@ export function useMentionAutocomplete(
   }
 
   useEffect(() => {
-    if (!active || !includePlugins) return
+    if (!active) return
     let cancelled = false
     const absorb = (state: { providers: ProviderInfo[] }): void => {
       if (!cancelled) setProviders(state.providers)
@@ -72,7 +72,7 @@ export function useMentionAutocomplete(
       cancelled = true
       off()
     }
-  }, [active, includePlugins])
+  }, [active])
 
   // 탐색한 디렉토리 항목의 합집합 — 입력 하이라이트가 실재 파일 토큰만 인정하는 근거다.
   const validFilePaths = useMemo<ReadonlySet<string>>(() => {
@@ -142,6 +142,7 @@ export function useMentionAutocomplete(
   const open = active && token !== null && !dismissed && (pluginOpen || pathOpen)
   const loading = active && cwd !== null && token !== null && !entriesByDir.has(token.dirPath)
   const allPlugins = useMemo(() => pluginMentionCandidates(visibleProviders), [visibleProviders])
+  const menuPlugins = useMemo(() => pluginMentionCandidates(providers), [providers])
   const validPluginIds = useMemo(() => new Set(allPlugins.map((plugin) => plugin.id)), [allPlugins])
 
   return {
@@ -157,7 +158,7 @@ export function useMentionAutocomplete(
     hasClosingQuote: token?.quoted === true && text[caret] === '"',
     validFilePaths,
     validPluginIds,
-    plugins: allPlugins,
+    plugins: menuPlugins,
     close
   }
 }

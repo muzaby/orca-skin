@@ -29,7 +29,7 @@ export const SIDEBAR_NAV = [
     isActive: (p: string) => p.startsWith('/agent')
   },
   {
-    icon: 'layers',
+    icon: 'electricalServices',
     labelKey: 'sidebar.nav.plugins',
     path: '/plugins',
     isActive: (p: string) => p === '/plugins'

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   configuredClaudeResources,
   configuredClaudePluginDirectory,
+  configuredClaudeMcpFile,
   nativePluginId
 } from './configured-resources'
 import { claudeNativeResources } from './native-resources'
@@ -27,6 +28,33 @@ afterEach(async () => {
 })
 
 describe('configured Claude resources', () => {
+  it('resolves the actual MCP declaration file across user, project, local and plugin precedence', async () => {
+    await json(paths.globalConfig, {
+      mcpServers: { global: { command: 'a' }, shared: { command: 'a' } },
+      projects: { [cwd]: { mcpServers: { local: { command: 'b' } } } }
+    })
+    await json(join(cwd, '.mcp.json'), { mcpServers: { shared: { command: 'c' } } })
+    const root = join(temp, 'plugin')
+    await json(join(paths.root, 'plugins/installed_plugins.json'), {
+      plugins: { 'p@market': [{ scope: 'user', installPath: root }] }
+    })
+    await json(join(root, '.claude-plugin/plugin.json'), {
+      name: 'p',
+      mcpServers: [{ inline: { command: 'd' } }, './extra.json']
+    })
+    await json(join(root, '.mcp.json'), { mcpServers: { bundled: { command: 'e' } } })
+    await json(join(root, 'extra.json'), { external: { command: 'f' } })
+    for (const [id, file] of [
+      ['global', paths.globalConfig],
+      ['local', paths.globalConfig],
+      ['shared', join(cwd, '.mcp.json')],
+      ['plugin:p:inline', join(root, '.claude-plugin/plugin.json')],
+      ['plugin:p:bundled', join(root, '.mcp.json')],
+      ['plugin:p:external', join(root, 'extra.json')]
+    ])
+      expect(await configuredClaudeMcpFile(cwd, id, paths)).toBe(file)
+    expect(await configuredClaudeMcpFile(cwd, 'unknown', paths)).toBeUndefined()
+  })
   it('reads scoped MCP metadata and disabled flags without exposing private configuration', async () => {
     await json(paths.globalConfig, {
       mcpServers: { user: { command: 'secret-command' }, shared: { url: 'secret-url' } },

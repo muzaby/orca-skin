@@ -45,7 +45,10 @@ function expectPresentationWiring(): void {
       `import { composerModule as ${harness} } from '../${harness}/composer/Module'`
     )
   }
-  expect(registry).toMatch(/const modules = \{ claude, opencode \}/)
+  for (const harness of ['claude', 'opencode'])
+    expect(registry).toContain(
+      `${harness}: { ...${harness}, sourceIcon: sourceIcon('${harness}') }`
+    )
   expect(registry).toContain("return modules[backend ?? 'claude']")
 }
 
@@ -130,7 +133,9 @@ describe('runAttachMenuAction (AC2·AC3)', () => {
     expect(sourceAt('../../opencode/composer/Module.tsx')).toContain('includeExtensions: false')
     expect(source).toContain(
       [
-        '        skills={skills}',
+        '        skills={availableSkills}',
+        '        mcpServers={mcpServers}',
+        '        sourceIcon={presentation.sourceIcon}',
         '        includeExtensions={includeExtensions}',
         '        plugins={mentionAutocomplete.plugins}',
         '        native={nativeMenu}',
@@ -174,7 +179,9 @@ describe('runAttachMenuAction (AC2·AC3)', () => {
         '        open={active && attachMenuOpen}',
         '        anchorRef={attachButtonRef}',
         '        onClose={() => setAttachMenuOpen(false)}',
-        '        skills={skills}',
+        '        skills={availableSkills}',
+        '        mcpServers={mcpServers}',
+        '        sourceIcon={presentation.sourceIcon}',
         '        includeExtensions={includeExtensions}',
         '        plugins={mentionAutocomplete.plugins}',
         '        native={nativeMenu}',

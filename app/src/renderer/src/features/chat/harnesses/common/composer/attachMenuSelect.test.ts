@@ -116,6 +116,7 @@ describe('AttachMenu 데이터 전달 (AC2·AC3 · r3 D6·D7)', () => {
       ]
     })
     expect(submenuIds('plugins')).toEqual([
+      'plugins:orca',
       'plugin:jira-dc',
       'plugin:confluence',
       'plugins:separator',

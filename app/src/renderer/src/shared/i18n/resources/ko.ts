@@ -619,6 +619,7 @@ export const ko = {
   },
   chat: {
     nativeResources: {
+      openConfig: '설정 파일 위치 열기',
       openFolder: '설치 폴더 열기',
       openError: '플러그인 설치 폴더를 열 수 없습니다. 설치 상태를 확인해 주세요.',
       refreshing: '목록 갱신 중…',

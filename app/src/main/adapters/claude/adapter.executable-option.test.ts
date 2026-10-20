@@ -4,7 +4,8 @@
 // 빠지면 그 경로만 SDK 기본 해석으로 돌아가고, dev 에서는 같은 바이너리라 조용히 통과한 뒤
 // 패키징에서만 asar spawn 실패로 터진다(0105 의 원래 버그). 두 슬롯을 각각 단언한다.
 
-import { describe, it, expect, vi } from 'vitest'
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
+import { randomUUID } from 'node:crypto'
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -44,6 +45,11 @@ vi.mock('./executable', () => ({ resolveClaudeExecutable: () => SENTINEL }))
 import { ClaudeAdapter } from './adapter'
 import type { TurnRequest } from '../common/turn'
 import { getTemporaryFilesPath } from '../../infra/config/temp-path'
+
+// Native catalog discovery must not read the developer's installed plugins.
+const isolatedConfig = join(tmpdir(), `orca-executable-config-${randomUUID()}`)
+beforeEach(() => vi.stubEnv('CLAUDE_CONFIG_DIR', isolatedConfig))
+afterEach(() => vi.unstubAllEnvs())
 
 function optionsOfFirstCall(): Options {
   return (
@@ -230,7 +236,9 @@ describe('Claude 공통 실행 옵션', () => {
       const providerSettings: ResolvedHarnessSettings | undefined = settings
         ? { providerKey: 'fixture', provider: 'claude', sourceRevision: '1', settings }
         : undefined
-      const env = settings ? { PATH: '/fixture/bin', APP_VALUE: 'fixture' } : undefined
+      const env = settings
+        ? { PATH: '/fixture/bin', APP_VALUE: 'fixture', CLAUDE_CONFIG_DIR: isolatedConfig }
+        : undefined
       const adapter = new ClaudeAdapter()
       queryMock.mockClear()
       await adapter.complete({ prompt: 'title', providerSettings, env })
@@ -374,7 +382,7 @@ describe('Claude 공통 실행 옵션', () => {
           settings: { providerKey: 'fixture', provider: 'claude', sourceRevision: '1', settings },
           runtimeEnv: values[3]
         },
-        baseEnv: () => ({ PATH: '/fixture/bin', ...values[0] }),
+        baseEnv: () => ({ PATH: '/fixture/bin', CLAUDE_CONFIG_DIR: isolatedConfig, ...values[0] }),
         appEnv: { APP_VALUE: 'fixture', ...values[1] },
         customEnv: () => values[4]
       })

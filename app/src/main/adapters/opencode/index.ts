@@ -5,5 +5,6 @@ export const createOpenCodeAdapter = implementation.createAdapter
 export const loadOpenCodeProviderSettings = implementation.loadSettings
 export const parseOpenCodeModels = implementation.parseModels
 export const readUserOpenCodeSettings = implementation.readUserSettings
+export const configuredOpenCodeMcpFile = implementation.configuredMcpFile
 export const openCodeContextWindow = implementation.contextWindow
 export type { OpenCodeRuntimeOptions, OpenCodeServer } from './implementation'

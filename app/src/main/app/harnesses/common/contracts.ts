@@ -27,6 +27,7 @@ export interface MainHarnessModule {
   configuredResources?(cwd: string): Promise<NativeResource[]>
   configuredCommands?(cwd: string): Promise<NativeCommand[]>
   configuredPluginDirectory?(cwd: string, id: string): Promise<string | undefined>
+  configuredMcpFile?(cwd: string, id: string): Promise<string | undefined>
   resolveTitleModel(models: ParsedModel[]): string | undefined
   recoveryContextWindow(settings: Record<string, unknown>, model?: string): number
   defaultProvider<T extends { modelProviderId: string }>(entries: readonly T[]): T | undefined
