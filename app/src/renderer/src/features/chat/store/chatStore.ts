@@ -119,7 +119,7 @@ export interface SessionEntry {
   pendingSteer?: PendingSteerState[]
   panelReveal?: {
     id: RightPanelTileId
-    detail?: { id: 'subagent'; selectedId: string }
+    detail?: { id: 'subagent'; selectedId: string } | { id: 'nativeStatus' }
     origin?: HTMLElement
   }
 }
@@ -325,6 +325,25 @@ function revealRightPanelTile(id: RightPanelTileId): void {
       ? { ...entry, panelReveal: { id: target } }
       : entry
   })
+}
+
+function setNativeStatusDetail(active?: boolean, origin?: HTMLElement | null): boolean {
+  const entry = getState().sessions[getState().activeKey]
+  if (entry.session.backend !== 'opencode') return false
+  if (entry.session.agentKind !== 'code') return true
+  const opening = active ?? entry.panelReveal?.detail?.id !== 'nativeStatus'
+  // Drop persisted legacy status tiles; the task column owns this detail's space.
+  dispatchActive({ type: 'REMOVE_RIGHT_PANEL_TILE', id: 'nativeStatus' })
+  if (opening) dispatchActive({ type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id: 'task', active: true })
+  patchEntry(getState().activeKey, (current) => ({
+    ...current,
+    panelReveal: opening
+      ? { id: 'task', detail: { id: 'nativeStatus' }, origin: origin ?? undefined }
+      : current.panelReveal?.detail?.id === 'nativeStatus'
+        ? undefined
+        : current.panelReveal
+  }))
+  return true
 }
 
 function captureDiffRequirementSnapshot(): DiffRequirementSubmitSnapshot {
@@ -1935,18 +1954,22 @@ export const chatActions = {
   approveTool,
   approveToolForSession,
   denyTool,
-  toggleRightPanelTile: (id: RightPanelTileId): void => {
+  toggleRightPanelTile: (id: RightPanelTileId, origin?: HTMLElement | null): void => {
+    if (id === 'nativeStatus' && setNativeStatusDetail(undefined, origin)) return
     dispatchActive({ type: 'TOGGLE_RIGHT_PANEL_TILE', id })
     revealRightPanelTile(id)
   },
   setRightPanelTileActive: (id: RightPanelTileId, active: boolean): void => {
+    if (id === 'nativeStatus' && setNativeStatusDetail(active)) return
     dispatchActive({ type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id, active })
     if (active) revealRightPanelTile(id)
   },
   renameRightPanelTile: (id: RightPanelTileId, label: string): void =>
     dispatchActive({ type: 'RENAME_RIGHT_PANEL_TILE', id, label }),
-  removeRightPanelTile: (id: RightPanelTileId): void =>
-    dispatchActive({ type: 'REMOVE_RIGHT_PANEL_TILE', id }),
+  removeRightPanelTile: (id: RightPanelTileId): void => {
+    if (id === 'nativeStatus' && setNativeStatusDetail(false)) return
+    dispatchActive({ type: 'REMOVE_RIGHT_PANEL_TILE', id })
+  },
   setGitStatus: (snapshot: BranchSnapshot): void =>
     dispatchActive({ type: 'SET_GIT_STATUS', snapshot }),
   receiveGitPatch: (

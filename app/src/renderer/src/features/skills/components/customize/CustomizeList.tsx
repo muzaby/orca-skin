@@ -100,6 +100,7 @@ export function CustomizeList({
           <Fragment key={`${backend}:${resource.id}`}>
             {nativeMcp[index - 1]?.backend !== backend && (
               <SourceHeading
+                spaced={index > 0}
                 source={backend}
                 label={`${backend === 'claude' ? 'Claude' : 'OpenCode'} MCP`}
               />
@@ -113,7 +114,7 @@ export function CustomizeList({
           </Fragment>
         ))}
       {tab === 'mcp' && mcpServers.length > 0 && (
-        <SourceHeading source="orca" label="Orcinus orca MCP" />
+        <SourceHeading spaced={nativeMcp.length > 0} source="orca" label="Orcinus orca MCP" />
       )}
       {tab === 'mcp' &&
         orderMcpServers(mcpServers).map((server) => {

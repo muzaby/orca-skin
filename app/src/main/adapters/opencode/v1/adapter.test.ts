@@ -26,6 +26,7 @@ function request(overrides: Partial<TurnRequest> = {}): TurnRequest {
 function fixture(): {
   adapter: OpenCodeAdapter
   acquire: ReturnType<typeof vi.fn>
+  release: ReturnType<typeof vi.fn>
   requests: Request[]
   emit: (value: Event) => void
   end: () => void
@@ -82,14 +83,17 @@ function fixture(): {
     }
     throw new Error(`Unexpected SDK request: ${req.method} ${path}`)
   }
+  const release = vi.fn()
   const acquire = vi.fn(async () => ({
     url: 'http://opencode.test',
-    headers: { Authorization: 'Basic fixture' }
+    headers: { Authorization: 'Basic fixture' },
+    release
   }))
   const servers = { acquire } as unknown as OpenCodeServerPool
   const result: ReturnType<typeof fixture> = {
     adapter: new OpenCodeAdapter(servers, transport),
     acquire,
+    release,
     requests,
     emit,
     end: () => {
@@ -354,6 +358,7 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
       'OpenCode 무료 모델'
     )
     expect(f.requests.filter((r) => r.method === 'DELETE')).toHaveLength(1)
+    expect(f.release).toHaveBeenCalledOnce()
   })
 
   it('asks the auxiliary completion with the model it was given (0262 EP56 P40)', async () => {
@@ -365,6 +370,7 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
     expect(await message?.json()).toMatchObject({
       model: { providerID: 'other', modelID: 'extra' }
     })
+    expect(f.release).toHaveBeenCalledOnce()
   })
 
   it('starts the turn, completion and recovery on the server of the selected engine document', async () => {
@@ -393,7 +399,27 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
       [providerSettings.settings, env, 'C:/work'],
       [providerSettings.settings, env, 'C:/work']
     ])
+    await vi.waitFor(() => expect(f.release).toHaveBeenCalledTimes(3))
   })
+
+  it.each([404, 503])(
+    'releases the history connection after an HTTP %s response',
+    async (status) => {
+      const release = vi.fn()
+      const adapter = new OpenCodeAdapter(
+        {
+          acquire: async () => ({ url: 'http://fixture.test', headers: {}, release }),
+          installed: async () => ({ installed: true }),
+          close: () => {}
+        },
+        async () => jsonResponse({}, status)
+      )
+      expect(await adapter.readHistory({ sessionId: 's1', cwd: 'C:/work' })).toMatchObject({
+        status: status === 404 ? 'missing' : 'unavailable'
+      })
+      expect(release).toHaveBeenCalledOnce()
+    }
+  )
 
   it('reports an unsupported CLI as a turn error before any server or HTTP request', async () => {
     const transport = vi.fn<typeof fetch>()
@@ -481,6 +507,8 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
     )
     expect(commit).not.toHaveBeenCalled()
     expect(f.requests.map((req) => new URL(req.url).pathname)).toEqual([
+      '/agent',
+      '/provider',
       '/session',
       '/event',
       '/session/s1/prompt_async'
@@ -489,7 +517,9 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
       true
     )
     expect(new URL(f.requests[1]!.url).searchParams.get('directory')).toBe('C:/work')
-    const payload = await f.requests[2]!.json()
+    const payload = await f.requests
+      .find((request) => new URL(request.url).pathname.endsWith('/prompt_async'))!
+      .json()
     expect(payload).toMatchObject({
       model: { providerID: 'vendor', modelID: 'model/name' },
       agent: 'build',

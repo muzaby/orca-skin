@@ -1,10 +1,9 @@
-import type { ComposerControlProps, ComposerModule } from '../../contracts'
+import type { ComposerModule } from '../../contracts'
 import { composerAppearance } from './appearance'
 import { ComposerChip } from './Chip'
 import { SubmitButton } from './SubmitButton'
-import { OpenCodeAgentControl, OpenCodeVariantControl } from './Controls'
+import { OpenCodeModeControl, OpenCodeEffortControl } from './Controls'
 import { selectOpenCodeRequest } from './requestQueue'
-import { modelKey } from '../../../components/composer/modelSelection'
 import { AboveInput } from './AboveInput'
 export const composerModule: ComposerModule = {
   appearance: composerAppearance,
@@ -20,16 +19,6 @@ export const composerModule: ComposerModule = {
   Requests: () => null,
   AboveInput,
   inputBlocked: (state) => !!selectOpenCodeRequest(state),
-  ModeControl: ({ agents, providerKey }: ComposerControlProps) => (
-    <OpenCodeAgentControl agents={agents.find((a) => a.key === providerKey)?.agents} />
-  ),
-  EffortControl: ({ agents, providerKey, modelFamily }: ComposerControlProps) => (
-    <OpenCodeVariantControl
-      variants={
-        agents
-          .find((a) => a.key === providerKey)
-          ?.models.find((model) => modelKey(model) === modelFamily)?.variants ?? []
-      }
-    />
-  )
+  ModeControl: OpenCodeModeControl,
+  EffortControl: OpenCodeEffortControl
 }

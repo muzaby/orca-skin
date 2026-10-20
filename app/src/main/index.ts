@@ -1,4 +1,5 @@
 import { app, shell, BrowserWindow, ipcMain, protocol, net } from 'electron'
+import { installExternalNavigation } from './infra/external-navigation'
 import { join, extname } from 'path'
 import { existsSync } from 'fs'
 import { pathToFileURL } from 'url'
@@ -233,10 +234,7 @@ function createWindow(settings: SettingsStore): void {
     settings.patch({ windowBounds: mainWindow.getBounds() })
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
+  installExternalNavigation(mainWindow.webContents, (url) => shell.openExternal(url))
 
   // webContents 장애 수집 (0123 AC8) — 응답 없음·preload 실패·로드 실패.
   const windowLog = getLogger().child('window')

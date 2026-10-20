@@ -250,7 +250,7 @@ async function run(fetchImpl: typeof fetch): Promise<void> {
   assert.equal(readFileSync(projectConfig, 'utf8'), originalProject)
   adapter.close()
   const restarted = makeAdapter()
-  const restartedClient = await restarted.client(settings, environment, cwd)
+  const { client: restartedClient } = await restarted.client(settings, environment, cwd)
   assert.equal(
     (await restartedClient.session.get({ sessionID: sessionId, directory: cwd })).data?.id,
     sessionId
@@ -366,7 +366,7 @@ async function run(fetchImpl: typeof fetch): Promise<void> {
     XDG_DATA_HOME: join(root, 'custom-data'),
     OPENCODE_DB: join(root, 'custom.db')
   }
-  const client = await restarted.client(settings, custom, cwd)
+  const { client } = await restarted.client(settings, custom, cwd)
   const created = await client.session.create({ directory: cwd })
   assert.ok(created.data?.id)
   const customPath = (

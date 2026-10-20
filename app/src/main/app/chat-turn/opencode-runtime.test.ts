@@ -1,8 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
+import { EventEmitter } from 'node:events'
+import { PassThrough } from 'node:stream'
+import type { ChildProcess, spawn } from 'node:child_process'
 import type { WebContents } from 'electron'
 import type { NormalizedEvent } from '../../../shared/ipc'
 import type { TurnContext } from '../../contracts/turn'
-import { createOpenCodeAdapter, type OpenCodeServer } from '../../adapters/opencode'
+import { createOpenCodeAdapter } from '../../adapters/opencode'
+import { OpenCodeServerPool } from '../../adapters/opencode/v1/server'
+import { RuntimePool } from '../../features/sessions/runtime-pool'
 import {
   assistantMessage,
   jsonResponse,
@@ -17,7 +22,12 @@ import { buildTurnRequest } from './turn-request'
 vi.mock('../../infra/log', async () => import('../../infra/log/registry'))
 vi.mock('../../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
 
-function fixture(): { runtime: SessionRuntime; requests: Request[]; rejectPrompt: () => void } {
+function fixture(): {
+  runtime: SessionRuntime
+  requests: Request[]
+  rejectPrompt: () => void
+  killed: ReturnType<typeof vi.fn>
+} {
   const requests: Request[] = []
   const encoder = new TextEncoder()
   let stream: ReadableStreamDefaultController<Uint8Array>
@@ -29,6 +39,7 @@ function fixture(): { runtime: SessionRuntime; requests: Request[]; rejectPrompt
     const request = new Request(input, init)
     requests.push(request.clone())
     const path = new URL(request.url).pathname
+    if (path === '/global/health') return jsonResponse({ healthy: true })
     if (path === '/session') return jsonResponse({ id: 's1' })
     if (path === '/event') {
       return new Response(
@@ -67,11 +78,29 @@ function fixture(): { runtime: SessionRuntime; requests: Request[]; rejectPrompt
     if (path.endsWith('/abort')) return jsonResponse(true)
     throw new Error(`Unexpected request: ${request.method} ${path}`)
   }
-  const server: OpenCodeServer = {
-    acquire: async () => ({ url: 'http://opencode.test', headers: {} }),
-    installed: async () => ({ installed: true, version: '1.19.0' }),
-    close: () => {}
-  }
+  const killed = vi.fn(() => true)
+  const server = new OpenCodeServerPool({
+    dataDirectory: 'unused',
+    preferences: () => undefined,
+    fetchImpl,
+    executable: () => 'fixture',
+    readVersion: async () => '1.19.0',
+    allocatePort: async () => 49123,
+    spawnProcess: (() => {
+      const child = Object.assign(new EventEmitter(), {
+        stdout: new PassThrough(),
+        stderr: new PassThrough(),
+        kill: killed
+      })
+      queueMicrotask(() =>
+        child.stdout.emit(
+          'data',
+          Buffer.from('opencode server listening on http://127.0.0.1:49123\n')
+        )
+      )
+      return child as unknown as ChildProcess
+    }) as typeof spawn
+  })
   return {
     runtime: new SessionRuntime(
       createOpenCodeAdapter({
@@ -82,6 +111,7 @@ function fixture(): { runtime: SessionRuntime; requests: Request[]; rejectPrompt
       })
     ),
     requests,
+    killed,
     rejectPrompt: () => {
       rejected = true
     }
@@ -131,6 +161,32 @@ async function collect(
 }
 
 describe('OpenCode submission through the production queue and session runtime', () => {
+  it('reuses a live OpenCode process and releases it through the common runtime LRU', async () => {
+    const first = fixture()
+    const second = fixture()
+    const pool = new RuntimePool<SessionRuntime>()
+    try {
+      await collect(first.runtime, admission('s1').request)
+      expect(pool.keepIdle('first', first.runtime)).toBe(true)
+      const reused = pool.take('first')!
+      await collect(reused, admission('s1').request)
+      pool.keepIdle('first', reused)
+      expect(
+        first.requests.filter((r) => new URL(r.url).pathname === '/global/health')
+      ).toHaveLength(1)
+      await collect(second.runtime, admission('s1').request)
+      pool.keepIdle('second', second.runtime)
+      expect(pool.evictToCapacity(1)).toBe(1)
+      await vi.waitFor(() => expect(first.killed).toHaveBeenCalledOnce())
+      expect(second.killed).not.toHaveBeenCalled()
+      expect(pool.peek('second')).toBe(second.runtime)
+      pool.closeAll()
+      await vi.waitFor(() => expect(second.killed).toHaveBeenCalledOnce())
+    } finally {
+      first.runtime.close()
+      second.runtime.close()
+    }
+  })
   it('forwards changed agent and variant with attachments on the existing channel', async () => {
     const { runtime, requests } = fixture()
     try {

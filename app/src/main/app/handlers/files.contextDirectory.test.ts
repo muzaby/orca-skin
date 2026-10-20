@@ -415,7 +415,7 @@ describe('Context file open outcomes — actual IPC registration', () => {
       host.handlers.get(CHANNELS.filesOpenContextFile)!({}, { path, sessionId: 'work' })
     )
   it('opens an approved file with the actual path and no reveal', async () => {
-    const path = join(cwd, 'report.PDF')
+    const path = join(cwd, 'report.MD')
     writeFileSync(path, 'fixture')
     await expect(open(path)).resolves.toEqual({ outcome: 'opened' })
     expect(host.openPath).toHaveBeenCalledExactlyOnceWith(await fs.realpath(path))
@@ -429,16 +429,21 @@ describe('Context file open outcomes — actual IPC registration', () => {
     expect(host.openPath).toHaveBeenCalledExactlyOnceWith(await fs.realpath(path))
     expect(host.reveal).toHaveBeenCalledExactlyOnceWith(await fs.realpath(path))
   })
-  it.each(['script.py', 'program.exe', 'README'])(
-    'reveals %s without opening its default app',
-    async (name) => {
-      const path = join(cwd, name)
-      writeFileSync(path, 'fixture')
-      await expect(open(path)).resolves.toEqual({ outcome: 'revealed', reason: 'unsupported-type' })
-      expect(host.openPath).not.toHaveBeenCalled()
-      expect(host.reveal).toHaveBeenCalledExactlyOnceWith(await fs.realpath(path))
-    }
-  )
+  it.each([
+    'script.py',
+    'program.exe',
+    'README',
+    'report.PDF',
+    'report.docx',
+    'data.xlsx',
+    'slides.pptx'
+  ])('reveals %s without opening its default app', async (name) => {
+    const path = join(cwd, name)
+    writeFileSync(path, 'fixture')
+    await expect(open(path)).resolves.toEqual({ outcome: 'revealed', reason: 'unsupported-type' })
+    expect(host.openPath).not.toHaveBeenCalled()
+    expect(host.reveal).toHaveBeenCalledExactlyOnceWith(await fs.realpath(path))
+  })
   it('uses the resolved extension when an approved spelling ends in pdf', async () => {
     const path = join(cwd, 'alias.pdf')
     const target = join(cwd, 'program.exe')

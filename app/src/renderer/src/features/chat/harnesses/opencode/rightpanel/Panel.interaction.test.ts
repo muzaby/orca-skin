@@ -110,6 +110,25 @@ function render(): void {
 }
 
 describe('OpenCode task card to detail host', () => {
+  it('opens native status in the task column and restores the mounted overview when closed', () => {
+    render()
+    dom.act(() => chatActions.toggleRightPanelTile('nativeStatus'))
+    render()
+    expect(captured.detail?.width).toBe(428)
+    const context = captured.detail!.content as ReactElement<{ value: OpenCodePanelNavigation }>
+    expect(context.props.value.selection).toEqual({ id: 'nativeStatus' })
+    const state = useChatStore.getState()
+    expect(state.sessions[state.activeKey].session.rightPanelTiles).toEqual([
+      { id: 'task', tiles: ['task'] }
+    ])
+    dom.act(() => captured.detail!.onWidthChange(608))
+    render()
+    expect(captured.detail?.width).toBe(608)
+    dom.act(() => captured.detail!.onClose())
+    expect(captured.detail).toBeUndefined()
+    render()
+    expect(captured.detail).toBeUndefined()
+  })
   it('opens one overlay with the selected task and parent width, resizes the parent, then closes without adding tiles', () => {
     render()
     expect(captured.detail).toBeUndefined()

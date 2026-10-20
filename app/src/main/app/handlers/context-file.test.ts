@@ -6,18 +6,11 @@ import { opensWithDefaultApp, resolveContextFile, type ContextFileScope } from '
 
 describe('context file extension policy', () => {
   it.each([
-    'pdf',
-    'docx',
-    'xlsx',
-    'pptx',
     'png',
     'jpg',
     'jpeg',
     'gif',
-    'bmp',
     'webp',
-    'tif',
-    'tiff',
     'txt',
     'md',
     'markdown',
@@ -34,6 +27,13 @@ describe('context file extension policy', () => {
     expect(opensWithDefaultApp(`/work/report.${extension.toUpperCase()}`)).toBe(true)
   })
   it.each([
+    'a.pdf',
+    'a.docx',
+    'a.xlsx',
+    'a.pptx',
+    'a.bmp',
+    'a.tif',
+    'a.tiff',
     'a.exe',
     'a.bat',
     'a.cmd',

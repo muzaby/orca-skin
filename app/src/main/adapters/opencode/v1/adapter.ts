@@ -49,14 +49,23 @@ export class OpenCodeAdapter implements SessionAdapter {
     config: Record<string, unknown> = {},
     env?: Record<string, string>,
     cwd?: string
-  ): Promise<OpencodeClient> {
+  ): Promise<{ client: OpencodeClient; release: () => void }> {
     const server = await this.servers.acquire(config, env, cwd)
-    return createOpencodeClient({
-      baseUrl: server.url,
-      headers: server.headers,
-      fetch: this.fetchImpl,
-      throwOnError: true
-    })
+    const release = (): void => server.release?.()
+    try {
+      return {
+        release,
+        client: createOpencodeClient({
+          baseUrl: server.url,
+          headers: server.headers,
+          fetch: this.fetchImpl,
+          throwOnError: true
+        })
+      }
+    } catch (error) {
+      release()
+      throw error
+    }
   }
 
   catalog: NonNullable<SessionAdapter['catalog']> = async (
@@ -65,70 +74,85 @@ export class OpenCodeAdapter implements SessionAdapter {
   ): Promise<AgentEnvironment> => openCodeCatalog(entry, config)
 
   async complete(req: CompleteRequest): Promise<string> {
-    const client = await this.client(req.providerSettings?.settings, req.env, req.cwd)
-    const session = (
-      await client.session.create(
-        { directory: req.cwd, permission: [{ permission: '*', pattern: '*', action: 'deny' }] },
-        { signal: req.signal, throwOnError: true }
-      )
-    ).data
-    if (!session) throw new Error('OpenCode 보조 세션 생성 실패')
+    const { client, release } = await this.client(req.providerSettings?.settings, req.env, req.cwd)
     try {
-      const answer = await client.session.prompt(
-        {
-          sessionID: session.id,
-          directory: req.cwd,
-          ...(req.model ? { model: modelRef(req.model) } : {}),
-          tools: {},
-          parts: [{ type: 'text', text: req.prompt }]
-        },
-        { signal: req.signal, throwOnError: true }
-      )
-      if (answer.data?.info.error) {
-        throw new Error(classifyOpenCodeError(answer.data.info.error).message, {
-          cause: answer.data.info.error
-        })
-      }
-      return (
-        answer.data?.parts
-          .filter((part) => part.type === 'text')
-          .map((part) => part.text)
-          .join('') ?? ''
-      )
-    } finally {
-      await client.session
-        .delete(
-          { sessionID: session.id, directory: req.cwd },
-          { signal: AbortSignal.timeout(5000) }
+      const session = (
+        await client.session.create(
+          { directory: req.cwd, permission: [{ permission: '*', pattern: '*', action: 'deny' }] },
+          { signal: req.signal, throwOnError: true }
         )
-        .catch(() => undefined)
+      ).data
+      if (!session) throw new Error('OpenCode 보조 세션 생성 실패')
+      try {
+        const answer = await client.session.prompt(
+          {
+            sessionID: session.id,
+            directory: req.cwd,
+            ...(req.model ? { model: modelRef(req.model) } : {}),
+            tools: {},
+            parts: [{ type: 'text', text: req.prompt }]
+          },
+          { signal: req.signal, throwOnError: true }
+        )
+        if (answer.data?.info.error) {
+          throw new Error(classifyOpenCodeError(answer.data.info.error).message, {
+            cause: answer.data.info.error
+          })
+        }
+        return (
+          answer.data?.parts
+            .filter((part) => part.type === 'text')
+            .map((part) => part.text)
+            .join('') ?? ''
+        )
+      } finally {
+        await client.session
+          .delete(
+            { sessionID: session.id, directory: req.cwd },
+            { signal: AbortSignal.timeout(5000) }
+          )
+          .catch(() => undefined)
+      }
+    } finally {
+      release()
     }
   }
 
   async recoverSession(
     req: NativeHistoryRequest
   ): Promise<{ sessionId: string; freshStart: boolean }> {
-    const client = await this.client(req.providerSettings?.settings, req.env, req.cwd)
-    const created = await client.session.create(
-      {
-        directory: req.cwd,
-        permission: [{ permission: '*', pattern: '*', action: 'ask' }]
-      },
-      { throwOnError: true }
-    )
-    if (!created.data?.id) throw new Error('OpenCode 복구 세션 생성 실패')
-    return { sessionId: created.data.id, freshStart: false }
+    const { client, release } = await this.client(req.providerSettings?.settings, req.env, req.cwd)
+    try {
+      const created = await client.session.create(
+        {
+          directory: req.cwd,
+          permission: [{ permission: '*', pattern: '*', action: 'ask' }]
+        },
+        { throwOnError: true }
+      )
+      if (!created.data?.id) throw new Error('OpenCode 복구 세션 생성 실패')
+      return { sessionId: created.data.id, freshStart: false }
+    } finally {
+      release()
+    }
   }
 
   sendMessage(req: TurnRequest): LiveTurn {
     const nativeId = req.nativeSessionId ?? req.sessionId
-    const live = openCodeChannel({ ...req, sessionId: nativeId }, () =>
-      this.client(req.providerSettings?.settings, req.env, req.cwd)
+    let release = (): void => undefined
+    const live = openCodeChannel(
+      { ...req, sessionId: nativeId },
+      async () => {
+        const connection = await this.client(req.providerSettings?.settings, req.env, req.cwd)
+        release = connection.release
+        return connection.client
+      },
+      () => release()
     )
     return nativeId && req.sessionId ? routeNativeSession(live, nativeId, req.sessionId) : live
   }
 
-  readHistory(req: NativeHistoryRequest): Promise<NativeHistoryResult> {
+  async readHistory(req: NativeHistoryRequest): Promise<NativeHistoryResult> {
     const config = req.providerSettings?.settings ?? {}
     let resolvedPath: Promise<string> | undefined
     const databasePath = (): Promise<string> => {
@@ -139,25 +163,36 @@ export class OpenCodeAdapter implements SessionAdapter {
         )
       return (resolvedPath = this.servers.databasePath(config, req.env, req.cwd))
     }
-    return readOpenCodeHistory(req, {
-      client: () => this.client(config, req.env, req.cwd),
-      probe:
-        this.openDatabase && this.servers.databasePath
-          ? async () => probeNativeCursor(this.openDatabase!, await databasePath(), req.sessionId)
-          : undefined,
-      sourceKey: async () => nativeRevision([await databasePath(), req.cwd]),
-      ...(this.migration && this.servers.databasePath
-        ? {
-            migrate: async () =>
-              this.migration!.migrate({
-                sessionId: req.sessionId,
-                cwd: req.cwd,
-                targetDatabase: await databasePath(),
-                nativeData: nativeOpenCodeData(nativeOpenCodeEnvironment(config, req.env), req.cwd)
-              })
-          }
-        : {})
-    })
+    let connection: Awaited<ReturnType<OpenCodeAdapter['client']>> | undefined
+    try {
+      return await readOpenCodeHistory(req, {
+        client: async () => {
+          connection ??= await this.client(config, req.env, req.cwd)
+          return connection.client
+        },
+        probe:
+          this.openDatabase && this.servers.databasePath
+            ? async () => probeNativeCursor(this.openDatabase!, await databasePath(), req.sessionId)
+            : undefined,
+        sourceKey: async () => nativeRevision([await databasePath(), req.cwd]),
+        ...(this.migration && this.servers.databasePath
+          ? {
+              migrate: async () =>
+                this.migration!.migrate({
+                  sessionId: req.sessionId,
+                  cwd: req.cwd,
+                  targetDatabase: await databasePath(),
+                  nativeData: nativeOpenCodeData(
+                    nativeOpenCodeEnvironment(config, req.env),
+                    req.cwd
+                  )
+                })
+            }
+          : {})
+      })
+    } finally {
+      connection?.release()
+    }
   }
 
   classifyError(error: unknown): ClassifiedError {

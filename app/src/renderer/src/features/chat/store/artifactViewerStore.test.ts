@@ -26,6 +26,7 @@ const ready: ArtifactPreviewResult = {
   mimeType: 'text/markdown'
 }
 const preview = vi.fn()
+const reveal = vi.fn()
 const logError = vi.fn()
 function deferred(): {
   promise: Promise<ArtifactPreviewResult>
@@ -40,10 +41,11 @@ function deferred(): {
 beforeEach(() => {
   closeArtifactViewer()
   preview.mockReset().mockResolvedValue(ready)
+  reveal.mockReset().mockResolvedValue({ ok: true })
   logError.mockReset()
   for (const toast of errorToastStore.getState().toasts)
     errorToastStore.getState().dismiss(toast.id)
-  vi.stubGlobal('window', { orca: { artifacts: { preview }, log: { error: logError } } })
+  vi.stubGlobal('window', { orca: { artifacts: { preview, reveal }, log: { error: logError } } })
 })
 afterEach(() => vi.unstubAllGlobals())
 describe('viewer selection and request lifetime', () => {
@@ -169,14 +171,36 @@ describe('viewer selection and request lifetime', () => {
     expect(toasts()).toHaveLength(2)
     expect(JSON.stringify(toasts())).not.toContain('private path')
   })
-  it('keeps unsupported formats in the viewer body without a toast', async () => {
+  it('reveals unsupported formats without allocating a viewer or showing a toast', async () => {
     preview.mockResolvedValueOnce({ state: 'unavailable', reason: 'unsupported-format' })
     await openArtifactViewer('key', 's', ref)
-    expect(useArtifactViewerStore.getState().selection?.result).toEqual({
-      state: 'unavailable',
-      reason: 'unsupported-format'
-    })
+    expect(useArtifactViewerStore.getState().selection).toBeNull()
+    expect(reveal).toHaveBeenCalledExactlyOnceWith({ sessionId: 's', publicationId: 'p' })
     expect(errorToastStore.getState().toasts).toEqual([])
+  })
+  it('keeps an existing viewer when another unsupported file is revealed, including reveal failure', async () => {
+    await openArtifactViewer('key', 's', { ...ref, publicationId: 'existing' })
+    const existing = useArtifactViewerStore.getState().selection
+    preview.mockResolvedValueOnce({ state: 'unavailable', reason: 'unsupported-format' })
+    reveal.mockResolvedValueOnce({ ok: false, reason: 'missing' })
+    await openArtifactViewer('key', 's', ref)
+    expect(useArtifactViewerStore.getState().selection).toBe(existing)
+    expect(errorToastStore.getState().toasts).toHaveLength(1)
+    expect(logError.mock.calls.map(([event]) => event)).toEqual(['artifacts.reveal.failed'])
+  })
+  it('reveals an unsupported retry and ignores a late unsupported open after navigation', async () => {
+    await openArtifactViewer('key', 's', ref)
+    preview.mockResolvedValueOnce({ state: 'unavailable', reason: 'unsupported-format' })
+    await retryArtifactViewer()
+    expect(useArtifactViewerStore.getState().selection).toBeNull()
+    expect(reveal).toHaveBeenCalledTimes(1)
+    const pending = deferred()
+    preview.mockReturnValueOnce(pending.promise)
+    const opening = openArtifactViewer('key', 's', ref)
+    closeArtifactViewer('key')
+    pending.resolve({ state: 'unavailable', reason: 'unsupported-format' })
+    await opening
+    expect(reveal).toHaveBeenCalledTimes(1)
   })
   it('drops a late unavailable result for a replaced selection without a toast', async () => {
     const pending = deferred()

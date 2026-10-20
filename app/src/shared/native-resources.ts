@@ -36,6 +36,12 @@ export interface NativeResources {
   partial?: boolean
   /** A successful installation inventory replaces cached/live plugin membership. */
   pluginsAuthoritative?: boolean
+  /** Runtime-resolved, credential-free Composer choices (including native plugin changes). */
+  composer?: NativeComposerCatalog
+}
+export interface NativeComposerCatalog {
+  agents: { name: string; description?: string; model?: string; variant?: string }[]
+  models: { id: string; variants: string[] }[]
 }
 export interface SetNativeResource {
   sessionId: string

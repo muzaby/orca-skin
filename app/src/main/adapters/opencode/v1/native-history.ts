@@ -219,8 +219,10 @@ export async function readOpenCodeHistory(
     )
       return { status: 'unchanged' }
     const read = async (): Promise<{ session: Session; messages: NativeMessages } | undefined> => {
-      const header = await client.session.get(query, { throwOnError: false })
-      const body = await client.session.messages(query, { throwOnError: false })
+      const [header, body] = await Promise.all([
+        client.session.get(query, { throwOnError: false }),
+        client.session.messages(query, { throwOnError: false })
+      ])
       if (!header.response.ok || !header.data || !body.response.ok || !body.data) return undefined
       return { session: header.data, messages: body.data }
     }

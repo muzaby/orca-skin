@@ -176,4 +176,121 @@ DB/native 설정 파일·사용자 Desktop 알림 설정은 변경하지 않는�
 
 ## [구현자 기입]
 
-착수 전. 구현 결과·pair 자기검증·강제 지점 차집합·운영 gate·미확인 사항은 구현 후 기록한다.
+### 설계 리뷰
+
+부분 구현이다. AC4의 Windows 토스트 비활성화는 완료하지 못했다. 나머지 AC의 행동 시험은 통과했다.
+사용자는 토스트 시점을 “답변·작업이 끝났을 때”, 적용 범위를 “Orcinus orca에서는”으로 명확히 했다.
+확인한 `notifications.agent`는 OpenCode Desktop UI의 전역 설정이며 headless CLI 설정이 아니다.
+Orca 실행에만 적용할 수 있는 공개 스위치는 확인되지 않았다. 지원하지 않는 설정 키를 넣거나 Desktop 전역 파일을 변경하지 않았다.
+
+§3 D1·D2의 공통 LRU와 참조 소유권, D4의 기존 상세 호스트, D8·D9의 live 목록 계약에 동의한다.
+§4의 포트 충돌 가설을 토스트 원인으로 확정할 증거는 없다. 별도 포트 적용과 알림 차단 완료를 구분한다.
+ACTIVE 결정 변경·신규 의존성·PLAN_GAP은 없다. AC4 미해결과 운영 관측 한계는 유지한다.
+
+### 강제 지점 전수 (§10 대조)
+
+아래 좌표의 경로는 `app/src/` 기준이다. `v1/`은 `main/adapters/opencode/v1/`이다.
+§10의 검색을 실행해 테스트를 제외한 호출부와 대조했다. `client()` 호출자는 complete/recover/send/readHistory이며
+release는 일시 요청의 finally와 채널 run의 finally에 연결했다. 창 이벤트 구현은 `main/infra/external-navigation.ts`로 이동했다.
+이는 §10 EP6의 등록 경로 내부 추출이다. `main/index.ts`의 호출 배선과 Markdown 진입은 아래 미잠금 지점으로 남긴다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령/관측·oracle | 운반항·구별값·관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP1·VP6·VP8 | EP1 서버 소유권 | complete/recover/send/readHistory, channel run/close, server acquire/release/close, RuntimePool closeEntry — 10곳 | 10/10 | `v1/adapter.test.ts`: `starts the turn, completion and recovery…`, `rejects a failed auxiliary response…`, `releases the history connection…`; `v1/server.test.ts`: `releases only the last owner…`, `isolates server configurations…`; `main/app/chat-turn/opencode-runtime.test.ts`: `reuses a live OpenCode process…` | 일시 요청 release 3회, 404·503 뒤 각각 1회, 공유 소유자 유지·마지막 해제 kill·LRU kill 관측 | 실제 임의 MCP 자식 트리까지 종료되는 Windows 실기는 별도 |
+| VP1·VP2·VP6·VP10 | EP2 시작/metadata | installed/readVersion/start/databasePath — 4곳 | 4/4 | `v1/server.test.ts`: `coalesces version checks…`, `invalidates the version cache…`, `retries after replacing…`, `coalesces concurrent startup…`; `v1/server.database-path.test.ts`: `reads the database path…` | version 병합 1회, 실행 파일 교체 2회; DB 성공 cache 1회→삭제/실패/재시도 총 3회; spawn `--port=49123` | AT4 토스트 관측/차단은 미완료 |
+| VP3·VP7 | EP3 상태 상세 | store toggle/setActive/remove, titlebar active, Panel/navigation, layout — 7곳 | 7/7 | `renderer/src/features/chat/store/chatStore.panelTiles.test.ts`: `opens status over the task…`; `components/ChatTitleBar.render.test.ts`: `런타임 타일 제목과…`; `harnesses/opencode/rightpanel/Panel.interaction.test.ts`: `opens native status…`; `lib/rightPanelLayout.test.ts`: `removes legacy OpenCode status…` | task 단일 열, detail nativeStatus, 닫은 뒤 원래 작업 영역, legacy status 제거·열 id 유지 | 설치본의 전체 다중 모니터/배율 실기는 미실행 |
+| VP3·VP7 | EP4 출처 그룹 | nativeMcp/Orca group/SourceHeading — 3곳 | 3/3 | `renderer/src/features/skills/components/customize/CustomizeList.render.test.ts`: `labels native plugin skills…` | 첫 그룹 pt-5, 후속 pt-8, Claude text-spinner·OpenCode text-oc-ink | 없음 |
+| VP4·VP7·VP10 | EP5 미지원 파일 | artifact open/retry, context 판정, file handler sink — 4곳 | 4/4 | `renderer/src/features/chat/store/artifactViewerStore.test.ts`: `reveals unsupported formats…`, `reveals an unsupported retry…`; `main/app/handlers/context-file.test.ts`; `files.contextDirectory.test.ts`: 파일 열기 매개변수 사례 | unsupported→reveal, 기존 viewer 유지, 늦은 응답 무시; 승인된 실제 경로만 Explorer sink | 실제 Explorer 창을 여는 설치본 실기 미실행 |
+| VP4·VP7·VP10 | EP6 링크 | main window popup/navigation 등록, Markdown anchor — 3곳 | 0/3 | `main/infra/external-navigation.test.ts`: `sends HTTP(S) popup and same-frame navigation…`은 추출된 등록 함수 안의 이벤트→shell 두 경로만 직접 관측 | http/https는 정확한 URL 전달·탐색 취소, 다른 scheme 거부 | main/index 호출 배선 2곳과 실제 Markdown 클릭 1곳은 직접 oracle 없음. helper 통과로 이 3곳을 닫았다고 세지 않음 |
+| VP5·VP7·VP9·VP10 | EP7 native Composer | channel resources, SDK mapper, main merge, renderer observed, Controls/Module, prompt — 7곳 | 7/7 | `v1/composer-catalog.test.ts`; `v1/adapter.persistent.test.ts`: `passes a live plugin agent…`, `discards menu metadata…`; `main/app/handlers/session-resources.test.ts`: `retains live observations…`; `renderer/src/features/chat/lib/nativeResourceState.composer.test.ts`; `harnesses/opencode/composer/Module.integration.test.ts`, `Controls.interaction.test.ts` | plugin-review/deep→plugin-revised/빈 variants, IPC/cache 전달, 이전 선택 제거·다음 prompt 검증; 닫힌 채널의 늦은 목록은 disconnected | 없음 |
+
+직접 oracle로 닫은 자리 **35/38**. 차집합은 EP6의 위 3곳이다. Windows 토스트는 이 합계와 별개의 AC4 미완료다.
+원본 검색 결과가 넓게 잡은 테스트·타 하네스 항목은 production 자리로 세지 않았다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP1 | REQUIRED | SELF_PASS | EP1·EP2의 server/adapter/runtime tests | not selected — 횟수·kill 직접 관측 |
+| VP2 | REQUIRED | SELF_BLOCKED | EP2 spawn 시험·실제 CLI smoke는 통과 | not selected — Windows 토스트 억제 증거 없음 |
+| VP3 | REQUIRED | SELF_PASS | EP3·EP4의 store/Panel/CustomizeList tests | not selected — DOM·행동 관측 |
+| VP4 | REQUIRED | SELF_BLOCKED | EP5 tests와 navigation helper test 통과 | not selected — EP6 진입 3자리 미잠금 |
+| VP5 | REQUIRED | SELF_PASS | EP7 catalog/cache/Controls/channel tests | not selected — 구별값 전달·제거 관측 |
+| VP6 | REQUIRED | SELF_PASS | EP1 adapter tests·CLI smoke | not selected — 수명·실제 서버 종료 관측 |
+| VP7 | REQUIRED | SELF_BLOCKED | Panel/Module 통합·Chromium 확인 통과 | not selected — EP6 진입 3자리 미잠금 |
+| VP8 | REQUIRED | SELF_PASS | `main/app/chat-turn/opencode-runtime.test.ts:reuses a live OpenCode process…` | not selected — 공통 RuntimePool 축출→kill |
+| VP9 | REQUIRED | SELF_PASS | EP7 main IPC cache·Module integration·persistent channel | not selected — plugin-review/deep 전달 |
+| VP10 | REQUIRED | SELF_BLOCKED | EP2·EP5·EP7 및 navigation helper의 단위 시험 통과 | not selected — 연결된 EP6 자리의 전수 완료는 주장하지 않음 |
+
+### 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| 해당 없음 | V1의 모든 pair가 not selected | 최초 | 직접 행동 oracle만 추가 | mutation 미선택 |
+
+분모 검산: 선택 증거 0 · 인용 변이 0 · 새 구조/proxy oracle 0 = 변이 행 0.
+위 표는 해당 없음 표기이며 선택된 변이 행으로 세지 않는다. 이전 verify의 red/green 이력은 없다.
+
+### Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 문구·상태 소비자가 있는가 | 추가 사용자 토스트 없음. runtime 목록 실패는 기존 성공 cache 유지 | 종료 generation으로 권한 이전 금지 |
+| seam 재배치가 cleanup 변수를 끊는가 | adapter client lease는 외부 finally가 참조. 실패 completion과 history HTTP 오류에서도 release 관측 | 없음 |
+| 실패 경로가 Part I에 있는가 | metadata 실패·새 generation·파일 missing은 §5·D9의 기존 실패/전환 | 새 상태 없음 |
+| 아무 일도 안 일어난 것처럼 보이는가 | 미지원 파일은 reveal. 파일 실패는 기존 오류 UI. 외부 브라우저 기동 실패는 기존과 같이 UI 통지 없음 | 브라우저 실패 안내는 범위 밖으로 기록 |
+| 늦은 응답이 화면을 되돌리는가 | artifact 요청 id, cache generation 및 channel close 이후 검사로 차단 | 닫힌 채널 metadata regression 추가 |
+
+### 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 기존 pool은 LRU가 채널을 닫아도 child가 남음 | ✅ lease 및 마지막 소유자 tree 종료 | RuntimePool 통합 kill 시험 |
+| 2 | 초기 live catalog를 기다리면 기본 prompt까지 지연 | ✅ 선택 agent/variant가 있을 때만 제한 시간 내 catalog를 기다림 | `adapter.persistent.test.ts:does not wait for menu metadata…` |
+| 3 | fallback 목록으로 live 선택값을 먼저 지울 수 있음 | ✅ authoritative 성공 후에만 값 제거 | Controls interaction·Module integration |
+| 4 | nativeResources await 뒤 이미 닫힌 채널을 connected로 반환할 수 있음 | ✅ 종료 재검사 | `discards menu metadata that finishes after the channel closes` |
+| 5 | 임시 포트 예약 해제와 CLI bind 사이 경쟁 | ⚠️ 보고만. bind 실패는 시작 오류로 반환하며 항목 제거 후 재시도 가능 | server startup 실패/재시도 시험; 경쟁 창 자체를 없애지는 않음 |
+| 6 | Desktop 완료 알림은 headless CLI의 설정이 아님 | ⚠️ AC4 미완료. Desktop `notifications.agent` 전역값 변경 안 함 | [관측 기록](evidence/validation.md)의 토스트 항목 |
+| 7 | Desktop과 동일한 cold 성능이라는 근거 없음 | ⚠️ 실제 CLI만 측정. host 부하에 따라 cold 4.1~11.5초 | 같은 기록의 시간표; Desktop 대비 실험 없음 |
+
+설계 대비 메커니즘 대체는 없다. private port의 예약 경쟁과 catalog의 조건부 대기는 구현 세부다.
+
+| 축 | 추가 실패 가능성 | 재확인한 AC·§10 / 관측 |
+|---|---|---|
+| 만료 | executable 교체·DB 파일 삭제 후 cache가 남을 수 있음 | AC2·EP2: identity 변경/파일 삭제 뒤 재조회 |
+| 공유 | 다른 세션 release가 공용 서버를 종료할 수 있음 | AC1·EP1: 마지막 owner만 kill, 늦은 release는 새 서버 유지 |
+| 재진입 | 한 번 실패한 promise를 계속 재사용할 수 있음 | AC2·EP2: version/start/db 실패 이후 재시도 |
+| 다른 무효화 축 | 새 generation 또는 종료 중 응답으로 이전 catalog가 부활할 수 있음 | AC10·EP7: renderer generation·channel close regression |
+
+### 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | OpenCode server/adapter/channel/catalog, main 파일·링크 포트, renderer 상태 상세·Composer·출처 그룹, 해당 테스트 및 현재 아키텍처/IPC 문서 |
+| 실행 명령·산출 | [검증 기록](evidence/validation.md). 35파일 353시험 통과 후 마지막 수명/IPC 수정 3파일 55시험 재검증. 패널 추가 시험 별도 기재 |
+| V-pair 자기확인 | SELF_PASS 6 / SELF_BLOCKED 4 |
+| 강제 지점 전수 | 35/38, EP6 진입 3자리 미잠금 |
+| 블로커 / 역질문 | Orca 실행에만 적용되는 토스트 스위치 미확인. Desktop 전역 변경은 실행하지 않음 |
+| 대상 커밋 | (r1 구현 — 좌표는 INDEX) |
+
+| AC | 자기보고 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | 공통 RuntimePool idle 축출이 실제 adapter/channel을 통해 fake owned child kill, 공유 owner 유지 |
+| AC2 | ✅ | version/DB 횟수·재시도 시험 및 실제 CLI cold/warm 측정 |
+| AC3 | ✅ | 명시 port spawn 단언, 실제 CLI 임시 포트의 health 성공 |
+| AC4 | ⚠️ | 토스트 비활성화 설정 미구현, 실제 완료 알림 억제 미확인 |
+| AC5 | ✅ | 상태 상세의 task 폭·닫기·Esc/초점 복귀 관측; 확대/resize는 같은 상세 호스트 시험 |
+| AC6 | ✅ | 그룹 간격·색 DOM 시험과 light/dark Chromium 관측 |
+| AC7 | ✅ | unsupported artifact/context의 reveal sink, missing·권한·늦은 응답 시험 |
+| AC8 | ✅ | 등록 helper의 HTTP(S) popup/navigation→shell 호출 및 탐색 취소 시험. EP6 조립 진입 증거의 한계는 위에 별도 기록 |
+| AC9 | ✅ | SDK agent DTO→IPC/cache→Composer와 선택값→실제 SDK prompt payload를 각각 관측 |
+| AC10 | ✅ | 빈 variants 숨김·선택 제거, 같은 generation 실패 보존·새 generation 차단·재마운트 유지 시험 |
+
+합계 검산: **✅ 9 · ⚠️ 1 · ❌ 0 = 총 10**. `Criteria-Met: 9/10`, `Status: partial`.
+이는 자기보고이며 독립 검증 PASS 또는 미잠금 지점의 완료 선언이 아니다.
+
+### Review Signals — 사실만
+
+- 최초 r1 구현이며 이전 verify 지적은 없다.
+- plan AC4는 실제 알림 관측을 요구한다. 공개 설정 스위치를 확인하지 못해 완료 판정을 하지 않았다.
+- Electron fork worker가 종료되는 환경에서는 기존 ABI를 유지한 thread pool로 재검증했다. ABI 재설치는 하지 않았다.
+- raw 문서 링크 gate는 ignored `.tmp/opencode-dev`의 기존 링크 5개에서 실패한다. workspace 문서 링크에는 해당 실패가 없다.
+- 라운드/impl 턴: r1. 다음은 독립 검증이며 미해결 AC4와 EP6 증거 범위를 함께 전달한다.

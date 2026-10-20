@@ -34,11 +34,15 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 
 앱은 `createOpenCodeAdapter`를 통해 `SessionAdapter`를 받고, `opencode/implementation.ts`의 전송·서버 수명·설정 로더 계약만 사용한다. 구체 adapter/server 생성은 `opencode/v1/index.ts`가 담당한다. 버전 디렉터리를 직접 소비하거나 버전 구현끼리 참조하는 import는 ESLint가 차단한다. 다른 버전 구현은 같은 계약을 제공하고 중립 진입점에서 선택해야 하며, 현재 실행 가능한 구현은 1.x다.
 
-`OpenCodeServerPool`은 실행 파일·구성·환경·cwd fingerprint별 시작을 합치고 loopback 임의 포트와 임의 인증 암호를 사용한다. 서버는 실제 작업 cwd에서 실행하며 하네스의 native 환경과 저장 경로를 따른다. 엔진 설정은 `OPENCODE_CONFIG_CONTENT` 실행 오버라이드로 전달하고 native 설정 파일은 덮어쓰지 않는다. 앱 종료는 자신이 spawn한 child만 종료한다. 설치된 CLI를 PATH와 npm 설치 경로에서 찾거나 하네스 설정의 절대 실행 파일 경로를 사용한다. 자동 CLI 설치·사용자 OpenCode 프로세스 재사용은 제공하지 않는다.
+`OpenCodeServerPool`은 실행 파일·구성·환경·cwd fingerprint별 시작을 합치고 OS에서 할당받은 명시적인 loopback 임시 포트와 임의 인증 암호를 사용한다. 서버는 실제 작업 cwd에서 실행하며 하네스의 native 환경과 저장 경로를 따른다. 엔진 설정은 `OPENCODE_CONFIG_CONTENT` 실행 오버라이드로 전달하고 native 설정 파일은 덮어쓰지 않는다. 연결별 소유권을 세며 마지막 연결 해제나 앱 종료 시 자신이 spawn한 child를 종료한다. Windows는 소유 PID의 자식 트리도 종료한다. 채널은 공통 RuntimePool의 idle LRU 축출에 따라 연결을 해제하고, 일시 조회·보조 실행은 finally에서 해제한다. 공유 중인 다른 세션의 연결은 유지한다.
+
+설치된 CLI를 PATH와 npm 설치 경로에서 찾거나 하네스 설정의 절대 실행 파일 경로를 사용한다. 버전 조회는 실행 파일 identity가 같은 동안 병합·재사용하고 실패나 파일 변경 뒤 다시 확인한다. DB 경로는 살아 있는 서버별로 병합·재사용하며 파일이 없어지거나 조회가 실패하면 다시 확인한다. 자동 CLI 설치·사용자 OpenCode 프로세스 재사용은 제공하지 않는다.
 
 `opencode/v1/native-history.ts`는 동일 native ID·cwd를 확인하고 변경 중이거나 응답이 미완료인 이력의 교체를 보류한다. 구격리 저장소의 알려진 세션은 `legacy-storage-migration.ts`가 원본과 native 대상의 ID·리소스를 확인한 뒤 연결하며, 충돌·불완전한 전환은 상태로 반환한다. 공통 조립은 snapshot을 Orca DB에 보관해 표시·검색에 사용한다. 목록 제거와 보관 계층의 수명은 [persistence.md](./persistence.md), 원본 소유 정책은 [ADR-009](../../decisions/009-harness-native-storage-authority.md)를 따른다.
 
 `OpenCodeAdapter`는 `/v2/client`의 legacy 호환 API(`/session`, `/event`)를 사용한다. catalog는 엔진 문서에 명시된 모델과 에이전트를 로컬에서 파생하며 서버 실행·전역 공급자 조회를 하지 않는다. `opencode/v1/channel.ts`는 입력 전에 SSE를 연결하고 같은 LiveTurn의 pushTurn으로 후속 입력을 제출한다. session ID·prompt parent ID·event/part ID로 소유권과 중복을 격리하며, 응답 idle은 해당 프레임만 종료한다. 이후 소유 background의 완료 입력과 응답은 기존 SessionRuntime pump·listen 경로로 받는다.
+
+실행 후 Composer 선택지는 SDK의 agents/providers 응답으로 보완한다. 플러그인이 해석한 visible primary/all 에이전트와 모델 variant 이름만 안전 DTO로 전달하며 prompt·옵션·자격증명은 보내지 않는다. 성공한 빈 목록은 제거로 적용하고 조회 실패에는 같은 채널의 마지막 성공 목록을 보존한다. 조회는 채널 안에서 병합하고 기본 입력은 목록 조회를 기다리지 않는다. 관측한 목록에 없는 agent·variant는 다음 일반 입력과 native command 모두에서 제외한다.
 
 native user의 synthetic text만 공통 `input.received`로 기록하고, 모델 전달은 OpenCode 서버에 맡긴다. 완료 태그는 등록된 native job/child ID에 일치할 때 작업 상태와 같은 배치로 전달한다. 태그를 받은 이유로 prompt를 다시 보내거나 기본 reminder를 추측해서 합성하지 않는다. 공통 분류·영속 계약은 [provider-runtime.md](./provider-runtime.md)의 시스템 피드 설명을 따른다.
 

@@ -12,6 +12,7 @@ import {
   chatActions,
   getActiveChatSession,
   useChatSession,
+  useChatStore,
   useUnseenSettledTaskCount
 } from '../store/chatStore'
 import { partsText } from '../lib/parts'
@@ -61,6 +62,9 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   const sessionId = useChatSession((s) => s.sessionId)
   const agentKind = useChatSession((s) => s.agentKind)
   const backend = useChatSession((s) => s.backend)
+  const statusDetail = useChatStore(
+    (s) => s.sessions[s.activeKey]?.panelReveal?.detail?.id === 'nativeStatus'
+  )
   // 열 구조(stable ref)를 구독하고 평탄 뷰는 메모로 파생 — selector 가 새 배열을 반환하면
   // zustand Object.is 비교가 매번 깨져 불필요 재렌더가 난다.
   const tileColumns = useChatSession((s) => s.rightPanelTiles)
@@ -215,14 +219,17 @@ export const ChatTitleBar = memo(function ChatTitleBar({
             {tr('chat.titleBar.tilesHeader')}
           </div>
           {menuTiles.map((tile) => {
-            const active = activeTiles.includes(tile.id)
+            const active =
+              tile.id === 'nativeStatus' && backend === 'opencode'
+                ? statusDetail
+                : activeTiles.includes(tile.id)
             return (
               <MenuItem
                 key={tile.id}
                 icon={tile.id === 'nativeStatus' ? undefined : active ? 'check' : 'plus'}
                 iconSize={13}
                 onClick={() => {
-                  chatActions.toggleRightPanelTile(tile.id)
+                  chatActions.toggleRightPanelTile(tile.id, anchorRef.current)
                   setOpen(false)
                 }}
                 role="menuitemcheckbox"

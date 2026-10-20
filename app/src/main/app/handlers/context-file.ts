@@ -4,6 +4,7 @@ import { isAbsolutePath, isFilesystemRoot } from '../../../shared/absolute-path'
 import { directoryIdentity } from '../../../shared/extra-directories'
 import { isWithinDir } from '../../infra/config/paths'
 import { unredirectedFile } from '../../infra/config/real-file'
+import { artifactFormat } from '../../features/artifacts/formats'
 
 export interface ContextFileScope {
   recordedContextDirectories(sessionId: string): string[]
@@ -39,7 +40,13 @@ export const CONTEXT_FILE_OPEN_EXTENSIONS: ReadonlySet<string> = new Set([
 ])
 
 export function opensWithDefaultApp(target: string): boolean {
-  return CONTEXT_FILE_OPEN_EXTENSIONS.has(extname(target).slice(1).toLowerCase())
+  if (!CONTEXT_FILE_OPEN_EXTENSIONS.has(extname(target).slice(1).toLowerCase())) return false
+  try {
+    artifactFormat(target)
+    return true
+  } catch {
+    return false
+  }
 }
 
 export async function resolveContextFile(

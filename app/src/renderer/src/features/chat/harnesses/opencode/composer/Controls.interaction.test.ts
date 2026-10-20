@@ -47,6 +47,25 @@ const key = (node: FakeNode, value: string): void => {
 }
 
 describe('OpenCode composer selection', () => {
+  it('removes a stale agent only after an authoritative runtime catalog and hides missing variants', () => {
+    dom.render(createElement(OpenCodeAgentControl, { agents: [{ name: 'plugin-review' }] }))
+    expect(harness.change).not.toHaveBeenCalled()
+    dom.render(
+      createElement(OpenCodeAgentControl, {
+        agents: [{ name: 'plugin-review' }],
+        authoritative: true
+      })
+    )
+    expect(harness.change).toHaveBeenCalledWith({ agent: '', variant: '' })
+    dom.click(dom.query('[aria-label="harness.agent"]')!)
+    dom.click(dom.queryAll('[role="menuitemradio"]')[1])
+    expect(harness.change).toHaveBeenLastCalledWith({ agent: 'plugin-review' })
+    dom.render(createElement(OpenCodeVariantControl, { variants: [] }))
+    expect(dom.query('[aria-label="harness.variant"]')).toBeNull()
+    expect(harness.change).toHaveBeenLastCalledWith({ agent: 'plugin-review' })
+    dom.render(createElement(OpenCodeVariantControl, { variants: [], authoritative: true }))
+    expect(harness.change).toHaveBeenLastCalledWith({ variant: '' })
+  })
   it('opens at the current agent, navigates with keys and sends the exact agent selection', () => {
     dom.render(
       createElement(OpenCodeAgentControl, { agents: [{ name: 'build' }, { name: 'plan' }] })
