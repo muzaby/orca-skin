@@ -935,7 +935,7 @@ EP22 고정 8자리: ①registry scope와 설치 경로 선택 ②configured rea
 
 사용자: “native plugin을 켜고 끄는 (설치/삭제) 방법을 설명한 것이다. 실제 어떻게 구현할지는 너의 재량이며, settings.json을 파일시스템이 아닌 런타임에서 관리할 수 있다면(claude-agent-sdk가 이를 지원한다면) 그렇게 하도록 하라”. SDK의 applyFlagSettings/reloadPlugins와 실제 CLI를 확인했다. local plugin root는 `name@inline` 키로 껐다 켤 수 있고, 원래 marketplace key로는 local root가 꺼지지 않았다.
 
-D-30 ACTIVE: 플러그인 이름 클릭은 installPath 폴더를 연다. 실행 중 Claude에서 지원되는 설치에는 별도 세션 활성 제어를 제공하며 applyFlagSettings→reloadPlugins로만 바꾼다. 실제 설치/삭제·설정 파일 쓰기는 하지 않는다. D-20의 토글 금지를 이 제어에 한해 대체한다. 실행 채널 부재/미지원일 때 폴더 열기는 유지하고 활성 제어는 제공하지 않는다.
+D-30 ACTIVE: 플러그인 이름 클릭은 installPath 폴더를 연다. 실행 중 Claude에서 지원되는 설치에는 별도 세션 활성 제어를 제공하며 applyFlagSettings→reloadPlugins로만 바꾼다. 실제 설치/삭제·설정 파일 쓰기는 하지 않는다. D-20의 토글 금지를 이 제어에 한해 대체한다. D-23·AC20·EP18의 비활성 root 제외는 초기 inline 플래그로 CLI의 플러그인 로드·명령을 제외하는 계약으로 대체한다. 비활성 설치 경로와 스킬 허용 이름은 세션에서 나중에 켜기 위한 후보로 SDK에 전달하지만 초기 실제 로드/명령에서는 제외한다. 실행 채널 부재/미지원일 때 폴더 열기는 유지하고 활성 제어는 제공하지 않는다.
 
 AC28: 최초 spawn에 범위 내 설치 roots와 초기 비활성 inline flag를 함께 전달해 비활성 plugin의 실행을 막는다. 독립된 제어 클릭은 folder를 열지 않고 해당 plugin만 껐다 켜며 SDK reload 반환의 실제 plugin/commands를 사용한다. sibling flag·Orca 주입 스킬·generation fence와 실패 토스트/재조회는 유지한다. 실제 CLI probe 및 adapter.native-plugins/native-resources/menu/hook 테스트가 직접 oracle이다.
 
