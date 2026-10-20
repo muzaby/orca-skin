@@ -5,8 +5,8 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | IMPL_DONE / r1.10 |
-| V mode / 기준 V / 유효 V | Delta V / r1.9 (`64beff7e`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9+ΔV10+ΔV11+ΔV12 |
+| 상태 / 라운드 | READY / r1.11 |
+| V mode / 기준 V / 유효 V | Delta V / r1.9 (`64beff7e`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9+ΔV10+ΔV11+ΔV12+ΔV13 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
 # Part I — Product & UX Contract
@@ -1521,3 +1521,19 @@ SELF_PASS. 현재 하네스만 Composer에 보이고 nav는 양 하네스 설치
 - 새 nav 테스트의 fake DOM 초기화 누락/viewport 타입과 일부 기존 기대값이 초기 실행에서 실패했다. 수정 후823케이스와 타입3종에서 진단0을 관측했다.
 - 처음 boundary 검사를 루트에서 실행해 ESLint config 탐색이 실패했고, 정본 작업 디렉터리 app에서 재실행8/8이었다. Windows 문서 검사는 UTF-8로 실행했다.
 - 독립 검증 대기다. 실제 설치 앱 GUI를 조작하지 못한 범위를 메모리 IPC fixture와 혼동하지 않는다.
+
+## r1.11 — ΔV13: native 플러그인 선택 지속과 비활성 메뉴 커서
+
+READY. 사용자 지시로 이전 미완료 로컬 변경과 설계 커밋을 취소하고 원격 r1.10 구현을 기준으로 리베이스했다. 이번 범위는 플러그인 선택의 턴/앱 재시작 지속과 비활성 메뉴의 일반 커서다.
+
+| 결정 | 상태 | 계약 |
+|---|---|---|
+| D-46 | ACTIVE | 케밥에서 성공한 native Claude 플러그인 enable/disable은 현재 SDK에 적용하고 현재 프로젝트의 `.claude/settings.local.json` enabledPlugins에 원래 설치 key로 저장한다. 다른 설정/다른 plugin key는 보존한다. 다음 턴·콜드 재개·앱 재시작에서도 선택이 복원된다. SDK applyFlagSettings는 세션 전용이고 writeSettings는 enabledPlugins를 지원하지 않으므로 파일 원천을 사용한다. native plugin 선택에 한해 프로젝트 local flag가 provider 기본값보다 우선한다. 기존 D30의 runtime-only·native 파일 불변 부분을 이 범위에서 대체한다. |
+| D-47 | ACTIVE | 비활성 popup MenuItem은 일반 cursor-default를 유지한다. 회색·disabled·중복 입력 방지는 유지하며 금지 커서만 제거한다. |
+
+AC43: 실제 Query plugin reload 성공 뒤 선택 저장, 다음 턴과 새 adapter/spawn 및 설정 reader에서 동일 활성 상태, disable도 지속. SDK/저장 실패는 실패로 반환하고 직전 runtime 설정으로 복구하며 기존 파일을 보존한다. 다른 설정·plugin 선택은 유지한다.
+AC44: 케밥 빈 그룹/읽기 전용 메뉴/진행 중 제어의 computed cursor가 default이며 disabled 입력은 실행되지 않는다.
+
+VP40~43 NEW REQUIRED. EP28 고정7자리: ①SDK plugin 변경 성공/실패/복구 ②adapter→project 상태 저장 배선 ③엄격 JSON 읽기·원자 저장·기존 필드 보존 ④catalog local 우선순위→초기 inline flag/skills/후속 spawn ⑤현재/재개 native 상태·명령 재조회 ⑥MenuItem disabled 표면·Cascade 입력 ⑦실제 케밥 클릭/진행/재열기. 검색 `rg -n 'enabledPlugins|claudeNativeResources|readClaudePluginCatalog|setNativeResource|cursor-not-allowed' app/src/{main/adapters/claude,main/app/handlers/session-resources.ts,renderer/src/shared/ui,renderer/src/features/chat}`의 생산 경로를 대조한다.
+
+직접 oracle은 실제 임시 설정 파일→adapter Query 옵션·runtime setter→새 spawn, native-resources의 SDK/저장 실패 복구, 실제 bundled CLI의 후속 턴/새 채널, Chromium disabled/pending 커서다. M2/M3는 이번 비영향 projection을 변경하지 않으므로 r1.10 기록을 승계하며 신규 선택 변이는 없다. 관련 main/renderer 테스트·lint·타입3종·build·boundary·문서 검사를 수행한다. 새 의존성/DB/설치·삭제 동작은 추가하지 않는다. 누적 AC44, READY.
