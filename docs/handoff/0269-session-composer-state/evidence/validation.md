@@ -44,4 +44,10 @@ python3 ../docs/handoff/0266-renderer-design-guidelines/evidence/check-design-do
 {"observations":[{"session":"A","model":"claude-sonnet-4-6[1m]","permission":"auto_classified","label":"team/claude-sonnet-4-6[1m]","auto":true},{"session":"B","model":"claude-opus-4-6","permission":"auto_classified","label":"team/claude-opus-4-6","auto":true},{"session":"A","model":"claude-sonnet-4-6[1m]","permission":"auto_classified","label":"team/claude-sonnet-4-6[1m]","auto":true}],"freshStoreModel":"claude-sonnet-4-6[1m]","manualSurvivesModelChange":true,"exceptions":[]}
 ```
 
-Windows 설치 앱 GUI·외부 모델 API는 실기하지 않았다. 새 Windows CI는 코드 push 뒤 확인한다.
+Windows 설치 앱 GUI·외부 모델 API는 실기하지 않았다.
+
+## 원격 Windows CI
+
+코드 커밋을 push한 뒤 [CI39446331194](https://github.com/muzaby/orca-skin/actions/runs/39446331194), job118709112075의 `completed / success`를 확인했다. 마이그레이션·문서 inventory·test budget·lint·타입 검사와 전체 테스트가 모두 통과했다.
+
+Windows Vitest는786파일7671케이스 통과·2파일2케이스 skip(총788파일7673케이스),462.45초다. Node scripts는142/142·실패0이다. 기존 Windows 전용 canonical path 실패가 있던 skill-catalog, OpenCode adapter.persistent/native-resources/plugin-installation도 모두 통과했다. 새 실제 DB last-model2케이스, Composer.selection3케이스, skill-sources1케이스, loopback-port1케이스도 해당 Windows 로그에서 통과를 확인했다. 코드 push 때 남겼던 AC6를 같은 구현 턴에서 완료했다.
