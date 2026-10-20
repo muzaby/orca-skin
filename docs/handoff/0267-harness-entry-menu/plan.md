@@ -5,8 +5,8 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | IMPL_DONE / r1.13 |
-| V mode / 기준 V / 유효 V | Delta V / r1.9 (`64beff7e`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9+ΔV10+ΔV11+ΔV12+ΔV13+ΔV14+ΔV15 |
+| 상태 / 라운드 | READY / r1.14 |
+| V mode / 기준 V / 유효 V | Delta V / r1.9 (`64beff7e`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9+ΔV10+ΔV11+ΔV12+ΔV13+ΔV14+ΔV15+ΔV16 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
 # Part I — Product & UX Contract
@@ -1771,9 +1771,9 @@ READY. 같은 기능을 우측 작업패널에서도 제공한다. 사용자 명
 
 | 결정 | 상태 | 계약 |
 |---|---|---|
-| D-51 | ACTIVE | nativeStatus 타일을 Claude Work/Code·OpenCode의 케밥 타일 표시에 추가한다. 메뉴 라벨은 브랜드 로고+Claude 상태/OpenCode 상태다. 기본 자동 열기는 기존 작업 타일 정책을 유지하고 사용자가 직접 상태 타일을 켜고 끈다. Work에서도 작업과 상태를 함께 배치할 수 있다. |
+| D-51 | SUPERSEDED by D-55 | nativeStatus 타일을 Claude Work/Code·OpenCode의 케밥 타일 표시에 추가한다. 메뉴 라벨은 브랜드 로고+Claude 상태/OpenCode 상태다. 기본 자동 열기는 기존 작업 타일 정책을 유지하고 사용자가 직접 상태 타일을 켜고 끈다. Work에서도 작업과 상태를 함께 배치할 수 있다. |
 | D-52 | ACTIVE | 패널은 MCP/플러그인 그룹의 항목을 한 화면에 직접 나열한다. 기존 nativeResourcesMenu 모델과 CascadeBody 행을 재사용하여 제목 왼쪽 상태 공, 오른쪽 async 스위치·손잡이 내부 spinner, 이름의 설정/설치 위치 열기, canToggle·미지원·색·오류 토스트 정책을 동일하게 유지한다. 새 안내 문구·상태 부제목·중간 submenu는 추가하지 않는다. |
-| D-53 | ACTIVE | 패널 제목은 브랜드 로고+하네스 상태·프로젝트 이름이다. 프로젝트 catalog의 이름을 page에서 chat props로 주입하며 rename이 반영된다. 소속 프로젝트가 없으면 cwd 표시 이름을 사용하고 둘 다 없으면 하네스 상태만 표시한다. 닫기·확대·복원·폭/행 리사이즈는 기존 타일 셸을 사용한다. |
+| D-53 | SUPERSEDED by D-56 | 패널 제목은 브랜드 로고+하네스 상태·프로젝트 이름이다. 프로젝트 catalog의 이름을 page에서 chat props로 주입하며 rename이 반영된다. 소속 프로젝트가 없으면 cwd 표시 이름을 사용하고 둘 다 없으면 하네스 상태만 표시한다. 닫기·확대·복원·폭/행 리사이즈는 기존 타일 셸을 사용한다. |
 | D-54 | ACTIVE | popup·panel·Composer는 같은 창의 session/backend별 관측·제어 cache를 사용하고 프로젝트 공유는 기존 main scope/fanout/push가 소유한다. 건강한 live cache는 재열기·remount·같은 세션 복귀 시 추가 조회0, 최초 동시 소비는 native IPC1회로 합친다. 첫 조회/종료·재연결/부분 실패·명시 retry는 비동기로 재조회하며 기존 목록을 유지한다. 임의 TTL·polling·새 native 실행은 추가하지 않는다. |
 
 AC47: 케밥→타일 표시에서 양 하네스 상태 타일이 로고와 올바른 이름으로 보이고 실제 toggle→우측 패널→닫기/재열기가 동작한다. Claude Work는 기존 작업과 공존한다.
@@ -1899,3 +1899,60 @@ plan 메타/INDEX를 r1.13 impl/IMPL_DONE·Claude 독립 검증 대기로 맞췄
 - 막았어야 할 지침·AC가 있었는가: 새 D51~54·AC47~50이 tile 진입과 캐시 횟수를 명시했다. 기존 hook remount 강제 조회 기대값은 새 계약에 맞게 변경했다.
 - 환경 한계: 실제 production UI를 Chromium+메모리 IPC로 검사했다. Windows 설치 앱·외부 MCP 인증은 실행하지 않았다. 최초 보충 EN 검사는 이전 탭의 조회계측이 없어 실패했고 독립 계측으로 다시 확인했다.
 - 현재 라운드·impl 턴: r1.13 / r1.13. 독립 verify 대기.
+
+## r1.14 — ΔV16: 상태 타일 표준·Code 노출·목록 간격
+
+READY. 사용자 명시 요구는 제목 bold 제거와 표준 준수, 제목 로고 컬러, 제목 hover의 프로젝트 경로, Code 모드 전용 상태 패널, 스위치 전환 애니메이션, 패널/Nav 스킬 출처 간격 확대와 Nav 스킬 행의 보조설명 제거다. 이전 프로젝트 공유와 cache 계약은 유지한다.
+
+### Decision / Product & UX
+
+| 결정 | 상태 | 계약 |
+|---|---|---|
+| D-51 | SUPERSEDED by D-55 | Work/Code 상태 타일 공존 조건은 사용자의 Code 전용 요청으로 대체한다. |
+| D-53 | SUPERSEDED by D-56 | 제목의 프로젝트 이름·표준 셸은 유지하고 활자·색·툴팁을 구체화한다. |
+| D-55 | ACTIVE | Claude/OpenCode 상태 타일은 Code에서만 메뉴와 실제 패널에 나타난다. Work의 저장된 nativeStatus 배치도 표시하지 않는다. 기존 Work 작업 타일 정책(task-focus)을 복원한다. MCP/plugin 관측 cache와 Composer는 모드로 제한하지 않는다. 케밥 native popup은 D59에 따라 제거한다. |
+| D-56 | ACTIVE | 제목은 기존 파일 뷰어 패널의 text-footnote/font-normal/text-ink2 표준을 따르며 브랜드 로고+하네스 상태·프로젝트 이름을 유지한다. Claude 로고는 기존 브랜드 text-spinner, OpenCode는 공식 중립색 text-oc-ink로 명시한다. hover의 title은 catalog 프로젝트 cwd를 우선, 없으면 session cwd를 사용하며 둘 다 없으면 생략한다. |
+| D-57 | ACTIVE | ToggleIndicator의 상태 전환을 손잡이 transform과 배경색의200ms 애니메이션으로 표시한다. 응답 전 pending/spinner·실제 확인 후 checked·독립 제어는 유지한다. reduced motion에서는 전환을 끈다. 응답을 지연하거나 optimistic success를 추가하지 않는다. |
+| D-58 | ACTIVE | 상태 패널은 첫 그룹 위 여백을 늘리지 않고 뒤따르는 그룹 제목 위에1.25rem 간격을 둔다. Nav 스킬은 뒤따르는 출처 제목 top padding을2rem로 늘리고 행의 타이틀 아래 출처/author 보조설명을 제거한다. 그룹 제목·로고·스킬 이름·시간·선택·상세 열기는 유지한다. MCP/provider 보조설명은 변경하지 않는다. |
+
+AC51: Code의 실제 메뉴에서 상태 패널을 열 수 있고 Work 메뉴/저장된 상태 배치에는 나타나지 않는다. 기존 Work 작업이 정상 표시되고 Code 복귀의 native 관측 cache는 유지된다. 기존 AC47의 Work 공존 조항만 이 기준으로 대체한다.
+AC52: 두 하네스 상태 제목은 normal weight와 명시한 브랜드 색이며 프로젝트 이름을 유지한다. hover는 catalog 경로(다른 session 하위 cwd와 구별), 없으면 cwd를 표시한다. rename/path 갱신·좁은 폭·두 테마가 정상이다. 기존 AC49의 제목 tooltip은 프로젝트 경로로 대체한다.
+AC53: 실제 native 스위치 on/off에서 손잡이가200ms 동안 이동하고 배경색도 전환한다. pending은 손잡이 안 spinner로 표시하며 readonly/default cursor·오류·공유·checked 제어는 유지한다. reduced motion은 이동/색 전환을 하지 않는다.
+AC54: 상태 패널 그룹 사이에1.25rem 여백, Nav 스킬 두 번째 이후 출처 제목 top padding2rem가 관측된다. Nav 행에는 스킬 이름·시간과 선택/상세 열기가 남고 타이틀 아래 source/author 설명은 없다. 그룹 제목의 출처/로고와 MCP/provider 메타는 보존된다.
+누적 AC54(아래 추가 요구 AC55 적용 후55). 작은 UI 후속 수정이므로 같은 handoff의 ΔV로 유지한다. 기존 AC1~50 중 위 대체조항 외 계약은 유지한다.
+
+### Technical Design / 조사
+
+AS-IS: native header는 font-semibold이고 title=표시 라벨이다. page는 catalog name만 주입한다. 양 모드에서 상태 타일이 지원된다. ToggleIndicator가 justify-start/end로 움직여 보간되지 않는다. 스킬 행의 detail이 source를 중복 표시하며 SourceHeading은 고정 pt-5다.
+TO-BE: projectPath를 기존 page→chat→RightPanel host→column→header props에 추가한다. Claude Work 정책을 원래대로 복원하고 OpenCode Work policy에서도 상태를 제외한다. ToggleIndicator는 고정 track·transform thumb와 색 transition을 사용한다. MenuTitle에 heading DOM marker를 두고 native tile 범위에서 두 번째 이후 heading에 margin을 준다. SourceHeading의 간격 옵션은 스킬의 후속 그룹에서만 사용한다.
+새 의존성·IPC·DB·main/SDK·프로젝트 영속/공유 변경 없음.
+
+| V pair | 레벨·변경·requiredness | path / 직접 oracle |
+|---|---|---|
+| VP52 | R↔AT NEW REQUIRED | page catalog→projectPath props→실제 NativeResourcesTileHeader. NativeStatusProject/ChatTile/NativeResourcesTile tests에 catalog root와 다른 cwd·rename·path 갱신을 넣고 최종 title과 font/color 확인. 실제 Chromium hover/style |
+| VP53 | SD↔ST NEW REQUIRED | harness mode policy→menu/target/persisted column filter→RightPanel. rightPanelTiles.harness/ChatTitleBar render tests의 두 backend·두 mode, Chromium 실제 Code→Work와 저장 배치 |
+| VP54 | MD↔UT NEW REQUIRED | 실제 native action→공유 cache checked→CascadeBody→ToggleIndicator. 기존 CascadeMenu/hook/native tile 회귀, 실제 Chromium transition 진행 프레임·양방향·reduced motion 관측 |
+| VP55 | AR↔IT NEW REQUIRED | native flat heading→MenuTitle marker·spacing, Nav CustomizeList→SourceHeading/CatalogListRow→선택. CustomizeList.render.test의 실제 행/source 구분 및 click 경로 유지, Chromium 두 목록의 간격·이름/시간·기존 MCP/provider 메타 |
+| VP50·51 | INHERITED REGRESSION | native cache/reconnect/프로젝트 push/수명 hook·native tile 회귀. M4 대상 불변이므로 r1.13 red 증거 승계 |
+| 나머지 기존 pair | INHERITED NOT_REQUIRED | main/SDK/CLI·저장·다른 popup projection 비영향. r1.10~13 증거 승계 |
+
+### §10 강제 지점
+
+EP31 고정11자리(추가 요구의 ⑨⑩⑪는 아래): ①Claude/OpenCode mode policy→menu/target/저장 columns ②세 page catalog cwd→ChatView/ChatTile→RightPanel host/column→Header ③native header 표준·색·tooltip/fallback ④native action checked/busy→ToggleIndicator track/thumb transition ⑤reduced-motion에서 transition 차단 ⑥native 그룹 heading→실제 MenuTitle 간격 ⑦Nav skills source 경계→간격·행의 detail 제거 ⑧남겨야 할 Nav 선택/시간·그룹 로고·MCP/provider meta.
+검색: `rg -n 'nativeStatus|projectName|projectPath|HeaderContent|ToggleIndicator|data-toggle|SourceHeading|detail=|MenuTitle' app/src/renderer/src/{features/chat,features/skills,pages,shared/ui} -g '!*.test.*'`.
+자리별 oracle: ①정책·ChatTitleBar·실제 Chromium, ②세 page/ChatTile/header tests와 실제 root/subdir 제목, ③header test+Chromium style/title, ④⑤기존 native row/hook tests+Chromium 실제 transition currentTime과 중간 transform·reduced motion, ⑥Chromium heading margin, ⑦CustomizeList 실제 render+Chromium padding/행 content, ⑧기존 CustomizeList metadata/selection tests·Chromium 실제 row click.
+적대 증거 not selected — 요구 결과를 직접 render/animation/interaction으로 관측한다. 구조적 proxy로 동작을 대체하지 않는다.
+게이트: 관련 renderer 비DB Vitest·node/web/test 타입·lint·electron-vite build·harness boundary·문서 inventory/links·UI catalog·Chromium white/dark/좁은 폭/두 하네스/키보드/축소모션. 실제 Windows 설치 GUI는 별도이며 이번 소스 변경에 native CLI 재실행은 불필요하다.
+READY self-review: D55→AC51, D56→AC52, D57→AC53, D58→AC54. D51/53의 원래 표도 SUPERSEDED로 갱신한다. 신규5pair/9자리와 직접 oracle이 연결되며 남은 ACTIVE 계약과 충돌0.
+
+추가 사용자 요구를 구현 전에 반영한다. D59 ACTIVE: 케밥 타일 표시의 상태 진입 로고도 D56의 브랜드 색을 사용한다. 케밥의 하네스 그룹과 MCP/plugin 하위 메뉴·popup은 제거하며 NativeResourcesMenu와 전용 소비 코드도 삭제한다. nativeResourcesMenu 모델·CascadeBody·hook/cache는 상태 타일/Composer에서 계속 사용한다. 상태 관리 진입점은 Code 우측 타일이다.
+AC55: 실제 케밥에는 타일 표시의 컬러 상태 진입만 있고 별도 하네스 제목·MCP/plugin 하위 메뉴와 popup이 없다. 케밥 열기만으로 native 조회하지 않는다. 상태 타일의 제어·공유/cache는 유지한다. 누적 AC55.
+VP56 R↔AT NEW REQUIRED: 실제 ChatTitleBar open→menu children, negative DOM과 native IPC0·컬러 SVG/타일 열림은 ChatTitleBar render/interaction tests와 Chromium에서 관측한다. EP31에 ⑨케밥 상태 진입 로고→하네스 그룹/NativeResourcesMenu 제거를 추가하여 분모9자리로 확정한다. 기존 popup 동시 소비 AC48/50은 panel/Composer 동시 소비로 대체하며 popup 자체를 요구하던 이전 AC조항은 D59에 따라 폐기한다. popup 제거 oracle은 실제 menu DOM과 조회 sink를 보며 구조적 proxy가 아니므로 적대 증거 not selected다.
+
+추가 사용자 요구 D60 ACTIVE: Nav 엔진&모델의 각 지원 하네스 카드 제목 왼쪽에 공식 Claude/OpenCode 로고를 D56과 같은 명시 색으로 넣는다. 알 수 없는 adapter에는 다른 브랜드를 꾸미지 않는다. 제목·provider·모델·readonly·지원/오류·편집/삭제 동작은 유지한다.
+AC56: 엔진&모델의 Claude/OpenCode 카드 제목 왼쪽에 각각 올바른 컬러 로고가 있고 기존 내용과 제어가 유지된다. 미지원 adapter에는 잘못된 브랜드가 없다. 누적 AC56.
+VP57 R↔AT NEW REQUIRED: 실제 AgentEnvironmentView→EngineCard→제목 SVG의 브랜드/색/위치와 편집·삭제를 EngineCard render/interaction 및 engine page 회귀, Chromium 실제 카드에서 관측한다. EP31의 ⑩엔진&모델 카드 제목 브랜드를 추가하여 최종 분모10자리다. source 검색에 features/engine을 포함하고 `EngineCard|adapterLabel` 술어를 추가한다. 적대 증거 not selected — 실제 카드 DOM/버튼 동작을 관측한다. 관련 engine 회귀를 게이트 집합에 포함한다. 이번 유효 설계는 신규6pair/10자리·AC56이다.
+
+추가 사용자 요구 D61 ACTIVE: Composer 모델 popup의 provider/harness 그룹 제목 로고도 D56과 같은 브랜드 색을 사용한다. 모델 순서·현재 선택·하네스 잠금·전환 동작은 유지한다.
+AC57: 실제 모델 popup에서 Claude/OpenCode 그룹의 공식 컬러 로고를 확인할 수 있고 기존 모델 선택과 하네스 잠금이 유지된다. 누적 AC57.
+VP58 R↔AT NEW REQUIRED: 실제 Composer→ModelMenu provider heading→HarnessLogo를 기존 ModelMenu/Composer render·interaction tests와 Chromium 모델 popup에서 관측한다. EP31 ⑪Composer 모델 그룹 로고를 추가하여 최종 분모11자리다. 추가 검색 술어는 `HarnessLogo|ModelMenu`이며 features/chat 범위를 유지한다. 적대 증거 not selected — 실제 popup DOM/선택을 관측한다. 유효 설계 신규7pair/11자리·AC57.
