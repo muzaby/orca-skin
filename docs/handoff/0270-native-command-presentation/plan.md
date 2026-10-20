@@ -7,6 +7,7 @@
 | 작성자 / 일자 | Codex (사용자 직접 수정 요청) / 2026-10-21 |
 | 상태 | READY |
 | V mode / 기준 / revision | Baseline V / none / V1 |
+| 유효 V | V1 + ΔV1 (아래 정정) |
 | 브랜치 | codex-harness-entry-menu (원격과 동일한 상태에서 착수) |
 
 # Part I — Product & UX Contract
@@ -159,3 +160,16 @@ adapters.md와 persistence.md의 현재 동작을 수정한다. 컴포넌트 신
 ## READY self-review
 
 READY — Decision↔AC 충돌 0, producer/consumer 경로·상태표·자리별 테스트 설계 확인. §10은 파일/심볼 검색으로 고정하고 구현 보고에 재실행 관측을 남긴다. UI 구조·원본 쓰기·신규 공개 계약 없음.
+
+## ΔV1 — 원본 식별과 표시 버전 분리
+
+READY — `native-sync.ts`의 sourceKey 변경은 저장 경로 이전으로 판정하므로 §4·9·11의 sourceKey 버전 계획을 대체한다. 원본 식별은 유지하고 adapter 소유 checkpoint에 `projectionVersion`을 추가하여 이전 cursor만 재투영한다.
+
+| 대체 노드/pair | 변경 | oracle / 강제 지점 |
+|---|---|---|
+| SD1→SD1a / VP5→VP5a | 원본 경로 유지 + 구 표시 cursor만 무효화 | native-history.test의 구 cursor 재조회 → sourceKey 동일·본문 slash·다음 조회 unchanged |
+| AR1→AR1a / VP6→VP6a | unchanged 조건에 projectionVersion 확인 | EP2의 sourceKey/unchanged 자리를 checkpoint/unchanged로 대체, 나머지 자리 유지 |
+
+SD1a·AR1a는 CHANGED이며 VP5a·VP6a는 REQUIRED다. AC3·4와 EP2의 전체 증거를 승계하며 선택 변이는 없다. R2·VP2는 INHERITED/REGRESSION으로 재실행한다. 자리 검색에 `projectionVersion`을 추가한다. 공개 IPC·원본 파일·DB schema 변경은 없으며 기존 adapter-owned Record checkpoint 안의 metadata다.
+
+ACTIVE 결정 ↔ AC 재대조: 충돌 0. 원본 SSOT와 기존 저장 경로 보호 계약을 모두 유지한다.
