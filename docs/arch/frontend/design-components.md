@@ -60,7 +60,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | [shared/ui/Avatar.tsx](../../../app/src/renderer/src/shared/ui/Avatar.tsx) — `Avatar` | kind별 사용자·Claude·OpenCode 표식의 크기·모서리·글리프를 해당 primitive에 맡긴다. |
 | [shared/ui/BayerPattern.tsx](../../../app/src/renderer/src/shared/ui/BayerPattern.tsx) — `BayerPattern` | 센서 이미지 표시용 stage 배경·그리드·표적. 일반 카드 장식으로 사용하지 않는다. |
 | [shared/ui/Button.tsx](../../../app/src/renderer/src/shared/ui/Button.tsx) — `Button` | variant·size·busy·pressed·dropdown props 사용. primary=중립 반전, danger=rust; 배경 span·isolate 유지. |
-| [shared/ui/CascadeMenu.tsx](../../../app/src/renderer/src/shared/ui/CascadeMenu.tsx) — `CascadeMenu`, `CascadeBody` | MenuItem 표면·계단식 submenu·키보드·초점·viewport 배치를 재사용한다. disabled submenu는 회색이며 확장하지 않는다. 선택적 status 공은 제목 왼쪽의 수동 상태 표시다. 오른쪽 secondary는 주 액션과 독립된 클릭/Enter/Space 스위치이며 처리 중에는 원형 손잡이 내부 spinner와 해당 제어의 중복 입력 방지를 적용한다. 다른 항목은 계속 사용한다. |
+| [shared/ui/CascadeMenu.tsx](../../../app/src/renderer/src/shared/ui/CascadeMenu.tsx) — `CascadeMenu`, `CascadeBody` | MenuItem 표면·계단식 submenu·키보드·초점·viewport 배치를 재사용한다. heading은 MenuTitle로 렌더하며 키보드 탐색에서 건너뛴다. disabled submenu는 회색이며 확장하지 않는다. 선택적 status 공은 제목 왼쪽의 수동 상태 표시다. 오른쪽 secondary는 주 액션과 독립된 클릭/Enter/Space 스위치이며 처리 중에는 원형 손잡이 내부 spinner와 해당 제어의 중복 입력 방지를 적용한다. 다른 항목은 계속 사용한다. |
 | [shared/ui/CatalogListRow.tsx](../../../app/src/renderer/src/shared/ui/CatalogListRow.tsx) — `CatalogListRow` | 아이콘→제목·메타→행 동작 위계. 선택/hover를 구별하고 제목과 동작 버튼을 중첩하지 않는다. |
 | [shared/ui/CatalogSearch.tsx](../../../app/src/renderer/src/shared/ui/CatalogSearch.tsx) — `CatalogSearch` | 검색 열기·입력·닫기·초점 복귀를 공통 형태로 유지한다. |
 | [shared/ui/CatalogTabs.tsx](../../../app/src/renderer/src/shared/ui/CatalogTabs.tsx) — `CatalogTabs` | 선택 탭 표면·방향키·Home/End·ARIA 연결을 유지한다. |
@@ -72,7 +72,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | [shared/ui/Histogram.tsx](../../../app/src/renderer/src/shared/ui/Histogram.tsx) — `Histogram` | stage 배경 위 RGB 채널 분포. 현재 생성 샘플을 실제 센서 데이터처럼 설명하지 않는다. |
 | [shared/ui/Icon.tsx](../../../app/src/renderer/src/shared/ui/Icon.tsx) — `Icon` | 등록된 SVG·currentColor·size API를 사용하고 임의 아이콘 세트를 추가하지 않는다. |
 | [shared/ui/KebabButton.tsx](../../../app/src/renderer/src/shared/ui/KebabButton.tsx) — `KebabButton` | 행·카드의 보조 메뉴 진입점. 번역된 tooltip·접근성 이름과 메뉴 anchor를 유지한다. |
-| [shared/ui/MenuItem.tsx](../../../app/src/renderer/src/shared/ui/MenuItem.tsx) — `MenuItem`, `MenuTitle` | MenuItem·MenuTitle로 메뉴 행·설명·섹션 위계를 공유한다. 파괴적 항목은 danger. |
+| [shared/ui/MenuItem.tsx](../../../app/src/renderer/src/shared/ui/MenuItem.tsx) — `MenuItem`, `MenuTitle` | MenuItem·MenuTitle로 메뉴 행·설명·섹션 위계를 공유한다. MenuTitle의 leading 슬롯에 출처 브랜드 로고를 넣으며 제목은 선택 대상이 아니다. 파괴적 항목은 danger. |
 | [shared/ui/Meter.tsx](../../../app/src/renderer/src/shared/ui/Meter.tsx) — `Meter` | ratio·tone API와 공통 의미색을 사용한다. 수치와 함께 표시한다. |
 | [shared/ui/Modal.tsx](../../../app/src/renderer/src/shared/ui/Modal.tsx) — `MODAL_BACKDROP_CLASS`, `Modal`, `MODAL_LABEL`, `MODAL_INPUT`, `ModalActions` | Modal·ModalActions·MODAL_LABEL·MODAL_INPUT 재사용. busy 닫기 정책·크롬리스 ariaLabel 확인. |
 | [shared/ui/OrcaLogo.tsx](../../../app/src/renderer/src/shared/ui/OrcaLogo.tsx) — `OrcaLogo` | 승인된 Orca artwork의 비율·색 경계를 보존한다. 새 whale 그림으로 교체하지 않는다. |
@@ -113,7 +113,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | [features/chat/components/StatusLine.tsx](../../../app/src/renderer/src/features/chat/components/StatusLine.tsx) — `StatusLine` | 진행 아이콘·상태 문구·경과값을 같은 작은 행에 정렬한다. |
 | [features/chat/components/UsagePanel.tsx](../../../app/src/renderer/src/features/chat/components/UsagePanel.tsx) — `UsagePanel` | 기간·비용·컨텍스트·설정 진입을 같은 공통 meter·숫자 표기로 표시한다. |
 | [features/chat/components/composer/GitRow.tsx](../../../app/src/renderer/src/features/chat/components/composer/GitRow.tsx) — `GitRowView`, `GitRow` | composer 상단 Git 문맥. branch·변경량·worktree 조작을 같은 작은 행에 정렬한다. |
-| [features/chat/components/composer/ModelMenu.tsx](../../../app/src/renderer/src/features/chat/components/composer/ModelMenu.tsx) — `ModelMenu` | 모델·provider 선택은 하네스 정책과 MenuItem 위계를 따르고 긴 이름을 처리한다. |
+| [features/chat/components/composer/ModelMenu.tsx](../../../app/src/renderer/src/features/chat/components/composer/ModelMenu.tsx) — `ModelMenu` | 모델·provider 선택은 하네스 정책과 MenuItem 위계를 따르고 긴 이름을 처리한다. Claude/OpenCode 그룹 제목 왼쪽에 HarnessLogo를 표시한다. |
 | [features/chat/components/markdown/StreamingMarkdown.tsx](../../../app/src/renderer/src/features/chat/components/markdown/StreamingMarkdown.tsx) — `StreamingMarkdown` | 완료 Markdown과 같은 폭·활자·코드 스타일. 토큰 도착 때 전체 본문을 불필요하게 재배치하지 않는다. |
 | [features/chat/components/rightpanel/RightPanel.tsx](../../../app/src/renderer/src/features/chat/components/rightpanel/RightPanel.tsx) — `RightPanel` | 하네스별 패널 진입 조립. 상세·확대·숨김 상태에서 수명과 초점을 유지한다. |
 | [features/chat/components/transcript/AssistantMessage.tsx](../../../app/src/renderer/src/features/chat/components/transcript/AssistantMessage.tsx) — `AssistantMessage`, `AssistantSegment` | 응답의 본문·메타·액션과 하네스별 renderer 선택을 유지한다. |
@@ -131,7 +131,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | 소스 / 표시 단위 | 적용 규칙 |
 |---|---|
 | [features/chat/harnesses/common/composer/AnchoredDropdown.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/composer/AnchoredDropdown.tsx) — `AnchoredDropdown` | 자동완성 anchor·폭·viewport 경계를 입력과 맞춘다. 메뉴를 입력 영역 밖에 방치하지 않는다. |
-| [features/chat/harnesses/common/composer/AttachMenu.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/composer/AttachMenu.tsx) — `AttachMenu` | 파일·스킬·플러그인의 CascadeMenu를 사용한다. 네이티브 스킬은 스킬 메뉴에 `플러그인::스킬`로 표시하고 설명은 툴팁에 둔다. MCP는 플러그인 메뉴에 표시한다. 세션 진입·메뉴 재열기에서 갱신하며 마지막 관측 목록은 갱신 중에도 유지한다. 명령은 초안 앞, MCP 사용 요청은 커서에 삽입하며 자동 전송하지 않는다. |
+| [features/chat/harnesses/common/composer/AttachMenu.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/composer/AttachMenu.tsx) — `AttachMenu` | 파일 추가는 Material Attach File 아이콘을 사용한다. 스킬·플러그인 패널은 출처 제목+로고 아래 단일 목록이며 출처 하위 메뉴는 없다. 기존 스킬과 native plugin skill을 함께 표시하고 native 스킬은 `플러그인::스킬`, 설명은 툴팁에 둔다. 플러그인 패널에는 native/Orca MCP와 Orca 플러그인을 표시하고 하네스 미지원 항목은 disabled다. 세션 진입·메뉴 재열기에서 갱신하며 마지막 관측 목록은 갱신 중에도 유지한다. 명령은 초안 앞, MCP 사용 요청은 커서에 삽입하며 자동 전송하지 않는다. |
 | [features/chat/harnesses/common/composer/AttachmentChip.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/composer/AttachmentChip.tsx) — `AttachmentChip` | 파일명·종류·제거를 조밀하게 표시한다. 긴 이름이 제거 버튼을 밀어내지 않게 한다. |
 | [features/chat/harnesses/common/composer/AttachmentThumb.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/composer/AttachmentThumb.tsx) — `AttachmentThumb` | 이미지 미리보기·크기·제거 위치를 유지하고 파일 chip과 간격을 맞춘다. |
 | [features/chat/harnesses/common/composer/AttachmentTray.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/composer/AttachmentTray.tsx) — `AttachmentTray` | 첨부 chip·thumb을 공통 간격으로 감싸고 입력·전송 영역을 가리지 않는다. |
@@ -405,7 +405,7 @@ Provider와 registry는 시각 컴포넌트 선택/수명 책임만 갖는다. �
 | 소스 / 표시 단위 | 적용 규칙 |
 |---|---|
 | [app/NewChatHarnessMenu.tsx](../../../app/src/renderer/src/app/NewChatHarnessMenu.tsx) — `NewChatHarnessMenu` | Popover의 right 배치·nav boundary·gap 0. 같은 로고 칸, 키보드 탐색·취소 시 초점 복귀. |
-| [features/chat/components/NativeResourcesMenu.tsx](../../../app/src/renderer/src/features/chat/components/NativeResourcesMenu.tsx) — `NativeResourcesMenu` | 저장 세션과 첫 전송 전 초안의 설치 목록·폴더 열기를 제공한다. 빈 MCP/플러그인 그룹은 회색 disabled이며 펼치지 않는다. MCP는 공식 브랜드 마크, 플러그인은 플러그 아이콘이다. 제목 왼쪽 공은 연결/활성 초록, 인증/대기 노랑, 비연결/비활성 회색, 실패 빨강이며 accessible label과 tooltip을 제공한다. 상태 부제목·목록 안내 문구는 표시하지 않는다. 제어 가능한 항목에는 기존 enable/disable 스위치를 오른쪽에 표시한다. 상태·진행 작업은 창의 session/backend 및 실제 provider generation에 귀속하여 nav 이동/재열기/재조회 중에도 유지한다. 종료 이벤트에서 해당 세대만 폐기한다. 활성 제어는 항목별 비동기로 실행하며 오른쪽 스위치의 원형 손잡이 안에 spinner를 표시한다. 왼쪽 상태 공은 변경하지 않는다. 플러그인 이름은 설명 툴팁이 있는 폴더 열기 액션이다. 제어 실패는 전역 토스트와 자동 재조회로 처리한다. |
+| [features/chat/components/NativeResourcesMenu.tsx](../../../app/src/renderer/src/features/chat/components/NativeResourcesMenu.tsx) — `NativeResourcesMenu` | 저장 세션과 첫 전송 전 초안의 설치 목록·폴더 열기를 제공하며 하네스 제목 왼쪽에 브랜드 로고를 둔다. 빈 MCP/플러그인 그룹은 회색 disabled이며 펼치지 않는다. MCP는 공식 브랜드 마크, 플러그인은 플러그 아이콘이다. 제목 왼쪽 공은 연결/활성 초록, 인증/대기 노랑, 비연결/비활성 회색, 실패 빨강이며 accessible label과 tooltip을 제공한다. 상태 부제목·목록 안내 문구는 표시하지 않는다. 제어 가능한 항목에는 기존 enable/disable 스위치를 오른쪽에 표시한다. 상태·진행 작업은 창의 session/backend 및 실제 provider generation에 귀속하여 nav 이동/재열기/재조회 중에도 유지한다. 종료 이벤트에서 해당 세대만 폐기한다. 활성 제어는 항목별 비동기로 실행하며 오른쪽 스위치의 원형 손잡이 안에 spinner를 표시한다. 왼쪽 상태 공은 변경하지 않는다. 플러그인 이름은 설명 툴팁이 있는 폴더 열기, MCP 이름은 설정 파일 위치 열기 액션이다. 실패는 전역 토스트와 자동 재조회로 처리한다. |
 | [features/chat/harnesses/claude/Logo.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/Logo.tsx) — `ClaudeLogo` | 공식 Claude 마크, currentColor. 메뉴·히어로는 spinner 토큰. |
 | [features/chat/harnesses/opencode/Logo.tsx](../../../app/src/renderer/src/features/chat/harnesses/opencode/Logo.tsx) — `OpenCodeLogo` | 공식 OpenCode 마크, currentColor와 ink 토큰. 원본 비율을 유지한다. |
 | [features/chat/harnesses/registries/brand.tsx](../../../app/src/renderer/src/features/chat/harnesses/registries/brand.tsx) — `HarnessLogo` | 하네스별 마크 조립만 소유하며 기존 랜딩 presentation을 바꾸지 않는다. |

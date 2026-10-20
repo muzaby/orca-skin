@@ -11,6 +11,7 @@ import { RuntimeSupervisor } from '../features/sessions/supervisor'
 import { SessionRuntime } from '../features/sessions/session-runtime'
 import type { RuntimeSessionAdapter } from '../contracts/ports'
 import type { TurnRequest } from '../adapters/common/turn'
+import type { NativeResources } from '../../shared/native-resources'
 vi.mock('../infra/config/orca-config', () => ({ appEnv: () => ({ APP_ENV: 'app' }) }))
 vi.mock('../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
 vi.mock('../features/chat/recovery', () => ({ recoverSessionHistory: vi.fn() }))
@@ -31,7 +32,7 @@ function setup(backend: 'claude' | 'opencode'): {
   ctx: RouterContext
   runtime: {
     hasSession: Mock<() => boolean>
-    discardRuntime: Mock
+    hasRuntime: Mock<() => boolean>
     activity: () => ChatActivitySnapshot
   }
   adapter: SessionAdapter
@@ -101,7 +102,11 @@ function setup(backend: 'claude' | 'opencode'): {
     getCwd: () => '/wrong-default',
     mcp: { resolver: () => () => undefined }
   } as unknown as RouterContext
-  const runtime = { hasSession: vi.fn(() => false), discardRuntime: vi.fn(), activity: () => idle }
+  const runtime = {
+    hasSession: vi.fn(() => false),
+    hasRuntime: vi.fn(() => false),
+    activity: () => idle
+  }
   return { ctx, runtime, adapter, read, unused, replace, settings }
 }
 
@@ -142,66 +147,121 @@ describe('native history composition', () => {
       messages: [{ id: 'first', parts: [{ type: 'text', text: 'visible' }] }]
     })
   })
-  it('closes the real idle runtime and delivers the next input through a fresh same-ID resume', async () => {
-    const f = setup('claude')
-    const sendMessage = vi.fn((request: TurnRequest) => ({
-      eventBatches: (async function* () {
-        yield {
-          sequence: 0,
-          events: [{ type: 'telemetry' as const, sessionId: request.sessionId! }]
-        }
-      })(),
-      close: vi.fn()
-    }))
-    const execution = { id: 'claude', sendMessage } as unknown as RuntimeSessionAdapter
-    const supervisor = new RuntimeSupervisor()
-    const previous = new SessionRuntime(execution)
-    const request = {
-      sessionId: 's',
-      text: 'first',
-      cwd: '/actual/worktree',
-      extensions: { skills: [], hooks: { normalized: {} } }
-    }
-    for await (const event of previous.send(request)) expect(event.type).toBe('telemetry')
-    supervisor.releaseRuntime('s', previous)
-    expect(supervisor.peekRuntime('s')).toBe(previous)
-    expect(
-      await createNativeHistoryRefresh(f.ctx, {
-        hasSession: (id) => supervisor.hasSession(id),
-        discardRuntime: (id) => supervisor.discardRuntime(id),
-        activity: () => idle
-      })('s')
-    ).toEqual({ status: 'ready' })
-    expect(previous.state).toBe('closed')
-    expect(supervisor.peekRuntime('s')).toBeUndefined()
-    const prepared = await resolveTurn(f.ctx, supervisor as never, f.adapter, {
-      sessionId: 's',
-      projectId: null,
-      text: 'next input',
-      agentKind: 'code'
-    } as never)
-    expect(prepared.ok).toBe(true)
-    if (!prepared.ok) throw new Error('resume preparation failed')
-    const next = supervisor.acquireRuntime('s', () => new SessionRuntime(execution))
-    expect(next).not.toBe(previous)
-    for await (const event of next.send({
-      ...request,
-      text: prepared.value.effectiveText,
-      cwd: prepared.value.sessionMeta!.cwd!,
-      env: prepared.value.resolved.prepared.env
-    }))
-      expect(event.type).toBe('telemetry')
-    expect(sendMessage).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        sessionId: 's',
-        cwd: '/actual/worktree',
-        text: 'next input',
-        env: expect.objectContaining({ PROVIDER_ENV: 'override' })
+  it.each(['claude', 'opencode'] as const)(
+    'preserves the real idle %s runtime across navigation and uses the same channel',
+    async (backend) => {
+      const f = setup(backend)
+      const resources: NativeResources = {
+        state: 'connected',
+        generation: `${backend}-live`,
+        items: [
+          {
+            id: 'mcp',
+            name: 'MCP',
+            kind: 'mcp',
+            enabled: false,
+            canToggle: true,
+            status: 'disabled'
+          },
+          {
+            id: 'plugin',
+            name: 'Plugin',
+            kind: 'plugin',
+            enabled: true,
+            canToggle: true,
+            status: 'connected'
+          }
+        ],
+        commands: [
+          { name: 'plugin:review', source: 'plugin', description: 'Review', argumentHint: '' }
+        ]
+      }
+      let closed = false
+      let queued = 1
+      let wake: (() => void) | undefined
+      const close = vi.fn(() => {
+        closed = true
+        wake?.()
       })
-    )
-    expect(f.read).toHaveBeenCalledTimes(2)
-    next.close()
-  })
+      const pushTurn = vi.fn(async () => {
+        queued++
+        wake?.()
+        return { kind: 'accepted' as const }
+      })
+      const sendMessage = vi.fn((request: TurnRequest) => ({
+        providerGeneration: resources.generation,
+        nativeResources: async () => resources,
+        pushTurn,
+        eventBatches: (async function* () {
+          let sequence = 0
+          while (!closed) {
+            while (queued > 0) {
+              queued--
+              yield {
+                sequence: sequence++,
+                events: [{ type: 'telemetry' as const, sessionId: request.sessionId! }]
+              }
+            }
+            if (!closed)
+              await new Promise<void>((resolve) => {
+                wake = resolve
+              })
+          }
+        })(),
+        close
+      }))
+      const execution = { id: backend, sendMessage } as unknown as RuntimeSessionAdapter
+      const supervisor = new RuntimeSupervisor()
+      const previous = new SessionRuntime(execution)
+      const request = {
+        sessionId: 's',
+        text: 'first',
+        cwd: '/actual/worktree',
+        extensions: { skills: [], hooks: { normalized: {} } }
+      }
+      for await (const event of previous.send(request)) expect(event.type).toBe('telemetry')
+      supervisor.releaseRuntime('s', previous)
+      expect(supervisor.peekRuntime('s')).toBe(previous)
+      const refresh = createNativeHistoryRefresh(f.ctx, {
+        hasSession: (id) => supervisor.hasSession(id),
+        hasRuntime: (id) => !!supervisor.peekRuntime(id)?.providerGeneration,
+        activity: () => idle
+      })
+      for (let visit = 0; visit < 3; visit++) {
+        expect(await refresh('s')).toEqual({ status: 'busy' })
+        expect(previous.providerGeneration).toBe(`${backend}-live`)
+        expect(await previous.nativeResources()).toEqual(resources)
+      }
+      expect(close).not.toHaveBeenCalled()
+      expect(previous.state).toBe('live')
+      expect(supervisor.peekRuntime('s')).toBe(previous)
+      const prepared = await resolveTurn(f.ctx, supervisor as never, f.adapter, {
+        sessionId: 's',
+        projectId: null,
+        text: 'next input',
+        agentKind: 'code'
+      } as never)
+      expect(prepared.ok).toBe(true)
+      if (!prepared.ok) throw new Error('resume preparation failed')
+      const next = supervisor.acquireRuntime('s', () => new SessionRuntime(execution))
+      expect(next).toBe(previous)
+      for await (const event of next.send({
+        ...request,
+        text: prepared.value.effectiveText,
+        cwd: prepared.value.sessionMeta!.cwd!,
+        env: prepared.value.resolved.prepared.env
+      }))
+        expect(event.type).toBe('telemetry')
+      expect(sendMessage).toHaveBeenCalledOnce()
+      expect(pushTurn).toHaveBeenCalledExactlyOnceWith({ text: 'next input' })
+      expect(prepared.value.resolved.prepared.env).toMatchObject({ PROVIDER_ENV: 'override' })
+      expect(await next.nativeResources()).toEqual(resources)
+      expect(f.read).not.toHaveBeenCalled()
+      next.close()
+      expect(await refresh('s')).toEqual({ status: 'ready' })
+      expect(f.read).toHaveBeenCalledOnce()
+    }
+  )
 
   it.each(['claude', 'opencode'] as const)(
     'uses stored %s backend, actual cwd and the execution configuration',
@@ -219,7 +279,7 @@ describe('native history composition', () => {
         })
       })
       expect(f.unused.readHistory).not.toHaveBeenCalled()
-      expect(f.runtime.discardRuntime).toHaveBeenCalledWith('s')
+      expect(f.runtime.hasRuntime).toHaveBeenCalledWith('s')
       expect(f.replace).toHaveBeenCalledOnce()
     }
   )
@@ -238,14 +298,14 @@ describe('native history composition', () => {
     f.runtime.activity = () => ({ ...idle, ...patch }) as ChatActivitySnapshot
     expect(nativeHistoryBusy(f.runtime.activity())).toBe(true)
     expect(await createNativeHistoryRefresh(f.ctx, f.runtime)('s')).toEqual({ status: 'busy' })
-    expect(f.runtime.discardRuntime).not.toHaveBeenCalled()
+    expect(f.replace).not.toHaveBeenCalled()
     expect(f.read).not.toHaveBeenCalled()
   })
   it('protects a lease even if the projected activity is idle', async () => {
     const f = setup('claude')
     f.runtime.hasSession.mockReturnValue(true)
     expect(await createNativeHistoryRefresh(f.ctx, f.runtime)('s')).toEqual({ status: 'busy' })
-    expect(f.runtime.discardRuntime).not.toHaveBeenCalled()
+    expect(f.replace).not.toHaveBeenCalled()
   })
   it.each(['missing', 'unavailable', 'migration-required', 'busy'] as const)(
     'checks native %s before cold resume with the same prepared input',

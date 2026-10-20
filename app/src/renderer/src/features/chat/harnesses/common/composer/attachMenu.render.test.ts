@@ -40,6 +40,7 @@ describe('AttachMenu 렌더', () => {
       })
     )
     expect(html).toContain('파일 또는 사진 추가')
+    expect(html).toContain('viewBox="0 0 24 24"')
     expect(html).toContain('role="separator"')
     expect(html.match(/aria-haspopup="menu"/g)).toHaveLength(2)
     expect(html).not.toContain('Orcinus orca 스킬')
@@ -65,12 +66,12 @@ describe('AttachMenu 렌더', () => {
         onSelect: vi.fn(),
         onClose: vi.fn(),
         anchorRef: { current: null },
-        initialState: { open: [2, 0], focus: null }
+        initialState: { open: [2], focus: null }
       })
     )
-    // 루트 role=menu 하나 안에 하위 패널 2개(role=menu)가 중첩 — Popover 의 contains 가 안쪽으로 본다.
+    // 루트 안에 스킬 패널 하나만 중첩된다. 출처 제목은 추가 패널을 열지 않는다.
     expect(html.startsWith('<div role="menu"')).toBe(true)
-    expect(html.match(/role="menu"/g)).toHaveLength(3)
+    expect(html.match(/role="menu"/g)).toHaveLength(2)
     expect(html).toContain('title="설명 A\nOrcinus orca 스킬"')
     expect(html).toContain('aria-expanded="true"')
   })

@@ -1,4 +1,4 @@
-import type { ComponentType, ForwardRefExoticComponent, RefAttributes } from 'react'
+import type { ComponentType, ForwardRefExoticComponent, ReactNode, RefAttributes } from 'react'
 import type { AgentEnvironment } from '../../../../../shared/ipc'
 import type { ChatState } from '../reducer/chatReducer'
 import type { ComposerSubmitProps } from './types'
@@ -91,6 +91,7 @@ export interface HarnessLandingPresentation {
   composer: { openCodeLanding: boolean; flush: boolean }
 }
 export interface ComposerInputPresentation {
+  sourceIcon?: (source: string) => ReactNode
   appearance: ComposerAppearance
   includeExtensions: boolean
   controlsPlacement: 'split' | 'end'

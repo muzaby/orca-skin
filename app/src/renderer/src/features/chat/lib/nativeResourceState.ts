@@ -157,14 +157,22 @@ export class NativeResourceState {
     this.publish()
   }
   openPlugin = async (resource: NativeResource): Promise<void> => {
-    if (!this.request || resource.kind !== 'plugin') return
+    if (!this.request) return
     const operation = this.begin(resource)
     if (!operation) return
     try {
       await sessionApi.openNativePlugin(
         typeof this.request === 'string'
-          ? { sessionId: this.request, id: resource.id }
-          : { ...this.request, id: resource.id }
+          ? {
+              sessionId: this.request,
+              id: resource.id,
+              ...(resource.kind === 'mcp' ? { kind: resource.kind } : {})
+            }
+          : {
+              ...this.request,
+              id: resource.id,
+              ...(resource.kind === 'mcp' ? { kind: resource.kind } : {})
+            }
       )
       if (
         operation.epoch === this.epoch &&

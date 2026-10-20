@@ -1,6 +1,7 @@
-// 컴포저 '+' 메뉴 트리(0259 D-001~D-006·D-009) — 순수 함수. 스킬·플러그인 목록은 기존 출처를
-// 그대로 받는다(스킬 = `/` 자동완성과 같은 useSkills, 플러그인 = `@` 후보와 같은 함수).
-import type { SkillInfo } from '../../../../../shared/ipc'
+// 컴포저 '+' 메뉴 트리 — 출처 제목 아래 모든 스킬·MCP·플러그인을 직접 나열하는 순수 함수.
+// 자동완성의 검색 필터와 별도로 전체 catalog를 받는다.
+import type { McpServer, SkillInfo } from '../../../../../shared/ipc'
+import type { ReactNode } from 'react'
 import type { CascadeItem } from '../../../shared/ui/cascadeMenuState'
 import type { PluginMention } from './pluginMention'
 import type { NativeResourcesView } from '../hooks/useNativeResources'
@@ -44,6 +45,9 @@ export function buildAttachMenu(input: {
   labels: AttachMenuLabels
   canManagePlugins: boolean
   includeExtensions?: boolean
+  mcpServers?: readonly Pick<McpServer, 'id' | 'name' | 'description' | 'enabled'>[]
+  useMcp?: (name: string) => string
+  sourceIcon?: (source: string) => ReactNode
   native?: {
     label: string
     items: CascadeItem<AttachMenuAction>[]
@@ -55,11 +59,9 @@ export function buildAttachMenu(input: {
     kind: 'action',
     id: 'attach',
     label: labels.addFiles,
-    icon: 'plus',
+    icon: 'attachFile',
     action: { type: 'attach' }
   }
-  if (input.includeExtensions === false && !input.native) return [attachment]
-
   // 출처별 그룹 — 처음 나온 순서를 지킨다(목록은 출처 라벨 → 이름 순으로 온다).
   const bySource = new Map<string, { label: string; skills: SkillInfo[] }>()
   for (const skill of skills) {
@@ -70,19 +72,23 @@ export function buildAttachMenu(input: {
   const skillItems: CascadeItem<AttachMenuAction>[] =
     bySource.size === 0
       ? [{ kind: 'empty', id: 'skills:empty', label: labels.noSkills }]
-      : [...bySource].map(([sourceId, group]) => ({
-          kind: 'submenu' as const,
-          id: `skills:${sourceId}`,
-          label: group.label,
-          items: group.skills.map((skill) => ({
+      : [...bySource].flatMap(([sourceId, group]): CascadeItem<AttachMenuAction>[] => [
+          {
+            kind: 'heading',
+            id: `skills:${sourceId}`,
+            label: group.label,
+            leading: input.sourceIcon?.(sourceId)
+          },
+          ...group.skills.map((skill) => ({
             kind: 'action' as const,
             id: `skill:${sourceId}/${skill.name}`,
             label: skill.name,
             icon: 'bolt' as const,
             title: skillTooltip(skill),
+            disabled: input.includeExtensions === false,
             action: { type: 'skill' as const, name: skill.name }
           }))
-        }))
+        ])
 
   const pluginItems: CascadeItem<AttachMenuAction>[] =
     plugins.length === 0
@@ -93,19 +99,53 @@ export function buildAttachMenu(input: {
           label: plugin.label,
           icon: 'electricalServices' as const,
           title: plugin.label,
+          disabled: input.includeExtensions === false,
           action: { type: 'plugin' as const, id: plugin.id }
         }))
+  if (input.mcpServers?.length) {
+    if (plugins.length === 0) pluginItems.length = 0
+    pluginItems.unshift(
+      ...input.mcpServers.map((server): CascadeItem<AttachMenuAction> => ({
+        kind: 'action',
+        id: `orca-mcp:${server.id}`,
+        label: server.name,
+        icon: 'mcp',
+        title: server.description || server.name,
+        disabled: !server.enabled || input.includeExtensions === false,
+        action: { type: 'nativePrompt', text: input.useMcp?.(server.name) ?? server.name }
+      }))
+    )
+  }
+  if (plugins.length || input.mcpServers?.length)
+    pluginItems.unshift({
+      kind: 'heading',
+      id: 'plugins:orca',
+      label: 'Orcinus orca',
+      leading: input.sourceIcon?.('orca')
+    })
   if (input.native) {
     if (bySource.size === 0) skillItems.length = 0
-    skillItems.unshift(...input.native.skills)
-    if (plugins.length === 0) pluginItems.length = 0
-    pluginItems.unshift({
-      kind: 'submenu',
-      id: 'native',
-      label: input.native.label,
-      items: input.native.items
-    })
+    skillItems.push(
+      ...input.native.skills.map((item) =>
+        item.kind === 'heading' ? { ...item, leading: input.sourceIcon?.('native') } : item
+      )
+    )
+    if (plugins.length === 0 && !input.mcpServers?.length) pluginItems.length = 0
+    if (input.native.items.length)
+      pluginItems.unshift(
+        {
+          kind: 'heading',
+          id: 'native',
+          label: input.native.label,
+          leading: input.sourceIcon?.('native')
+        },
+        ...input.native.items
+      )
   }
+  if (!skillItems.length)
+    skillItems.push({ kind: 'empty', id: 'skills:empty', label: labels.noSkills })
+  if (!pluginItems.length)
+    pluginItems.push({ kind: 'empty', id: 'plugins:empty', label: labels.noPlugins })
   if (canManagePlugins && input.includeExtensions !== false)
     pluginItems.push(
       { kind: 'separator', id: 'plugins:separator' },
@@ -121,17 +161,13 @@ export function buildAttachMenu(input: {
   return [
     attachment,
     { kind: 'separator', id: 'separator' },
-    ...(input.includeExtensions !== false || input.native
-      ? [
-          {
-            kind: 'submenu' as const,
-            id: 'skills',
-            label: labels.skills,
-            icon: 'bolt' as const,
-            items: skillItems
-          }
-        ]
-      : []),
+    {
+      kind: 'submenu' as const,
+      id: 'skills',
+      label: labels.skills,
+      icon: 'bolt' as const,
+      items: skillItems
+    },
     {
       kind: 'submenu',
       id: 'plugins',
@@ -152,6 +188,7 @@ export function nativeAttachItems(
     noCommands: string
     useMcp: (name: string) => string
     resourceStatus: (status: NativeResource['status']) => string
+    harness?: string
   },
   kind: 'skills' | 'mcp'
 ): CascadeItem<AttachMenuAction>[] {
@@ -174,30 +211,31 @@ export function nativeAttachItems(
             : labels.resourceStatus(item.status),
         action: { type: 'nativePrompt', text: labels.useMcp(item.name) }
       }))
-    children.push(
-      ...commands
-        .filter((command) => (kind === 'mcp' ? command.source === 'mcp' : command.source !== 'mcp'))
-        .map((command): CascadeItem<AttachMenuAction> => ({
-          kind: 'action',
-          id: `native-command:${command.name}`,
-          label: kind === 'skills' ? command.name.replace(/:+/g, '::') : `/${command.name}`,
-          icon: kind === 'skills' ? 'bolt' : 'electricalServices',
-          title:
-            [command.description, command.argumentHint].filter(Boolean).join('\n') || command.name,
-          action: { type: 'nativeCommand', name: command.name }
-        }))
-    )
-    if (!children.length)
-      children.push({ kind: 'empty', id: `${kind}:empty`, label: labels.noCommands })
-    if (kind === 'skills') items.push(...children)
-    else
-      items.push({
-        kind: 'submenu',
-        id: `native:${kind}`,
-        label: 'MCP',
-        icon: 'electricalServices',
-        items: children
-      })
+    const groups = new Map<string, CascadeItem<AttachMenuAction>[]>()
+    for (const command of commands.filter((command) =>
+      kind === 'mcp' ? command.source === 'mcp' : command.source !== 'mcp'
+    )) {
+      const group =
+        command.source === 'plugin' ? command.name.split(':')[0] : (labels.harness ?? 'Skills')
+      const row: CascadeItem<AttachMenuAction> = {
+        kind: 'action',
+        id: `native-command:${command.name}`,
+        label: kind === 'skills' ? command.name.replace(/:+/g, '::') : `/${command.name}`,
+        icon: kind === 'skills' ? 'bolt' : 'electricalServices',
+        title:
+          [command.description, command.argumentHint].filter(Boolean).join('\n') || command.name,
+        action: { type: 'nativeCommand', name: command.name }
+      }
+      if (kind === 'mcp') children.push(row)
+      else {
+        const existing = groups.get(group)
+        if (existing) existing.push(row)
+        else groups.set(group, [row])
+      }
+    }
+    for (const [group, rows] of groups)
+      items.push({ kind: 'heading', id: `native-skills:${group}`, label: group }, ...rows)
+    items.push(...children)
   }
   // Keep submenu indices stable as a refresh notice appears/disappears while open.
   const notice =

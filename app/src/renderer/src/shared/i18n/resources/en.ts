@@ -615,6 +615,7 @@ export const en: typeof ko = {
   },
   chat: {
     nativeResources: {
+      openConfig: 'Show configuration file',
       openFolder: 'Open installation folder',
       openError: 'Could not open the plugin folder. Check its installation.',
       refreshing: 'Refreshing resources…',

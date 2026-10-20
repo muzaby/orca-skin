@@ -8,7 +8,10 @@ import { nativePluginId } from './configured-resources'
 //
 // 이 파일이 없으면 `claude.ts:503-507` 세 줄의 인자 전달을 보는 단언이 0이 된다.
 
-import { describe, it, expect, vi } from 'vitest'
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
+import { randomUUID } from 'node:crypto'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import type { McpServerStatus, SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 
 const { queryMock, control, messages } = vi.hoisted(() => {
@@ -46,6 +49,10 @@ vi.mock('@anthropic-ai/claude-agent-sdk', async (original) => ({
 
 import { ClaudeAdapter } from './adapter'
 import type { TurnRequest } from '../common/turn'
+
+const isolatedConfig = join(tmpdir(), `orca-live-control-config-${randomUUID()}`)
+beforeEach(() => vi.stubEnv('CLAUDE_CONFIG_DIR', isolatedConfig))
+afterEach(() => vi.unstubAllEnvs())
 
 const baseReq = (): TurnRequest => ({
   sessionId: null,

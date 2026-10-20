@@ -1,6 +1,7 @@
 // 계단식 메뉴 상태 — 순수부(0259 D-007·D-008·D-011). 도메인(스킬·플러그인)을 모른다.
 import type { IconName } from './Icon'
 import type { StatusTone } from './Status'
+import type { ReactNode } from 'react'
 
 export type CascadeItem<A> =
   | {
@@ -27,6 +28,7 @@ export type CascadeItem<A> =
       items: CascadeItem<A>[]
     }
   | { kind: 'separator'; id: string }
+  | { kind: 'heading'; id: string; label: string; leading?: ReactNode }
   | { kind: 'empty'; id: string; label: string }
 
 /** 하위 메뉴 hover 열림 지연(ms). */

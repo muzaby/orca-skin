@@ -56,6 +56,7 @@ beforeEach(() => {
   Object.assign(window, {
     orca: {
       session: { nativeResources: read },
+      mcp: { list: async () => [] },
       skills: { list: async () => [] },
       provider: { state: async () => ({ providers: [] }), onState: () => () => {} }
     }
@@ -207,6 +208,82 @@ it.each(['saved', 'draft'])(
     expect(dom.query('[data-native-draft]')!.props.value).toBe(
       '/frontend-design:frontend-design preserved draft'
     )
+    expect(onSend).not.toHaveBeenCalled()
+  }
+)
+
+it.each(['claude', 'opencode'] as const)(
+  'shows all source groups directly for %s and keeps draft text on selection',
+  async (backend) => {
+    fixture.backend = backend
+    window.orca.skills.list = async () =>
+      [
+        {
+          name: 'orca-skill',
+          sourceId: 'orca',
+          sourceLabel: 'Orca skills',
+          description: 'Local skill'
+        }
+      ] as never
+    window.orca.mcp.list = async () =>
+      [
+        {
+          id: 'custom',
+          name: 'Custom MCP',
+          description: 'Custom tools',
+          enabled: true
+        },
+        {
+          id: 'disabled',
+          name: 'Disabled MCP',
+          description: '',
+          enabled: false
+        }
+      ] as never
+    window.orca.provider.state = async () =>
+      ({
+        providers: [{ id: 'jira', label: 'Jira', tools: ['issue'] }]
+      }) as never
+    read.mockResolvedValue({
+      state: 'connected',
+      generation: 'generation-B',
+      items: [
+        { id: 'native', name: 'Native MCP', kind: 'mcp', status: 'connected', enabled: true }
+      ],
+      commands: [
+        { name: 'design:review', source: 'plugin', description: 'Design review', argumentHint: '' }
+      ]
+    })
+    render()
+    await settle()
+    const open = (): void => dom.click(dom.query('[title="chat.composer.attachMenuTitle"]')!)
+    open()
+    await settle()
+    clickLabel('chat.composer.attachMenu.skills')
+    const rows = dom.queryAll('[data-cascade-level="1"]')
+    expect(rows.map((row) => row.textContent)).toEqual(['orca-skill', 'design::review'])
+    expect(rows.every((row) => !row.props['aria-haspopup'])).toBe(true)
+    expect(rows[0].props.disabled).toBe(backend === 'opencode')
+    expect(dom.query('[aria-label="Orcinus orca"]')).not.toBeNull()
+    expect(dom.queryAll('[viewBox]').map((node) => node.props.viewBox)).toContain(
+      backend === 'claude' ? '0 0 248 248' : '0 0 16 20'
+    )
+    clickLabel('design::review')
+    await settle()
+    expect(dom.query('[data-native-draft]')!.props.value).toBe('/design:review preserved draft')
+    open()
+    await settle()
+    clickLabel('chat.composer.attachMenu.plugins')
+    expect(dom.queryAll('[data-cascade-level="1"]').map((row) => row.textContent)).toEqual([
+      'Native MCPchat.nativeResources.connected',
+      'Custom MCP',
+      'Disabled MCP',
+      'Jira'
+    ])
+    const disabled = dom
+      .queryAll('[role="menuitem"]')
+      .find((row) => row.textContent === 'Disabled MCP')!
+    expect(disabled.props.disabled).toBe(true)
     expect(onSend).not.toHaveBeenCalled()
   }
 )

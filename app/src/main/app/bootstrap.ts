@@ -1061,6 +1061,28 @@ export class Bootstrap {
         const directory = cwd ?? ctx.getCwd(projectId)
         if (!isAbsolute(directory)) throw new Error('작업 폴더는 절대 경로여야 합니다.')
         return harnessModule(backend).configuredPluginDirectory?.(directory, id)
+      },
+      async (request, id) => {
+        const session =
+          'sessionId' in request ? ctx.db.getSessionById(request.sessionId) : undefined
+        if ('sessionId' in request && !session) return undefined
+        const scope = session
+          ? { backend: session.backend, cwd: session.cwd, projectId: session.project_id }
+          : (request as import('../../shared/native-resources').DraftNativeResourcesRequest)
+        const directory = scope.cwd ?? ctx.getCwd(scope.projectId)
+        if (!isAbsolute(directory)) throw new Error('작업 폴더는 절대 경로여야 합니다.')
+        const file = await harnessModule(scope.backend).configuredMcpFile?.(directory, id)
+        if (session) {
+          const current = ctx.db.getSessionById(session.id)
+          if (
+            !current ||
+            current.backend !== session.backend ||
+            current.cwd !== session.cwd ||
+            current.project_id !== session.project_id
+          )
+            throw new Error('대화가 바뀌었습니다. 메뉴를 다시 열어 주세요.')
+        }
+        return file
       }
     )
     registerSessionHandlers(ctx, {
@@ -1078,7 +1100,7 @@ export class Bootstrap {
       getActivity: (sessionId) => activity.current(sessionId),
       refreshHistory: createNativeHistoryRefresh(ctx, {
         hasSession: (sessionId) => supervisor.hasSession(sessionId),
-        discardRuntime: (sessionId) => supervisor.discardRuntime(sessionId),
+        hasRuntime: (sessionId) => !!supervisor.peekRuntime(sessionId)?.providerGeneration,
         activity: (sessionId) => activity.current(sessionId)
       })
     })

@@ -22,7 +22,7 @@ export function createNativeHistoryRefresh(
   ctx: RouterContext,
   runtime: {
     hasSession(sessionId: string): boolean
-    discardRuntime(sessionId: string): unknown
+    hasRuntime(sessionId: string): boolean
     activity(sessionId: string): ChatActivitySnapshot
   }
 ): (sessionId: string) => Promise<LoadedSession['nativeSync']> {
@@ -33,10 +33,11 @@ export function createNativeHistoryRefresh(
     if (!adapter?.readHistory) return undefined
     return refreshNativeHistory(sessionId, {
       db: ctx.db,
-      isBusy: () => runtime.hasSession(sessionId) || nativeHistoryBusy(runtime.activity(sessionId)),
-      releaseIdleRuntime: () => {
-        runtime.discardRuntime(sessionId)
-      },
+      // Navigation must not close a warm provider channel or replace the history it owns.
+      isBusy: () =>
+        runtime.hasSession(sessionId) ||
+        runtime.hasRuntime(sessionId) ||
+        nativeHistoryBusy(runtime.activity(sessionId)),
       read: async (previous) => {
         const { prepared } = await resolveTurnProvider(ctx, {
           adapter,

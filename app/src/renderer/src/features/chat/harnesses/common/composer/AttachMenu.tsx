@@ -1,7 +1,7 @@
-import { useMemo, type RefObject } from 'react'
+import { useMemo, type ReactNode, type RefObject } from 'react'
 import { CascadeMenu } from '../../../../../shared/ui/CascadeMenu'
 import { useI18n } from '../../../../../shared/i18n'
-import type { SkillInfo } from '../../../../../../../shared/ipc'
+import type { Backend, McpServer, SkillInfo } from '../../../../../../../shared/ipc'
 import {
   buildAttachMenu,
   nativeAttachItems,
@@ -16,20 +16,24 @@ interface AttachMenuProps {
   anchorRef: RefObject<HTMLElement | null>
   onClose: () => void
   skills: readonly SkillInfo[]
+  mcpServers?: readonly McpServer[]
+  sourceIcon?: (source: string) => ReactNode
   plugins: readonly PluginMention[]
   onAction: (action: AttachMenuAction) => void
   /** '플러그인 관리' — 페이지가 주입한다(0259 D-010). 없으면 그 항목을 그리지 않는다. */
   onManagePlugins?: () => void
   includeExtensions?: boolean
-  native?: { label: string; view: NativeResourcesView }
+  native?: { label: string; backend?: Backend; view: NativeResourcesView }
 }
 
-// 컴포저 '+' 메뉴(0259) — 파일 추가 / 스킬 ▸(출처 ▸ 스킬) / 플러그인 ▸(목록 · 관리).
+// 컴포저 '+' 메뉴 — 파일 추가 / 스킬·플러그인 패널의 출처별 단일 목록.
 export function AttachMenu({
   open,
   anchorRef,
   onClose,
   skills,
+  mcpServers,
+  sourceIcon,
   plugins,
   onAction,
   onManagePlugins,
@@ -49,13 +53,17 @@ export function AttachMenu({
           notice: notice ? tr(notice) : undefined,
           noCommands: tr('chat.nativeResources.noCommands'),
           useMcp: (name) => tr('chat.nativeResources.useMcp', { name }),
-          resourceStatus: (status) => tr(`chat.nativeResources.${status}`)
+          resourceStatus: (status) => tr(`chat.nativeResources.${status}`),
+          harness: native?.label
         },
         kind
       )
     return buildAttachMenu({
       skills,
       plugins,
+      mcpServers,
+      useMcp: (name) => tr('chat.nativeResources.useMcp', { name }),
+      sourceIcon,
       canManagePlugins: !!onManagePlugins,
       includeExtensions,
       native: native
@@ -74,7 +82,17 @@ export function AttachMenu({
         noPlugins: tr('chat.composer.attachMenu.noPlugins')
       }
     })
-  }, [skills, plugins, onManagePlugins, includeExtensions, native, notice, tr])
+  }, [
+    skills,
+    plugins,
+    mcpServers,
+    sourceIcon,
+    onManagePlugins,
+    includeExtensions,
+    native,
+    notice,
+    tr
+  ])
   return (
     <CascadeMenu
       open={open}

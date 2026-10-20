@@ -19,6 +19,15 @@ interface Site {
   title?: string
 }
 export const sites: Site[] = [
+  {
+    file: 'features/chat/hooks/useComposerMcp.ts',
+    ordinal: 0,
+    line: 16,
+    disposition: 'TOAST',
+    id: 'T-composer-mcp',
+    event: 'chat.composer.mcp-load-failed',
+    title: 'loadFailed'
+  },
   { file: 'app/boot/bootStore.ts', ordinal: 0, line: 75, disposition: 'CONSUMED' },
   {
     file: 'app/boot/steps.ts',

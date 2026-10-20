@@ -85,7 +85,10 @@ describe('0215 AT-23 — Composer 가 선택 모델 파생값을 메뉴/스토�
     expect(registry).toContain(
       "import { composerModule as claude } from '../claude/composer/Module'"
     )
-    expect(registry).toMatch(/const modules = \{ claude, opencode \}/)
+    for (const harness of ['claude', 'opencode'])
+      expect(registry).toContain(
+        `${harness}: { ...${harness}, sourceIcon: sourceIcon('${harness}') }`
+      )
     expect(registry).toContain("return modules[backend ?? 'claude']")
     const module = readFileSync(
       new URL('../../claude/composer/Module.tsx', import.meta.url),

@@ -17,6 +17,7 @@ import { useAttachments } from '../../../hooks/useAttachments'
 import { useMentionAutocomplete } from '../../../hooks/useMentionAutocomplete'
 import { useSkillAutocomplete } from '../../../hooks/useSkillAutocomplete'
 import { useNativeResources } from '../../../hooks/useNativeResources'
+import { useComposerMcp } from '../../../hooks/useComposerMcp'
 import type { AttachmentView, ComposerAttachment, SkillInfo } from '../../../../../../../shared/ipc'
 import type { DiffRequirementSubmitSnapshot } from '../../../store/chatStore'
 import { AttachMenu } from './AttachMenu'
@@ -142,6 +143,7 @@ export function ComposerInputController({
   const surfaceWrapRef = useRef<HTMLDivElement>(null)
   const attachButtonRef = useRef<HTMLButtonElement>(null)
   const [attachMenuOpen, setAttachMenuOpen] = useState(false)
+  const mcpServers = useComposerMcp(active, attachMenuOpen)
   const native = useNativeResources(
     sessionId,
     active,
@@ -155,6 +157,7 @@ export function ComposerInputController({
   const nativeMenu = useMemo(
     () => ({
       label: backend === 'opencode' ? 'OpenCode' : 'Claude',
+      backend: backend ?? 'claude',
       view: native.view
     }),
     [backend, native.view]
@@ -436,7 +439,9 @@ export function ComposerInputController({
         open={active && attachMenuOpen}
         anchorRef={attachButtonRef}
         onClose={() => setAttachMenuOpen(false)}
-        skills={skills}
+        skills={availableSkills}
+        mcpServers={mcpServers}
+        sourceIcon={presentation.sourceIcon}
         includeExtensions={includeExtensions}
         plugins={mentionAutocomplete.plugins}
         native={nativeMenu}

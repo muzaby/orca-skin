@@ -32,6 +32,12 @@ const fixture = vi.hoisted(() => ({
     ((request: DraftNativeResourcesRequest) => Promise<NativeResource[] | undefined>) | undefined,
   draftDirectory: undefined as
     ((request: DraftNativeResourcesRequest, id: string) => Promise<string | undefined>) | undefined,
+  mcpFile: undefined as
+    | ((
+        request: DraftNativeResourcesRequest | { sessionId: string },
+        id: string
+      ) => Promise<string | undefined>)
+    | undefined,
   refresh: vi.fn(),
   createRefresh: vi.fn(),
   disposeBackground: vi.fn()
@@ -72,7 +78,8 @@ vi.mock('./handlers/session-resources', () => ({
     draftDirectory: (
       request: DraftNativeResourcesRequest,
       id: string
-    ) => Promise<string | undefined>
+    ) => Promise<string | undefined>,
+    mcpFile: NonNullable<typeof fixture.mcpFile>
   ) => {
     fixture.draftResources = draftResources
     fixture.draftDirectory = draftDirectory
@@ -81,6 +88,7 @@ vi.mock('./handlers/session-resources', () => ({
     fixture.lookup = lookup
     fixture.configured = configured
     fixture.pluginDirectory = pluginDirectory
+    fixture.mcpFile = mcpFile
   }
 }))
 vi.mock('./handlers/session', () => ({
@@ -148,14 +156,18 @@ describe('native history bootstrap callbacks', () => {
     expect(input).toBe(ctx)
     expect(fixture.hooks?.refreshHistory).toBe(fixture.refresh)
     const has = vi.spyOn(supervisor, 'hasSession').mockReturnValue(true)
-    const discard = vi.spyOn(supervisor, 'discardRuntime').mockReturnValue(true)
+    const peek = vi
+      .spyOn(supervisor, 'peekRuntime')
+      .mockReturnValue({ providerGeneration: 'live-B' } as never)
     const snapshot = activity.current('refresh-session')
     const current = vi.spyOn(activity, 'current').mockReturnValue(snapshot)
     expect(runtime.hasSession('refresh-session')).toBe(true)
-    expect(runtime.discardRuntime('refresh-session')).toBe(true)
+    expect(runtime.hasRuntime('refresh-session')).toBe(true)
     expect(runtime.activity('refresh-session')).toBe(snapshot)
     expect(has).toHaveBeenCalledExactlyOnceWith('refresh-session')
-    expect(discard).toHaveBeenCalledExactlyOnceWith('refresh-session')
+    expect(peek).toHaveBeenCalledExactlyOnceWith('refresh-session')
+    peek.mockReturnValue({ state: 'live', providerGeneration: undefined } as never)
+    expect(runtime.hasRuntime('refresh-session')).toBe(false)
     expect(current).toHaveBeenCalledExactlyOnceWith('refresh-session')
     activity.dispose()
   })
@@ -198,6 +210,12 @@ it('reads native configuration through the registered module using stored backen
       }
     ])
     expect(get).toHaveBeenCalledWith('session-B')
+    expect(await fixture.mcpFile?.({ sessionId: 'session-B' }, 'project-B')).toBe(
+      join(cwd, '.mcp.json')
+    )
+    expect(await fixture.mcpFile?.({ backend: 'claude', cwd, projectId: null }, 'project-B')).toBe(
+      join(cwd, '.mcp.json')
+    )
     expect(ctx.getCwd).not.toHaveBeenCalled()
     await mkdir(join(root, 'plugins'), { recursive: true })
     const installed = join(temp, 'native-plugin-B')
@@ -257,6 +275,10 @@ it('reads native configuration through the registered module using stored backen
     ).rejects.toThrow('절대 경로')
 
     row.backend = 'opencode'
+    await writeFile(join(cwd, 'opencode.json'), JSON.stringify({ mcp: { 'open-B': {} } }))
+    expect(await fixture.mcpFile?.({ sessionId: 'session-B' }, 'open-B')).toBe(
+      join(cwd, 'opencode.json')
+    )
     expect(await fixture.commands?.('session-B')).toBeUndefined()
     expect(await fixture.pluginDirectory?.('session-B', nativePluginId(installed))).toBeUndefined()
     expect(await fixture.configured?.('session-B')).toBeUndefined()

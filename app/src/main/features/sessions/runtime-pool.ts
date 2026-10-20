@@ -41,8 +41,8 @@ export class RuntimePool<RT extends ManagedRuntime = ManagedRuntime> {
     return true
   }
 
-  // 지정 세션의 idle 핸들 폐기. 명시적인 전체 중단이나 활동 확인을 마친 native 재조회가
-  // 채널을 닫을 때 사용한다. 입력 큐 잔여도 종료되므로 호출자가 활동을 보호한다. 없으면 false.
+  // 지정 세션의 idle 핸들 폐기. 명시적인 전체 중단으로 채널을 닫을 때 사용한다.
+  // 입력 큐 잔여도 종료되므로 호출자가 활동을 보호한다. 없으면 false.
   close(sessionId: string): boolean {
     return this.closeEntry(sessionId)
   }

@@ -157,6 +157,20 @@ function openMenu(menuItems: CascadeItem<string>[] = items, anchorBox: Rect = AN
 beforeEach(() => {
   vi.useFakeTimers()
 })
+it('skips source headings and selects a direct skill with the keyboard', () => {
+  const menu = openMenu([
+    { kind: 'heading', id: 'source', label: 'Source' },
+    { kind: 'action', id: 'a', label: 'Review', action: 'review' },
+    { kind: 'heading', id: 'other', label: 'Other source' },
+    { kind: 'action', id: 'b', label: 'Design', action: 'design' }
+  ])
+  menu.dom.frame()
+  menu.dom.key('ArrowDown')
+  menu.dom.key('ArrowDown')
+  menu.dom.key('Enter')
+  expect(menu.onSelect).toHaveBeenCalledExactlyOnceWith('design')
+  menu.dom.unmount()
+})
 afterEach(() => {
   vi.useRealTimers()
   vi.unstubAllGlobals()

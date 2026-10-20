@@ -269,10 +269,10 @@ export class RuntimeSupervisor<W = unknown> {
     this.pool.closeAll()
   }
 
-  // 세션 런타임 폐기. 명시적인 전체 중단 또는 native 이력 재조회 전 유휴 회수에 사용한다.
+  // 세션 런타임 폐기. 명시적인 전체 중단에 사용한다. 화면 재진입의 이력 조회는 폐기하지 않는다.
   // 공개 SDK 에 provider 큐의 개별 메시지를 취소하는 표면이 없으므로, Stop 뒤에도 CLI 큐에
   // 살아남은 우리 예약을 없애는 유일한 수단이 서브프로세스 폐기다. **백그라운드 서브에이전트도
-  // 함께 죽는다** — native 재조회 호출자는 lease·승인·예약·background가 모두 없는지 먼저 확인한다.
+  // 함께 죽는다**.
   // 진행 중 턴의 런타임은 풀 밖(active)이라 여기서 잡히지 않는다 — 호출자가 abortTurn 을 먼저
   // 태워 idle 로 반납되게 하거나, 반납 실패 시 다음 send 가 콜드 스폰으로 자연 복구한다.
   discardRuntime(sessionId: string): boolean {

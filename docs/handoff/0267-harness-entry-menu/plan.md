@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | IMPL_DONE / r1.8 |
+| 상태 / 라운드 | IMPL_DONE / r1.9 |
 | V mode / 기준 V / 유효 V | Delta V / r1.8 (`472935d7`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9+ΔV10+ΔV11 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
@@ -1320,3 +1320,72 @@ EP26 고정 목록(16자리): ①session load→refreshHistory ②bootstrap runt
 검색: `rg -n 'refreshHistory|releaseIdleRuntime|discardRuntime|nativeResources|openNativePlugin|configuredResources|configuredPluginDirectory|nativeAttachItems|buildAttachMenu|useSkills|pluginMentionCandidates|MenuTitle|SIDEBAR_NAV' app/src -g '!*.test.*'`. 선언·타입·재수출을 제외하고 위 생산 경로에 대응한다. ①는 session.native-history 기존 load 테스트, ②③④는 bootstrap.native-history/native-history의 실제 등록 및 런타임 보존 테스트, ⑤⑥은 실제 임시 설정 파일 resolver 테스트, ⑦은 bootstrap 실제 callback, ⑧⑨는 preload/session-resources 테스트, ⑩⑪은 useNativeResources 실제 메뉴 클릭, ⑫⑬은 Composer.native-menu IPC 입력→최종 행/선택, ⑭은 Cascade flow 실제 키 입력, ⑮⑯은 Composer/ChatTitleBar/Sidebar 렌더·브라우저가 직접 oracle이다.
 
 신규 변이는 선택하지 않는다(직접 행동 oracle). 상속 M2는 MCP/plugin 목적지 맞바꿈, M3는 스킬/MCP 목적지 맞바꿈을 새 flat 목록에도 적용한다. 운영 gate는 lint·typecheck3종·관련 비DB 테스트·build·boundary·inventory·카탈로그/문서 검사이며 실제 GUI와 mock 경계를 분리 보고한다. ACTIVE D36~40↔AC34~38 및 D35 스위치 계약 대조 충돌 0; READY.
+
+## [구현자 기입] r1.9 설계 리뷰
+
+SELF_PASS. 상태 초기화의 생산 경로는 화면 재진입→session load→native 이력 갱신→idle runtime 폐기였다. renderer 캐시 보존만으로는 CLI의 세션별 상태를 유지할 수 없었다. 해당 폐기 포트를 제거하고 실제 provider generation이 살아 있을 때만 이력 교체를 보류한다. 종료된 채널 객체가 풀에 남은 경우에는 원본 이력을 읽는다.
+
+스킬/플러그인은 출처 제목 아래 단일 목록으로 조립한다. 브랜드 슬롯은 composer registry가 공통 메뉴에 전달하고 OpenCode 파일 해석은 버전 중립 진입점을 지난다. D36~40의 결과를 바꾸는 PLAN_GAP은 없다. §10의 `session.native-history` 테스트명은 실제 파일 `app/handlers/session.load.test.ts`로 정정해 실행했다.
+
+## [구현자 기입] r1.9 강제 지점 전수와 V-pair 자기확인
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 자리별 oracle 좌표 | 운반 항·관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP32·33 | 세션 load | EP26 ① | 1/1 | session.load.test: session load IPC refreshes native history… | 실제 DB+IPC에서 refresh 뒤 보관 화면 조립, 10/10 | 없음 |
+| VP33·35 | 살아 있는 런타임 보존 | EP26 ②③④ | 3/3 | bootstrap.native-history: callback 등록; native-history: preserves the real idle %s runtime…; native-sync | 양 backend 반복 재진입 3회, generation·MCP false·plugin true·명령 유지, spawn 1회·close 0회. 종료 뒤 cold read | 없음 |
+| VP34·35 | 설정 파일의 실제 출처 | EP26 ⑤⑥ | 2/2 | claude/configured-resources.test: MCP declaring file; opencode/v1/configured-resources.test: JSONC scopes | 사용자/프로젝트/local/plugin 선언 파일과 JSONC 우선순위, 미선언·손상 파일 처리 | 없음 |
+| VP34 | 모듈·IPC·OS 호출 | EP26 ⑦⑧⑨ | 3/3 | bootstrap.native-history: reads native configuration…; preload/index; session-resources: reveals only the resolved MCP configuration… | Claude/OpenCode 모듈 callback, saved/draft kind 전달, 임의 path·directory 거부, realpath 파일만 shell 호출 | 실제 Windows 탐색기 창은 미실기; shell 호출까지 자기확인 |
+| VP32·34 | MCP 이름/스위치 분리 | EP26 ⑩⑪ | 2/2 | useNativeResources: reveals an MCP configuration from the name… | 이름은 open kind=mcp, 별도 스위치는 write. 실패 토스트·자동 조회 회귀 | 없음 |
+| VP32·34 | 전체 catalog와 단일 목록 | EP26 ⑫⑬ | 2/2 | Composer.native-menu: shows all source groups directly…; attachMenu.flow/render/select; attachMenuModel | IPC→Orca/native 스킬·MCP·plugin 최종 행. 미지원·disabled 항목 유지, native exact command+초안 보존 | 없음 |
+| VP32·35 | 제목의 비선택성 | EP26 ⑭ | 1/1 | CascadeMenu.flow: skips source headings…; attachMenu.flow 키보드 선택 | heading을 건너뛰어 action 실행, source submenu 없음 | 없음 |
+| VP32 | 브랜드와 아이콘 | EP26 ⑮⑯ | 2/2 | Composer.harness·Composer.native-menu 로고 단언; navItems·attachMenu.render; Chromium fixture | Claude/OpenCode/Orca 로고, nav plug·Attach File. white/dark·640px 재열기 | 없음 |
+
+EP26 합계 16/16. shell 행의 닫힘은 계획한 호출 oracle 범위이며 실제 OS 창 인수는 포함하지 않는다. 위 파일명은 `app/src/` 이하의 동명 테스트 좌표다. `rg`로 생산 소스에서 109개 참조를 다시 찾고 타입/재수출·동명 일반 MenuTitle·무변경 command dispatch를 분리했다. 실제 이력 폐기 호출의 차집합은 명시 stop(`chat-turn/index.ts`)·삭제(`bootstrap.ts`)뿐이며 화면 재진입에는 없다. 목록 밖 구현은 새 계약이 아니라 ⑦의 OpenCode facade, ⑮의 registry→sourceIcon 전달이다.
+
+VP32~35 REQUIRED와 VP13~14·16~17·19~31 REGRESSION은 SELF_PASS. 상속 pair의 직접 좌표는 r1.7/r1.8 전수표를 유지하며 해당 native handler·hook·runtime·adapter·Composer·Cascade 테스트를 재실행했다. entry 선택과 command dispatch 등 NOT_REQUIRED 경로는 이전 관측을 승계했다.
+
+## [구현자 기입] r1.9 이번 라운드 수정의 잠금
+
+| 선택 증거 | 실제 변경 | 관측 | 복원 |
+|---|---|---|---|
+| M2 | nativeResourcesMenu의 MCP/plugin content 목적지 맞바꿈 | 11케이스 중10 failed | 원본 bytes 복원, 최종 집중 실행에서11/11 |
+| M3 | AttachMenu의 nativeItems skills/mcp 목적지 맞바꿈 | 실제 Composer 6/6 failed | 원본 bytes 복원, 최종 집중 실행에서6/6 |
+
+검산: 선택 증거2 · 인용 변이0 · 새 구조 proxy0 = 잠금2행. 변경된 Composer 정적 배선 검사는 기존 검사를 유지한 것이며, 실제 registry→controller→menu의 서로 다른 브랜드/스킬/MCP 값은 새 DOM 행동 단언으로 관측했다. 신규 runtime/file/heading 테스트는 직접 oracle이며 추가 변이는 선택하지 않았다.
+
+## [구현자 기입] r1.9 Product/UX 파생 검토
+
+SELF_PASS. 기존 Popover·CascadeMenu·MenuTitle·HarnessLogo·OrcaLogo를 재사용했다. 제목은 키보드 탐색 대상이 아니며 명령 선택은 기존 초안을 보존한다. 모든 Orca 항목은 OpenCode에서도 보이지만 현재 실행 미지원 상태는 disabled로 나타난다. MCP 이름과 활성 스위치를 독립 액션으로 유지하고 연결 상태 공·손잡이 spinner를 바꾸지 않았다. white/dark·640px 재열기에서 목록이 viewport 안에 있고 source 추가 submenu와 native 빈 명령 문구가 없다.
+
+## [구현자 기입] r1.9 놓친 잠재 문제 + 대응
+
+| 문제 | 대응 / 관측 |
+|---|---|
+| 프로세스가 종료돼도 풀의 객체는 남을 수 있음 | 객체 존재 대신 providerGeneration을 검사. bootstrap의 generation 없는 객체=false와 runtime 종료 뒤 cold read 단언 |
+| 공통 메뉴가 하네스 registry를 직접 import | sourceIcon을 registry에서 주입. OpenCode reader도 version-neutral facade 경유. lint 경계 오류0 |
+| 로컬 Claude 플러그인이 테스트 fixture에 섞임 | executable/live-control 테스트의 프로세스/명시 env를 고유 빈 설정 경로로 격리. 기존 필드 단언 유지, 두 파일24/24 |
+| OS reveal API는 성공 여부를 반환하지 않음 | realpath·파일 유형·scope 검증과 호출까지 확인. 탐색기 실제 표시 성공은 보고하지 않음 |
+| 파일이 없는 runtime-only MCP | 파일 경로를 추측하지 않고 안전한 오류 토스트. 설정 쓰기 없음 |
+| 문서 검사에 기존 `.tmp/opencode-dev` 외부 사본 포함 | 원본 검사 실패5건을 별도 기록. 외부 사본 제외 저장소 상대 링크 차집합[] |
+
+## [구현자 기입] r1.9 구현 보고
+
+[검증 관측](evidence/validation.md)의 r1.9에 실행 집합·초기 실패와 정정·GUI/CLI 경계를 기록했다. production build와 타입3종 통과, 최종 lint 오류0/기존 경고4, boundary8/8, DB load10/10, 실제 Claude CLI skill 확장/토글/설정 불변을 확인했다. 관련 회귀80파일 집합과 Composer/nav38파일 집합의 실패 케이스는 수정 후 집중 실행에서 모두 green이다. 두 집합은 중복하므로 합산하지 않는다.
+
+| AC | 자기보고 / 관측 |
+|---|---|
+| AC1~33 | ✅ r1.8의 AC별 관측을 승계. 관련 scope·제어·generation·source·메뉴·키보드 경로는 이번 회귀와 CLI로 재확인 |
+| AC34 | ✅ 실제 SessionRuntime+supervisor의 양 backend 반복 재진입, 같은 채널·리소스·명령 보존과 종료 뒤 cold read |
+| AC35 | ✅ 실제 DOM 브랜드/아이콘 단언, white/dark·640px 브라우저 |
+| AC36 | ✅ 실제 설정 파일 resolver·strict IPC·main shell 호출·메뉴 이름/스위치 분리 |
+| AC37 | ✅ 단일 스킬 패널·source heading 건너뛰기·정확한 native 명령·초안 보존·빈 명령 문구 부재 |
+| AC38 | ✅ native/Orca MCP+Orca plugin 최종 행, disabled 항목 포함·출처 로고 |
+
+검산: ✅38 · ⚠️0 · ❌0 = 현재 AC38. 신규5/5, 이전33은 위 관측 범위로 승계했다. 실제 Windows 탐색기 창과 설치 앱에서의 두 CLI 세션 왕복 실기는 이 자기보고의 범위가 아니다. plan 메타와 INDEX는 r1.9 impl/IMPL_DONE·Claude 검증 대기로 맞춘다.
+
+## [구현자 기입] r1.9 Review Signals
+
+- r1.9는 사용자 요구 추가와 GUI 재보고를 받은 턴이다. r1.7의 renderer 상태 보존 축과 같지만 main의 이력 조회가 CLI를 종료하는 경로가 기존 증거에서 빠졌다.
+- D32는 프로세스 수명을 약속했지만 이전 테스트는 renderer 이벤트와 runtime 종료를 별도로 검증했다. 이번에는 실제 runtime/supervisor를 native-history에 연결하고 열린 채널의 generation·목록·재사용까지 단언했다.
+- 초기 테스트 채널은 terminal 뒤 스트림까지 끝나 실제 idle CLI를 표현하지 못했다. 지속 스트림+pushTurn fixture로 교체하고 spawn1/close0을 확인했다.
+- Windows 인코딩은 `python -X utf8`, DB ABI는 Electron의 Node 모드로 해결했다. 실제 설치 앱의 GUI 자동 조작은 사용하지 않았으며 독립 verify는 대기다.

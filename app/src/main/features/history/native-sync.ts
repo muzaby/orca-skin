@@ -14,7 +14,6 @@ export interface NativeSyncDependencies {
   db: DbQueries
   read: (previous?: NativeHistoryRequest['previous']) => Promise<NativeHistoryResult>
   isBusy: () => boolean
-  releaseIdleRuntime?: () => void
 }
 
 export function validNativeSnapshot(snapshot: NativeHistorySnapshot, sessionId: string): boolean {
@@ -51,8 +50,6 @@ export async function refreshNativeHistory(
   if (deps.isBusy()) return busy
   if (!deps.db.getSessionById(sessionId))
     return { status: 'missing', message: '목록에서 제거된 대화입니다.' }
-  // There is no await between the guard and release. Active children are never closed for a read.
-  deps.releaseIdleRuntime?.()
   const before = deps.db.nativeHistory.observe(sessionId)
   let result: NativeHistoryResult
   try {

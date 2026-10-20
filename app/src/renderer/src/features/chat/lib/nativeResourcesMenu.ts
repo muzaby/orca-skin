@@ -33,14 +33,7 @@ export function nativeResourcesMenu(
       title:
         kind === 'plugin'
           ? [resource.description, tr('chat.nativeResources.openFolder')].filter(Boolean).join('\n')
-          : tr(
-              resource.canToggle
-                ? resource.enabled
-                  ? 'chat.nativeResources.disable'
-                  : 'chat.nativeResources.enable'
-                : 'chat.nativeResources.unsupported'
-            ),
-      disabled: kind === 'mcp' && !resource.canToggle,
+          : tr('chat.nativeResources.openConfig'),
       status: {
         tone: nativeResourceTone(resource.status),
         label: `${resource.name}: ${tr(`chat.nativeResources.${resource.status}`)}`
@@ -55,7 +48,7 @@ export function nativeResourcesMenu(
             }
           }
         : {}),
-      action: { type: kind === 'plugin' ? ('open' as const) : ('toggle' as const), resource }
+      action: { type: 'open' as const, resource }
     }))
   }
   return [
