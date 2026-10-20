@@ -393,6 +393,11 @@ it('preserves native resource state and toggle identity through renderer and pre
       sessionId: 'session-B',
       id: 'plugin-C'
     })
+    await sessionApi.openNativePlugin({ ...draft, id: 'draft-plugin' })
+    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.sessionOpenNativePlugin, {
+      ...draft,
+      id: 'draft-plugin'
+    })
     for (const enabled of [false, true]) {
       const request = {
         sessionId: 'session-B',

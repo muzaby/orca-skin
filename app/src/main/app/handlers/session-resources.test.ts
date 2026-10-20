@@ -107,11 +107,17 @@ describe('native resource IPC', () => {
       )
       const pending = invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })
       await vi.advanceTimersByTimeAsync(3001)
-      expect(await pending).toEqual({ state: 'disconnected', items, partial: true })
+      expect(await pending).toEqual({
+        state: 'disconnected',
+        items,
+        partial: true,
+        pluginsAuthoritative: true
+      })
       live.mockResolvedValueOnce(snapshot())
-      expect(await invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })).toEqual(
-        snapshot()
-      )
+      expect(await invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })).toEqual({
+        ...snapshot(),
+        pluginsAuthoritative: true
+      })
     }
   )
 
@@ -154,6 +160,7 @@ describe('native resource IPC', () => {
     registerSessionResourceHandlers(() => runtime, inventory)
     expect(await invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })).toEqual({
       state: 'disconnected',
+      pluginsAuthoritative: true,
       items: configured
     })
     expect(inventory).toHaveBeenCalledWith('session-B')
@@ -363,4 +370,100 @@ it('accepts only a read-only draft scope and never looks up or controls a live s
       generation: 'x'
     })
   ).rejects.toThrow()
+})
+
+it('treats a fresh registry as authoritative over live plugins and refuses removed install paths', async () => {
+  const plugin: NativeResource = {
+    id: 'installed',
+    kind: 'plugin',
+    name: 'Installed',
+    status: 'configured',
+    enabled: true,
+    canToggle: false
+  }
+  const runtime = {
+    nativeResources: async () => ({ ...snapshot(), items: [plugin, { ...plugin, id: 'removed' }] }),
+    nativePluginDirectory: vi.fn(async () => '/stale-live-path')
+  } as unknown as GovernedLiveTurn
+  const inventory = vi.fn<() => Promise<NativeResource[] | undefined>>().mockResolvedValue([plugin])
+  registerSessionResourceHandlers(() => runtime, inventory)
+  expect(await invoke(CHANNELS.sessionNativeResources, { sessionId: 'B' })).toMatchObject({
+    pluginsAuthoritative: true,
+    items: [plugin]
+  })
+  inventory.mockResolvedValue([])
+  expect(await invoke(CHANNELS.sessionNativeResources, { sessionId: 'B' })).toMatchObject({
+    pluginsAuthoritative: true,
+    items: []
+  })
+  await expect(
+    invoke(CHANNELS.sessionOpenNativePlugin, { sessionId: 'B', id: 'removed' })
+  ).rejects.toThrow('설치 폴더')
+  expect(runtime.nativePluginDirectory).not.toHaveBeenCalled()
+  const write = vi.fn(async () => {})
+  runtime.setNativeResource = write
+  runtime.nativeResources = async () => ({ ...snapshot(), items: [{ ...plugin, canToggle: true }] })
+  await expect(
+    invoke(CHANNELS.sessionSetNativeResource, {
+      sessionId: 'B',
+      generation: 'generation-B',
+      kind: 'plugin',
+      id: 'installed',
+      enabled: false
+    })
+  ).rejects.toThrow('현재 작업 경로')
+  expect(write).not.toHaveBeenCalled()
+  runtime.nativeResources = async () => ({
+    ...snapshot(),
+    items: [plugin, { ...plugin, id: 'removed' }]
+  })
+  inventory.mockResolvedValue(undefined)
+  expect(await invoke(CHANNELS.sessionNativeResources, { sessionId: 'B' })).toMatchObject({
+    items: [plugin, { ...plugin, id: 'removed' }]
+  })
+})
+
+it('lists draft installations and opens their resolved folder without a session or write permission', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'orca-draft-plugin-'))
+  try {
+    const plugin: NativeResource = {
+      id: 'draft-plugin',
+      name: 'Native',
+      kind: 'plugin',
+      status: 'disabled',
+      enabled: false,
+      canToggle: true
+    }
+    const lookup = vi.fn()
+    const inventory = vi.fn(async () => [plugin])
+    const resolver = vi.fn(async () => directory)
+    registerSessionResourceHandlers(
+      lookup,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      inventory,
+      resolver
+    )
+    const scope = { backend: 'claude', cwd: directory, projectId: 'draft-project' }
+    expect(await invoke(CHANNELS.sessionNativeResources, scope)).toEqual({
+      state: 'disconnected',
+      items: [{ ...plugin, canToggle: false }],
+      commands: [],
+      pluginsAuthoritative: true
+    })
+    openPath.mockClear().mockResolvedValue('')
+    await invoke(CHANNELS.sessionOpenNativePlugin, { ...scope, id: plugin.id })
+    expect(resolver).toHaveBeenCalledWith({ ...scope, id: plugin.id }, plugin.id)
+    expect(openPath).toHaveBeenCalledExactlyOnceWith(await realpath(directory))
+    for (const payload of [
+      { ...scope, id: plugin.id, sessionId: 'mix' },
+      { ...scope, id: plugin.id, path: directory }
+    ])
+      await expect(invoke(CHANNELS.sessionOpenNativePlugin, payload)).rejects.toThrow()
+    expect(lookup).not.toHaveBeenCalled()
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
 })

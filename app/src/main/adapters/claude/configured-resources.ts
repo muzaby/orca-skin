@@ -5,7 +5,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { NativeResource } from '../../../shared/native-resources'
 import { isRecord } from '../../../shared/obj'
 import { claudeNativePaths } from './native-paths'
-import { selectClaudePlugins, pluginPathKey } from './plugin-catalog'
+import { installedClaudePlugins, pluginPathKey } from './plugin-catalog'
 
 const record = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {})
 const pathKey = pluginPathKey
@@ -17,7 +17,7 @@ export function nativePluginId(path: string): string {
 
 async function readObject(file: string): Promise<Record<string, unknown>> {
   try {
-    const value: unknown = JSON.parse(await readFile(file, 'utf8'))
+    const value: unknown = JSON.parse((await readFile(file, 'utf8')).replace(/^\uFEFF/, ''))
     if (!isRecord(value)) throw new Error('invalid object')
     return value
   } catch (error) {
@@ -115,10 +115,14 @@ async function readConfiguredClaudeResources(
     }
   }
   const plugins: NativeResource[] = []
-  for (const entry of selectClaudePlugins(cwd, root, installed.plugins, enabledPlugins)) {
-    const { key: name, path: installPath, enabled, installedOnly } = entry
+  for (const entry of installedClaudePlugins(cwd, installed.plugins)) {
+    const { key: name, path: installPath } = entry
+    const flag = enabledPlugins[name]
+    const enabled = flag === true || Array.isArray(flag) || isRecord(flag)
+    const installedOnly = flag === undefined
     const manifest = await readObject(join(installPath, '.claude-plugin', 'plugin.json'))
     const id = nativePluginId(installPath)
+    if (directories.has(id)) continue
     directories.set(id, installPath)
     plugins.push({
       ...configured(id, name, 'plugin', enabled, installedOnly),

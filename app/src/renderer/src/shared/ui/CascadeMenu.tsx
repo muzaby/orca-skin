@@ -163,6 +163,10 @@ export function CascadeBody<A>({
           rootRef={rootRef}
           onHover={scheduleHover}
           onLeave={cancelHover}
+          onSecondary={(action) => {
+            onSelect(action)
+            if (closeOnSelect) onClose()
+          }}
           onClick={(index) => {
             cancelHover()
             dispatch({ type: 'click', level, index })
@@ -181,6 +185,7 @@ function CascadePanel<A>({
   rootRef,
   onHover,
   onLeave,
+  onSecondary,
   onClick
 }: {
   level: number
@@ -190,6 +195,7 @@ function CascadePanel<A>({
   rootRef: RefObject<HTMLDivElement | null>
   onHover: (level: number, index: number) => void
   onLeave: () => void
+  onSecondary: (action: A) => void
   onClick: (index: number) => void
 }): React.JSX.Element {
   const panelRef = useRef<HTMLDivElement>(null)
@@ -224,7 +230,7 @@ function CascadePanel<A>({
           )
         const submenu = item.kind === 'submenu'
         const expanded = submenu && openIndex === index
-        return (
+        const row = (
           <MenuItem
             key={item.id}
             role={
@@ -240,7 +246,7 @@ function CascadePanel<A>({
             aria-expanded={submenu ? expanded : undefined}
             data-cascade-level={level}
             data-cascade-index={index}
-            className={expanded ? 'bg-fill-uncontained-hover' : ''}
+            className={`min-w-0 ${expanded ? 'bg-fill-uncontained-hover' : ''}`}
             onPointerEnter={() => onHover(level, index)}
             onPointerLeave={onLeave}
             onClick={() => onClick(index)}
@@ -262,6 +268,38 @@ function CascadePanel<A>({
             {submenu && <Icon name="chevR" size={12} className="shrink-0 text-ink3" />}
           </MenuItem>
         )
+        if (item.kind === 'action' && item.secondary) {
+          const secondary = item.secondary
+          return (
+            <div key={item.id} className="flex items-center">
+              {row}
+              <MenuItem
+                role="menuitemcheckbox"
+                aria-label={secondary.label}
+                aria-checked={secondary.checked}
+                title={secondary.label}
+                disabled={secondary.disabled}
+                className="w-auto! shrink-0"
+                onClick={() => onSecondary(secondary.action)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.stopPropagation()
+                    event.preventDefault()
+                    if (!secondary.disabled) onSecondary(secondary.action)
+                  }
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`inline-flex h-4 w-7 items-center rounded-full p-0.5 ${secondary.checked ? 'justify-end bg-toggle-on' : 'justify-start bg-border-strong'}`}
+                >
+                  <span className="size-3 rounded-full bg-white" />
+                </span>
+              </MenuItem>
+            </div>
+          )
+        }
+        return row
       })}
     </div>
   )

@@ -60,7 +60,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | [shared/ui/Avatar.tsx](../../../app/src/renderer/src/shared/ui/Avatar.tsx) — `Avatar` | kind별 사용자·Claude·OpenCode 표식의 크기·모서리·글리프를 해당 primitive에 맡긴다. |
 | [shared/ui/BayerPattern.tsx](../../../app/src/renderer/src/shared/ui/BayerPattern.tsx) — `BayerPattern` | 센서 이미지 표시용 stage 배경·그리드·표적. 일반 카드 장식으로 사용하지 않는다. |
 | [shared/ui/Button.tsx](../../../app/src/renderer/src/shared/ui/Button.tsx) — `Button` | variant·size·busy·pressed·dropdown props 사용. primary=중립 반전, danger=rust; 배경 span·isolate 유지. |
-| [shared/ui/CascadeMenu.tsx](../../../app/src/renderer/src/shared/ui/CascadeMenu.tsx) — `CascadeMenu`, `CascadeBody` | MenuItem 표면·계단식 submenu·키보드·초점·viewport 배치를 재사용한다. |
+| [shared/ui/CascadeMenu.tsx](../../../app/src/renderer/src/shared/ui/CascadeMenu.tsx) — `CascadeMenu`, `CascadeBody` | MenuItem 표면·계단식 submenu·키보드·초점·viewport 배치를 재사용한다. 선택적 secondary는 주 액션과 독립된 클릭/Enter/Space 제어이며 sibling 버튼으로 렌더한다. |
 | [shared/ui/CatalogListRow.tsx](../../../app/src/renderer/src/shared/ui/CatalogListRow.tsx) — `CatalogListRow` | 아이콘→제목·메타→행 동작 위계. 선택/hover를 구별하고 제목과 동작 버튼을 중첩하지 않는다. |
 | [shared/ui/CatalogSearch.tsx](../../../app/src/renderer/src/shared/ui/CatalogSearch.tsx) — `CatalogSearch` | 검색 열기·입력·닫기·초점 복귀를 공통 형태로 유지한다. |
 | [shared/ui/CatalogTabs.tsx](../../../app/src/renderer/src/shared/ui/CatalogTabs.tsx) — `CatalogTabs` | 선택 탭 표면·방향키·Home/End·ARIA 연결을 유지한다. |
@@ -405,7 +405,7 @@ Provider와 registry는 시각 컴포넌트 선택/수명 책임만 갖는다. �
 | 소스 / 표시 단위 | 적용 규칙 |
 |---|---|
 | [app/NewChatHarnessMenu.tsx](../../../app/src/renderer/src/app/NewChatHarnessMenu.tsx) — `NewChatHarnessMenu` | Popover의 right 배치·nav boundary·gap 0. 같은 로고 칸, 키보드 탐색·취소 시 초점 복귀. |
-| [features/chat/components/NativeResourcesMenu.tsx](../../../app/src/renderer/src/features/chat/components/NativeResourcesMenu.tsx) — `NativeResourcesMenu` | 하네스 그룹 제목과 CascadeBody의 MCP·플러그인 하위 메뉴. 그룹 연결 요약은 표시하지 않는다. 개별 구성/실행 상태를 구분하고 미지원 제어와 갱신 전 정보의 제어를 잠근다. 제어 실패 시 자동 재조회하며 기존 목록과 오류 안내를 유지한다. 이전 관측·부분 조회·갱신 중 상태를 표시하며 재진입·재열기에서 자동 갱신한다. 플러그인은 일반 밝기의 폴더 열기 액션이며 토글 없이 설명 툴팁을 제공한다. MCP와 플러그인 그룹은 같은 플러그 SVG를 사용한다. |
+| [features/chat/components/NativeResourcesMenu.tsx](../../../app/src/renderer/src/features/chat/components/NativeResourcesMenu.tsx) — `NativeResourcesMenu` | 하네스 그룹 제목과 CascadeBody의 MCP·플러그인 하위 메뉴. 저장 세션뿐 아니라 첫 전송 전 초안의 backend/cwd/projectId로도 설치 목록과 폴더 열기를 제공한다. 그룹 연결 요약은 표시하지 않는다. 개별 구성/실행 상태를 구분하고 미지원 제어와 갱신 전 정보의 제어를 잠근다. 제어 실패 시 자동 재조회하며 기존 목록을 유지한다. 케밥 안의 목록 로딩·갱신·이전 관측·부분 조회·빈 목록·오류 안내 문구는 표시하지 않으며 실패는 전역 토스트로 알린다. 재진입·재열기에서 자동 갱신한다. 플러그인 이름은 일반 밝기의 폴더 열기 액션이고 설명 툴팁을 제공한다. 지원되는 실행 중 Claude 설치에는 폴더 액션과 독립된 세션 활성 제어를 표시한다. MCP와 플러그인 그룹은 같은 플러그 SVG를 사용한다. |
 | [features/chat/harnesses/claude/Logo.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/Logo.tsx) — `ClaudeLogo` | 공식 Claude 마크, currentColor. 메뉴·히어로는 spinner 토큰. |
 | [features/chat/harnesses/opencode/Logo.tsx](../../../app/src/renderer/src/features/chat/harnesses/opencode/Logo.tsx) — `OpenCodeLogo` | 공식 OpenCode 마크, currentColor와 ink 토큰. 원본 비율을 유지한다. |
 | [features/chat/harnesses/registries/brand.tsx](../../../app/src/renderer/src/features/chat/harnesses/registries/brand.tsx) — `HarnessLogo` | 하네스별 마크 조립만 소유하며 기존 랜딩 presentation을 바꾸지 않는다. |

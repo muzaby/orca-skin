@@ -13,6 +13,8 @@ export type CascadeItem<A> =
       checked?: boolean
       description?: string
       action: A
+      /** Independent control alongside the main action (e.g. open vs enable). */
+      secondary?: { label: string; checked: boolean; disabled?: boolean; action: A }
     }
   | { kind: 'submenu'; id: string; label: string; icon?: IconName; items: CascadeItem<A>[] }
   | { kind: 'separator'; id: string }

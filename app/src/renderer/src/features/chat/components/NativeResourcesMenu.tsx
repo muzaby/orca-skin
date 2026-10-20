@@ -4,36 +4,39 @@ import { useI18n } from '../../../shared/i18n'
 import { CascadeBody } from '../../../shared/ui/CascadeMenu'
 import { MenuTitle } from '../../../shared/ui/MenuItem'
 import { useNativeResources } from '../hooks/useNativeResources'
-import { nativeResourcesMenu, nativeResourcesNotice } from '../lib/nativeResourcesMenu'
+import { nativeResourcesMenu } from '../lib/nativeResourcesMenu'
 
 export function NativeResourcesMenu({
   sessionId,
   backend,
+  cwd = null,
+  projectId = null,
   anchorRef,
   onClose
 }: {
   sessionId: string | null
   backend: Backend | null
+  cwd?: string | null
+  projectId?: string | null
   anchorRef: RefObject<HTMLElement | null>
   onClose: () => void
 }): React.JSX.Element {
   const { tr } = useI18n()
-  const { view, busy, toggle, openPlugin } = useNativeResources(sessionId, true, backend)
+  const { view, busy, toggle, openPlugin } = useNativeResources(
+    sessionId,
+    true,
+    backend,
+    sessionId ? undefined : { backend: backend ?? 'claude', cwd, projectId }
+  )
   const items = useMemo(() => nativeResourcesMenu(view, busy, tr), [view, busy, tr])
   const label = backend === 'opencode' ? 'OpenCode' : 'Claude'
-  const notice = nativeResourcesNotice(view)
   return (
     <div data-native-resources={backend ?? 'claude'}>
       <MenuTitle>{label}</MenuTitle>
-      {notice && (
-        <p role="status" className="px-2.5 py-1 text-caption text-ink3">
-          {tr(notice)}
-        </p>
-      )}
       <CascadeBody
         items={items}
-        onSelect={(resource) => {
-          if (resource.kind === 'plugin') void openPlugin(resource)
+        onSelect={({ type, resource }) => {
+          if (type === 'open') void openPlugin(resource)
           else void toggle(resource)
         }}
         onClose={onClose}

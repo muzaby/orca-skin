@@ -59,6 +59,7 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   const sessionId = useChatSession((s) => s.sessionId)
   const agentKind = useChatSession((s) => s.agentKind)
   const backend = useChatSession((s) => s.backend)
+  const projectId = useChatSession((s) => s.pendingProjectId ?? s.projectId)
   // 열 구조(stable ref)를 구독하고 평탄 뷰는 메모로 파생 — selector 가 새 배열을 반환하면
   // zustand Object.is 비교가 매번 깨져 불필요 재렌더가 난다.
   const tileColumns = useChatSession((s) => s.rightPanelTiles)
@@ -242,6 +243,8 @@ export const ChatTitleBar = memo(function ChatTitleBar({
             key={sessionId}
             sessionId={sessionId}
             backend={backend}
+            cwd={cwd}
+            projectId={projectId}
             anchorRef={anchorRef}
             onClose={() => setOpen(false)}
           />

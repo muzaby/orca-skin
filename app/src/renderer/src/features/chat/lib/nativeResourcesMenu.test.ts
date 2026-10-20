@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { load } from 'cheerio'
 import type { NativeResource } from '../../../../../shared/native-resources'
 import { CascadeBody } from '../../../shared/ui/CascadeMenu'
-import { nativeResourcesMenu } from './nativeResourcesMenu'
+import { nativeResourcesMenu, type NativeResourcesAction } from './nativeResourcesMenu'
 
 const mcp: NativeResource = {
   id: 'server',
@@ -69,11 +69,13 @@ describe('native resource submenu projection', () => {
       const item = items[index]
       expect(item.kind).toBe('submenu')
       if (item.kind !== 'submenu') throw new Error('submenu missing')
-      expect(item.items[0]).toMatchObject({ action: resource })
+      expect(item.items[0]).toMatchObject({
+        action: { type: resource.kind === 'plugin' ? 'open' : 'toggle', resource }
+      })
       expect(item.icon).toBe('electricalServices')
       const $ = load(
         renderToStaticMarkup(
-          createElement(CascadeBody<NativeResource>, {
+          createElement(CascadeBody<NativeResourcesAction>, {
             items,
             anchorRef: { current: null },
             onClose: () => {},
@@ -105,20 +107,15 @@ describe('native resource submenu projection', () => {
       { status: 'ready', value: { state: 'disconnected', items: [] } },
       { status: 'ready', value: { state: 'connected', items: [] } }
     ] as const
-    for (const [index, view] of views.entries()) {
+    for (const view of views) {
       const items = nativeResourcesMenu(
         view as Parameters<typeof nativeResourcesMenu>[0],
         false,
         (key) => key
       )
-      expect(items[0]).toMatchObject({
-        items: [
-          {
-            kind: 'empty',
-            label: `chat.nativeResources.${['loading', 'error', 'disconnected', 'empty'][index]}`
-          }
-        ]
-      })
+      for (const group of items) {
+        expect(group).toMatchObject({ items: [] })
+      }
     }
     expect(
       nativeResourcesMenu(

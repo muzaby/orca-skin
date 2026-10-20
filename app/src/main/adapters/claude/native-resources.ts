@@ -8,22 +8,63 @@ import { pluginDescription } from '../common/plugin-description'
 /** Owns native observations for one Query; Orca injected resources are excluded. */
 export function claudeNativeResources(
   query: Pick<Query, 'mcpServerStatus' | 'toggleMcpServer'> &
-    Partial<Pick<Query, 'supportedCommands'>>,
+    Partial<Pick<Query, 'supportedCommands' | 'applyFlagSettings' | 'reloadPlugins'>>,
   injectedRoots: readonly string[] = [],
-  injectedServers: readonly string[] = []
+  injectedServers: readonly string[] = [],
+  installations: readonly { key: string; name: string; path: string; enabled: boolean }[] = [],
+  initialFlags: Record<string, boolean> = {}
 ): {
   observePlugins(plugins: readonly { name: string; path: string }[]): void
   observeCommands(names: readonly string[]): void
   commands(): Promise<NativeCommand[]>
   list(): Promise<NativeResource[]>
   directory(id: string): Promise<string | undefined>
-  set(id: string, enabled: boolean): Promise<void>
+  set(id: string, enabled: boolean, kind?: NativeResource['kind']): Promise<void>
 } {
   let plugins: NativeResource[] = []
   const directories = new Map<string, string>()
   let commandNames: readonly string[] = []
   const injectedNames = new Set<string>()
   const roots = new Set(injectedRoots.map((root) => resolve(root)))
+  const controls = new Map(installations.map((plugin) => [nativePluginId(plugin.path), plugin]))
+  let flags = { ...initialFlags }
+  const canTogglePlugins = !!query.applyFlagSettings && !!query.reloadPlugins
+  const observePlugins = (entries: readonly { name: string; path: string }[]): void => {
+    injectedNames.clear()
+    directories.clear()
+    const active = new Set(entries.map((plugin) => nativePluginId(plugin.path)))
+    plugins = installations.map((plugin) => {
+      const id = nativePluginId(plugin.path)
+      directories.set(id, plugin.path)
+      const enabled = active.has(id)
+      return {
+        id,
+        name: plugin.key,
+        kind: 'plugin',
+        status: enabled ? 'enabled' : 'disabled',
+        enabled,
+        canToggle: canTogglePlugins
+      }
+    })
+    for (const plugin of entries) {
+      if (roots.has(resolve(plugin.path))) {
+        injectedNames.add(plugin.name)
+        continue
+      }
+      const id = nativePluginId(plugin.path)
+      if (controls.has(id)) continue
+      directories.set(id, plugin.path)
+      plugins.push({
+        id,
+        name: plugin.name,
+        kind: 'plugin',
+        status: 'enabled',
+        enabled: true,
+        canToggle: false
+      })
+    }
+  }
+  observePlugins(installations.filter((plugin) => plugin.enabled))
   const isNative = (server: McpServerStatus): boolean =>
     server.source !== 'sdk' &&
     !injectedServers.includes(server.name) &&
@@ -58,27 +99,7 @@ export function claudeNativeResources(
               : 'harness'
         }))
     },
-    observePlugins(entries) {
-      injectedNames.clear()
-      directories.clear()
-      plugins = entries.flatMap((plugin) => {
-        if (roots.has(resolve(plugin.path))) {
-          injectedNames.add(plugin.name)
-          return []
-        }
-        directories.set(nativePluginId(plugin.path), plugin.path)
-        return [
-          {
-            id: nativePluginId(plugin.path),
-            name: plugin.name,
-            kind: 'plugin' as const,
-            status: 'enabled' as const,
-            enabled: true,
-            canToggle: false
-          }
-        ]
-      })
-    },
+    observePlugins,
     async list() {
       const servers = await query.mcpServerStatus()
       return [
@@ -103,7 +124,35 @@ export function claudeNativeResources(
     async directory(id) {
       return directories.get(id)
     },
-    async set(id, enabled) {
+    async set(id, enabled, kind = 'mcp') {
+      if (kind === 'plugin') {
+        const plugin = controls.get(id)
+        if (!plugin || !query.applyFlagSettings || !query.reloadPlugins)
+          throw new Error('이 플러그인은 세션별 제어를 지원하지 않습니다.')
+        const previous = flags
+        const next = { ...flags, [`${plugin.name}@inline`]: enabled }
+        try {
+          await query.applyFlagSettings({ enabledPlugins: next })
+          const result = await query.reloadPlugins()
+          observePlugins(result.plugins)
+          commandNames = result.commands
+            .filter((command) => !command.builtin)
+            .map((command) => command.name)
+          if (result.plugins.some((item) => nativePluginId(item.path) === id) !== enabled)
+            throw new Error('플러그인 활성 상태를 변경하지 못했습니다.')
+          flags = next
+        } catch (error) {
+          try {
+            await query.applyFlagSettings({ enabledPlugins: previous })
+            const restored = await query.reloadPlugins()
+            observePlugins(restored.plugins)
+          } catch {
+            // The subsequent menu refresh reports the actual state; never claim success.
+          }
+          throw error
+        }
+        return
+      }
       const server = (await query.mcpServerStatus()).find(
         (item) => item.name === id && isNative(item)
       )

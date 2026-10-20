@@ -20,13 +20,23 @@ import { isAbsolute } from 'node:path'
 
 export function registerSessionResourceHandlers(
   lookup: (sessionId: string) => GovernedLiveTurn | undefined,
-  configuredResources: (sessionId: string) => Promise<NativeResource[]> = async () => [],
+  configuredResources: (sessionId: string) => Promise<NativeResource[] | undefined> = async () =>
+    undefined,
   configuredPluginDirectory: (
     sessionId: string,
     id: string
   ) => Promise<string | undefined> = async () => undefined,
   configuredCommands?: (sessionId: string) => Promise<NativeCommand[] | undefined>,
-  draftCommands: (request: DraftNativeResourcesRequest) => Promise<NativeCommand[]> = async () => []
+  draftCommands: (
+    request: DraftNativeResourcesRequest
+  ) => Promise<NativeCommand[]> = async () => [],
+  draftResources: (
+    request: DraftNativeResourcesRequest
+  ) => Promise<NativeResource[] | undefined> = async () => undefined,
+  draftPluginDirectory: (
+    request: DraftNativeResourcesRequest,
+    id: string
+  ) => Promise<string | undefined> = async () => undefined
 ): void {
   const read = async (
     sessionId: string,
@@ -42,7 +52,9 @@ export function registerSessionResourceHandlers(
     const live = liveRead.status === 'fulfilled' ? liveRead.value : undefined
     if (configuredRead.status === 'rejected' && !live)
       throw new Error('하네스 목록을 불러오지 못했습니다. 다시 시도해 주세요.')
-    const configured = configuredRead.status === 'fulfilled' ? configuredRead.value : []
+    const configured = configuredRead.status === 'fulfilled' ? (configuredRead.value ?? []) : []
+    const pluginsAuthoritative =
+      configuredRead.status === 'fulfilled' && configuredRead.value !== undefined
     const partial =
       liveRead.status === 'rejected' ||
       configuredRead.status === 'rejected' ||
@@ -54,6 +66,7 @@ export function registerSessionResourceHandlers(
     )
     for (const item of live?.items ?? []) {
       const key = `${item.kind}:${item.id}`
+      if (item.kind === 'plugin' && pluginsAuthoritative && !items.has(key)) continue
       items.set(key, { ...items.get(key), ...item })
     }
     return {
@@ -61,7 +74,8 @@ export function registerSessionResourceHandlers(
       state: live?.state ?? 'disconnected',
       items: [...items.values()],
       ...(commands ? { commands } : {}),
-      ...(partial ? { partial: true } : {})
+      ...(partial ? { partial: true } : {}),
+      ...(pluginsAuthoritative ? { pluginsAuthoritative: true } : {})
     }
   }
   handle(
@@ -71,10 +85,15 @@ export function registerSessionResourceHandlers(
     async (request): Promise<NativeResources> => {
       if (!('sessionId' in request)) {
         try {
+          const [items, commands] = await Promise.all([
+            resourceQuery(() => draftResources(request)),
+            resourceQuery(() => draftCommands(request))
+          ])
           return {
             state: 'disconnected',
-            items: [],
-            commands: await resourceQuery(() => draftCommands(request))
+            items: (items ?? []).map((item) => ({ ...item, canToggle: false })),
+            commands,
+            ...(items !== undefined ? { pluginsAuthoritative: true } : {})
           }
         } catch {
           throw new Error('하네스 목록을 불러오지 못했습니다. 다시 시도해 주세요.')
@@ -89,17 +108,24 @@ export function registerSessionResourceHandlers(
     CHANNELS.sessionOpenNativePlugin,
     OpenNativePluginSchema,
     'reject',
-    async ({ sessionId, id }): Promise<void> => {
+    async (request): Promise<void> => {
       try {
-        const runtime = lookup(sessionId)
-        const directory = await resourceQuery(
-          async () =>
+        const sessionId = 'sessionId' in request ? request.sessionId : undefined
+        const { id } = request
+        const runtime = sessionId ? lookup(sessionId) : undefined
+        const directory = await resourceQuery(async () => {
+          if (!('sessionId' in request)) return draftPluginDirectory(request, id)
+          const { sessionId } = request
+          const configured = await configuredResources(sessionId)
+          if (configured !== undefined) return configuredPluginDirectory(sessionId, id)
+          return (
             (await runtime?.nativePluginDirectory?.(id)) ??
             (await configuredPluginDirectory(sessionId, id))
-        )
+          )
+        })
         if (!directory || !isAbsolute(directory)) throw new Error('unknown installation')
         const resolved = await realpath(directory)
-        if (!(await stat(resolved)).isDirectory() || lookup(sessionId) !== runtime)
+        if (!(await stat(resolved)).isDirectory() || (sessionId && lookup(sessionId) !== runtime))
           throw new Error('installation changed')
         const error = await shell.openPath(resolved)
         if (error) throw new Error('open failed')
@@ -124,6 +150,16 @@ export function registerSessionResourceHandlers(
         )
       )
         throw new Error('이 항목은 세션별 제어를 지원하지 않습니다.')
+      if (request.kind === 'plugin') {
+        const installed = await resourceQuery(() => configuredResources(request.sessionId))
+        if (
+          installed &&
+          !installed.some((item) => item.kind === 'plugin' && item.id === request.id)
+        )
+          throw new Error('이 플러그인은 현재 작업 경로에 설치되어 있지 않습니다.')
+        if (lookup(request.sessionId) !== runtime)
+          throw new Error('하네스 연결이 바뀌었습니다. 메뉴를 다시 열어 주세요.')
+      }
       await runtime.setNativeResource(request)
       return read(request.sessionId, runtime)
     }

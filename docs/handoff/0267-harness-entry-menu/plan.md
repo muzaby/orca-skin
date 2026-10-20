@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | READY / r1.6 |
+| 상태 / 라운드 | IMPL_DONE / r1.6 |
 | V mode / 기준 V / 유효 V | Delta V / r1.5 (`1f7ca1e4`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
@@ -1035,3 +1035,46 @@ READY. 사용자 AC26의 “항상 노출”은 sessionId가 없는 초안도 �
 EP24 고정 7자리 추가: ①ChatTitleBar cwd/project→NativeResourcesMenu ②메뉴 draft→hook 조회/열기 ③공유 strict read/open union→preload/sessionApi ④handler draft 구성 합성 ⑤handler draft 폴더 검증 ⑥bootstrap draft inventory scope→module ⑦bootstrap draft directory scope→module. 검색: `rg -n 'NativeResourcesMenu|NativeResourcesRequestSchema|OpenNativePlugin|draftResources|draftPluginDirectory|registerSessionResourceHandlers' app/src`의 생산 경로를 대조한다.
 
 ①②는 ChatTitleBar.native-resources/useNativeResources 실제 초안 cwd 변경·클릭, ③은 preload/index 및 handler strict union, ④⑤는 session-resources 실제 metadata/OS path 인자, ⑥⑦은 bootstrap.native-history의 실제 module reader/cwd/설치 fixture가 직접 oracle이다. VP24·26 REQUIRED에 추가하며 이번 신규 분모는 13+7=20이다. AC26·27의 초안 범위를 닫는 계약 보완이며 새 사용자 결정·신규 의존성은 없다.
+
+## [구현자 기입] r1.6 초안 보완 — 설계 리뷰
+
+“항상 노출”의 새 대화 진입점을 EP24로 먼저 확정하고 구현했다. sessionId가 없는 초안도 범위에 맞는 설치 목록과 폴더 열기를 제공하며, runtime 쓰기는 저장 세션의 기존 generation 계약만 허용한다. 미해결 PLAN_GAP 없음.
+
+## [구현자 기입] r1.6 초안 보완 — 강제 지점 전수와 V-pair 자기확인
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 자리별 oracle 좌표 | 운반 항·관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP24·26 | 제목줄 scope | EP24 ① | 1/1 | ChatTitleBar.native-resources.test: discovers installed resources from the draft cwd… | null session, /draft-work→/draft-work/child, draft-project가 IPC에 도착 | 없음 |
+| VP24·26 | 메뉴/hook 읽기·열기 | EP24 ② | 1/1 | useNativeResources.test: opens an installed plugin in a draft…; 실제 Chromium 첫 전송 전 메뉴 | backend/cwd/projectId+id 전송, 실패 자동 read·토스트 1, write 0 | 없음 |
+| VP24·26 | strict transport | EP24 ③ | 1/1 | preload/index.test: native resource transport; session-resources.test: lists draft installations… | saved/draft의 서로 다른 ID/scope 보존, 혼합 sessionId/path reject | 없음 |
+| VP24·26 | 초안 합성·폴더 검증 | EP24 ④⑤ | 2/2 | session-resources.test: lists draft installations… | plugin canToggle=false, pluginsAuthoritative=true, realpath→shell 인자, lookup 0 | 없음 |
+| VP24·26 | main scope 해석 | EP24 ⑥⑦ | 2/2 | bootstrap.native-history.test: reads native configuration… 실제 등록 callback | 명시 cwd/프로젝트 기본 cwd→실제 module reader/설치 폴더. 상대 경로 거부 | 없음 |
+| VP24~27 | 기존 ΔV8 | EP22/23 | 13/13 | 위 r1.6 자리별 oracle + saved/draft 경로 8파일79케이스 | saved 목록·제어·폴더/오류 경로 회귀. adapter/CLI의 비영향 증거 승계 | 없음 |
+
+최종 신규 자리 검산: 13+7=20/20. EP24 검색 결과를 titlebar→메뉴→hook→API/schema→handler→bootstrap module에 대조한 운반 자리 차집합은 []다. VP24~27 REQUIRED 및 상속 회귀는 SELF_PASS, 비영향 VP의 이전 관측 승계를 유지한다.
+
+## [구현자 기입] r1.6 초안 보완 — 이번 라운드 수정의 잠금
+
+M2/M3는 위 원본 복원 뒤의 관측을 유지한다. 새 초안 7자리는 실제 파일/등록 callback/IPC/렌더/브라우저 결과를 직접 관측하므로 선택 변이 없음. 이번 보완의 추가 선택 증거0·인용 변이0·구조 proxy0=잠금 추가0행.
+
+## [구현자 기입] r1.6 초안 보완 — Product/UX 파생 검토
+
+첫 전송 전에도 user/해당 project/local 설치를 표시한다. 초안에는 활성 제어가 없고 폴더 열기는 유지한다. cwd/projectId 변경 시 hook epoch가 이전 응답을 폐기하며 목록 조회가 세션 생성이나 CLI 실행을 유발하지 않는다.
+
+## [구현자 기입] r1.6 초안 보완 — 놓친 잠재 문제 + 대응
+
+| 문제 | 대응 / 관측 |
+|---|---|
+| null session으로 읽기/열기 생략 | draft scope를 titlebar→hook→main에 운반. 실제 초안 클릭/경로 변경 테스트 |
+| renderer가 폴더 경로를 지정할 위험 | strict scope+id, main의 registered installPath만 사용. path/session 혼합 요청 reject |
+| runtime 없는 초안에 활성 제어가 보임 | main의 draft 항목 canToggle=false, hook write guard 유지. 실제 브라우저에서 초안 switch 부재·폴더 요청 확인 |
+
+## [구현자 기입] r1.6 초안 보완 — 구현 보고
+
+[최종 관측](evidence/validation.md)에 8파일79케이스와 브라우저 draftInventory/draftFolder=true를 추가했다. 신규 자리는 최종20/20, AC24~28은5/5이며 누적28건의 이전 비영향 관측을 승계한다. 새 IPC 요청은 읽기/폴더 열기 범위만 확장하며 인증·설정·DB에 쓰지 않는다.
+
+검산: ✅28 · ⚠️0 · ❌0 = 현재 AC28. 이전 보고의 13/13 신규 분모는 EP24 추가로20/20이 되었으며 독립 verify는 대기다.
+
+## [구현자 기입] r1.6 초안 보완 — Review Signals
+
+같은 사용자 요구 턴 r1.6이다. 저장 세션만 보던 호출부의 null guard가 “항상 노출”을 막았으므로 조회/폴더 양쪽에 초안 경로를 추가했다. 테스트 자체가 실제 production 진입점을 포함하도록 titlebar와 bootstrap callback까지 확장했다.

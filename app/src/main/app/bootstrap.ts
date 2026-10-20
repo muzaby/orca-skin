@@ -1012,7 +1012,7 @@ export class Bootstrap {
           current.project_id !== session.project_id
         )
           throw new Error('대화가 바뀌었습니다. 메뉴를 다시 열어 주세요.')
-        return items ?? []
+        return items
       },
       async (sessionId, id) => {
         const session = ctx.db.getSessionById(sessionId)
@@ -1051,6 +1051,16 @@ export class Bootstrap {
         const directory = cwd ?? ctx.getCwd(projectId)
         if (!isAbsolute(directory)) throw new Error('작업 폴더는 절대 경로여야 합니다.')
         return (await harnessModule(backend).configuredCommands?.(directory)) ?? []
+      },
+      async ({ backend, cwd, projectId }) => {
+        const directory = cwd ?? ctx.getCwd(projectId)
+        if (!isAbsolute(directory)) throw new Error('작업 폴더는 절대 경로여야 합니다.')
+        return harnessModule(backend).configuredResources?.(directory)
+      },
+      async ({ backend, cwd, projectId }, id) => {
+        const directory = cwd ?? ctx.getCwd(projectId)
+        if (!isAbsolute(directory)) throw new Error('작업 폴더는 절대 경로여야 합니다.')
+        return harnessModule(backend).configuredPluginDirectory?.(directory, id)
       }
     )
     registerSessionHandlers(ctx, {

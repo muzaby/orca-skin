@@ -15,11 +15,13 @@ vi.mock('../../../shared/i18n', () => {
 vi.mock('./CwdButton', () => ({ CwdButton: () => null }))
 const fixture = vi.hoisted(() => ({
   state: {
-    sessionId: 'session-A',
+    sessionId: 'session-A' as string | null,
     backend: 'claude',
     agentKind: 'work',
     title: 'Chat',
     cwd: '/repo',
+    pendingProjectId: 'draft-project',
+    projectId: null,
     worktree: null,
     messages: [],
     rightPanelTiles: [],
@@ -104,4 +106,25 @@ it('replaces the native menu on session change and ignores the previous session 
   expect(section.textContent).not.toContain('chat.nativeResources.connected')
   expect(section.textContent).not.toContain('chat.nativeResources.disconnected')
   expect(read.mock.calls).toEqual([['session-A'], ['session-B']])
+})
+
+it('discovers installed resources from the draft cwd and project before the first send', async () => {
+  fixture.state.sessionId = null
+  fixture.state.cwd = '/draft-work'
+  dom.render(createElement(ChatTitleBar))
+  dom.click(dom.query('[aria-label="chat.titleBar.tilesButton"]')!)
+  await settle()
+  expect(read).toHaveBeenCalledExactlyOnceWith({
+    backend: 'claude',
+    cwd: '/draft-work',
+    projectId: 'draft-project'
+  })
+  fixture.state.cwd = '/draft-work/child'
+  dom.render(createElement(ChatTitleBar))
+  await settle()
+  expect(read).toHaveBeenLastCalledWith({
+    backend: 'claude',
+    cwd: '/draft-work/child',
+    projectId: 'draft-project'
+  })
 })
