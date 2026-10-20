@@ -5,8 +5,8 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | IMPL_DONE / r1.12 |
-| V mode / 기준 V / 유효 V | Delta V / r1.9 (`64beff7e`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9+ΔV10+ΔV11+ΔV12+ΔV13+ΔV14 |
+| 상태 / 라운드 | READY / r1.13 |
+| V mode / 기준 V / 유효 V | Delta V / r1.9 (`64beff7e`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9+ΔV10+ΔV11+ΔV12+ΔV13+ΔV14+ΔV15 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
 # Part I — Product & UX Contract
@@ -1763,3 +1763,32 @@ plan 메타/INDEX는 r1.12 impl/IMPL_DONE·Claude 독립 검증 대기다. 이�
 - 막았어야 할 plan 지침·AC가 있었는가: D46은 저장과 다음 spawn만 명시해 현재 다른 CLI 및 popup cache 전달을 검사하지 않았다. D48/49·AC45/46이 이를 명시했다.
 - 반복한 환경 한계: Windows 설치 앱 GUI 대신 실제 Chromium UI/메모리 IPC와 실제 SDK/로컬 모델 endpoint의 두 CLI를 구분했다. 초기 타입의 dbSessionId/거버넌스 interrupt 차이와 공용 readSerial fence 회귀를 수정했다.
 - 현재 라운드·impl 턴: r1.12 / r1.12. 독립 verify 대기.
+
+
+## r1.13 — ΔV15: 하네스 상태 타일과 캐시 재사용
+
+READY. 같은 기능을 우측 작업패널에서도 제공한다. 사용자 명시 요구는 타일 표시의 브랜드 로고와 Claude/OpenCode 상태 이름, 패널의 MCP/native plugin 목록과 기존 popup과 동일한 상태 공·트리거, `<로고> Claude 상태 · <프로젝트 이름>` 제목, 프로젝트 공유와 캐시를 통한 재조회 병목 방지다.
+
+| 결정 | 상태 | 계약 |
+|---|---|---|
+| D-51 | ACTIVE | nativeStatus 타일을 Claude Work/Code·OpenCode의 케밥 타일 표시에 추가한다. 메뉴 라벨은 브랜드 로고+Claude 상태/OpenCode 상태다. 기본 자동 열기는 기존 작업 타일 정책을 유지하고 사용자가 직접 상태 타일을 켜고 끈다. Work에서도 작업과 상태를 함께 배치할 수 있다. |
+| D-52 | ACTIVE | 패널은 MCP/플러그인 그룹의 항목을 한 화면에 직접 나열한다. 기존 nativeResourcesMenu 모델과 CascadeBody 행을 재사용하여 제목 왼쪽 상태 공, 오른쪽 async 스위치·손잡이 내부 spinner, 이름의 설정/설치 위치 열기, canToggle·미지원·색·오류 토스트 정책을 동일하게 유지한다. 새 안내 문구·상태 부제목·중간 submenu는 추가하지 않는다. |
+| D-53 | ACTIVE | 패널 제목은 브랜드 로고+하네스 상태·프로젝트 이름이다. 프로젝트 catalog의 이름을 page에서 chat props로 주입하며 rename이 반영된다. 소속 프로젝트가 없으면 cwd 표시 이름을 사용하고 둘 다 없으면 하네스 상태만 표시한다. 닫기·확대·복원·폭/행 리사이즈는 기존 타일 셸을 사용한다. |
+| D-54 | ACTIVE | popup·panel·Composer는 같은 창의 session/backend별 관측·제어 cache를 사용하고 프로젝트 공유는 기존 main scope/fanout/push가 소유한다. 건강한 live cache는 재열기·remount·같은 세션 복귀 시 추가 조회0, 최초 동시 소비는 native IPC1회로 합친다. 첫 조회/종료·재연결/부분 실패·명시 retry는 비동기로 재조회하며 기존 목록을 유지한다. 임의 TTL·polling·새 native 실행은 추가하지 않는다. |
+
+AC47: 케밥→타일 표시에서 양 하네스 상태 타일이 로고와 올바른 이름으로 보이고 실제 toggle→우측 패널→닫기/재열기가 동작한다. Claude Work는 기존 작업과 공존한다.
+AC48: 목록은 기존 popup과 같은 resource·공·스위치 상태이며 MCP 설정/플러그인 폴더 열기와 독립 제어를 제공한다. 처리 중 같은 항목만 잠그고 spinner를 손잡이 안에 표시한다. 비활성 커서는 default이며 미지원 제어를 만들지 않는다.
+AC49: 실제 프로젝트 이름·rename과 브랜드가 타일 제목에 보이고 잘림·좁은 pane·white/dark·키보드·확대/복원/닫기를 유지한다. 비프로젝트 cwd fallback과 기존 source scope를 보존한다.
+AC50: 실제 popup/panel/Composer의 cold 동시 소비 IPC1회, healthy live cache 재열기/재마운트/세션 복귀 추가 IPC0회. 프로젝트 변경 push가 목록과 pending 제어에 반영되며 old read/write/종료 세대는 되돌리지 않는다. 부분 실패/명시 재시도/재연결은 새 실제 관측을 얻는다.
+
+### 기술 경로·검증
+
+AS-IS: 타일 registry에 상태 타일이 없고 Work는 task만 허용한다. native 관측은 창 수명의 session/backend cache에 있으나 hook open과 Composer attach가 각각 강제 refresh를 호출한다. 프로젝트 이름은 page의 projects catalog에만 있다.
+TO-BE: nativeStatus 등록과 Work의 일반 타일 배치, page→ChatView/ChatTile→RightPanel host/column→상태 Header에 프로젝트 이름 전달, NativeResourcesTile의 flat group 모델→기존 CascadeBody, useNativeResources.ensure와 유효 세대의 single-flight read. main/SDK/저장 정책 변경 없음.
+Delta: 표시/registry→AC47, 동일 행과 제어→AC48, 프로젝트 이름 props와 타일 셸→AC49, cache ensure/dedup와 Composer 호출→AC50. 새 의존성/DB/IPC 없음.
+
+VP48(진입/타일)·VP49(동일 표시/제어)·VP50(캐시)·VP51(프로젝트/수명) NEW REQUIRED. 누적 AC50.
+EP30 고정9자리: ①tile 정의·양 하네스 정책·Work 배치 ②실제 케밥 branding/toggle→reducer ③양 registry Content/Header→타일 셸·확대/닫기 ④세 page의 프로젝트 이름→chat/host/column/header ⑤popup 모델→flat 그룹·동일 행·제어 ⑥hook ensure·single-flight·Composer attach의 직접 refresh 제거 ⑦push·실패·재연결·종료/late fence ⑧실제 UI의 두 하네스·테마·키보드·좁은 pane·이동 ⑨라벨 번역·타일/제목/ARIA 소비.
+검색: `rg -n 'nativeStatus|NativeResourcesTile|projectName|useNativeResources|refreshNative|ensureNative|nativeResourceState|HeaderContent' app/src/renderer/src/{features/chat,pages,shared/i18n} -g '!*.test.*'`.
+직접 oracle: 실제 menu/reducer/registry·page 조립·새 tile render·hook와 실제 IPC sink 횟수·push/실패/종료·Chromium. M4 선택: hook open의 ensure를 refresh로 바꿔 warm 재열기 조회0 단언이 red인지 확인한 뒤 복원한다. 기존 M2/M3 projection은 비영향이라 이전 증거 승계.
+게이트: 관련 비DB renderer/main native 공유 회귀·lint·타입3종·build·boundary·inventory/links·UI catalog·실제 Chromium. 기존 실제 CLI 공유/복원은 main/adapter 비영향으로 r1.12 증거 승계한다. 설치 Windows 앱 GUI와 외부 인증 환경은 분리 보고한다. READY.
