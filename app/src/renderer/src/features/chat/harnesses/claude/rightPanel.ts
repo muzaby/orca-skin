@@ -6,11 +6,11 @@ export const planEmptyDescriptionKey: MessageKey = 'chat.rightpanel.planEmptyDes
 export const planSelectHintKey: MessageKey = 'chat.rightpanel.planSelectHint'
 export const RIGHT_PANEL_POLICY = {
   work: {
-    visibleIds: ['task', 'nativeStatus'],
+    visibleIds: ['task'],
     taskTarget: 'task',
     taskBadgeTile: 'task',
     initialTile: 'task',
-    columnMode: 'standard-grid',
+    columnMode: 'task-focus',
     taskTileChrome: 'work-overview'
   },
   code: {

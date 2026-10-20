@@ -12,8 +12,8 @@ const fixture = vi.hoisted(() => ({
     inflight: false
   },
   projects: [
-    { id: 'other', name: '다른 프로젝트' },
-    { id: 'shared-A', name: '공유 프로젝트' }
+    { id: 'other', name: '다른 프로젝트', cwd: '/wrong' },
+    { id: 'shared-A', name: '공유 프로젝트', cwd: '/project-root' }
   ]
 }))
 vi.mock('react-router-dom', () => ({
@@ -22,8 +22,13 @@ vi.mock('react-router-dom', () => ({
   useParams: () => ({ projectId: 'shared-A' })
 }))
 vi.mock('../features/chat/components/ChatTile', () => ({
-  ChatTile: ({ projectName }: { projectName?: string | null }) =>
-    createElement('div', { 'data-project-name': projectName })
+  ChatTile: ({
+    projectName,
+    projectPath
+  }: {
+    projectName?: string | null
+    projectPath?: string | null
+  }) => createElement('div', { 'data-project-name': projectName, 'data-project-path': projectPath })
 }))
 vi.mock('../features/chat', async () => ({
   ChatView: (await import('../features/chat/components/ChatView')).ChatView,
@@ -64,8 +69,12 @@ it.each([
   'passes the live catalog project name and rename through the %s page',
   (_name, render) => {
     fixture.projects[1].name = '공유 프로젝트'
+    fixture.projects[1].cwd = '/project-root'
+    expect(renderToStaticMarkup(render())).toContain('data-project-path="/project-root"')
     expect(renderToStaticMarkup(render())).toContain('data-project-name="공유 프로젝트"')
     fixture.projects[1].name = '바뀐 프로젝트'
+    fixture.projects[1].cwd = '/changed-root'
+    expect(renderToStaticMarkup(render())).toContain('data-project-path="/changed-root"')
     expect(renderToStaticMarkup(render())).toContain('data-project-name="바뀐 프로젝트"')
   }
 )

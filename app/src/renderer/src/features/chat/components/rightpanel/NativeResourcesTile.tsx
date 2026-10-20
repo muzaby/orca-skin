@@ -13,7 +13,8 @@ import { rightPanelTileLabel, type RightPanelHeaderProps } from '../../lib/right
 import { chatActions, useChatSession } from '../../store/chatStore'
 
 export function NativeResourcesTileHeader({
-  projectName
+  projectName,
+  projectPath
 }: RightPanelHeaderProps): React.JSX.Element {
   const { tr } = useI18n()
   const backend = useChatSession((state) => state.backend)
@@ -24,9 +25,15 @@ export function NativeResourcesTileHeader({
     .filter(Boolean)
     .join(' · ')
   return (
-    <div data-native-status-title className="flex min-w-0 flex-1 items-center gap-2" title={label}>
-      <Logo className="size-3.5 shrink-0" />
-      <span className="min-w-0 truncate text-footnote font-semibold tracking-tight">{label}</span>
+    <div
+      data-native-status-title
+      className="flex min-w-0 flex-1 items-center gap-2"
+      title={projectPath?.trim() || cwd || undefined}
+    >
+      <Logo
+        className={`size-3.5 shrink-0 ${backend === 'opencode' ? 'text-oc-ink' : 'text-spinner'}`}
+      />
+      <span className="min-w-0 truncate text-footnote font-normal text-ink2">{label}</span>
     </div>
   )
 }
@@ -66,7 +73,7 @@ export function NativeResourcesTileContent(): React.JSX.Element {
     <div
       ref={anchorRef}
       data-native-status={backend ?? 'claude'}
-      className="min-h-0 flex-1 overflow-y-auto p-2"
+      className="min-h-0 flex-1 overflow-y-auto p-2 [&_[data-menu-heading]:not(:first-child)]:mt-5"
     >
       {view.status === 'loading' && (
         <span

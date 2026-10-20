@@ -61,14 +61,11 @@ export function CustomizeList({
         orderSkills(visibleSkills).map((skill, index, ordered) => {
           const meta = skillRowMeta(skill)
           const id = `${skill.sourceId}/${skill.name}`
-          const author =
-            meta.author === 'skills.table.user'
-              ? `${tr(meta.author)} · ${skill.sourceLabel}`
-              : meta.author
           return (
             <Fragment key={id}>
               {ordered[index - 1]?.sourceId !== skill.sourceId && (
                 <SourceHeading
+                  spaced={index > 0}
                   source={skill.sourceId}
                   label={extensionSourceLabels[skill.sourceId]}
                 />
@@ -85,11 +82,6 @@ export function CustomizeList({
                     title={skill.name}
                   >
                     {skill.name}
-                  </span>
-                }
-                detail={
-                  <span className="truncate text-caption text-ink3" title={author}>
-                    {extensionSourceLabels[skill.sourceId] ?? author}
                   </span>
                 }
                 trailing={

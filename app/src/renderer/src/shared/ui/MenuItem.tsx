@@ -67,7 +67,10 @@ export function MenuTitle({
   leading?: ReactNode
 }): React.JSX.Element {
   return (
-    <div className="flex items-center gap-2 px-2.5 pb-0.5 pt-1 text-[calc(11px*var(--transcript-text-scale,1))] font-medium text-ink3">
+    <div
+      data-menu-heading
+      className="flex items-center gap-2 px-2.5 pb-0.5 pt-1 text-[calc(11px*var(--transcript-text-scale,1))] font-medium text-ink3"
+    >
       {leading}
       <span className="min-w-0 truncate">{children}</span>
     </div>

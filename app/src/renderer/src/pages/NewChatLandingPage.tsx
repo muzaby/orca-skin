@@ -17,6 +17,9 @@ export function NewChatLandingPage(): React.JSX.Element {
   const isEmpty = useChatSession((s) => s.messages.length === 0 && !s.loadingSession && !s.inflight)
   const backend = useChatSession((s) => s.backend)
   const projectId = useChatSession((s) => s.pendingProjectId ?? s.projectId)
+  const projectPath = useProjectsState(
+    (s) => s.list.find((project) => project.id === projectId)?.cwd ?? null
+  )
   const projectName = useProjectsState(
     (s) => s.list.find((project) => project.id === projectId)?.name ?? null
   )
@@ -58,6 +61,7 @@ export function NewChatLandingPage(): React.JSX.Element {
   return (
     <ChatTile
       projectName={projectName}
+      projectPath={projectPath}
       backendLabel={backendLabel}
       canAbort={canAbort}
       usageLimits={usageLimits}

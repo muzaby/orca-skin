@@ -11,6 +11,9 @@ import { useSessionActions } from './useSessionActions'
 // BackendContext 의 backendLabel / canAbort 를 props 로 wiring (cross-feature 결정 5번).
 export function ChatPage(): React.JSX.Element {
   const projectId = useChatSession((s) => s.pendingProjectId ?? s.projectId)
+  const projectPath = useProjectsState(
+    (s) => s.list.find((project) => project.id === projectId)?.cwd ?? null
+  )
   const projectName = useProjectsState(
     (s) => s.list.find((project) => project.id === projectId)?.name ?? null
   )
@@ -27,6 +30,7 @@ export function ChatPage(): React.JSX.Element {
   return (
     <ChatView
       projectName={projectName}
+      projectPath={projectPath}
       backendLabel={backendLabel}
       canAbort={canAbort}
       usageLimits={usageLimits}

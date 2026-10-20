@@ -9,6 +9,7 @@ import { ChatTitleBar } from '../../../src/renderer/src/features/chat/components
 import { Composer } from '../../../src/renderer/src/features/chat/components/Composer'
 import { harnessLanding } from '../../../src/renderer/src/features/chat/harnesses/registries/landing'
 import { ProjectLandingPage } from '../../../src/renderer/src/pages/ProjectLandingPage'
+import { AgentPage } from '../../../src/renderer/src/pages/AgentPage'
 import { PluginsPage } from '../../../src/renderer/src/pages/PluginsPage'
 import { useProjectsStore } from '../../../src/renderer/src/features/projects/store/projectsStore'
 import { TweakProvider, useTweakContext } from '../../../src/renderer/src/shared/theme'
@@ -241,6 +242,9 @@ export function App(): React.JSX.Element {
   const { t, setTweak } = useTweakContext((value) => value)
   const backend = useChatSession((value) => value.backend)
   const Header = harnessLanding(backend).Header
+  const projectPath = useProjectsStore(
+    (state) => state.list.find((project) => project.id === 'fixture')?.cwd ?? null
+  )
   const projectName = useProjectsStore(
     (state) => state.list.find((project) => project.id === 'fixture')?.name ?? null
   )
@@ -259,7 +263,7 @@ export function App(): React.JSX.Element {
         </button>
         <button onClick={() => seed('claude')}>Claude 세션</button>
         <button onClick={() => seed('claude', true, 'fixture', 'code')}>Claude Code 세션</button>
-        <button onClick={() => seed('claude', true, 'fixture-B')}>Claude 세션 B</button>
+        <button onClick={() => seed('claude', true, 'fixture-B', 'code')}>Claude 세션 B</button>
         <button onClick={() => seed('claude', true, 'empty')}>빈 세션</button>
         <button onClick={() => seed('opencode')}>OpenCode 세션</button>
         <button
@@ -279,6 +283,7 @@ export function App(): React.JSX.Element {
             <ChatTitleBar />
             <Routes>
               <Route path="/plugins" element={<PluginsPage />} />
+              <Route path="/agent" element={<AgentPage />} />
               <Route
                 path="/projects/:projectId"
                 element={<ProjectLandingPage onDeleteProject={() => {}} />}
@@ -301,7 +306,7 @@ export function App(): React.JSX.Element {
               />
             </Routes>
           </div>
-          <RightPanel projectName={projectName} />
+          <RightPanel projectName={projectName} projectPath={projectPath} />
         </div>
       </div>
     </main>

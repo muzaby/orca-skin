@@ -13,7 +13,38 @@ import {
   type FakeDom,
   type FakeNode
 } from '../../../shared/ui/renderHarness.testfixture'
-import { NativeResourcesMenu } from '../components/NativeResourcesMenu'
+const panelSession = vi.hoisted(() => ({
+  sessionId: null as string | null,
+  backend: 'claude' as 'claude' | 'opencode',
+  cwd: null as string | null,
+  projectId: null as string | null,
+  pendingProjectId: null,
+  onClose: undefined as (() => void) | undefined
+}))
+vi.mock('../store/chatStore', () => ({
+  useChatSession: (select: (state: typeof panelSession) => unknown) => select(panelSession),
+  chatActions: { removeRightPanelTile: () => panelSession.onClose?.() }
+}))
+import {
+  NativeResourcesTileContent,
+  NativeResourcesTileHeader
+} from '../components/rightpanel/NativeResourcesTile'
+function NativeResourcesPanel(props: {
+  sessionId: string | null
+  backend: 'claude' | 'opencode'
+  cwd?: string | null
+  projectId?: string | null
+  anchorRef?: unknown
+  onClose?: () => void
+}): React.JSX.Element {
+  Object.assign(panelSession, { cwd: null, projectId: null }, props)
+  return createElement(
+    'div',
+    null,
+    createElement(NativeResourcesTileHeader),
+    createElement(NativeResourcesTileContent)
+  )
+}
 import { useNativeResources } from './useNativeResources'
 import { errorToastStore } from '../../../shared/errors/errorToastStore'
 import type {
@@ -157,7 +188,7 @@ describe('native resources session lifecycle', () => {
   })
   it('reveals an MCP configuration from the name while the separate switch controls its state', async () => {
     dom.render(
-      createElement(NativeResourcesMenu, {
+      createElement(NativeResourcesPanel, {
         sessionId: 'session-B',
         backend: 'claude',
         anchorRef: { current: null },
@@ -165,8 +196,7 @@ describe('native resources session lifecycle', () => {
       })
     )
     await settle()
-    dom.click(dom.query('[data-cascade-level="0"][data-cascade-index="0"]')!)
-    dom.click(dom.query('[data-cascade-level="1"][data-cascade-index="0"]')!)
+    dom.click(dom.query('[role="menuitem"]')!)
     await settle()
     expect(openFolder).toHaveBeenCalledExactlyOnceWith({
       sessionId: 'session-B',
@@ -188,7 +218,7 @@ describe('native resources session lifecycle', () => {
     }
     read.mockResolvedValue({ ...snapshot(), items: [plugin] })
     dom.render(
-      createElement(NativeResourcesMenu, {
+      createElement(NativeResourcesPanel, {
         sessionId: 'B',
         backend: 'claude',
         anchorRef: { current: null },
@@ -196,8 +226,7 @@ describe('native resources session lifecycle', () => {
       })
     )
     await settle()
-    dom.click(dom.query('[data-cascade-level="0"][data-cascade-index="1"]')!)
-    const row = dom.query('[data-cascade-level="1"][data-cascade-index="0"]')!
+    const row = dom.query('[role="menuitem"]')!
     expect(row.props.disabled).toBeFalsy()
     expect(row.props['aria-checked']).toBeUndefined()
     expect(row.props.title).toBe('Workflow skills\nchat.nativeResources.openFolder')
@@ -213,7 +242,7 @@ describe('native resources session lifecycle', () => {
     expect(errorToastStore.getState().toasts).toMatchObject([
       { title: 'openFailed', detail: 'folder missing' }
     ])
-    dom.click(dom.query('[data-cascade-level="1"][data-cascade-index="0"]')!)
+    dom.click(dom.query('[role="menuitem"]')!)
     await settle()
     expect(dom.query('[role="status"]')).toBeNull()
     expect(openFolder).toHaveBeenCalledTimes(3)
@@ -445,10 +474,10 @@ describe('native resources session lifecycle', () => {
   })
 })
 
-it('renders the live session menu and keeps it open while the MCP toggle refreshes', async () => {
+it('renders the live session panel and keeps it open while the MCP toggle refreshes', async () => {
   const onClose = vi.fn()
   dom.render(
-    createElement(NativeResourcesMenu, {
+    createElement(NativeResourcesPanel, {
       sessionId: 'session-B',
       backend: 'opencode',
       anchorRef: { current: null },
@@ -457,8 +486,7 @@ it('renders the live session menu and keeps it open while the MCP toggle refresh
   )
   await settle()
   expect(read).toHaveBeenCalledExactlyOnceWith('session-B')
-  expect(dom.query('[data-native-resources="opencode"]')?.textContent).toContain('OpenCode')
-  dom.click(dom.query('[data-cascade-level="0"][data-cascade-index="0"]')!)
+  expect(dom.query('[data-native-status-title]')?.textContent).toContain('OpenCode')
   const item = dom.query('[role="menuitemcheckbox"]')!
   expect(item.props['aria-checked']).toBe(true)
   dom.click(item)
@@ -480,9 +508,7 @@ it('renders the live session menu and keeps it open while the MCP toggle refresh
   expect(errorToastStore.getState().toasts).toMatchObject([
     { title: 'actionFailed', detail: 'write rejected' }
   ])
-  expect(dom.query('[data-cascade-level="1"][data-cascade-index="0"]')?.textContent).toContain(
-    'Native B'
-  )
+  expect(dom.query('[role="menuitem"]')?.textContent).toContain('Native B')
   expect(
     dom
       .queryAll('[type="button"]')
@@ -490,7 +516,7 @@ it('renders the live session menu and keeps it open while the MCP toggle refresh
   ).toBe(false)
   dom.render(createElement('div'))
   dom.render(
-    createElement(NativeResourcesMenu, {
+    createElement(NativeResourcesPanel, {
       sessionId: 'session-B',
       backend: 'opencode',
       anchorRef: { current: null },
@@ -500,7 +526,7 @@ it('renders the live session menu and keeps it open while the MCP toggle refresh
   await settle()
   expect(read).toHaveBeenCalledTimes(3)
   expect(dom.query('[role="status"]')).toBeNull()
-  dom.click(dom.query('[data-cascade-level="0"][data-cascade-index="0"]')!)
+  dom.query('[role="menu"]')!.focus()
   dom.keyDown('Escape')
   expect(onClose).toHaveBeenCalledOnce()
 })
@@ -578,7 +604,7 @@ it('separates plugin folder clicks from session controls, including keyboard and
     items: [{ ...plugin, enabled: true, status: 'enabled' }]
   })
   dom.render(
-    createElement(NativeResourcesMenu, {
+    createElement(NativeResourcesPanel, {
       sessionId: 'B',
       backend: 'claude',
       anchorRef: { current: null },
@@ -586,8 +612,7 @@ it('separates plugin folder clicks from session controls, including keyboard and
     })
   )
   await settle()
-  dom.click(dom.query('[data-cascade-level="0"][data-cascade-index="1"]')!)
-  const folder = (): FakeNode => dom.query('[data-cascade-level="1"][data-cascade-index="0"]')!
+  const folder = (): FakeNode => dom.query('[role="menuitem"]')!
   const control = (): FakeNode => dom.query('[role="menuitemcheckbox"]')!
   dom.click(folder())
   await settle()
@@ -726,7 +751,7 @@ describe('process-owned state and independent async controls', () => {
     const plugin: NativeResource = { ...resource, kind: 'plugin', status: 'enabled' }
     read.mockResolvedValue({ ...snapshot(), items: [resource, plugin] })
     dom.render(
-      createElement(NativeResourcesMenu, {
+      createElement(NativeResourcesPanel, {
         sessionId: 'A',
         backend: 'claude',
         anchorRef: { current: null },
@@ -741,27 +766,21 @@ describe('process-owned state and independent async controls', () => {
           finishes.push(resolve)
         })
     )
-    dom.click(dom.query('[data-cascade-level="0"][data-cascade-index="0"]')!)
     const ball = dom.query('[role="menuitemcheckbox"]')!
     dom.click(ball)
     await settle()
     expect(dom.query('[data-toggle-spinner]')).not.toBeNull()
     expect(dom.query('[role="menuitemcheckbox"]')?.props.disabled).toBe(true)
     dom.click(ball)
-    dom.click(dom.query('[data-cascade-level="0"][data-cascade-index="1"]')!)
-    expect(dom.query('[role="menuitemcheckbox"]')?.props.disabled).toBe(false)
-    dom.click(dom.query('[role="menuitemcheckbox"]')!)
+    expect(dom.queryAll('[role="menuitemcheckbox"]')[1]?.props.disabled).toBe(false)
+    dom.click(dom.queryAll('[role="menuitemcheckbox"]')[1]!)
     await settle()
     expect(write.mock.calls.map(([req]) => (req as { kind: string }).kind)).toEqual([
       'mcp',
       'plugin'
     ])
-    expect(dom.query('[data-cascade-level="0"][data-cascade-index="0"]')?.props.disabled).toBe(
-      false
-    )
-    expect(
-      dom.query('[data-cascade-level="1"][data-cascade-index="0"]')?.props.disabled
-    ).toBeFalsy()
+    expect(dom.query('[role="menuitem"]')?.props.disabled).toBeFalsy()
+    expect(dom.query('[role="menuitem"]')?.props.disabled).toBeFalsy()
     finishes[0]({
       ...snapshot(),
       items: [{ ...resource, enabled: false, status: 'disabled' }, plugin]
@@ -774,7 +793,7 @@ describe('process-owned state and independent async controls', () => {
     })
     await settle()
     expect(dom.query('[data-toggle-spinner]')).toBeNull()
-    expect(dom.query('[role="menuitemcheckbox"]')?.props['aria-checked']).toBe(false)
+    expect(dom.queryAll('[role="menuitemcheckbox"]')[1]?.props['aria-checked']).toBe(false)
   })
 
   it('retires an inactive process generation and rejects its late write without affecting the next process', async () => {

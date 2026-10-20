@@ -96,11 +96,11 @@ describe('종류별 우측 패널 정책 (R8)', () => {
   it('Work와 Code가 가시 타일·대상·초기 타일을 각각 완전하게 정의한다', () => {
     expect({ work: rightPanelPolicy('work'), code: rightPanelPolicy('code') }).toMatchObject({
       work: {
-        visibleIds: ['task', 'nativeStatus'],
+        visibleIds: ['task'],
         taskTarget: 'task',
         taskBadgeTile: 'task',
         initialTile: 'task',
-        columnMode: 'standard-grid',
+        columnMode: 'task-focus',
         taskTileChrome: 'work-overview'
       },
       code: {
@@ -112,10 +112,7 @@ describe('종류별 우측 패널 정책 (R8)', () => {
         taskTileChrome: 'standard'
       }
     })
-    expect(rightPanelTileDefinitionsForAgent('work').map((tile) => tile.id)).toEqual([
-      'task',
-      'nativeStatus'
-    ])
+    expect(rightPanelTileDefinitionsForAgent('work').map((tile) => tile.id)).toEqual(['task'])
     expect(rightPanelTileDefinitionsForAgent('code').map((tile) => tile.id)).toEqual([
       'plan',
       'subagent',
