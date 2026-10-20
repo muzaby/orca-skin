@@ -5,8 +5,8 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | IMPL_DONE / r1.9 |
-| V mode / 기준 V / 유효 V | Delta V / r1.8 (`472935d7`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9+ΔV10+ΔV11 |
+| 상태 / 라운드 | READY / r1.10 |
+| V mode / 기준 V / 유효 V | Delta V / r1.9 (`64beff7e`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9+ΔV10+ΔV11+ΔV12 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
 # Part I — Product & UX Contract
@@ -1389,3 +1389,51 @@ SELF_PASS. 기존 Popover·CascadeMenu·MenuTitle·HarnessLogo·OrcaLogo를 재�
 - D32는 프로세스 수명을 약속했지만 이전 테스트는 renderer 이벤트와 runtime 종료를 별도로 검증했다. 이번에는 실제 runtime/supervisor를 native-history에 연결하고 열린 채널의 generation·목록·재사용까지 단언했다.
 - 초기 테스트 채널은 terminal 뒤 스트림까지 끝나 실제 idle CLI를 표현하지 못했다. 지속 스트림+pushTurn fixture로 교체하고 spawn1/close0을 확인했다.
 - Windows 인코딩은 `python -X utf8`, DB ABI는 Electron의 Node 모드로 해결했다. 실제 설치 앱의 GUI 자동 조작은 사용하지 않았으며 독립 verify는 대기다.
+
+## r1.10 — ΔV12: 스킬 출처 제한과 간결한 확장 목록
+
+사용자 2026-10-20 추가 지시. 기준 r1.9 `64beff7e`. 런타임 수명·세대·설정 위치 열기·토글·브랜드 계약을 유지한다. 동일 메뉴의 후속 요구이므로 별도 handoff로 분리하지 않는다.
+
+### Decision Ledger / Product & UX
+
+| ID | 결정 / 출처 | 상태 |
+|---|---|---|
+| D41 | Composer 스킬은 현재 하네스, 해당 native plugin, Orcinus orca, lock에 등록된 ~/.agents/skills만 표시한다. 다른 하네스·알 수 없는 출처를 제외하고 동일 스킬을 중복 표시하지 않는다. 사용자 명시. | ACTIVE; D39의 전체 catalog 범위를 대체 |
+| D42 | 그룹은 Claude 스킬/Claude 플러그인, OpenCode 스킬/OpenCode 플러그인, Orcinus orca 스킬, ~/.agents/skills. nav 플러그인 스킬/MCP도 같은 출처로 구분한다. nav는 세션에 종속되지 않아 양 하네스의 설정 목록을 관리한다. | ACTIVE |
+| D43 | 목록 갱신 중 안내 및 partial 목록 실패 토스트를 제거한다. 기존 목록 보존·재조회·generation fence는 유지한다. 명시 제어/파일 열기 실패 피드백은 유지한다. | ACTIVE |
+| D44 | Composer 플러그인은 Claude MCP/OpenCode MCP/Orcinus orca 플러그인 그룹 아래 현재 연결되어 바로 쓸 수 있는 항목 이름만 표시한다. 사용자 추가 답변: connected native MCP와 valid 인증 Orca plugin만 표시한다. 설정 등록·enabled만으로 연결을 추정하지 않는다. 연결 관측이 없는 Orca MCP도 제외한다. 설명·상태 텍스트·비활성 행 및 현재 하네스의 실행 미지원 항목을 제거한다. | ACTIVE; D40·AC38의 disabled 포함 표시를 대체 |
+
+lock은 공식 [vercel-labs/skills](https://github.com/vercel-labs/skills/blob/main/src/skill-lock.ts)의 `~/.agents/.skill-lock.json`(XDG_STATE_HOME override 지원)의 `skills` 맵을 읽는다. lock의 source 경로를 로컬 경로로 실행/해석하지 않는다. 등록 이름과 실제 SKILL.md의 교집합만 읽고 missing/malformed lock은 빈 목록이다. 로컬 ~/.agents는 부재하여 임시 fixture로 검증한다. 원본 설정·lock 쓰기는 없다.
+
+| AC | 관측 결과 / 직접 oracle |
+|---|---|
+| AC39 | 양 backend 메뉴에서 허용 출처만 표시된다. lock 등록/미등록/유실/중복을 구분한다. 실제 파일 scanner·catalog와 Composer IPC→메뉴 oracle. |
+| AC40 | Composer/nav canonical 그룹명과 로고, native plugin 스킬의 plugin 그룹을 관측한다. catalog→skillsList, CustomizeList 실제 렌더, Composer exact command 선택. |
+| AC41 | 갱신/partial 중 기존 목록을 보존하며 안내와 partial toast가 없다. refresh reject와 control/open 실패 회귀는 유지한다. useNativeResources·Composer 상태 전이. |
+| AC42 | connected native MCP/valid Orca plugin만 실행 지원에 따라 표시한다. configured·enabled 설정만으로 연결을 추정하지 않는다. 본문은 이름만 보인다. disabled/failed/auth/configured/상대 하네스/빈 입력을 섞은 attachMenuModel·Composer·브라우저 oracle. |
+
+### Technical Design
+
+- main 공통 scanner에 lock 허용 목록과 명시 파일 metadata seam을 둔다. app 조립에서 Claude user/native plugin 파일, OpenCode native root, agents lock, Orca root를 합친다. deployment는 기존 root만 사용하여 catalog 조회가 실행 설정을 바꾸지 않는다.
+- source identity/라벨/허용 출처를 shared 순수 계약으로 모은다. native command 이름은 보존하고 source 확인된 스킬과 MCP를 각각의 메뉴에 연결한다. OpenCode SDK skill location으로 다른 도구의 발견 경로를 제외한다.
+- nav MCP는 기존 read-only native discovery IPC로 양 하네스 설정을 읽고 기존 설정 위치 열기를 재사용한다. Orca CRUD와 native read-only 행을 구분한다.
+- refresh/partial는 내부 상태로 유지하되 notice 및 partial reportError를 제거한다. 실제 control/open 오류는 유지한다. feature 교차 import 없이 로고를 조립한다.
+- 새 dependency, DB migration, 원본 설정 쓰기 없음.
+
+### V / §10 강제 지점
+
+| Pair | 노드 / requiredness | start → edges → end / oracle |
+|---|---|---|
+| VP36 | R39~42↔AT39~42 NEW REQUIRED | 파일/SDK→IPC→Composer/nav→선택; AC39~42 실제 메뉴/브라우저 |
+| VP37 | SD09↔ST09 NEW REQUIRED | 읽기→refresh/partial→재진입→기존 목록; useNativeResources·Composer.native-menu |
+| VP38 | AR10↔IT10 NEW REQUIRED | app catalog→skill IPC→양 소비처, native discovery→nav MCP; catalog·handler·CustomizeList/Composer |
+| VP39 | MD11↔UT11 NEW REQUIRED | lock/출처→허용·중복 제거→그룹/유효성; scanner·native normalization·attachMenuModel |
+| VP32~35 | REGRESSION | live runtime·설정 reveal·heading skip·브랜드. AC37/38 표시 범위는 AC39/42가 대체 |
+| VP13~14,16~17,19~31 | REGRESSION | 변경에 닿는 native hook·adapter·IPC 회귀. M2/M3 유지 |
+
+EP27 고정 자리(10): ①agents lock→실제 파일 ②Claude/OpenCode metadata→catalog ③bootstrap/skills IPC→양 소비처 ④OpenCode SDK 출처 분류 ⑤Composer 출처 필터·중복 제거 ⑥native skill/plugin 그룹 ⑦native/Orca MCP·plugin 유효성 ⑧nav 스킬/MCP 그룹·native reveal ⑨refresh notice/partial toast 제거 ⑩브랜드 슬롯→heading.
+
+검색: `rg -n 'scanSkills|skillRoots|skillsList|openCodeNativeCommands|nativeAttachItems|buildAttachMenu|nativeResourcesNotice|chat.native-resources.partial|CustomizeList|nativeResources|sourceIcon' app/src -g '!*.test.*'`.
+①②=임시 파일·lock/native catalog fixture; ③=app catalog/handler와 Composer IPC fixture; ④=SDK의 서로 다른 location/source fixture; ⑤⑥⑦=실제 Composer/메뉴 모델; ⑧=CustomizeList/native hook의 그룹/열기 payload; ⑨=refresh/partial/A→B→A와 toast store; ⑩=양 소비처 렌더/브라우저. 신규 직접 행동 oracle에 추가 mutation 없음; M2/M3 목적지 교환 재실행.
+
+운영 gate는 lint·타입3종·관련 비DB tests·build·boundary·문서 inventory·UI 카탈로그다. GUI fixture와 실제 설치앱을 분리 보고한다. READY.
