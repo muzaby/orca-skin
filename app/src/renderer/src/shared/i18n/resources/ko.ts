@@ -821,6 +821,7 @@ export const ko = {
       session: '세션을 시작하는 중…'
     },
     activity: {
+      thinking: '생각 중',
       preparing: '응답 준비 중…',
       waiting: '남은 작업을 확인하는 중…',
       scheduledWaiting: '다음 예약을 기다리는 중…',

@@ -3,6 +3,7 @@ import type { AppMessagePart, NormalizedEvent } from '../../../shared/ipc'
 import { isRecord } from '../../../shared/obj'
 import type { NativeHistoryMessage } from '../common/native-history'
 import { claudeToNormalized, type MapContext } from './map'
+import { nativeCommandText } from './native-command-text'
 
 export type ClaudeHistoryEntry = Record<string, unknown>
 
@@ -195,7 +196,7 @@ export function mapClaudeHistory(
           parts: [
             {
               type: 'text',
-              text: event.text,
+              text: event.type === 'input.echo' ? nativeCommandText(event.text) : event.text,
               ...(event.type === 'input.received' ? { origin: event.origin } : {})
             }
           ]

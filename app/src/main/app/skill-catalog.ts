@@ -14,9 +14,14 @@ export async function readSkillCatalog(
   home = homedir(),
   env: NodeJS.ProcessEnv = process.env
 ): Promise<SkillInfo[]> {
-  let files: { file: string; name: string }[] = []
+  let files: { file: string; name: string; enabled: boolean }[] = []
   try {
-    files = readClaudePluginCatalog(home, env.CLAUDE_CONFIG_DIR || join(home, '.claude')).files
+    files = readClaudePluginCatalog(
+      home,
+      env.CLAUDE_CONFIG_DIR || join(home, '.claude'),
+      {},
+      true
+    ).files
   } catch {
     // One unavailable native catalog must not erase the other skill sources.
   }

@@ -147,6 +147,7 @@ describe('OpenCode transcript presentation', () => {
           backend === 'opencode' ? 1 : 0
         )
         expect($('[aria-live="polite"] .text-spinner')).toHaveLength(backend === 'claude' ? 1 : 0)
+        if (backend === 'opencode') expect($('[aria-live="polite"]').text()).toContain('생각 중')
         for (const event of [
           { type: 'telemetry', sessionId: 's' },
           { type: 'turn.aborted', sessionId: 's', reason: 'interrupted' }

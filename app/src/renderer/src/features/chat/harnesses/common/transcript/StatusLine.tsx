@@ -40,6 +40,7 @@ function pickVerb(): string {
 
 export interface StatusLineProps {
   Spinner: React.ComponentType
+  streamingLabelKey?: 'chat.activity.thinking'
   turnStartedAt: number | null
   /** 스트리밍 중인 어시스턴트 응답 텍스트 — 출력 토큰 동적 추정용. 빈 문자열이면 토큰 절 미표시. */
   outputApproxFromText?: string
@@ -54,6 +55,7 @@ export interface StatusLineProps {
 
 export function StatusLine({
   Spinner,
+  streamingLabelKey,
   turnStartedAt,
   outputApproxFromText,
   thinkingActive,
@@ -111,7 +113,9 @@ export function StatusLine({
   const statusLabel = label.prepareStep
     ? tr(`chat.worktreePrepare.${label.prepareStep}`)
     : label.status === 'streaming'
-      ? `${verb}…`
+      ? streamingLabelKey
+        ? tr(streamingLabelKey)
+        : `${verb}…`
       : tr(`chat.activity.${label.status}`)
   const accessibleLabel = [statusLabel, factLabel, showCounter ? formatElapsed(elapsedSec) : null]
     .filter(Boolean)

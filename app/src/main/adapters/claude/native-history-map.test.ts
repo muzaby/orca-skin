@@ -7,6 +7,38 @@ import {
 import { HISTORY_SESSION_ID as id, historyEntry as entry } from './native-history.testfixture'
 
 describe('Claude native current-chain display', () => {
+  it.each(['string', 'blocks'])(
+    'restores skill command %s without changing raw entries or provenance',
+    async (shape) => {
+      const text =
+        '<command-message>superpowers:using-superpowers</command-message>\n' +
+        '<command-name>/superpowers:using-superpowers</command-name>\n' +
+        '<command-args>이 스킬이?</command-args>'
+      const content = shape === 'string' ? text : [{ type: 'text', text }]
+      const raw = [
+        entry('command', null, 'user', content),
+        entry('answer', 'command', 'assistant', [{ type: 'text', text: 'answer' }]),
+        entry('automatic', 'answer', 'user', '<system-reminder>continue</system-reminder>', {
+          isMeta: true
+        }),
+        entry('done', 'automatic', 'assistant', [{ type: 'text', text: 'done' }])
+      ]
+      const before = JSON.stringify(raw)
+      const messages = mapClaudeHistory(await selectClaudeHistory(id, '/w', raw), id, '/w')
+      expect(messages[0]).toMatchObject({
+        id: 'command',
+        sourceIds: ['command'],
+        role: 'user',
+        parts: [{ type: 'text', text: '/superpowers:using-superpowers 이 스킬이?' }]
+      })
+      expect(messages[0].parts[0]).not.toHaveProperty('origin')
+      expect(messages[2].parts[0]).toMatchObject({
+        origin: { kind: 'automatic', format: 'system-reminder' }
+      })
+      expect(JSON.stringify(raw)).toBe(before)
+    }
+  )
+
   it('keeps text/thinking/tools in one assistant response and never makes a tool-result user bubble', async () => {
     const raw = [
       entry('u1', null, 'user', 'do work'),

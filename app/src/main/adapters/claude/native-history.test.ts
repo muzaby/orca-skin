@@ -25,6 +25,47 @@ async function fixture(): Promise<Awaited<ReturnType<typeof nativeHistoryFixture
 }
 
 describe('Claude native history reads', () => {
+  it('reprojects a pre-command-display snapshot on restart without modifying native bytes', async () => {
+    const f = await fixture()
+    const text =
+      '<command-message>superpowers:using-superpowers</command-message>\n' +
+      '<command-name>/superpowers:using-superpowers</command-name>\n' +
+      '<command-args>이 스킬이?</command-args>'
+    await f.write([
+      historyEntry('command', null, 'user', text),
+      historyEntry('answer', 'command', 'assistant', [{ type: 'text', text: 'done' }])
+    ])
+    const before = await fs.readFile(f.file, 'utf8')
+    const req = { sessionId, cwd: f.cwd, env: { CLAUDE_CONFIG_DIR: f.config } }
+    const first = await readClaudeNativeHistory(req)
+    if (first.status !== 'ready' || !first.cursor) throw new Error('expected ready history')
+    const sourceKey = first.snapshot.sourceKey
+    const checkpoint = { ...first.cursor.checkpoint }
+    delete checkpoint.projectionVersion
+    const previous = {
+      cursor: { ...first.cursor, checkpoint },
+      snapshot: {
+        ...first.snapshot,
+        sourceKey,
+        messages: [
+          { ...first.snapshot.messages[0], parts: [{ type: 'text' as const, text }] },
+          first.snapshot.messages[1]
+        ]
+      }
+    }
+    const restored = await readClaudeNativeHistory({ ...req, previous })
+    expect(restored.status).toBe('ready')
+    if (restored.status !== 'ready') throw new Error('expected fresh projection')
+    expect(restored.snapshot.sourceKey).toBe(sourceKey)
+    expect(restored.snapshot.messages[0].parts).toEqual([
+      { type: 'text', text: '/superpowers:using-superpowers 이 스킬이?' }
+    ])
+    expect(await fs.readFile(f.file, 'utf8')).toBe(before)
+    expect(await readClaudeNativeHistory({ ...req, previous: restored })).toEqual({
+      status: 'unchanged'
+    })
+  })
+
   it('reads the known ID in a native custom root, reflects external appends and never writes the source', async () => {
     const f = await fixture()
     const request = { sessionId, cwd: f.cwd, env: { CLAUDE_CONFIG_DIR: f.config } }

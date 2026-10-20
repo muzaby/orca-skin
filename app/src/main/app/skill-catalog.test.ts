@@ -100,16 +100,23 @@ it('assembles the real catalog from lock, harness and native plugin files withou
     deployExtensions: vi.fn() as never,
     refreshSkills: catalog
   })
-  const result = handlers.get(CHANNELS.skillsList)?.({}, undefined)
-  expect(result).toBe(snapshot)
+  // The global plugin is disabled, but remains part of the installed inventory.
+  await writeFile(
+    join(claude, 'settings.json'),
+    JSON.stringify({ enabledPlugins: { 'design@test': false } })
+  )
+  await skill(join(plugin, 'skills'), 'added-after-boot')
+  const result = await handlers.get(CHANNELS.skillsList)?.({}, undefined)
   expect(result).toEqual(
     expect.arrayContaining([
       expect.objectContaining({ sourceId: 'agents', name: 'locked', canRemove: false }),
       expect.objectContaining({
         sourceId: 'plugin:claude',
         name: 'design:native',
+        enabled: false,
         canToggle: false
       }),
+      expect.objectContaining({ name: 'design:added-after-boot', enabled: false }),
       expect.objectContaining({
         sourceId: 'plugin:opencode',
         name: 'open-plugin-skill',

@@ -134,7 +134,7 @@ export interface ClaudePluginCatalog {
   roots: string[]
   skills: string[]
   commands: NativeCommand[]
-  files: Array<{ file: string; name: string }>
+  files: Array<{ file: string; name: string; enabled: boolean }>
   installations: Array<{ key: string; name: string; path: string; enabled: boolean }>
 }
 
@@ -161,7 +161,7 @@ export function readClaudePluginCatalog(
   const roots = new Map<string, string>()
   const skills = new Set<string>()
   const commands = new Map<string, NativeCommand>()
-  const filesByName = new Map<string, string>()
+  const filesByName = new Map<string, { file: string; enabled: boolean }>()
   const installations: ClaudePluginCatalog['installations'] = []
   for (const entry of entries) {
     if ((!includeDisabled && !entry.enabled) || !isAbsolute(entry.path) || !exists(entry.path))
@@ -199,7 +199,7 @@ export function readClaudePluginCatalog(
         const name = `${pluginName}:${localName}`
         skills.add(name)
         if (meta['user-invocable'] === 'false') continue
-        filesByName.set(name, file)
+        filesByName.set(name, { file, enabled: entry.enabled })
         commands.set(name, {
           name,
           description: (meta.description ?? '').slice(0, 4000),
@@ -213,7 +213,7 @@ export function readClaudePluginCatalog(
     roots: [...roots.values()],
     skills: [...skills],
     commands: [...commands.values()],
-    files: [...filesByName].map(([name, file]) => ({ file, name })),
+    files: [...filesByName].map(([name, entry]) => ({ name, ...entry })),
     installations
   }
 }

@@ -178,6 +178,7 @@ POP3 Mail Plugin은 Core `orcinus-orca.db`와 분리된 계정별 `mail.db`를 `
 - 하네스의 native 저장소가 세션·실행 컨텍스트의 원본이다. Claude는 `CLAUDE_CONFIG_DIR` 또는 기본 루트, OpenCode는 native 환경의 DB·리소스를 사용한다. Orca 엔진 설정은 실행 오버라이드다.
 - `session.load`는 DB 본문과 backend를 즉시 반환한다. renderer는 첫 paint 기회를 준 후 `session.refresh`를 호출하며 조회 token과 본문/live 상태로 지각 응답을 거른다. 모델 선택·패널 변경은 로딩 응답을 무효화하지 않는다.
 - `native_history_snapshots.cursor_json`은 마지막 성공한 source/revision/checkpoint를 영속한다. null은 아직 커서를 확정하지 않은 자료다. Claude는 UTF-8 byte offset·파일 identity·prefix digest, OpenCode 1.x는 session별 sequence·projection digest를 사용한다. 실패/경합에서는 커서를 앞당기지 않는다.
+- Claude 표시 투영은 완전한 command-message/name/args 래퍼를 slash 입력으로 복원하며 native 원본·UUID·인수는 보존한다. cursor의 adapter 소유 `projectionVersion`이 다르면 원본 식별자를 유지한 채 표시 사본을 다시 만들며, 일반·인용·불완전 XML과 자동 입력 origin은 유지한다.
 - `SessionAdapter.readHistory`는 모델 호출 없이 원본을 읽고, `app/native-history.ts`가 실행과 같은 backend/env/settings를 전달한다. 살아 있는 runtime은 유휴 상태여도 화면 재진입으로 폐기하지 않는다. 해당 세션의 조회는 busy로 반환해 실시간 상태와 보관 화면을 유지한다. runtime이 없는 세션에서 `features/history/native-sync.ts`는 유휴 상태와 변경 토큰을 읽기 전후 확인한 뒤 snapshot·frontier·검색 인덱스·읽기 커서를 원자 교체한다. native 형식은 하네스 모듈만 해석한다.
 - `features/history/native-projection.ts`가 native 본문에 실제 message/tool ID로 Orca 첨부·도구 메타데이터를 결합하고 frontier 이후 live 행을 붙인다. 매핑이 없는 과거 부가 기록은 말미에 보존하며 안내한다. 원래 messages/parts·사용량·artifact·background journal은 삭제하거나 재발행하지 않는다.
 - 원본 미완료·접근 실패·부재·이관 미완료는 마지막 정상 사본을 유지하고 `nativeSync`로 반환한다. renderer의 보조 조회 실패는 기존 transcript를 유지하며 세션 열기 오류를 띄우지 않는다.

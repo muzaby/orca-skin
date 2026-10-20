@@ -15,7 +15,8 @@ it('renders the OpenCode grid with stable animation and accessible status', () =
   expect(spinner.attr('width')).toBe('18')
   expect(spinner.attr('height')).toBe('18')
   expect(spinner.attr('aria-hidden')).toBe('true')
-  expect($('[aria-live="polite"]').attr('aria-label')).toBeTruthy()
+  expect($('[aria-live="polite"]').attr('aria-label')).toBe('생각 중')
+  expect($('[aria-live="polite"]').text()).toBe('생각 중')
   const squares = spinner.find('rect')
   expect(squares).toHaveLength(16)
   expect(squares.filter('.opacity-0')).toHaveLength(4)
@@ -45,4 +46,37 @@ it('renders the OpenCode grid with stable animation and accessible status', () =
   expect(
     renderToStaticMarkup(createElement(StatusLine, { backend: 'opencode', turnStartedAt: null }))
   ).toBe('')
+})
+
+it('preserves Claude verbs and OpenCode preparation and scheduled waiting labels', () => {
+  const render = (props: Partial<Parameters<typeof StatusLine>[0]>): ReturnType<typeof load> =>
+    load(renderToStaticMarkup(createElement(StatusLine, { turnStartedAt: Date.now(), ...props })))
+  expect(render({ backend: 'claude' })('[aria-live="polite"]').text()).toMatch(/^[A-Za-z]+…$/)
+  expect(
+    render({
+      backend: 'opencode',
+      activity: {
+        foreground: 'preparing',
+        queuedCount: 0,
+        deliveryPendingCount: 0,
+        residualCount: 0,
+        backgroundTaskCount: 0,
+        listening: false
+      }
+    })('[aria-live="polite"]').text()
+  ).toBe('응답 준비 중…')
+  expect(
+    render({
+      backend: 'opencode',
+      activity: {
+        foreground: 'idle',
+        queuedCount: 0,
+        deliveryPendingCount: 0,
+        residualCount: 0,
+        backgroundTaskCount: 0,
+        listening: true,
+        pendingSessionWakeup: true
+      }
+    })('[aria-live="polite"]').text()
+  ).toBe('다음 예약을 기다리는 중…')
 })

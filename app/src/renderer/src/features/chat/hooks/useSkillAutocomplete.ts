@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { SkillInfo } from '../../../../../shared/ipc'
+import type { SkillSuggestion } from '../lib/composerSkills'
 import { useTokenAutocompleteState } from './useTokenAutocompleteState'
 
 // caret 직전 부분 토큰: 줄 시작/공백 다음의 `/` 와 그 뒤 (소문자/숫자/하이픈/콜론) 0+.
@@ -9,7 +9,7 @@ const PARTIAL_RE = /(?:^|\s)\/([a-z0-9:-]*)$/
 export interface UseSkillAutocomplete {
   open: boolean
   query: string
-  suggestions: SkillInfo[]
+  suggestions: SkillSuggestion[]
   activeIndex: number
   setActiveIndex: (i: number) => void
   // caret 좌측 `/partial` 의 시작 인덱스 (`/` 포함). 선택 적용 시 이 위치부터
@@ -21,7 +21,7 @@ export interface UseSkillAutocomplete {
 export function useSkillAutocomplete(
   text: string,
   caret: number,
-  skills: SkillInfo[]
+  skills: SkillSuggestion[]
 ): UseSkillAutocomplete {
   const match = useMemo(() => {
     const before = text.slice(0, caret)

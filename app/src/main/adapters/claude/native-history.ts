@@ -15,6 +15,7 @@ import {
 } from './native-history-map'
 
 export const CLAUDE_HISTORY_MAX_BYTES = 128 * 1024 * 1024
+const PROJECTION_VERSION = 1
 const SESSION_ID = /^[a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12}$/i
 
 class HistoryReadError extends Error {
@@ -170,6 +171,7 @@ export async function readClaudeNativeHistory(
     const checkpoint = cursor?.checkpoint
     const reusable =
       cursor?.version === 1 &&
+      checkpoint?.projectionVersion === PROJECTION_VERSION &&
       cursor.sourceKey === sourceKey &&
       previous?.snapshot.sourceKey === sourceKey &&
       cursor.revision === previous.snapshot.revision
@@ -238,6 +240,7 @@ export async function readClaudeNativeHistory(
         revision: snapshot.revision,
         checkpoint: {
           kind: 'claude-jsonl',
+          projectionVersion: PROJECTION_VERSION,
           identity: snapshot.identity,
           offset: snapshot.bytes.length,
           newline: snapshot.bytes.at(-1) === 10,

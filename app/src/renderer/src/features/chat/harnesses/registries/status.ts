@@ -8,3 +8,8 @@ const spinners = { claude: ClaudeSpinner, opencode: OpenCodeSpinner } satisfies 
 export function statusSpinner(backend: Backend | null | undefined): React.ComponentType {
   return spinners[backend ?? 'claude']
 }
+export function statusStreamingLabel(
+  backend: Backend | null | undefined
+): 'chat.activity.thinking' | undefined {
+  return backend === 'opencode' ? 'chat.activity.thinking' : undefined
+}
