@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | READY / r1.10 |
+| 상태 / 라운드 | IMPL_DONE / r1.10 |
 | V mode / 기준 V / 유효 V | Delta V / r1.9 (`64beff7e`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9+ΔV10+ΔV11+ΔV12 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
@@ -1439,3 +1439,85 @@ EP27 고정 자리(10): ①agents lock→실제 파일 ②Claude/OpenCode metada
 ①②=임시 파일·lock/native catalog fixture; ③=app catalog/handler와 Composer IPC fixture; ④=SDK의 서로 다른 location/source fixture; ⑤⑥⑦=실제 Composer/메뉴 모델; ⑧=CustomizeList/native hook의 그룹/열기 payload; ⑨=refresh/partial/A→B→A와 toast store; ⑩=양 소비처 렌더/브라우저. 신규 직접 행동 oracle에 추가 mutation 없음; M2/M3 목적지 교환 재실행.
 
 운영 gate는 lint·타입3종·관련 비DB tests·build·boundary·문서 inventory·UI 카탈로그다. GUI fixture와 실제 설치앱을 분리 보고한다. READY.
+
+## [구현자 기입] r1.10 설계 리뷰
+
+SELF_PASS. D41~45를 구현했다. catalog와 실행 가능 목록의 원천을 구분했다. 설치 스킬은 파일 metadata로, 재개 후 명령/MCP는 실제 CLI 관측으로 확인한다. OpenCode 파일 설정을 live plugin의 권위 목록으로 사용하면 재개 후에만 발견한 plugin이 삭제되는 문제가 있어 `draftResources`를 분리했다. 이는 D45를 만족시키는 구현 세부이며 새 제품 선택은 없다.
+
+표시용 catalog는 기존 배포 root에 합치지 않는다. 새 lock/native plugin 스캔은 설정 쓰기나 코드 실행을 만들지 않는다. 로고는 shared UI로 옮기고 각 하네스 registry의 기존 진입점은 재수출로 보존했다. PLAN_GAP 없음.
+
+## [구현자 기입] r1.10 강제 지점 전수와 V-pair 자기확인
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 자리별 oracle 좌표 | 운반 항·관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP38·39 | lock과 실재 파일의 교집합 | EP27 ① | 1/1 | app/skill-catalog.test: assembles the real catalog… | 등록/미등록/유실 파일·손상 lock·symlink alias를 실제 임시 파일로 구분. 미등록 alias도 제외 | 없음 |
+| VP38·39 | native 출처 metadata | EP27 ② | 1/1 | skill-catalog.test; claude/plugin-catalog.test | Claude manifest의 정확한 plugin:name, OpenCode 설정에 등록한 설치 plugin skill과 자체 사용자 root를 다른 sourceId로 반환 | 동적 plugin 코드의 임의 skill 경로는 설치 scanner가 실행하지 않음. Composer는 SDK 실제 명령 사용 |
+| VP38 | bootstrap→cache→IPC→소비처 | EP27 ③ | 1/1 | bootstrap.native-history.test: refreshes the bootstrap skill cache…; skill-catalog.test의 실제 skillsList handler; Composer.native-menu.test | OpenCode 고유 이름과 Orca enabled=false 운반. 실제 파일 catalog가 IPC 응답에 보존되고 Composer/CustomizeList에서 source 구분 | 각 구간의 직접 oracle이며 설치 앱 전체 E2E 주장은 아님 |
+| VP39 | SDK skill source/location | EP27 ④ | 1/1 | opencode/v1/native-resources.test: classifies only OpenCode…; adapter.persistent.test | 자체/설치 plugin/agents/다른 도구/일반 command를 분리. 전송 명령 이름 보존 | 없음 |
+| VP36·39 | 현재 하네스 허용 출처·중복 | EP27 ⑤ | 1/1 | attachMenuModel.test의 양 backend; Composer.native-menu.test: shows all source groups… | 상대 하네스·unknown 제외, catalog와 native 동명 중복 제거, 단일 패널 | 없음 |
+| VP36 | native plugin 그룹 | EP27 ⑥ | 1/1 | Composer.native-menu.test; CustomizeList.render.test | Claude/OpenCode 스킬과 플러그인 제목을 구분, exact native command 선택과 초안 보존 | 없음 |
+| VP36·39 | 실제 사용 가능한 plugin/MCP | EP27 ⑦ | 1/1 | claude/native-resources.test; attachMenuModel.test: offers only observed connected…; Composer.native-menu.test | origin=orca 관측, connected+enabled MCP, valid provider만 표시. 설명/상태/disabled 행 없음 | 외부 MCP 서버 자체 호출은 하지 않음 |
+| VP36·38 | nav 그룹·native reveal | EP27 ⑧ | 1/1 | CustomizeList.render.test; useNativeMcpCatalog.test: reads both native catalogs…; bootstrap.native-history; session-resources.test | 양 backend 설정 조회와 선택 backend/kind/id payload, 실제 파일 realpath→shell 호출 | Windows 탐색기 창은 미실기 |
+| VP37 | 재개 갱신·수명 캐시·notice 제거 | EP27 ⑨ | 1/1 | useNativeResources.test: refreshes after resume…; 동일 파일의 실패·세대·remount 검사 | connected 후 새 명령 발견, A→B→A partial에서도 connected와 명령 유지, toast=[]; terminated에서 configured/read-only | 없음 |
+| VP36 | 로고→heading | EP27 ⑩ | 1/1 | Composer.native-menu.test·CustomizeList.render.test·Chromium fixture | source 슬롯과 shared Claude/OpenCode/Orca 로고, agents 폴더. white/dark 확인 | 설치 앱의 화면은 자동 조작하지 않음 |
+
+EP27 합계 10/10. `§10` 검색을 production 전체에서 다시 실행해 29파일을 확인했다. 타입/재수출·번역·IPC 운반은 기존 경로이고, 무변경 배포·dispatch는 상속 경로다. 현재 변경의 catalog/SDK/Composer/nav/state/brand 운반 자리를 위 10자리에 매핑한 뒤 목록 밖 새로운 계약 자리 차집합은 []였다. 신규 adapter facade·draftResources 분리는 ②④⑧, shared logo 재수출은 ⑩에 속한다. 파일 개수를 자리 분모로 쓰지 않았다.
+
+| V-pair | requiredness | 자기결과 / 이번 관측 |
+|---|---|---|
+| VP36~39 | REQUIRED | SELF_PASS — EP27 직접 oracle과 최종 78파일823케이스, 브라우저 fixture |
+| VP32~35 | REGRESSION | SELF_PASS — native-history의 실제 양 backend runtime 재방문, bootstrap·session-resources·hook의 reveal/generation, Composer·Cascade의 heading/brand. r1.9의 DB load10/10은 비영향 증거 승계 |
+| VP13~14·16~17·19~31 | REGRESSION | SELF_PASS — scoped readers·live-control·OpenCode persistent·SessionRuntime·preload·hook·Composer·Cascade를 재실행. M2/M3 red 및 복원 green. 변경하지 않은 과거 지점의 세부 좌표는 r1.7~r1.9 전수표 승계 |
+
+## [구현자 기입] r1.10 이번 라운드 수정의 잠금
+
+| 선택 증거 | 실제 변경 | 관측 | 복원 |
+|---|---|---|---|
+| M2 | nativeResourcesMenu의 MCP/plugin content 목적지 교환 | 11케이스 중10 failed | 원본 bytes 복원, 최종 실행11/11 |
+| M3 | AttachMenu의 nativeItems skills/mcp 목적지 교환 | 실제 Composer 6/6 failed | 원본 bytes 복원, 최종 실행6/6 |
+
+검산: 선택 증거2 · 인용 변이0 · 새 구조/배선 proxy oracle0 = 잠금2행. 신규 lock/catalog/SDK/IPC/hook/UI 검사는 서로 다른 실제 값과 최종 결과를 보는 직접 oracle이므로 추가 mutation은 not selected다. 기존 정적 Composer 검사에는 새 필터의 진입점을 반영했으며 실제 Composer 렌더가 그 호출을 검증한다.
+
+## [구현자 기입] r1.10 Product/UX 파생 검토
+
+SELF_PASS. 현재 하네스만 Composer에 보이고 nav는 양 하네스 설치 출처를 관리한다. native 스킬과 native plugin 스킬을 다른 제목 아래 표시한다. 플러그인 팝업은 연결된 MCP와 유효 인증 plugin의 이름만 보인다. OpenCode에서 실행 미지원 Orca 플러그인은 제외하고 Orca 스킬의 기존 disabled 정책은 유지했다.
+
+빈 목록·재조회·부분 실패에서도 갱신 안내/partial toast를 표시하지 않는다. 명시 제어와 파일 열기 실패는 기존 피드백을 유지한다. white Claude 스킬과 dark Claude 플러그인, OpenCode 스킬과 nav 스킬/MCP 화면을 Chromium에서 관측했다. 전체 UI는 production 컴포넌트이며 IPC만 메모리 대역이다.
+
+## [구현자 기입] r1.10 놓친 잠재 문제 + 대응
+
+| 문제 | 대응 / 관측 |
+|---|---|
+| 재개 이후에만 생긴 항목을 파일 설정이 지움 | OpenCode draftResources와 live 관측 분리. bootstrap callback이 saved=undefined, draft=configured MCP를 반환하는 직접 단언 |
+| 같은 프로세스의 partial 응답에서 cached 연결 상태를 configured로 강등 | 같은 generation은 기존 상태 그대로 merge. resume→navigation→partial→terminated 직접 검사 |
+| lock 미등록 스킬이 하네스 symlink로 우회 노출 | canonical agents 경로도 등록 교집합으로 제한. 실제 junction fixture의 unregistered/alias 제외 |
+| plugin skill catalog 확장이 배포 범위를 바꿈 | app의 표시 inventory만 확장. 기존 deployment root 유지. 실제 Claude CLI smoke에서 스킬 확장/토글/설정 불변 확인 |
+| native plugin의 config hook을 읽기 위해 실행할 위험 | 설치 metadata·정해진 skill root·plugin 내부 명시 경로만 읽는다. 동적으로 추가한 명령은 살아 있는 SDK 관측으로 보완 |
+| 문서 링크 검사에 기존 외부 참고 사본 포함 | `.tmp/opencode-dev`의 기존5건 분리. 같은 checkLinks로 참고/첨부 디렉터리 제외 시 repositoryBrokenLinks=[] |
+
+설계 메커니즘 대체 없음. 캐시의 만료=명시 generation 종료, 공유=창 내 session/backend별 두 소비자, 재진입=기존 snapshot 즉시 사용+재조회, 무효화=종료/세대 교체이며 각 축은 useNativeResources 직접 테스트에서 확인했다.
+
+## [구현자 기입] r1.10 구현 보고
+
+[validation r1.10](evidence/validation.md)에 실행 명령·초기 실패·최종 관측과 GUI 경계를 기록했다. 최종 관련 회귀78파일823/823, 타입3종 진단0과 production build 성공, lint 오류0·기존경고4, boundary8/8, catalog 차집합[], 실제 번들 Claude CLI smoke가 통과했다. 문서 generated/prose는 통과하고 외부 참고 사본의 기존 링크5건은 별도다.
+
+| AC | 자기보고 / 관측 |
+|---|---|
+| AC1~33 | ✅ 이전 관측 승계. 변경에 닿는 native scope/control/generation/명령·메뉴·키보드는 최종 회귀로 재확인 |
+| AC34 | ✅ 실제 runtime/native-history 재방문 회귀, resume 연결 이벤트 후 캐시 관측 추가 |
+| AC35~36 | ✅ 브랜드/Material icon·설정 reveal·독립 토글의 Composer/IPC/hook 회귀 |
+| AC37~38 | ✅ 단일 목록과 source 로고는 유지. 기존 표시 범위·disabled 포함 요구는 D41/D44와 AC39/42의 최신 계약으로 대체 |
+| AC39 | ✅ lock·실재 파일·alias·현재 하네스 범위·native SDK 분류 |
+| AC40 | ✅ 양 화면의 canonical 제목과 로고, native plugin 분류와 정확한 명령 선택 |
+| AC41 | ✅ 재개 후 발견, 같은 generation의 navigation/partial 보존, 종료 강등, 안내·partial toast 부재 |
+| AC42 | ✅ connected MCP와 valid plugin만 표시. 미지원·configured·auth·disabled 제외, 이름만 표시 |
+
+검산: ✅42 · ⚠️0 · ❌0 = AC 번호42개(신규4개). AC37/38의 표시 범위는 위 supersede를 적용하며 폐기된 동작을 충족했다고 세지 않는다. `Criteria-Met`은 구현자 자기보고이고 독립 verify가 아니다. 실제 설치 앱 업데이트·재시작과 Windows 탐색기 창 실기는 수행하지 않았다. plan/INDEX를 r1.10 impl/IMPL_DONE·Claude 검증 대기로 맞춘다.
+
+## [구현자 기입] r1.10 Review Signals
+
+- r1.10은 사용자 추가 표시 범위와 재개 시점 조건을 반영한 턴이다. 이전의 runtime 수명·generation 계약을 유지한다.
+- 기존 전체 목록·disabled 노출 테스트는 새 사용자 결정과 충돌하여 허용 출처·connected-only 결과로 갱신했다. 단언을 삭제하는 대신 제외 항목과 유효 항목을 함께 넣었다.
+- 새 nav 테스트의 fake DOM 초기화 누락/viewport 타입과 일부 기존 기대값이 초기 실행에서 실패했다. 수정 후823케이스와 타입3종에서 진단0을 관측했다.
+- 처음 boundary 검사를 루트에서 실행해 ESLint config 탐색이 실패했고, 정본 작업 디렉터리 app에서 재실행8/8이었다. Windows 문서 검사는 UTF-8로 실행했다.
+- 독립 검증 대기다. 실제 설치 앱 GUI를 조작하지 못한 범위를 메모리 IPC fixture와 혼동하지 않는다.

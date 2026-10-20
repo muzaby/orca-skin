@@ -47,7 +47,7 @@ const render = (patch: Partial<ComponentProps<typeof CustomizeList>>): string =>
   renderToStaticMarkup(
     createElement(CustomizeList, {
       tab: 'skills',
-      skills: [skill('z', 'Zulu'), skill('a', 'Alpha')],
+      skills: [skill('orca', 'Orcinus orca 스킬'), skill('adapter:claude', 'Claude 스킬')],
       mcpServers: [server('inactive', false), server('active', true)],
       providers: [provider('service', 'service'), provider('gate', 'gate')],
       onSelect: vi.fn(),
@@ -58,25 +58,57 @@ const rows = (markup: string): string[] =>
   [...markup.matchAll(/data-extensions-row="([^"]+)"/g)].map((match) => match[1])
 
 describe('plugin catalog list', () => {
+  it('labels native plugin skills and both native MCP groups with brand marks', () => {
+    const markup = render({
+      skills: [
+        skill('plugin:claude', 'OLD'),
+        skill('plugin:opencode', 'OLD'),
+        skill('agents', 'OLD')
+      ]
+    })
+    expect(markup).toContain('Claude 플러그인')
+    expect(markup).toContain('OpenCode 플러그인')
+    expect(markup).toContain('~/.agents/skills')
+    expect(markup).toContain('viewBox="0 0 248 248"')
+    expect(markup).toContain('viewBox="0 0 16 20"')
+    const mcp = render({
+      tab: 'mcp',
+      nativeMcp: (['claude', 'opencode'] as const).map((backend) => ({
+        backend,
+        resource: {
+          id: 'docs',
+          name: `${backend} docs`,
+          kind: 'mcp',
+          status: 'configured',
+          enabled: true,
+          canToggle: false
+        }
+      }))
+    })
+    expect(rows(mcp)).toEqual(['claude:docs', 'opencode:docs', 'active', 'inactive'])
+    expect(mcp).toContain('Claude MCP')
+    expect(mcp).toContain('OpenCode MCP')
+    expect(mcp).toContain('Orcinus orca MCP')
+  })
   it.each<[CatalogTab, string[]]>([
-    ['skills', ['a/review', 'z/review']],
+    ['skills', ['adapter:claude/review', 'orca/review']],
     ['mcp', ['active', 'inactive']],
     ['providers', ['gate', 'service']]
   ])('%s uses flat catalog buttons with selection and preserves its previous order', (tab, ids) => {
     const markup = render({ tab, selectedId: ids[1] })
     expect(rows(markup)).toEqual(ids)
     expect(markup.match(/<ul\b/g)).toHaveLength(1)
-    expect(markup.match(/<li\b/g)).toHaveLength(2)
+    expect(markup.match(/<li\b/g)).toHaveLength(tab === 'skills' ? 4 : tab === 'mcp' ? 3 : 2)
     expect(markup.match(/<button\b/g)).toHaveLength(2)
     expect(markup.match(/aria-pressed="true"/g)).toHaveLength(1)
     expect(markup).not.toMatch(/<(?:table|thead|th|h[1-6])(?:\s|>)/)
     expect(markup).not.toContain('aria-expanded')
   })
 
-  it('keeps source, author, transport and connection state available without headings', () => {
+  it('groups skills and MCP by canonical source while retaining management metadata', () => {
     const skills = render({ tab: 'skills' })
-    expect(skills).toContain('사용자 · Alpha')
-    expect(skills).toContain('사용자 · Zulu')
+    expect(skills).toContain('Claude 스킬')
+    expect(skills).toContain('Orcinus orca 스킬')
     expect(skills).not.toContain('aria-pressed="true"')
     const mcp = render({ tab: 'mcp' })
     expect(mcp).toContain('>http<')

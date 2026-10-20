@@ -127,14 +127,13 @@ describe('runAttachMenuAction (AC2·AC3)', () => {
     expectPresentationWiring()
     expect(source).toMatch(/const \{[^}]*\bincludeExtensions\b[^}]*\} = presentation/)
     expect(source).toMatch(
-      /const skills = useMemo\(\s*\(\) => \(includeExtensions \? availableSkills : \[\]\),\s*\[includeExtensions, availableSkills\]\s*\)/
+      /const skills = useMemo\(\s*\(\) => \(includeExtensions \? sourceSkills\(availableSkills, backend \?\? 'claude'\) : \[\]\),\s*\[includeExtensions, availableSkills, backend\]\s*\)/
     )
     expect(sourceAt('../../claude/composer/Module.tsx')).toContain('includeExtensions: true')
     expect(sourceAt('../../opencode/composer/Module.tsx')).toContain('includeExtensions: false')
     expect(source).toContain(
       [
         '        skills={availableSkills}',
-        '        mcpServers={mcpServers}',
         '        sourceIcon={presentation.sourceIcon}',
         '        includeExtensions={includeExtensions}',
         '        plugins={mentionAutocomplete.plugins}',
@@ -180,7 +179,6 @@ describe('runAttachMenuAction (AC2·AC3)', () => {
         '        anchorRef={attachButtonRef}',
         '        onClose={() => setAttachMenuOpen(false)}',
         '        skills={availableSkills}',
-        '        mcpServers={mcpServers}',
         '        sourceIcon={presentation.sourceIcon}',
         '        includeExtensions={includeExtensions}',
         '        plugins={mentionAutocomplete.plugins}',

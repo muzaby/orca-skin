@@ -29,6 +29,98 @@ const plugins = [
 ]
 
 describe('buildAttachMenu', () => {
+  it.each(['claude', 'opencode'] as const)(
+    'limits %s to approved skill sources and merges duplicate source headings',
+    (backend) => {
+      const label = backend === 'claude' ? 'Claude' : 'OpenCode'
+      const catalog = [
+        skill('home', `adapter:${backend}`, 'OLD'),
+        skill('locked', 'agents', 'OLD'),
+        skill('wrong', `adapter:${backend === 'claude' ? 'opencode' : 'claude'}`, 'OLD'),
+        skill('alien', 'adapter:codex', 'OLD')
+      ]
+      const rows = nativeAttachItems(
+        {
+          status: 'ready',
+          value: {
+            state: 'connected',
+            items: [],
+            commands: [
+              { name: 'home', source: 'harness', description: '', argumentHint: '' },
+              { name: 'project', source: 'harness', description: '', argumentHint: '' },
+              { name: 'design:review', source: 'plugin', description: '', argumentHint: '' },
+              {
+                name: 'custom-command',
+                source: 'harness',
+                skill: false,
+                description: '',
+                argumentHint: ''
+              }
+            ]
+          }
+        },
+        { harness: label, useMcp: (name) => name, resourceStatus: (status) => status },
+        'skills'
+      )
+      const menu = buildAttachMenu({
+        skills: catalog,
+        plugins: [],
+        labels,
+        canManagePlugins: false,
+        native: { label, backend, skills: rows, items: [] }
+      })[2]
+      if (menu.kind !== 'submenu') throw new Error('menu')
+      expect(menu.items.filter((row) => row.kind === 'heading').map((row) => row.label)).toEqual([
+        `${label} 스킬`,
+        '~/.agents/skills',
+        `${label} 플러그인`
+      ])
+      expect(menu.items.filter((row) => row.kind === 'action').map((row) => row.label)).toEqual([
+        'home',
+        'project',
+        'locked',
+        'design::review'
+      ])
+    }
+  )
+  it('offers only observed connected MCP names with no descriptions, statuses or notices', () => {
+    const items = nativeAttachItems(
+      {
+        status: 'ready',
+        refreshing: true,
+        value: {
+          state: 'connected',
+          generation: 'g',
+          partial: true,
+          items: (
+            ['connected', 'configured', 'disabled', 'failed', 'needs-auth', 'pending'] as const
+          ).map((status) => ({
+            id: status,
+            name: status,
+            kind: 'mcp',
+            status,
+            enabled: status !== 'disabled',
+            canToggle: false
+          }))
+        }
+      },
+      {
+        notice: 'refreshing',
+        partial: 'partial',
+        useMcp: (name) => `Use ${name}`,
+        resourceStatus: (s) => s
+      },
+      'mcp'
+    )
+    expect(items).toEqual([
+      {
+        kind: 'action',
+        id: 'native-resource:mcp:connected',
+        label: 'connected',
+        action: { type: 'nativePrompt', text: 'Use connected' }
+      }
+    ])
+  })
   it('exposes native commands for OpenCode without exposing Orca integrations or inventing slash names', () => {
     const nativeLabels = {
       loading: 'loading',
@@ -97,24 +189,18 @@ describe('buildAttachMenu', () => {
     expect(tree.map((item) => item.id)).toEqual(['attach', 'separator', 'skills', 'plugins'])
     expect(tree[2]).toMatchObject({ items: [{ label: 'superpowers::using-superpowers' }] })
     expect(JSON.stringify(tree[3])).not.toMatch(/superpowers|Hooks only/)
-    expect(JSON.stringify(tree)).toContain('/docs:search')
+    expect(JSON.stringify(tree)).not.toContain('/docs:search')
     expect(JSON.stringify(tree)).not.toMatch(/@jira|plugins:manage|\/hooks/)
-    expect(items).toMatchObject([
-      { action: { type: 'nativePrompt', text: 'Use Docs tools' }, disabled: false },
-      {
-        label: '/docs:search',
-        title: 'Search documents\nquery',
-        action: { type: 'nativeCommand', name: 'docs:search' }
-      }
-    ])
+    expect(items).toMatchObject([{ action: { type: 'nativePrompt', text: 'Use Docs tools' } }])
   })
-  it('shows unsupported Orca entries disabled for OpenCode', () => {
+  it('excludes unsupported plugins and other harness skills for OpenCode', () => {
     const tree = buildAttachMenu({
       skills,
       plugins,
       labels,
       canManagePlugins: true,
-      includeExtensions: false
+      includeExtensions: false,
+      native: { label: 'OpenCode', backend: 'opencode', skills: [], items: [] }
     })
     expect(tree[0]).toMatchObject({ icon: 'attachFile', action: { type: 'attach' } })
     for (const menu of tree.slice(2)) {
@@ -123,7 +209,8 @@ describe('buildAttachMenu', () => {
         menu.items.filter((item) => item.kind === 'action').every((item) => item.disabled)
       ).toBe(true)
     }
-    expect(JSON.stringify(tree)).toContain('confluence')
+    expect(JSON.stringify(tree)).not.toContain('confluence')
+    expect(JSON.stringify(tree)).not.toContain('adapter:claude')
     expect(JSON.stringify(tree)).not.toContain('plugins:manage')
   })
   const tree = buildAttachMenu({ skills, plugins, labels, canManagePlugins: true })
@@ -144,7 +231,7 @@ describe('buildAttachMenu', () => {
       ['heading', 'Orcinus orca 스킬'],
       ['action', 'a'],
       ['action', 'b'],
-      ['heading', 'CLAUDE 스킬'],
+      ['heading', 'Claude 스킬'],
       ['action', 'c']
     ])
   })

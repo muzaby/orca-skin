@@ -7,6 +7,14 @@ import { mcpRowMeta, skillRowMeta } from '../../lib/catalogRows'
 import { providerRowMeta } from '../../lib/providerRows'
 import { orderMcpServers, orderProviders, orderSkills } from '../../lib/catalogOrder'
 import { providerPresentation } from '../../lib/providerPresentation'
+import { Fragment } from 'react'
+import {
+  extensionSourceLabels,
+  skillSourceAllowed
+} from '../../../../../../shared/extension-sources'
+import { SourceHeading } from './SourceHeading'
+import type { NativeResource } from '../../../../../../shared/native-resources'
+import type { Backend } from '../../../../../../shared/ipc'
 
 export function CustomizeList({
   tab,
@@ -14,6 +22,8 @@ export function CustomizeList({
   mcpServers,
   providers,
   selectedId,
+  nativeMcp = [],
+  onNativeMcp,
   onSelect
 }: {
   tab: CatalogTab
@@ -21,10 +31,16 @@ export function CustomizeList({
   mcpServers: McpServer[]
   providers: ProviderInfo[]
   selectedId?: string | null
+  nativeMcp?: { backend: Backend; resource: NativeResource }[]
+  onNativeMcp?: (backend: Backend, resource: NativeResource) => void
   onSelect: (id: string, origin: HTMLButtonElement) => void
 }): React.JSX.Element {
   const { tr, locale } = useI18n()
-  const rows = tab === 'skills' ? skills : tab === 'mcp' ? mcpServers : providers
+  const visibleSkills = skills.filter(
+    (skill) =>
+      skillSourceAllowed(skill.sourceId, 'claude') || skillSourceAllowed(skill.sourceId, 'opencode')
+  )
+  const rows = tab === 'skills' ? visibleSkills : tab === 'mcp' ? mcpServers : providers
   const emptyKey =
     tab === 'skills'
       ? 'skills.table.noSkills'
@@ -32,7 +48,7 @@ export function CustomizeList({
         ? 'skills.table.noMcp'
         : 'skills.table.noProviders'
 
-  if (rows.length === 0)
+  if (rows.length === 0 && !(tab === 'mcp' && nativeMcp.length))
     return (
       <div role="status" className="grid h-48 place-items-center text-footnote text-ink3">
         {tr(emptyKey)}
@@ -42,7 +58,7 @@ export function CustomizeList({
   return (
     <ul className="@container/catalog m-0 list-none divide-y divide-border p-0">
       {tab === 'skills' &&
-        orderSkills(skills).map((skill) => {
+        orderSkills(visibleSkills).map((skill, index, ordered) => {
           const meta = skillRowMeta(skill)
           const id = `${skill.sourceId}/${skill.name}`
           const author =
@@ -50,32 +66,63 @@ export function CustomizeList({
               ? `${tr(meta.author)} · ${skill.sourceLabel}`
               : meta.author
           return (
-            <CatalogListRow
-              key={id}
-              data-extensions-row={id}
-              selected={selectedId === id}
-              openProps={{ onClick: (event) => onSelect(id, event.currentTarget) }}
-              icon={<Icon name="doc" size={20} className="shrink-0 text-ink3" />}
-              title={
-                <span className={`truncate ${skill.enabled ? '' : 'text-ink3'}`} title={skill.name}>
-                  {skill.name}
-                </span>
-              }
-              detail={
-                <span className="truncate text-caption text-ink3" title={author}>
-                  {author}
-                </span>
-              }
-              trailing={
-                <span className="hidden shrink-0 text-caption text-ink3 @[560px]/catalog:block">
-                  {meta.updatedAtMs === null
-                    ? tr('common.unknown')
-                    : formatDateMedium(meta.updatedAtMs, locale)}
-                </span>
-              }
-            />
+            <Fragment key={id}>
+              {ordered[index - 1]?.sourceId !== skill.sourceId && (
+                <SourceHeading
+                  source={skill.sourceId}
+                  label={extensionSourceLabels[skill.sourceId]}
+                />
+              )}
+              <CatalogListRow
+                key={id}
+                data-extensions-row={id}
+                selected={selectedId === id}
+                openProps={{ onClick: (event) => onSelect(id, event.currentTarget) }}
+                icon={<Icon name="doc" size={20} className="shrink-0 text-ink3" />}
+                title={
+                  <span
+                    className={`truncate ${skill.enabled ? '' : 'text-ink3'}`}
+                    title={skill.name}
+                  >
+                    {skill.name}
+                  </span>
+                }
+                detail={
+                  <span className="truncate text-caption text-ink3" title={author}>
+                    {extensionSourceLabels[skill.sourceId] ?? author}
+                  </span>
+                }
+                trailing={
+                  <span className="hidden shrink-0 text-caption text-ink3 @[560px]/catalog:block">
+                    {meta.updatedAtMs === null
+                      ? tr('common.unknown')
+                      : formatDateMedium(meta.updatedAtMs, locale)}
+                  </span>
+                }
+              />
+            </Fragment>
           )
         })}
+      {tab === 'mcp' &&
+        nativeMcp.map(({ backend, resource }, index) => (
+          <Fragment key={`${backend}:${resource.id}`}>
+            {nativeMcp[index - 1]?.backend !== backend && (
+              <SourceHeading
+                source={backend}
+                label={`${backend === 'claude' ? 'Claude' : 'OpenCode'} MCP`}
+              />
+            )}
+            <CatalogListRow
+              data-extensions-row={`${backend}:${resource.id}`}
+              openProps={{ onClick: () => onNativeMcp?.(backend, resource) }}
+              icon={<Icon name="mcp" size={20} className="text-ink3" />}
+              title={resource.name}
+            />
+          </Fragment>
+        ))}
+      {tab === 'mcp' && mcpServers.length > 0 && (
+        <SourceHeading source="orca" label="Orcinus orca MCP" />
+      )}
       {tab === 'mcp' &&
         orderMcpServers(mcpServers).map((server) => {
           const meta = mcpRowMeta(server)

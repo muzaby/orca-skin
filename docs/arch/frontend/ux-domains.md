@@ -26,7 +26,7 @@
 
 - 멀티라인 textarea + 자동 높이 조절
 - 컨트롤 행: `+` 메뉴(아래) · 권한 모드 칩 · 모델 칩 · 사용량 도넛 — Skill 선택은 `+` 메뉴의 계단식 하위 항목이다(구 Popover picker 는 0259 에서 대체)
-- `+` 메뉴는 계단식이다(0259): 파일 또는 사진 추가 / 스킬 ▸(출처 ▸ 스킬) / 플러그인 ▸(목록 · 플러그인 관리). 스킬·플러그인을 고르면 커서 자리에 `/이름 `·`@id ` 를 넣고, 항목 hover 설명은 `title` 툴팁이다. 틀 = `shared/ui/CascadeMenu.tsx`(상태·좌표 순수부 `cascadeMenuState.ts`), 트리 = `lib/attachMenuModel.ts`, '플러그인 관리' 이동은 페이지가 `onManagePlugins` 로 주입한다
+- `+` 메뉴는 파일 또는 사진 추가 / 스킬 ▸ / 플러그인 ▸이다. 스킬·플러그인 패널은 출처 제목과 로고 아래 항목을 직접 나열한다. 스킬은 현재 하네스·해당 native plugin·Orcinus orca·lock에 등록된 `~/.agents/skills`만 표시하며 설명은 툴팁에 둔다. 플러그인은 연결된 native/Orca MCP와 인증이 유효한 Orca 플러그인 이름만 표시한다. native 명령은 초안 앞에, Orca 스킬·플러그인 토큰과 MCP 사용 요청은 커서에 삽입하며 자동 전송하지 않는다. 틀 = `shared/ui/CascadeMenu.tsx`, 트리 = `lib/attachMenuModel.ts`. 재개 연결 이벤트와 메뉴 재열기에서 갱신하고 같은 프로세스의 관측은 navigation·부분 실패 동안 유지한다. 갱신 안내·부분 실패 토스트는 표시하지 않는다.
 - `/` 자동완성 후보는 출처 라벨 섹션으로 묶이고, `/`·`@` 헤더는 `AutocompleteSectionHeader` 하나를 쓴다
 - `/skillname` 토큰을 **활성 스킬일 때만** 파란 chip 으로 mirror overlay 강조 (`composer/ComposerDecorationLayer.tsx` + `composer/composerDecoration.ts`, `knownSkillNames: ReadonlySet<string>`)
 - `@filepath` 자동완성: 디렉토리 단계별 진입, quoted/plain 자동 감지, 공백 시 자동 wrapping

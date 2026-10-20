@@ -8,6 +8,7 @@ import { ChatTitleBar } from '../../../src/renderer/src/features/chat/components
 import { Composer } from '../../../src/renderer/src/features/chat/components/Composer'
 import { harnessLanding } from '../../../src/renderer/src/features/chat/harnesses/registries/landing'
 import { ProjectLandingPage } from '../../../src/renderer/src/pages/ProjectLandingPage'
+import { PluginsPage } from '../../../src/renderer/src/pages/PluginsPage'
 import { useProjectsStore } from '../../../src/renderer/src/features/projects/store/projectsStore'
 import { TweakProvider, useTweakContext } from '../../../src/renderer/src/shared/theme'
 import {
@@ -71,6 +72,15 @@ const snapshot = (): NativeResources => ({
       canToggle: canControl()
     },
     {
+      id: 'plugin:orcinus-orca:custom',
+      name: 'Orca Custom MCP',
+      kind: 'mcp',
+      status: 'connected',
+      enabled: true,
+      canToggle: false,
+      origin: 'orca'
+    },
+    {
       id: 'auth',
       name: 'GitHub',
       kind: 'mcp',
@@ -105,7 +115,31 @@ window.orca = new Proxy(base, {
             name: 'user-review',
             description: '사용자 검토',
             sourceId: 'adapter:claude',
-            sourceLabel: 'Claude 사용자 스킬'
+            sourceLabel: 'Claude 스킬'
+          },
+          {
+            name: 'opencode-review',
+            description: 'OpenCode 검토',
+            sourceId: 'adapter:opencode',
+            sourceLabel: 'OpenCode 스킬'
+          },
+          {
+            name: 'locked-design',
+            description: 'lock 등록 스킬',
+            sourceId: 'agents',
+            sourceLabel: '~/.agents/skills'
+          },
+          {
+            name: 'superpowers:using-superpowers',
+            description: '네이티브 플러그인 스킬',
+            sourceId: 'plugin:claude',
+            sourceLabel: 'Claude 플러그인'
+          },
+          {
+            name: 'native:workflow',
+            description: 'OpenCode 플러그인 스킬',
+            sourceId: 'plugin:opencode',
+            sourceLabel: 'OpenCode 플러그인'
           }
         ]
       }
@@ -123,8 +157,8 @@ window.orca = new Proxy(base, {
         onState: target.provider.onState,
         state: async () => ({
           providers: [
-            { id: 'jira', label: 'Jira', tools: ['issue'] },
-            { id: 'confluence', label: 'Confluence', tools: ['page'] }
+            { id: 'jira', label: 'Jira', tools: ['issue'], status: 'valid' },
+            { id: 'confluence', label: 'Confluence', tools: ['page'], status: 'expired' }
           ]
         })
       }
@@ -216,6 +250,7 @@ export function App(): React.JSX.Element {
         <div className="flex min-w-0 flex-1 flex-col">
           <ChatTitleBar />
           <Routes>
+            <Route path="/plugins" element={<PluginsPage />} />
             <Route
               path="/projects/:projectId"
               element={<ProjectLandingPage onDeleteProject={() => {}} />}

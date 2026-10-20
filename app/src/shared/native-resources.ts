@@ -17,12 +17,16 @@ export interface NativeResource {
     | 'installed'
   enabled: boolean
   canToggle: boolean
+  /** An Orca-injected MCP observed connected by the running harness. */
+  origin?: 'orca'
 }
 export interface NativeCommand {
   name: string
   description: string
   argumentHint: string
   source: 'mcp' | 'plugin' | 'harness'
+  /** False for custom commands or skills outside the supported source catalog. */
+  skill?: boolean
 }
 export interface NativeResources {
   state: 'connected' | 'disconnected'

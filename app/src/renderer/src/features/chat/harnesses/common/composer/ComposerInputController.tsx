@@ -17,7 +17,7 @@ import { useAttachments } from '../../../hooks/useAttachments'
 import { useMentionAutocomplete } from '../../../hooks/useMentionAutocomplete'
 import { useSkillAutocomplete } from '../../../hooks/useSkillAutocomplete'
 import { useNativeResources } from '../../../hooks/useNativeResources'
-import { useComposerMcp } from '../../../hooks/useComposerMcp'
+import { sourceSkills } from '../../../../../../../shared/extension-sources'
 import type { AttachmentView, ComposerAttachment, SkillInfo } from '../../../../../../../shared/ipc'
 import type { DiffRequirementSubmitSnapshot } from '../../../store/chatStore'
 import { AttachMenu } from './AttachMenu'
@@ -135,15 +135,14 @@ export function ComposerInputController({
   } = useAttachments()
   const availableSkills = useSkills()
   const skills = useMemo(
-    () => (includeExtensions ? availableSkills : []),
-    [includeExtensions, availableSkills]
+    () => (includeExtensions ? sourceSkills(availableSkills, backend ?? 'claude') : []),
+    [includeExtensions, availableSkills, backend]
   )
   const knownSkillNames = useMemo(() => new Set(skills.map((skill) => skill.name)), [skills])
   const surfaceRef = useRef<ComposerInputSurfaceHandle>(null)
   const surfaceWrapRef = useRef<HTMLDivElement>(null)
   const attachButtonRef = useRef<HTMLButtonElement>(null)
   const [attachMenuOpen, setAttachMenuOpen] = useState(false)
-  const mcpServers = useComposerMcp(active, attachMenuOpen)
   const native = useNativeResources(
     sessionId,
     active,
@@ -440,7 +439,6 @@ export function ComposerInputController({
         anchorRef={attachButtonRef}
         onClose={() => setAttachMenuOpen(false)}
         skills={availableSkills}
-        mcpServers={mcpServers}
         sourceIcon={presentation.sourceIcon}
         includeExtensions={includeExtensions}
         plugins={mentionAutocomplete.plugins}

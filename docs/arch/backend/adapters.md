@@ -150,17 +150,17 @@ OpenCode 적용 시의 추가 선행조건·레이어별 gate는 [마이그레�
 
 ### 2.1 Skills 스캔 (현재)
 
-`app/src/main/features/extensions/common/skills/scan.ts` (루트는 `Bootstrap.skillRoots()` 가 주입):
+`app/skill-catalog.ts`가 표시용 루트를 합치고 `features/extensions/common/skills/scan.ts`로 정규화한다. 배포용 `Bootstrap.skillRoots()`와 표시 catalog는 분리한다:
 
 | 항목 | 값 |
 |---|---|
-| 스캔 루트 | `sources/skills/<name>/SKILL.md` (sourceId=`orca`) + `<Claude native 루트>/skills/<name>/SKILL.md` (sourceId=`adapter:claude`). native 루트는 §1.3의 resolver를 따른다. 프로젝트별 `<cwd>/.claude/skills`는 이 목록에 포함하지 않는다 |
+| 스캔 루트 | Orca source, Claude/OpenCode 사용자 native 루트, 해당 설치 plugin의 skill metadata, lock에 등록된 `~/.agents/skills`. 프로젝트별 스킬은 실행 SDK 명령에서 보완한다. Claude native 루트는 §1.3의 resolver를 따른다 |
 | 파서 | frontmatter 정규식 (`^---\s*\n...\n---`) |
-| 인식 키 | `name`, `description`, `argument-hint` |
+| 인식 키 | `name`, `description`, `argument-hint`, `user-invocable`. plugin metadata의 정확한 명령 이름을 보존한다 |
 | 캐싱 | 부팅 스캔 + Orca 의 작성·업로드·토글·삭제 뒤 재스캔(`refreshSkills`, `app/handlers/skills.ts`) → `Bootstrap.skillsCache` |
 | 핫리로드 | 파일 감시 없음 — 바깥에서 고친 스킬은 다음 재스캔(위 동작) 또는 재시작에 반영 |
 
-> 사용자 Claude skills 루트는 `app/harnesses/claude/extensions.ts`가 제공한다. OpenCode native 스킬 실행과 Orca의 스킬 목록·배포 지원은 별도 범위다.
+> 사용자 Claude skills 루트는 `app/harnesses/claude/extensions.ts`가 제공한다. OpenCode 설치 plugin의 `skills`/`skill` 루트와 plugin 내부의 명시 `skills.paths`는 read-only로 스캔하며 plugin 코드는 실행하지 않는다. `agents`는 lock의 등록 이름과 실재 파일의 교집합이며 lock 안의 upstream 경로는 해석하지 않는다. canonical 경로가 같은 alias는 하나만 표시한다. OpenCode 실행 명령은 SDK skill location을 실제 설치 plugin/자체 루트와 대조하여 다른 도구의 스킬·일반 command를 제외한다. Orca 스킬의 OpenCode 배포 지원과 표시 목록은 별도 범위다.
 
 **번들 스킬 시딩 (0078)**: 부팅 시퀀스의 `builtin-skill-seed` 단계에서 `skills/seed.ts` 의 `seedBuiltinSkills(builtinDir, sourcesSkillsDir)` 가 앱에 번들된 스킬을 `sources/skills/` 로 1회 시딩한다. `app/builtin-resources.ts` 가 dev/패키지 빌드의 번들 경로를 해석하고, manifest/marker 버전 게이트로 이미 시딩된(또는 사용자가 수정한) 스킬을 덮어쓰지 않는다.
 
@@ -214,6 +214,8 @@ OpenCode 적용 시의 추가 선행조건·레이어별 gate는 [마이그레�
 > **엔진 고유 자산**: agents·commands·hooks·full-plugin 번들의 원본은 각 하네스가 관리하며 Orca sources/dist로 복사하지 않는다. Claude는 `plugin-catalog.ts`가 사용자·프로젝트·로컬 활성 설정과 설치 registry를 해석하고 `sendMessage`가 해당 범위 내 설치의 local plugin 경로와 스킬 허용 목록을 SDK에 전달하고 name@inline 세션 플래그로 초기 활성/비활성 상태를 강제한다. 실행 중에는 applyFlagSettings→reloadPlugins로 파일 쓰기 없이 활성 상태를 바꾸며 다음 spawn은 최신 native 설정을 따른다. provider 전역 설정 격리는 유지하며 사용자 인증·env·model을 함께 상속하지 않는다. 런타임 hook(`options.hooks`)은 별도 어댑터 경로다.
 
 네이티브 스킬 메뉴는 실행 채널이 있으면 SDK의 실제 명령을, 없으면 활성 설치 플러그인의 skill/command 파일에서 얻은 이름·설명·힌트를 사용한다. 설치 metadata는 매 조회/새 spawn에서 읽으며 사용자 호출 금지 스킬은 메뉴에서 제외한다. 메뉴의 `plugin::skill` 표시와 전송의 `/plugin:skill` 이름은 구분한다.
+
+OpenCode의 설정 파일 목록은 초안·nav discovery에만 사용하며 실행 SDK가 재개 후 관측한 plugin 목록을 제한하지 않는다. 연결 이벤트에서 목록을 갱신하고 renderer의 세션별 관측 저장소는 같은 generation의 부분 실패에도 연결 상태를 보존한다. 명시 종료는 연결 상태와 제어 권한을 해제한다. Claude가 Orca 주입 MCP를 실제 관측하면 `origin=orca`로 반환하여 Composer의 Orca 그룹에 표시하고, native 관리 목록과 SDK 내부 서버에서는 분리한다.
 
 ---
 

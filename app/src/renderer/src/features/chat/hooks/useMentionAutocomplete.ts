@@ -142,7 +142,10 @@ export function useMentionAutocomplete(
   const open = active && token !== null && !dismissed && (pluginOpen || pathOpen)
   const loading = active && cwd !== null && token !== null && !entriesByDir.has(token.dirPath)
   const allPlugins = useMemo(() => pluginMentionCandidates(visibleProviders), [visibleProviders])
-  const menuPlugins = useMemo(() => pluginMentionCandidates(providers), [providers])
+  const menuPlugins = useMemo(
+    () => pluginMentionCandidates(providers.filter((provider) => provider.status === 'valid')),
+    [providers]
+  )
   const validPluginIds = useMemo(() => new Set(allPlugins.map((plugin) => plugin.id)), [allPlugins])
 
   return {

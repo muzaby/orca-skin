@@ -7,17 +7,6 @@ import type { MessageKey } from '../../../shared/i18n'
 
 export type NativeResourcesAction = { type: 'open' | 'toggle'; resource: NativeResource }
 
-export function nativeResourcesNotice(view: NativeResourcesView): MessageKey | undefined {
-  if (view.status !== 'ready') return
-  if (view.issue === 'open') return 'chat.nativeResources.openError'
-  if (view.issue === 'control') return 'chat.nativeResources.controlError'
-  if (view.issue === 'refresh') return 'chat.nativeResources.error'
-  if (view.refreshing) return 'chat.nativeResources.refreshing'
-  if (view.value.partial) return 'chat.nativeResources.partial'
-  if (view.stale) return 'chat.nativeResources.stale'
-  return
-}
-
 export function nativeResourcesMenu(
   view: NativeResourcesView,
   pending: ReadonlySet<string>,
@@ -25,7 +14,9 @@ export function nativeResourcesMenu(
 ): CascadeItem<NativeResourcesAction>[] {
   const content = (kind: NativeResource['kind']): CascadeItem<NativeResourcesAction>[] => {
     if (view.status !== 'ready') return []
-    const resources = view.value.items.filter((resource) => resource.kind === kind)
+    const resources = view.value.items.filter(
+      (resource) => resource.kind === kind && resource.origin !== 'orca'
+    )
     return resources.map((resource) => ({
       kind: 'action' as const,
       id: nativeResourceKey(resource),

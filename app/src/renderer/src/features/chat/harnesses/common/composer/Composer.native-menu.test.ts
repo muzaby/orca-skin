@@ -159,7 +159,7 @@ it.each(['claude', 'opencode'] as const)(
       dom
         .queryAll('[role="menu"]')
         .some((menu) => menu.textContent.includes('chat.nativeResources.refreshing'))
-    ).toBe(true)
+    ).toBe(false)
     expect(
       dom
         .queryAll('[role="menuitem"]')
@@ -242,13 +242,31 @@ it.each(['claude', 'opencode'] as const)(
       ] as never
     window.orca.provider.state = async () =>
       ({
-        providers: [{ id: 'jira', label: 'Jira', tools: ['issue'] }]
+        providers: [
+          { id: 'jira', label: 'Jira', tools: ['issue'], status: 'valid' },
+          { id: 'expired', label: 'Expired', tools: ['issue'], status: 'expired' }
+        ]
       }) as never
     read.mockResolvedValue({
       state: 'connected',
       generation: 'generation-B',
       items: [
-        { id: 'native', name: 'Native MCP', kind: 'mcp', status: 'connected', enabled: true }
+        { id: 'native', name: 'Native MCP', kind: 'mcp', status: 'connected', enabled: true },
+        {
+          id: 'plugin:orcinus-orca:custom',
+          name: 'Connected Orca MCP',
+          kind: 'mcp',
+          origin: 'orca',
+          status: 'connected',
+          enabled: true
+        },
+        {
+          id: 'configured',
+          name: 'Configured only',
+          kind: 'mcp',
+          status: 'configured',
+          enabled: true
+        }
       ],
       commands: [
         { name: 'design:review', source: 'plugin', description: 'Design review', argumentHint: '' }
@@ -274,16 +292,15 @@ it.each(['claude', 'opencode'] as const)(
     open()
     await settle()
     clickLabel('chat.composer.attachMenu.plugins')
-    expect(dom.queryAll('[data-cascade-level="1"]').map((row) => row.textContent)).toEqual([
-      'Native MCPchat.nativeResources.connected',
-      'Custom MCP',
-      'Disabled MCP',
-      'Jira'
-    ])
-    const disabled = dom
-      .queryAll('[role="menuitem"]')
-      .find((row) => row.textContent === 'Disabled MCP')!
-    expect(disabled.props.disabled).toBe(true)
+    expect(dom.queryAll('[data-cascade-level="1"]').map((row) => row.textContent)).toEqual(
+      backend === 'claude' ? ['Native MCP', 'Connected Orca MCP', 'Jira'] : ['Native MCP']
+    )
+    expect(
+      dom
+        .queryAll('[role="menu"]')
+        .map((row) => row.textContent)
+        .join('')
+    ).toContain(`${backend === 'claude' ? 'Claude' : 'OpenCode'} MCP`)
     expect(onSend).not.toHaveBeenCalled()
   }
 )

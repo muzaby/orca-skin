@@ -377,7 +377,9 @@ export function openCodeChannel(
       if (!client || closed || ended) return { state: 'disconnected', items: [] }
       const [items, commands] = await Promise.all([
         openCodeNativeResources(client, req.cwd, { ...process.env, ...req.env }),
-        openCodeNativeCommands(client, req.cwd).catch(() => undefined)
+        openCodeNativeCommands(client, req.cwd, true, { ...process.env, ...req.env }).catch(
+          () => undefined
+        )
       ])
       return {
         state: 'connected',

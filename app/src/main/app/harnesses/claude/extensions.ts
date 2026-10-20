@@ -16,7 +16,7 @@ export function claudeSkillRoots(): SkillScanRoot[] {
   return [
     {
       sourceId: 'adapter:claude',
-      sourceLabel: 'CLAUDE 스킬',
+      sourceLabel: 'Claude 스킬',
       sourceKind: 'adapter',
       rootDir: claudeNativePaths().skills
     }

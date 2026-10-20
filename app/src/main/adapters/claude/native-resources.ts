@@ -5,7 +5,7 @@ import { nativePluginId } from './configured-resources'
 import { resourceQuery } from '../common/resource-query'
 import { pluginDescription } from '../common/plugin-description'
 
-/** Owns native observations for one Query; Orca injected resources are excluded. */
+/** Owns observations for one Query; Orca MCPs carry a separate read-only origin. */
 export function claudeNativeResources(
   query: Pick<Query, 'mcpServerStatus' | 'toggleMcpServer'> &
     Partial<Pick<Query, 'supportedCommands' | 'applyFlagSettings' | 'reloadPlugins'>>,
@@ -102,15 +102,27 @@ export function claudeNativeResources(
     observePlugins,
     async list() {
       const servers = await query.mcpServerStatus()
+      const injectedPrefix = (name: string): string | undefined =>
+        [...injectedNames]
+          .map((plugin) => `plugin:${plugin}:`)
+          .find((prefix) => name.startsWith(prefix))
       return [
-        ...servers.filter(isNative).map((server): NativeResource => ({
-          id: server.name,
-          name: server.name,
-          kind: 'mcp',
-          status: server.status,
-          enabled: server.status !== 'disabled',
-          canToggle: true
-        })),
+        ...servers
+          .filter(
+            (server) =>
+              isNative(server) || (server.source === 'plugin' && !!injectedPrefix(server.name))
+          )
+          .map((server): NativeResource => ({
+            id: server.name,
+            name: injectedPrefix(server.name)
+              ? server.name.slice(injectedPrefix(server.name)!.length)
+              : server.name,
+            kind: 'mcp',
+            status: server.status,
+            enabled: server.status !== 'disabled',
+            canToggle: !injectedPrefix(server.name),
+            ...(injectedPrefix(server.name) ? { origin: 'orca' as const } : {})
+          })),
         ...(await Promise.all(
           plugins.map(async (plugin) => {
             const description = await pluginDescription(

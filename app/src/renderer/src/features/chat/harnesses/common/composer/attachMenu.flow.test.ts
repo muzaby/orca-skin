@@ -161,7 +161,7 @@ describe('AttachMenu 선택 → 컨트롤러 콜백 (AC2·AC3 · D-002·D-003)',
     expect(texts(1)).toEqual(['review', 'plan', 'ship'])
     expect(texts(2)).toEqual([])
     dom.click(row(1, 4))
-    expect(onAction).toHaveBeenCalledExactlyOnceWith({ type: 'skill', name: 'ship' })
+    expect(onAction).toHaveBeenCalledExactlyOnceWith({ type: 'nativeCommand', name: 'ship' })
     expect(onClose).toHaveBeenCalledOnce()
     expect(onManagePlugins).not.toHaveBeenCalled()
   })

@@ -28,6 +28,9 @@ vi.mock('../../../../shared/i18n', () => ({
 }))
 vi.mock('../../hooks/useCustomizeSkills', () => ({ useCustomizeSkills: () => ({ list: [] }) }))
 vi.mock('../../hooks/useMcpServers', () => ({ useMcpServers: () => ({ list: [] }) }))
+vi.mock('../../hooks/useNativeMcpCatalog', () => ({
+  useNativeMcpCatalog: () => ({ list: [], open: vi.fn() })
+}))
 vi.mock('../../hooks/useProviders', () => ({ useProviders: () => h.providers }))
 
 import { ProviderDetail } from './ProviderDetail'

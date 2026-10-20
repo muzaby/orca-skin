@@ -3,6 +3,7 @@ import type { HarnessPreferences } from '../../../shared/harness'
 import type { HarnessSettingsLoader } from '../common/harness-config'
 import type { SessionAdapter } from '../common/types'
 import type { openFileDatabase } from '../../infra/db/file-database'
+import type { NativeResource } from '../../../shared/native-resources'
 
 // 앱이 소유하는 수명/전송 포트. SDK client와 버전별 설정 형상은 구현에서만 해석한다.
 export interface OpenCodeServer {
@@ -37,5 +38,8 @@ export interface OpenCodeImplementation {
   parseModels: (config: Record<string, unknown>) => AgentModelView[]
   readUserSettings: (configRoot?: string) => EngineUserSettingsResult
   configuredMcpFile: (cwd: string, id: string) => Promise<string | undefined>
+  configuredResources: (cwd: string) => Promise<NativeResource[]>
+  skillDirectories: (home?: string, env?: NodeJS.ProcessEnv) => string[]
+  pluginSkillDirectories: (home?: string, env?: NodeJS.ProcessEnv) => Promise<string[]>
   contextWindow: (config: Record<string, unknown>, model?: string) => number
 }

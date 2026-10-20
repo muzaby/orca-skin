@@ -70,6 +70,17 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
     if (path === '/mcp') return jsonResponse({ native: { status: 'connected' } })
     if (path === '/config') return jsonResponse({ plugin: ['@native/plugin@1'] })
     if (path === '/command') return jsonResponse(commands)
+    if (path === '/skill')
+      return jsonResponse(
+        commands
+          .filter((c) => c.source === 'skill')
+          .map((c) => ({
+            name: c.name,
+            description: c.description,
+            location: join(overrides.cwd ?? 'C:/B', '.opencode', 'skills', c.name, 'SKILL.md'),
+            content: ''
+          }))
+      )
     if (path.endsWith('/message') && request.method === 'POST')
       return jsonResponse({ info: {}, parts: [] })
     if (path === '/event')
@@ -222,7 +233,13 @@ describe('OpenCode persistent SDK channel', () => {
       )
       expect(approve).toHaveBeenCalledOnce()
       expect((await f.live.nativeResources!()).commands).toEqual([
-        { name: 'docs:search', source: 'mcp', description: 'Search docs', argumentHint: 'query' }
+        {
+          name: 'docs:search',
+          source: 'mcp',
+          description: 'Search docs',
+          argumentHint: 'query',
+          skill: false
+        }
       ])
       expect(f.requests.some((item) => item.url.includes('prompt_async'))).toBe(false)
     } finally {

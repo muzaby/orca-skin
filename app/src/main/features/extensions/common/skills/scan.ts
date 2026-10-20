@@ -6,12 +6,17 @@ import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { skillMetadata } from '../../../../adapters/common/skill-metadata'
 import type { SkillInfo } from '../../../../../shared/ipc'
+import { isRecord } from '../../../../../shared/obj'
 
 export interface SkillScanRoot {
   sourceId: string
   sourceLabel: string
   sourceKind: 'orca' | 'adapter' | 'workspace'
   rootDir: string
+  /** Explicit native plugin files, with their exact slash-command names. */
+  files?: readonly { file: string; name: string }[]
+  /** Only entries recorded in this installation lock are visible. */
+  lockFile?: string
 }
 
 function bodyWithoutFrontmatter(text: string): string {
@@ -30,38 +35,53 @@ async function scanRoot(
   enabled: Record<string, boolean>
 ): Promise<SkillInfo[]> {
   const entries = await fs.readdir(root.rootDir, { withFileTypes: true }).catch(() => [])
-  const skills = await Promise.all(
+  let allowed: Set<string> | undefined
+  if (root.lockFile) {
+    try {
+      const lock: unknown = JSON.parse(await fs.readFile(root.lockFile, 'utf8'))
+      allowed = new Set(isRecord(lock) && isRecord(lock.skills) ? Object.keys(lock.skills) : [])
+    } catch {
+      allowed = new Set()
+    }
+  }
+  const files =
+    root.files ??
     entries
-      .filter((dir) => dir.isDirectory())
-      .map(async (dir): Promise<SkillInfo | null> => {
-        const skillDir = join(root.rootDir, dir.name)
-        const skillPath = join(skillDir, 'SKILL.md')
-        const [text, stat] = await Promise.all([
-          fs.readFile(skillPath, 'utf8').catch(() => null),
-          fs.stat(skillPath).catch(() => null)
-        ])
-        if (text === null) return null
-        const meta = skillMetadata(text)
-        const name = meta.name ?? dir.name
-        return {
-          name,
-          description: meta.description ?? '',
-          ...(meta['argument-hint'] ? { argumentHint: meta['argument-hint'] } : {}),
-          sourceId: root.sourceId,
-          sourceLabel: root.sourceLabel,
-          enabled:
-            root.sourceKind === 'orca'
-              ? (enabled[skillEnabledKey(root.sourceId, name)] ?? true)
-              : true,
-          body: bodyWithoutFrontmatter(text),
-          sourceKind: root.sourceKind,
-          canToggle: root.sourceKind === 'orca',
-          canRemove: root.sourceKind === 'orca',
-          skillPath,
-          skillDir,
-          ...(stat ? { updatedAt: stat.mtimeMs, createdAt: stat.birthtimeMs } : {})
-        }
-      })
+      .filter(
+        (dir) => (dir.isDirectory() || dir.isSymbolicLink()) && (!allowed || allowed.has(dir.name))
+      )
+      .map((dir) => ({ file: join(root.rootDir, dir.name, 'SKILL.md'), name: '' }))
+  const skills = await Promise.all(
+    files.map(async (entry): Promise<SkillInfo | null> => {
+      const skillPath = entry.file
+      const skillDir = join(skillPath, '..')
+      const [text, stat] = await Promise.all([
+        fs.readFile(skillPath, 'utf8').catch(() => null),
+        fs.stat(skillPath).catch(() => null)
+      ])
+      if (text === null || !stat?.isFile()) return null
+      const meta = skillMetadata(text)
+      if (meta['user-invocable'] === 'false') return null
+      const name = entry.name || meta.name || skillDir.split(/[\\/]/).at(-1)!
+      return {
+        name,
+        description: meta.description ?? '',
+        ...(meta['argument-hint'] ? { argumentHint: meta['argument-hint'] } : {}),
+        sourceId: root.sourceId,
+        sourceLabel: root.sourceLabel,
+        enabled:
+          root.sourceKind === 'orca'
+            ? (enabled[skillEnabledKey(root.sourceId, name)] ?? true)
+            : true,
+        body: bodyWithoutFrontmatter(text),
+        sourceKind: root.sourceKind,
+        canToggle: root.sourceKind === 'orca',
+        canRemove: root.sourceKind === 'orca',
+        skillPath,
+        skillDir,
+        ...(stat ? { updatedAt: stat.mtimeMs, createdAt: stat.birthtimeMs } : {})
+      }
+    })
   )
   return skills.filter((s): s is SkillInfo => s !== null)
 }

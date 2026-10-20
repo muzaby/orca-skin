@@ -1,21 +1,55 @@
 import type { OpencodeClient } from '@opencode-ai/sdk/v2/client'
 import type { NativeCommand, NativeResource } from '../../../../shared/native-resources'
 import { openCodePluginId, openCodePluginInstallation } from './plugin-installation'
+import { isOpenCodeSkill, withinSkillRoot } from './skill-sources'
+import { realpath } from 'node:fs/promises'
 
 export async function openCodeNativeCommands(
   client: OpencodeClient,
-  directory: string
+  directory: string,
+  inventory = false,
+  env: NodeJS.ProcessEnv = process.env
 ): Promise<NativeCommand[]> {
   const result = await client.command.list(
     { directory },
     { throwOnError: true, signal: AbortSignal.timeout(2500) }
   )
-  return (result.data ?? []).map((command) => ({
-    name: command.name,
-    description: command.description ?? '',
-    argumentHint: command.hints.join(' '),
-    source: command.source === 'mcp' ? 'mcp' : 'harness'
-  }))
+  const hasSkills = inventory && result.data?.some((command) => command.source === 'skill')
+  const options = { throwOnError: true as const, signal: AbortSignal.timeout(2500) }
+  const skills = hasSkills ? ((await client.app.skills({ directory }, options)).data ?? []) : []
+  const config = hasSkills ? (await client.config.get({ directory }, options)).data : undefined
+  const plugins = await Promise.all(
+    (config?.plugin ?? []).map((source) =>
+      openCodePluginInstallation(typeof source === 'string' ? source : source[0], directory, env)
+    )
+  )
+  return Promise.all(
+    (result.data ?? []).map(async (command) => {
+      const file = skills.find((skill) => skill.name === command.name)?.location
+      const location = file ? await realpath(file).catch(() => file) : undefined
+      const plugin =
+        location && plugins.some((entry) => entry && withinSkillRoot(location, entry.directory))
+      return {
+        name: command.name,
+        description: command.description ?? '',
+        argumentHint: command.hints.join(' '),
+        source:
+          command.source === 'mcp'
+            ? ('mcp' as const)
+            : plugin
+              ? ('plugin' as const)
+              : ('harness' as const),
+        ...(inventory
+          ? {
+              skill:
+                command.source === 'skill' &&
+                !!location &&
+                (!!plugin || isOpenCodeSkill(location, directory, env))
+            }
+          : {})
+      }
+    })
+  )
 }
 
 function pluginName(source: string): string {

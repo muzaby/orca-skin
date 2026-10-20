@@ -36,7 +36,11 @@ function observed(value: NativeResources, previous: NativeResourcesView): Ready 
   if (previous.status !== 'ready' || (value.state === 'connected' && !value.partial))
     return { status: 'ready', value }
   const ids = new Set(value.items.map(nativeResourceKey))
-  const retained = readOnly(previous.value).items.filter(
+  const sameLiveGeneration =
+    value.state === 'connected' &&
+    !!value.generation &&
+    value.generation === previous.value.generation
+  const retained = (sameLiveGeneration ? previous.value : readOnly(previous.value)).items.filter(
     (item) =>
       !ids.has(nativeResourceKey(item)) && !(item.kind === 'plugin' && value.pluginsAuthoritative)
   )
@@ -113,12 +117,6 @@ export class NativeResourceState {
         ? await sessionApi.nativeResources(this.request)
         : { state: 'disconnected' as const, items: [] }
       if (read !== this.readSerial) return
-      if (value.partial && report && this.listeners.size)
-        reportError({
-          event: 'chat.native-resources.partial',
-          scope: 'native-resources',
-          title: 'loadFailed'
-        })
       this.apply(value)
       if (issue && this.snapshot.view.status === 'ready')
         this.publish({ ...this.snapshot.view, issue })
@@ -244,9 +242,12 @@ export function nativeResourceState(
     windows.set(window, cache)
     const owned = cache
     window.orca?.chat?.onBackgroundEvent?.((event) => {
-      if (event.type !== 'background.connection' || event.state !== 'terminated') return
-      for (const state of owned.values())
-        if (state.request === event.sessionId) state.retire(event.source.generation)
+      if (event.type !== 'background.connection') return
+      for (const state of owned.values()) {
+        if (state.request !== event.sessionId) continue
+        if (event.state === 'terminated') state.retire(event.source.generation)
+        else if (event.state === 'connected') void state.refresh()
+      }
     })
   }
   let state = cache.get(key)
