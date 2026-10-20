@@ -5,8 +5,8 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | IMPL_DONE / r1.6 |
-| V mode / 기준 V / 유효 V | Delta V / r1.5 (`1f7ca1e4`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8 |
+| 상태 / 라운드 | READY / r1.7 |
+| V mode / 기준 V / 유효 V | Delta V / r1.5 (`1f7ca1e4`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
 # Part I — Product & UX Contract
@@ -1078,3 +1078,33 @@ M2/M3는 위 원본 복원 뒤의 관측을 유지한다. 새 초안 7자리는 
 ## [구현자 기입] r1.6 초안 보완 — Review Signals
 
 같은 사용자 요구 턴 r1.6이다. 저장 세션만 보던 호출부의 null guard가 “항상 노출”을 막았으므로 조회/폴더 양쪽에 초안 경로를 추가했다. 테스트 자체가 실제 production 진입점을 포함하도록 titlebar와 bootstrap callback까지 확장했다.
+
+
+## ΔV9 — 빈 메뉴 차단·프로세스 상태 유지·비동기 상태 공 (r1.7)
+
+READY. 사용자 추가 요구는 빈 MCP/플러그인의 회색 비활성 표시와 확장 차단, nav 이동 중 실제 하네스 exit 전 상태 유지, MCP 공식 로고, 공 내부 spinner와 메뉴 전체 잠금 제거, 제목 아래 상태 문구 대신 제목 왼쪽 상태 공이다.
+
+| 결정 | 상태 | 계약 / 대체 |
+|---|---|---|
+| D-31 | ACTIVE | 목록이 없는 MCP/플러그인 그룹은 회색·disabled이며 hover/클릭/키보드로 하위 패널을 열지 않는다. 로딩/오류에서 실제 목록이 없을 때도 동일하다. D-26의 빈 확장 패널을 대체한다. |
+| D-32 | ACTIVE | 상태와 진행 작업은 창의 session/backend 및 실제 provider generation에 귀속한다. nav/메뉴 언마운트·재열기·재조회 시작은 연결 상태/활성 상태를 초기화하지 않는다. 프로세스 종료/교체는 현재 generation을 폐기하고 구성 상태로 다시 확인한다. 기존 갱신 중 강제 readOnly 및 unmount 결과 폐기 정책을 이 범위에서 대체한다. |
+| D-33 | ACTIVE | 제목 왼쪽 공은 연결/활성 초록, 인증/대기 노랑, 비연결/설정/설치/비활성 회색, 실패 빨강으로 표시한다. 제어 가능 공은 독립된 비동기 버튼이며 처리 중 공 안에서 spinner를 표시한다. 해당 항목만 중복 입력을 막고 다른 메뉴/항목은 계속 사용한다. 제목 아래 상태 문구와 native 우측 스위치는 제거하며 폴더 이름 클릭은 유지한다. |
+| D-34 | ACTIVE | MCP 그룹 아이콘은 modelcontextprotocol 공식 repo의 SVG 마크를 currentColor로 재사용한다. 플러그인 그룹은 기존 플러그 아이콘을 유지한다. D-20의 동일 아이콘 문장을 대체한다. |
+
+| AC | 관측 기준 / 직접 oracle |
+|---|---|
+| AC29 | 빈 두 그룹은 회색 disabled, 모든 입력에서 확장 0. 실제 목록 도착 후 사용 가능. cascadeMenuState/CascadeMenu/nativeResourcesMenu 및 실제 titlebar 테스트 |
+| AC30 | A→B→A·재열기·진행 중 nav 이탈에서도 같은 generation의 상태·작업 결과를 보존. terminated/새 generation 뒤 이전 결과 미적용. native store/hook·main generation fallback·실제 SessionRuntime 종료 테스트 |
+| AC31 | MCP 공식 SVG 마크와 플러그인 기존 마크 구별. Icon/nativeResourcesMenu 실제 SVG oracle 및 두 테마 브라우저 |
+| AC32 | 공 클릭→해당 공 spinner, API pending 중 다른 항목 사용 가능, 중복 동일 항목 0, 성공/실패 토스트·자동 재조회 보존. native hook/Cascade 실제 클릭과 handler SDK mutation 직렬화 oracle |
+| AC33 | 제목 아래 상태 텍스트/우측 native 스위치 없음. 모든 status의 왼쪽 공 색·accessible label·tooltip, Enter/Space와 축소 모션 확인. nativeResourcesMenu/Cascade/브라우저 직접 결과 |
+
+VP28(R29~33↔AT29~33), VP29(SD07↔ST07), VP30(AR08↔IT08), VP31(MD09↔UT09)는 NEW REQUIRED다. 경로는 native metadata→main generation/cache→window store→hook→native projection→Cascade 상태 공/disabled submenu다. 상속 VP13~14·16~17·19~27은 관련 경로 REGRESSION, 비영향 nav/브랜드/모델 선택/OpenCode command dispatch는 기존 증거 승계다.
+
+EP25 고정 8자리: ①submenu disabled의 렌더·마우스·키보드 ②Cascade 공/비동기 클릭/spinner ③native 상태/빈 목록/로고 projection ④창 수명 session/backend store 구독·갱신 ⑤작업의 항목별 pending/세대/캐시 결과 ⑥terminated 이벤트로 프로세스 수명 폐기 ⑦main runtime generation별 관측 유지·쓰기 직렬화 ⑧NativeResourcesMenu hook→목록/Promise callback 운반. 검색: `rg -n 'nativeResources|NativeResourcesMenu|nativeResourcesMenu|reduceCascade|onSecondary|onSelect|background.connection' app/src/{main,renderer,shared}`의 해당 production 경로를 대조한다.
+
+①cascadeMenuState/flow 실제 입력, ②③native menu DOM/상태별 projection, ④⑤⑥useNativeResources의 실제 두 소비자/remount/동시 작업/terminated 테스트, ⑦session-resources 실제 handler + SessionRuntime 세대/종료, ⑧titlebar/hook 실제 메뉴와 Chromium이 oracle이다. 새 구조 proxy/변이는 선택하지 않으며 상속 M2/M3는 재실행한다.
+
+기술: 창 수명 external store가 조회/작업 결과를 소유해 언마운트가 Promise를 폐기하지 않는다. pending은 항목별로 관리한다. main은 살아 있는 동일 provider generation의 마지막 관측만 fallback으로 유지하고 SDK 쓰기는 runtime별 직렬화한다. 기존 terminated background 이벤트를 수명 경계로 사용한다. native 설정/DB/새 의존성/하네스 시작·종료 정책은 변경하지 않는다.
+
+운영 gate는 lint·typecheck3종·관련 main/renderer/preload 테스트·build·실제 CLI/브라우저·boundary/inventory/catalog다. D31~34↔AC29~33 정합, READY.
