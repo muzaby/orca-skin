@@ -662,7 +662,7 @@ describe('process-owned state and independent async controls', () => {
     const ball = dom.query('[role="menuitemcheckbox"]')!
     dom.click(ball)
     await settle()
-    expect(dom.query('[data-status-spinner]')).not.toBeNull()
+    expect(dom.query('[data-toggle-spinner]')).not.toBeNull()
     expect(dom.query('[role="menuitemcheckbox"]')?.props.disabled).toBe(true)
     dom.click(ball)
     dom.click(dom.query('[data-cascade-level="0"][data-cascade-index="1"]')!)
@@ -684,13 +684,13 @@ describe('process-owned state and independent async controls', () => {
       items: [{ ...resource, enabled: false, status: 'disabled' }, plugin]
     })
     await settle()
-    expect(dom.query('[data-status-spinner]')).not.toBeNull()
+    expect(dom.query('[data-toggle-spinner]')).not.toBeNull()
     finishes[1]({
       ...snapshot(),
       items: [resource, { ...plugin, enabled: false, status: 'disabled' }]
     })
     await settle()
-    expect(dom.query('[data-status-spinner]')).toBeNull()
+    expect(dom.query('[data-toggle-spinner]')).toBeNull()
     expect(dom.query('[role="menuitemcheckbox"]')?.props['aria-checked']).toBe(false)
   })
 

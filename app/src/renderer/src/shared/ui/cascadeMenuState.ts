@@ -14,9 +14,9 @@ export type CascadeItem<A> =
       checked?: boolean
       description?: string
       action: A
-      status?: { tone: StatusTone; label: string; checked: boolean; busy?: boolean; action?: A }
+      status?: { tone: StatusTone; label: string }
       /** Independent control alongside the main action (e.g. open vs enable). */
-      secondary?: { label: string; checked: boolean; disabled?: boolean; action: A }
+      secondary?: { label: string; checked: boolean; disabled?: boolean; busy?: boolean; action: A }
     }
   | {
       kind: 'submenu'
