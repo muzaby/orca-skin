@@ -6,7 +6,7 @@
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
 | 상태 / 라운드 | IMPL_DONE / r1.8 |
-| V mode / 기준 V / 유효 V | Delta V / r1.5 (`1f7ca1e4`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9+ΔV10 |
+| V mode / 기준 V / 유효 V | Delta V / r1.8 (`472935d7`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9+ΔV10+ΔV11 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
 # Part I — Product & UX Contract
@@ -1270,3 +1270,53 @@ SELF_PASS. 기존 파란 스위치/회색 off track과 흰색 손잡이를 유�
 ## [구현자 기입] r1.8 Review Signals
 
 r1.8은 사용자 의도 정정 턴이다. 기존 버튼/손잡이와 새 연결 상태 공을 하나의 제어로 합친 해석이 원인이었으며 두 역할을 분리했다. 기존 수명·SDK 정책은 유지했고 환경으로 인한 gate 차단은 없었다.
+
+## ΔV11 — 재진입 런타임 보존과 출처별 단일 목록 (r1.9)
+
+READY. 2026-10-20 사용자 직접 수정 요청을 먼저 반영한다. 기준은 원격 `472935d7`이며 독립 verify는 이후 별도로 수행한다.
+
+### Decision / Product & UX Contract
+
+| 결정 | 상태 | 계약 / 대체 |
+|---|---|---|
+| D-36 | ACTIVE | “세션재개 후 살아있는 동안(claude.exe, opencode.exe)” 상태와 명령을 유지한다. 세션 화면 재진입의 이력 조회가 살아 있는 runtime을 폐기해서는 안 된다. D32를 강화하며 native 이력 조회 전 idle 폐기 정책을 대체한다. 실제 종료·명시 중단·삭제·capacity 정책은 유지한다. |
+| D-37 | ACTIVE | 케밥의 Claude/OpenCode 제목, Composer 모델 provider 그룹, Composer 스킬/플러그인의 출처 제목 왼쪽에 기존 브랜드 로고를 배치한다. nav 플러그인은 electricalServices, 파일 추가는 Google Material Attach File SVG를 사용한다. 한국어 파일 추가 라벨은 유지한다. |
+| D-38 | ACTIVE | 케밥 MCP 이름 클릭은 설정 파일을 탐색기에서 선택한다. 별도 활성 스위치는 기존 동작을 유지한다. 경로는 main이 실제 설정 선언에서 해석하며 renderer의 임의 경로는 받지 않는다. 파일 없는 runtime-only 항목은 클릭 실패 토스트로 알린다. |
+| D-39 | ACTIVE | 스킬 팝업에 기존 스킬과 native plugin skill을 출처 제목으로 구분해 직접 나열한다. 출처 submenu를 폐기하고 “실행 중인 세션에서 사용할 수 있는 명령이 없습니다.” 행을 제거한다. D19의 native 배치와 exact slash·초안 보존을 유지하되 기존 0259 출처 2단 접근을 대체한다. |
+| D-40 | ACTIVE | Composer 플러그인에 native MCP와 Orca MCP 및 Orca 플러그인을 출처별로 함께 나열한다. 로고는 그룹 제목 왼쪽이다. 현재 하네스가 지원하지 않는 Orca 실행 항목도 목록에는 표시하되 disabled로 구분한다. 목록 표시 때문에 새 CLI 실행·설정 쓰기·자동 전송은 하지 않는다. |
+
+| AC | 관측 결과 / 직접 oracle |
+|---|---|
+| AC34 | 실제 idle SessionRuntime을 가진 세션의 반복 load는 프로세스/세대/리소스를 유지하고 cold 세션은 native 이력을 읽는다. `native-history.test` 실제 supervisor/runtime + `bootstrap.native-history.test` 실제 등록 포트, 기존 hook A→B→A/종료 테스트. |
+| AC35 | 케밥·모델·출처 제목에 올바른 로고, nav 플러그 아이콘, 파일 추가 paperclip이 표시된다. 실제 메뉴/Composer/Sidebar 렌더와 브라우저 두 테마. |
+| AC36 | MCP 본문 클릭은 해당 설정 파일 위치 열기, 스위치는 제어만 한다. Claude 파일 precedence·plugin manifest/file과 OpenCode JSON/JSONC 실제 선언 resolver, handler strict union→shell.showItemInFolder, hook 메뉴 클릭 테스트. |
+| AC37 | 스킬의 출처는 비선택 제목이고 모든 항목이 같은 패널에 있다. native 명령 이름/tooltip/초안 보존, 빈 native 명령 문구 부재. `attachMenuModel`·`Composer.native-menu`·`CascadeMenu.flow` 실제 입력. |
+| AC38 | native/Orca MCP와 Orca plugin이 출처별 한 패널에 표시되고 disabled MCP도 누락되지 않는다. `Composer.native-menu` IPC 응답→실제 메뉴, attachMenuModel 포함/클릭 payload·disabled 테스트. |
+
+### Technical Design / 조사
+
+| 축 | AS-IS | TO-BE |
+|---|---|---|
+| 재진입 | `native-history.ts`가 refreshNativeHistory.releaseIdleRuntime→discardRuntime 호출 | bootstrap의 peekRuntime를 read guard에 전달. 살아 있으면 기존 보관/실시간 화면 유지, native 교체는 프로세스 부재 때 수행 |
+| 스킬/플러그인 | 출처 submenu와 native MCP submenu, Orca MCP 누락 | CascadeItem에 비선택 heading+ReactNode leading 슬롯. source별 flatMap, native와 Orca 별도 heading. read-only Orca catalog hook |
+| MCP 위치 | 본문 toggle, plugin open IPC만 존재 | 기존 open 요청의 optional kind=mcp 확장. configured reader가 ID→선언 파일을 main 내부 보관/해석, strict scope→realpath/stat→OS reveal |
+| 로고 | 기존 HarnessLogo/OrcaLogo 보유, 제목에는 텍스트만 | feature에서 로고를 조립해 shared heading leading에 주입. shared→feature 의존 없음 |
+
+외부 근거: [OpenCode config](https://opencode.ai/docs/config/)의 JSONC·global/custom/project/.opencode 우선순위와 [Material icons](https://github.com/google/material-design-icons)의 attach_file SVG. 파일 resolver는 선언이 확인된 경로만 반환한다. 새로운 의존성·DB migration 없음.
+
+### V / §10 고정 자리
+
+| Pair | 노드 / requiredness | 경로 / oracle |
+|---|---|---|
+| VP32 | R34~38↔AT34~38 NEW REQUIRED | load→runtime 유지 및 목록→그룹→실제 클릭; AC34~38 좌표 |
+| VP33 | SD08↔ST08 NEW REQUIRED | 세션 load→bootstrap guard→supervisor→native read→hook→두 메뉴; native-history·bootstrap·hook 실제 상태 |
+| VP34 | AR09↔IT09 NEW REQUIRED | main resolver→strict IPC→hook→메뉴→shell, catalog→Composer→Cascade; 파일/handler/preload/Composer 실제 결과 |
+| VP35 | MD10↔UT10 NEW REQUIRED | scope/file precedence·flat source grouping·키보드 heading skip; configured resources/attachMenuModel/cascadeMenuState |
+| VP13~14,16~17,19~31 | REGRESSION | 기존 scope·native SDK 제어·generation·명령·snapshot·독립 스위치 oracle. M2/M3 유지 |
+| VP01~12,15,18 | NOT_REQUIRED | entry 선택/배치와 command dispatch 정책은 무변경. 이전 증거 승계; 브랜드 표시만 AC35로 재관측 |
+
+EP26 고정 목록(16자리): ①session load→refreshHistory ②bootstrap runtime 존재 포트 ③native-history busy guard ④native read의 runtime 폐기 제거 ⑤Claude MCP 선언 파일 reader ⑥OpenCode MCP 선언 파일 reader ⑦harness module→bootstrap resolver ⑧open schema/preload/API kind 운반 ⑨handler realpath/stat/reveal ⑩hook open kind/실패 재조회 ⑪케밥 본문 open/secondary toggle ⑫Composer Orca catalog 조회/재열기 ⑬Composer 기존/native 스킬·MCP·plugin 합성 ⑭Cascade heading/키보드 skip ⑮케밥/모델/출처 로고 ⑯nav/attach 아이콘.
+
+검색: `rg -n 'refreshHistory|releaseIdleRuntime|discardRuntime|nativeResources|openNativePlugin|configuredResources|configuredPluginDirectory|nativeAttachItems|buildAttachMenu|useSkills|pluginMentionCandidates|MenuTitle|SIDEBAR_NAV' app/src -g '!*.test.*'`. 선언·타입·재수출을 제외하고 위 생산 경로에 대응한다. ①는 session.native-history 기존 load 테스트, ②③④는 bootstrap.native-history/native-history의 실제 등록 및 런타임 보존 테스트, ⑤⑥은 실제 임시 설정 파일 resolver 테스트, ⑦은 bootstrap 실제 callback, ⑧⑨는 preload/session-resources 테스트, ⑩⑪은 useNativeResources 실제 메뉴 클릭, ⑫⑬은 Composer.native-menu IPC 입력→최종 행/선택, ⑭은 Cascade flow 실제 키 입력, ⑮⑯은 Composer/ChatTitleBar/Sidebar 렌더·브라우저가 직접 oracle이다.
+
+신규 변이는 선택하지 않는다(직접 행동 oracle). 상속 M2는 MCP/plugin 목적지 맞바꿈, M3는 스킬/MCP 목적지 맞바꿈을 새 flat 목록에도 적용한다. 운영 gate는 lint·typecheck3종·관련 비DB 테스트·build·boundary·inventory·카탈로그/문서 검사이며 실제 GUI와 mock 경계를 분리 보고한다. ACTIVE D36~40↔AC34~38 및 D35 스위치 계약 대조 충돌 0; READY.
