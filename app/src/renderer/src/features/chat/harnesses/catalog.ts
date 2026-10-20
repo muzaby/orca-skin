@@ -58,7 +58,10 @@ const catalog = {
     model: opencodeModel,
     agent: agentPresentation,
     transcript: () => openCodeTranscript,
-    panel: () => opencodePanel.OPEN_CODE_PANEL_POLICY,
+    panel: (kind: AgentKind) =>
+      kind === 'code'
+        ? opencodePanel.OPEN_CODE_PANEL_POLICY
+        : opencodePanel.OPEN_CODE_WORK_PANEL_POLICY,
     panelAppearance: opencodePanel.rightPanelAppearance,
     planEmptyDescription: opencodePanel.planEmptyDescriptionKey,
     planSelectHint: opencodePanel.planSelectHintKey,

@@ -29,12 +29,14 @@ vi.mock('./ComposerInputSurface', async () => {
   }
 })
 import { createElement } from 'react'
+import type { BackgroundEvent } from '../../../../../../../shared/background-task'
 import { installFakeDom, type FakeDom } from '../../../../../shared/ui/renderHarness.testfixture'
 import { composerHarness } from '../../registries/composer'
 import { ComposerInputController } from './ComposerInputController'
 let dom: FakeDom
 const read = vi.fn()
 const onSend = vi.fn(() => true)
+let background: (event: BackgroundEvent) => void
 beforeEach(() => {
   vi.useFakeTimers()
   dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
@@ -56,6 +58,12 @@ beforeEach(() => {
   Object.assign(window, {
     orca: {
       session: { nativeResources: read },
+      chat: {
+        onBackgroundEvent: (listener: typeof background) => {
+          background = listener
+          return () => {}
+        }
+      },
       mcp: { list: async () => [] },
       skills: { list: async () => [] },
       provider: { state: async () => ({ providers: [] }), onState: () => () => {} }
@@ -106,7 +114,7 @@ function clickLabel(label: string): void {
   dom.click(button!)
 }
 it.each(['claude', 'opencode'] as const)(
-  'loads %s native commands from +, inserts without sending and reloads on reentry',
+  'loads %s native commands from +, inserts without sending, reuses on reentry and refreshes on reconnect',
   async (backend) => {
     fixture.backend = backend
     render()
@@ -135,7 +143,7 @@ it.each(['claude', 'opencode'] as const)(
     await settle()
     open()
     await settle()
-    expect(read.mock.calls.filter(([id]) => id === 'session-B')).toHaveLength(4)
+    expect(read.mock.calls.filter(([id]) => id === 'session-B')).toHaveLength(1)
     clickLabel('chat.composer.attachMenu.skills')
     expect(
       dom
@@ -152,7 +160,15 @@ it.each(['claude', 'opencode'] as const)(
     )
     open()
     await settle()
-    expect(read.mock.calls.filter(([id]) => id === 'session-B')).toHaveLength(5)
+    expect(read.mock.calls.filter(([id]) => id === 'session-B')).toHaveLength(1)
+    background({
+      type: 'background.connection',
+      sessionId: 'session-B',
+      state: 'connected',
+      source: { generation: 'resumed', sequence: 1, receivedAt: 1, replay: false }
+    })
+    await settle()
+    expect(read.mock.calls.filter(([id]) => id === 'session-B')).toHaveLength(2)
     expect(dom.query('[title="chat.composer.attachMenuTitle"]')!.props['aria-expanded']).toBe(true)
     clickLabel('chat.composer.attachMenu.skills')
     expect(

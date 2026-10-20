@@ -86,8 +86,7 @@ describe('harness panel policy', () => {
       'nativeStatus'
     ])
     expect(rightPanelTileDefinitionsForAgent('work', 'claude').map((tile) => tile.id)).toEqual([
-      'task',
-      'nativeStatus'
+      'task'
     ])
     for (const kind of ['code', 'work'] as const) {
       expect(rightPanelMenuTileDefinitionsForAgent(kind, 'claude')).toEqual(
@@ -99,3 +98,19 @@ describe('harness panel policy', () => {
     }
   })
 })
+
+it.each(['claude', 'opencode'] as const)(
+  'limits %s status to Code and filters persisted Work columns',
+  (backend) => {
+    expect(rightPanelMenuTileDefinitionsForAgent('work', backend).map((tile) => tile.id)).toEqual([
+      'task'
+    ])
+    expect(rightPanelTarget('nativeStatus', 'work', backend)).toBeNull()
+    expect(rightPanelTarget('nativeStatus', 'code', backend)).toBe('nativeStatus')
+    const columns = [{ id: 'retained', tiles: ['nativeStatus', 'task'] as RightPanelTileId[] }]
+    expect(rightPanelColumnsForAgent(columns, 'work', backend)).toEqual([
+      { id: 'retained', tiles: ['task'] }
+    ])
+    expect(columns[0].tiles).toContain('nativeStatus')
+  }
+)

@@ -3,6 +3,7 @@ import type { UsageLimitsView } from '../../../../../shared/usage/limits'
 
 interface ChatViewProps {
   projectName?: string | null
+  projectPath?: string | null
   // BackendContext 는 cross-feature 이므로 page 가 wiring 으로 주입.
   backendLabel: string
   // 활성 백엔드의 중단 지원 여부(§15). page 가 capabilities 에서 도출해 주입.
@@ -22,6 +23,7 @@ interface ChatViewProps {
 // props 패스스루만 남는다.
 export function ChatView({
   projectName,
+  projectPath,
   backendLabel,
   canAbort,
   usageLimits,
@@ -35,6 +37,7 @@ export function ChatView({
   return (
     <ChatTile
       projectName={projectName}
+      projectPath={projectPath}
       backendLabel={backendLabel}
       canAbort={canAbort}
       usageLimits={usageLimits}

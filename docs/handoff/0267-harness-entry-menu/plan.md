@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | READY / r1.14 |
+| 상태 / 라운드 | IMPL_DONE / r1.14 |
 | V mode / 기준 V / 유효 V | Delta V / r1.9 (`64beff7e`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9+ΔV10+ΔV11+ΔV12+ΔV13+ΔV14+ΔV15+ΔV16 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
@@ -1956,3 +1956,114 @@ VP57 R↔AT NEW REQUIRED: 실제 AgentEnvironmentView→EngineCard→제목 SVG�
 추가 사용자 요구 D61 ACTIVE: Composer 모델 popup의 provider/harness 그룹 제목 로고도 D56과 같은 브랜드 색을 사용한다. 모델 순서·현재 선택·하네스 잠금·전환 동작은 유지한다.
 AC57: 실제 모델 popup에서 Claude/OpenCode 그룹의 공식 컬러 로고를 확인할 수 있고 기존 모델 선택과 하네스 잠금이 유지된다. 누적 AC57.
 VP58 R↔AT NEW REQUIRED: 실제 Composer→ModelMenu provider heading→HarnessLogo를 기존 ModelMenu/Composer render·interaction tests와 Chromium 모델 popup에서 관측한다. EP31 ⑪Composer 모델 그룹 로고를 추가하여 최종 분모11자리다. 추가 검색 술어는 `HarnessLogo|ModelMenu`이며 features/chat 범위를 유지한다. 적대 증거 not selected — 실제 popup DOM/선택을 관측한다. 유효 설계 신규7pair/11자리·AC57.
+
+## [구현자 기입] r1.14 설계 리뷰
+
+- D55~61과 합치한다. 상태 타일은 Code 전용이고 케밥 native popup은 삭제했다. 패널·타일 메뉴·엔진 카드·모델 그룹은 같은 명시 브랜드 색을 사용한다.
+- 프로젝트 경로는 catalog cwd를 기존 props 경로로 주입한다. 사용자 하위 cwd와 별도로 갱신하며 native cache를 재조회하지 않는다.
+- 설계 조정은 구현 전에 분리했다. 간격은 앱 rem scale을 사용하고 임의 px를 복제하지 않는다. ACTIVE 계약 충돌·PLAN_GAP 없음.
+
+## [구현자 기입] r1.14 강제 지점 전수와 V-pair 자기확인
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP53 | Code 전용 mode policy | EP31 ① | 1/1 | rightPanelTiles.harness.test: limits status to Code… 양 backend; ChatTitleBar.render.test 네 조합; Chromium | Work menu/target 제외·저장 columns 필터. Code 복귀 시 기존 cache 유지, Work task 정상 | 없음 |
+| VP52 | catalog path→header props | EP31 ② | 1/1 | NativeStatusProject.test 세 page의 live catalog…; ChatTile.harness.test; 실제 Chromium | /wrong과 /project-root 구별. rename/path 변경→최종 header D:/Projects/shared-root, session cwd는 C:/fixture | 없음 |
+| VP52 | 표준 제목·색·tooltip | EP31 ③ | 1/1 | NativeResourcesTile.test: branded project title…; Chromium white/dark/영문 | fontWeight400, Claude rgb193/95/60, OpenCode oc-ink. catalog 없으면 cwd, 둘 다 없으면 title 생략 | 없음 |
+| VP54 | 실제 toggle 전환 | EP31 ④ | 1/1 | hook/native tile/CascadeMenu 회귀; Chromium 실제 클릭→CSS animation | checked true→false/false→true,200ms. translate·background-color transition의100ms 지점 x2.253/8.247 관측 | 없음 |
+| VP54 | reduced motion | EP31 ⑤ | 1/1 | Chromium Emulation prefers-reduced-motion=reduce→실제 클릭 | thumb animations0·transitionProperty none. spinner 정책은 기존 회귀 | 없음 |
+| VP55 | native 그룹 간격 | EP31 ⑥ | 1/1 | Chromium 실제 NativeResourcesTile→CascadeBody→MenuTitle | 첫 margin0, 뒤 그룹1.25rem=18.125px. row/keyboard를 분리하지 않음 | 없음 |
+| VP55 | Nav skill 그룹·detail | EP31 ⑦ | 1/1 | CustomizeList.render.test: groups skills…; Chromium Nav→스킬 | 첫 top18.125px, 후속2rem=29px. 각 행 이름/시간 유지, title stack 자식1개·source detail 없음 | 없음 |
+| VP55 | 보존할 Nav 내용/제어 | EP31 ⑧ | 1/1 | CustomizeList의 MCP/provider metadata tests·Chromium 실제 skill row 클릭 | source heading/로고 유지, 선택 aria-pressed=true. MCP http/활성·provider 인증/연결 표기 회귀 | 없음 |
+| VP56 | 케밥 색·popup 삭제 | EP31 ⑨ | 1/1 | ChatTitleBar.render/native-resources tests; 실제 Chromium kebab | branded status entry 유지. native section/MCP/plugin submenu0, 케밥 열기 native read 증가0 | 없음 |
+| VP57 | 엔진 카드 로고 | EP31 ⑩ | 1/1 | EngineCard.render/interaction·engine page 회귀; Chromium Nav→엔진&모델 | Claude/OpenCode SVG가 해당 제목 바로 왼쪽, 명시 색. unknown adapter의 잘못된 로고0·제어 유지 | 없음 |
+| VP58 | Composer 모델 로고 | EP31 ⑪ | 1/1 | Composer.harness.test: ModelMenu 그룹/잠금; Composer interaction 회귀; Chromium | 두 provider 그룹 SVG의 브랜드 색, locked 그룹1개 유지 | 없음 |
+
+EP31 합계11/11. 확장한 지정 rg 검색은146행이며 현재 path의 정책·props·행·제어·로고 소비를 위11자리와 대조했다. 나머지 일반 detail/MenuTitle/EngineCard 소비와 legacy OpenCode Panel HeaderContent는 이번 계약 경로 밖이다. 같은 계약의 추가 강제 자리는 발견하지 않았다. 검색 행 수를 자리 분모로 삼지 않았다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP52 | REQUIRED | SELF_PASS | 세 page·ChatTile·NativeResourcesTile title tests·Chromium | not selected — 최종 path/font/color 직접 관측 |
+| VP53 | REQUIRED | SELF_PASS | 실제 menu·policy/columns·Chromium mode 전환 | not selected — 두 mode의 실제 결과 |
+| VP54 | REQUIRED | SELF_PASS | native row/hook/CascadeMenu·실제 CSS transition 프레임 | not selected — 진행 위치·시간·축소모션 직접 관측 |
+| VP55 | REQUIRED | SELF_PASS | CustomizeList render·실제 Nav/상태 타일 그룹과 row 클릭 | not selected — 간격·행 content·selection 직접 관측 |
+| VP56 | REQUIRED | SELF_PASS | 실제 ChatTitleBar menu DOM·native 조회 sink0 | not selected — 제거 결과와 남긴 진입을 함께 관측 |
+| VP57 | REQUIRED | SELF_PASS | engine 카드·페이지 render/interaction·Chromium | not selected — 해당 제목 앞 SVG와 버튼 |
+| VP58 | REQUIRED | SELF_PASS | Composer ModelMenu render/interaction·Chromium | not selected — 실제 popup 그룹·잠금 |
+| VP50·51 | REGRESSION | SELF_PASS | NativeResourcesTile·useNativeResources·Composer native-menu 회귀 | 기존 M4 대상 ensure/cache 불변, r1.13 증거 승계 |
+| main/SDK/CLI·저장 | NOT_REQUIRED | 이전 관측 승계 | r1.12~13 validation | 변경 없음·실 CLI 재실행 주장 없음 |
+
+## [구현자 기입] r1.14 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| 해당 없음 | ΔV16 직접 oracle | 신규 | 실제 menu/path/행·CSS transition 결과를 관측 | 해당 없음 — 직접 oracle |
+
+분모 검산: 선택 증거0 · 인용 변이0 · 새 구조/배선 proxy oracle0 = 잠금 의무0행. 기존 M4 ensure(cache)와 M2/M3 모델 projection은 불변이라 이전 증거를 승계한다. popup 제거에 따라 UI 회귀를 실제 상태 타일로 옮겼으며 늦은 응답·독립 제어·오류 검사를 유지했다.
+
+## [구현자 기입] r1.14 Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 사용자 대면 문구·상태 | 새 번역 라벨 없음. title만 실제 프로젝트 경로 | 기존 이름·모델·상태 라벨 유지 |
+| 재배치 시 정리 스코프 | popup 컴포넌트 제거, 기존 hook/cache는 타일/Composer에서 유지 | 케밥 열기만으로 native 읽지 않음 |
+| 실패가 무반응처럼 보이는가 | pending/spinner·오류 토스트 기존 정책 유지 | native tile/hook/CascadeMenu 회귀 통과 |
+| 애니메이션이 실제 상태를 앞서는가 | 실제 checked 변경만200ms 보간 | optimistic success·임의 응답 지연 없음 |
+| 늦은 응답·공유 | cache/generation/main fanout 불변 | held read/write/종료·독립 제어와 A/B GUI 공유 확인 |
+| 가독성·접근성 | 표준 normal title·넓은 그룹 간격·기존 keyboard | 실제 ko/en·white/dark·긴 이름 잘림·Escape·reduced motion |
+
+## [구현자 기입] r1.14 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | justify 전환은 보간되지 않음 | ✅ thumb translate와 track 색 transition | 실제 양방향100ms 중간 위치·200ms duration |
+| 2 | Code 메뉴만 숨기면 persisted Work tile은 남음 | ✅ 하네스 policy와 columns/target 소비 전체 적용 | 양 backend Work columns tests·실제 Code→Work→Code |
+| 3 | session cwd가 프로젝트 하위/다른 worktree일 수 있음 | ✅ catalog cwd를 별도 projectPath로 전달 | 세 page의 다른 프로젝트 root 구별, 브라우저 서로 다른 경로 |
+| 4 | popup 삭제 후 기존 UI 회귀가 삭제된 모듈을 import | ✅ 실제 native tile/header로 이전 | 초기1suite import 실패 후 hook24/24. 독립 제어/닫기 selector도 직접 목록으로 변경 |
+| 5 | Composer의 옛 강제 재조회 기대값이 새 cache 계약과 충돌 | ✅ warm read1·reconnect2로 변경하고 실제 connection event 주입 | 초기2failed의 기대4/실제1. 최종 해당6/6·전체793/793 |
+| 6 | rem 간격을 고정px로 오인 | ✅ 설계에1.25rem/2rem으로 확정하고 앱 root scale 기준 실측 | initial px assertion을 scale-aware로 정정.18.125/29px |
+
+### 설계 대비 명시적 차이
+
+다른 메커니즘으로 대체한 것 없음. 사용자 추가 요구를 구현 전에 D59~61로 확정했다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — cache 변경 없음 | AC50/51·①, healthy warm 조회 증가0 |
+| 공유 | 해당 없음 — main fanout 불변 | AC48/50/53·④, A/B plugin 상태 일치·조회2 유지 |
+| 재진입 | 해당 없음 — 기존 cache/표준 타일 | AC51/55·①⑨, mode 복귀·kebab 열기 조회 증가0 |
+| 다른 무효화 축 | 해당 없음 — 기존 reconnect/termination fence | hook·Composer 재연결 회귀, late read/write/retired 검사 |
+
+## [구현자 기입] r1.14 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | Code 정책·catalog projectPath props·상태 header/그룹·ToggleIndicator·Nav skill rows·케밥 popup 삭제·engine/model 로고·tests/fixture·현재 문서 |
+| 실행 명령 | validation r1.14의117파일 Vitest·타입·lint·build·boundary·문서/catalog·Chromium |
+| 관측한 게이트 산출 | 117파일793/793. 타입3종 진단0(test 수정 후 재확인), lint 오류0·기존경고4, build 성공, boundary8/8, UI catalog295/295·차집합[] |
+| V-pair 자기확인 | 신규 SELF_PASS7 / SELF_BLOCKED0, VP50/51 REGRESSION SELF_PASS |
+| 강제 지점 전수 | EP31 11/11 |
+| AC 자기보고(Criteria-Met) | 57/57. 기존50은 ΔV16의 명시 대체조항 적용·영향 경로 회귀 |
+| 합계 검산 | ✅57 · ⚠️0 · ❌0 = 총57. 이전50에 AC51~57 추가 |
+| 블로커 / 역질문 | 없음. 설치 Windows GUI·외부 CLI/인증 미실기, 이전 비영향 증거 승계 |
+| 대상 커밋 | (r1.14 구현 — 좌표는 INDEX) |
+
+| AC | 자기보고 / 이번 관측 |
+|---|---|
+| AC1~50 | ✅ 이전 관측 승계. Work 상태/popup 요구는 D55/59로 명시 대체. 나머지 관련793케이스로 재확인 |
+| AC51 | ✅ 양 backend Code menu/target, Work persisted 필터·기존 task 유지. 실제 mode 복귀 추가조회0 |
+| AC52 | ✅ 제목 weight400·브랜드 색·catalog path 우선·rename/path/fallback·ko/en·두 테마·잘림 |
+| AC53 | ✅ 실제 클릭200ms 양방향 translate/색의 중간 위치. reduced motion animation0, pending/readonly/cursor/오류 회귀 |
+| AC54 | ✅ native 그룹18.125px·Nav 후속29px(각1.25rem/2rem). 스킬 행 title stack1개·시간/선택·출처 제목/로고·다른 메타 유지 |
+| AC55 | ✅ 케밥 native 그룹/하위 popup0·native read 증가0. 컬러 상태 타일 진입과 실제 panel 제어 유지 |
+| AC56 | ✅ 실제 엔진 페이지의 두 제목 앞 brand SVG·색. unknown adapter logo0·편집/삭제 회귀 |
+| AC57 | ✅ 실제 모델 popup 두 provider의 brand SVG·색. 기존 lock/선택 회귀 |
+
+plan 메타/INDEX는 r1.14 impl/IMPL_DONE·Claude 독립 검증 대기다. 구현자 자기보고다.
+
+## [구현자 기입] r1.14 Review Signals — 사실만
+
+- 같은 축인가: 상태 타일 후속 가독성·상호작용 수정이며 사용자 추가 요구로 native 관리 진입을 popup에서 panel로 한정했다.
+- 막았어야 할 지침·AC: 이전 D51/53은 Work 공존과 bold/tooltip의 표준을 구체화하지 않았다. D55/56과 실제 style 관측으로 바꿨다. 이전 Composer native-menu 테스트의 warm 재조회 기대는 이번 넓힌 회귀에서 발견했다.
+- 환경 한계: 실제 renderer+메모리 IPC Chromium을 사용했고 Windows 설치 앱·외부 인증·CLI를 재실행하지 않았다. 간격은 rem scale에 맞춰 실측했다.
+- 현재 라운드·impl 턴: r1.14 / r1.14. 독립 verify 대기.

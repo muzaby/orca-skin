@@ -24,7 +24,6 @@ vi.mock('../../store/chatStore', () => ({
 import { createElement, useLayoutEffect } from 'react'
 import { installFakeDom, type FakeDom } from '../../../../shared/ui/renderHarness.testfixture'
 import { NativeResourcesTileContent, NativeResourcesTileHeader } from './NativeResourcesTile'
-import { NativeResourcesMenu } from '../NativeResourcesMenu'
 import { useNativeResources } from '../../hooks/useNativeResources'
 import type {
   NativeResources,
@@ -67,29 +66,12 @@ const open = vi.fn()
 let changed: (event: NativeResourcesChanged) => void
 let dom: FakeDom
 let composer: ReturnType<typeof useNativeResources>
-function Surface({
-  panel = true,
-  menu = false
-}: {
-  panel?: boolean
-  menu?: boolean
-}): React.JSX.Element {
+function Surface({ panel = true }: { panel?: boolean }): React.JSX.Element {
   const native = useNativeResources('A', true, fixture.state.backend)
   useLayoutEffect(() => {
     composer = native
   }, [native])
-  return createElement(
-    'div',
-    null,
-    panel && createElement(NativeResourcesTileContent),
-    menu &&
-      createElement(NativeResourcesMenu, {
-        sessionId: 'A',
-        backend: fixture.state.backend,
-        anchorRef: { current: null },
-        onClose: () => {}
-      })
-  )
+  return createElement('div', null, panel && createElement(NativeResourcesTileContent))
 }
 async function settle(): Promise<void> {
   for (let i = 0; i < 12; i++) await Promise.resolve()
@@ -124,7 +106,7 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-it('shares one cold read between panel, popup and Composer and reuses live cache on reopen and remount', async () => {
+it('shares one cold read between panel and Composer and reuses live cache on reopen and remount', async () => {
   let finish!: (value: NativeResources) => void
   read.mockImplementationOnce(
     () =>
@@ -132,7 +114,7 @@ it('shares one cold read between panel, popup and Composer and reuses live cache
         finish = resolve
       })
   )
-  dom.render(createElement(Surface, { menu: true }))
+  dom.render(createElement(Surface))
   await settle()
   expect(read).toHaveBeenCalledExactlyOnceWith('A')
   finish(snapshot())
@@ -141,17 +123,17 @@ it('shares one cold read between panel, popup and Composer and reuses live cache
   expect(dom.query('[data-native-status]')?.textContent).toContain('Superpowers')
   dom.render(createElement(Surface, { panel: false }))
   await settle()
-  dom.render(createElement(Surface, { menu: true }))
+  dom.render(createElement(Surface))
   await settle()
   dom.render(createElement('div'))
   await settle()
-  dom.render(createElement(Surface, { menu: true }))
+  dom.render(createElement(Surface))
   await settle()
   expect(read).toHaveBeenCalledTimes(1)
   expect(composer.view).toMatchObject({ value: { generation: 'A-live' } })
 })
 
-it('uses the popup rows for statuses, independent async switches, native reveal and shared project pushes', async () => {
+it('uses the native rows for statuses, independent async switches, native reveal and shared project pushes', async () => {
   dom.render(createElement(Surface))
   await settle()
   expect(dom.queryAll('[data-status-tone]').map((node) => node.props['data-status-tone'])).toEqual([
@@ -192,23 +174,46 @@ it('uses the popup rows for statuses, independent async switches, native reveal 
 it('shows the correct branded project title, rename and workspace fallback for both harnesses', async () => {
   for (const backend of ['claude', 'opencode'] as const) {
     fixture.state.backend = backend
-    dom.render(createElement(NativeResourcesTileHeader, { projectName: '프로젝트 Alpha' }))
+    dom.render(
+      createElement(NativeResourcesTileHeader, {
+        projectName: '프로젝트 Alpha',
+        projectPath: '/project-root'
+      })
+    )
     await settle()
     const name = backend === 'claude' ? 'Claude' : 'OpenCode'
     expect(dom.query('[data-native-status-title]')?.textContent).toBe(
       name + ' 상태 · 프로젝트 Alpha'
     )
+    expect(dom.query('[data-native-status-title]')?.props.title).toBe('/project-root')
+    expect(dom.query('[viewBox]')?.props.className).toContain(
+      backend === 'claude' ? 'text-spinner' : 'text-oc-ink'
+    )
+    expect(dom.query('[data-native-status-title]')?.children[1].props.className).toContain(
+      'font-normal'
+    )
     expect(dom.queryAll('[viewBox]')).toHaveLength(1)
     expect(dom.query('[viewBox]')?.props.viewBox).toBe(
       backend === 'claude' ? '0 0 248 248' : '0 0 16 20'
     )
-    dom.render(createElement(NativeResourcesTileHeader, { projectName: '이름 변경' }))
+    dom.render(
+      createElement(NativeResourcesTileHeader, {
+        projectName: '이름 변경',
+        projectPath: '/changed-root'
+      })
+    )
     await settle()
     expect(dom.query('[data-native-status-title]')?.textContent).toBe(name + ' 상태 · 이름 변경')
+    expect(dom.query('[data-native-status-title]')?.props.title).toBe('/changed-root')
     fixture.state.cwd = '/workspace/child'
     dom.render(createElement(NativeResourcesTileHeader, {}))
     await settle()
     expect(dom.query('[data-native-status-title]')?.textContent).toBe(name + ' 상태 · child')
+    expect(dom.query('[data-native-status-title]')?.props.title).toBe('/workspace/child')
+    fixture.state.cwd = null
+    dom.render(createElement(NativeResourcesTileHeader, {}))
+    await settle()
+    expect(dom.query('[data-native-status-title]')?.props.title).toBeUndefined()
   }
 })
 

@@ -99,6 +99,8 @@ describe('harness composer surface', () => {
     expect($('[role="menuitemradio"]')).toHaveLength(2)
     expect(render(null)).toContain('viewBox="0 0 248 248"')
     expect(render(null)).toContain('viewBox="0 0 16 20"')
+    expect(render(null)).toContain('text-spinner')
+    expect(render(null)).toContain('text-oc-ink')
     const locked = render('opencode')
     expect(load(locked)('[role="menuitemradio"]')).toHaveLength(1)
     expect(locked).not.toContain('claude/model')

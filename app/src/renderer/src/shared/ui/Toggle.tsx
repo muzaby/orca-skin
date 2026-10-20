@@ -13,11 +13,11 @@ export function ToggleIndicator({
     <span
       aria-hidden="true"
       data-toggle-track
-      className={`inline-flex h-4 w-7 shrink-0 items-center rounded-full p-0.5 ${on ? 'justify-end bg-toggle-on' : 'justify-start bg-border-strong'}`}
+      className={`inline-flex h-4 w-7 shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 motion-reduce:transition-none ${on ? 'bg-toggle-on' : 'bg-border-strong'}`}
     >
       <span
         data-toggle-thumb
-        className="inline-flex size-3 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-toggle-on"
+        className={`inline-flex size-3 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-toggle-on transition-transform duration-200 motion-reduce:transition-none ${on ? 'translate-x-3' : 'translate-x-0'}`}
       >
         {busy && (
           <svg

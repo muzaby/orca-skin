@@ -43,7 +43,10 @@ export function ModelMenu({
           <MenuTitle
             leading={
               (agent.adapter === 'claude' || agent.adapter === 'opencode') && (
-                <HarnessLogo backend={agent.adapter} className="size-3.5 shrink-0" />
+                <HarnessLogo
+                  backend={agent.adapter}
+                  className={`size-3.5 shrink-0 ${agent.adapter === 'claude' ? 'text-spinner' : 'text-oc-ink'}`}
+                />
               )
             }
           >

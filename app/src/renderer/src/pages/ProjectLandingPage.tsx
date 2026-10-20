@@ -41,6 +41,9 @@ export function ProjectLandingPage({
   const openSettings = useOpenSettings()
   const onOpenUsageSettings = (key?: string): void =>
     openSettings(key ? providerTabId(key) : 'usage')
+  const projectPath = useProjectsState(
+    (s) => s.list.find((project) => project.id === projectId)?.cwd ?? null
+  )
   const projectName = useProjectsState((s) =>
     projectId ? (s.list.find((project) => project.id === projectId)?.name ?? null) : null
   )
@@ -82,6 +85,7 @@ export function ProjectLandingPage({
     return (
       <ChatTile
         projectName={projectName}
+        projectPath={projectPath}
         backendLabel={backendLabel}
         canAbort={canAbort}
         usageLimits={usageLimits}

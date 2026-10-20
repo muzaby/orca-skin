@@ -1,5 +1,7 @@
 import { isBackend } from '../../../../../../shared/harness'
 import type { AgentEnvironment } from '../../../../../../shared/ipc'
+import { ClaudeLogo } from '../../../../shared/ui/ClaudeLogo'
+import { OpenCodeLogo } from '../../../../shared/ui/OpenCodeLogo'
 import { Button } from '../../../../shared/ui/Button'
 import { useI18n } from '../../../../shared/i18n'
 import { EngineModelList } from './EngineModelList'
@@ -25,6 +27,10 @@ export function EngineCard({
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
+            {agent.adapter === 'claude' && <ClaudeLogo className="size-4 shrink-0 text-spinner" />}
+            {agent.adapter === 'opencode' && (
+              <OpenCodeLogo className="size-4 shrink-0 text-oc-ink" />
+            )}
             <span className="text-[14px] font-semibold text-ink">{adapterLabel}</span>
             <span className="text-[11px] text-ink3">{agent.provider ?? 'default'}</span>
             {!agent.supported && (

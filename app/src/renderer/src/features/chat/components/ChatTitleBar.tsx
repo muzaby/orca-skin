@@ -26,7 +26,6 @@ import {
 } from '../lib/rightPanelTiles'
 import { flattenColumns, rightPanelColumnsForAgent } from '../lib/rightPanelLayout'
 import { CwdButton } from './CwdButton'
-import { NativeResourcesMenu } from './NativeResourcesMenu'
 
 // 사이드바 메타 (state.title) 가 즉시 채워지므로 사용자가 세션을 선택한 순간부터
 // 헤더에 정확한 제목 표시. 메타가 없는 부팅 자동 복원 1회만 첫 user 메시지에서 fallback.
@@ -62,7 +61,6 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   const sessionId = useChatSession((s) => s.sessionId)
   const agentKind = useChatSession((s) => s.agentKind)
   const backend = useChatSession((s) => s.backend)
-  const projectId = useChatSession((s) => s.pendingProjectId ?? s.projectId)
   // 열 구조(stable ref)를 구독하고 평탄 뷰는 메모로 파생 — selector 가 새 배열을 반환하면
   // zustand Object.is 비교가 매번 깨져 불필요 재렌더가 난다.
   const tileColumns = useChatSession((s) => s.rightPanelTiles)
@@ -231,7 +229,10 @@ export const ChatTitleBar = memo(function ChatTitleBar({
                 aria-checked={active}
               >
                 {tile.id === 'nativeStatus' && (
-                  <HarnessLogo backend={backend ?? 'claude'} className="size-3.5 shrink-0" />
+                  <HarnessLogo
+                    backend={backend ?? 'claude'}
+                    className={`size-3.5 shrink-0 ${backend === 'opencode' ? 'text-oc-ink' : 'text-spinner'}`}
+                  />
                 )}
                 <span>
                   {labels[tile.id as RightPanelTileId] ?? rightPanelTileLabel(tile.id, backend, tr)}
@@ -249,16 +250,6 @@ export const ChatTitleBar = memo(function ChatTitleBar({
               </MenuItem>
             )
           })}
-          <div className="my-1 h-px bg-border" />
-          <NativeResourcesMenu
-            key={sessionId}
-            sessionId={sessionId}
-            backend={backend}
-            cwd={cwd}
-            projectId={projectId}
-            anchorRef={anchorRef}
-            onClose={() => setOpen(false)}
-          />
           <div className="my-1 h-px bg-border" />
           <MenuItem
             icon="pin"

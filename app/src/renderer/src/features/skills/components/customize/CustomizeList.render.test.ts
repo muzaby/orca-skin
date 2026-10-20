@@ -1,4 +1,5 @@
 import { createElement, type ComponentProps } from 'react'
+import { load } from 'cheerio'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import type { McpServer, ProviderInfo, SkillInfo } from '../../../../../../shared/ipc'
@@ -109,6 +110,13 @@ describe('plugin catalog list', () => {
     const skills = render({ tab: 'skills' })
     expect(skills).toContain('Claude 스킬')
     expect(skills).toContain('Orcinus orca 스킬')
+    const $ = load(skills)
+    expect($('li').not('[data-extensions-row]').last().hasClass('pt-8')).toBe(true)
+    $('[data-extensions-row]').each((_, row) => {
+      expect($(row).text()).toContain('review')
+      expect($(row).text()).not.toContain('스킬')
+      expect($(row).text()).not.toContain('Review changes')
+    })
     expect(skills).not.toContain('aria-pressed="true"')
     const mcp = render({ tab: 'mcp' })
     expect(mcp).toContain('>http<')

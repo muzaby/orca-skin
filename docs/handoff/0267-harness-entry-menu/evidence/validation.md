@@ -479,3 +479,57 @@ white1440×900과 dark900×720을 관측했다. dark에서는 실제 separator�
 - 브라우저의 상태 span과 실제 button을 구분하도록 selector를 정정했다. 기본 복수 column의 기존 가로 scroll을 잘못 해석한 assertion은 실제 resize 관측으로 정정했다. 보충 EN 첫 실행은 이전 탭의 조회계측이 없어 실패했으며 독립 계측으로 성공했다. 이 과정에서 production source는 변경하지 않았다.
 - 첫 오류 retry·부분 관측·재연결·종료/late read/write는 hook 회귀에서 확인했다. 임의 TTL/polling이나 새 native 실행은 추가하지 않았다.
 - main/adapter/영속 정책은 바꾸지 않아 실제 두 CLI 공유·후속 턴·재시작 복원은 r1.12 증거를 승계한다. 이번에 실제 CLI smoke를 재실행했다고 주장하지 않는다. MCP 영속 저장 범위도 변경하지 않았다.
+
+## r1.14 — Code 상태 타일 표준·모션·목록 정리·컬러 브랜드
+
+2026-10-20, Linux cloud. 상태 타일과 Nav/Composer/엔진 UI 후속 요구를 반영했다. main/SDK·프로젝트 저장/공유 cache 코드는 변경하지 않았다. 설치 Windows 앱의 실기나 독립 verify는 아니다.
+
+| 검사 | 명령(app에서 실행) / 최종 관측 |
+|---|---|
+| 관련 Vitest | 아래 명령117파일793/793,45.71초 |
+| 타입 | npm run typecheck: node/web/test 진단0. Composer 회귀 기대 수정 후 npm run typecheck:test 재확인 진단0 |
+| lint | npx eslint --cache ./src ./scripts: 오류0·기존경고4. 마지막 수정 Composer.native-menu.test.ts 단독도 오류/경고0 |
+| build | npx electron-vite build: main/preload/renderer 성공, 기존 chunk 경고 유지 |
+| boundary | node --test scripts/harness-boundary.test.mjs:8/8 |
+| 문서 | node scripts/check-doc-inventory.mjs --check: generated/prose/relative links 통과 |
+| catalog | python3 ../docs/handoff/0266-renderer-design-guidelines/evidence/check-design-docs.py: source295/rows295·양방향 차집합[], 음성 대조 red. 제거한 NativeResourcesMenu 행도 삭제 |
+| Chromium | 실제 native tile·kebab·Nav skills·EngineCard·Composer ModelMenu. white/dark·1050/1440px·ko/en·keyboard·reduced motion, 아래 관측 |
+| diff | git diff --check: 공백 오류0 |
+
+```sh
+npx vitest run src/renderer/src/features/chat/components/ChatTitleBar src/renderer/src/features/chat/components/ChatTile src/renderer/src/features/chat/components/rightpanel src/renderer/src/features/chat/components/Composer src/renderer/src/features/chat/harnesses/common/rightpanel src/renderer/src/features/chat/harnesses/common/composer src/renderer/src/features/chat/lib/rightPanel src/renderer/src/features/chat/hooks/useNativeResources.test.ts src/renderer/src/features/chat/lib/nativeResourcesMenu.test.ts src/renderer/src/features/chat/store/chatStore.panelTiles.test.ts src/renderer/src/pages/NativeStatusProject.test.ts src/renderer/src/features/skills/components/customize src/renderer/src/features/engine src/renderer/src/shared/ui/CascadeMenu.test.ts --reporter=dot
+npm run typecheck
+npm run typecheck:test
+npx eslint --cache ./src ./scripts
+npx electron-vite build
+node --test scripts/harness-boundary.test.mjs
+node scripts/check-doc-inventory.mjs --check
+python3 ../docs/handoff/0266-renderer-design-guidelines/evidence/check-design-docs.py
+```
+
+### 실제 UI 관측
+
+상태 제목은 computed fontWeight400·Claude rgb(193,95,60)이다. catalog 경로를 D:/Projects/shared-root로 바꾸고 session cwd는 C:/fixture로 유지한 채 title tooltip이 catalog 경로를 표시하는지 확인했다. 표준 앱 root14.5px에서 native 그룹 margin1.25rem=18.125px, Nav 후속 그룹 padding2rem=29px였다. Nav 스킬의 제목 stack은 자식1개이며 행의 이름/시간·출처 그룹 로고·실제 선택 aria-pressed=true가 유지된다.
+
+실제 plugin button을 눌러 checked 양방향 전환이 일어난 뒤 CSS transition을100ms 지점에서 정지해 thumb 위치를 측정했다. 손잡이 translate와 track background-color가 모두200ms animation이며 첫/끝 프레임 사이 값이 관측됐다. reduced motion에서는 animation0·transitionProperty none이었다.
+
+```json
+{"samples":[{"before":"true","after":"false","x":2.2532958984375,"duration":"0.2s","properties":["translate","background-color"]},{"before":"false","after":"true","x":8.2467041015625,"duration":"0.2s","properties":["translate","background-color"]}],"reduced":{"animations":0,"property":"none"},"codeOnly":true,"kebabNoNativePopup":true,"sharedReads":2,"exceptions":[]}
+```
+
+실제 raw column에 nativeStatus를 남긴 채 Code→Work로 바꾸면 메뉴/패널이 사라지고 Code로 복귀하면 cache를 재사용한다. A/B 같은 프로젝트 plugin 제어도 반영되며 최초 두 세션 조회2회 이후 재열기/mode 복귀가 조회를 추가하지 않는다. 케밥 열기만으로 native 조회하지 않는다. OpenCode의 실제 상태 타일과 Code entry 로고도 확인했다.
+
+엔진 페이지의 제목 바로 앞 SVG는 Claude viewBox248·브랜드색, OpenCode viewBox16×20·dark oc-ink rgb250/250/250였다. Composer의 실제 두 provider 그룹도 같은 로고와 색이다. OpenCode는 공식 중립색을 보존하며 임의 색으로 바꾸지 않는다. white/dark 스크린샷을 확인했다.
+
+보충 영문·긴 이름·1050px·키보드 결과:
+
+```json
+{"header":{"text":"Claude Status · 긴 프로젝트 이름에서 경로 툴팁과 표준 제목의 잘림을 확인합니다","path":"D:/Projects/shared-root","weight":"400","color":"rgb(193, 95, 60)","truncated":true},"warmReadDelta":0,"keyboard":true,"exceptions":[]}
+```
+
+### 시행착오·범위
+
+- 첫 관련 실행은 삭제한 NativeResourcesMenu를 import하던 hook suite1개가 실패했다. 실제 NativeResourcesTileContent/Header로 이전하고 기존 reveal/토글·오류·독립 제어·keyboard/수명 검사를 유지했다. 이전 submenu 인덱스/포커스/두 번째 제어 선택을 고친 후 hook24/24다.
+- 넓힌117파일 첫 실행은 옛 Composer warm 조회 기대4/실제1인2케이스가 실패했다. 건강한 재진입은1회 유지, 실제 연결 이벤트 후2회로 바꾸고 늦은 갱신 중 명령 보존을 확인했다. 해당6/6, 최종 전체793/793이다. production cache 동작을 바꾸어 테스트를 통과시키지 않았다.
+- 첫 브라우저 간격 단언은 고정20px를 기대했지만 앱 rem scale의18.125px였다. 설계와 단언을 rem 기준으로 확정했다. 새 임의 CSS/팔레트/응답 지연은 추가하지 않았다.
+- 등록한 적대 증거는 없으며 직접 DOM/동작/animation 결과를 사용했다. 기존 cache M4와 projection M2/M3는 대상 구현 불변으로 이전 증거를 승계한다. 실제 CLI smoke는 재실행하지 않았다.

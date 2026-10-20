@@ -8,6 +8,7 @@ import { deriveRightPanelLayout, rightPanelColumnsForAgent } from '../../lib/rig
 
 export interface RightPanelProps {
   projectName?: string | null
+  projectPath?: string | null
   className?: string
   onExpandedChange?: (sessionKey: string, expanded: boolean) => void
 }

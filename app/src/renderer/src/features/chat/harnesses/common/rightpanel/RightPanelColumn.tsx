@@ -11,6 +11,7 @@ const ROW_GROW_MS = 230
 
 export function RightPanelColumn({
   projectName,
+  projectPath,
   sessionKey,
   configuration,
   col,
@@ -22,6 +23,7 @@ export function RightPanelColumn({
   taskTileChrome
 }: {
   projectName?: string | null
+  projectPath?: string | null
   sessionKey: string
   configuration: RightPanelHostConfiguration
   col: number
@@ -96,6 +98,7 @@ export function RightPanelColumn({
               HeaderContent ? (
                 <HeaderContent
                   projectName={projectName}
+                  projectPath={projectPath}
                   expanded={expandedTile === id}
                   onToggleExpand={() => onToggleExpand(id)}
                 />

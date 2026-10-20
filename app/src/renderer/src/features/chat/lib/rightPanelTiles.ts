@@ -21,6 +21,7 @@ export type RightPanelTileId = (typeof rightPanelTileDefinitions)[number]['id']
 
 export interface RightPanelHeaderProps {
   projectName?: string | null
+  projectPath?: string | null
   expanded?: boolean
   onToggleExpand?: () => void
 }

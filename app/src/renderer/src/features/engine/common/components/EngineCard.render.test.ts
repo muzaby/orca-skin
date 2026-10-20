@@ -22,6 +22,27 @@ it.each([
     )
   )
   expect($('span').first().text()).toBe(label)
+  expect($('svg').first().attr('viewBox')).toBe(adapter === 'claude' ? '0 0 248 248' : '0 0 16 20')
+  expect(
+    $('svg')
+      .first()
+      .hasClass(adapter === 'claude' ? 'text-spinner' : 'text-oc-ink')
+  ).toBe(true)
+  expect($('svg').first().next('span').text()).toBe(label)
   expect($('button')).toHaveLength(2)
   expect($('button[disabled]')).toHaveLength(0)
+})
+
+it('does not assign a supported harness brand to an unknown adapter', () => {
+  const $ = load(
+    renderToStaticMarkup(
+      createElement(EngineCard, {
+        agent: { key: 'external/x', adapter: 'external', supported: false, models: [] },
+        onEdit: vi.fn(),
+        onDelete: vi.fn()
+      })
+    )
+  )
+  expect($('svg[viewBox="0 0 248 248"],svg[viewBox="0 0 16 20"]')).toHaveLength(0)
+  expect($.text()).toContain('external')
 })
