@@ -22,6 +22,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
+| [`0268-opencode-runtime-composer`](0268-opencode-runtime-composer/plan.md) | plan | READY | Codex | (V1 설계 — 구현자 확인) | 1 | OpenCode 수명·시작 조회·상태 상세·native agent/variant, 파일·외부 링크 열기. |
 | [`0267-harness-entry-menu`](0267-harness-entry-menu/plan.md) | impl | IMPL_DONE | Claude | (r1.14 구현 — 검증자 기입) | 1 | Code 상태 타일 표준·경로·모션·그룹 간격, 케밥 native popup 제거, 엔진/모델 컬러 로고.793/793·타입/빌드·실제 Chromium 통과. |
 | [`0266-renderer-design-guidelines`](0266-renderer-design-guidelines/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 디자인 시스템·전체 TSX 카탈로그·AI 제작 절차 반영. 문서·타입 게이트 통과, lint 오류 0·기존 경고 2. [관측·재현](0266-renderer-design-guidelines/evidence/validation.md). |
 | [`0263-opencode-session-panel`](0263-opencode-session-panel/plan.md) | verify | **PASS** (ΔV7 r2 · 기계 범위) | **사람** (VP7-V 시각 인수) | `308e2078`(V1·ΔV2 설계) · `736a85da`·`73681f80`(r1) · `56acfbfe`→`14d5fea0`(ΔV3) · `4b6f433c`→`fbc15aba`(ΔV4) · `52976413`→`a74bbba0`·`52207a59`(ΔV5) · `350281c7`→`655fa0e0`(ΔV6) · `12c81cfa`→`ce7aa102`(ΔV7 r2) | 2 | **r2 검증 = PASS** — 원문 [`verify.md`](0263-opencode-session-panel/verify.md) r2. 행동 16자리 좌표 16/16 · 인용 변이 M07~09 red · 진입 네 자리 무동작 4/4 red · r1 red 6/6 유지.<br>AC ✅12·⚠️3(시각). **archive 이동은 두 테마 외곽·hover 여백·좁은 폭 사람 인수 뒤.** |
