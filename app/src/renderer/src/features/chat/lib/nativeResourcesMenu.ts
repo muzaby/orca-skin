@@ -43,11 +43,18 @@ export function nativeResourcesMenu(
       disabled: kind === 'mcp' && !resource.canToggle,
       status: {
         tone: nativeResourceTone(resource.status),
-        label: `${resource.name}: ${tr(`chat.nativeResources.${resource.status}`)}`,
-        checked: resource.enabled,
-        busy: pending.has(nativeResourceKey(resource)),
-        ...(resource.canToggle ? { action: { type: 'toggle' as const, resource } } : {})
+        label: `${resource.name}: ${tr(`chat.nativeResources.${resource.status}`)}`
       },
+      ...(resource.canToggle
+        ? {
+            secondary: {
+              label: `${resource.name}: ${tr(resource.enabled ? 'chat.nativeResources.disable' : 'chat.nativeResources.enable')}`,
+              checked: resource.enabled,
+              busy: pending.has(nativeResourceKey(resource)),
+              action: { type: 'toggle' as const, resource }
+            }
+          }
+        : {}),
       action: { type: kind === 'plugin' ? ('open' as const) : ('toggle' as const), resource }
     }))
   }

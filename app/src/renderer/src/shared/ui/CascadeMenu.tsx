@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { Icon } from './Icon'
 import { MenuItem } from './MenuItem'
-import { StatusBall } from './Status'
+import { Dot } from './Status'
+import { ToggleIndicator } from './Toggle'
 import { Popover } from './Popover'
 import {
   HOVER_OPEN_DELAY_MS,
@@ -264,11 +265,8 @@ function CascadePanel<A>({
               )}
             </span>
             {item.kind === 'action' && item.checked !== undefined && (
-              <span
-                aria-hidden="true"
-                className={`ml-3 inline-flex h-4 w-7 shrink-0 items-center rounded-full p-0.5 ${item.checked ? 'justify-end bg-toggle-on' : 'justify-start bg-border-strong'}`}
-              >
-                <span className="size-3 rounded-full bg-white" />
+              <span className="ml-3">
+                <ToggleIndicator on={item.checked} />
               </span>
             )}
             {submenu && !item.disabled && (
@@ -276,73 +274,43 @@ function CascadePanel<A>({
             )}
           </MenuItem>
         )
-        if (item.kind === 'action' && item.status) {
-          const status = item.status
+        if (item.kind === 'action' && (item.status || item.secondary)) {
+          const { status, secondary } = item
           return (
-            <div key={item.id} className="flex min-w-0 items-center pl-1">
-              {status.action !== undefined ? (
-                <button
-                  type="button"
-                  role="menuitemcheckbox"
-                  aria-label={status.label}
-                  title={status.label}
-                  aria-checked={status.checked}
-                  aria-busy={!!status.busy}
-                  disabled={!!status.busy}
-                  className="inline-flex size-6 shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 outline-none hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
-                  onClick={() => onSecondary(status.action!)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault()
-                      event.stopPropagation()
-                      if (!status.busy) onSecondary(status.action!)
-                    }
-                  }}
-                >
-                  <StatusBall tone={status.tone} busy={status.busy} />
-                </button>
-              ) : (
+            <div key={item.id} className={`flex min-w-0 items-center ${status ? 'pl-1' : ''}`}>
+              {status && (
                 <span
                   role="img"
                   aria-label={status.label}
                   title={status.label}
+                  data-status-tone={status.tone}
                   className="inline-flex size-6 shrink-0 items-center justify-center"
                 >
-                  <StatusBall tone={status.tone} busy={status.busy} />
+                  <Dot tone={status.tone} />
                 </span>
               )}
               {row}
-            </div>
-          )
-        }
-        if (item.kind === 'action' && item.secondary) {
-          const secondary = item.secondary
-          return (
-            <div key={item.id} className="flex items-center">
-              {row}
-              <MenuItem
-                role="menuitemcheckbox"
-                aria-label={secondary.label}
-                aria-checked={secondary.checked}
-                title={secondary.label}
-                disabled={secondary.disabled}
-                className="w-auto! shrink-0"
-                onClick={() => onSecondary(secondary.action)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.stopPropagation()
-                    event.preventDefault()
-                    if (!secondary.disabled) onSecondary(secondary.action)
-                  }
-                }}
-              >
-                <span
-                  aria-hidden="true"
-                  className={`inline-flex h-4 w-7 items-center rounded-full p-0.5 ${secondary.checked ? 'justify-end bg-toggle-on' : 'justify-start bg-border-strong'}`}
+              {secondary && (
+                <MenuItem
+                  role="menuitemcheckbox"
+                  aria-label={secondary.label}
+                  aria-checked={secondary.checked}
+                  aria-busy={secondary.busy || undefined}
+                  title={secondary.label}
+                  disabled={secondary.disabled || secondary.busy}
+                  className={`w-auto! shrink-0 ${secondary.busy ? 'disabled:opacity-100' : ''}`}
+                  onClick={() => onSecondary(secondary.action)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.stopPropagation()
+                      event.preventDefault()
+                      if (!secondary.disabled && !secondary.busy) onSecondary(secondary.action)
+                    }
+                  }}
                 >
-                  <span className="size-3 rounded-full bg-white" />
-                </span>
-              </MenuItem>
+                  <ToggleIndicator on={secondary.checked} busy={secondary.busy} />
+                </MenuItem>
+              )}
             </div>
           )
         }

@@ -60,7 +60,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | [shared/ui/Avatar.tsx](../../../app/src/renderer/src/shared/ui/Avatar.tsx) — `Avatar` | kind별 사용자·Claude·OpenCode 표식의 크기·모서리·글리프를 해당 primitive에 맡긴다. |
 | [shared/ui/BayerPattern.tsx](../../../app/src/renderer/src/shared/ui/BayerPattern.tsx) — `BayerPattern` | 센서 이미지 표시용 stage 배경·그리드·표적. 일반 카드 장식으로 사용하지 않는다. |
 | [shared/ui/Button.tsx](../../../app/src/renderer/src/shared/ui/Button.tsx) — `Button` | variant·size·busy·pressed·dropdown props 사용. primary=중립 반전, danger=rust; 배경 span·isolate 유지. |
-| [shared/ui/CascadeMenu.tsx](../../../app/src/renderer/src/shared/ui/CascadeMenu.tsx) — `CascadeMenu`, `CascadeBody` | MenuItem 표면·계단식 submenu·키보드·초점·viewport 배치를 재사용한다. disabled submenu는 회색이며 확장하지 않는다. 선택적 status 공은 제목 왼쪽에 표시하고 제어 가능하면 독립된 클릭/Enter/Space 버튼이 된다. 처리 중에는 해당 공만 spinner·중복 입력 방지를 적용한다. status·secondary 제어는 주 액션의 sibling 버튼으로 렌더한다. |
+| [shared/ui/CascadeMenu.tsx](../../../app/src/renderer/src/shared/ui/CascadeMenu.tsx) — `CascadeMenu`, `CascadeBody` | MenuItem 표면·계단식 submenu·키보드·초점·viewport 배치를 재사용한다. disabled submenu는 회색이며 확장하지 않는다. 선택적 status 공은 제목 왼쪽의 수동 상태 표시다. 오른쪽 secondary는 주 액션과 독립된 클릭/Enter/Space 스위치이며 처리 중에는 원형 손잡이 내부 spinner와 해당 제어의 중복 입력 방지를 적용한다. 다른 항목은 계속 사용한다. |
 | [shared/ui/CatalogListRow.tsx](../../../app/src/renderer/src/shared/ui/CatalogListRow.tsx) — `CatalogListRow` | 아이콘→제목·메타→행 동작 위계. 선택/hover를 구별하고 제목과 동작 버튼을 중첩하지 않는다. |
 | [shared/ui/CatalogSearch.tsx](../../../app/src/renderer/src/shared/ui/CatalogSearch.tsx) — `CatalogSearch` | 검색 열기·입력·닫기·초점 복귀를 공통 형태로 유지한다. |
 | [shared/ui/CatalogTabs.tsx](../../../app/src/renderer/src/shared/ui/CatalogTabs.tsx) — `CatalogTabs` | 선택 탭 표면·방향키·Home/End·ARIA 연결을 유지한다. |
@@ -84,8 +84,8 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | [shared/ui/ResizableSidePane.tsx](../../../app/src/renderer/src/shared/ui/ResizableSidePane.tsx) — `ResizableSidePane` | pane 단위 폭·확대·복원·키보드/포인터 리사이즈와 iframe 경계 처리를 재사용한다. |
 | [shared/ui/SidebarSection.tsx](../../../app/src/renderer/src/shared/ui/SidebarSection.tsx) — `CollapsibleSection` | 구획 제목·우측 동작·접힘·본문 여백을 sidebar 패턴으로 통일한다. |
 | [shared/ui/SparkSpinner.tsx](../../../app/src/renderer/src/shared/ui/SparkSpinner.tsx) — `SparkSpinner` | 원본 artwork·spinner 고정색·진행 애니메이션을 사용하고 테마별 재색칠하지 않는다. |
-| [shared/ui/Status.tsx](../../../app/src/renderer/src/shared/ui/Status.tsx) — `Dot`, `StatusBall`, `Status` | 의미 tone에 accessible label·tooltip을 함께 둔다. StatusBall의 busy는 같은 공 내부 spinner이며 축소 모션에서는 회전을 멈춘다. |
-| [shared/ui/Toggle.tsx](../../../app/src/renderer/src/shared/ui/Toggle.tsx) — `Toggle` | on·label API 사용. switch ARIA·선택 blue·off border-strong 유지. |
+| [shared/ui/Status.tsx](../../../app/src/renderer/src/shared/ui/Status.tsx) — `Dot`, `Status` | 의미 tone에 visible/accessibility label·tooltip을 함께 둔다. 연결 상태 공은 수동 표시이며 활성 스위치와 구분한다. |
+| [shared/ui/Toggle.tsx](../../../app/src/renderer/src/shared/ui/Toggle.tsx) — `Toggle`, `ToggleIndicator` | Toggle은 on·label API와 switch ARIA를 제공한다. 메뉴의 ToggleIndicator는 선택 blue·off border-strong과 흰색 원형 손잡이를 유지한다. busy spinner는 손잡이 안에 표시하고 축소 모션에서는 회전을 멈춘다. 접근성 이름·checked/busy·중복 입력 방지는 바깥 메뉴 버튼이 맡는다. |
 | [shared/ui/TooltipHost.tsx](../../../app/src/renderer/src/shared/ui/TooltipHost.tsx) — `TooltipHost` | title 기반 tooltip을 루트에서 표시한다. feature별 title host를 추가하지 않는다. |
 | [shared/ui/UsageCircle.tsx](../../../app/src/renderer/src/shared/ui/UsageCircle.tsx) — `UsageCircle` | 사용량 ratio·공통 tone·숫자 피드백을 유지하고 Meter와 다른 임계값을 만들지 않는다. |
 | [shared/ui/markdown/CodeBlock.tsx](../../../app/src/renderer/src/shared/ui/markdown/CodeBlock.tsx) — `CodeBlock` | 코드 header·언어·복사·스크롤·Shiki 테마 유지. hover는 group/codeblock로 격리한다. |
@@ -405,9 +405,9 @@ Provider와 registry는 시각 컴포넌트 선택/수명 책임만 갖는다. �
 | 소스 / 표시 단위 | 적용 규칙 |
 |---|---|
 | [app/NewChatHarnessMenu.tsx](../../../app/src/renderer/src/app/NewChatHarnessMenu.tsx) — `NewChatHarnessMenu` | Popover의 right 배치·nav boundary·gap 0. 같은 로고 칸, 키보드 탐색·취소 시 초점 복귀. |
-| [features/chat/components/NativeResourcesMenu.tsx](../../../app/src/renderer/src/features/chat/components/NativeResourcesMenu.tsx) — `NativeResourcesMenu` | 저장 세션과 첫 전송 전 초안의 설치 목록·폴더 열기를 제공한다. 빈 MCP/플러그인 그룹은 회색 disabled이며 펼치지 않는다. MCP는 공식 브랜드 마크, 플러그인은 플러그 아이콘이다. 제목 왼쪽 공은 연결/활성 초록, 인증/대기 노랑, 비연결/비활성 회색, 실패 빨강이며 accessible label과 tooltip을 제공한다. 상태 부제목·우측 스위치·목록 안내 문구는 표시하지 않는다. 상태·진행 작업은 창의 session/backend 및 실제 provider generation에 귀속하여 nav 이동/재열기/재조회 중에도 유지한다. 종료 이벤트에서 해당 세대만 폐기한다. 공 제어는 항목별 비동기로 실행하며 해당 공 안의 spinner만 표시한다. 플러그인 이름은 설명 툴팁이 있는 폴더 열기 액션이다. 제어 실패는 전역 토스트와 자동 재조회로 처리한다. |
+| [features/chat/components/NativeResourcesMenu.tsx](../../../app/src/renderer/src/features/chat/components/NativeResourcesMenu.tsx) — `NativeResourcesMenu` | 저장 세션과 첫 전송 전 초안의 설치 목록·폴더 열기를 제공한다. 빈 MCP/플러그인 그룹은 회색 disabled이며 펼치지 않는다. MCP는 공식 브랜드 마크, 플러그인은 플러그 아이콘이다. 제목 왼쪽 공은 연결/활성 초록, 인증/대기 노랑, 비연결/비활성 회색, 실패 빨강이며 accessible label과 tooltip을 제공한다. 상태 부제목·목록 안내 문구는 표시하지 않는다. 제어 가능한 항목에는 기존 enable/disable 스위치를 오른쪽에 표시한다. 상태·진행 작업은 창의 session/backend 및 실제 provider generation에 귀속하여 nav 이동/재열기/재조회 중에도 유지한다. 종료 이벤트에서 해당 세대만 폐기한다. 활성 제어는 항목별 비동기로 실행하며 오른쪽 스위치의 원형 손잡이 안에 spinner를 표시한다. 왼쪽 상태 공은 변경하지 않는다. 플러그인 이름은 설명 툴팁이 있는 폴더 열기 액션이다. 제어 실패는 전역 토스트와 자동 재조회로 처리한다. |
 | [features/chat/harnesses/claude/Logo.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/Logo.tsx) — `ClaudeLogo` | 공식 Claude 마크, currentColor. 메뉴·히어로는 spinner 토큰. |
 | [features/chat/harnesses/opencode/Logo.tsx](../../../app/src/renderer/src/features/chat/harnesses/opencode/Logo.tsx) — `OpenCodeLogo` | 공식 OpenCode 마크, currentColor와 ink 토큰. 원본 비율을 유지한다. |
 | [features/chat/harnesses/registries/brand.tsx](../../../app/src/renderer/src/features/chat/harnesses/registries/brand.tsx) — `HarnessLogo` | 하네스별 마크 조립만 소유하며 기존 랜딩 presentation을 바꾸지 않는다. |
 
-`Popover`의 `boundaryRef`는 right 배치의 가로 경계만 바꾼다. 세로 기준은 trigger이며 창·nav 리사이즈에 다시 측정한다. `CascadeBody`의 status는 왼쪽 상태 공과 독립 제어를 렌더한다. native 목록은 checked/description을 사용하지 않는다. 해당 항목의 진행 중 중복 입력만 막고, 지원되지 않는 MCP 제어는 disabled로 표시한다. 플러그인 폴더 열기는 일반 액션이다.
+`Popover`의 `boundaryRef`는 right 배치의 가로 경계만 바꾼다. 세로 기준은 trigger이며 창·nav 리사이즈에 다시 측정한다. `CascadeBody`의 status는 왼쪽 연결 상태 공, secondary는 오른쪽 활성 스위치를 렌더한다. native 목록은 primary checked/description을 사용하지 않는다. 해당 항목의 진행 중 중복 입력만 막고, 지원되지 않는 MCP 제어는 disabled로 표시한다. 플러그인 폴더 열기는 일반 액션이다.

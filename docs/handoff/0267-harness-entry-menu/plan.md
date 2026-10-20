@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | READY / r1.8 |
+| 상태 / 라운드 | IMPL_DONE / r1.8 |
 | V mode / 기준 V / 유효 V | Delta V / r1.5 (`1f7ca1e4`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9+ΔV10 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
@@ -1219,3 +1219,54 @@ VP28·31 REQUIRED, VP29·30 및 VP16~17·19~27 관련 UI 경로는 REGRESSION이
 직접 oracle은 nativeResourcesMenu 실제 DOM에서 status 표시와 스위치 위치·원형 손잡이 안 spinner·타 항목 활성, useNativeResources 실제 메뉴 클릭/Enter/Space와 독립 folder API·pending 상태, Chromium 두 테마·좁은 화면·축소 모션이다. Status의 Dot을 연결 표시로 재사용하고 Cascade의 기존 secondary 스위치 표면에 busy spinner를 합친다. 상태 store·IPC·SDK·파일 설정은 변경하지 않는다.
 
 운영 gate는 관련 renderer 테스트·lint·web/test 타입·production build·boundary·문서 inventory/catalog 및 실제 브라우저다. main/CLI의 비영향 증거는 r1.7을 승계한다. D35↔AC32/33 정합, READY.
+
+## [구현자 기입] r1.8 설계 리뷰
+
+SELF_PASS. 사용자 정정 D35에 따라 오른쪽 enable/disable 스위치를 복원하고, 왼쪽 공은 수동 연결 상태 표시로 분리했다. spinner는 스위치 원형 손잡이 안에서만 렌더한다. AC32/33의 기존 해석을 ΔV10으로 먼저 정정했으며 새 AC나 PLAN_GAP은 없다.
+
+## [구현자 기입] r1.8 강제 지점 전수와 V-pair 자기확인
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 자리별 oracle 좌표 | 운반 항·관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP28·31 | 상태·제어·spinner 표시 | EP25 ②③ | 2/2 | nativeResourcesMenu.test: shows progress inside only…; Chromium placement | 왼쪽 role=img·오른쪽 checkbox 분리, thumb>spinner 1, 상태 공 spinner0, 다른 항목 enabled | 없음 |
+| VP28·31 | 메뉴 비동기 입력 운반 | EP25 ⑧ | 1/1 | useNativeResources.test 실제 NativeResourcesMenu·titlebar·Chromium | pending→secondary.busy→thumb spinner. 클릭/Enter/Space·folder·toast 회귀 | 없음 |
+| VP29·30 | 수명/항목 작업 | EP25 ④⑤⑥ | 3/3 | hook21케이스 전부 재실행 | 두 소비자·A/B/A·종료·이전 세대 지각 응답 회귀 | 없음 |
+| VP28~31 | empty·main generation | EP25 ①⑦ | 2/2 | reducer/flow 및 Chromium 빈 그룹; r1.7 handler·SessionRuntime 관측 승계 | 빈 그룹 확장0. main/SDK는 변경 없음 | 없음 |
+
+검색 `rg -n 'status|secondary|ToggleIndicator|data-toggle-thumb|data-toggle-spinner' app/src/renderer/src/{shared/ui,features/chat/lib/nativeResourcesMenu.ts}`에서 native projection→Cascade→ToggleIndicator의 실제 렌더 경로를 대조했다. generic checked 표면도 같은 indicator를 쓰며 disabled/checked 키보드 경로는 기존 Cascade 검사를 통과했다. 변경 자리는 ②③⑧이며 미변경 ①④⑤⑥⑦을 포함한 EP25 분모8을 유지한다. VP28·31 REQUIRED 및 관련 UI REGRESSION은 SELF_PASS, 비영향 main/CLI·M3는 r1.7 증거 승계다.
+
+## [구현자 기입] r1.8 이번 라운드 수정의 잠금
+
+| 선택 증거 | 실제 변경 | 관측 | 복원 |
+|---|---|---|---|
+| M2 | MCP/plugin content 맞바꿈 | nativeResourcesMenu 10failed/11 | 원본 바이트 복원 뒤11/11 |
+
+검산: 변경 경로의 선택 증거1 · 인용 변이0 · 새 구조/배선 proxy oracle0 = 잠금1행. spinner 위치·상태와 제어의 분리·동시 요청은 실제 DOM/입력 결과를 보는 직접 oracle이며 추가 변이 없음. 비영향 M1/M3는 기존 기록 승계다.
+
+## [구현자 기입] r1.8 Product/UX 파생 검토
+
+SELF_PASS. 기존 파란 스위치/회색 off track과 흰색 손잡이를 유지했다. 요청 중 손잡이 안 spinner만 표시하고 왼쪽 상태 공·다른 항목을 비활성화하지 않는다. 상태 부제목·목록 안내 제거, plugin 이름의 폴더 액션, 접근성 label·checked/busy와 축소 모션을 유지했다. 두 테마·640px에서 겹침/가로 overflow 없음.
+
+## [구현자 기입] r1.8 놓친 잠재 문제 + 대응
+
+| 문제 | 대응 / 관측 |
+|---|---|
+| 기존 status 분기가 secondary보다 먼저 반환해 스위치 누락 | 한 행에서 status·주 액션·secondary를 함께 렌더. DOM 형제 순서·Chromium 위치 단언 |
+| spinner가 손잡이 밖으로 그려짐 | ToggleIndicator가 track/손잡이/spinner를 소유. thumb>spinner와 실제 bounding rect 포함 확인 |
+| pending 중 제어 회색 처리로 spinner 흐려짐 | busy 제어만 중복 입력 차단하고 opacity 유지. 다른 항목 enabled·독립 requests=2 관측 |
+
+## [구현자 기입] r1.8 구현 보고
+
+[검증 관측](evidence/validation.md)의 r1.8 결과로 자기확인했다. 관련9파일90/90, 타입3종 진단0, lint 오류0/기존 경고4, production build·boundary8/8·문서 검사가 통과했다. 공 표시에는 기존 Dot, 스위치에는 Toggle 파일의 ToggleIndicator를 사용하고 컴포넌트 카탈로그·fixture 안내를 갱신했다.
+
+| AC | 자기보고 / 관측 |
+|---|---|
+| AC1~31 | ✅ 위 r1.7 AC별 관측을 승계. 관련 titlebar/Composer/empty/native hook 경로는 이번9파일90케이스와 브라우저로 재확인 |
+| AC32 | ✅ 오른쪽 활성 스위치 손잡이 안 spinner. 다른 항목 시작·같은 항목 중복 차단·오류 토스트/자동 조회 회귀 |
+| AC33 | ✅ 왼쪽 role=img 상태 공·오른쪽 활성 스위치·부제목 없음. DOM 순서/색/label/tooltip·Space·축소 모션 확인 |
+
+검산: ✅33 · ⚠️0 · ❌0 = 현재 AC33. AC32/33은 D35의 정정 계약이며 분모 변화는 없다. plan 메타 IMPL_DONE/r1.8, INDEX impl/IMPL_DONE·Claude·r1.8 검증자 기입을 재확인한다. 독립 verify는 대기다.
+
+## [구현자 기입] r1.8 Review Signals
+
+r1.8은 사용자 의도 정정 턴이다. 기존 버튼/손잡이와 새 연결 상태 공을 하나의 제어로 합친 해석이 원인이었으며 두 역할을 분리했다. 기존 수명·SDK 정책은 유지했고 환경으로 인한 gate 차단은 없었다.

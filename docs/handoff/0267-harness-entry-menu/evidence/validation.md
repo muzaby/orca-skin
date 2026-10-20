@@ -247,3 +247,20 @@ r1.6 최종 추가 검사: 실제 Composer.native-menu/attachMenu.flow/composerA
 | 회귀 | 초안 설치 목록/폴더 열기, 저장 세션 Space 제어, 폴더 이름 클릭, reject→전역 토스트. exceptions=[]. |
 
 공식 MCP 경로 원본은 [modelcontextprotocol/favicon.svg](https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/main/docs/favicon.svg)다. 배경 사각형을 제외한 원본 path를 currentColor stroke로 렌더했다. Windows OS 프로세스를 실기로 종료하는 검증은 하지 않았으며, 실제 SessionRuntime 채널 종료 이벤트와 renderer의 같은 이벤트 입력을 각각 테스트했다.
+
+## r1.8 — 기존 스위치 손잡이 안 spinner 정정
+
+2026-10-20. 사용자가 지정한 트리거는 기존 enable/disable 스위치였으므로 왼쪽 상태 공을 제어로 바꾼 해석을 정정했다. 아래는 구현자 자기확인이다.
+
+| 검사 | 관측 |
+|---|---|
+| 관련 renderer Vitest | CascadeMenu/reducer·native hook/projection·실제 titlebar·Composer/attach 메뉴: 9파일90/90(`work/tests-r18.log`). |
+| 타입 | `npm run typecheck`: node/web/test 모두 exit0(`work/typecheck-r18.log`). |
+| lint/build | eslint 오류0·기존 경고4. main/preload/renderer production build 성공(`work/lint-r18.log`, `work/build-r18.log`). |
+| 경계/문서 | boundary 8/8, inventory/generated/prose/links 통과. catalog 양방향 차집합[]·기존 음성 대조 통과. |
+| 선택 변이 | M2 MCP/plugin content 맞바꿈→10failed/11, 원본 바이트 복원→11/11. M3는 비영향 r1.7 관측 승계. |
+| 비영향 수명/SDK | window store·IPC·SDK·설정 쓰기는 변경하지 않았다. hook의21케이스 수명/동시 작업을 재실행했고 main/CLI는 r1.7 증거를 승계했다. |
+
+브라우저는 실제 fixture React/메모리 IPC를 사용했다. white/dark 1280×800·dark 640×800에서 왼쪽 수동 상태 표시→제목→오른쪽 스위치 순서를 확인했다. primaryWidth=131.125, nestedButtons=false, horizontalOverflow=false. 수동 pending 응답 중 spinner의 bounding rect가 흰색 원형 손잡이 안에 포함됐으며 `stateIsPassive=true`, `stateHasSpinner=false`, `leftStatusThenTitleThenSwitch=true`, `spinnerInsideThumb=true`였다.
+
+동일 항목 중복은 차단하고 다른 항목 요청은 시작했다(requests=2). A→B→A의 pending/완료 결과 보존·빈 그룹 opacity0.5/확장0·초안 폴더·저장 세션 Space 제어·전역 실패 토스트를 다시 확인했다. reduced-motion의 spinner animationName=none, 런타임 exceptions=[]다. 관측 로그는 `work/ui-{verify,state}-r18.log`, 화면은 `work/native-menu-r18-*.png`다.
