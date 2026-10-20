@@ -930,3 +930,15 @@ EP22 고정 8자리: ①registry scope와 설치 경로 선택 ②configured rea
 기술: 설치 후보 전체와 실행용 우선 설치 선택을 같은 scope helper로 분리한다. 구성 조회 미지원은 undefined로 보존하고 성공한 inventory에 pluginsAuthoritative를 부여해 live 및 renderer cache의 삭제된 plugin 복원을 막는다. 지원되는 inventory의 폴더는 최신 registry resolver를 사용한다. 기존 DTO에 선택 필드만 더하며 경로는 계속 main 내부에 둔다.
 
 운영 gate는 lint·typecheck 3종·관련 비DB Vitest·build·harness boundary·inventory·카탈로그다. 신규 적대 증거 not selected: 직접 행동 oracle. 상속 M2/M3는 다시 실행한다. D26~29↔AC24~27 및 상속 활성 설정/폴더 액션 대조: 충돌 0. 사용자 마지막 예시는 외부 CLI/settings 변경의 반영으로 해석하며 추가 메뉴 동작 여부는 비동기 확인 중이다.
+
+### ΔV8 사용자 답변 — 세션 플러그인 활성 제어
+
+사용자: “native plugin을 켜고 끄는 (설치/삭제) 방법을 설명한 것이다. 실제 어떻게 구현할지는 너의 재량이며, settings.json을 파일시스템이 아닌 런타임에서 관리할 수 있다면(claude-agent-sdk가 이를 지원한다면) 그렇게 하도록 하라”. SDK의 applyFlagSettings/reloadPlugins와 실제 CLI를 확인했다. local plugin root는 `name@inline` 키로 껐다 켤 수 있고, 원래 marketplace key로는 local root가 꺼지지 않았다.
+
+D-30 ACTIVE: 플러그인 이름 클릭은 installPath 폴더를 연다. 실행 중 Claude에서 지원되는 설치에는 별도 세션 활성 제어를 제공하며 applyFlagSettings→reloadPlugins로만 바꾼다. 실제 설치/삭제·설정 파일 쓰기는 하지 않는다. D-20의 토글 금지를 이 제어에 한해 대체한다. 실행 채널 부재/미지원일 때 폴더 열기는 유지하고 활성 제어는 제공하지 않는다.
+
+AC28: 최초 spawn에 범위 내 설치 roots와 초기 비활성 inline flag를 함께 전달해 비활성 plugin의 실행을 막는다. 독립된 제어 클릭은 folder를 열지 않고 해당 plugin만 껐다 켜며 SDK reload 반환의 실제 plugin/commands를 사용한다. sibling flag·Orca 주입 스킬·generation fence와 실패 토스트/재조회는 유지한다. 실제 CLI probe 및 adapter.native-plugins/native-resources/menu/hook 테스트가 직접 oracle이다.
+
+EP23 고정 5자리 추가: ①catalog 전체 설치 roots/skills·초기 inline flag ②adapter spawn 옵션·native 제어 전달 ③native resources의 applyFlagSettings/reloadPlugins·상태 관측 ④메뉴의 폴더/별도 제어 액션 분리 ⑤공유 CascadeBody의 두 독립 클릭 및 키보드 활성 경로. 검색: `rg -n 'readClaudePluginCatalog|claudeNativeResources|applyFlagSettings|reloadPlugins|secondary|nativeResourcesMenu' app/src`의 생산 경로를 대조한다. ①②adapter.native-plugins 옵션 ③native-resources 실제 Query 제어 인자·반환과 CLI probe ④⑤실제 NativeResourcesMenu/CascadeBody 클릭 및 Enter/Space·폴더 호출 구별이 oracle이다.
+
+VP24~27 REQUIRED는 EP22 8자리+EP23 5자리로 검증한다. 실패는 SDK 상태를 재조회하며 낙관적으로 성공 표시하지 않는다. 이 제어의 범위는 현재 실행 채널이며 새 spawn은 최신 native 활성 설정을 따른다. 설정 파일에서 native 상태를 바꾸는 예시는 그대로 지원한다. 사용자 답변으로 미결 해소, ACTIVE D30↔AC28 대조 충돌 0, READY.
