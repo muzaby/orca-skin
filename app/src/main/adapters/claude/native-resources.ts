@@ -12,7 +12,8 @@ export function claudeNativeResources(
   injectedRoots: readonly string[] = [],
   injectedServers: readonly string[] = [],
   installations: readonly { key: string; name: string; path: string; enabled: boolean }[] = [],
-  initialFlags: Record<string, boolean> = {}
+  initialFlags: Record<string, boolean> = {},
+  persistPluginState?: (key: string, enabled: boolean) => void
 ): {
   observePlugins(plugins: readonly { name: string; path: string }[]): void
   observeCommands(names: readonly string[]): void
@@ -152,12 +153,16 @@ export function claudeNativeResources(
             .map((command) => command.name)
           if (result.plugins.some((item) => nativePluginId(item.path) === id) !== enabled)
             throw new Error('플러그인 활성 상태를 변경하지 못했습니다.')
+          persistPluginState?.(plugin.key, enabled)
           flags = next
         } catch (error) {
           try {
             await query.applyFlagSettings({ enabledPlugins: previous })
             const restored = await query.reloadPlugins()
             observePlugins(restored.plugins)
+            commandNames = restored.commands
+              .filter((command) => !command.builtin)
+              .map((command) => command.name)
           } catch {
             // The subsequent menu refresh reports the actual state; never claim success.
           }

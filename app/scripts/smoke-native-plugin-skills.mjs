@@ -16,7 +16,7 @@ const write = async (path, value) => {
   await mkdir(dirname(path), { recursive: true })
   await writeFile(path, value)
 }
-await mkdir(cwd, { recursive: true })
+await mkdir(join(cwd, '.git'), { recursive: true })
 if (!process.argv[2]) {
   await write(
     join(plugin, '.claude-plugin/plugin.json'),
@@ -70,7 +70,7 @@ const server = createServer(async (req, res) => {
   brief ||= messages.includes('design-brief-0267')
   requests++
   const message = {
-    id: 'msg_fixture',
+    id: `msg_fixture_${requests}`,
     type: 'message',
     role: 'assistant',
     model: body.model,
@@ -167,7 +167,7 @@ const loader = await createViteServer({
   server: { middlewareMode: true }
 })
 let live
-const deadline = setTimeout(() => live?.close(), 45000)
+const deadline = setTimeout(() => live?.close(), 90000)
 try {
   const { ClaudeAdapter } = await loader.ssrLoadModule('/src/main/adapters/claude/adapter.ts')
   live = new ClaudeAdapter().sendMessage({
@@ -195,8 +195,21 @@ try {
     }
   })
   let native
+  let warmTurn = false
+  let followupStarted = false
+  let nativeSessionId
   for await (const batch of live.eventBatches) {
     if (batch.events.some((event) => event.type === 'turn.ended')) {
+      nativeSessionId = batch.events.find((event) => event.type === 'turn.ended').sessionId
+      if (followupStarted) {
+        native = await live.nativeResources()
+        assert(
+          native.items.find((item) => item.kind === 'plugin').enabled,
+          'plugin must remain enabled after a follow-up turn'
+        )
+        warmTurn = true
+        break
+      }
       native = await live.nativeResources()
       const installed = native.items.find(
         (item) => item.kind === 'plugin' && item.name === 'frontend-design@fixture'
@@ -216,16 +229,53 @@ try {
       assert(
         !disabled.commands.some((command) => command.name === 'frontend-design:frontend-design')
       )
+      // A false source flag must not override the user's newly persisted workspace choice.
+      await write(
+        join(config, 'settings.json'),
+        JSON.stringify({ enabledPlugins: { 'frontend-design@fixture': false } })
+      )
       await setPlugin(true)
       const enabled = await live.nativeResources()
       assert(enabled.items.find((item) => item.id === installed.id).enabled)
       assert(enabled.commands.some((command) => command.name === 'frontend-design:frontend-design'))
-      break
+      assert.equal(
+        JSON.parse(await readFile(join(cwd, '.claude/settings.local.json'), 'utf8')).enabledPlugins[
+          'frontend-design@fixture'
+        ],
+        true
+      )
+      followupStarted = true
+      await live.pushTurn({ text: 'Continue the same session.', effort: 'low' })
     }
     for (const event of batch.events) {
       if (event.type.includes('error') || event.type.includes('failed')) console.log(event)
     }
   }
+  assert(warmTurn, 'CLI must complete the follow-up turn')
+  live = new ClaudeAdapter().sendMessage({
+    sessionId: nativeSessionId,
+    text: 'Verify the saved plugin selection after process restart.',
+    cwd,
+    env,
+    model: 'claude-sonnet-4-6',
+    extensions: { skills: [], hooks: { normalized: {} } }
+  })
+  let restartEnabled = false
+  for await (const batch of live.eventBatches) {
+    if (batch.events.some((event) => event.type === 'turn.ended')) {
+      const restored = await live.nativeResources()
+      assert(
+        restored.items.find((item) => item.kind === 'plugin').enabled,
+        'a fresh CLI process must restore the enabled plugin'
+      )
+      assert(
+        restored.commands.some((command) => command.name === 'frontend-design:frontend-design')
+      )
+      restartEnabled = true
+      break
+    }
+  }
+  assert(restartEnabled, 'fresh CLI process must complete a turn')
   assert(native, 'CLI must complete a turn')
   assert(native.commands.some((command) => command.name === 'frontend-design:frontend-design'))
   assert(
@@ -248,14 +298,16 @@ try {
   assert(expanded, 'CLI must expand the plugin skill into the model request')
   assert(brief, 'CLI must preserve the supplied skill arguments')
   const settings = JSON.parse(await readFile(join(config, 'settings.json'), 'utf8'))
-  assert.equal(settings.enabledPlugins['frontend-design@fixture'], true)
+  assert.equal(settings.enabledPlugins['frontend-design@fixture'], false)
   console.log(
     JSON.stringify({
       commands: native.commands.map((command) => command.name),
       expanded,
       brief,
       requests,
-      runtimeToggle: true
+      runtimeToggle: true,
+      warmTurn,
+      restartEnabled
     })
   )
 } finally {

@@ -72,7 +72,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | [shared/ui/Histogram.tsx](../../../app/src/renderer/src/shared/ui/Histogram.tsx) — `Histogram` | stage 배경 위 RGB 채널 분포. 현재 생성 샘플을 실제 센서 데이터처럼 설명하지 않는다. |
 | [shared/ui/Icon.tsx](../../../app/src/renderer/src/shared/ui/Icon.tsx) — `Icon` | 등록된 SVG·currentColor·size API를 사용하고 임의 아이콘 세트를 추가하지 않는다. |
 | [shared/ui/KebabButton.tsx](../../../app/src/renderer/src/shared/ui/KebabButton.tsx) — `KebabButton` | 행·카드의 보조 메뉴 진입점. 번역된 tooltip·접근성 이름과 메뉴 anchor를 유지한다. |
-| [shared/ui/MenuItem.tsx](../../../app/src/renderer/src/shared/ui/MenuItem.tsx) — `MenuItem`, `MenuTitle` | MenuItem·MenuTitle로 메뉴 행·설명·섹션 위계를 공유한다. MenuTitle의 leading 슬롯에 출처 브랜드 로고를 넣으며 제목은 선택 대상이 아니다. 파괴적 항목은 danger. |
+| [shared/ui/MenuItem.tsx](../../../app/src/renderer/src/shared/ui/MenuItem.tsx) — `MenuItem`, `MenuTitle` | MenuItem·MenuTitle로 메뉴 행·설명·섹션 위계를 공유한다. MenuTitle의 leading 슬롯에 출처 브랜드 로고를 넣으며 제목은 선택 대상이 아니다. 파괴적 항목은 danger. disabled에서도 일반 커서(cursor-default)를 유지하며 회색 표시와 입력 차단을 적용한다. |
 | [shared/ui/Meter.tsx](../../../app/src/renderer/src/shared/ui/Meter.tsx) — `Meter` | ratio·tone API와 공통 의미색을 사용한다. 수치와 함께 표시한다. |
 | [shared/ui/Modal.tsx](../../../app/src/renderer/src/shared/ui/Modal.tsx) — `MODAL_BACKDROP_CLASS`, `Modal`, `MODAL_LABEL`, `MODAL_INPUT`, `ModalActions` | Modal·ModalActions·MODAL_LABEL·MODAL_INPUT 재사용. busy 닫기 정책·크롬리스 ariaLabel 확인. |
 | [shared/ui/OrcaLogo.tsx](../../../app/src/renderer/src/shared/ui/OrcaLogo.tsx) — `OrcaLogo` | 승인된 Orca artwork의 비율·색 경계를 보존한다. 새 whale 그림으로 교체하지 않는다. |

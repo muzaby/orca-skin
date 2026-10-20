@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | READY / r1.11 |
+| 상태 / 라운드 | IMPL_DONE / r1.11 |
 | V mode / 기준 V / 유효 V | Delta V / r1.9 (`64beff7e`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9+ΔV10+ΔV11+ΔV12+ΔV13 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
@@ -1537,3 +1537,103 @@ AC44: 케밥 빈 그룹/읽기 전용 메뉴/진행 중 제어의 computed curso
 VP40~43 NEW REQUIRED. EP28 고정7자리: ①SDK plugin 변경 성공/실패/복구 ②adapter→project 상태 저장 배선 ③엄격 JSON 읽기·원자 저장·기존 필드 보존 ④catalog local 우선순위→초기 inline flag/skills/후속 spawn ⑤현재/재개 native 상태·명령 재조회 ⑥MenuItem disabled 표면·Cascade 입력 ⑦실제 케밥 클릭/진행/재열기. 검색 `rg -n 'enabledPlugins|claudeNativeResources|readClaudePluginCatalog|setNativeResource|cursor-not-allowed' app/src/{main/adapters/claude,main/app/handlers/session-resources.ts,renderer/src/shared/ui,renderer/src/features/chat}`의 생산 경로를 대조한다.
 
 직접 oracle은 실제 임시 설정 파일→adapter Query 옵션·runtime setter→새 spawn, native-resources의 SDK/저장 실패 복구, 실제 bundled CLI의 후속 턴/새 채널, Chromium disabled/pending 커서다. M2/M3는 이번 비영향 projection을 변경하지 않으므로 r1.10 기록을 승계하며 신규 선택 변이는 없다. 관련 main/renderer 테스트·lint·타입3종·build·boundary·문서 검사를 수행한다. 새 의존성/DB/설치·삭제 동작은 추가하지 않는다. 누적 AC44, READY.
+
+
+## [구현자 기입] r1.11 설계 리뷰
+
+- 동의 / 그대로 진행: D46·47을 구현했다. SDK의 applyFlagSettings는 실행 수명만 유지하고 writeSettings 타입은 enabledPlugins를 허용하지 않아 프로젝트 local 파일에 선택을 저장한다.
+- 이견 / 현실성 문제: 없음. 현재 실행의 성공을 확인한 뒤 파일을 저장하며 실패하면 직전 플래그와 명령 관측으로 복구한다. 전역 파일은 변경하지 않는다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. D46이 D30의 runtime-only 부분을 대체한다. PLAN_GAP 없음.
+
+## [구현자 기입] r1.11 강제 지점 전수 (§10 대조)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP40·41 | 실제 SDK 변경·복구 | EP28 ① | 1/1 | native-resources.test: commits a plugin choice only after verified reload…; smoke-native-plugin-skills.mjs | SDK 활성 확인 후 원래 key/true 전달. 저장 실패는 inline=false와 commands=[] 복원. SDK 실패는 저장 호출 증가 없음 | 프로세스 강제 종료 순간의 SDK/파일 동시 원자성은 없음 |
+| VP40·42 | 프로젝트 선택 저장 배선 | EP28 ② | 1/1 | adapter.native-plugins.test: persists both plugin states… | 실제 adapter setter의 cwd→프로젝트 파일. sibling=true·permissions 유지, 원래 marketplace key 저장 | 없음 |
+| VP41·42 | 안전한 설정 파일 갱신 | EP28 ③ | 1/1 | plugin-state.test의 두 실제 파일 검사 | 자식 cwd→프로젝트 root, true/false 병합, 기존 키·0600 유지. 손상 JSON/배열은 원문 보존 후 실패 | 외부 프로세스와 동시에 같은 파일을 편집하는 경쟁은 잠그지 않음 |
+| VP40·42 | local 우선·후속 spawn | EP28 ④ | 1/1 | adapter.native-plugins.test: persists both plugin states…; 실제 CLI smoke | provider=false/local=true→inline=true, provider=true/local=false→inline=false. 새 adapter·콜드 resume 모두 확인 | 없음 |
+| VP40 | 다음 턴/새 채널 관측 | EP28 ⑤ | 1/1 | smoke-native-plugin-skills.mjs; useNativeResources.test의 failed control·세대 검사 | 실제 CLI turn 3회, warmTurn=true·restartEnabled=true. 재개 후 plugin enabled와 native 명령 관측 | 설치된 Windows 앱의 재시작 GUI는 미실기 |
+| VP43 | disabled 표면·입력 | EP28 ⑥ | 1/1 | CascadeMenu.test; Chromium 실제 MenuItem computed style | 빈 그룹 disabled=true/opacity=.5/cursor=default. 클릭·키보드 확장 없음 | 없음 |
+| VP43 | 실제 케밥 pending·재열기 | EP28 ⑦ | 1/1 | harness-entry Chromium fixture의 실제 ChatTitleBar→CascadeBody | pending·read-only cursor=default. 중복 요청 억제, 다른 항목 사용·A→B→A 완료 상태 유지, 예외=[] | IPC는 메모리 대역 |
+
+EP28 합계 7/7. ΔV13 검색을 production에서 재실행했다. 저장·catalog·adapter·IPC·renderer 제어 운반을 ①~⑤, MenuItem/Cascade/케밥을 ⑥⑦에 매핑했다. 검색 출력에서 popup 밖 Button/ComposerChip/작업 패널의 금지 커서는 비대상으로 분류했다. 설정 reader는 ④에 속하며 새 계약 운반 자리와 고정 목록의 차집합은 []다.
+
+- §10 자리 목록 밖에서 본 운반 자리: 없음. 새 plugin-state 저장소는 ③에 속한다.
+- 직전 verify 고장 이력의 못 잡음 행: 없음. 사용자 지적의 턴/재시작은 실제 CLI로 재현 경로를 만들었다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP40~42 | REQUIRED | SELF_PASS | adapter.native-plugins / plugin-state / native-resources tests와 실제 bundled CLI | not selected — 실제 파일·서로 반대인 provider/local flag·새 실행 결과를 직접 관측 |
+| VP43 | REQUIRED | SELF_PASS | CascadeMenu.test와 실제 Chromium fixture | not selected — computed style·입력·spinner 직접 관측 |
+| 기존 변경 관련 native 제어·scope·generation·메뉴 | REGRESSION | SELF_PASS | configured-resources / plugin-catalog / session-resources / useNativeResources / CascadeMenu tests | projection M2/M3는 비영향이며 r1.10의 red/복원 green 증거 승계 |
+| 비영향 catalog·브랜드·배포·nav 부팅 | NOT_REQUIRED | 이전 r1.10 관측 승계 | r1.10 전수표와 validation | 이번 턴 코드 변경 없음 |
+
+## [구현자 기입] r1.11 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| 해당 없음 | ΔV13 직접 oracle | 최초 | 실제 설정 파일·새 CLI·실제 DOM 결과 | 해당 없음 — 직접 oracle |
+
+- 분모 검산: 선택 증거0 · 인용 변이0 · 새 구조/배선 proxy oracle0 = 잠금 의무0행. 위 행은 해당 없음 표기다.
+- 덮개 회귀: M2/M3 장치는 변경하지 않았다. 이번 비영향 projection의 실행은 ΔV13에 따라 r1.10 기록을 승계한다. 새로운 red/green을 주장하지 않는다.
+
+## [구현자 기입] r1.11 Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 저장 오류는 setter reject→기존 control-failed 토스트 | useNativeResources.test의 실패 토스트·재조회 회귀 통과 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 | 저장 callback만 추가 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | ΔV13 AC43의 SDK/저장 실패 복구 | 손상 설정 원문 보존과 SDK 상태/명령 복구 검사 |
+| 실패가 화면에서 아무 일도 안 일어남으로 보이지 않는가 | 처리 중 스위치 내부 spinner, 실패 토스트와 실제 상태 재조회 | 관련 hook·Chromium 직접 관측 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 기존 generation/epoch fence 보존 | hook의 종료·실패·nav 이동 회귀, Chromium pending 이동 확인 |
+
+## [구현자 기입] r1.11 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | SDK 반영 성공 후 설정 저장 실패 | ✅ 선조치: 이전 플래그로 reload하고 명령 관측도 복원 | native-resources.test의 save failed / SDK failed |
+| 2 | 설정 파일 손상 시 기존 값을 덮어쓸 위험 | ✅ 선조치: 엄격 JSON 검사와 원자 rename, 나머지 설정 보존 | plugin-state.test: 원문 bytes·sibling·권한 검사 |
+| 3 | 오래된 provider 기본값이 새 선택을 덮음 | ✅ 선조치: native plugin local 선택만 마지막 병합 | adapter test의 서로 반대인 provider/local 조합 |
+| 4 | smoke cwd가 상위 실제 저장소를 프로젝트 root로 선택 | ✅ 선조치: fixture에 .git 표식 추가, 테스트가 만든 fixture key 전용 파일 제거 | 격리 후 실제 CLI smoke 성공, 작업 트리에 설정 파일 없음 |
+| 5 | 파일과 SDK를 동시에 원자 변경할 수 없음 | ⚠️ 보고: SDK 적용 뒤 저장 완료 전에 강제 종료되면 이전 저장 선택으로 재시작 | 성공 응답은 두 작업 완료 뒤 반환. 실패 복구가 실패해도 성공으로 표시하지 않음 |
+
+### 설계 대비 명시적 차이
+
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: 없음.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 메커니즘 대체 없음 | AC43·①⑤, 실제 warm/restart |
+| 공유 | 해당 없음 — 계획한 프로젝트 local 저장소 | AC43·③, 같은 프로세스의 동기 read/merge/rename으로 sibling 보존. 외부 편집 경쟁은 위 한계 |
+| 재진입 | 해당 없음 — 계획한 fresh catalog | AC43·④⑤, 새 adapter와 CLI 재개 |
+| 다른 무효화 축 | 해당 없음 — 기존 generation fence 유지 | AC44·⑦, hook/Chromium 회귀 |
+
+## [구현자 기입] r1.11 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | Claude adapter/native-resources/plugin-catalog와 새 plugin-state, 관련 테스트·CLI smoke. MenuItem·IPC/adapter/UI 문서·handoff |
+| 실행 명령 | [validation r1.11](evidence/validation.md)의 관련 Vitest·타입·lint·build·boundary·inventory·catalog·CLI·Chromium |
+| 관측한 게이트 산출 | 관련8파일68/68, 타입3종 진단0, build 성공, lint 오류0/기존경고4, boundary8/8, inventory/links·catalog 차집합[] |
+| V-pair 자기확인 | 신규 SELF_PASS4 / SELF_BLOCKED0. 비영향 증거와 관련 회귀 범위는 위 표로 구분 |
+| 강제 지점 전수 | EP28 7/7 |
+| AC 자기보고(Criteria-Met) | 44/44 — 기존42개는 r1.10 관측 승계, 변경에 닿는 범위는 아래 재실행 좌표로 확인 |
+| 합계 검산 | ✅44 · ⚠️0 · ❌0 = 총44. r1.10의42에서 AC43/44를 추가했으며 과거 설치 GUI 실기 미실행 한계 유지 |
+| 블로커 / 역질문 | 없음. 설치 앱의 Windows 재시작 GUI는 미실기 |
+| 대상 커밋 | (r1.11 구현 — 좌표는 INDEX) |
+
+| AC | 자기보고 / 이번 관측 |
+|---|---|
+| AC1~42 | ✅ r1.10의 번호42개 관측 승계. 이번 변경 관련 scope/제어/명령/generation은 위8파일68케이스와 CLI/Chromium으로 재확인. 비영향 브랜드·catalog·배포는 r1.10 증거 승계 |
+| AC43 | ✅ 파일 merge/거절2케이스, adapter 신규/재개/provider 우선순위, SDK/저장 실패 복구. CLI requests=3, runtimeToggle/warmTurn/restartEnabled=true |
+| AC44 | ✅ 빈 MCP·플러그인 disabled=true/opacity=.5/cursor=default/haspopup=false, readonly·pending cursor=default. 클릭·키보드 확장0, 중복 제어 억제 |
+
+plan 메타와 INDEX를 r1.11 impl/IMPL_DONE·Claude 독립 검증 대기로 맞춘다. 이는 구현자 자기보고다.
+
+## [구현자 기입] r1.11 Review Signals — 사실만
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: runtime 수명 유지와 관련되지만 이번 지적은 설정 선택의 지속 저장이다. 사용자 지시로 이전 미완료 작업을 버리고 원격 r1.10을 기준으로 시작했다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: 이전 runtime-only 계약은 앱 재시작 지속을 보장하지 않았다. D46·AC43으로 저장 원천을 확정했다.
+- 반복해서 부딪히는 환경 한계: 실제 설치된 Windows GUI는 없음. Chromium은 실제 UI/메모리 IPC, CLI는 실제 SDK/로컬 모델 endpoint로 경계를 나눴다. 초기 타입 mock·lint 진단을 고쳤고 smoke root 격리를 보완했다.
+- 현재 라운드·impl 턴: r1.11 / r1.11. 독립 verify 대기.
