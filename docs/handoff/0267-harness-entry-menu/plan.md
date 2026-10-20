@@ -5,8 +5,8 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | IMPL_DONE / r1.11 |
-| V mode / 기준 V / 유효 V | Delta V / r1.9 (`64beff7e`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9+ΔV10+ΔV11+ΔV12+ΔV13 |
+| 상태 / 라운드 | READY / r1.12 |
+| V mode / 기준 V / 유효 V | Delta V / r1.9 (`64beff7e`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9+ΔV10+ΔV11+ΔV12+ΔV13+ΔV14 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
 # Part I — Product & UX Contract
@@ -1637,3 +1637,26 @@ plan 메타와 INDEX를 r1.11 impl/IMPL_DONE·Claude 독립 검증 대기로 맞
 - 그것을 막았어야 할 plan 지침·AC가 있었는가: 이전 runtime-only 계약은 앱 재시작 지속을 보장하지 않았다. D46·AC43으로 저장 원천을 확정했다.
 - 반복해서 부딪히는 환경 한계: 실제 설치된 Windows GUI는 없음. Chromium은 실제 UI/메모리 IPC, CLI는 실제 SDK/로컬 모델 endpoint로 경계를 나눴다. 초기 타입 mock·lint 진단을 고쳤고 smoke root 격리를 보완했다.
 - 현재 라운드·impl 턴: r1.11 / r1.11. 독립 verify 대기.
+
+
+## r1.12 — ΔV14: 같은 프로젝트의 실행 상태·팝업 동기화
+
+READY. 사용자는 같은 프로젝트의 서로 다른 Claude 세션에서 조작할 때 GUI 상태가 공유되지 않는다고 확인했다. 프로젝트 단위 공유는 의도된 동작이다. 세션별 영속 저장으로 바꾸지 않는다.
+
+| 결정 | 상태 | 계약 |
+|---|---|---|
+| D-48 | ACTIVE | 같은 하네스·프로젝트의 실행 중 세션에서 공통으로 제어 가능한 native plugin/MCP 선택을 공유한다. main이 DB project_id로 그룹을 결정하고 project_id가 없으면 하네스가 해석한 프로젝트 root를 사용한다. renderer는 대상 경로/세션 집합을 지정할 수 없다. 다른 프로젝트·하네스·없는 항목·읽기 전용 항목은 제어하지 않는다. |
+| D-49 | ACTIVE | 한 그룹의 변경을 직렬화하고 source와 peer의 실제 generation을 검증한다. 각 CLI에 적용한 실제 조회 결과를 전 창에 통지하여 해당 session cache·열린 popup·다른 세션으로 이동할 때 표시를 갱신한다. 성공을 UI에서 복제해 꾸미지 않는다. peer 실패 시 나머지 대상에도 시도하고 실제 결과를 통지한 뒤 안전한 오류로 부분 실패를 알린다. 늦은 조회/응답과 종료 generation은 최신 관측을 되돌리지 않는다. |
+| D-50 | ACTIVE | D46의 플러그인 프로젝트 설정 저장·다음 spawn 복원은 유지한다. MCP 제어의 기존 영속 정책은 변경하지 않는다. 이번 수정은 실행 중 공유와 GUI 통지이며 새로운 MCP 설정 저장소나 세션별 저장은 추가하지 않는다. |
+
+AC45: 같은 프로젝트의 서로 다른 Claude 세션 A/B에서 plugin과 MCP를 각각 on/off 하면 양쪽 실제 실행 상태·팝업 상태가 같아진다. A→B→A, 닫힌 popup, 다중 창 캐시에서도 유지하고 플러그인은 같은 프로젝트의 새 프로세스도 마지막 선택을 따른다.
+AC46: 다른 프로젝트/backend·missing/read-only·retired generation에는 쓰지 않는다. 그룹 동시 요청은 마지막 순서로 정착하며 peer 실패는 조용한 성공이 되지 않고 실제 상태를 재조회한다. 오래된 IPC 읽기/쓰기 응답은 새 push 상태를 되돌리지 않는다.
+
+### V와 강제 자리
+
+VP44(project 상태 전달)·VP45(GUI 소비)·VP46(격리/실패/경합)·VP47(재시작 유지) NEW REQUIRED. 누적 AC46.
+EP29 고정8자리: ①Supervisor active/idle runtime 열거 ②bootstrap DB project/backend/root 분류 ③IPC 원본 검증과 프로젝트별 직렬화 ④peer generation/공통 항목 검사와 SDK fanout·부분 실패 ⑤각 실제 결과의 push 배선 ⑥preload 구독·renderer 캐시 적용 ⑦늦은 read/write·종료 generation fence ⑧실제 케밥 두 세션 이동/재열기와 새 CLI.
+
+검색: `rg -n 'runtimeEntries|nativeResourceScope|NativeResourceSharing|sessionNativeResourcesChanged|onNativeResourcesChanged|setNativeResource|readSerial' app/src/{main,preload,renderer/src/features/chat,shared} -g '!*.test.*'`.
+직접 oracle: 실제 Supervisor active/idle·bootstrap 등록 callback·IPC 두 runtime과 타 프로젝트·실패·동시 요청·실제 renderer hook의 push/late response·실제 ChatTitleBar Chromium. 실제 SDK/CLI 두 채널과 기존 fresh-process 복원을 확인한다. 신규 mutation은 선택하지 않으며 변경하지 않은 M2/M3 projection은 r1.10 기록 승계.
+게이트: 관련 비DB Vitest·lint·타입3종·build·boundary·inventory/links·UI catalog·실제 CLI/GUI fixture. 새 의존성·DB migration·native 저장 루트 변경 없음. 다른 프로세스에서 실행한 별도 Orca/외부 CLI의 실시간 통지는 범위 밖이다.
