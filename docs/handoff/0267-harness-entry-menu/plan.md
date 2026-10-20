@@ -5,8 +5,8 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | IMPL_DONE / r1.7 |
-| V mode / 기준 V / 유효 V | Delta V / r1.5 (`1f7ca1e4`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9 |
+| 상태 / 라운드 | READY / r1.8 |
+| V mode / 기준 V / 유효 V | Delta V / r1.5 (`1f7ca1e4`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9+ΔV10 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
 # Part I — Product & UX Contract
@@ -1088,7 +1088,7 @@ READY. 사용자 추가 요구는 빈 MCP/플러그인의 회색 비활성 표�
 |---|---|---|
 | D-31 | ACTIVE | 목록이 없는 MCP/플러그인 그룹은 회색·disabled이며 hover/클릭/키보드로 하위 패널을 열지 않는다. 로딩/오류에서 실제 목록이 없을 때도 동일하다. D-26의 빈 확장 패널을 대체한다. |
 | D-32 | ACTIVE | 상태와 진행 작업은 창의 session/backend 및 실제 provider generation에 귀속한다. nav/메뉴 언마운트·재열기·재조회 시작은 연결 상태/활성 상태를 초기화하지 않는다. 프로세스 종료/교체는 현재 generation을 폐기하고 구성 상태로 다시 확인한다. 기존 갱신 중 강제 readOnly 및 unmount 결과 폐기 정책을 이 범위에서 대체한다. |
-| D-33 | ACTIVE | 제목 왼쪽 공은 연결/활성 초록, 인증/대기 노랑, 비연결/설정/설치/비활성 회색, 실패 빨강으로 표시한다. 제어 가능 공은 독립된 비동기 버튼이며 처리 중 공 안에서 spinner를 표시한다. 해당 항목만 중복 입력을 막고 다른 메뉴/항목은 계속 사용한다. 제목 아래 상태 문구와 native 우측 스위치는 제거하며 폴더 이름 클릭은 유지한다. |
+| D-33 | SUPERSEDED | 제목 왼쪽 공은 연결/활성 초록, 인증/대기 노랑, 비연결/설정/설치/비활성 회색, 실패 빨강으로 표시한다. 제어 가능 공은 독립된 비동기 버튼이며 처리 중 공 안에서 spinner를 표시한다. 해당 항목만 중복 입력을 막고 다른 메뉴/항목은 계속 사용한다. 제목 아래 상태 문구와 native 우측 스위치는 제거하며 폴더 이름 클릭은 유지한다. |
 | D-34 | ACTIVE | MCP 그룹 아이콘은 modelcontextprotocol 공식 repo의 SVG 마크를 currentColor로 재사용한다. 플러그인 그룹은 기존 플러그 아이콘을 유지한다. D-20의 동일 아이콘 문장을 대체한다. |
 
 | AC | 관측 기준 / 직접 oracle |
@@ -1203,3 +1203,19 @@ SELF_PASS. 빈 그룹에는 회색 disabled와 확장 화살표 제거를 함께
 - 기존 mount 수명의 readOnly/작업 취소 정책은 이번 프로세스 수명 요구를 만족하지 않아 D32로 명시 대체했다.
 - source에 동시 작업이 도입되며 SDK shallow enabledPlugins 변경의 경쟁을 발견해 runtime 쓰기 직렬화로 닫았다.
 - Windows OS 프로세스 exit 실기 대신 실제 SessionRuntime 종료와 같은 renderer 이벤트를 각각 검증했다. 실행 환경에 의한 gate 차단은 없었다.
+
+## ΔV10 — 기존 enable/disable 스위치 손잡이 내부 spinner (r1.8)
+
+READY. 사용자 정정: “트리거 버튼은 기존의 enable/disable 버튼이다. 버튼 안에 스위치(공모양) 내부에서 spinner 효과를 주라는 의도였다.” r1.7이 왼쪽 연결 상태 공을 제어 버튼으로 바꾼 해석을 정정한다.
+
+| 결정 | 상태 | 계약 / 대체 |
+|---|---|---|
+| D-35 | ACTIVE | 기존 enable/disable 스위치를 오른쪽에 복원한다. 제목 왼쪽 공은 연결 상태의 수동 표시로 유지하며 제어·spinner를 넣지 않는다. 기존 상태 색상·accessible label·tooltip은 승계한다. 비동기 요청 중 spinner는 스위치의 원형 손잡이 안에 표시하고 그 항목의 중복 제어만 막는다. 다른 메뉴·항목·플러그인 이름의 폴더 열기를 유지한다. D-33의 공 제어·우측 스위치 제거·왼쪽 spinner 부분을 대체한다. |
+
+AC32의 spinner 위치 oracle은 “오른쪽 enable/disable 스위치 손잡이 안”으로 정정한다. AC33의 “우측 native 스위치 없음”은 폐기하고 “왼쪽 연결 상태 공과 오른쪽 활성 스위치를 구분하며 상태 부제목은 없음”으로 대체한다. AC29~31·기존 세션 수명·토스트·설치 scope·폴더 열기는 유지한다. 누적 AC는33이다.
+
+VP28·31 REQUIRED, VP29·30 및 VP16~17·19~27 관련 UI 경로는 REGRESSION이다. EP25 고정8자리 중 ②Cascade 표시/스위치 손잡이·입력, ③native projection의 상태/제어 분리, ⑧메뉴 pending→스위치 운반이 변경된다. ①④⑤⑥⑦은 동일 계약 회귀/기존 관측을 승계한다. 새 강제 자리나 선택 변이는 추가하지 않는다. M2는 변경된 projection에서 재실행하고 M3의 비영향 기록은 승계한다.
+
+직접 oracle은 nativeResourcesMenu 실제 DOM에서 status 표시와 스위치 위치·원형 손잡이 안 spinner·타 항목 활성, useNativeResources 실제 메뉴 클릭/Enter/Space와 독립 folder API·pending 상태, Chromium 두 테마·좁은 화면·축소 모션이다. Status의 Dot을 연결 표시로 재사용하고 Cascade의 기존 secondary 스위치 표면에 busy spinner를 합친다. 상태 store·IPC·SDK·파일 설정은 변경하지 않는다.
+
+운영 gate는 관련 renderer 테스트·lint·web/test 타입·production build·boundary·문서 inventory/catalog 및 실제 브라우저다. main/CLI의 비영향 증거는 r1.7을 승계한다. D35↔AC32/33 정합, READY.
