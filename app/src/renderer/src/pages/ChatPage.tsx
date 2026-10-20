@@ -1,3 +1,5 @@
+import { useChatSession } from '../features/chat'
+import { useProjectsState } from '../features/projects'
 import { useNavigate } from 'react-router-dom'
 import { ChatView } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
@@ -8,6 +10,10 @@ import { useSessionActions } from './useSessionActions'
 // page = "어떤 Feature 를 배치할지" 결정 (조립만). 여기서는 ChatView 1개 배치 +
 // BackendContext 의 backendLabel / canAbort 를 props 로 wiring (cross-feature 결정 5번).
 export function ChatPage(): React.JSX.Element {
+  const projectId = useChatSession((s) => s.pendingProjectId ?? s.projectId)
+  const projectName = useProjectsState(
+    (s) => s.list.find((project) => project.id === projectId)?.name ?? null
+  )
   const backendLabel = useBackendLabel()
   const capabilities = useBackendCapabilities()
   // 능력 서술자가 로드됐는데 sessionAbort 가 아니면 중단 게이팅(미로드면 현행 동작 유지).
@@ -20,6 +26,7 @@ export function ChatPage(): React.JSX.Element {
   const sessionActions = useSessionActions({ redirectAfterActiveDelete: '/new' })
   return (
     <ChatView
+      projectName={projectName}
       backendLabel={backendLabel}
       canAbort={canAbort}
       usageLimits={usageLimits}

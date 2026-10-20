@@ -100,12 +100,12 @@ function sessionActions(nodes: ReactNode = menu.children): MenuItemProps[] {
 const BADGE_ARIA = 'chat.taskTile.badgeAria'
 const TILE_LABEL = 'chat.rightpanel.tiles.'
 const menuCases = [
-  { backend: 'claude', kind: 'code', ids: ['plan', 'subagent', 'diff'] },
-  { backend: 'claude', kind: 'work', ids: ['task'] },
+  { backend: 'claude', kind: 'code', ids: ['plan', 'subagent', 'diff', 'nativeStatus'] },
+  { backend: 'claude', kind: 'work', ids: ['task', 'nativeStatus'] },
   {
     backend: 'opencode',
     kind: 'code',
-    ids: ['task']
+    ids: ['task', 'nativeStatus']
   }
 ] as const
 
@@ -117,7 +117,13 @@ describe('실제 타일 메뉴 — 평면 목록과 토글 (0262 ΔV9 · 0263 Δ
       sessionState.value.agentKind = kind
       const markup = render()
       expect(renderedTileItems(markup)).toEqual(
-        ids.map((id) => ({ label: TILE_LABEL + id, active: false }))
+        ids.map((id) => ({
+          label:
+            (id === 'nativeStatus' ? (backend === 'opencode' ? 'OpenCode ' : 'Claude ') : '') +
+            TILE_LABEL +
+            id,
+          active: false
+        }))
       )
       expect(markup).toContain('>chat.titleBar.tilesHeader</div>')
       expect(markup).toContain(`data-native-resources="${backend}"`)
@@ -128,10 +134,12 @@ describe('실제 타일 메뉴 — 평면 목록과 토글 (0262 ΔV9 · 0263 Δ
       expect(markup).not.toContain(TILE_LABEL + 'artifacts')
       expect(markup.indexOf('chat.titleBar.tilesHeader')).toBeLessThan(markup.indexOf(TILE_LABEL))
       for (const item of renderedTileItems(markup)) {
-        const id = item.label.slice(TILE_LABEL.length) as RightPanelTileId
+        const id = item.label.slice(
+          item.label.indexOf(TILE_LABEL) + TILE_LABEL.length
+        ) as RightPanelTileId
         const tile = tileById(id, backend)
         expect(tile.id).toBe(id)
-        expect(tile.defaultLabelKey).toBe(item.label)
+        expect(tile.defaultLabelKey).toBe(item.label.slice(item.label.indexOf(TILE_LABEL)))
         expect(tile.Content).toBeTypeOf('function')
       }
     }
@@ -149,7 +157,9 @@ describe('실제 타일 메뉴 — 평면 목록과 토글 (0262 ΔV9 · 0263 Δ
       const callbacks = tileCallbacks()
       expect(callbacks).toHaveLength(ids.length)
       callbacks.forEach((item, index) => {
-        expect(item.icon).toBe(index === 0 ? 'check' : 'plus')
+        expect(item.icon).toBe(
+          ids[index] === 'nativeStatus' ? undefined : index === 0 ? 'check' : 'plus'
+        )
         item.onClick?.({} as React.MouseEvent<HTMLButtonElement>)
         expect(toggleTile).toHaveBeenNthCalledWith(index + 1, ids[index])
       })

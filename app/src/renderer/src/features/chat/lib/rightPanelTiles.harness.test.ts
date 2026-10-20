@@ -10,10 +10,18 @@ import { rightPanelColumnsForAgent } from './rightPanelLayout'
 
 describe('harness panel policy', () => {
   it('limits only the OpenCode menu while retaining every supported target', () => {
-    const ids: RightPanelTileId[] = ['plan', 'subagent', 'task', 'diff', 'process', 'source']
+    const ids: RightPanelTileId[] = [
+      'plan',
+      'subagent',
+      'task',
+      'diff',
+      'process',
+      'source',
+      'nativeStatus'
+    ]
     expect(
       rightPanelMenuTileDefinitionsForAgent('code', 'opencode').map((tile) => tile.id)
-    ).toEqual(['task'])
+    ).toEqual(['task', 'nativeStatus'])
     expect(rightPanelTileDefinitionsForAgent('code', 'opencode').map((tile) => tile.id)).toEqual(
       ids
     )
@@ -48,7 +56,8 @@ describe('harness panel policy', () => {
       'task',
       'diff',
       'process',
-      'source'
+      'source',
+      'nativeStatus'
     ])
     expect(rightPanelPolicy('code', 'opencode')).toMatchObject({
       initialTile: 'task',
@@ -73,10 +82,12 @@ describe('harness panel policy', () => {
     expect(rightPanelTileDefinitionsForAgent('code', 'claude').map((tile) => tile.id)).toEqual([
       'plan',
       'subagent',
-      'diff'
+      'diff',
+      'nativeStatus'
     ])
     expect(rightPanelTileDefinitionsForAgent('work', 'claude').map((tile) => tile.id)).toEqual([
-      'task'
+      'task',
+      'nativeStatus'
     ])
     for (const kind of ['code', 'work'] as const) {
       expect(rightPanelMenuTileDefinitionsForAgent(kind, 'claude')).toEqual(

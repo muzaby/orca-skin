@@ -7,6 +7,7 @@ import { rightPanelPolicy } from '../../lib/rightPanelTiles'
 import { deriveRightPanelLayout, rightPanelColumnsForAgent } from '../../lib/rightPanelLayout'
 
 export interface RightPanelProps {
+  projectName?: string | null
   className?: string
   onExpandedChange?: (sessionKey: string, expanded: boolean) => void
 }

@@ -427,3 +427,55 @@ GUI는 실제 ChatTitleBar→CascadeBody→useNativeResources를 사용하고 IP
 초기 공용 readSerial을 write 결과 fence에도 적용하자 begin/다른 항목 조작이 자신의 정상 응답을 폐기해 hook8케이스가 실패했다. 공유 push만 추적하는 pushSerial을 분리한 뒤 기존 독립 제어와 새 late read/write 검사가 통과했다. runtime 열거의 TurnContext 필드는 dbSessionId이며 raw LiveTurn과 거버넌스 interrupt 타입도 구별해 타입 검사를 마쳤다.
 
 Windows 설치 앱 GUI와 외부 MCP 인증 서버는 실기하지 않았다. MCP의 프로젝트 내 실행 상태 전달은 IPC 두 runtime 테스트·Chromium으로, 플러그인은 실제 두 CLI로 추가 확인했다. 별도 Orca 프로세스나 외부 CLI에 실시간 통지하는 변경은 없다. 구현자 자기확인이며 독립 verify 결과가 아니다.
+
+## r1.13 — 하네스 상태 우측 타일·조회 cache 재사용
+
+2026-10-20, Linux cloud. 실제 renderer 컴포넌트와 메모리 IPC를 쓰는 Chromium fixture를 확인했다. 설치 Windows 앱을 업데이트하거나 실기한 결과가 아니며 독립 verify도 아니다.
+
+| 검사 | 명령(app에서 실행) / 최종 관측 |
+|---|---|
+| 관련 Vitest | 아래 명령: 63파일488/488, 51.69초 |
+| 타입 | npm run typecheck: node/web/test 3config 진단0 |
+| lint | npx eslint --cache ./src ./scripts: 오류0·기존경고4. 무관한 두 prettier·두 virtualization 경고 유지 |
+| build | npx electron-vite build: main/preload/renderer 성공, 기존 chunk 경고 유지 |
+| boundary | node --test scripts/harness-boundary.test.mjs: 8/8 |
+| 문서 | node scripts/check-doc-inventory.mjs --check: generated/prose/relative links 통과 |
+| UI catalog | python3 ../docs/handoff/0266-renderer-design-guidelines/evidence/check-design-docs.py: source296/rows296, 양방향 차집합[], 음성 대조 red |
+| M4 | useNativeResources open의 ensure→refresh: cold/warm case 1failed/3skipped, warm calls 기대1/실제3. 원본 bytes 복원 뒤 NativeResourcesTile.test 4/4 |
+| Chromium | 실제 ChatTitleBar→tile reducer→RightPanel/registry/header/body. popup 동시 pending·peer push·두 하네스·Work/Code·white/dark·280px·키보드·ko/en 확인 |
+| diff | git diff --check: 공백 오류0 |
+
+```sh
+npx vitest run src/renderer/src/features/chat/components/ChatTitleBar src/renderer/src/features/chat/components/ChatTile src/renderer/src/features/chat/components/rightpanel src/renderer/src/features/chat/components/Composer src/renderer/src/features/chat/harnesses/common/rightpanel src/renderer/src/features/chat/lib/rightPanel src/renderer/src/features/chat/hooks/useNativeResources.test.ts src/renderer/src/features/chat/lib/nativeResourcesMenu.test.ts src/renderer/src/features/chat/store/chatStore.panelTiles.test.ts src/renderer/src/pages/NativeStatusProject.test.ts src/main/app/handlers/session-resources.test.ts src/main/app/native-resource-sharing.test.ts --reporter=dot
+npm run typecheck
+npx eslint --cache ./src ./scripts
+npx electron-vite build
+node --test scripts/harness-boundary.test.mjs
+node scripts/check-doc-inventory.mjs --check
+python3 ../docs/handoff/0266-renderer-design-guidelines/evidence/check-design-docs.py
+```
+
+### 브라우저 관측
+
+fixture는 실제 ChatTitleBar와 RightPanel을 함께 조립한다. Claude A/B는 같은 프로젝트이고 nativeResourcesChanged가 두 session cache를 실제로 갱신한다. IPC 대역을 감싸 호출 횟수를 세고 toggle 응답을 보류한 동안 panel과 popup의 같은 항목이 함께 busy인지 확인했다. spinner 경계가 switch thumb 안에 있으며 cursor=default다. 완료 후 두 UI가 같은 off 상태였다.
+
+A/B를 첫 조회하여2회가 된 뒤 panel 닫기/재열기·B로 이동/off 확인·B에서 on/A로 이동/on 확인·프로젝트 rename 동안 조회는2회 그대로였다. OpenCode는 별도 backend cache의 첫 조회1회가 추가된다. Claude Code로 돌아올 때 같은 session/backend cache를 재사용했다. 실제 출력:
+
+```json
+{"readsBefore":2,"readsAfterWarmNavigation":2,"finalReads":["fixture-B","fixture","fixture"],"samePopupAndPanelPending":true,"spinnerInsideThumb":true,"peerPush":true,"projectRename":true,"expandRestore":true,"workTaskCoexists":true,"narrow":{"withinViewport":true,"width":280,"titleTruncated":true},"opencodeReadOnly":true,"keyboard":true,"exceptions":[]}
+```
+
+white1440×900과 dark900×720을 관측했다. dark에서는 실제 separator를 drag해 pane을280px로 줄였다. 긴 프로젝트 제목이 잘리고 title tooltip은 전체 이름을 유지한다. Work task/status 공존, 실제 확대 표식 true→false, ArrowDown/Enter로 위치 열기·Escape로 타일 닫기를 확인했다. OpenCode는 올바른 브랜드와 read-only 목록을 보이며 지원하지 않는 switch는0개다.
+
+보충 EN 관측은 독립 계측 후 Claude 상태를 연다. 실제 제목과 warm 조회 횟수:
+
+```json
+{"englishTitle":"Claude Status · 하네스 프로젝트","readBefore":1,"readAfter":1}
+```
+
+### 범위와 시행착오
+
+- 최초 test 작업 중 기존 강제 재조회 기대값과 mock 누락을 정리했다. 최종 관련 집합은63파일488케이스이고 실패0이다. M4는 최종 집합 통과 후 한 곳만 변경하여 red를 확인했고 bytes 복원 후 해당 파일4/4로 재확인했다.
+- 브라우저의 상태 span과 실제 button을 구분하도록 selector를 정정했다. 기본 복수 column의 기존 가로 scroll을 잘못 해석한 assertion은 실제 resize 관측으로 정정했다. 보충 EN 첫 실행은 이전 탭의 조회계측이 없어 실패했으며 독립 계측으로 성공했다. 이 과정에서 production source는 변경하지 않았다.
+- 첫 오류 retry·부분 관측·재연결·종료/late read/write는 hook 회귀에서 확인했다. 임의 TTL/polling이나 새 native 실행은 추가하지 않았다.
+- main/adapter/영속 정책은 바꾸지 않아 실제 두 CLI 공유·후속 턴·재시작 복원은 r1.12 증거를 승계한다. 이번에 실제 CLI smoke를 재실행했다고 주장하지 않는다. MCP 영속 저장 범위도 변경하지 않았다.

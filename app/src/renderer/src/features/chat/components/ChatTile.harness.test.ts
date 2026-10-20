@@ -34,7 +34,10 @@ vi.mock('./transcript/LineageBanner', () => ({ LineageBanner: () => null }))
 vi.mock('./Composer', () => ({
   Composer: () => createElement('div', { 'data-composer-probe': '' })
 }))
-vi.mock('./rightpanel/RightPanel', () => ({ RightPanel: () => null }))
+vi.mock('./rightpanel/RightPanel', () => ({
+  RightPanel: ({ projectName }: { projectName?: string | null }) =>
+    createElement('div', { 'data-panel-project-name': projectName })
+}))
 
 import { ChatTile } from './ChatTile'
 
@@ -50,8 +53,15 @@ describe('harness transcript background', () => {
       fixture.backend = backend
       fixture.agentKind = agentKind
       const $ = load(
-        renderToStaticMarkup(createElement(ChatTile, { backendLabel: backend, canAbort: true }))
+        renderToStaticMarkup(
+          createElement(ChatTile, {
+            backendLabel: backend,
+            canAbort: true,
+            projectName: '공유 프로젝트'
+          })
+        )
       )
+      expect($('[data-panel-project-name]').attr('data-panel-project-name')).toBe('공유 프로젝트')
       for (const surface of ['.app-frame-pane-host', '.app-frame-tile']) {
         expect($(surface).hasClass('bg-bg')).toBe(true)
         expect($(surface).hasClass('bg-oc-background')).toBe(false)

@@ -16,6 +16,7 @@ export function useNativeResources(
   busy: boolean
   pending: ReadonlySet<string>
   refresh: () => void
+  ensure: () => void
   toggle: (resource: NativeResource) => Promise<void>
   openPlugin: (resource: NativeResource) => Promise<void>
 } {
@@ -31,16 +32,20 @@ export function useNativeResources(
   )
   const snapshot = useSyncExternalStore(state.subscribe, state.getSnapshot, state.getSnapshot)
   useEffect(() => {
-    if (open) void state.refresh()
+    if (open) void state.ensure()
   }, [state, open])
   const refresh = useCallback(() => {
     void state.refresh()
+  }, [state])
+  const ensure = useCallback(() => {
+    void state.ensure()
   }, [state])
   return {
     view: snapshot.view,
     busy: snapshot.pending.size > 0,
     pending: snapshot.pending,
     refresh,
+    ensure,
     toggle: (resource) => (open ? state.toggle(resource) : Promise.resolve()),
     openPlugin: (resource) => (open ? state.openPlugin(resource) : Promise.resolve())
   }

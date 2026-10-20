@@ -240,6 +240,9 @@ describe('native resources session lifecycle', () => {
     )
     dom.render(createElement(Probe, { id: 'A', scope: 'claude' }))
     await settle()
+    expect(read).toHaveBeenCalledTimes(1)
+    dom.act(() => current.refresh())
+    await settle()
     expect(current.view).toMatchObject({
       status: 'ready',
       refreshing: true,
@@ -306,13 +309,16 @@ describe('native resources session lifecycle', () => {
       }
     }
   )
-  it('reloads A after A → B → A, refreshes partial results, and drops a closed request', async () => {
+  it('reuses A after A → B → A, explicitly refreshes partial results, and fences reads on reconnect', async () => {
     dom.render(createElement(Probe, { id: 'A' }))
     await settle()
     dom.render(createElement(Probe, { id: 'B' }))
     await settle()
     read.mockResolvedValueOnce({ ...snapshot('A-new'), partial: true })
     dom.render(createElement(Probe, { id: 'A' }))
+    await settle()
+    expect(read.mock.calls.map(([id]) => id)).toEqual(['A', 'B'])
+    dom.act(() => current.refresh())
     await settle()
     expect(read.mock.calls.map(([id]) => id)).toEqual(['A', 'B', 'A'])
     expect(current.view).toEqual({
@@ -336,6 +342,12 @@ describe('native resources session lifecycle', () => {
     dom.render(createElement(Probe, { id: 'A', open: false }))
     read.mockResolvedValueOnce(snapshot('A-reopened'))
     dom.render(createElement(Probe, { id: 'A', open: true }))
+    backgroundEvent({
+      type: 'background.connection',
+      sessionId: 'A',
+      state: 'connected',
+      source: { generation: 'A-reopened', sequence: 2, receivedAt: 2, replay: false }
+    })
     await settle()
     finish(snapshot('stale'))
     await settle()
@@ -656,13 +668,6 @@ describe('process-owned state and independent async controls', () => {
         finish(disabled)
         await pending
       }
-      let finishRead!: (value: NativeResources) => void
-      read.mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            finishRead = resolve
-          })
-      )
       dom.render(createElement(Probe, { id: 'A' }))
       await settle()
       expect(current.view).toMatchObject({
@@ -677,9 +682,7 @@ describe('process-owned state and independent async controls', () => {
       }
       expect(current.view).toMatchObject({ status: 'ready', value: disabled })
       expect(current.pending.size).toBe(0)
-      finishRead(disabled)
-      await settle()
-      expect(current.view).toMatchObject({ status: 'ready', value: disabled })
+      expect(read).toHaveBeenCalledTimes(2)
     }
   )
 

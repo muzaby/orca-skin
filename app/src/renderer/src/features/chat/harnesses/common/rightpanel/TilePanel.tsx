@@ -29,6 +29,7 @@ export interface TilePanelDetail {
 }
 
 export function TilePanel({
+  projectName,
   className = '',
   onExpandedChange,
   detail,
@@ -182,6 +183,7 @@ export function TilePanel({
               widthClass="w-2"
             />
             <RightPanelColumn
+              projectName={projectName}
               sessionKey={activeKey}
               configuration={configuration}
               col={column.col}

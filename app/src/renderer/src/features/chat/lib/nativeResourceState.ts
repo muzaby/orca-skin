@@ -59,6 +59,7 @@ export class NativeResourceState {
   private serial = 0
   private readSerial = 0
   private pushSerial = 0
+  private flight: { serial: number; task: Promise<void> } | undefined
   private epoch = 0
   private retired = new Set<string>()
   private snapshot: { view: NativeResourcesView; pending: ReadonlySet<string> } = {
@@ -115,8 +116,35 @@ export class NativeResourceState {
     )
     if (refresh && this.listeners.size) void this.refresh()
   }
-  refresh = async (issue?: Issue, report = true): Promise<void> => {
+  ensure = (): Promise<void> => {
+    const view = this.snapshot.view
+    if (
+      view.status === 'ready' &&
+      view.value.state === 'connected' &&
+      !view.value.partial &&
+      !view.stale &&
+      !view.issue
+    )
+      return Promise.resolve()
+    return this.refresh()
+  }
+  reconnect(): void {
+    // A connection event can race a metadata read started before the new process existed.
+    this.readSerial++
+    void this.refresh()
+  }
+  refresh = (issue?: Issue, report = true): Promise<void> => {
+    if (this.flight?.serial === this.readSerial) return this.flight.task
     const read = ++this.readSerial
+    const task = this.readResources(read, issue, report)
+    this.flight = { serial: read, task }
+    const finish = (): void => {
+      if (this.flight?.task === task) this.flight = undefined
+    }
+    void task.then(finish, finish)
+    return task
+  }
+  private async readResources(read: number, issue?: Issue, report = true): Promise<void> {
     const previous = this.snapshot.view
     if (previous.status === 'ready') this.publish({ ...previous, refreshing: true, issue })
     try {
@@ -264,7 +292,7 @@ export function nativeResourceState(
       for (const state of owned.values()) {
         if (state.request !== event.sessionId) continue
         if (event.state === 'terminated') state.retire(event.source.generation)
-        else if (event.state === 'connected') void state.refresh()
+        else if (event.state === 'connected') state.reconnect()
       }
     })
   }
