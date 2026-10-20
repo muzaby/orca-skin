@@ -1,5 +1,5 @@
 import { openCodePluginId } from './plugin-installation'
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { realpath, mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
@@ -756,7 +756,7 @@ it('exposes native resources from the live channel client and its directory with
 })
 
 it('resolves the native plugin directory with the same environment as the live channel', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'orca-channel-plugin-'))
+  const root = await mkdtemp(join(tmpdir(), 'orca-channel-plugin-')).then((path) => realpath(path))
   const directory = join(
     root,
     'opencode',

@@ -22,7 +22,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [`0269-session-composer-state`](0269-session-composer-state/plan.md) | plan | READY | Codex | (V1 설계 — 검증자 기입) | 1 | 세션 모델 복원·Claude 기본 자동 승인·CI21실패 대응. |
+| [`0269-session-composer-state`](0269-session-composer-state/plan.md) | impl | IMPL_DONE | Codex | (r1 부분 구현 — 검증자 기입) | 1 | 모델 복원·기본 승인·CI15파일 수정, AC5/6. 로컬7666·scripts142 통과. 원격 Windows CI 대기. |
 | [`0268-opencode-runtime-composer`](0268-opencode-runtime-composer/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 부분 구현 AC 9/10. 토스트 비활성화 미완료·EP6 진입 증거 3곳 미잠금. 서버 공유는 같은 cwd에 한정. [관측·재현](0268-opencode-runtime-composer/evidence/validation.md). |
 | [`0267-harness-entry-menu`](0267-harness-entry-menu/plan.md) | impl | IMPL_DONE | Claude | (r1.14 구현 — 검증자 기입) | 1 | Code 상태 타일 표준·경로·모션·그룹 간격, 케밥 native popup 제거, 엔진/모델 컬러 로고.793/793·타입/빌드·실제 Chromium 통과. |
 | [`0266-renderer-design-guidelines`](0266-renderer-design-guidelines/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 디자인 시스템·전체 TSX 카탈로그·AI 제작 절차 반영. 문서·타입 게이트 통과, lint 오류 0·기존 경고 2. [관측·재현](0266-renderer-design-guidelines/evidence/validation.md). |

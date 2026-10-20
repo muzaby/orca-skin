@@ -40,6 +40,7 @@ export interface SessionRow {
   project_id: string | null
   title_source: SessionTitleSource
   provider_key: string | null
+  last_model?: string | null
   cwd: string | null
   // 0017 — 추가 참조 경로 JSON 배열 문자열. NULL = 없음.
   extra_dirs: string | null

@@ -183,7 +183,12 @@ export class HistoryWriter {
       this.db.nativeHistory?.acceptRecovery?.(sessionId, batch.nativeMessageId)
     }
     this.db.updateSessionPreview(sessionId, previewOf(batch.text), batch.createdAt)
-    this.db.updateSessionProviderKey(sessionId, turn.providerKey, batch.createdAt)
+    this.db.updateSessionProviderKey(
+      sessionId,
+      turn.providerKey,
+      batch.createdAt,
+      turn.modelFamily ?? null
+    )
     return id
   }
 
@@ -344,7 +349,13 @@ export class HistoryWriter {
         // 메타(preview/provider_key/title)만 선반영해 nav 표시를 즉시 세운다.
         if (turn.pendingUserText) {
           this.db.updateSessionPreview(sessionId, previewOf(turn.pendingUserText), now)
-          this.db.updateSessionProviderKey(sessionId, turn.providerKey, now)
+          if (turn.isNewSession)
+            this.db.updateSessionProviderKey(
+              sessionId,
+              turn.providerKey,
+              now,
+              turn.modelFamily ?? null
+            )
           if (title) this.db.updateSessionTitle(sessionId, title)
           turn.pendingUserText = null
         }

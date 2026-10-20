@@ -280,7 +280,13 @@ export const sites: Site[] = [
   {
     file: 'features/chat/store/artifactViewerStore.ts',
     ordinal: 0,
-    line: 32,
+    line: 40,
+    disposition: 'CONSUMED'
+  },
+  {
+    file: 'features/chat/store/artifactViewerStore.ts',
+    ordinal: 1,
+    line: 75,
     disposition: 'CONSUMED'
   },
   {

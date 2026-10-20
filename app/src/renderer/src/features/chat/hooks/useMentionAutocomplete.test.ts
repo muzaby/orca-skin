@@ -376,10 +376,10 @@ describe('mention autocomplete provider sources (AC10 · AC19 · AC23)', () => {
   it('returns every Plugin candidate as plugins while an @ prefix narrows the suggestions', async () => {
     h.providerState.mockResolvedValue({
       providers: [
-        provider('jira-dc', { label: 'Jira DC' }),
-        provider('confluence', { label: 'Confluence' }),
+        provider('jira-dc', { label: 'Jira DC', status: 'valid' }),
+        provider('confluence', { label: 'Confluence', status: 'valid' }),
         provider('gate', { tools: [] }),
-        provider('linear', { label: 'Linear' })
+        provider('linear', { label: 'Linear', status: 'valid' })
       ]
     })
     render('@ji', null)

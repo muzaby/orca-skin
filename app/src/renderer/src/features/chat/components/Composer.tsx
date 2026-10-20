@@ -194,12 +194,27 @@ export function Composer({
       if (next) setModel(next.providerKey, next.modelFamily, next.modelAlias, next.adapter)
       return
     }
-    if (modelFamily != null) return
+    if (modelFamily != null) {
+      const agent = agents.find((a) => a.key === providerKey)
+      const model = agent?.models.find((m) => modelKey(m) === modelFamily)
+      if (agent && model && modelAlias !== model.alias)
+        setModel(providerKey, modelFamily, model.alias, agent.adapter)
+      return
+    }
     // provider 만 복원된 상태 — 그 provider 의 default 모델로 채운다.
     const agent = agents.find((a) => a.key === providerKey)
     const model = agent?.models.find((m) => m.isDefault) ?? agent?.models[0]
     if (agent && model) setModel(providerKey, modelKey(model), model.alias, agent.adapter)
-  }, [agents, backend, restrictModelFallback, modelFamily, providerKey, setModel, loadingSession])
+  }, [
+    agents,
+    backend,
+    restrictModelFallback,
+    modelAlias,
+    modelFamily,
+    providerKey,
+    setModel,
+    loadingSession
+  ])
 
   // 0119: busy 중 provider 경계를 넘는 모델이 선택된 동안 steer 차단 — 진행 턴의 채널은
   // 낡은 provider env 라 경계 너머 메시지를 실을 수 없다. 본래 provider 로 되돌리면 해제.

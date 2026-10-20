@@ -382,9 +382,10 @@ export interface ChatState {
   openCodeTodoCollapsed: boolean
   openCodeTodoTurnStartIndex: number
   // Composer 모드 버튼이 정하는 이 대화의 권한 모드. send 시 IPC 페이로드로 실린다.
-  // 새 대화마다 기본값 'plan' 으로 리셋(initialChatState).
+  // 모델·제품 종류로 정착하는 기본 선호와 명시적인 사용자 선택을 구별한다.
   permissionMode: NormalizedPermissionMode
   permissionModeError: boolean
+  permissionModeExplicit: boolean
   // plan 모드에서 에이전트가 제출한 계획(ExitPlanMode). canUseTool 직렬화로 동시 1개.
   // 승인/수정/거부 시 null. (백엔드 중립 — SDK 를 모름.) 우측 계획 타일의 액션바
   // (승인/수정/거부) 노출 여부 + requestId 의 소스.
@@ -528,6 +529,7 @@ export const initialChatState: ChatState = {
   openCodeTodoTurnStartIndex: 0,
   permissionMode: coercePermissionMode(DEFAULT_PERMISSION_MODE, null, DEFAULT_AGENT_KIND),
   permissionModeError: false,
+  permissionModeExplicit: false,
   pendingPlanReview: null,
   rightPanelTiles: [],
   rightPanelTileLabels: {},
@@ -1444,7 +1446,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           ...(state.backend !== action.session.backend
             ? {
                 providerKey: action.session.providerKey ?? null,
-                modelFamily: null,
+                modelFamily: action.session.modelFamily ?? null,
                 modelAlias: null,
                 harnessAgent: undefined,
                 modelVariant: undefined,
@@ -1472,7 +1474,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           state.sessionId === action.session.id ? state.openCodeTodoCollapsed : false,
         openCodeTodoTurnStartIndex: messages.length,
         agentKind,
-        permissionMode: coercePermissionMode(DEFAULT_PERMISSION_MODE, null, agentKind),
+        permissionMode: coercePermissionMode(
+          DEFAULT_PERMISSION_MODE,
+          { alias: '', model: action.session.modelFamily ?? null },
+          agentKind
+        ),
         agentKindLocked: true,
         agentPanelInitialized: true,
         rightPanelTiles: rightPanelColumnsForAgent(
@@ -1512,6 +1518,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             ? { pendingSessionWakeup: state.pendingSessionWakeup }
             : {}),
         providerKey: action.session.providerKey ?? null,
+        modelFamily: action.session.modelFamily ?? null,
         messages,
         ...(preserveNewerLiveActivity
           ? {
@@ -1595,7 +1602,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           { alias: state.modelAlias ?? '', model: state.modelFamily },
           state.agentKind
         ),
-        permissionModeError: false
+        permissionModeError: false,
+        permissionModeExplicit: true
       }
 
     case 'APPLY_PERMISSION_MODE':
@@ -1635,11 +1643,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         modelAlias: action.modelAlias,
         effort: selectionChanged ? defaultEffortForModel(action.modelFamily) : state.effort,
         permissionMode: coercePermissionMode(
-          state.permissionMode,
-          {
-            alias: action.modelAlias ?? '',
-            model: action.modelFamily
-          },
+          backend === 'claude' && !state.permissionModeExplicit
+            ? DEFAULT_PERMISSION_MODE
+            : state.permissionMode,
+          { alias: action.modelAlias ?? '', model: action.modelFamily },
           kind
         ),
         permissionModeError: false

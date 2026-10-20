@@ -22,6 +22,8 @@ vi.mock('react', async (load) => ({
 vi.mock('../../../shared/api/ipc', () => ({ fileApi: { openPath: h.openPath } }))
 vi.mock('../../../shared/i18n', () => ({ useI18n: () => ({ tr: (key: string) => key }) }))
 vi.mock('../store/chatStore', () => ({
+  useChatStore: (select: (s: { activeKey: string; sessions: Record<string, object> }) => unknown) =>
+    select({ activeKey: 'fixture', sessions: { fixture: {} } }),
   chatActions: {},
   getActiveChatSession: () => h.state,
   useChatSession: (select: (s: typeof h.state) => unknown) => select(h.state),

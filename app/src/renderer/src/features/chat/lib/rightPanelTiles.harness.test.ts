@@ -30,7 +30,12 @@ describe('harness panel policy', () => {
       { id: 'first', tiles: ids.slice(0, 3) },
       { id: 'second', tiles: ids.slice(3) }
     ]
-    expect(rightPanelColumnsForAgent(columns, 'code', 'opencode')).toEqual(columns)
+    expect(rightPanelColumnsForAgent(columns, 'code', 'opencode')).toEqual(
+      columns.map((column) => ({
+        ...column,
+        tiles: column.tiles.filter((id) => id !== 'nativeStatus')
+      }))
+    )
   })
 
   it('retains supported OpenCode targets and persisted columns', () => {

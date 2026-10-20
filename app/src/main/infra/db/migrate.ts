@@ -36,6 +36,7 @@ import migration0029 from './migrations/0029_native_history.sql?raw'
 import migration0030 from './migrations/0030_native_history_cursor.sql?raw'
 import migration0031 from './migrations/0031_turn_context_usage.sql?raw'
 import migration0032 from './migrations/0032_native_session_recovery.sql?raw'
+import migration0033 from './migrations/0033_session_last_model.sql?raw'
 
 interface Migration {
   name: string
@@ -74,7 +75,8 @@ const MIGRATIONS: Migration[] = [
   { name: '0029_native_history', sql: migration0029 },
   { name: '0030_native_history_cursor', sql: migration0030 },
   { name: '0031_turn_context_usage', sql: migration0031 },
-  { name: '0032_native_session_recovery', sql: migration0032 }
+  { name: '0032_native_session_recovery', sql: migration0032 },
+  { name: '0033_session_last_model', sql: migration0033 }
 ]
 
 export const MIGRATION_NAMES = MIGRATIONS.map((m) => m.name)

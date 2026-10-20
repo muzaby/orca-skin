@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { realpath, mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -9,7 +9,7 @@ import { openCodeNativePluginDirectory, openCodeNativeResources } from './native
 
 let root: string
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'orca-opencode-plugin-'))
+  root = await mkdtemp(join(tmpdir(), 'orca-opencode-plugin-')).then((path) => realpath(path))
 })
 afterEach(async () => {
   await rm(root, { recursive: true, force: true })

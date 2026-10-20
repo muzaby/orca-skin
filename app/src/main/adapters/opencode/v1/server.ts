@@ -1,6 +1,6 @@
 import { spawn, execFile, type ChildProcess } from 'node:child_process'
 import { existsSync, statSync } from 'node:fs'
-import { createServer } from 'node:net'
+import { allocateLoopbackPort } from '../../../infra/net/loopback-port'
 import { delimiter, isAbsolute, join } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { harnessEnvFingerprint } from '../../common/harness-config'
@@ -18,22 +18,6 @@ interface ServerEntry {
   child?: ChildProcess
   owners: number
   databasePath?: Promise<string>
-}
-
-/** OpenCode's port=0 prefers 4096, which Desktop can discover. Request an OS ephemeral port. */
-async function privatePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const listener = createServer()
-    listener.once('error', reject)
-    listener.listen(0, '127.0.0.1', () => {
-      const address = listener.address()
-      listener.close((error) => {
-        if (error) reject(error)
-        else if (address && typeof address !== 'string') resolve(address.port)
-        else reject(new Error('OpenCode 전용 포트를 할당하지 못했습니다.'))
-      })
-    })
-  })
 }
 
 export function resolveOpenCodeExecutable(configured = '', env = process.env): string {
@@ -214,7 +198,7 @@ export class OpenCodeServerPool {
     }
     // 버전 조회 중 close()가 호출됐다면 서버를 만들지 않는다.
     this.shutdown.signal.throwIfAborted()
-    const port = await (this.deps.allocatePort ?? privatePort)()
+    const port = await (this.deps.allocatePort ?? allocateLoopbackPort)()
     this.shutdown.signal.throwIfAborted()
     const password = randomBytes(32).toString('base64url')
     const child = (this.deps.spawnProcess ?? spawn)(

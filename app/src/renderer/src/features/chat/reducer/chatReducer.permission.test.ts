@@ -121,7 +121,8 @@ describe('chatReducer — effort', () => {
 describe('SET_MODEL — 자동 권한 강등 (AT-12 · D-010)', () => {
   const withMode = (mode: 'auto_classified' | 'plan'): ChatState => ({
     ...initialChatState,
-    permissionMode: mode
+    permissionMode: mode,
+    permissionModeExplicit: true
   })
   const pick = (state: ChatState, modelFamily: string, modelAlias: string): ChatState =>
     chatReducer(state, {

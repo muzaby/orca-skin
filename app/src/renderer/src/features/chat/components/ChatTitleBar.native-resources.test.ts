@@ -29,6 +29,8 @@ const fixture = vi.hoisted(() => ({
   }
 }))
 vi.mock('../store/chatStore', () => ({
+  useChatStore: (select: (s: { activeKey: string; sessions: Record<string, object> }) => unknown) =>
+    select({ activeKey: 'fixture', sessions: { fixture: {} } }),
   chatActions: { toggleRightPanelTile: vi.fn() },
   getActiveChatSession: () => fixture.state,
   useChatSession: (select: (state: typeof fixture.state) => unknown) => select(fixture.state),

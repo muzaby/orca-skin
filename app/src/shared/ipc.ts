@@ -1613,6 +1613,8 @@ export interface LoadedSession {
   costUsd?: number
   // sessions.provider_key — 마지막 사용 provider 기록. null 은 레거시/미매칭 fallback.
   providerKey?: string | null
+  /** Last model actually consumed by this session, including context suffixes. */
+  modelFamily?: string | null
   projectId?: string | null
   cwd?: string | null
   extraDirs?: string[]

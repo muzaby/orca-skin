@@ -133,7 +133,7 @@ describe('0215 AT-23 — Composer 가 선택 모델 파생값을 메뉴/스토�
   it('축③ setModel 호출 전건이 (providerKey, modelFamily, modelAlias, adapter) 를 그 순서로 넘긴다', () => {
     const calls = callArgs(SOURCE, 'setModel')
     // 분모 고정(§10 EP-20b) — 호출부가 늘면 이 줄이 red 가 되어 새 지점도 검사에 들어온다.
-    expect(calls).toHaveLength(3)
+    expect(calls).toHaveLength(4)
     const SLOTS = [
       { name: 'providerKey', re: /providerKey$/ },
       // 두 번째 슬롯은 **모델 식별자** 다 — `modelKey(model)` 도 같은 계약이다(0215 D-007).

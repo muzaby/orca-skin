@@ -7,6 +7,7 @@ import { sourceFiles, toPosix } from '../../../../infra/source-scan'
 
 const MAIN_ROOT = join(__dirname, '..', '..', '..', '..')
 const ALLOWED = 'infra/net/pop3-socket.ts'
+const PORT_ALLOCATOR = 'infra/net/loopback-port.ts'
 const NATIVE_MODULES = new Set(['net', 'tls', 'node:net', 'node:tls'])
 const roots: string[] = []
 afterEach(() => {
@@ -20,7 +21,13 @@ function nativeOffenders(root: string): string[] {
       const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest)
       let found = false
       const native = (node: ts.Node | undefined): boolean =>
-        !!node && ts.isStringLiteralLike(node) && NATIVE_MODULES.has(node.text)
+        !!node &&
+        ts.isStringLiteralLike(node) &&
+        NATIVE_MODULES.has(node.text) &&
+        !(
+          toPosix(relative(root, file)) === PORT_ALLOCATOR &&
+          (node.text === 'net' || node.text === 'node:net')
+        )
       const visit = (node: ts.Node): void => {
         if (ts.isImportDeclaration(node) && native(node.moduleSpecifier)) {
           const clause = node.importClause
@@ -66,7 +73,7 @@ function nativeOffenders(root: string): string[] {
 }
 
 describe('POP3 native boundary', () => {
-  it('node:net/node:tls imports are isolated to infra/net/pop3-socket.ts', () => {
+  it('native transports stay inside their exact infra socket or port-allocation boundaries', () => {
     const offenders = nativeOffenders(MAIN_ROOT)
     expect(offenders).toEqual([])
   })
@@ -127,4 +134,14 @@ describe('POP3 native boundary', () => {
     expect(declaration).toBeDefined()
     expect(declaration).not.toMatch(/['"]DELE['"]/)
   })
+})
+
+it('permits a loopback allocator net import but rejects TLS at that exact path', () => {
+  const root = mkdtempSync(join(tmpdir(), 'orca-port-boundary-'))
+  roots.push(root)
+  mkdirSync(join(root, 'infra/net'), { recursive: true })
+  writeFileSync(join(root, PORT_ALLOCATOR), "import { createServer } from 'node:net'")
+  expect(nativeOffenders(root)).toEqual([])
+  writeFileSync(join(root, PORT_ALLOCATOR), "import { connect } from 'node:tls'")
+  expect(nativeOffenders(root)).toEqual([PORT_ALLOCATOR])
 })
