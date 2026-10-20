@@ -42,12 +42,13 @@ export function rightPanelColumnsForAgent(
     const owner = cols.find((col) => col.tiles.includes('task'))
     return owner ? [{ id: owner.id, tiles: ['task'] }] : []
   }
-  if (cols.every((col) => col.tiles.every((id) => isRightPanelTileVisible(id, kind, backend))))
-    return cols
+  const visible = (id: RightPanelTileId): boolean =>
+    !(backend === 'opencode' && id === 'nativeStatus') && isRightPanelTileVisible(id, kind, backend)
+  if (cols.every((col) => col.tiles.every(visible))) return cols
   return cols
     .map((col) => ({
       ...col,
-      tiles: col.tiles.filter((id) => isRightPanelTileVisible(id, kind, backend))
+      tiles: col.tiles.filter(visible)
     }))
     .filter((col) => col.tiles.length > 0)
 }

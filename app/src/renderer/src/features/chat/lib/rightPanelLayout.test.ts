@@ -100,6 +100,15 @@ describe('rightPanel 열 구조 헬퍼', () => {
     ])
   })
 
+  it('removes legacy OpenCode status tiles while retaining the task and other column identities', () => {
+    const raw = mk(['task', 'nativeStatus'], ['diff'])
+    expect(rightPanelColumnsForAgent(raw, 'code', 'opencode')).toEqual([
+      { id: 'c0', tiles: ['task'] },
+      { id: 'c1', tiles: ['diff'] }
+    ])
+    expect(raw).toEqual(mk(['task', 'nativeStatus'], ['diff']))
+  })
+
   it('종류별 표시는 raw 열을 바꾸지 않고 기존 열 id와 유효 참조를 보존한다', () => {
     const raw = mk(['plan', 'task'], ['diff', 'subagent'])
     const work = rightPanelColumnsForAgent(raw, 'work')

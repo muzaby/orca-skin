@@ -32,6 +32,19 @@ vi.mock('../store/chatStore', () => ({
   chatActions: { toggleRightPanelTile: toggleTile, selectTask: vi.fn(), setPendingCwd: vi.fn() },
   getActiveChatSession: () => sessionState.value,
   useChatSession: (select: (s: unknown) => unknown) => select(sessionState.value),
+  useChatStore: (select: (s: unknown) => unknown) =>
+    select({
+      activeKey: 's1',
+      sessions: {
+        s1: {
+          panelReveal: sessionState.value.rightPanelTiles.some((column) =>
+            column.tiles.includes('nativeStatus')
+          )
+            ? { detail: { id: 'nativeStatus' } }
+            : undefined
+        }
+      }
+    }),
   useUnseenSettledTaskCount: () => unseenCount.value
 }))
 vi.mock('../../../shared/i18n', () => ({
@@ -162,7 +175,7 @@ describe('실제 타일 메뉴 — 평면 목록과 토글 (0262 ΔV9 · 0263 Δ
           ids[index] === 'nativeStatus' ? undefined : index === 0 ? 'check' : 'plus'
         )
         item.onClick?.({} as React.MouseEvent<HTMLButtonElement>)
-        expect(toggleTile).toHaveBeenNthCalledWith(index + 1, ids[index])
+        expect(toggleTile).toHaveBeenNthCalledWith(index + 1, ids[index], null)
       })
       expect(toggleTile).toHaveBeenCalledTimes(ids.length)
     }

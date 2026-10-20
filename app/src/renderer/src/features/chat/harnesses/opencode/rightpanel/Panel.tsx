@@ -72,7 +72,12 @@ export function OpenCodeRightPanel(
             headerActions={HeaderActions ? <HeaderActions /> : undefined}
             headerContent={
               HeaderContent ? (
-                <HeaderContent expanded={state.expanded} onToggleExpand={toggleExpand} />
+                <HeaderContent
+                  projectName={props.projectName}
+                  projectPath={props.projectPath}
+                  expanded={state.expanded}
+                  onToggleExpand={toggleExpand}
+                />
               ) : undefined
             }
             expanded={state.expanded}

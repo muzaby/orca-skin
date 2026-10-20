@@ -45,9 +45,15 @@ function observed(value: NativeResources, previous: NativeResourcesView): Ready 
       !ids.has(nativeResourceKey(item)) && !(item.kind === 'plugin' && value.pluginsAuthoritative)
   )
   const commands = value.commands ?? previous.value.commands
+  const composer = value.composer ?? (sameLiveGeneration ? previous.value.composer : undefined)
   return {
     status: 'ready',
-    value: { ...value, items: [...value.items, ...retained], ...(commands ? { commands } : {}) },
+    value: {
+      ...value,
+      items: [...value.items, ...retained],
+      ...(commands ? { commands } : {}),
+      ...(composer ? { composer } : {})
+    },
     ...(retained.length || (!value.commands && commands?.length) ? { stale: true } : {})
   }
 }

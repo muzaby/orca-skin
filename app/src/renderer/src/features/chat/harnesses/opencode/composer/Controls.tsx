@@ -6,6 +6,49 @@ import { chatActions, useChatSession } from '../../../store/chatStore'
 import { MenuItem, MenuTitle } from '../../../../../shared/ui/MenuItem'
 import { Icon } from '../../../../../shared/ui/Icon'
 import { OpenCodeIcon } from '../Icon'
+import type { ComposerControlProps } from '../../contracts'
+import { modelKey } from '../../../components/composer/modelSelection'
+import { useNativeResources } from '../../../hooks/useNativeResources'
+import type { NativeComposerCatalog } from '../../../../../../../shared/native-resources'
+
+function useComposerCatalog(): NativeComposerCatalog | undefined {
+  const sessionId = useChatSession((state) => state.sessionId)
+  const { view } = useNativeResources(sessionId, !!sessionId, 'opencode')
+  return view.status === 'ready' && view.value.state === 'connected'
+    ? view.value.composer
+    : undefined
+}
+
+export function OpenCodeModeControl({
+  agents,
+  providerKey
+}: ComposerControlProps): React.JSX.Element {
+  const catalog = useComposerCatalog()
+  return (
+    <OpenCodeAgentControl
+      agents={catalog?.agents ?? agents.find((a) => a.key === providerKey)?.agents}
+      authoritative={!!catalog}
+    />
+  )
+}
+
+export function OpenCodeEffortControl({
+  agents,
+  providerKey,
+  modelFamily
+}: ComposerControlProps): React.JSX.Element | null {
+  const catalog = useComposerCatalog()
+  const model = agents
+    .find((a) => a.key === providerKey)
+    ?.models.find((m) => modelKey(m) === modelFamily)
+  const runtime = catalog?.models.find((m) => m.id === (model?.model ?? modelFamily))
+  return (
+    <OpenCodeVariantControl
+      authoritative={!!catalog}
+      variants={catalog ? (runtime?.variants ?? []) : (model?.variants ?? [])}
+    />
+  )
+}
 
 function OpenCodeSelect({
   label,
@@ -123,12 +166,18 @@ function OpenCodeSelect({
 }
 
 export function OpenCodeAgentControl({
-  agents
+  agents,
+  authoritative = false
 }: {
   agents: AgentEnvironment['agents']
+  authoritative?: boolean
 }): React.JSX.Element {
   const { tr } = useI18n()
   const selected = useChatSession((state) => state.harnessAgent)
+  useEffect(() => {
+    if (authoritative && selected && !agents?.some((agent) => agent.name === selected))
+      chatActions.setHarnessOptions({ agent: '', variant: '' })
+  }, [agents, authoritative, selected])
   return (
     <OpenCodeSelect
       label={tr('harness.agent')}
@@ -143,12 +192,19 @@ export function OpenCodeAgentControl({
 }
 
 export function OpenCodeVariantControl({
-  variants
+  variants,
+  authoritative = false
 }: {
   variants: readonly string[]
-}): React.JSX.Element {
+  authoritative?: boolean
+}): React.JSX.Element | null {
   const { tr } = useI18n()
   const selected = useChatSession((state) => state.modelVariant)
+  useEffect(() => {
+    if (authoritative && selected && !variants.includes(selected))
+      chatActions.setHarnessOptions({ variant: '' })
+  }, [variants, selected, authoritative])
+  if (!variants.length) return null
   return (
     <OpenCodeSelect
       label={tr('harness.variant')}

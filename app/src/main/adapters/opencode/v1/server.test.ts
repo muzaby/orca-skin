@@ -72,6 +72,7 @@ function setup(
     preferences: () => preferences,
     executable: () => preferences.executablePath,
     readVersion,
+    allocatePort: async () => 49123,
     spawnProcess: spawnProcess as unknown as typeof spawn,
     fetchImpl,
     timeoutMs: options.timeoutMs ?? 1000
@@ -81,6 +82,40 @@ function setup(
 }
 
 describe('owned OpenCode server lifecycle', () => {
+  it('releases only the last owner, is idempotent and never retires a replacement generation', async () => {
+    const { pool, children, spawnProcess } = setup()
+    const [one, two] = await Promise.all([pool.acquire(), pool.acquire()])
+    one.release!()
+    one.release!()
+    expect(children[0]!.kill).not.toHaveBeenCalled()
+    two.release!()
+    expect(children[0]!.kill).toHaveBeenCalledOnce()
+    const next = await pool.acquire()
+    two.release!()
+    expect(spawnProcess).toHaveBeenCalledTimes(2)
+    expect(children[1]!.kill).not.toHaveBeenCalled()
+    next.release!()
+    expect(children[1]!.kill).toHaveBeenCalledOnce()
+  })
+  it('coalesces version checks across install and different server configurations', async () => {
+    const { pool, readVersion } = setup()
+    await Promise.all([
+      pool.installed(),
+      pool.acquire({ model: 'one' }),
+      pool.acquire({ model: 'two' })
+    ])
+    await pool.installed()
+    expect(readVersion).toHaveBeenCalledOnce()
+  })
+  it('invalidates the version cache when the executable bytes change at the same path', async () => {
+    const { pool, preferences, readVersion } = setup()
+    preferences.executablePath = join(temporaryDirectory(), 'opencode.exe')
+    writeFileSync(preferences.executablePath, 'first')
+    await pool.installed()
+    writeFileSync(preferences.executablePath, 'replacement-longer')
+    await pool.installed()
+    expect(readVersion).toHaveBeenCalledTimes(2)
+  })
   it('separates native storage environments and working directories in the pool identity', async () => {
     const { pool, spawnProcess } = setup()
     const one = temporaryDirectory()
@@ -204,7 +239,7 @@ describe('owned OpenCode server lifecycle', () => {
     const config = { model: 'test/model', provider: { test: { options: { apiKey: 'secret' } } } }
     const first = pool.acquire(config, { TEST_SETTING: 'value' })
     const second = pool.acquire(config, { TEST_SETTING: 'value' })
-    expect(first).toBe(second)
+    const secondConnection = await second
     const connection = await first
     expect(spawnProcess).toHaveBeenCalledOnce()
     const [command, args, options] = spawnProcess.mock.calls[0] as unknown as [
@@ -213,7 +248,9 @@ describe('owned OpenCode server lifecycle', () => {
       { env: Record<string, string>; cwd: string; windowsHide: boolean }
     ]
     expect(command).toBe(preferences.executablePath)
-    expect(args).toEqual(['serve', '--hostname=127.0.0.1', '--port=0'])
+    expect(args).toEqual(['serve', '--hostname=127.0.0.1', '--port=49123'])
+    expect(secondConnection.url).toBe(connection.url)
+    expect(secondConnection.release).not.toBe(connection.release)
     expect(options).toMatchObject({ cwd: homedir(), windowsHide: true })
     expect(JSON.parse(options.env.OPENCODE_CONFIG_CONTENT!)).toEqual({
       ...config,

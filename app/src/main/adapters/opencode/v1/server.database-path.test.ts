@@ -10,7 +10,8 @@ import { jsonResponse } from './adapter.testfixture'
 // `databasePath` asks the CLI itself (`opencode db path`), so the call is observed here.
 const cli = vi.hoisted(() => ({
   calls: [] as Array<{ args: string[]; env: NodeJS.ProcessEnv }>,
-  output: ''
+  output: '',
+  fail: false
 }))
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:child_process')>()
@@ -23,7 +24,9 @@ vi.mock('node:child_process', async (importOriginal) => {
       callback: (error: Error | null, stdout: string) => void
     ) => {
       cli.calls.push({ args, env: options.env })
-      queueMicrotask(() => callback(null, `${cli.output}\n`))
+      queueMicrotask(() =>
+        callback(cli.fail ? new Error('temporary CLI error') : null, `${cli.output}\n`)
+      )
     }
   }
 })
@@ -36,6 +39,7 @@ afterEach(() => {
   for (const pool of pools.splice(0)) pool.close()
   for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true })
   cli.calls.length = 0
+  cli.fail = false
 })
 
 function fakeChild(): ChildProcess {
@@ -76,6 +80,10 @@ describe('OpenCode native database path (0262 EP56 P49)', () => {
     // The history read already holds the server for this document.
     await pool.acquire(document, env, root)
     await expect(pool.databasePath(document, env, root)).resolves.toBe(cli.output)
+    await Promise.all([
+      pool.databasePath(document, env, root),
+      pool.databasePath(document, env, root)
+    ])
 
     // No second server is started for an empty or different configuration.
     expect(spawnProcess).toHaveBeenCalledTimes(1)
@@ -85,5 +93,14 @@ describe('OpenCode native database path (0262 EP56 P49)', () => {
       ...document,
       share: 'disabled'
     })
+    // A disappeared database path and a failed probe must not poison the live entry.
+    rmSync(cli.output)
+    cli.fail = true
+    await expect(pool.databasePath(document, env, root)).rejects.toThrow('temporary CLI error')
+    cli.fail = false
+    cli.output = join(root, 'replacement.db')
+    writeFileSync(cli.output, '')
+    await expect(pool.databasePath(document, env, root)).resolves.toBe(cli.output)
+    expect(cli.calls).toHaveLength(3)
   })
 })

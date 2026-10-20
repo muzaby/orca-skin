@@ -16,17 +16,37 @@ import { replyToApproval } from './approval'
 import { recoveredPrompt } from '../../common/recovery'
 import { modelRef } from './model-ref'
 import { reportError } from '../../../infra/error-report'
+import { openCodeComposerCatalog } from './composer-catalog'
+import type { NativeComposerCatalog } from '../../../../shared/native-resources'
 
 /** One SDK subscription feeds the existing SessionRuntime pump for its entire lifetime. */
 export function openCodeChannel(
   req: TurnRequest,
-  connect: () => Promise<OpencodeClient>
+  connect: () => Promise<OpencodeClient>,
+  release: () => void = () => undefined
 ): LiveTurn {
   const generation = randomUUID()
   const controller = new AbortController()
   const signal = req.signal ? AbortSignal.any([req.signal, controller.signal]) : controller.signal
   let mainApproval = new AbortController()
   let client: OpencodeClient | undefined
+  let composerCatalog: NativeComposerCatalog | undefined
+  let composerFlight: Promise<NativeComposerCatalog | undefined> | undefined
+  const refreshComposer = (): Promise<NativeComposerCatalog | undefined> => {
+    if (composerFlight) return composerFlight
+    if (!client || closed) return Promise.resolve(undefined)
+    const flight = openCodeComposerCatalog(client, req.cwd)
+      .then((catalog) => {
+        if (!closed) composerCatalog = catalog
+        return catalog
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (composerFlight === flight) composerFlight = undefined
+      })
+    composerFlight = flight
+    return flight
+  }
   let sessionId = req.sessionId
   let activity: OpenCodeActivityMapper | undefined
   let iterator: AsyncGenerator<Event> | undefined
@@ -104,6 +124,21 @@ export function openCodeChannel(
     signal.throwIfAborted()
     if (!client || !sessionId || !activity)
       throw new Error('OpenCode 이벤트 채널이 준비되지 않았습니다.')
+    // Catalog membership is authoritative only after a successful live read.
+    const agent =
+      composerCatalog &&
+      next.harnessAgent &&
+      !composerCatalog.agents.some((item) => item.name === next.harnessAgent)
+        ? undefined
+        : next.harnessAgent
+    const variant =
+      composerCatalog &&
+      next.modelVariant &&
+      !composerCatalog.models
+        .find((item) => item.id === next.model)
+        ?.variants.includes(next.modelVariant)
+        ? undefined
+        : next.modelVariant
     const messageID = createOpenCodeMessageId()
     const submission = ++submissionEpoch
     if (initial) req.recovery?.onPrompt(messageID)
@@ -168,8 +203,8 @@ export function openCodeChannel(
               command: command.name,
               arguments: slash?.[2] ?? '',
               model: next.model,
-              agent: next.harnessAgent,
-              variant: next.modelVariant,
+              agent,
+              variant,
               parts: files
             },
             { signal, throwOnError: true }
@@ -185,8 +220,8 @@ export function openCodeChannel(
             directory: req.cwd,
             messageID,
             ...(next.model ? { model: modelRef(next.model) } : {}),
-            ...(next.harnessAgent ? { agent: next.harnessAgent } : {}),
-            ...(next.modelVariant ? { variant: next.modelVariant } : {}),
+            ...(agent ? { agent } : {}),
+            ...(variant ? { variant } : {}),
             ...(system ? { system } : {}),
             parts: [
               {
@@ -233,6 +268,7 @@ export function openCodeChannel(
       if (req.forkFrom) throw new Error('OpenCode 세션 분기는 지원하지 않습니다.')
       client = await connect()
       signal.throwIfAborted()
+      const catalog = refreshComposer()
       if (!sessionId)
         sessionId =
           (
@@ -270,6 +306,8 @@ export function openCodeChannel(
         generation,
         req.providerSettings?.settings
       )
+      // Defaults require no catalog validation. Do not hold up the first prompt for menu metadata.
+      if (req.harnessAgent || req.modelVariant) await catalog
       try {
         await submit(req, true)
       } catch (error) {
@@ -345,6 +383,7 @@ export function openCodeChannel(
       controller.abort()
       await cleanupOwned()
       await iterator?.return(undefined).catch(() => undefined)
+      release()
       ended = true
       wake?.()
       wake = undefined
@@ -375,18 +414,22 @@ export function openCodeChannel(
     },
     nativeResources: async () => {
       if (!client || closed || ended) return { state: 'disconnected', items: [] }
-      const [items, commands] = await Promise.all([
+      const [items, commands, composer] = await Promise.all([
         openCodeNativeResources(client, req.cwd, { ...process.env, ...req.env }),
         openCodeNativeCommands(client, req.cwd, true, { ...process.env, ...req.env }).catch(
           () => undefined
-        )
+        ),
+        refreshComposer()
       ])
+      if (closed || ended) return { state: 'disconnected', items: [] }
+      composerCatalog = composer ?? composerCatalog
       return {
         state: 'connected',
         generation,
         items,
         ...(commands !== undefined ? { commands } : {}),
-        ...(commands === undefined ? { partial: true } : {})
+        ...(composerCatalog !== undefined ? { composer: composerCatalog } : {}),
+        ...(commands === undefined || composer === undefined ? { partial: true } : {})
       }
     },
     eventBatches: batches(),

@@ -222,6 +222,8 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 
 검증된 `tool.call.completed.artifact`는 원래 toolRunId가 속한 메시지만 교체한다. 목록 갱신 이벤트는 게시 카드를 임의의 메시지에 추가하거나 패널을 자동 선택하지 않는다. 일반 출력은 이 목록의 최신 파일을 Transcript 하단에서 표시하며 원래 메시지에 이미 연결된 파일은 중복 표시하지 않는다. `artifactStore`는 mount된 세션의 알려진 ID를 대상으로 상태 조회를 병합하고 세션/파일별 요청 세대로 지각 응답을 폐기한다. transcript 묶음 저장은 해당 메시지의 게시 집합, 타일은 Main이 반환한 최신 목록을 사용한다.
 
+제품 미리보기에서 지원하지 않는 형식은 뷰어를 만들지 않고 검증된 게시 파일의 위치를 탐색기로 연다. 다른 파일의 기존 뷰어는 유지한다. 컨텍스트 파일도 지원 형식·안전한 확장자에 해당할 때만 기본 앱으로 열고, 미지원 형식은 탐색기에서 선택한다. Transcript의 HTTP(S) 링크는 새 창과 같은 창 탐색 모두 OS 기본 브라우저로 전달한다.
+
 `RightPanel`은 하네스별 진입점을 통해 공통 `harnesses/common/rightpanel/TilePanel.tsx`를 렌더한다. `TilePanel`은 타일 registry·행/열 배치와 범용 상세 슬롯을 제공하고 세션·뷰어·확대 수명을 조립한다. `RightPanelColumn`은 타일과 행 애니메이션, `PanelResizeSeparators`는 행/열 조절을 담당한다. overview viewport 폭은 가용 영역의 절반 이내이며 넘치는 열은 가로 스크롤한다. 뷰어는 별도 저장한 폭을 사용한다. 직접 타일을 열면 이미 열린 화면 밖 열도 보여 주고, 열 리사이즈는 스크롤된 실제 DOM 좌표를 기준으로 계산한다. 카드와 액션은 기존 시맨틱 토큰·Button·DropdownMenu·확인창·번역 리소스를 공유한다.
 
 `useArtifactViewerActions`는 복사와 저장의 중복 실행 잠금·피드백·요청 소유권을 관리한다. 오류 문구는 `artifactFeedback`에서 해석하고 선택 전환·닫기 이후의 완료는 이전 화면을 갱신하지 않는다. 패널 펼치기·복원·닫기는 공통 `PanelControls`와 Material SVG를 사용한다. 같은 역할의 툴팁은 공통 번역을 사용하며 타일을 식별해야 하는 접근성 이름에는 대상명을 포함한다.
@@ -233,6 +235,8 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 ## 하네스 전용 표시
 
 새 대화의 모델 선택은 `chatReducer.SET_MODEL`에서 backend를 함께 바꾼다. OpenCode 선택은 Code를 강제하며 생성·입장 이후 backend는 잠긴다. `ComposerInputController`는 동일 인스턴스를 유지하고 테두리·컨트롤만 전환한다. OpenCode의 에이전트·variant는 실제 카탈로그에서 제공한다. Claude의 권한·effort 컨트롤은 기존 정책을 유지한다.
+
+OpenCode가 실행된 뒤에는 같은 세션의 native resource cache에 있는 SDK 에이전트·모델 variant를 Composer 선택지로 사용한다. visible primary/all 에이전트를 표시하고 hidden/subagent는 제외한다. 성공한 목록에서 사라진 agent·variant 선택은 정리하며 variant가 없으면 선택기를 숨긴다. 연결 전에는 설정 카탈로그를 사용하고, 재개 후 연결 이벤트에서 갱신하며 살아 있는 같은 generation은 화면 이동에도 보존한다.
 
 `TranscriptView`는 공유 메시지 모델을 하네스별 viewport로 보낸다. Claude는 기존 교환 단위 가상화와 `useScrollAnchor`를 사용한다. OpenCode는 `harnesses/opencode/transcript/Timeline`에서 텍스트·도구·메타를 안정된 행 key로 투영하고 행 단위로 가상화한다. 읽기 중인 행과 선택 범위를 보존하며, 세션별 위치·도구 펼침을 기억한다. 위로 스크롤하거나 텍스트를 선택하면 새 출력의 바닥 추종을 해제하고, 바닥 도달 또는 최신 이동으로 추종을 재개한다. 탐색 도구는 접기 행으로 묶고 수정 도구는 사용자가 펼칠 때 diff를 표시한다. `providerTool` 원본은 상세 disclosure에서 읽는다. 본문 배경과 사용자 버블 색상은 Claude와 공유한다.
 
@@ -249,8 +253,9 @@ OpenCode의 질문과 도구 승인은 도착 순서대로 같은 입력 자리�
 | `task` | 기본 `작업` 요약 카드. 폴더 제목과 변경 사항 진입을 표시하고, 하위 에이전트·소스는 실제 자료가 있을 때, 셸 그룹은 활성 실행이 있을 때 표시한다. 카드 자체의 메뉴 버튼·별도 헤더는 없다. |
 | `plan` | 지원되는 독립 타일이며 저장된 배치·기존 활성화 경로를 유지한다. 공통 계획 본문·복사와 기존 타일 헤더를 사용한다. |
 | `diff`·`subagent`·`process`·`source` | 작업 요약에서 기존 패널 위의 상세로 연다. 기존 독립 타일과 같은 registry의 본문·헤더를 사용하며 diff는 Git 컨텍스트 헤더, 하위 에이전트는 목록 복귀 버튼을 유지한다. 셸 로그와 소스는 본문 안에서 스크롤한다. |
+| `nativeStatus` | 타이틀 메뉴에서 작업 패널 위 상세로 연다. 작업 타일이 없으면 열고, 저장된 독립 상태 타일은 배치에서 제외한다. 상세 닫기·Esc·확대·크기 조절과 메뉴 버튼 초점 복귀를 공유한다. |
 
-작업 요약의 변경 사항·하위 에이전트·셸 행·소스 모두 보기는 OpenCode navigation Context를 통해 상세를 연다. 공통 호스트의 표시 우선순위는 artifact 뷰어 → 상세 → 기존 타일이며 가려진 층은 mounted·hidden·inert로 유지한다. artifact를 닫으면 상세로, 상세를 닫으면 원래 타일로 돌아간다. 상세에는 추가 제목·뒤로 행 없이 기존 헤더를 사용하고, `RightPanelTile`의 닫기 override가 상세만 닫아 뒤의 같은 종류 타일을 보존한다. 타이틀 메뉴와 transcript Task 카드는 직접 타일 열기 경로를 사용한다.
+작업 요약의 변경 사항·하위 에이전트·셸 행·소스 모두 보기는 OpenCode navigation Context를 통해 상세를 연다. 공통 호스트의 표시 우선순위는 artifact 뷰어 → 상세 → 기존 타일이며 가려진 층은 mounted·hidden·inert로 유지한다. artifact를 닫으면 상세로, 상세를 닫으면 원래 타일로 돌아간다. 상세에는 추가 제목·뒤로 행 없이 기존 헤더를 사용하고, `RightPanelTile`의 닫기 override가 상세만 닫아 뒤의 같은 종류 타일을 보존한다. 타이틀 메뉴의 OpenCode 상태는 상세를 열며 나머지 메뉴와 transcript Task 카드는 직접 타일 열기 경로를 사용한다.
 
 소스 그룹의 활성 조건은 추가 폴더·전송된 첨부·참조 자료이며 작업 디렉터리만 있으면 그룹을 표시하지 않는다. 자료가 생긴 뒤 요약의 소스 그룹에서 폴더 추가·모두 보기를 사용한다. 소스 파일·URL 열기와 폴더 추가는 기존 컨텍스트 액션을 사용한다.
 

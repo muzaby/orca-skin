@@ -18,9 +18,9 @@ export function SourceHeading({
       className={`flex items-center gap-2 px-3 pb-2 text-caption font-medium text-ink3 ${spaced ? 'pt-8' : 'pt-5'}`}
     >
       {source.includes('claude') ? (
-        <ClaudeLogo className={className} />
+        <ClaudeLogo className={`${className} text-spinner`} />
       ) : source.includes('opencode') ? (
-        <OpenCodeLogo className={className} />
+        <OpenCodeLogo className={`${className} text-oc-ink`} />
       ) : source === 'orca' ? (
         <OrcaLogo className={className} />
       ) : (

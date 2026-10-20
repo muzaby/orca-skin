@@ -26,6 +26,8 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
   reply: (id: string) => void
   setPrompt: (callback: (body: Record<string, unknown>) => Promise<void | Response>) => void
   failAbort: () => void
+  setComposer: (agents: unknown[], models: Record<string, unknown>) => void
+  holdComposer: (gate: Promise<void>) => void
   setCommands: (
     commands: {
       name: string
@@ -39,6 +41,8 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
   let stream: ReadableStreamDefaultController<Uint8Array> | undefined
   let closed = false
   let rejectAbort = false
+  let composer: { agents: unknown[]; models: Record<string, unknown> } | undefined
+  let composerGate: Promise<void> | undefined
   let commands: {
     name: string
     description?: string
@@ -70,6 +74,14 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
     if (path === '/mcp') return jsonResponse({ native: { status: 'connected' } })
     if (path === '/config') return jsonResponse({ plugin: ['@native/plugin@1'] })
     if (path === '/command') return jsonResponse(commands)
+    if ((path === '/agent' || path === '/provider') && composer) {
+      await composerGate
+      return jsonResponse(
+        path === '/agent'
+          ? composer.agents
+          : { all: [{ id: 'plugin', models: composer.models }], connected: ['plugin'], default: {} }
+      )
+    }
     if (path === '/skill')
       return jsonResponse(
         commands
@@ -135,6 +147,12 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
     failAbort: () => {
       rejectAbort = true
     },
+    setComposer: (agents, models) => {
+      composer = { agents, models }
+    },
+    holdComposer: (gate) => {
+      composerGate = gate
+    },
     setCommands: (value) => {
       commands = value
     }
@@ -167,6 +185,89 @@ async function dispose(
 }
 
 describe('OpenCode persistent SDK channel', () => {
+  it('discards menu metadata that finishes after the channel closes', async () => {
+    const f = fixture()
+    const gate = Promise.withResolvers<void>()
+    f.setComposer([{ name: 'late-agent', mode: 'primary' }], {})
+    f.holdComposer(gate.promise)
+    const iterator = f.live.eventBatches[Symbol.asyncIterator]()
+    try {
+      await frame(iterator)
+      const pending = f.live.nativeResources!()
+      f.live.close()
+      gate.resolve()
+      expect(await pending).toEqual({ state: 'disconnected', items: [] })
+      expect(await f.live.nativeResources!()).toEqual({ state: 'disconnected', items: [] })
+    } finally {
+      gate.resolve()
+      await dispose(f.live, iterator)
+    }
+  })
+
+  it('passes a live plugin agent and drops its removed variant on the next prompt', async () => {
+    const f = fixture({
+      model: 'plugin/model',
+      harnessAgent: 'plugin-review',
+      modelVariant: 'deep'
+    })
+    f.setComposer(
+      [
+        { name: 'plugin-review', mode: 'primary' },
+        { name: 'private', mode: 'subagent' }
+      ],
+      { model: { id: 'model', variants: { deep: {} } } }
+    )
+    const iterator = f.live.eventBatches[Symbol.asyncIterator]()
+    try {
+      await frame(iterator)
+      let prompts = f.requests.filter((r) => new URL(r.url).pathname.endsWith('/prompt_async'))
+      expect(await prompts[0].json()).toMatchObject({ agent: 'plugin-review', variant: 'deep' })
+      f.setComposer([{ name: 'plugin-revised', mode: 'all' }], {
+        model: { id: 'model', variants: {} }
+      })
+      expect((await f.live.nativeResources!()).composer).toEqual({
+        agents: [{ name: 'plugin-revised' }],
+        models: [{ id: 'plugin/model', variants: [] }]
+      })
+      await f.live.pushTurn!({
+        text: 'next',
+        model: 'plugin/model',
+        harnessAgent: 'plugin-review',
+        modelVariant: 'deep'
+      })
+      await frame(iterator)
+      prompts = f.requests.filter((r) => new URL(r.url).pathname.endsWith('/prompt_async'))
+      const body = await prompts[1].json()
+      expect(body).not.toHaveProperty('agent')
+      expect(body).not.toHaveProperty('variant')
+      await f.live.pushTurn!({ text: 'updated agent', harnessAgent: 'plugin-revised' })
+      await frame(iterator)
+      prompts = f.requests.filter((r) => new URL(r.url).pathname.endsWith('/prompt_async'))
+      expect(await prompts[2].json()).toMatchObject({ agent: 'plugin-revised' })
+    } finally {
+      await dispose(f.live, iterator)
+    }
+  })
+
+  it('does not wait for menu metadata before sending a default prompt', async () => {
+    const f = fixture()
+    f.setComposer([], {})
+    let release!: () => void
+    f.holdComposer(
+      new Promise<void>((resolve) => {
+        release = resolve
+      })
+    )
+    const iterator = f.live.eventBatches[Symbol.asyncIterator]()
+    try {
+      await frame(iterator)
+      expect(f.requests.some((r) => new URL(r.url).pathname.endsWith('/prompt_async'))).toBe(true)
+    } finally {
+      release()
+      await dispose(f.live, iterator)
+    }
+  })
+
   it('dispatches a real native slash command while its HTTP response is pending and retains context and files', async () => {
     const approve = vi.fn(async () => ({ behavior: 'deny' as const }))
     const f = fixture({
@@ -395,6 +496,8 @@ describe('OpenCode persistent SDK channel', () => {
         uuid: 'second'
       })
       expect(f.requests.map((request) => new URL(request.url).pathname)).toEqual([
+        '/agent',
+        '/provider',
         '/event',
         '/session/s1/prompt_async',
         '/session/s1/prompt_async'
@@ -617,6 +720,7 @@ it('exposes native resources from the live channel client and its directory with
       state: 'connected',
       generation: f.live.providerGeneration,
       commands: [],
+      partial: true,
       items: [
         {
           id: 'native',

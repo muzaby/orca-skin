@@ -43,7 +43,7 @@ async function readPreview(
 }
 
 // 0242 ΔV2 (D-011) — 접근할 수 없는 파일은 뷰어 본문에 불가 화면을 두지 않고 요청한 사용자에게
-// 사유를 toast 로 알린다. 형식 미지원은 다운로드로 이어지는 정상 상태라 본문에 남긴다.
+// 사유를 toast 로 알린다. 형식 미지원은 검증된 파일 위치를 연다.
 function blocked(artifact: ArtifactRef, result: ArtifactPreviewResult): boolean {
   if (result.state !== 'unavailable' || result.reason === 'unsupported-format') return false
   reportArtifactIssue({
@@ -55,10 +55,43 @@ function blocked(artifact: ArtifactRef, result: ArtifactPreviewResult): boolean 
   return true
 }
 
+async function revealUnsupported(
+  sessionId: string,
+  artifact: ArtifactRef,
+  result: ArtifactPreviewResult
+): Promise<boolean> {
+  if (result.state !== 'unavailable' || result.reason !== 'unsupported-format') return false
+  try {
+    const revealed = await window.orca.artifacts.reveal({
+      sessionId,
+      publicationId: artifact.publicationId
+    })
+    if (!revealed.ok)
+      reportArtifactIssue({
+        event: 'artifacts.reveal.failed',
+        filename: artifact.filename,
+        reason: revealed.reason
+      })
+  } catch {
+    reportArtifactIssue({
+      event: 'artifacts.reveal.failed',
+      filename: artifact.filename,
+      reason: 'io-error'
+    })
+  }
+  return true
+}
+
 // 이미 열린 뷰어의 재시도 — 공간이 이미 있으므로 불가면 닫는 것이 되돌림이다.
 async function readSelection(selection: ArtifactViewerSelection): Promise<void> {
   const result = await readPreview(selection.sessionId, selection.artifact.publicationId)
   if (useArtifactViewerStore.getState().selection?.request !== selection.request) return
+  if (result.state === 'unavailable' && result.reason === 'unsupported-format') {
+    await revealUnsupported(selection.sessionId, selection.artifact, result)
+    if (useArtifactViewerStore.getState().selection?.request === selection.request)
+      useArtifactViewerStore.setState({ selection: null })
+    return
+  }
   if (blocked(selection.artifact, result)) {
     useArtifactViewerStore.setState({ selection: null })
     return
@@ -85,6 +118,10 @@ export async function openArtifactViewer(
   const result = await readPreview(sessionId, artifact.publicationId)
   if (useArtifactViewerStore.getState().opening?.request !== opening.request) return
   useArtifactViewerStore.setState({ opening: null })
+  if (result.state === 'unavailable' && result.reason === 'unsupported-format') {
+    await revealUnsupported(sessionId, artifact, result)
+    return
+  }
   if (blocked(artifact, result)) return
   useArtifactViewerStore.setState({
     selection: {

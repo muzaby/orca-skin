@@ -90,6 +90,12 @@ describe('plugin catalog list', () => {
     expect(mcp).toContain('Claude MCP')
     expect(mcp).toContain('OpenCode MCP')
     expect(mcp).toContain('Orcinus orca MCP')
+    const headings = load(mcp)('li').filter((_, el) => !load(mcp)(el).attr('data-extensions-row'))
+    expect(headings.eq(0).attr('class')).toContain('pt-5')
+    expect(headings.eq(1).attr('class')).toContain('pt-8')
+    expect(headings.eq(2).attr('class')).toContain('pt-8')
+    expect(mcp).toContain('text-spinner')
+    expect(mcp).toContain('text-oc-ink')
   })
   it.each<[CatalogTab, string[]]>([
     ['skills', ['adapter:claude/review', 'orca/review']],

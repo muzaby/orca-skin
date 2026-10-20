@@ -14,6 +14,21 @@ beforeEach(() => {
 })
 
 describe('OpenCode independent panel state', () => {
+  it('opens status over the task, toggles and closes it without adding or removing base tiles', () => {
+    chatActions.toggleRightPanelTile('nativeStatus')
+    expect(flattenColumns(getActiveChatSession().rightPanelTiles)).toEqual(['task'])
+    expect(useChatStore.getState().sessions.s.panelReveal).toEqual({
+      id: 'task',
+      detail: { id: 'nativeStatus' }
+    })
+    chatActions.toggleRightPanelTile('nativeStatus')
+    expect(useChatStore.getState().sessions.s.panelReveal).toBeUndefined()
+    chatActions.setRightPanelTileActive('nativeStatus', true)
+    expect(useChatStore.getState().sessions.s.panelReveal?.detail).toEqual({ id: 'nativeStatus' })
+    chatActions.removeRightPanelTile('nativeStatus')
+    expect(useChatStore.getState().sessions.s.panelReveal).toBeUndefined()
+    expect(flattenColumns(getActiveChatSession().rightPanelTiles)).toEqual(['task'])
+  })
   it('keeps the summary and other selections while opening and revealing each target', () => {
     chatActions.setRightPanelTileActive('diff', true)
     chatActions.openSubagentTask('child')

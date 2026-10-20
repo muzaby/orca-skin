@@ -517,6 +517,10 @@ it('lists draft installations and opens their resolved folder without a session 
 
 it('retains live observations only while the same provider generation survives metadata failures', async () => {
   const state = snapshot()
+  state.composer = {
+    agents: [{ name: 'plugin-review' }],
+    models: [{ id: 'plugin/reasoner', variants: ['deep'] }]
+  }
   state.items[0] = { ...state.items[0], enabled: false, status: 'disabled' }
   const live = vi.fn<() => Promise<NativeResources>>().mockResolvedValue(state)
   const runtime = { providerGeneration: 'generation-B', nativeResources: live }
