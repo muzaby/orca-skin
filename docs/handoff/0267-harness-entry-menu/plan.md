@@ -5,8 +5,8 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | IMPL_DONE / r1.5 |
-| V mode / 기준 V / 유효 V | Delta V / r1.4 (`5c814855`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7 |
+| 상태 / 라운드 | READY / r1.6 |
+| V mode / 기준 V / 유효 V | Delta V / r1.4 (`5c814855`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
 # Part I — Product & UX Contract
@@ -893,3 +893,40 @@ SELF_PASS. 설치된 frontend-design의 활성 flag·manifest·SKILL.md는 존�
 - 사용자 요청으로 D-18의 자동 로딩 제한을 대체했다. 이전 표시-only 계약으로 실제 실행까지 완료했다고 주장하지 않는다.
 - 새 초안의 sessionId=null 경로가 별도 진입점이므로 구현 전 EP21을 추가했다.
 - Windows 임시 폴더 조상 stat 제한은 동일 실패 파일을 일반 권한으로 재실행해 분리했다. 기존 ignored 외부 clone 링크 오류 5건은 이번 변경과 무관하게 유지된다.
+
+## ΔV8 — 안내 제거·오류 토스트·설치 범위 정정 (r1.6)
+
+READY. 2026-10-20 사용자 요청으로 케밥 하네스 그룹의 모든 안내 문구를 제거하고 클릭 실패를 기존 오류 토스트로 전달한다. Claude 플러그인 목록의 정본은 native root의 `plugins/installed_plugins.json`이며 기본 경로는 `~/.claude/plugins/installed_plugins.json`이다.
+
+| 결정 | 상태 | 계약 / 대체 관계 |
+|---|---|---|
+| D-26 | ACTIVE | 케밥 하네스 그룹과 그 하위 목록에서 로딩·갱신·이전 목록·부분 조회·빈 목록·오류 안내를 표시하지 않는다. 리소스 행 상태와 설명 툴팁은 유지한다. D-11·14·18의 케밥 안내 부분과 AC10·15의 표시 부분을 대체한다. Composer 안내는 기존 계약을 유지한다. |
+| D-27 | ACTIVE | 조회·폴더 열기·MCP 제어 실패는 reportError 토스트로 전달한다. 자동 재조회 실패는 같은 클릭의 오류를 중복 보고하지 않으며 세션/메뉴가 바뀐 뒤 도착한 실패는 폐기한다. |
+| D-28 | ACTIVE | user 설치는 항상 표시, project 설치는 cwd가 projectPath 자신 또는 하위일 때 표시, local 설치는 cwd와 projectPath가 일치할 때만 표시한다. 활성 설정과 무관하게 해당 설치를 표시하고 클릭은 그 항목의 installPath를 연다. 같은 플러그인의 다른 설치 경로도 누락하지 않는다. D-12·22의 범위 판정을 구체화한다. |
+| D-29 | ACTIVE | 설치 목록과 user→project settings.json→settings.local.json의 enabledPlugins를 매번 재조회한다. 삭제된 설치는 성공한 최신 조회 후 제거하고 live/이전 관측이 복원하지 않는다. 활성 스킬·spawn은 활성 설정을 따르며 폴더 메뉴는 비활성 설치도 유지한다. 기존 폴더 액션을 유지하며 설치/설정 쓰기는 추가하지 않는다. |
+
+| AC | 관측 기준 | 직접 oracle |
+|---|---|---|
+| AC24 | 케밥에 모든 목록 안내가 없으며 실제 항목·그룹·툴팁은 유지된다. | nativeResourcesMenu.test 모든 view의 실제 CascadeBody; useNativeResources.test 실제 메뉴의 갱신·실패 DOM |
+| AC25 | 읽기/열기/제어 실패는 올바른 제목·상세의 토스트 1건, 자동 read 실패 중복 0, 타 세션 지각 실패 0이다. | useNativeResources.test 실제 hook→errorToastStore, 메뉴 클릭→API 실패→토스트·재조회 |
+| AC26 | user/project/local의 정확한 경로 범위와 각각의 installPath가 유지된다. | configured-resources.test 실제 registry·하위/형제/중첩 git cwd·같은 key 다중 설치; plugin-catalog.test 활성 선택·scope |
+| AC27 | registry 삭제 및 project/local enabledPlugins 변경을 새 조회/spawn에 반영하며 성공한 빈 설치 목록은 이전 목록을 지운다. | configured-resources/plugin-catalog/adapter.native-plugins 파일 변경; session-resources live 합성/폴더 권한; useNativeResources disconnected 최신 inventory 교체 |
+
+### V / §10
+
+| Pair | 노드 / requiredness | production 경로 | 자리별 oracle |
+|---|---|---|---|
+| VP-24 | R24~27↔AT24~27 NEW REQUIRED | registry/settings→reader→handler→hook→메뉴/토스트 | AC24~27의 실제 파일·IPC·DOM·store 결과 |
+| VP-25 | SD06↔ST06 NEW REQUIRED | refresh/click→실패 토스트→자동 read→scope 교체 | hook read/open/toggle·재조회 및 지각 실패 테스트 |
+| VP-26 | AR07↔IT07 NEW REQUIRED | configured 포트→bootstrap→handler authority DTO→hook snapshot | bootstrap.native-history·session-resources·useNativeResources |
+| VP-27 | MD08↔UT08 NEW REQUIRED | 설치 scope/경로→메뉴 전체 설치·runtime 우선 설치 | configured-resources·plugin-catalog 실제 파일 oracle |
+| VP13~14,16~17,19~23 | REGRESSION | 기존 reader/명령/spawn/재진입/폴더 경로 | 해당 기존 테스트. M2/M3 유지 |
+| VP01~12,15,18 | NOT_REQUIRED | 이번 변경이 닿지 않은 진입/브랜드/OpenCode 명령 dispatch | r1.5 이전 관측 승계 |
+
+EP22 고정 8자리: ①registry scope와 설치 경로 선택 ②configured reader 설치/상태/폴더 projection ③bootstrap 지원/미지원 inventory 구별 ④handler inventory/live 합성과 폴더 resolver ⑤authority DTO→hook 이전 plugin 제거 ⑥hook read/open/toggle 오류 보고 및 재조회 ⑦케밥 component 안내 제거 ⑧케밥 submenu의 loading/error/empty 안내 제거. 검색: `rg -n 'selectClaudePlugins|installedClaudePlugins|configuredResources|nativeResources|openNativePlugin|setNativeResource' app/src`의 선언·재수출·테스트를 제외한 위 경로를 대조한다.
+
+①②는 configured-resources/plugin-catalog의 실제 설치 파일과 반환 ID/path, ③은 bootstrap.native-history의 등록 callback 결과, ④는 session-resources의 실제 IPC·shell 인자, ⑤⑥은 useNativeResources의 실제 hook·store 결과, ⑦⑧은 실제 메뉴 렌더가 oracle이다. 메뉴는 빈 하위 목록에 빈 안내 행을 만들지 않는다. 내부 stale/refreshing 제어 잠금과 재조회는 유지한다.
+
+기술: 설치 후보 전체와 실행용 우선 설치 선택을 같은 scope helper로 분리한다. 구성 조회 미지원은 undefined로 보존하고 성공한 inventory에 pluginsAuthoritative를 부여해 live 및 renderer cache의 삭제된 plugin 복원을 막는다. 지원되는 inventory의 폴더는 최신 registry resolver를 사용한다. 기존 DTO에 선택 필드만 더하며 경로는 계속 main 내부에 둔다.
+
+운영 gate는 lint·typecheck 3종·관련 비DB Vitest·build·harness boundary·inventory·카탈로그다. 신규 적대 증거 not selected: 직접 행동 oracle. 상속 M2/M3는 다시 실행한다. D26~29↔AC24~27 및 상속 활성 설정/폴더 액션 대조: 충돌 0. 사용자 마지막 예시는 외부 CLI/settings 변경의 반영으로 해석하며 추가 메뉴 동작 여부는 비동기 확인 중이다.
