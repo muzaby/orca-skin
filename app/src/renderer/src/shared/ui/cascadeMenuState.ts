@@ -1,5 +1,6 @@
 // 계단식 메뉴 상태 — 순수부(0259 D-007·D-008·D-011). 도메인(스킬·플러그인)을 모른다.
 import type { IconName } from './Icon'
+import type { StatusTone } from './Status'
 
 export type CascadeItem<A> =
   | {
@@ -13,10 +14,18 @@ export type CascadeItem<A> =
       checked?: boolean
       description?: string
       action: A
+      status?: { tone: StatusTone; label: string; checked: boolean; busy?: boolean; action?: A }
       /** Independent control alongside the main action (e.g. open vs enable). */
       secondary?: { label: string; checked: boolean; disabled?: boolean; action: A }
     }
-  | { kind: 'submenu'; id: string; label: string; icon?: IconName; items: CascadeItem<A>[] }
+  | {
+      kind: 'submenu'
+      id: string
+      label: string
+      icon?: IconName
+      disabled?: boolean
+      items: CascadeItem<A>[]
+    }
   | { kind: 'separator'; id: string }
   | { kind: 'empty'; id: string; label: string }
 
@@ -51,14 +60,16 @@ export function panelItems<A>(
   let current = items
   for (let l = 0; l < level; l++) {
     const item = current[open[l]]
-    if (!item || item.kind !== 'submenu') return []
+    if (!item || item.kind !== 'submenu' || item.disabled) return []
     current = item.items
   }
   return current
 }
 
 function focusable<A>(item: CascadeItem<A> | undefined): boolean {
-  return !!item && (item.kind === 'submenu' || (item.kind === 'action' && !item.disabled))
+  return (
+    !!item && (item.kind === 'submenu' ? !item.disabled : item.kind === 'action' && !item.disabled)
+  )
 }
 
 function step<A>(list: readonly CascadeItem<A>[], from: number, delta: 1 | -1): number {
@@ -100,13 +111,15 @@ export function reduceCascade<A>(
 ): { state: CascadeState; effect: CascadeEffect<A> } {
   if (event.type === 'hover') {
     const item = panelItems(items, state.open, event.level)[event.index]
-    if (item?.kind === 'submenu') return openAt(items, state, event.level, event.index, false)
+    if (item?.kind === 'submenu' && !item.disabled)
+      return openAt(items, state, event.level, event.index, false)
     // 동작 항목 위 hover — 그 레벨 아래의 열린 하위 메뉴를 닫는다(형제 하위 닫힘).
     return { state: { ...state, open: state.open.slice(0, event.level) }, effect: null }
   }
   if (event.type === 'click') {
     const item = panelItems(items, state.open, event.level)[event.index]
-    if (item?.kind === 'submenu') return openAt(items, state, event.level, event.index, false)
+    if (item?.kind === 'submenu' && !item.disabled)
+      return openAt(items, state, event.level, event.index, false)
     if (item?.kind === 'action' && !item.disabled)
       return { state, effect: { type: 'activate', action: item.action } }
     return { state, effect: null }
@@ -142,7 +155,8 @@ export function reduceCascade<A>(
     case 'ArrowRight':
     case 'Enter':
     case ' ':
-      if (item?.kind === 'submenu') return openAt(items, state, level, index, true)
+      if (item?.kind === 'submenu' && !item.disabled)
+        return openAt(items, state, level, index, true)
       if (key !== 'ArrowRight' && item?.kind === 'action' && !item.disabled)
         return { state, effect: { type: 'activate', action: item.action } }
       return { state, effect: null }

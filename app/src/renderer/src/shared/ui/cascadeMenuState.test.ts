@@ -144,3 +144,47 @@ describe('submenuPosition (AC8)', () => {
     expect(r).toMatchObject({ top: SUBMENU_EDGE, maxHeight: 584 })
   })
 })
+
+describe('disabled native submenus', () => {
+  const groups: CascadeItem<string>[] = [
+    { kind: 'submenu', id: 'empty', label: 'MCP', disabled: true, items: [] },
+    {
+      kind: 'submenu',
+      id: 'plugins',
+      label: 'Plugins',
+      items: [{ kind: 'action', id: 'plugin', label: 'Plugin', action: 'open' }]
+    }
+  ]
+  it('skips the empty group with arrows and cannot open it with mouse or keyboard', () => {
+    expect(
+      reduceCascade(groups, INITIAL_CASCADE_STATE, { type: 'key', key: 'ArrowDown' }).state.focus
+    ).toEqual({ level: 0, index: 1 })
+    const focused = { open: [], focus: { level: 0, index: 0 } }
+    for (const key of ['Enter', ' ', 'ArrowRight']) {
+      const result = reduceCascade(groups, focused, { type: 'key', key })
+      expect(result.state.open).toEqual([])
+      expect(result.effect).toBeNull()
+    }
+    for (const type of ['hover', 'click'] as const) {
+      expect(reduceCascade(groups, INITIAL_CASCADE_STATE, { type, level: 0, index: 0 })).toEqual({
+        state: INITIAL_CASCADE_STATE,
+        effect: null
+      })
+    }
+  })
+  it('opens normally once the group receives items', () => {
+    const populated: CascadeItem<string>[] = [
+      {
+        kind: 'submenu',
+        id: 'filled',
+        label: 'MCP',
+        disabled: false,
+        items: [{ kind: 'action', id: 'server', label: 'Server', action: 'toggle' }]
+      }
+    ]
+    expect(
+      reduceCascade(populated, INITIAL_CASCADE_STATE, { type: 'click', level: 0, index: 0 }).state
+        .open
+    ).toEqual([0])
+  })
+})

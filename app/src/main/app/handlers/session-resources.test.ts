@@ -289,7 +289,7 @@ describe('native resource IPC', () => {
     } as unknown as GovernedLiveTurn
     registerSessionResourceHandlers(() => runtime)
     const pending = invoke(CHANNELS.sessionSetNativeResource, request)
-    await Promise.resolve()
+    await vi.waitFor(() => expect(finish).toBeTypeOf('function'))
     runtime = undefined
     finish(snapshot())
     await expect(pending).rejects.toThrow('바뀌었습니다')
@@ -467,3 +467,71 @@ it('lists draft installations and opens their resolved folder without a session 
     await rm(directory, { recursive: true, force: true })
   }
 })
+
+it('retains live observations only while the same provider generation survives metadata failures', async () => {
+  const state = snapshot()
+  state.items[0] = { ...state.items[0], enabled: false, status: 'disabled' }
+  const live = vi.fn<() => Promise<NativeResources>>().mockResolvedValue(state)
+  const runtime = { providerGeneration: 'generation-B', nativeResources: live }
+  registerSessionResourceHandlers(() => runtime as unknown as GovernedLiveTurn)
+  expect(await invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })).toEqual(state)
+  live.mockRejectedValue(new Error('metadata unavailable'))
+  expect(await invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })).toEqual({
+    ...state,
+    partial: true
+  })
+  runtime.providerGeneration = 'generation-next'
+  expect(await invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })).toEqual({
+    state: 'connected',
+    generation: 'generation-next',
+    items: [],
+    partial: true
+  })
+  Object.assign(runtime, { providerGeneration: undefined })
+  expect(await invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })).toEqual({
+    state: 'disconnected',
+    items: [],
+    partial: true
+  })
+})
+
+it.each([false, true])(
+  'serializes per-runtime SDK writes and continues after a rejection (%s)',
+  async (rejectFirst) => {
+    const state = snapshot()
+    const second = { ...state.items[0], id: 'server-C' }
+    state.items.push(second)
+    let finish!: () => void
+    let fail!: (error: Error) => void
+    const started = Promise.withResolvers<void>()
+    const write = vi
+      .fn<(req: typeof request) => Promise<void>>()
+      .mockImplementationOnce(() => {
+        started.resolve()
+        return new Promise((resolve, reject) => {
+          finish = resolve
+          fail = reject
+        })
+      })
+      .mockResolvedValue(undefined)
+    const runtime = {
+      nativeResources: async () => state,
+      setNativeResource: write
+    } as unknown as GovernedLiveTurn
+    registerSessionResourceHandlers(() => runtime)
+    const first = invoke(CHANNELS.sessionSetNativeResource, request)
+    const firstResult = first.then(
+      () => 'resolved',
+      () => 'rejected'
+    )
+    await started.promise
+    const next = invoke(CHANNELS.sessionSetNativeResource, { ...request, id: second.id })
+    for (let i = 0; i < 8; i++) await Promise.resolve()
+    expect(write).toHaveBeenCalledExactlyOnceWith(request)
+    if (rejectFirst) fail(new Error('first failed'))
+    else finish()
+    expect(await firstResult).toBe(rejectFirst ? 'rejected' : 'resolved')
+    expect(await next).toEqual(state)
+    expect(write.mock.calls.map(([req]) => req.id)).toEqual([request.id, second.id])
+  }
+)

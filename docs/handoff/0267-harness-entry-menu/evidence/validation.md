@@ -213,3 +213,37 @@ node node_modules/vitest/vitest.mjs run src/main/adapters/claude src/main/adapte
 r1.6 최종 추가 검사: 실제 Composer.native-menu/attachMenu.flow/composerAttachMenu/attachMenuModel 4파일31/31, partial 토스트+보고 registry 2파일253/253. 첫 전송 전 초안 보완 뒤 bootstrap/handler/preload/hook/titlebar/Composer 8파일79/79. 초안 목록은 읽기 전용이며 scope+id 폴더 요청의 strict union·상대 경로 거부·프로젝트 기본 cwd·미지원 하네스를 실제 callback/IPC/렌더로 확인했다.
 
 브라우저 최종 보완 재실행: 첫 전송 전 플러그인 행 표시·폴더 클릭 성공, 활성 switch 부재. 이후 저장 Claude 세션에서 white/dark/640px·Space 활성 제어·이름 클릭·오류 토스트를 재확인했다. 관측은 draftInventory=true, draftFolder=true, keyboardToggle=true, folderOpen=true, errorToast=true, exceptions=[]였다.
+
+## r1.7 — 프로세스 수명 상태와 비동기 상태 공
+
+2026-10-20, Linux/Chromium. ΔV9를 구현과 별도 커밋으로 확정했다. 아래는 구현자 자기확인이며 독립 verify 결과가 아니다.
+
+| 검사 | 관측 |
+|---|---|
+| 관련 Vitest | r1.6 재현 명령에 `src/renderer/src/shared/ui/cascadeMenuState.test.ts` 추가. 최종76파일 통과, 1,207 pass·3 skipped(`work/regression-final-r17.log`). |
+| 수명/동시 작업 집중 | hook 21/21: 두 소비자의 같은 snapshot, A→B→A의 pending/완료 결과, 다른 항목 동시 시작·동일 항목 중복 차단, inactive/initial-read 종료, 새 generation 작업을 이전 완료가 지우지 않음을 관측했다. |
+| main 상태/쓰기 | session-resources: 같은 살아 있는 generation에서만 metadata 실패 fallback 유지, generation 변경/exit 뒤 제거. runtime별 SDK 쓰기 순서 및 첫 reject 뒤 두 번째 실행을 관측했다. |
+| 타입 | `npm run typecheck`: node/web/test 진단 0. 최종 hook·flow 테스트 변경 뒤 `npm run typecheck:test` 재실행도 exit 0. |
+| lint | `eslint --cache src scripts`: 오류 0, 기존 경고 4(무관 테스트 포맷 2·가상화 2). |
+| production build | `node node_modules/electron-vite/bin/electron-vite.js build`: main/preload/renderer 성공. 기존 chunk 경고 유지. 네이티브 ABI 재빌드 없음. |
+| CLI | `node scripts/smoke-native-plugin-skills.mjs`: expanded=true, brief=true, requests=1, runtimeToggle=true. 초기 비활성·runtime off/on·설정 불변 확인. |
+| 경계 | `node --test scripts/harness-boundary.test.mjs`: 8/8. |
+| 문서 | inventory/generated/prose/relative links 통과. design catalog source-minus-doc=[], doc-minus-source=[], 기존 음성 대조 통과. |
+| 선택 변이 | M2 MCP/plugin 목록 맞바꿈→10 failed/11, 원본 바이트 복원→11/11. M3 native 스킬/MCP 목적지 맞바꿈→1 failed/8, 복원→8/8. |
+
+초기 회귀의 flow 테스트가 존재하지 않는 `pointerEnter` helper를 호출했다. 실제 harness의 `pointerTo`로 고친 후 해당 14/14와 관련 집중 6파일312/312를 재확인했고, 프로세스 교체 경쟁 1케이스를 추가해 hook 21/21을 확인했다. 초기 typecheck의 readonly fixture와 이전 제어 잠금/우측 스위치 기대값도 새 계약에 맞춰 정정했다. 생산 오류를 테스트 변경으로 숨긴 항목은 없다.
+
+### 브라우저 직접 입력
+
+[fixture README](../../../../app/scripts/fixtures/harness-entry/README.md)의 실제 React titlebar/Composer/메뉴와 IPC 대역을 사용했다. CDP에서 제어 응답을 수동 resolve해 대기 중 DOM·세션 이동·다른 항목 클릭을 관측했다. 스크린샷과 원시 로그는 작업 공간 `work/*-r17.log`, `work/native-menu-{spinner,empty}.png`에 보관했다.
+
+| 조건 | 관측 |
+|---|---|
+| white/dark 1280×800·dark 640×800 | 이름만 있는 행, 왼쪽 상태 공, nestedButtons=false, horizontalOverflow=false. plugin primaryWidth=174.625, 640px submenu left=200.625/right=409.875. |
+| 빈 saved 세션 | MCP/플러그인 각각 disabled=true, opacity=0.5, haspopup=false. click·ArrowDown/Right·Enter 뒤 하위 행 0. |
+| 서로 다른 공 pending | MCP 요청 중 plugin 공 클릭 가능. requests=2, 같은 공 재클릭은 요청을 늘리지 않음. 메뉴/폴더 행은 enabled, 해당 공만 aria-busy=true·disabled=true. |
+| A→B→A | A의 MCP 완료는 B를 보고 있는 동안 저장되고 복귀 시 checked=false. 아직 진행 중인 plugin은 복귀해도 spinner 유지, 완료 후 checked=false. A 재조회는 지연시켜 캐시 상태를 직접 확인. |
+| 색·모션·로고 | MCP connected 초록, needs-auth 노랑, disabled 회색. 공식 SVG의 data-brand=mcp. reduced-motion에서 spinner animationName=none. |
+| 회귀 | 초안 설치 목록/폴더 열기, 저장 세션 Space 제어, 폴더 이름 클릭, reject→전역 토스트. exceptions=[]. |
+
+공식 MCP 경로 원본은 [modelcontextprotocol/favicon.svg](https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/main/docs/favicon.svg)다. 배경 사각형을 제외한 원본 path를 currentColor stroke로 렌더했다. Windows OS 프로세스를 실기로 종료하는 검증은 하지 않았으며, 실제 SessionRuntime 채널 종료 이벤트와 renderer의 같은 이벤트 입력을 각각 테스트했다.

@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | READY / r1.7 |
+| 상태 / 라운드 | IMPL_DONE / r1.7 |
 | V mode / 기준 V / 유효 V | Delta V / r1.5 (`1f7ca1e4`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
@@ -1108,3 +1108,98 @@ EP25 고정 8자리: ①submenu disabled의 렌더·마우스·키보드 ②Casc
 기술: 창 수명 external store가 조회/작업 결과를 소유해 언마운트가 Promise를 폐기하지 않는다. pending은 항목별로 관리한다. main은 살아 있는 동일 provider generation의 마지막 관측만 fallback으로 유지하고 SDK 쓰기는 runtime별 직렬화한다. 기존 terminated background 이벤트를 수명 경계로 사용한다. native 설정/DB/새 의존성/하네스 시작·종료 정책은 변경하지 않는다.
 
 운영 gate는 lint·typecheck3종·관련 main/renderer/preload 테스트·build·실제 CLI/브라우저·boundary/inventory/catalog다. D31~34↔AC29~33 정합, READY.
+
+## [구현자 기입] r1.7 설계 리뷰
+
+SELF_PASS. ΔV9의 D31~34와 AC29~33을 기준으로 구현했다. 상태의 소유자를 hook mount에서 창의 session/backend store로 옮기고, 실제 provider generation만 수명 경계로 삼았다. 새로운 프로세스가 관측되거나 terminated가 도착하면 이전 작업·응답을 폐기한다. nav 이동과 재조회 시작은 상태를 초기화하지 않는다. 미해결 PLAN_GAP 없음.
+
+REQUIRED는 VP28~31, 관련 REGRESSION은 VP13~14·16~17·19~27이다. 비영향 nav/모델/프로젝트 헤더/OpenCode command dispatch는 이전 관측 승계다. 운영 gate와 실제 CLI/브라우저 결과는 [r1.7 관측](evidence/validation.md)에 기록했다.
+
+## [구현자 기입] r1.7 강제 지점 전수와 V-pair 자기확인
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 자리별 oracle 좌표 | 운반 항·관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP28·31 | disabled submenu | EP25 ① | 1/1 | cascadeMenuState.test: disabled native submenus; CascadeMenu.flow: collapses a newly empty disabled group… | mouse/hover/key 확장 0, 열린 패널 제거, 새 목록 도착 후 재사용 | 없음 |
+| VP28·31 | 공·비동기 입력 | EP25 ② | 1/1 | nativeResourcesMenu.test: represents…; hook: starts different item controls…; Chromium | 왼쪽 공·색·label·spinner. 해당 공만 잠금, 다른 그룹/행 사용 가능 | 없음 |
+| VP28·31 | projection·로고 | EP25 ③ | 1/1 | nativeResourcesMenu.test: maps distinct MCP and plugin lists…; empty views; Chromium 두 테마 | MCP 공식 path·plugin 플러그 마크, 빈 그룹 disabled, 상태 부제목 없음 | 없음 |
+| VP29·30 | store 구독·재조회 | EP25 ④ | 1/1 | hook: shares observations…; retains pending work…; keeps observations across remount… | Composer/menu 같은 snapshot. A→B→A·재조회에서도 canToggle와 상태 유지 | 없음 |
+| VP29·30 | 항목별 작업·결과 | EP25 ⑤ | 1/1 | hook: retains pending work…; starts different item controls…; keeps a new process operation… | nav 이탈 중 완료도 저장, 같은 key 중복 0, 이전 token이 새 작업을 지우지 않음 | 없음 |
+| VP29·30 | 프로세스 종료 | EP25 ⑥ | 1/1 | hook: retires an inactive process…; rejects an exited generation…; SessionRuntime native generation | inactive/initial-read 종료 처리, 이전 generation 응답 거부, 새 프로세스 보존 | 없음 |
+| VP29·30 | main 관측·SDK 쓰기 | EP25 ⑦ | 1/1 | session-resources.test: retains live observations…; serializes per-runtime SDK writes… | 같은 살아 있는 generation만 fallback, 변경/exit 뒤 제거. write 순서·실패 뒤 다음 실행 | 없음 |
+| VP28·30 | 메뉴 callback 운반 | EP25 ⑧ | 1/1 | NativeResourcesMenu 실제 hook 렌더; ChatTitleBar.native-resources; Chromium | pending Set→메뉴 공, onSelect Promise→store. 초안/저장 목록·폴더·토스트 유지 | 없음 |
+
+EP25 검색을 main/renderer/shared 전체에 실행해 native 생산 경로를 검토했다. nativeResources는 adapters/common·Claude·OpenCode→SessionRuntime→handler→sessionApi→store→hook→NativeResourcesMenu/Composer→native projection으로 이어진다. reducer/Cascade의 generic onSelect 형제 소비자는 같은 disabled 규칙을 쓰며 도메인 분류를 추가하지 않았다. skills/sessions/rightpanel의 일반 onSelect, i18n 사전, shared background reducer는 새 native 제어의 운반 자리가 아니며 변경하지 않았다. Icon/Status는 ②③의 실제 렌더 의존으로 별도 확인했다.
+
+ΔV9의 고정 자리 ID와 위 source→자리표에서 읽은 ID를 각각 추출해 대조했다: plan-minus-observed=[], observed-minus-plan=[]. 신규 분모는 8/8이다. 기존 native reader/adapter/strict transport/폴더/Composer 경로는 최종 관련 회귀에 포함했고 비영향 자리는 기존 증거를 승계한다. VP28~31 및 위 관련 REGRESSION은 SELF_PASS이며 독립 verify 결과가 아니다.
+
+## [구현자 기입] r1.7 이번 라운드 수정의 잠금
+
+| 선택 증거 | 실제 변경 | 관측 | 복원 |
+|---|---|---|---|
+| M2 | nativeResourcesMenu의 MCP/plugin content 맞바꿈 | 메뉴 테스트 10 failed/11. 각 status의 종류·빈 그룹·spinner 단언이 red | 원본 바이트 복원 뒤 11/11 |
+| M3 | attachMenuModel의 native 스킬/MCP 목적지 맞바꿈 | attachMenuModel 1 failed/8. 실제 배치 단언이 red | 원본 바이트 복원 뒤 8/8 |
+
+검산: 이번 영향 경로의 선택 증거2 · 인용 변이0 · 새 구조/배선 proxy oracle0 = 잠금2행. 새 수명·동시 작업·disabled·색·키보드 검사는 실제 production API/컴포넌트 결과를 보는 직접 oracle이며 추가 선택 변이 없음. 비영향 M1의 nav backend 선택은 이전 기록을 승계한다.
+
+## [구현자 기입] r1.7 Product/UX 파생 검토
+
+SELF_PASS. 빈 그룹에는 회색 disabled와 확장 화살표 제거를 함께 적용했다. 공은 accessible label·tooltip으로 색 의미를 전달한다. 키보드 Enter/Space는 공 제어만 실행하고 plugin 이름 클릭은 폴더를 연다. 진행 중 공은 같은 자리에서 회전하고 reduced-motion에서는 회전을 멈춘다. 다른 그룹/항목/폴더 행은 계속 사용한다. 조회 안내나 상태 부제목을 메뉴에 추가하지 않는다.
+
+## [구현자 기입] r1.7 놓친 잠재 문제 + 대응
+
+| 문제 | 대응 / 관측 |
+|---|---|
+| 처음 조회가 끝나기 전에 프로세스 exit | 관측값이 아직 없어도 retired generation을 기록하고 재조회. hook initial-read 종료 테스트 |
+| 이전 프로세스 완료가 새 프로세스 spinner를 지움 | epoch와 항목별 token을 별도로 검증. hook 새 generation 작업 유지 테스트 |
+| 동시에 두 SDK 설정 변경이 enabledPlugins map을 덮음 | main에서 runtime별 검증·쓰기·재조회를 직렬화. 첫 실패 뒤에도 다음 요청 실행 테스트 |
+| 빈 그룹이 되기 전 열린 패널/포커스가 남음 | render 경로와 panelItems 모두 disabled parent에서 멈춤. flow의 목록 제거·재채움 입력 테스트 |
+| 여러 소비자의 중복 조회가 상태를 초기화 | 같은 window store와 stable snapshot 구독. refresh는 기존 관측을 유지. 두 소비자/재진입 테스트 |
+
+## [구현자 기입] r1.7 구현 보고
+
+[검증 관측](evidence/validation.md)의 gate·CLI·브라우저 결과로 자기확인했다. 최종 관련 회귀는76파일·1,207 pass·3 skipped, 타입3종 진단0, lint 오류0/기존 경고4, production build 성공이다. 공식 MCP 마크·StatusBall·Cascade의 disabled/async 동작을 컴포넌트 카탈로그에 갱신했다. IPC 문서는 같은 generation fallback·runtime 쓰기 직렬화와 초안 설치 목록의 현재 계약을 반영했다.
+
+| AC | 자기보고 / 관측 |
+|---|---|
+| AC1 | ✅ 비영향 승계: r1.6 이전 Sidebar 펼침/접힘 브랜드 메뉴 관측 |
+| AC2 | ✅ 비영향 승계: nav 경계/버튼 정렬·viewport 관측 |
+| AC3 | ✅ 비영향 승계: backend별 새 초안·기존 세션 보존 |
+| AC4 | ✅ 비영향 승계: nav key/outside 취소와 초점 복귀 |
+| AC5 | ✅ 비영향 승계: 모드별 로고/문구 순서·중앙 배치 |
+| AC6 | ✅ titlebar/native menu 회귀·Chromium. 우측 스위치는 D33의 왼쪽 공으로 대체 |
+| AC7 | ✅ 양 adapter native DTO/비밀 projection 회귀 |
+| AC8 | ✅ Claude native 제어·SessionRuntime 세대·handler 회귀 |
+| AC9 | ✅ 미지원 canToggle=false UI·직접 IPC 거부 회귀 |
+| AC10 | ✅ hook session-scoped late 응답·오류/offline 회귀. 결과 보관은 D32 적용 |
+| AC11 | ✅ 비영향 승계: 명시 하네스/늦은 모델/새 초안 초기화 |
+| AC12 | ✅ 실제 titlebar 두 backend·메뉴 연결 요약 부재 회귀 |
+| AC13 | ✅ registry scoped reader·bootstrap·handler 합성 회귀 |
+| AC14 | ✅ 비영향 승계: 프로젝트 헤더 backend 전환·초안 보존 |
+| AC15 | ✅ hook 재진입/재열기/실패 자동 조회. 안내 제거·상태 보존은 D26·32 적용 |
+| AC16 | ✅ attachMenuModel·Composer.native-menu·composerAttachMenu 실제 삽입 회귀 |
+| AC17 | ✅ 비영향 command dispatch 승계. native OpenCode 목록 회귀 수행 |
+| AC18 | ✅ plugin 일반 폴더 행·tooltip·strict installPath→shell 회귀. 공 제어는 D30·33 적용 |
+| AC19 | ✅ 양 메뉴 수동 갱신 버튼 부재·자동 조회 회귀 |
+| AC20 | ✅ Claude 초기/재개 native 후보·inline 비활성 flag 회귀, CLI 비활성 명령 숨김 |
+| AC21 | ✅ catalog metadata/hidden·SDK skills allowlist 회귀 |
+| AC22 | ✅ saved/draft Composer 스킬·tooltip·slash·초안 보존 회귀 |
+| AC23 | ✅ 실제 CLI fixture 본문/인자 확장·runtimeToggle=true·설정 불변. 실 설치 읽기의 비영향 기록 승계 |
+| AC24 | ✅ 케밥 안내 문구 부재 projection/Chromium |
+| AC25 | ✅ read/partial/open/control 토스트·registry 검사와 Chromium 전역 host |
+| AC26 | ✅ scoped installed_plugins reader·saved/draft strict 폴더 열기 회귀 |
+| AC27 | ✅ 최신 설치 authority·삭제 반영·기존 live 복원 방지 회귀 |
+| AC28 | ✅ 실제 CLI off/on, 폴더/공 독립 클릭·Space, 설정 파일 불변 |
+| AC29 | ✅ disabled reducer/flow/projection, Chromium opacity=0.5·확장0 |
+| AC30 | ✅ hook 21케이스의 nav/공유/terminated/new generation, main fallback·SessionRuntime 종료 |
+| AC31 | ✅ 공식 SVG path·기존 plugin 마크 구별, 두 테마 Chromium |
+| AC32 | ✅ 독립 pending/중복 차단·spinner·오류 회복·SDK 직렬화, Chromium requests=2 |
+| AC33 | ✅ 모든 status의 색/label/tooltip·제목만 표시, Space·reduced-motion=none |
+
+검산: ✅33 · ⚠️0 · ❌0 = 현재 AC33. 이번 신규 AC29~33은5/5이며 이전28건 중 비영향 관측을 출처와 함께 승계했다. 분모는 r1.6의28에서33으로 증가했다. plan 메타는 IMPL_DONE/r1.7, INDEX는 impl/IMPL_DONE·Claude·r1.7 검증자 기입을 재확인한다. 독립 verify는 대기다.
+
+## [구현자 기입] r1.7 Review Signals
+
+- r1.7은 사용자 요구 추가 턴이며 첫 구현이다. 이전 r1.6의 기능 불변식은 관련 회귀로 유지했다.
+- 기존 mount 수명의 readOnly/작업 취소 정책은 이번 프로세스 수명 요구를 만족하지 않아 D32로 명시 대체했다.
+- source에 동시 작업이 도입되며 SDK shallow enabledPlugins 변경의 경쟁을 발견해 runtime 쓰기 직렬화로 닫았다.
+- Windows OS 프로세스 exit 실기 대신 실제 SessionRuntime 종료와 같은 renderer 이벤트를 각각 검증했다. 실행 환경에 의한 gate 차단은 없었다.
