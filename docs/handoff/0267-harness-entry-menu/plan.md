@@ -1402,6 +1402,7 @@ SELF_PASS. 기존 Popover·CascadeMenu·MenuTitle·HarnessLogo·OrcaLogo를 재�
 | D42 | 그룹은 Claude 스킬/Claude 플러그인, OpenCode 스킬/OpenCode 플러그인, Orcinus orca 스킬, ~/.agents/skills. nav 플러그인 스킬/MCP도 같은 출처로 구분한다. nav는 세션에 종속되지 않아 양 하네스의 설정 목록을 관리한다. | ACTIVE |
 | D43 | 목록 갱신 중 안내 및 partial 목록 실패 토스트를 제거한다. 기존 목록 보존·재조회·generation fence는 유지한다. 명시 제어/파일 열기 실패 피드백은 유지한다. | ACTIVE |
 | D44 | Composer 플러그인은 Claude MCP/OpenCode MCP/Orcinus orca 플러그인 그룹 아래 현재 연결되어 바로 쓸 수 있는 항목 이름만 표시한다. 사용자 추가 답변: connected native MCP와 valid 인증 Orca plugin만 표시한다. 설정 등록·enabled만으로 연결을 추정하지 않는다. 연결 관측이 없는 Orca MCP도 제외한다. 설명·상태 텍스트·비활성 행 및 현재 하네스의 실행 미지원 항목을 제거한다. | ACTIVE; D40·AC38의 disabled 포함 표시를 대체 |
+| D45 | 재개 이후에만 확인되는 항목을 연결 이벤트에서 갱신하고, 같은 CLI generation이 살아 있는 동안 navigation·부분 조회 실패에도 캐시를 보존한다. 명시 종료 때 연결 상태를 해제한다. 사용자 후속 명시. | ACTIVE |
 
 lock은 공식 [vercel-labs/skills](https://github.com/vercel-labs/skills/blob/main/src/skill-lock.ts)의 `~/.agents/.skill-lock.json`(XDG_STATE_HOME override 지원)의 `skills` 맵을 읽는다. lock의 source 경로를 로컬 경로로 실행/해석하지 않는다. 등록 이름과 실제 SKILL.md의 교집합만 읽고 missing/malformed lock은 빈 목록이다. 로컬 ~/.agents는 부재하여 임시 fixture로 검증한다. 원본 설정·lock 쓰기는 없다.
 
@@ -1409,7 +1410,7 @@ lock은 공식 [vercel-labs/skills](https://github.com/vercel-labs/skills/blob/m
 |---|---|
 | AC39 | 양 backend 메뉴에서 허용 출처만 표시된다. lock 등록/미등록/유실/중복을 구분한다. 실제 파일 scanner·catalog와 Composer IPC→메뉴 oracle. |
 | AC40 | Composer/nav canonical 그룹명과 로고, native plugin 스킬의 plugin 그룹을 관측한다. catalog→skillsList, CustomizeList 실제 렌더, Composer exact command 선택. |
-| AC41 | 갱신/partial 중 기존 목록을 보존하며 안내와 partial toast가 없다. refresh reject와 control/open 실패 회귀는 유지한다. useNativeResources·Composer 상태 전이. |
+| AC41 | 재개 connected 이벤트에서 새 항목을 읽고 같은 generation의 갱신/partial·A→B→A에서 목록과 연결 상태를 보존하며 안내와 partial toast가 없다. terminated 때 연결 상태를 해제한다. refresh reject와 control/open 실패 회귀 유지. useNativeResources·Composer 상태 전이. |
 | AC42 | connected native MCP/valid Orca plugin만 실행 지원에 따라 표시한다. configured·enabled 설정만으로 연결을 추정하지 않는다. 본문은 이름만 보인다. disabled/failed/auth/configured/상대 하네스/빈 입력을 섞은 attachMenuModel·Composer·브라우저 oracle. |
 
 ### Technical Design
@@ -1418,6 +1419,7 @@ lock은 공식 [vercel-labs/skills](https://github.com/vercel-labs/skills/blob/m
 - source identity/라벨/허용 출처를 shared 순수 계약으로 모은다. native command 이름은 보존하고 source 확인된 스킬과 MCP를 각각의 메뉴에 연결한다. OpenCode SDK skill location으로 다른 도구의 발견 경로를 제외한다.
 - nav MCP는 기존 read-only native discovery IPC로 양 하네스 설정을 읽고 기존 설정 위치 열기를 재사용한다. Orca CRUD와 native read-only 행을 구분한다.
 - refresh/partial는 내부 상태로 유지하되 notice 및 partial reportError를 제거한다. 실제 control/open 오류는 유지한다. feature 교차 import 없이 로고를 조립한다.
+- Orca MCP도 CLI의 실제 관측이 있으면 origin=orca로 전달한다. 설정 enabled와 구분하며 SDK 내부 서버는 제외한다. Composer의 Orca 그룹에만 합치고 native 관리 메뉴에는 섞지 않는다. EP27 ⑦의 adapter→DTO→Composer 직접 oracle로 관측한다.
 - 새 dependency, DB migration, 원본 설정 쓰기 없음.
 
 ### V / §10 강제 지점
