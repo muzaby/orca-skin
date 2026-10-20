@@ -4,7 +4,7 @@
 
 | 항목 | 값 |
 |---|---|
-| 상태 / 라운드 | IMPL_DONE / r1 (AC5/6·원격 CI 대기) |
+| 상태 / 라운드 | IMPL_DONE / r1 (AC6/6·원격 Windows CI 통과) |
 | 작성자 / 일자 | Codex / 2026-10-20 |
 | V mode / revision | Baseline V / V1 |
 | 기준 | origin/codex-harness-entry-menu `4766e080` 리베이스 완료 |
@@ -66,10 +66,10 @@ D1~5와 합치한다. 실행에서 해석한 모델을 턴/자동 연속 턴으�
 | VP1·3 | reader→load/refresh | EP1④ | 1/1 | last-model.test 실제 파일DB 재개방; session.load.test 실제 handler | 새 모델·legacy null·telemetry model-a를 DTO에서 구별. live activity 보존 | 없음 |
 | VP1·2·3 | cold/cached→Composer | EP1⑤ | 1/1 | chatReducer.model.test cold/refresh; Composer.selection.test loaded model…; Chromium | provider 기본 Opus와 저장 Sonnet[1m] 구별. A→B→A·fresh store label/alias 복원 | 없음 |
 | VP4 | 기본/명시 승인 | EP1⑥ | 1/1 | reducer model/permission·main permission 회귀; Chromium |4.6/5.5 auto, 미지원 fallback·수동/계획/bypass 보존. OpenCode 별도 기본 | 없음 |
-| VP5 | CI15파일 회복 | EP1⑦ | 1/1 | ci-affected15파일346/346; 전체 suite; skill-sources alias root·native-boundary 음성 대조 | UI mock/현재 패널 계약·connected provider·파일 reveal·catch·Windows canonical 비교. tls는 port helper에서 거부 | Windows runner 결과 대기 |
-| 운영 | 로컬 gate·원격 CI | EP1⑧ | 0/1 | 로컬 전체7664+Node Git2·scripts142, 타입/lint/build·doc/migration/budget/catalog | 로컬 결과와 원격 Windows 결과를 구분 | 코드 push 후 새 Windows CI 확인 |
+| VP5 | CI15파일 회복 | EP1⑦ | 1/1 | ci-affected15파일346/346; 전체 suite; skill-sources alias root·native-boundary 음성 대조; Windows CI39446331194 | UI mock/현재 패널 계약·connected provider·파일 reveal·catch·Windows canonical 비교. tls는 port helper에서 거부. Windows 전체7671 통과 | 없음 |
+| 운영 | 로컬 gate·원격 CI | EP1⑧ | 1/1 | 로컬 전체7664+Node Git2·scripts142, 타입/lint/build·doc/migration/budget/catalog; Windows CI39446331194 job118709112075 success | Windows786파일7671 통과·2파일2케이스 skip, scripts142/142. migration/doc/budget/lint/typecheck success | 없음 |
 
-자리 검색240행을 EP1의 고정8자리와 대조했다. 기존 다른 model 표시/IPC payload는 원래 경로이며 새로운 세션 메타 운반은①~⑥에 속한다. 검색 행 수를 분모로 쓰지 않았다. 현재 직접 oracle7/8이며 원격 CI 자리만 남겼다.
+자리 검색240행을 EP1의 고정8자리와 대조했다. 기존 다른 model 표시/IPC payload는 원래 경로이며 새로운 세션 메타 운반은①~⑥에 속한다. 검색 행 수를 분모로 쓰지 않았다. 직접 oracle8/8이며 원격 운영 자리는 코드 push 후 Windows CI success로 확인했다.
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
@@ -78,7 +78,7 @@ D1~5와 합치한다. 실행에서 해석한 모델을 턴/자동 연속 턴으�
 | VP3 | REQUIRED | SELF_PASS | turn-context·파일 DB·실제 handler·Composer 배선 | M1 red2, 원본 bytes 복원 후7/7 |
 | VP4 | REQUIRED | SELF_PASS | model/permission reducer·main 회귀·Chromium | 직접 결과 |
 | VP5 | REQUIRED | SELF_PASS | 원래 CI 실패15파일·전체 suite·guard 음성 대조 | 신규 port 경계 net허용/tls탐지 |
-| 원격 운영 확인 | REQUIRED | SELF_BLOCKED | 아직 새 코드 커밋의 CI가 없음 | push 후 같은 턴에서 계속 확인 |
+| 원격 운영 확인 | REQUIRED | SELF_PASS | [Windows CI39446331194](https://github.com/muzaby/orca-skin/actions/runs/39446331194) 전체 success | Vitest7671/7671·scripts142/142, skip2 별도 |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
@@ -111,7 +111,7 @@ D1~5와 합치한다. 실행에서 해석한 모델을 턴/자동 연속 턴으�
 |6| 복사한 Electron 실행 파일은 libffmpeg를 찾지 못함 | Git 안전성2케이스는 일반 Node로 분리 | 해당 파일2/2. 최종 나머지 전체7664 통과 |
 |7| 새 DTO/마이그레이션/Composer 호출 수의 정적 기대 누락 | 실제 additive field·33번 migration·4 callsites로 갱신 | 최종 관련 검사·M1 민감도 확인 |
 
-설계 대비 다른 메커니즘으로 대체한 것 없음. 만료=새 TTL 없음, 공유=세션별 DB값, 재진입=cached 선택 보존, 다른 무효화=catalog/삭제/late load는 기존 규칙이다. AC1~5·①~⑦을 각각 재확인했다. 메시지 저장과 메타 저장 사이 비정상 종료 시 이전 선호가 남을 수 있으며 기존 history 쓰기 순서를 새 transaction으로 바꾸지 않았다.
+설계 대비 다른 메커니즘으로 대체한 것 없음. 만료=새 TTL 없음, 공유=세션별 DB값, 재진입=cached 선택 보존, 다른 무효화=catalog/삭제/late load는 기존 규칙이다. AC1~6·①~⑧을 각각 재확인했다. 메시지 저장과 메타 저장 사이 비정상 종료 시 이전 선호가 남을 수 있으며 기존 history 쓰기 순서를 새 transaction으로 바꾸지 않았다.
 
 ## [구현자 기입] 구현 보고
 
@@ -119,12 +119,12 @@ D1~5와 합치한다. 실행에서 해석한 모델을 턴/자동 연속 턴으�
 |---|---|
 | 변경 | last_model migration/query·turn/writer/reader/DTO·Composer/reducer·CI15파일/Windows 경계·socket infra·현재 문서 |
 | 실행 | evidence/validation.md의 전체·집중 Vitest, 타입/lint/build·scripts·문서·Chromium |
-| 게이트 산출 | 전체785파일7664 통과/2파일7케이스 skip, 별도 Node Git1파일2/2. scripts142/142. CI 영향15파일346/346. 타입3종 진단0·lint 오류0/기존경고4·build 성공 |
-| V 자기확인 | 제품5pair SELF_PASS, 원격 운영1 SELF_BLOCKED |
-| 강제 지점 |7/8, 원격 CI만 대기 |
-| AC 자기보고 |5/6. AC1~5 충족, AC6의 원격 CI 확인은 push 뒤 수행 |
-| 합계 검산 |✅5 ·⚠️1 ·❌0 =총6 |
-| 블로커/역질문 | 사용자 입력 불필요. 원격 Windows run 대기 |
+| 게이트 산출 | 로컬785파일7664 통과/2파일7케이스 skip, 별도 Node Git1파일2/2. scripts142/142. CI 영향15파일346/346. 타입3종 진단0·lint 오류0/기존경고4·build 성공. Windows786파일7671 통과/2파일2케이스 skip·scripts142/142 |
+| V 자기확인 | 제품5pair SELF_PASS, 원격 운영1 SELF_PASS |
+| 강제 지점 |8/8, 원격 Windows CI success 포함 |
+| AC 자기보고 |6/6. 코드 push 후 Windows CI39446331194 success로 AC6까지 확인 |
+| 합계 검산 |✅6 ·⚠️0 ·❌0 =총6 |
+| 블로커/역질문 | 없음. 독립 handoff verify는 다음 주체 |
 | 대상 커밋 | (r1 구현 — 좌표는 INDEX) |
 
 | AC | 이번 관측 |
@@ -134,11 +134,11 @@ D1~5와 합치한다. 실행에서 해석한 모델을 턴/자동 연속 턴으�
 | AC3 |✅4.6/5.5 auto·미지원/미정fallback·명시 수동/계획/bypass·OpenCode 보존 |
 | AC4 |✅ 기존 DB migration 후 메시지/제목 보존·last_model nullable. provider/model 한 UPDATE |
 | AC5 |✅ 원래 CI 실패15파일346/346, 최종 전체+별도 Git 통과 |
-| AC6 |⚠️ 로컬 gate 통과·원격 Windows CI 대기 |
+| AC6 |✅ 로컬 gate 통과·원격 push 완료·Windows CI39446331194 job118709112075 success |
 
 ## [구현자 기입] Review Signals
 
 - 같은 축인가: UI model 복원의 누락을 영속 사용 모델과 초기 승인 선호로 연결한 별도 작업이다.
 - 막았어야 할 지침/AC: 기존 로드는 provider만 복원했고 model=null 이후의 fallback 복귀를 검사하지 않았다. 이번 writer→DTO→실제 Composer가 다른 default를 구별한다.
 - 환경: gh run list는403, GitHub connector로 실제 실패 로그를 조회했다. SQLite는 Electron ABI로 유지하고 Git 복사 실행 시험만 Node로 분리했다. 초기 root cwd의 migration/doc 명령은 올바른 app cwd에서 재실행했다.
-- r1 / impl r1. 원격 CI 확인을 같은 턴에서 이어가며 독립 verify는 별도다.
+- r1 / impl r1. 코드 push 시5/6 partial을 기록했고 같은 턴의 Windows CI success 후6/6으로 완료했다. 독립 verify는 별도다.
