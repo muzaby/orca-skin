@@ -1,3 +1,4 @@
+import { persistClaudePluginState } from './plugin-state'
 import { readClaudePluginCatalog } from './plugin-catalog'
 import { claudeNativeResources } from './native-resources'
 // ClaudeAdapter — @anthropic-ai/claude-agent-sdk 의 query() 함수를 통해 Claude Code 와 통신.
@@ -740,7 +741,11 @@ export class ClaudeAdapter implements SessionAdapter {
       extensions.pluginRoots,
       [...(extensions.runtimeTools?.servers.keys() ?? [])],
       nativePlugins.installations,
-      nativePluginFlags
+      nativePluginFlags,
+      (key, enabled) => {
+        signal?.throwIfAborted()
+        persistClaudePluginState(cwd, key, enabled)
+      }
     )
 
     async function* eventBatches(): AsyncIterable<ProviderMessageBatch> {

@@ -1,4 +1,5 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import type { SetNativeResource } from '../../../shared/native-resources'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
@@ -15,8 +16,8 @@ const fixture = vi.hoisted(() => ({
       },
       applyFlagSettings: vi.fn(async () => {}),
       reloadPlugins: vi.fn(async () => ({
-        plugins: [],
-        commands: [],
+        plugins: [] as Array<{ name: string; path: string }>,
+        commands: [] as Array<{ name: string; builtin: boolean }>,
         agents: [],
         mcpServers: [],
         error_count: 0
@@ -191,4 +192,66 @@ it('carries plugin controls through the actual adapter and preserves provider fl
     { id: nativePluginId(plugin), enabled: false, canToggle: true }
   ])
   live.close()
+})
+
+it('persists both plugin states across follow-up turns, new adapters and cold resumes over provider defaults', async () => {
+  const file = join(cwd, '.claude/settings.local.json')
+  write(file, { permissions: { allow: ['Read'] }, enabledPlugins: { 'sibling@market': true } })
+  const request = {
+    sessionId: null,
+    cwd,
+    text: 'Hello',
+    env: { CLAUDE_CONFIG_DIR: root },
+    providerSettings: {
+      providerKey: 'p',
+      provider: 'p',
+      sourceRevision: 'r',
+      settings: { enabledPlugins: { 'frontend@market': false } }
+    },
+    extensions: { skills: [], hooks: { normalized: {} } }
+  }
+  const first = new ClaudeAdapter().sendMessage(request)
+  const sdk = fixture.query.mock.results[0].value
+  sdk.reloadPlugins.mockResolvedValue({
+    plugins: [{ name: 'frontend-design', path: plugin }],
+    commands: [{ name: 'frontend-design:frontend-design', builtin: false }],
+    agents: [],
+    mcpServers: [],
+    error_count: 0
+  })
+  const change = (enabled: boolean): SetNativeResource => ({
+    sessionId: 'B',
+    generation: first.providerGeneration!,
+    kind: 'plugin' as const,
+    id: nativePluginId(plugin),
+    enabled
+  })
+  expect((await first.nativeResources!()).items[0].enabled).toBe(false)
+  await first.setNativeResource!(change(true))
+  await first.pushTurn!({ text: 'continue' })
+  expect((await first.nativeResources!()).items[0].enabled).toBe(true)
+  expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({
+    permissions: { allow: ['Read'] },
+    enabledPlugins: { 'sibling@market': true, 'frontend@market': true }
+  })
+  first.close()
+  const resumed = new ClaudeAdapter().sendMessage({ ...request, sessionId: 'cold-resume' })
+  const options = (fixture.query.mock.calls[1][0] as { options: Options }).options
+  expect(JSON.parse(String(options.settings)).enabledPlugins['frontend-design@inline']).toBe(true)
+  expect((await resumed.nativeResources!()).items[0].enabled).toBe(true)
+  await resumed.setNativeResource!({ ...change(false), generation: resumed.providerGeneration! })
+  resumed.close()
+  const restarted = new ClaudeAdapter().sendMessage({
+    ...request,
+    providerSettings: {
+      ...request.providerSettings,
+      settings: { enabledPlugins: { 'frontend@market': true } }
+    }
+  })
+  expect((await restarted.nativeResources!()).items[0].enabled).toBe(false)
+  expect(JSON.parse(readFileSync(file, 'utf8')).enabledPlugins['sibling@market']).toBe(true)
+  expect(
+    JSON.parse(readFileSync(join(root, 'settings.json'), 'utf8')).enabledPlugins['frontend@market']
+  ).toBe(true)
+  restarted.close()
 })

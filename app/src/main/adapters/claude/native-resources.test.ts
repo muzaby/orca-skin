@@ -179,3 +179,44 @@ it('applies session-only inline flags and reloads actual plugin state while pres
   expect((await resources.list()).map((item) => item.enabled)).toEqual([true, true])
   await expect(resources.set('/arbitrary', true, 'plugin')).rejects.toThrow('제어')
 })
+
+it('commits a plugin choice only after verified reload and restores flags and commands when persistence fails', async () => {
+  const installation = { key: 'native@market', name: 'native', path: '/native', enabled: false }
+  let enabled = false
+  const applyFlagSettings = vi.fn(async (value: { enabledPlugins: Record<string, boolean> }) => {
+    enabled = value.enabledPlugins['native@inline']
+  })
+  const reloadPlugins = vi.fn(async () => ({
+    plugins: enabled ? [{ name: 'native', path: '/native' }] : [],
+    commands: enabled
+      ? [{ name: 'native:review', description: '', argumentHint: '', builtin: false }]
+      : [],
+    agents: [],
+    mcpServers: [],
+    error_count: 0
+  }))
+  const persist = vi.fn<(key: string, enabled: boolean) => void>(() => {
+    throw new Error('save failed')
+  })
+  const resources = claudeNativeResources(
+    { mcpServerStatus: async () => [], toggleMcpServer: vi.fn(), applyFlagSettings, reloadPlugins },
+    [],
+    [],
+    [installation],
+    { 'native@inline': false },
+    persist
+  )
+  await expect(resources.set(nativePluginId('/native'), true, 'plugin')).rejects.toThrow(
+    'save failed'
+  )
+  expect(persist).toHaveBeenCalledExactlyOnceWith('native@market', true)
+  expect(enabled).toBe(false)
+  expect(await resources.list()).toMatchObject([{ enabled: false }])
+  expect(await resources.commands()).toEqual([])
+  persist.mockImplementation(() => {})
+  reloadPlugins.mockRejectedValueOnce(new Error('SDK failed'))
+  await expect(resources.set(nativePluginId('/native'), true, 'plugin')).rejects.toThrow(
+    'SDK failed'
+  )
+  expect(persist).toHaveBeenCalledOnce()
+})

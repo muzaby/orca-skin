@@ -211,7 +211,7 @@ OpenCode 적용 시의 추가 선행조건·레이어별 gate는 [마이그레�
 
 → "어댑터를 Orca 범용 데이터 계층으로"라는 질문의 답은 이 표다: **어댑터는 표의 *세로 한 칸*(자기 백엔드 열)만 안다. 가로(자산 종류)와 정규 소스(Tier A)는 어댑터 밖이 소유한다.**
 
-> **엔진 고유 자산**: agents·commands·hooks·full-plugin 번들의 원본은 각 하네스가 관리하며 Orca sources/dist로 복사하지 않는다. Claude는 `plugin-catalog.ts`가 사용자·프로젝트·로컬 활성 설정과 설치 registry를 해석하고 `sendMessage`가 해당 범위 내 설치의 local plugin 경로와 스킬 허용 목록을 SDK에 전달하고 name@inline 세션 플래그로 초기 활성/비활성 상태를 강제한다. 실행 중에는 applyFlagSettings→reloadPlugins로 파일 쓰기 없이 활성 상태를 바꾸며 다음 spawn은 최신 native 설정을 따른다. provider 전역 설정 격리는 유지하며 사용자 인증·env·model을 함께 상속하지 않는다. 런타임 hook(`options.hooks`)은 별도 어댑터 경로다.
+> **엔진 고유 자산**: agents·commands·hooks·full-plugin 번들의 원본은 각 하네스가 관리하며 Orca sources/dist로 복사하지 않는다. Claude는 `plugin-catalog.ts`가 사용자·프로젝트·로컬 활성 설정과 설치 registry를 해석하고 `sendMessage`가 해당 범위 내 설치의 local plugin 경로와 스킬 허용 목록을 SDK에 전달하고 name@inline 세션 플래그로 초기 활성/비활성 상태를 강제한다. 실행 중에는 applyFlagSettings→reloadPlugins로 활성 상태를 변경·확인하고 원래 설치 key의 선택을 프로젝트 `.claude/settings.local.json` enabledPlugins에 원자 저장한다. 기존 설정·다른 플러그인 key는 보존하며 저장 실패 시 직전 SDK 상태로 복구한다. 다음 spawn은 프로젝트 local 선택을 provider 기본값보다 우선해 복원한다. provider 전역 설정 격리는 유지하며 사용자 인증·env·model을 함께 상속하지 않는다. 런타임 hook(`options.hooks`)은 별도 어댑터 경로다.
 
 네이티브 스킬 메뉴는 실행 채널이 있으면 SDK의 실제 명령을, 없으면 활성 설치 플러그인의 skill/command 파일에서 얻은 이름·설명·힌트를 사용한다. 설치 metadata는 매 조회/새 spawn에서 읽으며 사용자 호출 금지 스킬은 메뉴에서 제외한다. 메뉴의 `plugin::skill` 표시와 전송의 `/plugin:skill` 이름은 구분한다.
 

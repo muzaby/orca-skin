@@ -362,3 +362,35 @@ node --test scripts/harness-boundary.test.mjs
 node scripts/check-doc-inventory.mjs --check
 python -X utf8 ../docs/handoff/0266-renderer-design-guidelines/evidence/check-design-docs.py
 ```
+
+
+## r1.11 — native 선택 지속·메뉴 기본 커서
+
+2026-10-20, Linux cloud. 사용자 지시로 이전 미완료 변경과 로컬 설계 커밋을 취소하고 origin/codex-harness-entry-menu의 r1.10으로 rebase했다. 그 뒤 두 수정만 수행했다. 구현자 자기확인이며 설치 Windows 앱의 GUI 재시작 실기는 아니다.
+
+| 검사 | 명령(app에서 실행) / 관측 |
+|---|---|
+| 관련 테스트 | 아래 Vitest 명령: 8파일68/68 |
+| 타입 | npm run typecheck의 node/web 진단0. test mock의 SlashCommand/void 타입 초기 진단을 수정하고 npm run typecheck:test 진단0 |
+| lint | npm run lint 후 무관한 기존 포맷 수정 원복. npx eslint --cache ./src ./scripts: 오류0·기존경고4 |
+| build | npx electron-vite build: main/preload/renderer 성공. 기존 정적/동적 import 경고 유지 |
+| boundary | node --test scripts/harness-boundary.test.mjs: 8/8 |
+| 문서 | node scripts/check-doc-inventory.mjs --check: generated/prose/relative links 모두 통과 |
+| UI catalog | python3 ../docs/handoff/0266-renderer-design-guidelines/evidence/check-design-docs.py: source=295/rows=295, 양방향 차집합[], 음성 대조 red |
+| CLI | node scripts/smoke-native-plugin-skills.mjs: 실제 번들 SDK/CLI + loopback 모델 endpoint, requests=3, runtimeToggle=true, warmTurn=true, restartEnabled=true |
+| Chromium | harness-entry README의 실제 UI fixture. 빈 그룹/readonly/pending cursor=default, disabled 입력 차단·spinner·nav 결과 보존, runtime exceptions=[] |
+| diff | git diff --check: 공백 오류 없음 |
+
+```sh
+npx vitest run src/main/adapters/claude/plugin-state.test.ts src/main/adapters/claude/plugin-catalog.test.ts src/main/adapters/claude/native-resources.test.ts src/main/adapters/claude/adapter.native-plugins.test.ts src/main/adapters/claude/configured-resources.test.ts src/main/app/handlers/session-resources.test.ts src/renderer/src/features/chat/hooks/useNativeResources.test.ts src/renderer/src/shared/ui/CascadeMenu.test.ts --reporter=dot
+```
+
+실제 CLI 최종 관측:
+
+```json
+{"commands":["frontend-design:metadata-name","frontend-design:frontend-design"],"expanded":true,"brief":true,"requests":3,"runtimeToggle":true,"warmTurn":true,"restartEnabled":true}
+```
+
+CLI fixture는 격리된 HOME/CLAUDE_CONFIG_DIR와 프로젝트 .git 표식을 사용한다. plugin off/on 뒤 같은 Query에 후속 턴을 넣고, 원래 sessionId로 새 adapter/CLI를 시작한다. 전역 fixture 설정은 false, 저장된 프로젝트 선택은 true인 상태에서 native plugin과 명령이 복원되는지 확인한다. 초기 시도는 .git 표식이 없어 상위 저장소를 프로젝트로 선택했고 예상 경로 ENOENT였다. 테스트가 만든 fixture key 전용 설정 파일을 제거한 뒤 격리하여 성공했다.
+
+Chromium은 빈 세션→대화 메뉴에서 MCP·플러그인 각각 disabled=true, opacity=.5, cursor=default, haspopup=false였고 클릭/ArrowRight/Enter 뒤 하위 패널0개였다. Claude 세션에서 MCP readonly 행과 비동기 제어 중인 스위치도 cursor=default였다. 처리 중 스위치 내부 spinner와 중복 입력 차단, 다른 항목 사용, A→B→A 결과 보존을 관측했다. 페이지는 실제 ChatTitleBar/CascadeBody/MenuItem이며 IPC만 메모리 대역이다.

@@ -149,8 +149,9 @@ export function readClaudePluginCatalog(
   const enabled = {
     ...record(readObject(join(nativeRoot, 'settings.json')).enabledPlugins),
     ...record(readObject(join(projectRoot, '.claude', 'settings.json')).enabledPlugins),
-    ...record(readObject(join(projectRoot, '.claude', 'settings.local.json')).enabledPlugins),
-    ...record(overrides.enabledPlugins)
+    ...record(overrides.enabledPlugins),
+    // Explicit workspace plugin choices survive fresh Query flags and provider defaults.
+    ...record(readObject(join(projectRoot, '.claude', 'settings.local.json')).enabledPlugins)
   }
   const entries = selectClaudePlugins(
     cwd,
