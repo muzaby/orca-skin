@@ -6,7 +6,7 @@
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
 | 상태 / 라운드 | READY / r1.6 |
-| V mode / 기준 V / 유효 V | Delta V / r1.4 (`5c814855`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8 |
+| V mode / 기준 V / 유효 V | Delta V / r1.5 (`1f7ca1e4`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
 # Part I — Product & UX Contract
@@ -942,3 +942,96 @@ AC28: 최초 spawn에 범위 내 설치 roots와 초기 비활성 inline flag를
 EP23 고정 5자리 추가: ①catalog 전체 설치 roots/skills·초기 inline flag ②adapter spawn 옵션·native 제어 전달 ③native resources의 applyFlagSettings/reloadPlugins·상태 관측 ④메뉴의 폴더/별도 제어 액션 분리 ⑤공유 CascadeBody의 두 독립 클릭 및 키보드 활성 경로. 검색: `rg -n 'readClaudePluginCatalog|claudeNativeResources|applyFlagSettings|reloadPlugins|secondary|nativeResourcesMenu' app/src`의 생산 경로를 대조한다. ①②adapter.native-plugins 옵션 ③native-resources 실제 Query 제어 인자·반환과 CLI probe ④⑤실제 NativeResourcesMenu/CascadeBody 클릭 및 Enter/Space·폴더 호출 구별이 oracle이다.
 
 VP24~27 REQUIRED는 EP22 8자리+EP23 5자리로 검증한다. 실패는 SDK 상태를 재조회하며 낙관적으로 성공 표시하지 않는다. 이 제어의 범위는 현재 실행 채널이며 새 spawn은 최신 native 활성 설정을 따른다. 설정 파일에서 native 상태를 바꾸는 예시는 그대로 지원한다. 사용자 답변으로 미결 해소, ACTIVE D30↔AC28 대조 충돌 0, READY.
+
+## [구현자 기입] r1.6 설계 리뷰
+
+사용자 요청과 답변을 ΔV8로 확정했다. 폴더 액션은 유지하고 별도 SDK 세션 제어를 추가했으며, 비활성 후보 root와 실제 CLI 로드의 구분도 설계에 명시했다. 미해결 PLAN_GAP 없음, 독립 verify는 수행하지 않았다.
+
+## [구현자 기입] r1.6 강제 지점 전수와 V-pair 자기확인
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 자리별 oracle 좌표 | 운반 항·이번 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP24·27 | scope/설치 projection | EP22 ①② | 2/2 | configured-resources.test: lists every applicable install…; plugin-catalog.test: excludes local installs… | user/project/local 3개 경로, child/nested git/형제 경계, 비활성·삭제·installPath 각각 관측 | 없음 |
+| VP24·26 | 지원/합성/폴더 경계 | EP22 ③④ | 2/2 | bootstrap.native-history.test: reads native configuration…; session-resources.test: treats a fresh registry… / opens only a resolved… | OpenCode 미지원 undefined, Claude 성공한 빈 배열, live 삭제 항목 제거·삭제 후 제어/폴더 거부·shell 인자 | 없음 |
+| VP24~26 | cache/실패/안내 | EP22 ⑤⑥⑦⑧ | 4/4 | useNativeResources.test: reports load errors once… / separates plugin folder clicks… / opens a plugin directory…; nativeResourcesMenu.test: distinguishes loading… | offline 최신 빈 inventory로 plugin 제거, 지각 실패 toast 0, 자동 read 실패 중복 0, read/open/control 토스트·안내 DOM 부재 | 없음 |
+| VP24~27 | SDK 후보/초기 flag/위임 | EP23 ①② | 2/2 | adapter.native-plugins.test: loads enabled native skills… / carries plugin controls…; smoke-native-plugin-skills.mjs 초기 비활성 CLI | 신규/재개 roots·허용 이름, 초기 false가 실제 명령 제외, provider sibling flag·generation 보존 | 없음 |
+| VP24~27 | SDK runtime 제어 | EP23 ③ | 1/1 | native-resources.test: applies session-only inline flags…; smoke-native-plugin-skills.mjs | native off/on·sibling 유지·실패 rollback, 실제 CLI 명령 제거/복원·설정 파일 불변 | 없음 |
+| VP24~26 | 독립 클릭·키보드 | EP23 ④⑤ | 2/2 | useNativeResources.test: separates plugin folder clicks…; 실제 Chromium Space/클릭 | folder 호출 1, plugin write distinct, Enter 실패 toast 1. 브라우저 Space off·두 테마 sibling 버튼/폭 확인 | 없음 |
+
+이번 신규 자리 검산: EP22 8 + EP23 5 = 13/13. `rg -n 'selectClaudePlugins|installedClaudePlugins|configuredResources|nativeResources|openNativePlugin|setNativeResource|readClaudePluginCatalog|claudeNativeResources|applyFlagSettings|reloadPlugins|secondary|nativeResourcesMenu' app/src`를 production 선언/재수출/테스트와 분리해 위 registry·bootstrap·handler·hook·menu·SDK 경로에 매핑했다. 새 운반 경로와 고정 목록의 차집합은 []이며 전칭 민감도는 상속 M2/M3와 실제 파일/IPC/브라우저 입력으로 확인했다.
+
+| Pair | requiredness | 자기 결과 / 근거 |
+|---|---|---|
+| VP24~27 | REQUIRED | SELF_PASS — 위 13자리 직접 결과 |
+| VP13~14,16~17,19~23 | REGRESSION | SELF_PASS — reader·adapter·bootstrap·handler·runtime·preload·Composer·메뉴 관련 회귀, CLI skill 확장 및 M2/M3 재실행 |
+| VP01~12,15,18 | NOT_REQUIRED | 기존 보고 관측 승계. 이번 변경에서 nav/브랜드/모델 선택/OpenCode command dispatch를 다시 검증했다고 주장하지 않음 |
+
+## [구현자 기입] r1.6 이번 라운드 수정의 잠금
+
+| 증거 | 출처 | 이번 관측 | 복원 |
+|---|---|---|---|
+| M2 | 상속 MCP/plugin 목적지 반전 | nativeResourcesMenu 3 failed/3 | 원본 bytes 복원 후 3/3 |
+| M3 | 상속 스킬/MCP 목적지 반전 | attachMenuModel 1 failed/8 | 원본 bytes 복원 후 8/8 |
+
+분모 검산: 선택 증거 2 · 인용 변이 0 · 새 구조/배선 proxy 0 = 표 2행. 나머지는 실제 함수·파일·IPC·컴포넌트·CLI·브라우저 결과의 직접 oracle이다.
+
+## [구현자 기입] r1.6 Product/UX 파생 검토
+
+| 상황 | 사용자 결과 / 확인 |
+|---|---|
+| 목록 안내 제거 | 케밥은 제목·실제 행·행 상태만 표시. 실패/부분 조회는 전역 오류 토스트, Composer 안내 계약은 유지 |
+| 플러그인 켜기/끄기 | 현재 실행 채널에만 적용. 파일/설치 삭제 없이 runtime 변경하며 다음 spawn은 최신 native 설정 사용 |
+| 재진입·삭제 | 조회 중 목록 유지/제어 잠금. 성공한 registry가 삭제를 확정하면 live/이전 snapshot이 복원하지 않음 |
+| 폴더와 제어 | 이름 클릭은 폴더 열기, 별도 버튼은 session write. 실제 브라우저/DOM 테스트에서 호출을 구별 |
+| 긴 라벨·좁은 폭 | MenuItem truncation과 secondary 폭을 유지. 두 테마·640px에서 가로 overflow 없음 |
+
+## [구현자 기입] r1.6 놓친 잠재 문제 + 대응
+
+| 문제 | 대응 / 관측 |
+|---|---|
+| marketplace flag로 SDK local root를 끄지 못함 | 실제 CLI probe에서 name@inline 적용/명령 제거를 확인. 초기 상태와 runtime 모두 동일 키 사용 |
+| applyFlagSettings가 enabledPlugins 전체 객체를 교체 | 초기 provider/native sibling flags를 보존해 전달. adapter/native-resources 직접 테스트 |
+| SDK 적용 뒤 reload 실패 | 이전 flag 재적용·reload를 시도하고 실패를 반환. UI가 성공 선반영하지 않고 재조회. rollback 테스트 |
+| 설치 제거 뒤 이전 live 경로/권한 사용 | 최신 지원 inventory에 없는 플러그인의 합성·폴더·제어를 거부. handler 직접 테스트 |
+| secondary의 w-full로 라벨이 가려짐 | 브라우저에서 발견, w-auto! 수정 후 라벨/제어·overflow 재관측 |
+| 일부 원천 실패가 안내 제거 뒤 숨겨짐 | 초기 read의 partial도 loadFailed 토스트. 실패 후 자동 read는 원래 클릭 토스트와 중복 보고하지 않음 |
+
+상태 저장은 기존 창 수명 snapshot을 유지한다. 만료 축은 매 재열기 재조회, 공유 축은 session/backend key, 재진입 축은 epoch, 다른 무효화 축은 pluginsAuthoritative 및 generation으로 확인했다. 실제 설치/삭제나 native 설정 파일 쓰기는 추가하지 않았다.
+
+## [구현자 기입] r1.6 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 | 안내 제거·오류 토스트, scoped 설치 전체/실행 후보 분리, 최신 inventory 합성·폴더 검증, SDK 초기/session flags·reload, 독립 제어 및 관련 테스트/계약/fixture |
+| 실행 명령 / 관측 | [validation r1.6](evidence/validation.md). 관련 회귀와 실패 기대값 정정 재실행, 최종 집중 테스트·타입3종·lint 오류0/기존경고4·build·CLI·문서/경계 통과 |
+| V-pair / 강제 지점 | REQUIRED VP24~27 SELF_PASS, 신규 EP22/23 13/13. 위 상속 회귀 SELF_PASS |
+| 한계 | 브라우저 IPC는 fixture, OS 열기는 shell mock. 실제 CLI는 loopback API이며 외부 모델/Windows OS 실기는 수행하지 않음 |
+| 대상 커밋 | (r1.6 구현 — INDEX 정본, 검증자 기입) |
+
+| AC | 자기보고 / 관측 |
+|---|---|
+| AC1~19 | ✅ 이전 비영향 기록 승계 + 위 메뉴/범위/재조회/폴더 변경 회귀. 안내·플러그인 제어는 D26·30의 대체 계약 적용 |
+| AC20~23 | ✅ adapter 옵션·초기 비활성 CLI·native 명령/스킬·실제 CLI 본문/인자 확장 |
+| AC24 | ✅ 모든 케밥 목록 안내 제거, 실제 행·툴팁 유지 |
+| AC25 | ✅ read/partial/open/control 토스트·자동 read 중복 방지·타 세션 지각 실패 폐기 |
+| AC26 | ✅ scope 경계·모든 해당 설치·각 installPath resolver |
+| AC27 | ✅ 최신 registry/settings와 삭제 반영·stale/live 복원 방지 |
+| AC28 | ✅ 초기 비활성/실제 runtime off/on·독립 클릭/키보드·설정 파일 불변 |
+
+검산: ✅28 · ⚠️0 · ❌0 = 현재 AC28. 이번 신규 AC24~28은 5/5이며 이전 비영향 AC는 출처가 있는 기록을 승계한다. 독립 verify PASS를 선점하지 않는다.
+
+## [구현자 기입] r1.6 Review Signals
+
+- r1.6은 사용자 요구 변경 턴이며 독립 verify 전이다.
+- 이전 runtime-only 또는 이전 snapshot 유지 계약만으로는 최신 설치 삭제/정확한 local scope를 보장하지 못해 inventory authority를 추가했다.
+- 메뉴 오류를 내부 issue로만 저장하던 경로는 실제 전역 toast store와 브라우저 host까지 연결했다.
+- SDK 지원 여부는 문서 타입과 실제 bundled CLI를 함께 확인했다. 환경 기인 테스트 실패는 없었다.
+
+
+### ΔV8 보완 — 첫 전송 전에도 항상 노출
+
+READY. 사용자 AC26의 “항상 노출”은 sessionId가 없는 초안도 포함한다. 기존 ΔV7의 초안 items=[]/폴더 열기 sessionId 필수 부분을 대체한다. 케밥이 backend/cwd/projectId로 구성 목록을 읽고, 초안 폴더 열기는 같은 strict scope+pluginId로 main에서 installPath를 해석한다. 경로를 renderer에 보내거나 세션 생성/설정 쓰기를 하지 않는다. 초안의 활성 제어는 runtime이 없으므로 제공하지 않는다.
+
+EP24 고정 7자리 추가: ①ChatTitleBar cwd/project→NativeResourcesMenu ②메뉴 draft→hook 조회/열기 ③공유 strict read/open union→preload/sessionApi ④handler draft 구성 합성 ⑤handler draft 폴더 검증 ⑥bootstrap draft inventory scope→module ⑦bootstrap draft directory scope→module. 검색: `rg -n 'NativeResourcesMenu|NativeResourcesRequestSchema|OpenNativePlugin|draftResources|draftPluginDirectory|registerSessionResourceHandlers' app/src`의 생산 경로를 대조한다.
+
+①②는 ChatTitleBar.native-resources/useNativeResources 실제 초안 cwd 변경·클릭, ③은 preload/index 및 handler strict union, ④⑤는 session-resources 실제 metadata/OS path 인자, ⑥⑦은 bootstrap.native-history의 실제 module reader/cwd/설치 fixture가 직접 oracle이다. VP24·26 REQUIRED에 추가하며 이번 신규 분모는 13+7=20이다. AC26·27의 초안 범위를 닫는 계약 보완이며 새 사용자 결정·신규 의존성은 없다.
