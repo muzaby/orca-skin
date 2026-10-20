@@ -6,6 +6,7 @@ import {
   parseOpenCodeModels,
   readUserOpenCodeSettings,
   configuredOpenCodeMcpFile,
+  configuredOpenCodeResources,
   openCodeContextWindow
 } from '../../../adapters/opencode'
 import {
@@ -27,6 +28,7 @@ export const openCodeMainModule: MainHarnessModule = {
   parseSettingsModels: parseOpenCodeModels,
   readUserSettings: readUserOpenCodeSettings,
   configuredMcpFile: configuredOpenCodeMcpFile,
+  draftResources: configuredOpenCodeResources,
   defaultProvider,
   resolveTitleModel,
   recoveryContextWindow: openCodeContextWindow

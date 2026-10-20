@@ -93,6 +93,15 @@ describe('Claude native resources', () => {
         canToggle: true
       },
       {
+        id: 'plugin:orca:tools',
+        name: 'tools',
+        kind: 'mcp',
+        status: 'connected',
+        enabled: true,
+        canToggle: false,
+        origin: 'orca'
+      },
+      {
         id: nativePluginId('/private/plugin'),
         name: 'native-plugin',
         kind: 'plugin',

@@ -102,6 +102,7 @@ vi.mock('./handlers/session', () => ({
 }))
 
 import { Bootstrap } from './bootstrap'
+import type { SkillInfo } from '../../shared/ipc'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -282,6 +283,9 @@ it('reads native configuration through the registered module using stored backen
     expect(await fixture.commands?.('session-B')).toBeUndefined()
     expect(await fixture.pluginDirectory?.('session-B', nativePluginId(installed))).toBeUndefined()
     expect(await fixture.configured?.('session-B')).toBeUndefined()
+    expect(
+      await fixture.draftResources?.({ backend: 'opencode', cwd, projectId: null })
+    ).toMatchObject([{ id: 'open-B', kind: 'mcp', status: 'configured' }])
     get.mockReturnValueOnce({ ...row, backend: 'claude', cwd: null } as never)
     get.mockReturnValueOnce({ ...row, backend: 'claude', cwd: null } as never)
     ctx.getCwd = vi.fn(() => cwd)
@@ -300,5 +304,47 @@ it('reads native configuration through the registered module using stored backen
     activity.dispose()
     vi.unstubAllEnvs()
     await rm(temp, { recursive: true, force: true })
+  }
+})
+
+it('refreshes the bootstrap skill cache with native catalog sources and preserves Orca enablement', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'orca-bootstrap-skills-'))
+  try {
+    vi.stubEnv('OPENCODE_CONFIG_DIR', root)
+    await mkdir(join(root, 'skills', 'native-refresh'), { recursive: true })
+    await mkdir(join(root, 'orca', 'off'), { recursive: true })
+    await writeFile(
+      join(root, 'skills', 'native-refresh', 'SKILL.md'),
+      '---\nname: native-refresh\n---\nbody'
+    )
+    await writeFile(join(root, 'orca', 'off', 'SKILL.md'), '---\nname: off\n---\nbody')
+    const bootstrap = Object.create(Bootstrap.prototype) as {
+      settings: { getAll: () => { skillEnabled: Record<string, boolean> } }
+      skillRoots: () => {
+        sourceId: string
+        sourceLabel: string
+        sourceKind: 'orca'
+        rootDir: string
+      }[]
+      refreshSkills: () => Promise<SkillInfo[]>
+      skillsCache: SkillInfo[]
+    }
+    bootstrap.settings = { getAll: () => ({ skillEnabled: { 'orca/off': false } }) }
+    bootstrap.skillRoots = () => [
+      { sourceId: 'orca', sourceLabel: 'Orca', sourceKind: 'orca', rootDir: join(root, 'orca') }
+    ]
+    const values = await bootstrap.refreshSkills()
+    expect(values).toBe(bootstrap.skillsCache)
+    expect(values.find((skill) => skill.name === 'native-refresh')).toMatchObject({
+      sourceId: 'adapter:opencode',
+      sourceLabel: 'OpenCode 스킬',
+      enabled: true
+    })
+    expect(values.find((skill) => skill.sourceId === 'orca' && skill.name === 'off')).toMatchObject(
+      { enabled: false, canToggle: true }
+    )
+  } finally {
+    vi.unstubAllEnvs()
+    await rm(root, { recursive: true, force: true })
   }
 })

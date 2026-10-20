@@ -5,6 +5,7 @@ import { useI18n } from '../../../../shared/i18n'
 import { useCustomizeSkills } from '../../hooks/useCustomizeSkills'
 import { useMcpServers } from '../../hooks/useMcpServers'
 import { useProviders } from '../../hooks/useProviders'
+import { useNativeMcpCatalog } from '../../hooks/useNativeMcpCatalog'
 import {
   back,
   INITIAL_CATALOG_SELECTION,
@@ -39,6 +40,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
   const skills = useCustomizeSkills()
   const mcp = useMcpServers()
   const providers = useProviders()
+  const nativeMcp = useNativeMcpCatalog()
   const [menuOpen, setMenuOpen] = useState(false)
   const [authorOpen, setAuthorOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
@@ -145,6 +147,8 @@ export function ExtensionsCatalogView(): React.JSX.Element {
                 skills={skills.list}
                 mcpServers={mcp.list}
                 providers={providers.list}
+                nativeMcp={nativeMcp.list}
+                onNativeMcp={(backend, resource) => void nativeMcp.open(backend, resource)}
                 selectedId={selection.selectedId}
                 onSelect={(id, origin) => {
                   selectionEpoch.current += 1

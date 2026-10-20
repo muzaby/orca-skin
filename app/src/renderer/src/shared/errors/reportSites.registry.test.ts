@@ -20,13 +20,13 @@ interface Site {
 }
 export const sites: Site[] = [
   {
-    file: 'features/chat/hooks/useComposerMcp.ts',
+    file: 'features/skills/hooks/useNativeMcpCatalog.ts',
     ordinal: 0,
-    line: 16,
+    line: 26,
     disposition: 'TOAST',
-    id: 'T-composer-mcp',
-    event: 'chat.composer.mcp-load-failed',
-    title: 'loadFailed'
+    id: 'T-native-mcp-open',
+    event: 'skills.native-mcp.open-failed',
+    title: 'openFailed'
   },
   { file: 'app/boot/bootStore.ts', ordinal: 0, line: 75, disposition: 'CONSUMED' },
   {

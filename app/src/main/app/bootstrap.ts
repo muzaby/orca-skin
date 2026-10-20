@@ -41,7 +41,8 @@ import { loadOrcaConfig } from '../infra/config/orca-config'
 import { SecretStore } from '../infra/config/secret-store'
 import { ExtensionDeploymentService } from '../features/extensions/common/extension-deployment-service'
 import { netFetch } from '../infra/net/net-fetch'
-import { scanSkills, type SkillScanRoot } from '../features/extensions/common/skills/scan'
+import type { SkillScanRoot } from '../features/extensions/common/skills/scan'
+import { readSkillCatalog } from './skill-catalog'
 import { seedBuiltinSkills } from '../features/extensions/common/skills/seed'
 import type { MigrationReport } from '../infra/config/migrate-legacy'
 import { migrationBlocksBoot } from '../infra/config/migrate-legacy'
@@ -217,7 +218,7 @@ export class Bootstrap {
   }
 
   private async refreshSkills(): Promise<SkillInfo[]> {
-    this.skillsCache = await scanSkills(
+    this.skillsCache = await readSkillCatalog(
       this.skillRoots(),
       this.settings.getAll().skillEnabled
     ).catch(() => [])
@@ -1055,7 +1056,8 @@ export class Bootstrap {
       async ({ backend, cwd, projectId }) => {
         const directory = cwd ?? ctx.getCwd(projectId)
         if (!isAbsolute(directory)) throw new Error('작업 폴더는 절대 경로여야 합니다.')
-        return harnessModule(backend).configuredResources?.(directory)
+        const module = harnessModule(backend)
+        return (module.draftResources ?? module.configuredResources)?.(directory)
       },
       async ({ backend, cwd, projectId }, id) => {
         const directory = cwd ?? ctx.getCwd(projectId)

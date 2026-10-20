@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode, type RefObject } from 'react'
 import { CascadeMenu } from '../../../../../shared/ui/CascadeMenu'
 import { useI18n } from '../../../../../shared/i18n'
-import type { Backend, McpServer, SkillInfo } from '../../../../../../../shared/ipc'
+import type { Backend, SkillInfo } from '../../../../../../../shared/ipc'
 import {
   buildAttachMenu,
   nativeAttachItems,
@@ -9,14 +9,12 @@ import {
 } from '../../../lib/attachMenuModel'
 import type { PluginMention } from '../../../lib/pluginMention'
 import type { NativeResourcesView } from '../../../hooks/useNativeResources'
-import { nativeResourcesNotice } from '../../../lib/nativeResourcesMenu'
 
 interface AttachMenuProps {
   open: boolean
   anchorRef: RefObject<HTMLElement | null>
   onClose: () => void
   skills: readonly SkillInfo[]
-  mcpServers?: readonly McpServer[]
   sourceIcon?: (source: string) => ReactNode
   plugins: readonly PluginMention[]
   onAction: (action: AttachMenuAction) => void
@@ -32,7 +30,6 @@ export function AttachMenu({
   anchorRef,
   onClose,
   skills,
-  mcpServers,
   sourceIcon,
   plugins,
   onAction,
@@ -41,27 +38,24 @@ export function AttachMenu({
   native
 }: AttachMenuProps): React.JSX.Element | null {
   const { tr } = useI18n()
-  const notice = native && nativeResourcesNotice(native.view)
   const items = useMemo(() => {
-    const nativeItems = (kind: 'skills' | 'mcp'): ReturnType<typeof nativeAttachItems> =>
+    const nativeItems = (
+      kind: 'skills' | 'mcp',
+      origin?: 'orca'
+    ): ReturnType<typeof nativeAttachItems> =>
       nativeAttachItems(
         native!.view,
         {
-          loading: tr('chat.nativeResources.loading'),
-          error: tr('chat.nativeResources.error'),
-          partial: tr('chat.nativeResources.partial'),
-          notice: notice ? tr(notice) : undefined,
-          noCommands: tr('chat.nativeResources.noCommands'),
           useMcp: (name) => tr('chat.nativeResources.useMcp', { name }),
           resourceStatus: (status) => tr(`chat.nativeResources.${status}`),
           harness: native?.label
         },
-        kind
+        kind,
+        origin
       )
     return buildAttachMenu({
       skills,
       plugins,
-      mcpServers,
       useMcp: (name) => tr('chat.nativeResources.useMcp', { name }),
       sourceIcon,
       canManagePlugins: !!onManagePlugins,
@@ -69,7 +63,9 @@ export function AttachMenu({
       native: native
         ? {
             label: native.label,
+            backend: native.backend,
             items: nativeItems('mcp'),
+            orcaItems: nativeItems('mcp', 'orca'),
             skills: nativeItems('skills')
           }
         : undefined,
@@ -82,17 +78,7 @@ export function AttachMenu({
         noPlugins: tr('chat.composer.attachMenu.noPlugins')
       }
     })
-  }, [
-    skills,
-    plugins,
-    mcpServers,
-    sourceIcon,
-    onManagePlugins,
-    includeExtensions,
-    native,
-    notice,
-    tr
-  ])
+  }, [skills, plugins, sourceIcon, onManagePlugins, includeExtensions, native, tr])
   return (
     <CascadeMenu
       open={open}

@@ -313,3 +313,52 @@ node scripts/check-doc-inventory.mjs --check
 ```
 
 DB 검사는 `ELECTRON_RUN_AS_NODE=1`인 자식의 `node_modules/electron/dist/electron.exe node_modules/vitest/vitest.mjs run src/main/app/handlers/session.load.test.ts --maxWorkers=1`로 수행했다. Windows GUI 실행 파일의 반환만으로 완료로 간주하지 않고 Start-Process의 Hidden/Wait·stdout/stderr redirect를 사용해 10/10 산출을 읽었다.
+
+## r1.10 — 허용 스킬 출처·연결된 플러그인·재개 후 캐시
+
+2026-10-20, Windows PowerShell/Chromium. 설계 r1.10을 별도 커밋한 뒤 구현했다. 아래 결과는 구현자 자기확인이다.
+
+| 검사 | 최종 관측 |
+|---|---|
+| 관련 회귀 | **78파일823/823**, 87.10초. 아래 실행 집합의 실제 Vitest 산출. 임시 파일 catalog·SDK projection·실제 bootstrap callback·IPC handler·runtime·renderer DOM/hook을 포함한다 |
+| 타입/build | `npm run build`: Electron ABI already ok, node/web/test 타입 진단0, main/preload/renderer production build 성공. 기존 static/dynamic import chunk 경고 유지 |
+| lint | `npx eslint --cache src scripts`: 오류0·기존경고4. 무관 formatter 변경 없음 |
+| CLI | `smoke-native-plugin-skills.mjs`: expanded=true, brief=true, requests=1, runtimeToggle=true. 실제 번들 Claude CLI+loopback 모델 서버. 외부 모델 호출 없음 |
+| 경계 | app에서 `node --test scripts/harness-boundary.test.mjs`: 8/8 |
+| UI 카탈로그 | source=295, rows=295, source-minus-doc=[]·doc-minus-source=[]. 음성 대조10건 red |
+| 문서 | generated/prose 통과. 전체 link checker는 기존 `.tmp/opencode-dev` 외부 사본의 링크5건으로 실패. 같은 checkLinks에서 `.tmp`·`.codex-remote-attachments` 제외 시 repositoryBrokenLinks=[] |
+| M2 | nativeResourcesMenu의 `items: content('mcp')`/`items: content('plugin')` 교환→10failed/11. bytes 복원 후 최종11/11 |
+| M3 | AttachMenu의 `items: nativeItems('mcp')`/`skills: nativeItems('skills')` 목적지 교환→6failed/6. bytes 복원 후 최종6/6 |
+| diff | `git diff --check` 공백 오류0. 문서2파일의 CRLF→LF 안내만 출력 |
+
+초기62파일641케이스 실행에서 새 계약과 어긋난 기존 기대값·새 hook mock 누락4건이 실패했다. 집중50파일330케이스에서는 새 fake DOM 초기화1건이 남았고, 초기화와 viewport 타입을 정정했다. 최종 집합은 위78파일823케이스로 다시 실행했으며 실패0이다. 첫 boundary 실행은 저장소 루트에서 ESLint config를 찾지 못했으므로 잘못된 cwd 실행으로 분리하고 app에서 다시 확인했다.
+
+### 행동 및 범위
+
+- 실제 임시 파일에서 Claude plugin manifest 명령, OpenCode 설치 plugin skill, 양 하네스 user root, agents lock 등록/미등록/유실 파일/손상 lock을 분리했다. agents로 향한 하네스 junction의 중복과 미등록 우회 노출을 막는다.
+- `Bootstrap.refreshSkills`가 고유 OpenCode 스킬과 Orca enabled=false를 캐시에 넣는지 확인했다. 실제 `skillsList` handler가 파일 catalog의 sourceId/name/제어 권한을 그대로 전달한다. Composer와 nav 소비처는 별도 DOM oracle로 확인했다.
+- OpenCode SDK 목록은 location이 자체 root 또는 설치 plugin에 속한 스킬만 표시용으로 분류한다. 일반 command·다른 도구의 스킬은 제외하고 전송의 원래 명령 이름은 보존한다. draft/nav 설정 조회는 실행 후 발견한 plugin을 제한하지 않는다.
+- 연결 이벤트 이후에만 있는 `design:only-after-resume`을 조회하고 A→B→A의 같은 generation partial 응답에도 MCP connected 상태와 명령을 보존한다. 종료 후에는 configured/read-only로 바뀐다. 기존 늦은 응답·진행 작업·독립 토글 검사를 함께 실행했다.
+- Composer 플러그인에서는 connected native/Orca MCP와 valid provider만 보인다. needs-auth GitHub, expired Confluence, configured/disabled/failed 항목은 제외한다. 보조 설명·상태 텍스트와 partial toast는 없다.
+
+### 브라우저 관측
+
+`scripts/fixtures/harness-entry`의 production React 컴포넌트와 메모리 IPC를 사용했다. Claude 스킬 패널은 `Orcinus orca 스킬`, `Claude 스킬`, `~/.agents/skills`, `Claude 플러그인`으로 구분하고 OpenCode 스킬은 제외했다. OpenCode 선택 시 해당 제목과 스킬로 바뀌었다.
+
+white/dark에서 group 왼쪽 로고와 Attach File 아이콘을 확인했다. dark Claude 플러그인 패널은 `Claude MCP → Filesystem`, `Orcinus orca 플러그인 → Orca Custom MCP, Jira`였고 연결되지 않은 fixture 항목은 없었다. nav 스킬/MCP는 양 하네스 source 제목+로고를 표시했다. nav 관리 행의 상태 표시는 Composer의 이름-only 규칙과 별도다.
+
+실제 설치 앱의 GUI·Windows 탐색기 창은 자동 조작하지 않았다. 이 결과는 설치 앱 업데이트/재시작을 마쳤다는 뜻이 아니다. 실제 CLI smoke와 runtime/IPC 테스트, 브라우저 메모리 fixture의 경계를 유지한다. DB 코드는 변경하지 않았고 r1.9의 실제 DB load10/10은 비영향 증거로 승계했다.
+
+### 최종 재현 명령
+
+app에서 실행한다. DB ABI를 뒤집는 `npm test`는 사용하지 않았다.
+
+```sh
+node node_modules/vitest/vitest.mjs run src/main/app/skill-catalog.test.ts src/main/app/bootstrap.native-history.test.ts src/main/app/native-history.test.ts src/main/app/handlers/session-resources.test.ts src/main/adapters/claude/native-resources.test.ts src/main/adapters/claude/plugin-catalog.test.ts src/main/adapters/claude/adapter.live-control.test.ts src/main/adapters/claude/configured-resources.test.ts src/main/adapters/opencode/v1/native-resources.test.ts src/main/adapters/opencode/v1/adapter.persistent.test.ts src/main/adapters/opencode/v1/plugin-installation.test.ts src/main/adapters/opencode/v1/configured-resources.test.ts src/main/features/extensions/common/skills src/main/features/sessions/session-runtime.test.ts src/preload/index.test.ts src/renderer/src/features/skills src/renderer/src/features/chat/harnesses/common/composer src/renderer/src/features/chat/hooks/useNativeResources.test.ts src/renderer/src/features/chat/lib/nativeResourcesMenu.test.ts src/renderer/src/features/chat/lib/attachMenuModel.test.ts src/renderer/src/features/chat/components/ChatTitleBar.native-resources.test.ts src/renderer/src/features/chat/components/Composer.harness.test.ts src/renderer/src/shared/ui/CascadeMenu src/renderer/src/shared/ui/cascadeMenuState.test.ts src/renderer/src/shared/errors --maxWorkers=2
+npx eslint --cache src scripts
+npm run build
+node scripts/smoke-native-plugin-skills.mjs
+node --test scripts/harness-boundary.test.mjs
+node scripts/check-doc-inventory.mjs --check
+python -X utf8 ../docs/handoff/0266-renderer-design-guidelines/evidence/check-design-docs.py
+```

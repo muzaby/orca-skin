@@ -1,11 +1,12 @@
 // 컴포저 '+' 메뉴 트리 — 출처 제목 아래 모든 스킬·MCP·플러그인을 직접 나열하는 순수 함수.
 // 자동완성의 검색 필터와 별도로 전체 catalog를 받는다.
-import type { McpServer, SkillInfo } from '../../../../../shared/ipc'
+import type { SkillInfo } from '../../../../../shared/ipc'
 import type { ReactNode } from 'react'
 import type { CascadeItem } from '../../../shared/ui/cascadeMenuState'
 import type { PluginMention } from './pluginMention'
 import type { NativeResourcesView } from '../hooks/useNativeResources'
 import type { NativeResource } from '../../../../../shared/native-resources'
+import { sourceSkills } from '../../../../../shared/extension-sources'
 
 export type AttachMenuAction =
   | { type: 'attach' }
@@ -45,16 +46,24 @@ export function buildAttachMenu(input: {
   labels: AttachMenuLabels
   canManagePlugins: boolean
   includeExtensions?: boolean
-  mcpServers?: readonly Pick<McpServer, 'id' | 'name' | 'description' | 'enabled'>[]
   useMcp?: (name: string) => string
   sourceIcon?: (source: string) => ReactNode
   native?: {
     label: string
+    backend?: 'claude' | 'opencode'
     items: CascadeItem<AttachMenuAction>[]
     skills: CascadeItem<AttachMenuAction>[]
+    orcaItems?: CascadeItem<AttachMenuAction>[]
   }
 }): CascadeItem<AttachMenuAction>[] {
-  const { skills, plugins, labels, canManagePlugins } = input
+  const { labels, canManagePlugins } = input
+  const backend =
+    input.native?.backend ?? (input.native?.label === 'OpenCode' ? 'opencode' : 'claude')
+  const skills = sourceSkills(input.skills, backend).filter(
+    (skill) => skill.sourceId !== `plugin:${backend}` || !input.native
+  )
+  const catalogNames = new Set(skills.map((skill) => skill.name))
+  const plugins = input.includeExtensions === false ? [] : input.plugins
   const attachment: CascadeItem<AttachMenuAction> = {
     kind: 'action',
     id: 'attach',
@@ -85,8 +94,13 @@ export function buildAttachMenu(input: {
             label: skill.name,
             icon: 'bolt' as const,
             title: skillTooltip(skill),
-            disabled: input.includeExtensions === false,
-            action: { type: 'skill' as const, name: skill.name }
+            disabled:
+              skill.enabled === false ||
+              (skill.sourceId === 'orca' && input.includeExtensions === false),
+            action: {
+              type: skill.sourceId === 'orca' ? ('skill' as const) : ('nativeCommand' as const),
+              name: skill.name
+            }
           }))
         ])
 
@@ -102,41 +116,56 @@ export function buildAttachMenu(input: {
           disabled: input.includeExtensions === false,
           action: { type: 'plugin' as const, id: plugin.id }
         }))
-  if (input.mcpServers?.length) {
-    if (plugins.length === 0) pluginItems.length = 0
-    pluginItems.unshift(
-      ...input.mcpServers.map((server): CascadeItem<AttachMenuAction> => ({
-        kind: 'action',
-        id: `orca-mcp:${server.id}`,
-        label: server.name,
-        icon: 'mcp',
-        title: server.description || server.name,
-        disabled: !server.enabled || input.includeExtensions === false,
-        action: { type: 'nativePrompt', text: input.useMcp?.(server.name) ?? server.name }
-      }))
-    )
+  if (input.includeExtensions !== false && input.native?.orcaItems?.length) {
+    if (!plugins.length) pluginItems.length = 0
+    pluginItems.unshift(...input.native.orcaItems)
   }
-  if (plugins.length || input.mcpServers?.length)
+  // Settings-only MCP rows have no connection observation and cannot be offered as usable.
+  if (plugins.length || (input.includeExtensions !== false && input.native?.orcaItems?.length))
     pluginItems.unshift({
       kind: 'heading',
       id: 'plugins:orca',
-      label: 'Orcinus orca',
+      label: 'Orcinus orca 플러그인',
       leading: input.sourceIcon?.('orca')
     })
   if (input.native) {
     if (bySource.size === 0) skillItems.length = 0
-    skillItems.push(
-      ...input.native.skills.map((item) =>
-        item.kind === 'heading' ? { ...item, leading: input.sourceIcon?.('native') } : item
+    let heading: Extract<CascadeItem<AttachMenuAction>, { kind: 'heading' }> | undefined
+    for (const item of input.native.skills) {
+      if (item.kind === 'heading') {
+        heading = { ...item, leading: input.sourceIcon?.('native') }
+        continue
+      }
+      if (
+        item.kind === 'action' &&
+        item.action.type === 'nativeCommand' &&
+        catalogNames.has(item.action.name)
       )
+        continue
+      if (!heading) {
+        skillItems.push(item)
+        continue
+      }
+      let at = skillItems.findIndex((row) => row.kind === 'heading' && row.label === heading!.label)
+      if (at < 0) {
+        skillItems.push(heading)
+        at = skillItems.length - 1
+      }
+      let end = at + 1
+      while (end < skillItems.length && skillItems[end].kind !== 'heading') end++
+      skillItems.splice(end, 0, item)
+    }
+    if (
+      plugins.length === 0 &&
+      !(input.includeExtensions !== false && input.native.orcaItems?.length)
     )
-    if (plugins.length === 0 && !input.mcpServers?.length) pluginItems.length = 0
+      pluginItems.length = 0
     if (input.native.items.length)
       pluginItems.unshift(
         {
           kind: 'heading',
           id: 'native',
-          label: input.native.label,
+          label: `${input.native.label} MCP`,
           leading: input.sourceIcon?.('native')
         },
         ...input.native.items
@@ -181,42 +210,42 @@ export function buildAttachMenu(input: {
 export function nativeAttachItems(
   view: NativeResourcesView,
   labels: {
-    loading: string
-    error: string
-    partial: string
+    loading?: string
+    error?: string
+    partial?: string
     notice?: string
-    noCommands: string
+    noCommands?: string
     useMcp: (name: string) => string
     resourceStatus: (status: NativeResource['status']) => string
     harness?: string
   },
-  kind: 'skills' | 'mcp'
+  kind: 'skills' | 'mcp',
+  origin?: 'orca'
 ): CascadeItem<AttachMenuAction>[] {
   const items: CascadeItem<AttachMenuAction>[] = []
-  if (view.status !== 'ready') {
-    items.push({ kind: 'empty', id: view.status, label: labels[view.status] })
-  } else {
+  if (view.status === 'ready') {
     const commands = view.value.commands ?? []
     const children: CascadeItem<AttachMenuAction>[] = view.value.items
-      .filter((item) => kind === 'mcp' && item.kind === 'mcp')
+      .filter(
+        (item) =>
+          kind === 'mcp' &&
+          item.kind === 'mcp' &&
+          item.origin === origin &&
+          view.value.state === 'connected' &&
+          item.status === 'connected' &&
+          item.enabled
+      )
       .map((item) => ({
         kind: 'action',
         id: `native-resource:${kind}:${item.id}`,
         label: item.name,
-        description: labels.resourceStatus(item.status),
-        disabled: item.status !== 'connected',
-        title:
-          item.status === 'connected'
-            ? labels.useMcp(item.name)
-            : labels.resourceStatus(item.status),
         action: { type: 'nativePrompt', text: labels.useMcp(item.name) }
       }))
     const groups = new Map<string, CascadeItem<AttachMenuAction>[]>()
     for (const command of commands.filter((command) =>
-      kind === 'mcp' ? command.source === 'mcp' : command.source !== 'mcp'
+      kind === 'mcp' ? false : command.source !== 'mcp' && command.skill !== false
     )) {
-      const group =
-        command.source === 'plugin' ? command.name.split(':')[0] : (labels.harness ?? 'Skills')
+      const group = `${labels.harness ?? 'Claude'} ${command.source === 'plugin' ? '플러그인' : '스킬'}`
       const row: CascadeItem<AttachMenuAction> = {
         kind: 'action',
         id: `native-command:${command.name}`,
@@ -237,9 +266,5 @@ export function nativeAttachItems(
       items.push({ kind: 'heading', id: `native-skills:${group}`, label: group }, ...rows)
     items.push(...children)
   }
-  // Keep submenu indices stable as a refresh notice appears/disappears while open.
-  const notice =
-    labels.notice ?? (view.status === 'ready' && view.value.partial ? labels.partial : undefined)
-  if (notice) items.push({ kind: 'empty', id: 'notice', label: notice })
   return items
 }

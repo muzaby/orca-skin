@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { stat } from 'node:fs/promises'
+import { realpath, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -37,6 +37,7 @@ export async function openCodePluginInstallation(
       const cache = resolve(cwd, env.XDG_CACHE_HOME || join(home, '.cache'), 'opencode')
       target = join(cache, 'packages', cacheKey, 'node_modules', name)
     }
+    target = await realpath(target)
     const entry = await stat(target)
     const directory = entry.isDirectory() ? target : entry.isFile() ? dirname(target) : undefined
     if (!directory) return

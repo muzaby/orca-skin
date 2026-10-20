@@ -1,8 +1,54 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { OpencodeClient } from '@opencode-ai/sdk/v2/client'
 import { openCodeNativeCommands, openCodeNativeResources } from './native-resources'
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 describe('OpenCode native resources', () => {
+  it('classifies only OpenCode and installed-plugin skills from SDK locations, without losing exact dispatch names', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'orca-native-skill-'))
+    try {
+      const plugin = join(root, 'native-plugin')
+      await mkdir(plugin)
+      await writeFile(join(plugin, 'package.json'), '{}')
+      const locations = {
+        own: join(root, '.opencode', 'skills', 'own', 'SKILL.md'),
+        'vendor:design': join(plugin, 'skills', 'design', 'SKILL.md'),
+        foreign: join(root, '.claude', 'skills', 'foreign', 'SKILL.md'),
+        agents: join(root, '.agents', 'skills', 'agents', 'SKILL.md')
+      }
+      const client = {
+        command: {
+          list: async () => ({
+            data: [
+              ...Object.keys(locations).map((name) => ({ name, source: 'skill', hints: [] })),
+              { name: 'custom', source: 'command', hints: [] }
+            ]
+          })
+        },
+        app: {
+          skills: async () => ({
+            data: Object.entries(locations).map(([name, location]) => ({ name, location }))
+          })
+        },
+        config: { get: async () => ({ data: { plugin: [plugin] } }) }
+      } as unknown as OpencodeClient
+      const items = await openCodeNativeCommands(client, root, true, {
+        XDG_CONFIG_HOME: join(root, 'config')
+      })
+      expect(items.map(({ name, source, skill }) => ({ name, source, skill }))).toEqual([
+        { name: 'own', source: 'harness', skill: true },
+        { name: 'vendor:design', source: 'plugin', skill: true },
+        { name: 'foreign', source: 'harness', skill: false },
+        { name: 'agents', source: 'harness', skill: false },
+        { name: 'custom', source: 'harness', skill: false }
+      ])
+      expect(JSON.stringify(items)).not.toContain(root.replaceAll('\\', '\\\\'))
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
   it('projects exact command names, hints and descriptions without templates or provider configuration', async () => {
     const list = vi.fn(async () => ({
       data: [

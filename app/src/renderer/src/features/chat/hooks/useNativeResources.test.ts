@@ -99,6 +99,52 @@ afterEach(() => {
 })
 
 describe('native resources session lifecycle', () => {
+  it('refreshes after resume and caches connected resources across partial reads and navigation until termination', async () => {
+    read.mockResolvedValueOnce({ state: 'disconnected', items: [] })
+    dom.render(createElement(Probe, { id: 'A', scope: 'claude' }))
+    await settle()
+    const live = {
+      ...snapshot('resumed'),
+      commands: [
+        {
+          name: 'design:only-after-resume',
+          source: 'plugin' as const,
+          description: '',
+          argumentHint: ''
+        }
+      ]
+    }
+    read.mockResolvedValueOnce(live)
+    backgroundEvent({
+      type: 'background.connection',
+      sessionId: 'A',
+      state: 'connected',
+      source: { generation: 'resumed', sequence: 1, receivedAt: 1, replay: false }
+    })
+    await settle()
+    expect(current.view).toMatchObject({ value: live })
+    dom.render(createElement(Probe, { id: 'B', scope: 'claude' }))
+    await settle()
+    read.mockResolvedValueOnce({
+      state: 'connected',
+      generation: 'resumed',
+      items: [],
+      partial: true
+    })
+    dom.render(createElement(Probe, { id: 'A', scope: 'claude' }))
+    await settle()
+    expect(current.view).toMatchObject({ value: { items: [resource], commands: live.commands } })
+    expect(errorToastStore.getState().toasts).toEqual([])
+    read.mockResolvedValueOnce({ state: 'disconnected', items: [] })
+    terminated('A', 'resumed')
+    await settle()
+    expect(current.view).toMatchObject({
+      value: {
+        state: 'disconnected',
+        items: [expect.objectContaining({ canToggle: false, status: 'configured' })]
+      }
+    })
+  })
   it('reveals an MCP configuration from the name while the separate switch controls its state', async () => {
     dom.render(
       createElement(NativeResourcesMenu, {
@@ -263,7 +309,7 @@ describe('native resources session lifecycle', () => {
       status: 'ready',
       value: { ...snapshot('A-new'), partial: true }
     })
-    expect(errorToastStore.getState().toasts).toMatchObject([{ title: 'loadFailed' }])
+    expect(errorToastStore.getState().toasts).toEqual([])
     read.mockResolvedValueOnce(snapshot('A-final'))
     dom.act(() => current.refresh())
     await settle()

@@ -128,6 +128,7 @@ describe('native plugin catalog', () => {
       roots: [],
       skills: [],
       commands: [],
+      files: [],
       installations: []
     })
     write(join(root, 'settings.json'), '{"secret":"private-value"')
