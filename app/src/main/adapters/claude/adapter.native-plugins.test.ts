@@ -13,6 +13,14 @@ const fixture = vi.hoisted(() => ({
       async *[Symbol.asyncIterator]() {
         for (const message of fixture.messages) yield message
       },
+      applyFlagSettings: vi.fn(async () => {}),
+      reloadPlugins: vi.fn(async () => ({
+        plugins: [],
+        commands: [],
+        agents: [],
+        mcpServers: [],
+        error_count: 0
+      })),
       mcpServerStatus: async () => [],
       close: vi.fn()
     }
@@ -23,6 +31,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', async (original) => ({
   query: fixture.query
 }))
 import { ClaudeAdapter } from './adapter'
+import { nativePluginId } from './configured-resources'
 
 let temp: string
 let cwd: string
@@ -123,13 +132,63 @@ it.each([null, 'resume-native-B'])(
     expect(result?.commands?.map((command) => command.name)).toEqual([
       'frontend-design:frontend-design'
     ])
-    expect(result?.items.map((item) => item.name)).toEqual(['frontend-design'])
+    expect(result?.items.map((item) => item.name)).toEqual(['frontend@market'])
     live.close()
     write(join(root, 'settings.json'), { enabledPlugins: { 'frontend@market': false } })
     const resumed = adapter.sendMessage({ ...request, sessionId: 'next-resume' })
     const next = (fixture.query.mock.calls[1][0] as { options: Options }).options
-    expect(next.plugins).toEqual([{ type: 'local', path: injected }])
-    expect(next.skills).toEqual(['orcinus-orca:enabled'])
+    expect(next.plugins).toEqual([
+      { type: 'local', path: injected },
+      { type: 'local', path: plugin }
+    ])
+    expect(JSON.parse(String(next.settings)).enabledPlugins['frontend-design@inline']).toBe(false)
+    expect(next.skills).toEqual(['orcinus-orca:enabled', 'frontend-design:frontend-design'])
     resumed.close()
   }
 )
+
+it('carries plugin controls through the actual adapter and preserves provider flags and generation', async () => {
+  const live = new ClaudeAdapter().sendMessage({
+    sessionId: null,
+    cwd,
+    text: 'Hello',
+    env: { CLAUDE_CONFIG_DIR: root },
+    providerSettings: {
+      providerKey: 'p',
+      provider: 'p',
+      sourceRevision: 'r',
+      settings: { enabledPlugins: { 'provider-only@inline': true } }
+    },
+    extensions: { skills: [], hooks: { normalized: {} } }
+  })
+  const options = (fixture.query.mock.calls[0][0] as { options: Options }).options
+  expect(JSON.parse(String(options.settings)).enabledPlugins).toEqual({
+    'provider-only@inline': true,
+    'frontend@market': false,
+    'frontend-design@inline': true
+  })
+  const sdk = fixture.query.mock.results[0].value
+  const generation = (await live.nativeResources!()).generation!
+  const request = {
+    sessionId: 'B',
+    generation,
+    kind: 'plugin' as const,
+    id: nativePluginId(plugin),
+    enabled: false
+  }
+  await expect(live.setNativeResource!({ ...request, generation: 'old' })).rejects.toThrow('제어')
+  expect(sdk.applyFlagSettings).not.toHaveBeenCalled()
+  await live.setNativeResource!(request)
+  expect(sdk.applyFlagSettings).toHaveBeenCalledExactlyOnceWith({
+    enabledPlugins: {
+      'provider-only@inline': true,
+      'frontend@market': false,
+      'frontend-design@inline': false
+    }
+  })
+  expect(sdk.reloadPlugins).toHaveBeenCalledOnce()
+  expect((await live.nativeResources!()).items).toMatchObject([
+    { id: nativePluginId(plugin), enabled: false, canToggle: true }
+  ])
+  live.close()
+})

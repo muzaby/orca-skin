@@ -5,6 +5,7 @@ import type {
   NativeResources
 } from '../../../../../shared/native-resources'
 import { sessionApi } from '../../../shared/api/ipc'
+import { reportError } from '../../../shared/errors'
 
 export type NativeResourcesView =
   | { status: 'loading' }
@@ -48,7 +49,9 @@ function observed(value: NativeResources, previous?: Snapshot): Snapshot {
     return { status: 'ready', value }
   const currentIds = new Set(value.items.map((item) => `${item.kind}:${item.id}`))
   const retained = readOnly(previous.value).items.filter(
-    (item) => !currentIds.has(`${item.kind}:${item.id}`)
+    (item) =>
+      !currentIds.has(`${item.kind}:${item.id}`) &&
+      !(item.kind === 'plugin' && value.pluginsAuthoritative)
   )
   const commands = value.commands ?? previous.value.commands
   const stale = retained.length > 0 || (!value.commands && !!commands?.length)
@@ -108,17 +111,30 @@ export function useNativeResources(
             ? await sessionApi.nativeResources(JSON.parse(draftKey) as DraftNativeResourcesRequest)
             : { state: 'disconnected' as const, items: [] }
         if (epoch.current === generation) {
+          if (value.partial)
+            reportError({
+              event: 'chat.native-resources.partial',
+              scope: 'native-resources',
+              title: 'loadFailed'
+            })
           const next = observed(value, previous)
           if (sessionId) snapshots().set(key, next)
           setView(next)
         }
-      } catch {
-        if (epoch.current === generation)
+      } catch (error) {
+        if (epoch.current === generation) {
+          reportError({
+            event: 'chat.native-resources.load-failed',
+            scope: 'native-resources',
+            title: 'loadFailed',
+            error
+          })
           setView(
             previous
               ? { ...previous, value: readOnly(previous.value), stale: true, issue: 'refresh' }
               : { status: 'error' }
           )
+        }
       }
     })
     return () => {
@@ -130,15 +146,15 @@ export function useNativeResources(
     issue: 'control' | 'open',
     generation: number
   ): Promise<void> => {
-    if (epoch.current !== generation || !sessionId || view.status !== 'ready') return
+    if (epoch.current !== generation || (!sessionId && !draftKey) || view.status !== 'ready') return
     const setView = (value: NativeResourcesView): void => setResult({ key, view: value })
     const previous = { ...view, value: readOnly(view.value), stale: true } as const
     setView({ ...previous, refreshing: true, issue })
     try {
-      const value = await sessionApi.nativeResources(sessionId)
+      const value = await sessionApi.nativeResources(sessionId ?? JSON.parse(draftKey!))
       if (epoch.current === generation) {
         const next = observed(value, snapshots().get(key))
-        snapshots().set(key, next)
+        if (sessionId) snapshots().set(key, next)
         setView({ ...next, issue })
       }
     } catch {
@@ -151,18 +167,28 @@ export function useNativeResources(
     busy,
     refresh,
     openPlugin: async (resource) => {
-      if (!open || !sessionId || resource.kind !== 'plugin' || pending.current) return
+      if (!open || (!sessionId && !draftKey) || resource.kind !== 'plugin' || pending.current)
+        return
       const generation = epoch.current
       pending.current = true
       try {
-        await sessionApi.openNativePlugin({ sessionId, id: resource.id })
+        await sessionApi.openNativePlugin(
+          sessionId ? { sessionId, id: resource.id } : { ...JSON.parse(draftKey!), id: resource.id }
+        )
         if (epoch.current === generation)
           setResult((current) =>
             current.view.status === 'ready' && current.view.issue === 'open'
               ? { ...current, view: { ...current.view, issue: undefined } }
               : current
           )
-      } catch {
+      } catch (error) {
+        if (epoch.current === generation)
+          reportError({
+            event: 'chat.native-resources.open-failed',
+            scope: 'native-resources',
+            title: 'openFailed',
+            error
+          })
         await reloadAfterFailure('open', generation)
       } finally {
         if (epoch.current === generation) pending.current = false
@@ -196,7 +222,14 @@ export function useNativeResources(
           snapshots().set(key, next)
           setView(next)
         }
-      } catch {
+      } catch (error) {
+        if (epoch.current === generation)
+          reportError({
+            event: 'chat.native-resources.control-failed',
+            scope: 'native-resources',
+            title: 'actionFailed',
+            error
+          })
         await reloadAfterFailure('control', generation)
       } finally {
         if (epoch.current === generation) {

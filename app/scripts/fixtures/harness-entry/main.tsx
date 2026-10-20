@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import '../../../src/renderer/src/styles/app.css'
 import '../../../src/renderer/src/shared/i18n'
 import { Sidebar } from '../../../src/renderer/src/app/Sidebar'
+import { ErrorToastLayer } from '../../../src/renderer/src/app/ErrorToastLayer'
 import { ChatTitleBar } from '../../../src/renderer/src/features/chat/components/ChatTitleBar'
 import { Composer } from '../../../src/renderer/src/features/chat/components/Composer'
 import { harnessLanding } from '../../../src/renderer/src/features/chat/harnesses/registries/landing'
@@ -33,6 +34,12 @@ useProjectsStore.setState({
 })
 const base = window.orca
 let enabled = true
+let pluginEnabled = true
+const canControl = (): boolean => {
+  const state = useChatStore.getState()
+  const session = state.sessions[state.activeKey]?.session
+  return !!session?.sessionId && session.backend === 'claude'
+}
 const snapshot = (): NativeResources => ({
   state: 'connected',
   generation: 'fixture',
@@ -57,9 +64,7 @@ const snapshot = (): NativeResources => ({
       kind: 'mcp',
       status: enabled ? 'connected' : 'disabled',
       enabled,
-      canToggle:
-        useChatStore.getState().sessions[useChatStore.getState().activeKey]?.session.backend ===
-        'claude'
+      canToggle: canControl()
     },
     {
       id: 'auth',
@@ -74,9 +79,9 @@ const snapshot = (): NativeResources => ({
       name: 'superpowers',
       description: '개발 작업을 돕는 워크플로 스킬 모음입니다.',
       kind: 'plugin',
-      status: 'enabled',
-      enabled: true,
-      canToggle: false
+      status: pluginEnabled ? 'enabled' : 'disabled',
+      enabled: pluginEnabled,
+      canToggle: canControl()
     }
   ]
 })
@@ -95,7 +100,8 @@ window.orca = new Proxy(base, {
           document.body.append(notice)
         },
         setNativeResource: async (request: SetNativeResource) => {
-          enabled = request.enabled
+          if (request.kind === 'plugin') pluginEnabled = request.enabled
+          else enabled = request.enabled
           return snapshot()
         }
       }
@@ -134,6 +140,7 @@ export function App(): React.JSX.Element {
   const Header = harnessLanding(backend).Header
   return (
     <main className="flex h-screen w-full flex-col bg-bg text-ink [font-family:var(--font-app)]">
+      <ErrorToastLayer />
       <div className="flex gap-4 p-3 text-footnote">
         <button onClick={() => setTweak('theme', t.theme === 'white' ? 'dark' : 'white')}>
           테마 전환

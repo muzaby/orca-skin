@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
 
 const appDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const evidenceDir = resolve(appDir, '../.tmp')
+const evidenceDir = resolve(appDir, '../work')
 await mkdir(evidenceDir, { recursive: true })
 const root = await mkdtemp(join(evidenceDir, 'native-skill-smoke-'))
 const config = join(root, 'claude')
@@ -130,6 +130,34 @@ Object.assign(env, {
   CLAUDE_CODE_USE_POWERSHELL_TOOL: '1'
 })
 await mkdir(env.TEMP, { recursive: true })
+const { query } = await import('@anthropic-ai/claude-agent-sdk')
+const idle = query({
+  prompt: {
+    async *[Symbol.asyncIterator]() {
+      await new Promise(() => {})
+      yield { type: 'user', message: { role: 'user', content: 'unused' } }
+    }
+  },
+  options: {
+    cwd,
+    env,
+    settingSources: ['project', 'local'],
+    plugins: [{ type: 'local', path: plugin }],
+    skills: ['frontend-design:frontend-design'],
+    settings: { enabledPlugins: { 'frontend-design@inline': false } }
+  }
+})
+const idleDeadline = setTimeout(() => idle.close(), 15000)
+try {
+  const commands = await idle.supportedCommands()
+  assert(
+    !commands.some((command) => command.name === 'frontend-design:frontend-design'),
+    'initial inline false must hide the plugin even with an SDK skills allowlist'
+  )
+} finally {
+  clearTimeout(idleDeadline)
+  idle.close()
+}
 const { createServer: createViteServer } = await import('vite')
 const loader = await createViteServer({
   root: appDir,
@@ -170,6 +198,28 @@ try {
   for await (const batch of live.eventBatches) {
     if (batch.events.some((event) => event.type === 'turn.ended')) {
       native = await live.nativeResources()
+      const installed = native.items.find(
+        (item) => item.kind === 'plugin' && item.name === 'frontend-design@fixture'
+      )
+      assert(installed?.canToggle, 'native installation must support session controls')
+      const setPlugin = (enabled) =>
+        live.setNativeResource({
+          sessionId: 'fixture',
+          generation: native.generation,
+          kind: 'plugin',
+          id: installed.id,
+          enabled
+        })
+      await setPlugin(false)
+      const disabled = await live.nativeResources()
+      assert(!disabled.items.find((item) => item.id === installed.id).enabled)
+      assert(
+        !disabled.commands.some((command) => command.name === 'frontend-design:frontend-design')
+      )
+      await setPlugin(true)
+      const enabled = await live.nativeResources()
+      assert(enabled.items.find((item) => item.id === installed.id).enabled)
+      assert(enabled.commands.some((command) => command.name === 'frontend-design:frontend-design'))
       break
     }
     for (const event of batch.events) {
@@ -178,7 +228,9 @@ try {
   }
   assert(native, 'CLI must complete a turn')
   assert(native.commands.some((command) => command.name === 'frontend-design:frontend-design'))
-  assert(native.items.some((item) => item.kind === 'plugin' && item.name === 'frontend-design'))
+  assert(
+    native.items.some((item) => item.kind === 'plugin' && item.name === 'frontend-design@fixture')
+  )
   if (!process.argv[2]) {
     assert(
       native.commands.some((command) => command.name === 'frontend-design:metadata-name'),
@@ -202,7 +254,8 @@ try {
       commands: native.commands.map((command) => command.name),
       expanded,
       brief,
-      requests
+      requests,
+      runtimeToggle: true
     })
   )
 } finally {

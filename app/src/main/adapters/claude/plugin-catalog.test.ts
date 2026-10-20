@@ -124,10 +124,37 @@ describe('native plugin catalog', () => {
   })
 
   it('reports invalid configuration without its contents and leaves absent installations empty', () => {
-    expect(readClaudePluginCatalog(cwd, root)).toEqual({ roots: [], skills: [], commands: [] })
+    expect(readClaudePluginCatalog(cwd, root)).toEqual({
+      roots: [],
+      skills: [],
+      commands: [],
+      installations: []
+    })
     write(join(root, 'settings.json'), '{"secret":"private-value"')
     expect(() => readClaudePluginCatalog(cwd, root)).toThrow(
       'Claude 네이티브 확장 설정을 읽을 수 없습니다.'
     )
   })
+})
+
+it('excludes local installs from child cwd and selects the nearest project without relying on git root', () => {
+  const outer = plugin('outer')
+  const inner = plugin('inner')
+  const local = plugin('local')
+  write(join(root, 'settings.json'), {
+    enabledPlugins: { 'tools@market': true, 'local@market': true }
+  })
+  write(join(root, 'plugins/installed_plugins.json'), {
+    plugins: {
+      'tools@market': [
+        { scope: 'project', projectPath: cwd, installPath: outer },
+        { scope: 'project', projectPath: join(cwd, 'nested'), installPath: inner }
+      ],
+      'local@market': [{ scope: 'local', projectPath: cwd, installPath: local }]
+    }
+  })
+  expect(readClaudePluginCatalog(cwd, root).roots).toEqual([outer, local])
+  expect(readClaudePluginCatalog(join(cwd, 'child'), root).roots).toEqual([outer])
+  expect(readClaudePluginCatalog(join(cwd, 'nested', 'child'), root).roots).toEqual([inner])
+  expect(readClaudePluginCatalog(join(cwd + '-sibling'), root).roots).toEqual([])
 })

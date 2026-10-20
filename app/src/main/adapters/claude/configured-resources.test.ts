@@ -94,7 +94,10 @@ describe('configured Claude resources', () => {
       await configuredClaudePluginDirectory(join(temp, 'other'), nativePluginId(active), paths)
     ).toBeUndefined()
     expect(await configuredClaudePluginDirectory(cwd, active, paths)).toBeUndefined()
-    expect(rows).toEqual([
+    expect(rows.find((item) => item.id === nativePluginId(join(temp, 'old')))).toMatchObject({
+      name: 'active@market'
+    })
+    expect(rows.filter((item) => item.id !== nativePluginId(join(temp, 'old')))).toEqual([
       {
         id: nativePluginId(active),
         description: 'Active native skills',
@@ -127,7 +130,7 @@ describe('configured Claude resources', () => {
     })
     live.observePlugins([{ name: 'active', path: active }])
     expect((await live.list())[0]).toMatchObject({
-      id: rows[0].id,
+      id: nativePluginId(active),
       description: 'Active native skills'
     })
     expect(JSON.stringify(rows)).not.toContain(temp)
@@ -164,4 +167,45 @@ describe('configured Claude resources', () => {
       'Claude 네이티브 확장 설정을 읽을 수 없습니다.'
     )
   })
+})
+
+it('lists every applicable install independently of flags, uses path boundaries and refreshes removal', async () => {
+  const registry = join(paths.root, 'plugins/installed_plugins.json')
+  const entries = {
+    'superpowers@official': [
+      { scope: 'user', installPath: join(temp, 'user-install') },
+      { scope: 'project', projectPath: cwd, installPath: join(temp, 'project-install') },
+      { scope: 'local', projectPath: cwd, installPath: join(temp, 'local-install') }
+    ]
+  }
+  await json(registry, { version: 2, plugins: entries })
+  await json(join(cwd, '.claude/settings.json'), {
+    enabledPlugins: { 'superpowers@official': false }
+  })
+  const rows = await configuredClaudeResources(cwd, paths)
+  expect(rows).toHaveLength(3)
+  expect(rows.every((item) => item.status === 'disabled')).toBe(true)
+  for (const entry of entries['superpowers@official']) {
+    expect(
+      await configuredClaudePluginDirectory(cwd, nativePluginId(entry.installPath), paths)
+    ).toBe(entry.installPath)
+  }
+  const nested = join(cwd, 'child', 'nested-repo')
+  await mkdir(join(nested, '.git'), { recursive: true })
+  expect((await configuredClaudeResources(nested, paths)).map((item) => item.id)).toEqual([
+    nativePluginId(join(temp, 'user-install')),
+    nativePluginId(join(temp, 'project-install'))
+  ])
+  for (const outside of [join(temp, 'project-sibling'), join(temp, 'other'), temp]) {
+    expect((await configuredClaudeResources(outside, paths)).map((item) => item.id)).toEqual([
+      nativePluginId(join(temp, 'user-install'))
+    ])
+  }
+  await json(join(cwd, '.claude/settings.json'), {
+    enabledPlugins: { 'superpowers@official': true }
+  })
+  expect((await configuredClaudeResources(cwd, paths)).every((item) => item.enabled)).toBe(true)
+  await json(registry, { version: 2, plugins: {} })
+  expect(await configuredClaudeResources(cwd, paths)).toEqual([])
+  expect(await configuredClaudePluginDirectory(cwd, rows[0].id, paths)).toBeUndefined()
 })

@@ -179,6 +179,39 @@ export const sites: Site[] = [
     event: 'artifacts.viewer-action.failed',
     title: 'actionFailed'
   },
+  {
+    file: 'features/chat/hooks/useNativeResources.ts',
+    ordinal: 0,
+    line: 138,
+    disposition: 'TOAST',
+    id: 'T38',
+    event: 'chat.native-resources.load-failed',
+    title: 'loadFailed'
+  },
+  {
+    file: 'features/chat/hooks/useNativeResources.ts',
+    ordinal: 1,
+    line: 174,
+    disposition: 'CONSUMED'
+  },
+  {
+    file: 'features/chat/hooks/useNativeResources.ts',
+    ordinal: 2,
+    line: 199,
+    disposition: 'TOAST',
+    id: 'T39',
+    event: 'chat.native-resources.open-failed',
+    title: 'openFailed'
+  },
+  {
+    file: 'features/chat/hooks/useNativeResources.ts',
+    ordinal: 3,
+    line: 243,
+    disposition: 'TOAST',
+    id: 'T40',
+    event: 'chat.native-resources.control-failed',
+    title: 'actionFailed'
+  },
   { file: 'features/chat/hooks/useAttachments.ts', ordinal: 0, line: 57, disposition: 'EXCLUDE' },
   {
     file: 'features/chat/hooks/useAttachments.ts',

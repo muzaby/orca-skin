@@ -118,3 +118,55 @@ describe('Claude native resources', () => {
     await expect(resources.set('native', false)).rejects.toThrow('provider rejected')
   })
 })
+
+it('applies session-only inline flags and reloads actual plugin state while preserving sibling flags', async () => {
+  const installations = [
+    { key: 'native@market', name: 'native', path: '/native', enabled: true },
+    { key: 'other@market', name: 'other', path: '/other', enabled: false }
+  ]
+  let flags = { 'native@inline': true, 'other@inline': false }
+  const applyFlagSettings = vi.fn(
+    async (settings: { enabledPlugins?: Record<string, unknown> | null }) => {
+      flags = settings.enabledPlugins as typeof flags
+    }
+  )
+  const reloadPlugins = vi.fn(async () => ({
+    plugins: installations.filter((plugin) => flags[`${plugin.name}@inline` as keyof typeof flags]),
+    commands: [],
+    agents: [],
+    mcpServers: [],
+    error_count: 0
+  }))
+  const query = {
+    mcpServerStatus: async () => [],
+    toggleMcpServer: vi.fn(),
+    applyFlagSettings,
+    reloadPlugins
+  }
+  const resources = claudeNativeResources(query, [], [], installations, flags)
+  expect(await resources.list()).toMatchObject([
+    { id: nativePluginId('/native'), enabled: true, canToggle: true },
+    { id: nativePluginId('/other'), enabled: false, canToggle: true }
+  ])
+  await resources.set(nativePluginId('/native'), false, 'plugin')
+  expect(applyFlagSettings).toHaveBeenLastCalledWith({
+    enabledPlugins: { 'native@inline': false, 'other@inline': false }
+  })
+  await resources.set(nativePluginId('/other'), true, 'plugin')
+  expect(applyFlagSettings).toHaveBeenLastCalledWith({
+    enabledPlugins: { 'native@inline': false, 'other@inline': true }
+  })
+  expect((await resources.list()).map((item) => item.enabled)).toEqual([false, true])
+  await resources.set(nativePluginId('/native'), true, 'plugin')
+  expect((await resources.list()).map((item) => item.enabled)).toEqual([true, true])
+  expect(query.toggleMcpServer).not.toHaveBeenCalled()
+  reloadPlugins.mockRejectedValueOnce(new Error('reload failed'))
+  await expect(resources.set(nativePluginId('/native'), false, 'plugin')).rejects.toThrow(
+    'reload failed'
+  )
+  expect(applyFlagSettings).toHaveBeenLastCalledWith({
+    enabledPlugins: { 'native@inline': true, 'other@inline': true }
+  })
+  expect((await resources.list()).map((item) => item.enabled)).toEqual([true, true])
+  await expect(resources.set('/arbitrary', true, 'plugin')).rejects.toThrow('제어')
+})

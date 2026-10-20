@@ -24,9 +24,14 @@ const fixture = vi.hoisted(() => ({
   draftCommands: undefined as
     ((request: DraftNativeResourcesRequest) => Promise<NativeCommand[]>) | undefined,
   commands: undefined as ((sessionId: string) => Promise<NativeCommand[] | undefined>) | undefined,
-  configured: undefined as ((sessionId: string) => Promise<NativeResource[]>) | undefined,
+  configured: undefined as
+    ((sessionId: string) => Promise<NativeResource[] | undefined>) | undefined,
   pluginDirectory: undefined as
     ((sessionId: string, id: string) => Promise<string | undefined>) | undefined,
+  draftResources: undefined as
+    ((request: DraftNativeResourcesRequest) => Promise<NativeResource[] | undefined>) | undefined,
+  draftDirectory: undefined as
+    ((request: DraftNativeResourcesRequest, id: string) => Promise<string | undefined>) | undefined,
   refresh: vi.fn(),
   createRefresh: vi.fn(),
   disposeBackground: vi.fn()
@@ -62,8 +67,15 @@ vi.mock('./handlers/session-resources', () => ({
     configured: (sessionId: string) => Promise<NativeResource[]>,
     pluginDirectory: (sessionId: string, id: string) => Promise<string | undefined>,
     commands: (sessionId: string) => Promise<NativeCommand[] | undefined>,
-    draftCommands: (request: DraftNativeResourcesRequest) => Promise<NativeCommand[]>
+    draftCommands: (request: DraftNativeResourcesRequest) => Promise<NativeCommand[]>,
+    draftResources: (request: DraftNativeResourcesRequest) => Promise<NativeResource[] | undefined>,
+    draftDirectory: (
+      request: DraftNativeResourcesRequest,
+      id: string
+    ) => Promise<string | undefined>
   ) => {
+    fixture.draftResources = draftResources
+    fixture.draftDirectory = draftDirectory
     fixture.draftCommands = draftCommands
     fixture.commands = commands
     fixture.lookup = lookup
@@ -229,10 +241,25 @@ it('reads native configuration through the registered module using stored backen
     ).rejects.toThrow('절대 경로')
     expect(await fixture.pluginDirectory?.('session-B', nativePluginId(installed))).toBe(installed)
     expect(await fixture.pluginDirectory?.('session-B', installed)).toBeUndefined()
+    const draftScope = { backend: 'claude' as const, cwd, projectId: 'project-B' }
+    expect(await fixture.draftResources?.(draftScope)).toEqual(
+      await fixture.configured?.('session-B')
+    )
+    expect(await fixture.draftDirectory?.(draftScope, nativePluginId(installed))).toBe(installed)
+    expect(
+      await fixture.draftDirectory?.({ ...draftScope, cwd: null }, nativePluginId(installed))
+    ).toBe(installed)
+    await expect(fixture.draftResources?.({ ...draftScope, cwd: 'relative' })).rejects.toThrow(
+      '절대 경로'
+    )
+    await expect(
+      fixture.draftDirectory?.({ ...draftScope, cwd: 'relative' }, nativePluginId(installed))
+    ).rejects.toThrow('절대 경로')
+
     row.backend = 'opencode'
     expect(await fixture.commands?.('session-B')).toBeUndefined()
     expect(await fixture.pluginDirectory?.('session-B', nativePluginId(installed))).toBeUndefined()
-    expect(await fixture.configured?.('session-B')).toEqual([])
+    expect(await fixture.configured?.('session-B')).toBeUndefined()
     get.mockReturnValueOnce({ ...row, backend: 'claude', cwd: null } as never)
     get.mockReturnValueOnce({ ...row, backend: 'claude', cwd: null } as never)
     ctx.getCwd = vi.fn(() => cwd)

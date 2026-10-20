@@ -531,7 +531,17 @@ export class ClaudeAdapter implements SessionAdapter {
     // 실행 전 편집 미리보기(0229) — 가드 훅과 **같은 입력**으로 루트를 턴당 1회 푼다. 편집이 쓸 수
     // 없는 경로는 미리보기로도 읽지 않는다.
     const nativePaths = claudeNativePaths(contextEnv, undefined, cwd)
-    const nativePlugins = readClaudePluginCatalog(cwd, nativePaths.root, settings)
+    const nativePlugins = readClaudePluginCatalog(cwd, nativePaths.root, settings, true)
+    // Local SDK roots use @inline; their marketplace keys cannot disable them.
+    const nativePluginFlags = {
+      ...(settings?.enabledPlugins as Record<string, boolean>),
+      ...Object.fromEntries(
+        nativePlugins.installations.flatMap((plugin) => [
+          [plugin.key, false],
+          [`${plugin.name}@inline`, plugin.enabled]
+        ])
+      )
+    }
     const previewRoots = resolveGuardRoots(cwd, additionalDirectories, nativePaths.root)
     const readForPreview = nodeEditPreviewReader()
     const plansDir = nativePaths.plans
@@ -583,7 +593,19 @@ export class ClaudeAdapter implements SessionAdapter {
         // 0028 의 "생략=기본 소스 상속" supersede). provider settings 가 사용자 전역
         // ~/.claude/settings.json 개입 없이 적용된다.
         // options.env(adaptEnv)에는 시스템(턴) env 만 — orca.json 앱 env.
-        ...adaptExecutionConfig(req.providerSettings?.settings, env, getTemporaryFilesPath()),
+        ...adaptExecutionConfig(
+          nativePlugins.installations.length
+            ? {
+                ...settings,
+                enabledPlugins: {
+                  ...(settings?.enabledPlugins as Record<string, unknown>),
+                  ...nativePluginFlags
+                }
+              }
+            : settings,
+          env,
+          getTemporaryFilesPath()
+        ),
         disallowedTools: ['WebSearch'],
         ...adaptRuntimeTools(extensions.runtimeTools, req.runtimeToolContext),
         // hooks = 중립 정규화 훅 + 어댑터 내부 훅 병합 위에
@@ -713,9 +735,13 @@ export class ClaudeAdapter implements SessionAdapter {
       }
     }
 
-    const resources = claudeNativeResources(handle, extensions.pluginRoots, [
-      ...(extensions.runtimeTools?.servers.keys() ?? [])
-    ])
+    const resources = claudeNativeResources(
+      handle,
+      extensions.pluginRoots,
+      [...(extensions.runtimeTools?.servers.keys() ?? [])],
+      nativePlugins.installations,
+      nativePluginFlags
+    )
 
     async function* eventBatches(): AsyncIterable<ProviderMessageBatch> {
       let sequence = 0
@@ -865,9 +891,9 @@ export class ClaudeAdapter implements SessionAdapter {
         }
       },
       setNativeResource: async (request) => {
-        if (request.generation !== backgroundMapper.generation || request.kind !== 'mcp')
+        if (request.generation !== backgroundMapper.generation)
           throw new Error('이 항목은 세션별 제어를 지원하지 않습니다.')
-        await resources.set(request.id, request.enabled)
+        await resources.set(request.id, request.enabled, request.kind)
       },
       reinitialize: async () => {
         await handle.reinitialize()

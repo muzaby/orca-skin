@@ -8,9 +8,14 @@ vi.mock('../../../shared/i18n', () => {
   return { useI18n: () => ({ tr }) }
 })
 import { createElement, useLayoutEffect } from 'react'
-import { installFakeDom, type FakeDom } from '../../../shared/ui/renderHarness.testfixture'
+import {
+  installFakeDom,
+  type FakeDom,
+  type FakeNode
+} from '../../../shared/ui/renderHarness.testfixture'
 import { NativeResourcesMenu } from '../components/NativeResourcesMenu'
 import { useNativeResources } from './useNativeResources'
+import { errorToastStore } from '../../../shared/errors/errorToastStore'
 import type {
   DraftNativeResourcesRequest,
   NativeResource,
@@ -57,6 +62,7 @@ async function settle(): Promise<void> {
   dom.act(() => {})
 }
 beforeEach(() => {
+  errorToastStore.setState({ toasts: [] })
   vi.useFakeTimers()
   read.mockReset().mockResolvedValue(snapshot())
   openFolder.mockReset().mockResolvedValue(undefined)
@@ -108,7 +114,10 @@ describe('native resources session lifecycle', () => {
     dom.click(row)
     await settle()
     expect(read).toHaveBeenCalledTimes(2)
-    expect(dom.query('[role="status"]')?.textContent).toBe('chat.nativeResources.openError')
+    expect(dom.query('[role="status"]')).toBeNull()
+    expect(errorToastStore.getState().toasts).toMatchObject([
+      { title: 'openFailed', detail: 'folder missing' }
+    ])
     dom.click(dom.query('[data-cascade-level="1"][data-cascade-index="0"]')!)
     await settle()
     expect(dom.query('[role="status"]')).toBeNull()
@@ -217,6 +226,7 @@ describe('native resources session lifecycle', () => {
       status: 'ready',
       value: { ...snapshot('A-new'), partial: true }
     })
+    expect(errorToastStore.getState().toasts).toMatchObject([{ title: 'loadFailed' }])
     dom.act(() => current.refresh())
     await settle()
     expect(current.view).toEqual({ status: 'ready', value: snapshot() })
@@ -361,7 +371,10 @@ it('renders the live session menu and keeps it open while the MCP toggle refresh
   read.mockRejectedValueOnce(new Error('refresh rejected'))
   dom.click(dom.query('[data-cascade-level="1"][data-cascade-index="0"]')!)
   await settle()
-  expect(dom.query('[role="status"]')?.textContent).toBe('chat.nativeResources.controlError')
+  expect(dom.query('[role="status"]')).toBeNull()
+  expect(errorToastStore.getState().toasts).toMatchObject([
+    { title: 'actionFailed', detail: 'write rejected' }
+  ])
   expect(dom.query('[data-cascade-level="1"][data-cascade-index="0"]')?.textContent).toContain(
     'Native B'
   )
@@ -413,5 +426,112 @@ it('discovers draft skills by cwd and ignores a late result from another draft f
   await settle()
   expect(current.view).toMatchObject({ status: 'ready', value: b })
   await current.toggle(resource)
+  expect(write).not.toHaveBeenCalled()
+})
+
+it('reports load errors once, discards late failures and removes stale installed plugins offline', async () => {
+  read.mockRejectedValueOnce(new Error('load rejected'))
+  dom.render(createElement(Probe, { id: 'A', scope: 'claude' }))
+  await settle()
+  expect(errorToastStore.getState().toasts).toMatchObject([
+    { title: 'loadFailed', detail: 'load rejected' }
+  ])
+  errorToastStore.setState({ toasts: [] })
+  let rejectLate!: (error: Error) => void
+  read.mockImplementationOnce(
+    () =>
+      new Promise((_, reject) => {
+        rejectLate = reject
+      })
+  )
+  dom.act(() => current.refresh())
+  await settle()
+  const plugin = { ...resource, kind: 'plugin' as const, canToggle: false }
+  read.mockResolvedValueOnce({ state: 'disconnected', items: [plugin], pluginsAuthoritative: true })
+  dom.render(createElement(Probe, { id: 'B', scope: 'claude' }))
+  await settle()
+  rejectLate(new Error('previous session'))
+  await settle()
+  expect(errorToastStore.getState().toasts).toHaveLength(0)
+  read.mockResolvedValueOnce({ state: 'disconnected', items: [], pluginsAuthoritative: true })
+  dom.act(() => current.refresh())
+  await settle()
+  expect(current.view).toMatchObject({ value: { items: [] } })
+})
+
+it('separates plugin folder clicks from session controls, including keyboard and failure toast', async () => {
+  const plugin = {
+    ...resource,
+    kind: 'plugin' as const,
+    name: 'Workflow',
+    enabled: false,
+    status: 'disabled' as const
+  }
+  read.mockResolvedValue({ ...snapshot(), items: [plugin] })
+  write.mockResolvedValue({
+    ...snapshot(),
+    items: [{ ...plugin, enabled: true, status: 'enabled' }]
+  })
+  dom.render(
+    createElement(NativeResourcesMenu, {
+      sessionId: 'B',
+      backend: 'claude',
+      anchorRef: { current: null },
+      onClose: () => {}
+    })
+  )
+  await settle()
+  dom.click(dom.query('[data-cascade-level="0"][data-cascade-index="1"]')!)
+  const folder = (): FakeNode => dom.query('[data-cascade-level="1"][data-cascade-index="0"]')!
+  const control = (): FakeNode => dom.query('[role="menuitemcheckbox"]')!
+  dom.click(folder())
+  await settle()
+  expect(openFolder).toHaveBeenCalledExactlyOnceWith({ sessionId: 'B', id: 'native-B' })
+  dom.click(control())
+  await settle()
+  expect(write).toHaveBeenCalledExactlyOnceWith({
+    sessionId: 'B',
+    generation: 'gen-B',
+    kind: 'plugin',
+    id: 'native-B',
+    enabled: true
+  })
+  expect(control().props['aria-checked']).toBe(true)
+  write.mockRejectedValueOnce(new Error('runtime denied'))
+  read.mockRejectedValueOnce(new Error('reload denied'))
+  dom.act(() =>
+    (control().props.onKeyDown as (event: unknown) => void)({
+      key: 'Enter',
+      stopPropagation: vi.fn(),
+      preventDefault: vi.fn()
+    })
+  )
+  await settle()
+  expect(errorToastStore.getState().toasts).toMatchObject([
+    { title: 'actionFailed', detail: 'runtime denied' }
+  ])
+  expect(errorToastStore.getState().toasts).toHaveLength(1)
+  expect(openFolder).toHaveBeenCalledTimes(1)
+  expect(read).toHaveBeenCalledTimes(2)
+  expect(dom.query('[role="status"]')).toBeNull()
+})
+
+it('opens an installed plugin in a draft by its current scope and reloads on failure', async () => {
+  const plugin = { ...resource, kind: 'plugin' as const, canToggle: false }
+  read.mockResolvedValue({ state: 'disconnected', items: [plugin], pluginsAuthoritative: true })
+  const draft = { backend: 'claude' as const, cwd: 'C:/draft', projectId: 'draft-project' }
+  dom.render(createElement(Probe, { id: null, scope: 'claude', draft }))
+  await settle()
+  await current.openPlugin(plugin)
+  expect(openFolder).toHaveBeenCalledExactlyOnceWith({ ...draft, id: plugin.id })
+  openFolder.mockRejectedValueOnce(new Error('draft folder missing'))
+  await current.openPlugin(plugin)
+  await settle()
+  expect(read).toHaveBeenCalledTimes(2)
+  expect(read).toHaveBeenLastCalledWith(draft)
+  expect(errorToastStore.getState().toasts).toMatchObject([
+    { title: 'openFailed', detail: 'draft folder missing' }
+  ])
+  await current.toggle({ ...plugin, canToggle: true })
   expect(write).not.toHaveBeenCalled()
 })

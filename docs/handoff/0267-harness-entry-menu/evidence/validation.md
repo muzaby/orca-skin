@@ -173,3 +173,43 @@ node --input-type=module -e "import {checkLinks,LINK_EXCLUDED} from './scripts/c
 - 네이티브 root는 SDK plugins와 skills에 합치되 Orca injected 제외 목록에는 넣지 않는다. 새/재개 spawn에 같은 정책을 적용하며 설정을 매번 다시 읽는다.
 
 브라우저 mock을 추가로 바꾸거나 실제 Orca 창을 재시작하지 않았다. 현재 UI 스타일은 r1.4를 유지하며 이번 변경은 실제 데이터 발견·실행 및 새 초안 연결이다. 독립 handoff verify는 다음 단계다.
+
+## r1.6 — 안내 제거·설치 범위·SDK 세션 제어
+
+2026-10-20, Linux/Chromium. `codex-harness-entry-menu`의 r1.5에서 시작했으며 설계 정정을 구현과 분리했다. 아래는 구현자 자기확인이고 독립 verify가 아니다.
+
+| 검사 | 관측 |
+|---|---|
+| 관련 회귀 Vitest | 74파일: 73파일 통과, 1파일의 미지원 configured 반환 기대값만 실패(1171 pass·1 fail·3 skipped). undefined로 계약을 정정하고 해당 bootstrap 포함 6파일 288/288 재통과. |
+| 최종 변경 집중 Vitest | adapter native 제어·native resources·handler·hook·attachMenuModel·CascadeMenu: 8파일 71/71. registry 삭제 뒤 제어 거부 추가 후 handler 1파일 12/12. |
+| 타입 | `npm run typecheck`: node/web/test 진단 0. |
+| lint | `eslint --cache src scripts`: 오류 0, 기존 경고 4(무관 테스트 포맷 2·가상화 2). |
+| production build | `node node_modules/electron-vite/bin/electron-vite.js build`: main/preload/renderer 성공. 네이티브 ABI 재빌드 없이 수행. |
+| 실제 CLI smoke | `node scripts/smoke-native-plugin-skills.mjs`: 초기 비활성 inline flag가 명령을 숨김. 활성 skill 본문·인자가 loopback 요청으로 확장됨. runtimeToggle=true, 모델 요청 1회. 끄면 명령 제거, 다시 켜면 명령 복원. 설치/설정 파일 불변. |
+| 경계 | `node --test scripts/harness-boundary.test.mjs`: 8/8. |
+| 문서 | inventory/generated/prose/relative links 통과. design catalog source-minus-doc=[], doc-minus-source=[], 기존 음성 대조 통과. |
+| 선택 변이 | M2 MCP/plugin 목록 맞바꿈 3/3 red; M3 native 스킬/MCP 배치 맞바꿈 1/8 red. 원본 bytes 복원 후 각각 3/3·8/8 green. |
+
+관련 회귀 재현은 app에서 다음과 같이 실행한다. 최초 회귀 집합에서 빠졌던 attachMenuModel은 최종 집중 집합과 M3 복원 실행에 포함했다.
+
+```sh
+node node_modules/vitest/vitest.mjs run src/main/adapters/claude src/main/adapters/opencode/v1/native-resources.test.ts src/main/adapters/opencode/v1/plugin-installation.test.ts src/main/features/sessions/session-runtime.test.ts src/main/app/handlers/session-resources.test.ts src/main/app/bootstrap.native-history.test.ts src/preload/index.test.ts src/renderer/src/features/chat/hooks/useNativeResources.test.ts src/renderer/src/features/chat/lib/nativeResourcesMenu.test.ts src/renderer/src/features/chat/lib/attachMenuModel.test.ts src/renderer/src/features/chat/harnesses/common/composer/composerAttachMenu.test.ts src/renderer/src/features/chat/harnesses/common/composer/Composer.native-menu.test.ts src/renderer/src/features/chat/components/ChatTitleBar.native-resources.test.ts src/renderer/src/shared/ui/CascadeMenu src/renderer/src/shared/errors --maxWorkers=2
+```
+
+### 실제 브라우저
+
+기존 harness-entry fixture의 실제 React 컴포넌트·store·ErrorToastLayer와 메모리 IPC를 사용했다. Chromium CDP로 클릭/Space 입력·DOM·bounds·스크린샷을 확인했으며 각 viewport에서 메뉴를 다시 열었다.
+
+| 조건 | 관측 |
+|---|---|
+| white/dark 1280×800 | 그룹 제목·MCP·플러그인 및 실제 행만 표시, role=status 없음. 설명/폴더 열기 title 유지. 두 sibling 버튼, 중첩 button 없음. |
+| dark 640×800 | 하위 메뉴 left=200.625/right=409.875, viewport 안. horizontalOverflow=false. |
+| 폴더/제어 분리 | 이름 클릭은 folder API, Space로 활성 제어는 plugin write API만 호출. aria-checked true→false. |
+| 실패 | 폴더 API reject 시 실제 전역 ErrorToastHost에 openFailed 제목과 상세 표시. 하네스 그룹에는 오류 안내를 추가하지 않음. 런타임 exception 0. |
+
+시각 검사에서 secondary 버튼의 기본 w-full이 라벨을 밀어내는 문제를 발견해 w-auto!로 수정했다. 수정 후 두 테마에서 라벨·상태·제어가 모두 보이고 horizontalOverflow=false, primaryWidth=156.5였다. 기존 MenuItem/CascadeBody/ErrorToastHost를 재사용했으며 인증된 외부 모델이나 Windows OS 탐색기 실기는 수행하지 않았다.
+
+
+r1.6 최종 추가 검사: 실제 Composer.native-menu/attachMenu.flow/composerAttachMenu/attachMenuModel 4파일31/31, partial 토스트+보고 registry 2파일253/253. 첫 전송 전 초안 보완 뒤 bootstrap/handler/preload/hook/titlebar/Composer 8파일79/79. 초안 목록은 읽기 전용이며 scope+id 폴더 요청의 strict union·상대 경로 거부·프로젝트 기본 cwd·미지원 하네스를 실제 callback/IPC/렌더로 확인했다.
+
+브라우저 최종 보완 재실행: 첫 전송 전 플러그인 행 표시·폴더 클릭 성공, 활성 switch 부재. 이후 저장 Claude 세션에서 white/dark/640px·Space 활성 제어·이름 클릭·오류 토스트를 재확인했다. 관측은 draftInventory=true, draftFolder=true, keyboardToggle=true, folderOpen=true, errorToast=true, exceptions=[]였다.

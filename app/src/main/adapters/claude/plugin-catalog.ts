@@ -38,39 +38,68 @@ export function claudePluginProjectRoot(cwd: string): string {
   }
 }
 
-/** Shared scope/precedence for the installation menu and session loader. */
+/** All applicable installations, including disabled entries and distinct paths for one key. */
+export function installedClaudePlugins(
+  cwd: string,
+  installed: unknown
+): Array<{ key: string; path: string; scope: string; projectPath?: string }> {
+  return Object.entries(record(installed)).flatMap(([key, entries]) => {
+    if (!Array.isArray(entries)) return []
+    return entries.flatMap((entry) => {
+      if (!isRecord(entry) || typeof entry.installPath !== 'string' || !entry.installPath.trim())
+        return []
+      if (entry.scope === 'user' || entry.scope === 'managed')
+        return [{ key, path: entry.installPath, scope: entry.scope }]
+      if (typeof entry.projectPath !== 'string' || !entry.projectPath.trim()) return []
+      const child = relative(pluginPathKey(entry.projectPath), pluginPathKey(cwd))
+      const applies =
+        entry.scope === 'local'
+          ? child === ''
+          : entry.scope === 'project' &&
+            child !== '..' &&
+            !child.startsWith(`..${sep}`) &&
+            !isAbsolute(child)
+      return applies
+        ? [
+            {
+              key,
+              path: entry.installPath,
+              scope: String(entry.scope),
+              projectPath: entry.projectPath
+            }
+          ]
+        : []
+    })
+  })
+}
+
+/** Runtime loads the most specific applicable installation for each plugin key. */
 export function selectClaudePlugins(
   cwd: string,
-  projectRoot: string,
   installed: unknown,
   enabledPlugins: Record<string, unknown>
 ): Array<{ key: string; path: string; enabled: boolean; installedOnly: boolean }> {
-  return Object.entries(record(installed)).flatMap(([key, entries]) => {
-    if (!Array.isArray(entries)) return []
-    const rank = (entry: Record<string, unknown>): number =>
-      ['user', 'project', 'local', 'managed'].indexOf(String(entry.scope))
-    const applicable = entries.filter((entry): entry is Record<string, unknown> => {
-      if (!isRecord(entry) || typeof entry.installPath !== 'string') return false
-      if (entry.scope === 'user' || entry.scope === 'managed') return true
-      return (
-        (entry.scope === 'project' || entry.scope === 'local') &&
-        typeof entry.projectPath === 'string' &&
-        [cwd, projectRoot].some(
-          (path) => pluginPathKey(path) === pluginPathKey(entry.projectPath as string)
-        )
-      )
-    })
-    const entry = applicable.sort((a, b) => rank(b) - rank(a))[0]
-    if (!entry) return []
-    const flag = enabledPlugins[key]
-    return [
-      {
-        key,
-        path: entry.installPath as string,
-        enabled: flag === true || Array.isArray(flag) || isRecord(flag),
-        installedOnly: flag === undefined
-      }
-    ]
+  const selected = new Map<string, ReturnType<typeof installedClaudePlugins>[number]>()
+  const rank = (scope: string): number => ['user', 'project', 'local', 'managed'].indexOf(scope)
+  for (const entry of installedClaudePlugins(cwd, installed)) {
+    const previous = selected.get(entry.key)
+    if (
+      !previous ||
+      rank(entry.scope) > rank(previous.scope) ||
+      (entry.scope === 'project' &&
+        previous.scope === 'project' &&
+        pluginPathKey(entry.projectPath!).length > pluginPathKey(previous.projectPath!).length)
+    )
+      selected.set(entry.key, entry)
+  }
+  return [...selected.values()].map((entry) => {
+    const flag = enabledPlugins[entry.key]
+    return {
+      key: entry.key,
+      path: entry.path,
+      enabled: flag === true || Array.isArray(flag) || isRecord(flag),
+      installedOnly: flag === undefined
+    }
   })
 }
 
@@ -105,13 +134,15 @@ export interface ClaudePluginCatalog {
   roots: string[]
   skills: string[]
   commands: NativeCommand[]
+  installations: Array<{ key: string; name: string; path: string; enabled: boolean }>
 }
 
 /** A fresh metadata snapshot for the synchronous SDK spawn boundary. No writes/imports. */
 export function readClaudePluginCatalog(
   cwd: string,
   nativeRoot = claudeNativePaths().root,
-  overrides: Record<string, unknown> = {}
+  overrides: Record<string, unknown> = {},
+  includeDisabled = false
 ): ClaudePluginCatalog {
   const projectRoot = claudePluginProjectRoot(cwd)
   const enabled = {
@@ -122,20 +153,22 @@ export function readClaudePluginCatalog(
   }
   const entries = selectClaudePlugins(
     cwd,
-    projectRoot,
     readObject(join(nativeRoot, 'plugins', 'installed_plugins.json')).plugins,
     enabled
   )
   const roots = new Map<string, string>()
   const skills = new Set<string>()
   const commands = new Map<string, NativeCommand>()
+  const installations: ClaudePluginCatalog['installations'] = []
   for (const entry of entries) {
-    if (!entry.enabled || !isAbsolute(entry.path) || !exists(entry.path)) continue
+    if ((!includeDisabled && !entry.enabled) || !isAbsolute(entry.path) || !exists(entry.path))
+      continue
     const root = resolve(entry.path)
     if (roots.has(pluginPathKey(root))) continue
     roots.set(pluginPathKey(root), root)
     const manifest = readObject(join(root, '.claude-plugin', 'plugin.json'))
     const pluginName = typeof manifest.name === 'string' ? manifest.name : basename(root)
+    installations.push({ key: entry.key, name: pluginName, path: root, enabled: entry.enabled })
     for (const kind of ['commands', 'skills'] as const) {
       const declaration = manifest[kind]
       const custom =
@@ -172,7 +205,12 @@ export function readClaudePluginCatalog(
       }
     }
   }
-  return { roots: [...roots.values()], skills: [...skills], commands: [...commands.values()] }
+  return {
+    roots: [...roots.values()],
+    skills: [...skills],
+    commands: [...commands.values()],
+    installations
+  }
 }
 
 export async function configuredClaudeCommands(cwd: string): Promise<NativeCommand[]> {

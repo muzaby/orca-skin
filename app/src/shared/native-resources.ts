@@ -30,6 +30,8 @@ export interface NativeResources {
   items: NativeResource[]
   commands?: NativeCommand[]
   partial?: boolean
+  /** A successful installation inventory replaces cached/live plugin membership. */
+  pluginsAuthoritative?: boolean
 }
 export interface SetNativeResource {
   sessionId: string
@@ -38,8 +40,7 @@ export interface SetNativeResource {
   id: string
   enabled: boolean
 }
-export interface OpenNativePlugin {
-  sessionId: string
+export type OpenNativePlugin = ({ sessionId: string } | DraftNativeResourcesRequest) & {
   id: string
 }
 

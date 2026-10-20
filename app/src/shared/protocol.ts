@@ -395,15 +395,16 @@ export const SetSkillEnabledSchema = SkillTargetSchema.extend({
 
 export const LoadSessionRequestSchema = z.object({ sessionId: z.string().min(1) })
 const SessionResourceRequestSchema = z.object({ sessionId: z.string().min(1).max(512) }).strict()
+const DraftNativeResourcesRequestSchema = z
+  .object({
+    backend: BackendSchema,
+    cwd: z.string().min(1).max(4096).nullable(),
+    projectId: z.string().min(1).max(512).nullable()
+  })
+  .strict()
 export const NativeResourcesRequestSchema = z.union([
   SessionResourceRequestSchema,
-  z
-    .object({
-      backend: BackendSchema,
-      cwd: z.string().min(1).max(4096).nullable(),
-      projectId: z.string().min(1).max(512).nullable()
-    })
-    .strict()
+  DraftNativeResourcesRequestSchema
 ])
 export const SetNativeResourceSchema = SessionResourceRequestSchema.extend({
   generation: z.string().min(1).max(512),
@@ -411,9 +412,10 @@ export const SetNativeResourceSchema = SessionResourceRequestSchema.extend({
   id: z.string().min(1).max(2048),
   enabled: z.boolean()
 }).strict()
-export const OpenNativePluginSchema = SessionResourceRequestSchema.extend({
-  id: z.string().min(1).max(2048)
-}).strict()
+export const OpenNativePluginSchema = z.union([
+  SessionResourceRequestSchema.extend({ id: z.string().min(1).max(2048) }).strict(),
+  DraftNativeResourcesRequestSchema.extend({ id: z.string().min(1).max(2048) }).strict()
+])
 
 export const DeleteSessionRequestSchema = z.object({ sessionId: z.string().min(1) })
 // 길이 상한 120 — UI 의 표시 한도 60 자보다 여유 있게. 빈 문자열은 무효.
