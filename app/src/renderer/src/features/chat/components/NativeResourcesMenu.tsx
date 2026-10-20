@@ -22,23 +22,22 @@ export function NativeResourcesMenu({
   onClose: () => void
 }): React.JSX.Element {
   const { tr } = useI18n()
-  const { view, busy, toggle, openPlugin } = useNativeResources(
+  const { view, pending, toggle, openPlugin } = useNativeResources(
     sessionId,
     true,
     backend,
     sessionId ? undefined : { backend: backend ?? 'claude', cwd, projectId }
   )
-  const items = useMemo(() => nativeResourcesMenu(view, busy, tr), [view, busy, tr])
+  const items = useMemo(() => nativeResourcesMenu(view, pending, tr), [view, pending, tr])
   const label = backend === 'opencode' ? 'OpenCode' : 'Claude'
   return (
     <div data-native-resources={backend ?? 'claude'}>
       <MenuTitle>{label}</MenuTitle>
       <CascadeBody
         items={items}
-        onSelect={({ type, resource }) => {
-          if (type === 'open') void openPlugin(resource)
-          else void toggle(resource)
-        }}
+        onSelect={({ type, resource }) =>
+          type === 'open' ? openPlugin(resource) : toggle(resource)
+        }
         onClose={onClose}
         anchorRef={anchorRef}
         ariaLabel={label}

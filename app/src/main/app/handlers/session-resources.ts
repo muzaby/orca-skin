@@ -38,6 +38,25 @@ export function registerSessionResourceHandlers(
     id: string
   ) => Promise<string | undefined> = async () => undefined
 ): void {
+  const observations = new WeakMap<GovernedLiveTurn, NativeResources>()
+  const mutations = new WeakMap<GovernedLiveTurn, Promise<void>>()
+  const mutate = async (
+    runtime: GovernedLiveTurn,
+    action: () => Promise<NativeResources>
+  ): Promise<NativeResources> => {
+    const result = (mutations.get(runtime) ?? Promise.resolve()).then(action)
+    // The caller owns the rejection; the queue must allow the following operation to run.
+    const tail = result.then(
+      () => undefined,
+      () => undefined
+    )
+    mutations.set(runtime, tail)
+    try {
+      return await result
+    } finally {
+      if (mutations.get(runtime) === tail) mutations.delete(runtime)
+    }
+  }
   const read = async (
     sessionId: string,
     runtime: GovernedLiveTurn | undefined
@@ -49,7 +68,20 @@ export function registerSessionResourceHandlers(
     ])
     if (lookup(sessionId) !== runtime)
       throw new Error('하네스 연결이 바뀌었습니다. 메뉴를 다시 열어 주세요.')
-    const live = liveRead.status === 'fulfilled' ? liveRead.value : undefined
+    const previous = runtime && observations.get(runtime)
+    const fallback =
+      previous?.generation && previous.generation === runtime?.providerGeneration
+        ? previous
+        : undefined
+    const live =
+      liveRead.status === 'fulfilled'
+        ? liveRead.value
+        : (fallback ??
+          (runtime?.providerGeneration
+            ? { state: 'connected' as const, generation: runtime.providerGeneration, items: [] }
+            : undefined))
+    if (runtime && liveRead.status === 'fulfilled' && live?.generation)
+      observations.set(runtime, live)
     if (configuredRead.status === 'rejected' && !live)
       throw new Error('하네스 목록을 불러오지 못했습니다. 다시 시도해 주세요.')
     const configured = configuredRead.status === 'fulfilled' ? (configuredRead.value ?? []) : []
@@ -141,27 +173,30 @@ export function registerSessionResourceHandlers(
     async (request: SetNativeResource): Promise<NativeResources> => {
       const runtime = lookup(request.sessionId)
       if (!runtime?.setNativeResource) throw new Error('실행 중인 하네스에 연결되어 있지 않습니다.')
-      const current = await resourceQuery(async () => runtime.nativeResources?.())
-      if (current?.generation !== request.generation || lookup(request.sessionId) !== runtime)
-        throw new Error('하네스 연결이 바뀌었습니다. 메뉴를 다시 열어 주세요.')
-      if (
-        !current.items.some(
-          (item) => item.id === request.id && item.kind === request.kind && item.canToggle
-        )
-      )
-        throw new Error('이 항목은 세션별 제어를 지원하지 않습니다.')
-      if (request.kind === 'plugin') {
-        const installed = await resourceQuery(() => configuredResources(request.sessionId))
-        if (
-          installed &&
-          !installed.some((item) => item.kind === 'plugin' && item.id === request.id)
-        )
-          throw new Error('이 플러그인은 현재 작업 경로에 설치되어 있지 않습니다.')
-        if (lookup(request.sessionId) !== runtime)
+      const setNativeResource = runtime.setNativeResource.bind(runtime)
+      return mutate(runtime, async () => {
+        const current = await resourceQuery(async () => runtime.nativeResources?.())
+        if (current?.generation !== request.generation || lookup(request.sessionId) !== runtime)
           throw new Error('하네스 연결이 바뀌었습니다. 메뉴를 다시 열어 주세요.')
-      }
-      await runtime.setNativeResource(request)
-      return read(request.sessionId, runtime)
+        if (
+          !current.items.some(
+            (item) => item.id === request.id && item.kind === request.kind && item.canToggle
+          )
+        )
+          throw new Error('이 항목은 세션별 제어를 지원하지 않습니다.')
+        if (request.kind === 'plugin') {
+          const installed = await resourceQuery(() => configuredResources(request.sessionId))
+          if (
+            installed &&
+            !installed.some((item) => item.kind === 'plugin' && item.id === request.id)
+          )
+            throw new Error('이 플러그인은 현재 작업 경로에 설치되어 있지 않습니다.')
+          if (lookup(request.sessionId) !== runtime)
+            throw new Error('하네스 연결이 바뀌었습니다. 메뉴를 다시 열어 주세요.')
+        }
+        await setNativeResource(request)
+        return read(request.sessionId, runtime)
+      })
     }
   )
 }

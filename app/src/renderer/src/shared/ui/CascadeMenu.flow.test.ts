@@ -162,6 +162,38 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+it('collapses a newly empty disabled group and ignores pointer and keyboard expansion until populated', () => {
+  const group: CascadeItem<string> = {
+    kind: 'submenu',
+    id: 'native',
+    label: 'MCP',
+    items: [{ kind: 'action', id: 'server', label: 'Server', action: 'toggle' }]
+  }
+  const { dom, row, setOpen, onSelect } = openMenu([group])
+  dom.click(row(0, 0)!)
+  expect(row(1, 0)).not.toBeNull()
+  group.disabled = true
+  group.items = []
+  setOpen(true)
+  expect(row(0, 0)?.props.disabled).toBe(true)
+  expect(row(0, 0)?.props['aria-haspopup']).toBeUndefined()
+  expect(row(1, 0)).toBeNull()
+  dom.click(row(0, 0)!)
+  dom.pointerTo(row(0, 0))
+  vi.advanceTimersByTime(HOVER_OPEN_DELAY_MS)
+  dom.act(() => {})
+  dom.keyDown('ArrowDown')
+  dom.keyDown('Enter')
+  dom.keyDown('ArrowRight')
+  expect(row(1, 0)).toBeNull()
+  expect(onSelect).not.toHaveBeenCalled()
+  group.disabled = false
+  group.items = [{ kind: 'action', id: 'new', label: 'New server', action: 'toggle-new' }]
+  setOpen(true)
+  dom.click(row(0, 0)!)
+  expect(row(1, 0)?.textContent).toBe('New server')
+})
+
 describe('CascadeMenu 열기 · 키보드 (AC6 · D-007)', () => {
   it('열면 앵커 위 패널이 배치되고, 배치 뒤 프레임에 루트가 포커스를 받는다 — 숨은 패널에서는 포커스를 옮기지 않는다', () => {
     const { dom, anchor, root } = openMenu()

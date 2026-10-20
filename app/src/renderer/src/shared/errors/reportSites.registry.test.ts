@@ -180,33 +180,27 @@ export const sites: Site[] = [
     title: 'actionFailed'
   },
   {
-    file: 'features/chat/hooks/useNativeResources.ts',
+    file: 'features/chat/lib/nativeResourceState.ts',
     ordinal: 0,
-    line: 138,
+    line: 125,
     disposition: 'TOAST',
     id: 'T38',
     event: 'chat.native-resources.load-failed',
     title: 'loadFailed'
   },
   {
-    file: 'features/chat/hooks/useNativeResources.ts',
+    file: 'features/chat/lib/nativeResourceState.ts',
     ordinal: 1,
-    line: 174,
-    disposition: 'CONSUMED'
-  },
-  {
-    file: 'features/chat/hooks/useNativeResources.ts',
-    ordinal: 2,
-    line: 199,
+    line: 175,
     disposition: 'TOAST',
     id: 'T39',
     event: 'chat.native-resources.open-failed',
     title: 'openFailed'
   },
   {
-    file: 'features/chat/hooks/useNativeResources.ts',
-    ordinal: 3,
-    line: 243,
+    file: 'features/chat/lib/nativeResourceState.ts',
+    ordinal: 2,
+    line: 211,
     disposition: 'TOAST',
     id: 'T40',
     event: 'chat.native-resources.control-failed',

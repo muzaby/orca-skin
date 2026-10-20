@@ -64,11 +64,12 @@ export type IconName =
   | 'commentAdd'
   | 'quote'
   | 'electricalServices'
+  | 'mcp'
 
 // Google Material Symbols (Outlined, weight 400) path 데이터. 각 아이콘은 fill 기반
 // 단일 path 이며 Material 960 그리드(viewBox `0 -960 960 960`)를 쓴다. 주석 = 원본
 // Material glyph 이름. 갱신 시 fonts.gstatic.com Material Symbols Outlined 원본을 따른다.
-const ICONS: Record<IconName, string> = {
+const ICONS: Record<Exclude<IconName, 'mcp'>, string> = {
   // 제품 모드 선택용 단순 기하 도형. 기존 아이콘과 같은 960 좌표계를 쓴다.
   todo: 'M100-660l60-60 70 70 130-130 60 60-190 190-130-130ZM460-720h400v80H460v-80ZM100-300l60-60 70 70 130-130 60 60-190 190-130-130ZM460-360h400v80H460v-80Z',
   terminal:
@@ -183,6 +184,28 @@ export function Icon({
   style,
   className
 }: IconProps): React.JSX.Element | null {
+  // Official MCP mark: modelcontextprotocol/modelcontextprotocol/docs/favicon.svg.
+  // Preserve the original paths; the menu supplies the foreground color.
+  if (name === 'mcp')
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 180 180"
+        fill="none"
+        stroke={color}
+        strokeWidth="11.0667"
+        strokeLinecap="round"
+        style={style}
+        className={className}
+        aria-hidden="true"
+        data-brand="mcp"
+      >
+        <path d="M23.5996 85.2532L86.2021 22.6507C94.8457 14.0071 108.86 14.0071 117.503 22.6507C126.147 31.2942 126.147 45.3083 117.503 53.9519L70.2254 101.23" />
+        <path d="M70.8789 100.578L117.504 53.952C126.148 45.3083 140.163 45.3083 148.806 53.952L149.132 54.278C157.776 62.9216 157.776 76.9357 149.132 85.5792L92.5139 142.198C89.6327 145.079 89.6327 149.75 92.5139 152.631L104.14 164.257" />
+        <path d="M101.853 38.3013L55.553 84.6011C46.9094 93.2447 46.9094 107.258 55.553 115.902C64.1966 124.546 78.2106 124.546 86.8543 115.902L133.154 69.6025" />
+      </svg>
+    )
   const d = ICONS[name]
   if (!d) return null
   return (

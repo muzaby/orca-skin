@@ -16,7 +16,11 @@ import {
 } from '../../../src/renderer/src/features/chat/store/chatStore'
 import { initialChatState } from '../../../src/renderer/src/features/chat/reducer/chatReducer'
 import { installNativeFixture } from '../opencode-ui/native'
-import type { NativeResources, SetNativeResource } from '../../../src/shared/native-resources'
+import type {
+  DraftNativeResourcesRequest,
+  NativeResources,
+  SetNativeResource
+} from '../../../src/shared/native-resources'
 installNativeFixture()
 useProjectsStore.setState({
   loading: false,
@@ -90,7 +94,12 @@ window.orca = new Proxy(base, {
     if (name === 'session')
       return {
         ...target.session,
-        nativeResources: async () => snapshot(),
+        nativeResources: async (
+          request: string | DraftNativeResourcesRequest
+        ): Promise<NativeResources> =>
+          request === 'empty'
+            ? { state: 'connected', generation: 'empty', items: [], commands: [] }
+            : snapshot(),
         openNativePlugin: async () => {
           document.querySelector('[data-fixture-open-folder]')?.remove()
           const notice = document.createElement('p')
@@ -108,13 +117,13 @@ window.orca = new Proxy(base, {
     return Reflect.get(target, name)
   }
 })
-function seed(backend: 'claude' | 'opencode', saved = true): void {
+function seed(backend: 'claude' | 'opencode', saved = true, id = 'fixture'): void {
   useChatStore.setState({
     sessions: {
-      fixture: {
+      [id]: {
         session: {
           ...initialChatState,
-          sessionId: saved ? 'fixture' : null,
+          sessionId: saved ? id : null,
           title: '하네스 연결 확인',
           backend,
           agentKind: backend === 'opencode' ? 'code' : 'work',
@@ -124,7 +133,7 @@ function seed(backend: 'claude' | 'opencode', saved = true): void {
         subagentMeta: {}
       }
     },
-    activeKey: 'fixture',
+    activeKey: id,
     pendingNewChatKey: null,
     newChatQueue: [],
     recentsEpoch: 0,
@@ -152,6 +161,8 @@ export function App(): React.JSX.Element {
           nav 너비
         </button>
         <button onClick={() => seed('claude')}>Claude 세션</button>
+        <button onClick={() => seed('claude', true, 'fixture-B')}>Claude 세션 B</button>
+        <button onClick={() => seed('claude', true, 'empty')}>빈 세션</button>
         <button onClick={() => seed('opencode')}>OpenCode 세션</button>
         <button
           onClick={() => {

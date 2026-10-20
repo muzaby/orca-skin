@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { Icon } from './Icon'
 import { MenuItem } from './MenuItem'
+import { StatusBall } from './Status'
 import { Popover } from './Popover'
 import {
   HOVER_OPEN_DELAY_MS,
@@ -21,7 +22,7 @@ interface CascadeMenuProps<A> {
   anchorRef: RefObject<HTMLElement | null>
   onClose: () => void
   items: CascadeItem<A>[]
-  onSelect: (action: A) => void
+  onSelect: (action: A) => void | Promise<void>
   placement?: 'top' | 'bottom'
   ariaLabel?: string
   closeOnSelect?: boolean
@@ -74,7 +75,7 @@ export function CascadeBody<A>({
   initialState = INITIAL_CASCADE_STATE
 }: {
   items: CascadeItem<A>[]
-  onSelect: (action: A) => void
+  onSelect: (action: A) => void | Promise<void>
   onClose: () => void
   anchorRef: RefObject<HTMLElement | null>
   ariaLabel?: string
@@ -92,7 +93,7 @@ export function CascadeBody<A>({
     stateRef.current = next
     setState(next)
     if (effect?.type === 'activate') {
-      onSelect(effect.action)
+      void onSelect(effect.action)
       if (closeOnSelect) onClose()
     } else if (effect?.type === 'close') {
       onClose()
@@ -137,7 +138,12 @@ export function CascadeBody<A>({
     )
   }, [state.focus])
 
-  const levels = [0, ...state.open.map((_, i) => i + 1)]
+  const levels = [0]
+  for (const [level, index] of state.open.entries()) {
+    const parent = panelItems(items, state.open, level)[index]
+    if (parent?.kind !== 'submenu' || parent.disabled) break
+    levels.push(level + 1)
+  }
   return (
     <div
       ref={rootRef}
@@ -164,7 +170,7 @@ export function CascadeBody<A>({
           onHover={scheduleHover}
           onLeave={cancelHover}
           onSecondary={(action) => {
-            onSelect(action)
+            void onSelect(action)
             if (closeOnSelect) onClose()
           }}
           onClick={(index) => {
@@ -229,7 +235,7 @@ function CascadePanel<A>({
             </div>
           )
         const submenu = item.kind === 'submenu'
-        const expanded = submenu && openIndex === index
+        const expanded = submenu && !item.disabled && openIndex === index
         const row = (
           <MenuItem
             key={item.id}
@@ -241,8 +247,8 @@ function CascadePanel<A>({
             iconSize={13}
             tabIndex={-1}
             title={item.kind === 'action' ? item.title : undefined}
-            disabled={item.kind === 'action' && item.disabled}
-            aria-haspopup={submenu ? 'menu' : undefined}
+            disabled={item.disabled}
+            aria-haspopup={submenu && !item.disabled ? 'menu' : undefined}
             aria-expanded={submenu ? expanded : undefined}
             data-cascade-level={level}
             data-cascade-index={index}
@@ -265,9 +271,50 @@ function CascadePanel<A>({
                 <span className="size-3 rounded-full bg-white" />
               </span>
             )}
-            {submenu && <Icon name="chevR" size={12} className="shrink-0 text-ink3" />}
+            {submenu && !item.disabled && (
+              <Icon name="chevR" size={12} className="shrink-0 text-ink3" />
+            )}
           </MenuItem>
         )
+        if (item.kind === 'action' && item.status) {
+          const status = item.status
+          return (
+            <div key={item.id} className="flex min-w-0 items-center pl-1">
+              {status.action !== undefined ? (
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-label={status.label}
+                  title={status.label}
+                  aria-checked={status.checked}
+                  aria-busy={!!status.busy}
+                  disabled={!!status.busy}
+                  className="inline-flex size-6 shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 outline-none hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
+                  onClick={() => onSecondary(status.action!)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      if (!status.busy) onSecondary(status.action!)
+                    }
+                  }}
+                >
+                  <StatusBall tone={status.tone} busy={status.busy} />
+                </button>
+              ) : (
+                <span
+                  role="img"
+                  aria-label={status.label}
+                  title={status.label}
+                  className="inline-flex size-6 shrink-0 items-center justify-center"
+                >
+                  <StatusBall tone={status.tone} busy={status.busy} />
+                </span>
+              )}
+              {row}
+            </div>
+          )
+        }
         if (item.kind === 'action' && item.secondary) {
           const secondary = item.secondary
           return (

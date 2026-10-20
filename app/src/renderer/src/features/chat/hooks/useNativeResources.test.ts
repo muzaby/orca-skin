@@ -21,6 +21,7 @@ import type {
   NativeResource,
   NativeResources
 } from '../../../../../shared/native-resources'
+import type { BackgroundEvent } from '../../../../../shared/background-task'
 
 const resource: NativeResource = {
   id: 'native-B',
@@ -40,6 +41,14 @@ let current: ReturnType<typeof useNativeResources>
 const read = vi.fn<(id: string) => Promise<NativeResources>>()
 const write = vi.fn<(req: unknown) => Promise<NativeResources>>()
 const openFolder = vi.fn<(req: unknown) => Promise<void>>()
+let backgroundEvent: (event: BackgroundEvent) => void
+const terminated = (sessionId: string, generation: string): void =>
+  backgroundEvent({
+    type: 'background.connection',
+    sessionId,
+    state: 'terminated',
+    source: { generation, sequence: 1, receivedAt: 1, replay: false }
+  })
 function Probe({
   id,
   open = true,
@@ -73,7 +82,13 @@ beforeEach(() => {
   dom = installFakeDom({ innerWidth: 1200, innerHeight: 800 })
   Object.assign(window, {
     orca: {
-      session: { nativeResources: read, setNativeResource: write, openNativePlugin: openFolder }
+      session: { nativeResources: read, setNativeResource: write, openNativePlugin: openFolder },
+      chat: {
+        onBackgroundEvent: (callback: typeof backgroundEvent) => {
+          backgroundEvent = callback
+          return () => {}
+        }
+      }
     }
   })
 })
@@ -149,12 +164,10 @@ describe('native resources session lifecycle', () => {
       status: 'ready',
       refreshing: true,
       value: {
-        items: [{ name: 'Native B', canToggle: false }],
+        items: [{ name: 'Native B', canToggle: true, status: 'connected' }],
         commands: [{ name: 'native:review' }]
       }
     })
-    await current.toggle(resource)
-    expect(write).not.toHaveBeenCalled()
     finish({ state: 'disconnected', items: [] })
     await settle()
     expect(current.view).toMatchObject({
@@ -204,12 +217,12 @@ describe('native resources session lifecycle', () => {
       expect(current.view).toMatchObject({
         status: 'ready',
         issue: 'control',
-        value: { items: [{ id: resource.id, enabled: readFails, canToggle: !readFails }] }
+        value: { items: [{ id: resource.id, enabled: readFails, canToggle: true }] }
       })
       expect(current.busy).toBe(false)
       if (readFails) {
         await current.toggle(resource)
-        expect(write).toHaveBeenCalledTimes(1)
+        expect(write).toHaveBeenCalledTimes(2)
       }
     }
   )
@@ -227,9 +240,10 @@ describe('native resources session lifecycle', () => {
       value: { ...snapshot('A-new'), partial: true }
     })
     expect(errorToastStore.getState().toasts).toMatchObject([{ title: 'loadFailed' }])
+    read.mockResolvedValueOnce(snapshot('A-final'))
     dom.act(() => current.refresh())
     await settle()
-    expect(current.view).toEqual({ status: 'ready', value: snapshot() })
+    expect(current.view).toEqual({ status: 'ready', value: snapshot('A-final') })
     let finish!: (value: NativeResources) => void
     read.mockImplementationOnce(
       () =>
@@ -240,11 +254,12 @@ describe('native resources session lifecycle', () => {
     dom.act(() => current.refresh())
     await settle()
     dom.render(createElement(Probe, { id: 'A', open: false }))
+    read.mockResolvedValueOnce(snapshot('A-reopened'))
     dom.render(createElement(Probe, { id: 'A', open: true }))
     await settle()
     finish(snapshot('stale'))
     await settle()
-    expect(current.view).toEqual({ status: 'ready', value: snapshot() })
+    expect(current.view).toEqual({ status: 'ready', value: snapshot('A-reopened') })
   })
   it('carries session/generation/resource fields and serializes toggles, without optimistic success', async () => {
     dom.render(createElement(Probe, { id: 'session-B' }))
@@ -285,7 +300,7 @@ describe('native resources session lifecycle', () => {
     expect(write).toHaveBeenCalledTimes(2)
   })
   it.each(['read', 'write'] as const)(
-    'discards a late %s after changing session',
+    'keeps a late %s scoped to its session after navigation',
     async (operation) => {
       let finish!: (result: NativeResources) => void
       if (operation === 'read')
@@ -352,7 +367,7 @@ it('renders the live session menu and keeps it open while the MCP toggle refresh
   expect(read).toHaveBeenCalledExactlyOnceWith('session-B')
   expect(dom.query('[data-native-resources="opencode"]')?.textContent).toContain('OpenCode')
   dom.click(dom.query('[data-cascade-level="0"][data-cascade-index="0"]')!)
-  const item = dom.query('[data-cascade-level="1"][data-cascade-index="0"]')!
+  const item = dom.query('[role="menuitemcheckbox"]')!
   expect(item.props['aria-checked']).toBe(true)
   dom.click(item)
   await settle()
@@ -363,9 +378,7 @@ it('renders the live session menu and keeps it open while the MCP toggle refresh
     id: 'native-B',
     enabled: false
   })
-  expect(dom.query('[data-cascade-level="1"][data-cascade-index="0"]')?.props['aria-checked']).toBe(
-    false
-  )
+  expect(dom.query('[role="menuitemcheckbox"]')?.props['aria-checked']).toBe(false)
   expect(onClose).not.toHaveBeenCalled()
   write.mockRejectedValueOnce(new Error('write rejected'))
   read.mockRejectedValueOnce(new Error('refresh rejected'))
@@ -534,4 +547,262 @@ it('opens an installed plugin in a draft by its current scope and reloads on fai
   ])
   await current.toggle({ ...plugin, canToggle: true })
   expect(write).not.toHaveBeenCalled()
+})
+
+describe('process-owned state and independent async controls', () => {
+  it.each([false, true])(
+    'retains pending work and its result across A → B → A (finish away=%s)',
+    async (finishAway) => {
+      dom.render(createElement(Probe, { id: 'A' }))
+      await settle()
+      let finish!: (value: NativeResources) => void
+      write.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve
+          })
+      )
+      const pending = current.toggle(resource)
+      dom.act(() => {})
+      expect([...current.pending]).toEqual(['mcp:native-B'])
+      read.mockResolvedValueOnce(snapshot('B-live'))
+      dom.render(createElement(Probe, { id: 'B' }))
+      await settle()
+      const disabled: NativeResources = {
+        ...snapshot(),
+        items: [{ ...resource, enabled: false, status: 'disabled' }]
+      }
+      if (finishAway) {
+        finish(disabled)
+        await pending
+      }
+      let finishRead!: (value: NativeResources) => void
+      read.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishRead = resolve
+          })
+      )
+      dom.render(createElement(Probe, { id: 'A' }))
+      await settle()
+      expect(current.view).toMatchObject({
+        status: 'ready',
+        value: { generation: 'gen-B', items: [{ canToggle: true, enabled: !finishAway }] }
+      })
+      expect(current.pending.size).toBe(finishAway ? 0 : 1)
+      if (!finishAway) {
+        finish(disabled)
+        await pending
+        await settle()
+      }
+      expect(current.view).toMatchObject({ status: 'ready', value: disabled })
+      expect(current.pending.size).toBe(0)
+      finishRead(disabled)
+      await settle()
+      expect(current.view).toMatchObject({ status: 'ready', value: disabled })
+    }
+  )
+
+  it('shares observations and operations between Composer and menu consumers', async () => {
+    const consumers: ReturnType<typeof useNativeResources>[] = []
+    function Consumers(): null {
+      const composer = useNativeResources('A', true, 'claude')
+      const menu = useNativeResources('A', true, 'claude')
+      useLayoutEffect(() => {
+        consumers[0] = composer
+        consumers[1] = menu
+      }, [composer, menu])
+      return null
+    }
+    dom.render(createElement(Consumers))
+    await settle()
+    expect(consumers[0].view).toBe(consumers[1].view)
+    let finish!: (value: NativeResources) => void
+    write.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    const pending = consumers[0].toggle(resource)
+    dom.act(() => {})
+    expect(consumers.map((value) => [...value.pending])).toEqual([
+      ['mcp:native-B'],
+      ['mcp:native-B']
+    ])
+    await consumers[1].toggle(resource)
+    expect(write).toHaveBeenCalledOnce()
+    finish({ ...snapshot(), items: [{ ...resource, enabled: false, status: 'disabled' }] })
+    await pending
+    await settle()
+    expect(consumers[0].view).toBe(consumers[1].view)
+    expect(consumers[1].view).toMatchObject({ value: { items: [{ enabled: false }] } })
+  })
+
+  it('starts different item controls independently and blocks only a duplicate of the pending item', async () => {
+    const plugin: NativeResource = { ...resource, kind: 'plugin', status: 'enabled' }
+    read.mockResolvedValue({ ...snapshot(), items: [resource, plugin] })
+    dom.render(
+      createElement(NativeResourcesMenu, {
+        sessionId: 'A',
+        backend: 'claude',
+        anchorRef: { current: null },
+        onClose: () => {}
+      })
+    )
+    await settle()
+    const finishes: ((value: NativeResources) => void)[] = []
+    write.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishes.push(resolve)
+        })
+    )
+    dom.click(dom.query('[data-cascade-level="0"][data-cascade-index="0"]')!)
+    const ball = dom.query('[role="menuitemcheckbox"]')!
+    dom.click(ball)
+    await settle()
+    expect(dom.query('[data-status-spinner]')).not.toBeNull()
+    expect(dom.query('[role="menuitemcheckbox"]')?.props.disabled).toBe(true)
+    dom.click(ball)
+    dom.click(dom.query('[data-cascade-level="0"][data-cascade-index="1"]')!)
+    expect(dom.query('[role="menuitemcheckbox"]')?.props.disabled).toBe(false)
+    dom.click(dom.query('[role="menuitemcheckbox"]')!)
+    await settle()
+    expect(write.mock.calls.map(([req]) => (req as { kind: string }).kind)).toEqual([
+      'mcp',
+      'plugin'
+    ])
+    expect(dom.query('[data-cascade-level="0"][data-cascade-index="0"]')?.props.disabled).toBe(
+      false
+    )
+    expect(dom.query('[data-cascade-level="1"][data-cascade-index="0"]')?.props.disabled).toBe(
+      false
+    )
+    finishes[0]({
+      ...snapshot(),
+      items: [{ ...resource, enabled: false, status: 'disabled' }, plugin]
+    })
+    await settle()
+    expect(dom.query('[data-status-spinner]')).not.toBeNull()
+    finishes[1]({
+      ...snapshot(),
+      items: [resource, { ...plugin, enabled: false, status: 'disabled' }]
+    })
+    await settle()
+    expect(dom.query('[data-status-spinner]')).toBeNull()
+    expect(dom.query('[role="menuitemcheckbox"]')?.props['aria-checked']).toBe(false)
+  })
+
+  it('retires an inactive process generation and rejects its late write without affecting the next process', async () => {
+    dom.render(createElement(Probe, { id: 'A' }))
+    await settle()
+    let finish!: (value: NativeResources) => void
+    write.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    const pending = current.toggle(resource)
+    read.mockResolvedValueOnce(snapshot('B-live'))
+    dom.render(createElement(Probe, { id: 'B' }))
+    await settle()
+    dom.act(() => terminated('A', 'gen-B'))
+    finish({ ...snapshot(), items: [{ ...resource, enabled: false, status: 'disabled' }] })
+    await pending
+    await settle()
+    expect(current.view).toEqual({ status: 'ready', value: snapshot('B-live') })
+    let finishRead!: (value: NativeResources) => void
+    read.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishRead = resolve
+        })
+    )
+    dom.render(createElement(Probe, { id: 'A' }))
+    await settle()
+    expect(current.pending.size).toBe(0)
+    expect(current.view).toMatchObject({
+      status: 'ready',
+      value: {
+        state: 'disconnected',
+        generation: undefined,
+        items: [{ status: 'configured', canToggle: false, enabled: true }]
+      }
+    })
+    finishRead(snapshot('A-next'))
+    await settle()
+    dom.act(() => terminated('A', 'gen-B'))
+    await settle()
+    expect(current.view).toEqual({ status: 'ready', value: snapshot('A-next') })
+    read.mockResolvedValueOnce({ state: 'disconnected', items: [] })
+    dom.act(() => terminated('A', 'A-next'))
+    await settle()
+    expect(current.view).toMatchObject({
+      status: 'ready',
+      value: { state: 'disconnected', items: [{ canToggle: false }] }
+    })
+    expect(current.view.status === 'ready' && current.view.value.generation).toBeUndefined()
+  })
+
+  it('rejects an exited generation even when its initial read has not arrived', async () => {
+    let finish!: (value: NativeResources) => void
+    read.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    dom.render(createElement(Probe, { id: 'A' }))
+    await settle()
+    read.mockResolvedValueOnce(snapshot('A-next'))
+    dom.act(() => terminated('A', 'gen-B'))
+    await settle()
+    finish(snapshot())
+    await settle()
+    expect(current.view).toEqual({ status: 'ready', value: snapshot('A-next') })
+  })
+
+  it('keeps a new process operation pending when the retired process write finishes late', async () => {
+    dom.render(createElement(Probe, { id: 'A' }))
+    await settle()
+    let finishOld!: (value: NativeResources) => void
+    write.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishOld = resolve
+        })
+    )
+    const old = current.toggle(resource)
+    read.mockResolvedValueOnce(snapshot('A-next'))
+    current.refresh()
+    await settle()
+    expect(current.pending.size).toBe(0)
+    let finishNew!: (value: NativeResources) => void
+    write.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishNew = resolve
+        })
+    )
+    const next = current.toggle(resource)
+    finishOld({ ...snapshot(), items: [{ ...resource, enabled: false, status: 'disabled' }] })
+    await old
+    await settle()
+    expect(current.view).toEqual({ status: 'ready', value: snapshot('A-next') })
+    expect([...current.pending]).toEqual(['mcp:native-B'])
+    dom.act(() => terminated('A', 'gen-B'))
+    expect(current.pending.size).toBe(1)
+    finishNew({
+      ...snapshot('A-next'),
+      items: [{ ...resource, enabled: false, status: 'disabled' }]
+    })
+    await next
+    await settle()
+    expect(current.pending.size).toBe(0)
+    expect(current.view).toMatchObject({
+      value: { generation: 'A-next', items: [{ enabled: false }] }
+    })
+  })
 })
