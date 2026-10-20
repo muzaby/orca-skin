@@ -35,7 +35,7 @@ function findSkill(
 }
 
 export function registerSkillsHandlers(ctx: SkillsHandlerContext): void {
-  handlePlain(CHANNELS.skillsList, (): SkillInfo[] => ctx.getSkills())
+  handlePlain(CHANNELS.skillsList, (): Promise<SkillInfo[]> => ctx.refreshSkills())
 
   handle(CHANNELS.skillsAuthor, AuthorSkillSchema, 'reject', async (req): Promise<SkillInfo[]> => {
     await writeAuthoredSkill(req)

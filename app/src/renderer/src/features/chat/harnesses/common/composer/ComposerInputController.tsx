@@ -17,8 +17,8 @@ import { useAttachments } from '../../../hooks/useAttachments'
 import { useMentionAutocomplete } from '../../../hooks/useMentionAutocomplete'
 import { useSkillAutocomplete } from '../../../hooks/useSkillAutocomplete'
 import { useNativeResources } from '../../../hooks/useNativeResources'
-import { sourceSkills } from '../../../../../../../shared/extension-sources'
-import type { AttachmentView, ComposerAttachment, SkillInfo } from '../../../../../../../shared/ipc'
+import { composerSkills, type SkillSuggestion } from '../../../lib/composerSkills'
+import type { AttachmentView, ComposerAttachment } from '../../../../../../../shared/ipc'
 import type { DiffRequirementSubmitSnapshot } from '../../../store/chatStore'
 import { AttachMenu } from './AttachMenu'
 import type { AttachMenuAction } from '../../../lib/attachMenuModel'
@@ -134,11 +134,6 @@ export function ComposerInputController({
     resetIfUnchanged: resetAttachmentsIfUnchanged
   } = useAttachments()
   const availableSkills = useSkills()
-  const skills = useMemo(
-    () => (includeExtensions ? sourceSkills(availableSkills, backend ?? 'claude') : []),
-    [includeExtensions, availableSkills, backend]
-  )
-  const knownSkillNames = useMemo(() => new Set(skills.map((skill) => skill.name)), [skills])
   const surfaceRef = useRef<ComposerInputSurfaceHandle>(null)
   const surfaceWrapRef = useRef<HTMLDivElement>(null)
   const attachButtonRef = useRef<HTMLButtonElement>(null)
@@ -150,6 +145,11 @@ export function ComposerInputController({
     sessionId || !backend ? undefined : { backend, cwd, projectId }
   )
   const ensureNative = native.ensure
+  const skills = useMemo(
+    () => composerSkills(availableSkills, backend ?? 'claude', includeExtensions, native.view),
+    [availableSkills, backend, includeExtensions, native.view]
+  )
+  const knownSkillNames = useMemo(() => new Set(skills.map((skill) => skill.name)), [skills])
   useEffect(() => {
     if (active && attachMenuOpen) ensureNative()
   }, [active, attachMenuOpen, ensureNative])
@@ -231,7 +231,7 @@ export function ComposerInputController({
       focus
     })
 
-  const applyAutocomplete = (skill: SkillInfo): void => {
+  const applyAutocomplete = (skill: SkillSuggestion): void => {
     if (compositionActive()) return
     if (!derivedSnapshotIsCurrent(snapshotRef.current, deferredSnapshot)) return
     const start = autocomplete.tokenStart

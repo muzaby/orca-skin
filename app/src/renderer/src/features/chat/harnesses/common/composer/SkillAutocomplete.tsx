@@ -1,7 +1,7 @@
 import type { RefObject } from 'react'
 import { AnchoredDropdown } from './AnchoredDropdown'
 import { AutocompleteSectionHeader } from './AutocompleteSectionHeader'
-import type { SkillInfo } from '../../../../../../../shared/ipc'
+import type { SkillSuggestion } from '../../../lib/composerSkills'
 import { useI18n } from '../../../../../shared/i18n'
 import { groupSkillSuggestions } from '../../../lib/skillGroups'
 
@@ -9,10 +9,10 @@ interface SkillAutocompleteProps {
   open: boolean
   // 자동완성이 부착될 textarea wrapper (ComposerInputSurface 의 outer div).
   anchorRef: RefObject<HTMLElement | null>
-  suggestions: SkillInfo[]
+  suggestions: SkillSuggestion[]
   activeIndex: number
   onHover: (index: number) => void
-  onPick: (skill: SkillInfo) => void
+  onPick: (skill: SkillSuggestion) => void
 }
 
 // 인라인 스킬 자동완성 — 포지셔닝/portal 셸은 AnchoredDropdown 공유.

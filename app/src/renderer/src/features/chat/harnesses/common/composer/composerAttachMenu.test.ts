@@ -126,9 +126,7 @@ describe('runAttachMenuAction (AC2·AC3)', () => {
     expect(source.match(/const availableSkills = useSkills\(\)/g)).toHaveLength(1)
     expectPresentationWiring()
     expect(source).toMatch(/const \{[^}]*\bincludeExtensions\b[^}]*\} = presentation/)
-    expect(source).toMatch(
-      /const skills = useMemo\(\s*\(\) => \(includeExtensions \? sourceSkills\(availableSkills, backend \?\? 'claude'\) : \[\]\),\s*\[includeExtensions, availableSkills, backend\]\s*\)/
-    )
+    // Candidate membership is exercised through Composer.native-menu.test and composerSkills.test.
     expect(sourceAt('../../claude/composer/Module.tsx')).toContain('includeExtensions: true')
     expect(sourceAt('../../opencode/composer/Module.tsx')).toContain('includeExtensions: false')
     expect(source).toContain(

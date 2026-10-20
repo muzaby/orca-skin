@@ -2,7 +2,9 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
   ...(await import('../../../../../shared/ui/renderHarness.testfixture')).fakeHooks,
-  useDeferredValue: <T>(value: T): T => value
+  useDeferredValue: <T>(value: T): T => value,
+  // Native focus/caret effects are outside this fake DOM; the input and its children are real.
+  useImperativeHandle: () => {}
 }))
 vi.mock(
   'react-dom',
@@ -21,13 +23,6 @@ vi.mock('../../../../../shared/i18n', () => {
   const tr = (key: string): string => key
   return { useI18n: () => ({ tr }) }
 })
-vi.mock('./ComposerInputSurface', async () => {
-  const { createElement } = await import('react')
-  return {
-    ComposerInputSurface: ({ snapshot }: { snapshot: { text: string } }) =>
-      createElement('textarea', { 'data-native-draft': true, value: snapshot.text })
-  }
-})
 import { createElement } from 'react'
 import type { BackgroundEvent } from '../../../../../../../shared/background-task'
 import { installFakeDom, type FakeDom } from '../../../../../shared/ui/renderHarness.testfixture'
@@ -37,6 +32,9 @@ let dom: FakeDom
 const read = vi.fn()
 const onSend = vi.fn(() => true)
 let background: (event: BackgroundEvent) => void
+let resourcesChanged: (
+  event: import('../../../../../../../shared/native-resources').NativeResourcesChanged
+) => void
 beforeEach(() => {
   vi.useFakeTimers()
   dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
@@ -57,7 +55,13 @@ beforeEach(() => {
   fixture.sessionId = 'session-B'
   Object.assign(window, {
     orca: {
-      session: { nativeResources: read },
+      session: {
+        nativeResources: read,
+        onNativeResourcesChanged: (listener: typeof resourcesChanged) => {
+          resourcesChanged = listener
+          return () => {}
+        }
+      },
       chat: {
         onBackgroundEvent: (listener: typeof background) => {
           background = listener
@@ -79,7 +83,7 @@ async function settle(): Promise<void> {
   for (let i = 0; i < 10; i++) await Promise.resolve()
   dom.act(() => {})
 }
-function render(): void {
+function render(initialDraft = 'preserved draft'): void {
   dom.render(
     createElement(ComposerInputController, {
       presentation: composerHarness(fixture.backend),
@@ -90,7 +94,7 @@ function render(): void {
       steerBlocked: false,
       toolApprovalPending: false,
       cwd: null,
-      initialDraft: 'preserved draft',
+      initialDraft,
       onSend,
       onCancel: () => {},
       controlsStart: null,
@@ -113,6 +117,88 @@ function clickLabel(label: string): void {
   expect(button, label).toBeDefined()
   dom.click(button!)
 }
+it('reflects session-enabled plugin commands in real autocomplete and decoration without changing the draft', async () => {
+  fixture.backend = 'claude'
+  read.mockResolvedValue({ state: 'connected', generation: 'g1', items: [], commands: [] })
+  const name = 'superpowers:using-superpowers'
+  render(`/${name}`)
+  await settle()
+  const chips = (): string[] =>
+    (dom.query('[data-composer-decoration-projection]')?.children ?? [])
+      .filter((node) => String(node.props.className).includes('bg-blue-500/15'))
+      .map((node) => node.textContent)
+  expect(chips()).toEqual([])
+  expect(dom.queryAll('[role="option"]')).toHaveLength(0)
+  dom.act(() =>
+    resourcesChanged({
+      sessionId: 'session-B',
+      resources: {
+        state: 'connected',
+        generation: 'g1',
+        items: [],
+        commands: [
+          {
+            name,
+            source: 'plugin',
+            description: 'Session enabled only',
+            argumentHint: '[question]'
+          }
+        ]
+      }
+    })
+  )
+  await settle()
+  expect(chips()).toEqual([`/${name}`])
+  expect(
+    dom
+      .queryAll('[role="option"]')
+      .map((node) => node.textContent)
+      .join(' ')
+  ).toContain(`/${name}`)
+  expect(dom.query('[aria-label="chat.composer.inputAria"]')?.props.value).toBe(`/${name}`)
+  dom.act(() =>
+    resourcesChanged({
+      sessionId: 'session-B',
+      resources: {
+        state: 'connected',
+        generation: 'g1',
+        items: [],
+        commands: []
+      }
+    })
+  )
+  await settle()
+  expect(chips()).toEqual([])
+  expect(dom.queryAll('[role="option"]')).toHaveLength(0)
+  expect(dom.query('[aria-label="chat.composer.inputAria"]')?.props.value).toBe(`/${name}`)
+  expect(onSend).not.toHaveBeenCalled()
+})
+
+it.each(['claude', 'opencode'] as const)(
+  'keeps Orca file skill autocomplete scoped to extension-enabled %s inputs',
+  async (backend) => {
+    fixture.backend = backend
+    window.orca.skills.list = async () =>
+      [
+        {
+          name: 'local-skill',
+          sourceId: 'orca',
+          sourceLabel: 'Orca',
+          enabled: true,
+          description: 'Orca file skill'
+        }
+      ] as never
+    render('/local-skill')
+    await settle()
+    const expected = backend === 'claude' ? ['/local-skill'] : []
+    const chips = (dom.query('[data-composer-decoration-projection]')?.children ?? [])
+      .filter((node) => String(node.props.className).includes('bg-blue-500/15'))
+      .map((node) => node.textContent)
+    expect(chips).toEqual(expected)
+    expect(dom.queryAll('[role="option"]')).toHaveLength(expected.length)
+  }
+)
+
 it.each(['claude', 'opencode'] as const)(
   'loads %s native commands from +, inserts without sending, reuses on reentry and refreshes on reconnect',
   async (backend) => {
@@ -132,7 +218,9 @@ it.each(['claude', 'opencode'] as const)(
     expect(command.textContent).not.toContain('Review current code')
     clickLabel('session-B::review')
     await settle()
-    expect(dom.query('[data-native-draft]')!.props.value).toBe('/session-B:review preserved draft')
+    expect(dom.query('[aria-label="chat.composer.inputAria"]')!.props.value).toBe(
+      '/session-B:review preserved draft'
+    )
     expect(onSend).not.toHaveBeenCalled()
     fixture.sessionId = 'session-C'
     render()
@@ -221,7 +309,7 @@ it.each(['saved', 'draft'])(
       expect(read).toHaveBeenCalledWith({ backend: 'claude', cwd: null, projectId: 'project-B' })
     clickLabel('frontend-design::frontend-design')
     await settle()
-    expect(dom.query('[data-native-draft]')!.props.value).toBe(
+    expect(dom.query('[aria-label="chat.composer.inputAria"]')!.props.value).toBe(
       '/frontend-design:frontend-design preserved draft'
     )
     expect(onSend).not.toHaveBeenCalled()
@@ -304,7 +392,9 @@ it.each(['claude', 'opencode'] as const)(
     )
     clickLabel('design::review')
     await settle()
-    expect(dom.query('[data-native-draft]')!.props.value).toBe('/design:review preserved draft')
+    expect(dom.query('[aria-label="chat.composer.inputAria"]')!.props.value).toBe(
+      '/design:review preserved draft'
+    )
     open()
     await settle()
     clickLabel('chat.composer.attachMenu.plugins')

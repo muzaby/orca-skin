@@ -14,7 +14,7 @@ export interface SkillScanRoot {
   sourceKind: 'orca' | 'adapter' | 'workspace'
   rootDir: string
   /** Explicit native plugin files, with their exact slash-command names. */
-  files?: readonly { file: string; name: string }[]
+  files?: readonly { file: string; name: string; enabled?: boolean }[]
   /** Only entries recorded in this installation lock are visible. */
   lockFile?: string
 }
@@ -44,7 +44,7 @@ async function scanRoot(
       allowed = new Set()
     }
   }
-  const files =
+  const files: NonNullable<SkillScanRoot['files']> =
     root.files ??
     entries
       .filter(
@@ -72,7 +72,7 @@ async function scanRoot(
         enabled:
           root.sourceKind === 'orca'
             ? (enabled[skillEnabledKey(root.sourceId, name)] ?? true)
-            : true,
+            : (entry.enabled ?? true),
         body: bodyWithoutFrontmatter(text),
         sourceKind: root.sourceKind,
         canToggle: root.sourceKind === 'orca',

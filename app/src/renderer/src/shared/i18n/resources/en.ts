@@ -814,6 +814,7 @@ export const en: typeof ko = {
       session: 'Starting the session…'
     },
     activity: {
+      thinking: 'Thinking',
       preparing: 'Preparing the response…',
       waiting: 'Checking remaining work…',
       scheduledWaiting: 'Waiting for the next scheduled prompt…',
