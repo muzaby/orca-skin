@@ -83,6 +83,7 @@ export function loadSession(
     messages: [...recoveryArchive(recovery), ...messages],
     ...(nativeSync ? { nativeSync } : {}),
     providerKey: meta.provider_key,
+    modelFamily: meta.last_model ?? lastTelemetry?.model ?? null,
     projectId: meta.project_id,
     cwd: meta.cwd ?? getCwd(meta.project_id),
     extraDirs: parseStoredExtraDirectories(meta.extra_dirs),

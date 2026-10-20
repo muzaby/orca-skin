@@ -20,6 +20,8 @@ export interface TurnContext<W = unknown> {
   titleEnv?: Record<string, string>
   titleModel?: string
   providerKey: string | null
+  /** Exact model resolved for the input consumed by this turn. */
+  modelFamily?: string
   pendingUserText: string | null
   firstUserText: string
   pendingAttachmentViews: AttachmentView[]

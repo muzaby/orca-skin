@@ -113,3 +113,78 @@ describe('chatReducer sessionCostUsd 누산(0122 r2)', () => {
     expect(loaded.sessionCostUsd).toBeUndefined()
   })
 })
+
+it('restores the exact model on cold load but preserves a newer local choice during archive refresh', () => {
+  const session = {
+    id: 'saved-A',
+    backend: 'claude' as const,
+    agentKind: 'code' as const,
+    title: 'A',
+    providerKey: 'claude-team',
+    modelFamily: 'claude-sonnet-4-6[1m]',
+    messages: []
+  }
+  const loaded = chatReducer(initialChatState, { type: 'LOAD_SESSION', session })
+  expect(loaded).toMatchObject({
+    providerKey: 'claude-team',
+    modelFamily: 'claude-sonnet-4-6[1m]',
+    permissionMode: 'auto_classified'
+  })
+  const selected = chatReducer(loaded, {
+    type: 'SET_MODEL',
+    providerKey: 'claude-other',
+    modelFamily: 'claude-opus-4-6',
+    modelAlias: 'opus',
+    adapter: 'claude'
+  })
+  const refreshed = chatReducer(selected, {
+    type: 'LOAD_SESSION',
+    session,
+    preserveLocalState: true
+  })
+  expect(refreshed).toMatchObject({
+    providerKey: 'claude-other',
+    modelFamily: 'claude-opus-4-6',
+    modelAlias: 'opus'
+  })
+})
+
+it.each(['claude-sonnet-4-6', 'claude-opus-4-6[1m]', 'claude-haiku-5-5'])(
+  'defaults %s to automatic approval after model hydration and preserves explicit choices',
+  (modelFamily) => {
+    const pick = (state: typeof initialChatState): typeof initialChatState =>
+      chatReducer(state, {
+        type: 'SET_MODEL',
+        providerKey: 'claude-team',
+        modelFamily,
+        modelAlias: 'model',
+        adapter: 'claude'
+      })
+    expect(pick(initialChatState).permissionMode).toBe('auto_classified')
+    for (const mode of ['default', 'plan', 'bypass'] as const) {
+      const manual = chatReducer(initialChatState, { type: 'SET_PERMISSION_MODE', mode })
+      expect(pick(manual).permissionMode).toBe(mode)
+    }
+  }
+)
+it('keeps unsupported Claude and OpenCode defaults separate', () => {
+  for (const modelFamily of ['claude-sonnet-4-5', 'custom-fast'])
+    expect(
+      chatReducer(initialChatState, {
+        type: 'SET_MODEL',
+        providerKey: 'c',
+        modelFamily,
+        modelAlias: 'model',
+        adapter: 'claude'
+      }).permissionMode
+    ).toBe('accept_edits')
+  expect(
+    chatReducer(initialChatState, {
+      type: 'SET_MODEL',
+      providerKey: 'o',
+      modelFamily: 'openai/gpt-5',
+      modelAlias: 'gpt',
+      adapter: 'opencode'
+    }).permissionMode
+  ).toBe(initialChatState.permissionMode)
+})

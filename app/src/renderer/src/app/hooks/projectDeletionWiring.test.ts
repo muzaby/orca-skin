@@ -22,6 +22,7 @@ vi.mock('../../features/projects/store/projectsStore', async (original) => ({
     select({ list: h.projects, loading: false })
 }))
 vi.mock('../../features/chat', () => ({
+  LandingHeader: () => null,
   chatActions: { detachProject: vi.fn() },
   useChatSession: (select: (state: object) => unknown) =>
     select({ sessionId: null, messages: [], loadingSession: false }),

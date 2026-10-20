@@ -50,7 +50,9 @@ export async function readSkillCatalog(
   // Canonical agents entries win over harness symlink aliases to the same installed file.
   const canonical = new Map<string, SkillInfo>()
   const key = (path: string): string => (process.platform === 'win32' ? path.toLowerCase() : path)
-  const agentsRoot = join(home, '.agents', 'skills')
+  const agentsRoot = await realpath(join(home, '.agents', 'skills')).catch(() =>
+    join(home, '.agents', 'skills')
+  )
   const lockedPaths = new Set(
     await Promise.all(
       inventory

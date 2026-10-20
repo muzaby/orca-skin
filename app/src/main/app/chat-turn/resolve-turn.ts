@@ -278,7 +278,10 @@ export async function resolveTurnProvider(
         )
       : undefined
   const models = catalog?.models ?? selected.models
-  const modelFamily = req.modelFamily ?? defaultModelFamily(models)
+  const modelFamily =
+    req.modelFamily ??
+    (selected.key === meta?.provider_key ? meta.last_model : null) ??
+    defaultModelFamily(models)
   const model = modelNameForFamily(models, modelFamily)
   // 제목 생성 모델은 요청 전에 사전 선택한다 (저가 모델 보유 시 그것, 없으면 default — 정책은
   // settings 레이어 resolveTitleModel 에 둔다).

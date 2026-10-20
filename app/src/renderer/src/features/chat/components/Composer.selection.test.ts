@@ -118,3 +118,65 @@ it('still falls back from an unavailable remembered harness in an ordinary draft
   })
   expect(dom.query('[data-model-label]')?.textContent).toContain('claude')
 })
+
+it('shows each loaded session model instead of the provider default, across navigation and a fresh renderer store', async () => {
+  const { useChatStore } = await import('../store/chatStore')
+  const { initialChatState } = await import('../reducer/chatReducer')
+  const saved = (id: string): import('../../../../../shared/ipc').LoadedSession => ({
+    id,
+    backend: 'claude' as const,
+    agentKind: 'code' as const,
+    title: id,
+    providerKey: 'claude-local',
+    modelFamily: id === 'A' ? 'claude-sonnet-4-6[1m]' : 'claude-opus-4-6',
+    messages: []
+  })
+  Object.assign(window.orca, {
+    session: {
+      load: async (id: string) => saved(id),
+      refresh: async () => ({ status: 'unchanged' })
+    }
+  })
+  Object.assign(window.orca.chat, {
+    backgroundState: async () => ({ tasks: [], connections: [], revision: 0 })
+  })
+  catalog.agents = [
+    {
+      ...agent('claude'),
+      models: [
+        {
+          alias: 'opus',
+          model: 'claude-opus-4-6',
+          isCustom: false,
+          isDefault: true,
+          oneMillionContext: false
+        },
+        {
+          alias: 'sonnet',
+          model: 'claude-sonnet-4-6',
+          isCustom: false,
+          isDefault: false,
+          oneMillionContext: true
+        }
+      ]
+    }
+  ]
+  for (const id of ['A', 'B', 'A']) {
+    await chatActions.loadSession(id)
+    render()
+    expect(getActiveChatSession().modelFamily).toBe(saved(id).modelFamily)
+    expect(dom.query('[data-model-label]')?.textContent).toContain(saved(id).modelFamily)
+    expect(getActiveChatSession().permissionMode).toBe('auto_classified')
+  }
+  useChatStore.setState((s) => ({
+    sessions: { new: { ...s.sessions[s.activeKey], session: { ...initialChatState } } },
+    activeKey: 'new'
+  }))
+  await chatActions.loadSession('A')
+  render()
+  expect(getActiveChatSession()).toMatchObject({
+    modelFamily: 'claude-sonnet-4-6[1m]',
+    modelAlias: 'sonnet'
+  })
+  expect(dom.query('[data-model-label]')?.textContent).toContain('claude-sonnet-4-6[1m]')
+})

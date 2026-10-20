@@ -367,3 +367,15 @@ describe('extraDirs 해석', () => {
     expect(turn.extraDirs).toEqual(['/refs/origin'])
   })
 })
+
+it('carries the actual resolved model, separately from the title model, into continuation turns', () => {
+  const input = base()
+  input.resolved = {
+    providerKey: 'claude-team',
+    model: 'claude-sonnet-4-6[1m]',
+    titleModel: 'title-only'
+  }
+  const turn = buildTurnContext(input)
+  expect(turn.modelFamily).toBe('claude-sonnet-4-6[1m]')
+  expect(makeContinuationTurn(turn).modelFamily).toBe('claude-sonnet-4-6[1m]')
+})

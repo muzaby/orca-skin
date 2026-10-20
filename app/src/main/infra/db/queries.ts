@@ -126,7 +126,7 @@ export class DbQueries {
       LIMIT @limit
     `)
     this.getSessionByIdStmt = db.prepare(`
-      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd, extra_dirs, agent_kind
+      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, last_model, cwd, extra_dirs, agent_kind
       FROM sessions
       WHERE id = @id AND hidden_at IS NULL
     `)
@@ -255,7 +255,7 @@ export class DbQueries {
       WHERE id = @id
     `)
     this.updateSessionProviderKeyStmt = db.prepare(`
-      UPDATE sessions SET provider_key = @providerKey, updated_at = @updatedAt WHERE id = @id
+      UPDATE sessions SET provider_key = @providerKey, last_model = @modelFamily, updated_at = @updatedAt WHERE id = @id
     `)
     // 0210 — worktree 소실 폴백이 실행 경로를 원본으로 되돌릴 때 세션행을 함께 옮긴다.
     // 이 UPDATE 가 없으면 폴백은 이번 턴만 살리고 다음 턴이 같은 죽은 경로를 다시 읽는다.
@@ -429,8 +429,9 @@ export class DbQueries {
     return this.listSessionsStmt.all({ limit }) as SessionListRow[]
   }
 
-  getSessionById(id: string): SessionListRow | undefined {
-    return this.getSessionByIdStmt.get({ id }) as SessionListRow | undefined
+  getSessionById(id: string): (SessionListRow & { last_model: string | null }) | undefined {
+    return this.getSessionByIdStmt.get({ id }) as
+      (SessionListRow & { last_model: string | null }) | undefined
   }
 
   // 기준 커밋과 그때의 브랜치 이름을 **함께** 돌려준다(0211 ΔV4 D-070). 둘을 따로 조회하면
@@ -575,8 +576,13 @@ export class DbQueries {
     this.updateSessionExtraDirsStmt.run({ id, extraDirs: JSON.stringify(extraDirs) })
   }
 
-  updateSessionProviderKey(id: string, providerKey: string | null, updatedAt: number): void {
-    this.updateSessionProviderKeyStmt.run({ id, providerKey, updatedAt })
+  updateSessionProviderKey(
+    id: string,
+    providerKey: string | null,
+    updatedAt: number,
+    modelFamily: string | null = null
+  ): void {
+    this.updateSessionProviderKeyStmt.run({ id, providerKey, updatedAt, modelFamily })
   }
 
   updateSessionTitle(id: string, title: string): void {

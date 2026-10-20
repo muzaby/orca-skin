@@ -108,6 +108,9 @@ vi.mock('../features/chat/harnesses/common/composer/AttachMenu', () => ({
   AttachMenu: ({ onAction }: { onAction: (action: { type: 'attach' }) => void }) =>
     createElement('button', { 'data-test-attach': '', onClick: () => onAction({ type: 'attach' }) })
 }))
+vi.mock('../features/projects', () => ({
+  useProjectsState: (select: (s: { list: unknown[] }) => unknown) => select({ list: [] })
+}))
 vi.mock('../features/chat', async () => ({
   Landing: (await import('../features/chat/components/Landing')).Landing,
   harnessSurfaces: (await import('../features/chat/harnesses/presentation')).harnessSurfaces,

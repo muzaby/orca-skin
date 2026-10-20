@@ -33,7 +33,8 @@ vi.mock('../../features/projects', () => ({
     selector({ list: h.projects }),
   projectsActions: { setPinned: h.pinProject }
 }))
-vi.mock('../../features/chat', () => ({
+vi.mock('../../features/chat', async () => ({
+  HarnessLogo: (await import('../../features/chat/harnesses/registries/brand')).HarnessLogo,
   chatActions: {
     handleSessionDeleted: vi.fn(),
     renameSession: vi.fn(),

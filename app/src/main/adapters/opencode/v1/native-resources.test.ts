@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { OpencodeClient } from '@opencode-ai/sdk/v2/client'
 import { openCodeNativeCommands, openCodeNativeResources } from './native-resources'
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { realpath, mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 describe('OpenCode native resources', () => {
   it('classifies only OpenCode and installed-plugin skills from SDK locations, without losing exact dispatch names', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'orca-native-skill-'))
+    const root = await mkdtemp(join(tmpdir(), 'orca-native-skill-')).then((path) => realpath(path))
     try {
       const plugin = join(root, 'native-plugin')
       await mkdir(plugin)

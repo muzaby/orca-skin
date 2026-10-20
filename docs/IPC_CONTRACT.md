@@ -526,6 +526,8 @@ wire 체계의 정본은 `app/src/shared/ipc.ts`의 `ProviderAuthScheme`이고 m
 
 현재 `SessionListItem`·`LoadedSession`의 `agentKind`는 필수이며 Main은 DB 값을 엄격히 검증해 출력한다. Renderer의 `LOAD_SESSION` 읽기 경계에서만 구형 `coding` 또는 필드 누락을 `code`로 변환하며 그 외 값은 오류로 처리한다. `session.updated.patch.agentKind`의 생략은 기존 값 유지이고 Main은 확정 세션의 종류를 붙인다.
 
+`LoadedSession.modelFamily`는 nullable 세션 모델 기록이다. cold load에서 마지막 사용 모델을 복원하고 새 기록이 없으면 마지막 telemetry 모델을 사용하며 그것도 없으면 기존 provider 기본값으로 해석한다.
+
 Work에는 Main이 `{ type: 'response.boundary', sessionId, boundary }`를 발행한다. `boundary`는 `{ phase: 'begin', id }` 또는 `{ phase: 'end', id, outcome: 'ended'|'aborted'|'failed'|'unknown' }`이다. 표시 내용이 있는 수신 구간만 생성하며 중간 사용자 입력 커밋 직전에 기존 구간을 `unknown`으로 닫는다. 실제 종료 신호 없이 정리용 telemetry만 받은 경우 완료로 가장하지 않는다. 라이브 이벤트와 DB의 `response_boundary` part는 같은 payload를 사용한다. 이 경계는 표시 전용이며 권한·과금·작업 성공의 정본이 아니다.
 
 > **표준화 스테이지 B (provider-runtime.md §2)**: `orca:chat:event` 의 와이어 타입은 provider 중립 **`NormalizedEvent`** 다. 이벤트는 `sessionId` 로 키잉되고, tool 은 `toolRunId` 로 start/complete 를 매칭한다. **코어 중립(handoff 0016): 이벤트는 `provider` 필드를 싣지 않는다** — 어떤 소비자도 읽지 않는 write-only 메타였고 `session.backend`(0010 세션-어댑터 잠금)와 중복된 이중 진실원이라 제거했다. "어느 백엔드인지" 는 `sessionId` → `session.backend` 로 파생한다. claude 어댑터는 SDK 메시지를 `claudeToNormalized`(`adapters/claude/map.ts`)로 이 타입에 **직접** 정규화한다(구 `ChatEvent` 중간표현은 제거됨). `app/src/shared/ipc.ts` 의 `NormalizedEvent` union 이 정본. 중단은 에러가 아니므로 `turn.aborted`로 분리한다. 사용자 중단은 `user_cancelled`, 비사용자 중단은 `interrupted`로 알리고 이미 terminal을 보낸 턴에는 중복 발행하지 않는다.

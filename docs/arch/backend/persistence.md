@@ -89,6 +89,7 @@
 | `0030_native_history_cursor.sql` | native snapshot과 원자적으로 확정하는 nullable 읽기 커서. |
 | `0031_turn_context_usage.sql` | 마지막 모델 스텝의 컨텍스트 사용량과 한도를 턴 합산 원장과 구분해 보관한다. |
 | `0032_native_session_recovery.sql` | 원본 보관 만료 시 replacement native ID·보관 경계·첫 입력 영수증을 영속한다. |
+| `0033_session_last_model.sql` | 세션의 마지막 사용 모델(`last_model`)을 nullable로 보존한다. provider와 같은 UPDATE로 저장하고 앱 재시작의 Composer 복원에 사용한다. |
 
 **마이그레이션 규칙**:
 - `src/main/infra/db/migrations/NNNN_<name>.sql` (NNNN = 0으로 패딩된 일련번호)

@@ -116,6 +116,7 @@ interface BuildTurnContextInput<W> {
   titleEnv: Record<string, string> | undefined
   resolved: {
     providerKey: string | null
+    model?: string | undefined
     titleModel?: string | undefined
   }
   payload: {
@@ -162,6 +163,7 @@ export function buildTurnContext<W>(input: BuildTurnContextInput<W>): TurnContex
     ...(input.titleEnv ? { titleEnv: input.titleEnv } : {}),
     ...(resolved.titleModel ? { titleModel: resolved.titleModel } : {}),
     providerKey: resolved.providerKey,
+    modelFamily: resolved.model,
     pendingUserText: input.effectiveText,
     firstUserText: input.effectiveText,
     pendingAttachmentViews: payload.attachmentViews,
@@ -225,6 +227,7 @@ export function makeContinuationTurn<W>(prev: TurnContext<W>): TurnContext<W> {
     ...(prev.titleEnv ? { titleEnv: prev.titleEnv } : {}),
     ...(prev.titleModel ? { titleModel: prev.titleModel } : {}),
     providerKey: prev.providerKey,
+    modelFamily: prev.modelFamily,
     pendingUserText: null,
     firstUserText: prev.firstUserText,
     pendingAttachmentViews: [],

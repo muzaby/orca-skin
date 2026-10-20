@@ -44,7 +44,7 @@ export async function openCodeNativeCommands(
               skill:
                 command.source === 'skill' &&
                 !!location &&
-                (!!plugin || isOpenCodeSkill(location, directory, env))
+                (!!plugin || (await isOpenCodeSkill(location, directory, env)))
             }
           : {})
       }

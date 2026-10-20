@@ -52,6 +52,7 @@ const ref: ArtifactRef = {
   publishedAt: 1
 }
 const preview = vi.fn()
+const reveal = vi.fn()
 const writeText = vi.fn()
 function all(tree: ReactNode): ReactElement<Record<string, unknown>>[] {
   return Children.toArray(tree).flatMap((node) =>
@@ -126,7 +127,8 @@ beforeEach(async () => {
     mimeType: 'text/markdown'
   })
   writeText.mockReset().mockResolvedValue(undefined)
-  vi.stubGlobal('window', { orca: { artifacts: { preview } } })
+  reveal.mockReset().mockResolvedValue({ ok: true })
+  vi.stubGlobal('window', { orca: { artifacts: { preview, reveal } } })
   vi.stubGlobal('navigator', { clipboard: { writeText } })
   await openArtifactViewer('key', 'session', ref)
 })
@@ -186,7 +188,8 @@ describe('viewer toolbar production callbacks', () => {
     expect(h.states).toEqual(stateBeforeCompletion)
     if (transition === 'switch') expectQuiet()
   })
-  it('keeps binary file download available when its preview format is unsupported', async () => {
+  it('reveals an unsupported binary file instead of opening a preview', async () => {
+    closeArtifactViewer()
     preview.mockResolvedValueOnce({ state: 'unavailable', reason: 'unsupported-format' })
     await openArtifactViewer('key', 'session', {
       ...ref,
@@ -194,16 +197,9 @@ describe('viewer toolbar production callbacks', () => {
       category: 'file',
       kind: 'file'
     })
-    const nodes = all(render())
-    expect(
-      nodes.find((element) => element.props['data-behavior'] === 'viewer:download')?.props.disabled
-    ).toBe(false)
-    expect(nodes.some((element) => element.props['data-behavior'] === 'viewer:copy')).toBe(false)
-    expect(nodes.some((element) => element.props['data-behavior'] === 'viewer:retry')).toBe(false)
-    click('download')
-    await Promise.resolve()
-    expect(h.save).toHaveBeenCalledWith({ sessionId: 'session', publicationIds: ['p'] })
-    expectQuiet()
+    expect(reveal).toHaveBeenCalledExactlyOnceWith({ sessionId: 'session', publicationId: 'p' })
+    expect(useArtifactViewerStore.getState().selection).toBeNull()
+    expect(h.save).not.toHaveBeenCalled()
   })
   it('changes the selected file mode, expands, and closes without changing its identity', () => {
     const code = all(render()).find(
