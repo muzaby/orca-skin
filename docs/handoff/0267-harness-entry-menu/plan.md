@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | READY / r1.13 |
+| 상태 / 라운드 | IMPL_DONE / r1.13 |
 | V mode / 기준 V / 유효 V | Delta V / r1.9 (`64beff7e`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9+ΔV10+ΔV11+ΔV12+ΔV13+ΔV14+ΔV15 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
@@ -1792,3 +1792,110 @@ EP30 고정9자리: ①tile 정의·양 하네스 정책·Work 배치 ②실제 
 검색: `rg -n 'nativeStatus|NativeResourcesTile|projectName|useNativeResources|refreshNative|ensureNative|nativeResourceState|HeaderContent' app/src/renderer/src/{features/chat,pages,shared/i18n} -g '!*.test.*'`.
 직접 oracle: 실제 menu/reducer/registry·page 조립·새 tile render·hook와 실제 IPC sink 횟수·push/실패/종료·Chromium. M4 선택: hook open의 ensure를 refresh로 바꿔 warm 재열기 조회0 단언이 red인지 확인한 뒤 복원한다. 기존 M2/M3 projection은 비영향이라 이전 증거 승계.
 게이트: 관련 비DB renderer/main native 공유 회귀·lint·타입3종·build·boundary·inventory/links·UI catalog·실제 Chromium. 기존 실제 CLI 공유/복원은 main/adapter 비영향으로 r1.12 증거 승계한다. 설치 Windows 앱 GUI와 외부 인증 환경은 분리 보고한다. READY.
+
+## [구현자 기입] r1.13 설계 리뷰
+
+- 설계와 합치: D51~54대로 실제 케밥 타일 표시·양 하네스 registry에 nativeStatus를 등록하고 popup의 모델과 행을 그대로 재사용했다.
+- 현실 조정: Claude Work의 task-focus를 계획한 standard-grid로 바꿔 작업·상태 타일이 공존한다. 프로젝트 이름은 page의 catalog에서 props로 전달한다. 새 cross-feature import는 없다.
+- Decision 충돌·PLAN_GAP: 없음. main/SDK/영속 저장·프로젝트 fanout 정책은 변경하지 않았다. CLI 수명과 공유는 이전 계약을 유지한다.
+
+## [구현자 기입] r1.13 강제 지점 전수와 V-pair 자기확인
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP48 | tile 정의·정책·Work 배치 | EP30 ① | 1/1 | rightPanelTiles.test: Work와 Code가 가시 타일…; rightPanelTiles.harness.test: retains Claude Code and Work panel sets; 실제 Chromium | Work task+status 공존. Code/OpenCode 메뉴도 status 포함, 초기 타일은 기존 값 | 없음 |
+| VP48 | 실제 케밥→타일 reducer | EP30 ② | 1/1 | ChatTitleBar.render.test: 런타임 타일 제목과 기존 제목…; 실제 Chromium 케밥 클릭 | Claude/OpenCode 상태와 서로 다른 로고. 선택 후 실제 nativeStatus가 열리고 close/reopen 동작 | 없음 |
+| VP48·49 | registry·header·타일 셸 | EP30 ③ | 1/1 | ChatTitleBar.render.test의 registry 확인; NativeResourcesTile.test: branded project title…; Chromium 확대/복원/닫기 | 양 registry Content/Header. 실제 expanded 표식 true→false, Escape로 타일 제거 | 없음 |
+| VP49 | page→chat→host→column→header | EP30 ④ | 1/1 | NativeStatusProject.test: live catalog project name… 3page; ChatTile.harness.test의 RightPanel props; Chromium rename | 다른 프로젝트 이름과 공유 프로젝트 이름을 구별. 실제 header에 rename 즉시 반영 | 없음 |
+| VP49 | flat 그룹·동일 행·제어 | EP30 ⑤ | 1/1 | NativeResourcesTile.test: popup rows for statuses… 및 read-only OpenCode…; Chromium | green/amber/green, 위치 열기 payload, switch thumb spinner, 같은 항목만 busy. OpenCode unsupported 제어0 | 없음 |
+| VP50 | ensure·single-flight·Composer attach | EP30 ⑥ | 1/1 | NativeResourcesTile.test: shares one cold read…; Composer 관련 회귀; Chromium 실제 IPC 대역 횟수 | cold panel/popup/Composer 1회. healthy reopen/remount 조회1 유지. Composer attach는 ensure 사용 | 없음 |
+| VP50·51 | push·실패·재연결·종료/late fence | EP30 ⑦ | 1/1 | useNativeResources.test: keeps observations… / reuses A after A→B→A… / retires an inactive process generation…; 기존 peer held read/write 검사 | 다른 backend 분리, partial/retry/reconnect 새 조회, push 뒤 late 결과와 retired generation 폐기 | 없음 |
+| VP48~51 | 실제 UI·두 하네스·이동 | EP30 ⑧ | 1/1 | harness-entry Chromium, validation r1.13의 브라우저 관측 | Work/Code/OpenCode, white/dark, 280px·긴 제목, 키보드, A/B 공유·이동 중 조회2 유지 | Windows 설치 앱 GUI 미실기 |
+| VP48·49 | i18n·타일 제목·ARIA | EP30 ⑨ | 1/1 | ChatTitleBar.render.test; NativeResourcesTile.test의 title; Chromium ko/en | Claude 상태/OpenCode 상태, Claude Status·프로젝트 제목. EN reopen 조회1 유지 | 없음 |
+
+EP30 합계9/9. 지정 rg 출력80행을 ①~⑨의 production path와 대조했다. OpenCode Panel.tsx의 legacy HeaderContent 경로는 nativeStatus 진입점이 아니며 현재 TilePanel 경로와 구분했다. 새 저장/SDK 경계는 없다. 고정 목록 밖의 추가 필수 경로는 발견하지 않았다. 검색 행 수를 자리 분모로 삼지 않았다.
+
+- 직전 verify 고장 이력의 못 잡음 행: 없음. 사용자 요구의 실제 popup/panel 공유는 두 UI를 동시에 열고 제어를 보류하여 관측했다.
+- 완결성 범위: EP30 고정9자리의 직접 oracle이며, 별도 Orca 프로세스·Windows 설치 앱까지 검사했다는 뜻이 아니다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP48 | REQUIRED | SELF_PASS | tile 정책·실제 ChatTitleBar·registry·Chromium menu→panel | not selected — 실제 타일 열림·닫힘 관측 |
+| VP49 | REQUIRED | SELF_PASS | NativeResourcesTile 4케이스·page 3케이스·Chromium | not selected — 실제 dot/control/title/props 결과 |
+| VP50 | REQUIRED | SELF_PASS | cold/warm native IPC 횟수·hook failure/reconnect·Composer | M4 red1: warm 조회 기대1/실제3, 복원 후4/4 |
+| VP51 | REQUIRED | SELF_PASS | hook peer push/late read/write/retirement·main sharing 회귀·Chromium A/B | not selected — 같은 프로젝트 UI와 세대별 결과 직접 관측 |
+| 변경 관련 상속 경로 | REGRESSION | SELF_PASS | 관련63파일488케이스의 menu/Composer/tile/state/main 공유 | 실제 CLI 저장·공유는 main/adapter 비영향으로 r1.12 증거 승계 |
+| 비영향 source projection·CLI 저장 | NOT_REQUIRED | r1.10~r1.12 관측 승계 | 이전 전수표·validation | M2/M3 대상 projection 불변, 새 실행 주장 없음 |
+
+## [구현자 기입] r1.13 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| hook open의 state.ensure→state.refresh | ΔV15 M4 | 신규 | NativeResourcesTile.test: shares one cold read… 1failed/3skipped, warm calls 기대1/실제3 | red 확인. 원본 bytes 복원 후 같은 파일4/4 green |
+
+- 분모 검산: 선택 증거1 · 인용 변이0 · 새 구조/배선 proxy oracle0 = 잠금 의무1행, 실행1행.
+- 나머지는 해당 없음 — 직접 oracle. M2/M3 대상 모델 projection은 변경하지 않아 설계대로 이전 증거를 승계했다. 기존 row component도 변경하지 않았다.
+
+## [구현자 기입] r1.13 Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 사용자 대면 문구·상태에 소비자가 있는가 | 상태 라벨은 실제 tile menu/title/ARIA, retry는 최초 오류 버튼 | ko/en 실제 표시, 오류는 기존 토스트 경로 |
+| production 재배치 시 정리 스코프가 유지되는가 | 원래 native cache와 타일 셸을 사용 | session/backend 관측 cache, 프로젝트 공유는 main 소유 |
+| 새 실패 경로가 Part I의 어느 행인가 | D52/D54·AC48/50의 목록 실패·retry | 기존 목록 보존·실패 토스트·다음 reopen/명시 retry 허용 |
+| 실패가 아무 일도 안 일어남으로 보이는가 | 항목별 pending과 thumb spinner, 최초 오류 retry | 전체 메뉴 비활성 효과·금지 커서 없음 |
+| 늦은 응답이 화면을 되돌리지 않는가 | 기존 read/push/epoch fence 유지, reconnect는 새 serial | hook의 held read/write·retired generation 회귀 |
+| 좁은 폭·긴 이름·테마·키보드 | 표준 타일의 truncate/resize/expand와 CascadeBody 사용 | 실제 280px·white/dark·ArrowDown/Enter/Escape 관측 |
+
+## [구현자 기입] r1.13 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | panel/popup/Composer가 동시에 첫 조회 | ✅ 같은 readSerial의 flight를 공유 | cold 세 소비자의 실제 IPC1회, warm 조회 증가0 |
+| 2 | 연결 직전의 metadata 조회를 재연결에서도 공유 | ✅ reconnect가 readSerial을 올려 새 조회 | held old partial 뒤 live 결과 유지 hook 검사 |
+| 3 | 프로젝트 이름을 header만 추가하면 page/host 중간 props가 누락 | ✅ 세 page 조립·ChatTile·실제 타일 header를 각각 확인 | 다른 프로젝트 구별·rename tests, 브라우저 실제 제목 |
+| 4 | Work의 task-focus가 상태 타일을 감춤 | ✅ 계획한 standard-grid로 전환 | 실제 작업/상태 동시 표시·280px resize |
+| 5 | 브라우저 검사 selector가 상태 span도 선택 | ✅ 테스트를 button 역할로 한정 | 실제 checkbox pending과 thumb 내부 spinner 관측 |
+| 6 | 기본 폭의 복수 column이 viewport를 넘으면 결함으로 오인 | ✅ 기존 가로 scroll 정책과 구분하고 실제 pane을280px로 resize | withinViewport=true/titleTruncated=true |
+
+### 설계 대비 명시적 차이
+
+- 지정한 메커니즘을 다른 것으로 바꾼 것: 없음. 새 cache나 저장소를 만들지 않고 계획한 기존 관측 cache의 ensure/single-flight를 구현했다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 대체 없음·TTL 없음 | AC50·⑥⑦, healthy warm 추가 조회0, partial/error 재조회 |
+| 공유 | 해당 없음 — 프로젝트 fanout/push 유지 | AC48/50·⑤⑦⑧, A/B push와 popup/panel pending 일치 |
+| 재진입 | 해당 없음 — 기존 창 수명 cache | AC47/50·②⑥⑧, close/reopen/remount/nav 조회 증가0 |
+| 다른 무효화 축 | 해당 없음 — reconnect/retire fence 유지 | AC50·⑦, backend 분리와 종료·old read/write 폐기 |
+
+## [구현자 기입] r1.13 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | nativeStatus 컴포넌트·양 하네스 tile 정책/registry·page→header props·native cache/hook/Composer·i18n·관련 tests/fixture·현재 구조 문서 |
+| 실행 명령 | [validation r1.13](evidence/validation.md)의 관련 Vitest·타입·lint·build·boundary·문서/catalog·Chromium |
+| 관측한 게이트 산출 | 관련63파일488/488. 타입3종 진단0, build 성공, lint 오류0·기존경고4, boundary8/8, 문서·catalog source296/rows296 차집합[] |
+| V-pair 자기확인 | 신규 SELF_PASS4 / SELF_BLOCKED0. 변경 관련 상속 회귀는 위 표 |
+| 강제 지점 전수 | EP30 9/9 |
+| AC 자기보고(Criteria-Met) | 50/50 — 기존46개 관측 승계, 영향 경로는 관련488케이스로 재확인 |
+| 합계 검산 | ✅50 · ⚠️0 · ❌0 = 총50. 이전46에 AC47~50 추가 |
+| 블로커 / 역질문 | 없음. 설치 Windows GUI는 미실기이며 실제 CLI는 비영향 r1.12 증거 승계 |
+| 대상 커밋 | (r1.13 구현 — 좌표는 INDEX) |
+
+| AC | 자기보고 / 이번 관측 |
+|---|---|
+| AC1~46 | ✅ 이전 관측 승계. menu/Composer·상태 수명·공유·tile 관련 경로는 이번488케이스로 재확인 |
+| AC47 | ✅ 실제 kebab에서 양 하네스 branded status tile 열기/닫기/재열기. Work 작업과 공존 |
+| AC48 | ✅ 같은 rows/dots·reveal payload·독립 switch·spinner. popup/panel pending 동시 일치, readonly 제어0·default cursor |
+| AC49 | ✅ 세 page의 catalog 이름·rename·cwd fallback, 두 브랜드, 실제 white/dark·280px·긴 제목·확대복원·키보드·ko/en |
+| AC50 | ✅ cold 소비3개 IPC1회·warm remount1 유지. 실제 A/B 이동·재열기·rename 동안 조회2 유지. hook의 retry/reconnect·push·late/retired fence 통과 |
+
+plan 메타/INDEX를 r1.13 impl/IMPL_DONE·Claude 독립 검증 대기로 맞췄다. 구현자 자기보고이며 독립 verify 결과가 아니다.
+
+## [구현자 기입] r1.13 Review Signals — 사실만
+
+- 이전과 같은 축인가: 같은 native 제어의 새 우측 소비자와 반복 조회 방지다. 프로젝트 상태 저장/실행 공유 계약은 유지했다.
+- 막았어야 할 지침·AC가 있었는가: 새 D51~54·AC47~50이 tile 진입과 캐시 횟수를 명시했다. 기존 hook remount 강제 조회 기대값은 새 계약에 맞게 변경했다.
+- 환경 한계: 실제 production UI를 Chromium+메모리 IPC로 검사했다. Windows 설치 앱·외부 MCP 인증은 실행하지 않았다. 최초 보충 EN 검사는 이전 탭의 조회계측이 없어 실패했고 독립 계측으로 다시 확인했다.
+- 현재 라운드·impl 턴: r1.13 / r1.13. 독립 verify 대기.

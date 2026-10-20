@@ -240,7 +240,7 @@ OpenCode의 질문과 도구 승인은 도착 순서대로 같은 입력 자리�
 
 `components/rightpanel/tileRegistry.ts`는 하네스별 타일 본문과 헤더를 선택한다. `rightPanelTiles`의 하네스 정책은 reducer 활성화·패널 렌더링의 지원 범위를 정의하고, 선택적 `menuIds`로 타이틀 메뉴의 노출 범위를 좁힌다. 메뉴 비노출은 저장된 타일·직접 활성화·상세 패널의 지원을 변경하지 않는다.
 
-타이틀 메뉴는 `타일 표시` 아래에 노출 항목을 정의 순서로 표시하며 범주 제목을 넣지 않는다. Claude Code는 계획·백그라운드 작업·변경사항, Claude Work와 OpenCode는 작업만 표시한다. OpenCode의 전용 외형은 해당 하네스의 composer·transcript·패널에만 적용한다.
+타이틀 메뉴는 `타일 표시` 아래에 노출 항목을 정의 순서로 표시하며 범주 제목을 넣지 않는다. Claude Code는 계획·백그라운드 작업·변경사항과 Claude 상태, Claude Work는 작업과 Claude 상태, OpenCode는 작업과 OpenCode 상태를 표시한다. 상태 항목 왼쪽에는 각 브랜드 로고를 둔다. OpenCode의 전용 외형은 해당 하네스의 composer·transcript·패널에만 적용한다.
 
 엔진·모델 페이지의 엔진 추가 dropdown은 Claude/OpenCode를 선택한 뒤 폼을 연다. 두 폼은 ‘엔진 추가’ 제목과 취소/추가하기 버튼, 모달 폭·헤더·footer 스타일을 공유한다. Claude 카드에는 adapter 이름 `claude`, Claude 엔진 편집에는 고정 adapter/provider chip을 표시한다. 폼 안의 하네스는 고정된다. OpenCode 신규 엔진은 공급자 ID·표시 이름·URL·선택 API 키와 모델/헤더 반복 행을 사용한다. 공급자 제목 옆의 불러오기는 전역 파일에서 노출 필드만 채우며 원본을 편집하지 않는다. v1 codec은 폼의 공급자와 모델만 소유하는 새 native override 문서를 생성한다. 모델 목록의 소유 범위는 [OpenCode 카탈로그 계약](../backend/adapters.md)을 따른다. 기존 엔진 편집은 JSON을 사용한다. 설정 모달은 일반·사용량·공급자별 사용량만 표시하며 하네스별 설정 탭은 제공하지 않는다. 페이지 진입은 기존 카탈로그를 재사용하며 변경 저장과 공급자 상태 갱신은 목록을 다시 조회한다. 카탈로그 조회 상태는 엔진 변경 작업의 busy와 분리해 다른 하네스 조회가 기존 편집·삭제·저장을 잠그지 않는다.
 
@@ -259,3 +259,10 @@ OpenCode의 질문과 도구 승인은 도착 순서대로 같은 입력 자리�
 OpenCode 패널의 외곽은 기존 보조 패널과 같은 `rounded-r6 border`를 사용하며, 전용 색·표면·그림자는 두 테마의 `oc-*` 토큰이 갖는다. 클릭 행의 안쪽 좌우 여백은 `PanelRow`·하위 에이전트 요약/목록·소스 URL에 일관되게 적용한다.
 
 OpenCode 소스는 Work 컨텍스트와 같은 `useTaskContext` 훅을 사용한다. 폴더·첨부·참조 목록과 열기/추가 기능을 공유하고, `sessionContextPolicy`가 OpenCode Code와 Claude Work의 컨텍스트 기능을 허용한다. child 도구와 대화는 부모 작업에 귀속하며 셸의 완료 결과를 진행 로그보다 우선하고 제한된 후미와 잘림 안내를 표시한다. 선택·닫기·세션 캐시의 수명은 [상태 관리](state.md#우측-타일-선택)를 따른다.
+
+
+### 하네스 상태 타일
+
+`nativeStatus`는 양 하네스의 우측 타일 registry에 등록한다. 제목은 브랜드 로고와 하네스 상태, 프로젝트 이름이며 page의 프로젝트 catalog 이름을 chat→host→column→header props로 전달한다. 소속이 없으면 cwd 표시 이름을 사용한다. 프로젝트 이름 변경은 제목만 갱신하며 native 조회를 다시 시작하지 않는다.
+
+본문은 MCP·플러그인 그룹을 직접 나열한다. `nativeResourcesMenu` 모델을 flat heading으로 표시하고 기존 `CascadeBody`의 상태 공·행·독립 스위치를 그대로 렌더한다. 이름 클릭은 MCP 설정 파일/플러그인 설치 위치를 열고 오른쪽 스위치는 프로젝트 공유 제어를 실행한다. async spinner는 스위치 손잡이 내부에 있으며 다른 항목과 popup은 계속 사용할 수 있다. 읽기 전용 하네스에 지원하지 않는 제어를 만들지 않는다. 닫기·확대·복원과 열/행 리사이즈는 기존 타일 셸을 사용한다. Work의 작업과 상태도 함께 배치한다.

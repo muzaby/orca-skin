@@ -1,3 +1,5 @@
+import { Icon } from '../../../shared/ui/Icon'
+import { HarnessLogo } from '../harnesses/registries/brand'
 import { reportError } from '../../../shared/errors'
 import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import { Button } from '../../../shared/ui/Button'
@@ -16,6 +18,7 @@ import { partsText } from '../lib/parts'
 import type { ChatState } from '../reducer/chatReducer'
 import {
   rightPanelPolicy,
+  rightPanelTileLabel,
   rightPanelMenuTileDefinitionsForAgent,
   showsUnseenTaskBadge,
   SUSPENDED_RIGHT_PANEL_TILES,
@@ -218,7 +221,7 @@ export const ChatTitleBar = memo(function ChatTitleBar({
             return (
               <MenuItem
                 key={tile.id}
-                icon={active ? 'check' : 'plus'}
+                icon={tile.id === 'nativeStatus' ? undefined : active ? 'check' : 'plus'}
                 iconSize={13}
                 onClick={() => {
                   chatActions.toggleRightPanelTile(tile.id)
@@ -227,7 +230,15 @@ export const ChatTitleBar = memo(function ChatTitleBar({
                 role="menuitemcheckbox"
                 aria-checked={active}
               >
-                <span>{labels[tile.id as RightPanelTileId] ?? tr(tile.defaultLabelKey)}</span>
+                {tile.id === 'nativeStatus' && (
+                  <HarnessLogo backend={backend ?? 'claude'} className="size-3.5 shrink-0" />
+                )}
+                <span>
+                  {labels[tile.id as RightPanelTileId] ?? rightPanelTileLabel(tile.id, backend, tr)}
+                </span>
+                {tile.id === 'nativeStatus' && active && (
+                  <Icon name="check" size={13} className="ml-auto shrink-0" />
+                )}
                 {/* 0213 D-001 로 `작업` 이 목록에 돌아와 이 배지가 다시 도달한다 — 메뉴를 연
                     채로도 미확인 완료 수가 보인다(0205 §10 EP-03 이 지우지 말라고 남긴 자리). */}
                 {tile.id === panelPolicy.taskBadgeTile && showTaskBadge && (

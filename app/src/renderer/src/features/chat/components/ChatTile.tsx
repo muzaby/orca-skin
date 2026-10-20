@@ -16,6 +16,7 @@ import type { UsageLimitsView } from '../../../../../shared/usage/limits'
 import { agentUiPolicy } from '../lib/agentPresentation'
 
 interface ChatTileProps {
+  projectName?: string | null
   backendLabel: string
   // 활성 백엔드의 중단 지원 여부(§15). page → ChatView 를 거쳐 Composer 로 전달.
   canAbort: boolean
@@ -38,6 +39,7 @@ interface ChatTileProps {
 // 스트리밍 델타 프레임에는 재렌더되지 않고, 커밋 프레임에도 자식(ChatTitleBar·
 // TranscriptView·Composer)이 각자 memo/selector 로 bail 한다 (0008).
 export function ChatTile({
+  projectName,
   backendLabel,
   canAbort,
   usageLimits,
@@ -159,7 +161,7 @@ export function ChatTile({
           />
         </div>
 
-        <RightPanel onExpandedChange={onPanelExpandedChange} />
+        <RightPanel projectName={projectName} onExpandedChange={onPanelExpandedChange} />
       </div>
     </section>
   )

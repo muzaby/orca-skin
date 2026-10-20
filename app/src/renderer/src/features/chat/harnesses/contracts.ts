@@ -139,6 +139,7 @@ export interface RightPanelHostConfiguration {
 }
 
 export interface RightPanelHostProps {
+  projectName?: string | null
   className?: string
   onExpandedChange?: (sessionKey: string, expanded: boolean) => void
   configuration: RightPanelHostConfiguration

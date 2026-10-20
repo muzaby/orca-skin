@@ -1,3 +1,7 @@
+import {
+  NativeResourcesTileContent,
+  NativeResourcesTileHeader
+} from '../../../components/rightpanel/NativeResourcesTile'
 import { rightPanelTileDefinitions, type RightPanelTileId } from '../../../lib/rightPanelTiles'
 import type { RightPanelTileRegistration } from '../../contracts'
 import { PlanTileHeaderActions } from '../../common/rightpanel/PlanTileContent'
@@ -13,6 +17,7 @@ import {
 import { PlanContent } from './PlanTile'
 
 const contentById = {
+  nativeStatus: NativeResourcesTileContent,
   plan: PlanContent,
   subagent: OpenCodeAgentContent,
   task: OpenCodeTaskContent,
@@ -27,7 +32,13 @@ export const openCodeTiles: RightPanelTileRegistration[] = rightPanelTileDefinit
     Content: contentById[tile.id],
     HeaderActions: tile.id === 'plan' ? PlanTileHeaderActions : undefined,
     HeaderContent:
-      tile.id === 'subagent' ? OpenCodeAgentHeader : tile.id === 'diff' ? GitContextBar : undefined
+      tile.id === 'nativeStatus'
+        ? NativeResourcesTileHeader
+        : tile.id === 'subagent'
+          ? OpenCodeAgentHeader
+          : tile.id === 'diff'
+            ? GitContextBar
+            : undefined
   })
 )
 

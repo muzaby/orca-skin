@@ -619,6 +619,7 @@ export const ko = {
   },
   chat: {
     nativeResources: {
+      retry: '다시 시도',
       openConfig: '설정 파일 위치 열기',
       openFolder: '설치 폴더 열기',
       openError: '플러그인 설치 폴더를 열 수 없습니다. 설치 상태를 확인해 주세요.',
@@ -638,8 +639,8 @@ export const ko = {
       'needs-auth': '인증 필요',
       pending: '연결 중',
       unsupported: '세션별 제어 미지원',
-      enable: '이 세션에서 활성화',
-      disable: '이 세션에서 비활성화',
+      enable: '프로젝트에서 활성화',
+      disable: '프로젝트에서 비활성화',
       plugins: '플러그인'
     },
     opencode: {
@@ -1218,6 +1219,7 @@ export const ko = {
     },
     rightpanel: {
       tiles: {
+        nativeStatus: '상태',
         plan: '계획',
         subagent: '백그라운드 작업',
         task: '작업',

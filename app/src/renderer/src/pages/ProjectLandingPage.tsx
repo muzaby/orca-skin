@@ -81,6 +81,7 @@ export function ProjectLandingPage({
   if (!isEmpty) {
     return (
       <ChatTile
+        projectName={projectName}
         backendLabel={backendLabel}
         canAbort={canAbort}
         usageLimits={usageLimits}

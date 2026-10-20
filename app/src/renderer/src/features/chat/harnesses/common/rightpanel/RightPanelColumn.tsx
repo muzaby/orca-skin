@@ -10,6 +10,7 @@ import { RowSeparator } from './PanelResizeSeparators'
 const ROW_GROW_MS = 230
 
 export function RightPanelColumn({
+  projectName,
   sessionKey,
   configuration,
   col,
@@ -20,6 +21,7 @@ export function RightPanelColumn({
   onToggleExpand,
   taskTileChrome
 }: {
+  projectName?: string | null
   sessionKey: string
   configuration: RightPanelHostConfiguration
   col: number
@@ -93,6 +95,7 @@ export function RightPanelColumn({
             headerContent={
               HeaderContent ? (
                 <HeaderContent
+                  projectName={projectName}
                   expanded={expandedTile === id}
                   onToggleExpand={() => onToggleExpand(id)}
                 />

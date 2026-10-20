@@ -615,6 +615,7 @@ export const en: typeof ko = {
   },
   chat: {
     nativeResources: {
+      retry: 'Retry',
       openConfig: 'Show configuration file',
       openFolder: 'Open installation folder',
       openError: 'Could not open the plugin folder. Check its installation.',
@@ -634,8 +635,8 @@ export const en: typeof ko = {
       'needs-auth': 'Authentication required',
       pending: 'Connecting',
       unsupported: 'Session controls unavailable',
-      enable: 'Enable in this session',
-      disable: 'Disable in this session',
+      enable: 'Enable in this project',
+      disable: 'Disable in this project',
       plugins: 'Plugins'
     },
     opencode: {
@@ -1212,6 +1213,7 @@ export const en: typeof ko = {
     },
     rightpanel: {
       tiles: {
+        nativeStatus: 'Status',
         plan: 'Plan',
         subagent: 'Background tasks',
         task: 'Tasks',

@@ -1,3 +1,4 @@
+import { RightPanel } from '../../../src/renderer/src/features/chat/components/rightpanel/RightPanel'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import '../../../src/renderer/src/styles/app.css'
@@ -204,7 +205,12 @@ window.orca = new Proxy(base, {
     return Reflect.get(target, name)
   }
 })
-function seed(backend: 'claude' | 'opencode', saved = true, id = 'fixture'): void {
+function seed(
+  backend: 'claude' | 'opencode',
+  saved = true,
+  id = 'fixture',
+  kind?: 'code' | 'work'
+): void {
   useChatStore.setState({
     sessions: {
       [id]: {
@@ -213,7 +219,8 @@ function seed(backend: 'claude' | 'opencode', saved = true, id = 'fixture'): voi
           sessionId: saved ? id : null,
           title: '하네스 연결 확인',
           backend,
-          agentKind: backend === 'opencode' ? 'code' : 'work',
+          agentKind: kind ?? (backend === 'opencode' ? 'code' : 'work'),
+          projectId: 'fixture',
           cwd: 'C:/fixture'
         },
         live: { text: '', reasoning: '' },
@@ -234,6 +241,9 @@ export function App(): React.JSX.Element {
   const { t, setTweak } = useTweakContext((value) => value)
   const backend = useChatSession((value) => value.backend)
   const Header = harnessLanding(backend).Header
+  const projectName = useProjectsStore(
+    (state) => state.list.find((project) => project.id === 'fixture')?.name ?? null
+  )
   return (
     <main className="flex h-screen w-full flex-col bg-bg text-ink [font-family:var(--font-app)]">
       <ErrorToastLayer />
@@ -248,6 +258,7 @@ export function App(): React.JSX.Element {
           nav 너비
         </button>
         <button onClick={() => seed('claude')}>Claude 세션</button>
+        <button onClick={() => seed('claude', true, 'fixture', 'code')}>Claude Code 세션</button>
         <button onClick={() => seed('claude', true, 'fixture-B')}>Claude 세션 B</button>
         <button onClick={() => seed('claude', true, 'empty')}>빈 세션</button>
         <button onClick={() => seed('opencode')}>OpenCode 세션</button>
@@ -263,31 +274,34 @@ export function App(): React.JSX.Element {
       </div>
       <div className="flex min-h-0 flex-1">
         <Sidebar projectsSlot={null} pinnedSlot={null} sessionsSlot={null} footerSlot={null} />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <ChatTitleBar />
-          <Routes>
-            <Route path="/plugins" element={<PluginsPage />} />
-            <Route
-              path="/projects/:projectId"
-              element={<ProjectLandingPage onDeleteProject={() => {}} />}
-            />
-            <Route
-              path="*"
-              element={
-                <>
-                  <div className="flex flex-1 items-center justify-center">
-                    <Header />
-                  </div>
-                  <div className="mx-auto w-full max-w-3xl px-4 pb-6">
-                    <Composer
-                      backendLabel={backend === 'opencode' ? 'OpenCode' : 'Claude'}
-                      canAbort={true}
-                    />
-                  </div>
-                </>
-              }
-            />
-          </Routes>
+        <div data-side-pane-host="" className="relative flex min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <ChatTitleBar />
+            <Routes>
+              <Route path="/plugins" element={<PluginsPage />} />
+              <Route
+                path="/projects/:projectId"
+                element={<ProjectLandingPage onDeleteProject={() => {}} />}
+              />
+              <Route
+                path="*"
+                element={
+                  <>
+                    <div className="flex flex-1 items-center justify-center">
+                      <Header />
+                    </div>
+                    <div className="mx-auto w-full max-w-3xl px-4 pb-6">
+                      <Composer
+                        backendLabel={backend === 'opencode' ? 'OpenCode' : 'Claude'}
+                        canAbort={true}
+                      />
+                    </div>
+                  </>
+                }
+              />
+            </Routes>
+          </div>
+          <RightPanel projectName={projectName} />
         </div>
       </div>
     </main>

@@ -1,3 +1,4 @@
+import { useProjectsState } from '../features/projects'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ChatTile, Landing, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
@@ -15,6 +16,10 @@ export function NewChatLandingPage(): React.JSX.Element {
   // 전환된다. !inflight 는 이중 방어 — 어떤 경로로든 턴이 시작되면 랜딩에 갇히지 않는다.
   const isEmpty = useChatSession((s) => s.messages.length === 0 && !s.loadingSession && !s.inflight)
   const backend = useChatSession((s) => s.backend)
+  const projectId = useChatSession((s) => s.pendingProjectId ?? s.projectId)
+  const projectName = useProjectsState(
+    (s) => s.list.find((project) => project.id === projectId)?.name ?? null
+  )
   const backendLabel = useBackendLabel()
   const capabilities = useBackendCapabilities()
   // 능력 서술자가 로드됐는데 sessionAbort 가 아니면 중단 게이팅(미로드면 현행 동작 유지).
@@ -52,6 +57,7 @@ export function NewChatLandingPage(): React.JSX.Element {
   }
   return (
     <ChatTile
+      projectName={projectName}
       backendLabel={backendLabel}
       canAbort={canAbort}
       usageLimits={usageLimits}

@@ -149,10 +149,10 @@ export function ComposerInputController({
     backend,
     sessionId || !backend ? undefined : { backend, cwd, projectId }
   )
-  const refreshNative = native.refresh
+  const ensureNative = native.ensure
   useEffect(() => {
-    if (active && attachMenuOpen) refreshNative()
-  }, [active, attachMenuOpen, refreshNative])
+    if (active && attachMenuOpen) ensureNative()
+  }, [active, attachMenuOpen, ensureNative])
   const nativeMenu = useMemo(
     () => ({
       label: backend === 'opencode' ? 'OpenCode' : 'Claude',
