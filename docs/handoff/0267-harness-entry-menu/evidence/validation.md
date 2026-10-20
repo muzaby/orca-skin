@@ -394,3 +394,36 @@ npx vitest run src/main/adapters/claude/plugin-state.test.ts src/main/adapters/c
 CLI fixture는 격리된 HOME/CLAUDE_CONFIG_DIR와 프로젝트 .git 표식을 사용한다. plugin off/on 뒤 같은 Query에 후속 턴을 넣고, 원래 sessionId로 새 adapter/CLI를 시작한다. 전역 fixture 설정은 false, 저장된 프로젝트 선택은 true인 상태에서 native plugin과 명령이 복원되는지 확인한다. 초기 시도는 .git 표식이 없어 상위 저장소를 프로젝트로 선택했고 예상 경로 ENOENT였다. 테스트가 만든 fixture key 전용 설정 파일을 제거한 뒤 격리하여 성공했다.
 
 Chromium은 빈 세션→대화 메뉴에서 MCP·플러그인 각각 disabled=true, opacity=.5, cursor=default, haspopup=false였고 클릭/ArrowRight/Enter 뒤 하위 패널0개였다. Claude 세션에서 MCP readonly 행과 비동기 제어 중인 스위치도 cursor=default였다. 처리 중 스위치 내부 spinner와 중복 입력 차단, 다른 항목 사용, A→B→A 결과 보존을 관측했다. 페이지는 실제 ChatTitleBar/CascadeBody/MenuItem이며 IPC만 메모리 대역이다.
+
+
+## r1.12 — 같은 프로젝트 실행 세션·GUI 공유
+
+2026-10-20, Linux cloud. 프로젝트 공통 플러그인 저장은 유지하고 실행 중 CLI fanout과 각 popup cache의 실제 snapshot push를 추가했다. 세션별 영속 저장은 추가하지 않았다.
+
+| 검사 | 명령(app에서 실행) / 최종 관측 |
+|---|---|
+| 관련 Vitest | 아래 명령: 12파일209/209. 실제 root fallback·두 창 broadcast 포함 |
+| 타입 | npm run typecheck: node/web 진단0. 초기 supervisor 테스트 거버넌스 interrupt 타입 수정 뒤 npm run typecheck:test 진단0 |
+| lint | npx eslint --cache ./src ./scripts: 오류0·기존경고4 |
+| build | npx electron-vite build: main/preload/renderer 성공, 기존 chunk 경고 유지 |
+| boundary | node --test scripts/harness-boundary.test.mjs: 8/8 |
+| 문서 | node scripts/check-doc-inventory.mjs 생성 뒤 --check로 generated/prose/links 확인 |
+| UI catalog | check-design-docs.py: source/rows=295, 양방향 차집합[], 음성 대조 red |
+| 실제 CLI | node scripts/smoke-native-plugin-skills.mjs: requests=4, projectShared/runtimeToggle/warmTurn/restartEnabled=true |
+| 실제 UI | harness-entry Chromium: 재조회를 보류한 상태에서 MCP/plugin A→B→A off/on 8관측 일치, exceptions=[] |
+
+```sh
+npx vitest run src/main/app/native-resource-sharing.test.ts src/main/app/bootstrap.native-history.test.ts src/main/app/handlers/session-resources.test.ts src/main/features/sessions/{supervisor,runtime-pool,session-runtime}.test.ts src/preload/index.test.ts src/renderer/src/features/chat/hooks/useNativeResources.test.ts src/main/adapters/claude/{adapter.native-plugins,native-resources,plugin-catalog,plugin-state}.test.ts --reporter=dot
+```
+
+실제 SDK/CLI smoke는 두 ClaudeAdapter 채널을 동시에 유지하고 production shareNativeResource를 통해 하나의 plugin 제어를 양쪽 SDK에 적용한다. 두 generation의 실제 enabled 결과와 각각의 snapshot 통지를 단언한다. 그 뒤 같은 채널의 후속 턴과 새 subprocess 재개도 성공했다. 출력:
+
+```json
+{"commands":["frontend-design:metadata-name","frontend-design:frontend-design"],"expanded":true,"brief":true,"requests":4,"runtimeToggle":true,"warmTurn":true,"restartEnabled":true,"projectShared":true}
+```
+
+GUI는 실제 ChatTitleBar→CascadeBody→useNativeResources를 사용하고 IPC를 메모리 대역으로 둔다. A/B를 먼저 열어 cache를 만든 뒤 이후 nativeResources 조회를 끝나지 않는 Promise로 보류한다. A의 MCP off가 B에서도 off, B의 on이 A에서도 on이며 plugin도 동일했다. 재조회가 상태를 고친 결과로 오인하지 않도록 refreshHeld=true에서 검사했다. fixture README에 같은 프로젝트의 push 동작을 기록했다.
+
+초기 공용 readSerial을 write 결과 fence에도 적용하자 begin/다른 항목 조작이 자신의 정상 응답을 폐기해 hook8케이스가 실패했다. 공유 push만 추적하는 pushSerial을 분리한 뒤 기존 독립 제어와 새 late read/write 검사가 통과했다. runtime 열거의 TurnContext 필드는 dbSessionId이며 raw LiveTurn과 거버넌스 interrupt 타입도 구별해 타입 검사를 마쳤다.
+
+Windows 설치 앱 GUI와 외부 MCP 인증 서버는 실기하지 않았다. MCP의 프로젝트 내 실행 상태 전달은 IPC 두 runtime 테스트·Chromium으로, 플러그인은 실제 두 CLI로 추가 확인했다. 별도 Orca 프로세스나 외부 CLI에 실시간 통지하는 변경은 없다. 구현자 자기확인이며 독립 verify 결과가 아니다.

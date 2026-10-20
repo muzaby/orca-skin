@@ -19,7 +19,8 @@ import { errorToastStore } from '../../../shared/errors/errorToastStore'
 import type {
   DraftNativeResourcesRequest,
   NativeResource,
-  NativeResources
+  NativeResources,
+  NativeResourcesChanged
 } from '../../../../../shared/native-resources'
 import type { BackgroundEvent } from '../../../../../shared/background-task'
 
@@ -70,6 +71,7 @@ async function settle(): Promise<void> {
   for (let i = 0; i < 8; i++) await Promise.resolve()
   dom.act(() => {})
 }
+let resourcesChanged!: (event: NativeResourcesChanged) => void
 beforeEach(() => {
   errorToastStore.setState({ toasts: [] })
   vi.useFakeTimers()
@@ -82,7 +84,15 @@ beforeEach(() => {
   dom = installFakeDom({ innerWidth: 1200, innerHeight: 800 })
   Object.assign(window, {
     orca: {
-      session: { nativeResources: read, setNativeResource: write, openNativePlugin: openFolder },
+      session: {
+        nativeResources: read,
+        setNativeResource: write,
+        openNativePlugin: openFolder,
+        onNativeResourcesChanged: (callback: typeof resourcesChanged) => {
+          resourcesChanged = callback
+          return () => {}
+        }
+      },
       chat: {
         onBackgroundEvent: (callback: typeof backgroundEvent) => {
           backgroundEvent = callback
@@ -874,5 +884,52 @@ describe('process-owned state and independent async controls', () => {
     expect(current.view).toMatchObject({
       value: { generation: 'A-next', items: [{ enabled: false }] }
     })
+  })
+})
+
+it('updates a peer popup cache from actual shared changes and fences older reads, writes and exited generations', async () => {
+  dom.render(createElement(Probe, { id: 'session-A' }))
+  await settle()
+  dom.render(createElement(Probe, { id: 'session-B' }))
+  await settle()
+  let finishRead!: (value: NativeResources) => void
+  read.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishRead = resolve
+      })
+  )
+  current.refresh()
+  const disabled = {
+    ...snapshot(),
+    items: [{ ...resource, enabled: false, status: 'disabled' as const }]
+  }
+  resourcesChanged({ sessionId: 'session-B', resources: disabled })
+  finishRead(snapshot())
+  await settle()
+  expect(current.view).toMatchObject({ value: { items: [{ enabled: false }] } })
+  let finishWrite!: (value: NativeResources) => void
+  write.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishWrite = resolve
+      })
+  )
+  const pending = current.toggle(disabled.items[0])
+  resourcesChanged({ sessionId: 'session-B', resources: disabled })
+  finishWrite(snapshot())
+  await pending
+  await settle()
+  expect(current.view).toMatchObject({ value: { items: [{ enabled: false }] } })
+  resourcesChanged({ sessionId: 'session-A', resources: disabled })
+  read.mockImplementationOnce(() => new Promise(() => {}))
+  dom.render(createElement(Probe, { id: 'session-A' }))
+  await settle()
+  expect(current.view).toMatchObject({ value: { items: [{ enabled: false }] } })
+  terminated('session-A', 'gen-B')
+  await settle()
+  resourcesChanged({ sessionId: 'session-A', resources: snapshot() })
+  expect(current.view).toMatchObject({
+    value: { state: 'disconnected', items: [{ canToggle: false }] }
   })
 })

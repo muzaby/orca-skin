@@ -167,9 +167,15 @@ const loader = await createViteServer({
   server: { middlewareMode: true }
 })
 let live
+let peer
+let peerIterator
+let projectShared = false
 const deadline = setTimeout(() => live?.close(), 90000)
 try {
   const { ClaudeAdapter } = await loader.ssrLoadModule('/src/main/adapters/claude/adapter.ts')
+  const { shareNativeResource } = await loader.ssrLoadModule(
+    '/src/main/app/native-resource-sharing.ts'
+  )
   live = new ClaudeAdapter().sendMessage({
     sessionId: null,
     text: '/frontend-design:frontend-design design-brief-0267',
@@ -215,14 +221,55 @@ try {
         (item) => item.kind === 'plugin' && item.name === 'frontend-design@fixture'
       )
       assert(installed?.canToggle, 'native installation must support session controls')
-      const setPlugin = (enabled) =>
-        live.setNativeResource({
-          sessionId: 'fixture',
-          generation: native.generation,
-          kind: 'plugin',
-          id: installed.id,
-          enabled
-        })
+      peer = new ClaudeAdapter().sendMessage({
+        sessionId: null,
+        text: 'Verify another session in the same project.',
+        cwd,
+        env,
+        model: 'claude-sonnet-4-6',
+        extensions: { skills: [], hooks: { normalized: {} } }
+      })
+      peerIterator = peer.eventBatches[Symbol.asyncIterator]()
+      let peerId
+      while (!peerId) {
+        const next = await peerIterator.next()
+        assert(!next.done, 'peer must complete its first turn')
+        peerId = next.value.events.find((event) => event.type === 'turn.ended')?.sessionId
+      }
+      const runtimes = new Map([
+        [nativeSessionId, live],
+        [peerId, peer]
+      ])
+      const observed = new Map()
+      const sharing = {
+        scope: () => cwd,
+        peers: () => [...runtimes].map(([sessionId, runtime]) => ({ sessionId, runtime })),
+        changed: (id, value) => observed.set(id, value)
+      }
+      const setPlugin = async (enabled) => {
+        await shareNativeResource(
+          {
+            sessionId: nativeSessionId,
+            generation: native.generation,
+            kind: 'plugin',
+            id: installed.id,
+            enabled
+          },
+          live,
+          cwd,
+          sharing,
+          (id) => runtimes.get(id),
+          (_id, runtime) => runtime.nativeResources()
+        )
+        for (const runtime of runtimes.values())
+          assert.equal(
+            (await runtime.nativeResources()).items.find((item) => item.id === installed.id)
+              .enabled,
+            enabled
+          )
+        assert.equal(observed.size, 2, 'both real session snapshots must be published')
+        projectShared = true
+      }
       await setPlugin(false)
       const disabled = await live.nativeResources()
       assert(!disabled.items.find((item) => item.id === installed.id).enabled)
@@ -307,12 +354,15 @@ try {
       requests,
       runtimeToggle: true,
       warmTurn,
-      restartEnabled
+      restartEnabled,
+      projectShared
     })
   )
 } finally {
   clearTimeout(deadline)
   live?.close()
+  peer?.close()
+  await peerIterator?.return?.()
   await loader.close()
   server.closeAllConnections()
   await new Promise((done) => server.close(done))

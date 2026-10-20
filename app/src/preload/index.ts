@@ -258,6 +258,9 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.gitDiffPatch, req)
   },
   session: {
+    onNativeResourcesChanged: (
+      handler: (event: import('../shared/native-resources').NativeResourcesChanged) => void
+    ): (() => void) => subscribe(CHANNELS.sessionNativeResourcesChanged, handler),
     nativeResources: (request: string | DraftNativeResourcesRequest): Promise<NativeResources> =>
       ipcRenderer.invoke(
         CHANNELS.sessionNativeResources,

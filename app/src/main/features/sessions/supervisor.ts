@@ -103,6 +103,19 @@ export class RuntimeSupervisor<W = unknown> {
     )
   }
 
+  runtimeEntries(): Array<{ sessionId: string; runtime: NonNullable<TurnContext<W>['live']> }> {
+    const entries = new Map<string, NonNullable<TurnContext<W>['live']>>(
+      this.pool.entries().map(({ sessionId, runtime }) => [sessionId, runtime])
+    )
+    for (const lease of this.leases.all()) {
+      if (lease.sessionId && lease.runtime) entries.set(lease.sessionId, lease.runtime)
+    }
+    for (const turn of this.all()) {
+      if (turn.dbSessionId && turn.live) entries.set(turn.dbSessionId, turn.live)
+    }
+    return Array.from(entries, ([sessionId, runtime]) => ({ sessionId, runtime }))
+  }
+
   hasSession(sessionId: string): boolean {
     return this.leases.getBySession(sessionId) !== undefined || this.registry.hasSession(sessionId)
   }

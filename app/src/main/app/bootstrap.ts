@@ -1,3 +1,4 @@
+import { createNativeResourceSharing } from './native-resource-sharing'
 import { registerSessionResourceHandlers } from './handlers/session-resources'
 import { reportError } from '../infra/error-report'
 // Bootstrap — main 측 컴포지션 루트(app 레이어). 의존성 생성 + 부팅 시퀀스 + 핸들러 등록 위임만
@@ -137,6 +138,7 @@ import {
   broadcastConcurrency,
   broadcastChatEvent,
   broadcastProviderState,
+  broadcastNativeResourcesChanged,
   sendChatEvent
 } from '../infra/ipc/send'
 import { RuntimeToolRegistry } from '../features/extensions/common/runtime-tool-registry'
@@ -1085,7 +1087,14 @@ export class Bootstrap {
             throw new Error('대화가 바뀌었습니다. 메뉴를 다시 열어 주세요.')
         }
         return file
-      }
+      },
+      createNativeResourceSharing({
+        session: (id) => ctx.db.getSessionById(id),
+        cwd: ctx.getCwd,
+        projectRoot: (backend, cwd) => harnessModule(backend).nativeResourceScope?.(cwd) ?? cwd,
+        runtimes: () => supervisor.runtimeEntries(),
+        changed: (sessionId, resources) => broadcastNativeResourcesChanged({ sessionId, resources })
+      })
     )
     registerSessionHandlers(ctx, {
       isSessionBusy: (sessionId) => supervisor.hasSession(sessionId),

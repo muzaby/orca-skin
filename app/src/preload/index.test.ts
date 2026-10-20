@@ -266,6 +266,11 @@ interface EventEndpoint {
 // 공개 API에서 구독한다. 내부 helper만 시험하면 endpoint의 잘못된 채널 연결을 놓친다.
 const eventEndpoints: EventEndpoint[] = [
   {
+    name: 'session.onNativeResourcesChanged',
+    channel: CHANNELS.sessionNativeResourcesChanged,
+    subscribe: (api, handler) => api.session.onNativeResourcesChanged(handler)
+  },
+  {
     name: 'chat.onEvent',
     channel: CHANNELS.chatEvent,
     subscribe: (api, handler) => api.chat.onEvent(handler)

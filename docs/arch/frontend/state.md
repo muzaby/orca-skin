@@ -187,3 +187,8 @@ Sidebar는 고정됨→프로젝트→최근 대화 순서다. 고정 프로젝�
 - Claude 세션 전환은 `useScrollAnchor`가 바닥으로 이동한다. OpenCode는 세션별 읽는 행·상대 위치·도구 펼침을 복원한다([렌더링](rendering.md#하네스-전용-표시)).
 
 ---
+
+
+### Native 리소스 popup 관측
+
+`nativeResourceState`는 창 수명의 session/backend별 실제 관측과 진행 중 제어를 보관한다. main의 `session:native-resources-changed` 통지를 받으면 해당 세션의 캐시를 갱신하므로 같은 프로젝트의 다른 세션으로 이동하거나 popup을 다시 열 때 공유 선택이 보인다. 이 통지는 Composer의 같은 관측 소비처에도 반영된다. 통지 이전에 시작한 조회와 제어 응답은 새 snapshot을 덮지 않으며 종료 generation의 늦은 통지도 폐기한다. 공유 범위·peer 적용·부분 실패 판정은 main이 소유한다.
