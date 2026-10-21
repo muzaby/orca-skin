@@ -22,6 +22,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
+| [`0274-opencode-desktop-startup`](0274-opencode-desktop-startup/plan.md) | plan | READY | Codex | (r1 설계 — 검증자 기입) | 1 | Desktop1.17.19 참조: server별 global SSE, directory 준비·명령 목록 공유와 첫 제출 순서. 0273 오류·취소 회귀 승계. |
 | [`0273-opencode-command-stream-errors`](0273-opencode-command-stream-errors/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 실행 명령 준비·취소와 SSE 오류 전달 수정. 실제CLI1.17.19 지연MCP timeout 재현, 관련192개 pass·DB7개 ABI 한계. AC6/6, 독립 검증 대기. |
 | [`0272-composer-plugin-brands`](0272-composer-plugin-brands/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 컬러 로고·양 Composer native @ 표시, nav 색상 유지. 관련342개·타입·린트·빌드 통과, AC7/8(실제 창 시각 인수 대기). [시작 비교·계측 결과](0272-composer-plugin-brands/startup-analysis.md). |
 | [`0271-native-skill-target`](0271-native-skill-target/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | native 이름의 폴더/파일 열기 복구, 비활성 표시·쓰기 권한 유지. AC5/5, 관련 207개 테스트·타입·린트·빌드 통과. 독립 검증 대기. |
