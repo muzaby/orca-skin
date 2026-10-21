@@ -16,13 +16,13 @@ import { replyToApproval } from './approval'
 import { recoveredPrompt } from '../../common/recovery'
 import { modelRef } from './model-ref'
 import { reportError } from '../../../infra/error-report'
-import { openCodeComposerCatalog } from './composer-catalog'
 import type { NativeComposerCatalog } from '../../../../shared/native-resources'
+import type { OpenCodeClientLease } from './session-context'
 
 /** One SDK subscription feeds the existing SessionRuntime pump for its entire lifetime. */
 export function openCodeChannel(
   req: TurnRequest,
-  connect: () => Promise<OpencodeClient>,
+  connect: () => Promise<OpenCodeClientLease>,
   release: () => void = () => undefined
 ): LiveTurn {
   const generation = randomUUID()
@@ -30,12 +30,14 @@ export function openCodeChannel(
   const signal = req.signal ? AbortSignal.any([req.signal, controller.signal]) : controller.signal
   let mainApproval = new AbortController()
   let client: OpencodeClient | undefined
+  let connection: OpenCodeClientLease | undefined
   let composerCatalog: NativeComposerCatalog | undefined
   let composerFlight: Promise<NativeComposerCatalog | undefined> | undefined
-  const refreshComposer = (): Promise<NativeComposerCatalog | undefined> => {
+  const refreshComposer = (refresh = true): Promise<NativeComposerCatalog | undefined> => {
     if (composerFlight) return composerFlight
-    if (!client || closed) return Promise.resolve(undefined)
-    const flight = openCodeComposerCatalog(client, req.cwd)
+    if (!connection || closed) return Promise.resolve(undefined)
+    const flight = connection
+      .composer(signal, refresh)
       .then((catalog) => {
         if (!closed) composerCatalog = catalog
         return catalog
@@ -122,19 +124,13 @@ export function openCodeChannel(
   }
   const submit = async (next: TurnContinuation, initial = false): Promise<void> => {
     signal.throwIfAborted()
-    if (!client || !sessionId || !activity)
+    if (!client || !connection || !sessionId || !activity)
       throw new Error('OpenCode 이벤트 채널이 준비되지 않았습니다.')
     const slash = /^\s*\/([^\s]+)(?:\s+([\s\S]*))?$/.exec(next.text)
     let command: Awaited<ReturnType<typeof openCodeNativeCommands>>[number] | undefined
     if (slash) {
       try {
-        // Dispatch may initialize MCP prompts; the menu's short metadata budget is insufficient.
-        command = (
-          await openCodeNativeCommands(client, req.cwd, false, undefined, {
-            signal,
-            timeoutMs: 30_000
-          })
-        ).find((item) => item.name === slash[1])
+        command = (await connection.commands(signal)).find((item) => item.name === slash[1])
       } catch (error) {
         signal.throwIfAborted()
         throw openCodePreparationError('commands', error)
@@ -249,6 +245,10 @@ export function openCodeChannel(
           },
           { signal, throwOnError: true }
         )
+    } catch (error) {
+      // Fence late SSE callbacks before releasing the uncertain warm submission's buffer.
+      if (!initial) close()
+      throw error
     } finally {
       submitting = undefined
     }
@@ -279,9 +279,26 @@ export function openCodeChannel(
     try {
       signal.throwIfAborted()
       if (req.forkFrom) throw new Error('OpenCode 세션 분기는 지원하지 않습니다.')
-      client = await connect()
+      connection = await connect()
+      client = connection.client
       signal.throwIfAborted()
-      const catalog = refreshComposer()
+      iterator = connection.events(signal)
+      const timer = setTimeout(
+        () => controller.abort(new Error('OpenCode 이벤트 연결 시간 초과')),
+        15000
+      )
+      try {
+        const first = await iterator.next()
+        signal.throwIfAborted()
+        if (first.done) throw openCodePreparationError('events')
+      } finally {
+        clearTimeout(timer)
+      }
+      const catalog = refreshComposer(false)
+      // Desktop prepares directory metadata in parallel. Only slash dispatch needs command readiness.
+      void connection.commands(signal).catch(() => undefined)
+      await connection.prepare(signal)
+      signal.throwIfAborted()
       if (!sessionId)
         sessionId =
           (
@@ -301,30 +318,6 @@ export function openCodeChannel(
           patch: { backend: 'opencode', cwd: req.cwd, ...(req.model ? { model: req.model } : {}) }
         }
       ])
-      let streamError: unknown
-      iterator = (
-        await client.event.subscribe(
-          { directory: req.cwd },
-          {
-            signal,
-            sseMaxRetryAttempts: 0,
-            onSseError: (error) => {
-              streamError = error
-            }
-          }
-        )
-      ).stream
-      const timer = setTimeout(
-        () => controller.abort(new Error('OpenCode 이벤트 연결 시간 초과')),
-        15000
-      )
-      try {
-        const first = await iterator.next()
-        signal.throwIfAborted()
-        if (first.done) throw openCodePreparationError('events', streamError)
-      } finally {
-        clearTimeout(timer)
-      }
       activity = new OpenCodeActivityMapper(
         sessionId,
         createOpenCodeMessageId(),
@@ -384,7 +377,7 @@ export function openCodeChannel(
         }
       }
       signal.throwIfAborted()
-      throw openCodePreparationError('events', streamError)
+      throw openCodePreparationError('events')
     } catch (error) {
       if (!closed)
         publish(
@@ -448,6 +441,7 @@ export function openCodeChannel(
         refreshComposer()
       ])
       if (closed || ended) return { state: 'disconnected', items: [] }
+      if (commands !== undefined) connection?.rememberCommands(commands)
       composerCatalog = composer ?? composerCatalog
       return {
         state: 'connected',

@@ -2,6 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { classifyOpenCodeError, openCodePreparationError } from './errors'
 
 describe('OpenCode 1.x provider errors', () => {
+  it('keeps the shared transport root cause when directory preparation is interrupted', () => {
+    const root = openCodePreparationError('events', new Error('SSE failed: 503 secret body'))
+    expect(openCodePreparationError('project', root).message).toContain('HTTP 503')
+    expect(openCodePreparationError('commands', root).message).toContain('HTTP 503')
+    expect(
+      openCodePreparationError('project', new DOMException('private', 'TimeoutError')).message
+    ).toContain('프로젝트 준비 시간이 초과')
+  })
   it.each([
     ['commands', new DOMException('secret timeout', 'TimeoutError'), '명령 목록 준비 시간이 초과'],
     [

@@ -40,7 +40,9 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 
 `opencode/v1/native-history.ts`는 동일 native ID·cwd를 확인하고 변경 중이거나 응답이 미완료인 이력의 교체를 보류한다. 구격리 저장소의 알려진 세션은 `legacy-storage-migration.ts`가 원본과 native 대상의 ID·리소스를 확인한 뒤 연결하며, 충돌·불완전한 전환은 상태로 반환한다. 공통 조립은 snapshot을 Orca DB에 보관해 표시·검색에 사용한다. 목록 제거와 보관 계층의 수명은 [persistence.md](./persistence.md), 원본 소유 정책은 [ADR-009](../../decisions/009-harness-native-storage-authority.md)를 따른다.
 
-`OpenCodeAdapter`는 `/v2/client`의 legacy 호환 API(`/session`, `/event`)를 사용한다. catalog는 엔진 문서에 명시된 모델과 에이전트를 로컬에서 파생하며 서버 실행·전역 공급자 조회를 하지 않는다. `opencode/v1/channel.ts`는 입력 전에 SSE를 연결하고 같은 LiveTurn의 pushTurn으로 후속 입력을 제출한다. session ID·prompt parent ID·event/part ID로 소유권과 중복을 격리하며, 응답 idle은 해당 프레임만 종료한다. 이후 소유 background의 완료 입력과 응답은 기존 SessionRuntime pump·listen 경로로 받는다.
+`OpenCodeAdapter`는 `/v2/client`의 legacy 호환 API(`/session`, `/global/event`)를 사용한다. catalog는 엔진 문서에 명시된 모델과 에이전트를 로컬에서 파생하며 서버 실행·전역 공급자 조회를 하지 않는다. 실행 연결에서는 `opencode/v1/session-context.ts`가 소유 server URL·인증 generation별 SDK client와 전역 SSE를 공유하고 directory별 config 준비·command/composer 조회를 합친다. global 연결 확인과 native config 준비 뒤 명령/composer 데이터를 병렬 준비하며, 일반 입력은 명령 목록을 기다리지 않고 slash 입력은 성공한 동일 instance의 목록으로 dispatch한다.
+
+`opencode/v1/channel.ts`는 해당 directory의 공유 이벤트를 기존 activity mapper에 전달하고 같은 LiveTurn의 pushTurn으로 후속 입력을 제출한다. session ID·prompt parent ID·event/part ID로 소유권과 중복을 격리하며, 응답 idle은 해당 프레임만 종료한다. 한 채널은 자신의 lease/구독만 해제하고 마지막 owner 또는 adapter 종료가 공유 작업을 취소한다. native instance 폐기는 해당 directory 준비를 무효화하고, stream 실패는 안전한 원인을 전달해 현재 연결을 종료한다. 이후 소유 background의 완료 입력과 응답은 기존 SessionRuntime pump·listen 경로로 받는다. Desktop과의 실행 규칙 대응 및 적응 지점은 [시작 시퀀스 대응표](../../handoff/0274-opencode-desktop-startup/desktop-sequence.md)를 참조한다.
 
 실행 후 Composer 선택지는 SDK의 agents/providers 응답으로 보완한다. 플러그인이 해석한 visible primary/all 에이전트와 모델 variant 이름만 안전 DTO로 전달하며 prompt·옵션·자격증명은 보내지 않는다. 성공한 빈 목록은 제거로 적용하고 조회 실패에는 같은 채널의 마지막 성공 목록을 보존한다. 조회는 채널 안에서 병합하고 기본 입력은 목록 조회를 기다리지 않는다. 관측한 목록에 없는 agent·variant는 다음 일반 입력과 native command 모두에서 제외한다.
 
