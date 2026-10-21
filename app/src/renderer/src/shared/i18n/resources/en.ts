@@ -473,6 +473,7 @@ export const en: typeof ko = {
     agent: 'Agent',
     variant: 'Variant',
     defaultAgent: 'Default agent',
+    catalogRefresh: 'Refresh',
     defaultVariant: 'Default',
     promptPlaceholder: 'Ask OpenCode to work on something.'
   },

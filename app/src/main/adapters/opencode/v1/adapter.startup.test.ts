@@ -16,6 +16,7 @@ interface StartupFixture {
   streams: { controller: ReadableStreamDefaultController<Uint8Array>; closed: boolean }[]
   setConfig(read?: (request: Request) => Promise<Response>): void
   setCommands(read?: (request: Request) => Promise<Response>): void
+  setProviders(read?: (request: Request) => Promise<Response>): void
   send(text: string, cwd?: string): LiveTurn
 }
 
@@ -26,6 +27,7 @@ function fixture(): StartupFixture {
   let nextID = 0
   let configRead: ((request: Request) => Promise<Response>) | undefined
   let commandRead: ((request: Request) => Promise<Response>) | undefined
+  let providerRead: ((request: Request) => Promise<Response>) | undefined
   const emit = (directory: string, payload: Event): void => {
     for (const stream of streams)
       if (!stream.closed)
@@ -65,7 +67,10 @@ function fixture(): StartupFixture {
     }
     if (url.pathname === '/mcp') return jsonResponse({})
     if (url.pathname === '/agent') return jsonResponse([{ name: 'build', mode: 'primary' }])
-    if (url.pathname === '/provider') return jsonResponse({ all: [], connected: [], default: {} })
+    if (url.pathname === '/provider')
+      return providerRead
+        ? providerRead(request)
+        : jsonResponse({ all: [], connected: [], default: {} })
     if (url.pathname === '/command')
       return commandRead
         ? commandRead(request)
@@ -133,6 +138,9 @@ function fixture(): StartupFixture {
     setCommands: (read?: typeof commandRead) => {
       commandRead = read
     },
+    setProviders: (read) => {
+      providerRead = read
+    },
     send: (text: string, cwd = 'C:/work') =>
       adapter.sendMessage({
         sessionId: null,
@@ -162,6 +170,41 @@ async function close(live: LiveTurn, iterator: AsyncIterator<ProviderMessageBatc
 }
 
 describe('Desktop-style OpenCode startup through the real SDK', () => {
+  it('reuses draft preparation for a selected-agent first prompt while provider metadata is stalled', async () => {
+    const f = fixture()
+    const gate = Promise.withResolvers<void>()
+    f.setProviders(async () => {
+      await gate.promise
+      return jsonResponse({ all: [] })
+    })
+    const preview = await f.adapter.prepareComposer({ cwd: 'C:/work' })
+    const models = preview.read('models', new AbortController().signal)
+    expect(await preview.read('agents', new AbortController().signal)).toEqual([{ name: 'build' }])
+    expect(f.requests.map((r) => new URL(r.url).pathname)).toEqual(['/provider', '/agent'])
+    const live = f.adapter.sendMessage({
+      sessionId: null,
+      cwd: 'C:/work',
+      text: 'use selected agent',
+      harnessAgent: 'build',
+      extensions: { skills: [], hooks: { normalized: {} } }
+    })
+    const iterator = live.eventBatches[Symbol.asyncIterator]()
+    try {
+      expect((await frame(iterator)).some((event) => event.type === 'turn.ended')).toBe(true)
+      const request = f.requests.find((r) => new URL(r.url).pathname.endsWith('/prompt_async'))!
+      expect(await request.json()).toMatchObject({ agent: 'build' })
+      await preview.release()
+      expect(f.requests.some((r) => new URL(r.url).pathname === '/instance/dispose')).toBe(false)
+      expect(f.requests.filter((r) => new URL(r.url).pathname === '/agent')).toHaveLength(1)
+      expect(f.requests.filter((r) => new URL(r.url).pathname === '/provider')).toHaveLength(1)
+    } finally {
+      gate.resolve()
+      await models
+      await preview.release()
+      await close(live, iterator)
+      f.adapter.close()
+    }
+  })
   it('connects global events before project readiness and submits a normal first prompt while commands are still loading', async () => {
     const f = fixture()
     const project = Promise.withResolvers<void>()
@@ -185,6 +228,8 @@ describe('Desktop-style OpenCode startup through the real SDK', () => {
       )
       expect(f.requests.map((request) => new URL(request.url).pathname)).toEqual([
         '/global/event',
+        '/agent',
+        '/provider',
         '/config'
       ])
       project.resolve()

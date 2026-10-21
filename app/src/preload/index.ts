@@ -1,4 +1,9 @@
 import type {
+  ComposerCatalogRequest,
+  ComposerCatalogResult,
+  ComposerCatalogInvalidated
+} from '../shared/composer-catalog'
+import type {
   DraftNativeResourcesRequest,
   NativeResources,
   SetNativeResource,
@@ -258,6 +263,13 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.gitDiffPatch, req)
   },
   session: {
+    composerCatalog: (request: ComposerCatalogRequest): Promise<ComposerCatalogResult> =>
+      ipcRenderer.invoke(CHANNELS.composerCatalog, request),
+    releaseComposerCatalog: (owner: string): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.composerCatalogRelease, { owner }),
+    onComposerCatalogInvalidated: (
+      handler: (event: ComposerCatalogInvalidated) => void
+    ): (() => void) => subscribe(CHANNELS.composerCatalogInvalidated, handler),
     onNativeResourcesChanged: (
       handler: (event: import('../shared/native-resources').NativeResourcesChanged) => void
     ): (() => void) => subscribe(CHANNELS.sessionNativeResourcesChanged, handler),

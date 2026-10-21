@@ -266,6 +266,11 @@ interface EventEndpoint {
 // 공개 API에서 구독한다. 내부 helper만 시험하면 endpoint의 잘못된 채널 연결을 놓친다.
 const eventEndpoints: EventEndpoint[] = [
   {
+    name: 'session.onComposerCatalogInvalidated',
+    channel: CHANNELS.composerCatalogInvalidated,
+    subscribe: (api, handler) => api.session.onComposerCatalogInvalidated(handler)
+  },
+  {
     name: 'session.onNativeResourcesChanged',
     channel: CHANNELS.sessionNativeResourcesChanged,
     subscribe: (api, handler) => api.session.onNativeResourcesChanged(handler)
@@ -380,6 +385,26 @@ it('preserves native resource state and toggle identity through renderer and pre
   vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
   try {
     const { sessionApi } = await import('../renderer/src/shared/api/ipc')
+    const catalogRequest = {
+      owner: 'owner-B',
+      part: 'agents' as const,
+      scope: {
+        backend: 'opencode' as const,
+        sessionId: null,
+        cwd: 'C:/draft',
+        projectId: 'project-C',
+        providerKey: 'opencode-native',
+        agentKind: 'code' as const
+      }
+    }
+    const catalog = { part: 'agents', value: [{ name: 'Atlas' }], generation: 'catalog-g' }
+    harness.invoke.mockResolvedValue(catalog)
+    expect(await sessionApi.composerCatalog(catalogRequest)).toBe(catalog)
+    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.composerCatalog, catalogRequest)
+    await sessionApi.releaseComposerCatalog(catalogRequest.owner)
+    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.composerCatalogRelease, {
+      owner: 'owner-B'
+    })
     const result = {
       state: 'connected',
       generation: 'native-generation',

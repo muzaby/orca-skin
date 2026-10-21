@@ -1,0 +1,40 @@
+const { app, BrowserWindow } = require('electron')
+const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict')
+app.setPath('userData', path.join(__dirname,'ui-data'))
+app.disableHardwareAcceleration()
+let win
+const errors=[]
+async function js(code) { return win.webContents.executeJavaScript(code) }
+async function wait(code) { const end=Date.now()+30000; while(Date.now()<end) { if(await js(code)) return; await new Promise(r=>setTimeout(r,100)) } throw Error('UI wait: '+code) }
+async function shot(name) { win.webContents.invalidate(); await new Promise(r=>setTimeout(r,500)); fs.writeFileSync(path.join(__dirname,name+'.png'),(await win.webContents.capturePage()).toPNG()) }
+app.whenReady().then(async()=>{
+ win=new BrowserWindow({width:1120,height:900,show:false,webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true,offscreen:true,backgroundThrottling:false}})
+ win.webContents.on('console-message',(_e,level,message)=>{if(level>=3)errors.push(message)})
+ const opened = Date.now()
+ await win.loadURL('http://127.0.0.1:5173/scripts/fixtures/opencode-ui/index.html?modelsDelay=60000')
+ await wait(`!!document.querySelector('[aria-label="에이전트"]')`)
+ await js(`document.querySelector('[aria-label="에이전트"]').click()`)
+ await wait(`document.body.textContent.includes('Sisyphus')`)
+ const agentBeforeModels=Date.now()-opened < 60000
+ assert(agentBeforeModels)
+ assert(await js(`!document.querySelector('[role="status"],[role="progressbar"],[aria-busy="true"]')`))
+ await shot('composer-white')
+ await js(`document.querySelector('[aria-label="에이전트"]').click(); [...document.querySelectorAll('button')].find(b=>b.textContent.includes('테마:')).click()`)
+ await wait(`document.documentElement.dataset.theme==='dark'`)
+ await js(`document.querySelector('[aria-label="에이전트"]').click()`)
+ await shot('composer-dark')
+ await js(`[...document.querySelectorAll('[role="menuitemradio"]')].find(b=>b.textContent==='Atlas').click()`)
+ assert((await js(`document.querySelector('[aria-label="에이전트"]').textContent`)).includes('Atlas'))
+ await win.loadURL('http://127.0.0.1:5173/scripts/fixtures/opencode-ui/index.html?catalogError=agents')
+ await wait(`!!document.querySelector('[aria-label="에이전트"]')`)
+ await js(`document.querySelector('[aria-label="에이전트"]').click()`)
+ await wait(`document.body.textContent.includes('새로고침')`)
+ await new Promise(r=>setTimeout(r,300))
+ assert(await js(`document.querySelectorAll('[role="menuitemradio"]').length===1 && !document.querySelector('[role="status"],[role="progressbar"],[aria-busy="true"]') && !document.body.textContent.includes('목록을 불러오지 못했습니다.')`))
+ await shot('composer-error')
+ await js(`[...document.querySelectorAll('[role="menuitem"]')].find(b=>b.textContent.includes('새로고침')).click()`)
+ await wait(`document.body.textContent.includes('Sisyphus')`)
+ fs.writeFileSync(path.join(__dirname,'ui-result.json'),JSON.stringify({success:true,agentBeforeModels,selection:'Atlas',retry:true,noStatusOrSpinner:true,errors},null,2))
+ win.destroy();app.exit(0)
+}).catch(error=>{fs.writeFileSync(path.join(__dirname,'ui-result.json'),JSON.stringify({success:false,message:String(error),errors},null,2));win?.destroy();app.exit(1)})
+setTimeout(()=>{fs.writeFileSync(path.join(__dirname,'ui-timeout.txt'),'timeout');app.exit(1)},90000)

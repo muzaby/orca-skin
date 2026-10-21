@@ -8,6 +8,8 @@ node node_modules/vite/bin/vite.js --config scripts/fixtures/opencode-ui/vite.co
 
 실제 ChatTile·transcript·composer·store·reducer·CSS를 사용한다. native IPC만 메모리 대역이며 실제 파일, 권한, 설정, 프로세스, 모델은 변경하지 않는다. UI의 승인은 검증 데이터만 소비한다.
 
+컴포저 조회 분리는 `?modelsDelay=60000`으로 확인한다. 모델 응답 전에도 에이전트 메뉴에서 Sisyphus·Prometheus·Atlas를 선택할 수 있다. `?catalogError=agents`는 최초 에이전트 조회만 실패시키며 고정 새로고침 항목으로 회복한다. loading/error에서도 상태 안내나 스피너는 없어야 한다. `agentsDelay`·`modelsDelay` 단위는 ms다.
+
 | 시나리오                     | 조작 / 판정                                                                                                              |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | long-history-selection       | 긴 이력을 상하로 드래그하고 텍스트를 여러 행에 걸쳐 선택. 화면 밖 재진입에서 내용과 선택 유지                            |

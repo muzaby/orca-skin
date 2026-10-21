@@ -33,7 +33,7 @@ export function openCodeChannel(
   let connection: OpenCodeClientLease | undefined
   let composerCatalog: NativeComposerCatalog | undefined
   let composerFlight: Promise<NativeComposerCatalog | undefined> | undefined
-  const refreshComposer = (refresh = true): Promise<NativeComposerCatalog | undefined> => {
+  const refreshComposer = (refresh = false): Promise<NativeComposerCatalog | undefined> => {
     if (composerFlight) return composerFlight
     if (!connection || closed) return Promise.resolve(undefined)
     const flight = connection
@@ -138,18 +138,18 @@ export function openCodeChannel(
     }
     signal.throwIfAborted()
     // Catalog membership is authoritative only after a successful live read.
+    const [agents, models] = await Promise.all([
+      next.harnessAgent ? connection.agents(signal) : undefined,
+      next.modelVariant ? connection.models(signal) : undefined
+    ])
     const agent =
-      composerCatalog &&
-      next.harnessAgent &&
-      !composerCatalog.agents.some((item) => item.name === next.harnessAgent)
+      agents && next.harnessAgent && !agents.some((item) => item.name === next.harnessAgent)
         ? undefined
         : next.harnessAgent
     const variant =
-      composerCatalog &&
+      models &&
       next.modelVariant &&
-      !composerCatalog.models
-        .find((item) => item.id === next.model)
-        ?.variants.includes(next.modelVariant)
+      !models.find((item) => item.id === next.model)?.variants.includes(next.modelVariant)
         ? undefined
         : next.modelVariant
     const messageID = createOpenCodeMessageId()
@@ -294,7 +294,7 @@ export function openCodeChannel(
       } finally {
         clearTimeout(timer)
       }
-      const catalog = refreshComposer(false)
+      void refreshComposer()
       // Desktop prepares directory metadata in parallel. Only slash dispatch needs command readiness.
       void connection.commands(signal).catch(() => undefined)
       await connection.prepare(signal)
@@ -325,7 +325,6 @@ export function openCodeChannel(
         req.providerSettings?.settings
       )
       // Defaults require no catalog validation. Do not hold up the first prompt for menu metadata.
-      if (req.harnessAgent || req.modelVariant) await catalog
       try {
         await submit(req, true)
       } catch (error) {

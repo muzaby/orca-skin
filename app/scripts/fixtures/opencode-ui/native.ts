@@ -34,6 +34,24 @@ const agents: AgentEnvironment[] = ['claude', 'opencode'].map((adapter) => ({
 
 async function call(namespace: string, method: string, args: unknown[]): Promise<unknown> {
   nativeCalls.push({ operation: `${namespace}.${method}`, args })
+  if (namespace === 'session' && method === 'composerCatalog') {
+    const request = args[0] as import('../../../src/shared/composer-catalog').ComposerCatalogRequest
+    const delay = Number(new URLSearchParams(location.search).get(request.part + 'Delay') ?? 0)
+    if (delay) await new Promise((resolve) => setTimeout(resolve, delay))
+    if (
+      new URLSearchParams(location.search).get('catalogError') === request.part &&
+      !request.refresh
+    )
+      throw new Error('Controlled catalog failure')
+    return {
+      part: request.part,
+      generation: 'fixture-directory',
+      value:
+        request.part === 'agents'
+          ? [{ name: 'Sisyphus' }, { name: 'Prometheus' }, { name: 'Atlas' }]
+          : [{ id: 'fixture', variants: ['high', 'low'] }]
+    }
+  }
   if (namespace === 'settings') {
     if (method === 'set') settings = { ...settings, ...(args[0] as object) }
     return settings

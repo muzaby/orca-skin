@@ -103,6 +103,74 @@ const server = { url: 'http://owned.test', headers: { Authorization: 'Basic one'
 const freshSignal = (): AbortSignal => new AbortController().signal
 
 describe('OpenCode server context with the installed SDK', () => {
+  it('returns agents without config, providers, commands or events and coalesces cold/refresh reads', async () => {
+    const f = fixture()
+    const one = await f.pool.acquire(server, 'C:/one')
+    const two = await f.pool.acquire(server, 'C:/one')
+    const gate = Promise.withResolvers<void>()
+    let requestSignal: AbortSignal | undefined
+    f.setRead(async (request) => {
+      if (new URL(request.url).pathname !== '/agent') throw new Error('unexpected prerequisite')
+      requestSignal = request.signal
+      await gate.promise
+      return jsonResponse([{ name: 'Sisyphus', mode: 'primary' }])
+    })
+    const leaving = new AbortController()
+    const first = one.agents(leaving.signal).catch((error: unknown) => error)
+    const second = two.agents(freshSignal())
+    try {
+      await vi.waitFor(() => expect(requestSignal).toBeDefined())
+      leaving.abort(new Error('left'))
+      await first
+      await one.release()
+      expect(requestSignal!.aborted).toBe(false)
+      gate.resolve()
+      expect(await second).toEqual([{ name: 'Sisyphus' }])
+      expect(await two.agents(freshSignal())).toEqual([{ name: 'Sisyphus' }])
+      expect(f.requests.map((r) => new URL(r.url).pathname)).toEqual(['/agent'])
+      f.setRead(async (request) =>
+        new URL(request.url).pathname === '/agent'
+          ? jsonResponse([{ name: 'Atlas', mode: 'all' }])
+          : undefined
+      )
+      await Promise.all([two.agents(freshSignal(), true), two.agents(freshSignal(), true)])
+      expect(await two.agents(freshSignal())).toEqual([{ name: 'Atlas' }])
+      expect(f.requests.filter((r) => new URL(r.url).pathname === '/agent')).toHaveLength(2)
+    } finally {
+      gate.resolve()
+      f.setRead()
+      await one.release()
+      await two.release()
+      f.pool.close()
+    }
+  })
+
+  it('isolates provider failure and retries only the failed part without erasing successful agents', async () => {
+    const f = fixture()
+    const lease = await f.pool.acquire(server, 'C:/one')
+    f.setRead(async (request) =>
+      new URL(request.url).pathname === '/provider' ? jsonResponse({}, 503) : undefined
+    )
+    try {
+      const [agents, models] = await Promise.allSettled([
+        lease.agents(freshSignal()),
+        lease.models(freshSignal())
+      ])
+      expect(agents).toMatchObject({ status: 'fulfilled', value: [{ name: 'build' }] })
+      expect(models.status).toBe('rejected')
+      f.setRead()
+      expect(await lease.models(freshSignal())).toEqual([])
+      expect(await lease.agents(freshSignal())).toEqual([{ name: 'build' }])
+      expect(f.requests.map((r) => new URL(r.url).pathname)).toEqual([
+        '/agent',
+        '/provider',
+        '/provider'
+      ])
+    } finally {
+      await lease.release()
+      f.pool.close()
+    }
+  })
   it('rejects acquisition after context shutdown before issuing a native request', async () => {
     const f = fixture()
     f.pool.close()
