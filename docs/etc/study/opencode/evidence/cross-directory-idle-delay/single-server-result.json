@@ -1,0 +1,261 @@
+{
+  "cli": "1.17.19",
+  "electron": "39.8.10",
+  "scenario": "One process, two directory instances, remote MCP second client blocked, 1000ms per transport",
+  "modelRequests": 4,
+  "trace": [
+    {
+      "stage": "A-send",
+      "ms": 109
+    },
+    {
+      "stage": "spawn",
+      "ms": 1418,
+      "label": "A"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 3436,
+      "method": "GET",
+      "route": "/global/health"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 3561,
+      "route": "/global/health",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 3568,
+      "method": "GET",
+      "route": "/global/event"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 3588,
+      "route": "/global/event",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 3594,
+      "label": "A",
+      "method": "GET",
+      "route": "/config"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 4207,
+      "label": "A",
+      "route": "/config",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 4212,
+      "label": "A",
+      "method": "GET",
+      "route": "/agent"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 4213,
+      "label": "A",
+      "method": "GET",
+      "route": "/provider"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 4214,
+      "label": "A",
+      "method": "GET",
+      "route": "/command"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 4217,
+      "label": "A",
+      "method": "POST",
+      "route": "/session"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 4372,
+      "label": "A",
+      "route": "/session",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 4376,
+      "label": "A",
+      "method": "POST",
+      "route": "/session/<id>/prompt_async"
+    },
+    {
+      "stage": "A-mcp-initialize",
+      "ms": 4460
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 5193,
+      "label": "A",
+      "route": "/session/<id>/prompt_async",
+      "status": 204
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 5908,
+      "label": "A",
+      "route": "/provider",
+      "status": 200
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 6093,
+      "label": "A",
+      "route": "/agent",
+      "status": 200
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 6118,
+      "label": "A",
+      "route": "/command",
+      "status": 200
+    },
+    {
+      "stage": "model-request",
+      "ms": 6210,
+      "index": 1
+    },
+    {
+      "stage": "model-request",
+      "ms": 8863,
+      "index": 2
+    },
+    {
+      "stage": "A-frame",
+      "ms": 9817,
+      "ended": true,
+      "error": false
+    },
+    {
+      "stage": "A-idle-held",
+      "ms": 9818
+    },
+    {
+      "stage": "B-send",
+      "ms": 9818
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 9820,
+      "label": "B",
+      "method": "GET",
+      "route": "/config"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 10467,
+      "label": "B",
+      "route": "/config",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 10470,
+      "label": "B",
+      "method": "GET",
+      "route": "/agent"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 10471,
+      "label": "B",
+      "method": "GET",
+      "route": "/provider"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 10471,
+      "label": "B",
+      "method": "GET",
+      "route": "/command"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 10473,
+      "label": "B",
+      "method": "POST",
+      "route": "/session"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 10909,
+      "label": "B",
+      "route": "/session",
+      "status": 200
+    },
+    {
+      "stage": "B-mcp-http-blocked",
+      "ms": 10910
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 10912,
+      "label": "B",
+      "method": "POST",
+      "route": "/session/<id>/prompt_async"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 10963,
+      "label": "B",
+      "route": "/session/<id>/prompt_async",
+      "status": 204
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 11604,
+      "label": "B",
+      "route": "/provider",
+      "status": 200
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 11690,
+      "label": "B",
+      "route": "/agent",
+      "status": 200
+    },
+    {
+      "stage": "model-request",
+      "ms": 11726,
+      "index": 3
+    },
+    {
+      "stage": "B-mcp-sse-blocked",
+      "ms": 11940
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 12972,
+      "label": "B",
+      "route": "/command",
+      "status": 200
+    },
+    {
+      "stage": "model-request",
+      "ms": 14944,
+      "index": 4
+    },
+    {
+      "stage": "B-frame",
+      "ms": 15913,
+      "ended": true,
+      "error": false
+    }
+  ]
+}

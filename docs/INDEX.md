@@ -21,6 +21,7 @@
 | **OpenCode 하네스 구현·CLI 호환성** | [`구현 계약`](handoff/0262-opencode-harness/plan.md) · [`native 디자인 실측`](handoff/0262-opencode-harness/design-evidence.md) · [`실행 패키지와 실제 CLI 검증`](handoff/0262-opencode-harness/runtime-compatibility.md) |
 | **OpenCode desktop 시작 시퀀스·plugin/MCP 대기 조사** | [`시작 비교와 계측`](handoff/0272-composer-plugin-brands/startup-analysis.md) |
 | **OpenCode 다중 프로젝트·세션 시작 병목과 개선안** | [`서버·SSE·재개·비동기 대기 분석`](etc/study/opencode/startup-performance-analysis.md) |
+| **A 유휴 세션 유지 중 B 경로의 1분 지연·Desktop 비동기 준비** | [`실제 CLI 재현·MCP 대기·Desktop 비교`](etc/study/opencode/cross-directory-idle-delay.md) |
 | **OpenCode Desktop 기준 부팅~첫 세션 대응과 실제1.17.19 검증** | [`시작 시퀀스 대응표`](handoff/0274-opencode-desktop-startup/desktop-sequence.md) |
 | **공통 시스템 피드·reminder 표시 설계와 native 조사** | [`공통 계약 초안`](handoff/0232-background-transcript-ux/plan.md) · [`OpenCode 1.19 수신·자동 재개 실측`](handoff/0262-opencode-harness/system-feed-research.md) · [`DEV 제어 초안`](handoff/0003-debug-panel-mock-adapter/plan.md) |
 | **Orca → OpenCode 마이그레이션 연구** (레이어별 작업 · 매핑 · 단계별 gate) | [`etc/study/opencode/orca-migration-guide.md`](etc/study/opencode/orca-migration-guide.md) · 기존 연구 지도는 [`etc/study/opencode/00-index.md`](etc/study/opencode/00-index.md) |

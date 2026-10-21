@@ -1,0 +1,286 @@
+{
+  "cli": "1.17.19",
+  "electron": "39.8.10",
+  "scenario": "A idle, B regular prompt, remote MCP accepts both clients",
+  "modelRequests": 4,
+  "trace": [
+    {
+      "stage": "A-send",
+      "ms": 106
+    },
+    {
+      "stage": "spawn",
+      "ms": 1407,
+      "label": "A"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 3470,
+      "method": "GET",
+      "route": "/global/health"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 3560,
+      "route": "/global/health",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 3567,
+      "method": "GET",
+      "route": "/global/event"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 3587,
+      "route": "/global/event",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 3593,
+      "label": "A",
+      "method": "GET",
+      "route": "/config"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 4244,
+      "label": "A",
+      "route": "/config",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 4248,
+      "label": "A",
+      "method": "GET",
+      "route": "/agent"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 4250,
+      "label": "A",
+      "method": "GET",
+      "route": "/provider"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 4252,
+      "label": "A",
+      "method": "GET",
+      "route": "/command"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 4254,
+      "label": "A",
+      "method": "POST",
+      "route": "/session"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 4386,
+      "label": "A",
+      "route": "/session",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 4390,
+      "label": "A",
+      "method": "POST",
+      "route": "/session/<id>/prompt_async"
+    },
+    {
+      "stage": "A-mcp-initialize",
+      "ms": 4477
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 5146,
+      "label": "A",
+      "route": "/session/<id>/prompt_async",
+      "status": 204
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 5927,
+      "label": "A",
+      "route": "/provider",
+      "status": 200
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 6063,
+      "label": "A",
+      "route": "/agent",
+      "status": 200
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 6134,
+      "label": "A",
+      "route": "/command",
+      "status": 200
+    },
+    {
+      "stage": "model-request",
+      "ms": 6211,
+      "index": 1
+    },
+    {
+      "stage": "model-request",
+      "ms": 8889,
+      "index": 2
+    },
+    {
+      "stage": "A-frame",
+      "ms": 9943,
+      "ended": true,
+      "error": false
+    },
+    {
+      "stage": "A-idle-held",
+      "ms": 9944
+    },
+    {
+      "stage": "B-send",
+      "ms": 9944
+    },
+    {
+      "stage": "spawn",
+      "ms": 9948,
+      "label": "B"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 12127,
+      "method": "GET",
+      "route": "/global/health"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 12168,
+      "route": "/global/health",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 12170,
+      "method": "GET",
+      "route": "/global/event"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 12189,
+      "route": "/global/event",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 12191,
+      "label": "B",
+      "method": "GET",
+      "route": "/config"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 12851,
+      "label": "B",
+      "route": "/config",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 12853,
+      "label": "B",
+      "method": "GET",
+      "route": "/agent"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 12854,
+      "label": "B",
+      "method": "GET",
+      "route": "/provider"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 12855,
+      "label": "B",
+      "method": "GET",
+      "route": "/command"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 12856,
+      "label": "B",
+      "method": "POST",
+      "route": "/session"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 12963,
+      "label": "B",
+      "route": "/session",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 12965,
+      "label": "B",
+      "method": "POST",
+      "route": "/session/<id>/prompt_async"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 13055,
+      "label": "B",
+      "route": "/session/<id>/prompt_async",
+      "status": 204
+    },
+    {
+      "stage": "B-mcp-initialize",
+      "ms": 13083
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 14550,
+      "label": "B",
+      "route": "/provider",
+      "status": 200
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 14679,
+      "label": "B",
+      "route": "/agent",
+      "status": 200
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 14706,
+      "label": "B",
+      "route": "/command",
+      "status": 200
+    },
+    {
+      "stage": "model-request",
+      "ms": 14807,
+      "index": 3
+    },
+    {
+      "stage": "model-request",
+      "ms": 17524,
+      "index": 4
+    },
+    {
+      "stage": "B-frame",
+      "ms": 18464,
+      "ended": true,
+      "error": false
+    }
+  ]
+}
