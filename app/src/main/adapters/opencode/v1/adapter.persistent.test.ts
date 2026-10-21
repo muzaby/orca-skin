@@ -452,6 +452,12 @@ describe('OpenCode persistent SDK channel', () => {
       f.setComposer([{ name: 'plugin-revised', mode: 'all' }], {
         model: { id: 'model', variants: {} }
       })
+      const preparation = await f.adapter.prepareComposer({ cwd: 'C:/work' })
+      await Promise.all([
+        preparation.read('agents', new AbortController().signal, true),
+        preparation.read('models', new AbortController().signal, true)
+      ])
+      await preparation.release()
       expect((await f.live.nativeResources!()).composer).toEqual({
         agents: [{ name: 'plugin-revised' }],
         models: [{ id: 'plugin/model', variants: [] }]
@@ -499,7 +505,7 @@ describe('OpenCode persistent SDK channel', () => {
     const approve = vi.fn(async () => ({ behavior: 'deny' as const }))
     const f = fixture({
       text: '/docs:search find auth',
-      model: 'provider/model-B',
+      model: 'plugin/model-B',
       harnessAgent: 'reviewer',
       modelVariant: 'deep',
       requestApproval: approve,
@@ -517,6 +523,9 @@ describe('OpenCode persistent SDK channel', () => {
     f.setCommands([
       { name: 'docs:search', source: 'mcp', description: 'Search docs', hints: ['query'] }
     ])
+    f.setComposer([{ name: 'reviewer', mode: 'primary' }], {
+      'model-B': { id: 'model-B', variants: { deep: {} } }
+    })
     let finish!: () => void
     f.setPrompt(async (body) => {
       f.emit(
@@ -546,7 +555,7 @@ describe('OpenCode persistent SDK channel', () => {
       expect(await request.json()).toMatchObject({
         command: 'docs:search',
         arguments: 'find auth',
-        model: 'provider/model-B',
+        model: 'plugin/model-B',
         agent: 'reviewer',
         variant: 'deep',
         parts: [{ filename: 'a.txt', type: 'file' }]
@@ -724,9 +733,9 @@ describe('OpenCode persistent SDK channel', () => {
       })
       expect(f.requests.map((request) => new URL(request.url).pathname)).toEqual([
         '/global/event',
-        '/config',
         '/agent',
         '/provider',
+        '/config',
         '/command',
         '/session/s1/prompt_async',
         '/session/s1/prompt_async'

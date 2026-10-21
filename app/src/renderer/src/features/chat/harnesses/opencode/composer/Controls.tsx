@@ -8,26 +8,16 @@ import { Icon } from '../../../../../shared/ui/Icon'
 import { OpenCodeIcon } from '../Icon'
 import type { ComposerControlProps } from '../../contracts'
 import { modelKey } from '../../../components/composer/modelSelection'
-import { useNativeResources } from '../../../hooks/useNativeResources'
-import type { NativeComposerCatalog } from '../../../../../../../shared/native-resources'
+import { useComposerCatalog } from './useComposerCatalog'
 
-function useComposerCatalog(): NativeComposerCatalog | undefined {
-  const sessionId = useChatSession((state) => state.sessionId)
-  const { view } = useNativeResources(sessionId, !!sessionId, 'opencode')
-  return view.status === 'ready' && view.value.state === 'connected'
-    ? view.value.composer
-    : undefined
-}
-
-export function OpenCodeModeControl({
-  agents,
-  providerKey
-}: ComposerControlProps): React.JSX.Element {
-  const catalog = useComposerCatalog()
+export function OpenCodeModeControl({ providerKey }: ComposerControlProps): React.JSX.Element {
+  const { snapshot, retry } = useComposerCatalog(providerKey)
   return (
     <OpenCodeAgentControl
-      agents={catalog?.agents ?? agents.find((a) => a.key === providerKey)?.agents}
-      authoritative={!!catalog}
+      agents={snapshot.agents.value}
+      authoritative={snapshot.agents.value !== undefined}
+      status={snapshot.agents.status}
+      onRetry={() => retry('agents')}
     />
   )
 }
@@ -37,15 +27,17 @@ export function OpenCodeEffortControl({
   providerKey,
   modelFamily
 }: ComposerControlProps): React.JSX.Element | null {
-  const catalog = useComposerCatalog()
+  const { snapshot, retry } = useComposerCatalog(providerKey)
   const model = agents
     .find((a) => a.key === providerKey)
     ?.models.find((m) => modelKey(m) === modelFamily)
-  const runtime = catalog?.models.find((m) => m.id === (model?.model ?? modelFamily))
+  const runtime = snapshot.models.value?.find((m) => m.id === (model?.model ?? modelFamily))
   return (
     <OpenCodeVariantControl
-      authoritative={!!catalog}
-      variants={catalog ? (runtime?.variants ?? []) : (model?.variants ?? [])}
+      authoritative={snapshot.models.value !== undefined}
+      variants={snapshot.models.value ? (runtime?.variants ?? []) : (model?.variants ?? [])}
+      status={snapshot.models.status}
+      onRetry={() => retry('models')}
     />
   )
 }
@@ -54,13 +46,16 @@ function OpenCodeSelect({
   label,
   value,
   options,
-  onChange
+  onChange,
+  onRetry
 }: {
   label: string
   value: string
   options: { value: string; label: string }[]
   onChange: (value: string) => void
+  onRetry?: () => void
 }): React.JSX.Element {
+  const { tr } = useI18n()
   const [open, setOpen] = useState(false)
   const anchorRef = useRef<HTMLButtonElement>(null)
   const itemsRef = useRef<HTMLDivElement>(null)
@@ -99,7 +94,7 @@ function OpenCodeSelect({
         }}
       >
         <span className="truncate">
-          {options.find((option) => option.value === value)?.label ?? options[0]?.label}
+          {options.find((option) => option.value === value)?.label ?? value ?? options[0]?.label}
         </span>
         <OpenCodeIcon name="chevron-down" />
       </button>
@@ -119,9 +114,15 @@ function OpenCodeSelect({
               close()
               return
             }
-            const items = Array.from(
-              itemsRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]') ?? []
-            )
+            const items = [
+              ...Array.from(
+                itemsRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]') ??
+                  []
+              ),
+              ...Array.from(
+                itemsRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? []
+              )
+            ]
             const index = items.findIndex((item) => item === document.activeElement)
             const next =
               event.key === 'Home'
@@ -159,6 +160,11 @@ function OpenCodeSelect({
               {value === option.value && <Icon name="check" size={12} className="shrink-0" />}
             </MenuItem>
           ))}
+          {onRetry && (
+            <MenuItem type="button" role="menuitem" tabIndex={-1} onClick={onRetry}>
+              {tr('harness.catalogRefresh')}
+            </MenuItem>
+          )}
         </div>
       </Popover>
     </>
@@ -167,10 +173,13 @@ function OpenCodeSelect({
 
 export function OpenCodeAgentControl({
   agents,
-  authoritative = false
+  authoritative = false,
+  onRetry
 }: {
   agents: AgentEnvironment['agents']
   authoritative?: boolean
+  status?: 'loading' | 'ready' | 'error'
+  onRetry?: () => void
 }): React.JSX.Element {
   const { tr } = useI18n()
   const selected = useChatSession((state) => state.harnessAgent)
@@ -182,6 +191,7 @@ export function OpenCodeAgentControl({
     <OpenCodeSelect
       label={tr('harness.agent')}
       value={selected ?? ''}
+      onRetry={onRetry}
       onChange={(value) => chatActions.setHarnessOptions({ agent: value })}
       options={[
         { value: '', label: tr('harness.defaultAgent') },
@@ -193,10 +203,14 @@ export function OpenCodeAgentControl({
 
 export function OpenCodeVariantControl({
   variants,
-  authoritative = false
+  authoritative = false,
+  status,
+  onRetry
 }: {
   variants: readonly string[]
   authoritative?: boolean
+  status?: 'loading' | 'ready' | 'error'
+  onRetry?: () => void
 }): React.JSX.Element | null {
   const { tr } = useI18n()
   const selected = useChatSession((state) => state.modelVariant)
@@ -204,11 +218,12 @@ export function OpenCodeVariantControl({
     if (authoritative && selected && !variants.includes(selected))
       chatActions.setHarnessOptions({ variant: '' })
   }, [variants, selected, authoritative])
-  if (!variants.length) return null
+  if (!variants.length && (!status || status === 'ready')) return null
   return (
     <OpenCodeSelect
       label={tr('harness.variant')}
       value={variants.includes(selected ?? '') ? (selected ?? '') : ''}
+      onRetry={onRetry}
       onChange={(value) => chatActions.setHarnessOptions({ variant: value })}
       options={[
         { value: '', label: tr('harness.defaultVariant') },

@@ -8,6 +8,7 @@
 | 작성자 | Codex — 사용자 구현 지시에 따라 설계/구현 연속 수행 |
 | 일자 | 2026-10-21 |
 | 상태 | READY |
+| 구현 상태 | IMPL_DONE — 독립 verify 대기 |
 | V mode / 기준 / revision | Baseline V + ΔV1 + ΔV2 / V1@95da0b0f / V1 + ΔV1 + ΔV2 |
 
 # Part I — Product & UX Contract
@@ -182,17 +183,64 @@ AC9를 최신 설정 재해석까지 확장한다. R9/AR1/SD1/MD2는 CHANGED, VP
 D10(ACTIVE): 사용자의 후속 지시로 팝업의 모든 로딩·오류 상태 문구와 스피너를 제거한다. 기존 목록 보존·오류/빈 목록 구분은 내부 상태로 유지하고, 상태와 무관한 고정 새로고침 메뉴로만 재조회한다. R10/AT10/AC10 및 AR2/MD2는 CHANGED, VP1/VP4/VP6 REQUIRED, 나머지는 기존 V 유지다. EP4 agent/variant control 자리의 oracle은 loading/error/ready에서 안내·스피너 부재와 새로고침/키보드 동작을 직접 단언한다. 이전 §11의 loading/error/retry 표시는 이 결정이 대체한다.
 
 ### 설계 리뷰
-미착수.
+구현 완료. 내부 agent/provider 분리만으로 기존 sessionId-only UI의 첫 입력 전 선택을 해결할 수 없으므로 전용 준비 IPC와 화면 owner를 연결했다. 설정 재해석 누락은 ΔV1로, 사용자 상태 안내 금지는 ΔV2로 먼저 확정했다. native 의존성 초기화와 module import/instance 수명 규칙은 기존 결정을 보존한다.
 ### 강제 지점 전수와 V-pair 자기확인
-미착수.
+
+| 고정 자리 | 이번 턴의 직접 관측 | 자기결과 / 남긴 곳 |
+|---|---|---|
+| EP1 schema | handler `validates directory and owner...`: 잘못된 owner/상대 경로에서 prepare 0회 | ✅ / 없음 |
+| EP1 preload | preload invoke 두 채널과 invalidated event 구독·해제 단언 | ✅ / 없음 |
+| EP1 renderer API | Module.integration에서 실제 sessionApi를 거친 draft scope·part 수신 | ✅ / 없음 |
+| EP1 handler registration | main composer test `wires the public handler...`: 실제 resolver와 adapter 도달 | ✅ / 없음 |
+| EP2 bootstrap registration/shutdown | 등록·종료 배선 소스 확인, main wrapper의 cleanup 검증, bootstrap.shutdown의 composer→registry 종료 순서 | ✅ / 없음 |
+| EP2 app resolver | main composer tests: draft/saved cwd·서로 다른 provider/env, await 중 변경/취소 차단 | ✅ / 없음 |
+| EP2 owner ensure/read/release | handler tests: acquisition 합류·refresh 교체·실패 복원·늦은 lease 반납 | ✅ / 없음 |
+| EP2 window lifecycle | handler tests: 창별 owner 격리, navigation/crash/shutdown 해제 | ✅ / 없음 |
+| EP3 adapter prepareComposer | adapter.startup: preview→선택 agent 첫 입력, provider 보류에도 완료 | ✅ / 없음 |
+| EP3 context agent/model | session-context: agent 선반영·cache/refresh 횟수·provider 부분 실패 회복 | ✅ / 없음 |
+| EP3 scope abort/release | composer-cache: caller 취소 후 shared 요청 유지, native abort에서 취소. 실제 CLI 최종 서버 exit | ✅ / 없음 |
+| EP4 state subscribe/read/retry/dispose | state tests: 두 구독/재마운트 합류, 실패 보존/빈 성공, 폐기 응답·이전 세대 이벤트 무시 | ✅ / 없음 |
+| EP4 hook scope | Module.integration: sessionId=null·draft cwd/project/provider로 요청, 재마운트 요청 증분 0 | ✅ / 없음 |
+| EP4 agent control | Controls interaction: 선택/초점/새로고침, loading/error/ready에서 동일 메뉴와 안내 부재 | ✅ / 없음 |
+| EP4 variant control | Controls interaction: variant/default 전달·빈 성공 제거, Module.integration에서 독립 모델 반영 | ✅ / 없음 |
+| EP5 submit agent | startup provider-stalled 선택 agent prompt body, persistent plugin agent 전달 | ✅ / 없음 |
+| EP5 submit variant | persistent `passes a live plugin agent...`: 재조회 뒤 제거된 variant 제외, native slash body 회귀 | ✅ / 없음 |
+| EP5 initial metadata | startup/persistent: 기본 prompt와 agent-only prompt가 불필요한 목록 완료를 기다리지 않음 | ✅ / 없음 |
+| EP5 nativeResources metadata | persistent native resources 호출과 context cache 검사: metadata 재읽기 강제 refresh 없음 | ✅ / 없음 |
+
+| 유효 pair | oracle 실행 / 결과 | 남긴 곳 |
+|---|---|---|
+| VP1 | 아래 AC 자기결과 및 실제 CLI/UI 관측 통과 | 없음 |
+| VP2 | adapter.startup·session-context·instance-lifecycle, 실제 A idle→B와 최종 서버 exit 통과 | 없음 |
+| VP3 | main resolver/handler·preload·bootstrap shutdown 통과 | 없음 |
+| VP4 | preload·Module.integration·Controls interaction 및 실제 두 테마 관측 통과 | 없음 |
+| VP5 | composer-cache·composer-catalog·session-context 통과 | 없음 |
+| VP6 | composerCatalogState·Module.integration 통과 | 없음 |
+| VP7 | adapter.startup·adapter.persistent·adapter.test 통과 | 없음 |
+
+고정 자리 19개 각각 위 표에 기입했다. 문서에 적은 oracle 이름 중 설계 당시 예정명이던 `composer-preparation.test.ts`, `Controls.integration.test.ts`, `channel tests`의 실제 위치는 각각 `adapter.startup.test.ts`, `Module.integration.test.ts`, `adapter.startup/adapter.persistent.test.ts`다. 새 구조적 proxy oracle은 없다.
 ### 이번 라운드 수정의 잠금
 선택 증거 0 · 인용 변이 0 · 새 proxy oracle 0 = 0행. 직접 행동 oracle 사용.
 ### Product/UX 파생 검토
-미착수.
+조회 성공 전에는 저장된 선택을 실패 때문에 삭제하지 않는다. 성공한 빈 목록만 선택을 정리한다. 팝업에는 상태 문구/스피너가 없고 고정 새로고침만 있으며 키보드 접근과 anchor 초점 복귀를 유지한다. 실제 밝은/어두운 테마·오류 화면을 확인했다. 새 제품 결정은 사용자 지시를 반영한 ΔV2에 기록했다.
 ### 놓친 잠재 문제 + 대응
-미착수.
+살아 있는 owner의 명시 조회가 이전 실행 설정을 붙잡는 문제를 ΔV1로 보완했다. 교체 전 해제는 초기화 재수행을 유발하므로 새 lease부터 확보하고, 이전 profile dispose는 새 목록을 막지 않게 했다. 이전 generation의 지연된 invalidated 이벤트가 새 결과를 지우는 경합을 retired 집합 검사와 state 테스트로 막았다. 초기 native 의존성 설치는 실제로 지연을 유발했으며 120초 초기 예산과 15초 성공 후 재검증 예산을 구분한다. 사용자 plugin 내부의 외부 요청·MCP 비용은 이 변경으로 없어지지 않는다.
 ### 구현 보고
-미착수.
+
+| AC | 직접 관측 | 자기결과 |
+|---|---|---|
+| AC1 | Module.integration에서 sessionId=null인 draft의 plugin-review 선택 가능 | ✅ |
+| AC2 | composer-catalog 필터 테스트, 실제 CLI의 config hook이 만든 Atlas-A/B 수신 | ✅ |
+| AC3 | context 독립 endpoint 시험, CLI provider 보류 중 A 목록/첫 입력 완료 | ✅ |
+| AC4 | state 재마운트 query 2회 유지, native cache/동시 refresh에서 agent HTTP 증분 1 | ✅ |
+| AC5 | CLI spawn/import/SSE 각각 1회, A 유지 B 준비, 최종 native exit | ✅ |
+| AC6 | handler late acquisition 반납, state late/retired 무시, 실패 보존·빈 성공 제거 | ✅ |
+| AC7 | handler refresh 교체 실패 시 이전 lease 보존, UI 고정 새로고침으로 회복 | ✅ |
+| AC8 | startup agent-only prompt 완료, persistent 일반/slash 선택 body 단언 | ✅ |
+| AC9 | production resolver의 구별 env/provider/cwd와 refresh 재해석, 타 창 격리 | ✅ |
+| AC10 | loading/error/ready 동일 메뉴·안내/스피너 부재, 실제 두 테마·키보드 검증 | ✅ |
+
+검산: ✅ 10 · ⚠️ 0 · ❌ 0 = AC 10. 독립 verify 판정이 아닌 구현자 자기결과다. 세부 실행 결과·gate·실측 제한은 [실행 보고](execution-report.md)에 기록했다. 상태 사본은 INDEX의 `impl/IMPL_DONE`, 다음 Claude 및 구현 trailer의 `implemented`, `Criteria-Met: 10/10`, `Verified-By: pending`으로 확인한다.
 ### Review Signals
-r1, 독립 검증 전.
+r1, 사용자 요구 변경 ΔV2를 포함한 최초 구현 라운드. 외부 verify 반복은 없다. 기존 0275 수명 불변식을 이어받으며 이번 변경은 첫 입력 전 owner와 독립 metadata 경로다. 반복 환경 제약은 Node/Electron SQLite ABI 차이와 외부 참고 checkout의 문서 링크 오류다. SQLite는 Electron Node 모드로 실행해 통과했고 링크는 외부 checkout 제외 결과를 별도 기록했다. 최초 UI 캡처의 hidden-window repaint 문제는 offscreen 렌더링으로 해결해 최종 이미지를 직접 확인했다.
 

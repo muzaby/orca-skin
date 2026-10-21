@@ -397,6 +397,21 @@ export const SetSkillEnabledSchema = SkillTargetSchema.extend({
 
 export const LoadSessionRequestSchema = z.object({ sessionId: z.string().min(1) })
 const SessionResourceRequestSchema = z.object({ sessionId: z.string().min(1).max(512) }).strict()
+export const ComposerCatalogReleaseSchema = z.object({ owner: z.uuid() }).strict()
+export const ComposerCatalogRequestSchema = ComposerCatalogReleaseSchema.extend({
+  scope: z
+    .object({
+      backend: z.literal('opencode'),
+      sessionId: z.string().min(1).max(512).nullable(),
+      cwd: z.string().min(1).max(4096).refine(isAbsolutePath).nullable(),
+      projectId: z.string().min(1).max(512).nullable(),
+      providerKey: z.string().min(1).max(512).nullable(),
+      agentKind: AgentKindSchema
+    })
+    .strict(),
+  part: z.enum(['agents', 'models']),
+  refresh: z.boolean().optional()
+}).strict()
 const DraftNativeResourcesRequestSchema = z
   .object({
     backend: BackendSchema,

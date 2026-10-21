@@ -71,6 +71,11 @@ export interface CompleteRequest {
 }
 
 export interface SessionAdapter {
+  prepareComposer?(request: {
+    cwd: string
+    env?: Record<string, string>
+    providerSettings?: ResolvedHarnessSettings
+  }): Promise<import('../../../shared/composer-catalog').ComposerCatalogLease>
   close?(): void
   recoverSession?(
     request: NativeHistoryRequest

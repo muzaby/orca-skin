@@ -1,0 +1,173 @@
+{
+  "success": true,
+  "cli": "1.17.19",
+  "electron": "39.8.10",
+  "trace": [
+    {
+      "stage": "spawn",
+      "ms": 3722
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 12587,
+      "route": "/global/health"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 12808,
+      "route": "/provider",
+      "scope": "A"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 12810,
+      "route": "/agent",
+      "scope": "A"
+    },
+    {
+      "stage": "plugin-import",
+      "ms": 14027,
+      "scope": null
+    },
+    {
+      "stage": "plugin-setup",
+      "ms": 14033,
+      "scope": "A"
+    },
+    {
+      "stage": "plugin-config",
+      "ms": 15066,
+      "scope": "A"
+    },
+    {
+      "stage": "A-agents-visible",
+      "ms": 15413,
+      "names": [
+        "build",
+        "Atlas-A",
+        "plan"
+      ]
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 15416,
+      "route": "/agent",
+      "scope": "A"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 15491,
+      "route": "/global/event"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 15528,
+      "route": "/config",
+      "scope": "A"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 15561,
+      "route": "/command",
+      "scope": "A"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 15565,
+      "route": "/session",
+      "scope": "A"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 15621,
+      "route": "/session/<id>/prompt_async",
+      "scope": "A"
+    },
+    {
+      "stage": "model-request",
+      "ms": 16671
+    },
+    {
+      "stage": "model-request",
+      "ms": 19709
+    },
+    {
+      "stage": "A-first-prompt-complete-provider-still-held",
+      "ms": 20725
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 21609,
+      "route": "/agent",
+      "scope": "B"
+    },
+    {
+      "stage": "plugin-setup",
+      "ms": 22250,
+      "scope": "B"
+    },
+    {
+      "stage": "plugin-config",
+      "ms": 23272,
+      "scope": "B"
+    },
+    {
+      "stage": "B-agents-visible-A-idle",
+      "ms": 23481
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 23485,
+      "route": "/provider",
+      "scope": "B"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 23494,
+      "route": "/config",
+      "scope": "B"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 23950,
+      "route": "/command",
+      "scope": "B"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 23952,
+      "route": "/session",
+      "scope": "B"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 23983,
+      "route": "/session/<id>/prompt_async",
+      "scope": "B"
+    },
+    {
+      "stage": "model-request",
+      "ms": 24880
+    },
+    {
+      "stage": "model-request",
+      "ms": 27363
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 28357,
+      "route": "/instance/dispose",
+      "scope": "A"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 28359,
+      "route": "/instance/dispose",
+      "scope": "B"
+    },
+    {
+      "stage": "all-owners-released-server-exited",
+      "ms": 29099
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 import { createOpencodeClient, type Event, type OpencodeClient } from '@opencode-ai/sdk/v2/client'
 import type { NativeCommand, NativeComposerCatalog } from '../../../../shared/native-resources'
 import { harnessEnvFingerprint } from '../../common/harness-config'
-import { openCodeComposerCatalog } from './composer-catalog'
+import { OpenCodeComposerCache } from './composer-cache'
 import { openCodePreparationError } from './errors'
 import { openCodeNativeCommands } from './native-resources'
 import { sameNativePath } from './native-storage'
@@ -20,8 +20,7 @@ interface DirectoryState {
   commands?: NativeCommand[]
   commandFlight?: Promise<NativeCommand[]>
   commandRevision: number
-  composer?: NativeComposerCatalog
-  composerFlight?: Promise<NativeComposerCatalog>
+  composer: OpenCodeComposerCache
 }
 
 interface Subscriber {
@@ -32,12 +31,16 @@ interface Subscriber {
 }
 
 export interface OpenCodeClientLease {
+  readonly signal: AbortSignal
+  readonly generation: string
   client: OpencodeClient
   release(): Promise<void>
   events(signal: AbortSignal): AsyncGenerator<Event>
   prepare(signal: AbortSignal): Promise<void>
   commands(signal: AbortSignal): Promise<NativeCommand[]>
   composer(signal: AbortSignal, refresh?: boolean): Promise<NativeComposerCatalog>
+  agents(signal: AbortSignal, refresh?: boolean): Promise<NativeComposerCatalog['agents']>
+  models(signal: AbortSignal, refresh?: boolean): Promise<NativeComposerCatalog['models']>
   rememberCommands(commands: NativeCommand[]): void
 }
 
@@ -105,15 +108,21 @@ class ServerContext {
         }
         return response
       }
+      const client = createOpencodeClient({
+        baseUrl: this.server.url,
+        headers: this.server.headers,
+        directory: scope.directory,
+        fetch: fetchScoped,
+        throwOnError: true
+      })
       state = {
-        client: createOpencodeClient({
-          baseUrl: this.server.url,
-          headers: this.server.headers,
-          directory: scope.directory,
-          fetch: fetchScoped,
-          throwOnError: true
-        }),
+        client,
         controller: scope.controller,
+        composer: new OpenCodeComposerCache(
+          client,
+          scope.directory,
+          AbortSignal.any([this.controller.signal, scope.controller.signal])
+        ),
         commandRevision: 0
       }
       this.directories.set(scope, state)
@@ -191,37 +200,16 @@ class ServerContext {
     return this.wait(state.commandFlight, state, signal)
   }
 
-  composer(
-    directory: string,
+  async composer(
     state: DirectoryState,
     signal: AbortSignal,
     refresh = false
   ): Promise<NativeComposerCatalog> {
-    signal.throwIfAborted()
-    this.controller.signal.throwIfAborted()
-    state.controller.signal.throwIfAborted()
-    if (!refresh && state.composer) return this.wait(Promise.resolve(state.composer), state, signal)
-    if (!state.composerFlight) {
-      const flight = this.ready(directory, state)
-        .then(() =>
-          openCodeComposerCatalog(
-            state.client,
-            directory,
-            AbortSignal.any([this.controller.signal, state.controller.signal])
-          )
-        )
-        .then((catalog) => {
-          this.controller.signal.throwIfAborted()
-          state.controller.signal.throwIfAborted()
-          state.composer = catalog
-          return catalog
-        })
-        .finally(() => {
-          if (state.composerFlight === flight) state.composerFlight = undefined
-        })
-      state.composerFlight = flight
-    }
-    return this.wait(state.composerFlight, state, signal)
+    const [agents, models] = await Promise.all([
+      state.composer.agents(signal, refresh),
+      state.composer.models(signal, refresh)
+    ])
+    return { agents, models }
   }
 
   rememberCommands(
@@ -419,10 +407,14 @@ export class OpenCodeSessionContexts {
     const metadata = owned.directory(scope)
     let releasing: Promise<void> | undefined
     return {
+      signal: metadata.composer.signal,
+      generation: metadata.composer.generation,
       client: metadata.client,
       prepare: (signal) => owned.prepare(scope.directory, metadata, signal),
       commands: (signal) => owned.commands(scope.directory, metadata, signal),
-      composer: (signal, refresh) => owned.composer(scope.directory, metadata, signal, refresh),
+      composer: (signal, refresh) => owned.composer(metadata, signal, refresh),
+      agents: (signal, refresh) => metadata.composer.agents(signal, refresh),
+      models: (signal, refresh) => metadata.composer.models(signal, refresh),
       rememberCommands: (commands) => owned.rememberCommands(scope, metadata, commands),
       events: (signal) =>
         owned.events(scope.directory, AbortSignal.any([signal, scope.controller.signal])),

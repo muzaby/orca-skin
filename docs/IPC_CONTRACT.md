@@ -11,7 +11,7 @@
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인: `artifact` · `chat`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `git`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `error`, `provider`
+- 도메인: `artifact` · `chat`, `composer`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `git`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `error`, `provider`
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -26,7 +26,7 @@
 
 ## 2. 채널 카탈로그
 
-도메인별 분포(개수는 [생성물](./generated/inventory.md)): `chat`(`send`·`event`·`cancel`·`stopSubagent`·`steerCancel`·`steerSendNow`) · `boot`(`report`·`whenReady`) · `backend` · `agent` · `engine` · `install` · `update` · `settings` · `skills` · `files` · `artifact`(§2.6-a) · `git`(§2.6-b) · `session` · `project` · `window` · `search` · `mcp` · `cost` · `concurrency` · `permission`(`respond`·`setMode`) · `notify`(`show` — §2.12-c) · `debug`(dev 전용 — `getMock`·`setMock`) · `log`(`emit` — §2.13-b) · `provider`(§2.13-c — `list`·`state`·`login`·`continue`·`reauth`·`revoke`) · `error`(§2.13-d — `reportEvent`·`drain`·`revealLog`).
+도메인별 분포(개수는 [생성물](./generated/inventory.md)): `chat`(`send`·`event`·`cancel`·`stopSubagent`·`steerCancel`·`steerSendNow`) · `composer`(§2.1-c) · `boot`(`report`·`whenReady`) · `backend` · `agent` · `engine` · `install` · `update` · `settings` · `skills` · `files` · `artifact`(§2.6-a) · `git`(§2.6-b) · `session` · `project` · `window` · `search` · `mcp` · `cost` · `concurrency` · `permission`(`respond`·`setMode`) · `notify`(`show` — §2.12-c) · `debug`(dev 전용 — `getMock`·`setMock`) · `log`(`emit` — §2.13-b) · `provider`(§2.13-c — `list`·`state`·`login`·`continue`·`reauth`·`revoke`) · `error`(§2.13-d — `reportEvent`·`drain`·`revealLog`).
 
 > **`provider` 도메인이 구 `auth`·`plugin` 채널을 대체한다.**
 > 앱 로그인·서비스 연결·LLM 자격증명·로그인 프리 Plugin 이 **같은 채널 묶음**을 쓴다 — view 분류는
@@ -70,6 +70,16 @@ Composer의 `dialog`·`drag_drop`·`clipboard` 첨부는 `chat:send` 정규화 �
 | `orca:boot:whenReady` | R→M (invoke) | — | `void` (resolve = main 준비 완료 / reject = `start()` 실패) | **main 부팅 완료 게이트** (0109). 창이 `start()` 완료 *이전* 에 뜨므로, renderer 부트 오케스트레이터의 **첫 mandatory 스텝**(`main-ready`)이 이 invoke 로 main 준비를 기다린 뒤에야 나머지 IPC 스텝(settings/session 조회 등)을 시작한다 — **부트 스텝이 부르는 invoke 만** 보호한다. 게이트 밖에서 마운트 즉시 부르는 채널은 `start()` 동기 구간에서 조기 등록한다(`orca:settings:get` 0244 · `orca:provider:state` 0181/0188). 핸들러는 `index.ts` 가 `start()` 착수 직후(다른 어떤 핸들러 등록보다 먼저) 등록하고 `start()` promise 를 그대로 반환한다. reject 는 renderer mandatory 규칙에 따라 BootScreen failed UX 로 표면화된다. |
 
 `BootReportStep` = `{ id; label?; status:'ok'\|'warning'\|'failed'; critical; startedAt; finishedAt; durationMs; message? }`. `critical:false` 단계의 실패는 `warning` 으로 기록되며 main 부트를 막지 않는다. `critical:true` 단계의 실패는 main 부트 실패로 전파되며, renderer 는 `whenReady` reject 로 이를 관측한다(0109 이전에는 창 자체가 뜨지 않았다).
+
+### 2.1-c Composer 준비
+
+| 채널 | 방향 | 페이로드 | 응답 / 동작 |
+| --- | --- | --- | --- |
+| `orca:composer:catalog` | R→M (invoke) | `ComposerCatalogRequestSchema`: `{ owner: UUID, scope: { backend:'opencode', sessionId, cwd, projectId, providerKey, agentKind }, part:'agents'\|'models', refresh? }` | `{ part, value, generation }`. 실제 턴의 settings/env/cwd 해석을 재사용한다. agent/model은 독립 조회하며 창·owner별 준비 lease와 directory별 캐시를 공유한다. 명시 refresh는 설정도 다시 해석한다. |
+| `orca:composer:catalog-release` | R→M (invoke) | `{ owner: UUID }` | `void`. 호출 창의 owner만 해제한다. pending acquisition도 완료 후 반납하며 창 navigation/crash/destroy 및 앱 종료에서 정리한다. |
+| `orca:composer:catalog-invalidated` | M→R | `{ owner, generation }` | native 준비 세대 종료. 해당 owner만 무효화하며 늦은 이전 세대 응답은 폐기한다. 자동 재연결하지 않는다. |
+
+타입 정본은 `app/src/shared/composer-catalog.ts`다. preload/renderer API는 `session.composerCatalog`, `releaseComposerCatalog`, `onComposerCatalogInvalidated`다. 안전 DTO는 visible primary/all agent와 모델별 variant만 포함한다. prompt·공급자 옵션·자격증명은 전달하지 않는다. 빈 성공은 목록 제거이며 조회 실패는 마지막 성공 결과를 보존한다. 팝업은 로딩·오류 안내나 스피너를 표시하지 않고 고정 새로고침 메뉴를 제공한다.
 
 ### 2.2 Backend
 

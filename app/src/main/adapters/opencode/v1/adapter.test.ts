@@ -55,6 +55,13 @@ function fixture(): {
     const path = new URL(req.url).pathname
     directory = new URL(req.url).searchParams.get('directory') ?? directory
     if (path === '/config') return jsonResponse({})
+    if (path === '/agent') return jsonResponse([{ name: 'build', mode: 'primary' }])
+    if (path === '/provider')
+      return jsonResponse({
+        all: [
+          { id: 'vendor', models: { 'model/name': { id: 'model/name', variants: { high: {} } } } }
+        ]
+      })
     if (path === '/instance/dispose') {
       emit(event('server.instance.disposed', { directory }))
       return jsonResponse(true)
@@ -520,9 +527,9 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
     expect(commit).not.toHaveBeenCalled()
     expect(f.requests.map((req) => new URL(req.url).pathname)).toEqual([
       '/global/event',
-      '/config',
       '/agent',
       '/provider',
+      '/config',
       '/command',
       '/session',
       '/session/s1/prompt_async',

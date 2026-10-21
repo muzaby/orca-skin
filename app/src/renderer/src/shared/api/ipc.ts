@@ -1,4 +1,9 @@
 import type {
+  ComposerCatalogRequest,
+  ComposerCatalogResult,
+  ComposerCatalogInvalidated
+} from '../../../../shared/composer-catalog'
+import type {
   DraftNativeResourcesRequest,
   NativeResources,
   SetNativeResource,
@@ -211,6 +216,13 @@ export const concurrencyApi = {
 }
 
 export const sessionApi = {
+  composerCatalog: (request: ComposerCatalogRequest): Promise<ComposerCatalogResult> =>
+    window.orca.session.composerCatalog(request),
+  releaseComposerCatalog: (owner: string): Promise<void> =>
+    window.orca.session.releaseComposerCatalog(owner),
+  onComposerCatalogInvalidated: (
+    handler: (event: ComposerCatalogInvalidated) => void
+  ): (() => void) => window.orca.session.onComposerCatalogInvalidated(handler),
   nativeResources: (request: string | DraftNativeResourcesRequest): Promise<NativeResources> =>
     window.orca.session.nativeResources(request),
   openNativePlugin: (request: OpenNativePlugin): Promise<void> =>

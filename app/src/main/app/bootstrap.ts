@@ -1,5 +1,6 @@
 import { createNativeResourceSharing } from './native-resource-sharing'
 import { registerSessionResourceHandlers } from './handlers/session-resources'
+import { registerComposerCatalog } from './composer-catalog'
 import { reportError } from '../infra/error-report'
 // Bootstrap — main 측 컴포지션 루트(app 레이어). 의존성 생성 + 부팅 시퀀스 + 핸들러 등록 위임만
 // 담당한다. 도메인 핸들러는 app/handlers/, chat 턴 셋업은 app/chat-turn.ts, 턴 파이프라인 협력자는
@@ -176,6 +177,7 @@ export class Bootstrap {
   // 앱 종료(will-quit) 정리용 참조 — register() 에서 채워진다. 종료 시 진행 중 턴의 열린 도구를
   // 정착하고 controller 를 abort 한다(shutdown).
   private supervisor?: RuntimeSupervisor<Electron.WebContents>
+  private closeComposerCatalog?: () => void
   private bus?: MainBus<Electron.WebContents>
   private activeDbWriteCount = 0
   private isIndexing = false
@@ -844,6 +846,7 @@ export class Bootstrap {
     // admission freeze 를 **가장 먼저**(0151 AC9) — 이후 send/steer 예약을 거부해, 종료 중
     // 게이트 flush·자동 연속 턴이 큐 폐기와 경합하며 메시지를 뒤늦게 제출하는 것을 막는다.
     this.pendingMessages?.freeze()
+    this.closeComposerCatalog?.()
     this.registry.close()
     this.dailyGate?.dispose()
     void this.artifacts?.close()
@@ -999,6 +1002,7 @@ export class Bootstrap {
 
     // 세션 삭제 시 미커밋 pending 도 함께 폐기한다(0151 AC8) — 루트가 chat 큐를 주입해
     // session 슬라이스가 chat 슬라이스를 참조하지 않게 한다.
+    this.closeComposerCatalog = registerComposerCatalog(ctx)
     registerSessionResourceHandlers(
       (sessionId) => supervisor.peekRuntime(sessionId),
       async (sessionId) => {

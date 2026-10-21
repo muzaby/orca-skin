@@ -21,6 +21,7 @@ import { probeNativeCursor } from './native-cursor'
 import type { openFileDatabase } from '../../../infra/db/file-database'
 import type { LegacyStorageMigration } from './legacy-storage-migration'
 import { reportError } from '../../../infra/error-report'
+import type { NativeComposerCatalog } from '../../../../shared/native-resources'
 
 export class OpenCodeAdapter implements SessionAdapter {
   readonly id = 'opencode' as const
@@ -92,6 +93,22 @@ export class OpenCodeAdapter implements SessionAdapter {
     entry,
     config
   ): Promise<AgentEnvironment> => openCodeCatalog(entry, config)
+
+  prepareComposer: NonNullable<SessionAdapter['prepareComposer']> = async (req) => {
+    const lease = await this.client(req.providerSettings?.settings, req.env, req.cwd)
+    const readers: {
+      [K in keyof NativeComposerCatalog]: (
+        signal: AbortSignal,
+        refresh?: boolean
+      ) => Promise<NativeComposerCatalog[K]>
+    } = { agents: lease.agents, models: lease.models }
+    return {
+      generation: lease.generation,
+      signal: lease.signal,
+      read: (part, signal, refresh) => readers[part](signal, refresh),
+      release: lease.release
+    }
+  }
 
   async complete(req: CompleteRequest): Promise<string> {
     const { client, release } = await this.client(req.providerSettings?.settings, req.env, req.cwd)

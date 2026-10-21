@@ -1,0 +1,8 @@
+{
+  "success": true,
+  "agentBeforeModels": true,
+  "selection": "Atlas",
+  "retry": true,
+  "noStatusOrSpinner": true,
+  "errors": []
+}

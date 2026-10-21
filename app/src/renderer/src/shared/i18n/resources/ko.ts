@@ -477,6 +477,7 @@ export const ko = {
     agent: '에이전트',
     variant: '추론 수준',
     defaultAgent: '기본 에이전트',
+    catalogRefresh: '새로고침',
     defaultVariant: '기본',
     promptPlaceholder: 'OpenCode에 작업을 요청하세요.'
   },
