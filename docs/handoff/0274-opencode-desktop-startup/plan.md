@@ -8,7 +8,7 @@
 | 상태 / 라운드 | READY / r1 |
 | V mode | Delta V |
 | 기준 V | 0273 V1 @ `9ae4d5f3` (공유 브랜치, git cat-file=commit 확인) |
-| 이번 / 유효 V | ΔV2 / 0273 V1 + ΔV2 |
+| 이번 / 유효 V | ΔV3 / 0273 V1 + ΔV2 + ΔV3 |
 | 브랜치 | codex-harness-entry-menu |
 
 # Part I — Product & UX Contract
@@ -183,6 +183,17 @@ server당 global SSE 하나, directory 준비는 동일 flight 공유다. 일반
 ## 15. READY self-review
 
 READY. 사용자 지시를 Desktop과 의미가 대응하는 초기화·구독·명령 제출 규칙으로 고정했다. 고정 버전·기준 commit 확인, AC7~12와 승계 회귀, 강제 지점22자리와 직접 SDK oracle을 대조했다.
+
+## ΔV3 — warm 제출 거절의 callback fence 보완
+
+변경한다. 공유 pump의 비동기 전달에서 기존 `retires a rejected warm submission…` 테스트가 실패했다. HTTP 거절 뒤 pending buffer를 풀기 전에 늦은 callback을 무효화할 강제 지점이 ΔV2 목록에 빠져 있었다.
+
+| node / pair | requiredness | 계약 / production path | 직접 oracle / 강제 지점 |
+|---|---|---|---|
+| MD3↔UT3 / VP09 | REQUIRED | warm submit의 HTTP 거절→channel close→submitting buffer 해제 | `adapter.persistent.test.ts:retires a rejected warm submission before another adapter input can be accepted` |
+
+EP06: `channel.ts:submit`의 warm HTTP catch에서 close를 finally의 `submitting=undefined`보다 먼저 수행(1자리). 검색 `rg -n 'catch|close\(|submitting = undefined' channel.ts`의 submit 경계. 실패 의미는 거절된 입력의 늦은 telemetry/turn.ended가 다음 frame에 도달하는 것이다.
+기존 R11/VP01·VP07·VP08에 대한 회귀이며 사용자 결과·AC는 바꾸지 않는다. 유효 강제 지점 분모는 기존22+EP06 1=23이며 MD3는 위 직접 oracle로 판정한다.
 
 ## [구현자 기입] 구현 보고
 
