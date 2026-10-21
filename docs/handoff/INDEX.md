@@ -22,6 +22,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
+| [`0275-opencode-shared-instances`](0275-opencode-shared-instances/plan.md) | plan | READY | Codex | (r1 설계 — 검증자 기입) | 1 | 호환 profile 서버 공유, directory 참조·native dispose 완료 뒤 반납, 모든 인스턴스 정리 후 서버 종료. 검토 조건 적용 승인. |
 | [`0274-opencode-desktop-startup`](0274-opencode-desktop-startup/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | Desktop1.17.19 기준 공유 global SSE·프로젝트 준비·첫 제출 순서 구현. 관련295개 pass, 실제Electron8세션·CLI1.17.19 검증. AC11/11, 독립 검증 대기. |
 | [`0273-opencode-command-stream-errors`](0273-opencode-command-stream-errors/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 실행 명령 준비·취소와 SSE 오류 전달 수정. 실제CLI1.17.19 지연MCP timeout 재현, 관련192개 pass·DB7개 ABI 한계. AC6/6, 독립 검증 대기. |
 | [`0272-composer-plugin-brands`](0272-composer-plugin-brands/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 컬러 로고·양 Composer native @ 표시, nav 색상 유지. 관련342개·타입·린트·빌드 통과, AC7/8(실제 창 시각 인수 대기). [시작 비교·계측 결과](0272-composer-plugin-brands/startup-analysis.md). |
