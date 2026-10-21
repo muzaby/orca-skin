@@ -22,6 +22,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
+| [`0276-opencode-composer-preparation`](0276-opencode-composer-preparation/plan.md) | plan | READY | Codex | (r1 설계 — 검증자 기입) | 1 | 첫 입력 전 agent/provider 독립 준비, directory lease 재사용·재조회 합류. |
 | [`0275-opencode-shared-instances`](0275-opencode-shared-instances/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 호환 profile 서버 공유, directory 정리 완료 뒤 반납. 실제 CLI에서 module import 재사용·기존 이력 보존·최종 서버 종료 관측. |
 | [`0274-opencode-desktop-startup`](0274-opencode-desktop-startup/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | Desktop1.17.19 기준 공유 global SSE·프로젝트 준비·첫 제출 순서 구현. 관련295개 pass, 실제Electron8세션·CLI1.17.19 검증. AC11/11, 독립 검증 대기. |
 | [`0273-opencode-command-stream-errors`](0273-opencode-command-stream-errors/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 실행 명령 준비·취소와 SSE 오류 전달 수정. 실제CLI1.17.19 지연MCP timeout 재현, 관련192개 pass·DB7개 ABI 한계. AC6/6, 독립 검증 대기. |
@@ -122,4 +123,5 @@
 > **구현자 = Claude**(환경에 Codex 부재, 사용자 지시). verify r1 의 FAIL 사유를 코드로 닫았다.
 >
 >
+
 
