@@ -2,11 +2,22 @@ import type { ClassifiedError } from '../../../../shared/ipc'
 import { isRecord } from '../../../../shared/obj'
 import { makeClassifiedError } from '../../../infra/errors'
 
+class OpenCodePreparationError extends Error {}
+
 /** Only fixed preparation messages and an SSE HTTP status may cross the UI boundary. */
-export function openCodePreparationError(stage: 'commands' | 'events', error?: unknown): Error {
-  const label = stage === 'commands' ? 'OpenCode 명령 목록 준비' : 'OpenCode 이벤트 스트림 연결'
+export function openCodePreparationError(
+  stage: 'commands' | 'events' | 'project',
+  error?: unknown
+): Error {
+  if (error instanceof OpenCodePreparationError) return error
+  const label =
+    stage === 'commands'
+      ? 'OpenCode 명령 목록 준비'
+      : stage === 'project'
+        ? 'OpenCode 프로젝트 준비'
+        : 'OpenCode 이벤트 스트림 연결'
   if (error instanceof Error && error.name === 'TimeoutError')
-    return new Error(
+    return new OpenCodePreparationError(
       `${label} 시간이 초과되었습니다. OpenCode 서버와 MCP 연결 상태를 확인해 주세요.`
     )
   const status =
@@ -14,12 +25,16 @@ export function openCodePreparationError(stage: 'commands' | 'events', error?: u
       ? /^SSE failed: (\d{3})(?:\s|$)/.exec(error.message)?.[1]
       : undefined
   if (status)
-    return new Error(
+    return new OpenCodePreparationError(
       `${label}에 실패했습니다 (HTTP ${status}). OpenCode 서버 상태를 확인해 주세요.`
     )
   if (stage === 'events' && error === undefined)
-    return new Error('OpenCode 이벤트 스트림이 종료되었습니다. OpenCode 서버 연결을 확인해 주세요.')
-  return new Error(`${label}에 실패했습니다. OpenCode 서버 연결 상태를 확인해 주세요.`)
+    return new OpenCodePreparationError(
+      'OpenCode 이벤트 스트림이 종료되었습니다. OpenCode 서버 연결을 확인해 주세요.'
+    )
+  return new OpenCodePreparationError(
+    `${label}에 실패했습니다. OpenCode 서버 연결 상태를 확인해 주세요.`
+  )
 }
 
 /** Decode 1.x errors without forwarding provider bodies, headers or credentials to history. */

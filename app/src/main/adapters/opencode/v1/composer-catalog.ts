@@ -3,9 +3,14 @@ import type { NativeComposerCatalog } from '../../../../shared/native-resources'
 
 export async function openCodeComposerCatalog(
   client: OpencodeClient,
-  directory: string
+  directory: string,
+  signal?: AbortSignal
 ): Promise<NativeComposerCatalog> {
-  const options = { throwOnError: true as const, signal: AbortSignal.timeout(2500) }
+  const timeout = AbortSignal.timeout(2500)
+  const options = {
+    throwOnError: true as const,
+    signal: signal ? AbortSignal.any([signal, timeout]) : timeout
+  }
   const [agents, providers] = await Promise.all([
     client.app.agents({ directory }, options),
     client.provider.list({ directory }, options)

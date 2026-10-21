@@ -1,5 +1,4 @@
 // /v2/client is the flat-parameter client export used by OpenCode 1.x.
-import { createOpencodeClient, type OpencodeClient } from '@opencode-ai/sdk/v2/client'
 import type { AgentEnvironment, ClassifiedError } from '../../../../shared/ipc'
 import type { CompleteRequest, LiveTurn, SessionAdapter } from '../../common/types'
 import type { TurnRequest } from '../../common/turn'
@@ -12,19 +11,27 @@ import { routeNativeSession } from '../../common/recovery'
 import { modelRef } from './model-ref'
 import type { NativeHistoryRequest, NativeHistoryResult } from '../../common/native-history'
 import { readOpenCodeHistory, nativeRevision } from './native-history'
-import { nativeOpenCodeData, nativeOpenCodeEnvironment } from './native-storage'
+import {
+  nativeOpenCodeData,
+  nativeOpenCodeEnvironment,
+  nativeWorkingDirectory
+} from './native-storage'
+import { OpenCodeSessionContexts, type OpenCodeClientLease } from './session-context'
 import { probeNativeCursor } from './native-cursor'
 import type { openFileDatabase } from '../../../infra/db/file-database'
 import type { LegacyStorageMigration } from './legacy-storage-migration'
 
 export class OpenCodeAdapter implements SessionAdapter {
   readonly id = 'opencode' as const
+  private readonly contexts: OpenCodeSessionContexts
   constructor(
     private readonly servers: OpenCodeServer,
-    private readonly fetchImpl: typeof fetch,
+    fetchImpl: typeof fetch,
     private readonly migration?: LegacyStorageMigration,
     private readonly openDatabase?: typeof openFileDatabase
-  ) {}
+  ) {
+    this.contexts = new OpenCodeSessionContexts(fetchImpl)
+  }
   agentSpawnEnv(): Record<string, never> {
     return {}
   }
@@ -42,6 +49,7 @@ export class OpenCodeAdapter implements SessionAdapter {
     }
   }
   close(): void {
+    this.contexts.close()
     this.servers.close()
   }
 
@@ -49,21 +57,22 @@ export class OpenCodeAdapter implements SessionAdapter {
     config: Record<string, unknown> = {},
     env?: Record<string, string>,
     cwd?: string
-  ): Promise<{ client: OpencodeClient; release: () => void }> {
+  ): Promise<OpenCodeClientLease> {
     const server = await this.servers.acquire(config, env, cwd)
-    const release = (): void => server.release?.()
     try {
+      const lease = this.contexts.acquire(server, cwd || nativeWorkingDirectory())
+      let released = false
       return {
-        release,
-        client: createOpencodeClient({
-          baseUrl: server.url,
-          headers: server.headers,
-          fetch: this.fetchImpl,
-          throwOnError: true
-        })
+        ...lease,
+        release: () => {
+          if (released) return
+          released = true
+          lease.release()
+          server.release?.()
+        }
       }
     } catch (error) {
-      release()
+      server.release?.()
       throw error
     }
   }
@@ -145,7 +154,7 @@ export class OpenCodeAdapter implements SessionAdapter {
       async () => {
         const connection = await this.client(req.providerSettings?.settings, req.env, req.cwd)
         release = connection.release
-        return connection.client
+        return connection
       },
       () => release()
     )

@@ -55,7 +55,12 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
     hints: string[]
   }[] = []
   const emit = (value: Event): void => {
-    if (!closed) stream?.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(value)}\n\n`))
+    if (!closed)
+      stream?.enqueue(
+        new TextEncoder().encode(
+          `data: ${JSON.stringify({ directory: overrides.cwd ?? 'C:/work', payload: value })}\n\n`
+        )
+      )
   }
   const reply = (id: string): void => {
     emit(event('message.updated', { sessionID: 's1', info: assistantMessage('s1', id, `a-${id}`) }))
@@ -100,7 +105,7 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
       )
     if (path.endsWith('/message') && request.method === 'POST')
       return jsonResponse({ info: {}, parts: [] })
-    if (path === '/event') {
+    if (path === '/global/event') {
       if (eventRead) return eventRead()
       return new Response(
         new ReadableStream<Uint8Array>({
@@ -294,9 +299,9 @@ describe('OpenCode persistent SDK channel', () => {
     try {
       await vi.waitFor(() => expect(readSignal).toBeDefined())
       f.live.close()
-      expect(readSignal!.aborted).toBe(true)
       gate.resolve()
       await receiving
+      expect(readSignal!.aborted).toBe(true)
       expect(f.requests.some((request) => request.method === 'POST')).toBe(false)
     } finally {
       gate.resolve()
@@ -339,7 +344,7 @@ describe('OpenCode persistent SDK channel', () => {
         parts: [{ type: 'text', text: 'Explicit retry' }]
       })
       expect(
-        f.requests.filter((request) => new URL(request.url).pathname === '/event')
+        f.requests.filter((request) => new URL(request.url).pathname === '/global/event')
       ).toHaveLength(2)
     } finally {
       await dispose(retry, iterator)
@@ -710,9 +715,11 @@ describe('OpenCode persistent SDK channel', () => {
         uuid: 'second'
       })
       expect(f.requests.map((request) => new URL(request.url).pathname)).toEqual([
+        '/global/event',
+        '/config',
         '/agent',
         '/provider',
-        '/event',
+        '/command',
         '/session/s1/prompt_async',
         '/session/s1/prompt_async'
       ])
@@ -930,6 +937,7 @@ it('exposes native resources from the live channel client and its directory with
   try {
     expect(await f.live.nativeResources?.()).toEqual({ state: 'disconnected', items: [] })
     await frame(iterator)
+    const beforeResources = f.requests.length
     expect(await f.live.nativeResources?.()).toEqual({
       state: 'connected',
       generation: f.live.providerGeneration,
@@ -954,9 +962,9 @@ it('exposes native resources from the live channel client and its directory with
         }
       ]
     })
-    const requests = f.requests.filter((request) =>
-      ['/mcp', '/config'].includes(new URL(request.url).pathname)
-    )
+    const requests = f.requests
+      .slice(beforeResources)
+      .filter((request) => ['/mcp', '/config'].includes(new URL(request.url).pathname))
     expect(requests).toHaveLength(2)
     for (const request of requests) {
       expect(new URL(request.url).searchParams.get('directory')).toBe('C:/native-B')

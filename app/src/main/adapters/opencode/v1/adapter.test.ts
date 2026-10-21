@@ -39,16 +39,24 @@ function fixture(): {
   const requests: Request[] = []
   let controller: ReadableStreamDefaultController<Uint8Array> | undefined
   let closed = false
+  let directory = 'C:/work'
   const encoder = new TextEncoder()
   const emit = (value: Event): void => {
     if (!closed)
-      controller?.enqueue(encoder.encode(`id: ${value.id}\ndata: ${JSON.stringify(value)}\n\n`))
+      controller?.enqueue(
+        encoder.encode(
+          `id: ${value.id}\ndata: ${JSON.stringify({ directory, payload: value })}\n\n`
+        )
+      )
   }
   const transport: typeof fetch = async (input, init) => {
     const req = new Request(input, init)
     requests.push(req.clone())
     const path = new URL(req.url).pathname
-    if (path === '/event') {
+    directory = new URL(req.url).searchParams.get('directory') ?? directory
+    if (path === '/config') return jsonResponse({})
+    if (path === '/command') return jsonResponse([])
+    if (path === '/global/event') {
       const stream = new ReadableStream<Uint8Array>({
         start(streamController) {
           closed = false
@@ -507,10 +515,12 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
     )
     expect(commit).not.toHaveBeenCalled()
     expect(f.requests.map((req) => new URL(req.url).pathname)).toEqual([
+      '/global/event',
+      '/config',
       '/agent',
       '/provider',
+      '/command',
       '/session',
-      '/event',
       '/session/s1/prompt_async'
     ])
     expect(f.requests.every((req) => req.headers.get('Authorization') === 'Basic fixture')).toBe(
