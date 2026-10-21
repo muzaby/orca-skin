@@ -9,7 +9,7 @@ import { jsonResponse } from './adapter.testfixture'
 
 // `databasePath` asks the CLI itself (`opencode db path`), so the call is observed here.
 const cli = vi.hoisted(() => ({
-  calls: [] as Array<{ args: string[]; env: NodeJS.ProcessEnv }>,
+  calls: [] as Array<{ args: string[]; env: NodeJS.ProcessEnv; cwd: string }>,
   output: '',
   fail: false
 }))
@@ -20,10 +20,10 @@ vi.mock('node:child_process', async (importOriginal) => {
     execFile: (
       _file: string,
       args: string[],
-      options: { env: NodeJS.ProcessEnv },
+      options: { env: NodeJS.ProcessEnv; cwd: string },
       callback: (error: Error | null, stdout: string) => void
     ) => {
-      cli.calls.push({ args, env: options.env })
+      cli.calls.push({ args, env: options.env, cwd: options.cwd })
       queueMicrotask(() =>
         callback(cli.fail ? new Error('temporary CLI error') : null, `${cli.output}\n`)
       )
@@ -75,7 +75,7 @@ describe('OpenCode native database path (0262 EP56 P49)', () => {
     })
     pools.push(pool)
     const document = { model: 'other/extra', provider: { other: { models: { extra: {} } } } }
-    const env = { XDG_DATA_HOME: root }
+    const env = { XDG_DATA_HOME: root, OPENCODE_CONFIG: './settings.json' }
 
     // The history read already holds the server for this document.
     await pool.acquire(document, env, root)
@@ -89,6 +89,16 @@ describe('OpenCode native database path (0262 EP56 P49)', () => {
     expect(spawnProcess).toHaveBeenCalledTimes(1)
     expect(cli.calls).toHaveLength(1)
     expect(cli.calls[0]?.args).toEqual(['db', 'path'])
+    const spawned = (
+      spawnProcess.mock.calls[0] as unknown as [
+        string,
+        string[],
+        { cwd: string; env: NodeJS.ProcessEnv }
+      ]
+    )[2]
+    expect(cli.calls[0]?.cwd).toBe(spawned.cwd)
+    expect(cli.calls[0]?.env.OPENCODE_CONFIG).toBe(join(root, 'settings.json'))
+    expect(spawned.env.OPENCODE_CONFIG).toBe(cli.calls[0]?.env.OPENCODE_CONFIG)
     expect(JSON.parse(cli.calls[0]!.env.OPENCODE_CONFIG_CONTENT!)).toEqual({
       ...document,
       share: 'disabled'

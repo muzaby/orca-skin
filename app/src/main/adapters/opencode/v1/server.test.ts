@@ -116,7 +116,7 @@ describe('owned OpenCode server lifecycle', () => {
     await pool.installed()
     expect(readVersion).toHaveBeenCalledTimes(2)
   })
-  it('separates native storage environments and working directories in the pool identity', async () => {
+  it('shares a profile across directories while separating native storage environments', async () => {
     const { pool, spawnProcess } = setup()
     const one = temporaryDirectory()
     const two = temporaryDirectory()
@@ -124,18 +124,18 @@ describe('owned OpenCode server lifecycle', () => {
     await pool.acquire({}, { XDG_DATA_HOME: one }, one)
     await pool.acquire({}, { XDG_DATA_HOME: two }, one)
     await pool.acquire({}, { XDG_DATA_HOME: two }, two)
-    expect(spawnProcess).toHaveBeenCalledTimes(3)
+    expect(spawnProcess).toHaveBeenCalledTimes(2)
     expect(
       spawnProcess.mock.calls.map(
         (call) => (call as unknown as [unknown, unknown, { cwd: string }])[2].cwd
       )
-    ).toEqual([one, one, two])
+    ).toEqual([homedir(), homedir()])
     expect(
       spawnProcess.mock.calls.map(
         (call) =>
           (call as unknown as [unknown, unknown, { env: NodeJS.ProcessEnv }])[2].env.XDG_DATA_HOME
       )
-    ).toEqual([one, two, two])
+    ).toEqual([one, two])
   })
   it('resolves configured and PATH npm executable files without invoking a shell', () => {
     const directory = temporaryDirectory()
@@ -147,6 +147,77 @@ describe('owned OpenCode server lifecycle', () => {
     expect(() => resolveOpenCodeExecutable('', { PATH: directory + '-missing' })).toThrow(
       '찾을 수 없습니다'
     )
+  })
+
+  it('separates relative path environments and preserves relative XDG and special native values', async () => {
+    const { pool, spawnProcess } = setup()
+    const a = temporaryDirectory()
+    const b = temporaryDirectory()
+    await pool.acquire({}, { OPENCODE_CONFIG: './settings.json' }, a)
+    await pool.acquire({}, { OPENCODE_CONFIG: join(a, 'settings.json') }, b)
+    await pool.acquire({}, { OPENCODE_CONFIG: './settings.json' }, b)
+    if (process.platform === 'win32')
+      await pool.acquire({}, { OPENCODE_CONFIG: `${a.slice(0, 2)}settings.json` }, a)
+    expect(spawnProcess).toHaveBeenCalledTimes(2)
+    const options = (): { cwd: string; env: NodeJS.ProcessEnv }[] =>
+      spawnProcess.mock.calls.map(
+        (call) =>
+          (call as unknown as [string, string[], { cwd: string; env: NodeJS.ProcessEnv }])[2]
+      )
+    expect(options().map((value) => value.env.OPENCODE_CONFIG)).toEqual([
+      join(a, 'settings.json'),
+      join(b, 'settings.json')
+    ])
+    await pool.acquire(
+      {},
+      {
+        XDG_DATA_HOME: 'relative',
+        OPENCODE_DB: ':memory:',
+        OPENCODE_CONFIG: 'file:///config.json'
+      },
+      a
+    )
+    await pool.acquire(
+      {},
+      {
+        XDG_DATA_HOME: 'relative',
+        OPENCODE_DB: ':memory:',
+        OPENCODE_CONFIG: 'file:///config.json'
+      },
+      b
+    )
+    expect(
+      options()
+        .slice(2)
+        .map((value) => ({
+          cwd: value.cwd,
+          data: value.env.XDG_DATA_HOME,
+          db: value.env.OPENCODE_DB,
+          config: value.env.OPENCODE_CONFIG
+        }))
+    ).toEqual([
+      { cwd: a, data: 'relative', db: ':memory:', config: 'file:///config.json' },
+      { cwd: b, data: 'relative', db: ':memory:', config: 'file:///config.json' }
+    ])
+  })
+
+  it('retires only future acquisitions and shuts down every owned generation', async () => {
+    const { pool, children } = setup()
+    const a = await pool.acquire({}, undefined, 'C:/one')
+    const b = await pool.acquire({}, undefined, 'C:/two')
+    a.retire!()
+    a.release!()
+    expect(children[0].kill).not.toHaveBeenCalled()
+    const next = await pool.acquire({}, undefined, 'C:/one')
+    expect(children).toHaveLength(2)
+    a.retire!()
+    await pool.acquire({}, undefined, 'C:/three')
+    expect(children).toHaveLength(2)
+    pool.close()
+    expect(children.map((child) => child.kill.mock.calls.length)).toEqual([1, 1])
+    b.release!()
+    next.release!()
+    expect(children.map((child) => child.kill.mock.calls.length)).toEqual([1, 1])
   })
 
   it('does not discover the scoped CLI package', () => {

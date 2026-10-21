@@ -55,6 +55,10 @@ function fixture(): {
     const path = new URL(req.url).pathname
     directory = new URL(req.url).searchParams.get('directory') ?? directory
     if (path === '/config') return jsonResponse({})
+    if (path === '/instance/dispose') {
+      emit(event('server.instance.disposed', { directory }))
+      return jsonResponse(true)
+    }
     if (path === '/command') return jsonResponse([])
     if (path === '/global/event') {
       const stream = new ReadableStream<Uint8Array>({
@@ -521,12 +525,15 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
       '/provider',
       '/command',
       '/session',
-      '/session/s1/prompt_async'
+      '/session/s1/prompt_async',
+      '/instance/dispose'
     ])
     expect(f.requests.every((req) => req.headers.get('Authorization') === 'Basic fixture')).toBe(
       true
     )
-    expect(new URL(f.requests[1]!.url).searchParams.get('directory')).toBe('C:/work')
+    expect(new URL(f.requests[1]!.url).searchParams.get('directory')?.replaceAll('\\', '/')).toBe(
+      'C:/work'
+    )
     const payload = await f.requests
       .find((request) => new URL(request.url).pathname.endsWith('/prompt_async'))!
       .json()

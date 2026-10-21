@@ -1,0 +1,1054 @@
+{
+  "cli": "1.17.19",
+  "electron": "39.8.10",
+  "mode": "production-shared-instances",
+  "diskDependencies": "already installed from prior isolated probes",
+  "pluginSetupDelayMs": 1200,
+  "steps": [
+    {
+      "step": "A1-first",
+      "scope": "A",
+      "ms": 19838,
+      "delta": {
+        "spawns": 1,
+        "globalEvents": 1,
+        "configs": 1,
+        "mcpConnections": 1,
+        "pluginImports": 1,
+        "pluginSetups": 1,
+        "pluginConfigHooks": 1
+      },
+      "total": {
+        "spawns": 1,
+        "globalEvents": 1,
+        "configs": 1,
+        "mcpConnections": 1,
+        "pluginImports": 1,
+        "pluginSetups": 1,
+        "pluginConfigHooks": 1
+      }
+    },
+    {
+      "step": "A1-followup",
+      "scope": "A",
+      "ms": 2280,
+      "delta": {
+        "spawns": 0,
+        "globalEvents": 0,
+        "configs": 0,
+        "mcpConnections": 0,
+        "pluginImports": 0,
+        "pluginSetups": 0,
+        "pluginConfigHooks": 0
+      },
+      "total": {
+        "spawns": 1,
+        "globalEvents": 1,
+        "configs": 1,
+        "mcpConnections": 1,
+        "pluginImports": 1,
+        "pluginSetups": 1,
+        "pluginConfigHooks": 1
+      }
+    },
+    {
+      "step": "A2-new-session",
+      "scope": "A",
+      "ms": 3522,
+      "delta": {
+        "spawns": 0,
+        "globalEvents": 0,
+        "configs": 0,
+        "mcpConnections": 0,
+        "pluginImports": 0,
+        "pluginSetups": 0,
+        "pluginConfigHooks": 0
+      },
+      "total": {
+        "spawns": 1,
+        "globalEvents": 1,
+        "configs": 1,
+        "mcpConnections": 1,
+        "pluginImports": 1,
+        "pluginSetups": 1,
+        "pluginConfigHooks": 1
+      }
+    },
+    {
+      "step": "B1-first-path",
+      "scope": "B",
+      "ms": 48637,
+      "delta": {
+        "spawns": 0,
+        "globalEvents": 0,
+        "configs": 1,
+        "mcpConnections": 1,
+        "pluginImports": 0,
+        "pluginSetups": 1,
+        "pluginConfigHooks": 1
+      },
+      "total": {
+        "spawns": 1,
+        "globalEvents": 1,
+        "configs": 2,
+        "mcpConnections": 2,
+        "pluginImports": 1,
+        "pluginSetups": 2,
+        "pluginConfigHooks": 2
+      }
+    },
+    {
+      "step": "B1-followup",
+      "scope": "B",
+      "ms": 10145,
+      "delta": {
+        "spawns": 0,
+        "globalEvents": 0,
+        "configs": 0,
+        "mcpConnections": 0,
+        "pluginImports": 0,
+        "pluginSetups": 0,
+        "pluginConfigHooks": 0
+      },
+      "total": {
+        "spawns": 1,
+        "globalEvents": 1,
+        "configs": 2,
+        "mcpConnections": 2,
+        "pluginImports": 1,
+        "pluginSetups": 2,
+        "pluginConfigHooks": 2
+      }
+    },
+    {
+      "step": "B2-new-session",
+      "scope": "B",
+      "ms": 5891,
+      "delta": {
+        "spawns": 0,
+        "globalEvents": 0,
+        "configs": 0,
+        "mcpConnections": 0,
+        "pluginImports": 0,
+        "pluginSetups": 0,
+        "pluginConfigHooks": 0
+      },
+      "total": {
+        "spawns": 1,
+        "globalEvents": 1,
+        "configs": 2,
+        "mcpConnections": 2,
+        "pluginImports": 1,
+        "pluginSetups": 2,
+        "pluginConfigHooks": 2
+      }
+    },
+    {
+      "step": "A3-return-new-session",
+      "scope": "A",
+      "ms": 4403,
+      "delta": {
+        "spawns": 0,
+        "globalEvents": 0,
+        "configs": 0,
+        "mcpConnections": 0,
+        "pluginImports": 0,
+        "pluginSetups": 0,
+        "pluginConfigHooks": 0
+      },
+      "total": {
+        "spawns": 1,
+        "globalEvents": 1,
+        "configs": 2,
+        "mcpConnections": 2,
+        "pluginImports": 1,
+        "pluginSetups": 2,
+        "pluginConfigHooks": 2
+      }
+    },
+    {
+      "step": "A4-after-last-A-owner-close",
+      "scope": "A",
+      "ms": 12451,
+      "delta": {
+        "spawns": 0,
+        "globalEvents": 0,
+        "configs": 1,
+        "mcpConnections": 1,
+        "pluginImports": 0,
+        "pluginSetups": 1,
+        "pluginConfigHooks": 1
+      },
+      "total": {
+        "spawns": 1,
+        "globalEvents": 1,
+        "configs": 3,
+        "mcpConnections": 3,
+        "pluginImports": 1,
+        "pluginSetups": 3,
+        "pluginConfigHooks": 3
+      }
+    }
+  ],
+  "modelRequests": 14,
+  "trace": [
+    {
+      "stage": "step-start",
+      "ms": 236,
+      "step": "A1-first",
+      "label": "A"
+    },
+    {
+      "stage": "spawn",
+      "ms": 10420,
+      "label": "host"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 12443,
+      "method": "GET",
+      "route": "/global/health"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 12605,
+      "route": "/global/health",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 12612,
+      "method": "GET",
+      "route": "/global/event"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 12623,
+      "route": "/global/event",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 12631,
+      "label": "A",
+      "method": "GET",
+      "route": "/config"
+    },
+    {
+      "stage": "plugin-import",
+      "ms": 13310
+    },
+    {
+      "stage": "plugin-setup",
+      "ms": 13327,
+      "label": "A"
+    },
+    {
+      "stage": "plugin-config",
+      "ms": 14543,
+      "label": "A"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 14555,
+      "label": "A",
+      "route": "/config",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 14559,
+      "label": "A",
+      "method": "GET",
+      "route": "/agent"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 14561,
+      "label": "A",
+      "method": "GET",
+      "route": "/provider"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 14562,
+      "label": "A",
+      "method": "GET",
+      "route": "/command"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 14566,
+      "label": "A",
+      "method": "POST",
+      "route": "/session"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 14699,
+      "label": "A",
+      "route": "/session",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 14705,
+      "label": "A",
+      "method": "POST",
+      "route": "/session/<id>/prompt_async"
+    },
+    {
+      "stage": "A-mcp-initialize",
+      "ms": 14733
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 15434,
+      "label": "A",
+      "route": "/session/<id>/prompt_async",
+      "status": 204
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 16151,
+      "label": "A",
+      "route": "/provider",
+      "status": 200
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 16278,
+      "label": "A",
+      "route": "/agent",
+      "status": 200
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 16358,
+      "label": "A",
+      "route": "/command",
+      "status": 200
+    },
+    {
+      "stage": "model-request",
+      "ms": 16448,
+      "index": 1
+    },
+    {
+      "stage": "model-request",
+      "ms": 19106,
+      "index": 2
+    },
+    {
+      "stage": "A1-first-frame",
+      "ms": 20073,
+      "ended": true,
+      "error": false
+    },
+    {
+      "stage": "step-result",
+      "ms": 19838,
+      "step": "A1-first",
+      "scope": "A",
+      "delta": {
+        "spawns": 1,
+        "globalEvents": 1,
+        "configs": 1,
+        "mcpConnections": 1,
+        "pluginImports": 1,
+        "pluginSetups": 1,
+        "pluginConfigHooks": 1
+      },
+      "total": {
+        "spawns": 1,
+        "globalEvents": 1,
+        "configs": 1,
+        "mcpConnections": 1,
+        "pluginImports": 1,
+        "pluginSetups": 1,
+        "pluginConfigHooks": 1
+      }
+    },
+    {
+      "stage": "step-start",
+      "ms": 20074,
+      "step": "A1-followup",
+      "label": "A"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 20075,
+      "label": "A",
+      "method": "POST",
+      "route": "/session/<id>/prompt_async"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 20139,
+      "label": "A",
+      "route": "/session/<id>/prompt_async",
+      "status": 204
+    },
+    {
+      "stage": "model-request",
+      "ms": 20829,
+      "index": 3
+    },
+    {
+      "stage": "A1-followup-frame",
+      "ms": 22354,
+      "ended": true,
+      "error": false
+    },
+    {
+      "stage": "step-result",
+      "ms": 2280,
+      "step": "A1-followup",
+      "scope": "A",
+      "delta": {
+        "spawns": 0,
+        "globalEvents": 0,
+        "configs": 0,
+        "mcpConnections": 0,
+        "pluginImports": 0,
+        "pluginSetups": 0,
+        "pluginConfigHooks": 0
+      },
+      "total": {
+        "spawns": 1,
+        "globalEvents": 1,
+        "configs": 1,
+        "mcpConnections": 1,
+        "pluginImports": 1,
+        "pluginSetups": 1,
+        "pluginConfigHooks": 1
+      }
+    },
+    {
+      "stage": "step-start",
+      "ms": 22354,
+      "step": "A2-new-session",
+      "label": "A"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 22358,
+      "label": "A",
+      "method": "POST",
+      "route": "/session"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 22402,
+      "label": "A",
+      "route": "/session",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 22404,
+      "label": "A",
+      "method": "POST",
+      "route": "/session/<id>/prompt_async"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 22562,
+      "label": "A",
+      "route": "/session/<id>/prompt_async",
+      "status": 204
+    },
+    {
+      "stage": "model-request",
+      "ms": 22614,
+      "index": 4
+    },
+    {
+      "stage": "model-request",
+      "ms": 24013,
+      "index": 5
+    },
+    {
+      "stage": "A2-new-session-frame",
+      "ms": 25876,
+      "ended": true,
+      "error": false
+    },
+    {
+      "stage": "step-result",
+      "ms": 3522,
+      "step": "A2-new-session",
+      "scope": "A",
+      "delta": {
+        "spawns": 0,
+        "globalEvents": 0,
+        "configs": 0,
+        "mcpConnections": 0,
+        "pluginImports": 0,
+        "pluginSetups": 0,
+        "pluginConfigHooks": 0
+      },
+      "total": {
+        "spawns": 1,
+        "globalEvents": 1,
+        "configs": 1,
+        "mcpConnections": 1,
+        "pluginImports": 1,
+        "pluginSetups": 1,
+        "pluginConfigHooks": 1
+      }
+    },
+    {
+      "stage": "step-start",
+      "ms": 25877,
+      "step": "B1-first-path",
+      "label": "B"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 25881,
+      "label": "B",
+      "method": "GET",
+      "route": "/config"
+    },
+    {
+      "stage": "plugin-setup",
+      "ms": 27690,
+      "label": "B"
+    },
+    {
+      "stage": "plugin-config",
+      "ms": 28931,
+      "label": "B"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 28998,
+      "label": "B",
+      "route": "/config",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 29009,
+      "label": "B",
+      "method": "GET",
+      "route": "/agent"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 29011,
+      "label": "B",
+      "method": "GET",
+      "route": "/provider"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 29012,
+      "label": "B",
+      "method": "GET",
+      "route": "/command"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 29013,
+      "label": "B",
+      "method": "POST",
+      "route": "/session"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 29193,
+      "label": "B",
+      "route": "/session",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 29195,
+      "label": "B",
+      "method": "POST",
+      "route": "/session/<id>/prompt_async"
+    },
+    {
+      "stage": "B-mcp-initialize",
+      "ms": 29975
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 31881,
+      "label": "B",
+      "route": "/session/<id>/prompt_async",
+      "status": 204
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 32302,
+      "label": "B",
+      "route": "/command",
+      "status": 200
+    },
+    {
+      "stage": "model-request",
+      "ms": 32500,
+      "index": 6
+    },
+    {
+      "stage": "model-request",
+      "ms": 56774,
+      "index": 7
+    },
+    {
+      "stage": "B1-first-path-frame",
+      "ms": 74514,
+      "ended": true,
+      "error": false
+    },
+    {
+      "stage": "step-result",
+      "ms": 48637,
+      "step": "B1-first-path",
+      "scope": "B",
+      "delta": {
+        "spawns": 0,
+        "globalEvents": 0,
+        "configs": 1,
+        "mcpConnections": 1,
+        "pluginImports": 0,
+        "pluginSetups": 1,
+        "pluginConfigHooks": 1
+      },
+      "total": {
+        "spawns": 1,
+        "globalEvents": 1,
+        "configs": 2,
+        "mcpConnections": 2,
+        "pluginImports": 1,
+        "pluginSetups": 2,
+        "pluginConfigHooks": 2
+      }
+    },
+    {
+      "stage": "step-start",
+      "ms": 74515,
+      "step": "B1-followup",
+      "label": "B"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 74516,
+      "label": "B",
+      "method": "POST",
+      "route": "/session/<id>/prompt_async"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 74725,
+      "label": "B",
+      "route": "/session/<id>/prompt_async",
+      "status": 204
+    },
+    {
+      "stage": "model-request",
+      "ms": 81234,
+      "index": 8
+    },
+    {
+      "stage": "B1-followup-frame",
+      "ms": 84660,
+      "ended": true,
+      "error": false
+    },
+    {
+      "stage": "step-result",
+      "ms": 10145,
+      "step": "B1-followup",
+      "scope": "B",
+      "delta": {
+        "spawns": 0,
+        "globalEvents": 0,
+        "configs": 0,
+        "mcpConnections": 0,
+        "pluginImports": 0,
+        "pluginSetups": 0,
+        "pluginConfigHooks": 0
+      },
+      "total": {
+        "spawns": 1,
+        "globalEvents": 1,
+        "configs": 2,
+        "mcpConnections": 2,
+        "pluginImports": 1,
+        "pluginSetups": 2,
+        "pluginConfigHooks": 2
+      }
+    },
+    {
+      "stage": "step-start",
+      "ms": 84661,
+      "step": "B2-new-session",
+      "label": "B"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 84665,
+      "label": "B",
+      "method": "GET",
+      "route": "/agent"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 84668,
+      "label": "B",
+      "method": "GET",
+      "route": "/provider"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 84669,
+      "label": "B",
+      "method": "POST",
+      "route": "/session"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 84797,
+      "label": "B",
+      "route": "/session",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 84799,
+      "label": "B",
+      "method": "POST",
+      "route": "/session/<id>/prompt_async"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 84809,
+      "label": "B",
+      "route": "/agent",
+      "status": 200
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 86604,
+      "label": "B",
+      "route": "/provider",
+      "status": 200
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 86761,
+      "label": "B",
+      "route": "/session/<id>/prompt_async",
+      "status": 204
+    },
+    {
+      "stage": "model-request",
+      "ms": 86958,
+      "index": 9
+    },
+    {
+      "stage": "model-request",
+      "ms": 88200,
+      "index": 10
+    },
+    {
+      "stage": "B2-new-session-frame",
+      "ms": 90551,
+      "ended": true,
+      "error": false
+    },
+    {
+      "stage": "step-result",
+      "ms": 5891,
+      "step": "B2-new-session",
+      "scope": "B",
+      "delta": {
+        "spawns": 0,
+        "globalEvents": 0,
+        "configs": 0,
+        "mcpConnections": 0,
+        "pluginImports": 0,
+        "pluginSetups": 0,
+        "pluginConfigHooks": 0
+      },
+      "total": {
+        "spawns": 1,
+        "globalEvents": 1,
+        "configs": 2,
+        "mcpConnections": 2,
+        "pluginImports": 1,
+        "pluginSetups": 2,
+        "pluginConfigHooks": 2
+      }
+    },
+    {
+      "stage": "step-start",
+      "ms": 90552,
+      "step": "A3-return-new-session",
+      "label": "A"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 90556,
+      "label": "A",
+      "method": "POST",
+      "route": "/session"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 90582,
+      "label": "A",
+      "route": "/session",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 90584,
+      "label": "A",
+      "method": "POST",
+      "route": "/session/<id>/prompt_async"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 90683,
+      "label": "A",
+      "route": "/session/<id>/prompt_async",
+      "status": 204
+    },
+    {
+      "stage": "model-request",
+      "ms": 90775,
+      "index": 11
+    },
+    {
+      "stage": "model-request",
+      "ms": 93358,
+      "index": 12
+    },
+    {
+      "stage": "A3-return-new-session-frame",
+      "ms": 94955,
+      "ended": true,
+      "error": false
+    },
+    {
+      "stage": "step-result",
+      "ms": 4403,
+      "step": "A3-return-new-session",
+      "scope": "A",
+      "delta": {
+        "spawns": 0,
+        "globalEvents": 0,
+        "configs": 0,
+        "mcpConnections": 0,
+        "pluginImports": 0,
+        "pluginSetups": 0,
+        "pluginConfigHooks": 0
+      },
+      "total": {
+        "spawns": 1,
+        "globalEvents": 1,
+        "configs": 2,
+        "mcpConnections": 2,
+        "pluginImports": 1,
+        "pluginSetups": 2,
+        "pluginConfigHooks": 2
+      }
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 94958,
+      "label": "A",
+      "method": "POST",
+      "route": "/instance/dispose"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 94992,
+      "label": "A",
+      "route": "/instance/dispose",
+      "status": 200
+    },
+    {
+      "stage": "A-all-channels-closed-B-held",
+      "ms": 95136
+    },
+    {
+      "stage": "step-start",
+      "ms": 95136,
+      "step": "A4-after-last-A-owner-close",
+      "label": "A"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 95140,
+      "label": "A",
+      "method": "GET",
+      "route": "/config"
+    },
+    {
+      "stage": "plugin-setup",
+      "ms": 96511,
+      "label": "A"
+    },
+    {
+      "stage": "plugin-config",
+      "ms": 97718,
+      "label": "A"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 97723,
+      "label": "A",
+      "route": "/config",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 97725,
+      "label": "A",
+      "method": "GET",
+      "route": "/agent"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 97727,
+      "label": "A",
+      "method": "GET",
+      "route": "/provider"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 97728,
+      "label": "A",
+      "method": "GET",
+      "route": "/command"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 97729,
+      "label": "A",
+      "method": "POST",
+      "route": "/session"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 97747,
+      "label": "A",
+      "route": "/session",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 97749,
+      "label": "A",
+      "method": "POST",
+      "route": "/session/<id>/prompt_async"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 97911,
+      "label": "A",
+      "route": "/session/<id>/prompt_async",
+      "status": 204
+    },
+    {
+      "stage": "B-mcp-initialize",
+      "ms": 97928
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 99300,
+      "label": "A",
+      "route": "/provider",
+      "status": 200
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 99641,
+      "label": "A",
+      "route": "/agent",
+      "status": 200
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 99669,
+      "label": "A",
+      "route": "/command",
+      "status": 200
+    },
+    {
+      "stage": "model-request",
+      "ms": 99758,
+      "index": 13
+    },
+    {
+      "stage": "model-request",
+      "ms": 104920,
+      "index": 14
+    },
+    {
+      "stage": "A4-after-last-A-owner-close-frame",
+      "ms": 107587,
+      "ended": true,
+      "error": false
+    },
+    {
+      "stage": "step-result",
+      "ms": 12451,
+      "step": "A4-after-last-A-owner-close",
+      "scope": "A",
+      "delta": {
+        "spawns": 0,
+        "globalEvents": 0,
+        "configs": 1,
+        "mcpConnections": 1,
+        "pluginImports": 0,
+        "pluginSetups": 1,
+        "pluginConfigHooks": 1
+      },
+      "total": {
+        "spawns": 1,
+        "globalEvents": 1,
+        "configs": 3,
+        "mcpConnections": 3,
+        "pluginImports": 1,
+        "pluginSetups": 3,
+        "pluginConfigHooks": 3
+      }
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 107590,
+      "label": "B",
+      "method": "POST",
+      "route": "/instance/dispose"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 107591,
+      "label": "A",
+      "method": "POST",
+      "route": "/instance/dispose"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 107664,
+      "label": "B",
+      "route": "/instance/dispose",
+      "status": 200
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 107676,
+      "label": "A",
+      "route": "/instance/dispose",
+      "status": 200
+    }
+  ],
+  "evidenceNote": "Owned production OpenCodeServerPool and OpenCodeAdapter; host directory basename redacted."
+}

@@ -4,14 +4,17 @@ import { harnessEnvFingerprint } from '../../common/harness-config'
 import { openCodeComposerCatalog } from './composer-catalog'
 import { openCodePreparationError } from './errors'
 import { openCodeNativeCommands } from './native-resources'
-import { nativeWorkingDirectory, sameNativePath } from './native-storage'
+import { sameNativePath } from './native-storage'
+import { OpenCodeInstances, waitForOpenCode, type OpenCodeInstance } from './instance-lifecycle'
 
 interface ServerIdentity {
   url: string
   headers: Record<string, string>
+  retire?: () => void
 }
 
 interface DirectoryState {
+  client: OpencodeClient
   controller: AbortController
   ready?: Promise<void>
   commands?: NativeCommand[]
@@ -30,7 +33,7 @@ interface Subscriber {
 
 export interface OpenCodeClientLease {
   client: OpencodeClient
-  release(): void
+  release(): Promise<void>
   events(signal: AbortSignal): AsyncGenerator<Event>
   prepare(signal: AbortSignal): Promise<void>
   commands(signal: AbortSignal): Promise<NativeCommand[]>
@@ -38,37 +41,21 @@ export interface OpenCodeClientLease {
   rememberCommands(commands: NativeCommand[]): void
 }
 
-/** A caller can leave shared work without cancelling the other owners. */
-async function waitFor<T>(task: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) void task.catch(() => undefined)
-  signal.throwIfAborted()
-  let onAbort = (): void => undefined
-  try {
-    return await Promise.race([
-      task,
-      new Promise<never>((_, reject) => {
-        onAbort = () => reject(signal.reason)
-        signal.addEventListener('abort', onAbort, { once: true })
-      })
-    ])
-  } finally {
-    signal.removeEventListener('abort', onAbort)
-  }
-}
-
 class ServerContext {
   readonly client: OpencodeClient
+  readonly instances: OpenCodeInstances
   references = 0
   private readonly controller = new AbortController()
-  private readonly directories = new Map<string, DirectoryState>()
+  private readonly directories = new WeakMap<OpenCodeInstance, DirectoryState>()
   private readonly subscribers = new Set<Subscriber>()
   private eventController?: AbortController
   private eventEpoch = 0
   private connected?: Event
+  private readonly connectionWaiters = new Set<() => void>()
 
   constructor(
-    server: ServerIdentity,
-    fetchImpl: typeof fetch,
+    private readonly server: ServerIdentity,
+    private readonly fetchImpl: typeof fetch,
     private readonly retire: () => void,
     private readonly queueLimit: number
   ) {
@@ -78,14 +65,58 @@ class ServerContext {
       fetch: fetchImpl,
       throwOnError: true
     })
+    this.instances = new OpenCodeInstances({
+      connect: (signal) => this.connectEvents(signal),
+      dispose: async (directory, signal) => {
+        await this.client.instance.dispose({ directory }, { signal, throwOnError: true })
+      },
+      retire: () => server.retire?.()
+    })
   }
 
-  directory(path: string): DirectoryState {
-    const key = nativeWorkingDirectory(path)
-    let state = this.directories.get(key)
+  directory(scope: OpenCodeInstance): DirectoryState {
+    let state = this.directories.get(scope)
     if (!state) {
-      state = { controller: new AbortController(), commandRevision: 0 }
-      this.directories.set(key, state)
+      const fetchScoped: typeof fetch = async (input, init) => {
+        const request = new Request(input, init)
+        const url = new URL(request.url)
+        // An owned turn must still stop generation after its event stream fails.
+        const cleanupAbort =
+          request.method === 'POST' &&
+          /^\/session\/[^/]+\/abort$/.test(url.pathname) &&
+          scope.references > 0 &&
+          !scope.disposed
+        const signal = cleanupAbort
+          ? request.signal
+          : AbortSignal.any([request.signal, scope.controller.signal, this.controller.signal])
+        signal.throwIfAborted()
+        if (!url.pathname.startsWith('/global/')) {
+          const header = request.headers.get('x-opencode-directory')
+          const directory =
+            url.searchParams.get('directory') ?? (header ? decodeURIComponent(header) : null)
+          if (!directory || !sameNativePath(directory, scope.directory))
+            throw new Error('OpenCode 프로젝트 요청 경로가 일치하지 않습니다.')
+          scope.touched = true
+        }
+        const response = await this.fetchImpl(new Request(request, { signal }))
+        if (signal.aborted) {
+          await response.body?.cancel().catch(() => undefined)
+          signal.throwIfAborted()
+        }
+        return response
+      }
+      state = {
+        client: createOpencodeClient({
+          baseUrl: this.server.url,
+          headers: this.server.headers,
+          directory: scope.directory,
+          fetch: fetchScoped,
+          throwOnError: true
+        }),
+        controller: scope.controller,
+        commandRevision: 0
+      }
+      this.directories.set(scope, state)
     }
     return state
   }
@@ -99,13 +130,16 @@ class ServerContext {
   }
 
   private wait<T>(task: Promise<T>, state: DirectoryState, signal: AbortSignal): Promise<T> {
-    return waitFor(task, AbortSignal.any([signal, this.controller.signal, state.controller.signal]))
+    return waitForOpenCode(
+      task,
+      AbortSignal.any([signal, this.controller.signal, state.controller.signal])
+    )
   }
 
   private ready(directory: string, state: DirectoryState): Promise<void> {
     this.controller.signal.throwIfAborted()
     state.controller.signal.throwIfAborted()
-    state.ready ??= this.client.config
+    state.ready ??= state.client.config
       .get({ directory }, { signal: this.signal(state, 30_000), throwOnError: true })
       .then(() => {
         this.controller.signal.throwIfAborted()
@@ -138,7 +172,7 @@ class ServerContext {
       const revision = state.commandRevision
       const flight = this.ready(directory, state)
         .then(() =>
-          openCodeNativeCommands(this.client, directory, false, undefined, {
+          openCodeNativeCommands(state.client, directory, false, undefined, {
             signal: AbortSignal.any([this.controller.signal, state.controller.signal]),
             timeoutMs: 30_000
           })
@@ -171,7 +205,7 @@ class ServerContext {
       const flight = this.ready(directory, state)
         .then(() =>
           openCodeComposerCatalog(
-            this.client,
+            state.client,
             directory,
             AbortSignal.any([this.controller.signal, state.controller.signal])
           )
@@ -190,11 +224,15 @@ class ServerContext {
     return this.wait(state.composerFlight, state, signal)
   }
 
-  rememberCommands(directory: string, state: DirectoryState, commands: NativeCommand[]): void {
+  rememberCommands(
+    scope: OpenCodeInstance,
+    state: DirectoryState,
+    commands: NativeCommand[]
+  ): void {
     if (
       this.controller.signal.aborted ||
       state.controller.signal.aborted ||
-      this.directories.get(nativeWorkingDirectory(directory)) !== state
+      !this.instances.active(scope)
     )
       return
     state.commandRevision++
@@ -239,12 +277,22 @@ class ServerContext {
     } finally {
       signal.removeEventListener('abort', wake)
       this.subscribers.delete(subscriber)
-      if (!this.subscribers.size) {
-        this.eventEpoch++
-        this.eventController?.abort()
-        this.eventController = undefined
-        this.connected = undefined
-      }
+    }
+  }
+
+  private async connectEvents(signal: AbortSignal): Promise<void> {
+    this.controller.signal.throwIfAborted()
+    if (this.connected) return
+    let resolve!: () => void
+    const ready = new Promise<void>((done) => {
+      resolve = done
+    })
+    this.connectionWaiters.add(resolve)
+    if (!this.eventController) this.startEvents()
+    try {
+      await waitForOpenCode(ready, AbortSignal.any([signal, this.controller.signal]))
+    } finally {
+      this.connectionWaiters.delete(resolve)
     }
   }
 
@@ -272,16 +320,14 @@ class ServerContext {
           const event: Event = envelope.payload
           if (!this.connected && event.type !== 'server.connected')
             throw openCodePreparationError('events', new Error('Missing server handshake'))
-          if (event.type === 'server.connected') this.connected = event
+          if (event.type === 'server.connected') {
+            this.connected = event
+            for (const resolve of this.connectionWaiters) resolve()
+            this.connectionWaiters.clear()
+          }
           const global = event.type === 'server.connected'
           if (event.type === 'server.instance.disposed' && envelope.directory) {
-            for (const [key, state] of this.directories) {
-              if (!sameNativePath(key, envelope.directory)) continue
-              state.controller.abort(
-                new Error('OpenCode 프로젝트 연결이 종료되었습니다. 다시 연결해 주세요.')
-              )
-              this.directories.delete(key)
-            }
+            this.instances.disposed(envelope.directory)
           }
           for (const subscriber of this.subscribers) {
             if (
@@ -310,6 +356,7 @@ class ServerContext {
   }
 
   private fail(error: Error): void {
+    this.server.retire?.()
     this.retire()
     this.close(error)
   }
@@ -318,7 +365,8 @@ class ServerContext {
     if (this.controller.signal.aborted) return
     this.controller.abort(reason)
     this.eventController?.abort()
-    this.directories.clear()
+    this.instances.close(reason)
+    this.connectionWaiters.clear()
     for (const subscriber of this.subscribers) {
       subscriber.error = reason
       subscriber.wake?.()
@@ -330,13 +378,15 @@ class ServerContext {
 /** Scope is an owned server's URL and secret fingerprint, never a user-wide singleton. */
 export class OpenCodeSessionContexts {
   private readonly entries = new Map<string, ServerContext>()
+  private closed = false
 
   constructor(
     private readonly fetchImpl: typeof fetch,
     private readonly queueLimit = 4096
   ) {}
 
-  acquire(server: ServerIdentity, directory: string): OpenCodeClientLease {
+  async acquire(server: ServerIdentity, directory: string): Promise<OpenCodeClientLease> {
+    if (this.closed) throw new Error('OpenCode 연결 관리자가 종료되었습니다.')
     const key = `${server.url}:${harnessEnvFingerprint(server.headers)}`
     let state = this.entries.get(key)
     if (!state) {
@@ -352,27 +402,39 @@ export class OpenCodeSessionContexts {
       state = created
     }
     const owned = state
-    const scope = owned.directory(directory)
     owned.references++
-    let released = false
+    const finish = (): void => {
+      if (--owned.references !== 0) return
+      if (this.entries.get(key) === owned) this.entries.delete(key)
+      owned.close()
+    }
+    let scope: OpenCodeInstance
+    try {
+      scope = await owned.instances.acquire(directory)
+      scope.controller.signal.throwIfAborted()
+    } catch (error) {
+      finish()
+      throw error
+    }
+    const metadata = owned.directory(scope)
+    let releasing: Promise<void> | undefined
     return {
-      client: owned.client,
-      prepare: (signal) => owned.prepare(directory, scope, signal),
-      commands: (signal) => owned.commands(directory, scope, signal),
-      composer: (signal, refresh) => owned.composer(directory, scope, signal, refresh),
-      rememberCommands: (commands) => owned.rememberCommands(directory, scope, commands),
-      events: (signal) => owned.events(directory, signal),
+      client: metadata.client,
+      prepare: (signal) => owned.prepare(scope.directory, metadata, signal),
+      commands: (signal) => owned.commands(scope.directory, metadata, signal),
+      composer: (signal, refresh) => owned.composer(scope.directory, metadata, signal, refresh),
+      rememberCommands: (commands) => owned.rememberCommands(scope, metadata, commands),
+      events: (signal) =>
+        owned.events(scope.directory, AbortSignal.any([signal, scope.controller.signal])),
       release: () => {
-        if (released) return
-        released = true
-        if (--owned.references !== 0) return
-        if (this.entries.get(key) === owned) this.entries.delete(key)
-        owned.close()
+        releasing ??= owned.instances.release(scope).finally(finish)
+        return releasing
       }
     }
   }
 
   close(): void {
+    this.closed = true
     for (const state of this.entries.values()) state.close()
     this.entries.clear()
   }

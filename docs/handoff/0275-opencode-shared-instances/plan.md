@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex / 2026-10-21 |
-| 상태 / 라운드 | READY / r1 |
+| 상태 / 라운드 | IMPL_DONE / r1 |
 | V mode / 기준 | Delta V / 0274 유효 V @ `7b6111f6` |
 | 이번 / 유효 V | ΔV6 / 0273 V1 + 0274 ΔV2~4 + 이번 ΔV5~6 |
 | 브랜치 | codex-harness-entry-menu |
@@ -155,9 +155,165 @@ READY. 사용자 검토 조건과 마지막 구현 지시를 대조해 기존 id
 정정한다. XDG의 상대 경로는 native xdg-basedir의 절대 경로 계약과 다르므로 임의로 절대화해 유효 설정으로 승격하지 않는다. XDG 값은 그대로 전달하고 상대 XDG가 있으면 요청 cwd를 host/fingerprint에도 남겨 보수적으로 격리한다. 나머지 지정한 native 파일 경로 환경은 요청 cwd 기준 절대화하며 `:memory:`·URL 값은 보존한다.
 EP07의 profile/env 자리와 AC18에 귀속한다. AC20개·pair9개·강제 지점23개 분모는 불변이다.
 
+## [구현자 기입] 설계 리뷰
+
+- 동의 / 그대로 진행: D13~20의 profile 공유·directory 참조·native 완료 대기·마지막 서버 종료를 구현했다. 사용자 입력과 native 이력 소유 계약은 유지했다.
+- 이견 / 현실성 문제: 없음. §9의 actor는 SDK와 metadata를 scope identity에 연결한 WeakMap으로 조립한다.
+- ACTIVE Decision 충돌: 없음. 정리 실패의 보고는 기존 오류 보고 채널을 사용하며 정상 응답 결과를 정리 오류로 덮어쓰지 않는다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+테스트 좌표는 모두 `app/src/main/adapters/opencode/v1/` 아래다. 기존 A1~6·C1~9·P1~6 좌표는 [0274의 좌표 표](../0274-opencode-desktop-startup/plan.md)를 그대로 참조하며 이번 실행 집합에서 재실행했다. 아래 N 좌표는 이번 변경의 직접 행동 oracle이다.
+
+| 좌표 | 파일:테스트명 |
+|---|---|
+| N1 | `server.test.ts:shares a profile across directories while separating native storage environments` |
+| N2 | `server.test.ts:separates relative path environments and preserves relative XDG and special native values` |
+| N3 | `server.test.ts:retires only future acquisitions and shuts down every owned generation` |
+| N4 | `server.database-path.test.ts:reads the database path through the server and CLI environment of the selected engine document` |
+| N5 | `adapter.instances.test.ts:sends default POST directory and workspace without allowing a foreign directory or bootstrapping unused leases` |
+| N6 | `adapter.instances.test.ts:reserves the sole context during last-owner cleanup and rejects late direct SDK requests` |
+| N7 | `adapter.instances.test.ts:keeps one process for A/B, waits for native completion, and fences same-directory reacquisition` |
+| N8 | `instance-lifecycle.test.ts:reserves same-directory owners and never bootstraps an untouched instance to dispose it` |
+| N9 | `adapter.instances.test.ts:retires failed cleanup without killing B and reports only a safe error before new generation startup` |
+| N10 | `instance-lifecycle.test.ts:bounds %s and retires new acquisitions while keeping B alive` — connect/dispose/completion |
+| N11 | `instance-lifecycle.test.ts:waits for both acknowledgement and the matching completion event before allowing reacquisition` |
+| N12 | `instance-lifecycle.test.ts:does not let the old externally disposed owner dispose or erase a replacement` |
+| N13 | `instance-lifecycle.test.ts:cancels cleanup and pending reacquisition at shutdown without waiting for an unresponsive transport` |
+| N14 | `adapter.instances.test.ts:awaits directory disposal in the %s consumer finally before releasing its server` — complete/recover/history/channel |
+| N15 | `session-context.test.ts:rejects acquisition after context shutdown before issuing a native request` |
+| N16 | `instance-lifecycle.test.ts:enforces the default 30-second cleanup budget even when HTTP acknowledgement has arrived` |
+| N17 | `server.test.ts:invalidates the version cache when the executable bytes change at the same path` |
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP10·12·13 | EP07 profile/env | profile/env key | 1/1 | N1·N2·N17: 호환 폴더 공유, 다른 env·파일 교체는 분리 | 서로 다른 XDG·상대 config·실행 파일 bytes → spawn/auth 구별 | 없음 |
+| VP10·12·13 | EP07 cwd | stable spawn cwd | 1/1 | N1·N7: A/B child 1, cwd는 home | A/B 요청 cwd와 다른 host cwd → spawn options | 없음 |
+| VP10·12·13 | EP07 generation | server retire generation | 1/1 | N3·N9: old B 유지, 새 server 생성, old retire가 새 map을 지우지 않음 | old/new auth·child → kill 호출 분리 | 없음 |
+| VP10·12·13 | EP07 database | db path profile | 1/1 | N4: CLI `db path`와 spawn의 cwd·config 파일 경로 일치 | relative settings·XDG·provider document → 실제 CLI 인자/env | 없음 |
+| VP10·12·13 | EP07 scope | scoped SDK directory | 1/1 | N5: 한국어 기본 POST 경로·workspace 유지, foreign 경로 거부 | `C:/프로젝트`·`workspace-one` → Request header/query | 없음 |
+| VP10~13 | EP08 reservation | context acquire 예약 | 1/1 | N6: 마지막 old 정리 중 새 acquire가 같은 server/context 유지 | sole A → releasing/renewed → child kill 0, 새 config 성공 | 없음 |
+| VP10~13 | EP08 refs | directory acquire/refs | 1/1 | N7·N8: A1/A2 한 반환은 dispose 없음 | 같은 normalized A, 다른 B → 참조·요청 결과 | 없음 |
+| VP10~13 | EP08 release | idempotent release | 1/1 | N7: 동일 Promise, dispose 중복 없음 | 같은 lease release 2회 → dispose 1회 | 없음 |
+| VP10~13 | EP08 touched | nativeTouched fetch | 1/1 | N5·P2: 미사용·이미 취소된 SDK는 dispose 없음, native 요청 중 취소는 dispose | foreign/aborted/native read → request 목록 | 없음 |
+| VP10~13 | EP08 abort | scope abort/late fence | 1/1 | C8·N6: abort 무시 transport의 늦은 결과 거부, old SDK 차단 | late inventory·old abort request → 오류, 새 scope 유지 | 없음 |
+| VP10~13 | EP08 composite | adapter composite release | 1/1 | N7·N9: native 완료 또는 실패 처리 뒤 raw lease 반환 | ack만 온 A → child 유지; 완료 event → kill | 없음 |
+| VP10~13 | EP09 connection | cleanup global 연결 | 1/1 | N14: history/complete도 global handshake 후 dispose | stream 없던 일시 작업 → global 1개와 native 요청 | 없음 |
+| VP10~13 | EP09 budget | dispose RPC 예산 | 1/1 | N10·N16: 각 단계 timeout·signal abort, 기본 29,999ms 유지/30,000ms retire | 단계별 무응답 → 안전 실패·B 유지 | 없음 |
+| VP10~13 | EP09 completion | disposed completion event | 1/1 | N7·N11: HTTP ack와 unrelated event로는 반환하지 않음 | 다른 directory event와 matching event → 반환 순서 | 없음 |
+| VP10~13 | EP09 barrier | closing 재진입 barrier | 1/1 | N6·N7·N11: 완료 뒤 새 scope 준비 | old closing → 새 acquire 대기·재준비 | 없음 |
+| VP10~13 | EP09 failure | failure retire | 1/1 | N9·N10: B 읽기 성공, 새 A만 다른 server/auth | dispose 500·비밀 body → 안전 보고, new generation | 없음 |
+| VP10~13 | EP09 cache | scope/cache identity 삭제 | 1/1 | C4·C5·N12: old inventory/release가 replacement를 훼손하지 않음 | old/new command 이름 → 새 목록 유지 | 없음 |
+| VP10~13 | EP09 order | 최종 server 반납 순서 | 1/1 | N7·N14: 마지막 completion 이후 child kill 1회 | A/B 각각 event → 모든 owner 이후 종료 | 없음 |
+| VP10~13 | EP09 shutdown | shutdown 취소 | 1/1 | N3·N13·N15·A3: retired 포함 종료, pending acquire 취소, 종료 후 새 획득 거부 | live/retired/pending/closed → kill·signal·요청 0 | 없음 |
+| VP10~12 | EP10 channel | channel finally | 1/1 | N14 channel: frame 뒤 close가 native 완료 대기 | 실제 SDK frame→iterator return→dispose→kill | 없음 |
+| VP10~12 | EP10 complete | complete finally | 1/1 | N14 complete: 응답 `complete`, 임시 session만 DELETE, disposal 후 resolve | prompt/title 작업 → 결과·요청·kill | 없음 |
+| VP10~12 | EP10 recover | recover finally | 1/1 | N14 recover: 새 ID 유지, native 완료 후 resolve | `s1`→freshStart false, DELETE 없음 | 없음 |
+| VP10~12 | EP10 history | history finally | 1/1 | N14 history: snapshot ready, native 완료 후 resolve | 실제 SDK session/messages→snapshot, DELETE 없음 | 없음 |
+
+검색은 §10의 source 전체에서 `profile|environment|cwd|retire|directory`, `acquire|references|release|touched|signal`, `dispose|closing|connected|retire|close|release`, 소비처 `release|finally|connect`로 수행했다. 결과를 lease 획득·사용·반환의 계약 운반 edge와 대조했다. 정규식 hit 자체는 지점 수로 세지 않았다. 고정23자리에서 빠진 분류와 source의 미분류 계약 edge 양쪽 차집합은 빈 집합이다. EP07 5/5 + EP08 6/6 + EP09 8/8 + EP10 4/4 =23/23.
+
+- §10 밖에서 본 운반 자리: 없음. `cleanupAbort` 예외는 기존 소유 turn 중단을 보존하는 EP08 scope 경계이며, 앱 종료 후 획득 차단은 EP09 shutdown에 포함한다.
+- 직전 verify 고장 이력: 이번 handoff의 첫 구현으로 없음.
+- N14 history는 DB 경로 조회만 stub한다. native history SDK·directory·lease 정리는 production 조립을 실행하고 DB path 자체는 N4가 별도로 검증한다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP01 | REGRESSION | SELF_PASS | P1~4·errors·native-resources 실제 SDK 요청/오류 | not selected — 직접 oracle |
+| VP02 | REGRESSION | SELF_PASS | persistent의 취소·명시 retry·stream failure, A3 | not selected — 직접 oracle |
+| VP04 | REGRESSION | SELF_PASS | native-resources budget/signal·errors 안전 분류 | not selected — 직접 oracle |
+| VP05 | REGRESSION | SELF_PASS | A1~6·P1~4와 이번 실제 CLI 실행 | not selected — 직접 oracle |
+| VP09 | REGRESSION | SELF_PASS | P5·P6 warm command rejection/callback fence | not selected — 직접 oracle |
+| VP10 | REQUIRED | SELF_PASS | N1~17·C1~9·N14 각 소비처, 실제 CLI 결과 | not selected — 직접 oracle |
+| VP11 | REQUIRED | SELF_PASS | N6~16·A3·C4/C8의 상태 전이 | not selected — 직접 oracle |
+| VP12 | REQUIRED | SELF_PASS | N1~7·N9·N14·C2의 production pool/adapter/SDK 조립 | not selected — 직접 oracle |
+| VP13 | REQUIRED | SELF_PASS | N2·N8·N10~13·N16·N17의 값·취소·수명 결과 | not selected — 직접 oracle |
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| 해당 없음 | 선택된 적대 증거·인용 변이·새 structural proxy 없음 | 최초 | native Request·frame·signal·child 종료의 직접 행동 oracle | 해당 없음 — 직접 oracle |
+
+분모 검산: 선택 증거0 · 인용 변이0 · 새 구조/전수/배선 oracle0 = 의무 표 행0. 위 행은 해당 없음 표시다. 덮개 회귀: 해당 없음. 기존 동작 oracle을 제거하지 않았고 fixture는 새 native 정리 프로토콜을 추가했다.
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 문구·상태의 소비자 | 정리 실패는 기존 `reportError`의 안전 문구로 전달 | 비밀 body/경로 제외, N9 |
+| 재배치 후 정리 변수 스코프 | acquire 예약·release Promise를 lease가 소유 | N6·N14에서 완료 대기 확인 |
+| 새 실패 경로의 Part I 상태 | §3 정리 timeout/stream 실패 행 | retire 후 새 획득, 기존 B 보존 |
+| 실패가 무반응으로 보이는가 | 정상 프레임/이력 결과는 유지, 정리 오류 별도 보고 | N9·P3/P4의 오류/명시 재시도 |
+| 늦은 응답이 화면을 되돌리는가 | scope abort·identity fence로 차단 | C4/C5/C8·N6 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | retired entry를 pool map에서만 제거하면 앱 종료의 process 회수 목록에서 빠짐 | 선조치: owned entry 집합을 별도 유지 | N3·N9의 모든 child kill 1회 |
+| 2 | 모든 scoped 요청을 취소하면 stream 실패 뒤 소유 prompt abort도 막힘 | 선조치: 아직 소유한 session abort만 cleanup 요청으로 허용 | `adapter.test.ts:surfaces a disconnected stream and aborts only that session without resending the prompt`, N6 old release 후 요청 차단 |
+| 3 | cleanup 오류가 finally에서 throw하면 정상 응답 결과·channel 종료를 가릴 수 있음 | 선조치: 안전 보고 후 raw lease 반환 | N9·N14 |
+| 4 | SDK default POST directory header는 URI encoding을 사용 | 선조치: query 우선, header decode 후 scope 검증 | N5 한국어 경로·workspace |
+| 5 | 종료 후 늦은 acquire가 새 context를 만들 수 있음 | 선조치: context pool closed fence | N15·A3 |
+| 6 | 병렬 검사에서 timeout oracle 1개가 20초 상한에 걸림 | 선조치: actor가 deadline controller/timer를 직접 보유하고 finally에서 clear | N10·N16 및 전체 관련 실행 집합 재통과 |
+| 7 | Windows의 `C:settings.json`은 URL이 아니라 drive 상대 파일 경로 | 선조치: URI 판정에서 drive 상대를 분리하고 요청 cwd로 해석 | N2의 drive 상대/절대 경로가 같은 server를 공유 |
+
+### 설계 대비 명시적 차이
+
+제품 동작·Decision·AC 차이는 없다. scope의 SDK/metadata는 scope identity WeakMap에 보관하고 deadline timer는 actor가 직접 소유한다. 해제 의미와 30초 예산은 §9를 따른다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 / 관측 |
+|---|---|---|
+| 만료 | timer를 clear하지 않으면 완료 후 callback 잔존 | AC19·EP09 budget, N10/N16 |
+| 공유 | context 전체 취소가 다른 directory를 종료할 수 있음 | AC14/19·EP08/09, N7/N9 |
+| 재진입 | 이전 scope 완료가 새 metadata를 지울 수 있음 | AC16·EP09 cache/barrier, C4/C5·N6/N12 |
+| 다른 무효화 축 | 앱 shutdown 이후 획득·old SDK 호출 | AC17·EP08/09, N6/N13/N15 |
+
 ## [구현자 기입] 구현 보고
 
-구현 전.
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | OpenCode v1 profile/instance actor·server/context·adapter/channel·관련 tests, 현재 architecture, 실행 증거 |
+| 실행 명령 | `vitest run src/main/adapters/opencode/v1 src/main/features/sessions/session-runtime src/main/features/sessions/supervisor.test.ts --exclude '**/native-cursor.test.ts'`; Electron Node 모드의 native-cursor; lifecycle 추가 oracle; typecheck node/web/test·lint·electron-vite build |
+| 관측한 게이트 산출 | 비DB 27파일312케이스 통과 후 lifecycle 8개 재실행 통과(신규1 포함, 고유313). Electron DB7개 통과. 타입 오류0, lint 오류0/기존 경고2, build 성공 |
+| 운영 gate | SQLite Electron ABI 유지, inventory 산출물/수치 검사·test budgets 통과. 전체 링크 검사의 외부 checkout 오류10은 별도 기록, 해당 두 checkout 제외 오류0 |
+| V-pair 자기확인 | SELF_PASS9 / SELF_BLOCKED0 |
+| 강제 지점 전수 | 23/23, 자리별 직접 oracle은 위 표 |
+| AC 자기보고 | 20/20 — 아래 표 |
+| 합계 검산 | ✅20 · ⚠️0 · ❌0 = 총20. 승계11+신규9, AC6은 이전 ΔV에서 AC12로 이관 |
+| 블로커 / 역질문 | 없음. 사용자 실제 환경에서의 지연 개선율은 미측정이며 native MCP/plugin의 directory 비용은 유지 |
+| 대상 커밋 | (r1 구현 — 좌표는 INDEX) |
+
+| AC | 자기 판정 | 이번 턴의 관측 |
+|---|---|---|
+| AC1 | ✅ | P1: 느린 목록 후 command 정확히1회·인자 유지 |
+| AC2 | ✅ | P2: 준비 취소 signal abort·command/prompt 미제출, native cleanup만 수행 |
+| AC3 | ✅ | errors·P3/P4·N9: 안전 오류, 비밀 response 제외 |
+| AC4 | ✅ | P3/P4·A5: 명시 재시도에서만 새 제출 |
+| AC5 | ✅ | OpenCode/runtime 회귀 및 Electron native cursor7개 통과 |
+| AC7 | ✅ | A1: global handshake→project 준비→session/prompt |
+| AC8 | ✅ | A1/A4: 일반 입력은 목록 대기 없음, slash는 준비 후1회 |
+| AC9 | ✅ | A2·C2·N7: 다수 채널 global 공유·directory/auth 격리·남은 owner 유지 |
+| AC10 | ✅ | A3·C3~5/C8·N6/N13/N15: shutdown/disposal/late callback fence |
+| AC11 | ✅ | P1~6·native resources/history/complete 회귀 통과 |
+| AC12 | ✅ | CLI1.17.19/Electron으로 실제 global/session/command 시퀀스 재확인, 사용자 원인 미확정 범위 유지 |
+| AC13 | ✅ | N1/N7/N17·실측: 호환 A/B server/SSE/import 각각1, 다른 env/executable 분리 |
+| AC14 | ✅ | N7/N8: 같은 A 첫 반환 dispose0, 마지막 반환만 dispose, 중복 release 멱등 |
+| AC15 | ✅ | N7/N11/N14·실측: HTTP ack 뒤 hook/event 대기, 최종 종료 순서 |
+| AC16 | ✅ | N6/N7/N12·C4/C5/C8: 재진입 대기·old result/release 차단 |
+| AC17 | ✅ | N5/N13/N14/N15·실측: 미사용 bootstrap0, 소비처 정리, native session 이력 유지 |
+| AC18 | ✅ | N2/N4/N5: 상대 경로·XDG·DB profile·한글 POST directory/workspace 유지 |
+| AC19 | ✅ | N9/N10/N16: A 실패 시 B 유지·새 서버·안전 보고·30초 예산 |
+| AC20 | ✅ | A2·persistent·N7: 다중 owner 텍스트/승인/목록·병렬 준비 회귀 |
+| AC21 | ✅ | [실행 보고서](execution-report.md): module import1, directory setup/MCP3, dispose hook 뒤 반환·서버 종료 |
+
+## [구현자 기입] Review Signals — 사실만
+
+- 이전과 같은 축: native 시작·SSE·취소 경계는 0274의 확장이고, process 공유/directory 정리는 이번 승인 범위다.
+- 기존 plan의 방지 규칙: §9·EP08~10에 완료 대기·참조·실패 회수가 명시되어 있어 위 경쟁 조건을 같은 구현에서 보완했다.
+- 환경 한계: 전체 링크 scanner가 로컬 외부 참고 checkout까지 방문해 기존 링크10건을 보고한다. heavy 검사와 겹친 최초 native 운영 probe는 시작 timeout, 최종 재실측은 성공했다. SQLite는 ABI 변경 없이 Electron에서 검증했다.
+- 현재 라운드·impl 턴: r1. 독립 verify 결과를 선점하지 않는다.
 
 ## [검증자 기입] 파생 이슈
 

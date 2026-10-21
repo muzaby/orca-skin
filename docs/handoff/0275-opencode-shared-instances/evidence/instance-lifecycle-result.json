@@ -1,0 +1,328 @@
+{
+  "cli": "1.17.19",
+  "electron": "39.8.10",
+  "mode": "production-shared-instances",
+  "diskDependencies": "already installed from prior isolated probes",
+  "pluginSetupDelayMs": 1200,
+  "steps": [],
+  "modelRequests": 0,
+  "trace": [
+    {
+      "stage": "spawn",
+      "ms": 3545,
+      "label": "host"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 7607,
+      "method": "GET",
+      "route": "/global/health"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 7747,
+      "route": "/global/health",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 7759,
+      "label": "A",
+      "method": "GET",
+      "route": "/config"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 7760,
+      "label": "B",
+      "method": "GET",
+      "route": "/config"
+    },
+    {
+      "stage": "plugin-import",
+      "ms": 9085
+    },
+    {
+      "stage": "plugin-setup",
+      "ms": 9142,
+      "label": "A"
+    },
+    {
+      "stage": "plugin-setup",
+      "ms": 9145,
+      "label": "B"
+    },
+    {
+      "stage": "plugin-config",
+      "ms": 10362,
+      "label": "A"
+    },
+    {
+      "stage": "plugin-config",
+      "ms": 10364,
+      "label": "B"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 10396,
+      "label": "A",
+      "route": "/config",
+      "status": 200
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 10400,
+      "label": "B",
+      "route": "/config",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 10404,
+      "label": "A",
+      "method": "GET",
+      "route": "/command"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 10405,
+      "label": "B",
+      "method": "GET",
+      "route": "/command"
+    },
+    {
+      "stage": "A-mcp-initialize",
+      "ms": 10642
+    },
+    {
+      "stage": "B-mcp-initialize",
+      "ms": 10650
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 11218,
+      "label": "A",
+      "route": "/command",
+      "status": 200
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 11245,
+      "label": "B",
+      "route": "/command",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 11272,
+      "label": "A",
+      "method": "POST",
+      "route": "/session"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 11432,
+      "label": "A",
+      "route": "/session",
+      "status": 200
+    },
+    {
+      "stage": "A-B-ready",
+      "ms": 11433
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 11440,
+      "label": "B",
+      "method": "GET",
+      "route": "/mcp"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 11442,
+      "method": "GET",
+      "route": "/global/event"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 11500,
+      "label": "B",
+      "route": "/mcp",
+      "status": 200
+    },
+    {
+      "stage": "B-still-connected-during-A-cleanup",
+      "ms": 11501
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 11505,
+      "route": "/global/event",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 11507,
+      "label": "A",
+      "method": "POST",
+      "route": "/instance/dispose"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 11570,
+      "label": "A",
+      "route": "/instance/dispose",
+      "status": 200
+    },
+    {
+      "stage": "mcp-stream-closed",
+      "ms": 11583,
+      "session": "owner-1"
+    },
+    {
+      "stage": "plugin-dispose",
+      "ms": 11587,
+      "label": "A"
+    },
+    {
+      "stage": "plugin-dispose-finished",
+      "ms": 13090,
+      "label": "A"
+    },
+    {
+      "stage": "A-reacquired",
+      "ms": 13094
+    },
+    {
+      "stage": "A-release-complete",
+      "ms": 13095
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 13096,
+      "label": "A",
+      "method": "GET",
+      "route": "/config"
+    },
+    {
+      "stage": "plugin-setup",
+      "ms": 14142,
+      "label": "A"
+    },
+    {
+      "stage": "plugin-config",
+      "ms": 15369,
+      "label": "A"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 15380,
+      "label": "A",
+      "route": "/config",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 15382,
+      "label": "A",
+      "method": "GET",
+      "route": "/command"
+    },
+    {
+      "stage": "B-mcp-initialize",
+      "ms": 15451
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 15942,
+      "label": "A",
+      "route": "/command",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 15960,
+      "label": "A",
+      "method": "GET",
+      "route": "/session/<id>"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 16079,
+      "label": "A",
+      "route": "/session/<id>",
+      "status": 200
+    },
+    {
+      "stage": "A-reopened-history-preserved",
+      "ms": 16080
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 16082,
+      "label": "B",
+      "method": "POST",
+      "route": "/instance/dispose"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 16084,
+      "label": "A",
+      "method": "POST",
+      "route": "/instance/dispose"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 16144,
+      "label": "B",
+      "route": "/instance/dispose",
+      "status": 200
+    },
+    {
+      "stage": "mcp-stream-closed",
+      "ms": 16146,
+      "session": "owner-2"
+    },
+    {
+      "stage": "plugin-dispose",
+      "ms": 16148,
+      "label": "B"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 16197,
+      "label": "A",
+      "route": "/instance/dispose",
+      "status": 200
+    },
+    {
+      "stage": "mcp-stream-closed",
+      "ms": 16206,
+      "session": "owner-3"
+    },
+    {
+      "stage": "plugin-dispose",
+      "ms": 16207,
+      "label": "A"
+    },
+    {
+      "stage": "plugin-dispose-finished",
+      "ms": 17662,
+      "label": "B"
+    },
+    {
+      "stage": "plugin-dispose-finished",
+      "ms": 17723,
+      "label": "A"
+    },
+    {
+      "stage": "all-releases-complete",
+      "ms": 17849
+    },
+    {
+      "stage": "owned-server-exited-before-adapter-close",
+      "ms": 19676
+    }
+  ],
+  "evidenceNote": "Owned production OpenCodeServerPool and OpenCodeAdapter; host directory basename redacted."
+}

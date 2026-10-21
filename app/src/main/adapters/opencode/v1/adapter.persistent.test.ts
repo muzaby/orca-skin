@@ -80,6 +80,10 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
     const request = new Request(input, init)
     requests.push(request.clone())
     const path = new URL(request.url).pathname
+    if (path === '/instance/dispose') {
+      emit(event('server.instance.disposed', { directory: overrides.cwd ?? 'C:/work' }))
+      return jsonResponse(true)
+    }
     if (path === '/session' && request.method === 'POST') return jsonResponse({ id: 'replacement' })
     if (path === '/mcp') return jsonResponse({ native: { status: 'connected' } })
     if (path === '/config') return jsonResponse({ plugin: ['@native/plugin@1'] })
@@ -302,7 +306,11 @@ describe('OpenCode persistent SDK channel', () => {
       gate.resolve()
       await receiving
       expect(readSignal!.aborted).toBe(true)
-      expect(f.requests.some((request) => request.method === 'POST')).toBe(false)
+      expect(
+        f.requests
+          .filter((request) => request.method === 'POST')
+          .map((request) => new URL(request.url).pathname)
+      ).toEqual(['/instance/dispose'])
     } finally {
       gate.resolve()
       await dispose(f.live, iterator)
