@@ -22,7 +22,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [`0271-native-skill-target`](0271-native-skill-target/plan.md) | plan | READY | Codex | (r1 설계 — 검증자 기입) | 1 | native 스킬 조회명과 작성 slug 검증을 분리한다. 비활성 플러그인 표시와 쓰기 권한은 유지한다. |
+| [`0271-native-skill-target`](0271-native-skill-target/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | native 이름의 폴더/파일 열기 복구, 비활성 표시·쓰기 권한 유지. AC5/5, 관련 207개 테스트·타입·린트·빌드 통과. 독립 검증 대기. |
 | [`0270-native-command-presentation`](0270-native-command-presentation/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | OpenCode 진행 라벨·Claude 명령 이력 복원·세션 native 스킬 표시 수정. 관련 399개 테스트·타입 검사·린트 통과, 독립 검증 대기. |
 | [`0269-session-composer-state`](0269-session-composer-state/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 세션 모델 복원·기본 승인·CI15파일 수정, AC6/6. 로컬7666·scripts142, [Windows CI](https://github.com/muzaby/orca-skin/actions/runs/39446331194)7671·scripts142 통과. |
 | [`0268-opencode-runtime-composer`](0268-opencode-runtime-composer/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 부분 구현 AC 9/10. 토스트 비활성화 미완료·EP6 진입 증거 3곳 미잠금. 서버 공유는 같은 cwd에 한정. [관측·재현](0268-opencode-runtime-composer/evidence/validation.md). |

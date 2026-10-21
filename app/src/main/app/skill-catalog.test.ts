@@ -8,12 +8,13 @@ import { registerSkillsHandlers } from './handlers/skills'
 import { CHANNELS } from '../../shared/ipc'
 
 const handlers = vi.hoisted(() => new Map<string, (event: unknown, raw: unknown) => unknown>())
+const showItemInFolder = vi.hoisted(() => vi.fn())
 vi.mock('electron', () => ({
   ipcMain: {
     handle: (channel: string, fn: (event: unknown, raw: unknown) => unknown) =>
       handlers.set(channel, fn)
   },
-  shell: {}
+  shell: { showItemInFolder }
 }))
 
 const roots: string[] = []
@@ -93,12 +94,12 @@ it('assembles the real catalog from lock, harness and native plugin files withou
   expect((await catalog()).find((s) => s.name === 'design:native')?.sourceLabel).toBe(
     'Claude 플러그인'
   )
-  const snapshot = await catalog()
+  let snapshot = await catalog()
   registerSkillsHandlers({
     getSkills: () => snapshot,
     settings: {} as never,
     deployExtensions: vi.fn() as never,
-    refreshSkills: catalog
+    refreshSkills: async () => (snapshot = await catalog())
   })
   // The global plugin is disabled, but remains part of the installed inventory.
   await writeFile(
@@ -124,6 +125,22 @@ it('assembles the real catalog from lock, harness and native plugin files withou
       })
     ])
   )
+  showItemInFolder.mockClear()
+  await handlers.get(CHANNELS.skillsShowInFolder)?.(
+    {},
+    {
+      sourceId: 'plugin:claude',
+      name: 'design:native'
+    }
+  )
+  expect(showItemInFolder).toHaveBeenCalledExactlyOnceWith(
+    join(plugin, 'skills', 'native', 'SKILL.md')
+  )
+  expect(snapshot.find((entry) => entry.name === 'design:native')).toMatchObject({
+    enabled: false,
+    canToggle: false,
+    canRemove: false
+  })
   await writeFile(lock, 'invalid')
   expect((await catalog()).filter((s) => s.sourceId === 'agents')).toEqual([])
 })
