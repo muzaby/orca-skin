@@ -366,7 +366,7 @@ export const GitDiffPatchRequestSchema = GitDiffRequestSchema.extend({
 
 export const ReadAttachmentRequestSchema = z.object({ path: z.string().min(1) })
 
-const SkillNameSchema = z
+const AuthoredSkillNameSchema = z
   .string()
   .trim()
   .min(1)
@@ -374,7 +374,7 @@ const SkillNameSchema = z
   .regex(/^[A-Za-z0-9_-]+$/, 'skill name 은 영숫자 · _ · - 만 허용')
 
 export const AuthorSkillSchema = z.object({
-  name: SkillNameSchema,
+  name: AuthoredSkillNameSchema,
   description: z.string().trim().min(1).max(500),
   body: z.string().max(20000).default('')
 })
@@ -385,7 +385,9 @@ export const UploadSkillSchema = z.object({
 })
 
 export const SkillTargetSchema = z.object({
-  name: SkillNameSchema,
+  // 기존 카탈로그의 식별자다. native namespace·frontmatter 이름을 변환하지 않으며,
+  // handler가 sourceId/name으로 찾은 항목의 경로만 사용한다(디렉터리 생성용 이름 아님).
+  name: z.string().min(1),
   sourceId: z.string().min(1).max(128)
 })
 

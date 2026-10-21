@@ -59,6 +59,24 @@ const rows = (markup: string): string[] =>
   [...markup.matchAll(/data-extensions-row="([^"]+)"/g)].map((match) => match[1])
 
 describe('plugin catalog list', () => {
+  it('only dims disabled skills while keeping enabled read-only native skills at normal contrast', () => {
+    const entries = [true, false].map((enabled): SkillInfo => ({
+      ...skill('plugin:claude', 'Claude 플러그인'),
+      name: enabled ? 'superpowers:active' : 'superpowers:inactive',
+      sourceKind: 'adapter',
+      enabled,
+      canToggle: false,
+      canRemove: false
+    }))
+    const $ = load(render({ skills: entries }))
+    for (const entry of entries) {
+      const row = $(`[data-extensions-row="${entry.sourceId}/${entry.name}"]`)
+      expect(row.find(`[title="${entry.name}"]`).hasClass('text-ink3')).toBe(!entry.enabled)
+      expect(row.find('button').attr('disabled')).toBeUndefined()
+      expect(row.find('button')).toHaveLength(1)
+    }
+  })
+
   it('labels native plugin skills and both native MCP groups with brand marks', () => {
     const markup = render({
       skills: [
