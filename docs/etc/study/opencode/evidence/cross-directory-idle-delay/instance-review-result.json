@@ -1,0 +1,385 @@
+{
+  "cli": "1.17.19",
+  "electron": "39.8.10",
+  "mode": "research-shared-server",
+  "diskDependencies": "already installed from prior isolated probes",
+  "pluginSetupDelayMs": 1200,
+  "steps": [],
+  "modelRequests": 0,
+  "trace": [
+    {
+      "stage": "spawn",
+      "ms": 1368,
+      "label": "A"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 3444,
+      "method": "GET",
+      "route": "/global/health"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 3532,
+      "route": "/global/health",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 3541,
+      "method": "GET",
+      "route": "/global/event"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 3561,
+      "route": "/global/event",
+      "status": 200
+    },
+    {
+      "stage": "observer-connected",
+      "ms": 3565
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 3568,
+      "label": "A",
+      "method": "GET",
+      "route": "/config"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 3570,
+      "label": "B",
+      "method": "GET",
+      "route": "/config"
+    },
+    {
+      "stage": "plugin-import",
+      "ms": 4411
+    },
+    {
+      "stage": "plugin-setup",
+      "ms": 4425,
+      "label": "A"
+    },
+    {
+      "stage": "plugin-setup",
+      "ms": 4427,
+      "label": "B"
+    },
+    {
+      "stage": "plugin-config",
+      "ms": 5644,
+      "label": "A"
+    },
+    {
+      "stage": "plugin-config",
+      "ms": 5645,
+      "label": "B"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 5659,
+      "label": "A",
+      "route": "/config",
+      "status": 200
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 5665,
+      "label": "B",
+      "route": "/config",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 5668,
+      "label": "A",
+      "method": "GET",
+      "route": "/command"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 5669,
+      "label": "B",
+      "method": "GET",
+      "route": "/command"
+    },
+    {
+      "stage": "A-mcp-initialize",
+      "ms": 5840
+    },
+    {
+      "stage": "B-mcp-initialize",
+      "ms": 5848
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 6184,
+      "label": "A",
+      "route": "/command",
+      "status": 200
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 6212,
+      "label": "B",
+      "route": "/command",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 6223,
+      "label": "A",
+      "method": "POST",
+      "route": "/session"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 6258,
+      "label": "A",
+      "route": "/session",
+      "status": 200
+    },
+    {
+      "stage": "A-B-ready",
+      "ms": 6259
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 6260,
+      "label": "A",
+      "method": "POST",
+      "route": "/instance/dispose"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 6276,
+      "label": "A",
+      "route": "/instance/dispose",
+      "status": 200
+    },
+    {
+      "stage": "A-dispose-http-ack",
+      "ms": 6277
+    },
+    {
+      "stage": "mcp-stream-closed",
+      "ms": 6281,
+      "session": "owner-1"
+    },
+    {
+      "stage": "plugin-dispose",
+      "ms": 6283,
+      "label": "A"
+    },
+    {
+      "stage": "plugin-dispose-finished",
+      "ms": 7798,
+      "label": "A"
+    },
+    {
+      "stage": "disposed-event",
+      "ms": 7810,
+      "label": "A"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 7811,
+      "label": "B",
+      "method": "GET",
+      "route": "/mcp"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 7818,
+      "label": "B",
+      "route": "/mcp",
+      "status": 200
+    },
+    {
+      "stage": "B-still-connected",
+      "ms": 7820
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 7820,
+      "label": "A",
+      "method": "GET",
+      "route": "/config"
+    },
+    {
+      "stage": "plugin-setup",
+      "ms": 8346,
+      "label": "A"
+    },
+    {
+      "stage": "plugin-config",
+      "ms": 9570,
+      "label": "A"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 9576,
+      "label": "A",
+      "route": "/config",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 9577,
+      "label": "A",
+      "method": "GET",
+      "route": "/command"
+    },
+    {
+      "stage": "B-mcp-initialize",
+      "ms": 9628
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 9868,
+      "label": "A",
+      "route": "/command",
+      "status": 200
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 9878,
+      "label": "A",
+      "method": "GET",
+      "route": "/session/<id>"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 9905,
+      "label": "A",
+      "route": "/session/<id>",
+      "status": 200
+    },
+    {
+      "stage": "A-reopened-history-preserved",
+      "ms": 9906
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 9906,
+      "label": "C",
+      "method": "POST",
+      "route": "/instance/dispose"
+    },
+    {
+      "stage": "plugin-setup",
+      "ms": 10415,
+      "label": "C"
+    },
+    {
+      "stage": "plugin-config",
+      "ms": 11640,
+      "label": "C"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 11655,
+      "label": "C",
+      "route": "/instance/dispose",
+      "status": 200
+    },
+    {
+      "stage": "C-dispose-http-ack",
+      "ms": 11656
+    },
+    {
+      "stage": "plugin-dispose",
+      "ms": 11657,
+      "label": "C"
+    },
+    {
+      "stage": "plugin-dispose-finished",
+      "ms": 13171,
+      "label": "C"
+    },
+    {
+      "stage": "disposed-event",
+      "ms": 13184,
+      "label": "C"
+    },
+    {
+      "stage": "unloaded-C-was-initialized-before-dispose",
+      "ms": 13185
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 13186,
+      "label": "A",
+      "method": "POST",
+      "route": "/instance/dispose"
+    },
+    {
+      "stage": "sdk-start",
+      "ms": 13187,
+      "label": "B",
+      "method": "POST",
+      "route": "/instance/dispose"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 13194,
+      "label": "A",
+      "route": "/instance/dispose",
+      "status": 200
+    },
+    {
+      "stage": "mcp-stream-closed",
+      "ms": 13195,
+      "session": "owner-3"
+    },
+    {
+      "stage": "plugin-dispose",
+      "ms": 13196,
+      "label": "A"
+    },
+    {
+      "stage": "sdk-response",
+      "ms": 13200,
+      "label": "B",
+      "route": "/instance/dispose",
+      "status": 200
+    },
+    {
+      "stage": "mcp-stream-closed",
+      "ms": 13201,
+      "session": "owner-2"
+    },
+    {
+      "stage": "plugin-dispose",
+      "ms": 13203,
+      "label": "B"
+    },
+    {
+      "stage": "plugin-dispose-finished",
+      "ms": 14707,
+      "label": "A"
+    },
+    {
+      "stage": "plugin-dispose-finished",
+      "ms": 14708,
+      "label": "B"
+    },
+    {
+      "stage": "disposed-event",
+      "ms": 14719,
+      "label": "A"
+    },
+    {
+      "stage": "disposed-event",
+      "ms": 14719,
+      "label": "B"
+    },
+    {
+      "stage": "review-complete",
+      "ms": 14739
+    }
+  ]
+}
