@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 지시에 따라 설계/구현 연속 수행 |
 | 일자 | 2026-10-21 |
 | 상태 | READY |
-| V mode / 기준 / revision | Baseline V + ΔV1 / V1@95da0b0f / V1 + ΔV1 |
+| V mode / 기준 / revision | Baseline V + ΔV1 + ΔV2 / V1@95da0b0f / V1 + ΔV1 + ΔV2 |
 
 # Part I — Product & UX Contract
 
@@ -51,16 +51,16 @@ OpenCode + directory → 화면 소유 준비 lease → agent/provider 각각 �
 
 | 상태/이벤트 | 결과 |
 |---|---|
-| 최초 loading | 입력 작성 가능, 목록 로딩 표시 |
+| 최초 loading | 입력 작성 가능, 기존 항목만 표시. 상태 안내·스피너 없음 |
 | agent만 성공 | 에이전트 선택 가능, 모델 지연과 독립 |
-| 실패/timeout | 해당 목록 오류·재시도, 같은 세대의 성공 결과 보존 |
+| 실패/timeout | 안내 없이 같은 세대의 성공 결과 보존, 고정 새로고침 동작으로 재조회 |
 | 성공한 빈 결과 | 기존 선택 정리, 기본 선택만 유지 |
 | directory/provider/session 변경 | 새 scope를 읽으며 이전 결과를 적용하지 않음 |
-| native instance 종료 | 기존 결과를 authoritative로 쓰지 않고 재연결 필요 표시 |
+| native instance 종료 | 기존 결과를 authoritative로 쓰지 않으며 상태 안내 없이 새로고침 가능 |
 | retry | 중복 클릭 합류, 성공 부분 보존, 무한 자동 재시도 없음 |
 | close/renderer gone/app quit | 진행 중 준비·요청 취소 및 소유 lease 반납 |
 
-키보드/테마: 기존 OpenCodeSelect·Popover·MenuItem 재사용, 상태·재시도에 접근 가능한 문구와 버튼, 두 테마 시맨틱 토큰 사용.
+키보드/테마: 기존 OpenCodeSelect·Popover·MenuItem 재사용, 고정 새로고침 메뉴도 키보드로 접근. 로딩·오류 상태 문구·스피너·기타 안내는 표시하지 않는다.
 
 ## 6. 범위
 
@@ -79,7 +79,7 @@ OpenCode + directory → 화면 소유 준비 lease → agent/provider 각각 �
 | R7 / AT7 / AC7 | 실패·수동 재조회 합류 및 회복, 강제 instance 재시작 없음 | 명시 refresh·실패 후 retry·세대 종료 테스트 |
 | R8 / AT8 / AC8 | agent 명시 제출은 agent만, variant 명시는 모델 검증도 대기 | channel prompt/command 요청 body와 지연 provider 테스트 |
 | R9 / AT9 / AC9 | 실제 턴과 동일 settings/env/cwd로 준비, 타 창 owner 접근 차단 | main resolver/handler integration, 구별되는 env/provider/project/session 값 |
-| R10 / AT10 / AC10 | 로딩/오류/재시도·선택·초점 동작 | Controls interaction, 실제 renderer 두 테마 시각 점검 |
+| R10 / AT10 / AC10 | 상태 안내·스피너 없이 선택·고정 새로고침·초점 동작 | Controls interaction, 실제 renderer 두 테마 및 오류 상태 시각 점검 |
 
 ## 7-A. Baseline V
 
@@ -176,6 +176,10 @@ IPC_CONTRACT, backend adapters, frontend component catalog, generated inventory�
 AC9를 최신 설정 재해석까지 확장한다. R9/AR1/SD1/MD2는 CHANGED, VP1/VP2/VP3/VP6 REQUIRED이며 나머지는 V1 유지다. EP2 owner ensure/read/release 자리의 직접 oracle을 `handlers/composer-catalog.test.ts: refresh re-resolves and keeps old owner until replacement is ready`로 추가한다. 기존 §13의 “죽은 lease만 재확보”는 이 행이 대체하며, 자동 재연결 없음은 유지한다.
 
 교체 실패는 이전 lease를 유지하며 해당 refresh를 실패로 표시한다. 진행 중 acquisition/refresh 합류·취소, 늦은 replacement 반납, 이전 profile 정리 대기로 새 목록 표시를 막지 않는 동작을 같은 oracle에서 검증한다. ACTIVE 결정 ↔ AC 대조: D9/AC9 및 D5/AC5와 충돌 0.
+
+### ΔV2 설계 보완 — 상태 안내 제거
+
+D10(ACTIVE): 사용자의 후속 지시로 팝업의 모든 로딩·오류 상태 문구와 스피너를 제거한다. 기존 목록 보존·오류/빈 목록 구분은 내부 상태로 유지하고, 상태와 무관한 고정 새로고침 메뉴로만 재조회한다. R10/AT10/AC10 및 AR2/MD2는 CHANGED, VP1/VP4/VP6 REQUIRED, 나머지는 기존 V 유지다. EP4 agent/variant control 자리의 oracle은 loading/error/ready에서 안내·스피너 부재와 새로고침/키보드 동작을 직접 단언한다. 이전 §11의 loading/error/retry 표시는 이 결정이 대체한다.
 
 ### 설계 리뷰
 미착수.
