@@ -8,7 +8,7 @@
 | 상태 / 라운드 | READY / r1 |
 | V mode | Delta V |
 | 기준 V | 0273 V1 @ `9ae4d5f3` (공유 브랜치, git cat-file=commit 확인) |
-| 이번 / 유효 V | ΔV3 / 0273 V1 + ΔV2 + ΔV3 |
+| 이번 / 유효 V | ΔV4 / 0273 V1 + ΔV2 + ΔV3 + ΔV4 |
 | 브랜치 | codex-harness-entry-menu |
 
 # Part I — Product & UX Contract
@@ -194,6 +194,11 @@ READY. 사용자 지시를 Desktop과 의미가 대응하는 초기화·구독·
 
 EP06: `channel.ts:submit`의 warm HTTP catch에서 close를 finally의 `submitting=undefined`보다 먼저 수행(1자리). 검색 `rg -n 'catch|close\(|submitting = undefined' channel.ts`의 submit 경계. 실패 의미는 거절된 입력의 늦은 telemetry/turn.ended가 다음 frame에 도달하는 것이다.
 기존 R11/VP01·VP07·VP08에 대한 회귀이며 사용자 결과·AC는 바꾸지 않는다. 유효 강제 지점 분모는 기존22+EP06 1=23이며 MD3는 위 직접 oracle로 판정한다.
+
+## ΔV4 — 조사 요구의 추적 이관 명시
+
+보완한다. 기준 V의 R6/AT6(원격 환경과 CLI 조사 기록)는 이번 R12/AT12(Desktop 시퀀스와 실제1.17.19 검증)로 SUPERSEDED한다. 기존 기록·evidence는 보존하고 0273 VP01의 해당 AC를 이번 VP05의 R12/AT12에 이관한다.
+새 사용자 결과·코드·강제 지점 변경은 없다. 유효 인수 분모는 승계 AC1~5와 새 AC7~12의 총11이며 강제 지점은 ΔV3의23자리를 유지한다.
 
 ## [구현자 기입] 구현 보고
 
