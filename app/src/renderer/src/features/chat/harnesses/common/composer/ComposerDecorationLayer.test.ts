@@ -8,6 +8,20 @@ import { composerDecorationTransform } from './composerScrollProjection'
 import { createDraftSnapshot, setDraftComposition } from './draftSnapshot'
 
 describe('ComposerDecorationLayer', () => {
+  it('uses the reference background for native plugin tokens while preserving skill styling', () => {
+    const html = renderToStaticMarkup(
+      createElement(ComposerDecorationLayer, {
+        snapshot: createDraftSnapshot('/review @native @src/a.ts'),
+        knownSkillNames: new Set(['review']),
+        validPluginIds: new Set(['native']),
+        validFilePaths: new Set(['src/a.ts']),
+        typographyClassName: 'typography'
+      })
+    )
+    expect(html.match(/bg-emerald-500\/15/g)).toHaveLength(2)
+    expect(html).toContain('bg-blue-500/15')
+    expect(html).not.toContain('bg-violet-500/15')
+  })
   it('한글 IME 조합 중에도 마지막 skill decoration을 숨기지 않는다', () => {
     const snapshot = setDraftComposition(createDraftSnapshot('/build 한'), true)
     const html = renderToStaticMarkup(

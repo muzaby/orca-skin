@@ -3,7 +3,7 @@
 import type { SkillInfo } from '../../../../../shared/ipc'
 import type { ReactNode } from 'react'
 import type { CascadeItem } from '../../../shared/ui/cascadeMenuState'
-import type { PluginMention } from './pluginMention'
+import { pluginMentionToken, type PluginMention } from './pluginMention'
 import type { NativeResourcesView } from '../hooks/useNativeResources'
 import type { NativeResource } from '../../../../../shared/native-resources'
 import { sourceSkills } from '../../../../../shared/extension-sources'
@@ -28,7 +28,7 @@ export interface AttachMenuLabels {
 /** 메뉴 선택 → 입력창에 넣을 토큰. 파일 추가·플러그인 관리는 토큰이 없다. */
 export function attachMenuToken(action: AttachMenuAction): string | null {
   if (action.type === 'skill') return `/${action.name}`
-  if (action.type === 'plugin') return `@${action.id}`
+  if (action.type === 'plugin') return pluginMentionToken(action.id)
   if (action.type === 'nativeCommand') return `/${action.name}`
   if (action.type === 'nativePrompt') return action.text
   return null
@@ -207,6 +207,17 @@ export function buildAttachMenu(input: {
   ]
 }
 
+/** The menu and decoration share the same observed, usable native MCP membership. */
+export function nativePluginMentions(view: NativeResourcesView, origin?: 'orca'): PluginMention[] {
+  if (view.status !== 'ready' || view.value.state !== 'connected') return []
+  return view.value.items
+    .filter(
+      (item) =>
+        item.kind === 'mcp' && item.origin === origin && item.status === 'connected' && item.enabled
+    )
+    .map((item) => ({ kind: 'plugin', id: item.id, label: item.name }))
+}
+
 export function nativeAttachItems(
   view: NativeResourcesView,
   labels: {
@@ -225,22 +236,15 @@ export function nativeAttachItems(
   const items: CascadeItem<AttachMenuAction>[] = []
   if (view.status === 'ready') {
     const commands = view.value.commands ?? []
-    const children: CascadeItem<AttachMenuAction>[] = view.value.items
-      .filter(
-        (item) =>
-          kind === 'mcp' &&
-          item.kind === 'mcp' &&
-          item.origin === origin &&
-          view.value.state === 'connected' &&
-          item.status === 'connected' &&
-          item.enabled
-      )
-      .map((item) => ({
-        kind: 'action',
-        id: `native-resource:${kind}:${item.id}`,
-        label: item.name,
-        action: { type: 'nativePrompt', text: labels.useMcp(item.name) }
-      }))
+    const children: CascadeItem<AttachMenuAction>[] =
+      kind === 'mcp'
+        ? nativePluginMentions(view, origin).map((plugin) => ({
+            kind: 'action',
+            id: `native-resource:${kind}:${plugin.id}`,
+            label: plugin.label,
+            action: { type: 'plugin', id: plugin.id }
+          }))
+        : []
     const groups = new Map<string, CascadeItem<AttachMenuAction>[]>()
     for (const command of commands.filter((command) =>
       kind === 'mcp' ? false : command.source !== 'mcp' && command.skill !== false

@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex / 2026-10-21 |
-| 상태 / 라운드 | READY / r1 |
+| 상태 / 라운드 | IMPL_DONE / r1 |
 | V mode / 기준 V / 유효 V | Baseline V / none / V1 |
 | 브랜치 | codex-harness-entry-menu |
 
@@ -219,31 +219,113 @@ ACTIVE 결정·AC 대조 충돌 0. 기존 native-menu/engine interaction/decorat
 
 ## [구현자 기입] 설계 리뷰
 
-구현 대기.
+- 동의 / 그대로 진행: D-01~07 유지. native MCP의 메뉴·장식을 동일 projection에 연결하고 출처 로고·엔진 추가 로고를 구현했다.
+- 이견 / 현실성 문제: browser의 localhost 접근이 `ERR_BLOCKED_BY_CLIENT`, 앱 표면은 비활성이라 실제 창의 white/dark 시각 인수를 수행하지 못했다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. nav 색상과 native 설정·server lifetime의 production 변경은 없다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
-구현 대기.
+아래에서 `N`은 `Composer.native-menu.test.ts`, `A`는 `attachMenuModel.test.ts`, `T`는 `composerDecoration.test.ts`, `L`은 `ComposerDecorationLayer.test.ts`, `E`는 `AgentEnvironmentView.interaction.test.ts`다. 파일 정본 경로는 §7·11에 있다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01·04 | EP-01 브랜드 | add의 Claude/OpenCode SVG (2) | 2/2 (DOM) | §10 rg에서 두 SVG 소비; E:`selects Claude or OpenCode…` 실제 add→첫 SVG→각 폼 | label별 서로 다른 viewBox·명시 color·첫 자식 SVG; 선택값도 각 폼으로 구별 | 실제 창 시각 인수 |
+| VP-01·04 | EP-02 source | HarnessLogo backend/className (2) | 2/2 (DOM) | registry rg의 backend/className; N:`shows all source groups…`, `highlights selected native @ plugins…` 양 backend | sourceBackend→Claude/OpenCode의 서로 다른 마크·text-spinner/text-oc-ink, skills/MCP 두 메뉴에서 관측 | 실제 창 시각 인수 |
+| VP-02~05 | EP-03 후보·직렬화 | filter/map/native action/attachMenuToken/pluginMentionToken (5) | 5/5 | A:`shares native menu membership…`, `keeps the exact native plugin id…`; N의 native·Orca·내장 선택 | id와 label 구별, enabled false·configured·disconnected·origin 구별; quoted id도 원문 membership와 입력으로 관측 | — |
+| VP-02~05 | EP-04 장식 전달 | controller union/prop, surface prop, tokenizer arg/matcher, 색 (6) | 6/6 | N:`highlights selected native @ plugins…`, `keeps a quoted native plugin id…`, `shows all source groups…`; L:`uses the reference background…` | native id·Orca id·Jira id·공백 id→실제 입력과 emerald span; disabled 갱신→span만 제거·draft 보존; OpenCode false 정책 구별 | — |
+| VP-02·05 | EP-05 skill | skill matcher (1) | 1/1 | N:`loads %s native commands from +…`, T:`preserves complete skill identities…` | `/session-B:review`·underscore·Unicode·namespace·구두점→원문 skill span, unknown/plain 보존 | — |
+
+검색 대조: EP-01~05의 소비 자리 2+2+5+6+1=16. 출력 중 import·선언·일반 내장 provider map·nativeCommand 형제는 §10 분모와 다른 역할이며 추가/누락 소비 자리 차집합은 없다.
+§10 목록 밖 운반 자리: 없음. 이전 verify 고장 이력: 최초 r1이라 없음. 시각 인수는 DOM 강제 지점과 별도로 미확인으로 남긴다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_BLOCKED | E의 add→브랜드/폼, N의 양 메뉴 source 마크 DOM은 통과 | not selected; 실제 창 white/dark는 도구 접근 차단 |
+| VP-02 | REQUIRED | SELF_PASS | N의 실제 +→선택→token/highlight, A/T/L | not selected — 직접 출력 |
+| VP-03 | REQUIRED | SELF_PASS | N:`highlights selected native @ plugins…`의 disabled 갱신·draft 보존, 양 backend | not selected — 실제 상태 전이 |
+| VP-04 | REQUIRED | SELF_PASS | E/N 실제 rendering path, A의 id/label/origin 구별 | not selected — 생산자/소비자 실제 조립 |
+| VP-05 | REQUIRED | SELF_PASS | A:`keeps the exact native plugin id…`, T의 원문/형상/파일 접두사·구두점 테스트 | not selected — parse 결과 |
+| VP-06 | REQUIRED | SELF_PASS | `startup-analysis.md` §2~7, CLI 버전·태그·계측 JSONL, Claude native 관련 테스트 | not selected — 조사 결과와 근거 |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
-구현 대기.
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| 해당 없음 — 직접 oracle | 선택 적대 증거·인용 변이·신규 구조 proxy oracle 없음 | 최초 | 양 backend의 실제 menu/input/layer·SVG, pure membership·token 결과 | 직접 행동 관측으로 판정 |
+
+분모 검산: 선택 증거 0 · 인용 변이 0 · 새 구조 oracle 0 = 잠금 의무 표 0행(위 행은 해당 없음 기록).
+덮개 회귀: 기존 검사 삭제 없음. 예전 일반 문장 기대 두 행만 사용자 요구인 plugin action 기대값으로 바꾸고 실제 @ 입력·장식 단언을 더했다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
-구현 대기.
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 사용자 문구·상태의 소비자가 있는가 | 새 상태/문구 없음, @ token이 실제 textarea와 장식에 도달 | N 양 backend |
+| production 재배치 때 정리 스코프 | 재배치 없음 | 새 구독·캐시 없음 |
+| 이번 실패 경로가 상태표에 있는가 | disabled/configured/disconnected 및 unknown @는 §5 | A/N/T 직접 입력 |
+| 실패가 무반응으로 보이는가 | 기존 메뉴 선택·닫힘·draft 보존·자동 전송 없음 | N 실제 menu/input sink |
+| 늦은 응답이 draft를 되돌리는가 | native membership만 갱신, text는 갱신하지 않음 | N disabled push 뒤 입력 동일 |
+| 하네스 경계를 지키는가 | OpenCode native만 허용, Orca 통합 false 유지 | N의 양 backend·origin/Jira 구별 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
-구현 대기.
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 기존 skill 정규식이 uppercase/underscore 이름에서 장식 실패 | 선조치 — known name 전체 비교, 후행 문장 구두점 보존 | T와 실제 `/session-B:review` span |
+| 2 | native id는 내장 provider slug보다 넓음 | 선조치 — 필요 시 JSON quoted token, 전체 id로 membership 비교 | A/T/N의 공백·quote·scope/path 구별 |
+| 3 | 초기 테스트 fixture가 존재하지 않는 idle 상태를 사용 | 선조치 — 실제 loading union으로 정정 | 첫 web typecheck TS2322 뒤 node/web/test 재실행 모두 통과 |
+| 4 | 실제 창 시각 검수가 막힘 | 보고만 — AC5 시각 부분 미확인, 독립 검증에서 확인 | in-app browser localhost 접근 `ERR_BLOCKED_BY_CLIENT`; inventory에 native app/외부 browser 없음 |
+| 5 | 13초·실패 plugin 환경이 이 호스트 설정에서 재현되지 않음 | 보고만 — 조사 범위를 구분하고 stage별 다음 계측 제시 | 최종 config 외부 plugin0/MCP0, 첫 SSE 4.452/3.878초 |
+
+### 설계 대비 명시적 차이
+
+production 설계 차이 없음. 실제 창 시각 gate만 환경으로 미완료다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — cache 대체 없음 | native view 기존 수명, N reconnect/disabled |
+| 공유 | 해당 없음 — 새 저장소 없음 | A/N의 native/origin/내장 후보 구별 |
+| 재진입 | 해당 없음 — controller 재배치 없음 | N reentry·menu 닫힘·draft 보존 |
+| 다른 무효화 축 | 해당 없음 — 새 무효화 없음 | 기존 generation/세션 갱신 회귀 유지 |
 
 ## [구현자 기입] 구현 보고
 
-구현 대기.
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | §11 renderer·관련 tests, 현재 rendering/catalog·docs INDEX, 결과 보고·계측 evidence |
+| 실행 명령 | 직접 Vitest(아래 대상 56파일), npm run lint/typecheck, harness-boundary·doc-inventory·test-budgets, ABI 확인 뒤 electron-vite build |
+| 관측한 게이트 산출 | 최종 56파일/342케이스 pass; node/web/test 진단0; lint 오류0·기존 virtualizer 경고2 |
+| 빌드 산출 | Electron ABI already ok; main398·preload3·renderer1836모듈 빌드 완료, 기존 SubAgentTaskDetail 정적/동적 import 경고1 |
+| repository gate | inventory 생성물 변경 없음, real-git budget16 suites ok, boundary 오류 없음, 변경 문서5개 로컬 링크 누락 없음·diff whitespace 오류 없음 |
+| UI catalog | 신규/삭제 TSX 없음. 기존 DecorationLayer·AgentEnvironmentView 행의 표시 계약 갱신 |
+| 도구 변경 분리 | lint가 고친 무관한 chat-turn.execution-config.test.ts의 두 formatting hunk를 원복, main diff 없음 확인 |
+| 계측·정리 | CLI1.19.0의 두 설정 probe, 출력 JSONL2행, 전용 title native 세션 read-only SQL 잔여0 |
+| V-pair 자기확인 | SELF_PASS5 / SELF_BLOCKED1(시각); 위 pair 표 참조 |
+| 강제 지점 전수 | DOM·기능16/16. 실제 창 시각 gate는 미완료 |
+| AC 자기보고 | 7/8 — AC5 시각 인수만 ⚠️, 아래 표 |
+| 합계 검산 | ✅7 · ⚠️1 · ❌0 = 총8 |
+| 블로커 / 역질문 | 사용자 결정 미해결 없음. browser localhost 접근 차단으로 시각 인수 대기 |
+| 대상 커밋 | (r1 구현 — 좌표는 INDEX) |
+
+| AC | 자기보고 / 이번 턴 관측 |
+|---|---|
+| AC1 | ✅ E의 실제 add 메뉴에서 각 첫 SVG의 viewBox/색→해당 폼, 선택·닫힘 통과 |
+| AC2 | ✅ N의 Claude/OpenCode native @, 공백 id, 참조색 span, 자동 전송0·draft 보존 |
+| AC3 | ✅ N 실제 스킬 선택과 T의 case/underscore/namespace/구두점/Unicode 원문 보존 |
+| AC4 | ✅ A의 disconnected/configured/disabled/origin 필터, N native/Jira/Orca 구별·상태 push, T unknown·경로 접두사 |
+| AC5 | ⚠️ 양 메뉴의 올바른 SVG·색 DOM은 통과; white/dark 실제 창 인수는 도구 차단으로 미수행 |
+| AC6 | ✅ Claude 실제 SDK 호출→관측→프로젝트 local 저장 경로와 관련 tests, 사용자 nav 유지 결정 보존 |
+| AC7 | ✅ 보고서 §3에 0238·0259·0267 D60/61과 이번 표면 차이 기록 |
+| AC8 | ✅ 보고서 §4~8에 두 소스 버전·시퀀스·실제 계측·13초 미재현 범위와 다음 관측 구분 |
+
+AC 행 검산: ✅7 · ⚠️1 · ❌0 = 총8. 분모 변경 없음.
 
 ## [구현자 기입] Review Signals — 사실만
 
-구현 대기.
+- 이전 라운드와 같은 축인가: r1 최초 구현. 기존 @ 요구가 native MCP의 일반 문장 선택 경로에 적용되지 않았다.
+- 막았어야 할 계약: 0238·0259의 token/chip 기준은 내장 provider 중심이었다. 이번에는 실제 + entry부터 native/Orca/내장 선택을 장식까지 측정했다.
+- 반복 환경 한계: in-app browser의 localhost 접근 차단, 실제 다수 plugin/MCP의 13초 trace 부재. 추정과 관측을 결과 보고에서 나눴다.
+- 현재 라운드·impl 턴: r1. 지침 자체는 변경하지 않았다.
 
 ## [검증자 기입] 파생 이슈
 

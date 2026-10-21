@@ -1,10 +1,15 @@
 import type { ProviderInfo } from '../../../../../shared/ipc'
 
-/** Composer에서 @ 참조할 수 있는 내장 Plugin 후보의 최소 투영. */
+/** Composer에서 @ 참조할 수 있는 내장 Plugin·native MCP 후보의 최소 투영. */
 export interface PluginMention {
   kind: 'plugin'
   id: string
   label: string
+}
+
+/** Keep a native identifier with spaces as one @ token, just like a quoted file reference. */
+export function pluginMentionToken(id: string): string {
+  return `@${/[\s"]/.test(id) ? JSON.stringify(id) : id}`
 }
 
 /**

@@ -21,7 +21,7 @@ import { composerSkills, type SkillSuggestion } from '../../../lib/composerSkill
 import type { AttachmentView, ComposerAttachment } from '../../../../../../../shared/ipc'
 import type { DiffRequirementSubmitSnapshot } from '../../../store/chatStore'
 import { AttachMenu } from './AttachMenu'
-import type { AttachMenuAction } from '../../../lib/attachMenuModel'
+import { nativePluginMentions, type AttachMenuAction } from '../../../lib/attachMenuModel'
 import { runAttachMenuAction } from './composerAttachMenu'
 import { AttachmentTray } from './AttachmentTray'
 import { ComposerInputSurface, type ComposerInputSurfaceHandle } from './ComposerInputSurface'
@@ -217,6 +217,17 @@ export function ComposerInputController({
     active,
     includeExtensions
   )
+  const validPluginIds = useMemo(
+    () =>
+      new Set([
+        ...mentionAutocomplete.validPluginIds,
+        ...nativePluginMentions(native.view).map((plugin) => plugin.id),
+        ...(includeExtensions
+          ? nativePluginMentions(native.view, 'orca').map((plugin) => plugin.id)
+          : [])
+      ]),
+    [mentionAutocomplete.validPluginIds, native.view, includeExtensions]
+  )
   const skillOpen = active && derivedCurrent && autocomplete.open
   const mentionOpen = active && derivedCurrent && mentionAutocomplete.open
 
@@ -382,7 +393,7 @@ export function ComposerInputController({
                   onKeyDown={onKeyDown}
                   knownSkillNames={knownSkillNames}
                   validFilePaths={mentionAutocomplete.validFilePaths}
-                  validPluginIds={mentionAutocomplete.validPluginIds}
+                  validPluginIds={validPluginIds}
                   placeholder={
                     inflight
                       ? steerBlocked
