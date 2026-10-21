@@ -9,7 +9,7 @@
 | 일자 | 2026-10-21 |
 | 상태 | READY |
 | V mode / 기준 V | Baseline V / none |
-| 이번 V revision / 유효 V | V1 / V1 |
+| 이번 V revision / 유효 V | ΔV1 / V1 + ΔV1 |
 
 # Part I — Product & UX Contract
 
@@ -216,6 +216,32 @@ DB 동작 변경이 없어 ABI 전환은 하지 않는다. 빌드는 현재 Elec
 충돌 0: D-001~004와 §7·9·10을 대조했다. §10의 실제 자리 목록은 15개이며 VP-01은 15, VP-02는 7, VP-03은 9, VP-04는 2로 잠근다.
 기존 catalog 테스트명·관련 source 경로는 `rg`/읽기로 확인했다. 신규 테스트는 §7·11에서 진입점·구별 입력·관측 대상을 지정했다.
 선택한 적대 증거 없음: 직접 입력→실제 handler/schema/설정/마크업 출력으로 판정한다. 독립 검증은 구현 완료 뒤 수행한다.
+
+### ΔV1 — 비활성 inventory 경로의 강제 지점 정정
+
+규범 정정이다. §10의 EP-05 검색은 실제 6행을 반환했고, 기존 4자리 목록에 `includeDisabled` 필터가 빠져 있었다.
+이 변경은 제품 요구·AC를 바꾸지 않는다. 구현자 조사에서 발견한 누락을 planner로 되돌려 구현 커밋과 분리해 정정한다.
+
+| Node | 레벨 | 계약 | provenance | 대체 관계 |
+|---|---|---|---|---|
+| SD-01b / ST-01b | SD / ST | disabled 설치를 보존하고 enabled를 표시까지 전달 | CHANGED / NEW | SD-01 / ST-01 대체 |
+| R-01·02·03 / AT-01~05 | R / AT | §7 그대로 | INHERITED | VP-01의 AC·직접 증거 승계 |
+
+| Pair | left ↔ right | requiredness | production path / oracle | 선택적 적대 증거 | 유효 분모 |
+|---|---|---|---|---|---|
+| VP-02b | SD-01b ↔ ST-01b | REQUIRED | VP-02의 경로·`skill-catalog.test.ts:assembles the real catalog…`, 실제 `includeDisabled=true`로 disabled 파일 reveal; 목록→`CustomizeList.render.test.ts:only dims disabled…` | not selected — 직접 설정/파일/OS 경로 단언 승계 | EP-02 lookup/reveal·EP-03 reveal·EP-05b (8) |
+| VP-01b | R-01·02·03 ↔ AT-01~05 | REGRESSION | VP-01의 경로·AC1~5 직접 증거 전부 승계 | not selected — 직접 oracle | EP-01~04·EP-05b (16) |
+
+VP-01·02는 각각 VP-01b·02b로 대체한다. AC·증거 폐기 없음, 선택 적대 증거는 원래 없었다.
+VP-03·04는 V1의 REQUIRED pair로 유지한다.
+
+| V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|---|---|
+| SD-01b / VP-02b / EP-05b | disabled 포함·enabled 운반/표시 | native 설정 | catalog/scan/list | plugin-catalog includeDisabled 필터, filesByName enabled, skill-catalog files 전달, scan entry.enabled, CustomizeList skill.enabled (5) | EP-05와 동일 검색 → 6행 중 아래 제외 1행 | 비활성 파일 누락/상태 유실/잘못된 흐림 |
+
+제외 1행: `plugin-catalog.ts:installations.push`는 별도 installations 출력이고, 이 path는 `.files`만 scanSkills에 전달하므로 운반 자리가 아니다.
+유효 분모: EP-01~04의 11자리 + EP-05b 5자리 = 16. 상태 사본 3자리는 운영 gate로 유지한다.
+정합성 재확인: D-003↔AC5 충돌 0, 기존·대체 pair의 AC5와 oracle 좌표 승계, 원 검색 출력의 두 추가 행을 모두 분류했다.
 
 ---
 
