@@ -2,6 +2,46 @@ import { describe, expect, it } from 'vitest'
 import { tokenizeComposerDecoration } from './composerDecoration'
 
 describe('tokenizeComposerDecoration', () => {
+  it('preserves complete skill identities with case, underscores, namespaces and punctuation', () => {
+    const text = '/Session-B:Review_test /문서.검토 /build, /unknown /build-extra'
+    const result = tokenizeComposerDecoration(
+      text,
+      new Set(['Session-B:Review_test', '문서.검토', 'build']),
+      new Set()
+    )
+    expect(result.filter((item) => item.kind === 'chip').map((item) => item.text)).toEqual([
+      '/Session-B:Review_test',
+      '/문서.검토',
+      '/build'
+    ])
+    expect(result.map((item) => item.text).join('')).toBe(text)
+  })
+
+  it.each(['plugin:docs', '@org/package', 'server with spaces', 'server"quoted'])(
+    'recognizes the full native @ identity %j without claiming a path prefix',
+    (id) => {
+      const token = `@${/[\s"]/.test(id) ? JSON.stringify(id) : id}`
+      const text = `${token} @unknown @plugin:docs/path.md`
+      const result = tokenizeComposerDecoration(
+        text,
+        new Set(),
+        new Set(['plugin:docs/path.md']),
+        new Set([id])
+      )
+      expect(result.filter((item) => item.kind === 'chip')).toEqual([
+        { kind: 'chip', chip: 'plugin', text: token },
+        { kind: 'chip', chip: 'file', text: '@plugin:docs/path.md' }
+      ])
+      expect(result.map((item) => item.text).join('')).toBe(text)
+    }
+  )
+
+  it('leaves malformed quoted @ identifiers as ordinary text', () => {
+    const text = '@"bad\\x" @"unterminated'
+    expect(tokenizeComposerDecoration(text, new Set(), new Set(), new Set(['bad']))).toEqual([
+      { kind: 'text', text }
+    ])
+  })
   it('검증된 skill/file 토큰만 장식하고 원문 순서를 보존한다', () => {
     const segments = tokenizeComposerDecoration(
       'run /build with @"src/a b.ts" and /missing',

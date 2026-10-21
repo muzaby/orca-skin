@@ -1,6 +1,6 @@
-const SKILL_TOKEN_RE = /(?<=^|\s)\/[a-z][a-z0-9:-]*\b/g
+const SKILL_TOKEN_RE = /(?<=^|\s)\/[^\s]+/g
 // 토큰 전체가 id여야 한다 — `@jira-dc/notes.md` 같은 경로의 앞부분을 Plugin으로 칠하지 않는다.
-const PLUGIN_TOKEN_RE = /(?<=^|\s)@([^\s"/]+)(?=\s|$)/g
+const PLUGIN_TOKEN_RE = /(?<=^|\s)@("(?:\\.|[^"\\\n])*"|[^\s"]+)(?=\s|$)/g
 const FILE_TOKEN_RE = /(?<=^|\s)@(?:"([^"\n]*)"|([^\s"]+))/g
 
 export type ComposerDecorationSegment =
@@ -21,12 +21,25 @@ export function tokenizeComposerDecoration(
   }> = []
 
   for (const match of value.matchAll(SKILL_TOKEN_RE)) {
-    if (!knownSkillNames.has(match[0].slice(1))) continue
+    let text = match[0]
+    // Preserve punctuation after a known command while allowing punctuation in its actual name.
+    while (!knownSkillNames.has(text.slice(1)) && /[.,!?;:)\]}]$/.test(text)) {
+      text = text.slice(0, -1)
+    }
+    if (!knownSkillNames.has(text.slice(1))) continue
     const start = match.index ?? 0
-    hits.push({ start, end: start + match[0].length, text: match[0], chip: 'skill' })
+    hits.push({ start, end: start + text.length, text, chip: 'skill' })
   }
   for (const match of value.matchAll(PLUGIN_TOKEN_RE)) {
-    if (!validPluginIds.has(match[1])) continue
+    let id = match[1]
+    if (id.startsWith('"')) {
+      try {
+        id = JSON.parse(id) as string
+      } catch {
+        continue
+      }
+    }
+    if (!validPluginIds.has(id)) continue
     const start = match.index ?? 0
     hits.push({ start, end: start + match[0].length, text: match[0], chip: 'plugin' })
   }

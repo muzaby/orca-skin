@@ -117,6 +117,103 @@ function clickLabel(label: string): void {
   expect(button, label).toBeDefined()
   dom.click(button!)
 }
+it.each(['claude', 'opencode'] as const)(
+  'highlights selected native @ plugins in the real %s composer and refreshes their membership',
+  async (backend) => {
+    fixture.backend = backend
+    const nativeId = 'plugin:docs'
+    const items = [
+      {
+        id: nativeId,
+        name: 'Native documents',
+        kind: 'mcp',
+        status: 'connected',
+        enabled: true,
+        canToggle: true
+      },
+      {
+        id: 'off',
+        name: 'Disabled MCP',
+        kind: 'mcp',
+        status: 'disabled',
+        enabled: false,
+        canToggle: true
+      }
+    ]
+    read.mockResolvedValue({ state: 'connected', generation: 'g1', items, commands: [] })
+    render()
+    await settle()
+    dom.click(dom.query('[title="chat.composer.attachMenuTitle"]')!)
+    await settle()
+    clickLabel('chat.composer.attachMenu.plugins')
+    const brand = dom
+      .queryAll('[viewBox]')
+      .find((node) => node.props.viewBox === (backend === 'claude' ? '0 0 248 248' : '0 0 16 20'))
+    expect(brand?.props.className).toContain(backend === 'claude' ? 'text-spinner' : 'text-oc-ink')
+    expect(
+      dom.queryAll('[role="menuitem"]').some((node) => node.textContent === 'Disabled MCP')
+    ).toBe(false)
+    clickLabel('Native documents')
+    await settle()
+    const input = dom.query('[aria-label="chat.composer.inputAria"]')!
+    expect(input.props.value).toBe('preserved draft @plugin:docs ')
+    const highlights = (): string[] =>
+      (dom.query('[data-composer-decoration-projection]')?.children ?? [])
+        .filter((node) => String(node.props.className).includes('bg-emerald-500/15'))
+        .map((node) => node.textContent)
+    expect(highlights()).toEqual(['@plugin:docs'])
+    expect(dom.query('[title="chat.composer.attachMenuTitle"]')?.props['aria-expanded']).toBe(false)
+    expect(onSend).not.toHaveBeenCalled()
+    dom.act(() =>
+      resourcesChanged({
+        sessionId: 'session-B',
+        resources: {
+          state: 'connected',
+          generation: 'g1',
+          items: [{ ...items[0], enabled: false, status: 'disabled' }] as never,
+          commands: []
+        }
+      })
+    )
+    await settle()
+    expect(highlights()).toEqual([])
+    expect(dom.query('[aria-label="chat.composer.inputAria"]')!.props.value).toBe(
+      'preserved draft @plugin:docs '
+    )
+    expect(onSend).not.toHaveBeenCalled()
+  }
+)
+
+it.each(['claude', 'opencode'] as const)(
+  'keeps a quoted native plugin id highlighted after selection in %s',
+  async (backend) => {
+    fixture.backend = backend
+    read.mockResolvedValue({
+      state: 'connected',
+      items: [
+        { id: 'docs team', name: 'Team documents', kind: 'mcp', status: 'connected', enabled: true }
+      ],
+      commands: []
+    })
+    render()
+    await settle()
+    dom.click(dom.query('[title="chat.composer.attachMenuTitle"]')!)
+    await settle()
+    clickLabel('chat.composer.attachMenu.plugins')
+    clickLabel('Team documents')
+    await settle()
+    expect(dom.query('[aria-label="chat.composer.inputAria"]')!.props.value).toBe(
+      'preserved draft @"docs team" '
+    )
+    expect(
+      (dom.query('[data-composer-decoration-projection]')?.children ?? []).some(
+        (node) =>
+          node.textContent === '@"docs team"' &&
+          String(node.props.className).includes('bg-emerald-500/15')
+      )
+    ).toBe(true)
+  }
+)
 it('reflects session-enabled plugin commands in real autocomplete and decoration without changing the draft', async () => {
   fixture.backend = 'claude'
   read.mockResolvedValue({ state: 'connected', generation: 'g1', items: [], commands: [] })
@@ -221,6 +318,13 @@ it.each(['claude', 'opencode'] as const)(
     expect(dom.query('[aria-label="chat.composer.inputAria"]')!.props.value).toBe(
       '/session-B:review preserved draft'
     )
+    expect(
+      (dom.query('[data-composer-decoration-projection]')?.children ?? []).some(
+        (node) =>
+          node.textContent === '/session-B:review' &&
+          String(node.props.className).includes('bg-blue-500/15')
+      )
+    ).toBe(true)
     expect(onSend).not.toHaveBeenCalled()
     fixture.sessionId = 'session-C'
     render()
@@ -390,6 +494,18 @@ it.each(['claude', 'opencode'] as const)(
     expect(dom.queryAll('[viewBox]').map((node) => node.props.viewBox)).toContain(
       backend === 'claude' ? '0 0 248 248' : '0 0 16 20'
     )
+    expect(
+      dom
+        .queryAll('[viewBox]')
+        .filter(
+          (node) => node.props.viewBox === (backend === 'claude' ? '0 0 248 248' : '0 0 16 20')
+        )
+        .every((node) =>
+          String(node.props.className).includes(
+            backend === 'claude' ? 'text-spinner' : 'text-oc-ink'
+          )
+        )
+    ).toBe(true)
     clickLabel('design::review')
     await settle()
     expect(dom.query('[aria-label="chat.composer.inputAria"]')!.props.value).toBe(
@@ -407,6 +523,29 @@ it.each(['claude', 'opencode'] as const)(
         .map((row) => row.textContent)
         .join('')
     ).toContain(`${backend === 'claude' ? 'Claude' : 'OpenCode'} MCP`)
+    clickLabel('Native MCP')
+    await settle()
+    const highlightedPlugins = (): string[] =>
+      (dom.query('[data-composer-decoration-projection]')?.children ?? [])
+        .filter((node) => String(node.props.className).includes('bg-emerald-500/15'))
+        .map((node) => node.textContent)
+    expect(highlightedPlugins()).toContain('@native')
+    if (backend === 'claude') {
+      for (const [label, token] of [
+        ['Connected Orca MCP', '@plugin:orcinus-orca:custom'],
+        ['Jira', '@jira']
+      ]) {
+        open()
+        await settle()
+        clickLabel('chat.composer.attachMenu.plugins')
+        clickLabel(label)
+        await settle()
+        expect(highlightedPlugins()).toContain(token)
+      }
+    } else {
+      expect(highlightedPlugins()).not.toContain('@plugin:orcinus-orca:custom')
+      expect(highlightedPlugins()).not.toContain('@jira')
+    }
     expect(onSend).not.toHaveBeenCalled()
   }
 )

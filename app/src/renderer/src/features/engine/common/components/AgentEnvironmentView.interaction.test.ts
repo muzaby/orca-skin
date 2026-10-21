@@ -46,6 +46,15 @@ it('selects Claude or OpenCode before opening their production forms and closes 
   dom.click(add)
   expect(button('Claude')).toBeDefined()
   expect(button('OpenCode')).toBeDefined()
+  for (const [label, viewBox, color] of [
+    ['Claude', '0 0 248 248', 'text-spinner'],
+    ['OpenCode', '0 0 16 20', 'text-oc-ink']
+  ]) {
+    const row = button(label)
+    expect(row.children[0].tag).toBe('svg')
+    expect(row.children[0].props.viewBox).toBe(viewBox)
+    expect(row.children[0].props.className).toContain(color)
+  }
   dom.click(button('OpenCode'))
   expect(dom.body.textContent).toContain('engine.openCode.id')
   expect(dom.body.textContent).toContain('engine.form.titleAdd')

@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type ComponentType } from 'react'
 import { HARNESS_IDS, HARNESS_CAPABILITIES, isBackend } from '../../../../../../shared/harness'
 import type { AgentEnvironment, Backend } from '../../../../../../shared/ipc'
 import { Button } from '../../../../shared/ui/Button'
+import { ClaudeLogo } from '../../../../shared/ui/ClaudeLogo'
+import { OpenCodeLogo } from '../../../../shared/ui/OpenCodeLogo'
 import { Popover } from '../../../../shared/ui/Popover'
 import { uiMessageText, useI18n } from '../../../../shared/i18n'
 import type { EngineCardProps } from './EngineCard'
@@ -96,6 +98,11 @@ export function AgentEnvironmentView({
                 setModal({ mode: 'add', engine })
               }}
             >
+              {engine === 'claude' ? (
+                <ClaudeLogo className="size-4 shrink-0 text-spinner" />
+              ) : (
+                <OpenCodeLogo className="size-4 shrink-0 text-oc-ink" />
+              )}
               {engine === 'claude' ? 'Claude' : HARNESS_CAPABILITIES[engine].label}
             </button>
           ))}

@@ -22,7 +22,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [`0272-composer-plugin-brands`](0272-composer-plugin-brands/plan.md) | plan | READY | Codex | (r1 설계 — 검증자 기입) | 1 | 엔진 추가·Composer 컬러 브랜드와 native @ 하이라이트. nav 색상 유지 결정, 요청 이력·OpenCode 시작 시퀀스 조사 포함. |
+| [`0272-composer-plugin-brands`](0272-composer-plugin-brands/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 컬러 로고·양 Composer native @ 표시, nav 색상 유지. 관련342개·타입·린트·빌드 통과, AC7/8(실제 창 시각 인수 대기). [시작 비교·계측 결과](0272-composer-plugin-brands/startup-analysis.md). |
 | [`0271-native-skill-target`](0271-native-skill-target/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | native 이름의 폴더/파일 열기 복구, 비활성 표시·쓰기 권한 유지. AC5/5, 관련 207개 테스트·타입·린트·빌드 통과. 독립 검증 대기. |
 | [`0270-native-command-presentation`](0270-native-command-presentation/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | OpenCode 진행 라벨·Claude 명령 이력 복원·세션 native 스킬 표시 수정. 관련 399개 테스트·타입 검사·린트 통과, 독립 검증 대기. |
 | [`0269-session-composer-state`](0269-session-composer-state/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 세션 모델 복원·기본 승인·CI15파일 수정, AC6/6. 로컬7666·scripts142, [Windows CI](https://github.com/muzaby/orca-skin/actions/runs/39446331194)7671·scripts142 통과. |

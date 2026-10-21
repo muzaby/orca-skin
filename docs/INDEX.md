@@ -19,6 +19,7 @@
 | **TaskXXX 도구군** (할 일 목록 · background 태스크 · 기능 가용성) | [`claude-taskxxx-spec.md`](claude-taskxxx-spec.md) — SDK 표면 정본 |
 | **OpenCode SDK** (설치 버전 · API 표면 · 메시지/이벤트 · 오류/전송 제약) | [`opencode-sdk-spec.md`](opencode-sdk-spec.md) · 공식 원문은 [`spec/opencode/INDEX.md`](spec/opencode/INDEX.md) |
 | **OpenCode 하네스 구현·CLI 호환성** | [`구현 계약`](handoff/0262-opencode-harness/plan.md) · [`native 디자인 실측`](handoff/0262-opencode-harness/design-evidence.md) · [`실행 패키지와 실제 CLI 검증`](handoff/0262-opencode-harness/runtime-compatibility.md) |
+| **OpenCode desktop 시작 시퀀스·plugin/MCP 대기 조사** | [`시작 비교와 계측`](handoff/0272-composer-plugin-brands/startup-analysis.md) |
 | **공통 시스템 피드·reminder 표시 설계와 native 조사** | [`공통 계약 초안`](handoff/0232-background-transcript-ux/plan.md) · [`OpenCode 1.19 수신·자동 재개 실측`](handoff/0262-opencode-harness/system-feed-research.md) · [`DEV 제어 초안`](handoff/0003-debug-panel-mock-adapter/plan.md) |
 | **Orca → OpenCode 마이그레이션 연구** (레이어별 작업 · 매핑 · 단계별 gate) | [`etc/study/opencode/orca-migration-guide.md`](etc/study/opencode/orca-migration-guide.md) · 기존 연구 지도는 [`etc/study/opencode/00-index.md`](etc/study/opencode/00-index.md) |
 | 턴 이벤트 정규화 계층 (NormalizedEvent · 권한 브리지) | [`arch/backend/provider-runtime.md`](arch/backend/provider-runtime.md) |

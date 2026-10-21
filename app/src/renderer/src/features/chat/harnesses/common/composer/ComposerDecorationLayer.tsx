@@ -56,9 +56,7 @@ export const ComposerDecorationLayer = forwardRef<HTMLDivElement, ComposerDecora
                 className={
                   segment.chip === 'skill'
                     ? 'rounded bg-blue-500/15 text-transparent'
-                    : segment.chip === 'plugin'
-                      ? 'rounded bg-violet-500/15 text-transparent'
-                      : 'rounded bg-emerald-500/15 text-transparent'
+                    : 'rounded bg-emerald-500/15 text-transparent'
                 }
               >
                 {segment.text}

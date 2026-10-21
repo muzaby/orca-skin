@@ -5,6 +5,7 @@ import {
   attachMenuToken,
   buildAttachMenu,
   nativeAttachItems,
+  nativePluginMentions,
   skillTooltip
 } from './attachMenuModel'
 
@@ -117,7 +118,7 @@ describe('buildAttachMenu', () => {
         kind: 'action',
         id: 'native-resource:mcp:connected',
         label: 'connected',
-        action: { type: 'nativePrompt', text: 'Use connected' }
+        action: { type: 'plugin', id: 'connected' }
       }
     ])
   })
@@ -191,7 +192,7 @@ describe('buildAttachMenu', () => {
     expect(JSON.stringify(tree[3])).not.toMatch(/superpowers|Hooks only/)
     expect(JSON.stringify(tree)).not.toContain('/docs:search')
     expect(JSON.stringify(tree)).not.toMatch(/@jira|plugins:manage|\/hooks/)
-    expect(items).toMatchObject([{ action: { type: 'nativePrompt', text: 'Use Docs tools' } }])
+    expect(items).toMatchObject([{ action: { type: 'plugin', id: 'docs' } }])
   })
   it('excludes unsupported plugins and other harness skills for OpenCode', () => {
     const tree = buildAttachMenu({
@@ -277,10 +278,79 @@ describe('buildAttachMenu', () => {
 })
 
 describe('attachMenuToken (AC2·AC3)', () => {
+  it.each(['plugin:docs', '@org/package', 'server with spaces', 'server"quoted'])(
+    'keeps the exact native plugin id as one token: %s',
+    (id) => {
+      const expected = /[\s"]/.test(id) ? `@${JSON.stringify(id)}` : `@${id}`
+      expect(attachMenuToken({ type: 'plugin', id })).toBe(expected)
+    }
+  )
   it('스킬 = /이름, 플러그인 = @id, 그 밖 = 토큰 없음', () => {
     expect(attachMenuToken({ type: 'skill', name: 'review' })).toBe('/review')
     expect(attachMenuToken({ type: 'plugin', id: 'jira' })).toBe('@jira')
     expect(attachMenuToken({ type: 'attach' })).toBeNull()
     expect(attachMenuToken({ type: 'managePlugins' })).toBeNull()
   })
+})
+
+it('shares native menu membership with decoration without exposing disabled or other-origin entries', () => {
+  const view = {
+    status: 'ready' as const,
+    value: {
+      state: 'connected' as const,
+      items: [
+        {
+          kind: 'mcp' as const,
+          id: 'native-id',
+          name: 'Native label',
+          status: 'connected' as const,
+          enabled: true,
+          canToggle: false
+        },
+        {
+          kind: 'mcp' as const,
+          id: 'off',
+          name: 'Off',
+          status: 'connected' as const,
+          enabled: false,
+          canToggle: true
+        },
+        {
+          kind: 'mcp' as const,
+          id: 'configured',
+          name: 'Configured',
+          status: 'configured' as const,
+          enabled: true,
+          canToggle: false
+        },
+        {
+          kind: 'mcp' as const,
+          id: 'orca-id',
+          name: 'Orca label',
+          status: 'connected' as const,
+          origin: 'orca' as const,
+          enabled: true,
+          canToggle: false
+        },
+        {
+          kind: 'plugin' as const,
+          id: 'skill-bundle',
+          name: 'Skill bundle',
+          status: 'enabled' as const,
+          enabled: true,
+          canToggle: true
+        }
+      ]
+    }
+  }
+  expect(nativePluginMentions(view)).toEqual([
+    { kind: 'plugin', id: 'native-id', label: 'Native label' }
+  ])
+  expect(nativePluginMentions(view, 'orca')).toEqual([
+    { kind: 'plugin', id: 'orca-id', label: 'Orca label' }
+  ])
+  expect(nativePluginMentions({ status: 'loading' })).toEqual([])
+  expect(
+    nativePluginMentions({ ...view, value: { ...view.value, state: 'disconnected' } })
+  ).toEqual([])
 })

@@ -238,6 +238,8 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 
 OpenCode가 실행된 뒤에는 같은 세션의 native resource cache에 있는 SDK 에이전트·모델 variant를 Composer 선택지로 사용한다. visible primary/all 에이전트를 표시하고 hidden/subagent는 제외한다. 성공한 목록에서 사라진 agent·variant 선택은 정리하며 variant가 없으면 선택기를 숨긴다. 연결 전에는 설정 카탈로그를 사용하고, 재개 후 연결 이벤트에서 갱신하며 살아 있는 같은 generation은 화면 이동에도 보존한다.
 
+양 Composer의 `+` 메뉴는 스킬을 `/이름`, 플러그인 메뉴의 내장 Plugin과 연결된 native MCP를 `@id`로 삽입한다. 공백이 있는 MCP id는 `@"id with spaces"`로 보존한다. 하이라이트는 현재 후보의 정확한 id/name과 일치할 때만 표시하며, 플러그인과 파일 참조는 같은 배경색을 사용한다. native MCP의 메뉴와 하이라이트는 같은 connected·enabled 투영을 사용하고, OpenCode의 native 후보는 Orca 통합 주입 여부와 독립적이다. 하네스 plugin이 제공한 스킬·명령은 스킬 그룹의 `/이름`을 유지한다. 그룹 제목의 공식 Claude/OpenCode 마크는 해당 브랜드 색을 명시한다.
+
 `TranscriptView`는 공유 메시지 모델을 하네스별 viewport로 보낸다. Claude는 기존 교환 단위 가상화와 `useScrollAnchor`를 사용한다. OpenCode는 `harnesses/opencode/transcript/Timeline`에서 텍스트·도구·메타를 안정된 행 key로 투영하고 행 단위로 가상화한다. 읽기 중인 행과 선택 범위를 보존하며, 세션별 위치·도구 펼침을 기억한다. 위로 스크롤하거나 텍스트를 선택하면 새 출력의 바닥 추종을 해제하고, 바닥 도달 또는 최신 이동으로 추종을 재개한다. 탐색 도구는 접기 행으로 묶고 수정 도구는 사용자가 펼칠 때 diff를 표시한다. `providerTool` 원본은 상세 disclosure에서 읽는다. 본문 배경과 사용자 버블 색상은 Claude와 공유한다.
 
 OpenCode의 질문과 도구 승인은 도착 순서대로 같은 입력 자리를 대체한다. 현재 요청만 mount하고 해소되면 다음 요청을 표시한다. 입력 controller는 비활성 상태로 인스턴스를 유지하므로 마지막 요청 후 초안·첨부가 복원된다. Todo 진행 카드는 현재 root 턴의 성공 결과에서 파생해 composer 바로 위에 펼친 목록 또는 한 줄 요약으로 표시한다. 요청 카드가 있으면 가리고, 전체 완료나 실행 종료 시 마지막 내용을 유지한 채 아래로 퇴장한다. 일반 OpenCode transcript에서는 Todo 행을 중복 표시하지 않으며 원본 이력은 보존한다.
