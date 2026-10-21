@@ -1,7 +1,27 @@
 import { describe, expect, it } from 'vitest'
-import { classifyOpenCodeError } from './errors'
+import { classifyOpenCodeError, openCodePreparationError } from './errors'
 
 describe('OpenCode 1.x provider errors', () => {
+  it.each([
+    ['commands', new DOMException('secret timeout', 'TimeoutError'), '명령 목록 준비 시간이 초과'],
+    [
+      'events',
+      new DOMException('secret timeout', 'TimeoutError'),
+      '이벤트 스트림 연결 시간이 초과'
+    ],
+    ['events', new Error('SSE failed: 401 secret status text'), 'HTTP 401'],
+    ['events', new Error('SSE failed: 503 secret status text'), 'HTTP 503'],
+    ['events', undefined, '스트림이 종료'],
+    ['events', new TypeError('secret URL'), '이벤트 스트림 연결에 실패'],
+    ['commands', new Error('secret body'), '명령 목록 준비에 실패']
+  ] as const)('sanitizes %s preparation errors', (stage, error, message) => {
+    const safe = openCodePreparationError(stage, error)
+    expect(safe.message).toContain(message)
+    expect(safe.message).not.toContain('secret')
+    expect(safe.cause).toBeUndefined()
+    expect(classifyOpenCodeError(safe, 'provider_connection_error').message).toBe(safe.message)
+  })
+
   it.each([
     ['ProviderAuthError', undefined, 'auth_error'],
     ['APIError', 401, 'auth_error'],

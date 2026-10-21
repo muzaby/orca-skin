@@ -8,11 +8,13 @@ export async function openCodeNativeCommands(
   client: OpencodeClient,
   directory: string,
   inventory = false,
-  env: NodeJS.ProcessEnv = process.env
+  env: NodeJS.ProcessEnv = process.env,
+  read?: { signal: AbortSignal; timeoutMs: number }
 ): Promise<NativeCommand[]> {
+  const timeout = AbortSignal.timeout(read?.timeoutMs ?? 2500)
   const result = await client.command.list(
     { directory },
-    { throwOnError: true, signal: AbortSignal.timeout(2500) }
+    { throwOnError: true, signal: read ? AbortSignal.any([read.signal, timeout]) : timeout }
   )
   const hasSkills = inventory && result.data?.some((command) => command.source === 'skill')
   const options = { throwOnError: true as const, signal: AbortSignal.timeout(2500) }

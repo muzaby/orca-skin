@@ -28,6 +28,9 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
   failAbort: () => void
   setComposer: (agents: unknown[], models: Record<string, unknown>) => void
   holdComposer: (gate: Promise<void>) => void
+  setCommandRead: (read: (request: Request) => Promise<Response>) => void
+  setEventRead: (read?: () => Response | Promise<Response>) => void
+  failEvent: (error: Error) => void
   setCommands: (
     commands: {
       name: string
@@ -43,6 +46,8 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
   let rejectAbort = false
   let composer: { agents: unknown[]; models: Record<string, unknown> } | undefined
   let composerGate: Promise<void> | undefined
+  let commandRead: ((request: Request) => Promise<Response>) | undefined
+  let eventRead: (() => Response | Promise<Response>) | undefined
   let commands: {
     name: string
     description?: string
@@ -73,7 +78,7 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
     if (path === '/session' && request.method === 'POST') return jsonResponse({ id: 'replacement' })
     if (path === '/mcp') return jsonResponse({ native: { status: 'connected' } })
     if (path === '/config') return jsonResponse({ plugin: ['@native/plugin@1'] })
-    if (path === '/command') return jsonResponse(commands)
+    if (path === '/command') return commandRead ? commandRead(request) : jsonResponse(commands)
     if ((path === '/agent' || path === '/provider') && composer) {
       await composerGate
       return jsonResponse(
@@ -95,10 +100,12 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
       )
     if (path.endsWith('/message') && request.method === 'POST')
       return jsonResponse({ info: {}, parts: [] })
-    if (path === '/event')
+    if (path === '/event') {
+      if (eventRead) return eventRead()
       return new Response(
         new ReadableStream<Uint8Array>({
           start(controller) {
+            closed = false
             stream = controller
             emit(event('server.connected', {}))
           },
@@ -108,6 +115,7 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
         }),
         { headers: { 'content-type': 'text/event-stream' } }
       )
+    }
     if (path.endsWith('/prompt_async') || path.endsWith('/command')) {
       const response = await prompt(await request.json())
       return response ?? new Response(null, { status: 204 })
@@ -153,6 +161,13 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
     holdComposer: (gate) => {
       composerGate = gate
     },
+    setCommandRead: (read) => {
+      commandRead = read
+    },
+    setEventRead: (read) => {
+      eventRead = read
+    },
+    failEvent: (error) => stream?.error(error),
     setCommands: (value) => {
       commands = value
     }
@@ -184,7 +199,206 @@ async function dispose(
   await iterator.return?.()
 }
 
+async function abortableGate(gate: Promise<void>, signal: AbortSignal): Promise<void> {
+  signal.throwIfAborted()
+  let onAbort: () => void = () => undefined
+  try {
+    await Promise.race([
+      gate,
+      new Promise<never>((_, reject) => {
+        onAbort = () => reject(signal.reason)
+        signal.addEventListener('abort', onAbort, { once: true })
+      })
+    ])
+  } finally {
+    signal.removeEventListener('abort', onAbort)
+  }
+}
+
 describe('OpenCode persistent SDK channel', () => {
+  it('waits beyond the menu deadline for native command dispatch without submitting twice', async () => {
+    const f = fixture({ text: '/native:slow exact argument' })
+    const gate = Promise.withResolvers<void>()
+    const reads: AbortSignal[] = []
+    f.setCommandRead(async (request) => {
+      reads.push(request.signal)
+      await abortableGate(gate.promise, request.signal)
+      return jsonResponse([{ name: 'native:slow', hints: ['query'], source: 'command' }])
+    })
+    const iterator = f.live.eventBatches[Symbol.asyncIterator]()
+    const receiving = frame(iterator)
+    try {
+      await vi.waitFor(() => expect(reads).toHaveLength(1))
+      const menu = f.live.nativeResources!()
+      await vi.waitFor(() => expect(reads).toHaveLength(2))
+      // Use the real AbortSignal.timeout clock used by the installed SDK transport.
+      await new Promise((resolve) => setTimeout(resolve, 2700))
+      expect(reads[0]!.aborted).toBe(false)
+      expect(reads[1]!.aborted).toBe(true)
+      gate.resolve()
+      const batches = await receiving
+      expect(batches.flatMap((batch) => batch.events).some((value) => value.type === 'error')).toBe(
+        false
+      )
+      expect((await menu).commands).toBeUndefined()
+      const sent = f.requests.filter(
+        (request) => request.method === 'POST' && new URL(request.url).pathname.endsWith('/command')
+      )
+      expect(sent).toHaveLength(1)
+      expect(await sent[0]!.json()).toMatchObject({
+        command: 'native:slow',
+        arguments: 'exact argument'
+      })
+      expect(f.requests.some((request) => request.url.includes('/prompt_async'))).toBe(false)
+    } finally {
+      gate.resolve()
+      await dispose(f.live, iterator)
+    }
+  }, 10_000)
+
+  it('fails command preparation safely before acceptance without aborting or submitting a prompt', async () => {
+    const f = fixture({ text: '/native:slow' })
+    f.setCommandRead(async () => {
+      throw new DOMException('secret preparation body', 'TimeoutError')
+    })
+    const iterator = f.live.eventBatches[Symbol.asyncIterator]()
+    try {
+      const events = (await frame(iterator)).flatMap((batch) => batch.events)
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          type: 'error',
+          error: expect.objectContaining({
+            message: expect.stringContaining('명령 목록 준비 시간이 초과')
+          })
+        })
+      )
+      expect(JSON.stringify(events)).not.toContain('secret preparation')
+      expect(events.some((value) => value.type === 'input.echo')).toBe(false)
+      expect(f.requests.some((request) => request.method === 'POST')).toBe(false)
+    } finally {
+      await dispose(f.live, iterator)
+    }
+  })
+
+  it('cancels command preparation at the SDK request before any command is accepted', async () => {
+    const f = fixture({ text: '/native:slow' })
+    const gate = Promise.withResolvers<void>()
+    let readSignal: AbortSignal | undefined
+    f.setCommandRead(async (request) => {
+      readSignal = request.signal
+      await abortableGate(gate.promise, request.signal)
+      return jsonResponse([{ name: 'native:slow', hints: [] }])
+    })
+    const iterator = f.live.eventBatches[Symbol.asyncIterator]()
+    const receiving = frame(iterator)
+    try {
+      await vi.waitFor(() => expect(readSignal).toBeDefined())
+      f.live.close()
+      expect(readSignal!.aborted).toBe(true)
+      gate.resolve()
+      await receiving
+      expect(f.requests.some((request) => request.method === 'POST')).toBe(false)
+    } finally {
+      gate.resolve()
+      await dispose(f.live, iterator)
+    }
+  })
+
+  it('retries explicitly after an SDK SSE HTTP failure without replaying the failed input', async () => {
+    const f = fixture()
+    f.setEventRead(() => jsonResponse({ private: 'secret response body' }, 503))
+    const failed = f.live.eventBatches[Symbol.asyncIterator]()
+    try {
+      const events = (await frame(failed)).flatMap((batch) => batch.events)
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          type: 'error',
+          error: expect.objectContaining({ message: expect.stringContaining('HTTP 503') })
+        })
+      )
+      expect(JSON.stringify(events)).not.toContain('secret response')
+      expect(f.requests.some((request) => request.url.includes('/prompt_async'))).toBe(false)
+    } finally {
+      await dispose(f.live, failed)
+    }
+    f.setEventRead()
+    const retry = f.adapter.sendMessage({
+      sessionId: 's1',
+      cwd: 'C:/work',
+      text: 'Explicit retry',
+      extensions: { skills: [], hooks: { normalized: {} } }
+    })
+    const iterator = retry.eventBatches[Symbol.asyncIterator]()
+    try {
+      const events = (await frame(iterator)).flatMap((batch) => batch.events)
+      expect(events.some((value) => value.type === 'turn.ended')).toBe(true)
+      expect(events.some((value) => value.type === 'error')).toBe(false)
+      const prompts = f.requests.filter((request) => request.url.includes('/prompt_async'))
+      expect(prompts).toHaveLength(1)
+      expect(await prompts[0]!.json()).toMatchObject({
+        parts: [{ type: 'text', text: 'Explicit retry' }]
+      })
+      expect(
+        f.requests.filter((request) => new URL(request.url).pathname === '/event')
+      ).toHaveLength(2)
+    } finally {
+      await dispose(retry, iterator)
+    }
+  })
+
+  it.each(['timeout', 'empty'] as const)(
+    'reports an initial %s SSE failure before submission',
+    async (kind) => {
+      const f = fixture()
+      f.setEventRead(() => {
+        if (kind === 'timeout') throw new DOMException('secret transport details', 'TimeoutError')
+        return new Response('', { headers: { 'content-type': 'text/event-stream' } })
+      })
+      const iterator = f.live.eventBatches[Symbol.asyncIterator]()
+      try {
+        const events = (await frame(iterator)).flatMap((batch) => batch.events)
+        expect(events).toContainEqual(
+          expect.objectContaining({
+            type: 'error',
+            error: expect.objectContaining({
+              message: expect.stringContaining(kind === 'timeout' ? '시간이 초과' : '스트림이 종료')
+            })
+          })
+        )
+        expect(JSON.stringify(events)).not.toContain('secret transport')
+        expect(f.requests.some((request) => request.method === 'POST')).toBe(false)
+      } finally {
+        await dispose(f.live, iterator)
+      }
+    }
+  )
+
+  it('preserves a safe stream failure after the initial connection without resubmitting', async () => {
+    const f = fixture()
+    f.setPrompt(async () => {})
+    const iterator = f.live.eventBatches[Symbol.asyncIterator]()
+    const receiving = frame(iterator)
+    try {
+      await vi.waitFor(() =>
+        expect(f.requests.some((request) => request.url.includes('/prompt_async'))).toBe(true)
+      )
+      f.failEvent(new TypeError('secret transport URL'))
+      const events = (await receiving).flatMap((batch) => batch.events)
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          type: 'error',
+          error: expect.objectContaining({
+            message: expect.stringContaining('이벤트 스트림 연결에 실패')
+          })
+        })
+      )
+      expect(JSON.stringify(events)).not.toContain('secret transport')
+      expect(f.requests.filter((request) => request.url.includes('/prompt_async'))).toHaveLength(1)
+    } finally {
+      await dispose(f.live, iterator)
+    }
+  })
+
   it('discards menu metadata that finishes after the channel closes', async () => {
     const f = fixture()
     const gate = Promise.withResolvers<void>()

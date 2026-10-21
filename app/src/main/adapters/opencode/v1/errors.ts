@@ -2,6 +2,26 @@ import type { ClassifiedError } from '../../../../shared/ipc'
 import { isRecord } from '../../../../shared/obj'
 import { makeClassifiedError } from '../../../infra/errors'
 
+/** Only fixed preparation messages and an SSE HTTP status may cross the UI boundary. */
+export function openCodePreparationError(stage: 'commands' | 'events', error?: unknown): Error {
+  const label = stage === 'commands' ? 'OpenCode 명령 목록 준비' : 'OpenCode 이벤트 스트림 연결'
+  if (error instanceof Error && error.name === 'TimeoutError')
+    return new Error(
+      `${label} 시간이 초과되었습니다. OpenCode 서버와 MCP 연결 상태를 확인해 주세요.`
+    )
+  const status =
+    stage === 'events' && error instanceof Error
+      ? /^SSE failed: (\d{3})(?:\s|$)/.exec(error.message)?.[1]
+      : undefined
+  if (status)
+    return new Error(
+      `${label}에 실패했습니다 (HTTP ${status}). OpenCode 서버 상태를 확인해 주세요.`
+    )
+  if (stage === 'events' && error === undefined)
+    return new Error('OpenCode 이벤트 스트림이 종료되었습니다. OpenCode 서버 연결을 확인해 주세요.')
+  return new Error(`${label}에 실패했습니다. OpenCode 서버 연결 상태를 확인해 주세요.`)
+}
+
 /** Decode 1.x errors without forwarding provider bodies, headers or credentials to history. */
 export function classifyOpenCodeError(
   error: unknown,
