@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 구현 지시에 따라 설계/구현 연속 수행 |
 | 일자 | 2026-10-21 |
 | 상태 | READY |
-| V mode / 기준 / revision | Baseline V / none / V1 |
+| V mode / 기준 / revision | Baseline V + ΔV1 / V1@95da0b0f / V1 + ΔV1 |
 
 # Part I — Product & UX Contract
 
@@ -168,6 +168,14 @@ IPC_CONTRACT, backend adapters, frontend component catalog, generated inventory�
 사용자 승인 범위 안의 구현 선택이며 추가 제품 결정 없음. R/SD/AR/MD 모두 pair를 갖고, EP1–EP5와 각 oracle 경로가 연결된다. Desktop 참조는 로컬 checkout의 v1.17.19 태그를 읽었으며 HEAD와 혼동하지 않는다.
 
 ## [구현자 기입]
+
+### ΔV1 설계 보완 — 명시 재조회와 실행 설정
+
+사용자의 재조회 고려 요구를 조사하는 중, 살아 있는 준비 owner가 갱신된 실행 설정을 읽지 않는 경로를 확인했다. D9(ACTIVE): 명시 refresh에서 실제 턴 resolver를 다시 사용하고 새 lease를 확보한 뒤 이전 lease를 반납한다. compatible profile이면 같은 instance이며 강제 dispose·config patch는 하지 않는다.
+
+AC9를 최신 설정 재해석까지 확장한다. R9/AR1/SD1/MD2는 CHANGED, VP1/VP2/VP3/VP6 REQUIRED이며 나머지는 V1 유지다. EP2 owner ensure/read/release 자리의 직접 oracle을 `handlers/composer-catalog.test.ts: refresh re-resolves and keeps old owner until replacement is ready`로 추가한다. 기존 §13의 “죽은 lease만 재확보”는 이 행이 대체하며, 자동 재연결 없음은 유지한다.
+
+교체 실패는 이전 lease를 유지하며 해당 refresh를 실패로 표시한다. 진행 중 acquisition/refresh 합류·취소, 늦은 replacement 반납, 이전 profile 정리 대기로 새 목록 표시를 막지 않는 동작을 같은 oracle에서 검증한다. ACTIVE 결정 ↔ AC 대조: D9/AC9 및 D5/AC5와 충돌 0.
 
 ### 설계 리뷰
 미착수.
