@@ -161,6 +161,67 @@ OpenCode의 무거운 서비스 준비는 첫 OpenCode 사용 시점에만 시�
 
 재현은 같은 임시 폴더와 번들 entry를 사용한다. `warm-scope-probe.cjs`를 복사하고 `ORCA_PROBE_SINGLE_SERVER=0`으로 현행 구성을, `1`로 연구 구성을 실행한다. script가 생성하는 file plugin, native DB, MCP/model HTTP endpoint는 모두 격리된 제어 데이터이며 두 실행의 소유 child tree를 종료했다.
 
+## 서버 공유·인스턴스 해제 제안 검토 — 적용하지 않음
+
+사용자는 다른 작업폴더도 Desktop처럼 운영하고, 세션 종료 시 인스턴스까지 해제한 뒤 모든 인스턴스 해제 시 서버를 정리하는 방식을 제안했다. 이어서 **바로 적용하지 말고 검토**하라고 지시했다. 이번 절은 타당성 검토와 격리 API 실험이며 제품 코드·수명 정책·handoff 보드는 변경하지 않았다.
+
+**조건부로 타당하다.** 같은 설정·환경의 서버 공유와 directory별 native 해제는 가능하지만, session과 directory instance는1:1이 아니다. 현재의 `cwd` key 제거와 session close마다 무조건 dispose 호출만으로 구현할 수는 없다.
+
+### 실제 native 해제 API 확인
+
+설치 SDK의 `client.instance.dispose({ directory })`는 `POST /instance/dispose`를 사용한다. CLI1.17.19는 해당 directory context를 해제 대상으로 표시한 뒤 HTTP 응답 이후 native middleware에서 teardown을 수행한다. 따라서 응답 성공을 finalizer 완료로 취급하면 안 된다.
+
+한 소유 CLI server에서 A/B의 config·plugin·MCP를 준비하고 A에 native session을 생성했다. 모델 prompt는 보내지 않았으며 제어 plugin의 dispose hook에만1,500ms 지연을 넣어 완료 시점을 구분했다.
+
+| 확인 항목 | 실측 / 의미 |
+|---|---|
+| A 해제 응답과 완료 구분 | HTTP200 수신6,277ms → plugin dispose 완료7,798ms → `server.instance.disposed`7,810ms |
+| 다른 directory 보존 | A 해제 후 B MCP status는 connected. B plugin setup/dispose는 그 시점에 다시 발생하지 않음 |
+| native 데이터 보존 | A를 다시 준비한 뒤 기존 native session.get 성공. instance dispose는 저장된 대화 삭제가 아님 |
+| A 재진입 비용 | 같은 process의 module import는1회 유지. A setup은 다시 실행되고 MCP도 재연결 |
+| 미생성 C에 해제 요청 | plugin setup C10,415ms → config C11,640ms → dispose HTTP20011,656ms → dispose event13,184ms. 해제 API도 instance middleware가 먼저 load함 |
+| MCP 정리 범위 | A/B의 제어 MCP 수신 stream close 관측. MCP endpoint로 DELETE 요청은0회였으므로 원격 서버 측 세션 삭제까지 보장한다고 해석하지 않음 |
+| 최종 정리 | A/B 해제 완료 event 후 실험 종료. 소유 child tree/HTTP 서버 종료, modelRequests0 |
+
+근거: [native 해제 검토 JSON](evidence/cross-directory-idle-delay/instance-review-result.json), [검토 script](evidence/cross-directory-idle-delay/instance-review-probe.cjs). 앞 실험과 같은 임시 폴더·번들을 사용하고 `ORCA_PROBE_SINGLE_SERVER=1`로 실행했다. session 원본은 격리된 native DB에만 있으며 사용자 DB·설정은 변경하지 않았다.
+
+### Desktop과 같은 부분 / Orca에 맞춘 추가 정책
+
+| 항목 | 검토 판정 |
+|---|---|
+| 공유 서버의 directory 라우팅 | Desktop과 같은 native 기능으로 가능. `serve`는 시작 시 ambient project instance가 없고 요청 directory로 instance를 load함 |
+| config·plugin·MCP 의존성 준비 | native bootstrap·InstanceState의 기존 순서와 scope를 사용해야 함. Orca가 hook 순서나 MCP 도구 집합을 임의로 재구현할 필요는 없음 |
+| 인스턴스 정리 | native API가 scoped cache 무효화와 등록된 plugin/MCP finalizer를 수행. 임의 plugin의 미등록 전역 자원까지 정리한다고 보장할 수는 없음 |
+| Desktop 화면 해제 | `child-store.disposeDirectory`는 renderer store/query/SDK cache의 정리. 이것을 native `instance.dispose` 호출과 같은 동작으로 보지 않음 |
+| 마지막 인스턴스 이후 server 종료 | Desktop의 기본 app-lifetime server와 다름. 여러 엔진을 쓰는 Orca의 자원 회수를 위한 추가 정책으로는 성립 |
+
+source: 고정 태그의 `cli/cmd/serve.ts`, `server/routes/instance/httpapi/{handlers/instance.ts,lifecycle.ts,middleware/instance-context.ts}`, `effect/{instance-state.ts,instance-registry.ts}`, `project/instance-store.ts`, `plugin/index.ts`, `mcp/index.ts`, app의 `context/global-sync/child-store.ts`·`server-sync.tsx`.
+
+### 적용 전에 닫아야 할 경계
+
+| 경계 | 필요한 조건 / 현재 코드의 영향 |
+|---|---|
+| 세션↔인스턴스 cardinality | 같은 폴더의 세션 여러 개가 한 instance를 공유. 한 세션 종료는 자기 참조만 반납하고 마지막 사용자가 사라질 때만 native dispose |
+| 실제 소유자 | 진행/idle runtime·background child·승인·bootstrap·history/complete 등 해당 instance를 쓰는 작업을 포함. UI 탭 개수나 응답 완료만으로0을 판정하지 않음 |
+| 초기화된 대상만 해제 | 미생성 instance의 dispose가 bootstrap을 유발할 수 있음. acquire만 했거나 준비 중 취소된 대상의 native 상태를 구분해야 함 |
+| 해제 중 재진입 | `ready → disposing → disposed` 동안 같은 directory의 새 세대 연결을 serialize. 이전 dispose event/cache 삭제가 새 세대를 지우지 않도록 fence 필요 |
+| 종료 시점 | 서버의0 판정에 새 acquire·부팅 중 instance·dispose 진행 상태를 포함. HTTP200만 받고 PID를 종료하면 plugin/MCP cleanup이 중단됨 |
+| 해제 실패 | A teardown이 늦거나 실패했을 때 살아 있는 B까지 server kill로 정리할 수 없음. 별도 timeout·회수 보류·오류 상태 필요 |
+| process 환경·상대 경로 | Desktop sidecar도 process cwd는 하나. 임의 plugin의 `process.cwd()`·상대 OPENCODE_CONFIG/env·경로 생략 SDK 호출을 조사해야 하며 cwd key만 제거하면 기존 동작이 달라질 수 있음 |
+| 설정·인증·작업공간 격리 | 실행 파일/설정/env가 다른 profile은 별도 server. 실제 요청의 directory/workspace와 native data 경로 의미도 보존 |
+| 보조 작업과 전송의 연결 | history/complete가 잠깐 instance를 보유했다가0으로 만들면 다음 전송에서 재초기화. 같은 준비 작업의 lease 승계가 없으면 비용 반복은 남음 |
+| 공유 서버의 실패 범위 | process 장애·global SSE 실패가 여러 폴더에 영향을 줌. B 실패가 A를 조용히 끊거나 prompt를 자동 재전송하지 않게 해야 함 |
+
+현재 `RuntimeSupervisor.releaseRuntime`은 응답이 끝난 live runtime을 idle pool에 보관한다. 따라서 제안의 "세션 종료"는 기존 정책을 유지한다면 실제 runtime/channel owner 반납 시점에 해당한다. 탭 전환·응답 완료에 맞춰 해제하려면 별도의 사용자 동작/수명 정책 변경이다.
+
+### 비용과 수명 정책의 절충
+
+A의 마지막 사용자가 떠날 때 instance를 즉시 해제하면, B 덕분에 server가 살아 있어도 다음 A 진입에서 plugin setup·MCP 준비를 다시 수행한다. 앞의 공통 process 연구 구성에서 A 재진입1,680ms였던 조건은 A native instance를 해제하지 않은 경우다. 제안한 즉시 instance 회수 정책에 같은 시간을 그대로 약속할 수 없다.
+
+모든 instance를 정리하고 server도 종료하면 이후 OpenCode 사용에서 process 공통 비용도 다시 발생한다. 이는 회수 정책의 의도된 결과이며 "앱 전체에서 최초1회 비용"과는 다른 목표다. 재사용성과 자원 회수 중 어느 수준까지 보존할지는 실제 owner 해제 기준과 함께 확정해야 한다.
+
+검토 기준으로 가능한 수순은 **호환 profile의 server acquire → directory instance 참조 획득 → session/작업 수행 → 개별 참조 반납 → directory 마지막 참조에서 native dispose 완료 확인 → 부팅/해제 작업까지 모두 사라진 server 종료**다. 원본 session DB는 이 수순의 삭제 대상이 아니다.
+
 ## 개선 방향
 
 | 우선순위 | 변경 방향 | 의도 / 경계 |
