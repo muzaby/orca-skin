@@ -106,6 +106,61 @@ Desktop은 준비를 폴더 진입 시점으로 앞당겨 입력 전 시간을 �
 | 배제: 이번 사례를 HTTP/1.1의6개 SSE 소켓 포화로 확정 | A/B가 별도 포트이고 재현의 B SSE는3.4초에 연결됨 |
 | 미확정: 사용자 환경의 DB lock·특정 plugin 실패·MCP 이름 | 원격 실행 단계 trace가 없음. 제어 재현을 사용자 구성의 확정 원인으로 치환하지 않음 |
 
+## 첫 OpenCode 사용 비용과 다른 경로·세션의 재사용 범위
+
+사용자의 후속 질문은 Orca가 OpenCode 전용 앱이 아니므로 앱 전체 부팅이 아니라 **첫 OpenCode 세션에서 공통 비용을 지불하고 이후 재사용할 수 있는가**다. 동일한 실제 CLI·adapter/server pool에 정상 다중 client MCP와 제어 file plugin을 더해 각 수명의 비용을 측정했다.
+
+plugin module의 top-level import, directory별 setup, config hook을 loopback endpoint로 각각 기록했다. setup에만1,200ms를 의도적으로 넣었다. 모델 응답은 앞 실험과 같은 고정 SSE이고 npm 의존성은 이전 격리 실험에서 이미 설치되어 있었다.
+
+| 단계 | 현재 per-directory process: 완료 시간 | 공통 process 연구 구성: 완료 시간 |
+|---|---:|---:|
+| A 첫 세션 | 13,920ms | 10,927ms |
+| A 같은 세션 후속 입력 | 2,070ms | 1,689ms |
+| A 같은 경로 새 세션 | 1,763ms | 1,754ms |
+| B 처음 여는 다른 경로 | 9,669ms | 6,481ms |
+| B 같은 세션 후속 입력 | 1,739ms | 1,666ms |
+| B 같은 경로 새 세션 | 1,719ms | 1,675ms |
+| A 경로로 돌아와 새 세션 | 1,699ms | 1,694ms |
+| A의 마지막 채널 owner 해제 후 다시 A, B는 유지 | 11,414ms | 1,680ms |
+
+시간은 각 구성1회 실행한 제어 실험이며 사용자 환경 benchmark나 개선율이 아니다. 모델/제목 처리도 포함하므로 아래 **초기화 발생 횟수**로 재사용 여부를 판정했다. 마지막 행은 adapter의 `live.close()`로 A owner들을 실제 해제한 조건이며 UI 탭을 닫는 것과 같다고 가정하지 않는다.
+
+완료 시간 정본은 JSON의 `steps[].ms`다. `trace`의 `step-result.ms`는 해당 단계 소요시간을 다시 기록한 요약행이며, 다른 trace 행의 ms는 script 실행 시작 기준이다.
+
+| 새로 발생한 횟수: spawn / plugin import / plugin setup / MCP 연결 | 현행 구조 | 공통 process 연구 구성 |
+|---|---|---|
+| A 첫 세션 | 1 / 1 / 1 / 1 | 1 / 1 / 1 / 1 |
+| A 후속 입력·같은 경로 새 세션 | 각0 / 0 / 0 / 0 | 각0 / 0 / 0 / 0 |
+| B 첫 경로 | 1 / 1 / 1 / 1 | **0 / 0 / 1 / 1** |
+| B 후속 입력·같은 경로 새 세션 | 각0 / 0 / 0 / 0 | 각0 / 0 / 0 / 0 |
+| A로 돌아와 새 세션, 기존 owner 유지 | 0 / 0 / 0 / 0 | 0 / 0 / 0 / 0 |
+| A 마지막 owner 해제 후 다시 A, B 유지 | **1 / 1 / 1 / 1** | 0 / 0 / 0 / 0 |
+
+config hook은 plugin setup과 같은 횟수로 발생했다. 전체 실행에서 현행 구조는 spawn/import/setup/MCP 각각3회, 연구 구성은 spawn/import1회·setup/MCP2회였고, 각 구성의8개 응답 frame 모두 오류 없이 완료했다.
+
+근거: [현행 비용 범위 JSON](evidence/cross-directory-idle-delay/warm-production-result.json), [공통 process 비용 범위 JSON](evidence/cross-directory-idle-delay/warm-shared-result.json), [실행 script](evidence/cross-directory-idle-delay/warm-scope-probe.cjs).
+
+### 공통 비용을 첫 세션으로 모을 수 있는 범위
+
+| 범위 | 비용과 수명 | 관측 / 설계상 의미 |
+|---|---|---|
+| Orca 앱 | 엔진 등록·설치 상태 조회 | 현재 bootstrap은 모든 adapter의 설치 상태를 확인하며 OpenCode `--version` probe는 있다. 이때 serve/plugin/MCP를 모두 준비하는 것은 아님 |
+| 동일 OpenCode 실행 파일·설정·환경 묶음 | 프로세스·공통 module import·서버 event 연결 | OpenCode 최초 사용 시 지연 초기화하고 여러 세션에서 유지할 수 있음. 현재 process key에는 cwd가 있어 다른 경로에서 반복 |
+| directory instance | 해당 폴더의 config·plugin setup/config hook·MCP·agent/provider 준비 | 처음 보는 경로에서는 다시 필요. 같은 module을 import했어도 plugin 함수는 directory/worktree를 받아 다시 실행됨 |
+| native session | 세션 생성·대화 이력·제목·모델 입력 | 같은 경로 새 세션에도 세션 고유 작업은 존재. 초기화 재사용을 무응답 시간0으로 해석하지 않음 |
+
+모든 경로의 비용까지 첫 세션에 몰아넣으려면 미리 아는 모든 directory를 실제 초기화해야 한다. 이후 추가되는 경로까지 준비를 완료할 수는 없으며, 다중 MCP 연결을 한꺼번에 만드는 비용도 생긴다. 따라서 이 조사에서 확인한 목표는 **엔진 공통 비용1회 + 처음 쓰는 경로별 준비1회 + 세션 고유 비용**이다.
+
+### 여러 엔진을 지원하는 Orca에 맞춘 방향
+
+OpenCode의 무거운 서비스 준비는 첫 OpenCode 사용 시점에만 시작하고, 다른 엔진의 사용과 독립적으로 수명을 관리하는 방식이 맞다. 같은 설정·환경의 서비스와 directory 준비를 재사용하면 다른 세션에서 공통 초기화를 반복하지 않을 수 있다. 프로필의 설정·인증·env가 다르면 동일 service로 무조건 합치지 않는다.
+
+현재 pool은 마지막 owner 해제 시 process를 종료하므로, "첫 사용 비용을 이후에도 보존"하려면 세션 lease와 별개의 engine/service owner가 필요하다. 연구 구성에서 A가 빨랐던 마지막 행은 **B owner가 남아 공유 process를 보존했기 때문**이며, 모든 OpenCode owner가0인 상태를 넘어 유지하는 정책을 구현한 것은 아니다. 설정/실행 파일 변경·native instance 폐기·앱 종료와 자원 회수 시의 무효화도 함께 설계해야 한다.
+
+동일 process의 여러 directory 공유는 이번 제어 plugin에서는 동작했지만, 임의 plugin의 `process.cwd()` 의존성·상대 경로·프로필 격리까지 검증한 제품 구현이 아니다. 공통 process만으로 MCP가 directory별 재연결되는 경계나1분 timeout 문제까지 사라진다고 보지 않는다.
+
+재현은 같은 임시 폴더와 번들 entry를 사용한다. `warm-scope-probe.cjs`를 복사하고 `ORCA_PROBE_SINGLE_SERVER=0`으로 현행 구성을, `1`로 연구 구성을 실행한다. script가 생성하는 file plugin, native DB, MCP/model HTTP endpoint는 모두 격리된 제어 데이터이며 두 실행의 소유 child tree를 종료했다.
+
 ## 개선 방향
 
 | 우선순위 | 변경 방향 | 의도 / 경계 |
