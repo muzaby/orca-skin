@@ -20,6 +20,7 @@ import { OpenCodeSessionContexts, type OpenCodeClientLease } from './session-con
 import { probeNativeCursor } from './native-cursor'
 import type { openFileDatabase } from '../../../infra/db/file-database'
 import type { LegacyStorageMigration } from './legacy-storage-migration'
+import { reportError } from '../../../infra/error-report'
 
 export class OpenCodeAdapter implements SessionAdapter {
   readonly id = 'opencode' as const
@@ -60,15 +61,25 @@ export class OpenCodeAdapter implements SessionAdapter {
   ): Promise<OpenCodeClientLease> {
     const server = await this.servers.acquire(config, env, cwd)
     try {
-      const lease = this.contexts.acquire(server, cwd || nativeWorkingDirectory())
-      let released = false
+      const lease = await this.contexts.acquire(server, cwd || nativeWorkingDirectory())
+      let releasing: Promise<void> | undefined
       return {
         ...lease,
         release: () => {
-          if (released) return
-          released = true
-          lease.release()
-          server.release?.()
+          releasing ??= lease
+            .release()
+            .catch(() =>
+              reportError({
+                event: 'opencode.instance.dispose.failed',
+                scope: 'engine',
+                title: 'engineInternal',
+                detail:
+                  'OpenCode 프로젝트 정리를 완료하지 못했습니다. 새 연결로 다시 시작해 주세요.',
+                level: 'warn'
+              })
+            )
+            .finally(() => server.release?.())
+          return releasing
         }
       }
     } catch (error) {
@@ -123,7 +134,7 @@ export class OpenCodeAdapter implements SessionAdapter {
           .catch(() => undefined)
       }
     } finally {
-      release()
+      await release()
     }
   }
 
@@ -142,13 +153,13 @@ export class OpenCodeAdapter implements SessionAdapter {
       if (!created.data?.id) throw new Error('OpenCode 복구 세션 생성 실패')
       return { sessionId: created.data.id, freshStart: false }
     } finally {
-      release()
+      await release()
     }
   }
 
   sendMessage(req: TurnRequest): LiveTurn {
     const nativeId = req.nativeSessionId ?? req.sessionId
-    let release = (): void => undefined
+    let release: () => void | Promise<void> = () => undefined
     const live = openCodeChannel(
       { ...req, sessionId: nativeId },
       async () => {
@@ -200,7 +211,7 @@ export class OpenCodeAdapter implements SessionAdapter {
           : {})
       })
     } finally {
-      connection?.release()
+      await connection?.release()
     }
   }
 

@@ -8,7 +8,7 @@ import type {
 } from '@opencode-ai/sdk/v2/client'
 import type { NativeHistoryRequest } from '../../common/native-history'
 import { createOpenCodeAdapter, type OpenCodeServer } from '../index'
-import { assistantMessage, editTool, jsonResponse, textPart } from './adapter.testfixture'
+import { assistantMessage, editTool, jsonResponse, textPart, openCodeEvent } from './adapter.testfixture'
 import {
   nativeHistoryBusy,
   nativeRevision,
@@ -497,11 +497,23 @@ describe('OpenCode native read through the SDK boundary', () => {
 
   it('wires the registered adapter to the installed SDK for read-only native requests with the selected environment', async () => {
     const requests: Request[] = []
+    let stream: ReadableStreamDefaultController<Uint8Array>
+    const emit = (type: 'server.connected' | 'server.instance.disposed', directory = ''): void => {
+      const payload = type === 'server.connected' ? openCodeEvent(type,{}) : openCodeEvent(type,{directory})
+      stream.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({directory,payload})}\n\n`))
+    }
     const native = [user('u1', [text('question', 'u1')]), answer('a1', [text('answer')])]
     const transport: typeof fetch = async (input, init) => {
       const req = new Request(input, init)
       requests.push(req.clone())
       const url = new URL(req.url)
+      if (url.pathname === '/global/event') return new Response(new ReadableStream({
+        start(controller) { stream=controller; emit('server.connected') }
+      }),{headers:{'content-type':'text/event-stream'}})
+      if (url.pathname === '/instance/dispose') {
+        emit('server.instance.disposed',url.searchParams.get('directory')!)
+        return jsonResponse(true)
+      }
       expect(req.method).toBe('GET')
       expect(url.searchParams.get('directory')).toBe(request.cwd)
       expect(req.headers.get('Authorization')).toBe('Basic fixture')
@@ -558,7 +570,9 @@ describe('OpenCode native read through the SDK boundary', () => {
       '/session/s1',
       '/session/s1/message',
       '/session/s1',
-      '/session/s1/message'
+      '/session/s1/message',
+      '/global/event',
+      '/instance/dispose'
     ])
   })
 })

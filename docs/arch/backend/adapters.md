@@ -34,7 +34,11 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 
 앱은 `createOpenCodeAdapter`를 통해 `SessionAdapter`를 받고, `opencode/implementation.ts`의 전송·서버 수명·설정 로더 계약만 사용한다. 구체 adapter/server 생성은 `opencode/v1/index.ts`가 담당한다. 버전 디렉터리를 직접 소비하거나 버전 구현끼리 참조하는 import는 ESLint가 차단한다. 다른 버전 구현은 같은 계약을 제공하고 중립 진입점에서 선택해야 하며, 현재 실행 가능한 구현은 1.x다.
 
-`OpenCodeServerPool`은 실행 파일·구성·환경·cwd fingerprint별 시작을 합치고 OS에서 할당받은 명시적인 loopback 임시 포트와 임의 인증 암호를 사용한다. 서버는 실제 작업 cwd에서 실행하며 하네스의 native 환경과 저장 경로를 따른다. 엔진 설정은 `OPENCODE_CONFIG_CONTENT` 실행 오버라이드로 전달하고 native 설정 파일은 덮어쓰지 않는다. 연결별 소유권을 세며 마지막 연결 해제나 앱 종료 시 자신이 spawn한 child를 종료한다. Windows는 소유 PID의 자식 트리도 종료한다. 채널은 공통 RuntimePool의 idle LRU 축출에 따라 연결을 해제하고, 일시 조회·보조 실행은 finally에서 해제한다. 공유 중인 다른 세션의 연결은 유지한다.
+`OpenCodeServerPool`은 실행 파일 identity·실효 구성·환경이 같은 연결의 시작을 합치고 OS에서 할당받은 loopback 임시 포트와 임의 인증 암호를 사용한다. 첫 OpenCode 사용 때 서버를 만들며 호환되는 다른 작업폴더는 같은 프로세스를 사용한다. host cwd는 홈 디렉터리로 고정하고 작업폴더는 SDK 요청에 명시한다. native 파일 경로 환경의 상대 값은 요청 cwd 기준으로 절대화해 실행·pool identity·DB 경로 조회에 동일하게 전달한다. 상대 XDG 값은 native 해석을 보존하도록 그대로 전달하며 이 경우에는 요청 cwd도 서버 분리 기준으로 유지한다. 엔진 설정은 `OPENCODE_CONFIG_CONTENT`로 전달하며 native 설정 파일은 덮어쓰지 않는다.
+
+`instance-lifecycle.ts`는 directory별 SDK 소유권을 센다. 마지막 참조가 사라지면 진행 중 조회를 취소하고, native 요청을 했던 directory만 `/instance/dispose`로 정리한다. HTTP 응답 뒤에도 global `server.instance.disposed`까지 기다린 후 서버 소유권을 반환한다. 정리 중 같은 directory 재진입은 완료 뒤 새 scope를 얻으며, 다른 directory의 연결은 유지한다. 정리 실패는 해당 서버를 신규 획득 대상에서 제외하고 기존 소유자는 유지한다. 모든 연결·획득 예약·정리가 끝나면 소유 서버를 종료한다. 앱 종료는 남아 있는 모든 소유 generation을 강제로 정리하며 Windows에서는 소유 PID의 자식 트리도 종료한다. native session DB는 instance 해제로 삭제하지 않는다.
+
+채널은 공통 RuntimePool의 idle LRU 축출에 따라 연결을 해제하고, 일시 조회·보조 실행은 finally에서 정리 완료를 기다린다. 응답 idle이나 탭 전환 자체는 directory 소유권을 반납하지 않는다. 프로세스가 유지되는 동안 공통 plugin module import를 재사용하지만 directory별 plugin setup·config hook·MCP 연결은 native 동작대로 수행한다.
 
 설치된 CLI를 PATH와 npm 설치 경로에서 찾거나 하네스 설정의 절대 실행 파일 경로를 사용한다. 버전 조회는 실행 파일 identity가 같은 동안 병합·재사용하고 실패나 파일 변경 뒤 다시 확인한다. DB 경로는 살아 있는 서버별로 병합·재사용하며 파일이 없어지거나 조회가 실패하면 다시 확인한다. 자동 CLI 설치·사용자 OpenCode 프로세스 재사용은 제공하지 않는다.
 

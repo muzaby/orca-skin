@@ -56,6 +56,20 @@ function fixture(limit = 4096): ContextFixture {
     }
     const response = await read?.(request)
     if (response) return response
+    if (path === '/instance/dispose') {
+      const directory = new URL(request.url).searchParams.get('directory')!
+      for (const stream of streams)
+        if (!stream.cancelled && stream.auth === request.headers.get('Authorization'))
+          stream.controller.enqueue(
+            new TextEncoder().encode(
+              `data: ${JSON.stringify({
+                directory,
+                payload: event('server.instance.disposed', { directory })
+              })}\n\n`
+            )
+          )
+      return jsonResponse(true)
+    }
     if (path === '/config') return jsonResponse({})
     if (path === '/command') return jsonResponse([{ name: 'native:review', hints: [] }])
     if (path === '/agent') return jsonResponse([{ name: 'build', mode: 'primary' }])
@@ -89,9 +103,15 @@ const server = { url: 'http://owned.test', headers: { Authorization: 'Basic one'
 const freshSignal = (): AbortSignal => new AbortController().signal
 
 describe('OpenCode server context with the installed SDK', () => {
+  it('rejects acquisition after context shutdown before issuing a native request', async () => {
+    const f = fixture()
+    f.pool.close()
+    await expect(f.pool.acquire(server, 'C:/one')).rejects.toThrow('종료')
+    expect(f.requests).toEqual([])
+  })
   it('does not start directory work for an already cancelled caller', async () => {
     const f = fixture()
-    const lease = f.pool.acquire(server, 'C:/one')
+    const lease = await f.pool.acquire(server, 'C:/one')
     const control = new AbortController()
     control.abort(new Error('caller cancelled'))
     try {
@@ -100,13 +120,13 @@ describe('OpenCode server context with the installed SDK', () => {
       await expect(async () => lease.composer(control.signal)).rejects.toThrow('caller cancelled')
       expect(f.requests).toEqual([])
     } finally {
-      lease.release()
+      await lease.release()
       f.pool.close()
     }
   })
   it('rejects a late SDK result after the final owner closes even when the transport ignores abort', async () => {
     const f = fixture()
-    const lease = f.pool.acquire(server, 'C:/one')
+    const lease = await f.pool.acquire(server, 'C:/one')
     const gate = Promise.withResolvers<void>()
     let requestSignal: AbortSignal | undefined
     f.setRead(async (request) => {
@@ -118,33 +138,33 @@ describe('OpenCode server context with the installed SDK', () => {
     const pending = lease.commands(freshSignal())
     try {
       await vi.waitFor(() => expect(requestSignal).toBeDefined())
-      lease.release()
+      await lease.release()
       expect(requestSignal!.aborted).toBe(true)
       await expect(pending).rejects.toThrow('연결이 종료')
     } finally {
       gate.resolve()
-      lease.release()
+      await lease.release()
       f.pool.close()
     }
   })
   it('requires the server handshake instead of treating an arbitrary first event as ready', async () => {
     const f = fixture()
     f.setInitialEvent(event('session.idle', { sessionID: 'not-a-handshake' }))
-    const lease = f.pool.acquire(server, 'C:/one')
+    const lease = await f.pool.acquire(server, 'C:/one')
     const iterator = lease.events(freshSignal())
     try {
       await expect(iterator.next()).rejects.toThrow('이벤트 스트림 연결에 실패')
       expect(f.requests.some((request) => new URL(request.url).pathname === '/config')).toBe(false)
     } finally {
       await iterator.return(undefined)
-      lease.release()
+      await lease.release()
       f.pool.close()
     }
   })
   it('shares directory preparation while a caller leaves without cancelling another owner', async () => {
     const f = fixture()
-    const one = f.pool.acquire(server, 'C:/one')
-    const two = f.pool.acquire(server, 'C:/one')
+    const one = await f.pool.acquire(server, 'C:/one')
+    const two = await f.pool.acquire(server, 'C:/one')
     const gate = Promise.withResolvers<void>()
     let requestSignal: AbortSignal | undefined
     f.setRead(async (request) => {
@@ -160,7 +180,7 @@ describe('OpenCode server context with the installed SDK', () => {
       await vi.waitFor(() => expect(requestSignal).toBeDefined())
       leaving.abort(new Error('caller left'))
       expect(await first).toBeInstanceOf(Error)
-      one.release()
+      await one.release()
       expect(requestSignal!.aborted).toBe(false)
       gate.resolve()
       expect((await second)[0].name).toBe('native:one')
@@ -190,18 +210,24 @@ describe('OpenCode server context with the installed SDK', () => {
         )
     } finally {
       gate.resolve()
-      one.release()
-      two.release()
+      await one.release()
+      await two.release()
       f.pool.close()
     }
   })
 
   it('shares one global subscription and routes directory and authenticated server generations separately', async () => {
     const f = fixture()
-    const one = f.pool.acquire(server, 'C:/one')
-    const two = f.pool.acquire(server, 'C:/two')
-    const other = f.pool.acquire({ ...server, headers: { Authorization: 'Basic other' } }, 'C:/one')
-    const otherServer = f.pool.acquire({ ...server, url: 'http://other-owned.test' }, 'C:/one')
+    const one = await f.pool.acquire(server, 'C:/one')
+    const two = await f.pool.acquire(server, 'C:/two')
+    const other = await f.pool.acquire(
+      { ...server, headers: { Authorization: 'Basic other' } },
+      'C:/one'
+    )
+    const otherServer = await f.pool.acquire(
+      { ...server, url: 'http://other-owned.test' },
+      'C:/one'
+    )
     const controls = Array.from({ length: 4 }, () => new AbortController())
     const iterators = [one, two, other, otherServer].map((lease, index) =>
       lease.events(controls[index].signal)
@@ -221,17 +247,17 @@ describe('OpenCode server context with the installed SDK', () => {
       expect((await iterators[2].next()).value?.properties).toEqual({ sessionID: 'private' })
       controls[0].abort()
       await iterators[0].return(undefined)
-      one.release()
+      await one.release()
       expect(f.streams[0].cancelled).toBe(false)
       f.emit('C:/two', event('session.idle', { sessionID: 'still alive' }))
       expect((await iterators[1].next()).value?.properties).toEqual({ sessionID: 'still alive' })
     } finally {
       controls.forEach((control) => control.abort())
       await Promise.all(iterators.map((iterator) => iterator.return(undefined)))
-      one.release()
-      two.release()
-      other.release()
-      otherServer.release()
+      await one.release()
+      await two.release()
+      await other.release()
+      await otherServer.release()
       f.pool.close()
     }
   })
@@ -239,16 +265,16 @@ describe('OpenCode server context with the installed SDK', () => {
   it('retires a failed stream without letting the old lease delete a replacement context', async () => {
     const f = fixture()
     f.failEvents(true)
-    const old = f.pool.acquire(server, 'C:/one')
+    const old = await f.pool.acquire(server, 'C:/one')
     const first = old.events(freshSignal())
     await expect(first.next()).rejects.toThrow('HTTP 503')
     f.failEvents(false)
-    const next = f.pool.acquire(server, 'C:/one')
+    const next = await f.pool.acquire(server, 'C:/one')
     const control = new AbortController()
     const stream = next.events(control.signal)
     try {
       expect((await stream.next()).value?.type).toBe('server.connected')
-      old.release()
+      await old.release()
       f.emit('C:/one', event('session.idle', { sessionID: 'replacement' }))
       expect((await stream.next()).value?.properties).toEqual({ sessionID: 'replacement' })
       expect(
@@ -257,19 +283,19 @@ describe('OpenCode server context with the installed SDK', () => {
     } finally {
       control.abort()
       await stream.return(undefined)
-      next.release()
+      await next.release()
       f.pool.close()
     }
   })
 
   it('disposes one directory and rejects its late inventory while another directory continues', async () => {
     const f = fixture()
-    const old = f.pool.acquire(server, 'C:/one')
-    const other = f.pool.acquire(server, 'C:/two')
+    const old = await f.pool.acquire(server, 'C:/one')
+    const other = await f.pool.acquire(server, 'C:/two')
     const controls = [new AbortController(), new AbortController(), new AbortController()]
     const stream = old.events(controls[0].signal)
     const second = other.events(controls[1].signal)
-    let replacement: ReturnType<typeof f.pool.acquire> | undefined
+    let replacement: Awaited<ReturnType<typeof f.pool.acquire>> | undefined
     let renewed: AsyncGenerator<Event> | undefined
     try {
       await stream.next()
@@ -277,7 +303,7 @@ describe('OpenCode server context with the installed SDK', () => {
       await old.commands(freshSignal())
       f.emit('C:/one', event('server.instance.disposed', { directory: 'C:/one' }))
       await expect(stream.next()).rejects.toThrow('프로젝트 연결이 종료')
-      replacement = f.pool.acquire(server, 'C:/one')
+      replacement = await f.pool.acquire(server, 'C:/one')
       renewed = replacement.events(controls[2].signal)
       await renewed.next()
       await replacement.commands(freshSignal())
@@ -296,16 +322,16 @@ describe('OpenCode server context with the installed SDK', () => {
       await stream.return(undefined)
       await second.return(undefined)
       await renewed?.return(undefined)
-      old.release()
-      other.release()
-      replacement?.release()
+      await old.release()
+      await other.release()
+      await replacement?.release()
       f.pool.close()
     }
   })
 
   it('cancels shared SDK work on the last release and ignores a late command result after inventory refresh', async () => {
     const f = fixture()
-    const lease = f.pool.acquire(server, 'C:/one')
+    const lease = await f.pool.acquire(server, 'C:/one')
     const gate = Promise.withResolvers<void>()
     let requestSignal: AbortSignal | undefined
     f.setRead(async (request) => {
@@ -322,25 +348,25 @@ describe('OpenCode server context with the installed SDK', () => {
       ])
       gate.resolve()
       expect((await commands)[0].name).toBe('new')
-      lease.release()
+      await lease.release()
       expect(requestSignal!.aborted).toBe(true)
-      const next = f.pool.acquire(server, 'C:/one')
+      const next = await f.pool.acquire(server, 'C:/one')
       try {
         f.setRead()
         expect((await next.commands(freshSignal()))[0].name).toBe('native:review')
       } finally {
-        next.release()
+        await next.release()
       }
     } finally {
       gate.resolve()
-      lease.release()
+      await lease.release()
       f.pool.close()
     }
   })
 
   it('fails an overflowing subscriber explicitly instead of silently dropping events', async () => {
     const f = fixture(2)
-    const lease = f.pool.acquire(server, 'C:/one')
+    const lease = await f.pool.acquire(server, 'C:/one')
     const control = new AbortController()
     const iterator = lease.events(control.signal)
     try {
@@ -352,7 +378,7 @@ describe('OpenCode server context with the installed SDK', () => {
     } finally {
       control.abort()
       await iterator.return(undefined)
-      lease.release()
+      await lease.release()
       f.pool.close()
     }
   })

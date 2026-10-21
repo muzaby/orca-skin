@@ -59,6 +59,10 @@ function fixture(): StartupFixture {
       )
     }
     if (url.pathname === '/config') return configRead ? configRead(request) : jsonResponse({})
+    if (url.pathname === '/instance/dispose') {
+      emit(directory, event('server.instance.disposed', { directory }))
+      return jsonResponse(true)
+    }
     if (url.pathname === '/mcp') return jsonResponse({})
     if (url.pathname === '/agent') return jsonResponse([{ name: 'build', mode: 'primary' }])
     if (url.pathname === '/provider') return jsonResponse({ all: [], connected: [], default: {} })

@@ -23,7 +23,7 @@ import type { OpenCodeClientLease } from './session-context'
 export function openCodeChannel(
   req: TurnRequest,
   connect: () => Promise<OpenCodeClientLease>,
-  release: () => void = () => undefined
+  release: () => void | Promise<void> = () => undefined
 ): LiveTurn {
   const generation = randomUUID()
   const controller = new AbortController()
@@ -402,7 +402,7 @@ export function openCodeChannel(
       controller.abort()
       await cleanupOwned()
       await iterator?.return(undefined).catch(() => undefined)
-      release()
+      await release()
       ended = true
       wake?.()
       wake = undefined

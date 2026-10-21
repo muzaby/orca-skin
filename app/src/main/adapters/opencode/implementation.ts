@@ -16,6 +16,8 @@ export interface OpenCodeServer {
     headers: Record<string, string>
     /** One acquisition's ownership; idempotent. Absent only on external/test server ports. */
     release?: () => void
+    /** Stop new acquisitions from joining this generation; existing owners remain alive. */
+    retire?: () => void
   }>
   installed(): Promise<{ installed: boolean; binPath?: string; version?: string }>
   databasePath?(

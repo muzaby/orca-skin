@@ -1,16 +1,16 @@
 import { spawn, execFile, type ChildProcess } from 'node:child_process'
-import { existsSync, statSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { allocateLoopbackPort } from '../../../infra/net/loopback-port'
 import { delimiter, isAbsolute, join } from 'node:path'
 import { randomBytes } from 'node:crypto'
-import { harnessEnvFingerprint } from '../../common/harness-config'
 import type { HarnessPreferences } from '../../../../shared/harness'
-import { nativeOpenCodeEnvironment, nativeWorkingDirectory } from './native-storage'
+import { openCodeExecutableIdentity, openCodeServerProfile } from './server-profile'
 
 export interface OpenCodeConnection {
   url: string
   headers: Record<string, string>
   release?: () => void
+  retire?: () => void
 }
 
 interface ServerEntry {
@@ -59,6 +59,7 @@ export interface OpenCodeServerDependencies {
 /** Only processes created here are owned. No attachment to an existing port/process. */
 export class OpenCodeServerPool {
   private readonly entries = new Map<string, ServerEntry>()
+  private readonly ownedEntries = new Set<ServerEntry>()
   private version?: { identity: string; ready: Promise<string> }
   private readonly terminated = new WeakSet<ChildProcess>()
   private stopped = false
@@ -73,8 +74,7 @@ export class OpenCodeServerPool {
   }
 
   private readVersion(executable: string): Promise<string> {
-    const stat = existsSync(executable) ? statSync(executable) : undefined
-    const identity = JSON.stringify([executable, stat?.mtimeMs, stat?.ctimeMs, stat?.size])
+    const identity = openCodeExecutableIdentity(executable)
     if (this.version?.identity === identity) return this.version.ready
     const ready = this.probeVersion(executable).catch((error) => {
       if (this.version?.ready === ready) this.version = undefined
@@ -117,12 +117,7 @@ export class OpenCodeServerPool {
     env?: Record<string, string>,
     cwd?: string
   ): string {
-    return harnessEnvFingerprint({
-      config: JSON.stringify(config),
-      env: JSON.stringify(nativeOpenCodeEnvironment(config, env)),
-      cwd: nativeWorkingDirectory(cwd),
-      executable
-    })
+    return openCodeServerProfile(executable, config, env, cwd).key
   }
 
   acquire(
@@ -132,17 +127,20 @@ export class OpenCodeServerPool {
   ): Promise<OpenCodeConnection> {
     if (this.stopped) return Promise.reject(new Error('OpenCode 서버 관리자가 종료되었습니다.'))
     const executable = this.executable()
-    const key = this.key(executable, config, env, cwd)
+    const profile = openCodeServerProfile(executable, config, env, cwd)
+    const key = profile.key
     let entry = this.entries.get(key)
     if (!entry) {
       const created: ServerEntry = { ready: Promise.resolve({ url: '', headers: {} }), owners: 0 }
       entry = created
       this.entries.set(key, created)
-      created.ready = this.start(executable, config, env, nativeWorkingDirectory(cwd), (child) => {
+      this.ownedEntries.add(created)
+      created.ready = this.start(executable, profile, (child) => {
         created.child = child
       }).catch((error) => {
         if (this.entries.get(key) === created) this.entries.delete(key)
         this.terminate(created.child)
+        this.ownedEntries.delete(created)
         throw error
       })
     }
@@ -152,6 +150,9 @@ export class OpenCodeServerPool {
       let released = false
       return {
         ...connection,
+        retire: () => {
+          if (this.entries.get(key) === owned) this.entries.delete(key)
+        },
         release: () => {
           if (released) return
           released = true
@@ -159,6 +160,7 @@ export class OpenCodeServerPool {
           if (owned.owners !== 0) return
           if (this.entries.get(key) === owned) this.entries.delete(key)
           this.terminate(owned.child)
+          this.ownedEntries.delete(owned)
         }
       }
     })
@@ -183,9 +185,7 @@ export class OpenCodeServerPool {
 
   private async start(
     executable: string,
-    config: Record<string, unknown>,
-    env: Record<string, string> | undefined,
-    cwd: string,
+    profile: ReturnType<typeof openCodeServerProfile>,
     own: (child: ChildProcess) => void
   ): Promise<OpenCodeConnection> {
     const version = await this.readVersion(executable)
@@ -206,10 +206,10 @@ export class OpenCodeServerPool {
       ['serve', '--hostname=127.0.0.1', `--port=${port}`],
       {
         windowsHide: true,
-        cwd,
+        cwd: profile.cwd,
         stdio: ['ignore', 'pipe', 'pipe'],
         env: {
-          ...nativeOpenCodeEnvironment(config, env),
+          ...profile.environment,
           OPENCODE_SERVER_USERNAME: 'opencode',
           OPENCODE_SERVER_PASSWORD: password
         }
@@ -310,14 +310,15 @@ export class OpenCodeServerPool {
     cwd?: string
   ): Promise<string> {
     const output = await new Promise<string>((resolveOutput, reject) => {
+      const profile = openCodeServerProfile(executable, config, env, cwd)
       execFile(
         executable,
         ['db', 'path'],
         {
           windowsHide: true,
           timeout: 15000,
-          cwd: nativeWorkingDirectory(cwd),
-          env: nativeOpenCodeEnvironment(config, env)
+          cwd: profile.cwd,
+          env: profile.environment
         },
         (error, stdout) => (error ? reject(error) : resolveOutput(stdout))
       )
@@ -331,7 +332,8 @@ export class OpenCodeServerPool {
   close(): void {
     this.stopped = true
     this.shutdown.abort(new Error('OpenCode 서버 관리자가 종료되었습니다.'))
-    for (const entry of this.entries.values()) this.terminate(entry.child)
+    for (const entry of this.ownedEntries) this.terminate(entry.child)
+    this.ownedEntries.clear()
     this.entries.clear()
     this.version = undefined
   }
