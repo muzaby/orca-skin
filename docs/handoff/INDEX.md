@@ -22,6 +22,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
+| [`0277-opencode-mcp-catalog`](0277-opencode-mcp-catalog/plan.md) | plan | DRAFT | Claude | (r1 초안 — 검증자 기입) | 1 | 명시 범위의 MCP 설정·실행 상태 조회/동기화. 범위·복수 엔진 UI 결정과 기존 instance 전용 관측 경계 확정 필요. |
 | [`0276-opencode-composer-preparation`](0276-opencode-composer-preparation/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 첫 입력 전 agent/provider 독립 준비·캐시/재조회·owner 수명 구현. CLI 1.17.19 A idle→B 및 첫 입력 재사용 확인. 팝업 상태 안내 없음. |
 | [`0275-opencode-shared-instances`](0275-opencode-shared-instances/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 호환 profile 서버 공유, directory 정리 완료 뒤 반납. 실제 CLI에서 module import 재사용·기존 이력 보존·최종 서버 종료 관측. |
 | [`0274-opencode-desktop-startup`](0274-opencode-desktop-startup/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | Desktop1.17.19 기준 공유 global SSE·프로젝트 준비·첫 제출 순서 구현. 관련295개 pass, 실제Electron8세션·CLI1.17.19 검증. AC11/11, 독립 검증 대기. |
