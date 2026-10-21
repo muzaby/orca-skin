@@ -7,7 +7,7 @@
 | 작성자 / 일자 | Codex / 2026-10-21 |
 | 상태 / 라운드 | READY / r1 |
 | V mode / 기준 | Delta V / 0274 유효 V @ `7b6111f6` |
-| 이번 / 유효 V | ΔV5 / 0273 V1 + 0274 ΔV2~4 + 이번 ΔV5 |
+| 이번 / 유효 V | ΔV6 / 0273 V1 + 0274 ΔV2~4 + 이번 ΔV5~6 |
 | 브랜치 | codex-harness-entry-menu |
 
 # Part I — Product & UX Contract
@@ -149,6 +149,11 @@ external disposed event는 해당 scope를 무효화하며 old scope의 release�
 ## 12. READY self-review
 
 READY. 사용자 검토 조건과 마지막 구현 지시를 대조해 기존 idle/runtime 수명은 유지하고 server/instance 경계만 변경했다. native endpoint·응답/완료 차이·미생성 bootstrap과 실제 소비처4곳, 신규9 AC 및 기존11 AC·9 pair·23자리를 고정했다.
+
+## ΔV6 — 상대 XDG 환경의 native 의미 보존
+
+정정한다. XDG의 상대 경로는 native xdg-basedir의 절대 경로 계약과 다르므로 임의로 절대화해 유효 설정으로 승격하지 않는다. XDG 값은 그대로 전달하고 상대 XDG가 있으면 요청 cwd를 host/fingerprint에도 남겨 보수적으로 격리한다. 나머지 지정한 native 파일 경로 환경은 요청 cwd 기준 절대화하며 `:memory:`·URL 값은 보존한다.
+EP07의 profile/env 자리와 AC18에 귀속한다. AC20개·pair9개·강제 지점23개 분모는 불변이다.
 
 ## [구현자 기입] 구현 보고
 
