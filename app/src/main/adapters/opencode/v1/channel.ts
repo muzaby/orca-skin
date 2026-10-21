@@ -11,7 +11,7 @@ import type { TurnContinuation, TurnRequest } from '../../common/turn'
 import type { NormalizedEvent } from '../../../../shared/ipc'
 import { OpenCodeActivityMapper } from './activity'
 import { createOpenCodeMessageId } from './message-id'
-import { classifyOpenCodeError } from './errors'
+import { classifyOpenCodeError, openCodePreparationError } from './errors'
 import { replyToApproval } from './approval'
 import { recoveredPrompt } from '../../common/recovery'
 import { modelRef } from './model-ref'
@@ -124,6 +124,23 @@ export function openCodeChannel(
     signal.throwIfAborted()
     if (!client || !sessionId || !activity)
       throw new Error('OpenCode 이벤트 채널이 준비되지 않았습니다.')
+    const slash = /^\s*\/([^\s]+)(?:\s+([\s\S]*))?$/.exec(next.text)
+    let command: Awaited<ReturnType<typeof openCodeNativeCommands>>[number] | undefined
+    if (slash) {
+      try {
+        // Dispatch may initialize MCP prompts; the menu's short metadata budget is insufficient.
+        command = (
+          await openCodeNativeCommands(client, req.cwd, false, undefined, {
+            signal,
+            timeoutMs: 30_000
+          })
+        ).find((item) => item.name === slash[1])
+      } catch (error) {
+        signal.throwIfAborted()
+        throw openCodePreparationError('commands', error)
+      }
+    }
+    signal.throwIfAborted()
     // Catalog membership is authoritative only after a successful live read.
     const agent =
       composerCatalog &&
@@ -157,10 +174,6 @@ export function openCodeChannel(
     const pending: ProviderMessageBatch[] = []
     submitting = pending
     try {
-      const slash = /^\s*\/([^\s]+)(?:\s+([\s\S]*))?$/.exec(next.text)
-      const command = slash
-        ? (await openCodeNativeCommands(client, req.cwd)).find((item) => item.name === slash[1])
-        : undefined
       const files = [
         ...(next.attachmentTexts ?? []).map((part) => ({
           type: 'file' as const,
@@ -288,15 +301,27 @@ export function openCodeChannel(
           patch: { backend: 'opencode', cwd: req.cwd, ...(req.model ? { model: req.model } : {}) }
         }
       ])
+      let streamError: unknown
       iterator = (
-        await client.event.subscribe({ directory: req.cwd }, { signal, sseMaxRetryAttempts: 0 })
+        await client.event.subscribe(
+          { directory: req.cwd },
+          {
+            signal,
+            sseMaxRetryAttempts: 0,
+            onSseError: (error) => {
+              streamError = error
+            }
+          }
+        )
       ).stream
       const timer = setTimeout(
         () => controller.abort(new Error('OpenCode 이벤트 연결 시간 초과')),
         15000
       )
       try {
-        if ((await iterator.next()).done) throw new Error('OpenCode 이벤트 스트림 연결 실패')
+        const first = await iterator.next()
+        signal.throwIfAborted()
+        if (first.done) throw openCodePreparationError('events', streamError)
       } finally {
         clearTimeout(timer)
       }
@@ -358,7 +383,8 @@ export function openCodeChannel(
           interrupted = false
         }
       }
-      throw new Error('OpenCode 이벤트 연결이 끊겼습니다.')
+      signal.throwIfAborted()
+      throw openCodePreparationError('events', streamError)
     } catch (error) {
       if (!closed)
         publish(

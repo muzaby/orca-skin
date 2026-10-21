@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex / 2026-10-21 |
-| 상태 / 라운드 | READY / r1 |
+| 상태 / 라운드 | IMPL_DONE / r1 |
 | V mode / 기준 V / 유효 V | Baseline V / none / V1 |
 | 브랜치 | codex-harness-entry-menu |
 
@@ -166,7 +166,75 @@ READY. 사용자 CLI1.17.19와 첫 실행 조건을 보존했고, 현재 원격 
 
 ## [구현자 기입] 구현 보고
 
-구현 전.
+구현했다. 실제 SDK Request를 통한 느린 명령·취소·초기/실행 중 SSE 실패와 명시 재시도를 검증했다. 사용자 환경 자체의 두 번째 SSE 실패 원인은 미확정이다.
+
+| 항목 | 관측 |
+|---|---|
+| 변경 | channel의 준비 전 수락 상태 이동·30초/signal 전달, native command read 옵션, 안전 오류 분류, 실제 SDK 회귀 |
+| CLI1.17.19 실측 | 격리 XDG와 의도적으로 3.5초 지연한 stdio MCP. `/command` 2.5초 요청은 2,503ms timeout, 후속 조회는 1,694ms 성공. 첫/재시도 SSE 모두 HTTP200·server.connected |
+| 원시 근거 | [결과](evidence/compatibility-result.json), [probe](evidence/compatibility-probe.cjs), [제어 MCP](evidence/delayed-mcp.cjs). 자신의 임시 session·child만 정리, 모델 prompt 없음 |
+| 재현 준비 | npm `opencode-windows-x64@1.17.19` tarball을 임시 폴더에 pack/extract하고 두 script를 같은 폴더에서 실행. 전역 설치본·native 사용자 DB/설정은 변경하지 않음 |
+| red 재현 | 새 느린 명령 테스트를 baseline channel로 실행: reads[0].aborted가 true라 실패. 수정 복원 뒤 통과 |
+| 테스트 | focused 3파일44개 pass. 확장 23파일199개 중22파일192개 pass; native-cursor 7개는 Electron140/Node127 ABI 불일치로 미실행 |
+| 타입·린트 | node/web/test 모두 exit0. lint 오류0·기존 virtualizer 경고2. lint의 무관한 execution-config formatting은 원복 |
+| repository | boundary·inventory·real-git budget16 suites·diff check 통과, inventory diff 없음 |
+| 빌드 | Electron ABI already ok, electron-vite build exit0. 기존 SubAgentTaskDetail 정적/동적 import 경고 유지 |
+| AC 자기보고 | ✅6 · ⚠️0 · ❌0 = 총6. 사용자 실제 환경에서 재시도 실패 원인을 확정했다는 의미는 아님 |
+| 대상 커밋 | r1 구현 — 좌표는 INDEX의 검증자 기입 |
+
+### 강제 지점 전수
+
+아래 P는 `adapter.persistent.test.ts`, E는 `errors.test.ts`다. 선택 변이·인용 변이·신규 구조 proxy oracle은 없으며 직접 행동 결과를 관측했다.
+
+| Pair / EP | §10 지점 | 닫은 지점 | 직접 oracle / 운반 값 | 남긴 곳 |
+|---|---|---|---|---|
+| VP01~04 / EP01 | 실행 lookup의 budget/signal, read 결합, 준비 오류 변환, 수락 순서(4) | 4/4 | P:`waits beyond the menu deadline…` 실행/메뉴 서로 다른 실제 abort 상태와 command/인자; `cancels command preparation…` 실제 Request 취소; `fails command preparation safely…` echo·모델 제출·root abort 없음 | — |
+| VP01~04 / EP02 | SSE callback, 초기 판정, 후속 판정, 안전 분류(4) | 4/4 | P:`retries explicitly after…` HTTP503→정상 재시도; `reports an initial…` timeout/EOF; `preserves a safe stream failure…` 연결 후 TypeError; E:`sanitizes…` HTTP401/503·두 stage·EOF·일반 실패, 비밀 없음 | — |
+
+검색 대조: EP01의 submit lookup·read request·catch·responseOpen, EP02의 callback·초기 next·후속 EOF·분류 반환을 재확인했다. 양 production 경로 밖 inventory·기존 error classifier는 별도 역할이며 누락 소비 자리 없음.
+
+| Pair | requiredness | 자기 상태 | 관측 |
+|---|---|---|---|
+| VP01 | REQUIRED | SELF_PASS | AC1~6 아래 행과 실제 CLI evidence |
+| VP02 | REQUIRED | SELF_PASS | P의 lookup→command, close→미제출, 실패→명시 재시도 |
+| VP03 | REQUIRED | SELF_PASS | 실제 설치 SDK가 전달한 Request.signal·body와 SSE callback/error frame |
+| VP04 | REQUIRED | SELF_PASS | 메뉴/실행 abort 구별과 E의 반환 message·cause 부재 |
+
+### 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 결과 | 실패 테스트 | 결과 |
+|---|---|---|---|---|
+| baseline channel 복원 | 사용자 timeout 재현. 선택 mutation 의무와 별개인 원래 코드 비교 | 이번 턴 red | P:`waits beyond the menu deadline…` 1 failed | 수정 복원 후 focused44 pass |
+
+분모 검산: 선택 증거0 · 인용 변이0 · 새 구조 oracle0 = 의무 잠금0행. 위 행은 원래 결함 재현 기록이다.
+
+### Product/UX 파생 검토와 잠재 문제
+
+| 관측 / 문제 | 대응 |
+|---|---|
+| 새 준비 오류 문구가 화면까지 전달되는가 | E에서 classifier 출력 동일, P에서 NormalizedEvent.error로 관측. 기존 화면 consumer 유지 |
+| 실패 후 자동 전송·늦은 준비 완료 | P에서 명시 재시도의 text만 단일 prompt로 확인, close 뒤 command/prompt 없음 |
+| 단순히 메뉴 제한도 늘어나는가 | P에서 동일 시각 메뉴 요청은 abort, 실행 요청은 유지됨 |
+| 실제 원격 SSE 실패 원인 부재 | 보고만. 같은1.17.19의 기본 SSE와 재접속은 격리 CLI에서 성공 |
+| Desktop 기준 전체 시작 흐름 요구 추가 | 후속 설계로 시작/이벤트 공유·준비 수명을 보완. 이번 수정만으로 전체 parity를 달성했다고 하지 않음 |
+| 설계 대비 차이 | 구현 의미 차이 없음. DB 관련 기존 suite는 ABI 환경 한계로 분리 |
+
+### AC 자기보고
+
+| AC | 관측 |
+|---|---|
+| AC1 | ✅ 실제 2.7초 대기 후 실행 신호 유지, native:slow와 exact argument 단일 command |
+| AC2 | ✅ Request까지 close 전달, 준비 timeout의 echo·POST·abort 없음 |
+| AC3 | ✅ 초기 HTTP/timeout/EOF 및 연결 후 전송 실패, raw secret 없음 |
+| AC4 | ✅ 실패 뒤 새 stream의 명시 retry만 prompt, 자동 재전송 없음 |
+| AC5 | ✅ focused와 확장192개, 메뉴 timeout 구별·기존 slash/소유권 회귀 |
+| AC6 | ✅ 실제1.17.19 controlled MCP probe와 사용자 환경 미확정 범위 분리 |
+
+검산: ✅6 · ⚠️0 · ❌0 = 총6. 다음 주체는 독립 검증자다.
+
+### Review Signals
+
+r1 최초 수정. 이전 성능 보고가 조사한 짧은 command 조회가 실제 첫 스킬 실행에도 적용됨을 이번 입력 조건으로 좁혔다. 다른 환경 로그 부재와 Node/Electron ABI 한계는 구현 검증과 구분했다.
 
 ## [검증자 기입] 파생 이슈
 

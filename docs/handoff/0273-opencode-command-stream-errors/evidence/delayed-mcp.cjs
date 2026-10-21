@@ -1,0 +1,3 @@
+const readline=require('node:readline');
+const send=(id,result)=>process.stdout.write(JSON.stringify({jsonrpc:'2.0',id,result})+'\n');
+readline.createInterface({input:process.stdin}).on('line',line=>{try{const x=JSON.parse(line);if(x.id===undefined)return;if(x.method==='initialize'){setTimeout(()=>send(x.id,{protocolVersion:x.params.protocolVersion,capabilities:{tools:{},prompts:{}},serverInfo:{name:'Orca controlled delay probe',version:'1'}}),3500);return}if(x.method==='tools/list'){send(x.id,{tools:[]});return}if(x.method==='prompts/list'){send(x.id,{prompts:[]});return}send(x.id,{})}catch{}});
