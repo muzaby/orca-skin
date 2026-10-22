@@ -5,10 +5,10 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex / 2026-10-21 |
-| 상태 / 라운드 | IMPL_DONE / r1 |
+| 상태 / 라운드 | IMPL_DONE / r2 (FAIL 대응 완료·독립 검증 대기) |
 | V mode / 기준 | Delta V / 0274 유효 V @ `7b6111f6` |
 | 이번 / 유효 V | ΔV6 / 0273 V1 + 0274 ΔV2~4 + 이번 ΔV5~6 |
-| 브랜치 | codex-harness-entry-menu |
+| 브랜치 | ccr-a053656f-pny3g5 |
 
 # Part I — Product & UX Contract
 
@@ -324,3 +324,90 @@ EP07의 profile/env 자리와 AC18에 귀속한다. AC20개·pair9개·강제 �
 | D1 | L15 context `references++`를 await 뒤로 옮겨도 green, 보고 좌표 N6 부재 | EP08 reservation · AC16 · VP12 | 마지막 owner 정리 중 같은 directory 재획득이 같은 context로 성공함을 단언 | BLOCKING | open |
 | D2 | E11 warm 거절 catch의 `close()` 삭제 green — 0274 D1 이관 수령 | 0274 MD3/UT3 → VP09 REGRESSION · AC11 | 거절과 `submitting` 해제 사이 늦은 callback 주입 단언, 또는 호출자 close로 동치 근거 제시 | BLOCKING | open |
 | N1 | L8 shutdown entry abort는 상위 controller abort와 동치 | EP09 shutdown | 유지 가능 | NON_BLOCKING | open |
+
+## [구현자 기입] r2 설계 리뷰
+
+D1·D2의 production 동작은 이미 계약과 일치한다. 이번 변경은 마지막 owner의 정리와 새 획득이 겹치는 N6, warm HTTP 거절 직후 callback이 도착하는 직접 oracle을 추가한다. ACTIVE Decision·AC·V·§10은 변경하지 않았다.
+
+불변식은 두 가지다. 진행 중 획득은 await 전부터 context를 소유한다. 거절된 제출은 buffer를 풀기 전에 event 발신을 차단한다. B owner가 남는 기존 시험은 첫 불변식을 가렸고, 외부 pushTurn catch 이후만 본 시험은 두 번째 불변식의 microtask 간격을 가렸다.
+
+## [구현자 기입] r2 강제 지점 전수와 V-pair 자기확인
+
+N1–N17·A1–A6·C1–C9·P1–P4는 위 좌표 표를 사용한다. 누락됐던 N6을 실제 `adapter.instances.test.ts`에 추가했다. W1은 `channel.warm-fence.test.ts:fences a rejected warm prompt before a queued event can escape the submission buffer`다. W1은 production channel·activity를 실행하고 SDK client/iterator 포트를 주입한다. 실제 SDK transport 구간은 기존 persistent/startup tests가 맡는다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP10·12·13 | EP07 | profile/env·spawn cwd·retire·db profile·SDK directory 5자리 | 5/5 | N1–N5·N17 | A/B 환경·directory·auth·한글 POST·DB 경로를 서로 구별 | 없음 |
+| VP10–13 | EP08 | 예약·refs·멱등 release·touched·abort·composite 6자리 | 6/6 | N6–N9·C8 | sole A 정리 중 새 A 준비 성공, generation 교체·child 1·kill 0·stream 1, old SDK 요청 증분 0 | 없음 |
+| VP10–13 | EP09 | 연결·예산·completion·barrier·retire·cache·반납·shutdown 8자리 | 8/8 | N7·N9–N16·C4·C5·A3 | matching event 전/후 반납 구별, B 유지, 새 generation·30초·종료 후 획득 차단 | 없음 |
+| VP10–12 | EP10 | channel·complete·recover·history 4자리 | 4/4 | N14 네 소비처 | disposal 완료 전 미정착, 완료 후 결과·최종 child 종료 | 없음 |
+| VP09 | 0274 이관 warm fence | 제출 catch에서 buffer 해제 전 close | 1/1 | W1 | 거절 continuation 뒤·외부 catch 앞에 late session.error 주입, 다음 batch done=true | 없음 |
+
+§10 source 전체 검색 342행을 기존 23자리와 대조했다. `implementation.ts`는 실제 상위 경로를 사용했다. r2 production diff는 없으며 새 계약 운반 edge는 없다. N6의 실행 구간은 실제 pool→context→instance actor→SDK이고 W1의 실행 구간은 channel이다. 이관된 warm fence 1자리는 기존 23자리와 별도 표기한다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP01·02·04 | REGRESSION | SELF_PASS | persistent·errors·native-resources의 frame/signal/budget | not selected — 직접 oracle |
+| VP05 | REGRESSION | SELF_PASS | startup A1–A6·persistent, 기존 native 실행 증거 파일 유지 | native 재실측은 아래 AC12 한계 |
+| VP09 | REGRESSION | SELF_PASS | W1·persistent rejected warm submission | 인용 E11 1 red, 원복 green |
+| VP10 | REQUIRED | SELF_BLOCKED | N1–N17 | AC21 실제 CLI 재실행 없음 |
+| VP11·12·13 | REQUIRED | SELF_PASS | N1–N17·C1–C9·actor tests | 인용 L15 1 red, 원복 green |
+
+## [구현자 기입] r2 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| context references++를 instances.acquire await 뒤로 이동 | D1·L15 | 못 잡음 | N6 1 failed: 새 획득이 OpenCode 연결 종료로 실패 | 원복 adapter.instances 8/8 green |
+| warm submit catch의 close 제거 | D2·0274 E11 | 못 잡음 | W1 1 failed: done=false·sequence 3 error frame 유출 | 원복 W1 1/1 green |
+
+선택 증거 0 · 인용 변이 2 · 새 proxy oracle 0 = 의무 표 2행. 격리 copy에서 변이했고 원본 production은 건드리지 않았다. 기존 oracle을 제거·교체하지 않았다. L8의 `for (...entries) controller.abort(reason)` 제거는 lifecycle/context/instances 3파일30케이스 green으로 동치를 재확인했다. `ServerContext.close`가 먼저 상위 controller를 abort하고 모든 scoped 요청이 그 signal을 합성한다. 방어 중복은 유지한다.
+
+## [구현자 기입] r2 Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 마지막 owner 교체가 입력 실패로 보이는가 | N6에서 context 유지·새 준비 성공 관측 | production 변경 없음 |
+| 실패한 warm 입력의 늦은 오류가 다음 frame에 나타나는가 | W1에서 다음 batch 없음, 추가 제출 stream_closed | 기존 실패 표시/명시 retry 유지 |
+| 새 문구·상태·화면 변화 | 없음, 테스트만 변경 | 시각 변경 없음 |
+
+## [구현자 기입] r2 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 기존 N6 좌표는 문서에만 존재했다 | 같은 이름의 실제 조립 테스트 추가 | 파일 검색·L15 1 red·원복8/8 |
+| 2 | 외부 catch도 close하므로 내부 fence가 불필요해 보인다 | promise microtask 순서를 구별하여 내부 fence 필요성을 관측 | E11 제거 시 late error frame 도달 |
+| 3 | 두 owner 시험은 sole context 예약 누락을 가린다 | B 없이 old/new A만 사용 | N6의 child/stream·SDK 관측 |
+
+설계 대비 메커니즘 차이 없음. 만료·공유·재진입·다른 무효화 축은 기존 production을 유지하며 각각 N10/N16·N7/N9·N6/N12·N13/N15로 확인한다. 새 저장소·부작용·조기 반환은 없다.
+
+## [구현자 기입] r2 구현 보고
+
+| 항목 | 관측 |
+|---|---|
+| 변경 | `adapter.instances.test.ts` N6 추가, `channel.warm-fence.test.ts` W1 추가 |
+| 집중 gate | 원복 묶음 5파일25/25 green(다른 handoff 포함), L8 동치 3파일30/30 green |
+| 관련 회귀/통합 gate | OpenCode·history·composer·preload·SessionRuntime 49파일493/493 green; [공통 운영 gate](../0281-opencode-menu-cache/evidence/verify-fail-validation.md) |
+| V 자기확인 | SELF_PASS 8 · SELF_BLOCKED 1(VP10 실제 CLI 재실측) |
+| 강제 지점 | §10 23/23 + 이관 warm fence 1/1, D1·D2 구현자 재확인 완료 |
+| AC 자기보고 | 새 실패 항목 AC11·AC16 직접 oracle 회복. AC12·AC21의 실제 CLI 재실측은 기존 evidence 유지·이번 턴 미실행 |
+| 블로커/역질문 | 코드/테스트 잔여 없음. native 실측은 미실행으로 남김 |
+| 대상 커밋 | (r2 구현 — 좌표는 INDEX) |
+
+| AC | 이번 턴의 관측 |
+|---|---|
+| AC1·2·3·4·5 | ✅ persistent command/취소/안전 오류·명시 retry, history/native cursor 회귀 |
+| AC7·8·9·10 | ✅ startup/context의 순서·일반/slash·다중 owner·shutdown |
+| AC11 | ✅ W1 warm fence·persistent 회귀, E11 red |
+| AC12 | ⚠️ 기존 CLI 시퀀스 증거 유지, 실제 CLI 이번 턴 미실행 |
+| AC13·14·15 | ✅ N1–N3·N7·N8·N11·N17의 profile/ref/completion |
+| AC16 | ✅ N6 sole owner 예약·N12 replacement, L15 red |
+| AC17·18·19·20 | ✅ N2·N4·N5·N9·N10·N13–N16·persistent의 소비처/경로/retire/격리 |
+| AC21 | ⚠️ 기존 실측 artifact 유지, 실제 CLI1.17.19/Electron 재실행 없음 |
+
+검산: ✅ 18 · ⚠️ 2 · ❌ 0 = 총 20. D1·D2 수정 완료와 native 운영 미실행을 구분한다.
+
+## [구현자 기입] r2 Review Signals
+
+- r2, verify 1회 뒤 첫 재구현. 프로덕션 결함 추가 발견 없이 oracle의 두 경쟁 조건 공백을 보완했다.
+- AC16·EP08이 await 전 예약을, VP09가 warm 거절 fence를 이미 요구했다. 기존 다른 owner·외부 catch만 보는 입력으로 차이가 사라졌다.
+- 환경: Node ABI127에서 DB를 실행했고 ABI를 전환하지 않았다. 변이는 격리 copy·threads pool을 사용했다. 실제 CLI 재실측은 이번 테스트 보완 범위에서 수행하지 않았다.
