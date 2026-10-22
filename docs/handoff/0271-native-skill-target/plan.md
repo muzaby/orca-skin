@@ -11,6 +11,12 @@
 | V mode / 기준 V | Baseline V / none |
 | 이번 V revision / 유효 V | ΔV1 / V1 + ΔV1 |
 
+## 후속 정책 정정 — 색상·제어 가능성
+
+0278 D11·D24가 본문의 초기 색상 기준을 대체한다. AC4의 native 일괄 토글 금지는 항목별 capability 확인으로 한정하고 삭제 권한은 유지한다. AC5·VP-01·VP-02의 enabled=false 색상 단언은 0278 AC1/VP1·VP4의 on/off×capability 행렬로 이관하며 파일 열기·원문 식별자·작성 slug 검증 증거는 유지한다.
+
+기준은 본 V1+ΔV1@256ddd24이며 이 정정은 정책 정본 연결이다. 과거 조사·구현 보고의 회색 관측을 현재 요구로 승격하지 않는다. 이번 턴에 제품 코드를 바꾸거나 이전 검증을 PASS로 갱신하지 않는다.
+
 # Part I — Product & UX Contract
 
 ## 1. Context / 목표
@@ -30,9 +36,9 @@
 
 | ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
 |---|---|---|---|---|---|
-| D-001 | 요청 브랜치의 원격 최신 상태에서 작업한다 | 브랜치 전환 명시 요구 | 사용자 | ACTIVE | — |
+| D-001 | 당시 요청 브랜치에서 작업한다 | 브랜치 전환 명시 요구 | 사용자 | SUPERSEDED | 병합 후 원격 main 전환 요청(2026-10-22) |
 | D-002 | 카탈로그 이름은 생성용 slug가 아닌 정확한 조회 키다 | producer가 namespace·frontmatter 이름을 그대로 제공 | `plugin-catalog.ts`, `scan.ts` | ACTIVE | — |
-| D-003 | native 활성 설정과 읽기 전용 권한을 보존한다 | 실제 사용자 설정의 superpowers=false, `canToggle/canRemove=false` | 설정의 해당 boolean만 조회, `skills.ts` | ACTIVE | — |
+| D-003 | 파일 열기가 활성 상태·쓰기 권한을 변경하지 않음 | native capability를 조회 시 재검증 | 초기 사용자 요청 | ACTIVE(읽기 권한) | 모든 native 토글 불가·off이면 회색이라는 부분은 0278 D11·D24로 대체 |
 | D-004 | Orca 작성 이름의 기존 제약을 보존한다 | 디렉터리 생성에 사용되는 값 | `sources.ts`, `AuthorSkillSchema` | ACTIVE | — |
 
 ### 갱신 메모
@@ -48,7 +54,7 @@
 | 더 작은 해법 | 작성/조회 검증 분리 | handler는 이미 카탈로그의 sourceId/name을 정확히 대조 |
 | 기존 결정 충돌 | 없음 | native 설정을 쓰거나 스킬 파일을 재배포하지 않음 |
 
-사용자에게 올릴 결정 없음. 전역 활성화 정책 변경은 요청에 포함하지 않는다.
+이 절의 회색 표시 원인은 최초 조사 당시 사실이다. 현재 nav 표시 계약은 0278 D11·D24의 capability 기준이며 비활성 여부만으로 흐리게 표시하지 않는다.
 
 ## 5. 동작 / 사용자 흐름
 
@@ -80,7 +86,7 @@
 | R-01 | AT-02 / AC2 | 없는 이름·source 조합은 거부되고 요청의 임의 path는 사용되지 않는다 | `skills.test.ts` 잘못된 키·추가 path 입력, shell 무호출/등록 경로 단언 | IPC→findSkill→shell |
 | R-02 | AT-03 / AC3 | 새 작성 이름은 trim·1~64자 ASCII 영숫자/underscore/hyphen 제약을 유지한다 | `protocol.skills.test.ts` 유효·무효 작성 입력 | author IPC→AuthorSkillSchema |
 | R-02 | AT-04 / AC4 | native의 토글·제거는 원래 권한을 유지하고 Orca 토글은 동작한다 | `skills.test.ts` patch/deploy 무호출 및 Orca 설정 갱신 | target schema→findSkill→capability→settings |
-| R-03 | AT-05 / AC5 | 비활성 plugin 스킬도 파일을 열 수 있으며 읽기 전용 여부와 구분해 enabled=false만 흐리게 표시한다 | `skill-catalog.test.ts` 실제 파일/설정→IPC reveal, `CustomizeList.render.test.ts` 활성/비활성 read-only 행 비교 | plugin 설정→catalog→scan→목록/IPC |
+| R-03 | AT-05 / AC5 | 비활성 plugin 스킬의 파일 열기는 유지. enabled=false만 흐리게 표시하던 조건은 SUPERSEDED → 0278 AC1 | `skill-catalog.test.ts` 실제 파일/설정→IPC reveal, `CustomizeList.render.test.ts` 활성/비활성 read-only 행 비교 | plugin 설정→catalog→scan→목록/IPC |
 
 기존 증거 확인: `skill-catalog.test.ts:assembles the real catalog…`는 disabled native 보존을 단언한다.
 Windows 탐색기 창의 실기 시각 확인은 별도이고, AC1은 실제 handler가 전달하는 경로까지 기계 검증한다.

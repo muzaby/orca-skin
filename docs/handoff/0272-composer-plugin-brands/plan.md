@@ -7,7 +7,7 @@
 | 작성자 / 일자 | Codex / 2026-10-21 |
 | 상태 / 라운드 | IMPL_DONE / r1 |
 | V mode / 기준 V / 유효 V | Baseline V / none / V1 |
-| 브랜치 | codex-harness-entry-menu |
+| 구현 당시 브랜치 / 현재 | codex-harness-entry-menu / main(병합 후 사용자 전환 요청) |
 
 # Part I — Product & UX Contract
 
@@ -31,7 +31,7 @@
 
 | ID | 결정 | 출처 / 조건 | 상태 |
 |---|---|---|---|
-| D-01 | native 토글의 실제 적용과 저장 범위를 보고하되 nav 색상 기준은 유지한다 | 사용자 후속 “현상태 유지” | ACTIVE |
+| D-01 | native 토글·저장 범위 보고, nav 색상 현상태 유지 | 당시 사용자 답변 | 색상 부분 SUPERSEDED → 0278 D11·D24; 보고 요구 유지 |
 | D-02 | 엔진 추가의 두 선택지 왼쪽에 공식 컬러 마크를 표시하고 선택 동작은 유지한다 | 사용자 | ACTIVE |
 | D-03 | 양 Composer의 스킬은 `/name`, 플러그인 메뉴 항목은 `@id`로 삽입·하이라이트한다 | 사용자, native MCP도 현재 플러그인 메뉴에 포함됨 | ACTIVE |
 | D-04 | 하네스 plugin이 제공하는 skill/command는 기존 스킬 그룹과 `/name` 계약을 유지한다 | 기존 0267 D-19, 이번 “스킬은 /”와 합치 | ACTIVE |
@@ -51,7 +51,7 @@ ACTIVE 결정 ↔ AC 대조: D-01↔AC6, D-02↔AC1, D-03~06↔AC2~5, D-07↔AC7
 | 기존 로고 구현이 있는가 | 카드·모델 그룹에 있음, 추가 선택지와 + sourceIcon에는 빠짐 | `EngineCard.tsx`, registry `composer.ts` |
 | 소스 버전이 일치하는가 | HEAD 2.1.1, 설치 CLI 1.19.0, 해당 git tag 존재 | 로컬 git SHA·package.json·opencode --version |
 
-추가 제품 결정 없음. nav 기준 질문은 사용자 답변으로 닫았다.
+최초 nav 색상 유지 답변은 후속 0278 D11·D24로 대체됐다. 현재 색상은 on/off가 아닌 Orca의 SDK 제어 가능성에 따른다.
 
 ## 5. 동작 / 사용자 흐름
 
@@ -73,7 +73,7 @@ Composer + → 플러그인 → @id 삽입 → 참조 배경
 ## 6. 범위 / 비범위
 
 범위: 위 로고/입력 표시·실제 메뉴 선택 회귀·요청 이력 조사·시작 시퀀스 비교 보고.
-비범위: nav 색상 변경, native 자동 활성화, MCP 연결 정책 변경, 모델 전송·OpenCode 2.x 이행·서버 lifetime 정책 변경.
+본 작업의 비범위: native 자동 활성화·MCP 연결 정책 변경·모델 전송·OpenCode 2.x 이행. 후속 nav 색상은 0278, 서버 수명은 0275가 소유한다.
 
 ## 7. Requirements / Acceptance — R ↔ AT
 
@@ -84,9 +84,13 @@ Composer + → 플러그인 → @id 삽입 → 참조 배경
 | R-02 / AT-03 / AC3 | 스킬은 `/` 그대로이며 대소문자·underscore·namespace가 있는 실제 명령도 highlight | 동일 실제 메뉴 테스트 + `composerDecoration.test.ts` known name 전체 비교 |
 | R-02 / AT-04 / AC4 | 미연결·미활성 native는 후보/장식에서 제외, unknown·경로 접두사·다른 세션과 구별; 내장 Plugin도 유지 | `attachMenuModel.test.ts`, `Composer.native-menu.test.ts`, tokenizer 회귀 |
 | R-01 / AT-05 / AC5 | +의 Claude/OpenCode 스킬·MCP 그룹 마크가 기존 브랜드색이며 출처/하네스가 일치 | 실제 양 Composer 메뉴 그룹 SVG class·viewBox 단언 및 브라우저 시각 |
-| R-03 / AT-06 / AC6 | native 실제 적용·저장 범위와 nav 전역 상태 차이를 보고, 사용자 후속대로 기준 유지 | 현재 native adapter/plugin-state 테스트·코드 경로와 보고서 |
+| R-03 / AT-06 / AC6 | native 실제 적용·저장 범위와 nav 전역 상태 차이 보고. 색상 유지 부분은 0278 AC1로 이관 | 현재 native adapter/plugin-state 테스트·코드 경로와 보고서 |
 | R-03 / AT-07 / AC7 | 이전 요청의 정확/유사 범위와 빠진 표면을 근거와 함께 보고 | 0238·0259·0267의 Decision/AC 원문 좌표 |
 | R-03 / AT-08 / AC8 | 현재 HEAD와 1.19.0 데스크톱, Orca 시작 경로를 비교하고 config 이후 대기·plugin 오류의 확인/추정을 구분 | `startup-analysis.md`의 버전·소스 좌표·관측 및 재현 수단 |
+
+## 후속 정책과 증거 승계
+
+V1@256ddd24의 VP-06/AC6 색상 유지 부분은 0278 AC1/VP1·VP4로 이관한다. 브랜드·스킬 /·플러그인 @·기존 요청 조사 AC1–5·7은 유지한다. AC8의 HEAD/1.19.0 조사 기록은 당시 환경의 증거이며 사용자 환경 1.17.19 시작 기준은 0274·0275가 정본이다.
 
 ## 7-A. V / Trace Matrix
 

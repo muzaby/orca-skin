@@ -21,6 +21,8 @@
 
 사용자: “재조회, 병목, 오픈코드 데스크톱 시퀀스 미준수 등에 대해 충분히 고려하여 구현하라”. 사용자가 공유한 분석의 완료 기준은 해당 directory의 `GET /agent` 응답이다.
 
+현재 표시 계약: [0281 ΔV1](../0281-opencode-menu-cache/plan.md)이 고정 새로고침·기본 에이전트 행·스피너 전면 금지의 이전 표현을 대체한다. 기존 V1+ΔV1+ΔV2@256ddd24의 관련 UI AC/선택 행 증거는 0281 VP1·VP3·DV1-P1–P3으로 이관하고 준비·캐시·수명 증거는 유지한다.
+
 ## 3. Decision Ledger
 
 | ID | 결정 | 출처·이유 | 상태 |
@@ -52,16 +54,16 @@ OpenCode + directory → 화면 소유 준비 lease → agent/provider 각각 �
 
 | 상태/이벤트 | 결과 |
 |---|---|
-| 최초 loading | 입력 작성 가능, 기존 항목만 표시. 상태 안내·스피너 없음 |
+| 최초 loading | 입력 작성 가능. 0281 D5에 따라 에이전트 제목 우측만 회전 스피너, 안내 문구 없음 |
 | agent만 성공 | 에이전트 선택 가능, 모델 지연과 독립 |
-| 실패/timeout | 안내 없이 같은 세대의 성공 결과 보존, 고정 새로고침 동작으로 재조회 |
-| 성공한 빈 결과 | 기존 선택 정리, 기본 선택만 유지 |
+| 실패/timeout | 안내 없이 같은 세대의 성공 결과 보존. 팝업 새로고침은 0281 D1로 제거 |
+| 성공한 빈 결과 | 무효 선택 정리, agent 미지정 의미 유지. 기본 에이전트 메뉴 행은 0281 D6으로 제거 |
 | directory/provider/session 변경 | 새 scope를 읽으며 이전 결과를 적용하지 않음 |
-| native instance 종료 | 기존 결과를 authoritative로 쓰지 않으며 상태 안내 없이 새로고침 가능 |
+| native instance 종료 | 이전 결과를 authoritative로 사용하지 않음. 새 scope/세대 준비 정책 유지, popup refresh 없음 |
 | retry | 중복 클릭 합류, 성공 부분 보존, 무한 자동 재시도 없음 |
 | close/renderer gone/app quit | 진행 중 준비·요청 취소 및 소유 lease 반납 |
 
-키보드/테마: 기존 OpenCodeSelect·Popover·MenuItem 재사용, 고정 새로고침 메뉴도 키보드로 접근. 로딩·오류 상태 문구·스피너·기타 안내는 표시하지 않는다.
+키보드/테마: 기존 OpenCodeSelect·Popover·MenuItem 재사용. 팝업 새로고침·기본 에이전트 행은 제거하며, 로딩 중 에이전트 제목 우측 회전 스피너만 표시한다. 상세 표현 정본은 0281 ΔV1이다.
 
 ## 6. 범위
 
@@ -77,10 +79,10 @@ OpenCode + directory → 화면 소유 준비 lease → agent/provider 각각 �
 | R4 / AT4 / AC4 | 동일 scope 중복 호출·메뉴 재개방·첫 제출은 진행 요청/캐시 재사용 | session-context + renderer state + adapter submit에서 HTTP 횟수 |
 | R5 / AT5 / AC5 | 준비→첫 제출 재사용, A 유지 중 B 준비, 최종 owner 정리 | 실제 SDK 사용 adapter/context lifecycle 통합 |
 | R6 / AT6 / AC6 | scope 전환/해제 후 늦은 결과 폐기, 오류가 성공 빈 목록이 되지 않음 | handler·state 지연/취소/빈 목록 테스트 |
-| R7 / AT7 / AC7 | 실패·수동 재조회 합류 및 회복, 강제 instance 재시작 없음 | 명시 refresh·실패 후 retry·세대 종료 테스트 |
+| R7 / AT7 / AC7 | 내부 재조회 합류·회복과 강제 instance 재시작 금지는 유지. popup 수동 액션은 SUPERSEDED → 0281 D1 | 명시 refresh·실패 후 retry·세대 종료 테스트 |
 | R8 / AT8 / AC8 | agent 명시 제출은 agent만, variant 명시는 모델 검증도 대기 | channel prompt/command 요청 body와 지연 provider 테스트 |
 | R9 / AT9 / AC9 | 실제 턴과 동일 settings/env/cwd로 준비, 타 창 owner 접근 차단 | main resolver/handler integration, 구별되는 env/provider/project/session 값 |
-| R10 / AT10 / AC10 | 상태 안내·스피너 없이 선택·고정 새로고침·초점 동작 | Controls interaction, 실제 renderer 두 테마 및 오류 상태 시각 점검 |
+| R10 / AT10 / AC10 | 표현 부분 SUPERSEDED → 0281 AC1·4–6. 독립 준비·선택·초점 회귀는 유지 | Controls interaction, 실제 renderer 두 테마 및 오류 상태 시각 점검 |
 
 ## 7-A. Baseline V
 
@@ -172,7 +174,7 @@ IPC_CONTRACT, backend adapters, frontend component catalog, generated inventory�
 
 ### ΔV1 설계 보완 — 명시 재조회와 실행 설정
 
-사용자의 재조회 고려 요구를 조사하는 중, 살아 있는 준비 owner가 갱신된 실행 설정을 읽지 않는 경로를 확인했다. D9(ACTIVE): 명시 refresh에서 실제 턴 resolver를 다시 사용하고 새 lease를 확보한 뒤 이전 lease를 반납한다. compatible profile이면 같은 instance이며 강제 dispose·config patch는 하지 않는다.
+사용자의 재조회 고려 요구를 조사하는 중, 살아 있는 준비 owner가 갱신된 실행 설정을 읽지 않는 경로를 확인했다. D9(내부 refresh 계약만 ACTIVE, popup 액션은 0281 D1로 SUPERSEDED): 명시 refresh에서 실제 턴 resolver를 다시 사용하고 새 lease를 확보한 뒤 이전 lease를 반납한다. compatible profile이면 같은 instance이며 강제 dispose·config patch는 하지 않는다.
 
 AC9를 최신 설정 재해석까지 확장한다. R9/AR1/SD1/MD2는 CHANGED, VP1/VP2/VP3/VP6 REQUIRED이며 나머지는 V1 유지다. EP2 owner ensure/read/release 자리의 직접 oracle을 `handlers/composer-catalog.test.ts: refresh re-resolves and keeps old owner until replacement is ready`로 추가한다. 기존 §13의 “죽은 lease만 재확보”는 이 행이 대체하며, 자동 재연결 없음은 유지한다.
 
@@ -180,7 +182,7 @@ AC9를 최신 설정 재해석까지 확장한다. R9/AR1/SD1/MD2는 CHANGED, VP
 
 ### ΔV2 설계 보완 — 상태 안내 제거
 
-D10(ACTIVE): 사용자의 후속 지시로 팝업의 모든 로딩·오류 상태 문구와 스피너를 제거한다. 기존 목록 보존·오류/빈 목록 구분은 내부 상태로 유지하고, 상태와 무관한 고정 새로고침 메뉴로만 재조회한다. R10/AT10/AC10 및 AR2/MD2는 CHANGED, VP1/VP4/VP6 REQUIRED, 나머지는 기존 V 유지다. EP4 agent/variant control 자리의 oracle은 loading/error/ready에서 안내·스피너 부재와 새로고침/키보드 동작을 직접 단언한다. 이전 §11의 loading/error/retry 표시는 이 결정이 대체한다.
+D10(SUPERSEDED — 고정 새로고침은 0281 D1, 스피너 전면 금지는 0281 D5가 대체; 아래는 당시 결정): 사용자의 후속 지시로 팝업의 모든 로딩·오류 상태 문구와 스피너를 제거한다. 기존 목록 보존·오류/빈 목록 구분은 내부 상태로 유지하고, 상태와 무관한 고정 새로고침 메뉴로만 재조회한다. R10/AT10/AC10 및 AR2/MD2는 CHANGED, VP1/VP4/VP6 REQUIRED, 나머지는 기존 V 유지다. EP4 agent/variant control 자리의 oracle은 loading/error/ready에서 안내·스피너 부재와 새로고침/키보드 동작을 직접 단언한다. 이전 §11의 loading/error/retry 표시는 이 결정이 대체한다.
 
 ### 설계 리뷰
 구현 완료. 내부 agent/provider 분리만으로 기존 sessionId-only UI의 첫 입력 전 선택을 해결할 수 없으므로 전용 준비 IPC와 화면 owner를 연결했다. 설정 재해석 누락은 ΔV1로, 사용자 상태 안내 금지는 ΔV2로 먼저 확정했다. native 의존성 초기화와 module import/instance 수명 규칙은 기존 결정을 보존한다.

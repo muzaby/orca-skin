@@ -4,9 +4,9 @@
 
 | 항목 | 값 |
 |---|---|
-| 상태 | IMPL_DONE — SDK MCP 저장·외부 변경 표시·프로젝트 유휴 재적용 구현, 독립 검증 대기 |
+| 상태 | DRAFT — V1 구현 뒤 0278 F1 실패 확인. cwd 격리 기술 보완 필요, 정책은 확정 |
 | 작성자 / 일자 | Codex / 2026-10-22 |
-| V mode / 기준 / revision | Baseline V / 없음 / V1 |
+| V mode / 기준 / revision | Delta V / V1@256ddd24 / V1 + ΔV1 |
 | 정책 정본 | [0278](../0278-harness-extension-isolation/plan.md) |
 
 # Part I — Product & UX Contract
@@ -32,7 +32,7 @@ Claude 프로젝트의 MCP·네이티브 플러그인 선택을 네이티브 설
 | D1 | 외부 settings.local.json 쓰기 제거. 기존 파일 자동 삭제·이관 없음 — 이전 제거 요청 | SUPERSEDED → D5 |
 | D2 | 같은 현재 작업경로의 Claude 실행들이 선택 공유. 다른 경로·엔진은 분리 — 0278 D16 | ACTIVE |
 | D3 | 프로젝트 선택을 Orca 설정 JSON에 유지, DB 사용 금지 — 이전 답변 | SUPERSEDED → D5 |
-| D4 | 우측 패널 기존 경로 표시 사용, 안내 문구·Composer 상태 안내 추가 없음 — 0278 D12·D17 | ACTIVE |
+| D4 | 우측 패널 기존 경로 표시 사용. Composer 표현은 0281의 에이전트 제목 스피너 예외를 따름 | ACTIVE — 기존 전면 금지 부분은 0281 D5로 대체 |
 | U1 | Orca JSON의 projectExtensions 저장 형식 제안 | SUPERSEDED → D5. 미승인 제안이므로 구현하지 않음 |
 | D5 | Claude는 settings.local.json 사용. MCP·플러그인 키만 편집하고 Orca에도 동기화 — 최신 답변 | ACTIVE |
 | D6 | 전역 변경은 새 인스턴스 생성 시 기본값. 실행 중인 인스턴스는 자원 회수·재생성 또는 앱 재시작 시 반영 — 0278 D15 | ACTIVE |
@@ -89,7 +89,7 @@ D5는 해당 파일을 읽는 외부 Claude와의 프로젝트 설정 공유를 
 - 프로젝트 경로 해석은 reader·writer·runtime 공유에 같은 기준을 적용한다. Windows 실제 SDK 위치를 확인하며 project_id로 물리 경로를 대체하지 않는다.
 - 설정의 희망 상태와 실제 SDK 로드·연결 상태를 구분한다. read-only catalog 조회가 대화 재시작이나 서버 생성을 유발해서는 안 된다.
 - 파일 변경과 Orca 변경의 중복 이벤트·자기 쓰기 루프·부분 실패를 처리한다. 기존 generation 검사·project mutation 직렬화를 재사용할 수 있는지 조사한다.
-- 실제 MCP 저장 범위는 U2 이후 결정하며 SDK control의 persistence는 격리된 fixture로 검증한다. 사용자 실제 설정 파일로 실험하지 않는다.
+- U2는 D7로 해결됐다. SDK 저장을 허용하되 실제 범위가 현재 cwd 격리와 일치하는지 격리 fixture로 검증한다. 사용자 실제 설정 파일로 실험하지 않는다.
 
 ## 8. V / 강제 지점
 
@@ -114,7 +114,7 @@ D5는 해당 파일을 읽는 외부 Claude와의 프로젝트 설정 공유를 
 
 정책 문서 변경: `git diff --check`, 변경 링크·INDEX 정합성. 프로덕션 구현 착수 후에는 app 가이드의 typecheck·lint·관련 테스트와 파일 보존·runtime 반영 검증을 수행한다.
 
-현재 필요한 사용자 결정은 U2다. 외부 파일 감지의 구현 방식·SDK 저장 효과·Windows 파일 위치는 기술 조사로 먼저 닫는다. 새 저장 형식을 사용자 모르게 도입하지 않는다.
+U2는 D7의 SDK native 저장 허용으로 종료됐다. 남은 것은 저장 범위와 cwd 격리의 기술 보완이며 같은 정책을 재질문하지 않는다. 새 저장 형식을 사용자 모르게 도입하지 않는다.
 
 ## 11. 외부 근거
 
@@ -133,13 +133,13 @@ D5는 해당 파일을 읽는 외부 Claude와의 프로젝트 설정 공유를 
 
 §7–8의 조사 후보를 다음 설계로 확정한다. §9는 기존 기준선으로만 사용한다. §10의 U2 확인 대기는 D7로 종료한다.
 
-- Claude project-settings 모듈은 작업경로의 settings.json/settings.local.json/.mcp.json과 native config의 해당 프로젝트 MCP 상태만 fingerprint한다. 전역 기본값·다른 프로젝트·permissions 등 비대상 변경은 실행 갱신을 유발하지 않는다. Windows local settings는 실제 cwd, native MCP projects 키는 SDK의 Git 프로젝트 범위도 읽는다.
+- Claude project-settings 모듈은 작업경로의 settings.json/settings.local.json/.mcp.json과 native config의 해당 프로젝트 MCP 상태만 fingerprint한다. 전역 기본값·다른 프로젝트·permissions 등 비대상 변경은 실행 갱신을 유발하지 않는다. Windows local settings는 실제 cwd를 사용한다. native MCP projects의 Git-root 병합은 현재 구현 사실이지만 F1을 일으키므로 목표 계약으로 승계하지 않는다.
 - Main은 실제 runtime과 renderer 관측 owner가 필요한 경로만 감시한다. 파일 생성/삭제/원자 rename을 감지하는 watchFile을 공유하고 owner 해제·window 종료·앱 종료에서 정리한다. 파일 감지는 짧은 병합 후 metadata를 재조회하며 SDK 조회마다 서버를 새로 만들지 않는다.
 - NativeResources의 설정 선택과 실제 status를 분리한다. 변경 이벤트는 같은 session 또는 draft scope만 갱신한다. renderer가 버린 읽기 결과가 새 push 결과를 덮지 않게 기존 세대 검사를 유지한다.
 - 유휴 판정은 같은 backend/cwd의 모든 runtime에 대해 응답·입력 큐·승인/준비·잔여 제출·백그라운드 작업·pending wakeup을 확인한다. 적용 중 새 제출은 runtime의 짧은 구성 적용 promise 뒤에서 실행하며 SDK 호출 직전에도 유휴·세대·파일 revision을 재확인한다.
 - 기존 on/off는 SDK로 반영하고 외부 파일을 역으로 저장하지 않는다(plugin flag는 reload 확인 후 내부 관측 갱신). MCP toggle의 native 저장은 허용한다. 서버 정의·plugin membership처럼 hot apply로 보장하지 못하는 변경은 restart-required로 남겨 기존 LRU/종료 후 다음 spawn에 읽는다. 강제 discard·대화 중단·새 서버 생성 없음.
 - 수동 제어와 외부 재적용은 프로젝트 직렬화 경계를 공유한다. 자기 저장 이벤트는 revision·현재 관측을 대조해 중복 reload하지 않는다. 손상 파일·부분 실패는 기존 정상 상태를 보존하고 실패로 표시한다.
-- 동기화 대상 plugin on/off의 writer/readers는 같은 Windows cwd를 사용한다. MCP의 native 저장 범위는 SDK가 정하며 같은 Git root의 프로젝트 상태 변경은 관련 경로의 watcher가 각각 재평가한다.
+- 동기화 대상 plugin on/off의 writer/readers는 같은 Windows cwd를 사용한다. MCP SDK 저장이 Git root에 귀속되어 다른 cwd watcher까지 재평가·적용하는 동작은 D2 위반이다. SDK 자체의 새 실행까지 격리를 확인해야 한다.
 
 ### V nodes / pairs
 
@@ -169,7 +169,23 @@ D5는 해당 파일을 읽는 외부 Claude와의 프로젝트 설정 공유를 
 
 관련 Vitest, typecheck, lint, build, doc inventory/prose, 변경 링크 및 diff 검사. 기존 upstream 참조 checkout의 broken links는 이번 변경과 분리한다. 구현 commit과 이 설계 commit을 분리한다.
 
-ACTIVE↔AC: D2→AC2, D4→AC7, D5→AC1·3, D6→AC4의 전역 비소급, D7→AC6, D8→AC4·5. 충돌 0. 새로운 UI 장식·스피너·설명문은 없으며 기존 토글/상태 소비 경로를 사용한다.
+ACTIVE↔AC: D2→AC2, D4→AC7, D5→AC1·3, D6→AC4의 전역 비소급, D7→AC6, D8→AC4·5. 충돌 0. 이 작업은 기존 토글/상태 경로를 사용한다. Composer의 후속 로딩 표시는 0281 ΔV1이 소유한다.
+
+## ΔV1 — cwd 격리·전역 비소급의 검증 보완
+
+[0278 ΔV1](../0278-harness-extension-isolation/plan.md) AC7C·C1–C7과 AC5G·G1–G8을 이 문서의 AC2·3·4·6에 적용한다. 기존 AC2 자기보고의 peer 필터 테스트는 SDK의 native 영속 범위를 입증하지 못했다. V1 보고·F1 실패 증거는 그대로 보존한다.
+
+| Pair | 노드·상태 / requiredness | 경로·직접 oracle |
+|---|---|---|
+| DV1-P1 | R4↔AT4 NEW REQUIRED | 패널→실제 SDK toggle→native 파일→B 기존/새 Query; AC2·3·6 |
+| DV1-P2 | SD2↔ST2 NEW REQUIRED | A root/B child/C sibling/D repo, 변경 전후 실행·재개·재시작. 0278 native-isolation.test.ts 및 claude-cwd-probe.mjs 확장 |
+| DV1-P3 | AR2↔IT2 NEW REQUIRED | SDK 저장→readClaudeProjectSettings→ProjectResourceSync→ClaudeProjectReconciliation; 서로 다른 파일/revision/실제 set 호출 |
+| DV1-P4 | MD2↔UT2 NEW REQUIRED | cwd 정규화·선택적 fingerprint·허용 키 read/merge/write; project-settings/plugin-state tests |
+| V1 VP1–5 | INHERITED REGRESSION | 외부 즉시 표시·whole-cwd idle·partial·generation·snapshot. 기존 EP5 등록 no-op 변이 보존 |
+
+추가 강제 경계는 SDK toggle의 디스크 효과, native 파일 reader의 root/cwd 병합, watcher revision, reconciliation, 새 Query startup이다. 자리와 oracle의 최종 분모는 0278 §16의 기술 보완에 함께 잠근다. 단순 Git-root fallback 제거·다른 project_id 분리·독립 저장소만의 테스트로 F1을 닫지 않는다.
+
+현재 계획 상태는 DRAFT이며 사용자 정책은 열려 있지 않다. SDK 제어와 네이티브 파일 공유를 유지하면서 cwd 격리를 보장하는 해법 또는 지원 불가 판정의 정확한 경계를 확인해야 한다. 전역 변경·프로젝트 외부 변경·SDK 자기 저장을 같은 invalidation으로 취급하지 않는다.
 
 ## [구현자 기입] 설계 리뷰
 

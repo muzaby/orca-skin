@@ -6,15 +6,15 @@
 |---|---|
 | slug | 0278-harness-extension-isolation |
 | 작성자 / 일자 | Codex / 2026-10-22 |
-| 상태 | READY — 사용자 정정 반영, 네이티브 기준값·Orca 제어 가능성·프로젝트 적용 |
-| V mode / 기준 / revision | Baseline V / 없음 / V1 초안 |
+| 상태 | DRAFT — 최종 정책 정합성 보완. 저장 계약·Claude cwd 격리의 기술 설계는 미완료; 기존 verify FAIL 유지 |
+| V mode / 기준 / revision | Delta V / V1@256ddd24 / V1 + ΔV1(이번 정책 정정) |
 | 관련 작업 | [0277 MCP 관측](../0277-opencode-mcp-catalog/plan.md), [0275 공유 인스턴스](../0275-opencode-shared-instances/plan.md), [0276 Composer 준비](../0276-opencode-composer-preparation/plan.md) |
 
 # Part I — Product & UX Contract
 
 ## 1. 목표
 
-Claude와 OpenCode는 Orca 전역 확장 설정을 새 인스턴스의 시작 기본값으로 사용한다. MCP·네이티브 플러그인은 현재 작업경로 단위로 제어하며 같은 경로의 세션은 구성을 공유한다. Claude 프로젝트 설정은 후속 결정 D20에 따라 네이티브 `settings.local.json`을 사용하며 MCP·플러그인 이외의 키를 보존한다. OpenCode의 Orca 전용 설정·단일 서버 조건은 유지한다.
+Claude와 OpenCode는 하네스의 네이티브 전역 설정을 시작 기준으로 읽고, SDK가 Orca 실행에만 격리 적용할 수 있는 항목을 제어한다. MCP·네이티브 플러그인은 현재 작업경로 단위로 제어하며 같은 경로의 세션은 구성을 공유한다. Claude 프로젝트 설정은 후속 결정 D20에 따라 네이티브 `settings.local.json`을 사용하며 MCP·플러그인 이외의 키를 보존한다. OpenCode의 Orca 전용 설정·단일 서버 조건은 유지한다.
 
 ## 2. 사용자 요구 출처
 
@@ -40,7 +40,7 @@ Claude와 OpenCode는 Orca 전역 확장 설정을 새 인스턴스의 시작 �
 
 | ID | 결정 / 조건 / 출처 | 상태 |
 |---|---|---|
-| D1 | 두 하네스의 시작 기본값은 nav 전역 확장 설정 — 사용자 1 | ACTIVE — 적용 시점은 D15 |
+| D1 | 두 하네스의 시작 기준은 nav에서 읽는 네이티브 전역 설정 — 사용자 1·후속 SDK 제어 재확인 | ACTIVE — D22·D26, 적용 시점 D15 |
 | D2 | 제품의 SDK 연동으로 해당 세션에만 적용 가능한 항목은 세션 오버라이드와 우측 패널 on/off 제공 — 사용자 2 | SUPERSEDED → D16 |
 | D3 | 세션 제어 미지원이면 우측 패널에 on/off를 렌더링하지 않고 실제 상태만 관측 — 사용자 3 | SUPERSEDED → D16 |
 | D4 | 전역 on/off도 하네스 외부 실행 설정과 분리된 Orca 전용 설정·실행 적용을 보장할 때만 제공 — 사용자 4. 이전 초안은 미지원 시 토글 숨김으로 해석 | SUPERSEDED → D10·D11 |
@@ -51,14 +51,14 @@ Claude와 OpenCode는 Orca 전역 확장 설정을 새 인스턴스의 시작 �
 | D9 | MCP 목록·실행 관측은 0277의 R1–R11을 유지하며 활성화 정책과 구별 — 앞선 사용자 범위 선언 | ACTIVE |
 | D10 | Orca 전용 설정·실행 적용을 격리할 수 있는 항목만 전역에서 조작 가능. 외부 하네스가 off여도 Orca에서 활성화 가능하면 조작 가능한 토글 제공 — 사용자 추가 요구 1 | ACTIVE — Claude 프로젝트 제어의 네이티브 파일 공유는 D20 예외 |
 | D11 | nav 스킬/MCP에서 제어 가능하면 일반 폰트·조작 가능한 토글, 불가능하면 회색 폰트·고정 토글. on/off 값은 그대로 표시하며 색상과 제어 가능성을 on/off에 종속시키지 않음 — 사용자 추가 요구 1 | ACTIVE |
-| D12 | Composer 팝업에 로딩·실패 등 안내를 표시하지 않음 — D8의 변경되지 않은 부분 승계 | ACTIVE |
+| D12 | Composer 팝업에 로딩·실패 등 안내를 표시하지 않음 — D8 승계 | SUPERSEDED → D29. 에이전트 제목 우측 로딩 회전 스피너만 예외 |
 | D13 | 전역 on/off 변경은 새 세션의 시작 기본값에만 적용. 기존 세션에 소급 전파하지 않음 — U1 사용자 답변 | SUPERSEDED → D15 |
 | D14 | `.claude/settings.local.json`을 생성·수정하여 확장 on/off를 영속화하지 않음. Orca 제품 코드의 SDK·runtime 주입으로만 실행에 반영 — 사용자 추가 요구 2 | SUPERSEDED → D20 |
 | D15 | 전역 조작은 아직 실행되지 않은 인스턴스의 기본값. 실행 중인 인스턴스에는 정책상 자원 회수 후 재생성 또는 프로그램 재시작 시 적용 — 후속 사용자 1 | ACTIVE |
 | D16 | Claude·OpenCode 모두 세션별 제어를 제공하지 않고 MCP·네이티브 플러그인을 프로젝트(현재 작업경로) 단위로 제어. 같은 경로의 세션에 공유, 다른 경로·전역과 격리 — 후속 사용자 | ACTIVE — 외부 Claude와의 파일 공유는 D20 |
 | D17 | 우측 패널 타이틀의 작업경로 표시가 범위를 설명하므로 별도 범위 안내를 추가하지 않음 — 후속 사용자 | ACTIVE |
 | D18 | 제거 가능하면 settings.local.json 쓰기 경로 제거, 추가 결정이 필요한 상황 보고 — 이번 사용자 | SUPERSEDED → D20. 기존 파일 삭제는 승인 내용 아님 |
-| D19 | 프로젝트 MCP·plugin 선택은 Orca 설정 JSON에 유지. DB는 사용하지 않고 저장 형식은 제안 — 이번 사용자 답변 | ACTIVE — Claude 저장 위치는 D20으로 대체. OpenCode 형식 미확정 |
+| D19 | 프로젝트 선택은 DB 대신 Orca 설정 JSON에 유지하고 형식은 제안 — 당시 사용자 답변 | ACTIVE(저장 수명 요구). Claude는 D20·D21로 대체; OpenCode 위치·형식 및 native 프로젝트 파일 대안은 U6 |
 | D20 | Claude는 `settings.local.json` 사용. MCP·플러그인 키만 편집 허용하며 Orca에도 동기화 — 사용자 정정 답변 | ACTIVE. 해당 파일을 읽는 외부 Claude와의 프로젝트 설정 공유를 허용 |
 | U1 | 전역 변경의 기존 세션 적용 여부 | SUPERSEDED → D13 |
 | U2 | 세션 오버라이드의 앱 재시작·이력 재개·fork 승계 규칙 | SUPERSEDED → D16·U3 |
@@ -67,7 +67,7 @@ Claude와 OpenCode는 Orca 전역 확장 설정을 새 인스턴스의 시작 �
 | U7 | 일반 MCP on/off의 네이티브 저장 위치인 `~/.claude.json` 프로젝트 MCP 상태도 허용할지 | SUPERSEDED → D21 |
 | D21 | SDK 네이티브 MCP 저장 허용. 외부 프로젝트 변경은 화면 즉시·프로젝트 유휴 때 실행 적용, 재시작은 기존 자원 회수 정책 — 사용자 구현 지시 | ACTIVE — 0279 D7·D8로 구현 |
 
-갱신 메모: D2·D3·D6→D16, D13→D15, U2→D16·U3으로 대체했다. D4→D10·D11, D8→D11·D12의 이력은 유지한다. 0277의 실행 상태 관측 범위 UI는 별도이며, 본 문서의 기존 AC·V·기술 초안은 아래 후속 설계 정정으로 대체한다.
+갱신 메모: 세션 제어→D16, 전역 적용 시점→D15, Claude 저장→D20·D21, nav 범위→D23으로 닫았다. 아래 초기 초안은 이력이며 유효 계약은 V1에 ΔV1을 적용해 읽는다. D25의 영속 저장 해석은 사용자 승인으로 취급하지 않고 D26으로 철회한다.
 
 후속 사용자 원문:
 
@@ -81,7 +81,7 @@ Claude와 OpenCode는 Orca 전역 확장 설정을 새 인스턴스의 시작 �
 >
 > 정정하겠다. Claude의 경우 Settings.local.json 사용으로 정정하겠다. 단 mcp/플러드인 키에 대해서만 편집 허용하며, orcinus orca에서도 동기화돼야 한다.
 
-## 4. 현재 코드와 정책 차이
+## 4. 최초 조사에서의 코드와 정책 차이 — 현재 보완은 ΔV1
 
 | 대상 | 근거 | 판단 |
 |---|---|---|
@@ -97,7 +97,7 @@ Claude와 OpenCode는 Orca 전역 확장 설정을 새 인스턴스의 시작 �
 
 | 행동 | 결과 |
 |---|---|
-| nav 전역 on/off 변경 | 기본값 저장. 실행 중 인스턴스에는 소급하지 않음 |
+| nav 전역 on/off 변경 | 지원되는 SDK 제어 경로에만 전달. 별도 전역 선택 영속 저장은 승인되지 않았으며 기존 인스턴스에 소급하지 않음 |
 | 인스턴스가 없는 경로 시작 | 최신 전역 기본값과 명시 프로젝트 선택으로 구성 |
 | 기존 인스턴스에 새 세션 추가 | 해당 프로젝트의 실행 구성 공유 |
 | 우측 패널 MCP·plugin 변경 | 같은 엔진·작업경로의 실행 세션에 적용하고 실제 결과 통지 |
@@ -111,7 +111,7 @@ Claude와 OpenCode는 Orca 전역 확장 설정을 새 인스턴스의 시작 �
 | 우측 패널 프로젝트 제어 가능 | 프로젝트 전체 on/off | 실제 상태. 타이틀의 경로가 범위를 설명 |
 | 우측 패널 프로젝트 제어 불가 | 토글 없음 | 모니터링 |
 
-on/off는 로드·연결 성공과 별개다. 실패한 변경을 성공으로 표시하지 않으며 부분 실패는 확인된 실제 상태로 보고한다. Composer 팝업에는 안내 문구·스피너를 추가하지 않는다.
+on/off는 로드·연결 성공과 별개다. 실패한 변경을 성공으로 표시하지 않으며 부분 실패는 확인된 실제 상태로 보고한다. Composer 팝업에는 안내 문구를 추가하지 않으며, D29의 에이전트 제목 우측 로딩 스피너만 허용한다.
 
 ## 6. 범위와 구현 분리
 
@@ -119,7 +119,7 @@ on/off는 로드·연결 성공과 별개다. 실패한 변경을 성공으로 �
 
 Claude 파일 쓰기 제거와 Orca JSON 대체 제안은 철회한다. [0279](../0279-claude-project-plugin-state/plan.md)는 제한된 네이티브 키 편집과 Orca 동기화를 설계한다. 기존 외부 파일 자동 삭제·자동 이관, OpenCode 커스텀 엔진 수정·V2 임베디드 도입은 승인 내용이 아니다.
 
-## 7. Requirements / Acceptance 초안
+## 7. 이전 Requirements / Acceptance 초안 — SUPERSEDED
 
 | R / AC | 관측 동작 | 검증 경로 |
 |---|---|---|
@@ -167,7 +167,7 @@ Claude 토글은 D20의 허용 키만 병합한다. `permissions`·`hooks`·`env
 | EP4 | capability·DTO·nav·panel·main 검증 | on/off × 제어 가능성 |
 | EP5 | instance owner·server profile·종료·재조회 | 기존 서버에서 새 폴더 생성, 지각 응답 |
 
-공통 작업의 전수 자리·oracle은 아직 미잠금이므로 DRAFT다. Claude의 제한 편집·동기화는 0279에서 구체화한다.
+이 표는 V1 이전 조사 후보이며 현재 분모가 아니다. 유효 검증 기준과 추가 미잠금 경계는 V1·ΔV1에 명시한다.
 
 ## 11. 남은 결정과 기술 검증
 
@@ -175,8 +175,8 @@ Claude 토글은 D20의 허용 키만 병합한다. `permissions`·`hooks`·`env
 |---|---|---|
 | U6 | 사용자 결정 | OpenCode Orca JSON 저장 형식 미확정. Claude에 제안한 저장 형식은 D20으로 철회 |
 | U7 | 결정 완료 — D21 | SDK native 프로젝트 MCP 상태 저장 허용. 0279에 반영 |
-| U4 | 사용자 결정 | 프로젝트 선택을 전역 기본값으로 되돌리는 조작 위치·방식 |
-| U5 | 사용자 결정 | 재초기화가 필요한 프로젝트 제어를 즉시 실행할지 유휴·자원 회수까지 보류할지 |
+| U4 | 이번 범위 밖 | 선택 삭제/reset UI는 요청·확정되지 않음. 임의 추가하지 않으며 기존 on/off 완료를 막는 질문으로 사용하지 않음 |
+| U5 | SUPERSEDED → D21 | 프로젝트 전체 유휴 적용, 재시작 필요 시 기존 자원 회수 정책. 재질문하지 않음 |
 | T1 | 기술 검증 | OpenCode 실행 중 서버를 유지하면서 새 directory에 최신 기본값 전달 |
 | T2 | 기술 검증 | 각 MCP/plugin의 프로젝트 제어 API·reload 효과·부분 실패 |
 | T3 | 기술 검증 | 스킬 off가 모델 사용·명시 slash dispatch에 미치는 범위 |
@@ -186,9 +186,9 @@ Claude 토글은 D20의 허용 키만 병합한다. `permissions`·`hooks`·`env
 
 정책 기록 자체는 `git diff --check`·상대 링크·dispatch 정합성을 검사한다. 코드 구현에서는 subtree 지침에 따른 lint·typecheck·관련 Vitest와 변경 경로의 파일 불변·프로젝트 공유 검증을 수행한다.
 
-## [구현자 기입]
+## [구현자 기입] — V1 이전 조사 이력
 
-공통 정책 전체는 미구현이다. Claude 파일 쓰기 제거는 실행 전에 취소했으며 프로덕션 코드는 변경하지 않았다. 기존 plugin 제한 편집·후속 실행·프로젝트 peer 공유 관련 테스트의 기준선은 확인했다. MCP 저장 범위와 외부 편집의 실행 중 반영은 아직 완료로 판정하지 않는다.
+당시 공통 정책 전체는 미구현이었다. Claude 파일 쓰기 제거는 실행 전에 취소했으며 프로덕션 코드는 변경하지 않았다. 기존 plugin 제한 편집·후속 실행·프로젝트 peer 공유 관련 테스트의 기준선은 확인했다. MCP 저장 범위와 외부 편집의 실행 중 반영은 아직 완료로 판정하지 않는다.
 
 
 # V1 확정 — 네이티브 기준값과 제어 능력
@@ -202,7 +202,7 @@ Claude 토글은 D20의 허용 키만 병합한다. `permissions`·`hooks`·`env
 | D22 | nav는 하네스 전역 설정을 기준으로 표시. 별도의 기본값 사본/extensionDefaults 저장소를 만들지 않음 | ACTIVE |
 | D23 | nav 프로젝트 선택 UI를 추가하지 않음. 프로젝트 범위는 우측 패널 타이틀 경로 | ACTIVE — 0277 U1/U2·직전 제안 대체 |
 | D24 | SDK로 Orca만 제어 가능한 항목에만 가변 토글. 다른 항목은 native 상태의 고정 토글·회색 글씨 | ACTIVE — D10/D11 구체화 |
-| D25 | 영속화 대상은 사용자가 명시적으로 변경한 선택값만. 하네스 기본값/목록/인증정보는 복제하지 않음 | 구현 해석 — 기존 JSON 유지 요구와 D22를 함께 충족 |
+| D25 | 명시 전역 선택값도 Orca JSON에 영속화한다는 구현 해석 | SUPERSEDED → D26. 사용자 승인으로 볼 수 없음; 기존 코드·보고는 구현 이력 |
 
 U5는 D21의 유휴 적용/기존 자원 회수로 해소됐다. 네이티브 값 읽기와 Orca 선택값은 구별하며 미지정은 항상 native 값을 따른다. Claude 프로젝트 저장 위치는 D20/D21을 유지한다.
 
@@ -213,13 +213,13 @@ U5는 D21의 유휴 적용/기존 자원 회수로 해소됐다. 네이티브 �
 | Orca 소유 스킬/MCP | 기존 설정 토글 사용 | 기존 하네스 지원에 따라 표시 |
 | Claude 설치 plugin | SDK inline plugin flags로 Orca만 제어 | 기존 settings.local 허용 키+SDK reload/유휴 동기화 유지 |
 | Claude 스킬 | SDK skills allow-list로 제어 가능한 source만 | 개별 프로젝트 스킬 정책은 추가하지 않음 |
-| Claude native MCP | SDK toggle은 네이티브 프로젝트 저장을 변경하므로 전역 격리 제어로 사용하지 않음: 고정 | 기존 SDK 프로젝트 on/off 유지 |
-| OpenCode native MCP | 기존 directory SDK connect/disconnect를 새 instance에 적용, 외부 설정 쓰기 없음 | 같은 directory 상태 공유, 선택 JSON 보관·유휴 재적용 |
+| Claude native MCP | SDK toggle은 네이티브 프로젝트 저장을 변경하므로 전역 격리 제어로 사용하지 않음: 고정 | SDK 지원과 cwd 격리를 함께 입증해야 함. 현재 F1 미해결, 무조건 지원으로 판정 금지 |
+| OpenCode native MCP | directory SDK 제어 가능성과 시작 적용 시점을 검증. 현재 별도 전역 JSON 영속화는 D26과 불일치 | 같은 directory 상태 공유·유휴 재적용. 저장 수명 요구와 구체 형식은 U6에서 구분 |
 | OpenCode native plugin/skill | SDK의 개별 load on/off 미지원: 고정·회색 | 모니터링 |
 
 OpenCode Config.update는 작업폴더 파일을 쓰므로 호출하지 않는다. plugin tuple options는 plugin 자체가 해석하는 값이며 공통 disabled API로 간주하지 않는다. native 초기화는 그대로 두고 MCP 선택은 준비 완료 뒤 첫 메시지 전에 적용하므로 native 초기 연결 비용 제거를 주장하지 않는다.
 
-## 확정 AC
+## V1 AC — ΔV1 적용 전 기준선
 
 | AC | 관측 기준 |
 |---|---|
@@ -265,13 +265,167 @@ OpenCode Config.update는 작업폴더 파일을 쓰므로 호출하지 않는�
 
 네이티브 전역 읽기는 명시 global-only 입력으로 한다. 프로젝트 파일·현재 기본 작업폴더 fallback이 nav 전역 읽기에 섞이지 않는다. native catalog는 안전한 id/name/status/capability만 renderer로 전달한다.
 
-Orca 명시 선택 저장은 기존 JSON 설정 경계를 사용하고 다른 키를 보존한다. native 기본값은 로드 시점마다 원본에서 읽고 선택이 없는 항목을 기록하지 않는다. 새 dependency·DB migration·하네스 global 설정 쓰기 없음.
+V1은 기존 JSON에 명시 선택을 저장하도록 설계했으나, 전역 선택 영속화와 실제 저장 위치는 사용자 승인 없이 구현 해석으로 도입됐다. ΔV1의 D26·저장 구분표가 이를 정정한다. native 기준값·목록·인증정보 복제와 DB 저장은 계속 금지한다.
 
 기본값 snapshot은 native instance 수명에 귀속한다. OpenCode는 directory state, Claude는 같은 cwd의 live Query owner를 묶어 새 Query가 기존 기본값을 공유한다. snapshot의 마지막 owner 해제 후에만 새 기본값을 읽는다. 프로젝트 선택은 전역 snapshot보다 우선하며 busy/epoch 검사를 유지한다.
 
-## 운영 gate·READY 검토
+## V1 당시 운영 gate·READY 검토 — 현재 상태는 ΔV1
 
 관련 Vitest→node/web/test 타입→lint→Electron ABI 유지 build, 문서 inventory/link·diff/trailer. 실제 커스텀 OpenCode 바이너리/외부 사용자 환경 및 시각 검증은 실행 증거와 분리한다. ACTIVE D1/D15→AC5, D5/D10/D11/D24→AC1/2/3, D7→AC6/10, D9→AC8/9, D12/D17/D23→AC10, D16→AC6/7, D20/D21→AC7, D22/D25→AC4로 대조했다.
+
+# ΔV1 — 최종 합의·저장 경계·검증 기준 정정
+
+## 13. 적용 기준과 결정
+
+기준은 main의 `256ddd24`에 있는 V1과 [기존 FAIL 보고](verify.md)다. 이번 산출은 계획 문서이며 코드·사용자 설정·실패 증거를 변경하지 않는다. 병합 여부와 제품 계약 충족 여부는 구분한다.
+
+| ID | 최종 결정 / 출처 | 상태·대체 |
+|---|---|---|
+| D26 | “결국 sdk를 통한 제어로 합의하지 않았나?” — 네이티브 전역 설정을 읽고 SDK로 Orca 실행에만 격리 제어할 수 있을 때 토글 제공 | ACTIVE; D25의 별도 전역 선택 영속화 해석 철회 |
+| D27 | 현재 작업경로가 같으면 공유하고 다르면 격리. SDK 저장 허용도 이 범위를 넓히는 허용이 아님 | ACTIVE; D16·D21 검증 구체화. Git root를 제품의 cwd로 재정의하지 않음 |
+| D28 | 전역 변경 비소급은 기존 Query뿐 아니라 같은 cwd에 합류하는 새 세션·reload·배포 MCP에도 적용 | ACTIVE; D15의 자원 범위 명확화 |
+| D29 | ‘기본 에이전트’ 항목 제거. 로딩 중 ‘에이전트’ 그룹 타이틀 우측에 회전 스피너 표시 | ACTIVE; D12 일부 대체. [0281 ΔV1](../0281-opencode-menu-cache/plan.md) 정본 |
+| U6 | OpenCode 프로젝트 선택의 저장 위치·형식. 재시작 후 유지 요구는 있었으나 특정 파일·키 형식은 미승인 | OPEN; “작업경로에서 국소적으로 환경구성할 방법”은 대안 조사 요청, 파일 쓰기 승인 아님 |
+
+D29의 예외 외에 팝업의 안내·오류 문구·새로고침 항목 금지와 성공 목록 캐시를 유지한다. OpenCode 프로젝트 파일 쓰기 금지(D7)는 사용자가 대안을 채택하기 전까지 유지한다. 저장 경로 질문을 nav 범위·세션 단위·SDK 지원 여부의 재승인 질문으로 확대하지 않는다.
+
+## 14. 저장 계약 — 합의와 현재 구현을 구분
+
+| 범위 | 합의된 보관·실행 경계 | 현재 사실 / 처분 |
+|---|---|---|
+| 네이티브 전역 기준값 | 하네스 원본에서 읽음. Orca 기본값 사본을 만들지 않음 | 전역 조작으로 외부 하네스 설정 파일을 바꾸지 않음 |
+| Orca의 전역 조작 | SDK의 격리 제어 가능성이 조건. 새 전역 영속 저장소 승인 없음 | `nativeExtensionChoices` 영속화는 합의로 승격하지 않고 수정 대상으로 남김 |
+| Claude 프로젝트 plugin | `<cwd>/.claude/settings.local.json`의 `enabledPlugins` 원래 식별자 | 허용 키만 병합, 다른 plugin·permissions·hooks·env·model 보존. Windows 실제 cwd와 SDK 일치 확인 |
+| Claude 프로젝트 MCP | SDK 네이티브 상태 저장 허용. 승인/거부 키와 실제 연결 on/off는 구분 | 기본 `~/.claude.json`, 별도 config root가 있으면 그 위치. 저장이 다른 cwd에 전파되면 F1 실패 |
+| OpenCode 프로젝트 선택 | DB 대신 Orca JSON 유지 요구. 최종 위치·형식은 U6 | 아래 구현 형식은 조사 사실이며 승인된 데이터 계약이 아님 |
+| 기존 Orca 스킬·MCP 설정 | 기존 기능의 저장과 새 네이티브 선택 저장을 구분 | 이 문서 정정으로 기존 데이터를 삭제하거나 일괄 이관하지 않음 |
+
+현재 구현의 실제 저장 파일은 `<userData>/orcinus-orca-settings.json`이다. Windows 설치본은 통상 `%APPDATA%/orcinus-orca/`, 개발 모드는 별도 userData를 사용한다. 앞서 제안된 `~/.config/orcinus-orca/orcinus-orca.json`은 환경 설정 소스이며 같은 파일이 아니다([영속성 정본](../../arch/backend/persistence.md)).
+
+| 현재 필드 — 승인된 형식 아님 | 코드가 저장하는 형상 | 읽기·쓰기 책임 |
+|---|---|---|
+| `nativeExtensionChoices` | backend → `kind:원래 이름` → boolean. 예: `claude / plugin:superpowers@marketplace / false` | `extension-catalog.ts` → SettingsStore; adapter ExtensionControl |
+| `projectMcpChoices` | 정규화 cwd → OpenCode MCP 원래 id → boolean | `extension-control.ts` → SettingsStore; OpenCodeMcpControl |
+| `skillEnabled` | 기존 스킬 식별자 → boolean | 기존 skills 설정 경로. 새 native 선택 저장 승인과 혼동 금지 |
+
+현 구현은 resolve 후 슬래시 통일·Windows 소문자화를 하며 Git root로 올리지 않는다. `true`와 `false`는 명시 선택이고 키 부재는 native/시작 기준을 상속하며, `false`를 부재로 취급하지 않는다. 형제 경로·하네스·항목·비대상 설정은 보존해야 하나, 이 형상 검사 통과만으로 저장 정책이 승인되지는 않는다.
+
+### 작업폴더 네이티브 파일 대안 — 미채택
+
+OpenCode v1.17.19는 `opencode.json(c)` 및 `.opencode/opencode.json(c)`를 native 초기화에서 읽는다. 서버 하나·directory별 instance는 유지할 수 있지만 CLI/Desktop도 같은 파일을 읽고 상위 경로 설정을 상속한다. Orca 전용 격리 및 서로 다른 중첩 cwd의 독립 제어와 동치로 취급하지 않는다.
+
+MCP `enabled` 설정과 범용 plugin on/off 지원은 별도로 검증한다. 이 버전의 `Config.update`는 directory의 `config.json`을 쓰고 HTTP handler는 instance 폐기를 표시하므로, 단순 메모리 patch나 기존 회수 정책을 따르는 API로 가정하지 않는다. 파일 탐색 대상·쓰기 대상의 차이까지 실제 CLI로 확인하기 전 U6의 해법으로 확정하지 않는다.
+
+근거: [v1.17.19 config](https://github.com/anomalyco/opencode/blob/v1.17.19/packages/opencode/src/config/config.ts), [paths](https://github.com/anomalyco/opencode/blob/v1.17.19/packages/opencode/src/config/paths.ts), [update handler](https://github.com/anomalyco/opencode/blob/v1.17.19/packages/opencode/src/server/routes/instance/httpapi/handlers/config.ts), [공식 MCP 설정](https://opencode.ai/docs/mcp-servers/). 로컬 `app/.temp/opencode`에서 `git show v1.17.19:<path>`로 대조했다.
+
+## 15. 최종 인수 기준 — 변경·추가분
+
+V1 AC1–3·6·8–10은 유지하고 아래 기준으로 AC4·5·7을 구체화한다. AC10의 팝업 표현만 D29를 따른다. 초기 §7의 AC 번호는 폐기된 초안이며 이 표와 혼합하지 않는다.
+
+| ID / 대체 | 관측 기준 | 검증 경로·직접 결과 |
+|---|---|---|
+| AC4S / V1 AC4 대체 | native 전역 읽기·SDK 제어에 미승인 영속 저장을 추가하지 않음. Claude 허용 저장과 OpenCode U6를 구분 | catalog IPC→store/native 파일→SDK. 조회 전후 bytes와 실제 적용값; 현재 global 선택 저장은 미충족으로 기록 |
+| AC5G / V1 AC5 구체화 | 시작한 A의 전역 기준은 모든 owner가 회수될 때까지 유지. 새 B·재생성 A는 그 시점 기준 적용 | nav 변경→실제 adapter/배포→A 기존·A 새 peer·B·A 재생성의 SDK 자원 목록 |
+| AC7C / V1 AC7 구체화 | 같은 cwd 공유·다른 cwd 격리가 peer 전달, 파일 저장, watcher, 새 SDK 실행까지 성립 | A root/B child/C sibling/D 별도 repo + 같은 MCP 이름·서로 다른 선택. 파일·revision·실제 MCP 상태 대조 |
+| AC11 / 추가 | 외부 프로젝트 변경은 먼저 화면에 반영, 해당 cwd의 전체 실행이 유휴일 때 runtime 적용 | 파일 원자 rename→observer→UI→busy 승인/큐/background→idle→SDK. stale revision 폐기 |
+| AC12 / 추가 | 사용자 합의·미채택 제안·구현 사실·검증 결과를 구분 | 본문 ledger↔저장 표↔AC↔INDEX. merge/CI 성공을 F1 해결 증거로 사용하지 않음 |
+
+### G — 전역 변경 비소급 행렬
+
+각 행을 Claude plugin·skill·Orca 배포 MCP 및 지원되는 OpenCode MCP에 적용한다. native flags만 고정한 테스트로 배포 파일의 불변을 대신 입증하지 않는다.
+
+| 케이스 | 반드시 관측할 결과 |
+|---|---|
+| G1 A 생성→전역 on/off 변경→A 다음 턴 | A 실제 자원 구성 유지, 전역 변경으로 reload/dispose 호출 없음 |
+| G2 A 유지→같은 cwd의 새 세션·cold resume·plugin reload | 기존 startup 기준 공유. 고정 배포 경로의 최신 파일을 재독해 소급되지 않음 |
+| G3 A 유지→다른 cwd B 생성 | B 최신 기준 적용, A 구성·대화 지속 |
+| G4 A 복수 owner 중 일부만 해제 | A snapshot 유지. 응답 완료·탭 전환만으로 새 기준을 잡지 않음 |
+| G5 A 최종 owner 정상 회수→재생성 | 최신 기준으로 생성. OpenCode disposed 확인·남은 B 보존·최종 server 회수 |
+| G6 acquire와 prepare 사이 전역 변경·늦은 callback | 해당 세대의 확정 기준 일관성. 새 세대 덮어쓰기 없음 |
+| G7 프로그램 재시작 | 승인된 저장 원천으로 새 기준 구성. 미승인 JSON의 존재를 복원 계약으로 삼지 않음 |
+| G8 프로젝트 명시 선택이 있는 A | 전역 변경이 프로젝트 선택을 덮지 않음. 프로젝트 변경은 별도의 유휴 적용 경로 |
+
+### C — Claude 작업경로 격리 행렬
+
+실제 SDK 저장 효과와 Orca reader/reconcile을 둘 다 관측한다. `shareNativeResource`의 peer 필터만 통과하거나 Git-root fallback만 제거한 결과는 완료 증거가 아니다.
+
+| 케이스 | 반드시 관측할 결과 |
+|---|---|
+| C1 같은 cwd·다른 project_id·경로 표기 | 같은 프로젝트의 모든 peer가 선택 공유, Windows 경로 정규화 일관 |
+| C2 A Git root→B child·C sibling·D 다른 repo | A on/off 후 B/C/D의 파일·희망 상태·실제 SDK 상태 유지 |
+| C3 B를 A 변경 전부터 열어 둠 | A 파일 변경으로 B revision·SDK reconcile이 오염되지 않음; busy/idle 양쪽 확인 |
+| C4 A 변경 후 B 최초 실행·resume·앱 재시작 | SDK 자체의 native 상태 읽기에서도 B 독립. reader만 고쳐 생기는 거짓 통과 금지 |
+| C5 서로 같은 MCP id·반대 선택 | 양방향 on/off와 중첩 폴더 역순 시작에서 상태가 섞이지 않음 |
+| C6 플러그인 및 비대상 파일 키 | 같은 cwd에만 plugin 공유. 형제 plugin·permissions·hooks·env·model sentinel 보존 |
+| C7 저장/SDK 적용 중 실패·프로젝트 전환 | 부분 실패를 성공으로 표시하지 않고 다른 cwd 보존, 이전 generation 결과 폐기 |
+
+F1의 SDK probe·반례는 [evidence](evidence/README.md)에 유지한다. SDK가 현재 cwd보다 넓게 영속화하는 문제를 해결하지 못하면 프로젝트 제어 가능으로 보고할 수 없다. 이를 이유로 제품의 프로젝트를 Git root로 바꾸거나 미승인 저장소를 추가하지 않는다.
+
+## 16. Delta V와 기술 보완 범위
+
+| Pair | 노드 / 상태 / requiredness | 기준·검증 경로 |
+|---|---|---|
+| DV1-P1 | R2↔AT2 NEW REQUIRED | AC4S·5G·7C·11·12. nav/패널→production SDK→실제 파일·새 실행→UI |
+| DV1-P2 | SD2↔ST2 NEW REQUIRED | G1–G8. 실제 adapter owner→새 peer→reload/deployment→회수·재생성 |
+| DV1-P3 | SD3↔ST3 NEW REQUIRED | C1–C7. SDK native persistence→reader/watcher→peer·cold start |
+| DV1-P4 | AR3↔IT3 NEW REQUIRED | 전역/프로젝트 control→store·bootstrap sync→adapter. 저장 정책·cwd별 실제 인자 확인 |
+| DV1-P5 | MD3↔UT3 NEW REQUIRED | 저장 shape·부재/false·경로 정규화·선택적 revision. U6 확정 전 형식 승인 PASS 금지 |
+| V1 VP1·2·3·5·7 | INHERITED REGRESSION | 해당 AC4·5·7 증거는 위 pair로 보강. V1 저장 승인 주장은 DV1-P1/4로 대체 |
+| V1 VP4·6 | INHERITED REGRESSION | native global-only·capability·목록/부분 오류·지원하지 않는 제어 거부 |
+
+직접 oracle 계획: `app/src/main/app/handlers/extension-catalog.test.ts`의 실제 등록 handler/SettingsStore에서 미승인 저장과 외부 파일 sentinel을 관측한다. `adapter.native-plugins.test.ts`는 실제 배포 파일을 SDK fixture가 읽도록 G1–G8을 추가하고, `project-resource-sync.test.ts`는 C2–C4 및 전체 프로젝트 유휴를 다룬다. 기존 `evidence/native-isolation.test.ts`의 child cwd 반례와 `claude-cwd-probe.mjs`의 실제 SDK 결과는 반드시 재실행한다.
+
+### §10 추가 조사·강제 경계
+
+| 자리 | 실제 진입→관측 | 실패 의미 |
+|---|---|---|
+| `protocol.ts` SettingsSchema/SettingsPatchSchema → `SettingsStore.load/patch` | 저장된 실제 JSON·다른 설정 보존 | 형상 유효와 정책 승인을 혼동 |
+| `extension-catalog.ts` read/set → `extension-control.ts` global/projectMcp/setProjectMcp | native 읽기·전역 SDK 전달·프로젝트 id | 미승인 global 영속화 또는 다른 cwd write |
+| `ClaudeAdapter.sendMessage/openChannel` snapshot 획득·Query 조립·owner 해제 | G1–G7 실제 SDK flags/skills/MCP | 같은 cwd 새 Query가 최신 global 파일을 읽음 |
+| `handlers/mcp.ts` → `ExtensionDeploymentService` → `renderClaudeHarnessPlugin` | mutable 배포 .mcp.json을 SDK fixture가 재독 | 메모리 snapshot만 통과하고 배포 MCP 소급 |
+| `claude/native-resources.ts` SDK toggle/plugin reload → native 파일 | C2·C4 실제 새 SDK 시작 | SDK가 Git-root 범위로 저장 |
+| `project-settings.ts` → `ClaudeProjectReconciliation` → `ProjectResourceSync` | C3·C5 watcher·idle·실제 peer 호출 | root entry 병합으로 child 재적용 |
+| `bootstrap.ts` onPatch/observer 조립 → session resources IPC → panel | AC11 UI 먼저·whole-cwd idle·revision fence | 전역 변경을 프로젝트 변경으로 오인 |
+| `OpenCodeMcpControl` → context prepare/release → SDK directory | G3–G6·C5 상당 OpenCode 격리 | 다른 directory 연결 제어·회수 |
+
+자리 검색은 `rg -n 'nativeExtensionChoices|projectMcpChoices|extensionSnapshots|toggleMcpServer|readClaudeProjectSettings|deployExtensions|renderClaudeHarnessPlugin|settings.onPatch' app/src/main app/src/shared` 및 각 심볼의 호출부를 포함한다. 이 표는 확인한 경계를 고정하지만, F1 해결 경로·저장 방식 정정의 최종 운반 자리와 테스트 좌표는 아직 미잠금이다. 따라서 이번 ΔV1은 정책·인수 기준 정정까지이며 구현 READY/PASS로 표시하지 않는다.
+
+| 축 | AS-IS | TO-BE / 후속 책임 |
+|---|---|---|
+| 저장 | 전역 선택과 OpenCode cwd 선택이 SettingsStore에 영속화 | D26 위반 정정. U6 확정 없이 형식·이관 선택 금지 |
+| Claude 격리 | peer key는 cwd지만 SDK 저장·reader는 Git root 영향 | C1–C7을 만족하는 SDK 경계 확인; 미지원 제어를 지원으로 표시하지 않음 |
+| 전역 비소급 | flags/skills snapshot, 배포 MCP는 고정 경로 갱신 | G1–G8을 모두 입증하는 인스턴스 기준 구성·배포 수명 설계 |
+| 관측·팝업 | 분산된 이전 색상·scope·spinner 문구 | 0277 scope 정정·0281 D5/D6만 현재 계약 |
+| 오류·정리 | 기존 generation/idle·회수 정책 | 유지. UI 관측 때문에 spawn·dispose·자동 메시지 재전송 금지 |
+
+## 17. 전체 요구사항 연결표
+
+| 합의·요청 | 정본 및 현재 판정 |
+|---|---|
+| Superpowers 폴더 열기·원문 식별자·작성 slug 보호 | [0271](../0271-native-skill-target/plan.md) AC1–4. 색상만 본 D11·D24로 대체 |
+| 엔진 추가·Composer 그룹의 컬러 로고, 이전 유사 요청 확인 | [0272](../0272-composer-plugin-brands/plan.md) AC1·5·7 |
+| Claude/OpenCode 스킬 /·플러그인 @ 선택·하이라이트 | 0272 AC2–4 |
+| timeout·재시도·이벤트 스트림 오류 | [0273](../0273-opencode-command-stream-errors/plan.md); 자동 재전송 금지 |
+| Desktop 부팅·첫 세션·다중 경로 지연/비동기 비용 | [0274](../0274-opencode-desktop-startup/plan.md), [0275](../0275-opencode-shared-instances/plan.md). 참조 버전 1.17.19 |
+| 서버 공유·directory/module import 재사용·마지막 회수 | 0275. 호환 profile에만 서버 공유, 폴더별 plugin setup/MCP 비용까지 사라진다고 주장하지 않음 |
+| /agent 최소 완료·provider 독립·준비 재사용 | [0276](../0276-opencode-composer-preparation/plan.md). native bootstrap 의존성은 우회하지 않음 |
+| MCP R1–R11 및 nav 전역/패널 cwd 구분 | [0277](../0277-opencode-mcp-catalog/plan.md). 선택 UI 제안 철회, 기존 정상 항목·동적 MCP·stale 격리 유지 |
+| native 기준·SDK capability·회색/고정·프로젝트 제어 | 본 D10·11·15–17·22–28, AC1–3·4S·5G·6·7C |
+| Claude 제한 파일 편집·SDK native 저장·외부 동기화 | [0279](../0279-claude-project-plugin-state/plan.md). F1 실패는 미해결 |
+| 첫 메시지 전 우측 상태·catalog 실패/취소 | [0280](../0280-opencode-prepared-status/plan.md). 기존 준비 instance만 관측 |
+| 팝업 새로고침 제거·성공 캐시·기본 에이전트 제거·제목 스피너 | [0281 ΔV1](../0281-opencode-menu-cache/plan.md). 새 표현은 구현 전 |
+| CI 보완·독립 검증 | V1 r1.2 구현 보고·verify. CI 성공을 정책 PASS로 확대하지 않음 |
+
+## 18. 정합성·운영 gate
+
+ACTIVE 결정↔AC: D1·15·28→AC5G, D5·10·11·24·26→AC1–4S, D7→AC6·10, D9·23→AC8·9, D16·20·21·27→AC7C·11, D17→AC10, D22→AC4S, D29→0281 AC4–6, D19→U6·AC4S다. U4는 미요청 reset UI, U5는 해결된 유휴 적용, U6는 미확정 저장 형식으로 구분했다. V1 D25·AC4의 저장 해석은 현 정책과 충돌하므로 승계하지 않는다.
+
+문서 gate는 변경 상대 링크·문서 inventory/prose·diff·INDEX·trailer다. 후속 구현은 subtree lint/typecheck·관련 Vitest와 C/G 직접 oracle을 수행하고 실제 SDK 버전·fixture 환경을 함께 보고한다. 기존 FAIL 보고·r1 자기보고는 과거 증거로 보존하며 이번 문서 수정으로 PASS 처리하지 않는다.
+
+
+### 이번 문서 정정의 확인 결과
+
+변경 문서 10개·상대 링크 262개를 직접 검사해 깨진 링크 0건, 저장소 소유 문서 링크 0건을 확인했다. inventory 생성물·현재 문서 수치 검사는 통과했고 전체 링크 명령의 실패는 참조 checkout(.tmp/opencode-dev, app/.temp/opencode)의 기존 링크 10건으로 분리했다. git diff --check는 통과했으며 제품 코드·기존 verify 및 실패 재현 파일은 변경하지 않았다.
 
 ## [구현자 기입] — V1 r1
 
