@@ -246,3 +246,14 @@ D10(SUPERSEDED — 고정 새로고침은 0281 D1, 스피너 전면 금지는 02
 ### Review Signals
 r1, 사용자 요구 변경 ΔV2를 포함한 최초 구현 라운드. 외부 verify 반복은 없다. 기존 0275 수명 불변식을 이어받으며 이번 변경은 첫 입력 전 owner와 독립 metadata 경로다. 반복 환경 제약은 Node/Electron SQLite ABI 차이와 외부 참고 checkout의 문서 링크 오류다. SQLite는 Electron Node 모드로 실행해 통과했고 링크는 외부 checkout 제외 결과를 별도 기록했다. 최초 UI 캡처의 hidden-window repaint 문제는 offscreen 렌더링으로 해결해 최종 이미지를 직접 확인했다.
 
+
+## [검증자 기입] 파생 이슈 — verify r1 (2026-10-22)
+
+판정 정본은 [verify.md](verify.md) — **FAIL**. 고장 ID는 그 문서 §4 고장 이력이다.
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| D1 | Q2 prepare가 draft `providerKey`를 버려도 green | EP2 resolver · AC9 · VP3 | 기본값과 다른 providerKey의 draft 준비 resolve 단언 | BLOCKING | open |
+| D2 | Q8 retired 세대 결과 폐기 삭제 green | EP4 state · AC6 · VP6 | 같은 epoch에서 새 세대 뒤 옛 세대 part 응답 무시 단언 | BLOCKING | open |
+| N1 | N6b configuration 단계 래핑 미잠금 | 0280 D1 | 0280 r2에서 함께 닫음 | NON_BLOCKING | open |
+| N2 | ΔV1·ΔV2 설계 본문이 `[구현자 기입]` 표제 아래 | repository operation | 이후 Delta V는 Part I/II 절로 | NON_BLOCKING | open |
