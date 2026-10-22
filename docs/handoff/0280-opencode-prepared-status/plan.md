@@ -213,3 +213,13 @@ Decision/AC 대조 완료. Product/UX→technical 순서, 명시 범위·비범�
 ## [구현자 기입] Review Signals
 
 r1. 이전 구현에서 첫 입력 전 agent만 준비하고 상태 패널은 파일 discovery에 남겨 두어 사용자에게 표시 시점이 달랐다. 공통 catch는 정상 취소까지 실패로 덮어 원인 구분을 막았다. 독립 검증은 이 턴에서 수행하지 않는다.
+
+## [검증자 기입] 파생 이슈 — verify r1 (2026-10-22)
+
+판정 정본은 [verify.md](verify.md). 고장 ID는 그 문서 §4.
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| D1 | N6 prepare 실패의 `ComposerCatalogError('acquire')` 래핑 제거가 green(단계가 `owner`로 기록) | EP2 prepare resolver · AC4 · VP5 | prepare/resolve 실패의 `failure.stage` 단언 | BLOCKING | open |
+| D2 | N9 plugin reader의 `{...process.env, ...req.env}` → `process.env`가 green | EP3 adapter readers · VP4 | process.env와 다른 provider env로 plugin 설치 해석 관측 | BLOCKING | open |
+| D3 | R8 `NativeResourcesTileView`의 `!refreshable` 오류 버튼 조건 제거가 green | EP4 공통 view · VP1 | refreshable 오류 상태의 버튼 구성 단언 | BLOCKING | open |
