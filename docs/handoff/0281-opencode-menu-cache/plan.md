@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성 | Codex / 2026-10-22 |
-| 상태 | READY — ΔV1 에이전트 메뉴 정정, 구현 전. V1 구현 보고는 과거 증거 |
+| 상태 | IMPL_DONE — ΔV1 r2, verify r1 D1–D5 재구현 자기확인 완료 |
 | V | Delta V / V1@256ddd24 + ΔV1 |
 
 # Part I — Product & UX Contract
@@ -217,3 +217,80 @@ AC3/3 자기확인. 팝업 관련 최초 검사 3파일 13개 통과, 이후 mai
 | D5 | M9 MenuTitle trailing↔label 순서 뒤집기 green, 계획 oracle `shared/ui/MenuItem.render.test.ts` 부재 | seat 5 · DV1-P3 | MenuTitle 세 슬롯 순서 render 테스트 | BLOCKING | open |
 | D6 | `harness.defaultAgent` i18n 키 소비처 0 | 비귀속 | 정리 권고 | NON_BLOCKING | open |
 | D7 | ΔV1 구현이 0278 `Handoff:` trailer로만 커밋, ΔV1 r1.2 강제 지점 필드가 산문으로 접힘 | repository operation | 다음 구현 커밋에 0281 trailer·6자리 표 | NON_BLOCKING | open |
+
+## [구현자 기입] — ΔV1 r2 (2026-10-23)
+
+### 1. 설계 리뷰
+
+D1–D5는 현재 동작을 다른 값으로 바꿔도 검사에 걸리지 않는 문제였다. 기존 production 경로를 그대로 렌더하는 테스트를 보강했다. 유효 V는 V1+ΔV1이며 Decision·AC·§10의 규범 행은 변경하지 않았다. PLAN_GAP 없음.
+
+### 2. 강제 지점 전수와 V-pair 자기확인
+
+아래 파일은 `app/src/` 기준이다. `Controls.interaction`과 `Module.integration`은 `renderer/src/features/chat/harnesses/opencode/composer/`에 있다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 / 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| DV1-P2·P3 | slot status | ΔV1 seat 1 ModeControl→AgentControl | 1/1 | Module.integration.test.ts: uses only the agent slot for title loading when %s completes first | agent/model 응답을 각각 보류. agent ready/model loading은 indicator 0, 반대는 1 | 없음 |
+| DV1-P1·P3 | 실제 목록·busy | seat 2 AgentControl→Select | 1/1 | Controls.interaction.test.ts: shows only real agents and a heading spinner only while %s | loading/error/ready에서 실제 build만 표시. 합성 default 없음 | 없음 |
+| DV1-P1 | 미선택 trigger | seat 3 Select trigger label | 1/1 | Controls.interaction.test.ts: keeps the unselected label with real agents until the user selects an agent | build/review가 있어도 버튼은 harness.agent, 두 radio unchecked. 클릭 후에만 review 전달 | 없음 |
+| DV1-P1·P3 | 제목 우측 회전 표시 | seat 4 Select→MenuTitle | 1/1 | Controls.interaction.test.ts: shows only real agents…loading | label 다음 trailing 안 indicator, animate-spin·motion-reduce:animate-none, group busy와 aria-hidden | 실제 창의 프레임·테마 인수 별도 |
+| DV1-P3 | 공통 세 슬롯 | seat 5 MenuTitle leading/children/trailing | 1/1 | renderer/src/shared/ui/MenuItem.render.test.ts: renders leading, label and trailing in order… / preserves existing headings… | brand·Agents·busy 순서, 우측 ml-auto, 키보드 대상 0. 슬롯 없는 Models 회귀 | 없음 |
+| DV1-P1 | 선택·닫기·초점 | seat 6 Select focus/keyboard→onChange | 1/1 | Controls.interaction.test.ts: closes the %s agent menu on Tab… / opens at the current agent… / keeps an empty loading menu… | loading/empty/error/실제 행에서 Tab 닫힘·trigger 복귀, Escape·방향키·정확한 선택 유지 | 없음 |
+| V1 VP1·3 | Mode/Effort→Agent/Variant·공통 Select | EP1 3자리 | 3/3 | Module.integration.test.ts: prepares draft agents before providers…; Controls.interaction.test.ts의 agent/variant 선택 | 실제 등록 두 control·선택 행·기본 variant·선택 payload·초점 | 없음 |
+| V1 VP2·4 | hook→state·ready slot→IPC | EP2 2자리 | 2/2 | Module.integration.test.ts: prepares draft agents before providers…; composerCatalogState.test.ts의 scope/generation·오류 보존 | 재마운트/메뉴 반복 후 query 2회, agent 먼저 표시·model 후속 반영 | 없음 |
+
+§10 검색을 재실행해 Controls의 status/options/label/keyboard와 공통 MenuTitle을 고정 6자리와 대조했다. 선언·import를 제외한 목록 차집합은 `[]`이며 production 변경은 없다. V1 5/5와 ΔV1 6/6을 분리해 센다. DV1-P1–P3 및 V1 VP1–4는 위 직접 oracle의 기계 범위에서 SELF_PASS다. 독립 verify 결과는 아니다.
+
+### 3. 이번 라운드 수정의 잠금
+
+공유 작업 트리를 변경하지 않고 소스·tsconfig 사본과 같은 dependency를 사용하는 임시 디렉터리에서 `vitest run --pool=threads --maxWorkers=1 <좌표>`를 실행했다.
+
+| 심은 결함 | 출처 | 이전 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| agents.status→models.status | D1·M1 | 못 잡음 | Module.integration의 세 케이스 / 3 | red |
+| 미선택 label→첫 agent | D2·M4 | 못 잡음 | keeps the unselected label… / 1 | red |
+| indicator 회전·축소모션 class 제거 | D3·M5 | 못 잡음 | shows only real agents…loading / 1 | red |
+| Tab 닫기 분기 제거 | D4·M6 | 못 잡음 | closes the %s agent menu on Tab… / 4 | red |
+| MenuTitle trailing을 label 앞으로 이동 | D5·M9 | 못 잡음 | renders leading, label and trailing in order… / 1 | red |
+
+선택 증거 0 · 인용 변이 5 · 새 구조 proxy 0 = 5행. 새 검사는 실제 DOM·입력·IPC 결과를 관측한다. D1–D5는 자기보고상 closed이며 과거 verify 판정은 보존한다. 원본 바이트 복원 뒤 이 handoff와 0267의 같은 실행 집합 41/41 green을 확인했다.
+
+### 4. Product/UX 파생 검토
+
+Popover·MenuTitle·Icon의 기존 화면을 그대로 사용한다. 제목 indicator는 agent 준비 상태만 나타내고 model 진행을 대신하지 않는다. 실제 항목이 있는 미선택 상태에서도 자동 선택·가상 default를 만들지 않는다. Tab과 Escape는 메뉴를 닫고 trigger로 초점을 돌린다. 표시 문자열·상태·원격 호출을 추가하지 않았다.
+
+### 5. 놓친 잠재 문제 + 대응
+
+| 문제 | 대응 / 관측 |
+|---|---|
+| 두 status가 같은 fixture는 형제 슬롯 맞바꿈을 숨김 | 서로 반대인 ready/loading 조합을 실제 hook/state 경로로 생성. M1 red 3 |
+| 색/문구 존재만으로는 위치와 소유자를 구별 못함 | MenuTitle 세 슬롯과 label 다음 indicator의 DOM 관계를 관측 |
+| 임시 사본의 tsconfig 누락 | 첫 React is not defined 실행은 증거에서 제외. 설정 복사 후 baseline green부터 다시 실행 |
+| 소비처 없는 harness.defaultAgent 번역 키 | D6 NON_BLOCKING 유지. 이번 UI 잠금 수정과 무관 |
+
+설계 메커니즘 대체 없음. cache의 만료·공유·재진입·다른 무효화 축은 변경하지 않았다. 실제 창 white/dark·좁은 폭·회전 프레임·reduced motion 시각 인수는 이번 테스트 실행으로 주장하지 않는다.
+
+### 6. 구현 보고
+
+| 항목 | 관측 |
+|---|---|
+| 변경 파일 | Controls.interaction·Module.integration, 신규 MenuItem.render 테스트와 본 보고 |
+| 실행 명령 / 산출 | 담당 UI 6파일 26/26. 타입 fixture 보정 후 영향 3파일 19/19 재통과 |
+| V-pair / 강제 지점 | DV1-P1–P3 및 V1 VP1–4 SELF_PASS, ΔV1 6/6·V1 5/5 |
+| 블로커 / 역질문 | 없음. 다음 주체는 독립 검증자 |
+| 실제 검증 한계 | fake DOM/SSR는 생산 컴포넌트를 실행하지만 설치 창 시각 인수가 아님 |
+
+| AC | 자기보고 / 직접 관측 |
+|---|---|
+| AC1 | ✅ Controls agent/variant 선택·방향키·Escape·초점 복귀 |
+| AC2 | ✅ Module 실제 query 2회·반복 개방·재마운트 후 증가 0 |
+| AC3 | ✅ 기존 state/context의 scope·generation·오류·해제 회귀. 캐시 production 무변경 |
+| AC4 | ✅ 상태별 실제 radio 목록·가상 default 부재 |
+| AC5 | ✅ 독립 slot 응답·spinner class·DOM 위치, M1/M5 red |
+| AC6 | ✅ 미선택 label·Tab·Escape·선택 전 불변, M4/M6 red |
+
+검산: ✅6 · ⚠️0 · ❌0 = 총6(기계 범위). `Criteria-Met: 6/6`은 자기보고다. 최종 공통 운영 gate는 [통합 검증 기록](evidence/verify-fail-validation.md)에 있다.
+
+### 7. Review Signals
+
+r2 첫 구현 턴이다. 기존 테스트는 두 slot의 완료 상태를 구별하지 않았고 클래스·Tab·세 슬롯 순서를 읽지 않았다. 요구된 계약은 ΔV1에 이미 있었다. 검사 대역의 selector/타입 제약은 fixture 보정으로 해결했으며 production 정책은 변경하지 않았다. D7의 문서 부분은 자리별 표로 보완하고 구현 커밋은 이 handoff를 별도로 가리킨다.
