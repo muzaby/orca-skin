@@ -271,3 +271,7 @@ ACTIVE↔AC: D2→AC2, D4→AC7, D5→AC1·3, D6→AC4의 전역 비소급, D7�
 - 기존 plan이 막았어야 할 문제: AC2/4/6의 경로·승인·유휴 경계를 직접 테스트로 추가했다.
 - 반복 환경 한계: 전체 링크 검사에 참조 OpenCode checkout의 기존 깨진 링크가 포함된다. 본 구현에서 외부 push/배포를 시도하지 않았다.
 - 현재 라운드·impl 턴: r1. 독립 검증은 다음 주체에 남긴다.
+
+## [검증자 기입] 0278에서 확인한 회귀
+
+**AC2·D2 미충족**: SDK MCP 상태는 Git root에 보관되며, Orca reader도 해당 root 상태를 하위 cwd에 병합한다. A Git root의 MCP off가 다른 작업폴더 B(child)의 새 Query 및 기존 Query의 유휴 reconcile에 전파됐다. [0278 F1 검증 및 재현](../0278-harness-extension-isolation/verify.md)을 후속 구현의 blocking 입력으로 삼는다. 기존 구현 자기보고의 “같은 Git root의 다른 cwd 분리”는 MCP native 저장 경계까지 입증하지 못했다.
