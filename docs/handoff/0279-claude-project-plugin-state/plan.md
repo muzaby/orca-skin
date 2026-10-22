@@ -4,7 +4,7 @@
 
 | 항목 | 값 |
 |---|---|
-| 상태 | READY — 0278 §27의 FEP3–6·9–11과 D31·D32를 구현. 기존 F1은 구현 후 검증 |
+| 상태 | IMPL_DONE — r2 FAIL 대응 완료·독립 검증 대기. 0278 §27의 FEP3–6·9–11과 D31·D32 적용 |
 | 작성자 / 일자 | Codex / 2026-10-22 |
 | V mode / 기준 / revision | Delta V / V1@256ddd24 + ΔV1@81373134 / V1 + ΔV1 + ΔV2 |
 | 정책 정본 | [0278](../0278-harness-extension-isolation/plan.md) |
@@ -358,3 +358,94 @@ Windows plugin만 actual cwd 저장·SDK flags/reload를 지원하고 Claude MCP
 | D3 | P11–P13 renderer push scope의 backend·cwd·projectId 항 삭제 green | V1 EP7 · AC5 · V1 VP2 | ready 상태에서 한 항만 다른 push 거부를 항마다 단언 | BLOCKING | open |
 | N1 | A7 reconcile 진입 유휴 확인은 동치(호출 경로가 동기 선행) | V1 EP4 | 유지 가능 | NON_BLOCKING | open |
 | N2 | r1.3 구현이 0278 trailer로만 커밋, 강제 지점 필드 산문 | repository operation | 다음 구현 커밋에 0279 trailer·자리별 표 | NON_BLOCKING | open |
+
+## [구현자 기입] — ΔV2 r2 (2026-10-23)
+
+### 1. 설계 리뷰
+
+동의·유지: V1+ΔV1+ΔV2와 0278 §27의 최종 경계를 유지한다. D1–D3는 구현을 바꾸는 요구가 아니라 revision·외부 편집·scope를 검사하지 못하던 oracle 보강이며, 0278 r3과 같은 실제 테스트를 실행했다. ACTIVE Decision 충돌·설계 이견·PLAN_GAP은 없다.
+
+### 2. 강제 지점 전수와 V-pair 자기확인
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP1·4·5 / DV1-P4 | 허용 키·cwd | EP1 project reader·plugin reader·writer·configured reader (4) | 4/4 | `project-settings.test: fingerprints only project extension keys…`; `plugin-catalog.test`; `plugin-state.test: merges sibling choices…`; `configured-resources.test` | cwd/root·형제값·비대상 key·global-only 구별 | 실제 설치 SDK 재실측 없음 |
+| VP1·3·5 / DV1-P2 | sharing scope | EP2 (1) | 1/1 | `native-resource-sharing.test: uses the canonical harness project…`; `bootstrap.native-history.test` cwd sharing | 같은 cwd/다른 projectId·다른 cwd/같은 projectId | 없음 |
+| VP1·2·3 / DV1-P3 | 파일 변경·owner·revision·idle | EP3 (4) | 4/4 | `project-resource-sync.test: detects real file creation…`, `releases draft watchers…`, `discards a revision invalidated during reading…`, `shares one watcher…` | 읽기 중 watcher 2번째 입력·첫 결과 push 0·latest만 reconcile | 없음 |
+| VP1·4 / DV1-P3 | adapter·SDK·제출 | EP4 (3) | 3/3 | `adapter.native-plugins.test: exposes runtime-native watch files…`; `project-reconciliation.test: …never saves it back`; `session-runtime.test: serializes the next submission…` | native root·persist=false·next submission barrier | A7 진입 중복 판정은 동치 유지 |
+| VP3 | 생성·종료·activity | EP5 (3) | 3/3 | `bootstrap.native-history.test: observes external project settings through real bootstrap…`; `bootstrap.shutdown.test` | 실제 등록·busy→idle·종료 순서; 등록 A10 red 1 | 없음 |
+| VP2·3·5 | observation·read·mutation | EP6 (3) | 3/3 | `session-resources.test: acquires a scoped observer…`, `returns pending configuration…`, `uses the injected project mutation queue…` | owner 등록/해제·read-only·직렬화 | 없음 |
+| VP2·5 | preload·owner·push·nav | EP7 (4) | 4/4 | `preload/index.test: preserves native resource state…`; `useNativeResources.test: owns draft observations…`·`rejects a ready draft push differing only in…`; `useNativeMcpCatalog.test` | backend/cwd/projectId 각각 다른 ready push는 거부·일치 push는 수락 | 실제 창 시각 인수 |
+| DV1-P1 / ΔV2 | 배포 snapshot | FEP3·4 | 2/2 | `adapter.native-plugins.test: pins deployed MCP files…`; `extensions.test: finishes immutable publication…` | old/new 파일·발행 gate 동안 요청 미완료 | 없음 |
+| DV1-P1 / ΔV2 | capability·persistence·peer | FEP5·10 | 2/2 | `native-resources.test: rejects both MCP toggle directions…`·`waits for durable persistence…`; `session-resources.test` | MCP SDK 0·commit 뒤 응답·peer 무기록 | 없음 |
+| DV1-P2·3·4 | native read-only revision | FEP6 | 1/1 | `project-settings.test: fingerprints only…`; `project-reconciliation.test: isolates project approvals…` | child revision 불변·restart-required | SDK 자체 Git-root 저장은 변경하지 않음 |
+| ΔV2/DV3 | coordinator 제한 patch | FEP9 | 1/1 | `file-mutation.test: rebases an external edit before commit without relying on a rename failure`; `plugin-state.test` | EBUSY 없음·외부 sentinel·rename 1회 | 외부 비협력 writer와 CAS 보장 없음 |
+| ΔV2/DV3 | drain·shutdown | FEP11 | 1/1 | `native-settings-lifecycle.test` 두 실제 quit/drain 케이스·`plugin-snapshots.test` | 저장→runtime→사본 정리 | 실제 창 종료 미실행 |
+
+V1 자리 합계는 4+1+4+3+3+3+4=22이며 최종 FEP3·4·5·6·9·10·11의 7경계도 각각 직접 oracle이 있다. 이번 변경은 테스트 보강이고 생산 경로 추가·분모 변경은 없다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| DV1-P1·2·3·4 | REQUIRED | SELF_PASS | 위 FEP·EP1/3/4·capability/파일 회귀 | 기존 SDK 쓰기 성공은 D32 거부로 이관한 기준 유지 |
+| ΔV2/DV3 | REQUIRED | SELF_PASS | file-mutation·plugin-state·native-resource·native-settings-lifecycle | A15 red 1→원복 green |
+| V1 VP1·4 | REGRESSION | SELF_PASS | adapter.native-plugins·project-reconciliation·session-runtime | A7 동치 94 green/원복 94 green |
+| V1 VP2·3·5 | REGRESSION | SELF_PASS | project-resource-sync·bootstrap·renderer native resource tests | A6/A10/P11/P12/P13 각각 assertion red 1→원복 green |
+
+### 3. 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| A6 stale revision 폐기 제거 | D1 / EP3 | 못 잡음 | `discards a revision invalidated during reading before any resource push` 1/9 | 잠김·원복 9 green |
+| A15 commit 직전 외부 bytes 비교 제거 | D2 / FEP9 | 못 잡음 | `rebases an external edit before commit without relying on a rename failure` 1/6 | 잠김·원복 6 green |
+| P11 backend 비교 제거 | D3 / EP7 | 못 잡음 | ready draft backend 1/28 | 잠김·원복 28 green |
+| P12 cwd 비교 제거 | D3 / EP7 | 못 잡음 | ready draft cwd 1/28 | 잠김·원복 28 green |
+| P13 projectId 비교 제거 | D3 / EP7 | 못 잡음 | ready draft projectId 1/28 | 잠김·원복 28 green |
+| A10 observer policy 등록 no-op | VP3 / EP5 등록 변이 | 잡음 | `observes external project settings through real bootstrap…` 1/10 | 유지·원복 10 green |
+| A7 reconcile 진입 idle 중복 검사 제거 | N1 / EP4 | 동치 | project-reconciliation·session-runtime 2파일 94 green | 동치 유지·원복 94 green |
+
+선택 증거 1(A10) · 인용 변이 5 · 추가 새 oracle 0 = 잠금 표의 red 대상 6행. A7은 별도 동치 재확인 1행이다. 다른 이전 잡음 행과 Windows A3 보강 결과는 [0278 r3](../0278-harness-extension-isolation/plan.md)의 마무리 기록을 공유한다.
+
+### 4. Product/UX 파생 검토
+
+UI 문구·전역/프로젝트 토글 정책 변경은 없다. ready 상태의 잘못된 scope push가 기존 목록을 바꾸지 않는 것을 직접 확인했고, 조회 대기 상태만 보던 이전 단언을 완료 상태의 내용 단언으로 보강했다. 새 안내·오류·재시도 경로를 추가하지 않았다.
+
+### 5. 놓친 잠재 문제 + 대응
+
+| 문제 | 대응 | 근거 |
+|---|---|---|
+| 외부 편집과 rename 잠금을 같이 주면 재확인 분기가 없어도 최신값을 읽음 | rename 실패가 전혀 없는 외부 편집 테스트 분리 | A15 assertion red 1 |
+| 최종 revision만 검사하면 중간 stale push를 놓침 | 두 read Promise를 따로 지연하고 첫 결과 반환 뒤 push 0 단언 | A6 assertion red 1 |
+| 이전 Linux shim A3 red의 Windows 경계 차이 | `.claude` junction이 cwd 밖으로 나가는 실제 writer 호출 추가 | `plugin-state.test: refuses a local settings junction outside the current working directory` |
+| A14 FIFO 제거가 최종 bytes만으로 검출되지 않음 | 첫 commit 전 두 번째 patch 진입 수를 캡처하는 단언 추가 | 첫 재실행 green 6/6 → 보강 후 red 1/6·원복 green 6/6 |
+| N2 handoff별 커밋·자리표 부족 | 이번 보고에 22자리 전수표 작성; 0279 전용 커밋은 통합 담당이 수행 | 커밋 전에는 trailer 성공을 선점하지 않음 |
+
+설계 대비 구현 메커니즘 변경은 없으므로 대체물의 만료·공유·재진입·다른 무효화 실패 모드는 해당 없음이다.
+
+### 6. 구현 보고
+
+| 항목 | 관측 |
+|---|---|
+| 변경 파일 | 0278와 공유하는 project sync·file mutation·renderer push·plugin writer 회귀, 이 plan 보고 |
+| 실행 명령 | 관련 Vitest `--pool=threads --maxWorkers=1`; 격리 copy의 단일 변이→원본 bytes 복원→동일 집합 재실행 |
+| 관측한 게이트 산출 | 0278와 공유하는 43파일 430테스트 green. A3/A14 보강 후 변경 7파일 59테스트 green·수정 파일 lint 오류/경고 0. 최종 정적/통합 gate는 0278 마무리 기록 |
+| V-pair 자기확인 | REQUIRED 5·REGRESSION 5 SELF_PASS |
+| 강제 지점 전수 | V1 22/22·승계 FEP 7/7 경계의 직접 oracle 대응 |
+| 블로커 / 역질문 | 없음. 사람 시각 인수는 미실행 |
+| 대상 커밋 | (r2 구현 — 좌표는 INDEX에 검증자 기입) |
+
+| AC | 자기보고 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | plugin-state 형제값/비대상 키·native SDK inline flags 보존 |
+| AC2 | ✅ | 실제 cwd sharing·다른 cwd revision 격리 |
+| AC3 | ✅ | `adapter.native-plugins: persists both plugin states across follow-up turns, new adapters and cold resumes` |
+| AC4 | ✅ | 외부 파일 watcher·busy/idle·persist=false·A10 등록 변이 |
+| AC5 | ✅ | stale read 중간 push 0·ready push scope 3항 거부·기존 부분 실패 회귀 |
+| AC6 | ✅ | D32 MCP 직접 거부·승인/실행 상태 분리 |
+| AC7 | ✅ | renderer 기존 메뉴/타이틀 회귀·이번 UI 변경 0 |
+| AC8 | ✅ | 파일 FIFO·서로 다른 파일 진행·commit 대기·잠금 없는 외부 편집 보존 |
+
+합계 검산: ✅8 · ⚠️0 · ❌0 = 총8. 기계적 자기보고이며 독립 verify와 실제 Windows 창 인수는 다음 주체에 남긴다.
+
+### 7. Review Signals
+
+이번 r2는 0278 r3과 같은 oracle 사각을 다룬다. `handoff-review` DIAGNOSE_ONLY 결과는 기존 `handoff-impl §2·3·8`이 이미 요구하던 구별값·실제 생산 경로·인용 변이 수행의 누락(B)이며 지침 변경 없이 테스트에서 보완한다. 기존 사용자 정책 변경(D32)은 실패 패턴으로 취급하지 않는다.
