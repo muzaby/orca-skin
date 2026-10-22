@@ -111,6 +111,8 @@ it('prepares draft agents before providers, reuses cached agents and variants ac
   expect(dom.queryAll('[role="menuitemradio"]').map((row) => row.textContent)).toEqual([
     'plugin-review'
   ])
+  expect(dom.query('[data-agent-loading]')).toBeNull()
+  expect(dom.query('[role="group"]')?.props['aria-busy']).toBe(false)
   expect(dom.query('[aria-label="harness.variant"]')?.props['aria-busy']).toBeUndefined()
   dom.click(dom.queryAll('[role="menuitemradio"]')[0])
   expect(state.change).toHaveBeenCalledWith({ agent: 'plugin-review' })
@@ -141,3 +143,58 @@ it('prepares draft agents before providers, reuses cached agents and variants ac
   expect(query).toHaveBeenCalledTimes(2)
   expect(state.change).not.toHaveBeenCalledWith({ agent: '', variant: '' })
 })
+
+it.each(['agents', 'models'] as const)(
+  'uses only the agent slot for title loading when %s completes first',
+  async (first) => {
+    const agents = Promise.withResolvers<ComposerCatalogResult>()
+    const models = Promise.withResolvers<ComposerCatalogResult>()
+    const query = vi.fn((request: ComposerCatalogRequest) =>
+      request.part === 'agents' ? agents.promise : models.promise
+    )
+    Object.assign(window, {
+      orca: {
+        session: {
+          composerCatalog: query,
+          releaseComposerCatalog: vi.fn(async () => undefined),
+          onComposerCatalogInvalidated: () => () => undefined
+        }
+      }
+    })
+    const props: ComposerControlProps = {
+      agents: [],
+      providerKey: 'native',
+      modelFamily: '',
+      model: null
+    }
+    dom.render(createElement(composerModule.ModeControl, props))
+    await settle()
+    dom.click(dom.query('[aria-label="harness.agent"]')!)
+    expect(dom.query('[data-agent-loading]')).not.toBeNull()
+    const agentResult: ComposerCatalogResult = {
+      part: 'agents',
+      value: [{ name: 'plugin-review' }],
+      generation: 'g1'
+    }
+    const modelResult: ComposerCatalogResult = {
+      part: 'models',
+      value: [{ id: 'model-B', variants: ['deep'] }],
+      generation: 'g1'
+    }
+    if (first === 'agents') agents.resolve(agentResult)
+    else models.resolve(modelResult)
+    await settle()
+    expect(dom.query('[data-agent-loading]') !== null).toBe(first !== 'agents')
+    expect(dom.query('[role="group"]')?.props['aria-busy']).toBe(first !== 'agents')
+    expect(dom.queryAll('[role="menuitemradio"]').map((row) => row.textContent)).toEqual(
+      first === 'agents' ? ['plugin-review'] : []
+    )
+    if (first === 'agents') models.resolve(modelResult)
+    else agents.resolve(agentResult)
+    await settle()
+    expect(dom.query('[data-agent-loading]')).toBeNull()
+    expect(dom.query('[role="group"]')?.props['aria-busy']).toBe(false)
+    expect(query).toHaveBeenCalledTimes(2)
+    expect(state.change).not.toHaveBeenCalled()
+  }
+)

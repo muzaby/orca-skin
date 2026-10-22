@@ -29,6 +29,8 @@ let dom: FakeDom
 beforeEach(() => {
   vi.useFakeTimers()
   dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+  harness.selected.harnessAgent = 'build'
+  harness.selected.modelVariant = 'high'
   harness.change.mockClear()
 })
 afterEach(() => {
@@ -68,6 +70,16 @@ describe('OpenCode composer selection', () => {
         status === 'loading'
       )
       expect(dom.query('[role="group"]')?.props['aria-busy']).toBe(status === 'loading')
+      if (status === 'loading') {
+        const heading = dom.query('[data-menu-heading]')!
+        const spinner = heading.querySelector('[data-agent-loading]')!
+        expect(heading.children[0].textContent).toBe('harness.agent')
+        expect(heading.children[1].querySelector('[data-agent-loading]')).toBe(spinner)
+        expect(spinner.props['aria-hidden']).toBe('true')
+        expect(String(spinner.querySelector('[viewBox]')?.props.className).split(' ')).toEqual(
+          expect.arrayContaining(['animate-spin', 'motion-reduce:animate-none'])
+        )
+      }
       expect(dom.query('[role="menu"]')?.textContent).toBe('harness.agentbuild')
       key(rows[0].parent!, 'End')
       expect(dom.activeElement?.textContent).toBe('build')
@@ -77,6 +89,49 @@ describe('OpenCode composer selection', () => {
       expect(dom.activeElement).toBe(trigger)
     }
   )
+  it('keeps the unselected label with real agents until the user selects an agent', () => {
+    harness.selected.harnessAgent = ''
+    dom.render(
+      createElement(OpenCodeAgentControl, {
+        agents: [{ name: 'build' }, { name: 'review' }],
+        status: 'ready',
+        authoritative: true
+      })
+    )
+    const trigger = dom.query('[aria-label="harness.agent"]')!
+    expect(trigger.textContent).toBe('harness.agent')
+    dom.click(trigger)
+    dom.advance(20)
+    const rows = dom.queryAll('[role="menuitemradio"]')
+    expect(rows.map((row) => [row.textContent, row.props['aria-checked']])).toEqual([
+      ['build', false],
+      ['review', false]
+    ])
+    expect(harness.change).not.toHaveBeenCalled()
+    dom.click(rows[1])
+    expect(harness.change).toHaveBeenCalledExactlyOnceWith({ agent: 'review' })
+    expect(dom.activeElement).toBe(trigger)
+  })
+  it.each([
+    ['loading', undefined],
+    ['ready', []],
+    ['error', []],
+    ['ready', [{ name: 'build' }, { name: 'review' }]]
+  ] as const)('closes the %s agent menu on Tab and restores focus', (status, agents) => {
+    harness.selected.harnessAgent = ''
+    dom.render(
+      createElement(OpenCodeAgentControl, { agents: agents ? [...agents] : undefined, status })
+    )
+    const trigger = dom.query('[aria-label="harness.agent"]')!
+    dom.click(trigger)
+    dom.advance(20)
+    const group = dom.query('[role="group"]')!
+    expect(dom.query('[data-menu-heading]')?.textContent).toBe('harness.agent')
+    key(group, 'Tab')
+    expect(dom.query('[role="menu"]')).toBeNull()
+    expect(dom.activeElement).toBe(trigger)
+    expect(harness.change).not.toHaveBeenCalled()
+  })
   it('removes a stale agent only after an authoritative runtime catalog and hides missing variants', () => {
     dom.render(createElement(OpenCodeAgentControl, { agents: [{ name: 'plugin-review' }] }))
     expect(harness.change).not.toHaveBeenCalled()
