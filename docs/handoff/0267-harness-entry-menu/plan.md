@@ -2067,3 +2067,14 @@ plan 메타/INDEX는 r1.14 impl/IMPL_DONE·Claude 독립 검증 대기다. 구�
 - 막았어야 할 지침·AC: 이전 D51/53은 Work 공존과 bold/tooltip의 표준을 구체화하지 않았다. D55/56과 실제 style 관측으로 바꿨다. 이전 Composer native-menu 테스트의 warm 재조회 기대는 이번 넓힌 회귀에서 발견했다.
 - 환경 한계: 실제 renderer+메모리 IPC Chromium을 사용했고 Windows 설치 앱·외부 인증·CLI를 재실행하지 않았다. 간격은 rem scale에 맞춰 실측했다.
 - 현재 라운드·impl 턴: r1.14 / r1.14. 독립 verify 대기.
+
+## [검증자 기입] 파생 이슈 — verify r1 (2026-10-22)
+
+판정 정본은 [verify.md](verify.md) — **FAIL**. 고장 ID는 그 문서 §4 고장 이력이다. 등록 변이 M1–M4는 모두 red.
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| D1 | J7·J8 스위치 전환·축소 모션 class 삭제 green | EP31 ④⑤ · AC53 · VP54 | thumb transition·motion-reduce class 단언 | BLOCKING | open |
+| D2 | J13 상태 패널 후속 그룹 heading 간격 삭제 green | EP31 ⑥ · AC54 · VP55 | heading 간격 class 단언 | BLOCKING | open |
+| D3 | J15 모델 메뉴 그룹 로고 색 맞바꿈 green | EP31 ⑪ · AC57 · VP58 | provider heading SVG 색 class 단언 | BLOCKING | open |
+| N1 | r1 구현 커밋의 §10 EP9 검색 문구 편집(의미 불변) | repository operation | 이후 규범 행은 설계 커밋으로 | NON_BLOCKING | open |
