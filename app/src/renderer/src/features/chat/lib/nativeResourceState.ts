@@ -18,6 +18,7 @@ export type NativeResourcesView =
     }
 type Ready = Extract<NativeResourcesView, { status: 'ready' }>
 type Issue = 'control' | 'open'
+let nextObserver = 0
 export const nativeResourceKey = (resource: NativeResource): string =>
   `${resource.kind}:${resource.id}`
 
@@ -60,6 +61,7 @@ function observed(value: NativeResources, previous: NativeResourcesView): Ready 
 
 /** A navigation-independent observation and operation owner for one session/backend. */
 export class NativeResourceState {
+  private readonly owner = `resources:${++nextObserver}`
   private listeners = new Set<() => void>()
   private operations = new Map<string, number>()
   private serial = 0
@@ -75,9 +77,18 @@ export class NativeResourceState {
   constructor(readonly request: string | DraftNativeResourcesRequest | undefined) {}
   getSnapshot = (): typeof this.snapshot => this.snapshot
   subscribe = (listener: () => void): (() => void) => {
+    const first = this.listeners.size === 0
     this.listeners.add(listener)
+    if (first && this.request && typeof window !== 'undefined')
+      void sessionApi
+        .nativeResources(this.request, { owner: this.owner, active: true })
+        .catch(() => undefined)
     return () => {
       this.listeners.delete(listener)
+      if (!this.listeners.size && this.request && typeof window !== 'undefined')
+        void sessionApi
+          .nativeResources(this.request, { owner: this.owner, active: false })
+          .catch(() => undefined)
     }
   }
   private publish(view = this.snapshot.view): void {
@@ -288,9 +299,17 @@ export function nativeResourceState(
     cache = new Map()
     windows.set(window, cache)
     const owned = cache
-    window.orca?.session?.onNativeResourcesChanged?.(({ sessionId, resources }) => {
+    window.orca?.session?.onNativeResourcesChanged?.(({ sessionId, scope, resources }) => {
       for (const state of owned.values()) {
-        if (state.request === sessionId) state.accept(resources)
+        if (
+          (sessionId && state.request === sessionId) ||
+          (scope &&
+            typeof state.request === 'object' &&
+            state.request.backend === scope.backend &&
+            state.request.cwd === scope.cwd &&
+            state.request.projectId === scope.projectId)
+        )
+          state.accept(resources)
       }
     })
     window.orca?.chat?.onBackgroundEvent?.((event) => {

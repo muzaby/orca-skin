@@ -227,6 +227,8 @@ OpenCode 적용 시의 추가 선행조건·레이어별 gate는 [마이그레�
 
 네이티브 스킬 메뉴는 실행 채널이 있으면 SDK의 실제 명령을, 없으면 활성 설치 플러그인의 skill/command 파일에서 얻은 이름·설명·힌트를 사용한다. 설치 metadata는 매 조회/새 spawn에서 읽으며 사용자 호출 금지 스킬은 메뉴에서 제외한다. 메뉴의 `plugin::skill` 표시와 전송의 `/plugin:skill` 이름은 구분한다.
 
+Claude 프로젝트 확장은 `project-settings.ts`가 MCP/plugin 대상 키의 revision을 계산하고 `project-reconciliation.ts`가 시작 시 기본값과 외부 프로젝트 선택을 대조한다. Windows 프로젝트 settings/local 파일은 현재 cwd를 사용하며 native MCP 상태는 SDK의 Git 프로젝트 항목도 읽는다. 외부 plugin 재적용은 파일을 역으로 저장하지 않고, MCP on/off의 native 저장은 SDK에 맡긴다. `.mcp.json` 승인·거부는 프로젝트 출처에만 적용하며 일반 MCP의 disabledMcpServers와 구분한다. 다음 실행은 전역/provider 기본값 위에 프로젝트·local 선택을 순서대로 적용한다.
+
 컴포저의 slash 자동완성·강조도 같은 세션 native 명령 관측을 사용한다. 전역 스킬 탭은 비활성 설치를 포함한 native 플러그인 스킬 인벤토리를 읽기 전용으로 보여주며, 전역 활성 여부와 세션의 호출 가능 목록을 구별한다.
 
 OpenCode의 설정 파일 목록은 초안·nav discovery에만 사용하며 실행 SDK가 재개 후 관측한 plugin 목록을 제한하지 않는다. 연결 이벤트에서 목록을 갱신하고 renderer의 세션별 관측 저장소는 같은 generation의 부분 실패에도 연결 상태를 보존한다. 명시 종료는 연결 상태와 제어 권한을 해제한다. Claude가 Orca 주입 MCP를 실제 관측하면 `origin=orca`로 반환하여 Composer의 Orca 그룹에 표시하고, native 관리 목록과 SDK 내부 서버에서는 분리한다.

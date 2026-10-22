@@ -8,6 +8,7 @@ export interface NativeResourcePeer {
   runtime: GovernedLiveTurn
 }
 export interface NativeResourceSharing {
+  run?<T>(scope: string, action: () => Promise<T>): Promise<T>
   scope(sessionId: string): string | undefined
   peers(scope: string): NativeResourcePeer[]
   changed(sessionId: string, resources: NativeResources): void
@@ -22,16 +23,26 @@ export function createNativeResourceSharing(deps: {
   runtimes(): NativeResourcePeer[]
   changed: NativeResourceSharing['changed']
 }): NativeResourceSharing {
+  const mutations = new Map<string, Promise<unknown>>()
   const scope = (id: string): string | undefined => {
     const session = deps.session(id)
     if (!session) return undefined
     return JSON.stringify([
       session.backend,
-      session.project_id ? 'project' : 'directory',
-      session.project_id ?? deps.projectRoot(session.backend, session.cwd ?? deps.cwd(null))
+      'directory',
+      deps.projectRoot(session.backend, session.cwd ?? deps.cwd(session.project_id))
     ])
   }
   return {
+    run: async (key, action) => {
+      const task = (mutations.get(key) ?? Promise.resolve()).catch(() => undefined).then(action)
+      mutations.set(key, task)
+      try {
+        return await task
+      } finally {
+        if (mutations.get(key) === task) mutations.delete(key)
+      }
+    },
     scope,
     peers: (key) => deps.runtimes().filter((peer) => scope(peer.sessionId) === key),
     changed: deps.changed

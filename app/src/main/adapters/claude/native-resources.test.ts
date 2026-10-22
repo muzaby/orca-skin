@@ -93,7 +93,17 @@ describe('Claude native resources', () => {
         canToggle: true
       },
       {
+        id: 'sdk',
+        name: 'sdk',
+        kind: 'mcp',
+        status: 'connected',
+        source: 'sdk',
+        enabled: true,
+        canToggle: true
+      },
+      {
         id: 'plugin:orca:tools',
+        source: 'plugin',
         name: 'tools',
         kind: 'mcp',
         status: 'connected',
@@ -120,7 +130,7 @@ describe('Claude native resources', () => {
       ['native', false],
       ['off', true]
     ])
-    for (const id of ['sdk', 'runtime', 'plugin:orca:tools', 'missing'])
+    for (const id of ['runtime', 'plugin:orca:tools', 'missing'])
       await expect(resources.set(id, false)).rejects.toThrow()
     expect(query.toggleMcpServer).toHaveBeenCalledTimes(2)
     query.toggleMcpServer.mockRejectedValueOnce(new Error('provider rejected'))

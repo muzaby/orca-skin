@@ -420,8 +420,18 @@ const DraftNativeResourcesRequestSchema = z
   })
   .strict()
 export const NativeResourcesRequestSchema = z.union([
-  SessionResourceRequestSchema,
-  DraftNativeResourcesRequestSchema
+  SessionResourceRequestSchema.extend({
+    observation: z
+      .object({ owner: z.string().min(1).max(512), active: z.boolean() })
+      .strict()
+      .optional()
+  }),
+  DraftNativeResourcesRequestSchema.extend({
+    observation: z
+      .object({ owner: z.string().min(1).max(512), active: z.boolean() })
+      .strict()
+      .optional()
+  })
 ])
 export const SetNativeResourceSchema = SessionResourceRequestSchema.extend({
   generation: z.string().min(1).max(512),

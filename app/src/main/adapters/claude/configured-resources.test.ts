@@ -70,7 +70,7 @@ describe('configured Claude resources', () => {
       mcpServers: { project: { command: 'p' }, shared: { command: 'p' }, sdk: { type: 'sdk' } }
     })
     const before = await readFile(paths.globalConfig, 'utf8')
-    const rows = await configuredClaudeResources(join(cwd, 'subdir'), paths)
+    const rows = await configuredClaudeResources(cwd, paths)
     expect(rows.map((row) => row.name)).toEqual(['user', 'shared', 'project', 'local'])
     expect(rows[0]).toMatchObject({ status: 'disabled', enabled: false, canToggle: false })
     expect(

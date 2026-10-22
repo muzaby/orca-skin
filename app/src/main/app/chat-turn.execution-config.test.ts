@@ -286,7 +286,10 @@ function install(
   } as never)
   // The engine delete handler removes the document and clears both settings caches.
   const removeEngine = (provider: string): void => {
-    rmSync(join(root, 'sources', 'settings', 'opencode', provider), { recursive: true, force: true })
+    rmSync(join(root, 'sources', 'settings', 'opencode', provider), {
+      recursive: true,
+      force: true
+    })
     harnessSettings.invalidateAll()
     harnessRuntime.invalidate(`opencode-${provider}`, 'harness-settings-crud')
   }
@@ -437,7 +440,10 @@ describe('chat:send execution configuration from the selected engine document (0
       expect(harness.runs[0]?.request.providerSettings?.settings).toEqual(third)
       const flush = harness.runs[1]!.request
       expect(flush.model).toBe('other/extra')
-      expect(flush.providerSettings).toMatchObject({ providerKey: 'opencode-other', provider: 'other' })
+      expect(flush.providerSettings).toMatchObject({
+        providerKey: 'opencode-other',
+        provider: 'other'
+      })
       expect(flush.providerSettings?.settings).toEqual(documents.other)
     }
   )

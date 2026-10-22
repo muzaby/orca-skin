@@ -194,6 +194,39 @@ it('carries plugin controls through the actual adapter and preserves provider fl
   live.close()
 })
 
+it('exposes runtime-native watch files and applies external project choices only after idle reconciliation', async () => {
+  const live = new ClaudeAdapter().sendMessage({
+    sessionId: null,
+    cwd,
+    text: 'Hello',
+    env: { CLAUDE_CONFIG_DIR: root },
+    extensions: { skills: [], hooks: { normalized: {} } }
+  })
+  try {
+    const policy = live.projectResourcePolicy!()!
+    expect(policy.files(cwd)).toContain(join(root, '.claude.json'))
+    const file = join(cwd, '.claude/settings.local.json')
+    write(file, { enabledPlugins: { 'frontend@market': false }, permissions: { allow: ['Read'] } })
+    const bytes = readFileSync(file, 'utf8')
+    expect((await live.nativeResources!()).items[0]).toMatchObject({
+      enabled: false,
+      status: 'enabled'
+    })
+    const { revision } = await policy.read(cwd)
+    expect(await live.reconcileNativeResources!(revision, () => false)).toBe('pending')
+    const sdk = fixture.query.mock.results[0].value
+    expect(sdk.reloadPlugins).not.toHaveBeenCalled()
+    expect(await live.reconcileNativeResources!(revision, () => true)).toBe('applied')
+    expect((await live.nativeResources!()).items[0]).toMatchObject({
+      enabled: false,
+      status: 'disabled'
+    })
+    expect(readFileSync(file, 'utf8')).toBe(bytes)
+  } finally {
+    live.close()
+  }
+})
+
 it('persists both plugin states across follow-up turns, new adapters and cold resumes over provider defaults', async () => {
   const file = join(cwd, '.claude/settings.local.json')
   write(file, { permissions: { allow: ['Read'] }, enabledPlugins: { 'sibling@market': true } })

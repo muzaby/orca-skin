@@ -94,16 +94,17 @@ describe('Bootstrap turn event registration', () => {
 })
 
 describe('Bootstrap title ownership', () => {
-  it('releases composer owners before closing the adapter registry during shutdown before full startup', () => {
+  it('releases composer and project observers before closing the adapter registry during early shutdown', () => {
     const order: string[] = []
     const close = vi.fn(() => order.push('registry'))
     const bootstrap: Bootstrap = Object.assign(Object.create(Bootstrap.prototype), {
+      projectResourceSync: { close: () => order.push('project-observers') },
       registry: { close },
       closeComposerCatalog: () => order.push('composer')
     })
     bootstrap.shutdown()
     expect(close).toHaveBeenCalledOnce()
-    expect(order).toEqual(['composer', 'registry'])
+    expect(order).toEqual(['composer', 'project-observers', 'registry'])
   })
   it('disposes title work during shutdown even before turn runtime initialization completed', () => {
     const order: string[] = []

@@ -2,11 +2,11 @@ import { randomUUID } from 'node:crypto'
 import { mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { isRecord } from '../../../shared/obj'
-import { claudePluginProjectRoot } from './plugin-catalog'
+import { claudeLocalSettingsRoot } from './project-path'
 
 /** Persist the workspace choice without changing other settings or the user's global config. */
 export function persistClaudePluginState(cwd: string, key: string, enabled: boolean): void {
-  const directory = join(claudePluginProjectRoot(cwd), '.claude')
+  const directory = join(claudeLocalSettingsRoot(cwd), '.claude')
   const file = join(directory, 'settings.local.json')
   let value: Record<string, unknown> = {}
   let mode = 0o600

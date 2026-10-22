@@ -18,7 +18,7 @@ beforeEach(() => {
   mkdirSync(join(root, '.git'))
 })
 afterEach(() => rmSync(root, { recursive: true, force: true }))
-it('merges sibling choices and other settings at the project root even from a child work directory', () => {
+it('merges sibling choices and preserves unrelated settings in the current work directory', () => {
   const directory = join(root, '.claude'),
     file = join(directory, 'settings.local.json')
   mkdirSync(directory)
@@ -27,7 +27,7 @@ it('merges sibling choices and other settings at the project root even from a ch
     JSON.stringify({ env: { EXISTING: 'kept' }, enabledPlugins: { 'one@market': true } })
   )
   if (process.platform !== 'win32') chmodSync(file, 0o600)
-  persistClaudePluginState(join(root, 'child'), 'two@market', true)
+  persistClaudePluginState(root, 'two@market', true)
   persistClaudePluginState(root, 'one@market', false)
   expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({
     env: { EXISTING: 'kept' },

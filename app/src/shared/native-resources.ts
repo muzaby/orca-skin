@@ -17,6 +17,8 @@ export interface NativeResource {
     | 'installed'
   enabled: boolean
   canToggle: boolean
+  /** Native provenance, without server configuration or credentials. */
+  source?: string
   /** An Orca-injected MCP observed connected by the running harness. */
   origin?: 'orca'
 }
@@ -29,6 +31,7 @@ export interface NativeCommand {
   skill?: boolean
 }
 export interface NativeResources {
+  configurationPending?: boolean
   state: 'connected' | 'disconnected'
   generation?: string
   items: NativeResource[]
@@ -51,8 +54,14 @@ export interface SetNativeResource {
   enabled: boolean
 }
 export interface NativeResourcesChanged {
-  sessionId: string
+  sessionId?: string
+  scope?: DraftNativeResourcesRequest
   resources: NativeResources
+}
+
+export interface NativeResourceObservation {
+  owner: string
+  active: boolean
 }
 export type OpenNativePlugin = ({ sessionId: string } | DraftNativeResourcesRequest) & {
   id: string

@@ -4,12 +4,10 @@ import type { NativeCommand } from '../../../shared/native-resources'
 import { isRecord } from '../../../shared/obj'
 import { skillMetadata } from '../common/skill-metadata'
 import { claudeNativePaths } from './native-paths'
+import { pluginPathKey, claudeLocalSettingsRoot } from './project-path'
+export { pluginPathKey, claudePluginProjectRoot } from './project-path'
 
 const record = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {})
-export const pluginPathKey = (value: string): string => {
-  const path = resolve(value.replaceAll('\\', '/'))
-  return process.platform === 'win32' ? path.toLowerCase() : path
-}
 
 function readObject(path: string): Record<string, unknown> {
   try {
@@ -19,22 +17,6 @@ function readObject(path: string): Record<string, unknown> {
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {}
     throw new Error('Claude 네이티브 확장 설정을 읽을 수 없습니다.')
-  }
-}
-
-export function claudePluginProjectRoot(cwd: string): string {
-  let current = resolve(cwd)
-  for (;;) {
-    try {
-      statSync(join(current, '.git'))
-      return current
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
-        throw new Error('Claude 프로젝트 설정을 읽을 수 없습니다.')
-    }
-    const parent = dirname(current)
-    if (parent === current) return resolve(cwd)
-    current = parent
   }
 }
 
@@ -131,6 +113,7 @@ function pluginFiles(root: string, path: string, skills: boolean): string[] {
 }
 
 export interface ClaudePluginCatalog {
+  defaults: Record<string, boolean>
   roots: string[]
   skills: string[]
   commands: NativeCommand[]
@@ -145,11 +128,14 @@ export function readClaudePluginCatalog(
   overrides: Record<string, unknown> = {},
   includeDisabled = false
 ): ClaudePluginCatalog {
-  const projectRoot = claudePluginProjectRoot(cwd)
-  const enabled = {
+  const projectRoot = claudeLocalSettingsRoot(cwd)
+  const defaults = {
     ...record(readObject(join(nativeRoot, 'settings.json')).enabledPlugins),
+    ...record(overrides.enabledPlugins)
+  }
+  const enabled = {
+    ...defaults,
     ...record(readObject(join(projectRoot, '.claude', 'settings.json')).enabledPlugins),
-    ...record(overrides.enabledPlugins),
     // Explicit workspace plugin choices survive fresh Query flags and provider defaults.
     ...record(readObject(join(projectRoot, '.claude', 'settings.local.json')).enabledPlugins)
   }
@@ -210,6 +196,12 @@ export function readClaudePluginCatalog(
     }
   }
   return {
+    defaults: Object.fromEntries(
+      Object.entries(defaults).map(([key, value]) => [
+        key,
+        value === true || Array.isArray(value) || isRecord(value)
+      ])
+    ),
     roots: [...roots.values()],
     skills: [...skills],
     commands: [...commands.values()],

@@ -87,7 +87,7 @@ Claude와 OpenCode는 Orca 전역 확장 설정을 새 인스턴스의 시작 �
 |---|---|---|
 | Claude 프로젝트 공유 | `app/native-resource-sharing.ts`가 peer runtime마다 SDK 변경 | 공유는 유지하되 작업경로를 기준으로 정규화해야 함 |
 | Claude plugin 저장 | `claude/plugin-state.ts`가 `enabledPlugins` 항목을 병합하고 다른 키 보존 | D20에 따라 유지. Orca JSON 대체·기존 파일 삭제 없음 |
-| Claude MCP 저장 | SDK `toggleMcpServer`; settings 타입의 `enabledMcpjsonServers`·`disabledMcpjsonServers` | 프로젝트 `.mcp.json` 승인과 일반 MCP 실행 on/off는 다름. U7 및 실제 SDK 저장 효과 확인 필요 |
+| Claude MCP 저장 | SDK `toggleMcpServer`; settings 타입의 `enabledMcpjsonServers`·`disabledMcpjsonServers` | 프로젝트 `.mcp.json` 승인과 일반 MCP 실행 on/off는 다름. D21에서 SDK native 저장 허용, 실제 관측은 0279 evidence 참조 |
 | Claude SDK 주입 | `native-resources.ts`의 `applyFlagSettings`·`reloadPlugins` | 내부 SDK 세션 API를 프로젝트 전체에 조정하는 구현 수단으로 사용. 제품에서 세션별 제어를 노출하지 않음 |
 | OpenCode 전역 주입 | `native-storage.ts`가 서버 시작 환경에 구성 전달 | 실행 중 서버에서 새 directory가 최신 기본값을 읽는 경로 조사 필요 |
 | OpenCode 공유 | 1.17.19 InstanceStore의 directory 키, MCP InstanceState | D15·D16과 범위가 맞지만 native plugin 변경 API 지원은 별도 검증 |
@@ -102,7 +102,7 @@ Claude와 OpenCode는 Orca 전역 확장 설정을 새 인스턴스의 시작 �
 | 기존 인스턴스에 새 세션 추가 | 해당 프로젝트의 실행 구성 공유 |
 | 우측 패널 MCP·plugin 변경 | 같은 엔진·작업경로의 실행 세션에 적용하고 실제 결과 통지 |
 | 다른 작업경로 | 제어값을 전파하지 않음 |
-| 정책상 자원 회수 후 인스턴스 재생성 / 앱 재시작 | 최신 기본값과 명시 프로젝트 선택 적용. Claude 저장은 D20·U7, OpenCode 형식은 U6 |
+| 정책상 자원 회수 후 인스턴스 재생성 / 앱 재시작 | 최신 기본값과 명시 프로젝트 선택 적용. Claude 저장은 D20·D21, OpenCode 형식은 U6 |
 
 | 위치 / 제어 능력 | 토글 | 폰트·상태 |
 |---|---|---|
@@ -133,7 +133,7 @@ Claude 파일 쓰기 제거와 Orca JSON 대체 제안은 철회한다. [0279](.
 | R8 / AC8 | 우측 패널 기존 경로 표시와 Composer 안내 금지 유지 | 렌더·기존 UI 회귀 |
 | R9 / AC9 | 목록 조회가 실행 상태·설정·서버 수명 변경을 일으키지 않음 | 0277 조회 경로 |
 
-ACTIVE 결정 ↔ AC 대조: D1·D15→AC1, D5→AC4·AC6, D7→AC7, D9→AC9, D10·D11→AC3·AC6, D12·D17→AC8, D16→AC2·AC3·AC4, D20→AC5. OpenCode D19·U6와 Claude U7은 확정 뒤 기술 설계에 반영한다.
+ACTIVE 결정 ↔ AC 대조: D1·D15→AC1, D5→AC4·AC6, D7→AC7, D9→AC9, D10·D11→AC3·AC6, D12·D17→AC8, D16→AC2·AC3·AC4, D20→AC5. OpenCode D19·U6는 확정 뒤 기술 설계에 반영한다. Claude D21은 0279에서 구현한다.
 
 ## 7-A. V 초안의 대체
 
@@ -145,7 +145,7 @@ ACTIVE 결정 ↔ AC 대조: D1·D15→AC1, D5→AC4·AC6, D7→AC7, D9→AC9, D
 
 | 경계 | AS-IS | TO-BE |
 |---|---|---|
-| Claude 상태 보관 | plugin은 settings.local.json, MCP는 SDK toggle | plugin 저장 유지. 일반 MCP 네이티브 저장 허용 범위는 U7 |
+| Claude 상태 보관 | plugin은 settings.local.json, MCP는 SDK toggle | plugin 저장 유지. 일반 MCP 네이티브 저장은 D21로 허용 |
 | 프로젝트 동기화 | project_id 또는 native Git root | 현재 작업경로의 정규화 키 |
 | 초기 plugin 조립 | native catalog·provider·local 설정 | 해당 작업경로의 native local 선택과 SDK 주입값 일치 검증 |
 | 전역 적용 시점 | 세션별 적용 초안 | 인스턴스 생성 시점. 실행 중인 인스턴스와 전역 revision 구분 |
@@ -174,7 +174,7 @@ Claude 토글은 D20의 허용 키만 병합한다. `permissions`·`hooks`·`env
 | ID | 분류 | 항목 |
 |---|---|---|
 | U6 | 사용자 결정 | OpenCode Orca JSON 저장 형식 미확정. Claude에 제안한 저장 형식은 D20으로 철회 |
-| U7 | 사용자 결정 | Claude 일반 MCP의 네이티브 프로젝트 상태(`~/.claude.json`) 저장도 허용할지 |
+| U7 | 결정 완료 — D21 | SDK native 프로젝트 MCP 상태 저장 허용. 0279에 반영 |
 | U4 | 사용자 결정 | 프로젝트 선택을 전역 기본값으로 되돌리는 조작 위치·방식 |
 | U5 | 사용자 결정 | 재초기화가 필요한 프로젝트 제어를 즉시 실행할지 유휴·자원 회수까지 보류할지 |
 | T1 | 기술 검증 | OpenCode 실행 중 서버를 유지하면서 새 directory에 최신 기본값 전달 |

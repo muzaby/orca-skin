@@ -1,4 +1,6 @@
 import { persistClaudePluginState } from './plugin-state'
+import { ClaudeProjectReconciliation } from './project-reconciliation'
+import { claudeProjectSettingsFiles, readClaudeProjectSettings } from './project-settings'
 import { readClaudePluginCatalog } from './plugin-catalog'
 import { claudeNativeResources } from './native-resources'
 // ClaudeAdapter — @anthropic-ai/claude-agent-sdk 의 query() 함수를 통해 Claude Code 와 통신.
@@ -748,6 +750,22 @@ export class ClaudeAdapter implements SessionAdapter {
       }
     )
 
+    const configDirSpecified = !!contextEnv('CLAUDE_CONFIG_DIR')?.trim()
+    const projectResources = new ClaudeProjectReconciliation({
+      cwd,
+      root: nativePaths.root,
+      configDirSpecified,
+      plugins: nativePlugins,
+      list: () => resources.list(),
+      set: (...args) => resources.set(...args)
+    })
+    const projectFiles = claudeProjectSettingsFiles(cwd, nativePaths.root, configDirSpecified)
+    const projectPolicy = {
+      files: () => projectFiles,
+      read: async () => ({
+        revision: readClaudeProjectSettings(cwd, nativePaths.root, configDirSpecified).revision
+      })
+    }
     async function* eventBatches(): AsyncIterable<ProviderMessageBatch> {
       let sequence = 0
       try {
@@ -880,6 +898,8 @@ export class ClaudeAdapter implements SessionAdapter {
     }
 
     return {
+      projectResourcePolicy: () => projectPolicy,
+      reconcileNativeResources: (revision, isIdle) => projectResources.reconcile(revision, isIdle),
       providerGeneration: backgroundMapper.generation,
       nativePluginDirectory: (id) => resources.directory(id),
       nativeResources: async () => {
@@ -890,7 +910,7 @@ export class ClaudeAdapter implements SessionAdapter {
         return {
           state: 'connected',
           generation: backgroundMapper.generation,
-          items,
+          items: projectResources.preview(items),
           ...(commands !== undefined ? { commands } : {}),
           ...(commands === undefined ? { partial: true } : {})
         }

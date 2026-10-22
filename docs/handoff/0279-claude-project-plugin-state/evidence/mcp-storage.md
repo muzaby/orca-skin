@@ -31,6 +31,8 @@
 
 같은 날짜·SDK에서 `work/claude-mcp-controls-probe.mjs`를 실행했다. 별도 config/home/cwd와 로컬 응답용 HTTP 서버를 사용했고 외부 LLM이나 실제 사용자 설정을 사용하지 않았다. 최종 결과는 `work/claude-mcp-controls-3eghSo/result.json`에 남겼다.
 
+Windows 설정 위치 추가 관측: `work/claude-settings-path-probe.mjs`가 임시 Git 저장소의 부모와 child에 서로 다른 enabledPlugins를 기록한 뒤 설치 SDK `resolveSettings({ cwd: child, settingSources: ['project', 'local'] })`를 호출했다. 응답의 project는 `repo/child/.claude/settings.json`과 `child@project`, local은 `repo/child/.claude/settings.local.json`과 `child@local`이었다. 실제 사용자 설정은 편집하지 않았다. native MCP projects의 Git root 키와 settings/local의 cwd 위치를 구분한다.
+
 | 출처 / fixture | 초기 조회 | toggle(false) | toggle(true) |
 |---|---|---|---|
 | user / user_fixture | connected | disabled | connected |

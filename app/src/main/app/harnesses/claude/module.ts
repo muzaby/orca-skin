@@ -1,8 +1,4 @@
-import {
-  configuredClaudeCommands,
-  claudePluginProjectRoot,
-  pluginPathKey
-} from '../../../adapters/claude/plugin-catalog'
+import { configuredClaudeCommands, pluginPathKey } from '../../../adapters/claude/plugin-catalog'
 import { ClaudeAdapter } from '../../../adapters/claude/adapter'
 import {
   configuredClaudeResources,
@@ -19,8 +15,16 @@ import {
 } from '../../../features/harnesses/claude/model-parser'
 import { defaultProvider, resolveTitleModel } from '../../../features/harnesses/claude/model-policy'
 import type { MainHarnessModule } from '../common/contracts'
+import {
+  claudeProjectSettingsFiles,
+  readClaudeProjectSettings
+} from '../../../adapters/claude/project-settings'
 
 export const claudeMainModule: MainHarnessModule = {
+  projectResources: {
+    files: claudeProjectSettingsFiles,
+    read: async (cwd) => ({ revision: readClaudeProjectSettings(cwd).revision })
+  },
   id: 'claude',
   createAdapter: () => new ClaudeAdapter(),
   loadSettings: loadClaudeProviderSettings,
@@ -28,7 +32,7 @@ export const claudeMainModule: MainHarnessModule = {
   parseRuntimeModels,
   readUserSettings: readUserClaudeSettings,
   configuredResources: configuredClaudeResources,
-  nativeResourceScope: (cwd) => pluginPathKey(claudePluginProjectRoot(cwd)),
+  nativeResourceScope: pluginPathKey,
   configuredCommands: configuredClaudeCommands,
   configuredPluginDirectory: configuredClaudePluginDirectory,
   configuredMcpFile: configuredClaudeMcpFile,
