@@ -4,7 +4,7 @@
 
 | 항목 | 값 |
 |---|---|
-| 상태 | DRAFT — V1 구현 뒤 0278 F1 실패 확인. cwd 격리 기술 보완 필요. 동시 설정 편집 대기 요구는 ΔV2에 추가 |
+| 상태 | DRAFT — 0278 D32의 엄격한 cwd 격리·불가 항목 모니터링 확정. F1을 mutation 차단 기준으로 보완. 동시 설정 편집 대기는 ΔV2 |
 | 작성자 / 일자 | Codex / 2026-10-22 |
 | V mode / 기준 / revision | Delta V / V1@256ddd24 + ΔV1@81373134 / V1 + ΔV1 + ΔV2 |
 | 정책 정본 | [0278](../0278-harness-extension-isolation/plan.md) |
@@ -40,6 +40,7 @@ Claude 프로젝트의 MCP·네이티브 플러그인 선택을 네이티브 설
 | D7 | SDK의 네이티브 MCP 상태 저장 허용 — 사용자 구현 지시 | ACTIVE |
 | D8 | 외부 프로젝트 설정은 화면에 즉시 반영하고 실행 구성은 해당 프로젝트 유휴 때 적용. 재시작 필요 시 기존 자원 회수 정책 준수 — 사용자 구현 지시 | ACTIVE |
 | D9 | 네이티브 설정 파일의 동시 편집은 파일별 비동기 임계영역에서 대기·저장. 정상 경합을 즉시 파일 오류 토스트로 반환하지 않음 — 추가 요구, 0278 D31 | ACTIVE — 저장 위치·허용 키·cwd 격리·유휴 적용 유지 |
+| D10 | 엄격한 현재 cwd 격리 유지. native 저장까지 격리할 수 없는 항목은 모니터링만 제공 — 사용자 답변, 0278 D32 | ACTIVE — D2 재확인. SDK native MCP 저장 허용(D7)은 격리 검증을 통과한 제어에 한정 |
 
 D5는 해당 파일을 읽는 외부 Claude와의 프로젝트 설정 공유를 허용하며 다른 설정의 임의 편집을 허용하지 않는다. OpenCode 프로젝트 파일 공유는 후속 [0278 ΔV2 D30](../0278-harness-extension-isolation/plan.md)에서 별도로 승인됐다. Claude의 저장 위치·SDK 허용·cwd 격리·유휴 적용 기준은 그대로 유지한다.
 
@@ -203,6 +204,8 @@ ACTIVE↔AC: D2→AC2, D4→AC7, D5→AC1·3, D6→AC4의 전역 비소급, D7�
 기존 AC1·4·5·6의 저장/실패 경계에 위 요구를 추가한다. 별도 AC8은 **동시 변경의 보존·정상 경합 무오류·다른 파일 진행·성공 응답 순서**이며, 직접 검증은 0278 W1–W12 중 Claude writer/SDK 사례와 DV3-P1·2·3·4다. `plugin-state.test.ts`는 실제 임시 파일 동시 요청·형제 키 보존·malformed 후 복구를, `native-resources.test.ts`는 지연 persistence·거절·peer 무기록을 검사한다. 기존 동기 writer 테스트 통과를 새 동시성 계약의 완료 증거로 사용하지 않는다.
 
 강제 지점은 0278 WEP1–4·7–10을 승계한다. 다른 cwd 격리의 C1–C7, 전역 비소급 G1–G8, 기존 AC2·3·6과 F1은 회귀 대상이다. 추가 요구의 문서 반영은 끝났지만 F1 및 전체 native 경계가 해결되기 전 DRAFT를 유지한다.
+
+후속 D10은 [0278 ΔV4](../0278-harness-extension-isolation/plan.md)를 승계한다. 설치 SDK에서 Git-root 저장을 수행하는 native MCP toggle은 모니터링으로 제한하고, UI·등록 IPC·adapter 직접 호출·자동 reconcile 경로 모두에서 우회 mutation을 막는다. 해당 AC6/SDK 쓰기 증거는 DV4-P1–3의 관측·거부·다른 cwd/파일 무변경으로 이관한다. 지원되는 plugin writer는 비동기 대기/저장 검증을 유지한다. native 파일 쓰기 허용을 모든 항목의 제어 지원으로 해석하지 않는다.
 
 ## [구현자 기입] 설계 리뷰
 

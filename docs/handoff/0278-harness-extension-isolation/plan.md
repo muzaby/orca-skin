@@ -6,8 +6,8 @@
 |---|---|
 | slug | 0278-harness-extension-isolation |
 | 작성자 / 일자 | Codex / 2026-10-22 |
-| 상태 | DRAFT — 네이티브 프로젝트 저장·동시 파일 편집 대기 정책 확정. cwd 격리·네이티브 효력 검증은 미완료; 기존 verify FAIL 유지 |
-| V mode / 기준 / revision | Delta V / V1@256ddd24 + ΔV1@087543ed + ΔV2@81373134 / 유효 revision: V1 + ΔV1 + ΔV2 + ΔV3 |
+| 상태 | DRAFT — 엄격한 cwd 격리·격리 불가 항목 모니터링 확정(D32). 동시 저장 설계 반영. capability 강제·전역 비소급의 구현/검증 경계 보완 중 |
+| V mode / 기준 / revision | Delta V / V1@256ddd24 + ΔV1@087543ed + ΔV2@81373134 / 유효 revision: V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 |
 | 관련 작업 | [0277 MCP 관측](../0277-opencode-mcp-catalog/plan.md), [0275 공유 인스턴스](../0275-opencode-shared-instances/plan.md), [0276 Composer 준비](../0276-opencode-composer-preparation/plan.md) |
 
 # Part I — Product & UX Contract
@@ -67,7 +67,7 @@ Claude와 OpenCode는 하네스의 네이티브 전역 설정을 시작 기준�
 | U7 | 일반 MCP on/off의 네이티브 저장 위치인 `~/.claude.json` 프로젝트 MCP 상태도 허용할지 | SUPERSEDED → D21 |
 | D21 | SDK 네이티브 MCP 저장 허용. 외부 프로젝트 변경은 화면 즉시·프로젝트 유휴 때 실행 적용, 재시작은 기존 자원 회수 정책 — 사용자 구현 지시 | ACTIVE — 0279 D7·D8로 구현 |
 
-갱신 메모: 세션 제어→D16, 전역 적용 시점→D15, Claude 저장→D20·D21, nav 범위→D23으로 닫았다. 아래 초기 초안은 이력이며 유효 계약은 V1에 ΔV1·ΔV2·ΔV3를 순서대로 적용해 읽는다. D25의 영속 저장 해석은 사용자 승인으로 취급하지 않고 D26으로 철회한다. 동시 파일 편집 대기 요구는 D31·§22–25에 추가하며 저장 위치·허용 키·적용 시점은 바꾸지 않는다.
+갱신 메모: 세션 제어→D16, 전역 적용 시점→D15, Claude 저장→D20·D21, nav 범위→D23으로 닫았다. 아래 초기 초안은 이력이며 유효 계약은 V1에 ΔV1·ΔV2·ΔV3·ΔV4를 순서대로 적용해 읽는다. D25의 영속 저장 해석은 사용자 승인으로 취급하지 않고 D26으로 철회한다. 동시 파일 편집 대기 요구는 D31·§22–25, 격리 불가 항목의 모니터링 결정은 D32·§26에 추가한다.
 
 후속 사용자 원문:
 
@@ -471,7 +471,7 @@ ACTIVE 결정↔AC: D1·15·28→AC5G, D5·10·11·24·26→AC1–4S, D7→AC6·
 | 경계 | 잠가야 할 사실·실패 판정 |
 |---|---|
 | 중첩 cwd | A 루트 설정은 native 탐색상 B 하위 cwd가 상속할 수 있음. A 변경 전 열린 B와 변경 후 처음 여는 B 모두 다른 작업경로 격리를 검증. B 파일에 몰래 역보정하거나 cwd를 Git root로 통합해 해결한 것으로 보지 않음 |
-| 범위별 capability | 일반 파일 쓰기만으로 중첩 경로 격리가 보장되지 않음. 실제 native 메커니즘으로 보장하지 못하는 항목/범위는 제어 지원으로 판정하지 않으며 이 제한을 전체 요구 완료로 세지 않음 |
+| 범위별 capability | 일반 파일 쓰기만으로 중첩 경로 격리가 보장되지 않음. 실제 native 메커니즘으로 보장하지 못하는 항목/범위는 제어 지원으로 판정하지 않음. 모니터링을 완료 범위에서 제외하던 해석은 후속 D32로 대체 |
 | plugin 끄기/복원 | 프로젝트 선언 제거와 global·자동 탐색 plugin 비활성화는 다름. off 후 앱 재시작·on 복원까지 native 표현으로 가능한지 확인하며, 비공식 저장소에 제거한 선언을 숨겨 보관하지 않음 |
 | MCP 적용 | 파일 편집 자체에 대한 native watcher의 재로드/폐기와 기존 instance의 SDK connect/disconnect·config hook 동적 MCP 효과를 실제 실행에서 확인. native가 캐시한 disabled 설정 때문에 hot enable이 안 되면 정상 회수 후 적용 |
 | 우선순위/세대 | OPENCODE_CONFIG_CONTENT·custom config·plugin hook이 프로젝트 값을 덮는 경우 거짓 성공 금지. 전역 변경과 프로젝트 변경을 동시에 감지해도 최신 global이 기존 instance의 project 변경 적용에 섞여 소급되지 않아야 함 |
@@ -631,6 +631,49 @@ W1 서로 다른 plugin/MCP 키의 동시 변경; W2 같은 키 on→off; W3 Win
 문서 gate는 D31→AC17W–20L→DV3-P1–4→WEP의 누락, D15·16·20·21·26·28·29·30과의 모순, 0279/INDEX 참조·상대 링크·diff·inventory/prose다. 구현 gate는 main subtree의 타입·lint·build와 위 UT/IT/ST/AT, 기존 C/G/O를 포함한다. 이번 추가 요구를 문서에 기록한 것과 전체 plan READY·구현 완료는 별개다. **기존 Claude F1 및 OpenCode 네이티브 효력·cwd 격리 검증을 닫기 전에는 READY로 올리지 않는다.**
 
 ΔV3 문서 검사: 변경 문서 4개·상대 링크 258개와 저장소 소유 문서 링크에서 파손 0건. inventory/prose 및 `git diff --check` 통과. 전체 링크 명령의 실패는 무시된 외부 참조 checkout의 기존 파손 10건이며 이번 변경과 분리한다. 제품 코드·기존 verify·evidence·구현 보고는 변경하지 않았다.
+
+## 26. ΔV4 — 엄격한 작업경로 격리와 미지원 항목의 모니터링
+
+사용자는 native 저장의 상위 경로 상속과 충돌하는 범위를 설명받고 **“엄격한 작업경로 격리 유지, 불가능한 항목은 모니터링만”**으로 답했다. 이 답변은 D16의 범위를 Git root로 넓히거나 상속을 허용한 것이 아니다.
+
+| ID | 결정·대체 관계 | 상태 |
+|---|---|---|
+| D32 | 엄격한 현재 cwd 격리 유지. SDK 실행과 native 저장의 전체 효과가 다른 cwd에 전파되지 않는다고 확인된 항목만 프로젝트 제어. 보장할 수 없는 항목은 실제 상태 모니터링만 제공 — 사용자 답변 | ACTIVE. D16 재확인. ΔV2의 ‘격리 불가 항목을 모니터링으로 제공해도 완료로 세지 않음’ 해석만 SUPERSEDED |
+
+### 재현한 사실과 적용
+
+| 확인 경계 | 이번 조사에서 관측한 결과 | 설계 적용 |
+|---|---|---|
+| 설치 Claude SDK 0.3.286 | 기존 `evidence/claude-cwd-probe.mjs` 재실행: A connected→SDK off→Git root에 disabled 저장→다른 cwd B의 최초 실행 disabled | 현재 native MCP toggle을 cwd 격리 가능으로 표시하지 않음. 조작 거부를 SDK 호출 **이전**에 강제 |
+| 같은 SDK의 Windows local plugin | 로컬 plugin fixture로 A의 `settings.local.json`에 inline plugin off 저장: 새 A/reload A에서는 제거, 하위 B 최초 Query에서는 해당 plugin 유지 | MCP와 plugin의 capability를 분리. 검증한 현재 cwd local 파일·SDK flags/reload 경로는 지원 후보로 유지 |
+| OpenCode 1.17.19 파일 변경 | 격리 HOME·로컬 MCP·로컬 plugin fixture에서 A 파일의 MCP false 변경 후 기존 A/B는 true 유지. 이후 처음 연 A 하위 C는 false 상속; 별도 repo D에는 A MCP가 없음 | A의 프로젝트 파일 저장도 미래의 다른 cwd에 영향. 해당 방식의 프로젝트 MCP 제어는 모니터링으로 제한 |
+| OpenCode SDK MCP | 같은 서버의 A disconnect 뒤 A disabled/B connected. A connect는 복구되고 프로젝트 파일은 SDK 호출로 바뀌지 않음 | 실행 시점의 directory 격리만으로 native 영속 저장까지 지원한다고 판정하지 않음 |
+| OpenCode plugin/config | A의 `plugin: []` 뒤 새 하위 C에도 전역 plugin agent가 남음. `PATCH /config`는 기존 opencode.jsonc를 보존하고 config.json을 생성 | 빈 배열을 plugin off로 쓰지 않음. safe native writer의 대체로 Config.update를 사용하지 않음 |
+
+OpenCode 검증은 공식 npm Windows 실행 파일 1.17.19와 동일 버전 plugin 의존성을 격리 디렉터리에 미리 준비했다. LLM 요청·실사용자 파일 접근 없이 설정/agent/MCP API를 확인했다. 이 결과는 부팅 성능 측정이나 사용자 커스텀 바이너리 검증을 대신하지 않는다. 기존 Claude F1 증거는 실패 이력으로 보존하며, 수정 후에는 **불가 항목의 mutation이 막히는지** 검증한다.
+
+### capability·저장·표시 계약
+
+- 우측 패널은 격리 불가 항목의 토글을 제공하지 않는다. 숨긴 버튼만으로 끝내지 않고 실제 mutation/SDK 진입에서도 거부한다. 실제 on/off·연결·인증·실패 상태와 관측 기능은 유지한다.
+- 네이티브 파일 사용(D20·21·30)은 **격리 가능한 제어의 저장 방식**이다. 파일 쓰기 권한이 있다는 이유로 capability를 true로 만들지 않는다. OpenCode의 현재 MCP 프로젝트 파일 writer·비활성 규약 없는 plugin writer를 기능 없는 보조 모듈로 먼저 만들지 않는다.
+- D31의 파일 대기열은 현재 지원 가능한 Claude plugin writer와 이후 검증된 native writer에 적용한다. 호출이 차단된 SDK MCP와 OpenCode 파일 쓰기는 큐에 넣어 실행하지 않는다. ΔV3의 해당 writer/SDK 자리(WEP5·6·7)는 **안전한 거부와 무기록 검증**으로 대체하며, 범위 미지원도 오류를 숨긴 성공으로 반환하지 않는다.
+- 지원되는 Claude plugin 제어도 실제 설치/SDK/OS·local 파일 범위에 따라 판정한다. 현재 cwd 밖에 설정을 저장하는 경로, 실제 설치를 식별할 수 없는 경우, SDK reload/setter가 없으면 모니터링만 제공한다. 다른 native MCP에 대한 제어권까지 plugin capability에서 추론하지 않는다.
+- nav 전역은 기존 D10·11·26 그대로다. 외부 하네스 설정을 수정하지 않고 SDK로 Orca의 **새 인스턴스 기본값**에만 적용 가능한 항목은 일반 폰트·가변 토글, 불가 항목은 실제 상태·고정 토글·회색 폰트다. 프로젝트 제어 불가를 전역 제어 불가로 일괄 확장하지 않는다.
+- 외부 파일을 읽어 발견한 native 상속 결과는 실제 관측 정보다. Orca가 다른 cwd에 보상 파일을 쓰거나 Git root를 프로젝트 공유 키로 바꾸지 않는다. 외부 편집의 UI 반영과 Orca runtime 유휴/정상 회수 적용은 유지하며, 지원하지 않는 SDK toggle을 자동 reconcile에서 우회 호출하지 않는다.
+
+### ΔV4 인수·증거 이관
+
+| Pair | 상태·기준 | 직접 oracle·이관 |
+|---|---|---|
+| DV4-P1 R5↔AT5 | NEW REQUIRED — AC21C | 우측 패널 실제 렌더→등록 IPC 직접 요청→adapter: 격리 불가 MCP/plugin은 관측되지만 토글 없음, 직접 호출은 거부. 같은 Git root A/B·별도 D의 파일 bytes·SDK 호출 무변경. `nativeResourceState.test.ts`·`session-resources.test.ts`에 unsafe resource fixture |
+| DV4-P2 AR6↔IT6 | NEW REQUIRED — capability 값과 mutation 방어 | `claude/native-resources.test.ts`·`opencode/v1/adapter.test.ts`에서 실제 port를 호출해 SDK 미호출·파일 무기록 확인. `project-reconciliation.test.ts`에 읽기 전용 MCP 외부 변경→안전한 pending/restart 경로, 직접 toggle 없음 |
+| DV4-P3 MD6↔UT6 | NEW REQUIRED — 지원 판정 | 실제 cwd·native 저장 대상·플랫폼·SDK 메서드·항목 출처를 구별하는 capability 테스트. 지원 plugin의 정상 reload/저장은 보존하고 격리 불가만 차단; 단순 backend 이름 일괄 false 금지 |
+| DV2-P1/3/4, DV3-P1/3/4 일부 | SUPERSEDED 부분 → DV4-P1/2/3 | 격리 불가 OpenCode 항목의 ‘저장 성공/CLI 복원’ 및 Claude SDK MCP 쓰기 oracle을 ‘관측 성공/조작 거부/파일·다른 cwd 불변’으로 이관. 지원 native writer의 보존·동시성 oracle은 유지 |
+| DV2-P2, DV3-P2, DV1-P2/3, V1 VP7 | INHERITED REGRESSION | 전체 cwd 유휴·정상 회수·G1–G8 비소급·목록/상태 동기화·지원 plugin 변경. C/O의 원인인 Orca 조작 경로를 실제 차단해야 하며 기존 실패 테스트를 무조건 skip하지 않음 |
+
+AC21C는 항목별 capability에 맞는 **제어 또는 관측 제공**이다. 같은 파일 lock으로 저장 범위를 바꾼 것처럼 보이게 하거나, 성공 응답만 반환하는 무동작 제어는 실패다. 최신 원문·허용 키·전역 비소급을 보존한 채 위 oracle과 실제 강제 지점을 전체 §10에 합친 뒤 READY로 확정한다. 추가 사용자 결정은 없다; 남은 것은 코드와 테스트 경계의 기술 보완이다.
+
+ΔV4 문서 검사: 이번 턴의 변경 문서 4개·상대 링크 259개와 저장소 소유 문서 링크에서 파손 0건, diff 검사 통과. D31의 대기·저장 계약과 D32의 제어 허용 조건을 분리해 대조했다. 네이티브 실측은 위 표에 기록했고 제품 코드·기존 verify 및 구현 완료 판정은 변경하지 않았다.
 
 ## [구현자 기입] — V1 r1
 

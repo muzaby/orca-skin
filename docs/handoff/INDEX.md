@@ -24,8 +24,8 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | [`0281-opencode-menu-cache`](0281-opencode-menu-cache/plan.md) | plan | READY | Codex | V1 `256ddd24` | 1 | ΔV1: 기본 에이전트 행 제거·에이전트 제목 우측 로딩 회전 스피너. 캐시·새로고침 제거 유지. 새 요구 구현 전. |
 | [`0280-opencode-prepared-status`](0280-opencode-prepared-status/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 준비 인스턴스의 MCP/plugin 독립 표시·취소/실패 구분·안전 진단. AC5/5 자기확인, 실제 사용자 환경·독립 검증 대기. 전역 제어는 0278 별도. |
-| [`0279-claude-project-plugin-state`](0279-claude-project-plugin-state/plan.md) | plan | DRAFT | Claude | V1 `256ddd24` | 1 | ΔV2: 0278 D31의 파일별 비동기 대기·callback await·잠금/실패 회귀 승계. 기존 F1의 SDK 저장→새 cwd 격리 보완 필요. |
-| [`0278-harness-extension-isolation`](0278-harness-extension-isolation/plan.md) | plan | DRAFT | Claude | V1 `256ddd24`; 기존 검증 `b928a4ae` + `6bf1ee40` | 2 | ΔV3: 동시 파일 편집 대기·원자 저장·재시도·외부 충돌·종료 검증 추가. D30 native 프로젝트 공유와 C/G/O 유지; F1 FAIL·네이티브 효력 검증 미완료. [검증](0278-harness-extension-isolation/verify.md). |
+| [`0279-claude-project-plugin-state`](0279-claude-project-plugin-state/plan.md) | plan | DRAFT | Claude | V1 `256ddd24` | 1 | D31 비동기 대기·await 및 D32 엄격한 cwd 격리 승계. F1은 native MCP 관측·mutation 차단으로 보완. 지원 plugin 저장 검증 유지. |
+| [`0278-harness-extension-isolation`](0278-harness-extension-isolation/plan.md) | plan | DRAFT | Claude | V1 `256ddd24`; 기존 검증 `b928a4ae` + `6bf1ee40` | 2 | ΔV3 동시 파일 저장, ΔV4 엄격한 cwd 격리·불가 항목 모니터링 확정. Claude/OpenCode 실측 반영. capability 강제·비소급 경계 보완 후 READY 예정. [검증](0278-harness-extension-isolation/verify.md). |
 | [`0277-opencode-mcp-catalog`](0277-opencode-mcp-catalog/plan.md) | plan | DRAFT | Claude | V1 `256ddd24` | 1 | nav 전역·패널 cwd로 본문/V 경로 정정, R1–R11 추적 유지. 선택 UI 질문 종료; 통합 구현 관측 증거·강제 지점 최종 잠금 필요. |
 | [`0276-opencode-composer-preparation`](0276-opencode-composer-preparation/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 첫 입력 전 agent/provider 독립 준비·캐시/재조회·owner 수명 구현. CLI 1.17.19 A idle→B 및 첫 입력 재사용 확인. 팝업 표현은 0281 ΔV1 적용. |
 | [`0275-opencode-shared-instances`](0275-opencode-shared-instances/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 호환 profile 서버 공유, directory 정리 완료 뒤 반납. 실제 CLI에서 module import 재사용·기존 이력 보존·최종 서버 종료 관측. |
