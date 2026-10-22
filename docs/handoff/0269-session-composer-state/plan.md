@@ -4,7 +4,7 @@
 
 | 항목 | 값 |
 |---|---|
-| 상태 / 라운드 | IMPL_DONE / r1 (AC6/6·원격 Windows CI 통과) |
+| 상태 / 라운드 | IMPL_DONE / r2 (FAIL 대응 완료·최신 원격 Windows CI 대기) |
 | 작성자 / 일자 | Codex / 2026-10-20 |
 | V mode / revision | Baseline V / V1 |
 | 기준 | origin/codex-harness-entry-menu `4766e080` 리베이스 완료 |
@@ -150,3 +150,88 @@ D1~5와 합치한다. 실행에서 해석한 모델을 턴/자동 연속 턴으�
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
 | D1 | G6 reader가 telemetry를 저장 모델보다 먼저 써도 green | EP1④ · AC1 · VP3 | `last_model`과 다른 마지막 telemetry가 있는 세션의 load DTO가 저장 모델임을 단언 | BLOCKING | open |
+
+## [구현자 기입] r2 설계 리뷰
+
+D1의 reader 우선순위는 production에서 이미 올바르다. 테스트 DB에 저장 모델과 다른 최신 telemetry 모델을 기록해 reader가 어느 값을 복원했는지 구별하도록 보완했다. ACTIVE Decision·AC·V·§10 변경 없음.
+
+불변식: 명시적으로 저장한 마지막 소비 모델이 있으면 telemetry의 primary model은 복원 선택을 대체하지 않는다. telemetry 자체는 사용량 표시를 위해 그대로 DTO에 보존한다. 모델 선택과 사용량 표시가 서로 다른 값인 상황을 실제 파일 DB 재개방 경로에서 관측한다.
+
+## [구현자 기입] r2 강제 지점 전수와 V-pair 자기확인
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP1·3 | migration/query | EP1① 동일 UPDATE | 1/1 | last-model `upgrades an existing database…`·`restores each session model…` | 기존 message/title·nullable 컬럼, 다른 provider/model A/B | 없음 |
+| VP1·3 | 실제 턴 모델 | EP1② turn-context/continuation | 1/1 | turn-context `carries the actual resolved model…` | 실행 Sonnet[1m]·title-only 구별, 연속 턴 유지 | 없음 |
+| VP1·2·3 | writer | EP1③ 소비/신규 확정 | 1/1 | last-model `restores each session model…` | 미소비 재개 값은 기존 선택 보존, 소비 뒤 함께 변경 | 없음 |
+| VP1·3 | reader/DTO | EP1④ load/refresh | 1/1 | 강화한 last-model 파일 DB 재개방·session.load handler | modelFamily=claude-opus-4-6, lastTelemetry.model=title-telemetry-only 동시 보존 | 없음 |
+| VP1·2·3 | Composer | EP1⑤ cold/cached load | 1/1 | Composer.selection·chatReducer.model·composerWiring | provider 기본 Opus와 저장 Sonnet[1m]·alias 구별, cached 새 선택 보존 | 없음 |
+| VP4 | 승인 | EP1⑥ default/explicit | 1/1 | chatReducer.model·chatReducer.permission | 4.6/5.x 기본 auto, 명시 선택·OpenCode 유지 | 없음 |
+| VP5 | 기존 CI 영향 | EP1⑦ CI15파일·canonical/socket/catch | 1/1 | 최종 전체 로컬 gate의 기존 영향 테스트·guard | 이번 변경은 last-model fixture만, 기존 CI 복구 production 유지 | 전체 gate 결과는 통합 기록 |
+| 운영 | 로컬/원격 gate | EP1⑧ 운영·최종 원격 CI | 0/1 | 관련49파일493/493 green, 최종 운영 결과는 통합 기록 | 이번 커밋 원격 Windows CI는 아직 없음 | 최신 원격 CI |
+
+자리 검색 248행을 고정8자리와 대조했다. 이번 production diff는 없으며 추가 운반 경로도 없다. 마지막 telemetry 삽입은 기존 EP1④를 직접 실행하는 DB fixture 안에만 추가된다. 현재 직접 닫은 수 7/8이며 원격 운영 자리는 별도로 남긴다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP1 | REQUIRED | SELF_PASS | last-model DB 재개방·Composer.selection | 직접 결과 |
+| VP2 | REQUIRED | SELF_PASS | cached/new store·미소비 재개 테스트 | 직접 결과 |
+| VP3 | REQUIRED | SELF_PASS | turn-context·last-model·session.load·Composer.selection·composerWiring | G6 1 red, M1 2 red, 원복 green |
+| VP4 | REQUIRED | SELF_PASS | reducer model/permission | 직접 결과 |
+| VP5 | REQUIRED | SELF_PASS | 기존 CI 영향 테스트·전체 로컬 gate | 원격 운영 판정과 별도 |
+| 원격 운영 | REQUIRED | SELF_BLOCKED | 이번 커밋 원격 CI 미실행 | 이전 CI 결과로 대체하지 않음 |
+
+## [구현자 기입] r2 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| reader에서 telemetry를 last_model보다 우선 | D1·G6 | 못 잡음 | last-model `restores each session model…` 1 failed: title-telemetry-only 반환 | 원복 last-model2/2 green |
+| alias hydration의 modelFamily와 alias 맞바꿈 | 선택 M1·G1 | 2 red | Composer.selection·composerWiring 각1, 총2 failed/7 | 원복 7/7 green |
+
+선택 증거 1 · 인용 변이 1 · 새 proxy oracle 0 = 의무 표 2행. 변이는 격리 copy에만 적용했다. 기존 source-slot guard와 실제 Composer oracle을 그대로 유지했고 M1 검출도 유지됐다. port allocator oracle을 변경하지 않아 r1의 새 proxy에 대한 새 주장은 없다.
+
+## [구현자 기입] r2 Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 사용 모델과 사용량 모델이 다르면 어느 것을 표시하는가 | Composer 선택은 last_model, usage DTO는 telemetry 모델을 유지 | 기존 제품 계약 그대로 |
+| cached 로컬 선택/명시 승인 변경 | 관련 reducer/Composer 회귀 green | 새 UI 변경 없음 |
+| 구DB·telemetry 부재 | 기존 nullable/legacy fallback 테스트 유지 | 새 저장 포맷 없음 |
+
+## [구현자 기입] r2 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | titleModel 필드만 넣고 실제 telemetry row는 없어 reader 분기 차이가 사라졌다 | usage facade로 최신 turn/model row를 실제 DB에 기록 | 재개방 DTO에 서로 다른 모델 두 값 관측·G6 red |
+| 2 | telemetry를 지워서 모델 우선순위를 우회할 위험 | lastTelemetry.model도 함께 단언 | 강화 fixture의 object assertion |
+
+설계 대비 다른 메커니즘 없음. 만료·공유·재진입·다른 무효화 축은 기존 세션 DB/창 cache 계약을 유지하며 이번 변경은 fixture에 한정된다. DB 쓰기 순서나 transaction은 변경하지 않았다.
+
+## [구현자 기입] r2 구현 보고
+
+| 항목 | 관측 |
+|---|---|
+| 변경 | last-model 파일 DB fixture에 저장 모델과 다른 최신 telemetry 및 DTO 단언 추가 |
+| 관련 gate | OpenCode·history·composer·preload·SessionRuntime 묶음49파일493/493 green; DB는 현행 Node ABI127로 실행. [공통 운영 gate](../0281-opencode-menu-cache/evidence/verify-fail-validation.md) |
+| 변이 gate | G6 1 red·M1 2 red, 원복 집중5파일25/25 및 Composer7/7 green |
+| V 자기확인 | 제품5pair SELF_PASS, 원격 운영 SELF_BLOCKED |
+| 강제 지점 | 7/8, EP1⑧ 최신 원격 CI 남음 |
+| AC 자기보고 | 5/6, AC6의 이번 커밋 원격 CI는 미확인 |
+| 대상 커밋 | (r2 구현 — 좌표는 INDEX) |
+
+| AC | 이번 관측 |
+|---|---|
+| AC1 | ✅ 실제 writer→DB 재개방→reader에서 저장 모델이 다른 최신 telemetry보다 우선, G6 red |
+| AC2 | ✅ Composer 실제 복원/alias·cached 선택·legacy fallback, M1 red |
+| AC3 | ✅ reducer model/permission 기본/명시 선택 회귀 |
+| AC4 | ✅ 기존 DB upgrade 및 provider/model 함께 기록 테스트 |
+| AC5 | ✅ 기존 CI 영향 경로의 전체 로컬 회귀, 이번 production 변경 없음 |
+| AC6 | ⚠️ 로컬 통합 gate는 root 기록 참조, 이번 커밋의 원격 Windows CI 아직 미확인 |
+
+검산: ✅ 5 · ⚠️ 1 · ❌ 0 = 총 6. 수정 대상 D1의 관측과 최신 원격 운영 미확인을 구분한다.
+
+## [구현자 기입] r2 Review Signals
+
+- r2, verify 1회 뒤 첫 재구현. D1/D2의 제목 모델 무관·legacy-only fallback 계약이 있었지만 fixture에 다른 telemetry row가 없었다.
+- 기존 production은 그대로 유지하고 구별되는 두 저장값을 실제 파일 DB에서 읽게 했다.
+- 환경: 현재 Node ABI127이 DB를 로드해 ABI 전환 없이 실행했다. Electron 명령의 출력 없는 exit0은 검증 수에 넣지 않았다. 최신 원격 CI는 별도 확인이 필요하다.
