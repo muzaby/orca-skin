@@ -322,4 +322,5 @@ EP07의 profile/env 자리와 AC18에 귀속한다. AC20개·pair9개·강제 �
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
 | D1 | L15 context `references++`를 await 뒤로 옮겨도 green, 보고 좌표 N6 부재 | EP08 reservation · AC16 · VP12 | 마지막 owner 정리 중 같은 directory 재획득이 같은 context로 성공함을 단언 | BLOCKING | open |
+| D2 | E11 warm 거절 catch의 `close()` 삭제 green — 0274 D1 이관 수령 | 0274 MD3/UT3 → VP09 REGRESSION · AC11 | 거절과 `submitting` 해제 사이 늦은 callback 주입 단언, 또는 호출자 close로 동치 근거 제시 | BLOCKING | open |
 | N1 | L8 shutdown entry abort는 상위 controller abort와 동치 | EP09 shutdown | 유지 가능 | NON_BLOCKING | open |
