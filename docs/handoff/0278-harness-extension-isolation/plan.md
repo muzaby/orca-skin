@@ -6,8 +6,8 @@
 |---|---|
 | slug | 0278-harness-extension-isolation |
 | 작성자 / 일자 | Codex / 2026-10-22 |
-| 상태 | DRAFT — 엄격한 cwd 격리·격리 불가 항목 모니터링 확정(D32). 동시 저장 설계 반영. capability 강제·전역 비소급의 구현/검증 경계 보완 중 |
-| V mode / 기준 / revision | Delta V / V1@256ddd24 + ΔV1@087543ed + ΔV2@81373134 / 유효 revision: V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 |
+| 상태 | READY — D32 capability·비소급 snapshot·동시 저장의 최종 설계는 §27. 기존 verify FAIL은 구현 후 재검증 |
+| V mode / 기준 / revision | Delta V / V1@256ddd24 + ΔV1@087543ed + ΔV2@81373134 / 유효 revision: V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 |
 | 관련 작업 | [0277 MCP 관측](../0277-opencode-mcp-catalog/plan.md), [0275 공유 인스턴스](../0275-opencode-shared-instances/plan.md), [0276 Composer 준비](../0276-opencode-composer-preparation/plan.md) |
 
 # Part I — Product & UX Contract
@@ -674,6 +674,56 @@ OpenCode 검증은 공식 npm Windows 실행 파일 1.17.19와 동일 버전 plu
 AC21C는 항목별 capability에 맞는 **제어 또는 관측 제공**이다. 같은 파일 lock으로 저장 범위를 바꾼 것처럼 보이게 하거나, 성공 응답만 반환하는 무동작 제어는 실패다. 최신 원문·허용 키·전역 비소급을 보존한 채 위 oracle과 실제 강제 지점을 전체 §10에 합친 뒤 READY로 확정한다. 추가 사용자 결정은 없다; 남은 것은 코드와 테스트 경계의 기술 보완이다.
 
 ΔV4 문서 검사: 이번 턴의 변경 문서 4개·상대 링크 259개와 저장소 소유 문서 링크에서 파손 0건, diff 검사 통과. D31의 대기·저장 계약과 D32의 제어 허용 조건을 분리해 대조했다. 네이티브 실측은 위 표에 기록했고 제품 코드·기존 verify 및 구현 완료 판정은 변경하지 않았다.
+
+## 27. ΔV5 — READY 확정과 구현 경계 잠금
+
+앞 절의 미잠금/조사 대기 문구는 당시 상태다. D1–D32의 유효 결정을 유지하고, 아래 설계로 D32의 capability 차단·D28의 배포 파일 비소급·D31의 대기 처리를 구현한다. 이번 재실행에서 Claude MCP root 누출, Windows local plugin의 A/B 격리, OpenCode 상위 파일 상속과 directory SDK 격리를 다시 관측했다. OpenCode 전역에서 disabled로 선언한 MCP도 directory `connect`로 connected가 되어 새 인스턴스의 전역 SDK 선택 적용 경로를 확인했다.
+
+### 최종 구조
+
+| 경계 | 구현·수명 계약 |
+|---|---|
+| 전역 선택 | `app/extension-control.ts`의 앱 수명 메모리 객체를 catalog handler와 adapter registry에 **같이** 주입. native 전역 값은 원본 reader, 명시 선택만 메모리. 기존 `nativeExtensionChoices`·`projectMcpChoices`는 읽어 적용하지 않고 새 patch 입력에서도 제외. 기존 디스크 데이터의 일괄 삭제/자동 이관 없음 |
+| Claude MCP | 현재 SDK의 native persistence는 cwd 격리 불가. list는 실제 상태와 `canToggle=false`, set은 SDK 호출 전에 거부. reader는 현재 cwd의 native entry만 project override로 사용하고 Git-root fallback을 합치지 않음. 외부 MCP 정의 변경은 관측하고 필요 시 `restart-required`; 정상 회수 전 toggle/dispose 우회 없음 |
+| Claude plugin | Windows 실제 cwd의 local 저장과 SDK flags/reload를 지원하는 설치만 제어. 확인되지 않은 OS 저장 범위·설치·SDK setter는 관측만. plugin writer의 callback 반환형을 Promise로 바꾸고 실제 저장까지 await. 다른 peer의 `persist=false`는 재저장하지 않음 |
+| OpenCode 프로젝트 | 현재 버전에서 지원하지 않는 native 영속 제어는 모니터링. `OpenCodeMcpControl.set`과 adapter 직접 port에서도 거부, 기존 Orca JSON 프로젝트 선택은 무시. 따라서 미사용 JSONC writer를 생성하지 않음. native 파일 read/files/revision을 project policy로 연결해 외부 변경을 관측하고 재시작 필요는 정상 회수까지 보류 |
+| OpenCode 전역 | acquire 시 captured global MCP 선택만 prepare에서 directory SDK에 적용. project revision 변경이 최신 global을 다시 읽지 않음. 기존 서버·SSE·native bootstrap·owner 회수 흐름 유지 |
+| Claude 배포 snapshot | 신규 `infra/config/plugin-snapshots.ts`가 배포 완료 직후 생성한 불변 plugin 사본을 발행. `createClaudeDeploymentService`의 직렬 deploy 함수 안에서 사본 준비까지 await. `PluginSnapshotPort.capture(roots)`가 현재 발행 세대의 roots와 release를 반환하며 ClaudeAdapter의 cwd snapshot이 이를 보유 |
+| snapshot 보호 범위 | 생성된 Orca plugin의 manifest/MCP/skill 파일은 사본. user-skills wrapper의 링크는 유지하고 활성 필터는 기존 cwd skill snapshot을 사용. 외부 설치 파일 자체의 사용자가 수행한 코드 변경은 on/off 설정 비소급 계약과 구별. `.mcp.json`의 credential 내용을 로그/설정 JSON에 저장하지 않음 |
+| snapshot 회수 | 현재 발행 세대는 다음 capture를 위해 유지, 교체된 세대는 owner가 0이면 제거. 같은 cwd 새 peer/reload는 기존 사본, 새 cwd는 최신 사본. 최종 cwd owner 해제 시 lease 반환. 앱 정상 종료는 runtime 종료 후 snapshot 정리; 부분 발행 실패는 직전 세대 유지 |
+| 파일 queue | `infra/config/file-mutation.ts`의 프로세스 공유 coordinator가 D31 read/merge/commit을 직렬화. 실제 파일 별칭 통일, no-follow/범위 재검사, 고유 temp·sync·rename·revision 재병합·bounded retry·실패 후 release. 같은 cwd mutation 큐와 파일 큐는 별개며 SDK await를 파일 lock 내부에 두지 않음 |
+| 종료 | `before-quit`에서 신규 파일 변경 접수 중지→접수한 큐 drain→기존 runtime shutdown→snapshot 정리→실제 quit. 기존 will-quit의 DB/log 종료 순서는 보존하고 shutdown은 멱등. file 실패를 숨긴 성공 응답이나 무한 종료 대기 없음 |
+
+`PluginSnapshotPort`는 adapter 공통 포트이며 구체 구현을 app이 주입한다. adapter→feature 역참조를 추가하지 않는다. snapshot은 실행 자원이며 사용자 선택의 새 영속 저장소가 아니다. 배포가 진행 중이어도 이미 발행된 사본을 capture하므로 반쯤 쓴 dist를 읽지 않는다. 새 발행에 실패한 배포는 성공으로 표시하지 않는다.
+
+### 최종 §10 및 직접 oracle — 새 자리/기존 이관
+
+아래 좌표는 구현할 테스트명이다. 기존 V의 비영향 경계는 유지하며, DRAFT에서 비어 있던 경계는 이 표가 최종 분모다. 상위 AC는 하위 자리의 실제 파일·SDK 인자·runtime/UI 관측을 합쳐 검증하고 타입 검사로 대체하지 않는다.
+
+| 자리 | 생산 경로 / 해당 pair | 직접 oracle 좌표와 구별 입력 |
+|---|---|---|
+| FEP1 | protocol patch→SettingsStore / DV1-P1·4 | `extension-catalog.test.ts: native choices stay in memory` + `settings-store.test.ts: legacy extension choices are inert` — old false/new true/비대상 sentinel 및 실제 backend bytes |
+| FEP2 | bootstrap→catalog/control→registry / DV1-P4 | `bootstrap.harness.test.ts`·`bootstrap.native-history.test.ts` — 동일 control 주입, 전역 조작 후 새 adapter 값·기존 capture 보존 |
+| FEP3 | Claude sendMessage→cwd snapshot→query/release / DV1-P2 | `adapter.native-plugins.test.ts: deployed MCP snapshots survive new peers and reload` — 실제 임시 `.mcp.json` old/new 값과 G1–G8, SDK fixture가 전달받은 경로를 읽음 |
+| FEP4 | deployment callback→publish→capture / DV1-P2·DV5-P1 | `app/harnesses/claude/extensions.test.ts: publication finishes inside serialized deployment` + `plugin-snapshots.test.ts: retained generation survives publication` — 발행 barrier·사본 내용·A/B/최종 해제 |
+| FEP5 | native resource list/set→SDK/persistence / DV4-P2·3·DV3-P3 | `native-resources.test.ts: unisolated MCP writes are rejected` 및 `persistence is awaited` — 실제 set 호출·SDK 무호출·지연/실패 callback·지원 plugin 성공 |
+| FEP6 | Claude project reader→reconcile / DV1-P3·DV4-P2 | `project-settings.test.ts: Git-root MCP state does not alter child revision` + `project-reconciliation.test.ts: read-only changes await resource reclamation` — A root/B child·같은 이름·외부 변경 |
+| FEP7 | OpenCode context capture→prepare/set/reconcile / DV1-P2·DV4-P2 | `session-context.test.ts`·`adapter.test.ts` — G1–G8, SDK transport의 directory·connect/disconnect·set 거부 및 legacy 선택 무기록 |
+| FEP8 | native OpenCode files→revision→ProjectResourceSync / DV2-P2·3 | 신규 `opencode/v1/project-settings.test.ts` + `project-resource-sync.test.ts` — 실제 A/B 파일/rename·busy/idle·restart-required·과거 세대 |
+| FEP9 | plugin-state→file coordinator / DV3-P1·3·4 | `plugin-state.test.ts`·`file-mutation.test.ts` — W1–W9, 실제 파일의 형제 키·같은 키 순서·별칭·동시 생성·외부 재편집 |
+| FEP10 | session handler/sharing→native setter / DV3-P1·DV4-P1 | `session-resources.test.ts`·`native-resource-sharing.test.ts` — 지연 persistence까지 응답 대기, peer 무기록, stale/unsupported 거부 |
+| FEP11 | queue close→app quit→runtime/snapshot dispose / DV3-P2·DV5-P1 | 신규 `app/native-settings-lifecycle.test.ts`·`plugin-snapshots.test.ts` — 접수한 저장·close/rejection·shutdown 멱등·삭제 완료 순서 |
+| FEP12 | resource DTO→nav/panel / DV4-P1·0277 DV1-P3 | `useNativeMcpCatalog.test.ts`·`CustomizeList.render.test.ts`·`nativeResourceState.test.ts` — on/off×capability, legacy 전역 선택 무시, 실제 관측·미지원 토글 부재 |
+
+검색 입력: `rg -n 'nativeExtensionChoices|projectMcpChoices|extensionControl|persistPluginState|persistClaudePluginState|toggleMcpServer|mcpControl|extensionSnapshots|createClaudeDeploymentService|createHarnessDeploymentService|before-quit|will-quit' app/src/main app/src/shared`; observer/consumer 경계는 `rg -n 'projectResource|canToggle|nativeResources' app/src/main/app app/src/main/adapters app/src/renderer/src/features/chat app/src/renderer/src/features/skills`로 대조했다. ΔV3 WEP1–10은 FEP1–12의 해당 생산 경로에 통합하며 D32가 차단한 writer의 성공 oracle은 무기록/거부로 이관한다.
+
+DV5-P1 **AR7↔IT7 NEW REQUIRED**는 immutable publication→capture→release/cleanup이고 FEP3·4·11에서 검증한다. DV1-P2/4, DV2-P2, DV3-P1–4, DV4-P1–3은 위 경로로 **CHANGED REQUIRED**, 나머지 유효 pair는 기존 직접 oracle의 **REGRESSION**이다. AC4S·5G·7C·11·17W–21C가 이 변경을 포함한다. 0277 관측과 0281 메뉴는 해당 plan의 AC/V/테스트를 함께 실행하며 컴포저를 위해 서버 재시작·추가 MCP barrier를 넣지 않는다.
+
+### READY 판단
+
+D20/30의 native 저장 허용과 D32의 격리 불가 거부를 구별했고, D26의 무승인 global 영속화를 제거하는 읽기/쓰기 경로를 고정했다. D28의 flags뿐 아니라 mutable MCP 배포 파일을 FEP3·4에서 다룬다. D31의 file queue와 D32의 mutation 거부는 각각 FEP5·7·9·10에서 관측한다. ACTIVE 결정↔최신 AC 대조에서 충돌 0이며 사용자 결정이 필요한 항목은 남아 있지 않다.
+
+**READY는 설계·재현 경계 확정이다.** 기존 F1과 V1의 실패/자기보고는 그대로 보존하며 아래 구현 보고에서 실제 oracle 결과를 기록한 뒤에만 IMPL_DONE으로 넘긴다. 필수 gate는 관련 Vitest, node/web/test typecheck, lint, production build, 문서/inventory/diff 및 실제 Windows 잠금 해제 probe다. 외부 참조 checkout의 기존 링크 오류와 사용자 커스텀 실행 파일/실제 창 시각 인수는 별도로 보고한다.
 
 ## [구현자 기입] — V1 r1
 

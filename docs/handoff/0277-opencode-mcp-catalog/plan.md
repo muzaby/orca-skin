@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex / 2026-10-22 |
-| 상태 | DRAFT — 범위 UI 결정은 해결. 통합 구현의 R1–R11 증거와 관측 경계 최종 잠금 필요 |
+| 상태 | READY — 최종 관측 경계는 §8과 0278 §27, 기존 R1–R11 유지 |
 | V mode / 기준 | Delta V / V1@256ddd24 + ΔV1 |
 | 정책·실행 표면 | [0278](../0278-harness-extension-isolation/plan.md), [0280](../0280-opencode-prepared-status/plan.md) |
 
@@ -118,3 +118,17 @@ OpenCode 프로젝트 파일은 [0278 ΔV2](../0278-harness-extension-isolation/
 문서 변경은 relative links·inventory/prose·diff·INDEX를 검사한다. 후속 구현·검증에서는 app subtree gate와 실제 native dynamic MCP·scope 전환·ready/closing 경합을 확인한다. 외부 커스텀 바이너리·실제 창 시각 인수는 확인한 환경과 분리한다.
 
 미확정은 관측 경계·증거·poll 기술값이며 nav 선택 UI가 아니다. 저장은 0278 ΔV2 D30의 네이티브 프로젝트 파일로 확정됐으며 U6를 재질문하지 않는다. 과거 scope 선택 제안·READY 문구는 이 ΔV1으로 대체되며 원문은 기준 commit에서 확인한다.
+
+## 8. READY — 관측 경계 잠금
+
+0278 §27 FEP1·2·7·8·10·12를 승계한다. 아래 자리별 실제 경로와 oracle을 DV1-P1–4 및 V1 VP7의 구현/회귀 집합으로 고정한다. 기존 §6의 ‘최종 잠금 필요’는 이 절로 대체한다.
+
+| 자리 | 직접 oracle와 입력/결과 |
+|---|---|
+| global IPC→native reader→nav hook/list | `extension-catalog.test.ts`·`configured-resources.test.ts`·`useNativeMcpCatalog.test.ts`: 서버 없이 global 선언, A/B 값 제외, partial 이전 정상값 유지 |
+| session/draft IPC→기존 준비 context→MCP/native plugin | `session-resources.test.ts`·`opencode/v1/adapter.test.ts`·`session-context.test.ts`: 첫 메시지 전 준비 완료, runtime-only MCP와 선언 병합, scope/generation 전환 |
+| observer ready/dirty/closing→패널 | `project-resource-sync.test.ts`·`nativeResourceState.test.ts`: 실제 파일 revision, A/B 역순 결과·종료 후 connected 제거·server 생성 무호출 |
+| preload/API→query scope | `preload/index.test.ts`·위 등록 IPC 테스트: 원래 cwd/session 식별자 보존 |
+| source file lookup→shell | `session-resources.test.ts`·`extension-catalog.test.ts`: 실제 파일만 열기, dynamic MCP에는 shell 무호출 |
+
+변경된 허용 capability는 0278 D32를 따른다. 관측/read와 mutation은 분리해 readonly 항목도 목록에서 제거하지 않는다. 코드·기존 테스트의 경로를 확인했으며 구현 후 위 직접 oracle로 R1–R11을 재검증한다. 이것은 독립 검증 PASS가 아니다.

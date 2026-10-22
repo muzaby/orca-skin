@@ -4,7 +4,7 @@
 
 | 항목 | 값 |
 |---|---|
-| 상태 | DRAFT — 0278 D32의 엄격한 cwd 격리·불가 항목 모니터링 확정. F1을 mutation 차단 기준으로 보완. 동시 설정 편집 대기는 ΔV2 |
+| 상태 | READY — 0278 §27의 FEP3–6·9–11과 D31·D32를 구현. 기존 F1은 구현 후 검증 |
 | 작성자 / 일자 | Codex / 2026-10-22 |
 | V mode / 기준 / revision | Delta V / V1@256ddd24 + ΔV1@81373134 / V1 + ΔV1 + ΔV2 |
 | 정책 정본 | [0278](../0278-harness-extension-isolation/plan.md) |
@@ -206,6 +206,10 @@ ACTIVE↔AC: D2→AC2, D4→AC7, D5→AC1·3, D6→AC4의 전역 비소급, D7�
 강제 지점은 0278 WEP1–4·7–10을 승계한다. 다른 cwd 격리의 C1–C7, 전역 비소급 G1–G8, 기존 AC2·3·6과 F1은 회귀 대상이다. 추가 요구의 문서 반영은 끝났지만 F1 및 전체 native 경계가 해결되기 전 DRAFT를 유지한다.
 
 후속 D10은 [0278 ΔV4](../0278-harness-extension-isolation/plan.md)를 승계한다. 설치 SDK에서 Git-root 저장을 수행하는 native MCP toggle은 모니터링으로 제한하고, UI·등록 IPC·adapter 직접 호출·자동 reconcile 경로 모두에서 우회 mutation을 막는다. 해당 AC6/SDK 쓰기 증거는 DV4-P1–3의 관측·거부·다른 cwd/파일 무변경으로 이관한다. 지원되는 plugin writer는 비동기 대기/저장 검증을 유지한다. native 파일 쓰기 허용을 모든 항목의 제어 지원으로 해석하지 않는다.
+
+## READY 확정
+
+최종 기술 설계·강제 지점·직접 oracle은 [0278 §27](../0278-harness-extension-isolation/plan.md)을 승계한다. 이전 DRAFT/미잠금 문구는 당시 상태이며 FEP3–6·9–11이 이 plan의 최종 구현 경계다. Windows local plugin 격리와 native MCP Git-root 누출을 실제 SDK로 재확인했다. 사용자 결정 추가 없이 지원 plugin의 대기형 제한 저장, native MCP mutation 차단, 정확한 cwd revision·전체 유휴 적용을 구현한다. 기존 검증 이력은 보존한다.
 
 ## [구현자 기입] 설계 리뷰
 
