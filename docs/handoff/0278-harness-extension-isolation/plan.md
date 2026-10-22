@@ -332,3 +332,13 @@ nav 조회 실패는 확인된 다른 엔진 항목을 보존하고 재시도를
 ### 7. Review Signals
 
 SDK가 제공하지 않는 native plugin load/unload를 임의 config 필드로 흉내 내지 않았다. OpenCode Config.update·서버 재시작을 조회/토글 경로에 넣지 않았다. JSON에는 native 원본이나 비밀을 복제하지 않는다. 검증자는 특히 global-only reader, 동일 cwd의 소유권, 프로젝트 유휴 적용, 미지원 항목의 고정 표시를 확인하면 된다.
+
+## [구현자 기입] — r1.2 CI 보완
+
+1. **설계 리뷰**: CI [39720190083](https://github.com/muzaby/orca-skin/actions/runs/39720190083)의 4파일 27실패를 로컬에서 재현했다. 제품 정책·AC·V는 변경하지 않았다.
+2. **강제 지점**: OpenCode queue/runtime 통합 fixture에 global SSE envelope, config/catalog 응답과 instance disposal 완료 이벤트를 반영했다. 승인 UI fixture에는 새 catalog/관찰 IPC를 연결했다. VP3·VP7 및 0281 메뉴 캐시 회귀가 대상이다.
+3. **회귀 잠금**: 전역 SSE 1회 공유와 config 1회 준비를 단언한다. 메뉴 관찰 owner 등록/해제와 목록 조회를 구분해, 재진입 시 실제 목록 조회가 늘지 않는 기존 oracle을 유지했다. 입력 재전송·이전 응답 유출·승인 순서 검사는 그대로 실행했다.
+4. **Product/UX**: 프로덕션 동작·라벨·로딩 표시를 변경하지 않았다. 메뉴 refresh 제거와 캐시 재사용 계약을 유지한다.
+5. **잠재 문제·환경**: 전체 Electron Node 모드 실행은 fork worker 종료 지연으로 중단했다. 전체 통과 증거로 세지 않는다. 스크립트의 임시 경로 접근 제한은 workspace TEMP로 분리해 재실행했다.
+6. **검사 결과**: 수정한 4파일 40테스트, 스크립트 142테스트, node/web/test 타입 검사, lint(오류 0·기존 경고 2), diff check 통과. 전체 Windows 검사는 푸시 후 CI로 확인한다. AC10/10 자기보고는 유지하며 독립 검증 PASS는 아직 아니다.
+7. **Review Signals**: timeout 상향·skip·실제 런타임 mock 대체로 우회하지 않았다. SDK transport fixture를 현재 계약에 맞췄으며, 공유 SSE와 채널 generation을 별개로 검증한다.
