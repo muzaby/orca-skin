@@ -362,8 +362,8 @@ EP06: `channel.ts:submit`의 warm HTTP catch에서 close를 finally의 `submitti
 
 ## [검증자 기입] 파생 이슈 — verify r1 (2026-10-22)
 
-판정 정본은 [verify.md](verify.md) — **FAIL**. 고장 ID는 그 문서 §4 고장 이력이다.
+판정 정본은 [verify.md](verify.md) — **PASS**(FAIL `9732aaf` 뒤 최신 handoff 이관 정정, 2026-10-22 사용자 결정). 고장 ID는 그 문서 §4 고장 이력이다.
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | E11 warm 거절 catch의 `close()` 삭제 green — P5가 fence에 둔감 | EP06 · AC11 · VP09 | 거절과 `submitting` 해제 사이 늦은 callback 주입 단언, 또는 호출자 close로 동치 근거 제시 | BLOCKING | open |
+| D1 | E11 warm 거절 catch의 `close()` 삭제 green — P5가 fence에 둔감 | EP06 · AC11 · VP09 | 0275 ΔV5·ΔV6가 warm 수명 계약을 재정의 → 0275 VP09가 책임(0275 verify D2) | PLAN_GAP → 0275 이관 | transferred |

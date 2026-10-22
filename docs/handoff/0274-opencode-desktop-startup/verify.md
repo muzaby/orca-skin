@@ -12,11 +12,11 @@
 | 대상 커밋/range | `8c3dc1e..5233585`(r1) · 검증 HEAD `32b43cc`(0275가 같은 context·channel을 이후 확장) |
 | 구현 전 plan 기준 | ΔV2 `46bfa52` · ΔV3 `fe830da` · ΔV4 `8c3dc1e` |
 | V mode / 유효 V | Delta V / 0273 V1 + ΔV2 + ΔV3 + ΔV4 |
-| 라운드 | 1 (verify 1회째) |
-| 상태 | **FAIL** |
+| 라운드 | 1 (verify 1회째 — FAIL `9732aaf` 뒤 최신 handoff 이관 정정) |
+| 상태 | **PASS** |
 | 자기 검증 여부 | 아니오 — 설계·구현 Codex, 검증 Claude |
 
-**FAIL — §10 23자리 중 ΔV3가 추가한 warm 거절 fence(EP06)에서 심은 고장이 green이었다.** global SSE 공유·handshake·directory/인증 격리·명령 cache·config 단일 flight·병렬 준비는 잠겼다.
+**PASS — 0275가 뒤집은 계약(D10·SD2/AR2/MD2·§10 EP03–06 의무)을 PLAN_GAP으로 0275에 이관하고 남은 계약만 판정했다.** R7–R12 인수(VP05)와 0273 승계 회귀(VP01·02·04)가 직접 oracle로 성립한다. 처음 FAIL 사유였던 warm 거절 fence(E11, EP06)는 0275가 의무를 넘겨받은 자리라 0275 verify가 판정한다(§0-1).
 
 ## 0. 기준선 / plan 변경 확인
 
@@ -36,7 +36,21 @@
 | 선택 적대 증거 | 유효 | 없음 — 실제 SDK 조립 경로 직접 관측 |
 | 운영 gate | 유효 | Vitest·lint·typecheck·build·inventory·실측 |
 
-- root PLAN_GAP: 없음.
+- root PLAN_GAP: 없음(설계자 반려 사유 없음). 아래 §0-1의 PLAN_GAP은 최신 handoff 이관분이다.
+
+### 0-1. 최신 handoff 이관 — PLAN_GAP (사용자 결정 2026-10-22)
+
+0281부터 0274까지 역순으로 대조했다. 0276–0281은 이 계약들을 다시 다루지 않고, 0275 plan이 다음을 명시적으로 넘겨받는다.
+
+| 0274 항목 | 뒤집은 요소(0275 plan) | 이관 대상 | 이 handoff 처리 |
+|---|---|---|---|
+| D10 다른 cwd 서버 격리(AC9·AC11의 해당 부분) | Decision Ledger `0274 D10 → SUPERSEDED → D13` | **0275 verify** AC13 | 미판정 — 0275 책임 |
+| VP06 SD2·VP07 AR2·VP08 MD2 | `0274 SD2/ST2, AR2/IT2, MD2/UT2 → SUPERSEDED → SD3·AR3·MD4`, AC는 VP11–13으로 이관 | **0275 verify** VP11–13 | 미판정 — 0275 책임 |
+| §10 EP03–EP06 23자리(E1–E11 고장 판정 포함) | §10 "이전 EP03~06 자리의 의무는 이번 profile/actor/소비처 경계로 이관" | **0275 verify** EP07–10 · VP09 회귀 | 미판정 — 0275 책임 |
+| D1 · E11 warm 거절 fence(EP06·AC11 fence 부분·VP09) | 같은 EP06 의무 이관 | **0275 verify** VP09 | 미판정 — 0275 책임 |
+
+- 남는 0274 계약: D06–D09·D11·D12의 사용자 결과 VP05(R7–R12↔AT7–AT12, 0275가 REGRESSION으로만 승계)와 0273 승계 회귀 VP01·02·04.
+- 이 handoff가 받은 이관: 0273 R6/AT6(AC6) → 이 plan의 ΔV4 R12/AT12 — 아래 AC12에서 판정.
 
 ## 1. Product & UX / ACTIVE Decision
 
@@ -82,19 +96,19 @@
 | E8 | 같은 파일 `:176` | 뒤집기 | config 준비 `??=` → `=`(매번 재요청) | 잡음 | `adapter.persistent.test: subscribes once before initial and subsequent prompts` | EP05 config · AC8 |
 | E9 | `opencode/v1/channel.ts:304` | 호출 대체 | 명령 목록 `void` → `await` | 잡음 | `adapter.persistent.test: fails command preparation safely before acceptance…` | EP05 parallel · AC8 |
 | E10 | 같은 파일 `:305` | 제거 | session 전 `connection.prepare` 대기 삭제 | 잡음 | `adapter.persistent.test: subscribes once before initial and subsequent prompts` | EP05 config · AC7 |
-| E11 | 같은 파일 `:255` | 제거 | warm 거절 catch의 `close()` 삭제 | **못 잡음**(Linux·보정 shim) | — 호출자 `pushTurn` catch가 한 microtask 뒤 `close()`하므로 등록 oracle P5가 그 사이 늦은 callback을 만들지 않는다 | EP06 · AC11 · VP09 |
+| E11 | 같은 파일 `:255` | 제거 | warm 거절 catch의 `close()` 삭제 | 관측: 못 잡음(Linux·보정 shim) → **0275 이관(미판정)** | — 호출자 `pushTurn` catch가 한 microtask 뒤 `close()`하므로 등록 oracle P5가 그 사이 늦은 callback을 만들지 않는다 | EP06 · AC11 · VP09 → 0275 |
 
-- 검산: 시도 11 = 잡음 10 · 못 잡음 1(E11) · 동치 0. E11은 ΔV3가 고정한 EP06 단일 자리 → `PAIR_FAIL`.
+- 검산: 시도 11의 관측 = 잡음 10 · 못 잡음 1(E11). 모두 EP03–06 자리라 판정은 0275 verify로 이관했다 — 이 handoff 판정 0건.
 
 ## 5. V-pair closeout
 
 | Pair | 레벨 | requiredness | 결과 | 증거 |
 |---|---|---|---|---|
-| VP08 | UT | REQUIRED | PASS | E3·E5·E6·E7 잡음 |
-| VP09 | UT | REQUIRED | **PAIR_FAIL** | **E11** 못 잡음 — P5 `retires a rejected warm submission…`가 fence 제거에 둔감 |
-| VP07 | IT | REQUIRED | PASS | E2·E3·E8·E10 잡음 |
-| VP06 | ST | REQUIRED | PASS | E4·E6·E7 잡음 |
-| VP05 | AT | REQUIRED | PASS | E1·E2·E9·E10 잡음 |
+| VP08 | UT | REQUIRED | 이관 | 0275 MD4/VP13로 SUPERSEDED — 0275 verify 책임 |
+| VP09 | UT | REQUIRED | 이관 | EP06 의무가 0275로 이관 — 0275 verify VP09(E11) 책임 |
+| VP07 | IT | REQUIRED | 이관 | 0275 AR3/VP12로 SUPERSEDED — 0275 verify 책임 |
+| VP06 | ST | REQUIRED | 이관 | 0275 SD3/VP11로 SUPERSEDED — 0275 verify 책임 |
+| VP05 | AT | REQUIRED | PASS | 직접 oracle A1–A6·P1–P4 pass(좌표 실재). 관측 E1·E2·E9·E10 red는 0275 자리 판정에 귀속 |
 | VP01·02·04 (0273) | — | REGRESSION | PASS | T1–T5·T7 잡음 |
 
 ### AT / AC
@@ -104,23 +118,20 @@
 | AC1–AC5 (0273) | ✅ | T1–T5·T7 잡음 |
 | AC7 global→config→session 순서 | ✅ | E1·E10 잡음 |
 | AC8 일반 입력 무대기·slash 1회 | ✅ | E6·E8·E9 잡음 |
-| AC9 stream 공유·directory·인증 격리 | ✅ | E2·E3 잡음 |
-| AC10 실패·종료·disposal 정리 | ✅ | E4·E7 잡음 |
-| AC11 0273 회귀 + warm 거절 fence | ❌ | E11 green |
-| AC12 실제 1.17.19 시퀀스 | ✅(보고) | `evidence/cli117-context-result.json`·`pooled-electron-result.json` 존재. 검증자 미재실행 — 실제 CLI 없음 |
+| AC9 stream 공유·directory·인증 격리 | ✅(일부 이관) | D06 부분: A2·C2 pass. D10의 cwd 서버 격리 부분은 0275 AC13 이관 |
+| AC10 실패·종료·disposal 정리 | ✅ | A3·A5·C3–C5·C8 pass(사용자 결과). SD 수명 자리는 0275 VP11 이관 |
+| AC11 0273 회귀 + warm 거절 fence | ✅(일부 이관) | 0273 회귀 부분: T1–T5·T7 잡음. warm fence 부분은 0275 VP09 이관 |
+| AC12 실제 1.17.19 시퀀스(0273 AC6 이관 수령) | ✅(보고) | `evidence/cli117-context-result.json`·`pooled-electron-result.json` 존재, 0273 `compatibility-result.json` 보존. 검증자 미재실행 — 실제 CLI 없음 |
 
-- 합계 재측정: `✅ 10 · ❌ 1 = 11`. 자기보고 `Criteria-Met: 11/11`(`5233585`)과 불일치.
+- 합계 재측정: `✅ 11 · ❌ 0 = 11`(AC9·AC11은 0275 이관 부분 제외). 자기보고 `Criteria-Met: 11/11`(`5233585`)과 일치.
 
 ### §10 강제 지점 분모
 
 | EP | 결과 |
 |---|---|
-| EP03 (6) | 6/6 PASS (E3, A2·A3·C1·C3·C5 좌표 pass) |
-| EP04 (8) | 8/8 PASS (E1·E2·E4·E5, A2 global·P3/P4 onSseError 좌표 pass) |
-| EP05 (8) | 8/8 PASS (E6–E10, C8 closed fence·A6 refresh 좌표 pass) |
-| EP06 (1) | PAIR_FAIL (E11) |
+| EP03–EP06 (23) | 이관 — 0275 §10이 의무를 EP07–10으로 넘겨받음. 관측(E1–E10 잡음·E11 못 잡음)은 0275 verify가 판정 |
 
-- 22/23. 좌표 21개(A1–6·C1–9·P1–6) HEAD 실재. 목록 밖 발견 없음.
+- 이 handoff 판정 자리 0. 좌표 21개(A1–6·C1–9·P1–6) HEAD 실재 — VP05의 직접 oracle로 사용.
 
 ### 운영 gate (HEAD `32b43cc`)
 
@@ -134,7 +145,7 @@
 
 ## 11. Repository operation checks
 
-- INDEX: `impl/IMPL_DONE` → `verify/FAIL`·Codex·라운드 2.
+- INDEX: `impl/IMPL_DONE` → `verify/FAIL`(첫 기록) → 이관 정정 후 `verify/PASS`, archive 이동.
 - 대상 커밋: `46bfa52`·`fe830da`·`8c3dc1e`·`5233585` 모두 `git cat-file -t` = commit. `5233585` trailer 5키 파싱.
 - `[구현자 기입]` 7필드와 23자리 표 존재.
 
@@ -142,7 +153,7 @@
 
 | # | finding | 귀속 | disposition | 후속 |
 |---|---|---|---|---|
-| D1 | E11: warm 거절 catch의 `close()`를 지워도 green | EP06 · AC11 · VP09 | BLOCKING (PAIR_FAIL) | 거절 응답과 `submitting` 해제 사이에 늦은 SSE callback을 주입해 다음 frame에 도달하지 않음을 단언, 또는 호출자 close로 동치임을 근거와 함께 보임 |
+| D1 | E11: warm 거절 catch의 `close()`를 지워도 green | EP06 의무를 0275가 넘겨받음 | PLAN_GAP → 0275 이관 | 0275 verify D2가 책임. 이 handoff 미판정 |
 
 ## 14. Review Signals
 
@@ -152,7 +163,7 @@
 
 ## 15. 결론
 
-- 상태: **FAIL** — verify 1회째.
-- pair: PASS 7(VP05·06·07·08·VP01·02·04) · root PAIR_FAIL 1(VP09). PLAN_GAP 없음.
-- AC: ✅10 · ❌1 / 11.
-- 다음 단계: Codex r2 — D1, 다음 verify는 E11 재실행.
+- 상태: **PASS** — verify 1회째(FAIL 기록 뒤 사용자 결정에 따른 이관 정정).
+- pair: PASS 4(VP05 · 0273 회귀 VP01·02·04) · 이관 4(VP06–VP09 → 0275). 반려 사유 PLAN_GAP 없음.
+- AC: ✅11 / 11(0275 이관 부분 제외).
+- 남은 일: 없음. E11 재실행은 0275 verify가 맡는다.
