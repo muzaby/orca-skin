@@ -315,6 +315,11 @@ EP07의 profile/env 자리와 AC18에 귀속한다. AC20개·pair9개·강제 �
 - 환경 한계: 전체 링크 scanner가 로컬 외부 참고 checkout까지 방문해 기존 링크10건을 보고한다. heavy 검사와 겹친 최초 native 운영 probe는 시작 timeout, 최종 재실측은 성공했다. SQLite는 ABI 변경 없이 Electron에서 검증했다.
 - 현재 라운드·impl 턴: r1. 독립 verify 결과를 선점하지 않는다.
 
-## [검증자 기입] 파생 이슈
+## [검증자 기입] 파생 이슈 — verify r1 (2026-10-22)
 
-없음.
+판정 정본은 [verify.md](verify.md) — **FAIL**. 고장 ID는 그 문서 §4 고장 이력이다.
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| D1 | L15 context `references++`를 await 뒤로 옮겨도 green, 보고 좌표 N6 부재 | EP08 reservation · AC16 · VP12 | 마지막 owner 정리 중 같은 directory 재획득이 같은 context로 성공함을 단언 | BLOCKING | open |
+| N1 | L8 shutdown entry abort는 상위 controller abort와 동치 | EP09 shutdown | 유지 가능 | NON_BLOCKING | open |
