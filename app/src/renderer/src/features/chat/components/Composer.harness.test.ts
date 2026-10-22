@@ -101,6 +101,18 @@ describe('harness composer surface', () => {
     expect(render(null)).toContain('viewBox="0 0 16 20"')
     expect(render(null)).toContain('text-spinner')
     expect(render(null)).toContain('text-oc-ink')
+    for (const [backend, viewBox, color, otherColor] of [
+      ['claude', '0 0 248 248', 'text-spinner', 'text-oc-ink'],
+      ['opencode', '0 0 16 20', 'text-oc-ink', 'text-spinner']
+    ]) {
+      const logo = $('[data-menu-heading]')
+        .filter((_, heading) => $(heading).text() === `${backend}-local`)
+        .find('svg')
+      expect(logo).toHaveLength(1)
+      expect(logo.attr('viewBox')).toBe(viewBox)
+      expect(logo.hasClass(color)).toBe(true)
+      expect(logo.hasClass(otherColor)).toBe(false)
+    }
     const locked = render('opencode')
     expect(load(locked)('[role="menuitemradio"]')).toHaveLength(1)
     expect(locked).not.toContain('claude/model')

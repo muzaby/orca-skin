@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex (설계 역할) / 2026-10-19 |
-| 상태 / 라운드 | IMPL_DONE / r1.14 |
+| 상태 / 라운드 | IMPL_DONE / r2 |
 | V mode / 기준 V / 유효 V | Delta V / r1.9 (`64beff7e`) / V1+ΔV1+ΔV2+ΔV3+ΔV4+ΔV5+ΔV6+ΔV7+ΔV8+ΔV9+ΔV10+ΔV11+ΔV12+ΔV13+ΔV14+ΔV15+ΔV16 |
 | 기준 코드 | origin/main `5a99c1f5` |
 
@@ -2078,3 +2078,94 @@ plan 메타/INDEX는 r1.14 impl/IMPL_DONE·Claude 독립 검증 대기다. 구�
 | D2 | J13 상태 패널 후속 그룹 heading 간격 삭제 green | EP31 ⑥ · AC54 · VP55 | heading 간격 class 단언 | BLOCKING | open |
 | D3 | J15 모델 메뉴 그룹 로고 색 맞바꿈 green | EP31 ⑪ · AC57 · VP58 | provider heading SVG 색 class 단언 | BLOCKING | open |
 | N1 | r1 구현 커밋의 §10 EP9 검색 문구 편집(의미 불변) | repository operation | 이후 규범 행은 설계 커밋으로 | NON_BLOCKING | open |
+
+## [구현자 기입] r2 설계 리뷰 (2026-10-23)
+
+verify r1 D1–D3의 네 미검출 변이를 테스트로 잠갔다. 현재 production은 계약의 transition·축소 모션·그룹 간격·로고 색을 이미 갖고 있어 테스트와 보고만 변경했다. 유효 V1+ΔV1–ΔV16의 규범은 그대로다. 최신 handoff의 명시 대체 조항을 적용하며 PLAN_GAP 없음.
+
+## [구현자 기입] r2 강제 지점 전수와 V-pair 자기확인
+
+테스트 좌표는 `app/src/renderer/src/` 이하 파일이다. 변경한 세 자리에 한정하지 않고 ΔV16 EP31 전체를 대조했다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 / 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP53 | Code policy | EP31 ① | 1/1 | features/chat/lib/rightPanelTiles.harness.test.ts: limits opencode status to Code…; ChatTitleBar.render.test.ts | 양 하네스 Work/Code·저장 columns와 메뉴 분리 | 없음 |
+| VP52 | catalog path 운반 | EP31 ② | 1/1 | pages/NativeStatusProject.test.ts; features/chat/components/ChatTile.harness.test.ts | 세 page catalog의 root와 session cwd 구별, header props 유지 | 없음 |
+| VP52 | 제목·색·tooltip | EP31 ③ | 1/1 | features/chat/components/rightpanel/NativeResourcesTile.test.ts: shows the correct branded project title… | 양 브랜드 SVG·색·font-normal·rename·catalog/root/fallback | 없음 |
+| VP54 | checked/busy 전환 | EP31 ④ | 1/1 | shared/ui/Toggle.render.test.ts: preserves the 200ms switch transitions…; NativeResourcesTile.test.ts: uses the native rows… | on/off·busy 각각 track 색·thumb transform·duration-200. 실제 tile 비동기 제어·push 유지 | 실제 창 프레임 시각 인수 별도 |
+| VP54 | 축소 모션 | EP31 ⑤ | 1/1 | shared/ui/Toggle.render.test.ts: preserves the 200ms switch transitions… | track/thumb 모두 motion-reduce:transition-none, 손잡이 spinner 축소 모션 | 실제 OS 설정 시각 인수 별도 |
+| VP55 | 상태 그룹 간격 | EP31 ⑥ | 1/1 | NativeResourcesTile.test.ts: uses the native rows… | 실제 MCP·플러그인 두 heading과 후속 heading만 mt-5인 컨테이너 클래스 | 실제 창 rem 실측 별도 |
+| VP55 | Nav 출처 간격·설명 | EP31 ⑦ | 1/1 | features/skills/components/customize/CustomizeList.render.test.ts: groups skills and MCP by canonical source… | 후속 출처 pt-8·스킬 detail 제거·서로 다른 출처 fixture | 없음 |
+| VP55 | Nav 보존 내용 | EP31 ⑧ | 1/1 | CustomizeList.render.test.ts: groups skills and MCP by canonical source… 및 metadata/선택 케이스 | 이름·시간·그룹 로고·MCP/provider 메타·선택 동작 유지 | 없음 |
+| VP56 | 케밥 상태 진입 | EP31 ⑨ | 1/1 | features/chat/components/ChatTitleBar.render.test.ts·ChatTitleBar.native-resources.test.ts | 상태 진입·색 유지, native popup 부재·메뉴 열기의 조회 0 | 없음 |
+| VP57 | 엔진 카드 브랜드 | EP31 ⑩ | 1/1 | features/engine/common/components/EngineCard.render.test.ts·EngineCard.interaction.test.ts | 양 하네스 로고·색·기존 편집/삭제, unknown adapter에 브랜드 없음 | 없음 |
+| VP58 | 모델 메뉴 브랜드 | EP31 ⑪ | 1/1 | features/chat/components/Composer.harness.test.ts: shows both harness model groups… | 각 provider heading의 서로 다른 viewBox와 브랜드 색을 함께 단언. bound group 유지 | 없음 |
+
+확장한 §10 검색 163행에서 정책/props/heading/transition/brand 운반을 위 11자리에 대응했다. import·타입·일반 MenuTitle 및 source/detail의 비대상 소비는 분리했다. 고정 목록과 이번에 대조한 계약 자리의 양방향 차집합은 `[]`다. production 수정은 없으며 EP31 11/11이다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 적대 증거 |
+|---|---|---|---|---|
+| VP52–58 | REQUIRED | SELF_PASS | 위 EP31 전체와 공통 회귀 실행 | J7·J8·J13·J15 red |
+| VP50·51 | REGRESSION | SELF_PASS | NativeResourcesTile.test.ts의 cold/warm 조회·동시 제어·push, useNativeResources.test.ts의 수명/late fence | M4 red |
+| 이전 entry·메뉴 projection | REGRESSION | SELF_PASS | Sidebar.interaction.test.ts·nativeResourcesMenu.test.ts·harnesses/common/composer/Composer.native-menu.test.ts | M1–M3 재실행 |
+| main/SDK/CLI·파일 저장 | NOT_REQUIRED | 기존 증거 승계 | r1.12–14의 비영향 증거. 이번 renderer 테스트 변경은 해당 production을 수정하지 않음 | 신규 실 CLI 실행 주장 없음 |
+
+## [구현자 기입] r2 이번 라운드 수정의 잠금
+
+공유 작업 트리 밖의 소스·tsconfig 사본에서 `vitest run --pool=threads --maxWorkers=1 <좌표>`로 결함별 검사 후 원본 바이트를 복원했다.
+
+| 심은 결함 | 출처 | 이전 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| thumb transition 전체 제거 | D1·J7 | 못 잡음 | Toggle.render의 on/off 두 케이스 / 2 | red |
+| thumb reduced-motion만 제거 | D1·J8 | 못 잡음 | Toggle.render의 on/off 두 케이스 / 2 | red |
+| 후속 heading mt-5 제거 | D2·J13 | 못 잡음 | NativeResourcesTile: uses the native rows… / 1 | red |
+| 모델 그룹 로고 색 교환 | D3·J15 | 못 잡음 | Composer.harness: shows both harness model groups… / 1 | red |
+| 새 대화 backend 교환 | 등록 M1 | 잡음 | Sidebar.interaction의 두 하네스 선택 / 2 | red 유지 |
+| MCP/plugin 목록 교환 | 등록 M2 | 잡음 | nativeResourcesMenu / 10 | red 유지 |
+| native 스킬/MCP 목적지 교환 | 등록 M3 | 잡음 | Composer.native-menu의 실제 메뉴 관측 / 10 | red 유지 |
+| hook ensure→refresh | 등록 M4 | 잡음 | NativeResourcesTile: shares one cold read… / 1 | red 유지 |
+
+선택 증거 4 · 인용 변이 4 · 새 구조 proxy 0 = 8행. D1–D3는 자기보고상 closed이며 기존 검증 이력은 보존한다. 최초 source 사본에 tsconfig가 없었던 실패와 M3의 이전 파일 경로로 실행한 no tests는 증거에서 제외했다. 실제 기준선 41/41과 원복 41/41, M3 현재 좌표의 기준/원복 13/13을 확인했다.
+
+## [구현자 기입] r2 Product/UX 파생 검토
+
+기존 ToggleIndicator·MenuTitle·CascadeBody·HarnessLogo가 생산하는 DOM을 검사한다. 표시 색·간격·전환 시간을 변경하지 않았다. native pending은 여전히 손잡이 안 spinner이며 실제 응답 전에 checked 성공을 만들지 않는다. 기존 키보드 선택·하네스 잠금·다른 항목 조작과 폴더 열기 경로를 유지한다. 새 사용자 대면 문자열·실패 상태 없음.
+
+## [구현자 기입] r2 놓친 잠재 문제 + 대응
+
+| 문제 | 대응 / 관측 |
+|---|---|
+| 두 브랜드 색이 문서 전체에 있기만 하면 맞바꿈도 통과 | 각 provider heading→SVG viewBox→색을 한 노드에서 검사. J15 red |
+| 손잡이만 검사하면 track 색의 축소 모션 누락을 놓침 | on/off·busy의 track/thumb 모두 transition과 reduced-motion 단언 |
+| 일회성 시각 실측을 gate 좌표로 사용 | DOM/class 검사로 반복 가능한 좌표를 추가. 실제 프레임·테마는 별도 한계 유지 |
+| 테스트 이동 후 옛 파일명으로 실행 | M3를 실제 common/composer 경로에서 재실행. no tests를 검출로 세지 않음 |
+
+설계 대비 메커니즘 차이 없음. 만료·공유·재진입·다른 무효화 정책을 바꾸지 않았으며 cache 관련 회귀와 M4를 다시 확인했다. N1은 역사적 커밋의 기록으로 보존하고 이번 규범 행 편집은 없다.
+
+## [구현자 기입] r2 구현 보고
+
+| 항목 | 관측 |
+|---|---|
+| 변경 파일 | 신규 Toggle.render 테스트, NativeResourcesTile.test·Composer.harness.test와 본 보고 |
+| 실행 명령 / 산출 | 담당 UI 6파일 26/26, 타입 보정 후 영향 3파일 19/19. 격리 변이 집합 기준/원복 41/41 |
+| V-pair 자기확인 | VP52–58 및 영향 회귀 SELF_PASS. 독립 verify 아님 |
+| 강제 지점 | EP31 11/11 |
+| 블로커 / 역질문 | 없음. 다음 주체는 독립 검증자 |
+| 실제 검증 한계 | 설치 앱·두 테마·좁은 폭·전환 프레임을 이번 턴 새로 실측하지 않음. production 시각 변경 없음 |
+
+| AC | 자기보고 / 관측 |
+|---|---|
+| AC1–50 | ✅ 이전 최신 대체 조항을 적용한 비영향 증거 승계. entry·목록·cache의 등록 변이와 영향 회귀 재확인 |
+| AC51 | ✅ Work/Code 정책·저장 column·실제 메뉴 회귀 |
+| AC52 | ✅ header의 양 브랜드·색·font-normal·catalog path·fallback·rename 회귀 |
+| AC53 | ✅ on/off·busy에서 200ms transform/color·축소 모션, J7/J8 red |
+| AC54 | ✅ 두 native heading·후속 mt-5 및 기존 Nav pt-8·보존 내용, J13 red |
+| AC55 | ✅ 케밥 native popup 부재·조회 sink 0·컬러 상태 진입 회귀 |
+| AC56 | ✅ 양 엔진 카드 브랜드·색·편집/삭제·unknown adapter 회귀 |
+| AC57 | ✅ 각 모델 그룹의 브랜드/색 대응·bound group 유지, J15 red |
+
+검산: ✅57 · ⚠️0 · ❌0 = 총57(기계 범위와 명시한 비영향 증거). `Criteria-Met: 57/57`은 자기보고다. 최종 공통 운영 gate는 [통합 검증 기록](../0281-opencode-menu-cache/evidence/verify-fail-validation.md)에 있다.
+
+## [구현자 기입] r2 Review Signals
+
+r2 첫 구현 턴이다. D57·58·61과 AC53·54·57은 이미 있었지만 시각 실측을 반복 가능한 gate로 잠그지 않아 삭제/맞바꿈을 놓쳤다. 현재 재구현은 그 세 축을 직접 DOM 결과로 확인한다. 시각 인수와 기계 검사의 범위를 구분하며 독립 verify 결과를 선점하지 않는다.

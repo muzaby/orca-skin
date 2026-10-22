@@ -143,6 +143,14 @@ it('uses the native rows for statuses, independent async switches, native reveal
     'green'
   ])
   expect(dom.queryAll('[data-cascade-level="1"]')).toHaveLength(0)
+  const surface = dom.query('[data-native-status]')!
+  expect(String(surface.props.className).split(' ')).toContain(
+    '[&_[data-menu-heading]:not(:first-child)]:mt-5'
+  )
+  expect(surface.querySelectorAll('[data-menu-heading]').map((node) => node.textContent)).toEqual([
+    'MCP',
+    '플러그인'
+  ])
   dom.click(dom.query('[data-cascade-index="1"]')!)
   await settle()
   expect(open).toHaveBeenLastCalledWith({ sessionId: 'A', id: 'filesystem', kind: 'mcp' })
