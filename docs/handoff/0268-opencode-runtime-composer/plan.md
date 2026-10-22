@@ -304,3 +304,4 @@ release는 일시 요청의 finally와 채널 run의 finally에 연결했다. �
 | D1 | H1 주 창 외부 링크 등록 호출 삭제 green | EP6 registration · AC8 · VP4 | 창 조립 등록을 electron 비의존 경계로 떼어 단언 | BLOCKING | open |
 | D2 | H2 Markdown `target="_blank"` 삭제 green | EP6 anchor · AC8 · VP4 | Markdown 링크의 `target`·`rel` 단언 | BLOCKING | open |
 | P1 | AC4 OpenCode Windows 토스트 미발생 미확인 | VP2 · AC4 | 실제 Windows 관측(사람) | 사람 실기 | open |
+| T1 | D2 서버 참조 소유권이 0275 D13–D15·D20으로 뒤집힘 | D2 · AC1 일부 · EP1 서버 9자리 · VP1·VP6·VP8 일부 | 0275 verify §0-1이 판정 | PLAN_GAP → 0275 이관 | transferred |

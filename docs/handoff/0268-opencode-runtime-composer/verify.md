@@ -12,11 +12,11 @@
 | 대상 커밋/range | `93bdef8..84d5c85`(r1, `Status: partial`) · 검증 HEAD `32b43cc` |
 | 구현 전 plan 기준 | V1 `93bdef8` |
 | V mode / 유효 V | Baseline V / V1 (서버 공유 범위는 이후 0275 D13, Composer 표현은 0281이 최신 정본) |
-| 라운드 | 1 (verify 1회째) |
+| 라운드 | 1 (verify 1회째 — 최신 handoff 이관 정정) |
 | 상태 | **FAIL** |
 | 자기 검증 여부 | 아니오 — 설계·구현 Codex, 검증 Claude |
 
-**FAIL — §10 EP6(외부 링크) 3자리 중 2자리에서 심은 고장이 green이었다.** 서버 소유권·명시 포트·상태 상세·MCP 그룹 간격·미지원 파일 reveal·native agent 필터는 잠겼다. AC4(OpenCode Windows 토스트 미발생)는 실제 Windows 관측이 없어 미확인이다.
+**FAIL — §10 EP6(외부 링크) 3자리 중 2자리에서 심은 고장이 green이었다.** LRU 회수·명시 포트·상태 상세·MCP 그룹 간격·미지원 파일 reveal·native agent 필터는 잠겼다. 서버 참조 소유권(D2)은 0275가 뒤집어 0275 verify로 이관했다(§0-1). AC4(OpenCode Windows 토스트 미발생)는 실제 Windows 관측이 없어 미확인이다.
 
 ## 0. 기준선 / plan 변경 확인
 
@@ -34,7 +34,20 @@
 | AC4 판정 수단 | 유효 | "실제 Windows/OpenCode Desktop 관측, 증거 없으면 미확인" — 사람 실기 경계를 plan이 명시 |
 | 선택 적대 증거 | 유효 | 없음 — 직접 결과 관측 |
 
-- root PLAN_GAP: 없음.
+- root PLAN_GAP: 없음(설계자 반려 사유 없음). 아래 §0-1의 PLAN_GAP은 최신 handoff 이관분이다.
+
+### 0-1. 최신 handoff 이관 — PLAN_GAP (사용자 결정 2026-10-22)
+
+0281부터 0268까지 역순으로 대조했다. 0275 plan은 0268을 직접 인용하지 않지만 D13이 0274 D10(0268 D2와 같은 cwd 격리)을 SUPERSEDED하며 공유 key와 해제 절차를 바꿨다.
+
+| 0268 항목 | 뒤집은 요소(0275 plan) | 이관 대상 | 이 handoff 처리 |
+|---|---|---|---|
+| D2 같은 구성·환경·cwd 서버 참조 공유 | D13 profile(executable identity·실효 config/env) 단위로 cwd 간 공유, D14 directory ref | **0275 verify** AC13·AC14 | 미판정 — 0275 책임 |
+| AC1의 공유 세션 유지·마지막 owner 회수 부분 | D15·D20 마지막 directory ref → native dispose → server 반납 | **0275 verify** AC14·AC17 | 미판정 — 0275 책임 |
+| §10 EP1 서버 9자리(adapter complete·recover·send·readHistory, channel run·close, server acquire·release·close) | 0275 §10 EP07–10(profile·ref·정리·소비처 반납) | **0275 verify** EP07–10 | 미판정 — 0275 책임 |
+| VP1·VP6·VP8의 서버 해제 edge | 같음 | **0275 verify** VP10–12 | 미판정 — 0275 책임 |
+
+- 남는 0268 계약: D1 공통 RuntimePool LRU(EP1 closeEntry 1자리)와 D3–D9.
 
 ## 1. Product & UX / ACTIVE Decision
 
@@ -87,11 +100,11 @@
 | Pair | 레벨 | requiredness | 결과 | 증거 |
 |---|---|---|---|---|
 | VP10 | UT | REQUIRED | BLOCKED_BY:VP4 | version/cache/catalog 단위 pass(H9·0275 L11), 링크 형식(H2)은 VP4 root |
-| VP8 | IT | REQUIRED | PASS | H5 잡음 |
+| VP8 | IT | REQUIRED | PASS(일부 이관) | H5 잡음(RuntimePool→adapter close). server release edge는 0275 VP12 이관 |
 | VP9 | IT | REQUIRED | PASS | H9 잡음, 0276 Q12·Q14 잡음 |
-| VP6 | ST | REQUIRED | PASS | H4·H5 잡음 |
+| VP6 | ST | REQUIRED | PASS(일부 이관) | H4·H5 잡음. 서버 해제 수명은 0275 VP11 이관 |
 | VP7 | ST | REQUIRED | BLOCKED_BY:VP4 | EP3–5·7 흐름 PASS(H6–H9), EP6 진입은 VP4 root |
-| VP1 | AT | REQUIRED | PASS | H5 잡음, version 재시도는 0275 L11 잡음 |
+| VP1 | AT | REQUIRED | PASS(일부 이관) | H5 잡음, version 재시도는 0275 L11 잡음. 공유 owner 유지는 0275 AC14 이관 |
 | VP2 | AT | REQUIRED | PASS(기계 범위) | AC3 H4 잡음 · AC4 사람 실기 대기 |
 | VP3 | AT | REQUIRED | PASS | H6·H8 잡음 |
 | VP4 | AT | REQUIRED | **PAIR_FAIL** | H7 잡음, **H1·H2** 못 잡음 |
@@ -101,7 +114,7 @@
 
 | AC | 결과 | 근거 |
 |---|---|---|
-| AC1 LRU 회수·공유 유지 | ✅ | H5 잡음 |
+| AC1 LRU 회수·공유 유지 | ✅(일부 이관) | LRU 회수 H5 잡음. 공유 유지(D2)는 0275 AC14 이관 |
 | AC2 version/db path 병합·재시도 | ✅ | 0275 L11·L10 잡음(같은 server 코드) |
 | AC3 명시 loopback 포트 | ✅ | H4 잡음 |
 | AC4 OpenCode Windows 토스트 미발생 | ⚠️ 사람 | 실제 Windows/Desktop 관측 없음 — plan 정의상 미확인 |
@@ -118,7 +131,7 @@
 
 | EP | 결과 |
 |---|---|
-| EP1 서버 소유권 | PASS (H5, 0275 L12·L13 잡음) |
+| EP1 서버 소유권 (10) | 판정 1/1 PASS(RuntimePool closeEntry, H5) · 서버 9자리 0275 EP07–10 이관 |
 | EP2 시작·metadata | PASS (H4, 0275 L11) |
 | EP3 상태 상세 | PASS (H8) |
 | EP4 출처 그룹 | PASS (H6) |
@@ -139,7 +152,7 @@
 
 ## 11. Repository operation checks
 
-- INDEX: `impl/IMPL_DONE` → `verify/FAIL`·Codex·라운드 2.
+- INDEX: `impl/IMPL_DONE` → `verify/FAIL`·Codex·라운드 2. 이관 정정 뒤에도 상태·라운드 동일.
 - 대상 커밋: `93bdef8`·`84d5c85` `git cat-file -t` = commit. `84d5c85` trailer 6키(`Criteria-Pending` 포함) 파싱.
 - `[구현자 기입]` 필드와 EP1–7 표 존재. EP6를 `0/3`으로 정직하게 남겼다.
 
@@ -150,16 +163,17 @@
 | D1 | H1: 주 창 외부 링크 등록 호출 삭제 green | EP6 registration · AC8 · VP4 | BLOCKING (PAIR_FAIL) | 창 생성 조립을 electron 비의존 함수로 떼어 등록을 단언하거나 production 소스 등록을 검사 |
 | D2 | H2: Markdown `target="_blank"` 삭제 green | EP6 Markdown anchor · AC8 · VP4 | BLOCKING (PAIR_FAIL) | Markdown 링크 렌더의 `target`·`rel` 단언 |
 | P1 | AC4 토스트 미발생 미확인 | VP2 · AC4 | 사람 실기 | 실제 Windows 관측 |
+| T1 | D2 서버 참조 소유권이 0275 D13–D15·D20으로 뒤집힘 | D2 · AC1 일부 · EP1 서버 9자리 · VP1·VP6·VP8 일부 | PLAN_GAP → 0275 이관 | 0275 verify §0-1이 판정. 이 handoff 미판정 |
 
 ## 14. Review Signals
 
 - 첫 verify. 구현자 보고가 EP6 미잠금·AC4 미확인을 스스로 표시했고 검증이 같은 자리를 재확인했다.
-- 사용자 결정 변경: D2 → 0275 D13, 패널·Composer 표현 → 0281(최신 handoff 기준).
+- 사용자 결정 변경: D2 → 0275 D13(구현 갭 → 0275 verify 이관, 2026-10-22), 패널·Composer 표현 → 0281(최신 handoff 기준).
 - 반복 환경 한계: electron을 import하는 `index.ts`의 테스트 불가, 실제 Windows 토스트 관측 불가.
 
 ## 15. 결론
 
 - 상태: **FAIL** — verify 1회째.
-- pair: PASS 7(VP1·VP2(기계)·VP3·VP5·VP6·VP8·VP9) · root PAIR_FAIL 1(VP4) · BLOCKED_BY 2(VP7·VP10). PLAN_GAP 없음.
+- pair: PASS 7(VP1·VP6·VP8은 서버 해제 edge 이관 제외 · VP2(기계)·VP3·VP5·VP9) · root PAIR_FAIL 1(VP4) · BLOCKED_BY 2(VP7·VP10). 반려 사유 PLAN_GAP 없음, 이관 1(D2 → 0275).
 - AC: ✅8 · ⚠️1(사람) · ❌1 / 10.
 - 다음 단계: Codex r2 — D1·D2, 다음 verify는 H1·H2 재실행. AC4는 사람 관측.
