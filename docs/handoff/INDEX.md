@@ -22,6 +22,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
+| [`0280-opencode-prepared-status`](0280-opencode-prepared-status/plan.md) | plan | READY | Codex | (r1 설계 — 검증자 기입) | 1 | 첫 입력 전 준비 인스턴스 상태 표시·정상 취소 구분·안전 진단. 전역 제어는 0278 별도. |
 | [`0279-claude-project-plugin-state`](0279-claude-project-plugin-state/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | SDK MCP 저장·현재 cwd 공유·외부 설정 감시/표시·프로젝트 전체 유휴 재적용. restart-required는 기존 회수 정책. AC7/7 자기확인, 독립 검증 대기. |
 | [`0278-harness-extension-isolation`](0278-harness-extension-isolation/plan.md) | plan | DRAFT | Claude | (r1 정책 기록 — 검증자 기입) | 1 | 전역 변경은 새 인스턴스 기본값. MCP·plugin은 현재 경로별 제어·공유. Claude 프로젝트 파일 제한 편집 허용, OpenCode 격리·nav capability 검증 필요. |
 | [`0277-opencode-mcp-catalog`](0277-opencode-mcp-catalog/plan.md) | plan | DRAFT | Claude | (r1 초안 — 검증자 기입) | 1 | 명시 범위의 MCP 설정·실행 상태 조회/동기화. 전역 기본값·제어 격리는 0278과 연결. 실행 관측 범위 UI·기존 instance 전용 경계 확정 필요. |
