@@ -48,14 +48,12 @@ const key = (node: FakeNode, value: string): void => {
 
 describe('OpenCode composer selection', () => {
   it.each(['loading', 'error', 'ready'] as const)(
-    'keeps %s internal and offers a fixed keyboard-accessible refresh action',
+    'keeps %s internal and only offers cached selection options',
     (status) => {
-      const refresh = vi.fn()
       dom.render(
         createElement(OpenCodeAgentControl, {
           agents: [{ name: 'build' }],
-          status,
-          onRetry: refresh
+          status
         })
       )
       const trigger = dom.query('[aria-label="harness.agent"]')!
@@ -66,13 +64,10 @@ describe('OpenCode composer selection', () => {
       expect(dom.query('[role="status"]')).toBeNull()
       expect(dom.query('[role="progressbar"]')).toBeNull()
       expect(trigger.props['aria-busy']).toBeUndefined()
-      expect(dom.query('[role="menu"]')?.textContent).toBe(
-        'harness.agentharness.defaultAgentbuildharness.catalogRefresh'
-      )
+      expect(dom.query('[role="menu"]')?.textContent).toBe('harness.agentharness.defaultAgentbuild')
       key(rows[0].parent!, 'End')
-      expect(dom.activeElement?.textContent).toBe('harness.catalogRefresh')
-      dom.click(dom.activeElement!)
-      expect(refresh).toHaveBeenCalledOnce()
+      expect(dom.activeElement?.textContent).toBe('build')
+      expect(dom.query('[role="menuitem"]')).toBeNull()
       expect(harness.change).not.toHaveBeenCalled()
       key(rows[0].parent!, 'Escape')
       expect(dom.activeElement).toBe(trigger)

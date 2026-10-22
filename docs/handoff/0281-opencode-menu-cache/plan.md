@@ -78,4 +78,35 @@ Controls의 onRetry 입력·전달·메뉴 행을 제거한다. popup 내부 상
 
 ## [구현자 기입]
 
-착수 전.
+### 1. 설계 리뷰
+
+기존 ready 슬롯과 directory 캐시는 이미 성공 결과를 보관한다. 재개방에 연결돼 있던 UI 새로고침 입력만 제거하면 기존 세대·수명 경계를 유지할 수 있어 별도 영속 캐시는 추가하지 않았다.
+
+### 2. 강제 지점 전수·V pair 자기확인
+
+| 지점 | 확인 | 직접 결과 |
+|---|---|---|
+| EP1 | 3/3 | 실제 Module의 ModeControl/EffortControl과 공통 Select를 렌더. agent/variant 선택 행 전체, 키보드 이동·선택·Escape 초점 복귀 확인 |
+| EP2 | 2/2 | Module→실제 hook/state→IPC에서 agent를 먼저 반영. 두 메뉴를 반복 개방해도 초기 두 조회 이후 추가 호출 없음 |
+
+VP1–VP3 SELF_PASS: `Controls.interaction.test.ts`, `Module.integration.test.ts`. VP4 SELF_PASS: `composerCatalogState.test.ts`, main `session-context.test.ts`의 성공 슬롯·실패 부분·directory/generation·최종 owner 해제. 전수 5/5, 잔여 0.
+
+### 3. 이번 라운드 수정의 잠금
+
+loading/error/ready 각각 메뉴의 전체 내용을 단언해 새로고침·상태 행 삽입을 검출한다. 음성 텍스트 검색에만 의존하지 않는다. 반복 개방 검사는 실제 표시 내용과 IPC 호출 수를 함께 확인한다. 선택 mutation 없음.
+
+### 4. Product/UX 파생 검토
+
+팝업에는 로딩·오류 문구·스피너가 없다. 실패한 조회를 빈 성공값으로 만들지 않고 이미 받은 목록은 유지한다. 사용자가 선택하는 기본 agent/variant 항목과 키보드 조작은 보존했다. 우측 상태 패널의 새로고침은 별개 기능으로 유지한다.
+
+### 5. 놓친 잠재 문제·대응
+
+메뉴 캐시를 앱 전역으로 올리면 다른 폴더의 plugin agent가 섞일 수 있다. 기존 scope/generation 캐시를 그대로 사용하고, 늦은 응답 폐기·마지막 owner 정리 회귀를 실행했다. 실제 창의 두 테마 시각 인수는 별도다.
+
+### 6. 구현 보고
+
+AC3/3 자기확인. 팝업 관련 최초 검사 3파일 13개 통과, 이후 main context와 renderer 통합 회귀에서도 통과했다. node/web/test 타입 검사와 production build 통과. lint·문서 gate의 최종 공통 결과는 함께 구현한 [0278 구현 보고](../0278-harness-extension-isolation/plan.md#구현자-기입--v1-r1)에 기록한다. 독립 검증 PASS를 뜻하지 않는다.
+
+### 7. Review Signals
+
+새 dependency·설정 형식·서버 초기화 변경 없음. 캐시 구현을 복제하지 않았으며 삭제한 UI 경로 외의 MCP 상태 조회·재시도는 유지했다.
