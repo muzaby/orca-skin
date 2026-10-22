@@ -35,7 +35,15 @@
 | 선택 적대 증거 | 유효 | 없음 — 직접 handler/schema/설정/마크업 출력 |
 | 운영 gate | 유효 | Vitest·lint·typecheck·build·상태 사본 3자리 |
 
-- root PLAN_GAP: 없음.
+- root PLAN_GAP: 없음(설계자 반려 사유 없음).
+
+### 0-1. 최신 handoff 이관 — PLAN_GAP (사용자 결정 2026-10-22)
+
+| 항목 | 뒤집은 요소 | 이관 대상 | 이 handoff 처리 |
+|---|---|---|---|
+| EP-05b의 `CustomizeList` 표시 자리(AC5의 enabled=false 색상 단언, S9) | 0278 D11·D24 — on/off×capability 행렬이 색상 기준을 대체 | **0278 verify r2**(F12a–c) | 미판정 — 0278 책임 |
+
+- 0279·0280·0281은 이 색상 기준을 다시 뒤집지 않는다. 파일 열기·원문 식별자·작성 slug 계약은 이 handoff에 남는다.
 
 ## 1. Product & UX / ACTIVE Decision
 
@@ -75,10 +83,10 @@
 | S6 | 같은 파일 `:82` | 제거 | native remove guard 삭제 | 잡음 | `skills.test: keeps native removal forbidden after accepting namespaced targets` | EP-04 · AC4 |
 | S7 | `extensions/common/skills/scan.ts:75` | 고정값 | native `entry.enabled` → `true` | 잡음 | `skill-catalog.test: assembles the real catalog from lock, harness and native plugin files…` | EP-05b scan · AC5 |
 | S8 | `adapters/claude/plugin-catalog.ts:191` | 고정값 | filesByName enabled → `true` | 잡음 | 같음 외 12건 | EP-05b filesByName |
-| S9 | `skills/components/customize/CustomizeList.tsx:111` | 고정값 | `enabled={true}` | 잡음 | `CustomizeList.render.test: uses capability for font and fixed switches independently of enabled state` | EP-05b 표시(→0278 행렬) |
+| S9 | `skills/components/customize/CustomizeList.tsx:111` | 고정값 | `enabled={true}` | 관측: 잡음 → **0278 이관(미판정)** | `CustomizeList.render.test: uses capability for font and fixed switches independently of enabled state` | EP-05b 표시 → 0278 D11·D24(F12a–c) |
 | S10 | `adapters/claude/plugin-catalog.ts:156` | 뒤집기 | `includeDisabled`여도 비활성 제외 | 잡음 | `adapter.native-plugins.test: loads enabled native skills for session…`·`isolates global SDK choices…` 외 | EP-05b includeDisabled · AC5 |
 
-- 검산: 시도 10 = 잡음 10 · 못 잡음 0 · 동치 0. S9 판정 기준은 최신 handoff(0278 on/off×capability 행렬).
+- 검산: 시도 10 = 잡음 9 · 0278 이관 1(S9) · 못 잡음 0 · 동치 0.
 
 ## 5. V-pair closeout
 
@@ -86,7 +94,7 @@
 |---|---|---|---|---|
 | VP-04 | UT | REQUIRED | PASS | S1·S2 잡음 |
 | VP-03 | IT | REQUIRED | PASS | S3–S6 잡음 |
-| VP-02b | ST | REQUIRED | PASS | S7·S8·S10 잡음, S9(표시) 잡음 |
+| VP-02b | ST | REQUIRED | PASS | S7·S8·S10 잡음. 표시 색 자리(S9)는 0278 이관 |
 | VP-01b | AT | REGRESSION | PASS | S1–S10 잡음 |
 
 ### AT / AC
@@ -109,9 +117,9 @@
 | EP-02 (5) | 5/5 (S3 — predicate 1곳이 4채널 lookup에 공통, 4채널 테스트 각각 red) |
 | EP-03 (2) | 2/2 (S4, showInFolder는 S1·S3의 `showInFolder` 케이스 red) |
 | EP-04 (2) | 2/2 (S5·S6) |
-| EP-05b (5) | 5/5 (S7·S8·S9·S10, `files` 전달은 S8과 같은 catalog 테스트) |
+| EP-05b (5) | 4/4 판정 (S7·S8·S10, `files` 전달은 S8과 같은 catalog 테스트) + 표시 자리 1 0278 이관 |
 
-- 16/16. 검색 재실행 6행 = 5자리 + 제외 1행(`installations.push`) — 차집합 0.
+- 판정 15/15 + 0278 이관 1. 검색 재실행 6행 = 5자리 + 제외 1행(`installations.push`) — 차집합 0.
 
 ### 운영 gate (HEAD `32b43cc`)
 
