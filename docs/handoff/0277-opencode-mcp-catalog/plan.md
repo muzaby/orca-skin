@@ -28,6 +28,8 @@ nav → 플러그인 → MCP에서 전역 또는 명시한 작업폴더의 설�
 
 이전의 팝업 상태 안내 금지는 OpenCode composer 선택 메뉴에 대한 결정이다. 이번 nav MCP 페이지에는 사용자가 R7에서 요청한 조회·오류·부분 실패 상태를 적용하며 composer 결정은 변경하지 않는다.
 
+2026-10-22 사용자가 두 하네스의 Orca 전역 기본값·프로젝트 단위 제어·외부 실행 설정 격리 정책을 확정했다. 활성화 정책의 정본은 [0278](../0278-harness-extension-isolation/plan.md)이며, 본 작업은 그 기본값·capability를 관측 계약에 연결한다. 전역 설정 관리 위치와 프로젝트별 실행 상태 조회 UI는 구별하며 U1/U2가 모두 해소된 것으로 처리하지 않는다.
+
 ## 3. Decision Ledger
 
 | ID | 결정 / 출처 | 상태 |
@@ -86,7 +88,7 @@ MCP 페이지 진입 → 명시 범위 결정 → 파일 선언 읽기
 
 ## 6. 범위
 
-OpenCode MCP의 조회·병합·현재 상태·갱신·수명·범위 UI와 안전한 파일 열기 capability가 범위다. 기존 Claude/Orca MCP 목록·편집·토글 정책을 변경하지 않는다. 동적 MCP를 표시하려고 plugin 코드를 별도 import하거나 설치하지 않는다.
+OpenCode MCP의 조회·병합·현재 상태·갱신·수명·범위 UI와 안전한 파일 열기 capability가 범위다. 본 작업에서 토글 정책을 독자적으로 변경하지 않으며 공통 활성화·격리는 [0278](../0278-harness-extension-isolation/plan.md)의 결정을 따른다. 동적 MCP를 표시하려고 plugin 코드를 별도 import하거나 설치하지 않는다.
 
 ## 7. R ↔ AT / 인수 기준
 
