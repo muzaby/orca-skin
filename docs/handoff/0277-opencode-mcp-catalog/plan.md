@@ -163,3 +163,14 @@ OpenCode 프로젝트 파일은 [0278 ΔV2](../0278-harness-extension-isolation/
 ### 7. Review Signals
 
 새 사용자 선택 JSON·추가 서버 시작·강제 재시작을 도입하지 않았다. 검증자는 위 직접 oracle에서 생산 경계와 실제 입력/출력의 대응을 다시 확인한다.
+
+## [검증자 기입] 파생 이슈 — verify r1 (2026-10-22)
+
+판정 정본은 [verify.md](verify.md) — **FAIL**. 고장 ID는 그 문서 §4 고장 이력이다.
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| D1 | O3 `canOpen: true` 고정 green | §8 source file lookup · AC11 · DV1-P4 | 파일 없는 plugin/MCP 행의 `canOpen=false` 단언 | BLOCKING | open |
+| D2 | P11–P13 renderer push scope 3항 제거 green | §8 query scope · AC5 · DV1-P3 | 0278 R5와 공동 | BLOCKING | open |
+| D3 | A23 plugin 선언 revision·A6 stale revision emit green | §8 observer · AC6·AC10 · DV1-P2 | 0278 R3와 공동 | BLOCKING | open |
+| N1 | 구현이 0278 trailer로만 커밋, 강제 지점 필드 산문 | repository operation | 다음 구현 커밋에 0277 trailer·자리별 표 | NON_BLOCKING | open |
