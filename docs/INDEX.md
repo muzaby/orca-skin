@@ -31,6 +31,7 @@
 | DB · 영속성 · FTS5 | [`arch/backend/persistence.md`](arch/backend/persistence.md) |
 | **하네스 native 원본 경로·CLI 왕복 이어보기 정책 변경** | [`ADR-009`](decisions/009-harness-native-storage-authority.md) · [`0265 공통 설계`](handoff/0265-harness-native-storage/plan.md) · [`0262 OpenCode 경로 전환`](handoff/0262-opencode-harness/plan.md) |
 | 확장 배포 (MCP · SKILL.md · AGENTS.md 표준) | [`arch/backend/standardization.md`](arch/backend/standardization.md) |
+| **Claude·OpenCode 확장의 전역 기본값·프로젝트 제어·설정 저장 정책** | [`공통 정책·설계 초안`](handoff/0278-harness-extension-isolation/plan.md) · [`Claude 제한 편집·동기화 초안`](handoff/0279-claude-project-plugin-state/plan.md) · [`MCP 목록·실행 관측 초안`](handoff/0277-opencode-mcp-catalog/plan.md) |
 | 시스템 프롬프트 · 정책 append | [`arch/backend/system-prompt.md`](arch/backend/system-prompt.md) |
 | **Work 프롬프트·전용 output style 구현** | 현재 구조는 [`arch/backend/system-prompt.md`](arch/backend/system-prompt.md) · 계약·번들 CLI 실증 기록은 [`handoff/0234-work-prompt-profile/plan.md`](handoff/0234-work-prompt-profile/plan.md) |
 | 로깅 | [`arch/backend/observability.md`](arch/backend/observability.md) |
