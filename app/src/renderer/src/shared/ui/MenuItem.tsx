@@ -61,10 +61,12 @@ export const MenuItem = forwardRef<HTMLButtonElement, MenuItemProps>(function Me
  */
 export function MenuTitle({
   children,
-  leading
+  leading,
+  trailing
 }: {
   children: ReactNode
   leading?: ReactNode
+  trailing?: ReactNode
 }): React.JSX.Element {
   return (
     <div
@@ -73,6 +75,7 @@ export function MenuTitle({
     >
       {leading}
       <span className="min-w-0 truncate">{children}</span>
+      {trailing && <span className="ml-auto flex shrink-0 items-center">{trailing}</span>}
     </div>
   )
 }

@@ -48,7 +48,7 @@ const key = (node: FakeNode, value: string): void => {
 
 describe('OpenCode composer selection', () => {
   it.each(['loading', 'error', 'ready'] as const)(
-    'keeps %s internal and only offers cached selection options',
+    'shows only real agents and a heading spinner only while %s',
     (status) => {
       dom.render(
         createElement(OpenCodeAgentControl, {
@@ -60,11 +60,15 @@ describe('OpenCode composer selection', () => {
       dom.click(trigger)
       dom.advance(20)
       const rows = dom.queryAll('[role="menuitemradio"]')
-      expect(rows.map((row) => row.textContent)).toEqual(['harness.defaultAgent', 'build'])
+      expect(rows.map((row) => row.textContent)).toEqual(['build'])
       expect(dom.query('[role="status"]')).toBeNull()
       expect(dom.query('[role="progressbar"]')).toBeNull()
       expect(trigger.props['aria-busy']).toBeUndefined()
-      expect(dom.query('[role="menu"]')?.textContent).toBe('harness.agentharness.defaultAgentbuild')
+      expect(dom.query('[data-menu-heading]')?.querySelector('[data-agent-loading]') !== null).toBe(
+        status === 'loading'
+      )
+      expect(dom.query('[role="group"]')?.props['aria-busy']).toBe(status === 'loading')
+      expect(dom.query('[role="menu"]')?.textContent).toBe('harness.agentbuild')
       key(rows[0].parent!, 'End')
       expect(dom.activeElement?.textContent).toBe('build')
       expect(dom.query('[role="menuitem"]')).toBeNull()
@@ -84,7 +88,7 @@ describe('OpenCode composer selection', () => {
     )
     expect(harness.change).toHaveBeenCalledWith({ agent: '', variant: '' })
     dom.click(dom.query('[aria-label="harness.agent"]')!)
-    dom.click(dom.queryAll('[role="menuitemradio"]')[1])
+    dom.click(dom.queryAll('[role="menuitemradio"]')[0])
     expect(harness.change).toHaveBeenLastCalledWith({ agent: 'plugin-review' })
     dom.render(createElement(OpenCodeVariantControl, { variants: [] }))
     expect(dom.query('[aria-label="harness.variant"]')).toBeNull()
@@ -101,13 +105,13 @@ describe('OpenCode composer selection', () => {
     dom.advance(20)
     expect(dom.activeElement?.textContent).toBe('build')
     const rows = dom.queryAll('[role="menuitemradio"]')
-    expect(rows[1].props['aria-checked']).toBe(true)
+    expect(rows[0].props['aria-checked']).toBe(true)
     const menu = rows[0].parent!
     key(menu, 'End')
     expect(dom.activeElement?.textContent).toBe('plan')
     key(menu, 'ArrowUp')
     expect(dom.activeElement?.textContent).toBe('build')
-    dom.click(rows[2])
+    dom.click(rows[1])
     expect(harness.change.mock.calls).toEqual([[{ agent: 'plan' }]])
     expect(dom.query('[role="menu"]')).toBeNull()
     expect(dom.activeElement).toBe(trigger)
@@ -130,4 +134,20 @@ describe('OpenCode composer selection', () => {
     dom.click(dom.queryAll('[role="menuitemradio"]')[0])
     expect(harness.change).toHaveBeenLastCalledWith({ variant: '' })
   })
+})
+
+it('keeps an empty loading menu keyboard-accessible without a synthetic default or status text', () => {
+  harness.selected.harnessAgent = ''
+  dom.render(createElement(OpenCodeAgentControl, { agents: undefined, status: 'loading' }))
+  const trigger = dom.query('[data-component="opencode-select"]')!
+  expect(trigger.textContent).toBe('harness.agent')
+  dom.click(trigger)
+  dom.advance(20)
+  expect(dom.queryAll('[role="menuitemradio"]')).toEqual([])
+  const group = dom.query('[role="group"]')!
+  expect(dom.activeElement).toBe(group)
+  expect(dom.query('[role="menu"]')?.textContent).toBe('harness.agent')
+  key(group, 'Escape')
+  expect(dom.activeElement).toBe(trigger)
+  harness.selected.harnessAgent = 'build'
 })

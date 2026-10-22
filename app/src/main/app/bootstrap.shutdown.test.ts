@@ -103,6 +103,7 @@ describe('Bootstrap title ownership', () => {
       closeComposerCatalog: () => order.push('composer')
     })
     bootstrap.shutdown()
+    bootstrap.shutdown()
     expect(close).toHaveBeenCalledOnce()
     expect(order).toEqual(['composer', 'project-observers', 'registry'])
   })
@@ -162,11 +163,17 @@ describe('Bootstrap deployment forwarding', () => {
     }
     // Only the filesystem deployment boundary is replaced; Bootstrap, conversion and queue run.
     const deploy = vi.spyOn(extensionDeployer, 'deploy').mockResolvedValue(result)
+    const publish = vi.fn(async () => {})
     const bootstrap = Object.assign(Object.create(Bootstrap.prototype), {
-      mcp: { enabledConfig, resolver }
+      mcp: { enabledConfig, resolver },
+      pluginSnapshots: { publish }
     }) as { createDeploymentService(): ExtensionDeploymentService }
 
     await expect(bootstrap.createDeploymentService().deployNow()).resolves.toBe(result)
+    expect(publish).toHaveBeenCalledExactlyOnceWith([
+      expect.stringContaining('plugins'),
+      expect.stringContaining('plugins')
+    ])
 
     expect(deploy).toHaveBeenCalledExactlyOnceWith('claude', {
       skillRoots: [

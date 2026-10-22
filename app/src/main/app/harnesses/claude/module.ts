@@ -30,7 +30,7 @@ export const claudeMainModule: MainHarnessModule = {
     read: async (cwd) => ({ revision: readClaudeProjectSettings(cwd).revision })
   },
   id: 'claude',
-  createAdapter: (options) => new ClaudeAdapter(options.extensionControl),
+  createAdapter: (options) => new ClaudeAdapter(options.extensionControl, options.pluginSnapshots),
   globalResources: globalClaudeResources,
   globalResourcePath: globalClaudeResourcePath,
   loadSettings: loadClaudeProviderSettings,

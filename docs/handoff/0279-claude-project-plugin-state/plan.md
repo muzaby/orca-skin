@@ -315,3 +315,34 @@ ACTIVE↔AC: D2→AC2, D4→AC7, D5→AC1·3, D6→AC4의 전역 비소급, D7�
 ## [검증자 기입] 0278에서 확인한 회귀
 
 **AC2·D2 미충족**: SDK MCP 상태는 Git root에 보관되며, Orca reader도 해당 root 상태를 하위 cwd에 병합한다. A Git root의 MCP off가 다른 작업폴더 B(child)의 새 Query 및 기존 Query의 유휴 reconcile에 전파됐다. [0278 F1 검증 및 재현](../0278-harness-extension-isolation/verify.md)을 후속 구현의 blocking 입력으로 삼는다. 기존 구현 자기보고의 “같은 Git root의 다른 cwd 분리”는 MCP native 저장 경계까지 입증하지 못했다.
+
+
+## [구현자 기입] — ΔV2 r1.3 (2026-10-22)
+
+### 1. 설계 리뷰
+
+Windows plugin만 actual cwd 저장·SDK flags/reload를 지원하고 Claude MCP는 UI와 직접 SDK mutation 양쪽에서 거부했다. 정책 정본은 [0278 §27](../0278-harness-extension-isolation/plan.md#27-δv5--ready-확정과-구현-경계-잠금)이다.
+
+### 2. 강제 지점·V pair
+
+직접 oracle: `project-settings/plugin-state/native-resources/adapter.native-plugins/project-reconciliation, 실제 file queue 및 quit tests`. native MCP Git-root 저장 반례를 재실행했다. child reader revision과 SDK 무호출 반례는 통과하며 SDK 자체 저장 범위를 바꿨다는 주장은 하지 않는다. 최신 Delta pair와 기존 회귀 pair를 0278 r2의 실행 집합으로 SELF_PASS(자동 검사 범위)로 기록한다. 독립 검증 PASS가 아니다.
+
+### 3. 수정의 잠금
+
+최신 합의로 대체된 기대값만 변경했고 기존 실패 이력은 보존했다. 저장·SDK 인자·UI 내용·조회 횟수/세대·실패 원본을 직접 단언한다.
+
+### 4. Product/UX
+
+읽기 전용은 상태를 숨기지 않는다. popup refresh/안내 문구 금지는 유지하고 0281에서 허용한 agent 제목 indicator만 예외다. 공통 MenuTitle/Popover/Icon/기존 자원 상태 표면을 재사용했다.
+
+### 5. 잠재 문제
+
+실제 Electron 두 테마 시각 인수와 사용자의 custom executable은 미확인이다. 네이티브 원본 설정을 외부 프로그램이 편집하는 경우의 적용 수명은 0278 r2 보고에 명시했다.
+
+### 6. 검사 보고
+
+관련 회귀 1,177개와 SQLite 7개 통과. 전체 결과·native 버전 실측·최종 gate·외부 참고 checkout 링크 실패는 [0278 r2 구현 보고](../0278-harness-extension-isolation/plan.md#구현자-기입--δv5-r2-2026-10-22)에 기록한다. 이 plan의 READY 설계에 대한 구현을 완료했고 다음 주체는 검증자다.
+
+### 7. Review Signals
+
+새 사용자 선택 JSON·추가 서버 시작·강제 재시작을 도입하지 않았다. 검증자는 위 직접 oracle에서 생산 경계와 실제 입력/출력의 대응을 다시 확인한다.

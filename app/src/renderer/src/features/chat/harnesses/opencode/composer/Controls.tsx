@@ -44,9 +44,11 @@ function OpenCodeSelect({
   label,
   value,
   options,
-  onChange
+  onChange,
+  loading = false
 }: {
   label: string
+  loading?: boolean
   value: string
   options: { value: string; label: string }[]
   onChange: (value: string) => void
@@ -62,7 +64,8 @@ function OpenCodeSelect({
         0,
         options.findIndex((option) => option.value === value)
       )
-      items?.[selected]?.focus()
+      if (items?.[selected]) items[selected].focus()
+      else itemsRef.current?.focus()
     })
     return () => window.cancelAnimationFrame(frame)
   }, [open, value, options])
@@ -89,14 +92,17 @@ function OpenCodeSelect({
         }}
       >
         <span className="truncate">
-          {options.find((option) => option.value === value)?.label ?? value ?? options[0]?.label}
+          {options.find((option) => option.value === value)?.label ?? (value || label)}
         </span>
         <OpenCodeIcon name="chevron-down" />
       </button>
       <Popover open={open} anchorRef={anchorRef} onClose={() => setOpen(false)}>
         <div
           ref={itemsRef}
-          role="none"
+          role="group"
+          tabIndex={-1}
+          aria-label={label}
+          aria-busy={loading}
           className="flex max-h-[320px] w-[300px] flex-col overflow-auto"
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
@@ -135,7 +141,21 @@ function OpenCodeSelect({
             }
           }}
         >
-          <MenuTitle>{label}</MenuTitle>
+          <MenuTitle
+            trailing={
+              loading ? (
+                <span data-agent-loading aria-hidden="true">
+                  <Icon
+                    name="refresh"
+                    size={12}
+                    className="animate-spin motion-reduce:animate-none"
+                  />
+                </span>
+              ) : undefined
+            }
+          >
+            {label}
+          </MenuTitle>
           {options.map((option) => (
             <MenuItem
               key={option.value}
@@ -163,7 +183,8 @@ function OpenCodeSelect({
 
 export function OpenCodeAgentControl({
   agents,
-  authoritative = false
+  authoritative = false,
+  status
 }: {
   agents: AgentEnvironment['agents']
   authoritative?: boolean
@@ -180,10 +201,8 @@ export function OpenCodeAgentControl({
       label={tr('harness.agent')}
       value={selected ?? ''}
       onChange={(value) => chatActions.setHarnessOptions({ agent: value })}
-      options={[
-        { value: '', label: tr('harness.defaultAgent') },
-        ...(agents ?? []).map((agent) => ({ value: agent.name, label: agent.name }))
-      ]}
+      loading={status === 'loading'}
+      options={(agents ?? []).map((agent) => ({ value: agent.name, label: agent.name }))}
     />
   )
 }

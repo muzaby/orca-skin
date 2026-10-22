@@ -472,13 +472,14 @@ export function openCodeChannel(
         composer === undefined
       if (commands !== undefined) connection?.rememberCommands(commands)
       composerCatalog = composer ?? composerCatalog
+      const items = connection?.mcpControl
+        ? await connection.mcpControl.preview([...lastResources.mcp, ...lastResources.plugins])
+        : [...lastResources.mcp, ...lastResources.plugins]
+      if (closed || ended || connection?.signal.aborted) return { state: 'disconnected', items: [] }
       return {
         state: 'connected',
         generation,
-        items: [...lastResources.mcp, ...lastResources.plugins].map((item) => ({
-          ...item,
-          canToggle: item.kind === 'mcp' && mcp.status === 'fulfilled' && !!connection?.mcpControl
-        })),
+        items,
         ...(commands !== undefined ? { commands } : {}),
         ...(composerCatalog !== undefined ? { composer: composerCatalog } : {}),
         ...(partial ? { partial: true } : {})

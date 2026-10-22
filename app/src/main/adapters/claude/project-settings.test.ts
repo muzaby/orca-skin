@@ -16,7 +16,7 @@ beforeEach(() => {
   mkdirSync(root, { recursive: true })
 })
 afterEach(() => rmSync(temp, { recursive: true, force: true }))
-it('fingerprints only project extension keys and native project state, including Git-root state', () => {
+it('fingerprints only project extension keys and native project state, excluding other cwd and Git-root state', () => {
   const files = claudeProjectSettingsFiles(cwd, root)
   writeFileSync(
     files[1],
@@ -27,7 +27,7 @@ it('fingerprints only project extension keys and native project state, including
     JSON.stringify({ projects: { [join(temp, 'project')]: { disabledMcpServers: ['native'] } } })
   )
   const before = readClaudeProjectSettings(cwd, root)
-  expect(before.disabledMcp).toEqual(['native'])
+  expect(before.disabledMcp).toEqual([])
   writeFileSync(
     files[1],
     JSON.stringify({ permissions: { allow: ['y'] }, enabledPlugins: { 'p@m': false } })
@@ -49,7 +49,7 @@ it('fingerprints only project extension keys and native project state, including
   writeFileSync(files[2], JSON.stringify({ mcpServers: { project: { command: 'private' } } }))
   expect(readClaudeProjectSettings(cwd, root).structure).not.toBe(before.structure)
 })
-it('writes only plugin choices in the platform-native local directory and preserves permissions', () => {
+it('writes only plugin choices in the platform-native local directory and preserves permissions', async () => {
   const file = claudeProjectSettingsFiles(cwd, root)[1]
   const unrelated = {
     permissions: { allow: ['Bash(test)'] },
@@ -58,7 +58,12 @@ it('writes only plugin choices in the platform-native local directory and preser
     model: 'keep'
   }
   writeFileSync(file, JSON.stringify(unrelated))
-  persistClaudePluginState(cwd, 'p@m', false)
+  if (process.platform !== 'win32') {
+    await expect(persistClaudePluginState(cwd, 'p@m', false)).rejects.toThrow()
+    expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual(unrelated)
+    return
+  }
+  await persistClaudePluginState(cwd, 'p@m', false)
   expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({
     ...unrelated,
     enabledPlugins: { 'p@m': false }

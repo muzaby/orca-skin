@@ -16,10 +16,15 @@ export class ExtensionDeploymentService {
   // 되고(연타 CRUD 안전), 모든 호출자는 마지막(최신 소스 반영) 결과를 받는다.
   private inflight: Promise<DeployResult> | null = null
   private rerun = false
+  private closed = false
 
   constructor(private readonly opts: ExtensionDeploymentServiceOptions) {}
 
   deployNow(options?: { throwOnFailure?: boolean }): Promise<DeployResult | null> {
+    if (this.closed)
+      return options?.throwOnFailure
+        ? Promise.reject(new Error('확장 배포가 종료 중입니다.'))
+        : Promise.resolve(null)
     if (this.inflight) {
       this.rerun = true
     } else {
@@ -67,5 +72,10 @@ export class ExtensionDeploymentService {
   ensureDeployed(): Promise<DeployResult | null> {
     if (this.deployedOnce) return Promise.resolve(null)
     return this.deployNow()
+  }
+
+  async close(): Promise<void> {
+    this.closed = true
+    await this.inflight?.catch(() => undefined)
   }
 }

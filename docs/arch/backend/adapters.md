@@ -64,11 +64,14 @@ native user의 synthetic text만 공통 `input.received`로 기록하고, 모델
 
 ### 1.3 ClaudeCodeAdapter 호출 패턴
 
-nav의 확장 카탈로그는 하네스 전역 파일만 읽으며 서버나 directory를 만들지 않는다. SDK로 Orca 실행만 제어할 수 있는 항목은 가변 토글·일반 폰트, 다른 항목은 native 상태의 고정 토글·회색 폰트다. 하네스 기본값은 복제하지 않는다. `SettingsStore`의 선택 JSON에는 사용자가 명시한 `nativeExtensionChoices`와 OpenCode의 정규화 작업경로별 `projectMcpChoices`만 저장한다.
+nav의 확장 카탈로그는 하네스 전역 파일만 읽으며 서버나 directory를 만들지 않는다. SDK로 Orca 실행만 제어할 수 있는 항목은 가변 토글·일반 폰트, 다른 항목은 native 상태의 고정 토글·회색 폰트다. 하네스 기본값은 복제하지 않는다. SDK 전역 선택은 app의 메모리 control에만 유지하고 새 작업폴더 인스턴스가 획득할 때 복사한다. `SettingsStore`에 남은 legacy native 선택은 실행에 사용하거나 다시 편집하지 않는다.
 
-Claude plugin 전역 선택은 SDK inline plugin flags, 사용자 스킬 선택은 SDK skills allow-list로 반영한다. 같은 작업경로의 살아 있는 Query들은 시작 시점 plugin 기본값과 스킬 선택을 공유하며 마지막 Query 해제 후 새 값을 읽는다. 프로젝트 plugin 선택은 이 기본값보다 우선한다. Claude native MCP 전역 토글은 외부 설정과 격리할 수 없어 고정하며 프로젝트 제어는 허용된 native 저장·동기화 경로를 사용한다.
+Claude plugin 전역 선택은 SDK inline plugin flags, 사용자 스킬 선택은 SDK skills allow-list로 반영한다. 같은 작업경로의 살아 있는 Query들은 시작 시점 plugin 기본값·스킬 선택·Orca 배포 사본을 공유하며 마지막 Query 해제 후 새 값을 읽는다. 배포기는 직렬화된 배포 안에서 immutable 사본을 발행하고, 기존 owner가 참조하는 사본은 후속 배포나 재로드로 바뀌지 않는다. 프로젝트 plugin 선택은 이 기본값보다 우선한다. Claude native MCP는 SDK 저장이 Git 루트와 하위 작업폴더에 전파되므로 전역·프로젝트 제어를 제공하지 않는다. Windows Claude 플러그인만 실제 cwd의 `.claude/settings.local.json`에 `enabledPlugins` 키를 병합 저장하며 다른 키는 보존한다.
 
-OpenCode MCP 전역 선택은 directory state가 획득 시 고정하고 native 초기화 후 SDK `connect`/`disconnect`로 적용한다. 기존 인스턴스의 설정 파일을 갱신하거나 서버를 재시작하지 않는다. 이 방식은 native 초기 MCP 연결 비용을 없애지 않는다. 프로젝트 MCP 선택은 우측 패널에서 저장하고 `ProjectResourceSync`가 같은 작업폴더의 모든 세션이 유휴 상태일 때 적용한다. native plugin/skill의 개별 load on/off는 공통 SDK 제어가 없으므로 모니터링한다.
+OpenCode MCP 전역 선택은 directory state가 획득 시 고정하고 native 초기화 후 SDK `connect`/`disconnect`로 적용한다. 기존 인스턴스의 설정 파일을 갱신하거나 서버를 재시작하지 않는다. 이 방식은 native 초기 MCP 연결 비용을 없애지 않는다. 프로젝트 네이티브 파일은 하위 작업폴더도 상속하므로 MCP·플러그인 제어는 모니터링으로 제한한다. 파일 변경은 UI에 바로 관측하고 기존 인스턴스는 정상 자원 회수 후 새로 생성할 때 읽는다. native plugin/skill의 개별 load on/off는 공통 SDK 제어가 없으므로 모니터링한다.
+
+네이티브 파일 저장은 canonical 파일별 비동기 FIFO에서 최신 파일 읽기→키 병합→동일 디렉터리 임시 파일 fsync→원자 rename으로 처리한다. 일시적 Windows 공유 잠금은 제한 시간 안에서 재시도하며, 실패한 요청 뒤에도 큐는 진행한다. 외부 편집을 감지하면 최신 바이트로 재병합한다. 외부 프로세스와의 원자 compare-and-swap은 제공하지 않는다. 정상 종료는 신규 저장을 막고 접수된 저장·배포를 drain한 뒤 runtime과 배포 사본을 정리한다.
+
 
 공통 실행 설정은 `claude/adapt.ts`의 `adaptExecutionConfig`가 SDK `Options` 타입에 맞춰 조립한다. `complete`와 `sendMessage`는 이를 함께 사용하며, 실행별 도구·hook·plugin 정책은 각 호출부가 소유한다.
 

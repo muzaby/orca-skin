@@ -1,3 +1,6 @@
+import { PluginSnapshots } from '../infra/config/plugin-snapshots'
+import { nativeFileMutations } from '../infra/config/file-mutation'
+import { nativeSettingsShutdown } from './native-settings-lifecycle'
 import { createNativeResourceSharing } from './native-resource-sharing'
 import { registerSessionResourceHandlers } from './handlers/session-resources'
 import {
@@ -164,11 +167,26 @@ export class Bootstrap {
   private readonly bootReport = createBootReportRecorder()
   readonly settings = new SettingsStore(app.getVersion())
   readonly mcp = new McpStore(this.settings)
+  private readonly extensionChoices = extensionControl()
+  private readonly dataDirectory = app.getPath('userData')
+  private readonly pluginSnapshots = new PluginSnapshots(
+    join(this.dataDirectory, 'runtime-plugins')
+  )
+  private stopped = false
+  readonly prepareShutdown = nativeSettingsShutdown({
+    freeze: () => this.pendingMessages?.freeze(),
+    drain: async () => {
+      await Promise.all([nativeFileMutations.close(), this.deployment?.close()])
+    },
+    shutdown: () => this.shutdown(),
+    cleanup: () => this.pluginSnapshots.close()
+  })
   private readonly registry = createAdapterRegistry({
-    dataDirectory: app.getPath('userData'),
+    dataDirectory: this.dataDirectory,
     preferences: (harnessId) => this.settings.getAll().harnesses?.[harnessId],
     fetchImpl: netFetch,
-    extensionControl: extensionControl(this.settings)
+    extensionControl: this.extensionChoices,
+    pluginSnapshots: this.pluginSnapshots
   })
   // 부팅 시 1회 스캔하여 메모리에 캐시. fs.watch hot-reload 는 본 PR 범위 밖 (재시작).
   private skillsCache: SkillInfo[] = []
@@ -240,7 +258,11 @@ export class Bootstrap {
   }
 
   private createDeploymentService(): ExtensionDeploymentService {
-    return createHarnessDeploymentService(this.mcp, () => this.skillRoots())
+    return createHarnessDeploymentService(
+      this.mcp,
+      () => this.skillRoots(),
+      (roots) => this.pluginSnapshots.publish(roots)
+    )
   }
 
   private async deployExtensions(options?: { throwOnFailure?: boolean }): Promise<void> {
@@ -853,6 +875,8 @@ export class Bootstrap {
   // abort 해 SDK 서브프로세스를 깨끗이 종료한다. persist 는 better-sqlite3 동기라 종료 시간 내
   // 완료된다. start() 이전(register 미실행)이면 no-op.
   shutdown(): void {
+    if (this.stopped) return
+    this.stopped = true
     // admission freeze 를 **가장 먼저**(0151 AC9) — 이후 send/steer 예약을 거부해, 종료 중
     // 게이트 flush·자동 연속 턴이 큐 폐기와 경합하며 메시지를 뒤늦게 제출하는 것을 막는다.
     this.pendingMessages?.freeze()
@@ -1056,9 +1080,6 @@ export class Bootstrap {
       emit: (sessionId, resources) => broadcastNativeResourcesChanged({ sessionId, resources }),
       run: (key, action) => resourceSharing.run!(key, action)
     }))
-    this.settings.onPatch((_next, keys) => {
-      if (keys.includes('projectMcpChoices')) projectSync.settingsChanged('opencode')
-    })
     const readResources = registerSessionResourceHandlers(
       (sessionId) => supervisor.peekRuntime(sessionId),
       async (sessionId) => {
@@ -1177,7 +1198,7 @@ export class Bootstrap {
     registerUpdateHandlers(ctx)
     registerSettingsHandlers(ctx)
     registerSkillsHandlers(ctx)
-    registerExtensionCatalogHandlers(this.settings)
+    registerExtensionCatalogHandlers(this.extensionChoices)
     registerFilesHandlers(ctx)
     registerGitHandlers(ctx.db)
     registerCostHandlers(ctx)

@@ -109,11 +109,10 @@ it('prepares draft agents before providers, reuses cached agents and variants ac
   })
   dom.click(dom.query('[aria-label="harness.agent"]')!)
   expect(dom.queryAll('[role="menuitemradio"]').map((row) => row.textContent)).toEqual([
-    'harness.defaultAgent',
     'plugin-review'
   ])
   expect(dom.query('[aria-label="harness.variant"]')?.props['aria-busy']).toBeUndefined()
-  dom.click(dom.queryAll('[role="menuitemradio"]')[1])
+  dom.click(dom.queryAll('[role="menuitemradio"]')[0])
   expect(state.change).toHaveBeenCalledWith({ agent: 'plugin-review' })
   dom.unmount()
   render()
@@ -133,11 +132,9 @@ it('prepares draft agents before providers, reuses cached agents and variants ac
       dom.click(dom.query(`[aria-label="${label}"]`)!)
       expect(dom.query('[role="menuitem"]')).toBeNull()
       expect(dom.queryAll('[role="menuitemradio"]').map((row) => row.textContent)).toEqual(
-        label === 'harness.agent'
-          ? ['harness.defaultAgent', 'plugin-review']
-          : ['harness.defaultVariant', 'deep']
+        label === 'harness.agent' ? ['plugin-review'] : ['harness.defaultVariant', 'deep']
       )
-      dom.click(dom.queryAll('[role="menuitemradio"]')[1])
+      dom.click(dom.queryAll('[role="menuitemradio"]')[label === 'harness.agent' ? 0 : 1])
       await settle()
     }
   }

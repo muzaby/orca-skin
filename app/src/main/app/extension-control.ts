@@ -1,27 +1,16 @@
-import { resolve } from 'node:path'
-import type { SettingsStore } from '../infra/settings-store'
+import type { Backend } from '../../shared/ipc'
 import type { ExtensionControl } from '../adapters/common/extension-control'
 
-export function extensionProjectKey(directory: string): string {
-  const path = resolve(directory).replaceAll('\\', '/')
-  return process.platform === 'win32' ? path.toLowerCase() : path
+/** Process-local SDK choices; native configuration remains the startup baseline. */
+export interface MutableExtensionControl extends ExtensionControl {
+  setGlobal(backend: Backend, key: string, enabled: boolean): void
 }
-
-export function extensionControl(
-  settings: Pick<SettingsStore, 'getAll' | 'patch'>
-): ExtensionControl {
+export function extensionControl(): MutableExtensionControl {
+  const choices = new Map<Backend, Record<string, boolean>>()
   return {
-    global: (backend) => ({ ...settings.getAll().nativeExtensionChoices?.[backend] }),
-    projectMcp: (directory) => ({
-      ...settings.getAll().projectMcpChoices?.[extensionProjectKey(directory)]
-    }),
-    setProjectMcp: (directory, id, enabled) => {
-      const key = extensionProjectKey(directory)
-      const current = settings.getAll().projectMcpChoices ?? {}
-      if (current[key]?.[id] === enabled) return
-      settings.patch({
-        projectMcpChoices: { ...current, [key]: { ...current[key], [id]: enabled } }
-      })
+    global: (backend) => ({ ...choices.get(backend) }),
+    setGlobal: (backend, key, enabled) => {
+      choices.set(backend, { ...choices.get(backend), [key]: enabled })
     }
   }
 }

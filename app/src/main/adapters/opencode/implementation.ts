@@ -38,6 +38,7 @@ export interface OpenCodeRuntimeOptions {
 }
 
 export interface OpenCodeImplementation {
+  projectResources: import('../common/project-resources').ProjectResourcePolicy
   createAdapter: (options: OpenCodeRuntimeOptions) => SessionAdapter
   loadSettings: HarnessSettingsLoader
   parseModels: (config: Record<string, unknown>) => AgentModelView[]

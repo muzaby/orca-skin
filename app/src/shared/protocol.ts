@@ -831,8 +831,6 @@ export const SettingsPatchSchema = z
     mcpEnabled: z.record(z.string(), z.boolean()),
     mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') })),
     skillEnabled: z.record(z.string(), z.boolean()),
-    nativeExtensionChoices: NativeExtensionChoicesSchema,
-    projectMcpChoices: z.record(z.string(), z.record(z.string(), z.boolean())),
     authBypass: z.boolean(),
     language: z.string(),
     uiLocale: z.enum(['ko', 'en']),

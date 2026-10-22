@@ -7,7 +7,7 @@ import { openCodePluginId, openCodePluginInstallation } from './plugin-installat
 import { withinSkillRoot } from './skill-sources'
 
 /** Read JSONC without interpreting variables or returning credentials to the renderer. */
-function parseConfig(text: string): unknown {
+export function parseConfig(text: string): unknown {
   const stringsOrComments = /"(?:\\.|[^"\\])*"|\/\/[^\r\n]*|\/\*[\s\S]*?\*\//g
   const uncommented = text.replace(stringsOrComments, (token) =>
     token.startsWith('"') ? token : token.replace(/[^\r\n]/g, ' ')

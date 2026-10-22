@@ -172,3 +172,34 @@ AC3/3 자기확인. 팝업 관련 최초 검사 3파일 13개 통과, 이후 mai
 ### 7. Review Signals
 
 새 dependency·설정 형식·서버 초기화 변경 없음. 캐시 구현을 복제하지 않았으며 삭제한 UI 경로 외의 MCP 상태 조회·재시도는 유지했다.
+
+
+## [구현자 기입] — ΔV1 r1.2 (2026-10-22)
+
+### 1. 설계 리뷰
+
+합성 기본 에이전트 행을 제거하고 agent loading에만 제목 오른쪽 indicator를 표시했다. 에이전트 미지정 시 버튼은 에이전트 라벨을 사용한다. 정책 정본은 [0278 §27](../0278-harness-extension-isolation/plan.md#27-δv5--ready-확정과-구현-경계-잠금)이다.
+
+### 2. 강제 지점·V pair
+
+직접 oracle: `Controls.interaction/Module.integration/composerCatalogState 및 main composer-catalog tests`. loading/error/ready에서 실제 선택행 전체와 제목 내부 표시를 검사했다. 빈 메뉴에 초점을 줄 수 있고 Escape/Tab으로 복귀하며 model 대기와 agent 캐시를 분리한다. 최신 Delta pair와 기존 회귀 pair를 0278 r2의 실행 집합으로 SELF_PASS(자동 검사 범위)로 기록한다. 독립 검증 PASS가 아니다.
+
+### 3. 수정의 잠금
+
+최신 합의로 대체된 기대값만 변경했고 기존 실패 이력은 보존했다. 저장·SDK 인자·UI 내용·조회 횟수/세대·실패 원본을 직접 단언한다.
+
+### 4. Product/UX
+
+읽기 전용은 상태를 숨기지 않는다. popup refresh/안내 문구 금지는 유지하고 0281에서 허용한 agent 제목 indicator만 예외다. 공통 MenuTitle/Popover/Icon/기존 자원 상태 표면을 재사용했다.
+
+### 5. 잠재 문제
+
+실제 Electron 두 테마 시각 인수와 사용자의 custom executable은 미확인이다. 네이티브 원본 설정을 외부 프로그램이 편집하는 경우의 적용 수명은 0278 r2 보고에 명시했다.
+
+### 6. 검사 보고
+
+관련 회귀 1,177개와 SQLite 7개 통과. 전체 결과·native 버전 실측·최종 gate·외부 참고 checkout 링크 실패는 [0278 r2 구현 보고](../0278-harness-extension-isolation/plan.md#구현자-기입--δv5-r2-2026-10-22)에 기록한다. 이 plan의 READY 설계에 대한 구현을 완료했고 다음 주체는 검증자다.
+
+### 7. Review Signals
+
+새 사용자 선택 JSON·추가 서버 시작·강제 재시작을 도입하지 않았다. 검증자는 위 직접 oracle에서 생산 경계와 실제 입력/출력의 대응을 다시 확인한다.

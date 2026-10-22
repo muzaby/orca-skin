@@ -46,7 +46,7 @@ vi.mock('../harnesses/registry', () => ({
 }))
 import { SettingsStore } from '../../infra/settings-store'
 import { registerExtensionCatalogHandlers } from './extension-catalog'
-import { extensionControl, extensionProjectKey } from '../extension-control'
+import { extensionControl } from '../extension-control'
 
 beforeEach(() => {
   f.handlers.clear()
@@ -57,11 +57,12 @@ beforeEach(() => {
 const invoke = async (channel: string, payload: unknown): Promise<NativeResources> =>
   (await f.handlers.get(channel)!({}, payload)) as NativeResources
 
-it('reads native defaults without copying them and stores only supported explicit choices in Orca JSON', async () => {
+it('reads native defaults without copying them and keeps supported explicit choices only in memory', async () => {
   const backend = { store: {} as Record<string, unknown> }
   const settings = new SettingsStore('test', backend)
   settings.patch({ language: 'sentinel-language' })
-  registerExtensionCatalogHandlers(settings)
+  const control = extensionControl()
+  registerExtensionCatalogHandlers(control)
   expect((await invoke(CHANNELS.extensionCatalog, { backend: 'claude' })).items[0].enabled).toBe(
     false
   )
@@ -77,9 +78,8 @@ it('reads native defaults without copying them and stores only supported explici
     enabled: false
   })
   expect(result.items[0]).toMatchObject({ enabled: false, canToggle: true })
-  expect(backend.store.nativeExtensionChoices).toEqual({
-    claude: { 'plugin:superpowers@market': false }
-  })
+  expect(backend.store.nativeExtensionChoices).toBeUndefined()
+  expect(control.global('claude')).toEqual({ 'plugin:superpowers@market': false })
   expect(backend.store.language).toBe('sentinel-language')
   await expect(
     invoke(CHANNELS.extensionSetEnabled, {
@@ -104,23 +104,21 @@ it('reads native defaults without copying them and stores only supported explici
   await invoke(CHANNELS.extensionOpen, { backend: 'claude', id: 'plugin-id', kind: 'plugin' })
   expect(f.open).toHaveBeenCalledWith('/installed/plugin')
   const reloaded = new SettingsStore('test', { store: JSON.parse(JSON.stringify(backend.store)) })
-  expect(reloaded.getAll().nativeExtensionChoices).toEqual({
-    claude: { 'plugin:superpowers@market': false }
-  })
+  expect(reloaded.getAll().nativeExtensionChoices).toBeUndefined()
+  expect(extensionControl().global('claude')).toEqual({})
 })
 
-it('persists canonical project choices independently and leaves native defaults absent', () => {
-  const backend = { store: {} as Record<string, unknown> }
+it('does not reactivate legacy choice bytes or accept writes through settings.patch', () => {
+  const legacy = {
+    nativeExtensionChoices: { claude: { 'plugin:old': true } },
+    projectMcpChoices: { '/A': { docs: false } }
+  }
+  const backend = { store: { ...legacy } as Record<string, unknown> }
   const settings = new SettingsStore('test', backend)
-  const choices = extensionControl(settings)
-  choices.setProjectMcp('C:/work/A/../A', 'docs', false)
-  choices.setProjectMcp('C:/work/B', 'docs', true)
-  expect(choices.projectMcp('C:/work/A')).toEqual({ docs: false })
-  expect(choices.projectMcp('C:/work/B')).toEqual({ docs: true })
-  expect(choices.global('claude')).toEqual({})
-  expect(backend.store.nativeExtensionChoices).toBeUndefined()
-  expect(backend.store.projectMcpChoices).toEqual({
-    [extensionProjectKey('C:/work/A')]: { docs: false },
-    [extensionProjectKey('C:/work/B')]: { docs: true }
-  })
+  settings.getAll()
+  expect(extensionControl().global('claude')).toEqual({})
+  settings.patch({ nativeExtensionChoices: {} } as never)
+  settings.patch({ projectMcpChoices: {} } as never)
+  expect(backend.store.nativeExtensionChoices).toEqual(legacy.nativeExtensionChoices)
+  expect(backend.store.projectMcpChoices).toEqual(legacy.projectMcpChoices)
 })

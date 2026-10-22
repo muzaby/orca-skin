@@ -132,3 +132,34 @@ OpenCode 프로젝트 파일은 [0278 ΔV2](../0278-harness-extension-isolation/
 | source file lookup→shell | `session-resources.test.ts`·`extension-catalog.test.ts`: 실제 파일만 열기, dynamic MCP에는 shell 무호출 |
 
 변경된 허용 capability는 0278 D32를 따른다. 관측/read와 mutation은 분리해 readonly 항목도 목록에서 제거하지 않는다. 코드·기존 테스트의 경로를 확인했으며 구현 후 위 직접 oracle로 R1–R11을 재검증한다. 이것은 독립 검증 PASS가 아니다.
+
+
+## [구현자 기입] — ΔV1 r1.2 (2026-10-22)
+
+### 1. 설계 리뷰
+
+전역은 native 기준값·메모리 SDK 선택, 프로젝트는 native 파일 관측·현재 instance 상태로 분리한다. 프로젝트 MCP/plugin은 엄격한 cwd 격리가 불가능해 제어를 제공하지 않는다. 정책 정본은 [0278 §27](../0278-harness-extension-isolation/plan.md#27-δv5--ready-확정과-구현-경계-잠금)이다.
+
+### 2. 강제 지점·V pair
+
+직접 oracle: `configured-resources/session-context/adapter/project-settings/session-resources, useNativeMcpCatalog/CustomizeList/NativeResourcesTile`. 실제 native 파일의 MCP/plugin revision만 관측하고 model 변경은 no-op이다. external desired와 현재 연결 상태를 구분하며 restart-required를 정상 회수까지 보류한다. 최신 Delta pair와 기존 회귀 pair를 0278 r2의 실행 집합으로 SELF_PASS(자동 검사 범위)로 기록한다. 독립 검증 PASS가 아니다.
+
+### 3. 수정의 잠금
+
+최신 합의로 대체된 기대값만 변경했고 기존 실패 이력은 보존했다. 저장·SDK 인자·UI 내용·조회 횟수/세대·실패 원본을 직접 단언한다.
+
+### 4. Product/UX
+
+읽기 전용은 상태를 숨기지 않는다. popup refresh/안내 문구 금지는 유지하고 0281에서 허용한 agent 제목 indicator만 예외다. 공통 MenuTitle/Popover/Icon/기존 자원 상태 표면을 재사용했다.
+
+### 5. 잠재 문제
+
+실제 Electron 두 테마 시각 인수와 사용자의 custom executable은 미확인이다. 네이티브 원본 설정을 외부 프로그램이 편집하는 경우의 적용 수명은 0278 r2 보고에 명시했다.
+
+### 6. 검사 보고
+
+관련 회귀 1,177개와 SQLite 7개 통과. 전체 결과·native 버전 실측·최종 gate·외부 참고 checkout 링크 실패는 [0278 r2 구현 보고](../0278-harness-extension-isolation/plan.md#구현자-기입--δv5-r2-2026-10-22)에 기록한다. 이 plan의 READY 설계에 대한 구현을 완료했고 다음 주체는 검증자다.
+
+### 7. Review Signals
+
+새 사용자 선택 JSON·추가 서버 시작·강제 재시작을 도입하지 않았다. 검증자는 위 직접 oracle에서 생산 경계와 실제 입력/출력의 대응을 다시 확인한다.

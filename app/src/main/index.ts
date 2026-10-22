@@ -1,3 +1,4 @@
+import { registerNativeSettingsQuit } from './app/native-settings-lifecycle'
 import { app, shell, BrowserWindow, ipcMain, protocol, net } from 'electron'
 import { installExternalNavigation } from './infra/external-navigation'
 import { join, extname } from 'path'
@@ -333,6 +334,14 @@ app.on('window-all-closed', () => {
 // 종료 직전 정리 — ① 진행 중 턴의 열린 도구를 'aborted' 로 정착 + SDK abort(shutdown), ② 로그
 // flush+close(0123 AC9 — shutdown 중 로그까지 담고 닫는다), ③ DB close(WAL 체크포인트).
 // 순서 중요: persist 가 closeDb 전에 끝나야 한다(모두 동기).
+registerNativeSettingsQuit(
+  app,
+  () => routerRef?.prepareShutdown(),
+  () => {
+    rootLog.error('app.native-settings.cleanup-failed')
+  }
+)
+
 app.on('will-quit', () => {
   // app.quit.started 는 flush(closeLog) *이전* 에 emit 돼야 파일에 남는다(0123 AC9 정합).
   rootLog.info('app.quit.started')

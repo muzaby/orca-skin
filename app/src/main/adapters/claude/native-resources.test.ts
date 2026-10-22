@@ -81,16 +81,16 @@ describe('Claude native resources', () => {
         kind: 'mcp',
         status: 'connected',
         enabled: true,
-        canToggle: true
+        canToggle: false
       },
-      { id: 'off', name: 'off', kind: 'mcp', status: 'disabled', enabled: false, canToggle: true },
+      { id: 'off', name: 'off', kind: 'mcp', status: 'disabled', enabled: false, canToggle: false },
       {
         id: 'auth',
         name: 'auth',
         kind: 'mcp',
         status: 'needs-auth',
         enabled: true,
-        canToggle: true
+        canToggle: false
       },
       {
         id: 'sdk',
@@ -99,7 +99,7 @@ describe('Claude native resources', () => {
         status: 'connected',
         source: 'sdk',
         enabled: true,
-        canToggle: true
+        canToggle: false
       },
       {
         id: 'plugin:orca:tools',
@@ -122,19 +122,12 @@ describe('Claude native resources', () => {
     ])
     expect(JSON.stringify(items)).not.toMatch(/private|secret|Authorization|injected/)
   })
-  it('passes both enable values to the same Query and rejects injected or unknown MCP', async () => {
+  it('rejects both MCP toggle directions before SDK native Git-root persistence', async () => {
     const { query, resources } = fixture()
-    await resources.set('native', false)
-    await resources.set('off', true)
-    expect(query.toggleMcpServer.mock.calls).toEqual([
-      ['native', false],
-      ['off', true]
-    ])
-    for (const id of ['runtime', 'plugin:orca:tools', 'missing'])
-      await expect(resources.set(id, false)).rejects.toThrow()
-    expect(query.toggleMcpServer).toHaveBeenCalledTimes(2)
-    query.toggleMcpServer.mockRejectedValueOnce(new Error('provider rejected'))
-    await expect(resources.set('native', false)).rejects.toThrow('provider rejected')
+    for (const id of ['native', 'off', 'runtime', 'plugin:orca:tools', 'missing'])
+      for (const enabled of [true, false])
+        await expect(resources.set(id, enabled)).rejects.toThrow()
+    expect(query.toggleMcpServer).not.toHaveBeenCalled()
   })
 })
 
@@ -229,4 +222,49 @@ it('commits a plugin choice only after verified reload and restores flags and co
     'SDK failed'
   )
   expect(persist).toHaveBeenCalledOnce()
+})
+
+it('waits for durable persistence and serializes subsequent plugin mutations', async () => {
+  const gate = Promise.withResolvers<void>()
+  const entered = Promise.withResolvers<void>()
+  let enabled = false
+  const persist = vi.fn(async () => {
+    entered.resolve()
+    await gate.promise
+  })
+  const query = {
+    mcpServerStatus: async () => [],
+    toggleMcpServer: vi.fn(),
+    applyFlagSettings: vi.fn(async (value: { enabledPlugins: Record<string, boolean> }) => {
+      enabled = value.enabledPlugins['p@inline']
+    }),
+    reloadPlugins: vi.fn(async () => ({
+      plugins: enabled ? [{ name: 'p', path: '/p' }] : [],
+      commands: [],
+      agents: [],
+      mcpServers: [],
+      error_count: 0
+    }))
+  }
+  const resources = claudeNativeResources(
+    query,
+    [],
+    [],
+    [{ key: 'p@m', name: 'p', path: '/p', enabled: false }],
+    { 'p@inline': false },
+    persist
+  )
+  let resolved = false
+  const first = resources.set(nativePluginId('/p'), true, 'plugin').then(() => {
+    resolved = true
+  })
+  await entered.promise
+  const second = resources.set(nativePluginId('/p'), false, 'plugin', false)
+  for (let index = 0; index < 20; index++) await Promise.resolve()
+  expect(resolved).toBe(false)
+  expect(query.applyFlagSettings).toHaveBeenCalledTimes(1)
+  gate.resolve()
+  await Promise.all([first, second])
+  expect(persist).toHaveBeenCalledTimes(1)
+  expect(enabled).toBe(false)
 })

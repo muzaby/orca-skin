@@ -1,3 +1,4 @@
+import { PluginSnapshots } from '../../infra/config/plugin-snapshots'
 import type { SetNativeResource } from '../../../shared/native-resources'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -71,9 +72,7 @@ it('isolates global SDK choices and freezes them until the last project query cl
   const original = readFileSync(join(root, 'settings.json'), 'utf8')
   let enabled = true
   const adapter = new ClaudeAdapter({
-    global: () => ({ 'plugin:frontend@market': enabled }),
-    projectMcp: () => ({}),
-    setProjectMcp: vi.fn()
+    global: () => ({ 'plugin:frontend@market': enabled })
   })
   const request = {
     sessionId: null,
@@ -335,4 +334,65 @@ it('persists both plugin states across follow-up turns, new adapters and cold re
     JSON.parse(readFileSync(join(root, 'settings.json'), 'utf8')).enabledPlugins['frontend@market']
   ).toBe(true)
   restarted.close()
+})
+
+it('pins deployed MCP files for same-cwd peers and reloads until the final owner closes', async () => {
+  const injected = join(temp, 'deployed')
+  write(join(injected, '.claude-plugin/plugin.json'), { name: 'orcinus-orca' })
+  write(join(injected, '.mcp.json'), { mcpServers: { old: {} } })
+  const snapshots = new PluginSnapshots(join(temp, 'private'))
+  await snapshots.publish([injected])
+  const adapter = new ClaudeAdapter(undefined, snapshots)
+  const request = {
+    sessionId: null,
+    cwd,
+    text: 'hello',
+    env: { CLAUDE_CONFIG_DIR: root },
+    extensions: { pluginRoots: [injected], skills: [], hooks: { normalized: {} } }
+  }
+  const files = (): string[] =>
+    ((fixture.query.mock.calls.at(-1)![0] as { options: Options }).options.plugins ?? [])
+      .filter((entry) => entry.type === 'local')
+      .map((entry) => entry.path)
+  const first = adapter.sendMessage(request)
+  const oldPath = files()[0]
+  write(join(injected, '.mcp.json'), { mcpServers: { next: {} } })
+  await snapshots.publish([injected])
+  await first.pushTurn!({ text: 'next turn' })
+  const peer = adapter.sendMessage({ ...request, sessionId: 'cold-resume' })
+  expect(files()[0]).toBe(oldPath)
+  expect(JSON.parse(readFileSync(join(files()[0], '.mcp.json'), 'utf8'))).toEqual({
+    mcpServers: { old: {} }
+  })
+  const sdk = fixture.query.mock.results.at(-1)!.value
+  sdk.reloadPlugins.mockImplementation(async () => {
+    expect(JSON.parse(readFileSync(join(oldPath, '.mcp.json'), 'utf8'))).toEqual({
+      mcpServers: { old: {} }
+    })
+    return { plugins: [], commands: [], agents: [], mcpServers: [], error_count: 0 }
+  })
+  await peer.setNativeResource!({
+    sessionId: 'cold-resume',
+    generation: peer.providerGeneration!,
+    kind: 'plugin',
+    id: nativePluginId(plugin),
+    enabled: false
+  })
+  const other = adapter.sendMessage({ ...request, cwd: join(temp, 'other') })
+  expect(JSON.parse(readFileSync(join(files()[0], '.mcp.json'), 'utf8'))).toEqual({
+    mcpServers: { next: {} }
+  })
+  first.close()
+  const remaining = adapter.sendMessage(request)
+  expect(files()[0]).toBe(oldPath)
+  peer.close()
+  remaining.close()
+  const fresh = adapter.sendMessage(request)
+  expect(files()[0]).not.toBe(oldPath)
+  expect(JSON.parse(readFileSync(join(files()[0], '.mcp.json'), 'utf8'))).toEqual({
+    mcpServers: { next: {} }
+  })
+  other.close()
+  fresh.close()
+  await snapshots.close()
 })

@@ -106,15 +106,10 @@ const server = { url: 'http://owned.test', headers: { Authorization: 'Basic one'
 const freshSignal = (): AbortSignal => new AbortController().signal
 
 describe('OpenCode server context with the installed SDK', () => {
-  it('shares directory choices, defers project edits until idle and renews defaults after final disposal', async () => {
+  it('freezes global choices per directory, rejects unsafe project writes and renews after final disposal', async () => {
     let enabled = false
-    const projects: Record<string, Record<string, boolean>> = {}
     const f = fixture(4096, {
-      global: () => ({ 'mcp:docs': enabled }),
-      projectMcp: (directory) => projects[directory] ?? {},
-      setProjectMcp: (directory, id, value) => {
-        projects[directory] = { ...projects[directory], [id]: value }
-      }
+      global: () => ({ 'mcp:docs': enabled })
     })
     const states = new Map<string, boolean>()
     f.setRead(async (request) => {
@@ -133,8 +128,9 @@ describe('OpenCode server context with the installed SDK', () => {
     })
     const a = await f.pool.acquire(server, 'C:/A')
     const peer = await f.pool.acquire(server, 'C:/A')
+    enabled = true // A acquired its defaults before native preparation.
     await Promise.all([a.prepare(freshSignal()), peer.prepare(freshSignal())])
-    expect((await a.mcp(freshSignal()))[0]).toMatchObject({ enabled: false, canToggle: true })
+    expect((await a.mcp(freshSignal()))[0]).toMatchObject({ enabled: false, canToggle: false })
     expect(
       f.requests.filter((request) => new URL(request.url).pathname.endsWith('/disconnect'))
     ).toHaveLength(1)
@@ -143,15 +139,10 @@ describe('OpenCode server context with the installed SDK', () => {
     await b.prepare(freshSignal())
     expect((await b.mcp(freshSignal()))[0].enabled).toBe(true)
     expect((await peer.mcp(freshSignal(), true))[0].enabled).toBe(false)
-    await a.mcpControl!.set('docs', true)
-    const revision = (await a.mcpControl!.policy.read('C:/A')).revision
-    expect(await a.mcpControl!.reconcile(revision, () => false)).toBe('pending')
+    await expect(a.mcpControl!.set('docs', true)).rejects.toThrow()
     expect((await peer.mcp(freshSignal(), true))[0].enabled).toBe(false)
-    expect(await a.mcpControl!.reconcile(revision, () => true)).toBe('applied')
-    expect((await peer.mcp(freshSignal(), true))[0].enabled).toBe(true)
-    delete projects['C:/A']
     await a.release()
-    expect((await peer.mcp(freshSignal(), true))[0].enabled).toBe(true)
+    expect((await peer.mcp(freshSignal(), true))[0].enabled).toBe(false)
     await peer.release()
     const fresh = await f.pool.acquire(server, 'C:/A')
     await fresh.prepare(freshSignal())

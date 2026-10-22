@@ -22,11 +22,11 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [`0281-opencode-menu-cache`](0281-opencode-menu-cache/plan.md) | plan | READY | Codex | V1 `256ddd24` | 1 | ΔV1: 기본 에이전트 행 제거·에이전트 제목 우측 로딩 회전 스피너. 캐시·새로고침 제거 유지. 새 요구 구현 전. |
+| [`0281-opencode-menu-cache`](0281-opencode-menu-cache/plan.md) | impl | IMPL_DONE | Claude | (r1.2 구현 — 검증자 기입) | 1 | 기본 에이전트 제거·agent 제목 우측 loading 표시. cache/키보드/독립 slot 회귀 통과; 실제 창 시각 인수 미확인. |
 | [`0280-opencode-prepared-status`](0280-opencode-prepared-status/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 준비 인스턴스의 MCP/plugin 독립 표시·취소/실패 구분·안전 진단. AC5/5 자기확인, 실제 사용자 환경·독립 검증 대기. 전역 제어는 0278 별도. |
-| [`0279-claude-project-plugin-state`](0279-claude-project-plugin-state/plan.md) | plan | READY | Codex | V1 `256ddd24` | 1 | D31 비동기 대기·await 및 D32 엄격한 cwd 격리 승계. F1은 native MCP 관측·mutation 차단으로 보완. 지원 plugin 저장 검증 유지. |
-| [`0278-harness-extension-isolation`](0278-harness-extension-isolation/plan.md) | plan | READY | Codex | V1 `256ddd24`; 기존 검증 `b928a4ae` + `6bf1ee40` | 2 | ΔV3 동시 파일 저장, ΔV4 엄격한 cwd 격리·불가 항목 모니터링 확정. Claude/OpenCode 실측 반영. §27: capability·불변 배포 snapshot·파일 큐 구현 경계 확정. [검증](0278-harness-extension-isolation/verify.md). |
-| [`0277-opencode-mcp-catalog`](0277-opencode-mcp-catalog/plan.md) | plan | READY | Codex | V1 `256ddd24` | 1 | §8 관측 경계와 0278 §27의 실제 reader/IPC/context/panel 회귀를 잠금. R1–R11 유지·선택 UI 질문 종료. |
+| [`0279-claude-project-plugin-state`](0279-claude-project-plugin-state/plan.md) | impl | IMPL_DONE | Claude | (r1.3 구현 — 검증자 기입) | 1 | Windows actual cwd plugin 저장·async await·MCP 읽기 전용. native 0.3.286/0.3.296 범위 재현, 기존 유휴 정책 회귀. |
+| [`0278-harness-extension-isolation`](0278-harness-extension-isolation/plan.md) | impl | IMPL_DONE | Claude | (r2 구현 — 검증자 기입) | 2 | 전역 선택 메모리화·동시 파일 FIFO/종료 drain·불변 배포 사본·격리 불가 mutation 차단. F1 reader 반례 재검사 통과, 독립 검증 대기. |
+| [`0277-opencode-mcp-catalog`](0277-opencode-mcp-catalog/plan.md) | impl | IMPL_DONE | Claude | (r1.2 구현 — 검증자 기입) | 1 | native 파일 관측·실행 상태 동기화와 read-only capability 적용. 기존 서버/instance 수명 및 R1–R11 회귀. |
 | [`0276-opencode-composer-preparation`](0276-opencode-composer-preparation/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 첫 입력 전 agent/provider 독립 준비·캐시/재조회·owner 수명 구현. CLI 1.17.19 A idle→B 및 첫 입력 재사용 확인. 팝업 표현은 0281 ΔV1 적용. |
 | [`0275-opencode-shared-instances`](0275-opencode-shared-instances/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 호환 profile 서버 공유, directory 정리 완료 뒤 반납. 실제 CLI에서 module import 재사용·기존 이력 보존·최종 서버 종료 관측. |
 | [`0274-opencode-desktop-startup`](0274-opencode-desktop-startup/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | Desktop1.17.19 기준 공유 global SSE·프로젝트 준비·첫 제출 순서 구현. 관련295개 pass, 실제Electron8세션·CLI1.17.19 검증. AC11/11, 독립 검증 대기. |

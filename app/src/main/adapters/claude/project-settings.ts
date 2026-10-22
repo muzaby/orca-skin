@@ -4,7 +4,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { isRecord } from '../../../shared/obj'
 import { claudeNativePaths } from './native-paths'
-import { claudePluginProjectRoot, pluginPathKey, claudeLocalSettingsRoot } from './project-path'
+import { pluginPathKey, claudeLocalSettingsRoot } from './project-path'
 
 const record = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {})
 const names = (value: unknown): string[] => {
@@ -76,7 +76,7 @@ export function readClaudeProjectSettings(
     record(
       Object.entries(projects).find(([key]) => pluginPathKey(key) === pluginPathKey(path))?.[1]
     )
-  const native = { ...entry(claudePluginProjectRoot(cwd)), ...entry(cwd) }
+  const native = entry(cwd)
   const plugins = { ...record(project.enabledPlugins), ...record(local.enabledPlugins) }
   if (
     Object.values(plugins).some(

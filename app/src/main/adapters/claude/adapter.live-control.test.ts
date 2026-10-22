@@ -108,7 +108,7 @@ describe('ClaudeAdapter — live 제어 위임의 인자 (0212 AC25 경로 끝)'
   })
 })
 
-it('wires native status, loaded plugins, injected exclusions and session-local toggles to the Query', async () => {
+it('wires native status, loaded plugins, injected exclusions and read-only MCP guards to the Query', async () => {
   control.toggleMcpServer.mockClear()
   messages.push({
     type: 'system',
@@ -158,7 +158,7 @@ it('wires native status, loaded plugins, injected exclusions and session-local t
           kind: 'mcp',
           status: 'connected',
           enabled: true,
-          canToggle: true
+          canToggle: false
         },
         {
           id: nativePluginId('/native'),
@@ -171,17 +171,16 @@ it('wires native status, loaded plugins, injected exclusions and session-local t
       ]
     })
     for (const enabled of [false, true])
-      await live.setNativeResource?.({
-        sessionId: 'native-session',
-        generation: result!.generation!,
-        kind: 'mcp',
-        id: 'native-A',
-        enabled
-      })
-    expect(control.toggleMcpServer.mock.calls).toEqual([
-      ['native-A', false],
-      ['native-A', true]
-    ])
+      await expect(
+        live.setNativeResource?.({
+          sessionId: 'native-session',
+          generation: result!.generation!,
+          kind: 'mcp',
+          id: 'native-A',
+          enabled
+        })
+      ).rejects.toThrow()
+    expect(control.toggleMcpServer).not.toHaveBeenCalled()
     await expect(
       live.setNativeResource?.({
         sessionId: 'native-session',

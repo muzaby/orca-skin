@@ -449,10 +449,8 @@ export class OpenCodeSessionContexts {
       models: (signal, refresh) => metadata.composer.models(signal, refresh),
       mcp: async (signal, refresh) => {
         await metadata.mcpControl?.prepare()
-        return (await metadata.composer.mcp(signal, refresh)).map((item) => ({
-          ...item,
-          canToggle: !!metadata.mcpControl
-        }))
+        const items = await metadata.composer.mcp(signal, refresh)
+        return metadata.mcpControl ? metadata.mcpControl.preview(items) : items
       },
       plugins: (signal, refresh, env) => metadata.composer.plugins(signal, refresh, env),
       rememberCommands: (commands) => owned.rememberCommands(scope, metadata, commands),

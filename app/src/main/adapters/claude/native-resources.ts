@@ -13,7 +13,7 @@ export function claudeNativeResources(
   injectedServers: readonly string[] = [],
   installations: readonly { key: string; name: string; path: string; enabled: boolean }[] = [],
   initialFlags: Record<string, boolean> = {},
-  persistPluginState?: (key: string, enabled: boolean) => void
+  persistPluginState?: (key: string, enabled: boolean) => void | Promise<void>
 ): {
   observePlugins(plugins: readonly { name: string; path: string }[]): void
   observeCommands(names: readonly string[]): void
@@ -28,6 +28,7 @@ export function claudeNativeResources(
     isIdle?: () => boolean
   ): Promise<void>
 } {
+  let mutations: Promise<void> = Promise.resolve()
   let plugins: NativeResource[] = []
   const directories = new Map<string, string>()
   let commandNames: readonly string[] = []
@@ -35,7 +36,8 @@ export function claudeNativeResources(
   const roots = new Set(injectedRoots.map((root) => resolve(root)))
   const controls = new Map(installations.map((plugin) => [nativePluginId(plugin.path), plugin]))
   let flags = { ...initialFlags }
-  const canTogglePlugins = !!query.applyFlagSettings && !!query.reloadPlugins
+  const canTogglePlugins =
+    process.platform === 'win32' && !!query.applyFlagSettings && !!query.reloadPlugins
   const observePlugins = (entries: readonly { name: string; path: string }[]): void => {
     injectedNames.clear()
     directories.clear()
@@ -127,7 +129,7 @@ export function claudeNativeResources(
             status: server.status,
             ...(server.source ? { source: server.source } : {}),
             enabled: server.status !== 'disabled',
-            canToggle: !injectedPrefix(server.name),
+            canToggle: false,
             ...(injectedPrefix(server.name) ? { origin: 'orca' as const } : {})
           })),
         ...(await Promise.all(
@@ -143,46 +145,48 @@ export function claudeNativeResources(
     async directory(id) {
       return directories.get(id)
     },
-    async set(id, enabled, kind = 'mcp', persist = true, isIdle = () => true) {
-      if (!isIdle()) throw new Error('프로젝트가 사용 중입니다.')
-      if (kind === 'plugin') {
-        const plugin = controls.get(id)
-        if (!plugin || !query.applyFlagSettings || !query.reloadPlugins)
-          throw new Error('이 플러그인은 프로젝트별 제어를 지원하지 않습니다.')
-        const previous = flags
-        const next = { ...flags, [`${plugin.name}@inline`]: enabled }
-        try {
-          await query.applyFlagSettings({ enabledPlugins: next })
-          const result = await query.reloadPlugins()
-          observePlugins(result.plugins)
-          commandNames = result.commands
-            .filter((command) => !command.builtin)
-            .map((command) => command.name)
-          if (result.plugins.some((item) => nativePluginId(item.path) === id) !== enabled)
-            throw new Error('플러그인 활성 상태를 변경하지 못했습니다.')
-          if (persist) persistPluginState?.(plugin.key, enabled)
-          flags = next
-        } catch (error) {
-          try {
-            await query.applyFlagSettings({ enabledPlugins: previous })
-            const restored = await query.reloadPlugins()
-            observePlugins(restored.plugins)
-            commandNames = restored.commands
-              .filter((command) => !command.builtin)
-              .map((command) => command.name)
-          } catch {
-            // The subsequent menu refresh reports the actual state; never claim success.
+    set(id, enabled, kind = 'mcp', persist = true, isIdle = () => true) {
+      const operation = mutations
+        .catch(() => undefined)
+        .then(async () => {
+          if (!isIdle()) throw new Error('프로젝트가 사용 중입니다.')
+          if (kind === 'plugin') {
+            const plugin = controls.get(id)
+            if (!canTogglePlugins || !plugin || !query.applyFlagSettings || !query.reloadPlugins)
+              throw new Error('이 플러그인은 프로젝트별 제어를 지원하지 않습니다.')
+            const previous = flags
+            const next = { ...flags, [`${plugin.name}@inline`]: enabled }
+            try {
+              await query.applyFlagSettings({ enabledPlugins: next })
+              const result = await query.reloadPlugins()
+              observePlugins(result.plugins)
+              commandNames = result.commands
+                .filter((command) => !command.builtin)
+                .map((command) => command.name)
+              if (result.plugins.some((item) => nativePluginId(item.path) === id) !== enabled)
+                throw new Error('플러그인 활성 상태를 변경하지 못했습니다.')
+              if (persist) await persistPluginState?.(plugin.key, enabled)
+              flags = next
+            } catch (error) {
+              try {
+                await query.applyFlagSettings({ enabledPlugins: previous })
+                const restored = await query.reloadPlugins()
+                observePlugins(restored.plugins)
+                commandNames = restored.commands
+                  .filter((command) => !command.builtin)
+                  .map((command) => command.name)
+              } catch {
+                // The subsequent menu refresh reports the actual state; never claim success.
+              }
+              throw error
+            }
+            return
           }
-          throw error
-        }
-        return
-      }
-      const server = (await query.mcpServerStatus()).find(
-        (item) => item.name === id && isNative(item)
-      )
-      if (!server) throw new Error('이 세션에 연결된 MCP 서버가 아닙니다.')
-      if (!isIdle()) throw new Error('프로젝트가 사용 중입니다.')
-      await query.toggleMcpServer(id, enabled)
+          // SDK native persistence is Git-root scoped, even when the Query uses a child cwd.
+          throw new Error('이 MCP는 작업 경로별 제어를 지원하지 않습니다.')
+        })
+      mutations = operation
+      return operation
     }
   }
 }

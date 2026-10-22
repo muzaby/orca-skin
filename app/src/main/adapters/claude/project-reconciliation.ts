@@ -91,7 +91,7 @@ export class ClaudeProjectReconciliation {
       if (manifest.mcpServers || existsSync(join(plugin.path, '.mcp.json')))
         return 'restart-required'
     }
-    if (changes.some((item) => !item.canToggle)) return 'restart-required'
+    if (changes.some((item) => item.kind === 'mcp' || !item.canToggle)) return 'restart-required'
     const guard = (): boolean => isIdle() && this.read().revision === revision
     for (const item of changes) {
       if (!guard()) return 'pending'

@@ -799,3 +799,62 @@ SDK가 제공하지 않는 native plugin load/unload를 임의 config 필드로 
 
 - **F1 / BLOCKING / VP7·AC7·D16**: Claude native MCP의 Git-root 저장이 하위의 다른 cwd로 전파된다. 설치 SDK와 실제 reader/reconcile 반례를 [verify.md](verify.md)에 보존했다. 같은 cwd 공유 필터만으로 cold-start 및 파일 감시 경유 전파를 막을 수 없다. 현재 작업경로 격리를 유지하는 수정이 필요하다.
 - **미검증 경계**: Orca 배포 MCP의 고정 파일 경로와 같은 cwd의 후속 Query 합류. flags/skills snapshot 통과를 이 경계의 PASS로 확대하지 않는다.
+
+
+## [구현자 기입] — ΔV5 r2 (2026-10-22)
+
+### 1. 설계 리뷰
+
+READY 설계를 `10f52f99`로 먼저 커밋한 뒤 구현했다. D26의 전역 SDK 선택은 프로세스 메모리이며 native 기본값을 복제하지 않는다. D32에 따라 Claude MCP와 OpenCode 프로젝트 MCP/plugin은 관측만 제공하고 직접 mutation도 거부한다. Windows Claude plugin만 실제 cwd의 local 파일과 SDK flags/reload로 제어한다. 기존 V1 구현 보고의 JSON 선택 저장·MCP 가변 토글 설명은 이 라운드의 구현 결과로 대체된다.
+
+Claude SDK의 설치본 0.3.286과 선언 버전 0.3.296을 각각 격리된 fixture에서 실행했다. 두 버전 모두 MCP toggle은 A Git root에 저장되고 새 child B가 disabled를 읽었다. 두 버전 모두 Windows local plugin off는 A 새 Query와 A reload에만 반영되고 새 child B는 enabled였다. 따라서 MCP 제어 차단과 Windows plugin 지원을 구분했다. OpenCode 1.17.19 실측은 §26·27의 상위 파일 상속/SDK directory 연결 결과를 유지한다. LLM 요청이나 실제 사용자 MCP 설정 변경은 사용하지 않았다.
+
+### 2. 강제 지점·V pair 자기확인
+
+| §27 자리 | 직접 oracle·이번 관측 | pair 자기결과 |
+|---|---|---|
+| FEP1 | `extension-catalog.test.ts: keeps supported explicit choices only in memory / does not reactivate legacy choice bytes` — legacy 원본 보존, patch 무효, native 값 재조회, 새 control 빈 값 | DV1-P1·4·5 SELF_PASS |
+| FEP2 | `bootstrap.harness.test.ts: initializes its actual adapter registry`와 `bootstrap.native-history.test.ts: registers the global catalog with process choices` — legacy false가 등록된 reader/registry 기본값을 덮지 않음 | DV1-P4 SELF_PASS |
+| FEP3 | `adapter.native-plugins.test.ts: pins deployed MCP files` 및 `isolates global SDK choices` — A 기존/새 peer/재개/reload old 파일, 새 B/new A next 파일, 일부 owner 해제 후 old 유지 | DV1-P2·DV5-P1 SELF_PASS |
+| FEP4 | `extensions.test.ts: finishes immutable publication inside the serialized deployment`, `bootstrap.shutdown.test.ts: deploys enabled MCP servers`, `plugin-snapshots.test.ts` — publication barrier 동안 다음 배포 대기, factory→publisher 전달, 실패 시 이전 사본 유지, retired 사본 정리 | DV5-P1 SELF_PASS |
+| FEP5 | `native-resources.test.ts: rejects both MCP toggle directions / waits for durable persistence`, `adapter.live-control.test.ts` — MCP SDK 호출 0, plugin persistence 대기·롤백, peer persist=false | DV3-P3·DV4-P2·3 SELF_PASS |
+| FEP6 | `project-settings.test.ts`, `project-reconciliation.test.ts`와 기존 `evidence/native-isolation.test.ts`의 child 반례 — A Git-root 변경 뒤 B revision 동일·set 호출 0, 읽기 전용 변경 restart-required | DV1-P3·DV4-P2 SELF_PASS |
+| FEP7 | `session-context.test.ts: freezes global choices per directory`, `adapter.test.ts: rejects unsafe project controls` — acquire/prepare 사이 변경도 captured 값 유지, B 최신값, 최종 A 회수 후 최신값, 직접 set 거부 | DV1-P2·DV4-P2 SELF_PASS |
+| FEP8 | `project-settings.test.ts: observes exact cwd MCP/plugin keys`, `project-resource-sync.test.ts` — native JSONC read, A/B revision 분리, model만 변경 시 no-op, UI desired와 실제 상태 구분, busy 보류/idle restart-required·stale 폐기 | DV2-P2·3 SELF_PASS |
+| FEP9 | `file-mutation.test.ts`, `plugin-state.test.ts` — 동일 파일 별칭 FIFO·형제 키·마지막 값, 다른 파일 독립, 외부 변경 재병합, ENOSPC/잠금 실패 원본 보존·후속 요청, 실제 Windows FileShare.None 해제 후 성공 | DV3-P1·3·4 SELF_PASS |
+| FEP10 | `session-resources.test.ts: serializes conflicting project requests`, `native-resource-sharing.test.ts`, `native-resources.test.ts: waits for durable persistence` — 실제 IPC 큐 순서·불가 항목 거부·peer 무기록·await 전달 | DV3-P1·DV4-P1 SELF_PASS |
+| FEP11 | `native-settings-lifecycle.test.ts: defers actual before-quit events`, `bootstrap.shutdown.test.ts` 및 snapshot tests — 두 quit 입력도 한 번만 drain, 저장→runtime→사본 순서, shutdown 멱등 | DV3-P2·DV5-P1 SELF_PASS |
+| FEP12 | `useNativeMcpCatalog.test.ts`, `CustomizeList.render.test.ts`, panel/store 및 `useNativeResources.test.ts` — capability별 표시, 실패/지각 응답·동적 항목·종료 관측 보존 | DV4-P1 및 0277 DV1-P3 SELF_PASS |
+
+§27 검색식으로 새 helper와 기존 consumer를 다시 대조했다. native 선택의 production 사용 검색은 읽기 호환 `Settings`/`SettingsSchema` 선언만 남고 `setProjectMcp`·`projectMcp()`·SettingsStore의 해당 patch 경로는 0개다. `toggleMcpServer`는 resource Query 타입에만 남고 mutation/reconcile 호출은 0개다. `before-quit` 등록은 `registerNativeSettingsQuit`로 이동해 실제 등록 callback을 검사했다. FEP1–12의 생산 경로는 위 oracle에서 자기확인했으며 실제 창/사용자 커스텀 실행 파일은 아래 미확인 범위다.
+
+V1 VP1–7와 ΔV1–5 유효 pair는 §27의 이관 기준으로 SELF_PASS(자동 검사 범위). 대체된 native writer 성공 조건을 별도 JSON 쓰기로 흉내 내지 않고 거부/무기록으로 확인했다. AC1–3·4S·5G·6N·7C·8–12·13N–16F·17W–20L·21C는 같은 범위의 자기확인이다. 독립 검증 PASS가 아니다.
+
+### 3. 이번 수정의 잠금
+
+기존 verify F1의 reader/reconcile 반례를 이름 필터로 그대로 재실행해 child revision과 SDK set 무호출을 확인했다. 오래된 OpenCode 프로젝트 쓰기 성공 테스트는 새 거부 정책의 생산 테스트로 이관하며 원본 과거 증거는 수정하지 않았다. 파일 테스트는 형제 값·응답 시점·동시 파일·영구 실패·실제 OS 잠금을 구별한다. 일반 경합에서 즉시 예외를 내던 동기 writer를 async queue로 바꿨으며 저장 완료 이전에는 성공 응답하지 않는다.
+
+### 4. Product/UX 파생 검토
+
+우측 패널은 지원 불가 MCP의 상태를 계속 표시하면서 토글을 제공하지 않는다. 전역은 항목별 SDK capability를 유지한다. Composer는 실제 agent만 표시하고 agent 로딩 중 그룹 제목 오른쪽 indicator 하나만 제공한다. MenuTitle trailing·Popover·Icon을 재사용하며 빈 메뉴의 Escape/Tab과 초점 복귀, reduced-motion class 및 성공 캐시 재사용을 검사했다. 실제 Electron 창의 두 테마 시각 인수는 미실행이다.
+
+### 5. 잠재 문제·대응
+
+- 네이티브 외부 프로세스는 Orca의 FIFO를 공유하지 않는다. commit 직전 bytes 비교와 재병합을 제공하지만 외부 writer와 원자 compare-and-swap을 보장하지는 않는다.
+- snapshot은 실행 파일 사본이다. 정상 종료·owner 회수 때 지우며 비정상 프로세스 강제 종료의 잔여 파일 자동 청소는 이번 정상 종료 보장의 범위 밖이다. MCP 비밀은 사본 파일에만 포함되며 내용·설정 경로를 오류/목록으로 보내지 않는다.
+- OpenCode plugin hook 및 native MCP 초기 연결 비용을 제거한 것이 아니다. server/instance/SSE 공유와 기존 bootstrap 순서를 유지했다.
+- 기존 유휴 적용은 유지한다. 격리 불가 native 변경은 강제 dispose하지 않고 정책상 자원 회수를 기다린다.
+
+### 6. 구현·검사 보고
+
+- 관련 회귀: 122파일 1,177개 통과, 기존 조건부 skip 1. SQLite 1파일 7개는 설치된 Electron ABI로 별도 통과.
+- 경계 확장 검사: 8파일 중 161개 통과 후 bootstrap fixture의 신규 publisher 주입 누락 1개 수정. 해당 bootstrap + 실제 quit callback 검사 2파일 9개 통과.
+- 최초 넓힌 검사 실패는 정책 기대값 1개, TEMP 접근 제한 11개, SQLite ABI 7개였다. 기대값 보완과 workspace TEMP, Electron Node 모드로 원인을 분리했고 생산 코드를 timeout/skip으로 우회하지 않았다.
+- node/web/test 타입 검사, lint 오류 0(기존 virtualizer 경고 2), production build 통과. 마지막 수명 callback 조립 이후 node 타입·production build도 재통과했다.
+- inventory/prose·test budget·diff 검사 통과. 전체 링크 검사는 ignored 외부 참고 checkout의 기존 10개 실패이며, 두 참고 checkout만 제외한 링크 결과 `[]`이다.
+- 추가 renderer 범위 검사 5파일 19개 통과. 실제 oracle 파일은 `nativeResourceState.composer.test.ts`·`nativeResourcesMenu.test.ts`·`NativeResources.test.ts`·`ChatTitleBar.native-resources.test.ts`·`NativeStatusProject.test.ts`다. 이전 표의 `nativeResourceState.test.ts` 약칭을 이 좌표로 구체화한다.
+- native 실측: Claude 0.3.286/0.3.296·OpenCode 1.17.19의 격리 fixture. 사용자의 커스텀 바이너리/실제 모델 응답 지연 수치는 미측정이다.
+
+### 7. Review Signals
+
+새 의존성·새 사용자 선택 저장 형식 없음. 기존 legacy 데이터는 삭제하지 않고 실행에서 제외했다. 검증자는 native read-only guard, 같은 cwd 후속 Query의 사본 경로, 파일 lock 대기/실패 복구, before-quit drain을 우선 확인하면 된다. 정책 READY와 구현 자기검증을 독립 verify 결과로 혼동하지 않는다.

@@ -336,10 +336,13 @@ export class ClaudeAdapter implements SessionAdapter {
       references: number
       plugins: Record<string, boolean>
       skills: TurnRequest['extensions']['skills']
+      deployment?: import('../common/plugin-snapshots').PluginSnapshotLease
+      pluginRoots: string[] | undefined
     }
   >()
   constructor(
-    private readonly extensionControl?: import('../common/extension-control').ExtensionControl
+    private readonly extensionControl?: import('../common/extension-control').ExtensionControl,
+    private readonly pluginSnapshots?: import('../common/plugin-snapshots').PluginSnapshotPort
   ) {}
   async recoverSession(
     req: NativeHistoryRequest
@@ -446,20 +449,24 @@ export class ClaudeAdapter implements SessionAdapter {
           .filter(([key]) => key.startsWith('plugin:'))
           .map(([key, value]) => [key.slice(7), value])
       )
+      const plugins = readClaudePluginCatalog(
+        req.cwd,
+        nativeRoot,
+        {
+          ...req.providerSettings?.settings,
+          enabledPlugins: {
+            ...(req.providerSettings?.settings?.enabledPlugins as Record<string, unknown>),
+            ...flags
+          }
+        },
+        true
+      ).defaults
+      const deployment = this.pluginSnapshots?.capture(req.extensions.pluginRoots ?? [])
       snapshot = {
+        deployment,
+        pluginRoots: deployment?.roots ?? req.extensions.pluginRoots,
         references: 0,
-        plugins: readClaudePluginCatalog(
-          req.cwd,
-          nativeRoot,
-          {
-            ...req.providerSettings?.settings,
-            enabledPlugins: {
-              ...(req.providerSettings?.settings?.enabledPlugins as Record<string, unknown>),
-              ...flags
-            }
-          },
-          true
-        ).defaults,
+        plugins,
         skills: req.extensions.skills.map((skill) => ({ ...skill }))
       }
       this.extensionSnapshots.set(key, snapshot)
@@ -470,14 +477,16 @@ export class ClaudeAdapter implements SessionAdapter {
     const release = (): void => {
       if (released) return
       released = true
-      if (--owned.references === 0 && this.extensionSnapshots.get(key) === owned)
+      if (--owned.references === 0 && this.extensionSnapshots.get(key) === owned) {
         this.extensionSnapshots.delete(key)
+        owned.deployment?.release()
+      }
     }
     try {
       return this.openChannel(
         {
           ...req,
-          extensions: { ...req.extensions, skills: owned.skills }
+          extensions: { ...req.extensions, skills: owned.skills, pluginRoots: owned.pluginRoots }
         },
         release,
         owned.plugins
@@ -770,11 +779,14 @@ export class ClaudeAdapter implements SessionAdapter {
     const close = (): void => {
       if (closed) return
       closed = true
-      releaseExtensions()
       capturedOutputs.length = 0
       input.close()
       receipts.close()
-      handle.close?.()
+      try {
+        handle.close?.()
+      } finally {
+        releaseExtensions()
+      }
     }
 
     // 대기 중인 압축 요약을 assistant 메시지 이벤트로 비운다 — persist(text 파트)와 렌더
@@ -825,7 +837,7 @@ export class ClaudeAdapter implements SessionAdapter {
       nativePluginFlags,
       (key, enabled) => {
         signal?.throwIfAborted()
-        persistClaudePluginState(cwd, key, enabled)
+        return persistClaudePluginState(cwd, key, enabled)
       }
     )
 

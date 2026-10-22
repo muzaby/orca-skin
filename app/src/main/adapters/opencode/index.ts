@@ -13,3 +13,5 @@ export const openCodeSkillDirectories = implementation.skillDirectories
 export const openCodePluginSkillDirectories = implementation.pluginSkillDirectories
 export const openCodeContextWindow = implementation.contextWindow
 export type { OpenCodeRuntimeOptions, OpenCodeServer } from './implementation'
+
+export const openCodeProjectResources = implementation.projectResources

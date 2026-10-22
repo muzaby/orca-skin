@@ -1,3 +1,4 @@
+import { extensionControl } from './extension-control'
 // 0265 — 실제 Bootstrap.register가 session handler에 넘긴 콜백을 실행한다.
 // 다른 IPC 등록 직전에 멈추며, runtime과 activity는 프로덕션 인스턴스를 유지한다.
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -149,7 +150,6 @@ function register(): {
   supervisor: RuntimeSupervisor<Electron.WebContents>
   activity: SessionActivityProjector
   forget: ReturnType<typeof vi.fn>
-  settingsChanged: (keys: string[]) => void
 } {
   const forget = vi.fn()
   const bootstrap = Object.create(Bootstrap.prototype) as {
@@ -158,17 +158,16 @@ function register(): {
     registerTurnEvents(): HistoryWriter
     supervisor: RuntimeSupervisor<Electron.WebContents>
     activity: SessionActivityProjector
+    extensionChoices: ReturnType<typeof extensionControl>
     settings: {
       getAll: () => object
       onPatch: (callback: (value: object, keys: string[]) => void) => void
     }
   }
-  let settingsChanged!: (value: object, keys: string[]) => void
+  bootstrap.extensionChoices = extensionControl()
   bootstrap.settings = {
     getAll: () => ({ nativeExtensionChoices: { opencode: { 'mcp:docs': false } } }),
-    onPatch: (callback) => {
-      settingsChanged = callback
-    }
+    onPatch: vi.fn()
   }
   bootstrap.registerArtifacts = vi.fn()
   bootstrap.registerTurnEvents = () =>
@@ -180,12 +179,11 @@ function register(): {
     ctx,
     supervisor: bootstrap.supervisor,
     activity: bootstrap.activity,
-    forget,
-    settingsChanged: (keys) => settingsChanged({}, keys)
+    forget
   }
 }
 
-it('registers the actual global catalog with settings and connects project MCP changes to synchronization', async () => {
+it('registers the global catalog with process choices and ignores legacy persisted defaults', async () => {
   fixture.stopAtSession = false
   vi.spyOn(harnessModule('opencode'), 'globalResources').mockResolvedValue([
     {
@@ -197,21 +195,16 @@ it('registers the actual global catalog with settings and connects project MCP c
       canToggle: true
     }
   ])
-  const { activity, settingsChanged } = register()
+  const { activity } = register()
   const callback = vi
     .mocked(ipcMain.handle)
     .mock.calls.find(([channel]) => channel === CHANNELS.extensionCatalog)?.[1]
   expect(callback).toBeDefined()
   expect(await callback!({} as Electron.IpcMainInvokeEvent, { backend: 'opencode' })).toMatchObject(
     {
-      items: [{ id: 'docs', enabled: false, status: 'disabled' }]
+      items: [{ id: 'docs', enabled: true, status: 'configured' }]
     }
   )
-  const synchronize = vi.spyOn(fixture.projectSync!, 'settingsChanged')
-  settingsChanged(['language'])
-  expect(synchronize).not.toHaveBeenCalled()
-  settingsChanged(['projectMcpChoices'])
-  expect(synchronize).toHaveBeenCalledExactlyOnceWith('opencode')
   activity.dispose()
 })
 
@@ -402,6 +395,7 @@ it('refreshes the bootstrap skill cache with native catalog sources and preserve
     )
     await writeFile(join(root, 'orca', 'off', 'SKILL.md'), '---\nname: off\n---\nbody')
     const bootstrap = Object.create(Bootstrap.prototype) as {
+      extensionChoices: ReturnType<typeof extensionControl>
       settings: { getAll: () => { skillEnabled: Record<string, boolean> } }
       skillRoots: () => {
         sourceId: string

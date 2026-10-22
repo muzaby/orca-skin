@@ -142,14 +142,9 @@ function fixture(controls?: import('../../common/extension-control').ExtensionCo
   }
   return result
 }
-it('applies SDK MCP choices before the first prompt, exposes project controls and retains partial observations safely', async () => {
-  const choices: Record<string, boolean> = {}
+it('applies SDK MCP choices before the first prompt, rejects unsafe project controls and retains partial observations safely', async () => {
   const f = fixture({
-    global: () => ({ 'mcp:docs': false }),
-    projectMcp: () => choices,
-    setProjectMcp: (_cwd, id, value) => {
-      choices[id] = value
-    }
+    global: () => ({ 'mcp:docs': false })
   })
   const live = f.adapter.sendMessage(request({ sessionId: null }))
   const iterator = live.eventBatches[Symbol.asyncIterator]()
@@ -163,7 +158,7 @@ it('applies SDK MCP choices before the first prompt, exposes project controls an
   )
   const first = await live.nativeResources!()
   expect(first.items).toEqual([
-    expect.objectContaining({ id: 'docs', enabled: false, canToggle: true })
+    expect.objectContaining({ id: 'docs', enabled: false, canToggle: false })
   ])
   await expect(
     live.setNativeResource!({
@@ -174,23 +169,25 @@ it('applies SDK MCP choices before the first prompt, exposes project controls an
       enabled: true
     })
   ).rejects.toThrow('제어')
-  await live.setNativeResource!({
-    sessionId: 's1',
-    generation: first.generation!,
-    id: 'docs',
-    kind: 'mcp',
-    enabled: true
-  })
+  await expect(
+    live.setNativeResource!({
+      sessionId: 's1',
+      generation: first.generation!,
+      id: 'docs',
+      kind: 'mcp',
+      enabled: true
+    })
+  ).rejects.toThrow()
   const policy = live.projectResourcePolicy!()!
   const revision = (await policy.read('C:/work')).revision
   expect(await live.reconcileNativeResources!(revision, () => false)).toBe('pending')
   expect((await live.nativeResources!()).items[0].enabled).toBe(false)
   expect(await live.reconcileNativeResources!(revision, () => true)).toBe('applied')
-  expect((await live.nativeResources!()).items[0].enabled).toBe(true)
+  expect((await live.nativeResources!()).items[0].enabled).toBe(false)
   f.failMcp = true
   expect(await live.nativeResources!()).toMatchObject({
     partial: true,
-    items: [{ id: 'docs', enabled: true, canToggle: false }]
+    items: [{ id: 'docs', enabled: false, canToggle: false }]
   })
   live.close()
   await iterator.return?.()

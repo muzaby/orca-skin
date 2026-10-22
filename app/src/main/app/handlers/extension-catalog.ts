@@ -9,15 +9,13 @@ import type { Backend } from '../../../shared/ipc'
 import type { NativeResources } from '../../../shared/native-resources'
 import { extensionChoiceKey } from '../../adapters/common/extension-control'
 import { handle } from '../../infra/ipc/handle'
-import type { SettingsStore } from '../../infra/settings-store'
+import type { MutableExtensionControl } from '../extension-control'
 import { harnessModule } from '../harnesses/registry'
 
-export function registerExtensionCatalogHandlers(
-  settings: Pick<SettingsStore, 'getAll' | 'patch'>
-): void {
+export function registerExtensionCatalogHandlers(control: MutableExtensionControl): void {
   const read = async (backend: Backend): Promise<NativeResources> => {
     const items = (await harnessModule(backend).globalResources?.()) ?? []
-    const choices = settings.getAll().nativeExtensionChoices?.[backend] ?? {}
+    const choices = control.global(backend)
     return {
       state: 'disconnected',
       items: items.map((item) => {
@@ -37,16 +35,7 @@ export function registerExtensionCatalogHandlers(
     const catalog = await read(request.backend)
     const item = catalog.items.find((item) => item.kind === request.kind && item.id === request.id)
     if (!item?.canToggle) throw new Error('이 항목은 Orca에서 전역 활성 상태를 제어할 수 없습니다.')
-    const choices = settings.getAll().nativeExtensionChoices ?? {}
-    settings.patch({
-      nativeExtensionChoices: {
-        ...choices,
-        [request.backend]: {
-          ...choices[request.backend],
-          [extensionChoiceKey(item.kind, item.name)]: request.enabled
-        }
-      }
-    })
+    control.setGlobal(request.backend, extensionChoiceKey(item.kind, item.name), request.enabled)
     // No server access here. Existing directory instances retain their captured choices.
     return read(request.backend)
   })

@@ -140,6 +140,8 @@ it('isolates project approvals from user MCP and detects revision changes before
   expect(r.preview(items).map((item) => item.enabled)).toEqual([true, false])
   expect(await r.reconcile('stale', () => true)).toBe('pending')
   expect(set).not.toHaveBeenCalled()
-  await r.reconcile(readClaudeProjectSettings(cwd, root).revision, () => true)
-  expect(set).toHaveBeenCalledWith('project', false, 'mcp', false, expect.any(Function))
+  expect(await r.reconcile(readClaudeProjectSettings(cwd, root).revision, () => true)).toBe(
+    'restart-required'
+  )
+  expect(set).not.toHaveBeenCalled()
 })

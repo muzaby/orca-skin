@@ -1136,7 +1136,7 @@ export interface Settings {
   mcpMeta: Record<string, { description: string }>
   // Skill enabled on/off (키 = sourceId/name). 부재 ⇒ enabled=true.
   skillEnabled: Record<string, boolean>
-  /** Explicit selections only; an absent key inherits the harness's current native default. */
+  /** Legacy storage compatibility only; not used for runtime or accepted by SettingsPatch. */
   nativeExtensionChoices?: Partial<Record<Backend, Record<string, boolean>>>
   projectMcpChoices?: Record<string, Record<string, boolean>>
   // 인증 게이트 우회(0157 — 구 ssoBypass). true 면 앱 시작 시 로그인 화면을 건너뛴다
@@ -1158,7 +1158,10 @@ export interface Settings {
   scheduler: SchedulerSettings
 }
 
-export type SettingsPatch = Omit<Partial<Settings>, 'scheduler'> & {
+export type SettingsPatch = Omit<
+  Partial<Settings>,
+  'scheduler' | 'nativeExtensionChoices' | 'projectMcpChoices'
+> & {
   scheduler?: {
     usageRecompute?: Partial<SchedulerUsageRecomputeSettings>
     updateCheck?: Partial<SchedulerUpdateCheckSettings>

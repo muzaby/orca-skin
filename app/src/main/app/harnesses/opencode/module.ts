@@ -9,6 +9,7 @@ import {
   configuredOpenCodeResources,
   globalOpenCodeResources,
   globalOpenCodeResourcePath,
+  openCodeProjectResources,
   openCodeContextWindow
 } from '../../../adapters/opencode'
 import {
@@ -19,6 +20,7 @@ import type { MainHarnessModule } from '../common/contracts'
 
 export const openCodeMainModule: MainHarnessModule = {
   id: 'opencode',
+  projectResources: openCodeProjectResources,
   globalResources: globalOpenCodeResources,
   globalResourcePath: globalOpenCodeResourcePath,
   createAdapter: (options) =>
