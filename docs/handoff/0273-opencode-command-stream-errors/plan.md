@@ -243,3 +243,4 @@ r1 최초 수정. 이전 성능 보고가 조사한 짧은 command 조회가 실
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
 | N1 | `[구현자 기입]` 설계 리뷰 누락·Product/UX와 잠재 문제 병합 | repository operation | 이후 구현 턴은 7필드 유지 | NON_BLOCKING | open |
+| T1 | VP-03·§10 EP01·02 8자리 → 0275, AC6 → 0274로 계약이 뒤집힘 | VP-03 · EP01·02 · AC6 | 0275 verify §0-1·0274 verify AC12가 판정 | PLAN_GAP → 최신 handoff 이관 | transferred |
