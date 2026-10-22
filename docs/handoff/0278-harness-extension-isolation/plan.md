@@ -914,3 +914,16 @@ OS 잠금 helper는 준비 전 정상 종료(code 0)도 실패로 처리하고 s
 ### 7. Review Signals
 
 직전 관련 테스트 집합이 인접 source-scan 두 곳을 포함하지 않아 전체 CI에서 오탐을 발견했다. 이번에는 실패 3파일과 종료·snapshot·plugin writer의 직접 회귀를 먼저 확인하고 전체 Windows 테스트/원격 gate로 확장한다. 기존 독립 검증 대기는 유지한다.
+
+## [검증자 기입] 파생 이슈 — verify r2 (2026-10-22)
+
+판정 정본은 [verify.md §r2](verify.md#verify-r2--fail-claude-2026-10-22) — **FAIL**. r1.2의 F1은 D32 거부로 해소 확인.
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| R1 | X1 catalog에 다른 control 주입 green | FEP2 · AC2·AC5G · DV1-P4 | 실제 bootstrap에서 catalog 선택→registry 새 adapter SDK 인자 단언 | BLOCKING | open |
+| R2 | X2 `await publish` 제거 green | FEP4 · AC5G · DV5-P1 | 발행 gate 전 `deployNow` 미완료 단언 | BLOCKING | open |
+| R3 | A23 OpenCode plugin 선언 revision 누락·A6 stale revision emit green | FEP8 · AC15O·AC11 · DV2-P3·DV2-P2 | plugin만 바뀐 외부 편집 revision 변화·읽기 중 이벤트 주입 | BLOCKING | open |
+| R4 | A15 외부 재편집 재확인 제거 green | FEP9 · AC19C · DV3-P4 | 잠금 없는 `beforeCommit` 외부 편집 케이스 | BLOCKING | open |
+| R5 | P11–P13 push scope 3항 제거 green | FEP12 · AC7C · V1 VP4 | 한 항만 다른 push 거부를 항마다 단언 | BLOCKING | open |
+| N3 | 증거 README 기대값이 D32 이전 서술 | repository operation | 현재 기대로 갱신 | NON_BLOCKING | open |
