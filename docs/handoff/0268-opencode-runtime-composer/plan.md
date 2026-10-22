@@ -7,7 +7,7 @@
 | slug | 0268-opencode-runtime-composer |
 | 작성자 | Codex — 사용자 직접 구현 요청에 따른 설계·구현 |
 | 일자 | 2026-10-20 |
-| 상태 | READY |
+| 상태 | impl/IMPL_DONE — r2 FAIL 대응 완료, 독립 검증·AC4 사람 관측 대기 |
 | V mode / 기준 / revision | Baseline V / 없음 / V1 |
 | 기준 코드 | `830df4bb` — 원격 `codex-harness-entry-menu` 리베이스 완료 |
 
@@ -305,3 +305,67 @@ release는 일시 요청의 finally와 채널 run의 finally에 연결했다. �
 | D2 | H2 Markdown `target="_blank"` 삭제 green | EP6 anchor · AC8 · VP4 | Markdown 링크의 `target`·`rel` 단언 | BLOCKING | open |
 | P1 | AC4 OpenCode Windows 토스트 미발생 미확인 | VP2 · AC4 | 실제 Windows 관측(사람) | 사람 실기 | open |
 | T1 | D2 서버 참조 소유권이 0275 D13–D15·D20으로 뒤집힘 | D2 · AC1 일부 · EP1 서버 9자리 · VP1·VP6·VP8 일부 | 0275 verify §0-1이 판정 | PLAN_GAP → 0275 이관 | transferred |
+
+## [구현자 기입] r2 — verify FAIL 대응 (2026-10-23)
+
+### 설계 리뷰
+
+SELF_PASS(기계 범위) — D1·D2의 외부 링크 진입 증거를 보강했다. 불변식은 main 창의 외부 탐색이 OS 브라우저로 전달되고 Markdown의 HTTP(S) anchor가 그 탐색 경로로 들어가는 것이다. 서버 소유권의 0275 이관과 AC4 사람 관측 경계는 유지한다.
+
+### 강제 지점 전수 (§10 대조)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP1·6·8 | EP1 소유권 | adapter 4·channel 2·server 3·LRU 1 | 현 책임 1/1 | `runtime-pool.test.ts: LRU eviction 은 close 를 정확히 1회 수행한다`; `opencode-runtime.test.ts: reuses a live OpenCode process…` | idle LRU의 실제 close/kill | 서버 9자리 0275 이관 |
+| VP1·2·6·10 | EP2 시작/metadata | installed/readVersion/start/databasePath (4) | 4/4 | `server.test.ts` version cache·교체·실패 재시도·explicit port; `server.database-path.test.ts` | 버전/DB 호출 수·port 49123 구별 | AC4 토스트 사람 실기 |
+| VP3·7 | EP3 상태 상세 | store toggle/setActive/remove·titlebar·Panel/navigation·layout (7) | 7/7 | `chatStore.panelTiles.test.ts: opens status over the task…`; `ChatTitleBar.render.test.ts`; `Panel.interaction.test.ts: opens native status…`; `rightPanelLayout.test.ts` | task 호스트·active label·복귀·legacy 상태 정리 | 실제 창 시각 |
+| VP3·7 | EP4 출처 그룹 | nativeMcp/Orca group/SourceHeading (3) | 3/3 | `CustomizeList.render.test.ts: labels native plugin skills…` | 후속 그룹 여백·하네스 컬러 | 없음 |
+| VP4·7·10 | EP5 파일 | artifact open/retry·context 판정·handler sink (4) | 4/4 | `artifactViewerStore.test.ts: reveals unsupported formats…`, `reveals an unsupported retry…`; `context-file.test.ts`·`files.contextDirectory.test.ts` | reveal 호출·늦은 응답 폐기·승인 경로 | Explorer 실창 |
+| VP4·7·10 | EP6 링크 | 창 등록·helper 이벤트→shell·Markdown anchor (3) | 3/3 | `external-navigation.wiring.test.ts` 실제 index AST 등록; `external-navigation.test.ts` popup/navigation 이벤트; `Markdown.render.test.ts` 실제 ReactMarkdown 렌더 | mainWindow.webContents·원 URL shell 전달, HTTP/HTTPS _blank/noopener/noreferrer | 설치본 기본 브라우저 창 |
+| VP5·7·9·10 | EP7 Composer | channel·mapper·main merge·renderer observed·Controls/Module·submit (7) | 7/7 | `composer-catalog.test.ts`; `adapter.persistent.test.ts`; `session-resources.test.ts: retains live observations…`; `nativeResourceState.composer.test.ts`; `Module.integration.test.ts`·`Controls.interaction.test.ts` | native agent/variant의 운반·빈 성공·세대 폐기 | 없음 |
+
+현 책임 29/29, 서버 9자리 이관. §10 목록(verify의 이관·EP6 해석 포함)과 표의 차집합 없음. VP1·3–10은 SELF_PASS, VP2는 명시 포트 기계 범위 SELF_PASS이나 AC4 실기 때문에 전체 SELF_BLOCKED다.
+
+### 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 결과 | 이번 관측 | 결과 |
+|---|---|---|---|---|
+| H1 index의 installExternalNavigation 호출 삭제 | D1·EP6·VP4 | 못 잡음 | `external-navigation.wiring.test.ts` 등록 수 0으로 1 failed | 검출 |
+| H2 Markdown target=_blank 삭제 | D2·EP6·VP4 | 못 잡음 | `Markdown.render.test.ts` HTTP/HTTPS 2 failed | 검출 |
+| H1-forward shell callback을 무동작으로 교체 | 신규 AST oracle 민감도 | 신규 | `external-navigation.wiring.test.ts` 1 failed | 검출 |
+| H1-target 다른 창의 webContents로 교체 | 신규 AST oracle 운반항 | 신규 | 같은 시험 1 failed | 검출 |
+
+분모: 선택 증거 0 · 인용 변이 2 · 새 구조 oracle 민감도 2 = 4행. 각 변이의 원바이트 복구 후 관련 6파일 16시험 통과(0277·0280 포함). helper의 실제 이벤트→shell 시험과 AST 배선 검사는 역할을 구분하며, AST 자체를 실제 창 실행으로 보고하지 않는다.
+
+### Product/UX 파생 검토
+
+링크 표현·클릭 동작·보안 정책을 변경하지 않았다. 실제 Markdown 파서→anchor 출력에서 URL·텍스트·target·rel을 관측하고 helper 이벤트 시험으로 HTTP(S)만 shell에 전달됨을 확인한다. OS 브라우저 기동 실패 안내와 설치본 시각 품질은 기존 한계로 유지한다.
+
+### 놓친 잠재 문제 + 대응
+
+| 발견 | 처리·근거 |
+|---|---|
+| helper 내부 시험만으로 main의 호출 누락을 볼 수 없음 | index의 createWindow 직접 AST 문장에서 등록·실제 mainWindow·원 URL callback을 검사, H1와 형제 운반항 변이 검출 |
+| 테스트를 위해 창 생성 코드를 재배치할 경우 scope/cleanup 위험 | production 재배치 없이 AST+기존 helper 행동 시험 결합 |
+| 메커니즘 대체의 만료·공유·재진입·무효화 | 해당 없음 — production·소유자·저장 변경 없음 |
+
+### 구현 보고
+
+| AC | 자기 결과 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅(일부 이관) | RuntimePool close·OpenCode LRU 시험, 서버 소유권은 0275 |
+| AC2 | ✅ | server version/DB cache·실패 재시도 시험 |
+| AC3 | ✅ | server spawn의 명시 loopback port |
+| AC4 | ⚠️ 사람 | 실제 Windows/OpenCode Desktop 완료 알림 미관측; 전역 알림 설정 불변 |
+| AC5 | ✅ | 상태 상세 store·titlebar·Panel·layout 회귀 |
+| AC6 | ✅ | CustomizeList 실제 그룹 간격·로고 색 |
+| AC7 | ✅ | artifact/context file의 reveal sink·늦은 응답 폐기 |
+| AC8 | ✅ | H1/H2·등록 인자/콜백 변이 검출, HTTP(S) shell 전달 |
+| AC9 | ✅ | native catalog/IPC/Composer/SDK prompt 회귀 |
+| AC10 | ✅ | generation·빈 variant·선택 제거 회귀 |
+
+✅9 · ⚠️1 · ❌0 = 총10. D1·D2 자기확인 완료, AC4는 미확인이다. 공통 gate 산출은 [이번 대응 검증 기록](../0281-opencode-menu-cache/evidence/verify-fail-validation.md)에 둔다.
+
+### Review Signals
+
+r2. r1에서 정직하게 남긴 등록·Markdown 진입 공백이 verify에서도 재현됐다. 이번 테스트는 그 자리의 생산 소스와 렌더 결과를 보지만 설치본의 Windows 토스트 억제를 증명하지 않으며, 독립 verify는 다음 주체에게 남긴다.
