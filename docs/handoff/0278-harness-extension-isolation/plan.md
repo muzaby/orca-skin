@@ -6,7 +6,7 @@
 |---|---|
 | slug | 0278-harness-extension-isolation |
 | 작성자 / 일자 | Codex / 2026-10-22 |
-| 상태 | DRAFT — Claude settings.local.json 제한 편집 허용으로 정정. 일반 MCP의 네이티브 상태 저장 범위 확인 중 |
+| 상태 | READY — 사용자 정정 반영, 네이티브 기준값·Orca 제어 가능성·프로젝트 적용 |
 | V mode / 기준 / revision | Baseline V / 없음 / V1 초안 |
 | 관련 작업 | [0277 MCP 관측](../0277-opencode-mcp-catalog/plan.md), [0275 공유 인스턴스](../0275-opencode-shared-instances/plan.md), [0276 Composer 준비](../0276-opencode-composer-preparation/plan.md) |
 
@@ -189,3 +189,86 @@ Claude 토글은 D20의 허용 키만 병합한다. `permissions`·`hooks`·`env
 ## [구현자 기입]
 
 공통 정책 전체는 미구현이다. Claude 파일 쓰기 제거는 실행 전에 취소했으며 프로덕션 코드는 변경하지 않았다. 기존 plugin 제한 편집·후속 실행·프로젝트 peer 공유 관련 테스트의 기준선은 확인했다. MCP 저장 범위와 외부 편집의 실행 중 반영은 아직 완료로 판정하지 않는다.
+
+
+# V1 확정 — 네이티브 기준값과 제어 능력
+
+## 사용자 정정과 결정
+
+사용자: “전역 기본값을 왜 저장하는가 전역 값을 각 하네스의 기본값으로 받아오고 sdk로 제어가능하면 제어하고 불가능하면 활성화를 고정하고 회색 표시하기로 합의하지 않았나?”
+
+| ID | 결정 | 상태 |
+|---|---|---|
+| D22 | nav는 하네스 전역 설정을 기준으로 표시. 별도의 기본값 사본/extensionDefaults 저장소를 만들지 않음 | ACTIVE |
+| D23 | nav 프로젝트 선택 UI를 추가하지 않음. 프로젝트 범위는 우측 패널 타이틀 경로 | ACTIVE — 0277 U1/U2·직전 제안 대체 |
+| D24 | SDK로 Orca만 제어 가능한 항목에만 가변 토글. 다른 항목은 native 상태의 고정 토글·회색 글씨 | ACTIVE — D10/D11 구체화 |
+| D25 | 영속화 대상은 사용자가 명시적으로 변경한 선택값만. 하네스 기본값/목록/인증정보는 복제하지 않음 | 구현 해석 — 기존 JSON 유지 요구와 D22를 함께 충족 |
+
+U5는 D21의 유휴 적용/기존 자원 회수로 해소됐다. 네이티브 값 읽기와 Orca 선택값은 구별하며 미지정은 항상 native 값을 따른다. Claude 프로젝트 저장 위치는 D20/D21을 유지한다.
+
+## 구현 범위와 capability
+
+| 대상 | 전역 제어 | 프로젝트 제어 |
+|---|---|---|
+| Orca 소유 스킬/MCP | 기존 설정 토글 사용 | 기존 하네스 지원에 따라 표시 |
+| Claude 설치 plugin | SDK inline plugin flags로 Orca만 제어 | 기존 settings.local 허용 키+SDK reload/유휴 동기화 유지 |
+| Claude 스킬 | SDK skills allow-list로 제어 가능한 source만 | 개별 프로젝트 스킬 정책은 추가하지 않음 |
+| Claude native MCP | SDK toggle은 네이티브 프로젝트 저장을 변경하므로 전역 격리 제어로 사용하지 않음: 고정 | 기존 SDK 프로젝트 on/off 유지 |
+| OpenCode native MCP | 기존 directory SDK connect/disconnect를 새 instance에 적용, 외부 설정 쓰기 없음 | 같은 directory 상태 공유, 선택 JSON 보관·유휴 재적용 |
+| OpenCode native plugin/skill | SDK의 개별 load on/off 미지원: 고정·회색 | 모니터링 |
+
+OpenCode Config.update는 작업폴더 파일을 쓰므로 호출하지 않는다. plugin tuple options는 plugin 자체가 해석하는 값이며 공통 disabled API로 간주하지 않는다. native 초기화는 그대로 두고 MCP 선택은 준비 완료 뒤 첫 메시지 전에 적용하므로 native 초기 연결 비용 제거를 주장하지 않는다.
+
+## 확정 AC
+
+| AC | 관측 기준 |
+|---|---|
+| AC1 | nav는 global-only native 설정을 읽고 on/off × capability에 따라 가변/고정 토글과 일반/회색 글씨를 표시 |
+| AC2 | Claude plugin의 global off도 Orca 선택 on으로 신규 프로젝트 인스턴스에서 활성화. 외부 global/local 파일은 전역 조작으로 변경하지 않음 |
+| AC3 | SDK skills allow-list에 off 선택이 실제 반영되며 OpenCode 미지원 source는 고정 |
+| AC4 | Orca 제어의 명시 선택만 JSON에 보존. native 기본값/인증/목록 복제와 DB 저장 없음 |
+| AC5 | 실행 중 directory의 기본값은 유지, 새 directory/정책상 종료 뒤 재생성은 최신 선택 적용 |
+| AC6 | OpenCode MCP 프로젝트 on/off는 같은 directory의 세션에 공유되고 다른 directory/외부 설정과 격리. busy 상태에서는 제어를 거부/보류 |
+| AC7 | Claude 외부 프로젝트 변경의 화면 즉시·프로젝트 전체 유휴 적용, SDK native 저장·기존 자원회수 회귀 유지 |
+| AC8 | native 선언과 runtime dynamic MCP를 구별. 전역에 프로젝트 실행 상태를 섞지 않고 우측 패널은 runtime 우선 |
+| AC9 | 준비 전/부분 실패/종료·늦은 결과에서 목록과 제어가 거짓 성공을 표시하지 않음 |
+| AC10 | nav/우측 패널 조회는 서버를 새로 만들지 않으며 composer 준비 수명·독립 agent/model 캐시를 유지 |
+
+## Baseline V1
+
+이 표는 앞의 AC 초안·V 초안·강제 지점 후보를 대체한다.
+
+| Pair | 노드 | 경로·직접 oracle |
+|---|---|---|
+| VP1 | R1↔AT1 NEW REQUIRED | nav→toggle IPC→선택→새 instance SDK. CustomizeList/handlers/global-extension tests에서 on/off×capability와 외부파일 sentinel 확인(AC1–5) |
+| VP2 | SD1↔ST1 NEW REQUIRED | directory A 두 owner→전역변경→새 B→A 최종해제→A 재생성. snapshot 및 실제 adapter tests(AC5·6) |
+| VP3 | AR1↔IT1 NEW REQUIRED | shared schema/preload/API/handler/설정 store→Claude flags·OpenCode SDK. 실제 등록 handler와 SDK fixture(AC2·4·6) |
+| VP4 | AR2↔IT2 NEW REQUIRED | global native reader→nav hook→rows + runtime resource→panel. 실제 임시 파일과 render harness, partial·지각 응답(AC1·8·9) |
+| VP5 | MD1↔UT1 NEW REQUIRED | 명시 선택 저장·canonical cwd·merge defaults→프로젝트 선택. 임시 JSON과 native값 재조회 tests(AC4·5) |
+| VP6 | MD2↔UT2 NEW REQUIRED | SDK 제어 허용/거부·global-only discovery·skill allow-list. adapter/configured-resources/adapt tests(AC2·3·6) |
+| VP7 | SD0↔ST0 INHERITED REGRESSION | 0279 프로젝트 sync, 0280 준비상태, 0275 directory/server lifecycle(AC7·9·10) |
+
+## §10 확정 강제 지점
+
+검색 범위: `app/src/{shared,preload,main,renderer}`에서 `skillEnabled|canToggle|nativeResources|setNativeResource|readClaudePluginCatalog|nativeOpenCodeResources|createAdapterRegistry`.
+
+| EP | 자리 목록 | N | 직접 oracle 좌표 |
+|---|---|---|---|
+| EP1 | 설정 schema/store, shared IPC schema, preload/API, catalog handler, bootstrap 등록 | 5 | extension-choices/extension-catalog/handlers 및 preload 테스트. 미지원 변경 거부와 저장된 실제 JSON |
+| EP2 | Claude startup flags, skills allow-list, project snapshot 획득/해제 | 3 | adapter.native-plugins/adapt 및 snapshot 테스트, 원래 off plugin·A/B·재생성 |
+| EP3 | OpenCode directory 선택 snapshot, 준비/첫 메시지 전 적용, live mutation, 선택 저장·reconcile | 4 | session-context/adapter/channel tests. 실제 SDK 경로와 A/B별 응답 |
+| EP4 | native global reader 두 종류, catalog hook, nav skill/MCP/plugin rows, 상태 패널 capability | 5 | configured-resources + useNativeMcpCatalog + CustomizeList + native tile tests |
+
+17자리. 포트 추가 시 양 끝의 실제 조립 값을 다르게 넣어 직접 결과를 단언한다. 타입검사/코드읽기만으로 완료 처리하지 않는다. 저장 중 오류면 토글 성공으로 표시하지 않으며 정상 항목은 유지한다.
+
+## 기술 설계
+
+네이티브 전역 읽기는 명시 global-only 입력으로 한다. 프로젝트 파일·현재 기본 작업폴더 fallback이 nav 전역 읽기에 섞이지 않는다. native catalog는 안전한 id/name/status/capability만 renderer로 전달한다.
+
+Orca 명시 선택 저장은 기존 JSON 설정 경계를 사용하고 다른 키를 보존한다. native 기본값은 로드 시점마다 원본에서 읽고 선택이 없는 항목을 기록하지 않는다. 새 dependency·DB migration·하네스 global 설정 쓰기 없음.
+
+기본값 snapshot은 native instance 수명에 귀속한다. OpenCode는 directory state, Claude는 같은 cwd의 live Query owner를 묶어 새 Query가 기존 기본값을 공유한다. snapshot의 마지막 owner 해제 후에만 새 기본값을 읽는다. 프로젝트 선택은 전역 snapshot보다 우선하며 busy/epoch 검사를 유지한다.
+
+## 운영 gate·READY 검토
+
+관련 Vitest→node/web/test 타입→lint→Electron ABI 유지 build, 문서 inventory/link·diff/trailer. 실제 커스텀 OpenCode 바이너리/외부 사용자 환경 및 시각 검증은 실행 증거와 분리한다. ACTIVE D1/D15→AC5, D5/D10/D11/D24→AC1/2/3, D7→AC6/10, D9→AC8/9, D12/D17/D23→AC10, D16→AC6/7, D20/D21→AC7, D22/D25→AC4로 대조했다.
