@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex / 2026-10-22 |
-| 상태 | READY — 최종 관측 경계는 §8과 0278 §27, 기존 R1–R11 유지 |
+| 상태 | impl/IMPL_DONE — r2 FAIL 대응 완료, 독립 검증 대기; 최종 관측 경계는 §8과 0278 §27, 기존 R1–R11 유지 |
 | V mode / 기준 | Delta V / V1@256ddd24 + ΔV1 |
 | 정책·실행 표면 | [0278](../0278-harness-extension-isolation/plan.md), [0280](../0280-opencode-prepared-status/plan.md) |
 
@@ -174,3 +174,63 @@ OpenCode 프로젝트 파일은 [0278 ΔV2](../0278-harness-extension-isolation/
 | D2 | P11–P13 renderer push scope 3항 제거 green | 0278 D23·§27 FEP12가 뒤집은 계약 | 0278 verify r2 R5가 책임(이 handoff 미판정) | PLAN_GAP → 0278 이관 | transferred |
 | D3 | A23 plugin 선언 revision·A6 stale revision emit green | 0278 D30·§27 FEP8이 뒤집은 계약 | 0278 verify r2 R3가 책임(이 handoff 미판정) | PLAN_GAP → 0278 이관 | transferred |
 | N1 | 구현이 0278 trailer로만 커밋, 강제 지점 필드 산문 | repository operation | 다음 구현 커밋에 0277 trailer·자리별 표 | NON_BLOCKING | open |
+
+## [구현자 기입] ΔV1 r2 — verify FAIL 대응 (2026-10-23)
+
+### 설계 리뷰
+
+SELF_PASS — 현재 책임인 D1(O3)을 보강했다. 불변식은 실제 열기 근거가 없는 항목에는 열기 capability를 주지 않는 것이며, 전역 선언 MCP와 미설치 plugin을 같은 fixture에서 구별했다. D2·D3의 이관과 최신 0278 계약은 유지한다.
+
+### 강제 지점 전수 (§8 대조)
+
+| Pair | 계약/필드 | §8이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| DV1-P1·P3·P4 | global 관측 | global IPC→reader→nav hook/list (1) | 1/1 | `extension-catalog.test.ts: reads native defaults…`; `configured-resources.test.ts: discovers global config.json…`; `useNativeMcpCatalog.test.ts`·`CustomizeList.render.test.ts` | global docs와 plugin-global만 반환, project/hidden 제외, 민감 URL 부재 | 없음 |
+| DV1-P1·P2·P3 | 기존 context 관측 | session/draft IPC→기존 context→MCP/plugin (1) | 1/1 | `session-resources.test.ts: accepts only a read-only draft scope…`; `session-context.test.ts: shares resource flights per directory…`; `adapter.test.ts` | 새 서버 없는 조회·동적 MCP, 실제 directory별 응답 분리 | 없음 |
+| DV1-P1·P2 | 상태 갱신 | observer ready/dirty/closing→패널 (1) | 이관 | 0278 r3 R3의 A23·A6 잠금 기록 | plugin revision·stale emit | 0278 책임 |
+| DV1-P1·P3 | scope 전달 | preload/API→query scope (1) | 이관 | 0278 r3 R5의 P11–P13 잠금 기록 | backend/cwd/projectId | 0278 책임 |
+| DV1-P1·P4 | 파일 열기 | source file lookup→shell (1) | 1/1 | `configured-resources.test.ts: discovers global config.json…`; `session-resources.test.ts: reveals only the resolved MCP configuration file…`, `opens only a resolved installed directory…` | docs canOpen=true, plugin-global=false; missing·임의 path·변경된 파일은 shell 무호출 | 없음 |
+
+현 책임 3/3, 이관 2자리. §8 목록과 대응 표의 차집합 없음; 테스트 외 production 파일 변경도 없다. DV1-P1–P4는 이관분 제외 SELF_PASS, V1 VP7은 0275·0276·0280의 이번 회귀 시험에 연결한다.
+
+### 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 결과 | 이번 관측 | 결과 |
+|---|---|---|---|---|
+| O3 `canOpen: result.files.has(item.id)` → true | D1·AC11·DV1-P4 | 못 잡음 | `configured-resources.test.ts: discovers global config.json…` 1 failed(plugin 기대 false) | 검출 |
+
+분모: 선택 증거 0 · 인용 변이 1 · 새 구조 proxy 0 = 1행. 격리 사본에서 바이트 복구 후 관련 6파일 16시험 통과(0268·0280 포함). 기존 테스트는 유지하고 구별 단언 하나를 추가했다.
+
+### Product/UX 파생 검토
+
+새 UI·문구·정책은 없다. `NativeResources.test.ts: renders prepared plugins before MCP…`는 파일 없는 동적 MCP의 disabled와 클릭 시 opener 무호출을 관측한다. 실제 창 두 테마 인수는 기존 대기로 유지한다.
+
+### 놓친 잠재 문제 + 대응
+
+| 발견 | 처리·근거 |
+|---|---|
+| MCP의 canOpen=true만 확인하면 전 항목 true 고정도 통과 | 같은 반환 배열의 plugin-global=false를 직접 단언해 O3 검출 |
+| 이전 0278 동봉 커밋으로 0277 구현 추적 불가 | 이번 커밋은 0277 Handoff trailer로 분리하고 자리별 표 복구(N1) |
+| 메커니즘 대체 위험 | 해당 없음 — production·cache·저장·소유권 변경 없음 |
+
+### 구현 보고
+
+| AC | 자기 결과 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | global config fixture와 draft IPC scope 시험 |
+| AC2 | ✅ | configured-resources의 enabled/disabled 선언 조회 |
+| AC3 | ✅ | 기존 context의 독립 resource flights·파일/native 병합 회귀 |
+| AC4 | ✅ | 0280 actual SDK transport·등록 타일의 dynamic-mcp/plugin 구분 |
+| AC5 | 이관 | 0278 R5 |
+| AC6 | 이관 | 0278 R3 |
+| AC7 | ✅ | handler 실패 보존·prepared 부분 성공·오류 버튼 회귀 |
+| AC8 | ✅ | session-context의 `disposes one directory and rejects its late inventory…` |
+| AC9 | ✅ | draft lookup/control 무호출·unsafe project control 거부 회귀 |
+| AC10 | 이관 | 0278 R3 |
+| AC11 | ✅ | O3 검출·파일 없는 동적 행 opener 무호출·private URL 부재 |
+
+✅8 · ⚠️0 · ❌0 · 이관3 = 총11. D1은 자기확인 완료, 이관분을 이 handoff의 완료 수에 더하지 않는다. 공통 gate 산출은 [이번 대응 검증 기록](../0281-opencode-menu-cache/evidence/verify-fail-validation.md)에 둔다.
+
+### Review Signals
+
+r2. 기존 fixture에 canOpen의 반대값 단언이 없어 고정 true를 검출하지 못했다. 이번에는 native 파일/설치 근거를 구별하며 제품 계약과 이관 책임은 바꾸지 않았다.

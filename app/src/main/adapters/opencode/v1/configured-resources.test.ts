@@ -26,7 +26,12 @@ it('discovers global config.json and excludes the default workspace and its .ope
     expect(items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: 'docs', enabled: false, canToggle: true, canOpen: true }),
-        expect.objectContaining({ name: 'plugin-global', enabled: true, canToggle: false })
+        expect.objectContaining({
+          name: 'plugin-global',
+          enabled: true,
+          canToggle: false,
+          canOpen: false
+        })
       ])
     )
     expect(items).toHaveLength(2)
