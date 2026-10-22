@@ -6,6 +6,9 @@ import { CHANNELS } from '../../shared/ipc'
 import type { RouterContext } from './context'
 import type { ComposerCatalogScope } from '../../shared/composer-catalog'
 import { OpenCodeAdapter } from '../adapters/opencode/v1/adapter'
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 const handlers = vi.hoisted(
   () => new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>()
 )
@@ -111,6 +114,88 @@ function fixture(): {
   }
   return { ctx, scope, capture, resolve, getSessionById, saved, adapter, fetchImpl, acquire }
 }
+
+it.each(['configuration', 'acquire'] as const)(
+  'preserves the %s failure stage through the registered catalog handler',
+  async (stage) => {
+    const f = fixture()
+    const error = Object.assign(new Error('PRIVATE_PATH PRIVATE_TOKEN'), { status: 503 })
+    if (stage === 'configuration') f.resolve.mockRejectedValueOnce(error)
+    else f.capture.mockRejectedValueOnce(error)
+    const close = registerComposerCatalog(f.ctx)
+    const sender = Object.assign(new EventEmitter(), { id: 83, isDestroyed: () => false })
+    try {
+      const result = await handlers.get(CHANNELS.composerCatalog)!(
+        { sender },
+        { owner: randomUUID(), scope: f.scope, part: 'plugins' }
+      )
+      expect(result).toEqual({
+        part: 'plugins',
+        status: 'error',
+        failure: { stage, reason: 'http', httpStatus: 503 }
+      })
+      expect(JSON.stringify(result)).not.toMatch(/PRIVATE_PATH|PRIVATE_TOKEN/)
+      if (stage === 'configuration') expect(f.capture).not.toHaveBeenCalled()
+    } finally {
+      close()
+      f.adapter.close()
+    }
+  }
+)
+
+it('reads installed plugin metadata using the resolved provider cache environment', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'orca-prepared-plugin-env-'))
+  const f = fixture()
+  f.capture.mockRestore()
+  const cache = join(root, 'provider-cache')
+  const directory = join(
+    cache,
+    'opencode',
+    'packages',
+    '@oracle/plugin@1',
+    'node_modules',
+    '@oracle/plugin'
+  )
+  await mkdir(directory, { recursive: true })
+  await writeFile(
+    join(directory, 'package.json'),
+    JSON.stringify({ description: 'Provider-only metadata' })
+  )
+  f.resolve.mockResolvedValue({
+    key: 'opencode-one',
+    harnessId: 'opencode',
+    modelProviderId: 'one',
+    runtimeEnv: { XDG_CACHE_HOME: cache },
+    settings: { providerKey: 'opencode-one', provider: 'one', sourceRevision: 'env', settings: {} }
+  })
+  f.fetchImpl.mockImplementation(async (input, init) => {
+    const path = new URL(new Request(input, init).url).pathname
+    return new Response(
+      JSON.stringify(path === '/config' ? { plugin: ['@oracle/plugin@1'] } : true),
+      {
+        headers: { 'Content-Type': 'application/json' }
+      }
+    )
+  })
+  try {
+    expect(process.env.XDG_CACHE_HOME).not.toBe(cache)
+    const lease = await prepareComposerCatalog(
+      f.ctx,
+      { ...f.scope, cwd: root },
+      new AbortController().signal
+    )
+    try {
+      expect(await lease.read('plugins', new AbortController().signal)).toEqual([
+        expect.objectContaining({ name: '@oracle/plugin@1', description: 'Provider-only metadata' })
+      ])
+    } finally {
+      await lease.release()
+    }
+  } finally {
+    f.adapter.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})
 
 it('prepares draft and saved directory with the same production settings and env resolution as turns', async () => {
   const f = fixture(),

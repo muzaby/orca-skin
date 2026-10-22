@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex / 2026-10-22 |
-| 상태 | 구현 완료 — 독립 검증 대기 |
+| 상태 | impl/IMPL_DONE — r2 FAIL 대응 완료, 독립 검증 대기 |
 | V mode / revision | Baseline V / V1 |
 | 기준 V | 없음. 0276의 준비 lease를 재사용하는 후속 오류·관측 수정 |
 
@@ -223,3 +223,63 @@ r1. 이전 구현에서 첫 입력 전 agent만 준비하고 상태 패널은 �
 | D1 | N6 prepare 실패의 `ComposerCatalogError('acquire')` 래핑 제거가 green(단계가 `owner`로 기록) | EP2 prepare resolver · AC4 · VP5 | prepare/resolve 실패의 `failure.stage` 단언 | BLOCKING | open |
 | D2 | N9 plugin reader의 `{...process.env, ...req.env}` → `process.env`가 green | EP3 adapter readers · VP4 | process.env와 다른 provider env로 plugin 설치 해석 관측 | BLOCKING | open |
 | D3 | R8 `NativeResourcesTileView`의 `!refreshable` 오류 버튼 조건 제거가 green | EP4 공통 view · VP1 | refreshable 오류 상태의 버튼 구성 단언 | BLOCKING | open |
+
+## [구현자 기입] r2 — verify FAIL 대응 (2026-10-23)
+
+### 설계 리뷰
+
+SELF_PASS — D1–D3의 기존 동작은 유지하고 검출되지 않던 계약을 테스트로 보강했다. 불변식은 준비 실패의 실제 단계와 provider 실행 환경을 끝까지 운반하고, draft 오류에는 고정 새로고침 하나만 제공하는 것이다. ACTIVE Decision·AC·V·§10 변경은 없다.
+
+### 강제 지점 전수 (§10 대조)
+
+좌표의 `main/`·`renderer/`는 `app/src/` 기준이다. §10 검색 네 개를 현재 소스와 대조했으며 이번 diff는 테스트뿐이라 운반 경로의 추가·삭제가 없다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP3 | EP1 part/result | 타입·enum·preload/API (3) | 3/3 | `main/app/handlers/composer-catalog.test.ts: returns read-stage HTTP diagnostics…`; `preload/index.test.ts` catalog 왕복 | mcp/plugins·cancelled/error 결과를 성공 배열과 구별 | 없음 |
+| VP2·3·5 | EP2 준비/owner/오류 | prepare resolver·owner read/adopt/release·handler catch (3) | 3/3 | `main/app/composer-catalog.test.ts: preserves the %s failure stage…`; `main/app/handlers/composer-catalog.test.ts` close/cancel·read-stage 시험 | configuration/acquire 각 503→동일 stage/http/503, 원문 sentinel 부재 | 없음 |
+| VP2·4 | EP3 snapshot | SDK reader·context cache/lease·adapter reader (3) | 3/3 | `main/app/composer-catalog.test.ts: reads installed plugin metadata using the resolved provider cache environment`; `session-context.test.ts: shares resource flights per directory…` | 임시 provider cache에만 설치한 description을 실제 SDK config→adapter read로 관측 | 없음 |
+| VP1·2·3·5 | EP4 표시/scope | state·hook·wrapper/등록·공통 view (4) | 4/4 | `NativeResources.test.ts` 3건(tileRegistry 실제 진입), `composerCatalogState.test.ts` error/cancelled·generation | 두 출처 오류에서도 버튼 1개, 클릭 후 mcp/plugins 각각 재요청; A 지연→B 표시 | 없음 |
+
+§10 목록 13자리와 위 oracle 대응 목록의 차집합은 없음. VP1–VP5는 SELF_PASS이며, 실제 창 시각 인수와 외부 PC의 원본 오류 재발 여부는 이 판정에 포함하지 않는다.
+
+### 이번 라운드 수정의 잠금
+
+원본과 분리한 app 복사본에서 실행했고 각 변이 뒤 원래 바이트로 복구했다. 아래 테스트는 `main/app/composer-catalog.test.ts`(N6·N6b·N9), `renderer/src/features/chat/harnesses/opencode/rightpanel/NativeResources.test.ts`(R8)다.
+
+| 심은 결함 | 출처 | 이전 결과 | 이번 관측 | 결과 |
+|---|---|---|---|---|
+| N6 acquire 래핑 삭제 | D1·VP5 | 못 잡음 | `preserves the acquire failure stage…` 1 failed | 검출 |
+| N6b configuration 래핑 삭제 | D1의 형제 단계 | 0276에서 검출 | `preserves the configuration failure stage…` 1 failed | 검출 유지 |
+| N9 req.env 제거 | D2·VP4 | 못 잡음 | `reads installed plugin metadata…` 1 failed(description 누락) | 검출 |
+| R8 !refreshable 제거 | D3·VP1 | 못 잡음 | `offers only the fixed refresh button…` 1 failed(버튼 2개) | 검출 |
+
+분모: 선택 증거 0 · 인용/형제 변이 4 · 새 구조 proxy 0 = 4행. 원복 후 관련 6파일 16케이스 통과(0268·0277 시험 포함); 기존 oracle은 삭제·교체하지 않았다.
+
+### Product/UX 파생 검토
+
+표시·문구·상태 전이는 변경하지 않았다. 등록 타일부터 렌더해 실패 후에도 새로고침이 가능하며, 재시도 중 중복 버튼이 생기지 않는 것을 관측했다. 실제 Electron 두 테마 품질은 사람 실기 대기로 유지한다.
+
+### 놓친 잠재 문제 + 대응
+
+| 발견 | 처리·근거 |
+|---|---|
+| 이전 env 테스트는 prepare 인자까지만 확인 | provider cache에 실제 package.json을 쓰고 SDK 응답의 plugin metadata까지 관측해 adapter reader 항을 잠금 |
+| 오류 분류 단위만 보면 prepare에서 owner로 바뀌는 손실을 못 봄 | 등록 IPC handler로 들어가 실제 resolver→owner→handler 결과의 정확한 stage 단언 |
+| 메커니즘 대체의 만료·공유·재진입·무효화 위험 | 해당 없음 — production 변경·신규 cache·소유자 없음 |
+
+### 구현 보고
+
+| AC | 자기 결과 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | `NativeResources.test.ts: renders prepared plugins before MCP…` 첫 입력 전 Superpowers/dynamic-mcp |
+| AC2 | ✅ | 같은 시험의 blocked MCP 중 plugin 선표시, main SDK transport 시험 |
+| AC3 | ✅ | `discards the previous directory…` 및 owner/context 회귀 |
+| AC4 | ✅ | configuration/acquire 503 allowlist 정확성·handler cancellation/secret 회귀, N6/N6b 검출 |
+| AC5 | ✅ | draft 스위치 없음·live 위임·오류 버튼 1개, R8 검출 |
+
+✅5 · ⚠️0 · ❌0 = 총 5. D1–D3은 위 인용 변이 검출로 자기확인 완료, 독립 verify는 pending이다. 공통 통합 gate 산출은 [이번 대응 검증 기록](../0281-opencode-menu-cache/evidence/verify-fail-validation.md)에 기록한다.
+
+### Review Signals
+
+r2. plan의 실제 결과 oracle이 있었으나 기존 fixture의 기본 환경과 성공 상태만으로는 세 지점을 구별하지 못했다. 이번 Windows 실행에서 플랫폼 shim은 사용하지 않았고 생산 코드의 동작 변경도 필요하지 않았다.

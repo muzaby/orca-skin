@@ -156,3 +156,27 @@ it('discards the previous directory and removes connected state after generation
   await settle()
   expect(dom.queryAll('[data-status-tone="green"]')).toHaveLength(0)
 })
+
+it('offers only the fixed refresh button when both prepared and configured draft reads fail', async () => {
+  f.read.mockRejectedValue(new Error('configuration unavailable'))
+  f.catalog.mockImplementation(async (r: ComposerCatalogRequest) => ({
+    part: r.part,
+    status: 'error',
+    failure: { stage: 'acquire', reason: 'unavailable' }
+  }))
+  dom.render(tile())
+  await settle()
+  const refresh = dom.query('[aria-label="새로고침"]')!
+  expect(refresh).not.toBeNull()
+  expect(dom.queryAll('[type="button"]')).toEqual([refresh])
+  const before = f.catalog.mock.calls.length
+  dom.click(refresh)
+  await settle()
+  expect(
+    f.catalog.mock.calls
+      .slice(before)
+      .map(([r]) => r.part)
+      .sort()
+  ).toEqual(['mcp', 'plugins'])
+  expect(dom.queryAll('[type="button"]')).toEqual([dom.query('[aria-label="새로고침"]')])
+})
