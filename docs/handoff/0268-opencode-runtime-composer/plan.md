@@ -294,3 +294,13 @@ release는 일시 요청의 finally와 채널 run의 finally에 연결했다. �
 - Electron fork worker가 종료되는 환경에서는 기존 ABI를 유지한 thread pool로 재검증했다. ABI 재설치는 하지 않았다.
 - raw 문서 링크 gate는 ignored `.tmp/opencode-dev`의 기존 링크 5개에서 실패한다. workspace 문서 링크에는 해당 실패가 없다.
 - 라운드/impl 턴: r1. 다음은 독립 검증이며 미해결 AC4와 EP6 증거 범위를 함께 전달한다.
+
+## [검증자 기입] 파생 이슈 — verify r1 (2026-10-22)
+
+판정 정본은 [verify.md](verify.md) — **FAIL**. 고장 ID는 그 문서 §4 고장 이력이다.
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| D1 | H1 주 창 외부 링크 등록 호출 삭제 green | EP6 registration · AC8 · VP4 | 창 조립 등록을 electron 비의존 경계로 떼어 단언 | BLOCKING | open |
+| D2 | H2 Markdown `target="_blank"` 삭제 green | EP6 anchor · AC8 · VP4 | Markdown 링크의 `target`·`rel` 단언 | BLOCKING | open |
+| P1 | AC4 OpenCode Windows 토스트 미발생 미확인 | VP2 · AC4 | 실제 Windows 관측(사람) | 사람 실기 | open |
