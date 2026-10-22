@@ -241,6 +241,7 @@ export class SessionRuntime implements ManagedRuntime {
   // chat-turn 의 "pushTurn 은 유휴 채널에서만" 가드가 읽는다 — mid-turn push 로 auto-turn 의
   // terminal/에러가 다음 프레임에 오귀속되는 것(steer 세션 사망)을 구조적으로 차단한다.
   private cliBusy = false
+  private configurationFlight: Promise<unknown> | undefined
   private readonly channelActivityListeners = new Set<() => void>()
 
   /** 채널 소유권과 별개인 즉시 입력 가능 상태의 변화. 구독 수명은 호출 체인이 소유한다. */
@@ -411,6 +412,8 @@ export class SessionRuntime implements ManagedRuntime {
   }
 
   private async *runAttempt(req: TurnRequest): AsyncIterable<NormalizedEvent> {
+    // A foreground submission must not overtake an idle configuration operation.
+    await this.configurationFlight?.catch(() => undefined)
     this.status.beginSend()
     this.adoptDelegate(req)
 
@@ -909,6 +912,31 @@ export class SessionRuntime implements ManagedRuntime {
     const result = await live.nativeResources()
     if (this.live !== live) throw new Error('하네스 연결이 바뀌었습니다. 메뉴를 다시 열어 주세요.')
     return result
+  }
+
+  projectResourcePolicy():
+    import('../../adapters/common/project-resources').ProjectResourcePolicy | undefined {
+    return this.live?.projectResourcePolicy?.()
+  }
+
+  async reconcileNativeResources(
+    revision: string,
+    isIdle: () => boolean
+  ): Promise<'applied' | 'pending' | 'restart-required'> {
+    const live = this.live
+    if (!live?.reconcileNativeResources) return 'restart-required'
+    if (this.configurationFlight || this.responding || this.channelBusy || !isIdle())
+      return 'pending'
+    const task = live.reconcileNativeResources(
+      revision,
+      () => this.live === live && !this.responding && !this.channelBusy && isIdle()
+    )
+    this.configurationFlight = task
+    try {
+      return await task
+    } finally {
+      if (this.configurationFlight === task) this.configurationFlight = undefined
+    }
   }
 
   async setNativeResource(request: SetNativeResource): Promise<void> {

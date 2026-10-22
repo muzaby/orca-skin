@@ -18,6 +18,7 @@ export interface HarnessRuntimeOptions {
 }
 
 export interface MainHarnessModule {
+  projectResources?: import('../../../adapters/common/project-resources').ProjectResourcePolicy
   readonly id: Backend
   createAdapter(options: HarnessRuntimeOptions): SessionAdapter
   loadSettings: HarnessSettingsLoader

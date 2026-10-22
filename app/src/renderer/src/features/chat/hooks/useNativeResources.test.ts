@@ -73,6 +73,7 @@ let current: ReturnType<typeof useNativeResources>
 const read = vi.fn<(id: string) => Promise<NativeResources>>()
 const write = vi.fn<(req: unknown) => Promise<NativeResources>>()
 const openFolder = vi.fn<(req: unknown) => Promise<void>>()
+const observe = vi.fn<(request: unknown, observation: unknown) => void>()
 let backgroundEvent: (event: BackgroundEvent) => void
 const terminated = (sessionId: string, generation: string): void =>
   backgroundEvent({
@@ -107,6 +108,7 @@ beforeEach(() => {
   errorToastStore.setState({ toasts: [] })
   vi.useFakeTimers()
   read.mockReset().mockResolvedValue(snapshot())
+  observe.mockClear()
   openFolder.mockReset().mockResolvedValue(undefined)
   write.mockReset().mockResolvedValue({
     ...snapshot(),
@@ -116,7 +118,13 @@ beforeEach(() => {
   Object.assign(window, {
     orca: {
       session: {
-        nativeResources: read,
+        nativeResources: (request: string, observation?: unknown) => {
+          if (observation) {
+            observe(request, observation)
+            return Promise.resolve({ state: 'disconnected', items: [] })
+          }
+          return read(request)
+        },
         setNativeResource: write,
         openNativePlugin: openFolder,
         onNativeResourcesChanged: (callback: typeof resourcesChanged) => {
@@ -140,6 +148,36 @@ afterEach(() => {
 })
 
 describe('native resources session lifecycle', () => {
+  it('owns draft observations and accepts only matching pushes while fencing an older read', async () => {
+    const draft = { backend: 'claude' as const, cwd: 'C:/A', projectId: 'A' }
+    let finish!: (value: NativeResources) => void
+    read.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    dom.render(createElement(Probe, { id: null, scope: 'claude', draft }))
+    await settle()
+    expect(observe).toHaveBeenCalledWith(draft, expect.objectContaining({ active: true }))
+    const changed = {
+      ...snapshot(),
+      configurationPending: true,
+      items: [{ ...resource, enabled: false, canToggle: false }]
+    }
+    resourcesChanged({ scope: { ...draft, cwd: 'C:/B' }, resources: snapshot() })
+    expect(current.view.status).toBe('loading')
+    resourcesChanged({ scope: draft, resources: changed })
+    await settle()
+    finish(snapshot())
+    await settle()
+    expect(current.view).toMatchObject({ value: changed })
+    dom.render(
+      createElement(Probe, { id: null, scope: 'claude', draft: { ...draft, cwd: 'C:/B' } })
+    )
+    await settle()
+    expect(observe).toHaveBeenCalledWith(draft, expect.objectContaining({ active: false }))
+  })
   it('refreshes after resume and caches connected resources across partial reads and navigation until termination', async () => {
     read.mockResolvedValueOnce({ state: 'disconnected', items: [] })
     dom.render(createElement(Probe, { id: 'A', scope: 'claude' }))

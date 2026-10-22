@@ -20,7 +20,13 @@ export function claudeNativeResources(
   commands(): Promise<NativeCommand[]>
   list(): Promise<NativeResource[]>
   directory(id: string): Promise<string | undefined>
-  set(id: string, enabled: boolean, kind?: NativeResource['kind']): Promise<void>
+  set(
+    id: string,
+    enabled: boolean,
+    kind?: NativeResource['kind'],
+    persist?: boolean,
+    isIdle?: () => boolean
+  ): Promise<void>
 } {
   let plugins: NativeResource[] = []
   const directories = new Map<string, string>()
@@ -67,7 +73,6 @@ export function claudeNativeResources(
   }
   observePlugins(installations.filter((plugin) => plugin.enabled))
   const isNative = (server: McpServerStatus): boolean =>
-    server.source !== 'sdk' &&
     !injectedServers.includes(server.name) &&
     ![...injectedNames].some((name) => server.name.startsWith(`plugin:${name}:`))
   return {
@@ -120,6 +125,7 @@ export function claudeNativeResources(
               : server.name,
             kind: 'mcp',
             status: server.status,
+            ...(server.source ? { source: server.source } : {}),
             enabled: server.status !== 'disabled',
             canToggle: !injectedPrefix(server.name),
             ...(injectedPrefix(server.name) ? { origin: 'orca' as const } : {})
@@ -137,7 +143,8 @@ export function claudeNativeResources(
     async directory(id) {
       return directories.get(id)
     },
-    async set(id, enabled, kind = 'mcp') {
+    async set(id, enabled, kind = 'mcp', persist = true, isIdle = () => true) {
+      if (!isIdle()) throw new Error('프로젝트가 사용 중입니다.')
       if (kind === 'plugin') {
         const plugin = controls.get(id)
         if (!plugin || !query.applyFlagSettings || !query.reloadPlugins)
@@ -153,7 +160,7 @@ export function claudeNativeResources(
             .map((command) => command.name)
           if (result.plugins.some((item) => nativePluginId(item.path) === id) !== enabled)
             throw new Error('플러그인 활성 상태를 변경하지 못했습니다.')
-          persistPluginState?.(plugin.key, enabled)
+          if (persist) persistPluginState?.(plugin.key, enabled)
           flags = next
         } catch (error) {
           try {
@@ -174,6 +181,7 @@ export function claudeNativeResources(
         (item) => item.name === id && isNative(item)
       )
       if (!server) throw new Error('이 세션에 연결된 MCP 서버가 아닙니다.')
+      if (!isIdle()) throw new Error('프로젝트가 사용 중입니다.')
       await query.toggleMcpServer(id, enabled)
     }
   }

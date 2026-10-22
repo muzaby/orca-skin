@@ -417,6 +417,18 @@ it('preserves native resource state and toggle identity through renderer and pre
     })
     const draft = { backend: 'claude' as const, cwd: 'C:/draft-B', projectId: 'project-B' }
     expect(await sessionApi.nativeResources(draft)).toBe(result)
+    const observation = { owner: 'panel:1', active: true }
+    await sessionApi.nativeResources(draft, observation)
+    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.sessionNativeResources, {
+      ...draft,
+      observation
+    })
+    await sessionApi.nativeResources('session-B', { ...observation, active: false })
+    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.sessionNativeResources, {
+      sessionId: 'session-B',
+      observation: { ...observation, active: false }
+    })
+    await sessionApi.nativeResources(draft)
     expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.sessionNativeResources, draft)
     await sessionApi.openNativePlugin({ sessionId: 'session-B', id: 'plugin-C' })
     expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.sessionOpenNativePlugin, {

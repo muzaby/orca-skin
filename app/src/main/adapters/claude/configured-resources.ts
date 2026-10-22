@@ -6,6 +6,7 @@ import type { NativeResource } from '../../../shared/native-resources'
 import { isRecord } from '../../../shared/obj'
 import { claudeNativePaths } from './native-paths'
 import { installedClaudePlugins, pluginPathKey } from './plugin-catalog'
+import { claudeLocalSettingsRoot } from './project-path'
 
 const record = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {})
 const pathKey = pluginPathKey
@@ -82,7 +83,8 @@ async function readConfiguredClaudeResources(
 }> {
   const directories = new Map<string, string>()
   const mcpFiles = new Map<string, string>()
-  const root = await projectRoot(cwd)
+  const root = claudeLocalSettingsRoot(cwd)
+  const nativeRoot = await projectRoot(cwd)
   const [global, user, project, local, mcp, installed] = await Promise.all([
     readObject(paths.globalConfig),
     readObject(join(paths.root, 'settings.json')),
@@ -94,15 +96,17 @@ async function readConfiguredClaudeResources(
   const projects = record(global.projects)
   const projectEntry = (path: string): Record<string, unknown> =>
     record(Object.entries(projects).find(([key]) => pathKey(key) === pathKey(path))?.[1])
-  const current = { ...projectEntry(root), ...projectEntry(cwd) }
+  const current = { ...projectEntry(nativeRoot), ...projectEntry(cwd) }
   const enabledPlugins = {
     ...record(user.enabledPlugins),
     ...record(project.enabledPlugins),
     ...record(local.enabledPlugins)
   }
   const disabled = new Set(
+    Array.isArray(current.disabledMcpServers) ? current.disabledMcpServers : []
+  )
+  const deniedProject = new Set(
     [
-      current.disabledMcpServers,
       current.disabledMcpjsonServers,
       user.disabledMcpjsonServers,
       project.disabledMcpjsonServers,
@@ -112,11 +116,24 @@ async function readConfiguredClaudeResources(
     )
   )
   const servers = new Map<string, NativeResource>()
-  const addServers = (value: unknown, file: string, prefix = '', enabled = true): void => {
+  const addServers = (
+    value: unknown,
+    file: string,
+    prefix = '',
+    enabled = true,
+    source?: string
+  ): void => {
     for (const [name, config] of Object.entries(record(value))) {
       if (!isRecord(config) || config.type === 'sdk') continue
       const id = `${prefix}${name}`
-      servers.set(id, configured(id, id, 'mcp', enabled && !disabled.has(id)))
+      servers.set(id, {
+        ...configured(
+          id,
+          id,
+          'mcp',
+          enabled && !disabled.has(id) && !(source === 'project' && deniedProject.has(id))
+        )
+      })
       mcpFiles.set(id, file)
     }
   }
@@ -155,7 +172,7 @@ async function readConfiguredClaudeResources(
     }
   }
   addServers(global.mcpServers, paths.globalConfig)
-  addServers(mcp.mcpServers, join(root, '.mcp.json'))
+  addServers(mcp.mcpServers, join(root, '.mcp.json'), '', true, 'project')
   addServers(current.mcpServers, paths.globalConfig)
   return { items: [...servers.values(), ...plugins], directories, mcpFiles }
 }

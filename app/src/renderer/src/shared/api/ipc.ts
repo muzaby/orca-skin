@@ -223,8 +223,13 @@ export const sessionApi = {
   onComposerCatalogInvalidated: (
     handler: (event: ComposerCatalogInvalidated) => void
   ): (() => void) => window.orca.session.onComposerCatalogInvalidated(handler),
-  nativeResources: (request: string | DraftNativeResourcesRequest): Promise<NativeResources> =>
-    window.orca.session.nativeResources(request),
+  nativeResources: (
+    request: string | DraftNativeResourcesRequest,
+    observation?: import('../../../../shared/native-resources').NativeResourceObservation
+  ): Promise<NativeResources> =>
+    observation
+      ? window.orca.session.nativeResources(request, observation)
+      : window.orca.session.nativeResources(request),
   openNativePlugin: (request: OpenNativePlugin): Promise<void> =>
     window.orca.session.openNativePlugin(request),
   setNativeResource: (request: SetNativeResource): Promise<NativeResources> =>

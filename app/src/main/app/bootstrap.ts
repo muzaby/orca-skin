@@ -1,5 +1,11 @@
 import { createNativeResourceSharing } from './native-resource-sharing'
 import { registerSessionResourceHandlers } from './handlers/session-resources'
+import {
+  ProjectResourceSync,
+  projectResourcesIdle,
+  type ResourceRequest,
+  type ProjectResourceTarget
+} from './project-resource-sync'
 import { registerComposerCatalog } from './composer-catalog'
 import { reportError } from '../infra/error-report'
 // Bootstrap — main 측 컴포지션 루트(app 레이어). 의존성 생성 + 부팅 시퀀스 + 핸들러 등록 위임만
@@ -187,6 +193,7 @@ export class Bootstrap {
   // 0151 — 종료 시 admission freeze + payload 스크럽을 위해 루트가 참조를 보관한다.
   private pendingMessages?: PendingMessageQueue
   private activity?: SessionActivityProjector
+  private projectResourceSync?: ProjectResourceSync
   private titles?: TitleGenerator
   private dailyGate?: { dispose(): void }
 
@@ -847,6 +854,7 @@ export class Bootstrap {
     // 게이트 flush·자동 연속 턴이 큐 폐기와 경합하며 메시지를 뒤늦게 제출하는 것을 막는다.
     this.pendingMessages?.freeze()
     this.closeComposerCatalog?.()
+    this.projectResourceSync?.close()
     this.registry.close()
     this.dailyGate?.dispose()
     void this.artifacts?.close()
@@ -1003,7 +1011,49 @@ export class Bootstrap {
     // 세션 삭제 시 미커밋 pending 도 함께 폐기한다(0151 AC8) — 루트가 chat 큐를 주입해
     // session 슬라이스가 chat 슬라이스를 참조하지 않게 한다.
     this.closeComposerCatalog = registerComposerCatalog(ctx)
-    registerSessionResourceHandlers(
+    const resourceSharing = createNativeResourceSharing({
+      session: (id) => ctx.db.getSessionById(id),
+      cwd: ctx.getCwd,
+      projectRoot: (backend, cwd) => harnessModule(backend).nativeResourceScope?.(cwd) ?? cwd,
+      runtimes: () => supervisor.runtimeEntries(),
+      changed: (sessionId, resources) => broadcastNativeResourcesChanged({ sessionId, resources })
+    })
+    const resolveResourceTarget = (request: ResourceRequest): ProjectResourceTarget | undefined => {
+      const session = 'sessionId' in request ? ctx.db.getSessionById(request.sessionId) : undefined
+      if ('sessionId' in request && !session) return undefined
+      const scope = session
+        ? { backend: session.backend, cwd: session.cwd, projectId: session.project_id }
+        : (request as import('../../shared/native-resources').DraftNativeResourcesRequest)
+      const cwd = scope.cwd ?? ctx.getCwd(scope.projectId)
+      if (!isAbsolute(cwd)) return undefined
+      return {
+        backend: scope.backend,
+        cwd,
+        request,
+        key: JSON.stringify([
+          scope.backend,
+          'directory',
+          harnessModule(scope.backend).nativeResourceScope?.(cwd) ?? cwd
+        ]),
+        runtime: 'sessionId' in request ? supervisor.peekRuntime(request.sessionId) : undefined
+      }
+    }
+    const projectSync = (this.projectResourceSync = new ProjectResourceSync({
+      resolve: resolveResourceTarget,
+      targets: () =>
+        supervisor
+          .runtimeEntries()
+          .flatMap(({ sessionId }) => resolveResourceTarget({ sessionId }) ?? []),
+      policy: (backend) => harnessModule(backend).projectResources,
+      idle: (target) =>
+        !target.runtime ||
+        ('sessionId' in target.request &&
+          projectResourcesIdle(activity.current(target.request.sessionId), target.runtime)),
+      read: (request) => readResources(request),
+      emit: (sessionId, resources) => broadcastNativeResourcesChanged({ sessionId, resources }),
+      run: (key, action) => resourceSharing.run!(key, action)
+    }))
+    const readResources = registerSessionResourceHandlers(
       (sessionId) => supervisor.peekRuntime(sessionId),
       async (sessionId) => {
         const session = ctx.db.getSessionById(sessionId)
@@ -1092,13 +1142,8 @@ export class Bootstrap {
         }
         return file
       },
-      createNativeResourceSharing({
-        session: (id) => ctx.db.getSessionById(id),
-        cwd: ctx.getCwd,
-        projectRoot: (backend, cwd) => harnessModule(backend).nativeResourceScope?.(cwd) ?? cwd,
-        runtimes: () => supervisor.runtimeEntries(),
-        changed: (sessionId, resources) => broadcastNativeResourcesChanged({ sessionId, resources })
-      })
+      resourceSharing,
+      projectSync
     )
     registerSessionHandlers(ctx, {
       isSessionBusy: (sessionId) => supervisor.hasSession(sessionId),

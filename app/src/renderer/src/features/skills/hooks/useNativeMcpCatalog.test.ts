@@ -6,6 +6,7 @@ vi.mock('react', async (original) => ({
 import { createElement, useLayoutEffect } from 'react'
 import { installFakeDom } from '../../../shared/ui/renderHarness.testfixture'
 import { useNativeMcpCatalog } from './useNativeMcpCatalog'
+import type { NativeResourcesChanged } from '../../../../../shared/native-resources'
 let dom: ReturnType<typeof installFakeDom>
 afterEach(() => {
   dom?.unmount()
@@ -29,7 +30,24 @@ it('reads both native catalogs and reveals the selected config with its original
     ]
   }))
   const open = vi.fn(async () => {})
-  Object.assign(window, { orca: { session: { nativeResources: read, openNativePlugin: open } } })
+  let changed!: (event: NativeResourcesChanged) => void
+  const observe = vi.fn(),
+    unsubscribe = vi.fn()
+  Object.assign(window, {
+    orca: {
+      session: {
+        nativeResources: (request: { backend: string }, observation?: unknown) =>
+          observation
+            ? (observe(request, observation), Promise.resolve({ state: 'disconnected', items: [] }))
+            : read(request),
+        onNativeResourcesChanged: (callback: typeof changed) => {
+          changed = callback
+          return unsubscribe
+        },
+        openNativePlugin: open
+      }
+    }
+  })
   let result!: ReturnType<typeof useNativeMcpCatalog>
   function Probe(): null {
     const value = useNativeMcpCatalog()
@@ -57,4 +75,20 @@ it('reads both native catalogs and reveals the selected config with its original
     id: 'opencode-server',
     kind: 'mcp'
   })
+  changed({
+    scope: { backend: 'claude', cwd: 'C:/other', projectId: null },
+    resources: { state: 'disconnected', items: [] }
+  })
+  dom.act(() => {})
+  expect(result.list).toHaveLength(2)
+  changed({
+    scope: { backend: 'claude', cwd: null, projectId: null },
+    resources: { state: 'disconnected', items: [{ ...result.list[0].resource, enabled: false }] }
+  })
+  dom.act(() => {})
+  expect(result.list.find((item) => item.backend === 'claude')?.resource.enabled).toBe(false)
+  expect(read).toHaveBeenCalledTimes(2)
+  dom.unmount()
+  expect(unsubscribe).toHaveBeenCalledOnce()
+  expect(observe.mock.calls.map(([, value]) => value.active)).toEqual([true, true, false, false])
 })

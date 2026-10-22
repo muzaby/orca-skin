@@ -18,6 +18,7 @@ import { shell } from 'electron'
 import { realpath, stat } from 'node:fs/promises'
 import { isAbsolute } from 'node:path'
 import { shareNativeResource, type NativeResourceSharing } from '../native-resource-sharing'
+import type { ProjectResourceSync, ResourceRequest } from '../project-resource-sync'
 
 export function registerSessionResourceHandlers(
   lookup: (sessionId: string) => GovernedLiveTurn | undefined,
@@ -42,8 +43,10 @@ export function registerSessionResourceHandlers(
     request: { sessionId: string } | DraftNativeResourcesRequest,
     id: string
   ) => Promise<string | undefined> = async () => undefined,
-  sharing?: NativeResourceSharing
-): void {
+  sharing?: NativeResourceSharing,
+  projectSync?: ProjectResourceSync
+): (request: ResourceRequest) => Promise<NativeResources> {
+  const senders = new WeakSet<Electron.WebContents>()
   const observations = new WeakMap<GovernedLiveTurn, NativeResources>()
   const mutations = new Map<GovernedLiveTurn | string, Promise<void>>()
   const mutate = async (
@@ -51,6 +54,7 @@ export function registerSessionResourceHandlers(
     action: () => Promise<NativeResources>,
     scope?: string
   ): Promise<NativeResources> => {
+    if (scope && sharing?.run) return sharing.run(scope, action)
     const key = scope ?? runtime
     const result = (mutations.get(key) ?? Promise.resolve()).then(action)
     // The caller owns the rejection; the queue must allow the following operation to run.
@@ -109,7 +113,7 @@ export function registerSessionResourceHandlers(
       if (item.kind === 'plugin' && pluginsAuthoritative && !items.has(key)) continue
       items.set(key, { ...items.get(key), ...item })
     }
-    return {
+    const value: NativeResources = {
       ...live,
       state: live?.state ?? 'disconnected',
       items: [...items.values()],
@@ -117,12 +121,54 @@ export function registerSessionResourceHandlers(
       ...(partial ? { partial: true } : {}),
       ...(pluginsAuthoritative ? { pluginsAuthoritative: true } : {})
     }
+    return projectSync?.decorate({ sessionId }, value) ?? value
+  }
+  const readRequest = async (request: ResourceRequest): Promise<NativeResources> => {
+    if ('sessionId' in request) return read(request.sessionId, lookup(request.sessionId))
+    const [items, commands] = await Promise.all([
+      resourceQuery(() => draftResources(request)),
+      resourceQuery(() => draftCommands(request))
+    ])
+    return {
+      state: 'disconnected',
+      items: (items ?? []).map((item) => ({ ...item, canToggle: false })),
+      commands,
+      ...(items !== undefined ? { pluginsAuthoritative: true } : {})
+    }
   }
   handle(
     CHANNELS.sessionNativeResources,
     NativeResourcesRequestSchema,
     'reject',
-    async (request): Promise<NativeResources> => {
+    async (request, event): Promise<NativeResources> => {
+      const { observation, ...scope } = request
+      if (observation && projectSync) {
+        const prefix = `${event.sender.id}:`
+        if (!senders.has(event.sender)) {
+          senders.add(event.sender)
+          event.sender.once('destroyed', () => projectSync.releasePrefix(prefix))
+          event.sender.on('render-process-gone', () => projectSync.releasePrefix(prefix))
+          event.sender.on('did-start-navigation', (_event, _url, inPlace, main) => {
+            if (main && !inPlace) projectSync.releasePrefix(prefix)
+          })
+        }
+        const owner = prefix + observation.owner
+        if (!observation.active) {
+          projectSync.release(owner)
+          return { state: 'disconnected', items: [] }
+        }
+        projectSync.observe(owner, scope, (resources) => {
+          if (!event.sender.isDestroyed())
+            event.sender.send(
+              CHANNELS.sessionNativeResourcesChanged,
+              'sessionId' in scope
+                ? { sessionId: scope.sessionId, resources }
+                : { scope, resources }
+            )
+        })
+        return { state: 'disconnected', items: [] }
+      }
+      projectSync?.retry(scope)
       if (!('sessionId' in request)) {
         try {
           const [items, commands] = await Promise.all([
@@ -196,7 +242,9 @@ export function registerSessionResourceHandlers(
       return mutate(
         runtime,
         async () => {
-          const current = await resourceQuery(async () => runtime.nativeResources?.())
+          const live = await resourceQuery(async () => runtime.nativeResources?.())
+          const current =
+            live && (projectSync?.decorate({ sessionId: request.sessionId }, live) ?? live)
           if (
             current?.generation !== request.generation ||
             lookup(request.sessionId) !== runtime ||
@@ -228,4 +276,5 @@ export function registerSessionResourceHandlers(
       )
     }
   )
+  return readRequest
 }

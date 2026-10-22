@@ -7,6 +7,7 @@ import type { createNativeHistoryRefresh } from './native-history'
 import type { RuntimeSupervisor } from '../features/sessions/supervisor'
 import type { SessionActivityProjector } from '../features/chat/session-activity-projector'
 import type { NativeResourceSharing } from './native-resource-sharing'
+import type { ProjectResourceSync } from './project-resource-sync'
 import type { HistoryWriter } from '../features/history/writer'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -40,6 +41,7 @@ const fixture = vi.hoisted(() => ({
       ) => Promise<string | undefined>)
     | undefined,
   sharing: undefined as NativeResourceSharing | undefined,
+  projectSync: undefined as ProjectResourceSync | undefined,
   broadcasts: vi.fn(),
   peerBroadcasts: vi.fn(),
   refresh: vi.fn(),
@@ -56,7 +58,7 @@ vi.mock('electron', () => ({
       { isDestroyed: () => false, send: fixture.peerBroadcasts }
     ]
   },
-  ipcMain: {},
+  ipcMain: { handle: vi.fn(), removeHandler: vi.fn() },
   net: {},
   session: {},
   safeStorage: {}
@@ -90,8 +92,10 @@ vi.mock('./handlers/session-resources', () => ({
       id: string
     ) => Promise<string | undefined>,
     mcpFile: NonNullable<typeof fixture.mcpFile>,
-    sharing: NativeResourceSharing
+    sharing: NativeResourceSharing,
+    projectSync: ProjectResourceSync
   ) => {
+    fixture.projectSync = projectSync
     fixture.sharing = sharing
     fixture.draftResources = draftResources
     fixture.draftDirectory = draftDirectory
@@ -101,6 +105,7 @@ vi.mock('./handlers/session-resources', () => ({
     fixture.configured = configured
     fixture.pluginDirectory = pluginDirectory
     fixture.mcpFile = mcpFile
+    return async () => ({ state: 'connected', generation: 'fixture-live', items: [] })
   }
 }))
 vi.mock('./handlers/session', () => ({
@@ -117,6 +122,7 @@ import { Bootstrap } from './bootstrap'
 import type { SkillInfo } from '../../shared/ipc'
 
 afterEach(() => {
+  fixture.projectSync?.close()
   vi.restoreAllMocks()
   vi.clearAllMocks()
   fixture.hooks = undefined
@@ -208,6 +214,7 @@ it('reads native configuration through the registered module using stored backen
       JSON.stringify({ mcpServers: { 'project-B': { command: 'hidden' } } })
     )
     vi.stubEnv('CLAUDE_CONFIG_DIR', root)
+    vi.stubEnv('XDG_CONFIG_HOME', join(temp, 'xdg'))
     const row = { backend: 'claude', cwd, project_id: 'project-B' }
     const get = vi.fn(() => row)
     ctx.db.getSessionById = get as never
@@ -361,7 +368,7 @@ it('refreshes the bootstrap skill cache with native catalog sources and preserve
   }
 })
 
-it('groups active and idle runtimes by the stored project and backend and broadcasts their real popup snapshots', () => {
+it('groups runtimes by actual cwd and backend across project IDs and broadcasts actual snapshots', () => {
   const { ctx, supervisor, activity } = register()
   const sessions = new Map([
     ['A', { backend: 'claude', project_id: 'shared', cwd: '/same' }],
@@ -376,8 +383,9 @@ it('groups active and idle runtimes by the stored project and backend and broadc
   }))
   vi.spyOn(supervisor, 'runtimeEntries').mockReturnValue(runtimes)
   const key = fixture.sharing!.scope('A')!
-  expect(fixture.sharing!.scope('B')).toBe(key)
-  expect(fixture.sharing!.peers(key)).toEqual(runtimes.slice(0, 2))
+  expect(fixture.sharing!.scope('B')).not.toBe(key)
+  expect(fixture.sharing!.scope('C')).toBe(key)
+  expect(fixture.sharing!.peers(key)).toEqual([runtimes[0], runtimes[2]])
   expect(fixture.sharing!.scope('missing')).toBeUndefined()
   fixture.broadcasts.mockClear()
   fixture.peerBroadcasts.mockClear()
@@ -394,7 +402,7 @@ it('groups active and idle runtimes by the stored project and backend and broadc
   activity.dispose()
 })
 
-it('uses the real Claude project root when unassigned sessions have different child working directories', async () => {
+it('keeps different current working directories distinct even under one Git root', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'orca-sharing-root-'))
   const { ctx, activity } = register()
   try {
@@ -404,10 +412,76 @@ it('uses the real Claude project root when unassigned sessions have different ch
       project_id: null,
       cwd: id === 'A' ? directory : join(directory, 'child')
     })) as never
-    expect(fixture.sharing!.scope('A')).toBe(fixture.sharing!.scope('B'))
+    expect(fixture.sharing!.scope('A')).not.toBe(fixture.sharing!.scope('B'))
     expect(JSON.parse(fixture.sharing!.scope('A')!)[1]).toBe('directory')
   } finally {
     activity.dispose()
     await rm(directory, { recursive: true, force: true })
+  }
+})
+
+it('observes external project settings through real bootstrap and waits for peer activity before reconciliation', async () => {
+  const temp = await mkdtemp(join(tmpdir(), 'orca-bootstrap-sync-'))
+  const { ctx, supervisor, activity } = register()
+  try {
+    const cwd = join(temp, 'project'),
+      root = join(temp, 'native')
+    await mkdir(join(cwd, '.claude'), { recursive: true })
+    await mkdir(root)
+    vi.stubEnv('CLAUDE_CONFIG_DIR', root)
+    ctx.db.getSessionById = vi.fn((id) => ({ id, backend: 'claude', cwd, project_id: id })) as never
+    ctx.getCwd = () => cwd
+    let busy = true
+    const runtime = {
+      responding: false,
+      reconcileNativeResources: vi.fn(async () => 'applied' as const)
+    }
+    vi.spyOn(supervisor, 'peekRuntime').mockReturnValue(runtime as never)
+    vi.spyOn(supervisor, 'runtimeEntries').mockReturnValue([
+      { sessionId: 'A', runtime: runtime as never },
+      { sessionId: 'B', runtime: runtime as never }
+    ])
+    const idle = activity.current('A')
+    vi.spyOn(activity, 'current').mockImplementation((id) => ({
+      ...idle,
+      backgroundTaskCount: busy && id === 'B' ? 1 : 0
+    }))
+    fixture.projectSync!.tick()
+    await vi.waitFor(() =>
+      expect(fixture.broadcasts).toHaveBeenCalledWith(
+        'orca:session:native-resources-changed',
+        expect.objectContaining({
+          resources: expect.objectContaining({ configurationPending: true })
+        })
+      )
+    )
+    await writeFile(
+      join(cwd, '.claude/settings.local.json'),
+      JSON.stringify({ enabledPlugins: { external: false } })
+    )
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    expect(runtime.reconcileNativeResources).not.toHaveBeenCalled()
+    busy = false
+    await vi.waitFor(() => expect(runtime.reconcileNativeResources).toHaveBeenCalled(), {
+      timeout: 2000
+    })
+    const call = runtime.reconcileNativeResources.mock.calls.at(-1) as unknown as [
+      string,
+      () => boolean
+    ]
+    const { readClaudeProjectSettings } = await import('../adapters/claude/project-settings')
+    expect(call[0]).toBe(readClaudeProjectSettings(cwd, root).revision)
+    expect(call[1]()).toBe(true)
+    fixture.projectSync!.close()
+    expect(call[1]()).toBe(false)
+    const count = runtime.reconcileNativeResources.mock.calls.length
+    await writeFile(join(cwd, '.claude/settings.local.json'), '{}')
+    await new Promise((resolve) => setTimeout(resolve, 350))
+    expect(runtime.reconcileNativeResources).toHaveBeenCalledTimes(count)
+  } finally {
+    fixture.projectSync?.close()
+    activity.dispose()
+    vi.unstubAllEnvs()
+    await rm(temp, { recursive: true, force: true })
   }
 })

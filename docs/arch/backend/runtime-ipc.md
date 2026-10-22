@@ -173,6 +173,10 @@ usage(집계) → history(영속) → title(제목) → relay(renderer 중계)
 
 ### Native 리소스의 프로젝트 공유
 
-케밥의 native plugin/MCP 제어는 main이 세션의 backend·project_id를 확인하고 같은 프로젝트의 살아 있는 active/idle runtime에 전달한다. project_id가 없는 세션은 하네스가 해석한 프로젝트 root로 묶는다. Supervisor의 runtimeEntries는 두 수명의 실행을 함께 열거한다. 프로젝트별 mutation queue가 서로 다른 세션에서 온 변경도 순서대로 처리한다.
+케밥의 native plugin/MCP 제어는 main이 세션의 backend와 실제 cwd를 확인하고 같은 작업경로의 살아 있는 active/idle runtime에 전달한다. project_id가 달라도 정규화한 작업경로가 같으면 공유하며 같은 Git root의 서로 다른 cwd는 구분한다. Supervisor의 runtimeEntries는 두 수명의 실행을 함께 열거한다. 프로젝트별 mutation queue가 수동 제어와 외부 설정 재적용을 직렬화한다.
 
-각 peer의 현재 generation과 제어 가능한 공통 항목을 다시 확인하고 실제 SDK에 적용한다. 종료·교체·다른 프로젝트는 건너뛰고, 부분 실패는 다른 peer도 시도한 뒤 실제 조회를 통지하고 오류로 반환한다. GUI는 각 세션의 실제 snapshot을 받으며 성공 상태를 임의로 복제하지 않는다. 플러그인의 프로젝트 설정 저장은 유지하며 MCP에 새 영속 저장소를 추가하지 않는다. 통지 형식은 [IPC 정본](../../IPC_CONTRACT.md)의 session 채널을 따른다.
+각 peer의 현재 generation과 제어 가능한 공통 항목을 다시 확인하고 실제 SDK에 적용한다. 종료·교체·다른 프로젝트는 건너뛰고, 부분 실패는 실제 조회를 통지하고 오류로 반환한다. 플러그인은 프로젝트 local 파일의 enabledPlugins만 병합하고 MCP는 SDK의 native 프로젝트 상태 저장을 사용한다. 통지 형식은 [IPC 정본](../../IPC_CONTRACT.md)의 session 채널을 따른다.
+
+`ProjectResourceSync`는 실행 중 runtime과 화면 관측 owner가 있는 경로의 프로젝트 확장 설정만 감시한다. 외부 편집의 선택 값은 실제 연결 status와 분리해 즉시 발행하며, 같은 backend/cwd의 응답·준비·입력 큐·잔여 전달·백그라운드 작업·pending wakeup이 모두 유휴일 때 재적용한다. SDK 호출 직전에도 revision과 수명을 검사하고 다음 제출은 진행 중 구성 작업 뒤에서 시작한다. 전역 기본값과 다른 프로젝트·권한 키의 변경은 재적용을 유발하지 않는다.
+
+서버 정의·MCP 승인 변경·MCP를 가진 플러그인처럼 라이브 재적용을 보장할 수 없는 변경은 기존 LRU/앱 종료까지 보류한다. 관측기가 runtime을 시작하거나 강제로 폐기하지 않는다. 파일 생성·삭제·원자 교체를 감지하며 owner 해제·창 탐색/종료·앱 종료 때 감시를 정리한다. SDK가 별도 native 설정 루트를 사용하면 해당 runtime의 파일·revision을 따르되 유휴 판정은 작업경로 전체를 공유한다.

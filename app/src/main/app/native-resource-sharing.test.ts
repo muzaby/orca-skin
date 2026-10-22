@@ -3,6 +3,34 @@ import type { GovernedLiveTurn } from '../contracts/ports'
 import type { NativeResources } from '../../shared/native-resources'
 import { createNativeResourceSharing, shareNativeResource } from './native-resource-sharing'
 
+it('serializes project mutations across manual and observer callers without blocking another project', async () => {
+  const sharing = createNativeResourceSharing({
+    session: () => undefined,
+    cwd: () => '',
+    projectRoot: (_backend, cwd) => cwd,
+    runtimes: () => [],
+    changed: () => {}
+  })
+  let finish!: () => void
+  const order: string[] = []
+  const first = sharing.run!('A', async () => {
+    order.push('manual')
+    await new Promise<void>((resolve) => {
+      finish = resolve
+    })
+  })
+  const second = sharing.run!('A', async () => {
+    order.push('observer')
+  })
+  await sharing.run!('B', async () => {
+    order.push('other')
+  })
+  expect(order).toEqual(['manual', 'other'])
+  finish()
+  await Promise.all([first, second])
+  expect(order).toEqual(['manual', 'other', 'observer'])
+})
+
 it('uses the canonical harness project for unassigned sessions, keeping projects and backends isolated', () => {
   const session = vi.fn((id: string) =>
     id === 'missing'

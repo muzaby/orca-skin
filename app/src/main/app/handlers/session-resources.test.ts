@@ -9,6 +9,8 @@ import type { GovernedLiveTurn } from '../../contracts/ports'
 import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { EventEmitter } from 'node:events'
+import { ProjectResourceSync } from '../project-resource-sync'
 const openPath = vi.hoisted(() => vi.fn(async () => ''))
 const showItemInFolder = vi.hoisted(() => vi.fn())
 const callbacks = vi.hoisted(
@@ -48,6 +50,142 @@ const invoke = (channel: string, payload: unknown): Promise<unknown> =>
   callbacks.get(channel)!({}, payload)
 beforeEach(() => callbacks.clear())
 afterEach(() => vi.useRealTimers())
+it('returns pending configuration as read-only and refuses a stale toggle through the real IPC read', async () => {
+  const set = vi.fn(async () => {})
+  const runtime = {
+    nativeResources: async () => snapshot(),
+    setNativeResource: set
+  } as unknown as GovernedLiveTurn
+  const target = {
+    backend: 'claude' as const,
+    cwd: 'C:/work',
+    key: 'work',
+    request: { sessionId: request.sessionId },
+    runtime
+  }
+  let read!: ReturnType<typeof registerSessionResourceHandlers>
+  const sync = new ProjectResourceSync({
+    resolve: () => target,
+    targets: () => [target],
+    policy: () => ({ files: () => [], read: async () => ({ revision: 'external' }) }),
+    idle: () => false,
+    emit: vi.fn(),
+    run: async (_key, action) => action(),
+    read: (request) => read(request)
+  })
+  try {
+    read = registerSessionResourceHandlers(
+      () => runtime,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      sync
+    )
+    sync.tick()
+    for (let i = 0; i < 40; i++) await Promise.resolve()
+    expect(
+      await invoke(CHANNELS.sessionNativeResources, { sessionId: request.sessionId })
+    ).toMatchObject({
+      configurationPending: true,
+      items: [{ enabled: true, status: 'connected', canToggle: false }]
+    })
+    await expect(invoke(CHANNELS.sessionSetNativeResource, request)).rejects.toThrow('제어')
+    expect(set).not.toHaveBeenCalled()
+  } finally {
+    sync.close()
+  }
+})
+it('uses the injected project mutation queue for manual controls', async () => {
+  const runtime = {
+    nativeResources: async () => snapshot(),
+    setNativeResource: vi.fn(async () => {})
+  } as unknown as GovernedLiveTurn
+  const run = vi.fn(async (_key: string, action: () => Promise<NativeResources>) => action())
+  registerSessionResourceHandlers(
+    () => runtime,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    { scope: () => 'project-A', peers: () => [], changed: vi.fn(), run } as never
+  )
+  await invoke(CHANNELS.sessionSetNativeResource, request)
+  expect(run).toHaveBeenCalledExactlyOnceWith('project-A', expect.any(Function))
+  expect(runtime.setNativeResource).toHaveBeenCalledOnce()
+})
+it('acquires a scoped observer without an SDK query and releases it on renderer teardown', async () => {
+  const scope = { backend: 'claude' as const, cwd: 'C:/work/A', projectId: null }
+  let revision = 'one',
+    changed!: () => void
+  const stop = vi.fn(),
+    send = vi.fn(),
+    sdk = vi.fn(async () => snapshot())
+  const sender = Object.assign(new EventEmitter(), { id: 4, isDestroyed: () => false, send })
+  const readConfigured = vi.fn(async () => snapshot().items)
+  let read!: ReturnType<typeof registerSessionResourceHandlers>
+  const sync = new ProjectResourceSync({
+    resolve: (request) => ({ backend: 'claude', cwd: scope.cwd, key: scope.cwd, request }),
+    targets: () => [],
+    policy: () => ({ files: () => ['settings'], read: async () => ({ revision }) }),
+    idle: () => true,
+    emit: vi.fn(),
+    read: (request) => read(request),
+    run: async (_key, action) => action(),
+    watch: (_file, callback) => {
+      changed = callback
+      return stop
+    }
+  })
+  try {
+    read = registerSessionResourceHandlers(
+      () => ({ nativeResources: sdk }) as unknown as GovernedLiveTurn,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      readConfigured,
+      undefined,
+      undefined,
+      undefined,
+      sync
+    )
+    const observe = (active: boolean): Promise<unknown> =>
+      callbacks.get(CHANNELS.sessionNativeResources)!(
+        { sender },
+        { ...scope, observation: { owner: 'panel', active } }
+      )
+    await observe(true)
+    for (let i = 0; i < 30; i++) await Promise.resolve()
+    expect(sdk).not.toHaveBeenCalled()
+    expect(send).toHaveBeenLastCalledWith(CHANNELS.sessionNativeResourcesChanged, {
+      scope,
+      resources: expect.objectContaining({
+        state: 'disconnected',
+        items: [expect.objectContaining({ canToggle: false })]
+      })
+    })
+    send.mockClear()
+    revision = 'external'
+    changed()
+    for (let i = 0; i < 30; i++) await Promise.resolve()
+    expect(send).toHaveBeenCalledOnce()
+    await observe(false)
+    expect(stop).toHaveBeenCalledOnce()
+    await observe(true)
+    sender.emit('destroyed')
+    expect(stop).toHaveBeenCalledTimes(2)
+  } finally {
+    sync.close()
+  }
+})
 describe('native resource IPC', () => {
   it('reveals only the resolved MCP configuration file for saved and draft requests', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'orca-mcp-reveal-'))

@@ -4,7 +4,7 @@
 
 | 항목 | 값 |
 |---|---|
-| 상태 | READY — SDK MCP 저장 허용·외부 변경 즉시 표시·프로젝트 유휴 적용 확정 |
+| 상태 | IMPL_DONE — SDK MCP 저장·외부 변경 표시·프로젝트 유휴 재적용 구현, 독립 검증 대기 |
 | 작성자 / 일자 | Codex / 2026-10-22 |
 | V mode / 기준 / revision | Baseline V / 없음 / V1 |
 | 정책 정본 | [0278](../0278-harness-extension-isolation/plan.md) |
@@ -122,9 +122,9 @@ D5는 해당 파일을 읽는 외부 Claude와의 프로젝트 설정 공유를 
 - [Claude settings — local file location](https://code.claude.com/docs/en/settings#where-claude-code-keeps-the-local-file-in-a-git-repository): Windows·primary cwd 예외와 SDK resolveSettings 위치.
 - 설치된 `@anthropic-ai/claude-agent-sdk/sdk.d.ts`: Settings의 승인 키, Query의 toggleMcpServer·applyFlagSettings·reloadPlugins 계약.
 
-## [구현자 기입]
+## 이전 조사 단계
 
-파일 제거·Orca JSON 대체는 취소했고 프로덕션 코드를 변경하지 않았다. 최신 정책에 맞춰 기존 plugin 제한 편집을 유지한다. MCP SDK의 실제 저장 효과는 격리 환경에서 확인했으며, 저장 허용 범위와 동기화 누락은 해결 전이다.
+파일 제거·Orca JSON 대체는 취소했다. 이후 D7·D8의 구현 승인을 받아 아래 V1 기준으로 구현한다. 기존 무변경 보고는 조사 단계의 기록이며 현재 구현 상태는 아래 구현 보고를 따른다.
 
 ## 12. 확정 기술 설계 / V1
 
@@ -170,3 +170,104 @@ D5는 해당 파일을 읽는 외부 Claude와의 프로젝트 설정 공유를 
 관련 Vitest, typecheck, lint, build, doc inventory/prose, 변경 링크 및 diff 검사. 기존 upstream 참조 checkout의 broken links는 이번 변경과 분리한다. 구현 commit과 이 설계 commit을 분리한다.
 
 ACTIVE↔AC: D2→AC2, D4→AC7, D5→AC1·3, D6→AC4의 전역 비소급, D7→AC6, D8→AC4·5. 충돌 0. 새로운 UI 장식·스피너·설명문은 없으며 기존 토글/상태 소비 경로를 사용한다.
+
+## [구현자 기입] 설계 리뷰
+
+- 동의 / 그대로 진행: D7·D8과 V1. SDK native MCP 저장, 프로젝트 경로 공유, 화면 표시와 유휴 재적용 분리를 구현했다.
+- 이견 / 현실성 문제: §12의 MCP 보유 plugin·서버 정의·승인 변경은 hot reload 완료로 취급하지 않는다. `restart-required`로 보존하며 LRU/앱 종료 이후 새 실행이 읽는다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. 저장 위치·UI 범위·재시작 정책을 새로 선택하지 않았다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP1·4·5 | 설정 제한·우선순위 | EP1 reader·plugin reader·writer·configured reader (4) | 4/4 | project-settings.test의 selective revision·permission 보존, plugin-catalog.test의 precedence, plugin-state.test의 sibling 보존, configured-resources.test의 scope | child cwd·native root·다른 key → 파일 bytes/선택 목록 대조 | — |
+| VP1·3·5 | cwd 공유 | EP2 sharing scope (1) | 1/1 | bootstrap.native-history.test: `groups runtimes by actual cwd…`, `keeps different current working directories…` | A/C 같은 cwd·다른 ID, B 다른 cwd·같은 ID → peer 목록 대조 | — |
+| VP1·2·3 | 감시·수명·revision·idle | EP3 (4) | 4/4 | project-resource-sync.test: real file/atomic replacement, owner release, malformed recovery, replacement, peer idle | external revision·A/B 활동·서로 다른 native root → 발행/SDK 호출/해제 대조 | — |
+| VP1·4 | SDK 재적용·제출 경합 | EP4 adapter·SDK·SessionRuntime (3) | 3/3 | adapter.native-plugins.test: `exposes runtime-native watch files…`; project-reconciliation.test의 busy→idle/no persistence; session-runtime.test의 submission 직렬화 | env root·false 선택·r/r2 → 실제 adapter SDK mock flags/수명 guard/push 순서 | — |
+| VP3 | 부팅·종료·활동 전달 | EP5 (3) | 3/3 | bootstrap.native-history.test: `observes external project settings through real bootstrap…`; bootstrap.shutdown.test의 observer→registry 순서 | 실제 bootstrap 등록·B background=1→0 → 외부 파일 hash 전달과 SDK 호출 보류/해제 | — |
+| VP2·3·5 | IPC owner·read·직렬화 | EP6 (3) | 3/3 | session-resources.test: `acquires a scoped observer…`, 기존 shared queue·generation 테스트; project-resource-sync.test의 pending decorate | owner panel·sender 4·session B·draft A → 정확한 scope 통지와 release, 기존 변경 순서 | — |
+| VP2·5 | wire·owner·push·nav | EP7 (4) | 4/4 | preload/index.test의 observation 전달, useNativeResources.test의 scoped push/late read/owner 해제, useNativeMcpCatalog.test의 backend 범위/구독 해제 | session-B·draft-A/B·active true/false → IPC payload 및 다른 화면 미반영 | — |
+
+§10의 고정 자리 22개를 다시 대조했다. `rg`로 확인한 운반 경계는 아래 검증 기록의 파일 목록과 대응한다. 추가 `projectResourcePolicy`는 EP4·EP5의 native root 전달 세부이며 `uses runtime-native configuration roots…`에서 서로 다른 A/B revision을 관측했다. 직전 verify 고장 이력은 없다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP1 | REQUIRED | SELF_PASS | 실제 파일 watcher + adapter.native-plugins의 SDK flags/영속 복원; 실제 SDK MCP probe는 evidence 참조 | not selected — 직접 입력/출력 |
+| VP2 | REQUIRED | SELF_PASS | session-resources owner lifecycle, renderer scoped push·late read·nav cleanup | not selected — 직접 입력/출력 |
+| VP3 | REQUIRED | SELF_PASS | bootstrap 외부 파일→activity→runtime, shutdown cleanup | EP5 관측 등록 no-op → 예상 assertion 실패 |
+| VP4 | REQUIRED | SELF_PASS | selective revision, frozen defaults, restart-required, SessionRuntime 다음 제출 대기 | not selected — 직접 입력/출력 |
+| VP5 | REGRESSION | SELF_PASS | plugin-state·catalog·adapter·native-resource-sharing·IPC·renderer 기존 회귀 | not selected — 기존 행동 oracle |
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| bootstrap의 `policy: (backend) => harnessModule(backend).projectResources`를 undefined로 대체 | VP3/EP5 선택 증거(관측 등록 no-op)·같은 bootstrap 배선 oracle | 최초 | `observes external project settings through real bootstrap…` 1건, 통지 호출 0회 | 잠김 — 원본 bytes 복원 후 동일 테스트 green |
+
+분모 검산: 선택 증거 1 · 인용 변이 0 · 추가 새 구조 oracle 0 = 표 행 1. bootstrap 배선 oracle은 같은 선택 증거로 검증했다. 나머지는 직접 행동 oracle이다. 이전 라운드 red 증거가 없어 덮개 회귀 비교는 해당 없음.
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 문구·상태에 소비자가 있는가 | 안내 문구 추가 없음. enabled는 선택, status는 실제 관측, 대기는 canToggle=false | 기존 메뉴/패널 소비 경로 사용 |
+| seam 재배치 뒤 cleanup 범위 | Bootstrap이 observer를 보유하고 shutdown에서 registry 전에 close | shutdown 테스트 통과 |
+| 실패 전이 | AC5: 손상 설정·부분 조회·교체는 이전 정상 관측 보존, partial/read-only | 파일 교정 또는 수동 조회로 재시도 |
+| 실패가 무반응으로 보이는가 | 팝업 안내 금지 유지. 기존 관측을 삭제하지 않으며 수동 실패의 기존 오류 경로 유지 | 새 오류 문구/스피너 없음 |
+| 늦은 응답이 화면을 되돌리는가 | revision·runtime identity·renderer readSerial/pushSerial 검사 | 다른 draft·retired generation·늦은 read/write 회귀 통과 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | Windows local 파일을 Git root로 쓰면 CLI와 불일치 | 선조치: 현재 cwd 사용, native MCP Git root 상태는 별도 해석 | 설치 SDK resolveSettings 실측·project-settings 테스트 |
+| 2 | 승인 거부를 모든 MCP 출처의 off로 확장 | 선조치: 프로젝트 출처만 적용, native disabled 목록 분리 | project-reconciliation의 user/project 대조 |
+| 3 | remount/구독 해제가 SDK 재조회를 발생 | 선조치: 관측 등록 영수증과 조회 분리·동일 요청 read 공유 | renderer cache 회귀·IPC 등록 테스트 |
+| 4 | 글로벌 변경 후 프로젝트 override 삭제가 새 전역값을 소급 | 선조치: runtime 시작 기본값 보존 | frozen defaults 테스트 |
+| 5 | runtime의 CLAUDE_CONFIG_DIR와 main 기본 root 불일치 | 선조치: runtime 정책의 감시 파일·revision 사용. 같은 cwd 유휴 경계는 공유 | native root A/B 테스트·실제 adapter policy 전달 |
+| 6 | 파일 편집/새 제출이 SDK 적용과 경합 | 선조치: guard 재검사·프로젝트 직렬화·submission promise | SessionRuntime 및 watcher 교체 테스트 |
+| 7 | 전체 nav 범위 선택·OpenCode 격리 정책은 미확정 | 보고만: 0277·0278의 별도 범위 유지 | 이번 구현은 Claude 프로젝트 동기화 |
+
+### 설계 대비 명시적 차이
+
+선택값 계산을 공통 observer 대신 Claude adapter의 preview에 두었다. 해당 runtime의 시작 기본값과 SDK 출처를 알아야 전역 소급을 막을 수 있기 때문이다. 공통 observer는 감시·유휴·수명·통지만 소유한다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 시간 기반 구성 만료 없음 | 기존 LRU/종료 정책 유지 |
+| 공유 | native root별 revision 혼합 가능 | AC2·EP3/4: A/B root는 따로 읽고 같은 cwd 전체 idle 확인 |
+| 재진입 | 캐시 재진입에 불필요한 조회 가능 | AC4·7·EP7: 별도 owner 등록, 기존 목록 cache 회귀 |
+| 다른 무효화 축 | 종료/교체 이후 지각 preview | AC5·EP3/4/7: runtime identity·revision·세대 검사 |
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | Claude project-path/settings/reconciliation, NativeResources, SessionRuntime, bootstrap/IPC, renderer 관측 owner, 현재 arch/IPC 문서 |
+| 실행 명령 | 관련 Vitest 목록은 evidence/validation.md. eslint --cache ./src ./scripts, npm run build, check-doc-inventory --check, git diff --check |
+| 관측한 게이트 산출 | [검증 기록](evidence/validation.md). 관련 21파일 240케이스·타입·main/preload/renderer 빌드 통과, lint 오류 0/기존 경고 2. 독립 verify와 실제 사용자 환경 UI 인수는 수행하지 않음 |
+| V-pair 자기확인 | SELF_PASS 5 / SELF_BLOCKED 0 |
+| 강제 지점 전수 | 고정 EP 자리 22/22 — 위 표의 직접 행동 증거 |
+| AC 자기보고 | 아래 AC 표 |
+| 블로커 / 역질문 | 없음. 기존 참조 checkout 링크 실패와 React Compiler 경고는 분리 기록 |
+| 대상 커밋 | (r1 구현 — 좌표는 INDEX) |
+
+| AC | 자기보고 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | plugin-state 비대상 키·형제값 보존, adapter flags/reload 및 저장 실패 회귀 |
+| AC2 | ✅ | 같은 cwd의 다른 ID 공유, 같은 Git root의 다른 cwd 분리 |
+| AC3 | ✅ | adapter.native-plugins의 후속 턴·새 adapter·cold resume + SDK 재실행 disabled 실측 |
+| AC4 | ✅ | 실제 파일 생성/rename→통지, B busy 보류→idle 적용, restart-required 호출 억제 |
+| AC5 | ✅ | 손상 파일·stale revision·peer 교체·늦은 renderer read/write 보존 회귀 |
+| AC6 | ✅ | user/project 승인 분리 및 실제 SDK MCP 출처별 toggle 실측 |
+| AC7 | ✅ | 기존 panel/Composer 회귀, 상태 메시지·스피너 추가 없음 |
+
+합계 검산: ✅ 7 · ⚠️ 0 · ❌ 0 = 총 7. 기계·SDK 관측에 대한 자기보고이며 실제 배포 환경의 시각 인수 완료를 주장하지 않는다.
+
+## [구현자 기입] Review Signals — 사실만
+
+- 이전 라운드와 같은 축인가: 최초 구현 r1. 앞 단계는 정책·SDK 조사였다.
+- 기존 plan이 막았어야 할 문제: AC2/4/6의 경로·승인·유휴 경계를 직접 테스트로 추가했다.
+- 반복 환경 한계: 전체 링크 검사에 참조 OpenCode checkout의 기존 깨진 링크가 포함된다. 본 구현에서 외부 push/배포를 시도하지 않았다.
+- 현재 라운드·impl 턴: r1. 독립 검증은 다음 주체에 남긴다.

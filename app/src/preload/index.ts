@@ -273,11 +273,14 @@ const orca = {
     onNativeResourcesChanged: (
       handler: (event: import('../shared/native-resources').NativeResourcesChanged) => void
     ): (() => void) => subscribe(CHANNELS.sessionNativeResourcesChanged, handler),
-    nativeResources: (request: string | DraftNativeResourcesRequest): Promise<NativeResources> =>
-      ipcRenderer.invoke(
-        CHANNELS.sessionNativeResources,
-        typeof request === 'string' ? { sessionId: request } : request
-      ),
+    nativeResources: (
+      request: string | DraftNativeResourcesRequest,
+      observation?: import('../shared/native-resources').NativeResourceObservation
+    ): Promise<NativeResources> =>
+      ipcRenderer.invoke(CHANNELS.sessionNativeResources, {
+        ...(typeof request === 'string' ? { sessionId: request } : request),
+        ...(observation ? { observation } : {})
+      }),
     openNativePlugin: (request: OpenNativePlugin): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.sessionOpenNativePlugin, request),
     setNativeResource: (request: SetNativeResource): Promise<NativeResources> =>

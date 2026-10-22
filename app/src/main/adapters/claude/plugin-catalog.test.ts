@@ -64,7 +64,7 @@ describe('native plugin catalog', () => {
         'missing@market': [{ scope: 'user', installPath: join(temp, 'missing') }]
       }
     })
-    const result = readClaudePluginCatalog(join(cwd, 'subdir'), root)
+    const result = readClaudePluginCatalog(cwd, root)
     expect(result.roots).toEqual([active, project])
     expect(result.skills).toEqual([
       'frontend-design:frontend-design',
@@ -76,7 +76,7 @@ describe('native plugin catalog', () => {
     )
     expect(
       readClaudePluginCatalog(cwd, root, { enabledPlugins: { 'project@market': false } }).roots
-    ).toEqual([active])
+    ).toEqual([active, project])
     write(join(root, 'settings.json'), { enabledPlugins: { 'frontend@market': false } })
     expect(readClaudePluginCatalog(cwd, root).roots).toEqual([project])
   })
@@ -125,6 +125,7 @@ describe('native plugin catalog', () => {
 
   it('reports invalid configuration without its contents and leaves absent installations empty', () => {
     expect(readClaudePluginCatalog(cwd, root)).toEqual({
+      defaults: {},
       roots: [],
       skills: [],
       commands: [],

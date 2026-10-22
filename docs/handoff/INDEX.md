@@ -22,7 +22,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [`0279-claude-project-plugin-state`](0279-claude-project-plugin-state/plan.md) | plan | READY | Codex | (r1 설계 — 검증자 기입) | 1 | SDK MCP 저장 허용·외부 프로젝트 설정 즉시 표시·프로젝트 유휴 적용. 재시작은 기존 자원 회수 정책. V1 확정. |
+| [`0279-claude-project-plugin-state`](0279-claude-project-plugin-state/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | SDK MCP 저장·현재 cwd 공유·외부 설정 감시/표시·프로젝트 전체 유휴 재적용. restart-required는 기존 회수 정책. AC7/7 자기확인, 독립 검증 대기. |
 | [`0278-harness-extension-isolation`](0278-harness-extension-isolation/plan.md) | plan | DRAFT | Claude | (r1 정책 기록 — 검증자 기입) | 1 | 전역 변경은 새 인스턴스 기본값. MCP·plugin은 현재 경로별 제어·공유. Claude 프로젝트 파일 제한 편집 허용, OpenCode 격리·nav capability 검증 필요. |
 | [`0277-opencode-mcp-catalog`](0277-opencode-mcp-catalog/plan.md) | plan | DRAFT | Claude | (r1 초안 — 검증자 기입) | 1 | 명시 범위의 MCP 설정·실행 상태 조회/동기화. 전역 기본값·제어 격리는 0278과 연결. 실행 관측 범위 UI·기존 instance 전용 경계 확정 필요. |
 | [`0276-opencode-composer-preparation`](0276-opencode-composer-preparation/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 첫 입력 전 agent/provider 독립 준비·캐시/재조회·owner 수명 구현. CLI 1.17.19 A idle→B 및 첫 입력 재사용 확인. 팝업 상태 안내 없음. |

@@ -2125,6 +2125,48 @@ it('0231 main cancel preserves child frames received before the interrupt termin
 })
 
 describe('SessionRuntime native resource generation', () => {
+  it('serializes the next submission behind an idle configuration operation and fences a retired channel', async () => {
+    const ch = channelLive()
+    let finish!: (result: 'applied') => void
+    let guard!: () => boolean
+    const reconcile = vi.fn((_revision: string, valid: () => boolean) => {
+      guard = valid
+      return new Promise<'applied'>((resolve) => {
+        finish = resolve
+      })
+    })
+    ch.liveTurn.reconcileNativeResources = reconcile
+    const policy = { files: () => ['native-root/settings'], read: async () => ({ revision: 'r' }) }
+    ch.liveTurn.projectResourcePolicy = () => policy
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    try {
+      const first = collect(runtime.send(req()))
+      ch.emit({ type: 'telemetry', sessionId: 's1' })
+      await first
+      expect(runtime.projectResourcePolicy()).toBe(policy)
+      expect(await runtime.reconcileNativeResources('r', () => false)).toBe('pending')
+      expect(reconcile).not.toHaveBeenCalled()
+      const applying = runtime.reconcileNativeResources('r', () => true)
+      expect(guard()).toBe(true)
+      const sends = ch.pushed.length
+      const next = collect(runtime.send(req()))
+      await tick()
+      expect(ch.pushed).toHaveLength(sends)
+      finish('applied')
+      await applying
+      await tick()
+      expect(ch.pushed).toHaveLength(sends + 1)
+      ch.emit({ type: 'telemetry', sessionId: 's1' })
+      await next
+      const final = runtime.reconcileNativeResources('r2', () => true)
+      runtime.teardownChannel()
+      expect(guard()).toBe(false)
+      finish('applied')
+      await final
+    } finally {
+      runtime.close()
+    }
+  })
   async function setup(): Promise<{
     runtime: SessionRuntime
     nativeResources: Mock<() => Promise<import('../../../shared/native-resources').NativeResources>>

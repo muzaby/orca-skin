@@ -30,9 +30,14 @@ type AdapterSubmissionOutcome =
 // 어댑터(mock)는 턴-스코프 — `events` 소비가 끝나면 핸들이 닫힌다(현행 보존). control 메서드는
 // 해당 하네스의 native 제어에 위임되며 지원하지 않는 제어는 성공을 가장하지 않는다.
 export interface LiveTurn {
+  projectResourcePolicy?(): import('./project-resources').ProjectResourcePolicy | undefined
   nativeResources?(): Promise<NativeResources>
   nativePluginDirectory?(id: string): Promise<string | undefined>
   setNativeResource?(request: SetNativeResource): Promise<void>
+  reconcileNativeResources?(
+    revision: string,
+    isIdle: () => boolean
+  ): Promise<'applied' | 'pending' | 'restart-required'>
   readonly providerGeneration?: string
   reinitialize?(): Promise<void>
   eventBatches: AsyncIterable<ProviderMessageBatch>
