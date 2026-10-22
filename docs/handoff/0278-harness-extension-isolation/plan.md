@@ -342,3 +342,8 @@ SDK가 제공하지 않는 native plugin load/unload를 임의 config 필드로 
 5. **잠재 문제·환경**: 전체 Electron Node 모드 실행은 fork worker 종료 지연으로 중단했다. 전체 통과 증거로 세지 않는다. 스크립트의 임시 경로 접근 제한은 workspace TEMP로 분리해 재실행했다.
 6. **검사 결과**: 수정한 4파일 40테스트, 스크립트 142테스트, node/web/test 타입 검사, lint(오류 0·기존 경고 2), diff check 통과. 전체 Windows 검사는 푸시 후 CI로 확인한다. AC10/10 자기보고는 유지하며 독립 검증 PASS는 아직 아니다.
 7. **Review Signals**: timeout 상향·skip·실제 런타임 mock 대체로 우회하지 않았다. SDK transport fixture를 현재 계약에 맞췄으며, 공유 SSE와 채널 generation을 별개로 검증한다.
+
+## [검증자 기입] r1.2 파생 이슈
+
+- **F1 / BLOCKING / VP7·AC7·D16**: Claude native MCP의 Git-root 저장이 하위의 다른 cwd로 전파된다. 설치 SDK와 실제 reader/reconcile 반례를 [verify.md](verify.md)에 보존했다. 같은 cwd 공유 필터만으로 cold-start 및 파일 감시 경유 전파를 막을 수 없다. 현재 작업경로 격리를 유지하는 수정이 필요하다.
+- **미검증 경계**: Orca 배포 MCP의 고정 파일 경로와 같은 cwd의 후속 Query 합류. flags/skills snapshot 통과를 이 경계의 PASS로 확대하지 않는다.
