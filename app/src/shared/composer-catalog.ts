@@ -1,7 +1,11 @@
 import type { AgentKind } from './agent-kind'
-import type { NativeComposerCatalog } from './native-resources'
+import type { NativeComposerCatalog, NativeResource } from './native-resources'
 
-export type ComposerCatalogPart = keyof NativeComposerCatalog
+export type ComposerCatalogData = NativeComposerCatalog & {
+  mcp: NativeResource[]
+  plugins: NativeResource[]
+}
+export type ComposerCatalogPart = keyof ComposerCatalogData
 export interface ComposerCatalogScope {
   backend: 'opencode'
   sessionId: string | null
@@ -16,9 +20,17 @@ export interface ComposerCatalogRequest {
   part: ComposerCatalogPart
   refresh?: boolean
 }
-export type ComposerCatalogResult = {
-  [K in ComposerCatalogPart]: { part: K; value: NativeComposerCatalog[K]; generation: string }
-}[ComposerCatalogPart]
+export type ComposerCatalogResult =
+  | {
+      [K in ComposerCatalogPart]: { part: K; value: ComposerCatalogData[K]; generation: string }
+    }[ComposerCatalogPart]
+  | { part: ComposerCatalogPart; status: 'cancelled' }
+  | { part: ComposerCatalogPart; status: 'error'; failure: ComposerCatalogFailure }
+export interface ComposerCatalogFailure {
+  stage: 'configuration' | 'acquire' | 'owner' | ComposerCatalogPart
+  reason: 'timeout' | 'aborted' | 'network' | 'http' | 'unavailable'
+  httpStatus?: number
+}
 export interface ComposerCatalogInvalidated {
   owner: string
   generation: string
@@ -32,6 +44,6 @@ export interface ComposerCatalogLease {
     part: K,
     signal: AbortSignal,
     refresh?: boolean
-  ): Promise<NativeComposerCatalog[K]>
+  ): Promise<ComposerCatalogData[K]>
   release(): Promise<void>
 }

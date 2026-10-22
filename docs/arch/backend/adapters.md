@@ -52,6 +52,8 @@ Composer 선택지는 첫 제출 전부터 SDK의 agents/providers 응답으로 
 
 `app/composer-catalog.ts`는 실제 턴 resolver로 준비 설정을 조립하고 `composer-catalog-owner.ts`는 창·owner별 수명을 관리한다. 명시 새로고침은 최신 설정으로 새 lease를 확보한 뒤 이전 lease를 반납한다. 호환 profile이면 native instance가 유지되며 다른 profile의 정리가 새 결과를 막지 않는다. renderer는 동일 scope의 두 선택기를 합치고 마지막 구독·창 종료에서 준비 lease만 반납한다. 첫 제출의 session lease는 계속 유지된다. native 종료·조회 실패는 내부 상태로 관리하며 UI 계약은 [IPC Contract](../../IPC_CONTRACT.md)의 Composer 준비 항목을 따른다.
 
+첫 입력 전 상태 타일은 같은 준비 lease와 directory 캐시에서 MCP와 plugin을 각각 조회한다. `/mcp`와 `/config` 완료를 agent/provider의 선행 조건으로 사용하지 않으며 상태 타일이 구독할 때만 추가 조회한다. 정상 owner 해제는 취소 결과로 반환하고 실제 실패는 `opencode.catalog.failed`에 고정 단계·분류·HTTP 상태만 기록한다.
+
 native user의 synthetic text만 공통 `input.received`로 기록하고, 모델 전달은 OpenCode 서버에 맡긴다. 완료 태그는 등록된 native job/child ID에 일치할 때 작업 상태와 같은 배치로 전달한다. 태그를 받은 이유로 prompt를 다시 보내거나 기본 reminder를 추측해서 합성하지 않는다. 공통 분류·영속 계약은 [provider-runtime.md](./provider-runtime.md)의 시스템 피드 설명을 따른다.
 
 권한·질문은 공통 approval broker를 거쳐 해당 요청으로 회신하며 main 응답 중단과 child 승인 수명을 구분한다. main 중단은 root session만 abort하고 채널은 유지한다. 채널 폐기는 소유 구독·요청을 정리하며, 스트림 단절이나 provider 오류에 자동 재전송하지 않는다. 다음 명시 입력은 새 구독을 사용한다. 후속 입력의 agent·variant·model·첨부는 해당 TurnContinuation에서 읽는다.

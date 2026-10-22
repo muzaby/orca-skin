@@ -20,6 +20,7 @@
 | **OpenCode SDK** (설치 버전 · API 표면 · 메시지/이벤트 · 오류/전송 제약) | [`opencode-sdk-spec.md`](opencode-sdk-spec.md) · 공식 원문은 [`spec/opencode/INDEX.md`](spec/opencode/INDEX.md) |
 | **OpenCode 하네스 구현·CLI 호환성** | [`구현 계약`](handoff/0262-opencode-harness/plan.md) · [`native 디자인 실측`](handoff/0262-opencode-harness/design-evidence.md) · [`실행 패키지와 실제 CLI 검증`](handoff/0262-opencode-harness/runtime-compatibility.md) |
 | **OpenCode desktop 시작 시퀀스·plugin/MCP 대기 조사** | [`시작 비교와 계측`](handoff/0272-composer-plugin-brands/startup-analysis.md) |
+| **OpenCode 첫 입력 전 상태 목록·컴포저 취소/실패 진단** | [`준비 상태와 오류 구분`](handoff/0280-opencode-prepared-status/plan.md) |
 | **OpenCode 다중 프로젝트·세션 시작 병목과 개선안** | [`서버·SSE·재개·비동기 대기 분석`](etc/study/opencode/startup-performance-analysis.md) |
 | **A 유휴 세션 유지 중 B 경로의 1분 지연·Desktop 비동기 준비** | [`실제 CLI 재현·MCP 대기·Desktop 비교`](etc/study/opencode/cross-directory-idle-delay.md) |
 | **OpenCode Desktop 기준 부팅~첫 세션 대응과 실제1.17.19 검증** | [`시작 시퀀스 대응표`](handoff/0274-opencode-desktop-startup/desktop-sequence.md) |

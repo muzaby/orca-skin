@@ -3,6 +3,7 @@ import type { ComposerCatalogLease, ComposerCatalogScope } from '../../shared/co
 import type { RouterContext } from './context'
 import { resolveTurnProvider } from './chat-turn/resolve-turn'
 import { registerComposerCatalogHandlers } from './handlers/composer-catalog'
+import { ComposerCatalogError } from './composer-catalog-error'
 
 export async function prepareComposerCatalog(
   ctx: RouterContext,
@@ -28,6 +29,8 @@ export async function prepareComposerCatalog(
     sessionId: scope.sessionId,
     providerKey: scope.providerKey,
     modelFamily: null
+  }).catch((error: unknown) => {
+    throw new ComposerCatalogError('configuration', error)
   })
   signal.throwIfAborted()
   if (session) {
@@ -41,11 +44,15 @@ export async function prepareComposerCatalog(
     )
       throw new Error('Composer session changed')
   }
-  return adapter.prepareComposer({
-    cwd: directory,
-    env: resolved.prepared.env,
-    providerSettings: resolved.prepared.providerSettings
-  })
+  return adapter
+    .prepareComposer({
+      cwd: directory,
+      env: resolved.prepared.env,
+      providerSettings: resolved.prepared.providerSettings
+    })
+    .catch((error: unknown) => {
+      throw new ComposerCatalogError('acquire', error)
+    })
 }
 
 export function registerComposerCatalog(ctx: RouterContext): () => void {

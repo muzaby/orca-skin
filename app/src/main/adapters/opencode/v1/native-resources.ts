@@ -74,11 +74,22 @@ export async function openCodeNativeResources(
   directory: string,
   env: NodeJS.ProcessEnv = process.env
 ): Promise<NativeResource[]> {
-  const [mcp, config] = await Promise.all([
-    client.mcp.status({ directory }, { throwOnError: true }),
-    client.config.get({ directory }, { throwOnError: true })
+  const [servers, plugins] = await Promise.all([
+    openCodeNativeMcp(client, directory),
+    openCodeNativePlugins(client, directory, env)
   ])
-  const servers = Object.entries(mcp.data ?? {}).map(([name, value]): NativeResource => ({
+  return [...servers, ...plugins]
+}
+
+export async function openCodeNativeMcp(
+  client: OpencodeClient,
+  directory: string,
+  signal?: AbortSignal
+): Promise<NativeResource[]> {
+  const mcp = await client.mcp.status({ directory }, { throwOnError: false, signal })
+  if (!mcp.data)
+    throw new Error('OpenCode MCP status unavailable', { cause: { status: mcp.response?.status } })
+  return Object.entries(mcp.data).map(([name, value]): NativeResource => ({
     id: name,
     name,
     kind: 'mcp',
@@ -91,7 +102,20 @@ export async function openCodeNativeResources(
     enabled: value.status !== 'disabled',
     canToggle: false
   }))
-  const plugins = await Promise.all(
+}
+
+export async function openCodeNativePlugins(
+  client: OpencodeClient,
+  directory: string,
+  env: NodeJS.ProcessEnv = process.env,
+  signal?: AbortSignal
+): Promise<NativeResource[]> {
+  const config = await client.config.get({ directory }, { throwOnError: false, signal })
+  if (!config.data)
+    throw new Error('OpenCode plugin configuration unavailable', {
+      cause: { status: config.response?.status }
+    })
+  return Promise.all(
     (config.data?.plugin ?? []).map(async (entry): Promise<NativeResource> => {
       const spec = typeof entry === 'string' ? entry : entry[0]
       const installed = await openCodePluginInstallation(spec, directory, env)
@@ -106,7 +130,6 @@ export async function openCodeNativeResources(
       }
     })
   )
-  return [...servers, ...plugins]
 }
 
 export async function openCodeNativePluginDirectory(

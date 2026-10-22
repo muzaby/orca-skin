@@ -7,11 +7,14 @@ export async function openCodeComposerAgents(
   signal?: AbortSignal
 ): Promise<NativeComposerCatalog['agents']> {
   const options = {
-    throwOnError: true as const,
+    throwOnError: false as const,
     signal
   }
   const agents = await client.app.agents({ directory }, options)
-  if (!agents.data) throw new Error('OpenCode 에이전트 목록을 읽지 못했습니다.')
+  if (!agents.data)
+    throw new Error('OpenCode 에이전트 목록을 읽지 못했습니다.', {
+      cause: { status: agents.response?.status }
+    })
   return agents.data
     .filter((agent) => !agent.hidden && agent.mode !== 'subagent')
     .map((agent) => ({
@@ -27,8 +30,11 @@ export async function openCodeComposerModels(
   directory: string,
   signal?: AbortSignal
 ): Promise<NativeComposerCatalog['models']> {
-  const providers = await client.provider.list({ directory }, { throwOnError: true, signal })
-  if (!providers.data) throw new Error('OpenCode 모델 목록을 읽지 못했습니다.')
+  const providers = await client.provider.list({ directory }, { throwOnError: false, signal })
+  if (!providers.data)
+    throw new Error('OpenCode 모델 목록을 읽지 못했습니다.', {
+      cause: { status: providers.response?.status }
+    })
   return providers.data.all.flatMap((provider) =>
     Object.values(provider.models).map((model) => ({
       id: `${provider.id}/${model.id}`,

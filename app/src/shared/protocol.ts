@@ -409,7 +409,7 @@ export const ComposerCatalogRequestSchema = ComposerCatalogReleaseSchema.extend(
       agentKind: AgentKindSchema
     })
     .strict(),
-  part: z.enum(['agents', 'models']),
+  part: z.enum(['agents', 'models', 'mcp', 'plugins']),
   refresh: z.boolean().optional()
 }).strict()
 const DraftNativeResourcesRequestSchema = z

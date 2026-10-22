@@ -17,6 +17,8 @@ export interface NativeResource {
     | 'installed'
   enabled: boolean
   canToggle: boolean
+  /** False when no native configuration/directory opening action is available. */
+  canOpen?: boolean
   /** Native provenance, without server configuration or credentials. */
   source?: string
   /** An Orca-injected MCP observed connected by the running harness. */

@@ -20,11 +20,16 @@ export function nativeResourcesMenu(
     return resources.map((resource) => ({
       kind: 'action' as const,
       id: nativeResourceKey(resource),
+      ...(resource.canOpen === false ? { disabled: true } : {}),
       label: resource.name,
       title:
-        kind === 'plugin'
-          ? [resource.description, tr('chat.nativeResources.openFolder')].filter(Boolean).join('\n')
-          : tr('chat.nativeResources.openConfig'),
+        resource.canOpen === false
+          ? undefined
+          : kind === 'plugin'
+            ? [resource.description, tr('chat.nativeResources.openFolder')]
+                .filter(Boolean)
+                .join('\n')
+            : tr('chat.nativeResources.openConfig'),
       status: {
         tone: nativeResourceTone(resource.status),
         label: `${resource.name}: ${tr(`chat.nativeResources.${resource.status}`)}`

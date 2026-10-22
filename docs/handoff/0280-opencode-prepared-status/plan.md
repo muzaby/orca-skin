@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex / 2026-10-22 |
-| 상태 | READY |
+| 상태 | 구현 완료 — 독립 검증 대기 |
 | V mode / revision | Baseline V / V1 |
 | 기준 V | 없음. 0276의 준비 lease를 재사용하는 후속 오류·관측 수정 |
 
@@ -155,28 +155,61 @@ Decision/AC 대조 완료. Product/UX→technical 순서, 명시 범위·비범�
 
 ## [구현자 기입] 설계 리뷰
 
-대기.
+동의 — r1. 기존 준비 cache/owner를 확장했으며 별도 서버·native session을 만들지 않는다. 사용자 환경의 원본 오류는 정상 취소인지 실제 조회 실패인지 확정하지 않는다.
+테스트 배치는 계획의 신규 `composer-preparation.test.ts` 대신 기존 `app/composer-catalog.test.ts`의 실제 adapter/SDK 경로와 `session-context.test.ts`에 통합했다. `Controls.integration.test.ts`는 존재하지 않아 실제 `Controls.interaction.test.ts`와 신규 타일 통합 테스트로 대체했다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
-대기.
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP3 | IPC part/result | 타입·schema·preload/API (3) | 3/3 | main 등록 handler의 mcp/plugins 실제 roundtrip, `preload/index.test.ts` 공개 API 왕복 | mcp/plugins·cancelled를 그대로 수신 | — |
+| VP2·3·5 | owner/오류 | resolver·owner read/adopt/release·handler (3) | 3/3 | `app/composer-catalog.test.ts:returns prepared plugin and agent parts…`, handler의 acquisition/read 취소·HTTP 진단·refresh tests | draft-project/one env·503·SECRET·두 창/owner 구별 | — |
+| VP2·4 | native snapshot | SDK readers·context cache/lease·adapter readers (3) | 3/3 | `session-context.test.ts:shares resource flights per directory…`, app의 실제 adapter/SDK 연결 테스트 | A/B 폴더 MCP 이름 구별, config 1회·MCP 실패/재시도 포함 3회 | — |
+| VP1·2·3·5 | 화면/scope | state·hook·등록/wrapper·공통 view (4) | 4/4 | `NativeResources.test.ts`가 실제 tileRegistry부터 렌더, state·Controls·공통 tile tests | 첫 입력 전 plugin 선표시·B-only/A-late 폐기·첫 입력 후 live-mcp 표시 | — |
+
+13/13 SELF_PASS. §10 검색과 실제 production chain 대조에서 추가 운반 자리 없음. trace의 SDK→main boundary는 실제 adapter/SDK transport fixture, IPC→renderer 경계는 preload 왕복, renderer→view는 실제 hook/state/registry 실행으로 연결했다.
+
+| pair | 자기 상태 | 근거 |
+|---|---|---|
+| VP1 | SELF_PASS | 타일 통합·Controls popup 무안내·기존 runtime 타일 |
+| VP2 | SELF_PASS | 취소·화면 전환·서버 generation·release·동일 scope cache |
+| VP3 | SELF_PASS | main resolver/adapter/schema와 preload 왕복 |
+| VP4 | SELF_PASS | 실제 SDK transport의 독립 MCP/config 응답·재시도 |
+| VP5 | SELF_PASS | 안전 오류 allowlist·handler log spy·state 실패 보존 |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
-대기.
+선택 mutation 없음 — 모두 직접 응답·상태·렌더 결과 oracle. 선택 증거 0 + 인용 변이 0 + 새 구조 proxy 0 = 잠금 표 행 0.
+기존 상태 타일 테스트의 3개 실패는 HEAD 구현을 임시 복원해도 동일하게 발생했다. 이전 감시 등록 계약을 테스트 대역이 목록 조회로 소비하던 문제로, 대역에서 관측 등록 ACK와 실제 read를 분리한 뒤 공통 타일 4개 테스트가 통과했다. production 파일은 복원 후 원래 변경 바이트로 되돌렸다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
-대기.
+첫 입력 전 목록은 읽기 전용이다. 부분 실패에도 성공 목록·정적 fallback을 유지하며 고정 새로고침 아이콘으로 재조회한다. popup에는 안내·스피너를 추가하지 않았고 `Controls.interaction.test.ts`가 loading/error/ready 메뉴에서 이를 단언한다.
+동적 MCP에는 설정 파일이 없을 수 있어 `canOpen=false`를 추가했다. draft plugin 디렉터리 opener도 미지원이므로 동작과 잘못된 열기 tooltip을 비활성화한다. 실제 프로그램 창의 시각 검토는 미실행이며 기존 Button/CascadeBody/시맨틱 스타일을 재사용했다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
-대기.
+| 발견 | 처리·근거 |
+|---|---|
+| 첫 메시지 이후 channel의 metadata 결합 대기 | 이번 사용자 확인에서 응답 후는 정상. 기존 경로를 유지하며 전체 runtime 관측 개선은 별도 범위 |
+| nav 전역 토글 미구현 | 0278 DRAFT에 남아 있음. 이번 변경을 전역 제어 완료로 보고하지 않음 |
+| 원본 오류 구분 불가 | `opencode.catalog.failed`에 stage/reason/httpStatus를 남김. 다른 PC에서 재발 시 이 레코드로 진단 가능 |
+| 새 resource part cache의 공유·만료·재진입 | 기존 generation과 동일 수명, TTL 없음. mcp/plugins 독립 flight와 수동 refresh. A/B·중복·release·invalidate tests로 확인 |
 
 ## [구현자 기입] 구현 보고
 
-대기.
+| AC | 자기 결과 | 관측 |
+|---|---|---|
+| AC1 | ✅ | actual adapter/SDK 응답을 main handler가 반환; 등록 타일이 첫 입력 전 Superpowers/dynamic-mcp 렌더 |
+| AC2 | ✅ | provider/MCP promise가 pending인 동안 plugin/agent 완료 |
+| AC3 | ✅ | directory cache 공유·scope 전환 폐기·generation 종료·owner release tests |
+| AC4 | ✅ | 준비 중/조회 중 취소는 cancelled·warn 0. 503은 mcp/http/503만 기록, SECRET 없음 |
+| AC5 | ✅ | popup 무안내, draft 제어 없음, 동적 파일 열기 비활성, sessionId 이후 live 경로 |
+
+✅5 · ⚠️0 · ❌0 = 총 5. 이는 자기검증이며 독립 verify와 다른 PC의 원본 오류 재현은 남아 있다.
+
+검증 명령·산출과 환경 한계는 [validation.md](evidence/validation.md)에 기록한다.
 
 ## [구현자 기입] Review Signals
 
-대기.
+r1. 이전 구현에서 첫 입력 전 agent만 준비하고 상태 패널은 파일 discovery에 남겨 두어 사용자에게 표시 시점이 달랐다. 공통 catch는 정상 취소까지 실패로 덮어 원인 구분을 막았다. 독립 검증은 이 턴에서 수행하지 않는다.

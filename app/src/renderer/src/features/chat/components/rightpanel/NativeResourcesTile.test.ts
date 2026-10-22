@@ -60,7 +60,7 @@ const snapshot = (): NativeResources => ({
     }
   ]
 })
-const read = vi.fn<() => Promise<NativeResources>>()
+const read = vi.fn<(request: string) => Promise<NativeResources>>()
 const write = vi.fn<() => Promise<NativeResources>>()
 const open = vi.fn()
 let changed: (event: NativeResourcesChanged) => void
@@ -89,7 +89,8 @@ beforeEach(() => {
   Object.assign(window, {
     orca: {
       session: {
-        nativeResources: read,
+        nativeResources: (request: string, observation?: { active: boolean }) =>
+          observation ? Promise.resolve({ state: 'disconnected', items: [] }) : read(request),
         setNativeResource: write,
         openNativePlugin: open,
         onNativeResourcesChanged: (listener: typeof changed) => {

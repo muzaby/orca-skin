@@ -75,11 +75,13 @@ Composer의 `dialog`·`drag_drop`·`clipboard` 첨부는 `chat:send` 정규화 �
 
 | 채널 | 방향 | 페이로드 | 응답 / 동작 |
 | --- | --- | --- | --- |
-| `orca:composer:catalog` | R→M (invoke) | `ComposerCatalogRequestSchema`: `{ owner: UUID, scope: { backend:'opencode', sessionId, cwd, projectId, providerKey, agentKind }, part:'agents'\|'models', refresh? }` | `{ part, value, generation }`. 실제 턴의 settings/env/cwd 해석을 재사용한다. agent/model은 독립 조회하며 창·owner별 준비 lease와 directory별 캐시를 공유한다. 명시 refresh는 설정도 다시 해석한다. |
+| `orca:composer:catalog` | R→M (invoke) | `ComposerCatalogRequestSchema`: `{ owner: UUID, scope: { backend:'opencode', sessionId, cwd, projectId, providerKey, agentKind }, part:'agents'\|'models'\|'mcp'\|'plugins', refresh? }` | 성공 `{ part, value, generation }`, 정상 소유 해제 `{ part, status:'cancelled' }`, 실패 `{ part, status:'error', failure:{stage,reason,httpStatus?} }`. 실제 턴의 settings/env/cwd 해석을 재사용한다. 종류별 독립 조회·캐시와 창·owner별 준비 lease를 공유한다. 명시 refresh는 설정도 다시 해석한다. |
 | `orca:composer:catalog-release` | R→M (invoke) | `{ owner: UUID }` | `void`. 호출 창의 owner만 해제한다. pending acquisition도 완료 후 반납하며 창 navigation/crash/destroy 및 앱 종료에서 정리한다. |
 | `orca:composer:catalog-invalidated` | M→R | `{ owner, generation }` | native 준비 세대 종료. 해당 owner만 무효화하며 늦은 이전 세대 응답은 폐기한다. 자동 재연결하지 않는다. |
 
-타입 정본은 `app/src/shared/composer-catalog.ts`다. preload/renderer API는 `session.composerCatalog`, `releaseComposerCatalog`, `onComposerCatalogInvalidated`다. 안전 DTO는 visible primary/all agent와 모델별 variant만 포함한다. prompt·공급자 옵션·자격증명은 전달하지 않는다. 빈 성공은 목록 제거이며 조회 실패는 마지막 성공 결과를 보존한다. 팝업은 로딩·오류 안내나 스피너를 표시하지 않고 고정 새로고침 메뉴를 제공한다.
+타입 정본은 `app/src/shared/composer-catalog.ts`다. preload/renderer API는 `session.composerCatalog`, `releaseComposerCatalog`, `onComposerCatalogInvalidated`다. 안전 DTO는 visible primary/all agent·모델별 variant·MCP/plugin 상태를 포함하며 prompt·공급자 옵션·자격증명은 전달하지 않는다. `failure`는 고정 단계·분류와 HTTP 상태만 담고 원문 오류는 전달하지 않는다. 빈 성공은 목록 제거이며 실패·취소는 빈 성공으로 해석하지 않는다. 팝업은 로딩·오류 안내나 스피너를 표시하지 않고 고정 새로고침 메뉴를 제공한다.
+
+OpenCode의 첫 입력 전 상태 타일은 같은 준비 owner의 MCP/plugin 조회를 추가 구독한다. 종류별 성공 결과를 바로 반영하며 다른 종류의 지연은 기다리지 않는다. 준비 관측은 읽기 전용이고 `NativeResource.canOpen=false`인 동적 항목은 파일 열기를 제공하지 않는다. 첫 입력 후에는 기존 세션 runtime 관측을 사용한다.
 
 ### 2.2 Backend
 

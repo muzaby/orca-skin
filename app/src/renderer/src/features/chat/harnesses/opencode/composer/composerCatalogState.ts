@@ -1,6 +1,7 @@
 import type {
   ComposerCatalogPart,
-  ComposerCatalogScope
+  ComposerCatalogScope,
+  ComposerCatalogData
 } from '../../../../../../../shared/composer-catalog'
 import type { NativeComposerCatalog } from '../../../../../../../shared/native-resources'
 import { sessionApi } from '../../../../../shared/api/ipc'
@@ -10,8 +11,8 @@ export interface CatalogSlot<T> {
   value?: T
 }
 export type ComposerCatalogSnapshot = {
-  [K in ComposerCatalogPart]: CatalogSlot<NativeComposerCatalog[K]>
-}
+  [K in keyof NativeComposerCatalog]: CatalogSlot<NativeComposerCatalog[K]>
+} & Partial<{ [K in 'mcp' | 'plugins']: CatalogSlot<ComposerCatalogData[K]> }>
 const initial = (): ComposerCatalogSnapshot => ({
   agents: { status: 'loading' },
   models: { status: 'loading' }
@@ -44,7 +45,7 @@ export class ComposerCatalogState {
         this.retired.add(event.generation)
         this.epoch++
         this.flights = {}
-        this.snapshot = { agents: { status: 'error' }, models: { status: 'error' } }
+        this.invalidate()
         this.publish()
       })
       void this.read('agents')
@@ -56,13 +57,29 @@ export class ComposerCatalogState {
     }
   }
 
+  subscribeResources = (listener: () => void): (() => void) => {
+    const unsubscribe = this.subscribe(listener)
+    void this.read('mcp')
+    void this.read('plugins')
+    return unsubscribe
+  }
+
+  private invalidate(): void {
+    this.snapshot = {
+      agents: { status: 'error' },
+      models: { status: 'error' },
+      ...(this.snapshot.mcp ? { mcp: { status: 'error' as const } } : {}),
+      ...(this.snapshot.plugins ? { plugins: { status: 'error' as const } } : {})
+    }
+  }
+
   retry = (part: ComposerCatalogPart): void => {
     void this.read(part, true)
   }
 
   private read(part: ComposerCatalogPart, refresh = false): Promise<void> {
     if (this.flights[part]) return this.flights[part]!
-    if (this.disposed || (!refresh && this.snapshot[part].status === 'ready'))
+    if (this.disposed || (!refresh && this.snapshot[part]?.status === 'ready'))
       return Promise.resolve()
     const epoch = this.epoch
     this.snapshot = { ...this.snapshot, [part]: { ...this.snapshot[part], status: 'loading' } }
@@ -70,11 +87,18 @@ export class ComposerCatalogState {
     const flight = sessionApi
       .composerCatalog({ owner: this.owner, scope: this.scope, part, refresh })
       .then((result) => {
-        if (this.disposed || epoch !== this.epoch || this.retired.has(result.generation)) return
+        if (this.disposed || epoch !== this.epoch) return
         if (result.part !== part) throw new Error('Unexpected composer catalog part')
+        if ('status' in result) {
+          // Cancellation is an ownership outcome, never a successful empty catalog.
+          this.snapshot = { ...this.snapshot, [part]: { ...this.snapshot[part], status: 'error' } }
+          this.publish()
+          return
+        }
+        if (this.retired.has(result.generation)) return
         if (this.generation && this.generation !== result.generation) {
           this.retired.add(this.generation)
-          this.snapshot = { agents: { status: 'error' }, models: { status: 'error' } }
+          this.invalidate()
         }
         this.generation = result.generation
         this.snapshot = { ...this.snapshot, [part]: { status: 'ready', value: result.value } }
