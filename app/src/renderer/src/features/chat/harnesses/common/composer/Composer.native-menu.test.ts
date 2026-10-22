@@ -30,6 +30,7 @@ import { composerHarness } from '../../registries/composer'
 import { ComposerInputController } from './ComposerInputController'
 let dom: FakeDom
 const read = vi.fn()
+const observe = vi.fn()
 const onSend = vi.fn(() => true)
 let background: (event: BackgroundEvent) => void
 let resourcesChanged: (
@@ -52,11 +53,13 @@ beforeEach(() => {
     ]
   }))
   onSend.mockClear()
+  observe.mockReset().mockResolvedValue({ state: 'disconnected', items: [] })
   fixture.sessionId = 'session-B'
   Object.assign(window, {
     orca: {
       session: {
-        nativeResources: read,
+        nativeResources: (request: unknown, observation?: unknown) =>
+          observation ? observe(request, observation) : read(request),
         onNativeResourcesChanged: (listener: typeof resourcesChanged) => {
           resourcesChanged = listener
           return () => {}
@@ -303,6 +306,8 @@ it.each(['claude', 'opencode'] as const)(
     render()
     await settle()
     expect(read).toHaveBeenCalledExactlyOnceWith('session-B')
+    const owner = observe.mock.calls[0][1].owner
+    expect(observe).toHaveBeenCalledExactlyOnceWith('session-B', { owner, active: true })
     const open = (): void => dom.click(dom.query('[title="chat.composer.attachMenuTitle"]')!)
     open()
     await settle()
@@ -330,12 +335,17 @@ it.each(['claude', 'opencode'] as const)(
     render()
     await settle()
     expect(read).toHaveBeenCalledWith('session-C')
+    expect(observe).toHaveBeenCalledWith('session-B', { owner, active: false })
     fixture.sessionId = 'session-B'
     render()
     await settle()
     open()
     await settle()
     expect(read.mock.calls.filter(([id]) => id === 'session-B')).toHaveLength(1)
+    expect(observe.mock.calls.filter(([id, state]) => id === 'session-B' && state.active)).toEqual([
+      ['session-B', { owner, active: true }],
+      ['session-B', { owner, active: true }]
+    ])
     clickLabel('chat.composer.attachMenu.skills')
     expect(
       dom

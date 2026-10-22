@@ -78,7 +78,9 @@ function fixture(abortEvents?: 'idle-only' | 'message-error' | 'session-error') 
   const emit = (event: Event, streamIndex = streams.length - 1): void => {
     const stream = streams[streamIndex]
     if (stream.closed) throw new Error('Fixture SSE stream is closed')
-    stream.controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
+    stream.controller.enqueue(
+      encoder.encode(`data: ${JSON.stringify({ directory: 'C:/work', payload: event })}\n\n`)
+    )
   }
   const nativeUser = (id: string, sessionID = 's1'): void => {
     const info: UserMessage = {
@@ -95,8 +97,15 @@ function fixture(abortEvents?: 'idle-only' | 'message-error' | 'session-error') 
     const request = new Request(input, init)
     requests.push(request.clone())
     const path = new URL(request.url).pathname
+    if (path === '/config') return jsonResponse({})
+    if (path === '/instance/dispose') {
+      emit(openCodeEvent('server.instance.disposed', { directory: 'C:/work' }))
+      return jsonResponse(true)
+    }
+    if (path === '/command' || path === '/agent') return jsonResponse([])
+    if (path === '/provider') return jsonResponse({ all: [], connected: [], default: {} })
     if (path === '/session') return jsonResponse({ id: 's1' })
-    if (path === '/event') {
+    if (path === '/global/event') {
       const streamIndex = streams.length
       return new Response(
         new ReadableStream<Uint8Array>({
@@ -813,7 +822,8 @@ describe('OpenCode provider continuations through the real session pipeline', ()
       f.reply(f.prompts[2].messageID, 'Fresh reply.', 'assistant-fresh')
       await next
       expect(f.runtime.providerGeneration).not.toBe(firstGeneration)
-      expect(f.subscriptionCount()).toBe(2)
+      // A rejected submission replaces the channel, while the healthy shared SSE stays live.
+      expect(f.subscriptionCount()).toBe(1)
       expect(f.prompts.map((prompt) => prompt.parts[0].text)).toEqual([
         'initial',
         'rejected explicit input',

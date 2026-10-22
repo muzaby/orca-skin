@@ -171,6 +171,18 @@ beforeEach(() => {
   Object.assign(window, {
     orca: {
       ...orca,
+      session: {
+        ...orca.session,
+        nativeResources: async () => ({ state: 'disconnected', items: [], commands: [] }),
+        onNativeResourcesChanged: () => () => {},
+        composerCatalog: async ({ part }: { part: string }) => ({
+          part,
+          generation: 'fixture',
+          value: []
+        }),
+        onComposerCatalogInvalidated: () => () => {},
+        releaseComposerCatalog: async () => {}
+      },
       files: { pathForFile: () => '/note.txt' },
       provider: { onState: () => () => {}, state: async () => ({ providers: [] }) }
     }
@@ -506,6 +518,7 @@ it('does not hydrate a Claude model before an OpenCode session finishes loading'
   let resolve!: (session: import('../../../../../shared/ipc').LoadedSession) => void
   Object.assign(window.orca, {
     session: {
+      ...window.orca.session,
       load: () =>
         new Promise<import('../../../../../shared/ipc').LoadedSession>((yes) => {
           resolve = yes

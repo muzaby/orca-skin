@@ -33,15 +33,36 @@ function fixture(): {
   let stream: ReadableStreamDefaultController<Uint8Array>
   let rejected = false
   const emit = (event: ReturnType<typeof openCodeEvent>): void => {
-    stream.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
+    stream.enqueue(
+      encoder.encode(`data: ${JSON.stringify({ directory: 'C:/work', payload: event })}\n\n`)
+    )
   }
   const fetchImpl: typeof fetch = async (input, init) => {
     const request = new Request(input, init)
     requests.push(request.clone())
     const path = new URL(request.url).pathname
     if (path === '/global/health') return jsonResponse({ healthy: true })
+    if (path === '/config') return jsonResponse({})
+    if (path === '/instance/dispose') {
+      emit(openCodeEvent('server.instance.disposed', { directory: 'C:/work' }))
+      return jsonResponse(true)
+    }
+    if (path === '/command') return jsonResponse([])
+    if (path === '/agent')
+      return jsonResponse([
+        { name: 'build', mode: 'primary' },
+        { name: 'plan', mode: 'primary' }
+      ])
+    if (path === '/provider')
+      return jsonResponse({
+        all: [
+          { id: 'fixture', models: { model: { id: 'model', variants: { low: {}, high: {} } } } }
+        ],
+        connected: ['fixture'],
+        default: {}
+      })
     if (path === '/session') return jsonResponse({ id: 's1' })
-    if (path === '/event') {
+    if (path === '/global/event') {
       return new Response(
         new ReadableStream<Uint8Array>({
           start(controller) {
@@ -229,7 +250,10 @@ describe('OpenCode submission through the production queue and session runtime',
         text: 'Hello',
         uuid: next.promptUuid
       })
-      expect(requests.filter((item) => new URL(item.url).pathname === '/event')).toHaveLength(1)
+      expect(
+        requests.filter((item) => new URL(item.url).pathname === '/global/event')
+      ).toHaveLength(1)
+      expect(requests.filter((item) => new URL(item.url).pathname === '/config')).toHaveLength(1)
     } finally {
       runtime.close()
     }
