@@ -12,11 +12,11 @@
 | 대상 커밋/range | `eeb0341..a1a1f01`(r1) · 검증 HEAD `32b43cc` |
 | 구현 전 plan 기준 | V1 `eeb0341` |
 | V mode / 유효 V | Baseline V / V1 (AR1/IT1·R6/AT6은 이후 0274가 SUPERSEDED) |
-| 라운드 | 1 (verify 1회째) |
+| 라운드 | 1 (verify 1회째 — 최신 handoff 이관 정정) |
 | 상태 | **PASS** |
 | 자기 검증 여부 | 아니오 — 설계·구현 Codex, 검증 Claude |
 
-**PASS — 4개 pair와 §10 8자리가 HEAD 위치(0274가 옮긴 공유 context 포함)에서 성립한다.** 실행용 30초 명령 조회·준비 실패 미제출·SSE 원인 분류·명시 재시도 고장 6건이 모두 잡혔다.
+**PASS — 남은 3개 pair(VP-01·02·04)와 AC1–5가 HEAD에서 성립한다.** 실행용 30초 명령 조회·준비 실패 미제출·SSE 원인 분류·명시 재시도 고장 6건이 모두 잡혔다. 0274·0275가 뒤집은 VP-03·§10 8자리·AC6은 최신 handoff verify로 이관했다(§0-1).
 
 ## 0. 기준선 / plan 변경 확인
 
@@ -35,7 +35,19 @@
 | oracle 좌표 | 유효 | P 6개·E 1개 HEAD 실재(`adapter.persistent.test.ts`·`errors.test.ts`) |
 | 운영 gate | 유효 | Vitest·lint·typecheck·build·boundary·inventory·budgets |
 
-- root PLAN_GAP: 없음.
+- root PLAN_GAP: 없음(설계자 반려 사유 없음). 아래 §0-1의 PLAN_GAP은 최신 handoff 이관분이다.
+
+### 0-1. 최신 handoff 이관 — PLAN_GAP (사용자 결정 2026-10-22)
+
+0281부터 0273까지 역순으로 대조했다. 0276–0281은 이 계약을 다시 다루지 않는다.
+
+| 0273 항목 | 뒤집은 요소 | 이관 대상 | 이 handoff 처리 |
+|---|---|---|---|
+| VP-03 AR1/IT1 | 0274 `AR1/IT1 → SUPERSEDED → AR2/IT2`, 0275 `AR2 → SUPERSEDED → AR3` | **0275 verify** VP12 | 미판정 — 0275 책임 |
+| §10 EP01·EP02 8자리 | 0274 §10 "이전 EP01/02는 … 위 경계로 이동", 0275 §10 "이전 EP03~06 자리의 의무는 … 이관" | **0275 verify** EP07–10 | 미판정 — 관측 T1–T5·T7·P2는 0275가 판정 |
+| AC6 / R6·AT6 | 0274 `R6/AT6 → SUPERSEDED → R12/AT12`(0275는 R12를 INHERITED) | **0274 verify** AC12 | 미판정 — 0274 책임 |
+
+- 남는 0273 계약: R1–R5/AT1–5(VP-01)·SD1/ST1(VP-02)·MD1/UT1(VP-04) — 0274·0275가 INHERITED로 승계.
 
 ## 1. Product & UX / ACTIVE Decision
 
@@ -78,13 +90,14 @@
 | T7 | `opencode/v1/session-context.ts:328` | 빈 값 | `onSseError` 보관 삭제 | 잡음 | `adapter.persistent.test: preserves a safe stream failure after the initial connection…` | EP02(1)(2)(3) · AC3 |
 
 - 검산: 시도 6 = 잡음 6 · 못 잡음 0 · 동치 0. caller signal 결합(EP01(2))은 P2 `cancels command preparation at the SDK request…`가 실제 Request abort를 직접 관측(좌표 실재·pass).
+- 자리 판정은 0275로 이관(§0-1) — 이 표의 관측은 이 handoff에서 VP-01·02·04 행동 증거로만 쓴다.
 
 ## 5. V-pair closeout
 
 | Pair | 레벨 | requiredness | 결과 | 증거 |
 |---|---|---|---|---|
 | VP-04 | UT | REQUIRED | PASS | T2·T3·T4 잡음, `errors.test` 분류 |
-| VP-03 | IT | REQUIRED(→0274 AR2 이관) | PASS | T1·T7 잡음 — HEAD 위치(공유 context)에서 SDK signal·callback 경로 |
+| VP-03 | IT | REQUIRED | 이관 | 0274 AR2 → 0275 AR3로 SUPERSEDED — 0275 verify VP12 책임 |
 | VP-02 | ST | REQUIRED | PASS | T5 잡음, P2·P3 pass |
 | VP-01 | AT | REQUIRED | PASS | T1–T5·T7 잡음 |
 
@@ -97,18 +110,18 @@
 | AC3 SSE 원인 구분·비밀 없음 | ✅ | T2·T3·T4·T7 잡음 |
 | AC4 명시 재시도만 새 제출 | ✅ | T3(`retries explicitly…`) 잡음 |
 | AC5 메뉴 조회·기존 slash 회귀 | ✅ | `native-resources.test`·persistent 회귀 green |
-| AC6 1.17.19 조사·미확정 구분(→0274 AC12 이관) | ✅(보고) | `evidence/compatibility-result.json` 존재, 미확정 범위 명시 |
+| AC6 1.17.19 조사·미확정 구분 | 이관 | 0274 R12/AT12로 SUPERSEDED — 0274 verify AC12 책임 |
 
-- 합계 재측정: `✅ 6 · ❌ 0 = 6`. 자기보고 `Criteria-Met: 6/6`(`a1a1f01`) 일치.
+- 합계 재측정: `✅ 5 · ❌ 0 · 이관 1 = 6`. 자기보고 `Criteria-Met: 6/6`(`a1a1f01`) — 이관 1을 빼면 판정 5/5 일치.
 
 ### §10 강제 지점 분모
 
 | EP | 결과 |
 |---|---|
-| EP01 (4) budget·signal 결합·준비 오류 변환·수락 순서 | 4/4 PASS (T1·T5, P2) |
-| EP02 (4) callback·초기 판정·후속 판정·분류 | 4/4 PASS (T2–T4·T7) |
+| EP01 (4) budget·signal 결합·준비 오류 변환·수락 순서 | 이관 — 0275 verify (관측 T1·T5·P2) |
+| EP02 (4) callback·초기 판정·후속 판정·분류 | 이관 — 0275 verify (관측 T2–T4·T7) |
 
-- 8/8. HEAD 위치 재열거: `rg -n 'openCodeNativeCommands|onSseError|openCodePreparationError|timeoutMs: 30_000' app/src/main/adapters/opencode/v1`의 비테스트 운반 자리가 위 8자리와 대응. 목록 밖 발견 없음.
+- 이 handoff 판정 자리 0. HEAD 위치 재열거(`rg -n 'openCodeNativeCommands|onSseError|openCodePreparationError|timeoutMs: 30_000' app/src/main/adapters/opencode/v1`)의 비테스트 운반 자리 8개와 관측은 0275 verify §0-1이 판정한다.
 
 ### 운영 gate (HEAD `32b43cc`)
 
@@ -122,7 +135,7 @@
 
 ## 11. Repository operation checks
 
-- INDEX: `impl/IMPL_DONE` → PASS 행 archive 이동.
+- INDEX: `impl/IMPL_DONE` → PASS 행 archive 이동. 이관 정정 뒤 PASS 유지.
 - 대상 커밋: `eeb0341`·`a1a1f01` `git cat-file -t` = commit. `a1a1f01` trailer 5키 파싱.
 - `[구현자 기입]`은 6개 소절 — "설계 리뷰" 필드가 없고 Product/UX와 잠재 문제가 한 표로 합쳐졌다(N1).
 
@@ -135,10 +148,10 @@
 ## 14. Review Signals
 
 - 이전 라운드: 첫 verify, 반복 증상 없음.
-- 사용자 결정 변경: R6/AT6 → 0274 R12/AT12, AR1 → 0274 AR2(최신 handoff 기준으로 HEAD 위치 채점).
+- 사용자 결정 변경: R6/AT6 → 0274 R12/AT12, AR1 → 0274 AR2 → 0275 AR3. 구현 갭 항목은 뒤집은 최신 handoff verify가 책임(2026-10-22).
 - 반복 환경 한계: 실제 CLI·원격 환경 로그 없음.
 
 ## 15. 결론
 
-- 상태: **PASS** — verify 1회째. pair PASS 4/4, PLAN_GAP 없음, AC ✅6/6.
+- 상태: **PASS** — verify 1회째(이관 정정). pair PASS 3/3(VP-01·02·04) · 이관 1(VP-03 → 0275). 반려 사유 PLAN_GAP 없음. AC ✅5/5 · 이관 1(AC6 → 0274).
 - 남은 사람 확인: 사용자 환경의 원격 SSE 실패 원인(구현 범위 밖, 보고 유지).
