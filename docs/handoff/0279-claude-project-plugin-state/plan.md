@@ -346,3 +346,15 @@ Windows plugin만 actual cwd 저장·SDK flags/reload를 지원하고 Claude MCP
 ### 7. Review Signals
 
 새 사용자 선택 JSON·추가 서버 시작·강제 재시작을 도입하지 않았다. 검증자는 위 직접 oracle에서 생산 경계와 실제 입력/출력의 대응을 다시 확인한다.
+
+## [검증자 기입] 파생 이슈 — verify r1 (2026-10-22)
+
+판정 정본은 [verify.md](verify.md) — **FAIL**. 고장 ID는 그 문서 §4 고장 이력이다.
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| D1 | A6 읽는 중 변경된 revision 결과 폐기 삭제 green | V1 EP3 revision · AC5 · V1 VP3 | 읽기 중 watcher 이벤트 주입 → 중간 emit에 이전 revision 없음 단언 | BLOCKING | open |
+| D2 | A15 commit 직전 외부 재편집 재확인 삭제 green | FEP9 · AC8 · 0278 DV3 | 잠금 없는 `beforeCommit` 외부 편집 케이스 분리 | BLOCKING | open |
+| D3 | P11–P13 renderer push scope의 backend·cwd·projectId 항 삭제 green | V1 EP7 · AC5 · V1 VP2 | ready 상태에서 한 항만 다른 push 거부를 항마다 단언 | BLOCKING | open |
+| N1 | A7 reconcile 진입 유휴 확인은 동치(호출 경로가 동기 선행) | V1 EP4 | 유지 가능 | NON_BLOCKING | open |
+| N2 | r1.3 구현이 0278 trailer로만 커밋, 강제 지점 필드 산문 | repository operation | 다음 구현 커밋에 0279 trailer·자리별 표 | NON_BLOCKING | open |
