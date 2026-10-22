@@ -81,10 +81,12 @@ ACTIVE↔AC: D1/10→AC1, D2→AC2/3/9, D3→AC4, D4→AC5, D5→AC6, D6→AC7, 
 | 경계 | 현재 구현·근거 | 목표·검증 잔여 |
 |---|---|---|
 | 전역 조회 | extension-catalog handler→harness globalResources→useNativeMcpCatalog | global-only·부분 오류·재시도, runtime 조회 혼입 없음 |
-| 프로젝트 관측 | session-resources + prepared composer resource 경로(0280) | 실제 cwd·profile·generation으로 configured/runtime 병합 |
+| 프로젝트 관측 | session-resources + prepared composer resource 경로(0280) | 실제 cwd·profile·generation으로 configured/runtime 병합. native 프로젝트 파일의 설정 선택과 현재 실행 상태 구분 |
 | native 요청 | v1.17.19 middleware는 요청 시 instance load 가능 | 준비된 기존 handle만 사용하고 closing/종료 전후 검사 |
 | native 상태 변화 | 모든 add/connect/disconnect에 공통 이벤트가 있다고 보장 못 함 | 기존 push·제어 완료·준비 신호와 관측 갱신을 대조; 누락 시 보이는 panel에 한정한 polling 비용 검증 |
 | renderer | nav와 panel이 서로 다른 소비 경로 | 요청 epoch·정상 부분 캐시·종료 무효화·capability 일관 |
+
+OpenCode 프로젝트 파일은 [0278 ΔV2](../0278-harness-extension-isolation/plan.md)에 따라 외부 CLI/Desktop과 공유한다. 외부 파일의 생성·편집·삭제·원자 rename은 선언 목록과 희망 상태에 먼저 반영하며, 실제 연결 상태는 SDK 관측으로만 갱신한다. 관측 자체는 파일 쓰기·서버 시작·재초기화를 하지 않으며 runtime 적용은 0278의 전체 cwd 유휴·기존 회수 정책을 따른다.
 
 기존 5초/10초 polling 제안은 확정 사용자 정책이 아니다. 구현의 실제 event·poll 동작으로 R6을 만족하는지 먼저 확인하고, 주기·예산은 요청량과 ready 상태 비용을 측정해 기술 설계에 잠근다. 재조회가 native 초기화를 유발할 수 있는 경합은 별도 실패로 기록한다.
 
@@ -115,4 +117,4 @@ ACTIVE↔AC: D1/10→AC1, D2→AC2/3/9, D3→AC4, D4→AC5, D5→AC6, D6→AC7, 
 
 문서 변경은 relative links·inventory/prose·diff·INDEX를 검사한다. 후속 구현·검증에서는 app subtree gate와 실제 native dynamic MCP·scope 전환·ready/closing 경합을 확인한다. 외부 커스텀 바이너리·실제 창 시각 인수는 확인한 환경과 분리한다.
 
-미확정은 관측 경계·증거·poll 기술값이며 nav 선택 UI가 아니다. 저장 형식 질문은 0278 U6에서 다루고 관측 요구를 보류할 이유로 사용하지 않는다. 과거 scope 선택 제안·READY 문구는 이 ΔV1으로 대체되며 원문은 기준 commit에서 확인한다.
+미확정은 관측 경계·증거·poll 기술값이며 nav 선택 UI가 아니다. 저장은 0278 ΔV2 D30의 네이티브 프로젝트 파일로 확정됐으며 U6를 재질문하지 않는다. 과거 scope 선택 제안·READY 문구는 이 ΔV1으로 대체되며 원문은 기준 commit에서 확인한다.
