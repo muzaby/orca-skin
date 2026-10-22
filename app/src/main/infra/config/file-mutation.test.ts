@@ -1,4 +1,14 @@
-import { mkdtemp, mkdir, readFile, writeFile, readdir, rm, rename, symlink } from 'node:fs/promises'
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  writeFile,
+  readdir,
+  rm,
+  rename,
+  symlink,
+  realpath
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawn } from 'node:child_process'
@@ -20,21 +30,28 @@ const patch =
 it('serializes canonical same-file aliases, merges latest bytes and keeps other files independent', async () => {
   const a = join(root, 'a.json'),
     b = join(root, 'b.json')
+  const canonicalA = join(await realpath(root), 'a.json')
   const gate = Promise.withResolvers<void>()
   const entered = Promise.withResolvers<void>()
   const queue = new FileMutationCoordinator({
     beforeCommit: async (file) => {
-      if (file === a) {
+      if (file === canonicalA) {
         entered.resolve()
         await gate.promise
       }
     }
   })
   let finished = false
-  const first = queue.mutate(a, patch('one', true)).then(() => {
+  const firstPath = process.platform === 'win32' ? join(root.toUpperCase(), 'a.json') : a
+  const first = queue.mutate(firstPath, patch('one', true)).then(() => {
     finished = true
   })
-  await entered.promise
+  await Promise.race([
+    entered.promise,
+    first.then(() => {
+      throw new Error('first save completed without entering its commit barrier')
+    })
+  ])
   const second = queue.mutate(
     process.platform === 'win32' ? a.toUpperCase() : a,
     patch('two', true)
@@ -133,13 +150,18 @@ it.skipIf(process.platform !== 'win32')(
   async () => {
     const file = join(root, 'settings.json')
     await writeFile(file, '{}')
+    const script = [
+      '$ErrorActionPreference = "Stop"',
+      '$f = [IO.File]::Open($env:ORCA_LOCK_FILE, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)',
+      'try { [Console]::WriteLine("ready"); [Console]::Out.Flush(); [Console]::ReadLine() | Out-Null } finally { $f.Dispose() }'
+    ].join('; ')
     const child = spawn(
       'powershell.exe',
       [
         '-NoProfile',
         '-NonInteractive',
-        '-Command',
-        '$f = [IO.File]::Open($env:ORCA_LOCK_FILE, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None); [Console]::WriteLine("ready"); [Console]::ReadLine() | Out-Null; $f.Dispose()'
+        '-EncodedCommand',
+        Buffer.from(script, 'utf16le').toString('base64')
       ],
       {
         env: { ...process.env, ORCA_LOCK_FILE: file },
@@ -147,14 +169,29 @@ it.skipIf(process.platform !== 'win32')(
         stdio: ['pipe', 'pipe', 'pipe']
       }
     )
+    let stderr = ''
+    child.stderr.setEncoding('utf8').on('data', (chunk) => {
+      stderr += chunk
+    })
+    const exited = new Promise<void>((resolve) => child.once('close', () => resolve()))
     try {
+      let timer: ReturnType<typeof setTimeout> | undefined
       await new Promise<void>((resolve, reject) => {
-        child.stdout.once('data', () => resolve())
-        child.once('error', reject)
-        child.once('exit', (code) => {
-          if (code) reject(new Error('lock helper failed'))
+        timer = setTimeout(
+          () => reject(new Error(`lock helper readiness timed out: ${stderr}`)),
+          5000
+        )
+        let output = ''
+        child.stdout.setEncoding('utf8').on('data', (chunk) => {
+          output += chunk
+          if (output.includes('ready')) resolve()
         })
-      })
+        child.once('error', reject)
+        child.once('close', (code) => {
+          reject(new Error(`lock helper exited before readiness (${code}): ${stderr}`))
+        })
+      }).finally(() => clearTimeout(timer))
+      await expect(readFile(file)).rejects.toMatchObject({ code: 'EBUSY' })
       let finished = false
       const save = new FileMutationCoordinator().mutate(file, patch('saved', true)).then(() => {
         finished = true
@@ -167,6 +204,7 @@ it.skipIf(process.platform !== 'win32')(
     } finally {
       child.stdin.end('\n')
       child.kill()
+      await exited
     }
   },
   15_000

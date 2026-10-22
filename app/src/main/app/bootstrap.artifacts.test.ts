@@ -35,8 +35,11 @@ vi.mock('../infra/ipc/send', () => ({ broadcastChatEvent: mocks.broadcast }))
 import { Bootstrap } from './bootstrap'
 
 function publishesArtifact(source: string): boolean {
-  // The error hub publishes UI reports, not artifact files. Keep other receivers visible.
-  return /\.publish\s*\(/u.test(source.replace(/\berrorReportHub\.publish\s*\(/gu, ''))
+  // UI reports and immutable plugin generations are separate publication domains.
+  // Exempt only these receivers, never their containing file.
+  return /\.publish\s*\(/u.test(
+    source.replace(/\b(?:errorReportHub|this\.pluginSnapshots)\.publish\s*\(/gu, '')
+  )
 }
 
 describe('artifact composition wiring', () => {
@@ -54,11 +57,13 @@ describe('artifact composition wiring', () => {
     ].map((path) => stripCommentsAndStrings(readFileSync(new URL(path, import.meta.url), 'utf8')))
     expect(sources.join('\n')).not.toMatch(/\b(?:watch|watchFile|chokidar)\s*\(/u)
   })
-  it('exempts only error-hub publication without hiding an artifact publisher in the same file', () => {
-    const report = 'errorReportHub.publish(report)'
-    expect(publishesArtifact(report)).toBe(false)
-    expect(publishesArtifact(report + '; service.publish(artifact)')).toBe(true)
-  })
+  it.each(['errorReportHub.publish(report)', 'this.pluginSnapshots.publish(roots)'])(
+    'exempts %s without hiding an artifact publisher in the same file',
+    (report) => {
+      expect(publishesArtifact(report)).toBe(false)
+      expect(publishesArtifact(report + '; service.publish(artifact)')).toBe(true)
+    }
+  )
   it('owns one registry entry, ID handlers, and publication-only notification', () => {
     const add = vi.fn()
     const server = { descriptor: { id: 'orca_artifacts' } }

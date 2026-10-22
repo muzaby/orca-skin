@@ -858,3 +858,52 @@ V1 VP1–7와 ΔV1–5 유효 pair는 §27의 이관 기준으로 SELF_PASS(자�
 ### 7. Review Signals
 
 새 의존성·새 사용자 선택 저장 형식 없음. 기존 legacy 데이터는 삭제하지 않고 실행에서 제외했다. 검증자는 native read-only guard, 같은 cwd 후속 Query의 사본 경로, 파일 lock 대기/실패 복구, before-quit drain을 우선 확인하면 된다. 정책 READY와 구현 자기검증을 독립 verify 결과로 혼동하지 않는다.
+
+## [구현자 기입] — ΔV5 r2.2 CI 보완 (2026-10-22)
+
+### 1. 설계 리뷰
+
+CI 운영 gate의 실패를 보완하며 유효 Decision·AC·V와 생산 코드는 변경하지 않는다. [실패한 Windows CI](https://github.com/muzaby/orca-skin/actions/runs/39767523955)는 테스트 4개 실패·7,886개 통과였고 lint·typecheck·문서·예산 검사는 통과했다.
+
+| 실패 | 재현·원인 | 보완 |
+|---|---|---|
+| artifact publication 검사 | plugin snapshot의 `publish`도 산출물 게시로 오인, 로컬 재현 | 정확한 `this.pluginSnapshots` 수신자만 예외. 같은 파일의 다른 publish는 계속 검출 |
+| daily gate 종료 검사 | 멱등 종료의 첫 `return`보다 dispose가 앞이어야 한다는 문자열 전제, 로컬 재현 | 실제 `Bootstrap.shutdown()`에서 초기화 전/후 정리 순서·두 번 종료 시 1회 dispose 확인 |
+| 파일 별칭 FIFO 검사 | 대문자 TEMP 환경에서 canonical 경로와 입력 문자열이 달라 barrier 미진입·20초 timeout 재현 | canonical 부모로 barrier 대조. 첫 요청부터 대소문자 별칭 사용, 선행 저장 실패도 즉시 전파 |
+| Windows OS 잠금 검사 | CI의 15초 timeout은 확인했으나 동일 timeout은 로컬 미재현 | PowerShell encoded 명령·준비 토큰/flush·준비 전 종료/오류 진단·자식 종료 await. 실제 EBUSY 후 저장 대기/해제 확인 |
+
+### 2. 강제 지점·V pair 자기확인
+
+| 이번 변경의 §27 자리·운영 gate | 직접 oracle | 남긴 곳 |
+|---|---|---|
+| FEP9 / DV3-P4 | `file-mutation.test.ts`의 동일 파일 별칭/형제 키/마지막 값·다른 파일 진행·외부 재병합·실제 OS 잠금, `plugin-state.test.ts`의 제한 키 저장 | native SDK 자체 쓰기는 D32 거부 정책 유지; 이번 턴 재실측 대상 아님 |
+| FEP11 / DV3-P2·DV5-P1 | `bootstrap.shutdown.test.ts`의 실제 초기화 전/후 dispose와 멱등, `native-settings-lifecycle.test.ts`의 quit/drain, `plugin-snapshots.test.ts`의 사본 수명 | 독립 verify·실제 창 인수는 미수행 |
+| FEP4의 publication 인접 gate | `bootstrap.artifacts.test.ts` 저장소 sweep 및 두 예외 각각과 artifact publisher가 공존하는 입력 | 파일 전체 예외 없음 |
+
+FEP9·11의 생산 코드 변경은 없고 이번 수정은 실패 oracle과 해당 경계의 회귀에 한정한다. 이전 r2의 정책·native probe 결과를 이번 턴에서 새로 실측한 것처럼 보고하지 않는다.
+
+### 3. 이번 수정의 잠금
+
+| 대상 | 관측 |
+|---|---|
+| 실제 daily gate dispose 제거 | 초기화 전/후 2개 테스트가 호출 0회로 실패. 생산 파일 원복 후 검사 |
+| publication 예외의 범위 | error hub·plugin snapshot 각각에 `service.publish(artifact)`를 덧붙이면 predicate가 위반으로 판정 |
+| Windows 별칭 barrier | 수정 전 대문자 TEMP의 20초 timeout, 수정 후 같은 환경의 경계 7파일 29개 통과 |
+
+선택 증거 0 · 인용 변이 0 · 새 oracle 민감도 2(종료·publication) = 잠금 대상 2. 별칭 행은 직접 파일/완료 결과의 재현이며 별도 변이를 발명하지 않았다.
+
+### 4. Product/UX 파생 검토
+
+제품 코드·표시·설정 형식은 변경하지 않는다. 파일 대기·전역 비소급·작업경로 격리 정책을 테스트 실패에 맞춰 완화하지 않으며 기존 timeout 예산과 조건부 skip 범위도 유지한다.
+
+### 5. 잠재 문제·대응
+
+OS 잠금 helper는 준비 전 정상 종료(code 0)도 실패로 처리하고 stderr를 붙여 무한 준비 대기를 피한다. 이 진단은 임시 파일을 쓰는 테스트에만 존재하며 사용자 설정·토스트 경로에는 추가하지 않는다.
+
+### 6. 구현·검사 보고
+
+대문자 TEMP·`CI=true` 환경의 경계 7파일 29개, node/web/test 타입 검사, 수정 파일 lint(오류/경고 0), migration/test-budget 검사가 통과했다. inventory/prose와 기존 외부 참조 checkout 둘만 제외한 링크 검사도 통과했다. 전체 `npm test`와 수정 커밋의 원격 CI는 진행 중이며 후속 결과를 이 절에 확정한다.
+
+### 7. Review Signals
+
+직전 관련 테스트 집합이 인접 source-scan 두 곳을 포함하지 않아 전체 CI에서 오탐을 발견했다. 이번에는 실패 3파일과 종료·snapshot·plugin writer의 직접 회귀를 먼저 확인하고 전체 Windows 테스트/원격 gate로 확장한다. 기존 독립 검증 대기는 유지한다.

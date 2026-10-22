@@ -94,6 +94,36 @@ describe('Bootstrap turn event registration', () => {
 })
 
 describe('Bootstrap title ownership', () => {
+  it.each([false, true])(
+    'disposes the daily gate once before runtime/queue cleanup (runtime=%s)',
+    (ready) => {
+      const order: string[] = []
+      const dailyGate = { dispose: vi.fn(() => order.push('daily-gate')) }
+      const bootstrap: Bootstrap = Object.assign(Object.create(Bootstrap.prototype), {
+        registry: { close: vi.fn() },
+        dailyGate,
+        pendingMessages: {
+          freeze: () => order.push('freeze'),
+          disposeAll: () => order.push('queue')
+        },
+        ...(ready
+          ? {
+              bus: {},
+              supervisor: {
+                all: () => [],
+                closeAllLeaseRuntimes: () => order.push('leases'),
+                closeIdleRuntimes: () => order.push('idle')
+              }
+            }
+          : {})
+      })
+      bootstrap.shutdown()
+      bootstrap.shutdown()
+      expect(dailyGate.dispose).toHaveBeenCalledOnce()
+      expect(order).toEqual(['freeze', 'daily-gate', ...(ready ? ['leases', 'idle'] : []), 'queue'])
+    }
+  )
+
   it('releases composer and project observers before closing the adapter registry during early shutdown', () => {
     const order: string[] = []
     const close = vi.fn(() => order.push('registry'))

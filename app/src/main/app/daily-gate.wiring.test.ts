@@ -6,12 +6,12 @@ const source = readFileSync(new URL('./bootstrap.ts', import.meta.url), 'utf8')
 const code = stripCommentsAndStrings(source)
 
 describe('bootstrap daily gate wiring', () => {
-  it('starts the daily gate once and disposes it at shutdown', () => {
+  it('owns one daily gate start and disposal site', () => {
     expect(code.match(/\bstartDailyGate\s*\(/g)).toHaveLength(1)
     expect(code.match(/this\.dailyGate\?\.dispose\s*\(/g)).toHaveLength(1)
     const shutdown = code.slice(code.indexOf('shutdown(): void'))
     expect(shutdown).toContain('this.dailyGate?.dispose()')
-    expect(shutdown.indexOf('this.dailyGate?.dispose()')).toBeLessThan(shutdown.indexOf('return'))
+    // Runtime disposal ordering and idempotence are exercised in bootstrap.shutdown.test.ts.
   })
 
   it.each([
