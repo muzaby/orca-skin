@@ -888,7 +888,7 @@ FEP9·11의 생산 코드 변경은 없고 이번 수정은 실패 oracle과 해
 | 대상 | 관측 |
 |---|---|
 | 실제 daily gate dispose 제거 | 초기화 전/후 2개 테스트가 호출 0회로 실패. 생산 파일 원복 후 검사 |
-| publication 예외의 범위 | error hub·plugin snapshot 각각에 `service.publish(artifact)`를 덧붙이면 predicate가 위반으로 판정 |
+| publication 예외의 범위 | 실제 bootstrap의 snapshot 발행 옆에 artifact publish를 주입하면 저장소 sweep 1개 실패. 원복 후 종료/게시/일일 gate 3파일 18개 통과. 두 예외와 artifact가 공존하는 fixture도 검출 |
 | Windows 별칭 barrier | 수정 전 대문자 TEMP의 20초 timeout, 수정 후 같은 환경의 경계 7파일 29개 통과 |
 
 선택 증거 0 · 인용 변이 0 · 새 oracle 민감도 2(종료·publication) = 잠금 대상 2. 별칭 행은 직접 파일/완료 결과의 재현이며 별도 변이를 발명하지 않았다.
@@ -903,7 +903,13 @@ OS 잠금 helper는 준비 전 정상 종료(code 0)도 실패로 처리하고 s
 
 ### 6. 구현·검사 보고
 
-대문자 TEMP·`CI=true` 환경의 경계 7파일 29개, node/web/test 타입 검사, 수정 파일 lint(오류/경고 0), migration/test-budget 검사가 통과했다. inventory/prose와 기존 외부 참조 checkout 둘만 제외한 링크 검사도 통과했다. 전체 `npm test`와 수정 커밋의 원격 CI는 진행 중이며 후속 결과를 이 절에 확정한다.
+- 대문자 TEMP·`CI=true` 환경의 경계 7파일 29개, node/web/test 타입 검사, 수정 파일 lint(오류/경고 0), migration/test-budget 통과.
+- 로컬 전체 Vitest: 808파일 7,891개 통과, Work의 사용자 설정 혼입 2개 실패, 기존 조건부 skip 2개. 혼입 수정 후 해당 2파일 4개 통과; 전체 로컬 재실행으로 표현하지 않는다.
+- 스크립트 142개와 production `electron-vite build` 통과. Work fixture 보완 후 test 타입·대상 lint도 통과.
+- inventory/prose·diff 통과. 기존 외부 참조 checkout 둘만 제외한 링크 결과 `[]`; 원격 clean checkout의 문서 gate도 통과.
+- [최종 Windows CI](https://github.com/muzaby/orca-skin/actions/runs/39771749947) SUCCESS: 810파일 7,893개 통과·기존 skip 2개, scripts 142개 통과. 실패했던 파일 저장 5개·산출물 4개·일일 gate 5개와 Work 4개 모두 통과했다.
+- 원격 lint 오류 0·기존 경고 2, node/web/test 타입 및 migration/doc/test-budget gate 통과. 정상 종료 후 로컬 SQLite ABI도 `npm run prebuild`로 Electron 대상에 복원했다.
+- 정책 AC는 r2의 21개를 그대로 유지한다(추가/삭제 0). 이번 종료 판정은 CI 운영 gate 복구이며 독립 verify PASS를 대신하지 않는다.
 
 ### 7. Review Signals
 
