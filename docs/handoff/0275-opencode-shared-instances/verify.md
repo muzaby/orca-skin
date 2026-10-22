@@ -16,7 +16,7 @@
 | 상태 | **FAIL** |
 | 자기 검증 여부 | 아니오 — 설계·구현 Codex, 검증 Claude |
 
-**FAIL — §10 23자리 중 1자리(EP08 context 예약)에서 심은 고장이 green이고, 그 자리의 보고 좌표는 존재하지 않는다.** profile 공유·directory ref·native 완료 대기·실패 retire·소비처 반납은 잠겼다. 승계 회귀 중 0274 warm 거절 fence(E11)도 미잠금이다.
+**FAIL — §10 23자리 중 1자리(EP08 context 예약)에서 심은 고장이 green이고, 그 자리의 보고 좌표는 존재하지 않는다.** profile 공유·directory ref·native 완료 대기·실패 retire·소비처 반납은 잠겼다. 0274에서 이관받은 warm 거절 fence(E11, VP09)도 미잠금이다. 0273·0268에서 이관받은 계약은 성립한다(§0-1).
 
 ## 0. 기준선 / plan 변경 확인
 
@@ -36,6 +36,19 @@
 | 운영 gate | 유효 | typecheck·lint·관련 Vitest·Electron DB·build·inventory |
 
 - root PLAN_GAP: 없음.
+
+### 0-1. 이전 handoff에서 이관 받은 책임 (사용자 결정 2026-10-22)
+
+구현이 옛 plan과 갈라진 항목 중 이 plan이 계약을 뒤집은 것은 이 verify가 판정한다. 관측은 모두 같은 HEAD `32b43cc`이며 고장 이력 원문은 각 verify §4다.
+
+| 출처 항목 | 뒤집은 요소(이 plan 또는 경유 handoff) | 이 verify 판정 | 근거 |
+|---|---|---|---|
+| [0274](../0274-opencode-desktop-startup/verify.md#0-1-최신-handoff-이관--plan_gap-사용자-결정-2026-10-22) D10 cwd 서버 격리(AC9·AC11 해당 부분) | Decision `0274 D10 → SUPERSEDED → D13` | AC13 ✅ | L9·L11 잡음 |
+| 0274 VP06–08(SD2/AR2/MD2) | `SUPERSEDED → SD3/AR3/MD4`, AC는 VP11–13 | VP11 PASS · VP12 PAIR_FAIL(L15) · VP13 PASS | §5 |
+| 0274 §10 EP03–06 23자리 | §10 "이전 EP03~06 자리의 의무는 … 이관" | 22자리 PASS — 0274 E1–E10 잡음 | 0274 §4 |
+| 0274 D1 · E11 warm 거절 fence(EP06·AC11 fence 부분) | 같은 §10 이관 + `0274 MD3/UT3 → VP09 REGRESSION` | **PAIR_FAIL** — VP09 root(D2) | 0274 E11 못 잡음 |
+| [0273](../0273-opencode-command-stream-errors/verify.md) VP-03(AR1/IT1)·§10 EP01·02 8자리 | 0274 `AR1→AR2`·EP01/02→EP03–05, 이 plan `AR2→AR3`·EP03–06→EP07–10 | PASS — VP12의 SDK signal·callback edge | 0273 T1–T5·T7 잡음, P2 pass |
+| [0268](../0268-opencode-runtime-composer/verify.md) D2 서버 참조 소유권(AC1 공유 부분·EP1 서버 9자리·VP1·VP6·VP8 서버 해제 edge) | D13 공유 key `cwd → profile`, D14·D15·D20 마지막 ref 정리 절차 재정의 | PASS — AC13·AC14·AC17 ✅ | L1·L9·L12·L13 잡음 |
 
 ## 1. Product & UX / ACTIVE Decision
 
@@ -93,18 +106,19 @@
 
 - 검산: 시도 15 = 잡음 13 · 동치 1(L8) · 못 잡음 1(L15). L15는 §10 고정 자리(EP08 "context acquire 예약") → `PAIR_FAIL`. 그 자리의 보고 좌표 N6은 존재하지 않는다.
 - 형제 슬롯 맞바꿈: L14(정리 완료↔server 반납 순서) 잡음.
+- 이관 수령 관측(§0-1): 0274 E1–E11 = 잡음 10 · 못 잡음 1(E11) · 0273 T1–T5·T7 = 잡음 6. 이 표의 시도 15와 합산하지 않는다.
 
 ## 5. V-pair closeout
 
 | Pair | 레벨 | requiredness | 결과 | 증거 |
 |---|---|---|---|---|
-| VP13 | UT | REQUIRED | PASS | L1·L2·L6·L11 잡음, L8 동치 |
-| VP12 | IT | REQUIRED | **PAIR_FAIL** | L9–L14 잡음, **L15** 못 잡음(context 예약) |
-| VP11 | ST | REQUIRED | PASS | L3·L4·L5·L7 잡음 |
+| VP13 | UT | REQUIRED | PASS | L1·L2·L6·L11 잡음, L8 동치 (0274 VP08 이관 포함) |
+| VP12 | IT | REQUIRED | **PAIR_FAIL** | L9–L14 잡음, **L15** 못 잡음(context 예약). 0274 VP07·0273 VP-03 이관분은 E2·E3·T1·T7 잡음 |
+| VP11 | ST | REQUIRED | PASS | L3·L4·L5·L7 잡음 (0274 VP06 이관 포함, E4·E6·E7 잡음) |
 | VP10 | AT | REQUIRED | BLOCKED_BY:VP12 | AC13–15·17–21 관측 PASS, AC16 재진입은 VP12 root |
 | VP01·02·04 (0273) | — | REGRESSION | PASS | 0273 T1–T7 잡음([0273 verify](../0273-opencode-command-stream-errors/verify.md)) |
 | VP05 (0274) | AT | REGRESSION | PASS | 0274 E1–E10 잡음 |
-| VP09 (0274) | UT | REGRESSION | BLOCKED_BY:0274 VP09 | 0274 E11(warm 거절 fence) 못 잡음 — [0274 verify](../0274-opencode-desktop-startup/verify.md) |
+| VP09 (0274) | UT | REGRESSION | **PAIR_FAIL** | 0274 E11(warm 거절 fence) 못 잡음 — 0274 D1 이관 수령, P5가 fence 제거에 둔감 |
 
 ### AT / AC
 
@@ -112,9 +126,9 @@
 |---|---|---|
 | AC1–AC5 (0273) | ✅ | T1–T7 잡음 |
 | AC7–AC10·AC12 (0274) | ✅ | E1–E10 잡음 |
-| AC11 (0274 회귀) | ❌ | E11(warm 거절 callback fence) green — 0274 귀속 |
-| AC13 profile 공유·격리 | ✅ | L9·L11 잡음 |
-| AC14 ref·마지막만 dispose | ✅ | L1 잡음 |
+| AC11 (0274 회귀) | ❌ | E11(warm 거절 callback fence) green — 0274 D1 이관 수령, VP09 root |
+| AC13 profile 공유·격리 | ✅ | L9·L11 잡음 (0274 D10·0268 D2 이관 수령) |
+| AC14 ref·마지막만 dispose | ✅ | L1 잡음 (0268 D2 공유 owner 이관 수령) |
 | AC15 ack 뒤 event 대기 | ✅ | L3·L7 잡음 |
 | AC16 재진입·늦은 결과 격리 | ❌ | L4 잡음, L15 green |
 | AC17 미사용 취소·소비처 반납 | ✅ | L2·L12·L13 잡음 |
@@ -135,6 +149,7 @@
 | EP10 (4) | 4/4 PASS (L12·L13, complete/recover/history N14 pass) |
 
 - 22/23. 목록 밖 발견 없음.
+- 이관 수령 자리(이 분모와 별도): 0274 EP03–06 23자리 = 22 PASS(E1–E10) · 1 PAIR_FAIL(E11 → VP09) · 0273 EP01·02 8자리 = 8 PASS(T1–T5·T7·P2) · 0268 EP1 서버 9자리 = EP07–10 관측으로 PASS.
 
 ### 운영 gate (HEAD `32b43cc`)
 
@@ -148,7 +163,7 @@
 
 ## 11. Repository operation checks
 
-- INDEX: `impl/IMPL_DONE` → `verify/FAIL`·Codex·라운드 2.
+- INDEX: `impl/IMPL_DONE` → `verify/FAIL`·Codex·라운드 2. 이관 수령 뒤에도 상태·라운드 동일.
 - 대상 커밋: `a83b6f5`·`79ccc64`·`5e9ab52` 모두 `git cat-file -t` = commit. `5e9ab52` trailer 5키 파싱.
 - `[구현자 기입]` 7필드와 23자리 표 존재. 다만 좌표 N6이 실재하지 않는다(D1).
 
@@ -157,17 +172,19 @@
 | # | finding | 귀속 | disposition | 후속 |
 |---|---|---|---|---|
 | D1 | L15: context ref 예약을 await 뒤로 옮겨도 green, 보고 좌표 N6 부재 | EP08 reservation · AC16 · VP12 | BLOCKING (PAIR_FAIL) | 마지막 owner 정리 중 같은 directory 재획득이 같은 context로 성공함을 단언(N6 실구현) |
+| D2 | E11(0274 D1 이관 수령): warm 거절 catch의 `close()` 삭제 green | 0274 MD3/UT3 → VP09 REGRESSION · AC11 | BLOCKING (PAIR_FAIL) | 거절 응답과 `submitting` 해제 사이 늦은 SSE callback을 주입해 다음 frame 미도달 단언, 또는 호출자 close로 동치임을 근거와 함께 보임 |
 | N1 | L8: shutdown의 entry abort는 상위 controller abort와 동치 | EP09 shutdown | NON_BLOCKING | 방어 중복으로 유지 가능 |
 
 ## 14. Review Signals
 
 - 이전 라운드: 첫 verify. 관련 plan 지침: 구현자 표가 EP08 reservation의 좌표로 N6을 적었으나 테스트가 만들어지지 않았다.
 - 사용자 결정 변경: 0274 D10 → D13(사용자 승인) — 최신 handoff 기준 채점.
+- 사용자 결정(2026-10-22): 구현이 옛 plan과 갈라진 항목은 계약을 뒤집은 최신 handoff verify가 책임 — 0274·0273·0268에서 이관 수령(§0-1).
 - 반복 환경 한계: Windows 전용 fixture(검증자 shim), 실제 CLI 바이너리 없음.
 
 ## 15. 결론
 
 - 상태: **FAIL** — verify 1회째.
-- pair: PASS 6(VP01·VP02·VP04·VP05·VP11·VP13) · root PAIR_FAIL 1(VP12) · BLOCKED_BY 2(VP10·VP09). PLAN_GAP 없음.
+- pair: PASS 6(VP01·VP02·VP04·VP05·VP11·VP13) · root PAIR_FAIL 2(VP12·VP09) · BLOCKED_BY 1(VP10). PLAN_GAP 없음.
 - AC: ✅18 · ❌2 / 20.
-- 다음 단계: Codex r2 — D1(+0274 E11), 다음 verify는 L15 재실행·L8 동치 재확인.
+- 다음 단계: Codex r2 — D1·D2, 다음 verify는 L15·E11 재실행·L8 동치 재확인.
