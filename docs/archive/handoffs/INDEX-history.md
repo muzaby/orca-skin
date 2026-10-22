@@ -13,6 +13,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
+| [`0270-native-command-presentation`](../../handoff/0270-native-command-presentation/plan.md) | verify | **PASS** (V1+ΔV1 r1) | — | `69e734f`(V1 설계) · `453ef1f`(ΔV1 설계) · `44fce89`(r1) | 1 | **native 명령 표시·진행 라벨·세션 스킬 후보 (2026-10-22).** r1 = **PASS** — 판정 원문은 [`verify.md`](../../handoff/0270-native-command-presentation/verify.md). 고장 9/9(+0271 공유 3) 검출. |
 | [`0271-native-skill-target`](../../handoff/0271-native-skill-target/plan.md) | verify | **PASS** (V1+ΔV1 r1) | — | `57983c2`(V1 설계) · `30566e0`(ΔV1 설계) · `a5489f0`(r1) | 1 | **native 스킬 이름으로 파일·폴더 열기 (2026-10-22).** r1 = **PASS** — 판정 원문은 [`verify.md`](../../handoff/0271-native-skill-target/verify.md). 고장 10/10 검출, 색상은 0278 기준. |
 | [`0273-opencode-command-stream-errors`](../../handoff/0273-opencode-command-stream-errors/plan.md) | verify | **PASS** (V1 r1) | — | `eeb0341`(설계) · `a1a1f01`(r1) | 1 | **OpenCode 명령 준비 budget·취소와 SSE 실패 원인 보존 (2026-10-22).** r1 = **PASS** — 판정 원문은 [`verify.md`](../../handoff/0273-opencode-command-stream-errors/verify.md). HEAD(0274 이동 위치) 고장 6/6 검출. N1 NON_BLOCKING. |
 | [`0266-renderer-design-guidelines`](../../handoff/0266-renderer-design-guidelines/plan.md) | verify | **PASS** (V1 r1) | — | `5cda65c`(설계) · `ae44e58`(게이트 경로 정정) · `5a99c1f`(r1) | 1 | **디자인 시스템·renderer TSX 카탈로그·AI 제작 절차 (2026-10-22).** r1 = **PASS** — 판정 원문은 [`verify.md`](../../handoff/0266-renderer-design-guidelines/verify.md). HEAD 재측정 TSX 297/297·진입점 8링크·음성 대조 10/10 red. N1 NON_BLOCKING. |
