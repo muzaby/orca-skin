@@ -11,13 +11,12 @@ import { modelKey } from '../../../components/composer/modelSelection'
 import { useComposerCatalog } from './useComposerCatalog'
 
 export function OpenCodeModeControl({ providerKey }: ComposerControlProps): React.JSX.Element {
-  const { snapshot, retry } = useComposerCatalog(providerKey)
+  const { snapshot } = useComposerCatalog(providerKey)
   return (
     <OpenCodeAgentControl
       agents={snapshot.agents.value}
       authoritative={snapshot.agents.value !== undefined}
       status={snapshot.agents.status}
-      onRetry={() => retry('agents')}
     />
   )
 }
@@ -27,7 +26,7 @@ export function OpenCodeEffortControl({
   providerKey,
   modelFamily
 }: ComposerControlProps): React.JSX.Element | null {
-  const { snapshot, retry } = useComposerCatalog(providerKey)
+  const { snapshot } = useComposerCatalog(providerKey)
   const model = agents
     .find((a) => a.key === providerKey)
     ?.models.find((m) => modelKey(m) === modelFamily)
@@ -37,7 +36,6 @@ export function OpenCodeEffortControl({
       authoritative={snapshot.models.value !== undefined}
       variants={snapshot.models.value ? (runtime?.variants ?? []) : (model?.variants ?? [])}
       status={snapshot.models.status}
-      onRetry={() => retry('models')}
     />
   )
 }
@@ -46,16 +44,13 @@ function OpenCodeSelect({
   label,
   value,
   options,
-  onChange,
-  onRetry
+  onChange
 }: {
   label: string
   value: string
   options: { value: string; label: string }[]
   onChange: (value: string) => void
-  onRetry?: () => void
 }): React.JSX.Element {
-  const { tr } = useI18n()
   const [open, setOpen] = useState(false)
   const anchorRef = useRef<HTMLButtonElement>(null)
   const itemsRef = useRef<HTMLDivElement>(null)
@@ -160,11 +155,6 @@ function OpenCodeSelect({
               {value === option.value && <Icon name="check" size={12} className="shrink-0" />}
             </MenuItem>
           ))}
-          {onRetry && (
-            <MenuItem type="button" role="menuitem" tabIndex={-1} onClick={onRetry}>
-              {tr('harness.catalogRefresh')}
-            </MenuItem>
-          )}
         </div>
       </Popover>
     </>
@@ -173,13 +163,11 @@ function OpenCodeSelect({
 
 export function OpenCodeAgentControl({
   agents,
-  authoritative = false,
-  onRetry
+  authoritative = false
 }: {
   agents: AgentEnvironment['agents']
   authoritative?: boolean
   status?: 'loading' | 'ready' | 'error'
-  onRetry?: () => void
 }): React.JSX.Element {
   const { tr } = useI18n()
   const selected = useChatSession((state) => state.harnessAgent)
@@ -191,7 +179,6 @@ export function OpenCodeAgentControl({
     <OpenCodeSelect
       label={tr('harness.agent')}
       value={selected ?? ''}
-      onRetry={onRetry}
       onChange={(value) => chatActions.setHarnessOptions({ agent: value })}
       options={[
         { value: '', label: tr('harness.defaultAgent') },
@@ -204,13 +191,11 @@ export function OpenCodeAgentControl({
 export function OpenCodeVariantControl({
   variants,
   authoritative = false,
-  status,
-  onRetry
+  status
 }: {
   variants: readonly string[]
   authoritative?: boolean
   status?: 'loading' | 'ready' | 'error'
-  onRetry?: () => void
 }): React.JSX.Element | null {
   const { tr } = useI18n()
   const selected = useChatSession((state) => state.modelVariant)
@@ -223,7 +208,6 @@ export function OpenCodeVariantControl({
     <OpenCodeSelect
       label={tr('harness.variant')}
       value={variants.includes(selected ?? '') ? (selected ?? '') : ''}
-      onRetry={onRetry}
       onChange={(value) => chatActions.setHarnessOptions({ variant: value })}
       options={[
         { value: '', label: tr('harness.defaultVariant') },

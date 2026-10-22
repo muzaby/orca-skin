@@ -22,7 +22,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [`0281-opencode-menu-cache`](0281-opencode-menu-cache/plan.md) | plan | READY | Codex | (r1 설계 — 검증자 기입) | 1 | 컴포저 팝업 새로고침 제거·성공 목록 캐시 재사용. |
+| [`0281-opencode-menu-cache`](0281-opencode-menu-cache/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 컴포저 팝업 새로고침 제거·성공 목록 캐시 재사용. AC3/3 자기확인, 반복 개방 IPC·선택/키보드 회귀 통과. 독립 검증 대기. |
 | [`0280-opencode-prepared-status`](0280-opencode-prepared-status/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 준비 인스턴스의 MCP/plugin 독립 표시·취소/실패 구분·안전 진단. AC5/5 자기확인, 실제 사용자 환경·독립 검증 대기. 전역 제어는 0278 별도. |
 | [`0279-claude-project-plugin-state`](0279-claude-project-plugin-state/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | SDK MCP 저장·현재 cwd 공유·외부 설정 감시/표시·프로젝트 전체 유휴 재적용. restart-required는 기존 회수 정책. AC7/7 자기확인, 독립 검증 대기. |
 | [`0278-harness-extension-isolation`](0278-harness-extension-isolation/plan.md) | plan | READY | Codex | (r1 확정 설계 — 검증자 기입) | 1 | native 전역 기준값·항목별 capability·Orca 선택 격리·프로젝트 제어. 기본값 사본/선택 UI 없음. |

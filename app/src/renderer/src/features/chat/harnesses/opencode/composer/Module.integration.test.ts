@@ -49,7 +49,7 @@ const settle = async (): Promise<void> => {
   dom.act(() => undefined)
 }
 
-it('prepares draft agents before providers, reuses remounts and applies explicit refresh', async () => {
+it('prepares draft agents before providers, reuses cached agents and variants across menu reopenings', async () => {
   const models = Promise.withResolvers<ComposerCatalogResult>()
   let names = [{ name: 'plugin-review' }]
   const query = vi.fn(async (request: ComposerCatalogRequest): Promise<ComposerCatalogResult> =>
@@ -128,13 +128,19 @@ it('prepares draft agents before providers, reuses remounts and applies explicit
   await settle()
   expect(dom.query('[aria-label="harness.variant"]')?.textContent).toContain('deep')
   names = [{ name: 'plugin-revised' }]
-  dom.click(dom.query('[aria-label="harness.agent"]')!)
-  dom.click(dom.query('[role="menuitem"]')!)
-  await settle()
-  expect(state.change).toHaveBeenCalledWith({ agent: '', variant: '' })
-  expect(dom.queryAll('[role="menuitemradio"]').map((row) => row.textContent)).toEqual([
-    'harness.defaultAgent',
-    'plugin-revised'
-  ])
-  expect(query.mock.calls.filter(([r]) => r.part === 'models')).toHaveLength(1)
+  for (const label of ['harness.agent', 'harness.variant']) {
+    for (let i = 0; i < 3; i++) {
+      dom.click(dom.query(`[aria-label="${label}"]`)!)
+      expect(dom.query('[role="menuitem"]')).toBeNull()
+      expect(dom.queryAll('[role="menuitemradio"]').map((row) => row.textContent)).toEqual(
+        label === 'harness.agent'
+          ? ['harness.defaultAgent', 'plugin-review']
+          : ['harness.defaultVariant', 'deep']
+      )
+      dom.click(dom.queryAll('[role="menuitemradio"]')[1])
+      await settle()
+    }
+  }
+  expect(query).toHaveBeenCalledTimes(2)
+  expect(state.change).not.toHaveBeenCalledWith({ agent: '', variant: '' })
 })
