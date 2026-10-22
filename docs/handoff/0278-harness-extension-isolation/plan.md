@@ -923,7 +923,7 @@ OS 잠금 helper는 준비 전 정상 종료(code 0)도 실패로 처리하고 s
 |---|---|---|---|---|---|
 | R1 | X1 catalog에 다른 control 주입 green | FEP2 · AC2·AC5G · DV1-P4 | 실제 bootstrap에서 catalog 선택→registry 새 adapter SDK 인자 단언 | BLOCKING | open |
 | R2 | X2 `await publish` 제거 green | FEP4 · AC5G · DV5-P1 | 발행 gate 전 `deployNow` 미완료 단언 | BLOCKING | open |
-| R3 | A23 OpenCode plugin 선언 revision 누락·A6 stale revision emit green | FEP8 · AC15O·AC11 · DV2-P3·DV2-P2 | plugin만 바뀐 외부 편집 revision 변화·읽기 중 이벤트 주입 | BLOCKING | open |
+| R3 | A23 OpenCode plugin 선언 revision 누락·A6 stale revision emit green(0277 D3 이관 포함) | FEP8 · AC15O·AC11 · DV2-P3·DV2-P2 | plugin만 바뀐 외부 편집 revision 변화·읽기 중 이벤트 주입 | BLOCKING | open |
 | R4 | A15 외부 재편집 재확인 제거 green | FEP9 · AC19C · DV3-P4 | 잠금 없는 `beforeCommit` 외부 편집 케이스 | BLOCKING | open |
-| R5 | P11–P13 push scope 3항 제거 green | FEP12 · AC7C · V1 VP4 | 한 항만 다른 push 거부를 항마다 단언 | BLOCKING | open |
+| R5 | P11–P13 push scope 3항 제거 green(0277 D2 이관 포함) | FEP12 · AC7C · V1 VP4 | 한 항만 다른 push 거부를 항마다 단언 | BLOCKING | open |
 | N3 | 증거 README 기대값이 D32 이전 서술 | repository operation | 현재 기대로 갱신 | NON_BLOCKING | open |

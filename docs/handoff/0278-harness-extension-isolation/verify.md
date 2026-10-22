@@ -230,10 +230,23 @@ HEAD `32b43cc` 실행 산출은 [0281 verify](../0281-opencode-menu-cache/verify
 |---|---|---|---|---|
 | R1 | X1: catalog handler에 다른 control을 줘도 green | FEP2 · AC2·AC5G · DV1-P4 | BLOCKING | 실제 bootstrap에서 catalog 선택 후 registry가 만든 새 adapter의 SDK 인자에 반영됨을 단언 |
 | R2 | X2: 발행을 기다리지 않아도 green | FEP4 · AC5G · DV5-P1 | BLOCKING | 발행 gate가 열리기 전 `deployNow` 미완료를 단언 |
-| R3 | A23·A6: OpenCode plugin 선언 revision 누락·읽는 중 stale revision emit | FEP8 · AC15O·AC11 · DV2-P3·DV2-P2 | BLOCKING | plugin 배열만 바뀐 외부 편집 revision 변화, 읽기 중 이벤트 주입 |
+| R3 | A23·A6: OpenCode plugin 선언 revision 누락·읽는 중 stale revision emit(0277 D3 이관 수령) | FEP8 · AC15O·AC11 · DV2-P3·DV2-P2 | BLOCKING | plugin 배열만 바뀐 외부 편집 revision 변화, 읽기 중 이벤트 주입 |
 | R4 | A15: 외부 재편집 재확인 미잠금 | FEP9 · AC19C · DV3-P4 | BLOCKING | 잠금 없는 `beforeCommit` 외부 편집 케이스 |
-| R5 | P11–P13: push scope 비교 3항 미잠금 | FEP12 · AC7C · V1 VP4 | BLOCKING | 한 항만 다른 push 거부를 항마다 단언 |
+| R5 | P11–P13: push scope 비교 3항 미잠금(0277 D2 이관 수령) | FEP12 · AC7C · V1 VP4 | BLOCKING | 한 항만 다른 push 거부를 항마다 단언 |
 | N3 | 증거 README의 "1통과·1실패" 기대가 D32 이전 서술 | repository operation | NON_BLOCKING | README에 현재 기대(Claude 통과·OpenCode 거부) 갱신 |
+
+## r2-13a. 이전 handoff에서 이관 받은 책임 (사용자 결정 2026-10-22)
+
+0278이 계약을 뒤집은 이전 handoff의 항목은 이 verify가 판정한다. 해당 handoff에서는 판정하지 않는다.
+
+| 출처 | 항목 | 뒤집은 요소 | 이 verify 판정 |
+|---|---|---|---|
+| 0277 D2 | P11–P13 renderer push scope(0277 AC5) | D23·§27 FEP12 | R5 — **PAIR_FAIL**(못 잡음 ×3) |
+| 0277 D3 | A23 plugin 선언 revision(0277 AC6)·A6 stale revision(0277 AC10) | D30·§27 FEP8 | R3 — **PAIR_FAIL**(못 잡음) |
+| 0271 S9 | 비활성 스킬 표시 색(0271 AC5 색상 단언) | D11·D24 on/off×capability | F12a·F12b·F12c 잡음 → PASS |
+| 0272 AC6 | nav 색상 유지(색상 부분) | D11·D24 | F12a–c 잡음 → PASS |
+
+- 판정 결과는 기존 r2 표와 같다. 이관으로 새 FAIL·PASS가 생기지 않았고, 0277·0271·0272 쪽 중복 판정이 사라졌다.
 
 ## r2-14. Review Signals
 
@@ -247,4 +260,4 @@ HEAD `32b43cc` 실행 산출은 [0281 verify](../0281-opencode-menu-cache/verify
 - 상태: **FAIL** — verify 2회째(라운드 2 → 3).
 - pair: root PAIR_FAIL 6(DV1-P4·DV2-P2·DV2-P3·DV3-P4·DV5-P1·V1 VP4) — DV2-P2/P3는 FEP8 한 자리의 두 고장. BLOCKED_BY 3(DV1-P2·V1 VP2·V1 VP7). 나머지 PASS.
 - PLAN_GAP: 없음. AC ✅15 · ❌6 / 21.
-- 다음 단계: Codex r3 — R1–R5 테스트 보강, 다음 verify는 X1·X2·A6·A15·A23·P11–P13 재실행.
+- 다음 단계: Codex r3 — R1–R5 테스트 보강(R3·R5는 0277 D3·D2 이관분 포함), 다음 verify는 X1·X2·A6·A15·A23·P11–P13 재실행.
