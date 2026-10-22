@@ -7,8 +7,8 @@
 | slug | 0277-opencode-mcp-catalog |
 | 작성자 | Codex |
 | 일자 | 2026-10-21 |
-| 상태 | DRAFT — UI 결정 및 기존 인스턴스 전용 조회 경계 확정 전 |
-| V mode / 기준 / revision | Baseline V / 없음 / V1 초안 |
+| 상태 | READY — V1 확정, 전역/실제 작업폴더 조회 |
+| V mode / 기준 / revision | Baseline V / 없음 / V1 |
 
 # Part I — Product & UX Contract
 
@@ -197,3 +197,49 @@ ACTIVE D1→AC1, D2→AC2/3/9, D3→AC4, D4→AC5, D5→AC6, D6→AC7, D7→AC8/
 ## [구현자 기입]
 
 미착수. 사용자 초안 검토·설계 단계다.
+
+
+# V1 확정 설계 — 2026-10-22
+
+이 절은 위 초안의 미확정 기술 표·V 후보를 대체한다. 사용자 “합의된 내용 모두 구현”에 따라 기존 R1–R11을 유지한다. 범위 선택은 상단 전역/등록된 작업폴더 드롭다운을 구현 가정으로 사용하고, 사용자 답변이 다르면 조정한다. 복수 실행은 별도 generation별 상태 행으로 표시하여 하나의 상태로 합치지 않는다.
+
+## 확정 동작
+
+- 최초 범위는 전역이다. 프로젝트 선택에는 실제 absolute cwd를 전달한다. Claude도 같은 범위 선택으로 파일 선언을 보여준다.
+- 전역·프로젝트 파일 읽기와 기존 runtime MCP 관측은 독립이다. 한 출처 실패는 다른 출처를 지우지 않으며 이전 결과는 마지막 확인으로 표시한다.
+- 페이지가 보일 때만 5초 주기 재조회한다. 같은 범위의 진행 요청은 합류하고 화면 전환은 epoch로 이전 결과를 폐기한다. 준비 완료·상태 변화는 이 관측 주기와 기존 상태 이벤트에서 반영한다.
+- runtime 관측은 준비된 directory의 기존 client만 사용한다. owner 획득·prepare·config.update·서버 생성·dispose는 호출하지 않는다. 마지막 owner 해제는 관측 요청을 abort하며 세대가 사라진 목록은 반환하지 않는다.
+- 연결 여부와 전역 제어 능력은 다른 축이다. 활성화 UI·영속 정책은 0278에서 연결한다.
+
+## 확정 V·자리별 oracle
+
+| Pair | 노드 | 경로·직접 oracle |
+|---|---|---|
+| VP1 | R1–11↔AT1–11 NEW REQUIRED | 실제 catalog handler/reader→응답, 실제 hook/view의 scope·상태·새로고침 렌더. `extension-catalog.test.ts`, `useNativeMcpCatalog.test.ts`, `CustomizeList.render.test.ts`의 A/B·부분 실패·dynamic fixture |
+| VP2 | SD1↔ST1 NEW REQUIRED | OpenCodeAdapter→contexts→기존 directory SDK→해제; `session-context.test.ts`에서 미준비 조회0·준비 후 동적 MCP·종료중 지연응답 폐기·원래 lease 지속 |
+| VP3 | AR1↔IT1 NEW REQUIRED | 등록 handler→하네스 파일 reader/adapter, preload→renderer API; 신규 handler test와 preload/index.test.ts. directory A 값을 실제 SDK query에서 관측 |
+| VP4 | AR2↔IT2 NEW REQUIRED | ExtensionsCatalogView→scope control→useNativeMcpCatalog→API→CustomizeList; hook fake timer/지연 promise와 실제 view render fixture |
+| VP5 | MD1↔UT1 NEW REQUIRED | 파일별 JSONC 읽기·globalOnly·출처 병합; configured-resources.test.ts의 tmp global/project/손상파일 |
+| VP6 | MD2↔UT2 NEW REQUIRED | scope epoch·generation set·부분 실패→목록 상태; 순수 catalog merge tests 및 hook stale response tests |
+| VP7 | SD0↔ST0 INHERITED REGRESSION | 기존 startup/persistent/instance-lifecycle 및 0280 준비 상태 테스트 유지 |
+
+## §10 확정 강제 지점
+
+검색: `rg 'nativeResources|configuredResources|draftResources' app/src/main/app app/src/main/adapters app/src/preload app/src/renderer/src/features/skills`. 신규 catalog 계약에 연결되는 다음 자리를 분모로 한다.
+
+| EP | 자리 | N | oracle 좌표·입력·실패 의미 |
+|---|---|---|---|
+| EP1 | shared request/result·schema, preload, renderer API, main handler 등록 | 4 | handler와 preload roundtrip: cwd A/undefined global·다른 backend, 임의 경로 또는 누락 결과를 단언 |
+| EP2 | Claude global/project reader, OpenCode global/project reader, main file/runtime 조립 | 3 | 두 reader의 실제 파일 fixture + handler 두 출처 다른 이름·parse 실패. global에 project 값이 섞이면 실패 |
+| EP3 | adapter 관측 포트, contexts 기존 scope 조회, SDK 요청 전/후 active 검사 | 3 | 실제 SDK transport context fixture: A/B·늦은 응답·last owner release, acquire/spawn 없이 표시 |
+| EP4 | scope UI, hook epoch/flight/timer, 병합 최신성, native 행 상태·open capability | 4 | hook/view tests: 전역→A→B, dynamic id, connected→종료, 오류→부분 실패/재시도 |
+
+14자리. 각 자리의 직접 동작을 실행하는 테스트를 작성하며 단순 파일명/문자열 존재를 완료 증거로 사용하지 않는다. native CLI 실기는 가능한 환경에서 수행하고 커스텀 바이너리와 시각 인수는 미확인으로 보고한다.
+
+## 저장·오류·보안
+
+관측은 파일을 쓰지 않는다. catalog DTO에는 raw 설정·인증·토큰·설정 경로를 포함하지 않는다. 설정 파일 열기는 main에서 같은 범위를 재탐색한 파일에만 허용한다. runtime 조회 실패는 일반 오류 코드와 generation만 반환하고 메시지 원문을 전달하지 않는다.
+
+## READY 검토
+
+D1→AC1, D2→AC2/3/9, D3→AC4, D4→AC5, D5→AC6, D6→AC7, D7→AC8/10, D8→AC11 대조 유지. 기존 후보 중 event-only 동기화는 native 공통 이벤트 부재로 bounded polling으로 확정했다. 미지원 toggle 정책과 새 JSON 저장 형식은 이 읽기 전용 경로를 막지 않는다.
