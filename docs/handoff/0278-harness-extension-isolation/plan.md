@@ -6,8 +6,8 @@
 |---|---|
 | slug | 0278-harness-extension-isolation |
 | 작성자 / 일자 | Codex / 2026-10-22 |
-| 상태 | DRAFT — OpenCode 네이티브 프로젝트 저장 정책 확정. cwd 격리·유휴 적용의 기술 검증은 미완료; 기존 verify FAIL 유지 |
-| V mode / 기준 / revision | Delta V / V1@256ddd24 + ΔV1@087543ed / 유효 revision: V1 + ΔV1 + ΔV2 |
+| 상태 | DRAFT — 네이티브 프로젝트 저장·동시 파일 편집 대기 정책 확정. cwd 격리·네이티브 효력 검증은 미완료; 기존 verify FAIL 유지 |
+| V mode / 기준 / revision | Delta V / V1@256ddd24 + ΔV1@087543ed + ΔV2@81373134 / 유효 revision: V1 + ΔV1 + ΔV2 + ΔV3 |
 | 관련 작업 | [0277 MCP 관측](../0277-opencode-mcp-catalog/plan.md), [0275 공유 인스턴스](../0275-opencode-shared-instances/plan.md), [0276 Composer 준비](../0276-opencode-composer-preparation/plan.md) |
 
 # Part I — Product & UX Contract
@@ -67,7 +67,7 @@ Claude와 OpenCode는 하네스의 네이티브 전역 설정을 시작 기준�
 | U7 | 일반 MCP on/off의 네이티브 저장 위치인 `~/.claude.json` 프로젝트 MCP 상태도 허용할지 | SUPERSEDED → D21 |
 | D21 | SDK 네이티브 MCP 저장 허용. 외부 프로젝트 변경은 화면 즉시·프로젝트 유휴 때 실행 적용, 재시작은 기존 자원 회수 정책 — 사용자 구현 지시 | ACTIVE — 0279 D7·D8로 구현 |
 
-갱신 메모: 세션 제어→D16, 전역 적용 시점→D15, Claude 저장→D20·D21, nav 범위→D23으로 닫았다. 아래 초기 초안은 이력이며 유효 계약은 V1에 ΔV1·ΔV2를 순서대로 적용해 읽는다. D25의 영속 저장 해석은 사용자 승인으로 취급하지 않고 D26으로 철회한다.
+갱신 메모: 세션 제어→D16, 전역 적용 시점→D15, Claude 저장→D20·D21, nav 범위→D23으로 닫았다. 아래 초기 초안은 이력이며 유효 계약은 V1에 ΔV1·ΔV2·ΔV3를 순서대로 적용해 읽는다. D25의 영속 저장 해석은 사용자 승인으로 취급하지 않고 D26으로 철회한다. 동시 파일 편집 대기 요구는 D31·§22–25에 추가하며 저장 위치·허용 키·적용 시점은 바꾸지 않는다.
 
 후속 사용자 원문:
 
@@ -524,6 +524,113 @@ D30→AC6N·13N·14K, D15·21·28→AC15O·G1–G8, D16·27→AC6N·O1–O7, 실
 이번 문서 변경은 diff·링크·inventory/prose·보드·trailer로 검사한다. 구현 단계는 subtree gate와 위 native 파일/실행 검증을 수행해야 하며, 기존 verify FAIL과 V1 구현 보고는 아래에 그대로 보존한다.
 
 ΔV2 문서 검사: 변경 문서 5개·상대 링크 260개와 저장소 소유 문서 링크에서 파손 0건을 확인했다. inventory/prose·diff 검사 통과; 전체 링크 명령은 무시된 외부 참조 checkout의 기존 파손 10건으로 실패했으며 이번 변경과 분리했다. D1–D30·G/C/O·R1–R11 및 U6 종료를 대조했고, 제품 코드·verify·evidence와 V1 구현 보고가 변경되지 않았음을 확인했다.
+
+## 22. ΔV3 — 동시 네이티브 설정 편집의 대기·저장 계약
+
+사용자 추가 요구:
+
+> settings.local.json 등의 파일편집요청이 비동기로 동시에 요청이 올 수 있다. 이때 파일오픈 실패를 예외 토스트로 반환하는 형태로 구현한 것 같은데, 해당부분을 임계영역으로 지정해놓거 대기하는 형태로 구현하거나 가상파일(메모리)에만 적용하고 이후에 flush하는 형태로 구현하라.
+>
+> 해당 요구도 plan에 모두 반영해야 한다.
+
+| ID | 결정·출처 | 상태 |
+|---|---|---|
+| D31 | 같은 설정 파일의 동시 변경은 임계영역에서 비동기로 기다려 처리. 정상 경합·회복 가능한 일시 잠금을 즉시 예외 토스트로 반환하지 않음 — 위 추가 요구 | ACTIVE. D20·21·30 저장 경로와 D15·16·28의 범위/적용 시점 유지 |
+
+**채택 설계:** 파일별 비동기 대기열 안에서 최신 파일 읽기→허용 키 병합→원자적 저장을 완료한다. 같은 파일은 대기열 등록 순서로 처리하고 다른 파일은 독립 실행한다. 메모리는 대기 중인 변경 요청만 보관하며, 메모리 반영을 디스크 저장 성공으로 응답하는 write-behind 방식은 사용하지 않는다. 사용자 제시 대안 중 대기형을 선택한 구현 설계이며 별도 저장 형식·파일·전역 선택 저장을 승인한 것으로 해석하지 않는다.
+
+### 사용자에게 보이는 동작
+
+| 상황 | 결과 |
+|---|---|
+| 같은 파일에 MCP/plugin 변경 요청이 겹침 | 선행 저장 완료를 비동기로 기다린 뒤 최신 파일에 후속 변경 병합. 경합 자체로 오류·토스트를 만들지 않음 |
+| 같은 키에 on→off가 연속 요청됨 | 등록된 요청을 순서대로 완료. 최종 파일은 마지막으로 성공한 요청의 값이며 요청을 몰래 병합·삭제하지 않음 |
+| 다른 작업폴더의 별도 파일 수정 | A 파일 잠금 때문에 B 파일 저장이나 화면 이벤트 처리가 멈추지 않음 |
+| 일시적인 파일 잠금 | 이벤트 루프를 막지 않는 제한된 재시도. 해제되면 같은 요청을 완료하며 사용자가 다시 누를 필요 없음 |
+| 손상 JSON/JSONC·지속 권한 오류·저장 공간 부족 | 성공 처리하지 않음. 원본 유지·해당 요청 실패·대기열 해제 후 후속 요청을 처리. 기존 패널의 오류/재시도 경로 사용 |
+| 외부 편집·저장 후 적용 대기 | 최신 파일과 확인된 runtime을 구분. 저장 경쟁을 해결했다고 busy 프로젝트에 SDK 변경을 즉시 적용하지 않음 |
+
+Composer에는 추가 상태 문구·오류·새로고침·스피너를 만들지 않는다. D29의 에이전트 제목 우측 스피너 예외만 유지한다. 패널/IPC는 저장 Promise를 기다려야 하며, 대기 중인 요청을 별도 UI timeout으로 실패 처리한 뒤 백그라운드에서 성공시키는 경로를 만들지 않는다.
+
+## 23. ΔV3 구현 설계와 사례 비교
+
+### 현재 경로와 변경 범위
+
+현재 `claude/plugin-state.ts`는 동기 read/merge/고유 임시 파일 rename을 사용한다. 같은 main 이벤트 루프의 동기 호출은 서로 끼어들지 않지만 파일 잠금 실패를 즉시 오류로 바꾸며, 외부 편집과 비동기 writer 추가에 대응하는 대기 계약은 없다. `session-resources.ts`의 프로젝트 mutation 직렬화는 runtime/cwd 단위여서 **실제 저장 파일이 같은 요청**의 임계영역을 대신하지 못한다.
+
+| 대상 | 책임·변경 |
+|---|---|
+| 신규 `infra/config/file-mutation.ts` | 프로세스 내 공유 파일 대기열. canonical 파일 식별자·비동기 read/수정/commit·재시도·배수 책임. 특정 엔진/JSON 키를 알지 않음 |
+| Claude `plugin-state.ts` | 허용된 `enabledPlugins` 항목만 patch하는 비동기 writer. 현재 호출부·callback을 `Promise<void>` 또는 저장 revision 반환형으로 전파 |
+| Claude `native-resources.ts`·`adapter.ts` | persistence callback을 반드시 await. SDK 확인→저장→성공 경로에서 저장 실패를 누락하지 않으며 기존 SDK 복원 정책 유지. peer의 `persist=false` 경로는 같은 파일을 중복 저장하지 않음 |
+| OpenCode 신규 `project-settings.ts`·`mcp-control.ts` | D30의 실제 파일 선택·JSONC 제한 patch를 같은 파일 대기열에서 수행. 파일 commit 뒤 revision 알림→기존 전체 cwd 유휴 적용 |
+| Claude SDK 소유 MCP 저장 | Orca가 SDK 내부 파일 writer를 대체하지 않음. 범위가 검증된 SDK mutation 호출은 실제 native 저장 대상별 호출 대기열에 등록. SDK 내부 lock의 해제·손상 복구를 흉내 내지 않음 |
+| app 조립·종료 | adapters와 종료 경로가 같은 coordinator를 사용. 정상 종료 시 신규 변경 접수를 닫고 이미 접수한 파일 변경을 drain. SDK 네트워크 대기를 파일 임계영역 안에 넣지 않음 |
+
+기존 `infra/config/json-file.ts`의 모든 Orca 설정 쓰기를 이번 변경에서 일괄 교체하지 않는다. 이번 네이티브 확장 설정으로 이어지는 writer/callback/SDK mutation만 전수 연결한다. SDK native MCP 파일이 여러 cwd에서 공유된다고 호출 대기열을 cwd별로 쪼개지 않으며, 파일 직렬화가 F1의 **저장 의미상 범위 누출**을 해결한 것으로도 판정하지 않는다.
+
+### 임계영역과 오류 처리
+
+1. 대상은 adapter의 허용 파일 선택과 경로 검증을 거친 절대 경로다. 실제 파일 또는 가장 가까운 기존 부모의 realpath를 기준으로 식별하며 Windows 대소문자·경로 구분자 별칭을 합친다. 링크/부모가 바뀌면 commit 전에 경로 범위를 재검증한다. 존재하지 않는 파일 생성도 같은 식별자를 사용한다.
+2. **read/parse/허용 키 patch/commit 전체**가 같은 파일의 임계영역이다. 호출 시점의 파일 사본이나 전체 설정 객체를 큐에 넣지 않는다. 대기열에는 대상 키·값 등 변경 의도만 전달하며 lock 획득 후 최신 파일을 읽는다.
+3. 같은 디렉터리의 고유 임시 파일을 배타 생성하고 내용 쓰기→파일 sync→close→rename으로 교체한다. 기존 파일 모드를 보존하고 새 파일은 제한된 모드로 생성한다. 실패 시 원본을 먼저 삭제하거나 truncate하지 않는다. JSONC 주석·비대상 키·비밀 sentinel 보존은 AC14K를 따른다.
+4. 원본의 bytes/revision을 commit 직전에 재확인한다. 그 사이 외부 편집을 발견하면 임시 산출을 버리고 최신 원본에 **같은 허용 키 변경만** 다시 계산한다. 재시도에서도 최초 사본 전체를 재사용하지 않는다. 파일 삭제·생성·원자 교체도 revision 변화로 취급한다.
+5. `EBUSY` 및 Windows 공유 위반으로 나타날 수 있는 `EPERM`/`EACCES`는 비동기 backoff로 재시도한다. 작업의 최초 실제 I/O부터 재시도 예산 5초, 지연 50ms에서 시작해 800ms 상한으로 늘린다. 큐 대기 시간은 이 예산에 넣지 않는다. 영구 권한 오류는 예산 후 실패하며 syntax·`ENOSPC`·지원하지 않는 경로는 즉시 분류한다. `ENOENT`는 허용된 신규 파일과 사라진 부모/원본 충돌을 구별한다.
+6. 예외가 나도 `finally`에서 handle·임시 파일·큐 소유권을 정리한다. 선행 Promise rejection이 다음 요청까지 전파되어 큐를 막지 않아야 한다. 완료한 빈 큐는 해제한다. 같은 임계영역에서 다시 같은 파일 큐를 기다리는 재진입은 금지한다.
+7. 저장 결과는 실제 commit 이후에만 resolve한다. 자기 쓰기 watcher와 중복 알림은 revision으로 합치며, 오래 대기한 요청의 runtime 적용 직전에도 cwd·세대·전체 유휴 조건을 재검사한다. 저장 완료 뒤의 SDK 적용 실패는 저장 실패와 별개로 보고하고 외부 편집을 되돌리는 보상 쓰기는 하지 않는다.
+8. 정상 종료의 drain은 파일 commit을 기다린다. 강제 종료·전원 손실까지 미완료 요청을 복구한다고 약속하지 않으며, 미완료 요청에 성공을 응답하지 않는다. rename 원자성/파일 sync는 지원 파일시스템 범위의 보장이고 모든 네트워크 파일시스템의 전원 장애 내구성과 같지 않다.
+
+### 검토한 사례와 채택 경계
+
+| 사례 | 이번 설계에 반영한 점 | 한계·채택 여부 |
+|---|---|---|
+| [npm write-file-atomic](https://github.com/npm/write-file-atomic#readme) | 같은 파일의 Promise 직렬화·다른 파일 병렬화·고유 임시 파일·sync 후 rename | 쓰기만 큐에 넣으면 lock 밖에서 읽은 사본의 lost update를 막지 못함. read/merge부터 임계영역에 포함. 패키지 신규 도입 결정은 아님 |
+| [proper-lockfile](https://github.com/moxystudio/node-proper-lockfile#readme) | 프로세스 간 협력 잠금, stale/해제/실패 후 복구를 별도 고려 | 같은 규약에 참여하지 않는 CLI/Desktop/편집기를 막지 못함. 이번에는 별도 `.lock` 파일이나 의존성을 추가하지 않음 |
+| 메모리 변경 후 지연 flush | 빠른 입력을 저장 작업과 분리할 수 있음 | 공유 native 파일의 외부 편집·종료 시 미저장·거짓 성공 처리가 복잡해짐. 이 작업에서는 저장 완료를 기다리는 대기열을 채택 |
+
+**보장 범위:** 같은 Orca main 안에서 이 coordinator를 거치는 요청의 lost update와 원본 부분 쓰기를 방지한다. 외부 프로그램과의 완전한 트랜잭션 격리는 공통 잠금 규약 없이 보장할 수 없다. 외부 변경은 optimistic revision 검사·재병합·저장 후 관측으로 대응하지만, 최종 검사와 rename 사이의 비협력 외부 쓰기까지 완전히 차단한다고 표현하지 않는다. SDK 내부 저장의 동시성도 설치 버전의 실제 동작으로 별도 검사하며 Orca writer 테스트 통과로 대체하지 않는다.
+
+## 24. ΔV3 인수 기준과 V 연결
+
+| AC | 관측 결과 / 프로덕션 도달 경로 | 직접 검증 |
+|---|---|---|
+| AC17W | 패널/IPC→동일 파일에 겹친 서로 다른 키 변경이 모두 남음. 같은 키는 등록 순서의 마지막 성공값. 정상 경합 오류 없음 | W1·W2·W3, 실제 임시 파일과 성공/실패 응답 대조 |
+| AC18Q | A 파일이 잠겨도 B 파일과 이벤트 루프 진행. 일시 잠금 해제 후 A는 재입력 없이 성공. 실패한 작업 뒤에도 큐 사용 가능 | W4·W5·W6, 단계 barrier와 real I/O; Windows 별도 프로세스의 공유 금지 handle 재현 |
+| AC19C | 외부 편집 탐지 시 최신 원본에 제한 patch. 손상·영구 오류는 원본을 훼손하지 않음. 저장 전 성공 응답 없음 | W7·W8·W9, bytes·비대상 sentinel·응답 시점·임시 파일 정리 |
+| AC20L | 저장 대기·watcher·종료가 cwd 격리·유휴 적용·전역 비소급을 깨지 않음. 이미 접수한 파일 변경은 정상 종료에서 drain | W10·W11·W12와 C/G/O 회귀. 실제 저장 revision과 SDK 호출·종료 순서 |
+
+W1 서로 다른 plugin/MCP 키의 동시 변경; W2 같은 키 on→off; W3 Windows 경로 별칭/부재 파일 동시 생성; W4 A 잠금 중 B 완료와 이벤트 루프 진행; W5 잠금 해제 후 원 요청 완료; W6 앞 요청 실패 뒤 다음 요청 성공; W7 대기·읽기 이후 외부의 다른 키 편집과 같은 키 충돌; W8 malformed·권한·디스크 오류; W9 rename 전 실패/저장 read-back/임시 파일 정리; W10 watcher 중복·프로젝트 busy 전환·지각 응답; W11 정상 종료 drain과 성공 응답 순서; W12 SDK 소유 파일에 겹친 호출 및 같은 cwd peer의 중복 저장 방지다. fixture는 실제 사용자 설정 대신 격리된 HOME/cwd를 쓴다.
+
+| Pair | 노드 / requiredness | 생산 경로·직접 oracle 좌표(신설 또는 보강) |
+|---|---|---|
+| DV3-P1 | R4↔AT4 NEW REQUIRED | 패널 제어→등록 IPC→실제 writer→응답. `app/handlers/session-resources.test.ts: concurrent project edits wait for committed files`에 W1·2·5·9; 실제 등록 handler와 writer를 실행하고 native SDK만 fixture로 대체 |
+| DV3-P2 | SD5↔ST5 NEW REQUIRED | 저장 대기→파일 revision→observer→유휴 reconcile/종료. `app/project-resource-sync.test.ts: queued writes preserve idle and generation guards`, 신규 `app/native-settings-lifecycle.test.ts: shutdown drains accepted file changes`에 W4·10·11 |
+| DV3-P3 | AR5↔IT5 NEW REQUIRED | adapter callback→공유 coordinator→native 파일. `adapters/claude/native-resources.test.ts: persistence is awaited and peer updates do not rewrite`, `adapters/opencode/v1/project-settings.integration.test.ts: concurrent native patches preserve sibling keys`에 W1·3·6·7·12 |
+| DV3-P4 | MD5↔UT5 NEW REQUIRED | canonical key→read/patch→retry/commit→release. 신규 `infra/config/file-mutation.test.ts`에 W2–9·11의 실제 임시 파일, controllable I/O seam·clock; 실패 phase별 bytes와 후속 요청 완료 단언 |
+| DV2-P1/2/3/4, DV1-P2/3, V1 VP7 | INHERITED REGRESSION | AC6N·14K·15O·16F, C/G/O·Claude F1·유휴·비소급·네이티브 읽기/쓰기. ΔV3는 저장 의미나 capability를 대체하지 않음 |
+
+예정 테스트 좌표는 구현 완료 증거가 아니다. 단위 테스트에서 파일 시스템 양 끝을 모두 mock하거나 queue 함수 호출 횟수만 확인해 위 인수 기준을 닫을 수 없다. Windows OS 잠금은 별도 임시 파일을 `FileShare.None`으로 연 자식 프로세스를 해제하여 재현하고 일시 `EPERM` 주입 시험과 구분한다.
+
+## 25. ΔV3 §10 강제 지점과 완료 게이트
+
+| 자리 | 강제 계약·oracle | 실패 의미 |
+|---|---|---|
+| WEP1 `session-resources.ts` mutation→adapter | DV3-P1: 동시 호출의 저장 완료/실패 결과까지 await | 저장 Promise를 놓쳐 성공 선응답·unhandled rejection |
+| WEP2 `claude/adapter.ts` persistence callback | DV3-P3: 실제 writer로 Promise 전달 | void callback에 비동기 writer를 연결해 완료를 잃음 |
+| WEP3 `claude/native-resources.ts` plugin set | DV3-P3: await persist 및 `persist=false` peer 무기록 | 파일 실패 은폐·같은 파일의 중복 peer 쓰기 |
+| WEP4 `claude/plugin-state.ts` 파일 변경 | DV3-P3/4: 최신 파일→허용 key patch 전체를 coordinator 안에서 실행 | 큐 밖 read로 형제 키 유실 |
+| WEP5 `opencode/v1/mcp-control.ts` set→project writer | DV3-P1/3: 저장 완료 revision 뒤 알림·유휴 적용 | 저장 전 적용·과거 사본/다른 경로 전달 |
+| WEP6 신규 OpenCode `project-settings.ts` writer | DV3-P3/4: 실제 source 선택·JSONC 제한 patch를 같은 큐에서 실행 | 상위 파일 변경·주석/비대상 키 삭제·직렬화 우회 |
+| WEP7 `claude/native-resources.ts` MCP SDK mutation | DV3-P3 및 격리 native probe: 실제 저장 대상 기준 호출 대기·scope guard | 다른 cwd가 같은 파일을 갱신할 때 경합, F1을 큐로 가림 |
+| WEP8 신규 `infra/config/file-mutation.ts` | DV3-P4: canonical queue·read/patch/commit·재시도·release·drain | blocking sleep·stale 사본·원본 truncate·실패 뒤 교착 |
+| WEP9 `project-resource-sync.ts` observer/reconcile | DV3-P2: revision 합치기·전체 idle·generation 재검사 | 자기 쓰기 루프·busy/이전 세대 적용 |
+| WEP10 `bootstrap.ts`/실제 종료 조립 경로 | DV3-P2: 같은 coordinator 주입·신규 접수 차단→drain | 서로 다른 큐 생성·정상 종료 중 승인한 저장 유실 |
+
+현재 자리 확인 명령: `rg -n 'persistClaudePluginState|persistPluginState|toggleMcpServer|setProjectMcp|setNativeResource|shareNativeResource|reconcileProjectResources|before-quit|will-quit' app/src/main --glob '!*.test.ts'`. 변경 후 추가되는 source 선택/파일 쓰기/종료 hook을 같은 경로에서 재열거해 위 목록과 대응시킨다. 기존 전체 handoff의 미잠금 경계를 이 표로 대체하지 않는다.
+
+문서 gate는 D31→AC17W–20L→DV3-P1–4→WEP의 누락, D15·16·20·21·26·28·29·30과의 모순, 0279/INDEX 참조·상대 링크·diff·inventory/prose다. 구현 gate는 main subtree의 타입·lint·build와 위 UT/IT/ST/AT, 기존 C/G/O를 포함한다. 이번 추가 요구를 문서에 기록한 것과 전체 plan READY·구현 완료는 별개다. **기존 Claude F1 및 OpenCode 네이티브 효력·cwd 격리 검증을 닫기 전에는 READY로 올리지 않는다.**
+
+ΔV3 문서 검사: 변경 문서 4개·상대 링크 258개와 저장소 소유 문서 링크에서 파손 0건. inventory/prose 및 `git diff --check` 통과. 전체 링크 명령의 실패는 무시된 외부 참조 checkout의 기존 파손 10건이며 이번 변경과 분리한다. 제품 코드·기존 verify·evidence·구현 보고는 변경하지 않았다.
 
 ## [구현자 기입] — V1 r1
 
