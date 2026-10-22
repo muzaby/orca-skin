@@ -84,6 +84,7 @@ it('composes Work only into the SDK header while retaining Code execution, tools
         sessionId: null,
         text: 'same user prompt',
         cwd: root,
+        env: { CLAUDE_CONFIG_DIR: join(root, 'native-config') },
         extraDirs: [join(root, 'reference')],
         model: 'fixture-model',
         permissionMode: 'accept_edits',

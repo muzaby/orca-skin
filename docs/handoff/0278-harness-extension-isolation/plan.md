@@ -871,6 +871,7 @@ CI 운영 gate의 실패를 보완하며 유효 Decision·AC·V와 생산 코드
 | daily gate 종료 검사 | 멱등 종료의 첫 `return`보다 dispose가 앞이어야 한다는 문자열 전제, 로컬 재현 | 실제 `Bootstrap.shutdown()`에서 초기화 전/후 정리 순서·두 번 종료 시 1회 dispose 확인 |
 | 파일 별칭 FIFO 검사 | 대문자 TEMP 환경에서 canonical 경로와 입력 문자열이 달라 barrier 미진입·20초 timeout 재현 | canonical 부모로 barrier 대조. 첫 요청부터 대소문자 별칭 사용, 선행 저장 실패도 즉시 전파 |
 | Windows OS 잠금 검사 | CI의 15초 timeout은 확인했으나 동일 timeout은 로컬 미재현 | PowerShell encoded 명령·준비 토큰/flush·준비 전 종료/오류 진단·자식 종료 await. 실제 EBUSY 후 저장 대기/해제 확인 |
+| 로컬 Work 통합 검사 2건 | 전체 회귀에서 실제 사용자 설치 plugin 경로가 기대 목록에 추가되어 실패 | 두 파일의 SDK 요청에 임시 `CLAUDE_CONFIG_DIR`를 전달. reader·builder·adapter는 실제 구현 유지, 재실행 2파일 4개 통과 |
 
 ### 2. 강제 지점·V pair 자기확인
 

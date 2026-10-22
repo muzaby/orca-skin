@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -24,7 +24,9 @@ import { ClaudeAdapter } from '../adapters/claude/adapter'
 import { ExtensionBuilder } from '../features/extensions/common/builder'
 import { prepareAgentExtensionProfile } from './harnesses/registry'
 
-beforeEach(() => {
+let nativeConfig: string
+beforeEach(async () => {
+  nativeConfig = await mkdtemp(join(tmpdir(), 'orca-work-native-config-'))
   vi.clearAllMocks()
   mock.messages.length = 0
   mock.query.mockImplementation(() => ({
@@ -36,6 +38,7 @@ beforeEach(() => {
     close: mock.close
   }))
 })
+afterEach(() => rm(nativeConfig, { recursive: true, force: true }))
 
 async function workExtensions(): Promise<TurnExtensions> {
   const profile = await prepareAgentExtensionProfile(
@@ -59,6 +62,7 @@ it('keeps Work questions, denied tools and cancellation on existing SDK control 
   const live = new ClaudeAdapter().sendMessage({
     sessionId: null,
     cwd: resolve('.'),
+    env: { CLAUDE_CONFIG_DIR: nativeConfig },
     text: 'fixture',
     extensions: await workExtensions(),
     requestApproval: approve
@@ -139,6 +143,7 @@ it('captures checked Work output through the existing PostToolUse hook and outpu
     })
     const signal = new AbortController().signal
     const live = new ClaudeAdapter().sendMessage({
+      env: { CLAUDE_CONFIG_DIR: nativeConfig },
       sessionId: 'session-1',
       cwd: root,
       text: 'fixture',
@@ -218,6 +223,7 @@ it('preserves Work background notifications as provider events without asking fo
   const live = new ClaudeAdapter().sendMessage({
     sessionId: 's1',
     cwd: resolve('.'),
+    env: { CLAUDE_CONFIG_DIR: nativeConfig },
     text: 'fixture',
     extensions: await workExtensions(),
     requestApproval: approve
