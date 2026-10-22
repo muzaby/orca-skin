@@ -284,3 +284,7 @@ ACTIVE 결정 ↔ AC 재대조: 충돌 0. 원본 SSOT와 기존 저장 경로 �
 - 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: sourceKey의 기존 저장 경로 의미를 설계 초안에서 놓쳤고, native-sync 호출부 조사 후 ΔV1으로 정정했다.
 - 반복해서 부딪히는 환경 한계: Electron/Node SQLite ABI 차이, ignored upstream scratch 디렉터리의 문서 링크 실패. 변경 관련 테스트와 분리했다.
 - 현재 라운드·impl 턴: r1 / r1. 다음 주체는 Claude 독립 검증이다.
+
+## [검증자 기입] 파생 이슈 — verify r1 (2026-10-22)
+
+판정 정본은 [verify.md](verify.md) — **PASS**. 파생 이슈 없음.
