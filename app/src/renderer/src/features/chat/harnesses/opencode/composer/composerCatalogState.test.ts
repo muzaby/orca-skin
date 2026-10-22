@@ -131,3 +131,75 @@ it('discards retired and unmounted responses without automatic reconnect', async
   await flush()
   expect(state.getSnapshot().agents.value).toEqual([{ name: 'current' }])
 })
+
+it('loads resource parts only for a panel subscriber and invalidates their connection on instance loss', async () => {
+  vi.useFakeTimers()
+  let invalidate!: (value: ComposerCatalogInvalidated) => void
+  api.onComposerCatalogInvalidated.mockImplementation((callback) => {
+    invalidate = callback
+    return vi.fn()
+  })
+  const mcp = Promise.withResolvers<ComposerCatalogResult>()
+  api.composerCatalog.mockImplementation(async (r: ComposerCatalogRequest) =>
+    r.part === 'mcp' ? mcp.promise : { part: r.part, value: [], generation: 'g' }
+  )
+  const state = new ComposerCatalogState(scope)
+  const composer = state.subscribe(vi.fn())
+  await flush()
+  expect(api.composerCatalog.mock.calls.map(([r]) => r.part)).toEqual(['agents', 'models'])
+  const panel = state.subscribeResources(vi.fn())
+  await flush()
+  expect(state.getSnapshot().plugins).toEqual({ status: 'ready', value: [] })
+  expect(state.getSnapshot().mcp?.status).toBe('loading')
+  const again = state.subscribeResources(vi.fn())
+  expect(api.composerCatalog).toHaveBeenCalledTimes(4)
+  invalidate({ owner: api.composerCatalog.mock.calls[0][0].owner, generation: 'g' })
+  mcp.resolve({
+    part: 'mcp',
+    value: [
+      {
+        id: 'late',
+        name: 'late',
+        kind: 'mcp',
+        status: 'connected',
+        enabled: true,
+        canToggle: false
+      }
+    ],
+    generation: 'g'
+  })
+  await flush()
+  expect(state.getSnapshot().plugins).toEqual({ status: 'error' })
+  expect(state.getSnapshot().mcp).toEqual({ status: 'error' })
+  panel()
+  again()
+  composer()
+  await vi.runOnlyPendingTimersAsync()
+  expect(api.releaseComposerCatalog).toHaveBeenCalledOnce()
+})
+
+it.each(['cancelled', 'error'] as const)(
+  'does not turn a %s outcome into a successful empty catalog',
+  async (status) => {
+    vi.useFakeTimers()
+    api.onComposerCatalogInvalidated.mockReturnValue(vi.fn())
+    api.composerCatalog.mockImplementation(async (r: ComposerCatalogRequest) => ({
+      part: r.part,
+      value: r.part === 'agents' ? [{ name: 'Atlas' }] : [],
+      generation: 'g'
+    }))
+    const state = new ComposerCatalogState(scope),
+      remove = state.subscribe(vi.fn())
+    await flush()
+    api.composerCatalog.mockResolvedValueOnce({
+      part: 'agents',
+      status,
+      failure: { stage: 'agents', reason: 'timeout' }
+    })
+    state.retry('agents')
+    await flush()
+    expect(state.getSnapshot().agents).toEqual({ status: 'error', value: [{ name: 'Atlas' }] })
+    remove()
+    await vi.runOnlyPendingTimersAsync()
+  }
+)

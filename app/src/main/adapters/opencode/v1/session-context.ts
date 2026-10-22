@@ -1,5 +1,9 @@
 import { createOpencodeClient, type Event, type OpencodeClient } from '@opencode-ai/sdk/v2/client'
-import type { NativeCommand, NativeComposerCatalog } from '../../../../shared/native-resources'
+import type {
+  NativeCommand,
+  NativeComposerCatalog,
+  NativeResource
+} from '../../../../shared/native-resources'
 import { harnessEnvFingerprint } from '../../common/harness-config'
 import { OpenCodeComposerCache } from './composer-cache'
 import { openCodePreparationError } from './errors'
@@ -41,6 +45,12 @@ export interface OpenCodeClientLease {
   composer(signal: AbortSignal, refresh?: boolean): Promise<NativeComposerCatalog>
   agents(signal: AbortSignal, refresh?: boolean): Promise<NativeComposerCatalog['agents']>
   models(signal: AbortSignal, refresh?: boolean): Promise<NativeComposerCatalog['models']>
+  mcp(signal: AbortSignal, refresh?: boolean): Promise<NativeResource[]>
+  plugins(
+    signal: AbortSignal,
+    refresh?: boolean,
+    env?: NodeJS.ProcessEnv
+  ): Promise<NativeResource[]>
   rememberCommands(commands: NativeCommand[]): void
 }
 
@@ -415,6 +425,8 @@ export class OpenCodeSessionContexts {
       composer: (signal, refresh) => owned.composer(metadata, signal, refresh),
       agents: (signal, refresh) => metadata.composer.agents(signal, refresh),
       models: (signal, refresh) => metadata.composer.models(signal, refresh),
+      mcp: (signal, refresh) => metadata.composer.mcp(signal, refresh),
+      plugins: (signal, refresh, env) => metadata.composer.plugins(signal, refresh, env),
       rememberCommands: (commands) => owned.rememberCommands(scope, metadata, commands),
       events: (signal) =>
         owned.events(scope.directory, AbortSignal.any([signal, scope.controller.signal])),

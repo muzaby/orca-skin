@@ -2,8 +2,13 @@ import { EventEmitter } from 'node:events'
 import { randomUUID } from 'node:crypto'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../../shared/ipc'
-import type { ComposerCatalogLease, ComposerCatalogRequest } from '../../../shared/composer-catalog'
-import type { NativeComposerCatalog } from '../../../shared/native-resources'
+import type {
+  ComposerCatalogData,
+  ComposerCatalogLease,
+  ComposerCatalogRequest
+} from '../../../shared/composer-catalog'
+const log = vi.hoisted(() => ({ warn: vi.fn() }))
+vi.mock('../../infra/log', () => ({ getLogger: () => ({ child: () => log }) }))
 const callbacks = vi.hoisted(
   () => new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>()
 )
@@ -42,9 +47,11 @@ function lease(): {
   release: ReturnType<typeof vi.fn<() => Promise<void>>>
 } {
   const control = new AbortController()
-  const data: NativeComposerCatalog = {
+  const data: ComposerCatalogData = {
     agents: [{ name: 'Atlas' }],
-    models: [{ id: 'team/fast', variants: ['deep'] }]
+    models: [{ id: 'team/fast', variants: ['deep'] }],
+    mcp: [],
+    plugins: []
   }
   const release = vi.fn(async () => undefined)
   const value: ComposerCatalogLease = {
@@ -60,7 +67,10 @@ const call = (
   payload: unknown,
   channel: string = CHANNELS.composerCatalog
 ): Promise<unknown> => callbacks.get(channel)!({ sender }, payload)
-beforeEach(() => callbacks.clear())
+beforeEach(() => {
+  callbacks.clear()
+  log.warn.mockClear()
+})
 
 it('shares pending acquisition for parts, isolates windows, and releases on navigation/crash/shutdown', async () => {
   const a = lease(),
@@ -113,7 +123,8 @@ it('releases acquisitions completing after close and rejects stale requests with
   await call(sender, { owner: req.owner }, CHANNELS.composerCatalogRelease)
   expect(prepare.mock.calls[0]![1].aborted).toBe(true)
   gate.resolve(owned.value)
-  expect(String(await result)).toContain('목록을 불러오지 못했습니다')
+  expect(await result).toEqual({ part: 'agents', status: 'cancelled' })
+  expect(log.warn).not.toHaveBeenCalled()
   expect(owned.release).toHaveBeenCalledTimes(1)
   close()
 })
@@ -139,7 +150,7 @@ it('reports a dead native generation and reacquires only on explicit retry', asy
     expect(a.release).toHaveBeenCalledTimes(1)
     await expect(
       call(sender, { ...req, scope: { ...req.scope, cwd: 'C:/wrong' } })
-    ).rejects.toThrow()
+    ).resolves.toMatchObject({ status: 'error', failure: { stage: 'owner' } })
   } finally {
     close()
   }
@@ -161,7 +172,11 @@ it('validates directory and owner before preparation, then retries failed setup'
     ).rejects.toThrow()
     await expect(call(sender, { ...req, owner: 'invalid' })).rejects.toThrow()
     expect(prepare).not.toHaveBeenCalled()
-    await expect(call(sender, req)).rejects.toThrow('OpenCode 목록')
+    await expect(call(sender, req)).resolves.toMatchObject({
+      status: 'error',
+      failure: { stage: 'owner' }
+    })
+    expect(JSON.stringify(log.warn.mock.calls)).not.toContain('SECRET')
     expect(await call(sender, req)).toMatchObject({ part: 'agents' })
   } finally {
     close()
@@ -192,11 +207,67 @@ it('refresh re-resolves and keeps old owner until replacement is ready', async (
     expect(await agents).toMatchObject({ generation: b.value.generation })
     expect(await models).toMatchObject({ generation: b.value.generation })
     expect(a.release).toHaveBeenCalledTimes(1)
-    await expect(call(sender, { ...req, refresh: true })).rejects.toThrow('목록')
+    await expect(call(sender, { ...req, refresh: true })).resolves.toMatchObject({
+      status: 'error'
+    })
     expect(await call(sender, req)).toMatchObject({ generation: b.value.generation })
     expect(b.release).not.toHaveBeenCalled()
   } finally {
     disposal.resolve()
+    close()
+  }
+})
+
+it('returns read-stage HTTP diagnostics without leaking native bodies and preserves the lease for retry', async () => {
+  const owned = lease(),
+    sender = new Sender(8),
+    req = request()
+  const read = vi
+    .fn()
+    .mockRejectedValueOnce(
+      new Error('SECRET native file', { cause: { status: 503, body: 'SECRET' } })
+    )
+    .mockResolvedValueOnce([])
+  owned.value.read = read
+  const prepare = vi.fn(async () => owned.value)
+  const close = registerComposerCatalogHandlers(prepare)
+  try {
+    expect(await call(sender, { ...req, part: 'mcp' })).toEqual({
+      part: 'mcp',
+      status: 'error',
+      failure: { stage: 'mcp', reason: 'http', httpStatus: 503 }
+    })
+    expect(log.warn).toHaveBeenCalledWith('opencode.catalog.failed', {
+      part: 'mcp',
+      stage: 'mcp',
+      reason: 'http',
+      httpStatus: 503
+    })
+    expect(JSON.stringify(log.warn.mock.calls)).not.toContain('SECRET')
+    expect(await call(sender, { ...req, part: 'mcp' })).toMatchObject({ part: 'mcp', value: [] })
+    expect(prepare).toHaveBeenCalledOnce()
+  } finally {
+    close()
+  }
+})
+
+it('silently cancels an in-flight metadata read when its owner leaves', async () => {
+  const owned = lease(),
+    sender = new Sender(9),
+    req = request()
+  const gate = Promise.withResolvers<[]>()
+  owned.value.read = vi.fn(() => gate.promise)
+  const close = registerComposerCatalogHandlers(async () => owned.value)
+  try {
+    const result = call(sender, { ...req, part: 'plugins' })
+    await vi.waitFor(() => expect(owned.value.read).toHaveBeenCalled())
+    await call(sender, { owner: req.owner }, CHANNELS.composerCatalogRelease)
+    gate.resolve([])
+    expect(await result).toEqual({ part: 'plugins', status: 'cancelled' })
+    expect(log.warn).not.toHaveBeenCalled()
+    expect(owned.release).toHaveBeenCalledOnce()
+  } finally {
+    gate.resolve([])
     close()
   }
 })

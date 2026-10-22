@@ -401,6 +401,16 @@ it('preserves native resource state and toggle identity through renderer and pre
     harness.invoke.mockResolvedValue(catalog)
     expect(await sessionApi.composerCatalog(catalogRequest)).toBe(catalog)
     expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.composerCatalog, catalogRequest)
+    for (const part of ['mcp', 'plugins'] as const) {
+      const request = { ...catalogRequest, part }
+      const result = { part, value: [], generation: 'resource-g' }
+      harness.invoke.mockResolvedValue(result)
+      expect(await sessionApi.composerCatalog(request)).toBe(result)
+      expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.composerCatalog, request)
+    }
+    const cancelled = { part: 'agents', status: 'cancelled' }
+    harness.invoke.mockResolvedValue(cancelled)
+    expect(await sessionApi.composerCatalog(catalogRequest)).toBe(cancelled)
     await sessionApi.releaseComposerCatalog(catalogRequest.owner)
     expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.composerCatalogRelease, {
       owner: 'owner-B'

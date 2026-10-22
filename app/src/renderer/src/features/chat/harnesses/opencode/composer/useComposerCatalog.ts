@@ -1,6 +1,7 @@
 import { useMemo, useSyncExternalStore } from 'react'
 import { useChatSession } from '../../../store/chatStore'
 import { composerCatalogState, type ComposerCatalogSnapshot } from './composerCatalogState'
+import type { ComposerCatalogPart } from '../../../../../../../shared/composer-catalog'
 
 const pending: ComposerCatalogSnapshot = {
   agents: { status: 'loading' },
@@ -9,9 +10,12 @@ const pending: ComposerCatalogSnapshot = {
 const emptySubscribe = (): (() => void) => () => undefined
 const emptySnapshot = (): ComposerCatalogSnapshot => pending
 
-export function useComposerCatalog(providerKey: string | null): {
+export function useComposerCatalog(
+  providerKey: string | null,
+  resources = false
+): {
   snapshot: ComposerCatalogSnapshot
-  retry(part: 'agents' | 'models'): void
+  retry(part: ComposerCatalogPart): void
 } {
   const sessionId = useChatSession((state) => state.sessionId)
   const cwd = useChatSession((state) => state.cwd)
@@ -32,7 +36,7 @@ export function useComposerCatalog(providerKey: string | null): {
     [sessionId, cwd, projectId, providerKey, agentKind]
   )
   const snapshot = useSyncExternalStore(
-    state?.subscribe ?? emptySubscribe,
+    (resources ? state?.subscribeResources : state?.subscribe) ?? emptySubscribe,
     state?.getSnapshot ?? emptySnapshot,
     state?.getSnapshot ?? emptySnapshot
   )

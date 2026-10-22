@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import type { OpencodeClient } from '@opencode-ai/sdk/v2/client'
 import type { NativeComposerCatalog } from '../../../../shared/native-resources'
+import type { ComposerCatalogData } from '../../../../shared/composer-catalog'
+import { openCodeNativeMcp, openCodeNativePlugins } from './native-resources'
 import { openCodeComposerAgents, openCodeComposerModels } from './composer-catalog'
 import { waitForOpenCode } from './instance-lifecycle'
 
@@ -14,6 +16,8 @@ export class OpenCodeComposerCache {
   readonly generation = randomUUID()
   private readonly agentSlot: Slot<NativeComposerCatalog['agents']> = {}
   private readonly modelSlot: Slot<NativeComposerCatalog['models']> = {}
+  private readonly mcpSlot: Slot<ComposerCatalogData['mcp']> = {}
+  private readonly pluginSlot: Slot<ComposerCatalogData['plugins']> = {}
   constructor(
     private readonly client: OpencodeClient,
     private readonly directory: string,
@@ -26,6 +30,24 @@ export class OpenCodeComposerCache {
 
   models(signal: AbortSignal, refresh = false): Promise<NativeComposerCatalog['models']> {
     return this.read(this.modelSlot, openCodeComposerModels, signal, refresh)
+  }
+
+  mcp(signal: AbortSignal, refresh = false): Promise<ComposerCatalogData['mcp']> {
+    return this.read(this.mcpSlot, openCodeNativeMcp, signal, refresh)
+  }
+
+  plugins(
+    signal: AbortSignal,
+    refresh = false,
+    env?: NodeJS.ProcessEnv
+  ): Promise<ComposerCatalogData['plugins']> {
+    return this.read(
+      this.pluginSlot,
+      (client, directory, requestSignal) =>
+        openCodeNativePlugins(client, directory, env, requestSignal),
+      signal,
+      refresh
+    )
   }
 
   private read<T>(

@@ -39,18 +39,30 @@ export function NativeResourcesTileHeader({
 }
 
 export function NativeResourcesTileContent(): React.JSX.Element {
-  const { tr } = useI18n()
   const sessionId = useChatSession((state) => state.sessionId)
   const backend = useChatSession((state) => state.backend)
   const cwd = useChatSession((state) => state.cwd)
   const projectId = useChatSession((state) => state.pendingProjectId ?? state.projectId)
-  const anchorRef = useRef<HTMLDivElement>(null)
-  const { view, pending, toggle, openPlugin, refresh } = useNativeResources(
+  const resources = useNativeResources(
     sessionId,
     true,
     backend,
     sessionId ? undefined : { backend: backend ?? 'claude', cwd, projectId }
   )
+  return <NativeResourcesTileView resources={resources} />
+}
+
+export function NativeResourcesTileView({
+  resources,
+  refreshable = false
+}: {
+  resources: ReturnType<typeof useNativeResources>
+  refreshable?: boolean
+}): React.JSX.Element {
+  const { tr } = useI18n()
+  const backend = useChatSession((state) => state.backend)
+  const anchorRef = useRef<HTMLDivElement>(null)
+  const { view, pending, toggle, openPlugin, refresh } = resources
   const items = useMemo(
     () =>
       nativeResourcesMenu(view, pending, tr).flatMap(
@@ -75,6 +87,13 @@ export function NativeResourcesTileContent(): React.JSX.Element {
       data-native-status={backend ?? 'claude'}
       className="min-h-0 flex-1 overflow-y-auto p-2 [&_[data-menu-heading]:not(:first-child)]:mt-5"
     >
+      {refreshable && (
+        <div className="flex justify-end">
+          <Button size="small" iconOnly aria-label={tr('harness.catalogRefresh')} onClick={refresh}>
+            <Icon name="refresh" size={13} />
+          </Button>
+        </div>
+      )}
       {view.status === 'loading' && (
         <span
           role="status"
@@ -84,7 +103,7 @@ export function NativeResourcesTileContent(): React.JSX.Element {
           <Icon name="refresh" size={14} className="animate-spin motion-reduce:animate-none" />
         </span>
       )}
-      {view.status === 'error' && (
+      {view.status === 'error' && !refreshable && (
         <Button size="small" leadingIcon="refresh" onClick={refresh}>
           {tr('chat.nativeResources.retry')}
         </Button>

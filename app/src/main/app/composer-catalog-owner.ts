@@ -5,6 +5,9 @@ import type {
   ComposerCatalogResult,
   ComposerCatalogScope
 } from '../../shared/composer-catalog'
+import { ComposerCatalogError } from './composer-catalog-error'
+
+export class ComposerCatalogCancelled extends Error {}
 
 interface Owner {
   scope: string
@@ -78,24 +81,24 @@ export class ComposerCatalogOwners {
           owned.revalidating = false
         })
     }
-    const lease = await entry.task
-    entry.controller.signal.throwIfAborted()
-    const signal = entry.controller.signal
-    const result: ComposerCatalogResult =
-      request.part === 'agents'
-        ? {
-            part: 'agents',
-            value: await lease.read('agents', signal, request.refresh),
-            generation: lease.generation
-          }
-        : {
-            part: 'models',
-            value: await lease.read('models', signal, request.refresh),
-            generation: lease.generation
-          }
-    signal.throwIfAborted()
-    lease.signal.throwIfAborted()
-    return result
+    try {
+      const lease = await entry.task
+      entry.controller.signal.throwIfAborted()
+      const signal = entry.controller.signal
+      const result = {
+        part: request.part,
+        value: await lease.read(request.part, signal, request.refresh).catch((error: unknown) => {
+          throw new ComposerCatalogError(request.part, error)
+        }),
+        generation: lease.generation
+      } as ComposerCatalogResult
+      signal.throwIfAborted()
+      lease.signal.throwIfAborted()
+      return result
+    } catch (error) {
+      if (entry.controller.signal.aborted) throw new ComposerCatalogCancelled()
+      throw error
+    }
   }
 
   private async adopt(

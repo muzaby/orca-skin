@@ -103,6 +103,49 @@ const server = { url: 'http://owned.test', headers: { Authorization: 'Basic one'
 const freshSignal = (): AbortSignal => new AbortController().signal
 
 describe('OpenCode server context with the installed SDK', () => {
+  it('shares resource flights per directory, isolates folders and retries failed MCP without refetching plugins', async () => {
+    const f = fixture()
+    const one = await f.pool.acquire(server, 'C:/A')
+    const peer = await f.pool.acquire(server, 'C:/A')
+    const two = await f.pool.acquire(server, 'C:/B')
+    const gate = Promise.withResolvers<void>()
+    let failing = true
+    f.setRead(async (request) => {
+      const url = new URL(request.url)
+      if (url.pathname === '/mcp') {
+        await gate.promise
+        if (failing) return jsonResponse({ message: 'SECRET native config' }, 503)
+        return jsonResponse({ [url.searchParams.get('directory')!]: { status: 'connected' } })
+      }
+      if (url.pathname === '/config') return jsonResponse({ plugin: ['test-plugin@1'] })
+      return undefined
+    })
+    try {
+      const first = one.mcp(freshSignal()).catch((e: unknown) => e)
+      const shared = peer.mcp(freshSignal()).catch((e: unknown) => e)
+      expect(await one.plugins(freshSignal())).toMatchObject([
+        { name: 'test-plugin@1', kind: 'plugin' }
+      ])
+      gate.resolve()
+      expect(await first).toMatchObject({ cause: { status: 503 } })
+      expect(await shared).toMatchObject({ cause: { status: 503 } })
+      failing = false
+      const a = await one.mcp(freshSignal())
+      const b = await two.mcp(freshSignal())
+      expect(a[0].name).not.toBe(b[0].name)
+      expect(await peer.mcp(freshSignal())).toEqual(a)
+      await peer.plugins(freshSignal())
+      expect(f.requests.filter((r) => new URL(r.url).pathname === '/mcp')).toHaveLength(3)
+      expect(f.requests.filter((r) => new URL(r.url).pathname === '/config')).toHaveLength(1)
+      expect(f.requests.every((r) => r.method === 'GET')).toBe(true)
+    } finally {
+      gate.resolve()
+      await one.release()
+      await peer.release()
+      await two.release()
+      f.pool.close()
+    }
+  })
   it('returns agents without config, providers, commands or events and coalesces cold/refresh reads', async () => {
     const f = fixture()
     const one = await f.pool.acquire(server, 'C:/one')

@@ -6,7 +6,9 @@ import {
 } from '../../../shared/protocol'
 import type { ComposerCatalogLease, ComposerCatalogScope } from '../../../shared/composer-catalog'
 import { handle } from '../../infra/ipc/handle'
-import { ComposerCatalogOwners } from '../composer-catalog-owner'
+import { ComposerCatalogOwners, ComposerCatalogCancelled } from '../composer-catalog-owner'
+import { ComposerCatalogError } from '../composer-catalog-error'
+import { getLogger } from '../../infra/log'
 
 export function registerComposerCatalogHandlers(
   prepare: (scope: ComposerCatalogScope, signal: AbortSignal) => Promise<ComposerCatalogLease>
@@ -42,9 +44,16 @@ export function registerComposerCatalogHandlers(
           if (!event.sender.isDestroyed())
             event.sender.send(CHANNELS.composerCatalogInvalidated, value)
         })
-      } catch {
-        // Native errors can contain configuration or credentials. UI owns the retry state.
-        throw new Error('OpenCode 목록을 불러오지 못했습니다. 다시 시도해 주세요.')
+      } catch (error) {
+        if (error instanceof ComposerCatalogCancelled)
+          return { part: request.part, status: 'cancelled' as const }
+        const failure = (
+          error instanceof ComposerCatalogError ? error : new ComposerCatalogError('owner', error)
+        ).failure
+        getLogger()
+          .child('composer')
+          .warn('opencode.catalog.failed', { part: request.part, ...failure })
+        return { part: request.part, status: 'error' as const, failure }
       }
     }
   )

@@ -18,6 +18,9 @@ vi.mock('electron', () => ({
 vi.mock('../infra/config/orca-config', () => ({ appEnv: () => ({ PREVIEW_APP_ENV: 'app-value' }) }))
 
 function fixture(): {
+  adapter: OpenCodeAdapter
+  fetchImpl: ReturnType<typeof vi.fn<typeof fetch>>
+  acquire: ReturnType<typeof vi.fn>
   ctx: RouterContext
   scope: ComposerCatalogScope
   capture: import('vitest').MockInstance<OpenCodeAdapter['prepareComposer']>
@@ -48,10 +51,9 @@ function fixture(): {
     last_model: null
   }
 } {
-  const adapter = new OpenCodeAdapter(
-    { acquire: vi.fn(), installed: vi.fn(), close: vi.fn() },
-    vi.fn()
-  )
+  const fetchImpl = vi.fn<typeof fetch>()
+  const acquire = vi.fn(async () => ({ url: 'http://owned.test', headers: {}, release: vi.fn() }))
+  const adapter = new OpenCodeAdapter({ acquire, installed: vi.fn(), close: vi.fn() }, fetchImpl)
   const capture = vi.spyOn(adapter, 'prepareComposer').mockResolvedValue({
     generation: 'native-generation',
     signal: new AbortController().signal,
@@ -107,7 +109,7 @@ function fixture(): {
     providerKey: 'opencode-one',
     agentKind: 'code'
   }
-  return { ctx, scope, capture, resolve, getSessionById, saved }
+  return { ctx, scope, capture, resolve, getSessionById, saved, adapter, fetchImpl, acquire }
 }
 
 it('prepares draft and saved directory with the same production settings and env resolution as turns', async () => {
@@ -144,6 +146,78 @@ it('prepares draft and saved directory with the same production settings and env
       providerSettings: expect.objectContaining({ provider: 'two' })
     })
   )
+})
+
+it('returns prepared plugin and agent parts through IPC before blocked MCP/models without a session', async () => {
+  const f = fixture()
+  f.capture.mockRestore()
+  const gates = {
+    mcp: Promise.withResolvers<Response>(),
+    provider: Promise.withResolvers<Response>()
+  }
+  const requests: Request[] = []
+  f.fetchImpl.mockImplementation(async (input, init) => {
+    const request = new Request(input, init)
+    requests.push(request)
+    const path = new URL(request.url).pathname
+    const json = (value: unknown): Response =>
+      new Response(JSON.stringify(value), { headers: { 'Content-Type': 'application/json' } })
+    if (path === '/config') return json({ plugin: ['@dynamic/plugin@1'] })
+    if (path === '/agent') return json([{ name: 'Atlas', mode: 'primary' }])
+    if (path === '/mcp') return gates.mcp.promise
+    if (path === '/provider') return gates.provider.promise
+    throw new Error('unexpected endpoint')
+  })
+  const close = registerComposerCatalog(f.ctx)
+  const sender = Object.assign(new EventEmitter(), {
+    id: 77,
+    isDestroyed: () => false,
+    send: vi.fn()
+  })
+  const owner = randomUUID()
+  const read = (part: string, refresh = false): Promise<unknown> =>
+    handlers.get(CHANNELS.composerCatalog)!({ sender }, { owner, scope: f.scope, part, refresh })
+  try {
+    const mcp = read('mcp')
+    const models = read('models')
+    expect(await read('plugins')).toMatchObject({
+      part: 'plugins',
+      value: [{ name: '@dynamic/plugin@1', kind: 'plugin', status: 'enabled' }]
+    })
+    expect(await read('agents')).toMatchObject({ value: [{ name: 'Atlas' }] })
+    expect(f.acquire).toHaveBeenCalledOnce()
+    expect(
+      requests.every((r) => new URL(r.url).searchParams.get('directory') === 'C:\\draft-project')
+    ).toBe(true)
+    expect(requests.map((r) => new URL(r.url).pathname).sort()).toEqual([
+      '/agent',
+      '/config',
+      '/mcp',
+      '/provider'
+    ])
+    gates.mcp.resolve(
+      new Response(JSON.stringify({ dynamic: { status: 'connected' } }), {
+        headers: { 'Content-Type': 'application/json' }
+      })
+    )
+    gates.provider.resolve(
+      new Response(JSON.stringify({ all: [], connected: [], default: {} }), {
+        headers: { 'Content-Type': 'application/json' }
+      })
+    )
+    expect(await mcp).toMatchObject({
+      value: [{ id: 'dynamic', kind: 'mcp', status: 'connected', canToggle: false }]
+    })
+    await models
+    await read('mcp')
+    await read('plugins')
+    expect(requests).toHaveLength(4)
+  } finally {
+    gates.mcp.resolve(new Response('{}'))
+    gates.provider.resolve(new Response('{}'))
+    f.adapter.close()
+    close()
+  }
 })
 
 it('does not start a native server after caller cancellation or session scope change during preparation', async () => {

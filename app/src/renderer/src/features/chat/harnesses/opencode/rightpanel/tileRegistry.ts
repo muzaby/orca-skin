@@ -1,7 +1,4 @@
-import {
-  NativeResourcesTileContent,
-  NativeResourcesTileHeader
-} from '../../../components/rightpanel/NativeResourcesTile'
+import { NativeResourcesTileHeader } from '../../../components/rightpanel/NativeResourcesTile'
 import { rightPanelTileDefinitions, type RightPanelTileId } from '../../../lib/rightPanelTiles'
 import type { RightPanelTileRegistration } from '../../contracts'
 import { PlanTileHeaderActions } from '../../common/rightpanel/PlanTileContent'
@@ -15,9 +12,10 @@ import {
   OpenCodeTaskContent
 } from './tiles'
 import { PlanContent } from './PlanTile'
+import { OpenCodeNativeResourcesTile } from './NativeResources'
 
 const contentById = {
-  nativeStatus: NativeResourcesTileContent,
+  nativeStatus: OpenCodeNativeResourcesTile,
   plan: PlanContent,
   subagent: OpenCodeAgentContent,
   task: OpenCodeTaskContent,
