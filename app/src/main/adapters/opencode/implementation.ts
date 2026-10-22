@@ -34,6 +34,7 @@ export interface OpenCodeRuntimeOptions {
   fetchImpl: typeof fetch
   server?: OpenCodeServer
   openDatabase?: typeof openFileDatabase
+  extensionControl?: import('../common/extension-control').ExtensionControl
 }
 
 export interface OpenCodeImplementation {
@@ -43,6 +44,8 @@ export interface OpenCodeImplementation {
   readUserSettings: (configRoot?: string) => EngineUserSettingsResult
   configuredMcpFile: (cwd: string, id: string) => Promise<string | undefined>
   configuredResources: (cwd: string) => Promise<NativeResource[]>
+  globalResources: () => Promise<NativeResource[]>
+  globalResourcePath: (id: string) => Promise<string | undefined>
   skillDirectories: (home?: string, env?: NodeJS.ProcessEnv) => string[]
   pluginSkillDirectories: (home?: string, env?: NodeJS.ProcessEnv) => Promise<string[]>
   contextWindow: (config: Record<string, unknown>, model?: string) => number

@@ -21,6 +21,7 @@ import { nativePluginId } from '../adapters/claude/configured-resources'
 
 const fixture = vi.hoisted(() => ({
   stop: new Error('fixture: session handler callbacks captured'),
+  stopAtSession: true,
   hooks: undefined as Parameters<typeof registerSessionHandlers>[1],
   lookup: undefined as ((sessionId: string) => unknown) | undefined,
   draftCommands: undefined as
@@ -114,18 +115,33 @@ vi.mock('./handlers/session', () => ({
     hooks: Parameters<typeof registerSessionHandlers>[1]
   ) => {
     fixture.hooks = hooks
+    if (fixture.stopAtSession) throw fixture.stop
+  }
+}))
+vi.mock('./handlers/project', () => ({ registerProjectHandlers: vi.fn() }))
+vi.mock('./handlers/mcp', () => ({ registerMcpHandlers: vi.fn() }))
+vi.mock('./handlers/engine', () => ({ registerEngineHandlers: vi.fn() }))
+vi.mock('./handlers/boot', () => ({ registerBootHandlers: vi.fn() }))
+vi.mock('./handlers/update', () => ({ registerUpdateHandlers: vi.fn() }))
+vi.mock('./handlers/settings', () => ({ registerSettingsHandlers: vi.fn() }))
+vi.mock('./handlers/skills', () => ({ registerSkillsHandlers: vi.fn() }))
+vi.mock('./handlers/files', () => ({
+  registerFilesHandlers: () => {
     throw fixture.stop
   }
 }))
 
 import { Bootstrap } from './bootstrap'
-import type { SkillInfo } from '../../shared/ipc'
+import { CHANNELS, type SkillInfo } from '../../shared/ipc'
+import { ipcMain } from 'electron'
+import { harnessModule } from './harnesses/registry'
 
 afterEach(() => {
   fixture.projectSync?.close()
   vi.restoreAllMocks()
   vi.clearAllMocks()
   fixture.hooks = undefined
+  fixture.stopAtSession = true
 })
 
 function register(): {
@@ -133,6 +149,7 @@ function register(): {
   supervisor: RuntimeSupervisor<Electron.WebContents>
   activity: SessionActivityProjector
   forget: ReturnType<typeof vi.fn>
+  settingsChanged: (keys: string[]) => void
 } {
   const forget = vi.fn()
   const bootstrap = Object.create(Bootstrap.prototype) as {
@@ -141,6 +158,17 @@ function register(): {
     registerTurnEvents(): HistoryWriter
     supervisor: RuntimeSupervisor<Electron.WebContents>
     activity: SessionActivityProjector
+    settings: {
+      getAll: () => object
+      onPatch: (callback: (value: object, keys: string[]) => void) => void
+    }
+  }
+  let settingsChanged!: (value: object, keys: string[]) => void
+  bootstrap.settings = {
+    getAll: () => ({ nativeExtensionChoices: { opencode: { 'mcp:docs': false } } }),
+    onPatch: (callback) => {
+      settingsChanged = callback
+    }
   }
   bootstrap.registerArtifacts = vi.fn()
   bootstrap.registerTurnEvents = () =>
@@ -148,8 +176,44 @@ function register(): {
   const ctx = { db: {} } as RouterContext
   expect(() => bootstrap.register(ctx)).toThrow(fixture.stop)
   expect(fixture.hooks).toBeDefined()
-  return { ctx, supervisor: bootstrap.supervisor, activity: bootstrap.activity, forget }
+  return {
+    ctx,
+    supervisor: bootstrap.supervisor,
+    activity: bootstrap.activity,
+    forget,
+    settingsChanged: (keys) => settingsChanged({}, keys)
+  }
 }
+
+it('registers the actual global catalog with settings and connects project MCP changes to synchronization', async () => {
+  fixture.stopAtSession = false
+  vi.spyOn(harnessModule('opencode'), 'globalResources').mockResolvedValue([
+    {
+      id: 'docs',
+      name: 'docs',
+      kind: 'mcp',
+      enabled: true,
+      status: 'configured',
+      canToggle: true
+    }
+  ])
+  const { activity, settingsChanged } = register()
+  const callback = vi
+    .mocked(ipcMain.handle)
+    .mock.calls.find(([channel]) => channel === CHANNELS.extensionCatalog)?.[1]
+  expect(callback).toBeDefined()
+  expect(await callback!({} as Electron.IpcMainInvokeEvent, { backend: 'opencode' })).toMatchObject(
+    {
+      items: [{ id: 'docs', enabled: false, status: 'disabled' }]
+    }
+  )
+  const synchronize = vi.spyOn(fixture.projectSync!, 'settingsChanged')
+  settingsChanged(['language'])
+  expect(synchronize).not.toHaveBeenCalled()
+  settingsChanged(['projectMcpChoices'])
+  expect(synchronize).toHaveBeenCalledExactlyOnceWith('opencode')
+  activity.dispose()
+})
 
 describe('native history bootstrap callbacks', () => {
   it('preserves background snapshots while disposing the same session runtime and activity', () => {

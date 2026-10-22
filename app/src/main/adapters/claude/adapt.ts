@@ -64,13 +64,13 @@ export function adaptSystemPrompt(append?: string): object {
 // Skill 은 두 plugin(sources/skills → dist/plugins/orca/skills · ~/.claude/skills → dist/plugins/claude
 // 래퍼, 0117) 에서 발견되고, SDK `options.skills`(string[]) 가 그중 **활성**만 필터한다. plugin 스킬은
 // `plugin-name:skill-name` 네임스페이스로 발견되므로 Orca 스킬은 `orca:`, 어댑터 스킬은 `claude:`
-// prefix 를 붙인다(adaptSkillNameForClaude). 어댑터 스킬은 토글 불가·항상 on. 알려진 스킬이
+// prefix 를 붙인다(adaptSkillNameForClaude). canToggle인 소스만 명시한 enabled를 반영한다. 알려진 스킬이
 // 하나도 없으면 'all' 로 둬 스캔 누락이 스킬을 통째로 가리지 않게 한다. 네이티브 플러그인의
 // 원래 이름은 nativeSkills 로 합쳐 Orca 필터가 활성 네이티브 스킬을 차단하지 않게 한다.
 export function adaptSkills(skills: SkillInfo[], nativeSkills: readonly string[] = []): object {
   if (skills.length === 0) return { skills: 'all' as const }
   const active = skills
-    .filter((s) => s.sourceKind !== 'orca' || s.enabled)
+    .filter((s) => !s.canToggle || s.enabled)
     .map((s) => adaptSkillNameForClaude(s))
   return { skills: [...new Set([...active, ...nativeSkills])] }
 }

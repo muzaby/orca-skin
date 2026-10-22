@@ -1,6 +1,7 @@
 import {
   openCodeNativeCommands,
-  openCodeNativeResources,
+  openCodeNativeMcp,
+  openCodeNativePlugins,
   openCodeNativePluginDirectory
 } from './native-resources'
 import type { Event, OpencodeClient } from '@opencode-ai/sdk/v2/client'
@@ -16,7 +17,7 @@ import { replyToApproval } from './approval'
 import { recoveredPrompt } from '../../common/recovery'
 import { modelRef } from './model-ref'
 import { reportError } from '../../../infra/error-report'
-import type { NativeComposerCatalog } from '../../../../shared/native-resources'
+import type { NativeComposerCatalog, NativeResource } from '../../../../shared/native-resources'
 import type { OpenCodeClientLease } from './session-context'
 
 /** One SDK subscription feeds the existing SessionRuntime pump for its entire lifetime. */
@@ -32,6 +33,10 @@ export function openCodeChannel(
   let client: OpencodeClient | undefined
   let connection: OpenCodeClientLease | undefined
   let composerCatalog: NativeComposerCatalog | undefined
+  const lastResources: { mcp: NativeResource[]; plugins: NativeResource[] } = {
+    mcp: [],
+    plugins: []
+  }
   let composerFlight: Promise<NativeComposerCatalog | undefined> | undefined
   const refreshComposer = (refresh = false): Promise<NativeComposerCatalog | undefined> => {
     if (composerFlight) return composerFlight
@@ -426,29 +431,57 @@ export function openCodeChannel(
   }
   return {
     providerGeneration: generation,
+    projectResourcePolicy: () => connection?.mcpControl?.policy,
+    reconcileNativeResources: async (revision, idle) =>
+      connection?.mcpControl ? connection.mcpControl.reconcile(revision, idle) : 'applied',
+    setNativeResource: async (request) => {
+      if (
+        closed ||
+        ended ||
+        request.generation !== generation ||
+        request.kind !== 'mcp' ||
+        !connection?.mcpControl
+      )
+        throw new Error('현재 프로젝트에서 이 항목을 제어할 수 없습니다.')
+      await connection.mcpControl.set(request.id, request.enabled)
+    },
     nativePluginDirectory: async (id) => {
       if (!client || closed || ended) return undefined
       return openCodeNativePluginDirectory(client, req.cwd, id, { ...process.env, ...req.env })
     },
     nativeResources: async () => {
-      if (!client || closed || ended) return { state: 'disconnected', items: [] }
-      const [items, commands, composer] = await Promise.all([
-        openCodeNativeResources(client, req.cwd, { ...process.env, ...req.env }),
+      if (!client || closed || ended || connection?.signal.aborted)
+        return { state: 'disconnected', items: [] }
+      const [resourceReads, commands, composer] = await Promise.all([
+        Promise.allSettled([
+          openCodeNativeMcp(client, req.cwd, signal),
+          openCodeNativePlugins(client, req.cwd, { ...process.env, ...req.env }, signal)
+        ]),
         openCodeNativeCommands(client, req.cwd, true, { ...process.env, ...req.env }).catch(
           () => undefined
         ),
         refreshComposer()
       ])
-      if (closed || ended) return { state: 'disconnected', items: [] }
+      if (closed || ended || connection?.signal.aborted) return { state: 'disconnected', items: [] }
+      const [mcp, plugins] = resourceReads
+      if (mcp.status === 'fulfilled') lastResources.mcp = mcp.value
+      if (plugins.status === 'fulfilled') lastResources.plugins = plugins.value
+      const partial =
+        resourceReads.some((result) => result.status === 'rejected') ||
+        commands === undefined ||
+        composer === undefined
       if (commands !== undefined) connection?.rememberCommands(commands)
       composerCatalog = composer ?? composerCatalog
       return {
         state: 'connected',
         generation,
-        items,
+        items: [...lastResources.mcp, ...lastResources.plugins].map((item) => ({
+          ...item,
+          canToggle: item.kind === 'mcp' && mcp.status === 'fulfilled' && !!connection?.mcpControl
+        })),
         ...(commands !== undefined ? { commands } : {}),
         ...(composerCatalog !== undefined ? { composer: composerCatalog } : {}),
-        ...(commands === undefined || composer === undefined ? { partial: true } : {})
+        ...(partial ? { partial: true } : {})
       }
     },
     eventBatches: batches(),

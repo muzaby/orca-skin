@@ -272,3 +272,63 @@ Orca 명시 선택 저장은 기존 JSON 설정 경계를 사용하고 다른 �
 ## 운영 gate·READY 검토
 
 관련 Vitest→node/web/test 타입→lint→Electron ABI 유지 build, 문서 inventory/link·diff/trailer. 실제 커스텀 OpenCode 바이너리/외부 사용자 환경 및 시각 검증은 실행 증거와 분리한다. ACTIVE D1/D15→AC5, D5/D10/D11/D24→AC1/2/3, D7→AC6/10, D9→AC8/9, D12/D17/D23→AC10, D16→AC6/7, D20/D21→AC7, D22/D25→AC4로 대조했다.
+
+## [구현자 기입] — V1 r1
+
+### 1. 설계 리뷰
+
+nav는 native 전역 파일에서 목록·기준 상태를 읽는다. 프로젝트 파일이나 기본 작업폴더를 전역 조회에 섞지 않고, 서버를 획득하지 않는 별도 IPC를 연결했다. D22에 따라 기준값 사본을 저장하지 않는다. 기존 Orca 설정 JSON에 기록하는 값은 사용자가 지원 항목의 토글을 직접 바꾼 선택뿐이다. 미지정 항목은 native 값을 다시 읽는다.
+
+D25는 저장 수명 요구와 D22를 함께 충족하기 위한 구현 해석이다. `nativeExtensionChoices`에는 엔진·종류·원래 식별자·boolean만, `projectMcpChoices`에는 정규화 cwd별 OpenCode MCP boolean만 기록한다. Claude 프로젝트 파일은 기존 D20/D21 경로를 유지한다. 새 DB·외부 global 설정 쓰기·nav 프로젝트 선택 UI는 없다.
+
+### 2. 강제 지점 전수·V pair 자기확인
+
+| EP | 확인 | 실제 실행·직접 oracle |
+|---|---|---|
+| EP1 | 5/5 | `extension-catalog.test.ts`: 실제 등록 IPC와 SettingsStore 저장 JSON·불가 변경 거부. `preload/index.test.ts`: preload→renderer API의 정확한 인자. `bootstrap.harness.test.ts`: 실제 constructor의 서로 다른 엔진 선택 주입. `bootstrap.native-history.test.ts`: 실제 register의 catalog handler와 projectMcpChoices→sync 연결 |
+| EP2 | 3/3 | `adapter.native-plugins.test.ts`: native off→Orca on SDK flags, SDK skill allow-list, 같은 cwd A/peer 보존·새 B·마지막 owner 해제 후 A 재생성. native 파일 bytes 유지 |
+| EP3 | 4/4 | `session-context.test.ts`: 설치 SDK transport에서 directory별 capture·prepare·공유 owner·유휴 reconcile. `adapter.test.ts`: MCP 변경이 prompt보다 선행, 실제 live port의 generation 거부·프로젝트 저장·지연 적용 |
+| EP4 | 5/5 | 양 `configured-resources.test.ts`: global-only 임시 파일. `useNativeMcpCatalog.test.ts`: 실제 hook→CustomizeList→CatalogToggle 클릭→API→행 갱신, 부분 실패·지각 응답. `CustomizeList.render.test.ts`와 native panel/state 회귀: on/off×capability 및 runtime 표시 |
+
+전수 17/17, 잔여 0. VP1–VP6 SELF_PASS. VP7은 0279의 파일 감시·유휴 적용·peer 공유, 0280 준비 목록, 0275 directory/server 수명 테스트를 다시 실행해 SELF_PASS로 기록한다. 별도 verify 판정은 하지 않았다.
+
+### 3. 이번 라운드 수정의 잠금
+
+직접 행동 oracle로 native 값 변경 전후 JSON 무기록, 명시 선택 후 JSON 재생성, 외부 파일 sentinel, 프로젝트 A/B의 다른 SDK 결과를 단언한다. 캐시·부분 실패는 정상 항목을 지운 빈 성공 결과와 구분한다. 이번 plan에 선택 mutation은 없으며, 오류 표면 registry의 기존 자체 검증은 유지했다.
+
+### 4. Product/UX 파생 검토
+
+제어 가능성으로 글씨·토글을 결정한다. 꺼진 Claude user plugin은 일반 글씨와 가변 off 토글, 미지원 OpenCode plugin/skill 및 Claude native MCP 전역 항목은 실제 상태와 고정 회색 토글이다. 프로젝트 우측 패널은 지원 항목만 제어하며 남아 있던 세션별 제어 문구도 프로젝트별로 정정했다. plugin 부모와 그 안의 개별 skill은 별개 항목이며 개별 off API가 없는 skill에는 가변 토글을 만들지 않았다.
+
+nav 조회 실패는 확인된 다른 엔진 항목을 보존하고 재시도를 제공한다. 없는 설정 파일은 열 수 없다. 전역 폴링과 토글 응답의 순서를 분리해 늦은 조회가 새 선택을 덮지 않는다. Composer 팝업의 안내 금지는 [0281](../0281-opencode-menu-cache/plan.md)과 함께 유지했다.
+
+### 5. 놓친 잠재 문제·대응
+
+| 발견 | 대응·경계 |
+|---|---|
+| Claude provider 옵션에 빈 enabledPlugins가 추가되는 회귀 | providerSettings 원본을 바꾸지 않고 captured plugin defaults를 별도 인자로 전달. 기존 SDK 옵션 회귀 재통과 |
+| native global 변경이 같은 cwd의 후속 Query에 섞일 위험 | Query owner별 참조 수명으로 plugin flags·skills capture. 마지막 해제 후 새 capture |
+| OpenCode MCP 일부 조회 실패로 정상 plugin/MCP가 사라짐 | 종류별 allSettled와 마지막 확인 목록. 실패한 MCP의 제어는 잠그며 연결 종료 시 과거 connected 제거 |
+| 프로젝트 선택 저장 직후 busy peer에 실행 변경 전파 | SettingsStore 알림→ProjectResourceSync의 전체 프로젝트 유휴 판정. SDK set port는 선택을 저장하고 reconcile이 실제 변경 |
+| native 초기화 비용 | OpenCode connect/disconnect는 native bootstrap 뒤다. native MCP 최초 연결 비용을 제거하지 않으며 agent/provider 조회에 새 MCP barrier를 넣지 않음 |
+| 기존 Orca 소유 MCP 배포 | 기존 배포 파일 경로는 유지했다. 이번 instance capture는 새 native plugin/skill 선택과 OpenCode MCP 제어에 대한 것이며 배포 파일 전체의 버전 보관을 추가한 것은 아님 |
+| 사용자 커스텀 바이너리·실제 창 | 설치 SDK/transport와 render harness 증거다. 사용자의 별도 환경에 있는 1.17.19 및 실제 두 테마 인수로 대체하지 않음 |
+
+### 6. 구현 보고
+
+확정 AC10/10을 코드·자동 검사 범위에서 자기확인했다. 기존 DRAFT 초안의 미확정 selector 요구를 완료로 세지 않았다.
+
+- 정책 집중 검사 11파일 128개, 확장 검사 24파일 144개 통과.
+- 넓힌 회귀 130파일 1503개 중 최초 31개 실패를 분리했다. Claude 옵션 회귀와 지원 불가 port 기대값은 수정했다. 임시 폴더 접근 실패는 workspace TEMP로 실행한 5파일 70개, SQLite ABI 차이는 Electron Node 모드 1파일 7개에서 통과했다. 옵션·오류 registry·IPC 문서 재검사 4파일 286개 통과.
+- 최종 SDK·catalog·popup 집중 실행은 12파일 352개 중 테스트 i18n harness 연결 1개가 실패했고, 수정 후 해당 hook과 실제 bootstrap 등록을 포함한 2파일 11개가 통과했다. 프로덕션 실패를 숨긴 skip 없음.
+- 수정 후 최종 넓힌 회귀는 105파일 1340개 전건 통과했다. SQLite native-cursor만 위 Electron 실행으로 분리했으며 나머지는 workspace TEMP를 사용했다.
+- 마지막 프로젝트 범위 문구·실제 상태 패널·session resource IPC 검사는 3파일 31개 통과했다.
+- node/web/test 타입 검사와 production build 통과. Electron SQLite ABI 유지. 최종 lint·문서 검사 결과는 아래 마무리 기록에 남긴다.
+
+마무리 gate: lint 오류 0·기존 TanStack Virtual 경고 2. 생성 inventory와 prose 검사는 통과했다. 전체 링크 스캔은 무시되는 외부 참고 checkout `.tmp/opencode-dev`, `app/.temp/opencode` 안의 기존 깨진 링크 10개로 실패했고, 두 checkout만 제외한 운영 문서 링크 검사에서 0개였다. 참고 소스는 변경하지 않았다. `git diff --check` 통과. 커밋 trailer는 생성 후 파싱을 확인한다.
+
+이는 구현자 증거이며 독립 검증 PASS가 아니다. 임시 fixture와 실제 사용자 환경을 구분한다.
+
+### 7. Review Signals
+
+SDK가 제공하지 않는 native plugin load/unload를 임의 config 필드로 흉내 내지 않았다. OpenCode Config.update·서버 재시작을 조회/토글 경로에 넣지 않았다. JSON에는 native 원본이나 비밀을 복제하지 않는다. 검증자는 특히 global-only reader, 동일 cwd의 소유권, 프로젝트 유휴 적용, 미지원 항목의 고정 표시를 확인하면 된다.

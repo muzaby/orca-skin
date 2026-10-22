@@ -148,7 +148,7 @@ export function claudeNativeResources(
       if (kind === 'plugin') {
         const plugin = controls.get(id)
         if (!plugin || !query.applyFlagSettings || !query.reloadPlugins)
-          throw new Error('이 플러그인은 세션별 제어를 지원하지 않습니다.')
+          throw new Error('이 플러그인은 프로젝트별 제어를 지원하지 않습니다.')
         const previous = flags
         const next = { ...flags, [`${plugin.name}@inline`]: enabled }
         try {

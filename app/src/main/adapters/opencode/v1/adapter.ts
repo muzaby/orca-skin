@@ -30,9 +30,10 @@ export class OpenCodeAdapter implements SessionAdapter {
     private readonly servers: OpenCodeServer,
     fetchImpl: typeof fetch,
     private readonly migration?: LegacyStorageMigration,
-    private readonly openDatabase?: typeof openFileDatabase
+    private readonly openDatabase?: typeof openFileDatabase,
+    extensionControl?: import('../../common/extension-control').ExtensionControl
   ) {
-    this.contexts = new OpenCodeSessionContexts(fetchImpl)
+    this.contexts = new OpenCodeSessionContexts(fetchImpl, 4096, extensionControl)
   }
   agentSpawnEnv(): Record<string, never> {
     return {}

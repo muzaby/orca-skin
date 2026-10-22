@@ -137,7 +137,18 @@ export function ExtensionsCatalogView(): React.JSX.Element {
             )}
           </div>
           <div role="tabpanel" id={`${id}-items`} aria-labelledby={`${id}-${selection.tab}`}>
-            {skills.loading || mcp.loading || providers.loading ? (
+            {nativeMcp.failed && selection.tab !== 'providers' && (
+              <div className="flex items-center gap-2 py-2 text-caption text-ink3" role="status">
+                {tr('chat.nativeResources.error')}
+                <Button size="small" onClick={() => void nativeMcp.refresh()}>
+                  {tr('chat.nativeResources.retry')}
+                </Button>
+              </div>
+            )}
+            {skills.loading ||
+            mcp.loading ||
+            providers.loading ||
+            (selection.tab !== 'providers' && nativeMcp.loading) ? (
               <div role="status" className="grid h-48 place-items-center text-footnote text-ink3">
                 {tr('common.loading')}
               </div>
@@ -148,7 +159,17 @@ export function ExtensionsCatalogView(): React.JSX.Element {
                 mcpServers={mcp.list}
                 providers={providers.list}
                 nativeMcp={nativeMcp.list}
+                suppressEmpty={selection.tab !== 'providers' && nativeMcp.failed}
                 onNativeMcp={(backend, resource) => void nativeMcp.open(backend, resource)}
+                onNativeToggle={nativeMcp.toggle}
+                onSkillToggle={(skill) =>
+                  skills.setEnabled({
+                    sourceId: skill.sourceId,
+                    name: skill.name,
+                    enabled: !skill.enabled
+                  })
+                }
+                onMcpToggle={(server) => mcp.toggle(server.id, !server.enabled)}
                 selectedId={selection.selectedId}
                 onSelect={(id, origin) => {
                   selectionEpoch.current += 1
@@ -177,14 +198,14 @@ export function ExtensionsCatalogView(): React.JSX.Element {
           {selectedSkill ? (
             <SkillDetail
               skill={selectedSkill}
-              onToggle={() =>
-                selectedSkill.canToggle &&
-                void skills.setEnabled({
+              onToggle={() => {
+                if (!selectedSkill.canToggle) return
+                return skills.setEnabled({
                   name: selectedSkill.name,
                   sourceId: selectedSkill.sourceId,
                   enabled: !selectedSkill.enabled
                 })
-              }
+              }}
               onTryInChat={() =>
                 navigate('/new', { state: { composerDraft: `/${selectedSkill.name} ` } })
               }

@@ -1,5 +1,5 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { tmpdir, homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
@@ -9,6 +9,7 @@ import {
   nativePluginId
 } from './configured-resources'
 import { claudeNativeResources } from './native-resources'
+import { globalClaudeResources } from './configured-resources'
 
 let temp: string
 let cwd: string
@@ -28,6 +29,36 @@ afterEach(async () => {
 })
 
 describe('configured Claude resources', () => {
+  it('reads global defaults without project plugin installs or project MCP switches', async () => {
+    const plugin = join(temp, 'global-plugin')
+    const projectPlugin = join(temp, 'project-plugin')
+    await json(join(plugin, '.claude-plugin/plugin.json'), { name: 'superpowers' })
+    await json(join(projectPlugin, '.claude-plugin/plugin.json'), { name: 'project-only' })
+    await json(join(paths.root, 'plugins/installed_plugins.json'), {
+      plugins: {
+        'superpowers@market': [{ scope: 'user', installPath: plugin }],
+        'project@market': [{ scope: 'project', projectPath: homedir(), installPath: projectPlugin }]
+      }
+    })
+    await json(join(paths.root, 'settings.json'), {
+      enabledPlugins: { 'superpowers@market': false }
+    })
+    await json(paths.globalConfig, {
+      mcpServers: { docs: { command: 'secret-command' } },
+      projects: { [homedir()]: { disabledMcpServers: ['docs'] } }
+    })
+    const before = await readFile(paths.globalConfig, 'utf8')
+    const resources = await globalClaudeResources(paths)
+    expect(resources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'docs', enabled: true, canToggle: false }),
+        expect.objectContaining({ name: 'superpowers@market', enabled: false, canToggle: true })
+      ])
+    )
+    expect(resources).toHaveLength(2)
+    expect(JSON.stringify(resources)).not.toContain('secret-command')
+    expect(await readFile(paths.globalConfig, 'utf8')).toBe(before)
+  })
   it('resolves the actual MCP declaration file across user, project, local and plugin precedence', async () => {
     await json(paths.globalConfig, {
       mcpServers: { global: { command: 'a' }, shared: { command: 'a' } },

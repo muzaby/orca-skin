@@ -23,7 +23,7 @@ function request(overrides: Partial<TurnRequest> = {}): TurnRequest {
     ...overrides
   }
 }
-function fixture(): {
+function fixture(controls?: import('../../common/extension-control').ExtensionControl): {
   adapter: OpenCodeAdapter
   acquire: ReturnType<typeof vi.fn>
   release: ReturnType<typeof vi.fn>
@@ -33,6 +33,7 @@ function fixture(): {
   onPrompt: (body: Record<string, unknown>) => void
   onReply: (path: string) => void
   failPrompt: boolean
+  failMcp: boolean
   promptError?: { status: number; body: unknown }
   completionError?: unknown
 } {
@@ -40,6 +41,7 @@ function fixture(): {
   let controller: ReadableStreamDefaultController<Uint8Array> | undefined
   let closed = false
   let directory = 'C:/work'
+  let mcpEnabled = true
   const encoder = new TextEncoder()
   const emit = (value: Event): void => {
     if (!closed)
@@ -55,6 +57,14 @@ function fixture(): {
     const path = new URL(req.url).pathname
     directory = new URL(req.url).searchParams.get('directory') ?? directory
     if (path === '/config') return jsonResponse({})
+    if (path === '/mcp')
+      return result.failMcp
+        ? jsonResponse({}, 503)
+        : jsonResponse({ docs: { status: mcpEnabled ? 'connected' : 'disabled' } })
+    if (path === '/mcp/docs/connect' || path === '/mcp/docs/disconnect') {
+      mcpEnabled = path.endsWith('/connect')
+      return jsonResponse(true)
+    }
     if (path === '/agent') return jsonResponse([{ name: 'build', mode: 'primary' }])
     if (path === '/provider')
       return jsonResponse({
@@ -110,7 +120,7 @@ function fixture(): {
   }))
   const servers = { acquire } as unknown as OpenCodeServerPool
   const result: ReturnType<typeof fixture> = {
-    adapter: new OpenCodeAdapter(servers, transport),
+    adapter: new OpenCodeAdapter(servers, transport, undefined, undefined, controls),
     acquire,
     release,
     requests,
@@ -127,10 +137,66 @@ function fixture(): {
     onReply: (_path: string) => {
       void _path
     },
-    failPrompt: false
+    failPrompt: false,
+    failMcp: false
   }
   return result
 }
+it('applies SDK MCP choices before the first prompt, exposes project controls and retains partial observations safely', async () => {
+  const choices: Record<string, boolean> = {}
+  const f = fixture({
+    global: () => ({ 'mcp:docs': false }),
+    projectMcp: () => choices,
+    setProjectMcp: (_cwd, id, value) => {
+      choices[id] = value
+    }
+  })
+  const live = f.adapter.sendMessage(request({ sessionId: null }))
+  const iterator = live.eventBatches[Symbol.asyncIterator]()
+  await iterator.next()
+  await vi.waitFor(() =>
+    expect(f.requests.some((req) => new URL(req.url).pathname.endsWith('/prompt_async'))).toBe(true)
+  )
+  const paths = f.requests.map((req) => new URL(req.url).pathname)
+  expect(paths.indexOf('/mcp/docs/disconnect')).toBeLessThan(
+    paths.indexOf('/session/s1/prompt_async')
+  )
+  const first = await live.nativeResources!()
+  expect(first.items).toEqual([
+    expect.objectContaining({ id: 'docs', enabled: false, canToggle: true })
+  ])
+  await expect(
+    live.setNativeResource!({
+      sessionId: 's1',
+      generation: 'old',
+      id: 'docs',
+      kind: 'mcp',
+      enabled: true
+    })
+  ).rejects.toThrow('제어')
+  await live.setNativeResource!({
+    sessionId: 's1',
+    generation: first.generation!,
+    id: 'docs',
+    kind: 'mcp',
+    enabled: true
+  })
+  const policy = live.projectResourcePolicy!()!
+  const revision = (await policy.read('C:/work')).revision
+  expect(await live.reconcileNativeResources!(revision, () => false)).toBe('pending')
+  expect((await live.nativeResources!()).items[0].enabled).toBe(false)
+  expect(await live.reconcileNativeResources!(revision, () => true)).toBe('applied')
+  expect((await live.nativeResources!()).items[0].enabled).toBe(true)
+  f.failMcp = true
+  expect(await live.nativeResources!()).toMatchObject({
+    partial: true,
+    items: [{ id: 'docs', enabled: true, canToggle: false }]
+  })
+  live.close()
+  await iterator.return?.()
+  expect(await live.nativeResources!()).toEqual({ state: 'disconnected', items: [] })
+  await vi.waitFor(() => expect(f.release).toHaveBeenCalledOnce())
+})
 async function collect(adapter: OpenCodeAdapter, req: TurnRequest): Promise<NormalizedEvent[]> {
   const events: NormalizedEvent[] = []
   for await (const batch of adapter.sendMessage(req).eventBatches) {

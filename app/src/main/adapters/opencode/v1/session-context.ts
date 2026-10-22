@@ -6,6 +6,8 @@ import type {
 } from '../../../../shared/native-resources'
 import { harnessEnvFingerprint } from '../../common/harness-config'
 import { OpenCodeComposerCache } from './composer-cache'
+import { OpenCodeMcpControl } from './mcp-control'
+import type { ExtensionControl } from '../../common/extension-control'
 import { openCodePreparationError } from './errors'
 import { openCodeNativeCommands } from './native-resources'
 import { sameNativePath } from './native-storage'
@@ -25,6 +27,7 @@ interface DirectoryState {
   commandFlight?: Promise<NativeCommand[]>
   commandRevision: number
   composer: OpenCodeComposerCache
+  mcpControl?: OpenCodeMcpControl
 }
 
 interface Subscriber {
@@ -35,6 +38,7 @@ interface Subscriber {
 }
 
 export interface OpenCodeClientLease {
+  mcpControl?: OpenCodeMcpControl
   readonly signal: AbortSignal
   readonly generation: string
   client: OpencodeClient
@@ -70,7 +74,8 @@ class ServerContext {
     private readonly server: ServerIdentity,
     private readonly fetchImpl: typeof fetch,
     private readonly retire: () => void,
-    private readonly queueLimit: number
+    private readonly queueLimit: number,
+    private readonly extensionControl?: ExtensionControl
   ) {
     this.client = createOpencodeClient({
       baseUrl: server.url,
@@ -127,6 +132,16 @@ class ServerContext {
       })
       state = {
         client,
+        ...(this.extensionControl
+          ? {
+              mcpControl: new OpenCodeMcpControl(
+                client,
+                scope.directory,
+                this.extensionControl,
+                scope.controller.signal
+              )
+            }
+          : {}),
         controller: scope.controller,
         composer: new OpenCodeComposerCache(
           client,
@@ -175,7 +190,11 @@ class ServerContext {
 
   prepare(directory: string, state: DirectoryState, signal: AbortSignal): Promise<void> {
     signal.throwIfAborted()
-    return this.wait(this.ready(directory, state), state, signal)
+    return this.wait(
+      this.ready(directory, state).then(() => state.mcpControl?.prepare()),
+      state,
+      signal
+    )
   }
 
   commands(
@@ -380,7 +399,8 @@ export class OpenCodeSessionContexts {
 
   constructor(
     private readonly fetchImpl: typeof fetch,
-    private readonly queueLimit = 4096
+    private readonly queueLimit = 4096,
+    private readonly extensionControl?: ExtensionControl
   ) {}
 
   async acquire(server: ServerIdentity, directory: string): Promise<OpenCodeClientLease> {
@@ -394,7 +414,8 @@ export class OpenCodeSessionContexts {
         () => {
           if (this.entries.get(key) === created) this.entries.delete(key)
         },
-        this.queueLimit
+        this.queueLimit,
+        this.extensionControl
       )
       this.entries.set(key, created)
       state = created
@@ -417,6 +438,7 @@ export class OpenCodeSessionContexts {
     const metadata = owned.directory(scope)
     let releasing: Promise<void> | undefined
     return {
+      mcpControl: metadata.mcpControl,
       signal: metadata.composer.signal,
       generation: metadata.composer.generation,
       client: metadata.client,
@@ -425,7 +447,13 @@ export class OpenCodeSessionContexts {
       composer: (signal, refresh) => owned.composer(metadata, signal, refresh),
       agents: (signal, refresh) => metadata.composer.agents(signal, refresh),
       models: (signal, refresh) => metadata.composer.models(signal, refresh),
-      mcp: (signal, refresh) => metadata.composer.mcp(signal, refresh),
+      mcp: async (signal, refresh) => {
+        await metadata.mcpControl?.prepare()
+        return (await metadata.composer.mcp(signal, refresh)).map((item) => ({
+          ...item,
+          canToggle: !!metadata.mcpControl
+        }))
+      },
       plugins: (signal, refresh, env) => metadata.composer.plugins(signal, refresh, env),
       rememberCommands: (commands) => owned.rememberCommands(scope, metadata, commands),
       events: (signal) =>

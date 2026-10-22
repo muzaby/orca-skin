@@ -59,21 +59,25 @@ const rows = (markup: string): string[] =>
   [...markup.matchAll(/data-extensions-row="([^"]+)"/g)].map((match) => match[1])
 
 describe('plugin catalog list', () => {
-  it('only dims disabled skills while keeping enabled read-only native skills at normal contrast', () => {
-    const entries = [true, false].map((enabled): SkillInfo => ({
-      ...skill('plugin:claude', 'Claude 플러그인'),
-      name: enabled ? 'superpowers:active' : 'superpowers:inactive',
-      sourceKind: 'adapter',
-      enabled,
-      canToggle: false,
-      canRemove: false
-    }))
+  it('uses capability for font and fixed switches independently of enabled state', () => {
+    const entries = [true, false].flatMap((canToggle) =>
+      [true, false].map((enabled): SkillInfo => ({
+        ...skill('plugin:claude', 'Claude 플러그인'),
+        name: `superpowers:${canToggle}:${enabled}`,
+        sourceKind: 'adapter',
+        enabled,
+        canToggle,
+        canRemove: false
+      }))
+    )
     const $ = load(render({ skills: entries }))
     for (const entry of entries) {
       const row = $(`[data-extensions-row="${entry.sourceId}/${entry.name}"]`)
-      expect(row.find(`[title="${entry.name}"]`).hasClass('text-ink3')).toBe(!entry.enabled)
+      expect(row.find(`[title="${entry.name}"]`).hasClass('text-ink3')).toBe(!entry.canToggle)
       expect(row.find('button').attr('disabled')).toBeUndefined()
-      expect(row.find('button')).toHaveLength(1)
+      expect(row.find('button')).toHaveLength(2)
+      expect(row.find('[role=switch]').attr('aria-checked')).toBe(String(entry.enabled))
+      expect(row.find('[role=switch]').is('[disabled]')).toBe(!entry.canToggle)
     }
   })
 
@@ -124,7 +128,7 @@ describe('plugin catalog list', () => {
     expect(rows(markup)).toEqual(ids)
     expect(markup.match(/<ul\b/g)).toHaveLength(1)
     expect(markup.match(/<li\b/g)).toHaveLength(tab === 'skills' ? 4 : tab === 'mcp' ? 3 : 2)
-    expect(markup.match(/<button\b/g)).toHaveLength(2)
+    expect(markup.match(/<button\b/g)).toHaveLength(tab === 'providers' ? 2 : 4)
     expect(markup.match(/aria-pressed="true"/g)).toHaveLength(1)
     expect(markup).not.toMatch(/<(?:table|thead|th|h[1-6])(?:\s|>)/)
     expect(markup).not.toContain('aria-expanded')

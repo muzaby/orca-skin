@@ -1,7 +1,7 @@
 import { persistClaudePluginState } from './plugin-state'
 import { ClaudeProjectReconciliation } from './project-reconciliation'
 import { claudeProjectSettingsFiles, readClaudeProjectSettings } from './project-settings'
-import { readClaudePluginCatalog } from './plugin-catalog'
+import { readClaudePluginCatalog, pluginPathKey } from './plugin-catalog'
 import { claudeNativeResources } from './native-resources'
 // ClaudeAdapter — @anthropic-ai/claude-agent-sdk 의 query() 함수를 통해 Claude Code 와 통신.
 // CLI spawn 방식은 폐기 (Phase 3, 2026-05-18) — 외부 계약은 TRD §7.1,
@@ -330,6 +330,17 @@ export function makeCanUseTool(
 }
 
 export class ClaudeAdapter implements SessionAdapter {
+  private readonly extensionSnapshots = new Map<
+    string,
+    {
+      references: number
+      plugins: Record<string, boolean>
+      skills: TurnRequest['extensions']['skills']
+    }
+  >()
+  constructor(
+    private readonly extensionControl?: import('../common/extension-control').ExtensionControl
+  ) {}
   async recoverSession(
     req: NativeHistoryRequest
   ): Promise<{ sessionId: string; freshStart: boolean }> {
@@ -421,6 +432,67 @@ export class ClaudeAdapter implements SessionAdapter {
   // `pushTurn`(라이브 setter + content push)으로 이어받는다. 스트림 절단(1 프레임=1 턴)은
   // SessionRuntime 몫이고, 입력 close 는 세션 폐기(LRU 축출·종료·respawn 경계·에러)에서만.
   sendMessage(req: TurnRequest): LiveTurn {
+    const key = pluginPathKey(req.cwd)
+    let snapshot = this.extensionSnapshots.get(key)
+    if (!snapshot) {
+      const nativeRoot = claudeNativePaths(
+        envLookup(req.env, req.providerSettings?.settings, process.env),
+        undefined,
+        req.cwd
+      ).root
+      const choices = this.extensionControl?.global('claude') ?? {}
+      const flags = Object.fromEntries(
+        Object.entries(choices)
+          .filter(([key]) => key.startsWith('plugin:'))
+          .map(([key, value]) => [key.slice(7), value])
+      )
+      snapshot = {
+        references: 0,
+        plugins: readClaudePluginCatalog(
+          req.cwd,
+          nativeRoot,
+          {
+            ...req.providerSettings?.settings,
+            enabledPlugins: {
+              ...(req.providerSettings?.settings?.enabledPlugins as Record<string, unknown>),
+              ...flags
+            }
+          },
+          true
+        ).defaults,
+        skills: req.extensions.skills.map((skill) => ({ ...skill }))
+      }
+      this.extensionSnapshots.set(key, snapshot)
+    }
+    snapshot.references++
+    const owned = snapshot
+    let released = false
+    const release = (): void => {
+      if (released) return
+      released = true
+      if (--owned.references === 0 && this.extensionSnapshots.get(key) === owned)
+        this.extensionSnapshots.delete(key)
+    }
+    try {
+      return this.openChannel(
+        {
+          ...req,
+          extensions: { ...req.extensions, skills: owned.skills }
+        },
+        release,
+        owned.plugins
+      )
+    } catch (error) {
+      release()
+      throw error
+    }
+  }
+
+  private openChannel(
+    req: TurnRequest,
+    releaseExtensions: () => void,
+    pluginDefaults: Record<string, boolean>
+  ): LiveTurn {
     const {
       sessionId,
       text,
@@ -534,10 +606,16 @@ export class ClaudeAdapter implements SessionAdapter {
     // 실행 전 편집 미리보기(0229) — 가드 훅과 **같은 입력**으로 루트를 턴당 1회 푼다. 편집이 쓸 수
     // 없는 경로는 미리보기로도 읽지 않는다.
     const nativePaths = claudeNativePaths(contextEnv, undefined, cwd)
-    const nativePlugins = readClaudePluginCatalog(cwd, nativePaths.root, settings, true)
+    const nativePlugins = readClaudePluginCatalog(
+      cwd,
+      nativePaths.root,
+      settings,
+      true,
+      pluginDefaults
+    )
     // Local SDK roots use @inline; their marketplace keys cannot disable them.
     const nativePluginFlags = {
-      ...(settings?.enabledPlugins as Record<string, boolean>),
+      ...pluginDefaults,
       ...Object.fromEntries(
         nativePlugins.installations.flatMap((plugin) => [
           [plugin.key, false],
@@ -692,6 +770,7 @@ export class ClaudeAdapter implements SessionAdapter {
     const close = (): void => {
       if (closed) return
       closed = true
+      releaseExtensions()
       capturedOutputs.length = 0
       input.close()
       receipts.close()
@@ -917,7 +996,7 @@ export class ClaudeAdapter implements SessionAdapter {
       },
       setNativeResource: async (request) => {
         if (request.generation !== backgroundMapper.generation)
-          throw new Error('이 항목은 세션별 제어를 지원하지 않습니다.')
+          throw new Error('이 항목은 프로젝트별 제어를 지원하지 않습니다.')
         await resources.set(request.id, request.enabled, request.kind)
       },
       reinitialize: async () => {

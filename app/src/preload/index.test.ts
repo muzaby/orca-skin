@@ -43,6 +43,33 @@ Object.defineProperty(process, 'contextIsolated', { value: true, configurable: t
 
 await import('./index')
 
+it('carries explicit global extension scope and choices across renderer API and preload', async () => {
+  vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
+  try {
+    const { sessionApi } = await import('../renderer/src/shared/api/ipc')
+    await sessionApi.globalExtensions('opencode')
+    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.extensionCatalog, {
+      backend: 'opencode'
+    })
+    const request = {
+      backend: 'claude' as const,
+      kind: 'plugin' as const,
+      id: 'plugin:installed',
+      enabled: false
+    }
+    await sessionApi.setGlobalExtension(request)
+    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.extensionSetEnabled, request)
+    await sessionApi.openGlobalExtension({ backend: 'opencode', kind: 'mcp', id: 'docs' })
+    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.extensionOpen, {
+      backend: 'opencode',
+      kind: 'mcp',
+      id: 'docs'
+    })
+  } finally {
+    vi.unstubAllGlobals()
+  }
+})
+
 it.each(['claude', 'opencode'] as const)(
   'preserves %s engine CRUD identities through the renderer API and actual preload',
   async (engine) => {

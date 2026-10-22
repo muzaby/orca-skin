@@ -15,6 +15,7 @@ export interface HarnessRuntimeOptions {
   dataDirectory: string
   preferences: (harnessId: Backend) => HarnessPreferences | undefined
   fetchImpl: typeof fetch
+  extensionControl?: import('../../../adapters/common/extension-control').ExtensionControl
 }
 
 export interface MainHarnessModule {
@@ -29,6 +30,8 @@ export interface MainHarnessModule {
   nativeResourceScope?(cwd: string): string
   /** Discovery for management/drafts; not authoritative over a live process. */
   draftResources?(cwd: string): Promise<NativeResource[]>
+  globalResources?(): Promise<NativeResource[]>
+  globalResourcePath?(id: string, kind: NativeResource['kind']): Promise<string | undefined>
   configuredCommands?(cwd: string): Promise<NativeCommand[]>
   configuredPluginDirectory?(cwd: string, id: string): Promise<string | undefined>
   configuredMcpFile?(cwd: string, id: string): Promise<string | undefined>

@@ -83,6 +83,13 @@ export class ProjectResourceSync {
       void this.refresh(entry)
     }
   }
+  settingsChanged(backend: Backend): void {
+    for (const entry of this.entries.values())
+      if (entry.target.backend === backend) {
+        entry.version++
+        void this.refresh(entry)
+      }
+  }
   releasePrefix(prefix: string): void {
     for (const owner of this.owners.keys()) if (owner.startsWith(prefix)) this.owners.delete(owner)
     this.tick()

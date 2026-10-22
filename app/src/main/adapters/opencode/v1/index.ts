@@ -8,6 +8,7 @@ import {
   configuredOpenCodeResources,
   configuredOpenCodePluginSkillDirectories
 } from './configured-resources'
+import { globalOpenCodeResources, globalOpenCodeMcpFile } from './configured-resources'
 import { openCodeSkillDirectories } from './skill-sources'
 import {
   loadOpenCodeProviderSettings,
@@ -26,13 +27,16 @@ export const implementation: OpenCodeImplementation = {
             openDatabase: options.openDatabase
           })
         : undefined,
-      options.openDatabase
+      options.openDatabase,
+      options.extensionControl
     ),
   loadSettings: loadOpenCodeProviderSettings,
   parseModels: parseOpenCodeModels,
   readUserSettings: readUserOpenCodeSettings,
   configuredMcpFile: configuredOpenCodeMcpFile,
   configuredResources: configuredOpenCodeResources,
+  globalResources: globalOpenCodeResources,
+  globalResourcePath: globalOpenCodeMcpFile,
   skillDirectories: openCodeSkillDirectories,
   pluginSkillDirectories: configuredOpenCodePluginSkillDirectories,
   contextWindow: openCodeContextWindow

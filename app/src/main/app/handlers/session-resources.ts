@@ -256,7 +256,7 @@ export function registerSessionResourceHandlers(
               (item) => item.id === request.id && item.kind === request.kind && item.canToggle
             )
           )
-            throw new Error('이 항목은 세션별 제어를 지원하지 않습니다.')
+            throw new Error('이 항목은 프로젝트별 제어를 지원하지 않습니다.')
           if (request.kind === 'plugin') {
             const installed = await resourceQuery(() => configuredResources(request.sessionId))
             if (

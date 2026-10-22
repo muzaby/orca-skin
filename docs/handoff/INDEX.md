@@ -25,8 +25,8 @@
 | [`0281-opencode-menu-cache`](0281-opencode-menu-cache/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 컴포저 팝업 새로고침 제거·성공 목록 캐시 재사용. AC3/3 자기확인, 반복 개방 IPC·선택/키보드 회귀 통과. 독립 검증 대기. |
 | [`0280-opencode-prepared-status`](0280-opencode-prepared-status/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 준비 인스턴스의 MCP/plugin 독립 표시·취소/실패 구분·안전 진단. AC5/5 자기확인, 실제 사용자 환경·독립 검증 대기. 전역 제어는 0278 별도. |
 | [`0279-claude-project-plugin-state`](0279-claude-project-plugin-state/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | SDK MCP 저장·현재 cwd 공유·외부 설정 감시/표시·프로젝트 전체 유휴 재적용. restart-required는 기존 회수 정책. AC7/7 자기확인, 독립 검증 대기. |
-| [`0278-harness-extension-isolation`](0278-harness-extension-isolation/plan.md) | plan | READY | Codex | (r1 확정 설계 — 검증자 기입) | 1 | native 전역 기준값·항목별 capability·Orca 선택 격리·프로젝트 제어. 기본값 사본/선택 UI 없음. |
-| [`0277-opencode-mcp-catalog`](0277-opencode-mcp-catalog/plan.md) | plan | DRAFT | Codex | (r1 사용자 정정 — 검증자 기입) | 1 | nav 전역/우측 패널 프로젝트로 범위 고정. 선택 UI 철회, 관측은 0278 통합 구현. |
+| [`0278-harness-extension-isolation`](0278-harness-extension-isolation/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | native 전역 기준·capability 토글/폰트·명시 선택 격리·프로젝트 유휴 적용. AC10/10 자기확인, 최종 회귀 1340개·타입·빌드 통과. 실제 사용자 환경·독립 검증 대기. |
+| [`0277-opencode-mcp-catalog`](0277-opencode-mcp-catalog/plan.md) | plan | DRAFT | Claude | (r1 사용자 정정 — 검증자 기입) | 1 | 선택 UI 철회. nav 전역/우측 패널 프로젝트 관측은 0278·0280에 통합 구현. 기존 DRAFT 정리·통합 증거 검증 대기. |
 | [`0276-opencode-composer-preparation`](0276-opencode-composer-preparation/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 첫 입력 전 agent/provider 독립 준비·캐시/재조회·owner 수명 구현. CLI 1.17.19 A idle→B 및 첫 입력 재사용 확인. 팝업 상태 안내 없음. |
 | [`0275-opencode-shared-instances`](0275-opencode-shared-instances/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 호환 profile 서버 공유, directory 정리 완료 뒤 반납. 실제 CLI에서 module import 재사용·기존 이력 보존·최종 서버 종료 관측. |
 | [`0274-opencode-desktop-startup`](0274-opencode-desktop-startup/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | Desktop1.17.19 기준 공유 global SSE·프로젝트 준비·첫 제출 순서 구현. 관련295개 pass, 실제Electron8세션·CLI1.17.19 검증. AC11/11, 독립 검증 대기. |

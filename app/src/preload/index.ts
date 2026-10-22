@@ -6,6 +6,8 @@ import type {
 import type {
   DraftNativeResourcesRequest,
   NativeResources,
+  GlobalNativeResourceTarget,
+  SetGlobalNativeResource,
   SetNativeResource,
   OpenNativePlugin
 } from '../shared/native-resources'
@@ -283,6 +285,12 @@ const orca = {
       }),
     openNativePlugin: (request: OpenNativePlugin): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.sessionOpenNativePlugin, request),
+    globalExtensions: (backend: Backend): Promise<NativeResources> =>
+      ipcRenderer.invoke(CHANNELS.extensionCatalog, { backend }),
+    setGlobalExtension: (request: SetGlobalNativeResource): Promise<NativeResources> =>
+      ipcRenderer.invoke(CHANNELS.extensionSetEnabled, request),
+    openGlobalExtension: (request: GlobalNativeResourceTarget): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.extensionOpen, request),
     setNativeResource: (request: SetNativeResource): Promise<NativeResources> =>
       ipcRenderer.invoke(CHANNELS.sessionSetNativeResource, request),
     addDirectory: (request: AddSessionDirectoryRequest): Promise<AddSessionDirectoryResult> =>

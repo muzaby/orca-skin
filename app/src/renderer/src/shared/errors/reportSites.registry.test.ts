@@ -22,11 +22,60 @@ export const sites: Site[] = [
   {
     file: 'features/skills/hooks/useNativeMcpCatalog.ts',
     ordinal: 0,
+    line: 55,
+    disposition: 'CONSUMED'
+  },
+  {
+    file: 'features/skills/hooks/useNativeMcpCatalog.ts',
+    ordinal: 1,
     line: 26,
     disposition: 'TOAST',
     id: 'T-native-mcp-open',
-    event: 'skills.native-mcp.open-failed',
+    event: 'skills.native.open-failed',
     title: 'openFailed'
+  },
+  {
+    file: 'features/skills/hooks/useNativeMcpCatalog.ts',
+    ordinal: 2,
+    line: 100,
+    disposition: 'TOAST',
+    id: 'T-native-toggle',
+    event: 'skills.native.toggle-failed',
+    title: 'saveFailed'
+  },
+  {
+    file: 'features/skills/components/customize/CatalogToggle.tsx',
+    ordinal: 0,
+    line: 25,
+    disposition: 'TOAST',
+    id: 'T-catalog-toggle',
+    event: 'skills.catalog.toggle-failed',
+    title: 'saveFailed'
+  },
+  // Owner subscription/cleanup has no user action; list failures have their own reporting path.
+  {
+    file: 'features/chat/lib/nativeResourceState.ts',
+    ordinal: 0,
+    line: 85,
+    disposition: 'CONSUMED'
+  },
+  {
+    file: 'features/chat/lib/nativeResourceState.ts',
+    ordinal: 1,
+    line: 91,
+    disposition: 'CONSUMED'
+  },
+  {
+    file: 'features/chat/harnesses/opencode/composer/composerCatalogState.ts',
+    ordinal: 0,
+    line: 107,
+    disposition: 'CONSUMED'
+  },
+  {
+    file: 'features/chat/harnesses/opencode/composer/composerCatalogState.ts',
+    ordinal: 1,
+    line: 128,
+    disposition: 'CONSUMED'
   },
   { file: 'app/boot/bootStore.ts', ordinal: 0, line: 75, disposition: 'CONSUMED' },
   {
@@ -190,7 +239,7 @@ export const sites: Site[] = [
   },
   {
     file: 'features/chat/lib/nativeResourceState.ts',
-    ordinal: 0,
+    ordinal: 2,
     line: 125,
     disposition: 'TOAST',
     id: 'T38',
@@ -199,7 +248,7 @@ export const sites: Site[] = [
   },
   {
     file: 'features/chat/lib/nativeResourceState.ts',
-    ordinal: 1,
+    ordinal: 3,
     line: 175,
     disposition: 'TOAST',
     id: 'T39',
@@ -208,7 +257,7 @@ export const sites: Site[] = [
   },
   {
     file: 'features/chat/lib/nativeResourceState.ts',
-    ordinal: 2,
+    ordinal: 4,
     line: 211,
     disposition: 'TOAST',
     id: 'T40',
@@ -665,6 +714,9 @@ function expectedSilent(): string[] {
     'features/chat/hooks/useAttachments.ts:0',
     'features/chat/hooks/useAttachments.ts:2',
     'features/chat/hooks/useDiffSyntax.ts:0',
+    'features/chat/lib/nativeResourceState.ts:0',
+    'features/chat/lib/nativeResourceState.ts:1',
+    'features/chat/harnesses/opencode/composer/composerCatalogState.ts:1',
     'shared/ui/markdown/CodeBlock.tsx:0'
   ]
     .map((key) => {
@@ -690,7 +742,7 @@ describe('renderer report site registry', () => {
     expect(actual.filter((s) => !expected.includes(s))).toEqual([])
     expect(expected.filter((s) => !actual.includes(s))).toEqual([])
   })
-  it('rejects silent promise catches outside the four explicit fallback sites', () => {
+  it('rejects silent promise catches outside explicit fallback and owner cleanup sites', () => {
     const actual = productionFiles(root)
       .flatMap((file) => silentMatches(file, read(file)))
       .sort()

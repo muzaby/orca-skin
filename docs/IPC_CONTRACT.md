@@ -11,7 +11,7 @@
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인: `artifact` · `chat`, `composer`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `git`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `error`, `provider`
+- 도메인: `artifact` · `chat`, `composer`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `extensions`, `skills`, `files`, `git`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `error`, `provider`
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -26,7 +26,7 @@
 
 ## 2. 채널 카탈로그
 
-도메인별 분포(개수는 [생성물](./generated/inventory.md)): `chat`(`send`·`event`·`cancel`·`stopSubagent`·`steerCancel`·`steerSendNow`) · `composer`(§2.1-c) · `boot`(`report`·`whenReady`) · `backend` · `agent` · `engine` · `install` · `update` · `settings` · `skills` · `files` · `artifact`(§2.6-a) · `git`(§2.6-b) · `session` · `project` · `window` · `search` · `mcp` · `cost` · `concurrency` · `permission`(`respond`·`setMode`) · `notify`(`show` — §2.12-c) · `debug`(dev 전용 — `getMock`·`setMock`) · `log`(`emit` — §2.13-b) · `provider`(§2.13-c — `list`·`state`·`login`·`continue`·`reauth`·`revoke`) · `error`(§2.13-d — `reportEvent`·`drain`·`revealLog`).
+도메인별 분포(개수는 [생성물](./generated/inventory.md)): `chat`(`send`·`event`·`cancel`·`stopSubagent`·`steerCancel`·`steerSendNow`) · `composer`(§2.1-c) · `boot`(`report`·`whenReady`) · `backend` · `agent` · `engine` · `install` · `update` · `settings` · `extensions`(§2.5-a) · `skills` · `files` · `artifact`(§2.6-a) · `git`(§2.6-b) · `session` · `project` · `window` · `search` · `mcp` · `cost` · `concurrency` · `permission`(`respond`·`setMode`) · `notify`(`show` — §2.12-c) · `debug`(dev 전용 — `getMock`·`setMock`) · `log`(`emit` — §2.13-b) · `provider`(§2.13-c — `list`·`state`·`login`·`continue`·`reauth`·`revoke`) · `error`(§2.13-d — `reportEvent`·`drain`·`revealLog`).
 
 > **`provider` 도메인이 구 `auth`·`plugin` 채널을 대체한다.**
 > 앱 로그인·서비스 연결·LLM 자격증명·로그인 프리 Plugin 이 **같은 채널 묶음**을 쓴다 — view 분류는
@@ -79,7 +79,7 @@ Composer의 `dialog`·`drag_drop`·`clipboard` 첨부는 `chat:send` 정규화 �
 | `orca:composer:catalog-release` | R→M (invoke) | `{ owner: UUID }` | `void`. 호출 창의 owner만 해제한다. pending acquisition도 완료 후 반납하며 창 navigation/crash/destroy 및 앱 종료에서 정리한다. |
 | `orca:composer:catalog-invalidated` | M→R | `{ owner, generation }` | native 준비 세대 종료. 해당 owner만 무효화하며 늦은 이전 세대 응답은 폐기한다. 자동 재연결하지 않는다. |
 
-타입 정본은 `app/src/shared/composer-catalog.ts`다. preload/renderer API는 `session.composerCatalog`, `releaseComposerCatalog`, `onComposerCatalogInvalidated`다. 안전 DTO는 visible primary/all agent·모델별 variant·MCP/plugin 상태를 포함하며 prompt·공급자 옵션·자격증명은 전달하지 않는다. `failure`는 고정 단계·분류와 HTTP 상태만 담고 원문 오류는 전달하지 않는다. 빈 성공은 목록 제거이며 실패·취소는 빈 성공으로 해석하지 않는다. 팝업은 로딩·오류 안내나 스피너를 표시하지 않고 고정 새로고침 메뉴를 제공한다.
+타입 정본은 `app/src/shared/composer-catalog.ts`다. preload/renderer API는 `session.composerCatalog`, `releaseComposerCatalog`, `onComposerCatalogInvalidated`다. 안전 DTO는 visible primary/all agent·모델별 variant·MCP/plugin 상태를 포함하며 prompt·공급자 옵션·자격증명은 전달하지 않는다. `failure`는 고정 단계·분류와 HTTP 상태만 담고 원문 오류는 전달하지 않는다. 빈 성공은 목록 제거이며 실패·취소는 빈 성공으로 해석하지 않는다. 팝업은 로딩·오류 안내·스피너·새로고침 항목을 표시하지 않는다. 같은 작업폴더·실행 세대의 성공한 목록을 재사용한다. 상태 타일의 수동 갱신은 유지한다.
 
 OpenCode의 첫 입력 전 상태 타일은 같은 준비 owner의 MCP/plugin 조회를 추가 구독한다. 종류별 성공 결과를 바로 반영하며 다른 종류의 지연은 기다리지 않는다. 준비 관측은 읽기 전용이고 `NativeResource.canOpen=false`인 동적 항목은 파일 열기를 제공하지 않는다. 첫 입력 후에는 기존 세션 runtime 관측을 사용한다.
 
@@ -151,6 +151,8 @@ interface Settings {
   mcpEnabled: Record<string, boolean>; // MCP 서버 on/off (키=name). 부재 ⇒ true
   mcpMeta: Record<string, { description: string }>; // MCP Orca 전용 메타 (mcp.json 순정 유지)
   skillEnabled: Record<string, boolean>; // Skill on/off (키=sourceId/name). 부재 ⇒ true
+  nativeExtensionChoices?: Partial<Record<Backend, Record<string, boolean>>>; // 명시한 Orca 선택만, 키=kind:native-id. 부재는 하네스 전역값 상속
+  projectMcpChoices?: Record<string, Record<string, boolean>>; // 정규화 cwd → OpenCode MCP 이름 → 선택. Claude 프로젝트 저장은 native 파일
   authBypass: boolean; // 인증 게이트 우회 (디버그 패널 '로그인' 그룹 토글, DEV 전용). true ⇒ 게이트 통과(bypassed). 변경은 **즉시 반영** — settings:set 핸들러가 이 키를 보면 orca:provider:state 를 push 한다(재시작 불요, 0181). default false (0157 — 구 ssoBypass)
   language: string; // 선호 언어 (LLM 응답 언어). 시스템 프롬프트 '# User' 헤더로 매 턴 주입. uiLocale 과 별개. default '한국어'
   uiLocale: "ko" | "en"; // UI 표시 언어 (앱 크롬 로케일, 0096) — 렌더러 i18n(ko/en) + 날짜/시간 포맷 로케일. default 'ko'
@@ -182,6 +184,16 @@ interface Settings {
 > **이름 검증**: `author.name`은 trim 후 영숫자·`_`·`-`만 허용하는 1~64자 작성용 디렉터리 이름이다. `SkillTargetRequest.name`과 `setEnabled.name`은 비어 있지 않은 catalog 식별자로 `superpowers:using-superpowers` 같은 native 이름을 변환 없이 받는다. main은 `sourceId/name`이 정확히 일치하는 catalog 항목의 경로·권한만 사용하며, 요청 이름으로 파일 경로를 만들지 않는다.
 
 > **현재 표시 catalog**: Orca `sources/skills`, Claude native 사용자 루트와 비활성 항목을 포함한 설치 native plugin의 skill/command 파일, OpenCode 사용자 루트와 설정에 등록된 설치 plugin의 skill 루트, lock에 등록된 `~/.agents/skills`의 실제 파일을 합친다. 출처는 `orca`, `adapter:claude`, `plugin:claude`, `adapter:opencode`, `plugin:opencode`, `agents`다. `~/.agents/.skill-lock.json` 또는 XDG state lock의 등록 이름과 실제 파일의 교집합만 표시하고 symlink 중복은 canonical 경로로 제거한다. 세션 cwd의 스킬은 실행 SDK 명령에서 보완한다. catalog 조회는 native 파일을 배포하거나 수정하지 않는다. 비활성 native 스킬도 파일 열기·폴더 표시를 허용하며 native 토글·제거 권한은 부여하지 않는다. `author`·`upload`·`remove`는 Orca source 저장 뒤 확장을 재배포한다(`deployExtensions`).
+
+### 2.5-a Native extension catalog
+
+| 채널 | 방향 | 페이로드 | 응답·동작 |
+|---|---|---|---|
+| `orca:extensions:catalog` | R→M | `{ backend }` | `NativeResources`. 하네스 전역 파일의 설정 상태와 제어 가능 여부. 작업폴더 추론·서버 시작·runtime 조회 없음 |
+| `orca:extensions:setEnabled` | R→M | `SetGlobalNativeResource` = `{ backend, kind, id, enabled }` | `NativeResources`. 실제 전역 목록에서 capability를 재검증하고 명시 선택만 Orca JSON에 저장. native 전역 파일과 실행 중 instance는 변경하지 않음 |
+| `orca:extensions:open` | R→M | `GlobalNativeResourceTarget` = `{ backend, kind, id }` | `void`. 확인된 실제 설정/설치 위치만 열기. 파일 경로는 main에서 결정 |
+
+미지정 선택은 native 전역 값을 따른다. Claude plugin과 Claude 사용자 스킬은 SDK 옵션, OpenCode MCP는 directory SDK 연결·해제를 사용한다. 미지원 항목은 실제 enabled 값을 유지한 고정 토글·회색 폰트다. nav 조회 실패는 기존 확인 항목과 재시도 수단을 유지한다. 프로젝트 선택은 우측 패널의 실제 작업경로에 귀속한다. OpenCode 프로젝트 MCP 선택의 실행 적용은 전체 프로젝트 유휴 때 하며 `configurationPending`으로 대기를 구별한다.
 
 ### 2.6 Files
 

@@ -66,6 +66,54 @@ beforeEach(() => {
 })
 afterEach(() => rmSync(temp, { recursive: true, force: true }))
 
+it('isolates global SDK choices and freezes them until the last project query closes', () => {
+  write(join(root, 'settings.json'), { enabledPlugins: { 'frontend@market': false } })
+  const original = readFileSync(join(root, 'settings.json'), 'utf8')
+  let enabled = true
+  const adapter = new ClaudeAdapter({
+    global: () => ({ 'plugin:frontend@market': enabled }),
+    projectMcp: () => ({}),
+    setProjectMcp: vi.fn()
+  })
+  const request = {
+    sessionId: null,
+    cwd,
+    text: 'hello',
+    env: { CLAUDE_CONFIG_DIR: root },
+    extensions: {
+      skills: [
+        { ...skill('native', false), sourceId: 'adapter:claude', sourceKind: 'adapter' as const }
+      ],
+      hooks: { normalized: {} }
+    }
+  }
+  const flag = (): boolean =>
+    JSON.parse(
+      String((fixture.query.mock.calls.at(-1)![0] as { options: Options }).options.settings)
+    ).enabledPlugins['frontend-design@inline']
+  const first = adapter.sendMessage(request)
+  expect(flag()).toBe(true)
+  expect(
+    (fixture.query.mock.calls.at(-1)![0] as { options: Options }).options.skills
+  ).not.toContain('claude:native')
+  enabled = false
+  const peer = adapter.sendMessage(request)
+  expect(flag()).toBe(true)
+  const other = adapter.sendMessage({ ...request, cwd: join(temp, 'other') })
+  expect(flag()).toBe(false)
+  first.close()
+  first.close()
+  const remaining = adapter.sendMessage(request)
+  expect(flag()).toBe(true)
+  peer.close()
+  remaining.close()
+  const fresh = adapter.sendMessage(request)
+  expect(flag()).toBe(false)
+  other.close()
+  fresh.close()
+  expect(readFileSync(join(root, 'settings.json'), 'utf8')).toBe(original)
+})
+
 const skill = (name: string, enabled: boolean): SkillInfo => ({
   name,
   enabled,
