@@ -14,6 +14,10 @@ const fixture = vi.hoisted(() => ({
   userData: '',
   stop: new Error('fixture: harness composition reached'),
   settings: {
+    nativeExtensionChoices: {
+      claude: { 'plugin:test@market': false },
+      opencode: { 'mcp:docs': true }
+    },
     authBypass: false,
     harnesses: {
       claude: { instructions: 'Claude instructions' },
@@ -112,6 +116,8 @@ describe('Bootstrap harness composition callers', () => {
     const options = create.mock.calls[0][0]
     expect(options.dataDirectory).toBe(fixture.userData)
     expect(options.fetchImpl).toBe(netFetch)
+    expect(options.extensionControl?.global('claude')).toEqual({ 'plugin:test@market': false })
+    expect(options.extensionControl?.global('opencode')).toEqual({ 'mcp:docs': true })
     expect(options.preferences('claude')).toBe(fixture.settings.harnesses.claude)
     expect(options.preferences('opencode')).toBe(fixture.settings.harnesses.opencode)
     const prior = fixture.settings.harnesses.claude

@@ -75,7 +75,8 @@ async function readConfiguredClaudeResources(
     globalConfig: process.env.CLAUDE_CONFIG_DIR?.trim()
       ? join(claudeNativePaths().root, '.claude.json')
       : join(homedir(), '.claude.json')
-  }
+  },
+  globalOnly = false
 ): Promise<{
   items: NativeResource[]
   directories: Map<string, string>
@@ -84,19 +85,19 @@ async function readConfiguredClaudeResources(
   const directories = new Map<string, string>()
   const mcpFiles = new Map<string, string>()
   const root = claudeLocalSettingsRoot(cwd)
-  const nativeRoot = await projectRoot(cwd)
+  const nativeRoot = globalOnly ? cwd : await projectRoot(cwd)
   const [global, user, project, local, mcp, installed] = await Promise.all([
     readObject(paths.globalConfig),
     readObject(join(paths.root, 'settings.json')),
-    readObject(join(root, '.claude', 'settings.json')),
-    readObject(join(root, '.claude', 'settings.local.json')),
-    readObject(join(root, '.mcp.json')),
+    globalOnly ? record(undefined) : readObject(join(root, '.claude', 'settings.json')),
+    globalOnly ? record(undefined) : readObject(join(root, '.claude', 'settings.local.json')),
+    globalOnly ? record(undefined) : readObject(join(root, '.mcp.json')),
     readObject(join(paths.root, 'plugins', 'installed_plugins.json'))
   ])
   const projects = record(global.projects)
   const projectEntry = (path: string): Record<string, unknown> =>
     record(Object.entries(projects).find(([key]) => pathKey(key) === pathKey(path))?.[1])
-  const current = { ...projectEntry(nativeRoot), ...projectEntry(cwd) }
+  const current = globalOnly ? {} : { ...projectEntry(nativeRoot), ...projectEntry(cwd) }
   const enabledPlugins = {
     ...record(user.enabledPlugins),
     ...record(project.enabledPlugins),
@@ -138,7 +139,11 @@ async function readConfiguredClaudeResources(
     }
   }
   const plugins: NativeResource[] = []
-  for (const entry of installedClaudePlugins(cwd, installed.plugins)) {
+  const applicable = installedClaudePlugins(cwd, installed.plugins, globalOnly)
+  const selected = new Map<string, (typeof applicable)[number]>()
+  for (const entry of applicable)
+    if (!selected.has(entry.key) || entry.scope === 'managed') selected.set(entry.key, entry)
+  for (const entry of globalOnly ? selected.values() : applicable) {
     const { key: name, path: installPath } = entry
     const flag = enabledPlugins[name]
     const enabled = flag === true || Array.isArray(flag) || isRecord(flag)
@@ -149,6 +154,9 @@ async function readConfiguredClaudeResources(
     directories.set(id, installPath)
     plugins.push({
       ...configured(id, name, 'plugin', enabled, installedOnly),
+      ...(globalOnly
+        ? { canToggle: entry.scope === 'user' && typeof manifest.name === 'string' }
+        : {}),
       ...(typeof manifest.description === 'string'
         ? { description: manifest.description.trim().slice(0, 4000) }
         : {})
@@ -175,6 +183,25 @@ async function readConfiguredClaudeResources(
   addServers(mcp.mcpServers, join(root, '.mcp.json'), '', true, 'project')
   addServers(current.mcpServers, paths.globalConfig)
   return { items: [...servers.values(), ...plugins], directories, mcpFiles }
+}
+
+/** Global navigation must never infer a project from the application's default cwd. */
+export async function globalClaudeResources(
+  paths?: Parameters<typeof readConfiguredClaudeResources>[1]
+): Promise<NativeResource[]> {
+  const result = await readConfiguredClaudeResources(homedir(), paths, true)
+  return result.items.map((item) => ({
+    ...item,
+    canOpen: item.kind === 'plugin' ? result.directories.has(item.id) : result.mcpFiles.has(item.id)
+  }))
+}
+
+export async function globalClaudeResourcePath(
+  id: string,
+  kind: NativeResource['kind']
+): Promise<string | undefined> {
+  const result = await readConfiguredClaudeResources(homedir(), undefined, true)
+  return (kind === 'plugin' ? result.directories : result.mcpFiles).get(id)
 }
 
 export async function configuredClaudeResources(

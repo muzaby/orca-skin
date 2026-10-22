@@ -2,7 +2,39 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { expect, it } from 'vitest'
-import { configuredOpenCodeMcpFile } from './configured-resources'
+import { configuredOpenCodeMcpFile, globalOpenCodeResources } from './configured-resources'
+
+it('discovers global config.json and excludes the default workspace and its .opencode files', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'orca-global-config-'))
+  try {
+    const global = join(root, 'config', 'opencode')
+    await mkdir(global, { recursive: true })
+    await mkdir(join(root, '.opencode'), { recursive: true })
+    await writeFile(
+      join(global, 'config.json'),
+      JSON.stringify({
+        mcp: { docs: { enabled: false, url: 'PRIVATE_URL' } },
+        plugin: ['plugin-global']
+      })
+    )
+    await writeFile(join(root, 'opencode.json'), JSON.stringify({ mcp: { project: {} } }))
+    await writeFile(
+      join(root, '.opencode', 'opencode.json'),
+      JSON.stringify({ mcp: { hidden: {} } })
+    )
+    const items = await globalOpenCodeResources({ XDG_CONFIG_HOME: join(root, 'config') }, root)
+    expect(items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'docs', enabled: false, canToggle: true, canOpen: true }),
+        expect.objectContaining({ name: 'plugin-global', enabled: true, canToggle: false })
+      ])
+    )
+    expect(items).toHaveLength(2)
+    expect(JSON.stringify(items)).not.toContain('PRIVATE_URL')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
 
 it('resolves JSONC MCP declarations in global, custom and project scopes without parsing URL comments', async () => {
   const root = await mkdtemp(join(tmpdir(), 'orca-open-config-'))

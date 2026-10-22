@@ -73,6 +73,8 @@ import { registerEngineHandlers } from './handlers/engine'
 import { registerMiscHandlers } from './handlers/misc'
 import { registerSettingsHandlers, registerSettingsReadHandler } from './handlers/settings'
 import { registerSkillsHandlers } from './handlers/skills'
+import { registerExtensionCatalogHandlers } from './handlers/extension-catalog'
+import { extensionControl } from './extension-control'
 import { registerFilesHandlers } from './handlers/files'
 import { registerArtifactHandlers } from './handlers/artifacts'
 import { ArtifactService } from '../features/artifacts/service'
@@ -165,7 +167,8 @@ export class Bootstrap {
   private readonly registry = createAdapterRegistry({
     dataDirectory: app.getPath('userData'),
     preferences: (harnessId) => this.settings.getAll().harnesses?.[harnessId],
-    fetchImpl: netFetch
+    fetchImpl: netFetch,
+    extensionControl: extensionControl(this.settings)
   })
   // 부팅 시 1회 스캔하여 메모리에 캐시. fs.watch hot-reload 는 본 PR 범위 밖 (재시작).
   private skillsCache: SkillInfo[] = []
@@ -1053,6 +1056,9 @@ export class Bootstrap {
       emit: (sessionId, resources) => broadcastNativeResourcesChanged({ sessionId, resources }),
       run: (key, action) => resourceSharing.run!(key, action)
     }))
+    this.settings.onPatch((_next, keys) => {
+      if (keys.includes('projectMcpChoices')) projectSync.settingsChanged('opencode')
+    })
     const readResources = registerSessionResourceHandlers(
       (sessionId) => supervisor.peekRuntime(sessionId),
       async (sessionId) => {
@@ -1171,6 +1177,7 @@ export class Bootstrap {
     registerUpdateHandlers(ctx)
     registerSettingsHandlers(ctx)
     registerSkillsHandlers(ctx)
+    registerExtensionCatalogHandlers(this.settings)
     registerFilesHandlers(ctx)
     registerGitHandlers(ctx.db)
     registerCostHandlers(ctx)

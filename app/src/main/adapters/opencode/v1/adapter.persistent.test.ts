@@ -987,7 +987,15 @@ it('exposes native resources from the live channel client and its directory with
       expect(new URL(request.url).searchParams.get('directory')).toBe('C:/native-B')
       expect(request.method).toBe('GET')
     }
-    expect(f.live.setNativeResource).toBeUndefined()
+    await expect(
+      f.live.setNativeResource!({
+        sessionId: 's1',
+        generation: f.live.providerGeneration!,
+        kind: 'mcp',
+        id: 'native',
+        enabled: false
+      })
+    ).rejects.toThrow('제어')
   } finally {
     await dispose(f.live, iterator)
   }

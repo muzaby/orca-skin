@@ -30,6 +30,7 @@ function fixture(): {
   changed: Array<() => void>
   peers(): ProjectResourceTarget[]
   update(value: string): void
+  select(value: string): void
   busy(value: boolean): void
   fail(value: boolean): void
   replace(value: ProjectResourceTarget[]): void
@@ -95,6 +96,9 @@ function fixture(): {
     stopped,
     changed,
     peers: () => peers,
+    select: (value: string) => {
+      revision = value
+    },
     update: (value: string) => {
       revision = value
       changed.forEach((callback) => callback())
@@ -110,6 +114,30 @@ function fixture(): {
     }
   }
 }
+it('refreshes JSON project selections on change and waits for every project peer before applying', async () => {
+  const f = fixture()
+  f.replace(f.peers().map((peer) => ({ ...peer, backend: 'opencode' })))
+  f.service.tick()
+  await flush()
+  vi.mocked(f.runtime.reconcileNativeResources!).mockClear()
+  f.busy(true)
+  f.select('selected-mcp-off')
+  f.service.settingsChanged('opencode')
+  await flush()
+  expect(f.runtime.reconcileNativeResources).not.toHaveBeenCalled()
+  expect(f.emit).toHaveBeenLastCalledWith(
+    'B',
+    expect.objectContaining({ configurationPending: true })
+  )
+  f.busy(false)
+  f.service.tick()
+  await flush()
+  expect(f.runtime.reconcileNativeResources).toHaveBeenCalledTimes(2)
+  expect(f.runtime.reconcileNativeResources).toHaveBeenLastCalledWith(
+    'selected-mcp-off',
+    expect.any(Function)
+  )
+})
 it('shares one watcher, emits immediately while either peer is busy and reconciles only after all are idle', async () => {
   const f = fixture()
   f.service.tick()

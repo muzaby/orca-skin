@@ -17,7 +17,10 @@ interface ContextFixture {
   emit(directory: string, value: Event, auth?: string): void
 }
 
-function fixture(limit = 4096): ContextFixture {
+function fixture(
+  limit = 4096,
+  controls?: import('../../common/extension-control').ExtensionControl
+): ContextFixture {
   const requests: Request[] = []
   const streams: {
     controller: ReadableStreamDefaultController<Uint8Array>
@@ -77,7 +80,7 @@ function fixture(limit = 4096): ContextFixture {
     throw new Error(`Unexpected ${path}`)
   }
   return {
-    pool: new OpenCodeSessionContexts(fetchImpl, limit),
+    pool: new OpenCodeSessionContexts(fetchImpl, limit, controls),
     requests,
     streams,
     setRead: (value?: typeof read) => {
@@ -103,6 +106,65 @@ const server = { url: 'http://owned.test', headers: { Authorization: 'Basic one'
 const freshSignal = (): AbortSignal => new AbortController().signal
 
 describe('OpenCode server context with the installed SDK', () => {
+  it('shares directory choices, defers project edits until idle and renews defaults after final disposal', async () => {
+    let enabled = false
+    const projects: Record<string, Record<string, boolean>> = {}
+    const f = fixture(4096, {
+      global: () => ({ 'mcp:docs': enabled }),
+      projectMcp: (directory) => projects[directory] ?? {},
+      setProjectMcp: (directory, id, value) => {
+        projects[directory] = { ...projects[directory], [id]: value }
+      }
+    })
+    const states = new Map<string, boolean>()
+    f.setRead(async (request) => {
+      const url = new URL(request.url)
+      const directory = url.searchParams.get('directory')!
+      if (url.pathname === '/instance/dispose') states.delete(directory)
+      if (url.pathname === '/mcp/docs/connect' || url.pathname === '/mcp/docs/disconnect') {
+        states.set(directory, url.pathname.endsWith('/connect'))
+        return jsonResponse(true)
+      }
+      if (url.pathname === '/mcp')
+        return jsonResponse({
+          docs: { status: (states.get(directory) ?? true) ? 'connected' : 'disabled' }
+        })
+      return undefined
+    })
+    const a = await f.pool.acquire(server, 'C:/A')
+    const peer = await f.pool.acquire(server, 'C:/A')
+    await Promise.all([a.prepare(freshSignal()), peer.prepare(freshSignal())])
+    expect((await a.mcp(freshSignal()))[0]).toMatchObject({ enabled: false, canToggle: true })
+    expect(
+      f.requests.filter((request) => new URL(request.url).pathname.endsWith('/disconnect'))
+    ).toHaveLength(1)
+    enabled = true
+    const b = await f.pool.acquire(server, 'C:/B')
+    await b.prepare(freshSignal())
+    expect((await b.mcp(freshSignal()))[0].enabled).toBe(true)
+    expect((await peer.mcp(freshSignal(), true))[0].enabled).toBe(false)
+    await a.mcpControl!.set('docs', true)
+    const revision = (await a.mcpControl!.policy.read('C:/A')).revision
+    expect(await a.mcpControl!.reconcile(revision, () => false)).toBe('pending')
+    expect((await peer.mcp(freshSignal(), true))[0].enabled).toBe(false)
+    expect(await a.mcpControl!.reconcile(revision, () => true)).toBe('applied')
+    expect((await peer.mcp(freshSignal(), true))[0].enabled).toBe(true)
+    delete projects['C:/A']
+    await a.release()
+    expect((await peer.mcp(freshSignal(), true))[0].enabled).toBe(true)
+    await peer.release()
+    const fresh = await f.pool.acquire(server, 'C:/A')
+    await fresh.prepare(freshSignal())
+    expect((await fresh.mcp(freshSignal()))[0].enabled).toBe(true)
+    expect(
+      f.requests.some(
+        (request) =>
+          request.method === 'PATCH' || new URL(request.url).pathname === '/global/config'
+      )
+    ).toBe(false)
+    await Promise.all([fresh.release(), b.release()])
+    f.pool.close()
+  })
   it('shares resource flights per directory, isolates folders and retries failed MCP without refetching plugins', async () => {
     const f = fixture()
     const one = await f.pool.acquire(server, 'C:/A')

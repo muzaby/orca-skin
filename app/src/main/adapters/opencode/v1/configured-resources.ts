@@ -22,7 +22,8 @@ function parseConfig(text: string): unknown {
 /** Resolve only a file that actually declares this server; never invent a default path. */
 async function configuredOpenCode(
   cwd: string,
-  env: NodeJS.ProcessEnv = process.env
+  env: NodeJS.ProcessEnv = process.env,
+  globalOnly = false
 ): Promise<{
   files: Map<string, string>
   items: NativeResource[]
@@ -31,7 +32,7 @@ async function configuredOpenCode(
   const globalRoot = join(env.XDG_CONFIG_HOME || join(homedir(), '.config'), 'opencode')
   const lineage: string[] = []
   let current = resolve(cwd)
-  for (;;) {
+  for (; !globalOnly;) {
     lineage.unshift(current)
     try {
       await stat(join(current, '.git'))
@@ -45,6 +46,7 @@ async function configuredOpenCode(
   }
   const at = (root: string): string[] => [join(root, 'opencode.json'), join(root, 'opencode.jsonc')]
   const files = [
+    join(globalRoot, 'config.json'),
     ...at(globalRoot),
     ...(env.OPENCODE_CONFIG ? [resolve(cwd, env.OPENCODE_CONFIG)] : []),
     ...(env.OPENCODE_DISABLE_PROJECT_CONFIG === 'true' ? [] : lineage.flatMap(at)),
@@ -113,6 +115,22 @@ async function configuredOpenCode(
     items: [...servers.values(), ...installed],
     pluginSkillDirectories: [...pluginSkillDirectories]
   }
+}
+
+export async function globalOpenCodeResources(
+  env: NodeJS.ProcessEnv = process.env,
+  home = homedir()
+): Promise<NativeResource[]> {
+  const result = await configuredOpenCode(home, env, true)
+  return result.items.map((item) => ({
+    ...item,
+    canToggle: item.kind === 'mcp',
+    canOpen: result.files.has(item.id)
+  }))
+}
+
+export async function globalOpenCodeMcpFile(id: string): Promise<string | undefined> {
+  return (await configuredOpenCode(homedir(), process.env, true)).files.get(id)
 }
 
 export async function configuredOpenCodeMcpFile(

@@ -7,6 +7,8 @@ import {
   readUserOpenCodeSettings,
   configuredOpenCodeMcpFile,
   configuredOpenCodeResources,
+  globalOpenCodeResources,
+  globalOpenCodeResourcePath,
   openCodeContextWindow
 } from '../../../adapters/opencode'
 import {
@@ -17,6 +19,8 @@ import type { MainHarnessModule } from '../common/contracts'
 
 export const openCodeMainModule: MainHarnessModule = {
   id: 'opencode',
+  globalResources: globalOpenCodeResources,
+  globalResourcePath: globalOpenCodeResourcePath,
   createAdapter: (options) =>
     createOpenCodeAdapter({
       ...options,

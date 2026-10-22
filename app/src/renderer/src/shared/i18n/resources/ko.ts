@@ -639,7 +639,7 @@ export const ko = {
       failed: '연결 실패',
       'needs-auth': '인증 필요',
       pending: '연결 중',
-      unsupported: '세션별 제어 미지원',
+      unsupported: '프로젝트별 제어 미지원',
       enable: '프로젝트에서 활성화',
       disable: '프로젝트에서 비활성화',
       plugins: '플러그인'

@@ -23,7 +23,8 @@ function readObject(path: string): Record<string, unknown> {
 /** All applicable installations, including disabled entries and distinct paths for one key. */
 export function installedClaudePlugins(
   cwd: string,
-  installed: unknown
+  installed: unknown,
+  globalOnly = false
 ): Array<{ key: string; path: string; scope: string; projectPath?: string }> {
   return Object.entries(record(installed)).flatMap(([key, entries]) => {
     if (!Array.isArray(entries)) return []
@@ -32,6 +33,7 @@ export function installedClaudePlugins(
         return []
       if (entry.scope === 'user' || entry.scope === 'managed')
         return [{ key, path: entry.installPath, scope: entry.scope }]
+      if (globalOnly) return []
       if (typeof entry.projectPath !== 'string' || !entry.projectPath.trim()) return []
       const child = relative(pluginPathKey(entry.projectPath), pluginPathKey(cwd))
       const applies =
@@ -126,10 +128,11 @@ export function readClaudePluginCatalog(
   cwd: string,
   nativeRoot = claudeNativePaths().root,
   overrides: Record<string, unknown> = {},
-  includeDisabled = false
+  includeDisabled = false,
+  capturedDefaults?: Record<string, boolean>
 ): ClaudePluginCatalog {
   const projectRoot = claudeLocalSettingsRoot(cwd)
-  const defaults = {
+  const defaults = capturedDefaults ?? {
     ...record(readObject(join(nativeRoot, 'settings.json')).enabledPlugins),
     ...record(overrides.enabledPlugins)
   }

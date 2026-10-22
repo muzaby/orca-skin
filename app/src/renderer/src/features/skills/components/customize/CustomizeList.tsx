@@ -15,6 +15,7 @@ import {
 import { SourceHeading } from './SourceHeading'
 import type { NativeResource } from '../../../../../../shared/native-resources'
 import type { Backend } from '../../../../../../shared/ipc'
+import { CatalogToggle } from './CatalogToggle'
 
 export function CustomizeList({
   tab,
@@ -24,6 +25,10 @@ export function CustomizeList({
   selectedId,
   nativeMcp = [],
   onNativeMcp,
+  onNativeToggle,
+  onSkillToggle,
+  onMcpToggle,
+  suppressEmpty = false,
   onSelect
 }: {
   tab: CatalogTab
@@ -33,6 +38,10 @@ export function CustomizeList({
   selectedId?: string | null
   nativeMcp?: { backend: Backend; resource: NativeResource }[]
   onNativeMcp?: (backend: Backend, resource: NativeResource) => void
+  onNativeToggle?: (backend: Backend, resource: NativeResource) => void | Promise<void>
+  onSkillToggle?: (skill: SkillInfo) => void | Promise<void>
+  onMcpToggle?: (server: McpServer) => void | Promise<void>
+  suppressEmpty?: boolean
   onSelect: (id: string, origin: HTMLButtonElement) => void
 }): React.JSX.Element {
   const { tr, locale } = useI18n()
@@ -41,6 +50,9 @@ export function CustomizeList({
       skillSourceAllowed(skill.sourceId, 'claude') || skillSourceAllowed(skill.sourceId, 'opencode')
   )
   const rows = tab === 'skills' ? visibleSkills : tab === 'mcp' ? mcpServers : providers
+  const nativeRows = nativeMcp.filter(
+    ({ resource }) => resource.kind === (tab === 'skills' ? 'plugin' : 'mcp')
+  )
   const emptyKey =
     tab === 'skills'
       ? 'skills.table.noSkills'
@@ -48,8 +60,10 @@ export function CustomizeList({
         ? 'skills.table.noMcp'
         : 'skills.table.noProviders'
 
-  if (rows.length === 0 && !(tab === 'mcp' && nativeMcp.length))
-    return (
+  if (rows.length === 0 && !(tab !== 'providers' && nativeRows.length))
+    return suppressEmpty ? (
+      <></>
+    ) : (
       <div role="status" className="grid h-48 place-items-center text-footnote text-ink3">
         {tr(emptyKey)}
       </div>
@@ -78,7 +92,7 @@ export function CustomizeList({
                 icon={<Icon name="doc" size={20} className="shrink-0 text-ink3" />}
                 title={
                   <span
-                    className={`truncate ${skill.enabled ? '' : 'text-ink3'}`}
+                    className={`truncate ${skill.canToggle ? '' : 'text-ink3'}`}
                     title={skill.name}
                   >
                     {skill.name}
@@ -91,25 +105,62 @@ export function CustomizeList({
                       : formatDateMedium(meta.updatedAtMs, locale)}
                   </span>
                 }
+                actions={
+                  <CatalogToggle
+                    name={skill.name}
+                    enabled={skill.enabled}
+                    canToggle={skill.canToggle}
+                    onToggle={() => onSkillToggle?.(skill)}
+                  />
+                }
               />
             </Fragment>
           )
         })}
-      {tab === 'mcp' &&
-        nativeMcp.map(({ backend, resource }, index) => (
+      {tab !== 'providers' &&
+        nativeRows.map(({ backend, resource }, index) => (
           <Fragment key={`${backend}:${resource.id}`}>
-            {nativeMcp[index - 1]?.backend !== backend && (
+            {nativeRows[index - 1]?.backend !== backend && (
               <SourceHeading
                 spaced={index > 0}
                 source={backend}
-                label={`${backend === 'claude' ? 'Claude' : 'OpenCode'} MCP`}
+                label={`${backend === 'claude' ? 'Claude' : 'OpenCode'} ${tab === 'mcp' ? 'MCP' : tr('chat.nativeResources.plugins')}`}
               />
             )}
             <CatalogListRow
               data-extensions-row={`${backend}:${resource.id}`}
-              openProps={{ onClick: () => onNativeMcp?.(backend, resource) }}
-              icon={<Icon name="mcp" size={20} className="text-ink3" />}
-              title={resource.name}
+              openProps={{
+                disabled: resource.canOpen === false,
+                onClick: () => onNativeMcp?.(backend, resource)
+              }}
+              icon={
+                <Icon
+                  name={resource.kind === 'mcp' ? 'mcp' : 'doc'}
+                  size={20}
+                  className="text-ink3"
+                />
+              }
+              title={
+                <span
+                  className={`truncate ${resource.canToggle ? '' : 'text-ink3'}`}
+                  title={resource.name}
+                >
+                  {resource.name}
+                </span>
+              }
+              trailing={
+                <span className="text-caption text-ink3">
+                  {tr(`chat.nativeResources.${resource.status}`)}
+                </span>
+              }
+              actions={
+                <CatalogToggle
+                  name={resource.name}
+                  enabled={resource.enabled}
+                  canToggle={resource.canToggle}
+                  onToggle={() => onNativeToggle?.(backend, resource)}
+                />
+              }
             />
           </Fragment>
         ))}
@@ -142,6 +193,14 @@ export function CustomizeList({
               }
               trailing={
                 <span className="shrink-0 text-caption text-ink3">{tr(meta.statusKey)}</span>
+              }
+              actions={
+                <CatalogToggle
+                  name={server.name}
+                  enabled={server.enabled}
+                  canToggle
+                  onToggle={() => onMcpToggle?.(server)}
+                />
               }
             />
           )

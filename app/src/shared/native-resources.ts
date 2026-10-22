@@ -55,6 +55,14 @@ export interface SetNativeResource {
   id: string
   enabled: boolean
 }
+export interface GlobalNativeResourceTarget {
+  backend: Backend
+  kind: NativeResource['kind']
+  id: string
+}
+export interface SetGlobalNativeResource extends GlobalNativeResourceTarget {
+  enabled: boolean
+}
 export interface NativeResourcesChanged {
   sessionId?: string
   scope?: DraftNativeResourcesRequest

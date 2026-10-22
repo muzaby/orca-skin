@@ -103,11 +103,11 @@ describe('OpenCode native resources', () => {
     )
     expect(status).toHaveBeenCalledExactlyOnceWith(
       { directory: 'C:/session-B' },
-      { throwOnError: true }
+      { throwOnError: false, signal: undefined }
     )
     expect(get).toHaveBeenCalledExactlyOnceWith(
       { directory: 'C:/session-B' },
-      { throwOnError: true }
+      { throwOnError: false, signal: undefined }
     )
     expect(
       items.map(({ name, status, enabled, canToggle }) => [name, status, enabled, canToggle])

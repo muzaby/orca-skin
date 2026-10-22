@@ -64,6 +64,12 @@ native user의 synthetic text만 공통 `input.received`로 기록하고, 모델
 
 ### 1.3 ClaudeCodeAdapter 호출 패턴
 
+nav의 확장 카탈로그는 하네스 전역 파일만 읽으며 서버나 directory를 만들지 않는다. SDK로 Orca 실행만 제어할 수 있는 항목은 가변 토글·일반 폰트, 다른 항목은 native 상태의 고정 토글·회색 폰트다. 하네스 기본값은 복제하지 않는다. `SettingsStore`의 선택 JSON에는 사용자가 명시한 `nativeExtensionChoices`와 OpenCode의 정규화 작업경로별 `projectMcpChoices`만 저장한다.
+
+Claude plugin 전역 선택은 SDK inline plugin flags, 사용자 스킬 선택은 SDK skills allow-list로 반영한다. 같은 작업경로의 살아 있는 Query들은 시작 시점 plugin 기본값과 스킬 선택을 공유하며 마지막 Query 해제 후 새 값을 읽는다. 프로젝트 plugin 선택은 이 기본값보다 우선한다. Claude native MCP 전역 토글은 외부 설정과 격리할 수 없어 고정하며 프로젝트 제어는 허용된 native 저장·동기화 경로를 사용한다.
+
+OpenCode MCP 전역 선택은 directory state가 획득 시 고정하고 native 초기화 후 SDK `connect`/`disconnect`로 적용한다. 기존 인스턴스의 설정 파일을 갱신하거나 서버를 재시작하지 않는다. 이 방식은 native 초기 MCP 연결 비용을 없애지 않는다. 프로젝트 MCP 선택은 우측 패널에서 저장하고 `ProjectResourceSync`가 같은 작업폴더의 모든 세션이 유휴 상태일 때 적용한다. native plugin/skill의 개별 load on/off는 공통 SDK 제어가 없으므로 모니터링한다.
+
 공통 실행 설정은 `claude/adapt.ts`의 `adaptExecutionConfig`가 SDK `Options` 타입에 맞춰 조립한다. `complete`와 `sendMessage`는 이를 함께 사용하며, 실행별 도구·hook·plugin 정책은 각 호출부가 소유한다.
 
 | 입력 | SDK 전달 | 책임 |

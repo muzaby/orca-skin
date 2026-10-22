@@ -6,6 +6,10 @@ import {
   configuredClaudeMcpFile
 } from '../../../adapters/claude/configured-resources'
 import {
+  globalClaudeResources,
+  globalClaudeResourcePath
+} from '../../../adapters/claude/configured-resources'
+import {
   loadClaudeProviderSettings,
   readUserClaudeSettings
 } from '../../../adapters/claude/settings'
@@ -26,7 +30,9 @@ export const claudeMainModule: MainHarnessModule = {
     read: async (cwd) => ({ revision: readClaudeProjectSettings(cwd).revision })
   },
   id: 'claude',
-  createAdapter: () => new ClaudeAdapter(),
+  createAdapter: (options) => new ClaudeAdapter(options.extensionControl),
+  globalResources: globalClaudeResources,
+  globalResourcePath: globalClaudeResourcePath,
   loadSettings: loadClaudeProviderSettings,
   parseSettingsModels: parseClaudeModels,
   parseRuntimeModels,

@@ -10,33 +10,33 @@
 
 | 항목 | 수 | 정본 |
 |---|---|---|
-| IPC 채널 | **110** | `app/src/shared/ipc.ts` |
-| IPC 도메인 | **26** | `app/src/shared/ipc.ts` |
+| IPC 채널 | **113** | `app/src/shared/ipc.ts` |
+| IPC 도메인 | **27** | `app/src/shared/ipc.ts` |
 | NormalizedEvent variant | **30** | `app/src/shared/ipc.ts` |
-| settings 키 | **21** | `app/src/shared/protocol.ts` |
+| settings 키 | **23** | `app/src/shared/protocol.ts` |
 | main 수직 슬라이스 | **15** | `app/src/main/features/` |
 | main contracts 모듈 | **5** | `app/src/main/contracts/` |
-| IPC 핸들러 | **20** | `app/src/main/app/handlers/` |
+| IPC 핸들러 | **21** | `app/src/main/app/handlers/` |
 | DB 마이그레이션 | **33** | `app/src/main/infra/db/migrations/` |
 | renderer feature | **14** | `app/src/renderer/src/features/` |
 
 ## 내역
 
-### IPC 채널 (110)
+### IPC 채널 (113)
 
-`orca:agent:list` · `orca:artifact:catalog` · `orca:artifact:list` · `orca:artifact:openFolder` · `orca:artifact:preview` · `orca:artifact:reveal` · `orca:artifact:save` · `orca:artifact:setPinned` · `orca:artifact:status` · `orca:artifact:trash` · `orca:backend:list` · `orca:boot:report` · `orca:boot:whenReady` · `orca:chat:backgroundEvent` · `orca:chat:backgroundState` · `orca:chat:backgroundSubagent` · `orca:chat:cancel` · `orca:chat:discardSession` · `orca:chat:event` · `orca:chat:promoteBackgroundTask` · `orca:chat:readBackgroundOutput` · `orca:chat:send` · `orca:chat:steerCancel` · `orca:chat:steerSendNow` · `orca:chat:stopAllBackgroundTasks` · `orca:chat:stopBackgroundTask` · `orca:chat:stopSubagent` · `orca:composer:catalog` · `orca:composer:catalog-invalidated` · `orca:composer:catalog-release` · `orca:concurrency:event` · `orca:cost:refreshUsage` · `orca:cost:setProviderLimit` · `orca:cost:usage` · `orca:cost:usageEvent` · `orca:cost:usageStats` · `orca:debug:getMock` · `orca:debug:setMock` · `orca:engine:add` · `orca:engine:delete` · `orca:engine:importUserSettings` · `orca:engine:read` · `orca:engine:update` · `orca:error:drain` · `orca:error:reportEvent` · `orca:error:revealLog` · `orca:files:list` · `orca:files:openContextFile` · `orca:files:openPath` · `orca:files:pickAttachments` · `orca:files:pickDirectory` · `orca:files:readAttachment` · `orca:git:branches` · `orca:git:checkout` · `orca:git:diffPatch` · `orca:git:snapshot` · `orca:install:start` · `orca:install:status` · `orca:log:emit` · `orca:mcp:add` · `orca:mcp:delete` · `orca:mcp:list` · `orca:mcp:update` · `orca:notify:show` · `orca:permission:respond` · `orca:permission:setMode` · `orca:project:create` · `orca:project:delete` · `orca:project:list` · `orca:project:listSessions` · `orca:project:setPinned` · `orca:project:update` · `orca:provider:continue` · `orca:provider:list` · `orca:provider:login` · `orca:provider:reauth` · `orca:provider:revoke` · `orca:provider:state` · `orca:search:messages` · `orca:session:addDirectory` · `orca:session:cwd` · `orca:session:delete` · `orca:session:list` · `orca:session:load` · `orca:session:native-resources` · `orca:session:native-resources-changed` · `orca:session:open-native-plugin` · `orca:session:refresh` · `orca:session:rename` · `orca:session:set-native-resource` · `orca:session:setPinned` · `orca:session:titleEvent` · `orca:settings:get` · `orca:settings:set` · `orca:skills:author` · `orca:skills:list` · `orca:skills:open` · `orca:skills:remove` · `orca:skills:setEnabled` · `orca:skills:showInFolder` · `orca:skills:upload` · `orca:update:check` · `orca:update:download` · `orca:update:progressEvent` · `orca:update:quitAndInstall` · `orca:update:state` · `orca:update:stateEvent` · `orca:window:close` · `orca:window:maximize` · `orca:window:minimize`
+`orca:agent:list` · `orca:artifact:catalog` · `orca:artifact:list` · `orca:artifact:openFolder` · `orca:artifact:preview` · `orca:artifact:reveal` · `orca:artifact:save` · `orca:artifact:setPinned` · `orca:artifact:status` · `orca:artifact:trash` · `orca:backend:list` · `orca:boot:report` · `orca:boot:whenReady` · `orca:chat:backgroundEvent` · `orca:chat:backgroundState` · `orca:chat:backgroundSubagent` · `orca:chat:cancel` · `orca:chat:discardSession` · `orca:chat:event` · `orca:chat:promoteBackgroundTask` · `orca:chat:readBackgroundOutput` · `orca:chat:send` · `orca:chat:steerCancel` · `orca:chat:steerSendNow` · `orca:chat:stopAllBackgroundTasks` · `orca:chat:stopBackgroundTask` · `orca:chat:stopSubagent` · `orca:composer:catalog` · `orca:composer:catalog-invalidated` · `orca:composer:catalog-release` · `orca:concurrency:event` · `orca:cost:refreshUsage` · `orca:cost:setProviderLimit` · `orca:cost:usage` · `orca:cost:usageEvent` · `orca:cost:usageStats` · `orca:debug:getMock` · `orca:debug:setMock` · `orca:engine:add` · `orca:engine:delete` · `orca:engine:importUserSettings` · `orca:engine:read` · `orca:engine:update` · `orca:error:drain` · `orca:error:reportEvent` · `orca:error:revealLog` · `orca:extensions:catalog` · `orca:extensions:open` · `orca:extensions:setEnabled` · `orca:files:list` · `orca:files:openContextFile` · `orca:files:openPath` · `orca:files:pickAttachments` · `orca:files:pickDirectory` · `orca:files:readAttachment` · `orca:git:branches` · `orca:git:checkout` · `orca:git:diffPatch` · `orca:git:snapshot` · `orca:install:start` · `orca:install:status` · `orca:log:emit` · `orca:mcp:add` · `orca:mcp:delete` · `orca:mcp:list` · `orca:mcp:update` · `orca:notify:show` · `orca:permission:respond` · `orca:permission:setMode` · `orca:project:create` · `orca:project:delete` · `orca:project:list` · `orca:project:listSessions` · `orca:project:setPinned` · `orca:project:update` · `orca:provider:continue` · `orca:provider:list` · `orca:provider:login` · `orca:provider:reauth` · `orca:provider:revoke` · `orca:provider:state` · `orca:search:messages` · `orca:session:addDirectory` · `orca:session:cwd` · `orca:session:delete` · `orca:session:list` · `orca:session:load` · `orca:session:native-resources` · `orca:session:native-resources-changed` · `orca:session:open-native-plugin` · `orca:session:refresh` · `orca:session:rename` · `orca:session:set-native-resource` · `orca:session:setPinned` · `orca:session:titleEvent` · `orca:settings:get` · `orca:settings:set` · `orca:skills:author` · `orca:skills:list` · `orca:skills:open` · `orca:skills:remove` · `orca:skills:setEnabled` · `orca:skills:showInFolder` · `orca:skills:upload` · `orca:update:check` · `orca:update:download` · `orca:update:progressEvent` · `orca:update:quitAndInstall` · `orca:update:state` · `orca:update:stateEvent` · `orca:window:close` · `orca:window:maximize` · `orca:window:minimize`
 
-### IPC 도메인 (26)
+### IPC 도메인 (27)
 
-`chat 14` · `session 13` · `artifact 9` · `skills 7` · `files 6` · `project 6` · `provider 6` · `update 6` · `cost 5` · `engine 5` · `git 4` · `mcp 4` · `composer 3` · `error 3` · `window 3` · `boot 2` · `debug 2` · `install 2` · `permission 2` · `settings 2` · `agent 1` · `backend 1` · `concurrency 1` · `log 1` · `notify 1` · `search 1`
+`chat 14` · `session 13` · `artifact 9` · `skills 7` · `files 6` · `project 6` · `provider 6` · `update 6` · `cost 5` · `engine 5` · `git 4` · `mcp 4` · `composer 3` · `error 3` · `extensions 3` · `window 3` · `boot 2` · `debug 2` · `install 2` · `permission 2` · `settings 2` · `agent 1` · `backend 1` · `concurrency 1` · `log 1` · `notify 1` · `search 1`
 
 ### NormalizedEvent variant (30)
 
 `ChatActivitySnapshot` · `artifact.published` · `error` · `input.echo` · `input.received` · `message.cancelled` · `message.committed` · `message.completed` · `message.delta` · `message.queued` · `message.reasoning` · `message.reasoning.delta` · `message.submitted` · `output.captured` · `permission.requested` · `permission.resolved` · `response.boundary` · `session.compacted` · `session.schedules` · `session.updated` · `subagent.backgroundSet` · `subagent.task` · `telemetry` · `tool.call.completed` · `tool.call.retracted` · `tool.call.started` · `turn.aborted` · `turn.ended` · `turn.retrying` · `worktree.preparing`
 
-### settings 키 (21)
+### settings 키 (23)
 
-`accountInstructions` · `appFont` · `authBypass` · `harnesses` · `language` · `lastAgentKind` · `lastBackend` · `lastSessionId` · `mcpEnabled` · `mcpMeta` · `notifyOnComplete` · `scheduler` · `sidebarCollapsed` · `sidebarWidth` · `skillEnabled` · `spendingLimitUsd` · `theme` · `transcriptTextSize` · `transcriptWidth` · `uiLocale` · `windowBounds`
+`accountInstructions` · `appFont` · `authBypass` · `harnesses` · `language` · `lastAgentKind` · `lastBackend` · `lastSessionId` · `mcpEnabled` · `mcpMeta` · `nativeExtensionChoices` · `notifyOnComplete` · `projectMcpChoices` · `scheduler` · `sidebarCollapsed` · `sidebarWidth` · `skillEnabled` · `spendingLimitUsd` · `theme` · `transcriptTextSize` · `transcriptWidth` · `uiLocale` · `windowBounds`
 
 ### main 수직 슬라이스 (15)
 
@@ -46,9 +46,9 @@
 
 `auth` · `bus-events` · `ports` · `session-state` · `turn`
 
-### IPC 핸들러 (20)
+### IPC 핸들러 (21)
 
-`artifacts` · `boot` · `composer-catalog` · `context-file` · `cost` · `engine` · `error` · `files` · `git` · `log` · `mcp` · `misc` · `project` · `providers` · `session` · `session-directory` · `session-resources` · `settings` · `skills` · `update`
+`artifacts` · `boot` · `composer-catalog` · `context-file` · `cost` · `engine` · `error` · `extension-catalog` · `files` · `git` · `log` · `mcp` · `misc` · `project` · `providers` · `session` · `session-directory` · `session-resources` · `settings` · `skills` · `update`
 
 ### DB 마이그레이션 (33)
 

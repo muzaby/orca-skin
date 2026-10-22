@@ -92,6 +92,9 @@ export const CHANNELS = {
   sessionRename: 'orca:session:rename',
   sessionSetPinned: 'orca:session:setPinned',
   sessionNativeResources: 'orca:session:native-resources',
+  extensionCatalog: 'orca:extensions:catalog',
+  extensionSetEnabled: 'orca:extensions:setEnabled',
+  extensionOpen: 'orca:extensions:open',
   composerCatalog: 'orca:composer:catalog',
   composerCatalogRelease: 'orca:composer:catalog-release',
   composerCatalogInvalidated: 'orca:composer:catalog-invalidated',
@@ -1133,6 +1136,9 @@ export interface Settings {
   mcpMeta: Record<string, { description: string }>
   // Skill enabled on/off (키 = sourceId/name). 부재 ⇒ enabled=true.
   skillEnabled: Record<string, boolean>
+  /** Explicit selections only; an absent key inherits the harness's current native default. */
+  nativeExtensionChoices?: Partial<Record<Backend, Record<string, boolean>>>
+  projectMcpChoices?: Record<string, Record<string, boolean>>
   // 인증 게이트 우회(0157 — 구 ssoBypass). true 면 앱 시작 시 로그인 화면을 건너뛴다
   // (디버그 패널에서 토글, DEV 전용).
   authBypass: boolean

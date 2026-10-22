@@ -635,7 +635,7 @@ export const en: typeof ko = {
       failed: 'Connection failed',
       'needs-auth': 'Authentication required',
       pending: 'Connecting',
-      unsupported: 'Session controls unavailable',
+      unsupported: 'Project controls unavailable',
       enable: 'Enable in this project',
       disable: 'Disable in this project',
       plugins: 'Plugins'
