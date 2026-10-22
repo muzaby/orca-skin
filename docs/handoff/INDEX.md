@@ -22,7 +22,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [`0281-opencode-menu-cache`](0281-opencode-menu-cache/plan.md) | impl | IMPL_DONE | Claude | (r1.2 구현 — 검증자 기입) | 1 | 기본 에이전트 제거·agent 제목 우측 loading 표시. cache/키보드/독립 slot 회귀 통과; 실제 창 시각 인수 미확인. |
+| [`0281-opencode-menu-cache`](0281-opencode-menu-cache/plan.md) | verify | **FAIL** (V1+ΔV1 r1) | Codex | `af7fb41`(V1 설계) · `b687b1a`(V1 r1) · `087543e`(ΔV1 설계) · `a082776`(ΔV1 r1.2, 0278 커밋 동봉) | 2 | ΔV1 §10 6자리 중 5자리 고장 미검출(models 대기 스피너·회전 class·Tab·미선택 라벨·MenuTitle 순서). V1 캐시·선택 회귀 PASS. [verify](0281-opencode-menu-cache/verify.md) D1–D5. |
 | [`0280-opencode-prepared-status`](0280-opencode-prepared-status/plan.md) | impl | IMPL_DONE | Claude | (r1 구현 — 검증자 기입) | 1 | 준비 인스턴스의 MCP/plugin 독립 표시·취소/실패 구분·안전 진단. AC5/5 자기확인, 실제 사용자 환경·독립 검증 대기. 전역 제어는 0278 별도. |
 | [`0279-claude-project-plugin-state`](0279-claude-project-plugin-state/plan.md) | impl | IMPL_DONE | Claude | (r1.3 구현 — 검증자 기입) | 1 | Windows actual cwd plugin 저장·async await·MCP 읽기 전용. native 0.3.286/0.3.296 범위 재현, 기존 유휴 정책 회귀. |
 | [`0278-harness-extension-isolation`](0278-harness-extension-isolation/plan.md) | impl | IMPL_DONE | Claude | (r2.2 구현 — 검증자 기입) | 2 | 작업경로 격리·전역 비소급·동시 저장 구현 및 CI 검사 보완. [Windows CI](https://github.com/muzaby/orca-skin/actions/runs/39771749947) 7,893개·scripts 142개 통과. 독립 검증 대기. |
