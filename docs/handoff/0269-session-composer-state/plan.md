@@ -142,3 +142,11 @@ D1~5와 합치한다. 실행에서 해석한 모델을 턴/자동 연속 턴으�
 - 막았어야 할 지침/AC: 기존 로드는 provider만 복원했고 model=null 이후의 fallback 복귀를 검사하지 않았다. 이번 writer→DTO→실제 Composer가 다른 default를 구별한다.
 - 환경: gh run list는403, GitHub connector로 실제 실패 로그를 조회했다. SQLite는 Electron ABI로 유지하고 Git 복사 실행 시험만 Node로 분리했다. 초기 root cwd의 migration/doc 명령은 올바른 app cwd에서 재실행했다.
 - r1 / impl r1. 코드 push 시5/6 partial을 기록했고 같은 턴의 Windows CI success 후6/6으로 완료했다. 독립 verify는 별도다.
+
+## [검증자 기입] 파생 이슈 — verify r1 (2026-10-22)
+
+판정 정본은 [verify.md](verify.md) — **FAIL**. 고장 ID는 그 문서 §4 고장 이력이다.
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| D1 | G6 reader가 telemetry를 저장 모델보다 먼저 써도 green | EP1④ · AC1 · VP3 | `last_model`과 다른 마지막 telemetry가 있는 세션의 load DTO가 저장 모델임을 단언 | BLOCKING | open |
