@@ -148,6 +148,30 @@ afterEach(() => {
 })
 
 describe('native resources session lifecycle', () => {
+  it.each([
+    ['backend', { backend: 'opencode' as const }],
+    ['cwd', { cwd: 'C:/other' }],
+    ['projectId', { projectId: 'other' }]
+  ])('rejects a ready draft push differing only in %s', async (_field, difference) => {
+    const draft = { backend: 'claude' as const, cwd: 'C:/scope-guard', projectId: 'expected' }
+    const original = snapshot('scope-live')
+    read.mockResolvedValueOnce(original)
+    dom.render(createElement(Probe, { id: null, scope: 'claude', draft }))
+    await settle()
+    expect(current.view).toEqual({ status: 'ready', value: original })
+    const changed = {
+      ...original,
+      configurationPending: true,
+      items: [{ ...resource, name: 'Different push', enabled: false, canToggle: false }]
+    }
+    resourcesChanged({ scope: { ...draft, ...difference }, resources: changed })
+    await settle()
+    expect(current.view).toEqual({ status: 'ready', value: original })
+    resourcesChanged({ scope: draft, resources: changed })
+    await settle()
+    expect(current.view).toMatchObject({ status: 'ready', value: changed })
+  })
+
   it('owns draft observations and accepts only matching pushes while fencing an older read', async () => {
     const draft = { backend: 'claude' as const, cwd: 'C:/A', projectId: 'A' }
     let finish!: (value: NativeResources) => void

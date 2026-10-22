@@ -23,13 +23,19 @@ it('finishes immutable publication inside the serialized deployment and drains i
     publish
   )
   const first = service.deployNow({ throwOnFailure: true })
+  let firstFinished = false
+  void first.then(() => {
+    firstFinished = true
+  })
   await entered.promise
   const second = service.deployNow({ throwOnFailure: true })
   let closed = false
   const close = service.close().then(() => {
     closed = true
   })
+  for (let i = 0; i < 20; i++) await Promise.resolve()
   expect(f.deploy).toHaveBeenCalledTimes(1)
+  expect(firstFinished).toBe(false)
   expect(closed).toBe(false)
   gate.resolve()
   await Promise.all([first, second, close])

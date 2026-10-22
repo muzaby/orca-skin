@@ -52,16 +52,16 @@ it('serializes canonical same-file aliases, merges latest bytes and keeps other 
       throw new Error('first save completed without entering its commit barrier')
     })
   ])
-  const second = queue.mutate(
-    process.platform === 'win32' ? a.toUpperCase() : a,
-    patch('two', true)
-  )
+  const secondPatch = vi.fn(patch('two', true))
+  const second = queue.mutate(process.platform === 'win32' ? a.toUpperCase() : a, secondPatch)
   const last = queue.mutate(a, patch('one', false))
   await queue.mutate(b, patch('other', true))
   expect(finished).toBe(false)
   expect(JSON.parse(await readFile(b, 'utf8'))).toEqual({ other: true })
+  const patchesBeforeFirstCommit = secondPatch.mock.calls.length
   gate.resolve()
   await Promise.all([first, second, last])
+  expect(patchesBeforeFirstCommit).toBe(0)
   expect(JSON.parse(await readFile(a, 'utf8'))).toEqual({ one: false, two: true })
   expect((await readdir(root)).sort()).toEqual(['a.json', 'b.json'])
 })
@@ -90,6 +90,29 @@ it('re-reads an external edit and retries a temporary rename lock without early 
     plugin: false
   })
   expect(replace).toHaveBeenCalledTimes(2)
+})
+
+it('rebases an external edit before commit without relying on a rename failure', async () => {
+  const file = join(root, 'settings.json')
+  await writeFile(file, '{"preserved":true,"plugin":true}')
+  const replace = vi.fn(rename)
+  let edited = false
+  const queue = new FileMutationCoordinator({
+    rename: replace,
+    beforeCommit: async () => {
+      if (edited) return
+      edited = true
+      await writeFile(file, '{"preserved":false,"external":true,"plugin":true}')
+    }
+  })
+  await queue.mutate(file, patch('plugin', false))
+  expect(JSON.parse(await readFile(file, 'utf8'))).toEqual({
+    preserved: false,
+    external: true,
+    plugin: false
+  })
+  expect(replace).toHaveBeenCalledOnce()
+  expect(await readdir(root)).toEqual(['settings.json'])
 })
 
 it('preserves malformed bytes and disk-full failures, releases the queue, and bounds permanent lock retries', async () => {

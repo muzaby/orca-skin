@@ -59,3 +59,25 @@ it('observes exact cwd MCP/plugin keys without writing, and waits for reclamatio
   expect(await readFile(file, 'utf8')).toBe(bytes)
   expect((await readOpenCodeProjectSettings(b)).revision).toBe(child.revision)
 })
+
+it('changes revision for plugin-only external edits while preserving MCP and other cwd state', async () => {
+  root = await mkdtemp(join(tmpdir(), 'orca-oc-plugin-revision-'))
+  const a = join(root, 'A'),
+    b = join(a, 'B')
+  await mkdir(b, { recursive: true })
+  const file = join(a, 'opencode.jsonc')
+  const write = (plugin: unknown, model = 'unchanged'): Promise<void> =>
+    writeFile(file, JSON.stringify({ mcp: { docs: { enabled: false } }, plugin, model }))
+  await write(['first'])
+  const original = await readOpenCodeProjectSettings(a)
+  const child = await readOpenCodeProjectSettings(b)
+  for (const plugin of [['second'], [['second', { custom: true }]], []]) {
+    await write(plugin)
+    const next = await readOpenCodeProjectSettings(a)
+    expect(next.revision).not.toBe(original.revision)
+    expect(next.mcp).toEqual(original.mcp)
+    expect(await readOpenCodeProjectSettings(b)).toEqual(child)
+    await write(plugin, 'unrelated')
+    expect((await readOpenCodeProjectSettings(a)).revision).toBe(next.revision)
+  }
+})

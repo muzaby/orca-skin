@@ -1,0 +1,656 @@
+{
+  "date": "2026-10-23",
+  "platform": "Windows",
+  "method": "Isolated app copy; one source mutation per run; exact source bytes restored before same-target green run",
+  "command": "node node_modules/vitest/vitest.mjs run <target files> --pool=threads --maxWorkers=1 --reporter=json",
+  "cited_and_registered": [
+    {
+      "id": "X1",
+      "red": {
+        "status": 1,
+        "total": 10,
+        "failed": 1,
+        "failures": [
+          "carries catalog changes through the real bootstrap registry into new SDK snapshots only"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 10,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "X2",
+      "red": {
+        "status": 1,
+        "total": 1,
+        "failed": 1,
+        "failures": [
+          "finishes immutable publication inside the serialized deployment and drains it before close"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 1,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A23",
+      "red": {
+        "status": 1,
+        "total": 2,
+        "failed": 1,
+        "failures": [
+          "changes revision for plugin-only external edits while preserving MCP and other cwd state"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 2,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A6",
+      "red": {
+        "status": 1,
+        "total": 9,
+        "failed": 1,
+        "failures": [
+          "discards a revision invalidated during reading before any resource push"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 9,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A15",
+      "red": {
+        "status": 1,
+        "total": 6,
+        "failed": 1,
+        "failures": [
+          "rebases an external edit before commit without relying on a rename failure"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 6,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "P11",
+      "red": {
+        "status": 1,
+        "total": 28,
+        "failed": 1,
+        "failures": [
+          "native resources session lifecycle rejects a ready draft push differing only in backend"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 28,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "P12",
+      "red": {
+        "status": 1,
+        "total": 28,
+        "failed": 1,
+        "failures": [
+          "native resources session lifecycle rejects a ready draft push differing only in cwd"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 28,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "P13",
+      "red": {
+        "status": 1,
+        "total": 28,
+        "failed": 1,
+        "failures": [
+          "native resources session lifecycle rejects a ready draft push differing only in projectId"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 28,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A10",
+      "red": {
+        "status": 1,
+        "total": 10,
+        "failed": 1,
+        "failures": [
+          "observes external project settings through real bootstrap and waits for peer activity before reconciliation"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 10,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A7",
+      "red": {
+        "status": 0,
+        "total": 94,
+        "failed": 0,
+        "failures": []
+      },
+      "green": {
+        "status": 0,
+        "total": 94,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    }
+  ],
+  "prior_detected_regression": [
+    {
+      "id": "A1",
+      "red": {
+        "status": 1,
+        "total": 4,
+        "failed": 1,
+        "failures": [
+          "fingerprints only project extension keys and native project state, excluding other cwd and Git-root state"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 4,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A2",
+      "red": {
+        "status": 1,
+        "total": 2,
+        "failed": 1,
+        "failures": [
+          "merges sibling choices and preserves unrelated settings in the current work directory"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 2,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A3",
+      "red": {
+        "status": 0,
+        "total": 4,
+        "failed": 0,
+        "failures": []
+      },
+      "green": {
+        "status": 0,
+        "total": 4,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A4",
+      "red": {
+        "status": 1,
+        "total": 5,
+        "failed": 1,
+        "failures": [
+          "uses the canonical harness project for unassigned sessions, keeping projects and backends isolated"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 5,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A5",
+      "red": {
+        "status": 1,
+        "total": 9,
+        "failed": 1,
+        "failures": [
+          "counts foreground, queued, delivered, residual, background and wakeup activity as busy"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 9,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A8",
+      "red": {
+        "status": 1,
+        "total": 6,
+        "failed": 1,
+        "failures": [
+          "shows external selection with actual status immediately, waits for idle, and never saves it back"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 6,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A9",
+      "red": {
+        "status": 1,
+        "total": 88,
+        "failed": 1,
+        "failures": [
+          "SessionRuntime native resource generation serializes the next submission behind an idle configuration operation and fences a retired channel"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 88,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A11",
+      "red": {
+        "status": 1,
+        "total": 23,
+        "failed": 2,
+        "failures": [
+          "returns pending configuration as read-only and refuses a stale toggle through the real IPC read",
+          "native resource IPC rejects stale generations, unknown entries and read-only resources before writing"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 23,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A12",
+      "red": {
+        "status": 1,
+        "total": 6,
+        "failed": 1,
+        "failures": [
+          "Claude native resources rejects both MCP toggle directions before SDK native Git-root persistence"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 6,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A13",
+      "red": {
+        "status": 1,
+        "total": 6,
+        "failed": 1,
+        "failures": [
+          "waits for durable persistence and serializes subsequent plugin mutations"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 6,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A14",
+      "red": {
+        "status": 0,
+        "total": 6,
+        "failed": 0,
+        "failures": []
+      },
+      "green": {
+        "status": 0,
+        "total": 6,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A16",
+      "red": {
+        "status": 1,
+        "total": 2,
+        "failed": 1,
+        "failures": [
+          "freezes admission and drains saves once before stopping owners and removing their files"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 2,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A17",
+      "red": {
+        "status": 1,
+        "total": 2,
+        "failed": 1,
+        "failures": [
+          "defers actual before-quit events once until accepted saves finish, then permits final quit"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 2,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A18",
+      "red": {
+        "status": 1,
+        "total": 7,
+        "failed": 2,
+        "failures": [
+          "isolates global SDK choices and freezes them until the last project query closes",
+          "pins deployed MCP files for same-cwd peers and reloads until the final owner closes"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 7,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A19",
+      "red": {
+        "status": 1,
+        "total": 7,
+        "failed": 1,
+        "failures": [
+          "pins deployed MCP files for same-cwd peers and reloads until the final owner closes"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 7,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A20",
+      "red": {
+        "status": 1,
+        "total": 2,
+        "failed": 1,
+        "failures": [
+          "reads native defaults without copying them and keeps supported explicit choices only in memory"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 2,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A21",
+      "red": {
+        "status": 1,
+        "total": 2,
+        "failed": 1,
+        "failures": [
+          "observes exact cwd MCP/plugin keys without writing, and waits for reclamation for external edits"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 2,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A22",
+      "red": {
+        "status": 1,
+        "total": 2,
+        "failed": 1,
+        "failures": [
+          "observes exact cwd MCP/plugin keys without writing, and waits for reclamation for external edits"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 2,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A24",
+      "red": {
+        "status": 1,
+        "total": 6,
+        "failed": 1,
+        "failures": [
+          "isolates project approvals from user MCP and detects revision changes before any SDK call"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 6,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "PL1",
+      "red": {
+        "status": 1,
+        "total": 6,
+        "failed": 1,
+        "failures": [
+          "applies session-only inline flags and reloads actual plugin state while preserving sibling flags"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 6,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "F12a",
+      "red": {
+        "status": 1,
+        "total": 2,
+        "failed": 1,
+        "failures": [
+          "renders native plugin capabilities and updates the actual row through its toggle"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 2,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "F12b",
+      "red": {
+        "status": 1,
+        "total": 2,
+        "failed": 1,
+        "failures": [
+          "renders native plugin capabilities and updates the actual row through its toggle"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 2,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "F12c",
+      "red": {
+        "status": 1,
+        "total": 11,
+        "failed": 1,
+        "failures": [
+          "plugin catalog list uses capability for font and fixed switches independently of enabled state"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 11,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "F12d",
+      "red": {
+        "status": 1,
+        "total": 4,
+        "failed": 1,
+        "failures": [
+          "lists read-only OpenCode resources without inventing unsupported controls"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 4,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    }
+  ],
+  "strengthened_oracle_followup": [
+    {
+      "id": "A3",
+      "red": {
+        "status": 1,
+        "total": 3,
+        "failed": 1,
+        "failures": [
+          "refuses a local settings junction outside the current working directory"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 3,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    },
+    {
+      "id": "A14",
+      "red": {
+        "status": 1,
+        "total": 6,
+        "failed": 1,
+        "failures": [
+          "serializes canonical same-file aliases, merges latest bytes and keeps other files independent"
+        ]
+      },
+      "green": {
+        "status": 0,
+        "total": 6,
+        "failed": 0,
+        "failures": []
+      },
+      "restored": true
+    }
+  ]
+}

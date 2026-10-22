@@ -6,7 +6,7 @@
 |---|---|
 | slug | 0278-harness-extension-isolation |
 | 작성자 / 일자 | Codex / 2026-10-22 |
-| 상태 | READY — D32 capability·비소급 snapshot·동시 저장의 최종 설계는 §27. 기존 verify FAIL은 구현 후 재검증 |
+| 상태 | IMPL_DONE — r3 FAIL 대응 완료·독립 검증 대기. D32 capability·비소급 snapshot·동시 저장의 최종 설계는 §27 |
 | V mode / 기준 / revision | Delta V / V1@256ddd24 + ΔV1@087543ed + ΔV2@81373134 / 유효 revision: V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 |
 | 관련 작업 | [0277 MCP 관측](../0277-opencode-mcp-catalog/plan.md), [0275 공유 인스턴스](../0275-opencode-shared-instances/plan.md), [0276 Composer 준비](../0276-opencode-composer-preparation/plan.md) |
 
@@ -927,3 +927,149 @@ OS 잠금 helper는 준비 전 정상 종료(code 0)도 실패로 처리하고 s
 | R4 | A15 외부 재편집 재확인 제거 green | FEP9 · AC19C · DV3-P4 | 잠금 없는 `beforeCommit` 외부 편집 케이스 | BLOCKING | open |
 | R5 | P11–P13 push scope 3항 제거 green(0277 D2 이관 포함) | FEP12 · AC7C · V1 VP4 | 한 항만 다른 push 거부를 항마다 단언 | BLOCKING | open |
 | N3 | 증거 README 기대값이 D32 이전 서술 | repository operation | 현재 기대로 갱신 | NON_BLOCKING | open |
+
+## [구현자 기입] — ΔV5 r3 (2026-10-23)
+
+### 1. 설계 리뷰
+
+동의·유지: §27의 READY 계약과 D26·28·31·32를 그대로 따른다. R1–R5는 기존 구현을 지운 변이가 green이던 테스트 사각이며, 제품 코드 대신 관측 입력·시점을 보강했다. ACTIVE Decision 충돌·신규 의존성·PLAN_GAP은 발견하지 않았다.
+
+### 2. 강제 지점 전수와 V-pair 자기확인
+
+아래 파일명은 `app/src` 아래 좌표다. §27의 생산 경로를 읽기·배선·SDK 인자·파일·renderer 결과로 대조했고, 관련 회귀는 실제 Windows에서 43파일 430테스트 green이었다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| DV1-P1·4·5 | memory 선택·legacy 무효 | FEP1 schema/store | 1/1 | `handlers/extension-catalog.test: reads native defaults…`·`does not reactivate legacy choice bytes…` | old false/new true·비대상 bytes | 없음 |
+| DV1-P4 | 같은 control 주입 | FEP2 bootstrap→catalog→registry | 1/1 | `bootstrap.native-history.test: carries catalog changes through the real bootstrap registry into new SDK snapshots only` | native off→IPC on→새 B SDK true·A peer false; X1 red 1 | snapshot publisher는 별도 FEP3·4 |
+| DV1-P2·DV5-P1 | 비소급 owner 수명 | FEP3 capture/query/release | 1/1 | `adapter.native-plugins.test: isolates global SDK choices…`·`pins deployed MCP files…` | A/새 peer old·B new·최종 해제 후 new | 실제 사용자 CLI 재실측 없음 |
+| DV5-P1 | 발행 완료 대기 | FEP4 deployment/publish | 1/1 | `harnesses/claude/extensions.test: finishes immutable publication…`·`plugin-snapshots.test: pins MCP/skill bytes…` | 발행 gate 동안 첫 요청·후속 배포·close 미완료; X2 red 1 | 없음 |
+| DV3-P3·DV4-P2·3 | 제어 능력·저장 await | FEP5 native list/set | 1/1 | `claude/native-resources.test: rejects both MCP toggle directions…`·`waits for durable persistence…` | MCP SDK 0·plugin 저장 완료 이후 성공 | 없음 |
+| DV1-P3·DV4-P2 | 정확한 cwd revision | FEP6 reader/reconcile | 1/1 | `claude/project-settings.test: fingerprints only project extension keys…`·`project-reconciliation.test: isolates project approvals…` | root/child·native root·restart-required 구별 | 설치 SDK probe는 이번 턴 미실행 |
+| DV1-P2·DV4-P2 | directory capture·거부 | FEP7 OpenCode prepare/set | 1/1 | `session-context.test: freezes global choices per directory…`·`adapter.test` unsafe project controls | acquire 시 값·새 B 값·직접 set 거부 | 없음 |
+| DV2-P2·3 | plugin revision·stale 폐기 | FEP8 files/revision/sync | 1/1 | `opencode/v1/project-settings.test: changes revision for plugin-only external edits…`·`project-resource-sync.test: discards a revision invalidated during reading…` | plugin만 변경·model만 변경·늦은 read의 중간 push 0; A23/A6 red 각 1 | 없음 |
+| DV3-P1·3·4 | latest bytes patch | FEP9 plugin writer/coordinator | 1/1 | `file-mutation.test: rebases an external edit before commit without relying on a rename failure`·`plugin-state.test` | rename 성공 1회·외부 다른 키 보존·현재 요청만 patch; A15 red 1 | 비협력 외부 writer와 CAS 보장은 없음 |
+| DV3-P1·DV4-P1 | response/peer·scope | FEP10 session handler/sharing | 1/1 | `session-resources.test: rejects stale generations…`·`native-resource-sharing.test` | 직접 거부·실제 queue·peer persist=false | 없음 |
+| DV3-P2·DV5-P1 | drain/quit/cleanup | FEP11 lifecycle | 1/1 | `native-settings-lifecycle.test: freezes admission…`·`defers actual before-quit…`·`plugin-snapshots.test` | 저장→runtime→snapshot·멱등 종료 | 실제 창 종료 미실행 |
+| V1 VP4·DV4-P1 | capability·push scope | FEP12 nav/panel | 1/1 | `useNativeMcpCatalog.test`·`CustomizeList.render.test`·`useNativeResources.test: rejects a ready draft push differing only in…` | backend/cwd/projectId 한 항만 불일치 각각 거부·동일 scope 수락; P11–13 red 각 1 | 실제 두 테마 시각 인수 |
+
+§27 고정 경계 12/12에 직접 oracle을 대응했다. 이 턴은 테스트만 바꾸므로 생산 경로 추가는 없으며, FEP2의 publisher stub은 그 검사로 FEP3·4까지 닫았다는 의미가 아니다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| DV1-P4·DV2-P2·3·DV3-P4·DV5-P1·V1 VP4 | REQUIRED / REGRESSION | SELF_PASS | 위 FEP2·4·8·9·12 | 인용 8변이 전부 assertion red→원본 bytes 복원→같은 파일 green |
+| DV1-P1·2·3·5·DV2-P1·4·DV3-P1·2·3·DV4-P1·2·3·V1 VP1·2·3·5·6 | REQUIRED / REGRESSION | SELF_PASS | 나머지 FEP 및 아래 AC별 좌표 | 기존 직접 행동 회귀 43파일 430테스트 green |
+| V1 VP7 | REGRESSION | SELF_PASS | 0275 r2 L15/E11·0276 r2 Q2/Q8·0280 r2 N6/N6b/N9/R8의 직접 oracle | 각 변이 assertion red 1 후 원복 green. 담당별 결과는 해당 plan·[공통 기록](../0281-opencode-menu-cache/evidence/verify-fail-validation.md)에 연결 |
+
+### 3. 이번 라운드 수정의 잠금
+
+격리 복사본에서 생산 파일 한 곳씩 수정했다. 실행은 `node node_modules/vitest/vitest.mjs run <대상> --pool=threads --maxWorkers=1`; 원본 바이트 복구 후 같은 파일 집합을 다시 실행했다.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| X1 catalog에 별도 control 주입 | R1/FEP2·새 배선 oracle | 못 잡음 | `carries catalog changes…` 1/10 | 잠김·복원 10 green |
+| X2 publish await 제거 | R2/FEP4 | 못 잡음 | `finishes immutable publication…` 1/1 | 잠김·복원 1 green |
+| A23 plugin revision 항 제거 | R3/FEP8·0277 D3 이관 | 못 잡음 | `changes revision for plugin-only…` 1/2 | 잠김·복원 2 green |
+| A6 읽는 중 변경된 revision 폐기 제거 | R3/FEP8·0279 D1 | 못 잡음 | `discards a revision…` 1/9 | 잠김·복원 9 green |
+| A15 commit 직전 bytes 재확인 제거 | R4/FEP9·0279 D2 | 못 잡음 | `rebases an external edit…` 1/6 | 잠김·복원 6 green |
+| P11 backend 비교 제거 | R5/FEP12·0277 D2·0279 D3 | 못 잡음 | ready draft backend 1/28 | 잠김·복원 28 green |
+| P12 cwd 비교 제거 | 같은 출처 | 못 잡음 | ready draft cwd 1/28 | 잠김·복원 28 green |
+| P13 projectId 비교 제거 | 같은 출처 | 못 잡음 | ready draft projectId 1/28 | 잠김·복원 28 green |
+
+선택 증거 0 · 인용 변이 8 · 새 oracle 0(배선 민감도는 X1과 중복) = 위 표 행 8. 0279 등록 A10·동치 A7·이전 잡음 행의 재실행 결과는 아래 마무리 기록에 별도로 적는다.
+
+### 4. Product/UX 파생 검토
+
+표시·문구·토글 정책은 변경하지 않았다. 준비 완료 목록에서 다른 scope의 push를 주어 기존 목록이 그대로 남고, 동일 scope push만 새 목록으로 바뀌는 것을 세 축에서 관측했다. 외부 편집의 최신값·저장 완료와 UI 성공의 순서는 직접 Promise/file oracle이며 실제 Electron 창 시각 인수와 구분한다.
+
+### 5. 놓친 잠재 문제 + 대응
+
+| 문제 | 대응 | 근거 |
+|---|---|---|
+| 기존 A3 Linux shim red는 Windows writer의 root 운반까지 입증하지 못함 | 실제 cwd의 `.claude` junction이 외부 파일을 가리키는 writer 테스트 추가 | `plugin-state.test: refuses a local settings junction outside the current working directory` |
+| 기존 A14 최종 bytes는 FIFO 제거 뒤에도 우연히 같을 수 있음 | 첫 commit gate를 열기 전 두 번째 patch 호출 수를 캡처하고 종료 후 0 단언 | `file-mutation.test: serializes canonical same-file aliases…`; A14 red 1 |
+| N3 증거 README의 과거 기대가 현재 gate처럼 읽힘 | 당시 기대와 D32 이후 거부 gate를 분리 | `evidence/README.md` 첫 명령 설명 재독 |
+| snapshot mock을 전체 bootstrap 배포 증거로 오인 가능 | R1은 같은 control→SDK flags만 주장; 배포는 FEP3·4의 실제 파일 oracle 유지 | 위 실행 구간·남긴 곳 열 |
+
+설계 대비 메커니즘 변경은 없다. 만료·공유·재진입·다른 무효화 축의 새로운 대체물 실패 모드는 해당 없음이며 기존 runtime 수명·watcher·generation 회귀를 다시 실행했다.
+
+### 6. 구현 보고
+
+| 항목 | 관측 |
+|---|---|
+| 변경 파일 | bootstrap native-history·deployment·project sync·OpenCode project settings·file mutation·plugin state·renderer native resources 테스트, evidence README |
+| 관측한 게이트 산출 | 최초 집중 6파일 56테스트, 확대 43파일 430테스트, A3/A14 보강 후 최종 7파일 59테스트 green. 최종 변경 파일 lint 0오류·0경고; 통합 gate는 아래 공통 기록 |
+| V-pair 자기확인 | 위 24개 유효 ID 모두 SELF_PASS·SELF_BLOCKED 0. VP7은 타 handoff 담당의 직접 재현 결과로 닫음 |
+| 강제 지점 전수 | §27 고정 경계 12/12. 실제 사용자 바이너리/창은 미실행 |
+| 블로커 / 역질문 | 없음. 실제 사용자 바이너리·창의 새 실측을 했다는 의미는 아님 |
+| 대상 커밋 | (r3 구현 — 좌표는 INDEX에 검증자 기입) |
+
+| AC | 자기보고 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | `CustomizeList.render`·`useNativeMcpCatalog` on/off×capability |
+| AC2 | ✅ | 실제 bootstrap IPC→registry SDK on, native 기준 off |
+| AC3 | ✅ | `adapter.native-plugins: loads enabled native skills…`·`adapt.test` |
+| AC4S | ✅ | `extension-catalog: does not reactivate legacy choice bytes…` |
+| AC5G | ✅ | 새 B/기존 A 구별·publisher gate·snapshot 실제 파일 회귀 |
+| AC6N | ✅ | `opencode/v1/adapter`·`project-settings` 직접 mutation 거부 |
+| AC7C | ✅ | sharing cwd·Claude revision·ready push scope 3항 |
+| AC8 | ✅ | 두 configured reader·panel native resource 회귀 |
+| AC9 | ✅ | session handler stale/read-only·native persistence 실패 회귀 |
+| AC10 | ✅ | catalog 조회 회귀 및 0275 L15/E11·0276 Q2/Q8·0280 N6/N6b/N9/R8의 red→원복 green 확인; 사용자 CLI 수치는 이전 유효 증거 승계 |
+| AC11 | ✅ | project-resource-sync busy/idle·읽기 중 invalidation push 0 |
+| AC12 | ✅ | 기존 verify FAIL 보존·현재 구현자 자기보고 분리 |
+| AC13N | ✅ | legacy 선택 무효와 지원 불가 set 거부 |
+| AC14K | ✅ | plugin-state 형제값·비대상 키 보존 |
+| AC15O | ✅ | plugin-only revision 변화·model-only 동일·busy/idle 경계 |
+| AC16F | ✅ | native persistence 실패·rollback·stale IPC/renderer 회귀 |
+| AC17W | ✅ | file queue 별칭·형제 키·등록 순서 |
+| AC18Q | ✅ | 실제 Windows FileShare.None 잠금 해제 후 성공 |
+| AC19C | ✅ | 잠금 없이 외부 bytes 변경 재병합·rename 1회 |
+| AC20L | ✅ | 실제 quit callback drain·runtime/snapshot 순서 |
+| AC21C | ✅ | 미지원 MCP 직접 거부·capability UI 회귀 |
+
+합계 검산: ✅21 · ⚠️0 · ❌0 = 총21. 독립 검증 PASS 또는 실제 창 인수 완료로 표현하지 않는다.
+
+### 7. Review Signals
+
+`handoff-review`는 DIAGNOSE_ONLY로 적용했다. 사용자 요청은 verify FAIL 수정이며 지침 수정은 요청하지 않았으므로 현재 지침의 충분성만 진단했다.
+
+| 분류 | 증거 | 지침 판단 |
+|---|---|---|
+| B 실행 누락 | r2 보고의 FEP2는 별개 조립 테스트, FEP8 plugin 값은 고정, FEP9 외부 편집은 EBUSY와 결합 | `handoff-impl §2·3·8`의 구별값·production 구간·인용 변이 규칙이 이미 요구함. 같은 규칙 추가하지 않음 |
+| D 사용자 결정 변경 | D26·D32와 이관 ledger | 실패 패턴으로 일반화하지 않음 |
+| E 환경 차이 | 이전 Linux shim A3는 현재 Windows 기존 fixture에서 green | 실제 Windows junction 회귀로 관측 범위를 보강 |
+
+지침/상태 머신/템플릿 변경 0이므로 Tier 1/2 변경 회귀·corpus 갱신은 해당 없다. 현재 라운드는 r3이며 이전 r2 FAIL을 3회째 FAIL로 잘못 세지 않았다.
+
+#### r3 마무리 검사 기록
+
+위 인용 8건 외에 0279의 등록 A10·동치 A7 및 이전에 잡힌 24개 변이를 모두 재실행했다. [기계 결과](evidence/r3-mutation-results.json)는 최초 생존 결과와 보강 후 결과를 함께 보존한다. 각 실행은 격리 복사본에서 수행했고 생산 파일의 원바이트 복구를 확인했다.
+
+| 이전 잡음/등록 ID | 이번 변이 failed / total | 원복 green | 보강·관측 |
+|---|---|---|---|
+| A1 | 1/4 | 4/4 | cwd/native-root revision 구별 |
+| A2 | 1/2 | 2/2 | writer 형제 선택 보존 |
+| A3 | 최초 0/4 → 보강 1/3 | 최초 4/4 → 보강 3/3 | 이전 project-settings fixture는 writer의 `{ root: cwd }` 운반을 거치지 않음. 실제 plugin writer에 외부 junction을 주어 bytes 불변·거부를 잠금 |
+| A4 | 1/5 | 5/5 | cwd sharing scope |
+| A5 | 1/9 | 9/9 | background activity busy |
+| A8 | 1/6 | 6/6 | 외부 설정 reconcile의 persist=false |
+| A9 | 1/88 | 88/88 | 다음 제출 configuration barrier |
+| A10 (등록) | 1/10 | 10/10 | 실제 bootstrap observer policy |
+| A11 | 2/23 | 23/23 | IPC canToggle 거부 |
+| A12 | 1/6 | 6/6 | MCP native 쓰기 전 거부 |
+| A13 | 1/6 | 6/6 | plugin 저장 완료 await |
+| A14 | 최초 0/6 → 보강 1/6 | 각 6/6 | 독립 파일 저장을 기다린 뒤 첫 commit 전 두 번째 patch 진입 수 0을 캡처. 종료 결과만 같던 기존 fixture를 보강 |
+| A16·A17 | 각각 1/2 | 각각 2/2 | drain 순서·before-quit 방지 |
+| A18 | 2/7 | 7/7 | 프로젝트 snapshot 공유 |
+| A19 | 1/7 | 7/7 | immutable 배포 root |
+| A20·A21·A22 | 각각 1/2 | 각각 2/2 | catalog capability·OpenCode overlay·지원 불가 set |
+| A24·PL1 | 각각 1/6 | 각각 6/6 | MCP 재시작 필요·inline 형제 flag 보존 |
+| F12a·F12b | 각각 1/2 | 각각 2/2 | 실제 nav row capability 색·토글 |
+| F12c | 1/11 | 11/11 | fixed switch disabled |
+| F12d | 1/4 | 4/4 | read-only panel 메뉴 |
+| A7 (동치) | 0/94 | 94/94 | 선행 동기 호출 경로의 중복 idle 검사 제거는 여전히 동치 |
+
+고유 변이 34개 = 놓친 8 + 이전 잡음 24 + 등록 A10 1 + 동치 A7 1. A3/A14 후속 2회를 포함한 실행은 36회이며, 최종 결과는 검출 33·동치 1이다. 실행 36회 모두 원복 후 같은 대상 집합이 green이었다. A3/A14의 첫 생존을 숨기거나 과거 red가 이번에도 처음부터 유지됐다고 쓰지 않는다.
+
+보강 후 최종 변경 테스트 7파일 59개 green·변경 7파일 ESLint 오류/경고 0이다. 확대 43파일 430개 결과는 A3 추가 전이므로 새 검사까지 포함한 전체 재실행으로 표현하지 않는다. 최종 전체 Vitest·타입·scripts·빌드·문서 gate는 [공통 검증 기록](../0281-opencode-menu-cache/evidence/verify-fail-validation.md)을 따른다. UI 두 테마 시각 인수·사용자 커스텀 CLI 실행은 이번에 하지 않았으며 이전 실기의 정책 유효성과 이번 테스트 변경의 gate를 구분한다.
