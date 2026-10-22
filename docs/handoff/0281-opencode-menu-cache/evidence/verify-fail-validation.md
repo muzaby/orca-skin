@@ -10,6 +10,7 @@
 
 | 검사 | 결과·범위 |
 |---|---|
+| 원격 Windows CI | 최종 app 코드 `aa747d6c`의 [CI #854](https://github.com/muzaby/orca-skin/actions/runs/39872952117), job120151550908 전체 success. Vitest 815파일 passed·2 skipped, 7,922 tests passed·2 skipped; scripts 142/142. 이후 변경은 이 결과를 반영하는 보고 문서뿐 |
 | 전체 Vitest | `vitest run --pool=threads --maxWorkers=2`: 817파일, 7,921 passed·1 failed·2 skipped. 실패는 미변경 `daily.test.ts`의 실행 중 TZ 전환이며 기본 `--pool=forks`로 같은 파일 21/21 통과. 최종 수정 22파일은 별도로 기본 forks에서 118/118 통과 |
 | scripts 단위 테스트 | `node --test scripts/*.test.mjs`: 142/142 통과 |
 | TypeScript 3구성 | `npm run typecheck`: exit 0; 최초 renderer fixture 타입 3건 수정 후 재실행. 마지막 렌더 fixture 정리 뒤 `typecheck:test`도 exit 0 |

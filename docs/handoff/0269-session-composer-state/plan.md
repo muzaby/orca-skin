@@ -4,7 +4,7 @@
 
 | 항목 | 값 |
 |---|---|
-| 상태 / 라운드 | IMPL_DONE / r2 (FAIL 대응 완료·최신 원격 Windows CI 대기) |
+| 상태 / 라운드 | IMPL_DONE / r2 (FAIL 대응 완료·Windows CI #854 통과·AC6/6) |
 | 작성자 / 일자 | Codex / 2026-10-20 |
 | V mode / revision | Baseline V / V1 |
 | 기준 | origin/codex-harness-entry-menu `4766e080` 리베이스 완료 |
@@ -168,9 +168,9 @@ D1의 reader 우선순위는 production에서 이미 올바르다. 테스트 DB�
 | VP1·2·3 | Composer | EP1⑤ cold/cached load | 1/1 | Composer.selection·chatReducer.model·composerWiring | provider 기본 Opus와 저장 Sonnet[1m]·alias 구별, cached 새 선택 보존 | 없음 |
 | VP4 | 승인 | EP1⑥ default/explicit | 1/1 | chatReducer.model·chatReducer.permission | 4.6/5.x 기본 auto, 명시 선택·OpenCode 유지 | 없음 |
 | VP5 | 기존 CI 영향 | EP1⑦ CI15파일·canonical/socket/catch | 1/1 | 최종 전체 로컬 gate의 기존 영향 테스트·guard | 이번 변경은 last-model fixture만, 기존 CI 복구 production 유지 | 전체 gate 결과는 통합 기록 |
-| 운영 | 로컬/원격 gate | EP1⑧ 운영·최종 원격 CI | 0/1 | 관련49파일493/493 green, 최종 운영 결과는 통합 기록 | 이번 커밋 원격 Windows CI는 아직 없음 | 최신 원격 CI |
+| 운영 | 로컬/원격 gate | EP1⑧ 운영·최종 원격 CI | 1/1 | 관련49파일493/493 green, [Windows CI #854](https://github.com/muzaby/orca-skin/actions/runs/39872952117) 전체 success | 이번 구현을 모두 포함한 `aa747d6c`에서 gate job120151550908 통과 | 없음 |
 
-자리 검색 248행을 고정8자리와 대조했다. 이번 production diff는 없으며 추가 운반 경로도 없다. 마지막 telemetry 삽입은 기존 EP1④를 직접 실행하는 DB fixture 안에만 추가된다. 현재 직접 닫은 수 7/8이며 원격 운영 자리는 별도로 남긴다.
+자리 검색 248행을 고정8자리와 대조했다. 이번 production diff는 없으며 추가 운반 경로도 없다. 마지막 telemetry 삽입은 기존 EP1④를 직접 실행하는 DB fixture 안에만 추가된다. 원격 운영 관측까지 포함해 8/8을 닫았다.
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
@@ -179,7 +179,7 @@ D1의 reader 우선순위는 production에서 이미 올바르다. 테스트 DB�
 | VP3 | REQUIRED | SELF_PASS | turn-context·last-model·session.load·Composer.selection·composerWiring | G6 1 red, M1 2 red, 원복 green |
 | VP4 | REQUIRED | SELF_PASS | reducer model/permission | 직접 결과 |
 | VP5 | REQUIRED | SELF_PASS | 기존 CI 영향 테스트·전체 로컬 gate | 원격 운영 판정과 별도 |
-| 원격 운영 | REQUIRED | SELF_BLOCKED | 이번 커밋 원격 CI 미실행 | 이전 CI 결과로 대체하지 않음 |
+| 원격 운영 | REQUIRED | SELF_PASS | `aa747d6c` Windows CI #854 전체 success | 이번 구현의 최종 app 코드에서 직접 관측 |
 
 ## [구현자 기입] r2 이번 라운드 수정의 잠금
 
@@ -214,9 +214,9 @@ D1의 reader 우선순위는 production에서 이미 올바르다. 테스트 DB�
 | 변경 | last-model 파일 DB fixture에 저장 모델과 다른 최신 telemetry 및 DTO 단언 추가 |
 | 관련 gate | OpenCode·history·composer·preload·SessionRuntime 묶음49파일493/493 green; DB는 현행 Node ABI127로 실행. [공통 운영 gate](../0281-opencode-menu-cache/evidence/verify-fail-validation.md) |
 | 변이 gate | G6 1 red·M1 2 red, 원복 집중5파일25/25 및 Composer7/7 green |
-| V 자기확인 | 제품5pair SELF_PASS, 원격 운영 SELF_BLOCKED |
-| 강제 지점 | 7/8, EP1⑧ 최신 원격 CI 남음 |
-| AC 자기보고 | 5/6, AC6의 이번 커밋 원격 CI는 미확인 |
+| V 자기확인 | 제품5pair·원격 운영 SELF_PASS |
+| 강제 지점 | 8/8, EP1⑧ Windows CI #854 success |
+| AC 자기보고 | 6/6, `aa747d6c`의 원격 Windows CI까지 관측 |
 | 대상 커밋 | (r2 구현 — 좌표는 INDEX) |
 
 | AC | 이번 관측 |
@@ -226,12 +226,12 @@ D1의 reader 우선순위는 production에서 이미 올바르다. 테스트 DB�
 | AC3 | ✅ reducer model/permission 기본/명시 선택 회귀 |
 | AC4 | ✅ 기존 DB upgrade 및 provider/model 함께 기록 테스트 |
 | AC5 | ✅ 기존 CI 영향 경로의 전체 로컬 회귀, 이번 production 변경 없음 |
-| AC6 | ⚠️ 로컬 통합 gate는 root 기록 참조, 이번 커밋의 원격 Windows CI 아직 미확인 |
+| AC6 | ✅ 로컬 통합 gate 및 `aa747d6c` Windows CI #854 job120151550908 success |
 
-검산: ✅ 5 · ⚠️ 1 · ❌ 0 = 총 6. 수정 대상 D1의 관측과 최신 원격 운영 미확인을 구분한다.
+검산: ✅ 6 · ⚠️ 0 · ❌ 0 = 총 6. 독립 verify 판정은 별도다.
 
 ## [구현자 기입] r2 Review Signals
 
 - r2, verify 1회 뒤 첫 재구현. D1/D2의 제목 모델 무관·legacy-only fallback 계약이 있었지만 fixture에 다른 telemetry row가 없었다.
 - 기존 production은 그대로 유지하고 구별되는 두 저장값을 실제 파일 DB에서 읽게 했다.
-- 환경: 현재 Node ABI127이 DB를 로드해 ABI 전환 없이 실행했다. Electron 명령의 출력 없는 exit0은 검증 수에 넣지 않았다. 최신 원격 CI는 별도 확인이 필요하다.
+- 환경: 현재 Node ABI127이 DB를 로드해 ABI 전환 없이 실행했다. Electron 명령의 출력 없는 exit0은 검증 수에 넣지 않았다. 이후 실제 Windows CI #854에서 운영 gate 전체를 확인했다. 이 결과를 추가하는 후속 커밋은 보고 문서만 변경한다.
