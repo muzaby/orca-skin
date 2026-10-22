@@ -6,6 +6,7 @@ import {
   rmSync,
   writeFileSync,
   chmodSync,
+  symlinkSync,
   statSync
 } from 'node:fs'
 import { join } from 'node:path'
@@ -37,6 +38,19 @@ it('merges sibling choices and preserves unrelated settings in the current work 
   })
   expect(readdirSync(directory)).toEqual(['settings.local.json'])
   if (process.platform !== 'win32') expect(statSync(file).mode & 0o777).toBe(0o600)
+})
+it('refuses a local settings junction outside the current working directory', async () => {
+  const project = join(root, 'project'),
+    outside = join(root, 'outside')
+  mkdirSync(join(project, '.git'), { recursive: true })
+  mkdirSync(outside)
+  const file = join(outside, 'settings.local.json')
+  const original = '{"enabledPlugins":{"outside@market":true},"model":"preserve"}'
+  writeFileSync(file, original)
+  symlinkSync(outside, join(project, '.claude'), process.platform === 'win32' ? 'junction' : 'dir')
+  await expect(persistClaudePluginState(project, 'inside@market', false)).rejects.toThrow()
+  expect(readFileSync(file, 'utf8')).toBe(original)
+  expect(readdirSync(outside)).toEqual(['settings.local.json'])
 })
 it('creates a private local settings file and refuses malformed settings without overwriting their bytes', async () => {
   const file = join(root, '.claude/settings.local.json')

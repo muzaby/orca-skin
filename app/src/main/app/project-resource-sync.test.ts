@@ -320,6 +320,35 @@ it('uses runtime-native configuration roots but shares the idle boundary for the
   expect(reconcileA).toHaveBeenCalledWith('A', expect.any(Function))
   expect(reconcileB).toHaveBeenCalledWith('B', expect.any(Function))
 })
+it('discards a revision invalidated during reading before any resource push', async () => {
+  vi.useFakeTimers()
+  const f = fixture()
+  const stale = Promise.withResolvers<{ revision: string }>()
+  const latest = Promise.withResolvers<{ revision: string }>()
+  const policyRead = vi.fn().mockReturnValueOnce(stale.promise).mockReturnValue(latest.promise)
+  const peer = f.peers()[0]
+  peer.runtime = {
+    projectResourcePolicy: () => ({ files: () => ['config'], read: policyRead }),
+    reconcileNativeResources: vi.fn(async () => 'applied' as const)
+  } as unknown as GovernedLiveTurn
+  f.replace([peer])
+  f.service.tick()
+  expect(policyRead).toHaveBeenCalledOnce()
+  f.update('newer')
+  stale.resolve({ revision: 'stale' })
+  await flush()
+  expect(policyRead).toHaveBeenCalledTimes(2)
+  expect(f.emit).not.toHaveBeenCalled()
+  expect(peer.runtime!.reconcileNativeResources).not.toHaveBeenCalled()
+  latest.resolve({ revision: 'latest' })
+  await flush()
+  expect(f.emit).toHaveBeenCalled()
+  expect(peer.runtime!.reconcileNativeResources).toHaveBeenCalledExactlyOnceWith(
+    'latest',
+    expect.any(Function)
+  )
+})
+
 it('counts foreground, queued, delivered, residual, background and wakeup activity as busy', () => {
   const idle = {
     foreground: 'idle',

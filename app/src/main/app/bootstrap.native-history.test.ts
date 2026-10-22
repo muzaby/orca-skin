@@ -10,6 +10,9 @@ import type { SessionActivityProjector } from '../features/chat/session-activity
 import type { NativeResourceSharing } from './native-resource-sharing'
 import type { ProjectResourceSync } from './project-resource-sync'
 import type { HistoryWriter } from '../features/history/writer'
+import type { AdapterRegistry } from '../adapters/common/registry'
+import type { PluginSnapshots } from '../infra/config/plugin-snapshots'
+import type { Options } from '@anthropic-ai/claude-agent-sdk'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -49,6 +52,22 @@ const fixture = vi.hoisted(() => ({
   refresh: vi.fn(),
   createRefresh: vi.fn(),
   disposeBackground: vi.fn()
+}))
+
+const sdk = vi.hoisted(() => ({
+  query: vi.fn((request: unknown) => {
+    void request
+    return {
+      async *[Symbol.asyncIterator]() {
+        yield* []
+      },
+      close: vi.fn()
+    }
+  })
+}))
+vi.mock('@anthropic-ai/claude-agent-sdk', async (original) => ({
+  ...(await original<typeof import('@anthropic-ai/claude-agent-sdk')>()),
+  query: sdk.query
 }))
 
 vi.mock('electron', () => ({
@@ -145,26 +164,28 @@ afterEach(() => {
   fixture.stopAtSession = true
 })
 
-function register(): {
+function register(realBootstrap?: Bootstrap): {
   ctx: RouterContext
   supervisor: RuntimeSupervisor<Electron.WebContents>
   activity: SessionActivityProjector
   forget: ReturnType<typeof vi.fn>
+  registry?: AdapterRegistry
 } {
   const forget = vi.fn()
-  const bootstrap = Object.create(Bootstrap.prototype) as {
+  const bootstrap = (realBootstrap ?? Object.create(Bootstrap.prototype)) as unknown as {
     register(ctx: RouterContext): void
     registerArtifacts(ctx: RouterContext): void
     registerTurnEvents(): HistoryWriter
     supervisor: RuntimeSupervisor<Electron.WebContents>
     activity: SessionActivityProjector
     extensionChoices: ReturnType<typeof extensionControl>
+    registry?: AdapterRegistry
     settings: {
       getAll: () => object
       onPatch: (callback: (value: object, keys: string[]) => void) => void
     }
   }
-  bootstrap.extensionChoices = extensionControl()
+  if (!realBootstrap) bootstrap.extensionChoices = extensionControl()
   bootstrap.settings = {
     getAll: () => ({ nativeExtensionChoices: { opencode: { 'mcp:docs': false } } }),
     onPatch: vi.fn()
@@ -179,9 +200,78 @@ function register(): {
     ctx,
     supervisor: bootstrap.supervisor,
     activity: bootstrap.activity,
-    forget
+    forget,
+    registry: bootstrap.registry
   }
 }
+
+it('carries catalog changes through the real bootstrap registry into new SDK snapshots only', async () => {
+  const temp = await mkdtemp(join(tmpdir(), 'orca-control-wiring-'))
+  const root = join(temp, 'native'),
+    plugin = join(temp, 'plugin')
+  await mkdir(join(root, 'plugins'), { recursive: true })
+  await mkdir(join(plugin, '.claude-plugin'), { recursive: true })
+  await writeFile(join(plugin, '.claude-plugin/plugin.json'), '{"name":"fixture"}')
+  await writeFile(join(root, 'settings.json'), '{"enabledPlugins":{"fixture@market":false}}')
+  await writeFile(
+    join(root, 'plugins/installed_plugins.json'),
+    JSON.stringify({
+      plugins: { 'fixture@market': [{ scope: 'user', installPath: plugin }] }
+    })
+  )
+  vi.spyOn(harnessModule('claude'), 'globalResources').mockResolvedValue([
+    {
+      id: 'fixture',
+      name: 'fixture@market',
+      kind: 'plugin',
+      enabled: false,
+      status: 'disabled',
+      canToggle: true
+    }
+  ])
+  const bootstrap = new Bootstrap(() => true)
+  const snapshots = (bootstrap as unknown as { pluginSnapshots: PluginSnapshots }).pluginSnapshots
+  vi.spyOn(snapshots, 'capture').mockImplementation((roots) => ({
+    roots: [...roots],
+    release: () => {}
+  }))
+  fixture.stopAtSession = false
+  const { registry, activity } = register(bootstrap)
+  const adapter = registry!.get('claude')!
+  const request = {
+    sessionId: null,
+    cwd: join(temp, 'A'),
+    text: 'fixture',
+    env: { CLAUDE_CONFIG_DIR: root },
+    extensions: { skills: [], hooks: { normalized: {} } }
+  }
+  const live: ReturnType<typeof adapter.sendMessage>[] = []
+  const flag = (): boolean =>
+    JSON.parse(String((sdk.query.mock.calls.at(-1)![0] as { options: Options }).options.settings))
+      .enabledPlugins['fixture@inline']
+  try {
+    live.push(adapter.sendMessage(request))
+    expect(flag()).toBe(false)
+    const set = vi
+      .mocked(ipcMain.handle)
+      .mock.calls.find(([channel]) => channel === CHANNELS.extensionSetEnabled)![1]
+    await set({} as Electron.IpcMainInvokeEvent, {
+      backend: 'claude',
+      kind: 'plugin',
+      id: 'fixture',
+      enabled: true
+    })
+    live.push(adapter.sendMessage({ ...request, cwd: join(temp, 'B') }))
+    expect(flag()).toBe(true)
+    live.push(adapter.sendMessage(request))
+    expect(flag()).toBe(false)
+  } finally {
+    for (const turn of live) turn.close()
+    activity.dispose()
+    registry!.close()
+    await rm(temp, { recursive: true, force: true })
+  }
+})
 
 it('registers the global catalog with process choices and ignores legacy persisted defaults', async () => {
   fixture.stopAtSession = false
