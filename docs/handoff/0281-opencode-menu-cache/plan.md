@@ -203,3 +203,17 @@ AC3/3 자기확인. 팝업 관련 최초 검사 3파일 13개 통과, 이후 mai
 ### 7. Review Signals
 
 새 사용자 선택 JSON·추가 서버 시작·강제 재시작을 도입하지 않았다. 검증자는 위 직접 oracle에서 생산 경계와 실제 입력/출력의 대응을 다시 확인한다.
+
+## [검증자 기입] 파생 이슈 — verify r1 (2026-10-22)
+
+판정 정본은 [verify.md](verify.md). 고장 ID는 그 문서 §4 고장 이력이다.
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| D1 | M1 `snapshot.agents.status`→`models.status` 맞바꿈 green — models 대기만으로 agent 스피너 | ΔV1 seat 1 · AC5 · DV1-P3 | Module에서 agents/models 반대 조합의 `[data-agent-loading]` 단언 | BLOCKING | open |
+| D2 | M4 미선택 trigger에 첫 agent 표시 green | seat 3 · AC6 · DV1-P1 | 비어 있지 않은 agents + 미선택 trigger 텍스트 | BLOCKING | open |
+| D3 | M5 회전 class 제거 green | seat 4 · AC5 · DV1-P1 | indicator class(reduced-motion 포함) 단언 | BLOCKING | open |
+| D4 | M6 Tab 닫기 분기 제거 green | seat 6 · AC6 · DV1-P1 | Tab 닫기·초점 복귀 관측 | BLOCKING | open |
+| D5 | M9 MenuTitle trailing↔label 순서 뒤집기 green, 계획 oracle `shared/ui/MenuItem.render.test.ts` 부재 | seat 5 · DV1-P3 | MenuTitle 세 슬롯 순서 render 테스트 | BLOCKING | open |
+| D6 | `harness.defaultAgent` i18n 키 소비처 0 | 비귀속 | 정리 권고 | NON_BLOCKING | open |
+| D7 | ΔV1 구현이 0278 `Handoff:` trailer로만 커밋, ΔV1 r1.2 강제 지점 필드가 산문으로 접힘 | repository operation | 다음 구현 커밋에 0281 trailer·6자리 표 | NON_BLOCKING | open |
