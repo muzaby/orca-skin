@@ -360,6 +360,10 @@ EP06: `channel.ts:submit`의 warm HTTP catch에서 close를 finally의 `submitti
 - 반복 환경 한계: better-sqlite3의 Electron/Node ABI 차이7개. 사용 중인 Electron ABI를 보존하고 별도로 기록했다.
 - 현재 라운드·impl 턴: `r1` / `r1.1`. plan 메타와 INDEX는 `impl/IMPL_DONE`·다음 Claude로 대조하고, trailer parse는 구현 커밋 직후 확인한다.
 
-## [검증자 기입] 파생 이슈
+## [검증자 기입] 파생 이슈 — verify r1 (2026-10-22)
 
-없음.
+판정 정본은 [verify.md](verify.md) — **FAIL**. 고장 ID는 그 문서 §4 고장 이력이다.
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| D1 | E11 warm 거절 catch의 `close()` 삭제 green — P5가 fence에 둔감 | EP06 · AC11 · VP09 | 거절과 `submitting` 해제 사이 늦은 callback 주입 단언, 또는 호출자 close로 동치 근거 제시 | BLOCKING | open |
