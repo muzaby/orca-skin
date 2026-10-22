@@ -171,6 +171,39 @@ function fixture(): {
 const signal = (): AbortSignal => new AbortController().signal
 
 describe('Owned server, directory lifecycle and actual SDK composition', () => {
+  it('reserves the sole context during last-owner cleanup and rejects late direct SDK requests', async () => {
+    const f = fixture()
+    const old = await f.adapter.client({}, undefined, 'C:/one')
+    await old.prepare(signal())
+    const releasing = old.release()
+    await vi.waitFor(() => expect(f.disposals).toHaveLength(1))
+    const joined = vi.fn()
+    const acquiring = f.adapter.client({}, undefined, 'C:/one').then((lease) => {
+      joined()
+      return lease
+    })
+    // Let acquisition reach the closing barrier while the sole owner is still disposing.
+    for (let i = 0; i < 20; i++) await Promise.resolve()
+    expect(joined).not.toHaveBeenCalled()
+    f.finish(f.disposals[0])
+    await releasing
+    const renewed = await acquiring
+    await renewed.prepare(signal())
+    expect(renewed.generation).not.toBe(old.generation)
+    expect(f.children).toHaveLength(1)
+    expect(f.children[0].kill).not.toHaveBeenCalled()
+    expect(f.streams).toHaveLength(1)
+    expect(f.streams[0].closed).toBe(false)
+    const requests = f.requests.length
+    await expect(old.client.config.get()).rejects.toThrow('종료')
+    expect(f.requests).toHaveLength(requests)
+    const closing = renewed.release()
+    await vi.waitFor(() => expect(f.disposals).toHaveLength(2))
+    f.finish(f.disposals[1])
+    await closing
+    expect(f.children[0].kill).toHaveBeenCalledOnce()
+  })
+
   it('keeps one process for A/B, waits for native completion, and fences same-directory reacquisition', async () => {
     const f = fixture()
     const [a, a2, b] = await Promise.all(
