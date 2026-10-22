@@ -132,6 +132,51 @@ it('discards retired and unmounted responses without automatic reconnect', async
   expect(state.getSnapshot().agents.value).toEqual([{ name: 'current' }])
 })
 
+it('keeps the new generation when an older part resolves in the same epoch', async () => {
+  vi.useFakeTimers()
+  api.onComposerCatalogInvalidated.mockReturnValue(vi.fn())
+  const oldModels = Promise.withResolvers<ComposerCatalogResult>()
+  api.composerCatalog.mockImplementation(async (request: ComposerCatalogRequest) =>
+    request.part === 'models'
+      ? oldModels.promise
+      : { part: 'agents', value: [{ name: 'old-agent' }], generation: 'old' }
+  )
+  const state = new ComposerCatalogState(scope)
+  const remove = state.subscribe(vi.fn())
+  await flush()
+  api.composerCatalog.mockResolvedValueOnce({
+    part: 'agents',
+    value: [{ name: 'current-agent' }],
+    generation: 'current'
+  })
+  state.retry('agents')
+  await flush()
+  expect(state.getSnapshot().agents.value).toEqual([{ name: 'current-agent' }])
+  oldModels.resolve({
+    part: 'models',
+    value: [{ id: 'old/model', variants: ['stale'] }],
+    generation: 'old'
+  })
+  await flush()
+  expect(state.getSnapshot()).toEqual({
+    agents: { status: 'ready', value: [{ name: 'current-agent' }] },
+    models: { status: 'error' }
+  })
+  api.composerCatalog.mockResolvedValueOnce({
+    part: 'models',
+    value: [{ id: 'current/model', variants: ['deep'] }],
+    generation: 'current'
+  })
+  state.retry('models')
+  await flush()
+  expect(state.getSnapshot().models).toEqual({
+    status: 'ready',
+    value: [{ id: 'current/model', variants: ['deep'] }]
+  })
+  remove()
+  await vi.runOnlyPendingTimersAsync()
+})
+
 it('loads resource parts only for a panel subscriber and invalidates their connection on instance loss', async () => {
   vi.useFakeTimers()
   let invalidate!: (value: ComposerCatalogInvalidated) => void

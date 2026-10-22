@@ -115,22 +115,22 @@ function fixture(): {
 it('prepares draft and saved directory with the same production settings and env resolution as turns', async () => {
   const f = fixture(),
     signal = new AbortController().signal
-  await prepareComposerCatalog(f.ctx, f.scope, signal)
+  await prepareComposerCatalog(f.ctx, { ...f.scope, providerKey: 'opencode-two' }, signal)
   expect(f.resolve).toHaveBeenLastCalledWith({
-    key: 'opencode-one',
+    key: 'opencode-two',
     harnessId: 'opencode',
-    modelProviderId: 'one'
+    modelProviderId: 'two'
   })
   expect(f.capture).toHaveBeenLastCalledWith(
     expect.objectContaining({
       cwd: 'C:/draft-project',
       env: expect.objectContaining({
         PREVIEW_APP_ENV: 'app-value',
-        PREVIEW_RUNTIME_ENV: 'runtime-one'
+        PREVIEW_RUNTIME_ENV: 'runtime-two'
       }),
       providerSettings: expect.objectContaining({
-        provider: 'one',
-        settings: { instructions: ['one.md'] }
+        provider: 'two',
+        settings: { instructions: ['two.md'] }
       })
     })
   )

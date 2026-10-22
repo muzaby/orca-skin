@@ -7,7 +7,7 @@
 | slug | 0276-opencode-composer-preparation |
 | 작성자 | Codex — 사용자 구현 지시에 따라 설계/구현 연속 수행 |
 | 일자 | 2026-10-21 |
-| 상태 | READY |
+| 상태 | IMPL_DONE — r2 FAIL 대응 완료·독립 검증 대기 |
 | 구현 상태 | IMPL_DONE — 독립 verify 대기 |
 | V mode / 기준 / revision | Baseline V + ΔV1 + ΔV2 / V1@95da0b0f / V1 + ΔV1 + ΔV2 |
 
@@ -257,3 +257,90 @@ r1, 사용자 요구 변경 ΔV2를 포함한 최초 구현 라운드. 외부 ve
 | D2 | Q8 retired 세대 결과 폐기 삭제 green | EP4 state · AC6 · VP6 | 같은 epoch에서 새 세대 뒤 옛 세대 part 응답 무시 단언 | BLOCKING | open |
 | N1 | N6b configuration 단계 래핑 미잠금 | 0280 D1 | 0280 r2에서 함께 닫음 | NON_BLOCKING | open |
 | N2 | ΔV1·ΔV2 설계 본문이 `[구현자 기입]` 표제 아래 | repository operation | 이후 Delta V는 Part I/II 절로 | NON_BLOCKING | open |
+
+## [구현자 기입] r2 설계 리뷰
+
+D1·D2는 올바른 production 구현을 구별하지 못한 테스트 입력의 문제였다. draft가 기본 provider와 다른 `opencode-two`를 선택하도록 fixture를 바꾸고, 같은 epoch에서 agents가 새 세대를 반영한 뒤 이전 models 응답이 도착하는 순서를 추가했다. ACTIVE Decision·AC·V·§10 변경은 없다. N1 configuration 단계 오류는 0280 r2가 담당하며 N2의 과거 문서 배치는 바꾸지 않았다.
+
+불변식: 명시한 provider는 기본값보다 우선하고, retired 세대의 결과는 다른 part나 새 세대를 다시 변경할 수 없다. 취소가 epoch를 증가시키는 기존 시험과 구별되게 invalidation 없이 refresh만 사용했다.
+
+## [구현자 기입] r2 강제 지점 전수와 V-pair 자기확인
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP3·4 | EP1 typed 경계 | schema·preload·API·handler 4자리 | 4/4 | handler `validates directory and owner…`; preload/index; Module.integration; app composer `wires the public handler…` | UUID·part·scope·release/invalidated 소비를 구별 | 없음 |
+| VP2·3 | EP2 실행/owner | bootstrap·resolver·ensure/read/release·window 4자리 | 4/4 | app composer `prepares draft and saved directory…`; handler refresh/window/late acquisition; bootstrap shutdown | 기본 one과 요청 two의 key/runtime env/instructions 차이, saved cwd와 untrusted draft cwd 구별 | 없음 |
+| VP2·5 | EP3 native cache | prepareComposer·agent/model·abort/release 3자리 | 3/3 | adapter.startup `reuses draft preparation…`; session-context 독립 metadata; composer-cache 취소 | provider 지연 중 agent 완료, caller 취소와 shared/native 종료 구별 | 없음 |
+| VP1·4·6 | EP4 구독/UI | state·hook·agent·variant 4자리 | 4/4 | state `keeps the new generation when an older part resolves in the same epoch`; Module.integration; Controls.interaction | old-agent→current-agent 후 old/model 폐기; current/model 후속 성공; scope와 runtime variant 구별 | 없음 |
+| VP7 | EP5 선택 전달 | submit agent·variant·initial·nativeResources 4자리 | 4/4 | adapter.startup·persistent의 agent-only prompt/command·removed variant | agent-only는 provider를 기다리지 않고 명시 variant만 검증 | 없음 |
+
+source 검색은 대문자 schema와 `registerComposerCatalog`까지 포함해 170행을 확인했다. 기존 고정 19자리의 목록은 유지한다. 0277·0280이 추가한 resource panel/오류 단계는 최신 handoff 책임이며 r2 production diff는 없다. 이번 새 입력은 EP2 resolver와 EP4 state의 기존 실행 구간 안에서만 추가된다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP1 | REQUIRED | SELF_PASS | Module.integration·Controls.interaction·아래 각 하위 pair | 직접 oracle |
+| VP2 | REQUIRED | SELF_PASS | adapter.startup·context·handler owner lifecycle | 직접 oracle |
+| VP3 | REQUIRED | SELF_PASS | app composer·handler·preload·bootstrap native-history | Q2 1 red, 원복 green |
+| VP4 | REQUIRED | SELF_PASS | preload/index·Module.integration | 직접 oracle |
+| VP5 | REQUIRED | SELF_PASS | composer-cache·composer-catalog·session-context | 직접 oracle |
+| VP6 | REQUIRED | SELF_PASS | composerCatalogState 7케이스 | Q8 1 red, 원복 green |
+| VP7 | REQUIRED | SELF_PASS | startup·persistent·adapter SDK 제출 | 직접 oracle |
+
+## [구현자 기입] r2 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| draft providerKey를 null로 전달 | D1·Q2 | 못 잡음 | app composer `prepares draft and saved directory…` 1 failed: two 대신 one resolve | 원복 green |
+| retired.has(result.generation) 폐기 제거 | D2·Q8 | 못 잡음 | state `keeps the new generation…` 1 failed: agents error·old/model ready | 원복 green |
+
+선택 증거 0 · 인용 변이 2 · 새 proxy oracle 0 = 의무 표 2행. 격리 copy에서 각 production 자리의 인용 변이를 재현했고 원복 묶음 5파일25/25 통과했다. 기존 테스트·production을 제거하거나 교체하지 않았다.
+
+## [구현자 기입] r2 Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 다른 provider 선택이 기본값으로 준비되는가 | two의 env/instructions가 adapter 준비에 전달됨 | 기존 화면 표현 유지 |
+| 늦은 모델 응답이 최신 agent를 지우는가 | old model 폐기 후 current agent 유지·current model 조회 성공 | epoch 변경 없는 경쟁 순서 확인 |
+| 실패와 성공 빈 목록의 구분 | 기존 cancelled/error·성공 빈 목록 tests 유지 | 선택 정리 계약 유지 |
+| 시각·키보드 변화 | 테스트만 변경, Controls 회귀 실행 | 새 시각 검토 대상 없음 |
+
+## [구현자 기입] r2 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 요청 provider와 첫 기본 entry가 같아 전달 누락을 가림 | 기본 one/명시 two로 입력을 분리 | Q2 red |
+| 2 | invalidation 시험은 epoch guard가 retired guard 누락을 가림 | invalidation 없이 agents refresh와 오래된 models flight를 교차 | Q8 red |
+| 3 | stale 응답을 무시해도 새 세대를 retired로 오염시킬 수 있음 | 뒤이어 current generation models 성공도 확인 | 같은 테스트의 current/model ready |
+
+설계 대비 대체 메커니즘 없음. 만료=새 TTL 없음, 공유=part별 기존 flight, 재진입=동일 epoch refresh, 다른 무효화=기존 invalidate/unmount 시험을 유지한다. 신규 저장·실패 경로·제품 상태는 없다.
+
+## [구현자 기입] r2 구현 보고
+
+| 항목 | 관측 |
+|---|---|
+| 변경 | app composer 기존 테스트의 구별 provider fixture, composerCatalogState의 동일 epoch retired 응답 회귀 |
+| 관련 gate | OpenCode·history·composer·preload·SessionRuntime 묶음 49파일493/493 green, threads pool·maxWorkers=1 |
+| 집중/변이 gate | Q2/Q8 각각 1 red, 원복 묶음5파일25/25 green |
+| V 자기확인 | SELF_PASS 7 · SELF_BLOCKED 0 |
+| 강제 지점 | 19/19, D1·D2 구현자 재확인 완료 |
+| 운영 gate | lint/typecheck/build/document는 [공통 운영 gate](../0281-opencode-menu-cache/evidence/verify-fail-validation.md) |
+| 대상 커밋 | (r2 구현 — 좌표는 INDEX) |
+
+| AC | 이번 턴 관측 |
+|---|---|
+| AC1·2 | ✅ Module.integration draft 목록·composer-catalog visible agent 필터 |
+| AC3·4 | ✅ context 독립 endpoint·composer-cache single-flight·startup 첫 제출 재사용 |
+| AC5 | ✅ handler owner/window 정리·instance/context 소비처 회귀 |
+| AC6 | ✅ 같은 epoch old result 폐기와 current 후속 성공·error/cancelled 구분, Q8 red |
+| AC7 | ✅ handler refresh 교체/실패 복원; 표현은 0281 소유 |
+| AC8 | ✅ persistent/startup agent·variant·command body와 provider 대기 구별 |
+| AC9 | ✅ 명시 two의 runtime env/settings·saved cwd·창 격리, Q2 red |
+| AC10 | ✅ Module/Controls 선택·초점 회귀; 표현은 0281 소유 |
+
+검산: ✅ 10 · ⚠️ 0 · ❌ 0 = 총 10. 독립 verify 판정은 다음 주체가 수행한다.
+
+## [구현자 기입] r2 Review Signals
+
+- r2, verify 1회 뒤 첫 재구현. AC9의 구별 provider 조건과 AC6의 retired 세대 조건을 기존 입력이 분리하지 못했다.
+- production 수정 없이 구별 입력·응답 순서만 추가해 인용된 두 고장을 검출했다.
+- 환경: Windows 원래 경로 fixture로 실행했다. shim이나 ABI 변경은 없고 변이는 임시 격리 copy에서 수행했다.
