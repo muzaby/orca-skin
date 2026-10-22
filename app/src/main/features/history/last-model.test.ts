@@ -75,13 +75,34 @@ it('restores each session model after closing and reopening its database, withou
       } as TurnContext,
       { text: 'later', createdAt: 3 }
     )
+    const usageId = queries.usage.insertTurnUsage({
+      sessionId: 'A',
+      messageId: null,
+      createdAt: 4,
+      inputTokens: 10,
+      outputTokens: 1,
+      cacheCreationInputTokens: 0,
+      cacheReadInputTokens: 0,
+      totalCostUsd: 0
+    })
+    queries.usage.insertTurnModelUsage({
+      turnUsageId: usageId,
+      model: 'title-telemetry-only',
+      inputTokens: 10,
+      outputTokens: 1,
+      cacheCreationInputTokens: 0,
+      cacheReadInputTokens: 0,
+      costUsd: 0,
+      contextWindow: 1000
+    })
     db.close()
     db = openFileDatabase(file)
     applyMigrations(db)
     queries = new DbQueries(db)
     expect(loadSession(queries, 'A', () => '/fallback')).toMatchObject({
       providerKey: 'claude-other',
-      modelFamily: 'claude-opus-4-6'
+      modelFamily: 'claude-opus-4-6',
+      lastTelemetry: { model: 'title-telemetry-only' }
     })
     expect(loadSession(queries, 'B', () => '/fallback')).toMatchObject({
       providerKey: 'opencode-local',
