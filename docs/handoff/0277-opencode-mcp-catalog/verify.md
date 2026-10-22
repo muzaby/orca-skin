@@ -16,7 +16,7 @@
 | 상태 | **FAIL** |
 | 자기 검증 여부 | 아니오 — 설계·구현 Codex, 검증 Claude |
 
-**FAIL — 관측 경계 4곳에서 심은 고장이 green이었다.** 전역 선언 reader·MCP 제어 거부·capability 표시·패널 읽기 전용은 잠겼지만, 파일 근거 없는 열기 capability(AC11)·renderer push scope(AC5)·plugin 선언 revision(AC6)·읽는 중 stale revision 폐기(AC10)를 어떤 테스트도 잡지 못한다.
+**FAIL — 이 handoff에 남은 관측 경계에서 파일 근거 없는 열기 capability(AC11, O3)를 어떤 테스트도 잡지 못한다.** 전역 선언 reader·MCP 제어 거부·capability 표시·패널 읽기 전용은 잠겼다. renderer push scope(AC5)·plugin 선언 revision(AC6)·stale revision 폐기(AC10)는 0278이 이 plan을 뒤집은 계약이라 **PLAN_GAP으로 0278에 이관**했고 여기서는 판정하지 않는다(§0-1).
 
 ## 0. 기준선 / plan 변경 확인
 
@@ -33,7 +33,20 @@
 | 운영 gate | 유효 | Vitest·lint·typecheck·build·문서 |
 
 - 정책 충돌은 **최신 handoff가 정본**(사용자 지시): 프로젝트 MCP/plugin 제어는 0278 D32(관측만), Composer 표현은 0281 기준.
-- root PLAN_GAP: 없음.
+- root PLAN_GAP: 없음(설계자 반려 사유 없음). 아래 §0-1의 PLAN_GAP은 최신 handoff 이관분이다.
+
+### 0-1. 최신 handoff 이관 — PLAN_GAP (사용자 결정 2026-10-22)
+
+0281부터 0277까지 역순으로 대조해, 갭 항목의 계약을 뒤집은 가장 최신 handoff에 책임을 넘긴다. 이 handoff에서는 해당 항목을 판정하지 않는다.
+
+| 갭 항목 | 뒤집은 요소 | 이관 대상 | 이 handoff 처리 |
+|---|---|---|---|
+| D2 · P11–P13 renderer push scope(AC5) | 0278 D23(nav는 하네스 전역·프로젝트 상태는 패널의 현재 cwd)이 V1 nav scope control을 SUPERSEDED, 패널 push 경계를 0278 §27 FEP12로 재정의 | **0278 verify r2** R5 | 미판정 — 0278 책임 |
+| D3 · A23 plugin 선언 revision(AC6) | 0278 D30·ΔV2(`8137313`)가 관측 원천을 native 프로젝트 파일로 바꾸고 §27 FEP8로 고정 | **0278 verify r2** R3 | 미판정 — 0278 책임 |
+| D3 · A6 observer stale revision(AC10) | 같은 FEP8 경로(native 파일→revision→`ProjectResourceSync`) | **0278 verify r2** R3 | 미판정 — 0278 책임 |
+
+- 0279·0280·0281은 이 세 계약을 다시 뒤집지 않는다(0279 최종 경계는 FEP3–6·9–11). 따라서 최신 책임 handoff는 0278이다.
+- O3(`canOpen`)는 0277 D8 자체 결정이고 뒤집힌 적이 없어 이 handoff에 남는다.
 
 ## 1. Product & UX / ACTIVE Decision
 
@@ -72,13 +85,13 @@
 | O3 | 같은 파일 `:128` | 고정값 | `canOpen: true` | **못 잡음** | — | §8 source file lookup · AC11 |
 | A20 | `handlers/extension-catalog.ts:37` | 제거 | `canToggle` 거부 삭제 | 잡음 | `extension-catalog.test: …keeps supported explicit choices only in memory` | FEP1 |
 | A21·A22 | `opencode/v1/mcp-control.ts:70·43` | 제거·호출 대체 | 프로젝트 우선 필터 / 직접 set 거부 | 잡음 | `session-context.test: freezes global choices per directory…`·`adapter.test: …rejects unsafe project controls…` | FEP7 · AC3·AC9 |
-| A23 | `opencode/v1/project-settings.ts:24` | 제거 | revision에서 `plugin` 선언 삭제 | **못 잡음** | — | FEP8 · AC6 |
-| A5·A6 | `app/project-resource-sync.ts:44·178` | 제거 | idle 조건 / 읽는 중 version 변경 폐기 | A5 잡음 · **A6 못 잡음** | `project-resource-sync.test: counts …activity as busy` | FEP8 · AC10 |
+| A23 | `opencode/v1/project-settings.ts:24` | 제거 | revision에서 `plugin` 선언 삭제 | 관측: 못 잡음 → **0278 이관(미판정)** | — | FEP8 · AC6 → 0278 R3 |
+| A5·A6 | `app/project-resource-sync.ts:44·178` | 제거 | idle 조건 / 읽는 중 version 변경 폐기 | A5 잡음 · A6 관측: 못 잡음 → **0278 이관(미판정)** | `project-resource-sync.test: counts …activity as busy` | FEP8 · AC10 → 0278 R3 |
 | A11 | `handlers/session-resources.ts:256` | 제거 | `canToggle` 확인 삭제 | 잡음 | `session-resources.test: rejects …read-only resources before writing` | FEP10 |
 | F12a–d | `CustomizeList.tsx`·`CatalogToggle.tsx`·`nativeResourcesMenu.ts` | 고정값·제거 | capability 표시·토글 조건 | 잡음 4/4 | `useNativeMcpCatalog.test`·`CustomizeList.render.test`·`NativeResourcesTile.test: lists read-only OpenCode resources…` | FEP12 · AC7 |
-| P11–P13 | `lib/nativeResourceState.ts:308-310` | 제거 | push scope의 backend/cwd/projectId 항 | **못 잡음** ×3 | — | FEP12 · AC5 |
+| P11–P13 | `lib/nativeResourceState.ts:308-310` | 제거 | push scope의 backend/cwd/projectId 항 | 관측: 못 잡음 ×3 → **0278 이관(미판정)** | — | FEP12 · AC5 → 0278 R5 |
 
-- 검산: 시도 17(O1–O3·A20·A21·A22·A23·A5·A6·A11·F12a–d·P11–P13) = 잡음 11 · 못 잡음 6(O3·A23·A6·P11·P12·P13) · 동치 0. 전부 고정 자리 → `PAIR_FAIL`.
+- 검산: 시도 17 = 잡음 11 · 이 handoff 판정 못 잡음 1(O3) · 0278 이관 5(A23·A6·P11·P12·P13) · 동치 0. O3는 고정 자리 → `PAIR_FAIL`.
 - FEP2(X1)는 전역 선택 적용 경로로 0278 소유 — 0277의 관측 계약에는 귀속하지 않는다.
 
 ## 5. V-pair closeout
@@ -86,9 +99,9 @@
 | Pair | 레벨 | requiredness | 결과 | 증거 |
 |---|---|---|---|---|
 | DV1-P4 | UT | INHERITED REGRESSION | **PAIR_FAIL** | O1·O2 잡음, **O3** 못 잡음(파일 근거 없는 열기) |
-| DV1-P3 | IT | CHANGED REQUIRED | **PAIR_FAIL** | A20·A11·F12a–d 잡음, **P11–P13** 못 잡음 |
-| DV1-P2 | ST | CHANGED REQUIRED | **PAIR_FAIL** | A21·A22·A5 잡음, **A23·A6** 못 잡음 |
-| DV1-P1 | AT | CHANGED REQUIRED | BLOCKED_BY:DV1-P2·P3·P4 | AC1–4·7–9 관측 PASS, AC5·6·10·11은 위 root |
+| DV1-P3 | IT | CHANGED REQUIRED | PASS(이관 제외) | A20·A11·F12a–d 잡음. push scope 경계(P11–P13)는 0278 이관 |
+| DV1-P2 | ST | CHANGED REQUIRED | PASS(이관 제외) | A21·A22·A5 잡음. native 파일 revision·stale 폐기(A23·A6)는 0278 이관 |
+| DV1-P1 | AT | CHANGED REQUIRED | BLOCKED_BY:DV1-P4 | AC1–4·7–9 관측 PASS, AC11은 DV1-P4 root, AC5·6·10은 0278 이관 |
 | V1 VP7 | ST | INHERITED REGRESSION | BLOCKED_BY:0275 VP11·0276 VP3·VP6 | 각 verify의 못 잡음(L8·L15·Q2·Q8) |
 
 ### AT / AC
@@ -99,15 +112,15 @@
 | AC2 서버 없이 선언 표시 | ✅ | `configured-resources.test` 2건 pass, O1 잡음 |
 | AC3 기존 instance 상태 병합 | ✅ | A21 잡음 |
 | AC4 동적 MCP·plugin 분리 | ✅ | A22 잡음(`…retains partial observations safely`) |
-| AC5 같은 범위 단일 행·A/B 분리 | ❌ | P11–P13 green |
-| AC6 진입·전환·ready·status 변경 갱신 | ❌ | A23(plugin 선언만 바뀐 외부 편집 미관측) green |
+| AC5 같은 범위 단일 행·A/B 분리 | 이관 | 0278 verify r2 R5(P11–P13) 책임 |
+| AC6 진입·전환·ready·status 변경 갱신 | 이관 | 0278 verify r2 R3(A23) 책임 |
 | AC7 오류·부분·빈 성공 구분 | ✅ | F12a–d 잡음, 0280 verify의 오류 구분 잠금 |
 | AC8 종료 후 connected 제거 | ✅ | 0274 E4(instance disposed) 잡음 |
 | AC9 관측이 실행을 바꾸지 않음 | ✅ | A22·A11 잡음 |
-| AC10 전환·교체 후 이전 결과 폐기 | ❌ | A6 green |
+| AC10 전환·교체 후 이전 결과 폐기 | 이관 | 0278 verify r2 R3(A6) 책임 |
 | AC11 가짜 파일 열기 없음·민감정보 비노출 | ❌ | O3 green |
 
-- 합계 재측정: `✅ 7 · ❌ 4 = 11`. 자기보고: 0277 단독 trailer 없음(`c765135`·`e4853cb`는 0278 V1 `10/10`, `a082776`은 0278 `21/21`) → 대조 불가.
+- 합계 재측정: `✅ 7 · ❌ 1 · 이관 3 = 11`. 자기보고: 0277 단독 trailer 없음(`c765135`·`e4853cb`는 0278 V1 `10/10`, `a082776`은 0278 `21/21`) → 대조 불가.
 
 ### §8 / FEP 강제 지점 분모
 
@@ -115,11 +128,11 @@
 |---|---|
 | global IPC→native reader→nav hook/list | PASS (O1·O2·A20·F12a–c) |
 | session/draft IPC→기존 준비 context | PASS (A21·A22·A11) |
-| observer ready/dirty/closing→패널 | PAIR_FAIL (A6·A23) |
-| preload/API→query scope | PAIR_FAIL (P11–P13 — renderer 수락 scope) |
+| observer ready/dirty/closing→패널 | 이관 → 0278 FEP8 (A6·A23) |
+| preload/API→query scope | 이관 → 0278 FEP12 (P11–P13) |
 | source file lookup→shell | PAIR_FAIL (O3) |
 
-- 2/5 PASS. 목록 밖 발견 없음.
+- 이 handoff 판정 3자리 중 2 PASS · 1 PAIR_FAIL(O3), 2자리 0278 이관. 목록 밖 발견 없음.
 
 ### 운영 gate (HEAD `32b43cc`)
 
@@ -142,8 +155,8 @@
 | # | finding | 귀속 | disposition | 후속 |
 |---|---|---|---|---|
 | D1 | O3: `canOpen`을 `true`로 고정해도 green | §8 source file lookup · AC11 · DV1-P4 | BLOCKING | 파일 없는 plugin/MCP 행의 `canOpen=false` 단언 |
-| D2 | P11–P13: push scope 3항 미잠금 | §8 query scope · AC5 · DV1-P3 | BLOCKING | 0278 R5와 같은 테스트로 닫힘 |
-| D3 | A23·A6: plugin 선언 revision·stale revision emit 미잠금 | §8 observer · AC6·AC10 · DV1-P2 | BLOCKING | 0278 R3와 같은 테스트로 닫힘 |
+| D2 | P11–P13: push scope 3항 미잠금 | 0278 D23·§27 FEP12가 뒤집은 계약 | PLAN_GAP → 0278 이관 | 0278 verify r2 R5가 책임. 이 handoff 미판정 |
+| D3 | A23·A6: plugin 선언 revision·stale revision emit 미잠금 | 0278 D30·§27 FEP8이 뒤집은 계약 | PLAN_GAP → 0278 이관 | 0278 verify r2 R3가 책임. 이 handoff 미판정 |
 | N1 | 구현이 0278 trailer로만 커밋, 강제 지점 필드 산문 | repository operation | NON_BLOCKING | 다음 구현 커밋에 0277 trailer·자리별 표 |
 
 ## 14. Review Signals
@@ -155,6 +168,6 @@
 ## 15. 결론
 
 - 상태: **FAIL** — verify 1회째.
-- pair: root PAIR_FAIL 3(DV1-P2·P3·P4) · BLOCKED_BY 2(DV1-P1·V1 VP7). PLAN_GAP 없음.
-- AC: ✅7 · ❌4 / 11.
-- 다음 단계: Codex r2 — D1–D3(D2·D3는 0278 R3·R5와 공동), 다음 verify는 O3·A6·A23·P11–P13 재실행.
+- pair: root PAIR_FAIL 1(DV1-P4) · PASS(이관 제외) 2(DV1-P2·P3) · BLOCKED_BY 2(DV1-P1·V1 VP7). PLAN_GAP 3건은 0278 이관(반려 아님).
+- AC: ✅7 · ❌1 · 이관 3 / 11.
+- 다음 단계: Codex r2 — D1(O3), 다음 verify는 O3 재실행. A6·A23·P11–P13은 0278 verify에서 재실행한다.

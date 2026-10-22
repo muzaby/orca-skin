@@ -171,6 +171,6 @@ OpenCode 프로젝트 파일은 [0278 ΔV2](../0278-harness-extension-isolation/
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
 | D1 | O3 `canOpen: true` 고정 green | §8 source file lookup · AC11 · DV1-P4 | 파일 없는 plugin/MCP 행의 `canOpen=false` 단언 | BLOCKING | open |
-| D2 | P11–P13 renderer push scope 3항 제거 green | §8 query scope · AC5 · DV1-P3 | 0278 R5와 공동 | BLOCKING | open |
-| D3 | A23 plugin 선언 revision·A6 stale revision emit green | §8 observer · AC6·AC10 · DV1-P2 | 0278 R3와 공동 | BLOCKING | open |
+| D2 | P11–P13 renderer push scope 3항 제거 green | 0278 D23·§27 FEP12가 뒤집은 계약 | 0278 verify r2 R5가 책임(이 handoff 미판정) | PLAN_GAP → 0278 이관 | transferred |
+| D3 | A23 plugin 선언 revision·A6 stale revision emit green | 0278 D30·§27 FEP8이 뒤집은 계약 | 0278 verify r2 R3가 책임(이 handoff 미판정) | PLAN_GAP → 0278 이관 | transferred |
 | N1 | 구현이 0278 trailer로만 커밋, 강제 지점 필드 산문 | repository operation | 다음 구현 커밋에 0277 trailer·자리별 표 | NON_BLOCKING | open |
