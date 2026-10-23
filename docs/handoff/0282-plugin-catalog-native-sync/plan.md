@@ -8,11 +8,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-23 |
 | 매핑 | — |
-| 상태 | READY (ΔV5) — verify r1 RETURN_TO_PLAN 정정 완료. 구현: ΔV3 · ΔV5 · F3·F4·F7 |
+| 상태 | READY (ΔV6) — verify r1 RETURN_TO_PLAN 정정 완료. 구현: ΔV3 · ΔV5 · ΔV6 · F3·F4·F7 |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `none` — 회귀 노드는 0281·0278·0267의 현재 코드·테스트를 `57515e7`에서 확인해 INHERITED로 인용 |
-| 이번 V revision | `ΔV5` — OpenCode 네이티브 플러그인 제어 제외. `ΔV4`는 폐기(근거로만 보존). 이전: `ΔV3` 에이전트 캐시 데이터 구독 · `ΔV2` 외부 제거 비노출 · `ΔV1` OpenCode 플러그인 off(ΔV5로 대부분 대체) |
-| 유효 V | `V1@789a727 + ΔV1@7227dc0 + ΔV2@9982cdf + ΔV3 + ΔV5` (ΔV3·ΔV5 설계 커밋은 INDEX 좌표) |
+| 이번 V revision | `ΔV6` — 전역 선택 영속화 · OpenCode MCP 토글 유지. `ΔV5` OpenCode 네이티브 플러그인 제어 제외 · `ΔV4` 폐기(근거로만 보존) · `ΔV3` 에이전트 캐시 데이터 구독 · `ΔV2` 외부 제거 비노출 · `ΔV1` OpenCode 플러그인 off(ΔV5로 대부분 대체) |
+| 유효 V | `V1@789a727 + ΔV1@7227dc0 + ΔV2@9982cdf + ΔV3 + ΔV5 + ΔV6` (ΔV3 이후 설계 커밋은 INDEX 좌표) |
 
 # Part I — Product & UX Contract
 
@@ -50,8 +50,8 @@
 | D-006 | Composer `+`→스킬의 네이티브 플러그인 스킬은 대상 실행이 실제로 싣는 상태와 같다. 초안·미실행 세션 = 다음 spawn의 유효 상태, 실행 중 세션 = 그 Query의 실제 목록 | 요구 3 + D-008 | 요구 3 · Q1 | ACTIVE | — |
 | D-007 | 하네스 기본 경로 스킬(`~/.claude/skills`·OpenCode 전역 skills·`~/.agents/skills`)은 on/off 기능·토글 GUI 없음. 항상 활성으로 보고 실행한다. Orca 스킬은 토글 유지 | "하네스에 노출되는 순간 동작이 가능한 것으로 간주" | 요구 4 | ACTIVE | 0278 D11의 회색 글씨·고정 토글을 이 스킬들에 한해 대체 |
 | D-008 | nav의 Claude 플러그인 전역 on/off는 같은 경로에 실행 중 세션이 있어도 새로 시작하는 Query부터 즉시 적용. 실행 중 Query는 종료·축출·재시작 전까지 유지 | 사용자 선택 | Q1 | ACTIVE | 0278 D28을 Claude 플러그인 기본값에 한해 대체. D15 유지 |
-| D-009 | 전역 선택의 저장 방식은 현행 유지 — SDK 런타임 적용만, 하네스 파일 미편집, 앱 재시작 시 네이티브 기본값 복귀 | 사용자가 저장 위치를 고르지 않음. 재시작 후에는 nav 표시와 실행이 함께 기본값이라 불일치 없음 | 0278 D26 · Q2 응답 | SUPERSEDED | D-018 |
-| U-001 | 전역 선택을 재시작 후에도 유지할지, 유지한다면 어디에 둘지 | 사용자 Q2 답변이 질의로 끝남 | Q2 | OPEN — 이번 범위 밖 | — |
+| D-009 | 전역 선택의 저장 방식은 현행 유지 — SDK 런타임 적용만, 하네스 파일 미편집, 앱 재시작 시 네이티브 기본값 복귀 | 사용자가 저장 위치를 고르지 않음. 재시작 후에는 nav 표시와 실행이 함께 기본값이라 불일치 없음 | 0278 D26 · Q2 응답 | SUPERSEDED → D-033 | D-018 |
+| U-001 | 전역 선택을 재시작 후에도 유지할지, 유지한다면 어디에 둘지 | 사용자 Q2 답변이 질의로 끝남 | Q2 | SUPERSEDED → D-033 | — |
 | D-010 | MCP 저장 시 상위 폴더가 없으면 만든다(`mkdir -p`) | 요구 6 원문 | 요구 6 | ACTIVE | — |
 | D-011 | 프로젝트 `.claude/settings.json`·`settings.local.json`의 명시 선택은 nav 전역 선택보다 우선 | 기존 우선순위 | 0278 D16·D20 | ACTIVE(유지) | — |
 | D-012 | OpenCode 네이티브 플러그인도 끄면 새 실행에 로드되지 않는다. SDK 제어가 없으므로 하네스 설정 파일을 편집하고, 편집할 수 없는 출처는 현행 유지(고정 토글) | "Sdk 컨트롤 안되면 설정파일편집   그것도 안되면 현행 유지" | ΔV1 사용자 2026-10-23 | SUPERSEDED → D-030 | 0278 D32의 OpenCode 플러그인 모니터링 한정을 사용자 전역 설정 선언분에 한해 대체 |
@@ -81,10 +81,13 @@
 | D-030 | OpenCode 네이티브 플러그인 on/off 제어를 제공하지 않는다. nav 행은 실제 상태의 고정 토글·회색 글씨(0278 D11·D24 현행)이고, Orca는 OpenCode 설정 파일을 쓰지 않으며 플러그인 기록도 두지 않는다 | "그럼 한계점으로 인해 플러그인 제어 기능을 사용하지 않도록 하는게 혼란을 막기에 좋을 거 같다. Xdg사용 시 다른 앱들에 영향을 주게된다. 해당 기능을 지원하는 앱들의 경우의수가 너무 많다" · ΔV1 규칙 "Sdk 컨트롤 안되면 설정파일편집 그것도 안되면 현행 유지"의 마지막 단계 | ΔV5 사용자 | ACTIVE | D-012·D-015·D-021·D-025~D-029·U-003~U-007 대체. 외부 변경 반영(D-016·D-019·D-020)과 에이전트 캐시(D-017·D-022)는 유지 |
 | D-031 | 편집 기능 제거에 따라 `jsonc-parser` 의존성을 없애고 `9982cdf`의 기존 JSONC 파서(`configured-resources.ts` `parseConfig`)로 되돌린다 | D-013의 승인 조건이 플러그인 배열 편집이었다 | 추론 — D-030 파생 | ACTIVE | — |
 | D-032 | `orca:extensions:setEnabled`는 기존 형상(`{backend, kind, id, enabled}` → `NativeResources`)으로 되돌린다. `confirmed`·`SetGlobalNativeResourceResult`를 없앤다 | 확인 응답은 OpenCode 플러그인 토글에만 쓰였다 | 추론 — D-030 파생 | ACTIVE | — |
+| D-033 | Claude 플러그인·OpenCode MCP의 전역 on/off 선택은 재시작 뒤에도 유지한다. main 전용 설정 `nativeExtensionChoices`에 저장하고 renderer patch로는 바꿀 수 없다 | "전역 off 는 삭제가 아니기 때문에 사라질 이유가 없다" | ΔV6 사용자 | ACTIVE | D-009·U-001 대체. 0278 D26의 "전역 선택 영속 미승인"을 이 사용자 승인으로 해소 |
+| D-034 | OpenCode MCP 전역 토글은 파일 편집·재시작 없이 SDK connect/disconnect로만 적용되므로 가변 토글·일반 글씨를 유지한다 | "Opencose mcp도 파일편집/재시작이 들어간다면 회색글씨 + 고정토글로 표현하라. 아니라면 유지." · 실측: 파일 편집·재시작 없음(ΔV6-1) | ΔV6 사용자 | ACTIVE | — |
+| D-035 | 이전 버전이 남긴 `nativeExtensionChoices` 값은 설정 버전 2로 올리는 1회 마이그레이션에서 비운다 | 현재 버전이 무시하던 오래된 선택이 업그레이드 후 갑자기 적용되는 것을 막는다 | 추론 — D-033 파생 | ACTIVE | — |
 
 ### 갱신 메모
 
-- 이번 턴에서 새로 추가된 결정: D-001~D-011 전부, OPEN U-001. ΔV1 턴: D-012~D-018. ΔV2 턴: D-019~D-021. ΔV3 턴: D-022, OPEN U-002. ΔV5 턴: D-030~D-032 (D-012·D-015·D-021·D-025~D-029·U-003~U-007 → D-030). ΔV4 턴: D-023~D-029, OPEN U-003~U-007 — SUPERSEDED D-013→D-026, D-014→D-027, U-002→D-024~D-027.
+- 이번 턴에서 새로 추가된 결정: D-001~D-011 전부, OPEN U-001. ΔV1 턴: D-012~D-018. ΔV2 턴: D-019~D-021. ΔV3 턴: D-022, OPEN U-002. ΔV6 턴: D-033~D-035 (D-009·U-001 → D-033). ΔV5 턴: D-030~D-032 (D-012·D-015·D-021·D-025~D-029·U-003~U-007 → D-030). ΔV4 턴: D-023~D-029, OPEN U-003~U-007 — SUPERSEDED D-013→D-026, D-014→D-027, U-002→D-024~D-027.
 - 변경된 결정: 0281 D2·D4 → D-001(agents 슬롯), 0278 D28 → D-008(Claude 플러그인 기본값), 0278 D11 → D-007(기본 경로 스킬). ΔV1: D-009 → D-018(범위 축소), 0278 D32 → D-012(OpenCode 사용자 전역 플러그인), 0278 D7 → D-016(교체 중 일시 2서버).
 - 기존 ACTIVE 중 유지: 0278 D15·D16·D20·D24·D26·D32, 0281 D1·D5·D6.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001↔AC1·AC2·AC3, D-002↔AC2, D-003↔AC4, D-004↔AC5·AC6, D-005↔AC6, D-006↔AC9·AC10·AC12, D-007↔AC13·AC14·AC15, D-008↔AC8·AC12, D-009↔(AC 없음 — 저장 경로를 만드는 AC가 없음을 확인), D-010↔AC16·AC17, D-011↔AC11. ΔV1: D-012↔AC19·AC24, D-013↔AC20·AC21, D-014↔AC19·AC20·AC22, D-015↔AC23, D-016↔AC24, D-017↔AC25, D-018↔AC19(OpenCode MCP·Claude는 메모리 선택 유지), D-001↔AC25(예외는 플러그인 변경 때만) — 충돌 0. ΔV2: D-019↔AC27~AC30, D-020↔AC28·AC30, D-021↔AC29 — 충돌 0.
@@ -1150,6 +1153,95 @@ export const composerAgentStore = createComposerAgentStore(sessionApi.onOpenCode
   - CHANGED 노드 7개에 REQUIRED pair가 있다. SUPERSEDED 4 pair는 폐기 근거가 있다.
   - EP-10 29자리는 검색 명령과 `6fa83b39` 출력으로 고정했다.
   - 적대 증거는 VP-18″(음성 게이트 민감도)에서 선택했다. 신규 의존성 0(오히려 1 제거).
+
+# ΔV6 — 전역 선택 영속화 · OpenCode MCP 토글 유지 (2026-10-23)
+
+판정: **READY**. 유효 V = `… + ΔV5 + ΔV6`. D-018의 대상 범위(Claude 플러그인·OpenCode MCP)는 그대로이고 수명만 메모리 → 설정 저장으로 바뀐다.
+
+## ΔV6-1. 사실 (Orca `6fa83b39` · OpenCode 1.18.27)
+
+| 사실 | 근거 |
+|---|---|
+| OpenCode MCP 전역 토글은 새 directory state 생성 때 선택을 포착해 SDK `connect`/`disconnect`로만 적용한다 | `mcp-control.ts:19-24·75-83` |
+| OpenCode 쪽 connect/disconnect는 인스턴스 메모리 상태만 바꾼다(파일 쓰기 없음) | OpenCode `mcp/index.ts:648-659` |
+| 서버 재시작이 없고 기존 인스턴스는 유지된다 | `mcp-control.ts:8` · `extension-catalog.ts:73` "No server access here" |
+| 전역 선택은 프로세스 메모리 Map이라 재시작 때 사라진다 | `app/extension-control.ts:8-16` · `bootstrap.ts:172` |
+| 설정 스키마에 `nativeExtensionChoices`(backend → `kind:이름` → boolean)가 legacy 읽기 전용으로 있고 renderer patch에서 제외돼 있다 | `protocol.ts:755-758·808` · `ipc.ts:1141·1164` · `IPC_CONTRACT.md:154` |
+| 0278 D25의 영속화는 "사용자 승인 없음"으로 D26에서 철회됐다 | 0278 `plan.md:205·284` |
+| 설정 마이그레이션 버전은 1이다 | `settings-migration.ts:3-5·49-58` |
+
+## ΔV6-2. Product & UX Contract
+
+| 상황 | 결과 |
+|---|---|
+| nav에서 Claude 플러그인 또는 OpenCode MCP 전역 off → 앱 재시작 | 행은 off로 보이고, 새 Claude Query는 `<이름>@inline: false`, 새 OpenCode directory는 그 MCP를 disconnect한다 |
+| OpenCode MCP 전역 행 | 가변 토글·일반 글씨(현행 유지). 토글은 OpenCode 설정 파일을 쓰지 않고 서버를 다시 띄우지 않는다 |
+| 업그레이드 뒤 첫 실행 | 이전 버전이 남긴 선택은 비우고 이후 선택만 유지한다 |
+| renderer의 `settings:set` | 전역 선택을 바꿀 수 없다(기존 제외 유지) |
+
+## ΔV6-3. Acceptance
+
+| R | AT / AC | 동작 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-03·R-09 | AT-03·AT-10 / **AC42** | Claude 플러그인·OpenCode MCP 전역 토글 뒤 재시작해도 nav 행·새 Claude Query flag·새 OpenCode directory의 connect/disconnect가 같은 선택을 따른다. renderer patch로는 바뀌지 않는다 | 같은 설정 저장소로 Bootstrap 2회 → catalog·SDK options·connect/disconnect 호출 · `settings:set` 무시 | nav → handler → control → settings / 시작 → control → adapter |
+| R-09 | AT-10 / **AC43** | OpenCode MCP 전역 행은 가변 토글이고, 토글 전후 OpenCode 설정 파일 바이트가 같으며 handler는 서버를 만들지 않는다. 적용은 다음 directory의 SDK connect/disconnect다 | 임시 `XDG_CONFIG_HOME` 바이트 비교 · fake client connect/disconnect 기록 | handler → control → `OpenCodeMcpControl` |
+| R-09 | AT-10 / **AC44** | 설정 버전 1에서 올라오면 `nativeExtensionChoices`가 비워지고 버전 2로 기록된다. 버전 2 이후의 값은 유지된다 | 원시 설정 v1·v2 입력 → 마이그레이션 결과 | 시작 → `SettingsStore` → `migrateRawSettings` |
+
+- AC 총수: 26 + 3 = **29**.
+
+## ΔV6-4. Delta V
+
+| 노드 | 레벨 | provenance | 내용 |
+|---|---|---|---|
+| R-03 | R | CHANGED | AC42(Claude 플러그인 부분) 추가 |
+| R-09 | R | NEW | OpenCode MCP 전역 선택: AC42·AC43·AC44 |
+| AR-08 | AR | NEW | bootstrap: 설정 저장소 ↔ 영속 control ↔ catalog handler·adapter registry |
+| MD-09 | MD | NEW | 영속 extension control(`global`·`setGlobal` → 설정 저장) |
+| MD-10 | MD | NEW | 설정 마이그레이션 v2(legacy 선택 비움) |
+
+| Pair | 좌 ↔ 우 | requiredness | production path | 직접 oracle 좌표 | 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-36 | MD-09 ↔ UT-09 | REQUIRED | `setGlobal` → 저장 port → 새 control 생성 → `global` | 신규 `app/extension-control.test.ts`: `'persists explicit global choices and restores them in a new control'`(fake 저장 port, claude·opencode 서로 다른 값) | required — 변이: S1 저장 호출 제거, S1 시작 시 읽기 제거, claude↔opencode 값 맞바꿈 | EP-11 S1·S6 |
+| VP-37 | AR-08 ↔ IT-08 | REQUIRED | Bootstrap(저장소 A) 토글 → 종료 → Bootstrap(저장소 A) → catalog·adapter | `bootstrap.native-history.test.ts` 신규 `'restores persisted global choices into catalog rows, new Claude queries and OpenCode directory states after restart'` | required — 변이: S2 메모리 전용 control로 되돌림 | EP-11 S2·S3·S4 |
+| VP-38 | MD-10 ↔ UT-10 | REQUIRED | 원시 설정 → `migrateRawSettings` | `settings-migration.test.ts` 신규 `'clears legacy native extension choices once when upgrading to settings version 2'` | required — 변이: S5 버전 비교 뒤집기, 비우기 제거 | EP-11 S5 |
+| VP-39 | R-09 ↔ AT-10 | REQUIRED | nav 토글 → handler → control → 다음 directory `OpenCodeMcpControl` | VP-37 좌표 · `extension-catalog.test.ts` 신규 `'keeps OpenCode MCP global toggles as runtime SDK choices without native writes'` · 신규 `opencode/v1/mcp-control.test.ts:'applies captured global MCP choices with SDK connect and disconnect only'`(fake client) | not selected — 파일 바이트·호출 직접 관측 | EP-11 · ΔV5 EP-10 R21(`canToggle: item.kind === 'mcp'` 유지) |
+| VP-09 | R-03 ↔ AT-03 | REQUIRED(CHANGED) | 기존 + 재시작 뒤 새 Query | 기존 좌표 + VP-37 좌표 | VP-09 변이 승계 | EP-02 · EP-11 |
+
+## ΔV6-5. Technical Design
+
+- `app/extension-control.ts`:
+  - `extensionControl(store?: { get(): NativeExtensionChoices | undefined; set(value: NativeExtensionChoices): void })`.
+  - 시작 때 `store.get()`으로 초기화하고 `setGlobal`마다 `store.set` 한다.
+  - 인자가 없으면 메모리 전용(테스트용)이다.
+- `bootstrap.ts:172`:
+  - `extensionControl({ get: () => this.settings.getAll().nativeExtensionChoices, set: (v) => this.settings.setNativeExtensionChoices(v) })`.
+  - 설정 저장소가 생성자에서 준비돼 있으므로(`:170`) 순서 문제가 없다.
+- `infra/settings-store.ts`: main 전용 setter `setNativeExtensionChoices`. renderer patch 경로는 기존 `SettingsPatch` 제외로 막힌다.
+- `infra/settings-migration.ts`: `SETTINGS_VERSION = 2`. 원시 `settingsVersion < 2`이면 `nativeExtensionChoices`를 지운다.
+- 문서:
+  - `docs/IPC_CONTRACT.md:154`: "legacy 읽기 호환 전용" → "main 전용 전역 선택 저장(재시작 유지)".
+  - `docs/arch/backend/adapters.md:67`: 메모리 control 서술 정정.
+  - `docs/arch/backend/persistence.md`: 설정 키 서술이 있으면 함께 정정한다.
+
+## ΔV6-6. 강제 지점 (§10 ΔV6)
+
+| V / pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|
+| EP-11 · VP-36~39 | 전역 선택 = 설정 저장소 기준, 재시작 유지, renderer 변경 불가, legacy 1회 비움 | S1 `app/extension-control.ts:8-9` Map → 저장 port · S2 `bootstrap.ts:172` 생성 배선 · S3 `shared/protocol.ts:808` 스키마(형상 유지) · S4 `shared/ipc.ts:1141·1164` 타입·patch 제외(유지) · S5 `infra/settings-migration.ts:3` 버전 2 + 비움 · S6 신설 `settings-store.ts` setter · S7 `docs/IPC_CONTRACT.md:136·154` · S8 `docs/arch/backend/adapters.md:67` — **8** | `rg -n "nativeExtensionChoices\|extensionControl\(\)\|choices = new Map\|SETTINGS_VERSION =\|메모리 control" app/src/main app/src/shared docs/IPC_CONTRACT.md docs/arch --glob '!*.test.ts'` → `6fa83b39`에서 10줄 = S1 2 · S2 1 · S3 1 · S4 2 · S5 1 · S7 2 · S8 1 | 재시작 때 선택 소실, renderer가 선택 변경, 오래된 선택 부활 |
+
+- 유효 V 총 = 109 + 8 = **117**.
+
+## ΔV6 정합성 검토
+
+- ACTIVE 결정 ↔ AC: 충돌 0. D-033↔AC42, D-034↔AC43, D-035↔AC44, D-018(대상 범위)↔AC42.
+- D-024와의 관계: 저장 위치는 Orca 설정이라 터미널에 영향이 없다.
+- D-030과의 관계: OpenCode 플러그인 행은 계속 고정이다. 영속화 대상은 가변 토글인 Claude 플러그인·OpenCode MCP뿐이다.
+- self-review(ΔV6):
+  - 사용자 원문 2건 인용, 사실 7행 관측.
+  - AC 3건에 행동·수단·경로가 있다.
+  - NEW 노드 4개와 CHANGED R-03에 REQUIRED pair가 있다.
+  - EP-11 8자리는 검색 명령과 출력으로 고정했다.
+  - 적대 증거는 VP-36·37·38에서 선택했다.
 
 ---
 
