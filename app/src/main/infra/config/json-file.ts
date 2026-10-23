@@ -2,9 +2,11 @@
 // mcp.json·provider settings.json 등 "사용자가 발견·편집 가능한" 설정 파일의 공용 쓰기 경로다.
 // config(L1) 의 가장 낮은 위치에 둬, 상위(deploy·settings) 가 하향으로만 의존하게 한다.
 
-import { readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
 
 export function writeJsonAtomic(path: string, value: unknown): void {
+  mkdirSync(dirname(path), { recursive: true })
   const tmp = `${path}.tmp`
   writeFileSync(tmp, JSON.stringify(value, null, 2) + '\n', 'utf8')
   renameSync(tmp, path)

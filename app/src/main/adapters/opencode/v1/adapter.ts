@@ -51,6 +51,10 @@ export class OpenCodeAdapter implements SessionAdapter {
       done: true
     }
   }
+  extensionsChanged(): void {
+    this.servers.retireAll?.()
+  }
+
   close(): void {
     this.contexts.close()
     this.servers.close()

@@ -55,8 +55,8 @@ describe('scanSkills', () => {
           name: 'beta',
           sourceId: 'adapter:claude',
           sourceLabel: '어댑터 스킬',
-          enabled: false,
-          canToggle: true,
+          enabled: true,
+          canToggle: false,
           sourceKind: 'adapter'
         })
       ])

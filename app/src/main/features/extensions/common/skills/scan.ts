@@ -70,12 +70,12 @@ async function scanRoot(
         sourceId: root.sourceId,
         sourceLabel: root.sourceLabel,
         enabled:
-          root.sourceKind === 'orca' || root.sourceId === 'adapter:claude'
+          root.sourceKind === 'orca'
             ? (enabled[skillEnabledKey(root.sourceId, name)] ?? true)
             : (entry.enabled ?? true),
         body: bodyWithoutFrontmatter(text),
         sourceKind: root.sourceKind,
-        canToggle: root.sourceKind === 'orca' || root.sourceId === 'adapter:claude',
+        canToggle: root.sourceKind === 'orca',
         canRemove: root.sourceKind === 'orca',
         skillPath,
         skillDir,

@@ -25,6 +25,7 @@ export interface OpenCodeServer {
     env?: Record<string, string>,
     cwd?: string
   ): Promise<string>
+  retireAll?(): void
   close(): void
 }
 
@@ -37,7 +38,19 @@ export interface OpenCodeRuntimeOptions {
   extensionControl?: import('../common/extension-control').ExtensionControl
 }
 
+export interface OpenCodeGlobalPluginControl {
+  reconcile(): Promise<NativeResource[]>
+  set(item: NativeResource, enabled: boolean): Promise<void>
+}
+export interface OpenCodePluginRecordStore {
+  get(): import('../../../shared/native-resources').OpenCodeDisabledPlugin[]
+  set(records: import('../../../shared/native-resources').OpenCodeDisabledPlugin[]): void
+}
+
 export interface OpenCodeImplementation {
+  globalPlugins(records: OpenCodePluginRecordStore): OpenCodeGlobalPluginControl
+  globalPluginFiles(): string[]
+  globalPluginFingerprint(): Promise<string>
   projectResources: import('../common/project-resources').ProjectResourcePolicy
   createAdapter: (options: OpenCodeRuntimeOptions) => SessionAdapter
   loadSettings: HarnessSettingsLoader

@@ -86,13 +86,16 @@ describe('handlers/misc 분해 (0179)', () => {
     expect(new Set(registered).size).toBe(registered.length)
   })
 
-  it('0244 — 조기 등록 읽기 핸들러는 SettingsStore.getAll() 을 그대로 돌려주고 쓰기 모듈은 읽기를 등록하지 않는다', () => {
+  it('0244 — 조기 등록 읽기 핸들러는 SettingsStore.getAll() 의 공개 설정을 돌려주고 쓰기 모듈은 읽기를 등록하지 않는다', () => {
     registered.length = 0
     handlers.clear()
     const snapshot = { theme: 'dark', uiLocale: 'en' }
     registerSettingsReadHandler({ getAll: () => snapshot as never })
     expect(registered).toEqual([CHANNELS.settingsGet])
-    expect(handlers.get(CHANNELS.settingsGet)?.({}, undefined)).toBe(snapshot)
+    expect(handlers.get(CHANNELS.settingsGet)?.({}, undefined)).toEqual({
+      ...snapshot,
+      openCodeDisabledPlugins: []
+    })
 
     registered.length = 0
     registerSettingsHandlers(ctx)

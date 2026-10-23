@@ -1,3 +1,4 @@
+import { OpenCodeAdapter } from './adapter'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { EventEmitter } from 'node:events'
 import { PassThrough } from 'node:stream'
@@ -402,4 +403,23 @@ describe('owned OpenCode server lifecycle', () => {
     expect(children.every((child) => child.kill.mock.calls.length === 1)).toBe(true)
     expect(unrelated.kill).not.toHaveBeenCalled()
   })
+})
+
+it('starts a new server for new owners after retireAll while existing owners keep theirs', async () => {
+  const { pool, children, spawnProcess } = setup()
+  const [one, peer] = await Promise.all([pool.acquire(), pool.acquire()])
+  const adapter = new OpenCodeAdapter(pool, vi.fn())
+  adapter.extensionsChanged()
+  expect(children[0].kill).not.toHaveBeenCalled()
+  const next = await pool.acquire()
+  expect(spawnProcess).toHaveBeenCalledTimes(2)
+  expect(next.headers.Authorization).not.toBe(one.headers.Authorization)
+  expect(peer.headers).toEqual(one.headers)
+  one.release!()
+  expect(children[0].kill).not.toHaveBeenCalled()
+  peer.release!()
+  expect(children[0].kill).toHaveBeenCalledOnce()
+  expect(children[1].kill).not.toHaveBeenCalled()
+  next.release!()
+  expect(children[1].kill).toHaveBeenCalledOnce()
 })

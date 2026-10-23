@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-23 |
 | 매핑 | — |
-| 상태 | READY (ΔV2) |
+| 상태 | IMPL_DONE (r1) — 독립 검증 대기 |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `none` — 회귀 노드는 0281·0278·0267의 현재 코드·테스트를 `57515e7`에서 확인해 INHERITED로 인용 |
 | 이번 V revision | `ΔV2` — 외부 제거 비노출. 이전: `ΔV1` OpenCode 플러그인 off. 대체 관계는 §ΔV1·§ΔV2 |
@@ -764,81 +764,210 @@ nav → 플러그인 탭 → OpenCode 플러그인 행
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: V1+ΔV1+ΔV2의 결정·적용 시점 유지. 아래 AC 표에서 기계 28건과 실기 2건을 구분한다.
+- 이견 / 현실성 문제: 정적 `MainHarnessModule`에 설정 저장소를 전역 주입하지 않고 `globalResourceControl(records)` 팩토리로 조립했다. 실제 배선 좌표는 `bootstrap.native-history.test.ts:routes OpenCode plugin toggles through the file control and the settings record`다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. `SettingsPatch`에서 제외하는 것만으로는 조회 응답의 복원 옵션·경로를 숨기지 못해 settings 응답 두 곳도 정정했다(`settings.private.test.ts:keeps plugin restoration options and paths out of both settings responses`).
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
+좌표의 파일은 `app/src/` 아래다. 같은 파일의 테스트 이름을 아래 별칭으로 인용한다.
+
+| 별칭 | 직접 oracle 좌표 |
+|---|---|
+| T-state | `renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.test.ts`의 `publishes the first agent success to concurrent scopes and ignores later results` · `leaves the agent cache empty after failed or cancelled reads` · `keeps cached agents through instance invalidation while models become error` · `resets agents once per revision and refreshes subscribed parts while keeping models` · `keeps the first cached agents when a concurrent read ends as %s` |
+| T-module | 같은 디렉터리 `Module.integration.test.ts:reuses the first successful agent list across landing scopes without requesting or spinning` · `shows cached agents before the chat scope exists` |
+| T-cache | 같은 디렉터리 `composerAgentCache.test.ts:keeps the first accepted list and notifies each subscriber once` · `resets once for a newer revision and ignores stale revisions` |
+| T-query | `main/adapters/claude/adapter.native-plugins.test.ts:applies current global plugin choices to every new query while live queries keep theirs` · `pins deployed MCP files for same-cwd peers and reloads until the final owner closes` |
+| T-bootstrap | `main/app/bootstrap.native-history.test.ts:carries catalog changes through the real bootstrap registry into every new SDK query` · `applies nav plugin choices to draft and stored-session commands and resources` · `routes OpenCode plugin toggles through the file control and the settings record` |
+| T-priority | `main/adapters/claude/configured-resources.test.ts:applies Orca plugin choices above user defaults and below project selections` · `main/adapters/common/extension-control.test.ts:maps only one kind of choice to harness keys` |
+| T-view | `renderer/src/features/skills/components/customize/ExtensionsCatalogView.interaction.test.ts`의 `moves native plugins to the plugin tab after provider groups` · `hides native plugin skills from the skills tab` · `scopes native loading and failure to plugin and MCP tabs` · `asks before changing an OpenCode plugin while sessions run and applies only after confirmation` |
+| T-list | 같은 디렉터리 `CustomizeList.render.test.ts:orders Claude then OpenCode plugin groups after providers and keeps plugin toggle capability` · `renders switches only for Orca skills` · `SkillDetail.render.test.ts:renders no switch for default-path skills` |
+| T-skill | `main/app/skill-catalog.test.ts:assembles the real catalog from lock, harness and native plugin files without exposing other installations` · `main/features/extensions/common/skills/scan.test.ts:여러 source root 를 소스 메타와 enabled 상태로 스캔한다` |
+| T-global | `main/adapters/opencode/v1/global-plugins.test.ts`의 `records before removing and restores the original entry at its index` · `rolls back the record when the file write fails` · `reports a recorded plugin that is still declared as enabled and clears the record` · `applies concurrent toggles and an external edit without failure` · `marks only plugins declared by the effective global file as toggleable` |
+| T-watch | `main/app/opencode-global-watch.test.ts:fans out once per external plugin change and ignores Orca's own write` · `clears a record when the plugin is re-added externally` · `drains admitted plugin writes before closing and rejects later writes` |
+| T-server | `main/adapters/opencode/v1/server.test.ts:starts a new server for new owners after retireAll while existing owners keep theirs`(실제 adapter의 `extensionsChanged` 진입) · `main/app/handlers/composer-catalog.test.ts:revalidates every OpenCode owner with the plugin revision` |
+| T-handler | `main/app/handlers/extension-catalog.test.ts:requires confirmation for OpenCode plugin changes only while OpenCode sessions run` · `does not reactivate legacy choice bytes or accept writes through settings.patch` |
+| T-wire | `preload/index.test.ts:carries explicit global extension scope and choices across renderer API and preload` — confirmed=true·confirm/applied 응답을 실제 양쪽 wrapper로 관측 |
+| T-record | `main/infra/settings-store.test.ts:persists plugin restoration records through the main-only setter and preserves unrelated settings` · `shared/openCodePluginRecord.testfixture.ts` 음성 타입 단언(M24로 민감도 확인) |
+
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| VP-… | … | … | … | … | … | … |
+| VP-01~04 | agents 캐시 | EP-01 A1~A10 | 10/10 | A1·A2=T-module/T-state; A3=T-state invalidation; A4=동시 scope의 retry; A5·A7=첫 성공/지연 성공; A6·A8=캐시 없음 실패·취소 및 first 성공 뒤 concurrent error/cancelled/reject; A9=T-module 무-scope; A10=T-cache/T-state | 경로 A/B, team/other, first/late, 빈 성공과 취소를 구분 | 없음 |
+| VP-09~12 | Claude 유효 선택 | EP-02 C1~C15 | 15/15 | C1~C3=T-query; C4·C5=T-priority/T-bootstrap; C6~C13=T-bootstrap의 초안·저장 세션 양 경로; C14=T-handler; C15=extension-control 단위 | user true / Orca false / project true / local false; MCP 동명 키 제외 | 실기 AC18 별도 |
+| VP-07·08 | 탭 귀속 | EP-03a R1~R7 | 7/7 | R1~R4=T-list/T-view의 순서·native-only 행; R5~R7=T-view loading/failure — 스킬 목록 유지, 실패 탭 status 1개 | gate→llm→service→Claude→OpenCode, plugin/MCP 구분 | 없음 |
+| VP-07·08·14 | 스킬 GUI | EP-03b K1~K5 | 5/5 | K1=T-view; K2·K3=T-list 목록; K4·K5=SkillDetail.render | plugin 2출처 비노출, 기본 3출처 일반 글씨·switch 없음, Orca switch 존재 | 없음 |
+| VP-14·15 | 스킬 capability | EP-04 S1·S2·U1~U4 | 6/6 | S1·S2=T-skill; U1=T-query 기본 스킬 allow-list; U2=handlers/skills.test.ts:keeps native toggles read-only after accepting namespaced targets; U3=attachMenuModel.test.ts:keeps previously disabled harness skills selectable; U4=composerSkills.test.ts:offers active default-path skills regardless of their former stored choice | 저장 false인 Claude/OpenCode/agents가 enabled true·canToggle false; Orca false는 유지 | 없음 |
+| VP-16·17 | MCP 상위 폴더 | EP-05 J1·J2 | 2/2 | J1=infra/config/json-file.test.ts:creates missing parents, replaces existing files and leaves no temp file; J2=extensions/common/mcp/store.fresh-root.test.ts:adds a server when the sources mcp directory does not exist | 중첩 부재 경로, 교체 값, list의 docs 행, tmp 잔여 없음 | 없음 |
+| VP-18~20·22·23′ | 파일·복원 기록 | EP-06 P1~P18·P14b | 19/19 | P1~P5=T-global; P6·P7=T-handler/T-bootstrap; P8·P9=T-bootstrap; P10~P12=T-handler/T-wire; P13=T-view; P14·P14b·P15·P16=T-record/T-handler; P17=T-global; P18=T-bootstrap | 주석·튜플 옵션 distinct·index·file, sessions 0/1/2, confirmed 유무; renderer patch 차단 | 실기 AC26 별도 |
+| VP-21·24 | 서버·재준비 | EP-07 Q1~Q12 | 12/12 | Q1~Q3·Q12=T-server adapter→pool; Q4~Q7=T-server owners→event; Q8=T-bootstrap의 revision [1,2,3]; Q9=preload/index.test.ts의 session.onComposerCatalogInvalidated 전달 및 owners handler; Q10=T-state; Q11=T-cache | 기존 owner 인증 유지, 새 process 시작, revision 중복 무시, agents 초기화·모델 값 유지 | 없음 |
+| VP-28·32 | Claude 설치 존재 | EP-08 E1~E4 | 4/4 | E1~E3=configured-resources.test.ts:omits installations whose directory no longer exists; E4=plugin-catalog.test.ts:selects active installations by scope and precedence and refreshes every read 및 T-bootstrap 삭제 후 새 Query | removed 폴더 삭제·kept 양성 유지, nav/draft/stored/SDK 목록 확인 | 없음 |
+| VP-28~31 | 외부 변경 | EP-09 X1~X7 | 7/7 | X1·X2=T-watch; X3=T-bootstrap shutdown; X4·X6·X7=T-bootstrap [1,2,3] fan-out; X5=global-plugins.test.ts:shows a record only while its installation exists and its spec is absent | 외부 재추가→기록 0→삭제→행 0; 자기 토글 후 check 중복 0 | 없음 |
 
-- §10 자리 목록 밖에서 본 운반 자리: …
-- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(첫 라운드)
+- §10 검색 원출력(EP 순서)은 33·15·17·14·7·2·18·12·6·4줄이었다(정의·중복 참조·형제 포함). 계획 자리 ID와 아래 oracle 매핑의 집합 차이는 양방향 `[]`(87=87)로 재확인했다. 계획의 기존 술어와 새 `extensionChoices`, `globalResourceControl`, `revalidate`, `openCodeDisabledPlugins`, `claudeInstallationExists`, `OpenCodeGlobalWatch` 운반 자리를 함께 확인했다.
+
+- 고정 분모는 EP별 10+15+7+5+6+2+19+12+4+7=87이다.
+- §10 자리 목록 밖에서 본 운반 자리: settings 응답 get/set의 복원 기록 비노출 2곳, 종료 시 새 큐 drain 연결 1곳. 버전 중립 opencode facade의 control/files/fingerprint 전달은 T-bootstrap의 실제 파일 감시→revision [1,2,3]로 함께 확인했다. 각각 `settings.private.test.ts`와 `opencode-global-watch.test.ts:drains admitted plugin writes before closing and rejects later writes`로 보강했다.
+- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(첫 라운드).
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | … | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | T-module·T-state | M01·M02 |
+| VP-02 | REQUIRED | SELF_PASS | T-state | M03 |
+| VP-03 | REQUIRED | SELF_PASS | T-module·T-state | not selected |
+| VP-04 | REQUIRED | SELF_PASS | T-cache | not selected |
+| VP-05 | REGRESSION | SELF_PASS | T-state 기존 models/resource/generation·T-module loading | not selected |
+| VP-06 | REGRESSION | SELF_PASS | opencode/v1/adapter.persistent.test.ts:passes a live plugin agent and drops its removed variant on the next prompt | not selected |
+| VP-07 | REQUIRED | SELF_PASS | T-view | not selected |
+| VP-08 | REQUIRED | SELF_PASS | T-list | M04·M05 |
+| VP-09 | REQUIRED | SELF_BLOCKED — 실기 AC18 | T-bootstrap·AC18 실기 미실행 | M06~M08 |
+| VP-10 | REQUIRED | SELF_PASS | T-query | not selected |
+| VP-11 | REQUIRED | SELF_PASS | T-bootstrap 초안/저장 세션 | not selected |
+| VP-12 | REQUIRED | SELF_PASS | T-priority·T-bootstrap | M09·M10 |
+| VP-13 | REGRESSION | SELF_PASS | native-resource-sharing.test.ts·Composer.native-menu.test.ts | not selected |
+| VP-14 | REQUIRED | SELF_PASS | T-skill·T-list·T-query·U1~U4 좌표 | not selected |
+| VP-15 | REQUIRED | SELF_PASS | T-skill scan | not selected |
+| VP-16 | REQUIRED | SELF_PASS | store.fresh-root.test.ts:adds a server when the sources mcp directory does not exist | not selected |
+| VP-17 | REQUIRED | SELF_PASS | json-file.test.ts:creates missing parents, replaces existing files and leaves no temp file | not selected |
+| VP-18 | REQUIRED | SELF_BLOCKED — 실기 AC26 | T-view·T-handler·AC26 실기 미실행 | M11·M12 |
+| VP-19 | REQUIRED | SELF_PASS | T-global | M13~M15 |
+| VP-20 | REQUIRED | SELF_PASS | T-bootstrap·T-record·T-wire | M24(새 음성 타입 oracle) |
+| VP-21 | REQUIRED | SELF_PASS | T-server·T-bootstrap·T-state | M16·M17 |
+| VP-22 | REQUIRED | SELF_PASS | global-plugins.test.ts:removes and reinserts string and tuple entries while preserving comments | not selected |
+| VP-23′ | REQUIRED | SELF_PASS | T-global effective-file·unresolvable 사례 | M18 |
+| VP-24 | REQUIRED | SELF_PASS | T-cache | not selected |
+| VP-25 | REGRESSION | SELF_PASS | T-list OpenCode true/false capability | not selected |
+| VP-26 | REGRESSION | SELF_PASS | T-module 1회 IPC·스피너 없음 | not selected |
+| VP-27 | REGRESSION | SELF_PASS | T-state models 유지·기존 resource 테스트 | not selected |
+| VP-28 | REQUIRED | SELF_PASS | T-bootstrap 외부 재추가/삭제·Claude 삭제, T-global 설치본 삭제 | M19·M20 |
+| VP-29 | REQUIRED | SELF_PASS | T-watch·T-bootstrap | M21·M22 |
+| VP-30 | REQUIRED | SELF_PASS | T-bootstrap 등록·[1,2,3] fan-out·shutdown | not selected |
+| VP-31 | REQUIRED | SELF_PASS | global-plugins.test.ts:fingerprint·shows a record only while its installation exists and its spec is absent | M23 |
+| VP-32 | REQUIRED | SELF_PASS | configured-resources.test.ts:omits installations whose directory no longer exists·plugin-catalog.test.ts | not selected |
+| VP-33 | REGRESSION | SELF_PASS | T-view·T-handler·T-server | not selected |
+| VP-34 | REGRESSION | SELF_PASS | T-bootstrap 초안/저장 세션 선택 | not selected |
+
+- 유효 pair 34행: SELF_PASS 32 · SELF_BLOCKED 2(Windows 실기). VP-23은 ΔV2의 VP-23′로 대체했다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| M01 VP-01 A2 | 선택 적대 증거 | 최초 | `publishes agents before models and shares subscribers and remounts` / 9건 | 잡음 · 원본 복구 확인 |
+| M02 VP-01 A1 | 선택 적대 증거 | 최초 | `publishes the first agent success to concurrent scopes and ignores later results` / 1건 | 잡음 · 원본 복구 확인 |
+| M03 VP-02 A3 | 선택 적대 증거 | 최초 | `keeps the new generation when an older part resolves in the same epoch` / 2건 | 잡음 · 원본 복구 확인 |
+| M04 VP-08 R3/R4 | 선택 적대 증거 | 최초 | `orders Claude then OpenCode plugin groups after providers and keeps plugin toggle capability` / 1건 | 잡음 · 원본 복구 확인 |
+| M05 VP-08 R1 | 선택 적대 증거 | 최초 | `plugin catalog list hides native plugin skills and labels both native MCP groups with brand marks` / 2건 | 잡음 · 원본 복구 확인 |
+| M06 VP-09 C1 | 선택 적대 증거 | 최초 | `carries catalog changes through the real bootstrap registry into every new SDK query` / 2건 | 잡음 · 원본 복구 확인 |
+| M07 VP-09 C12 | 선택 적대 증거 | 최초 | `applies nav plugin choices to draft and stored-session commands and resources` / 1건 | 잡음 · 원본 복구 확인 |
+| M08 VP-09 C5 | 선택 적대 증거 | 최초 | `applies nav plugin choices to draft and stored-session commands and resources` / 2건 | 잡음 · 원본 복구 확인 |
+| M09 VP-12 C4 | 선택 적대 증거 | 최초 | `carries catalog changes through the real bootstrap registry into every new SDK query` / 2건 | 잡음 · 원본 복구 확인 |
+| M10 VP-12 C5 | 선택 적대 증거 | 최초 | `applies nav plugin choices to draft and stored-session commands and resources` / 2건 | 잡음 · 원본 복구 확인 |
+| M11 VP-18 P7 confirmation | 선택 적대 증거 | 최초 | `requires confirmation for OpenCode plugin changes only while OpenCode sessions run` / 1건 | 잡음 · 원본 복구 확인 |
+| M12 VP-18 P7 backend | 선택 적대 증거 | 최초 | `reads native defaults without copying them and keeps supported explicit choices only in memory` / 2건 | 잡음 · 원본 복구 확인 |
+| M13 VP-19 P17 off order | 선택 적대 증거 | 최초 | `records before removing and restores the original entry at its index` / 2건 | 잡음 · 원본 복구 확인 |
+| M14 VP-19 P17 on order | 선택 적대 증거 | 최초 | `records before removing and restores the original entry at its index` / 1건 | 잡음 · 원본 복구 확인 |
+| M15 VP-19 P17 rollback | 선택 적대 증거 | 최초 | `rolls back the record when the file write fails` / 1건 | 잡음 · 원본 복구 확인 |
+| M16 VP-21 Q10 models | 선택 적대 증거 | 최초 | `resets agents once per revision and refreshes subscribed parts while keeping models` / 1건 | 잡음 · 원본 복구 확인 |
+| M17 VP-21 Q11 revision | 선택 적대 증거 | 최초 | `resets once for a newer revision and ignores stale revisions` / 2건 | 잡음 · 원본 복구 확인 |
+| M18 VP-23 P1 priority | 선택 적대 증거 | 최초 | `derives the fingerprint only from the effective plugin array` / 2건 | 잡음 · 원본 복구 확인 |
+| M19 VP-28 E2 | 선택 적대 증거 | 최초 | `applies nav plugin choices to draft and stored-session commands and resources` / 2건 | 잡음 · 원본 복구 확인 |
+| M20 VP-28 X5 | 선택 적대 증거 | 최초 | `shows a record only while its installation exists and its spec is absent` / 1건 | 잡음 · 원본 복구 확인 |
+| M21 VP-29 X2 fingerprint | 선택 적대 증거 | 최초 | `fans out once per external plugin change and ignores Orca's own write` / 2건 | 잡음 · 원본 복구 확인 |
+| M22 VP-29 X1 callback | 선택 적대 증거 | 최초 | `fans out once per external plugin change and ignores Orca's own write` / 1건 | 잡음 · 원본 복구 확인 |
+| M23 VP-31 X5 conditions | 선택 적대 증거 | 최초 | `records before removing and restores the original entry at its index` / 2건 | 잡음 · 원본 복구 확인 |
+| M24 SettingsPatch의 main-only 키 제외 제거 | 새 음성 타입 oracle | 최초 | `openCodePluginRecord.testfixture.ts:5` TS2578 1건 | 잡음 · 원본 복구 확인 |
 
-- **분모 검산**: …
-- **덮개 회귀**: …
+- **분모 검산**: 선택 증거 23 · 인용 변이 0 · 새 oracle 1 = 표 행 24. 각 JSON 결과의 failed assertion 이름을 위에 옮겼으며 단순 collection 실패를 잡음으로 세지 않았다.
+- **덮개 회귀**: 해당 없음 — 첫 구현 라운드. 기존 models·MCP·plugins·세션 프로젝트 토글의 행동 단언은 관련 gate에 유지했다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 확인 — T-view에서 실제 확인 제목·취소 후 요청 수·confirmed=true·행 off를 관측 | AC26 실제 창 실기 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 확인 — Query release와 배포 사본 유지 T-query 회귀, watcher drain의 접수 쓰기 1회·후속 거절 | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 확인 — 파일 실패의 기록 원복·설정 실패 토스트 경로, 첫 agents 실패/취소의 빈 캐시 | T-global·T-state |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 확인 — 기존 saveFailed 보고 유지, 확인 대기에는 행이 변하지 않음 | T-view·useNativeMcpCatalog.test.ts |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 확인 — first/late 캐시, scope epoch, backend version, 승인 요청의 새 version | T-state·useNativeMcpCatalog.test.ts |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| I1 | main 전용 setter만으로 settings:get/set 응답의 복원 옵션·경로는 숨겨지지 않음 | 선조치: 두 응답에 빈 복원 배열 반환 | settings.private.test.ts 두 채널 결과에서 private 문자열 0 |
+| I2 | 새 watch 큐에 대기하는 저장은 기존 파일 큐 drain 전에 아직 등록되지 않을 수 있음 | 선조치: watch admission 닫기→접수 작업 drain→기존 nativeFileMutations.close 순서 | watcher drain 테스트 접수 쓰기 1회, 이후 요청 거절 |
+| I3 | app 테스트 명령만으로 preload·skill-catalog oracle이 실행되지 않음 | 선조치: gate 집합에 `src/preload/index.test.ts`·`src/main/app/skill-catalog.test.ts`·`composerSkills.test.ts` 추가 | 최종 gate 로그의 해당 스위트 포함 |
+| I5 | 관련 집합의 DB 테스트는 재설치 후 앱용 Electron ABI와 plain Node ABI가 다름 | 환경 분리: 8파일·106건 모두 NODE_MODULE_VERSION 140/127, 다른 실패 0 | 동일 실행의 비DB 1604건과 후속 신규 3건 포함 최종 1607건 통과 |
+| I4 | 문서 전체 검사에 기존 ignored OpenCode 소스의 깨진 링크가 섞임 | 환경 기준선 분리: `.tmp`·`app/.temp`의 10링크, tracked 파일 0 | 해당 폴더만 제외한 동일 checkLinks 결과 `[]`; 현재 문서 prose 검사 통과 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: control을 설정 port를 받는 팩토리로 만들고 버전 중립 `adapters/opencode` 진입점에 노출했다. 새 전역 mutable 설정 참조를 만들지 않고 bootstrap 한 인스턴스를 nav·toggle·watch가 공유한다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 — 팩토리 인스턴스는 bootstrap 수명이며 TTL 없음 | AC19~22·P18, T-bootstrap 파일·기록 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 잘못 두 번 조립하면 record 큐가 갈라질 수 있음 | P8·P9·P18·X4, 동일 control을 nav와 watch에 전달; T-bootstrap 자기 쓰기 1회 |
+| 재진입 | 초기 fingerprint 대기 중 접수한 toggle·감시가 경합할 수 있음 | AC21·AC30·X1·X4, T-watch 직렬 큐·자기 쓰기 중복 없음 |
+| 다른 무효화 축 | 종료가 watch 큐를 건너뛰면 접수 저장 소실 | I2, watcher drain 테스트 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님) | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | …/87 (V1 45: EP-01 10 · EP-02 15 · EP-03a 7 · EP-03b 5 · EP-04 6 · EP-05 2 · ΔV1 31: EP-06 19 · EP-07 12 · ΔV2 11: EP-08 4 · EP-09 7) |
-| **AC 자기보고**(`Criteria-Met`) | …/30 |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | app의 Claude/OpenCode adapters·bootstrap/handlers·schema/settings·preload·Composer cache·확장 카탈로그와 대응 테스트. 현재 상태 문서·의존성 정책·생성 inventory 동기화 |
+| 실행 명령 | 계획 §19 + ΔV1 관련 집합의 비DB 스위트, `--maxWorkers=2`(ABI 실패 8파일 분리); preload·skill-catalog·composerSkills·watch 추가. lint·typecheck·문서 검사·npm ci·결함 변이 별도 |
+| **관측한 게이트 산출**(exit code 아님) | lint 0 error·기존 warning 2; typecheck 3종 통과; 비DB 171파일·1607/1607. 확장 실행의 DB 8파일·106건은 Electron ABI 140/Node 127 차이로 분리. 결함 변이 24/24 검출. npm ci --ignore-scripts 972개 설치 후 electron rebuild·postinstall 성공. generated/prose 통과; ignored 임시 소스 링크 10건은 기준선 분리, 그 두 폴더만 제외한 checkLinks 결과 [] |
+| V-pair 자기확인 | SELF_PASS 32 · SELF_BLOCKED 2(실기 AC18·26) |
+| 강제 지점 전수 | 87/87 — EP-01 10 · EP-02 15 · EP-03a 7 · EP-03b 5 · EP-04 6 · EP-05 2 · EP-06 19 · EP-07 12 · EP-08 4 · EP-09 7 |
+| **AC 자기보고**(`Criteria-Met`) | 28/30 — 아래 행별 관측; 실기 2건 대기 |
+| **합계 검산** | ✅ 28 · ⚠️ 2 · ❌ 0 = 총 30 |
+| 블로커 / 역질문 | 자동화 블로커 없음. U-001 전역 선택 영속화는 결정대로 범위 밖 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+| AC | 자기보고 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | T-module: agents IPC 1회·다른 scope 목록·스피너 0 |
+| AC2 | ✅ | T-state: 동시 first/late·실패·취소·빈 성공 |
+| AC3 | ✅ | T-state: invalidation agents ready/models error |
+| AC4 | ✅ | adapter.persistent: 제거된 agent prompt 제외 |
+| AC5 | ✅ | T-view: 기본 출처 행 유지·plugin 출처 0 |
+| AC6 | ✅ | T-list: provider→Claude→OpenCode 순서·true/false capability |
+| AC7 | ✅ | T-view: 스킬 목록 유지·실패 탭 banner만 1개 |
+| AC8 | ✅ | T-bootstrap/T-query: 같은 cwd 새 Query는 현재 flag |
+| AC9 | ✅ | T-bootstrap: off/on 초안·저장 세션 명령 |
+| AC10 | ✅ | T-bootstrap: off/on 초안·저장 세션 resource enabled |
+| AC11 | ✅ | T-bootstrap/T-priority: project true가 Orca false보다 우선 |
+| AC12 | ✅ | native-resource-sharing/Composer.native-menu 회귀 |
+| AC13 | ✅ | T-skill: 기본 3출처 저장 false→true·canToggle false |
+| AC14 | ✅ | T-list/SkillDetail·skills handler: 토글 0·일반 글씨·patch 불변 |
+| AC15 | ✅ | T-query·attachMenuModel·composerSkills: 기본 스킬 허용/선택 가능 |
+| AC16 | ✅ | json-file: 중첩 생성·교체·tmp 없음 |
+| AC17 | ✅ | McpStore fresh root: 파일·list docs |
+| AC18 | ⚠️ | 실제 CLI /context·Windows white/dark·경로 전환 실기 미실행 |
+| AC19 | ✅ | T-global: effective file 항목만 true·해석 불가 fixed |
+| AC20 | ✅ | T-global: JSONC 주석·튜플·위치 왕복 |
+| AC21 | ✅ | T-global: 두 toggle·외부 편집 함께 반영 |
+| AC22 | ✅ | T-global: 기록 선행·on 후 정리·실패 원복·재추가 reconcile |
+| AC23 | ✅ | T-handler/T-view/T-bootstrap: 확인 전 불변·승인/0세션 적용 |
+| AC24 | ✅ | T-server: 새 process/인증·기존 owner 유지·마지막 release 종료 |
+| AC25 | ✅ | T-state/T-cache: revision 1회 초기화·models 값 유지 |
+| AC26 | ⚠️ | 실제 OpenCode 플러그인·파일·대화상자 Windows 실기 미실행 |
+| AC27 | ✅ | configured-resources/T-bootstrap: Claude 폴더 삭제 후 nav/draft/stored/새 Query 제외 |
+| AC28 | ✅ | T-bootstrap/T-watch: 외부 배열 삭제→새 revision fan-out, T-server 기존 owner 유지 |
+| AC29 | ✅ | T-global: 설치본 삭제→off 행·기록 0, 미해석 spec fixed |
+| AC30 | ✅ | T-bootstrap/T-watch: 외부 재추가→기록 0→삭제→행 0; 자기 쓰기 중복 0 |
+
+검산: ✅ 28 · ⚠️ 2 · ❌ 0 = 총 30. 사람 실기를 자동화 결과로 대체하지 않았다.
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
-- 현재 라운드·impl 턴: `r1`
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음 — r1 첫 구현.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: I1은 main-only 선택 기록의 응답 경계, I2는 새 큐의 종료 drain에서 발견해 선조치했다.
+- 반복해서 부딪히는 환경 한계: 현재 Node의 undici engine 경고와 ignored 임시 소스 링크는 변경 관련 실패와 분리했다. lint warning은 기존 virtualizer 2곳이다.
+- 현재 라운드·impl 턴: `r1`.
 
 ---
 

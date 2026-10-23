@@ -13,7 +13,7 @@ const skill = (sourceId: string, sourceLabel: string): SkillInfo => ({
   sourceLabel,
   sourceKind: 'orca',
   enabled: true,
-  canToggle: true,
+  canToggle: sourceId === 'orca',
   canRemove: true,
   skillPath: `/skills/${sourceId}/review/SKILL.md`,
   skillDir: `/skills/${sourceId}/review`,
@@ -59,29 +59,21 @@ const rows = (markup: string): string[] =>
   [...markup.matchAll(/data-extensions-row="([^"]+)"/g)].map((match) => match[1])
 
 describe('plugin catalog list', () => {
-  it('uses capability for font and fixed switches independently of enabled state', () => {
-    const entries = [true, false].flatMap((canToggle) =>
-      [true, false].map((enabled): SkillInfo => ({
-        ...skill('plugin:claude', 'Claude 플러그인'),
-        name: `superpowers:${canToggle}:${enabled}`,
-        sourceKind: 'adapter',
-        enabled,
-        canToggle,
-        canRemove: false
-      }))
+  it('renders switches only for Orca skills', () => {
+    const entries = ['orca', 'agents', 'adapter:claude', 'adapter:opencode'].map((source) =>
+      skill(source, source)
     )
     const $ = load(render({ skills: entries }))
+    expect($('[role=switch]')).toHaveLength(1)
     for (const entry of entries) {
       const row = $(`[data-extensions-row="${entry.sourceId}/${entry.name}"]`)
-      expect(row.find(`[title="${entry.name}"]`).hasClass('text-ink3')).toBe(!entry.canToggle)
-      expect(row.find('button').attr('disabled')).toBeUndefined()
-      expect(row.find('button')).toHaveLength(2)
-      expect(row.find('[role=switch]').attr('aria-checked')).toBe(String(entry.enabled))
-      expect(row.find('[role=switch]').is('[disabled]')).toBe(!entry.canToggle)
+      expect(row).toHaveLength(1)
+      expect(row.find('[title]').hasClass('text-ink3')).toBe(false)
+      expect(row.find('[role=switch]')).toHaveLength(entry.sourceId === 'orca' ? 1 : 0)
     }
   })
 
-  it('labels native plugin skills and both native MCP groups with brand marks', () => {
+  it('hides native plugin skills and labels both native MCP groups with brand marks', () => {
     const markup = render({
       skills: [
         skill('plugin:claude', 'OLD'),
@@ -89,11 +81,11 @@ describe('plugin catalog list', () => {
         skill('agents', 'OLD')
       ]
     })
-    expect(markup).toContain('Claude 플러그인')
-    expect(markup).toContain('OpenCode 플러그인')
+    expect(markup).not.toContain('Claude 플러그인')
+    expect(markup).not.toContain('OpenCode 플러그인')
     expect(markup).toContain('~/.agents/skills')
-    expect(markup).toContain('viewBox="0 0 248 248"')
-    expect(markup).toContain('viewBox="0 0 16 20"')
+    expect(rows(markup)).toEqual(['agents/review'])
+
     const mcp = render({
       tab: 'mcp',
       nativeMcp: (['claude', 'opencode'] as const).map((backend) => ({
@@ -128,7 +120,9 @@ describe('plugin catalog list', () => {
     expect(rows(markup)).toEqual(ids)
     expect(markup.match(/<ul\b/g)).toHaveLength(1)
     expect(markup.match(/<li\b/g)).toHaveLength(tab === 'skills' ? 4 : tab === 'mcp' ? 3 : 2)
-    expect(markup.match(/<button\b/g)).toHaveLength(tab === 'providers' ? 2 : 4)
+    expect(markup.match(/<button\b/g)).toHaveLength(
+      tab === 'providers' ? 2 : tab === 'skills' ? 3 : 4
+    )
     expect(markup.match(/aria-pressed="true"/g)).toHaveLength(1)
     expect(markup).not.toMatch(/<(?:table|thead|th|h[1-6])(?:\s|>)/)
     expect(markup).not.toContain('aria-expanded')
@@ -201,4 +195,44 @@ describe('plugin catalog list', () => {
       expect(markup).not.toContain('<table')
     }
   )
+})
+
+it('orders Claude then OpenCode plugin groups after providers and keeps plugin toggle capability', () => {
+  const nativeMcp = (['opencode', 'claude'] as const).flatMap((backend) =>
+    [true, false].map((canToggle) => ({
+      backend,
+      resource: {
+        id: `plugin-${canToggle}`,
+        name: `${backend}-${canToggle}`,
+        kind: 'plugin' as const,
+        status: 'installed' as const,
+        enabled: canToggle,
+        canToggle,
+        canOpen: true
+      }
+    }))
+  )
+  const markup = render({
+    tab: 'providers',
+    providers: [provider('service', 'service'), provider('model', 'llm'), provider('gate', 'gate')],
+    nativeMcp
+  })
+  expect(rows(markup)).toEqual([
+    'gate',
+    'model',
+    'service',
+    'claude:plugin-true',
+    'claude:plugin-false',
+    'opencode:plugin-true',
+    'opencode:plugin-false'
+  ])
+  const $ = load(markup)
+  for (const { backend, resource } of nativeMcp) {
+    const row = $(`[data-extensions-row="${backend}:${resource.id}"]`)
+    expect(row.find('[role=switch]').is('[disabled]')).toBe(!resource.canToggle)
+    expect(row.find('[title]').hasClass('text-ink3')).toBe(!resource.canToggle)
+    expect(row.find('[role=switch]').attr('aria-checked')).toBe(String(resource.enabled))
+  }
+  expect(markup).toContain('Claude 플러그인')
+  expect(markup).toContain('OpenCode 플러그인')
 })

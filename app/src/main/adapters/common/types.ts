@@ -76,6 +76,7 @@ export interface CompleteRequest {
 }
 
 export interface SessionAdapter {
+  extensionsChanged?(): void
   prepareComposer?(request: {
     cwd: string
     env?: Record<string, string>

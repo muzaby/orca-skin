@@ -1,3 +1,5 @@
+import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
+import { useI18n } from '../../../shared/i18n'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Backend } from '../../../../../shared/ipc'
 import type { NativeResource, NativeResources } from '../../../../../shared/native-resources'
@@ -13,6 +15,7 @@ export function useNativeMcpCatalog(): {
   open(backend: Backend, resource: NativeResource): Promise<void>
   toggle(backend: Backend, resource: NativeResource): Promise<void>
 } {
+  const { tr } = useI18n()
   const [list, setList] = useState<{ backend: Backend; resource: NativeResource }[]>([])
   const [failed, setFailed] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -67,6 +70,63 @@ export function useNativeMcpCatalog(): {
       clearInterval(timer)
     }
   }, [refresh])
+  const toggle = async (
+    backend: Backend,
+    resource: NativeResource,
+    confirmed?: true
+  ): Promise<void> => {
+    if (!resource.canToggle) return
+    const version = ++versions.current[backend]
+    const task = (writes.current[backend] ?? Promise.resolve())
+      .then(async () => {
+        try {
+          const request = {
+            backend,
+            id: resource.id,
+            kind: resource.kind,
+            enabled: !resource.enabled
+          }
+          const apply = async (): Promise<void> => {
+            const value = await sessionApi.setGlobalExtension({
+              ...request,
+              ...(confirmed ? { confirmed } : {})
+            })
+            if (value.status === 'confirm') {
+              openConfirmDialog({
+                title: tr('chat.nativeResources.restartTitle'),
+                message: tr('chat.nativeResources.restartBody', { count: value.sessions }),
+                confirmLabel: tr('chat.nativeResources.restartConfirm'),
+                cancelLabel: tr('common.cancel'),
+                onConfirm: () => {
+                  void toggle(backend, resource, true).catch((error) =>
+                    reportError({
+                      event: 'skills.native.toggle-failed',
+                      scope: 'native-resources',
+                      title: 'saveFailed',
+                      error
+                    })
+                  )
+                }
+              })
+            } else if (mounted.current && version === versions.current[backend])
+              accept(backend, value.resources)
+          }
+          await apply()
+        } catch (error) {
+          reportError({
+            event: 'skills.native.toggle-failed',
+            scope: 'native-resources',
+            title: 'saveFailed',
+            error
+          })
+        }
+      })
+      .finally(() => {
+        if (writes.current[backend] === task) delete writes.current[backend]
+      })
+    writes.current[backend] = task
+    await task
+  }
   return {
     list,
     failed,
@@ -85,33 +145,6 @@ export function useNativeMcpCatalog(): {
         })
       }
     },
-    toggle: async (backend, resource) => {
-      if (!resource.canToggle) return
-      const version = ++versions.current[backend]
-      const task = (writes.current[backend] ?? Promise.resolve())
-        .then(async () => {
-          try {
-            const value = await sessionApi.setGlobalExtension({
-              backend,
-              id: resource.id,
-              kind: resource.kind,
-              enabled: !resource.enabled
-            })
-            if (mounted.current && version === versions.current[backend]) accept(backend, value)
-          } catch (error) {
-            reportError({
-              event: 'skills.native.toggle-failed',
-              scope: 'native-resources',
-              title: 'saveFailed',
-              error
-            })
-          }
-        })
-        .finally(() => {
-          if (writes.current[backend] === task) delete writes.current[backend]
-        })
-      writes.current[backend] = task
-      await task
-    }
+    toggle
   }
 }

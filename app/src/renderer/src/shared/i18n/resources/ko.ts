@@ -620,6 +620,11 @@ export const ko = {
   },
   chat: {
     nativeResources: {
+      restartTitle: 'OpenCode 서버 재시작',
+      restartBody:
+        '실행 중인 OpenCode 세션이 {{count}}개 있습니다. 플러그인 변경은 새로 시작하는 OpenCode 서버에서 적용되고, 실행 중인 세션은 끝날 때까지 이전 설정으로 동작합니다.',
+      restartConfirm: '변경',
+
       retry: '다시 시도',
       openConfig: '설정 파일 위치 열기',
       openFolder: '설치 폴더 열기',
