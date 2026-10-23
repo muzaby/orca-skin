@@ -283,3 +283,13 @@ SELF_PASS — D1–D3의 기존 동작은 유지하고 검출되지 않던 계�
 ### Review Signals
 
 r2. plan의 실제 결과 oracle이 있었으나 기존 fixture의 기본 환경과 성공 상태만으로는 세 지점을 구별하지 못했다. 이번 Windows 실행에서 플랫폼 shim은 사용하지 않았고 생산 코드의 동작 변경도 필요하지 않았다.
+
+## [검증자 기입] 파생 이슈 — verify r2 (2026-10-23)
+
+판정 정본은 [verify.md](verify.md#r2-재검증-2026-10-23) — **PASS**.
+
+| # | 이슈 | r2 상태 | 근거 |
+|---|---|---|---|
+| D1 | acquire 단계 래핑 미검출(N6) | closed | N6·N6b 잡음(shim) |
+| D2 | plugin reader `req.env` 미검출(N9) | closed | N9 잡음 |
+| D3 | draft 오류 버튼 조건 미검출(R8) | closed | R8 잡음 |

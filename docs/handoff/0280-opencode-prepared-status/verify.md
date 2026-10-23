@@ -166,3 +166,83 @@ renderer(EP4) — 범위 `features/chat`+`features/skills` 288파일/2271케이�
 - pair: PASS 2(VP2·VP3) · root PAIR_FAIL 3(VP1·VP4·VP5) · BLOCKED_BY 0.
 - PLAN_GAP: 없음. AC ✅4 · ❌1 / 5.
 - 다음 단계: Codex r2 — D1–D3, 다음 verify는 고장 이력 N6·N9·R8 재실행.
+
+---
+
+# r2 재검증 (2026-10-23)
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 대상 커밋/range | `32b43cc..e42d1e2` 중 0280: `ef43daf`(r2 — 테스트 2파일) |
+| 구현 전 plan 기준 | r1과 같음 — `ef43daf`의 `plan.md` `-` 줄은 메타 상태 1줄 |
+| V mode / 유효 V | Baseline V / V1 |
+| 라운드 | 2 (verify 2회째) |
+| 자기 검증 여부 | 아니오 — 구현 Codex, 검증 Claude |
+
+**PASS — r1 미검출 3개(N6·N9·R8)가 모두 잡히고 r1 잡음 14개도 유지된다.** production 무변경 테스트 보강 라운드다.
+
+## r2-0. 기준선 / plan validity
+
+- 앱 변경은 테스트 22파일뿐(production 0) — §10 13자리와 경로는 r1과 같다.
+- 새 oracle 실행 구간: `composer-catalog.test: preserves the %s failure stage…`는 등록 IPC handler → 실제 resolver → owner → handler를 지난다. `reads installed plugin metadata…`는 임시 provider cache에 설치한 `package.json`을 실제 SDK config → adapter plugin reader로 읽는다. `NativeResources.test: offers only the fixed refresh button…`은 등록 타일부터 렌더한다.
+- 운반 값 구별: provider cache 경로가 `process.env`와 다르게 주어져 `req.env` 항 제거(N9)가 관측을 바꾼다.
+
+## r2-4. 고장 재실행
+
+- main은 `src/main src/shared src/preload`(Linux 기준선 17 red, Windows 전용). Windows 전용 `composer-catalog.test.ts`는 검증자 win32 shim(`…w`)으로 다시 쟀다. shim 기준선 7케이스 중 1건(`reads installed plugin metadata…`)은 shim의 tmpdir 경로 부산물로 red라 그 이름을 빼고 판정했다 — 같은 테스트는 Linux와 Windows CI #857에서 green이다.
+
+| ID | r1 | r2 | 잡은 테스트 | 귀속 |
+|---|---|---|---|---|
+| N1 | 잡음 | 잡음 | `handlers/composer-catalog.test: returns read-stage HTTP diagnostics…` | EP1 |
+| N3 | 잡음 | 잡음 | `handlers/composer-catalog.test: releases acquisitions completing after close…` 외 1 | EP2 owner |
+| N5 | 잡음 | 잡음 | `composer-catalog-error.test`·handler 2건 | EP2 handler |
+| N6 | 못 잡음 | **잡음(shim)** | `composer-catalog.test: preserves the acquire failure stage through the registered catalog handler` | EP2 resolver · D1 |
+| N6b | 못 잡음(0276 기록) | **잡음(shim)** | `…preserves the configuration failure stage…` | EP2 resolver 형제 |
+| N7 | 잡음 | 잡음 | `session-context.test: shares resource flights per directory…` | EP3 cache |
+| N8 | 잡음(shim) | 잡음(shim) | `composer-catalog.test: returns prepared plugin and agent parts…` | EP3 adapter |
+| N9 | 못 잡음 | **잡음** | `composer-catalog.test: reads installed plugin metadata using the resolved provider cache environment`(Linux) | EP3 adapter readers · D2 |
+| R1–R7·R9·R10 | 잡음 | 잡음 | `preparedResourcesView.test`·`NativeResources.test`·`composerCatalogState.test` (r1과 같은 축) | EP4 |
+| R8 | 못 잡음 | **잡음** | `NativeResources.test: offers only the fixed refresh button when both prepared and configured draft reads fail` | EP4 view · D3 |
+
+- 검산: 시도 18(main 8 + renderer 10) = 잡음 18 · 못 잡음 0 · 동치 0. r1 못 잡음 3(+0276의 N6b) → 잡음, r1 잡음 14 → 잡음(덮개 회귀 0).
+
+## r2-5. V-pair closeout
+
+| Pair | 레벨 | r1 | r2 | 증거 |
+|---|---|---|---|---|
+| VP4 | UT | PAIR_FAIL | **PASS** | N7·N9 잡음 |
+| VP5 | UT | PAIR_FAIL | **PASS** | N5·N6·N6b 잡음 |
+| VP3 | IT | PASS | PASS | N1·N8 잡음 |
+| VP2 | ST | PASS | PASS | N3·N7 잡음 |
+| VP1 | AT | PAIR_FAIL | **PASS** | R1–R10 잡음(R8 포함) |
+
+| AC | 결과 | 근거 |
+|---|---|---|
+| AC1 첫 입력 전 plugin·동적 MCP | ✅ | R2·R4·R9 잡음 |
+| AC2 느린 MCP/model 비차단 | ✅ | `NativeResources.test: renders prepared plugins before MCP…`, R5 잡음 |
+| AC3 합류·정리·scope 격리 | ✅ | N3·R5·R10 잡음 |
+| AC4 취소/실패 구분·단계·비밀 | ✅ | N3·N5·N6·N6b 잡음 |
+| AC5 draft 읽기 전용·오류 버튼 하나·위임 | ✅ | R4·R6·R8 잡음 |
+
+- 합계 재측정: `✅ 5 · ❌ 0 = 5`. 자기보고 `Criteria-Met: 5/5`(`ef43daf`) 일치.
+- §10: EP1 3/3 · EP2 3/3 · EP3 3/3 · EP4 4/4 = 13/13.
+- 운영 gate: [0281 verify r2](../0281-opencode-menu-cache/verify.md#r2-운영-gate-head-e42d1e2)와 같은 HEAD 실행 — typecheck 0 · lint 0 error · renderer 377/3078 · main 17 red 전부 Windows 전용 · CI #857 green.
+
+## r2-11. Repository operation checks
+
+- INDEX: `impl/IMPL_DONE`(r2) → PASS, archive 이동. `ef43daf` `git cat-file -t` = commit, trailer 5키 파싱.
+- `[구현자 기입] r2` 7필드, 강제 지점 표가 EP1–EP4 13자리를 담는다.
+
+## r2-13. Finding disposition
+
+| # | r2 상태 | 근거 |
+|---|---|---|
+| D1 | closed | N6·N6b 잡음(shim, Windows CI #857 green) |
+| D2 | closed | N9 잡음 |
+| D3 | closed | R8 잡음 |
+
+## r2-15. 결론
+
+- 상태: **PASS** — verify 2회째. pair 5/5 PASS, PLAN_GAP 없음, AC ✅5/5.
+- 남은 사람 확인: 다른 PC의 원본 오류 재발 시 진단 레코드, 첫 입력 전 패널 실제 창 시각(AC 밖).
