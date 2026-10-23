@@ -235,3 +235,11 @@ D1의 reader 우선순위는 production에서 이미 올바르다. 테스트 DB�
 - r2, verify 1회 뒤 첫 재구현. D1/D2의 제목 모델 무관·legacy-only fallback 계약이 있었지만 fixture에 다른 telemetry row가 없었다.
 - 기존 production은 그대로 유지하고 구별되는 두 저장값을 실제 파일 DB에서 읽게 했다.
 - 환경: 현재 Node ABI127이 DB를 로드해 ABI 전환 없이 실행했다. Electron 명령의 출력 없는 exit0은 검증 수에 넣지 않았다. 이후 실제 Windows CI #854에서 운영 gate 전체를 확인했다. 이 결과를 추가하는 후속 커밋은 보고 문서만 변경한다.
+
+## [검증자 기입] 파생 이슈 — verify r2 (2026-10-23)
+
+판정 정본은 [verify.md](verify.md#r2-재검증-2026-10-23) — **PASS**.
+
+| # | 이슈 | r2 상태 | 근거 |
+|---|---|---|---|
+| D1 | 복원 시 telemetry 우선(G6) 미검출 | closed | G6 잡음 |
