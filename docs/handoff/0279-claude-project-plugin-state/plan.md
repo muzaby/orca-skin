@@ -449,3 +449,15 @@ UI 문구·전역/프로젝트 토글 정책 변경은 없다. ready 상태의 �
 ### 7. Review Signals
 
 이번 r2는 0278 r3과 같은 oracle 사각을 다룬다. `handoff-review` DIAGNOSE_ONLY 결과는 기존 `handoff-impl §2·3·8`이 이미 요구하던 구별값·실제 생산 경로·인용 변이 수행의 누락(B)이며 지침 변경 없이 테스트에서 보완한다. 기존 사용자 정책 변경(D32)은 실패 패턴으로 취급하지 않는다.
+
+## [검증자 기입] 파생 이슈 — verify r2 (2026-10-23)
+
+판정 정본은 [verify.md](verify.md#r2-재검증-2026-10-23) — **PASS**.
+
+| # | 이슈 | r2 상태 | 근거 |
+|---|---|---|---|
+| D1 | stale revision emit(A6) | closed | A6 잡음 |
+| D2 | 외부 재편집 재확인(A15) | closed | A15 잡음 |
+| D3 | push scope 3항(P11–P13) | closed | P11–P13 잡음 |
+| N1 | A7 동치 | open (NON_BLOCKING) | 동치 재확인 |
+| N2 | trailer·강제 지점 산문 | closed | `7675171` 0279 trailer·자리별 표 |
