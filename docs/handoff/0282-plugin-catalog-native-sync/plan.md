@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-23 |
 | 매핑 | — |
-| 상태 | IMPL_DONE (r1) — 독립 검증 대기 |
+| 상태 | IMPL_DONE (r1.2) — CI 보완 후 독립 검증 대기 |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `none` — 회귀 노드는 0281·0278·0267의 현재 코드·테스트를 `57515e7`에서 확인해 INHERITED로 인용 |
 | 이번 V revision | `ΔV2` — 외부 제거 비노출. 이전: `ΔV1` OpenCode 플러그인 off. 대체 관계는 §ΔV1·§ΔV2 |
@@ -971,8 +971,138 @@ nav → 플러그인 탭 → OpenCode 플러그인 행
 
 ---
 
+# r1.2 — CI 보완 (2026-10-23)
+
+## [구현자 기입] 설계 리뷰
+
+- 동의 / 그대로 진행: V1+ΔV1+ΔV2 유지. CI run 39913530046의 Test 실패 4건을 필수 gate 미완료로 처리했다.
+- 이견 / 현실성 문제: Windows 잠금 fixture는 로컬에서 통과했지만 CI에서 준비 신호가 30초 동안 오지 않았다. CI 기본 shell인 `pwsh`와 파일 신호를 사용하고 같은 준비 상한을 유지했다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. 제품 동작·공개 계약·의존성은 그대로다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+현재 수정은 EP-06의 승인 후 오류 처리와 EP-09의 reconcile 전달이다. 종속 EP-07도 재실행했다. 아래 별칭과 자리별 좌표는 앞선 r1 전수 표의 정식 테스트 이름을 인용한다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-18~20·22·23′ | 파일·복원 기록 | EP-06 P1~P18·P14b | 19/19 | P1~P5·P17=T-global; P6~P9·P18=T-handler/T-bootstrap; P10~P12=T-handler/T-wire; P13=T-view·useNativeMcpCatalog.test.ts:reports a confirmed plugin write failure once and releases the queue for a retry; P14~P16·P14b=T-record/T-handler | confirm→승인 true→write reject는 로그·saveFailed 1회, 행 true 유지; 재시도는 행 false | AC26 실기 |
+| VP-21·24 | 서버·재준비 | EP-07 Q1~Q12 | 12/12 | Q1~Q3·Q12=T-server; Q4~Q7=composer-catalog.test.ts:revalidates every OpenCode owner with the plugin revision; Q8=T-bootstrap revision [1,2,3]; Q9=T-wire; Q10=T-state; Q11=T-cache | 기존 owner 유지·새 server·revision 1회·models 보존 | 없음 |
+| VP-28~31 | 외부 변경 | EP-09 X1~X7 | 7/7 | X1·X2=T-watch; X3=T-bootstrap shutdown; X4·X6·X7=T-bootstrap 실제 파일 감시와 revision [1,2,3]; X5=T-global:shows a record only while its installation exists and its spec is absent | `reconcilePlugins`가 기록 정리 후 fingerprint 비교·fan-out; 외부 재추가/삭제·자기 쓰기 중복 0 | 없음 |
+
+- 이번 영향 범위 38/38. 그 밖의 고정 자리는 r1의 자리별 좌표와 판정을 보존하며 동일 관련 집합에서 재실행했다.
+- §10 검색 10개 재실행: 33·15·17·14·7·2·18·12·6·4줄. r1 검색과 자리 집합의 추가·삭제 차이는 `[]`/`[]`; 콜백 이름 변경은 X1·X4 내부다.
+- 목록 밖 운영 gate: Auth injection 스윕은 수정 없이 통과. 오류 registry는 refresh/toggle/open의 catch ordinal 0/1/2에 맞춰 전수·삭제·형제 event 교환 검사를 통과했다.
+- 직전 verify의 `못 잡음`: 해당 없음 — verify 전 같은 라운드의 CI 보완이다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-18 | REQUIRED | SELF_BLOCKED — AC26 실기 | T-view 확인/승인·useNativeMcpCatalog.test.ts의 승인 후 실패/재시도 | r1 M11·M12 보존, 확인 분기 변경 없음 |
+| VP-29 | REQUIRED | SELF_PASS | T-watch 3건·T-bootstrap 12건 | M21·M22 이번 턴 재실행 |
+| VP-30 | REQUIRED | SELF_PASS | T-bootstrap 감시 등록→revision [1,2,3]→shutdown | not selected |
+| VP-33 | REGRESSION | SELF_PASS | T-view·T-handler·T-server | not selected |
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| M21 fingerprint 비교 제거 | VP-29 선택 증거 | r1 잡음 | T-watch:fans out once per external plugin change and ignores Orca's own write·clears a record when the plugin is re-added externally / 2 | 잡음 · 원본 복구 확인 |
+| M22 감시 callback 미연결 | VP-29 선택 증거 | r1 잡음 | T-watch:fans out once per external plugin change and ignores Orca's own write / 1 | 잡음 · 원본 복구 확인 |
+| 오류 보고 삭제·형제 event 교환 | 수정한 오류 registry oracle | 기존 내장 민감도 검사 | reportSites.registry.test.ts:detects removal of T-native-mcp-open·T-native-toggle 및 detects swapped event slots T-native-mcp-open/T-native-toggle | 257건 전체 통과, 잘못된 ordinal은 수정 전 2건 red |
+
+- 분모 검산: 이번 SELF_PASS의 선택 증거 2 · 닫음으로 주장한 이슈의 인용 변이 0 · 수정 oracle 1 = 표 행 3. 승인 실패/재시도와 실제 Windows 잠금은 직접 행동 oracle이다.
+- 덮개 회귀: Auth guard를 완화하지 않았다. 오류 registry의 기존 삭제·형제 교환 검사를 유지했다. M21·M22는 r1 red→r1.2 red다.
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 새 문구 없음; 승인 저장 실패의 기존 saveFailed 토스트 1개 관측 | 없음 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음; watcher port 이름과 주입을 함께 변경 | T-watch·T-bootstrap |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 기존 저장 실패 행; 실패 후 enabled true 유지·재시도 false | useNativeMcpCatalog.test.ts 신규 사례 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 로그·토스트 1회, 중복 catch 제거 뒤에도 보고됨 | 같은 사례 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | backend version·쓰기 큐 유지, 기존 stale read 테스트 재실행 | useNativeMcpCatalog.test.ts 기존 사례 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| CI1 | 일반 `reconcile` 키가 Auth 카탈로그 전수 스윕 대상과 충돌 | OpenCode port를 `reconcilePlugins`로 명명 | no-stray-auth-subscribe.test.ts 17/17, guard 변경 0 |
+| CI2 | 승인 callback의 중복 catch로 registry의 catch 자리 이동·누락 | toggle 자체 보고로 합치고 실제 catch ordinal로 registry 갱신 | 수정 전 registry 2 red→257/257, 승인 실패 로그·토스트 1회 |
+| CI3 | Windows PowerShell Console 준비 신호 미수신 | CI shell pwsh·파일 ready/release, child 종료/실행 오류 감지·finally 정리 | 실제 FileShare.None read EBUSY·잠금 중 미완료·해제 후 저장, 6/6 |
+
+### 설계 대비 명시적 차이
+
+- 제품 메커니즘 차이 없음. 테스트 helper의 shell·신호 전달만 변경했다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | ready 파일이 늦으면 준비 상한 도달 | 준비 30초 유지; 실제 잠금 사례 1.49초 스위트 안에서 통과 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | stale 신호 파일 | 각 케이스의 mkdtemp 안에 ready/release 생성·afterEach 삭제 |
+| 재진입 | helper 또는 저장이 종료 전 남음 | finally release→kill→close→save settle 후 임시 루트 삭제 |
+| 다른 무효화 축 | pwsh 실행 실패 | error·close 감지; CI 기본 shell과 동일 실행 파일 사용 |
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | watcher port·bootstrap·watch 테스트, native hook·오류 registry·실패/재시도 테스트, Windows 잠금 fixture; plan·INDEX |
+| 실행 명령 | lint·typecheck 3종; 실패 3스위트와 관련 4스위트; r1 비DB 관련 집합+Auth/registry; node --test scripts/*.test.mjs; migration·budget·doc guard; M21·M22 |
+| **관측한 게이트 산출**(exit code 아님) | targeted 7파일·302/302; 확장 173파일·1882/1882; script 142/142. lint 0 error·기존 warning 2, typecheck 3종 통과. migration sync·append-only 통과, budget 16스위트 통과. generated/prose 통과; 링크는 기존 ignored 임시 소스 10건, 해당 두 폴더를 제외한 동일 검사 [] |
+| V-pair 자기확인 | 이번 영향 pair VP-29·30·33 SELF_PASS, VP-18은 AC26 실기로 SELF_BLOCKED. 다른 pair의 r1 자리별 관측 보존 |
+| 강제 지점 전수 | 이번 영향 범위 38/38; 검색 10개 결과 r1과 동일 |
+| **AC 자기보고**(`Criteria-Met`) | 28/30 유지 — 아래 r1의 동일 oracle 좌표를 이번 확장 집합에서 재실행; AC18·AC26 실기 대기 |
+| **합계 검산** | ✅ 28 · ⚠️ 2 · ❌ 0 = 총 30 |
+| 블로커 / 역질문 | 자동화 블로커 없음. 원격 Windows CI는 이 커밋 push 후 재확인 |
+| 대상 커밋 | `(r1.2 구현 — 좌표는 INDEX)` |
+
+| AC | 자기보고 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | T-module: agents IPC 1회·다른 scope 목록·스피너 0 |
+| AC2 | ✅ | T-state: 동시 first/late·실패·취소·빈 성공 |
+| AC3 | ✅ | T-state: invalidation agents ready/models error |
+| AC4 | ✅ | adapter.persistent: 제거된 agent prompt 제외 |
+| AC5 | ✅ | T-view: 기본 출처 행 유지·plugin 출처 0 |
+| AC6 | ✅ | T-list: provider→Claude→OpenCode 순서·true/false capability |
+| AC7 | ✅ | T-view: 스킬 목록 유지·실패 탭 banner만 1개 |
+| AC8 | ✅ | T-bootstrap/T-query: 같은 cwd 새 Query는 현재 flag |
+| AC9 | ✅ | T-bootstrap: off/on 초안·저장 세션 명령 |
+| AC10 | ✅ | T-bootstrap: off/on 초안·저장 세션 resource enabled |
+| AC11 | ✅ | T-bootstrap/T-priority: project true가 Orca false보다 우선 |
+| AC12 | ✅ | native-resource-sharing/Composer.native-menu 회귀 |
+| AC13 | ✅ | T-skill: 기본 3출처 저장 false→true·canToggle false |
+| AC14 | ✅ | T-list/SkillDetail·skills handler: 토글 0·일반 글씨·patch 불변 |
+| AC15 | ✅ | T-query·attachMenuModel·composerSkills: 기본 스킬 허용/선택 가능 |
+| AC16 | ✅ | json-file: 중첩 생성·교체·tmp 없음 |
+| AC17 | ✅ | McpStore fresh root: 파일·list docs |
+| AC18 | ⚠️ | 실제 CLI /context·Windows white/dark·경로 전환 실기 미실행 |
+| AC19 | ✅ | T-global: effective file 항목만 true·해석 불가 fixed |
+| AC20 | ✅ | T-global: JSONC 주석·튜플·위치 왕복 |
+| AC21 | ✅ | T-global: 두 toggle·외부 편집 함께 반영 |
+| AC22 | ✅ | T-global: 기록 선행·on 후 정리·실패 원복·재추가 reconcile |
+| AC23 | ✅ | T-handler/T-view/T-bootstrap: 확인 전 불변·승인/0세션 적용 |
+| AC24 | ✅ | T-server: 새 process/인증·기존 owner 유지·마지막 release 종료 |
+| AC25 | ✅ | T-state/T-cache: revision 1회 초기화·models 값 유지 |
+| AC26 | ⚠️ | 실제 OpenCode 플러그인·파일·대화상자 Windows 실기 미실행 |
+| AC27 | ✅ | configured-resources/T-bootstrap: Claude 폴더 삭제 후 nav/draft/stored/새 Query 제외 |
+| AC28 | ✅ | T-bootstrap/T-watch: 외부 배열 삭제→새 revision fan-out, T-server 기존 owner 유지 |
+| AC29 | ✅ | T-global: 설치본 삭제→off 행·기록 0, 미해석 spec fixed |
+| AC30 | ✅ | T-bootstrap/T-watch: 외부 재추가→기록 0→삭제→행 0; 자기 쓰기 중복 0 |
+
+검산: ✅ 28 · ⚠️ 2 · ❌ 0 = 총 30. 분모 변경 없음.
+
+## [구현자 기입] Review Signals — 사실만
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 승인 후 보고와 watcher 배선은 r1 코드의 기존 축이다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: 운영 gate의 전체 스위트가 구조 검사 3건을 검출했다. r1 관련 테스트 집합에는 Auth injection·오류 registry가 빠져 있었다.
+- 반복해서 부딪히는 환경 한계: CI Windows PowerShell Console 준비 timeout은 로컬에서 재현되지 않았다. 실제 잠금 검증을 유지하고 shell·신호 전달을 교체했다. SQLite ABI를 바꾸지 않았다.
+- 현재 라운드·impl 턴: `r1.2`; 다음 주체는 Claude 독립 검증이다.
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| CI1 | Auth injection 스윕이 OpenCode reconcile 콜백을 거절 | [CI run 39913530046](https://github.com/muzaby/orca-skin/actions/runs/39913530046) · 필수 Test gate | 도메인별 port 이름 구분 | BLOCKING | 조치·로컬 17/17, 원격 재확인 대기 |
+| CI2 | 오류 registry catch ordinal 이동·누락 2건 | 같은 CI run · 필수 Test gate | 중복 catch 정리·registry 동기화 | BLOCKING | 조치·로컬 257/257, 원격 재확인 대기 |
+| CI3 | Windows lock helper readiness timeout | 같은 CI run · 필수 Test gate | CI shell·파일 신호로 실제 lock 확인 | BLOCKING | 조치·로컬 6/6, 원격 재확인 대기 |
