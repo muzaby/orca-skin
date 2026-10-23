@@ -57,8 +57,20 @@ it('carries explicit global extension scope and choices across renderer API and 
       id: 'plugin:installed',
       enabled: false
     }
-    await sessionApi.setGlobalExtension(request)
+    const confirmation = { status: 'confirm', reason: 'opencode-restart', sessions: 3 }
+    harness.invoke.mockResolvedValueOnce(confirmation)
+    expect(await sessionApi.setGlobalExtension(request)).toEqual(confirmation)
     expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.extensionSetEnabled, request)
+    const applied = { status: 'applied', resources: { state: 'disconnected', items: [] } }
+    harness.invoke.mockResolvedValueOnce(applied)
+    expect(
+      await sessionApi.setGlobalExtension({ ...request, backend: 'opencode', confirmed: true })
+    ).toEqual(applied)
+    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.extensionSetEnabled, {
+      ...request,
+      backend: 'opencode',
+      confirmed: true
+    })
     await sessionApi.openGlobalExtension({ backend: 'opencode', kind: 'mcp', id: 'docs' })
     expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.extensionOpen, {
       backend: 'opencode',

@@ -34,6 +34,7 @@ export interface ComposerCatalogFailure {
 export interface ComposerCatalogInvalidated {
   owner: string
   generation: string
+  revalidate?: number
 }
 
 /** Main-only ownership port. Only read results cross IPC. */

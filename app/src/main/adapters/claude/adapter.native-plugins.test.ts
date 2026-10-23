@@ -67,7 +67,7 @@ beforeEach(() => {
 })
 afterEach(() => rmSync(temp, { recursive: true, force: true }))
 
-it('isolates global SDK choices and freezes them until the last project query closes', () => {
+it('applies current global plugin choices to every new query while live queries keep theirs', () => {
   write(join(root, 'settings.json'), { enabledPlugins: { 'frontend@market': false } })
   const original = readFileSync(join(root, 'settings.json'), 'utf8')
   let enabled = true
@@ -81,7 +81,12 @@ it('isolates global SDK choices and freezes them until the last project query cl
     env: { CLAUDE_CONFIG_DIR: root },
     extensions: {
       skills: [
-        { ...skill('native', false), sourceId: 'adapter:claude', sourceKind: 'adapter' as const }
+        {
+          ...skill('native', true),
+          canToggle: false,
+          sourceId: 'adapter:claude',
+          sourceKind: 'adapter' as const
+        }
       ],
       hooks: { normalized: {} }
     }
@@ -92,18 +97,24 @@ it('isolates global SDK choices and freezes them until the last project query cl
     ).enabledPlugins['frontend-design@inline']
   const first = adapter.sendMessage(request)
   expect(flag()).toBe(true)
-  expect(
-    (fixture.query.mock.calls.at(-1)![0] as { options: Options }).options.skills
-  ).not.toContain('claude:native')
+  expect((fixture.query.mock.calls.at(-1)![0] as { options: Options }).options.skills).toContain(
+    'claude:native'
+  )
   enabled = false
   const peer = adapter.sendMessage(request)
-  expect(flag()).toBe(true)
+  expect(flag()).toBe(false)
   const other = adapter.sendMessage({ ...request, cwd: join(temp, 'other') })
   expect(flag()).toBe(false)
   first.close()
   first.close()
+  enabled = true
   const remaining = adapter.sendMessage(request)
   expect(flag()).toBe(true)
+  expect(
+    JSON.parse(String((fixture.query.mock.calls[0][0] as { options: Options }).options.settings))
+      .enabledPlugins['frontend-design@inline']
+  ).toBe(true)
+  enabled = false
   peer.close()
   remaining.close()
   const fresh = adapter.sendMessage(request)

@@ -5,7 +5,8 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { NativeResource } from '../../../shared/native-resources'
 import { isRecord } from '../../../shared/obj'
 import { claudeNativePaths } from './native-paths'
-import { installedClaudePlugins, pluginPathKey } from './plugin-catalog'
+import { installedClaudePlugins, pluginPathKey, claudeInstallationExists } from './plugin-catalog'
+import { extensionChoices } from '../common/extension-control'
 import { claudeLocalSettingsRoot } from './project-path'
 
 const record = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {})
@@ -76,7 +77,8 @@ async function readConfiguredClaudeResources(
       ? join(claudeNativePaths().root, '.claude.json')
       : join(homedir(), '.claude.json')
   },
-  globalOnly = false
+  globalOnly = false,
+  choices: Record<string, boolean> = {}
 ): Promise<{
   items: NativeResource[]
   directories: Map<string, string>
@@ -100,6 +102,7 @@ async function readConfiguredClaudeResources(
   const current = globalOnly ? {} : { ...projectEntry(nativeRoot), ...projectEntry(cwd) }
   const enabledPlugins = {
     ...record(user.enabledPlugins),
+    ...extensionChoices(choices, 'plugin'),
     ...record(project.enabledPlugins),
     ...record(local.enabledPlugins)
   }
@@ -145,6 +148,7 @@ async function readConfiguredClaudeResources(
     if (!selected.has(entry.key) || entry.scope === 'managed') selected.set(entry.key, entry)
   for (const entry of globalOnly ? selected.values() : applicable) {
     const { key: name, path: installPath } = entry
+    if (!isAbsolute(installPath) || !claudeInstallationExists(installPath)) continue
     const flag = enabledPlugins[name]
     const enabled = flag === true || Array.isArray(flag) || isRecord(flag)
     const installedOnly = flag === undefined

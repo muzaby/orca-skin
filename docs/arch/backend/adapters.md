@@ -50,7 +50,7 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 
 Composer 선택지는 첫 제출 전부터 SDK의 agents/providers 응답으로 준비한다. 플러그인이 해석한 visible primary/all 에이전트와 모델 variant 이름만 안전 DTO로 전달한다. directory 세대별로 각 부분의 성공값과 진행 요청을 공유하며 화면 재개방·첫 제출·상태 패널 조회는 이를 재사용한다. 초기 조회는 native 초기화 예산을 포함하고 성공 후 명시 재조회는 짧은 재검증 예산을 사용한다. 한 소비자의 취소가 다른 소비자의 요청을 끊지 않는다. 성공한 빈 목록은 제거로 적용하고 조회 실패에는 같은 세대의 마지막 성공 목록을 보존한다. 기본 입력은 metadata를 기다리지 않으며 명시 agent는 agent 목록만, 명시 variant는 모델 목록도 검증한다. 관측한 목록에 없는 선택은 일반 입력과 native command 모두에서 제외한다.
 
-`app/composer-catalog.ts`는 실제 턴 resolver로 준비 설정을 조립하고 `composer-catalog-owner.ts`는 창·owner별 수명을 관리한다. 명시 새로고침은 최신 설정으로 새 lease를 확보한 뒤 이전 lease를 반납한다. 호환 profile이면 native instance가 유지되며 다른 profile의 정리가 새 결과를 막지 않는다. renderer는 동일 scope의 두 선택기를 합치고 마지막 구독·창 종료에서 준비 lease만 반납한다. 첫 제출의 session lease는 계속 유지된다. native 종료·조회 실패는 내부 상태로 관리하며 UI 계약은 [IPC Contract](../../IPC_CONTRACT.md)의 Composer 준비 항목을 따른다.
+`app/composer-catalog.ts`는 실제 턴 resolver로 준비 설정을 조립하고 `composer-catalog-owner.ts`는 창·owner별 수명을 관리한다. 명시 새로고침은 최신 설정으로 새 lease를 확보한 뒤 이전 lease를 반납한다. 호환 profile이면 native instance가 유지되며 다른 profile의 정리가 새 결과를 막지 않는다. renderer 에이전트 목록은 앱 실행 중 첫 성공을 모든 scope가 재사용한다. 전역 OpenCode 플러그인 변경 때만 revision으로 비우고 다시 준비한다. 모델·MCP·plugin은 directory 세대를 따른다. renderer는 동일 scope의 두 선택기를 합치고 마지막 구독·창 종료에서 준비 lease만 반납한다. 첫 제출의 session lease는 계속 유지된다. native 종료·조회 실패는 내부 상태로 관리하며 UI 계약은 [IPC Contract](../../IPC_CONTRACT.md)의 Composer 준비 항목을 따른다.
 
 첫 입력 전 상태 타일은 같은 준비 lease와 directory 캐시에서 MCP와 plugin을 각각 조회한다. `/mcp`와 `/config` 완료를 agent/provider의 선행 조건으로 사용하지 않으며 상태 타일이 구독할 때만 추가 조회한다. 정상 owner 해제는 취소 결과로 반환하고 실제 실패는 `opencode.catalog.failed`에 고정 단계·분류·HTTP 상태만 기록한다.
 
@@ -64,11 +64,11 @@ native user의 synthetic text만 공통 `input.received`로 기록하고, 모델
 
 ### 1.3 ClaudeCodeAdapter 호출 패턴
 
-nav의 확장 카탈로그는 하네스 전역 파일만 읽으며 서버나 directory를 만들지 않는다. SDK로 Orca 실행만 제어할 수 있는 항목은 가변 토글·일반 폰트, 다른 항목은 native 상태의 고정 토글·회색 폰트다. 하네스 기본값은 복제하지 않는다. SDK 전역 선택은 app의 메모리 control에만 유지하고 새 작업폴더 인스턴스가 획득할 때 복사한다. `SettingsStore`에 남은 legacy native 선택은 실행에 사용하거나 다시 편집하지 않는다.
+nav의 확장 카탈로그는 하네스 전역 파일만 읽으며 서버나 directory를 만들지 않는다. SDK 또는 지원하는 전역 파일 편집으로 제어할 수 있는 항목은 가변 토글·일반 폰트, 다른 네이티브 MCP·플러그인은 실제 상태의 고정 토글·회색 폰트다. 기본 경로 스킬은 항상 활성으로 취급하며 토글을 제공하지 않는다. 하네스 기본값은 복제하지 않는다. SDK 전역 선택은 app의 메모리 control에만 유지하고 새 작업폴더 인스턴스가 획득할 때 복사한다. `SettingsStore`에 남은 legacy native 선택은 실행에 사용하거나 다시 편집하지 않는다.
 
-Claude plugin 전역 선택은 SDK inline plugin flags, 사용자 스킬 선택은 SDK skills allow-list로 반영한다. 같은 작업경로의 살아 있는 Query들은 시작 시점 plugin 기본값·스킬 선택·Orca 배포 사본을 공유하며 마지막 Query 해제 후 새 값을 읽는다. 배포기는 직렬화된 배포 안에서 immutable 사본을 발행하고, 기존 owner가 참조하는 사본은 후속 배포나 재로드로 바뀌지 않는다. 프로젝트 plugin 선택은 이 기본값보다 우선한다. Claude native MCP는 SDK 저장이 Git 루트와 하위 작업폴더에 전파되므로 전역·프로젝트 제어를 제공하지 않는다. Windows Claude 플러그인만 실제 cwd의 `.claude/settings.local.json`에 `enabledPlugins` 키를 병합 저장하며 다른 키는 보존한다.
+Claude plugin 전역 선택은 새 Query마다 SDK inline plugin flags로 반영한다. 이미 실행 중인 Query는 자기 상태를 유지한다. 초안·미실행 세션도 user 설정보다 Orca 선택, 그보다 project·local 설정을 우선해 명령과 리소스를 읽는다. 설치 폴더가 없는 플러그인은 실행·카탈로그에서 제외한다. 같은 작업경로의 살아 있는 Query들은 Orca 스킬 선택·배포 사본을 공유하며 마지막 Query 해제 후 새 값을 읽는다. 배포기는 직렬화된 배포 안에서 immutable 사본을 발행하고, 기존 owner가 참조하는 사본은 후속 배포나 재로드로 바뀌지 않는다. 프로젝트 plugin 선택은 이 기본값보다 우선한다. Claude native MCP는 SDK 저장이 Git 루트와 하위 작업폴더에 전파되므로 전역·프로젝트 제어를 제공하지 않는다. Windows Claude 플러그인만 실제 cwd의 `.claude/settings.local.json`에 `enabledPlugins` 키를 병합 저장하며 다른 키는 보존한다.
 
-OpenCode MCP 전역 선택은 directory state가 획득 시 고정하고 native 초기화 후 SDK `connect`/`disconnect`로 적용한다. 기존 인스턴스의 설정 파일을 갱신하거나 서버를 재시작하지 않는다. 이 방식은 native 초기 MCP 연결 비용을 없애지 않는다. 프로젝트 네이티브 파일은 하위 작업폴더도 상속하므로 MCP·플러그인 제어는 모니터링으로 제한한다. 파일 변경은 UI에 바로 관측하고 기존 인스턴스는 정상 자원 회수 후 새로 생성할 때 읽는다. native plugin/skill의 개별 load on/off는 공통 SDK 제어가 없으므로 모니터링한다.
+OpenCode MCP 전역 선택은 directory state가 획득 시 고정하고 native 초기화 후 SDK `connect`/`disconnect`로 적용한다. 기존 인스턴스의 설정 파일을 갱신하거나 서버를 재시작하지 않는다. 이 방식은 native 초기 MCP 연결 비용을 없애지 않는다. 프로젝트 네이티브 파일은 하위 작업폴더도 상속하므로 MCP·플러그인 제어는 모니터링으로 제한한다. 파일 변경은 UI에 바로 관측하고 기존 인스턴스는 정상 자원 회수 후 새로 생성할 때 읽는다. OpenCode 사용자 전역 설정의 실효 `plugin` 배열에 선언되고 설치본을 확인할 수 있는 플러그인은 jsonc-parser로 해당 항목을 편집한다. off 복원 정보는 main 전용 설정에 기록하며 설정 IPC 응답에는 싣지 않는다. 실행 중 세션이 있으면 확인 후 적용하고 기존 owner는 유지하면서 새 연결부터 새 서버를 쓴다. 전역 파일 감시는 외부 plugin 배열 변경에도 같은 서버 교체·Composer 재준비를 수행하며 자기 쓰기는 중복 처리하지 않는다. 설치본이 없거나 외부에서 재추가된 off 기록은 정리한다. 다른 출처 플러그인은 고정 상태로 표시한다.
 
 네이티브 파일 저장은 canonical 파일별 비동기 FIFO에서 최신 파일 읽기→키 병합→동일 디렉터리 임시 파일 fsync→원자 rename으로 처리한다. 일시적 Windows 공유 잠금은 제한 시간 안에서 재시도하며, 실패한 요청 뒤에도 큐는 진행한다. 외부 편집을 감지하면 최신 바이트로 재병합한다. 외부 프로세스와의 원자 compare-and-swap은 제공하지 않는다. 정상 종료는 신규 저장을 막고 접수된 저장·배포를 drain한 뒤 runtime과 배포 사본을 정리한다.
 

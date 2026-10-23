@@ -89,3 +89,11 @@ it('excludes MCP prompts and commands outside the supported skill catalog', () =
     })
   ).toEqual([])
 })
+
+it('offers active default-path skills regardless of their former stored choice', () => {
+  expect(
+    composerSkills([skill('previously-off', 'adapter:claude')], 'claude', true, {
+      status: 'loading'
+    }).map((entry) => entry.name)
+  ).toEqual(['previously-off'])
+})

@@ -1,3 +1,4 @@
+import type { SetGlobalNativeResourceResult } from '../../../../shared/native-resources'
 import type {
   ComposerCatalogRequest,
   ComposerCatalogResult,
@@ -220,7 +221,7 @@ export const sessionApi = {
     window.orca.session.globalExtensions(backend),
   setGlobalExtension: (
     request: Parameters<typeof window.orca.session.setGlobalExtension>[0]
-  ): Promise<NativeResources> => window.orca.session.setGlobalExtension(request),
+  ): Promise<SetGlobalNativeResourceResult> => window.orca.session.setGlobalExtension(request),
   openGlobalExtension: (
     request: Parameters<typeof window.orca.session.openGlobalExtension>[0]
   ): Promise<void> => window.orca.session.openGlobalExtension(request),

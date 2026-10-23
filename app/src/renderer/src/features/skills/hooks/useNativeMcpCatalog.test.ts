@@ -42,7 +42,7 @@ it('queries explicit global scope without owning runtime observations, retains g
   dom = installFakeDom({ innerWidth: 1280, innerHeight: 800 })
   const read = vi.fn<(backend: string) => Promise<NativeResources>>(async () => catalog())
   const open = vi.fn(async () => {})
-  const write = vi.fn(async () => catalog(false))
+  const write = vi.fn(async () => ({ status: 'applied', resources: catalog(false) }))
   const runtimeRead = vi.fn(),
     observe = vi.fn()
   Object.assign(window, {
@@ -117,7 +117,7 @@ it('renders native plugin capabilities and updates the actual row through its to
       }
     ]
   })
-  const write = vi.fn(async () => plugin('claude', true))
+  const write = vi.fn(async () => ({ status: 'applied', resources: plugin('claude', true) }))
   Object.assign(window, {
     orca: {
       session: {
@@ -129,7 +129,7 @@ it('renders native plugin capabilities and updates the actual row through its to
   function Catalog(): React.ReactElement {
     const native = useNativeMcpCatalog()
     return createElement(CustomizeList, {
-      tab: 'skills',
+      tab: 'providers',
       skills: [],
       mcpServers: [],
       providers: [],

@@ -114,6 +114,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | 입력 검증 | zod | ^4 | 확정 | IPC 메시지 + SDK / SSE 응답 파싱 |
 | 앱 내 스케줄링 | croner | ^10 | **확정 (0091)** | main 프로세스 in-app cron. 앱 실행 중에만 발화하며, 첫 소비처는 사용량 recompute. |
 | 라우팅 (Renderer) | react-router-dom | ^7 | 확정 | `app://` 커스텀 스킴 + BrowserRouter. [arch/frontend/overview.md](arch/frontend/overview.md) §2 |
+| JSONC 편집 | jsonc-parser | exact package version in `app/package.json` | 확정 (사용자 조건부 승인) | 네이티브 플러그인 배열만 주석·서식을 보존해 편집하며 파일별 mutation 큐로 동시 변경을 병합한다. |
 | diff 렌더링 | diff | ^9 | 확정 | 도구 카드의 파일 편집 diff 표시 |
 | transcript 가상화 (Renderer) | `@tanstack/react-virtual` | ^3 | **확정 (0102)** | 긴 세션 transcript 의 과거(확정) 교환만 가상화해 화면 밖 shiki/DOM 상주 비용 제한. 마지막(스트리밍) 교환은 비가상 tail 로 유지해 0008 예약공간 앵커 보존 ("virtualized head + unvirtualized tail"). |
 | 차트 (Renderer) | recharts | ^3 | **확정 (0112, 사용자 승인)** | 설정 사용량 요약의 일별 토큰 바 차트. 선언적 React 컴포넌트 + SVG 렌더링이라 `tokens.css` 시맨틱 토큰(CSS 변수)·white/dark 테마와 직결. 색은 `--color-indigo`(사용량 지정색)만 사용. |

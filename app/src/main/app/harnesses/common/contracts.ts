@@ -20,6 +20,13 @@ export interface HarnessRuntimeOptions {
 }
 
 export interface MainHarnessModule {
+  globalResourceControl?(records: {
+    get(): import('../../../../shared/native-resources').OpenCodeDisabledPlugin[]
+    set(records: import('../../../../shared/native-resources').OpenCodeDisabledPlugin[]): void
+  }): {
+    reconcile(): Promise<NativeResource[]>
+    set(item: NativeResource, enabled: boolean): Promise<void>
+  }
   projectResources?: import('../../../adapters/common/project-resources').ProjectResourcePolicy
   readonly id: Backend
   createAdapter(options: HarnessRuntimeOptions): SessionAdapter
@@ -27,13 +34,13 @@ export interface MainHarnessModule {
   parseSettingsModels: SettingsModelParser
   parseRuntimeModels?: (config: HarnessRuntimeConfig) => ParsedModel[]
   readUserSettings(): EngineUserSettingsResult
-  configuredResources?(cwd: string): Promise<NativeResource[]>
+  configuredResources?(cwd: string, choices: Record<string, boolean>): Promise<NativeResource[]>
   nativeResourceScope?(cwd: string): string
   /** Discovery for management/drafts; not authoritative over a live process. */
-  draftResources?(cwd: string): Promise<NativeResource[]>
+  draftResources?(cwd: string, choices: Record<string, boolean>): Promise<NativeResource[]>
   globalResources?(): Promise<NativeResource[]>
   globalResourcePath?(id: string, kind: NativeResource['kind']): Promise<string | undefined>
-  configuredCommands?(cwd: string): Promise<NativeCommand[]>
+  configuredCommands?(cwd: string, choices: Record<string, boolean>): Promise<NativeCommand[]>
   configuredPluginDirectory?(cwd: string, id: string): Promise<string | undefined>
   configuredMcpFile?(cwd: string, id: string): Promise<string | undefined>
   resolveTitleModel(models: ParsedModel[]): string | undefined

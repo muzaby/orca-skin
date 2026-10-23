@@ -3,6 +3,7 @@ import type { NativeResources } from '../../../shared/native-resources'
 import { CHANNELS } from '../../../shared/ipc'
 const f = vi.hoisted(() => ({
   native: false,
+  editableOpenCode: false,
   handlers: new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>(),
   open: vi.fn(async () => ''),
   read: vi.fn(),
@@ -27,7 +28,7 @@ vi.mock('../harnesses/registry', () => ({
           kind: 'plugin',
           enabled: f.native,
           status: f.native ? 'configured' : 'disabled',
-          canToggle: backend === 'claude',
+          canToggle: backend === 'claude' || f.editableOpenCode,
           canOpen: true
         },
         {
@@ -51,6 +52,7 @@ import { extensionControl } from '../extension-control'
 beforeEach(() => {
   f.handlers.clear()
   f.native = false
+  f.editableOpenCode = false
   f.open.mockClear()
   f.read.mockClear()
 })
@@ -77,7 +79,10 @@ it('reads native defaults without copying them and keeps supported explicit choi
     kind: 'plugin',
     enabled: false
   })
-  expect(result.items[0]).toMatchObject({ enabled: false, canToggle: true })
+  expect((result as unknown as { resources: NativeResources }).resources.items[0]).toMatchObject({
+    enabled: false,
+    canToggle: true
+  })
   expect(backend.store.nativeExtensionChoices).toBeUndefined()
   expect(control.global('claude')).toEqual({ 'plugin:superpowers@market': false })
   expect(backend.store.language).toBe('sentinel-language')
@@ -119,6 +124,50 @@ it('does not reactivate legacy choice bytes or accept writes through settings.pa
   expect(extensionControl().global('claude')).toEqual({})
   settings.patch({ nativeExtensionChoices: {} } as never)
   settings.patch({ projectMcpChoices: {} } as never)
+  settings.patch({ openCodeDisabledPlugins: [{ id: 'untrusted' }] } as never)
+  expect(settings.getAll().openCodeDisabledPlugins).toEqual([])
   expect(backend.store.nativeExtensionChoices).toEqual(legacy.nativeExtensionChoices)
   expect(backend.store.projectMcpChoices).toEqual(legacy.projectMcpChoices)
+})
+
+it('requires confirmation for OpenCode plugin changes only while OpenCode sessions run', async () => {
+  f.editableOpenCode = true
+  f.native = true
+  const control = extensionControl()
+  control.setGlobal('opencode', 'plugin:superpowers@market', false)
+  const pluginSet = vi.fn(async () => {}),
+    change = vi.fn(async (action: () => Promise<void>) => {
+      await action()
+    })
+  let sessions = 2
+  registerExtensionCatalogHandlers(control, {
+    openCodeSessions: () => sessions,
+    plugins: { reconcile: async () => [], set: pluginSet },
+    change
+  })
+  expect((await invoke(CHANNELS.extensionCatalog, { backend: 'opencode' })).items[0].enabled).toBe(
+    true
+  )
+  const request = { backend: 'opencode', id: 'plugin-id', kind: 'plugin', enabled: false }
+  expect(await invoke(CHANNELS.extensionSetEnabled, request)).toEqual({
+    status: 'confirm',
+    reason: 'opencode-restart',
+    sessions: 2
+  })
+  expect(pluginSet).not.toHaveBeenCalled()
+  expect(change).not.toHaveBeenCalled()
+  expect(await invoke(CHANNELS.extensionSetEnabled, { ...request, confirmed: true })).toMatchObject(
+    { status: 'applied' }
+  )
+  expect(pluginSet).toHaveBeenCalledOnce()
+  sessions = 0
+  expect(await invoke(CHANNELS.extensionSetEnabled, request)).toMatchObject({ status: 'applied' })
+  expect(pluginSet).toHaveBeenCalledTimes(2)
+  sessions = 3
+  for (const target of [
+    { backend: 'claude', id: 'plugin-id', kind: 'plugin', enabled: false },
+    { backend: 'opencode', id: 'docs', kind: 'mcp', enabled: false }
+  ])
+    expect(await invoke(CHANNELS.extensionSetEnabled, target)).toMatchObject({ status: 'applied' })
+  expect(pluginSet).toHaveBeenCalledTimes(2)
 })

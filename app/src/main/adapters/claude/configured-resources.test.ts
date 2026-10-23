@@ -144,6 +144,8 @@ describe('configured Claude resources', () => {
         ]
       }
     })
+    for (const directory of [off, installedOnly, join(temp, 'old')])
+      await mkdir(directory, { recursive: true })
     const rows = await configuredClaudeResources(cwd, paths)
     expect(rows.find((item) => item.id === nativePluginId(active))?.description).toBe(
       'Active native skills'
@@ -237,6 +239,8 @@ it('lists every applicable install independently of flags, uses path boundaries 
       { scope: 'local', projectPath: cwd, installPath: join(temp, 'local-install') }
     ]
   }
+  for (const entry of entries['superpowers@official'])
+    await mkdir(entry.installPath, { recursive: true })
   await json(registry, { version: 2, plugins: entries })
   await json(join(cwd, '.claude/settings.json'), {
     enabledPlugins: { 'superpowers@official': false }
@@ -267,4 +271,40 @@ it('lists every applicable install independently of flags, uses path boundaries 
   await json(registry, { version: 2, plugins: {} })
   expect(await configuredClaudeResources(cwd, paths)).toEqual([])
   expect(await configuredClaudePluginDirectory(cwd, rows[0].id, paths)).toBeUndefined()
+})
+
+it('applies Orca plugin choices above user defaults and below project selections', async () => {
+  const plugin = join(temp, 'fixture')
+  await json(join(plugin, '.claude-plugin/plugin.json'), { name: 'fixture' })
+  await json(join(paths.root, 'plugins/installed_plugins.json'), {
+    plugins: { 'fixture@market': [{ scope: 'user', installPath: plugin }] }
+  })
+  await json(join(paths.root, 'settings.json'), { enabledPlugins: { 'fixture@market': true } })
+  const choice = { 'plugin:fixture@market': false, 'mcp:fixture@market': true }
+  expect((await configuredClaudeResources(cwd, paths, false, choice))[0].enabled).toBe(false)
+  await json(join(cwd, '.claude/settings.json'), { enabledPlugins: { 'fixture@market': true } })
+  expect((await configuredClaudeResources(cwd, paths, false, choice))[0].enabled).toBe(true)
+  await json(join(cwd, '.claude/settings.local.json'), {
+    enabledPlugins: { 'fixture@market': false }
+  })
+  expect((await configuredClaudeResources(cwd, paths, false, choice))[0].enabled).toBe(false)
+})
+
+it('omits installations whose directory no longer exists', async () => {
+  const kept = join(temp, 'kept'),
+    removed = join(temp, 'removed')
+  for (const dir of [kept, removed])
+    await json(join(dir, '.claude-plugin/plugin.json'), { name: dir === kept ? 'kept' : 'removed' })
+  await json(join(paths.root, 'plugins/installed_plugins.json'), {
+    plugins: {
+      'kept@market': [{ scope: 'user', installPath: kept }],
+      'removed@market': [{ scope: 'user', installPath: removed }]
+    }
+  })
+  expect(await globalClaudeResources(paths)).toHaveLength(2)
+  await rm(removed, { recursive: true })
+  expect((await globalClaudeResources(paths)).map((item) => item.name)).toEqual(['kept@market'])
+  expect((await configuredClaudeResources(cwd, paths)).map((item) => item.name)).toEqual([
+    'kept@market'
+  ])
 })

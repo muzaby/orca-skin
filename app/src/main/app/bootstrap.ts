@@ -1,3 +1,5 @@
+import { OpenCodeGlobalWatch } from './opencode-global-watch'
+import { openCodeGlobalConfigFiles, openCodeGlobalPluginFingerprint } from '../adapters/opencode'
 import { PluginSnapshots } from '../infra/config/plugin-snapshots'
 import { nativeFileMutations } from '../infra/config/file-mutation'
 import { nativeSettingsShutdown } from './native-settings-lifecycle'
@@ -176,6 +178,7 @@ export class Bootstrap {
   readonly prepareShutdown = nativeSettingsShutdown({
     freeze: () => this.pendingMessages?.freeze(),
     drain: async () => {
+      await this.openCodeGlobalWatch?.drain()
       await Promise.all([nativeFileMutations.close(), this.deployment?.close()])
     },
     shutdown: () => this.shutdown(),
@@ -204,7 +207,8 @@ export class Bootstrap {
   // 앱 종료(will-quit) 정리용 참조 — register() 에서 채워진다. 종료 시 진행 중 턴의 열린 도구를
   // 정착하고 controller 를 abort 한다(shutdown).
   private supervisor?: RuntimeSupervisor<Electron.WebContents>
-  private closeComposerCatalog?: () => void
+  private closeComposerCatalog?: import('./handlers/composer-catalog').ComposerCatalogRegistration
+  private openCodeGlobalWatch?: OpenCodeGlobalWatch
   private bus?: MainBus<Electron.WebContents>
   private activeDbWriteCount = 0
   private isIndexing = false
@@ -880,6 +884,7 @@ export class Bootstrap {
     // admission freeze 를 **가장 먼저**(0151 AC9) — 이후 send/steer 예약을 거부해, 종료 중
     // 게이트 flush·자동 연속 턴이 큐 폐기와 경합하며 메시지를 뒤늦게 제출하는 것을 막는다.
     this.pendingMessages?.freeze()
+    this.openCodeGlobalWatch?.close()
     this.closeComposerCatalog?.()
     this.projectResourceSync?.close()
     this.registry.close()
@@ -1086,7 +1091,8 @@ export class Bootstrap {
         const session = ctx.db.getSessionById(sessionId)
         if (!session) return []
         const items = await harnessModule(session.backend).configuredResources?.(
-          session.cwd ?? ctx.getCwd(session.project_id)
+          session.cwd ?? ctx.getCwd(session.project_id),
+          this.extensionChoices.global(session.backend)
         )
         const current = ctx.db.getSessionById(sessionId)
         if (
@@ -1119,7 +1125,8 @@ export class Bootstrap {
         const session = ctx.db.getSessionById(sessionId)
         if (!session) return []
         const commands = await harnessModule(session.backend).configuredCommands?.(
-          session.cwd ?? ctx.getCwd(session.project_id)
+          session.cwd ?? ctx.getCwd(session.project_id),
+          this.extensionChoices.global(session.backend)
         )
         const current = ctx.db.getSessionById(sessionId)
         if (
@@ -1134,13 +1141,21 @@ export class Bootstrap {
       async ({ backend, cwd, projectId }) => {
         const directory = cwd ?? ctx.getCwd(projectId)
         if (!isAbsolute(directory)) throw new Error('작업 폴더는 절대 경로여야 합니다.')
-        return (await harnessModule(backend).configuredCommands?.(directory)) ?? []
+        return (
+          (await harnessModule(backend).configuredCommands?.(
+            directory,
+            this.extensionChoices.global(backend)
+          )) ?? []
+        )
       },
       async ({ backend, cwd, projectId }) => {
         const directory = cwd ?? ctx.getCwd(projectId)
         if (!isAbsolute(directory)) throw new Error('작업 폴더는 절대 경로여야 합니다.')
         const module = harnessModule(backend)
-        return (module.draftResources ?? module.configuredResources)?.(directory)
+        return (module.draftResources ?? module.configuredResources)?.(
+          directory,
+          this.extensionChoices.global(backend)
+        )
       },
       async ({ backend, cwd, projectId }, id) => {
         const directory = cwd ?? ctx.getCwd(projectId)
@@ -1198,7 +1213,35 @@ export class Bootstrap {
     registerUpdateHandlers(ctx)
     registerSettingsHandlers(ctx)
     registerSkillsHandlers(ctx)
-    registerExtensionCatalogHandlers(this.extensionChoices)
+    const plugins = harnessModule('opencode').globalResourceControl!({
+      get: () => this.settings.getAll().openCodeDisabledPlugins,
+      set: (records) => this.settings.setOpenCodeDisabledPlugins(records)
+    })
+    const globalWatch = (this.openCodeGlobalWatch = new OpenCodeGlobalWatch({
+      files: openCodeGlobalConfigFiles(),
+      fingerprint: openCodeGlobalPluginFingerprint,
+      reconcile: () => plugins.reconcile(),
+      changed: (revision) => {
+        ctx.registry.get('opencode')?.extensionsChanged?.()
+        this.closeComposerCatalog?.revalidate(revision)
+      },
+      failed: (error) =>
+        reportError({
+          event: 'opencode.plugins.watch-failed',
+          scope: 'engine',
+          title: 'saveFailed',
+          error
+        })
+    }))
+    registerExtensionCatalogHandlers(this.extensionChoices, {
+      plugins,
+      openCodeSessions: () =>
+        supervisor
+          .runtimeEntries()
+          .filter(({ sessionId }) => ctx.db.getSessionById(sessionId)?.backend === 'opencode')
+          .length,
+      change: (action) => globalWatch.change(action)
+    })
     registerFilesHandlers(ctx)
     registerGitHandlers(ctx.db)
     registerCostHandlers(ctx)

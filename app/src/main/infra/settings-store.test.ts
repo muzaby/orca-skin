@@ -166,3 +166,23 @@ describe('SettingsStore harness isolation', () => {
     })
   })
 })
+
+it('persists plugin restoration records through the main-only setter and preserves unrelated settings', () => {
+  const backend = countingBackend()
+  const store = new SettingsStore('test', backend)
+  store.patch({ language: 'sentinel' })
+  const records = [
+    {
+      id: 'plugin',
+      file: '/config.jsonc',
+      entry: ['pkg', { mode: 'distinct' }] as [string, Record<string, unknown>],
+      index: 2
+    }
+  ]
+  store.setOpenCodeDisabledPlugins(records)
+  expect(store.getAll().openCodeDisabledPlugins).toEqual(records)
+  expect(store.getAll().language).toBe('sentinel')
+  expect(new SettingsStore('test', backend).getAll().openCodeDisabledPlugins).toEqual(records)
+  store.patch({ openCodeDisabledPlugins: [] } as never)
+  expect(store.getAll().openCodeDisabledPlugins).toEqual(records)
+})

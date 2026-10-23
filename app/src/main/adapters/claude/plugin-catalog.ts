@@ -3,6 +3,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import type { NativeCommand } from '../../../shared/native-resources'
 import { isRecord } from '../../../shared/obj'
 import { skillMetadata } from '../common/skill-metadata'
+import { extensionChoices } from '../common/extension-control'
 import { claudeNativePaths } from './native-paths'
 import { pluginPathKey, claudeLocalSettingsRoot } from './project-path'
 export { pluginPathKey, claudePluginProjectRoot } from './project-path'
@@ -87,7 +88,7 @@ export function selectClaudePlugins(
   })
 }
 
-function exists(path: string): boolean {
+export function claudeInstallationExists(path: string): boolean {
   try {
     return statSync(path).isDirectory()
   } catch {
@@ -153,7 +154,11 @@ export function readClaudePluginCatalog(
   const filesByName = new Map<string, { file: string; enabled: boolean }>()
   const installations: ClaudePluginCatalog['installations'] = []
   for (const entry of entries) {
-    if ((!includeDisabled && !entry.enabled) || !isAbsolute(entry.path) || !exists(entry.path))
+    if (
+      (!includeDisabled && !entry.enabled) ||
+      !isAbsolute(entry.path) ||
+      !claudeInstallationExists(entry.path)
+    )
       continue
     const root = resolve(entry.path)
     if (roots.has(pluginPathKey(root))) continue
@@ -213,6 +218,11 @@ export function readClaudePluginCatalog(
   }
 }
 
-export async function configuredClaudeCommands(cwd: string): Promise<NativeCommand[]> {
-  return readClaudePluginCatalog(cwd).commands
+export async function configuredClaudeCommands(
+  cwd: string,
+  choices: Record<string, boolean>
+): Promise<NativeCommand[]> {
+  return readClaudePluginCatalog(cwd, undefined, {
+    enabledPlugins: extensionChoices(choices, 'plugin')
+  }).commands
 }

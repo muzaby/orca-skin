@@ -137,7 +137,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
             )}
           </div>
           <div role="tabpanel" id={`${id}-items`} aria-labelledby={`${id}-${selection.tab}`}>
-            {nativeMcp.failed && selection.tab !== 'providers' && (
+            {nativeMcp.failed && selection.tab !== 'skills' && (
               <div className="flex items-center gap-2 py-2 text-caption text-ink3" role="status">
                 {tr('chat.nativeResources.error')}
                 <Button size="small" onClick={() => void nativeMcp.refresh()}>
@@ -148,7 +148,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
             {skills.loading ||
             mcp.loading ||
             providers.loading ||
-            (selection.tab !== 'providers' && nativeMcp.loading) ? (
+            (selection.tab !== 'skills' && nativeMcp.loading) ? (
               <div role="status" className="grid h-48 place-items-center text-footnote text-ink3">
                 {tr('common.loading')}
               </div>
@@ -159,7 +159,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
                 mcpServers={mcp.list}
                 providers={providers.list}
                 nativeMcp={nativeMcp.list}
-                suppressEmpty={selection.tab !== 'providers' && nativeMcp.failed}
+                suppressEmpty={selection.tab !== 'skills' && nativeMcp.failed}
                 onNativeMcp={(backend, resource) => void nativeMcp.open(backend, resource)}
                 onNativeToggle={nativeMcp.toggle}
                 onSkillToggle={(skill) =>

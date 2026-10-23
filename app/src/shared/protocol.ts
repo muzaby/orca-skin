@@ -763,6 +763,7 @@ export const GlobalNativeResourceTargetSchema = GlobalNativeResourcesSchema.exte
   kind: z.enum(['mcp', 'plugin'])
 })
 export const SetGlobalNativeResourceSchema = GlobalNativeResourceTargetSchema.extend({
+  confirmed: z.literal(true).optional(),
   enabled: z.boolean()
 })
 
@@ -794,6 +795,16 @@ export const SettingsSchema = z.object({
   // 담으므로 Claude 스키마에 없는 필드는 여기(앱 설정)에 둔다. 키 = 서버 name.
   mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') })).default({}),
   skillEnabled: z.record(z.string(), z.boolean()).default({}),
+  openCodeDisabledPlugins: z
+    .array(
+      z.object({
+        id: z.string(),
+        file: z.string(),
+        entry: z.union([z.string(), z.tuple([z.string(), z.record(z.string(), z.unknown())])]),
+        index: z.number().int().nonnegative()
+      })
+    )
+    .default([]),
   nativeExtensionChoices: NativeExtensionChoicesSchema.optional(),
   projectMcpChoices: z.record(z.string(), z.record(z.string(), z.boolean())).optional(),
   authBypass: z.boolean().default(false),

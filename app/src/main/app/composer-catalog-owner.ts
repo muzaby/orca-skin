@@ -11,6 +11,7 @@ export class ComposerCatalogCancelled extends Error {}
 
 interface Owner {
   scope: string
+  invalidated: (event: ComposerCatalogInvalidated) => void
   controller: AbortController
   task: Promise<ComposerCatalogLease>
   lease?: ComposerCatalogLease
@@ -50,6 +51,7 @@ export class ComposerCatalogOwners {
       const controller = new AbortController()
       const owned: Owner = {
         scope,
+        invalidated,
         controller,
         task: Promise.resolve().then(() => {
           controller.signal.throwIfAborted()
@@ -141,6 +143,16 @@ export class ComposerCatalogOwners {
   releaseSender(sender: number): void {
     for (const owner of this.entries.get(sender)?.keys() ?? [])
       void this.release(sender, owner).catch(() => undefined)
+  }
+
+  revalidate(revision: number): void {
+    for (const [sender, owners] of [...this.entries]) {
+      for (const [owner, entry] of [...owners]) {
+        const generation = entry.lease?.generation ?? ''
+        void this.release(sender, owner).catch(() => undefined)
+        entry.invalidated({ owner, generation, revalidate: revision })
+      }
+    }
   }
 
   close(): void {

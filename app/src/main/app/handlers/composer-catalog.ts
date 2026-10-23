@@ -10,9 +10,11 @@ import { ComposerCatalogOwners, ComposerCatalogCancelled } from '../composer-cat
 import { ComposerCatalogError } from '../composer-catalog-error'
 import { getLogger } from '../../infra/log'
 
+export type ComposerCatalogRegistration = (() => void) & { revalidate(revision: number): void }
+
 export function registerComposerCatalogHandlers(
   prepare: (scope: ComposerCatalogScope, signal: AbortSignal) => Promise<ComposerCatalogLease>
-): () => void {
+): ComposerCatalogRegistration {
   const owners = new ComposerCatalogOwners(prepare)
   const windows = new Map<WebContents, () => void>()
   const watch = (sender: WebContents): void => {
@@ -63,8 +65,9 @@ export function registerComposerCatalogHandlers(
     'reject',
     (request, event) => owners.release(event.sender.id, request.owner)
   )
-  return () => {
+  const close = (): void => {
     owners.close()
     for (const dispose of windows.values()) dispose()
   }
+  return Object.assign(close, { revalidate: (revision: number) => owners.revalidate(revision) })
 }

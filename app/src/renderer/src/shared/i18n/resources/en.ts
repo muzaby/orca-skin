@@ -616,6 +616,11 @@ export const en: typeof ko = {
   },
   chat: {
     nativeResources: {
+      restartTitle: 'Restart OpenCode server',
+      restartBody:
+        '{{count}} OpenCode sessions are running. Plugin changes apply to a new OpenCode server. Running sessions keep their previous settings until they end.',
+      restartConfirm: 'Change',
+
       retry: 'Retry',
       openConfig: 'Show configuration file',
       openFolder: 'Open installation folder',

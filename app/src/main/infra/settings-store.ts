@@ -54,6 +54,13 @@ export class SettingsStore {
     return migrated.settings
   }
 
+  setOpenCodeDisabledPlugins(records: Settings['openCodeDisabledPlugins']): void {
+    const next = SettingsSchema.parse({ ...this.load(), openCodeDisabledPlugins: records })
+    const migrated = migrateRawSettings(next as unknown as Raw, this.currentAppVersion)
+    this.store.store = migrated.raw
+    this.cached = migrated.settings
+  }
+
   getAll(): Settings {
     return this.load()
   }
