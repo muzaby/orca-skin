@@ -1103,6 +1103,17 @@ nav → 플러그인 탭 → OpenCode 플러그인 행
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| CI1 | Auth injection 스윕이 OpenCode reconcile 콜백을 거절 | [CI run 39913530046](https://github.com/muzaby/orca-skin/actions/runs/39913530046) · 필수 Test gate | 도메인별 port 이름 구분 | BLOCKING | 조치·로컬 17/17, 원격 재확인 대기 |
-| CI2 | 오류 registry catch ordinal 이동·누락 2건 | 같은 CI run · 필수 Test gate | 중복 catch 정리·registry 동기화 | BLOCKING | 조치·로컬 257/257, 원격 재확인 대기 |
-| CI3 | Windows lock helper readiness timeout | 같은 CI run · 필수 Test gate | CI shell·파일 신호로 실제 lock 확인 | BLOCKING | 조치·로컬 6/6, 원격 재확인 대기 |
+| CI1 | Auth injection 스윕이 OpenCode reconcile 콜백을 거절 | [CI run 39913530046](https://github.com/muzaby/orca-skin/actions/runs/39913530046) · 필수 Test gate | 도메인별 port 이름 구분 | BLOCKING | closed — r1 verify: CI run `39917800268` gate success(`6fa83b39`) |
+| CI2 | 오류 registry catch ordinal 이동·누락 2건 | 같은 CI run · 필수 Test gate | 중복 catch 정리·registry 동기화 | BLOCKING | closed — 같은 run |
+| CI3 | Windows lock helper readiness timeout | 같은 CI run · 필수 Test gate | CI shell·파일 신호로 실제 lock 확인 | BLOCKING | closed — 같은 run |
+| G1 | Composer owner가 없으면 플러그인 revision이 renderer 에이전트 캐시에 닿지 않는다. AC25·AC28의 "열린 Composer"가 D-017·D-020보다 좁고 EP-07에 owner 없는 운반 자리가 없다 | D-017·D-020 · VP-18·21·28 · EP-07 | 전달 계약(전역 revision 방송 / 읽기 시 revision 대조 등) 선택 → AC·EP-07·pair 정정 | PLAN_GAP | open — 설계자 ΔV3 |
+| G2 | 기록 파일이 더 이상 실효 파일이 아닐 때 on 동작 미정. 구현은 throw(`global-plugins.ts:121-122`), off 행이 영구 잔존 | AC20 · D-014 · VP-18·19 | 제품 동작 결정(사용자 확인) 후 AC20 보강 | PLAN_GAP | open — 설계자 ΔV3 |
+| F1 | `/plugins` 토글·외부 변경 시 Composer가 없으면 에이전트 캐시가 비워지지 않아 다음 Composer가 옛 에이전트를 ready로 표시(main revalidate 전달 0 · agents 요청 0 재현) | D-017·D-020 · AC25·AC28 · VP-18·28 | G1 정정 계약대로 구현 | BLOCKING | open — G1 뒤 구현자 |
+| F3 | 스킬 탭 빈 상태가 네이티브 행·실패로 가려지는 회귀 미잠금(verify M21 `CustomizeList.tsx:59`·M25 `ExtensionsCatalogView.tsx:162`) | VP-07·08 · EP-03a R1/R2·R7 | 빈 스킬 + 네이티브 MCP / 네이티브 실패 입력에서 `role=status` 단언 | BLOCKING | open |
+| F4 | provider `enabledPlugins`↔Orca flag 같은 키 우선순위 미잠금(M41 `adapter.ts:452-453`) | VP-10·09 · EP-02 C1 · §8 `adapter.ts` 행 | 충돌 키 입력으로 Orca 값 우선 단언 | BLOCKING | open |
+| F5 | OpenCode 세션 수 backend 필터 미잠금 — fixture가 OpenCode 1·Claude 1(M50 `bootstrap.ts:1241`) | VP-20 · EP-06 P9 · AC23 | backend별 개수가 다른 fixture | BLOCKING | open |
+| F6 | prepareShutdown의 watch `drain()` 미잠금(M66 `bootstrap.ts:181`) | 고정 목록 밖 · VP-30 path | 종료 중 접수된 토글이 파일 mutation 종료 전에 끝남을 단언 | BLOCKING | open |
+| F7 | 생성 뒤 첫 subscribe 전 reset 시 옛 agents ready·재요청 0 회귀 미잠금(M09 `composerCatalogState.ts:53`) | VP-03·01 · EP-01 A2 | 생성 → reset → subscribe 순서 테스트 | BLOCKING | open |
+| N1 | EP-08 기록 줄 수 6 ↔ 실측 7(E3 2줄), 구성 차집합 0 | §10 기록 | 기록 정정 | NON_BLOCKING | open — 설계자 |
+| N2 | 등록 oracle 이름 3개(VP-23′·28·30) 부재, 대체 테스트가 행동 관측 | VP-23′·28·30 | 구현 보고에 대체 이름 명시 | NON_BLOCKING | open |
+| N3 | Claude 플러그인 제어 4건은 win32에서만 실행(`native-resources.ts:39-40`), Linux 로컬 gate 미관측 — base 동일 | 환경 | 기록 | NON_BLOCKING | 기록 |
