@@ -234,3 +234,13 @@ SELF_PASS — 현재 책임인 D1(O3)을 보강했다. 불변식은 실제 열�
 ### Review Signals
 
 r2. 기존 fixture에 canOpen의 반대값 단언이 없어 고정 true를 검출하지 못했다. 이번에는 native 파일/설치 근거를 구별하며 제품 계약과 이관 책임은 바꾸지 않았다.
+
+## [검증자 기입] 파생 이슈 — verify r2 (2026-10-23)
+
+판정 정본은 [verify.md](verify.md#r2-재검증-2026-10-23) — **PASS**.
+
+| # | 이슈 | r2 상태 | 근거 |
+|---|---|---|---|
+| D1 | 파일 근거 없는 열기(O3) | closed | O3 잡음 |
+| D2·D3 | push scope·revision(이관) | closed in 0278 r3 | P11–P13·A23·A6 잡음 |
+| N1 | trailer·강제 지점 산문 | closed | `9ad2224` 0277 trailer·표 |
