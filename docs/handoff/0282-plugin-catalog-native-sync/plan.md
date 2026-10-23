@@ -69,14 +69,17 @@
 | D-023 | Orca가 OpenCode를 실행하는 도중 터미널에서 OpenCode를 실행할 수 있고 그 반대도 된다. 두 쪽은 같은 대화 DB를 써서 세션을 공유한다 | "동시란 orcinus orca로 opencode 실행하는 도중에 terminal로 opencode 실행을 말함이다. 그반대도 성립. 같은 db에 쓰여지기때문에 세션 공유도 가능." | ΔV4 사용자 | ACTIVE | 데이터 폴더(`XDG_DATA_HOME`)는 바꾸지 않는다 |
 | D-024 | 플러그인 목록의 정본은 터미널이 읽는 사용자 전역 설정이다. Orca에서 바꾼 설정은 터미널에 영향을 주지 않는다 | "플러그인도 터미널을 정본으로. 단 orca에서 세션 내부에서 설정 변경시 터미널 영향 x" | ΔV4 사용자 | ACTIVE | ΔV1의 사용자 파일 편집을 대체 |
 | D-025 | Orca가 띄우는 OpenCode 서버에 `XDG_CONFIG_HOME=<Orca 설정 루트>`를 주입한다. 셸·MCP·LSP 등 그 서버의 하위 프로세스 전부에 적용되고 Orca 밖 환경에는 영향이 없다. 별도 훅 플러그인은 두지 않는다 | "환경변수는 앱내에서 실행 시 주입하면 서브프로세스에도 모두 적용되고, 밖의 환경변수에는 영향 없는것 아닌가? 이 맥락을 고려해서 다시 제품를 디자인하라" | ΔV4 사용자 | ACTIVE | ΔV3 대화의 (a) shell.env 훅 안 폐기 |
-| D-026 | Orca 설정 루트의 `opencode/` 설정 파일은 정본에서 Orca가 끈 플러그인만 뺀 사본이다. 정본의 나머지 항목과 `~/.config`의 다른 항목은 링크로 보여 준다 | "전역설정을 사본으로 동기화하여 복사본으로 운영할수없는지? 그건 내가 편집이 자유로울텐데?" | ΔV4 사용자 | ACTIVE | D-013 대체. 0278 D22(nav 기본값 사본 금지)와 무충돌 — nav는 계속 정본을 읽는다 |
+| D-026 | Orca의 OpenCode 설정 루트(D-028)의 설정 파일 3개는 정본에서 Orca가 끈 플러그인만 뺀 사본이다. 정본의 나머지 리소스 항목은 링크로 보여 준다 | "전역설정을 사본으로 동기화하여 복사본으로 운영할수없는지? 그건 내가 편집이 자유로울텐데?" | ΔV4 사용자 | ACTIVE | D-013 대체. 0278 D22(nav 기본값 사본 금지)와 무충돌 — nav는 계속 정본을 읽는다 |
 | D-027 | Orca의 OpenCode 플러그인 off 기록은 꺼진 플러그인 식별자 집합이다. 원본 위치·값은 저장하지 않는다. 정본에 선언된 동안 언제든 다시 켤 수 있다 | D-024·D-026 파생(정본 미편집이라 복원 정보 불필요) | 추론 | ACTIVE | D-014 대체. verify r1 G2 해소 |
 | U-003 | Orca 안에서 OpenCode·에이전트가 Orca 설정 루트에 쓴 변경의 처리 | 사용자 질의에 미응답 | ΔV4 | OPEN — 제안: 사본 설정 파일 3개에 쓴 변경은 다음 재생성 때 버린다. 링크된 하위 리소스(스킬·에이전트·명령·플러그인 파일)에 쓴 변경은 정본에 쓰여 터미널과 공유된다 | — |
 | U-004 | 사본 생성 실패 시 동작 | 설계 공백 | ΔV4 | OPEN — 제안: 마지막 정상 사본 사용, 없으면 정본으로 실행 + "Orca 플러그인 off 미적용" 경고 | — |
+| D-028 | `XDG_CONFIG_HOME=~/.config/orcinus-orca/sources/settings`를 주입해 OpenCode 설정 루트를 `~/.config/orcinus-orca/sources/settings/opencode`로 둔다. 그 하위 디렉터리 `<provider>/settings.json`은 기존 harness-provider 설정이다 | "~/.config/opencode 정본을 ~/.config/orcinus-orca/sources/settings/opencode 로 설정루트를 변경하라. 해당 경로가 opencode의 세팅 루트이도 하위 디렉토리가 provider의 역할을 한다." | ΔV4 사용자 | ACTIVE | ΔV4-2 초안의 `<userData>/opencode-config/` 대체 |
+| U-005 | `~/.config`의 다른 항목(git 등)을 XDG 루트(`sources/settings/`)에 링크할지 | D-028로 XDG 루트가 Orca 설정 트리가 됨 | ΔV4 | OPEN — 제안: 링크하지 않음. Orca 에이전트 셸에서 XDG 설정만 쓰는 도구는 그 설정을 못 본다(git은 `~/.gitconfig`를 계속 읽음) | — |
+| U-006 | OpenCode 예약 이름과 같은 provider 디렉터리 처리 | 설정 루트 하위를 OpenCode가 스캔(`{agent,agents,mode,modes,command,commands,plugin,plugins,skill,skills}`)·의존성 설치(`node_modules`·`package.json`·`package-lock.json`·`bun.lock`·`.gitignore`) | ΔV4 | OPEN — 제안: 그 이름의 provider는 목록에서 제외하고 경고 | — |
 
 ### 갱신 메모
 
-- 이번 턴에서 새로 추가된 결정: D-001~D-011 전부, OPEN U-001. ΔV1 턴: D-012~D-018. ΔV2 턴: D-019~D-021. ΔV3 턴: D-022, OPEN U-002. ΔV4 턴: D-023~D-027, OPEN U-003·U-004 — SUPERSEDED D-013→D-026, D-014→D-027, U-002→D-024~D-027.
+- 이번 턴에서 새로 추가된 결정: D-001~D-011 전부, OPEN U-001. ΔV1 턴: D-012~D-018. ΔV2 턴: D-019~D-021. ΔV3 턴: D-022, OPEN U-002. ΔV4 턴: D-023~D-028, OPEN U-003~U-006 — SUPERSEDED D-013→D-026, D-014→D-027, U-002→D-024~D-027.
 - 변경된 결정: 0281 D2·D4 → D-001(agents 슬롯), 0278 D28 → D-008(Claude 플러그인 기본값), 0278 D11 → D-007(기본 경로 스킬). ΔV1: D-009 → D-018(범위 축소), 0278 D32 → D-012(OpenCode 사용자 전역 플러그인), 0278 D7 → D-016(교체 중 일시 2서버).
 - 기존 ACTIVE 중 유지: 0278 D15·D16·D20·D24·D26·D32, 0281 D1·D5·D6.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001↔AC1·AC2·AC3, D-002↔AC2, D-003↔AC4, D-004↔AC5·AC6, D-005↔AC6, D-006↔AC9·AC10·AC12, D-007↔AC13·AC14·AC15, D-008↔AC8·AC12, D-009↔(AC 없음 — 저장 경로를 만드는 AC가 없음을 확인), D-010↔AC16·AC17, D-011↔AC11. ΔV1: D-012↔AC19·AC24, D-013↔AC20·AC21, D-014↔AC19·AC20·AC22, D-015↔AC23, D-016↔AC24, D-017↔AC25, D-018↔AC19(OpenCode MCP·Claude는 메모리 선택 유지), D-001↔AC25(예외는 플러그인 변경 때만) — 충돌 0. ΔV2: D-019↔AC27~AC30, D-020↔AC28·AC30, D-021↔AC29 — 충돌 0.
@@ -951,31 +954,58 @@ export const composerAgentStore = createComposerAgentStore(sessionApi.onOpenCode
 | Orca가 OpenCode 설정 파일을 쓰는 곳은 ΔV1의 `global-plugins.ts` 한 곳이다 | `rg nativeFileMutations app/src/main/adapters/opencode` → 1파일 |
 | `openCodeDisabledPlugins` 설정 필드는 미병합 브랜치에만 있다. 형상을 바꿔도 마이그레이션이 필요 없다 | PR #511 draft |
 
-## ΔV4-2. Product & UX Contract
+## ΔV4-2. Product & UX Contract (D-028 반영)
 
 ```text
-[정본]  ~/.config/opencode/ (config.json · opencode.json · opencode.jsonc + 하위 항목)
-        ← 터미널 opencode가 읽고 쓴다. Orca는 읽기만 한다
-   │ 재생성 시점: 앱 시작 · 정본 변경 감지 · Orca 토글
+[정본]  ~/.config/opencode/   ← 터미널 opencode가 읽고 쓴다. Orca는 읽기만 한다
+   │ 재생성: 앱 시작 · 정본 변경 감지 · Orca 토글
    ▼
-[Orca 설정 루트]  <userData>/opencode-config/
-   ├ opencode/설정 파일 3개   = 정본 − Orca가 끈 플러그인 (Orca 생성)
-   ├ opencode/그 밖의 항목    = 정본 항목으로의 링크 (skills·agents·commands·plugin(s)·프롬프트 파일 …)
-   └ ~/.config의 다른 항목    = 링크 (git 등 하위 도구가 같은 설정을 본다)
-   ▼ XDG_CONFIG_HOME 주입 — Orca가 띄운 OpenCode 서버와 그 하위 프로세스 전부. Orca 밖 환경은 불변
-[Orca OpenCode 서버] ── 같은 대화 DB(XDG_DATA_HOME 불변) ── [터미널 OpenCode]
+[OpenCode 설정 루트 — Orca]  ~/.config/orcinus-orca/sources/settings/opencode/
+   ├ config.json · opencode.json · opencode.jsonc = 정본 − Orca가 끈 플러그인 (Orca 생성)
+   ├ agent(s)·command(s)·mode(s)·plugin(s)·skill(s)·참조 파일 = 정본 항목 링크
+   ├ node_modules·package.json·bun.lock·.gitignore 등 = OpenCode가 이 루트에 직접 쓰는 것 (Orca 전용)
+   └ <provider>/settings.json = 기존 harness-provider 설정 (OPENCODE_CONFIG_CONTENT로 주입)
+   ▼ XDG_CONFIG_HOME=~/.config/orcinus-orca/sources/settings — Orca가 띄운 OpenCode 서버와 하위 프로세스 전부
+[Orca OpenCode 서버] ── 같은 대화 DB (XDG_DATA_HOME 불변) ── [터미널 OpenCode]
 ```
 
-| 상황 | 결과 |
-|---|---|
-| Orca에서 플러그인 off/on | Orca 기록 갱신 → 사본 재생성. 새 연결은 새 서버(D-016), 에이전트 캐시는 ΔV3 경로, 실행 중 세션이 있으면 확인(D-015). **정본 바이트 불변 · 터미널 무영향** |
-| 터미널에서 플러그인 추가·삭제·옵션 변경(정본 변경) | 감시 → 사본 재생성 → 같은 적용 규칙(D-020). 정본에서 사라진 플러그인의 Orca 기록 정리(D-019) |
-| Orca 실행 중 터미널 실행 / 그 반대 | 둘 다 동작. 한쪽에서 만든 세션이 다른 쪽에 보인다(D-023) |
-| Orca 안 OpenCode·에이전트가 설정 루트에 쓴 변경 | U-003(제안: 설정 파일 3개는 재생성 때 버림 · 링크된 하위 리소스는 정본과 공유) |
-| 사본 생성 실패 | U-004(제안: 마지막 정상 사본 → 없으면 정본으로 실행 + 경고) |
-| nav 표시 | 정본의 실효 플러그인(터미널이 로드하는 것)과 Orca on/off. 설치본을 확인할 수 없거나 프로젝트·자동 탐색 폴더·`OPENCODE_CONFIG`·provider 설정 출처는 고정(현행, D-021) |
+### 기대 동작
 
-- 범위 밖: 프로젝트 설정 출처의 플러그인 제어, 자동 탐색 `plugin(s)/` 파일 토글, Claude 경로.
+| # | 상황 | 기대 동작 |
+|---|---|---|
+| B1 | Orca 시작 | 정본을 읽어 설정 루트의 3파일을 만들고(Orca off 제외) 리소스 링크를 맞춘다 |
+| B2 | Orca 세션 시작 | 서버 환경에 `XDG_CONFIG_HOME` 주입 · provider 설정은 `OPENCODE_CONFIG_CONTENT` · 데이터 폴더 그대로 |
+| B3 | Orca 실행 중 터미널 `opencode` 실행(또는 반대) | 둘 다 동작. 터미널은 `~/.config/opencode`를 읽는다. 같은 DB라 한쪽 세션이 다른 쪽에 보인다 |
+| B4 | Orca에서 플러그인 off | 기록 추가 → 사본 재생성 → 새 Orca 세션에 미로드. 실행 중 세션이 있으면 확인 후 적용하고 그 세션은 기존 서버 유지. 정본 바이트 불변 · 새 터미널 실행엔 로드 |
+| B5 | Orca에서 다시 on | 기록 제거 → 재생성 → 새 Orca 세션에 로드. 정본에 선언된 동안 항상 가능 |
+| B6 | 터미널에서 플러그인 추가 | 감시(1초 주기) → 재생성 → 새 Orca 세션에 로드 · 에이전트 캐시 갱신(ΔV3) · nav 5초 안에 표시 |
+| B7 | 터미널에서 플러그인 삭제 | Orca nav·새 세션에서 사라지고 그 플러그인의 Orca off 기록이 정리된다 |
+| B8 | 터미널이 실효 파일을 바꿈(예: `opencode.jsonc` 새로 생성) | 사본도 같은 3파일 구조라 OpenCode 병합 결과가 같다. Orca off는 계속 적용된다 |
+| B9 | Orca 에이전트가 셸에서 `opencode` 실행 | 같은 환경을 상속해 Orca 설정 루트를 읽는다(Orca 상태와 일치) |
+| B10 | Orca 에이전트 셸의 git 등 XDG 도구 | U-005(제안: 링크하지 않음 — `~/.gitconfig`는 그대로 읽힘) |
+| B11 | Orca 안에서 OpenCode가 설정 파일 3개에 씀 | 사본에만 쓰이고 다음 재생성 때 정본 기준으로 되돌아간다(U-003 제안) |
+| B12 | Orca 안에서 링크된 리소스(스킬 등)에 씀 | 정본에 쓰여 터미널과 공유된다(U-003 제안) |
+| B13 | 세션 우측 패널 MCP on/off | 그 서버 런타임만 바뀐다. 파일 쓰기 없음 · 터미널 무영향 |
+| B14 | 사본 생성 실패 | U-004(제안: 마지막 정상 사본 → 없으면 정본으로 실행 + 경고) |
+| B15 | provider 이름이 OpenCode 예약 이름과 같음 | U-006(제안: 목록에서 제외 + 경고) |
+| B16 | 앱 재시작 | Orca off 기록 유지(Orca 설정) · B1 재실행 |
+
+### Claude와 비교
+
+| 항목 | Claude (현재) | OpenCode (ΔV4) |
+|---|---|---|
+| Orca 설정 위치 | `sources/settings/claude/<provider>/settings.json` → `options.settings` flag 층 | `sources/settings/opencode/` 자체가 설정 루트 · `<provider>/settings.json` → `OPENCODE_CONFIG_CONTENT` |
+| 터미널 전역 설정 처리 | SDK가 user 소스를 읽지 않는다(`adapt.ts:97-103` `['project','local']`). 플러그인 기본값만 Orca가 `~/.claude`에서 읽어 flag로 넘긴다 | OpenCode가 정본을 직접 읽지 않는다. Orca가 정본을 읽어 사본을 만든다 |
+| 플러그인 off 수단 | Query마다 `<이름>@inline: false` flag | 사본에서 항목 제거 + 새 서버 |
+| 적용 시점 | 새 Query부터 | 새 연결(새 서버)부터, 실행 중 세션 있으면 확인 |
+| off 기록 | 메모리 — 재시작 시 소실(D-009·U-001) | Orca 설정에 영속(D-027) |
+| 전역 토글의 터미널 영향 | 없음 | 없음 |
+| 세션·프로젝트 토글의 터미널 영향 | **있음** — 프로젝트 플러그인 토글이 `<project>/.claude/settings.local.json`에 쓴다(`plugin-state.ts:13`) | 없음 — MCP 토글은 SDK 런타임만 |
+| 터미널 변경 반영 | 다음 Query가 `~/.claude`를 다시 읽는다 | 감시 → 재생성 → 새 서버 |
+| 세션 공유 | 같은 `~/.claude/projects`(`CLAUDE_CONFIG_DIR` 미지정 시) | 같은 DB(`XDG_DATA_HOME` 불변) |
+| 하위 프로세스 env | `CLAUDE_CONFIG_DIR` 등 Claude 전용 변수 | `XDG_CONFIG_HOME`(범용) — B10 |
+
+- 비대칭 2건: Claude 전역 off는 재시작 때 사라지고(U-001), Claude 프로젝트 토글은 터미널에 영향이 있다. D-024의 "Orca 변경은 터미널에 영향 없음"을 Claude에도 적용할지는 이번 범위 밖으로 두고 사용자에게 묻는다.
 
 ## ΔV4-3. Acceptance (초안 — U-003·U-004 확정 후 고정)
 
@@ -987,7 +1017,7 @@ export const composerAgentStore = createComposerAgentStore(sessionApi.onOpenCode
 | R-06 | AC22′ | 기록 쓰기 뒤 사본 재생성. 재생성이 실패하면 기록을 되돌리고 실패를 표시한다 | AC22 |
 | R-07 | AC30′ | Orca가 끈 플러그인을 터미널이 정본에서 지우면 기록이 정리되고 nav·Orca 실행에 나타나지 않는다. 이후 터미널이 다시 추가하면 Orca에서도 켜진 상태로 나타난다 | AC30 |
 | R-08 | AC33 | Orca가 띄운 OpenCode 서버 환경의 `XDG_CONFIG_HOME`은 Orca 설정 루트다. Orca 앱 프로세스의 `process.env`는 바뀌지 않는다 | 신규 |
-| R-08 | AC34 | 사본 루트에서 정본 하위 항목과 `~/.config`의 다른 항목이 같은 내용으로 보이고, 정본의 상대 경로 참조가 같은 파일로 해석된다 | 신규 |
+| R-08 | AC34 | 설정 루트(`sources/settings/opencode`)에서 정본 리소스 항목이 같은 내용으로 보이고 정본의 상대 경로 참조가 같은 파일로 해석된다. `<provider>/` 디렉터리는 OpenCode 스캔 결과에 섞이지 않는다 | 신규 |
 | R-08 | AC35 | 정본이 바뀌면 감시 주기 안에 사본이 재생성되고 AC25′·AC28′ 경로가 적용된다 | 신규 |
 | R-08 | AC36 | Windows 실기: Orca가 끈 플러그인은 Orca 새 세션에 로드되지 않고, 같은 시점 터미널에서 새로 연 OpenCode에는 로드된다 | AC26 확장 |
 | R-08 | AC37 | Windows 실기: Orca 세션과 터미널 OpenCode를 어느 순서로 열어도 둘 다 동작하고, 한쪽에서 만든 세션이 다른 쪽에 나타난다 | 신규 |
