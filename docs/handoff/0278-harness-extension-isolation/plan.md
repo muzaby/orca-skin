@@ -1073,3 +1073,38 @@ OS 잠금 helper는 준비 전 정상 종료(code 0)도 실패로 처리하고 s
 고유 변이 34개 = 놓친 8 + 이전 잡음 24 + 등록 A10 1 + 동치 A7 1. A3/A14 후속 2회를 포함한 실행은 36회이며, 최종 결과는 검출 33·동치 1이다. 실행 36회 모두 원복 후 같은 대상 집합이 green이었다. A3/A14의 첫 생존을 숨기거나 과거 red가 이번에도 처음부터 유지됐다고 쓰지 않는다.
 
 보강 후 최종 변경 테스트 7파일 59개 green·변경 7파일 ESLint 오류/경고 0이다. 확대 43파일 430개 결과는 A3 추가 전이므로 새 검사까지 포함한 전체 재실행으로 표현하지 않는다. 최종 전체 Vitest·타입·scripts·빌드·문서 gate는 [공통 검증 기록](../0281-opencode-menu-cache/evidence/verify-fail-validation.md)을 따른다. UI 두 테마 시각 인수·사용자 커스텀 CLI 실행은 이번에 하지 않았으며 이전 실기의 정책 유효성과 이번 테스트 변경의 gate를 구분한다.
+
+## [구현자 기입] r3.2 — Windows 잠금 fixture의 CI #855 실패 대응
+
+### 1. 설계 리뷰
+
+[CI #855](https://github.com/muzaby/orca-skin/actions/runs/39874047918)의 유일한 실패는 `file-mutation.test: waits for an actual Windows FileShare.None handle to be released`의 helper readiness 5초 제한이다. 실제 파일 잠금 단언에 진입하기 전 실패했다. §27 FEP9·DV3-P4 및 운영 gate의 같은 라운드 보완이며 ACTIVE Decision·AC·V-pair·제품 코드 변경은 없다.
+
+### 2. 강제 지점 전수와 V-pair 자기확인
+
+§27 고정 12자리와 production 파일에는 변경이 없다. 이번 영향은 FEP9의 실기 fixture 준비 대기와 이 대기를 포함한 테스트 실행 한도다. 기존 latest-bytes·FIFO·영구 잠금 거부·실제 잠금 중 미완료·해제 후 저장 결과 단언은 유지한다. 제품의 재시도 예산도 유지한다. 유효 V의 자리별 직접 oracle은 위 r3 표를 승계하고, 변경 파일 및 writer·종료 수명의 직접 회귀로 영향을 확인한다. 독립 verify는 계속 대기한다.
+
+### 3. 이번 라운드 수정의 잠금
+
+| 직접 관측 | 수정 전 | 수정 후 |
+|---|---|---|
+| 격리 사본의 PowerShell 준비를 6초 지연 | readiness 시간 초과 1 failed | 같은 실제 잠금 시험 1 passed |
+| 실제 Windows helper 기본 실행 | 로컬 기존 파일 6/6 passed; CI에서 readiness 실패 | 변경 파일 6/6 passed |
+
+준비 한도를 30초로, 이를 포함하는 케이스 한도를 45초로 조정했다. helper 준비 이벤트를 받은 뒤에만 파일이 EBUSY인지 확인하며, helper가 먼저 종료되면 즉시 오류로 실패한다. `finally`의 입력 종료·kill·close 대기는 그대로다. 이번 변경은 구조적 proxy나 생산 대체 경로를 추가하지 않아 새 mutation 의무는 없으며, 지연 주입은 준비 한도의 경계 재현이다.
+
+### 4. Product/UX 파생 검토
+
+설정 저장·토글 표시·완료 응답·재시도 정책은 기존 계약을 유지한다. 테스트 프로세스의 시작 시간만 더 기다리므로 제품의 실패 대기 시간은 늘어나지 않는다.
+
+### 5. 놓친 잠재 문제와 대응
+
+helper 대기만 늘리면 기존 15초 케이스 제한이 먼저 끊는다. 바깥 한도를 함께 조정해 준비 시간 초과 이후에도 `finally` 정리가 실행될 여유를 둔다. 테스트를 건너뛰거나 성공으로 처리하는 fallback은 추가하지 않았다.
+
+### 6. 구현 보고
+
+변경은 `file-mutation.test.ts`의 준비·케이스 한도와 설명뿐이다. 관련 파일·writer 회귀 및 통합 lint·typecheck와 문서 gate 결과는 [공통 기록](../0281-opencode-menu-cache/evidence/verify-fail-validation.md)의 CI #855 대응 절을 따른다. r3의 정책 AC 21/21 및 §27 고정 경계는 그대로이며, 이번 커밋의 원격 운영 성공은 실제 후속 CI 결과로 판정한다. 커밋 trailer는 `Verified-By: pending`이고 보드는 `impl/IMPL_DONE`을 유지한다.
+
+### 7. Review Signals
+
+직전 CI #854가 성공한 뒤 보고 문서만 추가한 #855에서 같은 app 코드가 실패했다. 실패 좌표는 제품 파일 처리 대신 helper의 고정 5초 준비 제한이었다. 이 차이를 격리 지연으로 재현하고, 안쪽 준비 한도와 바깥 케이스 한도를 함께 검사했다. 독립 verify 횟수·라운드는 늘리지 않는다.

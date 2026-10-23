@@ -200,9 +200,11 @@ it.skipIf(process.platform !== 'win32')(
     try {
       let timer: ReturnType<typeof setTimeout> | undefined
       await new Promise<void>((resolve, reject) => {
+        // Windows runner startup can exceed 5s before PowerShell acquires the lock.
+        // This bounds fixture readiness; the coordinator keeps its production retry budget.
         timer = setTimeout(
           () => reject(new Error(`lock helper readiness timed out: ${stderr}`)),
-          5000
+          30_000
         )
         let output = ''
         child.stdout.setEncoding('utf8').on('data', (chunk) => {
@@ -230,5 +232,5 @@ it.skipIf(process.platform !== 'win32')(
       await exited
     }
   },
-  15_000
+  45_000
 )
