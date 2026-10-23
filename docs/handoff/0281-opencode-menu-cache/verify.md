@@ -191,3 +191,110 @@ Composer Module → OpenCodeModeControl(useComposerCatalog) → OpenCodeAgentCon
 - AC: ✅4 · ❌2 / 6.
 - 운영 gate: PASS(main Linux 15건은 Windows 전용 fixture, CI #853 green).
 - 다음 단계: Codex r2 — D1–D5 테스트 보강 후 고장 이력 M1·M4·M5·M6·M9 재실행.
+
+---
+
+# r2 재검증 (2026-10-23)
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 대상 커밋/range | `32b43cc..e42d1e2` 중 0281: `ad69821`(ΔV1 r2 — 테스트 3파일) |
+| 구현 전 plan 기준 | r1과 같음 — `ad69821`의 `plan.md` `-` 줄은 메타 상태 1줄, 규범 행 변경 0 |
+| V mode / 유효 V | Delta V / `V1@256ddd24 + ΔV1` |
+| 라운드 | 2 (이 handoff의 verify 2회째) |
+| 자기 검증 여부 | 아니오 — 구현 Codex, 검증 Claude |
+
+**PASS — r1에서 못 잡은 5개 고장(M1·M4·M5·M6·M9)이 모두 새 테스트에 잡히고, r1에서 잡히던 8개도 그대로 잡힌다.** production을 바꾸지 않은 테스트 보강 라운드라 §10 자리와 production 경로는 r1과 같다.
+
+## r2-0. 기준선 / plan validity
+
+- 이번 라운드 앱 변경: `git diff 3d78de3..e42d1e2 -- app`이 `*.test.ts` 22파일뿐(production 0). §10 자리 검색 결과는 r1과 같고 목록 차집합 0.
+- 새 oracle 실행 구간: `Controls.interaction`·`Module.integration`은 실제 `OpenCodeSelect`·`MenuTitle`·`Popover`·hook·state를 렌더하고 store·i18n만 mock. `MenuItem.render`는 실제 `MenuTitle` SSR. 로컬 재구현 없음.
+- 운반 값 구별: `Module.integration`이 agents/models 두 slot을 서로 반대 상태(ready↔loading)로 줘 형제 맞바꿈(M1)을 구별한다.
+
+## r2-4. 고장 재실행
+
+- 범위 `features/chat`+`shared/ui`(BASE 293파일/2310 green), M9·M10은 renderer 전체. 검증자 전용 worktree(HEAD `e42d1e2`)에서 심고 원복했다.
+
+| ID | r1 | r2 | 잡은 테스트 | 귀속 |
+|---|---|---|---|---|
+| M1 | 못 잡음 | **잡음** | `Module.integration: uses only the agent slot for title loading when agents/models completes first` 외 1 | seat 1 · D1 |
+| M2 | 잡음 | 잡음 | `Controls.interaction: …heading spinner only while loading`·Module.integration 2 | seat 2 |
+| M3 | 잡음 | 잡음 | Controls.interaction 7·Module.integration 1 | seat 2 |
+| M4 | 못 잡음 | **잡음** | `Controls.interaction: keeps the unselected label with real agents until the user selects an agent` | seat 3 · D2 |
+| M5 | 못 잡음 | **잡음** | `Controls.interaction: …heading spinner only while loading` | seat 4 · D3 |
+| M6 | 못 잡음 | **잡음** | `Controls.interaction: closes the loading/ready/error agent menu on Tab and restores focus` 외(4건) | seat 6 · D4 |
+| M7 | 잡음 | 잡음 | `keeps an empty loading menu keyboard-accessible…` | seat 6 |
+| M8 | 잡음 | 잡음 | Controls.interaction 3·Module.integration 3 | seat 4 |
+| M9 | 못 잡음 | **잡음** | `MenuItem.render: renders leading, label and trailing in order…`·Controls.interaction 1 | seat 5 · D5 |
+| M10 | 잡음 | 잡음 | MenuItem.render·Controls.interaction·Module.integration 2 | seat 5 |
+| M11 | 잡음 | 잡음 | `composerCatalogState: loads resource parts only for a panel subscriber…` | V1 VP4 |
+| M12 | 잡음 | 잡음 | `composerCatalogState: publishes agents before models…`·Module.integration | V1 VP2 |
+| M13 | 잡음 | 잡음 | `composerCatalogState: coalesces retry, keeps data on error…` | V1 VP4 |
+
+- 검산: 시도 13 = 잡음 13 · 못 잡음 0 · 동치 0. r1 못 잡음 5 → 잡음 5, r1 잡음 8 → 잡음 8(덮개 회귀 0). 인용 변이 5(D1–D5)는 구현 보고와 같은 자리에서 재현했다.
+
+## r2-5. V-pair closeout
+
+| Pair | 레벨 | r1 | r2 | 증거 |
+|---|---|---|---|---|
+| V1 VP4 | UT | PASS | PASS | M11·M13 잡음 |
+| DV1-P3 | IT | PAIR_FAIL | **PASS** | M1·M9·M10 잡음 |
+| V1 VP3 | IT | PASS | PASS | M3 잡음 |
+| DV1-P2 | ST | BLOCKED_BY:DV1-P3 | **PASS** | M1·M12 잡음, 반대 slot 조합의 제목 DOM |
+| V1 VP2 | ST | PASS | PASS | M12 잡음 |
+| DV1-P1 | AT | PAIR_FAIL | **PASS** | M4·M5·M6·M7·M8 잡음 |
+| V1 VP1 | AT | PASS | PASS | M2·M3·M7·M8 잡음 |
+
+| AC | 결과 | 근거 |
+|---|---|---|
+| AC1 선택·키보드·초점 | ✅ | M2·M3·M7 잡음 |
+| AC2 재개방 재요청 없음 | ✅ | M12 잡음 |
+| AC3 캐시 격리·해제 | ✅ | M11·M13 잡음 |
+| AC4 합성 기본 행 없음 | ✅ | M3 잡음 |
+| AC5 agent loading만 제목 스피너 | ✅ | M1·M5·M8 잡음 |
+| AC6 빈 메뉴 제목·Escape/Tab·자동 선택 없음 | ✅ | M4·M6·M7 잡음 |
+
+- 합계 재측정: `✅ 6 · ❌ 0 = 6`. 자기보고 `Criteria-Met: 6/6`(`ad69821`) 일치.
+- §10: V1 5/5 · ΔV1 6/6 PASS. 목록 밖 발견 없음.
+
+### r2 운영 gate (HEAD `e42d1e2`)
+
+| Gate | 결과 | 관측 |
+|---|---|---|
+| typecheck | PASS | node·web·test 3구성 exit 0 |
+| lint | PASS | 0 error · 2 warning(r1과 같은 두 파일). 실행 후 `git status` 변화 없음 |
+| renderer vitest | PASS | 377파일 / 3078케이스 green |
+| main·shared·preload vitest | 환경 한계 | 470파일 · 5262케이스 중 17 red — r1의 15건 + 0280 r2 새 테스트 2건(`composer-catalog.test: preserves the acquire/configuration failure stage…`, `C:/` fixture). 전부 Windows 전용 |
+| Windows CI | PASS | run #857(`e42d1e2`, windows-latest) lint·typecheck·test success |
+| doc inventory | PASS | inventory·prose·links ok |
+
+## r2-8. 남은 사람 실기
+
+| 항목 | 기계 검증 | 사람 |
+|---|---|---|
+| 제목 우측 스피너의 실제 회전·두 테마 | 회전·reduced-motion class와 세 슬롯 순서 잠김(M5·M9) | 실제 창 렌더 품질 |
+
+## r2-11. Repository operation checks
+
+- INDEX: `impl/IMPL_DONE`(r2) → PASS, archive 이동. 대상 커밋 `ad69821` `git cat-file -t` = commit, trailer 5키 파싱(`Handoff: docs/handoff/0281-opencode-menu-cache/`).
+- `[구현자 기입] ΔV1 r2` 7필드 존재, 강제 지점 표가 ΔV1 6자리·V1 EP1·EP2를 행으로 담는다.
+
+## r2-13. Finding disposition
+
+| # | r2 상태 | 근거 |
+|---|---|---|
+| D1–D5 | closed | M1·M4·M5·M6·M9 잡음 |
+| D6 | NON_BLOCKING 유지 | `harness.defaultAgent`는 `i18n/resources/{ko,en}.ts` 정의뿐, 소비처 0 |
+| D7 | closed | `ad69821` trailer가 0281을 가리키고 자리별 표가 있음 |
+
+## r2-14. Review Signals
+
+- 이전 라운드 동일 증상: 없음 — r1 미검출 5축이 모두 해소됐다.
+- 반복 환경 한계: Windows 전용 fixture(Linux 17 red) — CI #857로 대체.
+
+## r2-15. 결론
+
+- 상태: **PASS** — verify 2회째. pair 7/7 PASS, PLAN_GAP 없음, AC ✅6/6.
+- 남은 사람 확인: 실제 창의 제목 스피너 시각(기계 범위 밖).

@@ -22,7 +22,6 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [`0281-opencode-menu-cache`](0281-opencode-menu-cache/plan.md) | impl | **IMPL_DONE** (r2) | **Claude** (검증) | `af7fb41`(V1 설계) · `b687b1a`(V1 r1) · `087543e`(ΔV1 설계) · `a082776`(ΔV1 r1.2, 0278 커밋 동봉) · (r2 구현 — 검증자 기입) | 2 | D1–D5 결함 주입 검출·V1 회귀 유지. AC 6/6 자기확인, 독립 검증 대기. |
 | [`0280-opencode-prepared-status`](0280-opencode-prepared-status/plan.md) | impl | **IMPL_DONE** (r2) | **Claude** (검증) | `faf39d5`(V1 설계) · `cab3d1e`(r1) · (r2 구현 — 검증자 기입) | 2 | D1–D3 및 형제 configuration 경계 검출. 이전 main·renderer 변이 회귀 유지, AC 5/5 자기확인. |
 | [`0279-claude-project-plugin-state`](0279-claude-project-plugin-state/plan.md) | impl | **IMPL_DONE** (r2) | **Claude** (검증) | `b010d07`(V1 설계) · `38e4b7a`(r1) · `8137313`(ΔV1 설계) · `1700459`·`f7d268d`·`10f52f9`(ΔV2·READY 설계) · `a082776`(r1.3, 0278 커밋 동봉) · (r2 구현 — 검증자 기입) | 2 | D1–D3는 0278과 공유하는 직접 oracle에서 검출. AC 8/8 자기확인, 독립 검증 대기. |
 | [`0278-harness-extension-isolation`](0278-harness-extension-isolation/plan.md) | impl | **IMPL_DONE** (r3) | **Claude** (검증) | `10f52f9`(ΔV5 READY 설계) · `a082776`(r2) · `9198ec3`·`84fe913`(r2.2) · `32b43cc`(기록) · (r3 구현 — 검증자 기입) | 3 | R1–R5 및 수령 이관분 자기확인. A3·A14 감도 보강, 고유 변이 33검출·A7 동치. AC 21/21. r3.2에서 CI #855의 Windows lock helper 준비 한도 보완. `ebdf79f8` Windows CI #856 전체 통과, 독립 검증 대기. |

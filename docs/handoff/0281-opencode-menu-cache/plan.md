@@ -294,3 +294,13 @@ Popover·MenuTitle·Icon의 기존 화면을 그대로 사용한다. 제목 indi
 ### 7. Review Signals
 
 r2 첫 구현 턴이다. 기존 테스트는 두 slot의 완료 상태를 구별하지 않았고 클래스·Tab·세 슬롯 순서를 읽지 않았다. 요구된 계약은 ΔV1에 이미 있었다. 검사 대역의 selector/타입 제약은 fixture 보정으로 해결했으며 production 정책은 변경하지 않았다. D7의 문서 부분은 자리별 표로 보완하고 구현 커밋은 이 handoff를 별도로 가리킨다.
+
+## [검증자 기입] 파생 이슈 — verify r2 (2026-10-23)
+
+판정 정본은 [verify.md](verify.md#r2-재검증-2026-10-23) — **PASS**. 고장 ID는 그 문서 r2-4다.
+
+| # | 이슈 | r2 상태 | 근거 |
+|---|---|---|---|
+| D1–D5 | seat 1·3·4·5·6 고장 미검출 | closed | M1·M4·M5·M6·M9 잡음 |
+| D6 | `harness.defaultAgent` 소비처 0 | open (NON_BLOCKING) | 정의 2곳뿐 |
+| D7 | 0278 trailer 동봉·강제 지점 산문 | closed | `ad69821` 0281 trailer·자리별 표 |
