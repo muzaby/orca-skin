@@ -10,7 +10,7 @@
 
 | 검사 | 결과·범위 |
 |---|---|
-| 원격 Windows CI | 최종 app 코드 `aa747d6c`의 [CI #854](https://github.com/muzaby/orca-skin/actions/runs/39872952117), job120151550908 전체 success. Vitest 815파일 passed·2 skipped, 7,922 tests passed·2 skipped; scripts 142/142. 이후 변경은 이 결과를 반영하는 보고 문서뿐 |
+| 원격 Windows CI | r2/r3 app 코드 `aa747d6c`의 [CI #854](https://github.com/muzaby/orca-skin/actions/runs/39872952117), job120151550908 전체 success. Vitest 815파일 passed·2 skipped, 7,922 tests passed·2 skipped; scripts 142/142. 보고 문서만 바뀐 `048c19b8`의 후속 #855 실패와 대응은 아래 절에 기록 |
 | 전체 Vitest | `vitest run --pool=threads --maxWorkers=2`: 817파일, 7,921 passed·1 failed·2 skipped. 실패는 미변경 `daily.test.ts`의 실행 중 TZ 전환이며 기본 `--pool=forks`로 같은 파일 21/21 통과. 최종 수정 22파일은 별도로 기본 forks에서 118/118 통과 |
 | scripts 단위 테스트 | `node --test scripts/*.test.mjs`: 142/142 통과 |
 | TypeScript 3구성 | `npm run typecheck`: exit 0; 최초 renderer fixture 타입 3건 수정 후 재실행. 마지막 렌더 fixture 정리 뒤 `typecheck:test`도 exit 0 |
@@ -51,3 +51,18 @@
 ## 남은 경계
 
 실제 Electron 두 테마의 시각 인수, 0268 AC4 Windows 토스트 미발생, 실제 사용자 환경의 native 동작은 새로 관측하지 않았다. 이번 변경이 테스트뿐이라는 사실과 실제 제품 실기의 완료 여부를 구분한다.
+
+## CI #855 대응 — 0278 r3.2
+
+[CI #855](https://github.com/muzaby/orca-skin/actions/runs/39874047918), job120155179078은 문서·lint·typecheck까지 성공했고, 테스트 1개만 실패했다. `file-mutation.test.ts`의 실제 Windows 파일 잠금 helper가 5초 안에 `ready`를 내지 못해 잠금 검증 전에 시간 초과가 났다. 최종 814파일 passed·1 failed·2 skipped, 7,921 tests passed·1 failed·2 skipped였다. #854의 성공과 이 실패를 함께 보존한다.
+
+`file-mutation.test.ts`에서 helper 준비를 30초, 해당 케이스 전체를 45초로 조정했다. 실제 lock 획득·저장 중 미완료·unlock 후 최종 bytes와 실패 시 자식 프로세스 정리는 그대로다. 제품 코드는 변경하지 않았다.
+
+| 검사 | 결과 |
+|---|---|
+| 준비 6초 지연 주입, 격리 사본 | 수정 전 readiness timeout 1 failed → 수정 후 실제 잠금 1 passed |
+| 실제 Windows 관련 회귀 | file-mutation·plugin-state·project-settings 3파일13/13, native-settings-lifecycle 1파일2/2 통과 |
+| ESLint·Prettier | lint exit 0, 오류 0·기존 경고 2. 수정 파일 Prettier 통과 |
+| TypeScript | `npm run typecheck`: node·web·test 모두 exit 0 |
+| 문서·diff·trailer | 커밋 전 문서 snapshot 및 diff 검사, 커밋 후 파싱 확인 |
+| 후속 Windows CI | push 후 이번 수정 커밋의 결과를 직접 기록 |
