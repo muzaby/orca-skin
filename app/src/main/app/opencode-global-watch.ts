@@ -14,7 +14,7 @@ export class OpenCodeGlobalWatch {
     private readonly deps: {
       files: string[]
       fingerprint(): Promise<string>
-      reconcile(): Promise<unknown>
+      reconcilePlugins(): Promise<unknown>
       changed(revision: number): void
       failed(error: unknown): void
     }
@@ -41,7 +41,7 @@ export class OpenCodeGlobalWatch {
 
   private async notifyOpenCodePluginsChanged(): Promise<void> {
     if (this.closed) return
-    await this.deps.reconcile()
+    await this.deps.reconcilePlugins()
     const next = await this.deps.fingerprint()
     if (this.closed || next === this.fingerprint) return
     this.fingerprint = next

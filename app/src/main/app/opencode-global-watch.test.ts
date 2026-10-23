@@ -11,7 +11,7 @@ it("fans out once per external plugin change and ignores Orca's own write", asyn
   const watcher = new OpenCodeGlobalWatch({
     files: ['a', 'b', 'c'],
     fingerprint: async () => fingerprint,
-    reconcile: async () => {},
+    reconcilePlugins: async () => {},
     changed,
     failed: vi.fn()
   })
@@ -43,7 +43,7 @@ it('clears a record when the plugin is re-added externally', async () => {
   const watcher = new OpenCodeGlobalWatch({
     files: [],
     fingerprint: async () => JSON.stringify(present),
-    reconcile: async () => {
+    reconcilePlugins: async () => {
       if (present) record = false
     },
     changed,
@@ -66,7 +66,7 @@ it('drains admitted plugin writes before closing and rejects later writes', asyn
   const watcher = new OpenCodeGlobalWatch({
     files: [],
     fingerprint: () => gate.promise,
-    reconcile: async () => {},
+    reconcilePlugins: async () => {},
     changed: vi.fn(),
     failed: vi.fn()
   })

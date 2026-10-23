@@ -98,14 +98,7 @@ export function useNativeMcpCatalog(): {
                 confirmLabel: tr('chat.nativeResources.restartConfirm'),
                 cancelLabel: tr('common.cancel'),
                 onConfirm: () => {
-                  void toggle(backend, resource, true).catch((error) =>
-                    reportError({
-                      event: 'skills.native.toggle-failed',
-                      scope: 'native-resources',
-                      title: 'saveFailed',
-                      error
-                    })
-                  )
+                  void toggle(backend, resource, true)
                 }
               })
             } else if (mounted.current && version === versions.current[backend])

@@ -172,14 +172,16 @@ it.skipIf(process.platform !== 'win32')(
   'waits for an actual Windows FileShare.None handle to be released',
   async () => {
     const file = join(root, 'settings.json')
+    const ready = join(root, 'lock-ready')
+    const release = join(root, 'lock-release')
     await writeFile(file, '{}')
     const script = [
       '$ErrorActionPreference = "Stop"',
       '$f = [IO.File]::Open($env:ORCA_LOCK_FILE, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)',
-      'try { [Console]::WriteLine("ready"); [Console]::Out.Flush(); [Console]::ReadLine() | Out-Null } finally { $f.Dispose() }'
+      'try { [IO.File]::WriteAllText($env:ORCA_LOCK_READY, "ready"); while (-not [IO.File]::Exists($env:ORCA_LOCK_RELEASE)) { [Threading.Thread]::Sleep(10) } } finally { $f.Dispose() }'
     ].join('; ')
     const child = spawn(
-      'powershell.exe',
+      'pwsh.exe',
       [
         '-NoProfile',
         '-NonInteractive',
@@ -187,49 +189,62 @@ it.skipIf(process.platform !== 'win32')(
         Buffer.from(script, 'utf16le').toString('base64')
       ],
       {
-        env: { ...process.env, ORCA_LOCK_FILE: file },
+        env: {
+          ...process.env,
+          ORCA_LOCK_FILE: file,
+          ORCA_LOCK_READY: ready,
+          ORCA_LOCK_RELEASE: release
+        },
         windowsHide: true,
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['ignore', 'ignore', 'pipe']
       }
     )
     let stderr = ''
     child.stderr.setEncoding('utf8').on('data', (chunk) => {
       stderr += chunk
     })
-    const exited = new Promise<void>((resolve) => child.once('close', () => resolve()))
+    let spawnError: Error | undefined
+    child.once('error', (error) => {
+      spawnError = error
+    })
+    let closed = false
+    const exited = new Promise<void>((resolve) =>
+      child.once('close', () => {
+        closed = true
+        resolve()
+      })
+    )
+    let save: Promise<void> | undefined
     try {
-      let timer: ReturnType<typeof setTimeout> | undefined
-      await new Promise<void>((resolve, reject) => {
-        // Windows runner startup can exceed 5s before PowerShell acquires the lock.
-        // This bounds fixture readiness; the coordinator keeps its production retry budget.
-        timer = setTimeout(
-          () => reject(new Error(`lock helper readiness timed out: ${stderr}`)),
-          30_000
-        )
-        let output = ''
-        child.stdout.setEncoding('utf8').on('data', (chunk) => {
-          output += chunk
-          if (output.includes('ready')) resolve()
+      // Use the CI shell and file signals: Console stdin/stdout depends on the host's console.
+      // Readiness still means FileShare.None is held; the production retry budget stays 5s.
+      const deadline = Date.now() + 30_000
+      for (;;) {
+        if (spawnError) throw spawnError
+        if (closed) throw new Error(`lock helper exited before readiness: ${stderr}`)
+        const signal = await readFile(ready, 'utf8').catch((error: NodeJS.ErrnoException) => {
+          if (error.code === 'ENOENT') return undefined
+          throw error
         })
-        child.once('error', reject)
-        child.once('close', (code) => {
-          reject(new Error(`lock helper exited before readiness (${code}): ${stderr}`))
-        })
-      }).finally(() => clearTimeout(timer))
+        if (signal === 'ready') break
+        if (Date.now() >= deadline) throw new Error(`lock helper readiness timed out: ${stderr}`)
+        await new Promise((done) => setTimeout(done, 25))
+      }
       await expect(readFile(file)).rejects.toMatchObject({ code: 'EBUSY' })
       let finished = false
-      const save = new FileMutationCoordinator().mutate(file, patch('saved', true)).then(() => {
+      save = new FileMutationCoordinator().mutate(file, patch('saved', true)).then(() => {
         finished = true
       })
       await new Promise((done) => setTimeout(done, 120))
       expect(finished).toBe(false)
-      child.stdin.end('\n')
+      await writeFile(release, 'release')
       await save
       expect(JSON.parse(await readFile(file, 'utf8'))).toEqual({ saved: true })
     } finally {
-      child.stdin.end('\n')
+      await writeFile(release, 'release')
       child.kill()
       await exited
+      await save?.catch(() => undefined)
     }
   },
   45_000

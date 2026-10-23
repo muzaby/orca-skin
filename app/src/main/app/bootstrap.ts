@@ -1220,7 +1220,7 @@ export class Bootstrap {
     const globalWatch = (this.openCodeGlobalWatch = new OpenCodeGlobalWatch({
       files: openCodeGlobalConfigFiles(),
       fingerprint: openCodeGlobalPluginFingerprint,
-      reconcile: () => plugins.reconcile(),
+      reconcilePlugins: () => plugins.reconcile(),
       changed: (revision) => {
         ctx.registry.get('opencode')?.extensionsChanged?.()
         this.closeComposerCatalog?.revalidate(revision)
