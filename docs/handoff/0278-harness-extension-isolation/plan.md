@@ -1109,3 +1109,16 @@ helper 대기만 늘리면 기존 15초 케이스 제한이 먼저 끊는다. �
 ### 7. Review Signals
 
 직전 CI #854가 성공한 뒤 보고 문서만 추가한 #855에서 같은 app 코드가 실패했다. 실패 좌표는 제품 파일 처리 대신 helper의 고정 5초 준비 제한이었다. 이 차이를 격리 지연으로 재현하고, 안쪽 준비 한도와 바깥 케이스 한도를 함께 검사했다. 독립 verify 횟수·라운드는 늘리지 않는다.
+
+## [검증자 기입] 파생 이슈 — verify r3 (2026-10-23)
+
+판정 정본은 [verify.md](verify.md#r3-재검증-2026-10-23) — **PASS**.
+
+| # | 이슈 | r3 상태 | 근거 |
+|---|---|---|---|
+| R1 | catalog control 주입(X1) | closed | X1 잡음 |
+| R2 | 발행 barrier(X2) | closed | X2 잡음 |
+| R3 | plugin revision·stale emit(A23·A6, 0277 D3 포함) | closed | A23·A6 잡음 |
+| R4 | 외부 재편집 재확인(A15) | closed | A15 잡음 |
+| R5 | push scope 3항(P11–P13, 0277 D2 포함) | closed | P11–P13 잡음 |
+| N3 | 증거 README 기대 | closed | README 갱신 |

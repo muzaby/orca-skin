@@ -22,7 +22,6 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [`0278-harness-extension-isolation`](0278-harness-extension-isolation/plan.md) | impl | **IMPL_DONE** (r3) | **Claude** (검증) | `10f52f9`(ΔV5 READY 설계) · `a082776`(r2) · `9198ec3`·`84fe913`(r2.2) · `32b43cc`(기록) · (r3 구현 — 검증자 기입) | 3 | R1–R5 및 수령 이관분 자기확인. A3·A14 감도 보강, 고유 변이 33검출·A7 동치. AC 21/21. r3.2에서 CI #855의 Windows lock helper 준비 한도 보완. `ebdf79f8` Windows CI #856 전체 통과, 독립 검증 대기. |
 | [`0277-opencode-mcp-catalog`](0277-opencode-mcp-catalog/plan.md) | impl | **IMPL_DONE** (r2) | **Claude** (검증) | `5b1d7f9`(V1 설계) · `c765135`·`e4853cb`(0278 V1 동봉) · `087543e`(ΔV1 설계) · `10f52f9`(§8 READY) · `a082776`(r1.2, 0278 동봉) · (r2 구현 — 검증자 기입) | 2 | 잔여 O3 검출·O1/O2 회귀 유지. 자체 AC 8개 충족, 이관 3개는 0278 검증 책임. |
 | [`0275-opencode-shared-instances`](0275-opencode-shared-instances/plan.md) | impl | **IMPL_DONE** (r2) | **Claude** (검증) | `a83b6f5`(ΔV5 설계) · `79ccc64`(ΔV6 설계) · `5e9ab52`(r1) · (r2 구현 — 검증자 기입) | 2 | D1 L15·D2 E11 각각 검출. 기계 범위 자기확인, AC12·AC21 native 재실측 미수행을 별도 보존. |
 | [`0272-composer-plugin-brands`](0272-composer-plugin-brands/plan.md) | verify | **PASS** (V1 r1 · 기계 범위) | **사람** (AC5 시각 인수) | `4f98955`(V1 설계) · `af5870a`(r1) | 1 | 브랜드 마크·native @id 삽입/강조·스킬 원문 강조 고장 13/13 검출. 남은 것은 양 Composer 그룹 마크 white/dark 실제 창 확인. [verify](0272-composer-plugin-brands/verify.md). |

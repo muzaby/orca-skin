@@ -261,3 +261,114 @@ HEAD `32b43cc` 실행 산출은 [0281 verify](../0281-opencode-menu-cache/verify
 - pair: root PAIR_FAIL 6(DV1-P4·DV2-P2·DV2-P3·DV3-P4·DV5-P1·V1 VP4) — DV2-P2/P3는 FEP8 한 자리의 두 고장. BLOCKED_BY 3(DV1-P2·V1 VP2·V1 VP7). 나머지 PASS.
 - PLAN_GAP: 없음. AC ✅15 · ❌6 / 21.
 - 다음 단계: Codex r3 — R1–R5 테스트 보강(R3·R5는 0277 D3·D2 이관분 포함), 다음 verify는 X1·X2·A6·A15·A23·P11–P13 재실행.
+
+---
+
+# r3 재검증 (2026-10-23)
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 대상 커밋/range | `32b43cc..e42d1e2` 중 0278: `3e452da`(r3 테스트) · `ebdf79f`(r3.2 Windows 잠금 fixture 예산) · `e42d1e2`(r3.2 기록) |
+| 구현 전 plan 기준 | r2와 같음 — r3 커밋의 `plan.md` `-` 줄은 메타 상태 1줄 |
+| V mode / 유효 V | Delta V / V1 + ΔV1–ΔV5, 최종 분모 = §27 FEP1–12 |
+| 라운드 | 3 (이 handoff의 verify 3회째) |
+| 자기 검증 여부 | 아니오 — 구현 Codex, 검증 Claude |
+
+**PASS — r2 미검출 8개(X1·X2·A6·A15·A23·P11·P12·P13)가 모두 잡히고 r2 잡음 행도 유지된다.** production 무변경 테스트 보강 라운드이며, 0277에서 이관 받은 D2·D3도 이 결과로 닫힌다.
+
+## r3-0. 기준선 / plan validity
+
+- 앱 변경은 테스트 22파일뿐(production 0) — §27 FEP1–12 자리와 경로는 r2와 같다.
+- 새 oracle 실행 구간: `bootstrap.native-history.test: carries catalog changes through the real bootstrap registry into new SDK snapshots only`는 실제 `new Bootstrap()`의 registry·IPC handler·Claude adapter를 거쳐 SDK `query` 인자의 plugin flag를 본다(snapshot capture만 stub — FEP3·4는 별도 파일 oracle). `extensions.test: finishes immutable publication…`·`project-settings.test: changes revision for plugin-only external edits…`·`project-resource-sync.test: discards a revision invalidated during reading…`·`file-mutation.test: rebases an external edit…`·`useNativeResources.test: rejects a ready draft push differing only in …`은 각 production 모듈을 직접 실행한다.
+- 약화 확인: `file-mutation.test` 별칭 케이스는 대문자 alias 입력을 유지하고 첫 commit 전 patch 호출 0 단언을 더했다. r3.2는 Windows lock helper 준비 대기 5s→30s·케이스 15s→45s만 바꿨다(production retry 예산 불변, CI #855 실패 원인이 helper 준비 시간).
+
+## r3-4. 고장 재실행
+
+- [0279 verify r2](../0279-claude-project-plugin-state/verify.md#r2-4-고장-재실행)와 공유한 실행(ID 동일). 환경·Windows 소스 shim 방법도 같다.
+
+| ID | r2 | r3 | 잡은 테스트 | 귀속 |
+|---|---|---|---|---|
+| X1 | 못 잡음 | **잡음** | `bootstrap.native-history.test: carries catalog changes through the real bootstrap registry…` | FEP2 · R1 |
+| X2 | 못 잡음 | **잡음** | `extensions.test: finishes immutable publication inside the serialized deployment…` | FEP4 · R2 |
+| A23 | 못 잡음 | **잡음** | `opencode/v1/project-settings.test: changes revision for plugin-only external edits…` | FEP8 · R3 |
+| A6 | 못 잡음 | **잡음** | `project-resource-sync.test: discards a revision invalidated during reading…`(Linux·shim) | FEP8 · R3 |
+| A15 | 못 잡음 | **잡음** | `file-mutation.test: rebases an external edit before commit without relying on a rename failure`(Linux·shim) | FEP9 · R4 |
+| P11·P12·P13 | 못 잡음 | **잡음** | `useNativeResources.test: rejects a ready draft push differing only in backend / cwd / projectId` | FEP12 · R5 |
+| A20 | 잡음 | 잡음 | `extension-catalog.test: reads native defaults…` | FEP1 |
+| A18·A19 | 잡음 | 잡음(A19 shim) | `adapter.native-plugins.test: isolates global SDK choices…`·`pins deployed MCP files…` | FEP3·4 |
+| A12·A13·PL1 | 잡음 | 잡음(A13·PL1 shim) | `native-resources.test` 3건·`adapter.live-control.test` | FEP5 |
+| A1·A24 | 잡음 | 잡음 | `project-settings.test: …excluding other cwd and Git-root state`·`project-reconciliation.test: isolates project approvals…` | FEP6 |
+| A21·A22 | 잡음 | 잡음 | `opencode/v1/project-settings.test`·`session-context.test`·`adapter.test` | FEP7 |
+| A5 | 잡음 | 잡음 | `project-resource-sync.test: counts …activity as busy` | FEP8 |
+| A2·A3·A14 | 잡음 | 잡음 | `plugin-state.test` 2건(A3는 새 junction 케이스, Linux·shim)·`file-mutation.test: serializes canonical same-file aliases…` | FEP9 |
+| A11 | 잡음 | 잡음 | `session-resources.test` 2건 | FEP10 |
+| A16·A17 | 잡음 | 잡음 | `native-settings-lifecycle.test` 2건 | FEP11 |
+| F12a–d | 잡음 | 잡음 | `useNativeMcpCatalog.test`·`CustomizeList.render.test`·`NativeResourcesTile.test` | FEP12 |
+
+- 검산(0278 귀속 행): 시도 29 = 잡음 29 · 못 잡음 0 · 동치 0. r2 못 잡음 8 → 잡음, r2 잡음 21 → 잡음(덮개 회귀 0). A7(동치)·A4·A9·A10은 0279 V1 자리로 0279 verify r2에 귀속.
+- Linux A13 실행의 기준선 밖 1건은 변이와 무관한 `infra/loopback-callback.test` 타이머 flake라 세지 않았고 A13은 shim 결과로 판정했다.
+
+## r3-5. V-pair closeout
+
+| Pair | r2 | r3 | 증거 |
+|---|---|---|---|
+| DV3-P4 | PAIR_FAIL | **PASS** | A2·A14·A15 잡음 |
+| DV1-P4 | PAIR_FAIL | **PASS** | A20·X1 잡음 |
+| DV2-P3 | PAIR_FAIL | **PASS** | A21·A22·A23 잡음 |
+| DV5-P1 | PAIR_FAIL | **PASS** | A16–A19·X2 잡음 |
+| DV2-P2 | PAIR_FAIL | **PASS** | A5·A6 잡음 |
+| V1 VP4 | PAIR_FAIL | **PASS** | F12a–c·P11–P13 잡음 |
+| DV1-P2 | BLOCKED_BY:DV5-P1 | **PASS** | root 해소, A18·A21·A22 잡음 |
+| V1 VP2 | BLOCKED_BY:DV1-P4 | **PASS** | root 해소 |
+| V1 VP7 | BLOCKED_BY:0275 VP11·0276 VP6 | **PASS** | 0276 verify r2 VP6 PASS, 0275 VP11 축 L3–L7 잡음·L8 동치(0275 verify r2) |
+| DV4-P3·DV3-P3·DV4-P2·DV3-P2·DV3-P1·DV4-P1, V1 VP1·VP3·VP5·VP6, DV1-P1·P3·P5, DV2-P1·P4 | PASS | PASS | r2와 같은 축 잡음 유지 |
+
+| AC | 결과 | 근거 |
+|---|---|---|
+| AC2 Orca 선택이 새 instance에 반영 | ✅ | X1 잡음 |
+| AC5G 시작 A 고정·새 B 최신 | ✅ | A18·A21·X1·X2 잡음 |
+| AC7C cwd 공유·격리 | ✅ | A1·A4·P11–P13 잡음 |
+| AC11 외부 변경·유휴 적용·stale 폐기 | ✅ | A5·A6·A8 잡음 |
+| AC15O 외부 편집 UI 즉시·런타임 지연 | ✅ | A23 잡음 |
+| AC19C 외부 편집 시 최신 원본 patch | ✅ | A15 잡음 |
+| 나머지 15개(AC1·3·4S·6N·8·9·10·12·13N·14K·16F·17W·18Q·20L·21C) | ✅ | r2와 같은 축 잡음 유지, AC18Q는 CI #857 Windows 실제 잠금 테스트 green |
+
+- 합계 재측정: `✅ 21 · ❌ 0 = 21`. 자기보고 `Criteria-Met: 21/21`(`3e452da`·`ebdf79f`·`e42d1e2`) 일치.
+- §27: FEP 12/12 PASS.
+- 운영 gate: [0281 verify r2](../0281-opencode-menu-cache/verify.md#r2-운영-gate-head-e42d1e2)와 같은 HEAD 실행. r3.2의 대상이던 Windows CI는 #857(`e42d1e2`)에서 lint·typecheck·test success.
+
+## r3-11. Repository operation checks
+
+- INDEX: `impl/IMPL_DONE`(r3) → PASS, archive 이동. `3e452da`·`ebdf79f`·`e42d1e2` `git cat-file -t` = commit, 각 trailer 5키 파싱.
+- `[구현자 기입] ΔV5 r3`·`r3.2` 각 7필드, §27 12경계 표 존재. 증거 README가 D32 이후 기대로 갱신됨(N3).
+
+## r3-13. Finding disposition
+
+| # | r3 상태 | 근거 |
+|---|---|---|
+| R1 | closed | X1 잡음 |
+| R2 | closed | X2 잡음 |
+| R3 (0277 D3 이관 포함) | closed | A23·A6 잡음 |
+| R4 | closed | A15 잡음 |
+| R5 (0277 D2 이관 포함) | closed | P11·P12·P13 잡음 |
+| N3 | closed | `evidence/README.md`가 당시 결과와 D32 이후 기대를 분리 |
+
+## r3-13a. 이관 수령분 판정
+
+| 출처 | 항목 | r3 판정 |
+|---|---|---|
+| 0277 D2 | P11–P13 renderer push scope | PASS — P11–P13 잡음 |
+| 0277 D3 | A23 plugin revision·A6 stale revision | PASS — A23·A6 잡음 |
+| 0271 S9 · 0272 AC6 | 비활성 스킬·nav 색상 | PASS — F12a–c 잡음 유지 |
+
+## r3-14. Review Signals
+
+- 이전 라운드 동일 증상: 없음 — r2 미검출 5축 모두 해소.
+- verify 3회째지만 PASS라 3회째 FAIL 후 review 트리거에 해당하지 않는다.
+- 반복 환경 한계: Windows 전용 plugin gate·`C:/` fixture — 검증자 shim과 CI #857.
+
+## r3-15. 결론
+
+- 상태: **PASS** — verify 3회째. pair 전부 PASS, PLAN_GAP 없음, AC ✅21/21.
+- 남은 사람 확인: 실제 Electron 창의 두 테마·종료 흐름(AC 밖).
