@@ -8,11 +8,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-23 |
 | 매핑 | — |
-| 상태 | READY |
-| V mode | `Baseline V` |
+| 상태 | READY (ΔV1) |
+| V mode | `Baseline V` + `Delta V` |
 | 기준 V | `none` — 회귀 노드는 0281·0278·0267의 현재 코드·테스트를 `57515e7`에서 확인해 INHERITED로 인용 |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| 이번 V revision | `ΔV1` — OpenCode 플러그인 off(사용자 후속 요구). V1 노드 대체 관계는 §ΔV1 |
+| 유효 V | `V1@789a727 + ΔV1` |
 
 # Part I — Product & UX Contract
 
@@ -50,17 +50,24 @@
 | D-006 | Composer `+`→스킬의 네이티브 플러그인 스킬은 대상 실행이 실제로 싣는 상태와 같다. 초안·미실행 세션 = 다음 spawn의 유효 상태, 실행 중 세션 = 그 Query의 실제 목록 | 요구 3 + D-008 | 요구 3 · Q1 | ACTIVE | — |
 | D-007 | 하네스 기본 경로 스킬(`~/.claude/skills`·OpenCode 전역 skills·`~/.agents/skills`)은 on/off 기능·토글 GUI 없음. 항상 활성으로 보고 실행한다. Orca 스킬은 토글 유지 | "하네스에 노출되는 순간 동작이 가능한 것으로 간주" | 요구 4 | ACTIVE | 0278 D11의 회색 글씨·고정 토글을 이 스킬들에 한해 대체 |
 | D-008 | nav의 Claude 플러그인 전역 on/off는 같은 경로에 실행 중 세션이 있어도 새로 시작하는 Query부터 즉시 적용. 실행 중 Query는 종료·축출·재시작 전까지 유지 | 사용자 선택 | Q1 | ACTIVE | 0278 D28을 Claude 플러그인 기본값에 한해 대체. D15 유지 |
-| D-009 | 전역 선택의 저장 방식은 현행 유지 — SDK 런타임 적용만, 하네스 파일 미편집, 앱 재시작 시 네이티브 기본값 복귀 | 사용자가 저장 위치를 고르지 않음. 재시작 후에는 nav 표시와 실행이 함께 기본값이라 불일치 없음 | 0278 D26 · Q2 응답 | ACTIVE(유지) | — |
+| D-009 | 전역 선택의 저장 방식은 현행 유지 — SDK 런타임 적용만, 하네스 파일 미편집, 앱 재시작 시 네이티브 기본값 복귀 | 사용자가 저장 위치를 고르지 않음. 재시작 후에는 nav 표시와 실행이 함께 기본값이라 불일치 없음 | 0278 D26 · Q2 응답 | SUPERSEDED | D-018 |
 | U-001 | 전역 선택을 재시작 후에도 유지할지, 유지한다면 어디에 둘지 | 사용자 Q2 답변이 질의로 끝남 | Q2 | OPEN — 이번 범위 밖 | — |
 | D-010 | MCP 저장 시 상위 폴더가 없으면 만든다(`mkdir -p`) | 요구 6 원문 | 요구 6 | ACTIVE | — |
 | D-011 | 프로젝트 `.claude/settings.json`·`settings.local.json`의 명시 선택은 nav 전역 선택보다 우선 | 기존 우선순위 | 0278 D16·D20 | ACTIVE(유지) | — |
+| D-012 | OpenCode 네이티브 플러그인도 끄면 새 실행에 로드되지 않는다. SDK 제어가 없으므로 하네스 설정 파일을 편집하고, 편집할 수 없는 출처는 현행 유지(고정 토글) | "Sdk 컨트롤 안되면 설정파일편집   그것도 안되면 현행 유지" | ΔV1 사용자 2026-10-23 | ACTIVE | 0278 D32의 OpenCode 플러그인 모니터링 한정을 사용자 전역 설정 선언분에 한해 대체 |
+| D-013 | 편집은 jsonc-parser로 `plugin` 배열만 바꾸고 주석·서식을 보존. 같은 파일 동시 편집은 기존 `nativeFileMutations` 임계영역으로 대기·재시도 | "조건부 승인하겠다. 여러 경로에서 한 파일을 동시에 편집시도시 실패로이어지지않는지? … 네이티브 플러그인 on/off 코드 참고" | ΔV1 사용자 | ACTIVE | 신규 의존성 승인(조건 = 동시 편집 실패 없음, 0278 D31 재사용) |
+| D-014 | 끈 항목의 원래 값(spec·옵션·위치·파일)은 Orca 설정에 기록해 nav에 off로 표시하고 다시 켤 때 복원 | "Orca 설정에 기록." | ΔV1 사용자 | ACTIVE | 0278 D22(별도 사본 금지)는 기본값 사본 금지로 유지 — 복원 기록은 사용자가 명시 승인한 예외 |
+| D-015 | 실행 중 OpenCode 세션이 있으면 토글 클릭 시 바로 바꾸지 않고 서버 재시작 경고를 먼저 띄우고 승인 후 실행. 세션이 없으면 경고 없이 실행 | "실행중인 세션이 있다면 토글 버튼 클릭시 바로 동작하지 않고 서버 재시작 경고를 먼저 알림. 승인 후 토글 실행. 세션이 없으면 경고 없이" | ΔV1 사용자 | ACTIVE | — |
+| D-016 | OpenCode 플러그인 변경은 새 세션부터 새 서버로 적용. 실행 중 세션은 기존 서버를 계속 사용 | "새 세션부터 새 서버로" | ΔV1 사용자 | ACTIVE | 0278 D7 "단일 서버"를 변경 직후 기존 owner가 남은 동안에 한해 대체 |
+| D-017 | OpenCode 플러그인을 켜거나 끄면 에이전트 캐시를 비우고 1회 다시 불러온다 | "비우고 1회 재로드" | ΔV1 사용자 | ACTIVE | D-001의 "앱 재시작 전까지 1회"에 이 예외만 추가 |
+| D-018 | 메모리 전용 전역 선택(D-009)의 범위를 Claude 플러그인·OpenCode MCP로 한정. OpenCode 플러그인은 D-012~D-014 | D-012·D-014와의 정합 | ΔV1 | ACTIVE | D-009 대체. U-001은 이 범위에 남음 |
 
 ### 갱신 메모
 
-- 이번 턴에서 새로 추가된 결정: D-001~D-011 전부, OPEN U-001.
-- 변경된 결정: 0281 D2·D4 → D-001(agents 슬롯), 0278 D28 → D-008(Claude 플러그인 기본값), 0278 D11 → D-007(기본 경로 스킬).
+- 이번 턴에서 새로 추가된 결정: D-001~D-011 전부, OPEN U-001. ΔV1 턴: D-012~D-018.
+- 변경된 결정: 0281 D2·D4 → D-001(agents 슬롯), 0278 D28 → D-008(Claude 플러그인 기본값), 0278 D11 → D-007(기본 경로 스킬). ΔV1: D-009 → D-018(범위 축소), 0278 D32 → D-012(OpenCode 사용자 전역 플러그인), 0278 D7 → D-016(교체 중 일시 2서버).
 - 기존 ACTIVE 중 유지: 0278 D15·D16·D20·D24·D26·D32, 0281 D1·D5·D6.
-- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001↔AC1·AC2·AC3, D-002↔AC2, D-003↔AC4, D-004↔AC5·AC6, D-005↔AC6, D-006↔AC9·AC10·AC12, D-007↔AC13·AC14·AC15, D-008↔AC8·AC12, D-009↔(AC 없음 — 저장 경로를 만드는 AC가 없음을 확인), D-010↔AC16·AC17, D-011↔AC11.
+- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001↔AC1·AC2·AC3, D-002↔AC2, D-003↔AC4, D-004↔AC5·AC6, D-005↔AC6, D-006↔AC9·AC10·AC12, D-007↔AC13·AC14·AC15, D-008↔AC8·AC12, D-009↔(AC 없음 — 저장 경로를 만드는 AC가 없음을 확인), D-010↔AC16·AC17, D-011↔AC11. ΔV1: D-012↔AC19·AC24, D-013↔AC20·AC21, D-014↔AC19·AC20·AC22, D-015↔AC23, D-016↔AC24, D-017↔AC25, D-018↔AC19(OpenCode MCP·Claude는 메모리 선택 유지), D-001↔AC25(예외는 플러그인 변경 때만) — 충돌 0.
 
 ## 4. 요구 비판적 검토
 
@@ -488,6 +495,163 @@ OpenCode /agent(IPC) → ComposerCatalogState → ComposerAgentCache → 모든 
 
 ---
 
+# ΔV1 — OpenCode 네이티브 플러그인 off (2026-10-23)
+
+판정: READY. 사용자 후속 요구 "다음 내용의 요구는 opencode에서도 적용돼야 한다 — claude의 네이티브 플러그인(e.g., superpowers)이 off 되었는데도 /context 커맨드 확인 시 로드됐다고 표시되고 있다."를 D-012~D-018로 반영한다. V1의 Claude 경로·AC1~AC18은 그대로다.
+
+## ΔV1-1. 1차 소스 사실 (OpenCode 1.18.27 · Orca `57515e7`)
+
+| 사실 | 근거 |
+|---|---|
+| 개별 플러그인 off API·설정 필드가 없다 | SDK 엔드포인트 전수에 plugin 제어 0(`types.gen.d.ts` `url:` 목록) · `Config.plugin?: Array<string \| [string, object]>` |
+| 외부 플러그인 = 모든 출처 `plugin_origins` 합집합. 끄는 수단은 전부 끄는 `pure`뿐 | `config/config.ts:344-367` · `plugin/index.ts:180` |
+| 전역 파일 병합 순서 `config.json → opencode.json → opencode.jsonc`, 배열은 뒤 파일이 교체 | `config/config.ts:272-274`(remeda `mergeDeep`) |
+| 전역 설정은 서버 프로세스 수명 동안 캐시 | `config/config.ts:295-302` `Duration.infinity` |
+| `PATCH /global/config`는 변경 시 그 서버의 모든 인스턴스를 폐기 | `server/routes/instance/httpapi/handlers/global.ts:78-80` |
+| 인스턴스 dispose는 전역 캐시를 다시 읽지 않는다 | `config/config.ts:652-654` — invalidate는 `update`·`updateGlobal`에서만 |
+| 스킬 `permission` deny는 스킬 목록만 줄이고 hook·tool은 남긴다 | `skill/index.ts:310-314` — 플러그인 off가 아님 |
+| Orca 서버 풀 `retire`는 새 acquire를 새 서버로 보내고 기존 owner는 유지 | `server.ts:153-156` |
+| nav 카탈로그는 서버를 만들지 않는다 | `extension-catalog.ts:39` 주석 · `adapters.md §1.3` |
+| 같은 파일 동시 편집 방어 = `nativeFileMutations`(파일별 큐·최신본 재패치·외부 변경 재시도·EBUSY 재시도) | `infra/config/file-mutation.ts:12-158` · 사용처 `plugin-state.ts:15` |
+| `jsonc-parser` 3.3.1 — MIT, 의존성 0, 2024-06-24 배포 | `npm view jsonc-parser` |
+
+## ΔV1-2. Product 변경
+
+```text
+nav → 플러그인 탭 → OpenCode 플러그인 행
+  · 사용자 전역 설정의 실제 plugin 배열에 있는 항목, Orca가 끈 항목: 일반 글씨·가변 토글
+  · 자동 탐색 plugin(s)/ 파일·프로젝트·OPENCODE_CONFIG·ProgramData·provider 설정 항목: 회색·고정 토글(현행)
+  → 토글 클릭
+     ├ 실행 중 OpenCode 세션 0개 → 즉시 적용
+     └ 1개 이상 → 확인 대화상자 "OpenCode 서버 재시작" → 취소: 아무 변화 없음 / 변경: 적용
+  → 적용: off = 원래 항목 기록 후 전역 파일에서 제거 · on = 원위치 삽입 후 기록 삭제
+  → 새 OpenCode 연결은 새 서버, 실행 중 세션은 기존 서버(끝나면 기존 서버 종료)
+  → 열린 OpenCode Composer: 에이전트 캐시 비움 → 새 서버에서 1회 다시 준비(제목 스피너)
+  ↘ 파일 오류(손상·권한·경로 변경·외부 변경 지속): 기존 저장 실패 토스트, 기록·파일 원상태
+```
+
+| 시작 상태/이벤트 | 시스템 동작 | 보이는 결과 |
+|---|---|---|
+| 세션 있음 + 토글 클릭 | main이 확인 필요 응답 | 대화상자. 승인 전 파일·기록·행 불변 |
+| 대화상자 취소 | 요청 폐기 | 행 상태 그대로 |
+| 승인 또는 세션 없음 | 기록·파일 쓰기 → 서버 교체 → Composer 재준비 | 행 off/on, 새 세션에 플러그인 반영 |
+| 기록만 있고 파일에도 항목 존재(중단·외부 재추가) | 조회 때 on으로 보고 기록 정리 | 행 on |
+| 파일 쓰기 실패 | 기록 되돌림 + 오류 보고 | 토스트, 행 이전 상태 |
+
+- 대화상자 문구 초안(ko): 제목 "OpenCode 서버 재시작", 본문 "실행 중인 OpenCode 세션이 {{count}}개 있습니다. 플러그인 변경은 새로 시작하는 OpenCode 서버에서 적용되고, 실행 중인 세션은 끝날 때까지 이전 설정으로 동작합니다.", 확인 "변경", 취소 "취소". en 동등 문구 추가.
+- Claude 플러그인·OpenCode MCP 토글은 대화상자가 없다(D-008·D-018).
+- 범위: 사용자 전역 설정에 선언된 OpenCode 플러그인의 nav on/off. 비범위: 위 고정 출처, 우측 패널 프로젝트 제어(0278 D32), 실행 중 세션의 플러그인 언로드, OpenCode MCP 적용 시점.
+
+## ΔV1-3. Acceptance — AC19~AC26
+
+| R | AT / AC | 동작 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-06 | AT-07 / AC19 | OpenCode 플러그인 행 canToggle = 실효 전역 파일의 `plugin` 배열 항목과 Orca 기록 항목만 true. 기록 항목은 enabled false·status `disabled`. 그 밖은 false | 세 전역 파일·자동 탐색 폴더·기록이 섞인 임시 루트에서 catalog 결과 | nav → `orca:extensions:catalog` → `globalOpenCodeResources` + 기록 |
+| R-06 | AT-07 / AC20 | off는 그 항목만 제거하고 나머지 텍스트·주석·서식을 보존하며 spec·옵션·위치·파일을 기록한다. on은 원래 값(튜플 옵션 포함)을 원위치(범위 밖이면 끝)에 넣고 기록을 지운다 | 주석 있는 JSONC fixture로 off→on 왕복 시 원문 바이트 동일 | `orca:extensions:setEnabled` → 파일 제어 |
+| R-06 | AT-07 / AC21 | 같은 파일에 두 토글·외부 편집이 겹쳐도 모두 반영되고 실패 토스트가 없다 | 서로 다른 두 플러그인 동시 off · commit 직전 외부 쓰기 주입 | `nativeFileMutations` |
+| R-06 | AT-07 / AC22 | 쓰기 순서 off = 기록 → 파일, on = 파일 → 기록. 파일 실패 시 기록 원복. 기록·파일 모두에 있으면 on으로 보고 기록을 정리 | 파일 쓰기 실패 주입 · 기록만 남은 상태 조회 | 같은 경로 |
+| R-06 | AT-07 / AC23 | 실행 중 OpenCode 세션 ≥1이면 첫 요청은 확인 필요 응답이고 파일·기록 불변. 승인 요청만 적용. 세션 0이면 첫 요청에서 적용. Claude·OpenCode MCP는 항상 즉시 | handler 응답·파일·기록 · renderer 대화상자 열림·취소·승인 | 행 토글 → `useNativeMcpCatalog.toggle` → IPC → handler |
+| R-06 | AT-07 / AC24 | 적용 후 새 OpenCode 연결(세션·Composer 준비)은 새 서버 프로세스를 시작하고 기존 owner는 기존 연결을 유지한다. 기존 서버는 마지막 owner 해제 때 종료 | 서버 풀 start 호출 수·연결 URL·terminate 시점 | handler → `extensionsChanged` → `OpenCodeServerPool.retireAll` |
+| R-06 | AT-07 / AC25 | 적용 후 열린 OpenCode Composer는 에이전트 캐시를 비우고 준비를 다시 해 새 목록을 1회 받는다(제목 스피너). 모델 값은 갱신 중에도 유지. 플러그인 변경이 없으면 D-001대로 재사용 | owner 재준비 · renderer agents loading→ready·models 값 유지 · 이후 재요청 0 | owners.revalidate → `composerCatalogInvalidated` → state |
+| R-06 | AT-08 / AC26 | Windows 실기: 실제 OpenCode 플러그인 off → 새 세션에서 그 플러그인 에이전트·스킬 없음, 전역 파일 주석 보존, 대화상자 문구 | 사람 실기 | 설치본 |
+
+- AC 총 26건(>25). 분할을 검토했으나 V1과 같은 handler·플러그인 탭 행·에이전트 캐시를 함께 바꿔 handoff를 나누면 순서 의존이 생기므로 유지한다. ΔV1 pair는 별도 노드라 verify가 따로 판정할 수 있다.
+- AC20 "바이트 동일"은 jsonc-parser `modify` 삽입이 원래 줄바꿈·들여쓰기와 다를 수 있으므로 fixture 서식을 `formattingOptions`와 맞춘다. 서식이 다른 원문은 "그 항목 외 텍스트 불변 + 주석 보존"으로 단언한다.
+
+## ΔV1-4. V
+
+- V mode: Delta V. 기준 V = `0282:V1@789a727`(`git cat-file -t 789a727` → commit). 변경이 시작되는 수준: R.
+
+| Node | 레벨 | 계약 | provenance | 기준선 / 대체 |
+|---|---|---|---|---|
+| R-06 / AT-07·AT-08 | R / AT | AC19~AC26 | NEW | — |
+| SD-03 / ST-03 | SD / ST | 확인 → 기록·파일 순서 → 서버 교체 → Composer 재준비 → reconcile | NEW | — |
+| AR-04 / IT-04 | AR / IT | nav → handler(세션 수·확인) → module 파일 제어 → 설정 기록 port → `nativeFileMutations` | NEW | — |
+| AR-05 / IT-05 | AR / IT | handler → adapter `extensionsChanged` → 서버 풀 · owners revalidate → renderer state | NEW | — |
+| MD-05 / UT-05 | MD / UT | JSONC `plugin` 배열 제거·삽입 | NEW | — |
+| MD-06 / UT-06 | MD / UT | 실효 전역 파일 판정과 capability 분류 | NEW | — |
+| MD-01 / UT-01 | MD / UT | `ComposerAgentCache` + revision reset | CHANGED | V1 MD-01 |
+| R-02 / AT-02 | R / AT | 플러그인 탭 행(OpenCode 토글 가변화) | INHERITED | V1 |
+| R-01 / AT-01 | R / AT | 플러그인 변경 없을 때 1회 로드 | INHERITED | V1 |
+| SD-0281 / ST-0281 | SD / ST | models·MCP·plugins 재준비 중 값 유지 | INHERITED | V1 VP-05 |
+
+| Pair | left ↔ right | requiredness | production path | 직접 oracle (자리별 좌표) | 선택적 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-18 | R-06 ↔ AT-07·AT-08 | REQUIRED | 행 토글 → `useNativeMcpCatalog.toggle` → IPC → handler → 확인/적용 → 파일·기록 → 서버 교체 → Composer | 신규 `ExtensionsCatalogView.interaction.test.ts:'asks before changing an OpenCode plugin while sessions run and applies only after confirmation'`(IPC mock: 1차 confirm·2차 applied, `useConfirmStore` 관측) · `extension-catalog.test.ts` 신규 `'requires confirmation for OpenCode plugin changes only while OpenCode sessions run'` · AC26 실기 | required — "승인 전 불변"은 음성 단언. 변이: 확인 검사 제거, backend 분기 claude/opencode 맞바꿈 | EP-06 P6·P7·P10~P13 (6) |
+| VP-19 | SD-03 ↔ ST-03 | REQUIRED | off(기록→파일) / on(파일→기록) / 실패 원복 / reconcile | 신규 `global-plugins.test.ts`: `'records before removing and restores the original entry at its index'` · `'rolls back the record when the file write fails'` · `'reports a recorded plugin that is still declared as enabled and clears the record'` · `'applies concurrent toggles and an external edit without failure'` | required — 순서 계약. 변이: 쓰기 순서 뒤집기(크래시 주입 테스트 red), 원복 제거 | EP-06 P14·P16·P17 (3) |
+| VP-20 | AR-04 ↔ IT-04 | REQUIRED | bootstrap → `registerExtensionCatalogHandlers` deps → `harnessModule('opencode').globalResourceControl` → settings 기록 port → 파일 | `bootstrap.native-history.test.ts` 신규 `'routes OpenCode plugin toggles through the file control and the settings record'`(실제 handler, 임시 `XDG_CONFIG_HOME`) | not selected — 파일·기록·응답 직접 관측 | EP-06 P8·P9·P15·P18 (4) |
+| VP-21 | AR-05 ↔ IT-05 | REQUIRED | changed → OpenCode adapter `extensionsChanged` → `retireAll` → 새 acquire / owners.revalidate → 이벤트 → state reset·refresh | 신규 `server.test.ts:'starts a new server for new owners after retireAll while existing owners keep theirs'` · `handlers/composer-catalog.test.ts` 신규 `'revalidates every OpenCode owner with the plugin revision'` · `composerCatalogState.test.ts` 신규 `'resets agents once per revision and refreshes subscribed parts while keeping models'` | required — 형제 슬롯(agents reset·models 유지) 계약. 변이: models도 reset, revision 비교 뒤집기 | EP-07 (12) |
+| VP-22 | MD-05 ↔ UT-05 | REQUIRED | `removePluginEntry`·`insertPluginEntry` | 신규 `openCodePluginConfig.test.ts:'removes and reinserts string and tuple entries while preserving comments'` | not selected — 텍스트 직접 비교 | EP-06 P17 (1) |
+| VP-23 | MD-06 ↔ UT-06 | REQUIRED | 전역 파일 3종 → 실효 파일 → 항목별 canToggle | `configured-resources.test.ts` 신규 `'marks only plugins declared by the effective global file as toggleable'` | required — 형제 파일 우선순위. 변이: `opencode.json`↔`opencode.jsonc` 순서 맞바꿈 | EP-06 P1~P5 (5) |
+| VP-24 | MD-01 ↔ UT-01 | REQUIRED | `ComposerAgentCache.reset(revision)` | `composerAgentCache.test.ts` 신규 `'resets once for a newer revision and ignores stale revisions'` + V1 `'keeps the first accepted list and notifies each subscriber once'` | not selected | EP-07 Q11 (1) |
+| VP-25 | R-02 ↔ AT-02 | REGRESSION | 플러그인 탭 OpenCode 행 토글 capability | V1 VP-07·VP-08 좌표 + `CustomizeList.render.test.ts`의 OpenCode 행 canToggle true/false 케이스 | not selected | 0 — CustomizeList 변경 없음(값은 main capability) |
+| VP-26 | R-01 ↔ AT-01 | REGRESSION | 플러그인 변경 없는 경로 | V1 VP-01 좌표 | not selected | 0 |
+| VP-27 | SD-0281 ↔ ST-0281 | REGRESSION | 재준비 중 models·MCP·plugins | V1 VP-05 좌표 + VP-21 renderer 좌표의 models 유지 단언 | not selected | 0 |
+
+## ΔV1-5. Technical Design
+
+### AS-IS → TO-BE
+
+| 비교 축 | AS-IS | TO-BE | V / 파일 |
+|---|---|---|---|
+| capability | OpenCode plugin canToggle false 고정 | 실효 전역 파일 항목·기록 항목만 true | VP-23 · `configured-resources.ts:127` |
+| 상태 저장 | 없음(메모리 선택은 MCP만) | 파일 `plugin` 배열 + Orca 설정 `openCodeDisabledPlugins` | VP-19 · 신규 `global-plugins.ts`·settings |
+| 쓰기 경로 | 없음 | handler → module control → `nativeFileMutations` + jsonc-parser | VP-20·22 |
+| 확인 | 없음 | handler가 OpenCode 실행 중 세션 수로 `confirm` 응답, renderer `openConfirmDialog` | VP-18 · `extension-catalog.ts`·`useNativeMcpCatalog.ts` |
+| 적용 | 해당 없음 | `extensionsChanged` → `retireAll` + owners revalidate(revision) | VP-21 |
+| 에이전트 캐시 | 첫 성공 유지(V1) | revision 증가 시 1회 reset | VP-24 |
+
+### 계약
+
+- `SetGlobalNativeResource`에 `confirmed?: true`. 응답 `SetGlobalNativeResourceResult = { status: 'applied'; resources: NativeResources } | { status: 'confirm'; reason: 'opencode-restart'; sessions: number }`. `confirmed` 부재 = 미승인(fail-closed).
+- `Settings.openCodeDisabledPlugins: Array<{ id: string; file: string; entry: string | [string, Record<string, unknown>]; index: number }>` 기본 `[]`. **`SettingsPatchSchema`·`SettingsPatch`에 넣지 않는다** — renderer는 쓸 수 없고 main 전용 setter(`settings-store`)만 쓴다(`extension-catalog.test.ts:'does not reactivate legacy choice bytes or accept writes through settings.patch'`와 같은 원칙).
+- `MainHarnessModule.globalResourceControl?: { set(item, enabled): Promise<void> }` — OpenCode만 구현. handler는 이 port가 그 항목을 소유하면 메모리 선택(`setGlobal`)을 쓰지 않는다.
+- `SessionAdapter.extensionsChanged?(): void` — OpenCode 구현이 서버 풀 `retireAll()` 호출.
+- `ComposerCatalogInvalidated`에 `revalidate?: number`(플러그인 revision). 있으면 renderer는 error로 바꾸지 않고 캐시 reset 후 구독 중인 part를 `refresh`로 다시 읽는다.
+- 실효 전역 파일 = `config.json`·`opencode.json`·`opencode.jsonc` 중 `plugin` 배열을 가진 마지막 파일(OpenCode 병합 순서). 전역 루트는 nav와 같은 `XDG_CONFIG_HOME`/`~/.config/opencode`.
+
+### §10 강제 지점 — ΔV1
+
+| V / pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|
+| EP-06 · VP-18~20·22·23 | OpenCode 플러그인 상태 = 실효 파일 + 기록 | P1 `configured-resources.ts:32` 전역 루트 · P2 `:83` spec 수집(파일·원값 보존) · P3 `:106` plugin 항목 · P4 `:108` status · P5 `:127` canToggle · P6 `extension-catalog.ts:18` read 병합(OpenCode plugin은 메모리 선택 미적용·기록 행 추가) · P7 `:38` set 분기 · P8 `:15` handler deps · P9 `bootstrap.ts:1201` 배선 · P10 `protocol.ts:765` 요청 스키마 · P11 `preload/index.ts:290` 응답 타입 · P12 `renderer/src/shared/api/ipc.ts:221-223` 래퍼 · P13 `useNativeMcpCatalog.ts:94` 확인 흐름 · P14 `protocol.ts:796` 근처 `SettingsSchema` 기록 필드 · P14b `protocol.ts:833` `SettingsPatchSchema`에 넣지 않음 · P15 `ipc.ts:1163` `SettingsPatch` 제외 · P16 신설 settings-store 전용 setter · P17 신설 `adapters/opencode/v1/global-plugins.ts`(JSONC 편집+기록 병합) · P18 신설 `contracts.ts` port + `opencode/module.ts` 배선 — **19** | `rg -n "canToggle: item\.kind === 'mcp'\|kind: 'plugin',\|status: installation \?\|plugins\.add\(spec\)\|const globalRoot\|const choices = control\.global\|control\.setGlobal\|SetGlobalNativeResourceSchema = \|setGlobalExtension\|registerExtensionCatalogHandlers\(\|skillEnabled: z\.record\|'scheduler' \| 'nativeExtensionChoices'" app/src/main/adapters/opencode/v1/configured-resources.ts app/src/main/app/handlers/extension-catalog.ts app/src/shared/protocol.ts app/src/shared/ipc.ts app/src/preload/index.ts app/src/renderer/src/shared/api/ipc.ts app/src/renderer/src/features/skills/hooks/useNativeMcpCatalog.ts app/src/main/app/bootstrap.ts` → 18줄 = P1~P15·P14b 16자리(P12 3줄) | 끈 플러그인이 새 실행에 로드, 승인 없이 변경, 주석 손실, 복원 불가 |
+| EP-07 · VP-21·24 | 변경 후 새 연결 = 새 서버, Composer 재준비 | Q1 `server.ts:13` 서버 port · Q2 `server.ts:153` retire(풀 `retireAll` 추가) · Q3 `adapters/common/types.ts:79` 근처 `extensionsChanged` · Q4 `composer-catalog-owner.ts:35` · Q5 `:108` · Q6 `:119` · Q7 `composer-catalog.ts:59` · Q8 `bootstrap.ts:1040` · Q9 `shared/composer-catalog.ts:34` · Q10 `composerCatalogState.ts:43` · Q11 신설 캐시 reset · Q12 신설 OpenCode adapter 구현 — **12** | `rg -n "retire\?\|retire: \(\)\|invalidated\(\|invalidated: \(\|interface ComposerCatalogInvalidated\|onComposerCatalogInvalidated\(\|registerComposerCatalog\(ctx\)\|return registerComposerCatalogHandlers\|prepareComposer\?\(" app/src/main/adapters/opencode/v1/server.ts app/src/main/app/composer-catalog-owner.ts app/src/main/app/composer-catalog.ts app/src/shared/composer-catalog.ts app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts app/src/main/app/bootstrap.ts app/src/main/adapters/common/types.ts` → 10줄 = Q1~Q10 | 새 세션이 옛 서버에 붙어 플러그인 로드, Composer가 옛 에이전트 표시 |
+
+- ΔV1 분모 31(EP-06 19 · EP-07 12). 유효 V 총 76(V1 45 + 31).
+- 다중 저장소 쓰기: 파일 + Orca 설정 2곳. 허용 불가 조합은 "파일에서 제거됐는데 기록 없음"(복원 불가) 하나 — off를 기록→파일 순서로 써서 없앤다. 반대 잔여(기록 + 파일 항목)는 조회 reconcile이 정리한다.
+- 동시성: 같은 파일 쓰기는 `nativeFileMutations.mutate`의 patch 함수 안에서 최신 원문으로 다시 계산한다(D-013 조건). 기록 갱신은 같은 작업 안에서 파일 commit 결과를 본 뒤 한다.
+
+### 파일
+
+| 파일 | 변경 |
+|---|---|
+| `app/package.json`·lock | `jsonc-parser` 3.3.1 exact |
+| `app/src/main/adapters/opencode/v1/global-plugins.ts`(신규) | 실효 파일 판정·`modify`/`applyEdits` 제거·삽입·기록 병합·reconcile |
+| `app/src/main/adapters/opencode/v1/configured-resources.ts` | spec 출처 파일·원값 보존, capability |
+| `app/src/main/adapters/opencode/v1/server.ts` | `retireAll()` |
+| `app/src/main/adapters/opencode/v1/adapter.ts` · `adapters/common/types.ts` | `extensionsChanged` |
+| `app/src/main/app/handlers/extension-catalog.ts` · `bootstrap.ts` · `harnesses/{common/contracts,opencode/module}.ts` | deps·확인·port 배선 |
+| `app/src/main/app/{composer-catalog-owner,composer-catalog}.ts` · `shared/composer-catalog.ts` | revalidate |
+| `app/src/main/infra/settings-store.ts` · `shared/{ipc,protocol}.ts` | 기록 필드·전용 setter |
+| `app/src/preload/index.ts` · `renderer/src/shared/api/ipc.ts` · `features/skills/hooks/useNativeMcpCatalog.ts` | 응답 union·확인 흐름 |
+| `renderer/.../opencode/composer/{composerAgentCache,composerCatalogState}.ts` | reset·refresh |
+| `renderer/src/shared/i18n/resources/{ko,en}.ts` | 대화상자 문구 |
+| `docs/TRD.md §2` · `app/AGENTS.md` 의존성 정책 · `docs/IPC_CONTRACT.md`(`orca:extensions:setEnabled`·`composerCatalogInvalidated`) · `docs/arch/backend/adapters.md §1.3` OpenCode 문단 | 현재 상태 서술 |
+
+### 게이트
+
+- V1 §19 + `./node_modules/.bin/vitest run src/main/adapters/opencode/v1 src/main/app/handlers src/main/app/composer-catalog.test.ts src/main/infra`.
+- 의존성 추가 후 `npm ci` 재현성(lock 반영)·`node scripts/check-doc-inventory.mjs --check`(IPC 문서 갱신).
+
+### ΔV1 정합성 검토
+
+- ACTIVE 결정 ↔ AC: §3 갱신 메모에 기록 — 충돌 0. D-008(Claude 새 Query 즉시)과 D-016(OpenCode 새 서버)은 대상 하네스가 달라 충돌 없음.
+- V1 문장 중 대체: §5 엣지 "OpenCode 플러그인은 전역·프로젝트 on/off가 없어 … 동기화 대상은 Claude 플러그인이다" · §4 "OpenCode 플러그인은 … 요구 3의 동기화 대상이 Claude뿐" · §6 비범위 "OpenCode 플러그인 on/off" → 사용자 전역 선언분은 ΔV1 범위(D-012). 나머지 출처는 여전히 고정.
+- §16 기존 결정: 0278 D32(OpenCode 플러그인 모니터링) → D-012로 일부 대체, 0278 D7(단일 서버) → D-016 교체 중 예외, 0278 D22 → D-014 예외, 0281 D2 → D-001+D-017.
+- READY self-review(ΔV1): 결정 7건 원문 인용 · 1차 소스 사실 11행 관측 · AC 8건 행동·수단·경로 · NEW 노드 6개 모두 같은 레벨 REQUIRED pair · CHANGED MD-01 REQUIRED(VP-24) · INHERITED 3개 REGRESSION · §10 31자리 검색 명령 고정 · 적대 증거 VP-18·19·21·23만 선택 · 신규 의존성 사용자 조건부 승인(D-013).
+
+---
+
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은
 > [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
 > **재구현 턴도 같은 이름의 필드를 다시 채운다** — 표제(`… (r2)`, 같은 라운드 추가 턴이면 `… (r2.2)`)만 바꾸고 필드와 표의 열을 줄이지 않는다.
@@ -558,8 +722,8 @@ OpenCode /agent(IPC) → ComposerCatalogState → ComposerAgentCache → 모든 
 | 실행 명령 | … |
 | **관측한 게이트 산출**(exit code 아님) | … |
 | V-pair 자기확인 | … |
-| 강제 지점 전수 | …/45 (EP-01 10 · EP-02 15 · EP-03a 7 · EP-03b 5 · EP-04 6 · EP-05 2) |
-| **AC 자기보고**(`Criteria-Met`) | …/18 |
+| 강제 지점 전수 | …/76 (V1 45: EP-01 10 · EP-02 15 · EP-03a 7 · EP-03b 5 · EP-04 6 · EP-05 2 · ΔV1 31: EP-06 19 · EP-07 12) |
+| **AC 자기보고**(`Criteria-Met`) | …/26 |
 | **합계 검산** | … |
 | 블로커 / 역질문 | … |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
