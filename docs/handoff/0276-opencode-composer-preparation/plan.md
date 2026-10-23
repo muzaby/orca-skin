@@ -344,3 +344,14 @@ source 검색은 대문자 schema와 `registerComposerCatalog`까지 포함해 1
 - r2, verify 1회 뒤 첫 재구현. AC9의 구별 provider 조건과 AC6의 retired 세대 조건을 기존 입력이 분리하지 못했다.
 - production 수정 없이 구별 입력·응답 순서만 추가해 인용된 두 고장을 검출했다.
 - 환경: Windows 원래 경로 fixture로 실행했다. shim이나 ABI 변경은 없고 변이는 임시 격리 copy에서 수행했다.
+
+## [검증자 기입] 파생 이슈 — verify r2 (2026-10-23)
+
+판정 정본은 [verify.md](verify.md#r2-재검증-2026-10-23) — **PASS**.
+
+| # | 이슈 | r2 상태 | 근거 |
+|---|---|---|---|
+| D1 | draft providerKey 미검출(Q2) | closed | Q2 잡음(shim) |
+| D2 | retired 세대 결과 폐기 미검출(Q8) | closed | Q8 잡음 |
+| N1 | configuration 단계 래핑(N6b) | closed | 0280 r2 N6b 잡음 |
+| N2 | Delta V 설계 본문 위치 | open (NON_BLOCKING) | 기록 위치 문제 |
