@@ -188,3 +188,103 @@
 - pair: PASS 6(VP01·VP02·VP04·VP05·VP11·VP13) · root PAIR_FAIL 2(VP12·VP09) · BLOCKED_BY 1(VP10). PLAN_GAP 없음.
 - AC: ✅18 · ❌2 / 20.
 - 다음 단계: Codex r2 — D1·D2, 다음 verify는 L15·E11 재실행·L8 동치 재확인.
+
+---
+
+# r2 재검증 (2026-10-23)
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 대상 커밋/range | `32b43cc..e42d1e2` 중 0275: `91834d0`(r2 — 테스트 2파일, `Status: partial`) |
+| 구현 전 plan 기준 | r1과 같음 — `91834d0`의 `plan.md` `-` 줄은 메타 상태·브랜치 2줄 |
+| V mode / 유효 V | Delta V / 0273 V1 + 0274 ΔV2~4 + 0275 ΔV5~6 |
+| 라운드 | 2 (verify 2회째) |
+| 자기 검증 여부 | 아니오 — 구현 Codex, 검증 Claude |
+
+**PASS(기계 범위) — r1 미검출 L15(context 예약)와 0274에서 이관 받은 E11(warm 거절 fence)이 모두 잡히고, L·E·T 나머지 고장도 유지된다(L8은 동치 그대로).** AC12·AC21의 실제 CLI/Electron 실측은 증거 시점(`5e9ab52`) 이후 같은 경로의 production이 바뀌었고 이번 라운드에 재실측이 없어 사람·실환경 확인으로 남긴다.
+
+## r2-0. 기준선 / plan validity
+
+- 앱 변경은 테스트 22파일뿐(production 0) — §10 23자리와 이관 자리(§0-1)는 r1과 같다.
+- 새 oracle 실행 구간: `adapter.instances.test: reserves the sole context during last-owner cleanup and rejects late direct SDK requests`(N6)는 실제 pool→context→instance actor→SDK transport를 지난다. `channel.warm-fence.test: fences a rejected warm prompt…`(W1)는 production `openCodeChannel`을 실행하고 SDK client·iterator 포트만 주입한다 — 거절 continuation과 외부 catch 사이에 늦은 `session.error`를 넣어 fence 제거(E11)를 구별한다.
+- 실측 증거 범위: `git diff --stat 5e9ab52..e42d1e2 -- app/src/main/adapters/opencode/v1`(테스트 제외) = 10파일 463+/99−(`session-context.ts` 116줄 포함, 0276–0281 변경). `execution-report.md`·`evidence/*.json`은 그 이전 코드의 실측이다.
+
+## r2-4. 고장 재실행
+
+- 범위 `src/main/adapters/opencode src/main/app src/main/features/sessions`(Linux). Windows 전용 `adapter.instances.test.ts`·`adapter.test.ts`·`channel.warm-fence.test.ts`는 검증자 win32 shim(`…w`, 기준선 27/27 green)으로 다시 쟀다.
+
+| ID | r1 | r2 | 잡은 테스트 | 귀속 |
+|---|---|---|---|---|
+| L1 | 잡음 | 잡음 | `adapter.startup.test` 2·`adapter.persistent.test`, shim `adapter.instances.test` 2 | EP08 refs |
+| L2 | 잡음 | 잡음 | shim `adapter.instances.test: sends default POST directory…bootstrapping unused leases` | EP08 touched |
+| L3 | 잡음 | 잡음 | `adapter.instances.test: awaits directory disposal in the channel/complete/history consumer finally…` | EP09 completion |
+| L4 | 잡음 | 잡음 | shim `adapter.instances.test: keeps one process for A/B…`·`reserves the sole context…` | EP09 barrier |
+| L5 | 잡음 | 잡음 | shim `adapter.instances.test: retires failed cleanup without killing B…` | EP09 failure |
+| L6 | 잡음 | 잡음 | `instance-lifecycle.test: bounds completion/connect/dispose…` | EP09 budget |
+| L7 | 잡음 | 잡음 | Linux 67건·shim 22건 red | EP09 completion |
+| L8 | 동치 | 동치 | — Linux·shim green. r1 근거(`ServerContext.close`가 상위 controller를 먼저 abort) 유지, production 무변경 | EP09 shutdown · N1 |
+| L9 | 잡음 | 잡음 | `server.test`·shim `adapter.instances.test` 2 | EP07 cwd |
+| L10 | 잡음 | 잡음 | `server.database-path.test`·`server.test: separates relative path environments…` | EP07 env |
+| L11 | 잡음 | 잡음 | `server.test: invalidates the version cache when the executable bytes change…` | EP07 profile |
+| L12 | 잡음 | 잡음 | shim `adapter.instances.test: …complete consumer finally…`·`adapter.test: rejects a failed auxiliary response…` | EP10 complete |
+| L13 | 잡음 | 잡음 | shim `adapter.instances.test: …channel consumer finally…`·`adapter.test: subscribes before sending…` | EP10 channel |
+| L14 | 잡음 | 잡음 | shim `adapter.instances.test` 3건 | EP08·EP09 순서 |
+| L15 | 못 잡음 | **잡음** | `adapter.instances.test: reserves the sole context during last-owner cleanup and rejects late direct SDK requests`(Linux·shim) | EP08 reservation · D1 |
+| E1–E10 | 잡음(0274 관측) | 잡음 | `session-context.test`·`adapter.startup.test`·`adapter.persistent.test`·shim `adapter.instances/adapter.test` (0274 r1과 같은 축) | 0274 EP03–06 이관분 |
+| E11 | 못 잡음(0274 관측) | **잡음** | `channel.warm-fence.test: fences a rejected warm prompt before a queued event can escape the submission buffer`(Linux·shim) | 0274 MD3/UT3 → VP09 · D2 |
+| T1–T5·T7 | 잡음(0273 관측) | 잡음 | `adapter.persistent.test`·`errors.test`·`session-context.test` (0273 r1과 같은 축) | 0273 EP01·02 이관분 |
+
+- 검산: 시도 32(L 15 + E 11 + T 6) = 잡음 31 · 동치 1(L8) · 못 잡음 0. r1 못 잡음 2(L15·E11) → 잡음, r1 잡음 29 → 잡음(덮개 회귀 0), r1 동치 1 → 동치.
+
+## r2-5. V-pair closeout
+
+| Pair | 레벨 | r1 | r2 | 증거 |
+|---|---|---|---|---|
+| VP13 | UT | PASS | PASS | L1·L2·L6·L11 잡음, L8 동치 |
+| VP12 | IT | PAIR_FAIL | **PASS** | L9–L15 잡음, 0274 VP07·0273 VP-03 이관분 E2·E3·T1·T7 잡음 |
+| VP11 | ST | PASS | PASS | L3·L4·L5·L7 잡음, 0274 VP06 이관분 E4·E6·E7 잡음 |
+| VP10 | AT | BLOCKED_BY:VP12 | **PASS(기계 범위)** | AC13–20 관측, AC21 실측은 사람·실환경 |
+| VP01·02·04 (0273) | — | PASS | PASS | T1–T5·T7 잡음 |
+| VP05 (0274) | AT | PASS | PASS(기계 범위) | E1–E10 잡음, AC12 실측은 사람·실환경 |
+| VP09 (0274) | UT | PAIR_FAIL | **PASS** | E11 잡음 |
+
+| AC | 결과 | 근거 |
+|---|---|---|
+| AC1–AC5 (0273) | ✅ | T1–T7 잡음 |
+| AC7–AC10 (0274) | ✅ | E1–E10 잡음 |
+| AC11 (0274 회귀, warm fence) | ✅ | E11 잡음 |
+| AC12 (0274) 실제 1.17.19 시퀀스 | ⚠️ 실환경 | 증거는 `5e9ab52` 이전 코드 실측. 이후 같은 경로 production 변경, 이번 재실측 없음 |
+| AC13–AC15·AC17–AC20 | ✅ | r1과 같은 축 잡음 |
+| AC16 재진입·늦은 결과 격리 | ✅ | L4·L15 잡음 |
+| AC21 실제 CLI 실측 | ⚠️ 실환경 | AC12와 같은 이유 |
+
+- 합계 재측정: `✅ 18 · ⚠️ 2(실환경) · ❌ 0 = 20`. 자기보고 `Criteria-Met: 18/20`·`Criteria-Pending: AC12·AC21 실제 CLI/Electron 재실측 미수행`(`91834d0`) 일치. r1은 같은 두 AC를 `✅(보고)`로 셌다 — 이번에는 증거 시점 이후 production 변경을 확인해 실환경 확인으로 옮겼다.
+- §10: EP07 5/5 · EP08 6/6 · EP09 8/8(L8 동치) · EP10 4/4 = 23/23. 이관 자리(0274 EP03–06 23·0273 EP01·02 8·0268 EP1 서버 9) 전부 PASS.
+- 운영 gate: [0281 verify r2](../0281-opencode-menu-cache/verify.md#r2-운영-gate-head-e42d1e2)와 같은 HEAD 실행.
+
+## r2-8. 남은 사람·실환경 확인
+
+| 항목 | 기계 검증 | 사람·실환경 |
+|---|---|---|
+| AC12·AC21 실제 OpenCode CLI 1.17.19/Electron 시퀀스·module import 재사용·서버 종료 | SDK transport·spawn fake로 L·E·T 전 축 잠김 | 현재 HEAD 코드로 실제 바이너리 재실측 |
+
+## r2-11. Repository operation checks
+
+- INDEX: `impl/IMPL_DONE`(r2) → `verify/PASS`(기계 범위), 다음 주체 사람(AC12·AC21 실측). `91834d0` `git cat-file -t` = commit, trailer 6키 파싱.
+- `[구현자 기입] r2` 7필드, §10 23자리 + 이관 warm fence 1자리 표 존재.
+
+## r2-13. Finding disposition
+
+| # | r2 상태 | 근거 |
+|---|---|---|
+| D1 | closed | L15 잡음 |
+| D2 (0274 D1 이관) | closed | E11 잡음 |
+| N1 | NON_BLOCKING 유지 | L8 동치 재확인 |
+| P1 | 사람·실환경 | AC12·AC21 현재 코드 재실측 |
+
+## r2-15. 결론
+
+- 상태: **PASS(기계 범위)** — verify 2회째. pair 전부 PASS(VP10·VP05는 기계 범위), PLAN_GAP 없음, AC ✅18 · ⚠️2(실환경).
+- 이관 수령분(0274 D10·VP06–09·EP03–06, 0273 VP-03·EP01·02, 0268 D2)도 이 결과로 PASS.
+- 다음 주체: 사람 — 현재 코드로 실제 CLI/Electron 실측(AC12·AC21).

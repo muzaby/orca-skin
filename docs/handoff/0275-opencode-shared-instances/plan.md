@@ -411,3 +411,14 @@ N1–N17·A1–A6·C1–C9·P1–P4는 위 좌표 표를 사용한다. 누락됐
 - r2, verify 1회 뒤 첫 재구현. 프로덕션 결함 추가 발견 없이 oracle의 두 경쟁 조건 공백을 보완했다.
 - AC16·EP08이 await 전 예약을, VP09가 warm 거절 fence를 이미 요구했다. 기존 다른 owner·외부 catch만 보는 입력으로 차이가 사라졌다.
 - 환경: Node ABI127에서 DB를 실행했고 ABI를 전환하지 않았다. 변이는 격리 copy·threads pool을 사용했다. 실제 CLI 재실측은 이번 테스트 보완 범위에서 수행하지 않았다.
+
+## [검증자 기입] 파생 이슈 — verify r2 (2026-10-23)
+
+판정 정본은 [verify.md](verify.md#r2-재검증-2026-10-23) — **PASS(기계 범위)**.
+
+| # | 이슈 | r2 상태 | 근거 |
+|---|---|---|---|
+| D1 | context 예약 시점(L15) | closed | L15 잡음 |
+| D2 | warm 거절 fence(E11, 0274 D1 이관) | closed | E11 잡음 |
+| N1 | L8 동치 | open (NON_BLOCKING) | 동치 재확인 |
+| P1 | AC12·AC21 실제 CLI/Electron 재실측 | open (사람·실환경) | 증거 시점 이후 production 변경 |
