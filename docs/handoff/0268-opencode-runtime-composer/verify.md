@@ -177,3 +177,88 @@
 - pair: PASS 7(VP1·VP6·VP8은 서버 해제 edge 이관 제외 · VP2(기계)·VP3·VP5·VP9) · root PAIR_FAIL 1(VP4) · BLOCKED_BY 2(VP7·VP10). 반려 사유 PLAN_GAP 없음, 이관 1(D2 → 0275).
 - AC: ✅8 · ⚠️1(사람) · ❌1 / 10.
 - 다음 단계: Codex r2 — D1·D2, 다음 verify는 H1·H2 재실행. AC4는 사람 관측.
+
+---
+
+# r2 재검증 (2026-10-23)
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 대상 커밋/range | `32b43cc..e42d1e2` 중 0268: `57daa90`(r2 — 테스트 2파일, `Status: partial`) |
+| 구현 전 plan 기준 | r1과 같음 — `57daa90`의 `plan.md` `-` 줄은 메타 상태 1줄 |
+| V mode / 유효 V | Baseline V / V1 (D2 서버 소유권은 0275 verify 이관, Composer 표현은 0281) |
+| 라운드 | 2 (verify 2회째) |
+| 자기 검증 여부 | 아니오 — 구현 Codex, 검증 Claude |
+
+**PASS(기계 범위) — r1 미검출 H1(주 창 외부 링크 등록)·H2(Markdown `_blank`)가 잡히고 나머지 고장도 유지된다.** AC4(Windows 토스트 미발생)는 plan 정의대로 실제 Windows 관측이 필요해 사람 확인으로 남는다.
+
+## r2-0. 기준선 / plan validity
+
+- 앱 변경은 테스트 22파일뿐(production 0) — §10 EP1–EP7 자리와 경로는 r1과 같다.
+- **H1의 새 oracle은 구조적 proxy다.** `external-navigation.wiring.test.ts`는 `index.ts` 소스 AST에서 `createWindow` 본문의 최상위 `installExternalNavigation(mainWindow.webContents, (url) => shell.openExternal(url))` 호출을 찾는다(`index.ts`는 electron 전역 부수효과로 직접 실행 불가). helper의 이벤트→shell 동작은 기존 `external-navigation.test.ts`가 실행으로 관측한다. r1 D1의 후속 제안("production 소스 등록 검사")과 같은 방식이라 PLAN_GAP 아님.
+- proxy 감도 재측정(아래 H1a·H1b): 호출 삭제·콜백 변경·조건부 등록이 모두 red. 실행하지 않는 한계(예: `createWindow` 앞의 조기 반환)는 이 proxy가 보지 않는 축으로 남는다.
+- `Markdown.render.test.ts`는 실제 `Markdown` SSR로 anchor의 `href`·`target`·`rel`을 관측한다.
+
+## r2-4. 고장 재실행
+
+| ID | r1 | r2 | 잡은 테스트 | 귀속 |
+|---|---|---|---|---|
+| H1 | 못 잡음 | **잡음** | `external-navigation.wiring.test: installs external navigation on the created main window…` | EP6 registration · D1 |
+| H1a | — | 잡음 | 같음 — 콜백 `shell.openExternal`→`shell.openPath` | proxy 감도(다른 값) |
+| H1b | — | 잡음 | 같음 — 호출을 `if (process.env…)` 조건부로 | proxy 감도(조건부 등록) |
+| H2 | 못 잡음 | **잡음** | `Markdown.render.test: routes Markdown link http(s)://… through external window navigation` 2건 | EP6 anchor · D2 |
+| H2r | — | 잡음 | 같음 — `rel` 삭제 | EP6 anchor 형제 항 |
+| H4 | 잡음 | 잡음 | `server.test: coalesces concurrent startup and passes isolated configuration…` | EP2 |
+| H5 | 잡음 | 잡음 | `runtime-pool.test` 3·`supervisor.test`·`opencode-runtime.test` | EP1 closeEntry |
+| H6 | 잡음 | 잡음 | `CustomizeList.render.test: labels native plugin skills and both native MCP groups…` | EP4 |
+| H7 | 잡음 | 잡음 | `artifactViewerStore.test: reveals an unsupported retry…` | EP5 |
+| H8 | 잡음 | 잡음 | `chatStore.panelTiles.test`·`Panel.interaction.test` | EP3 |
+| H9 | 잡음 | 잡음 | `composer-catalog.test: reads plugin-resolved primary agents…` | EP7 |
+
+- 검산: 시도 11(r1 재실행 8 + proxy 감도 2 + 형제 항 1) = 잡음 11 · 못 잡음 0 · 동치 0. r1 못 잡음 2 → 잡음, r1 잡음 6 → 잡음(덮개 회귀 0).
+
+## r2-5. V-pair closeout
+
+| Pair | 레벨 | r1 | r2 | 증거 |
+|---|---|---|---|---|
+| VP10 | UT | BLOCKED_BY:VP4 | **PASS** | H9·0275 L11 잡음, H2 잡음 |
+| VP8 | IT | PASS(일부 이관) | PASS(일부 이관) | H5 잡음, 서버 해제 edge는 0275 VP12 |
+| VP9 | IT | PASS | PASS | H9 잡음 |
+| VP6 | ST | PASS(일부 이관) | PASS(일부 이관) | H4·H5 잡음 |
+| VP7 | ST | BLOCKED_BY:VP4 | **PASS** | H6–H9·H1·H2 잡음 |
+| VP1 | AT | PASS(일부 이관) | PASS(일부 이관) | H5 잡음 |
+| VP2 | AT | PASS(기계 범위) | PASS(기계 범위) | AC3 H4 잡음 · AC4 사람 |
+| VP3 | AT | PASS | PASS | H6·H8 잡음 |
+| VP4 | AT | PAIR_FAIL | **PASS** | H1·H1a·H1b·H2·H2r·H7 잡음 |
+| VP5 | AT | PASS | PASS | H9 잡음, AC10 0276·0281 r2 PASS |
+
+| AC | 결과 | 근거 |
+|---|---|---|
+| AC1 LRU 회수·공유 유지 | ✅(일부 이관) | H5 잡음, 공유 유지는 0275 AC14 |
+| AC2·AC3·AC5–AC7·AC9·AC10 | ✅ | r1과 같은 축 잡음 |
+| AC4 Windows 토스트 미발생 | ⚠️ 사람 | 실제 Windows/Desktop 관측 없음 — plan 정의상 사람 확인 |
+| AC8 HTTP(S) 외부 열기 | ✅ | H1·H2 잡음 |
+
+- 합계 재측정: `✅ 9 · ⚠️ 1(사람) · ❌ 0 = 10`. 자기보고 `Criteria-Met: 9/10`·`Criteria-Pending: AC4`(`57daa90`) 일치.
+- §10: EP1(판정 1/1, 서버 9자리 0275 이관) · EP2–EP7 PASS, EP6 3/3.
+- 운영 gate: [0281 verify r2](../0281-opencode-menu-cache/verify.md#r2-운영-gate-head-e42d1e2)와 같은 HEAD 실행.
+
+## r2-11. Repository operation checks
+
+- INDEX: `impl/IMPL_DONE`(r2) → `verify/PASS`(기계 범위), 다음 주체 사람(AC4). `57daa90` `git cat-file -t` = commit, trailer 6키 파싱.
+- `[구현자 기입] r2` 7필드, EP1–EP7 표 존재.
+
+## r2-13. Finding disposition
+
+| # | r2 상태 | 근거 |
+|---|---|---|
+| D1 | closed | H1·H1a·H1b 잡음(구조적 proxy, 실행 한계는 위 r2-0) |
+| D2 | closed | H2·H2r 잡음 |
+| P1 | 사람 실기 유지 | AC4 실제 Windows 관측 |
+| T1 | 이관 유지 | D2 서버 소유권 — 0275 verify 판정 |
+
+## r2-15. 결론
+
+- 상태: **PASS(기계 범위)** — verify 2회째. pair 10/10 PASS(VP2는 기계 범위), PLAN_GAP 없음, AC ✅9 · ⚠️1(사람).
+- 다음 주체: 사람 — AC4 Orca OpenCode 세션 완료 시 Windows 토스트 미발생 관측.
