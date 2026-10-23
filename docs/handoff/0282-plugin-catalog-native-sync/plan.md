@@ -8,11 +8,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-23 |
 | 매핑 | — |
-| 상태 | IMPL_DONE (r1.2) — CI 보완 후 독립 검증 대기 |
+| 상태 | DRAFT (ΔV3) — verify r1 RETURN_TO_PLAN. G1·N1 정정 완료, G2는 U-002 사용자 결정 대기 |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `none` — 회귀 노드는 0281·0278·0267의 현재 코드·테스트를 `57515e7`에서 확인해 INHERITED로 인용 |
-| 이번 V revision | `ΔV2` — 외부 제거 비노출. 이전: `ΔV1` OpenCode 플러그인 off. 대체 관계는 §ΔV1·§ΔV2 |
-| 유효 V | `V1@789a727 + ΔV1@7227dc0 + ΔV2` |
+| 이번 V revision | `ΔV3` — 에이전트 캐시를 플러그인 revision 데이터 구독으로. 이전: `ΔV2` 외부 제거 비노출 · `ΔV1` OpenCode 플러그인 off. 대체 관계는 §ΔV1·§ΔV2·§ΔV3 |
+| 유효 V | `V1@789a727 + ΔV1@7227dc0 + ΔV2@9982cdf + ΔV3` |
 
 # Part I — Product & UX Contract
 
@@ -64,10 +64,12 @@
 | D-019 | 외부에서 실제로 제거한 플러그인은 nav·Composer·새 실행 어디에도 노출하지 않는다 | "외부 cli에서 플러그인을 실제로 제거하면 orinus orca에서도 노출이 되면 안된다." | ΔV2 사용자 | ACTIVE | — |
 | D-020 | OpenCode 전역 설정 외부 변경은 Orca 토글과 같은 적용 규칙(새 연결 새 서버·실행 중 유지·에이전트 캐시 1회 재로드), 확인 대화상자 없음 | 이미 일어난 변경 | 추론 — D-016·D-017 파생 | ACTIVE | — |
 | D-021 | Orca off는 설치본을 확인할 수 있는 OpenCode 플러그인에만 허용 | 끈 뒤 숨겨져 다시 켤 수 없게 되는 것 방지 | 추론 — D-012·D-019 파생 | ACTIVE | ΔV1 AC19 보강 |
+| D-022 | 에이전트 캐시는 설치된 상태 모듈(zustand) store가 갖고, store가 생성 시점부터 main의 OpenCode 플러그인 revision 신호를 직접 구독한다. 뷰(Composer)는 store를 구독한다. 무효화를 owner·창·컴포넌트 수명에 묶지 않는다 | "창단위 구독이 아닌 데이터를 구독해야한다. 모델이 변경되면 시그널을 받아 뷰가 변경되듯. 설치된 모듈에서 이미 그런 기능을 제공하고있는 모듈은 없는지" · "진행하라" | ΔV3 사용자(G1) | ACTIVE | ΔV1 TO-BE의 owner 단위 revalidate 경로 대체. D-017·D-020의 동작은 유지 |
+| U-002 | 실효 전역 파일이 바뀐 뒤 다시 켜기 동작(verify r1 G2), 또는 OpenCode 전역 설정을 사본으로 동기화해 운영하는 구조로 전환할지 | "전역설정을 사본으로 동기화하여 복사본으로 운영할수없는지? 그건 내가 편집이 자유로울텐데?" · "opencode sdk는 어떤가" | ΔV3 | OPEN — 사용자 결정 대기 | 결정에 따라 D-013·D-014·AC20 영향 |
 
 ### 갱신 메모
 
-- 이번 턴에서 새로 추가된 결정: D-001~D-011 전부, OPEN U-001. ΔV1 턴: D-012~D-018. ΔV2 턴: D-019~D-021.
+- 이번 턴에서 새로 추가된 결정: D-001~D-011 전부, OPEN U-001. ΔV1 턴: D-012~D-018. ΔV2 턴: D-019~D-021. ΔV3 턴: D-022, OPEN U-002.
 - 변경된 결정: 0281 D2·D4 → D-001(agents 슬롯), 0278 D28 → D-008(Claude 플러그인 기본값), 0278 D11 → D-007(기본 경로 스킬). ΔV1: D-009 → D-018(범위 축소), 0278 D32 → D-012(OpenCode 사용자 전역 플러그인), 0278 D7 → D-016(교체 중 일시 2서버).
 - 기존 ACTIVE 중 유지: 0278 D15·D16·D20·D24·D26·D32, 0281 D1·D5·D6.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001↔AC1·AC2·AC3, D-002↔AC2, D-003↔AC4, D-004↔AC5·AC6, D-005↔AC6, D-006↔AC9·AC10·AC12, D-007↔AC13·AC14·AC15, D-008↔AC8·AC12, D-009↔(AC 없음 — 저장 경로를 만드는 AC가 없음을 확인), D-010↔AC16·AC17, D-011↔AC11. ΔV1: D-012↔AC19·AC24, D-013↔AC20·AC21, D-014↔AC19·AC20·AC22, D-015↔AC23, D-016↔AC24, D-017↔AC25, D-018↔AC19(OpenCode MCP·Claude는 메모리 선택 유지), D-001↔AC25(예외는 플러그인 변경 때만) — 충돌 0. ΔV2: D-019↔AC27~AC30, D-020↔AC28·AC30, D-021↔AC29 — 충돌 0.
@@ -739,7 +741,7 @@ nav → 플러그인 탭 → OpenCode 플러그인 행
 
 | V / pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
 |---|---|---|---|---|
-| EP-08 · VP-28·32 | Claude 노출 = 설치 목록 && 설치 폴더 존재 | E1 `configured-resources.ts:142` · E2 `:146` 루프(부재 건너뜀) · E3 `:153-154` 디렉터리 등록 · E4 `plugin-catalog.ts:156` 실행 경로(공용 helper로 교체) — **4** | `rg -n "installedClaudePlugins\(\|for \(const entry of globalOnly\|directories\.set\(id, installPath\)\|if \(directories\.has\(id\)\) continue\|exists\(entry\.path\)" app/src/main/adapters/claude/configured-resources.ts app/src/main/adapters/claude/plugin-catalog.ts` → 6줄. 제외 2줄: `plugin-catalog.ts:24` 정의 · `:68` 선택 루프(이후 :156이 거름) | 지운 플러그인이 nav에 남음 |
+| EP-08 · VP-28·32 | Claude 노출 = 설치 목록 && 설치 폴더 존재 | E1 `configured-resources.ts:142` · E2 `:146` 루프(부재 건너뜀) · E3 `:153-154` 디렉터리 등록 · E4 `plugin-catalog.ts:156` 실행 경로(공용 helper로 교체) — **4** | `rg -n "installedClaudePlugins\(\|for \(const entry of globalOnly\|directories\.set\(id, installPath\)\|if \(directories\.has\(id\)\) continue\|exists\(entry\.path\)" app/src/main/adapters/claude/configured-resources.ts app/src/main/adapters/claude/plugin-catalog.ts` → 7줄(ΔV3 정정 — E3 2줄, `9982cdf` 재측정). 제외 2줄: `plugin-catalog.ts:24` 정의 · `:68` 선택 루프(이후 :156이 거름) | 지운 플러그인이 nav에 남음 |
 | EP-09 · VP-28~31 | OpenCode 외부 변경 → 비노출·새 서버·재준비 | X1 신설 감시 모듈 · X2 신설 fingerprint · X3 `bootstrap.ts:883` shutdown 해제 · X4 신설 공용 fan-out(토글·감시 공유) · X5 기록 노출 규칙(ΔV1 P17 모듈) · X6 `bootstrap.ts:1040` composer revalidate 연결 · X7 `bootstrap.ts:1201` extension catalog deps — **7** | `rg -n "this\.closeComposerCatalog\|registerExtensionCatalogHandlers\(" app/src/main/app/bootstrap.ts` → 3줄(X3·X6·X7) + 신설 4 | 외부 삭제 후에도 Composer·새 세션·nav에 노출, 또는 자기 쓰기 중복 서버 교체 |
 
 - ΔV2 분모 11(EP-08 4 · EP-09 7). 유효 V 총 87(V1 45 + ΔV1 31 + ΔV2 11). capability 변경은 ΔV1 EP-06 P4·P5 자리 안이라 새 자리로 세지 않는다.
@@ -754,6 +756,173 @@ nav → 플러그인 탭 → OpenCode 플러그인 행
 - ACTIVE 결정 ↔ AC: D-019↔AC27~AC30, D-020↔AC28·AC30, D-021↔AC29 — 충돌 0. D-015(확인 대화상자)는 Orca 토글에만 적용되고 AC28은 대화상자를 요구하지 않음 — 모순 없음.
 - ΔV1 문장 중 보강: AC19 "Orca 기록 항목만 true" → D-021로 설치본 확인 조건 추가(VP-23′). AC22 reconcile은 감시(AC30)로 즉시성이 보강될 뿐 계약 불변.
 - READY self-review(ΔV2): 원문 인용 1·추론 결정 2건 표시 · 사실 6행 관측 · AC 4건 행동·수단·경로 · NEW 노드 5개 REQUIRED pair · CHANGED MD-06 REQUIRED(VP-23′) · INHERITED 2개 REGRESSION · §10 11자리 검색 명령 고정 · 적대 증거 VP-28·29·31만 선택.
+
+# ΔV3 — 에이전트 캐시를 플러그인 revision 데이터 구독으로 (2026-10-23)
+
+판정: **DRAFT**. verify r1 RETURN_TO_PLAN의 G1·N1을 닫는다. G2는 U-002 사용자 결정 대기라 READY가 아니다. F3~F7은 기존 pair·§10에 귀속된 구현 의무라 규범 변경이 없다(`[검증자 기입] 파생 이슈`).
+
+## ΔV3-1. 1차 소스 사실 (Orca `6fa83b39`)
+
+| 사실 | 근거 |
+|---|---|
+| 현재 캐시 무효화는 owner 단위라 Composer가 없으면 renderer에 닿지 않는다 | `composer-catalog-owner.ts:148-156` · verify r1 F1 재현 |
+| 일반 토글 경로는 Composer가 unmount되는 `/plugins` 라우트다 | `router.tsx:36` |
+| owner 없는 전 창 push가 infra에 있다 | `infra/ipc/send.ts:44-48` `broadcast()` |
+| zustand@5 채택, vanilla store 팩토리 선례 | `app/package.json` `"zustand": "^5.0.14"` · `errorToastStore.ts:1·11` |
+| store가 무효화 규칙을 소유하는 선례. 단 구독을 컴포넌트 effect에서 등록한다 | `agentStore.ts:50-55` · `useAgents.ts:12` |
+| main→renderer 구독의 optional chaining 선례(비브라우저 import 안전) | `nativeResourceState.ts:302` |
+| 캐시가 비면 구독 중 state는 모든 part를 refresh로 재조회한다 | `composerCatalogState.ts:54-63` |
+| refresh 읽기는 새 lease를 준비한 뒤 이전 lease를 반납한다 | `composer-catalog-owner.ts:70-85·117-127` |
+| 변경 fan-out은 `extensionsChanged`(→`retireAll`) 뒤 owner revalidate | `bootstrap.ts:1224-1227` · `opencode/v1/adapter.ts:55` · `server.ts:169-171` |
+| plugin revision은 main 프로세스 수명 동안 1부터 단조 증가한다 | `opencode-global-watch.ts:48` |
+| nav 플러그인 목록은 열린 동안 5초 주기로 다시 읽는다 | `useNativeMcpCatalog.ts:66` · `useNativeMcpCatalog.test.ts:'queries explicit global scope…'`(10초 진행) |
+| bootstrap 테스트는 broadcast를 관측한다 | `bootstrap.native-history.test.ts:80-84` `fixture.broadcasts` |
+| OpenCode SDK에는 호출 단위 설정 경로가 없다 | `@opencode-ai/sdk` 1.18.27 `ServerOptions = {hostname, port, signal, timeout, config}`(`dist/v2/server.d.ts`) · 요청 단위는 `directory`·`workspace`만 |
+
+## ΔV3-2. Product 변경
+
+```text
+플러그인 on/off 적용 (Orca 토글 또는 외부 변경 — 공용 fan-out)
+  → main: 새 연결용 서버 교체 → plugin revision 신호 1회 방송
+  → renderer 에이전트 store: 더 큰 revision이면 목록 비움 (Composer 유무 무관)
+     ├ 열린 Composer: 제목 스피너 → 새 목록 1회 (모델 값 유지)
+     └ 열린 Composer 없음: 요청 0 → 다음에 마운트되는 Composer가 1회 요청 → 새 목록
+  → 변경이 없으면 D-001 그대로 재사용 (요청 0)
+```
+
+## ΔV3-3. Decision
+
+§3 D-022(사용자 원문)·U-002(OPEN). D-017·D-020의 동작은 그대로이고 전달 경로만 바뀐다. ACTIVE 결정 ↔ AC: D-022↔AC31, D-017↔AC25′·AC32, D-020↔AC28′ — 충돌 0.
+
+## ΔV3-4. Acceptance — AC25′·AC28′(대체) · AC31·AC32(신규)
+
+| R | AT / AC | 동작 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-06 | AT-07 / **AC25′** (AC25 대체) | OpenCode 플러그인 변경이 적용되면 열린 Composer 유무와 무관하게 에이전트 캐시가 비워진다. 열린 Composer는 제목 스피너 뒤 새 목록을 받고 모델 값은 유지한다. 변경 뒤 처음 마운트되는 Composer(`/plugins`에서 돌아온 경우 포함)는 agents를 1회 요청해 새 목록을 표시한다. 변경이 없으면 요청 0 | A 성공 → 전부 unmount → 신호 → B mount: agents 요청 1·새 목록 / 열린 상태 신호: loading→ready·models 값 유지 / 신호 없음: 요청 0 | 토글 → fan-out → broadcast → store → `ComposerCatalogState` → Controls |
+| R-07 | AT-09 / **AC28′** (AC28 대체) | 켜진 플러그인을 외부에서 지우면 nav에서 사라지고(열린 동안은 기존 5초 재조회) 기록이 생기지 않는다. 감시가 잡은 변경은 AC25′와 같은 경로로 캐시를 비우고 새 연결은 새 서버로 간다. 실행 중 세션의 서버는 유지 | 외부 편집 → 감시 → broadcast revision · 기존 owner 연결 · nav 목록 | watcher → 공용 fan-out → broadcast |
+| R-06 | AT-07 / **AC31** | 무효화 구독은 store가 생성 시 1회 등록해 소유한다. Composer가 0개여도 신호가 캐시를 비우고, Composer 마운트·언마운트 횟수와 무관하게 구독은 1개다 | store 생성 → 구독 1 · 뷰 없이 신호 → agents 없음 · 뷰 2개 mount/unmount 뒤 구독 수 1 | store 모듈 |
+| R-06 | AT-07 / **AC32** | main은 서버 교체(`extensionsChanged`) 뒤에 신호를 보낸다. 신호 전에 요청한 agents 응답은 캐시를 채우지 않고, 신호 뒤 재요청 결과가 캐시된다 | fan-out 순서 로그 `[extensionsChanged, broadcast]` · in-flight 요청 → 신호 → 늦은 응답(옛 목록) 무시 → 재요청(새 목록) 캐시 | fan-out · store revision · state 읽기 |
+
+- AC 총수: 30 → 32(AC25·AC28을 대체, AC31·AC32 추가). 25 초과 — G2(U-002) 결정 때 handoff 분할을 함께 검토한다.
+
+## ΔV3-5. Delta V
+
+| 노드 | 레벨 | 내용 | provenance | 대체 |
+|---|---|---|---|---|
+| R-06 | R | AC25′·AC31·AC32 | CHANGED | — |
+| R-07 | R | AC28′ | CHANGED | — |
+| SD-05 | SD | plugin revision ↔ 에이전트 캐시 수명주기: 뷰 유무·in-flight·첫 subscribe 전 비움 | NEW | — |
+| AR-01′ | AR | 팩토리 → zustand store → `useComposerCatalog` 무-scope 스냅샷(`useStore`) → Controls | CHANGED | AR-01 대체 |
+| AR-05′ | AR | fan-out → `broadcastOpenCodePluginsChanged` → preload/api → store 구독 → 구독 중 state 재조회 → owners.read(refresh) | CHANGED | AR-05 대체 — owner revalidate 제거 |
+| MD-01′ | MD | zustand vanilla store: revision 규칙(`accept`·`invalidate`)과 생성 시 구독 | CHANGED | MD-01 대체 |
+| AT-07·AT-09 | AT | AC25′·AC28′·AC31·AC32 | CHANGED | — |
+
+| Pair | 좌 ↔ 우 | requiredness | production path | 직접 oracle 좌표 | 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-04′ | MD-01′ ↔ UT-01′ | REQUIRED (VP-04·VP-24 대체) | 생성 → 구독 등록 → `accept`/`invalidate` → 구독자 알림 | 신규 `composerAgentStore.test.ts`: `'keeps the first list accepted at the current revision and notifies subscribers once'` · `'invalidates only for a newer revision and ignores results captured at an older revision'` · `'subscribes to plugin changes once at creation and clears agents without any view'`(주입 subscribe fake) | required — revision 비교 방향·생성 시 구독 존재. 변이: W14 `<=`→`>` 뒤집기, W14 accept의 revision 검사 제거, W21 생성 시 구독 제거, W14 첫 성공 덮어쓰기 | EP-07′ W14·W21 |
+| VP-03′ | AR-01′ ↔ IT-01′ | REQUIRED | `composerCatalogState()` → store 싱글톤 → `useComposerCatalog` `useStore` → Controls | 기존 `Module.integration.test.ts:'shows cached agents before the chat scope exists'` · `'reuses the first successful agent list across landing scopes without requesting or spinning'`(store로 갱신) | required — 변이: A2 고정 pending, W15 selector 고정 `undefined` | EP-01′ A1·A2 · EP-07′ W15 |
+| VP-21′ | AR-05′ ↔ IT-05′ | REQUIRED (VP-21 대체) | changed(revision) → `extensionsChanged`→`retireAll` → broadcast → preload `session.onOpenCodePluginsChanged` → `sessionApi` → store.invalidate → 구독 state refresh → owners.read(refresh) 새 lease | `bootstrap.native-history.test.ts` 신규 `'broadcasts each OpenCode plugin revision after retiring servers and sends no owner revalidation'`(Orca 토글·외부 편집 → `fixture.broadcasts` 채널·revision `[1,2,3]`·순서 로그·`composerCatalogInvalidated` 0건) · `preload/index.test.ts` 신규 `'forwards OpenCode plugin changes on their own channel'` · `composerCatalogState.test.ts` 신규 `'refreshes subscribed parts once per plugin revision while keeping models'` · 기존 `server.test.ts:'starts a new server for new owners after retireAll while existing owners keep theirs'` | required — 순서·형제 채널·운반 값. 변이: W3 broadcast 제거, W2↔W3 순서 맞바꿈, W19 채널을 `composerCatalogInvalidated`와 맞바꿈, W16 revision 고정 `1` | EP-07′ (21) |
+| VP-35 | SD-05 ↔ ST-05 | REQUIRED (NEW) | 뷰 0 → 신호 → 뷰 mount / 열린 뷰 → 신호 / in-flight → 신호 → 늦은 응답 / 생성 뒤 첫 subscribe 전 비움 | `Module.integration.test.ts` 신규 `'requests agents once after a plugin change made while no composer was mounted'`(F1 회귀) · `composerCatalogState.test.ts` 신규 `'drops agent results requested before a plugin change and caches the refetched list'` · 신규 `'refetches agents when the cache is cleared between construction and first subscribe'`(F7) | required — 요청 1회·stale 무시. 변이: W12 포착 revision을 응답 시점 값으로 교체, W21 생성 시 구독 제거, A6 subscribe 재파생 제거 | EP-07′ W9·W10·W12·W13·W21 · EP-01′ A6·A8 |
+| VP-18′ | R-06 ↔ AT-07·AT-08 | REQUIRED (VP-18 대체) | 행 토글 → 확인/적용 → fan-out → broadcast → store → Composer | edge 대응: 토글→fan-out = VP-21′ bootstrap 좌표의 토글 사례 · fan-out→store = VP-21′ preload·state 좌표 · store→뷰 = VP-35·VP-03′ 좌표 · 확인 = 기존 `requires confirmation…`·`asks before changing…` · AC26 실기 | not selected — 하위 좌표 edge 대응 | EP-06 P6·P7·P10~P13 (6) · EP-07′ |
+| VP-28′ | R-07 ↔ AT-09 | REQUIRED (VP-28 대체) | 외부 편집 → 감시 → fan-out → broadcast → store / nav 재조회 | VP-21′ bootstrap 좌표의 외부 편집 사례 · 기존 VP-28 비노출 좌표 · `useNativeMcpCatalog.test.ts:'queries explicit global scope…'` | VP-28 변이 승계(E2·X5) | EP-08 (4) · EP-09 X5 (1) · EP-07′ |
+| VP-01·02·05·26·27 | R-01·SD-01·SD-0281 | REGRESSION | 변경 없는 재사용·동시·실패·취소·models 유지 | V1·ΔV1 좌표(새 store 주입으로 갱신) | V1 변이 승계(A3 agents error) | EP-01′ |
+
+- SUPERSEDED 이관:
+  - VP-04·VP-24 → VP-04′ (첫 값 보존·revision 비교 변이 승계).
+  - VP-21 → VP-21′ (models reset 변이 → VP-21′ state 좌표, revision 비교 변이 → VP-04′).
+  - VP-18 → VP-18′ (확인 변이 2종 승계).
+  - VP-28 → VP-28′ (E2·X5 승계).
+  - AC25 → AC25′, AC28 → AC28′.
+
+## ΔV3-6. Technical Design
+
+### AS-IS → TO-BE
+
+```text
+AS-IS  changed(rev) → extensionsChanged→retireAll → owners.revalidate(rev)
+         → (owner 있음) composerCatalogInvalidated{revalidate} → cache.reset → state 재조회
+         → (owner 없음) 전달 0 → 다음 Composer가 옛 캐시 표시            ← F1
+TO-BE  changed(rev) → extensionsChanged→retireAll → broadcastOpenCodePluginsChanged({revision})
+         → preload session.onOpenCodePluginsChanged → composerAgentStore (생성 시 구독, 창·뷰 무관)
+         → invalidate(rev): rev > state.revision이면 {revision: rev, agents: undefined}
+         → 구독 중 ComposerCatalogState: revision 변경 → epoch++ → 모든 part refresh 재조회
+         → 뷰: useStore(store, s => s.agents) 재렌더
+```
+
+### 계약
+
+| 대상 | 변경 | 위치 |
+|---|---|---|
+| 채널 | 신설 `CHANNELS.extensionOpenCodePluginsChanged = 'orca:extensions:opencode-plugins-changed'`, M→R broadcast | `shared/ipc.ts` |
+| 이벤트 타입 | 신설 `OpenCodePluginsChanged { revision: number }` — main 프로세스 수명 동안 1부터 단조 증가하는 양의 정수 | `shared/native-resources.ts` |
+| main 발신 | 신설 `broadcastOpenCodePluginsChanged(event)` — 기존 `broadcast()` 사용 | `infra/ipc/send.ts` |
+| fan-out | `extensionsChanged()` 다음 `broadcastOpenCodePluginsChanged({ revision })`. `closeComposerCatalog?.revalidate` 제거 | `bootstrap.ts:1224-1227` |
+| 제거 | `ComposerCatalogOwners.revalidate` · `ComposerCatalogRegistration.revalidate`(타입을 `() => void`로 복귀) · `ComposerCatalogInvalidated.revalidate` · state의 revalidate 분기 | `composer-catalog-owner.ts:148-156` · `handlers/composer-catalog.ts:13·72` · `shared/composer-catalog.ts:37` · `composerCatalogState.ts:68-71` |
+| preload/api | 신설 `session.onOpenCodePluginsChanged(handler): () => void`, renderer `sessionApi.onOpenCodePluginsChanged`는 `window.orca?.session?.onOpenCodePluginsChanged?.(h)` | `preload/index.ts` · `renderer/shared/api/ipc.ts` |
+| store | `composerAgentCache.ts`를 `composerAgentStore.ts`로 교체(아래) | renderer composer |
+
+```ts
+// composerAgentStore.ts — zustand/vanilla (errorToastStore 선례)
+export interface ComposerAgentState {
+  agents?: NativeComposerCatalog['agents'] // 첫 성공 목록. undefined = 미로딩 또는 비움
+  revision: number                         // 마지막으로 본 plugin revision. renderer 시작 시 0
+  accept(value: NativeComposerCatalog['agents'], revision: number): void // revision 불일치 또는 agents 존재면 무시
+  invalidate(revision: number): void       // revision <= state.revision이면 무시, 아니면 {revision, agents: undefined}
+}
+export function createComposerAgentStore(
+  subscribe: (handler: (event: OpenCodePluginsChanged) => void) => (() => void) | undefined
+): StoreApi<ComposerAgentState> // 생성 시 subscribe(e => invalidate(e.revision)) 1회
+export const composerAgentStore = createComposerAgentStore(sessionApi.onOpenCodePluginsChanged)
+```
+
+- `ComposerCatalogState(scope, remove, store = composerAgentStore)`:
+  - 슬롯은 `store.getState().agents`에서 파생한다.
+  - `store.subscribe((s, prev) => …)`에서 `s.revision !== prev.revision`이면 epoch++ · flights 초기화 · generation retire · 구독 중 part 전부 refresh 재조회. 그 밖에는 슬롯만 갱신한다.
+  - 읽기 시작 때 `store.getState().revision`을 포착해 `accept(value, captured)`에 넘긴다.
+- `useComposerCatalog`의 무-scope 스냅샷은 `useStore(composerAgentStore, (s) => s.agents)`로 구독한다.
+- **renderer 재시작 경계:** store revision이 0에서 시작하므로 재시작 뒤 첫 신호(main revision ≥1)는 목록을 한 번 비운다. 이미 새 목록이어도 재요청 1회만 늘어나는 안전한 방향이라 허용한다.
+- **owner revalidate를 지우는 근거:** 비움 신호가 구독 중 state의 refresh 재조회를 일으키고(`composerCatalogState.ts:54-63`), refresh 읽기가 새 lease 확보 뒤 이전 lease를 반납한다(`composer-catalog-owner.ts:70-85·117-127`). 같은 목적의 경로를 둘 두지 않는다.
+
+### 파일·문서
+
+- 코드: 위 계약 표의 파일들, `composerAgentStore.test.ts`(신규, `composerAgentCache.test.ts` 대체).
+- 테스트 갱신: `composerCatalogState.test.ts` · `Module.integration.test.ts` · `bootstrap.native-history.test.ts` · `handlers/composer-catalog.test.ts`(revalidate 케이스 제거) · `preload/index.test.ts`.
+- 문서:
+  - `docs/IPC_CONTRACT.md`: 새 채널 행 추가, `orca:composer:catalog-invalidated` 행에서 `revalidate` 제거.
+  - `docs/arch/backend/adapters.md:53`: 무효화 경로 문장 정정.
+  - `docs/arch/frontend/state.md` 상태 표: 에이전트 store 행 추가.
+  - `docs/generated/inventory.md`: 재생성.
+
+## ΔV3-7. 강제 지점 (§10 ΔV3 — EP-01·EP-07 대체)
+
+| V / pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|
+| EP-07′ · VP-21′·VP-35·VP-04′·VP-03′ | plugin 변경 → 서버 교체 뒤 방송 → store 비움 → 뷰 재조회. owner revalidate 없음 | **검색 자리 15:** W1 `opencode-global-watch.ts:48` revision · W2 `bootstrap.ts:1225` extensionsChanged(앞) · W3 `:1226` revalidate → broadcast 교체(뒤) · W4 `opencode/v1/adapter.ts:55` retireAll 호출 · W5 `server.ts:169` retireAll · W6 `composer-catalog-owner.ts:148·153` revalidate 삭제 · W7 `handlers/composer-catalog.ts:13·72` 삭제 · W8 `shared/composer-catalog.ts:37` 필드 삭제 · W9 `composerCatalogState.ts:8·38` store 주입 · W10 `:54·56` store 구독 → revision 변경 시 재조회 · W11 `:68·69` revalidate 분기 삭제 · W12 `:117` revision 포착 · W13 `:143` accept · W14 `composerAgentCache.ts:6·11·36` → store 모듈 교체 · W15 `useComposerCatalog.ts:5·24` 뷰 구독.<br>**신설 6:** W16 `send.ts` broadcast 함수 · W17 `shared/ipc.ts` CHANNELS · W18 `shared/native-resources.ts` 이벤트 타입 · W19 `preload/index.ts` 구독 · W20 `renderer/shared/api/ipc.ts` 래퍼 · W21 store 생성 시 구독.<br>합계 **21** | `rg -n "revalidate\|composerAgentCache\|ComposerAgentCache\|getRevision\|this\.agents\.\|extensionsChanged\?\.\(\)\|retireAll\|changed\(\+\+this\.revision\)" app/src/main/app/bootstrap.ts app/src/main/app/opencode-global-watch.ts app/src/main/app/composer-catalog-owner.ts app/src/main/app/handlers/composer-catalog.ts app/src/main/adapters/opencode/v1/adapter.ts app/src/main/adapters/opencode/v1/server.ts app/src/shared/composer-catalog.ts app/src/renderer/src/features/chat/harnesses/opencode/composer --glob '!*.test.ts'` → `6fa83b39`에서 27줄 = W1~W15 22줄 + EP-01′로 이관 5줄(`composerCatalogState.ts:44·97·109·130·155`) | Composer 없을 때 옛 에이전트 잔존(F1), 옛 서버 응답이 캐시를 채움, owner 경로와 store 경로 이중 무효화 |
+| EP-01′ · VP-01~03·VP-35 | agents 슬롯 = store 우선 | A1 `useComposerCatalog.ts:8` pending · A2 `:28·30` 무-scope 슬롯 · A3 `composerCatalogState.ts:18` 초기 · A4 `:40` 생성자 슬롯 · A5 `:43-45` agentSlot · A6 `:53` subscribe 재파생(F7, 구 A2) · A7 `:55` 구독 콜백 슬롯 · A8 `:62` 비움 시 재조회 · A9 `:79` 초기 agents 읽기 · A10 `:97` 인스턴스 무효화 시 캐시 유지 · A11 `:109-110` 캐시 조기 반환 · A12 `:114` ready 게이트 · A13 `:130·132` 취소 시 유지 · A14 `:146` 성공 슬롯 · A15 `:155·157` 실패 시 유지 — **15** | V1 EP-01 명령을 `6fa83b39`에서 재실행 → 33줄 = A1~A15 21줄 + 제외 5줄(`:95` 선언 · `:98-100` models·mcp·plugins 형제(VP-05) · `:105` retry) + EP-07′ 7줄(`useComposerCatalog.ts:24` · `composerCatalogState.ts:38·54·56·69·117·143`) | 재조회·스피너 재표시·무효화 뒤 목록 소실·늦은 응답 덮어쓰기 |
+
+- ΔV3 분모 36(EP-07′ 21 · EP-01′ 15). 대체된 분모: V1 EP-01 10 · ΔV1 EP-07 12. 유효 V 총 101(87 − 22 + 36).
+- ΔV1 EP-07 Q4~Q7(owner revalidate 운반)은 W6·W7 삭제 자리로, Q1~Q3·Q8~Q12는 W2~W5·W9~W15로 이관한다.
+
+## ΔV3-8. Gate
+
+- ΔV1·ΔV2 gate와 같다. `node scripts/check-doc-inventory.mjs`로 생성물을 다시 만든 뒤 `--check`로 대조한다(채널 수 변경).
+- 관련 스위트에 `src/preload`와 `src/renderer/src/features/chat/harnesses/opencode/composer`를 포함한다.
+
+## ΔV3 정합성 검토
+
+- ACTIVE 결정 ↔ AC:
+  - 충돌 0: D-022↔AC31, D-017↔AC25′·AC32, D-020↔AC28′, D-001↔AC25′(변경 없으면 요청 0).
+  - D-015·D-016은 경로 불변.
+- 같은 대상의 서술 대조: AC25′의 "열린 Composer 유무와 무관"이 ΔV3-6 store 생성 시 구독, VP-35 F1 회귀 좌표와 일치한다. ΔV1-4 원 AC25의 "열린"은 AC25′로 대체했다.
+- self-review(ΔV3):
+  - 사용자 원문 2건 인용, 사실 13행 관측.
+  - AC 4건에 행동·수단·경로가 있다.
+  - NEW SD-05 → VP-35 REQUIRED. CHANGED 노드 MD-01′·AR-01′·AR-05′·R-06·R-07 각각 REQUIRED pair가 있다.
+  - INHERITED 5 pair는 REGRESSION.
+  - §10 36자리는 검색 명령과 `6fa83b39` 출력으로 고정했다.
+  - 적대 증거는 VP-04′·03′·21′·35에서 선택했다.
+  - 신규 의존성 0(zustand 채택 목록 내).
+- READY 아님: U-002(G2) 결정이 남아 있다.
 
 ---
 
