@@ -171,3 +171,87 @@
 - pair: PASS(VP52·53·56·57·VP50·51·VP-01–49) · root PAIR_FAIL 3(VP54·VP55·VP58). PLAN_GAP 없음.
 - AC: ✅54 · ❌3 / 57.
 - 다음 단계: Codex r2 — D1–D3, 다음 verify는 J7·J8·J13·J15 재실행과 M1–M4.
+
+---
+
+# r2 재검증 (2026-10-23)
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 대상 커밋/range | `32b43cc..e42d1e2` 중 0267: `aa747d6`(r2 — 테스트 3파일) |
+| 구현 전 plan 기준 | r1과 같음 — `aa747d6`의 `plan.md` `-` 줄은 메타 상태 1줄 |
+| V mode / 유효 V | Baseline V + ΔV1–ΔV16, 누적 AC1–57 |
+| 라운드 | 2 (verify 2회째) |
+| 자기 검증 여부 | 아니오 — 구현 Codex, 검증 Claude |
+
+**PASS — r1 미검출 J7·J8(스위치 전환·축소 모션)·J13(상태 패널 그룹 간격)·J15(모델 메뉴 로고 색)가 모두 잡히고, 등록 변이 M1–M4와 나머지 고장도 유지된다.** production 무변경 테스트 보강 라운드다.
+
+## r2-0. 기준선 / plan validity
+
+- 앱 변경은 테스트 22파일뿐(production 0) — EP31 11자리와 경로는 r1과 같다.
+- 새 oracle 실행 구간: `Toggle.render.test`는 실제 `ToggleIndicator` SSR의 track/thumb class를 on·off×busy로 단언한다. `NativeResourcesTile.test`는 실제 타일 컨테이너의 heading 간격 class와 그룹 순서를, `Composer.harness.test`는 provider heading SVG의 하네스별 색과 반대 색 부재를 단언한다 — 형제(Claude↔OpenCode) 맞바꿈이 구별된다.
+- r1 §14가 적은 "Chromium 실측 좌표" 자리(④⑤⑥⑪)는 이제 gate 실행 집합의 테스트 좌표를 갖는다.
+
+## r2-4. 고장 재실행
+
+- 범위 renderer `src/renderer/src` 전체.
+
+| ID | r1 | r2 | 잡은 테스트 | 귀속 |
+|---|---|---|---|---|
+| J1 (M1) | 잡음 | 잡음 | `Sidebar.interaction.test: selects claude/opencode into a fresh draft…` 2건 | VP-02 등록 |
+| J2 (M2) | 잡음 | 잡음 | `nativeResourcesMenu.test` 10·`NativeResourcesTile.test`·`useNativeResources.test` | VP-06·09 등록 |
+| J3 (M3) | 잡음 | 잡음 | `Composer.native-menu.test` 10건 | VP-17 등록 |
+| J4 (M4) | 잡음 | 잡음 | `NativeResourcesTile.test: shares one cold read…` 외 6 | VP50 등록 |
+| J5 | 잡음 | 잡음 | `rightPanelTiles.harness.test: limits opencode status to Code…` | EP31 ① |
+| J6·J11·J12 | 잡음 | 잡음 | `NativeResourcesTile.test: shows the correct branded project title…` | EP31 ②③ |
+| J7 | 못 잡음 | **잡음** | `Toggle.render.test: preserves the 200ms switch transitions and reduced motion when on=false/true` | EP31 ④ · D1 |
+| J8 | 못 잡음 | **잡음** | 같음 | EP31 ⑤ · D1 |
+| J13 | 못 잡음 | **잡음** | `NativeResourcesTile.test: uses the native rows for statuses…`(heading 간격 class) | EP31 ⑥ · D2 |
+| J14 | 잡음 | 잡음 | `CustomizeList.render.test: groups skills and MCP by canonical source…` 외 1 | EP31 ⑦ |
+| J10 | 잡음 | 잡음 | `EngineCard.render.test: preserves the claude card label…` | EP31 ⑩ |
+| J15 | 못 잡음 | **잡음** | `Composer.harness.test: shows both harness model groups for a draft and only the bound group…` | EP31 ⑪ · D3 |
+
+- 검산: 시도 15 = 잡음 15 · 못 잡음 0 · 동치 0. r1 못 잡음 4 → 잡음, r1 잡음 11 → 잡음(등록 변이 M1–M4 포함, 덮개 회귀 0).
+
+## r2-5. V-pair closeout
+
+| Pair | 레벨 | r1 | r2 | 증거 |
+|---|---|---|---|---|
+| VP54 | UT | PAIR_FAIL | **PASS** | J7·J8 잡음 |
+| VP55 | IT | PAIR_FAIL | **PASS** | J13·J14 잡음 |
+| VP53 | ST | PASS | PASS | J5 잡음 |
+| VP52 | AT | PASS | PASS | J6·J11·J12 잡음 |
+| VP56·VP57 | AT | PASS | PASS | 직접 oracle pass·J10 잡음 |
+| VP58 | AT | PAIR_FAIL | **PASS** | J15 잡음 |
+| VP50·51 · VP-01–49 | — | PASS | PASS | J1–J4(M1–M4) 잡음, renderer 377/3078 green |
+
+| AC | 결과 | 근거 |
+|---|---|---|
+| AC1–AC52·AC55·AC56 | ✅ | r1과 같은 축 잡음, 직접 oracle pass |
+| AC53 스위치 200ms 전환·축소 모션 | ✅ | J7·J8 잡음 |
+| AC54 그룹 간격·Nav 스킬 간격 | ✅ | J13·J14 잡음 |
+| AC57 모델 메뉴 그룹 로고 색 | ✅ | J15 잡음 |
+
+- 합계 재측정: `✅ 57 · ❌ 0 = 57`. 자기보고 `Criteria-Met: 57/57`(`aa747d6`) 일치.
+- §10 EP31: 11/11 PASS.
+- 운영 gate: [0281 verify r2](../0281-opencode-menu-cache/verify.md#r2-운영-gate-head-e42d1e2)와 같은 HEAD 실행.
+
+## r2-11. Repository operation checks
+
+- INDEX: `impl/IMPL_DONE`(r2) → PASS, archive 이동. `aa747d6` `git cat-file -t` = commit, trailer 5키 파싱.
+- `[구현자 기입] r2` 7필드 존재.
+
+## r2-13. Finding disposition
+
+| # | r2 상태 | 근거 |
+|---|---|---|
+| D1 | closed | J7·J8 잡음 |
+| D2 | closed | J13 잡음 |
+| D3 | closed | J15 잡음 |
+| N1 | NON_BLOCKING 유지 | 기록 문제(r1 커밋의 검색 문구), 판정 무관 |
+
+## r2-15. 결론
+
+- 상태: **PASS** — verify 2회째. pair 전부 PASS, PLAN_GAP 없음, AC ✅57/57.
+- 남은 사람 확인: 스위치 전환의 실제 프레임·두 테마(AC 밖, class는 잠김).
