@@ -174,3 +174,85 @@
 - pair: PASS 4(VP2·VP4·VP5·VP7) · root PAIR_FAIL 2(VP3·VP6) · BLOCKED_BY 1(VP1). PLAN_GAP 없음.
 - AC: ✅8 · ❌2 / 10.
 - 다음 단계: Codex r2 — D1·D2, 다음 verify는 Q2·Q8 재실행.
+
+---
+
+# r2 재검증 (2026-10-23)
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 대상 커밋/range | `32b43cc..e42d1e2` 중 0276: `d135fa5`(r2 — 테스트 2파일) |
+| 구현 전 plan 기준 | r1과 같음 — `d135fa5`의 `plan.md` `-` 줄은 메타 상태 1줄 |
+| V mode / 유효 V | Baseline V + ΔV1 + ΔV2, 표현 부분은 0281 ΔV1로 SUPERSEDED |
+| 라운드 | 2 (verify 2회째) |
+| 자기 검증 여부 | 아니오 — 구현 Codex, 검증 Claude |
+
+**PASS — r1 미검출 Q2(draft provider)·Q8(retired 세대 결과 폐기)가 모두 잡히고, r1에서 잡히던 고장도 유지된다.** production 무변경 테스트 보강 라운드다.
+
+## r2-0. 기준선 / plan validity
+
+- 앱 변경은 테스트 22파일뿐(production 0) — §10 19자리와 경로는 r1과 같다.
+- 새 oracle 실행 구간: `composer-catalog.test: prepares draft and saved directory…`는 등록 handler → 실제 resolver(`resolve` mock은 기본 `one`과 요청 `two`를 구별) → prepare를 지난다. `composerCatalogState.test: keeps the new generation when an older part resolves in the same epoch`는 실제 state 클래스의 응답 순서를 조작한다.
+- 운반 값 구별: draft providerKey `two`가 기본값 `one`과 달라 `providerKey: null`(Q2)이 관측을 바꾼다.
+
+## r2-4. 고장 재실행
+
+- main `src/main src/shared src/preload`(Linux 기준선 17 red). Windows 전용 `composer-catalog.test.ts`·`adapter.test.ts`는 검증자 win32 shim(`…w`)으로 쟀다. shim 기준선 25케이스 중 1건(`reads installed plugin metadata…`)은 shim의 tmpdir 경로 부산물이라 제외했다.
+
+| ID | r1 | r2 | 잡은 테스트 | 귀속 |
+|---|---|---|---|---|
+| Q1 | 잡음(shim) | 잡음(shim) | `composer-catalog.test: prepares draft and saved directory with the same production settings…` | EP2 resolver |
+| Q2 | 못 잡음 | **잡음(shim)** | 같음 | EP2 resolver · D1 |
+| Q3 | 잡음(shim) | 잡음(shim) | 같음 | EP2 resolver |
+| Q4·Q5 | 잡음 | 잡음 | `handlers/composer-catalog.test: shares pending acquisition…releases on navigation/crash/shutdown` | EP2 window |
+| Q6 | 잡음 | 잡음 | `handlers/composer-catalog.test: refresh re-resolves and keeps old owner until replacement is ready` | EP2 owner |
+| Q7 | 잡음 | 잡음 | `handlers/composer-catalog.test: validates directory and owner before preparation…` | EP1 |
+| Q8 | 못 잡음 | **잡음** | `composerCatalogState.test: keeps the new generation when an older part resolves in the same epoch` | EP4 state · D2 |
+| Q9·Q10 | 잡음 | 잡음 | `Module.integration: prepares draft agents before providers…` | EP4 hook·variant |
+| Q11–Q14 | 잡음 | 잡음 | `adapter.persistent.test`·`adapter.startup.test`·`opencode-runtime.test` (r1과 같은 축) | EP5 |
+
+- 검산: 시도 14 = 잡음 14 · 못 잡음 0 · 동치 0. r1 못 잡음 2 → 잡음, r1 잡음 12 → 잡음(덮개 회귀 0).
+- Linux Q2 실행은 기준선 밖 1건이 `infra/loopback-callback.test: 타임아웃은 LoopbackCancelledError 로 끝난다`였다 — 변이와 무관한 타이머 테스트가 병렬 부하에서 흔들린 것이라 증거로 세지 않았다(게이트 단독 실행에서는 green).
+- 0280 D1의 형제 N6b(r1 이 handoff N1)는 0280 verify r2에서 잡음(shim)으로 닫혔다.
+
+## r2-5. V-pair closeout
+
+| Pair | 레벨 | r1 | r2 | 증거 |
+|---|---|---|---|---|
+| VP5 | UT | PASS | PASS | 좌표 실재·pass(r1과 같음), production 무변경 |
+| VP6 | UT | PAIR_FAIL | **PASS** | Q8 잡음 |
+| VP3 | IT | PAIR_FAIL | **PASS** | Q1–Q7 잡음 |
+| VP4 | IT | PASS | PASS | Q9·Q10 잡음 |
+| VP7 | IT | PASS | PASS | Q11–Q14 잡음 |
+| VP2 | ST | PASS | PASS | Q6 잡음 |
+| VP1 | AT | BLOCKED_BY:VP3·VP6 | **PASS** | 하위 root 해소, AC1–AC10 관측 |
+
+| AC | 결과 | 근거 |
+|---|---|---|
+| AC1–AC5·AC7·AC8·AC10 | ✅ | r1과 같은 축 Q4–Q7·Q9–Q14 잡음 |
+| AC6 늦은 결과 폐기·오류≠빈 목록 | ✅ | Q8 잡음 |
+| AC9 턴과 같은 설정/env/cwd·창 격리 | ✅ | Q1·Q2·Q3 잡음(shim) |
+
+- 합계 재측정: `✅ 10 · ❌ 0 = 10`. 자기보고 `Criteria-Met: 10/10`(`d135fa5`) 일치.
+- §10: EP1 4/4 · EP2 4/4 · EP3 3/3 · EP4 4/4 · EP5 4/4 = 19/19.
+- 운영 gate: [0281 verify r2](../0281-opencode-menu-cache/verify.md#r2-운영-gate-head-e42d1e2)와 같은 HEAD 실행 — typecheck 0 · lint 0 error · renderer 377/3078 · main 17 red 전부 Windows 전용 · CI #857 green.
+
+## r2-11. Repository operation checks
+
+- INDEX: `impl/IMPL_DONE`(r2) → PASS, archive 이동. `d135fa5` `git cat-file -t` = commit, trailer 5키 파싱.
+- `[구현자 기입] r2` 7필드(표제 7개), 강제 지점 표가 EP1–EP5 19자리를 담는다.
+
+## r2-13. Finding disposition
+
+| # | r2 상태 | 근거 |
+|---|---|---|
+| D1 | closed | Q2 잡음(shim, Windows CI #857 green) |
+| D2 | closed | Q8 잡음 |
+| N1 | closed | 0280 r2 N6b 잡음 |
+| N2 | NON_BLOCKING 유지 | 설계 본문 위치 — 기록 문제, 판정 무관 |
+
+## r2-15. 결론
+
+- 상태: **PASS** — verify 2회째. pair 7/7 PASS, PLAN_GAP 없음, AC ✅10/10.
+- 남은 사람 확인: 실제 OpenCode CLI의 첫 입력 전 agent 표시·두 테마(AC 밖).
