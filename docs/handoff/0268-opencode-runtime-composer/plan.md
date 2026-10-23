@@ -369,3 +369,14 @@ SELF_PASS(기계 범위) — D1·D2의 외부 링크 진입 증거를 보강했�
 ### Review Signals
 
 r2. r1에서 정직하게 남긴 등록·Markdown 진입 공백이 verify에서도 재현됐다. 이번 테스트는 그 자리의 생산 소스와 렌더 결과를 보지만 설치본의 Windows 토스트 억제를 증명하지 않으며, 독립 verify는 다음 주체에게 남긴다.
+
+## [검증자 기입] 파생 이슈 — verify r2 (2026-10-23)
+
+판정 정본은 [verify.md](verify.md#r2-재검증-2026-10-23) — **PASS(기계 범위)**.
+
+| # | 이슈 | r2 상태 | 근거 |
+|---|---|---|---|
+| D1 | 주 창 외부 링크 등록(H1) 미검출 | closed | H1·H1a·H1b 잡음(AST 구조적 proxy) |
+| D2 | Markdown `_blank`(H2) 미검출 | closed | H2·H2r 잡음 |
+| P1 | AC4 Windows 토스트 | open (사람 실기) | 실제 Windows 관측 필요 |
+| T1 | D2 서버 소유권 | transferred | 0275 verify 판정 |
