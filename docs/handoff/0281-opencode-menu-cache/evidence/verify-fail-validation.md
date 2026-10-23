@@ -61,8 +61,9 @@
 | 검사 | 결과 |
 |---|---|
 | 준비 6초 지연 주입, 격리 사본 | 수정 전 readiness timeout 1 failed → 수정 후 실제 잠금 1 passed |
+| helper 준비 무응답, 격리 사본 | 35초 지연에서 준비 제한 30초가 먼저 실패하고 `finally` 정리 후 runner 종료. 무제한 대기로 바뀌지 않음 |
 | 실제 Windows 관련 회귀 | file-mutation·plugin-state·project-settings 3파일13/13, native-settings-lifecycle 1파일2/2 통과 |
 | ESLint·Prettier | lint exit 0, 오류 0·기존 경고 2. 수정 파일 Prettier 통과 |
 | TypeScript | `npm run typecheck`: node·web·test 모두 exit 0 |
-| 문서·diff·trailer | 커밋 전 문서 snapshot 및 diff 검사, 커밋 후 파싱 확인 |
-| 후속 Windows CI | push 후 이번 수정 커밋의 결과를 직접 기록 |
+| 문서·diff·trailer | 추적 파일 snapshot의 문서 inventory·prose·links 및 diff 검사 통과, `ebdf79f8`의 commit trailer 파싱 확인 |
+| 후속 Windows CI | `ebdf79f8`의 [CI #856](https://github.com/muzaby/orca-skin/actions/runs/39876966025), job120164798068 전체 success. file-mutation 6/6, 전체 Vitest 815파일·7,922 tests passed 및 2 skipped, scripts 142/142. 이 결과를 추가하는 후속 커밋은 보고 문서만 변경 |

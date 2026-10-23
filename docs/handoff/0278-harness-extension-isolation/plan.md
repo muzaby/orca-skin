@@ -1090,6 +1090,7 @@ OS 잠금 helper는 준비 전 정상 종료(code 0)도 실패로 처리하고 s
 |---|---|---|
 | 격리 사본의 PowerShell 준비를 6초 지연 | readiness 시간 초과 1 failed | 같은 실제 잠금 시험 1 passed |
 | 실제 Windows helper 기본 실행 | 로컬 기존 파일 6/6 passed; CI에서 readiness 실패 | 변경 파일 6/6 passed |
+| helper 준비가 계속 끝나지 않는 조건 | — | 격리 사본의 35초 지연에서 30초 준비 제한으로 실패하고 정리 후 runner 종료 |
 
 준비 한도를 30초로, 이를 포함하는 케이스 한도를 45초로 조정했다. helper 준비 이벤트를 받은 뒤에만 파일이 EBUSY인지 확인하며, helper가 먼저 종료되면 즉시 오류로 실패한다. `finally`의 입력 종료·kill·close 대기는 그대로다. 이번 변경은 구조적 proxy나 생산 대체 경로를 추가하지 않아 새 mutation 의무는 없으며, 지연 주입은 준비 한도의 경계 재현이다.
 
@@ -1103,7 +1104,7 @@ helper 대기만 늘리면 기존 15초 케이스 제한이 먼저 끊는다. �
 
 ### 6. 구현 보고
 
-변경은 `file-mutation.test.ts`의 준비·케이스 한도와 설명뿐이다. 관련 파일·writer 회귀 및 통합 lint·typecheck와 문서 gate 결과는 [공통 기록](../0281-opencode-menu-cache/evidence/verify-fail-validation.md)의 CI #855 대응 절을 따른다. r3의 정책 AC 21/21 및 §27 고정 경계는 그대로이며, 이번 커밋의 원격 운영 성공은 실제 후속 CI 결과로 판정한다. 커밋 trailer는 `Verified-By: pending`이고 보드는 `impl/IMPL_DONE`을 유지한다.
+변경은 `file-mutation.test.ts`의 준비·케이스 한도와 설명뿐이다. 관련 파일·writer 회귀 및 통합 lint·typecheck와 문서 gate 결과는 [공통 기록](../0281-opencode-menu-cache/evidence/verify-fail-validation.md)의 CI #855 대응 절을 따른다. `ebdf79f8`의 [Windows CI #856](https://github.com/muzaby/orca-skin/actions/runs/39876966025), job120164798068 전체 success를 확인했다. r3의 정책 AC 21/21 및 §27 고정 경계를 유지한다. 커밋 trailer는 `Verified-By: pending`이고 보드는 `impl/IMPL_DONE`을 유지한다. 이후 변경은 이 결과를 추가하는 보고 문서뿐이다.
 
 ### 7. Review Signals
 
