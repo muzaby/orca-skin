@@ -76,10 +76,12 @@
 | D-028 | `XDG_CONFIG_HOME=~/.config/orcinus-orca/sources/settings`를 주입해 OpenCode 설정 루트를 `~/.config/orcinus-orca/sources/settings/opencode`로 둔다. 그 하위 디렉터리 `<provider>/settings.json`은 기존 harness-provider 설정이다 | "~/.config/opencode 정본을 ~/.config/orcinus-orca/sources/settings/opencode 로 설정루트를 변경하라. 해당 경로가 opencode의 세팅 루트이도 하위 디렉토리가 provider의 역할을 한다." | ΔV4 사용자 | ACTIVE | ΔV4-2 초안의 `<userData>/opencode-config/` 대체 |
 | U-005 | `~/.config`의 다른 항목(git 등)을 XDG 루트(`sources/settings/`)에 링크할지 | D-028로 XDG 루트가 Orca 설정 트리가 됨 | ΔV4 | OPEN — 제안: 링크하지 않음. Orca 에이전트 셸에서 XDG 설정만 쓰는 도구는 그 설정을 못 본다(git은 `~/.gitconfig`를 계속 읽음) | — |
 | U-006 | OpenCode 예약 이름과 같은 provider 디렉터리 처리 | 설정 루트 하위를 OpenCode가 스캔(`{agent,agents,mode,modes,command,commands,plugin,plugins,skill,skills}`)·의존성 설치(`node_modules`·`package.json`·`package-lock.json`·`bun.lock`·`.gitignore`) | ΔV4 | OPEN — 제안: 그 이름의 provider는 목록에서 제외하고 경고 | — |
+| D-029 | 새 연결이 쓸 서버는 그 시점 사본 revision으로 고른다(서버 profile key에 revision 포함). 실행 중 세션은 자기 서버를 유지하고 마지막 owner가 떠나면 종료된다. 명시적 `retireAll`은 두지 않는다 | Claude가 새 Query마다 현재 플러그인 값을 계산하는 방식(`adapter.ts:439-458`)과 같은 의미 · 교체와 획득 사이 경합 제거 | 추론 — D-016·D-022 파생 | ACTIVE | 제품 동작 불변(D-016과 같은 결과) |
+| U-007 | 실행 중 세션이 있을 때의 확인 대화상자(D-015)를 유지할지 | Claude 전역 토글은 확인 없이 새 Query부터 적용. 사본 구조에서도 실행 중 세션은 중단되지 않는다 | ΔV4 | OPEN — 선택: 유지(D-015 그대로) / 제거(Claude와 같게) | D-015 |
 
 ### 갱신 메모
 
-- 이번 턴에서 새로 추가된 결정: D-001~D-011 전부, OPEN U-001. ΔV1 턴: D-012~D-018. ΔV2 턴: D-019~D-021. ΔV3 턴: D-022, OPEN U-002. ΔV4 턴: D-023~D-028, OPEN U-003~U-006 — SUPERSEDED D-013→D-026, D-014→D-027, U-002→D-024~D-027.
+- 이번 턴에서 새로 추가된 결정: D-001~D-011 전부, OPEN U-001. ΔV1 턴: D-012~D-018. ΔV2 턴: D-019~D-021. ΔV3 턴: D-022, OPEN U-002. ΔV4 턴: D-023~D-029, OPEN U-003~U-007 — SUPERSEDED D-013→D-026, D-014→D-027, U-002→D-024~D-027.
 - 변경된 결정: 0281 D2·D4 → D-001(agents 슬롯), 0278 D28 → D-008(Claude 플러그인 기본값), 0278 D11 → D-007(기본 경로 스킬). ΔV1: D-009 → D-018(범위 축소), 0278 D32 → D-012(OpenCode 사용자 전역 플러그인), 0278 D7 → D-016(교체 중 일시 2서버).
 - 기존 ACTIVE 중 유지: 0278 D15·D16·D20·D24·D26·D32, 0281 D1·D5·D6.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001↔AC1·AC2·AC3, D-002↔AC2, D-003↔AC4, D-004↔AC5·AC6, D-005↔AC6, D-006↔AC9·AC10·AC12, D-007↔AC13·AC14·AC15, D-008↔AC8·AC12, D-009↔(AC 없음 — 저장 경로를 만드는 AC가 없음을 확인), D-010↔AC16·AC17, D-011↔AC11. ΔV1: D-012↔AC19·AC24, D-013↔AC20·AC21, D-014↔AC19·AC20·AC22, D-015↔AC23, D-016↔AC24, D-017↔AC25, D-018↔AC19(OpenCode MCP·Claude는 메모리 선택 유지), D-001↔AC25(예외는 플러그인 변경 때만) — 충돌 0. ΔV2: D-019↔AC27~AC30, D-020↔AC28·AC30, D-021↔AC29 — 충돌 0.
@@ -1006,6 +1008,19 @@ export const composerAgentStore = createComposerAgentStore(sessionApi.onOpenCode
 | 하위 프로세스 env | `CLAUDE_CONFIG_DIR` 등 Claude 전용 변수 | `XDG_CONFIG_HOME`(범용) — B10 |
 
 - 비대칭 2건: Claude 전역 off는 재시작 때 사라지고(U-001), Claude 프로젝트 토글은 터미널에 영향이 있다. D-024의 "Orca 변경은 터미널에 영향 없음"을 Claude에도 적용할지는 이번 범위 밖으로 두고 사용자에게 묻는다.
+
+### Claude 동작 정렬 검토
+
+| 항목 | Claude | OpenCode 정렬안 | 판정 |
+|---|---|---|---|
+| 적용 단위 | 새 Query마다 현재 플러그인 값 계산(`adapter.ts:439-458`) · 실행 중 Query 유지 | 새 연결마다 현재 사본 revision으로 서버 선택(D-029). profile key가 env·설정을 접으므로(`server-profile.ts:41-50`) revision을 함께 접는다. 실행 중 세션은 기존 서버, 마지막 owner 해제 때 종료(`server.ts:152-160`) | **채택** — 동작은 같고 `retireAll`과 경합이 없어진다 |
+| Orca 설정 층 우선순위 | provider 설정이 flag 층으로 가장 높다 | provider 설정(`OPENCODE_CONFIG_CONTENT`)은 전역·프로젝트 뒤에 병합돼 스칼라·객체 키를 덮는다(`config.ts:412·419-423·482-489`). 배열은 이어 붙고 플러그인은 합집합 | **이미 같음** — 변경 없음 |
+| 프로젝트 우선 | 프로젝트에서 켠 플러그인은 nav off여도 로드(AC11) | 프로젝트 설정에 선언된 플러그인은 Orca off와 무관하게 로드(합집합) | **이미 같음** — 단, 프로젝트가 전역 플러그인을 끄는 것은 OpenCode 자체가 지원하지 않는다 |
+| 확인 대화상자 | 없음 | D-015로 있음 | **결정 필요(U-007)** |
+| 사용자 전역 설정 범위 | 플러그인 기본값만 읽고 나머지 user 설정은 쓰지 않는다(`settingSources` 제외) | 정렬하려면 사본에 `plugin`만 옮기고 나머지 전역 설정을 버려야 한다 | **권하지 않음** — D-024(터미널 정본)와 충돌. provider 설정이 이미 덮어쓰므로 우선순위 효과는 같다 |
+| off 기록 수명 | 메모리 — 재시작 때 소실(U-001) | Orca 설정에 영속(D-027) | **유지** — 사용자 결정(D-014→D-027). 맞추려면 Claude 쪽 U-001을 정한다 |
+| 실행 중 세션의 플러그인 즉시 반영 | `applyFlagSettings`+`reloadPlugins` | OpenCode에 플러그인 제어 API가 없다(ΔV1-1). 인스턴스 재설정은 프로젝트 파일을 쓰거나 서버 인스턴스를 폐기해야 한다 | **불가** — 터미널 영향 또는 실행 중 세션 중단 |
+| 세션·프로젝트 단위 플러그인 토글 | 있음 — 프로젝트 `settings.local.json`에 씀 | 터미널 영향 없이 하려면 세션 전용 서버·설정 루트가 필요 | **범위 밖** — 비용 큼, D-024와 함께 별도 검토 |
 
 ## ΔV4-3. Acceptance (초안 — U-003·U-004 확정 후 고정)
 
