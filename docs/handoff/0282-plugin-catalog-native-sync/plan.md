@@ -8,11 +8,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-23 |
 | 매핑 | — |
-| 상태 | READY (ΔV1) |
+| 상태 | READY (ΔV2) |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `none` — 회귀 노드는 0281·0278·0267의 현재 코드·테스트를 `57515e7`에서 확인해 INHERITED로 인용 |
-| 이번 V revision | `ΔV1` — OpenCode 플러그인 off(사용자 후속 요구). V1 노드 대체 관계는 §ΔV1 |
-| 유효 V | `V1@789a727 + ΔV1` |
+| 이번 V revision | `ΔV2` — 외부 제거 비노출. 이전: `ΔV1` OpenCode 플러그인 off. 대체 관계는 §ΔV1·§ΔV2 |
+| 유효 V | `V1@789a727 + ΔV1@7227dc0 + ΔV2` |
 
 # Part I — Product & UX Contract
 
@@ -61,13 +61,16 @@
 | D-016 | OpenCode 플러그인 변경은 새 세션부터 새 서버로 적용. 실행 중 세션은 기존 서버를 계속 사용 | "새 세션부터 새 서버로" | ΔV1 사용자 | ACTIVE | 0278 D7 "단일 서버"를 변경 직후 기존 owner가 남은 동안에 한해 대체 |
 | D-017 | OpenCode 플러그인을 켜거나 끄면 에이전트 캐시를 비우고 1회 다시 불러온다 | "비우고 1회 재로드" | ΔV1 사용자 | ACTIVE | D-001의 "앱 재시작 전까지 1회"에 이 예외만 추가 |
 | D-018 | 메모리 전용 전역 선택(D-009)의 범위를 Claude 플러그인·OpenCode MCP로 한정. OpenCode 플러그인은 D-012~D-014 | D-012·D-014와의 정합 | ΔV1 | ACTIVE | D-009 대체. U-001은 이 범위에 남음 |
+| D-019 | 외부에서 실제로 제거한 플러그인은 nav·Composer·새 실행 어디에도 노출하지 않는다 | "외부 cli에서 플러그인을 실제로 제거하면 orinus orca에서도 노출이 되면 안된다." | ΔV2 사용자 | ACTIVE | — |
+| D-020 | OpenCode 전역 설정 외부 변경은 Orca 토글과 같은 적용 규칙(새 연결 새 서버·실행 중 유지·에이전트 캐시 1회 재로드), 확인 대화상자 없음 | 이미 일어난 변경 | 추론 — D-016·D-017 파생 | ACTIVE | — |
+| D-021 | Orca off는 설치본을 확인할 수 있는 OpenCode 플러그인에만 허용 | 끈 뒤 숨겨져 다시 켤 수 없게 되는 것 방지 | 추론 — D-012·D-019 파생 | ACTIVE | ΔV1 AC19 보강 |
 
 ### 갱신 메모
 
-- 이번 턴에서 새로 추가된 결정: D-001~D-011 전부, OPEN U-001. ΔV1 턴: D-012~D-018.
+- 이번 턴에서 새로 추가된 결정: D-001~D-011 전부, OPEN U-001. ΔV1 턴: D-012~D-018. ΔV2 턴: D-019~D-021.
 - 변경된 결정: 0281 D2·D4 → D-001(agents 슬롯), 0278 D28 → D-008(Claude 플러그인 기본값), 0278 D11 → D-007(기본 경로 스킬). ΔV1: D-009 → D-018(범위 축소), 0278 D32 → D-012(OpenCode 사용자 전역 플러그인), 0278 D7 → D-016(교체 중 일시 2서버).
 - 기존 ACTIVE 중 유지: 0278 D15·D16·D20·D24·D26·D32, 0281 D1·D5·D6.
-- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001↔AC1·AC2·AC3, D-002↔AC2, D-003↔AC4, D-004↔AC5·AC6, D-005↔AC6, D-006↔AC9·AC10·AC12, D-007↔AC13·AC14·AC15, D-008↔AC8·AC12, D-009↔(AC 없음 — 저장 경로를 만드는 AC가 없음을 확인), D-010↔AC16·AC17, D-011↔AC11. ΔV1: D-012↔AC19·AC24, D-013↔AC20·AC21, D-014↔AC19·AC20·AC22, D-015↔AC23, D-016↔AC24, D-017↔AC25, D-018↔AC19(OpenCode MCP·Claude는 메모리 선택 유지), D-001↔AC25(예외는 플러그인 변경 때만) — 충돌 0.
+- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001↔AC1·AC2·AC3, D-002↔AC2, D-003↔AC4, D-004↔AC5·AC6, D-005↔AC6, D-006↔AC9·AC10·AC12, D-007↔AC13·AC14·AC15, D-008↔AC8·AC12, D-009↔(AC 없음 — 저장 경로를 만드는 AC가 없음을 확인), D-010↔AC16·AC17, D-011↔AC11. ΔV1: D-012↔AC19·AC24, D-013↔AC20·AC21, D-014↔AC19·AC20·AC22, D-015↔AC23, D-016↔AC24, D-017↔AC25, D-018↔AC19(OpenCode MCP·Claude는 메모리 선택 유지), D-001↔AC25(예외는 플러그인 변경 때만) — 충돌 0. ΔV2: D-019↔AC27~AC30, D-020↔AC28·AC30, D-021↔AC29 — 충돌 0.
 
 ## 4. 요구 비판적 검토
 
@@ -652,6 +655,108 @@ nav → 플러그인 탭 → OpenCode 플러그인 행
 
 ---
 
+# ΔV2 — 외부에서 제거한 플러그인 비노출 (2026-10-23)
+
+판정: READY. 사용자 원문 "외부 cli에서 플러그인을 실제로 제거하면 orinus orca에서도 노출이 되면 안된다."를 D-019~D-021로 반영한다. V1·ΔV1 노드는 아래 표의 CHANGED·REGRESSION만 영향받는다.
+
+## ΔV2-1. 사실
+
+| 사실 | 근거 |
+|---|---|
+| Claude 실행 경로는 설치 폴더가 없는 플러그인을 건너뛴다 | `plugin-catalog.ts:156` `!exists(entry.path)` |
+| Claude nav·초안 리소스 경로는 설치 폴더 존재를 확인하지 않는다 → 폴더만 지운 플러그인이 nav에 남음 | `configured-resources.ts:146-154` |
+| Claude 설치 목록·설정은 조회·spawn마다 새로 읽는다 → 목록에서 빠진 플러그인은 이미 비노출 | `configured-resources.ts:89-96` · `plugin-catalog.ts:135-150` |
+| OpenCode 1.18.27 CLI에는 설치+설정 추가(`opencode plugin <module>`)만 있고 제거 명령이 없다 → 외부 제거 = 설정 항목 삭제 또는 설치본(패키지·파일) 삭제 | `cli/cmd/plug.ts:179-198` |
+| OpenCode 실행 중 서버는 전역 설정을 캐시하므로 외부 삭제가 새 세션·Composer에 자동 반영되지 않는다 | ΔV1-1 표 `Duration.infinity` |
+| 설정 파일 감시 선례: `watchFile` 250ms 폴링, `persistent: false` | `project-resource-sync.ts:142-146` |
+
+## ΔV2-2. 결정
+
+§3 Decision Ledger D-019(사용자 원문)·D-020·D-021(추론 — D-016·D-017·D-012 파생)에 기록했다.
+
+## ΔV2-3. Product 변경
+
+| 외부 변경 | Orca 결과 |
+|---|---|
+| Claude: 설치 목록에서 제거(uninstall) | 기존대로 nav·초안 명령·새 Query 비노출(회귀 확인) |
+| Claude: 설치 폴더만 삭제 | nav 행·초안/미실행 리소스에서 사라짐(실행 경로와 같은 규칙) |
+| OpenCode: 켜진 플러그인을 전역 설정에서 삭제 | nav는 다음 조회에서 사라지고 Orca 기록 없음. 감시가 변경을 잡으면 새 연결은 새 서버, 열린 Composer는 재준비(에이전트·스킬에서 사라짐) |
+| OpenCode: Orca가 끈 플러그인의 설치본 삭제 | nav off 행이 사라지고 기록 정리 |
+| OpenCode: Orca가 끈 플러그인을 외부에서 다시 추가 | 감시 주기 안에 on으로 보고 기록 정리 → 이후 외부 삭제 시 off 행이 되살아나지 않음 |
+| 실행 중 세션 | 변경 없음 — 그 프로세스에는 실제로 로드돼 있으므로 그 세션의 Composer·패널은 실제 상태 표시(D-006) |
+
+## ΔV2-4. Acceptance — AC27~AC30
+
+| R | AT / AC | 동작 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-07 | AT-09 / AC27 | Claude: 설치 목록에 없거나 설치 폴더가 없는 플러그인은 nav 행·초안/미실행 리소스·초안 명령·새 Query에 나타나지 않는다 | 임시 루트에서 폴더 삭제·목록 삭제 각각 → catalog·configured·commands·SDK options | nav/draft reader · `sendMessage` |
+| R-07 | AT-09 / AC28 | OpenCode: 켜진 플러그인을 외부에서 전역 설정에서 지우면 nav에서 사라지고 기록이 생기지 않는다. 감시가 변경을 잡으면 새 연결은 새 서버로 가고 열린 Composer는 캐시를 비우고 1회 재준비. 실행 중 세션의 서버는 유지 | 파일 외부 편집 → 감시 콜백 → `retireAll`·revalidate 호출, 기존 owner 연결 유지 | watcher → 공용 변경 fan-out |
+| R-07 | AT-09 / AC29 | OpenCode: Orca가 끈 플러그인의 설치본이 없으면 off 행을 내지 않고 기록을 지운다. 설치본을 확인할 수 없는 플러그인은 off 토글 불가(고정) | 설치본 삭제 후 catalog · 해석 불가 spec의 canToggle | catalog read → 기록 병합 |
+| R-07 | AT-09 / AC30 | OpenCode: Orca가 끈 플러그인이 외부에서 다시 추가되면 감시 주기 안에 기록이 정리되고, 이어서 외부에서 삭제해도 off 행이 나오지 않는다. Orca 자신의 토글 쓰기는 감시로 중복 fan-out하지 않는다 | 재추가 → 감시 → 기록 0 → 삭제 → catalog 행 0 · Orca 토글 1회에 fan-out 1회 | watcher · toggle 공용 fan-out |
+
+- AC 총 30건. ΔV1과 같은 이유로 분할하지 않는다(같은 기록·fan-out·capability를 공유).
+
+## ΔV2-5. V
+
+- 기준 V = `0282:V1@789a727 + ΔV1@7227dc0`(`git cat-file -t 7227dc0` → commit). 변경이 시작되는 수준: R.
+
+| Node | 레벨 | 계약 | provenance | 기준선 / 대체 |
+|---|---|---|---|---|
+| R-07 / AT-09 | R / AT | AC27~AC30 | NEW | — |
+| SD-04 / ST-04 | SD / ST | 외부 변경 → 감시 → reconcile → 서버 교체 → Composer 재준비 | NEW | — |
+| AR-06 / IT-06 | AR / IT | bootstrap 감시 배선 → 공용 fan-out(ΔV1 toggle과 동일 함수) | NEW | — |
+| MD-07 / UT-07 | MD / UT | 전역 플러그인 fingerprint · 기록 노출 규칙(설치본 존재·설정 부재) | NEW | — |
+| MD-08 / UT-08 | MD / UT | Claude 설치 폴더 존재 규칙 SSOT(실행·nav 공용) | NEW | — |
+| MD-06 / UT-06 | MD / UT | capability에 설치본 확인 조건 추가(D-021) | CHANGED | ΔV1 MD-06 |
+| R-06 / AT-07 | R / AT | Orca 토글 경로 | INHERITED | ΔV1 |
+| R-03 / AT-03 | R / AT | Claude off·초안 리소스 | INHERITED | V1 |
+
+| Pair | left ↔ right | requiredness | production path | 직접 oracle (자리별 좌표) | 선택적 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-28 | R-07 ↔ AT-09 | REQUIRED | 외부 편집·삭제 → (Claude) reader / (OpenCode) watcher·catalog read → nav·Composer·새 실행 | `bootstrap.native-history.test.ts` 신규 `'hides externally removed Claude and OpenCode plugins from catalog, drafts and new runs'`(실제 handler·reader, 임시 루트) | required — "노출 없음"은 0건 주장. 짝 양성: 남은 플러그인은 노출. 변이: 존재 검사 제거(E2), 기록 노출 규칙의 설치본 조건 제거(X5) | EP-08 (4) · EP-09 X5 (1) |
+| VP-29 | SD-04 ↔ ST-04 | REQUIRED | 파일 변경 → 감시 → fingerprint 비교 → reconcile·fan-out → retire·revalidate | 신규 `opencode-global-watch.test.ts`: `'fans out once per external plugin change and ignores Orca's own write'` · `'clears a record when the plugin is re-added externally'` | required — 중복·누락 방향 둘 다. 변이: fingerprint 비교 제거(중복), 감시 콜백 미연결(누락) | EP-09 X1·X2·X4 (3) |
+| VP-30 | AR-06 ↔ IT-06 | REQUIRED | bootstrap 시작 → 감시 등록 → 공용 fan-out(extension catalog deps·composer revalidate) → shutdown 해제 | `bootstrap.native-history.test.ts` 신규 `'starts the OpenCode global watch with the shared change fan-out and stops it on shutdown'` | not selected | EP-09 X3·X6·X7 (3) |
+| VP-31 | MD-07 ↔ UT-07 | REQUIRED | `openCodeGlobalPluginFingerprint` · 기록 노출 판정 | `global-plugins.test.ts` 신규 `'derives the fingerprint only from the effective plugin array'` · `'shows a record only while its installation exists and its spec is absent'` | required — 형제 조건(설치본 존재·설정 부재) 맞바꿈 | EP-09 X2·X5 (2) |
+| VP-32 | MD-08 ↔ UT-08 | REQUIRED | `claudeInstallationExists` → 실행·nav 공용 | `configured-resources.test.ts` 신규 `'omits installations whose directory no longer exists'` · `plugin-catalog.test.ts` 기존 `'selects active installations by scope and precedence and refreshes every read'` | not selected | EP-08 (4) |
+| VP-23′ | MD-06 ↔ UT-06 | REQUIRED (CHANGED) | capability + 설치본 확인 | ΔV1 VP-23 좌표 + `configured-resources.test.ts` 신규 `'keeps unresolvable OpenCode plugins fixed'` | ΔV1 변이 승계 | EP-06 P4·P5 (ΔV1 분모 안) |
+| VP-33 | R-06 ↔ AT-07 | REGRESSION | Orca 토글 경로가 공용 fan-out으로 바뀌어도 동작 동일 | ΔV1 VP-18·VP-21 좌표 | not selected | 0 |
+| VP-34 | R-03 ↔ AT-03 | REGRESSION | Claude 초안 리소스 reader 변경 | V1 VP-11 좌표 | not selected | 0 |
+
+## ΔV2-6. Technical Design
+
+| 축 | AS-IS(ΔV1 설계) | TO-BE |
+|---|---|---|
+| Claude nav·리소스 | 설치 목록 항목 전부 | 설치 폴더가 존재하는 항목만 — 실행 경로와 같은 helper |
+| OpenCode 외부 변경 감지 | 없음(Orca 토글만 fan-out) | `watchFile`로 전역 설정 3파일 감시 → 실효 `plugin` 배열 fingerprint가 바뀌면 공용 fan-out |
+| 공용 fan-out | Orca 토글 → `extensionsChanged`+revalidate | `notifyOpenCodePluginsChanged()` 하나를 토글·감시가 함께 사용. 마지막 fingerprint를 갱신해 자기 쓰기 중복 차단 |
+| 기록 노출 | 기록이면 off 행 | 설치본 존재 && 설정 부재일 때만 off 행. 설정에 있으면 on·기록 삭제, 설치본 없으면 행 없음·기록 삭제 |
+| capability | 실효 파일 항목·기록 | + 설치본 확인 가능할 때만(D-021) |
+
+- 감시 위치: `app/src/main/app/opencode-global-watch.ts`(조립 루트 소유 — 파일 경로는 `adapters/opencode`의 순수 함수가 계산). 주기 1000ms, `persistent: false`. bootstrap 시작 시 등록, shutdown(`bootstrap.ts:883` 부근)에서 해제.
+- 다중 저장소: 외부 변경 reconcile은 기록만 지운다(파일 미변경) — 쓰기 1곳.
+
+### §10 강제 지점 — ΔV2
+
+| V / pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|
+| EP-08 · VP-28·32 | Claude 노출 = 설치 목록 && 설치 폴더 존재 | E1 `configured-resources.ts:142` · E2 `:146` 루프(부재 건너뜀) · E3 `:153-154` 디렉터리 등록 · E4 `plugin-catalog.ts:156` 실행 경로(공용 helper로 교체) — **4** | `rg -n "installedClaudePlugins\(\|for \(const entry of globalOnly\|directories\.set\(id, installPath\)\|if \(directories\.has\(id\)\) continue\|exists\(entry\.path\)" app/src/main/adapters/claude/configured-resources.ts app/src/main/adapters/claude/plugin-catalog.ts` → 6줄. 제외 2줄: `plugin-catalog.ts:24` 정의 · `:68` 선택 루프(이후 :156이 거름) | 지운 플러그인이 nav에 남음 |
+| EP-09 · VP-28~31 | OpenCode 외부 변경 → 비노출·새 서버·재준비 | X1 신설 감시 모듈 · X2 신설 fingerprint · X3 `bootstrap.ts:883` shutdown 해제 · X4 신설 공용 fan-out(토글·감시 공유) · X5 기록 노출 규칙(ΔV1 P17 모듈) · X6 `bootstrap.ts:1040` composer revalidate 연결 · X7 `bootstrap.ts:1201` extension catalog deps — **7** | `rg -n "this\.closeComposerCatalog\|registerExtensionCatalogHandlers\(" app/src/main/app/bootstrap.ts` → 3줄(X3·X6·X7) + 신설 4 | 외부 삭제 후에도 Composer·새 세션·nav에 노출, 또는 자기 쓰기 중복 서버 교체 |
+
+- ΔV2 분모 11(EP-08 4 · EP-09 7). 유효 V 총 87(V1 45 + ΔV1 31 + ΔV2 11). capability 변경은 ΔV1 EP-06 P4·P5 자리 안이라 새 자리로 세지 않는다.
+
+### 파일·문서
+
+- `app/src/main/adapters/claude/{configured-resources,plugin-catalog}.ts`(공용 helper) · `app/src/main/adapters/opencode/v1/global-plugins.ts`(fingerprint·노출 규칙) · `app/src/main/app/opencode-global-watch.ts`(신규) · `app/src/main/app/bootstrap.ts`.
+- `docs/arch/backend/adapters.md §1.3`: 외부 변경 감시와 설치본 존재 규칙 서술.
+
+### ΔV2 정합성 검토
+
+- ACTIVE 결정 ↔ AC: D-019↔AC27~AC30, D-020↔AC28·AC30, D-021↔AC29 — 충돌 0. D-015(확인 대화상자)는 Orca 토글에만 적용되고 AC28은 대화상자를 요구하지 않음 — 모순 없음.
+- ΔV1 문장 중 보강: AC19 "Orca 기록 항목만 true" → D-021로 설치본 확인 조건 추가(VP-23′). AC22 reconcile은 감시(AC30)로 즉시성이 보강될 뿐 계약 불변.
+- READY self-review(ΔV2): 원문 인용 1·추론 결정 2건 표시 · 사실 6행 관측 · AC 4건 행동·수단·경로 · NEW 노드 5개 REQUIRED pair · CHANGED MD-06 REQUIRED(VP-23′) · INHERITED 2개 REGRESSION · §10 11자리 검색 명령 고정 · 적대 증거 VP-28·29·31만 선택.
+
+---
+
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은
 > [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
 > **재구현 턴도 같은 이름의 필드를 다시 채운다** — 표제(`… (r2)`, 같은 라운드 추가 턴이면 `… (r2.2)`)만 바꾸고 필드와 표의 열을 줄이지 않는다.
@@ -722,8 +827,8 @@ nav → 플러그인 탭 → OpenCode 플러그인 행
 | 실행 명령 | … |
 | **관측한 게이트 산출**(exit code 아님) | … |
 | V-pair 자기확인 | … |
-| 강제 지점 전수 | …/76 (V1 45: EP-01 10 · EP-02 15 · EP-03a 7 · EP-03b 5 · EP-04 6 · EP-05 2 · ΔV1 31: EP-06 19 · EP-07 12) |
-| **AC 자기보고**(`Criteria-Met`) | …/26 |
+| 강제 지점 전수 | …/87 (V1 45: EP-01 10 · EP-02 15 · EP-03a 7 · EP-03b 5 · EP-04 6 · EP-05 2 · ΔV1 31: EP-06 19 · EP-07 12 · ΔV2 11: EP-08 4 · EP-09 7) |
+| **AC 자기보고**(`Criteria-Met`) | …/30 |
 | **합계 검산** | … |
 | 블로커 / 역질문 | … |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
