@@ -8,11 +8,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-23 |
 | 매핑 | — |
-| 상태 | DRAFT (ΔV4) — verify r1 RETURN_TO_PLAN. G1·N1 정정(ΔV3), G2는 사본 운영으로 결정(ΔV4 Product 단계). U-003·U-004 사용자 확인 대기 |
+| 상태 | READY (ΔV5) — verify r1 RETURN_TO_PLAN 정정 완료. 구현: ΔV3 · ΔV5 · F3·F4·F7 |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `none` — 회귀 노드는 0281·0278·0267의 현재 코드·테스트를 `57515e7`에서 확인해 INHERITED로 인용 |
-| 이번 V revision | `ΔV4`(DRAFT) — OpenCode 플러그인 터미널 정본 + Orca 실행 사본. `ΔV3` — 에이전트 캐시를 플러그인 revision 데이터 구독으로. 이전: `ΔV2` 외부 제거 비노출 · `ΔV1` OpenCode 플러그인 off. 대체 관계는 §ΔV1·§ΔV2·§ΔV3 |
-| 유효 V | `V1@789a727 + ΔV1@7227dc0 + ΔV2@9982cdf + ΔV3` |
+| 이번 V revision | `ΔV5` — OpenCode 네이티브 플러그인 제어 제외. `ΔV4`는 폐기(근거로만 보존). 이전: `ΔV3` 에이전트 캐시 데이터 구독 · `ΔV2` 외부 제거 비노출 · `ΔV1` OpenCode 플러그인 off(ΔV5로 대부분 대체) |
+| 유효 V | `V1@789a727 + ΔV1@7227dc0 + ΔV2@9982cdf + ΔV3 + ΔV5` (ΔV3·ΔV5 설계 커밋은 INDEX 좌표) |
 
 # Part I — Product & UX Contract
 
@@ -54,34 +54,37 @@
 | U-001 | 전역 선택을 재시작 후에도 유지할지, 유지한다면 어디에 둘지 | 사용자 Q2 답변이 질의로 끝남 | Q2 | OPEN — 이번 범위 밖 | — |
 | D-010 | MCP 저장 시 상위 폴더가 없으면 만든다(`mkdir -p`) | 요구 6 원문 | 요구 6 | ACTIVE | — |
 | D-011 | 프로젝트 `.claude/settings.json`·`settings.local.json`의 명시 선택은 nav 전역 선택보다 우선 | 기존 우선순위 | 0278 D16·D20 | ACTIVE(유지) | — |
-| D-012 | OpenCode 네이티브 플러그인도 끄면 새 실행에 로드되지 않는다. SDK 제어가 없으므로 하네스 설정 파일을 편집하고, 편집할 수 없는 출처는 현행 유지(고정 토글) | "Sdk 컨트롤 안되면 설정파일편집   그것도 안되면 현행 유지" | ΔV1 사용자 2026-10-23 | ACTIVE | 0278 D32의 OpenCode 플러그인 모니터링 한정을 사용자 전역 설정 선언분에 한해 대체 |
+| D-012 | OpenCode 네이티브 플러그인도 끄면 새 실행에 로드되지 않는다. SDK 제어가 없으므로 하네스 설정 파일을 편집하고, 편집할 수 없는 출처는 현행 유지(고정 토글) | "Sdk 컨트롤 안되면 설정파일편집   그것도 안되면 현행 유지" | ΔV1 사용자 2026-10-23 | SUPERSEDED → D-030 | 0278 D32의 OpenCode 플러그인 모니터링 한정을 사용자 전역 설정 선언분에 한해 대체 |
 | D-013 | 편집은 jsonc-parser로 `plugin` 배열만 바꾸고 주석·서식을 보존. 같은 파일 동시 편집은 기존 `nativeFileMutations` 임계영역으로 대기·재시도 | "조건부 승인하겠다. 여러 경로에서 한 파일을 동시에 편집시도시 실패로이어지지않는지? … 네이티브 플러그인 on/off 코드 참고" | ΔV1 사용자 | SUPERSEDED → D-026 | 신규 의존성 승인(조건 = 동시 편집 실패 없음, 0278 D31 재사용). ΔV4: 사용자 파일을 편집하지 않으므로 jsonc-parser는 사본 생성에만 쓴다 |
 | D-014 | 끈 항목의 원래 값(spec·옵션·위치·파일)은 Orca 설정에 기록해 nav에 off로 표시하고 다시 켤 때 복원 | "Orca 설정에 기록." | ΔV1 사용자 | SUPERSEDED → D-027 | 0278 D22(별도 사본 금지)는 기본값 사본 금지로 유지 — 복원 기록은 사용자가 명시 승인한 예외. ΔV4: 원본을 고치지 않으므로 복원 값이 필요 없다 |
-| D-015 | 실행 중 OpenCode 세션이 있으면 토글 클릭 시 바로 바꾸지 않고 서버 재시작 경고를 먼저 띄우고 승인 후 실행. 세션이 없으면 경고 없이 실행 | "실행중인 세션이 있다면 토글 버튼 클릭시 바로 동작하지 않고 서버 재시작 경고를 먼저 알림. 승인 후 토글 실행. 세션이 없으면 경고 없이" | ΔV1 사용자 | ACTIVE | — |
+| D-015 | 실행 중 OpenCode 세션이 있으면 토글 클릭 시 바로 바꾸지 않고 서버 재시작 경고를 먼저 띄우고 승인 후 실행. 세션이 없으면 경고 없이 실행 | "실행중인 세션이 있다면 토글 버튼 클릭시 바로 동작하지 않고 서버 재시작 경고를 먼저 알림. 승인 후 토글 실행. 세션이 없으면 경고 없이" | ΔV1 사용자 | SUPERSEDED → D-030 | — |
 | D-016 | OpenCode 플러그인 변경은 새 세션부터 새 서버로 적용. 실행 중 세션은 기존 서버를 계속 사용 | "새 세션부터 새 서버로" | ΔV1 사용자 | ACTIVE | 0278 D7 "단일 서버"를 변경 직후 기존 owner가 남은 동안에 한해 대체 |
 | D-017 | OpenCode 플러그인을 켜거나 끄면 에이전트 캐시를 비우고 1회 다시 불러온다 | "비우고 1회 재로드" | ΔV1 사용자 | ACTIVE | D-001의 "앱 재시작 전까지 1회"에 이 예외만 추가 |
 | D-018 | 메모리 전용 전역 선택(D-009)의 범위를 Claude 플러그인·OpenCode MCP로 한정. OpenCode 플러그인은 D-012~D-014 | D-012·D-014와의 정합 | ΔV1 | ACTIVE | D-009 대체. U-001은 이 범위에 남음 |
 | D-019 | 외부에서 실제로 제거한 플러그인은 nav·Composer·새 실행 어디에도 노출하지 않는다 | "외부 cli에서 플러그인을 실제로 제거하면 orinus orca에서도 노출이 되면 안된다." | ΔV2 사용자 | ACTIVE | — |
 | D-020 | OpenCode 전역 설정 외부 변경은 Orca 토글과 같은 적용 규칙(새 연결 새 서버·실행 중 유지·에이전트 캐시 1회 재로드), 확인 대화상자 없음 | 이미 일어난 변경 | 추론 — D-016·D-017 파생 | ACTIVE | — |
-| D-021 | Orca off는 설치본을 확인할 수 있는 OpenCode 플러그인에만 허용 | 끈 뒤 숨겨져 다시 켤 수 없게 되는 것 방지 | 추론 — D-012·D-019 파생 | ACTIVE | ΔV1 AC19 보강 |
+| D-021 | Orca off는 설치본을 확인할 수 있는 OpenCode 플러그인에만 허용 | 끈 뒤 숨겨져 다시 켤 수 없게 되는 것 방지 | 추론 — D-012·D-019 파생 | SUPERSEDED → D-030 | ΔV1 AC19 보강 |
 | D-022 | 에이전트 캐시는 설치된 상태 모듈(zustand) store가 갖고, store가 생성 시점부터 main의 OpenCode 플러그인 revision 신호를 직접 구독한다. 뷰(Composer)는 store를 구독한다. 무효화를 owner·창·컴포넌트 수명에 묶지 않는다 | "창단위 구독이 아닌 데이터를 구독해야한다. 모델이 변경되면 시그널을 받아 뷰가 변경되듯. 설치된 모듈에서 이미 그런 기능을 제공하고있는 모듈은 없는지" · "진행하라" | ΔV3 사용자(G1) | ACTIVE | ΔV1 TO-BE의 owner 단위 revalidate 경로 대체. D-017·D-020의 동작은 유지 |
 | U-002 | 실효 전역 파일이 바뀐 뒤 다시 켜기 동작(verify r1 G2), 또는 OpenCode 전역 설정을 사본으로 동기화해 운영하는 구조로 전환할지 | "전역설정을 사본으로 동기화하여 복사본으로 운영할수없는지? 그건 내가 편집이 자유로울텐데?" · "opencode sdk는 어떤가" | ΔV3 | SUPERSEDED → D-024~D-027 | 사본 운영으로 결정 |
 | D-023 | Orca가 OpenCode를 실행하는 도중 터미널에서 OpenCode를 실행할 수 있고 그 반대도 된다. 두 쪽은 같은 대화 DB를 써서 세션을 공유한다 | "동시란 orcinus orca로 opencode 실행하는 도중에 terminal로 opencode 실행을 말함이다. 그반대도 성립. 같은 db에 쓰여지기때문에 세션 공유도 가능." | ΔV4 사용자 | ACTIVE | 데이터 폴더(`XDG_DATA_HOME`)는 바꾸지 않는다 |
 | D-024 | 플러그인 목록의 정본은 터미널이 읽는 사용자 전역 설정이다. Orca에서 바꾼 설정은 터미널에 영향을 주지 않는다 | "플러그인도 터미널을 정본으로. 단 orca에서 세션 내부에서 설정 변경시 터미널 영향 x" | ΔV4 사용자 | ACTIVE | ΔV1의 사용자 파일 편집을 대체 |
-| D-025 | Orca가 띄우는 OpenCode 서버에 `XDG_CONFIG_HOME=<Orca 설정 루트>`를 주입한다. 셸·MCP·LSP 등 그 서버의 하위 프로세스 전부에 적용되고 Orca 밖 환경에는 영향이 없다. 별도 훅 플러그인은 두지 않는다 | "환경변수는 앱내에서 실행 시 주입하면 서브프로세스에도 모두 적용되고, 밖의 환경변수에는 영향 없는것 아닌가? 이 맥락을 고려해서 다시 제품를 디자인하라" | ΔV4 사용자 | ACTIVE | ΔV3 대화의 (a) shell.env 훅 안 폐기 |
-| D-026 | Orca의 OpenCode 설정 루트(D-028)의 설정 파일 3개는 정본에서 Orca가 끈 플러그인만 뺀 사본이다. 정본의 나머지 리소스 항목은 링크로 보여 준다 | "전역설정을 사본으로 동기화하여 복사본으로 운영할수없는지? 그건 내가 편집이 자유로울텐데?" | ΔV4 사용자 | ACTIVE | D-013 대체. 0278 D22(nav 기본값 사본 금지)와 무충돌 — nav는 계속 정본을 읽는다 |
-| D-027 | Orca의 OpenCode 플러그인 off 기록은 꺼진 플러그인 식별자 집합이다. 원본 위치·값은 저장하지 않는다. 정본에 선언된 동안 언제든 다시 켤 수 있다 | D-024·D-026 파생(정본 미편집이라 복원 정보 불필요) | 추론 | ACTIVE | D-014 대체. verify r1 G2 해소 |
-| U-003 | Orca 안에서 OpenCode·에이전트가 Orca 설정 루트에 쓴 변경의 처리 | 사용자 질의에 미응답 | ΔV4 | OPEN — 제안: 사본 설정 파일 3개에 쓴 변경은 다음 재생성 때 버린다. 링크된 하위 리소스(스킬·에이전트·명령·플러그인 파일)에 쓴 변경은 정본에 쓰여 터미널과 공유된다 | — |
-| U-004 | 사본 생성 실패 시 동작 | 설계 공백 | ΔV4 | OPEN — 제안: 마지막 정상 사본 사용, 없으면 정본으로 실행 + "Orca 플러그인 off 미적용" 경고 | — |
-| D-028 | `XDG_CONFIG_HOME=~/.config/orcinus-orca/sources/settings`를 주입해 OpenCode 설정 루트를 `~/.config/orcinus-orca/sources/settings/opencode`로 둔다. 그 하위 디렉터리 `<provider>/settings.json`은 기존 harness-provider 설정이다 | "~/.config/opencode 정본을 ~/.config/orcinus-orca/sources/settings/opencode 로 설정루트를 변경하라. 해당 경로가 opencode의 세팅 루트이도 하위 디렉토리가 provider의 역할을 한다." | ΔV4 사용자 | ACTIVE | ΔV4-2 초안의 `<userData>/opencode-config/` 대체 |
-| U-005 | `~/.config`의 다른 항목(git 등)을 XDG 루트(`sources/settings/`)에 링크할지 | D-028로 XDG 루트가 Orca 설정 트리가 됨 | ΔV4 | OPEN — 제안: 링크하지 않음. Orca 에이전트 셸에서 XDG 설정만 쓰는 도구는 그 설정을 못 본다(git은 `~/.gitconfig`를 계속 읽음) | — |
-| U-006 | OpenCode 예약 이름과 같은 provider 디렉터리 처리 | 설정 루트 하위를 OpenCode가 스캔(`{agent,agents,mode,modes,command,commands,plugin,plugins,skill,skills}`)·의존성 설치(`node_modules`·`package.json`·`package-lock.json`·`bun.lock`·`.gitignore`) | ΔV4 | OPEN — 제안: 그 이름의 provider는 목록에서 제외하고 경고 | — |
-| D-029 | 새 연결이 쓸 서버는 그 시점 사본 revision으로 고른다(서버 profile key에 revision 포함). 실행 중 세션은 자기 서버를 유지하고 마지막 owner가 떠나면 종료된다. 명시적 `retireAll`은 두지 않는다 | Claude가 새 Query마다 현재 플러그인 값을 계산하는 방식(`adapter.ts:439-458`)과 같은 의미 · 교체와 획득 사이 경합 제거 | 추론 — D-016·D-022 파생 | ACTIVE | 제품 동작 불변(D-016과 같은 결과) |
-| U-007 | 실행 중 세션이 있을 때의 확인 대화상자(D-015)를 유지할지 | Claude 전역 토글은 확인 없이 새 Query부터 적용. 사본 구조에서도 실행 중 세션은 중단되지 않는다 | ΔV4 | OPEN — 선택: 유지(D-015 그대로) / 제거(Claude와 같게) | D-015 |
+| D-025 | Orca가 띄우는 OpenCode 서버에 `XDG_CONFIG_HOME=<Orca 설정 루트>`를 주입한다. 셸·MCP·LSP 등 그 서버의 하위 프로세스 전부에 적용되고 Orca 밖 환경에는 영향이 없다. 별도 훅 플러그인은 두지 않는다 | "환경변수는 앱내에서 실행 시 주입하면 서브프로세스에도 모두 적용되고, 밖의 환경변수에는 영향 없는것 아닌가? 이 맥락을 고려해서 다시 제품를 디자인하라" | ΔV4 사용자 | SUPERSEDED → D-030 | ΔV3 대화의 (a) shell.env 훅 안 폐기 |
+| D-026 | Orca의 OpenCode 설정 루트(D-028)의 설정 파일 3개는 정본에서 Orca가 끈 플러그인만 뺀 사본이다. 정본의 나머지 리소스 항목은 링크로 보여 준다 | "전역설정을 사본으로 동기화하여 복사본으로 운영할수없는지? 그건 내가 편집이 자유로울텐데?" | ΔV4 사용자 | SUPERSEDED → D-030 | D-013 대체. 0278 D22(nav 기본값 사본 금지)와 무충돌 — nav는 계속 정본을 읽는다 |
+| D-027 | Orca의 OpenCode 플러그인 off 기록은 꺼진 플러그인 식별자 집합이다. 원본 위치·값은 저장하지 않는다. 정본에 선언된 동안 언제든 다시 켤 수 있다 | D-024·D-026 파생(정본 미편집이라 복원 정보 불필요) | 추론 | SUPERSEDED → D-030 | D-014 대체. verify r1 G2 해소 |
+| U-003 | Orca 안에서 OpenCode·에이전트가 Orca 설정 루트에 쓴 변경의 처리 | 사용자 질의에 미응답 | ΔV4 | SUPERSEDED → D-030 (해당 없음) | — |
+| U-004 | 사본 생성 실패 시 동작 | 설계 공백 | ΔV4 | SUPERSEDED → D-030 (해당 없음) | — |
+| D-028 | `XDG_CONFIG_HOME=~/.config/orcinus-orca/sources/settings`를 주입해 OpenCode 설정 루트를 `~/.config/orcinus-orca/sources/settings/opencode`로 둔다. 그 하위 디렉터리 `<provider>/settings.json`은 기존 harness-provider 설정이다 | "~/.config/opencode 정본을 ~/.config/orcinus-orca/sources/settings/opencode 로 설정루트를 변경하라. 해당 경로가 opencode의 세팅 루트이도 하위 디렉토리가 provider의 역할을 한다." | ΔV4 사용자 | SUPERSEDED → D-030 | ΔV4-2 초안의 `<userData>/opencode-config/` 대체 |
+| U-005 | `~/.config`의 다른 항목(git 등)을 XDG 루트(`sources/settings/`)에 링크할지 | D-028로 XDG 루트가 Orca 설정 트리가 됨 | ΔV4 | SUPERSEDED → D-030 (해당 없음) | — |
+| U-006 | OpenCode 예약 이름과 같은 provider 디렉터리 처리 | 설정 루트 하위를 OpenCode가 스캔(`{agent,agents,mode,modes,command,commands,plugin,plugins,skill,skills}`)·의존성 설치(`node_modules`·`package.json`·`package-lock.json`·`bun.lock`·`.gitignore`) | ΔV4 | SUPERSEDED → D-030 (해당 없음) | — |
+| D-029 | 새 연결이 쓸 서버는 그 시점 사본 revision으로 고른다(서버 profile key에 revision 포함). 실행 중 세션은 자기 서버를 유지하고 마지막 owner가 떠나면 종료된다. 명시적 `retireAll`은 두지 않는다 | Claude가 새 Query마다 현재 플러그인 값을 계산하는 방식(`adapter.ts:439-458`)과 같은 의미 · 교체와 획득 사이 경합 제거 | 추론 — D-016·D-022 파생 | SUPERSEDED → D-030 (기존 retireAll 유지) | 제품 동작 불변(D-016과 같은 결과) |
+| U-007 | 실행 중 세션이 있을 때의 확인 대화상자(D-015)를 유지할지 | Claude 전역 토글은 확인 없이 새 Query부터 적용. 사본 구조에서도 실행 중 세션은 중단되지 않는다 | ΔV4 | SUPERSEDED → D-030 (해당 없음) | D-015 |
+| D-030 | OpenCode 네이티브 플러그인 on/off 제어를 제공하지 않는다. nav 행은 실제 상태의 고정 토글·회색 글씨(0278 D11·D24 현행)이고, Orca는 OpenCode 설정 파일을 쓰지 않으며 플러그인 기록도 두지 않는다 | "그럼 한계점으로 인해 플러그인 제어 기능을 사용하지 않도록 하는게 혼란을 막기에 좋을 거 같다. Xdg사용 시 다른 앱들에 영향을 주게된다. 해당 기능을 지원하는 앱들의 경우의수가 너무 많다" · ΔV1 규칙 "Sdk 컨트롤 안되면 설정파일편집 그것도 안되면 현행 유지"의 마지막 단계 | ΔV5 사용자 | ACTIVE | D-012·D-015·D-021·D-025~D-029·U-003~U-007 대체. 외부 변경 반영(D-016·D-019·D-020)과 에이전트 캐시(D-017·D-022)는 유지 |
+| D-031 | 편집 기능 제거에 따라 `jsonc-parser` 의존성을 없애고 `9982cdf`의 기존 JSONC 파서(`configured-resources.ts` `parseConfig`)로 되돌린다 | D-013의 승인 조건이 플러그인 배열 편집이었다 | 추론 — D-030 파생 | ACTIVE | — |
+| D-032 | `orca:extensions:setEnabled`는 기존 형상(`{backend, kind, id, enabled}` → `NativeResources`)으로 되돌린다. `confirmed`·`SetGlobalNativeResourceResult`를 없앤다 | 확인 응답은 OpenCode 플러그인 토글에만 쓰였다 | 추론 — D-030 파생 | ACTIVE | — |
 
 ### 갱신 메모
 
-- 이번 턴에서 새로 추가된 결정: D-001~D-011 전부, OPEN U-001. ΔV1 턴: D-012~D-018. ΔV2 턴: D-019~D-021. ΔV3 턴: D-022, OPEN U-002. ΔV4 턴: D-023~D-029, OPEN U-003~U-007 — SUPERSEDED D-013→D-026, D-014→D-027, U-002→D-024~D-027.
+- 이번 턴에서 새로 추가된 결정: D-001~D-011 전부, OPEN U-001. ΔV1 턴: D-012~D-018. ΔV2 턴: D-019~D-021. ΔV3 턴: D-022, OPEN U-002. ΔV5 턴: D-030~D-032 (D-012·D-015·D-021·D-025~D-029·U-003~U-007 → D-030). ΔV4 턴: D-023~D-029, OPEN U-003~U-007 — SUPERSEDED D-013→D-026, D-014→D-027, U-002→D-024~D-027.
 - 변경된 결정: 0281 D2·D4 → D-001(agents 슬롯), 0278 D28 → D-008(Claude 플러그인 기본값), 0278 D11 → D-007(기본 경로 스킬). ΔV1: D-009 → D-018(범위 축소), 0278 D32 → D-012(OpenCode 사용자 전역 플러그인), 0278 D7 → D-016(교체 중 일시 2서버).
 - 기존 ACTIVE 중 유지: 0278 D15·D16·D20·D24·D26·D32, 0281 D1·D5·D6.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001↔AC1·AC2·AC3, D-002↔AC2, D-003↔AC4, D-004↔AC5·AC6, D-005↔AC6, D-006↔AC9·AC10·AC12, D-007↔AC13·AC14·AC15, D-008↔AC8·AC12, D-009↔(AC 없음 — 저장 경로를 만드는 AC가 없음을 확인), D-010↔AC16·AC17, D-011↔AC11. ΔV1: D-012↔AC19·AC24, D-013↔AC20·AC21, D-014↔AC19·AC20·AC22, D-015↔AC23, D-016↔AC24, D-017↔AC25, D-018↔AC19(OpenCode MCP·Claude는 메모리 선택 유지), D-001↔AC25(예외는 플러그인 변경 때만) — 충돌 0. ΔV2: D-019↔AC27~AC30, D-020↔AC28·AC30, D-021↔AC29 — 충돌 0.
@@ -1040,6 +1043,113 @@ export const composerAgentStore = createComposerAgentStore(sessionApi.onOpenCode
 
 - 영향받는 ΔV1·ΔV2 노드는 Technical Design 단계에서 CHANGED로 다시 닫는다: SD-03(VP-19 쓰기 순서) · MD-05(VP-22 편집기) · AR-04(VP-20 bootstrap 배선) · MD-06(VP-23′ canToggle) · MD-07(VP-31 기록 노출) · SD-04(VP-29 감시 → 재생성).
 - AC 총수는 32에서 39가 된다. 분할 여부를 함께 결정한다(사용자 질의).
+
+> **ΔV4 전체는 ΔV5 D-030으로 폐기됐다.** 위 절은 결정 근거로만 남긴다 — 구현 대상이 아니다.
+
+# ΔV5 — OpenCode 네이티브 플러그인 제어 제외 (2026-10-23)
+
+판정: **READY**. 유효 V = `V1@789a727 + ΔV1@7227dc0 + ΔV2@9982cdf + ΔV3 + ΔV5`(ΔV4는 폐기). 구현자는 ΔV3·ΔV5와 `[검증자 기입]` F3·F4·F7을 수행한다. F5·F6의 자리는 EP-10 제거 대상이라 다음 verify가 판정한다.
+
+## ΔV5-1. 근거
+
+| 사실 | 근거 |
+|---|---|
+| 사용자 파일을 고치지 않고 플러그인을 빼는 OpenCode 수단은 `XDG_CONFIG_HOME` 교체뿐이다 | ΔV4-1 · `core/src/flag/flag.ts` 전수(전역 설정 비활성 플래그 없음) · `config.ts:337-367` 합집합 |
+| 그 변수는 서버 하위 프로세스 전부에 상속되어 XDG를 따르는 다른 도구의 위치를 바꾼다 | `tool/shell.ts:422-424` · `mcp/index.ts:352-355` · `lsp/server.ts:129-130` · gh `GH_CONFIG_DIR` → `$XDG_CONFIG_HOME/gh` 순서(gh 문서) |
+| 사용자 파일을 고치는 ΔV1 방식은 D-024(Orca 변경이 터미널에 영향 없음)를 어긴다 | `global-plugins.ts:100-149` |
+| ΔV1 규칙의 마지막 단계는 "현행 유지"다 | §3 D-012 원문 |
+| 현행 = OpenCode 네이티브 플러그인 행은 실제 상태의 고정 토글·회색 글씨 | 0278 D11·D24 · `git show 9982cdf:app/src/main/adapters/opencode/v1/configured-resources.ts` `canToggle: item.kind === 'mcp'` |
+
+## ΔV5-2. Product & UX Contract
+
+| 상황 | 결과 |
+|---|---|
+| nav 플러그인 탭의 OpenCode 플러그인 행 | 실제 상태(enabled·status)를 고정 토글·회색 글씨로 보인다. 토글은 비활성이고 폴더 열기는 기존대로 |
+| 터미널에서 플러그인 추가·삭제(외부 변경) | 감시 → 새 연결 새 서버(D-016) → 에이전트 캐시 revision 방송(ΔV3) → nav 5초 재조회. 실행 중 세션 유지. 확인 대화상자 없음 |
+| Orca가 OpenCode 설정 파일에 쓰는 일 | 없다. Orca 설정에도 OpenCode 플러그인 기록이 없다 |
+| Claude 플러그인·OpenCode MCP 전역 토글 | 변경 없음(V1·ΔV1 D-018) |
+| 표시되는 OpenCode 전역 플러그인 | 세 전역 파일 중 마지막으로 `plugin`을 선언한 파일의 항목(OpenCode 병합과 일치, ΔV1 r1 구현 유지) |
+
+## ΔV5-3. Acceptance
+
+| R | AT / AC | 동작 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-06 | AT-07 / **AC40** | OpenCode 플러그인 행은 canToggle false·실제 enabled·회색 글씨로 렌더되고 토글을 눌러도 IPC가 나가지 않는다. 같은 요청을 직접 보내면 handler가 capability 재검증으로 거부하고 OpenCode 설정 파일·Orca 설정이 그대로다. OpenCode MCP 토글은 계속 적용된다 | 렌더·클릭 IPC 0 · handler 거부·파일 바이트·settings 불변 · MCP 토글 applied | nav → `ExtensionsCatalogView` → `CustomizeList` / `orca:extensions:setEnabled` → handler |
+| R-06 | AT-07 / **AC41** | OpenCode 전역 플러그인 행은 세 전역 파일 중 마지막으로 `plugin`을 선언한 파일의 항목만 전역 출처로 보인다 | 세 파일이 모두 `plugin`을 가진 임시 루트에서 catalog 결과 | nav → `orca:extensions:catalog` → `globalOpenCodeResources` |
+
+- 유지: AC24(외부 변경 뒤 새 연결 새 서버) · AC25′ · AC27 · AC28′ · AC31 · AC32. AC24·AC25′·AC32의 변경 계기는 외부 변경뿐이다.
+- SUPERSEDED → D-030: AC19 · AC20 · AC21 · AC22 · AC23 · AC26 · AC29 · AC30 · ΔV4 초안 전부.
+- AC 총수: V1 18 + ΔV1 2(AC24·AC25′) + ΔV2 2(AC27·AC28′) + ΔV3 2(AC31·AC32) + ΔV5 2 = **26**.
+
+## ΔV5-4. Delta V
+
+| 노드 / pair | provenance | 내용 | 이관 |
+|---|---|---|---|
+| R-06 → VP-18″ (AT) | CHANGED | AC24·AC25′·AC31·AC32·AC40·AC41 | VP-18′ 대체. 확인 변이 2종 → 폐기(확인 흐름 삭제). capability 변이는 VP-18″로 승계 |
+| R-07 → VP-28″ (AT) | CHANGED | AC27·AC28′ | VP-28′ 대체. E2 변이 승계, X5(기록 노출) 폐기 |
+| SD-03 → VP-19 | SUPERSEDED | 파일 쓰기 수명주기 없음 | 쓰기 순서·원복 변이 폐기 — 쓰기 자체가 없다(VP-18″ 음성 게이트가 대신 잠금) |
+| AR-04 → VP-20 | SUPERSEDED | 제어·기록 배선 없음 | 폐기 — EP-10 음성 게이트 |
+| MD-05 → VP-22 | SUPERSEDED | 편집기 없음 | 폐기 |
+| MD-06 → VP-23″ (UT) | CHANGED | plugin canToggle false · 실효 파일 수집 유지 | VP-23′ 대체. json↔jsonc 순서 변이 승계 |
+| MD-07 → VP-31″ (UT) | CHANGED | fingerprint만(기록 노출 규칙 삭제) | VP-31 대체. fingerprint 변이 승계 |
+| SD-04 → VP-29″ (ST) | CHANGED | 감시 → fingerprint 비교 → changed. reconcile·`change()` 없음 | VP-29 대체. 비교 제거·콜백 미연결 변이 승계 |
+| AR-06 → VP-30″ (IT) | CHANGED | bootstrap: 감시 시작 · changed → `extensionsChanged` → broadcast · shutdown close. drain·catalog deps 없음 | VP-30 대체 |
+| VP-21′ (ΔV3) | CHANGED(좌표만) | bootstrap 좌표는 외부 편집 사례만 | Orca 토글 사례 삭제 |
+| VP-25·VP-33 | SUPERSEDED | OpenCode 행 가변 capability·Orca 토글 fan-out 회귀 | VP-18″·VP-29″로 이관 |
+
+| Pair | requiredness | production path | 직접 oracle 좌표 | 적대 증거 | §10 |
+|---|---|---|---|---|---|
+| VP-18″ | REQUIRED | nav 행 → 클릭 / setEnabled → handler 재검증 / 외부 변경 → AC24·AC25′ | `ExtensionsCatalogView.interaction.test.ts` 신규 `'shows OpenCode plugin rows as fixed native state and sends no toggle'` · `extension-catalog.test.ts` 신규 `'rejects OpenCode plugin toggles and keeps OpenCode MCP toggles'`(임시 `XDG_CONFIG_HOME` 파일 바이트·settings 불변) · AC24·AC25′·AC32는 VP-21′·VP-35·`server.test.ts` 좌표 · `gate:` EP-10 음성 검색 0건 | required — 0건 주장. 변이: R21 canToggle을 `true`로, `global-plugins.ts`에 `nativeFileMutations` import 재삽입(음성 게이트 red) | EP-10 (29) |
+| VP-23″ | REQUIRED | 전역 파일 3종 → 실효 파일 → 행 | `configured-resources.test.ts`(opencode) `'marks only plugins declared by the effective global file as toggleable'`을 `'lists only plugins declared by the effective global file as fixed rows'`로 갱신 | json↔jsonc 순서 맞바꿈 | EP-10 R21 · ΔV1 EP-06 P2 |
+| VP-31″ | REQUIRED | 실효 plugin 배열 → fingerprint | `global-plugins.test.ts:'derives the fingerprint only from the effective plugin array'` | fingerprint를 파일 이름으로 | EP-09 X2 |
+| VP-29″ | REQUIRED | 파일 변경 → 감시 → 비교 → changed | `opencode-global-watch.test.ts` `'fans out once per external plugin change…'`를 Orca 쓰기 사례 없이 갱신 | 비교 제거 · 콜백 미연결 | EP-09 X1·X2 |
+| VP-30″ | REQUIRED | bootstrap → 감시 → changed fan-out → close | `bootstrap.native-history.test.ts`의 외부 편집 → revision `[1,2,3]` · shutdown close 좌표(ΔV3 VP-21′ 신규 케이스와 공유) | not selected | EP-09 X3·X6 |
+| VP-28″ | REQUIRED | 외부 편집·삭제 → reader/감시 → nav·Composer·새 실행 | 기존 Claude 비노출 좌표 · VP-21′ 외부 편집 사례 · `useNativeMcpCatalog.test.ts:'queries explicit global scope…'` | E2 승계 | EP-08 (4) · EP-09 |
+
+## ΔV5-5. Technical Design — 제거와 유지
+
+| 구분 | 파일 | 할 일 |
+|---|---|---|
+| 제거 | `adapters/opencode/v1/global-plugins.ts` | `OpenCodeGlobalPlugins`·`PluginRecordStore` 삭제. `openCodeGlobalConfigFiles`·`effectiveOpenCodePlugins`·`openCodeGlobalPluginFingerprint`만 남긴다 |
+| 제거 | `adapters/opencode/v1/openCodePluginConfig.ts` | 편집 함수 삭제. `parseConfig`는 `9982cdf`의 기존 구현으로 되돌리고 `pluginEntries`·`pluginSpec`은 그 파서 위에서 유지 |
+| 제거 | `adapters/opencode/{implementation,index}.ts` · `v1/index.ts` · `app/harnesses/{common/contracts,opencode/module}.ts` | `globalResourceControl`·`createOpenCodeGlobalPlugins`·관련 타입 삭제 |
+| 원복 | `adapters/opencode/v1/configured-resources.ts:119-124` | `canToggle: item.kind === 'mcp'` |
+| 제거 | `app/handlers/extension-catalog.ts` | deps·확인·OpenCode plugin 분기·`:38` 특례 삭제, 반환형 `NativeResources` |
+| 제거 | `app/opencode-global-watch.ts` · `app/bootstrap.ts` | `reconcilePlugins`·`change()`·`drain()` 호출·plugins control·catalog deps·`openCodeSessions` 삭제. 감시 시작·changed·close는 유지 |
+| 제거 | `shared/{native-resources,protocol,ipc}.ts` · `infra/settings-store.ts` · `app/handlers/settings.ts` · `shared/openCodePluginRecord.testfixture.ts` | `OpenCodeDisabledPlugin`·`openCodeDisabledPlugins`·setter·renderer 응답 가림·`confirmed`·`SetGlobalNativeResourceResult` 삭제 |
+| 원복 | `preload/index.ts` · `renderer/shared/api/ipc.ts` · `features/skills/hooks/useNativeMcpCatalog.ts` · i18n `restartTitle`·`restartBody`·`restartConfirm` | 확인 흐름 삭제, 반환형 `NativeResources` |
+| 제거 | `app/package.json`·`package-lock.json` · `docs/TRD.md:117` · `app/AGENTS.md:98` | `jsonc-parser` 삭제(lockfile은 npm으로 갱신) |
+| 문서 | `docs/IPC_CONTRACT.md:135·136·193` · `docs/arch/backend/adapters.md:67·71` · `docs/generated/inventory.md` | settings·setEnabled 행 원복, OpenCode 플러그인 고정 서술, 생성물 재생성 |
+| 유지 | 감시·fingerprint·`extensionsChanged`→`retireAll`·ΔV3 broadcast·store | 외부 변경 반영 경로 |
+| 테스트 | `global-plugins.test.ts`·`extension-catalog.test.ts`·`bootstrap.native-history.test.ts`·`settings.private.test.ts`·`settings-store.test.ts`·`useNativeMcpCatalog.test.ts`·`ExtensionsCatalogView.interaction.test.ts`·`opencode-global-watch.test.ts`·`preload/index.test.ts` | 제어·기록·확인 케이스 삭제, 위 VP 좌표로 갱신 |
+
+## ΔV5-6. 강제 지점 (§10 ΔV5)
+
+| V / pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|
+| EP-10 · VP-18″·VP-23″·VP-29″·VP-30″ | Orca는 OpenCode 플러그인을 제어하지 않는다 — 제어·기록·확인·편집 의존성 없음 | **코드 20파일(R1~R20):** `app/package.json` · `adapters/opencode/implementation.ts` · `adapters/opencode/index.ts` · `v1/global-plugins.ts` · `v1/index.ts` · `v1/openCodePluginConfig.ts` · `app/bootstrap.ts` · `app/handlers/extension-catalog.ts` · `app/handlers/settings.ts` · `app/harnesses/common/contracts.ts` · `app/harnesses/opencode/module.ts` · `app/opencode-global-watch.ts` · `infra/settings-store.ts` · `preload/index.ts` · `features/skills/hooks/useNativeMcpCatalog.ts` · `renderer/shared/api/ipc.ts` · `shared/ipc.ts` · `shared/native-resources.ts` · `shared/openCodePluginRecord.testfixture.ts` · `shared/protocol.ts`.<br>**추가 4:** R21 `v1/configured-resources.ts:119·124` · R22 `extension-catalog.ts:38·61` · R23 `i18n/resources/ko.ts:623-626` · R24 `i18n/resources/en.ts:619-622`.<br>**문서·lock 5:** R25 `docs/TRD.md:117` · R26 `docs/IPC_CONTRACT.md:135·136·193` · R27 `app/AGENTS.md:98` · R28 `docs/arch/backend/adapters.md:67·71` · R29 `app/package-lock.json` jsonc-parser 항목.<br>합계 **29** | R1~R20: `rg -l "OpenCodeGlobalPlugins\|PluginRecordStore\|OpenCodeDisabledPlugin\|openCodeDisabledPlugins\|setOpenCodeDisabledPlugins\|globalResourceControl\|insertPluginEntry\|removePluginEntry\|SetGlobalNativeResourceResult\|opencode-restart\|openCodeSessions\|reconcilePlugins\|OpenCodeGlobalPluginControl\|OpenCodePluginRecordStore\|rendererSettings\|jsonc-parser\|openCodeGlobalWatch\?\.drain\|confirmed\?: true\|confirmed: z\.literal\|request\.confirmed\|globalWatch\.change\|change\(action" app/src app/package.json --glob '!*.test.ts' --glob '!*.test.tsx'` → `6fa83b39`에서 20파일·68줄. R21~R24: `rg -n "restartTitle\|restartBody\|restartConfirm\|editable\|backend === 'opencode' && item\.kind === 'plugin'"` 해당 4파일 → 9줄. 구현 후 음성 게이트: 같은 R1~R20 술어 + `restartTitle\|restartBody\|restartConfirm` + `rg -n "nativeFileMutations" app/src/main/adapters/opencode`를 `app/src`·`app/package.json`·`app/package-lock.json`·`docs/TRD.md`·`docs/IPC_CONTRACT.md`·`docs/arch`·`app/AGENTS.md`에서 0건 | Orca가 OpenCode 설정을 계속 고치거나 기록·확인 UI가 남음 |
+
+- 대체된 분모: ΔV1 EP-06 19 → EP-10 29. ΔV2 EP-09 X4(공용 토글 fan-out)·X5(기록 노출)는 삭제 자리로 EP-10에 포함. 유효 V 총 = 101 − 19(EP-06) − 2(X4·X5) + 29 = **109**.
+
+## ΔV5-7. Gate
+
+- ΔV3 gate와 같다. jsonc-parser 삭제 후 `npm` lockfile 갱신, `node scripts/check-doc-inventory.mjs` 재생성 → `--check`.
+
+## ΔV5 정합성 검토
+
+- ACTIVE 결정 ↔ AC:
+  - 충돌 0: D-030↔AC40, D-031·D-032↔EP-10, D-019·D-020↔AC27·AC28′, D-016↔AC24, D-017·D-022↔AC25′·AC31·AC32, D-024↔AC40(Orca가 쓰지 않음).
+  - D-023(동시 실행·세션 공유)은 데이터 폴더를 바꾸지 않는 현행으로 충족한다.
+- SUPERSEDED 이관은 ΔV5-4 표에 전부 적었다. 폐기한 변이는 쓰기·확인 흐름 자체가 사라진 경우뿐이다.
+- 남은 OPEN:
+  - U-001(Claude 전역 선택 영속) — 범위 밖.
+  - Claude 비대칭 2건(ΔV4-2 비교) — 별도 handoff 후보.
+- self-review(ΔV5):
+  - 사용자 원문 1건 인용, 사실 5행 관측.
+  - AC 2건에 행동·수단·경로가 있다.
+  - CHANGED 노드 7개에 REQUIRED pair가 있다. SUPERSEDED 4 pair는 폐기 근거가 있다.
+  - EP-10 29자리는 검색 명령과 `6fa83b39` 출력으로 고정했다.
+  - 적대 증거는 VP-18″(음성 게이트 민감도)에서 선택했다. 신규 의존성 0(오히려 1 제거).
 
 ---
 
