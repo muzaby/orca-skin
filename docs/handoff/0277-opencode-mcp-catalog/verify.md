@@ -171,3 +171,75 @@
 - pair: root PAIR_FAIL 1(DV1-P4) · PASS(이관 제외) 2(DV1-P2·P3) · BLOCKED_BY 2(DV1-P1·V1 VP7). PLAN_GAP 3건은 0278 이관(반려 아님).
 - AC: ✅7 · ❌1 · 이관 3 / 11.
 - 다음 단계: Codex r2 — D1(O3), 다음 verify는 O3 재실행. A6·A23·P11–P13은 0278 verify에서 재실행한다.
+
+---
+
+# r2 재검증 (2026-10-23)
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 대상 커밋/range | `32b43cc..e42d1e2` 중 0277: `9ad2224`(r2 — 테스트 1파일) |
+| 구현 전 plan 기준 | r1과 같음 — `9ad2224`의 `plan.md` `-` 줄은 메타 상태 1줄 |
+| V mode / 유효 V | Delta V / V1 + ΔV1 (§8, 최종 경계 0278 §27) |
+| 라운드 | 2 (verify 2회째) |
+| 자기 검증 여부 | 아니오 — 구현 Codex, 검증 Claude |
+
+**PASS — 이 handoff에 남은 유일한 미검출 O3(파일 근거 없는 열기)가 잡히고 나머지 자체 고장도 유지된다.** 0278로 이관한 AC5·AC6·AC10(P11–P13·A23·A6)은 [0278 verify r3](../0278-harness-extension-isolation/verify.md#r3-13a-이관-수령분-판정)에서 PASS로 닫혔다.
+
+## r2-0. 기준선 / plan validity
+
+- 앱 변경은 테스트 22파일뿐(production 0) — §8 경계와 경로는 r1과 같다.
+- 새 단언: `configured-resources.test: discovers global config.json…`이 파일 근거 없는 plugin 행의 `canOpen: false`를 기대에 더했다(기존 단언 유지, 항 추가).
+
+## r2-4. 고장 재실행
+
+| ID | r1 | r2 | 잡은 테스트 | 귀속 |
+|---|---|---|---|---|
+| O1 | 잡음 | 잡음 | `configured-resources.test: discovers global config.json and excludes the default workspace…` | §8 global reader · AC1 |
+| O2 | 잡음 | 잡음 | 같음 | §8 global reader · AC1 |
+| O3 | 못 잡음 | **잡음** | 같음(`canOpen: false` 기대) | §8 source file lookup · AC11 · D1 |
+| A20 | 잡음 | 잡음 | `extension-catalog.test: …keeps supported explicit choices only in memory` | FEP1 |
+| A21·A22 | 잡음 | 잡음 | `session-context.test`·`adapter.test`·`opencode/v1/project-settings.test` | FEP7 · AC3·AC9 |
+| A5 | 잡음 | 잡음 | `project-resource-sync.test: counts …activity as busy` | FEP8 |
+| A11 | 잡음 | 잡음 | `session-resources.test: rejects …read-only resources before writing` 외 1 | FEP10 |
+| F12a–d | 잡음 | 잡음 | `useNativeMcpCatalog.test`·`CustomizeList.render.test`·`NativeResourcesTile.test` | FEP12 · AC7 |
+
+- 검산(이 handoff 판정 행): 시도 12 = 잡음 12 · 못 잡음 0 · 동치 0. r1 못 잡음 1(O3) → 잡음, r1 잡음 11 → 잡음(덮개 회귀 0). 이관 5행(A23·A6·P11–P13)은 0278 r3에서 잡음.
+
+## r2-5. V-pair closeout
+
+| Pair | 레벨 | r1 | r2 | 증거 |
+|---|---|---|---|---|
+| DV1-P4 | UT | PAIR_FAIL | **PASS** | O1·O2·O3 잡음 |
+| DV1-P3 | IT | PASS(이관 제외) | PASS(이관 제외) | A20·A11·F12a–d 잡음, push scope는 0278 PASS |
+| DV1-P2 | ST | PASS(이관 제외) | PASS(이관 제외) | A21·A22·A5 잡음, revision·stale은 0278 PASS |
+| DV1-P1 | AT | BLOCKED_BY:DV1-P4 | **PASS** | root 해소, AC1–4·7–9·11 관측 |
+| V1 VP7 | ST | BLOCKED_BY:0275 VP11·0276 VP3·VP6 | **PASS** | 0276 verify r2 PASS, 0275 VP11 축 L3–L7 잡음·L8 동치 |
+
+| AC | 결과 | 근거 |
+|---|---|---|
+| AC1–AC4·AC7–AC9 | ✅ | r1과 같은 축 잡음 |
+| AC11 가짜 파일 열기 없음·민감정보 비노출 | ✅ | O3 잡음 |
+| AC5·AC6·AC10 | 이관 | 0278 r3 R5·R3 PASS |
+
+- 합계 재측정: `✅ 8 · ❌ 0 · 이관 3 = 11`. 자기보고 `Criteria-Met: 8/11`·`Criteria-Pending: AC5·AC6·AC10은 0278로 책임 이관`(`9ad2224`) 일치.
+- §8: 이 handoff 판정 3자리 3/3 PASS, 이관 2자리는 0278 FEP8·FEP12 PASS.
+- 운영 gate: [0281 verify r2](../0281-opencode-menu-cache/verify.md#r2-운영-gate-head-e42d1e2)와 같은 HEAD 실행.
+
+## r2-11. Repository operation checks
+
+- INDEX: `impl/IMPL_DONE`(r2) → PASS, archive 이동. `9ad2224` `git cat-file -t` = commit, trailer 6키 파싱(0277 단독 trailer).
+- `[구현자 기입] ΔV1 r2` 7필드, §8 대조 표 존재.
+
+## r2-13. Finding disposition
+
+| # | r2 상태 | 근거 |
+|---|---|---|
+| D1 | closed | O3 잡음 |
+| D2·D3 | transferred → closed in 0278 r3 | P11–P13·A23·A6 잡음 |
+| N1 | closed | `9ad2224`가 0277 trailer와 자리별 표를 갖는다 |
+
+## r2-15. 결론
+
+- 상태: **PASS** — verify 2회째. 판정 pair 전부 PASS, PLAN_GAP 없음, AC ✅8/8 + 이관 3(0278 PASS).
