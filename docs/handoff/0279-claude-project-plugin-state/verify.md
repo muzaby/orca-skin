@@ -197,3 +197,102 @@ typecheck 3구성 0 error · lint 0 error/2 기존 warning(범위 밖) · render
 - AC: ✅6 · ❌2 / 8.
 - 운영 gate: PASS(main Linux 15건은 Windows 전용 fixture, CI #853 green).
 - 다음 단계: Codex r2 — D1–D3 테스트 보강 후 고장 이력 A6·A15·P11·P12·P13(못 잡음)과 A7(동치) 재실행.
+
+---
+
+# r2 재검증 (2026-10-23)
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 대상 커밋/range | `32b43cc..e42d1e2` 중 0279: `7675171`(r2 기록) — 테스트는 0278 r3 `3e452da`(FEP 공유)에 동봉 |
+| 구현 전 plan 기준 | r1과 같음 — `7675171`의 `plan.md` `-` 줄은 메타 상태 1줄 |
+| V mode / 유효 V | Delta V / V1 + ΔV1 + ΔV2(0278 §27 FEP3–6·9–11 승계) |
+| 라운드 | 2 (verify 2회째) |
+| 자기 검증 여부 | 아니오 — 구현 Codex, 검증 Claude |
+
+**PASS — r1 미검출 5개(A6·A15·P11·P12·P13)가 모두 잡히고 r1 잡음 18개도 유지되며, A7은 동치 그대로다.** production 무변경 테스트 보강 라운드다.
+
+## r2-0. 기준선 / plan validity
+
+- 앱 변경은 테스트 22파일뿐(production 0). §10·FEP 자리와 경로는 r1과 같다.
+- 새 oracle 실행 구간: `project-resource-sync.test: discards a revision invalidated during reading…`는 실제 `ProjectResourceSync`에 읽기 중 이벤트를 주입한다. `file-mutation.test: rebases an external edit before commit without relying on a rename failure`는 rename 성공 1회 경로에서 `beforeCommit` 외부 편집만 준다. `useNativeResources.test: rejects a ready draft push differing only in backend/cwd/projectId`는 준비 완료 상태에서 한 항만 다른 push를 준다.
+- 약화 확인: `file-mutation.test`의 별칭 케이스는 대문자 alias 입력을 그대로 두고 첫 commit 전 patch 호출 0 단언을 더했다. Windows lock helper 대기만 5s→30s(fixture 준비 예산, production retry 예산 불변).
+
+## r2-4. 고장 재실행
+
+- 0278 r3와 공유한 실행(ID 동일). main은 `src/main src/shared src/preload`(Linux 기준선 17 red). Windows 분기는 r1과 같은 소스 shim(`…s`, 기준선 7 red = shim local-root 단언 1 + `C:/` composer fixture 6)으로 재측정하고 기준선 차집합으로 판정했다.
+
+| ID | r1 | r2 | 잡은 테스트 | 귀속 |
+|---|---|---|---|---|
+| A1 | 잡음 | 잡음 | `project-settings.test: fingerprints only project extension keys…Git-root state` | EP1 reader · FEP6 |
+| A2 | 잡음 | 잡음 | `plugin-state.test: merges sibling choices…` | EP1 writer · FEP9 |
+| A3 | 잡음 | 잡음 | `plugin-state.test: refuses a local settings junction outside the current working directory`(Linux·shim) | EP1 writer · FEP9 |
+| A4 | 잡음 | 잡음 | `bootstrap.native-history.test: groups runtimes by actual cwd…` 외 2 | EP2 |
+| A5 | 잡음 | 잡음 | `project-resource-sync.test: counts …activity as busy`·bootstrap 통합 | EP3 idle |
+| A6 | 못 잡음 | **잡음** | `project-resource-sync.test: discards a revision invalidated during reading before any resource push`(Linux·shim) | EP3 revision · D1 |
+| A7 | 동치 | 동치 | — Linux·shim green. r1 근거(호출 경로가 같은 `isIdle()`을 동기 선행) 유지, production 무변경 | EP4 · N1 |
+| A8 | 잡음(shim) | 잡음(shim) | `project-reconciliation.test: …never saves it back`·`adapter.native-plugins.test: …only after idle reconciliation` | EP4 |
+| A9 | 잡음 | 잡음 | `session-runtime.test: serializes the next submission behind an idle configuration operation…` | EP4 |
+| A10 | 잡음 | 잡음 | `bootstrap.native-history.test: observes external project settings through real bootstrap…`(등록 변이) | EP5 · VP3 |
+| A11 | 잡음 | 잡음 | `session-resources.test: rejects stale generations…` 외 1 | EP6 · FEP10 |
+| A12 | 잡음 | 잡음 | `native-resources.test: rejects both MCP toggle directions…`·`adapter.live-control.test` | FEP5 |
+| A13 | 잡음(shim) | 잡음(shim) | `native-resources.test: waits for durable persistence…`·`adapter.native-plugins.test: persists both plugin states…` | FEP5·10 |
+| A14 | 잡음 | 잡음 | `file-mutation.test: serializes canonical same-file aliases…` | FEP9 |
+| A15 | 못 잡음 | **잡음** | `file-mutation.test: rebases an external edit before commit without relying on a rename failure`(Linux·shim) | FEP9 · D2 |
+| A16·A17 | 잡음 | 잡음 | `native-settings-lifecycle.test` 2건 | FEP11 |
+| A18 | 잡음 | 잡음 | `adapter.native-plugins.test: isolates global SDK choices…`·bootstrap 1 | FEP3 |
+| A19 | 잡음(shim) | 잡음(shim) | `adapter.native-plugins.test: pins deployed MCP files…` | FEP3·4 |
+| A24 | 잡음 | 잡음 | `project-reconciliation.test: isolates project approvals…` | FEP6 |
+| PL1 | 잡음(shim) | 잡음(shim) | `native-resources.test: …preserving sibling flags`·`adapter.native-plugins.test: carries plugin controls…` | FEP5 |
+| P11 | 못 잡음 | **잡음** | `useNativeResources.test: rejects a ready draft push differing only in backend` | EP7 · D3 |
+| P12 | 못 잡음 | **잡음** | `…differing only in cwd` | EP7 · D3 |
+| P13 | 못 잡음 | **잡음** | `…differing only in projectId` | EP7 · D3 |
+
+- 검산: 시도 24 = 잡음 23 · 동치 1(A7) · 못 잡음 0. r1 못 잡음 5 → 잡음, r1 잡음 18 → 잡음(덮개 회귀 0), r1 동치 1 → 동치.
+- Linux A13 실행의 기준선 밖 1건은 `infra/loopback-callback.test: 타임아웃은 LoopbackCancelledError 로 끝난다` — 변이와 무관한 타이머 테스트가 병렬 부하에서 흔들린 것이라 세지 않았고 A13은 shim 결과로 판정했다.
+
+## r2-5. V-pair closeout
+
+| Pair | 레벨 | r1 | r2 | 증거 |
+|---|---|---|---|---|
+| DV1-P4 | UT | PASS | PASS | A1·A2·A3 잡음 |
+| V1 VP4 | UT | PASS | PASS | A1·A24·A8 잡음, A7 동치 |
+| ΔV2 (0278 DV3-P1·3·4 승계) | IT | PAIR_FAIL | **PASS** | A13·A14·A15 잡음 |
+| DV1-P3 | IT | PASS | PASS | A1·A24·A5·A8 잡음 |
+| V1 VP3 | IT | PAIR_FAIL | **PASS** | A10·A4·A5·A6 잡음 |
+| DV1-P2 | ST | PASS | PASS | A1 잡음, F1 반례 PASS 유지(production 무변경) |
+| V1 VP2 | ST | PAIR_FAIL | **PASS** | A11·P11–P13 잡음 |
+| DV1-P1 | AT | PASS | PASS | A12·A13·A2·A3·PL1 잡음 |
+| V1 VP1 | AT | PASS | PASS | A2·A4·A8·A13·A18·A19 잡음 |
+| V1 VP5 | AT | BLOCKED_BY:V1 VP2 | **PASS** | VP2 root 해소, A2·A4·A11 잡음 |
+
+| AC | 결과 | 근거 |
+|---|---|---|
+| AC1–AC4·AC6·AC7 | ✅ | r1과 같은 축 잡음(A2·A3·PL1·A4·A13·A5·A8·A10·A12·A24), renderer 377파일 green |
+| AC5 실패·stale을 성공으로 표시하지 않음 | ✅ | A6·P11–P13 잡음 |
+| AC8 동시 편집 보존·무오류·순서 | ✅ | A13·A14·A15 잡음 |
+
+- 합계 재측정: `✅ 8 · ❌ 0 = 8`. 자기보고 `Criteria-Met: 8/8`(`7675171`) 일치.
+- §10: V1 EP1–EP7 22/22 · FEP3·4·5·6·9·10·11 6/6 경계 PASS. 목록 밖 발견 없음.
+- 운영 gate: [0281 verify r2](../0281-opencode-menu-cache/verify.md#r2-운영-gate-head-e42d1e2)와 같은 HEAD 실행 — typecheck 0 · lint 0 error · renderer 377/3078 · main 17 red 전부 Windows 전용 · CI #857(windows-latest) green.
+
+## r2-11. Repository operation checks
+
+- INDEX: `impl/IMPL_DONE`(r2) → PASS, archive 이동. `7675171`·`3e452da` `git cat-file -t` = commit, 각 trailer 5키 파싱. 테스트는 0278 trailer 커밋에 있으나 0279 r2 보고가 그 공유를 명시한다.
+- `[구현자 기입] ΔV2 r2` 7필드, 강제 지점 표 존재.
+
+## r2-13. Finding disposition
+
+| # | r2 상태 | 근거 |
+|---|---|---|
+| D1 | closed | A6 잡음 |
+| D2 | closed | A15 잡음 |
+| D3 | closed | P11·P12·P13 잡음 |
+| N1 | NON_BLOCKING 유지 | A7 동치 재확인 |
+| N2 | closed | `7675171`이 0279 trailer와 자리별 표를 갖고 공유 테스트 커밋을 가리킨다 |
+
+## r2-15. 결론
+
+- 상태: **PASS** — verify 2회째. pair 10/10 PASS, PLAN_GAP 없음, AC ✅8/8.
+- 남은 사람 확인: 실제 Windows Electron의 plugin 토글·두 테마 패널(AC 밖).
