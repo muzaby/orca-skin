@@ -143,3 +143,76 @@
 - pair: PASS 3(VP2·VP4·VP5) · root PAIR_FAIL 1(VP3) · BLOCKED_BY 1(VP1). PLAN_GAP 없음.
 - AC: ✅5 · ❌1 / 6.
 - 다음 단계: Codex r2 — D1, 다음 verify는 G6·G1(M1) 재실행.
+
+---
+
+# r2 재검증 (2026-10-23)
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 대상 커밋/range | `32b43cc..e42d1e2` 중 0269: `7cfe9f3`(r2 테스트, `Status: partial`) · `048c19b`(r2.2 CI 결과 기록) |
+| 구현 전 plan 기준 | r1과 같음 — r2 커밋의 `plan.md` `-` 줄은 메타 상태 1줄 |
+| V mode / 유효 V | Baseline V / V1 |
+| 라운드 | 2 (verify 2회째) |
+| 자기 검증 여부 | 아니오 — 구현 Codex, 검증 Claude |
+
+**PASS — r1 미검출 G6(복원 시 telemetry 우선)이 잡히고 G1(등록 M1)–G7 전부 잡힌다.** production 무변경 테스트 보강 라운드다.
+
+## r2-0. 기준선 / plan validity
+
+- 앱 변경은 테스트 22파일뿐(production 0) — §10 8자리와 경로는 r1과 같다.
+- 새 oracle: `last-model.test: restores each session model after closing and reopening its database…`가 실제 SQLite에 저장 모델과 다른 마지막 telemetry(`title-telemetry-only`)를 함께 넣고 load DTO가 저장 모델을 돌려줌을 단언한다 — 운반 값이 형제(telemetry)와 구별된다.
+
+## r2-4. 고장 재실행
+
+- main `src/main src/shared`(실제 SQLite, Node ABI), renderer `features/chat`.
+
+| ID | r1 | r2 | 잡은 테스트 | 귀속 |
+|---|---|---|---|---|
+| G1 (M1) | 잡음 | 잡음 | `Composer.selection.test: shows each loaded session model instead of the provider default…` | EP1⑤ · VP3 등록 변이 |
+| G2 | 잡음 | 잡음 | `last-model.test: restores each session model after closing and reopening its database…` | EP1① |
+| G3·G4 | 잡음 | 잡음 | 같음 | EP1③ |
+| G5 | 잡음 | 잡음 | `turn-context.test: carries the actual resolved model…into continuation turns` | EP1② |
+| G6 | 못 잡음 | **잡음** | `last-model.test: restores each session model…`(telemetry 우선 시 `title-telemetry-only` 반환) | EP1④ · D1 |
+| G7 | 잡음 | 잡음 | `chatReducer.model.test: defaults … to automatic approval…preserves explicit choices` 3건 | EP1⑥ |
+
+- 검산: 시도 7 = 잡음 7 · 못 잡음 0 · 동치 0. r1 못 잡음 1 → 잡음, r1 잡음 6 → 잡음(덮개 회귀 0).
+
+## r2-5. V-pair closeout
+
+| Pair | 레벨 | r1 | r2 | 증거 |
+|---|---|---|---|---|
+| VP4 | UT | PASS | PASS | G7 잡음 |
+| VP3 | IT | PAIR_FAIL | **PASS** | G1–G6 잡음 |
+| VP2 | ST | PASS | PASS | G1·G2 잡음 |
+| VP1 | AT | BLOCKED_BY:VP3 | **PASS** | AC1·AC2 관측, VP3 root 해소 |
+| VP5 | AT | PASS | PASS | Windows CI #857(`e42d1e2`) green — r1의 15파일 포함 |
+
+| AC | 결과 | 근거 |
+|---|---|---|
+| AC1 세션별 모델 저장·재개방 복원 | ✅ | G2–G6 잡음 |
+| AC2 cached 보존·cold 복원 | ✅ | G1 잡음 |
+| AC3 4.6+ 기본 auto·명시 보존 | ✅ | G7 잡음 |
+| AC4 append-only migration·같은 UPDATE | ✅ | G2 잡음, migration 파일 무변경 |
+| AC5 CI 15파일 회복 | ✅ | CI #857 green |
+| AC6 gate·원격 CI | ✅ | CI #857 green, 운영 gate 아래 |
+
+- 합계 재측정: `✅ 6 · ❌ 0 = 6`. 자기보고 `7cfe9f3` `5/6`(AC6 대기) → `048c19b` `6/6`. 원격 CI 관측 후 값과 일치.
+- §10: 8/8 PASS.
+- 운영 gate: [0281 verify r2](../0281-opencode-menu-cache/verify.md#r2-운영-gate-head-e42d1e2)와 같은 HEAD 실행.
+
+## r2-11. Repository operation checks
+
+- INDEX: `impl/IMPL_DONE`(r2) → PASS, archive 이동. `7cfe9f3`·`048c19b` `git cat-file -t` = commit, trailer 파싱(`7cfe9f3`은 `Criteria-Pending` 포함 6키).
+- `[구현자 기입] r2` 7필드 존재.
+
+## r2-13. Finding disposition
+
+| # | r2 상태 | 근거 |
+|---|---|---|
+| D1 | closed | G6 잡음 |
+
+## r2-15. 결론
+
+- 상태: **PASS** — verify 2회째. pair 5/5 PASS, PLAN_GAP 없음, AC ✅6/6.
