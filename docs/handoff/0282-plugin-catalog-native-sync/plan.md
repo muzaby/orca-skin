@@ -1,0 +1,580 @@
+# Plan — 0282-plugin-catalog-native-sync
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| slug | `0282-plugin-catalog-native-sync` |
+| 작성자 | Claude Code |
+| 일자 | 2026-10-23 |
+| 매핑 | — |
+| 상태 | READY |
+| V mode | `Baseline V` |
+| 기준 V | `none` — 회귀 노드는 0281·0278·0267의 현재 코드·테스트를 `57515e7`에서 확인해 INHERITED로 인용 |
+| 이번 V revision | `V1` |
+| 유효 V | `V1` |
+
+# Part I — Product & UX Contract
+
+## 1. Context / 목표
+
+- 해결하려는 문제: ① OpenCode Composer가 작업 경로별 랜딩마다 에이전트 목록을 다시 불러 스피너가 반복된다. ② nav 플러그인 페이지의 스킬 탭에 네이티브 플러그인 자체와 그 스킬이 섞여 있다. ③ 네이티브 플러그인을 꺼도 Composer `+`→스킬과 Claude `/context`에 그 스킬이 남는다. ④ 하네스 기본 경로 스킬에 의미 없는 on/off 표면이 있다. ⑤ MCP 추가가 저장 폴더가 없으면 실패한다.
+- 완료 후 달라지는 것: 에이전트 목록은 앱 실행당 1회만 불러오고, 플러그인은 플러그인 탭에서만 보이며, off는 새 세션·Composer 초안에 즉시 반영되고, 기본 경로 스킬은 항상 활성으로 보이며, MCP 추가는 폴더를 만들어 성공한다.
+- 성공을 사용자 관점에서 한 문장으로: "끈 플러그인은 새 세션과 Composer 어디에도 나타나지 않고, 한 번 본 에이전트 목록은 다시 기다리지 않는다."
+
+## 2. 사용자 의도 / 요구 출처
+
+| 구분 | 내용 | 출처 |
+|---|---|---|
+| 명시 요구 1 | "opencode composer: 에이전트 (팝업) 로딩이 작업 경로별 랜딩페이지에서 모두 시도되고 있다. 한 번 로드된 에이전트 목록은 앱 재시작 전까지 1회만 동작. 이후 케싱된 정보로 composer가 재활용하도록 해야 한다." | 2026-10-23 세션 |
+| 명시 요구 2 | "as is: 스킬 탭에 [claude 스킬, claude 플러그인] 그룹에 superpowers의 각 스킬과 플러그인 자체를 표시. to be: claude 플러그인을 플러그인 탭으로 이동. 스킬 탭의 claude 스킬 하위에 표시하던 네이티브 플러그인의 스킬은 표시하지 말 것. 기타: opencode도 같은 조건으로 반영" | 같은 세션 |
+| 명시 요구 3 | "네이티브 플러그인 on/off에 따라 composer의 +버튼 -> 스킬 항목에서 네이티브 플러그인의 스킬 노출/비노출도 동기화 되어야 함" | 같은 세션 |
+| 명시 요구 4 | "하네스(claude/opencode), ~/.agents/skills 같은 기본 경로의 스킬에 대해서는 on/off 컨트롤 기능+gui를 제공하지 않아야 한다. 하네스에 노출되는 순간 동작이 가능한 것으로 간주한다." | 같은 세션 |
+| 명시 요구 5 | "claude의 네이티브 플러그인(e.g., superpowers)이 off 되었는데도 /context 커맨드 확인 시 로드됐다고 표시되고 있다." | 같은 세션 |
+| 명시 요구 6 | "플러그인->mcp탭 -> 추가버튼으로 mcp추가 시도 시, mcp 파일을 추가할 경로(디렉토리)가 준비되어있지 않으면 발생한다. 에러가 mkdir -p 같은 옵션처럼 경로가 없으면 만들어줘 함." | 같은 세션 |
+| 사용자 답변 Q1 | off 적용 시점 = "새 세션부터 즉시" | AskUserQuestion |
+| 사용자 답변 Q3 | 플러그인 탭 내 위치 = "기존 그룹 뒤" | AskUserQuestion |
+| 사용자 답변 Q2(질의로 응답) | "전역 on/off에 대해 sdk 로 제어하고 있지 않은지? Sdk에서 제공하지 않으면 해당 하네스의 설정파일을 편집하고 있지 않은지?" → "현재 각 프로젝트(경로)에서는 전용 하네스파일을 편집하여 네티티브 플러그인을 제어하고 있지 않은지?" → "현재 클로드의 경우 user 스코프의 settings.json은 참조하지 않고 있다" | AskUserQuestion 3회 — 저장 위치는 선택되지 않음(D-009·U-001) |
+| 추론 의도 | 실행 중 세션의 Composer는 그 세션에 실제 로드된 스킬을 보여야 한다(Q1이 실행 중 세션 유지를 택함) | D-008에서 파생 |
+| 추론 의도 | 기본 경로 스킬은 "동작 가능으로 간주"하므로 회색 글씨도 쓰지 않는다 | 요구 4의 이유절 |
+
+## 3. Decision Ledger
+
+| ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
+|---|---|---|---|---|---|
+| D-001 | OpenCode Composer 에이전트 목록은 앱 실행 중 첫 성공 1회만 불러오고 이후 모든 Composer(경로·프로젝트·provider·세션 무관)가 그 목록을 재사용 | "앱 재시작 전까지 1회만 동작" | 요구 1 | ACTIVE | 0281 D2·D4를 agents 슬롯에 한해 대체. models·MCP·plugins는 0281 유지 |
+| D-002 | 실패·취소는 캐시를 채우지 않는다. 첫 성공 전 로딩 표시는 0281 D5(제목 우측 스피너) 그대로 | "한 번 로드된" = 성공 | 요구 1 · 0281 D5 | ACTIVE | — |
+| D-003 | 전송 시 선택 에이전트가 대상 경로 목록에 없으면 기존처럼 에이전트 지정 없이 보낸다 | 경로별 에이전트 차이의 안전망 | `channel.ts:146-154` 기존 동작 | ACTIVE(유지) | — |
+| D-004 | 네이티브 플러그인 행(Claude·OpenCode)은 플러그인 탭으로 이동. 스킬 탭은 네이티브 플러그인 출처 스킬(`plugin:claude`·`plugin:opencode`)을 표시하지 않음 | 요구 2 원문 | 요구 2 | ACTIVE | 0236/rendering.md의 스킬 탭 출처 구분 문장 대체 |
+| D-005 | 플러그인 탭 순서: 앱 로그인 → 모델 → 사내 서비스 → Claude 플러그인 → OpenCode 플러그인 | 사용자 선택 | Q3 | ACTIVE | — |
+| D-006 | Composer `+`→스킬의 네이티브 플러그인 스킬은 대상 실행이 실제로 싣는 상태와 같다. 초안·미실행 세션 = 다음 spawn의 유효 상태, 실행 중 세션 = 그 Query의 실제 목록 | 요구 3 + D-008 | 요구 3 · Q1 | ACTIVE | — |
+| D-007 | 하네스 기본 경로 스킬(`~/.claude/skills`·OpenCode 전역 skills·`~/.agents/skills`)은 on/off 기능·토글 GUI 없음. 항상 활성으로 보고 실행한다. Orca 스킬은 토글 유지 | "하네스에 노출되는 순간 동작이 가능한 것으로 간주" | 요구 4 | ACTIVE | 0278 D11의 회색 글씨·고정 토글을 이 스킬들에 한해 대체 |
+| D-008 | nav의 Claude 플러그인 전역 on/off는 같은 경로에 실행 중 세션이 있어도 새로 시작하는 Query부터 즉시 적용. 실행 중 Query는 종료·축출·재시작 전까지 유지 | 사용자 선택 | Q1 | ACTIVE | 0278 D28을 Claude 플러그인 기본값에 한해 대체. D15 유지 |
+| D-009 | 전역 선택의 저장 방식은 현행 유지 — SDK 런타임 적용만, 하네스 파일 미편집, 앱 재시작 시 네이티브 기본값 복귀 | 사용자가 저장 위치를 고르지 않음. 재시작 후에는 nav 표시와 실행이 함께 기본값이라 불일치 없음 | 0278 D26 · Q2 응답 | ACTIVE(유지) | — |
+| U-001 | 전역 선택을 재시작 후에도 유지할지, 유지한다면 어디에 둘지 | 사용자 Q2 답변이 질의로 끝남 | Q2 | OPEN — 이번 범위 밖 | — |
+| D-010 | MCP 저장 시 상위 폴더가 없으면 만든다(`mkdir -p`) | 요구 6 원문 | 요구 6 | ACTIVE | — |
+| D-011 | 프로젝트 `.claude/settings.json`·`settings.local.json`의 명시 선택은 nav 전역 선택보다 우선 | 기존 우선순위 | 0278 D16·D20 | ACTIVE(유지) | — |
+
+### 갱신 메모
+
+- 이번 턴에서 새로 추가된 결정: D-001~D-011 전부, OPEN U-001.
+- 변경된 결정: 0281 D2·D4 → D-001(agents 슬롯), 0278 D28 → D-008(Claude 플러그인 기본값), 0278 D11 → D-007(기본 경로 스킬).
+- 기존 ACTIVE 중 유지: 0278 D15·D16·D20·D24·D26·D32, 0281 D1·D5·D6.
+- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001↔AC1·AC2·AC3, D-002↔AC2, D-003↔AC4, D-004↔AC5·AC6, D-005↔AC6, D-006↔AC9·AC10·AC12, D-007↔AC13·AC14·AC15, D-008↔AC8·AC12, D-009↔(AC 없음 — 저장 경로를 만드는 AC가 없음을 확인), D-010↔AC16·AC17, D-011↔AC11.
+
+## 4. 요구 비판적 검토
+
+| 질문 | 판단 | 근거 |
+|---|---|---|
+| 요구 5가 원인을 겨냥하는가 | 전제 정정 — CLI는 off를 정상 처리한다. 원인은 Orca가 off를 새 Query에 넘기지 못함 | [실측](evidence/claude-inline-probe.md): `@inline:false`면 Skills 0 · `adapter.ts:439-472` 경로별 스냅샷 재사용 |
+| 요구 5의 재현 경로 | 같은 경로에 세션이 한 번이라도 실행됐으면 앱 종료·LRU 축출 전까지 off가 새 세션에 안 감. 재시작하면 off 선택 자체가 사라짐 | `runtime-pool.ts:8`(세션 수명 = 종료·축출) · `extension-control.ts:8-16`(메모리 Map) |
+| 요구 3이 이미 충족되는가 | 실행 중 세션은 충족, 초안은 미충족 | 실행 중: `native-resource-sharing.ts:92-99` 변경 broadcast · 초안: `plugin-catalog.ts:216-217`이 Orca 선택을 읽지 않음 |
+| 요구 1이 0281 결정과 충돌하는가 | 충돌 — 사용자가 명시적으로 바꿈 | 0281 D2 "같은 작업폴더·실행 세대에서 재사용", D4 "경로 전환 때 이전 목록 미사용" |
+| 요구 4가 기존 결정과 충돌하는가 | 충돌 — 0278 D11(회색·고정 토글)을 기본 경로 스킬에 한해 대체 | `scan.ts:78` `adapter:claude` canToggle |
+| 요구 6의 원인 | 공용 원자 쓰기가 상위 폴더를 가정 | `json-file.ts:7-11` · `sources/mcp` 생성 경로 0건(`rg -n "sourcesMcpDir" app/src/main` → 정의·`mcpJsonPath` 사용 2줄, mkdir 없음) |
+| 더 작은 해법 | 요구 6은 공용 writer 1곳 수정으로 5개 호출부 모두 해결. 요구 5는 스냅샷에서 plugin 기본값만 분리 | §9 |
+
+- 사용자에게 올린 결정: Q1(적용 시점) · Q2(저장 위치) · Q3(탭 내 위치). Q2는 미결로 U-001.
+- 코드 조사로 닫은 사실: 요구 5 원인, 초안 Composer 경로, MCP 실패 지점, OpenCode 플러그인은 전역·프로젝트 on/off가 없어 요구 3의 동기화 대상이 Claude뿐인 점(`configured-resources.ts:127` opencode `canToggle: item.kind === 'mcp'`).
+
+## 5. 동작 / 사용자 흐름
+
+```text
+A. OpenCode 랜딩(경로 A) Composer 첫 표시
+  → 에이전트 제목 스피너(D-002) → 목록 수신 → 앱 전역 캐시에 저장
+  → 랜딩(경로 B)·세션 Composer: 스피너 없이 캐시 목록 즉시 표시, 재조회 없음
+  ↘ 첫 시도 실패: 스피너 종료·안내 없음, 캐시 비어 있음 → 다음 Composer가 다시 시도
+
+B. nav → 플러그인 페이지
+  → 플러그인 탭: 앱 로그인 · 모델 · 사내 서비스 · Claude 플러그인 · OpenCode 플러그인
+  → 스킬 탭: Orcinus orca 스킬(토글) · Claude 스킬 · OpenCode 스킬 · ~/.agents/skills(토글 없음)
+  → MCP 탭: 기존과 같음
+
+C. nav에서 Claude 플러그인 off
+  → 플러그인 탭 행 off 표시
+  → 랜딩 Composer `+`→스킬: 그 플러그인 스킬 사라짐
+  → 새 세션(같은 경로에 실행 중 세션이 있어도): plugin 미로드 → /context에 없음
+  → 이미 실행 중인 세션: 그대로 로드 상태 — Composer·우측 패널도 실제 상태(로드됨) 표시
+  ↘ 프로젝트 settings에서 명시적으로 켠 경우: 프로젝트 우선(D-011)
+
+D. 플러그인 → MCP → 추가
+  → 저장 폴더 없음 → 폴더 생성 → mcp.json 저장 → 목록에 표시
+```
+
+### 상태와 전이
+
+| 시작 상태/이벤트 | 시스템 동작 | 사용자/소비자에게 보이는 결과 |
+|---|---|---|
+| 에이전트 캐시 없음 + Composer 구독 | agents 조회 시작 | 제목 스피너 |
+| 첫 agents 성공(어느 경로든) | 캐시 저장 + 살아 있는 모든 Composer 상태에 전파 | 모든 Composer에서 스피너 종료·목록 표시 |
+| 캐시 있음 + 새 Composer | agents 조회 생략 | 즉시 목록, 스피너 없음 |
+| 캐시 있음 + 인스턴스 무효화(세대 교체) | agents는 캐시 유지, models 등은 기존 무효화 | 에이전트 목록 유지 |
+| agents 실패·취소(캐시 없음) | 캐시 그대로 비움 | 스피너 종료, 안내 없음 |
+| nav off(Claude 플러그인) | Orca 메모리 선택 갱신 | 다음 Query·초안 목록부터 미포함 |
+| nav off 후 같은 경로 새 세션 | Query flag `<이름>@inline: false` | `/context`·`+`→스킬에 없음 |
+| nav off 후 실행 중 세션 | 변경 없음 | 로드 상태 그대로 표시 |
+| MCP 추가 + 폴더 없음 | 상위 폴더 생성 후 원자 쓰기 | 추가 성공 |
+
+### 파생 UX / 엣지케이스
+
+- loading / empty / error: 플러그인 탭은 provider 로딩과 네이티브 카탈로그 로딩을 함께 기다린다. 네이티브 카탈로그 실패 배너는 플러그인·MCP 탭에만 보이고 스킬 탭에는 보이지 않는다.
+- 성공한 빈 에이전트 목록도 캐시한다(성공이므로).
+- 다른 경로 전용 에이전트가 캐시에 있어도 전송 시 그 경로에 없으면 지정 없이 보낸다(D-003).
+- OpenCode 플러그인은 전역·프로젝트 on/off가 없어(0278 D32 모니터링) 설치된 플러그인의 스킬은 항상 `+`→스킬에 보인다 — 요구 3의 동기화 대상은 Claude 플러그인이다.
+- 기본 경로 스킬을 예전에 껐던 저장값(`skillEnabled`)은 지우지 않고 무시한다 — 이 스킬들은 다시 활성으로 실행된다.
+- 앱 재시작: 에이전트 캐시·전역 선택 모두 초기화(D-001·D-009).
+- keyboard / theme: 플러그인 탭 행은 기존 `CatalogListRow`·`CatalogToggle` 그대로. 탭 키보드 동작 불변.
+
+## 6. 범위 / 비범위
+
+- **범위**: §2 명시 요구 1~6과 그 문서 갱신(`adapters.md §1.3`·`IPC_CONTRACT.md` extensions 절·`rendering.md`·`design-components.md`).
+- **비범위**: 전역 선택 영속화(U-001) · OpenCode MCP 전역 선택의 적용 시점(directory 인스턴스 공유라 0278 D15·D28 유지) · Orca 스킬 선택·배포 사본의 경로별 스냅샷(0278 D28 유지) · models·MCP·plugins Composer 캐시(0281 유지) · OpenCode 플러그인 on/off(SDK 제어 없음, 0278 D32 모니터링) · 저장된 `skillEnabled` 잔여 키 정리.
+
+| 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
+|---|---|---|
+| 전역 선택 영속화 위치(U-001) | **예 — 저장 형식·외부 CLI 공유 여부** | 사용자 결정 후 별도 handoff |
+| 기본 경로 스킬 잔여 `skillEnabled` 키 | 아니오 — 읽지 않으면 무해 | 후속 |
+
+## 7. Requirements / Acceptance — `R ↔ AT`
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-01 | AT-01 / AC1 | 첫 agents 성공 뒤 다른 scope(경로·provider·세션)의 Composer는 첫 렌더부터 캐시 목록을 표시하고 agents IPC를 요청하지 않으며 제목 스피너가 없다 | scope A 성공 → scope B 마운트: B의 agent 메뉴 항목 = A 목록, agents 요청 1회, 스피너 0 | OpenCode Composer Module → `useComposerCatalog` → `composerCatalogState` → Controls |
+| R-01 | AT-01 / AC2 | 캐시 전 동시 scope는 첫 성공을 함께 받는다. 늦은 성공은 캐시를 바꾸지 않는다. 실패·취소는 캐시를 채우지 않고 다음 scope가 재시도한다. 성공한 빈 목록은 캐시한다 | A·B 동시 대기 → A 성공 → B 즉시 ready(A 값) → B 지연 응답(다른 값) 무시 · 실패 후 C 재요청 · 빈 배열 캐시 | 같은 경로 |
+| R-01 | AT-01 / AC3 | 인스턴스 무효화 뒤 agents는 캐시 값으로 ready, models·mcp·plugins는 기존처럼 무효화 | invalidated 이벤트 → agents ready·models error | `onComposerCatalogInvalidated` → state |
+| R-01 | AT-01 / AC4 | 전송 시 대상 경로에 없는 에이전트는 prompt에 넣지 않는다(회귀) | 목록 변경 뒤 이전 에이전트 지정 prompt에 `agent` 없음 | `channel.ts` submit |
+| R-02 | AT-02 / AC5 | 스킬 탭에 `plugin:claude`·`plugin:opencode` 스킬, 네이티브 플러그인 행, "Claude 플러그인"·"OpenCode 플러그인" 제목이 없다. 기본 경로·Orca 스킬은 출처 제목과 함께 남는다 | 스킬 탭 행 id·제목 전수 | nav → `ExtensionsCatalogView` → `CustomizeList` |
+| R-02 | AT-02 / AC6 | 플러그인 탭은 provider 그룹 뒤에 Claude 플러그인 → OpenCode 플러그인 그룹(브랜드 제목)을 둔다. 행의 상태 문구·토글 capability(0278 D11·D24)·폴더 열기·전역 토글 호출은 기존과 같다 | 행 id 순서 = gate·llm·service·claude:*·opencode:* · canToggle별 switch disabled · 클릭/토글 콜백 인자 | 같은 경로 + `useNativeMcpCatalog` |
+| R-02 | AT-02 / AC7 | 네이티브 카탈로그 로딩·실패·빈 목록 억제는 플러그인·MCP 탭에만 적용된다. 스킬 탭은 네이티브 카탈로그가 로딩·실패여도 스킬 목록을 보인다 | 탭별로 `common.loading`·실패 배너·목록 존재 단언 | 같은 경로 |
+| R-03 | AT-03 / AC8 | nav off 뒤 새 Claude Query는 같은 경로 Query가 살아 있어도 `<이름>@inline: false`로 시작한다. 살아 있는 Query는 바뀌지 않는다. 다시 on이면 새 Query는 true. 같은 경로 배포 사본 공유는 유지 | 실제 bootstrap 등록 handler로 토글 → `adapter.sendMessage` SDK options 비교 | `orca:extensions:set-enabled` → `extensionChoices` → `ClaudeAdapter.sendMessage` |
+| R-03 | AT-03 / AC9 | nav off 뒤 초안·미실행 세션의 네이티브 명령에서 그 플러그인 스킬이 빠지고, on이면 돌아온다 | bootstrap draftCommands·commands(sessionId) 결과 | handler → draft/세션 commands → Composer `+`→스킬 |
+| R-03 | AT-03 / AC10 | 초안·미실행 세션의 우측 패널 플러그인 항목 enabled가 같은 유효 상태다 | bootstrap draftResources·configured(sessionId)의 plugin enabled | handler → draft/세션 resources → 패널 |
+| R-03 | AT-03 / AC11 | 프로젝트 settings에서 켠 플러그인은 nav off여도 새 Query·초안 명령에 포함된다(spawn과 초안이 같은 우선순위) | user false + Orca off + project true → 로드·명령 포함 | adapter·plugin-catalog·configured-resources |
+| R-03 | AT-03 / AC12 | 실행 중 세션의 Composer는 그 Query의 실제 명령을 보이고, 프로젝트 토글 결과는 기존처럼 Composer에 반영된다(회귀) | live 명령 목록·변경 broadcast 수신 | 기존 경로 |
+| R-04 | AT-04 / AC13 | `agents`·`adapter:*`·`plugin:*` 출처 스킬은 canToggle false. `agents`·`adapter:*`는 저장값과 무관하게 enabled true. `orca`는 canToggle true와 저장값 유지 | 저장값 false를 준 스캔 결과 | `scanSkills` → `readSkillCatalog` |
+| R-04 | AT-04 / AC14 | 스킬 탭 행·상세에서 기본 경로 스킬은 switch 요소가 없고 제목이 회색이 아니다. Orca 스킬은 switch가 있다. 기본 경로 스킬 set-enabled IPC는 설정을 바꾸지 않는다 | 행·상세 DOM · settings patch 미호출 | skills IPC → `CustomizeList`·`SkillDetail` |
+| R-04 | AT-04 / AC15 | 예전에 끈 `~/.claude/skills` 스킬도 Claude Query `skills` 허용목록에 들어가고, Composer `+`→스킬 항목이 disabled가 아니다 | SDK options.skills · 메뉴 item.disabled | `adaptSkills` · `buildAttachMenu` |
+| R-05 | AT-05 / AC16 | 원자 JSON 쓰기는 없는 상위 폴더를 만들고, 기존 파일 교체·`.tmp` 미잔류를 유지한다 | 임시 루트에서 중첩 경로 쓰기·덮어쓰기 | `writeJsonAtomic` 호출부 5곳 |
+| R-05 | AT-05 / AC17 | `sources/mcp`가 없을 때 MCP 추가가 성공해 `mcp.json`에 기록되고 목록에 나타난다 | 실제 파일 모듈로 `McpStore.add` → 파일·`list()` | MCP 탭 추가 → `orca:mcp:add` → `McpStore.add` → `writeMcpFile` |
+| R-03·R-02·R-01 | AT-06 / AC18 | Windows 실제 앱: superpowers off 뒤 새 세션 `/context`에 없음 · 플러그인 탭 white/dark 시각 · 랜딩 경로 전환 시 에이전트 스피너 재표시 없음 | 사람 실기 | 실제 설치본 |
+
+### AC 검증 주의사항
+
+- 기존 테스트 재사용 확인: `adapter.persistent.test.ts:'passes a live plugin agent and drops its removed variant on the next prompt'`는 목록에서 빠진 에이전트를 prompt에서 제외함을 단언한다(`expect(body).not.toHaveProperty('agent')`). `Module.integration.test.ts:'uses only the agent slot for title loading when %s completes first'` 존재 확인.
+- 기존 테스트 중 이번 결정과 반대를 잠근 것: `adapter.native-plugins.test.ts:'isolates global SDK choices and freezes them until the last project query closes'`(peer가 이전 flag) · `bootstrap.native-history.test.ts:'carries catalog changes through the real bootstrap registry into new SDK snapshots only'`(같은 경로 false 유지) · `CustomizeList.render.test.ts:'uses capability for font and fixed switches…'`(plugin 스킬 회색·고정 토글). D-007·D-008에 맞게 바꾼다.
+- `adapter.native-plugins.test.ts` 첫 케이스의 `not.toContain('claude:native')`는 손으로 만든 `canToggle: true` fixture라 `adaptSkills` 규칙 자체와는 모순이 아니다. 다만 production에서 그런 adapter 스킬은 더 이상 생기지 않으므로 fixture를 scan 형태로 바꿔 AC15 좌표로 쓴다.
+- 사람 실기 AC18: 실제 CLI·Windows 창·테마는 자동화 밖이다. 같은 로직은 AC1·AC5·AC8이 기계로 잠근다.
+- N회 기준(AC1 "agents 요청 1회"): sink = `sessionApi.composerCatalog({part:'agents'})`. 프로덕션 호출부 `rg -n "composerCatalog\(" app/src/renderer/src` → 호출 `composerCatalogState.ts:88` 1곳(+`ipc.ts:228` 래퍼 정의)이고 그 안의 agents 진입은 `subscribe`(:51)·`retry`(:77) 2개다. 관측은 같은 `sessionApi` mock이 둘 다 받으므로 반증 가능하다.
+- 0건 기준(AC5 "plugin:* 없음"): 양성 짝으로 기본 경로·Orca 스킬 행 존재를 함께 단언한다.
+
+## 7-A. V / Trace Matrix
+
+- V mode 판정: Baseline V — 상속할 명시 V 없음. 대체한 다른 handoff 결정의 회귀만 INHERITED REGRESSION으로 둔다.
+- 기준 V 상속 근거: 없음. INHERITED 노드의 기준선은 `57515e7`에서 해당 테스트 존재를 확인했다.
+- `SUPERSEDED`로 분해한 pair: 해당 없음(Baseline).
+- 변경이 시작되는 수준: Baseline이라 해당 없음.
+
+### Node registry
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| R-01 / AT-01 | R / AT | 에이전트 앱 전역 1회 로드(AC1~4) | NEW | — |
+| R-02 / AT-02 | R / AT | 플러그인 페이지 탭 재배치(AC5~7) | NEW | — |
+| R-03 / AT-03 | R / AT | Claude 플러그인 off 유효 상태(AC8~12) | NEW | — |
+| R-04 / AT-04 | R / AT | 기본 경로 스킬 토글 제거(AC13~15) | NEW | — |
+| R-05 / AT-05 | R / AT | MCP 저장 폴더 생성(AC16~17) | NEW | — |
+| AT-06 | AT | 사람 실기(AC18) | NEW | — |
+| SD-01 / ST-01 | SD / ST | 에이전트 캐시 수명(§9 A) | NEW | — |
+| SD-02 / ST-02 | SD / ST | 전역 선택 → 새 Query vs 실행 중 Query(§9 C) | NEW | — |
+| AR-01 / IT-01 | AR / IT | state ↔ 캐시 ↔ hook ↔ Controls(§9 A) | NEW | — |
+| AR-02 / IT-02 | AR / IT | 카탈로그 뷰 탭 라우팅(§9 B) | NEW | — |
+| AR-03 / IT-03 | AR / IT | bootstrap → harness module(choices) → reader(§9 C) | NEW | — |
+| MD-01 / UT-01 | MD / UT | `ComposerAgentCache` 첫 성공 우선(§11) | NEW | — |
+| MD-02 / UT-02 | MD / UT | 선택 → flag 변환과 우선순위(§10) | NEW | — |
+| MD-03 / UT-03 | MD / UT | 스킬 capability(§10) | NEW | — |
+| MD-04 / UT-04 | MD / UT | 원자 쓰기 폴더 생성(§10) | NEW | — |
+| SD-0281 / ST-0281 | SD / ST | models·MCP·plugins scope/세대/해제 | INHERITED | 0281 V1 VP2·VP4 · `composerCatalogState.test.ts` |
+| SD-0267 / ST-0267 | SD / ST | 전송 시 에이전트 membership | INHERITED | 0276·0281 · `adapter.persistent.test.ts` |
+| SD-0279 / ST-0279 | SD / ST | 실행 중 세션 프로젝트 토글 동기화 | INHERITED | 0279 · `native-resource-sharing.test.ts` |
+
+### Pair registry
+
+| Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 강제 지점 전수 |
+|---|---|---|---|---|---|---|
+| VP-01 | R-01 ↔ AT-01 | REQUIRED | Module(A) → hook → state → IPC agents → 캐시 → Module(B) → state(B) → Controls | 신규 `Module.integration.test.ts:'reuses the first successful agent list across landing scopes without requesting or spinning'` — A=`C:/A`/`team`, B=`C:/B`/`other`·세션 id, B 요청 시 다른 목록을 주는 mock | required — "요청 0회"가 호출 수 proxy. 변이: A2 캐시 확인 제거, A1 고정 loading | EP-01 (10) |
+| VP-02 | SD-01 ↔ ST-01 | REQUIRED | 캐시 없음 → 동시 A·B → A 성공 → B 전파 → B 늦은 응답 → 실패·취소 → 무효화 | 신규 `composerCatalogState.test.ts` 3건: `'publishes the first agent success to concurrent scopes and ignores later results'` · `'leaves the agent cache empty after failed or cancelled reads'` · `'keeps cached agents through instance invalidation while models become error'` | required — 형제 슬롯(agents/models) 무효화 계약이 다름. 변이: A3에서 agents를 models와 같은 error로 | EP-01 A3·A5·A6·A7·A8·A10 (6) |
+| VP-03 | AR-01 ↔ IT-01 | REQUIRED | `composerCatalogState()` 팩토리 → 싱글톤 캐시 → `useComposerCatalog` 무-scope 스냅샷 → Controls 제목 busy | VP-01 좌표 + 신규 `Module.integration.test.ts:'shows cached agents before the chat scope exists'` | not selected — DOM·호출 수 직접 관측 | EP-01 A1·A2·A9·A10 (4) |
+| VP-04 | MD-01 ↔ UT-01 | REQUIRED | `ComposerAgentCache.accept` → `get`/구독자 | 신규 `composerAgentCache.test.ts:'keeps the first accepted list and notifies each subscriber once'` | not selected — 반환값 직접 관측 | EP-01 A10 (1) |
+| VP-05 | SD-0281 ↔ ST-0281 | REGRESSION | models·MCP·plugins 읽기·세대·해제 | `composerCatalogState.test.ts`의 기존 5건(각 테스트에 새 캐시 주입) · `Module.integration.test.ts:'uses only the agent slot for title loading when %s completes first'` | not selected | 0 — 형제 무효화 줄(:70-72) 변경 금지 |
+| VP-06 | SD-0267 ↔ ST-0267 | REGRESSION | `channel.ts` submit → `connection.agents` membership | `adapter.persistent.test.ts:'passes a live plugin agent and drops its removed variant on the next prompt'` | not selected | 0 — 변경 없음 |
+| VP-07 | R-02 ↔ AT-02 | REQUIRED | 탭 클릭 → `ExtensionsCatalogView` → 실제 hooks → IPC mock → `CustomizeList` | 신규 `ExtensionsCatalogView.interaction.test.ts`(renderHarness, `shared/api/ipc`만 mock): `'moves native plugins to the plugin tab after provider groups'` · `'hides native plugin skills from the skills tab'` · `'scopes native loading and failure to plugin and MCP tabs'` | not selected — 행·배너 직접 관측 | EP-03a (7) · EP-03b K1 (1) |
+| VP-08 | AR-02 ↔ IT-02 | REQUIRED | `CustomizeList` props → 탭별 행·제목·토글 | `CustomizeList.render.test.ts` 갱신: `'%s uses flat catalog buttons…'`(providers 행에 native 포함) · 신규 `'orders Claude then OpenCode plugin groups after providers and keeps plugin toggle capability'` | required — 형제 그룹 자리 계약. 변이: R3·R4 렌더 순서 맞바꿈, R1 kind 맞바꿈 | EP-03a R1~R4 (4) · K1 (1) |
+| VP-09 | R-03 ↔ AT-03 | REQUIRED | handler `extensionSetEnabled` → `extensionChoices` → ①`sendMessage`(같은 경로 live 있음) ②draft·세션 commands/resources | `bootstrap.native-history.test.ts` 갱신 `'carries catalog changes through the real bootstrap registry into every new SDK query'` · 신규 `'applies nav plugin choices to draft and stored-session commands and resources'` · AC18 실기 | required — 결함 변이: C1을 스냅샷 생성 안으로 되돌림, C12 choices 생략, C5 순서 뒤집기 | EP-02 (15) |
+| VP-10 | SD-02 ↔ ST-02 | REQUIRED | live Query A → off → Query B → on → Query C → A 해제 | `adapter.native-plugins.test.ts` 갱신 `'applies current global plugin choices to every new query while live queries keep theirs'` · 기존 `'pins deployed MCP files for same-cwd peers and reloads until the final owner closes'` | not selected — options 직접 비교 | EP-02 C1~C3 (3) |
+| VP-11 | AR-03 ↔ IT-03 | REQUIRED | bootstrap 클로저 4곳 → `harnessModule('claude')` 래퍼 → `configuredClaudeCommands`·`configuredClaudeResources` | `bootstrap.native-history.test.ts:'reads native configuration through the registered module using stored backend and cwd'` 확장(Orca off·project true 조합) | not selected | EP-02 C4~C13 (10) |
+| VP-12 | MD-02 ↔ UT-02 | REQUIRED | `extensionChoices(record,'plugin')` → reader 우선순위 user < Orca < project < local | 신규 `extension-control.test.ts:'maps only one kind of choice to harness keys'` · `plugin-catalog.test.ts`·`configured-resources.test.ts` 신규 `'applies Orca plugin choices above user defaults and below project selections'` | required — 우선순위 형제(user/project) 맞바꿈 변이 | EP-02 C4·C5·C15 (3) |
+| VP-13 | SD-0279 ↔ ST-0279 | REGRESSION | 실행 중 Query 토글 → broadcast → Composer | `native-resource-sharing.test.ts` 기존 · `Composer.native-menu.test.ts:'reflects session-enabled plugin commands in real autocomplete and decoration without changing the draft'` | not selected | 0 — 변경 없음 |
+| VP-14 | R-04 ↔ AT-04 | REQUIRED | scan → catalog → skills IPC → 목록·상세 / Claude options.skills / `+` 메뉴 | scan→catalog: `skill-catalog.test.ts:'assembles the real catalog from lock, harness and native plugin files without exposing other installations'` 확장(저장 false 3출처) · IPC: `handlers/skills.test.ts:'keeps native toggles read-only after accepting namespaced targets'` · UI: `CustomizeList.render.test.ts` 신규 `'renders switches only for Orca skills'`·신규 `SkillDetail.render.test.ts:'renders no switch for default-path skills'` · Query: `adapter.native-plugins.test.ts` 첫 케이스의 adapter fixture를 scan 형태(canToggle false·enabled true)로 바꿔 `toContain('claude:native')` · 메뉴: `attachMenuModel.test.ts` 신규 `'keeps previously disabled harness skills selectable'` | not selected — 양성(Orca switch)·음성(기본 경로 switch 없음) 짝 | EP-03b K2~K5 (4) · EP-04 (6) |
+| VP-15 | MD-03 ↔ UT-03 | REQUIRED | `scanRoot` capability | `scan.test.ts:'여러 source root 를 소스 메타와 enabled 상태로 스캔한다'` 확장(adapter:claude 저장 false → enabled true·canToggle false) | not selected | EP-04 S1·S2 (2) |
+| VP-16 | R-05 ↔ AT-05 | REQUIRED | `McpStore.add` → `writeMcpFile` → `writeJsonAtomic` | 신규 `store.fresh-root.test.ts:'adds a server when the sources mcp directory does not exist'` — `mcpJsonPath`만 임시 중첩 경로로 mock, 파일 모듈 실제 | not selected — 파일·list 직접 관측 | EP-05 (2) |
+| VP-17 | MD-04 ↔ UT-04 | REQUIRED | `writeJsonAtomic` | 신규 `json-file.test.ts:'creates missing parents, replaces existing files and leaves no temp file'` | not selected | EP-05 J1 (1) |
+
+### 현재 변경의 운영 gate
+
+| Gate | 이번 변경 산출물에 적용되는 이유 | 증거 / 명령 | 실패 범위 |
+|---|---|---|---|
+| app 정적 | main·renderer·shared 수정 | `cd app && npm run lint && npm run typecheck` | 현재 변경 유발만 |
+| app 테스트 | 위 pair 좌표 | `./node_modules/.bin/vitest run` 관련 스위트(§19) | DB 로드 스위트 ABI 실패는 기준선 분리 |
+| 문서 inventory | arch·IPC 문서 문장 수정 | `node scripts/check-doc-inventory.mjs --check` | 현재 변경 유발만 |
+| message bus | INDEX·trailer | `git diff --check` · `git log -1 --format='%(trailers:only=true)'` | 현재 커밋 |
+
+---
+
+# Part II — Technical Design
+
+## 8. Research — 현재 코드와 계약
+
+| 발견 / 제약 | 근거 |
+|---|---|
+| renderer agents 상태는 scope(세션·경로·프로젝트·provider·종류)별 객체이고 구독자 0이면 폐기된다 | `composerCatalogState.ts:134-144` 키 = `JSON.stringify(scope)` · `:52-55` dispose |
+| main agents 캐시는 OpenCode directory 인스턴스별이다 | `composer-cache.ts:15-29` · `session-context.ts:146` |
+| 전송 시 에이전트 membership은 directory 목록으로 다시 확인한다 | `channel.ts:146-154` |
+| 전역 선택은 프로세스 메모리 Map이다 | `extension-control.ts:8-16` · `extension-catalog.ts:38` |
+| Claude spawn은 경로별 스냅샷을 만들 때만 전역 선택을 읽고, 같은 경로 Query가 남아 있는 동안 재사용한다 | `adapter.ts:438-474` |
+| 런타임 수명 = 앱 종료 또는 LRU 축출 | `runtime-pool.ts:8` |
+| 초안 명령은 Orca 선택 없이 네이티브 설정만 읽는다 | `plugin-catalog.ts:216-217` · `bootstrap.ts:1134-1138` |
+| 초안·미실행 리소스 plugin enabled도 네이티브 설정만 | `configured-resources.ts:101-105` |
+| 스킬 탭이 `plugin:*` 출처 스킬과 kind=plugin 네이티브 행을 표시 | `CustomizeList.tsx:48-55`·`:120` |
+| `adapter:claude` 스킬만 Orca 토글 대상 | `scan.ts:72-78` |
+| 원자 쓰기가 상위 폴더를 만들지 않음 · 재현 ENOENT `open '<tmp>/.config/orcinus-orca/sources/mcp/mcp.json.tmp'` | `json-file.ts:7-11` · 같은 알고리즘 node 재현 |
+| Claude CLI는 `@inline:false` plugin의 명령·스킬을 싣지 않는다 | [evidence/claude-inline-probe.md](evidence/claude-inline-probe.md) |
+| SDK `skills`는 필터이며 강제 로드가 아니다 | `sdk.d.ts` `skills?: string[]` 주석 |
+
+### 전수 조사
+
+| 대상 | 검색/방법 | N | 의미 |
+|---|---|---:|---|
+| agents IPC 진입 | `rg -n "composerCatalog\(" app/src/renderer/src` | 2 | 호출 1(`composerCatalogState.ts:88`) + `shared/api/ipc.ts:228` 래퍼 정의 |
+| Claude 초안·세션 reader 호출부 | `rg -n "configuredClaudeResources\(\|configuredClaudeCommands\(\|readClaudePluginCatalog\(" app/src/main -g '!*.test.ts'` | 7 | 정의 3 · adapter 2 · skill-catalog 1 · commands 래퍼 1 |
+| harness module reader 소비 | `rg -n "configuredCommands\?\.\(\|configuredResources\?\.\(\|draftResources \?\? module" app/src/main/app/bootstrap.ts` | 4 | `:1088·1121·1137·1143` |
+| 스킬 capability 소비 | `rg -n "canToggle\|enabled !== false\|enabled === false" adapt.ts attachMenuModel.ts composerSkills.ts handlers/skills.ts` | 4 | `adapt.ts:73`·`skills.ts:58`·`attachMenuModel.ts:98`·`composerSkills.ts:19` |
+| `writeJsonAtomic` 호출부 | `rg -n "writeJsonAtomic\(" app/src/main -g '!*.test.ts'` | 6 | 정의 1 + 호출 5(seed·mcp file·scaffold·settings-write·orca-file) |
+| OpenCode 전역 plugin 토글 | `configured-resources.ts:127` | 0 | plugin은 canToggle false — 요구 3 동기화 대상 아님 |
+
+### 수치 / 전칭 표현 검산
+
+- "renderer 창은 하나이고 프로그램적 reload 없음": `rg -n "new BrowserWindow\|\.reload\(\)\|location\.reload" app/src/main app/src/renderer/src -g '!*.test.*'` → main 창 1(`index.ts:197`)·브라우저 세션 창 1, reload 0. renderer 모듈 캐시 수명 ≈ 앱 실행 수명.
+- 문서 앵커: `adapters.md §1.3`·`IPC_CONTRACT.md` extensions 절(`:196`)·`rendering.md:231`·`design-components.md:273·390` 존재 확인.
+
+## 9. Architecture / Data & Control Flow — AS-IS → TO-BE
+
+### AS-IS — 현재 구조와 문제 발생 경로
+
+- 관련 V node: SD-01·SD-02·AR-01~03.
+- A(에이전트): scope마다 `ComposerCatalogState`가 생기고 `subscribe`에서 `read('agents')`. 다른 경로 = 다른 상태 = 다른 IPC = main의 다른 directory 캐시.
+- B(카탈로그): 스킬 탭이 `plugin:*` 스킬과 kind=plugin 네이티브 행을, MCP 탭이 kind=mcp 행을 그린다. 플러그인 탭은 provider만.
+- C(전역 선택): `sendMessage`가 경로 스냅샷이 없을 때만 선택을 읽어 `plugins` 기본값을 굳힌다. 초안 reader는 선택을 모른다.
+- D(기본 스킬): `adapter:claude`만 토글, `agents`·`adapter:opencode`는 회색 고정 토글.
+- E(MCP): `writeFileSync(tmp)`가 폴더 부재로 ENOENT.
+
+```text
+A  Module(cwd) → useComposerCatalog → ComposerCatalogState(scope) ──read('agents')──▶ IPC ▶ directory 캐시
+C  nav toggle → extensionControl(Map) ─(경로 스냅샷 생성 시 1회)─▶ sendMessage → openChannel(pluginDefaults)
+   draft Composer → bootstrap draftCommands → configuredClaudeCommands(cwd)   (선택 미반영)
+```
+
+### TO-BE — 변경 후 목표 구조와 동작 경로
+
+- A: 기능 로컬 `ComposerAgentCache` 싱글톤이 첫 성공 agents를 보관한다. 모든 `ComposerCatalogState`가 생성·구독·결과·무효화에서 캐시를 먼저 본다.
+- B: `CustomizeList`가 탭별로 네이티브 kind를 고른다(플러그인 탭=plugin, MCP 탭=mcp, 스킬 탭=없음). 스킬 탭은 네이티브 플러그인 출처 스킬을 제외한다.
+- C: `sendMessage`는 Query마다 현재 선택으로 plugin 기본값을 계산한다. 스냅샷은 배포 사본·Orca 스킬만 공유. 초안·세션 reader는 bootstrap이 넘기는 선택을 같은 변환 helper로 적용한다.
+- D: capability는 `orca`만 true. UI는 canToggle false 스킬에 switch를 그리지 않는다.
+- E: `writeJsonAtomic`이 `mkdirSync(dirname(path), {recursive:true})` 후 쓴다.
+
+```text
+A  Module(cwd) → useComposerCatalog → ComposerCatalogState ─(캐시 있음)─▶ ready
+                                                       └(없음)─read('agents')─▶ IPC ─성공─▶ ComposerAgentCache ─전파─▶ 모든 상태
+C  nav toggle → extensionControl ─(Query마다)─▶ sendMessage → extensionChoices → readClaudePluginCatalog → openChannel
+                                └─(조회마다)─▶ bootstrap → harnessModule.configured*(cwd, choices) → reader
+```
+
+### AS-IS → TO-BE Delta
+
+| 비교 축 | AS-IS | TO-BE | 변경 이유 | V / 구현·검증 연결 |
+|---|---|---|---|---|
+| 책임/소유권 | agents 슬롯 = scope 상태 소유 | agents 값 = `ComposerAgentCache` 소유, 상태는 표시만 | D-001 | AR-01 / VP-03·04 · `composerAgentCache.ts` |
+| data/control flow | 스냅샷 생성 때만 선택 읽음 | Query·조회마다 선택 읽음 | D-008·D-006 | SD-02 / VP-09·10 · `adapter.ts`·`bootstrap.ts` |
+| state/contract | `configuredCommands?(cwd)`·`configuredResources?(cwd)` | `(cwd, choices)` 필수 인자 | 미전달 시 조용한 회귀 차단 | AR-03 / VP-11 · `contracts.ts` |
+| state/contract | 스킬 canToggle = orca·adapter:claude | orca만 | D-007 | MD-03 / VP-15 · `scan.ts` |
+| UI 라우팅 | 네이티브 plugin 행 = 스킬 탭 | 플러그인 탭, provider 뒤 | D-004·D-005 | AR-02 / VP-07·08 · `CustomizeList.tsx`·`ExtensionsCatalogView.tsx` |
+| error/lifecycle | agents 무효화 = error | 캐시 있으면 ready 유지 | D-001 | SD-01 / VP-02 |
+| error/lifecycle | 폴더 부재 ENOENT | 상위 폴더 생성 | D-010 | MD-04 / VP-16·17 · `json-file.ts` |
+| test seam | 캐시 없음 | 생성자 주입 캐시(테스트마다 새 인스턴스) | 테스트 격리 | MD-01 / VP-02·04 |
+
+삭제·이동: 스냅샷의 `plugins` 필드는 삭제(Query별 계산으로 이동). 스킬 탭의 네이티브 행 렌더는 플러그인 탭으로 이동. 다른 책임은 유지.
+
+### 핵심 책임 분리
+
+| 모듈/레이어 | 책임 | 입력/출력 | 누가 import/호출 |
+|---|---|---|---|
+| `renderer/.../opencode/composer/composerAgentCache.ts`(신규) | 첫 성공 agents 보관·전파 | `accept(list)`·`get()`·`subscribe(fn)` | `composerCatalogState.ts`·`useComposerCatalog.ts` |
+| `adapters/common/extension-control.ts` | 선택 키 ↔ 하네스 키 변환 SSOT | `extensionChoices(choices, kind) → Record<string, boolean>` | Claude adapter·plugin-catalog·configured-resources (OpenCode mcp-control 채택은 선택) |
+| `adapters/claude/plugin-catalog.ts`·`configured-resources.ts` | 유효 plugin 상태 계산 | `(cwd, choices)` | harness module 래퍼 |
+| `app/harnesses/claude/module.ts` | 계약 → reader 매핑 래퍼 | `(cwd, choices)` | bootstrap |
+| `app/bootstrap.ts` | `this.extensionChoices.global(backend)`를 reader에 주입 | — | IPC 등록 |
+| `features/skills/components/customize/*` | 탭별 행·토글 렌더 | props | `ExtensionsCatalogView` |
+
+## 10. 계약 / 타입 / 강제 지점
+
+| V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|---|---|
+| EP-01 · SD-01·AR-01·MD-01 / VP-01~04 | agents 슬롯 값 = 캐시 우선 | `ComposerAgentCache` | renderer | A1 `composerCatalogState.ts:17` initial · A2 `:51` subscribe 읽기 · A3 `:69` invalidate agents 줄 · A4 `:77` retry · A5 `:82` ready 게이트 · A6 `:94` 취소 결과 · A7 `:104` 성공 수용(캐시 기록) · A8 `:109` 실패 · A9 `useComposerCatalog.ts:7` 무-scope 스냅샷 · A10 신설 캐시 수신 구독 — **10** | `rg -n "agents\|read\(part, true\)\|private invalidate\(\)\|status: 'ready', value\|status === 'ready'\|status: 'error'" app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts app/src/renderer/src/features/chat/harnesses/opencode/composer/useComposerCatalog.ts` → 13줄. 제외 3줄 `:70-72` = models·mcp·plugins 형제(VP-05 회귀) | 재조회·스피너 재표시·무효화 후 목록 소실·늦은 응답의 캐시 덮어쓰기 |
+| EP-02 · SD-02·AR-03·MD-02 / VP-09~12 | Claude plugin 유효 enabled = user < Orca 선택 < project < local | `extensionChoices` + 두 reader | main | C1 `adapter.ts:446` 선택 읽기(스냅샷 밖으로) · C2 `:439·472` 스냅샷 get/set(plugins 제외) · C3 `:492` openChannel 기본값 인자 · C4 `plugin-catalog.ts:216` · C5 `configured-resources.ts:101` 병합 순서 · C6 `module.ts:40` · C7 `module.ts:42` · C8 `contracts.ts:30` · C9 `contracts.ts:36` · C10 `bootstrap.ts:1088` · C11 `:1121` · C12 `:1137` · C13 `:1143` · C14 `extension-catalog.ts:18` nav 표시(변경 없음·회귀) · C15 신설 `extensionChoices` helper — **15** | `rg -n "extensionControl\?\.global\('claude'\)\|extensionSnapshots\.(get\|set)\|owned\.plugins\|configuredCommands\??[:(]\|configuredResources\??[:(]\|configuredCommands\?\.\(\|configuredResources\?\.\(\|draftResources \?\? module\.configuredResources\|export async function configuredClaudeCommands\|const enabledPlugins = \{\|control\.global\(backend\)" app/src/main/adapters/claude/adapter.ts app/src/main/adapters/claude/plugin-catalog.ts app/src/main/adapters/claude/configured-resources.ts app/src/main/app/bootstrap.ts app/src/main/app/harnesses/claude/module.ts app/src/main/app/harnesses/common/contracts.ts app/src/main/app/handlers/extension-catalog.ts` → 16줄. 제외 1줄 `adapter.ts:480` = release 수명(값 운반 없음), C2는 2줄 | off가 새 Query·초안에 안 감(요구 5·3 재발) 또는 프로젝트 우선순위 역전 |
+| EP-03a · AR-02 / VP-07·08 | 네이티브 행·상태의 탭 귀속 | `CustomizeList`·`ExtensionsCatalogView` | renderer | R1 `CustomizeList.tsx:54` kind 선택 · R2 `:63` 빈 상태 · R3 `:120` 네이티브 블록 조건·제목·위치 · R4 `:208` provider 블록과 순서 · R5 `ExtensionsCatalogView.tsx:140` 실패 배너 · R6 `:151` 로딩 · R7 `:162` 빈 억제 — **7** | `rg -n "tab === 'skills'\|tab !== 'providers'\|tab === 'providers'\|resource\.kind === \(\|nativeMcp\.(loading\|failed)" app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx app/src/renderer/src/features/skills/components/customize/ExtensionsCatalogView.tsx` → 17줄. 제외 10줄: `ExtensionsCatalogView.tsx:52·59·64·121·128·129·131`·`CustomizeList.tsx:52·57·74` = 상세 선택·제목·추가 버튼·비네이티브 행·스킬 블록(네이티브 값 비운반) | 플러그인이 스킬 탭에 남거나 순서·상태가 엉뚱한 탭에 표시 |
+| EP-03b · AR-02·R-04 / VP-07·08·14 | 스킬 탭 가시성·토글 GUI | `CustomizeList`·`SkillDetail` | renderer | K1 `CustomizeList.tsx:48-50` visibleSkills · K2 `:95` 제목 색 · K3 `:109-112` 행 토글 · K4 `SkillDetail.tsx:88` 제목 색 · K5 `SkillDetail.tsx:93-96` 상세 토글 — **5** | `rg -n "visibleSkills\|skillSourceAllowed\|skill\.canToggle\|<CatalogToggle" app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx app/src/renderer/src/features/skills/components/customize/SkillDetail.tsx` → 13줄(K1 2·K3 2·K5 2·K2·K4 각 1). 제외 5줄: `CustomizeList.tsx:13` import · `:52·75` K1 변수 소비 · `:157·198` 네이티브·MCP 토글(D11 유지) | plugin 스킬 노출 또는 기본 경로 스킬에 토글 잔존 |
+| EP-04 · MD-03·R-04 / VP-14·15 | 스킬 capability | `scan.ts` | main | S1 `scan.ts:72-75` enabled · S2 `:78` canToggle · 소비(변경 없음·회귀) U1 `adapt.ts:73` · U2 `skills.ts:58` · U3 `attachMenuModel.ts:98` · U4 `composerSkills.ts:19` — **6** | `rg -n "canToggle\|enabled !== false\|enabled === false\|^\s+enabled:$" app/src/main/features/extensions/common/skills/scan.ts app/src/main/adapters/claude/adapt.ts app/src/main/app/handlers/skills.ts app/src/renderer/src/features/chat/lib/attachMenuModel.ts app/src/renderer/src/features/chat/lib/composerSkills.ts` → 7줄. 제외 1줄: 주석 `adapt.ts:67` | 기본 경로 스킬이 꺼진 채 실행·메뉴 disabled |
+| EP-05 · MD-04·R-05 / VP-16·17 | 상위 폴더 생성 | `writeJsonAtomic` | main | J1 `json-file.ts:7-11` · J2 `mcp/file.ts:32` MCP 경로 — **2** | `rg -n "export function writeJsonAtomic\|writeJsonAtomic\(mcpJsonPath" app/src/main` → 2줄 | 폴더 없는 첫 MCP 추가 실패 |
+
+- 자리 목록은 그 검색 출력과 차집합 0이어야 한다. verify가 시도해 테스트가 잡지 못한 고장은 목록 안팎 모두 다음 구현이 고친다(`docs/handoff/AGENTS.md §판정 범위와 운영 gate`).
+- SSOT: 선택 키 변환은 `extensionChoices` 하나다(adapter `:447-451`의 인라인 filter/slice 대체). reader 두 곳의 우선순위는 같은 순서 문장과 VP-12 형제 맞바꿈 변이로 잠근다.
+- `실패 의미`의 "다른 게이트가 막는다" 주장: 해당 없음.
+- 선택적 필드: `choices`는 계약에서 **필수**다. `undefined` 허용 시 bootstrap 누락이 네이티브-only로 조용히 돌아가므로 금지. 빈 객체 `{}` = Orca 선택 없음.
+- 외부 SDK 경계: Claude flag settings `enabledPlugins`의 local root 키는 `<manifest name>@inline`(실측). 기존 `adapter.ts:624-632` 생성 규칙 유지.
+
+## 11. 구현 설계
+
+| 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
+|---|---|---|---|
+| `app/src/renderer/src/features/chat/harnesses/opencode/composer/composerAgentCache.ts`(신규) | 앱 전역 agents | `class ComposerAgentCache { get(); accept(list) /*첫 성공만*/; subscribe(fn) }` + `export const composerAgentCache` | 순수 단위 |
+| `.../composer/composerCatalogState.ts` | 캐시 우선 | 생성자 3번째 인자 `agents = composerAgentCache`. A1~A10 규칙: 캐시 있으면 agents ready·요청 생략·무효화/실패/취소에도 ready 유지, 성공 시 `accept` 후 캐시 값 표시, 구독 중 캐시 수신 시 반영·해제 시 구독 해제 | 생성자 주입 단위 |
+| `.../composer/useComposerCatalog.ts` | 무-scope 스냅샷 | `pending.agents`를 캐시 값 기반으로 계산(캐시 변화 구독) | Module 통합 |
+| `app/src/main/adapters/common/extension-control.ts` | 변환 SSOT | `extensionChoices(choices, kind)` 추가 | 순수 단위 |
+| `app/src/main/adapters/claude/adapter.ts` | Query별 기본값 | `sendMessage`에서 스냅샷 유무와 무관하게 `readClaudePluginCatalog(..., {…provider, enabledPlugins: {…provider.enabledPlugins, …extensionChoices(choices,'plugin')}}, true).defaults` 계산. 스냅샷 타입에서 `plugins` 제거 | adapter SDK mock |
+| `app/src/main/adapters/claude/plugin-catalog.ts` | 초안 명령 | `configuredClaudeCommands(cwd, choices)` — overrides에 변환 결과 | 실제 임시 파일 |
+| `app/src/main/adapters/claude/configured-resources.ts` | 초안 리소스 | `readConfiguredClaudeResources(..., choices = {})`, 병합 `{…user, …choices, …project, …local}`. globalOnly 경로는 nav handler overlay 유지 | 실제 임시 파일 |
+| `app/src/main/app/harnesses/common/contracts.ts` | 계약 | `configuredResources?(cwd, choices)`·`configuredCommands?(cwd, choices)`·`draftResources?(cwd, choices)` | typecheck + VP-11 |
+| `app/src/main/app/harnesses/claude/module.ts` | 매핑 래퍼 | `(cwd, choices) => configuredClaudeResources(cwd, undefined, false, choices)` 등 — 2번째 인자 `paths` 충돌 방지 | VP-11 |
+| `app/src/main/app/bootstrap.ts` | 주입 | `:1088·1121·1137·1143`에 `this.extensionChoices.global(<backend>)` 전달 | bootstrap 테스트 |
+| `app/src/main/features/extensions/common/skills/scan.ts` | capability | canToggle = `sourceKind === 'orca'`, enabled = orca면 저장값, 아니면 `entry.enabled ?? true` | 단위 |
+| `app/src/shared/extension-sources.ts` | 출처 술어 | `isNativePluginSkillSource(sourceId)`(= `plugin:` 접두) 추가 | 단위/렌더 |
+| `app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx` | 탭 라우팅·토글 | R1~R4·K1~K3 | 렌더 |
+| `.../customize/ExtensionsCatalogView.tsx` | 탭별 상태 | R5~R7: `selection.tab !== 'skills'` 기준 | renderHarness 상호작용 |
+| `.../customize/SkillDetail.tsx` | 상세 토글 | K4·K5 | 렌더 |
+| `app/src/main/infra/config/json-file.ts` | 폴더 생성 | `mkdirSync(dirname(path), {recursive: true})` | 실제 임시 파일 |
+| 문서 4곳 | 현재 상태 서술 갱신 | §18 | inventory gate |
+
+### 테스트 가능성
+
+- electron 의존 분리: `json-file.ts`·`scan.ts`·`extension-control.ts`·`composerAgentCache.ts`는 electron 미import. `McpStore`는 `paths` mock만으로 실제 파일 쓰기 가능(`store.test.ts`가 이미 같은 모듈 그래프를 import).
+- 기존 메커니즘 재사용: renderer 상호작용은 `renderHarness.testfixture`(32파일 사용) — `ExtensionsCatalogView`는 `useNavigate`가 있으므로 router mock 또는 MemoryRouter로 감싼다.
+- 테스트 격리: 기존 `composerCatalogState.test.ts`는 `new ComposerCatalogState(scope)`를 직접 만든다 — 각 테스트에 새 `ComposerAgentCache`를 주입해 싱글톤 누수를 막는다.
+
+## 12. End-to-end 영향
+
+### producer → consumer
+
+```text
+nav toggle(IPC) → extensionControl → {sendMessage flags | bootstrap reader(choices)} → SDK options | NativeResources.commands/items → Composer `+`·우측 패널
+OpenCode /agent(IPC) → ComposerCatalogState → ComposerAgentCache → 모든 Composer Controls
+```
+
+- producer 기준: 선택은 `extensionControl` 하나, 에이전트 목록은 첫 성공 응답 하나.
+- consumer 파생 규칙: 실행 중 세션은 live Query 값이 우선(`session-resources.ts:96-97` `live?.commands ?? commandsRead`). 초안·미실행은 reader 값.
+- 파생 합성값의 정본 우회: 없음 — 캐시는 원본 응답 그대로, flag는 helper 한 곳.
+
+### 부팅/등록/초기화 변경 시 기존 소비처
+
+| 기존 소비처 | 값 증가/변경 시 영향 | 회귀 AC |
+|---|---|---|
+| `project-resource-sync` read(`bootstrap.ts:1068-1081`) | 같은 `readResources` 클로저를 쓰므로 choices 반영 | AC10 |
+| `session-resources.ts` read의 `pluginsAuthoritative` 병합 | configured plugin enabled 변화만, 항목 수 불변 | AC10·AC12 |
+| `skill-catalog.ts` plugin 스킬 수집 | 그대로 수집(표시만 숨김) — composer·turn 경로 불변 | AC5·AC15 |
+| `adaptSkills` | adapter:claude 전부 포함으로 증가 | AC15 |
+
+## 13. Lifecycle / 오류 / 정리
+
+- 생성/시작: 캐시는 renderer 모듈 로드 시 빈 값. 첫 성공에서 1회 기록.
+- 취소/중단: scope 해제·취소 결과는 캐시를 건드리지 않는다.
+- 종료/quit/crash/renderer-gone: renderer 재생성 시 캐시도 초기화되어 1회 더 조회한다(허용).
+- retry/timeout/partial failure: agents 실패는 다음 scope 또는 같은 scope 재구독 때 재시도. retry('agents')는 캐시가 있으면 no-op.
+- cleanup/rollback: 캐시 구독은 상태 dispose에서 해제.
+- **다중 저장소 쓰기**: 해당 없음 — 전역 선택은 메모리 1곳(D-009). MCP 추가는 mcp.json + 설정 저장소(mcpMeta) 기존 순서 불변, 이번 변경은 폴더 생성만 앞에 둔다. 산출 문서 사본은 `plan.md` + `INDEX.md` 2곳이며 이번 커밋에서 함께 갱신한다.
+
+## 14. 성능 / 상한 / 최적화
+
+- 새 요청 수: agents IPC = 앱 실행당 성공 1 + 실패 재시도분. 동시 scope 수 S일 때 첫 성공 전 최대 S건(기존과 같음).
+- Claude spawn: Query마다 `readClaudePluginCatalog` 1회 추가 — 기존 `openChannel`도 같은 함수를 1회 호출하므로 파일 읽기 2배(설정 JSON·manifest 수십 KB 이하). 허용.
+- 캐시로 잃는 부수 효과: 다른 경로 전용 에이전트가 섞이거나 빠진다 → 전송 시 membership 확인(D-003)이 막는다(VP-06).
+
+## 15. 외부 구현 포트 / 문서 계약 (해당 시)
+
+- 외부/배포가 구현할 port 변경: 없음. `MainHarnessModule`은 앱 내부 계약이며 구현은 claude·opencode 두 module뿐(`rg -n "MainHarnessModule = \{" app/src/main/app/harnesses` → 2).
+- 구현 문서: `adapters.md §1.3`·`IPC_CONTRACT.md` extensions 절 갱신.
+
+## 16. 기존 결정·규칙과의 관계
+
+| 기존 결정/규칙 | 출처 | 본문에서 건드리는 문장 | 결과 |
+|---|---|---|---|
+| 0281 D2 "같은 작업폴더·실행 세대에서 재사용" | 0281 plan | D-001, §9 A | 변경 — agents 슬롯만 앱 전역(사용자 요구 1) |
+| 0281 D4 "경로 전환 때 이전 실행 목록 미사용" | 0281 plan | D-001 | 변경 — agents만. models 등 유지 |
+| 0281 D5 제목 스피너 | 0281 ΔV1 | D-002 | 유지 |
+| 0278 D11 회색·고정 토글 | 0278 plan | D-007 | 변경 — 기본 경로 스킬만. MCP·plugin 유지 |
+| 0278 D15 실행 중 인스턴스 비소급 | 0278 plan | D-008 | 유지 |
+| 0278 D28 같은 cwd 새 세션도 비소급 | 0278 plan | D-008 | 변경 — Claude plugin 기본값만. Orca 스킬·배포 사본·OpenCode MCP 유지 |
+| 0278 D22 기본값 사본 저장소 금지 · D26 SDK 제어 | 0278 plan | D-009 | 유지 |
+| 0278 D16·D20 프로젝트 우선 | 0278 plan | D-011 | 유지 |
+| `adapters.md §1.3` "같은 작업경로의 살아 있는 Query들은 시작 시점 plugin 기본값·스킬 선택·Orca 배포 사본을 공유" | arch | §18 | 변경 — plugin 기본값 제외, "사용자 스킬 선택" 문장 삭제 |
+| `IPC_CONTRACT.md:196` "Claude plugin과 Claude 사용자 스킬은 SDK 옵션" | 계약 | §18 | 변경 — 사용자 스킬 제외 |
+| `rendering.md:231` 스킬 탭 출처 구분 | arch | §18 | 변경 — 플러그인 탭 그룹 서술 |
+| `design-components.md:273·390` | 카탈로그 | §18 | 변경 — agents 앱 전역 캐시, 기본 경로 스킬 토글 없음 |
+| 테스트가 잠근 반대 동작 4건 | §7 주의사항 | VP-08·09·10·14 | 변경 — 기대값 갱신 |
+
+## 17. 리스크 / 트레이드오프
+
+| 리스크 | 완화/결정 |
+|---|---|
+| 첫 로드 경로의 프로젝트 전용 에이전트가 다른 경로 메뉴에 보임 | 사용자 요구 1의 결과로 수용. 전송 시 membership 확인(D-003) |
+| 같은 경로 세션끼리 plugin 상태가 다를 수 있음 | Q1 선택의 결과. 각 세션 패널·Composer는 자기 Query 실제 상태 표시 |
+| 재시작 후 off가 사라짐 | D-009 유지 · U-001로 기록. 재시작 후엔 표시·실행이 같아 불일치는 없음 |
+| `writeJsonAtomic` 폴더 생성이 다른 4개 호출부에도 적용 | 기존 호출부는 이미 폴더를 만들거나 생성이 무해 — 회귀는 기존 테스트로 확인 |
+
+- 되돌리기 어려운 결정: 없음(저장 형식 변경 없음).
+- 신규 의존성: 없음.
+
+## 18. 영향 받는 파일 / 문서
+
+- `app/src/renderer/src/features/chat/harnesses/opencode/composer/{composerAgentCache.ts(신규),composerCatalogState.ts,useComposerCatalog.ts}` + 테스트
+- `app/src/main/adapters/common/extension-control.ts` · `app/src/main/adapters/claude/{adapter.ts,plugin-catalog.ts,configured-resources.ts}` + 테스트
+- `app/src/main/app/{bootstrap.ts,harnesses/common/contracts.ts,harnesses/claude/module.ts}` + `bootstrap.native-history.test.ts`
+- `app/src/main/features/extensions/common/skills/scan.ts` · `app/src/shared/extension-sources.ts`
+- `app/src/renderer/src/features/skills/components/customize/{CustomizeList.tsx,ExtensionsCatalogView.tsx,SkillDetail.tsx}` + 테스트
+- `app/src/main/infra/config/json-file.ts` + `json-file.test.ts`(신규) · `features/extensions/common/mcp/store.fresh-root.test.ts`(신규)
+- `docs/arch/backend/adapters.md §1.3` · `docs/IPC_CONTRACT.md` extensions 절 · `docs/arch/frontend/rendering.md` · `docs/arch/frontend/design-components.md`
+
+## 19. 게이트
+
+- 적용할 하위 가이드: `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드`, `app/src/renderer/AGENTS.md`(디자인 시스템·카탈로그 준수), `app/src/main/AGENTS.md`(레이어).
+- ABI/네트워크 등 환경 제약: 아래 스위트는 DB 미로드. 실제 CLI·Windows 창은 AC18 사람 실기.
+- 기본 정적 게이트: `cd app && npm run lint && npm run typecheck`.
+- 관련 테스트: `./node_modules/.bin/vitest run src/renderer/src/features/chat/harnesses/opencode/composer src/renderer/src/features/skills src/renderer/src/features/chat/lib/attachMenuModel.test.ts src/renderer/src/features/chat/harnesses/common/composer/Composer.native-menu.test.ts src/main/adapters/claude src/main/adapters/common src/main/adapters/opencode/v1/adapter.persistent.test.ts src/main/app/bootstrap.native-history.test.ts src/main/app/native-resource-sharing.test.ts src/main/app/handlers/session-resources.test.ts src/main/features/extensions/common src/main/infra/config`.
+- 문서: `node scripts/check-doc-inventory.mjs --check`.
+- 사람 실기: AC18.
+
+## READY self-review
+
+- [x] Decision Ledger의 ACTIVE/SUPERSEDED/OPEN이 여러 턴의 결정을 보존한다 — D-001~D-011, U-001, 대체 관계 6건.
+- [x] Part I만 읽어도 사용자/제품 완료 상태가 이해된다.
+- [x] 조건절·이유절·제거/유지 요구를 임의 재해석하지 않았다 — 요구 1~6 원문 인용, Q2 응답 원문 인용.
+- [x] Product/UX의 각 핵심 동작이 AC와 Technical Design에 연결된다 — §5 A~D ↔ AC1~17 ↔ §9 A~E.
+- [x] Technical Design에 AS-IS와 TO-BE가 모두 있고 같은 비교 축/구체성으로 작성되어 있다.
+- [x] AS-IS → TO-BE Delta의 각 변경이 구현 파일/모듈 또는 AC에 추적 가능하다.
+- [x] AS-IS에서 사라진 책임은 삭제/이동/대체 중 무엇인지 TO-BE에 명시했다 — 스냅샷 `plugins` 삭제, 네이티브 행 이동.
+- [x] 수치·전칭 표현·외부 규약·문서 앵커·기존 테스트 인용을 실측했다 — §8 전수 표·CLI probe.
+- [x] 각 AC가 행동 단언, 검증 수단, 프로덕션 도달 경로를 가진다.
+- [x] 상속 기준이 없으면 Baseline V를 썼다.
+- [x] 모든 NEW node에 같은 레벨 REQUIRED pair가 있다 — R 5·SD 2·AR 3·MD 4, AT-06은 VP-09 실기로 귀속.
+- [x] 영향받은 INHERITED node는 REGRESSION이다 — VP-05·06·13.
+- [x] 각 pair의 경로·§10 분모·자리별 좌표가 있고 적대 증거는 VP-01·02·08·09·12에만 선택했다.
+- [x] 현재 변경 산출물의 운영 gate가 열거됐다.
+- [x] 사람 실기로 미룬 순수 로직이 없다 — AC18은 실제 CLI·창·테마만.
+- [x] semantic 목표가 structural proxy만으로 검증되지 않는다 — AC1 호출 수는 DOM 목록·스피너 단언과 짝.
+- [x] 신규 계약의 SSOT·강제 지점·테스트 seam이 있다 — `extensionChoices`·`ComposerAgentCache`.
+- [x] 부팅/등록 변경의 기존 소비처를 전수 확인했다 — §12 표.
+- [x] producer/consumer 양쪽 의미를 확인했다.
+- [x] 상한·총량·one-way door를 필요한 곳에서 계산했다 — §14.
+- [x] 게이트 명령이 대상 subtree의 현재 `AGENTS.md`와 충돌하지 않는다.
+- [x] 본문 완성 후 Decision Ledger와 기존 결정을 전체 교차검증했고, `ACTIVE 결정 ↔ AC` 대조 결과를 §3 갱신 메모에 적었다.
+- [x] 산출물 문장 규칙을 지켰다.
+
+---
+
+> **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은
+> [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
+> **재구현 턴도 같은 이름의 필드를 다시 채운다** — 표제(`… (r2)`, 같은 라운드 추가 턴이면 `… (r2.2)`)만 바꾸고 필드와 표의 열을 줄이지 않는다.
+> 해당 없는 필드는 지우지 말고 `해당 없음`으로 남긴다.
+
+## [구현자 기입] 설계 리뷰
+
+- 동의 / 그대로 진행: …
+- 이견 / 현실성 문제: …
+- ACTIVE Decision과 충돌하는 설계 발견: …
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-… | … | … | … | … | … | … |
+
+- §10 자리 목록 밖에서 본 운반 자리: …
+- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(첫 라운드)
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-… | … | … | … | … |
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| … | … | 최초 | … | … |
+
+- **분모 검산**: …
+- **덮개 회귀**: …
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | … | … | … |
+
+### 설계 대비 명시적 차이
+
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | … | … |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
+| 재진입 | … | … |
+| 다른 무효화 축 | … | … |
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | … |
+| 실행 명령 | … |
+| **관측한 게이트 산출**(exit code 아님) | … |
+| V-pair 자기확인 | … |
+| 강제 지점 전수 | …/45 (EP-01 10 · EP-02 15 · EP-03a 7 · EP-03b 5 · EP-04 6 · EP-05 2) |
+| **AC 자기보고**(`Criteria-Met`) | …/18 |
+| **합계 검산** | … |
+| 블로커 / 역질문 | … |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
+- 반복해서 부딪히는 환경 한계: …
+- 현재 라운드·impl 턴: `r1`
+
+---
+
+## [검증자 기입] 파생 이슈
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| — | — | — | — | — | — |
