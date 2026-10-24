@@ -43,6 +43,15 @@ vi.mock(
   'react-dom',
   async () => (await import('../shared/ui/renderHarness.testfixture')).fakeReactDom
 )
+vi.mock('zustand', async (original) => {
+  const actual = await original<typeof import('zustand')>()
+  const { fakeHooks } = await import('../shared/ui/renderHarness.testfixture')
+  return {
+    ...actual,
+    useStore: <T, U>(store: import('zustand').StoreApi<T>, select: (state: T) => U): U =>
+      fakeHooks.useSyncExternalStore(store.subscribe, () => select(store.getState())) as U
+  }
+})
 vi.mock('react-router-dom', () => ({
   useLocation: () => ({ state: null }),
   useNavigate: () => vi.fn()
@@ -62,7 +71,8 @@ vi.mock('../shared/ui/Popover', () => ({
   Popover: ({ open, children }: { open: boolean; children: ReactNode }) => (open ? children : null)
 }))
 vi.mock('../shared/ui/Modal', () => ({ Modal: () => null }))
-vi.mock('../shared/api/ipc', () => ({
+vi.mock('../shared/api/ipc', async (original) => ({
+  ...(await original<typeof import('../shared/api/ipc')>()),
   fileApi: { pickDirectory: fixture.pickDirectory, pickAttachments: fixture.pickAttachments },
   gitApi: {
     status: fixture.status,
