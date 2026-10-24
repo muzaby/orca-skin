@@ -406,19 +406,130 @@ renderer toggle → preload invoke → handler → plan/close → supervisor·�
 > **재구현 턴도 같은 이름의 필드를 다시 채운다** — 표제(`… (r2)`, 같은 라운드 추가 턴이면 `… (r2.2)`)만 바꾸고 필드와 표의 열을 줄이지 않는다.
 > 해당 없는 필드는 지우지 말고 `해당 없음`으로 남긴다.
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-## [구현자 기입] 강제 지점 전수 (§10 대조)
+판정: plan을 계약대로 수행했다. `PLAN_GAP` 0 · 설계 대비 차이 3(아래 구현 보고) · 제품 결정 변경 0.
 
-## [구현자 기입] 이번 라운드 수정의 잠금
+| 항목 | 판단 | 관측 |
+|---|---|---|
+| 동기 구간 | 성립 | `extension-catalog.ts:56-61` — `plan()`부터 `close()`까지 `await` 없음. `await`는 앞의 `read`와 뒤의 응답 조립뿐 |
+| 저장→종료 순서 | 성립 | `extensionControl.setGlobal`은 저장 실패 시 동기 throw하고 메모리 값을 바꾸지 않는다(`extension-control.ts:17-21`) |
+| 인용 기존 테스트 실재 | 3/3 | `post-turn.schedules.test.ts` discard 케이스 · `supervisor.test.ts:'active lease discard…'` · `preload/index.test.ts:'carries explicit…'` 모두 존재·통과 |
+| residual 신호 입력 | plan §11 보강 필요 없음 | `residualCount`는 queue의 open 배치와 attempt id 교집합이라(`session-activity-projector.ts:213-215`) bootstrap 테스트는 실제 queue에 예약을 심어 만든다 |
 
-## [구현자 기입] Product/UX 파생 검토
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
 
-## [구현자 기입] 놓친 잠재 문제 + 대응
+| V-pair | 불변식 | §10이 적은 지점 | 닫은 수 / 전체 | 자리별 직접 oracle 좌표 | 이번 턴 관측값 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01~08·R1·R5 | Claude 플러그인 토글 = (동작 중이면 확인) → 저장 → 모든 Claude 프로세스 종료 | EP-01 P1~P16 | 13/16 | P1=`bootstrap.native-history.test.ts:'asks before closing busy Claude sessions…'`(confirmed 왕복, S1 red) · P2·P3·P4=`preload/index.test.ts:'carries explicit global extension scope…'`(confirm·applied 두 형상과 `confirmed` 운반) · P5=`useNativeMcpCatalog.test.ts` 신규 3건 · P6·P7·P8=bootstrap 신규 4건 · P9=`supervisor.test.ts:'discards a session-less lease…'` · P10=`chat-turn/discard.test.ts:'returns residual submissions…'`+`post-turn.schedules.test.ts` discard 케이스 · P14=`claude-processes.test.ts` 13건+bootstrap · P15=`claude-processes.test.ts:'counts %s alone…'`·`native-history.test.ts:'does not close or replace an occupied session'` · P16=`resources.test.ts:'ko↔en 리프 키 집합 일치'`·`'보간 플레이스홀더({{x}}) 일치'` | M1~M13·S1 전부 red(잠금 표) | P11·P12·P13 문서 3자리 — 문구 갱신은 `rg`로 관측(아래)했으나 내용을 red로 만드는 gate 좌표가 없다 |
+| VP-R4 | Orca는 OpenCode 플러그인을 제어하지 않는다 | EP-10′ R1~R29 | 29/29 | `gate:` EP-10′ 음성 검색 · `ExtensionsCatalogView.interaction.test.ts:'shows OpenCode plugin rows as fixed native state and sends no toggle'` | 술어 0건 · `nativeFileMutations` 0건 · G01 삽입 시 1건 → 원복 0건 | 없음 |
 
-## [구현자 기입] 구현 보고
+- **자리 재계수(EP-01 ①):** 구현 후 같은 검색 → **28줄** = P1 1 · P2 1 · P3 3(`preload/index.ts:294·295·297`, 반환 타입 줄바꿈) · P4 3 · P5 1 · P6 1 · P7 2(`extension-catalog.ts:60·64`) · P8 1 · P9 1 · P10 3(`chat-turn/index.ts:175` · `discard.ts:15·32`, 본문 이동) · P11 1 + 제외 10(§10 목록과 같은 대상, 줄 번호만 이동 — `extension-catalog.ts:42·43` 등록 · `:6` import 포함).
+- **차집합:** 분류 스크립트(`ep01.py`, 세션 scratchpad) → `search lines 28 classified 28 · unclassified [] · missing []`. 첫 실행에서 `:63`/`:64` 어긋남 1건을 잡아 고쳤다(lint의 줄바꿈 이동).
+- **문서 자리(② · P11~P13):** `IPC_CONTRACT.md:193`에 `confirmed?: true`·`SetGlobalNativeResourceResult` 기재 · `:197`·`adapters.md:69` 새 문구 `rg` 2건. 옛 문구 "이미 실행 중인 Query는 자기 상태를 유지" 0건.
+- **신설 3자리(③):** P14 `app/claude-processes.ts` · P15 `app/session-activity-busy.ts`+`native-history.ts:7-9` 재수출 · P16 `ko.ts`·`en.ts` `claudeClose*` 4키.
+- **분모 검산:** EP-01 13 + 문서 3(남김) = 16 · EP-10′ 29.
 
-## [구현자 기입] Review Signals — 사실만
+### V-pair 자기확인 (r1)
+
+| Pair | requiredness | 자기 상태 | 직접 oracle / 관측 | 선택 적대 증거 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | bootstrap `'closes every idle Claude process…'`: Claude 유휴 2(cwd A·B) close `[1,1]`, OpenCode 0, `applied`, 저장값 · renderer `'applies a Claude plugin change without a dialog…'`: 대화상자 null, 행 갱신 | M1·M2 red |
+| VP-02 | REQUIRED | SELF_PASS | bootstrap `'asks before…'`: 대상 3·동작 중 2 → `sessions: 2`, close 0, 저장값 undefined · renderer `'confirms before…'`: 제목·본문(2)·라벨·취소 후 호출 1·변경 후 `confirmed:true` | M3·M4·M5·M6 red |
+| VP-03 | REQUIRED | SELF_BLOCKED — 환경 | discard 단위·bootstrap `message.cancelled ['m-A']`·supervisor `'creates a new runtime after an idle runtime is discarded'`·`adapter.fork.test.ts` 통과. `adapter.native-plugins.test.ts:'persists both plugin states… cold resumes…'`는 이 환경(linux)에서 기준선과 같이 red — CI windows 대기 | M7 red |
+| VP-04 | REQUIRED | SELF_PASS | bootstrap 4건 실제 supervisor·activity·queue · `'keeps every Claude process when the Claude plugin choice cannot be saved'`: reject·close 0·child 미중단 | M8·M9 red |
+| VP-05 | REQUIRED | SELF_PASS | renderer `'never opens the Claude dialog for OpenCode MCP toggles'`: store null, 요청에 `confirmed` 없음 | not selected |
+| VP-06 | REQUIRED | SELF_PASS | `claude-processes.test.ts`: 신호 11행 단독 → busy 1 · 복합 → 대상 4·busy 3(dedupe·backend 미기재 lease·closing·OpenCode 제외) · dispatch·실패 후 계속 | M10a~h·M11·M12 red |
+| VP-07 | REQUIRED | SELF_PASS | supervisor `'discards a session-less lease…'`: abort·close 1·closing·알림 1 · 기존 `'active lease discard…'` 통과 | not selected |
+| VP-08 | REQUIRED | SELF_PASS | `discard.test.ts`: residual 비움 → abort → discardRuntime → discardSubmitted 순서·emit ids `[m1,m2,m3]` · `post-turn.schedules` discard 통과 | not selected |
+| VP-R1 | REGRESSION | SELF_PASS | bootstrap `'applies OpenCode MCP toggles without confirmation or closing any runtime'` · 0282 `restores global choices…` 통과 | M13 red |
+| VP-R2 | REGRESSION | SELF_PASS | 0282 `applies nav plugin choices…`·`carries catalog changes…`·`applies current global plugin choices… live queries keep theirs` 통과 | not selected |
+| VP-R3 | REGRESSION | SELF_PASS | 0282 `restores global choices through production Bootstrap…` 통과(응답 형상만 바뀜) | not selected |
+| VP-R4 | REGRESSION | SELF_PASS | EP-10′ 0건 · view 고정 행 테스트 통과 | G01 잡음 |
+| VP-R5 | REGRESSION | SELF_PASS | `discard.test.ts` · `pending-message-queue.test.ts` `discardSubmitted` describe 통과 | not selected |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
+
+변이 실행: 아래 9 스위트(216케이스)에 변이 하나씩 심고 원복(스크립트 `mut.py`, 세션 scratchpad). 원복 후 `git diff` 변이 잔여 0.
+
+| ID | 자리 | 종류 | 바꾼 내용 | 결과 | 잡은 테스트 |
+|---|---|---|---|---|---|
+| M1 | `extension-catalog.ts:61` | 제거 | `processes.close(plan.targets)` 삭제 | 잡음(3) | bootstrap `closes every idle…`·`asks before…` · `extension-catalog.test.ts` |
+| M2 | `claude-processes.ts` lease·runtime 필터 | 맞바꿈 | `'claude'` → `'opencode'` 2곳 | 잡음(15) | bootstrap 2 · `claude-processes.test.ts` 다수 |
+| M3 | `extension-catalog.ts:57` | 제거 | `&& !request.confirmed` 삭제 | 잡음(2) | bootstrap `asks before…`·`keeps every…` |
+| M4 | 같은 줄 | 다른 값 | `busy > 0` → `busy >= 0` | 잡음(5) | bootstrap `closes every idle…` 외 0282 3건 |
+| M5 | `useNativeMcpCatalog.ts` 요청 | 제거 | `confirmed` 전달 삭제 | 잡음(1) | `confirms before closing busy Claude sessions…` |
+| M6 | `extension-catalog.ts:58` | 다른 값 | `sessions: plan.targets.length` | 잡음(1) | bootstrap `asks before…` |
+| M7 | `discard.ts` emit | 제거 | `message.cancelled` emit 삭제 | 잡음(2) | `discard.test.ts` · bootstrap `asks before…` |
+| M8 | `bootstrap.ts` activity 주입 | 고정값 | 항상 유휴 snapshot | 잡음(1) | bootstrap `asks before…` |
+| M9 | `extension-catalog.ts:60-61` | 뒤집기 | close를 저장 앞으로 | 잡음(1) | bootstrap `keeps every Claude process…` |
+| M10a~h | `session-activity-busy.ts` 8신호 | 제거 | 신호 하나씩 삭제(8회) | 8/8 잡음(각 2~4) | `claude-processes.test.ts:'counts <신호> alone…'` · `native-history.test.ts:'does not close or replace an occupied session'` |
+| M11 | `claude-processes.ts` lease 대상 | 다른 값 | lease `busy: true` → `false` | 잡음(4) | `counts lease alone…`·복합·dispatch · bootstrap `asks before…` |
+| M12 | `claude-processes.ts` runtime | 제거 | `responding` 신호 삭제 | 잡음(2) | `counts responding alone…`·dispatch |
+| M13 | `extension-catalog.ts:53` | 고정값 | Claude 플러그인 조건 → `true` | 잡음(1) | bootstrap `applies OpenCode MCP toggles…` |
+| G01 | `opencode/v1/global-plugins.ts:1` | 제거의 역 | `nativeFileMutations` import 재삽입 | 잡음 | EP-10′ 음성 검색 0 → 1 → 원복 0 |
+| S1 | `protocol.ts:767` | 빈 값 | 스키마가 `confirmed`를 버림(`transform(() => undefined)`) | 잡음(2) | bootstrap `asks before…`·`keeps every…` |
+
+- 검산: 선택 증거 21(M1~M9 9 · M10 8 · M11~M13 3 · G01 1) · 인용 변이 0(파생 이슈 없음) · 새 oracle 1(S1 — 스키마 edge 민감도) = 실행 변이 22(표 15행, M10a~h 8회를 한 행). 잡음 22 · 못 잡음 0 · 동치 0.
+- 덮개 회귀: 이전 라운드 없음 — 해당 없음.
+
+## [구현자 기입] Product/UX 파생 검토 (r1)
+
+| 질문 | 판단 | 관측 |
+|---|---|---|
+| 새 문구에 소비자가 있는가 | 있음 | `claudeClose*` 4키 → `openConfirmDialog` → 공용 `ConfirmDialogHost`. ko `_one`/`_other` 같은 문장, en 단·복수 문장 분리 |
+| 실패가 "아무 일도 안 일어남"인가 | 아님 | 저장 실패 → 기존 `skills.native.toggle-failed` 토스트(`reports a choice write failure once…` 통과) · 종료 일부 실패 → main `reportError` |
+| 늦은 응답이 화면을 되돌리는가 | 아님 | `confirm` 응답은 행을 바꾸지 않고, `applied`만 기존 version 검사로 반영 |
+| [변경]이 그 사이 바뀐 행을 쓰는가 | 대화상자를 연 시점의 `resource`로 재요청 — 목표 값(`!enabled`)은 사용자가 누른 값 그대로 | `onConfirm: () => void toggle(backend, resource, true)` |
+| 상태표 7행 | 전부 경로 있음 | 유휴만(AC1) · 동작 중(AC2) · 취소(AC3) · 변경(AC4) · 다음 메시지(AC6) · 저장 실패(AC8) · OpenCode(AC7) |
+| 파생 — 범위 밖, 결정권자 몫 | 보고만 | ① 종료 일부 실패 토스트 제목이 `saveFailed` — 저장은 성공했는데 "저장 실패"로 읽힌다. ② 대화상자 확정 버튼이 `danger` 스타일이 아니다(r1 패턴 그대로). 응답 중단을 승인하는 동작이라 빨간 버튼 여부는 제품 결정 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
+
+| 문제 | 처리 | 근거 |
+|---|---|---|
+| DB 행이 없는 유휴 runtime은 backend를 알 수 없어 닫지 않는다 | 보고만 | `backendOf`가 `undefined` → 대상 아님(`claude-processes.ts`). 세션 삭제 hook이 먼저 `discardRuntime`하므로(`bootstrap.ts:1202`) 실제로는 드묾 |
+| closing lease의 runtime 항목을 다시 세면 N이 부풀고 이미 닫히는 세션을 두 번 닫는다 | 선조치 | lease 세션 ID를 먼저 `seen`에 넣어 runtime 항목에서 뺐다. 복합 테스트의 `claude-closing`(responding true)이 대상·N에서 빠짐을 단언 |
+| `discardRuntime` lease 분기를 `discardLease`로 옮기며 알림 키 | 동작 불변 | 알림 키를 closing 전 `logicalKey`로 고정. 기존 `'active lease discard…'` 통과 |
+| 다중 저장소 쓰기(설정 → 프로세스) | plan §13대로 | 저장 실패 시 종료 0(AC8, M9 red) |
+| 동시성: 판정 후 새 턴 | 동기 구간 | plan·close 사이 `await` 0(설계 리뷰 1행) |
+
+## [구현자 기입] 구현 보고 (r1)
+
+- 구현 주체: Claude(사용자가 `/handoff-impl 283`으로 직접 요청). 대상 커밋: `(r1 구현 — 좌표는 INDEX)`.
+- 설계 대비 차이 3:
+  1. **테스트 이름 분할** — plan의 `'counts each busy signal once and ignores idle Claude, OpenCode and closing entries'`(신호 표 포함)를 신호 단독 표 `it.each('counts %s alone as one busy Claude session')` 11행과 같은 이름의 복합 테스트로 나눴다. 만료·공유·재진입 축 해당 없음(테스트 구성만 다름).
+  2. **closing lease 제외 범위** — §11 ②의 "남은 runtime 항목"에서 closing lease의 세션도 뺐다(위 잠재 문제 2행).
+  3. **en 문구** — plan의 "session is (sessions are)"를 `_one`·`_other` 두 문장으로 나눴다.
+- AC 표:
+
+| AC | 결과 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | bootstrap `'closes every idle Claude process…'` close `[1,1,0]`·`applied`·저장값 |
+| AC2 | ✅ | bootstrap `sessions: 2`·close 0 · renderer store 제목·`claudeCloseBody(2)`·라벨 |
+| AC3 | ✅ | renderer 취소 뒤 호출 1·행 `enabled: true` 유지 |
+| AC4 | ✅ | renderer 3번째 호출 `confirmed: true`·행 갱신 · bootstrap child abort·close `[1,1,1,0,0]`·`message.cancelled ['m-A']` |
+| AC5 | ✅ | `claude-processes.test.ts` 신호 11행 단독 busy 1 · 무신호 유휴 |
+| AC6 | ⚠️ | supervisor discard 뒤 factory 1회 · `adapter.fork` resume 통과. cold resume flag 좌표는 linux에서 기준선과 같이 red — CI windows 대기 |
+| AC7 | ✅ | bootstrap OpenCode MCP 토글 close 0·`applied` |
+| AC8 | ✅ | bootstrap 저장 throw → reject·close 0 |
+| AC9 | ⚠️ | 사람 실기(Windows) 대기 |
+
+- 검산: ✅ 7 · ⚠️ 2 · ❌ 0 = 총 9.
+- 관측한 게이트 산출:
+  - `npm run lint`: 0 error · 2 warning(`react-hooks/incompatible-library`, 이번 변경 밖 파일).
+  - `npm run typecheck`: `error TS` 0건(3구성).
+  - §19 vitest 집합: 134파일 1509케이스 중 8 red — 전부 `adapters/claude/{adapter.native-plugins,native-resources,project-reconciliation}.test.ts`, `git stash` 기준선에서도 같은 8건(Windows 전용 동작, "이 플러그인은 프로젝트별 제어를 지원하지 않습니다").
+  - 전체 `vitest run`: 830파일 7995케이스 중 17 red = 위 8 + `opencode/v1/adapter{.instances,}.test.ts`·`composer-catalog.test.ts` 9(`C:/` 경로 전제). 기준선에서도 9건 동일. 환경: `node node_modules/electron/install.js` + `npm rebuild better-sqlite3`로 DB 스위트까지 실행.
+  - `node scripts/check-doc-inventory.mjs --check`: generated·prose·links ok.
+  - EP-10′ 음성 검색: 0건.
+
+## [구현자 기입] Review Signals — 사실만 (r1)
+
+- 라운드·라벨: 1라운드 `r1`(첫 impl 턴).
+- 이전 라운드와 같은 축: 해당 없음(첫 구현).
+- plan 지침: §11 ②가 closing lease의 runtime 항목 처리를 명시하지 않았다 — 구현에서 제외로 정했고 테스트로 고정했다.
+- 반복 환경 한계: Windows 전용 Claude 플러그인 스위트와 `C:/` 경로 스위트가 linux에서 기준선 red(17건). AC6의 cold resume flag 좌표가 그중 하나라 CI windows가 필요하다.
 
 ---
 

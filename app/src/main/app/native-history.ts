@@ -4,19 +4,9 @@ import { refreshNativeHistory } from '../features/history/native-sync'
 import { parseAgentKind } from '../../shared/agent-kind'
 import { resolveTurnProvider } from './chat-turn/resolve-turn'
 import type { RouterContext } from './context'
+import { sessionActivityBusy as nativeHistoryBusy } from './session-activity-busy'
 
-export function nativeHistoryBusy(activity: ChatActivitySnapshot): boolean {
-  return (
-    activity.foreground !== 'idle' ||
-    activity.transport === 'listening' ||
-    activity.queuedCount > 0 ||
-    activity.deliveryPendingCount > 0 ||
-    activity.residualCount > 0 ||
-    activity.backgroundTaskCount > 0 ||
-    !!activity.pendingSessionWakeup ||
-    (activity.sessionSchedules?.length ?? 0) > 0
-  )
-}
+export { nativeHistoryBusy }
 
 export function createNativeHistoryRefresh(
   ctx: RouterContext,

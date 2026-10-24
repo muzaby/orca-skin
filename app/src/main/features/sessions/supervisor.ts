@@ -290,14 +290,20 @@ export class RuntimeSupervisor<W = unknown> {
   // 태워 idle 로 반납되게 하거나, 반납 실패 시 다음 send 가 콜드 스폰으로 자연 복구한다.
   discardRuntime(sessionId: string): boolean {
     const lease = this.leases.getBySession(sessionId)
-    if (lease) {
-      const closing = this.leases.beginClosing(lease.leaseId, 'discard')
-      closing?.activeChild?.controller.abort()
-      closing?.runtime?.close()
-      this.emitLease(lease.logicalKey)
-      return closing?.runtime !== undefined
-    }
+    if (lease) return this.discardLease(lease.leaseId)
     return this.pool.close(sessionId)
+  }
+
+  // lease 단위 폐기 — 세션 ID 가 아직 없는 새 채팅 첫 턴도 닫을 수 있다. closing 전환 뒤
+  // 진행 child 를 abort 하고 runtime 을 닫아 신규 acquire 를 막는다.
+  discardLease(leaseId: string): boolean {
+    const key = this.leases.getById(leaseId)?.logicalKey
+    if (key === undefined) return false
+    const closing = this.leases.beginClosing(leaseId, 'discard')
+    closing?.activeChild?.controller.abort()
+    closing?.runtime?.close()
+    this.emitLease(key)
+    return closing?.runtime !== undefined
   }
 
   closeAllLeaseRuntimes(): void {

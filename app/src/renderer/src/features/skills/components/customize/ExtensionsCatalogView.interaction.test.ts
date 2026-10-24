@@ -168,8 +168,11 @@ it('shows OpenCode plugin rows as fixed native state and sends no toggle', async
   const mcp = dom.queryAll('[role="switch"]')[1]
   expect(mcp.props.disabled).toBe(false)
   api.write.mockResolvedValue({
-    state: 'disconnected',
-    items: [{ ...resource('opencode-mcp', 'mcp'), enabled: false }]
+    status: 'applied',
+    resources: {
+      state: 'disconnected',
+      items: [{ ...resource('opencode-mcp', 'mcp'), enabled: false }]
+    }
   })
   dom.click(mcp)
   await flush()
