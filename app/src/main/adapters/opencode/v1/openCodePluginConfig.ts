@@ -1,14 +1,18 @@
-import { applyEdits, modify, parse, type ParseError } from 'jsonc-parser'
 import { isRecord } from '../../../../shared/obj'
-import type { OpenCodeDisabledPlugin } from '../../../../shared/native-resources'
 
-export type PluginEntry = OpenCodeDisabledPlugin['entry']
+export type PluginEntry = string | [string, Record<string, unknown>]
 
+/** Read JSONC without interpreting variables or returning credentials to the renderer. */
 export function parseConfig(text: string): unknown {
-  const errors: ParseError[] = []
-  const value: unknown = parse(text.replace(/^\uFEFF/, ''), errors, { allowTrailingComma: true })
-  if (errors.length) throw new Error('OpenCode 설정 파일을 확인할 수 없습니다.')
-  return value
+  const stringsOrComments = /"(?:\\.|[^"\\])*"|\/\/[^\r\n]*|\/\*[\s\S]*?\*\//g
+  const uncommented = text.replace(stringsOrComments, (token) =>
+    token.startsWith('"') ? token : token.replace(/[^\r\n]/g, ' ')
+  )
+  return JSON.parse(
+    uncommented
+      .replace(/"(?:\\.|[^"\\])*"|,\s*(?=[}\]])/g, (token) => (token.startsWith('"') ? token : ''))
+      .replace(/^\uFEFF/, '')
+  )
 }
 
 export function pluginEntries(text: string): PluginEntry[] | undefined {
@@ -34,28 +38,3 @@ export function pluginEntries(text: string): PluginEntry[] | undefined {
 
 export const pluginSpec = (entry: PluginEntry): string =>
   typeof entry === 'string' ? entry : entry[0]
-
-function edit(text: string, index: number, value: PluginEntry | undefined, insert = false): string {
-  const indent = /\r?\n([\t ]+)\S/.exec(text)?.[1] ?? '  '
-  return applyEdits(
-    text,
-    modify(text, ['plugin', index], value, {
-      isArrayInsertion: insert,
-      formattingOptions: {
-        insertSpaces: !indent.includes('\t'),
-        tabSize: indent.length,
-        eol: text.includes('\r\n') ? '\r\n' : '\n'
-      }
-    })
-  )
-}
-
-export function removePluginEntry(text: string, index: number): string {
-  return edit(text, index, undefined)
-}
-
-export function insertPluginEntry(text: string, entry: PluginEntry, index: number): string {
-  const entries = pluginEntries(text)
-  if (!entries) throw new Error('OpenCode 플러그인 설정이 변경되었습니다.')
-  return edit(text, Math.min(index, entries.length), entry, true)
-}

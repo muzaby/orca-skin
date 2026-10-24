@@ -1,4 +1,5 @@
 import { OpenCodeGlobalWatch } from './opencode-global-watch'
+import { broadcastOpenCodePluginsChanged } from '../infra/ipc/send'
 import { openCodeGlobalConfigFiles, openCodeGlobalPluginFingerprint } from '../adapters/opencode'
 import { PluginSnapshots } from '../infra/config/plugin-snapshots'
 import { nativeFileMutations } from '../infra/config/file-mutation'
@@ -169,7 +170,10 @@ export class Bootstrap {
   private readonly bootReport = createBootReportRecorder()
   readonly settings = new SettingsStore(app.getVersion())
   readonly mcp = new McpStore(this.settings)
-  private readonly extensionChoices = extensionControl()
+  private readonly extensionChoices = extensionControl({
+    get: () => this.settings.getAll().nativeExtensionChoices,
+    set: (choices) => this.settings.setNativeExtensionChoices(choices)
+  })
   private readonly dataDirectory = app.getPath('userData')
   private readonly pluginSnapshots = new PluginSnapshots(
     join(this.dataDirectory, 'runtime-plugins')
@@ -178,7 +182,6 @@ export class Bootstrap {
   readonly prepareShutdown = nativeSettingsShutdown({
     freeze: () => this.pendingMessages?.freeze(),
     drain: async () => {
-      await this.openCodeGlobalWatch?.drain()
       await Promise.all([nativeFileMutations.close(), this.deployment?.close()])
     },
     shutdown: () => this.shutdown(),
@@ -1213,17 +1216,12 @@ export class Bootstrap {
     registerUpdateHandlers(ctx)
     registerSettingsHandlers(ctx)
     registerSkillsHandlers(ctx)
-    const plugins = harnessModule('opencode').globalResourceControl!({
-      get: () => this.settings.getAll().openCodeDisabledPlugins,
-      set: (records) => this.settings.setOpenCodeDisabledPlugins(records)
-    })
-    const globalWatch = (this.openCodeGlobalWatch = new OpenCodeGlobalWatch({
+    this.openCodeGlobalWatch = new OpenCodeGlobalWatch({
       files: openCodeGlobalConfigFiles(),
       fingerprint: openCodeGlobalPluginFingerprint,
-      reconcilePlugins: () => plugins.reconcile(),
       changed: (revision) => {
         ctx.registry.get('opencode')?.extensionsChanged?.()
-        this.closeComposerCatalog?.revalidate(revision)
+        broadcastOpenCodePluginsChanged({ revision })
       },
       failed: (error) =>
         reportError({
@@ -1232,16 +1230,8 @@ export class Bootstrap {
           title: 'saveFailed',
           error
         })
-    }))
-    registerExtensionCatalogHandlers(this.extensionChoices, {
-      plugins,
-      openCodeSessions: () =>
-        supervisor
-          .runtimeEntries()
-          .filter(({ sessionId }) => ctx.db.getSessionById(sessionId)?.backend === 'opencode')
-          .length,
-      change: (action) => globalWatch.change(action)
     })
+    registerExtensionCatalogHandlers(this.extensionChoices)
     registerFilesHandlers(ctx)
     registerGitHandlers(ctx.db)
     registerCostHandlers(ctx)

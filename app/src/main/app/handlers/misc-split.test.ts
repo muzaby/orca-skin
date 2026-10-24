@@ -92,10 +92,7 @@ describe('handlers/misc 분해 (0179)', () => {
     const snapshot = { theme: 'dark', uiLocale: 'en' }
     registerSettingsReadHandler({ getAll: () => snapshot as never })
     expect(registered).toEqual([CHANNELS.settingsGet])
-    expect(handlers.get(CHANNELS.settingsGet)?.({}, undefined)).toEqual({
-      ...snapshot,
-      openCodeDisabledPlugins: []
-    })
+    expect(handlers.get(CHANNELS.settingsGet)?.({}, undefined)).toEqual(snapshot)
 
     registered.length = 0
     registerSettingsHandlers(ctx)

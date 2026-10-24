@@ -62,17 +62,10 @@ export interface GlobalNativeResourceTarget {
 }
 export interface SetGlobalNativeResource extends GlobalNativeResourceTarget {
   enabled: boolean
-  confirmed?: true
 }
-export type SetGlobalNativeResourceResult =
-  | { status: 'applied'; resources: NativeResources }
-  | { status: 'confirm'; reason: 'opencode-restart'; sessions: number }
 
-export interface OpenCodeDisabledPlugin {
-  id: string
-  file: string
-  entry: string | [string, Record<string, unknown>]
-  index: number
+export interface OpenCodePluginsChanged {
+  revision: number
 }
 export interface NativeResourcesChanged {
   sessionId?: string

@@ -48,7 +48,10 @@ beforeEach(() => {
   dom = installFakeDom({ innerWidth: 1280, innerHeight: 900 })
   api.read.mockReset().mockImplementation(async (backend: string) => ({
     state: 'disconnected',
-    items: [resource(backend), resource(`${backend}-mcp`, 'mcp')]
+    items: [
+      { ...resource(backend), canToggle: backend === 'claude' },
+      resource(`${backend}-mcp`, 'mcp')
+    ]
   }))
   api.skillList.mockResolvedValue(
     [
@@ -150,35 +153,47 @@ it('scopes native loading and failure to plugin and MCP tabs', async () => {
   expect(dom.queryAll('[role="status"]')).toHaveLength(1)
 })
 
-it('asks before changing an OpenCode plugin while sessions run and applies only after confirmation', async () => {
-  api.write
-    .mockResolvedValueOnce({ status: 'confirm', reason: 'opencode-restart', sessions: 2 })
-    .mockResolvedValueOnce({ status: 'confirm', reason: 'opencode-restart', sessions: 2 })
-    .mockResolvedValueOnce({
-      status: 'applied',
-      resources: {
-        state: 'disconnected',
-        items: [{ ...resource('opencode'), enabled: false, status: 'disabled' }]
-      }
-    })
+it('shows OpenCode plugin rows as fixed native state and sends no toggle', async () => {
   dom.render(createElement(ExtensionsCatalogView))
   await flush()
-  dom.click(dom.queryAll('[role="switch"]')[1])
+  const toggle = dom.queryAll('[role="switch"]')[1]
+  expect(toggle.props.disabled).toBe(true)
+  expect(toggle.props['aria-checked']).toBe(true)
+  expect(dom.query('[title="opencode"]')?.props.className).toContain('text-ink3')
+  dom.click(toggle)
   await flush()
-  expect(useConfirmStore.getState().request?.title).toBe('OpenCode 서버 재시작')
-  expect(dom.queryAll('[role="switch"]')[1].props['aria-checked']).toBe(true)
-  useConfirmStore.getState().close()
-  expect(api.write).toHaveBeenCalledTimes(1)
-  dom.click(dom.queryAll('[role="switch"]')[1])
-  await flush()
-  useConfirmStore.getState().request!.onConfirm()
-  await flush()
-  expect(api.write).toHaveBeenLastCalledWith({
-    backend: 'opencode',
-    id: 'opencode',
-    kind: 'plugin',
-    enabled: false,
-    confirmed: true
+  expect(api.write).not.toHaveBeenCalled()
+  expect(useConfirmStore.getState().request).toBeNull()
+  tab(2)
+  const mcp = dom.queryAll('[role="switch"]')[1]
+  expect(mcp.props.disabled).toBe(false)
+  api.write.mockResolvedValue({
+    state: 'disconnected',
+    items: [{ ...resource('opencode-mcp', 'mcp'), enabled: false }]
   })
-  expect(dom.queryAll('[role="switch"]')[1].props['aria-checked']).toBe(false)
+  dom.click(mcp)
+  await flush()
+  expect(api.write).toHaveBeenCalledExactlyOnceWith({
+    backend: 'opencode',
+    id: 'opencode-mcp',
+    kind: 'mcp',
+    enabled: false
+  })
 })
+
+it.each(['present', 'loading', 'failed'] as const)(
+  'shows the empty skills state when native resources are %s',
+  async (state) => {
+    api.skillList.mockResolvedValue([])
+    if (state === 'loading') api.read.mockReturnValue(new Promise(() => {}))
+    if (state === 'failed') api.read.mockRejectedValue(new Error('offline'))
+    dom.render(createElement(ExtensionsCatalogView))
+    await flush()
+    tab(1)
+    expect(rows()).toEqual([])
+    const status = dom.queryAll('[role="status"]')
+    expect(status).toHaveLength(1)
+    expect(status[0].textContent).not.toContain('불러오')
+    expect(status[0].textContent).toContain('스킬')
+  }
+)

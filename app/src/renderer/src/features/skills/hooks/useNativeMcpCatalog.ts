@@ -1,5 +1,3 @@
-import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
-import { useI18n } from '../../../shared/i18n'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Backend } from '../../../../../shared/ipc'
 import type { NativeResource, NativeResources } from '../../../../../shared/native-resources'
@@ -15,7 +13,6 @@ export function useNativeMcpCatalog(): {
   open(backend: Backend, resource: NativeResource): Promise<void>
   toggle(backend: Backend, resource: NativeResource): Promise<void>
 } {
-  const { tr } = useI18n()
   const [list, setList] = useState<{ backend: Backend; resource: NativeResource }[]>([])
   const [failed, setFailed] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -70,11 +67,7 @@ export function useNativeMcpCatalog(): {
       clearInterval(timer)
     }
   }, [refresh])
-  const toggle = async (
-    backend: Backend,
-    resource: NativeResource,
-    confirmed?: true
-  ): Promise<void> => {
+  const toggle = async (backend: Backend, resource: NativeResource): Promise<void> => {
     if (!resource.canToggle) return
     const version = ++versions.current[backend]
     const task = (writes.current[backend] ?? Promise.resolve())
@@ -86,25 +79,8 @@ export function useNativeMcpCatalog(): {
             kind: resource.kind,
             enabled: !resource.enabled
           }
-          const apply = async (): Promise<void> => {
-            const value = await sessionApi.setGlobalExtension({
-              ...request,
-              ...(confirmed ? { confirmed } : {})
-            })
-            if (value.status === 'confirm') {
-              openConfirmDialog({
-                title: tr('chat.nativeResources.restartTitle'),
-                message: tr('chat.nativeResources.restartBody', { count: value.sessions }),
-                confirmLabel: tr('chat.nativeResources.restartConfirm'),
-                cancelLabel: tr('common.cancel'),
-                onConfirm: () => {
-                  void toggle(backend, resource, true)
-                }
-              })
-            } else if (mounted.current && version === versions.current[backend])
-              accept(backend, value.resources)
-          }
-          await apply()
+          const value = await sessionApi.setGlobalExtension(request)
+          if (mounted.current && version === versions.current[backend]) accept(backend, value)
         } catch (error) {
           reportError({
             event: 'skills.native.toggle-failed',

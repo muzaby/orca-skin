@@ -16,7 +16,14 @@ import {
 
 import { wireLog } from './wire-log'
 import type { BackgroundEvent } from '../../../shared/background-task'
-import type { NativeResourcesChanged } from '../../../shared/native-resources'
+import type {
+  NativeResourcesChanged,
+  OpenCodePluginsChanged
+} from '../../../shared/native-resources'
+
+export function broadcastOpenCodePluginsChanged(event: OpenCodePluginsChanged): void {
+  broadcast(CHANNELS.extensionOpenCodePluginsChanged, event)
+}
 
 export function broadcastNativeResourcesChanged(event: NativeResourcesChanged): void {
   broadcast(CHANNELS.sessionNativeResourcesChanged, event)

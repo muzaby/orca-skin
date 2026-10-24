@@ -1,7 +1,7 @@
 import { extensionControl } from './extension-control'
 // 0265 — 실제 Bootstrap.register가 session handler에 넘긴 콜백을 실행한다.
 // 다른 IPC 등록 직전에 멈추며, runtime과 activity는 프로덕션 인스턴스를 유지한다.
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RouterContext } from './context'
 import type { registerSessionHandlers } from './handlers/session'
 import type { createNativeHistoryRefresh } from './native-history'
@@ -18,7 +18,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { OpenCodeGlobalWatch } from './opencode-global-watch'
-import type { OpenCodeDisabledPlugin } from '../../shared/native-resources'
 import { openCodePluginId } from '../adapters/opencode/v1/plugin-installation'
 import type {
   DraftNativeResourcesRequest,
@@ -28,6 +27,8 @@ import type {
 import { nativePluginId } from '../adapters/claude/configured-resources'
 
 const fixture = vi.hoisted(() => ({
+  rawSettings: {} as Record<string, unknown>,
+  fetch: vi.fn<typeof fetch>(),
   stop: new Error('fixture: session handler callbacks captured'),
   stopAtSession: true,
   hooks: undefined as Parameters<typeof registerSessionHandlers>[1],
@@ -84,11 +85,20 @@ vi.mock('electron', () => ({
     ]
   },
   ipcMain: { handle: vi.fn(), removeHandler: vi.fn() },
-  net: {},
+  net: { fetch: fixture.fetch },
   session: {},
   safeStorage: {}
 }))
-vi.mock('../infra/settings-store', () => ({ SettingsStore: class {} }))
+vi.mock('electron-store', () => ({
+  default: class {
+    get store(): Record<string, unknown> {
+      return fixture.rawSettings
+    }
+    set store(value: Record<string, unknown>) {
+      fixture.rawSettings = structuredClone(value)
+    }
+  }
+}))
 vi.mock('../features/worktrees/service', () => ({ WorktreeService: class {} }))
 vi.mock('../features/approvals/coordinator', () => ({
   ApprovalCoordinator: class {
@@ -156,11 +166,17 @@ vi.mock('./handlers/files', () => ({
 }))
 
 import { Bootstrap } from './bootstrap'
+import { SettingsStore } from '../infra/settings-store'
+import { OpenCodeServerPool } from '../adapters/opencode/v1/server'
 import { CHANNELS, type SkillInfo } from '../../shared/ipc'
 import { ipcMain } from 'electron'
 import { harnessModule } from './harnesses/registry'
 
 const watches: OpenCodeGlobalWatch[] = []
+beforeEach(() => {
+  fixture.rawSettings = {}
+  fixture.fetch.mockReset()
+})
 afterEach(() => {
   for (const watch of watches.splice(0)) watch.close()
   fixture.projectSync?.close()
@@ -187,23 +203,14 @@ function register(realBootstrap?: Bootstrap): {
     extensionChoices: ReturnType<typeof extensionControl>
     registry?: AdapterRegistry
     openCodeGlobalWatch?: OpenCodeGlobalWatch
-    settings: {
-      setOpenCodeDisabledPlugins(records: OpenCodeDisabledPlugin[]): void
-      getAll: () => object
-      onPatch: (callback: (value: object, keys: string[]) => void) => void
-    }
+    settings: SettingsStore
   }
-  if (!realBootstrap) bootstrap.extensionChoices = extensionControl()
-  let records: OpenCodeDisabledPlugin[] = []
-  bootstrap.settings = {
-    setOpenCodeDisabledPlugins: (next) => {
-      records = next
-    },
-    getAll: () => ({
-      openCodeDisabledPlugins: records,
-      nativeExtensionChoices: { opencode: { 'mcp:docs': false } }
-    }),
-    onPatch: vi.fn()
+  if (!realBootstrap) {
+    bootstrap.settings = new SettingsStore('test')
+    bootstrap.extensionChoices = extensionControl({
+      get: () => bootstrap.settings.getAll().nativeExtensionChoices ?? {},
+      set: (choices) => bootstrap.settings.setNativeExtensionChoices(choices)
+    })
   }
   bootstrap.registerArtifacts = vi.fn()
   bootstrap.registerTurnEvents = () =>
@@ -289,7 +296,11 @@ it('carries catalog changes through the real bootstrap registry into every new S
   }
 })
 
-it('registers the global catalog with process choices and ignores legacy persisted defaults', async () => {
+it('registers the global catalog and ignores legacy persisted defaults', async () => {
+  fixture.rawSettings = {
+    nativeExtensionChoices: { opencode: { 'mcp:docs': false } },
+    settingsVersion: 1
+  }
   fixture.stopAtSession = false
   vi.spyOn(harnessModule('opencode'), 'globalResources').mockResolvedValue([
     {
@@ -745,7 +756,7 @@ it('applies nav plugin choices to draft and stored-session commands and resource
   }
 })
 
-it('routes OpenCode plugin toggles through the file control and the settings record', async () => {
+it('broadcasts each OpenCode plugin revision after retiring servers without an owner', async () => {
   const temp = await mkdtemp(join(tmpdir(), 'orca-bootstrap-global-'))
   const plugin = join(temp, 'plugin'),
     file = join(temp, 'opencode/opencode.jsonc')
@@ -756,17 +767,10 @@ it('routes OpenCode plugin toggles through the file control and the settings rec
   vi.stubEnv('XDG_CONFIG_HOME', temp)
   const bootstrap = new Bootstrap(() => true)
   fixture.stopAtSession = false
-  const { ctx, activity, registry, supervisor } = register(bootstrap)
-  ctx.db.getSessionById = vi.fn(() => undefined)
-  const changed = vi.spyOn(registry!.get('opencode')!, 'extensionsChanged')
+  const { activity, registry } = register(bootstrap)
+  const retired = vi.spyOn(OpenCodeServerPool.prototype, 'retireAll')
   const watch = (bootstrap as unknown as { openCodeGlobalWatch: OpenCodeGlobalWatch })
     .openCodeGlobalWatch
-  const registration = (
-    bootstrap as unknown as {
-      closeComposerCatalog: import('./handlers/composer-catalog').ComposerCatalogRegistration
-    }
-  ).closeComposerCatalog
-  const revalidate = vi.spyOn(registration, 'revalidate')
   const read = vi
     .mocked(ipcMain.handle)
     .mock.calls.find(([channel]) => channel === CHANNELS.extensionCatalog)![1]
@@ -775,69 +779,45 @@ it('routes OpenCode plugin toggles through the file control and the settings rec
     .mock.calls.find(([channel]) => channel === CHANNELS.extensionSetEnabled)![1]
   const event = {} as Electron.IpcMainInvokeEvent
   try {
+    await watch.check()
     expect(await read(event, { backend: 'opencode' })).toMatchObject({
-      items: [expect.objectContaining({ id: openCodePluginId(spec), canToggle: true })]
+      items: [
+        expect.objectContaining({ id: openCodePluginId(spec), enabled: true, canToggle: false })
+      ]
     })
-    const runtimes = vi.spyOn(supervisor, 'runtimeEntries').mockReturnValue([
-      { sessionId: 'open', runtime: {} },
-      { sessionId: 'claude', runtime: {} }
-    ] as never)
-    ctx.db.getSessionById = vi.fn((id) => ({
-      backend: id === 'open' ? 'opencode' : 'claude'
-    })) as never
-    expect(
-      await set(event, {
+    const before = await readFile(file, 'utf8'),
+      settings = structuredClone(fixture.rawSettings)
+    await expect(
+      set(event, {
         backend: 'opencode',
         kind: 'plugin',
         id: openCodePluginId(spec),
         enabled: false
       })
-    ).toEqual({ status: 'confirm', reason: 'opencode-restart', sessions: 1 })
-    expect(JSON.parse(await readFile(file, 'utf8')).plugin).toEqual([spec])
-    expect(
-      await set(event, {
-        backend: 'opencode',
-        kind: 'plugin',
-        id: openCodePluginId(spec),
-        enabled: false,
-        confirmed: true
+    ).rejects.toThrow()
+    expect(await readFile(file, 'utf8')).toBe(before)
+    expect(fixture.rawSettings).toEqual(settings)
+    expect(retired).not.toHaveBeenCalled()
+    for (const [index, entries] of [[], [spec], []].entries()) {
+      await writeFile(file, JSON.stringify({ plugin: entries }))
+      // Observe the production watchFile callback, including the second and third revisions.
+      await vi.waitFor(() => expect(retired).toHaveBeenCalledTimes(index + 1), {
+        timeout: 4000,
+        interval: 100
       })
-    ).toMatchObject({
-      status: 'applied',
-      resources: { items: [expect.objectContaining({ enabled: false })] }
-    })
-    runtimes.mockReturnValue([])
-    expect(JSON.parse(await readFile(file, 'utf8')).plugin).toEqual([])
-    expect(
-      (
-        bootstrap as unknown as {
-          settings: { getAll(): { openCodeDisabledPlugins: OpenCodeDisabledPlugin[] } }
-        }
-      ).settings.getAll().openCodeDisabledPlugins
-    ).toEqual([{ id: openCodePluginId(spec), file, entry: spec, index: 0 }])
-    expect(changed).toHaveBeenCalledTimes(1)
-    await watch.check()
-    expect(changed).toHaveBeenCalledTimes(1)
-    await writeFile(file, JSON.stringify({ plugin: [spec] }))
-    await vi.waitFor(() => expect(changed).toHaveBeenCalledTimes(2), {
-      timeout: 4000,
-      interval: 100
-    })
-    expect(
-      (
-        bootstrap as unknown as {
-          settings: { getAll(): { openCodeDisabledPlugins: OpenCodeDisabledPlugin[] } }
-        }
-      ).settings.getAll().openCodeDisabledPlugins
-    ).toEqual([])
-    await writeFile(file, '{"plugin":[]}')
-    await vi.waitFor(() => expect(changed).toHaveBeenCalledTimes(3), {
-      timeout: 4000,
-      interval: 100
-    })
+      await watch.check()
+    }
+    const expected = [1, 2, 3].map((revision) => [
+      CHANNELS.extensionOpenCodePluginsChanged,
+      { revision }
+    ])
+    expect(fixture.broadcasts.mock.calls).toEqual(expected)
+    expect(fixture.peerBroadcasts.mock.calls).toEqual(expected)
+    for (let i = 0; i < 3; i++)
+      expect(retired.mock.invocationCallOrder[i]).toBeLessThan(
+        fixture.broadcasts.mock.invocationCallOrder[i]
+      )
     expect(await read(event, { backend: 'opencode' })).toMatchObject({ items: [] })
-    expect(changed).toHaveBeenCalledTimes(3)
-    expect(revalidate.mock.calls).toEqual([[1], [2], [3]])
     const stop = vi.spyOn(watch, 'close')
     bootstrap.shutdown()
     expect(stop).toHaveBeenCalledOnce()
@@ -845,6 +825,119 @@ it('routes OpenCode plugin toggles through the file control and the settings rec
     watch.close()
     activity.dispose()
     registry!.close()
+    vi.unstubAllEnvs()
+    await rm(temp, { recursive: true, force: true })
+  }
+})
+
+it('restores global choices through production Bootstrap into catalogs, new Claude queries and OpenCode directories', async () => {
+  const temp = await mkdtemp(join(tmpdir(), 'orca-bootstrap-restart-'))
+  const claude = join(temp, 'claude'),
+    plugin = join(temp, 'plugin'),
+    global = join(temp, 'opencode')
+  await mkdir(join(claude, 'plugins'), { recursive: true })
+  await mkdir(join(plugin, '.claude-plugin'), { recursive: true })
+  await mkdir(global)
+  await writeFile(join(plugin, '.claude-plugin/plugin.json'), '{"name":"fixture"}')
+  await writeFile(
+    join(claude, 'plugins/installed_plugins.json'),
+    JSON.stringify({ plugins: { 'fixture@market': [{ scope: 'user', installPath: plugin }] } })
+  )
+  const claudeFile = join(claude, 'settings.json'),
+    openFile = join(global, 'opencode.json')
+  await writeFile(claudeFile, '{"enabledPlugins":{"fixture@market":true}}')
+  await writeFile(openFile, '{"mcp":{"docs":{"type":"local","command":["native"]}}}')
+  vi.stubEnv('CLAUDE_CONFIG_DIR', claude)
+  vi.stubEnv('XDG_CONFIG_HOME', temp)
+  vi.spyOn(OpenCodeServerPool.prototype, 'acquire').mockResolvedValue({
+    url: 'http://fixture.test',
+    headers: {}
+  })
+  const requests: Request[] = []
+  fixture.fetch.mockImplementation(async (input, init) => {
+    const request = new Request(input, init)
+    requests.push(request)
+    const path = new URL(request.url).pathname
+    if (path === '/mcp') return Response.json({ docs: { status: 'connected' } })
+    if (path === '/mcp/docs/disconnect' || path === '/mcp/docs/connect') return Response.json(true)
+    throw new Error(`Unexpected request: ${path}`)
+  })
+  fixture.stopAtSession = false
+  const first = new Bootstrap(() => true),
+    one = register(first)
+  const handler = (channel: string): Parameters<typeof ipcMain.handle>[1] =>
+    vi
+      .mocked(ipcMain.handle)
+      .mock.calls.filter(([name]) => name === channel)
+      .at(-1)![1]
+  const event = {} as Electron.IpcMainInvokeEvent
+  let two: ReturnType<typeof register> | undefined
+  try {
+    const before = [await readFile(claudeFile, 'utf8'), await readFile(openFile, 'utf8')]
+    await handler(CHANNELS.extensionSetEnabled)(event, {
+      backend: 'claude',
+      kind: 'plugin',
+      id: nativePluginId(plugin),
+      enabled: false
+    })
+    await handler(CHANNELS.extensionSetEnabled)(event, {
+      backend: 'opencode',
+      kind: 'mcp',
+      id: 'docs',
+      enabled: false
+    })
+    expect(fixture.rawSettings.nativeExtensionChoices).toEqual({
+      claude: { 'plugin:fixture@market': false },
+      opencode: { 'mcp:docs': false }
+    })
+    one.registry!.close()
+    one.activity.dispose()
+    for (const watch of watches.splice(0)) watch.close()
+    const second = new Bootstrap(() => true)
+    two = register(second)
+    const snapshots = (second as unknown as { pluginSnapshots: PluginSnapshots }).pluginSnapshots
+    vi.spyOn(snapshots, 'capture').mockImplementation((roots) => ({
+      roots: [...roots],
+      release: () => {}
+    }))
+    for (const backend of ['claude', 'opencode'])
+      expect(await handler(CHANNELS.extensionCatalog)(event, { backend })).toMatchObject({
+        items: [expect.objectContaining({ enabled: false })]
+      })
+    const turn = two.registry!.get('claude')!.sendMessage({
+      sessionId: null,
+      cwd: temp,
+      text: 'restart',
+      extensions: { skills: [], hooks: { normalized: {} } }
+    })
+    const settings = JSON.parse(
+      String((sdk.query.mock.calls.at(-1)![0] as { options: Options }).options.settings)
+    )
+    expect(settings.enabledPlugins['fixture@inline']).toBe(false)
+    turn.close()
+    const adapter = two.registry!.get('opencode')!
+    const oldDirectory = await adapter.prepareComposer!({ cwd: join(temp, 'A') })
+    await oldDirectory.read('mcp', new AbortController().signal)
+    expect(requests.filter((r) => new URL(r.url).pathname === '/mcp/docs/disconnect')).toHaveLength(
+      1
+    )
+    await handler(CHANNELS.extensionSetEnabled)(event, {
+      backend: 'opencode',
+      kind: 'mcp',
+      id: 'docs',
+      enabled: true
+    })
+    await oldDirectory.read('mcp', new AbortController().signal, true)
+    const nextDirectory = await adapter.prepareComposer!({ cwd: join(temp, 'B') })
+    await nextDirectory.read('mcp', new AbortController().signal)
+    expect(requests.filter((r) => r.method === 'POST')).toHaveLength(1)
+    expect([await readFile(claudeFile, 'utf8'), await readFile(openFile, 'utf8')]).toEqual(before)
+  } finally {
+    one.registry!.close()
+    one.activity.dispose()
+    two?.registry!.close()
+    two?.activity.dispose()
+    for (const watch of watches.splice(0)) watch.close()
     vi.unstubAllEnvs()
     await rm(temp, { recursive: true, force: true })
   }

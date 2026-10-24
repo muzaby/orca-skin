@@ -115,13 +115,9 @@ export async function globalOpenCodeResources(
   home = homedir()
 ): Promise<NativeResource[]> {
   const result = await configuredOpenCode(home, env, true)
-  const effective = await effectiveOpenCodePlugins(env, home)
-  const editable = new Set(
-    effective.entries.map((entry) => openCodePluginId(typeof entry === 'string' ? entry : entry[0]))
-  )
   return result.items.map((item) => ({
     ...item,
-    canToggle: item.kind === 'mcp' || (editable.has(item.id) && item.status === 'installed'),
+    canToggle: item.kind === 'mcp',
     canOpen: result.files.has(item.id)
   }))
 }

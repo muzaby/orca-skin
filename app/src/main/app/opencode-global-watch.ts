@@ -1,6 +1,6 @@
 import { watchFile, unwatchFile } from 'node:fs'
 
-/** Serializes our own commits and polling, so one file change has one fan-out. */
+/** Serializes polling so each observed external plugin change has one fan-out. */
 export class OpenCodeGlobalWatch {
   private tail: Promise<unknown>
   private fingerprint?: string
@@ -14,7 +14,6 @@ export class OpenCodeGlobalWatch {
     private readonly deps: {
       files: string[]
       fingerprint(): Promise<string>
-      reconcilePlugins(): Promise<unknown>
       changed(revision: number): void
       failed(error: unknown): void
     }
@@ -41,7 +40,6 @@ export class OpenCodeGlobalWatch {
 
   private async notifyOpenCodePluginsChanged(): Promise<void> {
     if (this.closed) return
-    await this.deps.reconcilePlugins()
     const next = await this.deps.fingerprint()
     if (this.closed || next === this.fingerprint) return
     this.fingerprint = next
@@ -53,21 +51,8 @@ export class OpenCodeGlobalWatch {
     return this.enqueue(() => this.notifyOpenCodePluginsChanged()).catch(this.deps.failed)
   }
 
-  change(action: () => Promise<void>): Promise<void> {
-    if (this.closed) return Promise.reject(new Error('설정 저장이 종료 중입니다.'))
-    return this.enqueue(async () => {
-      await action()
-      await this.notifyOpenCodePluginsChanged()
-    })
-  }
-
   close(): void {
     this.closed = true
     for (const file of this.deps.files) unwatchFile(file, this.callback)
-  }
-
-  async drain(): Promise<void> {
-    this.close()
-    await this.tail.catch(() => undefined)
   }
 }

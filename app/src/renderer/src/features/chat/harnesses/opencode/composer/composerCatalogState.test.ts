@@ -1,4 +1,4 @@
-import { ComposerAgentCache } from './composerAgentCache'
+import { createComposerAgentStore } from './composerAgentStore'
 import { afterEach, expect, it, vi } from 'vitest'
 import type {
   ComposerCatalogInvalidated,
@@ -10,6 +10,7 @@ import { ComposerCatalogState } from './composerCatalogState'
 const api = vi.hoisted(() => ({
   composerCatalog: vi.fn(),
   releaseComposerCatalog: vi.fn(async () => undefined),
+  onOpenCodePluginsChanged: vi.fn(),
   onComposerCatalogInvalidated: vi.fn()
 }))
 vi.mock('../../../../../shared/api/ipc', () => ({ sessionApi: api }))
@@ -39,7 +40,7 @@ it('publishes agents before models and shares subscribers and remounts', async (
       ? models.promise
       : { part: 'agents', value: [{ name: 'Sisyphus' }], generation: 'g1' }
   )
-  const state = new ComposerCatalogState(scope, undefined, new ComposerAgentCache())
+  const state = new ComposerCatalogState(scope, undefined, createComposerAgentStore(vi.fn()))
   const one = state.subscribe(vi.fn()),
     two = state.subscribe(vi.fn())
   await flush()
@@ -76,7 +77,7 @@ it('coalesces retry, keeps data on error and accepts successful empty data', asy
     value: r.part === 'models' ? [{ id: 'team/model', variants: ['deep'] }] : [],
     generation: 'g'
   }))
-  const state = new ComposerCatalogState(scope, undefined, new ComposerAgentCache()),
+  const state = new ComposerCatalogState(scope, undefined, createComposerAgentStore(vi.fn())),
     remove = state.subscribe(vi.fn())
   await flush()
   const gate = Promise.withResolvers<ComposerCatalogResult>()
@@ -110,7 +111,7 @@ it('discards retired and unmounted responses without automatic reconnect', async
   api.composerCatalog.mockImplementation(async (r: ComposerCatalogRequest) =>
     r.part === 'agents' ? gate.promise : { part: 'models', value: [], generation: 'old' }
   )
-  const state = new ComposerCatalogState(scope, undefined, new ComposerAgentCache()),
+  const state = new ComposerCatalogState(scope, undefined, createComposerAgentStore(vi.fn())),
     remove = state.subscribe(vi.fn())
   await flush()
   invalidate({ owner: api.composerCatalog.mock.calls[0][0].owner, generation: 'old' })
@@ -146,7 +147,7 @@ it('keeps the new generation when an older part resolves in the same epoch', asy
       ? oldModels.promise
       : { part: 'agents', value: [{ name: 'old-agent' }], generation: 'old' }
   )
-  const state = new ComposerCatalogState(scope, undefined, new ComposerAgentCache())
+  const state = new ComposerCatalogState(scope, undefined, createComposerAgentStore(vi.fn()))
   const remove = state.subscribe(vi.fn())
   await flush()
   api.composerCatalog.mockResolvedValueOnce({
@@ -194,7 +195,7 @@ it('loads resource parts only for a panel subscriber and invalidates their conne
   api.composerCatalog.mockImplementation(async (r: ComposerCatalogRequest) =>
     r.part === 'mcp' ? mcp.promise : { part: r.part, value: [], generation: 'g' }
   )
-  const state = new ComposerCatalogState(scope, undefined, new ComposerAgentCache())
+  const state = new ComposerCatalogState(scope, undefined, createComposerAgentStore(vi.fn()))
   const composer = state.subscribe(vi.fn())
   await flush()
   expect(api.composerCatalog.mock.calls.map(([r]) => r.part)).toEqual(['agents', 'models'])
@@ -239,7 +240,7 @@ it.each(['cancelled', 'error'] as const)(
       value: r.part === 'agents' ? [] : [],
       generation: 'g'
     }))
-    const state = new ComposerCatalogState(scope, undefined, new ComposerAgentCache()),
+    const state = new ComposerCatalogState(scope, undefined, createComposerAgentStore(vi.fn())),
       remove = state.subscribe(vi.fn())
     await flush()
     api.composerCatalog.mockResolvedValueOnce({
@@ -257,7 +258,7 @@ it.each(['cancelled', 'error'] as const)(
 
 it('publishes the first agent success to concurrent scopes and ignores later results', async () => {
   vi.useFakeTimers()
-  const cache = new ComposerAgentCache()
+  const cache = createComposerAgentStore(vi.fn())
   const a = Promise.withResolvers<ComposerCatalogResult>(),
     b = Promise.withResolvers<ComposerCatalogResult>()
   api.onComposerCatalogInvalidated.mockReturnValue(vi.fn())
@@ -296,7 +297,7 @@ it('publishes the first agent success to concurrent scopes and ignores later res
 
 it('leaves the agent cache empty after failed or cancelled reads', async () => {
   vi.useFakeTimers()
-  const cache = new ComposerAgentCache()
+  const cache = createComposerAgentStore(vi.fn())
   api.onComposerCatalogInvalidated.mockReturnValue(vi.fn())
   let attempts = 0
   api.composerCatalog.mockImplementation(async (request: ComposerCatalogRequest) => {
@@ -309,7 +310,7 @@ it('leaves the agent cache empty after failed or cancelled reads', async () => {
     const state = new ComposerCatalogState({ ...scope, cwd }, undefined, cache)
     const off = state.subscribe(vi.fn())
     await flush()
-    expect(cache.get()).toEqual(cwd === 'C:/C' ? [] : undefined)
+    expect(cache.getState().agents).toEqual(cwd === 'C:/C' ? [] : undefined)
     off()
     await vi.runOnlyPendingTimersAsync()
   }
@@ -323,7 +324,7 @@ it('leaves the agent cache empty after failed or cancelled reads', async () => {
 
 it('keeps cached agents through instance invalidation while models become error', async () => {
   vi.useFakeTimers()
-  const cache = new ComposerAgentCache()
+  const cache = createComposerAgentStore(vi.fn())
   let invalidated!: (value: ComposerCatalogInvalidated) => void
   api.onComposerCatalogInvalidated.mockImplementation((callback) => {
     invalidated = callback
@@ -346,14 +347,14 @@ it('keeps cached agents through instance invalidation while models become error'
   await vi.runOnlyPendingTimersAsync()
 })
 
-it('resets agents once per revision and refreshes subscribed parts while keeping models', async () => {
+it('refreshes subscribed parts once per plugin revision while keeping models', async () => {
   vi.useFakeTimers()
-  const cache = new ComposerAgentCache()
-  let invalidated!: (value: ComposerCatalogInvalidated) => void
-  api.onComposerCatalogInvalidated.mockImplementation((callback) => {
-    invalidated = callback
+  let changed!: (event: { revision: number }) => void
+  const cache = createComposerAgentStore((handler) => {
+    changed = handler
     return vi.fn()
   })
+  api.onComposerCatalogInvalidated.mockReturnValue(vi.fn())
   api.composerCatalog.mockImplementation(async (r: ComposerCatalogRequest) => ({
     part: r.part,
     value:
@@ -373,12 +374,8 @@ it('resets agents once per revision and refreshes subscribed parts while keeping
       ? gate.promise
       : Promise.resolve({ part: r.part, value: [], generation: 'new' })
   )
-  const event = {
-    owner: api.composerCatalog.mock.calls[0][0].owner,
-    generation: 'old',
-    revalidate: 1
-  }
-  invalidated(event)
+  const event = { revision: 3 }
+  changed(event)
   expect(state.getSnapshot().agents.status).toBe('loading')
   expect(state.getSnapshot().models.value).toEqual([{ id: 'old/model', variants: ['old'] }])
   expect(api.composerCatalog.mock.calls.slice(4).map(([r]) => [r.part, r.refresh])).toEqual([
@@ -387,7 +384,7 @@ it('resets agents once per revision and refreshes subscribed parts while keeping
     ['mcp', true],
     ['plugins', true]
   ])
-  invalidated(event)
+  changed(event)
   expect(api.composerCatalog).toHaveBeenCalledTimes(8)
   gate.resolve({ part: 'agents', value: [{ name: 'fresh' }], generation: 'new' })
   await flush()
@@ -400,7 +397,7 @@ it.each(['error', 'cancelled', 'reject'] as const)(
   'keeps the first cached agents when a concurrent read ends as %s',
   async (outcome) => {
     vi.useFakeTimers()
-    const cache = new ComposerAgentCache(),
+    const cache = createComposerAgentStore(vi.fn()),
       late = Promise.withResolvers<ComposerCatalogResult>()
     api.onComposerCatalogInvalidated.mockReturnValue(vi.fn())
     api.composerCatalog.mockImplementation((r: ComposerCatalogRequest) =>
@@ -432,3 +429,62 @@ it.each(['error', 'cancelled', 'reject'] as const)(
     await vi.runOnlyPendingTimersAsync()
   }
 )
+
+it('refetches agents when the cache is cleared between construction and first subscribe', async () => {
+  vi.useFakeTimers()
+  const store = createComposerAgentStore(vi.fn())
+  store.getState().accept([{ name: 'before-change' }], 0)
+  const state = new ComposerCatalogState(scope, undefined, store)
+  expect(state.getSnapshot().agents.value).toEqual([{ name: 'before-change' }])
+  store.getState().invalidate(5)
+  const reply = Promise.withResolvers<ComposerCatalogResult>()
+  api.onComposerCatalogInvalidated.mockReturnValue(vi.fn())
+  api.composerCatalog.mockImplementation((r: ComposerCatalogRequest) =>
+    r.part === 'agents'
+      ? reply.promise
+      : Promise.resolve({ part: r.part, value: [], generation: 'new' })
+  )
+  const off = state.subscribe(vi.fn())
+  expect(state.getSnapshot().agents).toEqual({ status: 'loading' })
+  expect(api.composerCatalog.mock.calls.filter(([r]) => r.part === 'agents')).toHaveLength(1)
+  reply.resolve({ part: 'agents', value: [{ name: 'after-change' }], generation: 'new' })
+  await flush()
+  expect(state.getSnapshot().agents.value).toEqual([{ name: 'after-change' }])
+  off()
+  await vi.runOnlyPendingTimersAsync()
+})
+
+it('drops agent results requested before a plugin change and caches the refetched list', async () => {
+  vi.useFakeTimers()
+  let changed!: (event: { revision: number }) => void
+  const store = createComposerAgentStore((handler) => {
+    changed = handler
+    return vi.fn()
+  })
+  const old = Promise.withResolvers<ComposerCatalogResult>(),
+    fresh = Promise.withResolvers<ComposerCatalogResult>()
+  let requests = 0
+  api.onComposerCatalogInvalidated.mockReturnValue(vi.fn())
+  api.composerCatalog.mockImplementation((r: ComposerCatalogRequest) =>
+    r.part === 'agents'
+      ? ++requests === 1
+        ? old.promise
+        : fresh.promise
+      : Promise.resolve({ part: r.part, value: [], generation: requests === 1 ? 'old' : 'new' })
+  )
+  const state = new ComposerCatalogState(scope, undefined, store)
+  const off = state.subscribe(vi.fn())
+  await flush()
+  changed({ revision: 4 })
+  old.resolve({ part: 'agents', value: [{ name: 'removed' }], generation: 'old' })
+  await flush()
+  expect(store.getState().agents).toBeUndefined()
+  expect(state.getSnapshot().agents).toEqual({ status: 'loading' })
+  expect(requests).toBe(2)
+  fresh.resolve({ part: 'agents', value: [{ name: 'remaining' }], generation: 'new' })
+  await flush()
+  expect(store.getState().agents).toEqual([{ name: 'remaining' }])
+  expect(state.getSnapshot().agents.value).toEqual([{ name: 'remaining' }])
+  off()
+  await vi.runOnlyPendingTimersAsync()
+})
