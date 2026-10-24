@@ -354,3 +354,18 @@ it('shares native menu membership with decoration without exposing disabled or o
     nativePluginMentions({ ...view, value: { ...view.value, state: 'disconnected' } })
   ).toEqual([])
 })
+
+it('keeps previously disabled harness skills selectable', () => {
+  const entry = {
+    ...skill('previously-off', 'adapter:claude', 'Claude 스킬'),
+    enabled: true,
+    canToggle: false
+  }
+  const menu = buildAttachMenu({ skills: [entry], plugins: [], labels, canManagePlugins: false })[2]
+  if (menu.kind !== 'submenu') throw new Error('menu')
+  expect(menu.items.find((row) => row.kind === 'action')).toMatchObject({
+    kind: 'action',
+    disabled: false,
+    action: { type: 'nativeCommand', name: 'previously-off' }
+  })
+})

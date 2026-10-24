@@ -80,7 +80,11 @@ it('assembles the real catalog from lock, harness and native plugin files withou
           rootDir: join(claude, 'skills')
         }
       ],
-      {},
+      {
+        'adapter:claude/claude-only': false,
+        'adapter:opencode/open-only': false,
+        'agents/locked': false
+      },
       home,
       {}
     )
@@ -94,6 +98,16 @@ it('assembles the real catalog from lock, harness and native plugin files withou
   expect((await catalog()).find((s) => s.name === 'design:native')?.sourceLabel).toBe(
     'Claude 플러그인'
   )
+  expect(
+    (await catalog())
+      .filter((s) => !s.sourceId.startsWith('plugin:'))
+      .map((s) => [s.sourceId, s.enabled, s.canToggle])
+      .sort()
+  ).toEqual([
+    ['adapter:claude', true, false],
+    ['adapter:opencode', true, false],
+    ['agents', true, false]
+  ])
   let snapshot = await catalog()
   registerSkillsHandlers({
     getSkills: () => snapshot,

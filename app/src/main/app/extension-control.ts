@@ -1,16 +1,23 @@
-import type { Backend } from '../../shared/ipc'
+import type { Backend, Settings } from '../../shared/ipc'
 import type { ExtensionControl } from '../adapters/common/extension-control'
 
-/** Process-local SDK choices; native configuration remains the startup baseline. */
+/** Explicit SDK choices; native configuration remains the baseline for unset keys. */
 export interface MutableExtensionControl extends ExtensionControl {
   setGlobal(backend: Backend, key: string, enabled: boolean): void
 }
-export function extensionControl(): MutableExtensionControl {
-  const choices = new Map<Backend, Record<string, boolean>>()
+type NativeExtensionChoices = NonNullable<Settings['nativeExtensionChoices']>
+
+export function extensionControl(store?: {
+  get(): NativeExtensionChoices | undefined
+  set(value: NativeExtensionChoices): void
+}): MutableExtensionControl {
+  let choices: NativeExtensionChoices = structuredClone(store?.get() ?? {})
   return {
-    global: (backend) => ({ ...choices.get(backend) }),
+    global: (backend) => ({ ...choices[backend] }),
     setGlobal: (backend, key, enabled) => {
-      choices.set(backend, { ...choices.get(backend), [key]: enabled })
+      const next = { ...choices, [backend]: { ...choices[backend], [key]: enabled } }
+      store?.set(structuredClone(next))
+      choices = next
     }
   }
 }

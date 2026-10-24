@@ -166,3 +166,21 @@ describe('SettingsStore harness isolation', () => {
     })
   })
 })
+
+it('persists global choices through the main-only setter, unrelated patches and restarts', () => {
+  const backend = countingBackend()
+  const store = new SettingsStore('test', backend)
+  store.patch({ language: 'sentinel' })
+  const choices = { claude: { 'plugin:one': false }, opencode: { 'mcp:two': true } }
+  store.setNativeExtensionChoices(choices)
+  expect(store.getAll().nativeExtensionChoices).toEqual(choices)
+  expect(store.getAll().language).toBe('sentinel')
+  store.patch({ theme: 'dark', nativeExtensionChoices: { claude: { 'plugin:one': true } } })
+  expect(store.getAll().nativeExtensionChoices).toEqual(choices)
+  expect(new SettingsStore('test', backend).getAll()).toMatchObject({
+    nativeExtensionChoices: choices,
+    theme: 'dark',
+    language: 'sentinel'
+  })
+  expect(backend.store.settingsVersion).toBe(2)
+})

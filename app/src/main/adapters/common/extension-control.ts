@@ -9,3 +9,15 @@ export interface ExtensionControl {
 export function extensionChoiceKey(kind: NativeResource['kind'], id: string): string {
   return `${kind}:${id}`
 }
+
+export function extensionChoices(
+  choices: Record<string, boolean>,
+  kind: NativeResource['kind']
+): Record<string, boolean> {
+  const prefix = `${kind}:`
+  return Object.fromEntries(
+    Object.entries(choices)
+      .filter(([key]) => key.startsWith(prefix))
+      .map(([key, value]) => [key.slice(prefix.length), value])
+  )
+}

@@ -8,6 +8,7 @@ import type {
   NativeResources,
   GlobalNativeResourceTarget,
   SetGlobalNativeResource,
+  OpenCodePluginsChanged,
   SetNativeResource,
   OpenNativePlugin
 } from '../shared/native-resources'
@@ -272,6 +273,8 @@ const orca = {
     onComposerCatalogInvalidated: (
       handler: (event: ComposerCatalogInvalidated) => void
     ): (() => void) => subscribe(CHANNELS.composerCatalogInvalidated, handler),
+    onOpenCodePluginsChanged: (handler: (event: OpenCodePluginsChanged) => void): (() => void) =>
+      subscribe(CHANNELS.extensionOpenCodePluginsChanged, handler),
     onNativeResourcesChanged: (
       handler: (event: import('../shared/native-resources').NativeResourcesChanged) => void
     ): (() => void) => subscribe(CHANNELS.sessionNativeResourcesChanged, handler),

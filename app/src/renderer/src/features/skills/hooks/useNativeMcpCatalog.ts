@@ -67,6 +67,35 @@ export function useNativeMcpCatalog(): {
       clearInterval(timer)
     }
   }, [refresh])
+  const toggle = async (backend: Backend, resource: NativeResource): Promise<void> => {
+    if (!resource.canToggle) return
+    const version = ++versions.current[backend]
+    const task = (writes.current[backend] ?? Promise.resolve())
+      .then(async () => {
+        try {
+          const request = {
+            backend,
+            id: resource.id,
+            kind: resource.kind,
+            enabled: !resource.enabled
+          }
+          const value = await sessionApi.setGlobalExtension(request)
+          if (mounted.current && version === versions.current[backend]) accept(backend, value)
+        } catch (error) {
+          reportError({
+            event: 'skills.native.toggle-failed',
+            scope: 'native-resources',
+            title: 'saveFailed',
+            error
+          })
+        }
+      })
+      .finally(() => {
+        if (writes.current[backend] === task) delete writes.current[backend]
+      })
+    writes.current[backend] = task
+    await task
+  }
   return {
     list,
     failed,
@@ -85,33 +114,6 @@ export function useNativeMcpCatalog(): {
         })
       }
     },
-    toggle: async (backend, resource) => {
-      if (!resource.canToggle) return
-      const version = ++versions.current[backend]
-      const task = (writes.current[backend] ?? Promise.resolve())
-        .then(async () => {
-          try {
-            const value = await sessionApi.setGlobalExtension({
-              backend,
-              id: resource.id,
-              kind: resource.kind,
-              enabled: !resource.enabled
-            })
-            if (mounted.current && version === versions.current[backend]) accept(backend, value)
-          } catch (error) {
-            reportError({
-              event: 'skills.native.toggle-failed',
-              scope: 'native-resources',
-              title: 'saveFailed',
-              error
-            })
-          }
-        })
-        .finally(() => {
-          if (writes.current[backend] === task) delete writes.current[backend]
-        })
-      writes.current[backend] = task
-      await task
-    }
+    toggle
   }
 }

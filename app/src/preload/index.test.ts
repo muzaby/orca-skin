@@ -57,7 +57,9 @@ it('carries explicit global extension scope and choices across renderer API and 
       id: 'plugin:installed',
       enabled: false
     }
-    await sessionApi.setGlobalExtension(request)
+    const applied = { state: 'disconnected', items: [] }
+    harness.invoke.mockResolvedValueOnce(applied)
+    expect(await sessionApi.setGlobalExtension(request)).toEqual(applied)
     expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.extensionSetEnabled, request)
     await sessionApi.openGlobalExtension({ backend: 'opencode', kind: 'mcp', id: 'docs' })
     expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.extensionOpen, {
@@ -496,6 +498,27 @@ it('preserves native resource state and toggle identity through renderer and pre
     }
   } finally {
     harness.invoke.mockResolvedValue(undefined)
+    vi.unstubAllGlobals()
+  }
+})
+
+it('forwards OpenCode plugin changes on their own channel', async () => {
+  vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
+  try {
+    const { sessionApi } = await import('../renderer/src/shared/api/ipc')
+    const changed = vi.fn()
+    const stop = sessionApi.onOpenCodePluginsChanged(changed)!
+    for (const revision of [2, 7])
+      for (const listener of harness.listeners.get('orca:extensions:opencode-plugins-changed') ??
+        [])
+        listener({}, { revision })
+    expect(changed.mock.calls).toEqual([[{ revision: 2 }], [{ revision: 7 }]])
+    expect(CHANNELS.extensionOpenCodePluginsChanged).toBe(
+      'orca:extensions:opencode-plugins-changed'
+    )
+    stop()
+    expect(harness.listeners.get(CHANNELS.extensionOpenCodePluginsChanged)?.size).toBe(0)
+  } finally {
     vi.unstubAllGlobals()
   }
 })

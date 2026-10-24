@@ -12,9 +12,14 @@ import { installFakeDom } from '../../../shared/ui/renderHarness.testfixture'
 import { useNativeMcpCatalog } from './useNativeMcpCatalog'
 import { CustomizeList } from '../components/customize/CustomizeList'
 import type { NativeResources } from '../../../../../shared/native-resources'
+import { useConfirmStore } from '../../../shared/ui/confirmDialogStore'
+import { errorToastStore } from '../../../shared/errors/errorToastStore'
 let dom: ReturnType<typeof installFakeDom>
 afterEach(() => {
   dom?.unmount()
+  useConfirmStore.getState().close()
+  for (const toast of errorToastStore.getState().toasts)
+    errorToastStore.getState().dismiss(toast.id)
   vi.unstubAllGlobals()
   vi.useRealTimers()
 })
@@ -129,7 +134,7 @@ it('renders native plugin capabilities and updates the actual row through its to
   function Catalog(): React.ReactElement {
     const native = useNativeMcpCatalog()
     return createElement(CustomizeList, {
-      tab: 'skills',
+      tab: 'providers',
       skills: [],
       mcpServers: [],
       providers: [],
@@ -158,4 +163,56 @@ it('renders native plugin capabilities and updates the actual row through its to
   })
   expect(dom.queryAll('[role="switch"]')[0].props['aria-checked']).toBe(true)
   expect(dom.queryAll('[role="switch"]')[1].props['aria-checked']).toBe(false)
+})
+
+it('reports a choice write failure once and releases the queue for a retry', async () => {
+  vi.useFakeTimers()
+  dom = installFakeDom({ innerWidth: 1280, innerHeight: 800 })
+  const plugins = (enabled = true): NativeResources => ({
+    ...catalog(enabled),
+    items: catalog(enabled).items.map((item) => ({ ...item, kind: 'plugin' }))
+  })
+  const write = vi
+    .fn()
+    .mockRejectedValueOnce(new Error('disk locked'))
+    .mockResolvedValueOnce(plugins(false))
+  const logged = vi.fn()
+  Object.assign(window, {
+    orca: {
+      session: { globalExtensions: async () => plugins(), setGlobalExtension: write },
+      log: { error: logged }
+    }
+  })
+  let result!: ReturnType<typeof useNativeMcpCatalog>
+  function Probe(): null {
+    const value = useNativeMcpCatalog()
+    useLayoutEffect(() => {
+      result = value
+    }, [value])
+    return null
+  }
+  dom.render(createElement(Probe))
+  await flush()
+  const resource = result.list[0].resource
+  await result.toggle('claude', resource)
+  await flush()
+  expect(write).toHaveBeenLastCalledWith({
+    backend: 'claude',
+    id: 'docs',
+    kind: 'plugin',
+    enabled: false
+  })
+  expect(logged).toHaveBeenCalledTimes(1)
+  expect(logged.mock.calls[0].slice(0, 2)).toEqual([
+    'skills.native.toggle-failed',
+    'native-resources'
+  ])
+  expect(errorToastStore.getState().toasts).toMatchObject([
+    { title: 'saveFailed', detail: 'disk locked' }
+  ])
+  expect(result.list[0].resource.enabled).toBe(true)
+  await result.toggle('claude', resource)
+  await flush()
+  expect(result.list[0].resource.enabled).toBe(false)
+  expect(write).toHaveBeenCalledTimes(2)
 })

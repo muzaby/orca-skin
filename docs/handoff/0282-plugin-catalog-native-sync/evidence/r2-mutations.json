@@ -1,0 +1,564 @@
+[
+  {
+    "id": "M01",
+    "pair": "VP-01 A2",
+    "source": "src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts",
+    "failed": 14,
+    "passed": 8,
+    "tests": [
+      "publishes agents before models and shares subscribers and remounts",
+      "keeps the new generation when an older part resolves in the same epoch",
+      "publishes the first agent success to concurrent scopes and ignores later results",
+      "leaves the agent cache empty after failed or cancelled reads",
+      "keeps cached agents through instance invalidation while models become error",
+      "keeps the first cached agents when a concurrent read ends as error",
+      "keeps the first cached agents when a concurrent read ends as cancelled",
+      "keeps the first cached agents when a concurrent read ends as reject",
+      "refetches agents when the cache is cleared between construction and first subscribe",
+      "prepares draft agents before providers, reuses cached agents and variants across menu reopenings",
+      "uses only the agent slot for title loading when agents completes first",
+      "uses only the agent slot for title loading when models completes first",
+      "reuses the first successful agent list across landing scopes without requesting or spinning",
+      "clears cached agents on plugin changes with no Composer mounted and refetches on remount"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "M02",
+    "pair": "VP-01 A1",
+    "source": "src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts",
+    "failed": 2,
+    "passed": 20,
+    "tests": [
+      "publishes the first agent success to concurrent scopes and ignores later results",
+      "refetches agents when the cache is cleared between construction and first subscribe"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "M03",
+    "pair": "VP-02 A3",
+    "source": "src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts",
+    "failed": 2,
+    "passed": 14,
+    "tests": [
+      "keeps the new generation when an older part resolves in the same epoch",
+      "keeps cached agents through instance invalidation while models become error"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "M04",
+    "pair": "VP-08 R3/R4",
+    "source": "src/renderer/src/features/skills/components/customize/CustomizeList.tsx",
+    "failed": 1,
+    "passed": 11,
+    "tests": [
+      "orders Claude then OpenCode plugin groups after providers and keeps plugin toggle capability"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "M05",
+    "pair": "VP-08 R1",
+    "source": "src/renderer/src/features/skills/components/customize/CustomizeList.tsx",
+    "failed": 2,
+    "passed": 10,
+    "tests": [
+      "plugin catalog list hides native plugin skills and labels both native MCP groups with brand marks",
+      "orders Claude then OpenCode plugin groups after providers and keeps plugin toggle capability"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "M06",
+    "pair": "VP-09 C1",
+    "source": "src/main/adapters/claude/adapter.ts",
+    "failed": 2,
+    "passed": 18,
+    "tests": [
+      "carries catalog changes through the real bootstrap registry into every new SDK query",
+      "applies current global plugin choices to every new query while live queries keep theirs"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "M07",
+    "pair": "VP-09 C12",
+    "source": "src/main/app/bootstrap.ts",
+    "failed": 1,
+    "passed": 12,
+    "tests": [
+      "applies nav plugin choices to draft and stored-session commands and resources"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "M08",
+    "pair": "VP-09 C5",
+    "source": "src/main/adapters/claude/configured-resources.ts",
+    "failed": 2,
+    "passed": 20,
+    "tests": [
+      "applies nav plugin choices to draft and stored-session commands and resources",
+      "applies Orca plugin choices above user defaults and below project selections"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "M09",
+    "pair": "VP-12 C4",
+    "source": "src/main/adapters/claude/plugin-catalog.ts",
+    "failed": 3,
+    "passed": 10,
+    "tests": [
+      "carries catalog changes through the real bootstrap registry into every new SDK query",
+      "applies nav plugin choices to draft and stored-session commands and resources",
+      "restores global choices through production Bootstrap into catalogs, new Claude queries and OpenCode directories"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "M10",
+    "pair": "VP-12 C5",
+    "source": "src/main/adapters/claude/configured-resources.ts",
+    "failed": 2,
+    "passed": 20,
+    "tests": [
+      "applies nav plugin choices to draft and stored-session commands and resources",
+      "applies Orca plugin choices above user defaults and below project selections"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "M16",
+    "pair": "VP-21 Q10 models",
+    "source": "src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts",
+    "failed": 1,
+    "passed": 15,
+    "tests": [
+      "refreshes subscribed parts once per plugin revision while keeping models"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "M18",
+    "pair": "VP-23 P1 priority",
+    "source": "src/main/adapters/opencode/v1/global-plugins.ts",
+    "failed": 2,
+    "passed": 0,
+    "tests": [
+      "derives the fingerprint only from the effective plugin array",
+      "lists only plugins declared by the effective global file as fixed rows"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "M19",
+    "pair": "VP-28 E2",
+    "source": "src/main/adapters/claude/configured-resources.ts",
+    "failed": 2,
+    "passed": 20,
+    "tests": [
+      "applies nav plugin choices to draft and stored-session commands and resources",
+      "omits installations whose directory no longer exists"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "M21",
+    "pair": "VP-29 X2 fingerprint",
+    "source": "src/main/app/opencode-global-watch.ts",
+    "failed": 1,
+    "passed": 2,
+    "tests": [
+      "fans out once per external plugin change and ignores unchanged polls"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "M22",
+    "pair": "VP-29 X1 callback",
+    "source": "src/main/app/opencode-global-watch.ts",
+    "failed": 1,
+    "passed": 2,
+    "tests": [
+      "fans out once per external plugin change and ignores unchanged polls"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R01",
+    "pair": "VP-04 prime revision comparison",
+    "source": "src/renderer/src/features/chat/harnesses/opencode/composer/composerAgentStore.ts",
+    "failed": 5,
+    "passed": 14,
+    "tests": [
+      "invalidates only for a newer revision and ignores results captured at an older revision",
+      "subscribes to plugin changes once at creation and clears agents without any view",
+      "refreshes subscribed parts once per plugin revision while keeping models",
+      "refetches agents when the cache is cleared between construction and first subscribe",
+      "drops agent results requested before a plugin change and caches the refetched list"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R02",
+    "pair": "VP-04 prime captured revision",
+    "source": "src/renderer/src/features/chat/harnesses/opencode/composer/composerAgentStore.ts",
+    "failed": 1,
+    "passed": 2,
+    "tests": [
+      "invalidates only for a newer revision and ignores results captured at an older revision"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R03",
+    "pair": "VP-04 prime first value",
+    "source": "src/renderer/src/features/chat/harnesses/opencode/composer/composerAgentStore.ts",
+    "failed": 2,
+    "passed": 17,
+    "tests": [
+      "keeps the first list accepted at the current revision and notifies subscribers once",
+      "publishes the first agent success to concurrent scopes and ignores later results"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R04",
+    "pair": "VP-04 prime,VP-35 creation subscription",
+    "source": "src/renderer/src/features/chat/harnesses/opencode/composer/composerAgentStore.ts",
+    "failed": 2,
+    "passed": 7,
+    "tests": [
+      "subscribes to plugin changes once at creation and clears agents without any view",
+      "clears cached agents on plugin changes with no Composer mounted and refetches on remount"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R05",
+    "pair": "VP-03 prime unscoped pending",
+    "source": "src/renderer/src/features/chat/harnesses/opencode/composer/useComposerCatalog.ts",
+    "failed": 1,
+    "passed": 5,
+    "tests": [
+      "shows cached agents before the chat scope exists"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R06",
+    "pair": "VP-03 prime selector",
+    "source": "src/renderer/src/features/chat/harnesses/opencode/composer/useComposerCatalog.ts",
+    "failed": 1,
+    "passed": 5,
+    "tests": [
+      "shows cached agents before the chat scope exists"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R07",
+    "pair": "VP-21 prime broadcast",
+    "source": "src/main/app/bootstrap.ts",
+    "failed": 1,
+    "passed": 12,
+    "tests": [
+      "broadcasts each OpenCode plugin revision after retiring servers without an owner"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R08",
+    "pair": "VP-21 prime order",
+    "source": "src/main/app/bootstrap.ts",
+    "failed": 1,
+    "passed": 12,
+    "tests": [
+      "broadcasts each OpenCode plugin revision after retiring servers without an owner"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R09",
+    "pair": "VP-21 prime channel",
+    "source": "src/preload/index.ts",
+    "failed": 1,
+    "passed": 25,
+    "tests": [
+      "forwards OpenCode plugin changes on their own channel"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R10",
+    "pair": "VP-21 prime revision",
+    "source": "src/main/infra/ipc/send.ts",
+    "failed": 1,
+    "passed": 12,
+    "tests": [
+      "broadcasts each OpenCode plugin revision after retiring servers without an owner"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R11",
+    "pair": "VP-35 captured revision / prior M13",
+    "source": "src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts",
+    "failed": 0,
+    "passed": 16,
+    "tests": [],
+    "exit": 0,
+    "result": "missed",
+    "restored": true
+  },
+  {
+    "id": "R12",
+    "pair": "F7 verify M09 / VP-35",
+    "source": "src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts",
+    "failed": 1,
+    "passed": 15,
+    "tests": [
+      "refetches agents when the cache is cleared between construction and first subscribe"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R13",
+    "pair": "F3 verify M21 / VP-07,08",
+    "source": "src/renderer/src/features/skills/components/customize/CustomizeList.tsx",
+    "failed": 1,
+    "passed": 6,
+    "tests": [
+      "shows the empty skills state when native resources are present"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R14",
+    "pair": "F3 verify M25 / VP-07",
+    "source": "src/renderer/src/features/skills/components/customize/ExtensionsCatalogView.tsx",
+    "failed": 1,
+    "passed": 6,
+    "tests": [
+      "shows the empty skills state when native resources are failed"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R15",
+    "pair": "F4 verify M41 / VP-09,10",
+    "source": "src/main/adapters/claude/adapter.ts",
+    "failed": 1,
+    "passed": 6,
+    "tests": [
+      "applies current global plugin choices to every new query while live queries keep theirs"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R16",
+    "pair": "VP-18 double prime capability",
+    "source": "src/main/adapters/opencode/v1/configured-resources.ts",
+    "failed": 2,
+    "passed": 13,
+    "tests": [
+      "broadcasts each OpenCode plugin revision after retiring servers without an owner",
+      "lists only plugins declared by the effective global file as fixed rows"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R17",
+    "pair": "VP-31 double prime fingerprint",
+    "source": "src/main/adapters/opencode/v1/global-plugins.ts",
+    "failed": 1,
+    "passed": 1,
+    "tests": [
+      "derives the fingerprint only from the effective plugin array"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R18",
+    "pair": "VP-36 save",
+    "source": "src/main/app/extension-control.ts",
+    "failed": 2,
+    "passed": 0,
+    "tests": [
+      "persists explicit global choices and restores them in a new control",
+      "keeps the last saved choices when persistence fails and allows a retry"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R19",
+    "pair": "VP-36 restore",
+    "source": "src/main/app/extension-control.ts",
+    "failed": 2,
+    "passed": 0,
+    "tests": [
+      "persists explicit global choices and restores them in a new control",
+      "keeps the last saved choices when persistence fails and allows a retry"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R20",
+    "pair": "VP-36 backend",
+    "source": "src/main/app/extension-control.ts",
+    "failed": 2,
+    "passed": 0,
+    "tests": [
+      "persists explicit global choices and restores them in a new control",
+      "keeps the last saved choices when persistence fails and allows a retry"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R21",
+    "pair": "VP-37 production wiring",
+    "source": "src/main/app/bootstrap.ts",
+    "failed": 1,
+    "passed": 12,
+    "tests": [
+      "restores global choices through production Bootstrap into catalogs, new Claude queries and OpenCode directories"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R22",
+    "pair": "VP-38 version",
+    "source": "src/main/infra/settings-migration.ts",
+    "failed": 1,
+    "passed": 11,
+    "tests": [
+      "settings migration clears legacy native extension choices once when upgrading to settings version 2"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R23",
+    "pair": "VP-38 clear",
+    "source": "src/main/infra/settings-migration.ts",
+    "failed": 1,
+    "passed": 11,
+    "tests": [
+      "settings migration clears legacy native extension choices once when upgrading to settings version 2"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R24",
+    "pair": "prior verify M11 equivalent subscribe loading",
+    "source": "src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts",
+    "failed": 0,
+    "passed": 22,
+    "tests": [],
+    "exit": 0,
+    "result": "missed",
+    "restored": true
+  },
+  {
+    "id": "R25",
+    "pair": "server retire call",
+    "source": "src/main/adapters/opencode/v1/adapter.ts",
+    "failed": 1,
+    "passed": 30,
+    "tests": [
+      "starts a new server for new owners after retireAll while existing owners keep theirs"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  },
+  {
+    "id": "R26",
+    "pair": "server retirement map",
+    "source": "src/main/adapters/opencode/v1/server.ts",
+    "failed": 1,
+    "passed": 30,
+    "tests": [
+      "starts a new server for new owners after retireAll while existing owners keep theirs"
+    ],
+    "exit": 1,
+    "result": "caught",
+    "restored": true
+  }
+]

@@ -1,3 +1,4 @@
+import { extensionChoices } from '../common/extension-control'
 import { persistClaudePluginState } from './plugin-state'
 import { ClaudeProjectReconciliation } from './project-reconciliation'
 import { claudeProjectSettingsFiles, readClaudeProjectSettings } from './project-settings'
@@ -334,7 +335,6 @@ export class ClaudeAdapter implements SessionAdapter {
     string,
     {
       references: number
-      plugins: Record<string, boolean>
       skills: TurnRequest['extensions']['skills']
       deployment?: import('../common/plugin-snapshots').PluginSnapshotLease
       pluginRoots: string[] | undefined
@@ -436,37 +436,32 @@ export class ClaudeAdapter implements SessionAdapter {
   // SessionRuntime 몫이고, 입력 close 는 세션 폐기(LRU 축출·종료·respawn 경계·에러)에서만.
   sendMessage(req: TurnRequest): LiveTurn {
     const key = pluginPathKey(req.cwd)
+    const nativeRoot = claudeNativePaths(
+      envLookup(req.env, req.providerSettings?.settings, process.env),
+      undefined,
+      req.cwd
+    ).root
+    const choices = this.extensionControl?.global('claude') ?? {}
+    const flags = extensionChoices(choices, 'plugin')
+    const plugins = readClaudePluginCatalog(
+      req.cwd,
+      nativeRoot,
+      {
+        ...req.providerSettings?.settings,
+        enabledPlugins: {
+          ...(req.providerSettings?.settings?.enabledPlugins as Record<string, unknown>),
+          ...flags
+        }
+      },
+      true
+    ).defaults
     let snapshot = this.extensionSnapshots.get(key)
     if (!snapshot) {
-      const nativeRoot = claudeNativePaths(
-        envLookup(req.env, req.providerSettings?.settings, process.env),
-        undefined,
-        req.cwd
-      ).root
-      const choices = this.extensionControl?.global('claude') ?? {}
-      const flags = Object.fromEntries(
-        Object.entries(choices)
-          .filter(([key]) => key.startsWith('plugin:'))
-          .map(([key, value]) => [key.slice(7), value])
-      )
-      const plugins = readClaudePluginCatalog(
-        req.cwd,
-        nativeRoot,
-        {
-          ...req.providerSettings?.settings,
-          enabledPlugins: {
-            ...(req.providerSettings?.settings?.enabledPlugins as Record<string, unknown>),
-            ...flags
-          }
-        },
-        true
-      ).defaults
       const deployment = this.pluginSnapshots?.capture(req.extensions.pluginRoots ?? [])
       snapshot = {
         deployment,
         pluginRoots: deployment?.roots ?? req.extensions.pluginRoots,
         references: 0,
-        plugins,
         skills: req.extensions.skills.map((skill) => ({ ...skill }))
       }
       this.extensionSnapshots.set(key, snapshot)
@@ -489,7 +484,7 @@ export class ClaudeAdapter implements SessionAdapter {
           extensions: { ...req.extensions, skills: owned.skills, pluginRoots: owned.pluginRoots }
         },
         release,
-        owned.plugins
+        plugins
       )
     } catch (error) {
       release()

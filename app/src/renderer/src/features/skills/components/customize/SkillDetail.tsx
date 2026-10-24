@@ -84,18 +84,16 @@ export function SkillDetail({
   return (
     <div className="min-w-0 py-6">
       <div className="flex flex-wrap items-center gap-3">
-        <h2
-          className={`m-0 min-w-0 break-words text-heading ${skill.canToggle ? 'text-ink' : 'text-ink3'}`}
-        >
-          {skill.name}
-        </h2>
+        <h2 className="m-0 min-w-0 break-words text-heading text-ink">{skill.name}</h2>
         <div className="ml-auto flex items-center gap-2">
-          <CatalogToggle
-            name={skill.name}
-            enabled={skill.enabled}
-            canToggle={skill.canToggle}
-            onToggle={onToggle}
-          />
+          {skill.canToggle && (
+            <CatalogToggle
+              name={skill.name}
+              enabled={skill.enabled}
+              canToggle={skill.canToggle}
+              onToggle={onToggle}
+            />
+          )}
           <button
             ref={menuRef}
             type="button"

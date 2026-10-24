@@ -116,8 +116,12 @@ describe('Bootstrap harness composition callers', () => {
     const options = create.mock.calls[0][0]
     expect(options.dataDirectory).toBe(fixture.userData)
     expect(options.fetchImpl).toBe(netFetch)
-    expect(options.extensionControl?.global('claude')).toEqual({})
-    expect(options.extensionControl?.global('opencode')).toEqual({})
+    expect(options.extensionControl?.global('claude')).toEqual(
+      fixture.settings.nativeExtensionChoices.claude
+    )
+    expect(options.extensionControl?.global('opencode')).toEqual(
+      fixture.settings.nativeExtensionChoices.opencode
+    )
     expect(options.preferences('claude')).toBe(fixture.settings.harnesses.claude)
     expect(options.preferences('opencode')).toBe(fixture.settings.harnesses.opencode)
     const prior = fixture.settings.harnesses.claude

@@ -2,7 +2,10 @@ import { isAbsolute } from 'node:path'
 import type { ComposerCatalogLease, ComposerCatalogScope } from '../../shared/composer-catalog'
 import type { RouterContext } from './context'
 import { resolveTurnProvider } from './chat-turn/resolve-turn'
-import { registerComposerCatalogHandlers } from './handlers/composer-catalog'
+import {
+  registerComposerCatalogHandlers,
+  type ComposerCatalogRegistration
+} from './handlers/composer-catalog'
 import { ComposerCatalogError } from './composer-catalog-error'
 
 export async function prepareComposerCatalog(
@@ -55,7 +58,7 @@ export async function prepareComposerCatalog(
     })
 }
 
-export function registerComposerCatalog(ctx: RouterContext): () => void {
+export function registerComposerCatalog(ctx: RouterContext): ComposerCatalogRegistration {
   return registerComposerCatalogHandlers((scope, signal) =>
     prepareComposerCatalog(ctx, scope, signal)
   )

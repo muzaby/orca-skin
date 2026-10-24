@@ -37,7 +37,7 @@ export const claudeMainModule: MainHarnessModule = {
   parseSettingsModels: parseClaudeModels,
   parseRuntimeModels,
   readUserSettings: readUserClaudeSettings,
-  configuredResources: configuredClaudeResources,
+  configuredResources: (cwd, choices) => configuredClaudeResources(cwd, undefined, false, choices),
   nativeResourceScope: pluginPathKey,
   configuredCommands: configuredClaudeCommands,
   configuredPluginDirectory: configuredClaudePluginDirectory,

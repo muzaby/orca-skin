@@ -166,6 +166,10 @@ export class OpenCodeServerPool {
     })
   }
 
+  retireAll(): void {
+    this.entries.clear()
+  }
+
   private terminate(child?: ChildProcess): void {
     if (!child || this.terminated.has(child)) return
     this.terminated.add(child)

@@ -1,3 +1,6 @@
+import { OpenCodeGlobalWatch } from './opencode-global-watch'
+import { broadcastOpenCodePluginsChanged } from '../infra/ipc/send'
+import { openCodeGlobalConfigFiles, openCodeGlobalPluginFingerprint } from '../adapters/opencode'
 import { PluginSnapshots } from '../infra/config/plugin-snapshots'
 import { nativeFileMutations } from '../infra/config/file-mutation'
 import { nativeSettingsShutdown } from './native-settings-lifecycle'
@@ -167,7 +170,10 @@ export class Bootstrap {
   private readonly bootReport = createBootReportRecorder()
   readonly settings = new SettingsStore(app.getVersion())
   readonly mcp = new McpStore(this.settings)
-  private readonly extensionChoices = extensionControl()
+  private readonly extensionChoices = extensionControl({
+    get: () => this.settings.getAll().nativeExtensionChoices,
+    set: (choices) => this.settings.setNativeExtensionChoices(choices)
+  })
   private readonly dataDirectory = app.getPath('userData')
   private readonly pluginSnapshots = new PluginSnapshots(
     join(this.dataDirectory, 'runtime-plugins')
@@ -204,7 +210,8 @@ export class Bootstrap {
   // 앱 종료(will-quit) 정리용 참조 — register() 에서 채워진다. 종료 시 진행 중 턴의 열린 도구를
   // 정착하고 controller 를 abort 한다(shutdown).
   private supervisor?: RuntimeSupervisor<Electron.WebContents>
-  private closeComposerCatalog?: () => void
+  private closeComposerCatalog?: import('./handlers/composer-catalog').ComposerCatalogRegistration
+  private openCodeGlobalWatch?: OpenCodeGlobalWatch
   private bus?: MainBus<Electron.WebContents>
   private activeDbWriteCount = 0
   private isIndexing = false
@@ -880,6 +887,7 @@ export class Bootstrap {
     // admission freeze 를 **가장 먼저**(0151 AC9) — 이후 send/steer 예약을 거부해, 종료 중
     // 게이트 flush·자동 연속 턴이 큐 폐기와 경합하며 메시지를 뒤늦게 제출하는 것을 막는다.
     this.pendingMessages?.freeze()
+    this.openCodeGlobalWatch?.close()
     this.closeComposerCatalog?.()
     this.projectResourceSync?.close()
     this.registry.close()
@@ -1086,7 +1094,8 @@ export class Bootstrap {
         const session = ctx.db.getSessionById(sessionId)
         if (!session) return []
         const items = await harnessModule(session.backend).configuredResources?.(
-          session.cwd ?? ctx.getCwd(session.project_id)
+          session.cwd ?? ctx.getCwd(session.project_id),
+          this.extensionChoices.global(session.backend)
         )
         const current = ctx.db.getSessionById(sessionId)
         if (
@@ -1119,7 +1128,8 @@ export class Bootstrap {
         const session = ctx.db.getSessionById(sessionId)
         if (!session) return []
         const commands = await harnessModule(session.backend).configuredCommands?.(
-          session.cwd ?? ctx.getCwd(session.project_id)
+          session.cwd ?? ctx.getCwd(session.project_id),
+          this.extensionChoices.global(session.backend)
         )
         const current = ctx.db.getSessionById(sessionId)
         if (
@@ -1134,13 +1144,21 @@ export class Bootstrap {
       async ({ backend, cwd, projectId }) => {
         const directory = cwd ?? ctx.getCwd(projectId)
         if (!isAbsolute(directory)) throw new Error('작업 폴더는 절대 경로여야 합니다.')
-        return (await harnessModule(backend).configuredCommands?.(directory)) ?? []
+        return (
+          (await harnessModule(backend).configuredCommands?.(
+            directory,
+            this.extensionChoices.global(backend)
+          )) ?? []
+        )
       },
       async ({ backend, cwd, projectId }) => {
         const directory = cwd ?? ctx.getCwd(projectId)
         if (!isAbsolute(directory)) throw new Error('작업 폴더는 절대 경로여야 합니다.')
         const module = harnessModule(backend)
-        return (module.draftResources ?? module.configuredResources)?.(directory)
+        return (module.draftResources ?? module.configuredResources)?.(
+          directory,
+          this.extensionChoices.global(backend)
+        )
       },
       async ({ backend, cwd, projectId }, id) => {
         const directory = cwd ?? ctx.getCwd(projectId)
@@ -1198,6 +1216,21 @@ export class Bootstrap {
     registerUpdateHandlers(ctx)
     registerSettingsHandlers(ctx)
     registerSkillsHandlers(ctx)
+    this.openCodeGlobalWatch = new OpenCodeGlobalWatch({
+      files: openCodeGlobalConfigFiles(),
+      fingerprint: openCodeGlobalPluginFingerprint,
+      changed: (revision) => {
+        ctx.registry.get('opencode')?.extensionsChanged?.()
+        broadcastOpenCodePluginsChanged({ revision })
+      },
+      failed: (error) =>
+        reportError({
+          event: 'opencode.plugins.watch-failed',
+          scope: 'engine',
+          title: 'saveFailed',
+          error
+        })
+    })
     registerExtensionCatalogHandlers(this.extensionChoices)
     registerFilesHandlers(ctx)
     registerGitHandlers(ctx.db)

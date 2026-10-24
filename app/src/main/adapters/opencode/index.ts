@@ -15,3 +15,6 @@ export const openCodeContextWindow = implementation.contextWindow
 export type { OpenCodeRuntimeOptions, OpenCodeServer } from './implementation'
 
 export const openCodeProjectResources = implementation.projectResources
+
+export const openCodeGlobalConfigFiles = implementation.globalPluginFiles
+export const openCodeGlobalPluginFingerprint = implementation.globalPluginFingerprint

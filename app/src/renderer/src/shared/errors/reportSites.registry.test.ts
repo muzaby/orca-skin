@@ -22,13 +22,13 @@ export const sites: Site[] = [
   {
     file: 'features/skills/hooks/useNativeMcpCatalog.ts',
     ordinal: 0,
-    line: 55,
+    line: 51,
     disposition: 'CONSUMED'
   },
   {
     file: 'features/skills/hooks/useNativeMcpCatalog.ts',
-    ordinal: 1,
-    line: 26,
+    ordinal: 2,
+    line: 132,
     disposition: 'TOAST',
     id: 'T-native-mcp-open',
     event: 'skills.native.open-failed',
@@ -36,8 +36,8 @@ export const sites: Site[] = [
   },
   {
     file: 'features/skills/hooks/useNativeMcpCatalog.ts',
-    ordinal: 2,
-    line: 100,
+    ordinal: 1,
+    line: 108,
     disposition: 'TOAST',
     id: 'T-native-toggle',
     event: 'skills.native.toggle-failed',

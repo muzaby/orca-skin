@@ -25,6 +25,7 @@ export interface OpenCodeServer {
     env?: Record<string, string>,
     cwd?: string
   ): Promise<string>
+  retireAll?(): void
   close(): void
 }
 
@@ -38,6 +39,8 @@ export interface OpenCodeRuntimeOptions {
 }
 
 export interface OpenCodeImplementation {
+  globalPluginFiles(): string[]
+  globalPluginFingerprint(): Promise<string>
   projectResources: import('../common/project-resources').ProjectResourcePolicy
   createAdapter: (options: OpenCodeRuntimeOptions) => SessionAdapter
   loadSettings: HarnessSettingsLoader

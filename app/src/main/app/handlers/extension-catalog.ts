@@ -31,14 +31,22 @@ export function registerExtensionCatalogHandlers(control: MutableExtensionContro
   handle(CHANNELS.extensionCatalog, GlobalNativeResourcesSchema, 'reject', ({ backend }) =>
     read(backend)
   )
-  handle(CHANNELS.extensionSetEnabled, SetGlobalNativeResourceSchema, 'reject', async (request) => {
-    const catalog = await read(request.backend)
-    const item = catalog.items.find((item) => item.kind === request.kind && item.id === request.id)
-    if (!item?.canToggle) throw new Error('이 항목은 Orca에서 전역 활성 상태를 제어할 수 없습니다.')
-    control.setGlobal(request.backend, extensionChoiceKey(item.kind, item.name), request.enabled)
-    // No server access here. Existing directory instances retain their captured choices.
-    return read(request.backend)
-  })
+  handle(
+    CHANNELS.extensionSetEnabled,
+    SetGlobalNativeResourceSchema,
+    'reject',
+    async (request): Promise<NativeResources> => {
+      const catalog = await read(request.backend)
+      const item = catalog.items.find(
+        (item) => item.kind === request.kind && item.id === request.id
+      )
+      if (!item?.canToggle)
+        throw new Error('이 항목은 Orca에서 전역 활성 상태를 제어할 수 없습니다.')
+      control.setGlobal(request.backend, extensionChoiceKey(item.kind, item.name), request.enabled)
+      // No server access here. Existing directory instances retain their captured choices.
+      return read(request.backend)
+    }
+  )
   handle(
     CHANNELS.extensionOpen,
     GlobalNativeResourceTargetSchema,

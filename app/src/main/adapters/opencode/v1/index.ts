@@ -1,3 +1,4 @@
+import { openCodeGlobalConfigFiles, openCodeGlobalPluginFingerprint } from './global-plugins'
 import { openCodeProjectResources } from './project-settings'
 import type { OpenCodeImplementation } from '../implementation'
 import { OpenCodeAdapter } from './adapter'
@@ -18,6 +19,8 @@ import {
 } from './settings'
 
 export const implementation: OpenCodeImplementation = {
+  globalPluginFiles: openCodeGlobalConfigFiles,
+  globalPluginFingerprint: openCodeGlobalPluginFingerprint,
   projectResources: openCodeProjectResources,
   createAdapter: (options) =>
     new OpenCodeAdapter(

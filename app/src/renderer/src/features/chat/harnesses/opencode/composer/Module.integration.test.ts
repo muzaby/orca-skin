@@ -1,3 +1,4 @@
+import { composerAgentStore } from './composerAgentStore'
 import { createElement, Fragment } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { installFakeDom, type FakeDom } from '../../../../../shared/ui/renderHarness.testfixture'
@@ -7,6 +8,23 @@ import type {
   ComposerCatalogResult
 } from '../../../../../../../shared/composer-catalog'
 import { composerModule } from './Module'
+const pluginEvents = vi.hoisted(() => {
+  const subscribe = vi.fn<(handler: (event: { revision: number }) => void) => () => void>(() =>
+    vi.fn()
+  )
+  vi.stubGlobal('window', { orca: { session: { onOpenCodePluginsChanged: subscribe } } })
+  return { subscribe }
+})
+// Bind the real vanilla store to the test React runtime.
+vi.mock('zustand', async (original) => {
+  const actual = await original<typeof import('zustand')>()
+  const { fakeHooks } = await import('../../../../../shared/ui/renderHarness.testfixture')
+  return {
+    ...actual,
+    useStore: <T, U>(store: import('zustand').StoreApi<T>, select: (state: T) => U): U =>
+      fakeHooks.useSyncExternalStore(store.subscribe, () => select(store.getState())) as U
+  }
+})
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
   ...(await import('../../../../../shared/ui/renderHarness.testfixture')).fakeHooks
@@ -37,6 +55,7 @@ beforeEach(() => {
   vi.useFakeTimers()
   dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
   state.change.mockClear()
+  composerAgentStore.getState().invalidate(composerAgentStore.getState().revision + 1)
 })
 afterEach(async () => {
   dom.unmount()
@@ -198,3 +217,116 @@ it.each(['agents', 'models'] as const)(
     expect(state.change).not.toHaveBeenCalled()
   }
 )
+
+it('reuses the first successful agent list across landing scopes without requesting or spinning', async () => {
+  const query = vi.fn(
+    async (request: ComposerCatalogRequest): Promise<ComposerCatalogResult> =>
+      ({
+        part: request.part,
+        value:
+          request.part === 'agents'
+            ? [{ name: request.scope.cwd === 'C:/A' ? 'first' : 'wrong' }]
+            : [],
+        generation: request.scope.cwd ?? 'none'
+      }) as ComposerCatalogResult
+  )
+  Object.assign(window, {
+    orca: {
+      session: {
+        composerCatalog: query,
+        releaseComposerCatalog: async () => {},
+        onComposerCatalogInvalidated: () => () => {}
+      }
+    }
+  })
+  const props = {
+    agents: [],
+    providerKey: 'team',
+    modelFamily: null,
+    model: null
+  } as unknown as ComposerControlProps
+  state.selected.cwd = 'C:/A'
+  dom.render(createElement(composerModule.ModeControl, props))
+  await settle()
+  dom.unmount()
+  await vi.runOnlyPendingTimersAsync()
+  state.selected.cwd = 'C:/B'
+  dom.render(createElement(composerModule.ModeControl, { ...props, providerKey: 'other' }))
+  dom.click(dom.query('[aria-label="harness.agent"]')!)
+  expect(dom.query('[data-agent-loading]')).toBeNull()
+  expect(dom.queryAll('[role="menuitemradio"]').map((row) => row.textContent)).toEqual(['first'])
+  await settle()
+  expect(query.mock.calls.filter(([r]) => r.part === 'agents')).toHaveLength(1)
+})
+
+it('shows cached agents before the chat scope exists', () => {
+  composerAgentStore
+    .getState()
+    .accept([{ name: 'cached-unscoped' }], composerAgentStore.getState().revision)
+  Object.assign(state.selected, {
+    sessionId: null,
+    cwd: null,
+    projectId: null,
+    pendingProjectId: null
+  })
+  const query = vi.fn()
+  Object.assign(window, { orca: { session: { composerCatalog: query } } })
+  const props = {
+    agents: [],
+    providerKey: null,
+    modelFamily: null,
+    model: null
+  } as unknown as ComposerControlProps
+  dom.render(createElement(composerModule.ModeControl, props))
+  dom.click(dom.query('[aria-label="harness.agent"]')!)
+  expect(dom.queryAll('[role="menuitemradio"]').map((row) => row.textContent)).toEqual([
+    'cached-unscoped'
+  ])
+  expect(dom.query('[data-agent-loading]')).toBeNull()
+  expect(query).not.toHaveBeenCalled()
+})
+
+it('clears cached agents on plugin changes with no Composer mounted and refetches on remount', async () => {
+  const revision = composerAgentStore.getState().revision
+  composerAgentStore.getState().accept([{ name: 'old-global' }], revision)
+  expect(pluginEvents.subscribe).toHaveBeenCalledTimes(1)
+  pluginEvents.subscribe.mock.calls[0][0]({ revision: revision + 1 })
+  expect(composerAgentStore.getState().agents).toBeUndefined()
+  const query = vi.fn(
+    async (request: ComposerCatalogRequest): Promise<ComposerCatalogResult> =>
+      ({
+        part: request.part,
+        value: request.part === 'agents' ? [{ name: 'new-global' }] : [],
+        generation: 'g2'
+      }) as ComposerCatalogResult
+  )
+  Object.assign(state.selected, {
+    sessionId: null,
+    cwd: 'C:/no-view',
+    projectId: 'no-view',
+    pendingProjectId: null
+  })
+  Object.assign(window, {
+    orca: {
+      session: {
+        composerCatalog: query,
+        releaseComposerCatalog: async () => {},
+        onComposerCatalogInvalidated: () => () => {}
+      }
+    }
+  })
+  dom.render(
+    createElement(composerModule.ModeControl, {
+      agents: [],
+      providerKey: 'native',
+      modelFamily: '',
+      model: null
+    })
+  )
+  await settle()
+  dom.click(dom.query('[aria-label="harness.agent"]')!)
+  expect(dom.queryAll('[role="menuitemradio"]').map((row) => row.textContent)).toEqual([
+    'new-global'
+  ])
+  expect(query.mock.calls.filter(([r]) => r.part === 'agents')).toHaveLength(1)
+})

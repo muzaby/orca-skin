@@ -77,9 +77,9 @@ Composer의 `dialog`·`drag_drop`·`clipboard` 첨부는 `chat:send` 정규화 �
 | --- | --- | --- | --- |
 | `orca:composer:catalog` | R→M (invoke) | `ComposerCatalogRequestSchema`: `{ owner: UUID, scope: { backend:'opencode', sessionId, cwd, projectId, providerKey, agentKind }, part:'agents'\|'models'\|'mcp'\|'plugins', refresh? }` | 성공 `{ part, value, generation }`, 정상 소유 해제 `{ part, status:'cancelled' }`, 실패 `{ part, status:'error', failure:{stage,reason,httpStatus?} }`. 실제 턴의 settings/env/cwd 해석을 재사용한다. 종류별 독립 조회·캐시와 창·owner별 준비 lease를 공유한다. 명시 refresh는 설정도 다시 해석한다. |
 | `orca:composer:catalog-release` | R→M (invoke) | `{ owner: UUID }` | `void`. 호출 창의 owner만 해제한다. pending acquisition도 완료 후 반납하며 창 navigation/crash/destroy 및 앱 종료에서 정리한다. |
-| `orca:composer:catalog-invalidated` | M→R | `{ owner, generation }` | native 준비 세대 종료. 해당 owner만 무효화하며 늦은 이전 세대 응답은 폐기한다. 자동 재연결하지 않는다. |
+| `orca:composer:catalog-invalidated` | M→R | `{ owner, generation }` | 세대 종료 시 해당 owner를 무효화한다. 늦은 이전 세대 응답은 폐기한다. |
 
-타입 정본은 `app/src/shared/composer-catalog.ts`다. preload/renderer API는 `session.composerCatalog`, `releaseComposerCatalog`, `onComposerCatalogInvalidated`다. 안전 DTO는 visible primary/all agent·모델별 variant·MCP/plugin 상태를 포함하며 prompt·공급자 옵션·자격증명은 전달하지 않는다. `failure`는 고정 단계·분류와 HTTP 상태만 담고 원문 오류는 전달하지 않는다. 빈 성공은 목록 제거이며 실패·취소는 빈 성공으로 해석하지 않는다. 팝업은 로딩·오류 안내·스피너·새로고침 항목을 표시하지 않는다. 같은 작업폴더·실행 세대의 성공한 목록을 재사용한다. 상태 타일의 수동 갱신은 유지한다.
+타입 정본은 `app/src/shared/composer-catalog.ts`다. preload/renderer API는 `session.composerCatalog`, `releaseComposerCatalog`, `onComposerCatalogInvalidated`다. 안전 DTO는 visible primary/all agent·모델별 variant·MCP/plugin 상태를 포함하며 prompt·공급자 옵션·자격증명은 전달하지 않는다. `failure`는 고정 단계·분류와 HTTP 상태만 담고 원문 오류는 전달하지 않는다. 빈 성공은 목록 제거이며 실패·취소는 빈 성공으로 해석하지 않는다. 팝업은 에이전트 첫 성공 전 그룹 제목 오른쪽에만 스피너를 표시한다. 에이전트 성공 목록은 앱 실행 동안 모든 scope가 재사용하며 OpenCode 전역 플러그인 변경에만 초기화한다. 모델 등은 작업폴더·실행 세대의 성공 목록을 재사용한다. 오류 안내·새로고침 항목은 표시하지 않는다. 상태 타일의 수동 갱신은 유지한다.
 
 OpenCode의 첫 입력 전 상태 타일은 같은 준비 owner의 MCP/plugin 조회를 추가 구독한다. 종류별 성공 결과를 바로 반영하며 다른 종류의 지연은 기다리지 않는다. 준비 관측은 읽기 전용이고 `NativeResource.canOpen=false`인 동적 항목은 파일 열기를 제공하지 않는다. 첫 입력 후에는 기존 세션 runtime 관측을 사용한다.
 
@@ -132,8 +132,8 @@ OpenCode의 첫 입력 전 상태 타일은 같은 준비 owner의 MCP/plugin �
 
 | 채널                | 방향         | 페이로드                              | 응답       | 설명                                     |
 | ------------------- | ------------ | ------------------------------------- | ---------- | ---------------------------------------- |
-| `orca:settings:get` | R→M (invoke) | —                                     | `Settings` | electron-store 의 전체 설정 객체. **창 생성 전 조기 등록**(0244 — `start()` 첫 문장): 부팅 게이트 밖 `TweakProvider` 가 첫 화면 전에 테마를 읽는다. renderer 는 읽기 실패 시 `orca:boot:whenReady` 뒤 1회 재시도하고, 또 실패하면 `loadFailed` 로 보고한다. |
-| `orca:settings:set` | R→M (invoke) | `SettingsPatch` = `Omit<Partial<Settings>, 'scheduler' \| 'nativeExtensionChoices' \| 'projectMcpChoices'> & { scheduler?: { usageRecompute?: Partial<…>; updateCheck?: Partial<…> } }` (scheduler 는 그룹별 중첩 partial — 한 그룹만 보내도 형제 그룹은 보존) | `Settings` | 부분 패치 후 병합·검증된 전체 객체 반환. **부수효과 2건**: 패치 키에 `authBypass` 가 있으면 `orca:provider:state` 를 push 하고(게이트 판정의 입력이라, 저장만 하고 끝내면 화면이 재시작 전까지 옛 판정에 머문다 — 0181), `spendingLimitUsd` 가 있으면 `orca:cost:usageEvent` 전역 delta 를 push 한다(한도는 사용량 뷰의 `budget`·`pct` 입력이라, 저장만 하고 끝내면 도넛이 다음 턴 종료까지 옛 한도의 퍼센트를 보여준다 — 0186). |
+| `orca:settings:get` | R→M (invoke) | —                                     | `Settings` | electron-store 설정 객체. **창 생성 전 조기 등록**(0244 — `start()` 첫 문장): 부팅 게이트 밖 `TweakProvider` 가 첫 화면 전에 테마를 읽는다. renderer 는 읽기 실패 시 `orca:boot:whenReady` 뒤 1회 재시도하고, 또 실패하면 `loadFailed` 로 보고한다. |
+| `orca:settings:set` | R→M (invoke) | `SettingsPatch` = `Omit<Partial<Settings>, 'scheduler' \| 'nativeExtensionChoices' \| 'projectMcpChoices'> & { scheduler?: { usageRecompute?: Partial<…>; updateCheck?: Partial<…> } }` (scheduler 는 그룹별 중첩 partial — 한 그룹만 보내도 형제 그룹은 보존) | `Settings` | 부분 패치 후 병합·검증된 객체 반환. 전역 확장 선택은 전용 handler에서만 저장한다. **부수효과 2건**: 패치 키에 `authBypass` 가 있으면 `orca:provider:state` 를 push 하고(게이트 판정의 입력이라, 저장만 하고 끝내면 화면이 재시작 전까지 옛 판정에 머문다 — 0181), `spendingLimitUsd` 가 있으면 `orca:cost:usageEvent` 전역 delta 를 push 한다(한도는 사용량 뷰의 `budget`·`pct` 입력이라, 저장만 하고 끝내면 도넛이 다음 턴 종료까지 옛 한도의 퍼센트를 보여준다 — 0186). |
 
 `Settings` 타입 (`app/src/shared/ipc.ts`):
 
@@ -151,7 +151,7 @@ interface Settings {
   mcpEnabled: Record<string, boolean>; // MCP 서버 on/off (키=name). 부재 ⇒ true
   mcpMeta: Record<string, { description: string }>; // MCP Orca 전용 메타 (mcp.json 순정 유지)
   skillEnabled: Record<string, boolean>; // Skill on/off (키=sourceId/name). 부재 ⇒ true
-  nativeExtensionChoices?: Partial<Record<Backend, Record<string, boolean>>>; // legacy 읽기 호환 전용. 신규 저장·실행 반영 금지
+  nativeExtensionChoices?: Partial<Record<Backend, Record<string, boolean>>>; // 명시한 전역 선택. main 전용 setter로 저장·복원, 일반 renderer patch 제외
   projectMcpChoices?: Record<string, Record<string, boolean>>; // legacy 읽기 호환 전용. SettingsPatch에서는 받지 않음
   authBypass: boolean; // 인증 게이트 우회 (디버그 패널 '로그인' 그룹 토글, DEV 전용). true ⇒ 게이트 통과(bypassed). 변경은 **즉시 반영** — settings:set 핸들러가 이 키를 보면 orca:provider:state 를 push 한다(재시작 불요, 0181). default false (0157 — 구 ssoBypass)
   language: string; // 선호 언어 (LLM 응답 언어). 시스템 프롬프트 '# User' 헤더로 매 턴 주입. uiLocale 과 별개. default '한국어'
@@ -190,10 +190,11 @@ interface Settings {
 | 채널 | 방향 | 페이로드 | 응답·동작 |
 |---|---|---|---|
 | `orca:extensions:catalog` | R→M | `{ backend }` | `NativeResources`. 하네스 전역 파일의 설정 상태와 제어 가능 여부. 작업폴더 추론·서버 시작·runtime 조회 없음 |
-| `orca:extensions:setEnabled` | R→M | `SetGlobalNativeResource` = `{ backend, kind, id, enabled }` | `NativeResources`. 실제 전역 목록에서 capability를 재검증하고 명시 선택만 Orca JSON에 저장. native 전역 파일과 실행 중 instance는 변경하지 않음 |
+| `orca:extensions:setEnabled` | R→M | `SetGlobalNativeResource` = `{ backend, kind, id, enabled }` | `NativeResources`. 실제 전역 목록의 capability를 재검증한 뒤 Claude plugin·OpenCode MCP 선택을 저장한다. 지원하지 않는 항목의 직접 호출은 거부한다. |
+| `orca:extensions:opencode-plugins-changed` | M→R | `OpenCodePluginsChanged` = `{ revision: number }` | 외부 plugin 변경 시 서버 pool retire 뒤 모든 창에 보낸다. preload/renderer API의 `onOpenCodePluginsChanged`를 store 생성 시 구독한다. 더 큰 revision만 agents를 비우며 구독 중인 부분은 다시 준비하고 모델 값은 보존한다. Composer·owner가 없어도 유효하다. |
 | `orca:extensions:open` | R→M | `GlobalNativeResourceTarget` = `{ backend, kind, id }` | `void`. 확인된 실제 설정/설치 위치만 열기. 파일 경로는 main에서 결정 |
 
-미지정 선택은 native 전역 값을 따른다. Claude plugin과 Claude 사용자 스킬은 SDK 옵션, OpenCode MCP는 directory SDK 연결·해제를 사용한다. 미지원 항목은 실제 enabled 값을 유지한 고정 토글·회색 폰트다. nav 조회 실패는 기존 확인 항목과 재시도 수단을 유지한다. 프로젝트 선택은 우측 패널의 실제 작업경로에 귀속한다. OpenCode 프로젝트 MCP 선택의 실행 적용은 전체 프로젝트 유휴 때 하며 `configurationPending`으로 대기를 구별한다.
+미지정 선택은 native 전역 값을 따른다. Claude plugin은 새 Query마다 SDK 옵션과 초안 reader에 적용하고, OpenCode MCP는 directory SDK 연결·해제를 사용한다. 기본 경로 스킬은 항상 활성으로 취급하며 토글하지 않는다. OpenCode plugin은 전역 파일을 읽기 전용으로 표시한다. Claude plugin·OpenCode MCP의 명시 전역 선택은 앱 재시작 뒤에도 유지하며 native 설정 파일은 쓰지 않는다. 미지원 항목은 실제 enabled 값을 유지한 고정 토글·회색 폰트다. nav 조회 실패는 기존 확인 항목과 재시도 수단을 유지한다. 프로젝트 선택은 우측 패널의 실제 작업경로에 귀속한다. OpenCode 프로젝트 MCP 선택의 실행 적용은 전체 프로젝트 유휴 때 하며 `configurationPending`으로 대기를 구별한다.
 
 ### 2.6 Files
 

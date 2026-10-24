@@ -23,3 +23,7 @@ export function sourceSkills(skills: readonly SkillInfo[], backend: Backend): Sk
     .filter((skill) => skillSourceAllowed(skill.sourceId, backend))
     .map((skill) => ({ ...skill, sourceLabel: extensionSourceLabels[skill.sourceId] }))
 }
+
+export function isNativePluginSkillSource(source: string): boolean {
+  return source.startsWith('plugin:')
+}

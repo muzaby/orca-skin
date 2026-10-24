@@ -1,0 +1,894 @@
+{
+  "files": 177,
+  "total": 1906,
+  "passed": 1906,
+  "failed": 0,
+  "pending": 0,
+  "suites": [
+    {
+      "file": "src/preload/index.test.ts",
+      "tests": 26,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/bootstrap.native-history.test.ts",
+      "tests": 13,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/composer-catalog.test.ts",
+      "tests": 7,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/extension-control.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/native-resource-sharing.test.ts",
+      "tests": 5,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/no-stray-auth-subscribe.test.ts",
+      "tests": 17,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/opencode-global-watch.test.ts",
+      "tests": 3,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/skill-catalog.test.ts",
+      "tests": 1,
+      "failed": []
+    },
+    {
+      "file": "src/main/infra/settings-migration.test.ts",
+      "tests": 12,
+      "failed": []
+    },
+    {
+      "file": "src/main/infra/settings-store.test.ts",
+      "tests": 13,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/adapt.test.ts",
+      "tests": 45,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.background.test.ts",
+      "tests": 9,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.canusetool.test.ts",
+      "tests": 46,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.context-policy.test.ts",
+      "tests": 9,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.cwd.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.describe.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.edit-preview-wiring.test.ts",
+      "tests": 3,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.effort.test.ts",
+      "tests": 5,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.eventbatches.test.ts",
+      "tests": 3,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.executable-option.test.ts",
+      "tests": 20,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.extra-dirs.test.ts",
+      "tests": 6,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.fork.test.ts",
+      "tests": 6,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.live-control.test.ts",
+      "tests": 4,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.native-history.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.native-plugins.test.ts",
+      "tests": 7,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.plan-file.test.ts",
+      "tests": 6,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.plan-mode.test.ts",
+      "tests": 8,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.plan-narrative.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.steer-replay.test.ts",
+      "tests": 1,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.turnEnd.test.ts",
+      "tests": 28,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/agent-kind-env.test.ts",
+      "tests": 4,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/background.promotion.test.ts",
+      "tests": 8,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/build-turn-content.test.ts",
+      "tests": 9,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/configured-resources.test.ts",
+      "tests": 9,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/context-policy.test.ts",
+      "tests": 59,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/descriptor.test.ts",
+      "tests": 6,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/edit-preview.test.ts",
+      "tests": 14,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/error-classifier.test.ts",
+      "tests": 12,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/executable.test.ts",
+      "tests": 11,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/input-receipts.test.ts",
+      "tests": 21,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/map.background-metadata.test.ts",
+      "tests": 5,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/map.fileEdit.test.ts",
+      "tests": 4,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/map.received.test.ts",
+      "tests": 28,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/map.schedules.test.ts",
+      "tests": 19,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/map.test.ts",
+      "tests": 110,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/mock-scenarios.test.ts",
+      "tests": 13,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/mock.test.ts",
+      "tests": 4,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/native-command-text.test.ts",
+      "tests": 11,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/native-history-map.test.ts",
+      "tests": 15,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/native-history.test.ts",
+      "tests": 15,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/native-paths.test.ts",
+      "tests": 3,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/native-resources.test.ts",
+      "tests": 6,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/output-files.test.ts",
+      "tests": 9,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/plan-feedback.test.ts",
+      "tests": 8,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/plan-file.reader.test.ts",
+      "tests": 14,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/plan-file.test.ts",
+      "tests": 23,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/plan-text.test.ts",
+      "tests": 32,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/plugin-catalog.test.ts",
+      "tests": 4,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/plugin-state.test.ts",
+      "tests": 3,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/plugin.test.ts",
+      "tests": 4,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/project-reconciliation.test.ts",
+      "tests": 6,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/project-settings.test.ts",
+      "tests": 4,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/runtime-tools.boundary.test.ts",
+      "tests": 6,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/runtime-tools.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/schedules.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/settings.test.ts",
+      "tests": 12,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/streaming-input.test.ts",
+      "tests": 12,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/turn-end-hook.test.ts",
+      "tests": 4,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/workspace-guard.extra-dirs.test.ts",
+      "tests": 12,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/claude/workspace-guard.test.ts",
+      "tests": 18,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/common/attachment-prompt.test.ts",
+      "tests": 4,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/common/diff-requirements.test.ts",
+      "tests": 3,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/common/extension-control.test.ts",
+      "tests": 1,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/common/harness-config.test.ts",
+      "tests": 54,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/common/hooks.test.ts",
+      "tests": 8,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/common/registry.test.ts",
+      "tests": 4,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/common/risky-tools.test.ts",
+      "tests": 3,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/common/runtime-tool-policy.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/handlers/artifacts.test.ts",
+      "tests": 18,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/handlers/composer-catalog.test.ts",
+      "tests": 7,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/handlers/context-file.test.ts",
+      "tests": 42,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/handlers/context.test.ts",
+      "tests": 1,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/handlers/engine.deployment.test.ts",
+      "tests": 11,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/handlers/engine.import.test.ts",
+      "tests": 8,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/handlers/engine.ipc.test.ts",
+      "tests": 13,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/handlers/engine.opencode.integration.test.ts",
+      "tests": 1,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/handlers/engine.runtime-catalog.test.ts",
+      "tests": 9,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/handlers/error.test.ts",
+      "tests": 3,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/handlers/extension-catalog.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/handlers/files.openPath.test.ts",
+      "tests": 8,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/handlers/git.test.ts",
+      "tests": 5,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/handlers/misc-split.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/handlers/misc.runtime-catalog.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/handlers/providers.test.ts",
+      "tests": 3,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/handlers/session-resources.test.ts",
+      "tests": 23,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/handlers/session.delete.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/handlers/settings.private.test.ts",
+      "tests": 1,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/handlers/skills.test.ts",
+      "tests": 11,
+      "failed": []
+    },
+    {
+      "file": "src/main/app/harnesses/registry.test.ts",
+      "tests": 8,
+      "failed": []
+    },
+    {
+      "file": "src/main/infra/config/file-mutation.test.ts",
+      "tests": 6,
+      "failed": []
+    },
+    {
+      "file": "src/main/infra/config/json-file.test.ts",
+      "tests": 1,
+      "failed": []
+    },
+    {
+      "file": "src/main/infra/config/migrate-legacy.test.ts",
+      "tests": 9,
+      "failed": []
+    },
+    {
+      "file": "src/main/infra/config/orca-config.report.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/infra/config/orca-file.test.ts",
+      "tests": 15,
+      "failed": []
+    },
+    {
+      "file": "src/main/infra/config/paths.test.ts",
+      "tests": 24,
+      "failed": []
+    },
+    {
+      "file": "src/main/infra/config/plugin-snapshots.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/infra/config/project-path.test.ts",
+      "tests": 3,
+      "failed": []
+    },
+    {
+      "file": "src/main/infra/config/provider-key.test.ts",
+      "tests": 4,
+      "failed": []
+    },
+    {
+      "file": "src/main/infra/config/rebase-path.test.ts",
+      "tests": 7,
+      "failed": []
+    },
+    {
+      "file": "src/main/infra/config/startup-sequence.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/activity.test.ts",
+      "tests": 7,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/adapter.instances.test.ts",
+      "tests": 8,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/adapter.persistent.test.ts",
+      "tests": 25,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/adapter.startup.test.ts",
+      "tests": 7,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/adapter.test.ts",
+      "tests": 18,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/catalog.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/channel.warm-fence.test.ts",
+      "tests": 1,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/composer-cache.test.ts",
+      "tests": 1,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/composer-catalog.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/configured-resources.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/errors.test.ts",
+      "tests": 16,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/global-plugins.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/instance-lifecycle.test.ts",
+      "tests": 8,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/legacy-resources.test.ts",
+      "tests": 4,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/legacy-storage-migration.integration.test.ts",
+      "tests": 1,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/map.test.ts",
+      "tests": 6,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/mcp-control.test.ts",
+      "tests": 1,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/message-id.test.ts",
+      "tests": 6,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/native-history.test.ts",
+      "tests": 37,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/native-input.test.ts",
+      "tests": 4,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/native-resources.test.ts",
+      "tests": 4,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/native-storage.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/plugin-installation.test.ts",
+      "tests": 1,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/project-settings.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/sdk.test.ts",
+      "tests": 6,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/server.database-path.test.ts",
+      "tests": 1,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/server.test.ts",
+      "tests": 31,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/session-context.test.ts",
+      "tests": 14,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/settings.test.ts",
+      "tests": 3,
+      "failed": []
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/skill-sources.test.ts",
+      "tests": 1,
+      "failed": []
+    },
+    {
+      "file": "src/main/features/extensions/common/extension-deployment-service.test.ts",
+      "tests": 6,
+      "failed": []
+    },
+    {
+      "file": "src/main/features/extensions/common/runtime-tool-registry.test.ts",
+      "tests": 6,
+      "failed": []
+    },
+    {
+      "file": "src/main/features/extensions/common/system-header.agent.test.ts",
+      "tests": 1,
+      "failed": []
+    },
+    {
+      "file": "src/main/features/extensions/common/system-header.test.ts",
+      "tests": 9,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/shared/errors/reportSites.registry.test.ts",
+      "tests": 257,
+      "failed": []
+    },
+    {
+      "file": "src/main/features/extensions/common/mcp/resolver.test.ts",
+      "tests": 11,
+      "failed": []
+    },
+    {
+      "file": "src/main/features/extensions/common/mcp/store.fresh-root.test.ts",
+      "tests": 1,
+      "failed": []
+    },
+    {
+      "file": "src/main/features/extensions/common/mcp/store.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/main/features/extensions/common/skills/scan.test.ts",
+      "tests": 1,
+      "failed": []
+    },
+    {
+      "file": "src/main/features/extensions/common/skills/seed.test.ts",
+      "tests": 8,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/chat/lib/attachMenuModel.test.ts",
+      "tests": 17,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/chat/lib/composerSkills.test.ts",
+      "tests": 5,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/skills/hooks/useNativeMcpCatalog.test.ts",
+      "tests": 3,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/skills/lib/catalogOrder.test.ts",
+      "tests": 7,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/skills/lib/catalogRows.test.ts",
+      "tests": 3,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/skills/lib/catalogSelection.test.ts",
+      "tests": 4,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/skills/lib/pluginPresentation.test.ts",
+      "tests": 7,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/skills/lib/providerRows.test.ts",
+      "tests": 9,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/skills/store/extensionsModalStore.test.ts",
+      "tests": 1,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/skills/components/customize/CustomizeList.render.test.ts",
+      "tests": 12,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/skills/components/customize/ExtensionsCatalogView.interaction.test.ts",
+      "tests": 7,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/skills/components/customize/mcpDetail.render.test.ts",
+      "tests": 4,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/skills/components/customize/ProviderAuthActions.render.test.ts",
+      "tests": 9,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/skills/components/customize/ProviderAuthActions.test.ts",
+      "tests": 9,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/skills/components/customize/providerAuthWiring.render.test.ts",
+      "tests": 2,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/skills/components/customize/ProviderDetail.render.test.ts",
+      "tests": 5,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/skills/components/customize/SkillDetail.render.test.ts",
+      "tests": 1,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/chat/harnesses/common/composer/Composer.native-menu.test.ts",
+      "tests": 13,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/chat/harnesses/opencode/composer/composerAgentStore.test.ts",
+      "tests": 3,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.test.ts",
+      "tests": 16,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/chat/harnesses/opencode/composer/Controls.interaction.test.ts",
+      "tests": 12,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/chat/harnesses/opencode/composer/Module.integration.test.ts",
+      "tests": 6,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/chat/harnesses/opencode/composer/QuestionDock.interaction.test.ts",
+      "tests": 3,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/chat/harnesses/opencode/composer/requestQueue.test.ts",
+      "tests": 1,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/chat/harnesses/opencode/composer/TodoDock.integration.test.ts",
+      "tests": 3,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/chat/harnesses/opencode/composer/TodoDock.render.test.ts",
+      "tests": 6,
+      "failed": []
+    },
+    {
+      "file": "src/renderer/src/features/chat/harnesses/opencode/composer/todoState.test.ts",
+      "tests": 5,
+      "failed": []
+    }
+  ]
+}

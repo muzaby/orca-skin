@@ -63,6 +63,10 @@ export interface GlobalNativeResourceTarget {
 export interface SetGlobalNativeResource extends GlobalNativeResourceTarget {
   enabled: boolean
 }
+
+export interface OpenCodePluginsChanged {
+  revision: number
+}
 export interface NativeResourcesChanged {
   sessionId?: string
   scope?: DraftNativeResourcesRequest

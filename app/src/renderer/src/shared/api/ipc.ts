@@ -1,3 +1,4 @@
+import type { OpenCodePluginsChanged } from '../../../../shared/native-resources'
 import type {
   ComposerCatalogRequest,
   ComposerCatalogResult,
@@ -231,6 +232,10 @@ export const sessionApi = {
   onComposerCatalogInvalidated: (
     handler: (event: ComposerCatalogInvalidated) => void
   ): (() => void) => window.orca.session.onComposerCatalogInvalidated(handler),
+  onOpenCodePluginsChanged: (
+    handler: (event: OpenCodePluginsChanged) => void
+  ): (() => void) | undefined =>
+    globalThis.window?.orca?.session?.onOpenCodePluginsChanged?.(handler),
   nativeResources: (
     request: string | DraftNativeResourcesRequest,
     observation?: import('../../../../shared/native-resources').NativeResourceObservation

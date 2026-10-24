@@ -77,7 +77,10 @@ it('reads native defaults without copying them and keeps supported explicit choi
     kind: 'plugin',
     enabled: false
   })
-  expect(result.items[0]).toMatchObject({ enabled: false, canToggle: true })
+  expect(result.items[0]).toMatchObject({
+    enabled: false,
+    canToggle: true
+  })
   expect(backend.store.nativeExtensionChoices).toBeUndefined()
   expect(control.global('claude')).toEqual({ 'plugin:superpowers@market': false })
   expect(backend.store.language).toBe('sentinel-language')
@@ -119,6 +122,6 @@ it('does not reactivate legacy choice bytes or accept writes through settings.pa
   expect(extensionControl().global('claude')).toEqual({})
   settings.patch({ nativeExtensionChoices: {} } as never)
   settings.patch({ projectMcpChoices: {} } as never)
-  expect(backend.store.nativeExtensionChoices).toEqual(legacy.nativeExtensionChoices)
+  expect(backend.store.nativeExtensionChoices).toBeUndefined()
   expect(backend.store.projectMcpChoices).toEqual(legacy.projectMcpChoices)
 })

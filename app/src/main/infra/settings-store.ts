@@ -13,7 +13,7 @@ import {
   type Settings,
   type SettingsPatch
 } from '../../shared/protocol'
-import { migrateRawSettings } from './settings-migration'
+import { migrateRawSettings, SETTINGS_VERSION, SETTINGS_VERSION_KEY } from './settings-migration'
 import { assertValidCron } from './cron'
 import { PRODUCT_SLUG } from '../../shared/product'
 
@@ -54,6 +54,21 @@ export class SettingsStore {
     return migrated.settings
   }
 
+  setNativeExtensionChoices(choices: NonNullable<Settings['nativeExtensionChoices']>): void {
+    const next = SettingsSchema.parse({ ...this.load(), nativeExtensionChoices: choices })
+    this.save(next)
+  }
+
+  private save(next: Settings): Settings {
+    const migrated = migrateRawSettings(
+      { ...next, [SETTINGS_VERSION_KEY]: SETTINGS_VERSION },
+      this.currentAppVersion
+    )
+    this.store.store = migrated.raw
+    this.cached = migrated.settings
+    return migrated.settings
+  }
+
   getAll(): Settings {
     return this.load()
   }
@@ -69,13 +84,11 @@ export class SettingsStore {
     const current = this.load()
     const next = mergeSettings(current, patch)
     assertValidCron(next.scheduler.usageRecompute.cron)
-    const migrated = migrateRawSettings(next as unknown as Raw, this.currentAppVersion)
-    this.store.store = migrated.raw
-    this.cached = migrated.settings
+    const saved = this.save(next)
     // 키 목록은 **입력 patch** 에서 뽑는다 — 병합 결과와 비교하면 값이 같은 재지정이 빠진다.
     const changedKeys = Object.keys(patch)
-    for (const listener of this.listeners) listener(migrated.settings, changedKeys)
-    return migrated.settings
+    for (const listener of this.listeners) listener(saved, changedKeys)
+    return saved
   }
 }
 

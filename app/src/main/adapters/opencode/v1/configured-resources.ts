@@ -6,18 +6,9 @@ import type { NativeResource } from '../../../../shared/native-resources'
 import { openCodePluginId, openCodePluginInstallation } from './plugin-installation'
 import { withinSkillRoot } from './skill-sources'
 
-/** Read JSONC without interpreting variables or returning credentials to the renderer. */
-export function parseConfig(text: string): unknown {
-  const stringsOrComments = /"(?:\\.|[^"\\])*"|\/\/[^\r\n]*|\/\*[\s\S]*?\*\//g
-  const uncommented = text.replace(stringsOrComments, (token) =>
-    token.startsWith('"') ? token : token.replace(/[^\r\n]/g, ' ')
-  )
-  return JSON.parse(
-    uncommented
-      .replace(/"(?:\\.|[^"\\])*"|,\s*(?=[}\]])/g, (token) => (token.startsWith('"') ? token : ''))
-      .replace(/^\uFEFF/, '')
-  )
-}
+import { parseConfig } from './openCodePluginConfig'
+import { effectiveOpenCodePlugins, openCodeGlobalConfigFiles } from './global-plugins'
+export { parseConfig } from './openCodePluginConfig'
 
 /** Resolve only a file that actually declares this server; never invent a default path. */
 async function configuredOpenCode(
@@ -59,6 +50,8 @@ async function configuredOpenCode(
   const declarations = new Map<string, string>()
   const servers = new Map<string, NativeResource>()
   const plugins = new Set<string>()
+  const globalFiles = new Set(openCodeGlobalConfigFiles(env))
+  const effective = await effectiveOpenCodePlugins(env)
   const skillPaths = new Set<string>()
   for (const file of files) {
     try {
@@ -77,7 +70,7 @@ async function configuredOpenCode(
           canToggle: false
         })
       }
-      if (Array.isArray(config.plugin))
+      if (Array.isArray(config.plugin) && (!globalFiles.has(file) || file === effective.file))
         for (const plugin of config.plugin) {
           const spec = Array.isArray(plugin) ? plugin[0] : plugin
           if (typeof spec === 'string') plugins.add(spec)

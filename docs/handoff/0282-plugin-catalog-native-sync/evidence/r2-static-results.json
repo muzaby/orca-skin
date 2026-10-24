@@ -1,0 +1,137 @@
+{
+  "baseline": [
+    {
+      "command": [
+        "rg",
+        "-n",
+        "OpenCodeGlobalPlugins|PluginRecordStore|OpenCodeDisabledPlugin|openCodeDisabledPlugins|setOpenCodeDisabledPlugins|globalResourceControl|insertPluginEntry|removePluginEntry|SetGlobalNativeResourceResult|opencode-restart|openCodeSessions|reconcilePlugins|OpenCodeGlobalPluginControl|OpenCodePluginRecordStore|rendererSettings|jsonc-parser|openCodeGlobalWatch\\?\\.drain|confirmed\\?: true|confirmed: z\\.literal|request\\.confirmed|globalWatch\\.change|change\\(action|restartTitle|restartBody|restartConfirm",
+        "app/src",
+        "app/package.json",
+        "app/package-lock.json",
+        "docs/TRD.md",
+        "docs/IPC_CONTRACT.md",
+        "docs/arch",
+        "app/AGENTS.md",
+        "-g",
+        "!*.test.ts",
+        "-g",
+        "!*.test.tsx"
+      ],
+      "matches": []
+    },
+    {
+      "command": [
+        "rg",
+        "-n",
+        "nativeFileMutations",
+        "app/src/main/adapters/opencode"
+      ],
+      "matches": []
+    },
+    {
+      "command": [
+        "rg",
+        "-n",
+        "revalidate|composerAgentCache|ComposerAgentCache",
+        "app/src/main/app/composer-catalog-owner.ts",
+        "app/src/main/app/handlers/composer-catalog.ts",
+        "app/src/shared/composer-catalog.ts",
+        "app/src/renderer/src/features/chat/harnesses/opencode/composer",
+        "-g",
+        "!*.test.ts"
+      ],
+      "matches": []
+    }
+  ],
+  "mutation": [
+    {
+      "command": [
+        "rg",
+        "-n",
+        "OpenCodeGlobalPlugins|PluginRecordStore|OpenCodeDisabledPlugin|openCodeDisabledPlugins|setOpenCodeDisabledPlugins|globalResourceControl|insertPluginEntry|removePluginEntry|SetGlobalNativeResourceResult|opencode-restart|openCodeSessions|reconcilePlugins|OpenCodeGlobalPluginControl|OpenCodePluginRecordStore|rendererSettings|jsonc-parser|openCodeGlobalWatch\\?\\.drain|confirmed\\?: true|confirmed: z\\.literal|request\\.confirmed|globalWatch\\.change|change\\(action|restartTitle|restartBody|restartConfirm",
+        "app/src",
+        "app/package.json",
+        "app/package-lock.json",
+        "docs/TRD.md",
+        "docs/IPC_CONTRACT.md",
+        "docs/arch",
+        "app/AGENTS.md",
+        "-g",
+        "!*.test.ts",
+        "-g",
+        "!*.test.tsx"
+      ],
+      "matches": []
+    },
+    {
+      "command": [
+        "rg",
+        "-n",
+        "nativeFileMutations",
+        "app/src/main/adapters/opencode"
+      ],
+      "matches": [
+        "app/src/main/adapters/opencode\\v1\\global-plugins.ts:1:import { nativeFileMutations } from '../../../infra/config/file-mutation'"
+      ]
+    },
+    {
+      "command": [
+        "rg",
+        "-n",
+        "revalidate|composerAgentCache|ComposerAgentCache",
+        "app/src/main/app/composer-catalog-owner.ts",
+        "app/src/main/app/handlers/composer-catalog.ts",
+        "app/src/shared/composer-catalog.ts",
+        "app/src/renderer/src/features/chat/harnesses/opencode/composer",
+        "-g",
+        "!*.test.ts"
+      ],
+      "matches": []
+    }
+  ],
+  "restored": [
+    {
+      "command": [
+        "rg",
+        "-n",
+        "OpenCodeGlobalPlugins|PluginRecordStore|OpenCodeDisabledPlugin|openCodeDisabledPlugins|setOpenCodeDisabledPlugins|globalResourceControl|insertPluginEntry|removePluginEntry|SetGlobalNativeResourceResult|opencode-restart|openCodeSessions|reconcilePlugins|OpenCodeGlobalPluginControl|OpenCodePluginRecordStore|rendererSettings|jsonc-parser|openCodeGlobalWatch\\?\\.drain|confirmed\\?: true|confirmed: z\\.literal|request\\.confirmed|globalWatch\\.change|change\\(action|restartTitle|restartBody|restartConfirm",
+        "app/src",
+        "app/package.json",
+        "app/package-lock.json",
+        "docs/TRD.md",
+        "docs/IPC_CONTRACT.md",
+        "docs/arch",
+        "app/AGENTS.md",
+        "-g",
+        "!*.test.ts",
+        "-g",
+        "!*.test.tsx"
+      ],
+      "matches": []
+    },
+    {
+      "command": [
+        "rg",
+        "-n",
+        "nativeFileMutations",
+        "app/src/main/adapters/opencode"
+      ],
+      "matches": []
+    },
+    {
+      "command": [
+        "rg",
+        "-n",
+        "revalidate|composerAgentCache|ComposerAgentCache",
+        "app/src/main/app/composer-catalog-owner.ts",
+        "app/src/main/app/handlers/composer-catalog.ts",
+        "app/src/shared/composer-catalog.ts",
+        "app/src/renderer/src/features/chat/harnesses/opencode/composer",
+        "-g",
+        "!*.test.ts"
+      ],
+      "matches": []
+    }
+  ],
+  "shaRestored": true
+}
