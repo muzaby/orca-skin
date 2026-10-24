@@ -1,5 +1,7 @@
 # Verify — 0282-plugin-catalog-native-sync
 
+> 최신 판정: **r2 PASS (기계 범위)** — 아래 [`# r2`](#r2--2026-10-24) 절. 이어지는 메타~§15는 r1 원문이다.
+
 ## 메타
 
 | 항목 | 값 |
@@ -309,3 +311,315 @@
 - 다음 단계:
   - 설계자가 ΔV3로 G1·G2와 N1을 정정한다. G2는 제품 동작이라 사용자 확인이 필요하다.
   - 그다음 구현자가 F1·F3~F7을 고친다.
+
+---
+
+# r2 — 2026-10-24
+
+r1 판정과 근거는 위 본문에 그대로 둔다. 이 절은 r2만 판정한다.
+
+## r2 메타
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `c1481dad..5084fa7c` (r2 `dc50d1bc` · r2.2 `5084fa7c`) |
+| 구현 전 plan 기준 | `c1481dad` |
+| V mode / 유효 V | `V1@789a727 + ΔV1@7227dc0 + ΔV2@9982cdf + ΔV3@3660d97b + ΔV5@80127c7c + ΔV6@2a6096a2` · D-036 기록 `c1481dad`. ΔV4(`fde5537d`·`1b8d636f`·`dd1a46bf`)는 ΔV5가 대체 |
+| 라운드 | 2 |
+| 상태 | **PASS (기계 범위)** — pair 33 PASS · PLAN_GAP 0 · BLOCKING 0. AC18 사람 실기 대기 |
+| 자기 검증 여부 | 구현자 = Codex(두 커밋 trailer `Agent: codex`). ΔV3·ΔV5·ΔV6 설계자 = 검증자(Claude)라 plan validity는 자기 설계 감사다 |
+
+## r2-0. 기준선 / plan validity
+
+- 구현 커밋의 `plan.md` 변경은 메타 상태 1줄(`:11`)과 `[구현자 기입]` r2·r2.2 추가(`:1609` 이후)뿐이다(`git diff -U0 c1481dad..5084fa7c -- plan.md` hunk 2개).
+- Decision Ledger, Product/UX, AC, V node/pair, §10 변경 0건. 채점 기준은 `c1481dad` 시점 plan 원문이다.
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| Delta V 적용 순서·상속 기준 | 유효 | 설계 커밋 6개를 순서대로 재구성할 수 있다. ΔV4 대체는 ΔV5 본문에 있다 |
+| NEW/CHANGED ↔ REQUIRED, 영향 INHERITED ↔ REGRESSION | 유효 | REQUIRED 25 · REGRESSION 8 = 33 pair |
+| `SUPERSEDED` 이관 | 유효 | VP-04·24→VP-04′, VP-18′→VP-18″, VP-28′→VP-28″, VP-19·20·22·25·33 폐기 근거와 EP-10 음성 게이트(`plan.md:1092-1102`) |
+| §10 자리 목록 재검색 | 유효 — 검색 − (목록 ∪ 기록된 제외·이관) 차집합 0 | 아래 표 |
+| G1·G2 (r1 PLAN_GAP) | 닫힘 | G1 = ΔV3 전역 revision 방송·store 구독. G2 = ΔV5가 OpenCode 플러그인 쓰기 경로 자체를 삭제 |
+
+| EP | 기록된 명령 재실행(`5084fa7c`) | 판정 |
+|---|---|---|
+| EP-01′ | 31줄 = A1~A15 21 · 제외 5(`composerCatalogState.ts:91·94·95·96·101`) · EP-07′ 이관 5(`:38·54·113·139` · `useComposerCatalog.ts:25`) | 차집합 0 |
+| EP-02 | 15줄 = C1·C2(2)·C4~C14 · 제외 `adapter.ts:475` | 차집합 0. C3는 r1에서 C1로 합쳐졌고 C15는 검색 파일 밖 helper(N4) |
+| EP-03a · EP-03b | 17 · 14줄 | 차집합 0. EP-03b +1은 `CustomizeList.tsx:52-53` 줄바꿈 |
+| EP-04 · EP-05 · EP-09 | 7 · 2 · 3줄 | 차집합 0 |
+| EP-07′ | 12줄 = W1·W2·W4·W5·W10·W12·W13 + EP-01′ 이관 5 | 차집합 0. W6~W8·W11 삭제는 `revalidate` 0건으로 확인 |
+| EP-08 | 6줄 = E1·E2·E3(2) · 제외 `plugin-catalog.ts:25·69` | 차집합 0. E4는 helper 이름 변경으로 검색에 안 걸린다(N4) |
+| EP-10 | 음성 게이트 0건(`app/src`·`package*.json`·TRD·IPC_CONTRACT·arch·`app/AGENTS.md`, 테스트 포함) · `nativeFileMutations` 0건 | 0건 = 전수. 엄격화(저장소 전체, 이력 디렉터리 제외) 0건 |
+| EP-11 | 13줄 = S1 1 · S2 1 · S3 1 · S4 2 · S5 2 · S6 2 · S7 2 · S8 1 · 타입 fixture 1 | 차집합 0 |
+
+## r2-1. Product & UX / ACTIVE Decision
+
+| Decision / 요구 | 실제 production path | 판정 |
+|---|---|---|
+| D-001·D-017·D-020 (에이전트 1회 로드, 플러그인 변경 시 Composer 유무와 무관하게 1회 재로드) | watch `changed(++revision)` → `bootstrap.ts:1223` `extensionsChanged`(retireAll) → `:1224` broadcast → preload `:277` → `ipc.ts:238` → `composerAgentStore.ts:31` invalidate → 다음 read | ✅ F1 해소. owner 없이도 store가 비워진다 |
+| D-002·D-006 · D-004·D-005 · D-010·D-011 | r1과 같은 경로. r2 diff는 CustomizeList·scan·json-file을 바꾸지 않았다 | ✅ |
+| D-003·D-007 (Claude off → 새 Query·초안) | `adapter.ts:444-452` provider 위에 Orca flag · bootstrap reader 4곳 | ✅ F4 해소(C41 잡음) |
+| ΔV5 (Orca는 OpenCode 플러그인을 제어하지 않음) | `configured-resources.ts:120` `canToggle: item.kind === 'mcp'` · handler가 `canToggle`로 거절 · 쓰기 코드 0 | ✅ |
+| ΔV6 (명시 선택 재시작 유지, renderer patch 불가, legacy 1회 비움) | `extension-control.ts:14·19` 저장 port → `bootstrap.ts:173-175` → `settings-store.ts:57` · `settings-migration.ts:52` · `ipc.ts:1164` | ✅ |
+| D-036 (Claude 프로젝트 토글 현행 유지) | 변경 없음 | ✅ |
+
+## r2-2. 구현 비판적 검토
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 실패 방식 · false success | ✅ | 저장 실패 시 메모리 선택을 바꾸지 않는다(`extension-control.ts:19-20`, E04 잡음) |
+| 부분 실패 잔여 | ✅ | 네이티브 파일 쓰기가 없다. 두 설정 파일 바이트 동일을 `restores global choices…`가 단언한다 |
+| 동시성 · 늦은 응답 | ✅ | revision 변경 시 epoch 증가로 이전 응답을 버린다(`composerCatalogState.ts:57·119`) |
+| 캐시가 재검증을 잃었는가 | ✅ | store 구독이 Composer 수명과 분리됐다(A08·W20 잡음) |
+| fan-out 상한 | ✅ | 외부 변경 1회당 broadcast 1회, store는 큰 revision만 받는다(A06·A07·D61 잡음) |
+
+## r2-3. 역방향 탐색
+
+`scan-surface.sh c1481dad..5084fa7c` 결과 31파일.
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| `openCodePluginConfig.ts:39` `pluginSpec` 소비자 0 | 결함(경미) | `c1481dad`의 소비자 5곳(`global-plugins.ts`)이 ΔV5 삭제로 사라졌다. `configured-resources.ts:75`는 같은 규칙을 인라인으로 둔다(N5) |
+| `createComposerAgentStore`·`ComposerCatalogState` "테스트에만" | 정상 | 같은 파일의 production singleton·factory가 사용(`composerAgentStore.ts:35`) |
+| `rejectedNativeChoicePatch` | 정상 | 타입 음성 fixture(E13 TS2578) |
+| 그 밖 1a·1b·2 항목 | 무관 | 이번 diff가 바꾸지 않은 기존 심볼 |
+| 형제 정책 비대칭 | 없음 | 스크립트 출력 0 |
+| r2.2 테스트 하네스 수정 4파일 | 정상 | 단언 약화 없음. `bootstrap.harness.test.ts`는 빈 선택 단언을 복원 선택값 단언으로 강화 |
+
+## r2-4. 고장 이력 (r2)
+
+- 하네스: 파일 한 곳을 정확히 1회 치환 → 관련 스위트 실행 → 원복 → `git diff` 0 확인. 기준선 실패가 있는 스위트는 기준선 실패 이름과의 차집합만 센다.
+- win32 전용 `adapter.native-plugins.test.ts`는 `process.platform='win32'`·`TEMP=/tmp` 임시 설정으로 돌렸다(`-w`). 원본 7/7 green.
+- 시도 85 = 잡음 82 · 동치 3 · 못 잡음 0.
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | r1 | 결과 | 잡은 테스트 / 동치 근거 |
+|---|---|---|---|---|---|---|
+| A01 | `composerCatalogState.ts:105` | 제거 | agents 캐시 조기 반환 | M01 | 잡음 | `publishes the first agent success to concurrent scopes…` |
+| A02 | `:45` | 고정값 | agentSlot → loading | M02 | 잡음 | 17건 |
+| A03 | `useComposerCatalog.ts:29` | 고정값 | 무-scope agents → pending | M03 | 잡음 | `shows cached agents before the chat scope exists` |
+| A04 | `:93` | 다른 값 | 인스턴스 무효화 때 agents error | M04 | 잡음 | `keeps cached agents through instance invalidation…` 등 2건 |
+| A05 | `:61` | 다른 값 | revision 변경 때 models도 loading | M05 | 잡음 | `refreshes subscribed parts once per plugin revision while keeping models` |
+| A06 | `composerAgentStore.ts:27` | 뒤집기 | `<=` → `>` | M06 | 잡음 | 10건 |
+| A07 | `:27` | 다른 값 | `<=` → `<` | M07 | 잡음 | `invalidates only for a newer revision…` |
+| A08 | `:31` | 제거 | 생성 시 구독(F1 · VP-35 등록 W21) | M08 | 잡음 | `clears cached agents on plugin changes with no Composer mounted…` 등 4건 |
+| A09 | `composerCatalogState.ts:53` | 제거 | subscribe 재파생(F7 · VP-35 등록 A6) | **M09 못 잡음** | **잡음** | `refetches agents when the cache is cleared between construction and first subscribe` |
+| A10 | `:40` | 제거 | 생성자 슬롯 | M10 | 잡음 | 2건 |
+| A11 | `:53` | 고정값 | subscribe 슬롯 → loading | M11 동치 | 동치 | 같은 동기 호출의 `:75` `read('agents')`가 `:105-106`에서 캐시를 다시 파생한다. 25건 green |
+| A12 | `:139` | 제거 | `accept` | M12 | 잡음 | 17건 |
+| A13 | `:139` | 다른 값 | 포착 revision → 응답 시점 revision(VP-35 등록 W12) | M13 동치 | 동치 | revision 변경은 `:54-57` 동기 구독이 epoch를 올려 `:119`가 늦은 응답을 먼저 버린다. read는 구독 중에만 실행되고 dispose 뒤는 `disposed`로 버린다. 25건 green. store 자체 검사는 A17이 잠근다 |
+| A14 | `:126` | 고정값 | 취소 시 캐시 유지 분기 → error | M14 | 잡음 | `…ends as cancelled` · `…ends as error` |
+| A15 | `:151` | 고정값 | 실패 시 캐시 유지 분기 → error | M15 | 잡음 | `…ends as reject` |
+| A16 | `composerAgentStore.ts:23` | 제거 | 첫 값 보존 조건 | M16 | 잡음 | 2건 |
+| A17 | `:23` | 제거 | accept revision 검사 | 신규 | 잡음 | `invalidates only for a newer revision and ignores results captured at an older revision` |
+| A18 | `composerCatalogState.ts:56` | 다른 값 | 재조회 조건 → `agents === undefined` | 신규 | 동치 | store setter는 accept(agents 정의·revision 불변)와 invalidate(revision 증가·agents 비움) 둘뿐이라 두 조건이 같은 전이를 고른다. 25건 green |
+| A19 | `useComposerCatalog.ts:25` | 고정값 | store selector → undefined | 신규 | 잡음 | `shows cached agents before the chat scope exists` |
+| W2 | `bootstrap.ts:1223` | 제거 | `extensionsChanged` | M68 | 잡음 | `broadcasts each OpenCode plugin revision after retiring servers without an owner` |
+| W3 | `:1224` | 제거 | broadcast | 신규 | 잡음 | 〃 |
+| W2W3 | `:1223-1224` | 뒤집기 | broadcast를 retire 앞으로 | 신규 | 잡음 | 〃 |
+| W4 | `opencode/v1/adapter.ts:55` | 제거 | `retireAll` 호출 | M69 | 잡음 | 〃 · `starts a new server for new owners after retireAll…` |
+| W5 | `server.ts:170` | 제거 | `entries.clear()` | M70 | 잡음 | `starts a new server for new owners after retireAll…` |
+| W16 | `send.ts:25` | 고정값 | revision → 1 | 신규 | 잡음 | `broadcasts each OpenCode plugin revision…` |
+| W17 | `shared/ipc.ts:96` | 다른 값 | 채널 이름 → composer 채널 | 신규 | 잡음 | `forwards OpenCode plugin changes on their own channel` |
+| W19 | `preload/index.ts:277` | 맞바꿈 | 구독 채널 ↔ composerCatalogInvalidated | 신규 | 잡음 | 〃 |
+| W20 | `renderer/shared/api/ipc.ts:238` | 빈 값 | 래퍼 → undefined | 신규 | 잡음 | 〃 · `clears cached agents on plugin changes with no Composer mounted…` |
+| X3 | `bootstrap.ts:890` | 제거 | shutdown `close()` | M65 | 잡음 | `broadcasts each OpenCode plugin revision…` |
+| B17 | `CustomizeList.tsx:59` | 맞바꿈 | providers↔mcp kind | M17 | 잡음 | 5건 |
+| B18 | `:242` | 제거 | 플러그인 탭 nativeList | M18 | 잡음 | 4건 |
+| B19 | `:61` | 뒤집기 | Claude/OpenCode 정렬 | M19 | 잡음 | 5건 |
+| B20 | `:51` | 제거 | plugin 스킬 필터 | M20 | 잡음 | 2건 |
+| B21 | `:59` | 제거 | `tab !== 'skills' &&` | **M21 못 잡음** | **잡음** | `shows the empty skills state when native resources are present` |
+| B22 | `:157` | 고정값 | 스킬 토글 항상 | M22 | 잡음 | 3건 |
+| B23 | `ExtensionsCatalogView.tsx:140` | 제거 | 실패 배너 탭 게이트 | M23 | 잡음 | 2건 |
+| B24 | `:151` | 제거 | 로딩 탭 게이트 | M24 | 잡음 | 2건 |
+| B25 | `:162` | 제거 | `suppressEmpty` 탭 게이트 | **M25 못 잡음** | **잡음** | `shows the empty skills state when native resources are failed` |
+| B26 | `SkillDetail.tsx:89` | 고정값 | 상세 토글 항상 | M26 | 잡음 | `renders no switch for default-path skills` |
+| B27 | `:87` | 다른 값 | `!canToggle`이면 제목 회색 | M27 | 잡음 | 〃 |
+| B28 | `CustomizeList.tsx:157` | 맞바꿈 | `canToggle` → `enabled` | M28 | 잡음 | 3건 |
+| B29 | `extension-sources.ts:28` | 다른 값 | `plugin:claude`만 | M29 | 잡음 | 2건 |
+| B30 | `opencode/v1/configured-resources.ts:120` | 고정값 | `canToggle: true`(VP-18″ 등록 R21) | 신규 | 잡음 | `discovers global config.json…` · `broadcasts…` |
+| B31 | `:120` | 맞바꿈 | mcp → plugin | 신규 | 잡음 | 3건 · `restores global choices…` |
+| C30 | `claude/adapter.ts:486` | 호출 대체 | 첫 plugins를 owned에 고정 | M30 | 잡음 | `carries catalog changes through the real bootstrap registry…` |
+| C30-w | `:486` | 〃 | 〃(win32) | M30 | 잡음 | `applies current global plugin choices to every new query…` |
+| C31 | `bootstrap.ts:1148-1150` | 빈 값 | 초안 명령 choices | M31 | 잡음 | `applies nav plugin choices to draft and stored-session…` |
+| C32 | `:1158-1160` | 빈 값 | 초안 리소스 choices | M32 | 잡음 | 〃 |
+| C33 | `:1096-1098` | 빈 값 | 세션 리소스 choices | M33 | 잡음 | 〃 |
+| C34 | `:1130-1132` | 빈 값 | 세션 명령 choices | M34 | 잡음 | 〃 |
+| C35 | `claude/configured-resources.ts:105` | 뒤집기 | Orca↔project | M35 | 잡음 | 2건 |
+| C36 | `:104-106` | 맞바꿈 | user↔project | M36 | 잡음 | 3건 |
+| C37 | `plugin-catalog.ts:226` | 빈 값 | 명령 reader choices | M37 | 잡음 | `applies nav plugin choices…` |
+| C38 | `common/extension-control.ts:20` | 고정값 | prefix → `'plugin:'` | M38 | 잡음 | `maps only one kind of choice to harness keys` |
+| C39 | `harnesses/claude/module.ts:40` | 빈 값 | module choices | M39 | 잡음 | `applies nav plugin choices…` |
+| C40 | `plugin-catalog.ts:138` | 뒤집기 | overrides를 project 뒤로 | M40 | 잡음 | 4건 |
+| C41 | `adapter.ts:452-453` | 맞바꿈 | provider ↔ Orca flag(win32) | **M41 못 잡음** | **잡음** | `applies current global plugin choices to every new query while live queries keep theirs` |
+| C42 | `configured-resources.ts:151` | 제거 | 설치 폴더 존재 검사 | M42 | 잡음 | `omits installations whose directory no longer exists` |
+| C43 | `plugin-catalog.ts:160` | 제거 | 존재 검사 | M43 | 잡음 | `selects active installations by scope and precedence…` |
+| D51 | `global-plugins.ts:8` | 맞바꿈 | json↔jsonc 순서 | M51 | 잡음 | `derives the fingerprint…` · `lists only plugins declared by the effective global file as fixed rows` |
+| D52 | `opencode/v1/configured-resources.ts:73` | 고정값 | 전역 파일 합집합 | M52 | 잡음 | `lists only plugins declared…` |
+| D53 | `:120` | 고정값 | `canToggle: true` | 신규 | 잡음 | 3건 |
+| D54 | `:120` | 뒤집기 | `===` → `!==` | 신규 | 잡음 | 4건 · `restores global choices…` |
+| D60 | `global-plugins.ts:34-35` | 다른 값 | fingerprint = 파일 이름 | M60 | 잡음 | `derives the fingerprint only from the effective plugin array` · `broadcasts…` |
+| D61 | `opencode-global-watch.ts:44` | 제거 | fingerprint 비교 | M61 | 잡음 | `fans out once per external plugin change and ignores unchanged polls` · `broadcasts…` |
+| D62 | `:27-28` | 제거 | watchFile 등록 | M62 | 잡음 | 〃 |
+| E01 | `app/extension-control.ts:19` | 제거 | 저장 호출(VP-36 등록) | 신규 | 잡음 | `persists explicit global choices and restores them in a new control` 등 3건 |
+| E02 | `:14` | 빈 값 | 시작 시 읽기(VP-36 등록) | 신규 | 잡음 | 4건 |
+| E03 | `:16` | 맞바꿈 | claude↔opencode 선택(VP-36 등록) | 신규 | 잡음 | 7건 |
+| E04 | `:19-20` | 뒤집기 | 메모리 갱신을 저장 앞으로 | 신규 | 잡음 | `keeps the last saved choices when persistence fails and allows a retry` |
+| E05 | `bootstrap.ts:173` | 호출 대체 | 메모리 전용 control(VP-37 등록) | 신규 | 잡음 | `restores global choices through production Bootstrap…` · `initializes its actual adapter registry…` |
+| E06 | `settings-migration.ts:52` | 뒤집기 | `<` → `>=`(VP-38 등록) | 신규 | 잡음 | 5건 |
+| E07 | `:52` | 제거 | legacy 비움(VP-38 등록) | 신규 | 잡음 | `clears legacy native extension choices once…` 등 3건 |
+| E08 | `:52` | 다른 값 | `< 2` → `< 3` | 신규 | 잡음 | 4건 |
+| E09 | `settings-store.ts:64` | 제거 | save 버전 기록 | 신규 | 잡음 | `persists global choices through the main-only setter…` 등 3건 |
+| E10 | `:58` | 제거 | setter의 선택 반영 | 신규 | 잡음 | 3건 |
+| E11 | `mcp-control.ts:81-83` | 맞바꿈 | connect↔disconnect | 신규 | 잡음 | `applies restored choices once per new directory…` · `restores global choices…` |
+| E12 | `:22` | 다른 값 | `mcp:` → `plugin:` prefix | 신규 | 잡음 | 〃 |
+| E13 | `shared/ipc.ts:1164` | 제거 | SettingsPatch 제외 키 | M74 대응 | 잡음 | `npm run typecheck` → `nativeExtensionChoices.testfixture.ts:4` TS2578 |
+| E14 | `protocol.ts:840` | 다른 값 | PatchSchema에 선택 필드 추가 | M75 대응 | 잡음 | `keeps global choices out of renderer patches…` 등 3건 |
+| F76 | `skills/scan.ts:75` | 다른 값 | adapter 출처 저장값 복귀 | M76 | 잡음 | `assembles the real catalog…` · `여러 source root…` |
+| F77 | `:78` | 다른 값 | adapter:claude canToggle | M77 | 잡음 | 〃 |
+| F78 | `:78` | 다른 값 | `!== 'adapter'` | M78 | 잡음 | `assembles the real catalog…` |
+| F79 | `json-file.ts:9` | 제거 | mkdir | M79 | 잡음 | `creates missing parents…` · `adds a server when the sources mcp directory does not exist` |
+| G01 | `global-plugins.ts:1` | 제거의 역 | `nativeFileMutations` import 재삽입(VP-18″ 등록) | 신규 | 잡음 | EP-10 `nativeFileMutations` 검색 0 → 1 → 원복 0 |
+
+### r1 행 대조
+
+| r1 결과 | 행 | r2 |
+|---|---|---|
+| 잡음 71 | 52행 재실행 | 전부 잡음. **덮개 회귀(red → green) 0** |
+| 잡음 71 | 19행(M44~M49·M53~M59·M63·M64·M67·M71~M73) | 자리 소멸 — ΔV3·ΔV5가 계약을 삭제했다. EP-10 음성 게이트 0건(G01 민감도 잡음)과 `revalidate` 0건이 대신 잠근다. M67의 후속 자리는 W3 |
+| 못 잡음 6 | M09·M21·M25·M41 | A09·B21·B25·C41 **잡음** |
+| 못 잡음 6 | M50·M66 | 자리 소멸 — `openCodeSessions`·`openCodeGlobalWatch?.drain` 검색 0건 |
+| 동치 2 | M11·M13 | A11·A13 다시 동치 |
+
+- 검산: 52 + 19 + 4 + 2 + 2 = 79(r1 시도 수). r2 신규 27 = 85 − 58.
+- A13은 설계자가 VP-35에 등록한 변이(W12)다. 동치이므로 VP-35의 "stale 무시"는 epoch 검사가 운반하며, 그 검사는 `drops agent results requested before a plugin change…`가 관측한다.
+
+## r2-5. V-pair closeout — `UT → IT → ST → AT`
+
+| Pair | 레벨 | requiredness | 결과 | 직접 증거 |
+|---|---|---|---|---|
+| VP-04′ | UT | REQUIRED | PASS | `composerAgentStore.test.ts` 3건 · A06·A07·A08·A16·A17 |
+| VP-12 | UT | REQUIRED | PASS | `configured-resources.test.ts`(claude) · `extension-control.test.ts` · C35~C38·C40 |
+| VP-15 | UT | REQUIRED | PASS | `scan.test.ts` · `skill-catalog.test.ts` · F76~F78 |
+| VP-17 | UT | REQUIRED | PASS | `json-file.test.ts:creates missing parents…` · F79 |
+| VP-23″ | UT | REQUIRED | PASS | `configured-resources.test.ts`(opencode) 2건 · D51~D54·B30·B31 |
+| VP-31″ | UT | REQUIRED | PASS | `global-plugins.test.ts:derives the fingerprint…` · D60 |
+| VP-32 | UT | REQUIRED | PASS | `omits installations…` · `selects active installations…` · C42·C43 |
+| VP-36 | UT | REQUIRED | PASS | `extension-control.test.ts` 2건 · E01~E04 |
+| VP-38 | UT | REQUIRED | PASS | `settings-migration.test.ts` · `settings-store.test.ts` · E06~E10 |
+| VP-03′ | IT | REQUIRED | PASS | `Module.integration.test.ts:shows cached agents before the chat scope exists` · A03·A19 |
+| VP-08 | IT | REQUIRED | PASS | `CustomizeList.render.test.ts` · `ExtensionsCatalogView.interaction.test.ts` · B17~B19·B21 |
+| VP-11 | IT | REQUIRED | PASS | `bootstrap.native-history.test.ts:applies nav plugin choices…` · C31~C34·C39 |
+| VP-21′ | IT | REQUIRED | PASS | bootstrap `broadcasts…without an owner` · preload `forwards…` · `server.test.ts` · state `refreshes subscribed parts…` · W2~W5·W16·W17·W19·W20·A05 |
+| VP-30″ | IT | REQUIRED | PASS | 같은 bootstrap 좌표(실제 watcher·shutdown) · X3·D62 |
+| VP-37 | IT | REQUIRED | PASS | bootstrap `restores global choices through production Bootstrap…` · `bootstrap.harness.test.ts` · E05·E13·E14 |
+| VP-02 | ST | REGRESSION | PASS | `composerCatalogState.test.ts` 취소·실패·거절 3건 · A04·A14·A15 |
+| VP-05 | ST | REGRESSION | PASS | `keeps the new generation when an older part resolves in the same epoch` · A04·A05 |
+| VP-06 | ST | REGRESSION | PASS | `adapter.persistent.test.ts:passes a live plugin agent…`. r2 변경 경로 밖, gate 실행 집합에서 통과 |
+| VP-10 | ST | REQUIRED | PASS | win32 `adapter.native-plugins.test.ts` · C30·C30-w·C41 |
+| VP-13 | ST | REGRESSION | PASS | `native-resource-sharing.test.ts` · `Composer.native-menu.test.ts` 18/18. r2 변경 경로 밖 |
+| VP-27 | ST | REGRESSION | PASS | `refreshes subscribed parts once per plugin revision while keeping models` · A05 |
+| VP-29″ | ST | REQUIRED | PASS | `opencode-global-watch.test.ts` · D61·D62 |
+| VP-35 | ST | REQUIRED | PASS | Module `clears cached agents…no Composer mounted…` · state `drops agent results…` · `refetches agents when the cache is cleared…` · A08·A09·W20. 등록 W12는 동치(A13) |
+| VP-01 | AT | REGRESSION | PASS | `Module.integration.test.ts` · A01·A02·A09·A10 |
+| VP-07 | AT | REQUIRED | PASS | `ExtensionsCatalogView.interaction.test.ts` · B20·B23~B25·B29 |
+| VP-09 | AT | REQUIRED | PASS | bootstrap 3건(`carries…`·`applies nav…`·`restores…`) · C30~C43. AC18은 별도 노드 AT-06 |
+| VP-14 | AT | REQUIRED | PASS | B22·B26~B28·F78 |
+| VP-16 | AT | REQUIRED | PASS | `store.fresh-root.test.ts:adds a server when the sources mcp directory does not exist` · F79 |
+| VP-18″ | AT | REQUIRED | PASS | view `shows OpenCode plugin rows as fixed native state and sends no toggle` · handler `reads native defaults…`(OpenCode plugin 거절) · EP-10 0건 · G01·B30·B31 |
+| VP-26 | AT | REGRESSION | PASS | `Module.integration.test.ts` scope 전환 요청 0 · A01 |
+| VP-28″ | AT | REQUIRED | PASS | Claude 비노출 C42·C43 · 외부 편집 bootstrap D61·D62 · `useNativeMcpCatalog.test.ts:queries explicit global scope…` |
+| VP-34 | AT | REGRESSION | PASS | bootstrap 초안·저장 세션 · C31~C34 |
+| VP-39 | AT | REQUIRED | PASS | bootstrap `restores global choices…`(두 설정 파일 바이트 동일 · disconnect 1회 · 새 directory만 반영) · `mcp-control.test.ts` · E11·E12·D54 |
+
+- 합계: 33 pair = PASS 33 · PAIR_FAIL 0 · BLOCKED_BY 0. UT 9 · IT 6 · ST 8 · AT 10.
+- 실행 범위: 재검증이지만 ΔV3·ΔV5·ΔV6가 33 pair 대부분의 path를 바꿨으므로 전건을 다시 판정했다. VP-06·13은 r2 diff 밖이며 좌표 재실행으로 판정했다.
+- 좌표의 실행 구간:
+  - renderer 좌표는 `shared/api/ipc`의 IPC 경계만 mock한다. preload 좌표는 실제 preload 노출 → 실제 renderer 래퍼를 지난다.
+  - main 좌표는 실제 `Bootstrap`·`SettingsStore`·reader·감시와 임시 설정 루트를 쓴다.
+  - F1 경로의 edge 대응: watch→bootstrap(D61) · bootstrap→send(W16) · send→preload 채널(W17) · preload→래퍼(W19) · 래퍼→store(W20) · store 구독(A08) · 재조회(A05·A09).
+
+### AC 세부와 합계
+
+| AC | 결과 | 근거 |
+|---|---|---|
+| AC1·AC2·AC3 | ✅ | A01·A02·A10 · A14~A16 · A04 |
+| AC4 | ✅ | VP-06 |
+| AC5·AC6 | ✅ | B17~B20 |
+| AC7 | ✅ | B21·B23~B25(F3 해소) |
+| AC8~AC12 | ✅ | C30~C43(F4 해소) |
+| AC13~AC17 | ✅ | B22·B26~B28 · F76~F79 |
+| AC18 | ⚠️ | 사람 실기 미실행 |
+| AC24 | ✅ | W4·W5 |
+| AC25′ | ✅ | A06·A07·A17 · A05 |
+| AC27 | ✅ | C42·C43 |
+| AC28′ | ✅ | W2·W3·D61·D62 · A08 |
+| AC31 | ✅ | A08·W20(F1 해소) |
+| AC32 | ✅ | A05 |
+| AC40 | ✅ | B30·B31·D53·D54 · EP-10 0건 · G01 |
+| AC41 | ✅ | D51·D52 |
+| AC42 | ✅ | E01~E05·E13·E14 |
+| AC43 | ✅ | E11·E12 · 두 설정 파일 바이트 동일 단언 |
+| AC44 | ✅ | E06~E10 |
+
+- 합계 재측정: ✅ 28 · ⚠️ 1 · ❌ 0 = 29. 자기보고(r2·r2.2 본문, trailer 2개, INDEX) `28/29`와 일치한다.
+
+### 현재 변경의 운영 gate
+
+| Gate | 결과 | 증거 |
+|---|---|---|
+| `npm run lint` | PASS | 0 error · 2 warning(`Timeline.tsx`·`useTranscriptVirtualizer.ts`, diff 밖 기존). 트리 변경 0 |
+| `npm run typecheck` | PASS | node·web·test 3구성 |
+| 관련 vitest | 환경 한계 분리 후 PASS | 256파일·2544건: 2350 pass · 188 fail · 6 skip. 실패 이름 171종이 r1 head·base와 동일(양방향 차집합 0) |
+| 실패 서명 | 환경 | better-sqlite3 바인딩(`r2-gate.err` 161줄) · win32 전용 분기(`claude/native-resources.test.ts` 3건, N3). 신규 테스트 실패 0 |
+| `check-doc-inventory --check` | PASS | `9 items, 114 channels` · prose ok · links ok |
+| CI `gate` | PASS | run `40069813030`, head `5084fa7c` |
+
+## r2-8. 사람 실기
+
+| 항목 | 기계 검증 범위 | 남은 사람 실기 |
+|---|---|---|
+| AC18 | AC1·AC5·AC8·AC42 로직 | Windows 앱: superpowers off → 새 세션 `/context`에 없음 · 재시작 뒤에도 off · 플러그인 탭 white/dark · 랜딩 전환 시 스피너 없음 |
+
+- r1의 AC26(OpenCode 플러그인 off 실기)은 ΔV5가 AC를 폐기해 대상이 아니다.
+
+## r2-9. 게이트 재실행 메모
+
+- `npm test`는 쓰지 않았다(DB 동작이 검증 대상이 아님).
+- 정리한 임시 산출물: 임시 vitest 설정(`app/vitest.win32.scratch.config.ts`). 정리 후 `git status` 출력 0.
+
+## r2-11. Repository operation checks
+
+- trailer 파싱: `dc50d1bc`·`5084fa7c` 모두 `Agent: codex` · `Handoff` · `Status: implemented` · `Criteria-Met: 28/29` · `Criteria-Pending` · `Verified-By: pending`을 반환한다.
+- 대상 커밋 좌표: `git cat-file -t` = commit — ΔV6 `2a6096a2`, r2 `dc50d1bc`, r2.2 `5084fa7c`. INDEX 자리표시자 2곳을 기입했다. 원격 브랜치 head = `5084fa7c`(`git ls-remote`).
+- `[구현자 기입]` 7필드: r2(`plan.md:1613-1842`)와 r2.2(`:1843-2008`) 각각 7절이 있다. 강제 지점 표는 11 EP 117자리 전부를 담는다.
+- `app/AGENTS.md` 변경: 의존성 목록에서 `jsonc-parser` 제거 1줄. 비밀·변동 정보 없음, `package.json`·lock 제거와 일치.
+- INDEX 비고는 5줄 이내로 갱신했다.
+
+## r2-13. Finding disposition
+
+| # | finding | 귀속 | disposition | 상태 |
+|---|---|---|---|---|
+| G1·G2 | r1 PLAN_GAP | ΔV3·ΔV5 | — | closed |
+| F1·F3·F4·F7 | r1 BLOCKING | 인용 변이 | — | closed — A08·W20 / B21·B25 / C41 / A09 잡음 |
+| F5·F6 | r1 BLOCKING | ΔV5가 자리 삭제 | — | closed(moot) — 검색 0건 |
+| N1 | EP-08 기록 줄 수 | ΔV3 정정 | — | closed |
+| N2 | 등록 oracle 이름 5개 부재: VP-18″ handler·VP-39 handler·VP-39 mcp-control·VP-37·VP-35 F1. 대체 테스트(`reads native defaults…`·`restores global choices…`·`applies restored choices once per new directory…`·`clears cached agents…no Composer mounted…`)가 같은 행동을 관측한다. `reads native defaults…keeps…only in memory`는 저장 port 없는 control을 쓰므로 이름이 ΔV6 의미와 어긋난다 | VP-18″·35·37·39 | NON_BLOCKING | open — 구현 보고에 대체 이름 명시 |
+| N3 | Claude 플러그인 제어 3건 win32 전용 | 환경 | NON_BLOCKING | 기록 |
+| N4 | 기록된 검색 술어가 구현 뒤 이름이 바뀐 자리를 다시 찾지 못한다: EP-02 C3·C15 · EP-03b K2·K4 · EP-07′ W3·W9·W15~W21 · EP-08 E4. 검색 − 목록 차집합은 0이고 각 자리는 위 변이로 잠겼다 | §10 기록 | NON_BLOCKING | open — 설계자, 다음 Delta V 때 술어 갱신 |
+| N5 | `openCodePluginConfig.ts:39` `pluginSpec` 소비자 0. 같은 규칙이 `configured-resources.ts:75`에 인라인으로 있다 | ΔV5 삭제 잔여 | NON_BLOCKING | open |
+
+## r2-14. Review Signals — 사실만
+
+- 이전 라운드와 같은 증상: 없음. r1 `못 잡음` 4건이 이번에 전부 잡혔고 덮개 회귀 0.
+- 관련 plan 지침: r1 G1(전달 계약 누락)은 설계자 = 검증자의 plan 결함이었고 ΔV3가 정정했다.
+- 사용자 결정 변경 근거: ΔV4 → ΔV5(OpenCode 플러그인 제어 제외), ΔV6(전역 선택 재시작 유지), D-036(프로젝트 토글 유지) — 모두 사용자 지시.
+- 반복된 환경 한계: better-sqlite3 바인딩 부재, win32 전용 분기(r1과 동일).
+
+## r2-15. 결론
+
+- 상태: **PASS (기계 범위)** — verify 2회째.
+- pair: PASS 33 · PAIR_FAIL 0 · BLOCKED_BY 0. PLAN_GAP 0. BLOCKING 0.
+- ACTIVE Decision: 전부 충족. AC ✅ 28 · ⚠️ 1(AC18 실기) · ❌ 0.
+- 운영 gate: lint·typecheck·doc inventory·CI PASS. 관련 vitest 환경 실패는 r1과 동일하다.
+- 다음 단계: 사용자가 AC18을 실기로 확인한다. 확인 뒤 INDEX 행을 archive로 옮긴다.
