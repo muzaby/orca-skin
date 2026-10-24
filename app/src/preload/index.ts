@@ -8,7 +8,7 @@ import type {
   NativeResources,
   GlobalNativeResourceTarget,
   SetGlobalNativeResource,
-  SetGlobalNativeResourceResult,
+  OpenCodePluginsChanged,
   SetNativeResource,
   OpenNativePlugin
 } from '../shared/native-resources'
@@ -273,6 +273,8 @@ const orca = {
     onComposerCatalogInvalidated: (
       handler: (event: ComposerCatalogInvalidated) => void
     ): (() => void) => subscribe(CHANNELS.composerCatalogInvalidated, handler),
+    onOpenCodePluginsChanged: (handler: (event: OpenCodePluginsChanged) => void): (() => void) =>
+      subscribe(CHANNELS.extensionOpenCodePluginsChanged, handler),
     onNativeResourcesChanged: (
       handler: (event: import('../shared/native-resources').NativeResourcesChanged) => void
     ): (() => void) => subscribe(CHANNELS.sessionNativeResourcesChanged, handler),
@@ -288,9 +290,7 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.sessionOpenNativePlugin, request),
     globalExtensions: (backend: Backend): Promise<NativeResources> =>
       ipcRenderer.invoke(CHANNELS.extensionCatalog, { backend }),
-    setGlobalExtension: (
-      request: SetGlobalNativeResource
-    ): Promise<SetGlobalNativeResourceResult> =>
+    setGlobalExtension: (request: SetGlobalNativeResource): Promise<NativeResources> =>
       ipcRenderer.invoke(CHANNELS.extensionSetEnabled, request),
     openGlobalExtension: (request: GlobalNativeResourceTarget): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.extensionOpen, request),

@@ -10,7 +10,7 @@ import { ComposerCatalogOwners, ComposerCatalogCancelled } from '../composer-cat
 import { ComposerCatalogError } from '../composer-catalog-error'
 import { getLogger } from '../../infra/log'
 
-export type ComposerCatalogRegistration = (() => void) & { revalidate(revision: number): void }
+export type ComposerCatalogRegistration = () => void
 
 export function registerComposerCatalogHandlers(
   prepare: (scope: ComposerCatalogScope, signal: AbortSignal) => Promise<ComposerCatalogLease>
@@ -69,5 +69,5 @@ export function registerComposerCatalogHandlers(
     owners.close()
     for (const dispose of windows.values()) dispose()
   }
-  return Object.assign(close, { revalidate: (revision: number) => owners.revalidate(revision) })
+  return close
 }

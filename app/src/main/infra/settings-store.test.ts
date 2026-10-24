@@ -167,22 +167,20 @@ describe('SettingsStore harness isolation', () => {
   })
 })
 
-it('persists plugin restoration records through the main-only setter and preserves unrelated settings', () => {
+it('persists global choices through the main-only setter, unrelated patches and restarts', () => {
   const backend = countingBackend()
   const store = new SettingsStore('test', backend)
   store.patch({ language: 'sentinel' })
-  const records = [
-    {
-      id: 'plugin',
-      file: '/config.jsonc',
-      entry: ['pkg', { mode: 'distinct' }] as [string, Record<string, unknown>],
-      index: 2
-    }
-  ]
-  store.setOpenCodeDisabledPlugins(records)
-  expect(store.getAll().openCodeDisabledPlugins).toEqual(records)
+  const choices = { claude: { 'plugin:one': false }, opencode: { 'mcp:two': true } }
+  store.setNativeExtensionChoices(choices)
+  expect(store.getAll().nativeExtensionChoices).toEqual(choices)
   expect(store.getAll().language).toBe('sentinel')
-  expect(new SettingsStore('test', backend).getAll().openCodeDisabledPlugins).toEqual(records)
-  store.patch({ openCodeDisabledPlugins: [] } as never)
-  expect(store.getAll().openCodeDisabledPlugins).toEqual(records)
+  store.patch({ theme: 'dark', nativeExtensionChoices: { claude: { 'plugin:one': true } } })
+  expect(store.getAll().nativeExtensionChoices).toEqual(choices)
+  expect(new SettingsStore('test', backend).getAll()).toMatchObject({
+    nativeExtensionChoices: choices,
+    theme: 'dark',
+    language: 'sentinel'
+  })
+  expect(backend.store.settingsVersion).toBe(2)
 })

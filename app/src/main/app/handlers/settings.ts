@@ -10,15 +10,10 @@ import { handlePlain } from '../../infra/ipc/handle'
 import { getLogger } from '../../infra/log'
 import type { RouterContext } from '../context'
 
-/** Restoration options and file paths are main-only, including read responses. */
-function rendererSettings(settings: Settings): Settings {
-  return { ...settings, openCodeDisabledPlugins: [] }
-}
-
 export function registerSettingsReadHandler(
   settings: Pick<RouterContext['settings'], 'getAll'>
 ): void {
-  handlePlain(CHANNELS.settingsGet, (): Settings => rendererSettings(settings.getAll()))
+  handlePlain(CHANNELS.settingsGet, (): Settings => settings.getAll())
 }
 
 export function registerSettingsHandlers(ctx: Pick<RouterContext, 'settings' | 'scheduler'>): void {
@@ -35,6 +30,6 @@ export function registerSettingsHandlers(ctx: Pick<RouterContext, 'settings' | '
         .child('settings')
         .info('settings.patch.applied', { keys: Object.keys(raw) })
     }
-    return rendererSettings(next)
+    return next
   })
 }

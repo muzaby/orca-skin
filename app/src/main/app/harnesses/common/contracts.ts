@@ -20,13 +20,6 @@ export interface HarnessRuntimeOptions {
 }
 
 export interface MainHarnessModule {
-  globalResourceControl?(records: {
-    get(): import('../../../../shared/native-resources').OpenCodeDisabledPlugin[]
-    set(records: import('../../../../shared/native-resources').OpenCodeDisabledPlugin[]): void
-  }): {
-    reconcile(): Promise<NativeResource[]>
-    set(item: NativeResource, enabled: boolean): Promise<void>
-  }
   projectResources?: import('../../../adapters/common/project-resources').ProjectResourcePolicy
   readonly id: Backend
   createAdapter(options: HarnessRuntimeOptions): SessionAdapter

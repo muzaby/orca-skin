@@ -50,7 +50,7 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 
 Composer 선택지는 첫 제출 전부터 SDK의 agents/providers 응답으로 준비한다. 플러그인이 해석한 visible primary/all 에이전트와 모델 variant 이름만 안전 DTO로 전달한다. directory 세대별로 각 부분의 성공값과 진행 요청을 공유하며 화면 재개방·첫 제출·상태 패널 조회는 이를 재사용한다. 초기 조회는 native 초기화 예산을 포함하고 성공 후 명시 재조회는 짧은 재검증 예산을 사용한다. 한 소비자의 취소가 다른 소비자의 요청을 끊지 않는다. 성공한 빈 목록은 제거로 적용하고 조회 실패에는 같은 세대의 마지막 성공 목록을 보존한다. 기본 입력은 metadata를 기다리지 않으며 명시 agent는 agent 목록만, 명시 variant는 모델 목록도 검증한다. 관측한 목록에 없는 선택은 일반 입력과 native command 모두에서 제외한다.
 
-`app/composer-catalog.ts`는 실제 턴 resolver로 준비 설정을 조립하고 `composer-catalog-owner.ts`는 창·owner별 수명을 관리한다. 명시 새로고침은 최신 설정으로 새 lease를 확보한 뒤 이전 lease를 반납한다. 호환 profile이면 native instance가 유지되며 다른 profile의 정리가 새 결과를 막지 않는다. renderer 에이전트 목록은 앱 실행 중 첫 성공을 모든 scope가 재사용한다. 전역 OpenCode 플러그인 변경 때만 revision으로 비우고 다시 준비한다. 모델·MCP·plugin은 directory 세대를 따른다. renderer는 동일 scope의 두 선택기를 합치고 마지막 구독·창 종료에서 준비 lease만 반납한다. 첫 제출의 session lease는 계속 유지된다. native 종료·조회 실패는 내부 상태로 관리하며 UI 계약은 [IPC Contract](../../IPC_CONTRACT.md)의 Composer 준비 항목을 따른다.
+`app/composer-catalog.ts`는 실제 턴 resolver로 준비 설정을 조립하고 `composer-catalog-owner.ts`는 창·owner별 수명을 관리한다. 명시 새로고침은 최신 설정으로 새 lease를 확보한 뒤 이전 lease를 반납한다. 호환 profile이면 native instance가 유지되며 다른 profile의 정리가 새 결과를 막지 않는다. renderer 에이전트 목록은 앱 실행 중 첫 성공을 모든 scope가 재사용한다. Zustand vanilla store가 앱 수명 동안 전용 전역 이벤트를 구독하며, Composer나 owner가 없어도 더 큰 plugin revision을 받으면 목록을 비운다. 구독 중인 부분은 새 세대로 다시 준비하고 갱신 중 모델 값은 보존한다. 모델·MCP·plugin은 directory 세대를 따른다. renderer는 동일 scope의 두 선택기를 합치고 마지막 구독·창 종료에서 준비 lease만 반납한다. 첫 제출의 session lease는 계속 유지된다. native 종료·조회 실패는 내부 상태로 관리하며 UI 계약은 [IPC Contract](../../IPC_CONTRACT.md)의 Composer 준비 항목을 따른다.
 
 첫 입력 전 상태 타일은 같은 준비 lease와 directory 캐시에서 MCP와 plugin을 각각 조회한다. `/mcp`와 `/config` 완료를 agent/provider의 선행 조건으로 사용하지 않으며 상태 타일이 구독할 때만 추가 조회한다. 정상 owner 해제는 취소 결과로 반환하고 실제 실패는 `opencode.catalog.failed`에 고정 단계·분류·HTTP 상태만 기록한다.
 
@@ -64,11 +64,11 @@ native user의 synthetic text만 공통 `input.received`로 기록하고, 모델
 
 ### 1.3 ClaudeCodeAdapter 호출 패턴
 
-nav의 확장 카탈로그는 하네스 전역 파일만 읽으며 서버나 directory를 만들지 않는다. SDK 또는 지원하는 전역 파일 편집으로 제어할 수 있는 항목은 가변 토글·일반 폰트, 다른 네이티브 MCP·플러그인은 실제 상태의 고정 토글·회색 폰트다. 기본 경로 스킬은 항상 활성으로 취급하며 토글을 제공하지 않는다. 하네스 기본값은 복제하지 않는다. SDK 전역 선택은 app의 메모리 control에만 유지하고 새 작업폴더 인스턴스가 획득할 때 복사한다. `SettingsStore`에 남은 legacy native 선택은 실행에 사용하거나 다시 편집하지 않는다.
+nav의 확장 카탈로그는 하네스 전역 파일만 읽으며 서버나 directory를 만들지 않는다. Claude plugin과 OpenCode MCP는 가변 토글·일반 폰트이며, OpenCode plugin과 Claude MCP는 실제 상태의 고정 토글·회색 폰트다. 기본 경로 스킬은 항상 활성으로 취급하며 토글을 제공하지 않는다. 미지정 항목은 native 기본값을 따르고 명시 선택만 `Settings.nativeExtensionChoices`에 저장한다. app의 control은 시작 시 이를 복원하고 변경 시 main 전용 setter를 거쳐 저장한다. renderer의 일반 settings patch는 선택을 바꿀 수 없다. 설정 버전 업그레이드 시 예전 선택을 한 번 비우고 이후 저장값은 재시작에도 유지한다.
 
 Claude plugin 전역 선택은 새 Query마다 SDK inline plugin flags로 반영한다. 이미 실행 중인 Query는 자기 상태를 유지한다. 초안·미실행 세션도 user 설정보다 Orca 선택, 그보다 project·local 설정을 우선해 명령과 리소스를 읽는다. 설치 폴더가 없는 플러그인은 실행·카탈로그에서 제외한다. 같은 작업경로의 살아 있는 Query들은 Orca 스킬 선택·배포 사본을 공유하며 마지막 Query 해제 후 새 값을 읽는다. 배포기는 직렬화된 배포 안에서 immutable 사본을 발행하고, 기존 owner가 참조하는 사본은 후속 배포나 재로드로 바뀌지 않는다. 프로젝트 plugin 선택은 이 기본값보다 우선한다. Claude native MCP는 SDK 저장이 Git 루트와 하위 작업폴더에 전파되므로 전역·프로젝트 제어를 제공하지 않는다. Windows Claude 플러그인만 실제 cwd의 `.claude/settings.local.json`에 `enabledPlugins` 키를 병합 저장하며 다른 키는 보존한다.
 
-OpenCode MCP 전역 선택은 directory state가 획득 시 고정하고 native 초기화 후 SDK `connect`/`disconnect`로 적용한다. 기존 인스턴스의 설정 파일을 갱신하거나 서버를 재시작하지 않는다. 이 방식은 native 초기 MCP 연결 비용을 없애지 않는다. 프로젝트 네이티브 파일은 하위 작업폴더도 상속하므로 MCP·플러그인 제어는 모니터링으로 제한한다. 파일 변경은 UI에 바로 관측하고 기존 인스턴스는 정상 자원 회수 후 새로 생성할 때 읽는다. OpenCode 사용자 전역 설정의 실효 `plugin` 배열에 선언되고 설치본을 확인할 수 있는 플러그인은 jsonc-parser로 해당 항목을 편집한다. off 복원 정보는 main 전용 설정에 기록하며 설정 IPC 응답에는 싣지 않는다. 실행 중 세션이 있으면 확인 후 적용하고 기존 owner는 유지하면서 새 연결부터 새 서버를 쓴다. 전역 파일 감시는 외부 plugin 배열 변경에도 같은 서버 교체·Composer 재준비를 수행하며 자기 쓰기는 중복 처리하지 않는다. 설치본이 없거나 외부에서 재추가된 off 기록은 정리한다. 다른 출처 플러그인은 고정 상태로 표시한다.
+OpenCode MCP 전역 선택은 directory state가 획득 시 고정하고 native 초기화 후 SDK `connect`/`disconnect`로 적용한다. 기존 인스턴스의 설정 파일을 갱신하거나 서버를 재시작하지 않는다. 이 방식은 native 초기 MCP 연결 비용을 없애지 않는다. 프로젝트 네이티브 파일은 하위 작업폴더도 상속하므로 MCP·플러그인 제어는 모니터링으로 제한한다. 파일 변경은 UI에 바로 관측하고 기존 인스턴스는 정상 자원 회수 후 새로 생성할 때 읽는다. OpenCode plugin은 사용자 전역 설정의 실효 `plugin` 배열을 읽기 전용으로 표시한다. `config.json` → `opencode.json` → `opencode.jsonc` 순서에서 마지막으로 `plugin`을 선언한 파일이 유효하다. 전역 파일 감시는 plugin 변경을 관측하면 서버 pool을 먼저 retire하고 전용 전역 revision 이벤트를 모든 창에 보낸다. 기존 owner는 유지하고 새 연결부터 새 서버를 쓴다.
 
 네이티브 파일 저장은 canonical 파일별 비동기 FIFO에서 최신 파일 읽기→키 병합→동일 디렉터리 임시 파일 fsync→원자 rename으로 처리한다. 일시적 Windows 공유 잠금은 제한 시간 안에서 재시도하며, 실패한 요청 뒤에도 큐는 진행한다. 외부 편집을 감지하면 최신 바이트로 재병합한다. 외부 프로세스와의 원자 compare-and-swap은 제공하지 않는다. 정상 종료는 신규 저장을 막고 접수된 저장·배포를 drain한 뒤 runtime과 배포 사본을 정리한다.
 
@@ -240,7 +240,7 @@ OpenCode 적용 시의 추가 선행조건·레이어별 gate는 [마이그레�
 
 Claude 프로젝트 확장은 `project-settings.ts`가 MCP/plugin 대상 키의 revision을 계산하고 `project-reconciliation.ts`가 시작 시 기본값과 외부 프로젝트 선택을 대조한다. Windows 프로젝트 settings/local 파일은 현재 cwd를 사용하며 native MCP 상태는 SDK의 Git 프로젝트 항목도 읽는다. 외부 plugin 재적용은 파일을 역으로 저장하지 않고, MCP on/off의 native 저장은 SDK에 맡긴다. `.mcp.json` 승인·거부는 프로젝트 출처에만 적용하며 일반 MCP의 disabledMcpServers와 구분한다. 다음 실행은 전역/provider 기본값 위에 프로젝트·local 선택을 순서대로 적용한다.
 
-컴포저의 slash 자동완성·강조도 같은 세션 native 명령 관측을 사용한다. 전역 스킬 탭은 비활성 설치를 포함한 native 플러그인 스킬 인벤토리를 읽기 전용으로 보여주며, 전역 활성 여부와 세션의 호출 가능 목록을 구별한다.
+컴포저의 slash 자동완성·강조도 같은 세션 native 명령 관측을 사용한다. 전역 스킬 탭은 기본 경로 스킬과 Orca 스킬을 표시하고 native 플러그인 출처 스킬은 제외한다. 네이티브 플러그인은 플러그인 탭에서 관리하며 세션의 호출 가능 명령 목록과 구별한다.
 
 OpenCode의 설정 파일 목록은 초안·nav discovery에만 사용하며 실행 SDK가 재개 후 관측한 plugin 목록을 제한하지 않는다. 연결 이벤트에서 목록을 갱신하고 renderer의 세션별 관측 저장소는 같은 generation의 부분 실패에도 연결 상태를 보존한다. 명시 종료는 연결 상태와 제어 권한을 해제한다. Claude가 Orca 주입 MCP를 실제 관측하면 `origin=orca`로 반환하여 Composer의 Orca 그룹에 표시하고, native 관리 목록과 SDK 내부 서버에서는 분리한다.
 

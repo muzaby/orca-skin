@@ -7,6 +7,26 @@ import {
 } from './settings-migration'
 
 describe('settings migration', () => {
+  it('clears legacy native extension choices once when upgrading to settings version 2', () => {
+    const choices = { claude: { 'plugin:one': false }, opencode: { 'mcp:two': true } }
+    for (const settingsVersion of [undefined, 0, 1]) {
+      const input = { settingsVersion, nativeExtensionChoices: choices, language: 'retained' }
+      const upgraded = migrateRawSettings(input, '1.100.0')
+      expect(upgraded.settings.nativeExtensionChoices).toBeUndefined()
+      expect(upgraded.raw.settingsVersion).toBe(2)
+      expect(upgraded.settings.language).toBe('retained')
+      expect(input.nativeExtensionChoices).toEqual(choices)
+    }
+    const current = migrateRawSettings(
+      { settingsVersion: 2, nativeExtensionChoices: choices },
+      '1.100.0'
+    )
+    expect(current.settings.nativeExtensionChoices).toEqual(choices)
+    expect(migrateRawSettings(current.raw, '1.100.1').settings.nativeExtensionChoices).toEqual(
+      choices
+    )
+  })
+
   it('uiLocale — 부재는 ko 기본값, 유효값(en)은 보존, 불량값은 ko 로 복구(0096)', () => {
     expect(migrateRawSettings({}, '1.100.0').settings.uiLocale).toBe('ko')
     expect(migrateRawSettings({ uiLocale: 'en' }, '1.100.0').settings.uiLocale).toBe('en')

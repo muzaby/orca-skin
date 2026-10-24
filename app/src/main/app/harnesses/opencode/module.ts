@@ -1,7 +1,6 @@
 import { join } from 'node:path'
 import { openFileDatabase } from '../../../infra/db/file-database'
 import {
-  createOpenCodeGlobalPlugins,
   createOpenCodeAdapter,
   loadOpenCodeProviderSettings,
   parseOpenCodeModels,
@@ -21,7 +20,6 @@ import type { MainHarnessModule } from '../common/contracts'
 
 export const openCodeMainModule: MainHarnessModule = {
   id: 'opencode',
-  globalResourceControl: createOpenCodeGlobalPlugins,
   projectResources: openCodeProjectResources,
   globalResources: globalOpenCodeResources,
   globalResourcePath: globalOpenCodeResourcePath,

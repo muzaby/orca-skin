@@ -78,6 +78,12 @@ it('applies current global plugin choices to every new query while live queries 
     sessionId: null,
     cwd,
     text: 'hello',
+    providerSettings: {
+      providerKey: 'provider',
+      provider: 'provider',
+      sourceRevision: 'r',
+      settings: { enabledPlugins: { 'frontend@market': true } }
+    },
     env: { CLAUDE_CONFIG_DIR: root },
     extensions: {
       skills: [

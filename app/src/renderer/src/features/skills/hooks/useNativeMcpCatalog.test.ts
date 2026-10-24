@@ -47,7 +47,7 @@ it('queries explicit global scope without owning runtime observations, retains g
   dom = installFakeDom({ innerWidth: 1280, innerHeight: 800 })
   const read = vi.fn<(backend: string) => Promise<NativeResources>>(async () => catalog())
   const open = vi.fn(async () => {})
-  const write = vi.fn(async () => ({ status: 'applied', resources: catalog(false) }))
+  const write = vi.fn(async () => catalog(false))
   const runtimeRead = vi.fn(),
     observe = vi.fn()
   Object.assign(window, {
@@ -122,7 +122,7 @@ it('renders native plugin capabilities and updates the actual row through its to
       }
     ]
   })
-  const write = vi.fn(async () => ({ status: 'applied', resources: plugin('claude', true) }))
+  const write = vi.fn(async () => plugin('claude', true))
   Object.assign(window, {
     orca: {
       session: {
@@ -165,7 +165,7 @@ it('renders native plugin capabilities and updates the actual row through its to
   expect(dom.queryAll('[role="switch"]')[1].props['aria-checked']).toBe(false)
 })
 
-it('reports a confirmed plugin write failure once and releases the queue for a retry', async () => {
+it('reports a choice write failure once and releases the queue for a retry', async () => {
   vi.useFakeTimers()
   dom = installFakeDom({ innerWidth: 1280, innerHeight: 800 })
   const plugins = (enabled = true): NativeResources => ({
@@ -174,9 +174,8 @@ it('reports a confirmed plugin write failure once and releases the queue for a r
   })
   const write = vi
     .fn()
-    .mockResolvedValueOnce({ status: 'confirm', reason: 'opencode-restart', sessions: 1 })
     .mockRejectedValueOnce(new Error('disk locked'))
-    .mockResolvedValueOnce({ status: 'applied', resources: plugins(false) })
+    .mockResolvedValueOnce(plugins(false))
   const logged = vi.fn()
   Object.assign(window, {
     orca: {
@@ -194,16 +193,14 @@ it('reports a confirmed plugin write failure once and releases the queue for a r
   }
   dom.render(createElement(Probe))
   await flush()
-  const resource = result.list[1].resource
-  await result.toggle('opencode', resource)
-  useConfirmStore.getState().request!.onConfirm()
+  const resource = result.list[0].resource
+  await result.toggle('claude', resource)
   await flush()
   expect(write).toHaveBeenLastCalledWith({
-    backend: 'opencode',
+    backend: 'claude',
     id: 'docs',
     kind: 'plugin',
-    enabled: false,
-    confirmed: true
+    enabled: false
   })
   expect(logged).toHaveBeenCalledTimes(1)
   expect(logged.mock.calls[0].slice(0, 2)).toEqual([
@@ -213,9 +210,9 @@ it('reports a confirmed plugin write failure once and releases the queue for a r
   expect(errorToastStore.getState().toasts).toMatchObject([
     { title: 'saveFailed', detail: 'disk locked' }
   ])
-  expect(result.list[1].resource.enabled).toBe(true)
-  await result.toggle('opencode', resource)
+  expect(result.list[0].resource.enabled).toBe(true)
+  await result.toggle('claude', resource)
   await flush()
-  expect(result.list[1].resource.enabled).toBe(false)
-  expect(write).toHaveBeenCalledTimes(3)
+  expect(result.list[0].resource.enabled).toBe(false)
+  expect(write).toHaveBeenCalledTimes(2)
 })

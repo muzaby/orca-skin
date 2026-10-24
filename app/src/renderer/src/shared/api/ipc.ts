@@ -1,4 +1,4 @@
-import type { SetGlobalNativeResourceResult } from '../../../../shared/native-resources'
+import type { OpenCodePluginsChanged } from '../../../../shared/native-resources'
 import type {
   ComposerCatalogRequest,
   ComposerCatalogResult,
@@ -221,7 +221,7 @@ export const sessionApi = {
     window.orca.session.globalExtensions(backend),
   setGlobalExtension: (
     request: Parameters<typeof window.orca.session.setGlobalExtension>[0]
-  ): Promise<SetGlobalNativeResourceResult> => window.orca.session.setGlobalExtension(request),
+  ): Promise<NativeResources> => window.orca.session.setGlobalExtension(request),
   openGlobalExtension: (
     request: Parameters<typeof window.orca.session.openGlobalExtension>[0]
   ): Promise<void> => window.orca.session.openGlobalExtension(request),
@@ -232,6 +232,10 @@ export const sessionApi = {
   onComposerCatalogInvalidated: (
     handler: (event: ComposerCatalogInvalidated) => void
   ): (() => void) => window.orca.session.onComposerCatalogInvalidated(handler),
+  onOpenCodePluginsChanged: (
+    handler: (event: OpenCodePluginsChanged) => void
+  ): (() => void) | undefined =>
+    globalThis.window?.orca?.session?.onOpenCodePluginsChanged?.(handler),
   nativeResources: (
     request: string | DraftNativeResourcesRequest,
     observation?: import('../../../../shared/native-resources').NativeResourceObservation

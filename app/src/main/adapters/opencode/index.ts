@@ -16,6 +16,5 @@ export type { OpenCodeRuntimeOptions, OpenCodeServer } from './implementation'
 
 export const openCodeProjectResources = implementation.projectResources
 
-export const createOpenCodeGlobalPlugins = implementation.globalPlugins
 export const openCodeGlobalConfigFiles = implementation.globalPluginFiles
 export const openCodeGlobalPluginFingerprint = implementation.globalPluginFingerprint

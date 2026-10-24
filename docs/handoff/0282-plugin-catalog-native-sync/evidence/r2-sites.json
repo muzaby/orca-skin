@@ -1,0 +1,848 @@
+{
+  "expected": [
+    "EP-01′/A1",
+    "EP-01′/A2",
+    "EP-01′/A3",
+    "EP-01′/A4",
+    "EP-01′/A5",
+    "EP-01′/A6",
+    "EP-01′/A7",
+    "EP-01′/A8",
+    "EP-01′/A9",
+    "EP-01′/A10",
+    "EP-01′/A11",
+    "EP-01′/A12",
+    "EP-01′/A13",
+    "EP-01′/A14",
+    "EP-01′/A15",
+    "EP-02/C1",
+    "EP-02/C2",
+    "EP-02/C3",
+    "EP-02/C4",
+    "EP-02/C5",
+    "EP-02/C6",
+    "EP-02/C7",
+    "EP-02/C8",
+    "EP-02/C9",
+    "EP-02/C10",
+    "EP-02/C11",
+    "EP-02/C12",
+    "EP-02/C13",
+    "EP-02/C14",
+    "EP-02/C15",
+    "EP-03a/R1",
+    "EP-03a/R2",
+    "EP-03a/R3",
+    "EP-03a/R4",
+    "EP-03a/R5",
+    "EP-03a/R6",
+    "EP-03a/R7",
+    "EP-03b/K1",
+    "EP-03b/K2",
+    "EP-03b/K3",
+    "EP-03b/K4",
+    "EP-03b/K5",
+    "EP-05/J1",
+    "EP-05/J2",
+    "EP-07′/W1",
+    "EP-07′/W2",
+    "EP-07′/W3",
+    "EP-07′/W4",
+    "EP-07′/W5",
+    "EP-07′/W6",
+    "EP-07′/W7",
+    "EP-07′/W8",
+    "EP-07′/W9",
+    "EP-07′/W10",
+    "EP-07′/W11",
+    "EP-07′/W12",
+    "EP-07′/W13",
+    "EP-07′/W14",
+    "EP-07′/W15",
+    "EP-07′/W16",
+    "EP-07′/W17",
+    "EP-07′/W18",
+    "EP-07′/W19",
+    "EP-07′/W20",
+    "EP-07′/W21",
+    "EP-08/E1",
+    "EP-08/E2",
+    "EP-08/E3",
+    "EP-08/E4",
+    "EP-10/R1",
+    "EP-10/R2",
+    "EP-10/R3",
+    "EP-10/R4",
+    "EP-10/R5",
+    "EP-10/R6",
+    "EP-10/R7",
+    "EP-10/R8",
+    "EP-10/R9",
+    "EP-10/R10",
+    "EP-10/R11",
+    "EP-10/R12",
+    "EP-10/R13",
+    "EP-10/R14",
+    "EP-10/R15",
+    "EP-10/R16",
+    "EP-10/R17",
+    "EP-10/R18",
+    "EP-10/R19",
+    "EP-10/R20",
+    "EP-10/R21",
+    "EP-10/R22",
+    "EP-10/R23",
+    "EP-10/R24",
+    "EP-10/R25",
+    "EP-10/R26",
+    "EP-10/R27",
+    "EP-10/R28",
+    "EP-10/R29",
+    "EP-11/S1",
+    "EP-11/S2",
+    "EP-11/S3",
+    "EP-11/S4",
+    "EP-11/S5",
+    "EP-11/S6",
+    "EP-11/S7",
+    "EP-11/S8",
+    "EP-04/S1",
+    "EP-04/S2",
+    "EP-04/U1",
+    "EP-04/U2",
+    "EP-04/U3",
+    "EP-04/U4",
+    "EP-09/X1",
+    "EP-09/X2",
+    "EP-09/X3",
+    "EP-09/X6",
+    "EP-09/X7"
+  ],
+  "queries": [
+    {
+      "ep": "EP-01′",
+      "command": "rg -n \"agents\\|read\\(part, true\\)\\|private invalidate\\(\\)\\|status: 'ready', value\\|status === 'ready'\\|status: 'error'\" app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts app/src/renderer/src/features/chat/harnesses/opencode/composer/useComposerCatalog.ts",
+      "matches": [
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:18:  agents: { status: 'loading' },",
+          "classification": "EP-01′/A3"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:38:    private readonly agents = composerAgentStore",
+          "classification": "EP-07′/W9"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:40:    this.snapshot.agents = this.agentSlot()",
+          "classification": "EP-01′/A4"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:43:  private agentSlot(): ComposerCatalogSnapshot['agents'] {",
+          "classification": "EP-01′/A5"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:44:    const value = this.agents.getState().agents",
+          "classification": "EP-01′/A5"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:45:    return value === undefined ? { status: 'loading' } : { status: 'ready', value }",
+          "classification": "EP-01′/A5"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:53:      this.snapshot = { ...this.snapshot, agents: this.agentSlot() }",
+          "classification": "EP-01′/A6"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:54:      this.detachAgents = this.agents.subscribe((current, previous) => {",
+          "classification": "EP-07′/W10"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:55:        this.snapshot = { ...this.snapshot, agents: this.agentSlot() }",
+          "classification": "EP-01′/A7"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:62:          for (const part of parts) void this.read(part, true)",
+          "classification": "EP-01′/A8"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:75:      void this.read('agents')",
+          "classification": "EP-01′/A9"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:91:  private invalidate(): void {",
+          "classification": "exclude:declaration"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:93:      agents: this.agents.getState().agents === undefined ? { status: 'error' } : this.agentSlot(),",
+          "classification": "EP-01′/A10"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:94:      models: { status: 'error' },",
+          "classification": "exclude:models"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:95:      ...(this.snapshot.mcp ? { mcp: { status: 'error' as const } } : {}),",
+          "classification": "exclude:mcp"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:96:      ...(this.snapshot.plugins ? { plugins: { status: 'error' as const } } : {})",
+          "classification": "exclude:plugins"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:101:    void this.read(part, true)",
+          "classification": "exclude:retry"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:105:    if (part === 'agents' && this.agents.getState().agents !== undefined) {",
+          "classification": "EP-01′/A11"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:106:      this.snapshot = { ...this.snapshot, agents: this.agentSlot() }",
+          "classification": "EP-01′/A11"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:110:    if (this.disposed || (!refresh && this.snapshot[part]?.status === 'ready'))",
+          "classification": "EP-01′/A12"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:113:    const revision = this.agents.getState().revision",
+          "classification": "EP-07′/W12"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:126:              part === 'agents' && this.agents.getState().agents !== undefined",
+          "classification": "EP-01′/A13"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:128:                : { ...this.snapshot[part], status: 'error' }",
+          "classification": "EP-01′/A13"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:139:        if (result.part === 'agents') this.agents.getState().accept(result.value, revision)",
+          "classification": "EP-07′/W13"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:142:          [part]: part === 'agents' ? this.agentSlot() : { status: 'ready', value: result.value }",
+          "classification": "EP-01′/A14"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:151:            part === 'agents' && this.agents.getState().agents !== undefined",
+          "classification": "EP-01′/A15"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:153:              : { ...this.snapshot[part], status: 'error' }",
+          "classification": "EP-01′/A15"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/useComposerCatalog.ts:9:  agents: { status: 'loading' },",
+          "classification": "EP-01′/A1"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/useComposerCatalog.ts:25:  const agents = useStore(composerAgentStore, (state) => state.agents)",
+          "classification": "EP-07′/W15"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/useComposerCatalog.ts:29:      agents: agents === undefined ? pending.agents : { status: 'ready', value: agents }",
+          "classification": "EP-01′/A2"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/useComposerCatalog.ts:31:    [agents]",
+          "classification": "EP-01′/A2"
+        }
+      ]
+    },
+    {
+      "ep": "EP-02",
+      "command": "rg -n \"extensionControl\\?\\.global\\('claude'\\)\\|extensionSnapshots\\.(get\\|set)\\|owned\\.plugins\\|configuredCommands\\??[:(]\\|configuredResources\\??[:(]\\|configuredCommands\\?\\.\\(\\|configuredResources\\?\\.\\(\\|draftResources \\?\\? module\\.configuredResources\\|export async function configuredClaudeCommands\\|const enabledPlugins = \\{\\|control\\.global\\(backend\\)\" app/src/main/adapters/claude/adapter.ts app/src/main/adapters/claude/plugin-catalog.ts app/src/main/adapters/claude/configured-resources.ts app/src/main/app/bootstrap.ts app/src/main/app/harnesses/claude/module.ts app/src/main/app/harnesses/common/contracts.ts app/src/main/app/handlers/extension-catalog.ts",
+      "matches": [
+        {
+          "line": "app/src/main/adapters/claude/configured-resources.ts:103:  const enabledPlugins = {",
+          "classification": "EP-02/C5"
+        },
+        {
+          "line": "app/src/main/adapters/claude/plugin-catalog.ts:221:export async function configuredClaudeCommands(",
+          "classification": "EP-02/C4"
+        },
+        {
+          "line": "app/src/main/app/harnesses/common/contracts.ts:30:  configuredResources?(cwd: string, choices: Record<string, boolean>): Promise<NativeResource[]>",
+          "classification": "EP-02/C8"
+        },
+        {
+          "line": "app/src/main/app/harnesses/common/contracts.ts:36:  configuredCommands?(cwd: string, choices: Record<string, boolean>): Promise<NativeCommand[]>",
+          "classification": "EP-02/C9"
+        },
+        {
+          "line": "app/src/main/adapters/claude/adapter.ts:444:    const choices = this.extensionControl?.global('claude') ?? {}",
+          "classification": "EP-02/C1"
+        },
+        {
+          "line": "app/src/main/adapters/claude/adapter.ts:458:    let snapshot = this.extensionSnapshots.get(key)",
+          "classification": "EP-02/C2"
+        },
+        {
+          "line": "app/src/main/adapters/claude/adapter.ts:467:      this.extensionSnapshots.set(key, snapshot)",
+          "classification": "EP-02/C2"
+        },
+        {
+          "line": "app/src/main/adapters/claude/adapter.ts:475:      if (--owned.references === 0 && this.extensionSnapshots.get(key) === owned) {",
+          "classification": "exclude:release"
+        },
+        {
+          "line": "app/src/main/app/handlers/extension-catalog.ts:18:    const choices = control.global(backend)",
+          "classification": "EP-02/C14"
+        },
+        {
+          "line": "app/src/main/app/harnesses/claude/module.ts:40:  configuredResources: (cwd, choices) => configuredClaudeResources(cwd, undefined, false, choices),",
+          "classification": "EP-02/C6"
+        },
+        {
+          "line": "app/src/main/app/harnesses/claude/module.ts:42:  configuredCommands: configuredClaudeCommands,",
+          "classification": "EP-02/C7"
+        },
+        {
+          "line": "app/src/main/app/bootstrap.ts:1096:        const items = await harnessModule(session.backend).configuredResources?.(",
+          "classification": "EP-02/C10"
+        },
+        {
+          "line": "app/src/main/app/bootstrap.ts:1130:        const commands = await harnessModule(session.backend).configuredCommands?.(",
+          "classification": "EP-02/C11"
+        },
+        {
+          "line": "app/src/main/app/bootstrap.ts:1148:          (await harnessModule(backend).configuredCommands?.(",
+          "classification": "EP-02/C12"
+        },
+        {
+          "line": "app/src/main/app/bootstrap.ts:1158:        return (module.draftResources ?? module.configuredResources)?.(",
+          "classification": "EP-02/C13"
+        }
+      ]
+    },
+    {
+      "ep": "EP-03a",
+      "command": "rg -n \"tab === 'skills'\\|tab !== 'providers'\\|tab === 'providers'\\|resource\\.kind === \\(\\|nativeMcp\\.(loading\\|failed)\" app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx app/src/renderer/src/features/skills/components/customize/ExtensionsCatalogView.tsx",
+      "matches": [
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/ExtensionsCatalogView.tsx:52:    selection.tab === 'skills'",
+          "classification": "exclude:selection"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/ExtensionsCatalogView.tsx:59:    selection.tab === 'providers'",
+          "classification": "exclude:selection"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/ExtensionsCatalogView.tsx:64:    selection.tab === 'skills'",
+          "classification": "exclude:selection"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/ExtensionsCatalogView.tsx:121:            {selection.tab !== 'providers' && (",
+          "classification": "exclude:add-button"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/ExtensionsCatalogView.tsx:128:                dropdown={selection.tab === 'skills'}",
+          "classification": "exclude:add-button"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/ExtensionsCatalogView.tsx:129:                expanded={selection.tab === 'skills' ? menuOpen : undefined}",
+          "classification": "exclude:add-button"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/ExtensionsCatalogView.tsx:131:                  if (selection.tab === 'skills') setMenuOpen((value) => !value)",
+          "classification": "exclude:add-button"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/ExtensionsCatalogView.tsx:140:            {nativeMcp.failed && selection.tab !== 'skills' && (",
+          "classification": "EP-03a/R5"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/ExtensionsCatalogView.tsx:151:            (selection.tab !== 'skills' && nativeMcp.loading) ? (",
+          "classification": "EP-03a/R6"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/ExtensionsCatalogView.tsx:162:                suppressEmpty={selection.tab !== 'skills' && nativeMcp.failed}",
+          "classification": "EP-03a/R7"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx:55:  const rows = tab === 'skills' ? visibleSkills : tab === 'mcp' ? mcpServers : providers",
+          "classification": "exclude:other-rows"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx:59:        tab !== 'skills' && resource.kind === (tab === 'providers' ? 'plugin' : 'mcp')",
+          "classification": "EP-03a/R1"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx:63:    tab === 'skills'",
+          "classification": "exclude:empty-label"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx:84:            spaced={index > 0 || (tab === 'providers' && providers.length > 0)}",
+          "classification": "EP-03a/R3"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx:125:      {tab === 'skills' &&",
+          "classification": "exclude:skills"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx:212:      {tab === 'providers' &&",
+          "classification": "EP-03a/R4"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx:242:      {tab === 'providers' && nativeList}",
+          "classification": "EP-03a/R3"
+        }
+      ]
+    },
+    {
+      "ep": "EP-03b",
+      "command": "rg -n \"visibleSkills\\|skillSourceAllowed\\|skill\\.canToggle\\|<CatalogToggle\" app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx app/src/renderer/src/features/skills/components/customize/SkillDetail.tsx",
+      "matches": [
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx:14:  skillSourceAllowed",
+          "classification": "exclude:import"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx:49:  const visibleSkills = skills.filter(",
+          "classification": "EP-03b/K1"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx:52:      (skillSourceAllowed(skill.sourceId, 'claude') ||",
+          "classification": "EP-03b/K1"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx:53:        skillSourceAllowed(skill.sourceId, 'opencode'))",
+          "classification": "EP-03b/K1"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx:55:  const rows = tab === 'skills' ? visibleSkills : tab === 'mcp' ? mcpServers : providers",
+          "classification": "exclude:consumer"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx:112:            <CatalogToggle",
+          "classification": "exclude:native-toggle"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx:126:        orderSkills(visibleSkills).map((skill, index, ordered) => {",
+          "classification": "exclude:consumer"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx:157:                  skill.canToggle ? (",
+          "classification": "EP-03b/K3"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx:158:                    <CatalogToggle",
+          "classification": "EP-03b/K3"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx:161:                      canToggle={skill.canToggle}",
+          "classification": "EP-03b/K3"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx:202:                <CatalogToggle",
+          "classification": "exclude:mcp-toggle"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/SkillDetail.tsx:89:          {skill.canToggle && (",
+          "classification": "EP-03b/K5"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/SkillDetail.tsx:90:            <CatalogToggle",
+          "classification": "EP-03b/K5"
+        },
+        {
+          "line": "app/src/renderer/src/features/skills/components/customize/SkillDetail.tsx:93:              canToggle={skill.canToggle}",
+          "classification": "EP-03b/K5"
+        }
+      ]
+    },
+    {
+      "ep": "EP-04",
+      "command": "rg -n \"canToggle\\|enabled !== false\\|enabled === false\\|^\\s+enabled:$\" app/src/main/features/extensions/common/skills/scan.ts app/src/main/adapters/claude/adapt.ts app/src/main/app/handlers/skills.ts app/src/renderer/src/features/chat/lib/attachMenuModel.ts app/src/renderer/src/features/chat/lib/composerSkills.ts",
+      "matches": [
+        {
+          "line": "app/src/main/app/handlers/skills.ts:58:      if (!skill.canToggle) return ctx.getSkills()",
+          "classification": "EP-04/U2"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/lib/attachMenuModel.ts:98:              skill.enabled === false ||",
+          "classification": "EP-04/U3"
+        },
+        {
+          "line": "app/src/main/adapters/claude/adapt.ts:67:// prefix 를 붙인다(adaptSkillNameForClaude). canToggle인 소스만 명시한 enabled를 반영한다. 알려진 스킬이",
+          "classification": "exclude:comment"
+        },
+        {
+          "line": "app/src/main/adapters/claude/adapt.ts:73:    .filter((s) => !s.canToggle || s.enabled)",
+          "classification": "EP-04/U1"
+        },
+        {
+          "line": "app/src/main/features/extensions/common/skills/scan.ts:72:        enabled:",
+          "classification": "EP-04/S1"
+        },
+        {
+          "line": "app/src/main/features/extensions/common/skills/scan.ts:78:        canToggle: root.sourceKind === 'orca',",
+          "classification": "EP-04/S2"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/lib/composerSkills.ts:19:        (skill) => skill.enabled !== false && skill.sourceId !== `plugin:${backend}`",
+          "classification": "EP-04/U4"
+        }
+      ]
+    },
+    {
+      "ep": "EP-05",
+      "command": "rg -n \"export function writeJsonAtomic\\|writeJsonAtomic\\(mcpJsonPath\" app/src/main",
+      "matches": [
+        {
+          "line": "app/src/main/infra/config/json-file.ts:8:export function writeJsonAtomic(path: string, value: unknown): void {",
+          "classification": "EP-05/J1"
+        },
+        {
+          "line": "app/src/main/features/extensions/common/mcp/file.ts:32:  writeJsonAtomic(mcpJsonPath(), file)",
+          "classification": "EP-05/J2"
+        }
+      ]
+    },
+    {
+      "ep": "EP-08",
+      "command": "rg -n \"installedClaudePlugins\\(\\|for \\(const entry of globalOnly\\|directories\\.set\\(id, installPath\\)\\|if \\(directories\\.has\\(id\\)\\) continue\\|claudeInstallationExists\\(entry\\.path\\)\" app/src/main/adapters/claude/configured-resources.ts app/src/main/adapters/claude/plugin-catalog.ts",
+      "matches": [
+        {
+          "line": "app/src/main/adapters/claude/plugin-catalog.ts:25:export function installedClaudePlugins(",
+          "classification": "exclude:definition"
+        },
+        {
+          "line": "app/src/main/adapters/claude/plugin-catalog.ts:69:  for (const entry of installedClaudePlugins(cwd, installed)) {",
+          "classification": "exclude:loop"
+        },
+        {
+          "line": "app/src/main/adapters/claude/plugin-catalog.ts:160:      !claudeInstallationExists(entry.path)",
+          "classification": "EP-08/E4"
+        },
+        {
+          "line": "app/src/main/adapters/claude/configured-resources.ts:145:  const applicable = installedClaudePlugins(cwd, installed.plugins, globalOnly)",
+          "classification": "EP-08/E1"
+        },
+        {
+          "line": "app/src/main/adapters/claude/configured-resources.ts:149:  for (const entry of globalOnly ? selected.values() : applicable) {",
+          "classification": "EP-08/E2"
+        },
+        {
+          "line": "app/src/main/adapters/claude/configured-resources.ts:157:    if (directories.has(id)) continue",
+          "classification": "EP-08/E3"
+        },
+        {
+          "line": "app/src/main/adapters/claude/configured-resources.ts:158:    directories.set(id, installPath)",
+          "classification": "EP-08/E3"
+        }
+      ]
+    },
+    {
+      "ep": "EP-09",
+      "command": "rg -n \"this\\.closeComposerCatalog\\|registerExtensionCatalogHandlers\\(\" app/src/main/app/bootstrap.ts",
+      "matches": [
+        {
+          "line": "891:    this.closeComposerCatalog?.()",
+          "classification": "exclude:composer-close"
+        },
+        {
+          "line": "1048:    this.closeComposerCatalog = registerComposerCatalog(ctx)",
+          "classification": "exclude:composer-registration"
+        },
+        {
+          "line": "1234:    registerExtensionCatalogHandlers(this.extensionChoices)",
+          "classification": "exclude:removed-deps"
+        }
+      ]
+    },
+    {
+      "ep": "EP-07′",
+      "command": "rg -n \"revalidate\\|composerAgentCache\\|ComposerAgentCache\\|getRevision\\|this\\.agents\\.\\|extensionsChanged\\?\\.\\(\\)\\|retireAll\\|changed\\(\\+\\+this\\.revision\\)\" app/src/main/app/bootstrap.ts app/src/main/app/opencode-global-watch.ts app/src/main/app/composer-catalog-owner.ts app/src/main/app/handlers/composer-catalog.ts app/src/main/adapters/opencode/v1/adapter.ts app/src/main/adapters/opencode/v1/server.ts app/src/shared/composer-catalog.ts app/src/renderer/src/features/chat/harnesses/opencode/composer --glob '!*.test.ts'",
+      "matches": [
+        {
+          "line": "app/src/main/adapters/opencode/v1/server.ts:169:  retireAll(): void {",
+          "classification": "EP-07′/W5"
+        },
+        {
+          "line": "app/src/main/app/opencode-global-watch.ts:46:    this.deps.changed(++this.revision)",
+          "classification": "EP-07′/W1"
+        },
+        {
+          "line": "app/src/main/adapters/opencode/v1/adapter.ts:55:    this.servers.retireAll?.()",
+          "classification": "EP-07′/W4"
+        },
+        {
+          "line": "app/src/main/app/bootstrap.ts:1223:        ctx.registry.get('opencode')?.extensionsChanged?.()",
+          "classification": "EP-07′/W2"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:44:    const value = this.agents.getState().agents",
+          "classification": "EP-01′/A5"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:54:      this.detachAgents = this.agents.subscribe((current, previous) => {",
+          "classification": "EP-07′/W10"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:93:      agents: this.agents.getState().agents === undefined ? { status: 'error' } : this.agentSlot(),",
+          "classification": "EP-01′/A10"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:105:    if (part === 'agents' && this.agents.getState().agents !== undefined) {",
+          "classification": "EP-01′/A11"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:113:    const revision = this.agents.getState().revision",
+          "classification": "EP-07′/W12"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:126:              part === 'agents' && this.agents.getState().agents !== undefined",
+          "classification": "EP-01′/A13"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:139:        if (result.part === 'agents') this.agents.getState().accept(result.value, revision)",
+          "classification": "EP-07′/W13"
+        },
+        {
+          "line": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts:151:            part === 'agents' && this.agents.getState().agents !== undefined",
+          "classification": "EP-01′/A15"
+        }
+      ]
+    },
+    {
+      "ep": "EP-11",
+      "command": "rg -n \"nativeExtensionChoices\\|extensionControl\\(\\)\\|choices = new Map\\|SETTINGS_VERSION =\\|메모리 control\" app/src/main app/src/shared docs/IPC_CONTRACT.md docs/arch --glob '!*.test.ts'",
+      "matches": [
+        {
+          "line": "docs/IPC_CONTRACT.md:136:| `orca:settings:set` | R→M (invoke) | `SettingsPatch` = `Omit<Partial<Settings>, 'scheduler' /| 'nativeExtensionChoices' /| 'projectMcpChoices'> & { scheduler?: { usageRecompute?: Partial<…>; updateCheck?: Partial<…> } }` (scheduler 는 그룹별 중첩 partial — 한 그룹만 보내도 형제 그룹은 보존) | `Settings` | 부분 패치 후 병합·검증된 객체 반환. 전역 확장 선택은 전용 handler에서만 저장한다. **부수효과 2건**: 패치 키에 `authBypass` 가 있으면 `orca:provider:state` 를 push 하고(게이트 판정의 입력이라, 저장만 하고 끝내면 화면이 재시작 전까지 옛 판정에 머문다 — 0181), `spendingLimitUsd` 가 있으면 `orca:cost:usageEvent` 전역 delta 를 push 한다(한도는 사용량 뷰의 `budget`·`pct` 입력이라, 저장만 하고 끝내면 도넛이 다음 턴 종료까지 옛 한도의 퍼센트를 보여준다 — 0186). |",
+          "classification": "EP-11/S7"
+        },
+        {
+          "line": "docs/IPC_CONTRACT.md:154:  nativeExtensionChoices?: Partial<Record<Backend, Record<string, boolean>>>; // 명시한 전역 선택. main 전용 setter로 저장·복원, 일반 renderer patch 제외",
+          "classification": "EP-11/S7"
+        },
+        {
+          "line": "app/src/main/infra/settings-store.ts:57:  setNativeExtensionChoices(choices: NonNullable<Settings['nativeExtensionChoices']>): void {",
+          "classification": "EP-11/S6"
+        },
+        {
+          "line": "app/src/main/infra/settings-store.ts:58:    const next = SettingsSchema.parse({ ...this.load(), nativeExtensionChoices: choices })",
+          "classification": "EP-11/S6"
+        },
+        {
+          "line": "app/src/main/infra/settings-migration.ts:3:export const SETTINGS_VERSION = 2",
+          "classification": "EP-11/S5"
+        },
+        {
+          "line": "app/src/main/infra/settings-migration.ts:52:  if (version < 2) delete renamed.nativeExtensionChoices",
+          "classification": "EP-11/S5"
+        },
+        {
+          "line": "docs/arch/backend/adapters.md:67:nav의 확장 카탈로그는 하네스 전역 파일만 읽으며 서버나 directory를 만들지 않는다. Claude plugin과 OpenCode MCP는 가변 토글·일반 폰트이며, OpenCode plugin과 Claude MCP는 실제 상태의 고정 토글·회색 폰트다. 기본 경로 스킬은 항상 활성으로 취급하며 토글을 제공하지 않는다. 미지정 항목은 native 기본값을 따르고 명시 선택만 `Settings.nativeExtensionChoices`에 저장한다. app의 control은 시작 시 이를 복원하고 변경 시 main 전용 setter를 거쳐 저장한다. renderer의 일반 settings patch는 선택을 바꿀 수 없다. 설정 버전 업그레이드 시 예전 선택을 한 번 비우고 이후 저장값은 재시작에도 유지한다.",
+          "classification": "EP-11/S8"
+        },
+        {
+          "line": "app/src/shared/protocol.ts:797:  nativeExtensionChoices: NativeExtensionChoicesSchema.optional(),",
+          "classification": "EP-11/S3"
+        },
+        {
+          "line": "app/src/shared/nativeExtensionChoices.testfixture.ts:5:  nativeExtensionChoices: { claude: { 'plugin:protected': false } }",
+          "classification": "exclude:type-fixture"
+        },
+        {
+          "line": "app/src/shared/ipc.ts:1141:  nativeExtensionChoices?: Partial<Record<Backend, Record<string, boolean>>>",
+          "classification": "EP-11/S4"
+        },
+        {
+          "line": "app/src/shared/ipc.ts:1164:  'scheduler' | 'nativeExtensionChoices' | 'projectMcpChoices'",
+          "classification": "EP-11/S4"
+        },
+        {
+          "line": "app/src/main/app/extension-control.ts:8:type NativeExtensionChoices = NonNullable<Settings['nativeExtensionChoices']>",
+          "classification": "EP-11/S1"
+        },
+        {
+          "line": "app/src/main/app/bootstrap.ts:174:    get: () => this.settings.getAll().nativeExtensionChoices,",
+          "classification": "EP-11/S2"
+        }
+      ]
+    }
+  ],
+  "supplement": [
+    {
+      "id": "EP-02/C3",
+      "file": "app/src/main/adapters/claude/adapter.ts",
+      "needle": "return this.openChannel(",
+      "lines": [
+        481
+      ]
+    },
+    {
+      "id": "EP-02/C15",
+      "file": "app/src/main/adapters/common/extension-control.ts",
+      "needle": "export function extensionChoices(",
+      "lines": [
+        13
+      ]
+    },
+    {
+      "id": "EP-03a/R2",
+      "file": "app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx",
+      "needle": "if (rows.length === 0 && !nativeRows.length)",
+      "lines": [
+        69
+      ]
+    },
+    {
+      "id": "EP-03b/K2",
+      "file": "app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx",
+      "needle": "<span className=\"truncate\" title={skill.name}>",
+      "lines": [
+        145
+      ]
+    },
+    {
+      "id": "EP-03b/K4",
+      "file": "app/src/renderer/src/features/skills/components/customize/SkillDetail.tsx",
+      "needle": "text-heading text-ink\">{skill.name}",
+      "lines": [
+        87
+      ]
+    },
+    {
+      "id": "EP-07′/W3",
+      "file": "app/src/main/app/bootstrap.ts",
+      "needle": "broadcastOpenCodePluginsChanged({ revision })",
+      "lines": [
+        1224
+      ]
+    },
+    {
+      "id": "EP-07′/W14",
+      "file": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerAgentStore.ts",
+      "needle": "const store = createStore<ComposerAgentState>",
+      "lines": [
+        19
+      ]
+    },
+    {
+      "id": "EP-07′/W16",
+      "file": "app/src/main/infra/ipc/send.ts",
+      "needle": "broadcast(CHANNELS.extensionOpenCodePluginsChanged, event)",
+      "lines": [
+        25
+      ]
+    },
+    {
+      "id": "EP-07′/W17",
+      "file": "app/src/shared/ipc.ts",
+      "needle": "extensionOpenCodePluginsChanged: 'orca:extensions:opencode-plugins-changed'",
+      "lines": [
+        96
+      ]
+    },
+    {
+      "id": "EP-07′/W18",
+      "file": "app/src/shared/native-resources.ts",
+      "needle": "export interface OpenCodePluginsChanged",
+      "lines": [
+        67
+      ]
+    },
+    {
+      "id": "EP-07′/W19",
+      "file": "app/src/preload/index.ts",
+      "needle": "subscribe(CHANNELS.extensionOpenCodePluginsChanged, handler)",
+      "lines": [
+        277
+      ]
+    },
+    {
+      "id": "EP-07′/W20",
+      "file": "app/src/renderer/src/shared/api/ipc.ts",
+      "needle": "globalThis.window?.orca?.session?.onOpenCodePluginsChanged?.(handler)",
+      "lines": [
+        238
+      ]
+    },
+    {
+      "id": "EP-07′/W21",
+      "file": "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerAgentStore.ts",
+      "needle": "subscribe(({ revision }) => store.getState().invalidate(revision))",
+      "lines": [
+        31
+      ]
+    },
+    {
+      "id": "EP-09/X1",
+      "file": "app/src/main/app/opencode-global-watch.ts",
+      "needle": "watchFile(file, { interval: 1000, persistent: false }, this.callback)",
+      "lines": [
+        28
+      ]
+    },
+    {
+      "id": "EP-09/X2",
+      "file": "app/src/main/app/opencode-global-watch.ts",
+      "needle": "if (this.closed || next === this.fingerprint)",
+      "lines": [
+        44
+      ]
+    },
+    {
+      "id": "EP-09/X3",
+      "file": "app/src/main/app/bootstrap.ts",
+      "needle": "this.openCodeGlobalWatch?.close()",
+      "lines": [
+        890
+      ]
+    },
+    {
+      "id": "EP-09/X6",
+      "file": "app/src/main/app/bootstrap.ts",
+      "needle": "this.openCodeGlobalWatch = new OpenCodeGlobalWatch({",
+      "lines": [
+        1219
+      ]
+    },
+    {
+      "id": "EP-09/X7",
+      "file": "app/src/main/adapters/opencode/v1/global-plugins.ts",
+      "needle": "export async function openCodeGlobalPluginFingerprint",
+      "lines": [
+        30
+      ]
+    }
+  ],
+  "negativeGate": [
+    "EP-07′/W6",
+    "EP-07′/W7",
+    "EP-07′/W8",
+    "EP-07′/W11",
+    "EP-10/R1",
+    "EP-10/R2",
+    "EP-10/R3",
+    "EP-10/R4",
+    "EP-10/R5",
+    "EP-10/R6",
+    "EP-10/R7",
+    "EP-10/R8",
+    "EP-10/R9",
+    "EP-10/R10",
+    "EP-10/R11",
+    "EP-10/R12",
+    "EP-10/R13",
+    "EP-10/R14",
+    "EP-10/R15",
+    "EP-10/R16",
+    "EP-10/R17",
+    "EP-10/R18",
+    "EP-10/R19",
+    "EP-10/R20",
+    "EP-10/R21",
+    "EP-10/R22",
+    "EP-10/R23",
+    "EP-10/R24",
+    "EP-10/R25",
+    "EP-10/R26",
+    "EP-10/R27",
+    "EP-10/R28",
+    "EP-10/R29"
+  ]
+}

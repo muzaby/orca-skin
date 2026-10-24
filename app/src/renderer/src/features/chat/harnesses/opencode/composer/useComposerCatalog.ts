@@ -1,8 +1,9 @@
 import { useMemo, useSyncExternalStore } from 'react'
+import { useStore } from 'zustand'
 import { useChatSession } from '../../../store/chatStore'
 import { composerCatalogState, type ComposerCatalogSnapshot } from './composerCatalogState'
 import type { ComposerCatalogPart } from '../../../../../../../shared/composer-catalog'
-import { composerAgentCache } from './composerAgentCache'
+import { composerAgentStore } from './composerAgentStore'
 
 const pending: ComposerCatalogSnapshot = {
   agents: { status: 'loading' },
@@ -21,7 +22,7 @@ export function useComposerCatalog(
   const cwd = useChatSession((state) => state.cwd)
   const projectId = useChatSession((state) => state.projectId ?? state.pendingProjectId)
   const agentKind = useChatSession((state) => state.agentKind)
-  const agents = useSyncExternalStore(composerAgentCache.subscribe, composerAgentCache.get)
+  const agents = useStore(composerAgentStore, (state) => state.agents)
   const unscoped = useMemo<ComposerCatalogSnapshot>(
     () => ({
       ...pending,

@@ -5,7 +5,7 @@ import type {
 } from '../../../../../../../shared/composer-catalog'
 import type { NativeComposerCatalog } from '../../../../../../../shared/native-resources'
 import { sessionApi } from '../../../../../shared/api/ipc'
-import { composerAgentCache } from './composerAgentCache'
+import { composerAgentStore } from './composerAgentStore'
 
 export interface CatalogSlot<T> {
   status: 'loading' | 'ready' | 'error'
@@ -35,13 +35,13 @@ export class ComposerCatalogState {
   constructor(
     readonly scope: ComposerCatalogScope,
     private readonly remove: () => void = () => undefined,
-    private readonly agents = composerAgentCache
+    private readonly agents = composerAgentStore
   ) {
     this.snapshot.agents = this.agentSlot()
   }
 
   private agentSlot(): ComposerCatalogSnapshot['agents'] {
-    const value = this.agents.get()
+    const value = this.agents.getState().agents
     return value === undefined ? { status: 'loading' } : { status: 'ready', value }
   }
 
@@ -51,9 +51,9 @@ export class ComposerCatalogState {
     this.listeners.add(listener)
     if (!this.detach) {
       this.snapshot = { ...this.snapshot, agents: this.agentSlot() }
-      this.detachAgents = this.agents.subscribe(() => {
+      this.detachAgents = this.agents.subscribe((current, previous) => {
         this.snapshot = { ...this.snapshot, agents: this.agentSlot() }
-        if (this.agents.get() === undefined) {
+        if (current.revision !== previous.revision) {
           this.epoch++
           this.flights = {}
           if (this.generation) this.retired.add(this.generation)
@@ -65,10 +65,6 @@ export class ComposerCatalogState {
       })
       this.detach = sessionApi.onComposerCatalogInvalidated((event) => {
         if (event.owner !== this.owner) return
-        if (event.revalidate !== undefined) {
-          this.agents.reset(event.revalidate)
-          return
-        }
         if (this.retired.has(event.generation)) return
         this.retired.add(event.generation)
         this.epoch++
@@ -94,7 +90,7 @@ export class ComposerCatalogState {
 
   private invalidate(): void {
     this.snapshot = {
-      agents: this.agents.get() === undefined ? { status: 'error' } : this.agentSlot(),
+      agents: this.agents.getState().agents === undefined ? { status: 'error' } : this.agentSlot(),
       models: { status: 'error' },
       ...(this.snapshot.mcp ? { mcp: { status: 'error' as const } } : {}),
       ...(this.snapshot.plugins ? { plugins: { status: 'error' as const } } : {})
@@ -106,7 +102,7 @@ export class ComposerCatalogState {
   }
 
   private read(part: ComposerCatalogPart, refresh = false): Promise<void> {
-    if (part === 'agents' && this.agents.get() !== undefined) {
+    if (part === 'agents' && this.agents.getState().agents !== undefined) {
       this.snapshot = { ...this.snapshot, agents: this.agentSlot() }
       return Promise.resolve()
     }
@@ -114,7 +110,7 @@ export class ComposerCatalogState {
     if (this.disposed || (!refresh && this.snapshot[part]?.status === 'ready'))
       return Promise.resolve()
     const epoch = this.epoch
-    const revision = this.agents.getRevision()
+    const revision = this.agents.getState().revision
     this.snapshot = { ...this.snapshot, [part]: { ...this.snapshot[part], status: 'loading' } }
     this.publish()
     const flight = sessionApi
@@ -127,7 +123,7 @@ export class ComposerCatalogState {
           this.snapshot = {
             ...this.snapshot,
             [part]:
-              part === 'agents' && this.agents.get() !== undefined
+              part === 'agents' && this.agents.getState().agents !== undefined
                 ? this.agentSlot()
                 : { ...this.snapshot[part], status: 'error' }
           }
@@ -140,7 +136,7 @@ export class ComposerCatalogState {
           this.invalidate()
         }
         this.generation = result.generation
-        if (result.part === 'agents') this.agents.accept(result.value, revision)
+        if (result.part === 'agents') this.agents.getState().accept(result.value, revision)
         this.snapshot = {
           ...this.snapshot,
           [part]: part === 'agents' ? this.agentSlot() : { status: 'ready', value: result.value }
@@ -152,7 +148,7 @@ export class ComposerCatalogState {
         this.snapshot = {
           ...this.snapshot,
           [part]:
-            part === 'agents' && this.agents.get() !== undefined
+            part === 'agents' && this.agents.getState().agents !== undefined
               ? this.agentSlot()
               : { ...this.snapshot[part], status: 'error' }
         }

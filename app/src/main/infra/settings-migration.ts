@@ -1,6 +1,6 @@
 import { SettingsSchema, type Settings } from '../../shared/protocol'
 
-export const SETTINGS_VERSION = 1
+export const SETTINGS_VERSION = 2
 export const SETTINGS_VERSION_KEY = 'settingsVersion'
 export const LAST_APP_VERSION_KEY = 'lastAppVersion'
 
@@ -47,7 +47,9 @@ function applyRenames(raw: Raw): Raw {
 }
 
 export function migrateRawSettings(raw: Raw, currentAppVersion: string): SettingsMigrationResult {
-  const renamed = applyRenames(raw)
+  const renamed = applyRenames({ ...raw })
+  const version = typeof raw[SETTINGS_VERSION_KEY] === 'number' ? raw[SETTINGS_VERSION_KEY] : 0
+  if (version < 2) delete renamed.nativeExtensionChoices
   const parsed = SettingsSchema.safeParse(renamed)
   const settings = parsed.success ? parsed.data : recoverKnownSettings(renamed)
   const migrated: Raw = {

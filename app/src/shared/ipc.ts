@@ -93,6 +93,7 @@ export const CHANNELS = {
   sessionSetPinned: 'orca:session:setPinned',
   sessionNativeResources: 'orca:session:native-resources',
   extensionCatalog: 'orca:extensions:catalog',
+  extensionOpenCodePluginsChanged: 'orca:extensions:opencode-plugins-changed',
   extensionSetEnabled: 'orca:extensions:setEnabled',
   extensionOpen: 'orca:extensions:open',
   composerCatalog: 'orca:composer:catalog',
@@ -1136,8 +1137,7 @@ export interface Settings {
   mcpMeta: Record<string, { description: string }>
   // Skill enabled on/off (키 = sourceId/name). 부재 ⇒ enabled=true.
   skillEnabled: Record<string, boolean>
-  /** Legacy storage compatibility only; not used for runtime or accepted by SettingsPatch. */
-  openCodeDisabledPlugins: import('./native-resources').OpenCodeDisabledPlugin[]
+  /** Main-owned global SDK choices, persisted across restarts; excluded from SettingsPatch. */
   nativeExtensionChoices?: Partial<Record<Backend, Record<string, boolean>>>
   projectMcpChoices?: Record<string, Record<string, boolean>>
   // 인증 게이트 우회(0157 — 구 ssoBypass). true 면 앱 시작 시 로그인 화면을 건너뛴다
@@ -1161,7 +1161,7 @@ export interface Settings {
 
 export type SettingsPatch = Omit<
   Partial<Settings>,
-  'scheduler' | 'nativeExtensionChoices' | 'projectMcpChoices' | 'openCodeDisabledPlugins'
+  'scheduler' | 'nativeExtensionChoices' | 'projectMcpChoices'
 > & {
   scheduler?: {
     usageRecompute?: Partial<SchedulerUsageRecomputeSettings>
