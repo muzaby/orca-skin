@@ -131,3 +131,56 @@ it('does not reactivate legacy choice bytes or accept writes through settings.pa
   expect(backend.store.nativeExtensionChoices).toBeUndefined()
   expect(backend.store.projectMcpChoices).toEqual(legacy.projectMcpChoices)
 })
+
+it('saves and closes in the same synchronous section as the busy check', async () => {
+  const order: string[] = []
+  const control = extensionControl()
+  const save = control.setGlobal.bind(control)
+  vi.spyOn(control, 'setGlobal').mockImplementation((...args) => {
+    order.push('save')
+    save(...args)
+  })
+  const targets = [{ sessionId: 'claude-idle', busy: false }]
+  const processes = {
+    plan: vi.fn(() => {
+      order.push('plan')
+      queueMicrotask(() => order.push('intruder'))
+      return { targets, busy: 0 }
+    }),
+    close: vi.fn(() => {
+      order.push('close')
+    })
+  }
+  registerExtensionCatalogHandlers(control, processes)
+  await expect(
+    invoke(CHANNELS.extensionSetEnabled, {
+      backend: 'claude',
+      id: 'plugin-id',
+      kind: 'plugin',
+      enabled: false
+    })
+  ).resolves.toMatchObject({ status: 'applied' })
+  expect(order).toEqual(['plan', 'save', 'close', 'intruder'])
+  expect(processes.close).toHaveBeenCalledExactlyOnceWith(targets)
+  expect(control.global('claude')).toEqual({ 'plugin:superpowers@market': false })
+})
+
+it('rejects confirmed: false before planning or saving', async () => {
+  const control = extensionControl()
+  const save = vi.spyOn(control, 'setGlobal')
+  const processes = { plan: vi.fn(() => ({ targets: [], busy: 1 })), close: vi.fn() }
+  registerExtensionCatalogHandlers(control, processes)
+  const request = { backend: 'claude', id: 'plugin-id', kind: 'plugin', enabled: false }
+  await expect(
+    invoke(CHANNELS.extensionSetEnabled, { ...request, confirmed: false })
+  ).rejects.toThrow()
+  expect(processes.plan).not.toHaveBeenCalled()
+  expect(save).not.toHaveBeenCalled()
+  expect(processes.close).not.toHaveBeenCalled()
+  expect(control.global('claude')).toEqual({})
+  await expect(
+    invoke(CHANNELS.extensionSetEnabled, { ...request, confirmed: true })
+  ).resolves.toMatchObject({ status: 'applied' })
+  expect(processes.plan).toHaveBeenCalledTimes(1)
+  expect(save).toHaveBeenCalledExactlyOnceWith('claude', 'plugin:superpowers@market', false)
+})

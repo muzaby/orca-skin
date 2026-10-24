@@ -573,6 +573,7 @@ export const en: typeof ko = {
       unexpected: 'An unexpected error occurred',
       loadFailed: 'Could not load information',
       saveFailed: 'Could not save changes',
+      claudeSessionsCloseFailed: 'Could not close some Claude sessions',
       actionFailed: 'Could not complete the action',
       copyFailed: 'Could not copy to the clipboard',
       openFailed: 'Could not open the file',

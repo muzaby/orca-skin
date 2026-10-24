@@ -1250,7 +1250,7 @@ export class Bootstrap {
           reportError({
             event: 'extensions.claude-processes.close-failed',
             scope: 'native-resources',
-            title: 'saveFailed',
+            title: 'claudeSessionsCloseFailed',
             error
           })
       })
