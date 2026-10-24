@@ -1,8 +1,11 @@
-import { createElement } from 'react'
+import { createElement, Fragment } from 'react'
+import type { StateCreator } from 'zustand/vanilla'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { installFakeDom, type FakeDom } from '../../../../shared/ui/renderHarness.testfixture'
 import { ExtensionsCatalogView } from './ExtensionsCatalogView'
 import { useConfirmStore } from '../../../../shared/ui/confirmDialogStore'
+import { ConfirmDialogHost } from '../../../../shared/ui/ConfirmDialogHost'
+import { i18n } from '../../../../shared/i18n'
 import type { NativeResource, NativeResources } from '../../../../../../shared/native-resources'
 
 vi.mock('react', async (original) => ({
@@ -14,6 +17,21 @@ vi.mock(
   'react-dom',
   async () => (await import('../../../../shared/ui/renderHarness.testfixture')).fakeReactDom
 )
+// Keep the real store actions/subscriptions; adapt only the React binding to the harness.
+vi.mock('zustand', async (original) => {
+  const actual = await original<typeof import('zustand')>()
+  const { fakeHooks } = await import('../../../../shared/ui/renderHarness.testfixture')
+  const create = (initializer?: StateCreator<unknown>): unknown => {
+    if (!initializer) return create
+    const store = actual.createStore(initializer)
+    return Object.assign(
+      (selector: (state: unknown) => unknown = (state) => state) =>
+        fakeHooks.useSyncExternalStore(store.subscribe, () => selector(store.getState())),
+      store
+    )
+  }
+  return { ...actual, create }
+})
 vi.mock('../../../../shared/i18n', async (original) => {
   const source = await original<typeof import('../../../../shared/i18n')>()
   return { ...source, useI18n: () => ({ tr: source.i18n.t.bind(source.i18n), locale: 'ko' }) }
@@ -92,11 +110,12 @@ beforeEach(() => {
   })
   api.write.mockReset()
 })
-afterEach(() => {
+afterEach(async () => {
   dom.unmount()
   useConfirmStore.getState().close()
   vi.useRealTimers()
   vi.clearAllMocks()
+  await i18n.changeLanguage('ko')
 })
 const flush = async (): Promise<void> => {
   for (let i = 0; i < 30; i++) await Promise.resolve()
@@ -107,6 +126,114 @@ const tab = (index: number): void => {
 }
 const rows = (): unknown[] =>
   dom.queryAll('[data-extensions-row]').map((row) => row.props['data-extensions-row'])
+
+const renderWithDialog = (): void => {
+  dom.render(
+    createElement(
+      Fragment,
+      null,
+      createElement(ExtensionsCatalogView),
+      createElement(ConfirmDialogHost)
+    )
+  )
+}
+const dialogButton = (label: string): void => {
+  const button = dom.queryAll('[type="button"]').find((node) => node.textContent === label)
+  expect(button).toBeDefined()
+  dom.click(button!)
+}
+const dialogTitle = (): string | undefined =>
+  dom
+    .query('[role="dialog"]')
+    ?.querySelectorAll('[class]')
+    .find((node) => node.tag === 'span' && String(node.props.className).includes('font-serif'))
+    ?.textContent
+const dialogBody = (): string | undefined =>
+  dom
+    .query('[role="dialog"]')
+    ?.querySelectorAll('[class]')
+    .find((node) => node.tag === 'p')?.textContent
+
+it('confirms a busy Claude plugin change through the shared dialog', async () => {
+  api.write.mockImplementation(async (request) =>
+    request.confirmed
+      ? {
+          status: 'applied',
+          resources: { state: 'disconnected', items: [{ ...resource('claude'), enabled: false }] }
+        }
+      : { status: 'confirm', reason: 'claude-processes', sessions: 2 }
+  )
+  renderWithDialog()
+  await flush()
+  dom.click(dom.queryAll('[role="switch"]')[0])
+  await flush()
+  expect(api.write).toHaveBeenCalledExactlyOnceWith({
+    backend: 'claude',
+    kind: 'plugin',
+    id: 'claude',
+    enabled: false
+  })
+  expect(dialogTitle()).toBe('Claude 세션 종료')
+  expect(dialogBody()).toContain('Claude 세션이 2개 있습니다.')
+  expect(dom.queryAll('[type="button"]').map((node) => node.textContent)).toEqual(
+    expect.arrayContaining(['변경', '취소'])
+  )
+  expect(useConfirmStore.getState().request?.danger).toBeUndefined()
+  dialogButton('취소')
+  await flush()
+  expect(dom.query('[role="dialog"]')).toBeNull()
+  expect(api.write).toHaveBeenCalledTimes(1)
+  expect(dom.queryAll('[role="switch"]')[0].props['aria-checked']).toBe(true)
+
+  dom.click(dom.queryAll('[role="switch"]')[0])
+  await flush()
+  dom.click(dom.query('[data-context="overlay"]')!)
+  await flush()
+  expect(dom.query('[role="dialog"]')).toBeNull()
+  expect(api.write).toHaveBeenCalledTimes(2)
+  expect(dom.queryAll('[role="switch"]')[0].props['aria-checked']).toBe(true)
+
+  dom.click(dom.queryAll('[role="switch"]')[0])
+  await flush()
+  dialogButton('변경')
+  await flush()
+  expect(api.write).toHaveBeenCalledTimes(4)
+  expect(api.write).toHaveBeenLastCalledWith({
+    backend: 'claude',
+    kind: 'plugin',
+    id: 'claude',
+    enabled: false,
+    confirmed: true
+  })
+  expect(dom.query('[role="dialog"]')).toBeNull()
+  expect(dom.queryAll('[role="switch"]')[0].props['aria-checked']).toBe(false)
+})
+
+it('renders the Claude close dialog in English with singular and plural counts', async () => {
+  await i18n.changeLanguage('en')
+  api.write
+    .mockResolvedValueOnce({ status: 'confirm', reason: 'claude-processes', sessions: 1 })
+    .mockResolvedValueOnce({ status: 'confirm', reason: 'claude-processes', sessions: 2 })
+  renderWithDialog()
+  await flush()
+  for (const [count, prefix] of [
+    [1, '1 Claude session is'],
+    [2, '2 Claude sessions are']
+  ] as const) {
+    dom.click(dom.queryAll('[role="switch"]')[0])
+    await flush()
+    expect(dialogTitle()).toBe('Close Claude sessions')
+    expect(dialogBody()?.startsWith(prefix)).toBe(true)
+    expect(dom.queryAll('[type="button"]').map((node) => node.textContent)).toEqual(
+      expect.arrayContaining(['Change', 'Cancel'])
+    )
+    expect(useConfirmStore.getState().request?.danger).toBeUndefined()
+    dialogButton('Cancel')
+    await flush()
+    expect(api.write).toHaveBeenCalledTimes(count)
+    expect(dom.queryAll('[role="switch"]')[0].props['aria-checked']).toBe(true)
+  }
+})
 
 it('moves native plugins to the plugin tab after provider groups', async () => {
   dom.render(createElement(ExtensionsCatalogView))
