@@ -537,3 +537,14 @@ renderer toggle → preload invoke → handler → plan/close → supervisor·�
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
+| G1 | EP-01 문서 자리 P11~P13에 oracle이 없다. VP-01 §10 열이 P13을 담아 VP-01이 닫히지 않는다 | §10 EP-01 · VP-01 | 문서 oracle 등록(drift-check DA 행·`gate:` 검색 등) 또는 pair 분모에서 분리 | PLAN_GAP | open — verify r1 |
+| G2 | VP-05·AC3 path의 `ConfirmDialogHost.tsx:16·28`(onConfirm·취소 배선)이 EP-01 목록 밖이다. 고장 X29·X30 못 잡음 | §10 EP-01 · VP-05 · AC3 | 자리·oracle 추가. 구현은 X29·X30을 잡는 좌표 | PLAN_GAP | open — verify r1 |
+| D1 | D-007 동기 구간 미잠금 — `extension-catalog.ts:56` `plan()` 뒤 `await` 삽입(X25)이 전체 스위트 green | D-007 · VP-02 · P7 | 판정~종료 사이에 끼어든 작업을 관측하는 좌표 | BLOCKING | open — verify r1 |
+| D2 | `confirmed` `false` 거절 미잠금 — `protocol.ts:767` `z.boolean()`(X18) green | §10 주석 · VP-02 · P1 | 스키마 거절 좌표 | BLOCKING | open — verify r1 |
+| D3 | 대화상자 본문 리소스 미잠금 — `{{count}}` 제거(X20)·en `_one`↔`_other` 맞바꿈(X19) green | AC2 · VP-05 · P16 | 실제 리소스로 count 보간·복수형 관측 | BLOCKING | open — verify r1 |
+| D4 | 종료 일부 실패 보고 배선 미잠금 — `bootstrap.ts:1249` `failed: () => {}`(X1) green | plan §13 · VP-04 · P8 | bootstrap에서 close 실패 → reportError 관측 | BLOCKING | open — verify r1 |
+| D5 | Composer [세션 전체 중단]의 요청 창 `message.cancelled` 미잠금 — `chat-turn/index.ts:177` emit 제거(X27) green. AS-IS에도 같은 공백 | VP-R5 · P10 | handler 경유 residual 복원 emit 관측 | BLOCKING | open — verify r1 |
+| N1 | 일부 종료 실패 토스트 제목 `saveFailed` — 저장은 성공 | Product/UX 파생 | 사람 결정 | NON_BLOCKING | open |
+| N2 | 확정 버튼 비`danger`. store 주석은 파괴적 액션에 `danger: true` | D-003 | 사람 결정 | NON_BLOCKING | open |
+| N3 | `confirm` 응답이 `mounted`·version을 보지 않는다(`useNativeMcpCatalog.ts:92`) | 비귀속 | 기록 | NON_BLOCKING | open |
+| N4 | DB 행 없는 유휴 runtime은 닫지 않는다(구현자 보고) | 비귀속 | 기록 | NON_BLOCKING | open |
