@@ -52,15 +52,17 @@ vi.mock(
 vi.mock('zustand', async () => {
   const { createStore } = await import('zustand/vanilla')
   const { useSyncExternalStore } = await import('react')
+  const useStore = <T, U>(store: import('zustand').StoreApi<T>, select: (state: T) => U): U =>
+    useSyncExternalStore(store.subscribe, () => select(store.getState()))
   const createImpl = <T>(
     initialize: import('zustand').StateCreator<T>
   ): (<U>(select: (state: T) => U) => U) & import('zustand').StoreApi<T> => {
     const api = createStore(initialize)
-    const useBoundStore = <U>(select: (state: T) => U): U =>
-      useSyncExternalStore(api.subscribe, () => select(api.getState()))
+    const useBoundStore = <U>(select: (state: T) => U): U => useStore(api, select)
     return Object.assign(useBoundStore, api)
   }
   return {
+    useStore,
     create: <T>(initialize?: import('zustand').StateCreator<T>) =>
       initialize ? createImpl(initialize) : createImpl<T>
   }

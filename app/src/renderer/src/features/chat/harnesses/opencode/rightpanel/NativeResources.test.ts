@@ -13,6 +13,15 @@ vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
   ...(await import('../../../../../shared/ui/renderHarness.testfixture')).fakeHooks
 }))
+vi.mock('zustand', async (original) => {
+  const actual = await original<typeof import('zustand')>()
+  const { fakeHooks } = await import('../../../../../shared/ui/renderHarness.testfixture')
+  return {
+    ...actual,
+    useStore: <T, U>(store: import('zustand').StoreApi<T>, select: (state: T) => U): U =>
+      fakeHooks.useSyncExternalStore(store.subscribe, () => select(store.getState())) as U
+  }
+})
 vi.mock('../../../../../shared/i18n', async (original) => {
   const value = await original<typeof import('../../../../../shared/i18n')>()
   return { ...value, useI18n: () => ({ tr: value.i18n.t.bind(value.i18n), locale: 'ko' }) }
