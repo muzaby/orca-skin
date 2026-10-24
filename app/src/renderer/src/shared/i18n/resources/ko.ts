@@ -577,6 +577,7 @@ export const ko = {
       unexpected: '예기치 않은 오류가 발생했습니다',
       loadFailed: '정보를 불러오지 못했습니다',
       saveFailed: '변경 사항을 저장하지 못했습니다',
+      claudeSessionsCloseFailed: '일부 Claude 세션을 닫지 못했습니다',
       actionFailed: '요청한 작업을 완료하지 못했습니다',
       copyFailed: '클립보드에 복사하지 못했습니다',
       openFailed: '파일을 열지 못했습니다',

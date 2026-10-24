@@ -3,6 +3,7 @@ export const APP_ERROR_TITLES = [
   'unexpected',
   'loadFailed',
   'saveFailed',
+  'claudeSessionsCloseFailed',
   'actionFailed',
   'copyFailed',
   'openFailed',

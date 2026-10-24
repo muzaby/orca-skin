@@ -1,4 +1,5 @@
 import { extensionControl } from './extension-control'
+import { errorReportHub } from '../infra/error-report'
 // 0265 — 실제 Bootstrap.register가 session handler에 넘긴 콜백을 실행한다.
 // 다른 IPC 등록 직전에 멈추며, runtime과 activity는 프로덕션 인스턴스를 유지한다.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -1118,6 +1119,35 @@ describe('Claude plugin toggle closes running Claude processes', () => {
       ).rejects.toThrow('disk locked')
       expect([quiet.closed, live.runtime.closed]).toEqual([0, 0])
       expect(live.turn.controller.signal.aborted).toBe(false)
+    } finally {
+      activity.dispose()
+    }
+  })
+
+  it('keeps closing Claude processes after one close fails and reports it once with the dedicated title', async () => {
+    const { idle, activity } = setup()
+    const a = idle('claude-A'),
+      b = idle('claude-B')
+    const failure = new Error('Claude process close failed')
+    const close = vi.spyOn(a, 'close').mockImplementation(() => {
+      throw failure
+    })
+    const publish = vi.spyOn(errorReportHub, 'publish').mockImplementation(() => {})
+    try {
+      await expect(handler(CHANNELS.extensionSetEnabled)(event, request)).resolves.toMatchObject({
+        status: 'applied',
+        resources: { items: [expect.objectContaining({ id: 'superpowers', enabled: false })] }
+      })
+      expect(close).toHaveBeenCalledTimes(1)
+      expect(b.closed).toBe(1)
+      expect(publish).toHaveBeenCalledTimes(1)
+      expect(publish.mock.calls[0][0]).toMatchObject({
+        title: 'claudeSessionsCloseFailed',
+        detail: failure.message
+      })
+      expect(fixture.rawSettings.nativeExtensionChoices).toEqual({
+        claude: { 'plugin:superpowers@market': false }
+      })
     } finally {
       activity.dispose()
     }
