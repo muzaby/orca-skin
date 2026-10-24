@@ -49,7 +49,7 @@
 | D-005 | 플러그인 탭 순서: 앱 로그인 → 모델 → 사내 서비스 → Claude 플러그인 → OpenCode 플러그인 | 사용자 선택 | Q3 | ACTIVE | — |
 | D-006 | Composer `+`→스킬의 네이티브 플러그인 스킬은 대상 실행이 실제로 싣는 상태와 같다. 초안·미실행 세션 = 다음 spawn의 유효 상태, 실행 중 세션 = 그 Query의 실제 목록 | 요구 3 + D-008 | 요구 3 · Q1 | ACTIVE | — |
 | D-007 | 하네스 기본 경로 스킬(`~/.claude/skills`·OpenCode 전역 skills·`~/.agents/skills`)은 on/off 기능·토글 GUI 없음. 항상 활성으로 보고 실행한다. Orca 스킬은 토글 유지 | "하네스에 노출되는 순간 동작이 가능한 것으로 간주" | 요구 4 | ACTIVE | 0278 D11의 회색 글씨·고정 토글을 이 스킬들에 한해 대체 |
-| D-008 | nav의 Claude 플러그인 전역 on/off는 같은 경로에 실행 중 세션이 있어도 새로 시작하는 Query부터 즉시 적용. 실행 중 Query는 종료·축출·재시작 전까지 유지 | 사용자 선택 | Q1 | ACTIVE | 0278 D28을 Claude 플러그인 기본값에 한해 대체. D15 유지 |
+| D-008 | nav의 Claude 플러그인 전역 on/off는 같은 경로에 실행 중 세션이 있어도 새로 시작하는 Query부터 즉시 적용. 실행 중 Query는 종료·축출·재시작 전까지 유지 | 사용자 선택 | Q1 | SUPERSEDED → 0283 D-001 | 0278 D28을 Claude 플러그인 기본값에 한해 대체. D15 유지 · 2026-10-24 사용자: 토글 시 실행 중 Claude 프로세스 종료 |
 | D-009 | 전역 선택의 저장 방식은 현행 유지 — SDK 런타임 적용만, 하네스 파일 미편집, 앱 재시작 시 네이티브 기본값 복귀 | 사용자가 저장 위치를 고르지 않음. 재시작 후에는 nav 표시와 실행이 함께 기본값이라 불일치 없음 | 0278 D26 · Q2 응답 | SUPERSEDED → D-033 | D-018 |
 | U-001 | 전역 선택을 재시작 후에도 유지할지, 유지한다면 어디에 둘지 | 사용자 Q2 답변이 질의로 끝남 | Q2 | SUPERSEDED → D-033 | — |
 | D-010 | MCP 저장 시 상위 폴더가 없으면 만든다(`mkdir -p`) | 요구 6 원문 | 요구 6 | ACTIVE | — |
@@ -80,7 +80,7 @@
 | U-007 | 실행 중 세션이 있을 때의 확인 대화상자(D-015)를 유지할지 | Claude 전역 토글은 확인 없이 새 Query부터 적용. 사본 구조에서도 실행 중 세션은 중단되지 않는다 | ΔV4 | SUPERSEDED → D-030 (해당 없음) | D-015 |
 | D-030 | OpenCode 네이티브 플러그인 on/off 제어를 제공하지 않는다. nav 행은 실제 상태의 고정 토글·회색 글씨(0278 D11·D24 현행)이고, Orca는 OpenCode 설정 파일을 쓰지 않으며 플러그인 기록도 두지 않는다 | "그럼 한계점으로 인해 플러그인 제어 기능을 사용하지 않도록 하는게 혼란을 막기에 좋을 거 같다. Xdg사용 시 다른 앱들에 영향을 주게된다. 해당 기능을 지원하는 앱들의 경우의수가 너무 많다" · ΔV1 규칙 "Sdk 컨트롤 안되면 설정파일편집 그것도 안되면 현행 유지"의 마지막 단계 | ΔV5 사용자 | ACTIVE | D-012·D-015·D-021·D-025~D-029·U-003~U-007 대체. 외부 변경 반영(D-016·D-019·D-020)과 에이전트 캐시(D-017·D-022)는 유지 |
 | D-031 | 편집 기능 제거에 따라 `jsonc-parser` 의존성을 없애고 `9982cdf`의 기존 JSONC 파서(`configured-resources.ts` `parseConfig`)로 되돌린다 | D-013의 승인 조건이 플러그인 배열 편집이었다 | 추론 — D-030 파생 | ACTIVE | — |
-| D-032 | `orca:extensions:setEnabled`는 기존 형상(`{backend, kind, id, enabled}` → `NativeResources`)으로 되돌린다. `confirmed`·`SetGlobalNativeResourceResult`를 없앤다 | 확인 응답은 OpenCode 플러그인 토글에만 쓰였다 | 추론 — D-030 파생 | ACTIVE | — |
+| D-032 | `orca:extensions:setEnabled`는 기존 형상(`{backend, kind, id, enabled}` → `NativeResources`)으로 되돌린다. `confirmed`·`SetGlobalNativeResourceResult`를 없앤다 | 확인 응답은 OpenCode 플러그인 토글에만 쓰였다 | 추론 — D-030 파생 | SUPERSEDED(Claude 플러그인 한정) → 0283 D-007 | — · OpenCode MCP 요청은 원형 유지 |
 | D-033 | Claude 플러그인·OpenCode MCP의 전역 on/off 선택은 재시작 뒤에도 유지한다. main 전용 설정 `nativeExtensionChoices`에 저장하고 renderer patch로는 바꿀 수 없다 | "전역 off 는 삭제가 아니기 때문에 사라질 이유가 없다" | ΔV6 사용자 | ACTIVE | D-009·U-001 대체. 0278 D26의 "전역 선택 영속 미승인"을 이 사용자 승인으로 해소 |
 | D-034 | OpenCode MCP 전역 토글은 파일 편집·재시작 없이 SDK connect/disconnect로만 적용되므로 가변 토글·일반 글씨를 유지한다 | "Opencose mcp도 파일편집/재시작이 들어간다면 회색글씨 + 고정토글로 표현하라. 아니라면 유지." · 실측: 파일 편집·재시작 없음(ΔV6-1) | ΔV6 사용자 | ACTIVE | — |
 | D-035 | 이전 버전이 남긴 `nativeExtensionChoices` 값은 설정 버전 2로 올리는 1회 마이그레이션에서 비운다 | 현재 버전이 무시하던 오래된 선택이 업그레이드 후 갑자기 적용되는 것을 막는다 | 추론 — D-033 파생 | ACTIVE | — |
