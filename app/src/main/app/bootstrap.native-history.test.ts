@@ -10,6 +10,9 @@ import type { SessionActivityProjector } from '../features/chat/session-activity
 import type { NativeResourceSharing } from './native-resource-sharing'
 import type { ProjectResourceSync } from './project-resource-sync'
 import type { HistoryWriter } from '../features/history/writer'
+import type { PendingMessageQueue } from '../features/chat/pending-message-queue'
+import type { TurnContext } from '../contracts/turn'
+import type { ManagedRuntime } from '../contracts/ports'
 import type { AdapterRegistry } from '../adapters/common/registry'
 import type { PluginSnapshots } from '../infra/config/plugin-snapshots'
 import type { Options } from '@anthropic-ai/claude-agent-sdk'
@@ -192,6 +195,7 @@ function register(realBootstrap?: Bootstrap): {
   activity: SessionActivityProjector
   forget: ReturnType<typeof vi.fn>
   registry?: AdapterRegistry
+  pendingMessages: PendingMessageQueue
 } {
   const forget = vi.fn()
   const bootstrap = (realBootstrap ?? Object.create(Bootstrap.prototype)) as unknown as {
@@ -204,6 +208,7 @@ function register(realBootstrap?: Bootstrap): {
     registry?: AdapterRegistry
     openCodeGlobalWatch?: OpenCodeGlobalWatch
     settings: SettingsStore
+    pendingMessages: PendingMessageQueue
   }
   if (!realBootstrap) {
     bootstrap.settings = new SettingsStore('test')
@@ -224,7 +229,8 @@ function register(realBootstrap?: Bootstrap): {
     supervisor: bootstrap.supervisor,
     activity: bootstrap.activity,
     forget,
-    registry: bootstrap.registry
+    registry: bootstrap.registry,
+    pendingMessages: bootstrap.pendingMessages
   }
 }
 
@@ -941,4 +947,202 @@ it('restores global choices through production Bootstrap into catalogs, new Clau
     vi.unstubAllEnvs()
     await rm(temp, { recursive: true, force: true })
   }
+})
+
+describe('Claude plugin toggle closes running Claude processes', () => {
+  const plugin = {
+    id: 'superpowers',
+    name: 'superpowers@market',
+    kind: 'plugin',
+    enabled: true,
+    status: 'configured',
+    canToggle: true
+  } as const
+  const request = { backend: 'claude', kind: 'plugin', id: 'superpowers', enabled: false } as const
+  const managed = (): ManagedRuntime & { closed: number } => {
+    const runtime = {
+      closed: 0,
+      state: 'live',
+      reusable: true,
+      close(): void {
+        runtime.closed += 1
+        runtime.state = 'closed'
+      }
+    }
+    return runtime as unknown as ManagedRuntime & { closed: number }
+  }
+  const handler = (channel: string): Parameters<typeof ipcMain.handle>[1] =>
+    vi
+      .mocked(ipcMain.handle)
+      .mock.calls.filter(([name]) => name === channel)
+      .at(-1)![1]
+  const event = {} as Electron.IpcMainInvokeEvent
+  function setup(): ReturnType<typeof register> & {
+    idle(sessionId: string): ManagedRuntime & { closed: number }
+    busy(
+      sessionId: string,
+      backend: 'claude' | 'opencode'
+    ): { runtime: ManagedRuntime & { closed: number }; turn: TurnContext<Electron.WebContents> }
+  } {
+    fixture.stopAtSession = false
+    vi.spyOn(harnessModule('claude'), 'globalResources').mockResolvedValue([plugin])
+    vi.spyOn(harnessModule('opencode'), 'globalResources').mockResolvedValue([
+      {
+        id: 'docs',
+        name: 'docs',
+        kind: 'mcp',
+        enabled: true,
+        status: 'configured',
+        canToggle: true
+      }
+    ])
+    const registered = register()
+    const backends: Record<string, { backend: string; cwd: string }> = {
+      'claude-A': { backend: 'claude', cwd: 'C:/work/A' },
+      'claude-B': { backend: 'claude', cwd: 'C:/work/B' },
+      'claude-live': { backend: 'claude', cwd: 'C:/work/A' },
+      'open-idle': { backend: 'opencode', cwd: 'C:/work/A' },
+      'open-live': { backend: 'opencode', cwd: 'C:/work/B' }
+    }
+    registered.ctx.db.getSessionById = vi.fn((id: string) => backends[id]) as never
+    return {
+      ...registered,
+      idle: (sessionId) => {
+        const runtime = managed()
+        registered.supervisor.releaseRuntime(sessionId, runtime)
+        return runtime
+      },
+      busy: (sessionId, backend) => {
+        const owner = {} as Electron.WebContents
+        const turn = {
+          controller: new AbortController(),
+          owner,
+          live: null,
+          dbSessionId: sessionId
+        } as unknown as TurnContext<Electron.WebContents>
+        const { lease } = registered.supervisor.acquireChain({
+          backend,
+          logicalKey: `session:${sessionId}`,
+          sessionId,
+          owner,
+          requestedProviderKey: null
+        })
+        const runtime = managed()
+        expect(registered.supervisor.activateChain(lease.leaseId, runtime, null, turn)).toBe(true)
+        return { runtime, turn }
+      }
+    }
+  }
+
+  it('closes every idle Claude process on a Claude plugin toggle without confirmation and leaves OpenCode running', async () => {
+    const { idle, activity } = setup()
+    const a = idle('claude-A'),
+      b = idle('claude-B'),
+      open = idle('open-idle')
+    try {
+      const result = await handler(CHANNELS.extensionSetEnabled)(event, request)
+      expect(result).toMatchObject({
+        status: 'applied',
+        resources: { items: [expect.objectContaining({ id: 'superpowers', enabled: false })] }
+      })
+      expect([a.closed, b.closed, open.closed]).toEqual([1, 1, 0])
+      expect(fixture.rawSettings.nativeExtensionChoices).toEqual({
+        claude: { 'plugin:superpowers@market': false }
+      })
+    } finally {
+      activity.dispose()
+    }
+  })
+
+  it('asks before closing busy Claude sessions and closes every Claude process only after confirmation', async () => {
+    const { idle, busy, activity, pendingMessages } = setup()
+    const residual = idle('claude-A'),
+      quiet = idle('claude-B'),
+      openIdle = idle('open-idle')
+    const live = busy('claude-live', 'claude'),
+      openLive = busy('open-live', 'opencode')
+    pendingMessages.enqueue('claude-A', { text: 'queued A' }, 1, 'm-A')
+    const batch = pendingMessages.reserveHeld('claude-A', 'attempt-A')!
+    expect(pendingMessages.commit('claude-A', batch.attemptId!, batch.chainId)).toBe(true)
+    activity.setResidualAttempts('claude-A', ['attempt-A'])
+    const submitted = vi.spyOn(pendingMessages, 'discardSubmitted')
+    try {
+      expect(await handler(CHANNELS.extensionSetEnabled)(event, request)).toEqual({
+        status: 'confirm',
+        reason: 'claude-processes',
+        sessions: 2
+      })
+      expect(
+        [residual, quiet, live.runtime, openIdle, openLive.runtime].map((r) => r.closed)
+      ).toEqual([0, 0, 0, 0, 0])
+      expect(live.turn.controller.signal.aborted).toBe(false)
+      expect(fixture.rawSettings.nativeExtensionChoices).toBeUndefined()
+
+      fixture.broadcasts.mockClear()
+      expect(
+        await handler(CHANNELS.extensionSetEnabled)(event, { ...request, confirmed: true })
+      ).toMatchObject({ status: 'applied' })
+      expect(live.turn.controller.signal.aborted).toBe(true)
+      expect(openLive.turn.controller.signal.aborted).toBe(false)
+      expect(
+        [residual, quiet, live.runtime, openIdle, openLive.runtime].map((r) => r.closed)
+      ).toEqual([1, 1, 1, 0, 0])
+      expect(submitted).toHaveBeenCalledWith('claude-A', ['attempt-A'])
+      expect(activity.current('claude-A').residualCount).toBe(0)
+      expect(
+        fixture.broadcasts.mock.calls.filter(
+          ([channel, payload]) =>
+            channel === CHANNELS.chatEvent && payload.type === 'message.cancelled'
+        )
+      ).toEqual([
+        [CHANNELS.chatEvent, { type: 'message.cancelled', sessionId: 'claude-A', ids: ['m-A'] }]
+      ])
+      expect(fixture.rawSettings.nativeExtensionChoices).toEqual({
+        claude: { 'plugin:superpowers@market': false }
+      })
+    } finally {
+      activity.dispose()
+    }
+  })
+
+  it('keeps every Claude process when the Claude plugin choice cannot be saved', async () => {
+    const { idle, busy, activity } = setup()
+    const quiet = idle('claude-A'),
+      live = busy('claude-live', 'claude')
+    vi.spyOn(SettingsStore.prototype, 'setNativeExtensionChoices').mockImplementation(() => {
+      throw new Error('disk locked')
+    })
+    try {
+      await expect(
+        handler(CHANNELS.extensionSetEnabled)(event, { ...request, confirmed: true })
+      ).rejects.toThrow('disk locked')
+      expect([quiet.closed, live.runtime.closed]).toEqual([0, 0])
+      expect(live.turn.controller.signal.aborted).toBe(false)
+    } finally {
+      activity.dispose()
+    }
+  })
+
+  it('applies OpenCode MCP toggles without confirmation or closing any runtime', async () => {
+    const { idle, busy, activity } = setup()
+    const quiet = idle('claude-A'),
+      openLive = busy('open-live', 'opencode')
+    try {
+      expect(
+        await handler(CHANNELS.extensionSetEnabled)(event, {
+          backend: 'opencode',
+          kind: 'mcp',
+          id: 'docs',
+          enabled: false
+        })
+      ).toMatchObject({ status: 'applied' })
+      expect([quiet.closed, openLive.runtime.closed]).toEqual([0, 0])
+      expect(openLive.turn.controller.signal.aborted).toBe(false)
+      expect(fixture.rawSettings.nativeExtensionChoices).toEqual({
+        opencode: { 'mcp:docs': false }
+      })
+    } finally {
+      activity.dispose()
+    }
+  })
 })

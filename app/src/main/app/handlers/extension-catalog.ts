@@ -6,13 +6,20 @@ import {
   SetGlobalNativeResourceSchema
 } from '../../../shared/protocol'
 import type { Backend } from '../../../shared/ipc'
-import type { NativeResources } from '../../../shared/native-resources'
+import type {
+  NativeResources,
+  SetGlobalNativeResourceResult
+} from '../../../shared/native-resources'
 import { extensionChoiceKey } from '../../adapters/common/extension-control'
 import { handle } from '../../infra/ipc/handle'
+import type { ClaudeProcessReset } from '../claude-processes'
 import type { MutableExtensionControl } from '../extension-control'
 import { harnessModule } from '../harnesses/registry'
 
-export function registerExtensionCatalogHandlers(control: MutableExtensionControl): void {
+export function registerExtensionCatalogHandlers(
+  control: MutableExtensionControl,
+  processes: ClaudeProcessReset
+): void {
   const read = async (backend: Backend): Promise<NativeResources> => {
     const items = (await harnessModule(backend).globalResources?.()) ?? []
     const choices = control.global(backend)
@@ -35,16 +42,27 @@ export function registerExtensionCatalogHandlers(control: MutableExtensionContro
     CHANNELS.extensionSetEnabled,
     SetGlobalNativeResourceSchema,
     'reject',
-    async (request): Promise<NativeResources> => {
+    async (request): Promise<SetGlobalNativeResourceResult> => {
       const catalog = await read(request.backend)
       const item = catalog.items.find(
         (item) => item.kind === request.kind && item.id === request.id
       )
       if (!item?.canToggle)
         throw new Error('이 항목은 Orca에서 전역 활성 상태를 제어할 수 없습니다.')
-      control.setGlobal(request.backend, extensionChoiceKey(item.kind, item.name), request.enabled)
-      // No server access here. Existing directory instances retain their captured choices.
-      return read(request.backend)
+      const key = extensionChoiceKey(item.kind, item.name)
+      if (request.backend === 'claude' && item.kind === 'plugin') {
+        // Live Claude queries keep the flags they started with, so the toggle closes them all.
+        // No await from plan to close: a turn starting in between would skip the confirmation.
+        const plan = processes.plan()
+        if (plan.busy > 0 && !request.confirmed)
+          return { status: 'confirm', reason: 'claude-processes', sessions: plan.busy }
+        // Save first: a failed save must leave every process running.
+        control.setGlobal(request.backend, key, request.enabled)
+        processes.close(plan.targets)
+      } else
+        // No server access here. Existing directory instances retain their captured choices.
+        control.setGlobal(request.backend, key, request.enabled)
+      return { status: 'applied', resources: await read(request.backend) }
     }
   )
   handle(

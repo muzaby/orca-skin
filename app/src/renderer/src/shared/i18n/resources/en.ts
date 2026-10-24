@@ -616,6 +616,12 @@ export const en: typeof ko = {
   },
   chat: {
     nativeResources: {
+      claudeCloseTitle: 'Close Claude sessions',
+      claudeCloseBody_one:
+        '{{count}} Claude session is responding or running work. Applying this plugin change closes every running Claude session, and responses and background work in progress will stop.',
+      claudeCloseBody_other:
+        '{{count}} Claude sessions are responding or running work. Applying this plugin change closes every running Claude session, and responses and background work in progress will stop.',
+      claudeCloseConfirm: 'Change',
       retry: 'Retry',
       openConfig: 'Show configuration file',
       openFolder: 'Open installation folder',

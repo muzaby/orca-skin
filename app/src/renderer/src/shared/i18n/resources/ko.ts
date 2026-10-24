@@ -620,6 +620,12 @@ export const ko = {
   },
   chat: {
     nativeResources: {
+      claudeCloseTitle: 'Claude 세션 종료',
+      claudeCloseBody_one:
+        '응답 중이거나 작업이 진행 중인 Claude 세션이 {{count}}개 있습니다. 플러그인 변경을 적용하려면 실행 중인 Claude 세션을 모두 종료합니다. 진행 중인 응답과 백그라운드 작업은 중단됩니다.',
+      claudeCloseBody_other:
+        '응답 중이거나 작업이 진행 중인 Claude 세션이 {{count}}개 있습니다. 플러그인 변경을 적용하려면 실행 중인 Claude 세션을 모두 종료합니다. 진행 중인 응답과 백그라운드 작업은 중단됩니다.',
+      claudeCloseConfirm: '변경',
       retry: '다시 시도',
       openConfig: '설정 파일 위치 열기',
       openFolder: '설치 폴더 열기',

@@ -62,7 +62,8 @@ it('reads native defaults without copying them and keeps supported explicit choi
   const settings = new SettingsStore('test', backend)
   settings.patch({ language: 'sentinel-language' })
   const control = extensionControl()
-  registerExtensionCatalogHandlers(control)
+  const processes = { plan: vi.fn(() => ({ targets: [], busy: 0 })), close: vi.fn() }
+  registerExtensionCatalogHandlers(control, processes)
   expect((await invoke(CHANNELS.extensionCatalog, { backend: 'claude' })).items[0].enabled).toBe(
     false
   )
@@ -71,13 +72,18 @@ it('reads native defaults without copying them and keeps supported explicit choi
   expect((await invoke(CHANNELS.extensionCatalog, { backend: 'claude' })).items[0].enabled).toBe(
     true
   )
-  const result = await invoke(CHANNELS.extensionSetEnabled, {
-    backend: 'claude',
-    id: 'plugin-id',
-    kind: 'plugin',
-    enabled: false
-  })
-  expect(result.items[0]).toMatchObject({
+  const result = (await f.handlers.get(CHANNELS.extensionSetEnabled)!(
+    {},
+    {
+      backend: 'claude',
+      id: 'plugin-id',
+      kind: 'plugin',
+      enabled: false
+    }
+  )) as { status: 'applied'; resources: NativeResources }
+  expect(result.status).toBe('applied')
+  expect(processes.close).toHaveBeenCalledWith([])
+  expect(result.resources.items[0]).toMatchObject({
     enabled: false,
     canToggle: true
   })

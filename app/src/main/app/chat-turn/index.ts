@@ -39,6 +39,7 @@ import { sendSubmitted } from './enqueue'
 import { registerBackgroundHandlers } from './background'
 import type { BackgroundController } from '../../features/chat/background-controller'
 import { decideSendNow } from './admission'
+import { discardSessionWork } from './discard'
 
 export type { ChatDeps } from './deps'
 
@@ -171,24 +172,11 @@ export function registerChatHandlers(deps: ChatDeps): BackgroundController {
   // 유일한 수단. 공개 SDK 에 provider 큐 개별 취소 표면이 없으므로 런타임(서브프로세스)을 폐기해
   // 큐를 통째로 소멸시킨다. **백그라운드 서브에이전트도 함께 죽으므로** 자동화하지 않고 사용자가
   // 명시적으로 고를 때만 실행된다(renderer 는 chat.activity 의 residualCount 가 있을 때만 제시).
-  handle(CHANNELS.chatDiscardSession, DiscardSessionSchema, 'reject', (req, event): void => {
-    const residual = activity.residualAttemptIds(req.sessionId)
-    activity.setResidualAttempts(req.sessionId, [])
-    // 진행 중 턴이 남아 있으면 먼저 끊는다 — 그래야 런타임이 풀로 반납돼 폐기 대상이 된다.
-    const turn = supervisor.getBySession(req.sessionId)
-    if (turn) abortTurn(turn, 'user_cancelled')
-    supervisor.discardRuntime(req.sessionId)
-    // 큐 잔여를 되돌려준다 — 서브프로세스와 함께 CLI 큐가 사라졌으므로 이 예약들은 확실히
-    // 실행되지 않는다. 텍스트는 draft 로 복원해 사용자가 재전송을 정한다.
-    const discarded = pendingMessages.discardSubmitted(req.sessionId, residual)
-    const ids = discarded.flatMap((batch) => batch.ids)
-    if (ids.length > 0) {
-      sendChatEvent(event.sender, { type: 'message.cancelled', sessionId: req.sessionId, ids })
-    }
-    getLogger()
-      .child('chat')
-      .info('chat.session.discarded', { sessionId: req.sessionId, discarded: ids.length })
-  })
+  handle(CHANNELS.chatDiscardSession, DiscardSessionSchema, 'reject', (req, event): void =>
+    discardSessionWork({ activity, supervisor, pendingMessages }, req.sessionId, (e) =>
+      sendChatEvent(event.sender, e)
+    )
+  )
 
   handle(CHANNELS.chatCancel, CancelChatSchema, 'reject', (req, event): void => {
     // 중단 버튼 = 턴 interrupt + held 전량 취소(0067 확정 5). renderer 는 message.cancelled 의
