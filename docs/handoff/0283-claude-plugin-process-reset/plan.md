@@ -8,11 +8,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-24 |
 | 매핑 | — |
-| 상태 | READY |
+| 상태 | READY (ΔV2) |
 | V mode | `Delta V` |
 | 기준 V | `0282-plugin-catalog-native-sync` 유효 V(`V1 + ΔV1 + ΔV2 + ΔV3 + ΔV5 + ΔV6`)`@28d25d35` |
-| 이번 V revision | `ΔV1` — 0282 D-008(실행 중 Query 유지)을 "실행 중 Claude 프로세스 종료"로 대체 |
-| 유효 V | `0282@28d25d35 + 0283 ΔV1` |
+| 이번 V revision | `ΔV2` — 확인 대화상자 경로·운반 항 재고정, 문서 gate 분리, 종료 실패 전용 제목(verify r1 G1·G2·N1·N2). `ΔV1` = 0282 D-008 대체 |
+| 유효 V | `0282@28d25d35 + 0283 ΔV1@d69b4c54 + ΔV2` |
 
 # Part I — Product & UX Contract
 
@@ -46,6 +46,8 @@
 | D-007 | `orca:extensions:setEnabled`는 Claude 플러그인 요청에 한해 `confirmed?: true`를 받고 `{status:'applied', resources}` 또는 `{status:'confirm', reason:'claude-processes', sessions}`를 돌려준다. 확인 판정과 종료는 main이 한 동기 구간에서 한다 | renderer가 먼저 세고 따로 호출하면 그 사이 시작된 턴이 확인 없이 끊긴다 | 추론 — D-002·D-003 파생 | ACTIVE | 0282 D-032 대체(Claude 플러그인 한정) |
 | D-008 | OpenCode MCP 전역 토글은 현행 유지 — 확인 없음, 프로세스 종료 없음, 새 directory부터 SDK 적용 | 요구 대상이 Claude 플러그인 | 0282 D-034 | ACTIVE(유지) | — |
 | D-009 | 우측 패널의 Claude 프로젝트 플러그인 토글은 현행 유지(유휴일 때 실행 중 Query 재로드) | 요구 대상이 nav 전역 토글 | 0282 D-036 | ACTIVE(유지) | — |
+| D-010 | 일부 Claude 프로세스 종료가 실패하면 전용 오류 제목 `claudeSessionsCloseFailed`(ko "일부 Claude 세션을 닫지 못했습니다" · en "Could not close some Claude sessions")로 보고한다 | 저장은 성공했는데 "변경 사항을 저장하지 못했습니다"로 읽힌다 | 사용자 Q3(ΔV2) | ACTIVE | — |
+| D-011 | 확인 대화상자 [변경]은 기본 확정 버튼이다(`danger` 없음) | 0282 r1 패턴 그대로 | 사용자 Q4(ΔV2) | ACTIVE | D-003 보완 |
 
 ### 갱신 메모
 
@@ -124,7 +126,7 @@
 | R-01 | AT-01 / **AC8** | 선택 저장이 실패하면 어떤 프로세스도 닫지 않고 오류를 그대로 던진다(renderer는 기존 저장 실패 토스트) | bootstrap: 저장 port가 throw → handler reject · close 0 | 저장 → 종료 순서 |
 | R-01·R-02 | AT-04 / **AC9** | 사람 실기(Windows): 응답 중 세션 1·유휴 세션 1에서 superpowers off → 대화상자 → [변경] → 두 세션 모두 다음 메시지 뒤 `/context`에 superpowers 없음. [취소]면 그대로. 유휴만 있으면 대화상자 없이 같은 결과. white/dark에서 대화상자 확인 | 실제 앱 | 실제 CLI·창 |
 
-- AC 총수: **9**.
+- AC 총수: **9**. ΔV2가 AC2~AC4를 AC2′~AC4′로 대체하고 AC10을 더한다(총 10) — ΔV2-4 절.
 
 ### AC 검증 주의사항
 
@@ -275,6 +277,8 @@ close(plan): 세션 대상 → discardSessionWork(id, broadcastChatEvent)
 
 ## 10. 계약 / 타입 / 강제 지점
 
+> EP-01은 ΔV2 EP-01′(자리 23 + 운영 gate G-DOC 3)가 대체한다 — ΔV2-7 절.
+
 | V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
 |---|---|---|---|---|---|---|
 | EP-01 · VP-01~08·R1·R5 | Claude 플러그인 토글 = (동작 중이면 확인) → 저장 → 모든 Claude 프로세스 종료. 확인 계약 union | `shared/native-resources.ts` 타입 · handler 분기 | main·preload·renderer | P1 `shared/protocol.ts:765` `confirmed` · P2 `shared/native-resources.ts:63` 요청·결과 타입 · P3 `preload/index.ts:293-294` · P4 `renderer/src/shared/api/ipc.ts:222-224` · P5 `useNativeMcpCatalog.ts:82` 결과 판별·대화상자 · P6 `handlers/extension-catalog.ts:15` port 주입 · P7 `extension-catalog.ts:45` 분기·순서 · P8 `bootstrap.ts:1234` 조립 · P9 `supervisor.ts:291` lease 폐기 분해 · P10 `chat-turn/index.ts:174·180` 본문 추출 · P11 `docs/IPC_CONTRACT.md:193` · P12 `docs/IPC_CONTRACT.md:197` · P13 `docs/arch/backend/adapters.md:69` · P14 신설 `app/claude-processes.ts` · P15 신설 `app/session-activity-busy.ts`(+`native-history.ts:8·40`) · P16 i18n `ko.ts`·`en.ts` `chat.nativeResources.claudeClose*` — **16** | ① `rg -n "extensionSetEnabled\|setGlobalExtension\|SetGlobalNativeResource\b\|SetGlobalNativeResourceSchema\|control\.setGlobal\|chatDiscardSession\|discardRuntime\(\|closeAllLeaseRuntimes\|registerExtensionCatalogHandlers\(" app/src/main app/src/shared app/src/preload app/src/renderer/src docs/IPC_CONTRACT.md docs/arch --glob '!*.test.ts' --glob '!*.test.tsx'` → `28d25d35`에서 25줄 = P1 1·P2 1·P3 2·P4 3·P5 1·P6 1·P7 1·P8 1·P9 1·P10 2·P11 1 + 제외 10(`preload/index.ts:10` import·`:182` 세션 중단 호출 불변 · `shared/ipc.ts:44·97` 채널 상수 불변 · `supervisor.ts:303` 종료 시 전 backend close 불변 · `bootstrap.ts:919` 앱 종료 · `:1200` 세션 삭제 hook · `extension-catalog.ts:6` import · `:35·36` 등록 불변) ② 문서 검색(§8) → P12·P13 2줄 ③ P14~P16은 신설 | 끈 플러그인이 실행 중 세션에 남음 · 확인 없이 응답이 끊김 · OpenCode 세션이 닫힘 · 저장 실패인데 세션이 닫힘 |
@@ -400,6 +404,201 @@ renderer toggle → preload invoke → handler → plan/close → supervisor·�
 - 동기 구간·저장→종료 순서·N과 대상 수 구별을 장치로 잠근다(M3·M6·M9).
 
 ---
+
+# ΔV2 — 확인 대화상자 경로와 운반 항 재고정 · 문서 gate 분리 · 종료 실패 전용 제목 (2026-10-24)
+
+판정: **READY**. verify r1 RETURN_TO_PLAN의 G1·G2를 닫는다. D1~D5는 기존 pair에 귀속된 구현 의무이며, 이번 revision은 그 운반 항을 EP-01′에 좌표와 함께 고정하고 등록 변이로 올린다. verify r1 N1·N2는 사용자 결정 D-010·D-011로 닫는다.
+
+## ΔV2-1. 사실 (Orca `aff17235`)
+
+| 사실 | 근거 |
+|---|---|
+| ΔV1 좌표로 잠기지 않은 운반 항 8개가 관측됐다 | `verify.md` §4 고장 이력 X1·X18·X19·X20·X25·X27·X29·X30 |
+| 확인 대화상자는 셸에 1회 마운트된 host가 store를 구독해 렌더한다. [변경]=onConfirm+close, [취소]·배경=close | `ConfirmDialogHost.tsx:9-31` · `Modal.tsx:57·107-121` |
+| host를 렌더하는 테스트가 없다 | `rg -l ConfirmDialogHost app/src -g '*.test.*'` → 1건, `automaticFeedDebug.integration.test.ts:51`이 `() => null`로 mock |
+| view 상호작용 테스트는 실제 i18n으로 view를 렌더하고 confirm store를 정리한다 | `ExtensionsCatalogView.interaction.test.ts:19` `i18n.t` · `:95-97` |
+| fake DOM 하네스는 portal을 그대로 렌더한다 | `renderHarness.testfixture.ts:326-327` |
+| view는 hook `toggle`을 그대로 넘기고 CustomizeList가 2인자로 부른다 | `ExtensionsCatalogView.tsx:164` · `CustomizeList.tsx:116` |
+| CustomizeList 클릭 테스트는 요청을 정확히 단언한다(`confirmed` 부재) | `useNativeMcpCatalog.test.ts:'renders native plugin capabilities and updates the actual row through its toggle'` |
+| ko는 `_other`만 고른다. ko `_one`은 키 parity용 같은 문구 사본이다 | `ko.ts:896-901` 선례 |
+| `extension-catalog.test.ts`는 실제 `handle` 래퍼(zod safeParse)를 거친다 | `handle.ts:31-32` · 테스트 `:11-17` electron mock |
+| 오류 보고 관측 선례는 `errorReportHub.publish` spy다 | `updater.report.test.ts:21` |
+| 유휴 풀 close는 `runtime.close()`의 throw를 그대로 올리고, 실행기가 대상별로 잡는다 | `runtime-pool.ts:85-90` · `claude-processes.ts:89-95` |
+| 오류 제목은 닫힌 목록이고 ko·en 문구가 `satisfies Record<AppErrorTitle, string>`이다 | `app-error.ts:2-24` · `ko.ts:575-598` · `en.ts:571-594` |
+| 제목 목록 전체의 문구 존재를 단언하는 테스트는 없다 | `rg -l APP_ERROR_TITLES app/src` → `app-error.ts` 1건 |
+| 세션 전체 중단 fixture는 실제 handler·queue·activity와 mock `sendChatEvent`를 쓴다 | `post-turn.schedules.test.ts:115-126·155-162` |
+| 문서 drift 게이트는 기준선에서 이미 red라 oracle로 쓸 수 없다 | `drift-check.sh check` → 단언 불일치 60 · 표식 잔류 9 |
+
+## ΔV2-2. Decision
+
+§3 Decision Ledger에 D-010·D-011을 추가했다(verify r1 N1·N2).
+
+- 사용자 질문 원문: Q3 "토스트 제목을 어떻게 할까요?" → "전용 제목 신설"(제시 예 "일부 Claude 세션을 닫지 못했습니다"). Q4 "[변경] 버튼을 빨간 경고(danger) 스타일로 할까요?" → "기본 스타일 유지".
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0. D-010↔AC10, D-011↔AC2′, D-003↔AC2′~AC4′, D-007↔AC4′. 나머지 D-001~D-009 ↔ ΔV1 AC 대응은 그대로다.
+
+## ΔV2-3. Product 변경
+
+§5 상태표에 한 행을 더한다. 나머지 행은 같다.
+
+| 시작 상태/이벤트 | 시스템 동작 | 사용자에게 보이는 결과 |
+|---|---|---|
+| 종료 중 일부 프로세스 close 실패 | 나머지는 계속 닫는다. 선택은 이미 저장됐다 | 오류 토스트 "일부 Claude 세션을 닫지 못했습니다". 행은 새 값 |
+
+## ΔV2-4. Acceptance — AC2′·AC3′·AC4′(대체) · AC10(신규)
+
+| R | AT / AC | 동작 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-02 | AT-02 / **AC2′** (AC2 대체) | AC2 동작 + 사용자가 보는 대화상자는 제목 "Claude 세션 종료", 본문에 동작 중 세션 수 N, [변경](기본 버튼)·[취소]다. en은 N=1 단수·N≥2 복수 문장이다 | bootstrap(AC2 그대로) · 렌더: view + host 실제 렌더·실제 i18n, ko N=2 · en N=1·N=2 본문, 버튼 텍스트, 확정 버튼 `danger` 아님(store request `danger` 미지정) | view 스위치 → hook → store → host → ModalActions |
+| R-02 | AT-02 / **AC3′** (AC3 대체) | [취소] 버튼 또는 배경 클릭이면 IPC 재호출이 없고 행·선택·프로세스가 그대로다 | 같은 렌더에서 [취소] 클릭·배경 클릭 각각 → 요청 수 불변 · 행 유지 | host `onCancel`·Modal `onClose` |
+| R-02 | AT-02 / **AC4′** (AC4 대체) | AC4 동작 + [변경] 버튼 클릭이 `confirmed: true` 재요청을 만든다. `confirmed`는 `true`나 부재만 받고 `false`는 거절한다. main은 판정부터 종료까지 다른 작업에 양보하지 않는다 | 렌더: [변경] 클릭 → 요청 `confirmed: true` · 행 갱신 · handler: `confirmed:false` reject·계획 0 · 순서 탐침 `[plan, save, close, intruder]` · bootstrap(AC4 그대로) | host `handleConfirm` → hook 재호출 → schema → handler |
+| R-01 | AT-01 / **AC10** | 종료 대상 하나의 close가 실패해도 나머지 대상을 닫고 결과는 `applied`다. 실패는 D-010 제목으로 대상당 1회 보고한다 | bootstrap: Claude 유휴 2(cwd 다름) 중 첫 대상 close throw → 둘째 close 1 · `applied` · `errorReportHub.publish` `claudeSessionsCloseFailed` 1회 · 저장값 | handler → 실행기 → `failed` → `reportError` |
+
+- AC 총수: 9 → 10 (AC2~AC4 대체, AC10 추가). AC9(사람 실기)는 그대로다.
+
+## ΔV2-5. Delta V
+
+| Node | 레벨 | 계약 | provenance | 대체 |
+|---|---|---|---|---|
+| R-01′ / AT-01′ | R / AT | AC1·AC6·AC8·AC10 | CHANGED | R-01 |
+| R-02′ / AT-02′ | R / AT | AC2′~AC4′·AC5 | CHANGED | R-02 |
+| AR-01′ / IT-01′ | AR / IT | 조립에 실패 보고 제목 D-010 포함 | CHANGED | AR-01 |
+| AR-02′ / IT-02′ | AR / IT | view 진입 → hook → store → host → ModalActions → 재호출/닫기 | CHANGED | AR-02 |
+
+| Pair | left ↔ right | requiredness | production path | 직접 oracle 좌표 | 선택적 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-01′ | R-01′ ↔ AT-01′ | REQUIRED (VP-01 대체) | view → CustomizeList → hook → api → preload → handler → 계획 → 저장 → 종료 → 다음 Query | T-list · T-hook-idle · T-pre · T-boot-idle · N-fail · VP-03 좌표 | M1·M2(승계) · M24 | EP-01′ S1~S5·S7·S12~S18·S23 |
+| VP-02′ | R-02′ ↔ AT-02′ | REQUIRED (VP-02 대체) | handler(동작 중) → confirm → host → 취소/변경 → 재호출 → 종료 | T-boot-ask · N-host · N-host-en · N-sync · N-false · T-pre | M3~M6(승계) · M14 · M15 · M23 | EP-01′ S1~S11·S14 |
+| VP-04′ | AR-01′ ↔ IT-01′ | REQUIRED (VP-04 대체) | `Bootstrap.register` → port 조립 → handler | T-boot-* 4건 · N-fail | M8·M9(승계) · M18 · M18b | EP-01′ S12·S16·S18·S23 |
+| VP-05′ | AR-02′ ↔ IT-02′ | REQUIRED (VP-05 대체) | view → CustomizeList → hook → store → host → ModalActions → 재호출 / 닫기 | N-host · N-host-en · T-hook-confirm · T-hook-oc · T-list | M5a·M5b(승계) · M16 · M17 · M20 · M21 · M22 | EP-01′ S5~S11 |
+| VP-R5′ | 0151 ↔ ST | REGRESSION (VP-R5 대체) | Composer [세션 전체 중단] → `chatDiscardSession` → 공유 함수 → 요청 창 emit | N-discard · T-discard · `pending-message-queue.test.ts` `discardSubmitted (OQ1 — 세션 전체 중단)` | M19 | EP-01′ S21·S22 |
+
+- 그대로인 pair: VP-03·VP-06·VP-07·VP-08·VP-R1~R4는 ΔV1 행 그대로다. §10 열의 EP-01 자리 이름만 EP-01′로 읽는다(P9→S20, P10→S21·S22, P14→S17·S18, P15→S19, P7→S14·S15).
+- `SUPERSEDED` 이관:
+  - VP-01 → VP-01′: M1·M2 승계. P13(문서)은 운영 gate G-DOC로 옮긴다.
+  - VP-02 → VP-02′: M3~M6 승계. D1(X25)→M14, D2(X18)→M15를 등록한다.
+  - VP-04 → VP-04′: M8·M9 승계. D4(X1)→M18을 등록하고 제목 항 M18b를 더한다.
+  - VP-05 → VP-05′: M5 승계. store 직접 호출 좌표(T-hook-confirm)는 hook 판정 항만 덮는다. D3(X19·X20)→M16·M17, G2(X29·X30)→M20·M21을 등록한다.
+  - VP-R5 → VP-R5′: D5(X27)→M19를 등록한다.
+  - AC2·AC3·AC4 → AC2′·AC3′·AC4′. EP-01 → EP-01′.
+- 적대 증거 선택 이유: M14~M24는 verify r1에서 전체 스위트를 통과한 고장 또는 그 형제 자리다. 방향(제거)과 자리(맞바꿈)를 둘 다 등록한다.
+
+### 좌표 표
+
+| 좌표 | 파일:테스트 | 진입 · 구별 입력 · 관측 |
+|---|---|---|
+| T-boot-idle · T-boot-ask · T-boot-save · T-boot-oc | `bootstrap.native-history.test.ts` 기존 4건(`'closes every idle Claude process…'` · `'asks before closing busy Claude sessions…'` · `'keeps every Claude process when the Claude plugin choice cannot be saved'` · `'applies OpenCode MCP toggles…'`) | ΔV1 그대로 |
+| T-ec | `extension-catalog.test.ts:'reads native defaults without copying them…'` | ΔV1 그대로 |
+| T-pre | `preload/index.test.ts:'carries explicit global extension scope and choices across renderer API and preload'` | ΔV1 그대로 |
+| T-hook-idle · T-hook-confirm · T-hook-oc | `useNativeMcpCatalog.test.ts` 기존 3건 | ΔV1 그대로 |
+| T-list | `useNativeMcpCatalog.test.ts:'renders native plugin capabilities and updates the actual row through its toggle'` | CustomizeList 클릭 → 요청 정확 일치(`confirmed` 부재) |
+| T-cp · T-nh · T-sup · T-discard · T-res | `claude-processes.test.ts` 13건 · `native-history.test.ts:'does not close or replace an occupied session'` · `supervisor.test.ts` 2건+기존 · `discard.test.ts` · `resources.test.ts` 키·플레이스홀더 | ΔV1 그대로 |
+| **N-sync** (신규) | `extension-catalog.test.ts` `'saves and closes in the same synchronous section as the busy check'` | 실제 `handle` 래퍼 · fake `processes.plan`이 `queueMicrotask(() => order.push('intruder'))` 예약 뒤 busy 0·대상 1 반환 · `control.setGlobal` spy·`close` spy가 순서 기록 · 관측 `['plan','save','close','intruder']` |
+| **N-false** (신규) | `extension-catalog.test.ts` `'rejects confirmed: false before planning or saving'` | `{…, confirmed: false}` → reject · `plan` 0 · 저장값 불변. 같은 요청 `confirmed: true`는 `applied`(구별 대조) |
+| **N-host** (신규) | `ExtensionsCatalogView.interaction.test.ts` `'confirms a busy Claude plugin change through the shared dialog'` | `ExtensionsCatalogView`와 `ConfirmDialogHost`를 함께 렌더, ko · Claude 플러그인 스위치 클릭, write = confirm(sessions 2) · 관측: 제목 "Claude 세션 종료" · 본문 "2개" 포함 · 버튼 "변경"·"취소" · request `danger` 미지정 → [취소] 클릭: write 1·행 on → 다시 클릭 → 배경 클릭: write 2·행 on → 다시 클릭 → [변경] 클릭: 마지막 write `confirmed: true` · 행 off |
+| **N-host-en** (신규) | 같은 파일 `'renders the Claude close dialog in English with singular and plural counts'` | `i18n.changeLanguage('en')`(끝에 ko 복원) · sessions 1 → 본문 "1 Claude session is" 시작 · sessions 2 → "2 Claude sessions are" 시작 · 제목 "Close Claude sessions" · 버튼 "Change" |
+| **N-fail** (신규) | `bootstrap.native-history.test.ts` `'keeps closing Claude processes after one close fails and reports it once with the dedicated title'` | Claude 유휴 2(`claude-A`·`claude-B`, 먼저 넣은 쪽 `close()` throw) · `vi.spyOn(errorReportHub, 'publish')` · 관측: 다른 대상 closed 1 · `applied` · publish 1회 title `claudeSessionsCloseFailed` · 저장값 |
+| **N-titles** (신규) | `resources.test.ts` `'has a non-empty toast title for every app error title in each locale'` | `APP_ERROR_TITLES` 전수 × ko·en `errors.toast` 비어 있지 않은 문자열 |
+| **N-discard** (신규) | `post-turn.schedules.test.ts`(같은 fixture) `'returns residual submissions to the requesting window when the session is discarded'` | fixture queue에 's1' 예약 enqueue·reserveHeld·commit · `activity.setResidualAttempts('s1', [attempt])` · `chatDiscardSession`을 `{ sender: owner }`로 호출 · 관측 `sendChatEvent`가 `(owner, { type: 'message.cancelled', sessionId: 's1', ids: [id] })` 1회 |
+
+### 등록 변이 (ΔV2 신규)
+
+| ID | 자리 | 종류 | 바꾼 내용 | 잡아야 할 좌표 |
+|---|---|---|---|---|
+| M14 | `extension-catalog.ts:56` 뒤 · `:60` 뒤 | 뒤집기 | `await Promise.resolve()` 삽입 — 자리마다 1회씩 따로 심는다 | N-sync |
+| M15 | `protocol.ts:767` | 다른 값 | `z.literal(true)` → `z.boolean()` | N-false |
+| M16 | `ko.ts:625·627` · `en.ts:621·623` | 제거 | 본문 `{{count}}` 4곳(자리마다 1회) | N-host · N-host-en |
+| M17 | `en.ts:621·623` | 맞바꿈 | `_one` ↔ `_other` 본문 | N-host-en |
+| M18 | `bootstrap.ts:1249-1255` | 빈 값 | `failed: () => {}` | N-fail |
+| M18b | `bootstrap.ts:1253` | 다른 값 | 제목 `claudeSessionsCloseFailed` → `saveFailed` | N-fail |
+| M19 | `chat-turn/index.ts:177` | 빈 값 | 요청 창 emit → `void e` | N-discard |
+| M20 | `ConfirmDialogHost.tsx:16` | 제거 | `request.onConfirm()` | N-host |
+| M21 | `ConfirmDialogHost.tsx:28` | 맞바꿈 | `onCancel={close}` → `{handleConfirm}` | N-host |
+| M22 | `ConfirmDialogHost.tsx:24` | 맞바꿈 | `onClose={close}` → `{handleConfirm}` | N-host |
+| M23 | `ExtensionsCatalogView.tsx:164` | 호출 대체 | `(b, r) => nativeMcp.toggle(b, r, true)` | N-host |
+| M24 | `CustomizeList.tsx:116` | 다른 값 | `onNativeToggle?.(backend, resource, true as never)` | T-list |
+
+## ΔV2-6. Technical Design
+
+| 변경 파일 | 변경 내용 |
+|---|---|
+| `shared/app-error.ts` | `APP_ERROR_TITLES`에 `'claudeSessionsCloseFailed'` 추가 |
+| `i18n/resources/ko.ts`·`en.ts` | `errors.toast.claudeSessionsCloseFailed` — ko "일부 Claude 세션을 닫지 못했습니다" · en "Could not close some Claude sessions" |
+| `app/bootstrap.ts:1253` | `title: 'saveFailed'` → `title: 'claudeSessionsCloseFailed'` |
+| 테스트 | 좌표 표의 신규 7건(N-sync·N-false·N-host·N-host-en·N-fail·N-titles·N-discard) |
+
+- 그 밖의 production 코드는 바뀌지 않는다. D1·D2·D3·D5·G2는 잠금(테스트) 의무다.
+- `ConfirmDialogHost`는 공용 컴포넌트라 이번에 고치지 않는다. N-host가 이 handoff의 경로로 그 배선을 잠근다.
+- 레이어: 신규 테스트는 기존 파일에 둔다. renderer 테스트가 `shared/app-error`를 import하는 것은 `shared` 하향 의존이다.
+
+## ΔV2-7. 강제 지점 (§10 ΔV2 — EP-01 대체)
+
+| V node / pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|
+| EP-01′ · VP-01′·02′·04′·05′·R5′ + VP-03·06·07·08·R1 | Claude 플러그인 토글 = (동작 중이면 공용 대화상자로 확인) → 저장 → 모든 Claude 프로세스 종료 → 실패 보고. 확인 계약 union | 아래 자리표 **23** | ①②③ (아래) — `aff17235` 출력 고정 | 끈 플러그인이 실행 중 세션에 남음 · 확인 없이 응답이 끊김 · 대화상자가 N·버튼을 잘못 보임 · OpenCode 세션이 닫힘 · 저장 실패인데 세션이 닫힘 · 종료 실패가 조용함 |
+| G-DOC (운영 gate) | 문서 계약 동기화 | D1 `IPC_CONTRACT.md:193` · D2 `:197` · D3 `adapters.md:69` — **3** | ④ (아래) | 문서가 옛 "실행 중 Query 유지"를 말하거나 확인 계약을 빠뜨림 |
+| EP-10′ | ΔV1 그대로 | ΔV1 그대로 | ΔV1 그대로 | ΔV1 그대로 |
+
+**자리 검색 명령**
+
+- ① 계약·종료 식별자: `rg -n "extensionSetEnabled|setGlobalExtension|SetGlobalNativeResource|control\.setGlobal|chatDiscardSession|discardRuntime\(|discardLease|closeAllLeaseRuntimes|registerExtensionCatalogHandlers\(|createClaudeProcessReset|planClaudeProcesses|discardSessionWork|sessionActivityBusy|claudeClose" app/src/main app/src/shared app/src/preload app/src/renderer/src --glob '!*.test.ts' --glob '!*.test.tsx'` → **62줄** = 자리 46줄 + 제외 16줄.
+- ② 대화상자·진입 경로(path 파일 6개 전체): `rg -n "onNativeToggle|nativeMcp\.toggle|openConfirmDialog|useConfirmStore|request\.onConfirm|onConfirm|onCancel|onClose=|confirmLabel|cancelLabel" app/src/renderer/src/features/skills/components/customize/{ExtensionsCatalogView,CustomizeList}.tsx app/src/renderer/src/features/skills/hooks/useNativeMcpCatalog.ts app/src/renderer/src/shared/ui/{confirmDialogStore.ts,ConfirmDialogHost.tsx,Modal.tsx}` → **43줄** = 자리 21줄(`useNativeMcpCatalog.ts:96`은 ①과 중복) + 제외 22줄.
+- ③ 실패 보고 제목: `rg -n "claude-processes\.close-failed|claudeSessionsCloseFailed|export const APP_ERROR_TITLES" app/src --glob '!*.test.*'` → **2줄**(`bootstrap.ts:1251` · `app-error.ts:2`). 구현 뒤 `claudeSessionsCloseFailed` 4파일(app-error·bootstrap·ko·en).
+- ④ G-DOC: 음성 `rg -n "Query는 자기 상태를 유지" docs/arch docs/IPC_CONTRACT.md` → 0 · 양성 `rg -c "SetGlobalNativeResourceResult" docs/IPC_CONTRACT.md` ≥1 · `rg -c "confirmed\?: true" docs/IPC_CONTRACT.md` ≥1 · `rg -c "토글 시 실행 중인 Claude 프로세스를 닫" docs/IPC_CONTRACT.md` ≥1 · `rg -c "전역 토글이 실행 중인 Claude 프로세스를 모두 닫" docs/arch/backend/adapters.md` ≥1. `aff17235`: 0·1·1·1·1, `d69b4c54` 음성 1.
+
+**자리표 (EP-01′ 23)** — 운반 항마다 좌표를 둔다. 한 자리의 항이 하나라도 열리면 그 자리는 닫히지 않은 것이다.
+
+| 자리 | 위치 (① ② ③ 적중 줄) | 운반 항 → 좌표 |
+|---|---|---|
+| S1 | `shared/protocol.ts:765-768` (①765) | `confirmed` 운반 → T-boot-ask · `true`/부재만 → N-false |
+| S2 | `shared/native-resources.ts:63-70` (①63·68) | 타입 전용. 요청·결과 값 → T-pre · T-boot-ask `toEqual(confirm)` |
+| S3 | `preload/index.ts:294-297` (①4줄) | 요청·결과 통과 → T-pre |
+| S4 | `renderer/shared/api/ipc.ts:223-225` (①3줄) | 요청·결과 통과 → T-pre |
+| S5 | `useNativeMcpCatalog.ts:82-104` (①90·94·95·96 · ②93·96·97·98) | `confirmed` spread → T-hook-confirm · 판별 → T-hook-idle·T-hook-confirm · title/message(count)/labels → N-host · onConfirm `true` → N-host |
+| S6 | `ExtensionsCatalogView.tsx:164` (②) | `nativeMcp.toggle` 그대로 전달 → N-host |
+| S7 | `CustomizeList.tsx:116` (②) | 2인자(`confirmed` 부재) → T-list |
+| S8 | `confirmDialogStore.ts:22-31` (②22·29·30) | request 저장·비움 → N-host |
+| S9 | `ConfirmDialogHost.tsx:9-31` (②8줄) | title·message 렌더 · handleConfirm · onCancel · onClose · labels → N-host |
+| S10 | `Modal.tsx:107-121` (②111·112·117·120) | 버튼 → onCancel·onConfirm · 라벨 → N-host |
+| S11 | `ko.ts:623-628` · `en.ts:619-624` (①8줄) | 키·플레이스홀더 parity → T-res · `{{count}}` → N-host·N-host-en · en `_one`/`_other` → N-host-en · 제목·확정 라벨 → N-host·N-host-en |
+| S12 | `extension-catalog.ts:19` (①) | `processes` port → T-ec · T-boot-* |
+| S13 | `extension-catalog.ts:41-45` (①42·43·45) | 스키마 경유 등록 → T-boot-ask · N-false |
+| S14 | `extension-catalog.ts:53-61` (①60) | 분기 → T-boot-oc · busy·confirmed 판정 → T-boot-ask · sessions → T-boot-ask · 저장→종료 순서 → T-boot-save · close 호출 → T-boot-idle · 동기 구간 → N-sync |
+| S15 | `extension-catalog.ts:62-64` (①64) | 그 밖 분기 저장·종료 없음 → T-boot-oc |
+| S16 | `bootstrap.ts:1236-1257` (①1236·1238·1244 · ③1251) | supervisor → T-boot-* · backendOf → T-boot-idle · activity → T-boot-ask · discardSession·방송 → T-boot-ask · failed·제목 → N-fail |
+| S17 | `claude-processes.ts:35-61` (①35·57) | backend 필터·closing·dedupe·lease busy·runtime busy·busy 수 → T-cp |
+| S18 | `claude-processes.ts:68-97` (①68·72·81·91) | 계획 입력 · dispatch · 실패 뒤 계속 → T-cp dispatch · N-fail |
+| S19 | `session-activity-busy.ts:5-15` · `native-history.ts:7·9·30` (①2줄) | 8신호 → T-cp 신호 단독 · 재수출 → T-nh |
+| S20 | `supervisor.ts:291-307` (①291·293·299) | lease 분기 · closing · child abort · close · 알림 → T-sup |
+| S21 | `chat-turn/discard.ts:22-38` (①22·32) | residual 비움 · abort → discardRuntime 순서 · emit → T-discard |
+| S22 | `chat-turn/index.ts:175-178` (①175·176) | sessionId → `post-turn.schedules.test.ts` discard 케이스 · 요청 창 emit → N-discard |
+| S23 | `app-error.ts` 목록 · ko·en `errors.toast` (③ `app-error.ts:2` · 신설 3) | 제목 멤버 → N-fail · 문구 → N-titles |
+
+**제외 줄**
+
+- ① 16: import 9(`bootstrap.ts:82·83` · `chat-turn/index.ts:42` · `claude-processes.ts:5` · `extension-catalog.ts:6·11` · `preload/index.ts:10·11` · `renderer/shared/api/ipc.ts:11`) · 앱 종료 `bootstrap.ts:921`·`supervisor.ts:309` · 세션 삭제 hook `bootstrap.ts:1202` · Composer 중단 invoke `preload/index.ts:183`(0151 불변) · 채널 상수 `shared/ipc.ts:44·97` · port 타입 `discard.ts:15`.
+- ② 22: import 2(`ConfirmDialogHost.tsx:2` · `useNativeMcpCatalog.ts:3`) · 다른 모달 onClose 6(`ExtensionsCatalogView.tsx:196·251·257·262·265·270`) · prop 분해·타입 8(`Modal.tsx:91-94·99-102`) · CustomizeList prop 2(`:29·42`) · store 주석·타입 4(`confirmDialogStore.ts:4·10·11·13`).
+- 분모: EP-01′ 23 · G-DOC 3 · EP-10′ 29. 대체된 분모: ΔV1 EP-01 16.
+
+## ΔV2-8. Gate
+
+| Gate | 변경 | 증거 / 명령 |
+|---|---|---|
+| G-DOC (신규) | 문서 자리를 pair 분모에서 떼어 운영 gate로 둔다 | ④ 다섯 명령. 등록 변이 MD1 `adapters.md:69`에 옛 문장 복원 → 음성 1 · MD2 `IPC_CONTRACT.md:193`에서 `SetGlobalNativeResourceResult` 삭제 → 양성 0 |
+| 관련 vitest | 대상 추가 | ΔV1 §19 목록 + `src/renderer/src/features/skills/components/customize/ExtensionsCatalogView.interaction.test.ts`(이미 `features/skills`에 포함) |
+| 나머지 | ΔV1 그대로 | lint · typecheck · doc-inventory · CI · trailer |
+
+## ΔV2 정합성 검토
+
+- ACTIVE 결정 ↔ AC: 충돌 0 — D-010↔AC10 · D-011↔AC2′ · D-007↔AC4′ 동기 구간 · D-003↔AC2′~AC4′.
+- 같은 대상 대조: AC3′ "배경 클릭"과 S9 onClose·M22가 같은 배선을 가리킨다. AC10 "대상당 1회"와 `claude-processes.ts:89-95` try/catch가 일치한다.
+- 인용 실재: 기존 좌표 14종을 `rg -F`로 확인했다(각 1파일). 신규 좌표는 테스트명이 계약이 아니라 진입·입력·관측이 계약이다.
+- self-review(ΔV2):
+  - CHANGED 노드 4개 각각 같은 레벨 REQUIRED pair가 있다. VP-R5′는 REGRESSION.
+  - EP-01′ 23자리를 검색 ①②③ `aff17235` 출력으로 고정했고 제외 줄을 전수 적었다. 문서 3자리는 G-DOC로 옮겼다.
+  - 자리마다 운반 항을 나눠 좌표를 붙였다. 신규 좌표 7건은 실행 구간에 해당 자리를 넣고 구별 값(N 1·2, 언어 ko·en, 버튼 3종, 대상 2 중 1 실패)을 준다.
+  - verify r1 못 잡음 8건을 등록 변이 M14~M22로 올렸고 형제 자리 M23·M24를 더했다.
+  - 사람 실기는 AC9 그대로다. 대화상자 문구·N·버튼 배선은 기계 검증으로 내렸다.
+  - 신규 의존성 0. production 변경은 오류 제목 1개(3파일)다.
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은
 > [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
