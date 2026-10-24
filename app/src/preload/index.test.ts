@@ -57,10 +57,17 @@ it('carries explicit global extension scope and choices across renderer API and 
       id: 'plugin:installed',
       enabled: false
     }
-    const applied = { state: 'disconnected', items: [] }
-    harness.invoke.mockResolvedValueOnce(applied)
-    expect(await sessionApi.setGlobalExtension(request)).toEqual(applied)
+    const confirm = { status: 'confirm', reason: 'claude-processes', sessions: 2 }
+    harness.invoke.mockResolvedValueOnce(confirm)
+    expect(await sessionApi.setGlobalExtension(request)).toEqual(confirm)
     expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.extensionSetEnabled, request)
+    const applied = { status: 'applied', resources: { state: 'disconnected', items: [] } }
+    harness.invoke.mockResolvedValueOnce(applied)
+    expect(await sessionApi.setGlobalExtension({ ...request, confirmed: true })).toEqual(applied)
+    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.extensionSetEnabled, {
+      ...request,
+      confirmed: true
+    })
     await sessionApi.openGlobalExtension({ backend: 'opencode', kind: 'mcp', id: 'docs' })
     expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.extensionOpen, {
       backend: 'opencode',

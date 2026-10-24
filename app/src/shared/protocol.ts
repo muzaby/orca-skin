@@ -763,7 +763,8 @@ export const GlobalNativeResourceTargetSchema = GlobalNativeResourcesSchema.exte
   kind: z.enum(['mcp', 'plugin'])
 })
 export const SetGlobalNativeResourceSchema = GlobalNativeResourceTargetSchema.extend({
-  enabled: z.boolean()
+  enabled: z.boolean(),
+  confirmed: z.literal(true).optional()
 })
 
 export const SettingsSchema = z.object({

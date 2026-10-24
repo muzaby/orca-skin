@@ -62,7 +62,12 @@ export interface GlobalNativeResourceTarget {
 }
 export interface SetGlobalNativeResource extends GlobalNativeResourceTarget {
   enabled: boolean
+  // Claude plugin only: the user approved closing busy Claude sessions.
+  confirmed?: true
 }
+export type SetGlobalNativeResourceResult =
+  | { status: 'applied'; resources: NativeResources }
+  | { status: 'confirm'; reason: 'claude-processes'; sessions: number }
 
 export interface OpenCodePluginsChanged {
   revision: number
