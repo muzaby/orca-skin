@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import { ko } from './ko'
 import { en } from './en'
+import { APP_ERROR_TITLES } from '../../../../../shared/app-error'
 
 type Catalog = { [key: string]: string | Catalog }
 
@@ -30,6 +31,17 @@ function placeholders(value: string): string[] {
 describe('i18n resources', () => {
   const koPaths = leafPaths(ko as Catalog)
   const enPaths = leafPaths(en as Catalog)
+
+  it('has a non-empty toast title for every app error title in each locale', () => {
+    for (const [locale, catalog] of Object.entries({ ko, en })) {
+      for (const title of APP_ERROR_TITLES) {
+        expect(catalog.errors.toast[title], `${locale}:${title}`).toEqual(expect.any(String))
+        expect(catalog.errors.toast[title].trim(), `${locale}:${title}`).not.toBe('')
+      }
+    }
+    expect(ko.errors.toast.claudeSessionsCloseFailed).toBe('일부 Claude 세션을 닫지 못했습니다')
+    expect(en.errors.toast.claudeSessionsCloseFailed).toBe('Could not close some Claude sessions')
+  })
 
   it('ko↔en 리프 키 집합 일치', () => {
     expect(enPaths).toEqual(koPaths)

@@ -561,6 +561,30 @@ describe('0250 queued input and send now through real runtime and handlers', () 
 })
 
 describe('0243 interruption delivery through real runtime and handlers', () => {
+  it('returns residual submissions to the requesting window when the session is discarded', async () => {
+    vi.mocked(sendChatEvent).mockClear()
+    const f = fixture()
+    try {
+      f.pendingMessages.enqueue('s1', { text: 'unconsumed message' }, 1, 'residual-message')
+      const batch = f.pendingMessages.reserveHeld('s1', 'residual-attempt')!
+      expect(f.pendingMessages.commit('s1', batch.attemptId!, batch.chainId)).toBe(true)
+      f.activity.setResidualAttempts('s1', ['residual-attempt'])
+      await ipc.handlers.get(CHANNELS.chatDiscardSession)!(
+        { sender: f.turn.owner },
+        { sessionId: 's1' }
+      )
+      expect(
+        vi
+          .mocked(sendChatEvent)
+          .mock.calls.filter(([, event]) => event.type === 'message.cancelled')
+      ).toEqual([
+        [f.turn.owner, { type: 'message.cancelled', sessionId: 's1', ids: ['residual-message'] }]
+      ])
+      expect(f.activity.current('s1').residualCount).toBe(0)
+    } finally {
+      f.cleanup()
+    }
+  })
   it.each(['cancel', 'discard', 'controller', 'chain', 'database-failure'] as const)(
     '%s closes the active response exactly once',
     async (source) => {

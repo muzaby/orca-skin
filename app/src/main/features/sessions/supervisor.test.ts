@@ -252,6 +252,45 @@ describe('RuntimeSupervisor resource governance (0055)', () => {
     ).toBe(false)
   })
 
+  it('discards a session-less lease by aborting its child and closing its runtime', () => {
+    const supervisor = new RuntimeSupervisor<object>()
+    const owner = {}
+    const turn = fakeTurn()
+    turn.owner = owner
+    const { lease } = supervisor.acquireChain({
+      logicalKey: 'client:draft-1',
+      sessionId: null,
+      owner,
+      requestedProviderKey: null
+    })
+    const live = fakeManaged()
+    expect(supervisor.activateChain(lease.leaseId, live, null, turn)).toBe(true)
+    const notified = vi.fn()
+    supervisor.subscribeLeases(notified)
+
+    expect(supervisor.discardLease(lease.leaseId)).toBe(true)
+    expect(turn.controller.signal.aborted).toBe(true)
+    expect(live.closed).toBe(1)
+    expect(supervisor.getChainByKey('client:draft-1')?.kind).toBe('closing')
+    expect(notified).toHaveBeenCalledExactlyOnceWith('client:draft-1')
+    expect(supervisor.discardLease('missing')).toBe(false)
+  })
+
+  it('creates a new runtime after an idle runtime is discarded', () => {
+    const supervisor = new RuntimeSupervisor<object>()
+    const idle = fakeManaged()
+    supervisor.releaseRuntime('s1', idle)
+    expect(supervisor.acquireRuntime('s1', () => fakeManaged())).toBe(idle)
+    supervisor.releaseRuntime('s1', idle)
+
+    expect(supervisor.discardRuntime('s1')).toBe(true)
+    expect(idle.closed).toBe(1)
+    const fresh = fakeManaged()
+    const factory = vi.fn(() => fresh)
+    expect(supervisor.acquireRuntime('s1', factory)).toBe(fresh)
+    expect(factory).toHaveBeenCalledOnce()
+  })
+
   it('cancelChain은 lease와 현재 child를 함께 abort한다', () => {
     const supervisor = new RuntimeSupervisor<object>()
     const owner = {}

@@ -573,6 +573,7 @@ export const en: typeof ko = {
       unexpected: 'An unexpected error occurred',
       loadFailed: 'Could not load information',
       saveFailed: 'Could not save changes',
+      claudeSessionsCloseFailed: 'Could not close some Claude sessions',
       actionFailed: 'Could not complete the action',
       copyFailed: 'Could not copy to the clipboard',
       openFailed: 'Could not open the file',
@@ -616,6 +617,12 @@ export const en: typeof ko = {
   },
   chat: {
     nativeResources: {
+      claudeCloseTitle: 'Close Claude sessions',
+      claudeCloseBody_one:
+        '{{count}} Claude session is responding or running work. Applying this plugin change closes every running Claude session, and responses and background work in progress will stop.',
+      claudeCloseBody_other:
+        '{{count}} Claude sessions are responding or running work. Applying this plugin change closes every running Claude session, and responses and background work in progress will stop.',
+      claudeCloseConfirm: 'Change',
       retry: 'Retry',
       openConfig: 'Show configuration file',
       openFolder: 'Open installation folder',

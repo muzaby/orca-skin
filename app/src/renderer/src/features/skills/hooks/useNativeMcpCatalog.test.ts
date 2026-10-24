@@ -5,13 +5,20 @@ vi.mock('react', async (original) => ({
 }))
 vi.mock('../../../shared/i18n', async (original) => ({
   ...(await original<typeof import('../../../shared/i18n')>()),
-  useI18n: () => ({ tr: (key: string) => key, locale: 'ko' })
+  useI18n: () => ({
+    tr: (key: string, options?: { count?: number }) =>
+      options?.count === undefined ? key : `${key}(${options.count})`,
+    locale: 'ko'
+  })
 }))
 import { createElement, useLayoutEffect } from 'react'
 import { installFakeDom } from '../../../shared/ui/renderHarness.testfixture'
 import { useNativeMcpCatalog } from './useNativeMcpCatalog'
 import { CustomizeList } from '../components/customize/CustomizeList'
-import type { NativeResources } from '../../../../../shared/native-resources'
+import type {
+  NativeResources,
+  SetGlobalNativeResourceResult
+} from '../../../../../shared/native-resources'
 import { useConfirmStore } from '../../../shared/ui/confirmDialogStore'
 import { errorToastStore } from '../../../shared/errors/errorToastStore'
 let dom: ReturnType<typeof installFakeDom>
@@ -37,6 +44,10 @@ const catalog = (enabled = true): NativeResources => ({
     }
   ]
 })
+const applied = (resources: NativeResources): SetGlobalNativeResourceResult => ({
+  status: 'applied',
+  resources
+})
 const flush = async (): Promise<void> => {
   for (let i = 0; i < 16; i++) await Promise.resolve()
   dom.act(() => {})
@@ -47,7 +58,7 @@ it('queries explicit global scope without owning runtime observations, retains g
   dom = installFakeDom({ innerWidth: 1280, innerHeight: 800 })
   const read = vi.fn<(backend: string) => Promise<NativeResources>>(async () => catalog())
   const open = vi.fn(async () => {})
-  const write = vi.fn(async () => catalog(false))
+  const write = vi.fn(async () => applied(catalog(false)))
   const runtimeRead = vi.fn(),
     observe = vi.fn()
   Object.assign(window, {
@@ -122,7 +133,7 @@ it('renders native plugin capabilities and updates the actual row through its to
       }
     ]
   })
-  const write = vi.fn(async () => plugin('claude', true))
+  const write = vi.fn(async () => applied(plugin('claude', true)))
   Object.assign(window, {
     orca: {
       session: {
@@ -175,7 +186,7 @@ it('reports a choice write failure once and releases the queue for a retry', asy
   const write = vi
     .fn()
     .mockRejectedValueOnce(new Error('disk locked'))
-    .mockResolvedValueOnce(plugins(false))
+    .mockResolvedValueOnce(applied(plugins(false)))
   const logged = vi.fn()
   Object.assign(window, {
     orca: {
@@ -215,4 +226,131 @@ it('reports a choice write failure once and releases the queue for a retry', asy
   await flush()
   expect(result.list[0].resource.enabled).toBe(false)
   expect(write).toHaveBeenCalledTimes(2)
+})
+
+function claudePluginHarness(results: SetGlobalNativeResourceResult[]): {
+  write: ReturnType<typeof vi.fn>
+  result: () => ReturnType<typeof useNativeMcpCatalog>
+} {
+  const rows = (backend: string, enabled = true): NativeResources => ({
+    state: 'disconnected',
+    items: [
+      backend === 'claude'
+        ? {
+            id: 'superpowers',
+            name: 'superpowers@market',
+            kind: 'plugin',
+            enabled,
+            status: enabled ? 'configured' : 'disabled',
+            canToggle: true
+          }
+        : {
+            id: 'docs',
+            name: 'docs',
+            kind: 'mcp',
+            enabled,
+            status: enabled ? 'configured' : 'disabled',
+            canToggle: true
+          }
+    ]
+  })
+  const write = vi.fn()
+  for (const value of results) write.mockResolvedValueOnce(value)
+  write.mockImplementation(async (request: { backend: string; enabled: boolean }) =>
+    applied(rows(request.backend, request.enabled))
+  )
+  Object.assign(window, {
+    orca: {
+      session: {
+        globalExtensions: async (backend: string) => rows(backend),
+        setGlobalExtension: write
+      }
+    }
+  })
+  let current!: ReturnType<typeof useNativeMcpCatalog>
+  function Probe(): null {
+    const value = useNativeMcpCatalog()
+    useLayoutEffect(() => {
+      current = value
+    }, [value])
+    return null
+  }
+  dom.render(createElement(Probe))
+  return { write, result: () => current }
+}
+
+it('applies a Claude plugin change without a dialog when no Claude session is busy', async () => {
+  vi.useFakeTimers()
+  dom = installFakeDom({ innerWidth: 1280, innerHeight: 800 })
+  const { write, result } = claudePluginHarness([])
+  await flush()
+  const claude = result().list.find((item) => item.backend === 'claude')!
+  await result().toggle('claude', claude.resource)
+  await flush()
+  expect(write).toHaveBeenCalledExactlyOnceWith({
+    backend: 'claude',
+    id: 'superpowers',
+    kind: 'plugin',
+    enabled: false
+  })
+  expect(useConfirmStore.getState().request).toBeNull()
+  expect(result().list.find((item) => item.backend === 'claude')!.resource.enabled).toBe(false)
+})
+
+it('confirms before closing busy Claude sessions and applies only after the change is confirmed', async () => {
+  vi.useFakeTimers()
+  dom = installFakeDom({ innerWidth: 1280, innerHeight: 800 })
+  const confirm: SetGlobalNativeResourceResult = {
+    status: 'confirm',
+    reason: 'claude-processes',
+    sessions: 2
+  }
+  const { write, result } = claudePluginHarness([confirm, confirm])
+  await flush()
+  const claude = (): NonNullable<ReturnType<typeof useNativeMcpCatalog>['list'][number]> =>
+    result().list.find((item) => item.backend === 'claude')!
+  const request = { backend: 'claude', id: 'superpowers', kind: 'plugin', enabled: false }
+
+  await result().toggle('claude', claude().resource)
+  await flush()
+  expect(write).toHaveBeenCalledExactlyOnceWith(request)
+  expect(useConfirmStore.getState().request).toMatchObject({
+    title: 'chat.nativeResources.claudeCloseTitle',
+    message: 'chat.nativeResources.claudeCloseBody(2)',
+    confirmLabel: 'chat.nativeResources.claudeCloseConfirm',
+    cancelLabel: 'common.cancel'
+  })
+  expect(claude().resource.enabled).toBe(true)
+  // [취소] — the host only closes the store; no second request and the row stays.
+  useConfirmStore.getState().close()
+  await flush()
+  expect(write).toHaveBeenCalledTimes(1)
+  expect(claude().resource.enabled).toBe(true)
+
+  await result().toggle('claude', claude().resource)
+  await flush()
+  expect(write).toHaveBeenCalledTimes(2)
+  useConfirmStore.getState().request!.onConfirm()
+  await flush()
+  expect(write).toHaveBeenCalledTimes(3)
+  expect(write).toHaveBeenLastCalledWith({ ...request, confirmed: true })
+  expect(claude().resource.enabled).toBe(false)
+})
+
+it('never opens the Claude dialog for OpenCode MCP toggles', async () => {
+  vi.useFakeTimers()
+  dom = installFakeDom({ innerWidth: 1280, innerHeight: 800 })
+  const { write, result } = claudePluginHarness([])
+  await flush()
+  const docs = result().list.find((item) => item.backend === 'opencode')!
+  await result().toggle('opencode', docs.resource)
+  await flush()
+  expect(write).toHaveBeenCalledExactlyOnceWith({
+    backend: 'opencode',
+    id: 'docs',
+    kind: 'mcp',
+    enabled: false
+  })
+  expect(useConfirmStore.getState().request).toBeNull()
+  expect(result().list.find((item) => item.backend === 'opencode')!.resource.enabled).toBe(false)
 })

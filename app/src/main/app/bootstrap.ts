@@ -79,6 +79,8 @@ import { registerEngineHandlers } from './handlers/engine'
 import { registerMiscHandlers } from './handlers/misc'
 import { registerSettingsHandlers, registerSettingsReadHandler } from './handlers/settings'
 import { registerSkillsHandlers } from './handlers/skills'
+import { createClaudeProcessReset } from './claude-processes'
+import { discardSessionWork } from './chat-turn/discard'
 import { registerExtensionCatalogHandlers } from './handlers/extension-catalog'
 import { extensionControl } from './extension-control'
 import { registerFilesHandlers } from './handlers/files'
@@ -1231,7 +1233,28 @@ export class Bootstrap {
           error
         })
     })
-    registerExtensionCatalogHandlers(this.extensionChoices)
+    registerExtensionCatalogHandlers(
+      this.extensionChoices,
+      createClaudeProcessReset({
+        supervisor,
+        backendOf: (sessionId) => ctx.db.getSessionById(sessionId)?.backend,
+        activity: (sessionId) => activity.current(sessionId),
+        // 0283 — 전역 Claude 플러그인 토글은 모든 창의 세션을 닫으므로 초안 복원을 방송한다.
+        discardSession: (sessionId) =>
+          discardSessionWork(
+            { activity, supervisor, pendingMessages },
+            sessionId,
+            broadcastChatEvent
+          ),
+        failed: (error) =>
+          reportError({
+            event: 'extensions.claude-processes.close-failed',
+            scope: 'native-resources',
+            title: 'claudeSessionsCloseFailed',
+            error
+          })
+      })
+    )
     registerFilesHandlers(ctx)
     registerGitHandlers(ctx.db)
     registerCostHandlers(ctx)
