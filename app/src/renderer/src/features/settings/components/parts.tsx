@@ -1,20 +1,23 @@
 import type { ReactNode } from 'react'
 
-// 설정 행 우측의 드롭다운. 다섯 개 행(폰트·언어·대화 텍스트 크기·대화 기록 너비·업데이트 주기)이 같은 표면을 쓰므로 클래스가
+// 설정 행 우측의 드롭다운. 여러 설정이 같은 표면을 쓰므로 클래스가
 // 여기 한 번만 산다. 라벨은 호출부가 tr() 로 해석해 넘긴다 — i18n 키와 원문 라벨을 모두 받기 위함.
 export function SettingsSelect<V extends string | number>({
   value,
   options,
   onChange,
-  disabled
+  disabled,
+  label
 }: {
   value: V
   options: readonly { value: V; label: string }[]
   onChange: (value: V) => void
   disabled?: boolean
+  label?: string
 }): React.JSX.Element {
   return (
     <select
+      aria-label={label}
       value={value}
       disabled={disabled}
       onChange={(e) =>
@@ -34,14 +37,19 @@ export function SettingsSelect<V extends string | number>({
 // 설정 모달의 2depth "그룹" — 프로필 / 환경설정 / 알림 등. 헤더 + 세로 행 스택.
 export function SettingsGroup({
   title,
+  leading,
   children
 }: {
   title: string
+  leading?: ReactNode
   children: ReactNode
 }): React.JSX.Element {
   return (
     <section className="mb-8">
-      <h3 className="mb-3 text-[15px] font-semibold text-ink">{title}</h3>
+      <h3 className="mb-3 flex items-center gap-2 text-[15px] font-semibold text-ink">
+        {leading && <span aria-hidden="true">{leading}</span>}
+        {title}
+      </h3>
       <div className="flex flex-col gap-4">{children}</div>
     </section>
   )

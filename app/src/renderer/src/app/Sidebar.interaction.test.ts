@@ -37,6 +37,7 @@ import { Sidebar } from './Sidebar'
 import { installFakeDom, type FakeDom } from '../shared/ui/renderHarness.testfixture'
 import { installChatStoreHarness } from '../features/chat/store/chatStore.testHarness'
 import {
+  chatActions,
   getActiveChatSession,
   seedLandingBackend,
   useChatStore
@@ -72,7 +73,14 @@ function render(collapsed = false): {
       footerSlot: null
     })
   )
-  return { harness, trigger: dom.query('[aria-haspopup="menu"]')! }
+  const trigger = dom
+    .queryAll('[onClick]')
+    .find(
+      (node) =>
+        node.props['aria-label'] === 'sidebar.nav.newChat' ||
+        node.textContent === 'sidebar.nav.newChat'
+    )!
+  return { harness, trigger }
 }
 beforeEach(() => {
   vi.useFakeTimers()
@@ -86,59 +94,34 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-describe('new chat harness entry', () => {
+describe('new chat direct entry', () => {
   it.each([false, true])(
-    'opens the branded menu flush to the %s collapsed nav without changing the chat',
+    'navigates straight to the landing from expanded and collapsed nav (%s)',
     (collapsed) => {
       const { trigger } = render(collapsed)
       const before = useChatStore.getState()
       dom.click(trigger)
-      dom.frame()
-      expect(useChatStore.getState()).toBe(before)
-      expect(route.navigate).not.toHaveBeenCalled()
-      expect(dom.queryAll('[data-harness-choice]').map((node) => node.textContent)).toEqual([
-        'Claude',
-        'OpenCode'
-      ])
-      for (const brand of ['claude', 'opencode'])
-        expect(dom.query(`[data-harness-brand="${brand}"]`)?.children[0].tag).toBe('svg')
-      expect(dom.query('[data-context="floating"]')?.props.style).toEqual({
-        left: collapsed ? 64 : 256,
-        top: 60
-      })
-      expect(dom.activeElement.props['data-harness-choice']).toBe('claude')
-      dom.keyDown('ArrowDown')
-      expect(dom.activeElement.props['data-harness-choice']).toBe('opencode')
-      dom.keyDown('Escape')
-      expect(dom.query('[data-context="floating"]')).toBeNull()
-      expect(dom.activeElement).toBe(trigger)
-      expect(useChatStore.getState()).toBe(before)
-      dom.click(trigger)
-      dom.click(dom.createNode('button', { id: 'outside' }))
-      expect(dom.query('[data-context="floating"]')).toBeNull()
+      expect(route.navigate).toHaveBeenCalledExactlyOnceWith('/new')
+      expect(dom.queryAll('[role="menu"]')).toHaveLength(0)
+      expect(trigger.props['aria-haspopup']).toBeUndefined()
+      expect(trigger.props['aria-expanded']).toBeUndefined()
       expect(useChatStore.getState()).toBe(before)
     }
   )
-  it.each(['claude', 'opencode'] as const)(
-    'selects %s into a fresh draft and preserves the existing session, also on /new',
-    (backend) => {
-      const { trigger, harness } = render()
-      const saved = useChatStore.getState().sessions.s
-      for (const path of ['/chat/s', '/new']) {
-        route.pathname = path
-        dom.click(trigger)
-        dom.click(dom.query(`[data-harness-choice="${backend}"]`)!)
-        expect(getActiveChatSession()).toMatchObject({
-          backend,
-          harnessExplicitlySelected: true,
-          sessionId: null,
-          messages: []
-        })
-        expect(useChatStore.getState().sessions.s).toBe(saved)
-        expect(harness.settingsSet).toHaveBeenLastCalledWith({ lastBackend: backend })
-        expect(route.navigate).toHaveBeenLastCalledWith('/new')
-        expect(dom.query('[data-context="floating"]')).toBeNull()
-      }
-    }
-  )
+  it('keeps the draft when already on the landing', () => {
+    route.pathname = '/new'
+    const { trigger } = render()
+    const reset = vi.spyOn(chatActions, 'newChat')
+    const before = useChatStore.getState()
+    dom.click(trigger)
+    expect(reset).not.toHaveBeenCalled()
+    expect(useChatStore.getState()).toBe(before)
+    reset.mockRestore()
+  })
+  it('seeds the next landing with the last harness', () => {
+    render()
+    seedLandingBackend('opencode')
+    chatActions.newChat()
+    expect(getActiveChatSession().backend).toBe('opencode')
+  })
 })

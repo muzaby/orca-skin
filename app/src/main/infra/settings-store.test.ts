@@ -184,3 +184,58 @@ it('persists global choices through the main-only setter, unrelated patches and 
   })
   expect(backend.store.settingsVersion).toBe(2)
 })
+
+it('merges a partial harness preference without clearing siblings', () => {
+  const backend = countingBackend()
+  const store = new SettingsStore('test', backend)
+  store.patch({
+    harnesses: {
+      claude: {
+        instructions: 'Claude sentinel',
+        executablePath: 'claude-path',
+        outputStyle: 'Learning'
+      },
+      opencode: {
+        instructions: 'OpenCode sentinel',
+        executablePath: 'opencode-path',
+        autoApprovePermissions: true
+      }
+    }
+  })
+  store.patch({ harnesses: { claude: { outputStyle: 'Proactive' } }, lastCwd: 'C:/chosen' })
+  store.patch({ harnesses: { opencode: { autoApprovePermissions: false } } })
+  expect(new SettingsStore('test', backend).getAll()).toMatchObject({
+    lastCwd: 'C:/chosen',
+    harnesses: {
+      claude: {
+        instructions: 'Claude sentinel',
+        executablePath: 'claude-path',
+        outputStyle: 'Proactive'
+      },
+      opencode: {
+        instructions: 'OpenCode sentinel',
+        executablePath: 'opencode-path',
+        autoApprovePermissions: false
+      }
+    }
+  })
+})
+it('defaults absent or damaged harness preferences and rejects damaged patches', () => {
+  const store = new SettingsStore(
+    'test',
+    countingBackend({
+      harnesses: {
+        claude: { outputStyle: 'damaged' },
+        opencode: { autoApprovePermissions: 'true' }
+      }
+    })
+  )
+  expect(store.getAll().harnesses).toMatchObject({
+    claude: { outputStyle: 'Concise' },
+    opencode: { autoApprovePermissions: false }
+  })
+  expect(() => store.patch({ harnesses: { claude: { outputStyle: 'damaged' } } })).toThrow()
+  expect(() =>
+    store.patch({ harnesses: { opencode: { autoApprovePermissions: 'true' } } })
+  ).toThrow()
+})

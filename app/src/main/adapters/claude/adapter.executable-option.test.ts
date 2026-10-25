@@ -231,7 +231,7 @@ describe('Claude 공통 실행 옵션', () => {
   })
 
   it.each([undefined, {}, { env: { API_KEY: 'fixture' }, model: 'fixture-model' }])(
-    'complete/send가 같은 settings/env/source를 쓰고 실행별 도구 정책을 보존한다: %j',
+    'complete/send가 공통 settings/env/source와 대화 전용 스타일·도구 정책을 보존한다: %j',
     async (settings) => {
       const providerSettings: ResolvedHarnessSettings | undefined = settings
         ? { providerKey: 'fixture', provider: 'claude', sourceRevision: '1', settings }
@@ -274,6 +274,7 @@ describe('Claude 공통 실행 옵션', () => {
         expect(JSON.parse(options.settings as string)).toEqual({
           skipWebFetchPreflight: true,
           ...settings,
+          ...(options === conversation ? { outputStyle: 'Concise' } : {}),
           env: {
             ...(env
               ? settings?.env
@@ -398,6 +399,7 @@ describe('Claude 공통 실행 옵션', () => {
       expect(options.env?.CLAUDE_CODE_USE_POWERSHELL_TOOL).toBe('0')
       expect(JSON.parse(options.settings as string)).toEqual({
         skipWebFetchPreflight: false,
+        outputStyle: 'Concise',
         env: { CLAUDE_CODE_TMPDIR: getTemporaryFilesPath() }
       })
       expect(settings.env).toBe(values[2])

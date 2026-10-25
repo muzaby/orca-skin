@@ -1,3 +1,4 @@
+import { landingFrame } from './landingFrame'
 import { composerHarness } from '../harnesses/registries/composer'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
@@ -227,7 +228,7 @@ export function Composer({
   const toolApprovalPending = pendingToolApprovals.length > 0
   return (
     <div
-      className={`app-frame-composer relative ${openCodeLanding && contextBelow ? '' : 'pb-[18px] pt-3'}`}
+      className={`app-frame-composer relative ${openCodeLanding && contextBelow ? landingFrame.openCodeComposer : 'pb-[18px] pt-3'}`}
     >
       {showScrollToBottom && (
         <button
@@ -254,7 +255,7 @@ export function Composer({
             </>
           }
           gitRow={
-            agentUiPolicy(agentKind).composer.showGitRow ? (
+            presentation.showGitRow && agentUiPolicy(agentKind).composer.showGitRow ? (
               <GitRow cwd={cwd} sessionStarted={showGitRow} />
             ) : null
           }
@@ -401,7 +402,10 @@ export function Composer({
           }
           afterComposerInput={
             showLandingCwdPanel && openCodeLanding && contextBelow ? (
-              <div className="pt-6" data-surface="opencode-landing-context">
+              <div
+                className="absolute inset-x-0 top-full pt-6"
+                data-surface="opencode-landing-context"
+              >
                 <CwdPanel cwd={cwd} inflight={leaseBusy} appearance="opencode" />
               </div>
             ) : null

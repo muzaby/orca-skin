@@ -1,3 +1,4 @@
+import { DEFAULT_CLAUDE_OUTPUT_STYLE, type ClaudePreferences } from '../../../shared/harness'
 import { extensionChoices } from '../common/extension-control'
 import { persistClaudePluginState } from './plugin-state'
 import { ClaudeProjectReconciliation } from './project-reconciliation'
@@ -342,7 +343,8 @@ export class ClaudeAdapter implements SessionAdapter {
   >()
   constructor(
     private readonly extensionControl?: import('../common/extension-control').ExtensionControl,
-    private readonly pluginSnapshots?: import('../common/plugin-snapshots').PluginSnapshotPort
+    private readonly pluginSnapshots?: import('../common/plugin-snapshots').PluginSnapshotPort,
+    private readonly preferences?: () => ClaudePreferences | undefined
   ) {}
   async recoverSession(
     req: NativeHistoryRequest
@@ -514,7 +516,11 @@ export class ClaudeAdapter implements SessionAdapter {
       requirements = []
     } = req
 
-    const settings = req.providerSettings?.settings
+    let appliedOutputStyle = this.preferences?.()?.outputStyle ?? DEFAULT_CLAUDE_OUTPUT_STYLE
+    const settings: Record<string, unknown> = {
+      ...req.providerSettings?.settings,
+      outputStyle: appliedOutputStyle
+    }
     const contextEnv = envLookup(env, settings, process.env)
     const executionModel = modelForCli(model, contextEnv, settings?.model)
     let appliedEffort = effort
@@ -1038,6 +1044,11 @@ export class ClaudeAdapter implements SessionAdapter {
         if (next.effort !== undefined && next.effort !== appliedEffort) {
           await handle.applyFlagSettings({ effortLevel: next.effort })
           appliedEffort = next.effort
+        }
+        const outputStyle = this.preferences?.()?.outputStyle ?? DEFAULT_CLAUDE_OUTPUT_STYLE
+        if (outputStyle !== appliedOutputStyle) {
+          await handle.applyFlagSettings({ outputStyle })
+          appliedOutputStyle = outputStyle
         }
         return pushInput(
           buildTurnContent(

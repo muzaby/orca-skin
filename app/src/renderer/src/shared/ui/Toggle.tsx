@@ -40,9 +40,11 @@ export function ToggleIndicator({
 export function Toggle({
   on,
   onClick,
+  disabled,
   label
 }: {
   on: boolean
+  disabled?: boolean
   onClick?: () => void
   label?: string
 }): React.JSX.Element {
@@ -50,10 +52,11 @@ export function Toggle({
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       role="switch"
       aria-checked={on}
       aria-label={label}
-      className={`relative h-[17px] w-[30px] flex-none cursor-pointer rounded-[9px] border-0 transition-colors ${
+      className={`relative h-[17px] w-[30px] flex-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 rounded-[9px] border-0 transition-colors ${
         on ? 'bg-toggle-on' : 'bg-border-strong'
       }`}
     >

@@ -1,3 +1,4 @@
+import { CLAUDE_OUTPUT_STYLES, DEFAULT_CLAUDE_OUTPUT_STYLE } from './harness'
 // zod 스키마 — main 프로세스의 IPC 입력 검증 전용.
 // preload (sandbox=true) 에서는 절대 import 하지 말 것: zod 가 require 되어 sandbox 가 거부한다.
 // 타입과 CHANNELS 만 필요한 곳은 ./ipc 에서 import.
@@ -748,8 +749,15 @@ const HarnessPreferencesSchema = z.object({
   executablePath: z.string().optional()
 })
 const HarnessSettingsSchema = z.object({
-  claude: HarnessPreferencesSchema.optional(),
-  opencode: HarnessPreferencesSchema.optional()
+  claude: HarnessPreferencesSchema.extend({
+    outputStyle: z
+      .enum(CLAUDE_OUTPUT_STYLES)
+      .catch(DEFAULT_CLAUDE_OUTPUT_STYLE)
+      .default(DEFAULT_CLAUDE_OUTPUT_STYLE)
+  }).optional(),
+  opencode: HarnessPreferencesSchema.extend({
+    autoApprovePermissions: z.boolean().catch(false).default(false)
+  }).optional()
 })
 
 const NativeExtensionChoicesSchema = z.object({
@@ -781,6 +789,7 @@ export const SettingsSchema = z.object({
     .max(SIDEBAR_WIDTH_MAX)
     .default(SIDEBAR_WIDTH_DEFAULT),
   lastBackend: BackendSchema.nullable().default(null),
+  lastCwd: z.string().nullable().default(null),
   lastSessionId: z.string().nullable().default(null),
   // 컴포저 랜딩이 마지막으로 선택된 종류로 열리게 하는 값(0228 D-003). `last*` 형제와 같은
   // "마지막 상태" 축이다. 손상된 값은 부팅을 막지 않고 첫 실행 고정값으로 복원한다.
@@ -819,13 +828,31 @@ export const SettingsSchema = z.object({
 
 export const SettingsPatchSchema = z
   .object({
-    harnesses: HarnessSettingsSchema,
+    harnesses: z.object({
+      claude: z
+        .object({
+          instructions: z.string(),
+          executablePath: z.string(),
+          outputStyle: z.enum(CLAUDE_OUTPUT_STYLES)
+        })
+        .partial()
+        .optional(),
+      opencode: z
+        .object({
+          instructions: z.string(),
+          executablePath: z.string(),
+          autoApprovePermissions: z.boolean()
+        })
+        .partial()
+        .optional()
+    }),
     theme: z.enum(['white', 'dark']),
     transcriptTextSize: z.enum(TRANSCRIPT_TEXT_SIZES),
     transcriptWidth: z.enum(TRANSCRIPT_WIDTHS),
     sidebarCollapsed: z.boolean(),
     sidebarWidth: z.number().int().min(SIDEBAR_WIDTH_MIN).max(SIDEBAR_WIDTH_MAX),
     lastBackend: BackendSchema.nullable(),
+    lastCwd: z.string().nullable(),
     lastSessionId: z.string().nullable(),
     lastAgentKind: AgentKindSchema,
     windowBounds: WindowBoundsSchema.nullable(),

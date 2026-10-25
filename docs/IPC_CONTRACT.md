@@ -145,6 +145,7 @@ interface Settings {
   sidebarCollapsed: boolean;
   sidebarWidth: number; // 180–480, default 248 (Phase 3+ 도입)
   lastBackend: Backend | null;
+  lastCwd: string | null; // 마지막으로 선택한 작업 폴더. 없거나 더 이상 폴더가 아니면 바탕화면으로 폴백
   lastSessionId: string | null;
   lastAgentKind: AgentKind; // 컴포저 랜딩이 여는 종류 — 마지막 토글 선택. 저장값 없음/손상 ⇒ 'work'(첫 실행 고정값, 0228). 부팅 `landing-target` 스텝이 읽어 새-채팅 초안에 시드한다
   windowBounds: { x: number; y: number; width: number; height: number } | null;
@@ -659,7 +660,7 @@ Work에는 Main이 `{ type: 'response.boundary', sessionId, boundary }`를 발�
 - `agent:list`는 하네스별 `AgentEnvironment`를 반환한다. OpenCode 모델에는 엔진 문서에 명시된 native `provider/model`, `variants`, provider ID와 기본 build/plan 및 문서의 visible primary `agents` 목록이 포함된다. 목록 조회는 OpenCode 서버를 시작하거나 전역 카탈로그를 가져오지 않는다. 설정 해석 실패는 해당 entry의 `catalogError`로 보고한다.
 - 실행 중 OpenCode의 `session:native-resources` 응답은 선택적 `composer: NativeComposerCatalog`를 포함한다. SDK에서 해석한 visible primary/all 에이전트 이름·설명·기본 모델/variant와 모델별 variant 이름만 전달한다. Composer는 같은 generation의 성공 목록을 사용하며 빈 목록은 제거, 조회 실패는 기존 관측 보존으로 구분한다. prompt·공급자 옵션·인증값은 이 DTO에 포함하지 않는다.
 - 엔진 add/read/update/delete의 engine과 canonical key는 하네스 범위를 갖는다. native JSON은 다른 하네스 설정으로 변환하지 않는다.
-- `settings.harnesses[backend]`는 `instructions`와 optional `executablePath`를 저장한다. patch는 다른 하네스의 설정을 보존한다. 실행 파일 경로는 OpenCode 서버 설정에만 사용한다. `lastBackend`는 새 대화의 기본값이며 기존 대화의 실행 선택을 바꾸지 않는다.
+- `settings.harnesses[backend]`는 `instructions`와 optional `executablePath`를 저장한다. Claude는 `outputStyle`(기본 `Concise`), OpenCode는 `autoApprovePermissions`(기본 false)를 추가로 저장한다. patch는 같은 하네스의 형제 필드와 다른 하네스의 설정을 보존하고, 생략한 필드에 기본값을 주입하지 않는다. 실행 파일 경로는 OpenCode 서버 설정에만 사용한다. `lastBackend`는 새 대화의 기본값이며 기존 대화의 실행 선택을 바꾸지 않는다.
 - `tool.call.started`와 저장 `tool_call`의 optional `providerTool: {name, input}`은 원본 이름·입력이다. 공통 `toolName`·`args`와 함께 보존하고 구형 이력에 합성하지 않는다. `session.updated.patch.backend`는 최초 세션 확정에 사용한다.
 
 - OpenCode의 소유 child 텍스트·도구는 기존 normalized part의 parentToolRunId로 기록한다. 셸·task 진행 관측은 기존 background.call의 progress/returned와 result·status·model·meta.truncated를 사용하며 실행 제어 능력을 뜻하지 않는다. 소유 채널에서 부모 응답 idle 뒤에도 실행 중 child와 서버 자동 후속 응답을 수신한다. background launch와 소유 완료 입력은 기존 canonical task 이벤트로 전달하며 수신하지 않은 과거 child 기록은 합성하지 않는다.

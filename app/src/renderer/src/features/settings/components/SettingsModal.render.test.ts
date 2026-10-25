@@ -27,7 +27,17 @@ vi.mock('../store/settingsModalStore', async (original) => {
   }
 })
 vi.mock('./GeneralTab', () => ({
-  GeneralTab: () => createElement('div', { 'data-page': 'general' })
+  GeneralTab: ({
+    harnessBrand
+  }: {
+    harnessBrand?: (backend: 'claude' | 'opencode') => ReactNode
+  }) =>
+    createElement(
+      'div',
+      { 'data-page': 'general' },
+      harnessBrand?.('claude'),
+      harnessBrand?.('opencode')
+    )
 }))
 vi.mock('./UsageTab', () => ({ UsageTab: () => createElement('div', { 'data-page': 'usage' }) }))
 vi.mock('./ProviderUsageTab', () => ({
@@ -51,4 +61,20 @@ it('retains general, usage and provider navigation without harness tabs or pages
   }
   useSettingsModalStore.getState().hide()
   expect(useSettingsModalStore.getState().open).toBe(false)
+})
+
+it('passes the harness brand slot to the general tab', () => {
+  useSettingsModalStore.getState().show('general')
+  const $ = load(
+    renderToStaticMarkup(
+      createElement(SettingsModal, {
+        harnessBrand: (backend) => createElement('i', { 'data-brand': backend })
+      })
+    )
+  )
+  expect(
+    $('[data-page="general"] [data-brand]')
+      .map((_i, node) => $(node).attr('data-brand'))
+      .get()
+  ).toEqual(['claude', 'opencode'])
 })

@@ -1,6 +1,7 @@
 // session 도메인 핸들러 — cwd / list / load / delete / rename.
 // 검증 실패 정책(조회·삭제·rename = 무해 폴백)은 registry.ts 의 등록부 명시 규약을 따른다.
 
+import { resolveLandingCwd } from './session-cwd'
 import {
   CHANNELS,
   AddSessionDirectorySchema,
@@ -51,9 +52,10 @@ export function registerSessionHandlers(
       )
   )
 
-  // Renderer 가 세션 init 이벤트 전에도 cwd 를 알 수 있도록 노출. chat send 와
-  // 동일한 cwd 단일 소스 — 인자 없는 호출은 비-프로젝트 기본(projects/default).
-  handlePlain(CHANNELS.sessionCwd, (): string => ctx.getCwd())
+  // Renderer 부트 시 마지막 작업 폴더를 복원하고, 유효하지 않으면 기본 경로로 폴백한다.
+  handlePlain(CHANNELS.sessionCwd, () =>
+    resolveLandingCwd(ctx.settings.getAll().lastCwd, ctx.getCwd())
+  )
 
   handlePlain(CHANNELS.sessionList, (): SessionListItem[] =>
     ctx.db.listSessions().map(toSessionListItem)

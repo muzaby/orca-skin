@@ -6,6 +6,7 @@ import { OpenCodeModeControl, OpenCodeEffortControl } from './Controls'
 import { selectOpenCodeRequest } from './requestQueue'
 import { AboveInput } from './AboveInput'
 export const composerModule: ComposerModule = {
+  showGitRow: false,
   appearance: composerAppearance,
   includeExtensions: false,
   controlsPlacement: 'end',

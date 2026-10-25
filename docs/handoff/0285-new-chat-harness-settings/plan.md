@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-25 |
 | 매핑 | 같은 요청의 버그 부분은 [`0284`](../0284-native-toggle-self-write/plan.md)로 분리 |
-| 상태 | READY |
+| 상태 | IMPL_DONE (V1 r1) |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
 | 이번 V revision | `V1` |
@@ -441,65 +441,176 @@ CwdButton → chatStore → settings:set(lastCwd) ; boot: sessionCwd → chatSto
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: V1 r1의 ACTIVE Decision과 AC를 유지했다. nav 직접 이동, 마지막 경로, 공통 랜딩, 설정 두 그룹, 스타일 live 적용, 요청별 자동 승인, git 행 게이트, 공통 활자를 구현했다.
+- 이견 / 현실성 문제: 없음. DOM 구조 테스트는 픽셀 위치·실제 글꼴·실 CLI 응답의 증거가 아니므로 AC5·10·16 및 AC18의 시각 부분은 사람 실기로 남긴다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. Part II의 파일 배치는 아래 명시적 차이에 기록했고 규범 행은 바꾸지 않았다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
+다음 좌표는 모두 이번 관련 vitest 실행 집합 안이다. 경로의 `main/`은 `app/src/main/`, `renderer/`는 `app/src/renderer/src/`를 뜻한다.
+
+| 좌표 | 직접 oracle (`파일:테스트명`) |
+|---|---|
+| T1 | `renderer/app/Sidebar.interaction.test.ts:navigates straight to the landing from expanded and collapsed nav`(두 모드), `keeps the draft when already on the landing`, `seeds the next landing with the last harness` |
+| T2 | `renderer/features/chat/store/chatStore.lastCwd.test.ts:persists the picked work path and seeds later drafts` · `keeps the chosen path when the boot query finishes late` · `keeps the chosen draft and reports a failed persistence write` · `treats picking the current path as an explicit choice before a late project seed` |
+| T3 | `main/app/handlers/session.test.ts:returns the remembered work path only while it is a directory` |
+| T4 | `renderer/features/settings/components/generalTab.render.test.ts:shows Claude and OpenCode groups after updates with defaults` · `renders the English harness descriptions`; `generalTab.interaction.test.ts:saves only the chosen harness field` |
+| T5 | `main/adapters/claude/adapter.output-style.test.ts:starts new queries with the configured style over provider settings` · `applies a changed style once before the next turn input` · `leaves the one-shot completion without a style` · `does not push or remember a rejected style update` |
+| T6 | `main/adapters/opencode/v1/adapter.test.ts:auto-accepts permissions once while enabled and still asks questions` · `reads the auto-accept preference per request including child sessions` |
+| T7 | `main/infra/settings-store.test.ts:merges a partial harness preference without clearing siblings` · `defaults absent or damaged harness preferences and rejects damaged patches`; `main/app/harnesses/registry.preferences.test.ts:passes saved harness preferences to adapters live` |
+| T8 | `renderer/features/settings/components/SettingsModal.render.test.ts:passes the harness brand slot to the general tab` |
+| T9 | `renderer/features/chat/harnesses/common/transcript/typography.test.ts:inherits shared bubble and body typography for both harnesses` · `renders OpenCode prose with shared typography and its own colours` |
+| T10 | `renderer/pages/NewChatLandingPage.harness.test.ts:renders the git row only for harnesses that allow it` |
+| T11 | `renderer/pages/NewChatLandingPage.harness.test.ts:shares the landing frame and hero slot across harnesses` |
+| T12 | `renderer/pages/NewChatLandingPage.harness.test.ts` · `renderer/pages/agentModeLanding.render.test.ts` · `renderer/features/chat/harnesses/claude/transcript`의 기존 렌더 케이스 |
+
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| VP-… | … | … | … | … | … | … |
+| VP-01 | nav 직접 이동 | EP-1 펼침·접힘 2 | 2/2 | T1 두 모드 각각 navigate 1회, 메뉴 없음; 같은 경로에서 newChat 0회 | `/new`, 접힘 true/false, 마지막 opencode가 구별되어 유지 | 없음 |
+| VP-02 | lastCwd | EP-2 저장·캐시·stat·patch 4 | 4/4 | 저장·캐시=T2, stat=T3, patch=T7 | 선택/프로젝트/참조 경로 분리, 삭제·파일·상대 경로는 fallback, 새 store에도 `C:/chosen` 유지 | 없음 |
+| VP-05 | outputStyle | EP-3 spawn·live·적용값 3 | 3/3 | T5 spawn 설정 및 동일/변경 턴 호출 순서·횟수 관측 | spawn provider Learning/사용자 Proactive 구분, live Explanatory 적용; 동일 값 중복 0·실패 시 입력 0 | 실제 CLI 답변은 AC10 별도 |
+| VP-06 | permission 자동 수락 | EP-4 요청 분기·reply 2 | 2/2 | T6 getter 3회, 수동 승인 2회, root/child HTTP reply 관측 | false→true→false에 reject→once→reject; question은 승인 요청 1회 | 없음 |
+| VP-03·11 | 공통 랜딩 구조 | EP-5 프레임·hero/위 여백·흐름 밖 context 3 | 3/3(구조) | T11 root/align/column/hero class 배열 동일, center·max-width·hero 끝 정렬·위 여백·absolute 관측 | claude/opencode 교대 렌더; OpenCode context가 absolute | AC5 픽셀 실측 |
+| VP-04·08 | 그룹 순서·브랜드 전달 | EP-6 그룹·SettingsModal 전달 2 | 2/2 | T4 업데이트→Claude→OpenCode, 옵션/기본값/설명/브랜드; T8 슬롯 전달 | ko/en 문구, 서로 다른 claude/opencode 슬롯; Learning 로드→Proactive 저장·toggle true | 없음 |
+| VP-07 | 하네스 부분 병합 | EP-7 merge·patch schema 2 | 2/2 | T7 부분 패치→재시작·손상 값·실제 registry 조립 getter 관측 | 두 instructions sentinel·서로 다른 executablePath, style/boolean 변경 후 보존 | 없음 |
+| VP-09 | 공통 활자 | EP-8 양 appearance·양 message·OpenCodeText 5 | 5/5 | T9 두 버블 토큰·message 동등; live/확정 Markdown h1/p/strong/code/ul/li class 동등 | 양 palette 유지; OpenCode 기존 font440·leading1.6·문단/heading 간격 override 없음 | AC16 실제 글꼴 |
+| VP-10 | git 행 | EP-9 두 모듈 값(묶음)·Composer gate 2 | 2/2 | T10 실제 Composer 렌더에서 GitRow leaf 존재 여부 | Claude code=true, OpenCode code=false, Claude work=false | 없음 |
+
+§10 검색 명령을 다시 실행하고 선언·운반·소비처를 분리해 대조했다. 검색 일치 줄 수를 강제 자리 수로 세지 않았다.
+
+| EP | 검색 출력과 고정 목록의 차집합 |
+|---|---|
+| EP-1 | 기존 `/new` 조건 0줄. `onClick.*navigate` 보완 검색에서 Sidebar 96·141 두 자리가 나왔으며 고정 목록 밖 클릭은 없음. |
+| EP-2 | lastCwd 검색은 shared 선언/patch·session handler/helper·store 저장. `cwdCache =` 보완 검색의 setPendingCwd가 캐시 자리이며, 부트 seed는 고정 4자리 밖의 기존 운반 자리(늦은 응답 T2 추가). |
+| EP-3 | adapter spawn 519–522·pushTurn 1048–1051을 세 자리로 대조. complete 경로는 의도적 제외이며 T5에서 옵션 부재 관측. 목록 밖 스타일 sink 없음. |
+| EP-4 | channel 355의 요청 판정·357의 once 응답을 두 자리로 대조. preferences getter의 module→index→adapter 운반은 EP-7 조립 T7로 보조 확인. |
+| EP-5 | Landing의 root/align/column/hero, Composer 위 여백/하단 context가 고정 세 자리. CwdPanel의 contextRow는 높이 토큰 소비처이며 정렬 실측의 대체 증거로 세지 않음. |
+| EP-6 | GeneralTab의 여섯 그룹에서 마지막 두 그룹·SettingsModal 전달이 고정 두 자리. app의 SidebarUserButton 로고 공급은 목록 밖 운반 자리로 코드 대조했으며 닫은 수에 추가하지 않음. |
+| EP-7 | mergeSettings 한 곳·SettingsPatchSchema 한 곳. SettingsSchema.harnesses는 저장값 선언이며 별도 병합 자리가 아님. |
+| EP-8 | appearance 두 곳·surfaces 두 곳·Text 한 곳을 대조. 나머지 검색 결과는 공통 UserMessage/PendingSteerTurn 소비처·타입 선언·오류 message 필드이며 하네스 활자 정의 자리가 아님. |
+| EP-9 | 두 composer Module 값과 Composer AND gate를 고정 두 자리로 대조. 나머지는 기존 agentKind 정책·sessionStarted 전달·GitRow 내부 diff 허용 판정이며 신규 하네스 게이트가 아님. |
+
+- 고정 자리 검산: 2 + 4 + 3 + 2 + 3 + 2 + 2 + 5 + 2 = **25자리**. 중복 참조 EP-5·6은 한 번만 셌다. 고정 목록과 위 직접 oracle 대응을 뺀 미대응 자리는 없음; 시각 실측은 이 구조 자리 수에 포함하지 않는다.
+- 검색에서 확인한 목록 밖 운반 자리는 위 표에 남겼다. 정의가 필요한 새 Decision·AC·pair는 발견하지 않았다.
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | … | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | T1 | M1 red |
+| VP-02 | REQUIRED | SELF_PASS | T2·T3·T7 | M2·M3 red |
+| VP-03 | REQUIRED | SELF_BLOCKED | T11 구조 확인, AC5 실측 대기 | not selected |
+| VP-04 | REQUIRED | SELF_PASS | T4·T8 | M4 red |
+| VP-05 | REQUIRED | SELF_PASS | T5 | M5·M6 red |
+| VP-06 | REQUIRED | SELF_PASS | T6 | M7·M8 red |
+| VP-07 | REQUIRED | SELF_PASS | T7 | M9·M10 red |
+| VP-08 | REQUIRED | SELF_PASS | T4·T8 | not selected |
+| VP-09 | REQUIRED | SELF_PASS | T9 | M11 red |
+| VP-10 | REQUIRED | SELF_PASS | T10 | M12 red |
+| VP-11 | REQUIRED | SELF_PASS | T11 | not selected |
+| VP-12 | REGRESSION | SELF_BLOCKED | T12 자동 회귀 확인, AC5·16의 Claude 측 실기 대기 | not selected |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
+각 변이는 프로덕션 파일에 한 번씩 적용했다. 실패를 관측한 뒤 원본 바이트 복원 및 동일 테스트 재실행 green을 확인했다.
+
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| M1 접힘 nav의 /new 이동 제거 | VP-01 선택 증거(접힘 click 회귀) | 최초 | T1 접힘 케이스, 1/4 실패 | red → 복원 4/4 green |
+| M2 stat 없이 lastCwd 반환 | VP-02 선택 증거 | 최초 | T3, 1/1 실패 | red → 복원 1/1 green |
+| M3 cwdCache 갱신 제거 | VP-02 선택 증거 | 최초 | T2, 3/5 실패(최종 재실행) | red → 복원 5/5 green |
+| M4 Claude/OpenCode 그룹 맞바꿈 | VP-04 선택 증거 | 최초 | T4 기본 그룹 케이스, 1/5 실패 | red → 복원 5/5 green |
+| M5 appliedOutputStyle 갱신 제거 | VP-05 선택 증거 | 최초 | T5 live 케이스, 1/4 실패 | red → 복원 4/4 green |
+| M6 provider 설정을 사용자 스타일 뒤에 병합 | VP-05 선택 증거 | 최초 | T5 spawn 케이스, 1/4 실패 | red → 복원 4/4 green |
+| M7 permission reply once→always | VP-06 선택 증거 | 최초 | T6 두 케이스, 2/20 실패 | red → 복원 20/20 green |
+| M8 question도 자동 승인 분기로 보냄 | VP-06 선택 증거 | 최초 | T6 질문 케이스, 1/20 실패 | red → 복원 20/20 green |
+| M9 harnesses 병합을 한 단계로 되돌림 | VP-07 선택 증거 | 최초 | T7 형제 보존, 1/15 실패 | red → 복원 15/15 green |
+| M10 patch instructions에 빈 문자열 default 복귀 | VP-07 선택 증거 | 최초 | T7 형제 보존, 1/15 실패 | red → 복원 15/15 green |
+| M11 OpenCode userBubble에 font440 복귀 | VP-09 선택 증거 | 최초 | T9 토큰 비교, 1/2 실패 | red → 복원 2/2 green |
+| M12 Claude/OpenCode showGitRow 맞바꿈 | VP-10 선택 증거 | 최초 | T10 git 행, 1/5 실패 | red → 복원 5/5 green |
 
-- **분모 검산**: …
-- **덮개 회귀**: …
+- **분모 검산**: 선택 증거 12 · 인용 변이 0 · 별도 신규 oracle 변이 0 = 표 12행. 등록된 구조 oracle는 M1·4·11·12에 포함된다. VP-03·08·11·12는 not selected를 유지했고, 그 밖의 직접 행동 oracle에 새 변이를 추가하지 않았다.
+- **덮개 회귀**: 최초 r1이라 이전 verify 고장 이력 없음. 기존 팝업 검사는 D-001에 따라 직접 이동 검사로 대체했고 Claude 기존 렌더 스위트는 유지했다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 있음. ko/en의 두 그룹·설명·토글 라벨을 GeneralTab이 렌더하고 T4로 관측. 로고는 app 공급→Modal→GeneralTab 전달. | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | §5·13의 설정 저장 실패는 reportError(saveFailed), cwd는 현재 초안 유지. live 스타일 실패는 입력 전 reject. | T2·T4·T5에서 각 실패 관측 |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 저장 실패는 토스트 경로로 보고하고 UI 저장값을 보존. 초기 설정 읽기 실패도 loadFailed로 보고. | 초기 로드 실패 시 두 컨트롤은 비활성 유지; 설정을 다시 열면 재조회 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 부트 cwd는 선택 revision이 바뀌면 폐기. 프로젝트 seed는 같은 경로를 다시 골라도 cwdSelected를 존중. 설정 저장은 동시에 한 건만 허용. | T2 늦은 부트/프로젝트 응답, T4 저장 후 표시값 관측 |
+| 로딩·취소·재시도는 무엇을 보이는가 | 설정 로드/저장 중 두 컨트롤 disabled. 스타일 적용 실패는 다음 턴 재시도 가능; 자동 승인도 기존 approvalSignal 사용. | 실 API 취소의 신규 정책 없음 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | 부트 cwd 응답이 직접 고른 새 경로보다 늦게 오면 기본값 캐시가 되돌아갈 수 있음 | 선택 revision으로 오래된 응답 폐기 | T2 late boot |
+| 2 | 현재 경로를 다시 고르면 reducer가 같은 객체를 반환해 프로젝트 기본값이 덮을 수 있음 | 명시 선택은 값 동일 여부와 무관하게 cwdSelected=true | T2 late project seed |
+| 3 | 초안·캐시와 디스크 저장은 원자적이지 않음 | §13대로 초안/캐시는 유지하고 실패 보고. 재부트는 이전 저장값일 수 있음 | T2 rejected persistence |
+| 4 | 하네스 설정 로드 실패 후 기본값을 사용자가 저장할 수 있음 | 로드 성공 전 두 컨트롤 비활성, 실패 메시지, 재진입 시 다시 로드 | GeneralTab harnessLoaded·reportError 경로 |
+| 5 | 랜딩 정렬은 실제 폰트·창 크기의 영향을 받음 | 기본 한 줄·참조 경로 0개 계약으로 공통 높이 토큰 사용. 수치 통과는 주장하지 않음 | AC5 사람 실기 대기 |
 
 ### 설계 대비 명시적 차이
 
-- …
+- `resolveLandingCwd`는 `session-cwd.ts`로 분리하고 실제 등록된 IPC callback에서 임시 폴더/파일을 사용해 검증했다.
+- git 행 검사는 기존 `NewChatLandingPage.harness.test.ts`에서 실제 Composer에 들어간다. GitRow leaf만 대체하며 ChatTile의 상위 배선을 검증했다고 세지 않는다.
+- preferences 조립 IT는 `registry.preferences.test.ts`에 추가했다. 실제 registry·main module·OpenCode implementation을 거쳐 leaf 어댑터 생성자에 도달하며 bootstrap 자체를 실행한 검사는 아니다.
+- Markdown의 공통 wrapper 토큰은 하위 레이어 `shared/ui/markdown/typography.ts`가 소유하고 feature의 공통 typography가 이를 사용한다. shared→feature 역방향 import를 만들지 않았다.
+- 랜딩 Header에 `framed`를 전달해 공통 hero 안에서는 중복 margin을 없애고 프로젝트/기존 Header 사용처의 margin은 유지했다.
+- 만료·credential·별도 디스크 삭제 축은 이번 신규 설정에 해당 없음. 재진입(설정 재조회), 캐시 무효화(부트 응답), 동시 저장, 실패 후 retry는 위 경로로 확인했다.
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출** | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고** | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | shared 설정 타입/스키마; main 설정 병합·경로 조회·하네스 어댑터; renderer nav·랜딩·설정·활자·git 게이트; 관련 테스트; IPC·디자인 문서·생성 인벤토리 |
+| 실행 명령 | `cd app; npm run lint`, `npm run typecheck`, 아래 관련 vitest 명령, `node scripts/check-doc-inventory.mjs` 및 `--check`, `node scripts/check-test-budgets.mjs`, `git diff --check` |
+| **관측한 게이트 산출** | lint 0 errors/기존 incompatible-library 2 warnings; typecheck node/web/test 통과; 관련 vitest **51파일 633케이스 통과**. 최종 프레임 단언 보강 후 해당 1파일 5케이스 재통과. |
+| 문서 gate | 생성물·prose 정상. 전체 링크 검사는 기존 `.tmp/opencode-dev`·`app/.temp/opencode` 외부 체크아웃의 깨진 링크 각 5개로 exit 1; 이 두 임시 트리 제외 링크 검사 결과 `[]`. 변경 문서의 링크 오류 없음. |
+| 추가 gate | test-budgets 16 real-git suites ok; diff whitespace 오류 없음. ABI 전환 명령은 사용하지 않음. |
+| V-pair 자기확인 | SELF_PASS 10 · SELF_BLOCKED 2(VP-03·12 사람 실기). 독립 verify는 미수행. |
+| 강제 지점 전수 | 구조·행동 자리 25/25에 직접 좌표 대응. AC5 픽셀·AC10 실 CLI·AC16 글꼴과 AC18 시각 회귀는 별도 미확인. |
+| **AC 자기보고** | 아래 18행 |
+| **합계 검산** | ✅ 14 · ⚠️ 4 · ❌ 0 = 총 18 |
+| 블로커 / 역질문 | PLAN_GAP 없음. 사람 실기 AC5·10·16 및 AC18의 Claude 시각 비교 대기. |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+관련 테스트 재현 명령(비-DB, app에서 실행):
+
+```powershell
+node node_modules/vitest/vitest.mjs run src/main/adapters/claude/adapter src/main/adapters/opencode/v1/adapter.test.ts src/main/app/harnesses/registry src/main/app/handlers/session.test.ts src/main/infra/settings-store.test.ts src/shared/protocol.harness.test.ts src/renderer/src/app/Sidebar.interaction.test.ts src/renderer/src/pages/NewChatLandingPage.harness.test.ts src/renderer/src/pages/agentModeLanding.render.test.ts src/renderer/src/features/settings/components src/renderer/src/features/chat/store/chatStore.lastCwd.test.ts src/renderer/src/features/chat/store/chatStore.project.test.ts src/renderer/src/features/chat/store/chatStore.landingDefault.test.ts src/renderer/src/features/chat/components/AgentModeToggle.test.ts src/renderer/src/features/chat/components/CwdPanel src/renderer/src/features/chat/harnesses/common/transcript/typography.test.ts src/renderer/src/features/chat/harnesses/claude/transcript src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.render.test.ts src/renderer/src/features/chat/harnesses/opencode/transcript/AssistantSegment.render.test.ts src/renderer/src/shared/errors/reportSites.registry.test.ts --maxWorkers=2
+```
+
+| AC | 자기보고 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | T1 펼침·접힘 navigate 1회, 메뉴/팝업 속성 없음, 마지막 opencode seed |
+| AC2 | ✅ | T1 동일 /new 클릭에서 newChat 미호출·초안 상태 유지 |
+| AC3 | ✅ | T2 선택 저장·새 초안 cwd, T7 재시작 저장값, T3 유효 폴더 반환 |
+| AC4 | ✅ | T3 미설정·삭제·파일·상대 경로 fallback, T2 프로젝트 우선 및 참조 추가 시 lastCwd 쓰기 증가 없음 |
+| AC5 | ⚠️ | T11 구조 확인만. 세 창 크기의 ±1px/±2px 및 기존 Claude 비교 미실측 |
+| AC6 | ✅ | T11 root/align/column/hero 동일, OpenCode 위 여백과 absolute context 관측 |
+| AC7 | ✅ | T4 그룹 순서·4옵션·Concise/off·ko/en 설명, T8 로고 슬롯 전달 |
+| AC8 | ✅ | T5 사용자 스타일 우선 및 기본 Concise, complete에 Orca 스타일 미주입 |
+| AC9 | ✅ | T5 변경 시 입력 전 적용 1회, 동일 값 추가 호출 0, 실패 시 입력 없음 |
+| AC10 | ⚠️ | SDK 호출은 T5로 확인. 실제 Claude Insight 표시/해제 미실행 |
+| AC11 | ✅ | T6 root/child once, question 수동, on/off를 요청별로 반영 |
+| AC12 | ✅ | T7 store patch 직후 실제 registry가 전달한 두 getter의 값 변경 |
+| AC13 | ✅ | T10 Claude code만 git 행 존재, OpenCode와 Claude work에는 없음 |
+| AC14 | ✅ | T9 양 하네스 버블·message 활자 토큰 동일 및 palette 유지 |
+| AC15 | ✅ | T9 live/확정 OpenCode Markdown 요소 class가 공통 렌더와 동일 |
+| AC16 | ⚠️ | T9 class 확인만. white/dark·텍스트 크기 3단계 실제 글꼴 미관측 |
+| AC17 | ✅ | T7 부분 패치 후 instructions·executablePath·다른 하네스 값 및 재시작 보존 |
+| AC18 | ⚠️ | T12 자동 회귀 통과. AC5·16에 포함된 Claude 시각 회귀 확인 대기 |
+
+✅ 14 · ⚠️ 4 · ❌ 0 = 총 18. AC 분모는 V1의 18개를 유지했다.
 
 ## [구현자 기입] Review Signals — 사실만
 
-- …
+- 최초 V1 r1 구현이다. 이전 verify 지적이나 같은 라운드의 추가 구현 턴은 없다.
+- 기존 executable-option 검사의 chat 기대값에 신규 기본 스타일을 반영했다. complete 기대값은 그대로이며 관련 20케이스가 통과했다.
+- 샌드박스에서는 Claude plan-mode/plan-file 테스트의 상위 경로 접근이 막혔다. 권한 확장 실행에서 해당 14케이스 및 최종 관련 전체 633케이스가 통과했다.
+- lint가 파일을 쓰므로 편집과 직렬화했다. 최종 오류는 없고 기존 useVirtualizer 경고 두 곳만 남았다.
+- 문서 링크 실패 10개는 기존 외부 임시 체크아웃 안에 있다. 검사기를 바꾸거나 임시 트리를 삭제하지 않았고, 전체 명령의 exit 1을 통과로 기록하지 않았다.
 
 ---
 

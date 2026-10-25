@@ -1,4 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  CLAUDE_OUTPUT_STYLES,
+  DEFAULT_CLAUDE_OUTPUT_STYLE,
+  type ClaudeOutputStyle
+} from '../../../../../shared/harness'
+import type { Backend } from '../../../../../shared/ipc'
+import { reportError } from '../../../shared/errors'
 import { useTweakContext } from '../../../shared/theme'
 import { settingsApi } from '../../../shared/api/ipc'
 import { Button } from '../../../shared/ui/Button'
@@ -54,7 +61,11 @@ const LOCALE_OPTIONS: { value: UiLocale; label: string }[] = [
 // theme·appFont·uiLocale·notifyOnComplete 는 Tweak 컨텍스트(영속 자동). accountInstructions 는
 // 대용량 텍스트라, scheduler.updateCheck 는 중첩 키라 컨텍스트에 두지 않고 settingsApi 로 직접
 // 로드/저장한다(Tweaks의 flat 패치로는 중첩 키를 표현할 수 없다).
-export function GeneralTab(): React.JSX.Element {
+export function GeneralTab({
+  harnessBrand
+}: {
+  harnessBrand?: (backend: Backend) => ReactNode
+}): React.JSX.Element {
   const { t, setTweak } = useTweakContext((t) => ({
     theme: t.theme,
     appFont: t.appFont,
@@ -68,15 +79,33 @@ export function GeneralTab(): React.JSX.Element {
   const [updateCheck, setUpdateCheck] = useUpdateCheckSetting()
 
   // 계정 지침 — 저장값(saved) vs 편집 중(draft). draft≠saved 면 저장 버튼 노출.
+  const [outputStyle, setOutputStyle] = useState<ClaudeOutputStyle>(DEFAULT_CLAUDE_OUTPUT_STYLE)
+  const [autoApprove, setAutoApprove] = useState(false)
+  const [harnessLoaded, setHarnessLoaded] = useState(false)
+  const [savingHarness, setSavingHarness] = useState(false)
+  const savingRef = useRef(false)
   const [saved, setSaved] = useState('')
   const [draft, setDraft] = useState('')
   useEffect(() => {
     let cancelled = false
-    void settingsApi.get().then((s) => {
-      if (cancelled) return
-      setSaved(s.accountInstructions)
-      setDraft(s.accountInstructions)
-    })
+    void settingsApi
+      .get()
+      .then((s) => {
+        if (cancelled) return
+        setOutputStyle(s.harnesses?.claude?.outputStyle ?? DEFAULT_CLAUDE_OUTPUT_STYLE)
+        setAutoApprove(s.harnesses?.opencode?.autoApprovePermissions ?? false)
+        setHarnessLoaded(true)
+        setSaved(s.accountInstructions)
+        setDraft(s.accountInstructions)
+      })
+      .catch((error) =>
+        reportError({
+          event: 'settings.harness.load-failed',
+          scope: 'settings',
+          title: 'loadFailed',
+          error
+        })
+      )
     return () => {
       cancelled = true
     }
@@ -85,6 +114,29 @@ export function GeneralTab(): React.JSX.Element {
   const onSave = (): void => {
     void settingsApi.set({ accountInstructions: draft })
     setSaved(draft)
+  }
+
+  const saveHarness = async (
+    patch: import('../../../../../shared/ipc').SettingsPatch
+  ): Promise<void> => {
+    if (savingRef.current) return
+    savingRef.current = true
+    setSavingHarness(true)
+    try {
+      const next = await settingsApi.set(patch)
+      setOutputStyle(next.harnesses?.claude?.outputStyle ?? DEFAULT_CLAUDE_OUTPUT_STYLE)
+      setAutoApprove(next.harnesses?.opencode?.autoApprovePermissions ?? false)
+    } catch (error) {
+      reportError({
+        event: 'settings.harness.save-failed',
+        scope: 'settings',
+        title: 'saveFailed',
+        error
+      })
+    } finally {
+      savingRef.current = false
+      setSavingHarness(false)
+    }
   }
 
   return (
@@ -231,6 +283,39 @@ export function GeneralTab(): React.JSX.Element {
               label: tr('settings.general.updateIntervalEvery', { count: hours })
             }))}
             onChange={(v) => setUpdateCheck({ intervalHours: v })}
+          />
+        </SettingsRow>
+      </SettingsGroup>
+      <SettingsGroup title={tr('settings.general.claude')} leading={harnessBrand?.('claude')}>
+        <SettingsRow
+          label={tr('settings.general.outputStyle')}
+          description={tr('settings.general.outputStyleDesc')}
+        >
+          <SettingsSelect
+            label={tr('settings.general.outputStyle')}
+            value={outputStyle}
+            disabled={!harnessLoaded || savingHarness}
+            options={CLAUDE_OUTPUT_STYLES.map((value) => ({ value, label: value }))}
+            onChange={(value) =>
+              void saveHarness({ harnesses: { claude: { outputStyle: value } } })
+            }
+          />
+        </SettingsRow>
+      </SettingsGroup>
+      <SettingsGroup title={tr('settings.general.opencode')} leading={harnessBrand?.('opencode')}>
+        <SettingsRow
+          label={tr('settings.general.autoApprove')}
+          description={tr('settings.general.autoApproveDesc')}
+        >
+          <Toggle
+            on={autoApprove}
+            disabled={!harnessLoaded || savingHarness}
+            label={tr('settings.general.autoApproveToggle')}
+            onClick={() =>
+              void saveHarness({
+                harnesses: { opencode: { autoApprovePermissions: !autoApprove } }
+              })
+            }
           />
         </SettingsRow>
       </SettingsGroup>

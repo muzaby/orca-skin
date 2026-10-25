@@ -31,7 +31,9 @@ export class OpenCodeAdapter implements SessionAdapter {
     fetchImpl: typeof fetch,
     private readonly migration?: LegacyStorageMigration,
     private readonly openDatabase?: typeof openFileDatabase,
-    extensionControl?: import('../../common/extension-control').ExtensionControl
+    extensionControl?: import('../../common/extension-control').ExtensionControl,
+    private readonly preferences?: () =>
+      import('../../../../shared/harness').OpenCodePreferences | undefined
   ) {
     this.contexts = new OpenCodeSessionContexts(fetchImpl, 4096, extensionControl)
   }
@@ -194,7 +196,8 @@ export class OpenCodeAdapter implements SessionAdapter {
         release = connection.release
         return connection
       },
-      () => release()
+      () => release(),
+      this.preferences
     )
     return nativeId && req.sessionId ? routeNativeSession(live, nativeId, req.sessionId) : live
   }

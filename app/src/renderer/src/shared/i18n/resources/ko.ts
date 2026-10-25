@@ -1339,6 +1339,14 @@ export const ko = {
     },
     providerNotFound: 'provider 를 찾을 수 없습니다.',
     general: {
+      claude: 'Claude',
+      opencode: 'OpenCode',
+      outputStyle: '출력 스타일',
+      outputStyleDesc:
+        'Claude가 응답을 구성하는 방식입니다. 진행 중인 세션에도 다음 메시지부터 적용됩니다.',
+      autoApprove: '권한 자동 수락',
+      autoApproveDesc: '권한 요청이 자동으로 승인됩니다.',
+      autoApproveToggle: '권한 자동 수락',
       profile: '프로필',
       accountInstructions: '계정 지침',
       accountInstructionsDesc:

@@ -161,9 +161,10 @@ const EMPTY_LIVE: LiveTurnState = { text: '', reasoning: '' }
 const EMPTY_PENDING_STEER: PendingSteerState[] = []
 const EMPTY_SUBAGENT_META: Record<string, SubagentMetaState> = {}
 
-// main 의 단일 default cwd — 부트스트랩 1회 조회 캐시. 새 엔트리 생성 시 주입해
-// 새 대화에서도 `@` 파일 자동완성이 즉시 동작한다(init 이벤트가 같은 값으로 덮어쓰기만).
+// 부트 시 main에서 복원하고 작업 폴더 선택 시 갱신하는 새 대화 기본 경로.
+// 새 엔트리에 주입해 init 이벤트 전에도 `@` 파일 자동완성이 동작한다.
 let cwdCache: string | null = null
+let cwdSelectionRevision = 0
 
 // 컴포저 랜딩이 열 종류 — 부트스트랩이 설정에서 1회 시드한다(cwdCache 동형, 0228 D-004).
 // 시드 전 기본값은 첫 실행 고정값이라, 시드가 늦거나 실패해도 랜딩이 `code` 로 번쩍이지 않는다.
@@ -1172,11 +1173,21 @@ function patchPendingSession(apply: (session: ChatState) => ChatState): void {
 }
 
 function setPendingCwd(cwd: string): void {
+  if (getState().sessions[getState().activeKey]?.session.sessionId != null) return
   patchEntry(getState().activeKey, (entry) => {
-    if (entry.session.sessionId != null) return entry
     const session = chatReducer(entry.session, { type: 'SET_CWD', cwd })
-    return session === entry.session ? entry : { ...entry, session, cwdSelected: true }
+    return { ...entry, session, cwdSelected: true }
   })
+  cwdCache = cwd
+  cwdSelectionRevision++
+  void settingsApi.set({ lastCwd: cwd }).catch((error) =>
+    reportError({
+      event: 'chat.cwd-preference.save-failed',
+      scope: 'chat',
+      title: 'saveFailed',
+      error
+    })
+  )
 }
 
 function initializeProjectCwd(projectId: string, cwd: string | null): void {
@@ -2069,7 +2080,9 @@ export const chatActions = {
 export function bootstrapChat(): () => void {
   // 앱 부트 시 cwd 1회 조회 — init 이벤트가 오면 같은 값으로 덮어쓰기. 이후 생성되는
   // 엔트리는 cwdCache 로 주입받는다.
+  const cwdRevision = cwdSelectionRevision
   void sessionApi.cwd().then((cwd) => {
+    if (cwdRevision !== cwdSelectionRevision) return
     cwdCache = cwd
     setState((s) => ({
       sessions: Object.fromEntries(

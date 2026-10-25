@@ -7,6 +7,7 @@ import { ClaudeConversationStatus } from './ConversationStatus'
 import { ClaudeModeControl, ClaudeEffortControl } from './Controls'
 import { Requests } from './Requests'
 export const composerModule: ComposerModule = {
+  showGitRow: true,
   appearance: composerAppearance,
   includeExtensions: true,
   controlsPlacement: 'split',

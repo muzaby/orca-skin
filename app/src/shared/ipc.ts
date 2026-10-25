@@ -1127,6 +1127,7 @@ export interface Settings {
   sidebarCollapsed: boolean
   sidebarWidth: number
   lastBackend: Backend | null
+  lastCwd: string | null
   lastSessionId: string | null
   // 컴포저 랜딩이 여는 종류 — 마지막 토글 선택. 저장값이 없으면 스키마가 첫 실행 고정값(0228 D-002).
   lastAgentKind: AgentKind
@@ -1161,8 +1162,13 @@ export interface Settings {
 
 export type SettingsPatch = Omit<
   Partial<Settings>,
-  'scheduler' | 'nativeExtensionChoices' | 'projectMcpChoices'
+  'scheduler' | 'harnesses' | 'nativeExtensionChoices' | 'projectMcpChoices'
 > & {
+  harnesses?: {
+    [K in keyof import('./harness').HarnessSettings]?: Partial<
+      NonNullable<import('./harness').HarnessSettings[K]>
+    >
+  }
   scheduler?: {
     usageRecompute?: Partial<SchedulerUsageRecomputeSettings>
     updateCheck?: Partial<SchedulerUpdateCheckSettings>

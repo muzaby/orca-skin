@@ -102,7 +102,15 @@ function mergeSettings(current: Settings, patch: SettingsPatch): Settings {
   return SettingsSchema.parse({
     ...current,
     ...patch,
-    harnesses: { ...current.harnesses, ...patch.harnesses },
+    harnesses: {
+      ...current.harnesses,
+      ...Object.fromEntries(
+        Object.entries(patch.harnesses ?? {}).map(([id, preferences]) => [
+          id,
+          { ...current.harnesses?.[id as keyof NonNullable<Settings['harnesses']>], ...preferences }
+        ])
+      )
+    },
     scheduler: patch.scheduler
       ? {
           usageRecompute: mergeGroup(

@@ -1,5 +1,5 @@
 import { OpenCodeWordmark } from '../Wordmark'
 
-export function LandingBrand(): React.JSX.Element {
-  return <OpenCodeWordmark className="mb-8 h-auto w-full text-ink" />
+export function LandingBrand({ framed = false }: { framed?: boolean }): React.JSX.Element {
+  return <OpenCodeWordmark className={`h-auto w-full text-ink ${framed ? '' : 'mb-8'}`} />
 }

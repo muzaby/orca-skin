@@ -1,3 +1,4 @@
+import { landingFrame } from './landingFrame'
 import { harnessSurfaces } from '../harnesses/presentation'
 import { useI18n } from '../../../shared/i18n'
 import { agentUiPolicy } from '../lib/agentPresentation'
@@ -36,7 +37,7 @@ export function CwdPanel({
 
   return (
     <div
-      className={`app-frame-composer-directory flex flex-wrap items-center ${harnessSurfaces(openCode).directory}`}
+      className={`app-frame-composer-directory flex flex-wrap items-center ${harnessSurfaces(openCode).directory} ${openCode ? '' : landingFrame.contextRow}`}
       data-surface="cwd-panel"
       data-state="landing"
       data-appearance={appearance}

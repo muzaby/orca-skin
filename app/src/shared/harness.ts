@@ -29,4 +29,19 @@ export interface HarnessPreferences {
   executablePath?: string
 }
 
-export type HarnessSettings = Partial<Record<Backend, HarnessPreferences>>
+export const CLAUDE_OUTPUT_STYLES = ['Concise', 'Explanatory', 'Learning', 'Proactive'] as const
+export type ClaudeOutputStyle = (typeof CLAUDE_OUTPUT_STYLES)[number]
+export const DEFAULT_CLAUDE_OUTPUT_STYLE: ClaudeOutputStyle = 'Concise'
+
+export interface ClaudePreferences extends HarnessPreferences {
+  outputStyle?: ClaudeOutputStyle
+}
+
+export interface OpenCodePreferences extends HarnessPreferences {
+  autoApprovePermissions?: boolean
+}
+
+export interface HarnessSettings {
+  claude?: ClaudePreferences
+  opencode?: OpenCodePreferences
+}

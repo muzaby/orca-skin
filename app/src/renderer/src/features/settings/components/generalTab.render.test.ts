@@ -57,3 +57,46 @@ describe('0256 AC1 — 환경설정 행', () => {
     expect(selects).toContainEqual(['좁게', '보통', '넓게'])
   })
 })
+
+it('shows Claude and OpenCode groups after updates with defaults', () => {
+  const html = renderToStaticMarkup(
+    createElement(GeneralTab, {
+      harnessBrand: (backend) => createElement('i', { 'data-brand': backend })
+    })
+  )
+  const titles = [...html.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/g)].map((m) =>
+    m[1].replace(/<[^>]+>/g, '')
+  )
+  expect(titles.slice(-3)).toEqual(['업데이트', 'Claude', 'OpenCode'])
+  expect(html).toContain('data-brand="claude"')
+  expect(html).toContain('data-brand="opencode"')
+  const select = [...html.matchAll(/<select[\s\S]*?<\/select>/g)].find((m) =>
+    m[0].includes('Concise')
+  )![0]
+  expect([...select.matchAll(/<option value="([^"]+)"/g)].map((m) => m[1])).toEqual([
+    'Concise',
+    'Explanatory',
+    'Learning',
+    'Proactive'
+  ])
+  expect(select).toContain('value="Concise" selected=""')
+  expect(html).toContain(
+    'Claude가 응답을 구성하는 방식입니다. 진행 중인 세션에도 다음 메시지부터 적용됩니다.'
+  )
+  expect(html).toContain('권한 요청이 자동으로 승인됩니다.')
+  expect(html).toContain('aria-checked="false" aria-label="권한 자동 수락"')
+})
+
+import { i18n } from '../../../shared/i18n'
+it('renders the English harness descriptions', async () => {
+  await i18n.changeLanguage('en')
+  try {
+    const html = renderToStaticMarkup(createElement(GeneralTab))
+    expect(html).toContain(
+      'How Claude structures its responses. Applies from the next message, including in active sessions.'
+    )
+    expect(html).toContain('Permission requests are approved automatically.')
+  } finally {
+    await i18n.changeLanguage('ko')
+  }
+})

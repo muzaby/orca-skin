@@ -1,5 +1,5 @@
 import type { AgentModelView, EngineUserSettingsResult } from '../../../shared/ipc'
-import type { HarnessPreferences } from '../../../shared/harness'
+import type { OpenCodePreferences } from '../../../shared/harness'
 import type { HarnessSettingsLoader } from '../common/harness-config'
 import type { SessionAdapter } from '../common/types'
 import type { openFileDatabase } from '../../infra/db/file-database'
@@ -31,7 +31,7 @@ export interface OpenCodeServer {
 
 export interface OpenCodeRuntimeOptions {
   dataDirectory: string
-  preferences: () => HarnessPreferences | undefined
+  preferences: () => OpenCodePreferences | undefined
   fetchImpl: typeof fetch
   server?: OpenCodeServer
   openDatabase?: typeof openFileDatabase

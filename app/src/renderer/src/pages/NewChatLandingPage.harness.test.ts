@@ -131,6 +131,10 @@ vi.mock('../features/chat', async () => ({
   useUsageForTelemetryProvider: () => null,
   ChatTile: () => createElement('div', { 'data-test-chat-tile': '' })
 }))
+vi.mock('../features/chat/components/composer/GitRow', () => ({
+  GitRow: () => createElement('div', { 'data-test-git-row': '' })
+}))
+import { Composer } from '../features/chat/components/Composer'
 import { NewChatLandingPage } from './NewChatLandingPage'
 
 let dom: FakeDom
@@ -247,4 +251,42 @@ describe('new conversation harness layout', () => {
     expect(find('data-test-chat-tile')).toBeDefined()
     expect(nodes(dom.body).some((node) => node.props['data-surface'] === 'cwd-panel')).toBe(false)
   })
+})
+
+it('shares the landing frame and hero slot across harnesses', async () => {
+  const classes: unknown[] = []
+  for (const backend of ['claude', 'opencode'] as const) {
+    fixture.session.backend = backend
+    render()
+    await settle()
+    const root = find('data-surface', 'new-chat-landing')
+    const align = root.children[0]
+    const column = align.children[0]
+    const hero = find('data-surface', 'landing-hero-slot')
+    classes.push([root, align, column, hero].map((node) => node.props.className))
+    expect(align.props.className).toContain('items-center')
+    expect(column.props.className).toContain('max-w-[720px]')
+    expect(hero.props.className).toContain('min-h-')
+    expect(hero.props.className).toContain('justify-end')
+    if (backend === 'opencode') {
+      expect(find('data-surface', 'opencode-landing-context').props.className).toContain('absolute')
+      expect(
+        nodes(dom.body).find((node) =>
+          String(node.props.className).includes('app-frame-composer relative')
+        )?.props.className
+      ).toContain('pt-[calc(3.5rem+2px)]')
+    }
+  }
+  expect(classes[0]).toEqual(classes[1])
+})
+it('renders the git row only for harnesses that allow it', () => {
+  for (const [backend, agentKind, visible] of [
+    ['claude', 'code', true],
+    ['opencode', 'code', false],
+    ['claude', 'work', false]
+  ] as const) {
+    fixture.session = { ...fixture.session, backend, agentKind, sessionId: 'started' }
+    dom.render(createElement(Composer, { backendLabel: backend, canAbort: true, showGitRow: true }))
+    expect(nodes(dom.body).some((node) => 'data-test-git-row' in node.props)).toBe(visible)
+  }
 })

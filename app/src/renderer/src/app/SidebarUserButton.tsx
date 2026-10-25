@@ -1,3 +1,4 @@
+import { HarnessLogo } from '../features/chat'
 import { useRef, useState } from 'react'
 import { MenuItem } from '../shared/ui/MenuItem'
 import { Popover } from '../shared/ui/Popover'
@@ -130,7 +131,14 @@ export function SidebarUserButton(): React.JSX.Element {
         </div>
       </Popover>
 
-      <SettingsModal />
+      <SettingsModal
+        harnessBrand={(backend) => (
+          <HarnessLogo
+            backend={backend}
+            className={`size-4 ${backend === 'claude' ? 'text-spinner' : 'text-ink'}`}
+          />
+        )}
+      />
     </>
   )
 }

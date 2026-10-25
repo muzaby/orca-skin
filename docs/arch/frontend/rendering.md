@@ -10,7 +10,7 @@
 
 공통 `AssistantMessage`는 파트 순서와 identity를 보존하고 하네스별 `AssistantSegment`로 전달한다. Claude의 본문·reasoning·도구 카드·도구 본문 레지스트리는 `features/chat/harnesses/claude/transcript/`에 있다. OpenCode의 본문·reasoning·오류·구조화 결과·도구 카드는 `harnesses/opencode/transcript/`가 소유하며 Claude 카드 본문을 재사용하지 않는다. 입력 버블·대기 버블·메타 스타일도 각 transcript의 `appearance.ts`에서 선택한다. 질문·경계 표시·첨부·복사·diff 표·Markdown 파싱은 공통 기능이다.
 
-OpenCode는 연속한 read/search/list만 탐색 그룹으로 묶고 셸·편집 전후의 순서를 유지한다. 파일 편집/쓰기는 파일명과 변경량을 한 줄로 표시하고 사용자가 펼친다. 탐색은 종류별 개수와 들여쓴 도구 목록을, 성공 웹 가져오기는 직접 링크를 표시한다. 완료 질문은 접을 수 있는 질문·답변으로 표시한다. 셸 출력은 명령과 결과를 복사할 수 있는 스크롤 패널, 파일 변경은 파일별 diff, 작업 행을 누르면 우측 하위 에이전트 상세를 연다. 실패·중단·거부·취소·미실행은 성공 완료와 구분한다. reasoning은 원본 이력에 보존하되 기본 transcript에서 숨기며, 라이브와 확정 텍스트는 같은 전용 문단·코드·heading 스타일을 쓴다. transcript 배경은 두 하네스 모두 `bg-bg`다.
+OpenCode는 연속한 read/search/list만 탐색 그룹으로 묶고 셸·편집 전후의 순서를 유지한다. 파일 편집/쓰기는 파일명과 변경량을 한 줄로 표시하고 사용자가 펼친다. 탐색은 종류별 개수와 들여쓴 도구 목록을, 성공 웹 가져오기는 직접 링크를 표시한다. 완료 질문은 접을 수 있는 질문·답변으로 표시한다. 셸 출력은 명령과 결과를 복사할 수 있는 스크롤 패널, 파일 변경은 파일별 diff, 작업 행을 누르면 우측 하위 에이전트 상세를 연다. 실패·중단·거부·취소·미실행은 성공 완료와 구분한다. reasoning은 원본 이력에 보존하되 기본 transcript에서 숨기며, 라이브와 확정 텍스트는 Claude와 같은 공통 문단·코드·heading 활자와 OpenCode 색을 쓴다. transcript 배경은 두 하네스 모두 `bg-bg`다.
 
 OpenCode native metadata는 `harnesses/opencode/v1/toolPresentation.ts`에서 중립 view로 해석하고 `toolPresentation.ts`가 현재 버전을 선택한다. 화면 컴포넌트는 이 진입점을 사용하며 버전 구현을 직접 import할 수 없다. 엔진의 native 설정 편집도 해당 feature의 `harnesses/opencode/v1/`에 둔다. 새 버전은 버전별 해석만 추가하고 정규화된 UI·store·파트 순서는 재사용할 수 있다.
 

@@ -1,5 +1,4 @@
 import type { Backend, EngineUserSettingsResult } from '../../../../shared/ipc'
-import type { HarnessPreferences } from '../../../../shared/harness'
 import type { NativeCommand, NativeResource } from '../../../../shared/native-resources'
 import type { SessionAdapter } from '../../../adapters/common/types'
 import type {
@@ -14,7 +13,9 @@ import type {
 export interface HarnessRuntimeOptions {
   pluginSnapshots?: import('../../../adapters/common/plugin-snapshots').PluginSnapshotPort
   dataDirectory: string
-  preferences: (harnessId: Backend) => HarnessPreferences | undefined
+  preferences: <K extends Backend>(
+    harnessId: K
+  ) => import('../../../../shared/harness').HarnessSettings[K]
   fetchImpl: typeof fetch
   extensionControl?: import('../../../adapters/common/extension-control').ExtensionControl
 }

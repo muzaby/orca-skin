@@ -73,9 +73,6 @@ export interface HarnessSurfaces {
   message: string
   directory: string
   pathWidth: string
-  landingRoot: string
-  landingAlign: string
-  landingColumn: string
 }
 export interface RightPanelAppearance {
   tile: string
@@ -84,10 +81,7 @@ export interface RightPanelAppearance {
 }
 
 export interface HarnessLandingPresentation {
-  root: string
-  align: string
-  column: string
-  Header: ComponentType
+  Header: ComponentType<{ framed?: boolean }>
   composer: { openCodeLanding: boolean; flush: boolean }
 }
 export interface ComposerInputPresentation {
@@ -112,6 +106,7 @@ export interface ToolApprovalBodyProps {
   input: unknown
 }
 export interface ComposerModule extends ComposerInputPresentation {
+  showGitRow: boolean
   label?: string
   landingContextBelow: boolean
   Status: ComponentType<{ onHandoffStarted: () => void }>

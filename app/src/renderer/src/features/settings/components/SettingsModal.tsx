@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
+import type { Backend } from '../../../../../shared/ipc'
 import { type IconName } from '../../../shared/ui/Icon'
 import { Modal } from '../../../shared/ui/Modal'
 import { Rail, RailItem } from '../../../shared/ui/Rail'
@@ -29,7 +30,11 @@ const TABS = [
 // 띄운다. 백드롭/portal/Esc 는 공용 Modal(크롬리스, panelClassName override). 열림/탭 상태는
 // 전역 스토어(settingsModalStore)가 보유해 도넛 `>` 등 다른 트리거가 특정 탭으로 열 수 있다.
 // 닫힘=null 렌더(내용 상태는 각 탭이 언마운트 시 리셋).
-export function SettingsModal(): React.JSX.Element | null {
+export function SettingsModal({
+  harnessBrand
+}: {
+  harnessBrand?: (backend: Backend) => ReactNode
+}): React.JSX.Element | null {
   const open = useSettingsModalStore((s) => s.open)
   const tab = useSettingsModalStore((s) => s.tab)
   const setTab = useSettingsModalStore((s) => s.setTab)
@@ -84,7 +89,7 @@ export function SettingsModal(): React.JSX.Element | null {
       {/* 우: 내용 — 닫기는 Esc·백드롭 클릭 (X 아이콘 없음, 0121 사용자 피드백) */}
       <div className="relative flex min-w-0 flex-1 flex-col">
         <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
-          {tab === 'general' && <GeneralTab />}
+          {tab === 'general' && <GeneralTab harnessBrand={harnessBrand} />}
           {tab === 'usage' && <UsageTab />}
           {/* `key` 로 provider 마다 인스턴스를 가른다 (0186 r6). 없으면 서브탭을 바꿔도 같은
               인스턴스가 재사용돼 A 에서 난 동기화 오류 문구와 한도 편집 화면이 B 로 새어 나간다. */}

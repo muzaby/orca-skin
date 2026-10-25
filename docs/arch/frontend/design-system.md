@@ -34,7 +34,7 @@ Orca는 검증 엔지니어가 긴 대화·코드·작업 결과를 읽는 데�
 |---|---|---|
 | Orca 공통·Claude | `bg-bg`, `bg-sidebar`, `bg-panel`, `bg-bg2`, `text-ink` | 셸·카탈로그·설정·프로젝트·공통 채팅 표면의 기본 |
 | OpenCode 전용 chrome | `oc-*` | OpenCode 컨트롤·요청 dock·전용 도구 행·패널 내부에서 해당 하네스 구현을 따른다. |
-| OpenCode 공유 본문 | 공통 transcript 배경·사용자 버블 + 전용 본문 활자 | 전체 채팅 배경을 임의로 `oc-background`로 치환하지 않는다. [렌더링 계약](rendering.md)의 하네스 전용 표시 참조. |
+| OpenCode 공유 본문 | 공통 transcript 배경·활자·Markdown + 하네스별 색 | 전체 채팅 배경을 임의로 `oc-background`로 치환하지 않는다. [렌더링 계약](rendering.md)의 하네스 전용 표시 참조. |
 | 카메라·이미지 검사 | `stage-*`, Bayer·Histogram | 뷰포트·엔지니어링 표시용. 일반 설정·모달로 확장하지 않는다. |
 | 개발 도구 | `floating-panel-*` | FloatingPanel과 DebugPanel 전용. 일반 제품 카드에 유리 효과를 가져오지 않는다. |
 
@@ -91,6 +91,8 @@ Orca는 검증 엔지니어가 긴 대화·코드·작업 결과를 읽는 데�
 긴 제목·파일명·경로에는 부모 `min-w-0`, 짧은 행에는 `truncate`, 읽을 본문에는 `break-words`·`whitespace-pre-wrap`을 선택한다.
 전체 값을 확인해야 하는 행에는 툴팁·상세 보기·복사를 제공한다.
 한국어 기본 라벨과 다른 locale의 긴 라벨에서도 줄바꿈과 동작 영역을 확인한다.
+
+본문 버블·어시스턴트 활자는 [`transcriptTypography`](../../../app/src/renderer/src/features/chat/harnesses/common/transcript/typography.ts)를 상속한다. Markdown 구조·활자는 공통 Markdown 렌더러가 소유하고 하네스는 색만 바꾼다.
 
 ## 4. 간격·모서리·크기·표면 계층
 

@@ -5,13 +5,13 @@ import { chatActions, useChatSession } from '../store/chatStore'
 import { agentPresentation } from '../lib/agentPresentation'
 import { HarnessLogo } from '../harnesses/registries/brand'
 
-export function AgentModeToggle(): React.JSX.Element {
+export function AgentModeToggle({ framed = false }: { framed?: boolean }): React.JSX.Element {
   const { tr } = useI18n()
   const kind = useChatSession((session) => session.agentKind)
   const locked = useChatSession((session) => session.agentKindLocked || session.sessionId != null)
   const separatorClass = 'px-2 font-sans text-[32px] font-bold leading-none text-ink2'
   return (
-    <div className="mb-4 flex flex-col items-center gap-g6">
+    <div className={`flex flex-col items-center gap-g6 ${framed ? '' : 'mb-4'}`}>
       <div
         data-agent-mode-controls
         role="group"

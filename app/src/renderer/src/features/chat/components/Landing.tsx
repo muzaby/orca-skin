@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react'
 import type { Backend } from '../../../../../shared/ipc'
 import { harnessLanding } from '../harnesses/registries/landing'
+import { landingFrame } from './landingFrame'
 import { Composer } from './Composer'
 import { LandingHeader } from './LandingHeader'
 
@@ -14,13 +15,15 @@ export function Landing({
   const presentation = harnessLanding(backend)
   return (
     <section
-      className={`flex min-h-0 min-w-0 flex-1 bg-bg ${presentation.root}`}
+      className={landingFrame.root}
       data-surface="new-chat-landing"
       data-harness={backend ?? 'claude'}
     >
-      <div className={`flex min-w-0 flex-1 justify-center ${presentation.align}`}>
-        <div className={`w-full max-w-[720px] ${presentation.column}`}>
-          <LandingHeader backend={backend} />
+      <div className={landingFrame.align}>
+        <div className={landingFrame.column}>
+          <div className={landingFrame.hero} data-surface="landing-hero-slot">
+            <LandingHeader backend={backend} framed />
+          </div>
           <Composer {...composerProps} showLandingCwdPanel {...presentation.composer} />
         </div>
       </div>

@@ -20,6 +20,33 @@ interface Site {
 }
 export const sites: Site[] = [
   {
+    file: 'features/chat/store/chatStore.ts',
+    ordinal: 3,
+    line: 1179,
+    disposition: 'TOAST',
+    id: 'T-last-cwd',
+    event: 'chat.cwd-preference.save-failed',
+    title: 'saveFailed'
+  },
+  {
+    file: 'features/settings/components/GeneralTab.tsx',
+    ordinal: 0,
+    line: 90,
+    disposition: 'TOAST',
+    id: 'T-harness-load',
+    event: 'settings.harness.load-failed',
+    title: 'loadFailed'
+  },
+  {
+    file: 'features/settings/components/GeneralTab.tsx',
+    ordinal: 1,
+    line: 109,
+    disposition: 'TOAST',
+    id: 'T-harness-save',
+    event: 'settings.harness.save-failed',
+    title: 'saveFailed'
+  },
+  {
     file: 'features/skills/hooks/useNativeMcpCatalog.ts',
     ordinal: 0,
     line: 51,
@@ -365,7 +392,7 @@ export const sites: Site[] = [
   { file: 'features/chat/store/chatStore.ts', ordinal: 2, line: 1011, disposition: 'CONSUMED' },
   {
     file: 'features/chat/store/chatStore.ts',
-    ordinal: 3,
+    ordinal: 4,
     line: 1115,
     disposition: 'TOAST',
     id: 'T19a',
@@ -374,7 +401,7 @@ export const sites: Site[] = [
   },
   {
     file: 'features/chat/store/chatStore.ts',
-    ordinal: 4,
+    ordinal: 5,
     line: 1085,
     disposition: 'TOAST',
     id: 'T19',
@@ -383,18 +410,18 @@ export const sites: Site[] = [
   },
   {
     file: 'features/chat/store/chatStore.ts',
-    ordinal: 5,
+    ordinal: 6,
     line: 1096,
     disposition: 'TOAST',
     id: 'T20',
     event: 'chat.session-discard.rejected',
     title: 'actionFailed'
   },
-  { file: 'features/chat/store/chatStore.ts', ordinal: 6, line: 1133, disposition: 'CONSUMED' },
-  { file: 'features/chat/store/chatStore.ts', ordinal: 7, line: 1153, disposition: 'CONSUMED' },
+  { file: 'features/chat/store/chatStore.ts', ordinal: 7, line: 1133, disposition: 'CONSUMED' },
+  { file: 'features/chat/store/chatStore.ts', ordinal: 8, line: 1153, disposition: 'CONSUMED' },
   {
     file: 'features/chat/store/chatStore.ts',
-    ordinal: 8,
+    ordinal: 9,
     line: 1407,
     disposition: 'TOAST',
     id: 'T21',
@@ -403,14 +430,14 @@ export const sites: Site[] = [
   },
   {
     file: 'features/chat/store/chatStore.ts',
-    ordinal: 9,
+    ordinal: 10,
     line: 1652,
     disposition: 'CONSUMED'
   },
-  { file: 'features/chat/store/chatStore.ts', ordinal: 10, line: 1767, disposition: 'CONSUMED' },
+  { file: 'features/chat/store/chatStore.ts', ordinal: 11, line: 1767, disposition: 'CONSUMED' },
   {
     file: 'features/chat/store/chatStore.ts',
-    ordinal: 11,
+    ordinal: 12,
     line: 1783,
     disposition: 'TOAST',
     id: 'T37',

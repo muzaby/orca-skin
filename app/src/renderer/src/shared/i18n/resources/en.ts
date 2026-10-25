@@ -1333,6 +1333,14 @@ export const en: typeof ko = {
     },
     providerNotFound: 'Provider not found.',
     general: {
+      claude: 'Claude',
+      opencode: 'OpenCode',
+      outputStyle: 'Output style',
+      outputStyleDesc:
+        'How Claude structures its responses. Applies from the next message, including in active sessions.',
+      autoApprove: 'Auto-accept permissions',
+      autoApproveDesc: 'Permission requests are approved automatically.',
+      autoApproveToggle: 'Auto-accept permissions',
       profile: 'Profile',
       accountInstructions: 'Account instructions',
       accountInstructionsDesc:

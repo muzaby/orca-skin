@@ -24,7 +24,8 @@ import type { OpenCodeClientLease } from './session-context'
 export function openCodeChannel(
   req: TurnRequest,
   connect: () => Promise<OpenCodeClientLease>,
-  release: () => void | Promise<void> = () => undefined
+  release: () => void | Promise<void> = () => undefined,
+  preferences?: () => import('../../../../shared/harness').OpenCodePreferences | undefined
 ): LiveTurn {
   const generation = randomUUID()
   const controller = new AbortController()
@@ -350,7 +351,14 @@ export function openCodeChannel(
           const approvalSignal = isRoot
             ? AbortSignal.any([signal, mainApproval.signal, ...(mainSignal ? [mainSignal] : [])])
             : signal
-          void replyToApproval(client, event, req, approvalSignal).catch((error: unknown) => {
+          const reply =
+            event.type === 'permission.asked' && preferences?.()?.autoApprovePermissions === true
+              ? client.permission.reply(
+                  { requestID: event.properties.id, directory: req.cwd, reply: 'once' },
+                  { signal: approvalSignal, throwOnError: true }
+                )
+              : replyToApproval(client, event, req, approvalSignal)
+          void reply.catch((error: unknown) => {
             if (!approvalSignal.aborted) controller.abort(error)
           })
         }

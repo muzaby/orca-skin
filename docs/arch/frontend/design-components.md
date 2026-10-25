@@ -371,7 +371,7 @@ Provider와 registry는 시각 컴포넌트 선택/수명 책임만 갖는다. �
 |---|---|
 | [features/providers/components/GateLogin.tsx](../../../app/src/renderer/src/features/providers/components/GateLogin.tsx) — `GateLogin` | Orca 브랜드·입력 카드·중립 로그인 버튼의 위계를 유지하고 인증 진행/실패를 구별한다. |
 | [features/providers/components/ProviderDebugSection.tsx](../../../app/src/renderer/src/features/providers/components/ProviderDebugSection.tsx) — `ProviderDebugSection` | 인증 개발 제어를 FloatingPanel 패턴으로 표시하며 실제 게이트 상태와 혼동하지 않는다. |
-| [features/settings/components/GeneralTab.tsx](../../../app/src/renderer/src/features/settings/components/GeneralTab.tsx) — `GeneralTab` | SettingsGroup·SettingsRow·SettingsSelect·Toggle 사용. 폰트/읽기 설정을 실제 적용 범위와 함께 안내한다. |
+| [features/settings/components/GeneralTab.tsx](../../../app/src/renderer/src/features/settings/components/GeneralTab.tsx) — `GeneralTab` | SettingsGroup·SettingsRow·SettingsSelect·Toggle 사용. 폰트/읽기 설정을 실제 적용 범위와 함께 안내한다. 업데이트 아래 Claude 출력 스타일·OpenCode 권한 자동 수락 그룹과 app에서 주입한 브랜드 로고를 표시한다. |
 | [features/settings/components/ProviderUsageTab.tsx](../../../app/src/renderer/src/features/settings/components/ProviderUsageTab.tsx) — `ProviderUsageTab` | provider 상태·비용·기간·한도와 설정 동작을 보조 활자/고정 숫자로 표시한다. |
 | [features/settings/components/SettingsModal.tsx](../../../app/src/renderer/src/features/settings/components/SettingsModal.tsx) — `SettingsModal` | 설정 nav·선택 탭·본문 스크롤·닫기/초점 복귀의 전역 modal 구조를 유지한다. |
 | [features/settings/components/TokensPerDayChart.tsx](../../../app/src/renderer/src/features/settings/components/TokensPerDayChart.tsx) — `UsageTooltip`, `TokensPerDayChart` | 기간·축·데이터·공통 tooltip 표면을 맞추고 데이터 없음과 0값을 구별한다. |
@@ -408,7 +408,6 @@ Provider와 registry는 시각 컴포넌트 선택/수명 책임만 갖는다. �
 
 | 소스 / 표시 단위 | 적용 규칙 |
 |---|---|
-| [app/NewChatHarnessMenu.tsx](../../../app/src/renderer/src/app/NewChatHarnessMenu.tsx) — `NewChatHarnessMenu` | Popover의 right 배치·nav boundary·gap 0. 같은 로고 칸, 키보드 탐색·취소 시 초점 복귀. |
 | [shared/ui/ClaudeLogo.tsx](../../../app/src/renderer/src/shared/ui/ClaudeLogo.tsx) — `ClaudeLogo` | 공식 Claude 마크, currentColor. 메뉴·히어로는 spinner 토큰. |
 | [shared/ui/OpenCodeLogo.tsx](../../../app/src/renderer/src/shared/ui/OpenCodeLogo.tsx) — `OpenCodeLogo` | 공식 OpenCode 마크, currentColor와 ink 토큰. 원본 비율을 유지한다. |
 | [features/chat/harnesses/claude/Logo.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/Logo.tsx) — `ClaudeLogo` | shared/ui의 ClaudeLogo를 하네스 registry에 재수출한다. |

@@ -33,7 +33,8 @@ export const implementation: OpenCodeImplementation = {
           })
         : undefined,
       options.openDatabase,
-      options.extensionControl
+      options.extensionControl,
+      options.preferences
     ),
   loadSettings: loadOpenCodeProviderSettings,
   parseModels: parseOpenCodeModels,
