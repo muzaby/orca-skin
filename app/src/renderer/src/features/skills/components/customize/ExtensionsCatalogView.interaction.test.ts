@@ -154,6 +154,34 @@ const dialogBody = (): string | undefined =>
     ?.querySelectorAll('[class]')
     .find((node) => node.tag === 'p')?.textContent
 
+const dialogButtonBackground = (label: string): string[] => {
+  const button = dom
+    .query('[role="dialog"]')
+    ?.querySelectorAll('[type="button"]')
+    .find((node) => node.textContent === label)
+  const background = button
+    ?.querySelectorAll('[class]')
+    .find(
+      (node) =>
+        node.tag === 'span' && String(node.props.className).split(/\s+/).includes('btn-squish')
+    )
+  expect(background).toBeDefined()
+  return String(background!.props.className).split(/\s+/)
+}
+
+it('renders the Claude close confirmation as a default primary button', async () => {
+  api.write.mockResolvedValue({ status: 'confirm', reason: 'claude-processes', sessions: 2 })
+  renderWithDialog()
+  await flush()
+  dom.click(dom.queryAll('[role="switch"]')[0])
+  await flush()
+
+  const confirmation = dialogButtonBackground('변경')
+  expect(confirmation).toContain('bg-ink')
+  expect(confirmation).not.toContain('bg-rust')
+  expect(dialogButtonBackground('취소')).toContain('bg-fill-contained')
+})
+
 it('confirms a busy Claude plugin change through the shared dialog', async () => {
   api.write.mockImplementation(async (request) =>
     request.confirmed
