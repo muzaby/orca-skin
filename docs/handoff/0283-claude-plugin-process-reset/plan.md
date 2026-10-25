@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-24 |
 | 매핑 | — |
-| 상태 | READY (ΔV3) |
+| 상태 | IMPL_DONE (ΔV3 r3) |
 | V mode | `Delta V` |
 | 기준 V | `0282-plugin-catalog-native-sync` 유효 V(`V1 + ΔV1 + ΔV2 + ΔV3 + ΔV5 + ΔV6`)`@28d25d35` |
 | 이번 V revision | `ΔV3` — D-011 렌더 운반·셸 host 마운트를 포함해 대화상자 경로 목록 재고정(verify r2 G3·D6). `ΔV2` = 확인 대화상자 경로·문서 gate·종료 실패 제목(verify r1). `ΔV1` = 0282 D-008 대체 |
@@ -1064,6 +1064,218 @@ renderer toggle → preload invoke → handler → plan/close → supervisor·�
 - 같은 축: r1의 운반 항·실제 소비자 관측 공백을 닫았다. 공용 host를 통과하는 N-host와 실패 보고 N-fail이 추가됐다.
 - plan 지침: ΔV2가 S1~S23·N-*·M14~M24를 고정했으며 구현 중 규범 정정은 필요 없었다.
 - 환경: Windows 로컬 실행으로 r1 Linux의 cold resume 한계를 재검사했다. 임시 외부 저장소 문서 링크는 추적 사본 검사로 분리했다.
+
+---
+
+## [구현자 기입] 설계 리뷰 (r3)
+
+판정: ΔV3를 수행했다. 유효 V는 0282 기준 V + 0283 ΔV1·ΔV2·ΔV3이며 REQUIRED 8·REGRESSION 6을 확인했다. production 변경·규범 정정·신규 의존성·남은 PLAN_GAP은 없다.
+
+| 항목 | 판단 | 이번 턴 관측 |
+|---|---|---|
+| G3·D6 불변식 | 기본 확정 스타일은 요청에서 실제 버튼 배경까지 보존되고 셸이 host를 한 번 마운트한다 | N-variant: 변경 `bg-ink`, `bg-rust` 없음·취소 `bg-fill-contained`; N-mount: searchOpen 두 값 각각 1 |
+| 기준선과 작업 목록 | ΔV3 READY에서 r3 착수 | VP-02″·05″ 대체, VP-R6 추가; 나머지 11 pair 승계; 등록 M1~M36·G01·MD1·MD2와 verify r2 이력 재실행 |
+| 실행 구간 | 계획의 좌표 그대로 | view→CatalogToggle→hook→실제 store→host→ModalActions→Button, 셸 반환 트리의 실제 host 타입 |
+| 지적 재현 | 새 단언이 Y1·Y2를 검출 | M25_Y1·M26_Y2 각각 N-variant assertion 1건 red; 원복 후 같은 파일 green |
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r3)
+
+좌표 약어는 ΔV2-5·ΔV3-3의 좌표 표를 따른다. 각 좌표는 이번 최종 vitest 집합에 포함됐다.
+
+| V-pair | 불변식 | §10이 적은 지점 | 닫은 수 / 전체 | 자리별 직접 oracle 좌표 | 이번 턴 관측값 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01′·02″ | 확인 계약 운반·검증 | S1~S4 | 4/4 | S1=N-false·T-boot-ask; S2~S4=T-pre | false reject·plan/save/close 0, true applied; confirmed·응답 union 왕복 | 없음 |
+| VP-01′·02″·05″ | 사용자 토글 진입 | U1~U3 | 3/3 | U1=N-host; U2=T-list; U3=N-host·T-list | 최초 confirmed 부재; M23·M24·M29 검출 | 없음 |
+| VP-02″·05″ | 확인 요청·닫기·스타일 운반 | U4~U6 | 3/3 | U4=T-hook-confirm·N-host·N-variant; U5=N-host·N-variant; U6=N-host·N-host-en·N-variant | 재호출 true, 취소/배경 write 불변; M35·M36·M25·M20~M22·M32 검출 | 없음 |
+| VP-02″·05″ | 실제 렌더·버튼 실행 | U7~U9 | 3/3 | U7=N-host·N-host-en; U8=N-host·N-variant; U9=N-host·N-variant | 제목/본문/라벨·onClick 관측; M30·M31a/b/c·M26·M27·M33·M34 검출 | 없음 |
+| VP-02″·05″ | 셸 공용 host | U10 | 1/1 | N-mount | searchOpen false/true 각각 1; M28 제거 시 0으로 실패 | 없음 |
+| VP-02″·05″ | 언어별 수·라벨 | S11 | 1/1 | N-host·N-host-en·T-res | ko 2개·en 1 단수/2 복수; M16 4자리·M17·X20 검출 | 없음 |
+| VP-01′·02″·04′·R1 | port·스키마·저장/종료 동기 구간 | S12~S15 | 4/4 | S12=T-ec·T-boot-*; S13=N-false; S14=N-sync·T-boot-idle/ask/save; S15=T-boot-oc | `[plan,save,close,intruder]`, 저장 실패 close 0, OpenCode close 0 | 없음 |
+| VP-01′·04′·06 | 대상·조립·실패 격리 | S16~S18 | 3/3 | S16=T-boot-*·N-fail; S17=T-cp; S18=T-cp dispatch·N-fail | 대상 3·busy 2, 실패 다음 대상 close 1·전용 제목 publish 1; Y7·Y8 검출 | 없음 |
+| VP-06·07 | activity 판정·lease 폐기 | S19~S20 | 2/2 | S19=T-cp 신호 단독·T-nh; S20=T-sup | M10a~h·M11a/b·M12·X21·X15~X17 검출 | 없음 |
+| VP-03·08·R5′ | 중단·초안 복원·요청 창 전달 | S21~S22 | 2/2 | S21=T-discard; S22=N-discard·post-turn discard | residual 비움→abort→폐기→복원; 요청 owner에 cancelled, M19·Y9 검출 | 없음 |
+| VP-01′·04′ | 실패 제목 | S23 | 1/1 | N-fail·N-titles | 전용 제목 publish 1·ko/en 비어 있지 않은 문구 | 없음 |
+| VP-R4 | OpenCode 플러그인 제어 부재 | EP-10′ R1~R29 | 29/29 | EP-10′ 음성 검색·view `shows OpenCode plugin rows as fixed native state and sends no toggle` | 검색 0→G01 삽입 1→원복 0; 고정 행 write 0 | 없음 |
+| 운영 G-DOC | 문서 계약 | D1~D3 | 3/3 | ΔV2-7 ④ 다섯 검색 | `[0,1,1,1,1]`; MD1 음성 1, MD2 결과 타입 0, 원복 | 없음 |
+
+- 자리 재계수: ① 62줄 = 자리 46·제외 16, ②″ 86줄 = 자리 39·제외 47, ③ 6줄(제목 4자리와 목록/event 선언). ①·②″ 각각 `검색 − (자리 ∪ 제외) = []`, `제외 − 검색 = []`를 실제 집합 차로 확인했다.
+- 분모 검산: S1~S4 4 + U1~U10 10 + S11~S23 13 = EP-01″ 27/27. 별도 EP-10′ 29/29·G-DOC 3/3이며 이전 23자리와 합산하지 않는다.
+- VP-R2·R3는 ΔV1의 한정 상속 경로(새 Query flag·저장 후 재시작)다. 아래 좌표를 재실행했고 0282의 비영향 pair 전체로 범위를 늘리지 않았다. VP-R6은 계획대로 새 강제 자리 0이다.
+
+### V-pair 자기확인 (r3)
+
+| Pair | requiredness | 자기 상태 | 직접 oracle / 관측 | 선택 적대 증거 |
+|---|---|---|---|---|
+| VP-01′ | REQUIRED | SELF_PASS | T-list·T-hook-idle·T-pre·T-boot-idle·N-fail·VP-03: close [1,1,0]·applied·새 Query | M1·M2a/b·M24 검출 |
+| VP-02″ | REQUIRED | SELF_PASS | T-boot-ask·N-host·N-host-en·N-variant·N-mount·N-sync·N-false·T-pre: busy 2·기본 버튼·host 1·동기 순서 | M3~M6·M14a/b·M15·M23·M25·M26·M28 검출 |
+| VP-03 | REQUIRED | SELF_PASS | T-discard·T-boot-ask·supervisor `creates a new runtime after an idle runtime is discarded`·adapter cold resume/fork | M7 검출 |
+| VP-04′ | REQUIRED | SELF_PASS | T-boot-*·N-fail: 실제 조립·저장 실패 close 0·일부 실패 publish 1 | M8·M9·M18·M18b 검출 |
+| VP-05″ | REQUIRED | SELF_PASS | N-host·N-host-en·N-variant·N-mount·T-hook-confirm/oc·T-list: U1~U10·S11 관측 | M5a/b·M16·M17·M20~M36 검출 |
+| VP-06 | REQUIRED | SELF_PASS | T-cp 11신호 단독·복합·dispatch; T-nh occupied 경로 | M10a~h·M11a/b·M12 검출 |
+| VP-07 | REQUIRED | SELF_PASS | T-sup session-less/active lease: abort·close·알림 | 직접 oracle; X15~X17 회귀 검출 |
+| VP-08 | REQUIRED | SELF_PASS | T-discard·post-turn discard: 순서·복원 ids | 직접 oracle; X14 회귀 검출 |
+| VP-R1 | REGRESSION | SELF_PASS | T-boot-oc·`restores global choices through production Bootstrap…`: OpenCode 종료 0 | M13 검출 |
+| VP-R2 | REGRESSION | SELF_PASS | `applies nav plugin choices…`·`carries catalog changes…`·`applies current global plugin choices…`: 새 Query flag | not selected — 직접 행동 좌표 |
+| VP-R3 | REGRESSION | SELF_PASS | `restores global choices through production Bootstrap…`: 새 인스턴스에서 선택 복원 | not selected — 직접 행동 좌표 |
+| VP-R4 | REGRESSION | SELF_PASS | EP-10′ 0건·view 고정 행 write 0 | G01 검출 |
+| VP-R5′ | REGRESSION | SELF_PASS | N-discard·T-discard·pending-message-queue `discardSubmitted`: 요청 owner 복원 | M19 검출 |
+| VP-R6 | REGRESSION | SELF_PASS | N-fail·N-titles·ErrorToastHost `renders two alerts with translated titles, escaped details and accessible close buttons`: 제목 번역·alert 2 | not selected — 직접 행동 좌표 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r3)
+
+판정: 83회 모두 assertion 또는 지정 gate로 검출했다. 각 변이는 한 번에 하나씩 실행하고 원본 바이트로 복구했으며, 최종 production diff는 0이다.
+
+| ID | 자리 | 종류 / 바꾼 내용 | 결과 | 잡은 테스트 / 관측 |
+|---|---|---|---|---|
+| M25_Y1 | `src/renderer/src/shared/ui/ConfirmDialogHost.tsx` | 고정값 · host danger 강제 | 잡음 1/10 | `renders the Claude close confirmation as a default primary button` |
+| M26_Y2 | `src/renderer/src/shared/ui/Modal.tsx` | 고정값 · ModalActions danger 강제 | 잡음 1/10 | `renders the Claude close confirmation as a default primary button` |
+| M27 | `src/renderer/src/shared/ui/Button.tsx` | 맞바꿈 · primary/danger 배경 class | 잡음 1/10 | `renders the Claude close confirmation as a default primary button` |
+| M28 | `src/renderer/src/app/OverlayLayer.tsx` | 제거 · 셸 ConfirmDialogHost 마운트 | 잡음 1/2 | `shell wiring to the sessions search feature mounts the shared confirmation host once in the shell` |
+| M29_Y17 | `src/renderer/src/features/skills/components/customize/CatalogToggle.tsx` | 제거 · CatalogToggle onToggle 호출 | 잡음 5/16 | `renders native plugin capabilities and updates the actual row through its toggle` |
+| M30_Y6 | `src/renderer/src/shared/ui/Modal.tsx` | 빈 값 · Modal 배경 onClick | 잡음 1/10 | `confirms a busy Claude plugin change through the shared dialog` |
+| M31a_Y13 | `src/renderer/src/shared/ui/Modal.tsx` | 빈 값 · Modal 제목 | 잡음 2/10 | `confirms a busy Claude plugin change through the shared dialog` |
+| M31b_Y14 | `src/renderer/src/shared/ui/Modal.tsx` | 빈 값 · Modal children | 잡음 2/10 | `confirms a busy Claude plugin change through the shared dialog` |
+| M31c_Y15 | `src/renderer/src/shared/ui/Modal.tsx` | 빈 값 · Modal footer | 잡음 3/10 | `renders the Claude close confirmation as a default primary button` |
+| M32_Y12 | `src/renderer/src/shared/ui/ConfirmDialogHost.tsx` | 맞바꿈 · host 본문을 title로 | 잡음 2/10 | `confirms a busy Claude plugin change through the shared dialog` |
+| M33 | `src/renderer/src/shared/ui/Button.tsx` | 제거 · Button rest 전달 | 잡음 1/10 | `confirms a busy Claude plugin change through the shared dialog` |
+| M34 | `src/renderer/src/shared/ui/Button.tsx` | 빈 값 · Button children | 잡음 3/10 | `renders the Claude close confirmation as a default primary button` |
+| M35 | `src/renderer/src/features/skills/hooks/useNativeMcpCatalog.ts` | 다른 값 · hook danger true | 잡음 3/10 | `renders the Claude close confirmation as a default primary button` |
+| M36 | `src/renderer/src/shared/ui/confirmDialogStore.ts` | 다른 값 · store danger true | 잡음 3/10 | `renders the Claude close confirmation as a default primary button` |
+| M1 | `src/main/app/handlers/extension-catalog.ts` | 종료 호출 제거 | 잡음 5/22 | `Claude plugin toggle closes running Claude processes closes every idle Claude process on a Claude plugin toggle without confirmation and leaves OpenCode running` |
+| M2a | `src/main/app/claude-processes.ts` | lease backend 맞바꿈 | 잡음 3/13 | `planClaudeProcesses counts lease alone as one busy Claude session` |
+| M2b | `src/main/app/claude-processes.ts` | runtime backend 맞바꿈 | 잡음 12/13 | `planClaudeProcesses counts responding alone as one busy Claude session` |
+| M3 | `src/main/app/handlers/extension-catalog.ts` | confirmed 조건 제거 | 잡음 2/18 | `Claude plugin toggle closes running Claude processes asks before closing busy Claude sessions and closes every Claude process only after confirmation` |
+| M4 | `src/main/app/handlers/extension-catalog.ts` | busy >= 0 | 잡음 5/18 | `carries catalog changes through the real bootstrap registry into every new SDK query` |
+| M5a | `src/renderer/src/features/skills/hooks/useNativeMcpCatalog.ts` | confirmed 요청 항 제거 | 잡음 2/16 | `confirms before closing busy Claude sessions and applies only after the change is confirmed` |
+| M5b | `src/renderer/src/features/skills/hooks/useNativeMcpCatalog.ts` | onConfirm true 제거 | 잡음 2/16 | `confirms before closing busy Claude sessions and applies only after the change is confirmed` |
+| M6 | `src/main/app/handlers/extension-catalog.ts` | sessions를 전체 대상 수로 | 잡음 1/18 | `Claude plugin toggle closes running Claude processes asks before closing busy Claude sessions and closes every Claude process only after confirmation` |
+| M7 | `src/main/app/chat-turn/discard.ts` | 복원 emit 제거 | 잡음 2/19 | `Claude plugin toggle closes running Claude processes asks before closing busy Claude sessions and closes every Claude process only after confirmation` |
+| M8 | `src/main/app/bootstrap.ts` | activity를 항상 유휴로 | 잡음 1/18 | `Claude plugin toggle closes running Claude processes asks before closing busy Claude sessions and closes every Claude process only after confirmation` |
+| M9 | `src/main/app/handlers/extension-catalog.ts` | 종료를 저장 앞으로 | 잡음 1/18 | `Claude plugin toggle closes running Claude processes keeps every Claude process when the Claude plugin choice cannot be saved` |
+| M10a | `src/main/app/session-activity-busy.ts` | 신호 하나 제거 | 잡음 4/33 | `planClaudeProcesses counts foreground preparing alone as one busy Claude session` |
+| M10b | `src/main/app/session-activity-busy.ts` | 신호 하나 제거 | 잡음 2/33 | `planClaudeProcesses counts transport listening alone as one busy Claude session` |
+| M10c | `src/main/app/session-activity-busy.ts` | 신호 하나 제거 | 잡음 2/33 | `planClaudeProcesses counts queued alone as one busy Claude session` |
+| M10d | `src/main/app/session-activity-busy.ts` | 신호 하나 제거 | 잡음 2/33 | `planClaudeProcesses counts delivery pending alone as one busy Claude session` |
+| M10e | `src/main/app/session-activity-busy.ts` | 신호 하나 제거 | 잡음 2/33 | `planClaudeProcesses counts residual alone as one busy Claude session` |
+| M10f | `src/main/app/session-activity-busy.ts` | 신호 하나 제거 | 잡음 2/33 | `planClaudeProcesses counts background task alone as one busy Claude session` |
+| M10g | `src/main/app/session-activity-busy.ts` | 신호 하나 제거 | 잡음 2/33 | `planClaudeProcesses counts pending session wakeup alone as one busy Claude session` |
+| M10h | `src/main/app/session-activity-busy.ts` | 신호 하나 제거 | 잡음 2/33 | `planClaudeProcesses counts session schedules alone as one busy Claude session` |
+| M11a | `src/main/app/claude-processes.ts` | 세션 lease busy false | 잡음 2/13 | `planClaudeProcesses counts lease alone as one busy Claude session` |
+| M11b | `src/main/app/claude-processes.ts` | 세션 없는 lease busy false | 잡음 2/13 | `planClaudeProcesses counts each busy signal once and ignores idle Claude, OpenCode and closing entries` |
+| M12 | `src/main/app/claude-processes.ts` | responding 제거 | 잡음 2/13 | `planClaudeProcesses counts responding alone as one busy Claude session` |
+| M13 | `src/main/app/handlers/extension-catalog.ts` | Claude 분기 true | 잡음 1/18 | `Claude plugin toggle closes running Claude processes applies OpenCode MCP toggles without confirmation or closing any runtime` |
+| S1 | `src/shared/protocol.ts` | confirmed를 undefined로 | 잡음 2/18 | `Claude plugin toggle closes running Claude processes asks before closing busy Claude sessions and closes every Claude process only after confirmation` |
+| M14a_X25 | `src/main/app/handlers/extension-catalog.ts` | plan 뒤 await 삽입 | 잡음 1/4 | `saves and closes in the same synchronous section as the busy check` |
+| M14b | `src/main/app/handlers/extension-catalog.ts` | save 뒤 await 삽입 | 잡음 1/4 | `saves and closes in the same synchronous section as the busy check` |
+| M15_X18 | `src/shared/protocol.ts` | literal(true)→boolean | 잡음 1/4 | `rejects confirmed: false before planning or saving` |
+| M16_ko_one | `src/renderer/src/shared/i18n/resources/ko.ts` | 해당 locale·복수형 count 제거 | 잡음 1/15 | `i18n resources 보간 플레이스홀더({{x}}) 일치` |
+| M16_ko_other | `src/renderer/src/shared/i18n/resources/ko.ts` | 해당 locale·복수형 count 제거 | 잡음 2/15 | `i18n resources 보간 플레이스홀더({{x}}) 일치` |
+| M16_en_one | `src/renderer/src/shared/i18n/resources/en.ts` | 해당 locale·복수형 count 제거 | 잡음 2/15 | `i18n resources 보간 플레이스홀더({{x}}) 일치` |
+| M16_en_other | `src/renderer/src/shared/i18n/resources/en.ts` | 해당 locale·복수형 count 제거 | 잡음 2/15 | `i18n resources 보간 플레이스홀더({{x}}) 일치` |
+| M17_X19 | `src/renderer/src/shared/i18n/resources/en.ts` | en 단수/복수 맞바꿈 | 잡음 1/10 | `renders the Claude close dialog in English with singular and plural counts` |
+| M18_X1 | `src/main/app/bootstrap.ts` | failed no-op | 잡음 1/18 | `Claude plugin toggle closes running Claude processes keeps closing Claude processes after one close fails and reports it once with the dedicated title` |
+| M18b | `src/main/app/bootstrap.ts` | 제목 saveFailed | 잡음 1/18 | `Claude plugin toggle closes running Claude processes keeps closing Claude processes after one close fails and reports it once with the dedicated title` |
+| M19_X27 | `src/main/app/chat-turn/index.ts` | 요청 창 emit no-op | 잡음 1/31 | `0243 interruption delivery through real runtime and handlers returns residual submissions to the requesting window when the session is discarded` |
+| M20_X29 | `src/renderer/src/shared/ui/ConfirmDialogHost.tsx` | onConfirm 제거 | 잡음 1/10 | `confirms a busy Claude plugin change through the shared dialog` |
+| M21_X30 | `src/renderer/src/shared/ui/ConfirmDialogHost.tsx` | 취소→확정 | 잡음 2/10 | `confirms a busy Claude plugin change through the shared dialog` |
+| M22 | `src/renderer/src/shared/ui/ConfirmDialogHost.tsx` | 배경→확정 | 잡음 1/10 | `confirms a busy Claude plugin change through the shared dialog` |
+| M23 | `src/renderer/src/features/skills/components/customize/ExtensionsCatalogView.tsx` | view가 confirmed true 전달 | 잡음 2/10 | `confirms a busy Claude plugin change through the shared dialog` |
+| M24 | `src/renderer/src/features/skills/components/customize/CustomizeList.tsx` | list가 세 번째 인자 true 전달 | 잡음 1/6 | `renders native plugin capabilities and updates the actual row through its toggle` |
+| X2 | `src/main/app/bootstrap.ts` | backendOf 항상 claude | 잡음 2/18 | `Claude plugin toggle closes running Claude processes closes every idle Claude process on a Claude plugin toggle without confirmation and leaves OpenCode running` |
+| X3 | `src/main/app/bootstrap.ts` | 방송 no-op | 잡음 1/18 | `Claude plugin toggle closes running Claude processes asks before closing busy Claude sessions and closes every Claude process only after confirmation` |
+| X4 | `src/main/app/bootstrap.ts` | discardSession→discardRuntime | 잡음 1/18 | `Claude plugin toggle closes running Claude processes asks before closing busy Claude sessions and closes every Claude process only after confirmation` |
+| X5 | `src/main/app/claude-processes.ts` | dispatch 조건 반전 | 잡음 1/13 | `createClaudeProcessReset dispatches session targets to session discard and session-less leases to lease discard and continues after a failure` |
+| X6 | `src/main/app/claude-processes.ts` | closing 제외 제거 | 잡음 1/13 | `planClaudeProcesses counts each busy signal once and ignores idle Claude, OpenCode and closing entries` |
+| X7 | `src/main/app/claude-processes.ts` | seen 등록 제거 | 잡음 2/13 | `planClaudeProcesses counts lease alone as one busy Claude session` |
+| X8 | `src/main/app/claude-processes.ts` | busy=전체 대상 수 | 잡음 2/13 | `planClaudeProcesses counts each busy signal once and ignores idle Claude, OpenCode and closing entries` |
+| X9 | `src/main/app/claude-processes.ts` | 보고 대신 throw | 잡음 1/13 | `createClaudeProcessReset dispatches session targets to session discard and session-less leases to lease discard and continues after a failure` |
+| X10 | `src/renderer/src/features/skills/hooks/useNativeMcpCatalog.ts` | hook 제목/본문 맞바꿈 | 잡음 1/6 | `confirms before closing busy Claude sessions and applies only after the change is confirmed` |
+| X11 | `src/renderer/src/features/skills/hooks/useNativeMcpCatalog.ts` | 확정/취소 라벨 맞바꿈 | 잡음 1/6 | `confirms before closing busy Claude sessions and applies only after the change is confirmed` |
+| X12 | `src/renderer/src/features/skills/hooks/useNativeMcpCatalog.ts` | count=1 | 잡음 3/16 | `confirms before closing busy Claude sessions and applies only after the change is confirmed` |
+| X14 | `src/main/app/chat-turn/discard.ts` | abort/discard 순서 반전 | 잡음 1/1 | `returns residual submissions, aborts the turn and discards the runtime` |
+| X15 | `src/main/features/sessions/supervisor.ts` | emitLease 제거 | 잡음 1/21 | `RuntimeSupervisor resource governance (0055) discards a session-less lease by aborting its child and closing its runtime` |
+| X16 | `src/main/features/sessions/supervisor.ts` | child abort 제거 | 잡음 2/21 | `RuntimeSupervisor resource governance (0055) active lease discard는 child를 abort하고 runtime을 닫은 채 신규 acquire를 차단한다` |
+| X17 | `src/main/features/sessions/supervisor.ts` | lease 분기 제거 | 잡음 2/39 | `Claude plugin toggle closes running Claude processes asks before closing busy Claude sessions and closes every Claude process only after confirmation` |
+| X21 | `src/main/app/native-history.ts` | nativeHistoryBusy 항상 false | 잡음 9/20 | `native history composition does not close or replace an occupied session: {"foreground":"preparing"}` |
+| Y3 | `src/renderer/src/shared/ui/ConfirmDialogHost.tsx` | 맞바꿈 · host 확정/취소 라벨 | 잡음 3/10 | `renders the Claude close confirmation as a default primary button` |
+| Y4 | `src/renderer/src/shared/ui/Modal.tsx` | 맞바꿈 · 취소 onClick → onConfirm | 잡음 2/10 | `confirms a busy Claude plugin change through the shared dialog` |
+| Y5 | `src/renderer/src/shared/ui/Modal.tsx` | 맞바꿈 · 확정 onClick → onCancel | 잡음 1/10 | `confirms a busy Claude plugin change through the shared dialog` |
+| Y7 | `src/main/app/claude-processes.ts` | 제거 · 첫 실패 보고 뒤 return | 잡음 2/31 | `Claude plugin toggle closes running Claude processes keeps closing Claude processes after one close fails and reports it once with the dedicated title` |
+| Y8 | `src/main/app/claude-processes.ts` | 다른 값 · 실패 보고 2회 | 잡음 2/31 | `Claude plugin toggle closes running Claude processes keeps closing Claude processes after one close fails and reports it once with the dedicated title` |
+| Y9 | `src/main/app/chat-turn/index.ts` | 다른 값 · 요청 sender 교체 | 잡음 1/31 | `0243 interruption delivery through real runtime and handlers returns residual submissions to the requesting window when the session is discarded` |
+| Y10 | `src/renderer/src/features/skills/hooks/useNativeMcpCatalog.ts` | 다른 값 · 재요청 enabled 반전 | 잡음 2/16 | `confirms before closing busy Claude sessions and applies only after the change is confirmed` |
+| Y11 | `src/renderer/src/shared/i18n/resources/ko.ts` | 다른 값 · 변경 라벨을 확인으로 | 잡음 2/10 | `renders the Claude close confirmation as a default primary button` |
+| K1 | `src/renderer/src/shared/ui/ConfirmDialogHost.tsx` | 맞바꿈 · host title을 message로 | 잡음 2/10 | `confirms a busy Claude plugin change through the shared dialog` |
+| X20 | `src/renderer/src/shared/i18n/resources/ko.ts, src/renderer/src/shared/i18n/resources/en.ts` | ko/en 본문 네 곳 count 동시 제거 | 잡음 2/10 | `confirms a busy Claude plugin change through the shared dialog` |
+| G01 | `opencode/v1/global-plugins.ts:1` | import 삽입·nativeFileMutations | 잡음 | EP-10′ 0→1→0 |
+| MD1 | `docs/arch/backend/adapters.md:69` | 옛 Query 유지 문장 복원 | 잡음 | G-DOC 음성 0→1→0 |
+| MD2 | `docs/IPC_CONTRACT.md:193` | 결과 타입 이름 제거 | 잡음 | G-DOC 양성 1→0→1 |
+
+- 잠금 분모: 선택 증거 57(ΔV1·ΔV2 43 + ΔV3 14) · 중복 제거한 인용/이전 검출 회귀 26 · 새 oracle 0(등록 M25~M28·M35·M36과 중복) = 표 83행. 잡음 83·못 잡음 0·동치 0.
+- 실제 실행 ID와 예정 ID의 양방향 차집합은 `[]`다(코드 변이 80개·별도 gate 변이 3개). 아래 최종 JSON과 표 행 ID도 같은 집합이다.
+- verify r2의 77회는 이번 표의 77행에 대응한다. Y1→M25·Y2→M26 모두 검출, 이전 잡음 75행도 검출했으며 덮개 회귀 0이다. 추가 6행은 M27·M28·M33~M36이다.
+- 새 장치는 실제 배경 토큰과 셸 요소 타입을 관측한다. 일반 hunk에 추가 변이를 발명하지 않았으며 직접 oracle은 `해당 없음 — 직접 oracle`로 판정했다.
+
+## [구현자 기입] Product/UX 파생 검토 (r3)
+
+| 질문 | 판단 | 이번 턴 관측 |
+|---|---|---|
+| 기본 확정/취소 구별 | 충족 | N-variant 변경 bg-ink·취소 bg-fill-contained, primary/danger 맞바꿈 M27 red |
+| 실제 사용자 진입 | 충족 | N-mount 셸 host 1·N-host 실제 스위치→대화상자→취소/확정 |
+| 취소·배경·재시도 | 유지 | N-host 각각 IPC 증가 없음·행 on·다시 열기·확정 후 off |
+| 실패 문구 소비자 | 유지 | N-fail 전용 제목 publish·N-titles 번역·VP-R6 실제 토스트 렌더 |
+| 시각·실제 CLI | 미확인 | AC9 white/dark 창·실제 /context는 사람 실기 대기 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r3)
+
+| 문제 | 처리 | 근거 |
+|---|---|---|
+| 요청의 danger만 관측하면 렌더 전달 누락을 못 봄 | 선조치 | U4·U5·U6·U8·U9의 M35·M36·M25·M26·M27 전부 N-variant red |
+| host 직접 렌더로는 셸 마운트를 못 봄 | 선조치 | N-mount searchOpen 두 값·M28 red |
+| className 부분 문자열 오탐 | 선조치 | 공백으로 나눈 토큰 비교; 실제 변경/취소 배경 구별 |
+| 늦은 confirm 응답·DB 행 없는 유휴 runtime | 보고만 — 기존 N3·N4 유지 | 이번 변경은 테스트 2파일뿐이며 관련 정책을 바꾸지 않음 |
+| SQLite ABI | 환경 분리 | 순수 집합과 DB 7파일을 나눠 기존 Electron Node 모드로 실행; 재빌드 없음 |
+| Electron forks 작업자 종료 지연 | 환경 관측 기록 | DB 실행에서 worktree-recover/bind·context-usage·project-binding·continuity 5파일 종료 경고; 28테스트 passed·exit 0·실행 뒤 신규 Electron 프로세스 없음 |
+
+## [구현자 기입] 구현 보고 (r3)
+
+구현 주체는 Codex다. 신규 테스트 2건을 기존 파일 2곳에 추가했으며 production·설계 대비 차이는 없다. 대상 커밋은 `(r3 구현 — 좌표는 INDEX)`다.
+
+| AC | 결과 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | T-boot-idle close [1,1,0]·applied·저장값 |
+| AC2″ | ✅ | T-boot-ask busy 2·N-host ko·N-host-en 단복수·N-variant 배경·N-mount 1 |
+| AC3′ | ✅ | N-host 취소·배경 클릭 각각 IPC 증가 없음·행 on |
+| AC4′ | ✅ | N-host confirmed true·off, N-false false reject, N-sync 동기 순서·T-boot-ask abort/복원 |
+| AC5 | ✅ | T-cp 신호 11입력·복합, M10a~h·M11a/b·M12 검출 |
+| AC6 | ✅ | Windows supervisor 새 factory·adapter cold resume flag/fork 통과 |
+| AC7 | ✅ | T-boot-oc applied·모든 close 0 |
+| AC8 | ✅ | T-boot-save reject·close 0 |
+| AC9 | ⚠️ | 실제 CLI /context·white/dark 사람 실기 대기 |
+| AC10 | ✅ | N-fail 첫 close throw·둘째 close 1·applied·전용 제목 publish 1·저장값 |
+
+검산: ✅ 9 · ⚠️ 1 · ❌ 0 = 총 10. 분모 변경 없음(AC2′를 AC2″로 대체).
+
+| 운영 gate | 관측 산출 |
+|---|---|
+| lint | 오류 0·기존 incompatible-library 경고 2. autofix는 신규 테스트 줄바꿈뿐 |
+| typecheck | node/web/test 3구성 통과·error TS 0 |
+| 관련 vitest | 136파일 1,521케이스 통과; 순수 집합+DB 7파일 결과를 파일/테스트 ID로 병합 |
+| doc-inventory | 추적 사본+현재 변경에서 generated/prose/links 통과; 작업 폴더의 기존 외부 임시 자료는 제외 |
+| test-budgets·migration | 실-git 16스위트 예산·마이그레이션 sync/no-copies/append-only 통과 |
+| EP-10′·G-DOC | 0건·[0,1,1,1,1]; 등록 3변이 검출·원복 |
+| CI gate | 구현 push 후 PR [#512](https://github.com/muzaby/orca-skin/pull/512)에서 실행, 결과는 해당 head의 Checks가 정본 |
+| 메시지 버스 | plan 메타 IMPL_DONE·INDEX impl/IMPL_DONE·다음 Claude; 커밋 후 trailer 6키와 Criteria-Met 9/10 확인 |
+
+- 최종 실행 집합은 ΔV3-6에 VP-R6 `ErrorToastHost.render.test.ts`를 포함했다. 비-DB는 plain Node `--maxWorkers=4`, DB 7파일은 `ELECTRON_RUN_AS_NODE=1 electron.exe node_modules/vitest/vitest.mjs run --maxWorkers=1`이다.
+- N-variant·N-mount 테스트명을 최종 JSON에서 찾아 각각 passed임을 확인했다. 설계 대비 메커니즘 변경이 없어 만료·공유·재진입·다른 무효화 축은 모두 해당 없음이다.
+
+## [구현자 기입] Review Signals — 사실만 (r3)
+
+- 라운드·라벨: verify r2 RETURN_TO_PLAN 뒤 첫 구현 `r3`, 다음은 Claude 독립 검증이다.
+- 같은 축: 요청 필드가 실제 소비자까지 전달되는지를 관측한다. ΔV2의 store danger 단언이 host/Modal/버튼의 최종 배경을 보지 못했던 자리를 ΔV3가 명시했다.
+- 지침·계약: D-011은 이미 있었으나 ΔV2 목록과 oracle이 렌더를 포함하지 않았다. ΔV3 U1~U10·M25~M36을 그대로 적용했다.
+- 환경: 기존 Electron SQLite ABI를 보존해 DB 7파일만 Electron Node 모드로 실행했다. 실제 CLI·시각 인수는 AC9에 남는다.
 
 ---
 
