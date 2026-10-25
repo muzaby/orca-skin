@@ -581,3 +581,279 @@ r1 판정과 근거는 위 본문에 그대로 둔다. 이 절은 r2만 판정�
 - NON_BLOCKING: N3·N4.
 - 남은 사람 확인: AC9.
 - 다음 단계: 설계자가 G3을 ΔV3으로 정정해 `plan/READY` → 구현자가 Y1·Y2를 잡는 렌더 variant 좌표를 만든다.
+
+# r3 — 2026-10-25
+
+r1·r2 판정과 근거는 위 본문에 그대로 둔다. 이 절은 r3만 판정한다.
+
+## r3 메타
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `9762306c..bfee5bf6` (r3 `bfee5bf6`) |
+| 구현 전 plan 기준 | `9762306c` (ΔV3) |
+| V mode / 유효 V | `Delta V` / `0282@28d25d35 + 0283 ΔV1@d69b4c54 + ΔV2@7fdc497a + ΔV3@9762306c` |
+| 검증 기준 plan revision | `9762306c:ΔV3` |
+| 라운드 | 3 |
+| 상태 | **PASS (기계 범위)** — pair 14 PASS · PLAN_GAP 0 · 고장 91건 전부 잡음. AC9 사람 실기만 남는다 |
+| 자기 검증 여부 | 구현자 = Codex(trailer `Agent: codex`). ΔV3 설계자 = 검증자(Claude)라 plan validity는 자기 설계 감사다 → 보고에 없던 축 8건(§r3-4 Z1~Z8) |
+
+## r3-0. 기준선 / plan validity
+
+- 기준선이 diff로 성립한다: 설계 `9762306c`와 구현 `bfee5bf6`이 분리돼 있다.
+- 구현 커밋의 `plan.md` 변경은 메타 상태 1줄(`:11`)과 `[구현자 기입]` r3 추가(`:1070` 이후)뿐이다 — `git diff 9762306c..bfee5bf6 -- plan.md` hunk 2개.
+- Decision Ledger · Product/UX · AC · V node/pair · §10 변경 0건. 채점 기준은 `9762306c` 시점 plan 원문이다.
+- production 변경 0: `git diff --stat 07caaeda..bfee5bf6 -- app/` = 테스트 2파일(+42줄)뿐이다.
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| Delta V 적용 순서·상속 기준 | 유효 | 인용 커밋 9개 `git cat-file -t` = commit. ΔV3가 VP-02′·05′를 ″로 대체, VP-R6 추가 |
+| CHANGED node ↔ 같은 레벨 REQUIRED pair | 유효 | R-02″ → VP-02″ · AR-02″ → VP-05″. INHERITED R-ET → VP-R6 REGRESSION |
+| `SUPERSEDED` 이관 | 유효 | VP-02′ 변이 M3~M6·M14·M15·M23 → VP-02″, VP-05′ 변이 M5·M16·M17·M20~M24 → VP-05″(`plan.md:648-651`) |
+| §10 EP-01″ — 검색 재실행 차집합 | 유효 | ① 62줄 = 자리 46 + 제외 16 · ②″ 86줄 = 자리 39 + 제외 47 · ③ 6줄. 미분류 0 · 안 쓰인 제외 0(분류 스크립트, `bfee5bf6`) |
+| §10 EP-01″ — 술어·범위가 path를 덮는가 | 유효 | ②″ 범위 = VP-05″ path 9파일 전체. 술어에 `danger`·`squishClass`·`ConfirmDialogHost` 포함. 술어 밖 path 줄 Button `:113` `disabled`는 Z8로 잡음 |
+| G-DOC ④ | 유효 | `[0,1,1,1,1]` · MD1 → `[1,1,1,1,0]` · MD2 → `[0,0,1,1,1]` |
+| EP-10′ | 유효 | 음성 술어 0줄 · `nativeFileMutations` 0줄 · G01 → 1 |
+| 운영 gate·범위 | 유효 | lint·typecheck·관련 vitest(ΔV3-6 + VP-R6)·doc-inventory·G-DOC·EP-10′·CI·trailer |
+
+- r2 PLAN_GAP: **G3 닫힘** — host `:32`가 U6, Modal `:115`가 U8, 렌더 변이 M25·M26 등록, 좌표 N-variant가 둘 다 잡음.
+- path 시작점: VP-05″ path는 `OverlayLayer`에서 시작한다. 그 위 셸 사슬(`RootGate` → `AppLayout.tsx:59` → `OverlayLayer`)은 모든 오버레이가 공유하는 조립이라 이번 V 밖으로 보고 변이를 심지 않았다.
+- 새 root PLAN_GAP: 없음.
+
+## r3-1. Product & UX / ACTIVE Decision
+
+| Decision | 판정 | 실제 production path |
+|---|---|---|
+| D-001~D-010 | 충족 — r2와 같은 경로. r3 production diff 0 | 위 r2-1 표 그대로 |
+| D-011 [변경] 기본 버튼 | 충족 · **렌더 잠김** | hook `:93-99`(`danger` 없음) → store `:24` → host `:32` → `Modal.tsx:115` `'primary'` → `Button.tsx:71` `bg-ink`. N-variant가 관측(M25·M26·M27·M35·M36·Z5~Z7 잡음) |
+| AC2″ 셸 1회 마운트 | 충족 · 잠김 | `OverlayLayer.tsx:69` → N-mount(M28·Z1·Z2 잡음) |
+
+## r3-2. 구현 비판적 검토
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 새 좌표가 production 경로에 진입하는가 | ✅ | N-variant는 실제 view·host·Modal·Button을 렌더하고 `sessionApi`만 mock한다. N-mount는 production `OverlayLayer` 반환 트리를 본다(features 하위 컴포넌트만 mock, host 타입은 실물) |
+| 로컬 재구현 여부 | 없음 | 두 helper는 DOM·요소 트리 탐색만 한다. 판정 대상은 production 컴포넌트 출력이다 |
+| 구별 값 | ✅ | [변경] `bg-ink` ↔ [취소] `bg-fill-contained`(형제 대조) · `searchOpen` false/true. `danger` 부재 입력이 곧 기본값 폴백의 구별 값이다 |
+| 토큰 비교 | ✅ | className을 공백으로 나눠 비교해 `bg-ink`가 다른 토큰의 접두로 오탐되지 않는다 |
+| 게이트의 트리 변경 | 없음 | lint(`--fix`) 뒤 `git status` 0 |
+
+## r3-3. 역방향 탐색
+
+`bash .agents/skills/handoff-verify/scripts/scan-surface.sh 9762306c..bfee5bf6` → "변경된 소스 파일이 없습니다"(테스트만 변경).
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| 테스트 전용 신규 심볼 | 정상 | `countConfirmationHosts`·`dialogButtonBackground`는 테스트 helper. production export 변경 0 |
+| ②″ 술어 밖 path 줄 | 잡음 | Button `:113` `disabled={isDisabled}`(Z8) → N-host red |
+| path 상류 셸 사슬 | 범위 밖 | r3-0 path 시작점 참조 |
+
+## r3-4. 고장 이력 (r3)
+
+- 하네스: 파일 줄 단위 치환(대상 줄에 원문 1회 확인) → 관련 vitest 집합(136파일 1,521케이스, 기준선 실패 8건과 테스트 ID로 차집합) → 원본 바이트 복원(sha256 일치) → `git status` 0 확인. gate 변이 3건은 해당 검색 명령으로 판정.
+- 매 실행 136파일·1,521케이스 전부 실행됨(91회 중 vitest 88회 동일 값).
+- 시도 91 = 잡음 91 · 못 잡음 0 · 동치 0.
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 직전 결과 | 이번 결과(새 실패 수) | 잡은 테스트 | 귀속 |
+|---|---|---|---|---|---|---|---|
+| **Y1 = M25** | `ConfirmDialogHost.tsx:32` | 고정값 | `danger={request.danger}` → `danger` | **못 잡음** | **잡음(1)** | N-variant | G3·VP-05″ 등록 |
+| **Y2 = M26** | `Modal.tsx:115` | 고정값 | `variant={'danger'}` | **못 잡음** | **잡음(1)** | N-variant | D6·VP-05″ 등록 |
+| M27 | `Button.tsx:71·73` | 맞바꿈 | primary↔danger 배경 class | 신규 | 잡음(1) | N-variant | VP-05″ 등록 |
+| M28 | `OverlayLayer.tsx:69` | 제거 | `<ConfirmDialogHost />` | 신규 | 잡음(1) | N-mount | VP-05″ 등록 |
+| Y17 = M29 | `CatalogToggle.tsx:31` | 제거 | `await onToggle?.()` | 잡음 | 잡음(5) | N-host · N-variant · N-host-en · T-list 외 | VP-05″ 등록 |
+| Y6 = M30 | `Modal.tsx:57` | 빈 값 | 배경 `onClick={undefined}` | 잡음 | 잡음(1) | N-host | VP-05″ 등록 |
+| Y13·Y14·Y15 = M31a~c | `Modal.tsx:70·75·77` | 빈 값 | 제목 · children · footer → `null` | 잡음 | 잡음(2·2·3) | N-host · N-host-en · N-variant(footer) | VP-05″ 등록 |
+| Y12 = M32 | `ConfirmDialogHost.tsx:36` | 맞바꿈 | 본문 ← title | 잡음 | 잡음(2) | N-host · N-host-en | VP-05″ 등록 |
+| M33 | `Button.tsx:118` | 제거 | `{...rest}` | 신규 | 잡음(3) | N-host · ProviderDetail 2 | VP-05″ 등록 |
+| M34 | `Button.tsx:128` | 빈 값 | `{children}` → `null` | 신규 | 잡음(5) | N-host · N-variant · N-host-en 외 | VP-05″ 등록 |
+| M35 | `useNativeMcpCatalog.ts:97` | 다른 값 | 요청에 `danger: true` | 신규 | 잡음(3) | N-host(store) · N-variant · N-host-en | VP-05″ 등록 |
+| M36 | `confirmDialogStore.ts:24` | 다른 값 | `{ ...req, danger: true }` 저장 | 신규 | 잡음(3) | N-host(store) · N-variant · N-host-en | VP-05″ 등록 |
+| M1 | `extension-catalog.ts:61` | 제거 | 종료 호출 | 잡음 | 잡음(5) | T-boot-ask · T-boot-idle 외 | VP-01′ |
+| M2a·M2b | `claude-processes.ts:44·53` | 맞바꿈 | `'claude'`→`'opencode'` | 잡음 | 잡음(4·15) | T-boot-ask · dispatch · T-boot-idle | VP-01′ |
+| M3 | `extension-catalog.ts:57` | 제거 | `&& !request.confirmed` | 잡음 | 잡음(3) | T-boot-ask · T-boot-save | VP-02″ |
+| M4 | `:57` | 다른 값 | `busy >= 0` | 잡음 | 잡음(7) | T-boot-idle · N-fail · 0282 bootstrap | VP-02″ |
+| M5a·M5b | `useNativeMcpCatalog.ts:88·98` | 제거 | `confirmed` spread · onConfirm `true` | 잡음 | 잡음(2·2) | N-host · T-hook-confirm | VP-05″ |
+| M6 | `extension-catalog.ts:58` | 다른 값 | `sessions: plan.targets.length` | 잡음 | 잡음(1) | T-boot-ask | VP-02″ |
+| M7 | `discard.ts:37` | 제거 | 복원 emit | 잡음 | 잡음(3) | T-boot-ask · T-discard | VP-03 |
+| M8 | `bootstrap.ts:1241` | 고정값 | activity 유휴 snapshot | 잡음 | 잡음(1) | T-boot-ask | VP-04′ |
+| M9 | `extension-catalog.ts:60·61` | 뒤집기 | 종료 → 저장 | 잡음 | 잡음(2) | T-boot-save · N-sync | VP-04′ |
+| M10a~h | `session-activity-busy.ts:7-14` | 제거 | 8신호 각각 `false` | 잡음 8/8 | 잡음 8/8(4·2·2·2·2·2·2·2) | `counts <신호> alone…` · T-nh | VP-06 |
+| M11a·M11b | `claude-processes.ts:48·49` | 다른 값 | lease `busy: false` | 잡음 | 잡음(3·2) | T-boot-ask · 복합 · dispatch | VP-06 |
+| M12 | `:57` | 제거 | `responding` | 잡음 | 잡음(2) | `counts responding alone…` · dispatch | VP-06 |
+| M13 | `extension-catalog.ts:53` | 고정값 | Claude 분기 `true` | 잡음 | 잡음(1) | T-boot-oc | VP-R1 |
+| S1 | `protocol.ts:767` | 빈 값 | `.transform(() => undefined)` | 잡음 | 잡음(3) | T-boot-ask · T-boot-save | VP-02″ |
+| M14a·M14b | `extension-catalog.ts:56·60` 뒤 | 뒤집기 | `await Promise.resolve()` | 잡음 | 잡음(1·1) | N-sync | VP-02″ |
+| M15 | `protocol.ts:767` | 다른 값 | `z.boolean()` | 잡음 | 잡음(1) | N-false | VP-02″ |
+| M16 ko1·ko2·en1·en2 | `ko.ts:626·628` · `en.ts:622·624` | 제거 | `{{count}}` 자리별 | 잡음 | 잡음(1·2·2·2) | T-res · N-host · N-host-en | VP-05″ |
+| X20 | 같은 4곳 동시 | 제거 | `{{count}}` 4곳 | 잡음 | 잡음(2) | N-host · N-host-en | VP-05″ |
+| M17 | `en.ts:622·624` | 맞바꿈 | `_one`↔`_other` 문장 | 잡음 | 잡음(1) | N-host-en | VP-05″ |
+| M18·M18b | `bootstrap.ts:1249·1253` | 빈 값·다른 값 | `failed` no-op · 제목 `saveFailed` | 잡음 | 잡음(1·1) | N-fail | VP-04′ |
+| M19 | `chat-turn/index.ts:177` | 빈 값 | 요청 창 emit → `void e` | 잡음 | 잡음(1) | N-discard | VP-R5′ |
+| M20·M21·M22 | `ConfirmDialogHost.tsx:16·28·24` | 제거·맞바꿈·맞바꿈 | onConfirm · 취소→확정 · 배경→확정 | 잡음 | 잡음(1·2·1) | N-host · N-host-en | VP-05″ |
+| M23·M24 | `ExtensionsCatalogView.tsx:164` · `CustomizeList.tsx:116` | 호출 대체·다른 값 | `confirmed: true` 선전달 | 잡음 | 잡음(2·3) | N-host · T-list · OpenCode 고정 행 | VP-05″·VP-01′ |
+| MD1·MD2 | `adapters.md:69` · `IPC_CONTRACT.md:193` | 다른 값·제거 | 옛 문장 복원 · 결과 타입 이름 | 잡음 | 잡음(`[1,1,1,1,0]` · `[0,0,1,1,1]`) | `gate:` ④ | G-DOC |
+| G01 | `opencode/v1/global-plugins.ts:1` | 제거의 역 | `nativeFileMutations` import | 잡음 | 잡음(0→1→0) | `gate:` EP-10′ | VP-R4 |
+| X2·X3·X4 | `bootstrap.ts:1240·1247·1243` | 고정값·빈 값·호출 대체 | backendOf `'claude'` · 방송 no-op · `discardRuntime` | 잡음 | 잡음(2·1·1) | T-boot-ask · T-boot-idle | VP-04′ |
+| X5~X9 | `claude-processes.ts:91·41·39·60·94` | 뒤집기·제거·제거·다른 값·호출 대체 | dispatch · closing · `seen` · `busy: targets.length` · `throw` | 잡음 | 잡음(4·1·3·5·2) | T-boot-* · 복합 · dispatch · N-fail | VP-06·VP-04′ |
+| X10·X11·X12 | `useNativeMcpCatalog.ts:94-97` | 맞바꿈·맞바꿈·고정값 | title↔message · 라벨 · `count: 1` | 잡음 | 잡음(3·4·3) | N-host · N-host-en · N-variant(X11) · T-hook-confirm | VP-05″ |
+| X14 | `discard.ts:31·32` | 뒤집기 | abort ↔ discardRuntime | 잡음 | 잡음(1) | T-discard | VP-08 |
+| X15·X16·X17 | `supervisor.ts:305·303·293` | 제거 | emitLease · child abort · lease 분기 | 잡음 | 잡음(1·2·2) | T-sup · T-boot-ask | VP-07 |
+| X21 | `native-history.ts:7` | 고정값 | 재수출 판정 `false` | 잡음 | 잡음(9) | T-nh 9 | VP-06 |
+| K1 | `ConfirmDialogHost.tsx:23` | 맞바꿈 | title ← message | 잡음 | 잡음(2) | N-host · N-host-en | VP-05″ |
+| Y3 | `ConfirmDialogHost.tsx:30·31` | 맞바꿈 | 확정↔취소 라벨 | 잡음 | 잡음(3) | N-host · N-host-en · N-variant | VP-05″ |
+| Y4·Y5 | `Modal.tsx:111·117` | 맞바꿈 | 취소→onConfirm · 확정→onCancel | 잡음 | 잡음(2·1) | N-host | VP-05″ |
+| Y7·Y8 | `claude-processes.ts:94` | 제거·다른 값 | 실패 뒤 `return` · `failed` 2회 | 잡음 | 잡음(2·2) | N-fail · dispatch | VP-04′·VP-06 |
+| Y9 | `chat-turn/index.ts:177` | 다른 값 | 다른 sender | 잡음 | 잡음(1) | N-discard | VP-R5′ |
+| Y10 | `useNativeMcpCatalog.ts:98` | 다른 값 | 재요청 `enabled` 반전 | 잡음 | 잡음(2) | N-host · T-hook-confirm | VP-05″ |
+| Y11 | `ko.ts:629` | 다른 값 | `claudeCloseConfirm` '확인' | 잡음 | 잡음(2) | N-host · N-variant | VP-05″ |
+| Z1 | `OverlayLayer.tsx:69` | 다른 값 | host 2회 마운트 | 신규 | 잡음(1) | N-mount | 독립 — U10 |
+| Z2 | `OverlayLayer.tsx:69` | 다른 값 | `{modalActive && <ConfirmDialogHost />}` | 신규 | 잡음(1) | N-mount | 독립 — U10 |
+| Z3 | `Modal.tsx:118` | 고정값 | 확정 `disabled` | 신규 | 잡음(1) | N-host | 독립 — U8 |
+| Z4 | `Modal.tsx:111` | 고정값 | 취소 `disabled` | 신규 | 잡음(1) | N-host | 독립 — U8 |
+| Z5 | `Button.tsx:122` | 고정값 | `squishClass('primary', …)` | 신규 | 잡음(1) | N-variant([취소] 대조) | 독립 — U9 형제 |
+| Z6 | `Modal.tsx:115` | 뒤집기 | `danger ? 'primary' : 'danger'` | 신규 | 잡음(1) | N-variant | 독립 — U8 |
+| Z7 | `ConfirmDialogHost.tsx:32` | 뒤집기 | `danger={!request.danger}` | 신규 | 잡음(1) | N-variant | 독립 — U6 |
+| Z8 | `Button.tsx:113` | 고정값 | `disabled` 항상 true | 신규 | 잡음(1) | N-host | 독립 — 목록 밖 |
+
+- 검산: r2 이력 77(잡음 75 · 못 잡음 2) 재실행 → 잡음 77. **덮개 회귀 0**(r2 잡음 75 전부 잡음). ΔV3 등록 14자리 중 새 변이 6(M27·M28·M33~M36) → 잡음 6, 나머지 8(M25·M26·M29~M32)은 r2 Y행과 같은 변이라 한 번 센다. 독립 8 → 잡음 8. 합 77 + 6 + 8 = 91.
+- 구현 보고 83행과 대조: 보고 ID 집합 = 이번 표의 Z 제외 83 ID. 결과 83/83 일치(전부 잡음).
+- 자기검증 분모: 보고에 없던 축 Z 8건 — 다른 지점(Z3·Z4 버튼 비활성, Z6·Z7 운반 뒤집기), 형제 지점(Z5 [취소] 배경), N-mount 민감도(Z1 중복·Z2 조건부), 분모 재열거(Z8 ②″ 술어 밖 path 줄).
+- 형제 슬롯 맞바꿈: 8쌍(M17·M21·M22·K1·Y3·Y12·M27·Z5) → 잡음 8.
+
+## r3-5. V-pair closeout — `UT → IT → ST → AT`
+
+| Pair | 레벨 | requiredness | 결과 | 직접 검증 증거 | §10 |
+|---|---|---|---|---|---|
+| VP-06 | MD-01 ↔ UT-01 | REQUIRED | PASS | T-cp 13 · T-nh 9 · M2·M10·M11·M12·X5~X9·X21·Y8 잡음 | S17·S18·S19 |
+| VP-07 | MD-02 ↔ UT-02 | REQUIRED | PASS | T-sup 3 · X15~X17 잡음 | S20 |
+| VP-08 | MD-03 ↔ UT-03 | REQUIRED | PASS | T-discard · post-turn `discard closes the active response exactly once` · M7·X14 잡음 | S21·S22 |
+| VP-04′ | AR-01′ ↔ IT-01′ | REQUIRED | PASS | T-boot-* 4 · N-fail · M8·M9·M18·M18b·X2~X4·Y7 잡음 | S12·S16·S18·S23 4/4 |
+| VP-05″ | AR-02″ ↔ IT-02″ | REQUIRED | PASS | N-host · N-host-en · N-variant · N-mount · T-hook-confirm/oc · T-list · 위 표 VP-05″ 귀속 변이 전부 잡음 | U1~U10·S11 11/11 |
+| VP-03 | SD-01 ↔ ST-01 | REQUIRED | PASS | T-discard · T-boot-ask · `creates a new runtime after an idle runtime is discarded` · `adapter.fork` resume. cold resume 좌표는 linux 기준선 red(win32 전용), CI windows `bfee5bf6` gate success | S17·S18·S20~S22 |
+| VP-R5′ | 0151 ↔ ST | REGRESSION | PASS | N-discard · T-discard · `discardSubmitted (OQ1…)` 6케이스 · M19·Y9 잡음 | S21·S22 2/2 |
+| VP-R6 | R-ET ↔ AT-ET | REGRESSION | PASS | N-fail(publish 제목) · N-titles · `ErrorToastHost.render` main 출처 `loadFailed` → "정보를 불러오지 못했습니다" 관측 · M18b 잡음 | 0 — 제목 무관 템플릿 |
+| VP-01′ | R-01′ ↔ AT-01′ | REQUIRED | PASS | T-list · T-hook-idle · T-pre · T-boot-idle · N-fail · VP-03 · M1·M2·M24·Y7·Y17 잡음 | S1~S4·U2~U4·S12~S18·S23 15/15 |
+| VP-02″ | R-02″ ↔ AT-02″ | REQUIRED | PASS | T-boot-ask · N-host · N-host-en · N-variant · N-mount · N-sync · N-false · T-pre · M3~M6·M14·M15·M23·M25·M26·M28 잡음 | S1~S4·U1~U10·S11·S14 16/16 |
+| VP-R1 | R-03 ↔ AT-03 | REGRESSION | PASS | T-boot-oc · 0282 `restores global choices…` · M13 잡음 | S14·S15 |
+| VP-R2 | 0282 R-03 | REGRESSION | PASS | 0282 3좌표 green(`applies current global plugin choices…` 포함) · M4가 0282 bootstrap red | 0282 EP-02 |
+| VP-R3 | 0282 AR-08 | REGRESSION | PASS | 0282 `restores global choices through production Bootstrap…` green | 0282 EP-11 |
+| VP-R4 | 0282 R-06 | REGRESSION | PASS | EP-10′ 0 · view 고정 행 green · G01 잡음 | EP-10′ 29 |
+
+- root `PAIR_FAIL`: 없음. r2 root VP-05′(D6) → VP-05″ PASS, 종속 VP-02′ → VP-02″ PASS.
+- 이번 라운드 실행 범위: 대체 pair 2(VP-02″·05″) + 신규 VP-R6 + 나머지 11 pair는 좌표 실재·green을 이번 실행 JSON에서 재확인(34좌표, win32 cold resume 1건 제외 전부 passed)하고 등록 변이를 전부 재실행했다.
+- 좌표의 실행 구간: N-variant는 `ExtensionsCatalogView`+`ConfirmDialogHost`를 실제 렌더해 U1~U9를 지나고 `sessionApi`만 mock한다. U10은 N-mount가 production `OverlayLayer` 반환 트리로 닫는다. 두 좌표의 이음매(`<ConfirmDialogHost />` props 없음)에는 운반 값이 없다.
+
+### AT / AC 세부와 합계
+
+| AC | 결과 | 검증 증거 |
+|---|---|---|
+| AC1 | ✅ | T-boot-idle close `[1,1,0]` · `applied` · 저장값 |
+| AC2″ | ✅ | T-boot-ask `sessions: 2` · N-host 제목·"2개"·[변경]/[취소] · N-host-en 단수/복수 · N-variant [변경] `bg-ink`·`bg-rust` 없음·[취소] `bg-fill-contained` · N-mount 1 |
+| AC3′ | ✅ | N-host [취소] write 1·대화상자 닫힘 · 배경 write 2 · 스위치 on 유지(Z4 잡음) |
+| AC4′ | ✅ | N-host 4번째 write `confirmed: true` · 스위치 off · N-false reject · N-sync `[plan,save,close,intruder]` · T-boot-ask abort·복원 |
+| AC5 | ✅ | T-cp 신호 단독 11행 · M10a~h·M11·M12 잡음 |
+| AC6 | ✅ | supervisor 새 factory · CI windows run `40150923750` @`bfee5bf6` success(cold resume 좌표는 win32 전용) |
+| AC7 | ✅ | T-boot-oc close 0 |
+| AC8 | ✅ | T-boot-save reject · close 0 |
+| AC9 | ⚠️ | 사람 실기(Windows) 대기 |
+| AC10 | ✅ | N-fail 첫 close throw · 둘째 closed 1 · publish 1회 `claudeSessionsCloseFailed` · Y7·Y8 잡음 |
+
+- 합계 재측정: ✅ 9 · ⚠️ 1 · ❌ 0 = 총 10. 자기보고 ✅9·⚠️1 일치.
+- 합계 사본 대조: 본문 ✅9 ↔ trailer `Criteria-Met: 9/10` ↔ INDEX `AC 9/10` 일치.
+
+### pair별 plan §10 강제 지점 분모 (EP-01″ 27)
+
+| 자리 | 확인 · oracle 좌표(변이) | 결과 |
+|---|---|---|
+| S1 | T-boot-ask(S1) · N-false(M15) | 닫힘 |
+| S2~S4 | T-pre · T-boot-ask `toEqual(confirm)` | 닫힘 |
+| U1 · U2 · U3 | N-host(M23) · T-list(M24) · T-list·N-host(M29) | 닫힘 |
+| U4 `useNativeMcpCatalog.ts:82-104` | T-hook-* · N-host · N-variant(M5a·M5b·X10~X12·Y10·M35) | 닫힘 |
+| U5 `confirmDialogStore.ts:22-31` | N-host · N-variant(M36) | 닫힘 |
+| U6 `ConfirmDialogHost.tsx:8-39` | N-host · N-host-en · N-variant(M20~M22·K1·Y3·M32·M25·Z7) | 닫힘 |
+| U7 `Modal.tsx:54-78` | N-host · N-host-en(M30·M31a~c) | 닫힘 |
+| U8 `Modal.tsx:107-121` | N-host · N-variant(Y4·Y5·M26·Z3·Z4·Z6) | 닫힘 — r2 열림(D6) |
+| U9 `Button.tsx:64-82·100·118·122·128` | N-host · N-variant(M27·M33·M34·Z5) | 닫힘 |
+| U10 `OverlayLayer.tsx:69` | N-mount(M28·Z1·Z2) | 닫힘 |
+| S11 ko·en | T-res · N-host · N-host-en(M16×4·M17·X20·Y11) | 닫힘 |
+| S12~S15 | T-ec · T-boot-* · N-false · N-sync(M1·M3·M4·M6·M9·M13·M14a·M14b·S1) · T-boot-oc | 닫힘 |
+| S16~S18 | T-boot-* · N-fail(M8·M18·M18b·X2~X4) · T-cp(M2·M11·M12·X5~X9·Y7·Y8) | 닫힘 |
+| S19~S22 | T-cp · T-nh · T-sup · T-discard · N-discard(M10×8·X21·X15~X17·M7·X14·M19·Y9) | 닫힘 |
+| S23 | N-fail · N-titles | 닫힘 |
+
+- 재계수: 닫힘 27 · 열림 0 = 27. 구현 보고 27/27 일치. G-DOC 3/3 · EP-10′ 29/29.
+- 목록 밖 발견: Button `:113`(Z8) 잡음 — 처분 없음.
+
+### 현재 변경의 운영 gate
+
+| Gate | 결과 | 증거 |
+|---|---|---|
+| lint | PASS | 0 error · 2 warning(`react-hooks/incompatible-library`, 변경 밖) · 실행 후 `git status` 0 |
+| typecheck | PASS | 3구성(`tsc` 3회) · `error TS` 0 |
+| 관련 vitest | PASS | ΔV3-6 목록 + `ErrorToastHost.render.test.ts` = 136파일 1,521케이스: 1,510 pass · 3 skip · 8 fail(전부 `adapters/claude` win32 전용 — "프로젝트별 제어를 지원하지 않습니다"·`restart-required`, r2 기준선 동일). 신규 2건 passed |
+| 전체 vitest(linux) | 환경 한계 | `bfee5bf6` 830파일 8,004케이스 중 17 red = win32 전용 3파일 8 · `C:/` 경로 3파일 9(`composer-catalog` "Composer directory must be absolute" · opencode `adapter`·`adapter.instances`). r2 head 17과 같은 수, r3가 바꾼 테스트 2파일 밖 |
+| CI `gate`(windows) | PASS | PR #512 check run `121042127504`(run `40150923750`) @`bfee5bf6` conclusion success |
+| doc-inventory | PASS | generated·prose·links ok, exit 0 |
+| test-budgets · migrations | PASS | 두 스크립트 exit 0 |
+| G-DOC · EP-10′ | PASS | `[0,1,1,1,1]` · 0줄 |
+| trailer | PASS | `bfee5bf6` 6키 파싱 · `9762306c` 3키 + attribution 2 |
+
+## r3-8. 사람 실기
+
+| 항목 | 기계 검증 범위 | 남은 사람 실기 |
+|---|---|---|
+| AC9 | 판정·열거·순서·문구·N·버튼 배선·[변경] 기본 배경·셸 마운트·실패 보고 | Windows 실제 CLI `/context` superpowers 부재, 대화상자 white/dark 시각 |
+
+## r3-9. 게이트 재실행 메모
+
+- 명령: `npm run typecheck` · `npm run lint` · `./node_modules/.bin/vitest run <ΔV3-6 목록 + ErrorToastHost.render>` · 전체 `vitest run` · `node scripts/check-doc-inventory.mjs --check` · `check-test-budgets.mjs` · `check-migrations-appendonly.mjs` · ④ · EP-10′.
+- `npm test` 미사용. better-sqlite3가 Node ABI로 로드돼 DB 스위트까지 실행됐다.
+- 게이트·하네스의 트리 변경: 없음(매 변이 뒤 `git status` 0, 91회 sha256 복원 일치). 잔여물: scratchpad 밖 없음.
+
+## r3-11. Repository operation checks
+
+- AGENTS.md 변경: 없음.
+- INDEX: `impl/IMPL_DONE`·다음 주체 Claude 일치. 자리표시자 2개 → ΔV3 `9762306c` · r3 `bfee5bf6`(`git cat-file -t` commit). 구현자 비고 3줄.
+- trailer: `Agent: codex` 허용값 · 6키 파싱 · `Criteria-Pending` 값 있음.
+- `[구현자 기입]` r3 7필드 7/7. 강제 지점 표는 S1~S4·U1~U10·S11~S23 전부 · EP-10′ · G-DOC와 `남긴 곳` 열을 담는다.
+- 인용 해시: `28d25d35`·`d69b4c54`·`09bbff48`·`7fdc497a`·`95ffc5f5`·`aff17235`·`07caaeda`·`9762306c`·`bfee5bf6` commit.
+
+## r3-12. 구현자 코멘트 / 선조치 경계
+
+| 구현자 코멘트 | 판단 |
+|---|---|
+| production 변경 0 · 테스트 2건 | 타당 — diff 2파일 |
+| 고장 83/83 검출 · 덮개 회귀 0 | 재현 — 같은 83 ID 전부 잡음(r3-4) |
+| 강제 지점 27/27 | 재현 — r3-5 분모 표 |
+| className 토큰 비교 | 타당 — r3-2 |
+| DB 7파일 Electron Node 모드 분리 | 이 환경은 Node ABI라 한 번에 실행됐다. 결과 차이 없음 |
+
+## r3-13. Finding disposition / 파생 이슈
+
+| # | finding | 귀속 | disposition | 후속 |
+|---|---|---|---|---|
+| G3 | r2 PLAN_GAP — D-011 렌더 운반 목록·oracle 밖 | §10 EP-01″ · AC2″ | closed | ΔV3 U6·U8·M25·M26 · N-variant 잡음 |
+| D6 | r2 PAIR_FAIL — `Modal.tsx:115` variant(Y2) 미검출 | VP-05″ · U8 | closed | Y2=M26 잡음(N-variant) |
+| N3 | `confirm` 응답이 `mounted`·version을 보지 않는다(`useNativeMcpCatalog.ts:92`) | 비귀속 | NON_BLOCKING | r1 그대로 |
+| N4 | DB 행 없는 유휴 runtime은 닫지 않는다 | 비귀속 | NON_BLOCKING | r1 그대로 |
+
+- 새 finding: 없음.
+
+## r3-14. Review Signals — 사실만
+
+- 이전 라운드와 동일/유사 증상: 없음. r1 G2·r2 G3로 두 번 열렸던 대화상자 경로 목록이 ΔV3 9파일 전체 범위에서 미분류 0이었다.
+- 관련 plan 지침: ΔV3-5가 ②″ 범위를 path 파일 전체로, 술어를 운반 값(`danger`)까지 넓혔다.
+- 사용자 결정 변경 근거: 없음.
+- 반복 환경 한계: linux에서 win32 전용 스위트 red(관련 8 · 전체 17). AC6 cold resume은 CI windows로만 닫힌다.
+
+## r3-15. 결론
+
+- 상태: **PASS (기계 범위)**.
+- verify 횟수: 3회째.
+- pair 결과: PASS 14 (REQUIRED 8 · REGRESSION 6) · PAIR_FAIL 0 · BLOCKED_BY 0.
+- Product/UX·ACTIVE Decision: 전부 충족. D-011 렌더와 셸 마운트까지 잠겼다.
+- AC: ✅ 9 · ⚠️ 1(AC9) · ❌ 0.
+- 운영 gate: PASS(linux win32 기준선 red 분리, CI windows success).
+- 고장 이력: 91 = 잡음 91 · 못 잡음 0 · 동치 0. r2 못 잡음 2건 잡음 · 덮개 회귀 0.
+- NON_BLOCKING: N3·N4.
+- 남은 사람 확인: AC9. archive 이동은 AC9 실기 뒤.
