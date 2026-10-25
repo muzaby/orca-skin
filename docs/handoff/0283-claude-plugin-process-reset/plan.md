@@ -8,11 +8,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-24 |
 | 매핑 | — |
-| 상태 | IMPL_DONE (ΔV2 r2 · 독립 검증 대기) |
+| 상태 | READY (ΔV3) |
 | V mode | `Delta V` |
 | 기준 V | `0282-plugin-catalog-native-sync` 유효 V(`V1 + ΔV1 + ΔV2 + ΔV3 + ΔV5 + ΔV6`)`@28d25d35` |
-| 이번 V revision | `ΔV2` — 확인 대화상자 경로·운반 항 재고정, 문서 gate 분리, 종료 실패 전용 제목(verify r1 G1·G2·N1·N2). `ΔV1` = 0282 D-008 대체 |
-| 유효 V | `0282@28d25d35 + 0283 ΔV1@d69b4c54 + ΔV2` |
+| 이번 V revision | `ΔV3` — D-011 렌더 운반·셸 host 마운트를 포함해 대화상자 경로 목록 재고정(verify r2 G3·D6). `ΔV2` = 확인 대화상자 경로·문서 gate·종료 실패 제목(verify r1). `ΔV1` = 0282 D-008 대체 |
+| 유효 V | `0282@28d25d35 + 0283 ΔV1@d69b4c54 + ΔV2@7fdc497a + ΔV3` |
 
 # Part I — Product & UX Contract
 
@@ -277,7 +277,7 @@ close(plan): 세션 대상 → discardSessionWork(id, broadcastChatEvent)
 
 ## 10. 계약 / 타입 / 강제 지점
 
-> EP-01은 ΔV2 EP-01′(자리 23 + 운영 gate G-DOC 3)가 대체한다 — ΔV2-7 절.
+> EP-01은 ΔV2 EP-01′(자리 23 + 운영 gate G-DOC 3)가 대체하고, EP-01′는 ΔV3 EP-01″(자리 27)가 대체한다 — ΔV2-7 · ΔV3-5 절.
 
 | V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
 |---|---|---|---|---|---|---|
@@ -446,6 +446,8 @@ renderer toggle → preload invoke → handler → plan/close → supervisor·�
 
 ## ΔV2-4. Acceptance — AC2′·AC3′·AC4′(대체) · AC10(신규)
 
+> AC2′는 ΔV3 AC2″가 대체한다 — ΔV3-2 절.
+
 | R | AT / AC | 동작 기준 | 검증 수단 | 프로덕션 도달 경로 |
 |---|---|---|---|---|
 | R-02 | AT-02 / **AC2′** (AC2 대체) | AC2 동작 + 사용자가 보는 대화상자는 제목 "Claude 세션 종료", 본문에 동작 중 세션 수 N, [변경](기본 버튼)·[취소]다. en은 N=1 단수·N≥2 복수 문장이다 | bootstrap(AC2 그대로) · 렌더: view + host 실제 렌더·실제 i18n, ko N=2 · en N=1·N=2 본문, 버튼 텍스트, 확정 버튼 `danger` 아님(store request `danger` 미지정) | view 스위치 → hook → store → host → ModalActions |
@@ -532,6 +534,8 @@ renderer toggle → preload invoke → handler → plan/close → supervisor·�
 
 ## ΔV2-7. 강제 지점 (§10 ΔV2 — EP-01 대체)
 
+> EP-01′의 S5~S10은 ΔV3 EP-01″의 U1~U10이 대체한다 — ΔV3-5 절.
+
 | V node / pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
 |---|---|---|---|---|
 | EP-01′ · VP-01′·02′·04′·05′·R5′ + VP-03·06·07·08·R1 | Claude 플러그인 토글 = (동작 중이면 공용 대화상자로 확인) → 저장 → 모든 Claude 프로세스 종료 → 실패 보고. 확인 계약 union | 아래 자리표 **23** | ①②③ (아래) — `aff17235` 출력 고정 | 끈 플러그인이 실행 중 세션에 남음 · 확인 없이 응답이 끊김 · 대화상자가 N·버튼을 잘못 보임 · OpenCode 세션이 닫힘 · 저장 실패인데 세션이 닫힘 · 종료 실패가 조용함 |
@@ -599,6 +603,147 @@ renderer toggle → preload invoke → handler → plan/close → supervisor·�
   - verify r1 못 잡음 8건을 등록 변이 M14~M22로 올렸고 형제 자리 M23·M24를 더했다.
   - 사람 실기는 AC9 그대로다. 대화상자 문구·N·버튼 배선은 기계 검증으로 내렸다.
   - 신규 의존성 0. production 변경은 오류 제목 1개(3파일)다.
+
+# ΔV3 — D-011 렌더 운반과 대화상자 경로 목록 재고정 (2026-10-25)
+
+판정: **READY**. verify r2 RETURN_TO_PLAN의 G3를 닫는다. D6는 기존 pair VP-05′에 귀속된 구현 의무이며 이번 revision이 좌표 N-variant와 등록 변이로 올린다. Decision 변경 없음.
+
+## ΔV3-1. 사실 (Orca `07caaeda`)
+
+| 사실 | 근거 |
+|---|---|
+| D-011 운반 사슬은 hook(`danger` 미지정) → store → host → ModalActions → Button 배경 class다 | `useNativeMcpCatalog.ts:93-99` · `confirmDialogStore.ts:24` · `ConfirmDialogHost.tsx:32` · `Modal.tsx:115` · `Button.tsx:69-73·122` |
+| primary·danger는 글자색이 같고(`text-bg`) 배경 class만 다르다(`bg-ink`·`bg-rust`) | `Button.tsx:56·58` · `:71·73` |
+| fake DOM에서 버튼 안 span의 className을 읽을 수 있다 | `ExtensionsCatalogView.interaction.test.ts` `dialogTitle`이 `querySelectorAll('[class]')`·`props.className`을 쓴다 |
+| ΔV2 ② 술어에 `danger`가 없었고 S9 범위가 적중 줄 폭(`:9-31`)이라 `:32`·`:36`이 밖이었다 | ΔV2-7 ② · S9 |
+| 공용 host는 셸 `OverlayLayer.tsx:69`에 1회 마운트된다. N-host는 host를 직접 렌더해 이 마운트를 지나지 않는다 | `OverlayLayer.tsx:69` · `renderWithDialog` |
+| 셸 배선 테스트는 `OverlayLayer(props)` 반환 요소 트리를 탐색한다 | `OverlayLayer.search.test.ts:27-38` `findSearch` |
+| 스위치 클릭은 `CatalogToggle.tsx:27-31`이 `onToggle`을 부른다. ΔV2 ② 파일 목록 밖이었다 | `CatalogToggle.tsx:31` |
+| AC10 토스트 표시는 제목 무관 템플릿이고 main 출처 항목 렌더 테스트가 있다 | `ErrorToastHost.tsx:40` `tr(\`errors.toast.${title}\`)` · `ErrorToastHost.render.test.ts:'renders two alerts with translated titles, escaped details and accessible close buttons'` |
+| verify r2 고장 이력: Y1·Y2 못 잡음, Y6·Y12~Y15·Y17 잡음 | `verify.md` r2-4 |
+
+## ΔV3-2. Acceptance — AC2″ (AC2′ 대체)
+
+| R | AT / AC | 동작 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-02 | AT-02 / **AC2″** (AC2′ 대체) | AC2′ 동작 + [변경]은 기본(primary) 확정 버튼으로 렌더된다 — 배경 class가 `bg-ink`이고 `bg-rust`가 아니다. 대화상자는 셸에 1회 마운트된 공용 host가 그린다 | bootstrap(AC2 그대로) · N-host · N-host-en · **N-variant** · **N-mount** | 셸 `OverlayLayer` host 마운트 · view 스위치 → CatalogToggle → hook → store → host → Modal·ModalActions → Button |
+
+- AC 총수 10 그대로(AC2′ → AC2″). AC2′의 검증 수단 "store request `danger` 미지정"은 hook → store edge만 덮으므로 N-variant가 렌더까지 잇는다.
+
+## ΔV3-3. Delta V
+
+| Node | 레벨 | 계약 | provenance | 대체 / 출처 |
+|---|---|---|---|---|
+| R-02″ / AT-02″ | R / AT | AC2″·AC3′·AC4′·AC5 | CHANGED | R-02′ |
+| AR-02″ / IT-02″ | AR / IT | 셸 host 마운트 · view → CustomizeList → CatalogToggle → hook → store → host → Modal·ModalActions → Button → 재호출/닫기 | CHANGED | AR-02′ |
+| R-ET / AT-ET | R / AT | 오류 토스트가 제목 문구를 표시한다 | INHERITED | 0242 `ErrorToastHost` |
+
+| Pair | left ↔ right | requiredness | production path | 직접 oracle 좌표 | 선택적 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-02″ | R-02″ ↔ AT-02″ | REQUIRED (VP-02′ 대체) | 셸 host 마운트 · handler(동작 중) → confirm → host → 취소/변경 → 재호출 → 종료 | T-boot-ask · N-host · N-host-en · N-variant · N-mount · N-sync · N-false · T-pre | M3~M6·M14·M15·M23(승계) · M25·M26·M28 | EP-01″ S1~S4·U1~U10·S11·S14 |
+| VP-05″ | AR-02″ ↔ IT-02″ | REQUIRED (VP-05′ 대체) | `OverlayLayer` → host 마운트 · view → CustomizeList → CatalogToggle → hook → store → host → Modal·ModalActions → Button → 재호출 / 닫기 | N-host · N-host-en · N-variant · N-mount · T-hook-confirm · T-hook-oc · T-list | M5a·M5b·M16·M17·M20~M24(승계) · M25~M36 | EP-01″ U1~U10·S11 |
+| VP-R6 | R-ET ↔ AT-ET | REGRESSION | `reportError` → `errorReportHub.publish` → renderer 토스트 → `errors.toast.<title>` | N-fail(publish 제목) · N-titles(문구) · `ErrorToastHost.render.test.ts:'renders two alerts with translated titles, escaped details and accessible close buttons'` | not selected — 직접 관측 | 0 — 제목 무관 템플릿(`ErrorToastHost.tsx:40`)이라 이번 변경이 닿는 새 자리 없음 |
+
+- 그대로인 pair: VP-01′·03·04′·06·07·08·R1~R4·R5′. VP-01′의 §10은 S5 → U4, S7 → U2로 읽고 U3을 더한다(T-list가 닫는다).
+- `SUPERSEDED` 이관:
+  - VP-02′ → VP-02″: M3~M6·M14·M15·M23 승계, M25·M26·M28 추가.
+  - VP-05′ → VP-05″: M5a·M5b·M16·M17·M20~M24 승계, M25~M36 추가.
+  - AC2′ → AC2″. EP-01′ → EP-01″(S5~S10 → U4·U1·U2·U5·U6·U8, 신규 U3·U7·U9·U10).
+- 적대 증거 선택 이유: N-variant 한 관측이 D-011 사슬 다섯 edge(U4·U5·U6·U8·U9)를 닫으므로 edge마다 변이를 둔다(M35·M36·M25·M26·M27). N-mount는 배선 존재 주장이라 제거 변이 M28이 필요하다. M29~M34는 verify r2가 목록 밖에서 잡은 자리를 목록에 올린 것이다.
+
+### 좌표 표 (ΔV3 신규)
+
+| 좌표 | 파일:테스트 | 진입 · 구별 입력 · 관측 |
+|---|---|---|
+| **N-variant** | `ExtensionsCatalogView.interaction.test.ts` `'renders the Claude close confirmation as a default primary button'` | `renderWithDialog()`(view + host, 실제 i18n ko) · write = confirm(sessions 2) · 스위치 클릭 → 텍스트 '변경' 버튼 안 `btn-squish` span의 className 토큰(공백 분리)에 `bg-ink` 있음 · `bg-rust` 없음 → 같은 대화상자 '취소' 버튼 span 토큰에 `bg-fill-contained` 있음(구별 대조) |
+| **N-mount** | `OverlayLayer.search.test.ts` `'mounts the shared confirmation host once in the shell'` | `OverlayLayer({ searchOpen, onCloseSearch })` 반환 요소 트리(`findSearch` 방식) · `searchOpen` `false`·`true` 각각 · `type === ConfirmDialogHost` 요소 수 1 |
+
+### 등록 변이 (ΔV3 신규)
+
+| ID | 자리 | 종류 | 바꾼 내용 | 잡아야 할 좌표 |
+|---|---|---|---|---|
+| M25 | `ConfirmDialogHost.tsx:32` | 고정값 | `danger={request.danger}` → `danger` | N-variant |
+| M26 | `Modal.tsx:115` | 고정값 | `variant={'danger'}` | N-variant |
+| M27 | `Button.tsx:69-73` | 맞바꿈 | `primary`·`danger` 분기의 반환 class | N-variant |
+| M28 | `OverlayLayer.tsx:69` | 제거 | `<ConfirmDialogHost />` | N-mount |
+| M29 | `CatalogToggle.tsx:31` | 제거 | `await onToggle?.()` | T-list · N-host |
+| M30 | `Modal.tsx:57` | 빈 값 | 배경 `onClick={undefined}` | N-host |
+| M31 | `Modal.tsx:70` · `:75` · `:77` | 빈 값 | `{title}` · `{children}` · `{footer}` → `null` — 자리마다 1회 | N-host · N-host-en |
+| M32 | `ConfirmDialogHost.tsx:36` | 맞바꿈 | `{request.message}` → `{request.title}` | N-host |
+| M33 | `Button.tsx:118` | 제거 | `{...rest}` | N-host |
+| M34 | `Button.tsx:128` | 빈 값 | `{children}` → `null` | N-host |
+| M35 | `useNativeMcpCatalog.ts:93-99` | 다른 값 | `openConfirmDialog` 인자에 `danger: true` 추가 | N-variant · N-host(store) |
+| M36 | `confirmDialogStore.ts:24` | 다른 값 | `open`이 `{ ...req, danger: true }` 저장 | N-variant · N-host(store) |
+
+## ΔV3-4. Technical Design
+
+| 변경 파일 | 변경 내용 |
+|---|---|
+| `ExtensionsCatalogView.interaction.test.ts` | N-variant 추가. 버튼 안 `btn-squish` span을 찾는 helper |
+| `app/OverlayLayer.search.test.ts` | N-mount 추가. 요소 타입을 세는 helper(`findSearch` 방식) |
+
+- production 코드 변경 0. D6는 잠금(테스트) 의무다. 공용 host·Modal·Button은 고치지 않는다.
+- N-variant는 className을 공백으로 나눈 토큰으로 비교해 접두 오탐을 피한다.
+- 레이어: 신규 테스트는 기존 파일에 둔다. `OverlayLayer.search.test.ts`가 `ConfirmDialogHost`를 import하는 것은 `app → shared` 하향 의존이다.
+
+## ΔV3-5. 강제 지점 (§10 ΔV3 — EP-01′ 대체)
+
+| V node / pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|
+| EP-01″ · VP-01′·02″·04′·05″·R5′ + VP-03·06·07·08·R1 | EP-01′ 계약 + 셸 host 마운트 + [변경] 기본 버튼(D-011) | 아래 자리표 **27** | ①②″③ (아래) — `07caaeda` 출력 고정 | EP-01′ 실패 의미 + [변경]이 빨간(danger) 버튼으로 보임 · 셸이 host를 마운트하지 않아 대화상자가 뜨지 않음 |
+| G-DOC (운영 gate) | ΔV2 그대로 | ΔV2 그대로 | ΔV2 ④ | ΔV2 그대로 |
+| EP-10′ | ΔV1 그대로 | ΔV1 그대로 | ΔV1 그대로 | ΔV1 그대로 |
+
+**자리 검색 명령**
+
+- ① ΔV2와 같은 명령 → `07caaeda` **62줄** = 자리 46 + 제외 16(ΔV2 목록 그대로). S11 줄 번호만 `ko.ts:624-629` · `en.ts:620-625`로 +1(오류 제목 1행 추가).
+- ②″ 대화상자 경로 9파일 전체: `rg -n "onNativeToggle|nativeMcp\.toggle|onToggle|openConfirmDialog|useConfirmStore|ConfirmDialogHost|request[.?]|\bonConfirm\b|\bonCancel\b|\bonClose\b|confirmLabel|cancelLabel|\bdanger\b|squishClass|\{title\}|\{children\}|\{footer\}|\.\.\.rest" app/src/renderer/src/features/skills/components/customize/{ExtensionsCatalogView,CustomizeList,CatalogToggle}.tsx app/src/renderer/src/features/skills/hooks/useNativeMcpCatalog.ts app/src/renderer/src/shared/ui/{confirmDialogStore.ts,ConfirmDialogHost.tsx,Modal.tsx,Button.tsx} app/src/renderer/src/app/OverlayLayer.tsx` → **86줄** = 자리 39 + 제외 47. 술어 = 확인 요청 필드·닫기/확정 콜백·렌더 슬롯·확정 버튼 variant와 그 값을 여는 토글 입력.
+- ③ ΔV2와 같은 명령 → **6줄**(`bootstrap.ts:1251·1253` · `ko.ts:580` · `en.ts:576` · `app-error.ts:2·6`).
+
+**자리표 (EP-01″ 27)** — S1~S4·S12~S23은 ΔV2 자리표 그대로, S11은 줄 번호만 위와 같이 갱신. S5~S10은 아래 U1~U10이 대체한다. 한 자리의 항이 하나라도 열리면 그 자리는 닫히지 않은 것이다.
+
+| 자리 | 위치 (① ②″ 적중 줄) | 운반 항 → 좌표 |
+|---|---|---|
+| U1 | `ExtensionsCatalogView.tsx:164` (②″) | `nativeMcp.toggle` 그대로 전달 → N-host(M23) |
+| U2 | `CustomizeList.tsx:116` (②″) | 2인자(`confirmed` 부재) → T-list(M24) |
+| U3 | `CatalogToggle.tsx:27-31` (②″31) | 스위치 클릭 → `onToggle` → T-list · N-host(M29) |
+| U4 | `useNativeMcpCatalog.ts:82-104` (①90·94·95·96 · ②″93·96·97·98) | `confirmed` spread → T-hook-confirm(M5a) · 판별 → T-hook-idle·T-hook-confirm · title/message(count)/labels → N-host · onConfirm `true` → N-host(M5b) · `danger` 미지정 → N-variant·N-host(M35) |
+| U5 | `confirmDialogStore.ts:22-31` (②″22·29·30) | request 저장·비움 → N-host · `danger` 운반 → N-variant(M36) |
+| U6 | `ConfirmDialogHost.tsx:8-39` (②″12줄) | 구독·제목·handleConfirm·onCancel·onClose·라벨 → N-host(M20·M21·M22) · 본문 → N-host(M32) · `danger` → N-variant(M25) |
+| U7 | `Modal.tsx:54-78` (②″57·70·75·77) | 배경 클릭 → `onClose` → N-host(M30) · 제목·본문·footer 렌더 → N-host·N-host-en(M31) |
+| U8 | `Modal.tsx:107-121` (②″111·112·115·117·120) | 버튼 → onCancel·onConfirm · 라벨 → N-host · variant → N-variant(M26) |
+| U9 | `Button.tsx:64-82·100·118·122·128` (②″7줄) | `primary`·`danger` 배경 class → N-variant(M27) · onClick(rest) → N-host(M33) · 라벨 → N-host(M34). `uncontained`·`danger-ghost` 분기는 이 경로가 쓰지 않는다 |
+| U10 | `app/OverlayLayer.tsx:69` (②″) | 공용 host 셸 마운트 → N-mount(M28) |
+
+**제외 줄 ②″ 47**
+
+- 다른 행·모달 13: `ExtensionsCatalogView.tsx:191·196·201·230·251·257·262·265·270` · `CustomizeList.tsx:162·206` · `OverlayLayer.tsx:50·63`.
+- prop 분해·타입 21: `CatalogToggle.tsx:10·15` · `CustomizeList.tsx:29·42` · `Modal.tsx:18·41·91·92·93·94·97·99·100·101·102·106` · `confirmDialogStore.ts:10·11·12·13` · `Button.tsx:14`.
+- import 3: `useNativeMcpCatalog.ts:3` · `ConfirmDialogHost.tsx:2` · `OverlayLayer.tsx:5`.
+- 주석 7: `ConfirmDialogHost.tsx:6` · `Modal.tsx:89` · `confirmDialogStore.ts:4·5·6` · `OverlayLayer.tsx:23` · `Button.tsx:57`.
+- 글자색 맵 2: `Button.tsx:58·61` — primary·danger가 같은 `text-bg`라 D-011을 가르지 않는다.
+- Esc 1: `Modal.tsx:50` — AC3′ 밖 입력.
+- 분모: EP-01″ 27 · G-DOC 3 · EP-10′ 29. 대체된 분모: EP-01′ 23.
+
+## ΔV3-6. Gate
+
+| Gate | 변경 | 증거 / 명령 |
+|---|---|---|
+| 관련 vitest | 대상 추가 | ΔV2 목록 + `src/main/features/chat/pending-message-queue.test.ts` + `src/renderer/src/app/OverlayLayer.search.test.ts` |
+| 나머지 | ΔV2 그대로 | lint · typecheck · doc-inventory · G-DOC · EP-10′ · CI · trailer |
+
+## ΔV3 정합성 검토
+
+- ACTIVE 결정 ↔ AC: 충돌 0 — D-011 ↔ AC2″(렌더 variant) · D-003 ↔ AC2″·AC3′·AC4′ · D-010 ↔ AC10(VP-R6 표시 회귀). 나머지는 ΔV2 대조 그대로.
+- 같은 대상 대조: AC2″ "[변경] 기본 버튼" ↔ U4·U5·U6·U8·U9 사슬 ↔ M35·M36·M25·M26·M27이 edge마다 하나다. 셸 마운트 ↔ U10 ↔ M28.
+- 인용 실재: `OverlayLayer.search.test.ts:27-38` `findSearch` · `ErrorToastHost.render.test.ts` 케이스명 · `Button.tsx:56·58·69-73·122` · `OverlayLayer.tsx:69`를 이번 턴에 읽었다.
+- self-review(ΔV3):
+  - CHANGED 노드 2개(R-02″·AR-02″)에 같은 레벨 REQUIRED pair(VP-02″·VP-05″)가 있다. 영향받은 INHERITED 토스트 표시는 VP-R6 REGRESSION.
+  - EP-01″ 27자리를 ①②″③ `07caaeda` 출력으로 고정했다 — 분류 스크립트 결과 ① 46+16, ②″ 39+47, 미분류 0, 안 쓰인 제외 0.
+  - ②″ 범위는 VP-05″ path가 지나는 9파일 전체다. 술어에 D-011 운반(`danger`·`squishClass`)과 셸 마운트(`ConfirmDialogHost`)를 넣었다.
+  - 자리마다 운반 항을 나눠 좌표를 붙였다. 신규 좌표 2건은 실행 구간에 해당 자리를 넣고 구별 값([변경] `bg-ink` ↔ [취소] `bg-fill-contained`, `searchOpen` 두 값)을 준다.
+  - verify r2 못 잡음 2건(Y1·Y2)을 M25·M26으로, 목록 밖에서 잡힌 자리를 M29~M34로 올렸다.
+  - 신규 의존성 0, production 변경 0. 사람 실기는 AC9 그대로다.
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은
 > [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
