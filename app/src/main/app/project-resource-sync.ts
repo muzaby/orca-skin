@@ -248,10 +248,13 @@ export class ProjectResourceSync {
     }
   }
   /** Reconciled here, or already applied by the runtime itself (its own persisted toggle). */
+  // The runtime only vouches for the files' current revision. Record it the moment it is observed:
+  // after the runtime's next own save the watcher still holds this revision until its poll catches up.
   private appliedTo(entry: Entry, runtime: GovernedLiveTurn, revision: string): boolean {
-    return (
-      entry.applied.get(runtime) === revision || runtime.nativeResourcesApplied?.(revision) === true
-    )
+    if (entry.applied.get(runtime) === revision) return true
+    if (runtime.nativeResourcesApplied?.(revision) !== true) return false
+    entry.applied.set(runtime, revision)
+    return true
   }
   // Broadcasts wait behind an in-flight project mutation so its intermediate state is never shown.
   // Never call this from inside `deps.run`: the queue would wait on itself.

@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-25 |
 | 매핑 | 0279 D9(파일 임계영역) 후속 버그수정 — 구현 주체 Claude(비기능) |
-| 상태 | IMPL_DONE (r1) |
+| 상태 | IMPL_DONE (r1.2) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0279 V는 상속하지 않고 영향 경로를 REGRESSION pair로 다시 닫는다 |
 | 이번 V revision | `V1` |
@@ -429,6 +429,29 @@ SDK reloadPlugins → resources.observePlugins → persist → acknowledge → c
 - 그것을 막았어야 할 plan 지침·AC가 있었는가: 0279 테스트는 sync 없이 핸들러 큐만 조립해 자기 쓰기 → 감시 경로를 실행하지 않았다(`session-resources.test.ts:797`).
 - 반복해서 부딪히는 환경 한계: 없음.
 - 현재 라운드·impl 턴: `r1`.
+
+---
+
+## [구현자 기입] 재구현 (r1.2) — 사용자 실기 지적
+
+- **지적**: `npm run dev` 실기에서 연속 토글의 두 번째 거절과 토글 스위치 전체 사라짐이 그대로 재현.
+- **불변식**: 런타임이 보증한 revision은 sync가 보는 **모든** revision(감시자가 아직 따라잡지 못한 직전 값 포함)에서 적용됨으로 남아야 한다.
+- **원인(실측)**: 실제 adapter + 실제 `watchFile` 조립 재현에서 첫 토글 직후 sync entry = `configuration R0 · applied 맵 없음`. 토글 전에는 `covers(R0)`가 참이라 초기 재조정이 생략돼 맵에 R0가 남지 않았고, 저장 뒤 런타임은 R1만 보증 → 감시 폴링(250ms)이 R1을 읽기 전 판정이 R0를 미적용으로 봄.
+- **r1 좌표가 놓친 이유**: ST fake가 저장 안에서 감시 콜백을 **동기**로 불러 production의 폴링 지연 분기를 실행하지 않았다(§공통 V — 주입 의존성이 production 분기를 건너뜀).
+
+| 필드 | 내용 |
+|---|---|
+| 설계 리뷰 | 설계 유지 — `appliedTo`가 런타임 보증을 관측하는 즉시 맵에 기록(`project-resource-sync.ts` `appliedTo`). §10 EP-2 두 자리 그대로 |
+| 강제 지점 전수 | EP-2 2/2 — decorate·apply 필터 모두 같은 헬퍼. 좌표 추가: `app/handlers/session-resources.claude-assembly.test.ts:'keeps every toggle while overlapping plugin toggles save through the real watcher'`(실제 `ClaudeAdapter`·실제 `watchFile`·실제 handler·sharing) |
+| 이번 라운드 수정의 잠금 | M5 `appliedTo`의 `entry.applied.set` 제거 → 신규 assembly 테스트 red 1 · 기존 M1~M4는 r1 결과 유지(코드 경로 불변). 분모 `선택 증거 0 · 인용 변이 1(사용자 지적 재현) · 새 oracle 0 = 행 1` |
+| Product/UX 파생 검토 | 새 문구 없음. 토글 사라짐·두 번째 거절이 같은 원인 — 사용자 관측 두 증상 모두 이 경로 |
+| 놓친 잠재 문제 | r1 #1·#2 유지. 신규 없음 |
+| 설계 대비 명시적 차이 | 없음 |
+| 관측한 게이트 산출 | lint 0 error · 2 warning(기존) · typecheck 0 · vitest 186파일 1900케이스: 1897 pass · 2 skip · 1 fail(r1 #2 기존 기준선) |
+| AC 자기보고 | AC1 ✅ assembly 테스트 · AC2 ⚠️ 사람 재실기 대기 · AC3~AC7 ✅ r1 좌표 green |
+| 합계 검산 | `✅ 6 · ⚠️ 1 · ❌ 0 = 총 7` |
+| 대상 커밋 | `(r1.2 구현 — 좌표는 INDEX)` |
+| Review Signals | 같은 라운드 impl 턴 2(`r1.2`). r1 ST가 감시자를 동기 fake로 대체해 실제 타이밍을 실행하지 않았다 |
 
 ---
 
