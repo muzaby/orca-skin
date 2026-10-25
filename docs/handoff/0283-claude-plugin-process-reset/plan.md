@@ -1294,5 +1294,5 @@ renderer toggle → preload invoke → handler → plan/close → supervisor·�
 | N2 | 확정 버튼 비`danger`. store 주석은 파괴적 액션에 `danger: true` | D-003 | 사람 결정 | NON_BLOCKING | closed — D-011(ΔV2) |
 | N3 | `confirm` 응답이 `mounted`·version을 보지 않는다(`useNativeMcpCatalog.ts:92`) | 비귀속 | 기록 | NON_BLOCKING | open |
 | N4 | DB 행 없는 유휴 runtime은 닫지 않는다(구현자 보고) | 비귀속 | 기록 | NON_BLOCKING | open |
-| G3 | D-011 렌더 운반이 EP-01′ 목록·oracle 밖 — ② 술어에 `danger`가 없어 `ConfirmDialogHost.tsx:32`가 S9(`:9-31`) 밖이고 AC2′ oracle은 store `danger`에서 멈춘다. 고장 Y1 못 잡음. 같은 술어가 host `:36`·`Modal.tsx:57·70·75·77`·`CatalogToggle.tsx:31`도 놓쳤다(잡음) | §10 EP-01′ · AC2′ · VP-05′·VP-02′ | ② 술어·범위에 D-011 운반과 위 path 자리를 넣어 목록 재고정, AC2′ oracle을 렌더 확정 버튼 variant로. Y1·Y2 등록 | PLAN_GAP | open — verify r2 |
-| D6 | S10 `Modal.tsx:115` `variant={'danger'}`(Y2)가 전체 스위트 green | VP-05′ · S10 · D-011 | 렌더된 확정 버튼 variant를 관측하는 좌표(같은 단언이 Y1도 잡는다) | BLOCKING | open — verify r2 |
+| G3 | D-011 렌더 운반이 EP-01′ 목록·oracle 밖 — ② 술어에 `danger`가 없어 `ConfirmDialogHost.tsx:32`가 S9(`:9-31`) 밖이고 AC2′ oracle은 store `danger`에서 멈춘다. 고장 Y1 못 잡음. 같은 술어가 host `:36`·`Modal.tsx:57·70·75·77`·`CatalogToggle.tsx:31`도 놓쳤다(잡음) | §10 EP-01′ · AC2′ · VP-05′·VP-02′ | ② 술어·범위에 D-011 운반과 위 path 자리를 넣어 목록 재고정, AC2′ oracle을 렌더 확정 버튼 variant로. Y1·Y2 등록 | PLAN_GAP | closed — verify r3(ΔV3 U6·U8 · M25·M26 잡음) |
+| D6 | S10 `Modal.tsx:115` `variant={'danger'}`(Y2)가 전체 스위트 green | VP-05′ · S10 · D-011 | 렌더된 확정 버튼 variant를 관측하는 좌표(같은 단언이 Y1도 잡는다) | BLOCKING | closed — verify r3(Y2=M26 잡음, N-variant) |
