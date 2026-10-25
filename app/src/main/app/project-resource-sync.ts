@@ -99,7 +99,7 @@ export class ProjectResourceSync {
     const entry = target && this.entries.get(this.entryKey(target))
     const configuration = entry?.configuration
     if (!entry || !configuration || !target?.runtime) return value
-    if (entry.applied.get(target.runtime) === configuration.revision && !entry.failed) return value
+    if (this.appliedTo(entry, target.runtime, configuration.revision) && !entry.failed) return value
     return {
       ...value,
       configurationPending: true,
@@ -214,7 +214,7 @@ export class ProjectResourceSync {
     const peers = this.peers(entry)
     const pending = peers.filter(
       ({ runtime }) =>
-        entry.applied.get(runtime!) !== configuration.revision &&
+        !this.appliedTo(entry, runtime!, configuration.revision) &&
         entry.restart.get(runtime!) !== configuration.revision
     )
     if (!pending.length || !this.peers(entry, true).every((peer) => this.deps.idle(peer))) return
@@ -247,7 +247,18 @@ export class ProjectResourceSync {
       entry.applying = false
     }
   }
-  private async emit(entry: Entry): Promise<void> {
+  /** Reconciled here, or already applied by the runtime itself (its own persisted toggle). */
+  private appliedTo(entry: Entry, runtime: GovernedLiveTurn, revision: string): boolean {
+    return (
+      entry.applied.get(runtime) === revision || runtime.nativeResourcesApplied?.(revision) === true
+    )
+  }
+  // Broadcasts wait behind an in-flight project mutation so its intermediate state is never shown.
+  // Never call this from inside `deps.run`: the queue would wait on itself.
+  private emit(entry: Entry): Promise<void> {
+    return this.deps.run(entry.target.key, () => this.broadcast(entry))
+  }
+  private async broadcast(entry: Entry): Promise<void> {
     const version = entry.version
     const targets = new Map<
       string,

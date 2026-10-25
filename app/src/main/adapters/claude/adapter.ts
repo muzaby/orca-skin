@@ -830,9 +830,11 @@ export class ClaudeAdapter implements SessionAdapter {
       [...(extensions.runtimeTools?.servers.keys() ?? [])],
       nativePlugins.installations,
       nativePluginFlags,
-      (key, enabled) => {
+      async (key, enabled) => {
         signal?.throwIfAborted()
-        return persistClaudePluginState(cwd, key, enabled)
+        await persistClaudePluginState(cwd, key, enabled)
+        // This Query applied the choice before saving it; the watcher must not report it pending.
+        projectResources.acknowledge(key, enabled)
       }
     )
 
@@ -986,6 +988,7 @@ export class ClaudeAdapter implements SessionAdapter {
     return {
       projectResourcePolicy: () => projectPolicy,
       reconcileNativeResources: (revision, isIdle) => projectResources.reconcile(revision, isIdle),
+      nativeResourcesApplied: (revision) => projectResources.covers(revision),
       providerGeneration: backgroundMapper.generation,
       nativePluginDirectory: (id) => resources.directory(id),
       nativeResources: async () => {

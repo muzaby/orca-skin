@@ -413,3 +413,38 @@ it('pins deployed MCP files for same-cwd peers and reloads until the final owner
   fresh.close()
   await snapshots.close()
 })
+
+it('reports its own persisted plugin revision as applied but not an external edit', async () => {
+  const live = new ClaudeAdapter().sendMessage({
+    sessionId: null,
+    cwd,
+    text: 'Hello',
+    env: { CLAUDE_CONFIG_DIR: root },
+    extensions: { skills: [], hooks: { normalized: {} } }
+  })
+  try {
+    const policy = live.projectResourcePolicy!()!
+    const file = join(cwd, '.claude/settings.local.json')
+    const before = (await policy.read(cwd)).revision
+    await live.setNativeResource!({
+      sessionId: 'B',
+      generation: live.providerGeneration!,
+      kind: 'plugin',
+      id: nativePluginId(plugin),
+      enabled: false
+    })
+    expect(JSON.parse(readFileSync(file, 'utf8')).enabledPlugins).toEqual({
+      'frontend@market': false
+    })
+    const own = (await policy.read(cwd)).revision
+    expect(own).not.toBe(before)
+    expect(live.nativeResourcesApplied!(own)).toBe(true)
+    write(file, {
+      enabledPlugins: { 'frontend@market': false },
+      disabledMcpjsonServers: ['external']
+    })
+    expect(live.nativeResourcesApplied!((await policy.read(cwd)).revision)).toBe(false)
+  } finally {
+    live.close()
+  }
+})

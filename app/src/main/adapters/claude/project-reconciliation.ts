@@ -2,7 +2,11 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { NativeResource } from '../../../shared/native-resources'
 import type { ClaudePluginCatalog } from './plugin-catalog'
-import { readClaudeProjectSettings, type ClaudeProjectSettings } from './project-settings'
+import {
+  claudeProjectSettingsRevision,
+  readClaudeProjectSettings,
+  type ClaudeProjectSettings
+} from './project-settings'
 
 /** Frozen startup defaults plus live project overrides. Never reloads global defaults. */
 export class ClaudeProjectReconciliation {
@@ -56,6 +60,24 @@ export class ClaudeProjectReconciliation {
     if (this.applied.enabledMcp.includes(item.id) || next.enabledMcp.includes(item.id))
       return next.enabledMcp.includes(item.id)
     return true
+  }
+  /**
+   * Records a plugin choice this Query already applied and persisted itself. The files count as
+   * applied only when they now hold exactly that change; an external edit stays pending.
+   */
+  acknowledge(key: string, enabled: boolean): void {
+    const folded = { ...this.applied, plugins: { ...this.applied.plugins, [key]: enabled } }
+    const revision = claudeProjectSettingsRevision(folded)
+    let next: ClaudeProjectSettings | undefined
+    try {
+      next = this.read()
+    } catch {
+      next = undefined
+    }
+    this.applied = next?.revision === revision ? next : { ...folded, revision }
+  }
+  covers(revision: string): boolean {
+    return this.applied.revision === revision
   }
   preview(items: NativeResource[]): NativeResource[] {
     const next = this.read()

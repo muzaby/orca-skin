@@ -145,3 +145,19 @@ it('isolates project approvals from user MCP and detects revision changes before
   )
   expect(set).not.toHaveBeenCalled()
 })
+
+it('acknowledges only its own persisted change and leaves external edits pending', async () => {
+  const { reconcile, revision } = fixture()
+  const local = join(cwd, '.claude/settings.local.json')
+  expect(reconcile.covers(revision())).toBe(true)
+  json(local, { enabledPlugins: { 'p@m': false } })
+  expect(reconcile.covers(revision())).toBe(false)
+  reconcile.acknowledge('p@m', false)
+  expect(reconcile.covers(revision())).toBe(true)
+
+  json(local, { enabledPlugins: { 'p@m': true }, disabledMcpjsonServers: ['external'] })
+  reconcile.acknowledge('p@m', true)
+  expect(reconcile.covers(revision())).toBe(false)
+  expect(await reconcile.reconcile(revision(), () => true)).toBe('applied')
+  expect(reconcile.covers(revision())).toBe(true)
+})

@@ -105,20 +105,41 @@ export function readClaudeProjectSettings(
     approveAll: local.enableAllProjectMcpServers ?? project.enableAllProjectMcpServers,
     definitions: { project: read(mcpFile).mcpServers, local: native.mcpServers }
   }
-  // Hashes never expose server URLs, arguments or credentials to renderer/logs.
-  const canonical = (value: unknown): unknown =>
-    Array.isArray(value)
-      ? value.map(canonical)
-      : isRecord(value)
-        ? Object.fromEntries(
-            Object.keys(value)
-              .sort()
-              .map((key) => [key, canonical(value[key])])
-          )
-        : value
-  const digest = (value: unknown): string =>
-    createHash('sha256')
-      .update(JSON.stringify(canonical(value)))
-      .digest('hex')
-  return { ...data, revision: digest(data), structure: digest(data.definitions) }
+  return {
+    ...data,
+    revision: claudeProjectSettingsRevision(data),
+    structure: digest(data.definitions)
+  }
+}
+
+// Hashes never expose server URLs, arguments or credentials to renderer/logs.
+const canonical = (value: unknown): unknown =>
+  Array.isArray(value)
+    ? value.map(canonical)
+    : isRecord(value)
+      ? Object.fromEntries(
+          Object.keys(value)
+            .sort()
+            .map((key) => [key, canonical(value[key])])
+        )
+      : value
+const digest = (value: unknown): string =>
+  createHash('sha256')
+    .update(JSON.stringify(canonical(value)))
+    .digest('hex')
+
+/** The revision a settings value would have if the files contained exactly it. */
+export function claudeProjectSettingsRevision(
+  settings: Omit<ClaudeProjectSettings, 'revision' | 'structure'>
+): string {
+  const { plugins, disabledMcp, enabledMcp, disabledProjectMcp, approvedProjectMcp } = settings
+  return digest({
+    plugins,
+    disabledMcp,
+    enabledMcp,
+    disabledProjectMcp,
+    approvedProjectMcp,
+    approveAll: settings.approveAll,
+    definitions: settings.definitions
+  })
 }

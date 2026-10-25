@@ -2125,6 +2125,23 @@ it('0231 main cancel preserves child frames received before the interrupt termin
 })
 
 describe('SessionRuntime native resource generation', () => {
+  it('forwards applied native revision only for the live channel', async () => {
+    const ch = channelLive()
+    ch.liveTurn.nativeResourcesApplied = (revision) => revision === 'own'
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    try {
+      expect(runtime.nativeResourcesApplied('own')).toBe(false)
+      const first = collect(runtime.send(req()))
+      ch.emit({ type: 'telemetry', sessionId: 's1' })
+      await first
+      expect(runtime.nativeResourcesApplied('own')).toBe(true)
+      expect(runtime.nativeResourcesApplied('external')).toBe(false)
+      runtime.teardownChannel()
+      expect(runtime.nativeResourcesApplied('own')).toBe(false)
+    } finally {
+      runtime.close()
+    }
+  })
   it('serializes the next submission behind an idle configuration operation and fences a retired channel', async () => {
     const ch = channelLive()
     let finish!: (result: 'applied') => void

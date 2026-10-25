@@ -373,3 +373,65 @@ it('counts foreground, queued, delivered, residual, background and wakeup activi
     )
   expect(projectResourcesIdle(idle, { responding: true } as GovernedLiveTurn)).toBe(false)
 })
+
+it('holds watcher broadcasts behind an in-flight project mutation', async () => {
+  let revision = 'before'
+  const changed: Array<() => void> = []
+  const emit = vi.fn()
+  let tail: Promise<unknown> = Promise.resolve()
+  const run = <T>(_key: string, task: () => Promise<T>): Promise<T> => {
+    const next = tail.catch(() => undefined).then(task)
+    tail = next
+    return next
+  }
+  const runtime = {
+    reconcileNativeResources: vi.fn(async () => 'pending' as const),
+    nativeResourcesApplied: (value: string) => value === 'own'
+  } as unknown as GovernedLiveTurn
+  const target: ProjectResourceTarget = {
+    backend: 'claude',
+    cwd: '/project',
+    key: 'same',
+    request: { sessionId: 'A' },
+    runtime
+  }
+  const service = new ProjectResourceSync({
+    resolve: () => target,
+    targets: () => [target],
+    policy: () => ({ files: () => ['config'], read: async () => ({ revision }) }),
+    idle: () => true,
+    read: async () => ({
+      state: 'connected',
+      generation: 'g',
+      items: [
+        { id: 'a', name: 'a', kind: 'plugin', enabled: true, status: 'enabled', canToggle: true },
+        { id: 'b', name: 'b', kind: 'plugin', enabled: true, status: 'enabled', canToggle: true }
+      ]
+    }),
+    emit,
+    run,
+    watch: (_path, callback) => {
+      changed.push(callback)
+      return () => undefined
+    }
+  })
+  services.push(service)
+  service.tick()
+  await flush()
+  emit.mockClear()
+  let release!: () => void
+  const mutation = run('same', () => new Promise<void>((resolve) => (release = resolve)))
+  revision = 'own'
+  changed.forEach((callback) => callback())
+  await flush()
+  expect(emit).not.toHaveBeenCalled()
+  release()
+  await mutation
+  await flush()
+  expect(emit).toHaveBeenCalled()
+  for (const [, value] of emit.mock.calls) {
+    expect(value.configurationPending).toBeUndefined()
+    expect(value.items.every((item: { canToggle: boolean }) => item.canToggle)).toBe(true)
+  }
+  expect(runtime.reconcileNativeResources).not.toHaveBeenCalledWith('own', expect.anything())
+})

@@ -38,6 +38,8 @@ export interface LiveTurn {
     revision: string,
     isIdle: () => boolean
   ): Promise<'applied' | 'pending' | 'restart-required'>
+  /** True only when this channel already runs the project configuration of `revision`. */
+  nativeResourcesApplied?(revision: string): boolean
   readonly providerGeneration?: string
   reinitialize?(): Promise<void>
   eventBatches: AsyncIterable<ProviderMessageBatch>

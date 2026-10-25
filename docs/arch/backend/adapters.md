@@ -238,7 +238,7 @@ OpenCode 적용 시의 추가 선행조건·레이어별 gate는 [마이그레�
 
 네이티브 스킬 메뉴는 실행 채널이 있으면 SDK의 실제 명령을, 없으면 활성 설치 플러그인의 skill/command 파일에서 얻은 이름·설명·힌트를 사용한다. 설치 metadata는 매 조회/새 spawn에서 읽으며 사용자 호출 금지 스킬은 메뉴에서 제외한다. 메뉴의 `plugin::skill` 표시와 전송의 `/plugin:skill` 이름은 구분한다.
 
-Claude 프로젝트 확장은 `project-settings.ts`가 MCP/plugin 대상 키의 revision을 계산하고 `project-reconciliation.ts`가 시작 시 기본값과 외부 프로젝트 선택을 대조한다. Windows 프로젝트 settings/local 파일은 현재 cwd를 사용하며 native MCP 상태는 SDK의 Git 프로젝트 항목도 읽는다. 외부 plugin 재적용은 파일을 역으로 저장하지 않고, MCP on/off의 native 저장은 SDK에 맡긴다. `.mcp.json` 승인·거부는 프로젝트 출처에만 적용하며 일반 MCP의 disabledMcpServers와 구분한다. 다음 실행은 전역/provider 기본값 위에 프로젝트·local 선택을 순서대로 적용한다.
+Claude 프로젝트 확장은 `project-settings.ts`가 MCP/plugin 대상 키의 revision을 계산하고 `project-reconciliation.ts`가 시작 시 기본값과 외부 프로젝트 선택을 대조한다. Windows 프로젝트 settings/local 파일은 현재 cwd를 사용하며 native MCP 상태는 SDK의 Git 프로젝트 항목도 읽는다. 외부 plugin 재적용은 파일을 역으로 저장하지 않고, MCP on/off의 native 저장은 SDK에 맡긴다. `.mcp.json` 승인·거부는 프로젝트 출처에만 적용하며 일반 MCP의 disabledMcpServers와 구분한다. 다음 실행은 전역/provider 기본값 위에 프로젝트·local 선택을 순서대로 적용한다. Orca가 실행 중 Query에 적용하고 저장한 plugin 선택은 그 런타임이 `nativeResourcesApplied(revision)`로 적용됨을 보고해 감시자가 미적용 설정으로 표시하지 않는다(파일에 외부 편집이 섞이면 그 revision은 미적용이다). 감시 방송은 같은 프로젝트 변경 큐 뒤에서 나간다(0284).
 
 컴포저의 slash 자동완성·강조도 같은 세션 native 명령 관측을 사용한다. 전역 스킬 탭은 기본 경로 스킬과 Orca 스킬을 표시하고 native 플러그인 출처 스킬은 제외한다. 네이티브 플러그인은 플러그인 탭에서 관리하며 세션의 호출 가능 명령 목록과 구별한다.
 

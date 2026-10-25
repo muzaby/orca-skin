@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-25 |
 | 매핑 | 0279 D9(파일 임계영역) 후속 버그수정 — 구현 주체 Claude(비기능) |
-| 상태 | READY |
+| 상태 | IMPL_DONE (r1) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0279 V는 상속하지 않고 영향 경로를 REGRESSION pair로 다시 닫는다 |
 | 이번 V revision | `V1` |
@@ -347,67 +347,88 @@ SDK reloadPlugins → resources.observePlugins → persist → acknowledge → c
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은 [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: §11 설계 그대로 — `acknowledge`/`covers`, `nativeResourcesApplied` 포트 체인, `appliedTo` 헬퍼, `emit = run(key, broadcast)`.
+- 이견 / 현실성 문제: 없음. `acknowledge`의 digest 비교를 위해 `project-settings.ts`의 digest를 모듈 함수 `claudeProjectSettingsRevision`으로 올리고 reader도 같은 함수를 쓴다(구현 세부 — 동치 리팩터).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| VP-… | … | … | … | … | … | … |
+| VP-04·05 | EP-1 성공 자기 저장만 인정 | persist 콜백 (1) | 1/1 | `rg -n "persistClaudePluginState\(" app/src/main --glob '!**/*.test.ts'` → 정의 1 + `adapter.ts:835` 1 · `adapter.native-plugins.test.ts:'reports its own persisted plugin revision as applied but not an external edit'` | key `frontend@market`·enabled `false`(초기 true와 구별) → 저장 후 `nativeResourcesApplied(own)===true`, 외부 편집 revision false | — |
+| VP-01 | EP-2 적용 판정 OR | decorate · apply 필터 (2) | 2/2 | `rg -n "appliedTo\(" project-resource-sync.ts` → `:102`·`:217` · decorate → `session-resources.sync.test.ts:'applies overlapping project toggles in order without a self-write rejection'` · apply 필터 → `project-resource-sync.test.ts:'holds watcher broadcasts behind an in-flight project mutation'`(`reconcileNativeResources` 미호출 단언) | revision `own` vs 맵의 `initial` 구별 → 두 번째 토글 resolve / reconcile 호출 0 | — |
+| VP-02·03·07 | EP-3 방송 직렬화 | `this.emit(` 4자리 | 1/4 좌표 · 4/4 정의 경유 | `rg -n "this\.emit\(" project-resource-sync.ts` → 4 · refresh 성공(`:183`) → `'holds watcher broadcasts behind an in-flight project mutation'` | 큐 hold 중 감시 콜백 → emit 0, 해제 후 ≥1·미적용 없음 | refresh 실패(`:188`)·apply 성공/실패(`:242`·`:245`) — 같은 `emit` 정의를 지나지만(코드 읽기) 자리별 직접 좌표 없음 |
+| VP-04 | EP-4 포트 체인 | 선언·위임·구현 (3) | 3/3 | `rg -n "nativeResourcesApplied" app/src/main --glob '!**/*.test.ts'` → `types.ts:42`·`session-runtime.ts:942`·`adapter.ts:991` + 소비 `project-resource-sync.ts:253` · 위임 → `session-runtime.test.ts:'forwards applied native revision only for the live channel'` · 구현 → 위 adapter IT | `own`/`external` 구별, 채널 해제 후 false | — |
+
+- §10 자리 목록 밖에서 본 운반 자리: 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(r1).
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | … | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | `session-resources.sync.test.ts:'applies overlapping project toggles in order without a self-write rejection'` | M1 red 3건 |
+| VP-02 | REQUIRED | SELF_PASS | `session-resources.sync.test.ts:'never publishes pending or neighbour changes while a toggle completes'` (+ AT-02 사람 실기 대기) | not selected |
+| VP-03 | REQUIRED | SELF_PASS | `project-resource-sync.test.ts:'holds watcher broadcasts behind an in-flight project mutation'` | M2 red 1건 |
+| VP-04 | REQUIRED | SELF_PASS | `adapter.native-plugins.test.ts:'reports its own persisted plugin revision as applied but not an external edit'` · `session-runtime.test.ts:'forwards applied native revision only for the live channel'` | M3 red 1건 |
+| VP-05 | REQUIRED | SELF_PASS | `project-reconciliation.test.ts:'acknowledges only its own persisted change and leaves external edits pending'` | M4 red 1건 |
+| VP-06 | REGRESSION | SELF_PASS | `session-resources.test.ts:'returns pending configuration as read-only and refuses a stale toggle through the real IPC read'` · `project-reconciliation.test.ts:'shows external selection with actual status immediately, waits for idle, and never saves it back'` green | not selected |
+| VP-07 | REGRESSION | SELF_PASS | `project-resource-sync.test.ts` 기존 9건 green | not selected |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| M1 `project-resource-sync.ts:253` — OR 제거(맵만) | VP-01 선택 증거 | 최초 | `applies overlapping…` · `never publishes…` · `holds watcher…` = 3 | 잠김 |
+| M2 `project-resource-sync.ts` `emit` — `run` 없이 `broadcast` 직접 | VP-03 선택 증거 | 최초 | `holds watcher broadcasts…` = 1 | 잠김 |
+| M3 `adapter.ts:837` — `acknowledge` 호출 제거 | VP-04 선택 증거 | 최초 | `reports its own persisted plugin revision…` = 1 | 잠김 |
+| M4 `project-reconciliation.ts` — `applied = next ?? folded`(무조건 대입) | VP-05 선택 증거 | 최초 | `acknowledges only its own persisted change…` = 1 | 잠김 |
 
-- **분모 검산**: …
-- **덮개 회귀**: …
+- **분모 검산**: `선택 증거 4 · 인용 변이 0 · 새 oracle 0(구조 proxy·전수 스윕 없음) = 표 행 4`.
+- **덮개 회귀**: 해당 없음(r1).
+- M1은 원래 버그 재현이다 — 수정 전 판정으로 두 번째 토글이 `프로젝트별 제어` 오류로 reject.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 새 문구 없음 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | persist 콜백이 `projectResources`(뒤에 선언된 `const`)를 호출 시점에 참조 — 콜백은 생성 후에만 실행되어 TDZ 없음 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 신규 실패 경로 없음. persist 실패는 기존 복원(인정 안 함) | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 해당 없음 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 감시 방송이 변경 뒤로 밀려 최종 상태로만 도착 | — |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | OpenCode MCP 토글도 같은 sync를 쓰지만 `nativeResourcesApplied` 미구현 — 자기 쓰기 미적용 표시는 OpenCode에 남을 수 있다 | ⚠️ 보고만(§6 비범위) | `opencode/v1/channel.ts:435` |
+| 2 | `bootstrap.native-history.test.ts:'reads native configuration through the registered module using stored backend and cwd'` red | ⚠️ 보고만 — 변경 전 기준선에서도 같은 red(`git stash` 후 재실행 1 failed/18) | 이번 변경 무관 |
 
 ### 설계 대비 명시적 차이
 
-- …
+- 없음.
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출** | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고** | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | `adapters/claude/{project-settings,project-reconciliation,adapter}.ts` · `adapters/common/types.ts` · `features/sessions/session-runtime.ts` · `app/project-resource-sync.ts` + 테스트 5파일(신규 `app/handlers/session-resources.sync.test.ts`) · `docs/arch/backend/adapters.md` |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `vitest run src/main/app src/main/adapters/claude src/main/features/sessions` · `node scripts/check-doc-inventory.mjs --check` |
+| **관측한 게이트 산출** | lint 0 error · 2 warning(renderer 기존 `react-hooks/incompatible-library`) · typecheck exit 0 · vitest 185파일 1899케이스: 1896 pass · 2 skip · 1 fail(#2 기존 기준선) · doc-inventory ok |
+| V-pair 자기확인 | SELF_PASS 7 / SELF_BLOCKED 0 |
+| 강제 지점 전수 | 좌표로 닫은 자리 7/10 (EP-1 1/1 · EP-2 2/2 · EP-3 1/4 · EP-4 3/3), 남긴 곳 EP-3 3자리 |
+| **AC 자기보고** | AC1 ✅ ST 1 · AC2 ⚠️ 기계 단언 ✅, 사람 실기 대기 · AC3 ✅ sync 테스트 · AC4 ✅ IT·위임 · AC5 ✅ UT · AC6 ✅ 기존 2건 green · AC7 ✅ 기존 9건 green |
+| **합계 검산** | `✅ 6 · ⚠️ 1 · ❌ 0 = 총 7` |
+| 블로커 / 역질문 | 없음 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 0279 D9(파일 임계영역)과 같은 기능 영역, 다른 축(판정 경합).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: 0279 테스트는 sync 없이 핸들러 큐만 조립해 자기 쓰기 → 감시 경로를 실행하지 않았다(`session-resources.test.ts:797`).
+- 반복해서 부딪히는 환경 한계: 없음.
+- 현재 라운드·impl 턴: `r1`.
 
 ---
 

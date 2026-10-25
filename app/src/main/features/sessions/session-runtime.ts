@@ -939,6 +939,10 @@ export class SessionRuntime implements ManagedRuntime {
     }
   }
 
+  nativeResourcesApplied(revision: string): boolean {
+    return this.live?.nativeResourcesApplied?.(revision) === true
+  }
+
   async setNativeResource(request: SetNativeResource): Promise<void> {
     const live = this.live
     if (!live?.setNativeResource || live.providerGeneration !== request.generation)
