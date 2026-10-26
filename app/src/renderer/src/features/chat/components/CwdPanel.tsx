@@ -4,6 +4,8 @@ import { useI18n } from '../../../shared/i18n'
 import { agentUiPolicy } from '../lib/agentPresentation'
 import { chatActions, useChatSession } from '../store/chatStore'
 import { CwdButton } from './CwdButton'
+import { LandingProjectPicker } from './LandingProjectPicker'
+import type { LandingProjects } from '../lib/landingProjectOptions'
 import { useDirectoryPicker } from '../hooks/useDirectoryPicker'
 import { BranchChip } from '../harnesses/common/composer/BranchChip'
 import { chipGroupSurface } from '../harnesses/common/composer/chipSurface'
@@ -15,6 +17,7 @@ interface CwdPanelProps {
   cwd: string | null
   inflight: boolean
   appearance?: 'default' | 'opencode'
+  landingProjects?: LandingProjects
 }
 
 // 랜딩 작업 컨텍스트 행 — [작업 경로] [브랜치] [참조 경로…] [＋]. OpenCode는 입력 아래에 둔다.
@@ -24,6 +27,7 @@ interface CwdPanelProps {
 export function CwdPanel({
   cwd,
   inflight,
+  landingProjects,
   appearance = 'default'
 }: CwdPanelProps): React.JSX.Element {
   const openCode = appearance === 'opencode'
@@ -42,14 +46,24 @@ export function CwdPanel({
       data-state="landing"
       data-appearance={appearance}
     >
-      <CwdButton
-        cwd={cwd}
-        sessionStarted={false}
-        inflight={inflight}
-        variant={openCode ? 'flat' : 'outlined'}
-        className={harnessSurfaces(openCode).pathWidth}
-        showChevron={openCode}
-      />
+      {landingProjects ? (
+        <LandingProjectPicker
+          cwd={cwd}
+          inflight={inflight}
+          projects={landingProjects}
+          variant={openCode ? 'flat' : 'outlined'}
+          className={harnessSurfaces(openCode).pathWidth}
+        />
+      ) : (
+        <CwdButton
+          cwd={cwd}
+          sessionStarted={false}
+          inflight={inflight}
+          variant={openCode ? 'flat' : 'outlined'}
+          className={harnessSurfaces(openCode).pathWidth}
+          showChevron={openCode}
+        />
+      )}
       {/* Code에서만 Git을 조회한다. 격리 ON이면 선택은 base ref로 유예된다. */}
       <BranchChip
         cwd={cwd}

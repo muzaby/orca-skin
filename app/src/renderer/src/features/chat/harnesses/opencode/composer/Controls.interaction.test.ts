@@ -89,7 +89,7 @@ describe('OpenCode composer selection', () => {
       expect(dom.activeElement).toBe(trigger)
     }
   )
-  it('keeps the unselected label with real agents until the user selects an agent', () => {
+  it('defaults to the first real agent before manual selection', () => {
     harness.selected.harnessAgent = ''
     dom.render(
       createElement(OpenCodeAgentControl, {
@@ -99,15 +99,16 @@ describe('OpenCode composer selection', () => {
       })
     )
     const trigger = dom.query('[aria-label="harness.agent"]')!
-    expect(trigger.textContent).toBe('harness.agent')
+    expect(trigger.textContent).toBe('build')
     dom.click(trigger)
     dom.advance(20)
     const rows = dom.queryAll('[role="menuitemradio"]')
     expect(rows.map((row) => [row.textContent, row.props['aria-checked']])).toEqual([
-      ['build', false],
+      ['build', true],
       ['review', false]
     ])
-    expect(harness.change).not.toHaveBeenCalled()
+    expect(harness.change).toHaveBeenCalledWith({ agent: 'build' })
+    harness.change.mockClear()
     dom.click(rows[1])
     expect(harness.change).toHaveBeenCalledExactlyOnceWith({ agent: 'review' })
     expect(dom.activeElement).toBe(trigger)
@@ -141,7 +142,7 @@ describe('OpenCode composer selection', () => {
         authoritative: true
       })
     )
-    expect(harness.change).toHaveBeenCalledWith({ agent: '', variant: '' })
+    expect(harness.change).toHaveBeenCalledWith({ agent: 'plugin-review', variant: '' })
     dom.click(dom.query('[aria-label="harness.agent"]')!)
     dom.click(dom.queryAll('[role="menuitemradio"]')[0])
     expect(harness.change).toHaveBeenLastCalledWith({ agent: 'plugin-review' })
@@ -195,7 +196,7 @@ it('keeps an empty loading menu keyboard-accessible without a synthetic default 
   harness.selected.harnessAgent = ''
   dom.render(createElement(OpenCodeAgentControl, { agents: undefined, status: 'loading' }))
   const trigger = dom.query('[data-component="opencode-select"]')!
-  expect(trigger.textContent).toBe('harness.agent')
+  expect(trigger.textContent).toBe('harness.agentLoading')
   dom.click(trigger)
   dom.advance(20)
   expect(dom.queryAll('[role="menuitemradio"]')).toEqual([])

@@ -1,0 +1,112 @@
+[
+  {
+    "theme": "white",
+    "mode": "project",
+    "width": 288.8500061035156,
+    "rect": {
+      "x": 29,
+      "y": 34.10000228881836,
+      "width": 288.8500061035156,
+      "height": 148.40000915527344,
+      "top": 34.10000228881836,
+      "right": 317.8500061035156,
+      "bottom": 182.5000114440918,
+      "left": 29
+    },
+    "animation": null,
+    "focus": "프로젝트 검색"
+  },
+  {
+    "theme": "white",
+    "keyboard": "ArrowDown → Enter → trigger; Space → search; Tab → next"
+  },
+  {
+    "theme": "white",
+    "mode": "agent",
+    "width": 95.45000457763672,
+    "rect": {
+      "x": 29,
+      "y": 92.26250457763672,
+      "width": 95.45000457763672,
+      "height": 90.23750305175781,
+      "top": 92.26250457763672,
+      "right": 124.45000457763672,
+      "bottom": 182.50000762939453,
+      "left": 29
+    },
+    "titleRight": 82.9749984741211,
+    "spinnerLeft": 90.2249984741211,
+    "animation": "spin",
+    "focus": null
+  },
+  {
+    "theme": "dark",
+    "mode": "project",
+    "width": 288.8500061035156,
+    "rect": {
+      "x": 29,
+      "y": 34.10000228881836,
+      "width": 288.8500061035156,
+      "height": 148.40000915527344,
+      "top": 34.10000228881836,
+      "right": 317.8500061035156,
+      "bottom": 182.5000114440918,
+      "left": 29
+    },
+    "animation": null,
+    "focus": "프로젝트 검색"
+  },
+  {
+    "theme": "dark",
+    "keyboard": "ArrowDown → Enter → trigger; Space → search; Tab → next"
+  },
+  {
+    "theme": "dark",
+    "mode": "agent",
+    "width": 95.45000457763672,
+    "rect": {
+      "x": 29,
+      "y": 92.26250457763672,
+      "width": 95.45000457763672,
+      "height": 90.23750305175781,
+      "top": 92.26250457763672,
+      "right": 124.45000457763672,
+      "bottom": 182.50000762939453,
+      "left": 29
+    },
+    "titleRight": 82.9749984741211,
+    "spinnerLeft": 90.2249984741211,
+    "animation": "spin",
+    "focus": null
+  },
+  {
+    "narrow": {
+      "x": 8,
+      "y": 92.26250457763672,
+      "width": 347.25,
+      "height": 90.23750305175781,
+      "top": 92.26250457763672,
+      "right": 355.25,
+      "bottom": 182.50000762939453,
+      "left": 8
+    },
+    "checkRight": 341.76251220703125,
+    "viewport": 362
+  },
+  {
+    "reducedMotion": "none"
+  },
+  {
+    "narrowProject": {
+      "x": 29,
+      "y": 34.10000228881836,
+      "width": 288.8500061035156,
+      "height": 148.40000915527344,
+      "top": 34.10000228881836,
+      "right": 317.8500061035156,
+      "bottom": 182.5000114440918,
+      "left": 29
+    },
+    "escapeFocus": "trigger"
+  }
+]

@@ -101,7 +101,8 @@ describe('OpenCode native database path (0262 EP56 P49)', () => {
     expect(spawned.env.OPENCODE_CONFIG).toBe(cli.calls[0]?.env.OPENCODE_CONFIG)
     expect(JSON.parse(cli.calls[0]!.env.OPENCODE_CONFIG_CONTENT!)).toEqual({
       ...document,
-      share: 'disabled'
+      share: 'disabled',
+      snapshot: false
     })
     // A disappeared database path and a failed probe must not poison the live entry.
     rmSync(cli.output)

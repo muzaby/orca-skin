@@ -337,6 +337,9 @@ export const ko = {
     }
   },
   projects: {
+    add: '프로젝트 추가',
+    emptyFolders: '등록된 프로젝트가 없습니다',
+    loading: '불러오는 중…',
     deleteDialogTitle: '프로젝트 삭제',
     deleteDialogMessage: '“{{name}}” 프로젝트를 삭제하시겠습니까? 대화와 파일은 유지됩니다.',
     deleteFailed: '프로젝트를 삭제하지 못했습니다. 다시 시도해 주세요.',
@@ -474,6 +477,9 @@ export const ko = {
     }
   },
   harness: {
+    agentLoading: '불러오는 중…',
+    agentError: '불러오기 실패',
+    noAgents: '에이전트 없음',
     agent: '에이전트',
     variant: '추론 수준',
     defaultAgent: '기본 에이전트',

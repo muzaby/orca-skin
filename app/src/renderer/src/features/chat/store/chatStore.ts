@@ -1,4 +1,5 @@
 import { reportError } from '../../../shared/errors'
+import { isFilesystemRoot } from '../../../../../shared/absolute-path'
 import { useMemo } from 'react'
 import {
   DEFAULT_LANDING_AGENT_KIND,
@@ -111,6 +112,7 @@ export interface SubagentMetaState {
 }
 
 export interface SessionEntry {
+  draftGeneration?: number
   cwdSelected?: boolean
   projectCwdInitialized?: boolean
   session: ChatState
@@ -165,6 +167,12 @@ const EMPTY_SUBAGENT_META: Record<string, SubagentMetaState> = {}
 // 새 엔트리에 주입해 init 이벤트 전에도 `@` 파일 자동완성이 동작한다.
 let cwdCache: string | null = null
 let cwdSelectionRevision = 0
+let draftGeneration = 0
+
+export interface PendingProjectTarget {
+  key: string
+  draftGeneration: number
+}
 
 // 컴포저 랜딩이 열 종류 — 부트스트랩이 설정에서 1회 시드한다(cwdCache 동형, 0228 D-004).
 // 시드 전 기본값은 첫 실행 고정값이라, 시드가 늦거나 실패해도 랜딩이 `code` 로 번쩍이지 않는다.
@@ -236,6 +244,7 @@ export function seedLandingAgentKind(kind: AgentKind): void {
 
 function freshEntry(projectId: string | null = null, cwd?: string | null): SessionEntry {
   return {
+    draftGeneration: ++draftGeneration,
     session: withoutDeletedProject({
       ...withLandingAgentKind(initialChatState, landingAgentKind),
       backend: landingBackend,
@@ -1157,8 +1166,48 @@ function setPendingCwd(cwd: string): void {
   if (getState().sessions[getState().activeKey]?.session.sessionId != null) return
   patchEntry(getState().activeKey, (entry) => {
     const session = chatReducer(entry.session, { type: 'SET_CWD', cwd })
-    return { ...entry, session, cwdSelected: true }
+    return { ...entry, session, ...(isFilesystemRoot(cwd) ? {} : { cwdSelected: true }) }
   })
+  if (!isFilesystemRoot(cwd)) rememberPendingCwd(cwd)
+}
+
+function capturePendingProjectTarget(): PendingProjectTarget | null {
+  const { activeKey, sessions } = getState()
+  const entry = sessions[activeKey]
+  if (
+    !entry ||
+    entry.draftGeneration === undefined ||
+    entry.session.sessionId != null ||
+    entry.session.loadingSession ||
+    sessionBusy(entry.session)
+  )
+    return null
+  return { key: activeKey, draftGeneration: entry.draftGeneration }
+}
+
+function selectPendingProject(
+  selection: { cwd: string; projectId: string | null },
+  target: PendingProjectTarget
+): boolean {
+  const current = capturePendingProjectTarget()
+  if (
+    !current ||
+    current.key !== target.key ||
+    current.draftGeneration !== target.draftGeneration ||
+    (selection.projectId !== null && deletedProjectIds.has(selection.projectId))
+  )
+    return false
+  patchEntry(target.key, (entry) => ({
+    ...entry,
+    session: chatReducer(entry.session, { type: 'SET_CWD', ...selection }),
+    ...(isFilesystemRoot(selection.cwd) ? {} : { cwdSelected: true, projectCwdInitialized: true })
+  }))
+  if (isFilesystemRoot(selection.cwd)) return false
+  rememberPendingCwd(selection.cwd)
+  return true
+}
+
+function rememberPendingCwd(cwd: string): void {
   cwdCache = cwd
   cwdSelectionRevision++
   void settingsApi.set({ lastCwd: cwd }).catch((error) =>
@@ -1914,6 +1963,8 @@ export const chatActions = {
   activateContinuityDraft,
   discardContinuityDraft,
   setPendingCwd,
+  capturePendingProjectTarget,
+  selectPendingProject,
   setWorktreeIsolation,
   setWorktreeBaseRef,
   addExtraDir,

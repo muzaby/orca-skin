@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { NormalizedEvent } from '../../../../shared/ipc'
 import { useProjectCatalogSync } from './useProjectCatalogSync'
+import { useProjectsStore } from '../../features/projects/store/projectsStore'
 import {
   projectNavActions,
   useProjectNavStore
@@ -9,7 +10,7 @@ import {
 const h = vi.hoisted(() => ({
   receive: null as ((event: NormalizedEvent) => void) | null,
   cleanup: null as (() => void) | null,
-  refresh: vi.fn(async () => {}),
+  refresh: vi.fn(async () => [{ id: 'created', name: 'Created project', cwd: 'D:/created' }]),
   load: vi.fn(async () => {}),
   unsubscribe: vi.fn()
 }))
@@ -19,6 +20,7 @@ vi.mock('react', () => ({
   }
 }))
 vi.mock('../../shared/api/ipc', () => ({
+  projectApi: { list: h.refresh },
   chatApi: {
     onEvent: (listener: (event: NormalizedEvent) => void) => {
       h.receive = listener
@@ -26,7 +28,9 @@ vi.mock('../../shared/api/ipc', () => ({
     }
   }
 }))
-vi.mock('../../features/projects', () => ({ projectsActions: { refresh: h.refresh } }))
+vi.mock('../../features/projects', async () => ({
+  projectsActions: (await import('../../features/projects/store/projectsStore')).projectsActions
+}))
 vi.mock('../../features/sessions', async () => {
   const { projectNavActions } = await import('../../features/sessions/store/projectNavStore')
   return { projectNavActions, sessionsActions: { loadProject: h.load } }
@@ -34,6 +38,7 @@ vi.mock('../../features/sessions', async () => {
 beforeEach(() => {
   vi.clearAllMocks()
   useProjectNavStore.setState({ expanded: {}, announced: new Set() })
+  useProjectsStore.setState({ list: [], loading: true })
 })
 const event = (projectId: string, created?: boolean): NormalizedEvent => ({
   type: 'session.updated',
@@ -45,7 +50,7 @@ const event = (projectId: string, created?: boolean): NormalizedEvent => ({
 })
 
 describe('newly created session projects expand from the main receipt', () => {
-  it('ignores loading and existing projects, then expands the created ID before its catalog row arrives', () => {
+  it('ignores loading and existing projects, then expands the created ID before its catalog row arrives', async () => {
     useProjectCatalogSync()
     expect(useProjectNavStore.getState().expanded).toEqual({})
     h.receive!(event('existing'))
@@ -56,6 +61,11 @@ describe('newly created session projects expand from the main receipt', () => {
     expect(useProjectNavStore.getState().expanded).toEqual({ created: true })
     expect(h.refresh).toHaveBeenCalledOnce()
     expect(h.load).toHaveBeenCalledWith('created')
+    await Promise.resolve()
+    expect(useProjectsStore.getState()).toMatchObject({
+      loading: false,
+      list: [{ id: 'created', name: 'Created project', cwd: 'D:/created' }]
+    })
     h.cleanup!()
     expect(h.unsubscribe).toHaveBeenCalledOnce()
   })

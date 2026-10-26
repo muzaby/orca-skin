@@ -83,6 +83,39 @@ function setup(
 }
 
 describe('owned OpenCode server lifecycle', () => {
+  it('shares the effective profile when only the overridden snapshot setting differs', async () => {
+    const { pool, spawnProcess, children } = setup()
+    const enabled = await pool.acquire({ snapshot: true, model: 'profile/model' })
+    const disabled = await pool.acquire({ snapshot: false, model: 'profile/model' })
+    expect(spawnProcess).toHaveBeenCalledOnce()
+    enabled.release!()
+    expect(children[0].kill).not.toHaveBeenCalled()
+    disabled.release!()
+    expect(children[0].kill).toHaveBeenCalledOnce()
+  })
+  it('forces snapshots off for every newly spawned generation', async () => {
+    const { pool, spawnProcess, children } = setup()
+    for (const snapshot of [undefined, true, false]) {
+      const connection = await pool.acquire(
+        { snapshot, model: 'sentinel/model' },
+        { OPENCODE_CONFIG_CONTENT: '{"snapshot":true}', OPENCODE_DB: '/sentinel.db' }
+      )
+      const call = spawnProcess.mock.calls.at(-1) as unknown as [
+        string,
+        string[],
+        { env: NodeJS.ProcessEnv }
+      ]
+      expect(JSON.parse(call[2].env.OPENCODE_CONFIG_CONTENT!)).toEqual({
+        snapshot: false,
+        model: 'sentinel/model',
+        share: 'disabled'
+      })
+      expect(call[2].env.OPENCODE_DB).toBe('/sentinel.db')
+      expect(children.at(-1)!.kill).not.toHaveBeenCalled()
+      connection.release!()
+    }
+    expect(spawnProcess).toHaveBeenCalledTimes(3)
+  })
   it('releases only the last owner, is idempotent and never retires a replacement generation', async () => {
     const { pool, children, spawnProcess } = setup()
     const [one, two] = await Promise.all([pool.acquire(), pool.acquire()])
@@ -326,7 +359,8 @@ describe('owned OpenCode server lifecycle', () => {
     expect(options).toMatchObject({ cwd: homedir(), windowsHide: true })
     expect(JSON.parse(options.env.OPENCODE_CONFIG_CONTENT!)).toEqual({
       ...config,
-      share: 'disabled'
+      share: 'disabled',
+      snapshot: false
     })
     expect(options.env.TEST_SETTING).toBe('value')
     for (const key of [

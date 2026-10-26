@@ -333,6 +333,9 @@ export const en: typeof ko = {
     }
   },
   projects: {
+    add: 'Add project',
+    emptyFolders: 'No registered projects',
+    loading: 'Loading…',
     deleteDialogTitle: 'Delete project',
     deleteDialogMessage: 'Delete “{{name}}”? Conversations and files will be kept.',
     deleteFailed: 'Could not delete the project. Please try again.',
@@ -470,6 +473,9 @@ export const en: typeof ko = {
     }
   },
   harness: {
+    agentLoading: 'Loading…',
+    agentError: 'Failed to load',
+    noAgents: 'No agents',
     agent: 'Agent',
     variant: 'Variant',
     defaultAgent: 'Default agent',

@@ -49,23 +49,31 @@ export function Popover({
       if (!el) return
       const rect = el.getBoundingClientRect()
       const panelW = panelRef.current?.offsetWidth ?? 0
-      setPos(
-        popoverPosition({
-          anchor: rect,
-          boundaryRight: boundaryRef?.current?.getBoundingClientRect().right,
-          width: panelW,
-          height: panelRef.current?.offsetHeight ?? 0,
-          viewportWidth: window.innerWidth,
-          viewportHeight: window.innerHeight,
-          placement,
-          align,
-          gap
-        })
+      const next = popoverPosition({
+        anchor: rect,
+        boundaryRight: boundaryRef?.current?.getBoundingClientRect().right,
+        width: panelW,
+        height: panelRef.current?.offsetHeight ?? 0,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+        placement,
+        align,
+        gap
+      })
+      setPos((previous) =>
+        previous &&
+        previous.top === next.top &&
+        previous.bottom === next.bottom &&
+        previous.left === next.left &&
+        previous.right === next.right
+          ? previous
+          : next
       )
     }
     compute()
     window.addEventListener('resize', compute)
     const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(compute)
+    if (panelRef.current) observer?.observe(panelRef.current)
     if (boundaryRef?.current) observer?.observe(boundaryRef.current)
     return () => {
       window.removeEventListener('resize', compute)

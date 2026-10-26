@@ -72,7 +72,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | [shared/ui/Histogram.tsx](../../../app/src/renderer/src/shared/ui/Histogram.tsx) — `Histogram` | stage 배경 위 RGB 채널 분포. 현재 생성 샘플을 실제 센서 데이터처럼 설명하지 않는다. |
 | [shared/ui/Icon.tsx](../../../app/src/renderer/src/shared/ui/Icon.tsx) — `Icon` | 등록된 SVG·currentColor·size API를 사용하고 임의 아이콘 세트를 추가하지 않는다. |
 | [shared/ui/KebabButton.tsx](../../../app/src/renderer/src/shared/ui/KebabButton.tsx) — `KebabButton` | 행·카드의 보조 메뉴 진입점. 번역된 tooltip·접근성 이름과 메뉴 anchor를 유지한다. |
-| [shared/ui/MenuItem.tsx](../../../app/src/renderer/src/shared/ui/MenuItem.tsx) — `MenuItem`, `MenuTitle` | MenuItem·MenuTitle로 메뉴 행·설명·섹션 위계를 공유한다. MenuTitle의 leading 슬롯에 출처 브랜드 로고를, trailing 슬롯에 수동 진행 표시를 넣으며 제목은 선택 대상이 아니다. 파괴적 항목은 danger. disabled에서도 일반 커서(cursor-default)를 유지하며 회색 표시와 입력 차단을 적용한다. |
+| [shared/ui/MenuItem.tsx](../../../app/src/renderer/src/shared/ui/MenuItem.tsx) — `MenuItem`, `MenuTitle` | MenuItem·MenuTitle로 메뉴 행·설명·섹션 위계를 공유한다. MenuTitle의 leading 슬롯에 출처 브랜드 로고를, afterLabel 슬롯에 제목 바로 뒤 진행 표시를, trailing 슬롯에 우측 보조 항목을 넣으며 제목은 선택 대상이 아니다. 파괴적 항목은 danger. disabled에서도 일반 커서(cursor-default)를 유지하며 회색 표시와 입력 차단을 적용한다. |
 | [shared/ui/Meter.tsx](../../../app/src/renderer/src/shared/ui/Meter.tsx) — `Meter` | ratio·tone API와 공통 의미색을 사용한다. 수치와 함께 표시한다. |
 | [shared/ui/Modal.tsx](../../../app/src/renderer/src/shared/ui/Modal.tsx) — `MODAL_BACKDROP_CLASS`, `Modal`, `MODAL_LABEL`, `MODAL_INPUT`, `ModalActions` | Modal·ModalActions·MODAL_LABEL·MODAL_INPUT 재사용. busy 닫기 정책·크롬리스 ariaLabel 확인. |
 | [shared/ui/OrcaLogo.tsx](../../../app/src/renderer/src/shared/ui/OrcaLogo.tsx) — `OrcaLogo` | 승인된 Orca artwork의 비율·색 경계를 보존한다. 새 whale 그림으로 교체하지 않는다. |
@@ -106,6 +106,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | [features/chat/components/ChatView.tsx](../../../app/src/renderer/src/features/chat/components/ChatView.tsx) — `ChatView` | 세션별 채팅·타일 조립. 배경·테마를 세션마다 새로 정의하지 않는다. |
 | [features/chat/components/Composer.tsx](../../../app/src/renderer/src/features/chat/components/Composer.tsx) — `ComposerPanelStackView`, `Composer` | 공통 입력 controller와 하네스 표면 조립. 전환 시 초안·첨부·IME를 보존한다. |
 | [features/chat/components/CwdButton.tsx](../../../app/src/renderer/src/features/chat/components/CwdButton.tsx) — `CwdButton` | 작업 경로 진입 버튼의 축약·전체 경로 확인·키보드 이름을 유지한다. |
+| [features/chat/components/LandingProjectPicker.tsx](../../../app/src/renderer/src/features/chat/components/LandingProjectPicker.tsx) — `LandingProjectPicker` | `/new`의 양 하네스에서 프로젝트 검색·폴더 목록·선택 강조와 체크·추가 버튼을 표시한다. Popover·MenuItem·Nav 폴더 Icon을 재사용하고 검색 초점·닫기 복귀·긴 이름 말줄임을 유지한다. |
 | [features/chat/components/CwdPanel.tsx](../../../app/src/renderer/src/features/chat/components/CwdPanel.tsx) — `CwdPanel` | 작업 경로·추가 디렉터리 선택. 경로는 mono·긴 값은 안전한 줄바꿈. |
 | [features/chat/components/Landing.tsx](../../../app/src/renderer/src/features/chat/components/Landing.tsx) — `Landing` | 새 대화의 브랜드·읽기 열·입력 위계. 하네스별 브랜드 슬롯을 사용한다. |
 | [features/chat/components/LandingHeader.tsx](../../../app/src/renderer/src/features/chat/components/LandingHeader.tsx) — `LandingHeader` | 새 대화와 프로젝트에서 현재 하네스의 기존 헤더를 선택한다. Claude 모드 문구와 OpenCode 브랜드를 재사용하고 Composer 수명을 유지한다. |
@@ -413,3 +414,5 @@ Provider와 registry는 시각 컴포넌트 선택/수명 책임만 갖는다. �
 | [features/chat/harnesses/registries/brand.tsx](../../../app/src/renderer/src/features/chat/harnesses/registries/brand.tsx) — `HarnessLogo` | 하네스별 마크 조립만 소유하며 기존 랜딩 presentation을 바꾸지 않는다. |
 
 `Popover`의 `boundaryRef`는 right 배치의 가로 경계만 바꾼다. 세로 기준은 trigger이며 창·nav 리사이즈에 다시 측정한다. `CascadeBody`의 status는 왼쪽 연결 상태 공, secondary는 오른쪽 활성 스위치를 렌더한다. native 목록은 primary checked/description을 사용하지 않는다. 해당 항목의 진행 중 중복 입력만 막고, 지원되지 않는 MCP 제어는 disabled로 표시한다. 플러그인 폴더 열기는 일반 액션이다.
+
+OpenCode 에이전트 메뉴는 이름과 체크 열에 맞는 가변 폭과 viewport 상한을 사용한다. 제목 바로 뒤의 화살표 없는 원호는 에이전트 목록 로딩만 나타내며 모션 감소 설정에서 멈춘다. Popover는 열린 패널의 내용 크기 변경도 관측해 배치를 다시 계산한다.

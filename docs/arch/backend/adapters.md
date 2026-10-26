@@ -34,7 +34,7 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 
 앱은 `createOpenCodeAdapter`를 통해 `SessionAdapter`를 받고, `opencode/implementation.ts`의 전송·서버 수명·설정 로더 계약만 사용한다. 구체 adapter/server 생성은 `opencode/v1/index.ts`가 담당한다. 버전 디렉터리를 직접 소비하거나 버전 구현끼리 참조하는 import는 ESLint가 차단한다. 다른 버전 구현은 같은 계약을 제공하고 중립 진입점에서 선택해야 하며, 현재 실행 가능한 구현은 1.x다.
 
-`OpenCodeServerPool`은 실행 파일 identity·실효 구성·환경이 같은 연결의 시작을 합치고 OS에서 할당받은 loopback 임시 포트와 임의 인증 암호를 사용한다. 첫 OpenCode 사용 때 서버를 만들며 호환되는 다른 작업폴더는 같은 프로세스를 사용한다. host cwd는 홈 디렉터리로 고정하고 작업폴더는 SDK 요청에 명시한다. native 파일 경로 환경의 상대 값은 요청 cwd 기준으로 절대화해 실행·pool identity·DB 경로 조회에 동일하게 전달한다. 상대 XDG 값은 native 해석을 보존하도록 그대로 전달하며 이 경우에는 요청 cwd도 서버 분리 기준으로 유지한다. 엔진 설정은 `OPENCODE_CONFIG_CONTENT`로 전달하며 native 설정 파일은 덮어쓰지 않는다.
+`OpenCodeServerPool`은 실행 파일 identity·실효 구성·환경이 같은 연결의 시작을 합치고 OS에서 할당받은 loopback 임시 포트와 임의 인증 암호를 사용한다. 첫 OpenCode 사용 때 서버를 만들며 호환되는 다른 작업폴더는 같은 프로세스를 사용한다. host cwd는 홈 디렉터리로 고정하고 작업폴더는 SDK 요청에 명시한다. native 파일 경로 환경의 상대 값은 요청 cwd 기준으로 절대화해 실행·pool identity·DB 경로 조회에 동일하게 전달한다. 상대 XDG 값은 native 해석을 보존하도록 그대로 전달하며 이 경우에는 요청 cwd도 서버 분리 기준으로 유지한다. 엔진 설정은 `OPENCODE_CONFIG_CONTENT`로 전달하며 native 설정 파일은 덮어쓰지 않는다. 실행 환경은 사용자 입력보다 뒤에서 `share:disabled`와 boolean `snapshot:false`를 강제한다. 같은 최종 환경을 서버 identity·spawn·DB 경로 조회가 사용하며 기존 실행 서버를 설정 변경 때문에 강제 종료하지 않는다.
 
 `instance-lifecycle.ts`는 directory별 SDK 소유권을 센다. 마지막 참조가 사라지면 진행 중 조회를 취소하고, native 요청을 했던 directory만 `/instance/dispose`로 정리한다. HTTP 응답 뒤에도 global `server.instance.disposed`까지 기다린 후 서버 소유권을 반환한다. 정리 중 같은 directory 재진입은 완료 뒤 새 scope를 얻으며, 다른 directory의 연결은 유지한다. 정리 실패는 해당 서버를 신규 획득 대상에서 제외하고 기존 소유자는 유지한다. 모든 연결·획득 예약·정리가 끝나면 소유 서버를 종료한다. 앱 종료는 남아 있는 모든 소유 generation을 강제로 정리하며 Windows에서는 소유 PID의 자식 트리도 종료한다. native session DB는 instance 해제로 삭제하지 않는다.
 

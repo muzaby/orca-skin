@@ -36,6 +36,7 @@ export type IconName =
   | 'link'
   | 'power'
   | 'refresh'
+  | 'spinner'
   | 'alert'
   | 'sparkle'
   | 'mic'
@@ -71,6 +72,8 @@ export type IconName =
 // 단일 path 이며 Material 960 그리드(viewBox `0 -960 960 960`)를 쓴다. 주석 = 원본
 // Material glyph 이름. 갱신 시 fonts.gstatic.com Material Symbols Outlined 원본을 따른다.
 const ICONS: Record<Exclude<IconName, 'mcp'>, string> = {
+  // Arrowless three-quarter annulus for loading indicators.
+  spinner: 'M480-880a400 400 0 1 1-400 400h80a320 320 0 1 0 320-320v-80Z',
   // 제품 모드 선택용 단순 기하 도형. 기존 아이콘과 같은 960 좌표계를 쓴다.
   todo: 'M100-660l60-60 70 70 130-130 60 60-190 190-130-130ZM460-720h400v80H460v-80ZM100-300l60-60 70 70 130-130 60 60-190 190-130-130ZM460-360h400v80H460v-80Z',
   terminal:

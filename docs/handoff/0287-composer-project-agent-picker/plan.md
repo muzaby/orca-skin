@@ -7,7 +7,7 @@
 | slug | `0287-composer-project-agent-picker` |
 | 작성자 | Codex — 사용자 명시 `Handoff-plan` 요청 |
 | 일자 | 2026-10-26 |
-| 상태 | READY — 설계만 작성, 구현 전 |
+| 상태 | IMPL_DONE — r1 구현 자기검증 완료, 독립 검증 대기 |
 | V mode / 기준 V | Baseline V / none |
 | 이번 revision / 유효 V | V1 / V1 |
 | 조사 기준 | 공유 브랜치 `main`, `528a1588` — `git pull --ff-only`: Already up to date |
@@ -412,111 +412,186 @@ shared MenuTitle/Icon/Popover를 바꾸면 해당 shared UI 테스트도 실행�
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: … (Part I/II의 정확한 절 인용)
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: V1의 REQUIRED 12 pair·S5/A10/P16 자리와 M-A1/M-P1/M-P2를 구현 기준으로 삼았다. 등록은 첫 전송 시 유지한다.
+- 이견 / 현실성 문제: 제품 계약 변경 없음. §11 신규 picker 단독 테스트는 실제 page 조립 테스트로 합쳤다. 더 바깥에서 진입해 picker·hook·Popover·store를 함께 실행한다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. 기존 `setPendingCwd`가 root 거절 뒤에도 lastCwd를 저장하던 누락은 성공 경로에서만 저장하도록 고쳤다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
-> `§10`의 `언제 강제` 칸은 **하나의 불변식이 성립해야 하는 지점 목록**이다. 한 지점만 닫아도
-> 대표 경로 AC는 통과하므로 게이트 green은 전수를 뜻하지 않는다.
-> **각 행의 `재현 명령 / 관측`은 이번 턴에 실제로 실행한 것만 적는다** — 산출물에서 표식을 다시
-> 찾지 못하면 그 행은 닫힌 것이 아니다.
-> **그 관측이 구조적 proxy·0건/전수 스윕·배선 존재 oracle이고 이번 턴에 장치를 만들거나 고쳤다면,
-> 등록된 결함을 심어 실패하는지 먼저 확인한다** — 눈이 없는 장치의 `0건`은 전수의 증거가 아니다.
-> 직접 행동 결과를 관측하는 oracle에는 mutation을 자동 요구하지 않는다(impl §3).
-> **`전건`·`미분류 0`·`잔여 0` 행의 관측은 차집합이다** — 총계·합계는 그 주장을 반증할 수 없다(impl §8).
-> **`닫은 지점`은 §10 항목이 아니라 §10이 고정한 자리로 세고, 기록된 자리 검색 명령을 다시 돌린 출력과 목록의 차집합을 적는다** — 목록이 없거나 출력과 갈리거나 술어가 불변식의 주어가 아니거나 범위가 지적이 인용한 파일로 좁으면 `PLAN_GAP`이다(impl §2).
-> **닫은 자리마다 직접 oracle 좌표(`파일:테스트명` / 실패 의미 red를 관측한 `gate:<명령>`)를 적는다** — typecheck·코드 읽기·일회성 실측만 있는 자리는 `남긴 곳`에 적고 세지 않는다(impl §2).
-> **좌표는 그 테스트의 실행 구간(들어간 곳 → 관측한 곳, mock한 path 구성요소 제외) 안의 자리만 닫는다** — 안쪽 export로 들어가거나 한쪽 끝을 mock하거나 내부 상태만 단언하거나 production 조립이 주입하는 의존성을 빼 다른 분기를 탄 테스트가 건너뛴 자리는 `남긴 곳`이다. 운반 값을 기본값·빈 값·형제와 같은 값으로만 준 좌표도 그 자리를 닫지 않는다(impl §2).
-> **`§10이 적은 지점`은 그 pair의 §10 자리 전부다** — 재구현 턴에도 지목된 자리만 적지 않고, 닫지 않은 자리는 `남긴 곳`에 남긴다(impl §8).
-> **`운반 항 · 구별 값 · 관측`은 닫힘으로 센 행마다 그 자리가 넘기는 항, 테스트의 구별 입력, 좌표가 관측하는 곳을 적는다** — 셋 중 하나가 빠진 항은 `남긴 곳`이고, 호출·분기를 바꾼 변이의 red로 인자 항을 채우지 않는다(`docs/handoff/AGENTS.md §공통 V`).
+r1에서 Q-S/Q-A/Q-P를 다시 실행했다. 아래 좌표는 이번 실행 집합에 포함된 실제 테스트다. 경로의 `main/`은 `app/src/main/`, `renderer/`는 `app/src/renderer/src/` 기준이다.
+
+| 좌표 | 실제 파일:테스트명 |
+|---|---|
+| S-UT | `main/adapters/opencode/v1/native-storage.test.ts:forces snapshots off for input %s without mutating it` |
+| S-PROFILE | `main/adapters/opencode/v1/server.test.ts:shares the effective profile when only the overridden snapshot setting differs` |
+| S-SPAWN | 같은 `server.test.ts:forces snapshots off for every newly spawned generation` 및 `coalesces concurrent startup and passes isolated configuration, auth and preferences to its owned child` |
+| S-DB | `main/adapters/opencode/v1/server.database-path.test.ts:reads the database path through the server and CLI environment of the selected engine document` |
+| A-UT | `renderer/features/chat/harnesses/opencode/composer/agentSelection.test.ts:uses returned order, keeps a valid choice and clears an authoritative empty list` 및 `retains the known selection while %s` |
+| A-SLOT | 같은 composer 디렉터리 `Module.integration.test.ts:uses only the agent slot for title loading when %s completes first` |
+| A-NEW | 같은 composer 디렉터리 `Controls.selection-flow.test.ts:routes returned first agent through label, check, real store and initial send while models still load` |
+| A-CHOICE | 같은 `Controls.selection-flow.test.ts:keeps manual selection, falls back on removal, clears empty results and sends on an existing session` |
+| A-STATUS | 같은 `Controls.selection-flow.test.ts:displays an explicit %s state without a generic agent trigger` |
+| UI-TITLE | `renderer/shared/ui/MenuItem.render.test.ts:places afterLabel beside the title and preserves right-aligned trailing content` |
+| UI-RESIZE | `renderer/shared/ui/Popover.resize.test.ts:remeasures an open panel when its content resizes and disconnects on close` |
+| UI-REAL | `gate:node scripts/composer-picker-visual.mjs` — 실제 Chromium 경계·체크·제목 gap·회전/모션 감소·키 입력 단언, [시각 기록](visual-check.md) |
+| P-UT | `renderer/features/chat/lib/landingProjectOptions.test.ts:preserves catalog order and searches names or full paths, excluding pathless rows` 및 `matches canonical Windows paths without merging names or conflicting selected IDs` |
+| P-PAGE | `renderer/pages/NewChatLandingPage.project-picker.test.ts:carries the page catalog through the %s composer and sends selection with preserved draft and attachments` |
+| P-LOAD | 같은 page 파일 `carries catalog loading through the %s composer while Add stays available` |
+| P-ADD | 같은 page 파일 `opens the native picker only from Add and matches its result against the latest catalog` |
+| P-RACE | 같은 page 파일 `does not apply a %s folder result to the wrong draft` — cancel/root/new-draft/send/unmount |
+| P-FOCUS | 같은 page 파일 `searches paths, clears search on dismiss, and moves keyboard focus through rows` |
+| P-DELETE | 같은 page 파일 `removes deleted catalog rows from the open popup without restoring their IDs` |
+| P-STORE | `renderer/features/chat/store/chatStore.project-selection.test.ts:selects cwd and project together, resets repository context and sends both on the first message` |
+| P-GUARD | 같은 store 파일 `rejects a reused draft key, busy/loading drafts, and deleted project IDs` 및 `rejects filesystem roots without persisting them or changing the project` |
+| P-SAME | 같은 store 파일 `keeps references and worktree settings on same-directory reselection` |
+| P-SAVE | `renderer/features/chat/store/chatStore.lastCwd.test.ts:keeps the chosen draft and reports a failed persistence write` |
+| P-BIND | `main/app/chat-turn/project-binding.test.ts:reuses a normalized path, keeps same names at different paths and exposes cwd in DTO` |
+| P-EVENT | `main/app/chat-turn/send.worktree.test.ts:준비 완료 전에는 context/runtime을 만들지 않고 managed cwd와 extraDirs를 runtime까지 전달한다` 및 `does not announce an existing path project as newly created` |
+| P-CATALOG | `renderer/app/hooks/useProjectCatalogSync.test.ts:ignores loading and existing projects, then expands the created ID before its catalog row arrives` — 실제 refresh/store까지 실행 |
+| P-DETACH | `renderer/features/chat/store/chatStore.projectDeletion.test.ts:활성·비활성·초안의 소속을 해제하고 본문·live·cwd·선택을 보존한다` 및 `renderer/app/hooks/projectDeletionWiring.test.ts` |
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| VP-… | … | `commit·revoke·expiry·401` (4) | 4/4 | `rg …` → 4건 · commit → `a.test.ts:'…'` · revoke → … | commit: `key`(형제와 다른 값 → 저장 결과 단언) · … / 운반 항 없음 | — |
+| VP-01~04 | 직렬화 | S1 | 1/1 | S-UT → 모든 입력에서 false | undefined/true/false·model sentinel → JSON boolean | — |
+| VP-02~04 | 실효 profile | S2 | 1/1 | S-PROFILE → spawn 1회, 마지막 owner만 종료 | true/false 차이 → 같은 최종 env/key | — |
+| VP-02~04 | acquire 전달 | S3 | 1/1 | S-SPAWN → 세 generation 모두 false | model·OPENCODE_DB·강제 전 env → child env | — |
+| VP-02~04 | spawn 환경 | S4 | 1/1 | S-SPAWN → JSON·인증·경로 보존 | provider secret·TEST_SETTING → child/auth | — |
+| VP-02~04 | DB exec 환경 | S5 | 1/1 | S-DB → serve와 db path 환경 일치 | 선택 엔진 문서·OPENCODE_CONFIG → CLI env | — |
+| VP-06~08 | catalog 슬롯 | A1 | 1/1 | A-SLOT·A-NEW → agents 먼저/나중 모두 독립 | agents/models 상반 완료 순서 → spinner | — |
+| VP-05~08 | 기본 선택 | A2 | 1/1 | A-UT → z-first/수동/empty 판정 | `[z-first,a-second]` → 순서 유지 | — |
+| VP-06~08 | 자동 정착 | A3 | 1/1 | A-NEW → store z-first | 미선택 → effect/action/reducer → 실제 값 | — |
+| VP-06~08 | 수동 선택 | A4 | 1/1 | A-CHOICE → a-second 유지·무효화 | 두 번째 행 → action/reducer 값·variant 초기화 | — |
+| VP-06~08 | 라벨·체크 | A5 | 1/1 | A-NEW·A-CHOICE → 라벨/체크 일치 | z-first/a-second → DOM selected | — |
+| VP-06~08 | 신규 송신 | A6 | 1/1 | A-NEW → 첫 IPC harnessAgent=z-first | catalog 첫 이름 → send payload | — |
+| VP-06~08 | 기존 송신 | A7 | 1/1 | A-CHOICE → existing IPC a-second | existing session + a-second → payload | — |
+| VP-06·08 | 가변 폭 | A8 | 1/1 | UI-REAL → 짧은 메뉴 95.45px | 짧은/긴 이름 → 실제 bounding box | — |
+| VP-06·08 | 체크 열 | A9 | 1/1 | UI-REAL → 좁은 창에서 checkRight ≤ menuRight | 긴 한국어 이름 → 체크 유지 | — |
+| VP-06·08 | 제목 spinner | A10 | 1/1 | UI-TITLE·UI-REAL → gap 7.25px, spin/none | loading/reduced motion → inline 원호 | — |
+| VP-10~12 | catalog 조립 | P1 | 1/1 | P-PAGE·P-LOAD → 양 하네스 목록/loading | z-id/a-id·loading true → 메뉴·상태 | — |
+| VP-10~12 | Landing props | P2 | 1/1 | P-PAGE·P-LOAD → 실제 Landing 경유 | 서로 다른 이름/경로 및 loading 전달 | — |
+| VP-10~12 | 상단 CwdPanel | P3 | 1/1 | P-PAGE claude → 선택/송신 성공 | Claude + D:/Beta/a-id → state/payload | — |
+| VP-10~12 | 하단 CwdPanel | P4 | 1/1 | P-PAGE opencode → 선택/송신 성공 | OpenCode + D:/Beta/a-id → state/payload | — |
+| VP-10~12 | picker 전달 | P5 | 1/1 | P-PAGE → 열기만으로 dialog 0회 | catalog props → 실제 picker 행 | — |
+| VP-09~12 | 목록 투영 | P6 | 1/1 | P-UT·P-FOCUS → 이름/경로 검색·체크 | 같은 이름·다른 ID/cwd·null → 분리/필터 | — |
+| VP-10~12 | 행 선택 | P7 | 1/1 | P-PAGE → 입력/첨부 유지 | a-id/D:/Beta → pending ID/cwd | — |
+| VP-10~12 | 추가 진입 | P8 | 1/1 | P-ADD → 중복 dialog 1회, 목록 무삽입 | e:\\LATE\\→late-id, F:/new→null | — |
+| VP-09~12 | 비동기 fence | P9 | 1/1 | P-RACE·P-GUARD → 지각 선택/설정 0회 | old/new generation·busy·unmount → 거절 | — |
+| VP-09~12 | 원자 갱신 | P10 | 1/1 | P-STORE·P-SAME·P-GUARD → ID/cwd 일치 | old→new, 같은 경로, root → 일관 상태 | — |
+| VP-09~12 | lastCwd | P11 | 1/1 | P-STORE·P-GUARD·P-SAVE → 유효 선택만 저장 | D:/new 저장, C:/ 거절, disk failure 보고 | — |
+| VP-10~12 | 첫 전송 | P12 | 1/1 | P-PAGE·P-STORE → 실제 send IPC | 보존한 입력/첨부 + 선택 cwd/ID | — |
+| VP-11~12 | Main binding | P13 | 1/1 | P-BIND → 재사용·동명 다른 경로 분리 | 정규화 cwd·기존 ID → 실제 DB DTO | — |
+| VP-11~12 | 등록 이벤트 | P14 | 1/1 | P-EVENT → 신규 true, 재사용 미표기 | 원본 cwd/기존 프로젝트 → receipt | — |
+| VP-10~12 | catalog 갱신 | P15 | 1/1 | P-CATALOG → 실제 store에 D:/created | projectCreated true → list IPC → store | — |
+| VP-10~12 | popup 수명 | P16 | 1/1 | P-FOCUS·UI-RESIZE·UI-REAL → 닫기/초점 | 검색/행/Escape/Tab/resize → DOM/초점 | — |
 
-- §10 자리 목록 밖에서 본 운반 자리: 없음 / … → 목록이 고정되지 않은 pair면 PLAN_GAP · 고정 목록 밖은 기록 · 현재 계약 비귀속이면 별도 finding
-- 직전 verify 고장 이력의 `못 잡음` 행: 없음 / ID → 잡은 테스트 `파일:테스트명`(재실행 결과) 또는 `동치` 근거·확인 실행 — 목록 안팎 모두 이번 턴에 닫는다
+고정 목록 S1~5/A1~10/P1~16과 위 닫힘 행의 양방향 차집합은 0행이다. Q 검색의 비대상 hit는 이력 snapshot(activity/native-history/legacy-resources), adapter의 저장 경로 조회, variant 컨트롤, session load/continuity, 프로젝트 상세 CwdButton, 참조 폴더 picker, 라우트 승격이다. 이들은 고정 목록의 새 서버 env·agent 선택·`/new` 프로젝트 선택 edge가 아니다. `Landing`의 props spread는 Q-P 문자열 hit만으로 찾지 못하므로 실제 `composerProps → Composer` 소스를 함께 열어 P2를 대조했다.
 
-**V-pair 자기확인** — 구현자의 `SELF_PASS`는 독립 검증의 `PASS`가 아니다. 이전 라운드 상태를 유지로 옮기는 행도 좌표를 인용하고, 좌표 없이 났던 `SELF_PASS`는 이번 턴에 재판정한다(impl §2).
+- §10 자리 목록 밖에서 본 운반 자리: `useChatRouteSync`는 같은 `/new`에서 catalog 변경만으로 초안을 재생성하지 않는다. 기존 계약 보존, 수정 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: 없음 — 최초 구현 r1.
+
+**V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | REQUIRED / REGRESSION | SELF_PASS / SELF_BLOCKED | `파일:테스트명` … | required — 결과 / not selected — 직접 oracle 근거 |
+| VP-01 | REQUIRED | SELF_PASS | S-UT | not selected — JSON 직접 단언 |
+| VP-02 | REQUIRED | SELF_PASS | S-UT·S-PROFILE·S-SPAWN·S-DB | not selected — child/env 직접 관측 |
+| VP-03 | REQUIRED | SELF_PASS | S-SPAWN·S-DB·server lifecycle suite | not selected — 소유·해제·재생성 직접 관측 |
+| VP-04 | REQUIRED | SELF_PASS | S-UT·S-PROFILE·S-SPAWN·S-DB | VP-01~03과 동일 |
+| VP-05 | REQUIRED | SELF_PASS | A-UT | not selected — 역순 fixture 직접 단언 |
+| VP-06 | REQUIRED | SELF_PASS | A-SLOT·A-NEW·A-CHOICE·UI-TITLE·UI-REAL | M-A1 red 2 → 복원 green |
+| VP-07 | REQUIRED | SELF_PASS | A-SLOT·A-NEW·A-CHOICE | M-A1 재사용 |
+| VP-08 | REQUIRED | SELF_PASS | A-UT·A-STATUS·A-NEW·A-CHOICE·UI-REAL | M-A1 재사용 |
+| VP-09 | REQUIRED | SELF_PASS | P-UT·P-GUARD·P-STORE·P-SAME·P-SAVE | not selected — 상태/설정 결과 직접 단언 |
+| VP-10 | REQUIRED | SELF_PASS | P-PAGE·P-LOAD·P-ADD·P-RACE·P-FOCUS·P-CATALOG | M-P1/M-P2 각각 red 1 → 복원 green |
+| VP-11 | REQUIRED | SELF_PASS | P-PAGE·P-RACE·P-STORE·P-BIND·P-EVENT·P-CATALOG | not selected — 직접 행동 oracle |
+| VP-12 | REQUIRED | SELF_PASS | VP-09~11 좌표 + P-DELETE·P-DETACH·UI-REAL | M-P1/M-P2 재사용 |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
-> pair가 적대 증거를 선택했거나 파생 이슈가 변이를 인용했거나 이번 턴에 구조적 proxy·0건/전수·배선 oracle을 만들었다면
-> 그 결함을 심어 장치의 방향·민감도를 확인한다(impl §3). 형제 슬롯이 서로 다른 계약을 가지면
-> 지우는 변이에 더해 **형제와 맞바꾸는 변이**도 심는다. 그 밖의 hunk에는 mutation을 새로 발명하지
-> 않고 `해당 없음 — 직접 oracle …`을 적는다. mutation이 없다는 이유만으로 현재 FAIL 범위를 늘리지 않는다.
-
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| `파일:줄` — 무엇을 어떻게 바꿨는가(제거 / 형제와 맞바꿈) | `VP-… 선택 증거` / `D<N> 인용 변이` / `구조·전수·배선 oracle 민감도` | red / green / 최초 | `<케이스명>` 외 N건 | 잠김 / **잠금 없음 — 사유** / 해당 없음 — 직접 oracle |
+| M-A1: `Controls.tsx` ModeControl `snapshot.agents.status`를 `snapshot.models.status`로 맞바꿈 | VP-06 선택 증거, VP-07·08 재사용 | 최초 | A-SLOT의 agents/models 선완료 두 경우, 2건 | 잠김 — red 2, 원본 복원 후 green |
+| M-P1: `Composer.tsx` 상단 CwdPanel의 landingProjects 전달 제거 | VP-10 선택 증거, VP-12 재사용 | 최초 | P-PAGE claude 1건 | 잠김 — picker가 사라져 red, 복원 green |
+| M-P2: `Composer.tsx` 하단 CwdPanel의 landingProjects 전달 제거 | VP-10 선택 증거, VP-12 재사용 | 최초 | P-PAGE opencode 1건 | 잠김 — picker가 사라져 red, 복원 green |
 
-- **분모 검산**: `선택 증거 N · 인용 변이 M · 새 oracle K = 표 행 T` — 행이 없는 claim은 `SELF_PASS`·`closed`로 적지 않는다(impl §8).
-- **덮개 회귀**: 이전 라운드에 red였는데 이번에 green인 행 0건 / N건 → 사유와 함께 적는다. 장치를 교체·삭제했으면 구 장치가 잡던 자리가 새 장치의 하한이다(impl §3).
+- **분모 검산**: 선택 증거 3 · 인용 변이 0 · 별도 새 구조/proxy oracle 0 = 표 행 3. 파일은 byte 백업 후 finally에서 복원했다. 나머지는 실제 값·행동 결과를 관측한다.
+- **덮개 회귀**: 해당 없음 — 이전 라운드 없음. 기존 agent 테스트의 과거 ‘에이전트’ 기본값 기대만 새 계약으로 갱신했다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 / … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … / **표에 없음** | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
-
-> 범위 밖이라 이번에 고치지 않더라도 **적는다** — 적지 않으면 그 선택지가 존재한 적도 없게 된다.
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | agent loading/error/empty, 프로젝트 loading/empty/add를 실제 컨트롤이 사용한다. A-STATUS·P-LOAD·빈 목록 케이스 통과 | 없음 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 작업 수명 이동 없음. dialog busy/mounted는 hook, focus/query는 컴포넌트에 둔다 | P-RACE와 중복 dialog 케이스 통과 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | §5 취소·실패·루트 거절 및 다른 초안/전송/unmount 행 | root inline·reportError 유지 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | dialog 오류는 reportError, root는 CwdPanel 거절문. 저장 실패는 선택 보존+보고 | page 오류 및 P-SAVE 통과 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | activeKey·generation·sessionId·busy/loading·mounted 재검사 | P-RACE 5조건 및 P-GUARD 통과 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 선조치(구현 세부) / 📝 **plan 수정 제안**(설계가 틀렸다는 증거) / ⚠️ 보고만(제품·AC·Decision·의존성) | … |
-
-> 가운데 갈래가 구현 턴의 핵심 산출이다 — plan을 고치는 것은 설계자 책임이지만, **고쳐야
-> 한다는 증거를 만드는 것은 구현자만 할 수 있다.** 무엇이 틀렸는지·코드에서 무엇을 봤는지·
-> 어느 절을 어떻게 바꿔야 하는지를 함께 적는다.
+| 1 | 기존 setPendingCwd가 reducer root 거절 뒤에도 lastCwd를 저장했다 | ✅ 선조치(구현 세부) — root 거절 시 기억 저장 생략 | P-GUARD에서 두 action 모두 설정 호출 0 |
+| 2 | SET_CWD의 같은 경로 재선택도 참조 경로·Git 문맥을 지웠다 | ✅ 선조치 — directoryIdentity가 같으면 pending ID/거절만 정착 | P-SAME에서 extraDirs/worktree/baseRef 보존 |
+| 3 | Popover가 최초 측정 후 비동기 내용 증가를 관측하지 않았다 | ✅ 선조치 — panel ResizeObserver와 좌표 동등성 비교 | UI-RESIZE, 열린 긴 메뉴 실제 재배치 |
+| 4 | 숨긴 Electron 창 capture가 이전 프레임을 돌려줄 수 있었다 | ✅ 검사 도구 보완 — offscreen 렌더, 별도 임시 프로필 | UI-REAL 캡처와 DOM 관측 재확인 |
+| 5 | 설치 앱의 실제 네이티브 dialog와 live OpenCode 서버까지 연결한 수동 smoke는 별도다 | ⚠️ 검증 범위 명시 — production IPC 호출/응답은 자동 테스트 경계에서 대체 | 실제 컴포넌트 렌더·Main DB 등록·API 경계 테스트를 조합; 독립 verify가 배포본을 확인 가능 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: 없음 / …
-
-> 차이가 있으면 **대체물이 갖고 원본이 갖지 않던 실패 모드를 축마다 한 줄씩** 적고, 그 축에서 다시 확인한
-> AC·§10 행을 관측과 함께 남긴다. 한 축만 적은 보고는 나머지 축도 조사한 것처럼 보인다(impl §6).
+- §11 O-P2를 독립 `LandingProjectPicker.test.ts` 대신 `NewChatLandingPage.project-picker.test.ts`에 합쳤다. store·Popover를 대체하지 않으며 page에서 시작해 더 넓은 경로를 실행한다. 신규 테스트명은 위 실제 좌표를 따른다.
+- §11 hook의 open/query/focus는 DOM ref와 가까운 picker 컴포넌트가, dialog/target fence는 hook이 소유한다. 동일 mounted 수명이다. 신규 IPC·의존성·DB 변경은 없다.
+- 실제 Chromium 검사는 재현 가능한 `scripts/composer-picker-visual.mjs`로 저장했다. 모달 반환·첫 전송/Nav 등록은 page/Main/catalog 통합 테스트로 나누어 확인했다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … / 해당 없음 + 근거 | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … / 해당 없음 + 근거 | … |
-| 재진입 | … / 해당 없음 + 근거 | … |
-| 다른 무효화 축 | … / 해당 없음 + 근거 | … |
+| 만료 | 해당 없음 — 새 캐시/TTL 없음 | catalog 캐시 기존 테스트 통과 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | page fixture의 catalog/chat 전역 store가 케이스 사이 남을 가능성 | 매 beforeEach 실제 store 초기화, 삭제 ID fixture 분리; P-PAGE/P-DELETE 통과 |
+| 재진입 | focus 상태와 dialog 상태의 소유자가 나뉘어 닫기 중 응답 가능 | hook는 picker 수명 유지, P-RACE·중복 호출 검사, AC13 |
+| 다른 무효화 축 | 같은 __new__ 키 교체를 컴포넌트 unmount만으로는 감지 못함 | generation fence로 P-GUARD·P-RACE new-draft 통과 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님) | 테스트 N파일 / M케이스 · error·warning 수 · 환경 기인 실패 분리 근거 |
-| V-pair 자기확인 | `SELF_PASS N / SELF_BLOCKED M`; pair별 상세는 위 표 |
-| 강제 지점 전수 | N/M |
-| **AC 자기보고**(`Criteria-Met`) | N/M — 각 AC 옆에 **이번 턴에 재현한 관측값**을 적는다. 표식을 다시 찾지 못한 AC는 ✅로 세지 않는다 |
-| **합계 검산** | `✅ N · ⚠️ M · ❌ K = 총 T` — 분모를 다시 세고 **이 줄을 쓴 뒤** 커밋 trailer를 적는다. 분모가 바뀌었으면(AC 분할·추가) 그 사실을 적고 이전 라운드 합계와 직접 비교하지 않는다 |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `(r<N> 구현 — 좌표는 INDEX)` — 자기 환경의 해시를 적지 않는다. 좌표 정본은 `INDEX.md` 한 곳이고 검증자가 채운다 |
+| 변경 파일 | native env/server tests; agent resolver/Controls; picker/options/hook/store/reducer; page/Composer/CwdPanel; MenuTitle/Icon/Popover; ko/en; 회귀·시각 검사 및 현재 아키텍처 문서 |
+| 실행 명령 | §19 focused vitest + MenuItem/Popover/삭제 동기화 suites; `npm run lint`; `npm run typecheck`; Electron Node 모드의 project-binding/send.worktree; `node scripts/composer-picker-visual.mjs`; `git diff --check`; doc inventory |
+| **관측한 게이트 산출**(exit code 아님) | focused 28파일/182케이스 + Main DB 2파일/28케이스 통과. lint 0 error/기존 2 warning. typecheck node/web/test 오류 0. 실제 Chromium 단언 통과. 문서 generated/prose 통과, 기존 임시 외부 자료 링크 오류 10건 유지 |
+| V-pair 자기확인 | SELF_PASS 12 / SELF_BLOCKED 0 — 독립 verify PASS를 선점하지 않는다 |
+| 강제 지점 전수 | S5+A10+P16 = 31/31; 자리별 좌표 위 표 |
+| **AC 자기보고**(`Criteria-Met`) | 16/16 — 아래 관측별 대조 |
+| **합계 검산** | ✅ 16 · ⚠️ 0 · ❌ 0 = 총 16 |
+| 블로커 / 역질문 | 없음. 전체 문서 링크 gate의 기존 10오류는 이번 변경 경로 밖이며 임시 자료를 수정하지 않았다 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+| AC | 자기확인 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | S-UT/S-SPAWN: undefined·true·false 모두 boolean false |
+| AC2 | ✅ | server lifecycle·S-DB: 설정/인증/경로·소유·재사용 보존 |
+| AC3 | ✅ | A-NEW: z-first 라벨/체크/store/첫 send 일치 |
+| AC4 | ✅ | A-CHOICE: 수동 유지→소멸 fallback→empty clear |
+| AC5 | ✅ | A-STATUS·A-SLOT: 명시 상태 문구, 두 완료 순서 독립 |
+| AC6 | ✅ | UI-REAL: 짧은 95.45px·긴 이름/체크 viewport 안 |
+| AC7 | ✅ | UI-TITLE·UI-REAL: inline 7.25px gap·원호·spin→none |
+| AC8 | ✅ | P-PAGE 양 하네스: open 시 native picker 0회 |
+| AC9 | ✅ | P-UT/P-FOCUS: 이름·경로 검색·체크; UI-REAL 폴더 SVG/선택 강조 |
+| AC10 | ✅ | P-PAGE: a-id+D:/Beta, 입력·첨부·하네스 유지 |
+| AC11 | ✅ | P-ADD: 추가만 dialog, 선택 후 목록 삽입/첫 send 없음 |
+| AC12 | ✅ | P-PAGE/P-STORE→P-BIND/P-EVENT→P-CATALOG 각 실제 경계의 값 보존 |
+| AC13 | ✅ | P-RACE 5조건·P-GUARD: 잘못된 초안/설정 쓰기 없음 |
+| AC14 | ✅ | P-STORE/P-SAME/P-SAVE 및 reducer suites: 경로 변경 초기화·동일 경로 보존·저장 실패 보고 |
+| AC15 | ✅ | P-FOCUS·UI-REAL: 키보드 선택·닫기·Tab/초점 및 테마·좁은 폭 |
+| AC16 | ✅ | P-DETACH/P-DELETE/P-GUARD: 세션 보존·삭제 ID 재선택 거절 |
+
+✅ 16 · ⚠️ 0 · ❌ 0 = 총 16. 상태 사본은 plan 메타·INDEX·구현 trailer를 마무리 시 다시 읽어 대조한다.
 
 ## [구현자 기입] Review Signals — 사실만
 
-> 원인 분류(A~F)와 지침 변경은 `handoff-review`가 한다.
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 최초 r1, 이전 라운드 없음.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: root 저장·같은 경로 reset은 이번 AC13/14에서 직접 검사해 보완했다. 기존 테스트는 그 실패 상태를 만들지 않았다.
+- 반복해서 부딪히는 환경 한계: Node ABI 127과 설치된 Electron ABI 140의 차이는 Electron Node 모드로 DB 테스트를 실행해 해결했다. 권한 변경 뒤 Chromium 하위 프로세스 로드 실패는 같은 시각 검사를 제한 밖에서 재실행했다. native 모듈 재빌드 없음.
+- 현재 라운드·impl 턴: r1. 검증자에게 인계하며 verify 문서는 작성하지 않는다.
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음 / …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: …
-- 반복해서 부딪히는 환경 한계: 없음 / …
-- 현재 라운드·impl 턴: `rN` / `rN.k` (verify 3·6회째 FAIL/RETURN_TO_PLAN 또는 verify 없는 impl 턴 3 초과면 — 사용자 요구 변경 턴 제외 — 다음 재구현 전에 `handoff-review`. verify 9회째가 PASS가 아니면 `verify/CLOSED` 종료)
 
 ---
 

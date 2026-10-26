@@ -95,6 +95,11 @@ vi.mock('../features/chat/store/chatStore', () => ({
   useNewChatPending: () => false,
   useProjectConcurrencyCount: () => 0,
   chatActions: {
+    capturePendingProjectTarget: () => ({ key: 'draft', draftGeneration: 1 }),
+    selectPendingProject: ({ cwd }: { cwd: string }) => {
+      fixture.session.cwd = cwd
+      return true
+    },
     captureDiffRequirementSnapshot: () => ({
       sessionKey: 'draft',
       sessionId: null,
@@ -215,6 +220,8 @@ describe('new conversation harness layout', () => {
     render()
     await settle()
     dom.click(find('aria-label', 'chat.composer.cwdSelectAria'))
+    expect(fixture.pickDirectory).not.toHaveBeenCalled()
+    dom.click(find('role', 'menuitem'))
     await settle()
     expect(fixture.session.cwd).toBe('/selected')
     render()

@@ -159,6 +159,8 @@ Context에는 provider 수명 동안 같은 store를 전달한다. 소비자는 
 
 프로젝트 landing의 새 대화는 프로젝트 `cwd`를 우선하고 경로가 없으면 OS Desktop을 쓴다. 초기 Desktop 응답은 아직 cwd가 없는 미확정 대화에만 적용하며, 프로젝트 목록의 지각 응답도 사용자가 선택한 cwd를 덮지 않는다. 직접 프로젝트 URL의 목록 로딩 중에는 Composer를 노출하지 않는다. `useChatRouteSync`는 `/new`나 `/projects/:id`의 실제 pathname 진입에서만 초안을 초기화하고, 같은 경로의 카탈로그 갱신은 cwd 초기화만 멱든하게 완료한다. Main이 `session.updated.patch.projectId`로 연결과 sessionId를 확정하면 현재 본문을 보존한 채 `/chat/<id>`로 한 번 replace하고, 최근·조회된 프로젝트 membership을 같이 갱신한다.
 
+`/new`의 프로젝트 선택 팝업은 페이지가 전달한 catalog의 폴더 기반 항목을 검색한다. 기존 행은 cwd와 pendingProjectId를 함께 선택하고, 추가 폴더는 현재 목록에서 경로가 일치하는 ID 또는 null을 적용한다. 폴더 선택만으로 등록하지 않으며 첫 전송의 Main binding과 projectCreated 이벤트가 등록·목록 갱신을 담당한다. 초안마다 메모리 generation을 부여해 모달 결과 적용 직전에 활성 키·generation·미전송·idle을 검사한다. 성공한 선택만 lastCwd로 기억하고 같은 경로 재선택은 Git·참조 폴더 문맥을 보존한다.
+
 프로젝트 삭제는 DB 성공 뒤 projects catalog·sessions membership·chat 캐시·Nav 펼침 상태의 프로젝트 소속만 해제한다. 세션 본문·cwd·실행 상태는 유지하며, 성공 후 도착한 이전 목록·이벤트가 삭제된 projectId를 다시 붙이지 못하게 한다.
 
 Sidebar는 고정됨→프로젝트→최근 대화 순서다. 고정 프로젝트는 고정 대화와 같은 그룹에, 미고정 프로젝트는 프로젝트 그룹에 표시한다. 프로젝트 행은 이름 뒤에 작은 전체 경로를 표시한다. 최근 대화는 고정 대화와 고정 프로젝트 소속을 제외하는 기존 파티션을 사용하며 미분류 대화도 포함한다. 기존 대화의 프로젝트 연결을 자동 보정하지 않는다.

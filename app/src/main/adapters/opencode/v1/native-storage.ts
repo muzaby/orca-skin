@@ -10,7 +10,7 @@ export function nativeOpenCodeEnvironment(
   return {
     ...base,
     ...env,
-    OPENCODE_CONFIG_CONTENT: JSON.stringify({ ...config, share: 'disabled' })
+    OPENCODE_CONFIG_CONTENT: JSON.stringify({ ...config, share: 'disabled', snapshot: false })
   }
 }
 

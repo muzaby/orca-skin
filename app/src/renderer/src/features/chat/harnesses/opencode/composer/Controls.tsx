@@ -9,6 +9,7 @@ import { OpenCodeIcon } from '../Icon'
 import type { ComposerControlProps } from '../../contracts'
 import { modelKey } from '../../../components/composer/modelSelection'
 import { useComposerCatalog } from './useComposerCatalog'
+import { resolveAgentSelection } from './agentSelection'
 
 export function OpenCodeModeControl({ providerKey }: ComposerControlProps): React.JSX.Element {
   const { snapshot } = useComposerCatalog(providerKey)
@@ -45,10 +46,14 @@ function OpenCodeSelect({
   value,
   options,
   onChange,
+  compact = false,
+  emptyLabel,
   loading = false
 }: {
   label: string
   loading?: boolean
+  compact?: boolean
+  emptyLabel?: string
   value: string
   options: { value: string; label: string }[]
   onChange: (value: string) => void
@@ -92,7 +97,8 @@ function OpenCodeSelect({
         }}
       >
         <span className="truncate">
-          {options.find((option) => option.value === value)?.label ?? (value || label)}
+          {options.find((option) => option.value === value)?.label ??
+            (value || emptyLabel || label)}
         </span>
         <OpenCodeIcon name="chevron-down" />
       </button>
@@ -103,7 +109,7 @@ function OpenCodeSelect({
           tabIndex={-1}
           aria-label={label}
           aria-busy={loading}
-          className="flex max-h-[320px] w-[300px] flex-col overflow-auto"
+          className={`flex max-h-[320px] flex-col overflow-auto ${compact ? 'w-max max-w-[calc(100vw-24px)]' : 'w-[300px]'}`}
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
               event.preventDefault()
@@ -142,11 +148,11 @@ function OpenCodeSelect({
           }}
         >
           <MenuTitle
-            trailing={
+            afterLabel={
               loading ? (
                 <span data-agent-loading aria-hidden="true">
                   <Icon
-                    name="refresh"
+                    name="spinner"
                     size={12}
                     className="animate-spin motion-reduce:animate-none"
                   />
@@ -172,7 +178,13 @@ function OpenCodeSelect({
               <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">
                 {option.label}
               </span>
-              {value === option.value && <Icon name="check" size={12} className="shrink-0" />}
+              {compact ? (
+                <span className="flex w-3 shrink-0 items-center">
+                  {value === option.value && <Icon name="check" size={12} />}
+                </span>
+              ) : (
+                value === option.value && <Icon name="check" size={12} className="shrink-0" />
+              )}
             </MenuItem>
           ))}
         </div>
@@ -192,14 +204,23 @@ export function OpenCodeAgentControl({
 }): React.JSX.Element {
   const { tr } = useI18n()
   const selected = useChatSession((state) => state.harnessAgent)
+  const resolved = resolveAgentSelection(selected, agents, authoritative, status)
   useEffect(() => {
-    if (authoritative && selected && !agents?.some((agent) => agent.name === selected))
-      chatActions.setHarnessOptions({ agent: '', variant: '' })
-  }, [agents, authoritative, selected])
+    if (resolved !== (selected ?? ''))
+      chatActions.setHarnessOptions({ agent: resolved, ...(selected ? { variant: '' } : {}) })
+  }, [resolved, selected])
   return (
     <OpenCodeSelect
       label={tr('harness.agent')}
-      value={selected ?? ''}
+      value={resolved}
+      compact
+      emptyLabel={tr(
+        status === 'loading'
+          ? 'harness.agentLoading'
+          : status === 'error'
+            ? 'harness.agentError'
+            : 'harness.noAgents'
+      )}
       onChange={(value) => chatActions.setHarnessOptions({ agent: value })}
       loading={status === 'loading'}
       options={(agents ?? []).map((agent) => ({ value: agent.name, label: agent.name }))}

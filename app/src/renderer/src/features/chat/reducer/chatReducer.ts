@@ -667,7 +667,7 @@ export type ChatAction =
   | { type: 'NEW_CHAT'; projectId?: string | null }
   | { type: 'CANCEL_CHAT' }
   | { type: 'CLEAR_ERROR' }
-  | { type: 'SET_CWD'; cwd: string }
+  | { type: 'SET_CWD'; cwd: string; projectId?: string | null }
   | {
       type: 'SUBAGENT_RUN_STATE'
       toolUseId: string
@@ -1325,11 +1325,18 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       // **루트는 작업 경로도 될 수 없다** (D-019). cwd 는 `writeRoots[0]` 이라 루트면 0075
       // 가드가 판정할 바깥이 아예 없어진다 — 참조 경로보다 오히려 직접적이다.
       if (isFilesystemRoot(action.cwd)) return { ...state, extraDirRejection: 'root' }
+      if (state.cwd && directoryIdentity(state.cwd) === directoryIdentity(action.cwd))
+        return {
+          ...state,
+          extraDirRejection: null,
+          ...(action.projectId !== undefined ? { pendingProjectId: action.projectId } : {})
+        }
       // 작업 경로가 바뀌면 그 밑으로 들어온 참조 경로는 의미가 달라진다 — 같이 비운다.
       // 유예된 기준 브랜치도 같다: 다른 저장소의 브랜치 이름이 그대로 살아남으면 안 된다.
       return {
         ...state,
         cwd: action.cwd,
+        ...(action.projectId !== undefined ? { pendingProjectId: action.projectId } : {}),
         extraDirs: [],
         extraDirRejection: null,
         // 새 경로에서 Git 컨트롤이 숨겨져도 이전 격리 선택이 전송에 남지 않게 한다.

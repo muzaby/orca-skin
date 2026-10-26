@@ -20,6 +20,7 @@ import {
 import { steerBlockedByProviderBoundary } from '../lib/sendAdmission'
 import { Button } from '../../../shared/ui/Button'
 import { CwdPanel } from './CwdPanel'
+import type { LandingProjects } from '../lib/landingProjectOptions'
 import { GitRow } from './composer/GitRow'
 import { Notice } from './Notice'
 import { ApprovalCard } from './ApprovalCard'
@@ -65,6 +66,7 @@ interface ComposerProps {
   // 랜딩 페이지가 직접 주입하는 cwd 패널. sessionId null 같은 내부 상태가 아니라
   // page 컨텍스트로만 노출해 첫 전송 직후 ChatTile 전환 중에는 렌더하지 않는다.
   showLandingCwdPanel?: boolean
+  landingProjects?: LandingProjects
   // OpenCode 새 대화의 컨텍스트는 입력 아래. 모델 전환에도 입력 인스턴스를 유지한다.
   openCodeLanding?: boolean
   // 세션이 시작됐는가 — git 행의 노출 조건 절반(나머지 절반은 git 저장소 여부, 0206 D-002).
@@ -114,6 +116,7 @@ export function Composer({
   restoredDraft,
   flush,
   showLandingCwdPanel = false,
+  landingProjects,
   openCodeLanding = false,
   showGitRow = false,
   onManagePlugins
@@ -250,7 +253,7 @@ export function Composer({
             <>
               <Requests />
               {showLandingCwdPanel && !(openCodeLanding && contextBelow) && (
-                <CwdPanel cwd={cwd} inflight={leaseBusy} />
+                <CwdPanel cwd={cwd} inflight={leaseBusy} landingProjects={landingProjects} />
               )}
             </>
           }
@@ -406,7 +409,12 @@ export function Composer({
                 className="absolute inset-x-0 top-full pt-6"
                 data-surface="opencode-landing-context"
               >
-                <CwdPanel cwd={cwd} inflight={leaseBusy} appearance="opencode" />
+                <CwdPanel
+                  cwd={cwd}
+                  inflight={leaseBusy}
+                  appearance="opencode"
+                  landingProjects={landingProjects}
+                />
               </div>
             ) : null
           }
