@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-26 |
 | 매핑 | — |
-| 상태 | IMPL_DONE (V1 r1) |
+| 상태 | IMPL_DONE (V1 r1.2) |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
 | 이번 V revision | `V1` |
@@ -476,6 +476,8 @@ main SkillInfo.sourceLabel(접미 유지) ─▶ orderSkills 정렬 키 · catal
 
 ## [구현자 기입] 설계 리뷰
 
+- r1.2 보완: r1 원격 CI run `40259319070`의 필수 Test gate가 red여서 같은 라운드에서 수정했다. 구현 보고는 아래 최종 트리를 기준으로 갱신했다.
+
 - 동의 / 그대로 진행: D-001~D-012를 유지했다. 상태 UI·renderer 제어만 제거하고 native 관측과 IPC 표면은 보존했다.
 - 이견 / 현실성 문제: §19 관련 스위트에는 SQLite를 쓰는 `settlement.integration.test.ts`도 있다. Node ABI 실패 5건은 Electron Node 모드에서 따로 실행해 5/5 통과했다.
 - ACTIVE Decision과 충돌하는 설계 발견: 없음. 사용자 추가 요청인 현재 CI 실패 2건은 0285의 공통 랜딩·활자 계약을 반영하지 않은 테스트 기대값이었다.
@@ -503,7 +505,7 @@ main SkillInfo.sourceLabel(접미 유지) ─▶ orderSkills 정렬 키 · catal
 - EP-05는 수정 후 검색 10줄을 페이지 skills의 JSX 시작/label 중복 1줄과 합쳐 9자리로 대응했다. EP-06은 map get/set 2줄과 비교 1줄을 2자리로 대응했다. 제목 비교로 바뀐 뒤 옛 `last.items[0].skill.source` 검색은 사라졌다. EP-07은 4줄/3자리, EP-08 전체 5소비자에서 이 경로 2곳/기존 Header·Sidebar 3곳을 분리했다. EP-09 옛 아이콘 분기 잔여 0이다.
 - EP-10의 정적 소비자 0과 locale 키 부재를 따로 검사했다. EP-11 옛 15자리 중 제거 패턴 13자리·새 서술 2자리 대응을 확인했고, 구현 후 제거 패턴 0 및 새 그룹 순서 서술을 관측했다.
 - §10 자리 목록 밖에서 본 운반 자리: 이미 §10 하단에 언급된 `ComposerInputController.nativeMenu.label`도 SSOT로 변경했다. 추가로 `rendering.md` 타이틀 메뉴 문단·상세 진입 문장과 `state.md` 우측 타일 문단의 옛 상태 메뉴 설명 3곳을 수정했다. 고정 목록을 재정의하지 않고 같은 계약에 맞췄다.
-- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(최초 라운드).
+- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(검증 전). r1 CI가 발견한 오류 보고 등록 T39/T40은 EP-03의 삭제된 openPlugin/toggle에만 속한다. 두 등록 제거 후 `reportSites.registry.test.ts:accounts for all baseline catches without a missing or extra ordinal`의 양방향 차집합이 0이다.
 
 **V-pair 자기확인**
 
@@ -528,7 +530,7 @@ main SkillInfo.sourceLabel(접미 유지) ─▶ orderSkills 정렬 키 · catal
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
-각 결함을 하나씩 적용해 실제 테스트 실패를 관측한 뒤 원본 바이트를 복원했다. M10 첫 실행은 기존 단언이 제목을 보지 않아 통과했고, 플러그인 제목 exact 단언을 추가한 뒤 같은 결함에서 3건 실패했다. 아래 표는 보강 후 결과다.
+r1에서 각 결함을 하나씩 적용해 실제 테스트 실패를 관측한 뒤 원본 바이트를 복원했다. r1.2의 production 변경은 없으며 아래 33개 증거는 동일 production 트리에 대한 r1 실행 기록이다. M10 첫 실행은 기존 단언이 제목을 보지 않아 통과했고, 플러그인 제목 exact 단언을 추가한 뒤 같은 결함에서 3건 실패했다. 아래 표는 보강 후 결과다.
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
@@ -567,7 +569,8 @@ main SkillInfo.sourceLabel(접미 유지) ─▶ orderSkills 정렬 키 · catal
 | `S10-doc-menu` 새 현재 문서에 OpenCode 상태 메뉴 설명 주입 — `0286-surface-probe.md` | 새 oracle 감도 | 최초 | not ok 2 - current architecture describes brand groups and omits the removed status surface / 1 | 검출 |
 
 - **분모 검산**: 선택 증거 19(M01은 VP-05·06 공유) + 이전 라운드 인용 변이 0 + 새 oracle 감도 14(S계열 11 + CI C계열 3) = 33행. 등록 id 집합과 결과 id 집합의 차집합 0, 검출 33·미검출 0. CI 기대값 복구는 실측된 두 실패와 0285 계약에 근거했다.
-- **덮개 회귀**: 해당 없음(최초 라운드). 삭제된 제어/패널 테스트를 제외한 읽기 수명·bridge·다른 타일 테스트는 최종 실행에서 통과했다.
+- r1.2 오류 보고 registry 자체 감도: 기존 `detects removal of T38`, 같은 파일의 CONSUMED 두 catch에 대한 `detects forbidden reporting…`을 포함해 264케이스 통과했다. 새 oracle은 만들지 않았다.
+- **덮개 회귀**: 삭제된 두 제어 catch만 등록에서 제거했다. 읽기 T38과 owner cleanup 등록·누락/추가 판정·기존 자동 mutation은 유지했다. 삭제된 제어/패널 테스트를 제외한 읽기 수명·bridge·다른 타일 테스트는 최종 실행에서 통과했다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
@@ -588,11 +591,12 @@ main SkillInfo.sourceLabel(접미 유지) ─▶ orderSkills 정렬 키 · catal
 | 3 | 지운 상태 상세에만 쓰던 `toggleRightPanelTile` origin 인자 | 호출부와 구현에서 함께 제거 | typecheck·메뉴 toggle 단언 통과 |
 | 4 | 문서 원래 스윕이 “OpenCode 상태” 표현을 못 봄 | 고정 목록 밖 3문장 정정 및 G-DOC 패턴 보강 | S10 검출, 최종 현재 문서 검색 0 |
 | 5 | 로컬 임시 checkout `.tmp/opencode-dev`·`app/.temp/opencode`의 외부 README 링크 10건 | 사용자 임시 자료를 보존하고 tracked 파일 스냅샷으로 동일 inventory 명령 실행 | 생성물·prose·links 모두 정상 |
+| 7 | r1 CI의 shared/errors registry에 삭제한 제어 catch 2개(T39/T40)가 남음 | 레지스트리 2행만 제거; renderer 전체를 실행해 feature 밖 검사 포함 | 수정 전 266통과·5실패, 수정 후 registry 264통과; T38 및 양방향 catch 차집합 검사 통과 |
 | 6 | 0284 AC2의 기존 수동 상태 토글 진입이 소멸 | 구현 전 사용자에게 알림. D-003대로 IPC와 main 유지 | 후속 시각/토글 검증 범위는 검증자가 구분 |
 
 ### 설계 대비 명시적 차이
 
-- 제품·V 규범 변경 없음. 0건 스윕을 재현 가능한 Node 스크립트 테스트로 추가했고, 추가 요청인 기존 CI 테스트 기대값 2곳을 같은 구현 게이트 보완에 포함했다.
+- r1.2는 `shared/errors/reportSites.registry.test.ts`의 삭제된 경로 등록만 정리했다. 제품·V 규범 변경 없음. 0건 스윕을 재현 가능한 Node 스크립트 테스트로 추가했고, 추가 요청인 기존 CI 테스트 기대값 2곳을 같은 구현 게이트 보완에 포함했다.
 - 제어 전용 테스트는 §7 처분대로 삭제했다. 읽기 테스트에서 삭제된 공개 refresh 대신 실제 connected 이벤트로 재연결을 유도한다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
@@ -607,14 +611,16 @@ main SkillInfo.sourceLabel(접미 유지) ─▶ orderSkills 정렬 키 · catal
 | 항목 | 내용 |
 |---|---|
 | 변경 파일 | renderer 상태 UI/제어 제거, 공유 출처 제목·그룹 순서·로고·MCP 아이콘; 관련 테스트·제거 스윕; 현재 문서 5파일과 plan/INDEX |
-| 실행 명령 | `npm run lint`; `npm run build`(typecheck 3종 포함); 관련 chat/skills/preload + typeScale/resources vitest `--maxWorkers=2`(DB 파일 제외); Electron Node 모드 settlement; `node --test scripts/*.test.mjs`; inventory·test-budgets·migrations guard |
-| **관측한 게이트 산출**(exit code 아님) | lint 0 error·기존 TanStack 경고 2; typecheck node/web/test 완료; main/preload/renderer 번들 생성. 관련 291파일/2340케이스, DB 1파일/5케이스, scripts 144케이스 통과. G-DOC 보강 후 해당 2케이스 재통과. inventory 생성물/prose/links 정상, real-git 16스위트 예산·migration sync/append-only 정상 |
+| r1.2 실행 명령 | `npm run lint`; `npm run typecheck`; renderer 전체+preload vitest(`--exclude **/settlement.integration.test.ts --maxWorkers=2`); registry 단독 재현; tracked snapshot inventory |
+| r1 실행 명령 | `npm run lint`; `npm run build`(typecheck 3종 포함); 관련 chat/skills/preload + typeScale/resources vitest `--maxWorkers=2`(DB 파일 제외); Electron Node 모드 settlement; `node --test scripts/*.test.mjs`; inventory·test-budgets·migrations guard |
+| **r1.2 관측한 게이트 산출** | renderer/preload 379파일·3135케이스 통과, registry 264케이스 포함. lint 0 error·기존 경고 2; typecheck node/web/test 완료. r1의 production/DB/scripts 변경 없음 |
+| **r1 관측한 게이트 산출**(exit code 아님) | lint 0 error·기존 TanStack 경고 2; typecheck node/web/test 완료; main/preload/renderer 번들 생성. 관련 291파일/2340케이스, DB 1파일/5케이스, scripts 144케이스 통과. G-DOC 보강 후 해당 2케이스 재통과. inventory 생성물/prose/links 정상, real-git 16스위트 예산·migration sync/append-only 정상 |
 | V-pair 자기확인 | SELF_PASS 15·SELF_BLOCKED 1(VP-16), 독립 검증 전 |
 | 강제 지점 전수 | EP-01~11의 고정 자리와 제거 대상 전수 대응. 자세한 재검색·차집합·oracle은 위 표 |
 | **AC 자기보고**(`Criteria-Met`) | 아래 15/16; AC16 사람 시각 인수 대기 |
 | **합계 검산** | ✅15 + ⚠️1 + ❌0 = 16. AC 원표 16행과 보고 16행 id 차집합 0 |
-| 블로커 / 역질문 | 기계 범위 없음. 원격 CI 재실행 결과는 공유 브랜치의 이번 구현 커밋을 기준으로 후속 확인 |
-| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+| 블로커 / 역질문 | 로컬 기계 범위 없음. r1 원격 CI는 삭제된 catch 등록 때문에 5실패했고 r1.2에서 정리했다. 새 공유 커밋의 원격 결과는 후속 확인 |
+| 대상 커밋 | `(r1.2 구현 — 좌표는 INDEX)` |
 
 | AC | 자기보고 | 이번 턴 관측 |
 |---|---|---|
@@ -640,7 +646,8 @@ main SkillInfo.sourceLabel(접미 유지) ─▶ orderSkills 정렬 키 · catal
 - 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 최초 구현. 별도 CI 실패는 0285의 구조 이동·공통 활자 변경 뒤 기존 기대값이 남은 경우였다.
 - 그것을 막았어야 할 plan 지침·AC가 있었는가: 0285 D-006·D-013이 공통 랜딩/활자를 명시한다. 수정 전 두 테스트가 이전 소유 파일/하네스별 활자를 단언했다. 이번 plan의 제목 변이는 M10의 단언 누락을 찾아 보강했다.
 - 반복해서 부딪히는 환경 한계: SQLite ABI140/127 차이는 바이너리 재빌드 없이 Electron Node 실행으로 해결했다. 로컬 외부 checkout의 링크 실패는 tracked 파일 스냅샷으로 분리했다.
-- 현재 라운드·impl 턴: `r1`.
+- r1의 관련 스위트가 renderer shared/errors를 포함하지 않아 삭제 catch 레지스트리를 놓쳤다. r1.2는 renderer 전체로 실행 범위를 넓혔다.
+- 현재 라운드·impl 턴: `r1.2`.
 
 ---
 
