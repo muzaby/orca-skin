@@ -619,7 +619,8 @@ r1에서 각 결함을 하나씩 적용해 실제 테스트 실패를 관측한 
 | 강제 지점 전수 | EP-01~11의 고정 자리와 제거 대상 전수 대응. 자세한 재검색·차집합·oracle은 위 표 |
 | **AC 자기보고**(`Criteria-Met`) | 아래 15/16; AC16 사람 시각 인수 대기 |
 | **합계 검산** | ✅15 + ⚠️1 + ❌0 = 16. AC 원표 16행과 보고 16행 id 차집합 0 |
-| 블로커 / 역질문 | 로컬 기계 범위 없음. r1 원격 CI는 삭제된 catch 등록 때문에 5실패했고 r1.2에서 정리했다. 새 공유 커밋의 원격 결과는 후속 확인 |
+| 원격 CI | [run 40261035522](https://github.com/muzaby/orca-skin/actions/runs/40261035522) success. Vitest 832파일·8020케이스 통과, 2파일·2케이스 skip; scripts 144통과·0실패. 설치·migration·inventory·budget·lint·typecheck 모두 통과 |
+| 블로커 / 역질문 | 기계 범위 없음. Claude 독립 검증과 AC16 실제 창 white/dark 시각 인수 대기 |
 | 대상 커밋 | `(r1.2 구현 — 좌표는 INDEX)` |
 
 | AC | 자기보고 | 이번 턴 관측 |
