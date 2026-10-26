@@ -4,8 +4,8 @@ import type { MessageKey } from '../../../../shared/i18n'
 export const planEmptyDescriptionKey: MessageKey = 'chat.rightpanel.planEmptyDescOpenCode'
 export const planSelectHintKey: MessageKey = 'chat.rightpanel.planSelectHintOpenCode'
 export const OPEN_CODE_PANEL_POLICY: RightPanelAgentPolicy = {
-  visibleIds: ['plan', 'subagent', 'task', 'diff', 'process', 'source', 'nativeStatus'],
-  menuIds: ['task', 'nativeStatus'],
+  visibleIds: ['plan', 'subagent', 'task', 'diff', 'process', 'source'],
+  menuIds: ['task'],
   taskTarget: 'task',
   taskBadgeTile: 'task',
   initialTile: 'task',
@@ -15,7 +15,6 @@ export const OPEN_CODE_PANEL_POLICY: RightPanelAgentPolicy = {
 
 export const OPEN_CODE_WORK_PANEL_POLICY: RightPanelAgentPolicy = {
   ...OPEN_CODE_PANEL_POLICY,
-  visibleIds: OPEN_CODE_PANEL_POLICY.visibleIds.filter((id) => id !== 'nativeStatus'),
   menuIds: ['task']
 }
 

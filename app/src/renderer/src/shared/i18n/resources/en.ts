@@ -473,7 +473,6 @@ export const en: typeof ko = {
     agent: 'Agent',
     variant: 'Variant',
     defaultAgent: 'Default agent',
-    catalogRefresh: 'Refresh',
     defaultVariant: 'Default',
     promptPlaceholder: 'Ask OpenCode to work on something.'
   },
@@ -624,15 +623,12 @@ export const en: typeof ko = {
         '{{count}} Claude sessions are responding or running work. Applying this plugin change closes every running Claude session, and responses and background work in progress will stop.',
       claudeCloseConfirm: 'Change',
       retry: 'Retry',
-      openConfig: 'Show configuration file',
-      openFolder: 'Open installation folder',
       openError: 'Could not open the plugin folder. Check its installation.',
       stale: 'Showing previously loaded resources.',
       controlError: 'The change failed. Check the resources and try again.',
       useMcp: 'Use the {{name}} MCP tools to ',
       configured: 'Enabled in configuration',
       installed: 'Installed',
-      loading: 'Checking connection…',
       error: 'Unable to refresh resources. Reopen the menu to try again.',
       disconnected: 'No running harness connection',
       connected: 'Connected',
@@ -642,10 +638,7 @@ export const en: typeof ko = {
       failed: 'Connection failed',
       'needs-auth': 'Authentication required',
       pending: 'Connecting',
-      unsupported: 'Project controls unavailable',
-      enable: 'Enable in this project',
-      disable: 'Disable in this project',
-      plugins: 'Plugins'
+      unsupported: 'Project controls unavailable'
     },
     opencode: {
       panel: {
@@ -1222,7 +1215,6 @@ export const en: typeof ko = {
     },
     rightpanel: {
       tiles: {
-        nativeStatus: 'Status',
         plan: 'Plan',
         subagent: 'Background tasks',
         task: 'Tasks',

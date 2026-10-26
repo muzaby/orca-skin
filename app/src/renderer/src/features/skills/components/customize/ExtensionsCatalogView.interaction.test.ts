@@ -275,10 +275,10 @@ it('hides native plugin skills from the skills tab', async () => {
   await flush()
   tab(1)
   expect(rows()).toEqual([
+    'orca/review',
     'adapter:claude/review',
     'adapter:opencode/review',
-    'agents/review',
-    'orca/review'
+    'agents/review'
   ])
   expect(dom.queryAll('[role="switch"]')).toHaveLength(1)
 })

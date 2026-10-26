@@ -47,7 +47,7 @@ it('uses session commands over global plugin flags and preserves allowed file sk
     description: 'session command',
     argumentHint: '[args]',
     sourceId: 'plugin:claude',
-    sourceLabel: 'Claude 플러그인'
+    sourceLabel: 'Claude'
   })
 })
 it('removes disabled session commands and never resurrects catalog-only plugin entries', () => {

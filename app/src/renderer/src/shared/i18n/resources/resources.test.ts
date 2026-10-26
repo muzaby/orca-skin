@@ -32,6 +32,19 @@ describe('i18n resources', () => {
   const koPaths = leafPaths(ko as Catalog)
   const enPaths = leafPaths(en as Catalog)
 
+  it.each([
+    { locale: 'ko', paths: koPaths },
+    { locale: 'en', paths: enPaths }
+  ])('$locale omits unused session control and refresh labels', ({ paths }) => {
+    for (const key of [
+      'harness.catalogRefresh',
+      ...['openConfig', 'openFolder', 'loading', 'enable', 'disable', 'plugins'].map(
+        (key) => `chat.nativeResources.${key}`
+      )
+    ])
+      expect(paths).not.toContain(key)
+  })
+
   it('has a non-empty toast title for every app error title in each locale', () => {
     for (const [locale, catalog] of Object.entries({ ko, en })) {
       for (const title of APP_ERROR_TITLES) {

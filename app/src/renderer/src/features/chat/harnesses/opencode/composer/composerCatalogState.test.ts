@@ -184,52 +184,6 @@ it('keeps the new generation when an older part resolves in the same epoch', asy
   await vi.runOnlyPendingTimersAsync()
 })
 
-it('loads resource parts only for a panel subscriber and invalidates their connection on instance loss', async () => {
-  vi.useFakeTimers()
-  let invalidate!: (value: ComposerCatalogInvalidated) => void
-  api.onComposerCatalogInvalidated.mockImplementation((callback) => {
-    invalidate = callback
-    return vi.fn()
-  })
-  const mcp = Promise.withResolvers<ComposerCatalogResult>()
-  api.composerCatalog.mockImplementation(async (r: ComposerCatalogRequest) =>
-    r.part === 'mcp' ? mcp.promise : { part: r.part, value: [], generation: 'g' }
-  )
-  const state = new ComposerCatalogState(scope, undefined, createComposerAgentStore(vi.fn()))
-  const composer = state.subscribe(vi.fn())
-  await flush()
-  expect(api.composerCatalog.mock.calls.map(([r]) => r.part)).toEqual(['agents', 'models'])
-  const panel = state.subscribeResources(vi.fn())
-  await flush()
-  expect(state.getSnapshot().plugins).toEqual({ status: 'ready', value: [] })
-  expect(state.getSnapshot().mcp?.status).toBe('loading')
-  const again = state.subscribeResources(vi.fn())
-  expect(api.composerCatalog).toHaveBeenCalledTimes(4)
-  invalidate({ owner: api.composerCatalog.mock.calls[0][0].owner, generation: 'g' })
-  mcp.resolve({
-    part: 'mcp',
-    value: [
-      {
-        id: 'late',
-        name: 'late',
-        kind: 'mcp',
-        status: 'connected',
-        enabled: true,
-        canToggle: false
-      }
-    ],
-    generation: 'g'
-  })
-  await flush()
-  expect(state.getSnapshot().plugins).toEqual({ status: 'error' })
-  expect(state.getSnapshot().mcp).toEqual({ status: 'error' })
-  panel()
-  again()
-  composer()
-  await vi.runOnlyPendingTimersAsync()
-  expect(api.releaseComposerCatalog).toHaveBeenCalledOnce()
-})
-
 it.each(['cancelled', 'error'] as const)(
   'does not turn a %s outcome into a successful empty catalog',
   async (status) => {
@@ -366,7 +320,7 @@ it('refreshes subscribed parts once per plugin revision while keeping models', a
     generation: 'old'
   }))
   const state = new ComposerCatalogState(scope, undefined, cache),
-    off = state.subscribeResources(vi.fn())
+    off = state.subscribe(vi.fn())
   await flush()
   const gate = Promise.withResolvers<ComposerCatalogResult>()
   api.composerCatalog.mockImplementation((r: ComposerCatalogRequest) =>
@@ -378,14 +332,12 @@ it('refreshes subscribed parts once per plugin revision while keeping models', a
   changed(event)
   expect(state.getSnapshot().agents.status).toBe('loading')
   expect(state.getSnapshot().models.value).toEqual([{ id: 'old/model', variants: ['old'] }])
-  expect(api.composerCatalog.mock.calls.slice(4).map(([r]) => [r.part, r.refresh])).toEqual([
+  expect(api.composerCatalog.mock.calls.slice(2).map(([r]) => [r.part, r.refresh])).toEqual([
     ['agents', true],
-    ['models', true],
-    ['mcp', true],
-    ['plugins', true]
+    ['models', true]
   ])
   changed(event)
-  expect(api.composerCatalog).toHaveBeenCalledTimes(8)
+  expect(api.composerCatalog).toHaveBeenCalledTimes(4)
   gate.resolve({ part: 'agents', value: [{ name: 'fresh' }], generation: 'new' })
   await flush()
   expect(state.getSnapshot().agents).toEqual({ status: 'ready', value: [{ name: 'fresh' }] })

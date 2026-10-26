@@ -477,7 +477,6 @@ export const ko = {
     agent: '에이전트',
     variant: '추론 수준',
     defaultAgent: '기본 에이전트',
-    catalogRefresh: '새로고침',
     defaultVariant: '기본',
     promptPlaceholder: 'OpenCode에 작업을 요청하세요.'
   },
@@ -628,15 +627,12 @@ export const ko = {
         '응답 중이거나 작업이 진행 중인 Claude 세션이 {{count}}개 있습니다. 플러그인 변경을 적용하려면 실행 중인 Claude 세션을 모두 종료합니다. 진행 중인 응답과 백그라운드 작업은 중단됩니다.',
       claudeCloseConfirm: '변경',
       retry: '다시 시도',
-      openConfig: '설정 파일 위치 열기',
-      openFolder: '설치 폴더 열기',
       openError: '플러그인 설치 폴더를 열 수 없습니다. 설치 상태를 확인해 주세요.',
       stale: '이전에 불러온 목록입니다.',
       controlError: '변경하지 못했습니다. 목록을 확인한 후 다시 시도해 주세요.',
       useMcp: '{{name}} MCP 도구를 사용해 ',
       configured: '설정에서 활성화',
       installed: '설치됨',
-      loading: '연결 상태 확인 중…',
       error: '목록을 갱신하지 못했습니다. 메뉴를 다시 열어 주세요.',
       disconnected: '실행 중인 하네스 연결 없음',
       connected: '연결됨',
@@ -646,10 +642,7 @@ export const ko = {
       failed: '연결 실패',
       'needs-auth': '인증 필요',
       pending: '연결 중',
-      unsupported: '프로젝트별 제어 미지원',
-      enable: '프로젝트에서 활성화',
-      disable: '프로젝트에서 비활성화',
-      plugins: '플러그인'
+      unsupported: '프로젝트별 제어 미지원'
     },
     opencode: {
       panel: {
@@ -1228,7 +1221,6 @@ export const ko = {
     },
     rightpanel: {
       tiles: {
-        nativeStatus: '상태',
         plan: '계획',
         subagent: '백그라운드 작업',
         task: '작업',

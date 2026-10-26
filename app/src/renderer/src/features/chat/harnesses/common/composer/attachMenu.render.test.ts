@@ -21,8 +21,8 @@ import { buildAttachMenu } from '../../../lib/attachMenuModel'
 import type { SkillInfo } from '../../../../../../../shared/ipc'
 
 const skills = [
-  { name: 'a', sourceId: 'orca', sourceLabel: 'Orcinus orca 스킬', description: '설명 A' },
-  { name: 'c', sourceId: 'adapter:claude', sourceLabel: 'CLAUDE 스킬', description: '' }
+  { name: 'a', sourceId: 'orca', sourceLabel: 'Orcinus orca', description: '설명 A' },
+  { name: 'c', sourceId: 'adapter:claude', sourceLabel: 'Claude', description: '' }
 ] as SkillInfo[]
 const plugins = [{ kind: 'plugin' as const, id: 'jira', label: 'Jira' }]
 
@@ -43,7 +43,7 @@ describe('AttachMenu 렌더', () => {
     expect(html).toContain('viewBox="0 0 24 24"')
     expect(html).toContain('role="separator"')
     expect(html.match(/aria-haspopup="menu"/g)).toHaveLength(2)
-    expect(html).not.toContain('Orcinus orca 스킬')
+    expect(html).not.toContain('Orcinus orca')
   })
 
   it('열린 경로의 하위 패널은 최상위 메뉴 DOM 안에 그려지고 항목에 hover 설명 title 이 있다 (AC5·AC7)', () => {
@@ -72,7 +72,7 @@ describe('AttachMenu 렌더', () => {
     // 루트 안에 스킬 패널 하나만 중첩된다. 출처 제목은 추가 패널을 열지 않는다.
     expect(html.startsWith('<div role="menu"')).toBe(true)
     expect(html.match(/role="menu"/g)).toHaveLength(2)
-    expect(html).toContain('title="설명 A\nOrcinus orca 스킬"')
+    expect(html).toContain('title="설명 A\nOrcinus orca"')
     expect(html).toContain('aria-expanded="true"')
   })
 })
@@ -89,8 +89,8 @@ describe('자동완성 정돈 (AC9·AC10)', () => {
         onPick: vi.fn()
       })
     )
-    const orca = html.indexOf('Orcinus orca 스킬')
-    const claude = html.indexOf('CLAUDE 스킬')
+    const orca = html.indexOf('Orcinus orca')
+    const claude = html.indexOf('Claude')
     expect(orca).toBeGreaterThan(-1)
     expect(claude).toBeGreaterThan(orca)
     expect(html.indexOf('/a')).toBeGreaterThan(orca)

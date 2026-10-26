@@ -81,13 +81,6 @@ export class ComposerCatalogState {
     }
   }
 
-  subscribeResources = (listener: () => void): (() => void) => {
-    const unsubscribe = this.subscribe(listener)
-    void this.read('mcp')
-    void this.read('plugins')
-    return unsubscribe
-  }
-
   private invalidate(): void {
     this.snapshot = {
       agents: this.agents.getState().agents === undefined ? { status: 'error' } : this.agentSlot(),

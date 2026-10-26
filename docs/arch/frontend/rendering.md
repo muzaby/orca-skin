@@ -228,7 +228,7 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 
 `useArtifactViewerActions`는 복사와 저장의 중복 실행 잠금·피드백·요청 소유권을 관리한다. 오류 문구는 `artifactFeedback`에서 해석하고 선택 전환·닫기 이후의 완료는 이전 화면을 갱신하지 않는다. 패널 펼치기·복원·닫기는 공통 `PanelControls`와 Material SVG를 사용한다. 같은 역할의 툴팁은 공통 번역을 사용하며 타일을 식별해야 하는 접근성 이름에는 대상명을 포함한다.
 
-프로젝트·아티팩트·플러그인 목록의 탭은 `CatalogTabs`로 방향키·Home/End·ARIA 연결을 공유한다. Plugin 카탈로그는 플러그인→스킬→MCP 순서이고 첫 진입도 플러그인이다. Plugin 행은 main이 전달한 허용 Material icon과 현재 locale의 title·body를 표시하며 locale 선택은 exact→base→ko→en 순서다. 상세는 body와 분리해 source·version·GitHub·license attribution을 표시한다. catalog가 없는 Plugin은 `electrical_services`와 Auth label, Plugin이 아닌 연결은 기존 power icon과 Auth label을 사용한다. 프로젝트와 아티팩트 검색은 `CatalogSearch`와 `useCatalogSearch`로 열기·Escape·초점 복귀를 공유하며 검색어와 필터·총계는 각 feature가 소유한다. 플러그인의 최종 행 순서는 `catalogOrder`에서 정한다. 스킬/MCP 탭은 실제 항목이 있는 출처만 제목과 브랜드 로고로 구분한다. 플러그인 탭은 provider 그룹 뒤에 Claude 플러그인·OpenCode 플러그인 그룹을 둔다. 스킬 탭은 네이티브 플러그인 출처 스킬을 제외하고 Claude·OpenCode 기본 스킬·Orcinus orca 스킬·lock 등록 agents를 표시한다. 기본 경로 스킬은 일반 글씨이며 토글이 없고 Orca 스킬만 토글한다. native MCP는 양 하네스 설정을 read-only로 읽어 설정 파일 위치 열기를 제공한다.
+프로젝트·아티팩트·플러그인 목록의 탭은 `CatalogTabs`로 방향키·Home/End·ARIA 연결을 공유한다. Plugin 카탈로그는 플러그인→스킬→MCP 순서이고 첫 진입도 플러그인이다. Plugin 행은 main이 전달한 허용 Material icon과 현재 locale의 title·body를 표시하며 locale 선택은 exact→base→ko→en 순서다. 상세는 body와 분리해 source·version·GitHub·license attribution을 표시한다. catalog가 없는 Plugin은 `electrical_services`와 Auth label, Plugin이 아닌 연결은 기존 power icon과 Auth label을 사용한다. 프로젝트와 아티팩트 검색은 `CatalogSearch`와 `useCatalogSearch`로 열기·Escape·초점 복귀를 공유하며 검색어와 필터·총계는 각 feature가 소유한다. 플러그인의 최종 행 순서는 `catalogOrder`에서 정한다. 각 탭은 Orcinus orca 그룹이 맨 위이며 실제 항목이 있는 그룹만 제목과 브랜드 로고로 구분한다. 제목은 `Orcinus orca`·`Claude`·`OpenCode`이고 스킬 탭의 `~/.agents/skills`는 유지한다. 플러그인 탭의 Orca provider는 gate→llm→service 순서이며 이후 Claude→OpenCode 그룹을 둔다. Orca 로고는 높이와 자동 너비로 표시하고 Orca MCP 목록·상세는 MCP 아이콘을 사용한다. Composer도 같은 제목·로고 규칙을 사용하며 첨부 메뉴는 같은 제목을 합치고 자동완성은 연속한 같은 제목을 합친다. Composer 그룹의 기존 순서는 유지한다. 스킬 탭은 네이티브 플러그인 출처 스킬을 제외하고 Claude·OpenCode 기본 스킬·Orcinus orca 스킬·lock 등록 agents를 표시한다. 기본 경로 스킬은 일반 글씨이며 토글이 없고 Orca 스킬만 토글한다. native MCP는 양 하네스 설정을 read-only로 읽어 설정 파일 위치 열기를 제공한다.
 
 뷰어 패널과 작업 타일은 도메인에 독립적인 공통 `ResizableSidePane`을 사용한다. Transcript와 아티팩트 화면의 뷰어 좌측 핸들은 포인터·키보드로 폭을 조절하며 iframe 위를 지나는 드래그도 유지한다. 확대는 가장 가까운 현재 pane 전체를 덮고 nav에는 영향을 주지 않는다. Code 변경사항의 `GitContextBar`도 registry 헤더 props로 같은 확대 상태를 전달받는다. 본문을 다시 mount하지 않으며 복원 시 일반 폭과 스크롤을 되돌린다. 확대한 타일을 닫으면 확대 상태도 해제한다. 세션·대상 전환, 창 초점 이탈, 취소와 unmount에서 드래그 자원을 정리한다.
 
@@ -246,7 +246,7 @@ OpenCode의 질문과 도구 승인은 도착 순서대로 같은 입력 자리�
 
 `components/rightpanel/tileRegistry.ts`는 하네스별 타일 본문과 헤더를 선택한다. `rightPanelTiles`의 하네스 정책은 reducer 활성화·패널 렌더링의 지원 범위를 정의하고, 선택적 `menuIds`로 타이틀 메뉴의 노출 범위를 좁힌다. 메뉴 비노출은 저장된 타일·직접 활성화·상세 패널의 지원을 변경하지 않는다.
 
-타이틀 메뉴는 `타일 표시` 아래에 노출 항목을 정의 순서로 표시하며 범주 제목을 넣지 않는다. Claude Code는 계획·백그라운드 작업·변경사항과 Claude 상태, Claude Work는 작업, OpenCode Code는 작업과 OpenCode 상태를 표시한다. 상태 항목 왼쪽에는 각 브랜드 로고를 둔다. OpenCode의 전용 외형은 해당 하네스의 composer·transcript·패널에만 적용한다.
+타이틀 메뉴는 `타일 표시` 아래에 노출 항목을 정의 순서로 표시하며 범주 제목을 넣지 않는다. Claude Code는 계획·백그라운드 작업·변경사항, Claude Work와 OpenCode의 Code·Work는 작업을 표시한다. OpenCode의 전용 외형은 해당 하네스의 composer·transcript·패널에만 적용한다.
 
 엔진·모델 페이지의 엔진 추가 dropdown은 Claude/OpenCode를 선택한 뒤 폼을 연다. 두 폼은 ‘엔진 추가’ 제목과 취소/추가하기 버튼, 모달 폭·헤더·footer 스타일을 공유한다. Claude 카드에는 adapter 이름 `claude`, Claude 엔진 편집에는 고정 adapter/provider chip을 표시한다. 폼 안의 하네스는 고정된다. OpenCode 신규 엔진은 공급자 ID·표시 이름·URL·선택 API 키와 모델/헤더 반복 행을 사용한다. 공급자 제목 옆의 불러오기는 전역 파일에서 노출 필드만 채우며 원본을 편집하지 않는다. v1 codec은 폼의 공급자와 모델만 소유하는 새 native override 문서를 생성한다. 모델 목록의 소유 범위는 [OpenCode 카탈로그 계약](../backend/adapters.md)을 따른다. 기존 엔진 편집은 JSON을 사용한다. 설정 모달은 일반·사용량·공급자별 사용량만 표시하며 하네스별 설정 탭은 제공하지 않는다. 페이지 진입은 기존 카탈로그를 재사용하며 변경 저장과 공급자 상태 갱신은 목록을 다시 조회한다. 카탈로그 조회 상태는 엔진 변경 작업의 busy와 분리해 다른 하네스 조회가 기존 편집·삭제·저장을 잠그지 않는다.
 
@@ -255,9 +255,8 @@ OpenCode의 질문과 도구 승인은 도착 순서대로 같은 입력 자리�
 | `task` | 기본 `작업` 요약 카드. 폴더 제목과 변경 사항 진입을 표시하고, 하위 에이전트·소스는 실제 자료가 있을 때, 셸 그룹은 활성 실행이 있을 때 표시한다. 카드 자체의 메뉴 버튼·별도 헤더는 없다. |
 | `plan` | 지원되는 독립 타일이며 저장된 배치·기존 활성화 경로를 유지한다. 공통 계획 본문·복사와 기존 타일 헤더를 사용한다. |
 | `diff`·`subagent`·`process`·`source` | 작업 요약에서 기존 패널 위의 상세로 연다. 기존 독립 타일과 같은 registry의 본문·헤더를 사용하며 diff는 Git 컨텍스트 헤더, 하위 에이전트는 목록 복귀 버튼을 유지한다. 셸 로그와 소스는 본문 안에서 스크롤한다. |
-| `nativeStatus` | 타이틀 메뉴에서 작업 패널 위 상세로 연다. 작업 타일이 없으면 열고, 저장된 독립 상태 타일은 배치에서 제외한다. 상세 닫기·Esc·확대·크기 조절과 메뉴 버튼 초점 복귀를 공유한다. |
 
-작업 요약의 변경 사항·하위 에이전트·셸 행·소스 모두 보기는 OpenCode navigation Context를 통해 상세를 연다. 공통 호스트의 표시 우선순위는 artifact 뷰어 → 상세 → 기존 타일이며 가려진 층은 mounted·hidden·inert로 유지한다. artifact를 닫으면 상세로, 상세를 닫으면 원래 타일로 돌아간다. 상세에는 추가 제목·뒤로 행 없이 기존 헤더를 사용하고, `RightPanelTile`의 닫기 override가 상세만 닫아 뒤의 같은 종류 타일을 보존한다. 타이틀 메뉴의 OpenCode 상태는 상세를 열며 나머지 메뉴와 transcript Task 카드는 직접 타일 열기 경로를 사용한다.
+작업 요약의 변경 사항·하위 에이전트·셸 행·소스 모두 보기는 OpenCode navigation Context를 통해 상세를 연다. 공통 호스트의 표시 우선순위는 artifact 뷰어 → 상세 → 기존 타일이며 가려진 층은 mounted·hidden·inert로 유지한다. artifact를 닫으면 상세로, 상세를 닫으면 원래 타일로 돌아간다. 상세에는 추가 제목·뒤로 행 없이 기존 헤더를 사용하고, `RightPanelTile`의 닫기 override가 상세만 닫아 뒤의 같은 종류 타일을 보존한다. 타이틀 메뉴와 transcript Task 카드는 직접 타일 열기 경로를 사용한다.
 
 소스 그룹의 활성 조건은 추가 폴더·전송된 첨부·참조 자료이며 작업 디렉터리만 있으면 그룹을 표시하지 않는다. 자료가 생긴 뒤 요약의 소스 그룹에서 폴더 추가·모두 보기를 사용한다. 소스 파일·URL 열기와 폴더 추가는 기존 컨텍스트 액션을 사용한다.
 
@@ -266,10 +265,3 @@ OpenCode의 질문과 도구 승인은 도착 순서대로 같은 입력 자리�
 OpenCode 패널의 외곽은 기존 보조 패널과 같은 `rounded-r6 border`를 사용하며, 전용 색·표면·그림자는 두 테마의 `oc-*` 토큰이 갖는다. 클릭 행의 안쪽 좌우 여백은 `PanelRow`·하위 에이전트 요약/목록·소스 URL에 일관되게 적용한다.
 
 OpenCode 소스는 Work 컨텍스트와 같은 `useTaskContext` 훅을 사용한다. 폴더·첨부·참조 목록과 열기/추가 기능을 공유하고, `sessionContextPolicy`가 OpenCode Code와 Claude Work의 컨텍스트 기능을 허용한다. child 도구와 대화는 부모 작업에 귀속하며 셸의 완료 결과를 진행 로그보다 우선하고 제한된 후미와 잘림 안내를 표시한다. 선택·닫기·세션 캐시의 수명은 [상태 관리](state.md#우측-타일-선택)를 따른다.
-
-
-### 하네스 상태 타일
-
-`nativeStatus`는 양 하네스 Code 모드의 우측 타일 registry에 등록하며 Work에서는 메뉴와 저장 배치 모두 숨긴다. 케밥은 컬러 브랜드 로고의 상태 타일 진입을 제공하며 별도 하네스/MCP/plugin popup은 두지 않는다. 제목은 브랜드 로고와 하네스 상태, 프로젝트 이름이며 page의 프로젝트 catalog 이름/경로를 chat→host→column→header props로 전달한다. 제목은 표준 normal weight와 명시 브랜드 색을 사용하며 hover는 프로젝트 경로(cwd fallback)를 표시한다. 소속이 없으면 cwd 표시 이름을 사용한다. 프로젝트 이름 변경은 제목만 갱신하며 native 조회를 다시 시작하지 않는다.
-
-본문은 MCP·플러그인 그룹을 직접 나열한다. `nativeResourcesMenu` 모델을 flat heading으로 표시하고 기존 `CascadeBody`의 상태 공·행·독립 스위치를 그대로 렌더한다. 이름 클릭은 MCP 설정 파일/플러그인 설치 위치를 열고 오른쪽 스위치는 프로젝트 공유 제어를 실행한다. async spinner는 스위치 손잡이 내부에 있으며 다른 항목은 계속 사용할 수 있다. 스위치 손잡이와 배경색은200ms 전환을 사용하며 reduced motion에서는 전환하지 않는다. 읽기 전용 하네스에 지원하지 않는 제어를 만들지 않는다. 닫기·확대·복원과 열/행 리사이즈는 기존 타일 셸을 사용한다. 그룹 사이에는1.25rem 간격을 두고 Work의 기존 작업 타일 정책은 유지한다.

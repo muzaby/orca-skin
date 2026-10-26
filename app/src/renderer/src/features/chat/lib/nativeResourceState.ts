@@ -14,10 +14,9 @@ export type NativeResourcesView =
       value: NativeResources
       refreshing?: boolean
       stale?: boolean
-      issue?: 'refresh' | 'control' | 'open'
+      issue?: 'refresh'
     }
 type Ready = Extract<NativeResourcesView, { status: 'ready' }>
-type Issue = 'control' | 'open'
 let nextObserver = 0
 export const nativeResourceKey = (resource: NativeResource): string =>
   `${resource.kind}:${resource.id}`
@@ -59,20 +58,15 @@ function observed(value: NativeResources, previous: NativeResourcesView): Ready 
   }
 }
 
-/** A navigation-independent observation and operation owner for one session/backend. */
+/** A navigation-independent observation owner for one session/backend. */
 export class NativeResourceState {
   private readonly owner = `resources:${++nextObserver}`
   private listeners = new Set<() => void>()
-  private operations = new Map<string, number>()
-  private serial = 0
   private readSerial = 0
-  private pushSerial = 0
   private flight: { serial: number; task: Promise<void> } | undefined
-  private epoch = 0
   private retired = new Set<string>()
-  private snapshot: { view: NativeResourcesView; pending: ReadonlySet<string> } = {
-    view: { status: 'loading' },
-    pending: new Set()
+  private snapshot: { view: NativeResourcesView } = {
+    view: { status: 'loading' }
   }
   constructor(readonly request: string | DraftNativeResourcesRequest | undefined) {}
   getSnapshot = (): typeof this.snapshot => this.snapshot
@@ -92,12 +86,11 @@ export class NativeResourceState {
     }
   }
   private publish(view = this.snapshot.view): void {
-    this.snapshot = { view, pending: new Set(this.operations.keys()) }
+    this.snapshot = { view }
     for (const listener of this.listeners) listener()
   }
   accept(value: NativeResources): void {
     if (value.generation && this.retired.has(value.generation)) return
-    this.pushSerial++
     this.readSerial++
     this.apply(value)
   }
@@ -119,9 +112,7 @@ export class NativeResourceState {
     const view = this.snapshot.view
     if (view.status === 'ready' && view.value.generation && view.value.generation !== generation)
       return
-    this.epoch++
     this.readSerial++
-    this.operations.clear()
     this.publish(
       view.status === 'ready'
         ? {
@@ -150,10 +141,10 @@ export class NativeResourceState {
     this.readSerial++
     void this.refresh()
   }
-  refresh = (issue?: Issue, report = true): Promise<void> => {
+  refresh = (): Promise<void> => {
     if (this.flight?.serial === this.readSerial) return this.flight.task
     const read = ++this.readSerial
-    const task = this.readResources(read, issue, report)
+    const task = this.readResources(read)
     this.flight = { serial: read, task }
     const finish = (): void => {
       if (this.flight?.task === task) this.flight = undefined
@@ -161,129 +152,31 @@ export class NativeResourceState {
     void task.then(finish, finish)
     return task
   }
-  private async readResources(read: number, issue?: Issue, report = true): Promise<void> {
+  private async readResources(read: number): Promise<void> {
     const previous = this.snapshot.view
-    if (previous.status === 'ready') this.publish({ ...previous, refreshing: true, issue })
+    if (previous.status === 'ready')
+      this.publish({ ...previous, refreshing: true, issue: undefined })
     try {
       const value = this.request
         ? await sessionApi.nativeResources(this.request)
         : { state: 'disconnected' as const, items: [] }
       if (read !== this.readSerial) return
       this.apply(value)
-      if (issue && this.snapshot.view.status === 'ready')
-        this.publish({ ...this.snapshot.view, issue })
     } catch (error) {
       if (read !== this.readSerial) return
-      if (report && this.listeners.size)
+      if (this.listeners.size)
         reportError({
           event: 'chat.native-resources.load-failed',
           scope: 'native-resources',
           title: 'loadFailed',
           error
         })
-      // Failed revalidation does not change an observed live process or its controls.
+      // Failed revalidation preserves the last observed live resources.
       this.publish(
         previous.status === 'ready'
-          ? { ...previous, refreshing: false, stale: true, issue: issue ?? 'refresh' }
+          ? { ...previous, refreshing: false, stale: true, issue: 'refresh' }
           : { status: 'error' }
       )
-    }
-  }
-  private begin(
-    resource: NativeResource
-  ): { key: string; token: number; epoch: number } | undefined {
-    const key = nativeResourceKey(resource)
-    if (this.operations.has(key)) return
-    const token = ++this.serial
-    this.operations.set(key, token)
-    this.readSerial++
-    const view = this.snapshot.view
-    this.publish(view.status === 'ready' && view.refreshing ? { ...view, refreshing: false } : view)
-    return { key, token, epoch: this.epoch }
-  }
-  private finish(operation: { key: string; token: number }): void {
-    if (this.operations.get(operation.key) !== operation.token) return
-    this.operations.delete(operation.key)
-    this.publish()
-  }
-  openPlugin = async (resource: NativeResource): Promise<void> => {
-    if (!this.request) return
-    const operation = this.begin(resource)
-    if (!operation) return
-    try {
-      await sessionApi.openNativePlugin(
-        typeof this.request === 'string'
-          ? {
-              sessionId: this.request,
-              id: resource.id,
-              ...(resource.kind === 'mcp' ? { kind: resource.kind } : {})
-            }
-          : {
-              ...this.request,
-              id: resource.id,
-              ...(resource.kind === 'mcp' ? { kind: resource.kind } : {})
-            }
-      )
-      if (
-        operation.epoch === this.epoch &&
-        this.snapshot.view.status === 'ready' &&
-        this.snapshot.view.issue === 'open'
-      )
-        this.publish({ ...this.snapshot.view, issue: undefined })
-    } catch (error) {
-      if (operation.epoch !== this.epoch) return
-      if (this.listeners.size)
-        reportError({
-          event: 'chat.native-resources.open-failed',
-          scope: 'native-resources',
-          title: 'openFailed',
-          error
-        })
-      await this.refresh('open', false)
-    } finally {
-      this.finish(operation)
-    }
-  }
-  toggle = async (resource: NativeResource): Promise<void> => {
-    const view = this.snapshot.view
-    if (typeof this.request !== 'string' || view.status !== 'ready' || !view.value.generation)
-      return
-    const current = view.value.items.find(
-      (item) => nativeResourceKey(item) === nativeResourceKey(resource)
-    )
-    if (!current?.canToggle) return
-    const generation = view.value.generation
-    const push = this.pushSerial
-    const operation = this.begin(current)
-    if (!operation) return
-    try {
-      const value = await sessionApi.setNativeResource({
-        sessionId: this.request,
-        generation,
-        kind: current.kind,
-        id: current.id,
-        enabled: !current.enabled
-      })
-      if (
-        operation.epoch !== this.epoch ||
-        this.retired.has(generation) ||
-        push !== this.pushSerial
-      )
-        return
-      this.readSerial++
-      this.apply(value)
-    } catch (error) {
-      if (operation.epoch !== this.epoch) return
-      if (this.listeners.size)
-        reportError({
-          event: 'chat.native-resources.control-failed',
-          scope: 'native-resources',
-          title: 'actionFailed',
-          error
-        })
-      await this.refresh('control', false)
-    } finally {
-      this.finish(operation)
     }
   }
 }

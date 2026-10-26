@@ -14,7 +14,7 @@ export const RIGHT_PANEL_POLICY = {
     taskTileChrome: 'work-overview'
   },
   code: {
-    visibleIds: ['plan', 'subagent', 'diff', 'nativeStatus'],
+    visibleIds: ['plan', 'subagent', 'diff'],
     taskTarget: 'plan',
     taskBadgeTile: 'plan',
     initialTile: null,

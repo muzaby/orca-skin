@@ -10,18 +10,10 @@ import { rightPanelColumnsForAgent } from './rightPanelLayout'
 
 describe('harness panel policy', () => {
   it('limits only the OpenCode menu while retaining every supported target', () => {
-    const ids: RightPanelTileId[] = [
-      'plan',
-      'subagent',
-      'task',
-      'diff',
-      'process',
-      'source',
-      'nativeStatus'
-    ]
+    const ids: RightPanelTileId[] = ['plan', 'subagent', 'task', 'diff', 'process', 'source']
     expect(
       rightPanelMenuTileDefinitionsForAgent('code', 'opencode').map((tile) => tile.id)
-    ).toEqual(['task', 'nativeStatus'])
+    ).toEqual(['task'])
     expect(rightPanelTileDefinitionsForAgent('code', 'opencode').map((tile) => tile.id)).toEqual(
       ids
     )
@@ -30,12 +22,7 @@ describe('harness panel policy', () => {
       { id: 'first', tiles: ids.slice(0, 3) },
       { id: 'second', tiles: ids.slice(3) }
     ]
-    expect(rightPanelColumnsForAgent(columns, 'code', 'opencode')).toEqual(
-      columns.map((column) => ({
-        ...column,
-        tiles: column.tiles.filter((id) => id !== 'nativeStatus')
-      }))
-    )
+    expect(rightPanelColumnsForAgent(columns, 'code', 'opencode')).toEqual(columns)
   })
 
   it('retains supported OpenCode targets and persisted columns', () => {
@@ -61,8 +48,7 @@ describe('harness panel policy', () => {
       'task',
       'diff',
       'process',
-      'source',
-      'nativeStatus'
+      'source'
     ])
     expect(rightPanelPolicy('code', 'opencode')).toMatchObject({
       initialTile: 'task',
@@ -87,8 +73,7 @@ describe('harness panel policy', () => {
     expect(rightPanelTileDefinitionsForAgent('code', 'claude').map((tile) => tile.id)).toEqual([
       'plan',
       'subagent',
-      'diff',
-      'nativeStatus'
+      'diff'
     ])
     expect(rightPanelTileDefinitionsForAgent('work', 'claude').map((tile) => tile.id)).toEqual([
       'task'
@@ -105,17 +90,15 @@ describe('harness panel policy', () => {
 })
 
 it.each(['claude', 'opencode'] as const)(
-  'limits %s status to Code and filters persisted Work columns',
+  'keeps the %s Work task menu and preserves its supported columns',
   (backend) => {
     expect(rightPanelMenuTileDefinitionsForAgent('work', backend).map((tile) => tile.id)).toEqual([
       'task'
     ])
-    expect(rightPanelTarget('nativeStatus', 'work', backend)).toBeNull()
-    expect(rightPanelTarget('nativeStatus', 'code', backend)).toBe('nativeStatus')
-    const columns = [{ id: 'retained', tiles: ['nativeStatus', 'task'] as RightPanelTileId[] }]
+    const columns = [{ id: 'retained', tiles: ['diff', 'task'] as RightPanelTileId[] }]
     expect(rightPanelColumnsForAgent(columns, 'work', backend)).toEqual([
-      { id: 'retained', tiles: ['task'] }
+      { id: 'retained', tiles: backend === 'claude' ? ['task'] : ['diff', 'task'] }
     ])
-    expect(columns[0].tiles).toContain('nativeStatus')
+    expect(columns[0].tiles).toContain('diff')
   }
 )

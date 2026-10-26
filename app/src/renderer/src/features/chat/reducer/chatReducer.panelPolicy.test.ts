@@ -20,8 +20,7 @@ describe('0224 r3 agent panel policy', () => {
     expect(rightPanelTileDefinitionsForAgent('code').map((t) => t.id)).toEqual([
       'plan',
       'subagent',
-      'diff',
-      'nativeStatus'
+      'diff'
     ])
     expect(rightPanelTarget('task', 'code')).toBe('plan')
     for (const id of ['plan', 'subagent', 'diff'] as const)

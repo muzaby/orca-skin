@@ -1,12 +1,17 @@
 import type { Backend, SkillInfo } from './ipc'
+import { PRODUCT_DISPLAY_NAME } from './product'
+
+export function harnessSourceTitle(backend: Backend): string {
+  return backend === 'opencode' ? 'OpenCode' : 'Claude'
+}
 
 export const extensionSourceLabels: Readonly<Record<string, string>> = {
-  orca: 'Orcinus orca 스킬',
+  orca: PRODUCT_DISPLAY_NAME,
   agents: '~/.agents/skills',
-  'adapter:claude': 'Claude 스킬',
-  'plugin:claude': 'Claude 플러그인',
-  'adapter:opencode': 'OpenCode 스킬',
-  'plugin:opencode': 'OpenCode 플러그인'
+  'adapter:claude': harnessSourceTitle('claude'),
+  'plugin:claude': harnessSourceTitle('claude'),
+  'adapter:opencode': harnessSourceTitle('opencode'),
+  'plugin:opencode': harnessSourceTitle('opencode')
 }
 
 export function skillSourceAllowed(source: string, backend: Backend): boolean {

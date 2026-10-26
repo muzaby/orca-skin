@@ -1,6 +1,7 @@
 // 0259 AC1~AC5 · VP-08 — '+' 메뉴 트리.
 import { describe, expect, it } from 'vitest'
 import type { SkillInfo } from '../../../../../shared/ipc'
+import { sourceSkills } from '../../../../../shared/extension-sources'
 import {
   attachMenuToken,
   buildAttachMenu,
@@ -20,9 +21,9 @@ const labels = {
 const skill = (name: string, sourceId: string, sourceLabel: string, description = ''): SkillInfo =>
   ({ name, sourceId, sourceLabel, description }) as SkillInfo
 const skills = [
-  skill('a', 'orca', 'Orcinus orca 스킬', '설명 A'),
-  skill('b', 'orca', 'Orcinus orca 스킬'),
-  skill('c', 'adapter:claude', 'CLAUDE 스킬', '설명 C')
+  skill('a', 'orca', 'Orcinus orca', '설명 A'),
+  skill('b', 'orca', 'Orcinus orca'),
+  skill('c', 'adapter:claude', 'Claude', '설명 C')
 ]
 const plugins = [
   { kind: 'plugin' as const, id: 'confluence', label: 'Confluence' },
@@ -30,6 +31,30 @@ const plugins = [
 ]
 
 describe('buildAttachMenu', () => {
+  it('merges groups that share a title into one heading without losing item identities', () => {
+    const menu = buildAttachMenu({
+      skills: [
+        skill('same', 'adapter:claude', 'OLD'),
+        skill('same', 'plugin:claude', 'OLD'),
+        skill('local', 'orca', 'OLD')
+      ],
+      plugins,
+      labels,
+      canManagePlugins: false,
+      sourceIcon: (source) => source
+    })
+    const panel = menu[2]
+    if (panel.kind !== 'submenu') throw new Error('skills panel')
+    expect(panel.items.filter((item) => item.kind === 'heading')).toEqual([
+      { kind: 'heading', id: 'skills:adapter:claude', label: 'Claude', leading: 'adapter:claude' },
+      { kind: 'heading', id: 'skills:orca', label: 'Orcinus orca', leading: 'orca' }
+    ])
+    expect(panel.items.filter((item) => item.kind === 'action').map((item) => item.id)).toEqual([
+      'skill:adapter:claude/same',
+      'skill:plugin:claude/same',
+      'skill:orca/local'
+    ])
+  })
   it.each(['claude', 'opencode'] as const)(
     'limits %s to approved skill sources and merges duplicate source headings',
     (backend) => {
@@ -72,15 +97,14 @@ describe('buildAttachMenu', () => {
       })[2]
       if (menu.kind !== 'submenu') throw new Error('menu')
       expect(menu.items.filter((row) => row.kind === 'heading').map((row) => row.label)).toEqual([
-        `${label} 스킬`,
-        '~/.agents/skills',
-        `${label} 플러그인`
+        label,
+        '~/.agents/skills'
       ])
       expect(menu.items.filter((row) => row.kind === 'action').map((row) => row.label)).toEqual([
         'home',
         'project',
-        'locked',
-        'design::review'
+        'design::review',
+        'locked'
       ])
     }
   )
@@ -229,10 +253,10 @@ describe('buildAttachMenu', () => {
     const menu = tree[2]
     if (menu.kind !== 'submenu') throw new Error('skills')
     expect(menu.items.map((item) => [item.kind, 'label' in item ? item.label : ''])).toEqual([
-      ['heading', 'Orcinus orca 스킬'],
+      ['heading', 'Orcinus orca'],
       ['action', 'a'],
       ['action', 'b'],
-      ['heading', 'Claude 스킬'],
+      ['heading', 'Claude'],
       ['action', 'c']
     ])
   })
@@ -240,6 +264,9 @@ describe('buildAttachMenu', () => {
   it('플러그인 ▸ 목록 · 구분선 · 플러그인 관리 (AC3)', () => {
     const pluginsMenu = tree[3]
     if (pluginsMenu.kind !== 'submenu') throw new Error('plugins')
+    expect(
+      pluginsMenu.items.filter((item) => item.kind === 'heading').map((item) => item.label)
+    ).toEqual(['Orcinus orca'])
     expect(pluginsMenu.items.map((i) => (i.kind === 'action' ? i.action : i.kind))).toEqual([
       'heading',
       { type: 'plugin', id: 'confluence' },
@@ -250,6 +277,41 @@ describe('buildAttachMenu', () => {
     const noManage = buildAttachMenu({ skills, plugins, labels, canManagePlugins: false })[3]
     expect(noManage.kind === 'submenu' && noManage.items).toHaveLength(3)
   })
+
+  it.each(['claude', 'opencode'] as const)(
+    'keeps native then Orca plugin headings as brand names for %s',
+    (backend) => {
+      const label = backend === 'claude' ? 'Claude' : 'OpenCode'
+      const menu = buildAttachMenu({
+        skills: [],
+        plugins,
+        labels,
+        canManagePlugins: false,
+        native: {
+          label,
+          backend,
+          skills: [],
+          items: [
+            {
+              kind: 'action',
+              id: 'native-mcp',
+              label: 'Docs',
+              action: { type: 'plugin', id: 'docs' }
+            }
+          ]
+        }
+      })[3]
+      if (menu.kind !== 'submenu') throw new Error('plugins')
+      expect(
+        menu.items.filter((item) => item.kind === 'heading').map((item) => item.label)
+      ).toEqual([label, 'Orcinus orca'])
+      expect(menu.items.filter((item) => item.kind === 'action').map((item) => item.id)).toEqual([
+        'native-mcp',
+        'plugin:confluence',
+        'plugin:jira'
+      ])
+    }
+  )
 
   it('빈 상태 행 (AC4)', () => {
     const empty = buildAttachMenu({ skills: [], plugins: [], labels, canManagePlugins: true })
@@ -265,11 +327,15 @@ describe('buildAttachMenu', () => {
   })
 
   it('hover 설명: 스킬 = 설명⏎출처, 설명 없으면 출처 · 플러그인 = 라벨 (AC5)', () => {
-    expect(skillTooltip(skills[0])).toBe('설명 A\nOrcinus orca 스킬')
-    expect(skillTooltip(skills[1])).toBe('Orcinus orca 스킬')
+    const sourced = sourceSkills(
+      skills.map((entry) => ({ ...entry, sourceLabel: 'OLD' })),
+      'claude'
+    )
+    expect(skillTooltip(sourced[0])).toBe('설명 A\nOrcinus orca')
+    expect(skillTooltip(sourced[1])).toBe('Orcinus orca')
     const s = tree[2]
     const first = s.kind === 'submenu' ? s.items[1] : null
-    expect(first?.kind === 'action' && first.title).toBe('설명 A\nOrcinus orca 스킬')
+    expect(first?.kind === 'action' && first.title).toBe('설명 A\nOrcinus orca')
     const p = tree[3]
     expect(p.kind === 'submenu' && p.items[1].kind === 'action' && p.items[1].title).toBe(
       'Confluence'
@@ -357,7 +423,7 @@ it('shares native menu membership with decoration without exposing disabled or o
 
 it('keeps previously disabled harness skills selectable', () => {
   const entry = {
-    ...skill('previously-off', 'adapter:claude', 'Claude 스킬'),
+    ...skill('previously-off', 'adapter:claude', 'Claude'),
     enabled: true,
     canToggle: false
   }

@@ -1,5 +1,3 @@
-import { Icon } from '../../../shared/ui/Icon'
-import { HarnessLogo } from '../harnesses/registries/brand'
 import { reportError } from '../../../shared/errors'
 import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import { Button } from '../../../shared/ui/Button'
@@ -12,7 +10,6 @@ import {
   chatActions,
   getActiveChatSession,
   useChatSession,
-  useChatStore,
   useUnseenSettledTaskCount
 } from '../store/chatStore'
 import { partsText } from '../lib/parts'
@@ -62,9 +59,6 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   const sessionId = useChatSession((s) => s.sessionId)
   const agentKind = useChatSession((s) => s.agentKind)
   const backend = useChatSession((s) => s.backend)
-  const statusDetail = useChatStore(
-    (s) => s.sessions[s.activeKey]?.panelReveal?.detail?.id === 'nativeStatus'
-  )
   // 열 구조(stable ref)를 구독하고 평탄 뷰는 메모로 파생 — selector 가 새 배열을 반환하면
   // zustand Object.is 비교가 매번 깨져 불필요 재렌더가 난다.
   const tileColumns = useChatSession((s) => s.rightPanelTiles)
@@ -219,34 +213,22 @@ export const ChatTitleBar = memo(function ChatTitleBar({
             {tr('chat.titleBar.tilesHeader')}
           </div>
           {menuTiles.map((tile) => {
-            const active =
-              tile.id === 'nativeStatus' && backend === 'opencode'
-                ? statusDetail
-                : activeTiles.includes(tile.id)
+            const active = activeTiles.includes(tile.id)
             return (
               <MenuItem
                 key={tile.id}
-                icon={tile.id === 'nativeStatus' ? undefined : active ? 'check' : 'plus'}
+                icon={active ? 'check' : 'plus'}
                 iconSize={13}
                 onClick={() => {
-                  chatActions.toggleRightPanelTile(tile.id, anchorRef.current)
+                  chatActions.toggleRightPanelTile(tile.id)
                   setOpen(false)
                 }}
                 role="menuitemcheckbox"
                 aria-checked={active}
               >
-                {tile.id === 'nativeStatus' && (
-                  <HarnessLogo
-                    backend={backend ?? 'claude'}
-                    className={`size-3.5 shrink-0 ${backend === 'opencode' ? 'text-oc-ink' : 'text-spinner'}`}
-                  />
-                )}
                 <span>
                   {labels[tile.id as RightPanelTileId] ?? rightPanelTileLabel(tile.id, backend, tr)}
                 </span>
-                {tile.id === 'nativeStatus' && active && (
-                  <Icon name="check" size={13} className="ml-auto shrink-0" />
-                )}
                 {/* 0213 D-001 로 `작업` 이 목록에 돌아와 이 배지가 다시 도달한다 — 메뉴를 연
                     채로도 미확인 완료 수가 보인다(0205 §10 EP-03 이 지우지 말라고 남긴 자리). */}
                 {tile.id === panelPolicy.taskBadgeTile && showTaskBadge && (

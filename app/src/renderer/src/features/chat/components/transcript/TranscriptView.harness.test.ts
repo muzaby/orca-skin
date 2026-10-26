@@ -96,9 +96,7 @@ describe('OpenCode transcript presentation', () => {
         expect(bubble.hasClass('max-w-[min(82%,64ch)]')).toBe(backend === 'opencode')
         expect(bubble.hasClass('rounded-r6')).toBe(backend === 'claude')
         expect(bubble.hasClass('px-[12px]')).toBe(backend === 'opencode')
-        expect(bubble.hasClass('text-[calc(14px*var(--transcript-text-scale,1))]')).toBe(
-          backend === 'opencode'
-        )
+        expect(bubble.hasClass('text-body')).toBe(true)
       }
       expect(
         $(

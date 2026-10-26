@@ -15,7 +15,7 @@ function sourceIcon(backend: Backend): ComposerModule['sourceIcon'] {
         ? 'opencode'
         : backend
     return source === 'orca'
-      ? createElement(OrcaLogo, { className: 'h-3.5 w-4 shrink-0' })
+      ? createElement(OrcaLogo, { className: 'h-3.5 w-auto shrink-0' })
       : createElement(HarnessLogo, {
           backend: sourceBackend,
           className: `size-3.5 shrink-0 ${sourceBackend === 'claude' ? 'text-spinner' : 'text-oc-ink'}`

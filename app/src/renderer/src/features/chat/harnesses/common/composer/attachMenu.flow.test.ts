@@ -27,9 +27,9 @@ import { AttachMenu } from './AttachMenu'
 import { ComposerChip } from './ComposerChip'
 
 const skills = [
-  { name: 'review', sourceId: 'orca', sourceLabel: 'Orcinus orca 스킬', description: '리뷰' },
-  { name: 'plan', sourceId: 'adapter:claude', sourceLabel: 'CLAUDE 스킬', description: '' },
-  { name: 'ship', sourceId: 'adapter:claude', sourceLabel: 'CLAUDE 스킬', description: '' }
+  { name: 'review', sourceId: 'orca', sourceLabel: 'Orcinus orca', description: '리뷰' },
+  { name: 'plan', sourceId: 'adapter:claude', sourceLabel: 'Claude', description: '' },
+  { name: 'ship', sourceId: 'adapter:claude', sourceLabel: 'Claude', description: '' }
 ] as SkillInfo[]
 const plugins: PluginMention[] = [
   { kind: 'plugin', id: 'jira-dc', label: 'Jira DC' },

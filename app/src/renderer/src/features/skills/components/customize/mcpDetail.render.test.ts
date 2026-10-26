@@ -15,6 +15,8 @@ import { describe, expect, it } from 'vitest'
 import type { McpServer } from '../../../../../../shared/ipc'
 import { ko } from '../../../../shared/i18n/resources/ko'
 import { McpDetail } from './McpDetail'
+import { load } from 'cheerio'
+import { Icon } from '../../../../shared/ui/Icon'
 
 const server = (over: Partial<McpServer> = {}): McpServer => ({
   id: 'github',
@@ -39,6 +41,18 @@ const render = (over: Partial<McpServer> = {}): string =>
       onRemove: async () => {}
     })
   )
+
+it.each(['http', 'stdio'] as const)(
+  'uses the MCP icon in the header for both transports (%s)',
+  (transport) => {
+    const $ = load(render({ transport }))
+    const expected = load(renderToStaticMarkup(createElement(Icon, { name: 'mcp', size: 18 })))(
+      'svg'
+    ).toString()
+    expect($('svg').first().toString()).toBe(expected)
+    expect($('h2').parent().text()).toContain(transport)
+  }
+)
 
 describe('McpDetail — 활성 상태는 토글이 갖는다', () => {
   it('토글이 서고 서버의 활성 상태를 그대로 말한다', () => {

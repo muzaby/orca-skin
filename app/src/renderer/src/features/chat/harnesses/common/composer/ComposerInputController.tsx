@@ -1,3 +1,4 @@
+import { harnessSourceTitle } from '../../../../../../../shared/extension-sources'
 import type { ComposerInputPresentation } from '../../contracts'
 import {
   useCallback,
@@ -155,7 +156,7 @@ export function ComposerInputController({
   }, [active, attachMenuOpen, ensureNative])
   const nativeMenu = useMemo(
     () => ({
-      label: backend === 'opencode' ? 'OpenCode' : 'Claude',
+      label: harnessSourceTitle(backend ?? 'claude'),
       backend: backend ?? 'claude',
       view: native.view
     }),

@@ -107,8 +107,8 @@ describe('AttachMenu 데이터 전달 (AC2·AC3 · r3 D6·D7)', () => {
   it('받은 플러그인·스킬 목록을 그대로 하위 메뉴에 그린다', () => {
     render(vi.fn(), {
       skills: [
-        { name: 'review', sourceId: 'orca', sourceLabel: 'Orcinus orca 스킬', description: '' },
-        { name: 'plan', sourceId: 'adapter:claude', sourceLabel: 'CLAUDE 스킬', description: '' }
+        { name: 'review', sourceId: 'orca', sourceLabel: 'Orcinus orca', description: '' },
+        { name: 'plan', sourceId: 'adapter:claude', sourceLabel: 'Claude', description: '' }
       ] as SkillInfo[],
       plugins: [
         { kind: 'plugin', id: 'jira-dc', label: 'Jira DC' },

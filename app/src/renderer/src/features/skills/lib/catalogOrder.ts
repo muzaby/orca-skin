@@ -9,7 +9,11 @@ export function orderSkills(skills: readonly SkillInfo[]): SkillInfo[] {
     else bySource.set(skill.sourceId, [skill])
   }
   return [...bySource.values()]
-    .sort((a, b) => a[0].sourceLabel.localeCompare(b[0].sourceLabel))
+    .sort(
+      (a, b) =>
+        Number(b[0].sourceId === 'orca') - Number(a[0].sourceId === 'orca') ||
+        a[0].sourceLabel.localeCompare(b[0].sourceLabel)
+    )
     .flat()
 }
 

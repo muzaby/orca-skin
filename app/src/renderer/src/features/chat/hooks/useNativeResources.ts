@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react'
-import type {
-  DraftNativeResourcesRequest,
-  NativeResource
-} from '../../../../../shared/native-resources'
+import type { DraftNativeResourcesRequest } from '../../../../../shared/native-resources'
 import { nativeResourceState, type NativeResourcesView } from '../lib/nativeResourceState'
 export type { NativeResourcesView } from '../lib/nativeResourceState'
 
@@ -13,12 +10,7 @@ export function useNativeResources(
   draft?: DraftNativeResourcesRequest
 ): {
   view: NativeResourcesView
-  busy: boolean
-  pending: ReadonlySet<string>
-  refresh: () => void
   ensure: () => void
-  toggle: (resource: NativeResource) => Promise<void>
-  openPlugin: (resource: NativeResource) => Promise<void>
 } {
   const draftKey = JSON.stringify(draft)
   const key = JSON.stringify([scope, sessionId, sessionId ? null : draftKey])
@@ -34,19 +26,11 @@ export function useNativeResources(
   useEffect(() => {
     if (open) void state.ensure()
   }, [state, open])
-  const refresh = useCallback(() => {
-    void state.refresh()
-  }, [state])
   const ensure = useCallback(() => {
     void state.ensure()
   }, [state])
   return {
     view: snapshot.view,
-    busy: snapshot.pending.size > 0,
-    pending: snapshot.pending,
-    refresh,
-    ensure,
-    toggle: (resource) => (open ? state.toggle(resource) : Promise.resolve()),
-    openPlugin: (resource) => (open ? state.openPlugin(resource) : Promise.resolve())
+    ensure
   }
 }

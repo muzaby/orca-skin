@@ -32,19 +32,6 @@ vi.mock('../store/chatStore', () => ({
   chatActions: { toggleRightPanelTile: toggleTile, selectTask: vi.fn(), setPendingCwd: vi.fn() },
   getActiveChatSession: () => sessionState.value,
   useChatSession: (select: (s: unknown) => unknown) => select(sessionState.value),
-  useChatStore: (select: (s: unknown) => unknown) =>
-    select({
-      activeKey: 's1',
-      sessions: {
-        s1: {
-          panelReveal: sessionState.value.rightPanelTiles.some((column) =>
-            column.tiles.includes('nativeStatus')
-          )
-            ? { detail: { id: 'nativeStatus' } }
-            : undefined
-        }
-      }
-    }),
   useUnseenSettledTaskCount: () => unseenCount.value
 }))
 vi.mock('../../../shared/i18n', () => ({
@@ -112,13 +99,13 @@ function sessionActions(nodes: ReactNode = menu.children): MenuItemProps[] {
 const BADGE_ARIA = 'chat.taskTile.badgeAria'
 const TILE_LABEL = 'chat.rightpanel.tiles.'
 const menuCases = [
-  { backend: 'claude', kind: 'code', ids: ['plan', 'subagent', 'diff', 'nativeStatus'] },
+  { backend: 'claude', kind: 'code', ids: ['plan', 'subagent', 'diff'] },
   { backend: 'claude', kind: 'work', ids: ['task'] },
   { backend: 'opencode', kind: 'work', ids: ['task'] },
   {
     backend: 'opencode',
     kind: 'code',
-    ids: ['task', 'nativeStatus']
+    ids: ['task']
   }
 ] as const
 
@@ -131,10 +118,7 @@ describe('실제 타일 메뉴 — 평면 목록과 토글 (0262 ΔV9 · 0263 Δ
       const markup = render()
       expect(renderedTileItems(markup)).toEqual(
         ids.map((id) => ({
-          label:
-            (id === 'nativeStatus' ? (backend === 'opencode' ? 'OpenCode ' : 'Claude ') : '') +
-            TILE_LABEL +
-            id,
+          label: TILE_LABEL + id,
           active: false
         }))
       )
@@ -142,8 +126,7 @@ describe('실제 타일 메뉴 — 평면 목록과 토글 (0262 ΔV9 · 0263 Δ
       expect(markup).not.toContain('data-native-resources')
       expect(markup).not.toContain('>MCP<')
       expect(markup).not.toContain('chat.nativeResources.plugins')
-      if (kind === 'code')
-        expect(markup).toContain(backend === 'claude' ? 'text-spinner' : 'text-oc-ink')
+      if (kind === 'code') expect(markup).not.toMatch(/text-spinner|text-oc-ink/)
       expect(markup).not.toContain('chat.rightpanel.category.')
       expect(markup).not.toContain(TILE_LABEL + 'artifacts')
       expect(markup.indexOf('chat.titleBar.tilesHeader')).toBeLessThan(markup.indexOf(TILE_LABEL))
@@ -171,11 +154,9 @@ describe('실제 타일 메뉴 — 평면 목록과 토글 (0262 ΔV9 · 0263 Δ
       const callbacks = tileCallbacks()
       expect(callbacks).toHaveLength(ids.length)
       callbacks.forEach((item, index) => {
-        expect(item.icon).toBe(
-          ids[index] === 'nativeStatus' ? undefined : index === 0 ? 'check' : 'plus'
-        )
+        expect(item.icon).toBe(index === 0 ? 'check' : 'plus')
         item.onClick?.({} as React.MouseEvent<HTMLButtonElement>)
-        expect(toggleTile).toHaveBeenNthCalledWith(index + 1, ids[index], null)
+        expect(toggleTile).toHaveBeenNthCalledWith(index + 1, ids[index])
       })
       expect(toggleTile).toHaveBeenCalledTimes(ids.length)
     }

@@ -22,7 +22,7 @@ export function SourceHeading({
       ) : source.includes('opencode') ? (
         <OpenCodeLogo className={`${className} text-oc-ink`} />
       ) : source === 'orca' ? (
-        <OrcaLogo className={className} />
+        <OrcaLogo className="h-4 w-auto shrink-0" />
       ) : (
         <Icon name="folder" size={16} />
       )}

@@ -2,11 +2,7 @@ import type { RightPanelHostConfiguration } from '../../contracts'
 import { useCallback, type ReactNode } from 'react'
 import { PanelCloseButton, PanelExpandButton } from '../../../../../shared/ui/PanelControls'
 import { chatActions, useChatSession } from '../../../store/chatStore'
-import {
-  rightPanelTileLabel,
-  type RightPanelAgentPolicy,
-  type RightPanelTileId
-} from '../../../lib/rightPanelTiles'
+import { type RightPanelAgentPolicy, type RightPanelTileId } from '../../../lib/rightPanelTiles'
 import { useI18n, type MessageKey } from '../../../../../shared/i18n'
 
 interface RightPanelTileProps {
@@ -40,19 +36,14 @@ export function RightPanelTile({
   className = ''
 }: RightPanelTileProps): React.JSX.Element {
   const { tr } = useI18n()
-  const label =
-    useChatSession((s) => s.rightPanelTileLabels[id]) ??
-    (id === 'nativeStatus'
-      ? rightPanelTileLabel(id, configuration.backend, tr)
-      : tr(defaultLabelKey))
+  const label = useChatSession((s) => s.rightPanelTileLabels[id]) ?? tr(defaultLabelKey)
   const { appearance, backend } = configuration
   const isDiff = id === 'diff'
   const isWorkTask = taskTileChrome === 'work-overview' && id === 'task'
   const isOpenCodeTask = taskTileChrome === 'opencode-overview' && id === 'task'
-  const expandButton = (id === 'plan' || id === 'task' || id === 'nativeStatus') &&
-    onToggleExpand && (
-      <PanelExpandButton expanded={expanded} targetLabel={label} onClick={onToggleExpand} />
-    )
+  const expandButton = (id === 'plan' || id === 'task') && onToggleExpand && (
+    <PanelExpandButton expanded={expanded} targetLabel={label} onClick={onToggleExpand} />
+  )
 
   const remove = useCallback((): void => {
     if (onClose) return onClose()

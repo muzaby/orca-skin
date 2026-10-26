@@ -129,7 +129,10 @@ describe('0256 AC9·AC10 — 대화 기록 너비', () => {
       '<ReadingColumn'
     )
     expect(read('pages/ProjectLandingPage.tsx')).toContain('<ReadingColumn>')
-    expect(read('features/chat/components/Landing.tsx')).toContain('max-w-[720px]')
+    expect(read('features/chat/components/Landing.tsx')).toContain(
+      'className={landingFrame.column}'
+    )
+    expect(read('features/chat/components/landingFrame.ts')).toContain('max-w-[720px]')
     expect(read('pages/ProjectLandingPage.tsx')).toContain('max-w-[720px]')
   })
 })

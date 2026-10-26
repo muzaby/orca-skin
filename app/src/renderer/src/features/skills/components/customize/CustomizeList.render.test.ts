@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { McpServer, ProviderInfo, SkillInfo } from '../../../../../../shared/ipc'
 import type { CatalogTab } from '../../lib/catalogSelection'
 import { CustomizeList } from './CustomizeList'
+import { Icon } from '../../../../shared/ui/Icon'
 
 const skill = (sourceId: string, sourceLabel: string): SkillInfo => ({
   name: 'review',
@@ -100,10 +101,10 @@ describe('plugin catalog list', () => {
         }
       }))
     })
-    expect(rows(mcp)).toEqual(['claude:docs', 'opencode:docs', 'active', 'inactive'])
-    expect(mcp).toContain('Claude MCP')
-    expect(mcp).toContain('OpenCode MCP')
-    expect(mcp).toContain('Orcinus orca MCP')
+    expect(rows(mcp)).toEqual(['active', 'inactive', 'claude:docs', 'opencode:docs'])
+    expect(mcp).toContain('Claude')
+    expect(mcp).toContain('OpenCode')
+    expect(mcp).toContain('Orcinus orca')
     const headings = load(mcp)('li').filter((_, el) => !load(mcp)(el).attr('data-extensions-row'))
     expect(headings.eq(0).attr('class')).toContain('pt-5')
     expect(headings.eq(1).attr('class')).toContain('pt-8')
@@ -112,14 +113,14 @@ describe('plugin catalog list', () => {
     expect(mcp).toContain('text-oc-ink')
   })
   it.each<[CatalogTab, string[]]>([
-    ['skills', ['adapter:claude/review', 'orca/review']],
+    ['skills', ['orca/review', 'adapter:claude/review']],
     ['mcp', ['active', 'inactive']],
     ['providers', ['gate', 'service']]
   ])('%s uses flat catalog buttons with selection and preserves its previous order', (tab, ids) => {
     const markup = render({ tab, selectedId: ids[1] })
     expect(rows(markup)).toEqual(ids)
     expect(markup.match(/<ul\b/g)).toHaveLength(1)
-    expect(markup.match(/<li\b/g)).toHaveLength(tab === 'skills' ? 4 : tab === 'mcp' ? 3 : 2)
+    expect(markup.match(/<li\b/g)).toHaveLength(tab === 'skills' ? 4 : 3)
     expect(markup.match(/<button\b/g)).toHaveLength(
       tab === 'providers' ? 2 : tab === 'skills' ? 3 : 4
     )
@@ -130,8 +131,8 @@ describe('plugin catalog list', () => {
 
   it('groups skills and MCP by canonical source while retaining management metadata', () => {
     const skills = render({ tab: 'skills' })
-    expect(skills).toContain('Claude 스킬')
-    expect(skills).toContain('Orcinus orca 스킬')
+    expect(skills).toContain('Claude')
+    expect(skills).toContain('Orcinus orca')
     const $ = load(skills)
     expect($('li').not('[data-extensions-row]').last().hasClass('pt-8')).toBe(true)
     $('[data-extensions-row]').each((_, row) => {
@@ -197,6 +198,118 @@ describe('plugin catalog list', () => {
   )
 })
 
+const groupFixture = {
+  skills: [
+    skill('adapter:opencode', 'OpenCode 스킬'),
+    skill('orca', 'Orcinus orca 스킬'),
+    skill('agents', '~/.agents/skills'),
+    skill('adapter:claude', 'Claude 스킬')
+  ],
+  providers: [provider('service', 'service'), provider('model', 'llm'), provider('gate', 'gate')],
+  nativeMcp: (['opencode', 'claude'] as const).flatMap((backend) =>
+    (['mcp', 'plugin'] as const).map((kind) => ({
+      backend,
+      resource: {
+        id: kind,
+        name: `${backend}-${kind}`,
+        kind,
+        status: 'configured' as const,
+        enabled: true,
+        canToggle: false
+      }
+    }))
+  )
+}
+const expectedGroups: Record<CatalogTab, string[]> = {
+  skills: ['Orcinus orca', '~/.agents/skills', 'Claude', 'OpenCode'],
+  mcp: ['Orcinus orca', 'Claude', 'OpenCode'],
+  providers: ['Orcinus orca', 'Claude', 'OpenCode']
+}
+it.each<CatalogTab>(['skills', 'mcp', 'providers'])(
+  'puts the Orcinus orca group first in every tab (%s)',
+  (tab) => {
+    const markup = render({ ...groupFixture, tab })
+    const expectedRows = {
+      skills: ['orca/review', 'agents/review', 'adapter:claude/review', 'adapter:opencode/review'],
+      mcp: ['active', 'inactive', 'claude:mcp', 'opencode:mcp'],
+      providers: ['gate', 'model', 'service', 'claude:plugin', 'opencode:plugin']
+    }
+    expect(rows(markup)).toEqual(expectedRows[tab])
+    const $ = load(markup)
+    const headings = $('li').not('[data-extensions-row]')
+    expect(headings.map((_, el) => $(el).text()).get()).toEqual(expectedGroups[tab])
+    expect(headings.first().find('[aria-label="Orcinus orca"]')).toHaveLength(1)
+  }
+)
+
+it.each<CatalogTab>(['skills', 'mcp', 'providers'])(
+  'titles every group by brand name only (%s)',
+  (tab) => {
+    const $ = load(render({ ...groupFixture, tab }))
+    const headings = $('li').not('[data-extensions-row]')
+    expect(headings.map((_, el) => $(el).text()).get()).toEqual(expectedGroups[tab])
+    expect(
+      headings
+        .map((_, el) =>
+          ($(el).attr('class') ?? '')
+            .split(/\s+/)
+            .filter((token) => token.startsWith('pt-'))
+            .join(' ')
+        )
+        .get()
+    ).toEqual(expectedGroups[tab].map((_, index) => (index ? 'pt-8' : 'pt-5')))
+  }
+)
+
+it.each<CatalogTab>(['mcp', 'providers'])(
+  'omits an empty Orca group and gives the first native heading initial spacing (%s)',
+  (tab) => {
+    const $ = load(render({ ...groupFixture, tab, providers: [], mcpServers: [] }))
+    const headings = $('li').not('[data-extensions-row]')
+    expect(headings.map((_, el) => $(el).text()).get()).toEqual(['Claude', 'OpenCode'])
+    expect(headings.first().hasClass('pt-5')).toBe(true)
+    expect(headings.last().hasClass('pt-8')).toBe(true)
+    expect($('[aria-label="Orcinus orca"]')).toHaveLength(0)
+  }
+)
+
+it.each<CatalogTab>(['skills', 'mcp', 'providers'])(
+  'sizes the Orca mark by height only (%s)',
+  (tab) => {
+    const $ = load(render({ ...groupFixture, tab }))
+    const tokens = ($('[aria-label="Orcinus orca"]').attr('class') ?? '').split(/\s+/)
+    expect(tokens).toEqual(expect.arrayContaining(['h-4', 'w-auto', 'shrink-0']))
+    expect(tokens.filter((token) => /^(size-|w-(?!auto$))/.test(token))).toEqual([])
+    for (const viewBox of ['0 0 248 248', '0 0 16 20']) {
+      const logo = $('svg').filter((_, element) => $(element).attr('viewBox') === viewBox)
+      expect(logo).toHaveLength(1)
+      expect(logo.hasClass('size-4')).toBe(true)
+    }
+  }
+)
+
+it('uses the MCP icon for Orca MCP rows of both transports', () => {
+  const $ = load(
+    render({
+      tab: 'mcp',
+      mcpServers: [
+        server('http', true),
+        { ...server('stdio', true), transport: 'stdio', command: 'node', url: null }
+      ]
+    })
+  )
+  const expected = load(
+    renderToStaticMarkup(
+      createElement(Icon, { name: 'mcp', size: 20, className: 'shrink-0 text-ink3' })
+    )
+  )('svg').toString()
+  for (const transport of ['http', 'stdio']) {
+    const row = $(`[data-extensions-row="${transport}"]`)
+    expect(row.find('svg').first().toString()).toBe(expected)
+    expect(row.text()).toContain(transport)
+  }
+})
+
 it('orders Claude then OpenCode plugin groups after providers and keeps plugin toggle capability', () => {
   const nativeMcp = (['opencode', 'claude'] as const).flatMap((backend) =>
     [true, false].map((canToggle) => ({
@@ -233,6 +346,6 @@ it('orders Claude then OpenCode plugin groups after providers and keeps plugin t
     expect(row.find('[title]').hasClass('text-ink3')).toBe(!resource.canToggle)
     expect(row.find('[role=switch]').attr('aria-checked')).toBe(String(resource.enabled))
   }
-  expect(markup).toContain('Claude 플러그인')
-  expect(markup).toContain('OpenCode 플러그인')
+  expect(markup).toContain('Claude')
+  expect(markup).toContain('OpenCode')
 })

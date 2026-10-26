@@ -42,8 +42,7 @@ export function rightPanelColumnsForAgent(
     const owner = cols.find((col) => col.tiles.includes('task'))
     return owner ? [{ id: owner.id, tiles: ['task'] }] : []
   }
-  const visible = (id: RightPanelTileId): boolean =>
-    !(backend === 'opencode' && id === 'nativeStatus') && isRightPanelTileVisible(id, kind, backend)
+  const visible = (id: RightPanelTileId): boolean => isRightPanelTileVisible(id, kind, backend)
   if (cols.every((col) => col.tiles.every(visible))) return cols
   return cols
     .map((col) => ({

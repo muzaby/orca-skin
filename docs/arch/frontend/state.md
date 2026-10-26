@@ -28,7 +28,7 @@
 
 ### 우측 타일 선택
 
-OpenCode의 `rightPanelTiles`는 작업 요약과 계획·하위 에이전트·변경 사항·프로세스·소스를 독립적으로 보관한다. 타이틀 메뉴는 작업과 OpenCode 상태를 토글하며, 메뉴 노출 정책은 기존 타일 지원·저장 상태와 분리한다. transcript Task 카드는 기존 직접 타일 열기 경로를 사용한다.
+OpenCode의 `rightPanelTiles`는 작업 요약과 계획·하위 에이전트·변경 사항·프로세스·소스를 독립적으로 보관한다. 타이틀 메뉴는 작업을 토글하며, 메뉴 노출 정책은 기존 타일 지원·저장 상태와 분리한다. transcript Task 카드는 기존 직접 타일 열기 경로를 사용한다.
 
 `chatActions.openProcessTool`은 활성 세션의 `selectedProcessToolId`를 설정하고 `process` 타일을 열어 `panelReveal`로 해당 열을 드러낸다. 이미 열린 프로세스 타일에서는 선택만 바꾸고 다른 열린 타일과 `selectedSubagentTaskId`를 보존한다.
 
@@ -194,9 +194,6 @@ Sidebar는 고정됨→프로젝트→최근 대화 순서다. 고정 프로젝�
 
 ### Native 리소스 관측
 
-`nativeResourceState`는 창 수명의 session/backend별 실제 관측과 진행 중 제어를 보관한다. main의 `session:native-resources-changed` 통지를 받으면 해당 세션의 캐시를 갱신하므로 같은 프로젝트의 다른 세션으로 이동하거나 상태 타일을 다시 열 때 공유 선택이 보인다. 이 통지는 Composer의 같은 관측 소비처에도 반영된다. 통지 이전에 시작한 조회와 제어 응답은 새 snapshot을 덮지 않으며 종료 generation의 늦은 통지도 폐기한다. 공유 범위·peer 적용·부분 실패 판정은 main이 소유한다.
+`nativeResourceState`는 창 수명의 session/backend별 읽기 전용 관측을 보관한다. main의 `session:native-resources-changed` 통지를 받으면 해당 세션의 캐시를 갱신하므로 같은 프로젝트의 다른 세션으로 이동하거나 Composer 메뉴를 다시 열 때 공유 선택이 보인다. 통지 이전에 시작한 조회 응답은 새 snapshot을 덮지 않으며 종료 generation의 늦은 통지도 폐기한다. 공유 범위·peer 적용·부분 실패 판정은 main이 소유한다.
 
-OpenCode의 첫 입력 전 상태 타일은 `composerCatalogState`에서 동일 cwd·provider·프로젝트 scope의 준비 관측도 구독한다. MCP/plugin은 독립 완료하며 성공한 종류는 파일 기반 목록을 대체하고 아직 성공하지 않은 종류는 파일 기반 항목을 유지한다. 준비 세대 종료·scope 전환은 이전 연결 결과를 폐기한다. 첫 입력으로 sessionId가 생기면 기존 runtime 관측으로 전환한다.
-
-
-하네스 상태 타일·Composer는 `useNativeResources`의 같은 session/backend 관측과 pending 제어를 사용한다. `ensure`는 건강한 connected cache를 재사용하고 유효 세대에서 진행 중인 metadata 조회를 합친다. 따라서 live 목록의 재열기·재마운트·세션 복귀가 조회를 다시 시작하지 않는다. 초기/미연결/부분 실패 및 명시 retry는 기존 목록을 보존하며 비동기로 조회한다. connected 이벤트는 이전 조회를 fence하고 새 관측을 얻으며 terminated는 해당 세대만 폐기한다. 임의 TTL이나 polling으로 실행 상태를 초기화하지 않는다. 프로젝트 공유 범위와 실제 SDK fanout은 main이 소유한다.
+Composer는 `useNativeResources`의 session/backend별 `view`·`ensure`를 사용한다. `ensure`는 건강한 connected cache를 재사용하고 유효 세대에서 진행 중인 metadata 조회를 합친다. 따라서 live 목록의 재열기·재마운트·세션 복귀가 조회를 다시 시작하지 않는다. 초기/미연결/부분 실패의 재조회는 기존 목록을 보존하며 비동기로 조회한다. connected 이벤트는 이전 조회를 fence하고 새 관측을 얻으며 terminated는 해당 세대만 폐기한다. 임의 TTL이나 polling으로 실행 상태를 초기화하지 않는다. 프로젝트 공유 범위와 실제 SDK fanout은 main이 소유한다.

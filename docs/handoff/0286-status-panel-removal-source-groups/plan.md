@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-26 |
 | 매핑 | — |
-| 상태 | READY |
+| 상태 | IMPL_DONE (V1 r1) |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
 | 이번 V revision | `V1` |
@@ -476,81 +476,171 @@ main SkillInfo.sourceLabel(접미 유지) ─▶ orderSkills 정렬 키 · catal
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: D-001~D-012를 유지했다. 상태 UI·renderer 제어만 제거하고 native 관측과 IPC 표면은 보존했다.
+- 이견 / 현실성 문제: §19 관련 스위트에는 SQLite를 쓰는 `settlement.integration.test.ts`도 있다. Node ABI 실패 5건은 Electron Node 모드에서 따로 실행해 5/5 통과했다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. 사용자 추가 요청인 현재 CI 실패 2건은 0285의 공통 랜딩·활자 계약을 반영하지 않은 테스트 기대값이었다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
+아래 `G-SOURCE`·`G-DOC`는 `cd app && node --test scripts/check-chat-resource-surface.test.mjs`의 첫째·둘째 테스트다. `G-I18N`은 `shared/i18n/resources/resources.test.ts:$locale omits unused session control and refresh labels`다. 파일명만 쓴 테스트는 `app/src/renderer/src` 아래이며 모두 최종 실행 집합에 포함된다.
+
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| VP-… | … | … | … | … | … | … |
+| VP-01~03 | EP-01 상태 UI·분기 | 비테스트 32줄/13파일 | 32/32 | `git grep -n nativeStatus 0e73fb67 -- app/src ':!*.test.*'` 기준선 32; 구현 트리 `rg nativeStatus app/src` 0. 모든 자리 `G-SOURCE`; 메뉴는 `ChatTitleBar.render.test.ts` 4조합 exact | 정의·정책·registry·스토어·locale 잔여 0, S01 검출 | 없음 |
+| VP-02 | EP-02 전용 모듈 | 4모듈+4테스트 | 8/8 | `G-SOURCE` 경로 실재 단언; `rg -l 'NativeResourcesTile\|OpenCodeNativeResourcesTile\|preparedResourcesView\|nativeResourcesMenu' app/src` 0 | 빈 내용의 삭제 파일 재생성도 S02 검출 | 없음 |
+| VP-05·06 | EP-03 제어 소비 | hook 타입/반환·openPlugin·toggle 4자리 | 4/4 | `G-SOURCE`; §10 검색 6줄→0. `useNativeResources.test.ts` 읽기 수명·`preload/index.test.ts:preserves native resource state and toggle identity through renderer and preload` | feature 쓰기/열기 0, IPC bridge identity 유지; M01·S03 검출 | 없음 |
+| VP-05 | EP-03′ 죽은 상태 | operations·serial·pushSerial·epoch·begin·finish·pending·Issue의 제어 변형 | 열거한 전용 상태 제거 | §10 검색 0; `G-SOURCE` S04 검출. `nativeResourceState.composer.test.ts:retains a failed live Composer read only within the same generation and accepts authoritative removal` | readSerial·flight·generation은 보존, stale/authoritative removal 구별 | 없음 |
+| VP-02 | EP-04 resources 구독 | state 구독·hook 인자/분기 3자리 | 3/3 | §10 검색 3→0; `G-SOURCE` S05 검출; `composerCatalogState.test.ts` agent/model revision 재조회 | mcp/plugins 슬롯 타입은 유지, resources 조회 진입 0 | 없음 |
+| VP-09·12 | EP-05 브랜드 제목 | 페이지 4·첨부 메뉴 4·자동완성 1 | 9/9 | `CustomizeList.render.test.ts:titles every group by brand name only`; `attachMenuModel.test.ts:lists source headings and every skill in one panel`, `플러그인 ▸ 목록…`, `keeps native then Orca plugin headings…`, `limits %s…`; `skillGroups.test.ts:연속한 같은 출처…` | Orca·agents·양 하네스, native 유무 구별; M05~13 모두 검출 | 없음 |
+| VP-10·11 | EP-06 제목 병합 | map key·연속 비교 2자리 | 2/2 | `attachMenuModel.test.ts:merges groups that share a title into one heading without losing item identities`; `skillGroups.test.ts:연속한 같은 출처를 한 섹션으로 묶고 평면 인덱스를 그대로 둔다` | adapter/plugin 동일 제목·다른 id, 0/1→2→3 인덱스; M14·15 검출 | 없음 |
+| VP-07·08 | EP-07 Orca 우선 | sort·MCP·providers 3자리 | 3/3 | `catalogOrder.test.ts:orders skill sources by label and keeps the original order within each source`; `CustomizeList.render.test.ts:puts the Orcinus orca group first in every tab`, `omits an empty Orca group…` | Orca가 처음 아닌 입력, native와 Orca 모두 존재, Orca 비어 있음; M02~04 검출 | 없음 |
+| VP-13 | EP-08 로고 | page·Composer 2자리 | 2/2 | `CustomizeList.render.test.ts:sizes the Orca mark by height only`; `Composer.native-menu.test.ts:shows all source groups directly for %s and keeps draft text on selection` | 3탭 h-4/w-auto, 양 Composer h-3.5/w-auto; M16·17 검출 | 실제 픽셀은 VP-16 |
+| VP-14 | EP-09 MCP 아이콘 | list·detail 2자리 | 2/2 | `CustomizeList.render.test.ts:uses the MCP icon for Orca MCP rows of both transports`; `mcpDetail.render.test.ts:uses the MCP icon in the header for both transports` | http·stdio 각각 mcp SVG, transport 표시 유지; M18·19 검출 | 없음 |
+| R-07 | EP-10 i18n | 8키×2 locale | 16/16 | 소비자 검색 각각 0; 상태 타일 키는 `G-SOURCE`, 나머지 7키×2는 `G-I18N` | locale 실제 키 집합; S06·S09-en/ko 검출 | 없음 |
+| VP-15 | EP-11 문서 | 고정 목록 15자리 | 15/15 | `G-DOC` 음성·양성; `check-doc-inventory.mjs --check` 생성물·prose·links 모두 정상 | 구 기능 설명 0, 새 탭 순서 양성; S07·08·10 검출 | 없음 |
 
-- §10 자리 목록 밖에서 본 운반 자리: …
-- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(최초 라운드)
+- 분모 재검색: EP-01 기준선 파일별 `(5,3,1,2,2,3,1,2,1,2,8,1,1)`와 목록 차집합 0. EP-02 삭제 경로 8개 차집합 0. EP-03/04는 각각 6줄/4자리·3줄/3자리에서 잔여 0이다.
+- EP-05는 수정 후 검색 10줄을 페이지 skills의 JSX 시작/label 중복 1줄과 합쳐 9자리로 대응했다. EP-06은 map get/set 2줄과 비교 1줄을 2자리로 대응했다. 제목 비교로 바뀐 뒤 옛 `last.items[0].skill.source` 검색은 사라졌다. EP-07은 4줄/3자리, EP-08 전체 5소비자에서 이 경로 2곳/기존 Header·Sidebar 3곳을 분리했다. EP-09 옛 아이콘 분기 잔여 0이다.
+- EP-10의 정적 소비자 0과 locale 키 부재를 따로 검사했다. EP-11 옛 15자리 중 제거 패턴 13자리·새 서술 2자리 대응을 확인했고, 구현 후 제거 패턴 0 및 새 그룹 순서 서술을 관측했다.
+- §10 자리 목록 밖에서 본 운반 자리: 이미 §10 하단에 언급된 `ComposerInputController.nativeMenu.label`도 SSOT로 변경했다. 추가로 `rendering.md` 타이틀 메뉴 문단·상세 진입 문장과 `state.md` 우측 타일 문단의 옛 상태 메뉴 설명 3곳을 수정했다. 고정 목록을 재정의하지 않고 같은 계약에 맞췄다.
+- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(최초 라운드).
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | REQUIRED | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | `ChatTitleBar.render.test.ts` 메뉴 exact·toggle·세션 액션 | not selected |
+| VP-02 | REQUIRED | SELF_PASS | `chatStore.panelTiles.test.ts:keeps the summary…`, `clears only the closed process selection through %s`; `Panel.interaction.test.ts:opens one overlay…`; G-SOURCE | not selected; 삭제 감도 S01~05 |
+| VP-03 | REQUIRED | SELF_PASS | `rightPanelTiles.test.ts:정의 id는 plan·subagent·task·diff·process·source 순서다`; `rightPanelTiles.harness.test.ts`; `rightPanelLayout.test.ts`; G-SOURCE | not selected |
+| VP-04 | REQUIRED | SELF_PASS | `Composer.native-menu.test.ts` native 명령·MCP·장식·재연결 케이스 | not selected |
+| VP-05 | REQUIRED | SELF_PASS | `useNativeResources.test.ts` draft scope·A→B→A·reconnect·termination·peer push; `nativeResourceState.composer.test.ts` partial/authoritative removal | M01 검출 |
+| VP-06 | REQUIRED | SELF_PASS | G-SOURCE + `preload/index.test.ts:preserves native resource state and toggle identity through renderer and preload` | M01 공유 |
+| VP-07 | REQUIRED | SELF_PASS | `CustomizeList.render.test.ts:puts the Orcinus orca group first in every tab`·빈 그룹 케이스; `ExtensionsCatalogView.interaction.test.ts` | M02·03 검출 |
+| VP-08 | REQUIRED | SELF_PASS | `catalogOrder.test.ts:orders skill sources by label and keeps the original order within each source` | M04 검출 |
+| VP-09 | REQUIRED | SELF_PASS | EP-05의 9자리 좌표 + `attachMenuModel.test.ts:hover 설명…` | M05~13 검출 |
+| VP-10 | REQUIRED | SELF_PASS | `attachMenuModel.test.ts:merges groups that share a title…`, `limits %s…` | M14 검출 |
+| VP-11 | REQUIRED | SELF_PASS | `skillGroups.test.ts:연속한 같은 출처를 한 섹션으로 묶고 평면 인덱스를 그대로 둔다` | M15 검출 |
+| VP-12 | REQUIRED | SELF_PASS | `attachMenu.render.test.ts:/ 후보가 출처 헤더 아래 묶이고 활성 인덱스가 화면 순서와 같다`; `Composer.native-menu.test.ts:shows all source groups…` | not selected, 하위 pair |
+| VP-13 | REQUIRED | SELF_PASS | EP-08의 page/Composer 로고 토큰 좌표 | M16·17 검출 |
+| VP-14 | REQUIRED | SELF_PASS | EP-09의 두 transport list/detail SVG 좌표 | M18·19 검출 |
+| VP-15 | REQUIRED | SELF_PASS | G-DOC + tracked 파일 스냅샷 doc inventory | not selected; 새 스윕 S07·08·10 |
+| VP-16 | REQUIRED | SELF_BLOCKED | AC16 실제 창 white/dark 사람 시각 인수 | 미실시 |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
+각 결함을 하나씩 적용해 실제 테스트 실패를 관측한 뒤 원본 바이트를 복원했다. M10 첫 실행은 기존 단언이 제목을 보지 않아 통과했고, 플러그인 제목 exact 단언을 추가한 뒤 같은 결함에서 3건 실패했다. 아래 표는 보강 후 결과다.
+
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| `M01-control-call` sessionApi.setNativeResource 호출 복원 — `nativeResourceState.ts` | 선택 증거 | 최초 | not ok 1 - chat features keep native observations without reviving session control or status panels / 1 | 검출 |
+| `M02-mcp-order` MCP native 블록을 Orca 앞으로 이동 — `CustomizeList.tsx` | 선택 증거 | 최초 | plugin catalog list hides native plugin skills and labels both native MCP groups with brand marks / 3 | 검출 |
+| `M03-provider-heading` provider Orca 제목 삭제 — `CustomizeList.tsx` | 선택 증거 | 최초 | plugin catalog list providers uses flat catalog buttons with selection and preserves its previous order / 4 | 검출 |
+| `M04-skills-order` Orca 우선 비교식 제거 — `catalogOrder.ts` | 선택 증거 | 최초 | catalog final row order orders skill sources by label and keeps the original order within each source / 1 | 검출 |
+| `M05-title-page-native` native 제목에 MCP 접미 복원 — `CustomizeList.tsx` | 선택 증거 | 최초 | puts the Orcinus orca group first in every tab (mcp) / 6 | 검출 |
+| `M06-title-page-skills` skill 제목에 스킬 접미 복원 — `CustomizeList.tsx` | 선택 증거 | 최초 | puts the Orcinus orca group first in every tab (skills) / 2 | 검출 |
+| `M07-title-page-mcp` Orca MCP 제목에 MCP 접미 복원 — `CustomizeList.tsx` | 선택 증거 | 최초 | puts the Orcinus orca group first in every tab (mcp) / 2 | 검출 |
+| `M08-title-page-provider` provider 제목에 플러그인 접미 복원 — `CustomizeList.tsx` | 선택 증거 | 최초 | puts the Orcinus orca group first in every tab (providers) / 2 | 검출 |
+| `M09-title-menu-catalog` catalog 제목에 스킬 접미 복원 — `attachMenuModel.ts` | 선택 증거 | 최초 | buildAttachMenu merges groups that share a title into one heading without losing item identities / 4 | 검출 |
+| `M10-title-menu-orca` Orca plugin 제목에 플러그인 접미 복원 — `attachMenuModel.ts` | 선택 증거 | 최초 | buildAttachMenu 플러그인 ▸ 목록 · 구분선 · 플러그인 관리 (AC3) / 3 | 검출 |
+| `M11-title-menu-native` native MCP 제목에 MCP 접미 복원 — `attachMenuModel.ts` | 선택 증거 | 최초 | buildAttachMenu keeps native then Orca plugin headings as brand names for claude / 4 | 검출 |
+| `M12-title-native-skills` native 명령 제목을 스킬/플러그인으로 분리 — `attachMenuModel.ts` | 선택 증거 | 최초 | buildAttachMenu limits claude to approved skill sources and merges duplicate source headings / 4 | 검출 |
+| `M13-title-autocomplete` 자동완성 제목에 스킬 접미 복원 — `skillGroups.ts` | 선택 증거 | 최초 | groupSkillSuggestions 연속한 같은 출처를 한 섹션으로 묶고 평면 인덱스를 그대로 둔다 / 1 | 검출 |
+| `M14-menu-group-key` map key를 sourceId로 복원 — `attachMenuModel.ts` | 선택 증거 | 최초 | buildAttachMenu merges groups that share a title into one heading without losing item identities / 1 | 검출 |
+| `M15-autocomplete-key` 연속 비교를 sourceId로 복원 — `skillGroups.ts` | 선택 증거 | 최초 | groupSkillSuggestions 연속한 같은 출처를 한 섹션으로 묶고 평면 인덱스를 그대로 둔다 / 1 | 검출 |
+| `M16-page-logo` page 로고를 size-4로 복원 — `SourceHeading.tsx` | 선택 증거 | 최초 | sizes the Orca mark by height only (skills) / 3 | 검출 |
+| `M17-composer-logo` Composer 로고를 w-4로 복원 — `composer.ts` | 선택 증거 | 최초 | shows all source groups directly for claude and keeps draft text on selection / 2 | 검출 |
+| `M18-list-icon` list 아이콘을 link/cpu로 복원 — `CustomizeList.tsx` | 선택 증거 | 최초 | uses the MCP icon for Orca MCP rows of both transports / 1 | 검출 |
+| `M19-detail-icon` detail 아이콘을 link/cpu로 복원 — `McpDetail.tsx` | 선택 증거 | 최초 | uses the MCP icon in the header for both transports (http) / 2 | 검출 |
+| `S01-target-new-file` 새 소스 파일에 제거된 상태 id 선언 — `0286-removed-surface-probe.ts` | 새 oracle 감도 | 최초 | not ok 1 - chat features keep native observations without reviving session control or status panels / 1 | 검출 |
+| `S02-deleted-module` 삭제 모듈 경로에 빈 export 파일 복원 — `NativeResources.tsx` | 새 oracle 감도 | 최초 | not ok 1 - chat features keep native observations without reviving session control or status panels / 1 | 검출 |
+| `S03-hook-control` hook에 state.toggle 참조 주입 — `useNativeResources.ts` | 새 oracle 감도 | 최초 | not ok 1 - chat features keep native observations without reviving session control or status panels / 1 | 검출 |
+| `S04-dead-state` 관측 소스에 operations 토큰 주입 — `nativeResourceState.ts` | 새 oracle 감도 | 최초 | not ok 1 - chat features keep native observations without reviving session control or status panels / 1 | 검출 |
+| `S05-catalog-resources` catalog에 resources 기본값 주입 — `useComposerCatalog.ts` | 새 oracle 감도 | 최초 | not ok 1 - chat features keep native observations without reviving session control or status panels / 1 | 검출 |
+| `S06-obsolete-i18n` locale 소스에 옛 키 전체 경로 주입 — `en.ts` | 새 oracle 감도 | 최초 | not ok 1 - chat features keep native observations without reviving session control or status panels / 1 | 검출 |
+| `S07-doc-negative` 새 현재 문서에 상태 패널 설명 주입 — `0286-surface-probe.md` | 새 oracle 감도 | 최초 | not ok 2 - current architecture describes brand groups and omits the removed status surface / 1 | 검출 |
+| `S08-doc-positive` rendering의 새 그룹 순서 문장 제거 — `rendering.md` | 새 oracle 감도 | 최초 | not ok 2 - current architecture describes brand groups and omits the removed status surface / 1 | 검출 |
+| `C01-ci-width` landingFrame의 720px을 800px로 교체 — `landingFrame.ts` | 새 oracle 감도 | 최초 | 0256 AC9·AC10 — 대화 기록 너비 트랜스크립트·컴포저·프로젝트 랜딩이 같은 ReadingColumn 폭을 쓰고 랜딩은 720px 상한을 유지한다 / 1 | 검출 |
+| `C02-ci-width-wiring` Landing의 landingFrame.column 연결 삭제 — `Landing.tsx` | 새 oracle 감도 | 최초 | 0256 AC9·AC10 — 대화 기록 너비 트랜스크립트·컴포저·프로젝트 랜딩이 같은 ReadingColumn 폭을 쓰고 랜딩은 720px 상한을 유지한다 / 1 | 검출 |
+| `C03-ci-typography` 공통 userBubble을 14px로 복원 — `typography.ts` | 새 oracle 감도 | 최초 | OpenCode transcript presentation preserves bubble colors and the harness viewport background in earlier and last exchanges ('claude'/'code') / 3 | 검출 |
+| `S09-i18n-nested-en` en.harness.catalogRefresh 실제 키 복원 — `en.ts` | 새 oracle 감도 | 최초 | i18n resources 'en' omits unused session control and refresh labels / 2 | 검출 |
+| `S09-i18n-nested-ko` ko.harness.catalogRefresh 실제 키 복원 — `ko.ts` | 새 oracle 감도 | 최초 | i18n resources 'ko' omits unused session control and refresh labels / 4 | 검출 |
+| `S10-doc-menu` 새 현재 문서에 OpenCode 상태 메뉴 설명 주입 — `0286-surface-probe.md` | 새 oracle 감도 | 최초 | not ok 2 - current architecture describes brand groups and omits the removed status surface / 1 | 검출 |
 
-- **분모 검산**: …
-- **덮개 회귀**: 해당 없음(최초 라운드)
+- **분모 검산**: 선택 증거 19(M01은 VP-05·06 공유) + 이전 라운드 인용 변이 0 + 새 oracle 감도 14(S계열 11 + CI C계열 3) = 33행. 등록 id 집합과 결과 id 집합의 차집합 0, 검출 33·미검출 0. CI 기대값 복구는 실측된 두 실패와 0285 계약에 근거했다.
+- **덮개 회귀**: 해당 없음(최초 라운드). 삭제된 제어/패널 테스트를 제외한 읽기 수명·bridge·다른 타일 테스트는 최종 실행에서 통과했다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 브랜드 SSOT가 페이지·Composer 제목/hover에 도달함을 exact 단언 | 없음 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 해당 없음, 테스트용 production seam 신설 없음 | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 신규 실패 경로 없음. 기존 읽기 실패·재연결 유지 | AC14 통과 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 읽기 오류 보고 1회·초기/부분 실패·재열기 단언 유지 | 새 제어 진입 없음 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | draft scope·readSerial·종료 generation·peer push fence 통과 | 없음 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | 현재 CI run 40255130695의 테스트 2건이 0285 전 기대값 | `typeScale.test.ts`가 실제 `landingFrame.column` 배선과 720px SSOT를 검사하고 `TranscriptView.harness.test.ts`는 공통 text-body를 검사 | 수정 전 2실패 재현, 수정 후 통과; C01~03 검출 |
+| 2 | 제목만으로 메뉴를 합치면 서로 다른 source의 같은 skill 이름 id가 충돌할 수 있음 | heading key와 action id를 분리, action은 실제 `skill.sourceId` 유지 | 동일 이름 adapter/plugin fixture의 action id exact |
+| 3 | 지운 상태 상세에만 쓰던 `toggleRightPanelTile` origin 인자 | 호출부와 구현에서 함께 제거 | typecheck·메뉴 toggle 단언 통과 |
+| 4 | 문서 원래 스윕이 “OpenCode 상태” 표현을 못 봄 | 고정 목록 밖 3문장 정정 및 G-DOC 패턴 보강 | S10 검출, 최종 현재 문서 검색 0 |
+| 5 | 로컬 임시 checkout `.tmp/opencode-dev`·`app/.temp/opencode`의 외부 README 링크 10건 | 사용자 임시 자료를 보존하고 tracked 파일 스냅샷으로 동일 inventory 명령 실행 | 생성물·prose·links 모두 정상 |
+| 6 | 0284 AC2의 기존 수동 상태 토글 진입이 소멸 | 구현 전 사용자에게 알림. D-003대로 IPC와 main 유지 | 후속 시각/토글 검증 범위는 검증자가 구분 |
 
 ### 설계 대비 명시적 차이
 
-- …
+- 제품·V 규범 변경 없음. 0건 스윕을 재현 가능한 Node 스크립트 테스트로 추가했고, 추가 요청인 기존 CI 테스트 기대값 2곳을 같은 구현 게이트 보완에 포함했다.
+- 제어 전용 테스트는 §7 처분대로 삭제했다. 읽기 테스트에서 삭제된 공개 refresh 대신 실제 connected 이벤트로 재연결을 유도한다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음, TTL·캐시 소유자 교체 없음 | AC14의 기존 캐시 재사용 유지 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음, 같은 window/session/backend 관측 소유자 유지 | peer push·같은 세대 실패 보존 통과 |
+| 재진입 | refresh 테스트 입력을 connected 이벤트로 변경 | A→B→A·재마운트·reconnect fence 통과 |
+| 다른 무효화 축 | 새 축 없음, 종료 generation fence 유지 | 늦은 read·push·draft scope 차이 통과 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님) | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | renderer 상태 UI/제어 제거, 공유 출처 제목·그룹 순서·로고·MCP 아이콘; 관련 테스트·제거 스윕; 현재 문서 5파일과 plan/INDEX |
+| 실행 명령 | `npm run lint`; `npm run build`(typecheck 3종 포함); 관련 chat/skills/preload + typeScale/resources vitest `--maxWorkers=2`(DB 파일 제외); Electron Node 모드 settlement; `node --test scripts/*.test.mjs`; inventory·test-budgets·migrations guard |
+| **관측한 게이트 산출**(exit code 아님) | lint 0 error·기존 TanStack 경고 2; typecheck node/web/test 완료; main/preload/renderer 번들 생성. 관련 291파일/2340케이스, DB 1파일/5케이스, scripts 144케이스 통과. G-DOC 보강 후 해당 2케이스 재통과. inventory 생성물/prose/links 정상, real-git 16스위트 예산·migration sync/append-only 정상 |
+| V-pair 자기확인 | SELF_PASS 15·SELF_BLOCKED 1(VP-16), 독립 검증 전 |
+| 강제 지점 전수 | EP-01~11의 고정 자리와 제거 대상 전수 대응. 자세한 재검색·차집합·oracle은 위 표 |
+| **AC 자기보고**(`Criteria-Met`) | 아래 15/16; AC16 사람 시각 인수 대기 |
+| **합계 검산** | ✅15 + ⚠️1 + ❌0 = 16. AC 원표 16행과 보고 16행 id 차집합 0 |
+| 블로커 / 역질문 | 기계 범위 없음. 원격 CI 재실행 결과는 공유 브랜치의 이번 구현 커밋을 기준으로 후속 확인 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+| AC | 자기보고 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | 메뉴 4조합 exact·세션 액션·toggle 통과 |
+| AC2 | ✅ | G-SOURCE 잔여 0·정의/정책/다른 상세·타일 행동 통과 |
+| AC3 | ✅ | Composer native MCP·명령·장식·재연결 통과 |
+| AC4 | ✅ | skill source 순서·그룹 내부 순서 exact |
+| AC5 | ✅ | MCP Orca→Claude→OpenCode, 활성→비활성 exact |
+| AC6 | ✅ | provider 제목·로고·gate/llm/service·빈 그룹 통과 |
+| AC7 | ✅ | 세 탭 제목 배열·pt-5/pt-8 exact |
+| AC8 | ✅ | catalog/native 동일 제목 병합·native/Orca plugin 제목 순서 exact |
+| AC9 | ✅ | 연속한 동일 제목 섹션·평면 인덱스 exact |
+| AC10 | ✅ | 실제 sourceSkills를 거친 hover 설명 exact |
+| AC11 | ✅ | page/Composer 높이·w-auto, 다른 브랜드 size-4 유지 |
+| AC12 | ✅ | http/stdio 목록·상세 mcp SVG exact |
+| AC13 | ✅ | feature 제어/열기 0·preload bridge 유지 |
+| AC14 | ✅ | draft·캐시·재연결·종료·peer·부분 실패 읽기 수명 통과 |
+| AC15 | ✅ | G-DOC 음성/양성·tracked snapshot inventory 통과 |
+| AC16 | ⚠️ | 실제 창 white/dark 픽셀 인수는 사람 검증 대기 |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
-- 현재 라운드·impl 턴: `r1`
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 최초 구현. 별도 CI 실패는 0285의 구조 이동·공통 활자 변경 뒤 기존 기대값이 남은 경우였다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: 0285 D-006·D-013이 공통 랜딩/활자를 명시한다. 수정 전 두 테스트가 이전 소유 파일/하네스별 활자를 단언했다. 이번 plan의 제목 변이는 M10의 단언 누락을 찾아 보강했다.
+- 반복해서 부딪히는 환경 한계: SQLite ABI140/127 차이는 바이너리 재빌드 없이 Electron Node 실행으로 해결했다. 로컬 외부 checkout의 링크 실패는 tracked 파일 스냅샷으로 분리했다.
+- 현재 라운드·impl 턴: `r1`.
 
 ---
 

@@ -13,8 +13,7 @@ export const rightPanelTileDefinitions = [
   { id: 'task', defaultLabelKey: 'chat.rightpanel.tiles.task' },
   { id: 'diff', defaultLabelKey: 'chat.rightpanel.tiles.diff' },
   { id: 'process', defaultLabelKey: 'chat.rightpanel.tiles.process' },
-  { id: 'source', defaultLabelKey: 'chat.rightpanel.tiles.source' },
-  { id: 'nativeStatus', defaultLabelKey: 'chat.rightpanel.tiles.nativeStatus' }
+  { id: 'source', defaultLabelKey: 'chat.rightpanel.tiles.source' }
 ] as const satisfies readonly { id: string; defaultLabelKey: MessageKey }[]
 
 export type RightPanelTileId = (typeof rightPanelTileDefinitions)[number]['id']
@@ -155,11 +154,9 @@ export function showsUnseenTaskBadge(
 
 export function rightPanelTileLabel(
   id: RightPanelTileId,
-  backend: Backend | null,
+  _backend: Backend | null,
   tr: (key: MessageKey) => string
 ): string {
   const label = tr(defaultRightPanelTileLabelKey(id))
-  return id === 'nativeStatus'
-    ? `${backend === 'opencode' ? 'OpenCode' : 'Claude'} ${label}`
-    : label
+  return label
 }

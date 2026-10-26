@@ -1,8 +1,7 @@
 import { createContext, useContext } from 'react'
 
 export type OpenCodePanelSelection =
-  | { id: 'diff' | 'source' | 'nativeStatus' }
-  | { id: 'subagent' | 'process'; selectedId: string | null }
+  { id: 'diff' | 'source' } | { id: 'subagent' | 'process'; selectedId: string | null }
 
 export interface OpenCodePanelNavigation {
   open: (selection: OpenCodePanelSelection, origin?: HTMLElement) => void

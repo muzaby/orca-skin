@@ -6,7 +6,11 @@ import type { CascadeItem } from '../../../shared/ui/cascadeMenuState'
 import { pluginMentionToken, type PluginMention } from './pluginMention'
 import type { NativeResourcesView } from '../hooks/useNativeResources'
 import type { NativeResource } from '../../../../../shared/native-resources'
-import { sourceSkills } from '../../../../../shared/extension-sources'
+import {
+  sourceSkills,
+  extensionSourceLabels,
+  harnessSourceTitle
+} from '../../../../../shared/extension-sources'
 
 export type AttachMenuAction =
   | { type: 'attach' }
@@ -71,26 +75,26 @@ export function buildAttachMenu(input: {
     icon: 'attachFile',
     action: { type: 'attach' }
   }
-  // 출처별 그룹 — 처음 나온 순서를 지킨다(목록은 출처 라벨 → 이름 순으로 온다).
+  // 제목별 그룹 — 처음 나온 순서와 각 항목의 출처 식별자를 지킨다.
   const bySource = new Map<string, { label: string; skills: SkillInfo[] }>()
   for (const skill of skills) {
-    const group = bySource.get(skill.sourceId)
+    const group = bySource.get(skill.sourceLabel)
     if (group) group.skills.push(skill)
-    else bySource.set(skill.sourceId, { label: skill.sourceLabel, skills: [skill] })
+    else bySource.set(skill.sourceLabel, { label: skill.sourceLabel, skills: [skill] })
   }
   const skillItems: CascadeItem<AttachMenuAction>[] =
     bySource.size === 0
       ? [{ kind: 'empty', id: 'skills:empty', label: labels.noSkills }]
-      : [...bySource].flatMap(([sourceId, group]): CascadeItem<AttachMenuAction>[] => [
+      : [...bySource.values()].flatMap((group): CascadeItem<AttachMenuAction>[] => [
           {
             kind: 'heading',
-            id: `skills:${sourceId}`,
+            id: `skills:${group.skills[0].sourceId}`,
             label: group.label,
-            leading: input.sourceIcon?.(sourceId)
+            leading: input.sourceIcon?.(group.skills[0].sourceId)
           },
           ...group.skills.map((skill) => ({
             kind: 'action' as const,
-            id: `skill:${sourceId}/${skill.name}`,
+            id: `skill:${skill.sourceId}/${skill.name}`,
             label: skill.name,
             icon: 'bolt' as const,
             title: skillTooltip(skill),
@@ -125,7 +129,7 @@ export function buildAttachMenu(input: {
     pluginItems.unshift({
       kind: 'heading',
       id: 'plugins:orca',
-      label: 'Orcinus orca 플러그인',
+      label: extensionSourceLabels.orca,
       leading: input.sourceIcon?.('orca')
     })
   if (input.native) {
@@ -165,7 +169,7 @@ export function buildAttachMenu(input: {
         {
           kind: 'heading',
           id: 'native',
-          label: `${input.native.label} MCP`,
+          label: input.native.label,
           leading: input.sourceIcon?.('native')
         },
         ...input.native.items
@@ -249,7 +253,7 @@ export function nativeAttachItems(
     for (const command of commands.filter((command) =>
       kind === 'mcp' ? false : command.source !== 'mcp' && command.skill !== false
     )) {
-      const group = `${labels.harness ?? 'Claude'} ${command.source === 'plugin' ? '플러그인' : '스킬'}`
+      const group = labels.harness ?? harnessSourceTitle('claude')
       const row: CascadeItem<AttachMenuAction> = {
         kind: 'action',
         id: `native-command:${command.name}`,

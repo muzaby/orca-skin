@@ -11,10 +11,7 @@ const pending: ComposerCatalogSnapshot = {
 }
 const emptySubscribe = (): (() => void) => () => undefined
 
-export function useComposerCatalog(
-  providerKey: string | null,
-  resources = false
-): {
+export function useComposerCatalog(providerKey: string | null): {
   snapshot: ComposerCatalogSnapshot
   retry(part: ComposerCatalogPart): void
 } {
@@ -45,7 +42,7 @@ export function useComposerCatalog(
     [sessionId, cwd, projectId, providerKey, agentKind]
   )
   const snapshot = useSyncExternalStore(
-    (resources ? state?.subscribeResources : state?.subscribe) ?? emptySubscribe,
+    state?.subscribe ?? emptySubscribe,
     state?.getSnapshot ?? (() => unscoped),
     state?.getSnapshot ?? (() => unscoped)
   )

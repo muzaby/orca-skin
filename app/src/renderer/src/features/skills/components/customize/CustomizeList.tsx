@@ -10,6 +10,7 @@ import { providerPresentation } from '../../lib/providerPresentation'
 import { Fragment } from 'react'
 import {
   extensionSourceLabels,
+  harnessSourceTitle,
   isNativePluginSkillSource,
   skillSourceAllowed
 } from '../../../../../../shared/extension-sources'
@@ -81,9 +82,9 @@ export function CustomizeList({
       <Fragment key={`${backend}:${resource.id}`}>
         {nativeRows[index - 1]?.backend !== backend && (
           <SourceHeading
-            spaced={index > 0 || (tab === 'providers' && providers.length > 0)}
+            spaced={index > 0 || rows.length > 0}
             source={backend}
-            label={`${backend === 'claude' ? 'Claude' : 'OpenCode'} ${tab === 'mcp' ? 'MCP' : tr('chat.nativeResources.plugins')}`}
+            label={harnessSourceTitle(backend)}
           />
         )}
         <CatalogListRow
@@ -167,9 +168,8 @@ export function CustomizeList({
             </Fragment>
           )
         })}
-      {tab === 'mcp' && nativeList}
       {tab === 'mcp' && mcpServers.length > 0 && (
-        <SourceHeading spaced={nativeMcp.length > 0} source="orca" label="Orcinus orca MCP" />
+        <SourceHeading source="orca" label={extensionSourceLabels.orca} />
       )}
       {tab === 'mcp' &&
         orderMcpServers(mcpServers).map((server) => {
@@ -180,13 +180,7 @@ export function CustomizeList({
               data-extensions-row={server.id}
               selected={selectedId === server.id}
               openProps={{ onClick: (event) => onSelect(server.id, event.currentTarget) }}
-              icon={
-                <Icon
-                  name={server.transport === 'http' ? 'link' : 'cpu'}
-                  size={20}
-                  className="shrink-0 text-ink3"
-                />
-              }
+              icon={<Icon name="mcp" size={20} className="shrink-0 text-ink3" />}
               title={
                 <span className="truncate" title={server.name}>
                   {server.name}
@@ -209,6 +203,10 @@ export function CustomizeList({
             />
           )
         })}
+      {tab === 'mcp' && nativeList}
+      {tab === 'providers' && providers.length > 0 && (
+        <SourceHeading source="orca" label={extensionSourceLabels.orca} />
+      )}
       {tab === 'providers' &&
         orderProviders(providers).map((provider) => {
           const meta = providerRowMeta(provider)

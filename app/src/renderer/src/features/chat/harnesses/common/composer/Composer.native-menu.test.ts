@@ -500,7 +500,15 @@ it.each(['claude', 'opencode'] as const)(
     expect(rows.map((row) => row.textContent)).toEqual(['orca-skill', 'design::review'])
     expect(rows.every((row) => !row.props['aria-haspopup'])).toBe(true)
     expect(rows[0].props.disabled).toBe(backend === 'opencode')
-    expect(dom.query('[aria-label="Orcinus orca"]')).not.toBeNull()
+    const orcaMark = dom.query('[aria-label="Orcinus orca"]')!
+    expect(orcaMark).not.toBeNull()
+    const tokens = String(orcaMark.props.className).split(/\s+/)
+    expect(tokens).toEqual(expect.arrayContaining(['h-3.5', 'w-auto', 'shrink-0']))
+    expect(tokens.filter((token) => /^(size-|w-(?!auto$))/.test(token))).toEqual([])
+    expect(dom.queryAll('[data-menu-heading]').map((node) => node.textContent)).toEqual([
+      'Orcinus orca',
+      backend === 'claude' ? 'Claude' : 'OpenCode'
+    ])
     expect(dom.queryAll('[viewBox]').map((node) => node.props.viewBox)).toContain(
       backend === 'claude' ? '0 0 248 248' : '0 0 16 20'
     )
@@ -527,12 +535,9 @@ it.each(['claude', 'opencode'] as const)(
     expect(dom.queryAll('[data-cascade-level="1"]').map((row) => row.textContent)).toEqual(
       backend === 'claude' ? ['Native MCP', 'Connected Orca MCP', 'Jira'] : ['Native MCP']
     )
-    expect(
-      dom
-        .queryAll('[role="menu"]')
-        .map((row) => row.textContent)
-        .join('')
-    ).toContain(`${backend === 'claude' ? 'Claude' : 'OpenCode'} MCP`)
+    expect(dom.queryAll('[data-menu-heading]').map((node) => node.textContent)).toEqual(
+      backend === 'claude' ? ['Claude', 'Orcinus orca'] : ['OpenCode']
+    )
     clickLabel('Native MCP')
     await settle()
     const highlightedPlugins = (): string[] =>
