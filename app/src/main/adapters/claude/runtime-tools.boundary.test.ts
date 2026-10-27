@@ -141,7 +141,10 @@ describe('runtime tool 결과가 실제 MCP 경계를 지난 뒤', () => {
       content: [
         {
           type: 'text',
-          text: context ? await context.waitForSession(context.getSignal()) : 'missing-context'
+          text:
+            context && !('scope' in context)
+              ? await context.waitForSession(context.getSignal())
+              : 'missing-context'
         }
       ]
     })

@@ -72,6 +72,29 @@ beforeEach(() => {
   log.warn.mockClear()
 })
 
+it('invalidates live preparation owners and emits only their safe generation identity', async () => {
+  const a = lease(),
+    b = lease()
+  const prepare = vi.fn().mockResolvedValueOnce(a.value).mockResolvedValueOnce(b.value)
+  const close = registerComposerCatalogHandlers(prepare)
+  const sender = new Sender(37)
+  const req = request()
+  try {
+    await call(sender, req)
+    close.invalidate()
+    expect(a.release).toHaveBeenCalledTimes(1)
+    expect(sender.send).toHaveBeenCalledExactlyOnceWith(CHANNELS.composerCatalogInvalidated, {
+      owner: req.owner,
+      generation: a.value.generation
+    })
+    await call(sender, req)
+    expect(prepare).toHaveBeenCalledTimes(2)
+  } finally {
+    close()
+  }
+  expect(b.release).toHaveBeenCalledTimes(1)
+})
+
 it('shares pending acquisition for parts, isolates windows, and releases on navigation/crash/shutdown', async () => {
   const a = lease(),
     b = lease()

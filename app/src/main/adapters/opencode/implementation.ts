@@ -30,6 +30,7 @@ export interface OpenCodeServer {
 }
 
 export interface OpenCodeRuntimeOptions {
+  managedMcp?: import('../common/managed-mcp').ManagedMcpRuntime
   dataDirectory: string
   preferences: () => OpenCodePreferences | undefined
   fetchImpl: typeof fetch

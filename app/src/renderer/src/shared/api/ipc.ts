@@ -237,6 +237,8 @@ export const sessionApi = {
     handler: (event: OpenCodePluginsChanged) => void
   ): (() => void) | undefined =>
     globalThis.window?.orca?.session?.onOpenCodePluginsChanged?.(handler),
+  onManagedMcpChanged: (handler: (event: { revision: number }) => void): (() => void) | undefined =>
+    globalThis.window?.orca?.session?.onManagedMcpChanged?.(handler),
   nativeResources: (
     request: string | DraftNativeResourcesRequest,
     observation?: import('../../../../shared/native-resources').NativeResourceObservation

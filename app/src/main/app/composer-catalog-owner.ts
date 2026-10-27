@@ -145,6 +145,15 @@ export class ComposerCatalogOwners {
       void this.release(sender, owner).catch(() => undefined)
   }
 
+  invalidate(): void {
+    for (const [sender, entries] of this.entries) {
+      for (const [owner, entry] of entries) {
+        if (entry.lease) entry.invalidated({ owner, generation: entry.lease.generation })
+      }
+      this.releaseSender(sender)
+    }
+  }
+
   close(): void {
     this.closed = true
     for (const sender of this.entries.keys()) this.releaseSender(sender)

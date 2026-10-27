@@ -34,7 +34,8 @@ export const openCodeMainModule: MainHarnessModule = {
   parseSettingsModels: parseOpenCodeModels,
   readUserSettings: readUserOpenCodeSettings,
   configuredMcpFile: configuredOpenCodeMcpFile,
-  draftResources: configuredOpenCodeResources,
+  // The module's second argument is a choices map, not a subprocess environment.
+  draftResources: (cwd) => configuredOpenCodeResources(cwd),
   defaultProvider,
   resolveTitleModel,
   recoveryContextWindow: openCodeContextWindow

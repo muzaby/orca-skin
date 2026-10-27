@@ -8,7 +8,9 @@ import { AboveInput } from './AboveInput'
 export const composerModule: ComposerModule = {
   showGitRow: false,
   appearance: composerAppearance,
-  includeExtensions: false,
+  includeSkills: false,
+  includeManagedMcp: true,
+  managedMcpAvailability: 'observed',
   controlsPlacement: 'end',
   harness: 'opencode',
   placeholder: () => 'harness.promptPlaceholder',

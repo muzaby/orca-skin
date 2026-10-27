@@ -141,6 +141,17 @@ export class NativeResourceState {
     this.readSerial++
     void this.refresh()
   }
+  managedMcpChanged(): void {
+    this.readSerial++
+    const view = this.snapshot.view
+    if (view.status === 'ready')
+      this.publish({
+        ...view,
+        value: { ...view.value, items: view.value.items.filter((item) => !item.managedSource) },
+        stale: true
+      })
+    if (this.listeners.size) void this.refresh()
+  }
   refresh = (): Promise<void> => {
     if (this.flight?.serial === this.readSerial) return this.flight.task
     const read = ++this.readSerial
@@ -192,6 +203,9 @@ export function nativeResourceState(
     cache = new Map()
     windows.set(window, cache)
     const owned = cache
+    sessionApi.onManagedMcpChanged?.(() => {
+      for (const state of owned.values()) state.managedMcpChanged()
+    })
     window.orca?.session?.onNativeResourcesChanged?.(({ sessionId, scope, resources }) => {
       for (const state of owned.values()) {
         if (
@@ -199,6 +213,8 @@ export function nativeResourceState(
           (scope &&
             typeof state.request === 'object' &&
             state.request.backend === scope.backend &&
+            state.request.providerKey === scope.providerKey &&
+            state.request.agentKind === scope.agentKind &&
             state.request.cwd === scope.cwd &&
             state.request.projectId === scope.projectId)
         )

@@ -43,6 +43,23 @@ Object.defineProperty(process, 'contextIsolated', { value: true, configurable: t
 
 await import('./index')
 
+it('carries managed MCP revision events through the actual preload and renderer subscription', async () => {
+  vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
+  try {
+    const { sessionApi } = await import('../renderer/src/shared/api/ipc')
+    const seen = vi.fn()
+    const off = sessionApi.onManagedMcpChanged(seen)!
+    const listeners = harness.listeners.get(CHANNELS.managedMcpChanged)!
+    expect(listeners.size).toBe(1)
+    for (const listener of listeners) listener({}, { revision: 37 })
+    expect(seen).toHaveBeenCalledExactlyOnceWith({ revision: 37 })
+    off()
+    expect(listeners.size).toBe(0)
+  } finally {
+    vi.unstubAllGlobals()
+  }
+})
+
 it('carries explicit global extension scope and choices across renderer API and preload', async () => {
   vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
   try {

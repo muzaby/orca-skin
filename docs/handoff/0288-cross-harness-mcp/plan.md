@@ -11,7 +11,8 @@
 | V mode / 기준 V | Baseline V / none |
 | 이번 revision / 유효 V | V1 / V1 |
 | 설계 커밋 | (V1 설계 — 검증자 기입), 좌표 정본은 INDEX |
-| 이번 턴 범위 | 계획 READY까지. 코드 구현·독립 검증은 후속 턴 |
+| 이번 턴 범위 | r1.1 구현 완료. 독립 검증은 후속 턴 |
+| 구현 상태 / 다음 주체 | IMPL_DONE / Claude (독립 검증) |
 
 # Part I — Product & UX Contract
 
@@ -495,117 +496,172 @@ O10은 예제 fixture의 실제 타입 대입과 valid/invalid/retry 동작을 �
 
 ## [구현자 기입]
 
-구현 전 [handoff-impl](../../../.agents/skills/handoff-impl/SKILL.md)을 읽고 아래 표준 필드를 채운다. 현재 모든 필드는 미착수다.
+이번 보고는 r1의 구현 자기확인이다. 유효 V는 V1이며 규범 Decision·AC·pair·§10은 변경하지 않았다. 실제 좌표와 자리별 운반 항은 [구현 증거](implementation-evidence.md), 변이별 assertion 결과는 [mutation 증거](mutations.json)에 보존한다.
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: … (Part I/II의 정확한 절 인용)
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: §3의 ACTIVE Decision, 공통 source·application bridge·OpenCode projection·관측 기반 후보를 구현했다. `@modelcontextprotocol/sdk@1.29.0` 직접 의존성과 child env 경계는 D-003·D-004를 따른다.
+- 이견 / 현실성 문제: §11 O2/O4는 app/features 조립을 필요로 한다. main DAG를 지키도록 `main/app/`에 두고 같은 실행 구간을 검증했다. O6은 기존 controller 실행 장치에 증설했다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. OQ9 승인 기본값과 빈 사내 배포는 변경하지 않았다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
-> `§10`의 `언제 강제` 칸은 **하나의 불변식이 성립해야 하는 지점 목록**이다. 한 지점만 닫아도
-> 대표 경로 AC는 통과하므로 게이트 green은 전수를 뜻하지 않는다.
-> **각 행의 `재현 명령 / 관측`은 이번 턴에 실제로 실행한 것만 적는다** — 산출물에서 표식을 다시
-> 찾지 못하면 그 행은 닫힌 것이 아니다.
-> **그 관측이 구조적 proxy·0건/전수 스윕·배선 존재 oracle이고 이번 턴에 장치를 만들거나 고쳤다면,
-> 등록된 결함을 심어 실패하는지 먼저 확인한다** — 눈이 없는 장치의 `0건`은 전수의 증거가 아니다.
-> 직접 행동 결과를 관측하는 oracle에는 mutation을 자동 요구하지 않는다(impl §3).
-> **`전건`·`미분류 0`·`잔여 0` 행의 관측은 차집합이다** — 총계·합계는 그 주장을 반증할 수 없다(impl §8).
-> **`닫은 지점`은 §10 항목이 아니라 §10이 고정한 자리로 세고, 기록된 자리 검색 명령을 다시 돌린 출력과 목록의 차집합을 적는다** — 목록이 없거나 출력과 갈리거나 술어가 불변식의 주어가 아니거나 범위가 지적이 인용한 파일로 좁으면 `PLAN_GAP`이다(impl §2).
-> **닫은 자리마다 직접 oracle 좌표(`파일:테스트명` / 실패 의미 red를 관측한 `gate:<명령>`)를 적는다** — typecheck·코드 읽기·일회성 실측만 있는 자리는 `남긴 곳`에 적고 세지 않는다(impl §2).
-> **좌표는 그 테스트의 실행 구간(들어간 곳 → 관측한 곳, mock한 path 구성요소 제외) 안의 자리만 닫는다** — 안쪽 export로 들어가거나 한쪽 끝을 mock하거나 내부 상태만 단언하거나 production 조립이 주입하는 의존성을 빼 다른 분기를 탄 테스트가 건너뛴 자리는 `남긴 곳`이다. 운반 값을 기본값·빈 값·형제와 같은 값으로만 준 좌표도 그 자리를 닫지 않는다(impl §2).
-> **`§10이 적은 지점`은 그 pair의 §10 자리 전부다** — 재구현 턴에도 지목된 자리만 적지 않고, 닫지 않은 자리는 `남긴 곳`에 남긴다(impl §8).
-> **`운반 항 · 구별 값 · 관측`은 닫힘으로 센 행마다 그 자리가 넘기는 항, 테스트의 구별 입력, 좌표가 관측하는 곳을 적는다** — 셋 중 하나가 빠진 항은 `남긴 곳`이고, 호출·분기를 바꾼 변이의 red로 인자 항을 채우지 않는다(`docs/handoff/AGENTS.md §공통 V`).
+T/P/I/C/R 좌표는 [구현 증거의 실제 oracle 표](implementation-evidence.md)에 정의했다. 같은 문서의 67행은 자리마다 production 좌표·구별 값·반환 관측을 명시한다. T9는 bootstrap 실행으로 과장하지 않은 AST proxy이고 B1~B11 결함의 red를 관측했다.
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| VP-… | … | `commit·revoke·expiry·401` (4) | 4/4 | `rg …` → 4건 · commit → `a.test.ts:'…'` · revoke → … | commit: `key`(형제와 다른 값 → 저장 결과 단언) · … / 운반 항 없음 | — |
+| VP-01 | 등록→실제 도구 호출 | E1a~k·E2a~e·E3a~h (24) | 24/24 | Q1/2 대조; T1~4·T8/9 | user transport 3종·builtin 3종 → 실제 CLI 결과 | — |
+| VP-02 | 연결 관측→후보/전송 | E3a~h·E5a~m·E6a~j (31) | 31/31 | Q2/4/5; T2/4/5/6/8/9·P1/2·I1~3·C1/2 | 세 source의 다른 ID/label·draft/provider → 메뉴/강조/전송 | H1 실서비스·시각 |
+| VP-03 | 변경→다음 턴/철회 | E1a~k·E2a~e·E4a~i (25) | 25/25 | Q1~3; T1/3/7/8/9 | revision 1/2/3/0/undefined·철회 → 재시작/거부 | — |
+| VP-04 | identity·비밀·scope | E1a~k·E2a~e·E3a~h·E5a~m (37) | 37/37 | Q1~4; T1~5·T8/9/10·P/I/C | 구별 secret/header·동명/native alias → env 전용·안전 DTO·dispatch | — |
+| VP-05 | Claude/native 회귀 | E1a~k·E7a~k (22) | 22/22 | Q1/2; T1/4/9/11·R1~5 및 scope 회귀 | 세 transport·query context·project choice → 원래 출력 | — |
+| VP-06 | 저장/복원→실행 | E1a~k·E2a~e·E3a~h (24) | 24/24 | Q1/2; T1~4·T8/9 | 실제 저장 port·인증 sync·bridge → CLI 호출 | — |
+| VP-07 | 세대·공유·종료 | E4a~i (9) | 9/9 | Q3; T7/8/9·SessionRuntime 회귀 | A/B owner·turn-only 99·0/undefined → lease/respawn 정확 | — |
+| VP-08 | 준비→선택→모델 | E3a~h·E5a~m·E6a~j (31) | 31/31 | Q2/4/5; T2/4/5/6/8/9·P/I/C | connected 6개·stale/new sentinel → 후보 폐기/삽입/도구 결과 | — |
+| VP-09 | production 조립 | E1a~k·E2a~e·E3a~h (24) | 24/24 | Q1/2; T1~4·T8/9 | 실제 source/acquire 인자 → endpoint/config, M3a red | — |
+| VP-10 | revision·IPC 무효화 | E4a~i·E5a~m (22) | 22/22 | Q3/4; T5/7/8/9·P/I/C | revision 37·이전/새 응답 → 구독 전달/이전 결과 폐기 | — |
+| VP-11 | Claude 공통 resolve/native | E7a~k (11) | 11/11 | Q1/2; T4/11·R1~5·scope 회귀 | auth/header·session context·동일/다른 permission ID → 기존 계약 | — |
+| VP-12 | resolve/projection | E1a/b/c·E3a (4) | 4/4 | Q1/2; T1/2 | 공백/빈 args·역슬래시/개행/중괄호·세 transport → exact equality | — |
+| VP-13 | MCP protocol 실행 | E2a~e (5) | 5/5 | Q2/3; T3 | schema/structuredContent/isError·철회/취소·교차 세대 → 실제 HTTP 결과 | — |
+| VP-14 | 후보·입력 | E6a~j (10) | 10/10 | Q5; T6·R6·mention hook 회귀 | bindings/observed·skills false·user alias → 메뉴/@/강조/Enter | — |
 
-- §10 자리 목록 밖에서 본 운반 자리: 없음 / … → 목록이 고정되지 않은 pair면 PLAN_GAP · 고정 목록 밖은 기록 · 현재 계약 비귀속이면 별도 finding
-- 직전 verify 고장 이력의 `못 잡음` 행: 없음 / ID → 잡은 테스트 `파일:테스트명`(재실행 결과) 또는 `동치` 근거·확인 실행 — 목록 안팎 모두 이번 턴에 닫는다
+- 자리 검색: plan Q1~Q5를 원문대로 재실행했다. hit는 실행 edge와 선언/주석/기존 native 전용/다른 revision·release를 구분했다. 신규 helper는 E5a/E5h 안의 구현이며 별도 관리 MCP 행동 경계를 도입하지 않았다.
+- 목록 대조: `implementation-evidence.md`의 자리 ID와 plan §10의 고정 ID 양방향 차집합을 보고 검사에서 재확인한다. 단순 검색 hit 합으로 전수를 주장하지 않는다.
+- §10 밖에서 본 운반 자리: 없음. `isSettledOpenCodePermission`은 기존 E7k의 승인 정착 처리다.
+- 직전 verify 고장 이력의 `못 잡음` 행: 없음 — 최초 구현 r1. 외부 CI의 JSX 관측 결함은 CI1/CI2로 잠갔다.
 
-**V-pair 자기확인** — 구현자의 `SELF_PASS`는 독립 검증의 `PASS`가 아니다. 이전 라운드 상태를 유지로 옮기는 행도 좌표를 인용하고, 좌표 없이 났던 `SELF_PASS`는 이번 턴에 재판정한다(impl §2).
+**V-pair 자기확인** — `SELF_PASS`는 독립 검증 `PASS`가 아니다.
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | REQUIRED / REGRESSION | SELF_PASS / SELF_BLOCKED | `파일:테스트명` … | required — 결과 / not selected — 직접 oracle 근거 |
+| VP-01 | REQUIRED | SELF_PASS | T1~4·T8/9 | not selected — 실제 protocol/CLI 호출 |
+| VP-02 | REQUIRED | SELF_BLOCKED | T4/5/6·P/I/C | M2a/b red; H1 실서비스·시각 미실기 |
+| VP-03 | REQUIRED | SELF_PASS | T1/3/7/8 | M1a/b/c 모두 assertion red |
+| VP-04 | REQUIRED | SELF_PASS | T2/3/4/5/10 | M3a/b 모두 assertion red |
+| VP-05 | REQUIRED | SELF_PASS | T1/4/11·R1~5 | not selected — 파일 바이트/직접 결과 |
+| VP-06 | REQUIRED | SELF_PASS | T1/3/4/8 | not selected — 실제 호출 기록 |
+| VP-07 | REQUIRED | SELF_PASS | T7/8·SessionRuntime | M1a/b/c assertion red |
+| VP-08 | REQUIRED | SELF_PASS | T4/5/6 | M2a/b assertion red |
+| VP-09 | REQUIRED | SELF_PASS | T1~4·T8/9 | M3a/b assertion red |
+| VP-10 | REQUIRED | SELF_PASS | T5/7/8·I1~3 | M1a/b/c assertion red |
+| VP-11 | REQUIRED | SELF_PASS | T4/11·R1~5 | not selected — 기존 동작 직접 관측 |
+| VP-12 | REQUIRED | SELF_PASS | T1/2 | not selected — 구별 입력 exact equality |
+| VP-13 | REQUIRED | SELF_PASS | T3 | not selected — 실제 HTTP client/server |
+| VP-14 | REQUIRED | SELF_PASS | T6·R6 | M2a/b assertion red |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
-> pair가 적대 증거를 선택했거나 파생 이슈가 변이를 인용했거나 이번 턴에 구조적 proxy·0건/전수·배선 oracle을 만들었다면
-> 그 결함을 심어 장치의 방향·민감도를 확인한다(impl §3). 형제 슬롯이 서로 다른 계약을 가지면
-> 지우는 변이에 더해 **형제와 맞바꾸는 변이**도 심는다. 그 밖의 hunk에는 mutation을 새로 발명하지
-> 않고 `해당 없음 — 직접 oracle …`을 적는다. mutation이 없다는 이유만으로 현재 FAIL 범위를 늘리지 않는다.
+아래 각 결함은 production에 일시 적용했다. assertion red를 확인하고 원본 바이트를 복원한 뒤 같은 테스트를 재실행했다. 세부 실패 테스트명/개수는 [mutations.json](mutations.json)에 보존했다. D1은 T10 안의 실제 compile 음성 대조다.
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| `파일:줄` — 무엇을 어떻게 바꿨는가(제거 / 형제와 맞바꿈) | `VP-… 선택 증거` / `D<N> 인용 변이` / `구조·전수·배선 oracle 민감도` | red / green / 최초 | `<케이스명>` 외 N건 | 잠김 / **잠금 없음 — 사유** / 해당 없음 — 직접 oracle |
+| M1a runtime-entry managed revision 제거 | VP-03/07/10 선택 증거 | 최초 | T7 / 1 | 잠김 |
+| M1b continuation managed revision 제거 | 같은 M1 | 최초 | T7 / 1 | 잠김 |
+| M1c spawn revision을 0으로 고정 | 같은 M1 | 최초 | T7 / 1 | 잠김 |
+| M2a builtin/user mapping 교환 | VP-02/08/14 선택 증거 | 최초 | T5 / 1 | 잠김 |
+| M2b Orca 슬롯에 native items 운반 | 같은 M2 | 최초 | T6 / 2 | 잠김 |
+| M3a client bridge 획득 제거 | VP-04/09 선택 증거 | 최초 | T8 / 1 | 잠김 |
+| M3b call 시 현재 권한 재검사 제거 | 같은 M3 | 최초 | T3 / 1 | 잠김 |
+| B1 bootstrap plugin binding을 빈 배열로 교체 | 새 배선 oracle | 최초 | T9 / 1 | 잠김 |
+| B2 registry source getter 결과 제거 | 새 배선 oracle | 최초 | T9 / 1 | 잠김 |
+| B3 acquire snapshot users를 빈 객체로 교체 | 새 배선 oracle | 최초 | T9 / 1 | 잠김 |
+| B4 builder source 주입 제거 | 새 배선 oracle | 최초 | T9 / 1 | 잠김 |
+| B5 deploy refresh 제거 | 새 배선 oracle | 최초 | T9 / 1 | 잠김 |
+| B6 auth callback refresh 제거 | 새 배선 oracle | 최초 | T9 / 1 | 잠김 |
+| B7 broadcast revision을 0으로 교체 | 새 배선 oracle | 최초 | T9 / 1 | 잠김 |
+| B8 shutdown close 제거 | 새 배선 oracle | 최초 | T9 / 1 | 잠김 |
+| B9 prepared owner invalidate 제거 | 새 배선 oracle | 최초 | T9 / 1 | 잠김 |
+| B10 catalog owner invalidate 제거 | 새 배선 oracle | 최초 | T9 / 1 | 잠김 |
+| B11 prepared scope 요청을 다른 draft 값으로 교체 | 새 배선 oracle | 최초 | T9 / 1 | 잠김 |
+| C1 controller managed capability를 skill capability로 교체 | 새 구조 oracle 형제 교환 | 최초 | composerAttachMenu / 2 | 잠김 |
+| CI1 실제 Landing plugin callback 제거 | 수정한 CI 구조 oracle | 최초 | attachMenu.render / 1 | 잠김 |
+| CI2 실제 Landing callback을 usage callback으로 교환 | 수정한 CI 구조 oracle 형제 교환 | 최초 | attachMenu.render / 1 | 잠김 |
+| D1 문서 recipe registry를 숫자 42로 교체 | 새 compile proxy 음성 대조 | 최초 | T10에서 TS2322 확인 / 1 | 잠김 |
 
-- **분모 검산**: `선택 증거 N · 인용 변이 M · 새 oracle K = 표 행 T` — 행이 없는 claim은 `SELF_PASS`·`closed`로 적지 않는다(impl §8).
-- **덮개 회귀**: 이전 라운드에 red였는데 이번에 green인 행 0건 / N건 → 사유와 함께 적는다. 장치를 교체·삭제했으면 구 장치가 잡던 자리가 새 장치의 하한이다(impl §3).
+- 분모 검산: 선택 증거 7 · 인용 변이 0 · 새 oracle 15 = 표 행 22. 같은 M 변이를 여러 pair에서 중복 계산하지 않았다.
+- 복원 검산: 외부 변이 19개/7파일26케이스 및 추가 2개/2파일10케이스 복원 후 green, 바이트 복원 true. D1은 가상 source만 변경했다.
+- 덮개 회귀: 이전 verify/변이 라운드 없음. CI 장치 교체는 실제 callback 삭제와 형제 교환을 모두 검출한다.
+- 그 밖의 hunk는 해당 없음 — T1~8/11·P/I/C/R의 직접 행동 oracle. 새로운 변이를 임의 분모로 더하지 않았다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 / … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … / **표에 없음** | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
-
-> 범위 밖이라 이번에 고치지 않더라도 **적는다** — 적지 않으면 그 선택지가 존재한 적도 없게 된다.
+| 새 사용자 문구·상태의 소비자 | 기존 error feed와 native-resource 오류를 재사용. unresolved/config 실패는 sanitized event로 전달 | T2/5/8·기존 catalog 진단 case |
+| seam 재배치 뒤 cleanup scope | prepared owner를 기존 owner 관리자에 조립. 늦은 acquire·실패·중복 해제에서 소유 lease만 정리 | P1·T8 |
+| 실패 경로와 Part I | §4/5의 미연결·철회·재시도·취소 행에 대응. 새 제품 상태 없음 | T3/4/5·I2/3 |
+| 화면 무반응 가능성 | menu는 삽입만 수행하고 send는 기존 버튼/Enter. 실패 연결은 usable 후보에서 제외, 기존 오류 경로 유지 | T6·기존 native menu/catalog 회귀 |
+| 늦은 응답의 상태 역행 | source revision/owner generation/renderer serial로 폐기 | T5·P1·I2/3 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 선조치(구현 세부) / 📝 **plan 수정 제안**(설계가 틀렸다는 증거) / ⚠️ 보고만(제품·AC·Decision·의존성) | … |
-
-> 가운데 갈래가 구현 턴의 핵심 산출이다 — plan을 고치는 것은 설계자 책임이지만, **고쳐야
-> 한다는 증거를 만드는 것은 구현자만 할 수 있다.** 무엇이 틀렸는지·코드에서 무엇을 봤는지·
-> 어느 절을 어떻게 바꿔야 하는지를 함께 적는다.
+| 1 | OpenCode는 env 치환을 JSON parse 전에 수행해 Windows 역슬래시/따옴표가 원문이면 깨짐 | ✅ JSON 문자열 내용으로 escaping, literal 중괄호도 escape | T2의 경로/개행/중괄호 및 T4 실제 stdio 성공 |
+| 2 | CLI가 병렬 permission 형제를 정착한 뒤 후속 응답이 404로 돌아와 정상 거절이 turn 실패가 됨 | ✅ 같은 requestID의 PermissionNotFoundError 404만 이미 정착한 것으로 처리 | R5의 같은/다른 ID·다른 오류 4case, T4 실제 allow/deny/cancel |
+| 3 | native draftResources에 choices 인자가 env로 오인 전달됨 | ✅ cwd만 전달하는 wrapper로 실제 환경 해석 보전 | bootstrap.native-history·T4·R4 |
+| 4 | Mail 공유 sync에서 첫 caller 취소가 이웃 요청까지 취소할 수 있음 | ✅ caller별 참조와 마지막 caller abort, 정리 중 재진입 대기 | mail tools.sync 직접 취소 case |
+| 5 | one-shot prepare는 owner 없는 connected 후보를 남길 수 있음 | ✅ observation owner가 준비 lease 유지, navigation/renderer-gone/source change 정리 | P1·T5 |
+| 6 | 기존 Landing 배선 검사가 중첩 JSX를 오독해 main CI 실패 | ✅ 실제 JSX AST와 음성 대조로 보완 | 기존 run 40332495483·CI1/CI2 |
+| 7 | 사내 서비스/실제 앱 시각을 fixture로 대체할 수 없음 | ⚠️ 보고만 — AC17/H1 미실기 | 실제 CLI 자동 부분만 T4로 통과 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: 없음 / …
-
-> 차이가 있으면 **대체물이 갖고 원본이 갖지 않던 실패 모드를 축마다 한 줄씩** 적고, 그 축에서 다시 확인한
-> AC·§10 행을 관측과 함께 남긴다. 한 축만 적은 보고는 나머지 축도 조사한 것처럼 보인다(impl §6).
+- 제품/보안/세대 메커니즘 차이 없음. 테스트 배치 차이는 설계 리뷰에 기록했다.
+- prepared MCP owner는 신규 별도 cache 대신 기존 ComposerCatalogOwners를 내부 수명 관리자로 사용한다. 모델/agent catalog owner와 인스턴스를 공유하지 않는다.
+- O3의 protocol fixture와 O4의 실제 plugin factory 호출을 결합해 검증했다. O9는 T11 및 기존 행동 테스트를 사용했다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … / 해당 없음 + 근거 | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … / 해당 없음 + 근거 | … |
-| 재진입 | … / 해당 없음 + 근거 | … |
-| 다른 무효화 축 | … / 해당 없음 + 근거 | … |
+| 만료 | owner가 없어지는 시점에 늦은 prepare가 부활할 가능성 | AC11·E5h, P1에서 releaseSender 뒤 late acquire release |
+| 공유 | 공용 class 사용을 공용 owner instance로 오인할 가능성 | AC10·E4h/E5h, 별도 instance이며 P1/T8의 독립 owner 해제 |
+| 재진입 | invalidate 직후 이전 flight 반환 가능성 | AC5/11·E5h/l/m, P1/I2/I3 이전 결과 폐기 |
+| 다른 무효화 축 | DB saved scope와 draft provider가 섞일 가능성 | AC3/11·E5h, P2와 B11의 구별 값/오주입 red |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님) | 테스트 N파일 / M케이스 · error·warning 수 · 환경 기인 실패 분리 근거 |
-| V-pair 자기확인 | `SELF_PASS N / SELF_BLOCKED M`; pair별 상세는 위 표 |
-| 강제 지점 전수 | N/M |
-| **AC 자기보고**(`Criteria-Met`) | N/M — 각 AC 옆에 **이번 턴에 재현한 관측값**을 적는다. 표식을 다시 찾지 못한 AC는 ✅로 세지 않는다 |
-| **합계 검산** | `✅ N · ⚠️ M · ❌ K = 총 T` — 분모를 다시 세고 **이 줄을 쓴 뒤** 커밋 trailer를 적는다. 분모가 바뀌었으면(AC 분할·추가) 그 사실을 적고 이전 라운드 합계와 직접 비교하지 않는다 |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `(r<N> 구현 — 좌표는 INDEX)` — 자기 환경의 해시를 적지 않는다. 좌표 정본은 `INDEX.md` 한 곳이고 검증자가 채운다 |
+| 변경 파일 | source/bridge/projection·bootstrap/lifecycle·safe resource IPC·Composer 후보 및 기존 승인/취소 회귀. [자리별 파일](implementation-evidence.md)과 diff 참조 |
+| 실행 명령 | 직접 Vitest(Node 및 기존 Electron ABI), 실제 CLI fixture, node script tests, lint/build, doc inventory/links, Q1~5, mutation 21개+compile 음성 대조 |
+| 관측한 게이트 산출 | 최종 파일별 결과 852파일/8083케이스 통과·2skip, 실제 CLI 1case 별도 통과. script 144case, build의 typecheck 3구성·3bundle, lint 0error/기존2warning. 최초 전체 Node 실행은 실패했고 ABI 43파일/410case 및 수정 파일을 재실행한 합성 결과다. [원 실행별 산출](validation.json) |
+| V-pair 자기확인 | SELF_PASS 13 / SELF_BLOCKED 1 — VP-02의 H1만 미실기 |
+| 강제 지점 전수 | 기계 자리 67/67. H1은 별도 미실기, 자리별 값/관측은 증거 표 |
+| AC 자기보고 | 아래 16/17 |
+| 합계 검산 | ✅ 16 · ⚠️ 1 · ❌ 0 = 총 17, 분모 변경 없음 |
+| 블로커 / 역질문 | PLAN_GAP 없음. 사내 서비스·실제 UI 인수만 검증자에게 남김 |
+| 대상 커밋 | (r1 구현 — 좌표는 INDEX) |
+
+| AC | 자기보고 / 이번 턴 관측 |
+|---|---|
+| AC1 | ✅ T4에서 실제 CLI 모델이 Confluence/Jira/Mail의 서로 다른 결과 수신 |
+| AC2 | ✅ T2/T4에서 stdio/http/sse 호출, env/headers·args 보존, T1에서 비활성/미해결 제외 |
+| AC3 | ✅ T4/5/6에서 draft/live 관측→메뉴/@→강조/Enter→원래 도구 호출의 각 구간 |
+| AC4 | ✅ T6에서 Orca/native 그룹과 중복, OpenCode skill 제외 |
+| AC5 | ✅ T1 CRUD/toggle/회전, T7 user/continuation revision 변경, T8 snapshot 99 |
+| AC6 | ✅ T3 철회 즉시 진행 call abort/이전 handle 호출 실패·재로그인 회복 |
+| AC7 | ✅ T1/2/4/5/10의 source/argv/IPC/config 비밀 부재, child env만 허용 |
+| AC8 | ✅ T2 충돌 부분 제외·stable alias, T3 교차 server/세대 거부, T6 정확한 token |
+| AC9 | ✅ T3 exception/isError/invalid 반환·취소 직접 확인 |
+| AC10 | ✅ T8 A/B 같은 profile과 한쪽 release 뒤 이웃 owner/listener 유지, T3 refcount |
+| AC11 | ✅ T5/P1/I2/I3에서 stale 응답·철회 후보 폐기, 연결 관측만 사용 |
+| AC12 | ✅ T2 native 설정 바이트/merge, R4 native toggle/project choices |
+| AC13 | ✅ R3 Claude MCP/승인 의미 및 R5/T4 OpenCode manual/auto/deny/cancel 회귀 |
+| AC14 | ✅ T1/3에서 session-only 제외·application context만 전달, Artifact guard 회귀 |
+| AC15 | ✅ T1/8/10 빈 배포/복원 가시성·acquire 실패 정리, T11 원본 source 불변 |
+| AC16 | ✅ T10 recipe compile 및 TS2322 음성 대조, T1/3 인증/복구 행동 |
+| AC17 | ⚠️ T4 Windows CLI 자동 부분 완료. 사내 실제 서비스·앱 white/dark·좁은 pane H1 미실기 |
 
 ## [구현자 기입] Review Signals — 사실만
 
-> 원인 분류(A~F)와 지침 변경은 `handoff-review`가 한다.
-
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음 / …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: …
-- 반복해서 부딪히는 환경 한계: 없음 / …
-- 현재 라운드·impl 턴: `rN` / `rN.k` (verify 3·6회째 FAIL/RETURN_TO_PLAN 또는 verify 없는 impl 턴 3 초과면 — 사용자 요구 변경 턴 제외 — 다음 재구현 전에 `handoff-review`. verify 9회째가 PASS가 아니면 `verify/CLOSED` 종료)
+- 같은 축의 이전 라운드: 없음, r1 최초 구현이다. 이번 CI 지적은 기존 JSX 관측 장치에 대한 외부 실행 실패다.
+- plan 지침: §11 O4 실제 CLI 검사가 env escape와 병렬 승인 정착 문제를 검출했다. §10 강제 자리 대조로 prepared owner/scope와 event 운반을 확인했다.
+- 반복 환경 한계: 로컬 better-sqlite3가 Electron ABI140이다. Node127 전체 실행의 DB 실패는 기존 Electron-as-node로 재실행했다. ABI를 번갈아 재빌드하지 않았다.
+- 문서 gate 한계: ignored 외부 clone `.tmp/opencode-dev/`, `app/.temp/opencode/`의 기존 broken link는 남는다. 해당 폴더를 삭제하거나 checker 정책을 변경하지 않았다. 추적/현재 문서 링크는 별도 확인한다.
+- 현재 라운드·impl 턴: `r1` / `r1.1`. 다음 주체는 독립 검증자 Claude다.
 
 ---
+
 
 ## [검증자 기입] 파생 이슈
 

@@ -125,15 +125,20 @@ describe('runAttachMenuAction (AC2·AC3)', () => {
     // r3 verify D6·D7 — 메뉴 데이터 = `/` 자동완성과 같은 useSkills 전체 · `@` 훅의 전체 후보(D-006).
     expect(source.match(/const availableSkills = useSkills\(\)/g)).toHaveLength(1)
     expectPresentationWiring()
-    expect(source).toMatch(/const \{[^}]*\bincludeExtensions\b[^}]*\} = presentation/)
+    expect(source).toMatch(
+      /const \{[^}]*\bincludeSkills\b[^}]*\bincludeManagedMcp\b[^}]*\} = presentation/
+    )
     // Candidate membership is exercised through Composer.native-menu.test and composerSkills.test.
-    expect(sourceAt('../../claude/composer/Module.tsx')).toContain('includeExtensions: true')
-    expect(sourceAt('../../opencode/composer/Module.tsx')).toContain('includeExtensions: false')
+    expect(sourceAt('../../claude/composer/Module.tsx')).toContain('includeSkills: true')
+    expect(sourceAt('../../opencode/composer/Module.tsx')).toContain('includeSkills: false')
+    for (const harness of ['claude', 'opencode'])
+      expect(sourceAt(`../../${harness}/composer/Module.tsx`)).toContain('includeManagedMcp: true')
     expect(source).toContain(
       [
         '        skills={availableSkills}',
         '        sourceIcon={presentation.sourceIcon}',
-        '        includeExtensions={includeExtensions}',
+        '        includeSkills={includeSkills}',
+        '        includeManagedMcp={includeManagedMcp}',
         '        plugins={mentionAutocomplete.plugins}',
         '        native={nativeMenu}',
         '        onAction={onAttachMenuAction}'
@@ -178,7 +183,8 @@ describe('runAttachMenuAction (AC2·AC3)', () => {
         '        onClose={() => setAttachMenuOpen(false)}',
         '        skills={availableSkills}',
         '        sourceIcon={presentation.sourceIcon}',
-        '        includeExtensions={includeExtensions}',
+        '        includeSkills={includeSkills}',
+        '        includeManagedMcp={includeManagedMcp}',
         '        plugins={mentionAutocomplete.plugins}',
         '        native={nativeMenu}',
         '        onAction={onAttachMenuAction}',

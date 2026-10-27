@@ -38,6 +38,8 @@ interface Subscriber {
 }
 
 export interface OpenCodeClientLease {
+  managedMcpMentions?: Record<string, string>
+  mapMcpResources?(items: NativeResource[]): NativeResource[]
   mcpControl?: OpenCodeMcpControl
   readonly signal: AbortSignal
   readonly generation: string

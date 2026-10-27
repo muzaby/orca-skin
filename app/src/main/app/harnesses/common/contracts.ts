@@ -11,6 +11,7 @@ import type {
 } from '../../../features/harnesses/common/model-types'
 
 export interface HarnessRuntimeOptions {
+  managedMcp?: import('../../../adapters/common/managed-mcp').ManagedMcpRuntime
   pluginSnapshots?: import('../../../adapters/common/plugin-snapshots').PluginSnapshotPort
   dataDirectory: string
   preferences: <K extends Backend>(

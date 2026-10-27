@@ -120,7 +120,7 @@ function provider(id: string, overrides: Partial<ProviderInfo> = {}): ProviderIn
     authScheme: 'login-required',
     origin: 'builtin',
     auth: [],
-    status: 'none',
+    status: 'valid',
     activeAuthKind: null,
     principal: null,
     expiresAt: null,
@@ -296,6 +296,19 @@ describe('mention autocomplete occurrence and dismissal (D-015 · AC11 · AC20)'
 })
 
 describe('mention autocomplete provider sources (AC10 · AC19 · AC23)', () => {
+  it('removes invalid bindings from both menu and mention candidates', async () => {
+    h.providerState.mockResolvedValue({
+      providers: [
+        provider('valid'),
+        provider('none', { status: 'none' }),
+        provider('expired', { status: 'expired' })
+      ]
+    })
+    render('@', null)
+    await flush()
+    expect([...render('@', null).validPluginIds]).toEqual(['valid'])
+    expect(render('@', null).plugins.map((entry) => entry.id)).toEqual(['valid'])
+  })
   it('includes 로그인 프리 tools in @ candidates and validPluginIds (0248 AC13)', async () => {
     h.providerState.mockResolvedValue({
       providers: [

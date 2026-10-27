@@ -50,6 +50,8 @@ export function buildAttachMenu(input: {
   labels: AttachMenuLabels
   canManagePlugins: boolean
   includeExtensions?: boolean
+  includeSkills?: boolean
+  includeManagedMcp?: boolean
   useMcp?: (name: string) => string
   sourceIcon?: (source: string) => ReactNode
   native?: {
@@ -61,13 +63,24 @@ export function buildAttachMenu(input: {
   }
 }): CascadeItem<AttachMenuAction>[] {
   const { labels, canManagePlugins } = input
+  const includeSkills = input.includeSkills ?? input.includeExtensions ?? true
+  const includeManagedMcp = input.includeManagedMcp ?? input.includeExtensions ?? true
   const backend =
     input.native?.backend ?? (input.native?.label === 'OpenCode' ? 'opencode' : 'claude')
   const skills = sourceSkills(input.skills, backend).filter(
     (skill) => skill.sourceId !== `plugin:${backend}` || !input.native
   )
   const catalogNames = new Set(skills.map((skill) => skill.name))
-  const plugins = input.includeExtensions === false ? [] : input.plugins
+  const observedIds = new Set(
+    input.native?.orcaItems
+      ?.filter((item) => item.kind === 'action' && item.action.type === 'plugin')
+      .map((item) =>
+        item.kind === 'action' && item.action.type === 'plugin' ? item.action.id : ''
+      )
+  )
+  const plugins = includeManagedMcp
+    ? input.plugins.filter((plugin) => !observedIds.has(plugin.id))
+    : []
   const attachment: CascadeItem<AttachMenuAction> = {
     kind: 'action',
     id: 'attach',
@@ -98,9 +111,7 @@ export function buildAttachMenu(input: {
             label: skill.name,
             icon: 'bolt' as const,
             title: skillTooltip(skill),
-            disabled:
-              skill.enabled === false ||
-              (skill.sourceId === 'orca' && input.includeExtensions === false),
+            disabled: skill.enabled === false || (skill.sourceId === 'orca' && !includeSkills),
             action: {
               type: skill.sourceId === 'orca' ? ('skill' as const) : ('nativeCommand' as const),
               name: skill.name
@@ -117,15 +128,15 @@ export function buildAttachMenu(input: {
           label: plugin.label,
           icon: 'electricalServices' as const,
           title: plugin.label,
-          disabled: input.includeExtensions === false,
+          disabled: !includeManagedMcp,
           action: { type: 'plugin' as const, id: plugin.id }
         }))
-  if (input.includeExtensions !== false && input.native?.orcaItems?.length) {
+  if (includeManagedMcp && input.native?.orcaItems?.length) {
     if (!plugins.length) pluginItems.length = 0
     pluginItems.unshift(...input.native.orcaItems)
   }
   // Settings-only MCP rows have no connection observation and cannot be offered as usable.
-  if (plugins.length || (input.includeExtensions !== false && input.native?.orcaItems?.length))
+  if (plugins.length || (includeManagedMcp && input.native?.orcaItems?.length))
     pluginItems.unshift({
       kind: 'heading',
       id: 'plugins:orca',
@@ -159,10 +170,7 @@ export function buildAttachMenu(input: {
       while (end < skillItems.length && skillItems[end].kind !== 'heading') end++
       skillItems.splice(end, 0, item)
     }
-    if (
-      plugins.length === 0 &&
-      !(input.includeExtensions !== false && input.native.orcaItems?.length)
-    )
+    if (plugins.length === 0 && !(includeManagedMcp && input.native.orcaItems?.length))
       pluginItems.length = 0
     if (input.native.items.length)
       pluginItems.unshift(
@@ -179,7 +187,7 @@ export function buildAttachMenu(input: {
     skillItems.push({ kind: 'empty', id: 'skills:empty', label: labels.noSkills })
   if (!pluginItems.length)
     pluginItems.push({ kind: 'empty', id: 'plugins:empty', label: labels.noPlugins })
-  if (canManagePlugins && input.includeExtensions !== false)
+  if (canManagePlugins && includeManagedMcp)
     pluginItems.push(
       { kind: 'separator', id: 'plugins:separator' },
       {
@@ -219,7 +227,12 @@ export function nativePluginMentions(view: NativeResourcesView, origin?: 'orca')
       (item) =>
         item.kind === 'mcp' && item.origin === origin && item.status === 'connected' && item.enabled
     )
-    .map((item) => ({ kind: 'plugin', id: item.id, label: item.name }))
+    .map((item) => ({
+      kind: 'plugin',
+      id: item.mentionId ?? item.id,
+      label: item.name,
+      ...(item.managedSource ? { displayName: item.name } : {})
+    }))
 }
 
 export function nativeAttachItems(

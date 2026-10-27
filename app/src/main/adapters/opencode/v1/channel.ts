@@ -13,7 +13,7 @@ import type { NormalizedEvent } from '../../../../shared/ipc'
 import { OpenCodeActivityMapper } from './activity'
 import { createOpenCodeMessageId } from './message-id'
 import { classifyOpenCodeError, openCodePreparationError } from './errors'
-import { replyToApproval } from './approval'
+import { isSettledOpenCodePermission, replyToApproval } from './approval'
 import { recoveredPrompt } from '../../common/recovery'
 import { modelRef } from './model-ref'
 import { reportError } from '../../../infra/error-report'
@@ -167,6 +167,9 @@ export function openCodeChannel(
     mainApproval = new AbortController()
     const system = [
       req.extensions.systemPromptAppend,
+      connection?.managedMcpMentions && Object.keys(connection.managedMcpMentions).length
+        ? `Orca MCP references (JSON mapping of mention IDs to runtime server IDs): ${JSON.stringify(connection.managedMcpMentions)}`
+        : undefined,
       req.extraDirs?.length
         ? `Additional context directories selected for this session (JSON): ${JSON.stringify(req.extraDirs)}`
         : undefined
@@ -359,6 +362,11 @@ export function openCodeChannel(
                 )
               : replyToApproval(client, event, req, approvalSignal)
           void reply.catch((error: unknown) => {
+            if (
+              event.type === 'permission.asked' &&
+              isSettledOpenCodePermission(error, event.properties.id)
+            )
+              return
             if (!approvalSignal.aborted) controller.abort(error)
           })
         }
@@ -487,7 +495,7 @@ export function openCodeChannel(
       return {
         state: 'connected',
         generation,
-        items,
+        items: connection?.mapMcpResources?.(items) ?? items,
         ...(commands !== undefined ? { commands } : {}),
         ...(composerCatalog !== undefined ? { composer: composerCatalog } : {}),
         ...(partial ? { partial: true } : {})

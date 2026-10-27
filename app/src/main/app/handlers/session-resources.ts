@@ -44,7 +44,8 @@ export function registerSessionResourceHandlers(
     id: string
   ) => Promise<string | undefined> = async () => undefined,
   sharing?: NativeResourceSharing,
-  projectSync?: ProjectResourceSync
+  projectSync?: ProjectResourceSync,
+  preparedMcp?: import('../prepared-mcp-resources').PreparedMcpResources
 ): (request: ResourceRequest) => Promise<NativeResources> {
   const senders = new WeakSet<Electron.WebContents>()
   const observations = new WeakMap<GovernedLiveTurn, NativeResources>()
@@ -73,6 +74,7 @@ export function registerSessionResourceHandlers(
     sessionId: string,
     runtime: GovernedLiveTurn | undefined
   ): Promise<NativeResources> => {
+    const revision = preparedMcp?.revision
     const [liveRead, configuredRead, commandsRead] = await Promise.allSettled([
       resourceQuery(async () => runtime?.nativeResources?.()),
       resourceQuery(() => configuredResources(sessionId)),
@@ -85,13 +87,14 @@ export function registerSessionResourceHandlers(
       previous?.generation && previous.generation === runtime?.providerGeneration
         ? previous
         : undefined
-    const live =
+    let live =
       liveRead.status === 'fulfilled'
         ? liveRead.value
         : (fallback ??
           (runtime?.providerGeneration
             ? { state: 'connected' as const, generation: runtime.providerGeneration, items: [] }
             : undefined))
+    if (live?.state !== 'connected') live = (await preparedMcp?.read({ sessionId })) ?? live
     if (runtime && liveRead.status === 'fulfilled' && live?.generation)
       observations.set(runtime, live)
     if (configuredRead.status === 'rejected' && !live)
@@ -121,17 +124,32 @@ export function registerSessionResourceHandlers(
       ...(partial ? { partial: true } : {}),
       ...(pluginsAuthoritative ? { pluginsAuthoritative: true } : {})
     }
+    if (preparedMcp?.revision !== revision)
+      throw new Error('MCP 설정이 바뀌었습니다. 메뉴를 다시 열어 주세요.')
     return projectSync?.decorate({ sessionId }, value) ?? value
   }
   const readRequest = async (request: ResourceRequest): Promise<NativeResources> => {
     if ('sessionId' in request) return read(request.sessionId, lookup(request.sessionId))
+    const revision = preparedMcp?.revision
     const [items, commands] = await Promise.all([
       resourceQuery(() => draftResources(request)),
       resourceQuery(() => draftCommands(request))
     ])
+    const prepared = await preparedMcp?.read(request)
+    if (preparedMcp?.revision !== revision)
+      throw new Error('MCP 설정이 바뀌었습니다. 메뉴를 다시 열어 주세요.')
     return {
+      ...prepared,
       state: 'disconnected',
-      items: (items ?? []).map((item) => ({ ...item, canToggle: false })),
+      ...(prepared ? { state: prepared.state } : {}),
+      items: [
+        ...new Map(
+          [
+            ...(items ?? []).map((item) => ({ ...item, canToggle: false })),
+            ...(prepared?.items ?? [])
+          ].map((item) => [`${item.kind}:${item.id}`, item])
+        ).values()
+      ],
       commands,
       ...(items !== undefined ? { pluginsAuthoritative: true } : {})
     }
@@ -142,16 +160,23 @@ export function registerSessionResourceHandlers(
     'reject',
     async (request, event): Promise<NativeResources> => {
       const { observation, ...scope } = request
-      if (observation && projectSync) {
-        const prefix = `${event.sender.id}:`
+      if (observation) {
+        preparedMcp?.observe(event.sender.id, observation, scope)
         if (!senders.has(event.sender)) {
           senders.add(event.sender)
-          event.sender.once('destroyed', () => projectSync.releasePrefix(prefix))
-          event.sender.on('render-process-gone', () => projectSync.releasePrefix(prefix))
+          const clear = (): void => {
+            preparedMcp?.releaseSender(event.sender.id)
+            projectSync?.releasePrefix(`${event.sender.id}:`)
+          }
+          event.sender.once('destroyed', clear)
+          event.sender.on('render-process-gone', clear)
           event.sender.on('did-start-navigation', (_event, _url, inPlace, main) => {
-            if (main && !inPlace) projectSync.releasePrefix(prefix)
+            if (main && !inPlace) clear()
           })
         }
+      }
+      if (observation && projectSync) {
+        const prefix = `${event.sender.id}:`
         const owner = prefix + observation.owner
         if (!observation.active) {
           projectSync.release(owner)
@@ -171,16 +196,7 @@ export function registerSessionResourceHandlers(
       projectSync?.retry(scope)
       if (!('sessionId' in request)) {
         try {
-          const [items, commands] = await Promise.all([
-            resourceQuery(() => draftResources(request)),
-            resourceQuery(() => draftCommands(request))
-          ])
-          return {
-            state: 'disconnected',
-            items: (items ?? []).map((item) => ({ ...item, canToggle: false })),
-            commands,
-            ...(items !== undefined ? { pluginsAuthoritative: true } : {})
-          }
+          return await readRequest(scope)
         } catch {
           throw new Error('하네스 목록을 불러오지 못했습니다. 다시 시도해 주세요.')
         }

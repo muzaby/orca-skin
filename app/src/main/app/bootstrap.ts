@@ -12,7 +12,8 @@ import {
   type ResourceRequest,
   type ProjectResourceTarget
 } from './project-resource-sync'
-import { registerComposerCatalog } from './composer-catalog'
+import { prepareComposerCatalog, registerComposerCatalog } from './composer-catalog'
+import { preparedMcpScope, PreparedMcpResources } from './prepared-mcp-resources'
 import { reportError } from '../infra/error-report'
 // Bootstrap — main 측 컴포지션 루트(app 레이어). 의존성 생성 + 부팅 시퀀스 + 핸들러 등록 위임만
 // 담당한다. 도메인 핸들러는 app/handlers/, chat 턴 셋업은 app/chat-turn.ts, 턴 파이프라인 협력자는
@@ -69,6 +70,7 @@ import { registerUsageJobs } from '../features/usage/jobs'
 import type { UsageFetcher } from '../features/usage/fetcher'
 import { DbRunRecorder, Scheduler } from '../features/scheduler'
 import { ExtensionBuilder } from '../features/extensions/common/builder'
+import { createManagedMcp } from './managed-mcp'
 import { PermissionModeController } from '../features/approvals/permission-mode-controller'
 import type { RouterContext } from './context'
 import { registerSessionHandlers } from './handlers/session'
@@ -189,7 +191,15 @@ export class Bootstrap {
     shutdown: () => this.shutdown(),
     cleanup: () => this.pluginSnapshots.close()
   })
+  private managedMcp?: ReturnType<typeof createManagedMcp>
   private readonly registry = createAdapterRegistry({
+    managedMcp: {
+      snapshot: () => this.managedMcp?.source.snapshot(),
+      acquire: (snapshot) => {
+        if (!this.managedMcp) throw new Error('MCP source unavailable')
+        return this.managedMcp.mcpBridge.acquire(snapshot)
+      }
+    },
     dataDirectory: this.dataDirectory,
     preferences: (harnessId) => this.settings.getAll().harnesses?.[harnessId],
     fetchImpl: netFetch,
@@ -213,6 +223,7 @@ export class Bootstrap {
   // 정착하고 controller 를 abort 한다(shutdown).
   private supervisor?: RuntimeSupervisor<Electron.WebContents>
   private closeComposerCatalog?: import('./handlers/composer-catalog').ComposerCatalogRegistration
+  private preparedMcpResources?: PreparedMcpResources
   private openCodeGlobalWatch?: OpenCodeGlobalWatch
   private bus?: MainBus<Electron.WebContents>
   private activeDbWriteCount = 0
@@ -275,6 +286,7 @@ export class Bootstrap {
   }
 
   private async deployExtensions(options?: { throwOnFailure?: boolean }): Promise<void> {
+    this.managedMcp?.source.refresh()
     await this.deployment?.deployNow(options)
   }
 
@@ -468,6 +480,7 @@ export class Bootstrap {
       logger: (event, data) => getLogger().child('plugin').info(event, data)
     })
     for (const plugin of plugins) plugin.sync()
+    this.managedMcp = createManagedMcp(this.mcp, plugins)
 
     // **row 조립은 배포가 소유한다** (r3) — Harness·Usage row 를 만들려고 배포가 이 파일을
     // 열어야 했던 것이 r2 의 결함이다.
@@ -722,7 +735,8 @@ export class Bootstrap {
       // Orca plugin + 사용자 ~/.claude/skills 래퍼 plugin(0117) — 존재 검증은 adaptPlugins 몫.
       // 경로는 각 플러그인 레이아웃을 소유한 feature 렌더러의 헬퍼에서 파생한다(이중 정의 방지).
       harnessPluginRoots,
-      runtimeTools
+      runtimeTools,
+      this.managedMcp.source
     )
     await this.bootReport.step(
       'adapter-registry',
@@ -793,6 +807,7 @@ export class Bootstrap {
             for (const plugin of plugins) {
               if (plugin.auth.authId === authId) plugin.sync()
             }
+            this.managedMcp?.source.refresh()
           },
           invalidateForAuth: invalidateHarnessForAuth,
           reconcileSnapshot: reconcileRuntimeModelSnapshot
@@ -891,8 +906,10 @@ export class Bootstrap {
     this.pendingMessages?.freeze()
     this.openCodeGlobalWatch?.close()
     this.closeComposerCatalog?.()
+    this.preparedMcpResources?.close()
     this.projectResourceSync?.close()
     this.registry.close()
+    void this.managedMcp?.mcpBridge.close()
     this.dailyGate?.dispose()
     void this.artifacts?.close()
     this.titles?.dispose()
@@ -1048,6 +1065,17 @@ export class Bootstrap {
     // 세션 삭제 시 미커밋 pending 도 함께 폐기한다(0151 AC8) — 루트가 chat 큐를 주입해
     // session 슬라이스가 chat 슬라이스를 참조하지 않게 한다.
     this.closeComposerCatalog = registerComposerCatalog(ctx)
+    const preparedMcp = (this.preparedMcpResources = new PreparedMcpResources({
+      prepare: (scope, signal) => prepareComposerCatalog(ctx, scope, signal),
+      scope: (request) => preparedMcpScope(ctx.db, request)
+    }))
+    this.managedMcp?.source.subscribe((revision) => {
+      this.closeComposerCatalog?.invalidate()
+      preparedMcp.invalidate()
+      for (const wc of webContents.getAllWebContents()) {
+        if (!wc.isDestroyed()) wc.send(CHANNELS.managedMcpChanged, { revision })
+      }
+    })
     const resourceSharing = createNativeResourceSharing({
       session: (id) => ctx.db.getSessionById(id),
       cwd: ctx.getCwd,
@@ -1190,7 +1218,8 @@ export class Bootstrap {
         return file
       },
       resourceSharing,
-      projectSync
+      projectSync,
+      preparedMcp
     )
     registerSessionHandlers(ctx, {
       isSessionBusy: (sessionId) => supervisor.hasSession(sessionId),

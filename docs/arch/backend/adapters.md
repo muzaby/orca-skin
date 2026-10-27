@@ -17,6 +17,8 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 
 ### 1.2 등록된 백엔드 (현재 — Phase 3 SDK)
 
+내장·사용자 MCP의 공통 계약은 `adapters/common/managed-mcp.ts`다. `app/managed-mcp.ts`가 등록 소스와 인증 binding을 조립하며 `ExtensionBuilder`는 snapshot을 턴에 싣는다. OpenCode client 획득은 같은 세대의 bridge와 native 프로필을 재사용하고 마지막 owner만 반납한다. 사용자 턴·자동 연속 턴은 spawn에 기록한 managed revision을 비교한다. 스킬 허용과 MCP 허용은 별도 Composer 능력이다.
+
 | Backend | 어댑터 파일 | 구현 방식 | 상태 |
 |---|---|---|---|
 | `claude` | `adapters/claude/adapter.ts` (+`claude/map.ts` 정규화) | `@anthropic-ai/claude-agent-sdk`의 `query()` 호출 | ✅ 활성 |

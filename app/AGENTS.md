@@ -74,7 +74,7 @@ new BrowserWindow({
 
 - **CSP** (`src/renderer/index.html`): 외부 출처는 Google Fonts(`style-src … https://fonts.googleapis.com; font-src … https://fonts.gstatic.com`)와 Anthropic 자산 프록시(`img-src 'self' data: https://assets-proxy.anthropic.com`)만 허용 — 지시어 전문은 `../docs/arch/backend/security.md §1.6`.
 - **외부 URL 로드 금지** — `webContents.setWindowOpenHandler` 로 차단 + OS 기본 브라우저 위임. DevTools 는 production 빌드에서 막는다 — 모든 창 생성자가 `webPreferences.devTools: import.meta.env.DEV` 를 명시하고, 빠뜨리면 `src/main/infra/browser-window-devtools.test.ts` 가 실패한다(`../docs/arch/backend/security.md §1.5`).
-- 비밀은 `safeStorage` 로만 봉인한다 — MCP 인증값 + provider vault(`infra/vault.ts`, 0181). raw secret 이 **나가는** 예외 **3곳**(MCP `.mcp.json` · LLM `--settings` argv · **LLM `Options.env`**, 0181)은 `../docs/arch/backend/security.md §1.4-b` 의 경계표에 고정돼 있다 — 표 밖의 신규 노출 금지.
+- 비밀은 `safeStorage` 로만 봉인한다 — MCP 인증값 + provider vault(`infra/vault.ts`). raw secret의 반출 예외는 `../docs/arch/backend/security.md §1.4-b` 경계표가 정본이다. OpenCode에는 사용자 MCP 실행 값과 bridge capability만 자식 환경으로 전달하며 내장 서비스 credential은 main에 유지한다 — 표 밖의 신규 노출 금지.
 - **main 에서 Node 전역 `fetch` 를 쓰지 않는다** (0173/0174). 전역 `fetch(` 를 부를 수 있는 파일은 `infra/net/net-fetch.ts` 하나뿐이고, 소비자는 `typeof fetch` 포트로 **주입받는다**(기본값 금지 — 기본값은 곧 조용한 Node 스택 복귀). 위반은 `infra/net/no-node-fetch.test.ts` 가 잡는다. Chromium 스택을 무는 파일은 `net-fetch`·`net-request`·`browser-session` 셋뿐이다 — 근거·`redirect:'manual'` 의미차 → `../docs/arch/backend/security.md` §1.8·§1.9.
 - 근거 · credential 모델 상세 → [`../docs/arch/backend/security.md`](../docs/arch/backend/security.md).
 

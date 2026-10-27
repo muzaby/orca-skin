@@ -24,7 +24,11 @@ function assertRuntimeToolResult(
     typeof result === 'object' &&
     Array.isArray(result?.content) &&
     result.content.every(
-      (part) => part !== null && typeof part === 'object' && part.type === 'text'
+      (part) =>
+        part !== null &&
+        typeof part === 'object' &&
+        part.type === 'text' &&
+        typeof part.text === 'string'
     )
   if (!contentOk) {
     throw new Error(

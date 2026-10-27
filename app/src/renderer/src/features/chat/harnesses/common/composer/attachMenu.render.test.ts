@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
+import ts from 'typescript'
 
 // Popover 는 body 포털이라 서버 렌더가 못 그린다 — 열린 상태의 내용만 그대로 그린다.
 vi.mock('../../../../../shared/ui/Popover', () => ({
@@ -109,6 +110,65 @@ describe('자동완성 정돈 (AC9·AC10)', () => {
 describe('플러그인 관리 배선 (AC3 · W1)', () => {
   const read = (rel: string): string =>
     readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8')
+  const landingManageCallback = (source: string): string | undefined => {
+    const file = ts.createSourceFile(
+      'page.tsx',
+      source,
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TSX
+    )
+    let callback: string | undefined
+    const visit = (node: ts.Node): void => {
+      if (
+        (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
+        node.tagName.getText(file) === 'Landing'
+      ) {
+        for (const attribute of node.attributes.properties) {
+          if (!ts.isJsxAttribute(attribute) || attribute.name.getText(file) !== 'composerProps')
+            continue
+          const value = attribute.initializer
+          if (
+            !value ||
+            !ts.isJsxExpression(value) ||
+            !value.expression ||
+            !ts.isObjectLiteralExpression(value.expression)
+          )
+            continue
+          for (const property of value.expression.properties) {
+            if (
+              ts.isShorthandPropertyAssignment(property) &&
+              property.name.text === 'onManagePlugins'
+            )
+              callback = property.name.text
+            if (
+              ts.isPropertyAssignment(property) &&
+              property.name.getText(file) === 'onManagePlugins'
+            )
+              callback = property.initializer.getText(file)
+          }
+        }
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(file)
+    return callback
+  }
+
+  it('중첩 props를 허용하고 콜백 누락·다른 콜백·다른 컴포넌트는 구별한다', () => {
+    const source = '<Landing composerProps={{ landingProjects: { items: [] }, onManagePlugins }} />'
+    expect(landingManageCallback(source)).toBe('onManagePlugins')
+    expect(landingManageCallback(source.replace(', onManagePlugins', ''))).toBeUndefined()
+    expect(
+      landingManageCallback(
+        source.replace('onManagePlugins }}', 'onManagePlugins: onOpenUsageSettings }}')
+      )
+    ).toBe('onOpenUsageSettings')
+    expect(landingManageCallback(source.replace('<Landing ', '<ChatTile '))).toBeUndefined()
+    expect(
+      landingManageCallback('<Landing composerProps={{ nested: { onManagePlugins } }} />')
+    ).toBeUndefined()
+  })
   it("페이지 5자리가 navigate('/plugins') 를 만들고 랜딩·대화 중계를 통해 넘긴다", () => {
     const count = (src: string, needle: string): number => src.split(needle).length - 1
     expect(
@@ -120,7 +180,7 @@ describe('플러그인 관리 배선 (AC3 · W1)', () => {
     const landing = read('../../../../../pages/NewChatLandingPage.tsx')
     expect(landing).toContain("navigate('/plugins')")
     // 빈 대화는 Landing의 props 객체, 대화 시작 후에는 ChatTile의 직접 prop으로 전달한다.
-    expect(landing).toMatch(/<Landing\b[\s\S]*?composerProps=\{\{[^}]*\bonManagePlugins\s*,/)
+    expect(landingManageCallback(landing)).toBe('onManagePlugins')
     expect(count(landing, 'onManagePlugins={onManagePlugins}')).toBe(1)
     const landingRelay = read('../../../components/Landing.tsx')
     expect(landingRelay).toMatch(/<Composer\s+\{\.\.\.composerProps\}/)

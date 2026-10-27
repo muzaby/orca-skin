@@ -13,6 +13,7 @@ import { userDataPath } from '../../../infra/config/user-data-path'
 import { createPop3Socket } from '../../../infra/net/pop3-socket'
 import { mailSessionConfig } from './auth'
 import { publicMailError } from './pop3/errors'
+import { Pop3Error } from './pop3/errors'
 
 function errorResult(error: unknown): RuntimeToolResult {
   const normalized = publicMailError(error)
@@ -23,7 +24,8 @@ export function mailTools(auth: PluginAuth, options: MailPluginOptions): Runtime
   // 좌표는 `auth.origin` 한 사본에서만 온다 — 옵션에 두 번째 사본이 없으므로 대조하지 않는다.
   // 형식이 깨진 origin 은 여기서 즉시 던져 서버 조립을 막는다.
   const session = mailSessionConfig(auth.origin, options)
-  let inFlight: Promise<MailSyncResult> | undefined
+  let inFlight:
+    { promise: Promise<MailSyncResult>; controller: AbortController; owners: number } | undefined
   const withManager = async <T>(
     operation: (manager: MailSyncManager) => Promise<T>
   ): Promise<T> => {
@@ -41,16 +43,50 @@ export function mailTools(auth: PluginAuth, options: MailPluginOptions): Runtime
     }
   }
   const sync = (signal?: AbortSignal): Promise<MailSyncResult> => {
+    if (signal?.aborted) return Promise.reject(new Pop3Error('cancelled'))
+    if (inFlight?.controller.signal.aborted)
+      return inFlight.promise.catch(() => undefined).then(() => sync(signal))
     if (!inFlight) {
-      inFlight = withManager((manager) => manager.sync(signal)).finally(() => {
-        inFlight = undefined
+      const controller = new AbortController()
+      const flight = {
+        controller,
+        owners: 0,
+        promise: undefined as unknown as Promise<MailSyncResult>
+      }
+      flight.promise = withManager((manager) => manager.sync(controller.signal)).finally(() => {
+        if (inFlight === flight) inFlight = undefined
       })
+      inFlight = flight
     }
-    return inFlight
+    const flight = inFlight
+    flight.owners++
+    return new Promise((resolve, reject) => {
+      let settled = false
+      const detach = (): boolean => {
+        if (settled) return false
+        settled = true
+        signal?.removeEventListener('abort', abort)
+        if (--flight.owners === 0) flight.controller.abort()
+        return true
+      }
+      const abort = (): void => {
+        if (detach()) reject(new Pop3Error('cancelled'))
+      }
+      signal?.addEventListener('abort', abort, { once: true })
+      flight.promise.then(
+        (value) => {
+          if (detach()) resolve(value)
+        },
+        (error: unknown) => {
+          if (detach()) reject(error)
+        }
+      )
+    })
   }
 
   return {
     descriptor: {
+      executionScope: 'application',
       id: authToolServerId(auth.authId),
       connectorId: auth.authId,
       instructions:
