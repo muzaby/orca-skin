@@ -17,6 +17,7 @@
 | T9 | `main/app/bootstrap.managed-mcp-wiring.test.ts:wires the live MCP source into bootstrap consumers and broadcasts only its revision` | production bootstrap AST 배선 proxy. B1~B11 결함을 각각 심어 assertion red 확인 |
 | T10 | `main/app/managed-mcp-document-contract.test.ts:matches deployment recipes and secret boundaries` | 문서 recipe 실제 타입 compile, 잘못된 registry의 TS2322 음성 대조, 빈 기본 배포 |
 | T11 | `main/app/managed-mcp-claude-regression.test.ts:retains resolved Claude MCP publication through the actual deployment service and plugin writer` | 실제 Claude deployment service→common resolve→deployer→plugin 파일→publish. 임시 파일 루트/진단 sink만 대체 |
+| T12 | `main/app/project-resource-sync.test.ts:holds watcher broadcasts behind an in-flight project mutation` 및 `main/app/handlers/session-resources.claude-assembly.test.ts:keeps every toggle while overlapping plugin toggles save through the real watcher` | 두 own-save 사이의 watcher/프로젝트 큐 경합을 직접 고정하고 실제 Claude 조립과 polling watcher도 재실행 |
 | P1 | `main/app/prepared-mcp-resources.test.ts:keeps observed preparations alive and rejects retired completions` | 실제 owner의 관측 수명·invalidate·renderer 해제·늦은 acquire release |
 | P2 | `main/app/prepared-mcp-resources.test.ts:resolves draft execution choices and saved session scope from their actual owners` | draft provider/agent와 saved DB cwd/project를 서로 다른 값으로 검증 |
 | I1 | `preload/index.test.ts`의 managed MCP revision 구독 case | 실제 preload와 renderer API wrapper에 revision 37 전달·unsubscribe |
@@ -118,6 +119,14 @@ plan Q1~Q5를 그대로 실행했다. 검색 hit는 import/타입/주석, 기존
 
 ## CI 실패 재현과 수정
 
-[기존 main CI](https://github.com/muzaby/orca-skin/actions/runs/40332495483)의 Test 단계는 837파일/8054케이스 중 `attachMenu.render.test.ts` 한 케이스가 실패했다. `composerProps={{...}}` 안의 중첩 `landingProjects`를 정규식이 끝으로 오인했다.
+[기존 main CI](https://github.com/muzaby/orca-skin/actions/runs/40332495483)의 Test 단계는 파일 837통과·1실패·2skip(총 840)이었으며 `attachMenu.render.test.ts` 한 케이스가 실패했다. `composerProps={{...}}` 안의 중첩 `landingProjects`를 정규식이 끝으로 오인했다.
 
 실제 JSX AST에서 `LandingComposer`의 `composerProps.onManagePlugins`를 찾아 shorthand/명시 인자를 검증한다. 중첩 객체만 있는 경우·다른 component·다른 callback은 실패한다. 실제 페이지의 callback 삭제(CI1)/형제 callback 교환(CI2) 모두 red였고 복원 후 6케이스가 통과했다.
+
+### r1.2의 CI 보완
+
+[첫 PR CI](https://github.com/muzaby/orca-skin/actions/runs/40444775961)는 lint/typecheck/문서 gate가 통과했고, Test에서 8082통과·1실패·3skip이었다. 실패는 기존 Claude 조립의 `configurationPending` 오표시이며 Landing 실패는 재발하지 않았다.
+
+`ProjectResourceSync.refresh`가 첫 own-save의 설정을 읽은 뒤 방송 큐를 기다리는 동안 두 번째 own-save가 끝나면, 이미 적용된 중간 revision을 미적용으로 판단할 수 있었다. 읽기와 방송을 같은 프로젝트 큐 작업으로 묶어 현재 revision을 관측한다. 추가 파일 읽기나 timeout 확대 없이 해결했다.
+
+T12의 unit case는 mutation 큐를 latch로 막고 own-first→own-second 순서를 고정한다. r1.1 production으로 복귀하면 실제 CI와 같은 `expected true to be undefined`로 실패한다(CI3). 수정본 복원 후 직접 회귀와 실제 polling 조립을 재실행했다. 이는 현재 산출물의 운영 gate 보완이며 V1의 제품/운반 계약 변경이 아니다.

@@ -22,7 +22,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [`0288-cross-harness-mcp`](0288-cross-harness-mcp/plan.md) | impl | **IMPL_DONE** (V1) | **Claude** (독립 검증) | (r1 구현 — 검증자 기입) | 1 | 공통 MCP source·bridge·OpenCode 투영·Composer 연결 후보 구현. 실제 Windows CLI 호출·승인·취소 확인, 기존 CI JSX 검사 보완. 자기보고 AC16/17; H1 사내 서비스·시각 미실기. |
+| [`0288-cross-harness-mcp`](0288-cross-harness-mcp/plan.md) | impl | **IMPL_DONE** (V1) | **Claude** (독립 검증) | (r1.2 구현 — 검증자 기입) | 1 | 공통 MCP source·bridge·OpenCode 투영·Composer 연결 후보 구현. 실제 Windows CLI 호출·승인·취소 확인. r1.2: CI의 Claude watcher 읽기/방송 경합 잠금. 자기보고 AC16/17; H1 사내 서비스·시각 미실기. |
 | [`0287-composer-project-agent-picker`](0287-composer-project-agent-picker/plan.md) | impl | **IMPL_DONE** (V1) | **Claude** (검증) | (r1 구현 — 검증자 기입) | 1 | snapshot 비활성·에이전트 기본값/메뉴·양 하네스 프로젝트 선택 구현. 자기확인 16/16, 31/31. focused 182+DB 28 통과, 실제 Chromium 확인. |
 | [`0286-status-panel-removal-source-groups`](0286-status-panel-removal-source-groups/plan.md) | impl | **IMPL_DONE** (V1 r1.2) | **Claude** (검증) | (r1.2 구현 — 검증자 기입) | 1 | 상태 UI 제거·그룹 표시 구현. 기존 CI 기대값 2건 및 삭제 catch 등록 2건 보완. r1.2 renderer/preload 3135케이스 및 [원격 CI](https://github.com/muzaby/orca-skin/actions/runs/40261035522) 통과. AC 15/16 자기확인, AC16 white/dark 시각 인수 대기. |
 | [`0285-new-chat-harness-settings`](0285-new-chat-harness-settings/plan.md) | impl | **IMPL_DONE** (V1 r1) | **Claude** (검증) | (r1 구현 — 검증자 기입) | 1 | nav·마지막 경로·공통 랜딩·하네스 설정·git 게이트·공통 활자 구현. 관련 51파일/633케이스, 변이 12/12 검출. AC 14/18 자기확인; AC5·10·16 및 AC18 시각 회귀는 사람 실기 대기. |

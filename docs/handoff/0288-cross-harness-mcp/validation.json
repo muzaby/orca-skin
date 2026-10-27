@@ -1,6 +1,6 @@
 {
   "date": "2026-10-27",
-  "round": "r1.1",
+  "round": "r1.2",
   "initialRun": "Node127; existing better-sqlite3 Electron ABI140; not a green full run",
   "executions": [
     {
@@ -58,6 +58,13 @@
       "passed": 1,
       "failed": 0,
       "pending": 0
+    },
+    {
+      "name": "ci-final",
+      "files": 7,
+      "passed": 55,
+      "failed": 0,
+      "pending": 0
     }
   ],
   "effectiveLatestByFile": {
@@ -111,10 +118,33 @@
   },
   "stateCopies": {
     "planImplDone": true,
-    "boardImplDone": "| [`0288-cross-harness-mcp`](0288-cross-harness-mcp/plan.md) | impl | **IMPL_DONE** (V1) | **Claude** (독립 검증) | (r1 구현 — 검증자 기입) | 1 | 공통 MCP source·bridge·OpenCode 투영·Composer 연결 후보 구현. 실제 Windows CLI 호출·승인·취소 확인, 기존 CI JSX 검사 보완. 자기보고 AC16/17; H1 사내 서비스·시각 미실기. |"
+    "boardImplDone": "| [`0288-cross-harness-mcp`](0288-cross-harness-mcp/plan.md) | impl | **IMPL_DONE** (V1) | **Claude** (독립 검증) | (r1.2 구현 — 검증자 기입) | 1 | 공통 MCP source·bridge·OpenCode 투영·Composer 연결 후보 구현. 실제 Windows CLI 호출·승인·취소 확인. r1.2: CI의 Claude watcher 읽기/방송 경합 잠금. 자기보고 AC16/17; H1 사내 서비스·시각 미실기. |"
   },
   "limitations": [
     "AC17/H1 corporate services and actual app visual acceptance not executed",
     "Full local doc checker includes existing broken links in ignored external clones; tracked current docs checked separately"
-  ]
+  ],
+  "ci": [
+    {
+      "run": "https://github.com/muzaby/orca-skin/actions/runs/40444775961",
+      "result": "failure",
+      "failed": 1,
+      "passed": 8082,
+      "skipped": 3,
+      "cause": "Claude own-save watcher read/broadcast race",
+      "followup": "r1.2 deterministic reproduction and queue fix"
+    }
+  ],
+  "r12": {
+    "regressionFiles": 7,
+    "regressionPassed": 55,
+    "mutationOriginalCodeRed": "configurationPending true for a completed own save",
+    "bytesRestored": true,
+    "lint": "2 problems (0 errors, 2 warnings)\r",
+    "build": {
+      "typechecks": 3,
+      "bundles": 3,
+      "observed": "main/preload/renderer built"
+    }
+  }
 }

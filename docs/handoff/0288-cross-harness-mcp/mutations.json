@@ -190,6 +190,17 @@
         "runAttachMenuAction (AC2·AC3) 컨트롤러는 메뉴 동작을 이 함수에 자기 스냅샷·갱신·포커스와 함께 넘긴다",
         "runAttachMenuAction (AC2·AC3) '+' 칩이 메뉴를 열고 닫으며 컨트롤러가 AttachMenu 에 열림·앵커·닫기를 넘긴다"
       ]
+    },
+    {
+      "id": "CI3",
+      "path": "src/main/app/project-resource-sync.ts",
+      "test": "src/main/app/project-resource-sync.test.ts",
+      "failed": 1,
+      "names": [
+        "holds watcher broadcasts behind an in-flight project mutation"
+      ],
+      "observed": "configurationPending true for a completed own save",
+      "restored": true
     }
   ],
   "restored": [
@@ -200,6 +211,10 @@
     {
       "files": 2,
       "tests": 10
+    },
+    {
+      "files": 7,
+      "tests": 55
     }
   ],
   "bytesRestored": true,
