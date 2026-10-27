@@ -23,6 +23,8 @@ export interface NativeResource {
   source?: string
   /** An Orca-injected MCP observed connected by the running harness. */
   origin?: 'orca'
+  managedSource?: { kind: 'builtin' | 'user'; sourceId: string }
+  mentionId?: string
 }
 export interface NativeCommand {
   name: string
@@ -90,6 +92,8 @@ export type OpenNativePlugin = ({ sessionId: string } | DraftNativeResourcesRequ
 
 /** Read-only discovery before a draft has a persisted session. */
 export interface DraftNativeResourcesRequest {
+  providerKey?: string | null
+  agentKind?: import('./agent-kind').AgentKind
   backend: Backend
   cwd: string | null
   projectId: string | null

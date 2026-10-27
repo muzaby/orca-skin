@@ -7,6 +7,23 @@ import type { GovernedLiveTurn, RuntimeSessionAdapter } from '../../contracts/po
 import type { NormalizedPermissionMode } from '../../../shared/permission-mode'
 import type { LiveTurn, ProviderMessageBatch } from '../../adapters/common/types'
 import { SessionRuntime, pickFrameDelegates } from './session-runtime'
+
+it.each([0, 37])(
+  'records managed MCP revision %s at spawn and clears it at teardown',
+  async (revision) => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const input = req()
+    input.extensions.managedMcp = { revision, users: {}, plugins: new Map() }
+    const first = collect(runtime.send(input))
+    await tick()
+    expect(runtime.spawnedManagedMcpRevision).toBe(revision)
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await first
+    runtime.teardownChannel()
+    expect(runtime.spawnedManagedMcpRevision).toBeUndefined()
+  }
+)
 import { decideRespawn } from './respawn-policy'
 import { getLogger } from '../../infra/log/registry'
 import type { BackgroundEvent, ProviderMessageEvent } from '../../../shared/background-task'

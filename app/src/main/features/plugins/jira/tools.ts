@@ -208,6 +208,7 @@ export function createJiraToolServer(
 
   return {
     descriptor: {
+      executionScope: 'application',
       id: authToolServerId(ctx.authId),
       connectorId: ctx.authId,
       tools: descriptorTools

@@ -40,6 +40,19 @@ const mutableServer = (id: string): RuntimeToolServer => ({
 })
 
 describe('RuntimeToolRegistry', () => {
+  it('counts application/session scope changes as an execution revision', () => {
+    const registry = new RuntimeToolRegistry()
+    const entry = server('scoped')
+    registry.add(entry)
+    expect(registry.snapshot().revision).toBe(1)
+    registry.add({ ...entry, descriptor: { ...entry.descriptor, executionScope: 'application' } })
+    expect(registry.snapshot().revision).toBe(2)
+    expect(registry.snapshot().servers.get('scoped')?.descriptor.executionScope).toBe('application')
+    registry.add({ ...entry, descriptor: { ...entry.descriptor, executionScope: 'application' } })
+    expect(registry.snapshot().revision).toBe(2)
+    registry.add(entry)
+    expect(registry.snapshot().revision).toBe(3)
+  })
   // 0180 AC5 — 인증·커넥터 스택이 사라져 기여자가 0 이다. 포트와 어댑터 배선은 남으므로,
   // 기여자 0 상태가 **정상 동작**(빈 스냅샷 + 등록/해제 왕복)임을 고정한다. 0181 의
   // `Provider.tools` 가 다시 채운다.

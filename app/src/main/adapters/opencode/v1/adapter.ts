@@ -22,10 +22,28 @@ import type { openFileDatabase } from '../../../infra/db/file-database'
 import type { LegacyStorageMigration } from './legacy-storage-migration'
 import { reportError } from '../../../infra/error-report'
 import type { ComposerCatalogData } from '../../../../shared/composer-catalog'
+import type { ManagedMcpRuntime, ManagedMcpSnapshot } from '../../common/managed-mcp'
+import { mapManagedMcpResources, projectManagedMcp } from './managed-mcp'
+import { configuredOpenCodeResources } from './configured-resources'
 
 export class OpenCodeAdapter implements SessionAdapter {
   readonly id = 'opencode' as const
   private readonly contexts: OpenCodeSessionContexts
+  private readonly reportedMcpFailures = new Set<string>()
+  private reportMcpFailure(key: string, sourceId: string): void {
+    if (this.reportedMcpFailures.has(key)) return
+    if (this.reportedMcpFailures.size >= 128)
+      this.reportedMcpFailures.delete(this.reportedMcpFailures.values().next().value!)
+    this.reportedMcpFailures.add(key)
+    reportError({
+      event: 'managed-mcp.connection.failed',
+      scope: 'engine',
+      title: 'engineInternal',
+      level: 'warn',
+      detail: '일부 MCP 연결을 완료하지 못했습니다. 플러그인 설정을 확인해 주세요.',
+      data: { sourceId }
+    })
+  }
   constructor(
     private readonly servers: OpenCodeServer,
     fetchImpl: typeof fetch,
@@ -33,7 +51,8 @@ export class OpenCodeAdapter implements SessionAdapter {
     private readonly openDatabase?: typeof openFileDatabase,
     extensionControl?: import('../../common/extension-control').ExtensionControl,
     private readonly preferences?: () =>
-      import('../../../../shared/harness').OpenCodePreferences | undefined
+      import('../../../../shared/harness').OpenCodePreferences | undefined,
+    private readonly managedMcp?: ManagedMcpRuntime
   ) {
     this.contexts = new OpenCodeSessionContexts(fetchImpl, 4096, extensionControl)
   }
@@ -65,14 +84,70 @@ export class OpenCodeAdapter implements SessionAdapter {
   async client(
     config: Record<string, unknown> = {},
     env?: Record<string, string>,
-    cwd?: string
+    cwd?: string,
+    snapshot: ManagedMcpSnapshot | undefined = this.managedMcp?.snapshot()
   ): Promise<OpenCodeClientLease> {
-    const server = await this.servers.acquire(config, env, cwd)
+    const bridge = snapshot && this.managedMcp ? await this.managedMcp.acquire(snapshot) : undefined
+    let projection: ReturnType<typeof projectManagedMcp> | undefined
+    let server: Awaited<ReturnType<OpenCodeServer['acquire']>>
+    try {
+      if (snapshot && bridge) {
+        const native = await configuredOpenCodeResources(cwd || nativeWorkingDirectory(), {
+          ...process.env,
+          ...env
+        })
+        projection = projectManagedMcp(
+          snapshot,
+          bridge,
+          config,
+          native.filter((item) => item.kind === 'mcp').map((item) => item.id)
+        )
+        for (const failure of projection.failures)
+          this.reportMcpFailure(
+            `${snapshot.revision}:${failure.sourceId}:collision`,
+            failure.sourceId
+          )
+      }
+      server = await this.servers.acquire(
+        projection?.config ?? config,
+        projection ? { ...env, ...projection.env } : env,
+        cwd
+      )
+    } catch (error) {
+      await bridge?.release()
+      throw error
+    }
     try {
       const lease = await this.contexts.acquire(server, cwd || nativeWorkingDirectory())
+      const identities = projection?.identities ?? new Map()
+      const mapMcpResources = (
+        items: import('../../../../shared/native-resources').NativeResource[]
+      ): import('../../../../shared/native-resources').NativeResource[] => {
+        const current = this.managedMcp?.snapshot()
+        return mapManagedMcpResources(items, identities).filter((item) => {
+          if (!item.managedSource) return true
+          if (item.status === 'failed' || item.status === 'needs-auth')
+            this.reportMcpFailure(
+              `${snapshot?.revision}:${item.id}:${item.status}`,
+              item.managedSource.sourceId
+            )
+          if (!current || current.revision !== snapshot?.revision) return false
+          if (item.managedSource.kind === 'user')
+            return Object.hasOwn(current.users, item.managedSource.sourceId)
+          return [...current.plugins.values()].some(
+            (plugin) =>
+              plugin.identity.sourceId === item.managedSource?.sourceId && plugin.authorized()
+          )
+        })
+      }
       let releasing: Promise<void> | undefined
       return {
         ...lease,
+        managedMcpMentions: Object.fromEntries(
+          [...identities].map(([id, source]) => [source.mentionId, id])
+        ),
+        mapMcpResources,
+        mcp: async (signal, refresh) => mapMcpResources(await lease.mcp(signal, refresh)),
         release: () => {
           releasing ??= lease
             .release()
@@ -86,12 +161,16 @@ export class OpenCodeAdapter implements SessionAdapter {
                 level: 'warn'
               })
             )
-            .finally(() => server.release?.())
+            .finally(async () => {
+              server.release?.()
+              await bridge?.release()
+            })
           return releasing
         }
       }
     } catch (error) {
       server.release?.()
+      await bridge?.release()
       throw error
     }
   }
@@ -192,7 +271,12 @@ export class OpenCodeAdapter implements SessionAdapter {
     const live = openCodeChannel(
       { ...req, sessionId: nativeId },
       async () => {
-        const connection = await this.client(req.providerSettings?.settings, req.env, req.cwd)
+        const connection = await this.client(
+          req.providerSettings?.settings,
+          req.env,
+          req.cwd,
+          req.extensions.managedMcp
+        )
         release = connection.release
         return connection
       },

@@ -91,6 +91,7 @@ export interface TurnExtensions {
   // 인증된 내장 도구의 현재 메모리 snapshot. extensions feature가 조립하며, adapters는
   // backend별 SDK 옵션으로만 변환한다. 미주입은 기존 MCP 배포 경로를 그대로 유지한다.
   runtimeTools?: RuntimeToolSnapshot
+  managedMcp?: import('./managed-mcp').ManagedMcpSnapshot
   // Work의 일반 출력 파일 수집. OS Temp 검증·메타데이터 등록은 앱이 주입한다.
   outputFiles?: {
     directory: string

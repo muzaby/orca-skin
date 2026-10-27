@@ -21,6 +21,8 @@ interface AttachMenuProps {
   /** '플러그인 관리' — 페이지가 주입한다(0259 D-010). 없으면 그 항목을 그리지 않는다. */
   onManagePlugins?: () => void
   includeExtensions?: boolean
+  includeSkills?: boolean
+  includeManagedMcp?: boolean
   native?: { label: string; backend?: Backend; view: NativeResourcesView }
 }
 
@@ -35,6 +37,8 @@ export function AttachMenu({
   onAction,
   onManagePlugins,
   includeExtensions = true,
+  includeSkills = includeExtensions,
+  includeManagedMcp = includeExtensions,
   native
 }: AttachMenuProps): React.JSX.Element | null {
   const { tr } = useI18n()
@@ -60,6 +64,8 @@ export function AttachMenu({
       sourceIcon,
       canManagePlugins: !!onManagePlugins,
       includeExtensions,
+      includeSkills,
+      includeManagedMcp,
       native: native
         ? {
             label: native.label,
@@ -78,7 +84,17 @@ export function AttachMenu({
         noPlugins: tr('chat.composer.attachMenu.noPlugins')
       }
     })
-  }, [skills, plugins, sourceIcon, onManagePlugins, includeExtensions, native, tr])
+  }, [
+    skills,
+    plugins,
+    sourceIcon,
+    onManagePlugins,
+    includeExtensions,
+    includeSkills,
+    includeManagedMcp,
+    native,
+    tr
+  ])
   return (
     <CascadeMenu
       open={open}

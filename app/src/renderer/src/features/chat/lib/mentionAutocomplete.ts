@@ -1,5 +1,5 @@
 import type { FileEntry } from '../../../../../shared/ipc'
-import type { PluginMention } from './pluginMention'
+import { pluginMentionToken, type PluginMention } from './pluginMention'
 
 const QUOTED_PARTIAL_RE = /(?:^|\s)@"([^"\n]*)$/
 const PLAIN_PARTIAL_RE = /(?:^|\s)@([^\s"]*)$/
@@ -95,7 +95,7 @@ export function applyMentionSuggestion(
   const after = text.slice(caret)
   const followingWhitespace = /^\s/.test(after)
   if (suggestion.kind === 'plugin') {
-    const replacement = `@${suggestion.id}${followingWhitespace ? '' : ' '}`
+    const replacement = `${pluginMentionToken(suggestion.id)}${followingWhitespace ? '' : ' '}`
     return { text: `${before}${replacement}${after}`, caret: before.length + replacement.length }
   }
 

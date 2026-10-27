@@ -52,7 +52,7 @@ export function createArtifactToolServer(
           title: z.string().trim().min(1).max(160).optional()
         },
         async handler(input, context) {
-          if (!context)
+          if (!context || 'scope' in context)
             return {
               isError: true,
               content: [{ type: 'text', text: 'Publisher execution context is unavailable.' }]

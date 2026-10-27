@@ -111,7 +111,16 @@ export function ComposerInputController({
   const sessionId = useChatSession((session) => session.sessionId)
   const backend = useChatSession((session) => session.backend)
   const projectId = useChatSession((session) => session.pendingProjectId)
-  const { appearance, includeExtensions, controlsPlacement, Chip, SubmitButton } = presentation
+  const {
+    appearance,
+    includeSkills,
+    includeManagedMcp,
+    managedMcpAvailability,
+    controlsPlacement,
+    Chip,
+    SubmitButton
+  } = presentation
+  const providerKey = useChatSession((session) => session.providerKey)
   const [snapshot, setSnapshotState] = useState(createDraftSnapshot)
   const snapshotRef = useRef(snapshot)
   const updateSnapshot = useCallback((update: (current: DraftSnapshot) => DraftSnapshot): void => {
@@ -143,12 +152,12 @@ export function ComposerInputController({
     sessionId,
     active,
     backend,
-    sessionId || !backend ? undefined : { backend, cwd, projectId }
+    sessionId || !backend ? undefined : { backend, cwd, projectId, providerKey, agentKind }
   )
   const ensureNative = native.ensure
   const skills = useMemo(
-    () => composerSkills(availableSkills, backend ?? 'claude', includeExtensions, native.view),
-    [availableSkills, backend, includeExtensions, native.view]
+    () => composerSkills(availableSkills, backend ?? 'claude', includeSkills, native.view),
+    [availableSkills, backend, includeSkills, native.view]
   )
   const knownSkillNames = useMemo(() => new Set(skills.map((skill) => skill.name)), [skills])
   useEffect(() => {
@@ -211,23 +220,31 @@ export function ComposerInputController({
   const derivedText = active ? deferredSnapshot.text : ''
   const derivedCaret = active ? deferredSnapshot.selectionStart : 0
   const autocomplete = useSkillAutocomplete(derivedText, derivedCaret, skills)
+  const observedPlugins = useMemo(
+    () => [
+      ...nativePluginMentions(native.view),
+      ...(includeManagedMcp ? nativePluginMentions(native.view, 'orca') : [])
+    ],
+    [native.view, includeManagedMcp]
+  )
   const mentionAutocomplete = useMentionAutocomplete(
     derivedText,
     derivedCaret,
     active ? cwd : null,
     active,
-    includeExtensions
+    includeManagedMcp && managedMcpAvailability === 'bindings',
+    observedPlugins
   )
   const validPluginIds = useMemo(
     () =>
       new Set([
         ...mentionAutocomplete.validPluginIds,
         ...nativePluginMentions(native.view).map((plugin) => plugin.id),
-        ...(includeExtensions
+        ...(includeManagedMcp
           ? nativePluginMentions(native.view, 'orca').map((plugin) => plugin.id)
           : [])
       ]),
-    [mentionAutocomplete.validPluginIds, native.view, includeExtensions]
+    [mentionAutocomplete.validPluginIds, native.view, includeManagedMcp]
   )
   const skillOpen = active && derivedCurrent && autocomplete.open
   const mentionOpen = active && derivedCurrent && mentionAutocomplete.open
@@ -452,7 +469,8 @@ export function ComposerInputController({
         onClose={() => setAttachMenuOpen(false)}
         skills={availableSkills}
         sourceIcon={presentation.sourceIcon}
-        includeExtensions={includeExtensions}
+        includeSkills={includeSkills}
+        includeManagedMcp={includeManagedMcp}
         plugins={mentionAutocomplete.plugins}
         native={nativeMenu}
         onAction={onAttachMenuAction}

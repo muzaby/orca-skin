@@ -19,6 +19,8 @@ export interface RespawnDecisionInput {
   executionCwdRecovered: boolean
   spawnedRuntimeToolsRevision: number | undefined
   runtimeToolsRevision: number | undefined
+  spawnedManagedMcpRevision?: number
+  managedMcpRevision?: number
   spawnedAgentProfileKey?: string
   agentProfileKey?: string
   extraDirectoriesChanged?: boolean
@@ -35,6 +37,7 @@ export function decideRespawn(input: RespawnDecisionInput): boolean {
     input.executionCwdRecovered ||
     input.extraDirectoriesChanged === true ||
     input.spawnedRuntimeToolsRevision !== input.runtimeToolsRevision ||
+    input.spawnedManagedMcpRevision !== input.managedMcpRevision ||
     input.spawnedAgentProfileKey !== input.agentProfileKey
   )
 }

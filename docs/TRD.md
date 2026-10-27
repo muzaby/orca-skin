@@ -108,7 +108,8 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | 스타일링 | Tailwind CSS | **^4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme`) | 확정 (Phase 1 완료) | utility-first. `styles/tokens.css` 의 `@theme` 블록으로 시맨틱 디자인 토큰 정의 (`--color-{bg,sidebar,ink,...}`). `[data-theme]` 스코프로 **white/dark 2테마** 전환. 자세한 정책은 `app/AGENTS.md` "스타일링 정책" 참조 |
 | 마크다운 렌더링 | react-markdown + remark-gfm + shiki | `^9` / `^4` / `^1` | 확정 (Phase A `feat-pretty-ui` 도입) | GFM (표·체크박스) + 코드 블록 syntax highlighting. shiki 번들은 11개 언어 (ts/js/tsx/jsx/python/bash/json/yaml/html/css/markdown) 로 제한 |
 | LLM 백엔드 SDK (Claude) | `@anthropic-ai/claude-agent-sdk` | **exact pin** (`app/package.json` — 모델 세대 추가 시 갱신) | 확정 (Phase 3 채택, 2026-05-18) | TypeScript SDK. 진입점 `query({ prompt, options })` — 대화는 세션당 장수명 채널(§7.1). 플랫폼별 native binary 는 `optionalDependencies` 자동 처리. 최소 요구 Node.js 18+. API 명세 SSOT 는 `docs/spec/claude/agent-sdk/typescript.md` |
-| HTTP (opencode) | `@opencode-ai/sdk` | 1.18.27 (exact) | 조사·계약 검증용 설치 | runtime 미채택; [기준/제약](opencode-sdk-spec.md) |
+| HTTP (opencode) | `@opencode-ai/sdk` | 1.18.27 (exact) | 확정 | Orca가 소유한 CLI 서버의 SDK client; [기준/제약](opencode-sdk-spec.md) |
+| 표준 MCP bridge | `@modelcontextprotocol/sdk` | 1.29.0 (exact) | 사용자 승인 | main 소유 loopback 서버에서 application 도구를 노출한다. [보안 경계](arch/backend/security.md) 참조 |
 | IPC | Electron 기본 ipcRenderer/ipcMain | — | 확정 | 별도 RPC 라이브러리 금지. main→renderer 는 Electron 가 ordered + lossless 보장 — 별도 메시지큐 미도입 (멀티 세션도 1채널 + `sessionId` 라우팅, [arch/frontend/state.md](arch/frontend/state.md) §2) |
 | IPC 보안 | `@electron-toolkit/preload` + contextBridge | ^3 | 확정 | preload 화이트리스트 |
 | 입력 검증 | zod | ^4 | 확정 | IPC 메시지 + SDK / SSE 응답 파싱 |

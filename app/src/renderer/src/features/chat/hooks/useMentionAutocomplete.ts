@@ -10,7 +10,11 @@ import {
   type MentionGroup,
   type MentionSuggestion
 } from '../lib/mentionAutocomplete'
-import { pluginMentionCandidates, type PluginMention } from '../lib/pluginMention'
+import {
+  mergePluginMentions,
+  pluginMentionCandidates,
+  type PluginMention
+} from '../lib/pluginMention'
 
 export interface UseMentionAutocomplete {
   open: boolean
@@ -35,7 +39,8 @@ export function useMentionAutocomplete(
   caret: number,
   cwd: string | null,
   active: boolean,
-  includePlugins = true
+  includePlugins = true,
+  observedPlugins: readonly PluginMention[] = []
 ): UseMentionAutocomplete {
   const token = useMemo(() => parseMentionToken(text, caret), [text, caret])
   const [providers, setProviders] = useState<ProviderInfo[]>([])
@@ -120,12 +125,22 @@ export function useMentionAutocomplete(
   }, [active, cwd, entriesByDir, queryDir])
 
   const visibleProviders = useMemo(
-    () => (active && includePlugins ? providers : []),
+    () =>
+      active && includePlugins ? providers.filter((provider) => provider.status === 'valid') : [],
     [active, includePlugins, providers]
   )
   const plugins = useMemo(
-    () => pluginMentionCandidates(visibleProviders, token?.dirPath === '' ? token.prefix : ''),
-    [token, visibleProviders]
+    () =>
+      mergePluginMentions(pluginMentionCandidates(visibleProviders), observedPlugins).filter(
+        (plugin) =>
+          plugin.id
+            .toLowerCase()
+            .startsWith((token?.dirPath === '' ? token.prefix : '').toLowerCase()) ||
+          plugin.label
+            .toLowerCase()
+            .startsWith((token?.dirPath === '' ? token.prefix : '').toLowerCase())
+      ),
+    [token, visibleProviders, observedPlugins]
   )
   const groups = useMemo(
     () => (token ? groupMentionSuggestions(token, plugins, entriesByDir.get(token.dirPath)) : []),
@@ -141,11 +156,11 @@ export function useMentionAutocomplete(
   const pathOpen = token !== null && cwd !== null
   const open = active && token !== null && !dismissed && (pluginOpen || pathOpen)
   const loading = active && cwd !== null && token !== null && !entriesByDir.has(token.dirPath)
-  const allPlugins = useMemo(() => pluginMentionCandidates(visibleProviders), [visibleProviders])
-  const menuPlugins = useMemo(
-    () => pluginMentionCandidates(providers.filter((provider) => provider.status === 'valid')),
-    [providers]
+  const allPlugins = useMemo(
+    () => mergePluginMentions(pluginMentionCandidates(visibleProviders), observedPlugins),
+    [visibleProviders, observedPlugins]
   )
+  const menuPlugins = useMemo(() => pluginMentionCandidates(visibleProviders), [visibleProviders])
   const validPluginIds = useMemo(() => new Set(allPlugins.map((plugin) => plugin.id)), [allPlugins])
 
   return {

@@ -755,6 +755,10 @@ export const SPAWN_ENV_INJECTOR: SpawnEnvInjector | undefined = ({ target, hostE
 Plugin은 인증이 `valid`일 때 도구를 노출하고 로그인 프리는 항상 노출한다. 상태·요청·등록의
 계약은 [인증 구조 정본](../arch/backend/auth.md#7-plugin)을 따른다.
 
+Confluence·Jira·Mail factory는 application 범위를 선언하므로 같은 binding을 Claude의 메모리 도구와 OpenCode의 MCP bridge가 함께 사용한다. 배포는 별도 OpenCode 도구 서버를 만들지 않는다. 직접 만드는 서버는 `descriptor.executionScope: 'application'`을 명시하고 handler의 application context에는 signal만 있다고 가정한다. sessionId·cwd가 필요한 도구는 기본 session 범위를 유지한다.
+
+인증 뒤 OpenCode Composer의 `+`·`@` 목록에 실제 연결한 항목이 표시되는지 확인한다. 실패 항목은 설정과 인증을 고친 뒤 메뉴를 다시 열어 재시도한다. 변경은 새 준비와 다음 사용자/연속 턴에 적용하며 다른 세션의 진행 호출을 종료하지 않는다. 전달 경계는 [보안 정본](../arch/backend/security.md)을 따른다.
+
 ### 자격증명 Plugin 단계
 
 | # | 하는 일 | 고치는 파일 / 확인 지점 |
@@ -809,7 +813,7 @@ export function createPluginBindings(deps: PluginDeploymentDeps): PluginBinding[
 > `status` 로 비활성을 안내한다 — active registry 로 목록을 만들면 미인증에서 도구가 사라진다.
 
 **Composer 참조와 인증 UI**: main이 Plugin source에만 싣는 cached `tools`가 있는 Plugin은
-`status`가 `none`·`valid`·`expired`·`unknown` 중 무엇이든 Composer `@` 후보가 된다. 후보의
+Claude에서는 `status`가 `valid`인 binding이 Composer `@` 후보가 되고, OpenCode에서는 실제 MCP 연결 관측을 사용한다. 후보의
 토큰은 표시 label이 아니라 고정 `provider id`이며, root plain 입력에서는 경로 그룹을 Plugin 그룹
 보다 먼저 표시한다. 입력 전체 삭제 뒤 같은 Composer에서 `@`를 다시 입력하면 token occurrence를
 새로 시작해 팝업이 다시 열린다. 자격증명 상세 패널의 미인증 액션은 `인증`, 인증 이력이 있으면

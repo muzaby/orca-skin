@@ -415,6 +415,8 @@ export const ComposerCatalogRequestSchema = ComposerCatalogReleaseSchema.extend(
 }).strict()
 const DraftNativeResourcesRequestSchema = z
   .object({
+    providerKey: z.string().max(512).nullable().optional(),
+    agentKind: z.enum(['code', 'work']).optional(),
     backend: BackendSchema,
     cwd: z.string().min(1).max(4096).nullable(),
     projectId: z.string().min(1).max(512).nullable()

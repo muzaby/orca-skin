@@ -39,6 +39,7 @@ function fixture(
   failMcp: boolean
   promptError?: { status: number; body: unknown }
   completionError?: unknown
+  permissionError?: { status: number; body: unknown }
 } {
   const requests: Request[] = []
   let controller: ReadableStreamDefaultController<Uint8Array> | undefined
@@ -111,6 +112,8 @@ function fixture(
     if (path.endsWith('/abort')) return jsonResponse(true)
     if (path.endsWith('/reply') || path.endsWith('/reject')) {
       result.onReply(path)
+      if (result.permissionError && path.startsWith('/permission/'))
+        return jsonResponse(result.permissionError.body, result.permissionError.status)
       return jsonResponse(true)
     }
     throw new Error(`Unexpected SDK request: ${req.method} ${path}`)
@@ -219,6 +222,45 @@ function finish(f: ReturnType<typeof fixture>, promptId: string): void {
 }
 
 describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE transport', () => {
+  it.each([
+    { id: 'settled', tag: 'PermissionNotFoundError', auto: false, completes: true },
+    { id: 'settled', tag: 'PermissionNotFoundError', auto: true, completes: true },
+    { id: 'other', tag: 'PermissionNotFoundError', auto: false, completes: false },
+    { id: 'settled', tag: 'OtherFailure', auto: false, completes: false }
+  ])(
+    'handles only the exact native settled permission: $id/$tag/auto=$auto',
+    async ({ id, tag, auto, completes }) => {
+      const f = fixture(undefined, () => ({ instructions: '', autoApprovePermissions: auto }))
+      f.permissionError = {
+        status: 404,
+        body: { _tag: tag, requestID: id, message: 'raw-secret-sentinel' }
+      }
+      let prompt = ''
+      f.onPrompt = (body) => {
+        prompt = body.messageID as string
+        f.emit(
+          event('permission.asked', {
+            id: 'settled',
+            sessionID: 's1',
+            permission: 'mcp',
+            patterns: ['orca_*'],
+            always: [],
+            metadata: {}
+          })
+        )
+      }
+      f.onReply = () => {
+        setTimeout(() => finish(f, prompt), 25)
+      }
+      const approvals = vi.fn<NonNullable<TurnRequest['requestApproval']>>(async () => ({
+        behavior: 'deny'
+      }))
+      const events = await collect(f.adapter, request({ requestApproval: approvals }))
+      expect(events.at(-1)?.type).toBe(completes ? 'turn.ended' : 'error')
+      expect(approvals).toHaveBeenCalledTimes(auto ? 0 : 1)
+      expect(JSON.stringify(events)).not.toContain('raw-secret-sentinel')
+    }
+  )
   it('sends native ascending IDs and completes successive turns under the legacy stop ordering contract', async () => {
     const f = fixture()
     const promptIds: string[] = []

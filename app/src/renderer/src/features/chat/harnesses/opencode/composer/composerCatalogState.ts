@@ -29,6 +29,7 @@ export class ComposerCatalogState {
   private flights: Partial<Record<ComposerCatalogPart, Promise<void>>> = {}
   private detach?: () => void
   private detachAgents?: () => void
+  private detachManagedMcp?: () => void
   private disposal?: ReturnType<typeof setTimeout>
   private disposed = false
 
@@ -50,6 +51,14 @@ export class ComposerCatalogState {
     clearTimeout(this.disposal)
     this.listeners.add(listener)
     if (!this.detach) {
+      this.detachManagedMcp = sessionApi.onManagedMcpChanged?.(() => {
+        this.epoch++
+        this.flights = {}
+        this.generation = undefined
+        this.invalidate()
+        this.publish()
+        void this.read('models', true)
+      })
       this.snapshot = { ...this.snapshot, agents: this.agentSlot() }
       this.detachAgents = this.agents.subscribe((current, previous) => {
         this.snapshot = { ...this.snapshot, agents: this.agentSlot() }
@@ -163,6 +172,7 @@ export class ComposerCatalogState {
     this.epoch++
     this.detach?.()
     this.detachAgents?.()
+    this.detachManagedMcp?.()
     this.remove()
     void sessionApi.releaseComposerCatalog(this.owner).catch(() => undefined)
   }

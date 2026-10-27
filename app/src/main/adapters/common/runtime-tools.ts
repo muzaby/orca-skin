@@ -16,6 +16,7 @@ export interface RuntimeToolDeclaration {
 export interface RuntimeToolDescriptor {
   id: string
   connectorId: string
+  executionScope?: 'application' | 'session'
   alwaysLoad?: boolean
   instructions?: string
   tools: readonly RuntimeToolDeclaration[]
@@ -54,7 +55,15 @@ export function jsonToolResult(value: Record<string, unknown>, isError = false):
 export interface RuntimeToolImplementation {
   name: string
   inputSchema: z.ZodRawShape
-  handler(input: Record<string, unknown>, context?: RuntimeToolContext): Promise<RuntimeToolResult>
+  handler(
+    input: Record<string, unknown>,
+    context?: RuntimeToolContext | RuntimeToolApplicationContext
+  ): Promise<RuntimeToolResult>
+}
+
+export interface RuntimeToolApplicationContext {
+  readonly scope: 'application'
+  getSignal(): AbortSignal
 }
 
 // 채널의 실행 범위만 전달한다. 도구의 원래 메시지는 실제 결과의 toolRunId로 연결한다.

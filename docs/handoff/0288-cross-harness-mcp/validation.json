@@ -1,0 +1,120 @@
+{
+  "date": "2026-10-27",
+  "round": "r1.1",
+  "initialRun": "Node127; existing better-sqlite3 Electron ABI140; not a green full run",
+  "executions": [
+    {
+      "name": "vitest",
+      "files": 849,
+      "passed": 7673,
+      "failed": 309,
+      "pending": 88
+    },
+    {
+      "name": "db",
+      "files": 43,
+      "passed": 410,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "recheck",
+      "files": 6,
+      "passed": 86,
+      "failed": 1,
+      "pending": 0
+    },
+    {
+      "name": "targeted",
+      "files": 3,
+      "passed": 35,
+      "failed": 1,
+      "pending": 0
+    },
+    {
+      "name": "ui-native",
+      "files": 2,
+      "passed": 33,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "event-tests",
+      "files": 5,
+      "passed": 52,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "final-focused",
+      "files": 25,
+      "passed": 281,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "claude-regression",
+      "files": 1,
+      "passed": 1,
+      "failed": 0,
+      "pending": 0
+    }
+  ],
+  "effectiveLatestByFile": {
+    "files": 852,
+    "testStatuses": {
+      "passed": 8083,
+      "skipped": 2
+    },
+    "failedFiles": []
+  },
+  "cli": {
+    "platform": "Windows",
+    "runtime": "installed supported OpenCode CLI",
+    "passed": 1,
+    "tests": "normal prompt/slash; builtin 3/user 3; stdio/http/sse; allow/deny/cancel",
+    "durationSeconds": 45.62
+  },
+  "scripts": {
+    "passed": 144,
+    "failed": 0,
+    "suites": 16
+  },
+  "build": {
+    "typechecks": 3,
+    "bundles": [
+      "main",
+      "preload",
+      "renderer"
+    ],
+    "observed": "built main, preload and renderer"
+  },
+  "lint": {
+    "summary": "2 problems (0 errors, 2 warnings)\r",
+    "knownWarnings": [
+      "Timeline.tsx",
+      "useTranscriptVirtualizer.ts"
+    ]
+  },
+  "enforcement": {
+    "expected": 67,
+    "observed": 67,
+    "missingIds": [],
+    "extraIds": [],
+    "duplicates": []
+  },
+  "documents": {
+    "inventoryEqual": true,
+    "proseFindings": 0,
+    "checkedTrackedRelativeLinks": 1355,
+    "broken": []
+  },
+  "stateCopies": {
+    "planImplDone": true,
+    "boardImplDone": "| [`0288-cross-harness-mcp`](0288-cross-harness-mcp/plan.md) | impl | **IMPL_DONE** (V1) | **Claude** (독립 검증) | (r1 구현 — 검증자 기입) | 1 | 공통 MCP source·bridge·OpenCode 투영·Composer 연결 후보 구현. 실제 Windows CLI 호출·승인·취소 확인, 기존 CI JSX 검사 보완. 자기보고 AC16/17; H1 사내 서비스·시각 미실기. |"
+  },
+  "limitations": [
+    "AC17/H1 corporate services and actual app visual acceptance not executed",
+    "Full local doc checker includes existing broken links in ignored external clones; tracked current docs checked separately"
+  ]
+}

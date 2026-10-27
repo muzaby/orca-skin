@@ -267,6 +267,8 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.gitDiffPatch, req)
   },
   session: {
+    onManagedMcpChanged: (handler: (event: { revision: number }) => void): (() => void) =>
+      subscribe(CHANNELS.managedMcpChanged, handler),
     composerCatalog: (request: ComposerCatalogRequest): Promise<ComposerCatalogResult> =>
       ipcRenderer.invoke(CHANNELS.composerCatalog, request),
     releaseComposerCatalog: (owner: string): Promise<void> =>

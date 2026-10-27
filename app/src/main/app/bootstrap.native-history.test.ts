@@ -396,6 +396,10 @@ it('reads native configuration through the registered module using stored backen
     )
     vi.stubEnv('CLAUDE_CONFIG_DIR', root)
     vi.stubEnv('XDG_CONFIG_HOME', join(temp, 'xdg'))
+    vi.stubEnv('OPENCODE_CONFIG', join(temp, 'absent-opencode.json'))
+    vi.stubEnv('OPENCODE_CONFIG_DIR', join(temp, 'absent-opencode-config'))
+    vi.stubEnv('ProgramData', join(temp, 'program-data'))
+    await mkdir(join(cwd, '.git'))
     const row = { backend: 'claude', cwd, project_id: 'project-B' }
     const get = vi.fn(() => row)
     ctx.db.getSessionById = get as never

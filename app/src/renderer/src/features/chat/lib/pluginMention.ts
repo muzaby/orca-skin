@@ -5,6 +5,16 @@ export interface PluginMention {
   kind: 'plugin'
   id: string
   label: string
+  /** Managed display name is distinct from its runtime token. */
+  displayName?: string
+}
+
+export function mergePluginMentions(
+  ...groups: readonly (readonly PluginMention[])[]
+): PluginMention[] {
+  return [
+    ...new Map(groups.flatMap((group) => group.map((entry) => [entry.id, entry] as const))).values()
+  ]
 }
 
 /** Keep a native identifier with spaces as one @ token, just like a quoted file reference. */

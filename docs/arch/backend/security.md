@@ -59,7 +59,7 @@ new BrowserWindow({
 비대칭이다. 그 강등은 유지하되(키체인 잠김 하나로 앱이 죽지 않도록) grant 상태를 `unknown` 으로
 남겨 **조용한 미인증 진행**을 막는다.
 
-#### raw secret 이 프로세스 밖으로 나가는 문서화된 예외 — **3곳** (표 밖 신규 노출 금지)
+#### raw secret 이 프로세스 밖으로 나가는 문서화된 예외 (표 밖 신규 노출 금지)
 
 | # | 경로 | 왜 불가피한가 | 완화 |
 |---|---|---|---|
@@ -67,7 +67,9 @@ new BrowserWindow({
 | 2 | **LLM `--settings` argv** — provider `settings.json` 의 `env` 블록 | 사용자가 `~/.claude/settings.json` 과 같은 방식으로 직접 적는 값(0028) | Orca 는 이 파일에 **쓰지 않는다**. 확장·주입도 하지 않고 verbatim 으로 읽는다 |
 | 3 | **LLM `Options.env`** (0181 신규) — 인증된 provider 의 자격증명을 subprocess 환경변수로 병합 | SDK 가 subprocess 를 띄우므로 자격증명은 프로세스 경계를 넘어야 한다 | **디스크에 남지 않는다**(subprocess 수명). 미인증이면 그 키를 **드롭**(빈 문자열 치환 금지). 0028 이 없앤 "설정 파일에 토큰 기록" 은 되살리지 않는다 |
 
-> 세 경로 모두 **값의 소유권은 vault** 이고, 나가는 시점이 다를 뿐이다. 새 노출 경로를 추가하려면
+| 4 | **OpenCode 자식 환경** — 사용자 MCP의 실행 값과 main bridge capability | 하네스가 사용자 MCP와 loopback bridge에 연결한다 | `OPENCODE_CONFIG_CONTENT`에는 환경 변수 참조만 담고 값은 JSON 문자열 치환 규칙으로 이스케이프한다. 내장 서비스 credential은 main에 남는다. 새 평문 파일·argv·renderer·앱 로그로 복제하지 않는다. |
+
+> 자격증명의 정본은 기존 봉인 저장소이며 bridge capability는 메모리에서 생성한다. 새 노출 경로를 추가하려면
 > 이 표에 행을 더하는 것이 선행 조건이다.
 
 **로그인 프리 Plugin의 로컬 인증 수단은 앱 소유 credential이 아니다.** 플러그인 또는 그
@@ -100,11 +102,11 @@ new BrowserWindow({
 >
 > **타입 모델**: 정규 컬렉션 타입은 `OrcaMcpConfig`(claude-code 스펙). Claude 형식은 이와 동일하므로 **별칭** `type ClaudeMcpConfig = OrcaMcpConfig` 로 못박는다. 단일 항목 타입 `ClaudeMcp` 의 http/sse 는 분리된 판별 멤버라 SDK `McpServerConfig`(stdio|http|sse) 유니온에 그대로 대입된다. **"IR(중간형)" 표현은 쓰지 않는다** — 정규형이 곧 claude-code 스펙.
 >
-> **MCP 변환 경계**: `features/extensions/claude/mcp/convert.ts`의 `toClaudeConfig`가 서버별 env/header 확장과 미해결 제외를 함께 수행한다. `OrcaMcpConfig`와 `ClaudeMcpConfig`는 동형이며 http/sse/stdio 구조를 보존한다. OpenCode 변환기와 실행 연동은 미구현이다.
+> **MCP 변환 경계**: `features/extensions/common/mcp/resolve.ts`가 env/header 확장과 미해결 제외를 수행하고 Claude wrapper가 같은 결과를 소비한다. OpenCode의 `managed-mcp.ts`는 메모리 snapshot을 native 설정과 자식 환경으로 투영한다. 원본 stdio/http/sse 설정을 덮어쓰지 않는다.
 >
 > **소스와 배포 산출물**: `writeMcpFile`은 편집한 소스를 저장한다. Bootstrap은 활성 소스를 resolver로 확장해 `deploy`에 전달하며, 배포기는 `dist/claude/plugins/orcinus-orca/.mcp.json`에 렌더한다. 따라서 확장된 비밀이 배포 파일에 존재하는 현재 제약이 있다. 변환기는 입력 소스를 변경하지 않고 미해결 서버는 제외한다.
 >
-> **확장 정규 레이어**: 소스와 배포 책임은 [standardization.md §5](./standardization.md)에 서술한다. MCP의 현재 변환 진입점은 `toClaudeConfig`이며, 별도의 확장 전달 모듈은 없다.
+> **확장 정규 레이어**: 공통 source와 bridge의 책임은 [standardization.md §5](./standardization.md)에 서술한다. bridge는 `127.0.0.1` 임시 포트·무작위 bearer capability·Host 검사·Origin 거부를 적용한다. SDK transport session은 세대와 서버에 묶이며 현재 인증을 호출마다 재검사한다. session 범위 도구에는 채팅 sessionId·cwd를 합성하지 않는다.
 >
 > - **정규 소스**: 편집 가능한 MCP·skill 소스와 배포 산출물을 구분한다. 현재 디렉토리 배치는 [standardization.md §5](./standardization.md)를 참조한다.
 > - **Claude 배포·주입**: 배포기가 Orca skill과 MCP를 `dist/claude/plugins/orcinus-orca` 플러그인에 렌더하고, 사용자 skill은 별도 wrapper로 연결한다. Adapter는 plugin 경로를 SDK에 전달한다. SDK 메모리 MCP 서버는 runtime tool 경로가 별도로 공급한다.

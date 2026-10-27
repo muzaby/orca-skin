@@ -31,7 +31,7 @@ import { ComposerInputController } from './ComposerInputController'
 let dom: FakeDom
 const read = vi.fn()
 const observe = vi.fn()
-const onSend = vi.fn(() => true)
+const onSend = vi.fn<(text: string) => boolean>(() => true)
 let background: (event: BackgroundEvent) => void
 let resourcesChanged: (
   event: import('../../../../../../../shared/native-resources').NativeResourcesChanged
@@ -120,6 +120,81 @@ function clickLabel(label: string): void {
   expect(button, label).toBeDefined()
   dom.click(button!)
 }
+it.each(['claude', 'opencode'] as const)(
+  'offers the observed managed MCP alias to @ selection and send in %s',
+  async (backend) => {
+    fixture.backend = backend
+    const items = [
+      {
+        id: 'orca_b_builtin',
+        mentionId: 'wiki',
+        name: 'Wiki',
+        kind: 'mcp',
+        origin: 'orca',
+        managedSource: { kind: 'builtin', sourceId: 'wiki' },
+        status: 'connected',
+        enabled: true,
+        canToggle: false
+      },
+      {
+        id: 'orca_u_user',
+        mentionId: 'orca_u_user',
+        name: 'User documents',
+        kind: 'mcp',
+        origin: 'orca',
+        managedSource: { kind: 'user', sourceId: 'user-docs' },
+        status: 'connected',
+        enabled: true,
+        canToggle: false
+      },
+      {
+        id: 'not-connected',
+        name: 'Unavailable documents',
+        kind: 'mcp',
+        origin: 'orca',
+        status: 'failed',
+        enabled: true,
+        canToggle: false
+      }
+    ]
+    read.mockResolvedValue({
+      state: 'connected',
+      generation: 'managed-generation',
+      items,
+      commands: []
+    })
+    render('@orca_u')
+    await settle()
+    const options = dom.queryAll('[role="option"]')
+    expect(options).toHaveLength(1)
+    expect(options[0].textContent).toContain('User documents')
+    dom.act(() =>
+      (options[0].props.onMouseDown as (event: { preventDefault(): void }) => void)({
+        preventDefault: vi.fn()
+      })
+    )
+    await settle()
+    const input = dom.query('[aria-label="chat.composer.inputAria"]')!
+    expect(input.props.value).toBe('@orca_u_user ')
+    expect(
+      (dom.query('[data-composer-decoration-projection]')?.children ?? []).map(
+        (node) => node.textContent
+      )
+    ).toContain('@orca_u_user')
+    expect(onSend).not.toHaveBeenCalled()
+    dom.act(() =>
+      (input.props.onKeyDown as (event: Record<string, unknown>) => void)({
+        key: 'Enter',
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+        nativeEvent: { isComposing: false },
+        currentTarget: { value: input.props.value, selectionStart: 13, selectionEnd: 13 }
+      })
+    )
+    await settle()
+    expect(onSend.mock.calls[0]?.[0]).toBe('@orca_u_user ')
+  }
+)
 it.each(['claude', 'opencode'] as const)(
   'highlights selected native @ plugins in the real %s composer and refreshes their membership',
   async (backend) => {
@@ -420,7 +495,12 @@ it.each(['saved', 'draft'])(
       .find((item) => item.textContent === 'frontend-design::frontend-design')!
     expect(row.props.title).toBe('Create a distinctive interface\n[brief]')
     if (mode === 'draft')
-      expect(read).toHaveBeenCalledWith({ backend: 'claude', cwd: null, projectId: 'project-B' })
+      expect(read).toHaveBeenCalledWith({
+        backend: 'claude',
+        cwd: null,
+        projectId: 'project-B',
+        agentKind: 'code'
+      })
     clickLabel('frontend-design::frontend-design')
     await settle()
     expect(dom.query('[aria-label="chat.composer.inputAria"]')!.props.value).toBe(
@@ -533,10 +613,12 @@ it.each(['claude', 'opencode'] as const)(
     await settle()
     clickLabel('chat.composer.attachMenu.plugins')
     expect(dom.queryAll('[data-cascade-level="1"]').map((row) => row.textContent)).toEqual(
-      backend === 'claude' ? ['Native MCP', 'Connected Orca MCP', 'Jira'] : ['Native MCP']
+      backend === 'claude'
+        ? ['Native MCP', 'Connected Orca MCP', 'Jira']
+        : ['Native MCP', 'Connected Orca MCP']
     )
     expect(dom.queryAll('[data-menu-heading]').map((node) => node.textContent)).toEqual(
-      backend === 'claude' ? ['Claude', 'Orcinus orca'] : ['OpenCode']
+      backend === 'claude' ? ['Claude', 'Orcinus orca'] : ['OpenCode', 'Orcinus orca']
     )
     clickLabel('Native MCP')
     await settle()
@@ -558,7 +640,12 @@ it.each(['claude', 'opencode'] as const)(
         expect(highlightedPlugins()).toContain(token)
       }
     } else {
-      expect(highlightedPlugins()).not.toContain('@plugin:orcinus-orca:custom')
+      open()
+      await settle()
+      clickLabel('chat.composer.attachMenu.plugins')
+      clickLabel('Connected Orca MCP')
+      await settle()
+      expect(highlightedPlugins()).toContain('@plugin:orcinus-orca:custom')
       expect(highlightedPlugins()).not.toContain('@jira')
     }
     expect(onSend).not.toHaveBeenCalled()

@@ -147,7 +147,15 @@ function deploy(engine: EngineId, opts: DeployOptions): DeployResult {
 
 > **구현 상태 (0058 레이아웃)**: [`features/extensions/claude/deployer.ts`](../../../app/src/main/features/extensions/claude/deployer.ts) 는 §5.1 의 plugin 패키지 레이아웃을 렌더하고 `deployer.test.ts` 가 같은 레이아웃을 검증한다. (⚠️ `conformance.ts` 는 **코드에 존재하지 않는다** — `StandardConformance` 는 설계 단계이고 구현체가 없다. 아래 §5.3 을 구현 완료로 읽지 말 것.) 최초 부팅 스캐폴드 [`features/extensions/claude/scaffold.ts`](../../../app/src/main/features/extensions/claude/scaffold.ts) 는 provider settings 만 시드하고, 번들 first-party 콘텐츠는 skill 시딩(`skills/seed.ts`, 0078)이 따로 맡는다 — agents·commands·hooks 번들은 없다. **claude-only — `engine` 파라미터가 OpenCode seam.**
 
-> **현행 선례 재사용**: MCP 소스의 `${VAR}` 확장과 서버별 미해결 제외는 `mcp/convert.ts`의 순수 함수 `toClaudeConfig`가 함께 소유한다. 문자열 치환은 `infra/vars.ts`, 토큰·비밀·허용된 환경변수 해석은 `mcp/resolver.ts`가 맡는다. Bootstrap이 변환 결과를 기존 ExtensionDeployer에 전달한다([security.md §1.4](./security.md)). OpenCode 변환기는 미구현이다.
+> **현행 선례 재사용**: MCP 소스의 `${VAR}` 확장과 서버별 미해결 제외는 공통 `mcp/resolve.ts`가 소유한다. 문자열 치환은 `infra/vars.ts`, 토큰·비밀·허용된 환경변수 해석은 `mcp/resolver.ts`가 맡는다. Claude wrapper와 managed source가 같은 해석을 사용한다([security.md §1.4](./security.md)).
+
+### 5.2-a 하네스 공통 MCP 실행
+
+`features/extensions/common/mcp/managed-source.ts`는 활성 사용자 MCP와 인증된 application Plugin을 하나의 revision으로 제공한다. `resolve.ts`가 변수 해석을 소유하며 Claude의 `toClaudeConfig`는 그 결과를 유지한다. source 변경은 저장·인증 성공 뒤 발행하고 같은 실행 값은 같은 revision을 유지한다.
+
+`bridge.ts`는 공식 MCP SDK로 application 도구의 schema·annotations·handler 결과를 노출한다. 세대별 lease가 listener를 공유하며 인증 철회·요청 취소·종료 신호를 호출에 결합한다. session 도구는 기본적으로 제외한다.
+
+OpenCode `managed-mcp.ts`는 source identity를 안정적인 runtime alias로 투영한다. 실제 연결 관측을 safe metadata로 되돌리고 Composer의 메뉴·멘션·강조가 같은 집합을 사용한다. 첫 입력 전 준비는 관측 owner가 연결을 유지할 때만 사용 가능 목록으로 제공한다. credential과 native 파일의 경계는 [security.md](security.md)를 따른다.
 
 ### 5.3 StandardConformance
 

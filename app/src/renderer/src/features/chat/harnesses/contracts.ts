@@ -87,7 +87,9 @@ export interface HarnessLandingPresentation {
 export interface ComposerInputPresentation {
   sourceIcon?: (source: string) => ReactNode
   appearance: ComposerAppearance
-  includeExtensions: boolean
+  includeSkills: boolean
+  includeManagedMcp: boolean
+  managedMcpAvailability: 'bindings' | 'observed'
   controlsPlacement: 'split' | 'end'
   harness: Backend
   placeholder: (kind: AgentKind) => MessageKey

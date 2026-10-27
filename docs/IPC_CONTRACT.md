@@ -192,9 +192,12 @@ interface Settings {
 | `orca:extensions:catalog` | R→M | `{ backend }` | `NativeResources`. 하네스 전역 파일의 설정 상태와 제어 가능 여부. 작업폴더 추론·서버 시작·runtime 조회 없음 |
 | `orca:extensions:setEnabled` | R→M | `SetGlobalNativeResource` = `{ backend, kind, id, enabled, confirmed?: true }` | `SetGlobalNativeResourceResult` = `{ status: 'applied', resources: NativeResources }` \| `{ status: 'confirm', reason: 'claude-processes', sessions: number }`. 실제 전역 목록의 capability를 재검증한 뒤 Claude plugin·OpenCode MCP 선택을 저장한다. Claude plugin은 동작 중인 Claude 세션이 있고 `confirmed`가 없으면 저장·종료 없이 `confirm`(동작 중 세션 수)을 돌려준다. 그 밖에는 저장한 뒤 실행 중인 Claude 프로세스를 모두 닫는다(진행 턴 중단, 폐기된 예약은 `message.cancelled` 방송). 판정부터 종료까지 `await`가 없다. 저장이 실패하면 아무것도 닫지 않는다. 지원하지 않는 항목의 직접 호출은 거부한다. |
 | `orca:extensions:opencode-plugins-changed` | M→R | `OpenCodePluginsChanged` = `{ revision: number }` | 외부 plugin 변경 시 서버 pool retire 뒤 모든 창에 보낸다. preload/renderer API의 `onOpenCodePluginsChanged`를 store 생성 시 구독한다. 더 큰 revision만 agents를 비우며 구독 중인 부분은 다시 준비하고 모델 값은 보존한다. Composer·owner가 없어도 유효하다. |
+| `orca:extensions:managed-mcp-changed` | M→R | `{ revision: number }` | MCP source 변경 시 prepared owner와 Composer 목록을 무효화한다. payload에 주소·설정·credential을 넣지 않는다. preload/renderer의 `onManagedMcpChanged`를 구독하고 이전 조회의 늦은 성공을 폐기한다. |
 | `orca:extensions:open` | R→M | `GlobalNativeResourceTarget` = `{ backend, kind, id }` | `void`. 확인된 실제 설정/설치 위치만 열기. 파일 경로는 main에서 결정 |
 
 미지정 선택은 native 전역 값을 따른다. Claude plugin은 새 Query마다 SDK 옵션과 초안 reader에 적용하며 토글 시 실행 중인 Claude 프로세스를 닫아 다음 메시지부터 새 선택으로 같은 대화를 잇고, OpenCode MCP는 directory SDK 연결·해제를 사용한다. 기본 경로 스킬은 항상 활성으로 취급하며 토글하지 않는다. OpenCode plugin은 전역 파일을 읽기 전용으로 표시한다. Claude plugin·OpenCode MCP의 명시 전역 선택은 앱 재시작 뒤에도 유지하며 native 설정 파일은 쓰지 않는다. 미지원 항목은 실제 enabled 값을 유지한 고정 토글·회색 폰트다. nav 조회 실패는 기존 확인 항목과 재시도 수단을 유지한다. 프로젝트 선택은 우측 패널의 실제 작업경로에 귀속한다. OpenCode 프로젝트 MCP 선택의 실행 적용은 전체 프로젝트 유휴 때 하며 `configurationPending`으로 대기를 구별한다.
+
+MCP의 session-native 목록은 선택적인 `managedSource: { kind: 'builtin' | 'user'; sourceId: string }`와 `mentionId`를 담는다. runtime alias와 표시 이름을 구별하며 주소·원문 설정·인증값은 담지 않는다. 초안 요청은 선택적인 `providerKey`·`agentKind`를 준비 scope에 포함하고 저장 세션은 DB의 backend·agent·cwd를 따른다. OpenCode의 첫 입력 전 목록은 활성 observation owner가 유지하는 준비 lease에서 실제 연결을 읽는다. 관측 해제·창 종료·navigation·source 변경은 준비 owner를 반납한다.
 
 ### 2.6 Files
 

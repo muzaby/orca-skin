@@ -112,11 +112,16 @@ export function createConfluenceToolServer(
     request: (req, signal) => ctx.request(req, signal),
     logger: () => undefined
   }
-  const invoke = (operation: string, params?: Record<string, unknown>): Promise<ConfluenceResult> =>
-    runtime.invoke(request, { operation, ...(params ? { params } : {}) })
+  const invoke = (
+    operation: string,
+    params?: Record<string, unknown>,
+    signal?: AbortSignal
+  ): Promise<ConfluenceResult> =>
+    runtime.invoke({ ...request, signal }, { operation, ...(params ? { params } : {}) })
 
   return {
     descriptor: {
+      executionScope: 'application',
       id: serverId,
       connectorId: providerId,
       tools: [
@@ -171,8 +176,11 @@ export function createConfluenceToolServer(
                 'as next; do not compute it yourself.'
             )
         },
-        handler: async (input) =>
-          toToolResult(await invoke(CONFLUENCE_OPERATIONS.search, input), renderSearchResult)
+        handler: async (input, context) =>
+          toToolResult(
+            await invoke(CONFLUENCE_OPERATIONS.search, input, context?.getSignal()),
+            renderSearchResult
+          )
       },
       {
         name: CONFLUENCE_TOOL_NAMES.getPages,
@@ -189,8 +197,11 @@ export function createConfluenceToolServer(
             .optional()
             .describe('Download attachments referenced by the page bodies. Defaults to true.')
         },
-        handler: async (input) =>
-          toToolResult(await invoke(CONFLUENCE_OPERATIONS.pages, input), renderPagesResult)
+        handler: async (input, context) =>
+          toToolResult(
+            await invoke(CONFLUENCE_OPERATIONS.pages, input, context?.getSignal()),
+            renderPagesResult
+          )
       }
     ] satisfies readonly RuntimeToolImplementation[]
   }

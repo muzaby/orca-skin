@@ -1,0 +1,212 @@
+{
+  "results": [
+    {
+      "id": "M1a",
+      "path": "src/main/app/chat-turn/runtime-entry.ts",
+      "test": "src/main/app/chat-turn/managed-mcp-revision.test.ts",
+      "failed": 1,
+      "names": [
+        "applies new revisions to user and continuation turns"
+      ]
+    },
+    {
+      "id": "M1b",
+      "path": "src/main/app/chat-turn-continuation.ts",
+      "test": "src/main/app/chat-turn/managed-mcp-revision.test.ts",
+      "failed": 1,
+      "names": [
+        "applies new revisions to user and continuation turns"
+      ]
+    },
+    {
+      "id": "M1c",
+      "path": "src/main/features/sessions/session-runtime.ts",
+      "test": "src/main/app/chat-turn/managed-mcp-revision.test.ts",
+      "failed": 1,
+      "names": [
+        "applies new revisions to user and continuation turns"
+      ]
+    },
+    {
+      "id": "M2a",
+      "path": "src/main/adapters/opencode/v1/managed-mcp.ts",
+      "test": "src/main/app/handlers/managed-mcp-resources.test.ts",
+      "failed": 1,
+      "names": [
+        "preserves source identity through prepared and live views"
+      ]
+    },
+    {
+      "id": "M2b",
+      "path": "src/renderer/src/features/chat/lib/attachMenuModel.ts",
+      "test": "src/renderer/src/features/chat/harnesses/common/composer/Composer.native-menu.test.ts",
+      "failed": 2,
+      "names": [
+        "shows all source groups directly for claude and keeps draft text on selection",
+        "shows all source groups directly for opencode and keeps draft text on selection"
+      ]
+    },
+    {
+      "id": "M3a",
+      "path": "src/main/adapters/opencode/v1/adapter.ts",
+      "test": "src/main/app/managed-mcp-lifecycle.test.ts",
+      "failed": 1,
+      "names": [
+        "shares generations and releases only owned resources"
+      ]
+    },
+    {
+      "id": "M3b",
+      "path": "src/main/features/extensions/common/mcp/bridge.ts",
+      "test": "src/main/features/extensions/common/mcp/bridge.integration.test.ts",
+      "failed": 1,
+      "names": [
+        "serves only authorized application tools"
+      ]
+    },
+    {
+      "id": "B1",
+      "path": "src/main/app/bootstrap.ts",
+      "test": "src/main/app/bootstrap.managed-mcp-wiring.test.ts",
+      "failed": 1,
+      "names": [
+        "wires the live MCP source into bootstrap consumers and broadcasts only its revision"
+      ]
+    },
+    {
+      "id": "B2",
+      "path": "src/main/app/bootstrap.ts",
+      "test": "src/main/app/bootstrap.managed-mcp-wiring.test.ts",
+      "failed": 1,
+      "names": [
+        "wires the live MCP source into bootstrap consumers and broadcasts only its revision"
+      ]
+    },
+    {
+      "id": "B3",
+      "path": "src/main/app/bootstrap.ts",
+      "test": "src/main/app/bootstrap.managed-mcp-wiring.test.ts",
+      "failed": 1,
+      "names": [
+        "wires the live MCP source into bootstrap consumers and broadcasts only its revision"
+      ]
+    },
+    {
+      "id": "B4",
+      "path": "src/main/app/bootstrap.ts",
+      "test": "src/main/app/bootstrap.managed-mcp-wiring.test.ts",
+      "failed": 1,
+      "names": [
+        "wires the live MCP source into bootstrap consumers and broadcasts only its revision"
+      ]
+    },
+    {
+      "id": "B5",
+      "path": "src/main/app/bootstrap.ts",
+      "test": "src/main/app/bootstrap.managed-mcp-wiring.test.ts",
+      "failed": 1,
+      "names": [
+        "wires the live MCP source into bootstrap consumers and broadcasts only its revision"
+      ]
+    },
+    {
+      "id": "B6",
+      "path": "src/main/app/bootstrap.ts",
+      "test": "src/main/app/bootstrap.managed-mcp-wiring.test.ts",
+      "failed": 1,
+      "names": [
+        "wires the live MCP source into bootstrap consumers and broadcasts only its revision"
+      ]
+    },
+    {
+      "id": "B7",
+      "path": "src/main/app/bootstrap.ts",
+      "test": "src/main/app/bootstrap.managed-mcp-wiring.test.ts",
+      "failed": 1,
+      "names": [
+        "wires the live MCP source into bootstrap consumers and broadcasts only its revision"
+      ]
+    },
+    {
+      "id": "B8",
+      "path": "src/main/app/bootstrap.ts",
+      "test": "src/main/app/bootstrap.managed-mcp-wiring.test.ts",
+      "failed": 1,
+      "names": [
+        "wires the live MCP source into bootstrap consumers and broadcasts only its revision"
+      ]
+    },
+    {
+      "id": "B9",
+      "path": "src/main/app/bootstrap.ts",
+      "test": "src/main/app/bootstrap.managed-mcp-wiring.test.ts",
+      "failed": 1,
+      "names": [
+        "wires the live MCP source into bootstrap consumers and broadcasts only its revision"
+      ]
+    },
+    {
+      "id": "B10",
+      "path": "src/main/app/bootstrap.ts",
+      "test": "src/main/app/bootstrap.managed-mcp-wiring.test.ts",
+      "failed": 1,
+      "names": [
+        "wires the live MCP source into bootstrap consumers and broadcasts only its revision"
+      ]
+    },
+    {
+      "id": "CI1",
+      "path": "src/renderer/src/pages/NewChatLandingPage.tsx",
+      "test": "src/renderer/src/features/chat/harnesses/common/composer/attachMenu.render.test.ts",
+      "failed": 1,
+      "names": [
+        "플러그인 관리 배선 (AC3 · W1) 페이지 5자리가 navigate('/plugins') 를 만들고 랜딩·대화 중계를 통해 넘긴다"
+      ]
+    },
+    {
+      "id": "CI2",
+      "path": "src/renderer/src/pages/NewChatLandingPage.tsx",
+      "test": "src/renderer/src/features/chat/harnesses/common/composer/attachMenu.render.test.ts",
+      "failed": 1,
+      "names": [
+        "플러그인 관리 배선 (AC3 · W1) 페이지 5자리가 navigate('/plugins') 를 만들고 랜딩·대화 중계를 통해 넘긴다"
+      ]
+    },
+    {
+      "id": "B11",
+      "path": "src/main/app/bootstrap.ts",
+      "test": "src/main/app/bootstrap.managed-mcp-wiring.test.ts",
+      "failed": 1,
+      "names": [
+        "wires the live MCP source into bootstrap consumers and broadcasts only its revision"
+      ]
+    },
+    {
+      "id": "C1",
+      "path": "src/renderer/src/features/chat/harnesses/common/composer/ComposerInputController.tsx",
+      "test": "src/renderer/src/features/chat/harnesses/common/composer/composerAttachMenu.test.ts",
+      "failed": 2,
+      "names": [
+        "runAttachMenuAction (AC2·AC3) 컨트롤러는 메뉴 동작을 이 함수에 자기 스냅샷·갱신·포커스와 함께 넘긴다",
+        "runAttachMenuAction (AC2·AC3) '+' 칩이 메뉴를 열고 닫으며 컨트롤러가 AttachMenu 에 열림·앵커·닫기를 넘긴다"
+      ]
+    }
+  ],
+  "restored": [
+    {
+      "files": 7,
+      "tests": 26
+    },
+    {
+      "files": 2,
+      "tests": 10
+    }
+  ],
+  "bytesRestored": true,
+  "inlineNegative": {
+    "id": "D1",
+    "test": "main/app/managed-mcp-document-contract.test.ts",
+    "change": "registry: 42",
+    "observed": "TS2322"
+  }
+}

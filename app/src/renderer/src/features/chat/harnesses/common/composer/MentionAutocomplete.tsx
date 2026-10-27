@@ -76,7 +76,7 @@ export function MentionAutocomplete({
                     />
                     <span className="flex-1 truncate font-mono text-[12.5px]">
                       {isPlugin
-                        ? `@${suggestion.id}`
+                        ? (suggestion.displayName ?? `@${suggestion.id}`)
                         : `${suggestion.entry.name}${suggestion.entry.isDirectory ? '/' : ''}`}
                     </span>
                   </button>

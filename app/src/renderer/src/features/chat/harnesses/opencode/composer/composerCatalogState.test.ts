@@ -11,7 +11,8 @@ const api = vi.hoisted(() => ({
   composerCatalog: vi.fn(),
   releaseComposerCatalog: vi.fn(async () => undefined),
   onOpenCodePluginsChanged: vi.fn(),
-  onComposerCatalogInvalidated: vi.fn()
+  onComposerCatalogInvalidated: vi.fn(),
+  onManagedMcpChanged: vi.fn()
 }))
 vi.mock('../../../../../shared/api/ipc', () => ({ sessionApi: api }))
 const scope: ComposerCatalogScope = {
@@ -25,6 +26,44 @@ const scope: ComposerCatalogScope = {
 const flush = async (): Promise<void> => {
   for (let i = 0; i < 12; i++) await Promise.resolve()
 }
+
+it('re-prepares models on managed MCP changes and rejects an older response', async () => {
+  vi.useFakeTimers()
+  const oldModels = Promise.withResolvers<ComposerCatalogResult>()
+  const detach = vi.fn()
+  api.onManagedMcpChanged.mockReturnValue(detach)
+  api.onComposerCatalogInvalidated.mockReturnValue(vi.fn())
+  api.composerCatalog.mockImplementation(async (request: ComposerCatalogRequest) =>
+    request.part === 'agents'
+      ? { part: 'agents', generation: 'old-generation', value: [{ name: 'primary-agent' }] }
+      : request.refresh
+        ? {
+            part: 'models',
+            generation: 'new-generation',
+            value: [{ id: 'fresh-model', variants: ['fresh'] }]
+          }
+        : oldModels.promise
+  )
+  const state = new ComposerCatalogState(scope, undefined, createComposerAgentStore(vi.fn()))
+  const off = state.subscribe(vi.fn())
+  await flush()
+  api.onManagedMcpChanged.mock.calls.at(-1)![0]({ revision: 2 })
+  await flush()
+  oldModels.resolve({
+    part: 'models',
+    generation: 'old-generation',
+    value: [{ id: 'old-model', variants: ['old'] }]
+  })
+  await flush()
+  expect(state.getSnapshot().models).toEqual({
+    status: 'ready',
+    value: [{ id: 'fresh-model', variants: ['fresh'] }]
+  })
+  expect(state.getSnapshot().agents.value).toEqual([{ name: 'primary-agent' }])
+  off()
+  await vi.runOnlyPendingTimersAsync()
+  expect(detach).toHaveBeenCalledTimes(1)
+})
 afterEach(() => {
   vi.useRealTimers()
   vi.clearAllMocks()

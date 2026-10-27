@@ -4,6 +4,15 @@ import { isRecord } from '../../../../shared/obj'
 import type { TurnRequest } from '../../common/turn'
 import { normalizeOpenCodeTool } from './map'
 
+// One rejection can settle sibling requests in the native permission queue. A late
+// reply to that exact request has no remaining effect; other errors still fail the turn.
+export function isSettledOpenCodePermission(error: unknown, requestId: string): boolean {
+  if (!(error instanceof Error) || !isRecord(error.cause) || error.cause.status !== 404)
+    return false
+  const body = error.cause.body
+  return isRecord(body) && body._tag === 'PermissionNotFoundError' && body.requestID === requestId
+}
+
 export async function replyToApproval(
   client: OpencodeClient,
   event: Extract<Event, { type: 'permission.asked' | 'question.asked' }>,

@@ -31,6 +31,7 @@ export interface SpawnRecord {
   spawnedProviderSettings: ResolvedHarnessSettings | undefined
   spawnedRuntimeEnvFingerprint: string | undefined
   spawnedRuntimeToolsRevision: number | undefined
+  spawnedManagedMcpRevision?: number
   spawnedAgentProfileKey?: string
   spawnedExtraDirs?: readonly string[]
 }
@@ -44,6 +45,7 @@ export function respawnInputs(input: {
   nextProviderKey: string | null
   model: string | undefined
   runtimeToolsRevision: number | undefined
+  managedMcpRevision?: number
   agentProfileKey?: string
   extraDirs?: readonly string[]
   // 0210 — 이번 턴이 worktree 소실 폴백으로 실행 경로를 바꿨는가. 자동 연속 턴은 최초 턴이
@@ -72,6 +74,8 @@ export function respawnInputs(input: {
     extraDirectoriesChanged: !sameExtraDirectories(runtime.spawnedExtraDirs, input.extraDirs),
     spawnedRuntimeToolsRevision: runtime.spawnedRuntimeToolsRevision,
     runtimeToolsRevision: input.runtimeToolsRevision,
+    spawnedManagedMcpRevision: runtime.spawnedManagedMcpRevision,
+    managedMcpRevision: input.managedMcpRevision,
     spawnedAgentProfileKey: runtime.spawnedAgentProfileKey,
     agentProfileKey: input.agentProfileKey
   }

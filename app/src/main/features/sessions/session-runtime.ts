@@ -273,6 +273,7 @@ export class SessionRuntime implements ManagedRuntime {
   private spawnedModelValue: string | undefined
   private spawnedFingerprint: string | undefined
   private spawnedRuntimeToolsRevisionValue: number | undefined
+  private spawnedManagedMcpRevisionValue: number | undefined
   private spawnedAgentProfileKeyValue: string | undefined
 
   constructor(
@@ -324,6 +325,9 @@ export class SessionRuntime implements ManagedRuntime {
 
   get spawnedRuntimeToolsRevision(): number | undefined {
     return this.spawnedRuntimeToolsRevisionValue
+  }
+  get spawnedManagedMcpRevision(): number | undefined {
+    return this.spawnedManagedMcpRevisionValue
   }
   get spawnedExtraDirs(): readonly string[] | undefined {
     return this.runtimeToolContext?.extraDirs
@@ -506,6 +510,7 @@ export class SessionRuntime implements ManagedRuntime {
     this.spawnedFingerprint = req.envFingerprint ?? harnessEnvFingerprint(req.env)
     this.spawnedModelValue = req.model
     this.spawnedRuntimeToolsRevisionValue = req.extensions.runtimeTools?.revision
+    this.spawnedManagedMcpRevisionValue = req.extensions.managedMcp?.revision
     this.spawnedAgentProfileKeyValue = req.extensions.agentProfileKey
     if (spawned.pushTurn && this.closePolicy === 'persistent') {
       const frame = this.openFrame(false)
@@ -769,6 +774,7 @@ export class SessionRuntime implements ManagedRuntime {
         this.spawnedFingerprint = undefined
         this.spawnedModelValue = undefined
         this.spawnedRuntimeToolsRevisionValue = undefined
+        this.spawnedManagedMcpRevisionValue = undefined
         this.spawnedAgentProfileKeyValue = undefined
         this.notifyChannelActivity()
       }

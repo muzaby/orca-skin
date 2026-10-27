@@ -27,7 +27,8 @@ export class ExtensionBuilder {
     private readonly settings: () => Settings,
     private readonly orcaVersion: string,
     private readonly pluginRoots?: () => string[],
-    private readonly runtimeTools?: RuntimeToolSource
+    private readonly runtimeTools?: RuntimeToolSource,
+    private readonly managedMcp?: import('../../../adapters/common/managed-mcp').ManagedMcpSource
   ) {}
 
   // sessionId 가 있으면 resume 경로(세션→프로젝트 조회), 없으면 새 채팅(projectId 직접 조회).
@@ -74,6 +75,7 @@ export class ExtensionBuilder {
     return {
       ...(profile?.agentProfileKey ? { agentProfileKey: profile.agentProfileKey } : {}),
       ...(this.runtimeTools ? { runtimeTools: this.runtimeTools.snapshot() } : {}),
+      ...(this.managedMcp ? { managedMcp: this.managedMcp.snapshot() } : {}),
       ...(pluginRoots.length > 0 ? { pluginRoots } : {}),
       // 가시화 메타 (어댑트는 어댑터의 항상-on skills 경로가 구동).
       skills: this.skills(),

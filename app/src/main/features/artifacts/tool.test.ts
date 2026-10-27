@@ -48,6 +48,18 @@ function fixture(): {
   }
 }
 describe('model artifact tool contract', () => {
+  it('rejects application scope without synthesizing a session or cwd', async () => {
+    const { server, service } = fixture()
+    expect(
+      (
+        await server.implementations[0].handler(
+          { path: 'report.md' },
+          { scope: 'application', getSignal: () => new AbortController().signal }
+        )
+      ).isError
+    ).toBe(true)
+    expect(service.publish).not.toHaveBeenCalled()
+  })
   it('always exposes only path/title and the single source of publishing instructions', () => {
     const { server } = fixture()
     expect(server.descriptor.id).toBe('orca_artifacts')

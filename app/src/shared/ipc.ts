@@ -94,6 +94,7 @@ export const CHANNELS = {
   sessionNativeResources: 'orca:session:native-resources',
   extensionCatalog: 'orca:extensions:catalog',
   extensionOpenCodePluginsChanged: 'orca:extensions:opencode-plugins-changed',
+  managedMcpChanged: 'orca:extensions:managed-mcp-changed',
   extensionSetEnabled: 'orca:extensions:setEnabled',
   extensionOpen: 'orca:extensions:open',
   composerCatalog: 'orca:composer:catalog',

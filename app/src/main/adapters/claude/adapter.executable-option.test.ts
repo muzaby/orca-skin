@@ -145,7 +145,10 @@ describe('Claude 공통 실행 옵션', () => {
                   content: [
                     {
                       type: 'text',
-                      text: context ? await context.waitForSession(context.getSignal()) : 'missing'
+                      text:
+                        context && !('scope' in context)
+                          ? await context.waitForSession(context.getSignal())
+                          : 'missing'
                     }
                   ]
                 })

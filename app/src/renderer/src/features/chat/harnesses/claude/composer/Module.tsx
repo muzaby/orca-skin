@@ -9,7 +9,9 @@ import { Requests } from './Requests'
 export const composerModule: ComposerModule = {
   showGitRow: true,
   appearance: composerAppearance,
-  includeExtensions: true,
+  includeSkills: true,
+  includeManagedMcp: true,
+  managedMcpAvailability: 'bindings',
   controlsPlacement: 'split',
   harness: 'claude',
   placeholder: (kind) => agentPresentation[kind].placeholder,
