@@ -376,6 +376,7 @@ it('counts foreground, queued, delivered, residual, background and wakeup activi
 
 it('holds watcher broadcasts behind an in-flight project mutation', async () => {
   let revision = 'before'
+  let appliedRevision = 'before'
   const changed: Array<() => void> = []
   const emit = vi.fn()
   let tail: Promise<unknown> = Promise.resolve()
@@ -386,7 +387,7 @@ it('holds watcher broadcasts behind an in-flight project mutation', async () => 
   }
   const runtime = {
     reconcileNativeResources: vi.fn(async () => 'pending' as const),
-    nativeResourcesApplied: (value: string) => value === 'own'
+    nativeResourcesApplied: (value: string) => value === appliedRevision
   } as unknown as GovernedLiveTurn
   const target: ProjectResourceTarget = {
     backend: 'claude',
@@ -421,10 +422,14 @@ it('holds watcher broadcasts behind an in-flight project mutation', async () => 
   emit.mockClear()
   let release!: () => void
   const mutation = run('same', () => new Promise<void>((resolve) => (release = resolve)))
-  revision = 'own'
+  revision = 'own-first'
+  appliedRevision = 'own-first'
   changed.forEach((callback) => callback())
   await flush()
   expect(emit).not.toHaveBeenCalled()
+  // A second own save completes before the polling watcher sees its file notification.
+  revision = 'own-second'
+  appliedRevision = 'own-second'
   release()
   await mutation
   await flush()
@@ -433,5 +438,5 @@ it('holds watcher broadcasts behind an in-flight project mutation', async () => 
     expect(value.configurationPending).toBeUndefined()
     expect(value.items.every((item: { canToggle: boolean }) => item.canToggle)).toBe(true)
   }
-  expect(runtime.reconcileNativeResources).not.toHaveBeenCalledWith('own', expect.anything())
+  expect(runtime.reconcileNativeResources).not.toHaveBeenCalledWith('own-second', expect.anything())
 })

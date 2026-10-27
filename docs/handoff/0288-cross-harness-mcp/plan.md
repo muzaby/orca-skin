@@ -11,7 +11,7 @@
 | V mode / 기준 V | Baseline V / none |
 | 이번 revision / 유효 V | V1 / V1 |
 | 설계 커밋 | (V1 설계 — 검증자 기입), 좌표 정본은 INDEX |
-| 이번 턴 범위 | r1.1 구현 완료. 독립 검증은 후속 턴 |
+| 이번 턴 범위 | r1.2 CI 보완 구현 완료. 독립 검증은 후속 턴 |
 | 구현 상태 / 다음 주체 | IMPL_DONE / Claude (독립 검증) |
 
 # Part I — Product & UX Contract
@@ -496,7 +496,7 @@ O10은 예제 fixture의 실제 타입 대입과 valid/invalid/retry 동작을 �
 
 ## [구현자 기입]
 
-이번 보고는 r1의 구현 자기확인이다. 유효 V는 V1이며 규범 Decision·AC·pair·§10은 변경하지 않았다. 실제 좌표와 자리별 운반 항은 [구현 증거](implementation-evidence.md), 변이별 assertion 결과는 [mutation 증거](mutations.json)에 보존한다.
+이번 보고는 r1.2의 구현 자기확인이다. 유효 V는 V1이며 규범 Decision·AC·pair·§10은 변경하지 않았다. 실제 좌표와 자리별 운반 항은 [구현 증거](implementation-evidence.md), 변이별 assertion 결과는 [mutation 증거](mutations.json)에 보존한다.
 
 ## [구현자 기입] 설계 리뷰
 
@@ -529,6 +529,7 @@ T/P/I/C/R 좌표는 [구현 증거의 실제 oracle 표](implementation-evidence
 - 목록 대조: `implementation-evidence.md`의 자리 ID와 plan §10의 고정 ID 양방향 차집합을 보고 검사에서 재확인한다. 단순 검색 hit 합으로 전수를 주장하지 않는다.
 - §10 밖에서 본 운반 자리: 없음. `isSettledOpenCodePermission`은 기존 E7k의 승인 정착 처리다.
 - 직전 verify 고장 이력의 `못 잡음` 행: 없음 — 최초 구현 r1. 외부 CI의 JSX 관측 결함은 CI1/CI2로 잠갔다.
+- r1.2 운영 gate 보완: 관리 MCP 운반 자리 추가 없음. `ProjectResourceSync.refresh`의 정책 읽기와 방송을 같은 프로젝트 큐에 묶었다. 모든 watcher/retry/settingsChanged는 이 공통 진입점을 쓴다. 실제 CI의 Claude 조립 실패와 직접 회귀 좌표는 구현 증거 T12다.
 
 **V-pair 자기확인** — `SELF_PASS`는 독립 검증 `PASS`가 아니다.
 
@@ -577,9 +578,11 @@ T/P/I/C/R 좌표는 [구현 증거의 실제 oracle 표](implementation-evidence
 | CI1 실제 Landing plugin callback 제거 | 수정한 CI 구조 oracle | 최초 | attachMenu.render / 1 | 잠김 |
 | CI2 실제 Landing callback을 usage callback으로 교환 | 수정한 CI 구조 oracle 형제 교환 | 최초 | attachMenu.render / 1 | 잠김 |
 | D1 문서 recipe registry를 숫자 42로 교체 | 새 compile proxy 음성 대조 | 최초 | T10에서 TS2322 확인 / 1 | 잠김 |
+| CI3 watcher 읽기만 큐 밖에서 먼저 수행하는 원 구현 복귀 | CI 실패의 직접 회귀 | r1.1 CI red | T12의 `holds watcher broadcasts behind an in-flight project mutation` / 1 | 잠김 |
 
-- 분모 검산: 선택 증거 7 · 인용 변이 0 · 새 oracle 15 = 표 행 22. 같은 M 변이를 여러 pair에서 중복 계산하지 않았다.
+- 분모 검산: 선택 증거 7 · 인용 변이 0 · 새 oracle 16 = 표 행 23. 같은 M 변이를 여러 pair에서 중복 계산하지 않았다.
 - 복원 검산: 외부 변이 19개/7파일26케이스 및 추가 2개/2파일10케이스 복원 후 green, 바이트 복원 true. D1은 가상 source만 변경했다.
+- CI3는 r1.1 production 복귀 시 `configurationPending: true` assertion red, r1.2 원본 바이트 복원 true. 관련 회귀 재실행 결과는 validation의 r1.2 항목이다.
 - 덮개 회귀: 이전 verify/변이 라운드 없음. CI 장치 교체는 실제 callback 삭제와 형제 교환을 모두 검출한다.
 - 그 밖의 hunk는 해당 없음 — T1~8/11·P/I/C/R의 직접 행동 oracle. 새로운 변이를 임의 분모로 더하지 않았다.
 
@@ -604,6 +607,7 @@ T/P/I/C/R 좌표는 [구현 증거의 실제 oracle 표](implementation-evidence
 | 5 | one-shot prepare는 owner 없는 connected 후보를 남길 수 있음 | ✅ observation owner가 준비 lease 유지, navigation/renderer-gone/source change 정리 | P1·T5 |
 | 6 | 기존 Landing 배선 검사가 중첩 JSX를 오독해 main CI 실패 | ✅ 실제 JSX AST와 음성 대조로 보완 | 기존 run 40332495483·CI1/CI2 |
 | 7 | 사내 서비스/실제 앱 시각을 fixture로 대체할 수 없음 | ⚠️ 보고만 — AC17/H1 미실기 | 실제 CLI 자동 부분만 T4로 통과 |
+| 8 | watcher가 첫 own-save revision을 읽고 방송 큐를 기다리는 동안 두 번째 저장이 끝나면 이미 적용된 상태를 pending으로 표시 | ✅ 정책 읽기와 방송을 같은 프로젝트 mutation 큐에서 실행 | T12: own-first 읽기 대기 중 own-second 완료를 고정, 원 구현 red·수정 후 green |
 
 ### 설계 대비 명시적 차이
 
@@ -623,14 +627,14 @@ T/P/I/C/R 좌표는 [구현 증거의 실제 oracle 표](implementation-evidence
 | 항목 | 내용 |
 |---|---|
 | 변경 파일 | source/bridge/projection·bootstrap/lifecycle·safe resource IPC·Composer 후보 및 기존 승인/취소 회귀. [자리별 파일](implementation-evidence.md)과 diff 참조 |
-| 실행 명령 | 직접 Vitest(Node 및 기존 Electron ABI), 실제 CLI fixture, node script tests, lint/build, doc inventory/links, Q1~5, mutation 21개+compile 음성 대조 |
+| 실행 명령 | 직접 Vitest(Node 및 기존 Electron ABI), 실제 CLI fixture, node script tests, lint/build, doc inventory/links, Q1~5, mutation 22개+compile 음성 대조 |
 | 관측한 게이트 산출 | 최종 파일별 결과 852파일/8083케이스 통과·2skip, 실제 CLI 1case 별도 통과. script 144case, build의 typecheck 3구성·3bundle, lint 0error/기존2warning. 최초 전체 Node 실행은 실패했고 ABI 43파일/410case 및 수정 파일을 재실행한 합성 결과다. [원 실행별 산출](validation.json) |
 | V-pair 자기확인 | SELF_PASS 13 / SELF_BLOCKED 1 — VP-02의 H1만 미실기 |
 | 강제 지점 전수 | 기계 자리 67/67. H1은 별도 미실기, 자리별 값/관측은 증거 표 |
 | AC 자기보고 | 아래 16/17 |
 | 합계 검산 | ✅ 16 · ⚠️ 1 · ❌ 0 = 총 17, 분모 변경 없음 |
 | 블로커 / 역질문 | PLAN_GAP 없음. 사내 서비스·실제 UI 인수만 검증자에게 남김 |
-| 대상 커밋 | (r1 구현 — 좌표는 INDEX) |
+| 대상 커밋 | (r1.2 구현 — 좌표는 INDEX) |
 
 | AC | 자기보고 / 이번 턴 관측 |
 |---|---|
@@ -654,11 +658,12 @@ T/P/I/C/R 좌표는 [구현 증거의 실제 oracle 표](implementation-evidence
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 같은 축의 이전 라운드: 없음, r1 최초 구현이다. 이번 CI 지적은 기존 JSX 관측 장치에 대한 외부 실행 실패다.
+- 같은 축의 이전 라운드: r1.1 CI에서 기존 Claude 조립의 watcher 경합 1건 실패. r1.2에서 같은 실패를 두 own-save의 고정 순서로 재현해 잠갔다. 독립 verify는 아직 없다.
+- 기존 watcher unit case는 own revision 하나만 사용해, 읽기 후 다른 own-save가 완료되는 순서를 구별하지 못했다. 실제 polling 조립은 CI에서 그 순서를 관측했다. r1.2는 원 assertion을 유지하고 두 구별 revision을 운반한다.
 - plan 지침: §11 O4 실제 CLI 검사가 env escape와 병렬 승인 정착 문제를 검출했다. §10 강제 자리 대조로 prepared owner/scope와 event 운반을 확인했다.
 - 반복 환경 한계: 로컬 better-sqlite3가 Electron ABI140이다. Node127 전체 실행의 DB 실패는 기존 Electron-as-node로 재실행했다. ABI를 번갈아 재빌드하지 않았다.
 - 문서 gate 한계: ignored 외부 clone `.tmp/opencode-dev/`, `app/.temp/opencode/`의 기존 broken link는 남는다. 해당 폴더를 삭제하거나 checker 정책을 변경하지 않았다. 추적/현재 문서 링크는 별도 확인한다.
-- 현재 라운드·impl 턴: `r1` / `r1.1`. 다음 주체는 독립 검증자 Claude다.
+- 현재 라운드·impl 턴: `r1` / `r1.2`. 다음 주체는 독립 검증자 Claude다.
 
 ---
 

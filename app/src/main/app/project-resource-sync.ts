@@ -173,15 +173,18 @@ export class ProjectResourceSync {
       do {
         version = entry.version
         try {
-          const next = await entry.policy.read(entry.target.cwd)
-          if (!this.valid(entry)) return
-          if (version !== entry.version) continue
-          const recovered = entry.failed
-          entry.failed = false
-          if (next.revision !== entry.configuration?.revision || recovered) {
-            entry.configuration = next
-            await this.emit(entry)
-          }
+          // An own save can advance again while a watcher waits for the mutation queue.
+          // Read and publish under the same owner so an intermediate revision cannot escape.
+          await this.deps.run(entry.target.key, async () => {
+            const next = await entry.policy.read(entry.target.cwd)
+            if (!this.valid(entry) || version !== entry.version) return
+            const recovered = entry.failed
+            entry.failed = false
+            if (next.revision !== entry.configuration?.revision || recovered) {
+              entry.configuration = next
+              await this.broadcast(entry)
+            }
+          })
         } catch {
           if (!this.valid(entry)) return
           entry.failed = true
