@@ -5,9 +5,9 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex — 사용자 지시로 handoff-plan 수행 / 2026-10-27 |
-| 상태 / 라운드 | IMPL_DONE / 1 (독립 검증 대기) |
-| V mode / revision | Baseline V / V1 |
-| 기준 V / 유효 V | none / V1. 새 성능·수명 작업의 기준선이며 0288 전체 검증을 승계하지 않는다 |
+| 상태 / 라운드 | ΔV1 DRAFT / 1. r1 구현은 IMPL_DONE이며 독립 검증은 ΔV1 구현 뒤 함께 수행(D20) |
+| V mode / revision | Baseline V1 + Delta V ΔV1(DRAFT, Claude 2026-10-28). READY 전까지 유효 V는 V1 |
+| 기준 V / 유효 V | V1 = 0289:V1@57c841b0 / V1 + ΔV1(READY 후). V1은 0288 전체 검증을 승계하지 않는다 |
 | 조사 코드 | 공유 브랜치 orca-0288-cross-harness-mcp-plan, 24e79f7a. git cat-file -t 및 pull --ff-only 확인 |
 | 이전 계약 출처 | 0288 V1@801f27f6, 0275 ΔV6@79ccc64 — 존재 확인. 변경·보존 관계는 §16 |
 | 산출 경계 | V1 설계 + r1 구현 자기보고. AC22의 실제 앱/타 PC 인수·독립 verify는 후속 |
@@ -50,12 +50,32 @@
 | D14 | IPC payload/응답 shape·세션 DB·native 저장 포맷·모델 선택을 바꾸지 않는다 | 내부 포트·관측 freshness·수명만 변경 | 사용자 제약 | ACTIVE |
 | D15 | 소유 process만 종료, 인증 격리·철회·실패 후 명시 retry 유지 | token을 전역 고정 문자열로 만들거나 강제 pool hit를 만들지 않음 | 0275·0288 기존 계약 | ACTIVE |
 | D16 | 구현 전후 같은 시나리오의 사건 수를 남긴다 | n=1 시간차를 효과 크기로 일반화하지 않음 | 사용자 관측 제약 | ACTIVE |
+| D17 | 첫 send는 연결 중인 MCP를 최대 2초 기다린 뒤 진행한다. 이번 메시지가 @언급한 MCP만 연결/실패까지 기다리고(취소 가능), 늦게 붙은 MCP는 다음 step/턴부터 쓴다 | OpenCode 내부 대기가 남으면 효과 없음 — 실현 수단은 D18 | ΔV1 사용자 결정 1: "2초 상한 + @언급 대기" | ACTIVE |
+| D18 | 전역 MCP 연결을 OpenCode lazy 초기화에서 분리하는 방식 | 사용자: "글로벌로 사용하련느 mcp는 모드 enable 되어있고 사용자는 llm이 모든 도구를 사용할수 있다고 생각하낟. Lazy가 문제라면 이것을 뒤엎을 다른 대안은 없는지" — [대안 A1~A5](research.md#d18-대안-비교) | ΔV1 사용자 결정 2 응답 | OPEN |
+| D19 | 랜딩 외 디렉터리의 연결 시작 시점은 설계자가 정한다 | D18 확정 때 함께 고정 | ΔV1 사용자 결정 3: 무선호 | ACTIVE |
+| D20 | 0289를 ΔV1로 갱신하고 r1 독립 verify는 ΔV1 구현 뒤 한 번에 수행한다 | verify 대기 중 새 설계 피드백 도착 → 순서는 사용자 선택 | 사용자: "289를 업데이트 하라" | ACTIVE |
+| D21 | 바꾸지 않는다: snapshot:false·share:disabled 강제(native-storage.ts:13), idle 90초, definitions/connections revision 분할, mcpFreshMs 5초. 실측으로 확인된 서버·instance 재사용, slot hit, owner 차감, idle 보유, live reconcile을 회귀시키지 않는다 | 실측에서 설계대로 동작 | 사용자 실측 §3·§6 | ACTIVE |
+| D22 | 검수는 같은 시나리오 재실행과 [perf] 로그 첨부다. 통과 = turn 클릭→MCP 제출 허가 2초 이내. mcp HTTP 절대값이 줄지 않아도 send가 기다리지 않으면 통과하며, HTTP 총량 증가는 그대로 보고한다 | "기다림 제거가 목표이지 status 단축이 아니다" | 사용자 실측 §6 | ACTIVE |
+| D23 | 디렉터리 간 중복 연결과 동시성 A/B를 조사·보고하고, 서버 키 분할(c) 원인은 낮은 우선순위로 추적한다 | 분할 비용은 spawn 1.4초로 작음 | 사용자 실측 §5-3·§5-4 | ACTIVE |
 
 ### 갱신 메모
 
 기존 사용자 가설을 확정 사실로 승격하지 않았다. 이번 범위는 사용자 응답으로 전체 구현까지 설계하도록 확정됐으며, 이후 구현 착수 승인을 요구하는 문서가 아니다.
 
 ACTIVE 결정 ↔ AC 대조: D01→AC1~22, D02~04→AC3~6, D05~06→AC7~9, D07~10→AC10~14, D11→AC1~2, D12→AC15~16, D13→AC17~18, D14~15→AC19~21, D16→AC22. 반대 의미의 AC 없음.
+
+**ΔV1 갱신 메모 (DRAFT, 2026-10-28).** 사용자 실측 피드백으로 D17~D23을 추가했고 D18이 OPEN이라 READY가 아니다. 근거는 [ΔV1 조사](research.md#δv1-조사--2026-10-28-실측-피드백)다.
+
+| 피드백 주장 | 판정 | 근거 |
+|---|---|---|
+| send가 `channel.prepare`의 MCP 대기에 묶임 | 부분 정정 — submit도 같은 직렬 큐라 prepare 제거만으로는 불변 | `mcp-control.ts:38-48,77-92` |
+| 첫 메시지 = MCP 잔여 + 모델 | 맞음, 단 Orca만의 직렬화가 아님 | OpenCode `session/prompt.ts:1225-1262` |
+| 경합이 MCP 시간을 66~84초로 부풀림 | 근거 약함 — mcp−agents가 4/5에서 59.3~60.8초 상수 | research ΔV1 차이 표 |
+| history 경로가 MCP slot을 읽음 | 정정 — 진입 시 트리거는 컴포저 `useNativeResources` | `adapter.ts:338-379`, `useNativeResources.ts:27` |
+| 웜업을 랜딩 1개로 제한 | 이미 충족 | `opencode-warmup.ts:44-59` (D13) |
+| 검수 "클릭→submit-applied 2초" | 대리지표 위험 — Orca가 안 기다려도 OpenCode가 기다림. D22는 유지하고 ΔV1 AC에 OpenCode 루프 구간 관측을 추가할 예정 | `session/prompt.ts:1186-1199` |
+
+D08의 "다음 제출 전 적용 장벽"은 D17과 연결(on) 축에서 충돌한다. off 장벽 유지 여부와 D08의 SUPERSEDED 범위는 D18 확정 뒤 ΔV1 READY에서 판정한다.
 
 ## 4. 요구 비판적 검토
 
