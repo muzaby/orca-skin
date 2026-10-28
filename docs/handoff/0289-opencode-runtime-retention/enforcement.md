@@ -148,3 +148,76 @@ A=19 · B=17 · C=9 · D=6 · E=10 · F=10 · G=9 · H=5 · I=5 → 90자리. �
 O3의 낮은 수준 fixture만으로 A14~19를 닫지 않는다. 해당 자리는 실제 adapter·server pool·bridge를 조립하는 O10/O11이 보완한다. O6의 runtime-entry/continuation과 O9의 실제 승격, O8의 실제 bootstrap 조립이 빠지면 해당 운반 자리는 미완료다.
 
 preload/sessionApi는 shape와 전달을 바꾸지 않는 기존 edge다. O9의 계약 시험에서 이를 실제 wrapper로 통과시키고 public request·response를 관측한다. 새 wrapper를 도입하면 B/C의 해당 entry 자리에 대응시킨다.
+
+## ΔV1 자리 — 2026-10-28
+
+A+B 범위(plan D27)의 자리다. 저장소 루트에서 실행하며, 술어는 MCP 상태·연결·제출·활성화·db path·변형 목록의 운반 값이다.
+
+~~~powershell
+# Q7 J: MCP status 응답·pool profile·trace sink·send 구간
+rg -n 'mcp\.status\(|openCodeServerProfile\(|export function retentionTrace|promptAsync\(|session\.command|for await \(const event|activity\.map\(' app/src/main/adapters/opencode -g '*.ts' -g '!*.test.ts'
+# Q8 K: 연결·제출·멘션·reconcile
+rg -n 'mcpControl|connection\.prepare\(|managedMcpMentions|client\.mcp\.(connect|disconnect)|reconcileConnections|reconcileChoices|globalOpenCodeResources\(|projectManagedMcp\(' app/src/main/adapters/opencode app/src/main/app -g '*.ts' -g '!*.test.ts' -g '!*.testfixture.ts'
+# Q9 K: 역할별 활성화와 renderer 의도
+rg -n "read\('mcp'|part: 'mcp'|owners\('(catalog|resources|warmup)'\)|lease\.read\(|readers\[part\]|pluginMentionToken|ComposerCatalogLease" app/src/main/app app/src/main/adapters/opencode app/src/renderer/src/features/chat app/src/shared -g '*.ts' -g '*.tsx' -g '!*.test.*'
+# Q10 L·M: db path와 변형 목록
+rg -n 'databasePath|readDatabasePath' app/src/main/adapters/opencode -g '*.ts' -g '!*.test.ts'
+rg -n 'models' app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts app/src/renderer/src/features/chat/harnesses/opencode/composer/Controls.tsx app/src/renderer/src/features/chat/harnesses/opencode/composer/useComposerCatalog.ts
+~~~
+
+2026-10-28 출력에서 실행 자리만 남겼다. 제외: 테스트·DB `prepare`·legacy migration, `native-input.ts`의 promptAsync 이름(입력 변환), `native-cursor.ts`·`implementation.ts`의 DB 경로 소비 중 캐시와 무관한 읽기.
+
+| ID | 파일 | 언제 강제 / 현재 심볼 | 직접 oracle | 실패 의미 |
+|---|---|---|---|---|
+| J1 | main/adapters/opencode/v1/native-resources.ts | openCodeNativeMcp(89) — MCP별 status·error 분류 발행 | O12·O14 | 원문·이름 노출, 분류 누락, 반환 변화 |
+| J2 | main/adapters/opencode/v1/server.ts | acquire(132) miss 분기 — 구성요소 비교 발행 | O13 | hit 발행, 분할 미발행, 값 노출 |
+| J3 | main/adapters/opencode/v1/server-profile.ts | openCodeServerProfile(11) — key와 같은 입력의 구성요소 해시 | O13·O14 | key와 diff 입력 불일치 |
+| J4 | main/adapters/opencode/v1/retention-trace.ts | retentionTrace(4) data 타입 | O12·O13·O15 | 자유 문자열 운반 허용 |
+| J5 | main/adapters/opencode/v1/channel.ts | submitPrepared의 command(220)·promptAsync(240) 수락 | O15 | 수락 시점 누락·중복 |
+| J6 | main/adapters/opencode/v1/channel.ts | run 이벤트 루프(349~404) — assistant 생성·첫 part | O15 | 다른 prompt·세션 이벤트로 기록 |
+| K1 | main/adapters/opencode/v1/adapter.ts | client(104~135) — 전역 MCP 비활성 덮어쓰기 투영 | O17 | 덮어쓰기 누락·범위 초과(프로젝트·꺼진 MCP) |
+| K2 | main/adapters/opencode/v1/configured-resources.ts | globalOnly 조회(117~138) — 서버와 같은 env의 전역 이름 | O17 | 다른 env의 이름 사용 |
+| K3 | main/adapters/opencode/v1/managed-mcp.ts | projectManagedMcp(14~30) occupied — 덮어쓰기 이름과 alias 공존 | O17 | 관리 alias가 전역 이름을 덮음 |
+| K4 | main/adapters/opencode/v1/mcp-control.ts | choices(107~115) — 기본값 < 전역 선택 < 프로젝트 < 관리 | O16 | 우선순위 역전 |
+| K5 | main/adapters/opencode/v1/mcp-control.ts | prepare·apply(49~57, 134~176) → activate·MCP별 시도 | O16·O18 | 한 MCP 지연이 다른 MCP·제출을 막음, 중복 시도 |
+| K6 | main/adapters/opencode/v1/mcp-control.ts | read(58~69) — 수동이면 HTTP 없음 | O16·O19 | 수동 조회가 연결 유발 |
+| K7 | main/adapters/opencode/v1/mcp-control.ts | submit(77~92) — 해제 장벽→언급 대기→2초 상한 | O16·O18 | 전부 대기 또는 언급 무시, 해제 실패 후 제출 |
+| K8 | main/adapters/opencode/v1/mcp-control.ts | pending(116~118) — 사용자 변경만 | O16 | 초기 연결 중을 configurationPending으로 표시 |
+| K9 | main/adapters/opencode/v1/mcp-control.ts | preview(119~128) — 시도 중 `pending`, enabled·canToggle 불변 | O16·O17 | 토글 표시 변화(D25) |
+| K10 | main/adapters/opencode/v1/mcp-control.ts | reconcile·reconcileChoices(70~75, 98~106) — 활성 디렉터리만, 토글 V1 | O16·O18 | 수동 디렉터리 연결, 토글 busy 대기 상실 |
+| K11 | main/adapters/opencode/v1/session-context.ts | ServerContext.prepare(242~249) — ready만 대기, activate 비대기 | O17·O18 | 전송이 연결을 기다림 |
+| K12 | main/adapters/opencode/v1/session-context.ts | reconcileConnections(432~440) | O16·O18 | 수동 instance 포함 |
+| K13 | main/adapters/opencode/v1/session-context.ts | acquire lease(541~553) — mcpControl·mcp·activate 노출 | O17·O19 | 활성화 경로 단절 |
+| K14 | main/adapters/opencode/v1/channel.ts | submit(132~135)·run prepare(315)·system 멘션(174~177) | O17·O18 | 제출 경로가 장벽 우회 또는 대기 |
+| K15 | main/adapters/opencode/v1/adapter.ts | managedMcpMentions(197~204) — 연결된 집합 | O17 | 미연결 MCP를 모델에 광고 |
+| K16 | main/app/composer-catalog-owner.ts | read(66~139) — 역할이 활성이면 MCP part 전 activate | O19 | resources 역할 활성화 |
+| K17 | main/app/composer-preparation-service.ts | owners(role)(34~41) — 역할 옵션 전달 | O19 | 역할 맞바꿈 |
+| K18 | main/adapters/opencode/v1/adapter.ts | prepareComposer(232~251) + shared/composer-catalog.ts `ComposerCatalogLease` — activate 노출 | O19 | 활성화 불가 |
+| K19 | main/app/prepared-mcp-resources.ts | read(86~112) — resources 역할 수동 | O19 | 관측만으로 연결 |
+| K20 | main/app/opencode-warmup.ts | prepare(39~63) — 웜업 역할 활성 | O19·VP05 | 랜딩 연결 누락 |
+| K21 | renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts, common/composer/ComposerInputController.tsx(OpenCode 슬롯 주입) | 첫 의도 신호에 MCP part 1회 | O20 | 마운트 요청·신호 누락·중복 |
+| K22 | shared 멘션 모듈(신규), renderer/src/features/chat/lib/pluginMention.ts(21) | 토큰 생성·파싱 SSOT | O23 | main·renderer 형식 불일치 |
+| L1 | main/adapters/opencode/v1/server.ts | databasePath·readDatabasePath(297~330) — 저장소 프로필 캐시 | O21 | 투영마다 재실행, 부재 파일 재사용 |
+| L2 | main/adapters/opencode/v1/adapter.ts | readHistory(338~379) databasePath 호출 | O21 | 캐시 우회 |
+| L3 | main/adapters/opencode/implementation.ts | databasePath 포트(23~27) | O21 | 포트 의미 변경 |
+| M1 | renderer/.../opencode/composer/composerCatalogState.ts | initial·read(18~21, 112~186) — stale seed와 교체 | O22 | seed 누락·다른 provider seed |
+| M2 | renderer/.../opencode/composer/Controls.tsx | OpenCodeEffortControl(33~39) — stale이면 비권위 | O22 | 확인 중 선택 변경 |
+| M3 | renderer/.../opencode/composer 신규 직전 models 저장소 | (backend, providerKey) 키·갱신 | O22 | 키 혼동 |
+
+| Pair | 자리 집합 | N |
+|---|---|---:|
+| VP06 (CHANGED) | V1 A·C·E·F·I + J1~J6 | 59 |
+| VP08 (CHANGED) | V1 E·F + K7·K8·K10 | 23 |
+| VP17 | K1~K15·K22 | 16 |
+| VP18 | K16~K21·L1~L3·M1~M3 | 12 |
+| VP19 | K5·K6·K11·K13·K16·K20 | 6 |
+| VP20 | J1~J6 | 6 |
+| VP21 | K1~K3·K11~K15 | 8 |
+| VP22 | K16~K21 | 6 |
+| VP23 | L1~L3 | 3 |
+| VP24 | J1·J3 | 2 |
+| VP25 | K4~K10 | 7 |
+| VP26 | K22·K14 | 2 |
+| VP27 | M1~M3 | 3 |
+
+V1 90자리 + ΔV1 34자리(J6·K22·L3·M3) = 124자리. REGRESSION pair는 V1 자리를 그대로 쓴다.

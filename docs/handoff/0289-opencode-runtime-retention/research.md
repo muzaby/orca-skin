@@ -197,9 +197,9 @@ lazy 시작 시점은 이미 앞당겨져 있다. 랜딩 웜업이 T+1.4초에 M
 | `opencode mcp list`가 MCP별 status·error를 출력 | `opencode/src/cli/cmd/mcp.ts:108-166` | 사용자 수동 확인 수단 |
 | history의 `databasePath` 조회 key에 관리 MCP 투영이 없어 pool entry를 못 찾고 매 조회 `opencode db path`를 실행 | `adapter.ts:347`, `server.ts:303,325` | 범위 밖. 다음 handoff 후보 |
 
-### 설계자 제안 — 미합의
+### 1차 설계자 제안 — 채택되지 않음
 
-아래는 논의용 제안이며 plan의 규범 행에 넣지 않았다.
+아래는 A+B 구조안 이전의 1차 제안이다. 사용자가 A+B 범위를 택해 채택 결과는 plan §3 D17~D28과 ΔV1 절이 갖는다.
 
 | 대상 | 제안 | 근거 |
 |---|---|---|
