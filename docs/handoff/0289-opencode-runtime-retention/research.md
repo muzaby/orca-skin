@@ -176,3 +176,11 @@ v1.18.27의 `src/mcp/index.ts`와 diff 0. 경로는 `raw.githubusercontent.com/a
 | A3 lazy 유지 + 조기 prewarm | 동일 | 초기화보다 빨리 보내면 남음 | 증가 | 낮음, 효과 제한 |
 | A4 원인 제거 — 자식 env에 OS 프록시/CA 전달 | 네이티브 그대로 | H-net이면 제거, 실제 다운 MCP는 남음 | 현행과 같음 | 낮음~중간, H-net 전제 |
 | A5 OpenCode upstream 수정 | 동일 | 제거 | 현행과 같음 | Orca 통제 밖 |
+| A6 연결 시도 상한 축소 — MCP별 `timeout`(사용자 설정 항목) | 네이티브 그대로 | 단축(2 transport × timeout) | 현행과 같음 | 사용자 설정 편집. 느린 정상 MCP 실패 위험 |
+
+lazy 시작 시점은 이미 앞당겨져 있다. 랜딩 웜업이 T+1.4초에 MCP 초기화를 시작했고 send#1(T+52.5초)은 그 완료(T+78.8초)를 기다렸다. 남은 대기는 시작 시점이 아니라 연결되지 않는 MCP의 시도 시간과 prompt의 전체 대기에서 나온다.
+
+| 추가 사실 | 위치 | 의미 |
+|---|---|---|
+| MCP별 `timeout` 스키마 설명은 "Defaults to 5000" | `core/src/v1/config/mcp.ts:20,56` | 문서상 기본값 |
+| 실제 연결 기본값은 30,000ms | `opencode/src/mcp/index.ts:38,286,359` | 설명과 코드가 다름. 설정이 없으면 transport당 30초 |
