@@ -1,5 +1,5 @@
 import { openCodeDiscovery } from './discovery-cache'
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -91,7 +91,8 @@ it('resolves JSONC MCP declarations in global, custom and project scopes without
 })
 
 it('retains plugin skill roots through cached metadata and refreshes removed installations', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'orca-plugin-skills-'))
+  // Windows tmpdir() can be an 8.3 short path; installations resolve through realpath.
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'orca-plugin-skills-')))
   const plugin = join(root, 'plugin'),
     config = join(root, 'config', 'opencode')
   const env = { XDG_CONFIG_HOME: join(root, 'config') }

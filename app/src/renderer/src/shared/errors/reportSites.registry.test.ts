@@ -737,7 +737,7 @@ function expectedSilent(): string[] {
     'features/chat/hooks/useDiffSyntax.ts:0',
     'features/chat/lib/nativeResourceState.ts:0',
     'features/chat/lib/nativeResourceState.ts:1',
-    'features/chat/harnesses/opencode/composer/composerCatalogState.ts:0',
+    'features/chat/harnesses/opencode/composer/composerCatalogState.ts:1',
     'features/chat/harnesses/opencode/composer/composerCatalogState.ts:2',
     'features/chat/harnesses/opencode/composer/composerCatalogState.ts:3',
     'shared/ui/markdown/CodeBlock.tsx:0'
