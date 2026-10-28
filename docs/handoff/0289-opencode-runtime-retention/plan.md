@@ -60,6 +60,7 @@
 | D24 | ΔV1은 D18 시나리오를 바꾸는 동작 변경을 하지 않는다 | 사용자: "위 시나리오를 깨지 않는게 내 요구이다" | ΔV1 사용자 응답 | ACTIVE |
 | D25 | turn 제출은 현행대로 Orca 관리 MCP 적용을 확인한 뒤 prompt를 보낸다(D08 유지). 피드백 요구 1은 철회한다 | D24: MCP 탭 MCP가 세션 시작부터 쓰여야 함. Orca 대기 제거의 이득은 0.6~1.1초 | ΔV1 제안 표에 사용자가 토글 사실만 보정하고 나머지에 이의 없음 | ACTIVE |
 | D26 | MCP 연결 시작 시점은 현행 유지 — 대화 진입 시 MCP 조회가 그 디렉터리 초기화를 시작하고, 랜딩 웜업(D13)은 그대로. 피드백 요구 2는 철회한다 | D24: 시점을 늦추면 첫 send가 더 늦어질 수 있고 사용 MCP는 같음 | ΔV1 제안 표, D25와 같은 응답 | ACTIVE |
+| D27 | OpenCode MCP 토글은 현행 그대로 둔다 — on/off 버튼을 노출하고, 최초 설정값으로 초기화하며, 제어는 비활성이다. ΔV1과 이후 구현·검증은 토글 관련 자리(enforcement X1~X5)를 바꾸지 않는다 | 사용자: "opencode의 경우 on/off 버튼은 노출하되 최초 설정으로 초기화되며 제어 기능은 비활성화 돼있다는 거다. 이것을 건드리지마라" | ΔV1 사용자 지시 | ACTIVE |
 
 ### 갱신 메모
 
@@ -80,9 +81,9 @@ ACTIVE 결정 ↔ AC 대조: D01→AC1~22, D02~04→AC3~6, D05~06→AC7~9, D07~1
 | 디렉터리 간 중복 연결을 서버 레벨 1회로 | OpenCode API로 불가 — MCP 상태가 디렉터리 키 캐시, local MCP cwd도 디렉터리 | `instance-state.ts:30,47-49`, `mcp/index.ts:340-360` |
 | 서버 키 2분할 원인 | 미확정 — bridge 세대 교체(H-key1)·디렉터리별 투영 차이(H-key2) 후보. AC24로 판정 | `server-profile.ts:37-44`, `managed-mcp.ts:85-93` |
 
-D08은 D25로 유지된다. D10(native 전역 토글 live 적용)은 바꾸지 않는다 — 사용자 관측은 "토글 버튼 노출은 하고 있지만 실행시 회색 처리돼있다"이고, 코드상 MCP 탭의 OpenCode 전역 MCP 줄은 `canToggle: item.kind === 'mcp'`(`configured-resources.ts:135`)라 어느 화면의 관측인지 미확인이다. 이 차이는 "On/off 제어는 추후 고려" 때 확인할 항목으로 남긴다.
+D08은 D25로 유지된다. OpenCode MCP 토글은 D27대로 현행 유지이며 ΔV1은 X1~X5를 변경하지 않는다. D10의 V1 구현도 그대로 두고 이번 범위에서 재판정하지 않는다.
 
-ΔV1 ACTIVE 결정 ↔ AC 대조: D18·D24·D25·D26 → AC23~25가 동작을 바꾸지 않고 관측만 추가하며, 회귀는 VP02·VP07·VP08 REGRESSION으로 닫는다. D21 → VP02·VP07 회귀 oracle. D23 → AC24(키 분할)·AC25(A/B). 충돌 0.
+ΔV1 ACTIVE 결정 ↔ AC 대조: D18·D24·D25·D26·D27 → AC23~25가 동작을 바꾸지 않고 관측만 추가하며, 회귀는 VP02·VP07·VP08 REGRESSION으로 닫는다. D21 → VP02·VP07 회귀 oracle. D23 → AC24(키 분할)·AC25(A/B). 충돌 0.
 
 ## 4. 요구 비판적 검토
 
@@ -361,7 +362,7 @@ MCP source: execution definition revision + desired connection revision
 4. E·F revision 분리·연결 적용 장벽·관리 정의 투영.
 5. G manifest 캐시. 읽기 부수 효과 회귀 확인.
 6. H 웜업을 같은 경로에 연결. 전체 시나리오·회귀·H1 후 impl/IMPL_DONE.
-7. ΔV1(r1.2): J 진단만 추가한다. 동작·IPC·DTO 변경 없이 O12~O14와 회귀 VP02·VP07·VP08을 통과시킨다.
+7. ΔV1(r1.2): J 진단만 추가한다. 동작·IPC·DTO 변경 없이 O12~O14와 회귀 VP02·VP07·VP08을 통과시킨다. 토글 자리 X1~X5는 변경하지 않는다(D27).
 
 ### 주요 구현
 
@@ -591,7 +592,7 @@ G3: app에서 node scripts/check-doc-inventory.mjs --check 실행. generated/pro
 
 재현: 실제 IPC+준비 owner의 초안/저장 세션 취소 2case와 기존 prepared 시험 2case가 통과했다. 이는 현재 오류를 확인한 결과이며 수정 구현이 통과했다는 뜻이 아니다. 실제 CLI·타 PC 시간선은 AC22/H1에 남겼다.
 
-ΔV1 G0(2026-10-28): Ledger D17~D26 중 ACTIVE 7·SUPERSEDED 3, AC23~25 3건, ΔV1 pair REQUIRED 3·REGRESSION 3, J 자리 4를 대조했다. 회귀 oracle의 테스트 이름 4개(`adapter.test.ts`·`server.test.ts`·`opencode-mcp-reconcile.test.ts` 2)를 저장소에서 grep으로 확인했다. AC 총수 25로 분할 기준(25 초과) 미만이다.
+ΔV1 G0(2026-10-28): Ledger D17~D27 중 ACTIVE 8·SUPERSEDED 3, AC23~25 3건, ΔV1 pair REQUIRED 3·REGRESSION 3, J 자리 4를 대조했다. 회귀 oracle의 테스트 이름 4개(`adapter.test.ts`·`server.test.ts`·`opencode-mcp-reconcile.test.ts` 2)를 저장소에서 grep으로 확인했다. AC 총수 25로 분할 기준(25 초과) 미만이다.
 
 ---
 
