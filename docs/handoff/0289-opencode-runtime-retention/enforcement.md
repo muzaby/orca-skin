@@ -148,3 +148,34 @@ A=19 · B=17 · C=9 · D=6 · E=10 · F=10 · G=9 · H=5 · I=5 → 90자리. �
 O3의 낮은 수준 fixture만으로 A14~19를 닫지 않는다. 해당 자리는 실제 adapter·server pool·bridge를 조립하는 O10/O11이 보완한다. O6의 runtime-entry/continuation과 O9의 실제 승격, O8의 실제 bootstrap 조립이 빠지면 해당 운반 자리는 미완료다.
 
 preload/sessionApi는 shape와 전달을 바꾸지 않는 기존 edge다. O9의 계약 시험에서 이를 실제 wrapper로 통과시키고 public request·response를 관측한다. 새 wrapper를 도입하면 B/C의 해당 entry 자리에 대응시킨다.
+
+## ΔV1 자리 — 2026-10-28
+
+진단 trace만 더한다(plan D24~D26). 검색 주어는 MCP 상태 응답과 pool profile 산출이며, 저장소 루트에서 실행한다.
+
+~~~powershell
+# Q7 J: MCP status 응답·pool profile 구성요소·trace sink
+rg -n 'mcp\.status\(|openCodeServerProfile\(|harnessEnvFingerprint\(|export function retentionTrace' app/src/main/adapters/opencode -g '*.ts' -g '!*.test.ts' -g '!*.testfixture.ts'
+~~~
+
+2026-10-28 출력 8행: native-resources.ts:89, retention-trace.ts:4, server-profile.ts:11·38, server.ts:122·132·325, session-context.ts:487.
+
+| ID | 파일 | 언제 강제 / 현재 심볼 | 직접 oracle | 실패 의미 |
+|---|---|---|---|---|
+| J1 | main/adapters/opencode/v1/native-resources.ts | openCodeNativeMcp — status 응답의 MCP별 status·error 분류와 발행 | O12·O14 | 원문·이름 노출, 분류 누락, 반환값 변화 |
+| J2 | main/adapters/opencode/v1/server.ts | acquire의 miss 분기 — live entry 구성요소 비교 후 발행 | O13 | hit 발행, 분할 미발행, 값 노출 |
+| J3 | main/adapters/opencode/v1/server-profile.ts | openCodeServerProfile — key와 같은 입력으로 구성요소 해시 | O13·O14 | key와 diff 입력 불일치, 구성요소 누락 |
+| J4 | main/adapters/opencode/v1/retention-trace.ts | retentionTrace data 타입 — 새 필드는 enum·불투명 ID만 | O12·O13 | 자유 문자열 운반 허용 |
+
+제외: server.ts:122(`key()` — `databasePath`가 303행에서 entry 조회에만 사용, spawn 없음), server.ts:325(`opencode db path` 실행 profile), session-context.ts:487(pool이 발급한 url·headers로 만든 context 키 — pool 분할을 따른다).
+
+| Pair | 자리 집합 | N |
+|---|---|---:|
+| VP06 (CHANGED) | A·C·E·F·I + J1~J4 | 57 |
+| VP17 | J1·J2·J3·J4 | 4 |
+| VP18 | J1·J3 | 2 |
+| VP02 (REGRESSION) | D1·D2·D3 | 3 |
+| VP07 (REGRESSION) | A1 | 1 |
+| VP08 (REGRESSION) | E6·E8 | 2 |
+
+V1 90자리 + J 4자리 = 94자리.
