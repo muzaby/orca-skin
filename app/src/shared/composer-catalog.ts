@@ -38,6 +38,7 @@ export interface ComposerCatalogInvalidated {
 
 /** Main-only ownership port. Only read results cross IPC. */
 export interface ComposerCatalogLease {
+  activate?(): void
   generation: string
   signal: AbortSignal
   read<K extends ComposerCatalogPart>(

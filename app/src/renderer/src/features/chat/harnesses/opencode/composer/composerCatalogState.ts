@@ -7,10 +7,12 @@ import type { NativeComposerCatalog } from '../../../../../../../shared/native-r
 import { sessionApi } from '../../../../../shared/api/ipc'
 import { composerAgentStore } from './composerAgentStore'
 import { onComposerPromotion } from '../../../lib/composerPromotion'
+import { composerModelStore } from './composerModelStore'
 
 export interface CatalogSlot<T> {
   status: 'loading' | 'ready' | 'error'
   value?: T
+  stale?: boolean
 }
 export type ComposerCatalogSnapshot = {
   [K in keyof NativeComposerCatalog]: CatalogSlot<NativeComposerCatalog[K]>
@@ -34,6 +36,12 @@ export class ComposerCatalogState {
   private detachManagedMcp?: () => void
   private disposal?: ReturnType<typeof setTimeout>
   private disposed = false
+  private intended = false
+  intent = (): void => {
+    if (this.intended || this.disposed) return
+    this.intended = true
+    void this.read('mcp')
+  }
 
   constructor(
     public scope: ComposerCatalogScope,
@@ -41,6 +49,8 @@ export class ComposerCatalogState {
     private readonly agents = composerAgentStore
   ) {
     this.snapshot.agents = this.agentSlot()
+    const seed = composerModelStore.get(scope)
+    if (seed !== undefined) this.snapshot.models = { status: 'loading', value: seed, stale: true }
   }
 
   private agentSlot(): ComposerCatalogSnapshot['agents'] {
@@ -156,6 +166,7 @@ export class ComposerCatalogState {
           this.previousOwner = undefined
         }
         if (result.part === 'agents') this.agents.getState().accept(result.value, revision)
+        if (result.part === 'models') composerModelStore.accept(this.scope, result.value)
         this.snapshot = {
           ...this.snapshot,
           [part]: part === 'agents' ? this.agentSlot() : { status: 'ready', value: result.value }

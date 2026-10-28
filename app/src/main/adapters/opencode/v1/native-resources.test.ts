@@ -1,11 +1,63 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { OpencodeClient } from '@opencode-ai/sdk/v2/client'
-import { openCodeNativeCommands, openCodeNativeResources } from './native-resources'
+import {
+  openCodeNativeCommands,
+  openCodeNativeResources,
+  openCodeNativeMcp
+} from './native-resources'
+import { createOpencodeClient } from '@opencode-ai/sdk/v2/client'
+import { setRootLogger } from '../../../infra/log/registry'
 import { realpath, mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 describe('OpenCode native resources', () => {
+  it('traces secret-free MCP status classes without changing the returned resources', async () => {
+    const debug = vi.fn()
+    const logger = { debug, info: vi.fn(), warn: vi.fn(), error: vi.fn(), child: () => logger }
+    setRootLogger(logger)
+    try {
+      const client = createOpencodeClient({
+        baseUrl: 'http://fixture.test',
+        fetch: async () =>
+          new Response(
+            JSON.stringify({
+              connected: { status: 'connected' },
+              timeout: { status: 'failed', error: 'timed out secret-token' },
+              refused: {
+                status: 'failed',
+                error: 'ECONNREFUSED https://sentinel/?token=secret-token'
+              },
+              auth: { status: 'needs_auth' },
+              registration: { status: 'needs_client_registration', error: 'OAuth secret-token' }
+            }),
+            { headers: { 'content-type': 'application/json' } }
+          )
+      })
+      const resources = await openCodeNativeMcp(client, 'C:/secret-directory')
+      expect(resources.map((r) => [r.id, r.status, r.enabled, r.canToggle])).toEqual([
+        ['connected', 'connected', true, false],
+        ['timeout', 'failed', true, false],
+        ['refused', 'failed', true, false],
+        ['auth', 'needs-auth', true, false],
+        ['registration', 'needs-auth', true, false]
+      ])
+      const entries = debug.mock.calls.map(([, data]) => data)
+      expect(entries.map((data) => data.errorClass)).toEqual([
+        undefined,
+        'timeout',
+        'refused',
+        undefined,
+        'auth'
+      ])
+      expect(entries.every((data) => /^[a-f0-9]{12}$/.test(data.mcp))).toBe(true)
+      expect(JSON.stringify(debug.mock.calls)).not.toMatch(
+        /sentinel|secret-token|secret-directory|https:/
+      )
+    } finally {
+      setRootLogger(null)
+    }
+  })
   it('classifies only OpenCode and installed-plugin skills from SDK locations, without losing exact dispatch names', async () => {
     const root = await mkdtemp(join(tmpdir(), 'orca-native-skill-')).then((path) => realpath(path))
     try {

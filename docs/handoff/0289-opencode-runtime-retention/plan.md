@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex — 사용자 지시로 handoff-plan 수행 / 2026-10-27 |
-| 상태 / 라운드 | ΔV1 READY / 1. r1 구현 IMPL_DONE, ΔV1 구현은 r1.2. 독립 verify는 V1+ΔV1을 함께(D20) |
+| 상태 / 라운드 | ΔV1 구현 IN_PROGRESS / r1.2. M1(A) 진행 중, 이후 M2(B). 독립 verify는 V1+ΔV1을 함께(D20) |
 | V mode / revision | Baseline V1 + Delta V ΔV1(Claude 2026-10-28) — A+B 범위(D27) |
 | 기준 V / 유효 V | V1 = 0289:V1@57c841b0 / V1 + ΔV1. V1은 0288 전체 검증을 승계하지 않는다 |
 | 조사 코드 | 공유 브랜치 orca-0288-cross-harness-mcp-plan, 24e79f7a. git cat-file -t 및 pull --ff-only 확인 |
@@ -894,6 +894,16 @@ G2의 ABI 실패 301케이스는 Electron Node 모드 43파일/410케이스 통�
 - 이 Windows 호스트의 I/O/CLI startup/test timeout 변동, SQLite ABI, 기존 임시 checkout 링크 실패를 반복 관측했다. 지연을 제품 timeout/SLA 변경 근거로 쓰지 않았다.
 - 실제 사용자 MCP 파일을 건드린 테스트 격리 오류(I3)가 있었다. 기록된 fixture 항목만 제거했으며 원래 파일 상태 완전 복원을 주장하지 않는다.
 - 실제 앱 창·타 PC의 H1 증거는 없다. 독립 verify가 아직 없고, 0288 등 이전 handoff도 검증 완료로 올리지 않았다.
+
+## [구현자 기입] ΔV1 r1.2 — M1 중간 보고
+
+M1(A) 코드를 작성했으며 M2(B)와 합친 자기판정은 아직 미완료다. `diagnostics`, `native-resources`, `server`, `adapter.persistent`, `composer-preparation-service`, `bootstrap.opencode-warmup`, `composerCatalogState`, `Controls.interaction`, `composer-promotion` 9파일의 직접 vitest 실행에서 114케이스가 통과했다. 전체 lint·최종 타입 검사·등록 변이는 M2 완료 보고에 합산한다.
+
+작업 기준선은 Δ4의 REQUIRED 13 pair와 REGRESSION 6 pair다. 신규 자리 J1~J6·K1~K22·L1~L3·M1~M3, 변경 VP06의 V1 자리 53개와 VP08의 V1 자리 20개, 회귀 pair의 지정 자리를 함께 확인한다. 최종 보고 전에는 이번 Delta의 SELF_PASS·AC 충족을 선점하지 않는다.
+
+M1은 수동 MCP 읽기와 역할별 활성화, 입력 의도 슬롯, db path 캐시, 비권위 모델 seed, status/profile/turn 진단을 포함한다. 토글 표시·공개 IPC/DB 형식·native 파일 쓰기에는 변경이 없다. 실제 H1/H2 인수와 독립 verify는 미실행이다.
+
+중간 검산: ΔV1 완료 판정 ✅ 0 · ⚠️ 33 · ❌ 0 = 총 33. V1의 기존 21/22 보고는 위 r1 기록으로 보존하며 이번 Delta 완료 합계로 재사용하지 않는다.
 
 ## [검증자 기입] 파생 이슈
 

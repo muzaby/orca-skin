@@ -34,7 +34,7 @@ export function OpenCodeEffortControl({
   const runtime = snapshot.models.value?.find((m) => m.id === (model?.model ?? modelFamily))
   return (
     <OpenCodeVariantControl
-      authoritative={snapshot.models.value !== undefined}
+      authoritative={snapshot.models.value !== undefined && !snapshot.models.stale}
       variants={snapshot.models.value ? (runtime?.variants ?? []) : (model?.variants ?? [])}
       status={snapshot.models.status}
     />
@@ -247,6 +247,7 @@ export function OpenCodeVariantControl({
   return (
     <OpenCodeSelect
       label={tr('harness.variant')}
+      loading={status === 'loading'}
       value={variants.includes(selected ?? '') ? (selected ?? '') : ''}
       onChange={(value) => chatActions.setHarnessOptions({ variant: value })}
       options={[
