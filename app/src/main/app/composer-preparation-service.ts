@@ -34,7 +34,7 @@ export class ComposerPreparationService {
   owners(role: 'catalog' | 'resources' | 'warmup'): ComposerCatalogOwners {
     let owners = this.roles.get(role)
     if (!owners) {
-      owners = new ComposerCatalogOwners((scope, signal) => this.acquire(scope, signal))
+      owners = new ComposerCatalogOwners((scope, signal) => this.acquire(scope, signal), role)
       this.roles.set(role, owners)
     }
     return owners

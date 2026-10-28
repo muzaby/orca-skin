@@ -18,6 +18,7 @@ import { modelRef } from './model-ref'
 import { reportError } from '../../../infra/error-report'
 import type { NativeComposerCatalog, NativeResource } from '../../../../shared/native-resources'
 import type { OpenCodeClientLease } from './session-context'
+import { OpenCodeTurnTrace } from './turn-trace'
 
 /** One SDK subscription feeds the existing SessionRuntime pump for its entire lifetime. */
 export function openCodeChannel(
@@ -27,6 +28,7 @@ export function openCodeChannel(
   preferences?: () => import('../../../../shared/harness').OpenCodePreferences | undefined
 ): LiveTurn {
   const generation = randomUUID()
+  const trace = new OpenCodeTurnTrace()
   const controller = new AbortController()
   const signal = req.signal ? AbortSignal.any([req.signal, controller.signal]) : controller.signal
   let mainApproval = new AbortController()
@@ -167,6 +169,7 @@ export function openCodeChannel(
     const submission = ++submissionEpoch
     if (initial) req.recovery?.onPrompt(messageID)
     activity.acceptPrompt(messageID)
+    trace.bind(sessionId, messageID)
     interrupted = false
     responseOpen = true
     mainApproval = new AbortController()
@@ -232,11 +235,14 @@ export function openCodeChannel(
             },
             { signal, throwOnError: true }
           )
+          .then(() => {
+            if (!closed && submission === submissionEpoch) trace.accept()
+          })
           .catch((error: unknown) => {
             if (!closed && !signal.aborted && submission === submissionEpoch)
               controller.abort(error)
           })
-      } else
+      } else {
         await client.session.promptAsync(
           {
             sessionID: sessionId,
@@ -259,6 +265,8 @@ export function openCodeChannel(
           },
           { signal, throwOnError: true }
         )
+        trace.accept()
+      }
     } catch (error) {
       // Fence late SSE callbacks before releasing the uncertain warm submission's buffer.
       if (!initial) close()
@@ -349,6 +357,7 @@ export function openCodeChannel(
       for await (const event of { [Symbol.asyncIterator]: () => iterator! }) {
         signal.throwIfAborted()
         if (closed) return
+        trace.observe(event)
         if (
           (event.type === 'permission.asked' || event.type === 'question.asked') &&
           activity.ownsSession(event.properties.sessionID) &&
@@ -514,6 +523,7 @@ export function openCodeChannel(
       if (closed || ended || signal.aborted)
         return { kind: 'rejectedBeforeAccept', reason: 'stream_closed' }
       try {
+        trace.start()
         await submit(next)
       } catch (error) {
         // HTTP failure leaves acceptance uncertain. Retire this generation; the

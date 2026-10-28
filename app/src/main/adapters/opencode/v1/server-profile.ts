@@ -2,6 +2,7 @@ import { existsSync, statSync } from 'node:fs'
 import { isAbsolute, resolve } from 'node:path'
 import { harnessEnvFingerprint } from '../../common/harness-config'
 import { nativeOpenCodeEnvironment, nativeWorkingDirectory } from './native-storage'
+import { profileComponents, type ProfileComponents } from './diagnostics'
 
 export function openCodeExecutableIdentity(executable: string): string {
   const stat = existsSync(executable) ? statSync(executable) : undefined
@@ -13,7 +14,7 @@ export function openCodeServerProfile(
   config: Record<string, unknown>,
   env?: Record<string, string>,
   directory?: string
-): { key: string; cwd: string; environment: NodeJS.ProcessEnv } {
+): { key: string; cwd: string; environment: NodeJS.ProcessEnv; components: ProfileComponents } {
   const environment = nativeOpenCodeEnvironment(config, env)
   const source = nativeWorkingDirectory(directory)
   const paths = new Set([
@@ -43,6 +44,30 @@ export function openCodeServerProfile(
       cwd
     }),
     cwd,
-    environment
+    environment,
+    components: profileComponents(openCodeExecutableIdentity(executable), cwd, environment)
   }
+}
+
+/** Storage identity excludes execution-only MCP projections and bridge capabilities. */
+export function openCodeStorageProfile(
+  executable: string,
+  env?: Record<string, string>,
+  directory?: string
+): string {
+  const source = { ...process.env, ...env }
+  const storage = Object.fromEntries(
+    Object.entries(source)
+      .filter(([key]) => /^(OPENCODE_DB|XDG_.*|HOME|USERPROFILE)$/i.test(key))
+      .sort(([a], [b]) => a.localeCompare(b))
+  )
+  const relative = Object.entries(storage).some(
+    ([key, value]) =>
+      value && key !== 'HOME' && key !== 'USERPROFILE' && value !== ':memory:' && !isAbsolute(value)
+  )
+  return harnessEnvFingerprint({
+    executable: openCodeExecutableIdentity(executable),
+    storage: JSON.stringify(storage),
+    cwd: relative ? nativeWorkingDirectory(directory) : ''
+  })
 }

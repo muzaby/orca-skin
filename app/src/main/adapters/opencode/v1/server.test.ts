@@ -9,10 +9,18 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { OpenCodeServerPool, resolveOpenCodeExecutable } from './server'
 import { jsonResponse } from './adapter.testfixture'
+import * as childProcess from 'node:child_process'
+import { setRootLogger } from '../../../infra/log/registry'
+vi.mock('node:child_process', async (original) => {
+  const actual = await original<typeof import('node:child_process')>()
+  return { ...actual, execFile: vi.fn(actual.execFile) }
+})
 
 const directories: string[] = []
 const pools: OpenCodeServerPool[] = []
 afterEach(() => {
+  setRootLogger(null)
+  vi.restoreAllMocks()
   for (const pool of pools.splice(0)) pool.close()
   for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true })
 })
@@ -83,6 +91,64 @@ function setup(
 }
 
 describe('owned OpenCode server lifecycle', () => {
+  it('traces which profile components split the pool key without values', async () => {
+    const debug = vi.fn()
+    const logger = { debug, info: vi.fn(), warn: vi.fn(), error: vi.fn(), child: () => logger }
+    setRootLogger(logger)
+    const { pool } = setup()
+    const first = { mcp: { fixture: { enabled: false } } }
+    await pool.acquire(
+      first,
+      { ORCA_MCP_secret_name: 'sentinel-first', XDG_DATA_HOME: 'relative' },
+      'C:/first'
+    )
+    await pool.acquire(
+      first,
+      { ORCA_MCP_secret_name: 'sentinel-first', XDG_DATA_HOME: 'relative' },
+      'C:/first'
+    )
+    expect(debug.mock.calls.filter(([event]) => event.endsWith('key-split'))).toHaveLength(0)
+    await pool.acquire(
+      { mcp: { another: { enabled: false } } },
+      { ORCA_MCP_secret_name: 'sentinel-second', XDG_DATA_HOME: 'relative' },
+      'C:/second'
+    )
+    const splits = debug.mock.calls.filter(([event]) => event.endsWith('key-split'))
+    expect(splits).toHaveLength(1)
+    expect(splits[0][1].components).toEqual([
+      'config:mcp',
+      'cwd',
+      'env:OPENCODE_CONFIG_CONTENT',
+      'env:ORCA_MCP_*'
+    ])
+    expect(JSON.stringify(debug.mock.calls)).not.toMatch(/sentinel|secret_name|fixture|another|C:/)
+  })
+  it('reuses the database path across MCP projections of one storage profile', async () => {
+    const { pool, dataDirectory } = setup()
+    const path = join(dataDirectory, 'native.db')
+    writeFileSync(path, '')
+    const execute = vi.mocked(childProcess.execFile).mockImplementation((...args: unknown[]) => {
+      writeFileSync(path, '')
+      const callback = args.at(-1) as (error: null, stdout: string) => void
+      queueMicrotask(() => callback(null, path))
+      return fakeChild()
+    })
+    const env = { OPENCODE_DB: path }
+    await Promise.all([
+      pool.databasePath({ mcp: { first: {} } }, { ...env, ORCA_MCP_A: 'one' }, 'C:/A'),
+      pool.databasePath(
+        { mcp: { second: {} } },
+        { ...env, ORCA_MCP_B: 'two', OPENCODE_CONFIG_CONTENT: '{}' },
+        'C:/B'
+      )
+    ])
+    expect(execute).toHaveBeenCalledTimes(1)
+    await pool.databasePath({}, { ...env, XDG_DATA_HOME: dataDirectory })
+    expect(execute).toHaveBeenCalledTimes(2)
+    rmSync(path)
+    await pool.databasePath({}, env)
+    expect(execute).toHaveBeenCalledTimes(3)
+  })
   it('shares the effective profile when only the overridden snapshot setting differs', async () => {
     const { pool, spawnProcess, children } = setup()
     const enabled = await pool.acquire({ snapshot: true, model: 'profile/model' })

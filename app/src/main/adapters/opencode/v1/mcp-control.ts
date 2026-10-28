@@ -9,6 +9,11 @@ import { waitForOpenCode } from './instance-lifecycle'
 
 /** Directory mutations and submission admissions share a serial queue. */
 export class OpenCodeMcpControl {
+  private activated = false
+  activate(): void {
+    this.activated = true
+    void this.prepare().catch(() => undefined)
+  }
   private initial?: Promise<void>
   private readFlight?: Promise<NativeResource[]>
   private applied?: string
@@ -47,6 +52,7 @@ export class OpenCodeMcpControl {
     return task
   }
   prepare(): Promise<void> {
+    this.activated = true
     this.initial ??= this.run(async () => {
       if (this.safe(false)) await this.apply()
     }).catch((error: unknown) => {
@@ -57,17 +63,21 @@ export class OpenCodeMcpControl {
   }
   read(signal: AbortSignal, refresh = false): Promise<NativeResource[]> {
     signal.throwIfAborted()
+    if (!this.activated) return Promise.resolve([])
     if (!this.readFlight) {
       // A status read must not straddle connect/disconnect invalidation. Keep the same
       // queue as mutations, while concurrent observers still share one read flight.
       const flight = this.prepare()
         .then(() => this.run(async () => this.preview(await this.status(this.signal, refresh))))
-        .finally(() => { if (this.readFlight === flight) this.readFlight = undefined })
+        .finally(() => {
+          if (this.readFlight === flight) this.readFlight = undefined
+        })
       this.readFlight = flight
     }
     return waitForOpenCode(this.readFlight, AbortSignal.any([signal, this.signal]))
   }
   async reconcileChoices(): Promise<void> {
+    if (!this.activated) return
     if (!this.safe(false)) return
     await this.run(async () => {
       if (this.safe(false)) await this.apply()

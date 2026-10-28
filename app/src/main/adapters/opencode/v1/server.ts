@@ -5,7 +5,12 @@ import { delimiter, isAbsolute, join } from 'node:path'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { retentionTrace } from './retention-trace'
 import type { HarnessPreferences } from '../../../../shared/harness'
-import { openCodeExecutableIdentity, openCodeServerProfile } from './server-profile'
+import {
+  openCodeExecutableIdentity,
+  openCodeServerProfile,
+  openCodeStorageProfile
+} from './server-profile'
+import { diffProfileComponents, type ProfileComponents } from './diagnostics'
 
 export interface OpenCodeConnection {
   url: string
@@ -18,7 +23,7 @@ interface ServerEntry {
   ready: Promise<OpenCodeConnection>
   child?: ChildProcess
   owners: number
-  databasePath?: Promise<string>
+  components: ProfileComponents
 }
 
 export function resolveOpenCodeExecutable(configured = '', env = process.env): string {
@@ -61,6 +66,7 @@ export interface OpenCodeServerDependencies {
 export class OpenCodeServerPool {
   private readonly entries = new Map<string, ServerEntry>()
   private readonly ownedEntries = new Set<ServerEntry>()
+  private readonly databasePaths = new Map<string, Promise<string>>()
   private version?: { identity: string; ready: Promise<string> }
   private readonly terminated = new WeakSet<ChildProcess>()
   private readonly identities = new WeakMap<ChildProcess, string>()
@@ -113,15 +119,6 @@ export class OpenCodeServerPool {
     }
   }
 
-  private key(
-    executable: string,
-    config: Record<string, unknown>,
-    env?: Record<string, string>,
-    cwd?: string
-  ): string {
-    return openCodeServerProfile(executable, config, env, cwd).key
-  }
-
   acquire(
     config: Record<string, unknown> = {},
     env?: Record<string, string>,
@@ -133,7 +130,15 @@ export class OpenCodeServerPool {
     const key = profile.key
     let entry = this.entries.get(key)
     if (!entry) {
-      const created: ServerEntry = { ready: Promise.resolve({ url: '', headers: {} }), owners: 0 }
+      for (const other of this.ownedEntries) {
+        const components = diffProfileComponents(other.components, profile.components)
+        if (components.length) retentionTrace('process.key-split', { components })
+      }
+      const created: ServerEntry = {
+        ready: Promise.resolve({ url: '', headers: {} }),
+        owners: 0,
+        components: profile.components
+      }
       entry = created
       this.entries.set(key, created)
       this.ownedEntries.add(created)
@@ -301,17 +306,20 @@ export class OpenCodeServerPool {
   ): Promise<string> {
     if (this.stopped) throw new Error('OpenCode 서버 관리자가 종료되었습니다.')
     const executable = this.executable()
-    const entry = this.entries.get(this.key(executable, config, env, cwd))
-    if (entry?.databasePath) {
-      const cached = await entry.databasePath
+    const key = openCodeStorageProfile(executable, env, cwd)
+    const previous = this.databasePaths.get(key)
+    if (previous) {
+      const cached = await previous
       if (existsSync(cached)) return cached
-      entry.databasePath = undefined
+      if (this.databasePaths.get(key) === previous) this.databasePaths.delete(key)
     }
+    const pending = this.databasePaths.get(key)
+    if (pending) return pending
     const ready = this.readDatabasePath(executable, config, env, cwd).catch((error) => {
-      if (entry?.databasePath === ready) entry.databasePath = undefined
+      if (this.databasePaths.get(key) === ready) this.databasePaths.delete(key)
       throw error
     })
-    if (entry) entry.databasePath = ready
+    this.databasePaths.set(key, ready)
     return ready
   }
 
@@ -347,6 +355,7 @@ export class OpenCodeServerPool {
     for (const entry of this.ownedEntries) this.terminate(entry.child)
     this.ownedEntries.clear()
     this.entries.clear()
+    this.databasePaths.clear()
     this.version = undefined
   }
 }

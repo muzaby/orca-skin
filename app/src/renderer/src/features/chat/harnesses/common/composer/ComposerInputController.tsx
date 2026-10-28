@@ -313,6 +313,7 @@ export function ComposerInputController({
     const submitted = snapshotRef.current
     const submittedRequirements = diffRequirementSnapshot
     if (compositionActive() || submitted.text.trim() === '' || steerBlocked) return
+    presentation.onInputIntent?.()
     const items = attachments
     void submitComposerInput({
       submitted,
@@ -359,7 +360,10 @@ export function ComposerInputController({
         <div
           className={appearance.shell}
           data-harness={presentation.harness}
-          onPaste={onPaste}
+          onPaste={(event) => {
+            presentation.onInputIntent?.()
+            onPaste(event)
+          }}
           onDragOver={(event) => {
             event.preventDefault()
             setDraggingAttachment(true)
@@ -368,6 +372,7 @@ export function ComposerInputController({
           onDrop={(event) => {
             event.preventDefault()
             setDraggingAttachment(false)
+            presentation.onInputIntent?.()
             void addDroppedFiles(event.dataTransfer.files)
           }}
         >
@@ -393,11 +398,12 @@ export function ComposerInputController({
                   ref={surfaceRef}
                   appearance={appearance}
                   snapshot={snapshot}
-                  onTextChange={(text, selectionStart, selectionEnd) =>
+                  onTextChange={(text, selectionStart, selectionEnd) => {
+                    presentation.onInputIntent?.()
                     updateSnapshot((current) =>
                       updateDraftText(current, text, selectionStart, selectionEnd)
                     )
-                  }
+                  }}
                   onSelectionChange={(selectionStart, selectionEnd) =>
                     updateSnapshot((current) =>
                       updateDraftSelectionWhenIdle(current, selectionStart, selectionEnd)
@@ -441,7 +447,10 @@ export function ComposerInputController({
               <Chip
                 ref={attachButtonRef}
                 icon="plus"
-                onClick={() => setAttachMenuOpen((value) => !value)}
+                onClick={() => {
+                  if (!attachMenuOpen) presentation.onInputIntent?.()
+                  setAttachMenuOpen((value) => !value)
+                }}
                 ariaHasPopup
                 ariaExpanded={attachMenuOpen}
                 title={tr('chat.composer.attachMenuTitle')}

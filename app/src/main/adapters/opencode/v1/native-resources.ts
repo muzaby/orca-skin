@@ -3,6 +3,8 @@ import type { NativeCommand, NativeResource } from '../../../../shared/native-re
 import { openCodePluginId, openCodePluginInstallation } from './plugin-installation'
 import { isOpenCodeSkill, withinSkillRoot } from './skill-sources'
 import { realpath } from 'node:fs/promises'
+import { classifyMcpError, opaqueIdentity } from './diagnostics'
+import { retentionTrace } from './retention-trace'
 
 export async function openCodeNativeCommands(
   client: OpencodeClient,
@@ -89,19 +91,31 @@ export async function openCodeNativeMcp(
   const mcp = await client.mcp.status({ directory }, { throwOnError: false, signal })
   if (!mcp.data)
     throw new Error('OpenCode MCP status unavailable', { cause: { status: mcp.response?.status } })
-  return Object.entries(mcp.data).map(([name, value]): NativeResource => ({
-    id: name,
-    name,
-    kind: 'mcp',
-    status:
-      value.status === 'needs_client_registration'
+  return Object.entries(mcp.data).map(([name, value]): NativeResource => {
+    const status =
+      value.status === 'needs_client_registration' || value.status === 'needs_auth'
         ? 'needs-auth'
-        : value.status === 'needs_auth'
+        : value.status
+    retentionTrace('mcp.status-detail', {
+      instance: opaqueIdentity(directory),
+      mcp: opaqueIdentity(name),
+      status,
+      ...('error' in value ? { errorClass: classifyMcpError(value.error) } : {})
+    })
+    return {
+      id: name,
+      name,
+      kind: 'mcp',
+      status:
+        value.status === 'needs_client_registration'
           ? 'needs-auth'
-          : value.status,
-    enabled: value.status !== 'disabled',
-    canToggle: false
-  }))
+          : value.status === 'needs_auth'
+            ? 'needs-auth'
+            : value.status,
+      enabled: value.status !== 'disabled',
+      canToggle: false
+    }
+  })
 }
 
 export async function openCodeNativePlugins(

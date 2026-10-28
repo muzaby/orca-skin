@@ -60,7 +60,8 @@ export class ComposerCatalogOwners {
     private readonly prepare: (
       scope: ComposerCatalogScope,
       signal: AbortSignal
-    ) => Promise<ComposerCatalogLease>
+    ) => Promise<ComposerCatalogLease>,
+    private readonly role: 'catalog' | 'resources' | 'warmup' = 'catalog'
   ) {}
 
   async read(
@@ -120,6 +121,7 @@ export class ComposerCatalogOwners {
       const lease = await observe(entry.task, entry.controller.signal)
       entry.controller.signal.throwIfAborted()
       const signal = entry.controller.signal
+      if (request.part === 'mcp' && this.role !== 'resources') lease.activate?.()
       const result = {
         part: request.part,
         value: await observe(lease.read(request.part, signal, request.refresh), signal).catch(

@@ -15,6 +15,7 @@ import {
   textPart
 } from './adapter.testfixture'
 import { reportError } from '../../../infra/error-report'
+import { setRootLogger } from '../../../infra/log/registry'
 
 vi.mock('../../../infra/error-report', () => ({ reportError: vi.fn() }))
 
@@ -225,6 +226,39 @@ async function abortableGate(gate: Promise<void>, signal: AbortSignal): Promise<
 }
 
 describe('OpenCode persistent SDK channel', () => {
+  it('traces prompt acceptance assistant start and first part in order', async () => {
+    const debug = vi.fn()
+    const logger = { debug, info: vi.fn(), warn: vi.fn(), error: vi.fn(), child: () => logger }
+    setRootLogger(logger)
+    const f = fixture()
+    const iterator = f.live.eventBatches[Symbol.asyncIterator]()
+    try {
+      f.setPrompt(async (body) => {
+        f.emit(
+          event('message.updated', {
+            sessionID: 'elsewhere',
+            info: assistantMessage('elsewhere', body.messageID as string, 'foreign')
+          })
+        )
+        f.reply(body.messageID as string)
+        f.reply(body.messageID as string)
+      })
+      await frame(iterator)
+      const rows = debug.mock.calls.filter(([name]) => name.includes('.turn.'))
+      expect(rows.map(([name]) => name)).toEqual([
+        'opencode.retention.turn.prompt-accepted',
+        'opencode.retention.turn.assistant-created',
+        'opencode.retention.turn.first-part'
+      ])
+      expect(new Set(rows.map(([, data]) => data.turn)).size).toBe(1)
+      expect(rows.every(([, data]) => data.ms >= 0)).toBe(true)
+      expect(JSON.stringify(rows)).not.toMatch(/foreign|s1|First/)
+    } finally {
+      await dispose(f.live, iterator)
+      f.adapter.close()
+      setRootLogger(null)
+    }
+  })
   it('waits beyond the menu deadline for native command dispatch without submitting twice', async () => {
     const f = fixture({ text: '/native:slow exact argument' })
     const gate = Promise.withResolvers<void>()
