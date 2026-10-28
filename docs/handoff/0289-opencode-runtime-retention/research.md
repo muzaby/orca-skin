@@ -184,3 +184,13 @@ lazy 시작 시점은 이미 앞당겨져 있다. 랜딩 웜업이 T+1.4초에 M
 |---|---|---|
 | MCP별 `timeout` 스키마 설명은 "Defaults to 5000" | `core/src/v1/config/mcp.ts:20,56` | 문서상 기본값 |
 | 실제 연결 기본값은 30,000ms | `opencode/src/mcp/index.ts:38,286,359` | 설명과 코드가 다름. 설정이 없으면 transport당 30초 |
+
+### D18 결정과 범위 밖 관측
+
+D18: OpenCode MCP는 터미널 설정을 그대로 상속하고 A1~A5는 채택하지 않았다(plan D18·D24~D26). 사용자 관측: MCP 5개 중 노랑(인증 필요) 2, MCP 탭의 사용자 MCP 1, OpenCode MCP 토글은 노출되나 회색.
+
+| 관측 | 위치 | 처리 |
+|---|---|---|
+| 인증 오류는 두 번째 transport를 시도하지 않고 즉시 멈춤 | `opencode/src/mcp/index.ts:313,331` | 노랑 2개는 60초 성분의 유력 후보가 아님. AC25로 확인 |
+| `opencode mcp list`가 MCP별 status·error를 출력 | `opencode/src/cli/cmd/mcp.ts:108-166` | 사용자 수동 확인 수단 |
+| history의 `databasePath` 조회 key에 관리 MCP 투영이 없어 pool entry를 못 찾고 매 조회 `opencode db path`를 실행 | `adapter.ts:347`, `server.ts:303,325` | 범위 밖. 다음 handoff 후보 |

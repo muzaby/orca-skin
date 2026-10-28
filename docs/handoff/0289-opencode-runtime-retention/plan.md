@@ -5,9 +5,9 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex — 사용자 지시로 handoff-plan 수행 / 2026-10-27 |
-| 상태 / 라운드 | ΔV1 DRAFT / 1. r1 구현은 IMPL_DONE이며 독립 검증은 ΔV1 구현 뒤 함께 수행(D20) |
-| V mode / revision | Baseline V1 + Delta V ΔV1(DRAFT, Claude 2026-10-28). READY 전까지 유효 V는 V1 |
-| 기준 V / 유효 V | V1 = 0289:V1@57c841b0 / V1 + ΔV1(READY 후). V1은 0288 전체 검증을 승계하지 않는다 |
+| 상태 / 라운드 | ΔV1 READY / 1. r1 구현은 IMPL_DONE, ΔV1 구현은 r1.2. 독립 검증은 r1+ΔV1을 함께 수행(D20) |
+| V mode / revision | Baseline V1 + Delta V ΔV1(Claude 2026-10-28) — 진단 추가와 회귀만, 동작 변경 없음(D24) |
+| 기준 V / 유효 V | V1 = 0289:V1@57c841b0 / V1 + ΔV1. V1은 0288 전체 검증을 승계하지 않는다 |
 | 조사 코드 | 공유 브랜치 orca-0288-cross-harness-mcp-plan, 24e79f7a. git cat-file -t 및 pull --ff-only 확인 |
 | 이전 계약 출처 | 0288 V1@801f27f6, 0275 ΔV6@79ccc64 — 존재 확인. 변경·보존 관계는 §16 |
 | 산출 경계 | V1 설계 + r1 구현 자기보고. AC22의 실제 앱/타 PC 인수·독립 verify는 후속 |
@@ -50,13 +50,16 @@
 | D14 | IPC payload/응답 shape·세션 DB·native 저장 포맷·모델 선택을 바꾸지 않는다 | 내부 포트·관측 freshness·수명만 변경 | 사용자 제약 | ACTIVE |
 | D15 | 소유 process만 종료, 인증 격리·철회·실패 후 명시 retry 유지 | token을 전역 고정 문자열로 만들거나 강제 pool hit를 만들지 않음 | 0275·0288 기존 계약 | ACTIVE |
 | D16 | 구현 전후 같은 시나리오의 사건 수를 남긴다 | n=1 시간차를 효과 크기로 일반화하지 않음 | 사용자 관측 제약 | ACTIVE |
-| D17 | 첫 send는 연결 중인 MCP를 최대 2초 기다린 뒤 진행한다. 이번 메시지가 @언급한 MCP만 연결/실패까지 기다리고(취소 가능), 늦게 붙은 MCP는 다음 step/턴부터 쓴다 | OpenCode 내부 대기가 남으면 효과 없음 — 실현 수단은 D18. 사용자: "1, 3모두 논의전에 2에서 물엇던 내용을 확인하려는가다" | ΔV1 사용자 결정 1의 잠정 선택: "2초 상한 + @언급 대기" | OPEN |
-| D18 | 전역 MCP 연결을 OpenCode lazy 초기화에서 분리하는 방식 | 사용자: "글로벌로 사용하련느 mcp는 모드 enable 되어있고 사용자는 llm이 모든 도구를 사용할수 있다고 생각하낟. Lazy가 문제라면 이것을 뒤엎을 다른 대안은 없는지" — [대안 A1~A5](research.md#d18-대안-비교) | ΔV1 사용자 결정 2 응답 | OPEN |
-| D19 | 랜딩 외 디렉터리의 연결 시작 시점 | D18 확인 뒤 논의 | ΔV1 사용자 결정 3의 잠정 응답: 무선호 | OPEN |
+| D17 | 첫 send는 연결 중인 MCP를 최대 2초 기다린 뒤 진행한다(@언급 MCP만 연결/실패까지 대기) | 잠정 선택이었고 D18 확정 뒤 철회. OpenCode가 터미널 MCP 초기화를 prompt 전에 기다려 이득은 0.6~1.1초, MCP 탭 MCP가 첫 턴에서 빠질 수 있음 | ΔV1 사용자 결정 1의 잠정 선택 | SUPERSEDED → D25 |
+| D18 | OpenCode MCP는 터미널 설정을 그대로 상속한다. Orca는 on/off·설정 덮어쓰기를 추가하지 않고 세션 시작 시 전역 설정을 그대로 쓴다. 연결 주체 이전·Orca 중계([A1~A5](research.md#d18-대안-비교))는 채택하지 않는다 | 사용자: "사용자가 모든 mcp를 플러그인 페이지 -> mcp 탭에서 관리한다. 다만 오픈코드의 경우 터미널에서 설정한 형태를 그대로 상속하되, on/off 기능은 제공하지 않는다. (현상태 유지, On/off 제어는 추후 고려). 세션 시작 시 (전역)설정을 그대로 사용." | ΔV1 사용자 결정 2 | ACTIVE |
+| D19 | 랜딩 외 디렉터리의 연결 시작 시점 변경 | D18 확정 뒤 현행 유지로 정리 | ΔV1 사용자 결정 3의 잠정 응답: 무선호 | SUPERSEDED → D26 |
 | D20 | 0289를 ΔV1로 갱신하고 r1 독립 verify는 ΔV1 구현 뒤 한 번에 수행한다 | verify 대기 중 새 설계 피드백 도착 → 순서는 사용자 선택 | 사용자: "289를 업데이트 하라" | ACTIVE |
 | D21 | 바꾸지 않는다: snapshot:false·share:disabled 강제(native-storage.ts:13), idle 90초, definitions/connections revision 분할, mcpFreshMs 5초. 실측으로 확인된 서버·instance 재사용, slot hit, owner 차감, idle 보유, live reconcile을 회귀시키지 않는다 | 실측에서 설계대로 동작 | 사용자 실측 §3·§6 | ACTIVE |
-| D22 | 검수는 같은 시나리오 재실행과 [perf] 로그 첨부다. 통과 = turn 클릭→MCP 제출 허가 2초 이내. mcp HTTP 절대값이 줄지 않아도 send가 기다리지 않으면 통과하며, HTTP 총량 증가는 그대로 보고한다 | "기다림 제거가 목표이지 status 단축이 아니다" | 사용자 실측 §6 | ACTIVE |
+| D22 | 검수는 같은 시나리오 재실행과 [perf] 로그 첨부. 통과 = turn 클릭→MCP 제출 허가 2초 이내 | 요구 1의 검수 기준. 요구 1 철회(D25)로 적용 대상이 없고 ΔV1 검수는 AC23~25·회귀 pair다. 시나리오 재실행·로그 첨부·HTTP 총량 정직 보고는 AC25가 승계 | 사용자 실측 §6 | SUPERSEDED → D25 |
 | D23 | 디렉터리 간 중복 연결과 동시성 A/B를 조사·보고하고, 서버 키 분할(c) 원인은 낮은 우선순위로 추적한다 | 분할 비용은 spawn 1.4초로 작음 | 사용자 실측 §5-3·§5-4 | ACTIVE |
+| D24 | ΔV1은 D18 시나리오를 바꾸는 동작 변경을 하지 않는다 | 사용자: "위 시나리오를 깨지 않는게 내 요구이다" | ΔV1 사용자 응답 | ACTIVE |
+| D25 | turn 제출은 현행대로 Orca 관리 MCP 적용을 확인한 뒤 prompt를 보낸다(D08 유지). 피드백 요구 1은 철회한다 | D24: MCP 탭 MCP가 세션 시작부터 쓰여야 함. Orca 대기 제거의 이득은 0.6~1.1초 | ΔV1 제안 표에 사용자가 토글 사실만 보정하고 나머지에 이의 없음 | ACTIVE |
+| D26 | MCP 연결 시작 시점은 현행 유지 — 대화 진입 시 MCP 조회가 그 디렉터리 초기화를 시작하고, 랜딩 웜업(D13)은 그대로. 피드백 요구 2는 철회한다 | D24: 시점을 늦추면 첫 send가 더 늦어질 수 있고 사용 MCP는 같음 | ΔV1 제안 표, D25와 같은 응답 | ACTIVE |
 
 ### 갱신 메모
 
@@ -64,7 +67,7 @@
 
 ACTIVE 결정 ↔ AC 대조: D01→AC1~22, D02~04→AC3~6, D05~06→AC7~9, D07~10→AC10~14, D11→AC1~2, D12→AC15~16, D13→AC17~18, D14~15→AC19~21, D16→AC22. 반대 의미의 AC 없음.
 
-**ΔV1 갱신 메모 (DRAFT, 2026-10-28).** 사용자 실측 피드백으로 D17~D23을 추가했다. D18 확인이 먼저이고 D17·D19는 그 뒤 논의하므로 셋 다 OPEN이며 READY가 아니다. 근거는 [ΔV1 조사](research.md#δv1-조사--2026-10-28-실측-피드백)다.
+**ΔV1 갱신 메모 (READY, 2026-10-28).** 실측 피드백으로 D17~D26을 추가했다. D18·D24로 동작 변경 요구 1·2를 철회하고, 원인 판정을 위한 진단(AC23~25)만 더한다. 근거는 [ΔV1 조사](research.md#δv1-조사--2026-10-28-실측-피드백)다.
 
 | 피드백 주장 | 판정 | 근거 |
 |---|---|---|
@@ -73,9 +76,13 @@ ACTIVE 결정 ↔ AC 대조: D01→AC1~22, D02~04→AC3~6, D05~06→AC7~9, D07~1
 | 경합이 MCP 시간을 66~84초로 부풀림 | 근거 약함 — mcp−agents가 4/5에서 59.3~60.8초 상수 | research ΔV1 차이 표 |
 | history 경로가 MCP slot을 읽음 | 정정 — 진입 시 트리거는 컴포저 `useNativeResources` | `adapter.ts:338-379`, `useNativeResources.ts:27` |
 | 웜업을 랜딩 1개로 제한 | 이미 충족 | `opencode-warmup.ts:44-59` (D13) |
-| 검수 "클릭→submit-applied 2초" | 대리지표 위험 — Orca가 안 기다려도 OpenCode가 기다림. D22는 유지하고 ΔV1 AC에 OpenCode 루프 구간 관측을 추가할 예정 | `session/prompt.ts:1186-1199` |
+| 검수 "클릭→submit-applied 2초" | 대리지표 위험 — Orca가 안 기다려도 OpenCode가 기다림. 요구 1 철회로 D22 SUPERSEDED | `session/prompt.ts:1186-1262` |
+| 디렉터리 간 중복 연결을 서버 레벨 1회로 | OpenCode API로 불가 — MCP 상태가 디렉터리 키 캐시, local MCP cwd도 디렉터리 | `instance-state.ts:30,47-49`, `mcp/index.ts:340-360` |
+| 서버 키 2분할 원인 | 미확정 — bridge 세대 교체(H-key1)·디렉터리별 투영 차이(H-key2) 후보. AC24로 판정 | `server-profile.ts:37-44`, `managed-mcp.ts:85-93` |
 
-D08의 "다음 제출 전 적용 장벽"은 D17과 연결(on) 축에서 충돌한다. off 장벽 유지 여부와 D08의 SUPERSEDED 범위는 D18 확정 뒤 ΔV1 READY에서 판정한다.
+D08은 D25로 유지된다. D10(native 전역 토글 live 적용)은 바꾸지 않는다 — 사용자 관측은 "토글 버튼 노출은 하고 있지만 실행시 회색 처리돼있다"이고, 코드상 MCP 탭의 OpenCode 전역 MCP 줄은 `canToggle: item.kind === 'mcp'`(`configured-resources.ts:135`)라 어느 화면의 관측인지 미확인이다. 이 차이는 "On/off 제어는 추후 고려" 때 확인할 항목으로 남긴다.
+
+ΔV1 ACTIVE 결정 ↔ AC 대조: D18·D24·D25·D26 → AC23~25가 동작을 바꾸지 않고 관측만 추가하며, 회귀는 VP02·VP07·VP08 REGRESSION으로 닫는다. D21 → VP02·VP07 회귀 oracle. D23 → AC24(키 분할)·AC25(A/B). 충돌 0.
 
 ## 4. 요구 비판적 검토
 
@@ -153,6 +160,9 @@ O1~O11은 §11의 구현자가 만들거나 확장할 직접 oracle이다. H1만
 | R6 / AT6 | AC20 | 다른 profile/auth/native storage/cwd는 격리. 인가 철회 후 오래된 bridge로 새 호출 불가 | O3·O11 | profile→bridge authorization |
 | R6 / AT6 | AC21 | 초기 시작 실패·SSE 실패·warm 제출 불확실성은 기존 오류/명시 retry 정책 유지. 자동 중복 prompt 없음 | O6·O10·O11 | channel/runtime→respawn/recovery |
 | R6 / AT6 | AC22 | 사건 로그로 spawn/terminate·instance·bridge·HTTP를 구분, secret/config 원문 미포함. 같은 시나리오 전후 증거 저장 | O10·O11·H1 | real boundaries→trace |
+| R6 / AT6 | AC23 | ΔV1. OpenCode MCP 상태 조회마다 MCP별 status와 오류 분류가 trace에 남는다. 이름은 불투명 ID, 원문 오류·URL·헤더·토큰 없음. 반환 NativeResource와 IPC shape는 그대로 | O12·O14 | slot/apply→openCodeNativeMcp→trace |
+| R6 / AT6 | AC24 | ΔV1. 서버 pool miss 때 다른 live profile과 달라진 구성요소 이름이 trace에 남는다(값 없음). 같은 profile hit은 발행하지 않는다 | O13·O14 | adapter.client→pool.acquire→profile→trace |
+| R6 / AT6 | AC25 | ΔV1. 사용자 환경에서 실측 시나리오 A와 단일 디렉터리 시나리오 C를 각 2회 이상 실행해 디렉터리별 agents/models/mcp 최초 slot ms, mcp−agents, MCP별 오류 분류, key 분할 구성요소, HTTP 총량을 보고한다. SLA 아님 | H2 | 실제 앱·사용자 CLI·설정 |
 
 ## 7-A. V / Trace Matrix
 
@@ -210,6 +220,32 @@ O1~O11은 §11의 구현자가 만들거나 확장할 직접 oracle이다. H1만
 | M2 | 모델과 에이전트 목록이 모두 존재해도 승격 대상이 바뀔 수 있음 | C3의 models/agents 갱신 대상 맞바꿈, C5 승격 연결 제거 / O9 |
 | M3 | prepare를 따로 호출해도 화면 결과만 보면 정상 | B15 양 진입에 별도 준비 service 주입 / O2·O10 |
 | M4 | 삭제한 bootstrap 연결을 순수 warmup 시험이 보지 못할 수 있음 | H1 시작·H2 gate 재평가·H5 종료 연결 각각 제거 / O8 |
+
+### ΔV1 Delta — 2026-10-28
+
+기준 V1@57c841b0에 진단 계약만 더한다. 변경 시작 수준은 R6(측정)이고, 그 아래 AR·MD 노드를 새로 둔다. SUPERSEDED pair는 없고, 아래에 없는 V1 pair는 ΔV1 변경 경로(MCP status 매핑·pool profile/miss) 밖이라 판정하지 않는다.
+
+| Node | 레벨 | 계약 | provenance | 기준선 |
+|---|---|---|---|---|
+| R6 / AT6 | R↔AT | 측정 계약에 AC23~25 추가 | CHANGED | V1 R6 |
+| AR4 / IT4 | AR↔IT | 진단 trace가 실제 status 조회·pool miss 경로에서 발행되고 DTO·IPC는 그대로 | NEW | — |
+| MD5 / UT5 | MD↔UT | MCP 오류 분류·profile 구성요소 diff 순수 함수, 값·원문 차단 | NEW | — |
+| R2 / AT2 · SD1 / ST1 · SD2 / ST2 | R·SD | slot 재사용·수명·제출 장벽 | INHERITED | V1 |
+
+| Pair | node | requiredness | production path | 직접 oracle | 자리 N |
+|---|---|---|---|---|---|
+| VP06 | R6↔AT6 | REQUIRED (CHANGED) | 실제 조립 boot→nav→send→trace sink, 사용자 환경 | V1 O목록 + O12·O13 + H2 | V1 53 + J1~J4 = 57 |
+| VP17 | AR4↔IT4 | REQUIRED | slot·apply→openCodeNativeMcp→retentionTrace / adapter.client→pool.acquire miss→profile→retentionTrace | O12·O13 | J1~J4 (4) |
+| VP18 | MD5↔UT5 | REQUIRED | 오류 문자열·profile 구성요소→분류·diff | O14 | J1·J3 (2) |
+| VP02 | R2↔AT2 | REGRESSION | V1 그대로 — J1이 slot loader 내부 | O4 `adapter.test.ts: shares prepared and live inventory slots until freshness expiry and retries failed reads` | D1·D2·D3 (3) |
+| VP07 | SD1↔ST1 | REGRESSION | V1 그대로 — J2·J3이 pool acquire 내부 | `server.test.ts: shares a profile across directories while separating native storage environments`, O10 `opencode-mcp-reconcile.test.ts: traces warmup navigation two sends toggle expiry and quit through the real assembly` | A1 (1) |
+| VP08 | SD2↔ST2 | REGRESSION | V1 그대로 — D25 장벽 유지, J1이 apply의 status 입력 | O5 `opencode-mcp-reconcile.test.ts: defers busy/background peers and admits queued input only after successful connection mutation` | E6·E8 (2) |
+
+| 변이 | 이유 | 자리 / oracle |
+|---|---|---|
+| M5 | 값·원문 차단은 부재 단언이라 방향 확인 필요 | J1에 원문 error, J2에 env 값을 trace로 운반 / O12·O13 red |
+| M6 | 형제 분류가 다른 계약 | J1 분류기의 timeout↔refused 맞바꿈 / O14 red |
+| M7 | 발행 조건·구성요소 누락 | J2 hit에도 발행, J3에서 `OPENCODE_CONFIG_CONTENT` 구성요소 제외 / O13 red |
 
 ### 현재 변경의 운영 gate
 
@@ -325,6 +361,7 @@ MCP source: execution definition revision + desired connection revision
 4. E·F revision 분리·연결 적용 장벽·관리 정의 투영.
 5. G manifest 캐시. 읽기 부수 효과 회귀 확인.
 6. H 웜업을 같은 경로에 연결. 전체 시나리오·회귀·H1 후 impl/IMPL_DONE.
+7. ΔV1(r1.2): J 진단만 추가한다. 동작·IPC·DTO 변경 없이 O12~O14와 회귀 VP02·VP07·VP08을 통과시킨다.
 
 ### 주요 구현
 
@@ -380,6 +417,14 @@ lastBackend가 null/claude이면 선제 OpenCode 연결을 만들지 않는다. 
 
 **I — 관측.** 기존 logger의 debug 수준을 사용한다(dev는 debug, production은 기존 debug 설정). start-request와 실제 spawn, terminate-request와 child-exit, instance attach/idle/dispose/ack/event, bridge open/close, slot hit/miss/HTTP, invalidation reason을 구분한다.
 
+**J — ΔV1 진단.** 동작을 바꾸지 않는다(D24~D26). `openCodeNativeMcp`는 SDK status 응답에서 MCP별 `status`와 `error`를 읽어 `opencode.retention.mcp.status-detail`을 발행하고, 반환 NativeResource는 지금과 같게 둔다. 항목은 `{ id: sha256(이름) 앞 12자, status, errorClass? }`이며 errorClass는 `failed`일 때만 싣는다.
+
+errorClass는 원문을 순서대로 대조하는 순수 분류기가 정한다: `timed out`→timeout, `ECONNREFUSED|refused`→refused, `ENOTFOUND|EAI_AGAIN|getaddrinfo`→dns, `certificate|self.signed|SSL|TLS|UNABLE_TO_VERIFY`→tls, `401|403|unauthori|forbidden|OAuth`→auth, `Connection closed`→closed, `HTTP|status code`→http, 나머지 other. 원문·URL·이름은 trace에 넣지 않는다.
+
+`openCodeServerProfile`은 key와 같은 입력에서 구성요소 해시 `components`를 함께 낸다 — `executable`, `cwd`, 변수 이름별 `env:<NAME>`(값은 sha256), `ORCA_MCP_*`는 `env:ORCA_MCP_*` 하나로 묶고 `OPENCODE_CONFIG_CONTENT`는 최상위 키별 `config:<key>`로 나눈다. pool `acquire`가 miss이고 live entry가 있으면 해시가 다른 구성요소 이름만 `opencode.retention.process.key-split`으로 발행한다. hit와 첫 spawn은 발행하지 않는다.
+
+`retentionTrace`의 data 타입은 새 필드를 enum·불투명 ID 배열로만 허용해 값 운반을 타입에서 막는다. 기존 사용자 perf-trace는 저장소 밖 도구이며 이 trace가 대체하지 않는다.
+
 ### 직접 oracle
 
 아래 파일 경로는 app/src 기준이다. “신규” 좌표는 구현 후 실제 케이스명을 유지하거나 대응표를 남겨야 하며, 현재 통과했다고 주장하지 않는다.
@@ -397,6 +442,9 @@ lastBackend가 null/claude이면 선제 OpenCode 연결을 만들지 않는다. 
 | O9 | 확장 renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.test.ts·hooks/useNativeResources.test.ts 및 신규 store/composer-promotion.test.ts: preserves only the matching promoted catalog | 실제 chatStore 승격과 hook/state 연결, IPC만 fake. model/agent 목록 구별·worktree/provider mismatch·취소·토스트 sink·재열기 freshness 관측 |
 | O10 | 신규 main/app/opencode-retention.integration.test.ts: traces boot navigation first and second send through the real assembly | 실제 server pool+adapter+context+bridge+준비 서비스+channel, OS spawn·remote model만 fixture. 두 send·nav·toggle·expiry의 PID/HTTP/instance/bridge 사건 관측 |
 | O11 | 확장 main/app/managed-mcp-lifecycle.test.ts·managed-mcp-claude-regression.test.ts, main/adapters/opencode/v1/{server,adapter.persistent,adapter.startup}.test.ts 실패 스위트 | 실제 bridge HTTP+인가 source, sentinel secrets·다른profile/env·startup/health/SSE/close failure. unauthorized 응답·secret 미노출·중복 prompt 없음 |
+| O12 | 확장 main/adapters/opencode/v1/native-resources.test.ts: traces secret-free MCP status classes without changing the returned resources | 실제 openCodeNativeMcp+SDK client, fetch만 fixture. connected·timeout·refused(+sentinel URL·token)·needs_auth·needs_client_registration 구별 응답. logger sink의 items·errorClass, sentinel·이름 부재, 반환 배열 동일 |
+| O13 | 확장 main/adapters/opencode/v1/server.test.ts: traces which profile components split the pool key without values | 실제 OpenCodeServerPool, spawn만 fixture. ORCA_MCP 값(sentinel)·config mcp 키·상대 XDG cwd를 각각 바꾼 acquire와 동일 acquire. key-split 구성요소 이름, hit 무발행, sentinel 부재 |
+| O14 | 신규 main/adapters/opencode/v1/diagnostics.test.ts: classifies MCP errors and diffs profile components | 분류기·diff 순수 함수 직접 호출. 형제 class 대표 문자열 표, 구성요소 추가·삭제·값 변경 |
 
 O2/O8/O10은 bootstrap이 실제 사용하는 별도 조립 helper를 호출한다. bootstrap 연결을 AST 존재 검사만으로 대체하지 않으며, M3/M4로 실제 주입 배선을 제거했을 때 실패하는지 확인한다. O9는 hook을 mock하고 내부 callback만 호출하는 시험으로 승격 edge를 닫지 않는다.
 
@@ -467,6 +515,8 @@ HTTP 총량은 sink 계측으로 보고한다. cold path의 native 내부 초기
 | 명시 실패 retry·prompt 중복 금지 | 유지 | AC21 |
 | renderer 모델은 directory 세대, agents 앱 수명 | 유지. 승격은 같은 실행 선택의 snapshot만 계승 | AC7·9 |
 | main DAG·Chromium fetch·비밀 경계 | 유지 | G1·O11 |
+| ΔV1 피드백 요구 1·2(send 분리·비가시 조회 중단) | 철회. D08 제출 장벽과 진입 시 조회·웜업 유지 | D24~D26, VP02·VP07·VP08 REGRESSION |
+| ΔV1 OpenCode MCP 설정 | 터미널 설정 그대로. 투영은 V1의 관리 MCP 비활성 투영(D09)만 | D18, AC23~25는 관측만 |
 
 기존 session-context 시험의 “freezes global choices per directory...”는 native 전역 live 변경 부분만 새 시험으로 대체한다. 프로젝트 쓰기 금지·다른 directory 격리·최종 정리의 기존 assertion은 보존한다. 원 테스트 삭제로 전체 회귀를 지우지 않는다.
 
@@ -506,6 +556,20 @@ H1은 내장 application plugin과 외부 stdio/HTTP MCP가 있는 Windows 환�
 
 실제 spawn/exit·instance init/dispose·bridge open/close·HTTP/연결 수를 단계별 표로 남긴다. 변경 전 사용자 보고의 “spawn 2”를 기대값으로 고정하지 않는다. 격리된 same-profile 시나리오의 유예 내 재진입은 최초 process/instance를 사용하고, 만료·정의 변경·실제 실패로 새 세대가 필요하면 reason을 기록한다.
 
+**H2 (ΔV1, AC25)** — 사용자 Windows 환경, 실제 CLI·설정. 각 시나리오 2회 이상.
+
+~~~text
+A: 부팅 → 마지막 대화 → 새 대화 랜딩 → 다른 대화 3~4회 전환 → 새 대화 → send#1 → send#2
+C: 부팅 → 새 대화 랜딩 → send#1 → send#2   (다른 대화 방문 없음)
+~~~
+
+| 보고 | 판독 |
+|---|---|
+| 디렉터리별 agents/models/mcp 최초 slot ms, mcp−agents | C의 agents가 A보다 짧은 만큼이 경합 크기. mcp−agents가 A·C 모두 ~60초면 고정 성분(H-60) |
+| status-detail의 MCP별 status·errorClass | 60초 원인 MCP와 원인 종류(timeout·refused·tls·auth). 설정 정리는 사용자 몫(D18) |
+| key-split 구성요소 | H-key1(`env:ORCA_MCP_*`)·H-key2(`config:mcp`)·그 밖 판별 |
+| send#1 클릭→submit-applied, HTTP 총량 | 감소로 포장하지 않고 그대로 기록 |
+
 ## READY self-review
 
 - 사용자 전체 범위·설계 개선 요청을 D01~16에 반영했고 ACTIVE↔AC 충돌 없음.
@@ -514,6 +578,8 @@ H1은 내장 application plugin과 외부 stdio/HTTP MCP가 있는 Windows 환�
 - 취소·실패·empty, desired·applied, logical·physical release, definition·selection은 서로 다른 상태로 명시.
 - IPC shape/DB 불변과 live 토글의 의미 변경을 구분. 기존 native 프로젝트 쓰기 거부·Claude 정책 유지.
 - 자리·경로·O 좌표·운영 gate는 문서 검사 후 갱신 메모에 실제 관측을 추가한다.
+- ΔV1: 동작 변경 요구는 D24~D26으로 철회했고 D17·D19·D22는 대체 관계와 함께 SUPERSEDED. 새 노드 AR4·MD5와 CHANGED R6에 REQUIRED pair, 경로가 닿는 V1 노드에 REGRESSION pair가 있다.
+- ΔV1 자리는 Q7 출력 8행에서 J1~J4로 고정했고 제외 4행의 근거를 enforcement에 남겼다. 원문·값 차단은 부재 단언이라 M5로 방향을 확인한다.
 
 ## [설계자 기입] 문서 검사 관측
 
@@ -524,6 +590,8 @@ G0: ACTIVE Decision 16, AC1~22, VP01~16, A~I 자리 90을 파싱해 누락 AC/pa
 G3: app에서 node scripts/check-doc-inventory.mjs --check 실행. generated/prose는 통과했고 기존 .tmp/opencode-dev 및 app/.temp/opencode 복사본의 상대 링크 10건 때문에 전체 link 단계는 실패했다. 이번 변경 문서 5개의 상대 링크는 별도 검사에서 누락 0이며, 임시 복사본은 수정하지 않았다.
 
 재현: 실제 IPC+준비 owner의 초안/저장 세션 취소 2case와 기존 prepared 시험 2case가 통과했다. 이는 현재 오류를 확인한 결과이며 수정 구현이 통과했다는 뜻이 아니다. 실제 CLI·타 PC 시간선은 AC22/H1에 남겼다.
+
+ΔV1 G0(2026-10-28): Ledger D17~D26 중 ACTIVE 7·SUPERSEDED 3, AC23~25 3건, ΔV1 pair REQUIRED 3·REGRESSION 3, J 자리 4를 대조했다. 회귀 oracle의 테스트 이름 4개(`adapter.test.ts`·`server.test.ts`·`opencode-mcp-reconcile.test.ts` 2)를 저장소에서 grep으로 확인했다. AC 총수 25로 분할 기준(25 초과) 미만이다.
 
 ---
 
