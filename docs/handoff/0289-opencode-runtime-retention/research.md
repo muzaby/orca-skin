@@ -100,7 +100,7 @@ it.each(['draft', 'session'] as const)('reproduces cancelled %s discovery throug
 
 ## ΔV1 조사 — 2026-10-28 실측 피드백
 
-판정: 첫 send 지연의 주 성분은 OpenCode의 디렉터리별 MCP 초기화다. Orca의 대기만 지우면 OpenCode prompt 루프가 같은 초기화를 다시 기다린다. 실측 원문은 사용자 제공 "Handoff 289 실측 및 후속 요구"이며 원본 로그는 사용자 개발 콘솔에만 있다.
+판정: 첫 send 지연의 주 성분은 OpenCode의 디렉터리별 MCP 초기화다. 이 절은 조사 사실과 논의 자료이며 결정은 [plan Decision Ledger](plan.md#3-decision-ledger)가 갖는다. Orca의 대기만 지우면 OpenCode prompt 루프가 같은 초기화를 다시 기다린다. 실측 원문은 사용자 제공 "Handoff 289 실측 및 후속 요구"이며 원본 로그는 사용자 개발 콘솔에만 있다.
 
 ### 실측 요약 (사용자 제공, n=1)
 
@@ -167,7 +167,7 @@ v1.18.27의 `src/mcp/index.ts`와 diff 0. 경로는 `raw.githubusercontent.com/a
 | H-key1 | 서버 키 분할 = 관리 MCP revision 변화로 bridge 세대(포트·토큰) 교체 | miss 때 env 변수 이름별 해시 비교 |
 | H-key2 | 서버 키 분할 = 디렉터리별 native MCP 이름 충돌로 projection 차이 | 같은 비교의 `mcp` alias 집합 |
 
-### D18 대안 비교
+### 연결 방식 대안 비교 — D18 논의 자료
 
 | 대안 | "enabled = LLM 사용 가능" | 첫 send의 60초 | 디렉터리 간 중복 | 비용·위험 |
 |---|---|---|---|---|
@@ -185,12 +185,26 @@ lazy 시작 시점은 이미 앞당겨져 있다. 랜딩 웜업이 T+1.4초에 M
 | MCP별 `timeout` 스키마 설명은 "Defaults to 5000" | `core/src/v1/config/mcp.ts:20,56` | 문서상 기본값 |
 | 실제 연결 기본값은 30,000ms | `opencode/src/mcp/index.ts:38,286,359` | 설명과 코드가 다름. 설정이 없으면 transport당 30초 |
 
-### D18 결정과 범위 밖 관측
+사용자 결정 D18(터미널 설정 상속)에 따라 위 대안 중 OpenCode 설정을 덮어쓰거나 연결 주체를 옮기는 A1·A2는 적용 대상이 아니다.
 
-D18: OpenCode MCP는 터미널 설정을 그대로 상속하고 A1~A5는 채택하지 않았다(plan D18·D24~D26). 사용자 관측: MCP 5개 중 노랑(인증 필요) 2, MCP 탭의 사용자 MCP 1, OpenCode MCP 토글은 노출되나 회색.
+### 사용자 관측과 추가 사실
+
+사용자 관측: MCP 5개 중 노랑(인증 필요) 2, 플러그인 → MCP 탭의 사용자 MCP 1. OpenCode MCP 토글은 노출되고 최초 설정값으로 초기화되며 제어는 비활성이다(D25).
 
 | 관측 | 위치 | 처리 |
 |---|---|---|
 | 인증 오류는 두 번째 transport를 시도하지 않고 즉시 멈춤 | `opencode/src/mcp/index.ts:313,331` | 노랑 2개는 60초 성분의 유력 후보가 아님. AC25로 확인 |
 | `opencode mcp list`가 MCP별 status·error를 출력 | `opencode/src/cli/cmd/mcp.ts:108-166` | 사용자 수동 확인 수단 |
 | history의 `databasePath` 조회 key에 관리 MCP 투영이 없어 pool entry를 못 찾고 매 조회 `opencode db path`를 실행 | `adapter.ts:347`, `server.ts:303,325` | 범위 밖. 다음 handoff 후보 |
+
+### 설계자 제안 — 미합의
+
+아래는 논의용 제안이며 plan의 규범 행에 넣지 않았다.
+
+| 대상 | 제안 | 근거 |
+|---|---|---|
+| D17 요구 1 | 철회하고 현행 제출 장벽 유지 | OpenCode가 터미널 MCP 초기화를 기다려 Orca 대기 제거 이득은 0.6~1.1초, MCP 탭 MCP가 첫 턴에서 빠질 위험(D24) |
+| D19 요구 2 | 현행 유지(진입 시 조회·랜딩 웜업) | 사용 MCP는 같고 시작을 늦추면 첫 send가 더 늦어질 수 있음 |
+| D22 검수 | 요구 1을 철회하면 적용 대상 없음. 시나리오 재실행·HTTP 총량 정직 보고는 실측 항목으로 유지 | Orca 대기만 보는 지표 |
+| D23 요구 3·4 | 동작 변경 없이 진단만 추가: MCP별 status·오류 분류 trace, pool miss 때 달라진 profile 구성요소 이름 trace(값 없음), 사용자 환경에서 시나리오 A와 단일 디렉터리 C를 각 2회 이상 실측 | 60초 원인 MCP·경합 크기·키 분할 원인(H-60·H-key1·H-key2) 판정 |
+| 사용자 조치 | 노랑 2개 `opencode mcp auth <이름>`, 미연결 MCP 정리. `opencode mcp list`로 상태·오류 확인 | 터미널 설정이 지연의 원인일 때 Orca 변경 없이 해소 |
