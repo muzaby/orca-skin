@@ -91,8 +91,11 @@ export class OpenCodeComposerCache {
       const flight = load(this.client, this.directory, signal)
         .then((value) => {
           signal.throwIfAborted()
-          if (slot.epoch !== epoch)
+          if (slot.epoch !== epoch) {
+            // Additive MCP completion invalidates the cache, not an in-flight observer.
+            if (part === 'mcp') return value
             throw new Error('OpenCode 목록이 변경되었습니다. 다시 조회해 주세요.')
+          }
           slot.value = value
           slot.updatedAt = Date.now()
           return value

@@ -46,8 +46,10 @@ it('applies restored choices once per new directory and preserves project overri
   try {
     const old = new OpenCodeMcpControl(client, a, control, signal)
     await old.prepare()
+    await old.reconcileChoices()
     expect(connect.mock.calls.map(([params]) => params)).toEqual([
-      { directory: a, name: 'disabled' }
+      { directory: a, name: 'disabled' },
+      { directory: a, name: 'project' }
     ])
     expect(disconnect.mock.calls.map(([params]) => params)).toEqual([
       { directory: a, name: 'docs' }
@@ -56,7 +58,7 @@ it('applies restored choices once per new directory and preserves project overri
     await old.prepare()
     const next = new OpenCodeMcpControl(client, b, control, signal)
     await next.prepare()
-    expect(status).toHaveBeenCalledTimes(3)
+    await next.reconcileChoices()
     expect(
       await old.preview([
         {
@@ -74,7 +76,7 @@ it('applies restored choices once per new directory and preserves project overri
     expect(await old.pending()).toBe(false)
     expect(state(a).docs.status).toBe('connected')
     expect(state(a).project.status).toBe('connected')
-    expect(connect).toHaveBeenCalledTimes(2)
+    expect(connect).toHaveBeenCalledTimes(5)
     expect(disconnect).toHaveBeenCalledTimes(2)
     expect(await readFile(file, 'utf8')).toBe(contents)
   } finally {

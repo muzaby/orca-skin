@@ -26,6 +26,7 @@ interface ServerIdentity {
 }
 export interface ManagedConnectionChoices {
   choices(): Record<string, boolean>
+  defaults?: Record<string, boolean>
 }
 
 interface DirectoryState {
@@ -51,6 +52,7 @@ interface Subscriber {
 export interface OpenCodeClientLease {
   activate?(): void
   managedMcpMentions?: Record<string, string>
+  managedMcpReferences?: Record<string, string>
   mapMcpResources?(items: NativeResource[]): NativeResource[]
   mcpControl?: OpenCodeMcpControl
   readonly signal: AbortSignal
@@ -192,7 +194,8 @@ class ServerContext {
           scope.controller.signal,
           composer,
           this.managed,
-          (beforeSubmit) => this.idle(scope.directory, beforeSubmit)
+          (beforeSubmit) => this.idle(scope.directory, beforeSubmit),
+          this.managed?.defaults
         ),
         controller: scope.controller,
         composer,
@@ -239,7 +242,7 @@ class ServerContext {
   prepare(directory: string, state: DirectoryState, signal: AbortSignal): Promise<void> {
     signal.throwIfAborted()
     return this.wait(
-      this.ready(directory, state).then(() => state.mcpControl?.prepare()),
+      this.ready(directory, state).then(() => state.mcpControl?.activate()),
       state,
       signal
     )

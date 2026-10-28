@@ -79,7 +79,7 @@ Composer의 `dialog`·`drag_drop`·`clipboard` 첨부는 `chat:send` 정규화 �
 | `orca:composer:catalog-release` | R→M (invoke) | `{ owner: UUID }` | `void`. 호출 창의 owner만 해제한다. pending acquisition도 완료 후 반납하며 창 navigation/crash/destroy 및 앱 종료에서 정리한다. |
 | `orca:composer:catalog-invalidated` | M→R | `{ owner, generation }` | 세대 종료 시 해당 owner를 무효화한다. 늦은 이전 세대 응답은 폐기한다. |
 
-타입 정본은 `app/src/shared/composer-catalog.ts`다. preload/renderer API는 `session.composerCatalog`, `releaseComposerCatalog`, `onComposerCatalogInvalidated`다. 안전 DTO는 visible primary/all agent·모델별 variant·MCP/plugin 상태를 포함하며 prompt·공급자 옵션·자격증명은 전달하지 않는다. `failure`는 고정 단계·분류와 HTTP 상태만 담고 원문 오류는 전달하지 않는다. 빈 성공은 목록 제거이며 실패·취소는 빈 성공으로 해석하지 않는다. 팝업은 에이전트 첫 성공 전 그룹 제목 오른쪽에만 스피너를 표시한다. 에이전트 성공 목록은 앱 실행 동안 모든 scope가 재사용하며 OpenCode 전역 플러그인 변경에만 초기화한다. 모델 등은 작업폴더·실행 세대의 성공 목록을 재사용한다. 오류 안내·새로고침 항목은 표시하지 않는다.
+타입 정본은 `app/src/shared/composer-catalog.ts`다. preload/renderer API는 `session.composerCatalog`, `releaseComposerCatalog`, `onComposerCatalogInvalidated`다. 안전 DTO는 visible primary/all agent·모델별 variant·MCP/plugin 상태를 포함하며 prompt·공급자 옵션·자격증명은 전달하지 않는다. `failure`는 고정 단계·분류와 HTTP 상태만 담고 원문 오류는 전달하지 않는다. 빈 성공은 목록 제거이며 실패·취소는 빈 성공으로 해석하지 않는다. 팝업은 에이전트 첫 성공 전과 모델 변형 확인 중에 그룹 제목 오른쪽 스피너를 표시한다. 에이전트 성공 목록은 앱 실행 동안 모든 scope가 재사용하며 OpenCode 전역 플러그인 변경에만 초기화한다. 모델 등은 작업폴더·실행 세대의 성공 목록을 재사용한다. 새 작업폴더의 모델 응답 전에는 같은 backend·providerKey의 직전 실제 목록을 확인 중으로 표시하고, 이 값으로 저장된 선택을 자동 변경하지 않는다. 오류 안내·새로고침 항목은 표시하지 않는다.
 
 
 ### 2.2 Backend
@@ -197,7 +197,7 @@ interface Settings {
 
 미지정 선택은 native 전역 값을 따른다. Claude plugin은 새 Query마다 SDK 옵션과 초안 reader에 적용하며 토글 시 실행 중인 Claude 프로세스를 닫아 다음 메시지부터 새 선택으로 같은 대화를 잇고, OpenCode MCP는 directory SDK 연결·해제를 사용한다. 기본 경로 스킬은 항상 활성으로 취급하며 토글하지 않는다. OpenCode plugin은 전역 파일을 읽기 전용으로 표시한다. Claude plugin·OpenCode MCP의 명시 전역 선택은 앱 재시작 뒤에도 유지하며 native 설정 파일은 쓰지 않는다. 미지원 항목은 실제 enabled 값을 유지한 고정 토글·회색 폰트다. nav 조회 실패는 기존 확인 항목과 재시도 수단을 유지한다. 프로젝트 선택은 우측 패널의 실제 작업경로에 귀속한다. OpenCode 프로젝트 MCP 선택의 실행 적용은 전체 프로젝트 유휴 때 하며 `configurationPending`으로 대기를 구별한다.
 
-MCP의 session-native 목록은 선택적인 `managedSource: { kind: 'builtin' | 'user'; sourceId: string }`와 `mentionId`를 담는다. runtime alias와 표시 이름을 구별하며 주소·원문 설정·인증값은 담지 않는다. 초안 요청은 선택적인 `providerKey`·`agentKind`를 준비 scope에 포함하고 저장 세션은 DB의 backend·agent·cwd를 따른다. OpenCode의 첫 입력 전 목록은 활성 observation owner가 유지하는 준비 lease에서 실제 연결을 읽는다. 관측 해제·창 종료·navigation·정의 변경은 논리 준비 owner를 반납한다. 진행 조회의 owner 해제는 generation 없는 disconnected/partial 설정 view로 정착하며 실제 오류나 빈 성공과 구분한다. superseded 조회는 최신 owner로 한 번 재시도하고 다시 바뀌면 pending으로 반환한다. 물리 자원 보유와 MCP freshness는 [어댑터 수명](arch/backend/adapters.md)을 따른다.
+MCP의 session-native 목록은 선택적인 `managedSource: { kind: 'builtin' | 'user'; sourceId: string }`와 `mentionId`를 담는다. runtime alias와 표시 이름을 구별하며 주소·원문 설정·인증값은 담지 않는다. 초안 요청은 선택적인 `providerKey`·`agentKind`를 준비 scope에 포함하고 저장 세션은 DB의 backend·agent·cwd를 따른다. OpenCode의 수동 observation은 준비 lease를 유지하되 MCP HTTP 없이 설정 목록을 표시한다. 첫 입력·붙여넣기·첨부·첨부 메뉴·전송의 의도 신호, catalog 역할 MCP part 조회 및 랜딩 웜업이 연결을 활성화한다. MCP별 연결 중 상태는 pending이며 enabled 선택값과 canToggle은 유지한다. 초기 연결 중이라는 이유만으로 configurationPending을 설정하지 않는다. 관측 해제·창 종료·navigation·정의 변경은 논리 준비 owner를 반납한다. 진행 조회의 owner 해제는 generation 없는 disconnected/partial 설정 view로 정착하며 실제 오류나 빈 성공과 구분한다. superseded 조회는 최신 owner로 한 번 재시도하고 다시 바뀌면 pending으로 반환한다. 물리 자원 보유와 MCP freshness는 [어댑터 수명](arch/backend/adapters.md)을 따른다.
 
 ### 2.6 Files
 

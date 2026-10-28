@@ -146,6 +146,7 @@ it('shares generations and releases only owned resources', async () => {
     await a.release()
     expect([...profiles.values()][0].owners).toBe(1)
     expect((await fetch(endpoint)).status).toBe(401)
+    b.activate?.()
     const connected = await b.mcp(new AbortController().signal)
     expect(
       connected
@@ -211,25 +212,45 @@ it('shares generations and releases only owned resources', async () => {
   }
 })
 
-
 it('checks native identity collisions in each actual adapter environment before projection', async () => {
   const root = await mkdtemp(join(tmpdir(), 'orca-collision-cache-'))
-  const cwd = join(root, 'project'), first = join(root, 'one'), second = join(root, 'two')
+  const cwd = join(root, 'project'),
+    first = join(root, 'one'),
+    second = join(root, 'two')
   const alias = managedMcpAlias('user', 'stored')
-  const managed = createManagedMcp({ enabledConfig: () => ({ stored: { command: 'managed' } }), resolver: () => () => undefined }, [])
-  const acquire = vi.fn<OpenCodeServer['acquire']>(async () => ({ url: 'http://fixture.test', headers: {}, release: vi.fn() }))
-  const adapter = new OpenCodeAdapter({ acquire, installed: vi.fn(), close: vi.fn() }, vi.fn(), undefined, undefined, undefined, undefined, {
-    snapshot: managed.source.snapshot, acquire: (snapshot) => managed.mcpBridge.acquire(snapshot)
-  })
+  const managed = createManagedMcp(
+    { enabledConfig: () => ({ stored: { command: 'managed' } }), resolver: () => () => undefined },
+    []
+  )
+  const acquire = vi.fn<OpenCodeServer['acquire']>(async () => ({
+    url: 'http://fixture.test',
+    headers: {},
+    release: vi.fn()
+  }))
+  const adapter = new OpenCodeAdapter(
+    { acquire, installed: vi.fn(), close: vi.fn() },
+    vi.fn(),
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    {
+      snapshot: managed.source.snapshot,
+      acquire: (snapshot) => managed.mcpBridge.acquire(snapshot)
+    }
+  )
   try {
     await mkdir(join(cwd, '.git'), { recursive: true })
     await mkdir(join(first, 'opencode'), { recursive: true })
     await mkdir(join(second, 'opencode'), { recursive: true })
     const config = join(first, 'opencode', 'opencode.json')
-    await writeFile(config, JSON.stringify({ mcp: { [alias]: { type: 'local', command: ['native'] } } }))
+    await writeFile(
+      config,
+      JSON.stringify({ mcp: { [alias]: { type: 'local', command: ['native'] } } })
+    )
     const a = await adapter.client({}, { XDG_CONFIG_HOME: first }, cwd)
     const b = await adapter.client({}, { XDG_CONFIG_HOME: second }, cwd)
-    expect(acquire.mock.calls[0][0]?.mcp).not.toHaveProperty(alias)
+    expect(acquire.mock.calls[0][0]?.mcp).toHaveProperty(alias, { enabled: false })
     expect(acquire.mock.calls[1][0]?.mcp).toHaveProperty(alias)
     await writeFile(config, '{}')
     openCodeDiscovery.invalidate()

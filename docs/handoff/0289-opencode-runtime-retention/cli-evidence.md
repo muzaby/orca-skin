@@ -47,3 +47,34 @@ app에서 `node scripts/smoke-opencode-retention.mjs`를 실행한다. `ORCA_SMO
 - 제외: 기존 `artifact-sdk-live.test.ts`, `harnesses/opencode/native-storage.integration.test.ts` 각 1건은 해당 통합 환경 조건으로 skipped다.
 
 CLI 재실행 중 Windows 임시 폴더 정리 EBUSY 1회와 기존 시험의 두 관측 경합도 기록했다. turn.aborted에서 iterator를 종료하면 아직 응답 중인 interrupt까지 취소하므로 실제 지속 runtime처럼 소비를 유지하도록 바꿨다. 마지막 model 요청을 읽던 단언은 해당 턴의 role=tool 출력으로 바꾸고, 거절 시 model에 출력이 없을 수 있으므로 실제 permission reply와 미실행을 직접 본다. 마지막 실행은 정리까지 통과했다.
+
+## ΔV1 구현 중 CLI 재실행 — 2026-10-29
+
+**부분 관측이며 성공 실행이 아니다.** Windows의 같은 격리 실행기로 Delta 작업 트리를 실행했다. CLI는 `opencode --version`으로 1.19.0을 재확인했다. main 조립·실제 CLI·loopback 모델·stdio/HTTP/내장 MCP를 사용했고, 실제 renderer와 사용자 MCP 환경은 측정하지 않았다. 앞 절의 V1 전후 결과와 이번 결과를 섞지 않는다.
+
+마지막 실행은 boot부터 두 번의 전송·idle/busy 토글·idle 만료까지 진행했다. 만료 뒤 두 번째 child를 시작했지만 `TimeoutError: OpenCode 서버 시작 시간 초과`로 exit 1이 됐다. 원인은 확정하지 않았으며 제품 시작 timeout은 변경하지 않았다. 따라서 만료 후 복귀·quit의 완료 단언과 H1/H2 인수는 미완료다.
+
+| 단계 | UTC (2026-10-28) | spawn / exit | CLI HTTP | MCP status | 모델 요청 | HTTP MCP 연결 | instance / bridge |
+|---|---|---:|---:|---:|---:|---:|---:|
+| boot | 23:47:13.307Z | 1 / 0 | 10 | 4 | 0 | 1 | 1 / 1 |
+| landing | 23:47:13.441Z | 1 / 0 | 11 | 5 | 0 | 1 | 1 / 1 |
+| navigation-return | 23:47:13.554Z | 1 / 0 | 11 | 5 | 0 | 1 | 1 / 1 |
+| first-send | 23:47:16.820Z | 1 / 0 | 16 | 5 | 2 | 1 | 1 / 1 |
+| second-send | 23:47:17.322Z | 1 / 0 | 17 | 5 | 3 | 1 | 1 / 1 |
+| idle-toggle | 23:47:17.688Z | 1 / 0 | 25 | 9 | 3 | 2 | 1 / 1 |
+| busy-toggle | 23:47:18.928Z | 1 / 0 | 36 | 15 | 4 | 3 | 1 / 1 |
+| idle-expiry | 23:48:50.337Z | 1 / 0 | 39 | 17 | 4 | 3 | 1 / 1 |
+
+한국 시각은 2026-10-29 08:47~08:48이다. instance/bridge는 누적 생성 수이고 활성 수가 아니다. idle-expiry 시점에는 `/instance/dispose` 1회·첫 bridge close를 관측했으며 첫 child의 실제 exit는 그 행 이후에 관측했다. 복귀 실패 정리에서 두 번째 child의 terminate-request와 두 번째 bridge close를 관측했지만, 전체 quit 성공으로 세지 않는다.
+
+| 턴 | prompt 수락 (ms) | assistant 생성 (ms) | 첫 part (ms) |
+|---|---:|---:|---:|
+| 첫 전송 | 446 | 706 | 3177 |
+| 두 번째 전송 | 47 | 123 | 410 |
+| busy 토글을 포함한 전송 | 356 | 424 | 921 |
+
+시간은 각 턴의 trace 시작 기준이며 실제 GUI 입력 시각이 아니다. 최초 응답은 fixture의 도구 호출을 포함해 모델 요청이 2회다. 부팅의 모델 요청은 0이고 두 전송까지 process·instance·bridge 각 1개를 재사용했다. 이 단일 fixture 관측으로 사용자 환경의 체감 개선이나 SLA를 판정하지 않는다.
+
+앞선 두 시도도 구분한다. 첫 시도는 warmup의 예상 HTTP 관측에 도달하지 않아 boot 단언에서 실패했다. 두 번째는 warmup이 반환했을 때 MCP 상태가 `[disabled, connected, connected]`였고 stdio 연결이 뒤이어 완료됐다. 독립 연결이라는 새 계약에 맞춰 실행기에 연결 완료의 bounded wait를 추가했다. 마지막 실행에서 그 boot 단언을 통과했으나 위 재기동 timeout이 남았다.
+
+원본 로컬 로그는 `work/0289-delta-cli.log`, `work/0289-delta-cli2.log`, `work/0289-delta-cli-final.log`다. 마지막 실행은 종료 전에 예외가 발생하여 성공 report JSON을 생성하지 못했다. 위 표는 실제 출력한 stage·turn 사건에서 옮겼다. AC22의 실제 앱/타 PC와 AC33의 사용자 A/C 각 2회 GUI·CLI 시간선은 계속 pending이다.

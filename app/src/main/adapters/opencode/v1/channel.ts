@@ -19,6 +19,7 @@ import { reportError } from '../../../infra/error-report'
 import type { NativeComposerCatalog, NativeResource } from '../../../../shared/native-resources'
 import type { OpenCodeClientLease } from './session-context'
 import { OpenCodeTurnTrace } from './turn-trace'
+import { pluginMentionIds } from '../../../../shared/plugin-mention'
 
 /** One SDK subscription feeds the existing SessionRuntime pump for its entire lifetime. */
 export function openCodeChannel(
@@ -32,6 +33,7 @@ export function openCodeChannel(
   const controller = new AbortController()
   const signal = req.signal ? AbortSignal.any([req.signal, controller.signal]) : controller.signal
   let mainApproval = new AbortController()
+  let admission = new AbortController()
   let client: OpencodeClient | undefined
   let connection: OpenCodeClientLease | undefined
   let composerCatalog: NativeComposerCatalog | undefined
@@ -131,11 +133,24 @@ export function openCodeChannel(
     wake?.()
     wake = undefined
   }
-  const submit = (next: TurnContinuation, initial = false): Promise<void> =>
-    connection?.mcpControl
-      ? connection.mcpControl.submit(signal, () => submitPrepared(next, initial))
-      : submitPrepared(next, initial)
-  const submitPrepared = async (next: TurnContinuation, initial = false): Promise<void> => {
+  const submit = (next: TurnContinuation, initial = false): Promise<void> => {
+    const submittingSignal = AbortSignal.any([signal, admission.signal])
+    const mentioned = pluginMentionIds(next.text).map(
+      (id) => connection?.managedMcpReferences?.[id] ?? id
+    )
+    return connection?.mcpControl
+      ? connection.mcpControl.submit(
+          submittingSignal,
+          () => submitPrepared(next, initial, submittingSignal),
+          mentioned
+        )
+      : submitPrepared(next, initial, submittingSignal)
+  }
+  const submitPrepared = async (
+    next: TurnContinuation,
+    initial: boolean,
+    signal: AbortSignal
+  ): Promise<void> => {
     signal.throwIfAborted()
     if (!client || !connection || !sessionId || !activity)
       throw new Error('OpenCode 이벤트 채널이 준비되지 않았습니다.')
@@ -416,7 +431,8 @@ export function openCodeChannel(
     } catch (error) {
       if (!closed)
         publish(
-          signal.aborted && (req.signal?.aborted || signal.reason?.name === 'AbortError')
+          admission.signal.aborted ||
+            (signal.aborted && (req.signal?.aborted || signal.reason?.name === 'AbortError'))
             ? [
                 {
                   type: 'turn.aborted',
@@ -524,8 +540,15 @@ export function openCodeChannel(
         return { kind: 'rejectedBeforeAccept', reason: 'stream_closed' }
       try {
         trace.start()
+        admission = new AbortController()
         await submit(next)
       } catch (error) {
+        if (admission.signal.aborted && !responseOpen) {
+          publish([
+            { type: 'turn.aborted', ...(sessionId ? { sessionId } : {}), reason: 'user_cancelled' }
+          ])
+          return { kind: 'accepted' }
+        }
         // HTTP failure leaves acceptance uncertain. Retire this generation; the
         // runtime may open a new channel only for a later explicit input.
         close()
@@ -534,11 +557,16 @@ export function openCodeChannel(
       return { kind: 'accepted' }
     },
     interrupt: async () => {
-      if (!sessionId || closed) return { stillQueued: [] }
+      if (closed) return { stillQueued: [] }
+      admission.abort()
+      if (!sessionId) {
+        controller.abort()
+        return { stillQueued: [] }
+      }
       interrupted = responseOpen
       submissionEpoch++
       mainApproval.abort()
-      await abortSession(sessionId)
+      if (responseOpen) await abortSession(sessionId)
       return { stillQueued: [] }
     },
     setPermissionMode: async () => {
