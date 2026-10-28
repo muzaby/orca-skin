@@ -31,7 +31,8 @@ const expire = (): void => {
 beforeEach(async () => {
   now = Date.now()
   vi.spyOn(Date, 'now').mockImplementation(() => now)
-  root = await mkdtemp(join(tmpdir(), 'orca-discovery-'))
+  // Windows tmpdir() can be an 8.3 short path; installations resolve through realpath.
+  root = await realpath(await mkdtemp(join(tmpdir(), 'orca-discovery-')))
   cwd = join(root, 'project', 'child')
   await mkdir(cwd, { recursive: true })
   await mkdir(join(root, 'project', '.git'))

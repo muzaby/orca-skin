@@ -89,9 +89,9 @@ vi.mock('../features/chat/store/chatStore', () => ({
   useChatStore: (
     select: (state: {
       activeKey: string
-      entries: Record<string, { draftGeneration: number }>
+      sessions: Record<string, { draftGeneration: number }>
     }) => unknown
-  ) => select({ activeKey: 'draft', entries: { draft: { draftGeneration: 1 } } }),
+  ) => select({ activeKey: 'draft', sessions: { draft: { draftGeneration: 1 } } }),
   turnEndTick: () => 0,
   useChatBusy: () => false,
   useChatResponding: () => false,
