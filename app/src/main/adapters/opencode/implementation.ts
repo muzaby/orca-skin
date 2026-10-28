@@ -40,6 +40,7 @@ export interface OpenCodeRuntimeOptions {
 }
 
 export interface OpenCodeImplementation {
+  invalidateDiscovery(): void
   globalPluginFiles(): string[]
   globalPluginFingerprint(): Promise<string>
   projectResources: import('../common/project-resources').ProjectResourcePolicy

@@ -586,9 +586,7 @@ describe('OpenCode native read through the SDK boundary', () => {
       '/session/s1',
       '/session/s1/message',
       '/session/s1',
-      '/session/s1/message',
-      '/global/event',
-      '/instance/dispose'
+      '/session/s1/message'
     ])
   })
 })

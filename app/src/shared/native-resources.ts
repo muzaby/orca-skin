@@ -98,3 +98,5 @@ export interface DraftNativeResourcesRequest {
   cwd: string | null
   projectId: string | null
 }
+/** Visible inventory observations must revalidate after this interval. */
+export const NATIVE_RESOURCE_FRESH_MS = 5_000

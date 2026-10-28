@@ -2,7 +2,8 @@ import { spawn, execFile, type ChildProcess } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { allocateLoopbackPort } from '../../../infra/net/loopback-port'
 import { delimiter, isAbsolute, join } from 'node:path'
-import { randomBytes } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
+import { retentionTrace } from './retention-trace'
 import type { HarnessPreferences } from '../../../../shared/harness'
 import { openCodeExecutableIdentity, openCodeServerProfile } from './server-profile'
 
@@ -62,6 +63,7 @@ export class OpenCodeServerPool {
   private readonly ownedEntries = new Set<ServerEntry>()
   private version?: { identity: string; ready: Promise<string> }
   private readonly terminated = new WeakSet<ChildProcess>()
+  private readonly identities = new WeakMap<ChildProcess, string>()
   private stopped = false
   private readonly shutdown = new AbortController()
 
@@ -172,6 +174,7 @@ export class OpenCodeServerPool {
 
   private terminate(child?: ChildProcess): void {
     if (!child || this.terminated.has(child)) return
+    retentionTrace('process.terminate-request', { runtime: this.identities.get(child) })
     this.terminated.add(child)
     if (child.exitCode != null) return
     if (process.platform === 'win32' && child.pid) {
@@ -192,6 +195,8 @@ export class OpenCodeServerPool {
     profile: ReturnType<typeof openCodeServerProfile>,
     own: (child: ChildProcess) => void
   ): Promise<OpenCodeConnection> {
+    const runtime = randomUUID()
+    retentionTrace('process.start-request', { runtime })
     const version = await this.readVersion(executable)
     // SDK의 /v2/client export와 제품 CLI의 major는 별개다. 실행 대상은 1.x만 지원한다.
     if (!/^(?:opencode\s+)?v?1\.\d+\.\d+(?:-[\w.-]+)?(?:\+[\w.-]+)?$/.test(version)) {
@@ -220,6 +225,8 @@ export class OpenCodeServerPool {
       }
     )
     own(child)
+    this.identities.set(child, runtime)
+    retentionTrace('process.spawn', { runtime })
     const exited = new AbortController()
     const timeout = new AbortController()
     const timer = setTimeout(
@@ -228,6 +235,7 @@ export class OpenCodeServerPool {
     )
     const signal = AbortSignal.any([this.shutdown.signal, exited.signal, timeout.signal])
     child.once('exit', () => {
+      retentionTrace('process.exit', { runtime })
       exited.abort(new Error('OpenCode 서버가 종료되었습니다. 실행 파일과 설정을 확인해 주세요.'))
       for (const [key, entry] of this.entries) if (entry.child === child) this.entries.delete(key)
     })

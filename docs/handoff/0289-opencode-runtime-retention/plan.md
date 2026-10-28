@@ -5,12 +5,12 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex — 사용자 지시로 handoff-plan 수행 / 2026-10-27 |
-| 상태 / 라운드 | READY / 1 |
+| 상태 / 라운드 | IMPL_DONE / 1 (독립 검증 대기) |
 | V mode / revision | Baseline V / V1 |
 | 기준 V / 유효 V | none / V1. 새 성능·수명 작업의 기준선이며 0288 전체 검증을 승계하지 않는다 |
 | 조사 코드 | 공유 브랜치 orca-0288-cross-harness-mcp-plan, 24e79f7a. git cat-file -t 및 pull --ff-only 확인 |
 | 이전 계약 출처 | 0288 V1@801f27f6, 0275 ΔV6@79ccc64 — 존재 확인. 변경·보존 관계는 §16 |
-| 산출 경계 | 이번 턴은 설계·재현 증거만. 구현·독립 verify는 후속 |
+| 산출 경계 | V1 설계 + r1 구현 자기보고. AC22의 실제 앱/타 PC 인수·독립 verify는 후속 |
 
 # Part I — Product & UX Contract
 
@@ -509,51 +509,149 @@ G3: app에서 node scripts/check-doc-inventory.mjs --check 실행. generated/pro
 
 ## [구현자 기입] 설계 리뷰
 
-미착수. 동의/이견, Part I/II 해당 절, ACTIVE Decision 충돌 여부를 기록한다.
+r1 구현 자기보고(2026-10-28). V1의 D01~16·AC1~22를 유지했다. 구현 중 규범 변경을 요구하는 PLAN_GAP은 없었다. 0288·0287·0286의 독립 검증을 대신하지 않는다.
+
+Part I의 논리 owner 종료와 Part II의 물리 보유를 분리했다. main 조립은 catalog/resources/warmup이 같은 service를 사용하고, 모델·agent 목록은 MCP 연결 선택으로 지우지 않는다. O10의 실제 조립 시험은 별도 integration 파일 대신 `opencode-mcp-reconcile.test.ts`와 공유 fixture에 두었다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
+고정 자리 90개(A19·B17·C9·D6·E10·F10·G9·H5·I5)를 직접 oracle에 대응했다. 중복 포함하는 pair별 합계를 고유 자리 수로 더하지 않는다. Q1~Q6 출력·새 helper의 기존 자리 승계·ID 양방향 차집합은 [관측표](implementation-evidence.md)에 기록했다. 검색 hit는 분모가 아니다.
+
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| 미착수 | — | enforcement.md | — | — | — | — |
+| VP01 | 취소·최신 결과 | B1~17·C1~9 (26) | 26/26 기계 자리 | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 해당 ID → T 좌표; G2 실행 | pending draft/saved 해제는 disconnected+partial, generation 없음 | 없음 |
+| VP02 | 재진입·승격·조회 공유 | A1~19·B1~17·C1~9·D1~6 (51) | 51/51 기계 자리 | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 해당 ID → T 좌표; G2 실행 | 89,999ms 재사용·90,000ms 회수; 실제 승격의 같은 선택만 계승 | 없음 |
+| VP03 | 연결 선택과 정의 분리 | E1~10·F1~10 (20) | 20/20 기계 자리 | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 해당 ID → T 좌표; G2 실행 | on/off는 같은 process; 정의 11/선택 23/전체 37 구별 | 없음 |
+| VP04 | dependency 검증 | G1~9 (9) | 9/9 기계 자리 | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 해당 ID → T 좌표; G2 실행 | 동일 mtime 내용 변경·부재 생성·환경/설치 교체 재검증 | 없음 |
+| VP05 | 웜업 eligibility | H1~5 (5) | 5/5 기계 자리 | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 해당 ID → T 좌표; G2 실행 | 실제 Bootstrap에서 gate 허용만 start, 부팅 await 없음 | 없음 |
+| VP06 | 외부 계약·실패·측정 | A1~19·C1~9·E1~10·F1~10·I1~5 (53) | 53/53 기계 자리 | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 해당 ID → T 좌표; G2 실행 | secret sentinel 미노출·profile 격리·중복 prompt 없음 | H1 실제 앱 창·타 PC 인수 |
+| VP07 | 논리/물리 수명 | A1~19·B1~17·D1~6 (42) | 42/42 기계 자리 | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 해당 ID → T 좌표; G2 실행 | consumer 반환 즉시, 물리 ack+event 뒤 의존성 해제 | 없음 |
+| VP08 | 적용과 제출 직렬화 | E1~10·F1~10 (20) | 20/20 기계 자리 | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 해당 ID → T 좌표; G2 실행 | busy/background 보류, mutation 실패 뒤 prompt 없음 | 없음 |
+| VP09 | gate·실패 후 foreground | H1~5·A1~19 (24) | 24/24 기계 자리 | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 해당 ID → T 좌표; G2 실행 | gate 철회/quit owner 해제, 실패 후 명시 재시도 | 없음 |
+| VP10 | 실제 IPC·store 연결 | B1~17·C1~9 (26) | 26/26 기계 자리 | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 해당 ID → T 좌표; G2 실행 | 두 IPC와 warmup prepare 1; 실제 store의 snapshot 승계 | 없음 |
+| VP11 | projection·restart 운반 | E1~10·F1~10·A1~19 (39) | 39/39 기계 자리 | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 해당 ID → T 좌표; G2 실행 | 처음 off도 정의 투영; OpenCode/Claude restart 축 구별 | 없음 |
+| VP12 | 감시·reader·UI | G1~9·H1~5·C1~9 (23) | 23/23 기계 자리 | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 해당 ID → T 좌표; G2 실행 | 외부 변경→dirty/read→broadcast, old revision 폐기 | 없음 |
+| VP13 | idle reservation/fence | A7·A8·A9·A10 (4) | 4/4 기계 자리 | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 해당 ID → T 좌표; G2 실행 | 단일 deadline·전체 idle cap·늦은 dispose fence | 없음 |
+| VP14 | owner·part·signal | B2·B3·B4·B5·D1·D2·D3 (7) | 7/7 기계 자리 | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 해당 ID → T 좌표; G2 실행 | sender 하나 취소해도 peer 성공; 5초 slot·실패 재시도 | 없음 |
+| VP15 | revision·applied | E3·E4·E6·F1·F5·F6·F7·F8 (8) | 8/8 기계 자리 | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 해당 ID → T 좌표; G2 실행 | 두 턴 진입과 spawn/reset의 11/23/37 운반 | 없음 |
+| VP16 | manifest·epoch | G1·G2·G3·G4 (4) | 4/4 기계 자리 | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 해당 ID → T 좌표; G2 실행 | 파일 read 공유·epoch 교체 뒤 old result 미채택 | 없음 |
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| 미착수 | — | — | — | — |
+| VP01 | REQUIRED | SELF_PASS | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 B1~17·C1~9 | M1·M2·M3·M4 |
+| VP02 | REQUIRED | SELF_PASS | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 A1~19·B1~17·C1~9·D1~6 | M1·M2·M3·M4 |
+| VP03 | REQUIRED | SELF_PASS | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 E1~10·F1~10 | M1 |
+| VP04 | REQUIRED | SELF_PASS | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 G1~9 | 해당 없음 — 직접 oracle |
+| VP05 | REQUIRED | SELF_PASS | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 H1~5 | M4 |
+| VP06 | REQUIRED | SELF_BLOCKED(H1만 대기) | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 A1~19·C1~9·E1~10·F1~10·I1~5 | M1·M2 |
+| VP07 | REQUIRED | SELF_PASS | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 A1~19·B1~17·D1~6 | M1·M3·M4 |
+| VP08 | REQUIRED | SELF_PASS | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 E1~10·F1~10 | M1 |
+| VP09 | REQUIRED | SELF_PASS | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 H1~5·A1~19 | M4 |
+| VP10 | REQUIRED | SELF_PASS | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 B1~17·C1~9 | M1·M2·M3·M4 |
+| VP11 | REQUIRED | SELF_PASS | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 E1~10·F1~10·A1~19 | M1 |
+| VP12 | REQUIRED | SELF_PASS | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 G1~9·H1~5·C1~9 | M2·M4 |
+| VP13 | REQUIRED | SELF_PASS | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 A7·A8·A9·A10 | 해당 없음 — 직접 oracle |
+| VP14 | REQUIRED | SELF_PASS | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 B2·B3·B4·B5·D1·D2·D3 | 해당 없음 — 직접 oracle |
+| VP15 | REQUIRED | SELF_PASS | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 E3·E4·E6·F1·F5·F6·F7·F8 | M1 |
+| VP16 | REQUIRED | SELF_PASS | [자리별 관측과 테스트 좌표](implementation-evidence.md)의 G1·G2·G3·G4 | 해당 없음 — 직접 oracle |
+
+SELF_PASS 15 · SELF_BLOCKED 1 = REQUIRED 16. 기계 자리 90/90과 H1 실기 완료는 별개다. VP06은 실제 Windows CLI의 main 조립까지만 측정했으며 실제 앱 창 전환과 타 PC 인수를 기다린다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| 미착수 | — | — | — | — |
+| F3·F4·F5·F7 restart를 반대 revision 축으로 운반 | M1 / O6 | 해당 없음(r1) | managed-mcp-revision / 각각 1·1·3·1 red | 원복마다 3 green |
+| C3 models/agents 맞바꿈, C5 store 승격 연결 제거 | M2 / O9 | 해당 없음(r1) | composer-promotion / 각각 3·1 red | 원복마다 5 green |
+| B15 두 준비 진입을 별도 service로 조립 | M3 / O2 | 해당 없음(r1) | composer-preparation-service / 1 red | 원복 2 green |
+| H1 시작·H2 gate 재평가·H5 종료 각각 제거 | M4 / O8 | 해당 없음(r1) | bootstrap.opencode-warmup / 각각 2·2·1 red | 원복마다 5 green |
 
-분모 검산·덮개 회귀·자리 검색 출력과 고정 목록의 차집합을 기록한다.
+선택 증거 10자리 + 이전 검증 인용 변이 0 + 별도 신설 구조적 oracle 0 = 10자리(위 표 4그룹). [개별 변이 기록](implementation-evidence.md#선택된-변이)에 정확한 주입과 원복 결과를 남겼다. F5는 snapshot을 받지 않는 scalar 함수이므로 반대 축 fixture 값 37을 주입했다. 나머지 행동 oracle에는 추가 mutation을 만들지 않았다.
+
+기존 대표 테스트의 즉시 dispose·동결된 전역 선택·MCP 변경 시 모델 삭제 기대값을 새 계약으로 바꿨다. 다른 cwd/profile 격리·프로젝트 쓰기 거부·startup/transport 실패 assertion은 보존했다. 이전 verify의 red 변이는 없다. 고정 자리 ID−보고 ID와 역차집합은 각각 빈 집합이다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 대면 상태의 소비자·실패의 관측·늦은 응답·정리 범위 | 미착수 | — |
+| 화면을 닫은 관측의 실패가 토스트로 남는가 | 취소는 typed reason으로 끝나고 read-only partial·generation 없음; 실제 실패/성공 empty는 구별 | T22·T23·T29~32 |
+| 토글 직후 도구가 아직 옛 상태인가 | desired와 applied를 분리; busy 동안 configurationPending, 성공 후 목록 재조회 | T34·T36·T52·T53 |
+| 첫 입력에서 모델 메뉴가 지워지는가 | 실제 chatStore에서 같은 draft/cwd/provider/agent만 snapshot·flight 승계 | T27·T28 |
+| 웜업이 사용자의 시작을 막는가 | 실제 Bootstrap start는 기다리지 않음; gate/quit에 owner 취소 | T26·T47~51 |
+| 부분 실패·늦은 응답의 소비자가 있는가 | 직렬 read와 revision/serial fence로 폐기, 명시 재시도 경로 유지 | T18·T29~33·T43 |
+| 실제 앱 창의 전후 체감도 확인했는가 | 실제 CLI main 조립 측정 완료; renderer 창·타 PC 시간선 미측정 | AC22/H1 인수 대기, SLA 주장 없음 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 미착수 | — | — | — |
+| I1 | native 토글과 명시 refresh가 겹치면 상태 seed와 control revision이 경합 | read를 mutation/submit과 같은 directory queue에 넣고 동시 read flight 공유 | bootstrap.native-history·adapter inventory 시험 통과 |
+| I2 | live read 도중 source 변경 시 과거 generation으로 반환 가능 | 한 번 최신 read 재시도; 연속 교체는 안전한 disconnected partial | handlers/managed-mcp-resources의 retry/churn 단언 |
+| I3 | 테스트 fixture가 실제 사용자 MCP 파일을 참조함 | fixture mcpJsonPath를 임시 경로로 명시; 관측된 fixture user 항목만 제거 | 제거 당시 fixture-user 항목이 사라지고 mcpServers가 빈 객체임을 확인. 원래 파일 존재/서식의 완전 복원은 확인 불가 |
+| I4 | 종료 측정의 고정 2초 대기로 정상 종료보다 먼저 단언 | bounded exit/signal 관측으로 교체; production 종료 timeout은 변경 없음 | 실제 CLI 생성 child 모두 exit 확인 |
+| I5 | Windows I/O 오류로 선택 변이 원복이 실패 | 원본 bytes 보존, gate callback 복구 후 H2/H5 red·원복 green 재실행 | 변이 기록; start/update/close 배선 재확인 |
+| I6 | 실제 CLI 시험의 소비자가 turn.aborted에서 iterator를 끝내 interrupt HTTP 완료 전에 채널을 닫음 | 실제 persistent runtime처럼 interrupt 완료까지 event 소비를 유지한 뒤 명시 close | managed-mcp.cli.integration의 승인 취소·turn.aborted·child 종료 단언 유지 |
+| I7 | 실제 CLI 거절 후 model tool 메시지가 없는 경우 기존 문자열 oracle이 실패 | SDK permission reply의 reject/200과 도구 실행 증가 0을 직접 단언; 허용 결과는 해당 턴의 실제 role=tool 출력에서 확인 | managed-mcp.cli.integration; native background 요청의 마지막 도착 순서에 의존하지 않음 |
 
 ### 설계 대비 명시적 차이
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 / 공유 / 재진입 / 무효화 | 미착수 | — |
+| 만료 / 공유 / 재진입 / 무효화 | O10의 OS spawn은 fixture여서 실제 OS 종료를 단독 증명하지 못함 | T03의 경계·비밀 단언 + 별도 실제 CLI 전후 측정. 실제 앱 GUI H1은 미완료 |
+| oracle 파일 위치 | O10이 O5와 같은 실제 조립/fixture를 공유 | `opencode-mcp-reconcile.test.ts`의 trace 케이스가 A·B·D·E·I 경계 실행 |
+| ABI 실행기 | plain Node 전체 실행의 DB 사례는 Electron ABI로 로드 불가 | DB 파일을 Electron Node 모드로 분리 재실행, ABI를 교체하지 않음 |
+| 문서 링크 gate | 기존 임시 checkout 두 곳의 링크가 전역 스캔에 포함 | generated/prose 통과, 기존 링크 10건은 설계 때와 동일; 이번 문서 상대 링크 별도 확인 |
 
 ## [구현자 기입] 구현 보고
 
-미착수. 대상 commit은 INDEX, AC별 결과·게이트·실기·남은 항목과 Criteria 검산을 기록한다.
+구현과 기계 게이트를 완료했다. commit 좌표는 INDEX의 검증자 기입란을 따른다. 실제 CLI 전후 결과는 [CLI 관측](cli-evidence.md), 직접 oracle·검색·변이는 [구현 관측](implementation-evidence.md)을 참조한다.
+
+| AC | 결과 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | T22·T23 draft/saved 취소 안전 DTO, renderer 토스트 없음 |
+| AC2 | ✅ | 최신 재조회·연속 churn partial, 실제 실패/empty 구별 |
+| AC3 | ✅ | T03 두 send까지 process/bridge 1; 실제 CLI도 유예 내 1 |
+| AC4 | ✅ | T06 89,999/90,000ms·cap4·ack/event 경계 |
+| AC5 | ✅ | T10~13 consumer 즉시 반환·T18 peer 성공/late release |
+| AC6 | ✅ | T04·T05·T07·T08 replacement 보호·종료 timer 정리 |
+| AC7 | ✅ | T27 실제 승격에서 같은 선택만 snapshot/flight 보존 |
+| AC8 | ✅ | T21 두 IPC+warmup resolve/prepare 각각 1 |
+| AC9 | ✅ | T33 공유 slot·5초 만료·실패 재시도, T32 visible reopen |
+| AC10 | ✅ | T34·T37·T03 토글 뒤 process/instance/bridge 유지 |
+| AC11 | ✅ | T34 처음 disabled 정의를 연결; off 항목 실행 제외 |
+| AC12 | ✅ | T34 native 전역 live 적용·project 우선·원문 파일 불변 |
+| AC13 | ✅ | T36·T52·T53 busy/background/queued/wakeup·제출 barrier |
+| AC14 | ✅ | T35·T37·T38 정의/auth 변화와 두 턴의 restart 정책 |
+| AC15 | ✅ | T39~41 공유 probe·설치 metadata·독립 반환 |
+| AC16 | ✅ | T39~44 동일mtime/부재/환경/.git/설치·stale flight |
+| AC17 | ✅ | T21·T47 Bootstrap 웜업과 foreground 공유·비차단 |
+| AC18 | ✅ | T26·T48~51 backend/CLI/gate/shutdown·실패 재시도 |
+| AC19 | ✅ | Claude/DB/IPC·회귀 시험, 신규 DB migration·IPC 채널 없음 |
+| AC20 | ✅ | T09·T15·T16 profile/cwd·인가/철회·bridge 정리 |
+| AC21 | ✅ | T02·실패/재시도 스위트·중복 prompt 없는 두 턴 |
+| AC22 | ⚠️ | 사건/비밀 단언·실제 Windows CLI 전후 확보; 실제 앱 창과 타 PC H1 대기 |
+
+✅ 21 · ⚠️ 1 · ❌ 0 = 총 22. Criteria-Met은 21/22이며 AC22의 미측정 범위를 pending으로 남긴다.
+
+| Gate | 관측한 산출 | 판정 / 남은 경계 |
+|---|---|---|
+| G0 | V1 REQUIRED 16·고정 자리 90; 구현 7섹션·ID 양방향 차집합 빈 집합 | 규범 행 불변·diff check·보드 재확인 |
+| G1 | npm run lint: error 0/warning 2(기존 React Compiler), npm run typecheck: node/web/test 모두 exit 0 | 마지막 추가 시험·측정 script scoped lint도 error 0 |
+| G2 | 전체 첫 실행 860파일: 7,685 pass/345 fail/88 pending; 파일별 최신 집계 862파일: 8,125 pass/0 fail/2 skipped | 전체 한 번에 green이라고 보고하지 않음 |
+| G3 | generated/prose 정상, 기존 .tmp/opencode-dev·app/.temp/opencode 링크 10건 실패 | 변경 문서 링크 누락 0, 기존 복사본 보존 |
+| G4 | scripts 144/144; migration append-only·test-budget 16 suite 정상; 실제 CLI 전후 측정 | 실제 GUI/타 PC 인수는 미완료. release build·독립 verify 아님 |
+| G5 | INDEX impl/IMPL_DONE·다음 Claude; trailer는 커밋 직후 파싱 확인 | 구현 commit/push는 공유 작업 브랜치 |
+
+G2의 ABI 실패 301케이스는 Electron Node 모드 43파일/410케이스 통과로 대체 관측했다. 추가 DB targeted 3파일/50케이스도 통과했다. fork worker 종료 지연 진단이 출력됐지만 DB report 실패 0·프로세스 exit 0을 확인했다. 나머지 경합/fixture 기대값을 수정하고 해당 파일을 재실행했다. 시간 초과는 단독 재현 실행으로 구별했다. 파일별 최신 report 집계와 상세 한계는 CLI 관측 문서에 함께 남긴다.
 
 ## [구현자 기입] Review Signals — 사실만
 
-미착수.
+- 라운드는 V1 r1이다. 중간 `계속`은 중단된 같은 구현 작업을 재개한 것이며 verify 없는 새 재구현 라운드를 만든 것이 아니다.
+- 이전 verify 결과·미검출 변이 이력은 없다. 이번 전체 게이트가 status read/reconcile 경합과 기존 fixture 기대값 불일치를 드러냈다.
+- 선택 변이 10자리 모두 assertion red와 원복 green을 확인했다. 파일 I/O 오류로 한 번 원복이 실패해 bytes 복구와 재실행을 수행했다.
+- 이 Windows 호스트의 I/O/CLI startup/test timeout 변동, SQLite ABI, 기존 임시 checkout 링크 실패를 반복 관측했다. 지연을 제품 timeout/SLA 변경 근거로 쓰지 않았다.
+- 실제 사용자 MCP 파일을 건드린 테스트 격리 오류(I3)가 있었다. 기록된 fixture 항목만 제거했으며 원래 파일 상태 완전 복원을 주장하지 않는다.
+- 실제 앱 창·타 PC의 H1 증거는 없다. 독립 verify가 아직 없고, 0288 등 이전 handoff도 검증 완료로 올리지 않았다.
 
 ## [검증자 기입] 파생 이슈
 

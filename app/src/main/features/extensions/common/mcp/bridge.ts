@@ -4,6 +4,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
+import { getLogger } from '../../../../infra/log/registry'
 import type {
   ManagedMcpBridgeLease,
   ManagedMcpSnapshot,
@@ -31,14 +32,14 @@ export class ManagedMcpBridge {
 
   async acquire(snapshot: ManagedMcpSnapshot): Promise<ManagedMcpBridgeLease> {
     if (this.closed) throw new Error('MCP bridge is closed')
-    let flight = this.generations.get(snapshot.revision)
+    const revision = snapshot.definitionRevision ?? snapshot.revision
+    let flight = this.generations.get(revision)
     if (!flight) {
       flight = this.open(snapshot).catch((error: unknown) => {
-        if (this.generations.get(snapshot.revision) === flight)
-          this.generations.delete(snapshot.revision)
+        if (this.generations.get(revision) === flight) this.generations.delete(revision)
         throw error
       })
-      this.generations.set(snapshot.revision, flight)
+      this.generations.set(revision, flight)
     }
     const generation = await flight
     if (this.closed) {
@@ -53,14 +54,14 @@ export class ManagedMcpBridge {
         if (released) return
         released = true
         if (--generation.references) return
-        if (this.generations.get(snapshot.revision) === flight)
-          this.generations.delete(snapshot.revision)
+        if (this.generations.get(revision) === flight) this.generations.delete(revision)
         await generation.lease.release()
       }
     }
   }
 
   private async open(snapshot: ManagedMcpSnapshot): Promise<Generation> {
+    const trace = randomUUID()
     const endpoints = new Map<string, { url: string; token: string }>()
     if (!snapshot.plugins.size)
       return { references: 0, lease: { endpoints, release: async () => undefined } }
@@ -252,6 +253,7 @@ export class ManagedMcpBridge {
     const address = listener.address()
     if (!address || typeof address === 'string') throw new Error('MCP listener unavailable')
     host = `127.0.0.1:${address.port}`
+    getLogger().child('mcp').debug('managed-mcp.bridge.open', { id: trace })
     for (const id of snapshot.plugins.keys())
       endpoints.set(id, { url: `http://${host}/mcp/${encodeURIComponent(id)}`, token })
     let closing: Promise<void> | undefined
@@ -274,6 +276,7 @@ export class ManagedMcpBridge {
               listener.close(() => resolve())
               listener.closeAllConnections()
             })
+            getLogger().child('mcp').debug('managed-mcp.bridge.close', { id: trace })
           })())
       }
     }

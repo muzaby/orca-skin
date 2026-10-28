@@ -16,13 +16,17 @@ export interface ManagedMcpPlugin {
 /** Main-only execution input. Never serialize into IPC or a file. */
 export interface ManagedMcpSnapshot {
   revision: number
+  definitionRevision?: number
+  connectionRevision?: number
+  definitions?: OrcaMcpConfig
+  desired?: Record<string, boolean>
   users: OrcaMcpConfig
   plugins: ReadonlyMap<string, ManagedMcpPlugin>
 }
 export interface ManagedMcpSource {
   snapshot(): ManagedMcpSnapshot
   refresh(): void
-  subscribe(listener: (revision: number) => void): () => void
+  subscribe(listener: (revision: number, kind?: 'definitions' | 'connections') => void): () => void
 }
 export interface ManagedMcpBridgeLease {
   endpoints: ReadonlyMap<string, { url: string; token: string }>

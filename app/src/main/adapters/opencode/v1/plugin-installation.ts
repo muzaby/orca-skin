@@ -1,5 +1,10 @@
 import { createHash } from 'node:crypto'
-import { realpath, stat } from 'node:fs/promises'
+import {
+  discoveryRealpath as realpath,
+  discoveryStat as stat,
+  discoveryReadFile,
+  openCodeDiscovery
+} from './discovery-cache'
 import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -10,7 +15,7 @@ export function openCodePluginId(spec: string): string {
 }
 
 /** Read installed metadata only; never import a plugin or invoke the package manager. */
-export async function openCodePluginInstallation(
+async function readPluginInstallation(
   spec: string,
   cwd: string,
   env: NodeJS.ProcessEnv = process.env
@@ -41,9 +46,19 @@ export async function openCodePluginInstallation(
     const entry = await stat(target)
     const directory = entry.isDirectory() ? target : entry.isFile() ? dirname(target) : undefined
     if (!directory) return
-    const description = await pluginDescription(join(directory, 'package.json'))
+    const description = await pluginDescription(join(directory, 'package.json'), discoveryReadFile)
     return { directory, ...(description ? { description } : {}) }
   } catch {
     return undefined
   }
+}
+
+export function openCodePluginInstallation(
+  spec: string,
+  cwd: string,
+  env: NodeJS.ProcessEnv = process.env
+): ReturnType<typeof readPluginInstallation> {
+  return openCodeDiscovery.run(openCodeDiscovery.key('installation', cwd, env, spec), () =>
+    readPluginInstallation(spec, cwd, env)
+  )
 }

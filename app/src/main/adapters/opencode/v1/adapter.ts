@@ -25,6 +25,7 @@ import type { ComposerCatalogData } from '../../../../shared/composer-catalog'
 import type { ManagedMcpRuntime, ManagedMcpSnapshot } from '../../common/managed-mcp'
 import { mapManagedMcpResources, projectManagedMcp } from './managed-mcp'
 import { configuredOpenCodeResources } from './configured-resources'
+import { openCodeDiscovery } from './discovery-cache'
 
 export class OpenCodeAdapter implements SessionAdapter {
   readonly id = 'opencode' as const
@@ -54,7 +55,15 @@ export class OpenCodeAdapter implements SessionAdapter {
       import('../../../../shared/harness').OpenCodePreferences | undefined,
     private readonly managedMcp?: ManagedMcpRuntime
   ) {
-    this.contexts = new OpenCodeSessionContexts(fetchImpl, 4096, extensionControl)
+    this.contexts = new OpenCodeSessionContexts(fetchImpl, 4096, extensionControl, undefined, () =>
+      reportError({
+        event: 'opencode.instance.dispose.failed',
+        scope: 'engine',
+        title: 'engineInternal',
+        level: 'warn',
+        detail: 'OpenCode 프로젝트 정리를 완료하지 못했습니다. 새 연결로 다시 시작해 주세요.'
+      })
+    )
   }
   agentSpawnEnv(): Record<string, never> {
     return {}
@@ -73,7 +82,18 @@ export class OpenCodeAdapter implements SessionAdapter {
     }
   }
   extensionsChanged(): void {
+    this.contexts.retireAll()
     this.servers.retireAll?.()
+  }
+
+  restartRevision(snapshot: ManagedMcpSnapshot | undefined): number | undefined {
+    return snapshot?.definitionRevision ?? snapshot?.revision
+  }
+  configureResourceActivity(idle: (cwd: string, beforeSubmit: boolean) => boolean): void {
+    this.contexts.configureResourceActivity(idle)
+  }
+  reconcileConnections(): Promise<void> {
+    return this.contexts.reconcileConnections()
   }
 
   close(): void {
@@ -91,11 +111,11 @@ export class OpenCodeAdapter implements SessionAdapter {
     let projection: ReturnType<typeof projectManagedMcp> | undefined
     let server: Awaited<ReturnType<OpenCodeServer['acquire']>>
     try {
+      const native = await configuredOpenCodeResources(cwd || nativeWorkingDirectory(), {
+        ...process.env,
+        ...env
+      })
       if (snapshot && bridge) {
-        const native = await configuredOpenCodeResources(cwd || nativeWorkingDirectory(), {
-          ...process.env,
-          ...env
-        })
         projection = projectManagedMcp(
           snapshot,
           bridge,
@@ -118,8 +138,38 @@ export class OpenCodeAdapter implements SessionAdapter {
       throw error
     }
     try {
-      const lease = await this.contexts.acquire(server, cwd || nativeWorkingDirectory())
       const identities = projection?.identities ?? new Map()
+      const choices = (): Record<string, boolean> => {
+        const current = this.managedMcp?.snapshot()
+        return Object.fromEntries(
+          [...identities].map(([id, identity]) => [
+            id,
+            !!current &&
+              this.restartRevision(current) === this.restartRevision(snapshot) &&
+              (identity.kind === 'user'
+                ? Object.hasOwn(current.users, identity.sourceId)
+                : [...current.plugins.values()].some(
+                    (plugin) =>
+                      plugin.identity.sourceId === identity.sourceId && plugin.authorized()
+                  ))
+          ])
+        )
+      }
+      const lease = await this.contexts.acquire(
+        server,
+        cwd || nativeWorkingDirectory(),
+        () => {
+          server.release?.()
+          void bridge?.release().catch(() => undefined)
+        },
+        projection ? { choices } : undefined,
+        openCodeDiscovery.key(
+          'configured',
+          cwd || nativeWorkingDirectory(),
+          { ...process.env, ...env },
+          'false'
+        )
+      )
       const mapMcpResources = (
         items: import('../../../../shared/native-resources').NativeResource[]
       ): import('../../../../shared/native-resources').NativeResource[] => {
@@ -131,7 +181,8 @@ export class OpenCodeAdapter implements SessionAdapter {
               `${snapshot?.revision}:${item.id}:${item.status}`,
               item.managedSource.sourceId
             )
-          if (!current || current.revision !== snapshot?.revision) return false
+          if (!current || this.restartRevision(current) !== this.restartRevision(snapshot))
+            return false
           if (item.managedSource.kind === 'user')
             return Object.hasOwn(current.users, item.managedSource.sourceId)
           return [...current.plugins.values()].some(
@@ -143,28 +194,26 @@ export class OpenCodeAdapter implements SessionAdapter {
       let releasing: Promise<void> | undefined
       return {
         ...lease,
-        managedMcpMentions: Object.fromEntries(
-          [...identities].map(([id, source]) => [source.mentionId, id])
-        ),
+        get managedMcpMentions() {
+          const enabled = choices()
+          return Object.fromEntries(
+            [...identities]
+              .filter(([id]) => enabled[id])
+              .map(([id, source]) => [source.mentionId, id])
+          )
+        },
         mapMcpResources,
         mcp: async (signal, refresh) => mapMcpResources(await lease.mcp(signal, refresh)),
         release: () => {
-          releasing ??= lease
-            .release()
-            .catch(() =>
-              reportError({
-                event: 'opencode.instance.dispose.failed',
-                scope: 'engine',
-                title: 'engineInternal',
-                detail:
-                  'OpenCode 프로젝트 정리를 완료하지 못했습니다. 새 연결로 다시 시작해 주세요.',
-                level: 'warn'
-              })
-            )
-            .finally(async () => {
-              server.release?.()
-              await bridge?.release()
+          releasing ??= lease.release().catch(() =>
+            reportError({
+              event: 'opencode.instance.dispose.failed',
+              scope: 'engine',
+              title: 'engineInternal',
+              detail: 'OpenCode 프로젝트 정리를 완료하지 못했습니다. 새 연결로 다시 시작해 주세요.',
+              level: 'warn'
             })
+          )
           return releasing
         }
       }

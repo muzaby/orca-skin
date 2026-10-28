@@ -27,6 +27,7 @@ function fixture(): {
   emit: ReturnType<typeof vi.fn>
   owner: ReturnType<typeof vi.fn<(...args: unknown[]) => void>>
   stopped: ReturnType<typeof vi.fn>
+  dirty: ReturnType<typeof vi.fn>
   changed: Array<() => void>
   peers(): ProjectResourceTarget[]
   update(value: string): void
@@ -37,6 +38,7 @@ function fixture(): {
 } {
   const changed: Array<() => void> = [],
     stopped = vi.fn(),
+    dirty = vi.fn(),
     emit = vi.fn(),
     owner = vi.fn()
   const runtime = {
@@ -67,6 +69,7 @@ function fixture(): {
     targets: () => peers,
     policy: () => ({
       files: () => ['config'],
+      dirty,
       read: async () => {
         if (fail) throw new Error('private')
         return { revision }
@@ -94,6 +97,7 @@ function fixture(): {
     emit,
     owner,
     stopped,
+    dirty,
     changed,
     peers: () => peers,
     select: (value: string) => {
@@ -146,6 +150,7 @@ it('shares one watcher, emits immediately while either peer is busy and reconcil
   f.busy(true)
   f.update('external')
   await flush()
+  expect(f.dirty).toHaveBeenCalledOnce()
   expect(f.runtime.reconcileNativeResources).not.toHaveBeenCalled()
   expect(f.emit).toHaveBeenLastCalledWith(
     'B',

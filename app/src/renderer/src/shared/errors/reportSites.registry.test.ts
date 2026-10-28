@@ -104,6 +104,18 @@ export const sites: Site[] = [
     line: 128,
     disposition: 'CONSUMED'
   },
+  {
+    file: 'features/chat/harnesses/opencode/composer/composerCatalogState.ts',
+    ordinal: 2,
+    line: 199,
+    disposition: 'CONSUMED'
+  },
+  {
+    file: 'features/chat/harnesses/opencode/composer/composerCatalogState.ts',
+    ordinal: 3,
+    line: 201,
+    disposition: 'CONSUMED'
+  },
   { file: 'app/boot/bootStore.ts', ordinal: 0, line: 75, disposition: 'CONSUMED' },
   {
     file: 'app/boot/steps.ts',
@@ -725,7 +737,9 @@ function expectedSilent(): string[] {
     'features/chat/hooks/useDiffSyntax.ts:0',
     'features/chat/lib/nativeResourceState.ts:0',
     'features/chat/lib/nativeResourceState.ts:1',
-    'features/chat/harnesses/opencode/composer/composerCatalogState.ts:1',
+    'features/chat/harnesses/opencode/composer/composerCatalogState.ts:0',
+    'features/chat/harnesses/opencode/composer/composerCatalogState.ts:2',
+    'features/chat/harnesses/opencode/composer/composerCatalogState.ts:3',
     'shared/ui/markdown/CodeBlock.tsx:0'
   ]
     .map((key) => {

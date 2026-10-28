@@ -1,3 +1,4 @@
+import { openCodeDiscovery } from './discovery-cache'
 import { afterEach, beforeEach, expect, it } from 'vitest'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -26,6 +27,7 @@ beforeEach(async () => {
   file = join(root, 'opencode', 'opencode.jsonc')
   env = { XDG_CONFIG_HOME: root }
   await writeFile(file, text())
+  openCodeDiscovery.invalidate()
 })
 afterEach(async () => {
   await rm(root, { recursive: true, force: true })
@@ -34,19 +36,25 @@ afterEach(async () => {
 it('derives the fingerprint only from the effective plugin array', async () => {
   const first = await openCodeGlobalPluginFingerprint(env, root)
   await writeFile(join(root, 'opencode', 'opencode.json'), '{"plugin":["shadowed"]}')
+  openCodeDiscovery.invalidate()
   await writeFile(file, text().replace('unchanged', 'external'))
+  openCodeDiscovery.invalidate()
   expect(await openCodeGlobalPluginFingerprint(env, root)).toBe(first)
   await writeFile(file, '{"plugin":[]}')
+  openCodeDiscovery.invalidate()
   expect(await openCodeGlobalPluginFingerprint(env, root)).not.toBe(first)
 })
 
 it('lists only plugins declared by the effective global file as fixed rows', async () => {
   await writeFile(join(root, 'opencode', 'config.json'), JSON.stringify({ plugin: ['shadowed'] }))
+  openCodeDiscovery.invalidate()
   await writeFile(join(root, 'opencode', 'opencode.json'), JSON.stringify({ plugin: [specs[0]] }))
+  openCodeDiscovery.invalidate()
   await writeFile(
     file,
     JSON.stringify({ plugin: [[specs[1], { option: true }], 'unresolvable://plugin'] })
   )
+  openCodeDiscovery.invalidate()
   const values = await globalOpenCodeResources(env, root)
   expect(values.map((value) => value.id)).toEqual([
     openCodePluginId(specs[1]),

@@ -1,3 +1,4 @@
+import { openCodeDiscovery } from './discovery-cache'
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -19,6 +20,7 @@ it('observes exact cwd MCP/plugin keys without writing, and waits for reclamatio
     file,
     '// native\n{"mcp":{"same":{"enabled":false}},"plugin":["p"],"model":"keep",}'
   )
+  openCodeDiscovery.invalidate()
   const first = await readOpenCodeProjectSettings(a)
   const child = await readOpenCodeProjectSettings(b)
   expect(first.mcp).toEqual({ same: false })
@@ -26,7 +28,9 @@ it('observes exact cwd MCP/plugin keys without writing, and waits for reclamatio
   expect(openCodeProjectFiles(a)).toContain(file)
   const connect = vi.fn(),
     disconnect = vi.fn()
-  const client = { mcp: { connect, disconnect } } as unknown as OpencodeClient
+  const client = {
+    mcp: { connect, disconnect, status: async () => ({ data: { same: { status: 'disabled' } } }) }
+  } as unknown as OpencodeClient
   const control = new OpenCodeMcpControl(
     client,
     a,
@@ -35,8 +39,10 @@ it('observes exact cwd MCP/plugin keys without writing, and waits for reclamatio
   )
   await control.prepare() // Own native project declaration wins over an Orca global default.
   await writeFile(file, '{"mcp":{"same":{"enabled":false}},"plugin":["p"],"model":"other"}')
+  openCodeDiscovery.invalidate()
   expect((await readOpenCodeProjectSettings(a)).revision).toBe(first.revision)
   await writeFile(file, '{"mcp":{"same":{"enabled":true}},"plugin":["p"],"model":"other"}')
+  openCodeDiscovery.invalidate()
   const bytes = await readFile(file, 'utf8')
   const next = await control.policy.read(a)
   expect(await control.reconcile(next.revision, () => false)).toBe('pending')
@@ -73,11 +79,13 @@ it('changes revision for plugin-only external edits while preserving MCP and oth
   const child = await readOpenCodeProjectSettings(b)
   for (const plugin of [['second'], [['second', { custom: true }]], []]) {
     await write(plugin)
+    openCodeDiscovery.invalidate()
     const next = await readOpenCodeProjectSettings(a)
     expect(next.revision).not.toBe(original.revision)
     expect(next.mcp).toEqual(original.mcp)
     expect(await readOpenCodeProjectSettings(b)).toEqual(child)
     await write(plugin, 'unrelated')
+    openCodeDiscovery.invalidate()
     expect((await readOpenCodeProjectSettings(a)).revision).toBe(next.revision)
   }
 })

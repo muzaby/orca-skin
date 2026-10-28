@@ -18,7 +18,8 @@ import { harnessModule } from '../harnesses/registry'
 
 export function registerExtensionCatalogHandlers(
   control: MutableExtensionControl,
-  processes: ClaudeProcessReset
+  processes: ClaudeProcessReset,
+  changed: (backend: Backend) => void = () => undefined
 ): void {
   const read = async (backend: Backend): Promise<NativeResources> => {
     const items = (await harnessModule(backend).globalResources?.()) ?? []
@@ -60,8 +61,9 @@ export function registerExtensionCatalogHandlers(
         control.setGlobal(request.backend, key, request.enabled)
         processes.close(plan.targets)
       } else
-        // No server access here. Existing directory instances retain their captured choices.
+        // Save succeeds before the runtime receives the new desired connection state.
         control.setGlobal(request.backend, key, request.enabled)
+      changed(request.backend)
       return { status: 'applied', resources: await read(request.backend) }
     }
   )

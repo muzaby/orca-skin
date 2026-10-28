@@ -6,8 +6,41 @@ import type {
   ComposerCatalogScope
 } from '../../shared/composer-catalog'
 import { ComposerCatalogError } from './composer-catalog-error'
+import { getLogger } from '../infra/log/registry'
 
-export class ComposerCatalogCancelled extends Error {}
+export class ComposerCatalogCancelled extends Error {
+  constructor(readonly reason: 'owner-left' | 'superseded' | 'shutdown' = 'owner-left') {
+    super('Composer observation cancelled')
+  }
+}
+
+export function composerScopeKey(scope: ComposerCatalogScope): string {
+  return JSON.stringify([
+    scope.backend,
+    scope.sessionId,
+    scope.cwd,
+    scope.projectId,
+    scope.providerKey,
+    scope.agentKind
+  ])
+}
+
+/** Cancellation settles the observer even when the native acquisition ignores its signal. */
+async function observe<T>(task: Promise<T>, signal: AbortSignal): Promise<T> {
+  let abort!: () => void
+  try {
+    return await Promise.race([
+      task,
+      new Promise<never>((_, reject) => {
+        abort = () => reject(signal.reason)
+        signal.addEventListener('abort', abort, { once: true })
+        if (signal.aborted) abort()
+      })
+    ])
+  } finally {
+    signal.removeEventListener('abort', abort)
+  }
+}
 
 interface Owner {
   scope: string
@@ -39,7 +72,7 @@ export class ComposerCatalogOwners {
     let owners = this.entries.get(sender)
     if (!owners) this.entries.set(sender, (owners = new Map()))
     let entry = owners.get(request.owner)
-    const scope = JSON.stringify(request.scope)
+    const scope = composerScopeKey(request.scope)
     if (entry && entry.scope !== scope) throw new Error('Composer owner scope mismatch')
     if (entry?.lease?.signal.aborted) {
       void this.release(sender, request.owner).catch(() => undefined)
@@ -84,21 +117,23 @@ export class ComposerCatalogOwners {
         })
     }
     try {
-      const lease = await entry.task
+      const lease = await observe(entry.task, entry.controller.signal)
       entry.controller.signal.throwIfAborted()
       const signal = entry.controller.signal
       const result = {
         part: request.part,
-        value: await lease.read(request.part, signal, request.refresh).catch((error: unknown) => {
-          throw new ComposerCatalogError(request.part, error)
-        }),
+        value: await observe(lease.read(request.part, signal, request.refresh), signal).catch(
+          (error: unknown) => {
+            throw new ComposerCatalogError(request.part, error)
+          }
+        ),
         generation: lease.generation
       } as ComposerCatalogResult
       signal.throwIfAborted()
       lease.signal.throwIfAborted()
       return result
     } catch (error) {
-      if (entry.controller.signal.aborted) throw new ComposerCatalogCancelled()
+      if (entry.controller.signal.aborted) throw entry.controller.signal.reason
       throw error
     }
   }
@@ -128,14 +163,19 @@ export class ComposerCatalogOwners {
     return lease
   }
 
-  async release(sender: number, owner: string): Promise<void> {
+  async release(
+    sender: number,
+    owner: string,
+    reason: ComposerCatalogCancelled['reason'] = 'owner-left'
+  ): Promise<void> {
     const owners = this.entries.get(sender)
     const entry = owners?.get(owner)
     if (!entry) return
+    getLogger().child('composer').debug('composer.observation.cancelled', { reason })
     owners!.delete(owner)
     if (!owners!.size) this.entries.delete(sender)
     entry.detach?.()
-    entry.controller.abort(new Error('Composer preparation released'))
+    entry.controller.abort(new ComposerCatalogCancelled(reason))
     // A pending acquisition's completion owns its release; settled leases are ours.
     if (entry.lease) await entry.lease.release()
   }
@@ -150,12 +190,15 @@ export class ComposerCatalogOwners {
       for (const [owner, entry] of entries) {
         if (entry.lease) entry.invalidated({ owner, generation: entry.lease.generation })
       }
-      this.releaseSender(sender)
+      for (const owner of entries.keys())
+        void this.release(sender, owner, 'superseded').catch(() => undefined)
     }
   }
 
   close(): void {
     this.closed = true
-    for (const sender of this.entries.keys()) this.releaseSender(sender)
+    for (const [sender, entries] of this.entries)
+      for (const owner of entries.keys())
+        void this.release(sender, owner, 'shutdown').catch(() => undefined)
   }
 }

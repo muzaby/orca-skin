@@ -80,7 +80,7 @@ function fixture(
     throw new Error(`Unexpected ${path}`)
   }
   return {
-    pool: new OpenCodeSessionContexts(fetchImpl, limit, controls),
+    pool: new OpenCodeSessionContexts(fetchImpl, limit, controls, 0),
     requests,
     streams,
     setRead: (value?: typeof read) => {
@@ -106,7 +106,7 @@ const server = { url: 'http://owned.test', headers: { Authorization: 'Basic one'
 const freshSignal = (): AbortSignal => new AbortController().signal
 
 describe('OpenCode server context with the installed SDK', () => {
-  it('freezes global choices per directory, rejects unsafe project writes and renews after final disposal', async () => {
+  it('reconciles current global choices for idle directory peers and rejects unsafe project writes', async () => {
     let enabled = false
     const f = fixture(4096, {
       global: () => ({ 'mcp:docs': enabled })
@@ -128,21 +128,21 @@ describe('OpenCode server context with the installed SDK', () => {
     })
     const a = await f.pool.acquire(server, 'C:/A')
     const peer = await f.pool.acquire(server, 'C:/A')
-    enabled = true // A acquired its defaults before native preparation.
     await Promise.all([a.prepare(freshSignal()), peer.prepare(freshSignal())])
     expect((await a.mcp(freshSignal()))[0]).toMatchObject({ enabled: false, canToggle: false })
     expect(
       f.requests.filter((request) => new URL(request.url).pathname.endsWith('/disconnect'))
     ).toHaveLength(1)
     enabled = true
+    await f.pool.reconcileConnections()
     const b = await f.pool.acquire(server, 'C:/B')
     await b.prepare(freshSignal())
     expect((await b.mcp(freshSignal()))[0].enabled).toBe(true)
-    expect((await peer.mcp(freshSignal(), true))[0].enabled).toBe(false)
+    expect((await peer.mcp(freshSignal(), true))[0].enabled).toBe(true)
     await expect(a.mcpControl!.set('docs', true)).rejects.toThrow()
-    expect((await peer.mcp(freshSignal(), true))[0].enabled).toBe(false)
+    expect((await peer.mcp(freshSignal(), true))[0].enabled).toBe(true)
     await a.release()
-    expect((await peer.mcp(freshSignal(), true))[0].enabled).toBe(false)
+    expect((await peer.mcp(freshSignal(), true))[0].enabled).toBe(true)
     await peer.release()
     const fresh = await f.pool.acquire(server, 'C:/A')
     await fresh.prepare(freshSignal())
@@ -424,6 +424,7 @@ describe('OpenCode server context with the installed SDK', () => {
       await otherServer.release()
       f.pool.close()
     }
+    await vi.waitFor(() => expect(f.streams.every((stream) => stream.cancelled)).toBe(true))
   })
 
   it('retires a failed stream without letting the old lease delete a replacement context', async () => {

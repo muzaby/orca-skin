@@ -113,6 +113,23 @@ afterEach(() => {
 })
 
 describe('native resources session lifecycle', () => {
+  it('revalidates a connected inventory on visible reopen after five seconds', async () => {
+    dom.render(createElement(Probe, { id: 'freshness', scope: 'opencode' }))
+    await settle()
+    expect(read).toHaveBeenCalledTimes(1)
+    dom.render(createElement(Probe, { id: 'freshness', scope: 'opencode', open: false }))
+    await vi.advanceTimersByTimeAsync(4_999)
+    dom.render(createElement(Probe, { id: 'freshness', scope: 'opencode' }))
+    await settle()
+    expect(read).toHaveBeenCalledTimes(1)
+    dom.render(createElement(Probe, { id: 'freshness', scope: 'opencode', open: false }))
+    await vi.advanceTimersByTimeAsync(1)
+    read.mockResolvedValueOnce(snapshot('fresh'))
+    dom.render(createElement(Probe, { id: 'freshness', scope: 'opencode' }))
+    await settle()
+    expect(read).toHaveBeenCalledTimes(2)
+    expect(current.view).toMatchObject({ value: { generation: 'fresh' } })
+  })
   it.each([
     ['backend', { backend: 'opencode' as const }],
     ['cwd', { cwd: 'C:/other' }],

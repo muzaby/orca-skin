@@ -11,16 +11,26 @@ import type { ExtensionControl } from '../../common/extension-control'
 import { openCodePreparationError } from './errors'
 import { openCodeNativeCommands } from './native-resources'
 import { sameNativePath } from './native-storage'
-import { OpenCodeInstances, waitForOpenCode, type OpenCodeInstance } from './instance-lifecycle'
+import {
+  OpenCodeIdleBudget,
+  OpenCodeInstances,
+  waitForOpenCode,
+  type OpenCodeInstance
+} from './instance-lifecycle'
+import { openCodeDiscovery } from './discovery-cache'
 
 interface ServerIdentity {
   url: string
   headers: Record<string, string>
   retire?: () => void
 }
+export interface ManagedConnectionChoices {
+  choices(): Record<string, boolean>
+}
 
 interface DirectoryState {
   client: OpencodeClient
+  callerClient(signal: AbortSignal): OpencodeClient
   controller: AbortController
   ready?: Promise<void>
   commands?: NativeCommand[]
@@ -28,6 +38,7 @@ interface DirectoryState {
   commandRevision: number
   composer: OpenCodeComposerCache
   mcpControl?: OpenCodeMcpControl
+  discoveryHeld?: boolean
 }
 
 interface Subscriber {
@@ -77,7 +88,14 @@ class ServerContext {
     private readonly fetchImpl: typeof fetch,
     private readonly retire: () => void,
     private readonly queueLimit: number,
-    private readonly extensionControl?: ExtensionControl
+    private readonly extensionControl: ExtensionControl | undefined,
+    idleBudget: OpenCodeIdleBudget,
+    settled: () => void,
+    private readonly releaseDependencies: () => void,
+    idleRetentionMs?: number,
+    cleanupFailed?: () => void,
+    private readonly managed?: ManagedConnectionChoices,
+    private readonly idle: (cwd: string, beforeSubmit: boolean) => boolean = () => true
   ) {
     this.client = createOpencodeClient({
       baseUrl: server.url,
@@ -90,7 +108,15 @@ class ServerContext {
       dispose: async (directory, signal) => {
         await this.client.instance.dispose({ directory }, { signal, throwOnError: true })
       },
-      retire: () => server.retire?.()
+      retire: () => {
+        server.retire?.()
+        this.retire()
+        this.instances.retire()
+      },
+      idleBudget,
+      settled,
+      idleRetentionMs,
+      cleanupFailed
     })
   }
 
@@ -132,24 +158,47 @@ class ServerContext {
         fetch: fetchScoped,
         throwOnError: true
       })
+      const composer = new OpenCodeComposerCache(
+        client,
+        scope.directory,
+        AbortSignal.any([this.controller.signal, scope.controller.signal]),
+        scope.id
+      )
       state = {
         client,
-        ...(this.extensionControl
+        callerClient: (signal) =>
+          createOpencodeClient({
+            baseUrl: this.server.url,
+            headers: this.server.headers,
+            directory: scope.directory,
+            throwOnError: true,
+            fetch: async (input, init) => {
+              const request = new Request(input, init)
+              const combined = AbortSignal.any([signal, request.signal])
+              combined.throwIfAborted()
+              const response = await fetchScoped(new Request(request, { signal: combined }))
+              if (combined.aborted) {
+                await response.body?.cancel().catch(() => undefined)
+                combined.throwIfAborted()
+              }
+              return response
+            }
+          }),
+        ...(this.extensionControl || this.managed
           ? {
               mcpControl: new OpenCodeMcpControl(
                 client,
                 scope.directory,
-                this.extensionControl,
-                scope.controller.signal
+                this.extensionControl ?? { global: () => ({}) },
+                scope.controller.signal,
+                composer,
+                this.managed,
+                (beforeSubmit) => this.idle(scope.directory, beforeSubmit)
               )
             }
           : {}),
         controller: scope.controller,
-        composer: new OpenCodeComposerCache(
-          client,
-          scope.directory,
-          AbortSignal.any([this.controller.signal, scope.controller.signal])
-        ),
+        composer,
         commandRevision: 0
       }
       this.directories.set(scope, state)
@@ -380,6 +429,16 @@ class ServerContext {
     this.close(error)
   }
 
+  async reconcileConnections(): Promise<void> {
+    await Promise.all(
+      this.instances.values().map(async (scope) => {
+        const state = this.directories.get(scope)
+        if (!state || scope.controller.signal.aborted) return
+        await state.mcpControl?.reconcileChoices()
+      })
+    )
+  }
+
   close(reason: Error = new Error('OpenCode 연결이 종료되었습니다.')): void {
     if (this.controller.signal.aborted) return
     this.controller.abort(reason)
@@ -391,21 +450,39 @@ class ServerContext {
       subscriber.wake?.()
       subscriber.wake = undefined
     }
+    this.releaseDependencies()
   }
 }
 
 /** Scope is an owned server's URL and secret fingerprint, never a user-wide singleton. */
 export class OpenCodeSessionContexts {
   private readonly entries = new Map<string, ServerContext>()
+  private readonly owned = new Set<ServerContext>()
+  private readonly idleBudget = new OpenCodeIdleBudget()
   private closed = false
+  private idle: (cwd: string, beforeSubmit: boolean) => boolean = () => true
+  configureResourceActivity(idle: typeof this.idle): void {
+    this.idle = idle
+  }
+  async reconcileConnections(): Promise<void> {
+    await Promise.all([...this.owned].map((context) => context.reconcileConnections()))
+  }
 
   constructor(
     private readonly fetchImpl: typeof fetch,
     private readonly queueLimit = 4096,
-    private readonly extensionControl?: ExtensionControl
+    private readonly extensionControl?: ExtensionControl,
+    private readonly idleRetentionMs?: number,
+    private readonly cleanupFailed?: () => void
   ) {}
 
-  async acquire(server: ServerIdentity, directory: string): Promise<OpenCodeClientLease> {
+  async acquire(
+    server: ServerIdentity,
+    directory: string,
+    releaseDependencies: () => void = () => undefined,
+    managed?: ManagedConnectionChoices,
+    discoveryKey?: string
+  ): Promise<OpenCodeClientLease> {
     if (this.closed) throw new Error('OpenCode 연결 관리자가 종료되었습니다.')
     const key = `${server.url}:${harnessEnvFingerprint(server.headers)}`
     let state = this.entries.get(key)
@@ -417,17 +494,27 @@ export class OpenCodeSessionContexts {
           if (this.entries.get(key) === created) this.entries.delete(key)
         },
         this.queueLimit,
-        this.extensionControl
+        this.extensionControl,
+        this.idleBudget,
+        () => this.finish(key, created),
+        () => {
+          this.owned.delete(created)
+          releaseDependencies()
+        },
+        this.idleRetentionMs,
+        this.cleanupFailed,
+        managed,
+        (cwd, beforeSubmit) => this.idle(cwd, beforeSubmit)
       )
       this.entries.set(key, created)
+      this.owned.add(created)
       state = created
-    }
+    } else releaseDependencies()
     const owned = state
     owned.references++
     const finish = (): void => {
-      if (--owned.references !== 0) return
-      if (this.entries.get(key) === owned) this.entries.delete(key)
-      owned.close()
+      owned.references--
+      this.finish(key, owned)
     }
     let scope: OpenCodeInstance
     try {
@@ -438,36 +525,58 @@ export class OpenCodeSessionContexts {
       throw error
     }
     const metadata = owned.directory(scope)
+    if (discoveryKey && !metadata.discoveryHeld) {
+      metadata.discoveryHeld = true
+      const releaseDiscovery = openCodeDiscovery.hold(discoveryKey, () => {
+        server.retire?.()
+        if (this.entries.get(key) === owned) this.entries.delete(key)
+        owned.instances.retire()
+      })
+      scope.controller.signal.addEventListener('abort', releaseDiscovery, { once: true })
+    }
+    const caller = new AbortController()
+    const combined = (signal: AbortSignal): AbortSignal => AbortSignal.any([signal, caller.signal])
     let releasing: Promise<void> | undefined
     return {
       mcpControl: metadata.mcpControl,
-      signal: metadata.composer.signal,
+      signal: combined(metadata.composer.signal),
       generation: metadata.composer.generation,
-      client: metadata.client,
-      prepare: (signal) => owned.prepare(scope.directory, metadata, signal),
-      commands: (signal) => owned.commands(scope.directory, metadata, signal),
-      composer: (signal, refresh) => owned.composer(metadata, signal, refresh),
-      agents: (signal, refresh) => metadata.composer.agents(signal, refresh),
-      models: (signal, refresh) => metadata.composer.models(signal, refresh),
-      mcp: async (signal, refresh) => {
-        await metadata.mcpControl?.prepare()
-        const items = await metadata.composer.mcp(signal, refresh)
-        return metadata.mcpControl ? metadata.mcpControl.preview(items) : items
-      },
-      plugins: (signal, refresh, env) => metadata.composer.plugins(signal, refresh, env),
+      client: metadata.callerClient(caller.signal),
+      prepare: (signal) => owned.prepare(scope.directory, metadata, combined(signal)),
+      commands: (signal) => owned.commands(scope.directory, metadata, combined(signal)),
+      composer: (signal, refresh) => owned.composer(metadata, combined(signal), refresh),
+      agents: (signal, refresh) => metadata.composer.agents(combined(signal), refresh),
+      models: (signal, refresh) => metadata.composer.models(combined(signal), refresh),
+      mcp: (signal, refresh) =>
+        metadata.mcpControl
+          ? metadata.mcpControl.read(combined(signal), refresh)
+          : metadata.composer.mcp(combined(signal), refresh),
+      plugins: (signal, refresh, env) => metadata.composer.plugins(combined(signal), refresh, env),
       rememberCommands: (commands) => owned.rememberCommands(scope, metadata, commands),
       events: (signal) =>
-        owned.events(scope.directory, AbortSignal.any([signal, scope.controller.signal])),
+        owned.events(scope.directory, combined(AbortSignal.any([signal, scope.controller.signal]))),
       release: () => {
+        caller.abort(new Error('OpenCode 연결이 종료되었습니다.'))
         releasing ??= owned.instances.release(scope).finally(finish)
         return releasing
       }
     }
   }
 
+  private finish(key: string, owned: ServerContext): void {
+    if (owned.references !== 0 || owned.instances.size !== 0) return
+    if (this.entries.get(key) === owned) this.entries.delete(key)
+    owned.close()
+  }
+
+  retireAll(): void {
+    this.entries.clear()
+    for (const state of this.owned) state.instances.retire()
+  }
+
   close(): void {
     this.closed = true
-    for (const state of this.entries.values()) state.close()
+    for (const state of this.owned) state.close()
     this.entries.clear()
   }
 }

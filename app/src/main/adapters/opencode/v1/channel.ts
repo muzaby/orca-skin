@@ -1,6 +1,5 @@
 import {
   openCodeNativeCommands,
-  openCodeNativeMcp,
   openCodeNativePlugins,
   openCodeNativePluginDirectory
 } from './native-resources'
@@ -62,6 +61,7 @@ export function openCodeChannel(
   let ended = false
   let interrupted = false
   let responseOpen = false
+  let detachActivity: (() => void) | undefined
   let submissionEpoch = 0
   let sequence = 0
   let cleanup: Promise<void> | undefined
@@ -121,6 +121,7 @@ export function openCodeChannel(
   const close = (): void => {
     if (closed) return
     closed = true
+    detachActivity?.()
     mainApproval.abort()
     controller.abort()
     void cleanupOwned()
@@ -128,7 +129,11 @@ export function openCodeChannel(
     wake?.()
     wake = undefined
   }
-  const submit = async (next: TurnContinuation, initial = false): Promise<void> => {
+  const submit = (next: TurnContinuation, initial = false): Promise<void> =>
+    connection?.mcpControl
+      ? connection.mcpControl.submit(signal, () => submitPrepared(next, initial))
+      : submitPrepared(next, initial)
+  const submitPrepared = async (next: TurnContinuation, initial = false): Promise<void> => {
     signal.throwIfAborted()
     if (!client || !connection || !sessionId || !activity)
       throw new Error('OpenCode 이벤트 채널이 준비되지 않았습니다.')
@@ -289,6 +294,7 @@ export function openCodeChannel(
       signal.throwIfAborted()
       if (req.forkFrom) throw new Error('OpenCode 세션 분기는 지원하지 않습니다.')
       connection = await connect()
+      detachActivity = connection.mcpControl?.observeActivity(() => responseOpen)
       client = connection.client
       signal.throwIfAborted()
       iterator = connection.events(signal)
@@ -470,7 +476,7 @@ export function openCodeChannel(
         return { state: 'disconnected', items: [] }
       const [resourceReads, commands, composer] = await Promise.all([
         Promise.allSettled([
-          openCodeNativeMcp(client, req.cwd, signal),
+          connection!.mcp(signal),
           openCodeNativePlugins(client, req.cwd, { ...process.env, ...req.env }, signal)
         ]),
         openCodeNativeCommands(client, req.cwd, true, { ...process.env, ...req.env }).catch(
@@ -495,6 +501,7 @@ export function openCodeChannel(
       return {
         state: 'connected',
         generation,
+        ...((await connection?.mcpControl?.pending()) ? { configurationPending: true } : {}),
         items: connection?.mapMcpResources?.(items) ?? items,
         ...(commands !== undefined ? { commands } : {}),
         ...(composerCatalog !== undefined ? { composer: composerCatalog } : {}),

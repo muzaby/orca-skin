@@ -1,4 +1,8 @@
-import { readFile, stat } from 'node:fs/promises'
+import {
+  discoveryReadFile as readFile,
+  discoveryStat as stat,
+  openCodeDiscovery
+} from './discovery-cache'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { isRecord } from '../../../../shared/obj'
@@ -11,7 +15,7 @@ import { effectiveOpenCodePlugins, openCodeGlobalConfigFiles } from './global-pl
 export { parseConfig } from './openCodePluginConfig'
 
 /** Resolve only a file that actually declares this server; never invent a default path. */
-async function configuredOpenCode(
+async function readConfiguredOpenCode(
   cwd: string,
   env: NodeJS.ProcessEnv = process.env,
   globalOnly = false
@@ -108,6 +112,17 @@ async function configuredOpenCode(
     items: [...servers.values(), ...installed],
     pluginSkillDirectories: [...pluginSkillDirectories]
   }
+}
+
+async function configuredOpenCode(
+  cwd: string,
+  env: NodeJS.ProcessEnv = process.env,
+  globalOnly = false
+): ReturnType<typeof readConfiguredOpenCode> {
+  return openCodeDiscovery.run(
+    openCodeDiscovery.key('configured', cwd, env, String(globalOnly)),
+    () => readConfiguredOpenCode(cwd, env, globalOnly)
+  )
 }
 
 export async function globalOpenCodeResources(

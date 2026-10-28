@@ -20,6 +20,9 @@ import type { PreparedHarnessConfig } from '../adapters/common/harness-config'
 import { decideRespawn } from '../features/sessions/respawn-policy'
 
 export interface AutomaticContinuationRuntime {
+  managedMcpRevision?(
+    snapshot: import('../adapters/common/managed-mcp').ManagedMcpSnapshot | undefined
+  ): number | undefined
   readonly channelAlive: boolean
   readonly spawnedProviderSettings: ResolvedHarnessSettings | undefined
   readonly spawnedRuntimeEnvFingerprint: string | undefined
@@ -77,7 +80,9 @@ export async function prepareAutomaticContinuation(input: {
         nextProviderKey: resolved.providerKey,
         model,
         runtimeToolsRevision: extensions.runtimeTools?.revision,
-        managedMcpRevision: extensions.managedMcp?.revision,
+        managedMcpRevision: input.runtime.managedMcpRevision
+          ? input.runtime.managedMcpRevision(extensions.managedMcp)
+          : extensions.managedMcp?.revision,
         agentProfileKey: extensions.agentProfileKey,
         extraDirs: input.extraDirs,
         // 연속 턴은 최초 턴이 확정한 cwd 를 계승한다 — 폴백은 send 진입에서 한 번만 판정된다.

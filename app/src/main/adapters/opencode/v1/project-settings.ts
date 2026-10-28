@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
+import { discoveryReadFile as readFile, openCodeDiscovery } from './discovery-cache'
 import { join } from 'node:path'
 import { isRecord } from '../../../../shared/obj'
 import { parseConfig } from './configured-resources'
@@ -11,7 +11,7 @@ export const openCodeProjectFiles = (cwd: string): string[] =>
   )
 
 /** Observe native project declarations. Writing them would also affect future child directories. */
-export async function readOpenCodeProjectSettings(cwd: string): Promise<{
+async function readProjectSettings(cwd: string): Promise<{
   revision: string
   mcp: Record<string, boolean>
 }> {
@@ -32,7 +32,14 @@ export async function readOpenCodeProjectSettings(cwd: string): Promise<{
   return { revision: createHash('sha256').update(JSON.stringify(declarations)).digest('hex'), mcp }
 }
 
+export function readOpenCodeProjectSettings(cwd: string): ReturnType<typeof readProjectSettings> {
+  return openCodeDiscovery.run(openCodeDiscovery.key('project', cwd), () =>
+    readProjectSettings(cwd)
+  )
+}
+
 export const openCodeProjectResources: ProjectResourcePolicy = {
   files: openCodeProjectFiles,
+  dirty: () => openCodeDiscovery.invalidate(),
   read: readOpenCodeProjectSettings
 }

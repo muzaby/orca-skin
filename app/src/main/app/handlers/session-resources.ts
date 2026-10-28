@@ -72,7 +72,8 @@ export function registerSessionResourceHandlers(
   }
   const read = async (
     sessionId: string,
-    runtime: GovernedLiveTurn | undefined
+    runtime: GovernedLiveTurn | undefined,
+    attempt = 0
   ): Promise<NativeResources> => {
     const revision = preparedMcp?.revision
     const [liveRead, configuredRead, commandsRead] = await Promise.allSettled([
@@ -82,6 +83,17 @@ export function registerSessionResourceHandlers(
     ])
     if (lookup(sessionId) !== runtime)
       throw new Error('하네스 연결이 바뀌었습니다. 메뉴를 다시 열어 주세요.')
+    if (runtime && preparedMcp?.revision !== revision) {
+      if (attempt === 0) return read(sessionId, runtime, 1)
+      return {
+        state: 'disconnected',
+        partial: true,
+        configurationPending: true,
+        items: (configuredRead.status === 'fulfilled' ? (configuredRead.value ?? []) : []).map(
+          (item) => ({ ...item, canToggle: false })
+        )
+      }
+    }
     const previous = runtime && observations.get(runtime)
     const fallback =
       previous?.generation && previous.generation === runtime?.providerGeneration
@@ -97,7 +109,7 @@ export function registerSessionResourceHandlers(
     if (live?.state !== 'connected') live = (await preparedMcp?.read({ sessionId })) ?? live
     if (runtime && liveRead.status === 'fulfilled' && live?.generation)
       observations.set(runtime, live)
-    if (configuredRead.status === 'rejected' && !live)
+    if (configuredRead.status === 'rejected' && live?.state !== 'connected' && !live?.items.length)
       throw new Error('하네스 목록을 불러오지 못했습니다. 다시 시도해 주세요.')
     const configured = configuredRead.status === 'fulfilled' ? (configuredRead.value ?? []) : []
     const pluginsAuthoritative =
@@ -105,7 +117,8 @@ export function registerSessionResourceHandlers(
     const partial =
       liveRead.status === 'rejected' ||
       configuredRead.status === 'rejected' ||
-      commandsRead.status === 'rejected'
+      commandsRead.status === 'rejected' ||
+      live?.partial === true
     const commands =
       live?.commands ?? (commandsRead.status === 'fulfilled' ? commandsRead.value : undefined)
     const items = new Map(
@@ -124,8 +137,13 @@ export function registerSessionResourceHandlers(
       ...(partial ? { partial: true } : {}),
       ...(pluginsAuthoritative ? { pluginsAuthoritative: true } : {})
     }
-    if (preparedMcp?.revision !== revision)
-      throw new Error('MCP 설정이 바뀌었습니다. 메뉴를 다시 열어 주세요.')
+    if (preparedMcp?.revision !== revision && !live?.generation)
+      return {
+        state: 'disconnected',
+        partial: true,
+        configurationPending: true,
+        items: configured.map((item) => ({ ...item, canToggle: false }))
+      }
     return projectSync?.decorate({ sessionId }, value) ?? value
   }
   const readRequest = async (request: ResourceRequest): Promise<NativeResources> => {
@@ -136,8 +154,13 @@ export function registerSessionResourceHandlers(
       resourceQuery(() => draftCommands(request))
     ])
     const prepared = await preparedMcp?.read(request)
-    if (preparedMcp?.revision !== revision)
-      throw new Error('MCP 설정이 바뀌었습니다. 메뉴를 다시 열어 주세요.')
+    if (preparedMcp?.revision !== revision && !prepared?.generation)
+      return {
+        state: 'disconnected',
+        partial: true,
+        configurationPending: true,
+        items: (items ?? []).map((item) => ({ ...item, canToggle: false }))
+      }
     return {
       ...prepared,
       state: 'disconnected',

@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { discoveryReadFile as readFile, openCodeDiscovery } from './discovery-cache'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { pluginEntries, type PluginEntry } from './openCodePluginConfig'
@@ -8,7 +8,7 @@ export function openCodeGlobalConfigFiles(env = process.env, home = homedir()): 
   return ['config.json', 'opencode.json', 'opencode.jsonc'].map((file) => join(root, file))
 }
 
-export async function effectiveOpenCodePlugins(
+async function readEffectiveOpenCodePlugins(
   env = process.env,
   home = homedir()
 ): Promise<{
@@ -25,6 +25,15 @@ export async function effectiveOpenCodePlugins(
     }
   }
   return result
+}
+
+export function effectiveOpenCodePlugins(
+  env = process.env,
+  home = homedir()
+): ReturnType<typeof readEffectiveOpenCodePlugins> {
+  return openCodeDiscovery.run(openCodeDiscovery.key('global', home, env), () =>
+    readEffectiveOpenCodePlugins(env, home)
+  )
 }
 
 export async function openCodeGlobalPluginFingerprint(

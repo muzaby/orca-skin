@@ -27,7 +27,7 @@ const flush = async (): Promise<void> => {
   for (let i = 0; i < 12; i++) await Promise.resolve()
 }
 
-it('re-prepares models on managed MCP changes and rejects an older response', async () => {
+it('preserves model and agent flights on MCP-only changes', async () => {
   vi.useFakeTimers()
   const oldModels = Promise.withResolvers<ComposerCatalogResult>()
   const detach = vi.fn()
@@ -57,8 +57,9 @@ it('re-prepares models on managed MCP changes and rejects an older response', as
   await flush()
   expect(state.getSnapshot().models).toEqual({
     status: 'ready',
-    value: [{ id: 'fresh-model', variants: ['fresh'] }]
+    value: [{ id: 'old-model', variants: ['old'] }]
   })
+  expect(api.composerCatalog).toHaveBeenCalledTimes(2)
   expect(state.getSnapshot().agents.value).toEqual([{ name: 'primary-agent' }])
   off()
   await vi.runOnlyPendingTimersAsync()

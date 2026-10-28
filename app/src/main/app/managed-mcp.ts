@@ -5,7 +5,8 @@ import type { PluginBinding } from './deployment/plugins'
 import { reportError } from '../infra/error-report'
 
 export function createManagedMcp(
-  mcp: Pick<McpStore, 'enabledConfig' | 'resolver'>,
+  mcp: Pick<McpStore, 'enabledConfig' | 'resolver'> &
+    Partial<Pick<McpStore, 'executionDefinitions'>>,
   plugins: readonly PluginBinding[]
 ): {
   source: ReturnType<typeof createManagedMcpSource>
@@ -13,6 +14,7 @@ export function createManagedMcp(
 } {
   const source = createManagedMcpSource({
     users: () => mcp.enabledConfig(),
+    ...(mcp.executionDefinitions ? { definitions: () => mcp.executionDefinitions!() } : {}),
     resolver: () => mcp.resolver(),
     unresolved: (sourceId) =>
       reportError({

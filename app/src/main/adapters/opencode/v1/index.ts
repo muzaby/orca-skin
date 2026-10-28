@@ -1,5 +1,6 @@
 import { openCodeGlobalConfigFiles, openCodeGlobalPluginFingerprint } from './global-plugins'
 import { openCodeProjectResources } from './project-settings'
+import { openCodeDiscovery } from './discovery-cache'
 import type { OpenCodeImplementation } from '../implementation'
 import { OpenCodeAdapter } from './adapter'
 import { OpenCodeServerPool } from './server'
@@ -19,6 +20,7 @@ import {
 } from './settings'
 
 export const implementation: OpenCodeImplementation = {
+  invalidateDiscovery: () => openCodeDiscovery.invalidate(),
   globalPluginFiles: openCodeGlobalConfigFiles,
   globalPluginFingerprint: openCodeGlobalPluginFingerprint,
   projectResources: openCodeProjectResources,

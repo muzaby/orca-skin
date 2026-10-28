@@ -90,6 +90,13 @@ export class ProjectResourceSync {
         void this.refresh(entry)
       }
   }
+  async connectionsChanged(backend: Backend): Promise<void> {
+    await Promise.all(
+      [...this.entries.values()]
+        .filter((entry) => entry.target.backend === backend)
+        .map((entry) => this.emit(entry))
+    )
+  }
   releasePrefix(prefix: string): void {
     for (const owner of this.owners.keys()) if (owner.startsWith(prefix)) this.owners.delete(owner)
     this.tick()
@@ -136,6 +143,7 @@ export class ProjectResourceSync {
         this.entries.set(key, entry)
         const current = entry
         const changed = (): void => {
+          policy.dirty?.(target.cwd)
           current.version++
           void this.refresh(current)
         }

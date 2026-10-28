@@ -4,6 +4,7 @@ import type {
   NativeResources
 } from '../../../../../shared/native-resources'
 import { sessionApi } from '../../../shared/api/ipc'
+import { NATIVE_RESOURCE_FRESH_MS } from '../../../../../shared/native-resources'
 import { reportError } from '../../../shared/errors'
 
 export type NativeResourcesView =
@@ -68,6 +69,7 @@ export class NativeResourceState {
   private snapshot: { view: NativeResourcesView } = {
     view: { status: 'loading' }
   }
+  private updatedAt = -Infinity
   constructor(readonly request: string | DraftNativeResourcesRequest | undefined) {}
   getSnapshot = (): typeof this.snapshot => this.snapshot
   subscribe = (listener: () => void): (() => void) => {
@@ -79,6 +81,7 @@ export class NativeResourceState {
         .catch(() => undefined)
     return () => {
       this.listeners.delete(listener)
+      if (!this.listeners.size) this.readSerial++
       if (!this.listeners.size && this.request && typeof window !== 'undefined')
         void sessionApi
           .nativeResources(this.request, { owner: this.owner, active: false })
@@ -96,6 +99,7 @@ export class NativeResourceState {
   }
   private apply(value: NativeResources): void {
     if (value.generation && this.retired.has(value.generation)) return
+    this.updatedAt = Date.now()
     const previous = this.snapshot.view
     if (
       previous.status === 'ready' &&
@@ -127,6 +131,7 @@ export class NativeResourceState {
   ensure = (): Promise<void> => {
     const view = this.snapshot.view
     if (
+      Date.now() - this.updatedAt < NATIVE_RESOURCE_FRESH_MS &&
       view.status === 'ready' &&
       view.value.state === 'connected' &&
       !view.value.partial &&
@@ -134,6 +139,7 @@ export class NativeResourceState {
       !view.issue
     )
       return Promise.resolve()
+    // The owning main-process slot decides freshness; a visible remount must revalidate.
     return this.refresh()
   }
   reconnect(): void {

@@ -16,19 +16,31 @@ it('applies restored choices once per new directory and preserves project overri
   await writeFile(file, contents)
   let choices = { 'mcp:docs': false, 'mcp:disabled': true, 'mcp:project': false }
   const control = { global: () => ({ ...choices }) }
-  const status = vi.fn(async () => ({
-    data: {
-      docs: { status: 'connected' },
-      disabled: { status: 'disabled' },
-      project: { status: 'connected' }
-    }
+  const states = new Map<string, Record<string, { status: string }>>()
+  const state = (directory: string): Record<string, { status: string }> => {
+    let value = states.get(directory)
+    if (!value)
+      states.set(
+        directory,
+        (value = {
+          docs: { status: 'connected' },
+          disabled: { status: 'disabled' },
+          project: { status: 'connected' }
+        })
+      )
+    return value
+  }
+  const status = vi.fn(async ({ directory }: { directory: string }) => ({
+    data: structuredClone(state(directory))
   }))
-  const connect = vi.fn<
-      (params: { directory: string; name: string }, options: unknown) => Promise<object>
-    >(async () => ({})),
-    disconnect = vi.fn<
-      (params: { directory: string; name: string }, options: unknown) => Promise<object>
-    >(async () => ({}))
+  const connect = vi.fn(async ({ directory, name }: { directory: string; name: string }) => {
+    state(directory)[name] = { status: 'connected' }
+    return {}
+  })
+  const disconnect = vi.fn(async ({ directory, name }: { directory: string; name: string }) => {
+    state(directory)[name] = { status: 'disabled' }
+    return {}
+  })
   const client = { mcp: { status, connect, disconnect } } as unknown as OpencodeClient
   const signal = new AbortController().signal
   try {
@@ -44,9 +56,26 @@ it('applies restored choices once per new directory and preserves project overri
     await old.prepare()
     const next = new OpenCodeMcpControl(client, b, control, signal)
     await next.prepare()
-    expect(status).toHaveBeenCalledTimes(2)
-    expect(connect).toHaveBeenCalledTimes(1)
-    expect(disconnect).toHaveBeenCalledTimes(1)
+    expect(status).toHaveBeenCalledTimes(3)
+    expect(
+      await old.preview([
+        {
+          id: 'docs',
+          name: 'docs',
+          kind: 'mcp',
+          enabled: false,
+          canToggle: false,
+          status: 'disabled'
+        }
+      ])
+    ).toMatchObject([{ enabled: true, status: 'disabled' }])
+    expect(await old.pending()).toBe(true)
+    await old.reconcileChoices()
+    expect(await old.pending()).toBe(false)
+    expect(state(a).docs.status).toBe('connected')
+    expect(state(a).project.status).toBe('connected')
+    expect(connect).toHaveBeenCalledTimes(2)
+    expect(disconnect).toHaveBeenCalledTimes(2)
     expect(await readFile(file, 'utf8')).toBe(contents)
   } finally {
     await rm(root, { recursive: true, force: true })
