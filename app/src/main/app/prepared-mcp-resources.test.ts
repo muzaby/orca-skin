@@ -48,7 +48,7 @@ it('resolves draft execution choices and saved session scope from their actual o
   ).toBeUndefined()
 })
 
-it('keeps observed preparations alive and rejects retired completions', async () => {
+it('keeps observed preparations alive and discards retired completions', async () => {
   const scope: ComposerCatalogScope = {
     backend: 'opencode',
     sessionId: null,
@@ -120,13 +120,23 @@ it('keeps observed preparations alive and rejects retired completions', async ()
     )
     resources.observe(5, { owner: 'late', active: true }, request)
     const pending = resources.read(request)
-    const failed = expect(pending).rejects.toThrow()
+    const cancelled = expect(pending).resolves.toEqual({
+      state: 'disconnected',
+      partial: true,
+      items: []
+    })
     await Promise.resolve()
     resources.releaseSender(5)
     const release = vi.fn(async () => {})
     complete({ generation: 'late', signal: new AbortController().signal, read: vi.fn(), release })
-    await failed
-    expect(release).toHaveBeenCalledTimes(1)
+    await cancelled
+    await vi.waitFor(() => expect(release).toHaveBeenCalledTimes(1))
+    resources.observe(6, { owner: 'shutdown', active: true }, request)
+    await resources.read(request)
+    resources.close()
+    resources.close()
+    expect(releases.at(-1)).toHaveBeenCalledTimes(1)
+    expect(await resources.read(request)).toBeUndefined()
   } finally {
     resources.close()
   }

@@ -11,7 +11,7 @@ function fixture(timeoutMs = 1000): {
   const dispose = vi.fn<(directory: string, signal: AbortSignal) => Promise<void>>(async () => {})
   const retire = vi.fn()
   return {
-    actor: new OpenCodeInstances({ connect, dispose, retire, timeoutMs }),
+    actor: new OpenCodeInstances({ connect, dispose, retire, timeoutMs, idleRetentionMs: 0 }),
     connect,
     dispose,
     retire
@@ -24,7 +24,7 @@ describe('OpenCode native instance lifetime', () => {
     const connect = vi.fn(async () => {})
     const dispose = vi.fn(async () => {})
     const retire = vi.fn()
-    const actor = new OpenCodeInstances({ connect, dispose, retire })
+    const actor = new OpenCodeInstances({ connect, dispose, retire, idleRetentionMs: 0 })
     try {
       const state = await actor.acquire('C:/one')
       state.touched = true

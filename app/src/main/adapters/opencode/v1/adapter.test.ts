@@ -124,7 +124,7 @@ function fixture(
     headers: { Authorization: 'Basic fixture' },
     release
   }))
-  const servers = { acquire } as unknown as OpenCodeServerPool
+  const servers = { acquire, close: vi.fn() } as unknown as OpenCodeServerPool
   const result: ReturnType<typeof fixture> = {
     adapter: new OpenCodeAdapter(servers, transport, undefined, undefined, controls, preferences),
     acquire,
@@ -188,8 +188,17 @@ it('applies SDK MCP choices before the first prompt, rejects unsafe project cont
   const revision = (await policy.read('C:/work')).revision
   expect(await live.reconcileNativeResources!(revision, () => false)).toBe('pending')
   expect((await live.nativeResources!()).items[0].enabled).toBe(false)
+  expect(await live.reconcileNativeResources!(revision, () => true)).toBe('pending')
+  const prompt = await f.requests.find((r) => r.url.includes('/prompt_async'))!.json()
+  finish(f, prompt.messageID)
+  for (;;) {
+    const batch = await iterator.next()
+    if (batch.done || batch.value.events.some((entry) => entry.type === 'turn.ended')) break
+  }
   expect(await live.reconcileNativeResources!(revision, () => true)).toBe('applied')
   expect((await live.nativeResources!()).items[0].enabled).toBe(false)
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(Date.now() + 5_001)
   f.failMcp = true
   expect(await live.nativeResources!()).toMatchObject({
     partial: true,
@@ -198,7 +207,57 @@ it('applies SDK MCP choices before the first prompt, rejects unsafe project cont
   live.close()
   await iterator.return?.()
   expect(await live.nativeResources!()).toEqual({ state: 'disconnected', items: [] })
-  await vi.waitFor(() => expect(f.release).toHaveBeenCalledOnce())
+  expect(f.release).not.toHaveBeenCalled()
+  f.adapter.close()
+  expect(f.release).toHaveBeenCalledOnce()
+  vi.useRealTimers()
+})
+it('shares prepared and live inventory slots until freshness expiry and retries failed reads', async () => {
+  const f = fixture()
+  const prepared = await f.adapter.prepareComposer!({ cwd: 'C:/work' })
+  const signal = new AbortController().signal
+  await Promise.all(
+    ['agents', 'models', 'mcp'].map((part) =>
+      prepared.read(part as 'agents' | 'models' | 'mcp', signal)
+    )
+  )
+  f.onPrompt = (body) => finish(f, String(body.messageID))
+  const live = f.adapter.sendMessage(request())
+  const iterator = live.eventBatches[Symbol.asyncIterator]()
+  for (;;) {
+    const batch = await iterator.next()
+    if (batch.done || batch.value.events.some((event) => event.type === 'turn.ended')) break
+  }
+  const count = (path: string): number =>
+    f.requests.filter((request) => new URL(request.url).pathname === path).length
+  try {
+    const initial = await live.nativeResources!()
+    expect(initial).toMatchObject({
+      state: 'connected',
+      items: [{ id: 'docs', status: 'connected' }],
+      composer: { agents: [{ name: 'build' }], models: [{ id: 'vendor/model/name' }] }
+    })
+    await live.nativeResources!()
+    expect([count('/agent'), count('/provider'), count('/mcp')]).toEqual([1, 1, 1])
+    expect(count('/command')).toBe(3)
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(Date.now() + 5000)
+    f.failMcp = true
+    expect(await live.nativeResources!()).toMatchObject({ partial: true })
+    expect(count('/mcp')).toBe(2)
+    f.failMcp = false
+    expect((await live.nativeResources!()).partial).toBeUndefined()
+    expect(count('/mcp')).toBe(3)
+    await prepared.read('mcp', signal, true)
+    expect(count('/mcp')).toBe(4)
+    expect([count('/agent'), count('/provider')]).toEqual([1, 1])
+  } finally {
+    vi.useRealTimers()
+    live.close()
+    await iterator.return?.()
+    await prepared.release()
+    f.adapter.close()
+  }
 })
 async function collect(adapter: OpenCodeAdapter, req: TurnRequest): Promise<NormalizedEvent[]> {
   const events: NormalizedEvent[] = []
@@ -485,6 +544,8 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
       'OpenCode 무료 모델'
     )
     expect(f.requests.filter((r) => r.method === 'DELETE')).toHaveLength(1)
+    expect(f.release).not.toHaveBeenCalled()
+    f.adapter.close()
     expect(f.release).toHaveBeenCalledOnce()
   })
 
@@ -497,6 +558,8 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
     expect(await message?.json()).toMatchObject({
       model: { providerID: 'other', modelID: 'extra' }
     })
+    expect(f.release).not.toHaveBeenCalled()
+    f.adapter.close()
     expect(f.release).toHaveBeenCalledOnce()
   })
 
@@ -526,7 +589,9 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
       [providerSettings.settings, env, 'C:/work'],
       [providerSettings.settings, env, 'C:/work']
     ])
-    await vi.waitFor(() => expect(f.release).toHaveBeenCalledTimes(3))
+    expect(f.release).toHaveBeenCalledTimes(2)
+    f.adapter.close()
+    expect(f.release).toHaveBeenCalledTimes(3)
   })
 
   it.each([404, 503])(
@@ -544,6 +609,8 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
       expect(await adapter.readHistory({ sessionId: 's1', cwd: 'C:/work' })).toMatchObject({
         status: status === 404 ? 'missing' : 'unavailable'
       })
+      expect(release).not.toHaveBeenCalled()
+      adapter.close()
       expect(release).toHaveBeenCalledOnce()
     }
   )
@@ -640,8 +707,7 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
       '/config',
       '/command',
       '/session',
-      '/session/s1/prompt_async',
-      '/instance/dispose'
+      '/session/s1/prompt_async'
     ])
     expect(f.requests.every((req) => req.headers.get('Authorization') === 'Basic fixture')).toBe(
       true

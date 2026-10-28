@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { EventEmitter } from 'node:events'
 import { PassThrough } from 'node:stream'
 import type { ChildProcess, spawn } from 'node:child_process'
@@ -22,7 +22,13 @@ import { buildTurnRequest } from './turn-request'
 vi.mock('../../infra/log', async () => import('../../infra/log/registry'))
 vi.mock('../../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
 
+const adapters: ReturnType<typeof createOpenCodeAdapter>[] = []
+afterEach(() => {
+  for (const adapter of adapters.splice(0)) adapter.close?.()
+})
+
 function fixture(): {
+  adapter: ReturnType<typeof createOpenCodeAdapter>
   runtime: SessionRuntime
   requests: Request[]
   rejectPrompt: () => void
@@ -122,15 +128,16 @@ function fixture(): {
       return child as unknown as ChildProcess
     }) as typeof spawn
   })
+  const adapter = createOpenCodeAdapter({
+    dataDirectory: 'unused',
+    preferences: () => undefined,
+    fetchImpl,
+    server
+  })
+  adapters.push(adapter)
   return {
-    runtime: new SessionRuntime(
-      createOpenCodeAdapter({
-        dataDirectory: 'unused',
-        preferences: () => undefined,
-        fetchImpl,
-        server
-      })
-    ),
+    adapter,
+    runtime: new SessionRuntime(adapter),
     requests,
     killed,
     rejectPrompt: () => {
@@ -198,10 +205,16 @@ describe('OpenCode submission through the production queue and session runtime',
       await collect(second.runtime, admission('s1').request)
       pool.keepIdle('second', second.runtime)
       expect(pool.evictToCapacity(1)).toBe(1)
+      expect(first.runtime.channelAlive).toBe(false)
+      expect(first.killed).not.toHaveBeenCalled()
+      first.adapter.close?.()
       await vi.waitFor(() => expect(first.killed).toHaveBeenCalledOnce())
       expect(second.killed).not.toHaveBeenCalled()
       expect(pool.peek('second')).toBe(second.runtime)
       pool.closeAll()
+      expect(second.runtime.channelAlive).toBe(false)
+      expect(second.killed).not.toHaveBeenCalled()
+      second.adapter.close?.()
       await vi.waitFor(() => expect(second.killed).toHaveBeenCalledOnce())
     } finally {
       first.runtime.close()

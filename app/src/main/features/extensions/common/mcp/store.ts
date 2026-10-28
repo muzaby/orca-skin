@@ -257,6 +257,15 @@ export class McpStore {
     return out
   }
 
+  executionDefinitions(): { definitions: OrcaMcpConfig; desired: Record<string, boolean> } {
+    const definitions = this.read()
+    const enabled = this.settings.getAll().mcpEnabled
+    return {
+      definitions,
+      desired: Object.fromEntries(Object.keys(definitions).map((id) => [id, enabled[id] ?? true]))
+    }
+  }
+
   // resolver 팩토리 노출. 비밀 단일 소유권은 McpStore 가 유지하고(this.secrets), 확장 시점은
   // 어댑터의 어댑트 시점으로 미룬다 — 미확장 ${VAR} 를 넘기고 어댑터가 이 resolver 로 복호화.
   //

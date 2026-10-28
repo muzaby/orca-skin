@@ -12,6 +12,7 @@ import {
   openCodeEvent as event,
   textPart
 } from './adapter.testfixture'
+import { OpenCodeInstances } from './instance-lifecycle'
 import { sameNativePath } from './native-storage'
 import { reportError } from '../../../infra/error-report'
 
@@ -19,7 +20,8 @@ vi.mock('../../../infra/error-report', () => ({ reportError: vi.fn() }))
 const adapters: OpenCodeAdapter[] = []
 afterEach(() => {
   adapters.splice(0).forEach((adapter) => adapter.close())
-  vi.clearAllMocks()
+  vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 function fixture(): {
@@ -38,6 +40,7 @@ function fixture(): {
   finish(request: Request): void
   fail(): void
 } {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
   const requests: Request[] = []
   const children: { kill: ReturnType<typeof vi.fn> }[] = []
   const streams: {
@@ -173,9 +176,14 @@ const signal = (): AbortSignal => new AbortController().signal
 describe('Owned server, directory lifecycle and actual SDK composition', () => {
   it('reserves the sole context during last-owner cleanup and rejects late direct SDK requests', async () => {
     const f = fixture()
+    const acquireInstance = vi.spyOn(OpenCodeInstances.prototype, 'acquire')
     const old = await f.adapter.client({}, undefined, 'C:/one')
     await old.prepare(signal())
     const releasing = old.release()
+    await releasing
+    await expect(old.client.config.get()).rejects.toThrow('종료')
+    expect(f.disposals).toHaveLength(0)
+    await vi.advanceTimersByTimeAsync(90_000)
     await vi.waitFor(() => expect(f.disposals).toHaveLength(1))
     const joined = vi.fn()
     const acquiring = f.adapter.client({}, undefined, 'C:/one').then((lease) => {
@@ -183,7 +191,7 @@ describe('Owned server, directory lifecycle and actual SDK composition', () => {
       return lease
     })
     // Let acquisition reach the closing barrier while the sole owner is still disposing.
-    for (let i = 0; i < 20; i++) await Promise.resolve()
+    await vi.waitFor(() => expect(acquireInstance).toHaveBeenCalledTimes(2))
     expect(joined).not.toHaveBeenCalled()
     f.finish(f.disposals[0])
     await releasing
@@ -198,10 +206,12 @@ describe('Owned server, directory lifecycle and actual SDK composition', () => {
     await expect(old.client.config.get()).rejects.toThrow('종료')
     expect(f.requests).toHaveLength(requests)
     const closing = renewed.release()
+    await closing
+    await vi.advanceTimersByTimeAsync(90_000)
     await vi.waitFor(() => expect(f.disposals).toHaveLength(2))
     f.finish(f.disposals[1])
     await closing
-    expect(f.children[0].kill).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(f.children[0].kill).toHaveBeenCalledOnce())
   })
 
   it('keeps one process for A/B, waits for native completion, and fences same-directory reacquisition', async () => {
@@ -226,6 +236,8 @@ describe('Owned server, directory lifecycle and actual SDK composition', () => {
     expect(f.disposals).toHaveLength(0)
     const releasing = a2.release()
     expect(a2.release()).toBe(releasing)
+    await releasing
+    await vi.advanceTimersByTimeAsync(90_000)
     const joined = vi.fn()
     const acquiring = f.adapter.client({}, undefined, 'C:/one').then((value) => {
       joined()
@@ -242,13 +254,15 @@ describe('Owned server, directory lifecycle and actual SDK composition', () => {
     expect(f.requests.filter((r) => new URL(r.url).pathname === '/config')).toHaveLength(3)
     await expect(a.client.config.get()).rejects.toThrow('종료')
     const final = Promise.all([b.release(), renewed.release()])
+    await final
+    await vi.advanceTimersByTimeAsync(90_000)
     await vi.waitFor(() => expect(f.disposals).toHaveLength(3))
     f.finish(f.disposals[1])
     await Promise.resolve()
     expect(f.children[0].kill).not.toHaveBeenCalled()
     f.finish(f.disposals[2])
     await final
-    expect(f.children[0].kill).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(f.children[0].kill).toHaveBeenCalledOnce())
     expect(f.streams).toHaveLength(1)
     expect(f.streams[0].closed).toBe(true)
     expect(
@@ -263,6 +277,8 @@ describe('Owned server, directory lifecycle and actual SDK composition', () => {
     await Promise.all([a.prepare(signal()), b.prepare(signal())])
     f.fail()
     await a.release()
+    await vi.advanceTimersByTimeAsync(90_000)
+    await vi.waitFor(() => expect(reportError).toHaveBeenCalledOnce())
     expect(f.children[0].kill).not.toHaveBeenCalled()
     expect((await b.commands(signal()))[0].name.replaceAll('\\', '/')).toBe('C:/two')
     const next = await f.adapter.client({}, undefined, 'C:/one')
@@ -299,13 +315,15 @@ describe('Owned server, directory lifecycle and actual SDK composition', () => {
     await unused.release()
     expect(f.disposals).toHaveLength(0)
     const releasing = a.release()
+    await releasing
+    await vi.advanceTimersByTimeAsync(90_000)
     await vi.waitFor(() => expect(f.disposals).toHaveLength(1))
     f.finish(f.disposals[0])
     await releasing
   })
 
   it.each(['complete', 'recover', 'history', 'channel'] as const)(
-    'awaits directory disposal in the %s consumer finally before releasing its server',
+    'returns the %s consumer before idle expiry and retains the server until native completion',
     async (consumer) => {
       const f = fixture()
       let operation: Promise<unknown>
@@ -336,16 +354,19 @@ describe('Owned server, directory lifecycle and actual SDK composition', () => {
         settled()
         return value
       })
+      const output = await result
+      expect(settled).toHaveBeenCalledOnce()
+      expect(f.disposals).toHaveLength(0)
+      await vi.advanceTimersByTimeAsync(90_000)
       await vi.waitFor(() => expect(f.disposals).toHaveLength(1))
-      expect(settled).not.toHaveBeenCalled()
       expect(f.children[0].kill).not.toHaveBeenCalled()
       f.finish(f.disposals[0])
-      const output = await result
+      await vi.waitFor(() => expect(f.children[0].kill).toHaveBeenCalledOnce())
       if (consumer === 'complete') expect(output).toBe('complete')
       if (consumer === 'recover') expect(output).toEqual({ sessionId: 's1', freshStart: false })
       if (consumer === 'history')
         expect(output).toMatchObject({ status: 'ready', snapshot: { messages: [] } })
-      expect(f.children[0].kill).toHaveBeenCalledOnce()
+      await vi.waitFor(() => expect(f.children[0].kill).toHaveBeenCalledOnce())
       expect(f.streams).toHaveLength(1)
       const deletes = f.requests.filter((r) => r.method === 'DELETE')
       expect(deletes).toHaveLength(consumer === 'complete' ? 1 : 0)

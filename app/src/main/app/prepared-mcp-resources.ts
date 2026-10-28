@@ -1,9 +1,31 @@
 import type { ComposerCatalogLease, ComposerCatalogScope } from '../../shared/composer-catalog'
 import type { NativeResourceObservation, NativeResources } from '../../shared/native-resources'
 import type { ResourceRequest } from './project-resource-sync'
-import { ComposerCatalogOwners } from './composer-catalog-owner'
+import { ComposerCatalogCancelled, ComposerCatalogOwners } from './composer-catalog-owner'
 import { parseAgentKind } from '../../shared/agent-kind'
 import type { RouterContext } from './context'
+
+export function resourceRequestKey(request: ResourceRequest): string {
+  return 'sessionId' in request
+    ? JSON.stringify(['session', request.sessionId])
+    : JSON.stringify([
+        'draft',
+        request.backend,
+        request.cwd,
+        request.projectId,
+        request.providerKey ?? null,
+        request.agentKind ?? 'code'
+      ])
+}
+
+function cancelledResources(pending = false): NativeResources {
+  return {
+    state: 'disconnected',
+    partial: true,
+    items: [],
+    ...(pending ? { configurationPending: true } : {})
+  }
+}
 
 export function preparedMcpScope(
   db: Pick<RouterContext['db'], 'getSessionById'>,
@@ -38,15 +60,16 @@ export class PreparedMcpResources {
     private readonly deps: {
       scope(request: ResourceRequest): ComposerCatalogScope | undefined
       prepare(scope: ComposerCatalogScope, signal: AbortSignal): Promise<ComposerCatalogLease>
-    }
+    },
+    owners?: ComposerCatalogOwners
   ) {
-    this.owners = new ComposerCatalogOwners(deps.prepare)
+    this.owners = owners ?? new ComposerCatalogOwners(deps.prepare)
   }
 
   observe(sender: number, observation: NativeResourceObservation, request: ResourceRequest): void {
     const key = `${sender}:${observation.owner}`
     const previous = this.observations.get(key)
-    if (previous && JSON.stringify(previous.request) !== JSON.stringify(request))
+    if (previous && resourceRequestKey(previous.request) !== resourceRequestKey(request))
       void this.owners.release(sender, observation.owner).catch(() => undefined)
     if (observation.active)
       this.observations.set(key, { sender, owner: observation.owner, request })
@@ -61,24 +84,31 @@ export class PreparedMcpResources {
     this.owners.releaseSender(sender)
   }
   async read(request: ResourceRequest): Promise<NativeResources | undefined> {
-    const scope = this.deps.scope(request)
-    if (!scope) return undefined
-    const key = JSON.stringify(request)
-    const entry = [...this.observations.values()].find(
-      (owner) => JSON.stringify(owner.request) === key
-    )
-    // A one-shot inventory query must not advertise connections that have no owner.
-    if (!entry) return undefined
-    const result = await this.owners.read(
-      entry.sender,
-      { owner: entry.owner, scope, part: 'mcp' },
-      () => undefined
-    )
-    if ('status' in result || result.part !== 'mcp')
-      throw new Error('MCP 준비를 완료하지 못했습니다.')
-    if (![...this.observations.values()].includes(entry))
-      throw new Error('MCP 관측이 종료되었습니다.')
-    return { state: 'connected', generation: result.generation, items: result.value }
+    const key = resourceRequestKey(request)
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const scope = this.deps.scope(request)
+      if (!scope) return undefined
+      const entry = [...this.observations.values()].find(
+        (owner) => resourceRequestKey(owner.request) === key
+      )
+      // A one-shot inventory query must not advertise connections that have no owner.
+      if (!entry) return attempt ? cancelledResources() : undefined
+      try {
+        const result = await this.owners.read(
+          entry.sender,
+          { owner: entry.owner, scope, part: 'mcp' },
+          () => undefined
+        )
+        if (![...this.observations.values()].includes(entry)) return cancelledResources()
+        if ('status' in result || result.part !== 'mcp')
+          throw new Error('MCP 준비를 완료하지 못했습니다.')
+        return { state: 'connected', generation: result.generation, items: result.value }
+      } catch (error) {
+        if (!(error instanceof ComposerCatalogCancelled)) throw error
+        if (error.reason !== 'superseded') return cancelledResources()
+      }
+    }
+    return cancelledResources(true)
   }
   invalidate(): void {
     this.revisionValue++

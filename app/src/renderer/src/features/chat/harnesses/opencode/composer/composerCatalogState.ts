@@ -6,6 +6,7 @@ import type {
 import type { NativeComposerCatalog } from '../../../../../../../shared/native-resources'
 import { sessionApi } from '../../../../../shared/api/ipc'
 import { composerAgentStore } from './composerAgentStore'
+import { onComposerPromotion } from '../../../lib/composerPromotion'
 
 export interface CatalogSlot<T> {
   status: 'loading' | 'ready' | 'error'
@@ -20,7 +21,8 @@ const initial = (): ComposerCatalogSnapshot => ({
 })
 
 export class ComposerCatalogState {
-  private readonly owner = crypto.randomUUID()
+  private owner = crypto.randomUUID()
+  private previousOwner?: string
   private readonly listeners = new Set<() => void>()
   private readonly retired = new Set<string>()
   private snapshot = initial()
@@ -34,7 +36,7 @@ export class ComposerCatalogState {
   private disposed = false
 
   constructor(
-    readonly scope: ComposerCatalogScope,
+    public scope: ComposerCatalogScope,
     private readonly remove: () => void = () => undefined,
     private readonly agents = composerAgentStore
   ) {
@@ -52,12 +54,7 @@ export class ComposerCatalogState {
     this.listeners.add(listener)
     if (!this.detach) {
       this.detachManagedMcp = sessionApi.onManagedMcpChanged?.(() => {
-        this.epoch++
-        this.flights = {}
-        this.generation = undefined
-        this.invalidate()
-        this.publish()
-        void this.read('models', true)
+        if (this.snapshot.mcp) void this.read('mcp', true)
       })
       this.snapshot = { ...this.snapshot, agents: this.agentSlot() }
       this.detachAgents = this.agents.subscribe((current, previous) => {
@@ -90,6 +87,15 @@ export class ComposerCatalogState {
     }
   }
 
+  promote(scope: ComposerCatalogScope): void {
+    this.scope = scope
+    this.previousOwner = this.owner
+    this.owner = crypto.randomUUID()
+    // Preserve the visible draft snapshot/flight; acquire the verified saved target in parallel.
+    delete this.flights.models
+    void this.read('models', false, true)
+  }
+
   private invalidate(): void {
     this.snapshot = {
       agents: this.agents.getState().agents === undefined ? { status: 'error' } : this.agentSlot(),
@@ -103,22 +109,29 @@ export class ComposerCatalogState {
     void this.read(part, true)
   }
 
-  private read(part: ComposerCatalogPart, refresh = false): Promise<void> {
+  private read(part: ComposerCatalogPart, refresh = false, rebind = false): Promise<void> {
     if (part === 'agents' && this.agents.getState().agents !== undefined) {
       this.snapshot = { ...this.snapshot, agents: this.agentSlot() }
       return Promise.resolve()
     }
     if (this.flights[part]) return this.flights[part]!
-    if (this.disposed || (!refresh && this.snapshot[part]?.status === 'ready'))
+    if (this.disposed || (!refresh && !rebind && this.snapshot[part]?.status === 'ready'))
       return Promise.resolve()
     const epoch = this.epoch
+    const owner = this.owner
     const revision = this.agents.getState().revision
-    this.snapshot = { ...this.snapshot, [part]: { ...this.snapshot[part], status: 'loading' } }
+    if (!rebind || !this.snapshot[part]?.value)
+      this.snapshot = { ...this.snapshot, [part]: { ...this.snapshot[part], status: 'loading' } }
     this.publish()
     const flight = sessionApi
-      .composerCatalog({ owner: this.owner, scope: this.scope, part, refresh })
+      .composerCatalog({ owner, scope: this.scope, part, refresh })
       .then((result) => {
-        if (this.disposed || epoch !== this.epoch) return
+        if (
+          this.disposed ||
+          epoch !== this.epoch ||
+          (owner !== this.owner && owner !== this.previousOwner)
+        )
+          return
         if (result.part !== part) throw new Error('Unexpected composer catalog part')
         if ('status' in result) {
           // Cancellation is an ownership outcome, never a successful empty catalog.
@@ -138,6 +151,10 @@ export class ComposerCatalogState {
           this.invalidate()
         }
         this.generation = result.generation
+        if (this.previousOwner && owner === this.owner) {
+          void sessionApi.releaseComposerCatalog(this.previousOwner).catch(() => undefined)
+          this.previousOwner = undefined
+        }
         if (result.part === 'agents') this.agents.getState().accept(result.value, revision)
         this.snapshot = {
           ...this.snapshot,
@@ -146,7 +163,12 @@ export class ComposerCatalogState {
         this.publish()
       })
       .catch(() => {
-        if (this.disposed || epoch !== this.epoch) return
+        if (
+          this.disposed ||
+          epoch !== this.epoch ||
+          (owner !== this.owner && owner !== this.previousOwner)
+        )
+          return
         this.snapshot = {
           ...this.snapshot,
           [part]:
@@ -175,16 +197,62 @@ export class ComposerCatalogState {
     this.detachManagedMcp?.()
     this.remove()
     void sessionApi.releaseComposerCatalog(this.owner).catch(() => undefined)
+    if (this.previousOwner)
+      void sessionApi.releaseComposerCatalog(this.previousOwner).catch(() => undefined)
   }
 }
 
 const states = new Map<string, ComposerCatalogState>()
-export function composerCatalogState(scope: ComposerCatalogScope): ComposerCatalogState {
-  const key = JSON.stringify(scope)
+const stateKey = (scope: ComposerCatalogScope, identity?: number): string =>
+  JSON.stringify([
+    identity,
+    scope.backend,
+    scope.sessionId,
+    scope.cwd,
+    scope.projectId,
+    scope.providerKey,
+    scope.agentKind
+  ])
+onComposerPromotion(({ identity, before, after }) => {
+  if (
+    before.backend !== 'opencode' ||
+    after.backend !== 'opencode' ||
+    before.cwd !== after.cwd ||
+    before.providerKey !== after.providerKey ||
+    before.agentKind !== after.agentKind ||
+    before.worktreeIsolation
+  )
+    return
+  const previous: ComposerCatalogScope = {
+    backend: 'opencode',
+    sessionId: null,
+    cwd: before.cwd,
+    projectId: before.projectId ?? before.pendingProjectId,
+    providerKey: before.providerKey,
+    agentKind: before.agentKind
+  }
+  const oldKey = stateKey(previous, identity)
+  const state = states.get(oldKey)
+  if (!state) return
+  const next = {
+    ...previous,
+    sessionId: after.sessionId,
+    cwd: after.cwd,
+    projectId: after.projectId
+  }
+  states.delete(oldKey)
+  states.set(stateKey(next, identity), state)
+  state.promote(next)
+})
+export function composerCatalogState(
+  scope: ComposerCatalogScope,
+  identity?: number
+): ComposerCatalogState {
+  const key = stateKey(scope, identity)
   let state = states.get(key)
   if (!state) {
     const created = new ComposerCatalogState(scope, () => {
-      if (states.get(key) === created) states.delete(key)
+      for (const [entry, value] of states) if (value === created) states.delete(entry)
     })
     state = created
     states.set(key, state)

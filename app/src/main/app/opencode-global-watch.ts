@@ -14,6 +14,7 @@ export class OpenCodeGlobalWatch {
     private readonly deps: {
       files: string[]
       fingerprint(): Promise<string>
+      dirty?(): void
       changed(revision: number): void
       failed(error: unknown): void
     }
@@ -48,6 +49,7 @@ export class OpenCodeGlobalWatch {
 
   check(): Promise<void> {
     if (this.closed) return Promise.resolve()
+    this.deps.dirty?.()
     return this.enqueue(() => this.notifyOpenCodePluginsChanged()).catch(this.deps.failed)
   }
 

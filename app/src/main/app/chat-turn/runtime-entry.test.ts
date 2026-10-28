@@ -22,6 +22,7 @@ const TOOLS_REVISION = 7
 // `SessionRuntime` 을 구조적으로 만족하는 최소 fake. spawn 기록 5필드가 `respawnInputs` 의 입력이고
 // `teardownChannel` 이 이 pair 의 관측점이다 — 실제로 채널이 내려간 것처럼 `channelAlive` 도 끈다.
 function makeRuntime(): {
+  managedMcpRevision: () => undefined
   channelAlive: boolean
   spawnedModel: string
   spawnedProviderSettings: undefined
@@ -31,6 +32,7 @@ function makeRuntime(): {
   close: ReturnType<typeof vi.fn>
 } {
   const runtime = {
+    managedMcpRevision: () => undefined,
     channelAlive: true,
     spawnedModel: MODEL,
     spawnedProviderSettings: undefined,

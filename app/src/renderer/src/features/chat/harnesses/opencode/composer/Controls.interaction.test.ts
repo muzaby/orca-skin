@@ -21,6 +21,9 @@ const harness = vi.hoisted(() => ({
   change: vi.fn()
 }))
 vi.mock('../../../store/chatStore', () => ({
+  useChatStore: (
+    selector: (state: { sessions: Record<string, never>; activeKey: string }) => unknown
+  ) => selector({ sessions: {}, activeKey: 'test' }),
   useChatSession: (selector: (state: typeof harness.selected) => unknown) =>
     selector(harness.selected),
   chatActions: { setHarnessOptions: harness.change }

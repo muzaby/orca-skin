@@ -18,3 +18,4 @@ export const openCodeProjectResources = implementation.projectResources
 
 export const openCodeGlobalConfigFiles = implementation.globalPluginFiles
 export const openCodeGlobalPluginFingerprint = implementation.globalPluginFingerprint
+export const invalidateOpenCodeDiscovery = implementation.invalidateDiscovery

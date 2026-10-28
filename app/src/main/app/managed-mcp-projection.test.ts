@@ -51,14 +51,14 @@ it('preserves transports identities and native configuration', () => {
     type: 'local',
     command: ['C:\\Program Files\\node.exe', 'arg with spaces', '', 'quote"\n{file:verbatim}'],
     environment: { TOKEN: secret },
-    enabled: true
+    enabled: false
   })
   expect(projected[managedMcpAlias('user', 'a_b')]).toEqual({
     type: 'remote',
     url: 'https://http.test/path',
     headers: { Authorization: secret },
     oauth: false,
-    enabled: true
+    enabled: false
   })
   expect(projected[managedMcpAlias('user', '한글 space')]).toMatchObject({
     type: 'remote',

@@ -1,4 +1,5 @@
 import { OpenCodeGlobalWatch } from './opencode-global-watch'
+import { invalidateOpenCodeDiscovery } from '../adapters/opencode'
 import { broadcastOpenCodePluginsChanged } from '../infra/ipc/send'
 import { openCodeGlobalConfigFiles, openCodeGlobalPluginFingerprint } from '../adapters/opencode'
 import { PluginSnapshots } from '../infra/config/plugin-snapshots'
@@ -12,8 +13,11 @@ import {
   type ResourceRequest,
   type ProjectResourceTarget
 } from './project-resource-sync'
-import { prepareComposerCatalog, registerComposerCatalog } from './composer-catalog'
-import { preparedMcpScope, PreparedMcpResources } from './prepared-mcp-resources'
+import { createComposerPreparation } from './composer-preparation'
+import { OpenCodeMcpReconcile } from './opencode-mcp-reconcile'
+import { OpenCodeWarmup } from './opencode-warmup'
+import type { ComposerPreparationService } from './composer-preparation-service'
+import type { PreparedMcpResources } from './prepared-mcp-resources'
 import { reportError } from '../infra/error-report'
 // Bootstrap — main 측 컴포지션 루트(app 레이어). 의존성 생성 + 부팅 시퀀스 + 핸들러 등록 위임만
 // 담당한다. 도메인 핸들러는 app/handlers/, chat 턴 셋업은 app/chat-turn.ts, 턴 파이프라인 협력자는
@@ -224,6 +228,9 @@ export class Bootstrap {
   private supervisor?: RuntimeSupervisor<Electron.WebContents>
   private closeComposerCatalog?: import('./handlers/composer-catalog').ComposerCatalogRegistration
   private preparedMcpResources?: PreparedMcpResources
+  private openCodeMcpReconcile?: OpenCodeMcpReconcile
+  private composerPreparation?: ComposerPreparationService
+  private openCodeWarmup?: OpenCodeWarmup
   private openCodeGlobalWatch?: OpenCodeGlobalWatch
   private bus?: MainBus<Electron.WebContents>
   private activeDbWriteCount = 0
@@ -505,6 +512,7 @@ export class Bootstrap {
     const resuming = (): boolean => authResumeRef?.resuming() ?? false
     const pushConnectionState = (): void => {
       broadcastProviderState(connectionState(auth, gate, connections, resuming()))
+      this.openCodeWarmup?.update()
     }
     this.dailyGate = startDailyGate({
       gate,
@@ -851,6 +859,15 @@ export class Bootstrap {
       runtimeModelCatalog
     }
     this.register(ctx)
+    this.openCodeWarmup = new OpenCodeWarmup({
+      service: this.composerPreparation!,
+      allowed: () => !this.stopped && gate.state().passed && !resuming(),
+      settings: () => this.settings.getAll(),
+      cwd: () => ctx.getCwd(),
+      installed: async () =>
+        (await ctx.registry.get('opencode')?.isInstalled()) ?? { installed: false }
+    })
+    this.openCodeWarmup.update()
   }
 
   restartGateState(): RestartGateState {
@@ -904,7 +921,9 @@ export class Bootstrap {
     // admission freeze 를 **가장 먼저**(0151 AC9) — 이후 send/steer 예약을 거부해, 종료 중
     // 게이트 flush·자동 연속 턴이 큐 폐기와 경합하며 메시지를 뒤늦게 제출하는 것을 막는다.
     this.pendingMessages?.freeze()
+    this.openCodeWarmup?.close()
     this.openCodeGlobalWatch?.close()
+    this.openCodeMcpReconcile?.close()
     this.closeComposerCatalog?.()
     this.preparedMcpResources?.close()
     this.projectResourceSync?.close()
@@ -1064,14 +1083,16 @@ export class Bootstrap {
 
     // 세션 삭제 시 미커밋 pending 도 함께 폐기한다(0151 AC8) — 루트가 chat 큐를 주입해
     // session 슬라이스가 chat 슬라이스를 참조하지 않게 한다.
-    this.closeComposerCatalog = registerComposerCatalog(ctx)
-    const preparedMcp = (this.preparedMcpResources = new PreparedMcpResources({
-      prepare: (scope, signal) => prepareComposerCatalog(ctx, scope, signal),
-      scope: (request) => preparedMcpScope(ctx.db, request)
-    }))
-    this.managedMcp?.source.subscribe((revision) => {
-      this.closeComposerCatalog?.invalidate()
-      preparedMcp.invalidate()
+    const preparation = createComposerPreparation(ctx)
+    this.composerPreparation = preparation.service
+    this.closeComposerCatalog = preparation.close
+    const preparedMcp = (this.preparedMcpResources = preparation.resources)
+    this.managedMcp?.source.subscribe((revision, kind) => {
+      if (kind !== 'connections') {
+        ctx.registry.get('opencode')?.extensionsChanged?.()
+        this.closeComposerCatalog?.invalidate()
+        preparedMcp.invalidate()
+      } else this.openCodeMcpReconcile?.changed()
       for (const wc of webContents.getAllWebContents()) {
         if (!wc.isDestroyed()) wc.send(CHANNELS.managedMcpChanged, { revision })
       }
@@ -1221,6 +1242,25 @@ export class Bootstrap {
       projectSync,
       preparedMcp
     )
+    const openCode = ctx.registry.get('opencode')
+    if (openCode)
+      this.openCodeMcpReconcile = new OpenCodeMcpReconcile({
+        adapter: openCode,
+        peers: () =>
+          supervisor.runtimeEntries().flatMap(({ sessionId }) => {
+            const target = resolveResourceTarget({ sessionId })
+            return target?.backend === 'opencode' && target.runtime
+              ? [
+                  {
+                    cwd: target.cwd,
+                    runtime: target.runtime,
+                    activity: activity.current(sessionId)
+                  }
+                ]
+              : []
+          }),
+        changed: () => projectSync.connectionsChanged('opencode')
+      })
     registerSessionHandlers(ctx, {
       isSessionBusy: (sessionId) => supervisor.hasSession(sessionId),
       onSessionDisposed: (sessionId) => {
@@ -1250,8 +1290,11 @@ export class Bootstrap {
     this.openCodeGlobalWatch = new OpenCodeGlobalWatch({
       files: openCodeGlobalConfigFiles(),
       fingerprint: openCodeGlobalPluginFingerprint,
+      dirty: invalidateOpenCodeDiscovery,
       changed: (revision) => {
         ctx.registry.get('opencode')?.extensionsChanged?.()
+        this.composerPreparation?.invalidate()
+        this.preparedMcpResources?.invalidate()
         broadcastOpenCodePluginsChanged({ revision })
       },
       failed: (error) =>
@@ -1282,7 +1325,10 @@ export class Bootstrap {
             title: 'claudeSessionsCloseFailed',
             error
           })
-      })
+      }),
+      (backend) => {
+        if (backend === 'opencode') this.openCodeMcpReconcile?.changed()
+      }
     )
     registerFilesHandlers(ctx)
     registerGitHandlers(ctx.db)

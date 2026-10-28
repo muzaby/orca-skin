@@ -289,7 +289,7 @@ describe('OpenCode persistent SDK channel', () => {
     }
   })
 
-  it('cancels command preparation at the SDK request before any command is accepted', async () => {
+  it('detaches canceled command preparation without accepting input or aborting retained shared work', async () => {
     const f = fixture({ text: '/native:slow' })
     const gate = Promise.withResolvers<void>()
     let readSignal: AbortSignal | undefined
@@ -305,12 +305,12 @@ describe('OpenCode persistent SDK channel', () => {
       f.live.close()
       gate.resolve()
       await receiving
-      expect(readSignal!.aborted).toBe(true)
+      expect(readSignal!.aborted).toBe(false)
       expect(
         f.requests
           .filter((request) => request.method === 'POST')
           .map((request) => new URL(request.url).pathname)
-      ).toEqual(['/instance/dispose'])
+      ).toEqual([])
     } finally {
       gate.resolve()
       await dispose(f.live, iterator)
@@ -984,7 +984,9 @@ it('exposes native resources from the live channel client and its directory with
       .filter((request) => ['/mcp', '/config'].includes(new URL(request.url).pathname))
     expect(requests).toHaveLength(2)
     for (const request of requests) {
-      expect(new URL(request.url).searchParams.get('directory')).toBe('C:/native-B')
+      expect(new URL(request.url).searchParams.get('directory')?.replaceAll('\\', '/')).toBe(
+        'C:/native-B'
+      )
       expect(request.method).toBe('GET')
     }
     await expect(

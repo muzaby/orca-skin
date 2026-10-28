@@ -11,10 +11,12 @@ const flush = async (): Promise<void> => {
 it('fans out once per external plugin change and ignores unchanged polls', async () => {
   let fingerprint = 'original'
   const changed = vi.fn()
+  const dirty = vi.fn()
   const watcher = new OpenCodeGlobalWatch({
     files: ['a', 'b', 'c'],
     fingerprint: async () => fingerprint,
     changed,
+    dirty,
     failed: vi.fn()
   })
   await watcher.check()
@@ -27,6 +29,8 @@ it('fans out once per external plugin change and ignores unchanged polls', async
   callback()
   await flush()
   expect(changed).toHaveBeenCalledTimes(1)
+  // A general config edit still invalidates discovery even when plugin entries are unchanged.
+  expect(dirty).toHaveBeenCalledTimes(3)
   fingerprint = 'removed'
   callback()
   await flush()

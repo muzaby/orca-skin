@@ -865,12 +865,16 @@ it('restores global choices through production Bootstrap into catalogs, new Clau
     headers: {}
   })
   const requests: Request[] = []
+  let connectionStatus = 'connected'
   fixture.fetch.mockImplementation(async (input, init) => {
     const request = new Request(input, init)
     requests.push(request)
     const path = new URL(request.url).pathname
-    if (path === '/mcp') return Response.json({ docs: { status: 'connected' } })
-    if (path === '/mcp/docs/disconnect' || path === '/mcp/docs/connect') return Response.json(true)
+    if (path === '/mcp') return Response.json({ docs: { status: connectionStatus } })
+    if (path === '/mcp/docs/disconnect' || path === '/mcp/docs/connect') {
+      connectionStatus = path.endsWith('/disconnect') ? 'disabled' : 'connected'
+      return Response.json(true)
+    }
     throw new Error(`Unexpected request: ${path}`)
   })
   fixture.stopAtSession = false
@@ -941,7 +945,8 @@ it('restores global choices through production Bootstrap into catalogs, new Clau
     await oldDirectory.read('mcp', new AbortController().signal, true)
     const nextDirectory = await adapter.prepareComposer!({ cwd: join(temp, 'B') })
     await nextDirectory.read('mcp', new AbortController().signal)
-    expect(requests.filter((r) => r.method === 'POST')).toHaveLength(1)
+    expect(requests.filter((r) => new URL(r.url).pathname === '/mcp/docs/connect')).toHaveLength(1)
+    expect(connectionStatus).toBe('connected')
     expect([await readFile(claudeFile, 'utf8'), await readFile(openFile, 'utf8')]).toEqual(before)
   } finally {
     one.registry!.close()

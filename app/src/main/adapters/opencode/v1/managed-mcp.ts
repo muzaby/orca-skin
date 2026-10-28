@@ -60,7 +60,7 @@ export function projectManagedMcp(
     })
     mcp[alias] = entry(value)
   }
-  for (const [name, server] of Object.entries(snapshot.users)) {
+  for (const [name, server] of Object.entries(snapshot.definitions ?? snapshot.users)) {
     add({ kind: 'user', sourceId: name, name, mentionId: '' }, (value) =>
       'url' in server
         ? {
@@ -70,7 +70,7 @@ export function projectManagedMcp(
               Object.entries(server.headers ?? {}).map(([key, text]) => [key, value(text)])
             ),
             oauth: false,
-            enabled: true
+            enabled: false
           }
         : {
             type: 'local',
@@ -78,7 +78,7 @@ export function projectManagedMcp(
             environment: Object.fromEntries(
               Object.entries(server.env ?? {}).map(([key, text]) => [key, value(text)])
             ),
-            enabled: true
+            enabled: false
           }
     )
   }
@@ -90,7 +90,7 @@ export function projectManagedMcp(
       url: value(endpoint.url),
       headers: { Authorization: value(`Bearer ${endpoint.token}`) },
       oauth: false,
-      enabled: true
+      enabled: false
     }))
   }
   return { config: { ...config, mcp }, env, identities, failures }

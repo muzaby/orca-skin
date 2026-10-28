@@ -23,7 +23,7 @@ export interface RuntimeLiveTurn extends LiveTurn {
 export type RuntimeTitleAdapter = Pick<SessionAdapter, 'id' | 'complete'>
 export type RuntimeSessionAdapter = Pick<
   SessionAdapter,
-  'id' | 'complete' | 'sendMessage' | 'classifyError'
+  'id' | 'complete' | 'sendMessage' | 'classifyError' | 'restartRevision'
 >
 
 // 런타임 **거버넌스** 표면(0151) — `interrupt` 만 좁힌 RuntimeLiveTurn.

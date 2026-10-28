@@ -329,6 +329,13 @@ export class SessionRuntime implements ManagedRuntime {
   get spawnedManagedMcpRevision(): number | undefined {
     return this.spawnedManagedMcpRevisionValue
   }
+  managedMcpRevision(
+    snapshot: import('../../adapters/common/managed-mcp').ManagedMcpSnapshot | undefined
+  ): number | undefined {
+    return this.adapter.restartRevision
+      ? this.adapter.restartRevision(snapshot)
+      : snapshot?.revision
+  }
   get spawnedExtraDirs(): readonly string[] | undefined {
     return this.runtimeToolContext?.extraDirs
   }
@@ -510,7 +517,7 @@ export class SessionRuntime implements ManagedRuntime {
     this.spawnedFingerprint = req.envFingerprint ?? harnessEnvFingerprint(req.env)
     this.spawnedModelValue = req.model
     this.spawnedRuntimeToolsRevisionValue = req.extensions.runtimeTools?.revision
-    this.spawnedManagedMcpRevisionValue = req.extensions.managedMcp?.revision
+    this.spawnedManagedMcpRevisionValue = this.managedMcpRevision(req.extensions.managedMcp)
     this.spawnedAgentProfileKeyValue = req.extensions.agentProfileKey
     if (spawned.pushTurn && this.closePolicy === 'persistent') {
       const frame = this.openFrame(false)

@@ -1,4 +1,5 @@
 import { reportError } from '../../../shared/errors'
+import { promoteComposer } from '../lib/composerPromotion'
 import { isFilesystemRoot } from '../../../../../shared/absolute-path'
 import { useMemo } from 'react'
 import {
@@ -538,7 +539,10 @@ function releaseNewChatGate(expectedKey: string): void {
 // 보존해 진행 중 라이브 버퍼·메시지가 그대로 따라간다. main 의 promote(turn, sessionId)
 // 신원가드가 resume session.updated 의 오승격을 차단하고, renderer 의 기존 sessionId
 // 가드는 같은 세션 재방출을 방어한다(handoff 0040).
-function promotePendingNewChat(sessionId: string): boolean {
+function promotePendingNewChat(
+  event: Extract<NormalizedEvent, { type: 'session.updated' }>
+): boolean {
+  const sessionId = event.sessionId
   let nextPayload: SendChatMessage | null = null
   let missingPending = false
   let promoted = false
@@ -559,6 +563,12 @@ function promotePendingNewChat(sessionId: string): boolean {
     const [next, ...restQueue] = s.newChatQueue
     nextPayload = next?.payload ?? null
     promoted = true
+    if (entry.draftGeneration !== undefined)
+      promoteComposer({
+        identity: entry.draftGeneration,
+        before: entry.session,
+        after: chatReducer(entry.session, { type: 'RECV_EVENT', event })
+      })
     return {
       sessions: { ...rest, [sessionId]: entry },
       pendingNewChatKey: next?.key ?? null,
@@ -644,7 +654,7 @@ function receive(ev: NormalizedEvent): void {
   // session.updated = sessionId 발급/확정 시점 — main 에 진입한 pending draft 를 sessionId 키로 승격.
   const promotedNewChat =
     ev.type === 'session.updated' && !getState().sessions[ev.sessionId]
-      ? promotePendingNewChat(ev.sessionId)
+      ? promotePendingNewChat(ev)
       : false
 
   let key: string | null = null

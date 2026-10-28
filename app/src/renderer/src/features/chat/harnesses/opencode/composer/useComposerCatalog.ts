@@ -1,6 +1,6 @@
 import { useMemo, useSyncExternalStore } from 'react'
 import { useStore } from 'zustand'
-import { useChatSession } from '../../../store/chatStore'
+import { useChatSession, useChatStore } from '../../../store/chatStore'
 import { composerCatalogState, type ComposerCatalogSnapshot } from './composerCatalogState'
 import type { ComposerCatalogPart } from '../../../../../../../shared/composer-catalog'
 import { composerAgentStore } from './composerAgentStore'
@@ -16,6 +16,7 @@ export function useComposerCatalog(providerKey: string | null): {
   retry(part: ComposerCatalogPart): void
 } {
   const sessionId = useChatSession((state) => state.sessionId)
+  const identity = useChatStore((state) => state.sessions[state.activeKey]?.draftGeneration)
   const cwd = useChatSession((state) => state.cwd)
   const projectId = useChatSession((state) => state.projectId ?? state.pendingProjectId)
   const agentKind = useChatSession((state) => state.agentKind)
@@ -30,16 +31,19 @@ export function useComposerCatalog(providerKey: string | null): {
   const state = useMemo(
     () =>
       sessionId || cwd || projectId
-        ? composerCatalogState({
-            backend: 'opencode',
-            sessionId,
-            cwd,
-            projectId,
-            providerKey,
-            agentKind
-          })
+        ? composerCatalogState(
+            {
+              backend: 'opencode',
+              sessionId,
+              cwd,
+              projectId,
+              providerKey,
+              agentKind
+            },
+            identity
+          )
         : undefined,
-    [sessionId, cwd, projectId, providerKey, agentKind]
+    [sessionId, cwd, projectId, providerKey, agentKind, identity]
   )
   const snapshot = useSyncExternalStore(
     state?.subscribe ?? emptySubscribe,

@@ -86,8 +86,12 @@ vi.mock('../shared/api/ipc', async (original) => ({
 }))
 vi.mock('../features/chat/store/chatStore', () => ({
   useChatSession: (select: (state: ChatState) => unknown) => select(fixture.session),
-  useChatStore: (select: (state: { activeKey: string }) => unknown) =>
-    select({ activeKey: 'draft' }),
+  useChatStore: (
+    select: (state: {
+      activeKey: string
+      entries: Record<string, { draftGeneration: number }>
+    }) => unknown
+  ) => select({ activeKey: 'draft', entries: { draft: { draftGeneration: 1 } } }),
   turnEndTick: () => 0,
   useChatBusy: () => false,
   useChatResponding: () => false,

@@ -150,6 +150,7 @@ function install(
     }
   })
   const runtime = {
+    managedMcpRevision: () => undefined,
     channelAlive: true,
     channelBusy: false,
     hasUnframedBacklog: false,

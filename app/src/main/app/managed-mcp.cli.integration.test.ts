@@ -248,6 +248,7 @@ await server.connect(new StdioServerTransport());`
     }
   }
   const children: ChildProcess[] = []
+  const permissionReplies: { reply: unknown; status: number }[] = []
   const pool = new OpenCodeServerPool({
     dataDirectory: root,
     preferences: () => ({ executablePath: executable, instructions: '' }),
@@ -259,8 +260,14 @@ await server.connect(new StdioServerTransport());`
     }) as typeof spawn
   })
   const fetchObserved: typeof fetch = async (input, init) => {
-    const result = await fetch(input, init)
     const url = input instanceof Request ? input.url : String(input)
+    const permission = /\/permission\/[^/]+\/reply$/.test(new URL(url).pathname)
+      ? ((await (input instanceof Request ? input.clone() : new Request(input, init)).json()) as {
+          reply: unknown
+        })
+      : undefined
+    const result = await fetch(input, init)
+    if (permission) permissionReplies.push({ reply: permission.reply, status: result.status })
     if (url.includes('/mcp'))
       diagnostics.push(
         `${result.status} ${result.headers.get('content-type')} ${await result.clone().text()}`
@@ -302,6 +309,7 @@ await server.connect(new StdioServerTransport());`
         denied ? { behavior: 'deny', message: 'fixture denied' } : { behavior: 'allow' }
       )
       const callsBefore = called.length
+      const repliesBefore = permissionReplies.length
       const before = modelRequests.length
       turn = adapter.sendMessage({
         sessionId: null,
@@ -333,12 +341,24 @@ await server.connect(new StdioServerTransport());`
         clearTimeout(timeout)
       }
       expect(errors).toEqual([])
-      expect(modelRequests.length - before).toBeGreaterThanOrEqual(2)
-      const results = JSON.stringify(modelRequests.at(-1))
+      expect(modelRequests.length - before).toBeGreaterThanOrEqual(denied ? 1 : 2)
+      // Native background requests may arrive after the tool continuation. Read
+      // this turn's actual tool outputs, rather than whichever model request won last.
+      const results = JSON.stringify(
+        modelRequests
+          .slice(before)
+          .flatMap((request) =>
+            (request.messages as Array<{ role: string; content: unknown }>)
+              .filter((message) => message.role === 'tool')
+              .map((message) => message.content)
+          )
+      )
       expect(approvals).toHaveBeenCalled()
       if (denied) {
         expect(called.length).toBe(callsBefore)
-        expect(results).toMatch(/denied|rejected|permission/i)
+        expect(permissionReplies.slice(repliesBefore)).toEqual(
+          expect.arrayContaining([{ reply: 'reject', status: 200 }])
+        )
       } else {
         for (const kind of ['stdio', 'http', 'sse'])
           expect(results).toContain(`${kind}:cli-sentinel`)
@@ -377,18 +397,25 @@ await server.connect(new StdioServerTransport());`
     })
     const active = turn
     const observed: string[] = []
+    let recordAborted!: () => void
+    const aborted = new Promise<void>((resolve) => {
+      recordAborted = resolve
+    })
     const consuming = (async () => {
       for await (const batch of active.eventBatches) {
         observed.push(...batch.events.map((event) => event.type))
-        if (batch.events.some((event) => event.type === 'turn.aborted')) break
+        // A persistent runtime keeps consuming after the turn ends. Returning the
+        // iterator here closes the channel before the interrupt HTTP reply arrives.
+        if (batch.events.some((event) => event.type === 'turn.aborted')) recordAborted()
       }
     })()
     await vi.waitFor(() => expect(approvalSignal).toBeDefined(), { timeout: 15_000 })
     await active.interrupt()
-    await consuming
+    await aborted
     expect(approvalSignal?.aborted).toBe(true)
     expect(observed).toContain('turn.aborted')
     active.close()
+    await consuming
     turn = undefined
   } finally {
     turn?.close()

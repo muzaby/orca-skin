@@ -78,6 +78,11 @@ export interface CompleteRequest {
 }
 
 export interface SessionAdapter {
+  configureResourceActivity?(idle: (cwd: string, beforeSubmit: boolean) => boolean): void
+  reconcileConnections?(): Promise<void>
+  restartRevision?(
+    snapshot: import('./managed-mcp').ManagedMcpSnapshot | undefined
+  ): number | undefined
   extensionsChanged?(): void
   prepareComposer?(request: {
     cwd: string

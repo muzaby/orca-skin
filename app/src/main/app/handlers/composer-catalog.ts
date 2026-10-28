@@ -13,9 +13,9 @@ import { getLogger } from '../../infra/log'
 export type ComposerCatalogRegistration = (() => void) & { invalidate(): void }
 
 export function registerComposerCatalogHandlers(
-  prepare: (scope: ComposerCatalogScope, signal: AbortSignal) => Promise<ComposerCatalogLease>
+  prepare: (scope: ComposerCatalogScope, signal: AbortSignal) => Promise<ComposerCatalogLease>,
+  owners = new ComposerCatalogOwners(prepare)
 ): ComposerCatalogRegistration {
-  const owners = new ComposerCatalogOwners(prepare)
   const windows = new Map<WebContents, () => void>()
   const watch = (sender: WebContents): void => {
     if (windows.has(sender)) return

@@ -178,7 +178,9 @@ describe('Desktop-style OpenCode startup through the real SDK', () => {
       return jsonResponse({ all: [] })
     })
     const preview = await f.adapter.prepareComposer({ cwd: 'C:/work' })
-    const models = preview.read('models', new AbortController().signal)
+    const models = expect(preview.read('models', new AbortController().signal)).rejects.toThrow(
+      '종료'
+    )
     expect(await preview.read('agents', new AbortController().signal)).toEqual([{ name: 'build' }])
     expect(f.requests.map((r) => new URL(r.url).pathname)).toEqual(['/provider', '/agent'])
     const live = f.adapter.sendMessage({
@@ -288,12 +290,12 @@ describe('Desktop-style OpenCode startup through the real SDK', () => {
     } finally {
       await Promise.all(lives.map((live, index) => close(live, iterators[index])))
       try {
-        expect(f.streams.every((stream) => stream.closed)).toBe(true)
+        expect(f.streams.every((stream) => stream.closed)).toBe(false)
       } finally {
         f.adapter.close()
       }
     }
-    expect(f.streams.every((stream) => stream.closed)).toBe(true)
+    await vi.waitFor(() => expect(f.streams.every((stream) => stream.closed)).toBe(true))
     expect(f.releases).toHaveBeenCalledTimes(8)
   })
 
@@ -412,7 +414,10 @@ describe('Desktop-style OpenCode startup through the real SDK', () => {
     try {
       expect((await frame(next)).some((value) => value.type === 'turn.ended')).toBe(true)
       expect(f.requests.filter((request) => request.url.includes('/prompt_async'))).toHaveLength(1)
-      expect(f.streams).toHaveLength(2)
+      expect(f.streams).toHaveLength(1)
+      expect(
+        f.requests.filter((request) => new URL(request.url).pathname === '/config')
+      ).toHaveLength(2)
     } finally {
       await close(retry, next)
       f.adapter.close()

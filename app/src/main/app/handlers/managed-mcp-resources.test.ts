@@ -132,12 +132,25 @@ it('preserves source identity through prepared and live views', async () => {
         complete = resolve
       })
     const late = invoke({ sessionId: 'saved' })
-    const rejected = expect(late).rejects.toThrow('MCP 설정')
+    const refreshed = expect(late).resolves.toMatchObject({ generation: 'latest', items })
     await Promise.resolve()
     await Promise.resolve()
     prepared.invalidate()
+    runtime.nativeResources = async () => ({ state: 'connected', generation: 'latest', items })
     complete({ state: 'connected', generation: 'old', items })
-    await rejected
+    await refreshed
+    const churn = vi.fn(async () => {
+      prepared.invalidate()
+      return { state: 'connected' as const, generation: 'stale', items }
+    })
+    runtime.nativeResources = churn
+    expect(await invoke({ sessionId: 'saved' })).toEqual({
+      state: 'disconnected',
+      partial: true,
+      configurationPending: true,
+      items: []
+    })
+    expect(churn).toHaveBeenCalledTimes(2)
     sender.emit('render-process-gone')
     expect(await prepared.read(scope as Parameters<typeof prepared.read>[0])).toBeUndefined()
     expect(release).toHaveBeenCalledTimes(1)
