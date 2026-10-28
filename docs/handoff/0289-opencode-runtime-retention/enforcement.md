@@ -179,3 +179,15 @@ rg -n 'mcp\.status\(|openCodeServerProfile\(|harnessEnvFingerprint\(|export func
 | VP08 (REGRESSION) | E6·E8 | 2 |
 
 V1 90자리 + J 4자리 = 94자리.
+
+## ΔV1 변경 금지 자리 — D27
+
+OpenCode MCP 토글의 현행 동작(노출·최초 설정값·제어 비활성)을 운반하는 자리다. ΔV1 구현 diff에 X1·X3~X5가 없어야 하고, X2는 J1이 같은 함수를 고치므로 반환 매핑이 그대로여야 한다.
+
+| ID | 파일 | 현재 심볼 | 확인 | 실패 의미 |
+|---|---|---|---|---|
+| X1 | main/adapters/opencode/v1/mcp-control.ts | preview의 `canToggle: false`(123행), `set`의 거부(93행) | diff 부재 | 세션 화면 토글이 활성화되거나 값이 바뀜 |
+| X2 | main/adapters/opencode/v1/native-resources.ts | openCodeNativeMcp 매핑의 `enabled`·`canToggle: false`(102~103행) | O12 반환 배열 동일 | 상태 표시나 토글 가능 여부가 바뀜 |
+| X3 | main/adapters/opencode/v1/configured-resources.ts | globalOpenCodeResources의 `canToggle`(135행) | diff 부재 | MCP 탭 토글 동작 변화 |
+| X4 | main/app/handlers/extension-catalog.ts | read의 선택 반영·extensionSetEnabled(30·51행) | diff 부재 | 저장·적용 경로 변화 |
+| X5 | renderer/src/features/skills/{components/customize/CustomizeList.tsx, components/customize/CatalogToggle.tsx, hooks/useNativeMcpCatalog.ts} | 토글 노출·비활성 표시 | diff 부재 | 화면 노출·비활성 표시 변화 |
