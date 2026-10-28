@@ -148,6 +148,31 @@ describe('owned OpenCode server lifecycle', () => {
     rmSync(path)
     await pool.databasePath({}, env)
     expect(execute).toHaveBeenCalledTimes(3)
+    const adapter = new OpenCodeAdapter(pool, async (input, init) => {
+      const url = new URL(new Request(input, init).url)
+      return jsonResponse(
+        url.pathname.endsWith('/message')
+          ? []
+          : {
+              id: 's1',
+              directory: url.searchParams.get('directory'),
+              time: { created: 1, updated: 1 }
+            }
+      )
+    })
+    try {
+      for (const cwd of ['C:/A', 'C:/B']) {
+        const result = await adapter.readHistory({
+          sessionId: 's1',
+          cwd,
+          env: { ...env, ORCA_MCP_HISTORY: cwd }
+        })
+        expect(result.status).toBe('ready')
+      }
+      expect(execute).toHaveBeenCalledTimes(3)
+    } finally {
+      adapter.close()
+    }
   })
   it('shares the effective profile when only the overridden snapshot setting differs', async () => {
     const { pool, spawnProcess, children } = setup()

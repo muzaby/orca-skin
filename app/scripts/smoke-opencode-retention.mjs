@@ -367,6 +367,17 @@ try {
     assert.equal(modelCalls, 0)
     for (const path of ['/agent', '/provider', '/mcp'])
       assert.ok(requests.some((request) => request.path === path))
+    // Warmup now releases its observation before independent additive connections settle.
+    await waitUntil(
+      () =>
+        Object.values(records.findLast((record) => record.event === 'mcp.status')?.entries ?? {})
+          .length === 3 &&
+        Object.values(records.findLast((record) => record.event === 'mcp.status').entries).every(
+          (status) => status === 'connected'
+        ),
+      'Initial MCP attempts did not settle connected',
+      60000
+    )
     assert.deepEqual(
       Object.values(records.findLast((record) => record.event === 'mcp.status').entries),
       ['connected', 'connected', 'connected']

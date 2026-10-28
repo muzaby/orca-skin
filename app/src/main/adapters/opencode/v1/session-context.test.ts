@@ -129,6 +129,7 @@ describe('OpenCode server context with the installed SDK', () => {
     const a = await f.pool.acquire(server, 'C:/A')
     const peer = await f.pool.acquire(server, 'C:/A')
     await Promise.all([a.prepare(freshSignal()), peer.prepare(freshSignal())])
+    await f.pool.reconcileConnections()
     expect((await a.mcp(freshSignal()))[0]).toMatchObject({ enabled: false, canToggle: false })
     expect(
       f.requests.filter((request) => new URL(request.url).pathname.endsWith('/disconnect'))
@@ -161,6 +162,8 @@ describe('OpenCode server context with the installed SDK', () => {
     const one = await f.pool.acquire(server, 'C:/A')
     const peer = await f.pool.acquire(server, 'C:/A')
     const two = await f.pool.acquire(server, 'C:/B')
+    one.activate?.()
+    two.activate?.()
     const gate = Promise.withResolvers<void>()
     let failing = true
     f.setRead(async (request) => {

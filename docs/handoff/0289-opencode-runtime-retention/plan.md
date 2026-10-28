@@ -5,12 +5,12 @@
 | 항목 | 값 |
 |---|---|
 | 작성자 / 일자 | Codex — 사용자 지시로 handoff-plan 수행 / 2026-10-27 |
-| 상태 / 라운드 | ΔV1 구현 IN_PROGRESS / r1.2. M1(A) 진행 중, 이후 M2(B). 독립 verify는 V1+ΔV1을 함께(D20) |
+| 상태 / 라운드 | ΔV1 impl/IMPL_DONE / r1.2. M1(A)+M2(B) 구현 완료, AC22/H1·AC33/H2 실기 대기. 다음 Claude verify(V1+ΔV1, D20) |
 | V mode / revision | Baseline V1 + Delta V ΔV1(Claude 2026-10-28) — A+B 범위(D27) |
 | 기준 V / 유효 V | V1 = 0289:V1@57c841b0 / V1 + ΔV1. V1은 0288 전체 검증을 승계하지 않는다 |
 | 조사 코드 | 공유 브랜치 orca-0288-cross-harness-mcp-plan, 24e79f7a. git cat-file -t 및 pull --ff-only 확인 |
 | 이전 계약 출처 | 0288 V1@801f27f6, 0275 ΔV6@79ccc64 — 존재 확인. 변경·보존 관계는 §16 |
-| 산출 경계 | V1 설계 + r1 구현 자기보고. AC22의 실제 앱/타 PC 인수·독립 verify는 후속 |
+| 산출 경계 | V1+ΔV1 설계 및 r1/r1.2 구현 자기보고. AC22/H1·AC33/H2 실기 인수와 독립 verify는 후속 |
 
 # Part I — Product & UX Contract
 
@@ -910,3 +910,167 @@ M1은 수동 MCP 읽기와 역할별 활성화, 입력 의도 슬롯, db path �
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
 | 미착수 | — | — | — | — | — |
+
+---
+
+# ΔV1 r1.2 최종 구현 보고 — 2026-10-29
+
+## [구현자 기입] 설계 리뷰
+
+D17~D28의 A+B 범위를 구현했다. 규범 행·공개 IPC·DB 포맷은 바꾸지 않았다. M1(A)를 먼저 커밋했고 M2(B)는 전역 enabled MCP 비활성 투영, directory별 독립 시도, 해제 장벽·멘션 정착·2초 대기를 연결한다. PLAN_GAP은 없다. 초기 가산 연결과 사용자 토글의 busy guard를 구분했고, 전송 대기 중 바뀐 선택도 제출 직전에 재확인한다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+[ΔV1 관측표](delta-implementation-evidence.md)에 J6·K22·L3·M3의 34자리와 이번에 재실행한 T01~T54를 기록했다. V1 고정 90자리의 좌표를 함께 대조했다. 아래 분모는 Δ4의 유효 pair이며 중복 자리 수를 합산하지 않는다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP06 | 측정·외부 경계 | A1~19·C1~9·E1~10·F1~10·I1~5·J1~6 (59) | 59/59 기계 자리 | 관측표의 해당 ID→T/D 좌표; 직접 vitest | 비밀 분류·수락/assistant/part, 실측 일부 | H1·H2 실기 |
+| VP08 | 해제/정의 장벽 | E1~10·F1~10·K7·K8·K10 (23) | 23/23 기계 자리 | 관측표의 해당 ID→T/D 좌표; 직접 vitest | busy/off 실패·대기 중 off 전송0 | 없음 |
+| VP17 | 첫 전송·투영·멘션 | K1~15·K22 (16) | 16/16 기계 자리 | 관측표의 해당 ID→T/D 좌표; 직접 vitest | 1999ms 전송0/2000ms1, 멘션 취소 | 없음 |
+| VP18 | 수동/의도·db·목록 | K16~21·L1~3·M1~3 (12) | 12/12 기계 자리 | 관측표의 해당 ID→T/D 좌표; 직접 vitest | passive HTTP0, 저장소 exec 재사용, seed | 없음 |
+| VP19 | 활성화 수명 | K5·K6·K11·K13·K16·K20 (6) | 6/6 기계 자리 | 관측표의 해당 ID→T/D 좌표; 직접 vitest | 초기 연결 busy 허용·수동 peer0 | 없음 |
+| VP20 | 진단 전달 | J1~6 (6) | 6/6 기계 자리 | 관측표의 해당 ID→T/D 좌표; 직접 vitest | enum·opaque ID·ms, 원문 미노출 | 없음 |
+| VP21 | 실제 adapter 투영 | K1~3·K11~15 (8) | 8/8 기계 자리 | 관측표의 해당 ID→T/D 좌표; 직접 vitest | 전역2/disabled1/project1 구별·child1 | 없음 |
+| VP22 | 의도·역할 전달 | K16~21 (6) | 6/6 기계 자리 | 관측표의 해당 ID→T/D 좌표; 직접 vitest | 다섯 의도 각각1·반복0·역할 분리 | 없음 |
+| VP23 | 저장소 캐시 | L1~3 (3) | 3/3 기계 자리 | 관측표의 해당 ID→T/D 좌표; 직접 vitest | 투영 차이 exec1·env 변경/삭제 재조회 | 없음 |
+| VP24 | 분류·profile diff | J1·J3 (2) | 2/2 기계 자리 | 관측표의 해당 ID→T/D 좌표; 직접 vitest | 형제 오류 class와 구성요소 추가/삭제 | 없음 |
+| VP25 | 연결 상태와 제출 | K4~10 (7) | 7/7 기계 자리 | 관측표의 해당 ID→T/D 좌표; 직접 vitest | 초기 pending 아님·실패/해제 구별 | 없음 |
+| VP26 | 멘션 SSOT | K22·K14 (2) | 2/2 기계 자리 | 관측표의 해당 ID→T/D 좌표; 직접 vitest | 공백/따옴표 토큰·channel quoted 대기 | 없음 |
+| VP27 | 비권위 목록 seed | M1~3 (3) | 3/3 기계 자리 | 관측표의 해당 ID→T/D 좌표; 직접 vitest | 같은 provider 임시 목록·선택 유지 | 없음 |
+| VP02 | slot 재사용 | D1~3 (3) | 3/3 기계 자리 | 관측표의 해당 ID→T/D 좌표; 직접 vitest | fresh5초·retry·model/agent 유지 | 없음 |
+| VP03 | 연결 선택 live | E4·E6 (2) | 2/2 기계 자리 | 관측표의 해당 ID→T/D 좌표; 직접 vitest | off/on 뒤 같은 child·project 우선 | 없음 |
+| VP05 | 비차단 웜업 | H1·H4 (2) | 2/2 기계 자리 | 관측표의 해당 ID→T/D 좌표; 직접 vitest | stalled model 무대기·CLI 없음0 | 없음 |
+| VP07 | profile·directory 수명 | A1·A11 (2) | 2/2 기계 자리 | 관측표의 해당 ID→T/D 좌표; 직접 vitest | profile 공유·SSE/dir 격리 | 없음 |
+| VP09 | gate·종료 | H2·H5 (2) | 2/2 기계 자리 | 관측표의 해당 ID→T/D 좌표; 직접 vitest | 다른 backend0·gate/quit owner 정리 | 없음 |
+| VP10 | 준비 공유 | B10·B15 (2) | 2/2 기계 자리 | 관측표의 해당 ID→T/D 좌표; 직접 vitest | 두 IPC+warmup resolve/prepare1 | 없음 |
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP06 | REQUIRED | SELF_BLOCKED | 관측표의 A1~19·C1~9·E1~10·F1~10·I1~5·J1~6 | [선택된 변이](delta-implementation-evidence.md#선택된-변이); 미선택은 직접 oracle |
+| VP08 | REQUIRED | SELF_PASS | 관측표의 E1~10·F1~10·K7·K8·K10 | [선택된 변이](delta-implementation-evidence.md#선택된-변이); 미선택은 직접 oracle |
+| VP17 | REQUIRED | SELF_PASS | 관측표의 K1~15·K22 | [선택된 변이](delta-implementation-evidence.md#선택된-변이); 미선택은 직접 oracle |
+| VP18 | REQUIRED | SELF_PASS | 관측표의 K16~21·L1~3·M1~3 | [선택된 변이](delta-implementation-evidence.md#선택된-변이); 미선택은 직접 oracle |
+| VP19 | REQUIRED | SELF_PASS | 관측표의 K5·K6·K11·K13·K16·K20 | [선택된 변이](delta-implementation-evidence.md#선택된-변이); 미선택은 직접 oracle |
+| VP20 | REQUIRED | SELF_PASS | 관측표의 J1~6 | [선택된 변이](delta-implementation-evidence.md#선택된-변이); 미선택은 직접 oracle |
+| VP21 | REQUIRED | SELF_PASS | 관측표의 K1~3·K11~15 | [선택된 변이](delta-implementation-evidence.md#선택된-변이); 미선택은 직접 oracle |
+| VP22 | REQUIRED | SELF_PASS | 관측표의 K16~21 | [선택된 변이](delta-implementation-evidence.md#선택된-변이); 미선택은 직접 oracle |
+| VP23 | REQUIRED | SELF_PASS | 관측표의 L1~3 | [선택된 변이](delta-implementation-evidence.md#선택된-변이); 미선택은 직접 oracle |
+| VP24 | REQUIRED | SELF_PASS | 관측표의 J1·J3 | [선택된 변이](delta-implementation-evidence.md#선택된-변이); 미선택은 직접 oracle |
+| VP25 | REQUIRED | SELF_PASS | 관측표의 K4~10 | [선택된 변이](delta-implementation-evidence.md#선택된-변이); 미선택은 직접 oracle |
+| VP26 | REQUIRED | SELF_PASS | 관측표의 K22·K14 | [선택된 변이](delta-implementation-evidence.md#선택된-변이); 미선택은 직접 oracle |
+| VP27 | REQUIRED | SELF_PASS | 관측표의 M1~3 | [선택된 변이](delta-implementation-evidence.md#선택된-변이); 미선택은 직접 oracle |
+| VP02 | REGRESSION | SELF_PASS | 관측표의 D1~3 | [선택된 변이](delta-implementation-evidence.md#선택된-변이); 미선택은 직접 oracle |
+| VP03 | REGRESSION | SELF_PASS | 관측표의 E4·E6 | [선택된 변이](delta-implementation-evidence.md#선택된-변이); 미선택은 직접 oracle |
+| VP05 | REGRESSION | SELF_PASS | 관측표의 H1·H4 | [선택된 변이](delta-implementation-evidence.md#선택된-변이); 미선택은 직접 oracle |
+| VP07 | REGRESSION | SELF_PASS | 관측표의 A1·A11 | [선택된 변이](delta-implementation-evidence.md#선택된-변이); 미선택은 직접 oracle |
+| VP09 | REGRESSION | SELF_PASS | 관측표의 H2·H5 | [선택된 변이](delta-implementation-evidence.md#선택된-변이); 미선택은 직접 oracle |
+| VP10 | REGRESSION | SELF_PASS | 관측표의 B10·B15 | [선택된 변이](delta-implementation-evidence.md#선택된-변이); 미선택은 직접 oracle |
+
+REQUIRED: SELF_PASS 12·SELF_BLOCKED 1 = 13. REGRESSION: SELF_PASS 6 = 6. 고정 자리124와 보고 ID의 양방향 차집합은 ∅, 인용 T54와 이번 green 테스트의 차집합도 ∅다. H1/H2는 기계 자리와 별도 인수이며 VP06을 통과로 선점하지 않는다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| revision 축·승격·공유 준비·웜업 배선 | V1 M1~M4, 10자리 | V1 보고 있음; 이번 재실행 | 관측표 개별 행의 1~3 red | 각 원복 suite 실패0 |
+| 원문/값 노출·class 맞바꿈·profile 누락/hit | ΔV1 M5~M7, 5자리 | 신규 | native-resources·diagnostics·server, 각1 red | 각 원복 실패0 |
+| 덮어쓰기 범위·상한·멘션·역할·표시·캐시 | ΔV1 M8~M12, 8자리 | 신규 | adapter·reconcile·service·connection·server, 각1~2 red | 각 원복 실패0 |
+
+선택 증거 23자리 + 이전 verify 인용0 + 별도 새 구조적 oracle0 = 23행([개별 기록](delta-implementation-evidence.md#선택된-변이)). M6은 timeout/refused 양쪽 맞바꿈을 재실행했다. 실패 연결이 disabled status 조회로 지워지는 결함은 새 직접 행동 시험에서 1 red를 먼저 확인하고 수정 후 green을 확인했다. 나머지 변경은 해당 없음 — 직접 oracle.
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 연결이 느리면 일반 전송이 멈추는가 | 비언급 연결은 2초, 멘션은 정착/취소까지 | D16·D18 |
+| 실패 MCP가 정상 연결처럼 광고되는가 | 실제 connected 관리 alias만 prompt system에 포함, 실패 상태 보존 | D16c·D17 |
+| 초기 연결 중 토글이 꺼지거나 설정 대기로 보이는가 | enabled/canToggle 유지, 초기 연결만으로 configurationPending 아님 | D16a·D17 |
+| 화면을 보기만 해도 MCP를 여는가 | resources 역할은 passive; intent/catalog/warmup/send만 활성 | D19·D20 |
+| 다른 경로의 이전 변형 목록이 선택을 바꾸는가 | 같은 provider seed를 비권위 확인 중 값으로 표시, 실제 응답으로 교체 | D22 |
+| 실제 사용자 환경에서도 체감 개선을 확인했는가 | main CLI의 두 send·토글만 관측, GUI A/C 각2회·타 PC 미측정 | AC22/H1·AC33/H2 대기 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| ΔI1 | 연결 완료가 진행 status epoch를 깨 조회 오류/옛 상태를 만들 수 있음 | MCP epoch 변경은 오래된 응답을 캐시하지 않음; 완료 관측 revision 우선 | D16a |
+| ΔI2 | 전송 대기 중 off 선택이 도착해 옛 도구를 쓸 수 있음 | 대기 뒤 최신 choices 재검사·해제 장벽 재진입 | D16d: off 실패 시 prompt0 |
+| ΔI3 | connect HTTP 실패 뒤 disabled 조회가 실패 표시를 지움 | 시도 실패를 별도 보존하고 desired=true의 disabled 관측만 실패로 보완 | 수정 전1 red→후4 green |
+| ΔI4 | initial disabled 처리 때문에 configurationPending이 켜질 수 있음 | 초기 연결 대신 사용자 변경·해제 실패만 pending 근거 | busy 초기 D16a pending=false |
+| ΔI5 | 첫/후속 admission 취소가 공유 시도를 끊거나 전송될 수 있음 | caller 전송 신호만 취소; 공유 연결 계속·늦은 prompt 금지 | D16b·D18b |
+| ΔI6 | 기존 시험이 수동 조회 즉시 연결을 가정 | 의도 활성화를 명시하고 토글/프로젝트/수명 assertion 유지 | 마지막77 green |
+| ΔI7 | 실제 CLI 만료 후 재기동이 제한 시간 내 시작하지 않음 | 제품 timeout을 변경하지 않고 실기 실패 경계로 기록 | CLI 관측 추가 절, H1/H2 대기 |
+
+### 설계 대비 명시적 차이
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| oracle 파일·공유 | O19는 기존 service 시험 확장, O17은 adapter 시험에서 공통 fixture를 사용 | D17/D19의 실제 경계·임시 env/다른 cwd 구별; fixture는 adapter 경계로 이동 |
+| 만료 | 공유 attempt가 consumer보다 오래 남음 | instance abort에서 read 취소, V1 수명 T06~T16 재실행 |
+| 재진입 | 멘션 취소 뒤 다음 전송이 같은 attempt 사용 | D16b 연결1·첫 prompt0/후속1 |
+| 다른 무효화 축 | status 완료와 읽기가 독립이므로 옛 응답 경합 | D16a revision fence·D16c 명시 refresh 재시도 |
+| H2 실측 | 실제 GUI/사용자 MCP와 main fixture가 다름 | 대체 통과 아님; AC22/33 보류 |
+
+## [구현자 기입] 구현 보고
+
+M1(A)+M2(B) 코드를 완료했다. 공유 브랜치의 구현 좌표는 INDEX에서 검증자가 기입한다. 실제 CLI는 [추가 관측](cli-evidence.md#δv1-구현-중-cli-재실행--2026-10-29), 자리·테스트·변이는 [ΔV1 관측표](delta-implementation-evidence.md)를 참조한다.
+
+| AC | 결과 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | T22·T23 취소 안전 DTO |
+| AC2 | ✅ | 취소/실패·late owner T18·T29~31 |
+| AC3 | ✅ | T03 process/bridge1 유지·CLI 두 send까지1 |
+| AC4 | ✅ | T06 TTL90초·cap4 |
+| AC5 | ✅ | T10~13 즉시반환·T18 peer 유지 |
+| AC6 | ✅ | T04~08 generation/quit fence |
+| AC7 | ✅ | T27 승격·D22 임시 seed |
+| AC8 | ✅ | T21 동일target 공유 |
+| AC9 | ✅ | T33 5초·실패 retry |
+| AC10 | ✅ | T34 토글 후 정의세대 유지 |
+| AC11 | ✅ | T34 disabled 정의 가용·desired만 연결 |
+| AC12 | ✅ | T34 project 우선·설정 파일 불변 |
+| AC13 | ✅ | T36·T52·T53·D16 busy/off guard |
+| AC14 | ✅ | T35·T37·T38 정의/auth restart |
+| AC15 | ✅ | T39~41 discovery 캐시 |
+| AC16 | ✅ | T39~44 변경·부재·환경 무효화 |
+| AC17 | ✅ | T21·T47 웜업 비차단 |
+| AC18 | ✅ | T26·T48~51 gate/CLI/quit |
+| AC19 | ✅ | 공개 IPC/DB 형상 불변·T38 Claude restart·migration guard |
+| AC20 | ✅ | T09·T15·T16 격리/인가/bridge |
+| AC21 | ✅ | T02 실패재시도·D18 중복 prompt0 |
+| AC22 | ⚠️ | 실제 GUI·타 PC H1 대기; CLI 재기동 timeout |
+| AC23 | ✅ | D16a·D18a 2초 상한 |
+| AC24 | ✅ | D17 enabled 전역만 덮어쓰기·두 cwd child1 |
+| AC25 | ✅ | D16b·D17·D18b 멘션 정착/실패/취소·매핑 |
+| AC26 | ✅ | D16a·D17 enabled/canToggle 보존 |
+| AC27 | ✅ | T36·D16c/d off 실패차단·on 실패 비차단 |
+| AC28 | ✅ | D19·D20 passive HTTP0·각 의도1 |
+| AC29 | ✅ | D21 실제 readHistory 포함 저장소 exec 재사용 |
+| AC30 | ✅ | D22 같은 provider seed·선택 유지/교체 |
+| AC31 | ✅ | D12·D15 비밀 없는 status·턴 trace |
+| AC32 | ✅ | D13·D14 key split 이름만·hit0 |
+| AC33 | ⚠️ | 실제 사용자 A/C 각2회·HTTP/자식 수·GUI 시간선 H2 대기 |
+
+✅ 31 · ⚠️ 2 · ❌ 0 = 총33. V1의22에서 ΔV1의33으로 분모가 늘었다. Criteria-Met은31/33, Criteria-Pending은AC22(H1)·AC33(H2)다.
+
+| Gate | 관측한 산출 | 판정 / 남은 경계 |
+|---|---|---|
+| G0 | REQUIRED13·REGRESSION6·신규34자리·기존90자리; T54와 실행집합 차집합∅ | 규범 불변·최종 diff/상태 확인 |
+| G1 | 전체 lint error0/warning2(기존 React Compiler), node/web/test typecheck 성공; 마지막 변경 scoped lint·test typecheck 성공 | ABI 변경 없음 |
+| G2 | 직접34파일 실행270 pass/2 fail 뒤 수정, 마지막5파일77 pass | 파일별 최신34파일272 pass/0 fail; 전체 저장소 전체 실행 아님 |
+| G3 | generated/prose 정상; 기존 임시 checkout의 링크 10건 실패 | 이번 변경 문서 상대 링크는 아래 마무리 관측 참조 |
+| G4 | scripts144/144·migration append-only 정상·real-git budget16 suite 정상 | 실제 CLI 두 send/토글 뒤 만료 후 startup timeout; H1/H2 미완료 |
+| G5 | plan/INDEX impl/IMPL_DONE·다음Claude로 갱신 | commit 뒤 trailer 파싱과 push 결과 확인 |
+
+## [구현자 기입] Review Signals — 사실만
+
+- 같은 r1.2 구현 작업의 연속이다. 사용자 `계속`은 중단된 작업 재개이며 독립 verify는 없었다.
+- Delta가 의도적으로 바꾼 수동 조회/연결 대기 계약 때문에 기존 테스트 전제와 smoke의 즉시 연결 완료 전제를 수정했다.
+- 등록 변이23건은 전부 red 후 원복 green이었다. status 실패 표시와 admission 중 off 경합을 직접 행동 시험으로 추가 발견·수정했다.
+- 실제 CLI에서 최초 시도 warmup HTTP 미도달, 재시도의 pending 상태, 마지막 실행의 만료 후 서버 시작 timeout을 구분해 기록했다. timeout/SLA를 결과에 맞춰 늘리지 않았다.
+- H1/H2 실기와 독립 verify는 남아 있다. 이 보고는 구현자 자기확인이며 V1+ΔV1의 독립 PASS를 선점하지 않는다.
+
+마무리 재확인: 최종 보고에서 구현자 7섹션·AC 33행(✅31/⚠️2)·REQUIRED 13행·REGRESSION 6행을 다시 읽었다. 파일별 최신 report는 34파일·272 passed이며 다른 상태는 0이다. plan 메타와 INDEX는 모두 `impl/IMPL_DONE`, 다음 Claude, AC22/H1·AC33/H2 pending이다. `git diff --check`는 오류가 없었다.
+
+G3의 최종 `--check`는 generated/prose를 통과했고 `.tmp/opencode-dev`·`app/.temp/opencode`의 기존 링크 10건으로 exit 1이었다. 변경 문서 7개의 상대 링크 275개를 별도 대조한 누락 목록은 빈 집합이며, 새 CLI 관측 절도 존재한다. 생성 문서의 diff는 없고 임시 checkout은 보존했다. G5의 구현 trailer 파싱과 공유 브랜치 push는 커밋 직후 확인한다.

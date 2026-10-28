@@ -75,7 +75,11 @@ async function nextTurn(
     const result = await iterator.next()
     if (result.done) return batches
     batches.push(result.value)
-    if (result.value.events.some((event) => ['turn.ended', 'error'].includes(event.type)))
+    if (
+      result.value.events.some((event) =>
+        ['turn.ended', 'turn.aborted', 'error'].includes(event.type)
+      )
+    )
       return batches
   }
 }
@@ -212,6 +216,8 @@ it('applies saved managed and native choices across idle peers with stable defin
     f.adapter.client({}, undefined, cwd),
     f.adapter.client({}, undefined, peerCwd)
   ])
+  a.activate?.()
+  b.activate?.()
   await Promise.all([a.mcp(new AbortController().signal), b.mcp(new AbortController().signal)])
   expect(Object.values(f.configs[0].mcp as object).every((value) => value.enabled === false)).toBe(
     true
@@ -251,13 +257,17 @@ it('applies saved managed and native choices across idle peers with stable defin
   await b.release()
 })
 
-it('defers busy/background peers and admits queued input only after successful connection mutation', async () => {
+it('defers busy/background peers and admits queued input only after successful disconnection mutation', async () => {
+  await toggled(true)
   const a = await f.adapter.client({}, undefined, cwd)
+  a.activate?.()
   await a.mcp(new AbortController().signal)
+  await vi.waitFor(() => expect(f.status(cwd, alias)).toBe('connected'))
+  await a.mcpControl!.reconcileChoices()
   activity.foreground = 'streaming'
   activity.backgroundTaskCount = 1
-  await toggled(true)
-  expect(f.status(cwd, alias)).toBe('disabled')
+  await toggled(false)
+  expect(f.status(cwd, alias)).toBe('connected')
   expect(await a.mcpControl!.pending()).toBe(true)
   const live = f.adapter.sendMessage({
     sessionId: 's1',
@@ -278,21 +288,28 @@ it('defers busy/background peers and admits queued input only after successful c
   activity.pendingSessionWakeup = true
   const unblock = f.holdMutation()
   await vi.waitFor(() =>
-    expect(f.requests.some((request) => request.path === `/mcp/${alias}/connect`)).toBe(true)
+    expect(f.requests.some((request) => request.path === `/mcp/${alias}/disconnect`)).toBe(true)
   )
   expect(f.requests.some((request) => request.path.endsWith('/prompt_async'))).toBe(false)
   unblock()
   await vi.waitFor(() =>
     expect(f.requests.some((request) => request.path.endsWith('/prompt_async'))).toBe(true)
   )
-  expect(f.status(cwd, alias)).toBe('connected')
+  expect(f.status(cwd, alias)).toBe('disabled')
   f.finish()
   expect(
     (await first).flatMap((batch) => batch.events).some((event) => event.type === 'turn.ended')
   ).toBe(true)
   const prompts = f.requests.filter((request) => request.path.endsWith('/prompt_async')).length
+  activity.queuedCount = 0
+  activity.deliveryPendingCount = 0
+  activity.pendingSessionWakeup = false
+  await toggled(true)
+  await vi.waitFor(() => expect(f.status(cwd, alias)).toBe('connected'))
+  activity.foreground = 'streaming'
   await toggled(false)
   f.failMutation(true)
+  activity.foreground = 'idle'
   await expect(live.pushTurn!({ text: 'must not submit' })).rejects.toThrow()
   expect(f.requests.filter((request) => request.path.endsWith('/prompt_async'))).toHaveLength(
     prompts
@@ -326,7 +343,9 @@ it('defers busy/background peers and admits queued input only after successful c
 
 it('serializes rapid off/on and keeps the newest choice after a delayed mutation', async () => {
   const a = await f.adapter.client({}, undefined, cwd)
+  a.activate?.()
   await a.mcp(new AbortController().signal)
+  await a.mcpControl!.reconcileChoices()
   const unblock = f.holdMutation()
   await toggled(true)
   await vi.waitFor(() =>
@@ -352,9 +371,10 @@ it('traces warmup navigation two sends toggle expiry and quit through the real a
   warmup.update()
   await vi.waitFor(() =>
     expect(
-      f.requests.filter((request) => ['/agent', '/provider', '/mcp'].includes(request.path))
-    ).toHaveLength(4)
+      f.requests.filter((request) => ['/agent', '/provider'].includes(request.path))
+    ).toHaveLength(2)
   )
+  await vi.waitFor(() => expect(f.status(cwd, 'native')).toBe('connected'))
   const scope = {
     backend: 'opencode' as const,
     sessionId: null,
@@ -438,3 +458,74 @@ it('traces warmup navigation two sends toggle expiry and quit through the real a
   await next.release()
   expect(f.children.map((child) => child.kill.mock.calls.length)).toEqual([1, 1])
 })
+
+it('sends the first prompt within the bound while a global MCP connection hangs', async () => {
+  const unblock = f.holdMutation('native')
+  const live = f.adapter.sendMessage({
+    sessionId: 's1',
+    cwd,
+    text: 'first without mention',
+    extensions: { skills: [], hooks: { normalized: {} }, managedMcp: managed.source.snapshot() }
+  })
+  const iterator = live.eventBatches[Symbol.asyncIterator]()
+  await iterator.next()
+  await vi.waitFor(() =>
+    expect(f.requests.some((entry) => entry.path === '/mcp/native/connect')).toBe(true)
+  )
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  const completed = nextTurn(iterator)
+  await vi.advanceTimersByTimeAsync(2000)
+  expect(f.requests.filter((entry) => entry.path.endsWith('/prompt_async'))).toHaveLength(1)
+  expect(f.status(cwd, 'native')).toBe('disabled')
+  f.finish()
+  expect(
+    (await completed).flatMap((batch) => batch.events).some((event) => event.type === 'turn.ended')
+  ).toBe(true)
+  unblock()
+  await vi.advanceTimersByTimeAsync(0)
+  expect(f.status(cwd, 'native')).toBe('connected')
+  live.close()
+  await iterator.return?.()
+})
+
+it.each(['failed', 'cancelled'] as const)(
+  'waits for an explicitly mentioned global MCP and handles %s admission',
+  async (outcome) => {
+    const unblock = f.holdMutation('native')
+    const live = f.adapter.sendMessage({
+      sessionId: 's1',
+      cwd,
+      text: 'use @"native" now',
+      extensions: { skills: [], hooks: { normalized: {} }, managedMcp: managed.source.snapshot() }
+    })
+    const iterator = live.eventBatches[Symbol.asyncIterator]()
+    await iterator.next()
+    await vi.waitFor(() =>
+      expect(f.requests.some((entry) => entry.path === '/mcp/native/connect')).toBe(true)
+    )
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const completed = nextTurn(iterator)
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(f.requests.filter((entry) => entry.path.endsWith('/prompt_async'))).toHaveLength(0)
+    if (outcome === 'cancelled') {
+      await live.interrupt!()
+      expect(
+        (await completed)
+          .flatMap((batch) => batch.events)
+          .some((event) => event.type === 'turn.aborted')
+      ).toBe(true)
+      unblock()
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(f.requests.filter((entry) => entry.path.endsWith('/prompt_async'))).toHaveLength(0)
+    } else {
+      f.failMutation(true)
+      unblock()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(f.requests.filter((entry) => entry.path.endsWith('/prompt_async'))).toHaveLength(1)
+      f.finish()
+      await completed
+    }
+    live.close()
+    await iterator.return?.()
+  }
+)

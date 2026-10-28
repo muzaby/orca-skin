@@ -24,8 +24,9 @@ import { reportError } from '../../../infra/error-report'
 import type { ComposerCatalogData } from '../../../../shared/composer-catalog'
 import type { ManagedMcpRuntime, ManagedMcpSnapshot } from '../../common/managed-mcp'
 import { mapManagedMcpResources, projectManagedMcp } from './managed-mcp'
-import { configuredOpenCodeResources } from './configured-resources'
+import { configuredOpenCodeResources, globalOpenCodeResources } from './configured-resources'
 import { openCodeDiscovery } from './discovery-cache'
+import { isRecord } from '../../../../shared/obj'
 
 export class OpenCodeAdapter implements SessionAdapter {
   readonly id = 'opencode' as const
@@ -109,17 +110,30 @@ export class OpenCodeAdapter implements SessionAdapter {
   ): Promise<OpenCodeClientLease> {
     const bridge = snapshot && this.managedMcp ? await this.managedMcp.acquire(snapshot) : undefined
     let projection: ReturnType<typeof projectManagedMcp> | undefined
+    let defaults: Record<string, boolean>
     let server: Awaited<ReturnType<OpenCodeServer['acquire']>>
     try {
-      const native = await configuredOpenCodeResources(cwd || nativeWorkingDirectory(), {
-        ...process.env,
-        ...env
-      })
+      const environment = { ...process.env, ...env }
+      const [native, global] = await Promise.all([
+        configuredOpenCodeResources(cwd || nativeWorkingDirectory(), environment),
+        globalOpenCodeResources(environment)
+      ])
+      defaults = Object.fromEntries(
+        global.filter((item) => item.kind === 'mcp').map((item) => [item.id, item.enabled])
+      )
+      const disabled = Object.fromEntries(
+        global
+          .filter((item) => item.kind === 'mcp' && item.enabled)
+          .map((item) => [item.id, { enabled: false }])
+      )
+      const startup = Object.keys(disabled).length
+        ? { ...config, mcp: { ...(isRecord(config.mcp) ? config.mcp : {}), ...disabled } }
+        : config
       if (snapshot && bridge) {
         projection = projectManagedMcp(
           snapshot,
           bridge,
-          config,
+          startup,
           native.filter((item) => item.kind === 'mcp').map((item) => item.id)
         )
         for (const failure of projection.failures)
@@ -129,7 +143,7 @@ export class OpenCodeAdapter implements SessionAdapter {
           )
       }
       server = await this.servers.acquire(
-        projection?.config ?? config,
+        projection?.config ?? startup,
         projection ? { ...env, ...projection.env } : env,
         cwd
       )
@@ -162,7 +176,7 @@ export class OpenCodeAdapter implements SessionAdapter {
           server.release?.()
           void bridge?.release().catch(() => undefined)
         },
-        projection ? { choices } : undefined,
+        { choices, defaults },
         openCodeDiscovery.key(
           'configured',
           cwd || nativeWorkingDirectory(),
@@ -194,11 +208,14 @@ export class OpenCodeAdapter implements SessionAdapter {
       let releasing: Promise<void> | undefined
       return {
         ...lease,
+        get managedMcpReferences() {
+          return Object.fromEntries([...identities].map(([id, source]) => [source.mentionId, id]))
+        },
         get managedMcpMentions() {
           const enabled = choices()
           return Object.fromEntries(
             [...identities]
-              .filter(([id]) => enabled[id])
+              .filter(([id]) => enabled[id] && lease.mcpControl?.connected(id))
               .map(([id, source]) => [source.mentionId, id])
           )
         },

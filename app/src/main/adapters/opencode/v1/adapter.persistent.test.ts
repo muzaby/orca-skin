@@ -226,39 +226,59 @@ async function abortableGate(gate: Promise<void>, signal: AbortSignal): Promise<
 }
 
 describe('OpenCode persistent SDK channel', () => {
-  it('traces prompt acceptance assistant start and first part in order', async () => {
-    const debug = vi.fn()
-    const logger = { debug, info: vi.fn(), warn: vi.fn(), error: vi.fn(), child: () => logger }
-    setRootLogger(logger)
-    const f = fixture()
-    const iterator = f.live.eventBatches[Symbol.asyncIterator]()
-    try {
-      f.setPrompt(async (body) => {
+  it.each(['prompt', 'command'] as const)(
+    'traces prompt acceptance assistant start and first part in order for %s',
+    async (kind) => {
+      const debug = vi.fn()
+      const logger = { debug, info: vi.fn(), warn: vi.fn(), error: vi.fn(), child: () => logger }
+      setRootLogger(logger)
+      const f = fixture(kind === 'command' ? { text: '/native:trace' } : {})
+      f.setCommands([{ name: 'native:trace', hints: [] }])
+      const iterator = f.live.eventBatches[Symbol.asyncIterator]()
+      try {
+        let prompt: Record<string, unknown> | undefined
+        f.setPrompt(async (body) => {
+          prompt = body
+        })
+        const completed = frame(iterator)
+        await vi.waitFor(() =>
+          expect(
+            debug.mock.calls.filter(([name]) => name.includes('.turn.')).map(([name]) => name)
+          ).toEqual(['opencode.retention.turn.prompt-accepted'])
+        )
+        expect(
+          f.requests.filter(
+            (request) =>
+              new URL(request.url).pathname.endsWith(
+                kind === 'command' ? '/command' : '/prompt_async'
+              ) && request.method === 'POST'
+          )
+        ).toHaveLength(1)
         f.emit(
           event('message.updated', {
             sessionID: 'elsewhere',
-            info: assistantMessage('elsewhere', body.messageID as string, 'foreign')
+            info: assistantMessage('elsewhere', prompt!.messageID as string, 'foreign')
           })
         )
-        f.reply(body.messageID as string)
-        f.reply(body.messageID as string)
-      })
-      await frame(iterator)
-      const rows = debug.mock.calls.filter(([name]) => name.includes('.turn.'))
-      expect(rows.map(([name]) => name)).toEqual([
-        'opencode.retention.turn.prompt-accepted',
-        'opencode.retention.turn.assistant-created',
-        'opencode.retention.turn.first-part'
-      ])
-      expect(new Set(rows.map(([, data]) => data.turn)).size).toBe(1)
-      expect(rows.every(([, data]) => data.ms >= 0)).toBe(true)
-      expect(JSON.stringify(rows)).not.toMatch(/foreign|s1|First/)
-    } finally {
-      await dispose(f.live, iterator)
-      f.adapter.close()
-      setRootLogger(null)
+        f.reply(prompt!.messageID as string)
+        f.reply(prompt!.messageID as string)
+        await completed
+        const rows = debug.mock.calls.filter(([name]) => name.includes('.turn.'))
+        expect(rows.map(([name]) => name)).toEqual([
+          'opencode.retention.turn.prompt-accepted',
+          'opencode.retention.turn.assistant-created',
+          'opencode.retention.turn.first-part'
+        ])
+        expect(new Set(rows.map(([, data]) => data.turn)).size).toBe(1)
+        expect(rows.every(([, data]) => data.ms >= 0)).toBe(true)
+        expect(JSON.stringify(rows)).not.toMatch(/foreign|s1|First/)
+      } finally {
+        await dispose(f.live, iterator)
+        f.adapter.close()
+        setRootLogger(null)
+      }
     }
-  })
+  )
   it('waits beyond the menu deadline for native command dispatch without submitting twice', async () => {
     const f = fixture({ text: '/native:slow exact argument' })
     const gate = Promise.withResolvers<void>()
