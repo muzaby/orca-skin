@@ -14,6 +14,7 @@ vi.mock('../infra/config/orca-config', () => ({ appEnv: () => ({}) }))
 import { createComposerPreparation } from './composer-preparation'
 import { registerSessionResourceHandlers } from './handlers/session-resources'
 import { ComposerPreparationService } from './composer-preparation-service'
+import { OpenCodeWarmup } from './opencode-warmup'
 
 const cleanups: (() => void)[] = []
 afterEach(() => {
@@ -163,6 +164,22 @@ it('shares targets across catalog resources and warmup through the production as
   )
   expect(await assembly.resources.read(draft)).toMatchObject({ state: 'connected' })
   expect(capture).toHaveBeenCalledTimes(1)
+  const count = requests.filter((path) => path === '/mcp').length
+  await handlers.get(CHANNELS.sessionNativeResources)!(
+    { sender },
+    { ...draft, cwd: 'C:/passive-only' }
+  )
+  expect(requests.filter((path) => path === '/mcp')).toHaveLength(count)
+  const warmup = new OpenCodeWarmup({
+    service: assembly.service,
+    allowed: () => true,
+    settings: () => ({ lastBackend: 'opencode', lastCwd: null }),
+    cwd: () => 'C:/warmup-only',
+    installed: async () => ({ installed: true })
+  })
+  cleanups.push(() => warmup.close())
+  warmup.update()
+  await vi.waitFor(() => expect(requests.filter((path) => path === '/mcp')).toHaveLength(count + 1))
 })
 
 it('cancels only the leaving waiter and releases a late shared acquisition once', async () => {

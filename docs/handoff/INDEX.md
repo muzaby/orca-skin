@@ -22,7 +22,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [`0289-opencode-runtime-retention`](0289-opencode-runtime-retention/plan.md) | impl | **IN_PROGRESS** (ΔV1) | **Codex** | (r1 구현 — 검증자 기입) · (r1.2 M1/M2 구현 — 검증자 기입) | 1 | ΔV1 A+B 구현 중. M1: 입력 의도·수동 조회·db path·변형 목록·진단. M2: 전역 MCP 연결·전송 허가. 독립 verify는 V1+ΔV1 함께(D20). |
+| [`0289-opencode-runtime-retention`](0289-opencode-runtime-retention/plan.md) | impl | **IMPL_DONE** (V1+ΔV1) | **Claude** | (r1 구현 — 검증자 기입) · (r1.2 M1/M2 구현 — 검증자 기입) | 1 | ΔV1 A+B 구현 완료. 31/33; AC22(H1)·AC33(H2) 실기 대기. 관련 34파일 272 pass, 변이23 red/원복green. 실제 CLI 만료 후 startup timeout 기록. 독립 verify V1+ΔV1(D20). |
 | [`0288-cross-harness-mcp`](0288-cross-harness-mcp/plan.md) | impl | **IMPL_DONE** (V1) | **Claude** (독립 검증) | (r1.2 구현 — 검증자 기입) | 1 | 공통 MCP source·bridge·OpenCode 투영·Composer 연결 후보 구현. 실제 Windows CLI 호출·승인·취소 확인. r1.2: CI의 Claude watcher 읽기/방송 경합 잠금. 자기보고 AC16/17; H1 사내 서비스·시각 미실기. |
 | [`0287-composer-project-agent-picker`](0287-composer-project-agent-picker/plan.md) | impl | **IMPL_DONE** (V1) | **Claude** (검증) | (r1 구현 — 검증자 기입) | 1 | snapshot 비활성·에이전트 기본값/메뉴·양 하네스 프로젝트 선택 구현. 자기확인 16/16, 31/31. focused 182+DB 28 통과, 실제 Chromium 확인. |
 | [`0286-status-panel-removal-source-groups`](0286-status-panel-removal-source-groups/plan.md) | impl | **IMPL_DONE** (V1 r1.2) | **Claude** (검증) | (r1.2 구현 — 검증자 기입) | 1 | 상태 UI 제거·그룹 표시 구현. 기존 CI 기대값 2건 및 삭제 catch 등록 2건 보완. r1.2 renderer/preload 3135케이스 및 [원격 CI](https://github.com/muzaby/orca-skin/actions/runs/40261035522) 통과. AC 15/16 자기확인, AC16 white/dark 시각 인수 대기. |

@@ -5,6 +5,13 @@ import type { TurnRequest } from '../../common/turn'
 import type { ProviderMessageBatch } from '../../common/types'
 import { OpenCodeAdapter } from './adapter'
 import { OpenCodeServerPool } from './server'
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { retentionTransport } from './opencode-retention.testfixture'
+import { managedMcpAlias } from './managed-mcp'
+import { openCodeDiscovery } from './discovery-cache'
+import { setRootLogger } from '../../../infra/log/registry'
 import {
   assistantMessage,
   editTool,
@@ -23,6 +30,148 @@ function request(overrides: Partial<TurnRequest> = {}): TurnRequest {
     ...overrides
   }
 }
+it('projects disabled global MCP overrides and connects them through the directory manager', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'orca-global-projection-'))
+  const aPath = join(root, 'A'),
+    bPath = join(root, 'B')
+  const configRoot = join(root, 'config')
+  await mkdir(join(configRoot, 'opencode'), { recursive: true })
+  await mkdir(aPath)
+  await mkdir(bPath)
+  const alias = managedMcpAlias('user', 'collision')
+  const file = join(configRoot, 'opencode', 'opencode.json')
+  const original = JSON.stringify({
+    mcp: {
+      native: { type: 'local', command: ['native'] },
+      [alias]: { type: 'local', command: ['collision'] },
+      disabled: { type: 'local', command: ['disabled'], enabled: false }
+    }
+  })
+  await writeFile(file, original)
+  await writeFile(
+    join(aPath, 'opencode.json'),
+    '{"mcp":{"projectOnly":{"type":"local","command":["project"]}}}'
+  )
+  const snapshot = {
+    revision: 1,
+    users: {
+      collision: { command: 'managed' },
+      good: { command: 'good' },
+      bad: { command: 'bad' }
+    },
+    plugins: new Map()
+  }
+  const good = managedMcpAlias('user', 'good'),
+    bad = managedMcpAlias('user', 'bad')
+  const env = { XDG_CONFIG_HOME: configRoot }
+  openCodeDiscovery.invalidate()
+  const f = retentionTransport(
+    {
+      snapshot: () => snapshot,
+      acquire: async () => ({ endpoints: new Map(), release: async () => {} })
+    },
+    { global: () => ({}) }
+  )
+  try {
+    const a = await f.adapter.client({}, env, aPath)
+    const b = await f.adapter.client({}, env, bPath)
+    expect(f.children).toHaveLength(1)
+    expect(f.configs[0].mcp).toEqual({
+      native: { enabled: false },
+      [alias]: { enabled: false },
+      [good]: expect.objectContaining({ enabled: false, type: 'local' }),
+      [bad]: expect.objectContaining({ enabled: false, type: 'local' })
+    })
+    expect(f.configs[0].mcp).not.toHaveProperty('projectOnly')
+    expect(f.configs[0].mcp).not.toHaveProperty('disabled')
+    expect(await a.mcp(new AbortController().signal)).toEqual([])
+    await f.adapter.reconcileConnections()
+    expect(f.requests.filter((entry) => entry.path.startsWith('/mcp'))).toEqual([])
+    expect(a.managedMcpMentions).toEqual({})
+    const unblock = f.holdMutation(bad)
+    a.activate?.()
+    await a.prepare(new AbortController().signal)
+    await vi.waitFor(() => expect(a.mcpControl!.connected(good)).toBe(true))
+    expect(a.managedMcpMentions).toEqual({ [good]: good })
+    expect(a.managedMcpReferences).toEqual({ [good]: good, [bad]: bad })
+    expect(
+      (await a.mcp(new AbortController().signal)).find((item) => item.id === bad)
+    ).toMatchObject({
+      enabled: true,
+      canToggle: false,
+      status: 'pending'
+    })
+    expect(
+      f.requests
+        .filter((entry) => entry.path.endsWith('/connect'))
+        .map((entry) => entry.path)
+        .sort()
+    ).toEqual(
+      [
+        `/mcp/${alias}/connect`,
+        `/mcp/${good}/connect`,
+        `/mcp/${bad}/connect`,
+        '/mcp/native/connect',
+        '/mcp/projectOnly/connect'
+      ].sort()
+    )
+    expect(
+      f.requests.filter((entry) => entry.directory === bPath && entry.path.startsWith('/mcp'))
+    ).toEqual([])
+    f.failMutation(true)
+    unblock()
+    await a.mcpControl!.submit(new AbortController().signal, async () => {}, [bad])
+    expect(a.managedMcpMentions).toEqual({ [good]: good })
+    const live = f.adapter.sendMessage({
+      sessionId: 's1',
+      cwd: aPath,
+      env,
+      text: `use @${bad}`,
+      extensions: { skills: [], hooks: { normalized: {} }, managedMcp: snapshot }
+    })
+    const iterator = live.eventBatches[Symbol.asyncIterator]()
+    try {
+      await iterator.next()
+      await vi.waitFor(() =>
+        expect(f.requests.filter((entry) => entry.path.endsWith('/prompt_async'))).toHaveLength(1)
+      )
+      const prompt = f.requests.find((entry) => entry.path.endsWith('/prompt_async'))!.body as {
+        system: string
+      }
+      expect(prompt.system).toContain(good)
+      expect(prompt.system).not.toContain(bad)
+      f.finish()
+      for (;;) {
+        const batch = await iterator.next()
+        if (batch.done || batch.value.events.some((entry) => entry.type === 'turn.ended')) break
+      }
+    } finally {
+      live.close()
+      await iterator.return?.()
+    }
+    expect(await readFile(file, 'utf8')).toBe(original)
+    await a.release()
+    await b.release()
+    const unmanaged = retentionTransport(undefined, { global: () => ({}) })
+    try {
+      const onlyNative = await unmanaged.adapter.client({}, env, bPath)
+      expect(unmanaged.configs[0].mcp).toEqual({
+        native: { enabled: false },
+        [alias]: { enabled: false }
+      })
+      onlyNative.activate?.()
+      await vi.waitFor(() => expect(unmanaged.status(bPath, 'native')).toBe('connected'))
+      await onlyNative.release()
+    } finally {
+      unmanaged.adapter.close()
+    }
+  } finally {
+    f.adapter.close()
+    setRootLogger(null)
+    openCodeDiscovery.invalidate()
+    await rm(root, { recursive: true, force: true })
+  }
+})
 function fixture(
   controls?: import('../../common/extension-control').ExtensionControl,
   preferences?: () => import('../../../../shared/harness').OpenCodePreferences
@@ -215,6 +364,7 @@ it('applies SDK MCP choices before the first prompt, rejects unsafe project cont
 it('shares prepared and live inventory slots until freshness expiry and retries failed reads', async () => {
   const f = fixture()
   const prepared = await f.adapter.prepareComposer!({ cwd: 'C:/work' })
+  prepared.activate?.()
   const signal = new AbortController().signal
   await Promise.all(
     ['agents', 'models', 'mcp'].map((part) =>

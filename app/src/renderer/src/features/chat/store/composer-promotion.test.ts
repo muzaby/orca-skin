@@ -225,11 +225,18 @@ it.each([
 it.each(['input', 'paste', 'attachment', 'menu', 'send'] as const)(
   'requests MCP once through the real controller and OpenCode slot on first %s intent',
   async (intent) => {
-    query.mockImplementation(async (request) => ({
-      part: request.part,
-      value: [],
-      generation: 'intent'
-    }))
+    query.mockImplementation(async (request) => {
+      switch (request.part) {
+        case 'agents':
+          return { part: 'agents', value: [], generation: 'intent' }
+        case 'models':
+          return { part: 'models', value: [], generation: 'intent' }
+        case 'mcp':
+          return { part: 'mcp', value: [], generation: 'intent' }
+        case 'plugins':
+          return { part: 'plugins', value: [], generation: 'intent' }
+      }
+    })
     const send = vi.fn(() => false)
     dom.render(
       createElement(

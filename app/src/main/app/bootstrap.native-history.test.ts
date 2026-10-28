@@ -932,7 +932,9 @@ it('restores global choices through production Bootstrap into catalogs, new Clau
     turn.close()
     const adapter = two.registry!.get('opencode')!
     const oldDirectory = await adapter.prepareComposer!({ cwd: join(temp, 'A') })
+    oldDirectory.activate?.()
     await oldDirectory.read('mcp', new AbortController().signal)
+    await adapter.reconcileConnections?.()
     expect(requests.filter((r) => new URL(r.url).pathname === '/mcp/docs/disconnect')).toHaveLength(
       1
     )
@@ -944,8 +946,9 @@ it('restores global choices through production Bootstrap into catalogs, new Clau
     })
     await oldDirectory.read('mcp', new AbortController().signal, true)
     const nextDirectory = await adapter.prepareComposer!({ cwd: join(temp, 'B') })
+    nextDirectory.activate?.()
     await nextDirectory.read('mcp', new AbortController().signal)
-    expect(requests.filter((r) => new URL(r.url).pathname === '/mcp/docs/connect')).toHaveLength(1)
+    expect(requests.filter((r) => new URL(r.url).pathname === '/mcp/docs/connect')).toHaveLength(2)
     expect(connectionStatus).toBe('connected')
     expect([await readFile(claudeFile, 'utf8'), await readFile(openFile, 'utf8')]).toEqual(before)
   } finally {

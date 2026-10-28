@@ -6,21 +6,31 @@ import { openCodeProjectResources, readOpenCodeProjectSettings } from './project
 import type { NativeResource } from '../../../../shared/native-resources'
 import type { OpenCodeComposerCache } from './composer-cache'
 import { waitForOpenCode } from './instance-lifecycle'
+import { opaqueIdentity } from './diagnostics'
+import { retentionTrace } from './retention-trace'
 
-/** Directory mutations and submission admissions share a serial queue. */
+interface Attempt {
+  pending: boolean
+  task: Promise<void>
+  failure?: NativeResource
+}
+
+/** Independent additive connections; choice changes and submissions share admission. */
 export class OpenCodeMcpControl {
   private activated = false
-  activate(): void {
-    this.activated = true
-    void this.prepare().catch(() => undefined)
-  }
-  private initial?: Promise<void>
+  private activation?: Promise<void>
   private readFlight?: Promise<NativeResource[]>
-  private applied?: string
+  private applied?: Record<string, boolean>
+  private removalFailed = false
+  private readonly initialOff = new Set<string>()
+  private readonly attempts = new Map<string, Attempt>()
+  private readonly actual = new Map<string, NativeResource>()
+  private observation = 0
   private tail: Promise<void> = Promise.resolve()
   private readonly active = new Set<() => boolean>()
   private readonly startup: ReturnType<typeof readOpenCodeProjectSettings>
   readonly policy: ProjectResourcePolicy = openCodeProjectResources
+
   constructor(
     private readonly client: OpencodeClient,
     private readonly directory: string,
@@ -28,10 +38,33 @@ export class OpenCodeMcpControl {
     private readonly signal: AbortSignal,
     private readonly cache?: OpenCodeComposerCache,
     private readonly managed?: { choices(): Record<string, boolean> },
-    private readonly idle: (beforeSubmit: boolean) => boolean = () => true
+    private readonly idle: (beforeSubmit: boolean) => boolean = () => true,
+    private readonly defaults: Record<string, boolean> = {}
   ) {
     this.startup = readOpenCodeProjectSettings(directory)
     void this.startup.catch(() => undefined)
+  }
+
+  connected(id: string): boolean {
+    return this.actual.get(id)?.status === 'connected'
+  }
+  activate(): void {
+    if (this.activated) return
+    this.activated = true
+    this.activation = this.choices().then((choices) => {
+      this.signal.throwIfAborted()
+      this.applied = choices
+      for (const [id, enabled] of Object.entries(choices)) {
+        if (enabled) this.connect(id)
+        else this.initialOff.add(id)
+      }
+    })
+    void this.activation.catch(() => undefined)
+    void this.activation.then(() => this.reconcileChoices()).catch(() => undefined)
+  }
+  async prepare(): Promise<void> {
+    this.activate()
+    await this.activation
   }
   observeActivity(active: () => boolean): () => void {
     this.active.add(active)
@@ -51,54 +84,129 @@ export class OpenCodeMcpControl {
     )
     return task
   }
-  prepare(): Promise<void> {
-    this.activated = true
-    this.initial ??= this.run(async () => {
-      if (this.safe(false)) await this.apply()
-    }).catch((error: unknown) => {
-      this.initial = undefined
-      throw error
-    })
-    return this.initial
+  private resource(id: string, status: NativeResource['status']): NativeResource {
+    return { id, name: id, kind: 'mcp', status, enabled: true, canToggle: false }
+  }
+  private connect(id: string, retry = false): void {
+    const previous = this.attempts.get(id)
+    if (previous?.pending || (previous && !retry) || this.connected(id)) return
+    const attempt: Attempt = { pending: true, task: Promise.resolve() }
+    this.attempts.set(id, attempt)
+    attempt.task = (async () => {
+      const signal = AbortSignal.any([this.signal, AbortSignal.timeout(120_000)])
+      try {
+        await waitForOpenCode(
+          this.client.mcp.connect(
+            { directory: this.directory, name: id },
+            { signal, throwOnError: true }
+          ),
+          signal
+        )
+        const items = await waitForOpenCode(
+          openCodeNativeMcp(this.client, this.directory, signal),
+          signal
+        )
+        signal.throwIfAborted()
+        this.actual.set(id, items.find((item) => item.id === id) ?? this.resource(id, 'failed'))
+      } catch {
+        if (!this.signal.aborted) {
+          attempt.failure = this.resource(id, 'failed')
+          this.actual.set(id, attempt.failure)
+        }
+      } finally {
+        attempt.pending = false
+        this.observation++
+        this.cache?.invalidateMcp()
+      }
+    })()
   }
   read(signal: AbortSignal, refresh = false): Promise<NativeResource[]> {
     signal.throwIfAborted()
+    this.signal.throwIfAborted()
     if (!this.activated) return Promise.resolve([])
     if (!this.readFlight) {
-      // A status read must not straddle connect/disconnect invalidation. Keep the same
-      // queue as mutations, while concurrent observers still share one read flight.
-      const flight = this.prepare()
-        .then(() => this.run(async () => this.preview(await this.status(this.signal, refresh))))
-        .finally(() => {
-          if (this.readFlight === flight) this.readFlight = undefined
-        })
+      const flight = (async () => {
+        await this.activation
+        const revision = this.observation
+        const items = await this.status(this.signal, refresh)
+        // A background completion wins over an older status observation.
+        if (revision === this.observation) {
+          this.actual.clear()
+          for (const item of items) this.actual.set(item.id, item)
+        }
+        if (refresh && this.safe(false))
+          for (const [id, enabled] of Object.entries(await this.choices()))
+            if (enabled) this.connect(id, true)
+        return this.preview([...this.actual.values()])
+      })().finally(() => {
+        if (this.readFlight === flight) this.readFlight = undefined
+      })
       this.readFlight = flight
     }
     return waitForOpenCode(this.readFlight, AbortSignal.any([signal, this.signal]))
   }
   async reconcileChoices(): Promise<void> {
-    if (!this.activated) return
-    if (!this.safe(false)) return
+    if (!this.activated || !this.safe(false)) return
     await this.run(async () => {
       if (this.safe(false)) await this.apply()
     })
   }
-  /** Reserve admission synchronously in the same queue as connect/disconnect. */
-  submit<T>(signal: AbortSignal, action: () => Promise<T>): Promise<T> {
-    return this.run(async () => {
-      const combined = AbortSignal.any([signal, this.signal])
-      while (!this.safe(true)) {
+  /** Removal is mandatory; mentions settle; other initial connections have a bounded wait. */
+  submit<T>(
+    signal: AbortSignal,
+    action: () => Promise<T>,
+    mentioned: readonly string[] = []
+  ): Promise<T> {
+    this.activate()
+    const combined = AbortSignal.any([signal, this.signal])
+    return waitForOpenCode(
+      this.run(async () => {
+        for (;;) {
+          while (!this.safe(true)) {
+            await this.waitBounded([], combined, 20)
+          }
+          combined.throwIfAborted()
+          await waitForOpenCode(this.apply(), combined)
+          const revision = JSON.stringify(this.applied)
+          await waitForOpenCode(
+            Promise.all(mentioned.map((id) => this.attempts.get(id)?.task)),
+            combined
+          )
+          const pending = [...this.attempts.values()].filter((attempt) => attempt.pending)
+          if (pending.length)
+            await this.waitBounded(
+              pending.map((attempt) => attempt.task),
+              combined,
+              2000
+            )
+          combined.throwIfAborted()
+          // A user can turn a tool off while admission is waiting for another connection.
+          if (this.safe(true) && JSON.stringify(await this.choices()) === revision) break
+        }
         combined.throwIfAborted()
-        await new Promise<void>((resolve) => {
-          const timer = setTimeout(resolve, 20)
-          timer.unref?.()
-        })
-      }
-      combined.throwIfAborted()
-      await waitForOpenCode(this.apply(), combined)
-      combined.throwIfAborted()
-      return action()
+        retentionTrace('mcp.submit-applied', { instance: opaqueIdentity(this.directory) })
+        return action()
+      }),
+      combined
+    )
+  }
+  private async waitBounded(
+    tasks: Promise<void>[],
+    signal: AbortSignal,
+    ms: number
+  ): Promise<void> {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const deadline = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, ms)
     })
+    try {
+      await waitForOpenCode(
+        tasks.length ? Promise.race([Promise.all(tasks), deadline]) : deadline,
+        signal
+      )
+    } finally {
+      clearTimeout(timer)
+    }
   }
   async set(_id: string, _enabled: boolean): Promise<void> {
     void _id
@@ -121,68 +229,89 @@ export class OpenCodeMcpControl {
         .filter(([key]) => key.startsWith('mcp:'))
         .map(([key, value]) => [key.slice(4), value])
     )
-    return { ...global, ...mcp, ...this.managed?.choices() }
+    return { ...this.defaults, ...global, ...mcp, ...this.managed?.choices() }
   }
   async pending(): Promise<boolean> {
-    return this.applied !== JSON.stringify(await this.choices())
+    if (!this.activated) return false
+    await this.activation
+    return (
+      this.removalFailed || JSON.stringify(this.applied) !== JSON.stringify(await this.choices())
+    )
   }
   async preview(items: NativeResource[]): Promise<NativeResource[]> {
     const choices = await this.choices(readOpenCodeProjectSettings(this.directory))
-    return items.map((item) => ({
+    const values = new Map(items.map((item) => [item.id, item]))
+    for (const [id, attempt] of this.attempts) {
+      if (attempt.pending && !values.has(id)) values.set(id, this.resource(id, 'disabled'))
+      if (
+        choices[id] &&
+        attempt.failure &&
+        (!values.has(id) || values.get(id)?.status === 'disabled')
+      )
+        values.set(id, attempt.failure)
+    }
+    return [...values.values()].map((item) => ({
       ...item,
       canToggle: false,
       ...(item.kind === 'mcp' && choices[item.id] !== undefined
-        ? { enabled: choices[item.id] }
+        ? {
+            enabled: choices[item.id],
+            ...(choices[item.id] &&
+            this.attempts.get(item.id)?.pending &&
+            item.status === 'disabled'
+              ? { status: 'pending' as const }
+              : {})
+          }
         : {})
     }))
   }
-  private async status(signal: AbortSignal, refresh = false): Promise<NativeResource[]> {
+  private status(signal: AbortSignal, refresh = false): Promise<NativeResource[]> {
     return (
       this.cache?.mcp(signal, refresh) ?? openCodeNativeMcp(this.client, this.directory, signal)
     )
   }
   private async apply(): Promise<void> {
+    try {
+      await this.applyChoices()
+      this.removalFailed = false
+    } catch (error) {
+      this.removalFailed = true
+      throw error
+    }
+  }
+  private async applyChoices(): Promise<void> {
+    await this.activation
     for (;;) {
       this.signal.throwIfAborted()
       const choices = await this.choices()
-      const revision = JSON.stringify(choices)
-      if (this.applied === revision) return
-      if (!Object.keys(choices).length) {
-        this.applied = revision
-        return
+      const changes = Object.entries(choices).filter(
+        ([id, enabled]) => this.applied?.[id] !== enabled || this.initialOff.has(id)
+      )
+      // A late successful connect must not re-enable an MCP after removal is acknowledged.
+      for (const [id, enabled] of changes) {
+        if (enabled) continue
+        const signal = AbortSignal.any([this.signal, AbortSignal.timeout(120_000)])
+        await waitForOpenCode(this.attempts.get(id)?.task ?? Promise.resolve(), signal)
+        const items = await this.status(signal, true)
+        const item = items.find((value) => value.id === id)
+        if (item && item.status !== 'disabled') {
+          await this.client.mcp.disconnect(
+            { directory: this.directory, name: id },
+            { signal, throwOnError: true }
+          )
+          this.cache?.invalidateMcp()
+          const actual = await this.status(signal, true)
+          if (actual.some((value) => value.id === id && value.status !== 'disabled'))
+            throw new Error('일부 MCP 연결 해제를 확인하지 못했습니다.')
+        }
+        this.actual.delete(id)
+        this.attempts.delete(id)
+        this.initialOff.delete(id)
+        this.observation++
       }
-      const signal = AbortSignal.any([this.signal, AbortSignal.timeout(120_000)])
-      const items = await this.status(signal)
-      const changes = items.filter(
-        (item) =>
-          choices[item.id] !== undefined && choices[item.id] !== (item.status === 'connected')
-      )
-      const results = await Promise.allSettled(
-        changes.map(async (item) => {
-          const params = { directory: this.directory, name: item.id }
-          if (choices[item.id])
-            await this.client.mcp.connect(params, { signal, throwOnError: true })
-          else await this.client.mcp.disconnect(params, { signal, throwOnError: true })
-        })
-      )
-      if (changes.length) this.cache?.invalidateMcp()
-      signal.throwIfAborted()
-      if (results.some((result) => result.status === 'rejected'))
-        throw new Error('일부 MCP 변경을 적용하지 못했습니다.')
-      const actual = changes.length ? await this.status(signal, true) : items
-      if (
-        Object.entries(choices).some(([id, enabled]) => {
-          const item = actual.find((entry) => entry.id === id)
-          return item
-            ? (item.status === 'connected') !== enabled
-            : enabled && !!this.managed?.choices()[id]
-        })
-      )
-        throw new Error('일부 MCP 연결 상태를 확인하지 못했습니다.')
-      // A newer desired choice may have arrived while the HTTP request was running.
-      if (JSON.stringify(await this.choices()) !== revision) continue
-      this.applied = revision
-      return
+      for (const [id, enabled] of changes) if (enabled) this.connect(id, true)
+      this.applied = choices
+      if (JSON.stringify(await this.choices()) === JSON.stringify(choices)) return
     }
   }
 }
