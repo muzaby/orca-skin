@@ -10,11 +10,25 @@ import type {
   ComposerCatalogResult
 } from '../../../../../shared/composer-catalog'
 import type { ComposerControlProps } from '../harnesses/contracts'
+import { ComposerInputController } from '../harnesses/common/composer/ComposerInputController'
+import { composerModelStore } from '../harnesses/opencode/composer/composerModelStore'
 
-vi.mock('react', async (original) => ({
-  ...(await original<typeof import('react')>()),
-  ...(await import('../../../shared/ui/renderHarness.testfixture')).fakeHooks
-}))
+vi.mock('react', async (original) => {
+  const { fakeHooks } = await import('../../../shared/ui/renderHarness.testfixture')
+  return {
+    ...(await original<typeof import('react')>()),
+    ...fakeHooks,
+    useDeferredValue: <T>(value: T): T => value,
+    useImperativeHandle: (
+      ref: { current: unknown } | null,
+      create: () => unknown,
+      deps: unknown[]
+    ) =>
+      fakeHooks.useLayoutEffect(() => {
+        if (ref) ref.current = create()
+      }, deps)
+  }
+})
 vi.mock(
   'react-dom',
   async () => (await import('../../../shared/ui/renderHarness.testfixture')).fakeReactDom
@@ -78,23 +92,27 @@ const props: ComposerControlProps = {
   modelFamily: 'distinct/model',
   model: null
 }
-function render(): void {
-  dom.render(
-    createElement(
-      Fragment,
-      null,
-      createElement(composerModule.ModeControl, props),
-      createElement(composerModule.EffortControl, props)
-    )
+function Controls(): React.ReactElement {
+  const providerKey = useChatStore((state) => state.sessions[state.activeKey].session.providerKey)
+  return createElement(
+    Fragment,
+    null,
+    createElement(composerModule.ModeControl, { ...props, providerKey }),
+    createElement(composerModule.EffortControl, { ...props, providerKey })
   )
+}
+function render(): void {
+  dom.render(createElement(Controls))
 }
 async function settle(): Promise<void> {
   for (let n = 0; n < 20; n++) await Promise.resolve()
   dom.act(() => {})
 }
 beforeEach(() => {
+  composerModelStore.clear()
   vi.useFakeTimers()
   dom = installFakeDom({ innerWidth: 1200, innerHeight: 800 })
+  vi.stubGlobal('requestAnimationFrame', window.requestAnimationFrame)
   composerAgentStore.getState().invalidate(composerAgentStore.getState().revision + 1)
   saved = Promise.withResolvers<ComposerCatalogResult>()
   query.mockReset().mockImplementation(async (request) =>
@@ -115,12 +133,16 @@ beforeEach(() => {
         composerCatalog: query,
         releaseComposerCatalog: release,
         onComposerCatalogInvalidated: () => () => {},
+        nativeResources: async () => ({ state: 'disconnected', items: [] }),
         onManagedMcpChanged: (callback: () => void) => {
           managedChanged = callback
           return () => {}
         }
       },
-      settings: { set: async () => ({}) }
+      settings: { set: async () => ({}) },
+      skills: { list: async () => [] },
+      provider: { state: async () => ({ providers: [] }), onState: () => () => {} },
+      file: { pathForFile: () => '', list: async () => [], pickAttachments: async () => [] }
     }
   })
   seed()
@@ -179,7 +201,7 @@ it.each([
   ['cwd', { cwd: 'C:/worktree' }, {}],
   ['worktree reservation', {}, { worktreeIsolation: true }]
 ] as const)(
-  'does not inherit a promoted model snapshot after a %s mismatch',
+  'seeds only non-authoritative models after a %s mismatch',
   async (_label, patch, before) => {
     seed(before)
     render()
@@ -187,9 +209,9 @@ it.each([
     dom.act(() => ingestChatEvent({ type: 'session.updated', sessionId: 'mismatch', patch }))
     await settle()
     dom.click(dom.query('[aria-label="harness.variant"]')!)
-    expect(dom.queryAll('[role="menuitemradio"]').map((row) => row.textContent)).not.toContain(
-      'deep'
-    )
+    expect(dom.queryAll('[role="menuitemradio"]').map((row) => row.textContent)).toContain('deep')
+    expect(dom.query('[role="group"]')?.props['aria-busy']).toBe(true)
+    expect(useChatStore.getState().sessions.mismatch.session.modelVariant).toBe('deep')
     saved.resolve({
       part: 'models',
       generation: 'new-target',
@@ -197,6 +219,82 @@ it.each([
     })
     await settle()
     expect(dom.queryAll('[role="menuitemradio"]').map((row) => row.textContent)).toContain('fresh')
+  }
+)
+
+it.each(['input', 'paste', 'attachment', 'menu', 'send'] as const)(
+  'requests MCP once through the real controller and OpenCode slot on first %s intent',
+  async (intent) => {
+    query.mockImplementation(async (request) => ({
+      part: request.part,
+      value: [],
+      generation: 'intent'
+    }))
+    const send = vi.fn(() => false)
+    dom.render(
+      createElement(
+        Fragment,
+        null,
+        createElement(composerModule.EffortControl, props),
+        createElement(ComposerInputController, {
+          presentation: composerModule,
+          active: true,
+          backendLabel: 'OpenCode',
+          canAbort: false,
+          inflight: false,
+          steerBlocked: false,
+          toolApprovalPending: false,
+          cwd: 'C:/same',
+          initialDraft: intent === 'send' ? 'send this' : undefined,
+          onSend: send,
+          onCancel: vi.fn(),
+          controlsStart: null,
+          controlsEnd: null,
+          diffRequirementSnapshot: {
+            sessionKey: 'draft',
+            sessionId: null,
+            ids: [],
+            revision: 0,
+            anchors: []
+          },
+          onClearDiffRequirementsIfUnchanged: vi.fn()
+        })
+      )
+    )
+    await settle()
+    expect(query.mock.calls.filter(([r]) => r.part === 'mcp')).toHaveLength(0)
+    const shell = dom.query('[data-harness="opencode"]')!
+    const textarea = dom.query('[aria-label="chat.composer.inputAria"]')!
+    Object.assign(textarea, { setSelectionRange: () => {} })
+    const trigger = (): void => {
+      if (intent === 'input')
+        (textarea.props.onChange as (event: unknown) => void)({
+          currentTarget: { value: 'hello', selectionStart: 5, selectionEnd: 5 }
+        })
+      if (intent === 'paste')
+        (shell.props.onPaste as (event: unknown) => void)({
+          clipboardData: { files: [], items: [] }
+        })
+      if (intent === 'attachment')
+        (shell.props.onDrop as (event: unknown) => void)({
+          preventDefault: vi.fn(),
+          dataTransfer: { files: [] }
+        })
+      if (intent === 'menu') dom.click(dom.query('[title="chat.composer.attachMenuTitle"]')!)
+      if (intent === 'send')
+        (textarea.props.onKeyDown as (event: unknown) => void)({
+          key: 'Enter',
+          shiftKey: false,
+          nativeEvent: {},
+          preventDefault: vi.fn()
+        })
+    }
+    dom.act(trigger)
+    await settle()
+    dom.act(trigger)
+    await settle()
+    expect(query.mock.calls.filter(([r]) => r.part === 'mcp')).toHaveLength(1)
+    if (intent === 'send') expect(send).toHaveBeenCalled()
   }
 )
 

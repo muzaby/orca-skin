@@ -85,6 +85,7 @@ export interface HarnessLandingPresentation {
   composer: { openCodeLanding: boolean; flush: boolean }
 }
 export interface ComposerInputPresentation {
+  onInputIntent?: () => void
   sourceIcon?: (source: string) => ReactNode
   appearance: ComposerAppearance
   includeSkills: boolean

@@ -7,6 +7,7 @@ import type {
   ComposerCatalogScope
 } from '../../../../../../../shared/composer-catalog'
 import { ComposerCatalogState } from './composerCatalogState'
+import { composerModelStore } from './composerModelStore'
 const api = vi.hoisted(() => ({
   composerCatalog: vi.fn(),
   releaseComposerCatalog: vi.fn(async () => undefined),
@@ -66,9 +67,72 @@ it('preserves model and agent flights on MCP-only changes', async () => {
   expect(detach).toHaveBeenCalledTimes(1)
 })
 afterEach(() => {
+  composerModelStore.clear()
   vi.useRealTimers()
   vi.clearAllMocks()
   api.composerCatalog.mockReset()
+})
+
+it('requests the MCP part once on the first intent signal', async () => {
+  vi.useFakeTimers()
+  api.onComposerCatalogInvalidated.mockReturnValue(vi.fn())
+  api.composerCatalog.mockImplementation(async (r: ComposerCatalogRequest) => ({
+    part: r.part,
+    value: [],
+    generation: 'intent'
+  }))
+  const state = new ComposerCatalogState(scope, undefined, createComposerAgentStore(vi.fn()))
+  const off = state.subscribe(vi.fn())
+  await flush()
+  expect(api.composerCatalog.mock.calls.filter(([r]) => r.part === 'mcp')).toHaveLength(0)
+  state.intent()
+  state.intent()
+  await flush()
+  state.intent()
+  expect(api.composerCatalog.mock.calls.filter(([r]) => r.part === 'mcp')).toHaveLength(1)
+  off()
+  await vi.runOnlyPendingTimersAsync()
+})
+
+it('seeds stale models for the same profile and replaces them with the live list', async () => {
+  vi.useFakeTimers()
+  api.onComposerCatalogInvalidated.mockReturnValue(vi.fn())
+  api.composerCatalog.mockImplementation(async (r: ComposerCatalogRequest) => ({
+    part: r.part,
+    value: r.part === 'models' ? [{ id: 'first', variants: ['deep'] }] : [],
+    generation: 'first'
+  }))
+  const first = new ComposerCatalogState(scope, undefined, createComposerAgentStore(vi.fn()))
+  const off = first.subscribe(vi.fn())
+  await flush()
+  off()
+  await vi.runOnlyPendingTimersAsync()
+  const second = new ComposerCatalogState(
+    { ...scope, cwd: 'C:/second' },
+    undefined,
+    createComposerAgentStore(vi.fn())
+  )
+  expect(second.getSnapshot().models).toEqual({
+    status: 'loading',
+    stale: true,
+    value: [{ id: 'first', variants: ['deep'] }]
+  })
+  expect(
+    new ComposerCatalogState({ ...scope, providerKey: 'different' }).getSnapshot().models.value
+  ).toBeUndefined()
+  api.composerCatalog.mockImplementation(async (r: ComposerCatalogRequest) => ({
+    part: r.part,
+    value: r.part === 'models' ? [{ id: 'second', variants: ['quick'] }] : [],
+    generation: 'second'
+  }))
+  const stop = second.subscribe(vi.fn())
+  await flush()
+  expect(second.getSnapshot().models).toEqual({
+    status: 'ready',
+    value: [{ id: 'second', variants: ['quick'] }]
+  })
+  stop()
+  await vi.runOnlyPendingTimersAsync()
 })
 
 it('publishes agents before models and shares subscribers and remounts', async () => {

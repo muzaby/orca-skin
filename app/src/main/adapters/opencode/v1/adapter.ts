@@ -244,6 +244,7 @@ export class OpenCodeAdapter implements SessionAdapter {
     }
     return {
       generation: lease.generation,
+      activate: lease.activate,
       signal: lease.signal,
       read: (part, signal, refresh) => readers[part](signal, refresh),
       release: lease.release

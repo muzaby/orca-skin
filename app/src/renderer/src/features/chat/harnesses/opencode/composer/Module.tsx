@@ -3,6 +3,7 @@ import { composerAppearance } from './appearance'
 import { ComposerChip } from './Chip'
 import { SubmitButton } from './SubmitButton'
 import { OpenCodeModeControl, OpenCodeEffortControl } from './Controls'
+import { openCodeInputIntent } from './inputIntent'
 import { selectOpenCodeRequest } from './requestQueue'
 import { AboveInput } from './AboveInput'
 export const composerModule: ComposerModule = {
@@ -12,6 +13,7 @@ export const composerModule: ComposerModule = {
   includeManagedMcp: true,
   managedMcpAvailability: 'observed',
   controlsPlacement: 'end',
+  onInputIntent: openCodeInputIntent,
   harness: 'opencode',
   placeholder: () => 'harness.promptPlaceholder',
   label: 'OpenCode',

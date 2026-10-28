@@ -140,9 +140,23 @@ it('shares targets across catalog resources and warmup through the production as
   expect(capture).toHaveBeenCalledTimes(1)
   expect(resolve).toHaveBeenCalledTimes(1)
   expect(catalog).toMatchObject({ part: 'agents', value: [{ name: 'distinct-agent' }] })
-  expect(resources).toMatchObject({ state: 'connected', items: [{ id: 'distinct' }] })
+  expect(resources).toMatchObject({ state: 'connected', items: [] })
   expect(warm).toMatchObject({ part: 'models', value: [] })
-  expect(requests.sort()).toEqual(['/agent', '/mcp', '/provider'])
+  expect(requests.sort()).toEqual(['/agent', '/provider'])
+  const mcp = await handlers.get(CHANNELS.composerCatalog)!(
+    { sender },
+    { owner: 'a4e3dd25-929a-4352-a9d9-b73762c13454', scope, part: 'mcp' }
+  )
+  expect(mcp).toMatchObject({ part: 'mcp', value: [{ id: 'distinct' }] })
+  expect(requests.filter((path) => path === '/mcp')).toHaveLength(1)
+  await assembly.service
+    .owners('warmup')
+    .read(
+      -1,
+      { owner: 'a4e3dd25-929a-4352-a9d9-b73762c13454', scope, part: 'mcp' },
+      () => undefined
+    )
+  expect(requests.filter((path) => path === '/mcp')).toHaveLength(1)
   await handlers.get(CHANNELS.composerCatalogRelease)!(
     { sender },
     { owner: 'a4e3dd25-929a-4352-a9d9-b73762c13454' }

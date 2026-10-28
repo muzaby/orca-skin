@@ -49,6 +49,7 @@ interface Subscriber {
 }
 
 export interface OpenCodeClientLease {
+  activate?(): void
   managedMcpMentions?: Record<string, string>
   mapMcpResources?(items: NativeResource[]): NativeResource[]
   mcpControl?: OpenCodeMcpControl
@@ -184,19 +185,15 @@ class ServerContext {
               return response
             }
           }),
-        ...(this.extensionControl || this.managed
-          ? {
-              mcpControl: new OpenCodeMcpControl(
-                client,
-                scope.directory,
-                this.extensionControl ?? { global: () => ({}) },
-                scope.controller.signal,
-                composer,
-                this.managed,
-                (beforeSubmit) => this.idle(scope.directory, beforeSubmit)
-              )
-            }
-          : {}),
+        mcpControl: new OpenCodeMcpControl(
+          client,
+          scope.directory,
+          this.extensionControl ?? { global: () => ({}) },
+          scope.controller.signal,
+          composer,
+          this.managed,
+          (beforeSubmit) => this.idle(scope.directory, beforeSubmit)
+        ),
         controller: scope.controller,
         composer,
         commandRevision: 0
@@ -538,6 +535,7 @@ export class OpenCodeSessionContexts {
     const combined = (signal: AbortSignal): AbortSignal => AbortSignal.any([signal, caller.signal])
     let releasing: Promise<void> | undefined
     return {
+      activate: () => metadata.mcpControl?.activate(),
       mcpControl: metadata.mcpControl,
       signal: combined(metadata.composer.signal),
       generation: metadata.composer.generation,
