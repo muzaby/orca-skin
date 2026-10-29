@@ -159,6 +159,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
                 mcpServers={mcp.list}
                 providers={providers.list}
                 nativeMcp={nativeMcp.list}
+                nativeLocked={nativeMcp.locked}
                 suppressEmpty={selection.tab !== 'skills' && nativeMcp.failed}
                 onNativeMcp={(backend, resource) => void nativeMcp.open(backend, resource)}
                 onNativeToggle={nativeMcp.toggle}

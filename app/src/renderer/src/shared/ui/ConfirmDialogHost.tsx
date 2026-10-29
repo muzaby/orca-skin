@@ -8,6 +8,7 @@ import { useI18n } from '../i18n'
 export function ConfirmDialogHost(): React.JSX.Element | null {
   const request = useConfirmStore((s) => s.request)
   const close = useConfirmStore((s) => s.close)
+  const cancel = useConfirmStore((s) => s.cancel)
   const { tr } = useI18n()
 
   if (!request) return null
@@ -21,11 +22,11 @@ export function ConfirmDialogHost(): React.JSX.Element | null {
     <Modal
       open
       title={request.title}
-      onClose={close}
+      onClose={cancel}
       width={400}
       footer={
         <ModalActions
-          onCancel={close}
+          onCancel={cancel}
           onConfirm={handleConfirm}
           confirmLabel={request.confirmLabel ?? tr('common.confirm')}
           cancelLabel={request.cancelLabel ?? tr('common.cancel')}
