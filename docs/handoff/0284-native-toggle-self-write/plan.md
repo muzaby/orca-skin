@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-25 |
 | 매핑 | 0279 D9(파일 임계영역) 후속 버그수정 — 구현 주체 Claude(비기능) |
-| 상태 | IMPL_DONE (r1.2) |
+| 상태 | IMPL_DONE (r2) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0279 V는 상속하지 않고 영향 경로를 REGRESSION pair로 다시 닫는다 |
 | 이번 V revision | `V1` |
@@ -453,11 +453,39 @@ SDK reloadPlugins → resources.observePlugins → persist → acknowledge → c
 | 대상 커밋 | `(r1.2 구현 — 좌표는 INDEX)` |
 | Review Signals | 같은 라운드 impl 턴 2(`r1.2`). r1 ST가 감시자를 동기 fake로 대체해 실제 타이밍을 실행하지 않았다 |
 
+## [구현자 기입] 재구현 (r2) — verify r1 FAIL D1
+
+- **지적**: [verify r1](verify.md) D1 — `emit` 정의의 `deps.run` 감싸기를 지워도(M2) 48케이스 green. 0288 r1.2 `0466f5c`가 watcher 성공 경로를 inline으로 옮겨 r1 좌표가 `emit`을 지나지 않게 됐다.
+- **불변식**: 큐 밖에서 시작된 모든 방송은 `emit` 정의 한 곳을 지나 같은 key 큐 뒤에 선다 — 그 정의의 감싸기는 `emit`을 부르는 어느 경로로든 관측돼야 한다.
+
+| 필드 | 내용 |
+|---|---|
+| 설계 리뷰 | 설계 유지 — production 코드 변경 없음. EP-3 계약 자리(정의 `project-resource-sync.ts:273`)를 잠그는 좌표만 추가 |
+| 강제 지점 전수 | EP-3 `rg -n "this\.emit\(" project-resource-sync.ts` → 4(`:97` connectionsChanged · `:199` watcher 실패 · `:253`·`:256` apply). 네 호출 모두 정의 1곳을 지나므로 정의 자리 1/1을 새 좌표 `project-resource-sync.test.ts:'holds connection-change broadcasts behind an in-flight project mutation'`로 닫았다. watcher 성공 경로(`:186-193` inline)는 0288 CI3 좌표 `'holds watcher broadcasts behind an in-flight project mutation'`. 남긴 곳: 없음 |
+| 이번 라운드 수정의 잠금 | 아래 표 |
+| Product/UX 파생 검토 | 해당 없음 — 사용자 관측 동작 불변. 새 문구·상태 없음 |
+| 놓친 잠재 문제 | `:199`·`:253`·`:256`에서 `emit` 대신 `broadcast`를 직접 부르도록 바꾸는 형제 회귀는 새 좌표가 보지 않는다(`:97`의 같은 맞바꿈 Y1만 red). 정의 자리 밖이라 보고만 — 필요하면 다음 설계가 호출 자리를 §10에 고정한다 |
+| 설계 대비 명시적 차이 | 없음 |
+| 관측한 게이트 산출 | typecheck node/web/test exit 0 · lint 0 error/2 warning(기존), 트리 변경은 이번 테스트 파일뿐 · plan 게이트 집합 95파일 1,166케이스: 1,153 pass/3 skip/10 fail — 10건 전부 Linux `win32` 게이트(`claude/native-resources.ts:39`) 기준선, win32 강제 미커밋 사본 4파일 22/22 green 후 삭제 |
+| AC 자기보고 | AC1·AC3~AC7 ✅(AC3은 새 좌표로 다시 잠김) · AC2 ⚠️ 사람 재실기 대기 |
+| 합계 검산 | `✅ 6 · ⚠️ 1 · ❌ 0 = 총 7` — 분모 변경 없음 |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+| Review Signals | 라운드 2 첫 impl 턴(`r2`). 같은 EP-3 축이지만 원인은 후행 handoff의 장치 교체. 반복 환경 한계: Claude 플러그인 테스트가 Linux에서 `win32` 게이트로 red |
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| M2 `:273` `emit`의 `deps.run` 제거 | D1 인용 변이 | r1 verify 못 잡음 0/48 | holds connection-change broadcasts … / 1 | 잠김 |
+| Y1 `:97` `emit` → `broadcast` 직접 호출 | 새 oracle 형제 감도 | 신규 | 같음 / 1 | 잠김 |
+| M1 `:266` 런타임 보증 OR 제거 | 덮개 회귀 확인 | r1 verify 잡음 | holds watcher broadcasts … / 1 | 유지 |
+| CI3 `:186` watcher 읽기를 큐 밖 실행 | 0288 장치 재확인 | 0288 verify 잡음 | holds watcher broadcasts … / 1 | 유지 |
+
+- 분모 검산: `선택 증거 0 · 인용 변이 1(M2) · 새 oracle 1(Y1) · 덮개 회귀 확인 2 = 행 4`. 원복 후 같은 파일 11/11 green.
+
 ---
 
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | `emit` 정의(`project-resource-sync.ts:273`)의 큐 감싸기 제거(M2)를 잡는 테스트가 없다 — 0288 r1.2 `0466f5c`가 watcher 성공 경로를 inline으로 옮기며 r1 좌표가 `emit`을 지나지 않게 됨 | VP-03 EP-3 · r1 등록 변이 M2 | `connectionsChanged`(`:97`) 또는 apply 뒤 방송(`:253`)을 in-flight mutation hold 중 broadcast 0으로 단언 → M2 red | BLOCKING | open — [verify](verify.md) |
+| D1 | `emit` 정의(`project-resource-sync.ts:273`)의 큐 감싸기 제거(M2)를 잡는 테스트가 없다 — 0288 r1.2 `0466f5c`가 watcher 성공 경로를 inline으로 옮기며 r1 좌표가 `emit`을 지나지 않게 됨 | VP-03 EP-3 · r1 등록 변이 M2 | `connectionsChanged`(`:97`) 또는 apply 뒤 방송(`:253`)을 in-flight mutation hold 중 broadcast 0으로 단언 → M2 red | BLOCKING | 대응 — r2 새 좌표가 M2 red(검증 대기) |
 | D2 | AC2 Windows 실제 세션 연속 토글 재실기 | VP-02 | 사람 실기 | 사람 실기 | open |

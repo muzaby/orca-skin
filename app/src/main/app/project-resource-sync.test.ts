@@ -445,3 +445,69 @@ it('holds watcher broadcasts behind an in-flight project mutation', async () => 
   }
   expect(runtime.reconcileNativeResources).not.toHaveBeenCalledWith('own-second', expect.anything())
 })
+
+it('holds connection-change broadcasts behind an in-flight project mutation', async () => {
+  let pending = false
+  const emit = vi.fn()
+  let tail: Promise<unknown> = Promise.resolve()
+  const run = <T>(_key: string, task: () => Promise<T>): Promise<T> => {
+    const next = tail.catch(() => undefined).then(task)
+    tail = next
+    return next
+  }
+  const runtime = {
+    reconcileNativeResources: vi.fn(async () => 'applied' as const),
+    nativeResourcesApplied: () => true
+  } as unknown as GovernedLiveTurn
+  const target: ProjectResourceTarget = {
+    backend: 'claude',
+    cwd: '/project',
+    key: 'same',
+    request: { sessionId: 'A' },
+    runtime
+  }
+  const service = new ProjectResourceSync({
+    resolve: () => target,
+    targets: () => [target],
+    policy: () => ({ files: () => ['config'], read: async () => ({ revision: 'r' }) }),
+    idle: () => true,
+    // The intermediate state exists only while the mutation holds the queue.
+    read: async () => ({
+      state: 'connected',
+      generation: 'g',
+      items: [
+        {
+          id: 'a',
+          name: 'a',
+          kind: 'mcp',
+          enabled: true,
+          status: pending ? 'pending' : 'connected',
+          canToggle: true
+        }
+      ]
+    }),
+    emit,
+    run,
+    watch: () => () => undefined
+  })
+  services.push(service)
+  service.tick()
+  await flush()
+  emit.mockClear()
+  let release!: () => void
+  const mutation = run('same', async () => {
+    pending = true
+    await new Promise<void>((resolve) => (release = resolve))
+    pending = false
+  })
+  await flush()
+  const broadcast = service.connectionsChanged('claude')
+  await flush()
+  expect(emit).not.toHaveBeenCalled()
+  release()
+  await mutation
+  await broadcast
+  expect(emit).toHaveBeenCalledWith('A', expect.objectContaining({ state: 'connected' }))
+  for (const [, value] of emit.mock.calls)
+    expect(value.items.map((item: { status: string }) => item.status)).toEqual(['connected'])
+})
