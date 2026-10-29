@@ -8,11 +8,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-25 |
 | 매핑 | 0279 D9(파일 임계영역) 후속 버그수정 — 구현 주체 Claude(비기능) |
-| 상태 | RETURN_TO_PLAN (r2 verify) |
-| V mode | `Baseline V` |
+| 상태 | READY (ΔV1) |
+| V mode | `Baseline V` + `Delta V` |
 | 기준 V | `none` — 0279 V는 상속하지 않고 영향 경로를 REGRESSION pair로 다시 닫는다 |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| 이번 V revision | `ΔV1` (2026-10-29 — 플러그인 탭 재지정 + EP-3 재고정) |
+| 유효 V | `V1 + ΔV1` |
 
 # Part I — Product & UX Contract
 
@@ -35,11 +35,17 @@
 
 | ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
 |---|---|---|---|---|---|
-| D-001 | 같은 프로젝트에서 겹친 토글은 요청 순서대로 모두 적용한다. 두 번째 요청은 첫 요청이 만든 설정 파일 변경 때문에 거절되지 않는다 | "순차적용되도록 하라" | 사용자 | ACTIVE | 0279 D9 보완 |
+| D-001 | 같은 프로젝트에서 겹친 토글은 요청 순서대로 모두 적용한다. 두 번째 요청은 첫 요청이 만든 설정 파일 변경 때문에 거절되지 않는다 | "순차적용되도록 하라" | 사용자 | **SUPERSEDED**(ΔV1) — 휴면 IPC 경로 동작으로는 VP-12 회귀로 남음 | → D-007 |
 | D-002 | Orca가 실행 중 Query에 직접 적용하고 저장한 변경(자기 쓰기)은 그 런타임에 "이미 적용됨"으로 인정한다. 감시자가 그 파일 변경을 다시 "미적용 설정"으로 표시하지 않는다 | 두 번째 실패와 플리커의 공통 원인(§4) | 추론 — 코드 조사 | ACTIVE | — |
 | D-003 | 같은 프로젝트 범위의 변경이 진행 중일 때 감시자 방송은 그 변경이 끝난 뒤에 나간다. 중간 상태를 방송하지 않는다 | "플리커없이 자연스럽게" | 사용자 + 추론 | ACTIVE | — |
 | D-004 | Orca 밖에서 생긴 설정 변경(외부 편집)이 아직 적용되지 않은 동안의 읽기 전용 표시·토글 거절은 유지한다. 자기 쓰기와 같은 파일에 외부 편집이 섞였으면 외부 몫은 계속 미적용이다 | 0279 계약(`returns pending configuration as read-only…`) | 0279 | ACTIVE(유지) | — |
 | D-005 | 이 handoff는 버그수정이며 구현 주체는 Claude다 | 저장소 분담 규칙 + 사용자 선택 | 사용자 | ACTIVE | — |
+| D-006 | 네이티브 플러그인 제어 화면은 상태 패널이 아니라 nav → 플러그인 → 플러그인 탭이다. 0284의 사용자 요구는 이 화면 기준으로 검증한다 | "해당 기능은 이제 상태패널이 아니느 nav->플러그인->플러그임 탭에서 네이티브 플러그인 제어 기능으로 제공한다." · 처리 방향 "1번으로 진행해" | 사용자 2026-10-29 | ACTIVE | 0286 D-002 반영 |
+| D-007 | 한 하네스의 토글 요청이 처리 중이면 그 하네스의 네이티브 행 토글을 **모두** 잠근다. 겹침을 순서대로 처리하지 않고 겹침 자체를 막는다 | "처리 중엔 그 행뿐 아니라 해당 하네스의 네이티브 플러그인을 모두 잠금하는게 가용자 경험에 더 좋을것 같다" → 설계자 의견(잠금 조건) → "작성하라" | 사용자 2026-10-29 | ACTIVE | D-001 대체 |
+| D-008 | 잠금 단위는 하네스다. Claude 처리 중에도 OpenCode 행은 토글할 수 있다 | 잠금 조건 제안 1 — 쓰기 큐가 backend별(`useNativeMcpCatalog.ts` `writes`) | 설계자 제안 + 사용자 승인 | ACTIVE | — |
+| D-009 | 잠금 기간은 요청 시작 → 응답이며 Claude 세션 종료 확인창이 떠 있는 동안과 확인 후 재요청까지 포함한다. 확인·취소(버튼·Esc·배경)·다른 확인창에 의한 교체·요청 실패 어느 경우에도 반드시 풀린다 | 잠금 조건 제안 2 | 설계자 제안 + 사용자 승인 | ACTIVE | — |
+| D-010 | 잠긴 동안 그 하네스의 모든 네이티브 행 스위치는 비활성으로 보인다. 응답 후 누른 행만 새 값으로 바뀌고 다른 행의 값·상태는 그대로다 | 잠금 조건 제안 3 + D-003 "플리커없이" | 설계자 제안 + 사용자 승인 | ACTIVE | — |
+| D-011 | 겹친 확인창은 "순서대로 처리"한다 — D-007 잠금으로 확인창이 동시에 둘 생기지 않는 것으로 충족한다 | AskUserQuestion "순서대로 처리 (Recommended)" | 사용자 2026-10-29 | ACTIVE | D-007이 충족 수단 |
 
 ### 갱신 메모
 
@@ -47,6 +53,8 @@
 - 변경된 결정: 없음. 0279 D9(파일별 임계영역)는 유지되며 D-001이 그 위의 판정 경합을 닫는다.
 - 기존 ACTIVE 중 유지: 0279 D9, 0283 D-009(우측 패널 프로젝트 토글은 유휴 Query 재로드 경로 유지).
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001↔AC1, D-002↔AC1·AC4·AC5, D-003↔AC2·AC3, D-004↔AC5·AC6, D-005↔(구현 주체 — AC 없음).
+- **ΔV1 갱신(2026-10-29)**: 추가 D-006~D-011, 대체 D-001 → D-007. 유지 D-002~D-005(휴면 IPC·composer 방송 경로).
+- **ΔV1 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-006↔AC8~AC12, D-007↔AC8·AC11, D-008↔AC8, D-009↔AC9·AC10, D-010↔AC8·AC12, D-011↔AC9, D-003↔AC3·AC12. AC1은 D-001 대체 뒤 VP-12 회귀(휴면 IPC 동작)로만 남고 D-007과 충돌하지 않는다(다른 경로).
 
 ## 4. 요구 비판적 검토
 
@@ -246,7 +254,7 @@ apply ─▶ pending 필터: covers면 제외 → SDK 호출 없음
 |---|---|---|---|---|---|---|
 | MD-01 / VP-04·05 (EP-1) | 성공한 자기 저장만 인정 | `ClaudeProjectReconciliation.acknowledge` | Claude adapter | `adapter.ts` persist 콜백 1자리 — `persistClaudePluginState` resolve 뒤 | `rg -n "persistClaudePluginState\(" app/src/main --glob '!**/*.test.ts'` → 호출 1 | 두 번째 토글 거절·플리커 재발 |
 | AR-01 / VP-01 (EP-2) | 적용 판정 = `applied` 맵 OR `runtime.nativeResourcesApplied?.(revision)===true` | `project-resource-sync.ts` 단일 헬퍼 | sync | decorate(`:102`) · apply pending 필터(`:217`) — 2자리 | `rg -n "entry\.applied\.get\(" app/src/main/app/project-resource-sync.ts` → 2 | 한쪽만 고치면 표시 정상·재조정 중복 또는 그 반대 |
-| SD-01 / VP-02·03·07 (EP-3) | sync 방송은 같은 key 큐 뒤 | `emit` 정의가 `deps.run(key, broadcast)` | sync | `this.emit(` 호출 4자리(`:183`·`:188`·`:242`·`:245`) — 정의 1곳에서 감싼다 | `rg -n "this\.emit\(" app/src/main/app/project-resource-sync.ts` → 4 | 변경 중 중간 상태 방송(플리커) |
+| ~~SD-01 / VP-02·03·07 (EP-3)~~ **ΔV1에서 EP-3′로 대체** | sync 방송은 같은 key 큐 뒤 | `emit` 정의가 `deps.run(key, broadcast)` | sync | `this.emit(` 호출 4자리(`:183`·`:188`·`:242`·`:245`) — 정의 1곳에서 감싼다 | `rg -n "this\.emit\(" app/src/main/app/project-resource-sync.ts` → 4 | 변경 중 중간 상태 방송(플리커) |
 | AR-01 / VP-04 (EP-4) | 포트 체인 | `adapters/common/types.ts` `LiveTurn` | adapter·runtime | 선언 1 · `SessionRuntime` 위임 1 · Claude adapter 구현 1 = 3자리 | `rg -n "nativeResourcesApplied" app/src/main --glob '!**/*.test.ts'` → 구현 후 선언·위임·구현 3 + 소비 헬퍼 1 | 위임 누락 시 sync가 항상 미적용 |
 
 - 같은 규칙의 SSOT: 적용 판정은 sync의 private 헬퍼 하나(`appliedTo(entry, runtime, revision)`), 두 자리가 호출한다.
@@ -342,6 +350,152 @@ SDK reloadPlugins → resources.observePlugins → persist → acknowledge → c
 - [x] 자리별 좌표와 선택 적대 증거(VP-01·03·04·05) 등록.
 - [x] 사람 실기는 시각(AT-02)만.
 - [x] `ACTIVE 결정 ↔ AC` 대조를 §3에 적었다.
+
+# ΔV1 — 플러그인 탭 재지정 + EP-3 자리 목록 재고정 (2026-10-29)
+
+> 사용자 결정 변경(D-006·D-007)과 [verify r2](verify.md#r2-검증-2026-10-29) `RETURN_TO_PLAN`(D3·D4)을 한 revision으로 닫는다. 기준 V = 이 plan의 V1(`e9cc7ed`). 유효 V = V1 + ΔV1. ΔV1에 없는 V1 행은 그대로다.
+
+## Δ1. 왜 바뀌나
+
+| 사실 | 관측 |
+|---|---|
+| 상태 패널은 0286이 제거했다 | 0286 D-002 · renderer에서 `setNativeResource`를 부르는 곳은 API 래퍼 `shared/api/ipc.ts:252` 하나(`rg -n "\.setNativeResource\(" app/src/renderer --glob '!**/*.test.*'` → 1) |
+| 현재 제어 화면은 플러그인 탭이다 | `ExtensionsCatalogView.tsx:164` `onNativeToggle={nativeMcp.toggle}` → `CustomizeList.tsx:117` → `useNativeMcpCatalog.ts:90` `setGlobalExtension` → `handlers/extension-catalog.ts:43` |
+| 이 경로는 V1 경로와 별개다 | 전역 선택(`control.setGlobal`)에 저장하고, Claude 플러그인이면 실행 중인 Claude 세션을 닫는다(0283). `sharing.run`·`ProjectResourceSync`·자기 쓰기 감시를 지나지 않는다 |
+| 겹친 확인창이 앞 토글을 지운다 | 설계자 실측(미커밋 probe): 바쁜 세션 2 + A·B 연속 → 요청 `[a] [b] [b,confirmed]` 순, A는 끝까지 `enabled: true`. `confirmDialogStore.open`이 이전 request를 덮어쓴다(`confirmDialogStore.ts:24`) |
+| 같은 행 재클릭은 대부분 이미 막혀 있다 | `CatalogToggle.tsx:18-31` 행별 `busy`. 단 확인 후 재요청(`useNativeMcpCatalog.ts:98` `void toggle(..., true)`)은 `CatalogToggle`을 거치지 않아 그 동안 잠기지 않는다 — 사용자 질의 때 "두 클릭 모두 끄기로 전송"이라 한 설명은 hook 직접 호출 기준이었다 |
+| 확인창에 취소 통지가 없다 | `ConfirmRequest`에 `onCancel` 없음(`confirmDialogStore.ts:7-14`). 호스트는 취소·Esc·배경 클릭에서 `close`만 부른다(`ConfirmDialogHost.tsx:24`·`:28`) |
+
+## Δ2. Product & UX Contract (ΔV1)
+
+- 성공을 한 문장으로: "플러그인 탭에서 Claude 플러그인을 하나 토글하면 그 처리가 끝날 때까지 Claude 행들이 잠시 비활성으로 보이고, 끝나면 누른 행만 바뀐 채 다시 누를 수 있다."
+
+| 시작 | 중간 상태 | 결과 |
+|---|---|---|
+| Claude 행 A 토글, 바쁜 Claude 세션 없음 | Claude 네이티브 행 스위치 전부 비활성, OpenCode 행은 활성 | A만 새 값, 나머지 행 값·상태 동일, 잠금 해제 |
+| Claude 행 A 토글, 바쁜 세션 있음 | 확인창 표시, Claude 행 잠금 유지 | **확인** → 확인 요청 1회, A 적용, 해제 · **취소/Esc/배경/다른 확인창으로 교체** → 추가 요청 0, A 그대로, 해제 |
+| 요청 실패 | — | 오류 1회 보고(기존), 행 그대로, 해제 → 다시 토글 가능 |
+| 잠긴 하네스 행에 토글 시도(hook 직접 호출 포함) | — | 요청 0, 상태 불변 |
+| 잠금 중 5초 갱신 | 그 하네스 갱신 건너뜀(기존 `writes` 규칙 승계) | 응답 결과가 갱신에 덮이지 않음 |
+
+- 비범위: 여러 창이 동시에 같은 하네스를 토글하는 경우(잠금은 창 단위). main 핸들러 직렬화는 바꾸지 않는다.
+- 비범위: 휴면 세션 IPC(`orca:session:set-native-resource`)의 제거. 0286 NEXT_HANDOFF 후보로 남는다.
+
+### Acceptance (ΔV1)
+
+| R | AT / AC | 동작 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-08 | AT-08 / AC8 | Claude 행 토글 요청이 끝나지 않은 동안 렌더된 Claude 네이티브 행 스위치는 전부 `disabled`, OpenCode 행은 `canToggle` 그대로. 응답 후 전부 원래 `disabled` 값 | 실제 `useNativeMcpCatalog` + `CustomizeList` + `CatalogToggle` 렌더, `setGlobalExtension`을 지연 promise로 둔 fake: Claude 행 2개(plugin)·OpenCode 행 1개, A 클릭 → 해제 전 스위치 `disabled` 목록 단언 → 해제 후 단언 | 플러그인 탭 클릭 → `onNativeToggle` → hook `toggle` → `setGlobalExtension` |
+| R-09 | AT-09 / AC9 | 확인창이 떠 있는 동안 잠금 유지. 확인 → 확인 요청 1회 후 해제. 취소·Esc(`onClose`)·다른 `openConfirmDialog`로 교체 → 추가 요청 0, 행 그대로, 해제 | 같은 렌더 + 바쁜 세션 fake(첫 요청 `confirm`): 각 해소 경로별 케이스. 취소·Esc는 `ConfirmDialogHost` 렌더에서 버튼/`onClose`로, 교체는 다른 `openConfirmDialog` 호출로 | 위 + `openConfirmDialog` → `ConfirmDialogHost` |
+| R-10 | AT-10 / AC10 | 요청이 throw하면 오류 1회 보고, 행 그대로, 잠금 해제, 다음 토글 요청이 나간다 | 기존 `'reports a choice write failure once and releases the queue for a retry'`를 잠금 단언으로 확장 | hook `toggle` 실패 경로 |
+| R-11 | AT-11 / AC11 | 잠긴 하네스에 대한 `toggle` 호출은 요청을 보내지 않는다. 다른 하네스 호출은 보낸다 | hook 단위: Claude 요청 hold 중 Claude `toggle` 2회·OpenCode `toggle` 1회 → `setGlobalExtension` 호출 = Claude 1 + OpenCode 1 | hook `toggle` 진입 |
+| R-12 | AT-12 / AC12 | 바쁜 세션이 있을 때 A 토글 → 확인 → 적용 뒤 B 토글은 확인창 없이 적용된다. 모든 렌더에서 누르지 않은 행의 `aria-checked`·상태 문구가 바뀌지 않는다. **사람 실기**: Windows 플러그인 탭에서 Claude 플러그인 두 개를 연달아 토글(세션 있음/없음) — 회색 전환·오류 토스트 0, 둘 다 의도대로 | 상태를 가진 fake main(선택 맵 + 세션 수, 확인 시 세션 0)으로 렌더 기록 전수 단언 + 사람 실기 | 플러그인 탭 전 경로 |
+
+- AC1·AC2(V1 R-01·R-02)는 D-001 대체로 사용자 요구에서 내려간다. 기계 증거는 VP-12 회귀(휴면 IPC 동작)로, AC2 사람 실기는 AC12 실기로 이관한다.
+- 사람 실기는 AC12의 시각·실제 Claude 세션만. 잠금·해제·요청 수는 전부 기계 단언이다.
+
+## Δ3. V / Trace (ΔV1)
+
+| Node | Level | 출처 | provenance | 대체/기준 |
+|---|---|---|---|---|
+| R-01 | R | V1 §7 | SUPERSEDED | → R-12(사용자 관측), 기계 증거 → VP-12 |
+| R-02 | R | V1 §7 | SUPERSEDED | → R-08·R-12 |
+| R-08~R-12 | R | Δ2 | NEW | — |
+| SD-03 | SD | 잠금 수명: 획득 → (확인 대기) → 해제 | NEW | — |
+| AR-02 | AR | hook 잠금 상태 → `CustomizeList` → `CatalogToggle` 비활성 | NEW | — |
+| AR-03 | AR | `ConfirmRequest.onCancel` — 호스트 취소·Esc·교체 통지 | NEW | — |
+| MD-02 | MD | hook 잠금 상태기계(`toggle`·`refresh` 판정) | NEW | — |
+| SD-01 | SD | V1 sync 방송 직렬화 | CHANGED — §10 EP-3 목록 재고정(D4) | V1 |
+| SD-02 · AR-01 · MD-01 · R-06 · IT-01 | — | V1 | INHERITED | V1 |
+
+| Pair | left ↔ right | requiredness | production path | 직접 oracle (자리별 좌표) | 선택 적대 증거 (자리) | §10 |
+|---|---|---|---|---|---|---|
+| VP-08 | MD-02 ↔ UT-02 | REQUIRED | hook `toggle(backend)` → 잠금 판정 → 요청 → (확인 대기) → 해제 | `useNativeMcpCatalog.test.ts` 신규 `'ignores toggles for a locked harness and keeps the other harness available'`(AC11) · 신규 `'keeps the harness locked through the Claude confirmation and releases it on every resolution'`(AC9 hook 층) · 기존 `'reports a choice write failure once…'` 확장(AC10) | required — L1 `toggle` 잠금 검사 제거(EP-5 hook 진입) · L2 확인 대기 없이 즉시 해제(EP-7 대기 자리) · L3 해제 `finally` 제거(EP-7 해제 자리) · L9 `refresh` 잠금 검사 제거(EP-8) | EP-5 · EP-7 · EP-8 |
+| VP-09 | AR-02 ↔ IT-02 | REQUIRED | 클릭 → `CustomizeList` → `CatalogToggle` `disabled` ← hook 잠금 상태 | 신규 render 케이스(파일 `useNativeMcpCatalog.test.ts`, 기존 `'renders native plugin capabilities…'` 조립 재사용) `'disables every native switch of the toggling harness until the write settles'`(AC8). Claude 행 ≥2·OpenCode 행 ≥1(구별 값) | required — L4 `CustomizeList`가 잠금 값을 `CatalogToggle`에 넘기지 않음(EP-6 전달) · L5 잠금 판정에 형제 backend 사용(맞바꿈, EP-6 전달) · L10 `CatalogToggle` `disabled` 식에서 잠금 항 제거(EP-6 표시) | EP-6 |
+| VP-10 | AR-03 ↔ IT-03 | REQUIRED | `openConfirmDialog` → store → `ConfirmDialogHost` 버튼·`onClose` → `onConfirm`/`onCancel` | 신규 `shared/ui/ConfirmDialogHost.test.ts` — `'notifies cancel on the cancel button, dismissal and replacement but not on confirm'`: 실제 `ConfirmDialogHost` 렌더, 요청 2개(첫 요청을 두 번째가 교체) | required — L6 취소 버튼이 `onCancel` 없이 닫음 · L7 `onClose`(Esc·배경)가 `onCancel` 없이 닫음 · L8 `open`이 이전 `onCancel` 미호출 · L11 확인 경로가 `onCancel`도 호출(맞바꿈) | EP-7 호스트 3자리 + store 1자리 |
+| VP-11 | R-08~12 ↔ AT-08~12 | REQUIRED | 플러그인 탭 클릭 → hook → `setGlobalExtension` fake main(상태 보유) → 응답 → 렌더 | 신규 `'applies consecutive Claude plugin toggles one at a time without disturbing other rows'`(파일 `useNativeMcpCatalog.test.ts`, `CustomizeList` 조립): 세션 2 → A 클릭 → 확인 → B 클릭(확인창 없음) → 최종 선택 `{a:false,b:false}`, 렌더 기록마다 누르지 않은 행 `aria-checked` 불변 + AC12 사람 실기 | not selected — 렌더 기록 전수 직접 단언. 위 L1·L2는 이 케이스에도 red여야 한다(분모 공유 확인) | EP-5~7 |
+| VP-03 | SD-01 ↔ ST-01 | REQUIRED | 방송 시작점 → `run(key)` → `broadcast` | 자리별 — 아래 §Δ4 EP-3′ | required — 자리별(EP-3′) | EP-3′ (6) |
+| VP-07 | SD-02 ↔ ST-02 | REGRESSION | V1 | V1 기존 케이스 | not selected | EP-3′ |
+| VP-12 | (구 R-01·R-02 기계 증거) ↔ AT | REGRESSION | V1 VP-01·VP-02 경로(휴면 IPC) | `session-resources.sync.test.ts` `'applies overlapping project toggles in order without a self-write rejection'` · `'never publishes pending or neighbour changes while a toggle completes'` · `session-resources.claude-assembly.test.ts` `'keeps every toggle while overlapping plugin toggles save through the real watcher'` | V1 VP-01 선택 이관 — M1(`appliedTo` 런타임 보증 OR 제거) · M5(`entry.applied.set` 제거) · X1(apply 필터 고정값) | EP-2 · EP-4 |
+| VP-04 · VP-05 | V1 | REGRESSION(INHERITED) | V1 | V1 좌표 | V1 M3 · M4 유지 | EP-1 · EP-4 |
+| VP-06 | V1 | REGRESSION | V1 | V1 | not selected | 0 |
+| VP-13 | 기존 확인창 소비자 | REGRESSION | 다른 `openConfirmDialog` 호출 6자리 | `ArtifactCards.lifecycle.test.ts` · `useProjectDeletion.test.ts` · `projectDeletionWiring.test.ts` · `OverlayLayer.search.test.ts` · `ExtensionsCatalogView.interaction.test.ts` green | not selected — `onCancel`은 선택 필드, 미지정 소비자 동작 불변 | 0 — 소비자 코드 불변 |
+
+- 이관 검산: V1 VP-01 선택 변이 {M1·M5·X1(r1 verify)} → VP-12. V1 VP-02 not selected → 이관 대상 없음, AC2 사람 실기 → AC12. 폐기 0.
+
+## Δ4. §10 강제 지점 (ΔV1) — 자리 목록 = 분모
+
+| V node / pair | 계약 | 언제 강제 (자리 목록) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|
+| SD-01 / VP-03·07 (**EP-3′**, EP-3 대체) | 큐 밖에서 시작된 sync 방송은 같은 key 큐 안에서 `broadcast`한다 | 6자리 — `:97` connectionsChanged `emit` · `:193` watcher 성공 `broadcast`(이미 `run` 안) · `:199` watcher 실패 `emit` · `:253` apply 성공 `emit` · `:256` apply 실패 `emit` · `:273` `emit` 정의의 `broadcast`(`run` 안) | `rg -n "this\.(emit\|broadcast)\(" app/src/main/app/project-resource-sync.ts` → 6 (술어 = 방송 sink 호출, `deps.emit`은 `broadcast` 내부 sink라 제외) | 그 자리 경로에서 진행 중 변경의 중간 상태 방송 |
+| MD-02 / VP-08·11 (EP-5) | 잠긴 하네스에는 토글 요청을 시작하지 않는다 | hook `toggle` 진입 판정 1 · 확인 후 재요청(현 `:98`) 1 — 같은 잠금 안에서 진행하고 새 잠금 판정에 막히지 않는다 | `rg -n "setGlobalExtension\(\|toggle\(backend, resource" app/src/renderer/src/features/skills/hooks/useNativeMcpCatalog.ts` → 구현 후 요청 자리 수와 일치 | 겹친 요청·확인창 덮어쓰기 재발 |
+| AR-02 / VP-09 (EP-6) | 잠긴 하네스의 모든 네이티브 행 스위치는 비활성 | `ExtensionsCatalogView` → `CustomizeList` 잠금 전달 1 · `CustomizeList` 네이티브 행 `CatalogToggle` 전달 1 · `CatalogToggle` `disabled` 식 1 = 3 | `rg -n "nativeMcp\.\|CatalogToggle\|disabled=" app/src/renderer/src/features/skills/components/customize/{ExtensionsCatalogView,CustomizeList,CatalogToggle}.tsx` | 잠김 상태가 화면에 안 보이거나 다른 하네스가 잠김 |
+| SD-03·AR-03 / VP-08·10 (EP-7) | 잠금은 모든 해소 경로에서 풀리고, 확인창 해소 전에는 풀리지 않는다 | hook: 확인 대기 1 · 해제 `finally` 1 · host: 확인 버튼 1 · 취소 버튼 1 · `onClose`(Esc·배경) 1 · store `open` 교체 1 = 6 | `rg -n "onConfirm\|onCancel\|onClose\|open:" app/src/renderer/src/shared/ui/{ConfirmDialogHost.tsx,confirmDialogStore.ts}` + hook의 `finally` | 잠금 고착(이후 토글 영구 불가) 또는 확인 전 해제(겹침 재발) |
+| MD-02 / VP-08 (EP-8) | 잠긴 하네스의 주기 갱신은 응답 결과를 덮지 않는다 | hook `refresh`의 하네스별 건너뜀 1 | `rg -n "busy\.current\|writes\.current\|locked" app/src/renderer/src/features/skills/hooks/useNativeMcpCatalog.ts` | 응답 직전 옛 목록으로 되돌아감 |
+
+### EP-3′ 자리별 oracle
+
+| 자리 | 좌표 | 등록 변이 |
+|---|---|---|
+| `:97` | 기존 `project-resource-sync.test.ts:'holds connection-change broadcasts behind an in-flight project mutation'` | Y1 `emit`→`broadcast` |
+| `:193` | 기존 `'holds watcher broadcasts behind an in-flight project mutation'` | CI3 읽기·방송을 `run` 밖 실행 |
+| `:199` | 신규 `'holds watcher failure broadcasts behind an in-flight project mutation'` — `policy.read` throw, hold 중 방송 0, 해제 후 `failed` 방송 | Z3 `emit`→`broadcast` |
+| `:253` | 신규 `'holds post-apply broadcasts behind a mutation queued during reconcile'` — reconcile 중 같은 key에 hold 작업을 줄 세우고, apply 종료 후 hold 해제 전 방송 0 | Z1 `emit`→`broadcast` |
+| `:256` | 신규 `'holds apply failure broadcasts behind a mutation queued during reconcile'` — 위 + reconcile throw | Z2 `emit`→`broadcast` |
+| `:273` | 기존 `'holds connection-change broadcasts …'` | M2 `deps.run` 제거 |
+
+- 운반 값 구별: 각 신규 케이스의 read는 hold 중에만 `pending` 상태를 돌려준다(기존 r2 케이스와 같은 방식) — 큐 우회 시 관측이 갈린다.
+
+## Δ5. Technical Design (ΔV1)
+
+```text
+CustomizeList(click) → nativeMcp.toggle(backend, resource)
+  └ locked.has(backend)? → return (요청 0)
+  └ lock(backend) ─ setState
+      → setGlobalExtension(req)
+        ├ applied → accept(...) 
+        └ confirm → await new Promise(openConfirmDialog({ onConfirm: →true, onCancel: →false }))
+              true → setGlobalExtension({...req, confirmed}) → accept
+      finally → unlock(backend)
+CustomizeList → CatalogToggle locked={locked.has(backend)} → disabled = !canToggle || busy || locked
+```
+
+| 파일 | 변경 |
+|---|---|
+| `features/skills/hooks/useNativeMcpCatalog.ts` | `writes` 큐를 하네스 잠금으로 교체. 반환에 잠금 상태 추가(`locked: ReadonlySet<Backend>` — 상태라 렌더를 일으켜야 함). `refresh`는 잠긴 하네스를 건너뜀. 확인 대기를 promise로 묶어 같은 잠금 안에서 재요청. `version` 갱신 무시 규칙은 유지 |
+| `features/skills/components/customize/CustomizeList.tsx` | 선택 prop(예: `nativeLocked?: ReadonlySet<Backend>`) → 네이티브 행 `CatalogToggle`에 전달 |
+| `features/skills/components/customize/ExtensionsCatalogView.tsx` | hook 잠금 값을 `CustomizeList`에 전달 |
+| `features/skills/components/customize/CatalogToggle.tsx` | 선택 prop `locked` → `disabled`에 합침. 기존 행별 `busy` 유지 |
+| `shared/ui/confirmDialogStore.ts` | `ConfirmRequest.onCancel?` 추가. `open`은 이전 request의 `onCancel` 호출 뒤 교체. 취소 전용 `cancel()`(onCancel 호출 + 닫기) 추가, `close()`는 확인 뒤 닫기로 유지 |
+| `shared/ui/ConfirmDialogHost.tsx` | 취소 버튼·`onClose`는 `cancel`, 확인은 `onConfirm` 뒤 `close` |
+| `docs/arch/frontend/design-components.md` | `CatalogToggle` 행(잠금 prop), `ConfirmDialogHost` 행(취소 통지) 갱신 |
+
+- 레이어: 모두 `features/skills` 내부와 `shared/ui`. 교차 feature import 없음(`shared/ui` 변경은 범용 — 도메인 지식 없음).
+- 교착 금지: 확인 대기 promise는 `onConfirm`·`onCancel` 중 정확히 하나로 resolve된다. 교체·언마운트 뒤에도 store가 `onCancel`을 부르므로 고착되지 않는다.
+- worst-case: 하네스당 진행 요청 ≤ 1, 확인창 ≤ 1.
+
+## Δ6. 게이트 (ΔV1 추가)
+
+| Gate | 명령 |
+|---|---|
+| app lint·typecheck | `cd app && npm run lint && npm run typecheck` |
+| renderer vitest | `./node_modules/.bin/vitest run src/renderer/src/features/skills src/renderer/src/shared/ui src/renderer/src/app/hooks src/renderer/src/app/OverlayLayer.search.test.ts src/renderer/src/app/automaticFeedDebug.integration.test.ts src/renderer/src/features/chat/harnesses/common/transcript/ArtifactCards.lifecycle.test.ts` |
+| main vitest | V1 §7-A 명령 그대로(EP-3′·VP-12·VP-04~07) |
+| 문서 인벤토리 | `node scripts/check-doc-inventory.mjs --check` |
+| trailer | `git log -1 --format='%(trailers:only=true)'` |
+
+## Δ7. READY self-review (ΔV1)
+
+| 항목 | 판정 · 관측 |
+|---|---|
+| 결정 보존 | D-001 SUPERSEDED → D-007, D-002~005 유지, D-006~011 추가 |
+| 조건절 원문 | D-006·D-007 사용자 문장 원문 인용 |
+| SUPERSEDED 이관 | R-01·R-02 → VP-12(M1·M5·X1) · AC12(실기). 폐기 0 |
+| NEW node ↔ REQUIRED | R-08~12↔VP-11, SD-03·MD-02↔VP-08, AR-02↔VP-09, AR-03↔VP-10. CHANGED SD-01↔VP-03 |
+| §10 자리 목록 | EP-3′ 검색 6 = 목록 6(차집합 0, 이번 턴 실행). EP-5~8은 구현이 자리를 만들기 전이라 개수를 위치로 고정(EP-5 2·EP-6 3·EP-7 6·EP-8 1) |
+| 형제 맞바꿈 | L5(backend 맞바꿈)·L11(확인↔취소 통지) 등록 |
+| 사람 실기 | AC12 시각·실세션만 |
+| `ACTIVE 결정 ↔ AC` | §3 갱신 메모, 충돌 0 |
 
 ---
 
@@ -488,6 +642,6 @@ SDK reloadPlugins → resources.observePlugins → persist → acknowledge → c
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
 | D1 | `emit` 정의(`project-resource-sync.ts:273`)의 큐 감싸기 제거(M2)를 잡는 테스트가 없다 — 0288 r1.2 `0466f5c`가 watcher 성공 경로를 inline으로 옮기며 r1 좌표가 `emit`을 지나지 않게 됨 | VP-03 EP-3 · r1 등록 변이 M2 | `connectionsChanged`(`:97`) 또는 apply 뒤 방송(`:253`)을 in-flight mutation hold 중 broadcast 0으로 단언 → M2 red | BLOCKING | closed — r2 verify M2 잡음 |
-| D2 | AC2 Windows 실제 세션 연속 토글 재실기 | VP-02 | 사람 실기 | 사람 실기 | open |
-| D3 | §10 EP-3 고정 자리 `:188`·`:242`·`:245`(현재 `:199`·`:253`·`:256`)에서 `emit`→`broadcast` 대체(Z1~Z3)를 잡는 테스트 없음 | VP-03 EP-3 · [verify r2](verify.md#r2-검증-2026-10-29) | 각 호출 경로를 in-flight mutation hold 중 방송 0으로 단언 → Z1~Z3 red | BLOCKING | open — D4 정정 뒤 구현 |
-| D4 | EP-3 자리 목록이 현재 코드와 갈림(`:183` 소멸·`:97` 신규·줄 번호 낡음), 술어 `this.emit(`이 해법 이름 | §10 EP-3 | 불변식 주어(큐 밖 sync 방송 시작점)로 자리를 다시 열거해 고정, 큐 안 `:193` inline 방송의 소유(0288 CI3) 구분 | PLAN_GAP | open — 설계자 |
+| D2 | AC2 Windows 실제 세션 연속 토글 재실기 | VP-02 | 사람 실기 | 사람 실기 | superseded — 0286이 상태 패널 제거, ΔV1 AC12 실기(플러그인 탭)로 이관 |
+| D3 | §10 EP-3 고정 자리 `:188`·`:242`·`:245`(현재 `:199`·`:253`·`:256`)에서 `emit`→`broadcast` 대체(Z1~Z3)를 잡는 테스트 없음 | VP-03 EP-3 · [verify r2](verify.md#r2-검증-2026-10-29) | 각 호출 경로를 in-flight mutation hold 중 방송 0으로 단언 → Z1~Z3 red | BLOCKING | open — ΔV1 EP-3′ 자리별 oracle로 구현 |
+| D4 | EP-3 자리 목록이 현재 코드와 갈림(`:183` 소멸·`:97` 신규·줄 번호 낡음), 술어 `this.emit(`이 해법 이름 | §10 EP-3 | 불변식 주어(큐 밖 sync 방송 시작점)로 자리를 다시 열거해 고정, 큐 안 `:193` inline 방송의 소유(0288 CI3) 구분 | PLAN_GAP | closed — ΔV1 EP-3′ 재고정 |
