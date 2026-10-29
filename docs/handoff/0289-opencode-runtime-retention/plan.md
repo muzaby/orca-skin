@@ -909,7 +909,9 @@ M1은 수동 MCP 읽기와 역할별 활성화, 입력 의도 슬롯, db path �
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| 미착수 | — | — | — | — | — |
+| V1 | `PreparedMcpResources` `deps.prepare`가 owners 주입 때 쓰이지 않음(B15a 동치) | VP10 B15 | 인자 제거 또는 owners 미주입 경로 단일화 | NON_BLOCKING | open |
+| V2 | 해제 실패를 삼키는 고장이 worker OOM으로만 red | VP08 K7 | 시간 상한을 둔 reject 단언 | NON_BLOCKING | open |
+| V3 | 실제 CLI 만료 후 재기동 timeout·AC22/H1·AC33/H2 | VP06 | 사람 실기 | 사람 실기 | open — [verify](verify.md) |
 
 ---
 
