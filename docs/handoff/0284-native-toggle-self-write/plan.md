@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-25 |
 | 매핑 | 0279 D9(파일 임계영역) 후속 버그수정 — 구현 주체 Claude(비기능) |
-| 상태 | IMPL_DONE (ΔV1 r3) |
+| 상태 | verify/PASS (ΔV1 r3 · 기계 범위) — AC12 사람 실기 대기 |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `none` — 0279 V는 상속하지 않고 영향 경로를 REGRESSION pair로 다시 닫는다 |
 | 이번 V revision | `ΔV1` (2026-10-29 — 플러그인 탭 재지정 + EP-3 재고정) |
@@ -757,5 +757,7 @@ CustomizeList → CatalogToggle locked={locked.has(backend)} → disabled = !can
 |---|---|---|---|---|---|
 | D1 | `emit` 정의(`project-resource-sync.ts:273`)의 큐 감싸기 제거(M2)를 잡는 테스트가 없다 — 0288 r1.2 `0466f5c`가 watcher 성공 경로를 inline으로 옮기며 r1 좌표가 `emit`을 지나지 않게 됨 | VP-03 EP-3 · r1 등록 변이 M2 | `connectionsChanged`(`:97`) 또는 apply 뒤 방송(`:253`)을 in-flight mutation hold 중 broadcast 0으로 단언 → M2 red | BLOCKING | closed — r2 verify M2 잡음 |
 | D2 | AC2 Windows 실제 세션 연속 토글 재실기 | VP-02 | 사람 실기 | 사람 실기 | superseded — 0286이 상태 패널 제거, ΔV1 AC12 실기(플러그인 탭)로 이관 |
-| D3 | §10 EP-3 고정 자리 `:188`·`:242`·`:245`(현재 `:199`·`:253`·`:256`)에서 `emit`→`broadcast` 대체(Z1~Z3)를 잡는 테스트 없음 | VP-03 EP-3 · [verify r2](verify.md#r2-검증-2026-10-29) | 각 호출 경로를 in-flight mutation hold 중 방송 0으로 단언 → Z1~Z3 red | BLOCKING | 대응 — r3 신규 좌표 3건, Z1~Z3 red(검증 대기) |
+| D3 | §10 EP-3 고정 자리 `:188`·`:242`·`:245`(현재 `:199`·`:253`·`:256`)에서 `emit`→`broadcast` 대체(Z1~Z3)를 잡는 테스트 없음 | VP-03 EP-3 · [verify r2](verify.md#r2-검증-2026-10-29) | 각 호출 경로를 in-flight mutation hold 중 방송 0으로 단언 → Z1~Z3 red | BLOCKING | closed — [verify r3](verify.md#r3-검증-2026-10-29) Z1~Z3 잡음 |
 | D4 | EP-3 자리 목록이 현재 코드와 갈림(`:183` 소멸·`:97` 신규·줄 번호 낡음), 술어 `this.emit(`이 해법 이름 | §10 EP-3 | 불변식 주어(큐 밖 sync 방송 시작점)로 자리를 다시 열거해 고정, 큐 안 `:193` inline 방송의 소유(0288 CI3) 구분 | PLAN_GAP | closed — ΔV1 EP-3′ 재고정 |
+| D5 | AC12 Windows 플러그인 탭 연속 토글 실기(세션 있음/없음 — 회색 전환·오류 토스트 0, 둘 다 의도대로) | VP-11 AC12 | 사람 실기 | 사람 실기 | 대기 |
+| D6 | 잠금은 창 단위 — 두 창이 같은 하네스를 동시에 토글하면 main이 직렬화하지 않음 | Δ2 비범위 | 기록 | NON_BLOCKING | open |
