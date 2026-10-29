@@ -243,3 +243,8 @@
 ## r2-15. 결론
 
 - 상태: **PASS** — verify 2회째. 판정 pair 전부 PASS, PLAN_GAP 없음, AC ✅8/8 + 이관 3(0278 PASS).
+
+## 후행 재확인 (2026-10-29, 0275~0289 일괄 검증)
+
+- **PASS 유지 — 일부 후행 대체.** 우측 패널 상태 표시는 0286 D-002가 제거했다(사용자 결정). "목록 조회만으로 서버·인스턴스를 시작하지 않음"은 0289 D19(수동 디렉터리 MCP HTTP 0)와 같은 방향이다.
+- HEAD `81153e2`에서 전체 vitest를 다시 돌렸다(865파일). Linux 전용 실패 21건은 `C:/` fixture와 `process.platform === 'win32'` 게이트뿐이며, POSIX 경로·win32 강제 미커밋 사본에서 green이고 Windows CI [run 40834862690](https://github.com/muzaby/orca-skin/actions/runs/40834862690)이 success다 — 근거는 [0289 verify §6](../0289-opencode-runtime-retention/verify.md).

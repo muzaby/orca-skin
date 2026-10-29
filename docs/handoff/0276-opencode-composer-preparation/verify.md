@@ -256,3 +256,8 @@
 
 - 상태: **PASS** — verify 2회째. pair 7/7 PASS, PLAN_GAP 없음, AC ✅10/10.
 - 남은 사람 확인: 실제 OpenCode CLI의 첫 입력 전 agent 표시·두 테마(AC 밖).
+
+## 후행 재확인 (2026-10-29, 0275~0289 일괄 검증)
+
+- **PASS 유지.** 0289가 준비를 `composer-preparation-service.ts`로 흡수했고, 수동 디렉터리의 MCP 연결은 입력 의도 뒤로 미뤘다(0289 D19). 0276 목표(에이전트 표시가 모델·MCP 완료를 기다리지 않음, 준비 instance 재사용)는 그대로이며 0289 VP02·VP10 PASS로 유지된다.
+- HEAD `81153e2`에서 전체 vitest를 다시 돌렸다(865파일). Linux 전용 실패 21건은 `C:/` fixture와 `process.platform === 'win32'` 게이트뿐이며, POSIX 경로·win32 강제 미커밋 사본에서 green이고 Windows CI [run 40834862690](https://github.com/muzaby/orca-skin/actions/runs/40834862690)이 success다 — 근거는 [0289 verify §6](../0289-opencode-runtime-retention/verify.md).

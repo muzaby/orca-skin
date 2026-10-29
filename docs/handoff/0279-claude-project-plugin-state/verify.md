@@ -296,3 +296,8 @@ typecheck 3구성 0 error · lint 0 error/2 기존 warning(범위 밖) · render
 
 - 상태: **PASS** — verify 2회째. pair 10/10 PASS, PLAN_GAP 없음, AC ✅8/8.
 - 남은 사람 확인: 실제 Windows Electron의 plugin 토글·두 테마 패널(AC 밖).
+
+## 후행 재확인 (2026-10-29, 0275~0289 일괄 검증)
+
+- **PASS 유지.** 0284가 같은 Claude 프로젝트 플러그인 상태의 자기 저장 경합을 이어서 고쳤다(0284는 FAIL — 테스트 잠금 상실). 0279 계약 자체는 green.
+- HEAD `81153e2`에서 전체 vitest를 다시 돌렸다(865파일). Linux 전용 실패 21건은 `C:/` fixture와 `process.platform === 'win32'` 게이트뿐이며, POSIX 경로·win32 강제 미커밋 사본에서 green이고 Windows CI [run 40834862690](https://github.com/muzaby/orca-skin/actions/runs/40834862690)이 success다 — 근거는 [0289 verify §6](../0289-opencode-runtime-retention/verify.md).

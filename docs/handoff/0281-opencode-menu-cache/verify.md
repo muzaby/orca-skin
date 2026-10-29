@@ -298,3 +298,8 @@ Composer Module → OpenCodeModeControl(useComposerCatalog) → OpenCodeAgentCon
 
 - 상태: **PASS** — verify 2회째. pair 7/7 PASS, PLAN_GAP 없음, AC ✅6/6.
 - 남은 사람 확인: 실제 창의 제목 스피너 시각(기계 범위 밖).
+
+## 후행 재확인 (2026-10-29, 0275~0289 일괄 검증)
+
+- **PASS 유지.** 0289가 composer cache에 MCP freshness·seed를 추가했다. 0281 메뉴 캐시 테스트 green, 0289 VP02 REGRESSION PASS.
+- HEAD `81153e2`에서 전체 vitest를 다시 돌렸다(865파일). Linux 전용 실패 21건은 `C:/` fixture와 `process.platform === 'win32'` 게이트뿐이며, POSIX 경로·win32 강제 미커밋 사본에서 green이고 Windows CI [run 40834862690](https://github.com/muzaby/orca-skin/actions/runs/40834862690)이 success다 — 근거는 [0289 verify §6](../0289-opencode-runtime-retention/verify.md).

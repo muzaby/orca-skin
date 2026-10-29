@@ -623,3 +623,8 @@ r1 판정과 근거는 위 본문에 그대로 둔다. 이 절은 r2만 판정�
 - ACTIVE Decision: 전부 충족. AC ✅ 28 · ⚠️ 1(AC18 실기) · ❌ 0.
 - 운영 gate: lint·typecheck·doc inventory·CI PASS. 관련 vitest 환경 실패는 r1과 동일하다.
 - 다음 단계: 사용자가 AC18을 실기로 확인한다. 확인 뒤 INDEX 행을 archive로 옮긴다.
+
+## 후행 재확인 (2026-10-29, 0275~0289 일괄 검증)
+
+- **PASS 유지 — AC18 일부만 후행에서 다룸.** 연속 토글 거절·토글 사라짐은 0284 r1.2가 고쳤다(단 0284는 이번 verify FAIL — 방송 큐 잠금 상실, 동작 결함 아님). 플러그인 탭 그룹 제목·로고 시각은 0286이 다시 정의했고 0286 AC16(white/dark)으로 남는다. 재시작 뒤 off 유지·랜딩 스피너는 후행 해결 없음.
+- HEAD `81153e2`에서 전체 vitest를 다시 돌렸다(865파일). Linux 전용 실패 21건은 `C:/` fixture와 `process.platform === 'win32'` 게이트뿐이며, POSIX 경로·win32 강제 미커밋 사본에서 green이고 Windows CI [run 40834862690](https://github.com/muzaby/orca-skin/actions/runs/40834862690)이 success다 — 근거는 [0289 verify §6](../0289-opencode-runtime-retention/verify.md).
