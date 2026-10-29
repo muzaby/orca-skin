@@ -674,4 +674,4 @@ T/P/I/C/R 좌표는 [구현 증거의 실제 oracle 표](implementation-evidence
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | 준비 중 관측 종료가 saved 조회에서는 ComposerCatalogCancelled, draft 조회에서는 일반 목록 오류로 전파 | 사용자 보고 2026-10-27 · VP-02/08 · AC3/11. 실제 IPC+owner 경합 재현 2case | 사용자 지시로 [0289 AC1~2](../0289-opencode-runtime-retention/plan.md)에 수정·회귀 이관. [재현 원문](../0289-opencode-runtime-retention/research.md) | BLOCKING — 외부 피드백, 독립 verify 판정 아님 | open — 0289 구현 후 확인. 0288 독립 verify 대기 유지 |
+| D1 | 준비 중 관측 종료가 saved 조회에서는 ComposerCatalogCancelled, draft 조회에서는 일반 목록 오류로 전파 | 사용자 보고 2026-10-27 · VP-02/08 · AC3/11. 실제 IPC+owner 경합 재현 2case | 사용자 지시로 [0289 AC1~2](../0289-opencode-runtime-retention/plan.md)에 수정·회귀 이관. [재현 원문](../0289-opencode-runtime-retention/research.md) | BLOCKING — 외부 피드백, 독립 verify 판정 아님 | **closed — 0289에서 해결** ([0289 verify](../0289-opencode-runtime-retention/verify.md) VP01 PASS, `session-resources.cancellation.test.ts` draft/session 2case green) |
