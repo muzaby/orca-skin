@@ -19,7 +19,7 @@ import type {
   NativeResources,
   SetGlobalNativeResourceResult
 } from '../../../../../shared/native-resources'
-import { useConfirmStore } from '../../../shared/ui/confirmDialogStore'
+import { openConfirmDialog, useConfirmStore } from '../../../shared/ui/confirmDialogStore'
 import { errorToastStore } from '../../../shared/errors/errorToastStore'
 let dom: ReturnType<typeof installFakeDom>
 afterEach(() => {
@@ -222,6 +222,8 @@ it('reports a choice write failure once and releases the queue for a retry', asy
     { title: 'saveFailed', detail: 'disk locked' }
   ])
   expect(result.list[0].resource.enabled).toBe(true)
+  // The failed write released the harness lock, so the retry is sent.
+  expect([...result.locked]).toEqual([])
   await result.toggle('claude', resource)
   await flush()
   expect(result.list[0].resource.enabled).toBe(false)
@@ -311,7 +313,8 @@ it('confirms before closing busy Claude sessions and applies only after the chan
     result().list.find((item) => item.backend === 'claude')!
   const request = { backend: 'claude', id: 'superpowers', kind: 'plugin', enabled: false }
 
-  await result().toggle('claude', claude().resource)
+  // The toggle stays pending while the dialog is open.
+  void result().toggle('claude', claude().resource)
   await flush()
   expect(write).toHaveBeenCalledExactlyOnceWith(request)
   expect(useConfirmStore.getState().request).toMatchObject({
@@ -321,16 +324,19 @@ it('confirms before closing busy Claude sessions and applies only after the chan
     cancelLabel: 'common.cancel'
   })
   expect(claude().resource.enabled).toBe(true)
-  // [취소] — the host only closes the store; no second request and the row stays.
-  useConfirmStore.getState().close()
+  expect([...result().locked]).toEqual(['claude'])
+  // [취소] — the host cancels the store; no second request, the row stays and the lock lifts.
+  useConfirmStore.getState().cancel()
   await flush()
   expect(write).toHaveBeenCalledTimes(1)
   expect(claude().resource.enabled).toBe(true)
+  expect([...result().locked]).toEqual([])
 
-  await result().toggle('claude', claude().resource)
+  void result().toggle('claude', claude().resource)
   await flush()
   expect(write).toHaveBeenCalledTimes(2)
   useConfirmStore.getState().request!.onConfirm()
+  useConfirmStore.getState().close()
   await flush()
   expect(write).toHaveBeenCalledTimes(3)
   expect(write).toHaveBeenLastCalledWith({ ...request, confirmed: true })
@@ -353,4 +359,237 @@ it('never opens the Claude dialog for OpenCode MCP toggles', async () => {
   })
   expect(useConfirmStore.getState().request).toBeNull()
   expect(result().list.find((item) => item.backend === 'opencode')!.resource.enabled).toBe(false)
+})
+
+/** Stateful main: global choices per harness, busy Claude sessions that a confirmed change closes. */
+function nativeMain(sessions = 0): {
+  read: ReturnType<typeof vi.fn>
+  write: ReturnType<typeof vi.fn>
+  choices: Record<string, boolean>
+  hold(on: boolean): void
+  release(): void
+} {
+  const choices: Record<string, boolean> = {
+    'claude:a': true,
+    'claude:b': true,
+    'opencode:c': true
+  }
+  let busy = sessions
+  let holding = false
+  const held: (() => void)[] = []
+  const rows = (backend: string): NativeResources => ({
+    state: 'disconnected',
+    items: Object.entries(choices)
+      .filter(([key]) => key.startsWith(`${backend}:`))
+      .map(([key, enabled]) => ({
+        id: key.split(':')[1],
+        name: key.split(':')[1],
+        kind: 'plugin' as const,
+        enabled,
+        status: enabled ? ('configured' as const) : ('disabled' as const),
+        canToggle: true
+      }))
+  })
+  const read = vi.fn(async (backend: string) => rows(backend))
+  const write = vi.fn(
+    async (request: { backend: string; id: string; enabled: boolean; confirmed?: true }) => {
+      if (holding) await new Promise<void>((resolve) => held.push(resolve))
+      if (request.backend === 'claude' && busy > 0 && !request.confirmed)
+        return { status: 'confirm', reason: 'claude-processes', sessions: busy }
+      choices[`${request.backend}:${request.id}`] = request.enabled
+      if (request.backend === 'claude') busy = 0
+      return applied(rows(request.backend))
+    }
+  )
+  Object.assign(window, {
+    orca: { session: { globalExtensions: read, setGlobalExtension: write } }
+  })
+  return {
+    read,
+    write,
+    choices,
+    hold: (on) => {
+      holding = on
+    },
+    release: () => {
+      for (const resolve of held.splice(0)) resolve()
+    }
+  }
+}
+
+type Catalog = ReturnType<typeof useNativeMcpCatalog>
+function renderCatalog(): { result: () => Catalog; renders: Catalog['list'][] } {
+  const renders: Catalog['list'][] = []
+  let current!: Catalog
+  function View(): React.ReactElement {
+    const native = useNativeMcpCatalog()
+    current = native
+    renders.push(native.list)
+    return createElement(CustomizeList, {
+      tab: 'providers',
+      skills: [],
+      mcpServers: [],
+      providers: [],
+      nativeMcp: native.list,
+      nativeLocked: native.locked,
+      onNativeToggle: native.toggle,
+      onSelect: vi.fn()
+    })
+  }
+  dom.render(createElement(View))
+  return { result: () => current, renders }
+}
+const row = (catalog: Catalog, id: string): Catalog['list'][number]['resource'] =>
+  catalog.list.find((item) => item.resource.id === id)!.resource
+const switches = (): { disabled: boolean; checked: boolean }[] =>
+  dom.queryAll('[role="switch"]').map((node) => ({
+    disabled: Boolean(node.props.disabled),
+    checked: Boolean(node.props['aria-checked'])
+  }))
+
+it('ignores toggles for a locked harness and keeps the other harness available', async () => {
+  vi.useFakeTimers()
+  dom = installFakeDom({ innerWidth: 1280, innerHeight: 800 })
+  const main = nativeMain()
+  const { result } = renderCatalog()
+  await flush()
+  main.hold(true)
+  void result().toggle('claude', row(result(), 'a'))
+  await flush()
+  expect([...result().locked]).toEqual(['claude'])
+  void result().toggle('claude', row(result(), 'b'))
+  void result().toggle('claude', row(result(), 'a'))
+  await flush()
+  expect(main.write).toHaveBeenCalledTimes(1)
+  // The periodic refresh skips the locked harness only.
+  const reads = (backend: string): number =>
+    main.read.mock.calls.filter(([value]) => value === backend).length
+  const before = { claude: reads('claude'), opencode: reads('opencode') }
+  dom.advance(5000)
+  await flush()
+  expect({ claude: reads('claude'), opencode: reads('opencode') }).toEqual({
+    claude: before.claude,
+    opencode: before.opencode + 1
+  })
+  void result().toggle('opencode', row(result(), 'c'))
+  await flush()
+  expect(main.write.mock.calls.map(([request]) => `${request.backend}:${request.id}`)).toEqual([
+    'claude:a',
+    'opencode:c'
+  ])
+  main.hold(false)
+  main.release()
+  await flush()
+  expect([...result().locked]).toEqual([])
+  expect(main.choices).toEqual({ 'claude:a': false, 'claude:b': true, 'opencode:c': false })
+  await result().toggle('claude', row(result(), 'b'))
+  await flush()
+  expect(main.choices['claude:b']).toBe(false)
+})
+
+it('keeps the harness locked through the Claude confirmation and releases it on every resolution', async () => {
+  vi.useFakeTimers()
+  dom = installFakeDom({ innerWidth: 1280, innerHeight: 800 })
+  const main = nativeMain(2)
+  const { result } = renderCatalog()
+  await flush()
+  const requests = (): string[] =>
+    main.write.mock.calls.map(([request]) => `${request.id}${request.confirmed ? '!' : ''}`)
+
+  void result().toggle('claude', row(result(), 'a'))
+  await flush()
+  expect(useConfirmStore.getState().request).not.toBeNull()
+  expect([...result().locked]).toEqual(['claude'])
+  useConfirmStore.getState().cancel()
+  await flush()
+  expect([...result().locked]).toEqual([])
+
+  void result().toggle('claude', row(result(), 'a'))
+  await flush()
+  expect([...result().locked]).toEqual(['claude'])
+  // Another feature's dialog replaces this one: the replaced request counts as cancelled.
+  openConfirmDialog({ title: 'other', message: 'other', onConfirm: vi.fn() })
+  await flush()
+  expect([...result().locked]).toEqual([])
+  useConfirmStore.getState().close()
+
+  void result().toggle('claude', row(result(), 'a'))
+  await flush()
+  main.hold(true)
+  useConfirmStore.getState().request!.onConfirm()
+  useConfirmStore.getState().close()
+  await flush()
+  // The confirmed request runs under the same lock.
+  expect([...result().locked]).toEqual(['claude'])
+  main.hold(false)
+  main.release()
+  await flush()
+  expect([...result().locked]).toEqual([])
+  expect(requests()).toEqual(['a', 'a', 'a', 'a!'])
+  expect(main.choices['claude:a']).toBe(false)
+  expect(row(result(), 'a').enabled).toBe(false)
+})
+
+it('disables every native switch of the toggling harness until the write settles', async () => {
+  vi.useFakeTimers()
+  dom = installFakeDom({ innerWidth: 1280, innerHeight: 800 })
+  const main = nativeMain()
+  renderCatalog()
+  await flush()
+  expect(switches()).toEqual([
+    { disabled: false, checked: true },
+    { disabled: false, checked: true },
+    { disabled: false, checked: true }
+  ])
+  main.hold(true)
+  dom.click(dom.queryAll('[role="switch"]')[0])
+  await flush()
+  // Claude a, Claude b, OpenCode c.
+  expect(switches().map(({ disabled }) => disabled)).toEqual([true, true, false])
+  main.hold(false)
+  main.release()
+  await flush()
+  expect(switches()).toEqual([
+    { disabled: false, checked: false },
+    { disabled: false, checked: true },
+    { disabled: false, checked: true }
+  ])
+})
+
+it('applies consecutive Claude plugin toggles one at a time without disturbing other rows', async () => {
+  vi.useFakeTimers()
+  dom = installFakeDom({ innerWidth: 1280, innerHeight: 800 })
+  const main = nativeMain(2)
+  const { renders } = renderCatalog()
+  await flush()
+  const click = (index: number): void => dom.click(dom.queryAll('[role="switch"]')[index])
+
+  click(0)
+  await flush()
+  expect(useConfirmStore.getState().request).not.toBeNull()
+  // B is locked while A's dialog is open: no second request, no second dialog.
+  click(1)
+  await flush()
+  expect(main.write).toHaveBeenCalledTimes(1)
+  useConfirmStore.getState().request!.onConfirm()
+  useConfirmStore.getState().close()
+  await flush()
+  click(1)
+  await flush()
+  expect(useConfirmStore.getState().request).toBeNull()
+  expect(
+    main.write.mock.calls.map(([request]) => `${request.id}${request.confirmed ? '!' : ''}`)
+  ).toEqual(['a', 'a!', 'b'])
+  expect(main.choices).toEqual({ 'claude:a': false, 'claude:b': false, 'opencode:c': true })
+  // Every rendered list: OpenCode untouched, and B never changes before A.
+  const states = renders
+    .filter((list) => list.length === 3)
+    .map((list) =>
+      list.map(({ resource }) => `${resource.id}:${resource.enabled}:${resource.status}`).join(' ')
+    )
+  expect([...new Set(states)]).toEqual([
+    'a:true:configured b:true:configured c:true:configured',
+    'a:false:disabled b:true:configured c:true:configured',
+    'a:false:disabled b:false:disabled c:true:configured'
+  ])
 })

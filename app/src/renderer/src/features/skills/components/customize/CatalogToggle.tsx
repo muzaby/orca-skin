@@ -7,11 +7,14 @@ export function CatalogToggle({
   name,
   enabled,
   canToggle,
+  locked = false,
   onToggle
 }: {
   name: string
   enabled: boolean
   canToggle: boolean
+  /** Another change of the same owner is in flight. */
+  locked?: boolean
   onToggle?: () => void | Promise<void>
 }): React.JSX.Element {
   const { tr } = useI18n()
@@ -22,10 +25,10 @@ export function CatalogToggle({
       role="switch"
       aria-checked={enabled}
       aria-label={tr('skills.detail.toggleAria', { name })}
-      disabled={!canToggle || busy}
+      disabled={!canToggle || busy || locked}
       className="inline-flex shrink-0 items-center rounded-r3 p-2 hide-focus-ring ring-focus disabled:cursor-default disabled:opacity-50"
       onClick={async () => {
-        if (busy || !canToggle) return
+        if (busy || locked || !canToggle) return
         setBusy(true)
         try {
           await onToggle?.()

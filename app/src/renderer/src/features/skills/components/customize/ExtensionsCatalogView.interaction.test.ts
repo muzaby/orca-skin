@@ -237,6 +237,42 @@ it('confirms a busy Claude plugin change through the shared dialog', async () =>
   expect(dom.queryAll('[role="switch"]')[0].props['aria-checked']).toBe(false)
 })
 
+it('locks every native plugin switch of the toggling harness in the catalog view', async () => {
+  api.read.mockImplementation(async (backend: string) => ({
+    state: 'disconnected',
+    items:
+      backend === 'claude' ? [resource('claude'), resource('claude-two')] : [resource('opencode')]
+  }))
+  let release!: () => void
+  api.write.mockImplementation(async (request) => {
+    await new Promise<void>((resolve) => (release = resolve))
+    return {
+      status: 'applied',
+      resources: {
+        state: 'disconnected',
+        items: [{ ...resource('claude'), enabled: request.enabled }, resource('claude-two')]
+      }
+    }
+  })
+  renderWithDialog()
+  await flush()
+  const disabled = (): boolean[] =>
+    dom.queryAll('[role="switch"]').map((node) => Boolean(node.props.disabled))
+  expect(disabled()).toEqual([false, false, false])
+  dom.click(dom.queryAll('[role="switch"]')[0])
+  await flush()
+  // Claude, Claude two, OpenCode.
+  expect(disabled()).toEqual([true, true, false])
+  release()
+  await flush()
+  expect(disabled()).toEqual([false, false, false])
+  expect(dom.queryAll('[role="switch"]').map((node) => node.props['aria-checked'])).toEqual([
+    false,
+    true,
+    true
+  ])
+})
+
 it('renders the Claude close dialog in English with singular and plural counts', async () => {
   await i18n.changeLanguage('en')
   api.write

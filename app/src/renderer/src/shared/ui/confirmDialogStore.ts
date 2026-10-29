@@ -11,18 +11,32 @@ export interface ConfirmRequest {
   cancelLabel?: string
   danger?: boolean
   onConfirm: () => void
+  // 확인 없이 닫힐 때(취소·Esc·배경 클릭·다른 확인 요청에 의한 교체) 한 번 호출된다.
+  onCancel?: () => void
 }
 
 interface ConfirmStore {
   request: ConfirmRequest | null
   open: (req: ConfirmRequest) => void
+  /** 확인 처리 뒤 닫는다 — `onCancel`을 부르지 않는다. */
   close: () => void
+  /** 확인 없이 닫는다 — 열린 요청의 `onCancel`을 부른다. */
+  cancel: () => void
 }
 
-export const useConfirmStore = create<ConfirmStore>((set) => ({
+export const useConfirmStore = create<ConfirmStore>((set, get) => ({
   request: null,
-  open: (req) => set({ request: req }),
-  close: () => set({ request: null })
+  open: (req) => {
+    const replaced = get().request
+    set({ request: req })
+    if (replaced && replaced !== req) replaced.onCancel?.()
+  },
+  close: () => set({ request: null }),
+  cancel: () => {
+    const cancelled = get().request
+    set({ request: null })
+    cancelled?.onCancel?.()
+  }
 }))
 
 // 어디서든(팝오버 메뉴 onClick 등) 호출해 확인 다이얼로그를 띄운다.

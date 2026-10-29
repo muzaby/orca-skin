@@ -511,3 +511,145 @@ it('holds connection-change broadcasts behind an in-flight project mutation', as
   for (const [, value] of emit.mock.calls)
     expect(value.items.map((item: { status: string }) => item.status)).toEqual(['connected'])
 })
+
+/**
+ * A mutation queued on the same key while the sync owns the queue sets `pending` until released.
+ * A broadcast that bypasses the queue reads that intermediate state.
+ */
+function queuedMutationFixture(
+  policyRead: (queue: () => void) => Promise<{ revision: string }>,
+  reconcile: (queue: () => void) => Promise<'applied'>
+): {
+  service: ProjectResourceSync
+  emit: ReturnType<typeof vi.fn>
+  changed: Array<() => void>
+  release(): void
+  queued(): Promise<void> | undefined
+} {
+  let pending = false
+  let release: () => void = () => undefined
+  let mutation: Promise<void> | undefined
+  const changed: Array<() => void> = []
+  const emit = vi.fn()
+  let tail: Promise<unknown> = Promise.resolve()
+  const run = <T>(_key: string, task: () => Promise<T>): Promise<T> => {
+    const next = tail.catch(() => undefined).then(task)
+    tail = next
+    return next
+  }
+  const queue = (): void => {
+    pending = true
+    mutation = run('same', async () => {
+      await new Promise<void>((resolve) => (release = resolve))
+      pending = false
+    })
+  }
+  const runtime = {
+    reconcileNativeResources: vi.fn(() => reconcile(queue)),
+    nativeResourcesApplied: () => false
+  } as unknown as GovernedLiveTurn
+  const target: ProjectResourceTarget = {
+    backend: 'claude',
+    cwd: '/project',
+    key: 'same',
+    request: { sessionId: 'A' },
+    runtime
+  }
+  const service = new ProjectResourceSync({
+    resolve: () => target,
+    targets: () => [target],
+    policy: () => ({ files: () => ['config'], read: () => policyRead(queue) }),
+    idle: () => true,
+    read: async () => ({
+      state: 'connected',
+      generation: 'g',
+      items: [
+        {
+          id: 'a',
+          name: 'a',
+          kind: 'mcp',
+          enabled: true,
+          status: pending ? 'pending' : 'connected',
+          canToggle: true
+        }
+      ]
+    }),
+    emit,
+    run,
+    watch: (_path, callback) => {
+      changed.push(callback)
+      return () => undefined
+    }
+  })
+  services.push(service)
+  return { service, emit, changed, release: () => release(), queued: () => mutation }
+}
+const pendingBroadcasts = (emit: ReturnType<typeof vi.fn>): number =>
+  emit.mock.calls.filter(([, value]) =>
+    value.items.some((item: { status: string }) => item.status === 'pending')
+  ).length
+
+it('holds watcher failure broadcasts behind a mutation queued during the read', async () => {
+  let fail = false
+  const fixture = queuedMutationFixture(
+    async (queue) => {
+      if (!fail) return { revision: 'r' }
+      queue()
+      throw new Error('unreadable')
+    },
+    async () => 'applied'
+  )
+  fixture.service.tick()
+  await flush()
+  fixture.emit.mockClear()
+  fail = true
+  fixture.changed.forEach((callback) => callback())
+  await flush()
+  expect(fixture.queued()).toBeDefined()
+  expect(fixture.emit).not.toHaveBeenCalled()
+  fixture.release()
+  await fixture.queued()
+  await flush()
+  expect(fixture.emit).toHaveBeenCalled()
+  expect(pendingBroadcasts(fixture.emit)).toBe(0)
+})
+
+it('holds post-apply broadcasts behind a mutation queued during reconcile', async () => {
+  const fixture = queuedMutationFixture(
+    async () => ({ revision: 'r' }),
+    async (queue) => {
+      queue()
+      return 'applied'
+    }
+  )
+  fixture.service.tick()
+  await flush()
+  expect(fixture.queued()).toBeDefined()
+  expect(pendingBroadcasts(fixture.emit)).toBe(0)
+  const before = fixture.emit.mock.calls.length
+  fixture.release()
+  await fixture.queued()
+  await flush()
+  expect(fixture.emit.mock.calls.length).toBeGreaterThan(before)
+  expect(pendingBroadcasts(fixture.emit)).toBe(0)
+})
+
+it('holds apply failure broadcasts behind a mutation queued during reconcile', async () => {
+  const fixture = queuedMutationFixture(
+    async () => ({ revision: 'r' }),
+    async (queue) => {
+      queue()
+      throw new Error('reload failed')
+    }
+  )
+  fixture.service.tick()
+  await flush()
+  expect(fixture.queued()).toBeDefined()
+  expect(pendingBroadcasts(fixture.emit)).toBe(0)
+  const before = fixture.emit.mock.calls.length
+  fixture.release()
+  await fixture.queued()
+  await flush()
+  expect(fixture.emit.mock.calls.length).toBeGreaterThan(before)
+  expect(pendingBroadcasts(fixture.emit)).toBe(0)
+})

@@ -26,6 +26,7 @@ export function CustomizeList({
   providers,
   selectedId,
   nativeMcp = [],
+  nativeLocked,
   onNativeMcp,
   onNativeToggle,
   onSkillToggle,
@@ -39,6 +40,8 @@ export function CustomizeList({
   providers: ProviderInfo[]
   selectedId?: string | null
   nativeMcp?: { backend: Backend; resource: NativeResource }[]
+  /** Harnesses whose native toggle is in flight. */
+  nativeLocked?: ReadonlySet<Backend>
   onNativeMcp?: (backend: Backend, resource: NativeResource) => void
   onNativeToggle?: (backend: Backend, resource: NativeResource) => void | Promise<void>
   onSkillToggle?: (skill: SkillInfo) => void | Promise<void>
@@ -114,6 +117,7 @@ export function CustomizeList({
               name={resource.name}
               enabled={resource.enabled}
               canToggle={resource.canToggle}
+              locked={nativeLocked?.has(backend) ?? false}
               onToggle={() => onNativeToggle?.(backend, resource)}
             />
           }

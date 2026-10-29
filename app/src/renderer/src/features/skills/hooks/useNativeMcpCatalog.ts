@@ -13,7 +13,9 @@ export function useNativeMcpCatalog(): {
   loading: boolean
   refresh(): Promise<void>
   open(backend: Backend, resource: NativeResource): Promise<void>
-  toggle(backend: Backend, resource: NativeResource, confirmed?: true): Promise<void>
+  /** Harnesses whose toggle is in flight — every native row of them is locked meanwhile. */
+  locked: ReadonlySet<Backend>
+  toggle(backend: Backend, resource: NativeResource): Promise<void>
 } {
   const { tr } = useI18n()
   const [list, setList] = useState<{ backend: Backend; resource: NativeResource }[]>([])
@@ -23,7 +25,10 @@ export function useNativeMcpCatalog(): {
   const versions = useRef({ claude: 0, opencode: 0 })
   const failures = useRef(new Set<Backend>())
   const busy = useRef(new Set<Backend>())
-  const writes = useRef<Partial<Record<Backend, Promise<void>>>>({})
+  // One toggle per harness: a Claude plugin change closes every Claude session, and the reply
+  // replaces the harness's rows, so a second toggle could only race the first.
+  const locks = useRef(new Set<Backend>())
+  const [locked, setLocked] = useState<ReadonlySet<Backend>>(new Set())
   const mounted = useRef(false)
   const accept = useCallback((backend: Backend, value: NativeResources) => {
     loaded.current.add(backend)
@@ -42,7 +47,7 @@ export function useNativeMcpCatalog(): {
   const refresh = useCallback(async () => {
     await Promise.all(
       (['claude', 'opencode'] as const).map(async (backend) => {
-        if (busy.current.has(backend) || writes.current[backend]) return
+        if (busy.current.has(backend) || locks.current.has(backend)) return
         busy.current.add(backend)
         const version = ++versions.current[backend]
         try {
@@ -70,54 +75,58 @@ export function useNativeMcpCatalog(): {
       clearInterval(timer)
     }
   }, [refresh])
-  const toggle = async (
-    backend: Backend,
-    resource: NativeResource,
-    confirmed?: true
-  ): Promise<void> => {
-    if (!resource.canToggle) return
+  const setLock = (backend: Backend, held: boolean): void => {
+    if (held) locks.current.add(backend)
+    else locks.current.delete(backend)
+    if (mounted.current) setLocked(new Set(locks.current))
+  }
+  const toggle = async (backend: Backend, resource: NativeResource): Promise<void> => {
+    if (!resource.canToggle || locks.current.has(backend)) return
+    setLock(backend, true)
     const version = ++versions.current[backend]
-    const task = (writes.current[backend] ?? Promise.resolve())
-      .then(async () => {
-        try {
-          const request = {
-            backend,
-            id: resource.id,
-            kind: resource.kind,
-            enabled: !resource.enabled,
-            ...(confirmed ? { confirmed } : {})
-          }
-          const value = await sessionApi.setGlobalExtension(request)
-          // main counts busy Claude sessions; the dialog only shows that count.
-          if (value.status === 'confirm')
-            openConfirmDialog({
-              title: tr('chat.nativeResources.claudeCloseTitle'),
-              message: tr('chat.nativeResources.claudeCloseBody', { count: value.sessions }),
-              confirmLabel: tr('chat.nativeResources.claudeCloseConfirm'),
-              cancelLabel: tr('common.cancel'),
-              onConfirm: () => void toggle(backend, resource, true)
-            })
-          else if (mounted.current && version === versions.current[backend])
-            accept(backend, value.resources)
-        } catch (error) {
-          reportError({
-            event: 'skills.native.toggle-failed',
-            scope: 'native-resources',
-            title: 'saveFailed',
-            error
+    const request = {
+      backend,
+      id: resource.id,
+      kind: resource.kind,
+      enabled: !resource.enabled
+    }
+    try {
+      let value = await sessionApi.setGlobalExtension(request)
+      if (value.status === 'confirm') {
+        const sessions = value.sessions
+        // main counts busy Claude sessions; the dialog only shows that count.
+        // The lock holds until the dialog resolves, so a second dialog can never replace it.
+        const confirmed = await new Promise<boolean>((resolve) =>
+          openConfirmDialog({
+            title: tr('chat.nativeResources.claudeCloseTitle'),
+            message: tr('chat.nativeResources.claudeCloseBody', { count: sessions }),
+            confirmLabel: tr('chat.nativeResources.claudeCloseConfirm'),
+            cancelLabel: tr('common.cancel'),
+            onConfirm: () => resolve(true),
+            onCancel: () => resolve(false)
           })
-        }
+        )
+        if (!confirmed) return
+        value = await sessionApi.setGlobalExtension({ ...request, confirmed: true })
+      }
+      if (value.status === 'applied' && mounted.current && version === versions.current[backend])
+        accept(backend, value.resources)
+    } catch (error) {
+      reportError({
+        event: 'skills.native.toggle-failed',
+        scope: 'native-resources',
+        title: 'saveFailed',
+        error
       })
-      .finally(() => {
-        if (writes.current[backend] === task) delete writes.current[backend]
-      })
-    writes.current[backend] = task
-    await task
+    } finally {
+      setLock(backend, false)
+    }
   }
   return {
     list,
     failed,
     loading,
+    locked,
     refresh,
     open: async (backend, resource) => {
       if (resource.canOpen === false) return

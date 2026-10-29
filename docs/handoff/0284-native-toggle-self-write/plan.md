@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-25 |
 | 매핑 | 0279 D9(파일 임계영역) 후속 버그수정 — 구현 주체 Claude(비기능) |
-| 상태 | READY (ΔV1) |
+| 상태 | IMPL_DONE (ΔV1 r3) |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `none` — 0279 V는 상속하지 않고 영향 경로를 REGRESSION pair로 다시 닫는다 |
 | 이번 V revision | `ΔV1` (2026-10-29 — 플러그인 탭 재지정 + EP-3 재고정) |
@@ -635,6 +635,120 @@ CustomizeList → CatalogToggle locked={locked.has(backend)} → disabled = !can
 
 - 분모 검산: `선택 증거 0 · 인용 변이 1(M2) · 새 oracle 1(Y1) · 덮개 회귀 확인 2 = 행 4`. 원복 후 같은 파일 11/11 green.
 
+## [구현자 기입] 재구현 (r3) — ΔV1 + verify r2 D3
+
+- **지적/입력**: ΔV1(D-006·D-007 사용자 결정) + [verify r2](verify.md#r2-검증-2026-10-29) D3(`:199`·`:253`·`:256` 못 잡음 Z1~Z3).
+- **불변식 1**: 한 하네스에는 진행 중인 토글이 최대 하나이고, 그 동안 그 하네스의 모든 네이티브 스위치는 비활성이며 어떤 해소 경로에서도 잠금이 풀린다.
+- **불변식 2**: 큐 밖에서 시작된 sync 방송은 모두 같은 key 큐 안에서 `broadcast`한다 — EP-3′ 6자리 각각이 자기 경로로 관측된다.
+
+| 필드 | 내용 |
+|---|---|
+| 설계 리뷰 | 설계 유지. Δ5대로 `writes` 큐를 하네스 잠금(`locks` ref + `locked` state)으로 교체, 확인 대기를 promise로 묶어 같은 잠금 안에서 재요청. store에 `cancel()` 추가(취소 통지 + 닫기), `close()`는 확인 뒤 닫기로 유지 |
+| 강제 지점 전수 | 아래 표 — EP-3′ 6/6 · EP-5 2/2 · EP-6 3/3 · EP-7 6/6 · EP-8 1/1 = 18/18. 남긴 곳 0 |
+| 이번 라운드 수정의 잠금 | 아래 잠금 표 |
+| Product/UX 파생 검토 | 아래 |
+| 놓친 잠재 문제 | 아래 |
+| 설계 대비 명시적 차이 | 1건 — store `cancel()` 신설(Δ5는 "취소 전용 `cancel()`"로 이미 명시, 차이 아님). 그 밖 없음 |
+| 관측한 게이트 산출 | typecheck `error TS` 0 · lint 0 error/2 warning(기존 `react-hooks/incompatible-library`), 트리 변경은 이번 수정 파일뿐 · renderer 집합 44파일 304/304 · main 집합 95파일 1,169케이스: 1,156 pass/3 skip/10 fail — 10건 전부 Linux `win32` 게이트 기준선(4파일), win32 강제 미커밋 사본 포함 실행 99파일 1,178 pass(사본 22/22), 측정 후 삭제 · 문서 인벤토리 prose·links ok |
+| AC 자기보고 | 아래 |
+| 대상 커밋 | `(r3 구현 — 좌표는 INDEX)` |
+| Review Signals | 아래 |
+
+### 강제 지점 전수 (§Δ4)
+
+| Pair | 계약 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 자리별 oracle 좌표 | 운반 항 · 구별 값 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-03·07 | EP-3′ | 6 | 6/6 | `rg -n "this\.(emit\|broadcast)\(" app/src/main/app/project-resource-sync.ts` → 6(`:97`·`:193`·`:199`·`:253`·`:256`·`:273`), 차집합 0. `:97`·`:273` → `project-resource-sync.test.ts:'holds connection-change broadcasts behind an in-flight project mutation'` · `:193` → `'holds watcher broadcasts behind an in-flight project mutation'` · `:199` → 신규 `'holds watcher failure broadcasts behind a mutation queued during the read'` · `:253` → 신규 `'holds post-apply broadcasts behind a mutation queued during reconcile'` · `:256` → 신규 `'holds apply failure broadcasts behind a mutation queued during reconcile'` | 같은 key에 줄 선 변경이 `pending` 상태를 만든다 — 큐 우회 시 `pending` 방송으로 관측이 갈림 | 없음 |
+| VP-08·11 | EP-5 | 2(진입 판정·확인 후 재요청) | 2/2 | `rg -n "setGlobalExtension\(\|toggle\(backend, resource\|locks\.current\.has" …/useNativeMcpCatalog.ts` → 진입 `:84` · 요청 `:94` · 확인 재요청 `:110` (+ `:50`은 EP-8). `:84` → 신규 `useNativeMcpCatalog.test.ts:'ignores toggles for a locked harness and keeps the other harness available'` · `:110` → 신규 `'keeps the harness locked through the Claude confirmation and releases it on every resolution'`(재요청 hold 중 잠금 유지, 요청 순서 `a a a a!`) | 같은 하네스 다른 행(b)·같은 행 재호출·다른 하네스(c) | 없음 |
+| VP-09 | EP-6 | 3 | 3/3 | `rg -n "nativeLocked\|locked" …/{ExtensionsCatalogView,CustomizeList,CatalogToggle}.tsx` → View `:162` · List `:120` · Toggle `:28`. `:162` → 신규 `ExtensionsCatalogView.interaction.test.ts:'locks every native plugin switch of the toggling harness in the catalog view'` · `:120`·`:28` → 신규 `useNativeMcpCatalog.test.ts:'disables every native switch of the toggling harness until the write settles'` | Claude 행 2(누른 행은 행별 `busy`로도 잠기므로 **누르지 않은 Claude 행**이 구별 값) · OpenCode 행 1 | 없음 |
+| VP-08·10 | EP-7 | 6 | 6/6 | hook `:105`·`:106`(확인 대기 resolve) · `:122`(해제 `finally`) · host `:17`(확인) · `:29`(취소 버튼) · `:25`(`onClose`) · store `:32`(교체). host·store 4자리 → 신규 `ConfirmDialogHost.test.ts:'notifies cancel on the cancel button, dismissal and replacement but not on confirm'`(실제 host 렌더, 취소·Esc·배경·교체·확인 순서 단언) · hook 2자리 → `'keeps the harness locked through the Claude confirmation…'` · 기존 `'reports a choice write failure once…'`(실패 해제 단언 추가) | 해소 경로마다 다른 요청 이름 → 호출 순서 문자열로 구별 | 없음 |
+| VP-08 | EP-8 | 1 | 1/1 | `:50` → `'ignores toggles for a locked harness…'` — 5초 진행 시 Claude 읽기 +0, OpenCode +1 | 잠긴 하네스·안 잠긴 하네스 | 없음 |
+
+- §10 목록 밖에서 본 운반 자리: store `cancel()`(`confirmDialogStore.ts:35-38`) — host `:25`·`:29` 두 자리가 공유하는 구현. `ConfirmDialogHost.test`의 실행 구간 안이라 L6·L7이 함께 잰다. `CatalogToggle.tsx:31` onClick 잠금 검사는 `:28` `disabled`가 같은 조건을 포함해 도달 불가(L12 동치).
+
+### V-pair 자기확인
+
+| Pair | requiredness | 자기결과 | 좌표 | 선택 증거 |
+|---|---|---|---|---|
+| VP-08 | REQUIRED | SELF_PASS | 위 EP-5·7·8 | L1·L2·L3·L9 잡음 |
+| VP-09 | REQUIRED | SELF_PASS | 위 EP-6 | L4·L5·L10 잡음, L13(목록 밖 형제 → 이번에 좌표 추가) 잡음 |
+| VP-10 | REQUIRED | SELF_PASS | 위 EP-7 host·store | L6·L7·L8·L11 잡음 |
+| VP-11 | REQUIRED | SELF_PASS(기계) / AC12 사람 실기 대기 | 신규 `'applies consecutive Claude plugin toggles one at a time without disturbing other rows'` — 렌더 목록 상태 집합이 정확히 3단계(`ttt`→`ftt`→`fft`), OpenCode 불변 | not selected. 분모 공유 확인: L2 red |
+| VP-03 | REQUIRED | SELF_PASS | 위 EP-3′ | Z1·Z2·Z3·M2·Y1·CI3 잡음 |
+| VP-07 | REGRESSION | SELF_PASS | `project-resource-sync.test.ts` 기존 케이스 green(14/14 중) | not selected |
+| VP-12 | REGRESSION | SELF_PASS | `session-resources.sync.test.ts` 2건 · `session-resources.claude-assembly`(w32 사본) | M1·M5·X1 잡음 |
+| VP-04·05 | REGRESSION | SELF_PASS | V1 좌표(w32 사본) | M3·M4 잡음 |
+| VP-06 | REGRESSION | SELF_PASS | 인용 2케이스 green(w32 사본 포함) | not selected |
+| VP-13 | REGRESSION | SELF_PASS | `ArtifactCards.lifecycle` · `useProjectDeletion` · `projectDeletionWiring` · `OverlayLayer.search` · `ExtensionsCatalogView.interaction` — renderer 집합 304/304 | not selected |
+
+### 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| Z3 `:199` `emit`→`broadcast` | D3 인용 · VP-03 EP-3′ | r2 못 잡음 | watcher failure … / 1 | 잠김 |
+| Z1 `:253` 〃 | D3 인용 | r2 못 잡음 | post-apply … / 1 | 잠김 |
+| Z2 `:256` 〃 | D3 인용 | r2 못 잡음 | apply failure … / 1 | 잠김 |
+| M2 `:273` `deps.run` 제거 | VP-03 · 덮개 회귀 확인 | r2 잡음 | 신규 3 + connection-change / 4 | 유지 |
+| Y1 `:97` `emit`→`broadcast` | VP-03 | r2 잡음 | connection-change / 1 | 유지 |
+| CI3 `:193` 읽기·방송 큐 밖 | VP-03 | r2 잡음 | holds watcher broadcasts / 1 | 유지 |
+| L1 `toggle` 잠금 검사 제거 | VP-08 EP-5 | 신규 | ignores toggles … / 1 | 잠김 |
+| L2 확인 대기 전 해제 | VP-08 EP-7 | 신규 | keeps … locked · confirms … · consecutive / 3 | 잠김 |
+| L3 `finally` 해제 제거 | VP-08 EP-7 | 신규 | 8(hook 6 · View 2) | 잠김 |
+| L9 `refresh` 잠금 검사 제거 | VP-08 EP-8 | 신규 | ignores toggles … / 1 | 잠김 |
+| L4 List → Toggle `locked` 미전달 | VP-09 EP-6 | 신규 | disables every … / 1 | 잠김 |
+| L5 잠금 판정 backend 맞바꿈 | VP-09 EP-6 형제 | 신규 | disables every … / 1 | 잠김 |
+| L10 `disabled`에서 `locked` 제거 | VP-09 EP-6 | 신규 | disables every … / 1 | 잠김 |
+| L13 View → List `nativeLocked` 미전달 | 자기검증 형제(첫 측정 못 잡음 → 좌표 추가) | 신규 | locks every native plugin switch … / 1 | 잠김 |
+| L6 취소 버튼 `close` | VP-10 EP-7 | 신규 | host / 1 + View 2 | 잠김 |
+| L7 `onClose` `close` | VP-10 EP-7 | 신규 | host / 1 + View 1 | 잠김 |
+| L8 `open` 교체 통지 제거 | VP-10 EP-7 | 신규 | host / 1 + hook 1 | 잠김 |
+| L11 확인 경로가 `cancel`(맞바꿈) | VP-10 EP-7 형제 | 신규 | host / 1 | 잠김 |
+| M1 · M5 · X1 | VP-12 이관 선택 | r2 잡음 | 4 · 2 · 2 | 유지 |
+| M3 · M4 | VP-04·05 | r2 잡음 | 2 · 1 | 유지 |
+| L12 `CatalogToggle` onClick 잠금 검사 제거 | 자기 탐색 | 신규 | 0 | **동치** — `:28` `disabled`가 `locked`를 포함, 비활성 버튼은 onClick 미발화 |
+
+- 분모 검산: `선택 증거 22(VP-08 4 · VP-09 3 · VP-10 4 · VP-03 6 · VP-12 3 · VP-04·05 2) · 인용 변이 3(Z1~Z3 — 선택 증거와 같은 행) · 새 oracle 형제 2(L13·L12) → 고유 변이 24 = 표 21행`(M1·M5·X1과 M3·M4를 두 행으로 묶음). 원복 후 각 집합 green.
+
+### Product/UX 파생 검토
+
+- 새 사용자 대면 문자열 없음. 잠금은 기존 `disabled:opacity-50` 스타일로 보인다(`CatalogToggle.tsx:29`).
+- 실패 경로: 요청 실패 → 기존 `saveFailed` 토스트 1회 + 잠금 해제(AC10). "아무 일도 안 일어남" 경로 없음 — 잠긴 하네스에 대한 클릭은 스위치 비활성으로 보인다.
+- 늦은 응답: 잠금 중 주기 갱신 건너뜀, 이전 갱신 결과는 `version` 검사로 버림(기존 유지).
+- 확인창이 다른 feature 확인창으로 교체되면 플러그인 토글은 취소로 처리돼 행이 그대로다 — 사용자는 다시 누를 수 있다.
+
+### 놓친 잠재 문제 + 대응
+
+| 발견 | 처리 |
+|---|---|
+| 잠금은 창 단위다. 두 창이 같은 하네스를 동시에 토글하면 main이 직렬화하지 않는다 | 보고만 — Δ2 비범위 |
+| 확인창을 연 채 플러그인 페이지를 벗어나면 확인 후 요청은 나가지만 결과는 화면에 반영되지 않는다(`mounted` 검사) — 다시 들어오면 갱신으로 보인다 | 보고만 — 기존 동작과 같음 |
+| `CatalogToggle` 행별 `busy`는 이제 확인창이 떠 있는 동안에도 유지된다(`onToggle` promise가 해소까지 대기) | 선조치 불필요 — D-009와 일치 |
+
+### AC 자기보고
+
+| AC | 결과 | 관측 |
+|---|---|---|
+| AC1 | 회귀만(D-001 대체) — green | `'applies overlapping project toggles in order…'` green |
+| AC2 | 대체 → AC12 | — |
+| AC3 | ✅ | EP-3′ 6/6, Z1~Z3 잡음 |
+| AC4 | ✅ | M3 잡음, 위임 green |
+| AC5 | ✅ | M4 잡음 |
+| AC6 | ✅ | 인용 2케이스 green |
+| AC7 | ✅ | 기존 sync 케이스 green |
+| AC8 | ✅ | `disables every native switch…` · `locks every native plugin switch…` |
+| AC9 | ✅ | `keeps the harness locked through the Claude confirmation…` · `ConfirmDialogHost.test` |
+| AC10 | ✅ | `reports a choice write failure…` 잠금 해제 단언 |
+| AC11 | ✅ | `ignores toggles for a locked harness…` |
+| AC12 | ⚠️ | 기계 `applies consecutive Claude plugin toggles…` green, Windows 플러그인 탭 실기 대기 |
+
+- 합계 검산: `✅ 9 · ⚠️ 1 · ❌ 0 = 총 10`(AC3~AC12). 분모 변경: V1 7 → ΔV1 10(AC1·AC2 사용자 요구에서 제외, AC8~12 추가) — r2 `6/7`과 직접 비교하지 않는다.
+
+### Review Signals — 사실만
+
+- 라운드 3 첫 impl 턴(`r3`). EP-3 축은 r1·r2와 같다 — 이번에 자리별 좌표 6/6.
+- 첫 측정에서 L13(View → List 전달)이 못 잡음이었다 — 목록 렌더 테스트가 `CustomizeList`를 직접 조립해 View의 전달 자리가 실행 구간 밖이었다. §10 EP-6이 그 자리를 목록에 고정해 두어 바로 드러났다.
+- 반복 환경 한계: Claude 플러그인 테스트가 Linux에서 `win32` 게이트로 red.
+
 ---
 
 ## [검증자 기입] 파생 이슈
@@ -643,5 +757,5 @@ CustomizeList → CatalogToggle locked={locked.has(backend)} → disabled = !can
 |---|---|---|---|---|---|
 | D1 | `emit` 정의(`project-resource-sync.ts:273`)의 큐 감싸기 제거(M2)를 잡는 테스트가 없다 — 0288 r1.2 `0466f5c`가 watcher 성공 경로를 inline으로 옮기며 r1 좌표가 `emit`을 지나지 않게 됨 | VP-03 EP-3 · r1 등록 변이 M2 | `connectionsChanged`(`:97`) 또는 apply 뒤 방송(`:253`)을 in-flight mutation hold 중 broadcast 0으로 단언 → M2 red | BLOCKING | closed — r2 verify M2 잡음 |
 | D2 | AC2 Windows 실제 세션 연속 토글 재실기 | VP-02 | 사람 실기 | 사람 실기 | superseded — 0286이 상태 패널 제거, ΔV1 AC12 실기(플러그인 탭)로 이관 |
-| D3 | §10 EP-3 고정 자리 `:188`·`:242`·`:245`(현재 `:199`·`:253`·`:256`)에서 `emit`→`broadcast` 대체(Z1~Z3)를 잡는 테스트 없음 | VP-03 EP-3 · [verify r2](verify.md#r2-검증-2026-10-29) | 각 호출 경로를 in-flight mutation hold 중 방송 0으로 단언 → Z1~Z3 red | BLOCKING | open — ΔV1 EP-3′ 자리별 oracle로 구현 |
+| D3 | §10 EP-3 고정 자리 `:188`·`:242`·`:245`(현재 `:199`·`:253`·`:256`)에서 `emit`→`broadcast` 대체(Z1~Z3)를 잡는 테스트 없음 | VP-03 EP-3 · [verify r2](verify.md#r2-검증-2026-10-29) | 각 호출 경로를 in-flight mutation hold 중 방송 0으로 단언 → Z1~Z3 red | BLOCKING | 대응 — r3 신규 좌표 3건, Z1~Z3 red(검증 대기) |
 | D4 | EP-3 자리 목록이 현재 코드와 갈림(`:183` 소멸·`:97` 신규·줄 번호 낡음), 술어 `this.emit(`이 해법 이름 | §10 EP-3 | 불변식 주어(큐 밖 sync 방송 시작점)로 자리를 다시 열거해 고정, 큐 안 `:193` inline 방송의 소유(0288 CI3) 구분 | PLAN_GAP | closed — ΔV1 EP-3′ 재고정 |
