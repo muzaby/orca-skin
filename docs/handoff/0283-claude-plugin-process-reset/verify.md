@@ -857,3 +857,8 @@ r1·r2 판정과 근거는 위 본문에 그대로 둔다. 이 절은 r3만 판�
 - 고장 이력: 91 = 잡음 91 · 못 잡음 0 · 동치 0. r2 못 잡음 2건 잡음 · 덮개 회귀 0.
 - NON_BLOCKING: N3·N4.
 - 남은 사람 확인: AC9. archive 이동은 AC9 실기 뒤.
+
+## 후행 재확인 (2026-10-29, 0275~0289 일괄 검증)
+
+- **PASS 유지 — 후행 해결 없음.** AC9(실제 CLI `/context`·대화상자 white/dark)를 대신 닫은 후행 handoff는 없다. 0284 r1.2의 사용자 실기는 연속 토글 증상이었고 `/context`는 보지 않았다. Claude 플러그인 테스트 4파일은 win32 강제 사본에서 22/22 green.
+- HEAD `81153e2`에서 전체 vitest를 다시 돌렸다(865파일). Linux 전용 실패 21건은 `C:/` fixture와 `process.platform === 'win32'` 게이트뿐이며, POSIX 경로·win32 강제 미커밋 사본에서 green이고 Windows CI [run 40834862690](https://github.com/muzaby/orca-skin/actions/runs/40834862690)이 success다 — 근거는 [0289 verify §6](../0289-opencode-runtime-retention/verify.md).

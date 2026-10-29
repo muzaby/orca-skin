@@ -288,3 +288,8 @@
 - 상태: **PASS(기계 범위)** — verify 2회째. pair 전부 PASS(VP10·VP05는 기계 범위), PLAN_GAP 없음, AC ✅18 · ⚠️2(실환경).
 - 이관 수령분(0274 D10·VP06–09·EP03–06, 0273 VP-03·EP01·02, 0268 D2)도 이 결과로 PASS.
 - 다음 주체: 사람 — 현재 코드로 실제 CLI/Electron 실측(AC12·AC21).
+
+## 후행 재확인 (2026-10-29, 0275~0289 일괄 검증)
+
+- **PASS 유지 — AC12·AC21 실측은 부분적으로만 후행에서 다룸.** 0289 [CLI 관측](../0289-opencode-runtime-retention/cli-evidence.md)(2026-10-28, CLI 1.19.0)이 현재 계열 코드로 같은 profile 두 send까지 process 1, dispose 뒤 child exit·quit 정리를 관측했다. module import 재사용·global/session/command 시퀀스는 다시 재지 않았고, ΔV1 재실행은 만료 뒤 재기동이 시작 timeout으로 실패했다(0289 AC22 대기). 실제 CLI 재실측은 계속 사람 몫.
+- HEAD `81153e2`에서 전체 vitest를 다시 돌렸다(865파일). Linux 전용 실패 21건은 `C:/` fixture와 `process.platform === 'win32'` 게이트뿐이며, POSIX 경로·win32 강제 미커밋 사본에서 green이고 Windows CI [run 40834862690](https://github.com/muzaby/orca-skin/actions/runs/40834862690)이 success다 — 근거는 [0289 verify §6](../0289-opencode-runtime-retention/verify.md).
