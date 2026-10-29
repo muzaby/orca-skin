@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-25 |
 | 매핑 | 0279 D9(파일 임계영역) 후속 버그수정 — 구현 주체 Claude(비기능) |
-| 상태 | IMPL_DONE (r2) |
+| 상태 | RETURN_TO_PLAN (r2 verify) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0279 V는 상속하지 않고 영향 경로를 REGRESSION pair로 다시 닫는다 |
 | 이번 V revision | `V1` |
@@ -487,5 +487,7 @@ SDK reloadPlugins → resources.observePlugins → persist → acknowledge → c
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | `emit` 정의(`project-resource-sync.ts:273`)의 큐 감싸기 제거(M2)를 잡는 테스트가 없다 — 0288 r1.2 `0466f5c`가 watcher 성공 경로를 inline으로 옮기며 r1 좌표가 `emit`을 지나지 않게 됨 | VP-03 EP-3 · r1 등록 변이 M2 | `connectionsChanged`(`:97`) 또는 apply 뒤 방송(`:253`)을 in-flight mutation hold 중 broadcast 0으로 단언 → M2 red | BLOCKING | 대응 — r2 새 좌표가 M2 red(검증 대기) |
+| D1 | `emit` 정의(`project-resource-sync.ts:273`)의 큐 감싸기 제거(M2)를 잡는 테스트가 없다 — 0288 r1.2 `0466f5c`가 watcher 성공 경로를 inline으로 옮기며 r1 좌표가 `emit`을 지나지 않게 됨 | VP-03 EP-3 · r1 등록 변이 M2 | `connectionsChanged`(`:97`) 또는 apply 뒤 방송(`:253`)을 in-flight mutation hold 중 broadcast 0으로 단언 → M2 red | BLOCKING | closed — r2 verify M2 잡음 |
 | D2 | AC2 Windows 실제 세션 연속 토글 재실기 | VP-02 | 사람 실기 | 사람 실기 | open |
+| D3 | §10 EP-3 고정 자리 `:188`·`:242`·`:245`(현재 `:199`·`:253`·`:256`)에서 `emit`→`broadcast` 대체(Z1~Z3)를 잡는 테스트 없음 | VP-03 EP-3 · [verify r2](verify.md#r2-검증-2026-10-29) | 각 호출 경로를 in-flight mutation hold 중 방송 0으로 단언 → Z1~Z3 red | BLOCKING | open — D4 정정 뒤 구현 |
+| D4 | EP-3 자리 목록이 현재 코드와 갈림(`:183` 소멸·`:97` 신규·줄 번호 낡음), 술어 `this.emit(`이 해법 이름 | §10 EP-3 | 불변식 주어(큐 밖 sync 방송 시작점)로 자리를 다시 열거해 고정, 큐 안 `:193` inline 방송의 소유(0288 CI3) 구분 | PLAN_GAP | open — 설계자 |
