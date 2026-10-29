@@ -17,7 +17,9 @@ const fixture = vi.hoisted(() => ({
   agentKind: 'code' as const
 }))
 vi.mock('../../../store/chatStore', () => ({
-  useChatSession: (select: (value: typeof fixture) => unknown) => select(fixture)
+  useChatSession: (select: (value: typeof fixture) => unknown) => select(fixture),
+  // 입력 의도 준비(openCodeInputIntent)는 이 파일의 관심 밖 — 활성 세션 없음으로 no-op.
+  useChatStore: { getState: () => ({ sessions: {}, activeKey: '' }) }
 }))
 vi.mock('../../../../../shared/i18n', () => {
   const tr = (key: string): string => key
