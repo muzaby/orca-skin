@@ -53,19 +53,19 @@ type ConnectionDeploymentDeps = import('./connections').ConnectionDeploymentDeps
 type ConnectionViewSource = import('../connection-views').ConnectionViewSource
 
 // ── 가이드 §4 레시피 (문서 예제와 같은 코드) ─────────────────────────────────────
-const OPENCODE_LLM: LoginFreeDefinition = {
+const OPENCODE_LLM = {
   id: 'opencode-llm',
-  label: 'OpenCode LLM',
+  label: '사내 OpenCode LLM',
   connect: {
     async run({ host, signal }) {
-      const installed = await host.installed('opencode')
-      if (!installed.installed) throw new Error('OpenCode가 설치되어 있지 않습니다.')
+      if (!(await host.installed('opencode')).installed)
+        throw new Error('OpenCode가 설치되어 있지 않습니다.')
       const models = await host.listModels('opencode', 'corp', { signal })
-      if (models.length === 0) throw new Error('corp provider 에 사용할 모델이 없습니다.')
+      if (models.length === 0) throw new Error('corp provider에 사용할 수 있는 모델이 없습니다.')
       return models
     }
   }
-}
+} satisfies LoginFreeDefinition
 const OPENCODE_CORP_KEY = 'opencode-corp'
 const CONTRIBUTIONS: readonly RuntimeModelContribution[] = [
   {
@@ -80,7 +80,7 @@ function createConfigApiAugmenters(deps: HarnessConfigApiDeps): RuntimeConfigAug
     [OPENCODE_CORP_KEY]: {
       async resolve() {
         const listing = listedModelsOf(deps.auth.connectionValue(OPENCODE_LLM.id))
-        if (!listing) throw new Error('OpenCode 연결 결과가 없습니다.')
+        if (!listing?.length) throw new Error('사내 OpenCode LLM이 연결되지 않았습니다.')
         return { runtimeEnv: {}, ...runtimeModelsFromListing(listing) }
       }
     }
@@ -91,7 +91,7 @@ function connectionRows(deps: ConnectionDeploymentDeps): ConnectionViewSource[] 
     {
       auth: deps.auth.bindLoginFreePlugin(OPENCODE_LLM.id),
       harnessModelProviderKey: OPENCODE_CORP_KEY,
-      catalog: { icon: 'memory', title: { ko: 'OpenCode LLM', en: 'OpenCode LLM' } }
+      catalog: { icon: 'memory', title: { ko: '사내 OpenCode LLM', en: 'Corporate OpenCode LLM' } }
     }
   ])
 }

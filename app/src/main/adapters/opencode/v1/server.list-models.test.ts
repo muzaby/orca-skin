@@ -73,6 +73,25 @@ describe('OpenCodeServerPool.listModels (0291)', () => {
     expect(cli).toMatchObject({ windowsHide: true, timeout: 60_000, maxBuffer: 16 * 1024 * 1024 })
   })
 
+  // EP-10 ② 병합 우선순위 — 호스트 env < 호출자 env < 강제 키. 같은 키를 세 층에 서로 다른 값으로
+  // 넣어야 순서가 관측된다(겹치지 않는 키로는 어느 순서든 같은 결과다).
+  it('listModels merges env as host < caller < forced project-config switch', async () => {
+    vi.stubEnv('OPENCODE_DISABLE_PROJECT_CONFIG', 'false')
+    vi.stubEnv('CORP_PROXY', 'host')
+    try {
+      const { pool, runCli } = setup()
+      await pool.listModels('corp', {
+        signal: new AbortController().signal,
+        env: { OPENCODE_DISABLE_PROJECT_CONFIG: 'false', CORP_PROXY: 'caller' }
+      })
+      const [, , cli] = runCli.mock.calls[0]!
+      expect(cli.env.OPENCODE_DISABLE_PROJECT_CONFIG).toBe('true')
+      expect(cli.env.CORP_PROXY).toBe('caller')
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
   it('listModels rejects unsupported versions and missing executables like start', async () => {
     const old = setup({ version: '2.0.0' })
     await expect(
