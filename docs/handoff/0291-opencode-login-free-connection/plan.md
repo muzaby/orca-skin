@@ -906,6 +906,96 @@ return [
 - 반복해서 부딪히는 환경 한계: Electron 바이너리 403(`path.txt` 부재) · better-sqlite3 ABI.
 - 현재 라운드·impl 턴: `r1`
 
+
+## [구현자 기입] 설계 리뷰 (r2)
+
+- 동의 / 그대로 진행: r1 verify D1(BLOCKING)·N1·N2를 닫는다. 구현 주체는 r1과 같이 Claude(사용자 `/handoff-impl 291`).
+- 이견 / 현실성 문제: 없음 — D1은 production 결함이 아니라 EP-10 ② 운반 항을 구별 값으로 채우지 않은 좌표다. PLAN_GAP 0.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r2)
+
+불변식: **`listModels` env는 호스트 < 호출자 < 강제 키 순으로 병합된다 — 겹치는 키에서 뒤 층이 이긴다.** 세 층이 겹치는 키를 넣어야 순서가 관측된다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-05·17 | EP-10 CLI 인자·환경·한계 | 4 | 4/4 | ①③ `server.list-models.test.ts:'listModels runs the models command…'` ② **신규** `:'listModels merges env as host < caller < forced project-config switch'` ④ `:'listModels aborts on caller signal and pool close'` | ② 강제 키: 호스트·호출자 모두 `'false'` → `'true'` · 호출자 우선: `CORP_PROXY` 호스트 `host`/호출자 `caller` → `caller` | 없음 |
+| 그 밖 EP-01~09·11~22 | r1과 같음 | 89 | 89/89 | r1 표 좌표 유지 — r1 verify §5가 자리별 좌표를 재확인(PASS) | r1과 같음 | r1과 같음 |
+
+- 합계: §10 자리 **93** / 닫은 자리 93. r1 보고 `89/89`는 행 합(93)과 달랐다(N2) — 행 값은 r1과 같고 합계만 고친다.
+- 불변식 전수: 강제 키를 쓰는 자리 — `rg -n "OPENCODE_DISABLE_PROJECT_CONFIG: 'true'" app/src/main -g '!*.test.ts'` → `server.ts:390`(0291 EP-10, 호출자 env 병합) · `configured-resources.ts:168`(기존, 0291 범위 밖). 0291이 바꾼 소스(`git diff 3fbdb75 --name-only`) 안에서 호출자 env와 강제 키를 함께 병합하는 자리는 `server.ts:390` 하나 — 차집합 0.
+- §10 자리 목록 밖에서 본 운반 자리: 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: X1 1건 → 아래 잠금 표에서 red.
+
+**V-pair 자기확인 (r2)**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-17 | REQUIRED | SELF_PASS | `server.list-models.test.ts` 신규 케이스 + r1 좌표 | not selected — 직전 `못 잡음` X1 재실행 red |
+| VP-05 | REQUIRED | SELF_PASS | VP-17과 같은 좌표 | 같음 |
+| VP-02 | REQUIRED | SELF_PASS | 가상 배포 레시피를 가이드 문자열로 맞춘 뒤 `opencode-connection-deployment.test.ts` 8케이스 green | not selected |
+| 그 밖 26 | REQUIRED | r1 verify PASS 유지(좌표 r1 verify §5) · VP-11 SELF_BLOCKED(사람) | — | — |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r2)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| X1 병합 순서 → `{OPENCODE_DISABLE_PROJECT_CONFIG:'true', ...process.env, ...options.env}` | r1 verify 고장 이력 X1 · D1 | 못 잡음 | `'listModels merges env as host < caller < forced…'` 1 | 잡음 |
+| X1b 호스트·호출자 층 맞바꿈 `{...options.env, ...process.env, 강제}` | 같은 불변식의 형제 항(자기 축) | 신규 | 같은 케이스 1 | 잡음 |
+| X1c 강제 키를 호출자 앞으로 `{...process.env, 강제, ...options.env}` | 같은 불변식의 다른 자리(자기 축) | 신규 | 같은 케이스 1 | 잡음 |
+
+- **분모 검산**: 선택 증거 0 · 인용 변이 1(X1) · 새 oracle 0 = 표 행 1. 추가 자기 축 2(X1b·X1c) 전부 잡음.
+- **덮개 회귀**: r1 verify `잡음` 33행 — 이번 변경은 테스트 2파일만 바꿨고 production 코드 변경 0(`git diff --stat` 테스트 2파일). 가상 배포 레시피 문자열 변경은 같은 8케이스로 green 유지.
+
+## [구현자 기입] Product/UX 파생 검토 (r2)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — production 문구 변경 0 | 없음 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 해당 없음 — 재배치 0 | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 해당 없음 | 없음 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 해당 없음 | 없음 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 | 없음 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r2)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 신규 케이스가 `process.env`를 바꾼다 — 같은 워커의 다른 케이스로 새면 오염 | `vi.stubEnv` + `finally vi.unstubAllEnvs()` | `server.list-models.test.ts` 신규 케이스 |
+
+### 설계 대비 명시적 차이
+
+- 해당 없음 — 메커니즘 변경 없음. 가상 배포 레시피는 가이드 §4 문자열(`satisfies`·`!listing?.length`·라벨)에 맞췄다(N1). prettier가 긴 줄 하나를 감쌌을 뿐 토큰은 같다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 대체 없음 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 | — |
+| 재진입 | 해당 없음 | — |
+| 다른 무효화 축 | 해당 없음 | — |
+
+## [구현자 기입] 구현 보고 (r2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 테스트 2 — `adapters/opencode/v1/server.list-models.test.ts`(케이스 +1) · `app/deployment/opencode-connection-deployment.test.ts`(레시피 문자열) |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run`(전체) · `node scripts/check-doc-inventory.mjs --check` |
+| **관측한 게이트 산출**(exit code 아님) | lint 0 error / 2 warning(기존) · typecheck error 0 · vitest 876파일 — 864 pass·9 fail·3 skip / 8,244케이스 — 8,214 pass·21 fail·9 skip · doc-inventory 116채널·prose ok·links ok |
+| 환경 기인 실패(분리) | 21 fail 9파일 = r1 verify 기준선 목록과 `diff` 0줄(같은 9파일) |
+| V-pair 자기확인 | VP-17·VP-05 SELF_PASS(재판정) · VP-02 SELF_PASS · 나머지 r1 verify PASS 유지 · VP-11 SELF_BLOCKED |
+| 강제 지점 전수 | 93/93 |
+| **AC 자기보고**(`Criteria-Met`) | AC1~AC23 ✅ — AC10은 신규 케이스로 env 순서 잠금 · AC24 ⚠️ 사람 실기 |
+| **합계 검산** | ✅ 23 · ⚠️ 1 · ❌ 0 = 총 24 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 새 축(r1 verify D1). 운반 값을 형제 입력과 겹치지 않게만 준 fixture — 0265 r2와 같은 모양.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: 있었다 — §10 EP-10 ②와 `§공통 V` "운반 값은 형제 값과도 구별되게". r1 구현이 env 운반을 `CORP_TOKEN_HINT`(겹치지 않는 키)로만 관측했다.
+- 반복해서 부딪히는 환경 한계: Linux 전용 21 fail(같은 9파일) · Electron 바이너리 403.
+- 현재 라운드·impl 턴: `r2`
+
 ---
 
 ## [검증자 기입] 파생 이슈
