@@ -1,0 +1,14 @@
+engine.form.harness
+harness.defaultAgent
+chat.opencode.panel.title
+chat.opencode.panel.menu
+chat.opencode.panel.back
+chat.opencode.panel.expand
+chat.opencode.panel.collapse
+chat.opencode.todosEmpty
+chat.nativeResources.openError
+chat.nativeResources.stale
+chat.nativeResources.controlError
+chat.nativeResources.empty
+chat.nativeResources.disconnected
+chat.nativeResources.unsupported
