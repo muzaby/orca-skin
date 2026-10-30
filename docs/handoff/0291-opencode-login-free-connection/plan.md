@@ -1002,7 +1002,7 @@ return [
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | `listModels` env의 강제 `OPENCODE_DISABLE_PROJECT_CONFIG='true'` 우선을 잠그는 단언이 없다 — 병합 순서를 뒤집은 X1이 `src/main` 5,388케이스 green(r1 verify §4) | VP-17 · §10 EP-10 ② · AC10 | `server.list-models.test.ts`에서 호출자 `env`(와 `process.env`)에 같은 키 `'false'`를 넣고 `'true'`를 단언. X1 red 확인 | BLOCKING(`PAIR_FAIL`) | open |
-| N1 | 가상 배포 레시피의 augmenter 가드(`!listing`)·라벨이 가이드 §4(`!listing?.length`)와 문자 불일치 | AC15 | 테스트 레시피를 가이드 문자열에 맞춘다 | NON_BLOCKING | open |
-| N2 | 구현 보고 §10 합계 `89/89` — 행 합 93 | 자기보고 사본 | 다음 `[구현자 기입]`에서 93으로 | NON_BLOCKING | open |
+| D1 | `listModels` env의 강제 `OPENCODE_DISABLE_PROJECT_CONFIG='true'` 우선을 잠그는 단언이 없다 — 병합 순서를 뒤집은 X1이 `src/main` 5,388케이스 green(r1 verify §4) | VP-17 · §10 EP-10 ② · AC10 | `server.list-models.test.ts`에서 호출자 `env`(와 `process.env`)에 같은 키 `'false'`를 넣고 `'true'`를 단언. X1 red 확인 | BLOCKING(`PAIR_FAIL`) | closed (r2 — X1 잡음, verify r2-2) |
+| N1 | 가상 배포 레시피의 augmenter 가드(`!listing`)·라벨이 가이드 §4(`!listing?.length`)와 문자 불일치 | AC15 | 테스트 레시피를 가이드 문자열에 맞춘다 | NON_BLOCKING | closed (r2) |
+| N2 | 구현 보고 §10 합계 `89/89` — 행 합 93 | 자기보고 사본 | 다음 `[구현자 기입]`에서 93으로 | NON_BLOCKING | closed (r2) |
 | N3 | `runtimeModelsFromListing`의 `in` 검사는 prototype 키를 중복으로 본다 — OpenCode id(`provider/model`)로는 도달 불가 | 비귀속 | 기록만 | NON_BLOCKING | 기록 |

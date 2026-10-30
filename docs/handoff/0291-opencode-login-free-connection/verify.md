@@ -1,5 +1,115 @@
 # Verify — 0291-opencode-login-free-connection
 
+## r2 검증 — PASS (기계 범위)
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 일자 | 2026-10-30 |
+| 대상 커밋/range | `d31dde7..73bd135` (r2 `73bd135`) |
+| 구현 전 plan 기준 | `3fbdb75:V1` — r1 이후 규범 행 변경 0 |
+| 라운드 | 2 (verify 2회째) |
+| 상태 | **PASS** — VP-17 root 해소 · VP-05 해소 · PLAN_GAP 0. VP-11(AC24)은 사람 실기 대기 |
+| 자기 검증 여부 | **예** — r2 구현과 이번 검증이 같은 Claude 세션이다. 보고에 없는 축 5건(Y1~Y5)을 넣었다 |
+
+### r2-0. 기준선
+
+- `git diff d31dde7 73bd135 -- plan.md`: `[구현자 기입] (r2)` 절 추가뿐 — Decision·Product/UX·AC·V node/pair·§10·oracle 변경 0.
+- production 코드 변경 0. 변경 파일: 테스트 2(`server.list-models.test.ts` +19 · `opencode-connection-deployment.test.ts` 레시피 문자열) + plan + INDEX.
+- 채점 기준: r1과 같은 `3fbdb75` 원문. plan validity는 r1 판정 유지(규범 행 불변).
+
+### r2-1. 비판적 읽기
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 신규 케이스가 production 경로를 지나는가 | 예 | 실제 `OpenCodeServerPool.listModels`, `runCli` seam만 fake. `process.env`는 호출 시점에 읽혀(`server.ts:390`) `vi.stubEnv`가 호스트 층을 실제로 바꾼다 |
+| 운반 값이 형제와 구별되는가 | 예 | 강제 키는 호스트·호출자 모두 `'false'` → 기대 `'true'`. 호출자 우선은 `CORP_PROXY` `host`/`caller` |
+| 테스트 격리 | 타당 | `finally vi.unstubAllEnvs()` |
+| N1 레시피 | 일치 | 테스트 레시피와 가이드 `closed-network-extensions.md:919-964`를 토큰 단위로 대조 — `satisfies`·`!listing?.length`·문구·라벨 동일, 차이는 prettier 줄바꿈 1곳 |
+
+### r2-2. 고장 이력
+
+범위: `MAIN`(r1과 같은 6경로) − 기준선 실패 9파일(`--exclude`) = 260파일/2,602케이스(r1 대비 +1 신규 케이스). 변이 전 green.
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 직전 | 이번 | 잡은 테스트 | 귀속 |
+|---|---|---|---|---|---|---|---|
+| X1 | `server.ts:390` | 뒤집기 | `{강제, ...process.env, ...options.env}` | 못 잡음 | **잡음** | `server.list-models.test.ts:'listModels merges env as host < caller < forced…'` | D1 인용 변이 |
+| X1b | `:390` | 맞바꿈 | `{...options.env, ...process.env, 강제}` | 신규(구현자 보고) | 잡음 | 같음 | EP-10 ② |
+| X1c | `:390` | 다른 자리 | `{...process.env, 강제, ...options.env}` | 신규(구현자 보고) | 잡음 | 같음 | EP-10 ② |
+| Y1 | `:390` | 제거 | `...process.env` 삭제 | 신규 | 잡음 | `:'listModels runs the models command…'`(PATH 단언) | EP-10 ② 호스트 층 — 자기 축 |
+| Y2 | `:390` | 제거 | `...options.env` 삭제 | 신규 | 잡음 | 위 2케이스 | EP-10 ② 호출자 층 — 자기 축 |
+| Y3 | `:390` | 다른 값 | 강제값을 `options.env?.KEY ?? 'true'`(호출자가 끌 수 있음) | 신규 | 잡음 | `:'listModels merges env…'` | EP-10 ② 다른 지점 — 자기 축 |
+| Y4 | `adapter.ts:87` | 빈 값 | pool에 `{ signal }`만 전달(env 유실) | 신규 | 잡음 | `adapter.list-models.test.ts:'listProviderModels delegates to the server pool'` | EP-08 형제 진입점 — 자기 축 |
+| Y5 | `harness-host.ts:25` | 빈 값 | adapter에 `{ signal }`만 전달 | 신규 | 잡음 | `harness-host.test.ts:'listModels delegates to the adapter…'` | EP-08 형제 진입점 — 자기 축 |
+| X13 | `login-free.ts:35` | 고정값 | 포트 snapshot 항상 상수 | 잡음 | 잡음 | 가상 배포 5 · `login-free.test.ts` 1 | 덮개 회귀(잡은 파일 변경) |
+| X8 | `server.ts:381` | 제거 | pool close signal 결합 삭제 | 잡음 | 잡음 | `:'listModels aborts on caller signal and pool close'` | 덮개 회귀 |
+| X12 | `server.ts:380` | 제거 | listModels 1.x 판정 삭제 | 잡음 | 잡음 | `:'listModels rejects unsupported versions…'` | 덮개 회귀 |
+| M-R2 | `catalog.ts:17` | 고정값 | 항상 `parseOpenCodeModels` | 잡음 | 잡음 | 4케이스(가상 배포 포함) | 덮개 회귀 |
+| X4 | `runtime-listing.ts:52` | 제거 | variants 운반 삭제 | 잡음 | 잡음 | 가상 배포 · `runtime-listing.test.ts` | 덮개 회귀 |
+
+- 검산: 시도 13 = 잡음 13 · 못 잡음 0 · 동치 0. 직전 `못 잡음` 1(X1) 재실행 → 잡음.
+- 덮개 회귀 범위: r2가 바꾼 테스트 파일 2개 중 하나가 잡은 테스트에 들어 있던 r1 `잡음` 행을 다시 돌렸다. 이 중 r1 기록에서 바뀐 테스트만이 잡은 행은 X13뿐이다. 나머지 r1 행(M-S1·M-P1·M-R1·X3·X14 등)은 바뀌지 않은 파일에도 잡은 테스트가 있어 r2 diff로 덮개가 줄 수 없다 — 재실행하지 않았다.
+- 실행: `scratchpad/mut.py`(정확 문자열 1곳 치환 → vitest → 원복). `APPLY_FAIL` 0, 종료 후 `git status` 깨끗함.
+
+### r2-3. V-pair 재판정
+
+| Pair | 결과 | 직접 oracle 좌표 | §10 |
+|---|---|---|---|
+| VP-17 | **PASS** | EP-10 ① ③ `server.list-models.test.ts:'listModels runs the models command…'` · ② 같은 파일 `:'listModels merges env as host < caller < forced project-config switch'` + PATH 단언 · ④ `:'listModels aborts on caller signal and pool close'` · EP-08 운반 Y4·Y5 | EP-08 8/8 · EP-10 **4/4** |
+| VP-05 | **PASS** | VP-17과 같은 좌표 + `harness-host.test.ts` 2 | EP-08 · EP-09 2/2 · EP-10 4/4 |
+| VP-02 | PASS | 가상 배포 8케이스 green(레시피 문자열 변경 뒤) · X13·M-R2·X4 잡음 | r1과 같음 |
+| 그 밖 26 | PASS 유지 / VP-11 사람 실기 | r1 §5 좌표 참조 — production 코드 변경 0, 잡은 테스트 파일 불변 | r1과 같음 |
+
+- 결과: PASS 28 · 사람 실기 대기 1(VP-11) · PAIR_FAIL 0 · BLOCKED_BY 0.
+- §10 자리 합: **93/93**(r1 재계수와 같음) — 구현 보고 `93/93`과 일치(N2 해소).
+- 강제 키 자리 독립 재열거: `rg -n "OPENCODE_DISABLE_PROJECT_CONFIG" app/src/main -g '!*.test.ts'` → `server.ts:390`(EP-10) · `configured-resources.ts`(기존, 0291 diff 밖). 구현 보고와 같음.
+
+### r2-4. AC 합계
+
+- ✅ 23(AC1~AC23 — AC10이 신규 케이스로 ✅) · ⚠️ 1(AC24 사람 실기) · ❌ 0 = 24.
+- 사본 대조: 구현 보고 `23/24` ↔ trailer `Criteria-Met: 23/24` ↔ INDEX `23/24` — 일치.
+
+### r2-5. 운영 gate
+
+| Gate | 결과 | 관측 |
+|---|---|---|
+| lint | PASS | 0 error / 2 warning(기존 `useVirtualizer`), 실행 후 `git status` 변화 0 |
+| typecheck | PASS | 3분할 exit 0, 출력 error 0 |
+| vitest 전체 | 환경 분리 | 876파일 — 864 pass · 9 fail · 3 skip / 8,244케이스 — 8,214 pass · 21 fail · 9 skip. 실패 9파일은 r1 기준선과 같은 이름이고 r2는 그중 어느 파일도·production 코드도 바꾸지 않았다 |
+| doc inventory | PASS | generated ok(9 items, 116 channels) · prose ok · links ok |
+| trailer | PASS | `git log -1 --format='%(trailers:only=true)' 73bd135` → 6키 + Co-Authored-By·Claude-Session 파싱 |
+| CI(windows) | 미관측 | 이 환경에서 실행 불가 |
+
+### r2-6. Repository operation checks
+
+- INDEX: `impl/IMPL_DONE`·다음 주체 Claude = 실제. 자리표시자 `(r2 구현 — 검증자 기입)` → `73bd135`(`git cat-file -t` = commit, origin 브랜치에 있음).
+- `[구현자 기입] (r2)` 7필드: 설계 리뷰 · 강제 지점 전수(EP-10 4자리 + 나머지 89 참조, `남긴 곳` 열 있음) · 이번 라운드 수정의 잠금 · Product/UX 파생 검토 · 놓친 잠재 문제 · 구현 보고 · Review Signals — 전부 있음.
+- INDEX 비고: 구현 턴 3줄.
+
+### r2-7. Finding disposition
+
+| # | 상태 | 근거 |
+|---|---|---|
+| D1 | **closed** | X1 잡음(r2-2) · VP-17 PASS |
+| N1 | closed | r2-1 토큰 대조 |
+| N2 | closed | 보고 93/93 = 재계수 93 |
+| N3 | 기록 유지 | 비귀속, 변화 없음 |
+
+### r2-8. Review Signals — 사실만
+
+- 이전 라운드와 같은 증상: 없음 — r1 D1 축(운반 값이 형제와 겹치지 않는 fixture)이 이번에 닫혔다.
+- 관련 plan 지침: §10 EP-10 ② · `§공통 V` 운반 값 구별 규칙이 r1부터 있었다.
+- 사용자 결정 변경: 없음.
+- 반복 환경 한계: Electron 바이너리 403 · Linux 전용 21 fail(같은 9파일).
+
+### r2-9. 결론
+
+- **PASS(기계 범위)** — verify 2회째. 남은 것은 AC24(VP-11) Windows·실제 OpenCode 사람 실기(plan §19). archive 이동은 실기 뒤.
+
+---
+
+## r1 원문 (FAIL)
+
 ## 메타
 
 | 항목 | 값 |
