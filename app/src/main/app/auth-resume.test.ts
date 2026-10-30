@@ -229,7 +229,11 @@ function fakeRuntime(
     },
     continue: () => Promise.reject(new Error('not used')),
     reauth: () => Promise.reject(new Error('not used')),
-    revoke: () => undefined
+    revoke: () => undefined,
+    snapshot: snapshotOf,
+    connect: () => Promise.reject(new Error('unused login-free connect')),
+    connectAll: async () => undefined,
+    connectionValue: () => undefined
   }
 
   return {

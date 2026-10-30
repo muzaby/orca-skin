@@ -242,6 +242,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
               onSubmit={(input) => void providers.submit(selectedProvider.id, input)}
               onReauth={(authKind) => void providers.reauth(selectedProvider.id, authKind)}
               onRevoke={() => void providers.revoke(selectedProvider.id)}
+              onConnect={() => void providers.connect(selectedProvider.id)}
             />
           ) : null}
         </ExtensionDetailPane>

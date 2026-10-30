@@ -8,6 +8,7 @@
 > - **계약 정본은 코드다** — `app/src/main/contracts/auth.ts`. 이 문서와 어긋나면 코드가 진실이다.
 > - Decision rationale: [ADR-004](../../decisions/004-provider-single-axis.md) — 왜 프로토콜이 아니라 관계를 축으로 삼았는가.
 > - Decision rationale: [ADR-006](../../decisions/006-login-free-auth-scheme.md) — 로그인 프리 대상이 같은 Plugin 소비 포트를 쓰면서 자격증명 lifecycle에서 분리되는 이유.
+> - Decision rationale: [ADR-010](../../decisions/010-login-free-host-connection.md) — 로그인 프리 대상이 선택적으로 호스트 PC 연결 상태를 갖고, 그 결과가 메모리에만 있는 이유.
 > - Decision rationale: [ADR-008](../../decisions/008-daily-login-gate.md) — 일일 로그인 기회를 날짜 경계에서 요구하는 이유.
 
 ---
@@ -29,7 +30,8 @@ AuthRuntime  (features/auth)
   ├─ 자격증명 체계 : 로그인 · 재인증 · 해제 · Grant · vault · cookie jar
   │   └─ 인증된 요청 (origin·redirect·예약 header·응답 크기 정책)
   ├─ 로그인 프리 체계 : 항상 valid인 Plugin 포트 · 앱 credential 주입 없는 요청
-  │   └─ 플러그인 헤더 통과 · origin·redirect·응답 크기 정책
+  │   ├─ 플러그인 헤더 통과 · origin·redirect·응답 크기 정책
+  │   └─ (connect 선언 대상만) 호스트 연결 상태기계 · 마지막 성공 결과 (메모리)
   └─ secret 없는 상태 설명과 변화 통지
 
 AuthSecretReader  (trusted main 전용)
@@ -53,8 +55,9 @@ Bootstrap        : 위 객체를 생성하고 좁은 포트로 연결만 함
 `AuthDefinition` 에는 **`kind`·`tools`·`llm`·`usage`·`envKey` 가 없다.** 이 선언을 읽고 "이 Auth 가
 무엇에 쓰이는가" 를 알 수 없는 것이 정상이다.
 
-`LoginFreeDefinition`은 `id`·`label`·선택적 `origin`만 갖는다. `methods`·`probe`는 허용하지
-않으며 `AuthDefinition`과 서로 대입되지 않는다. 인증 체계는 소비 기능 슬롯이 아니다.
+`LoginFreeDefinition`은 `id`·`label`·선택적 `origin`·선택적 `connect`만 갖는다. `methods`·`probe`는
+허용하지 않으며 `AuthDefinition`과 서로 대입되지 않는다. 인증 체계는 소비 기능 슬롯이 아니다.
+`connect`는 IdP/SP 인증이 아니라 호스트 PC 확인 로직이다(§4.7).
 
 | 없어진 슬롯 | 지금 누가 아는가 |
 |---|---|
@@ -79,7 +82,8 @@ config API 를 불러 URL·모델 식별자·실행 token 을 한꺼번에 받�
 | `features/auth/registry.ts` | 별도 선언 목록의 빌드타임 검사 (공유 id 공간 · 케밥 id · bare origin). 자격증명 선언을 우선 등록하며 충돌한 로그인 프리 선언만 거부한다. **gate probe 검사는 여기 없다** |
 | `features/auth/store.ts` | `authId → Grant` 단일 맵 + `verified` + `credentialRevision` + 만료 정착 집합 |
 | `features/auth/authenticated-request.ts` | 정책 → credential 주입 → 전송 → redirect 재검사 → 강등(요청별 인증 실패 status, 기본 401/403 · 세션의 origin 미복귀) |
-| `features/auth/login-free.ts` | 항상 valid·verified인 `LoginFreePluginAuth`와 앱 인증 없는 요청. store·vault·상태 전이 callback을 받지 않는다 |
+| `features/auth/login-free.ts` | `LoginFreePluginAuth`와 앱 인증 없는 요청. connect 무선언은 항상 valid·verified 상수(`alwaysConnectedSnapshot`), 선언 대상은 연결 상태기계에 snapshot을 위임한다. store·vault를 받지 않는다 |
+| `features/auth/login-free-connection.ts` | 로그인 프리 호스트 연결 상태기계(`createLoginFreeConnections`) — idle·checking·connected·failed, single-flight, 시간 상한, 결과 비교. 저장 포트 없음(메모리) |
 | `features/auth/request-chain.ts` | 두 요청 체계가 공유하는 query 조립·redirect 홉 재검사·응답 변환 |
 | `features/auth/secret-access.ts` | trusted-main raw 조회 (동기) |
 | `features/auth/login.ts` | `AuthMethod` 분기 실행 · 후보 probe → 성공 시 1회 커밋 · 단일 Auth `resume` |
@@ -138,10 +142,14 @@ id를 게이트·부팅 복원·Harness/Usage 자격증명·MCP `${BINDING:<id>}
 | `credentialRevision` | 실행 credential 이 **실제로 바뀐** 횟수. 메모리 단조, 영속하지 않는다 |
 | `activeMethod` · `principalId` · `expiresAt` | 표시용. secret 은 없다 |
 
-로그인 프리 포트는 `{ status:'valid', verified:true, credentialRevision:0 }`을 항상 반환하고
+connect 무선언 로그인 프리 포트는 `{ status:'valid', verified:true, credentialRevision:0 }`을 항상 반환하고
 snapshot에는 `activeMethod`·`principalId`·`expiresAt`를 싣지 않는다. GUI 매핑에서 해당 필드의
 부재를 `null`로 접는다. 아래의 grant 확인·커밋·해제·만료·강등은
-자격증명 체계의 수명주기다. 로그인 프리 요청은 snapshot change를 발행하지 않는다.
+자격증명 체계의 수명주기다. 로그인 프리 요청은 snapshot change를 발행하지 않는다. connect 선언
+대상의 snapshot은 연결 상태를 따르고 `connection` 필드를 갖는다(§4.7).
+
+`AuthRuntime.snapshot(authId)`는 두 체계를 같은 형상으로 읽는다 — 카탈로그 재조정 축의 reader
+(`createRuntimeModelSnapshotReader`)가 이것을 쓴다. 미등록 id는 `none`이다.
 
 `verified` 를 두는 이유: grant 는 디스크에서 복원되는 *기록*이고, `kind:'session'` grant 는 vault 도
 만료도 없이 기록만으로 `valid` 가 된다. 그것만 보던 동안 한 번 로그인에 성공한 id 는 영구히 통과
@@ -379,6 +387,28 @@ browser-session 에도 그대로 걸린다 — 빠지면 교환이 만든 token 
 
 ---
 
+### 4.7 로그인 프리 호스트 연결
+
+`LoginFreeDefinition.connect`를 선언한 대상만 연결 상태를 갖는다. 상태·결과는 **프로세스 메모리에만**
+있고, 부팅 `run` 콜백이 `auth.connectAll()`로 다시 확인한다(재시작 = 재확인).
+
+| 상태 | snapshot `status`·`verified` | 전이 | `AuthChange` cause · `credentialChanged` |
+|---|---|---|---|
+| idle | `none`·false | 부팅 직후 | — |
+| checking | 이전 연결 유지 (첫 확인이면 `none`) | `connect()` 시작 | `connection-started` · false |
+| connected | `valid`·true, revision+1 | `run` 반환 · 결과가 이전과 다름 | `connection-succeeded` · true |
+| connected | 그대로, revision 불변 | `run` 반환 · canonical JSON이 이전과 같음 | `verified` · false |
+| failed | `none`·false, 결과 삭제 | `run` throw·시간 초과·직렬화 불가 | `connection-failed` · 이전이 connected일 때만 true |
+
+- `run({signal, host})`의 능력은 취소 signal과 `HostHarnessPort`(설치 확인·모델 목록 고정 질의)뿐이다.
+  `host`는 Bootstrap이 `createHostHarnessPort(registry)`로 만들며, 설치 판정은 하네스 서버 시작이 쓰는
+  같은 `isInstalled()`다. 주입이 없으면 연결은 실패로 끝난다(fail-closed).
+- 동시 호출은 진행 중 실행을 공유한다. 전체 상한은 `LOGIN_FREE_CONNECT_TIMEOUT_MS`이고, 상한에 닿으면
+  signal을 abort하고 결과를 기다리지 않는다. 실패 메시지는 화면에 나가므로 길이를 자른다.
+- 마지막 성공 결과는 `AuthRuntime.connectionValue(id)`로만 읽고 connected가 아니면 `undefined`다.
+  배포 augmenter가 이것을 runtime 모델로 바꾼다(§6.2).
+- `connect()`는 connect 선언 대상에만 성립한다 — 무선언·자격증명·미등록 id는 던진다. 연결 해제는 없다.
+
 ## 5. 게이트
 
 ```
@@ -563,8 +593,12 @@ type RuntimeConfigAugmenters = Readonly<
 코드가 있는지만** 조회한다. key 가 없으면 기존 settings 와 app env 만으로 동작하며 **network 는 0**
 이다.
 
-augmenter 의 결과는 **전체 `runtimeEnv` overlay**와 선택적 `availableModels: string[]`이다. 후자는
-subprocess env로 직렬화하지 않고 runtime model catalog에만 투영한다. **모델 목록은 그 배열만이
+augmenter 의 결과는 **전체 `runtimeEnv` overlay**와 선택적 `availableModels: string[]`·
+`modelDetails`(모델별 이름·variant)다. 둘은 subprocess env로 직렬화하지 않고 runtime model catalog에만
+투영한다. 카탈로그 행 형상은 하네스 모듈의 `parseRuntimeModels`가 정한다 — OpenCode는 `provider/model`
+항목만 남기고 `modelDetails`로 이름·variant를 채운다. 로그인 프리 연결 결과를 쓰는 augmenter는
+`HarnessConfigApiDeps.auth.connectionValue`와 `runtime-listing.ts`의 `listedModelsOf`·
+`runtimeModelsFromListing`을 쓴다. **모델 목록은 그 배열만이
 아니다** — `runtimeEnv.ANTHROPIC_MODEL` 이 있으면 카탈로그가 그 모델을 목록에 더하고(이미 있으면
 더하지 않는다) default 로 표시한다. settings 경로와 같은 순수 함수를 쓴다(`withExplicitModel`). 두 credential 방식은
 **서로 다른 factory** 로 분리한다:
@@ -807,14 +841,18 @@ renderer는 한 DTO에서 `gate | llm | service` 분류·인증 체계·상태·
   `ProviderInfo.id`만 투영한다. `catalog`와 `status`는 후보 자격을 결정하지 않으며, root plain 입력에서는
   경로 그룹을 Plugin 그룹보다 먼저 표시하고 slash/quoted 입력은 path 그룹으로 남긴다. token이 null이
   되는 입력 삭제 전이는 dismissal과 active index를 끝내므로 새 `@` occurrence가 다시 열린다.
-- 로그인 프리 행은 목록·상세에 종류 `기본 제공`, 상태 `연결됨`를 표시한다. 인증 방식
+- connect 무선언 로그인 프리 행은 목록·상세에 종류 `기본 제공`, 상태 `연결됨`를 표시한다. 인증 방식
   라벨·인증·재인증·연결 해제 액션은 없고 cached 도구 목록은 항상 활성이다. 사용자가 끌 수 없다.
+- connect 선언 로그인 프리 행만 `connection:{state, message}`를 싣는다. 상태는 `연결 안 됨`(slate)·
+  `확인 중…`(amber)·`연결됨`(green)·`연결 실패`(red)이고, 액션은 `연결`(idle) / `다시 연결`(그 밖, 확인 중
+  busy) 버튼 하나다. 버튼은 `orca:provider:connect`로 배포 연결 로직만 실행한다.
 - 자격증명 행의 인증 상세 액션은 `status === 'none'`이면 `인증` 단일 버튼, 그 외에는 `재인증` dropdown과
   메뉴의 위험 색상 `연결 해제`로 구성한다. 모두 기존 `login`·`reauth`·`revoke` 경로를 호출한다.
 - **renderer 에 새 kind 를 추가하지 않는다.** 신규 도메인 코드 안쪽에서는 `ProviderKind` 를 쓰지
   않는다 — 이 표가 유일한 접점이다.
-- 연결 버튼은 `login`/`reauth`/`revoke` 만 부른다. Plugin fetch·Usage refresh·Harness config resolve 를
-  호출하지 않는다.
+- 연결 버튼은 `login`/`reauth`/`revoke`/`connect` 만 부른다. Plugin fetch·Usage refresh·Harness config
+  resolve 를 호출하지 않는다 — 카탈로그는 그 결과의 Auth change 로 갱신된다.
+- 연결 행을 harness row로 띄울 때 배포는 `ConnectionDeploymentDeps.auth.bindLoginFreePlugin(id)`를 쓴다.
 
 배열 조립은 **`app/deployment/connections.ts`** 가 소유한다(`createConnectionSources(deps)`).
 Bootstrap 은 gate 멤버와 plugin binding 을 넘기고 결과를 그대로 IPC 에 태울 뿐이다. 조립을
@@ -840,7 +878,8 @@ Bootstrap.start
   ├─ [DB 이후] HarnessSettingsService + HarnessRuntimeConfigService
   │   └─ Auth change → 고정 key 만 invalidate
   ├─ 기존 settings scaffold → deploy
-  │   └─ 두 cache 를 함께 invalidate
+  │   └─ 두 cache 를 함께 invalidate → 카탈로그 attach → Auth 리스너 설치
+  │       └─ run: authResume.run() + auth.connectAll() (로그인 프리 연결 재확인)
   ├─ UsageFetcher concrete → UsageTracker
   └─ RouterContext 에 auth + gate + harnessRuntime 주입 (secretReader 는 넣지 않는다)
 ```
@@ -866,6 +905,7 @@ Bootstrap 은 endpoint path·response body·Confluence CQL·UsageSnapshot mappin
 | Auth 계약에 소비 슬롯을 되살리지 않는다 | 같은 집적이 재생산된다 |
 | 로그인 프리 선언·포트는 자격증명 lifecycle에서 분리한다 | 항상 valid인 Plugin이 게이트·vault·부팅 복원 경로로 들어가면 인증 우회와 앱의 키 관리가 생긴다 |
 | Plugin 조립·승인 정책은 인증 체계와 무관하게 같은 경로를 쓴다 | 로그인 프리도 항상 인증된 Plugin과 같은 소비 계약을 만족한다 |
+| 로그인 프리 연결 상태·결과를 디스크에 쓰지 않는다 | 호스트 설정이 정본이다. 저장하면 사본이 호스트와 갈라지고 사용자 디스크에 새 포맷이 생긴다 — 재시작마다 다시 확인한다(ADR-010) |
 | `AuthSecretReader` 를 RouterContext·renderer·일반 feature 에 넣지 않는다 | bound request 로 충분한 소비자까지 secret 표면을 넓힌다 |
 | raw cookie 목록을 일반 포트로 내보내지 않는다 | 같은 partition 의 bound request 로 충분하다 |
 | main 원격 요청은 Chromium 스택(`net.fetch`)만 쓴다 | Node 스택은 OS 프록시·사설 CA 를 보지 못한다 |

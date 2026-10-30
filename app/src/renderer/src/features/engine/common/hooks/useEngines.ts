@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import type {
   AgentEnvironment,
   CreateEngineRequest,
@@ -6,7 +6,7 @@ import type {
 } from '../../../../../../shared/ipc'
 import { engineApi } from '../../../../shared/api/ipc'
 import type { UiMessage } from '../../../../shared/i18n'
-import { refreshAgents, subscribeAgents, useAgentStore } from '../../../../shared/stores/agentStore'
+import { refreshAgents, useAgentStore } from '../../../../shared/stores/agentStore'
 
 export interface EngineMutationState {
   busy: boolean
@@ -27,8 +27,6 @@ export function useEngines(): {
   const ensureLoaded = useAgentStore((store) => store.ensureLoaded)
   const catalogError = useAgentStore((store) => store.error)
   const [state, setState] = useState<EngineMutationState>({ busy: false, error: null })
-
-  useEffect(() => subscribeAgents(), [])
 
   const mutate = useCallback(async (fn: () => Promise<unknown>): Promise<void> => {
     setState({ busy: true, error: null })

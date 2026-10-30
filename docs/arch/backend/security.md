@@ -220,6 +220,13 @@ Git 명령은 `infra/git/gateway.ts`를 거쳐 `runner.ts`의 `execFile`로 실�
 프로그램이 사용한 로컬 키·인증 파일 내용은 로그·도구 결과로 반환하지 않는다. 실제 exe
 Plugin의 테스트는 그 프로그램을 추가하는 작업이 소유한다.
 
+로그인 프리 연결 로직(배포 `LoginFreeDefinition.connect`)은 프로세스 실행 능력을 받지 않는다.
+받는 것은 `HostHarnessPort`의 고정 질의 둘(설치 확인·모델 목록)뿐이고 실행은 하네스 adapter가 소유한다.
+OpenCode 모델 목록은 `server.ts`가 서버와 같은 실행 파일·같은 1.x 판정으로 `models <provider> --verbose
+--pure`만 실행한다. provider id는 문자·숫자·`._-`만 허용해 플래그·경로로 해석되지 않게 하고, cwd는 홈,
+`OPENCODE_DISABLE_PROJECT_CONFIG`로 프로젝트 설정을 섞지 않으며, timeout·출력 상한·호출자/종료 취소를 적용한다.
+연결 결과는 메모리에만 두고 디스크에 쓰지 않는다([ADR-010](../../decisions/010-login-free-host-connection.md)).
+
 저장소 probe는 요청마다 좌표와 HEAD를 읽는다. snapshot의 status와 summary는 그 probe를 공유하며 누적 범위와 재시도의 끝점을 고정한다. 원격 URL은 매 요청 Git 설정 해석을 거쳐 읽으므로 전역 include·insteadOf 변경도 반영한다. 결과 계약은 [IPC Git 계약](../../IPC_CONTRACT.md#26-b-git-컴포저-브랜치-칩)을 따른다.
 
 ---

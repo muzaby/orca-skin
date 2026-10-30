@@ -4,6 +4,7 @@ import {
   createOpenCodeAdapter,
   loadOpenCodeProviderSettings,
   parseOpenCodeModels,
+  parseOpenCodeRuntimeModels,
   readUserOpenCodeSettings,
   configuredOpenCodeMcpFile,
   configuredOpenCodeResources,
@@ -32,6 +33,7 @@ export const openCodeMainModule: MainHarnessModule = {
     }),
   loadSettings: loadOpenCodeProviderSettings,
   parseSettingsModels: parseOpenCodeModels,
+  parseRuntimeModels: parseOpenCodeRuntimeModels,
   readUserSettings: readUserOpenCodeSettings,
   configuredMcpFile: configuredOpenCodeMcpFile,
   // The module's second argument is a choices map, not a subprocess environment.

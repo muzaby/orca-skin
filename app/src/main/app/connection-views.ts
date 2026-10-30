@@ -78,6 +78,15 @@ export function connectionInfo(auth: AuthDescriber, source: ConnectionViewSource
     principal: snapshot.principalId ?? null,
     expiresAt: snapshot.expiresAt ?? null,
     tools: toolsOf(source),
+    // 연결 선언 로그인 프리 행에만 싣는다(0291). renderer 는 키 존재로 연결 행을 판별한다.
+    ...(snapshot.connection
+      ? {
+          connection: {
+            state: snapshot.connection.state,
+            message: snapshot.connection.message ?? null
+          }
+        }
+      : {}),
     ...(source.catalog ? { catalog: source.catalog } : {})
   }
 }

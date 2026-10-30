@@ -54,6 +54,8 @@ import type {
   ProviderContinueRequest,
   ProviderReauthRequest,
   ProviderRevokeRequest,
+  ProviderConnectRequest,
+  ProviderConnectionInfo,
   FileEntry,
   GitBranchList,
   GitCheckoutRequest,
@@ -331,6 +333,8 @@ export const providerApi = {
   reauth: (req: ProviderReauthRequest): Promise<ProviderStepInfo> =>
     window.orca.provider.reauth(req),
   revoke: (req: ProviderRevokeRequest): Promise<void> => window.orca.provider.revoke(req),
+  connect: (req: ProviderConnectRequest): Promise<ProviderConnectionInfo> =>
+    window.orca.provider.connect(req),
   onState: (handler: (state: ProviderPlatformState) => void): (() => void) =>
     window.orca.provider.onState(handler)
 }

@@ -58,7 +58,7 @@ artifact의 선택·요청 세대는 `artifactViewerStore`가 계속 소유한�
 | 업데이트 상태 | `features/update/store/updateStore`(Zustand, 0085/0086) | — | state(UpdateState), dialogOpen, actionError, dummyMode(dev) |
 | 설정 모달 상태 | `features/settings/store/settingsModalStore`(Zustand, 0079~0081) | — | open, tab(`'general' \| 'usage' \| 'provider:<key>'` — 도넛 `>` → provider 탭 라우팅) |
 | Skills 카탈로그 | `shared/hooks/useSkills` useState 캐시 | — | SkillInfo[] (부팅 1회 스캔) |
-| Agents/provider 목록 | `shared/stores/agentStore`(Zustand, 0021) | — | agents, refresh — EngineCard·Composer/ModelMenu 싱크 |
+| Agents/provider 목록 | `shared/stores/agentStore`(Zustand, 0021) | — | agents, refresh — EngineCard·Composer/ModelMenu 싱크. 첫 읽기 때 provider 상태 push 구독을 앱 수명으로 1회 설치하고(화면 마운트와 무관) 늦게 도착한 이전 `agent:list` 응답은 버린다 |
 | OpenCode Composer 에이전트 | `features/chat/harnesses/opencode/composer/composerAgentStore`(Zustand vanilla) | — | 첫 성공 목록·plugin revision. 생성 시 전용 전역 이벤트를 구독하므로 화면이 없어도 무효화된다. scope가 없는 화면도 같은 selector로 읽으며 늦은 이전 revision 응답은 무시한다. |
 | 자동완성 상태 | `ComposerInputController`의 deferred snapshot + `useSkillAutocomplete / useMentionAutocomplete` | — | open, query, activeIndex, expected revision |
 | 입력창 상태 | 항상 mount되는 `ComposerInputController` 로컬 `DraftSnapshot` | — | revision, text, selectionStart/End, composing |

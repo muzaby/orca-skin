@@ -6,6 +6,7 @@ import {
   attachMenuToken,
   buildAttachMenu,
   nativeAttachItems,
+  orcaGroupFirst,
   nativePluginMentions,
   skillTooltip
 } from './attachMenuModel'
@@ -30,6 +31,32 @@ const plugins = [
   { kind: 'plugin' as const, id: 'jira', label: 'Jira' }
 ]
 
+describe('orcaGroupFirst (0291 D-017)', () => {
+  it('puts the Orcinus orca group first in the skills panel', () => {
+    const items = [
+      { kind: 'heading' as const, id: 'skills:adapter:claude', label: 'Claude' },
+      { kind: 'empty' as const, id: 'c1', label: 'c1' },
+      { kind: 'heading' as const, id: 'skills:plugin:x', label: 'X' },
+      { kind: 'empty' as const, id: 'x1', label: 'x1' },
+      { kind: 'heading' as const, id: 'skills:orca', label: 'Orcinus orca' },
+      { kind: 'empty' as const, id: 'o1', label: 'o1' },
+      { kind: 'empty' as const, id: 'o2', label: 'o2' }
+    ]
+    expect(orcaGroupFirst(items, 'skills:orca').map((item) => item.id)).toEqual([
+      'skills:orca',
+      'o1',
+      'o2',
+      'skills:adapter:claude',
+      'c1',
+      'skills:plugin:x',
+      'x1'
+    ])
+    // 그룹이 없으면 기존 순서.
+    const noOrca = items.slice(0, 4)
+    expect(orcaGroupFirst(noOrca, 'skills:orca')).toEqual(noOrca)
+  })
+})
+
 describe('buildAttachMenu', () => {
   it('merges groups that share a title into one heading without losing item identities', () => {
     const menu = buildAttachMenu({
@@ -45,14 +72,15 @@ describe('buildAttachMenu', () => {
     })
     const panel = menu[2]
     if (panel.kind !== 'submenu') throw new Error('skills panel')
+    // Orcinus orca 그룹은 항상 첫 그룹이다(0291 D-017).
     expect(panel.items.filter((item) => item.kind === 'heading')).toEqual([
-      { kind: 'heading', id: 'skills:adapter:claude', label: 'Claude', leading: 'adapter:claude' },
-      { kind: 'heading', id: 'skills:orca', label: 'Orcinus orca', leading: 'orca' }
+      { kind: 'heading', id: 'skills:orca', label: 'Orcinus orca', leading: 'orca' },
+      { kind: 'heading', id: 'skills:adapter:claude', label: 'Claude', leading: 'adapter:claude' }
     ])
     expect(panel.items.filter((item) => item.kind === 'action').map((item) => item.id)).toEqual([
+      'skill:orca/local',
       'skill:adapter:claude/same',
-      'skill:plugin:claude/same',
-      'skill:orca/local'
+      'skill:plugin:claude/same'
     ])
   })
   it.each(['claude', 'opencode'] as const)(
@@ -279,7 +307,7 @@ describe('buildAttachMenu', () => {
   })
 
   it.each(['claude', 'opencode'] as const)(
-    'keeps native then Orca plugin headings as brand names for %s',
+    'puts the Orcinus orca group before native plugins for %s',
     (backend) => {
       const label = backend === 'claude' ? 'Claude' : 'OpenCode'
       const menu = buildAttachMenu({
@@ -304,11 +332,11 @@ describe('buildAttachMenu', () => {
       if (menu.kind !== 'submenu') throw new Error('plugins')
       expect(
         menu.items.filter((item) => item.kind === 'heading').map((item) => item.label)
-      ).toEqual([label, 'Orcinus orca'])
+      ).toEqual(['Orcinus orca', label])
       expect(menu.items.filter((item) => item.kind === 'action').map((item) => item.id)).toEqual([
-        'native-mcp',
         'plugin:confluence',
-        'plugin:jira'
+        'plugin:jira',
+        'native-mcp'
       ])
     }
   )

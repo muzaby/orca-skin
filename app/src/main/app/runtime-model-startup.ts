@@ -59,10 +59,12 @@ export function createRuntimeModelAuthInvalidator(input: {
 // 카탈로그 재조정 축이 읽는 **살아 있는** auth snapshot. 컴포지션 루트가 같은 식을 seam 마다
 // 손으로 적으면(0202 r1 은 `bootstrap.ts` 에 4벌이었다) 한 벌이 조용히 굳은 값·빈 값으로 바뀌어도
 // 부재가 아니라 **무동작**이라 typecheck 가 잡지 못한다. 여기 한 곳으로 모아 단위로 잠근다.
+// 자격증명·로그인 프리 연결(0291) 두 체계를 같은 형상으로 읽는다 — `bind` 는 로그인 프리 id 를
+// none 으로 읽어 연결된 대상의 카드가 영원히 생기지 않는다.
 export function createRuntimeModelSnapshotReader(
-  auth: Pick<AuthRuntime, 'bind'>
+  auth: Pick<AuthRuntime, 'snapshot'>
 ): (authId: AuthId) => AuthSnapshot {
-  return (authId) => auth.bind(authId).snapshot()
+  return (authId) => auth.snapshot(authId)
 }
 
 // 복원 batch 가 자기 probe 로 만든 `verified` 전이를 카탈로그 재조정에 잇는 sink (0202 D-008).

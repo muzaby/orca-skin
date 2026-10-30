@@ -154,6 +154,57 @@ describe('main harness composition', () => {
     expect(catalog.list()[0].models.find((model) => model.isDefault)?.model).toBe('explicit-model')
   })
 
+  it('parses opencode runtime configs with the OpenCode parser', async () => {
+    const claude = vi.spyOn(mainHarnessModules.claude, 'parseRuntimeModels')
+    const config = {
+      key: 'opencode-corp',
+      harnessId: 'opencode',
+      modelProviderId: 'corp',
+      runtimeEnv: {},
+      availableModels: ['corp/b', 'not-qualified', 'corp/a'],
+      modelDetails: { 'corp/b': { name: 'B 모델', variants: ['high'] } }
+    }
+    const catalog = createRuntimeModelCatalog({
+      contributions: [{ ...config, authId: 'opencode-llm' }],
+      runtime: { resolve: vi.fn(async () => config), cached: vi.fn(), invalidate: vi.fn() },
+      snapshotOf: () => ({
+        authId: 'opencode-llm',
+        status: 'valid',
+        verified: true,
+        credentialRevision: 1
+      }),
+      parseModels: parseHarnessRuntimeModels
+    })
+    await catalog.reconcile('opencode-llm', {
+      authId: 'opencode-llm',
+      status: 'valid',
+      verified: true,
+      credentialRevision: 1
+    })
+    expect(claude).not.toHaveBeenCalled()
+    expect(catalog.list()[0]).toMatchObject({ source: 'runtime', readOnly: true })
+    expect(catalog.list()[0].models).toEqual([
+      {
+        alias: 'B 모델',
+        model: 'corp/b',
+        providerId: 'corp',
+        isCustom: true,
+        oneMillionContext: false,
+        isDefault: true,
+        variants: ['high']
+      },
+      {
+        alias: 'a',
+        model: 'corp/a',
+        providerId: 'corp',
+        isCustom: true,
+        oneMillionContext: false,
+        isDefault: false,
+        variants: []
+      }
+    ])
+  })
+
   it.each(['claude', 'opencode', 'legacy'])(
     'keeps inherited host-managed preparation for %s',
     (harnessId) => {
