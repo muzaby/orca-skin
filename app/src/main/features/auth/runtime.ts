@@ -49,7 +49,9 @@ import type { BrowserSessionPort } from './specs/browser-session'
 import { registerDeclaredSessions } from './session-policies'
 import { errorMessage } from '../../infra/errors'
 import { createSender } from '../../infra/net/transport'
-import { createLoginFreePluginAuth } from './login-free'
+import { alwaysConnectedSnapshot, createLoginFreePluginAuth } from './login-free'
+import { createLoginFreeConnections } from './login-free-connection'
+import type { HostHarnessPort } from '../../adapters/common/harness-config'
 
 // **실행 credential 이 바뀐 원인만 true 다.** `verified` 는 "기록이 살아 있음을 확인했다" 는
 // 뜻이지 값이 달라졌다는 뜻이 아니다 — 이것을 true 로 두면 부팅 probe 한 번에 모든 Harness
@@ -82,6 +84,8 @@ export interface CreateAuthRuntimeDeps {
   onOrphan?: (authId: AuthId) => void
   // grant 저장소를 끝까지 읽지 못해 vault 고아 sweep 을 건너뛴 경우의 진단(r9).
   onSweepSkipped?: () => void
+  // 로그인 프리 연결 로직이 받는 호스트 능력(0291). 없으면 연결은 실패로 끝난다(fail-closed).
+  loginFreeHost?: HostHarnessPort
 }
 
 export interface CreatedAuthRuntime {
@@ -119,6 +123,14 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
   const publish = (change: AuthChange): void => {
     for (const listener of listeners) listener(change)
   }
+
+  // 연결 상태·결과는 메모리에만 있다(0291 D-008) — 저장 포트를 넘기지 않는다.
+  const connections = createLoginFreeConnections({
+    definitions: registry.loginFree(),
+    ...(deps.loginFreeHost ? { host: deps.loginFreeHost } : {}),
+    notify: (change) => publish(change),
+    ...(deps.logger ? { logger: deps.logger } : {})
+  })
 
   const snapshot = (authId: AuthId): AuthSnapshot => {
     // 시간 기반 만료는 **여기서 처음 관측된다** — polling 을 새로 만들지 않는다(0188 D-037).
@@ -250,7 +262,8 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
     }
     return createLoginFreePluginAuth(definition, {
       sender: loginFreeSender,
-      ...(deps.logger ? { logger: deps.logger } : {})
+      ...(deps.logger ? { logger: deps.logger } : {}),
+      ...(connections.has(authId) ? { connection: () => connections.snapshot(authId) } : {})
     })
   }
 
@@ -295,7 +308,24 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
     // 표현하므로 `LoginService` 에 같은 호출을 한 번 더 두지 않는다(0190).
     reauth: (authId, method?: AuthMethodKind) => login.begin(authId, method),
     revoke: (authId) => login.revoke(authId),
-    refresh: (authId) => login.refresh(authId)
+    refresh: (authId) => login.refresh(authId),
+    // 두 체계를 같은 형상으로 읽는다(0291). 미등록 id 는 자격증명 store 가 none 으로 답한다.
+    snapshot(authId) {
+      if (registry.getLoginFree(authId)) {
+        return connections.has(authId)
+          ? connections.snapshot(authId)
+          : alwaysConnectedSnapshot(authId)
+      }
+      return snapshot(authId)
+    },
+    async connect(authId) {
+      if (!connections.has(authId)) {
+        throw new Error(`login-free connect is not declared: ${authId}`)
+      }
+      return connections.connect(authId)
+    },
+    connectAll: () => connections.connectAll(),
+    connectionValue: (authId) => connections.value(authId)
   }
 
   return {

@@ -39,6 +39,7 @@
 | 사내 **프록시·사설 CA** 를 Claude subprocess 에 먹인다 | **[B-2 — §3-d](#3-d-spawn-env-주입점--프록시사설-ca-같은-환경-적응값)** | `spawn-env.ts` injector (모든 key) | 필요 | — |
 | 인증이 필요한 **내장 도구**를 모델에 노출한다 (Confluence 등) | **[C — §4](#4-레시피-c--plugin--내장-도구-구-kindservice)** | `AuthDefinition` + `plugins.ts` binding | 필요 | **Orca** (`BoundAuth.request`) |
 | 앱 로그인·인증 없이 항상 제공하는 **내장 도구**를 추가한다 (공개 API·로컬 키·호스트 exe) | **[C 로그인 프리 — §4](#로그인-프리-plugin-레시피)** | `LoginFreeDefinition` + `LOGIN_FREE_DEFINITIONS` + `plugins.ts` binding | 필요 | Plugin (`LoginFreePluginAuth.request` 또는 직접 실행) |
+| 호스트 PC 에 설치된 **OpenCode 설정을 그대로** 읽기 전용 엔진&모델 카드로 띄운다 (연결 버튼) | **[C 연결 — §4](#로그인-프리-연결-레시피--호스트-opencode-모델)** | `LoginFreeDefinition.connect` + contribution + augmenter + `harnessRows` | 필요 | 호스트 OpenCode CLI (`HostHarnessPort`) |
 | 그 외 모든 서비스 연동 | **[D — §5](#5-레시피-d--mcp-서버-추가-재빌드-없음)** | MCP 서버 | **불필요** | claude CLI |
 
 **"재빌드 없이 서비스를 추가하고 싶다" → 레시피 D(MCP) 를 쓴다.** 인증이 필요한 MCP 서버는
@@ -464,7 +465,7 @@ subprocess env가 아니라 runtime catalog에 전달된다.
 | 4 | 1단계 key 에 augmenter 를 붙인다. **config API 방식과 direct credential 방식은 서로 다른 factory 다**(§3-c) | `app/deployment/harness-runtime.ts` |
 | 5 | 그 Auth 가 바뀌면 무효화할 key 를 `AUTH_INVALIDATED_HARNESS_KEYS` 에 적는다 | 같은 파일. 안 적으면 재인증 뒤에도 옛 token 이 warm cache 로 남는다 |
 | 6 | **카탈로그 row 를 추가한다** — `{category:'harness', auth, harnessModelProviderKey}`. 필요하면 `catalog` presentation input도 함께 넣는다 | `app/deployment/connections.ts`의 `harnessRows()`. **안 하면 연결 탭에 행이 없어 인증 자체가 불가능하다** |
-| 6-a | 모델 API 응답을 `availableModels`에 넣고 `{authId,key,harnessId,modelProviderId}` contribution을 선언한다 | Gate 로그인당 1회 fetch·프로세스 cache. 새 세션/턴 fetch 금지; 설정 배포로 cache가 무효화되면 자동 항목도 미노출 |
+| 6-a | 모델 API 응답을 `availableModels`(필요하면 모델별 `modelDetails` 이름·variant)에 넣고 `{authId,key,harnessId,modelProviderId}` contribution을 선언한다. `harnessId`가 `opencode`면 `provider/model` 형식만 카드에 오른다. 로그인 프리 연결 결과로 채우는 경우는 [§4 연결 레시피](#로그인-프리-연결-레시피--호스트-opencode-모델) | Auth 확인·연결 1회당 1회 fetch·프로세스 cache. 새 세션/턴 fetch 금지; 설정 배포로 cache가 무효화되면 자동 항목도 미노출 |
 | 7 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/harnesses src/main/features/auth src/main/app/deployment` | 형상·cache·fence·배선 회귀 |
 | 8 | 실기: 연결 탭에서 인증 → 새 채팅 전송 → 게이트웨이 로그에 요청이 도달하는지 | 사람 실기 |
 
@@ -896,6 +897,78 @@ exe만 사용하는 도구는 선언에서 `origin`을 생략하고 Plugin에서
 주입·검증·만료·vault·UI를 추가하지 않는다. 401/403·네트워크 실패가 도구 결과에 나타나더라도
 로그인 프리 연결 상태와 도구 노출은 유지되는지 확인한다. 프로그램 실행의 절대 경로·셸 금지·
 timeout·취소·출력 상한은 [보안 정본](../arch/backend/security.md#110-git-실행과-plugin-호스트-프로그램-경계)에 맞춘다.
+
+### 로그인 프리 연결 레시피 — 호스트 OpenCode 모델
+
+호스트 PC의 OpenCode 연결 설정을 그대로 가져와 엔진&모델에 읽기 전용 카드로 띄울 때 쓴다. 인증이
+아니라 **호스트 확인**이므로 IdP/SP·vault·게이트를 쓰지 않는다. 상태 전이·결과 보관 규칙은
+[auth.md §4.7](../arch/backend/auth.md#47-로그인-프리-호스트-연결), 실행 경계는
+[security.md §1.10](../arch/backend/security.md#110-git-실행과-plugin-호스트-프로그램-경계)이 정본이다.
+
+| 순서 | 하는 일 | 확인 지점 |
+|---|---|---|
+| 선언 | `LoginFreeDefinition`에 `connect.run({host, signal})`을 넣고 `LOGIN_FREE_DEFINITIONS`에 담는다 | `run`은 설치 확인 → 모델 목록 → 결과 반환. 실패는 `throw`(메시지가 플러그인 탭에 그대로 나간다) |
+| 카탈로그 | `RUNTIME_MODEL_CONTRIBUTIONS`에 `{authId: 선언.id, key, harnessId:'opencode', modelProviderId}`를 더한다 | key는 settings 디렉터리와 겹치지 않는 새 key |
+| 보강 | `createConfigApiAugmenters`가 그 key에 `deps.auth.connectionValue(id)` → `listedModelsOf` → `runtimeModelsFromListing`을 돌려준다 | 결과가 없으면 throw — 부분 카드를 만들지 않는다 |
+| 행 | `createConnectionSources`에 `harnessRows([{auth: deps.auth.bindLoginFreePlugin(id), harnessModelProviderKey: key, catalog}])`를 더한다 | 안 하면 연결 버튼이 보이지 않는다 |
+| 검증 | `npm run typecheck`와 `./node_modules/.bin/vitest run src/main/app/deployment src/main/features/auth` | 같은 예제를 `app/src/main/app/deployment/opencode-connection-deployment.test.ts`가 컴파일·실행한다 |
+| 실기 | 플러그인 탭 `연결` → 초록 `연결됨` → 엔진&모델 카드 → 새 채팅 턴. 미설치·잘못된 provider → 빨강 `연결 실패`와 사유. 재시작 → `확인 중…` → 결과 | 연결 해제 버튼은 없다. 결과는 디스크에 남지 않는다 |
+
+```ts
+// app/deployment/auth-definitions.ts
+export const OPENCODE_LLM = {
+  id: 'opencode-llm',
+  label: '사내 OpenCode LLM',
+  connect: {
+    async run({ host, signal }) {
+      if (!(await host.installed('opencode')).installed) throw new Error('OpenCode가 설치되어 있지 않습니다.')
+      const models = await host.listModels('opencode', 'corp', { signal })
+      if (models.length === 0) throw new Error('corp provider에 사용할 수 있는 모델이 없습니다.')
+      return models
+    }
+  }
+} satisfies LoginFreeDefinition
+export const LOGIN_FREE_DEFINITIONS: readonly LoginFreeDefinition[] = [OPENCODE_LLM]
+```
+
+```ts
+// app/deployment/harness-runtime.ts
+import { listedModelsOf, runtimeModelsFromListing } from '../../features/harnesses/common/runtime-listing'
+export const OPENCODE_CORP_KEY = 'opencode-corp'
+export const RUNTIME_MODEL_CONTRIBUTIONS: readonly RuntimeModelContribution[] = [
+  { authId: OPENCODE_LLM.id, key: OPENCODE_CORP_KEY, harnessId: 'opencode', modelProviderId: 'corp' }
+]
+export function createConfigApiAugmenters(deps: HarnessConfigApiDeps): RuntimeConfigAugmenters {
+  return {
+    [OPENCODE_CORP_KEY]: {
+      async resolve() {
+        const listing = listedModelsOf(deps.auth.connectionValue(OPENCODE_LLM.id))
+        if (!listing?.length) throw new Error('사내 OpenCode LLM이 연결되지 않았습니다.')
+        return { runtimeEnv: {}, ...runtimeModelsFromListing(listing) }
+      }
+    }
+  }
+}
+```
+
+```ts
+// app/deployment/connections.ts — createConnectionSources 본문
+return [
+  ...gateRows(deps.gateMembers),
+  ...harnessRows([{
+    auth: deps.auth.bindLoginFreePlugin(OPENCODE_LLM.id),
+    harnessModelProviderKey: OPENCODE_CORP_KEY,
+    catalog: { icon: 'memory', title: { ko: '사내 OpenCode LLM', en: 'Corporate OpenCode LLM' } }
+  }]),
+  ...pluginRows(deps.plugins)
+]
+```
+
+- `run`의 반환값은 JSON 직렬화 가능해야 하고 비밀을 담지 않는다. 이전 결과와 같으면 교체하지 않아
+  실행 cache·세션이 재생성되지 않는다.
+- 연결 로직은 부팅마다 다시 실행된다. 폐쇄망 환경값(프록시·`OPENCODE_DISABLE_MODELS_FETCH` 등)은
+  `listModels`의 `env`로 넘긴다.
+- 설치 판정은 OpenCode 서버 시작 조건과 같다 — 1.x가 아니거나 실행 파일이 없으면 모델 목록도 실패한다.
 
 ### POP3 Mail Plugin 레시피
 

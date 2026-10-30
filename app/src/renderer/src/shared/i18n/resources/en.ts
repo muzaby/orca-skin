@@ -221,7 +221,9 @@ export const en: typeof ko = {
         valid: 'Connected',
         expired: 'Expired',
         unknown: 'Unavailable',
-        loginFree: 'Connected'
+        loginFree: 'Connected',
+        checking: 'Checking…',
+        failed: 'Connection failed'
       },
       kind: {
         gate: 'App sign-in',
@@ -231,6 +233,7 @@ export const en: typeof ko = {
       },
       authenticate: 'Authenticate',
       connect: 'Connect',
+      reconnect: 'Reconnect',
       reauth: 'Re-authenticate',
       revoke: 'Disconnect',
       chooseMethod: 'Auth method',

@@ -26,11 +26,12 @@ const EXPECTED = [
   CHANNELS.providerLogin,
   CHANNELS.providerContinue,
   CHANNELS.providerReauth,
-  CHANNELS.providerRevoke
+  CHANNELS.providerRevoke,
+  CHANNELS.providerConnect
 ]
 
 describe('registerConnectionHandlers', () => {
-  it('provider 채널 6종을 빠짐없이 등록한다', () => {
+  it('provider 채널 전수를 등록한다', () => {
     registerConnectionHandlers({} as unknown as ConnectionHandlerDeps)
     expect([...registered].sort()).toEqual([...EXPECTED].sort())
   })
@@ -61,5 +62,31 @@ describe('registerConnectionHandlers', () => {
     expect(handler).toBeDefined()
     const state = (await handler?.()) as { resuming: boolean }
     expect(state.resuming).toBe(true)
+  })
+
+  // 0291 — 연결 버튼 invoke 는 배포 연결 로직의 최종 상태를 wire 형상으로 돌려준다.
+  it('connect는 최종 연결 상태를 돌려준다', async () => {
+    const connect = vi.fn(async (id: string) =>
+      id === 'opencode-llm'
+        ? { state: 'failed' as const, message: 'OpenCode가 설치되어 있지 않습니다.' }
+        : { state: 'connected' as const }
+    )
+    registerConnectionHandlers({
+      auth: { connect },
+      gate: {},
+      connections: [],
+      resuming: () => false
+    } as unknown as ConnectionHandlerDeps)
+    const handler = handlers.get(CHANNELS.providerConnect)!
+    expect(await handler({}, { providerId: 'opencode-llm' })).toEqual({
+      state: 'failed',
+      message: 'OpenCode가 설치되어 있지 않습니다.'
+    })
+    expect(await handler({}, { providerId: 'other' })).toEqual({
+      state: 'connected',
+      message: null
+    })
+    expect(connect.mock.calls).toEqual([['opencode-llm'], ['other']])
+    await expect(handler({}, { providerId: '' })).rejects.toThrow()
   })
 })

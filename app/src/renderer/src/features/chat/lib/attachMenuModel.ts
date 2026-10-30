@@ -44,6 +44,19 @@ export function skillTooltip(skill: Pick<SkillInfo, 'description' | 'sourceLabel
   return description ? `${description}\n${skill.sourceLabel}` : skill.sourceLabel
 }
 
+// `Orcinus orca` 그룹(heading + 다음 heading 전까지의 항목)을 패널 맨 앞으로 옮긴다(0291 D-017 —
+// 플러그인 탭과 같은 규칙). 나머지 그룹의 상대 순서와 항목은 그대로다. 그룹이 없으면 입력 그대로.
+export function orcaGroupFirst<T>(
+  items: readonly CascadeItem<T>[],
+  headingId: string
+): CascadeItem<T>[] {
+  const start = items.findIndex((item) => item.kind === 'heading' && item.id === headingId)
+  if (start <= 0) return [...items]
+  let end = start + 1
+  while (end < items.length && items[end]!.kind !== 'heading') end++
+  return [...items.slice(start, end), ...items.slice(0, start), ...items.slice(end)]
+}
+
 export function buildAttachMenu(input: {
   skills: readonly SkillInfo[]
   plugins: readonly PluginMention[]
@@ -183,6 +196,12 @@ export function buildAttachMenu(input: {
         ...input.native.items
       )
   }
+  const orderedSkills = orcaGroupFirst(skillItems, 'skills:orca')
+  skillItems.length = 0
+  skillItems.push(...orderedSkills)
+  const orderedPlugins = orcaGroupFirst(pluginItems, 'plugins:orca')
+  pluginItems.length = 0
+  pluginItems.push(...orderedPlugins)
   if (!skillItems.length)
     skillItems.push({ kind: 'empty', id: 'skills:empty', label: labels.noSkills })
   if (!pluginItems.length)

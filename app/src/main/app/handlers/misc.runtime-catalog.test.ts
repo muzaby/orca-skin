@@ -115,3 +115,87 @@ describe('agent:list runtime catalog wiring', () => {
 })
 
 import { parseHarnessRuntimeModels } from '../harnesses/registry'
+import { openCodeCatalog } from '../../adapters/opencode/v1/catalog'
+
+// 0291 EP-06 ③ — OpenCode runtime 행은 runtime 모델과 primary agents 를 함께 유지한다.
+describe('agent:list OpenCode runtime rows (0291)', () => {
+  beforeEach(() => callbacks.clear())
+
+  it('agent:list keeps OpenCode runtime models and primary agents', async () => {
+    const contribution = {
+      authId: 'opencode-llm',
+      key: 'opencode-corp',
+      harnessId: 'opencode',
+      modelProviderId: 'corp'
+    }
+    const config = {
+      key: 'opencode-corp',
+      harnessId: 'opencode',
+      modelProviderId: 'corp',
+      runtimeEnv: {},
+      settings: {
+        providerKey: 'opencode-corp',
+        provider: 'corp',
+        settings: {},
+        sourceRevision: 'x'
+      },
+      availableModels: ['corp/a'],
+      modelDetails: { 'corp/a': { name: 'A 모델', variants: ['high'] } }
+    }
+    const runtime = {
+      resolve: vi.fn(async () => config),
+      cached: vi.fn(() => config),
+      invalidate: vi.fn()
+    }
+    const catalog = createRuntimeModelCatalog({
+      parseModels: parseHarnessRuntimeModels,
+      contributions: [contribution],
+      snapshotOf: () =>
+        ({
+          authId: 'opencode-llm',
+          status: 'valid',
+          verified: true,
+          credentialRevision: 1
+        }) as never,
+      runtime: runtime as never
+    })
+    await catalog.reconcile('opencode-llm', {
+      authId: 'opencode-llm',
+      status: 'valid',
+      verified: true,
+      credentialRevision: 1
+    })
+    registerMiscHandlers({
+      registry: {
+        list: () => [{ id: 'claude' }, { id: 'opencode' }],
+        get: (id: string) =>
+          id === 'opencode'
+            ? {
+                catalog: async (entry: never, settings: Record<string, unknown>) =>
+                  openCodeCatalog(entry, settings),
+                agentSpawnEnv: () => ({})
+              }
+            : null
+      },
+      harnessSettings: { adapters: () => [], list: () => [] },
+      runtimeModelCatalog: catalog,
+      harnessRuntime: runtime,
+      debugMock: { log: false },
+      mcp: { resolver: () => () => undefined }
+    } as never)
+    const rows = (await callbacks.get(CHANNELS.agentList)?.()) as Array<Record<string, unknown>>
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      key: 'opencode-corp',
+      adapter: 'opencode',
+      source: 'runtime',
+      readOnly: true,
+      agents: [{ name: 'build' }, { name: 'plan' }]
+    })
+    expect(rows[0]!.models).toEqual([
+      expect.objectContaining({ model: 'corp/a', alias: 'A 모델', variants: ['high'] })
+    ])
+    expect(rows[0]).not.toHaveProperty('catalogError')
+    expect(runtime.resolve).toHaveBeenCalledTimes(1)
+  })
+})

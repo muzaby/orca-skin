@@ -230,7 +230,10 @@ export async function resolveTurnProvider(
       key: entry.key,
       harnessId: entry.adapter,
       modelProviderId: entry.provider ?? entry.key,
-      models: entry.models
+      models: entry.models,
+      // merged 행의 실제 provenance(`source`·`readOnly`)를 catalog 까지 보존한다(0291) —
+      // 다시 조립하면 runtime 행이 settings 행으로 바뀌어 catalog 가 모델을 다시 계산한다.
+      environment: entry
     })
   )
   const meta = req.sessionId ? ctx.db.getSessionById(req.sessionId) : undefined
@@ -271,7 +274,7 @@ export async function resolveTurnProvider(
   const catalog =
     req.adapter.catalog && prepared.providerSettings
       ? await req.adapter.catalog(
-          toAgentEnvironments([selected], [req.adapter.id])[0]!,
+          selected.environment,
           prepared.providerSettings.settings,
           false,
           prepared.env

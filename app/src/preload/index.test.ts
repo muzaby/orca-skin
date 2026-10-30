@@ -546,3 +546,19 @@ it('forwards OpenCode plugin changes on their own channel', async () => {
     vi.unstubAllGlobals()
   }
 })
+
+// 0291 — 로그인 프리 연결 요청이 renderer API → preload → `orca:provider:connect` 로 그대로 간다.
+it('carries the login-free connect request and its final state through the actual preload', async () => {
+  vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
+  try {
+    const { providerApi } = await import('../renderer/src/shared/api/ipc')
+    const result = { state: 'failed', message: 'OpenCode가 설치되어 있지 않습니다.' }
+    harness.invoke.mockResolvedValueOnce(result)
+    expect(await providerApi.connect({ providerId: 'opencode-llm' })).toEqual(result)
+    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.providerConnect, {
+      providerId: 'opencode-llm'
+    })
+  } finally {
+    vi.unstubAllGlobals()
+  }
+})

@@ -16,7 +16,7 @@
 //   만 재사용하고 row 를 feature 수만큼 복제하지 않는다(Bootstrap 이 중복을 진단으로 잡는다).
 // - 이 배열을 AuthId 기반 feature join registry 로 쓰지 않는다 — 표시용 view source 다.
 
-import type { AuthBinder, BoundAuth } from '../../contracts/auth'
+import type { AuthRuntime, BoundAuth } from '../../contracts/auth'
 import type { HarnessModelProviderKey } from '../../features/harnesses/common/runtime-config'
 import type { ConnectionViewSource } from '../connection-views'
 import type { PluginBinding } from './plugins'
@@ -26,6 +26,7 @@ import {
 } from '../../../shared/provider-catalog'
 
 export interface HarnessConnectionDeployment {
+  // 자격증명 `bind(id)` 또는 연결 선언 로그인 프리 `bindLoginFreePlugin(id)`(0291).
   auth: BoundAuth
   harnessModelProviderKey: HarnessModelProviderKey
   catalog?: ProviderCatalogPresentationInput
@@ -37,7 +38,9 @@ export interface UsageConnectionDeployment {
 }
 
 export interface ConnectionDeploymentDeps {
-  auth: AuthBinder
+  // `bindLoginFreePlugin` 은 연결 선언 로그인 프리 행(0291)을 harness row 로 띄울 때 쓴다 —
+  // 레시피는 `docs/guides/closed-network-extensions.md` §4. 로그인·해제 능력은 없다.
+  auth: Pick<AuthRuntime, 'bind' | 'bindLoginFreePlugin'>
   // 부팅 composition 이 fail-closed 검사를 마친 gate 멤버.
   gateMembers: readonly BoundAuth[]
   // 부팅에서 1회 만든 Plugin binding. `toolNames()` 는 cached descriptor 에서 나온다.

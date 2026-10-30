@@ -1,6 +1,10 @@
 import type { AgentModelView, EngineUserSettingsResult } from '../../../shared/ipc'
 import type { OpenCodePreferences } from '../../../shared/harness'
-import type { HarnessSettingsLoader } from '../common/harness-config'
+import type {
+  HarnessListedModel,
+  HarnessRuntimeConfig,
+  HarnessSettingsLoader
+} from '../common/harness-config'
 import type { SessionAdapter } from '../common/types'
 import type { openFileDatabase } from '../../infra/db/file-database'
 import type { NativeResource } from '../../../shared/native-resources'
@@ -26,6 +30,11 @@ export interface OpenCodeServer {
     cwd?: string
   ): Promise<string>
   retireAll?(): void
+  // 호스트 설정 그대로 provider 모델 목록을 읽는다(0291). 서버와 같은 실행 파일·1.x 판정.
+  listModels?(
+    provider: string,
+    options: { signal: AbortSignal; env?: Readonly<Record<string, string>> }
+  ): Promise<HarnessListedModel[]>
   close(): void
 }
 
@@ -47,6 +56,7 @@ export interface OpenCodeImplementation {
   createAdapter: (options: OpenCodeRuntimeOptions) => SessionAdapter
   loadSettings: HarnessSettingsLoader
   parseModels: (config: Record<string, unknown>) => AgentModelView[]
+  parseRuntimeModels: (config: HarnessRuntimeConfig) => AgentModelView[]
   readUserSettings: (configRoot?: string) => EngineUserSettingsResult
   configuredMcpFile: (cwd: string, id: string) => Promise<string | undefined>
   configuredResources: (cwd: string) => Promise<NativeResource[]>
