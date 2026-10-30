@@ -593,10 +593,15 @@ describe('배포 factory 의 능력 경계 (0190)', () => {
       snapshot: () => ({ authId: 'corp', status: 'valid', verified: true, credentialRevision: 1 }),
       request: () => Promise.reject(new Error('not used'))
     }
-    const deps: HarnessConfigApiDeps = { auth: { bind: () => stub } }
+    const deps: HarnessConfigApiDeps = {
+      auth: { bind: () => stub, connectionValue: (id) => (id === 'corp' ? ['m'] : undefined) }
+    }
 
-    // 허용된 능력.
+    // 허용된 능력 — 자격증명 bind 와 로그인 프리 연결 결과 읽기(0291).
     expect(deps.auth.bind('corp').authId).toBe('corp')
+    expect(deps.auth.connectionValue('corp')).toEqual(['m'])
+    // @ts-expect-error 배포 augmenter 는 연결 로직을 실행하지 않는다.
+    expect(deps.auth.connect).toBeUndefined()
 
     // @ts-expect-error 배포는 인증을 시작하지 않는다.
     expect(deps.auth.login).toBeUndefined()

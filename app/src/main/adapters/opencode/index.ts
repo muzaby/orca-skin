@@ -4,6 +4,7 @@ import { implementation } from './v1'
 export const createOpenCodeAdapter = implementation.createAdapter
 export const loadOpenCodeProviderSettings = implementation.loadSettings
 export const parseOpenCodeModels = implementation.parseModels
+export const parseOpenCodeRuntimeModels = implementation.parseRuntimeModels
 export const readUserOpenCodeSettings = implementation.readUserSettings
 export const configuredOpenCodeMcpFile = implementation.configuredMcpFile
 export const configuredOpenCodeResources = implementation.configuredResources

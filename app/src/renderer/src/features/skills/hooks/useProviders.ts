@@ -16,6 +16,8 @@ export interface UseProviders {
   submit: (providerId: string, input: Record<string, string>) => Promise<void>
   reauth: (providerId: string, authKind?: ProviderAuthKind) => Promise<void>
   revoke: (providerId: string) => Promise<void>
+  // 로그인 프리 호스트 연결(0291). 상태는 push 로 오고, 실패 사유는 행에 남는다.
+  connect: (providerId: string) => Promise<void>
   clearStep: () => void
 }
 
@@ -104,10 +106,23 @@ export function useProviders(): UseProviders {
     if (seq === requestSeq.current) setStep(null)
   }, [])
 
+  const connect = useCallback(async (providerId: string) => {
+    try {
+      await providerApi.connect({ providerId })
+    } catch (error) {
+      reportError({
+        event: 'skills.providers.connect-failed',
+        scope: 'skills',
+        title: 'loadFailed',
+        error: error
+      })
+    }
+  }, [])
+
   const clearStep = useCallback(() => {
     requestSeq.current += 1
     setStep(null)
   }, [])
 
-  return { list, step, loading, login, submit, reauth, revoke, clearStep }
+  return { list, step, loading, login, submit, reauth, revoke, connect, clearStep }
 }

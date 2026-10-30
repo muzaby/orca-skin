@@ -371,3 +371,130 @@ function assertContractSeparation(
   void [authDefinitions, gateDefinitions, loginFreeDefinitions, credentialPort]
 }
 void assertContractSeparation
+
+// ── 0291 — 로그인 프리 호스트 연결 ──────────────────────────────────────────────
+describe('로그인 프리 호스트 연결 — 런타임 경유 (0291)', () => {
+  const host = {
+    installed: async () => ({ installed: true }),
+    listModels: async () => []
+  }
+
+  function buildConnect(run: (context: unknown) => Promise<unknown>): CreatedAuthRuntime & {
+    changes: AuthChange[]
+    persistence: GrantPersistencePort
+    raw: Map<string, string>
+  } {
+    const raw = new Map<string, string>()
+    const persistence = createMemoryGrantPersistence()
+    const created = createAuthRuntime({
+      definitions: [CREDENTIAL],
+      loginFreeDefinitions: [PUBLIC, { id: 'opencode-llm', label: 'OpenCode', connect: { run } }],
+      persistence,
+      vault: createVault({
+        get: (key) => raw.get(key),
+        set: (key, value) => void raw.set(key, value),
+        delete: (key) => void raw.delete(key)
+      }),
+      fetchImpl: vi.fn<typeof fetch>(),
+      loginFreeHost: host
+    })
+    const changes: AuthChange[] = []
+    created.runtime.subscribe((change) => changes.push(change))
+    return { ...created, changes, persistence, raw }
+  }
+
+  it('connect 선언 포트는 연결 상태를, 무선언 포트는 상수를 돌려준다', async () => {
+    const { runtime } = buildConnect(async () => ['m'])
+    const declared = runtime.bindLoginFreePlugin('opencode-llm')
+    const plain = runtime.bindLoginFreePlugin(PUBLIC.id)
+    expect(declared.snapshot()).toMatchObject({ status: 'none', connection: { state: 'idle' } })
+    expect(plain.snapshot()).toEqual({
+      authId: PUBLIC.id,
+      status: 'valid',
+      verified: true,
+      credentialRevision: 0
+    })
+    await runtime.connect('opencode-llm')
+    expect(declared.snapshot()).toMatchObject({
+      status: 'valid',
+      verified: true,
+      credentialRevision: 1,
+      connection: { state: 'connected' }
+    })
+  })
+
+  it('snapshot은 두 체계와 미등록 id를 같은 형상으로 읽는다', async () => {
+    const { runtime } = buildConnect(async () => ['m'])
+    expect(runtime.snapshot(PUBLIC.id)).toEqual({
+      authId: PUBLIC.id,
+      status: 'valid',
+      verified: true,
+      credentialRevision: 0
+    })
+    expect(runtime.snapshot('opencode-llm')).toMatchObject({
+      status: 'none',
+      connection: { state: 'idle' }
+    })
+    expect(runtime.snapshot(CREDENTIAL.id)).toMatchObject({ status: 'none', verified: false })
+    expect(runtime.snapshot(CREDENTIAL.id)).not.toHaveProperty('connection')
+    expect(runtime.snapshot('missing')).toMatchObject({ authId: 'missing', status: 'none' })
+    await runtime.connect('opencode-llm')
+    expect(runtime.snapshot('opencode-llm')).toMatchObject({ status: 'valid', verified: true })
+    expect(runtime.connectionValue('opencode-llm')).toEqual(['m'])
+  })
+
+  it('connect 실행 context는 signal과 주입한 host만 갖는다', async () => {
+    const run = vi.fn<(context: unknown) => Promise<unknown>>(async () => null)
+    const { runtime } = buildConnect(run)
+    await runtime.connect('opencode-llm')
+    const context = run.mock.calls[0]![0] as Record<string, unknown>
+    expect(Object.keys(context).sort()).toEqual(['host', 'signal'])
+    expect(context.host).toBe(host)
+    expect(context.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it.each([PUBLIC.id, CREDENTIAL.id, 'missing'])(
+    'connect 선언이 없는 %s 의 connect 는 던진다',
+    async (id) => {
+      const { runtime } = buildConnect(async () => null)
+      await expect(runtime.connect(id)).rejects.toThrow('login-free connect is not declared')
+    }
+  )
+
+  it('연결 경로는 디스크를 쓰지 않는다 — 새 runtime 은 idle 에서 시작한다 (D-008)', async () => {
+    const first = buildConnect(async () => ['m'])
+    await first.runtime.connect('opencode-llm')
+    await first.runtime.connectAll()
+    expect(first.raw.size).toBe(0)
+    expect(first.persistence.load().records).toEqual({})
+    // 같은 저장소로 다시 만든 runtime(재시작)도 연결은 idle 이다.
+    const second = createAuthRuntime({
+      definitions: [CREDENTIAL],
+      loginFreeDefinitions: [
+        { id: 'opencode-llm', label: 'OpenCode', connect: { run: async () => [] } }
+      ],
+      persistence: first.persistence,
+      vault: createVault({
+        get: (key) => first.raw.get(key),
+        set: (key, value) => void first.raw.set(key, value),
+        delete: (key) => void first.raw.delete(key)
+      }),
+      fetchImpl: vi.fn<typeof fetch>(),
+      loginFreeHost: host
+    })
+    expect(second.runtime.snapshot('opencode-llm').connection).toEqual({ state: 'idle' })
+  })
+
+  it('연결 전이는 Auth change 로 흐르고 무선언 대상은 change 를 내지 않는다', async () => {
+    const { runtime, changes } = buildConnect(async () => ['m'])
+    await runtime.connectAll()
+    expect(
+      changes.map((change) =>
+        change.kind === 'snapshot' ? [change.authId, change.cause, change.credentialChanged] : null
+      )
+    ).toEqual([
+      ['opencode-llm', 'connection-started', false],
+      ['opencode-llm', 'connection-succeeded', true]
+    ])
+  })
+})

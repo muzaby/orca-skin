@@ -10,6 +10,27 @@ export function ifPresent<K extends string, V>(
   return value != null ? ({ [key]: value } as Record<K, V>) : {}
 }
 
+// 키를 정렬한 JSON — 같은 값이면 같은 문자열이다. 직렬화할 수 없는 값(cycle·BigInt)은 throw.
+export function canonicalJson(value: unknown): string {
+  const seen = new Set<object>()
+  const normalize = (input: unknown): unknown => {
+    if (typeof input === 'bigint') throw new TypeError('BigInt is not JSON-serializable')
+    if (typeof input !== 'object' || input === null) return input
+    if (seen.has(input)) throw new TypeError('cyclic value is not JSON-serializable')
+    seen.add(input)
+    const out = Array.isArray(input)
+      ? input.map(normalize)
+      : Object.fromEntries(
+          Object.keys(input)
+            .sort()
+            .map((key) => [key, normalize((input as Record<string, unknown>)[key])])
+        )
+    seen.delete(input)
+    return out
+  }
+  return JSON.stringify(normalize(value)) ?? 'null'
+}
+
 // 배열 아닌 plain object 가드 — JSON 파싱 결과를 좁힐 때 `!Array.isArray` 를 빼먹기 쉬워 SSOT 로 둔다.
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)

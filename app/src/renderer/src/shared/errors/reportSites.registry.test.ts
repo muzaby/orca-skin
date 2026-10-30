@@ -648,6 +648,15 @@ export const sites: Site[] = [
     event: 'skills.providers.load-failed',
     title: 'loadFailed'
   },
+  {
+    file: 'features/skills/hooks/useProviders.ts',
+    ordinal: 1,
+    line: 112,
+    disposition: 'TOAST',
+    id: 'T-provider-connect',
+    event: 'skills.providers.connect-failed',
+    title: 'loadFailed'
+  },
   { file: 'features/update/store/updateStore.ts', ordinal: 0, line: 83, disposition: 'CONSUMED' },
   { file: 'features/update/store/updateStore.ts', ordinal: 1, line: 120, disposition: 'CONSUMED' },
   { file: 'features/update/store/updateStore.ts', ordinal: 2, line: 146, disposition: 'CONSUMED' },

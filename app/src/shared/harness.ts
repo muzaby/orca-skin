@@ -15,6 +15,10 @@ export const HARNESS_CAPABILITIES = {
   }
 >
 
+// OpenCode 기본 primary 에이전트(0291 D-016). 실제 목록이 오기 전 Composer placeholder와
+// main 정적 카탈로그가 같은 이름을 쓴다.
+export const OPENCODE_DEFAULT_AGENTS = ['build', 'plan'] as const
+
 export function isBackend(value: unknown): value is Backend {
   return typeof value === 'string' && HARNESS_IDS.some((id) => id === value)
 }

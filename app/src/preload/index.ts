@@ -60,6 +60,8 @@ import {
   type ProviderContinueRequest,
   type ProviderReauthRequest,
   type ProviderRevokeRequest,
+  type ProviderConnectRequest,
+  type ProviderConnectionInfo,
   type FileEntry,
   type GitBranchList,
   type GitCheckoutRequest,
@@ -376,6 +378,9 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.providerReauth, req),
     revoke: (req: ProviderRevokeRequest): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.providerRevoke, req),
+    // 로그인 프리 호스트 연결(0291) — 배포 연결 로직을 실행하고 최종 상태를 돌려준다.
+    connect: (req: ProviderConnectRequest): Promise<ProviderConnectionInfo> =>
+      ipcRenderer.invoke(CHANNELS.providerConnect, req),
     onState: (handler: (state: ProviderPlatformState) => void): (() => void) =>
       subscribe(CHANNELS.providerState, handler)
   },

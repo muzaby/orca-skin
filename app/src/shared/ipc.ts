@@ -164,6 +164,8 @@ export const CHANNELS = {
   providerContinue: 'orca:provider:continue',
   providerReauth: 'orca:provider:reauth',
   providerRevoke: 'orca:provider:revoke',
+  // 로그인 프리 호스트 연결 실행(0291). 연결 선언이 있는 대상만 받는다.
+  providerConnect: 'orca:provider:connect',
   // **양방향 1채널** — invoke 는 게이트 판정용 초기 스냅샷, send 는 이후 변화 push.
   // 같은 객체(`ProviderPlatformState`)를 나르므로 채널을 둘로 쪼개지 않는다(구 auth 는
   // `status`+`stateEvent` 로 나눠 두 벌의 동기화 버그를 만들었다).
@@ -1830,6 +1832,15 @@ export interface ProviderAuthSpecInfo {
 // 부재와 복호화 실패를 뭉개지 않는 것이 핵심 — 조용한 미인증 진행을 막는다.
 export type ProviderGrantStatus = 'none' | 'valid' | 'expired' | 'unknown'
 
+// 로그인 프리 호스트 연결 상태(0291). 연결 선언(`connect`)이 있는 로그인 프리 행에만 싣는다.
+export type ProviderConnectionState = 'idle' | 'checking' | 'connected' | 'failed'
+
+export interface ProviderConnectionInfo {
+  state: ProviderConnectionState
+  // failed 일 때의 사유. 그 밖에는 null.
+  message: string | null
+}
+
 export interface ProviderInfo {
   id: string
   label: string
@@ -1853,6 +1864,8 @@ export interface ProviderInfo {
   tools: string[]
   // 선택적 표시 입력. Plugin뿐 아니라 gate/harness/usage 연결도 가질 수 있다.
   catalog?: ProviderCatalogPresentation
+  // 연결 선언이 있는 로그인 프리 행에만 있다. renderer 는 키 존재로만 판단한다.
+  connection?: ProviderConnectionInfo
 }
 
 // 로그인 진행 단계. 대화형 단계는 `orca:provider:continue` 로 이어진다.
@@ -1925,5 +1938,9 @@ export interface ProviderReauthRequest {
 }
 
 export interface ProviderRevokeRequest {
+  providerId: string
+}
+
+export interface ProviderConnectRequest {
   providerId: string
 }

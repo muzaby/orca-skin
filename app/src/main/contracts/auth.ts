@@ -26,10 +26,12 @@ import type {
   ProviderAuthKind,
   ProviderAuthScheme,
   ProviderAuthSpecInfo,
+  ProviderConnectionState,
   ProviderFieldInfo,
   ProviderGrantStatus,
   ProviderStepInfo
 } from '../../shared/ipc'
+import type { HostHarnessPort } from '../adapters/common/harness-config'
 
 // ── 자격증명을 요청에 싣는 방법 ────────────────────────────────────────────────
 //
@@ -337,8 +339,32 @@ export interface LoginFreeDefinition {
   label: string
   // exe만 쓰는 플러그인은 생략한다. 선언하면 AuthDefinition과 같은 bare origin 규칙이다.
   origin?: string
+  // 선언하면 플러그인 탭에 연결 버튼과 연결 상태(연결 안 됨·확인 중·연결됨·실패)가 생긴다(0291).
+  // 생략하면 지금처럼 항상 연결된 행이다. 호스트 PC 확인이며 IdP/SP 인증이 아니다.
+  connect?: LoginFreeConnect
   methods?: never
   probe?: never
+}
+
+// 로그인 프리 연결 로직 — 배포가 채운다. **반환하면 성공**이고 반환값이 연결 결과다(JSON 직렬화
+// 가능, 비밀 금지, 같은 값이면 교체하지 않는다). throw 하면 실패이고 메시지가 화면에 나간다.
+// 결과는 프로세스 메모리에만 있고 재시작하면 부팅이 이 로직을 다시 실행한다.
+export interface LoginFreeConnect {
+  run(context: LoginFreeConnectContext): Promise<unknown>
+}
+
+// 연결 로직이 받는 능력은 둘뿐이다 — 취소 signal 과 호스트 하네스 고정 질의.
+export interface LoginFreeConnectContext {
+  signal: AbortSignal
+  host: HostHarnessPort
+}
+
+export type LoginFreeConnectionState = ProviderConnectionState
+
+export interface LoginFreeConnectionStatus {
+  state: LoginFreeConnectionState
+  // failed 일 때만. 화면에 그대로 나간다.
+  message?: string
 }
 
 export type AuthScheme = ProviderAuthScheme
@@ -399,6 +425,8 @@ export interface AuthSnapshot {
   activeMethod?: AuthMethodKind
   principalId?: string
   expiresAt?: number
+  // 연결 선언이 있는 로그인 프리 대상에만 있다(0291).
+  connection?: LoginFreeConnectionStatus
 }
 
 // wire 호환 상태 어휘를 그대로 승계한다(0188 D-005 — renderer 가 이 문자열을 읽는다).
@@ -411,6 +439,10 @@ export type AuthSnapshotChangeCause =
   | 'expired'
   | 'unauthorized'
   | 'verified'
+  // 로그인 프리 호스트 연결(0291). credentialChanged 는 발행자가 명시한다.
+  | 'connection-started'
+  | 'connection-succeeded'
+  | 'connection-failed'
 
 // **renderer 갱신 이벤트와 실행 credential invalidation 을 한 boolean 으로 뭉개지 않는다.**
 //
@@ -514,6 +546,17 @@ export interface AuthRuntime {
   // (`app/auth-resume.ts`) 하나이고, `ProviderFailureReason` 을 늘리면 renderer·i18n·문서가
   // 따라와야 하는데 화면에 나갈 것이 없다.
   refresh(authId: AuthId): Promise<AuthRefreshResult>
+
+  // ── 로그인 프리 호스트 연결 (0291) ──────────────────────────────────────────
+  // 두 체계를 같은 형상으로 읽는다. 미등록 id 는 none 이다.
+  snapshot(authId: AuthId): AuthSnapshot
+  // 연결 선언이 있는 로그인 프리 대상의 연결 로직을 실행한다. 진행 중이면 같은 실행을 기다린다.
+  // 연결 선언이 없거나 자격증명·미등록 id 면 던진다.
+  connect(authId: AuthId): Promise<LoginFreeConnectionStatus>
+  // 부팅: 연결 선언 대상 전부를 병렬로 확인한다. 실패는 상태로만 남는다.
+  connectAll(): Promise<void>
+  // 마지막 성공 결과. connected 가 아니면 undefined.
+  connectionValue(authId: AuthId): unknown
 }
 
 // `refresh` 의 3분기. 호출자는 `'refreshed'` 가 아니면 전부 재로그인으로 넘어간다.

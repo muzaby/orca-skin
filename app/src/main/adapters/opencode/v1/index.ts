@@ -16,6 +16,7 @@ import { openCodeSkillDirectories } from './skill-sources'
 import {
   loadOpenCodeProviderSettings,
   parseOpenCodeModels,
+  parseOpenCodeRuntimeModels,
   readUserOpenCodeSettings
 } from './settings'
 
@@ -41,6 +42,7 @@ export const implementation: OpenCodeImplementation = {
     ),
   loadSettings: loadOpenCodeProviderSettings,
   parseModels: parseOpenCodeModels,
+  parseRuntimeModels: parseOpenCodeRuntimeModels,
   readUserSettings: readUserOpenCodeSettings,
   configuredMcpFile: configuredOpenCodeMcpFile,
   configuredResources: configuredOpenCodeResources,

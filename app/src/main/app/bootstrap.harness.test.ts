@@ -155,6 +155,8 @@ describe('Bootstrap harness composition callers', () => {
     const bootstrap = createBootstrap()
     const auth = {
       bind: () => ({ snapshot: () => snapshot }),
+      // 카탈로그 reader 는 두 체계를 `snapshot(authId)` 로 읽는다(0291).
+      snapshot: () => snapshot,
       currentStep: () => null
     } as unknown as AuthRuntime
     vi.spyOn(

@@ -24,6 +24,7 @@
 // 레이어: features/harnesses → contracts·adapters·infra·shared. fs·network 는 주입받는다.
 
 import type {
+  HarnessModelDetail,
   HarnessModelProviderKey,
   HarnessRuntimeConfig,
   ResolvedHarnessSettings
@@ -54,6 +55,8 @@ export interface RuntimeConfigAugmenter {
   ): Promise<{
     runtimeEnv: Readonly<Record<string, string>>
     availableModels?: readonly string[]
+    // `availableModels` 항목별 표시 메타(0291) — 이름·variant. 키는 `availableModels` 의 값.
+    modelDetails?: Readonly<Record<string, HarnessModelDetail>>
     validUntil?: number
   }>
 }
@@ -153,6 +156,7 @@ export function createHarnessRuntimeConfigService(
       ...base,
       runtimeEnv: augmented.runtimeEnv,
       ...ifPresent('availableModels', augmented.availableModels),
+      ...ifPresent('modelDetails', augmented.modelDetails),
       ...ifPresent('validUntil', augmented.validUntil)
     }
   }

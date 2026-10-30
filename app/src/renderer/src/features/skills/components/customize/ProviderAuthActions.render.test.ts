@@ -56,15 +56,20 @@ function collect(tree: unknown, type: unknown): ReactElement<Props>[] {
   return found
 }
 
-function callbacks(): Pick<ProviderAuthActionsProps, 'onLogin' | 'onReauth' | 'onRevoke'> & {
+function callbacks(): Pick<
+  ProviderAuthActionsProps,
+  'onLogin' | 'onReauth' | 'onRevoke' | 'onConnect'
+> & {
   onLogin: ReturnType<typeof vi.fn<ProviderAuthActionsProps['onLogin']>>
   onReauth: ReturnType<typeof vi.fn<ProviderAuthActionsProps['onReauth']>>
   onRevoke: ReturnType<typeof vi.fn<ProviderAuthActionsProps['onRevoke']>>
+  onConnect: ReturnType<typeof vi.fn<ProviderAuthActionsProps['onConnect']>>
 } {
   return {
     onLogin: vi.fn<ProviderAuthActionsProps['onLogin']>(() => void h.log.push('login')),
     onReauth: vi.fn<ProviderAuthActionsProps['onReauth']>(() => void h.log.push('reauth')),
-    onRevoke: vi.fn<ProviderAuthActionsProps['onRevoke']>(() => void h.log.push('revoke'))
+    onRevoke: vi.fn<ProviderAuthActionsProps['onRevoke']>(() => void h.log.push('revoke')),
+    onConnect: vi.fn<ProviderAuthActionsProps['onConnect']>(() => void h.log.push('connect'))
   }
 }
 

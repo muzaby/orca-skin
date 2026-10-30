@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { parseOpenCodeModels, readUserOpenCodeSettings } from './settings'
+import {
+  loadOpenCodeProviderSettings,
+  parseOpenCodeModels,
+  parseOpenCodeRuntimeModels,
+  readUserOpenCodeSettings
+} from './settings'
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -72,5 +77,54 @@ describe('OpenCode native model catalogs', () => {
       variants: ['high']
     })
     expect(result.agents?.map((agent) => agent.name)).toEqual(['build', 'plan'])
+  })
+})
+
+describe('OpenCode runtime rows (0291 MD-03)', () => {
+  it('builds OpenCode runtime rows from availableModels and modelDetails', () => {
+    const rows = parseOpenCodeRuntimeModels({
+      key: 'opencode-corp',
+      harnessId: 'opencode',
+      modelProviderId: 'corp',
+      runtimeEnv: {},
+      availableModels: ['corp/z', 'bad', '/x', 'corp/', 'corp/a', 'corp/z'],
+      modelDetails: { 'corp/a': { name: 'A 모델', variants: ['low', 'high'] } }
+    })
+    expect(rows.map((row) => [row.model, row.alias, row.providerId, row.isDefault])).toEqual([
+      ['corp/z', 'z', 'corp', true],
+      ['corp/a', 'A 모델', 'corp', false]
+    ])
+    expect(rows[1]).toMatchObject({
+      isCustom: true,
+      oneMillionContext: false,
+      variants: ['low', 'high']
+    })
+    expect(
+      parseOpenCodeRuntimeModels({
+        key: 'k',
+        harnessId: 'opencode',
+        modelProviderId: 'p',
+        runtimeEnv: {}
+      })
+    ).toEqual([])
+  })
+
+  it('treats a missing settings file as an empty config', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'orca-opencode-settings-'))
+    try {
+      await expect(
+        loadOpenCodeProviderSettings({ sourcesSettingsFile: join(root, 'missing.json') } as never)
+      ).resolves.toEqual({ settings: {} })
+      writeFileSync(join(root, 'bad.json'), '{ nope')
+      await expect(
+        loadOpenCodeProviderSettings({ sourcesSettingsFile: join(root, 'bad.json') } as never)
+      ).rejects.toThrow()
+      mkdirSync(join(root, 'dir.json'))
+      await expect(
+        loadOpenCodeProviderSettings({ sourcesSettingsFile: join(root, 'dir.json') } as never)
+      ).rejects.toThrow()
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 })

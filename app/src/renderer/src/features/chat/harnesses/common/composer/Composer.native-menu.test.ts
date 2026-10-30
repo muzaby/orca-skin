@@ -513,7 +513,7 @@ it.each(['saved', 'draft'])(
 )
 
 it.each(['claude', 'opencode'] as const)(
-  'shows all source groups directly for %s and keeps draft text on selection',
+  'shows all source groups directly for %s and keeps draft text on selection — puts the Orcinus orca group first in both panels',
   async (backend) => {
     fixture.backend = backend
     window.orca.skills.list = async () =>
@@ -615,12 +615,13 @@ it.each(['claude', 'opencode'] as const)(
     await settle()
     clickLabel('chat.composer.attachMenu.plugins')
     expect(dom.queryAll('[data-cascade-level="1"]').map((row) => row.textContent)).toEqual(
+      // Orcinus orca 그룹은 두 패널 모두 첫 그룹이다(0291 D-017).
       backend === 'claude'
-        ? ['Native MCP', 'Connected Orca MCP', 'Jira']
-        : ['Native MCP', 'Connected Orca MCP']
+        ? ['Connected Orca MCP', 'Jira', 'Native MCP']
+        : ['Connected Orca MCP', 'Native MCP']
     )
     expect(dom.queryAll('[data-menu-heading]').map((node) => node.textContent)).toEqual(
-      backend === 'claude' ? ['Claude', 'Orcinus orca'] : ['OpenCode', 'Orcinus orca']
+      backend === 'claude' ? ['Orcinus orca', 'Claude'] : ['Orcinus orca', 'OpenCode']
     )
     clickLabel('Native MCP')
     await settle()

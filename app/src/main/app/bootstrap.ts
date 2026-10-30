@@ -102,6 +102,7 @@ import { registerUpdateHandlers } from './handlers/update'
 import { registerConnectionHandlers } from './handlers/providers'
 import { WorktreeService } from '../features/worktrees/service'
 import { createAuthRuntime } from '../features/auth/runtime'
+import { createHostHarnessPort } from './harness-host'
 import { createGrantPersistence, createOAuthStatePersistence } from '../features/auth/store-file'
 import { OAuthStateStore } from '../features/auth/oauth'
 import { OAuthRunner } from '../features/auth/oauth-runner'
@@ -357,6 +358,8 @@ export class Bootstrap {
       // 원격 요청은 Chromium 스택으로만 나간다 (0173) — 기본값을 두지 않는다.
       fetchImpl: netFetch,
       sessions,
+      // 로그인 프리 연결 로직의 호스트 능력(0291) — 서버 시작과 같은 설치 판정·실행 파일.
+      loginFreeHost: createHostHarnessPort(this.registry),
       oauth: new OAuthRunner({
         states: new OAuthStateStore(oauthStates),
         // 인가는 **기본 브라우저**에서 돈다(RFC 8252) — 사용자가 주소창과 인증서를 직접 본다.
@@ -821,7 +824,11 @@ export class Bootstrap {
           reconcileSnapshot: reconcileRuntimeModelSnapshot
         }),
         onGateChange: (authId) => authResume.onGateChange(authId),
-        run: () => void authResume.run()
+        // 로그인 프리 연결은 메모리에만 있으므로 부팅마다 다시 확인한다(0291 D-009).
+        run: () => {
+          void authResume.run()
+          void auth.connectAll()
+        }
       })
     })
     // ClaudeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.

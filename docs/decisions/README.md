@@ -35,6 +35,7 @@ ADR 이 없으면 architecture 본문이 그 역할을 대신한다 — 실제�
 | [007](007-queued-input-next-turn.md) | 응답 중 입력은 다음 턴까지 대기하며 즉시 보내기는 응답만 interrupt한다 | `arch/backend/runtime-ipc.md` §1.4 |
 | [008](008-daily-login-gate.md) | 실행 중 로컬 날짜 경계에서는 게이트 통과만 해제하고 다시 로그인을 요구한다 | `arch/backend/auth.md` §5.3 |
 | [009](009-harness-native-storage-authority.md) | native 저장 원본·Orca 보관·실행 오버라이드, CLI 왕복 이어보기 | `handoff/0265-harness-native-storage/plan.md` · `handoff/0262-opencode-harness/plan.md` |
+| [010](010-login-free-host-connection.md) | 로그인 프리 대상의 선택적 호스트 연결 상태 — 결과는 메모리, 호스트 능력은 고정 질의 포트 | `arch/backend/auth.md` §4.7 |
 
 ## 새 ADR 을 쓸 때
 

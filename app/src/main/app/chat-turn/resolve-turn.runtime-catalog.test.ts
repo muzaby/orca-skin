@@ -274,3 +274,75 @@ describe('turn setup with the runtime model catalog', () => {
 })
 
 import { parseHarnessRuntimeModels } from '../harnesses/registry'
+import { openCodeCatalog } from '../../adapters/opencode/v1/catalog'
+
+// 0291 — OpenCode runtime 키(호스트 설정 그대로)의 턴은 merged runtime 행을 catalog 에 넘겨
+// 선택 runtime 모델로 실행한다. settings.json 이 없으므로 settings 는 `{}` 이다.
+describe('OpenCode runtime catalog turns (0291 EP-06)', () => {
+  it('OpenCode runtime key runs the selected runtime model with host settings', async () => {
+    const opencode = {
+      authId: 'opencode-llm',
+      key: 'opencode-corp',
+      harnessId: 'opencode',
+      modelProviderId: 'corp'
+    }
+    const runtime = createHarnessRuntimeConfigService({
+      settings: {
+        resolve: async () => ({
+          providerKey: 'opencode-corp',
+          provider: 'corp',
+          settings: {},
+          sourceRevision: 'missing'
+        })
+      },
+      augmenters: {
+        [opencode.key]: {
+          resolve: async () => ({
+            runtimeEnv: {},
+            availableModels: ['corp/a', 'corp/b'],
+            modelDetails: { 'corp/b': { name: 'B 모델', variants: ['high'] } }
+          })
+        }
+      }
+    })
+    const catalog = createRuntimeModelCatalog({
+      parseModels: parseHarnessRuntimeModels,
+      contributions: [opencode],
+      snapshotOf: () =>
+        ({
+          authId: 'opencode-llm',
+          status: 'valid',
+          verified: true,
+          credentialRevision: 1
+        }) as never,
+      runtime
+    })
+    await catalog.reconcile('opencode-llm', {
+      authId: 'opencode-llm',
+      status: 'valid',
+      verified: true,
+      credentialRevision: 1
+    })
+    const adapterCatalog = vi.fn(async (entry, config) => openCodeCatalog(entry, config))
+    const resolved = await resolveTurnProvider(
+      {
+        harnessSettings: { list: () => [] },
+        runtimeModelCatalog: catalog,
+        harnessRuntime: runtime,
+        db: { getSessionById: () => undefined },
+        mcp: { resolver: () => () => undefined }
+      } as never,
+      {
+        adapter: { id: 'opencode', catalog: adapterCatalog, agentSpawnEnv: () => ({}) } as never,
+        agentKind: 'code',
+        sessionId: null,
+        providerKey: opencode.key,
+        modelFamily: 'corp/b'
+      }
+    )
+    expect(adapterCatalog).toHaveBeenCalledOnce()
+    expect(adapterCatalog.mock.calls[0]![0]).toMatchObject({ source: 'runtime', readOnly: true })
+    expect(adapterCatalog.mock.calls[0]![1]).toEqual({})
+    expect(resolved).toMatchObject({ providerKey: opencode.key, model: 'corp/b' })
+  })
+})

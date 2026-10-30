@@ -33,7 +33,7 @@
 //   · **정적·전역 적응값(프록시·사설 CA)은 여기가 아니라 `spawn-env.ts` 다** (0207). 이 파일은
 //     key 별 등록이라 운영자가 나중에 만든 ModelProvider 에는 붙지 않는다.
 
-import type { AuthBinder, AuthId } from '../../contracts/auth'
+import type { AuthId, AuthRuntime } from '../../contracts/auth'
 import type { RuntimeConfigAugmenters } from '../../features/harnesses/common/runtime-config'
 import type { RuntimeModelContribution } from '../../features/harnesses/common/runtime-catalog'
 
@@ -47,8 +47,11 @@ import type { RuntimeModelContribution } from '../../features/harnesses/common/r
 // 그 경계가 OAuth access token(=API 접근 권한)과 응답의 실제 LLM token 을 가른다.
 
 // config API 방식 — `BoundAuth.request` 로 사내 설정 API 를 부른다. raw secret 은 못 읽는다.
+//
+// `connectionValue` 는 로그인 프리 연결(0291)의 마지막 성공 결과다 — 호스트 모델 목록을
+// `listedModelsOf`·`runtimeModelsFromListing` 으로 바꿔 돌려준다(가이드 §4).
 export interface HarnessConfigApiDeps {
-  auth: AuthBinder
+  auth: Pick<AuthRuntime, 'bind' | 'connectionValue'>
 }
 
 // direct credential 방식 — 사용자가 입력한 API key 를 runtimeEnv 에 직접 놓는다. API 요청 능력이

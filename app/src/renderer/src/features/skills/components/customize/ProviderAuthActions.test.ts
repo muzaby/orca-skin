@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { ProviderInfo } from '../../../../../../shared/ipc'
-import { providerAuthActionKind, providerAuthMenuItems } from './providerAuthActionModel'
+import {
+  connectActionLabel,
+  providerAuthActionKind,
+  providerAuthMenuItems
+} from './providerAuthActionModel'
 
 const provider: ProviderInfo = {
   id: 'plugin',
@@ -40,4 +44,26 @@ describe('providerAuthActionKind', () => {
       expect(providerAuthActionKind({ ...provider, authScheme: 'login-free', status })).toBe('none')
     }
   )
+})
+
+describe('login-free connect action (0291)', () => {
+  it('offers connect, reconnect and busy for connect-declared rows', () => {
+    const row = (state: 'idle' | 'checking' | 'connected' | 'failed'): ProviderInfo => ({
+      ...provider,
+      authScheme: 'login-free',
+      connection: { state, message: null }
+    })
+    expect(
+      (['idle', 'checking', 'connected', 'failed'] as const).map((state) => [
+        providerAuthActionKind(row(state)),
+        connectActionLabel(row(state))
+      ])
+    ).toEqual([
+      ['connect', 'connect'],
+      ['connect', 'reconnect'],
+      ['connect', 'reconnect'],
+      ['connect', 'reconnect']
+    ])
+    expect(providerAuthActionKind({ ...provider, authScheme: 'login-free' })).toBe('none')
+  })
 })

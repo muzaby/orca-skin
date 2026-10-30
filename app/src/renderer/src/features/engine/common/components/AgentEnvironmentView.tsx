@@ -9,6 +9,7 @@ import { uiMessageText, useI18n } from '../../../../shared/i18n'
 import type { EngineCardProps } from './EngineCard'
 import type { EngineFormModalProps } from './EngineFormModal'
 import { useEngines } from '../hooks/useEngines'
+import { orderAgentEnvironments } from '../lib/agentOrder'
 
 type ModalState =
   | { mode: 'add'; engine: Backend }
@@ -120,7 +121,7 @@ export function AgentEnvironmentView({
         </div>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {agents.map((agent) => (
+          {orderAgentEnvironments(agents).map((agent) => (
             <Card
               key={agent.key}
               agent={agent}

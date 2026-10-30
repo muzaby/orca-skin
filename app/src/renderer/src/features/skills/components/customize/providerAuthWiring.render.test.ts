@@ -76,13 +76,20 @@ beforeEach(() => {
 
 describe('ProviderDetail → ProviderAuthActions (D14 · VP-10)', () => {
   it('passes each auth callback to its own prop and the current auth kind', () => {
-    const cb = { onLogin: vi.fn(), onSubmit: vi.fn(), onReauth: vi.fn(), onRevoke: vi.fn() }
+    const cb = {
+      onLogin: vi.fn(),
+      onSubmit: vi.fn(),
+      onReauth: vi.fn(),
+      onRevoke: vi.fn(),
+      onConnect: vi.fn()
+    }
     const tree = ProviderDetail({ provider: PROVIDER, step: null, ...cb })
     const [actions] = collect(tree, ProviderAuthActions)
     expect(actions.props.provider).toBe(PROVIDER)
     expect(actions.props.onLogin).toBe(cb.onLogin)
     expect(actions.props.onReauth).toBe(cb.onReauth)
     expect(actions.props.onRevoke).toBe(cb.onRevoke)
+    expect(actions.props.onConnect).toBe(cb.onConnect)
     // initialAuthKind — 활성 방식이 첫 방식(pat)보다 우선한다.
     expect(actions.props.authKind).toBe('oauth')
   })
@@ -97,6 +104,7 @@ describe('ExtensionsCatalogView → ProviderDetail sink (D15)', () => {
       submit: vi.fn(async () => undefined),
       reauth: vi.fn(async () => undefined),
       revoke: vi.fn(async () => undefined),
+      connect: vi.fn(async () => undefined),
       clearStep: vi.fn()
     }
     h.providers = providers
@@ -111,5 +119,9 @@ describe('ExtensionsCatalogView → ProviderDetail sink (D15)', () => {
     expect(providers.login).toHaveBeenCalledExactlyOnceWith('jira-dc', 'oauth')
     expect(providers.reauth).toHaveBeenCalledTimes(1)
     expect(providers.revoke).toHaveBeenCalledTimes(1)
+    // 로그인 프리 연결(0291) — 선택된 행 id 로 connect 만 부른다.
+    ;(detail.props.onConnect as () => void)()
+    expect(providers.connect).toHaveBeenCalledExactlyOnceWith('jira-dc')
+    expect(providers.login).toHaveBeenCalledTimes(1)
   })
 })

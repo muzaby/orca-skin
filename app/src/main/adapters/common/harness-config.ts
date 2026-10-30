@@ -5,6 +5,7 @@
 
 import { createHmac, randomBytes } from 'node:crypto'
 import { ifPresent, isRecord } from '../../../shared/obj'
+import type { Backend } from '../../../shared/ipc'
 
 // 어댑터-네이티브 provider settings — Claude 의 경우 `~/.claude/settings.json` 과 동일 스키마다.
 // env(auth key 등)를 포함할 수 있으며, 그대로 options.settings flag 레이어로 주입된다(handoff 0028).
@@ -104,6 +105,8 @@ export interface HarnessRuntimeConfig {
   // app/process/settings env 와의 최종 병합은 아래 spawn preparation 이 수행한다.
   runtimeEnv: Readonly<Record<string, string>>
   availableModels?: readonly string[]
+  // `availableModels` 항목별 표시 메타(0291). 키는 `availableModels` 의 값이다. 없으면 이름·variant 없음.
+  modelDetails?: Readonly<Record<string, HarnessModelDetail>>
   // 동적 token/config 의 사용 기한. 없으면 명시 무효화 전까지 cache 할 수 있다.
   validUntil?: number
 }
@@ -426,4 +429,26 @@ export function prepareUnresolvedHarnessConfig(input: {
     ...ifPresent('adapterEnvPatch', input.adapterEnvPatch),
     configResolved: false
   })
+}
+
+// ── 호스트 하네스 능력 (0291) ─────────────────────────────────────────────────
+//
+// 하네스 CLI 가 돌려준 모델 한 건. `id` 는 하네스가 실행에 쓰는 식별자(OpenCode = `provider/model`).
+export interface HarnessListedModel {
+  id: string
+  name?: string
+  variants?: readonly string[]
+}
+
+export type HarnessModelDetail = Omit<HarnessListedModel, 'id'>
+
+// 로그인 프리 연결 로직(배포)이 받는 호스트 능력. **고정 질의 둘뿐이다** — 임의 인자 실행기가 아니다.
+// `installed` 는 하네스 서버 시작이 쓰는 같은 판정이고, `listModels` 는 같은 실행 파일로 모델 목록을 읽는다.
+export interface HostHarnessPort {
+  installed(harnessId: Backend): Promise<{ installed: boolean; version?: string }>
+  listModels(
+    harnessId: Backend,
+    provider: string,
+    options: { signal: AbortSignal; env?: Readonly<Record<string, string>> }
+  ): Promise<readonly HarnessListedModel[]>
 }

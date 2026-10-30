@@ -53,7 +53,11 @@ function runtime(descriptors: Record<string, AuthDescriptor>): AuthRuntime {
     continue: () => Promise.reject(new Error('not used')),
     reauth: () => Promise.reject(new Error('not used')),
     revoke: () => undefined,
-    refresh: () => Promise.resolve('unsupported')
+    refresh: () => Promise.resolve('unsupported'),
+    snapshot: (authId) => bound(authId).snapshot(),
+    connect: () => Promise.reject(new Error('not used')),
+    connectAll: async () => undefined,
+    connectionValue: () => undefined
   }
 }
 
@@ -132,6 +136,51 @@ describe('connectionInfo — ProviderInfo 전 필드 (AC22)', () => {
     expect(info.principal).toBeNull()
     expect(info.expiresAt).toBeNull()
     expect(info.activeAuthKind).toBeNull()
+  })
+})
+
+describe('host connection (0291)', () => {
+  it('carries connection only for connect-declared login-free rows', () => {
+    const LOGIN_FREE: AuthDescriptor = {
+      scheme: 'login-free',
+      authId: 'opencode-llm',
+      label: 'OpenCode',
+      methods: []
+    }
+    const auth = runtime({
+      'opencode-llm': LOGIN_FREE,
+      plain: { ...LOGIN_FREE, authId: 'plain' },
+      confluence: DESCRIPTOR
+    })
+    const states = [
+      [{ state: 'idle' }, 'none'],
+      [{ state: 'checking' }, 'none'],
+      [{ state: 'connected' }, 'valid'],
+      [{ state: 'failed', message: '실패 사유' }, 'none']
+    ] as const
+    for (const [connection, status] of states) {
+      const info = connectionInfo(auth, {
+        category: 'harness',
+        auth: bound('opencode-llm', { status, connection }),
+        harnessModelProviderKey: 'opencode-corp'
+      })
+      expect(info.connection).toEqual({
+        state: connection.state,
+        message: 'message' in connection ? connection.message : null
+      })
+      expect(info.status).toBe(status)
+    }
+    const plain = connectionInfo(auth, {
+      category: 'harness',
+      auth: bound('plain', { status: 'valid', credentialRevision: 0 }),
+      harnessModelProviderKey: 'opencode-plain'
+    })
+    expect(plain).not.toHaveProperty('connection')
+    const credential = connectionInfo(auth, {
+      category: 'gate',
+      auth: bound('confluence')
+    })
+    expect(credential).not.toHaveProperty('connection')
   })
 })
 

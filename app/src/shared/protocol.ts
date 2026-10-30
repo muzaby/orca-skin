@@ -548,6 +548,10 @@ export const ProviderRevokeRequestSchema = z.object({
   providerId: z.string().min(1).max(128)
 })
 
+export const ProviderConnectRequestSchema = z.object({
+  providerId: z.string().min(1).max(128)
+})
+
 // 사용량 요약 조회(0112) — 설정 사용량 탭의 기간 탭(최근 7일/30일/전체)과 1:1.
 export const UsageStatsRequestSchema = z.object({
   range: z.enum(['7d', '30d', 'all'])
@@ -988,6 +992,9 @@ export type {
   ProviderContinueRequest,
   ProviderReauthRequest,
   ProviderRevokeRequest,
+  ProviderConnectRequest,
+  ProviderConnectionInfo,
+  ProviderConnectionState,
   AskQuestionOption,
   AskQuestion,
   AskQuestionRequest,

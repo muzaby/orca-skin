@@ -108,6 +108,11 @@ export interface SessionAdapter {
   // 읽는다. computed-on-the-fly — DB 영속 없이 매 backend:list 응답에 부착된다(§4/§15).
   describe(): ProviderDescriptor
   isInstalled(): Promise<{ installed: boolean; version?: string; binPath?: string }>
+  // 호스트 하네스 CLI 로 provider 의 모델 목록을 읽는다(0291). 호스트 설정을 그대로 쓴다.
+  listProviderModels?(
+    provider: string,
+    options: { signal: AbortSignal; env?: Readonly<Record<string, string>> }
+  ): Promise<import('./harness-config').HarnessListedModel[]>
   install(): AsyncIterable<{ step: string; log?: string; error?: string; done?: boolean }>
   // 세션 resume 과 무관한 단발 completion. 자동 제목 생성처럼 대화 컨텍스트를 오염시키면
   // 안 되는 보조 호출에만 쓴다. router 는 provider 별 저가 모델을 알지 않는다.

@@ -72,4 +72,36 @@ describe('OpenCode catalog', () => {
     expect(acquire).not.toHaveBeenCalled()
     expect(fetchImpl).not.toHaveBeenCalled()
   })
+
+  it('keeps runtime entry models and still lists primary agents', () => {
+    const models = [
+      {
+        alias: 'Host',
+        model: 'corp/host',
+        providerId: 'corp',
+        isCustom: true,
+        oneMillionContext: false,
+        isDefault: true,
+        variants: ['high']
+      }
+    ]
+    const runtime = openCodeCatalog(
+      {
+        adapter: 'opencode',
+        key: 'opencode-corp',
+        supported: true,
+        source: 'runtime',
+        readOnly: true,
+        models
+      },
+      {}
+    )
+    expect(runtime.models).toBe(models)
+    expect(runtime.agents).toEqual([{ name: 'build' }, { name: 'plan' }])
+    const settings = openCodeCatalog(
+      { adapter: 'opencode', key: 'opencode-local', supported: true, source: 'settings', models },
+      {}
+    )
+    expect(settings.models).toEqual([])
+  })
 })

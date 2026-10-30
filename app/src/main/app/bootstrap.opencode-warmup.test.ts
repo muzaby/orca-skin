@@ -219,7 +219,9 @@ function boot(realRegistration = false): Bootstrap {
         fixture.authChanges.push(listener)
         return () => {}
       },
-      currentStep: () => null
+      currentStep: () => null,
+      // 로그인 프리 연결 재확인(0291) — 이 fixture 에는 연결 선언이 없다.
+      connectAll: async () => undefined
     } as unknown as AuthRuntime,
     secretReader: { read: () => null }
   })

@@ -4,8 +4,14 @@
 // 구 `pluginCatalog.ts`·`connectorActions.ts` 두 벌이 하던 일을 하나로 접었다 — 앱 로그인과
 // 서비스 연결이 같은 DTO(`ProviderInfo`)를 쓰기 때문에 행 판정도 한 벌이면 된다.
 
-import type { ProviderGrantStatus, ProviderInfo, ProviderKind } from '../../../../../shared/ipc'
+import type {
+  ProviderConnectionState,
+  ProviderGrantStatus,
+  ProviderInfo,
+  ProviderKind
+} from '../../../../../shared/ipc'
 import type { MessageKey } from '../../../shared/i18n'
+import type { StatusTone } from '../../../shared/ui/Status'
 
 // 방식 선택 규칙(`authChoices`·`needsAuthChoice`·`initialAuthKind`)은 게이트 화면과 **같은
 // 구현**을 써야 해서 `shared/config/providerAuth` 가 갖는다 — 소비자는 그쪽을 직접 부른다.
@@ -32,10 +38,41 @@ const KIND_KEYS: Record<ProviderKind, MessageKey> = {
   service: 'skills.provider.kind.service'
 }
 
+// 로그인 프리 호스트 연결 상태(0291). 키 존재가 곧 연결 선언이다.
+const CONNECTION_STATUS_KEYS: Record<ProviderConnectionState, MessageKey> = {
+  idle: 'skills.provider.status.none',
+  checking: 'skills.provider.status.checking',
+  connected: 'skills.provider.status.valid',
+  failed: 'skills.provider.status.failed'
+}
+
+const CONNECTION_TONES: Record<ProviderConnectionState, StatusTone> = {
+  idle: 'slate',
+  checking: 'amber',
+  connected: 'green',
+  failed: 'red'
+}
+
+const GRANT_TONES: Record<ProviderGrantStatus, StatusTone> = {
+  valid: 'green',
+  expired: 'amber',
+  unknown: 'amber',
+  none: 'slate'
+}
+
+// 상태 점 색. 연결 선언 행은 연결 상태를, 그 밖은 grant 상태를 따른다.
+export function providerTone(provider: ProviderInfo): StatusTone {
+  return provider.connection
+    ? CONNECTION_TONES[provider.connection.state]
+    : GRANT_TONES[provider.status]
+}
+
 export function providerRowMeta(provider: ProviderInfo): ProviderRowMeta {
   if (provider.authScheme === 'login-free') {
     return {
-      statusKey: 'skills.provider.status.loginFree',
+      statusKey: provider.connection
+        ? CONNECTION_STATUS_KEYS[provider.connection.state]
+        : 'skills.provider.status.loginFree',
       activeLabel: null,
       kindKey: 'skills.provider.kind.loginFree',
       showsAuthMethod: false

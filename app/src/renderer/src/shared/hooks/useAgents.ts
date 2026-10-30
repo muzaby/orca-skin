@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import type { AgentEnvironment } from '../../../../shared/ipc'
-import { subscribeAgents, useAgentStore } from '../stores/agentStore'
+import { useAgentStore } from '../stores/agentStore'
 
 export function useAgents(): AgentEnvironment[] {
   const agents = useAgentStore((state) => state.agents)
@@ -9,7 +9,6 @@ export function useAgents(): AgentEnvironment[] {
   useEffect(() => {
     void ensureLoaded()
   }, [ensureLoaded])
-  useEffect(() => subscribeAgents(), [])
 
   return agents
 }

@@ -48,6 +48,23 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
   return { promise, resolve }
 }
 
+describe('modelDetails 전달 (0291 MD-08)', () => {
+  it('passes augmenter modelDetails through to the cached config', async () => {
+    const modelDetails = { 'corp/a': { name: 'A 모델', variants: ['high'] } }
+    const service = createHarnessRuntimeConfigService({
+      settings: settingsPort(() => 'rev-1'),
+      augmenters: {
+        [ENTRY.key]: {
+          resolve: async () => ({ runtimeEnv: {}, availableModels: ['corp/a'], modelDetails })
+        }
+      }
+    })
+    const config = await service.resolve(ENTRY)
+    expect(config.modelDetails).toEqual(modelDetails)
+    expect(service.cached(ENTRY.key)?.modelDetails).toEqual(modelDetails)
+  })
+})
+
 describe('정적 구성 (AC11)', () => {
   it('augmenter 가 없으면 runtimeEnv 가 비고 network 도 vault 도 건드리지 않는다', async () => {
     const settings = settingsPort(() => 'rev-1')

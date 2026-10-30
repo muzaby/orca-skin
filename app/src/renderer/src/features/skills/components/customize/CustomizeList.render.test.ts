@@ -187,6 +187,29 @@ describe('plugin catalog list', () => {
     expect(markup.match(/<button\b/g)).toHaveLength(1)
   })
 
+  it.each([
+    ['idle', '연결 안 됨'],
+    ['checking', '확인 중…'],
+    ['connected', '연결됨'],
+    ['failed', '연결 실패']
+  ] as const)('shows the host connection state of login-free rows — %s', (state, label) => {
+    const markup = render({
+      tab: 'providers',
+      providers: [
+        {
+          ...provider('opencode-llm', 'service'),
+          authScheme: 'login-free',
+          auth: [],
+          activeAuthKind: null,
+          status: state === 'connected' ? 'valid' : 'none',
+          connection: { state, message: state === 'failed' ? '실패' : null }
+        }
+      ]
+    })
+    expect(markup).toContain('title="기본 제공">기본 제공</span>')
+    expect(markup).toContain(`>${label}</span>`)
+  })
+
   it.each<CatalogTab>(['skills', 'mcp', 'providers'])(
     '%s exposes an empty state without a table',
     (tab) => {

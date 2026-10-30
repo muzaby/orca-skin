@@ -12,7 +12,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-10-30 |
 | 매핑 | 브랜치 `claude/opencode-auth-plugin-0xnv64` |
-| 상태 | plan/READY |
+| 상태 | impl/IMPL_DONE |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
 | 이번 V revision | `V1` |
@@ -759,80 +759,151 @@ return [
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: D-001~D-021 · §11 파일 표 전부를 그대로 구현했다. 구현 주체는 사용자 요청(`/handoff-impl 0291 구현해줘`)으로 Claude가 맡았다.
+- 이견 / 현실성 문제: 없음 — PLAN_GAP 0. 아래 「설계 대비 명시적 차이」는 전부 구현 세부(테스트 위치·이름 충돌 회피)다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| VP-… | … | … | … | … | … | … |
+| VP-06·13·21 | EP-01 snapshot | 3 | 3/3 | ① `login-free-connection.test.ts:'idle → checking → connected 로 전이하고 결과를 보관한다'` ② `login-free.test.ts:'connect 선언 포트는 연결 상태를, 무선언 포트는 상수를 돌려준다'` ③ `login-free.test.ts:'snapshot은 두 체계와 미등록 id를 같은 형상으로 읽는다'` | 무선언 상수 vs 선언 idle(`none`)·connected(`valid`, rev 1) | 없음 |
+| VP-13·21 | EP-02 cause·credentialChanged | 3 | 3/3 | `login-free-connection.test.ts` 성공·같은 결과·다른 결과·실패 케이스의 change 배열 exact | started/false · succeeded/true · verified/false · failed/이전 valid | 없음 |
+| VP-14·16 | EP-03 reader | 3 | 3/3 | ① `runtime-model-startup.test.ts:'reads login-free and credential snapshots through auth.snapshot on every call'` ② `no-stray-auth-subscribe.test.ts`(기존, green) ③ `opencode-connection-deployment.test.ts:'부팅 직후 확인 전에는 카드가 없고 확인이 끝나면 생긴다'` | fake `bind`는 none, `snapshot`은 connected — 둘이 구별된다 | 없음 |
+| VP-02·14·19·28 | EP-04 결과 → config | 6 | 6/6 | ①② `login-free-connection.test.ts:'connectionValue는 connected일 때만 결과를 준다'` ③ `deployment-wiring.test.ts:'config API deps 로는 login/revoke/resume/subscribe 에 도달할 수 없다'`(갱신 — `connectionValue` 허용·`connect` `@ts-expect-error`) ④ `runtime-config.test.ts:'passes augmenter modelDetails through to the cached config'` ⑤⑥ `runtime-listing.test.ts` 3케이스 | 이름 `A 모델`·variant `high`(기본값 없음과 구별) | 없음 |
+| VP-02·19·23 | EP-05 OpenCode 행 | 6 | 6/6 | ① `settings.test.ts:'builds OpenCode runtime rows from availableModels and modelDetails'` ②~⑥ `registry.test.ts:'parses opencode runtime configs with the OpenCode parser'`(Claude 파서 spy 호출 0) | `not-qualified` 항목 제외·alias `B 모델` | 없음 |
+| VP-03·23 | EP-06 runtime 모델 보존 | 3 | 3/3 | ① `catalog.test.ts:'keeps runtime entry models and still lists primary agents'` ② `resolve-turn.runtime-catalog.test.ts:'OpenCode runtime key runs the selected runtime model with host settings'` ③ `misc.runtime-catalog.test.ts:'agent:list keeps OpenCode runtime models and primary agents'` | settings `{}`라 재계산이면 모델 0 | 없음 |
+| VP-03·23 | EP-07 settings 부재 | 1 | 1/1 | `settings.test.ts:'treats a missing settings file as an empty config'` + `opencode-connection-deployment.test.ts:'연결 성공은…'`의 `reportError` 호출 0 | 부재 → `{}`, 깨진 JSON·디렉터리 → throw | 없음 |
+| VP-05·17 | EP-08 호스트 능력 | 8 | 8/8 | ①② `login-free.test.ts:'connect 실행 context는 signal과 주입한 host만 갖는다'` ③ `opencode-connection-deployment.test.ts:'createAuthRuntime 호출은 서버 시작과 같은 호스트 능력을 넘긴다'` ④⑤ `harness-host.test.ts` 2케이스 ⑥⑦ `adapter.list-models.test.ts:'listProviderModels delegates to the server pool'` ⑧ `server.list-models.test.ts:'listModels runs the models command with the server executable'` | host 객체 identity·인자 `{signal, env:{A:'1'}}` | 없음 |
+| VP-05 | EP-09 1.x 판정 공유 | 2 | 2/2 | `server.list-models.test.ts:'listModels rejects unsupported versions and missing executables like start'`(같은 pool에서 `acquire`도 같은 문구) + 기존 `server.test.ts` 버전 케이스 | `2.0.0` → 두 경로 같은 메시지, CLI 실행 0 | 없음 |
+| VP-05·17 | EP-10 CLI 인자·환경·한계 | 4 | 4/4 | ①②③ `server.list-models.test.ts:'listModels runs the models command…'` ④ `:'listModels aborts on caller signal and pool close'` | argv exact·cwd 홈·env 병합·60s·16MiB·signal 두 축 | 없음 |
+| VP-22 | EP-11 파서·id 검사 | 2 | 2/2 | `model-listing.test.ts` 6케이스 + `server.list-models.test.ts:'rejects provider id %j without running'` | disabled variant 제외·다른 provider 제외·깨진 블록 throw | 없음 |
+| VP-01·18·24 | EP-12 wire connection | 7 | 7/7 | ② `connection-views.test.ts:'carries connection only for connect-declared login-free rows'` ③④ `providerRows.test.ts:'maps each host connection state to its label and tone'` · `ProviderAuthActions.test.ts:'offers connect, reconnect and busy for connect-declared rows'` ⑤⑥ `ProviderDetail.render.test.ts:'colors the connection dot and shows the failure reason'` ⑦ `CustomizeList.render.test.ts:'shows the host connection state of login-free rows — %s'` ① typecheck만(타입 선언) | 4상태별 라벨·tone 모두 서로 다름 | ① 타입 선언 자리 — 직접 oracle은 ②가 운반 값을 관측 |
+| VP-01·18 | EP-13 연결 요청 경로 | 7 | 7/7 | ①③ `providers.test.ts:'provider 채널 전수를 등록한다'`·`:'등록 집합이 CHANNELS 의 provider 도메인 전수와 일치한다'` ②③ `:'connect는 최종 연결 상태를 돌려준다'`(빈 id reject) ④⑤ `preload/index.test.ts:'carries the login-free connect request and its final state through the actual preload'` ⑥ `useProviders.test.ts:'connect sends the provider id and reports a rejected request'` ⑦ `providerAuthWiring.render.test.ts`(ProviderDetail→Actions `onConnect` 전달 + ExtensionsCatalogView→`providers.connect('jira-dc')`) | id `opencode-llm`·`jira-dc` | 없음 |
+| VP-04·20 | EP-14 부팅 재확인 | 2 | 2/2 | ① `opencode-connection-deployment.test.ts:'Bootstrap run 콜백이 리스너 설치 뒤 connectAll을 부른다'` + 감도 `:'가드는 누락·빈 함수·주석·문자열을 배선으로 세지 않는다'` ② `login-free-connection.test.ts:'connectAll 은 선언 대상 전부를 병렬로 확인하고 실패를 흡수한다'` | — | 없음 |
+| VP-13 | EP-15 디스크 0 | 2 | 2/2 | ① `gate:rg Q8 = 0`(재실행 0줄) + `login-free-connection.test.ts:'저장 포트를 갖지 않는다…'` + 양성 `login-free.test.ts:'연결 경로는 디스크를 쓰지 않는다…'`(vault raw 0·grant `{}`·재생성 runtime idle) ② typecheck(구조) | — | ② 구조 — §10이 typecheck로 지정 |
+| VP-06·10 | EP-16 기본 배포 비어 있음 | 4 | 4/4 | `login-free-deployment.test.ts:339` · `deployment-wiring.test.ts:528`·`:537`·`:552`(기존, 무수정 green) | 배열·factory 변경 0 | 없음 |
+| VP-02·20 | EP-17 배포 능력 타입 | 2 | 2/2 | ① `opencode-connection-deployment.test.ts` 레시피 `connectionRows(deps: ConnectionDeploymentDeps)`가 `bindLoginFreePlugin` 사용 + `connections.test.ts` ② `deployment-wiring.test.ts` 능력 케이스 | — | 없음 |
+| VP-07·25 | EP-18 placeholder | 5 | 5/5 | ①② `catalog.test.ts:6`·`:'keeps runtime entry models…'`(agents build·plan) ③ `Module.integration.test.ts:'fills agents from the provider catalog while the runtime list loads and overrides it on arrival'` ④⑤ `Controls.interaction.test.ts:'shows placeholder agents with the loading spinner without storing them'` · `agentSelection.test.ts:'uses provider catalog agents, then the shared defaults…'` | 행 agents `corp-build`(기본 build와 구별) | 없음 |
+| VP-08·26 | EP-19 Orca 최상단 | 3 | 3/3 | ① `attachMenuModel.test.ts:'puts the Orcinus orca group first in the skills panel'` ② `:'merges groups that share a title…'`(Orca 먼저로 대체) ③ `:'puts the Orcinus orca group before native plugins for %s'` + `Composer.native-menu.test.ts:'shows all source groups directly for %s … — puts the Orcinus orca group first in both panels'` | — | 없음 |
+| VP-09·27 | EP-20 카드 순서 | 2 | 2/2 | ① `agentOrder.test.ts` ② `AgentEnvironmentView.render.test.ts:'orders engine cards Claude, OpenCode, then others'` | legacy가 문자열 정렬이면 opencode 앞 | 없음 |
+| VP-12·15·29 | EP-21 agent 신선도 | 4 | 4/4 | ①② `agentStore.test.ts` 3케이스 ③④ `useEngines.test.ts:'shows a runtime card added while the engine page was unmounted'` + `gate:rg subscribeAgents = 0`(재실행 0줄) | — | 없음 |
+| VP-10 | EP-22 문서 사본 | 14 | 14/14 | `gate:node scripts/check-doc-inventory.mjs --check` green(채널 116) + diff: auth.md·security.md §1.10·adapters.md·가이드(§0 행·§3 6-a·§4 연결 레시피)·IPC_CONTRACT(신규 행·`provider:list`·"6채널" 제거)·GLOSSARY 34·35·ADR-010·decisions/README·docs/INDEX·rendering.md·design-components.md·ux-domains.md·state.md·generated/inventory.md | — | handoff 사본 2(plan 메타·INDEX)도 이번 커밋에서 갱신 |
 
-- §10 자리 목록 밖에서 본 운반 자리: …
+- 합계: §10 자리 89 / 닫은 자리 89. 자리 검색 Q4·Q6·Q7·Q8을 재실행해 목록과 차집합 0(Q4 hit 파일 8개 전부 EP-08 목록의 자리).
+- §10 자리 목록 밖에서 본 운반 자리: ⓐ `shared/errors/reportSites.registry.test.ts` — 새 renderer 오류 보고 자리(`useProviders.connect` catch)를 등록부에 추가 ⓑ `bootstrap.harness.test.ts`·`bootstrap.opencode-warmup.test.ts`의 `AuthRuntime` 부분 fake에 `snapshot`·`connectAll` 추가 ⓒ `bootstrap.artifacts.test.ts`의 `.publish(` 스캔이 상태기계 의존 `publish`를 artifact 발행으로 오인해 의존 이름을 `notify`로 바꿨다.
 - 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(첫 라운드)
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | REQUIRED | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | `CustomizeList.render.test.ts:'shows the host connection state…'` · `ProviderDetail.render.test.ts:'colors the connection dot…'` · `providerAuthWiring.render.test.ts`(ExtensionsCatalogView→connect) | not selected |
+| VP-02 | REQUIRED | SELF_PASS | `opencode-connection-deployment.test.ts:'연결 성공은 초록 행·읽기 전용 OpenCode 카드·턴 모델로 이어진다'`·`:'설치되지 않은 호스트는 빨간 행이고 카드가 없다'` | not selected |
+| VP-03 | REQUIRED | SELF_PASS | `resolve-turn.runtime-catalog.test.ts:'OpenCode runtime key runs…'` · `misc.runtime-catalog.test.ts:'agent:list keeps…'` | M-P1 red 1 |
+| VP-04 | REQUIRED | SELF_PASS | `opencode-connection-deployment.test.ts:'Bootstrap run 콜백이…'` · `runtime-model-startup.test.ts:220` | `connectAll()` 제거 red 1 · 감도 케이스 5종 green(배선으로 세지 않음) |
+| VP-05 | REQUIRED | SELF_PASS | `harness-host.test.ts` 2 · `server.list-models.test.ts` 5 | not selected |
+| VP-06 | REQUIRED | SELF_PASS | 기존 케이스 무수정 green(전체 vitest 8,213 pass) | not selected |
+| VP-07 | REQUIRED | SELF_PASS | `Module.integration.test.ts:'fills agents…'` · `Controls.interaction.test.ts:'shows placeholder agents…'` | M-C1 red 2 · M-C2 red 2 |
+| VP-08 | REQUIRED | SELF_PASS | `Composer.native-menu.test.ts:'… puts the Orcinus orca group first in both panels'` | not selected (VP-26) |
+| VP-09 | REQUIRED | SELF_PASS | `AgentEnvironmentView.render.test.ts:'orders engine cards…'` | not selected (VP-27) — 추가로 뷰 정렬 제거 red 1 |
+| VP-10 | REQUIRED | SELF_PASS | `deployment-wiring.test.ts:528`·`:537`·`:552` · `login-free-deployment.test.ts:339` · `gate:check-doc-inventory --check` | not selected |
+| VP-11 | REQUIRED | SELF_BLOCKED | 사람 실기(§19) — Windows·실제 OpenCode 필요 | — |
+| VP-12 | REQUIRED | SELF_PASS | `useEngines.test.ts:'shows a runtime card added while the engine page was unmounted'` | not selected (VP-29) |
+| VP-13 | REQUIRED | SELF_PASS | `login-free-connection.test.ts` 14케이스 | M-S1 red 1 · M-S2 red 4 · M-S3 red 1 |
+| VP-14 | REQUIRED | SELF_PASS | `opencode-connection-deployment.test.ts` 생명주기 3케이스 | not selected |
+| VP-15 | REQUIRED | SELF_PASS | `agentStore.test.ts:'refreshes on provider pushes after the first read…'` | not selected |
+| VP-16 | REQUIRED | SELF_PASS | `runtime-model-startup.test.ts:'reads login-free and credential snapshots through auth.snapshot…'` · `login-free.test.ts:'snapshot은 두 체계와…'` | M-A1 red 1 |
+| VP-17 | REQUIRED | SELF_PASS | `login-free.test.ts:'connect 실행 context는…'` · `adapter.list-models.test.ts` · `server.list-models.test.ts` | not selected — 추가로 runtime의 host 미전달 red 4 |
+| VP-18 | REQUIRED | SELF_PASS | `connection-views.test.ts:'carries connection only…'` · `providers.test.ts` 3 · `preload/index.test.ts` 신규 | not selected |
+| VP-19 | REQUIRED | SELF_PASS | `runtime-config.test.ts:'passes augmenter modelDetails…'` · `registry.test.ts:'parses opencode runtime configs…'` | M-R1 red 2 |
+| VP-20 | REQUIRED | SELF_PASS | `deployment-wiring.test.ts` 능력 케이스 · 소스 가드 | `loginFreeHost` 제거 red 1 · 감도(`{}`·주석·문자열) green |
+| VP-21 | REQUIRED | SELF_PASS | VP-13과 같음 | VP-13의 M-S1~3 |
+| VP-22 | REQUIRED | SELF_PASS | `model-listing.test.ts` 6 | not selected |
+| VP-23 | REQUIRED | SELF_PASS | `settings.test.ts` 2 · `catalog.test.ts:'keeps runtime entry models…'` | M-R2 red 2 |
+| VP-24 | REQUIRED | SELF_PASS | `providerRows.test.ts` · `ProviderAuthActions.test.ts` 신규 | idle↔failed 라벨 맞바꿈 red 4 · connected↔failed tone 맞바꿈 red 2 |
+| VP-25 | REQUIRED | SELF_PASS | `agentSelection.test.ts:'uses provider catalog agents…'` | not selected |
+| VP-26 | REQUIRED | SELF_PASS | `attachMenuModel.test.ts` 신규 2 + 대체 1 | 플러그인 패널 native 먼저 red 4 · 스킬 패널 정렬 제거 red 1 |
+| VP-27 | REQUIRED | SELF_PASS | `agentOrder.test.ts` | adapter 문자열 정렬 red 2 |
+| VP-28 | REQUIRED | SELF_PASS | `runtime-listing.test.ts` 3 | not selected |
+| VP-29 | REQUIRED | SELF_PASS | `agentStore.test.ts:'ignores an older agent:list response…'`·`:'installs the provider subscription once…'` | M-G1 red 1 |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| M-S1 같은 결과도 revision+1 | VP-13 | 최초 | `login-free-connection.test.ts` 1 | 잡음 |
+| M-S2 `connection-started` credentialChanged true | VP-13 | 최초 | 같은 파일 4 | 잡음 |
+| M-S3 idle 실패도 credentialChanged true | VP-13 | 최초 | 같은 파일 1 | 잡음 |
+| M-P1 resolve-turn이 `toAgentEnvironments([selected])`로 재조립 | VP-03 | 최초 | `resolve-turn.runtime-catalog.test.ts` 1 | 잡음 |
+| bootstrap `void auth.connectAll()` 제거 | VP-04 | 최초 | `opencode-connection-deployment.test.ts` 1 | 잡음 |
+| M-C1 표시값(placeholder 포함)을 저장 | VP-07 | 최초 | composer 2 | 잡음 |
+| M-C2 `OpenCodeModeControl`이 placeholder 미전달 | VP-07 | 최초 | composer 2 | 잡음 |
+| M-A1 reader를 `bind(id).snapshot()`로 되돌림 | VP-16 | 최초 | `runtime-model-startup.test.ts` 1 | 잡음 |
+| M-R1 `compute`의 `modelDetails` 누락 | VP-19 | 최초 | 2 | 잡음 |
+| bootstrap `loginFreeHost` 인자 제거 | VP-20 | 최초 | 소스 가드 1 | 잡음 |
+| M-R2 catalog가 항상 `parseOpenCodeModels` | VP-23 | 최초 | 2 | 잡음 |
+| idle↔failed 라벨 맞바꿈 | VP-24 | 최초 | skills 4 | 잡음 |
+| connected↔failed tone 맞바꿈 | VP-24 | 최초 | skills 2 | 잡음 |
+| 플러그인 패널 Orca 정렬 제거(native 먼저) | VP-26 | 최초 | chat 4 | 잡음 |
+| adapter 문자열 정렬 | VP-27 | 최초 | engine 2 | 잡음 |
+| M-G1 seq 비교 제거 | VP-29 | 최초 | `agentStore.test.ts` 1 | 잡음 |
+| (새 oracle) 소스 가드 감도: 누락·빈 함수·주석·문자열·호출 밖 | VP-04·20 새 배선 oracle | 최초 | 가드 함수가 9입력 모두 배선 아님으로 판정 | 잡음(방향 확인) |
+| (새 oracle) 디스크 0 음성 스캔 | EP-15 | 최초 | 양성 짝 `login-free.test.ts:'연결 경로는 디스크를 쓰지 않는다…'` | 음성+양성 짝 |
 
-- **분모 검산**: …
-- **덮개 회귀**: …
+- **분모 검산**: 선택 증거 16(M-S1~3·M-P1·VP-04·M-C1·M-C2·M-A1·M-R1·VP-20·M-R2·VP-24×2·VP-26·VP-27·M-G1) · 인용 변이 0 · 새 oracle 2 = 표 행 18. 추가로 표 밖 자율 변이 3(스킬 패널 정렬 제거 red 1 · 뷰 정렬 제거 red 1 · runtime host 미전달 red 4) 전부 잡음.
+- **덮개 회귀**: 해당 없음(첫 라운드). 대체한 기존 단언 4건은 같은 파일에서 새 계약을 양성 단언한다(`Controls.interaction`·`attachMenuModel` 2·`useEngines` unsubscribe→`not.toHaveBeenCalled`·`providers` 6종→전수).
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 있음 — `확인 중…`·`연결 실패`·`다시 연결`은 `ProviderDetail`·`CustomizeList`가, 실패 사유는 상세 `text-bad`가 렌더(render 테스트 관측) | 없음 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 해당 없음 — `agentStore` factory화는 정리 코드가 없다(구독 해제 없음이 계약) | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 미설치·provider 없음·CLI 실패·파싱 실패·직렬화 불가·시간 초과 → 전부 `failed` 행. host 미주입 → `failed`(fail-closed) | 없음 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 연결 실패는 빨강+사유. IPC 자체 reject는 `skills.providers.connect-failed` 토스트(등록부 `T-provider-connect`) | 토스트 title은 기존 `loadFailed`를 재사용 — 전용 문구가 필요하면 후속 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | `agentStore` seq guard(M-G1 잡음). 연결 상태는 main 단일 상태기계 push라 renderer 역전 없음 | 없음 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | 재연결 확인 중(`checking`)에는 `connectionValue`가 `undefined`다 — 그 사이 settings 배포 무효화로 augmenter가 다시 불리면 카드가 잠시 실패할 수 있다 | 계약(§10 "connected가 아니면 undefined") 그대로 두고 보고만 한다. 일반 재연결은 revision 불변이라 augmenter를 부르지 않는다(VP-14 관측) | `login-free-connection.ts` `value()` |
+| 2 | Electron 바이너리가 없는 환경에서는 electron을 import하는 스위트가 로드되지 않는다 | 로컬 `node_modules/electron/path.txt` stub(커밋 안 함)으로 로드해 실행 — CI(windows)에서는 무관 | 환경 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- 테스트 위치: plan이 `runtime.test.ts`로 지정한 런타임 연결 케이스는 로그인 프리 fixture가 있는 `login-free.test.ts`에, `server.test.ts`·`adapter.test.ts` 케이스는 새 `server.list-models.test.ts`·`adapter.list-models.test.ts`에, `ExtensionsCatalogView.interaction.test.ts` 케이스는 기존 sink 단언이 있는 `providerAuthWiring.render.test.ts`에 두었다. `runtime-catalog.test.ts`는 갱신하지 않고 `registry.test.ts`·가상 배포 테스트가 같은 경로를 관측한다. 행동 단언은 plan 그대로다.
+- 이름: 상태기계 의존 `publish` → `notify`(artifact 발행 스캔 오인 회피). 시간 상한은 `createLoginFreeConnections({timeoutMs?})`에서만 바꿀 수 있고 `CreateAuthRuntimeDeps`에는 노출하지 않는다(production은 `LOGIN_FREE_CONNECT_TIMEOUT_MS`).
+- `Composer.native-menu.test.ts`는 새 케이스 대신 기존 케이스 이름 뒤에 plan의 이름을 붙이고 순서 단언을 바꿨다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 — 메커니즘 대체 없음 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 | — |
+| 재진입 | 해당 없음 | — |
+| 다른 무효화 축 | 해당 없음 | — |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님) | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | `app/src` 수정 73 · 신규 15(구현 5·테스트 10) · `docs` 수정 13(handoff 사본 2 제외) · 신규 ADR 1 |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run`(전체) · `node --test scripts/*.test.mjs` · `node scripts/check-doc-inventory.mjs` + `--check` |
+| **관측한 게이트 산출**(exit code 아님) | lint 0 error / 2 warning(기존 `useVirtualizer` 2건) · typecheck error 0 · vitest 876파일 중 864 pass·9 fail·3 skip / 8,243케이스 중 8,213 pass·21 fail·9 skip · scripts 144 pass 0 fail · doc-inventory 채널 116·prose ok·links ok |
+| 환경 기인 실패(분리) | 21 fail = 변경 전 코드(stash)로 같은 9파일·21케이스 재현: `adapters/claude/{adapter.native-plugins,native-resources,project-reconciliation}` · `adapters/opencode/v1/{adapter.instances,adapter.persistent,adapter}` · `app/{composer-catalog,composer-preparation-service}` · `handlers/session-resources.claude-assembly`(`Composer directory must be absolute` 등). better-sqlite3는 `npm rebuild`(Node ABI)로 로드 |
+| V-pair 자기확인 | SELF_PASS 28 · SELF_BLOCKED 1(VP-11 사람 실기) |
+| 강제 지점 전수 | 89/89 (EP-01~EP-22) |
+| **AC 자기보고**(`Criteria-Met`) | AC1~AC23 ✅ (행별 좌표는 위 강제 지점 표) · AC24 ⚠️ 사람 실기 대기 |
+| **합계 검산** | ✅ 23 · ⚠️ 1 · ❌ 0 = 총 24 |
+| 블로커 / 역질문 | 없음 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 첫 라운드.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: plan §10이 열거하지 않은 기존 위생 테스트 3곳(오류 보고 등록부·Bootstrap 부분 fake·artifact `.publish(` 스캔)이 새 코드에 반응했다 — 모두 구현 세부로 선조치.
+- 반복해서 부딪히는 환경 한계: Electron 바이너리 403(`path.txt` 부재) · better-sqlite3 ABI.
 - 현재 라운드·impl 턴: `r1`
 
 ---

@@ -221,7 +221,9 @@ export const ko = {
         valid: '연결됨',
         expired: '만료됨',
         unknown: '확인 불가',
-        loginFree: '연결됨'
+        loginFree: '연결됨',
+        checking: '확인 중…',
+        failed: '연결 실패'
       },
       kind: {
         gate: '앱 로그인',
@@ -231,6 +233,7 @@ export const ko = {
       },
       authenticate: '인증',
       connect: '연결',
+      reconnect: '다시 연결',
       reauth: '재인증',
       revoke: '연결 해제',
       chooseMethod: '인증 방식',

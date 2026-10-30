@@ -12,10 +12,12 @@
 
 import {
   CHANNELS,
+  ProviderConnectRequestSchema,
   ProviderContinueRequestSchema,
   ProviderLoginRequestSchema,
   ProviderReauthRequestSchema,
   ProviderRevokeRequestSchema,
+  type ProviderConnectionInfo,
   type ProviderInfo,
   type ProviderPlatformState,
   type ProviderStepInfo
@@ -51,7 +53,8 @@ export function registerConnectionHandlers(deps: ConnectionHandlerDeps): void {
   //
   // **연결 버튼은 인증 행위만 한다** (0188): Plugin fetch·Usage refresh·Harness config resolve 를
   // 여기서 부르지 않는다. 필요한 feature 는 Auth change 를 무효화 신호로만 쓰고 자기 시점에
-  // lazy resolve 한다.
+  // lazy resolve 한다. 로그인 프리 `connect`(0291)도 배포 연결 로직만 실행한다 — 카탈로그는
+  // 그 결과의 Auth change 로 갱신된다.
   handle(
     CHANNELS.providerLogin,
     ProviderLoginRequestSchema,
@@ -69,6 +72,15 @@ export function registerConnectionHandlers(deps: ConnectionHandlerDeps): void {
     ProviderReauthRequestSchema,
     'reject',
     (req): Promise<ProviderStepInfo> => auth.reauth(req.providerId, req.authKind)
+  )
+  handle(
+    CHANNELS.providerConnect,
+    ProviderConnectRequestSchema,
+    'reject',
+    async (req): Promise<ProviderConnectionInfo> => {
+      const status = await auth.connect(req.providerId)
+      return { state: status.state, message: status.message ?? null }
+    }
   )
   handle(CHANNELS.providerRevoke, ProviderRevokeRequestSchema, 'reject', (req): void => {
     auth.revoke(req.providerId)

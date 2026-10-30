@@ -69,7 +69,12 @@ describe('connection deployment presentation input', () => {
 
   it('기본 factory는 gate·plugin row만 만든다', () => {
     const sources = createConnectionSources({
-      auth: { bind: (id) => auth(id) },
+      auth: {
+        bind: (id) => auth(id),
+        bindLoginFreePlugin: () => {
+          throw new Error('unused login-free binding')
+        }
+      },
       gateMembers: [auth('gate')],
       plugins: []
     })

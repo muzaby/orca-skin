@@ -195,18 +195,40 @@ describe('OpenCode composer selection', () => {
   })
 })
 
-it('keeps an empty loading menu keyboard-accessible without a synthetic default or status text', () => {
+// 0291 D-016 — authoritative 목록 전에는 placeholder(build·plan)를 메뉴·버튼에 보이고 스피너를
+// 유지한다. placeholder 는 전송 선택으로 저장하지 않는다(대체: 0287 '…without a synthetic default…').
+it('shows placeholder agents with the loading spinner without storing them', () => {
   harness.selected.harnessAgent = ''
-  dom.render(createElement(OpenCodeAgentControl, { agents: undefined, status: 'loading' }))
+  dom.render(
+    createElement(OpenCodeAgentControl, {
+      agents: undefined,
+      status: 'loading',
+      placeholder: [{ name: 'build' }, { name: 'plan' }]
+    })
+  )
   const trigger = dom.query('[data-component="opencode-select"]')!
-  expect(trigger.textContent).toBe('harness.agentLoading')
+  expect(trigger.textContent).toBe('build')
+  expect(harness.change).not.toHaveBeenCalled()
   dom.click(trigger)
   dom.advance(20)
-  expect(dom.queryAll('[role="menuitemradio"]')).toEqual([])
-  const group = dom.query('[role="group"]')!
-  expect(dom.activeElement).toBe(group)
-  expect(dom.query('[role="menu"]')?.textContent).toBe('harness.agent')
-  key(group, 'Escape')
+  expect(dom.queryAll('[role="menuitemradio"]').map((row) => row.textContent)).toEqual([
+    'build',
+    'plan'
+  ])
+  expect(dom.query('[data-agent-loading]')).not.toBeNull()
+  const rows = dom.queryAll('[role="menuitemradio"]')
+  key(rows[0].parent!, 'Escape')
   expect(dom.activeElement).toBe(trigger)
+  expect(harness.change).not.toHaveBeenCalled()
+  // 목록이 오면 교체하고 첫 항목을 저장한다(0287 D-002).
+  dom.render(
+    createElement(OpenCodeAgentControl, {
+      agents: [{ name: 'corp-review' }],
+      authoritative: true,
+      status: 'ready',
+      placeholder: [{ name: 'build' }, { name: 'plan' }]
+    })
+  )
+  expect(harness.change).toHaveBeenLastCalledWith({ agent: 'corp-review' })
   harness.selected.harnessAgent = 'build'
 })
