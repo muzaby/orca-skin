@@ -12,6 +12,31 @@ import {
 } from './native-resources'
 
 describe('OpenCode native resources', () => {
+  it('starts skill and configuration reads together before either completes', async () => {
+    const skills = Promise.withResolvers<Response>()
+    const config = Promise.withResolvers<Response>()
+    const calls: string[] = []
+    const client = createOpencodeClient({
+      baseUrl: 'http://fixture.test',
+      fetch: async (input) => {
+        const path = new URL(input instanceof Request ? input.url : String(input)).pathname
+        calls.push(path)
+        if (path === '/skill') return skills.promise
+        if (path === '/config') return config.promise
+        return new Response(JSON.stringify([{ name: 'design', source: 'skill', hints: [] }]), {
+          headers: { 'content-type': 'application/json' }
+        })
+      }
+    })
+    const reading = openCodeNativeCommands(client, 'C:/work', true)
+    try {
+      await vi.waitFor(() => expect(calls).toEqual(['/command', '/skill', '/config']))
+    } finally {
+      skills.resolve(new Response('[]', { headers: { 'content-type': 'application/json' } }))
+      config.resolve(new Response('{}', { headers: { 'content-type': 'application/json' } }))
+    }
+    expect(await reading).toMatchObject([{ name: 'design', skill: false }])
+  })
   it('traces secret-free MCP status classes without changing the returned resources', async () => {
     const debug = vi.fn()
     const logger = { debug, info: vi.fn(), warn: vi.fn(), error: vi.fn(), child: () => logger }

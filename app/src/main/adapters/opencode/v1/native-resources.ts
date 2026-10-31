@@ -12,7 +12,8 @@ export async function openCodeNativeCommands(
   directory: string,
   inventory = false,
   env: NodeJS.ProcessEnv = process.env,
-  read?: { signal: AbortSignal; timeoutMs: number }
+  read?: { signal: AbortSignal; timeoutMs: number },
+  configuration?: ReturnType<OpencodeClient['config']['get']>
 ): Promise<NativeCommand[]> {
   const timeout = AbortSignal.timeout(read?.timeoutMs ?? 2500)
   const result = await client.command.list(
@@ -21,8 +22,15 @@ export async function openCodeNativeCommands(
   )
   const hasSkills = inventory && result.data?.some((command) => command.source === 'skill')
   const options = { throwOnError: true as const, signal: AbortSignal.timeout(2500) }
-  const skills = hasSkills ? ((await client.app.skills({ directory }, options)).data ?? []) : []
-  const config = hasSkills ? (await client.config.get({ directory }, options)).data : undefined
+  const [skillsResult, configResult] = hasSkills
+    ? await Promise.all([
+        client.app.skills({ directory }, options),
+        configuration ?? client.config.get({ directory }, options)
+      ])
+    : []
+  if (hasSkills && !configResult?.data) throw new Error('OpenCode plugin configuration unavailable')
+  const skills = skillsResult?.data ?? []
+  const config = configResult?.data
   const plugins = await Promise.all(
     (config?.plugin ?? []).map((source) =>
       openCodePluginInstallation(pluginSpec(source), directory, env)
@@ -106,9 +114,11 @@ export async function openCodeNativePlugins(
   client: OpencodeClient,
   directory: string,
   env: NodeJS.ProcessEnv = process.env,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  configuration?: ReturnType<OpencodeClient['config']['get']>
 ): Promise<NativeResource[]> {
-  const config = await client.config.get({ directory }, { throwOnError: false, signal })
+  const config = await (configuration ??
+    client.config.get({ directory }, { throwOnError: false, signal }))
   if (!config.data)
     throw new Error('OpenCode plugin configuration unavailable', {
       cause: { status: config.response?.status }

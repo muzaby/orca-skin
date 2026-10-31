@@ -2,8 +2,8 @@ import { realpath } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { isAbsolute, join, relative, sep } from 'node:path'
 import type { SkillInfo } from '../../shared/ipc'
-import { readClaudePluginCatalog } from '../adapters/claude/plugin-catalog'
-import { openCodeSkillDirectories, openCodePluginSkillDirectories } from '../adapters/opencode'
+import { readClaudePluginCatalogAsync } from '../adapters/claude/plugin-catalog'
+import { openCodePluginSkillDirectories, openCodeSkillDirectories } from '../adapters/opencode'
 import { agentsSkillRoot } from '../features/extensions/common/skills/agents'
 import { scanSkills, type SkillScanRoot } from '../features/extensions/common/skills/scan'
 
@@ -14,13 +14,15 @@ export async function readSkillCatalog(
   home = homedir(),
   env: NodeJS.ProcessEnv = process.env
 ): Promise<SkillInfo[]> {
-  let files: { file: string; name: string; enabled: boolean }[] = []
+  let files: SkillScanRoot['files'] = []
   try {
-    files = readClaudePluginCatalog(
-      home,
-      env.CLAUDE_CONFIG_DIR || join(home, '.claude'),
-      {},
-      true
+    files = (
+      await readClaudePluginCatalogAsync(
+        home,
+        env.CLAUDE_CONFIG_DIR || join(home, '.claude'),
+        {},
+        true
+      )
     ).files
   } catch {
     // One unavailable native catalog must not erase the other skill sources.
@@ -58,19 +60,20 @@ export async function readSkillCatalog(
   const agentsRoot = await realpath(join(home, '.agents', 'skills')).catch(() =>
     join(home, '.agents', 'skills')
   )
+  const resolved = await Promise.all(
+    inventory.map(async (skill) => ({
+      skill,
+      path: await realpath(skill.skillPath).catch(() => skill.skillPath)
+    }))
+  )
   const lockedPaths = new Set(
-    await Promise.all(
-      inventory
-        .filter((s) => s.sourceId === 'agents')
-        .map(async (s) => key(await realpath(s.skillPath).catch(() => s.skillPath)))
-    )
+    resolved.filter(({ skill }) => skill.sourceId === 'agents').map(({ path }) => key(path))
   )
   const ordered = [
-    ...inventory.filter((s) => s.sourceId !== 'agents'),
-    ...inventory.filter((s) => s.sourceId === 'agents')
+    ...resolved.filter(({ skill }) => skill.sourceId !== 'agents'),
+    ...resolved.filter(({ skill }) => skill.sourceId === 'agents')
   ]
-  for (const skill of ordered) {
-    const path = await realpath(skill.skillPath).catch(() => skill.skillPath)
+  for (const { skill, path } of ordered) {
     const child = relative(agentsRoot, path)
     if (
       !isAbsolute(child) &&
