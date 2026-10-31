@@ -1,14 +1,14 @@
-import { expect, it, vi } from 'vitest'
-import { prepareComposerCatalog, registerComposerCatalog } from './composer-catalog'
-import { EventEmitter } from 'node:events'
 import { randomUUID } from 'node:crypto'
-import { CHANNELS } from '../../shared/ipc'
-import type { RouterContext } from './context'
-import type { ComposerCatalogScope } from '../../shared/composer-catalog'
-import { OpenCodeAdapter } from '../adapters/opencode/v1/adapter'
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { EventEmitter } from 'node:events'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { afterEach, expect, it, vi } from 'vitest'
+import type { ComposerCatalogLease, ComposerCatalogScope } from '../../shared/composer-catalog'
+import { CHANNELS } from '../../shared/ipc'
+import { OpenCodeAdapter } from '../adapters/opencode/v1/adapter'
+import { createComposerPreparation } from './composer-preparation'
+import type { RouterContext } from './context'
 const handlers = vi.hoisted(
   () => new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>()
 )
@@ -20,7 +20,13 @@ vi.mock('electron', () => ({
 }))
 vi.mock('../infra/config/orca-config', () => ({ appEnv: () => ({ PREVIEW_APP_ENV: 'app-value' }) }))
 
+const cleanups: Array<() => void | Promise<void>> = []
+afterEach(async () => {
+  for (const close of cleanups.splice(0).reverse()) await close()
+})
 function fixture(): {
+  preparation: ReturnType<typeof createComposerPreparation>
+  prepare(scope: ComposerCatalogScope, signal: AbortSignal): Promise<ComposerCatalogLease>
   adapter: OpenCodeAdapter
   fetchImpl: ReturnType<typeof vi.fn<typeof fetch>>
   acquire: ReturnType<typeof vi.fn>
@@ -112,7 +118,29 @@ function fixture(): {
     providerKey: 'opencode-one',
     agentKind: 'code'
   }
-  return { ctx, scope, capture, resolve, getSessionById, saved, adapter, fetchImpl, acquire }
+  const preparation = createComposerPreparation(ctx)
+  cleanups.push(preparation.close)
+  const prepare = async (
+    scope: ComposerCatalogScope,
+    signal: AbortSignal
+  ): Promise<ComposerCatalogLease> => {
+    const lease = await preparation.service.acquire(scope, signal)
+    cleanups.push(() => lease.release())
+    return lease
+  }
+  return {
+    ctx,
+    scope,
+    capture,
+    resolve,
+    getSessionById,
+    saved,
+    adapter,
+    fetchImpl,
+    acquire,
+    preparation,
+    prepare
+  }
 }
 
 it.each(['configuration', 'acquire'] as const)(
@@ -122,7 +150,7 @@ it.each(['configuration', 'acquire'] as const)(
     const error = Object.assign(new Error('PRIVATE_PATH PRIVATE_TOKEN'), { status: 503 })
     if (stage === 'configuration') f.resolve.mockRejectedValueOnce(error)
     else f.capture.mockRejectedValueOnce(error)
-    const close = registerComposerCatalog(f.ctx)
+    const close = f.preparation.close
     const sender = Object.assign(new EventEmitter(), { id: 83, isDestroyed: () => false })
     try {
       const result = await handlers.get(CHANNELS.composerCatalog)!(
@@ -179,11 +207,7 @@ it('reads installed plugin metadata using the resolved provider cache environmen
   })
   try {
     expect(process.env.XDG_CACHE_HOME).not.toBe(cache)
-    const lease = await prepareComposerCatalog(
-      f.ctx,
-      { ...f.scope, cwd: root },
-      new AbortController().signal
-    )
+    const lease = await f.prepare({ ...f.scope, cwd: root }, new AbortController().signal)
     try {
       expect(await lease.read('plugins', new AbortController().signal)).toEqual([
         expect.objectContaining({ name: '@oracle/plugin@1', description: 'Provider-only metadata' })
@@ -200,7 +224,7 @@ it('reads installed plugin metadata using the resolved provider cache environmen
 it('prepares draft and saved directory with the same production settings and env resolution as turns', async () => {
   const f = fixture(),
     signal = new AbortController().signal
-  await prepareComposerCatalog(f.ctx, { ...f.scope, providerKey: 'opencode-two' }, signal)
+  await f.prepare({ ...f.scope, providerKey: 'opencode-two' }, signal)
   expect(f.resolve).toHaveBeenLastCalledWith({
     key: 'opencode-two',
     harnessId: 'opencode',
@@ -219,8 +243,7 @@ it('prepares draft and saved directory with the same production settings and env
       })
     })
   )
-  await prepareComposerCatalog(
-    f.ctx,
+  await f.prepare(
     { ...f.scope, sessionId: 'saved', cwd: 'C:/untrusted', providerKey: null },
     signal
   )
@@ -253,7 +276,7 @@ it('returns prepared plugin and agent parts through IPC before blocked MCP/model
     if (path === '/provider') return gates.provider.promise
     throw new Error('unexpected endpoint')
   })
-  const close = registerComposerCatalog(f.ctx)
+  const close = f.preparation.close
   const sender = Object.assign(new EventEmitter(), {
     id: 77,
     isDestroyed: () => false,
@@ -318,14 +341,14 @@ it('does not start a native server after caller cancellation or session scope ch
       settings: { providerKey: 'opencode-one', provider: 'one', sourceRevision: 'x', settings: {} }
     }
   })
-  await expect(prepareComposerCatalog(f.ctx, f.scope, control.signal)).rejects.toThrow()
+  await expect(f.prepare(f.scope, control.signal)).rejects.toThrow()
   expect(f.capture).not.toHaveBeenCalled()
   f.getSessionById
     .mockReturnValueOnce(f.saved)
     .mockReturnValueOnce(f.saved)
     .mockReturnValueOnce({ ...f.saved, cwd: 'C:/changed' })
   await expect(
-    prepareComposerCatalog(f.ctx, { ...f.scope, sessionId: 'saved' }, new AbortController().signal)
+    f.prepare({ ...f.scope, sessionId: 'saved' }, new AbortController().signal)
   ).rejects.toThrow('session changed')
   expect(f.capture).not.toHaveBeenCalled()
 })
@@ -339,7 +362,7 @@ it('wires the public handler through the production resolver and returns its shu
     read: vi.fn(async () => []),
     release
   })
-  const close = registerComposerCatalog(f.ctx)
+  const close = f.preparation.close
   const sender = Object.assign(new EventEmitter(), {
     id: 10,
     isDestroyed: () => false,
@@ -360,6 +383,6 @@ it('wires the public handler through the production resolver and returns its shu
   } finally {
     close()
   }
-  expect(release).toHaveBeenCalledOnce()
+  await vi.waitFor(() => expect(release).toHaveBeenCalledOnce())
   expect(sender.listenerCount('destroyed')).toBe(0)
 })

@@ -1,12 +1,14 @@
-import { EventEmitter } from 'node:events'
 import { randomUUID } from 'node:crypto'
+import { EventEmitter } from 'node:events'
 import { beforeEach, expect, it, vi } from 'vitest'
-import { CHANNELS } from '../../../shared/ipc'
 import type {
   ComposerCatalogData,
   ComposerCatalogLease,
   ComposerCatalogRequest
 } from '../../../shared/composer-catalog'
+import { CHANNELS } from '../../../shared/ipc'
+import { ComposerCatalogOwners } from '../composer-catalog-owner'
+import { registerComposerCatalogHandlers } from './composer-catalog'
 const log = vi.hoisted(() => ({ warn: vi.fn() }))
 vi.mock('../../infra/log', () => ({ getLogger: () => ({ child: () => log }) }))
 const callbacks = vi.hoisted(
@@ -18,7 +20,6 @@ vi.mock('electron', () => ({
       callbacks.set(name, fn)
   }
 }))
-import { registerComposerCatalogHandlers } from './composer-catalog'
 
 class Sender extends EventEmitter {
   readonly send = vi.fn()
@@ -76,7 +77,7 @@ it('invalidates live preparation owners and emits only their safe generation ide
   const a = lease(),
     b = lease()
   const prepare = vi.fn().mockResolvedValueOnce(a.value).mockResolvedValueOnce(b.value)
-  const close = registerComposerCatalogHandlers(prepare)
+  const close = registerComposerCatalogHandlers(new ComposerCatalogOwners(prepare))
   const sender = new Sender(37)
   const req = request()
   try {
@@ -100,7 +101,7 @@ it('shares pending acquisition for parts, isolates windows, and releases on navi
     b = lease()
   const gate = Promise.withResolvers<ComposerCatalogLease>()
   const prepare = vi.fn().mockReturnValueOnce(gate.promise).mockResolvedValueOnce(b.value)
-  const close = registerComposerCatalogHandlers(prepare)
+  const close = registerComposerCatalogHandlers(new ComposerCatalogOwners(prepare))
   const one = new Sender(1),
     two = new Sender(2),
     req = request()
@@ -137,8 +138,8 @@ it('shares pending acquisition for parts, isolates windows, and releases on navi
 it('releases acquisitions completing after close and rejects stale requests without exposing native errors', async () => {
   const owned = lease(),
     gate = Promise.withResolvers<ComposerCatalogLease>()
-  const prepare = vi.fn<Parameters<typeof registerComposerCatalogHandlers>[0]>(() => gate.promise)
-  const close = registerComposerCatalogHandlers(prepare)
+  const prepare = vi.fn<ConstructorParameters<typeof ComposerCatalogOwners>[0]>(() => gate.promise)
+  const close = registerComposerCatalogHandlers(new ComposerCatalogOwners(prepare))
   const sender = new Sender(3),
     req = request()
   const result = call(sender, req).catch((error: unknown) => error)
@@ -158,7 +159,7 @@ it('reports a dead native generation and reacquires only on explicit retry', asy
     sender = new Sender(4),
     req = request()
   const prepare = vi.fn().mockResolvedValueOnce(a.value).mockResolvedValueOnce(b.value)
-  const close = registerComposerCatalogHandlers(prepare)
+  const close = registerComposerCatalogHandlers(new ComposerCatalogOwners(prepare))
   try {
     await call(sender, req)
     a.control.abort()
@@ -188,7 +189,7 @@ it('validates directory and owner before preparation, then retries failed setup'
     .fn()
     .mockRejectedValueOnce(new Error('SECRET config'))
     .mockResolvedValueOnce(owned.value)
-  const close = registerComposerCatalogHandlers(prepare)
+  const close = registerComposerCatalogHandlers(new ComposerCatalogOwners(prepare))
   try {
     await expect(
       call(sender, { ...req, scope: { ...req.scope, cwd: 'relative' } })
@@ -219,7 +220,7 @@ it('refresh re-resolves and keeps old owner until replacement is ready', async (
     .mockResolvedValueOnce(a.value)
     .mockReturnValueOnce(replacement.promise)
     .mockRejectedValueOnce(new Error('config unavailable'))
-  const close = registerComposerCatalogHandlers(prepare)
+  const close = registerComposerCatalogHandlers(new ComposerCatalogOwners(prepare))
   try {
     await call(sender, req)
     const agents = call(sender, { ...req, refresh: true })
@@ -253,7 +254,7 @@ it('returns read-stage HTTP diagnostics without leaking native bodies and preser
     .mockResolvedValueOnce([])
   owned.value.read = read
   const prepare = vi.fn(async () => owned.value)
-  const close = registerComposerCatalogHandlers(prepare)
+  const close = registerComposerCatalogHandlers(new ComposerCatalogOwners(prepare))
   try {
     expect(await call(sender, { ...req, part: 'mcp' })).toEqual({
       part: 'mcp',
@@ -280,7 +281,7 @@ it('silently cancels an in-flight metadata read when its owner leaves', async ()
     req = request()
   const gate = Promise.withResolvers<[]>()
   owned.value.read = vi.fn(() => gate.promise)
-  const close = registerComposerCatalogHandlers(async () => owned.value)
+  const close = registerComposerCatalogHandlers(new ComposerCatalogOwners(async () => owned.value))
   try {
     const result = call(sender, { ...req, part: 'plugins' })
     await vi.waitFor(() => expect(owned.value.read).toHaveBeenCalled())
