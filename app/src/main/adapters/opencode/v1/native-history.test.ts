@@ -1,4 +1,3 @@
-import { describe, expect, it, vi, type Mock } from 'vitest'
 import type {
   AssistantMessage,
   OpencodeClient,
@@ -6,14 +5,15 @@ import type {
   Session,
   ToolPart
 } from '@opencode-ai/sdk/v2/client'
+import { describe, expect, it, vi, type Mock } from 'vitest'
 import type { NativeHistoryRequest } from '../../common/native-history'
 import { createOpenCodeAdapter, type OpenCodeServer } from '../index'
 import {
   assistantMessage,
   editTool,
   jsonResponse,
-  textPart,
-  openCodeEvent
+  openCodeEvent,
+  textPart
 } from './adapter.testfixture'
 import {
   nativeHistoryBusy,
@@ -76,20 +76,16 @@ function fixture(messages: NativeMessages = [user(), answer('a1', [text('answer'
   deps: NativeReadDependencies
   get: Mock<() => Promise<{ data: Session | undefined; response: Response }>>
   messages: Mock<() => Promise<{ data: NativeMessages | undefined; response: Response }>>
-  migrate: Mock<NonNullable<NativeReadDependencies['migrate']>>
 } {
   const get = vi.fn(async () => response<Session>(session()))
   const readMessages = vi.fn(async () => response<NativeMessages>(messages))
-  const migrate = vi.fn<NonNullable<NativeReadDependencies['migrate']>>()
   const client = { session: { get, messages: readMessages } } as unknown as OpencodeClient
   return {
     get,
     messages: readMessages,
-    migrate,
     deps: {
       client: vi.fn(async () => client),
-      sourceKey: vi.fn(async () => 'fixture-source'),
-      migrate
+      sourceKey: vi.fn(async () => 'fixture-source')
     }
   }
 }
@@ -356,7 +352,7 @@ describe('OpenCode native message projection', () => {
 })
 
 describe('OpenCode native read through the SDK boundary', () => {
-  it('reads a stable native snapshot twice with the original ID and cwd and does not invoke migration', async () => {
+  it('reads a stable native snapshot twice with the original ID and cwd and keeps native identity', async () => {
     const f = fixture()
     const result = await readOpenCodeHistory(request, f.deps)
     expect(result).toMatchObject({
@@ -382,49 +378,24 @@ describe('OpenCode native read through the SDK boundary', () => {
       { sessionID: 's1', directory: request.cwd },
       { throwOnError: false }
     )
-    expect(f.migrate).not.toHaveBeenCalled()
   })
 
-  it('reports a native 404 as missing when no migration port exists', async () => {
+  it('reports a native 404 as missing without retrying session.get', async () => {
     const f = fixture()
     f.get.mockResolvedValue(response<Session>(undefined, 404))
-    expect(await readOpenCodeHistory(request, { ...f.deps, migrate: undefined })).toEqual({
+    expect(await readOpenCodeHistory(request, f.deps)).toEqual({
       status: 'missing',
-      message: expect.any(String)
+      message: 'OpenCode 원본 세션을 찾을 수 없습니다.'
     })
+    expect(f.get).toHaveBeenCalledOnce()
     expect(f.messages).not.toHaveBeenCalled()
   })
 
-  it('runs migration only after 404 and revalidates the migrated native session', async () => {
-    const f = fixture()
-    f.get.mockResolvedValueOnce(response<Session>(undefined, 404))
-    f.migrate.mockResolvedValue({ status: 'migrated' })
-    expect(await readOpenCodeHistory(request, f.deps)).toMatchObject({ status: 'ready' })
-    expect(f.migrate).toHaveBeenCalledExactlyOnceWith(request)
-    expect(f.get).toHaveBeenCalledTimes(4)
-  })
-
-  it.each(['missing', 'unavailable', 'migration-required', 'busy'] as const)(
-    'reports migration %s without reading or overwriting missing native data',
-    async (status) => {
-      const f = fixture()
-      f.get.mockResolvedValue(response<Session>(undefined, 404))
-      f.migrate.mockResolvedValue({ status, message: 'fixture migration result' })
-      expect(await readOpenCodeHistory(request, f.deps)).toEqual({
-        status: status === 'busy' ? 'migration-required' : status,
-        message: 'fixture migration result'
-      })
-      expect(f.get).toHaveBeenCalledOnce()
-      expect(f.messages).not.toHaveBeenCalled()
-    }
-  )
-
-  it('reports 403 as unavailable without attempting migration or exposing provider details', async () => {
+  it('reports 403 as unavailable without exposing provider details', async () => {
     const f = fixture()
     f.get.mockResolvedValue(response<Session>(undefined, 403))
     const result = await readOpenCodeHistory(request, f.deps)
     expect(result).toEqual({ status: 'unavailable', message: expect.any(String) })
-    expect(f.migrate).not.toHaveBeenCalled()
     expect(f.messages).not.toHaveBeenCalled()
   })
 
@@ -437,7 +408,6 @@ describe('OpenCode native read through the SDK boundary', () => {
         status: 'migration-required',
         message: expect.any(String)
       })
-      expect(f.migrate).not.toHaveBeenCalled()
       expect(f.messages).not.toHaveBeenCalled()
     }
   )

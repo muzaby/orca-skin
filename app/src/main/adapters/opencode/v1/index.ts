@@ -9,7 +9,6 @@ import {
 import { openCodeContextWindow } from './context-usage'
 import { openCodeDiscovery } from './discovery-cache'
 import { openCodeGlobalConfigFiles, openCodeGlobalPluginFingerprint } from './global-plugins'
-import { LegacyStorageMigration } from './legacy-storage-migration'
 import { openCodeProjectResources } from './project-settings'
 import { OpenCodeServerPool } from './server'
 import {
@@ -29,12 +28,6 @@ export const implementation: OpenCodeImplementation = {
     new OpenCodeAdapter(
       options.server ?? new OpenCodeServerPool(options),
       options.fetchImpl,
-      options.openDatabase
-        ? new LegacyStorageMigration({
-            legacyRoot: options.dataDirectory,
-            openDatabase: options.openDatabase
-          })
-        : undefined,
       options.openDatabase,
       options.extensionControl,
       options.preferences,
