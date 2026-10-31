@@ -1,10 +1,10 @@
 import type { OpencodeClient } from '@opencode-ai/sdk/v2/client'
-import type { NativeCommand, NativeResource } from '../../../../shared/native-resources'
-import { openCodePluginId, openCodePluginInstallation } from './plugin-installation'
-import { isOpenCodeSkill, withinSkillRoot } from './skill-sources'
 import { realpath } from 'node:fs/promises'
+import type { NativeCommand, NativeResource } from '../../../../shared/native-resources'
 import { classifyMcpError, opaqueIdentity } from './diagnostics'
+import { openCodePluginId, openCodePluginInstallation } from './plugin-installation'
 import { retentionTrace } from './retention-trace'
+import { isOpenCodeSkill, withinSkillRoot } from './skill-sources'
 
 export async function openCodeNativeCommands(
   client: OpencodeClient,
@@ -132,20 +132,4 @@ export async function openCodeNativePlugins(
       }
     })
   )
-}
-
-export async function openCodeNativePluginDirectory(
-  client: OpencodeClient,
-  directory: string,
-  id: string,
-  env: NodeJS.ProcessEnv = process.env
-): Promise<string | undefined> {
-  const config = await client.config.get(
-    { directory },
-    { throwOnError: true, signal: AbortSignal.timeout(2500) }
-  )
-  const spec = (config.data?.plugin ?? [])
-    .map((entry) => (typeof entry === 'string' ? entry : entry[0]))
-    .find((value) => openCodePluginId(value) === id)
-  return spec ? (await openCodePluginInstallation(spec, directory, env))?.directory : undefined
 }

@@ -1,35 +1,19 @@
-import type {
-  ComposerCatalogRequest,
-  ComposerCatalogResult,
-  ComposerCatalogInvalidated
-} from '../shared/composer-catalog'
-import type {
-  DraftNativeResourcesRequest,
-  NativeResources,
-  GlobalNativeResourceTarget,
-  SetGlobalNativeResource,
-  SetGlobalNativeResourceResult,
-  OpenCodePluginsChanged,
-  SetNativeResource,
-  OpenNativePlugin
-} from '../shared/native-resources'
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import type { AppErrorReport } from '../shared/app-error'
 import type {
-  ArtifactRef,
+  ArtifactActionResult,
   ArtifactCatalogItem,
-  ArtifactSetPinnedRequest,
-  ArtifactPreviewResult,
   ArtifactListRequest,
-  ArtifactTargetRequest,
-  ArtifactStatusRequest,
-  ArtifactStatusItem,
+  ArtifactPreviewResult,
+  ArtifactRef,
   ArtifactSaveRequest,
   ArtifactSaveResult,
-  ArtifactTrashResult,
-  ArtifactActionResult
+  ArtifactSetPinnedRequest,
+  ArtifactStatusItem,
+  ArtifactStatusRequest,
+  ArtifactTargetRequest,
+  ArtifactTrashResult
 } from '../shared/artifacts'
-import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
-import type { NormalizedPermissionMode } from '../shared/permission-mode'
 import type {
   BackgroundEvent,
   BackgroundSessionState,
@@ -39,29 +23,30 @@ import type {
   ReadBackgroundOutputResponse,
   StopAllBackgroundTasksResult
 } from '../shared/background-task'
+import type {
+  ComposerCatalogInvalidated,
+  ComposerCatalogRequest,
+  ComposerCatalogResult
+} from '../shared/composer-catalog'
 import {
   CHANNELS,
-  type BootReport,
-  type PermissionRespond,
-  type SetPermissionMode,
+  type AddSessionDirectoryRequest,
+  type AddSessionDirectoryResult,
+  type AgentEnvironment,
+  type AuthorSkillRequest,
   type Backend,
   type BackendListResult,
-  type AgentEnvironment,
-  type UsageStats,
-  type UsageStatsRange,
+  type BootReport,
+  type CancelSteer,
   type ConcurrencyEvent,
-  type NormalizedEvent,
+  type CreateEngineRequest,
   type CreateMcpServerRequest,
   type CreateProjectRequest,
-  type ProviderInfo,
-  type ProviderPlatformState,
-  type ProviderStepInfo,
-  type ProviderLoginRequest,
-  type ProviderContinueRequest,
-  type ProviderReauthRequest,
-  type ProviderRevokeRequest,
-  type ProviderConnectRequest,
-  type ProviderConnectionInfo,
+  type DebugMockState,
+  type DeleteSessionResult,
+  type EngineReadResult,
+  type EngineUserSettingsResult,
+  type EngineWriteResult,
   type FileEntry,
   type GitBranchList,
   type GitCheckoutRequest,
@@ -70,50 +55,63 @@ import {
   type GitDiffPatchRequest,
   type GitSnapshotRequest,
   type GitSnapshotResult,
-  type PickedAttachment,
-  type OpenPathRequest,
+  type InstallStatus,
+  type LoadedSession,
+  type McpServer,
+  type NormalizedEvent,
+  type NotifyShow,
   type OpenContextFileRequest,
   type OpenContextFileResult,
-  type ReadAttachmentResult,
-  type InstallStatus,
-  type RefreshSessionResult,
-  type LoadedSession,
-  type AddSessionDirectoryRequest,
-  type AddSessionDirectoryResult,
-  type McpServer,
+  type OpenPathRequest,
+  type PermissionRespond,
+  type PickedAttachment,
   type Project,
+  type ProviderConnectRequest,
+  type ProviderConnectionInfo,
+  type ProviderContinueRequest,
+  type ProviderInfo,
+  type ProviderLoginRequest,
+  type ProviderPlatformState,
+  type ProviderReauthRequest,
+  type ProviderRevokeRequest,
+  type ProviderStepInfo,
+  type ReadAttachmentResult,
+  type RefreshSessionResult,
   type SearchHit,
   type SendChatMessage,
-  type CancelSteer,
-  type SteerSendNow,
   type SessionListItem,
   type SessionTitleEvent,
+  type SetPermissionMode,
+  type SetSkillEnabledRequest,
   type Settings,
   type SettingsPatch,
-  type NotifyShow,
   type SkillInfo,
-  type AuthorSkillRequest,
-  type UploadSkillRequest,
-  type SetSkillEnabledRequest,
   type SkillTargetRequest,
-  type UpdateMcpServerRequest,
-  type UpdateProjectRequest,
-  type DebugMockState,
-  type CreateEngineRequest,
-  type UpdateEngineRequest,
-  type EngineReadResult,
-  type EngineUserSettingsResult,
-  type EngineWriteResult,
-  type UpdateState,
-  type UpdateProgress,
+  type SteerSendNow,
   type UpdateCheckResult,
+  type UpdateEngineRequest,
   type UpdateInstallResult,
-  type DeleteSessionResult
+  type UpdateMcpServerRequest,
+  type UpdateProgress,
+  type UpdateProjectRequest,
+  type UpdateState,
+  type UploadSkillRequest,
+  type UsageStats,
+  type UsageStatsRange
 } from '../shared/ipc'
+import type {
+  DraftNativeResourcesRequest,
+  GlobalNativeResourceTarget,
+  NativeResources,
+  OpenCodePluginsChanged,
+  SetGlobalNativeResource,
+  SetGlobalNativeResourceResult
+} from '../shared/native-resources'
+import type { NormalizedPermissionMode } from '../shared/permission-mode'
 // 사용량 타입은 `shared/usage/limits.ts` 가 소유한다(ipc.ts 에 두면 순환) — 타입 전용 import 라
 // 빌드에서 지워지므로 preload 에 런타임 코드가 딸려오지 않는다.
-import type { UsageDelta, UsageLimitsView } from '../shared/usage/limits'
 import { LOG_IPC_PAYLOAD_MAX_BYTES, type LogInput, type SerializedError } from '../shared/logging'
+import type { UsageDelta, UsageLimitsView } from '../shared/usage/limits'
 
 // 로그 전송 (0123) — 유일한 one-way send. 크기 상한 초과·직렬화 불가는 조용히 폐기한다
 // (로깅 실패가 renderer 를 깨면 안 된다). 공통 필드(timestamp 등)는 main 이 강제 부여.
@@ -291,8 +289,6 @@ const orca = {
         ...(typeof request === 'string' ? { sessionId: request } : request),
         ...(observation ? { observation } : {})
       }),
-    openNativePlugin: (request: OpenNativePlugin): Promise<void> =>
-      ipcRenderer.invoke(CHANNELS.sessionOpenNativePlugin, request),
     globalExtensions: (backend: Backend): Promise<NativeResources> =>
       ipcRenderer.invoke(CHANNELS.extensionCatalog, { backend }),
     setGlobalExtension: (
@@ -301,8 +297,6 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.extensionSetEnabled, request),
     openGlobalExtension: (request: GlobalNativeResourceTarget): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.extensionOpen, request),
-    setNativeResource: (request: SetNativeResource): Promise<NativeResources> =>
-      ipcRenderer.invoke(CHANNELS.sessionSetNativeResource, request),
     addDirectory: (request: AddSessionDirectoryRequest): Promise<AddSessionDirectoryResult> =>
       ipcRenderer.invoke(CHANNELS.sessionAddDirectory, request),
     cwd: (): Promise<string> => ipcRenderer.invoke(CHANNELS.sessionCwd),

@@ -1,25 +1,21 @@
-import {
-  openCodeNativeCommands,
-  openCodeNativePlugins,
-  openCodeNativePluginDirectory
-} from './native-resources'
 import type { Event, OpencodeClient } from '@opencode-ai/sdk/v2/client'
 import { randomUUID } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
-import type { LiveTurn, ProviderMessageBatch } from '../../common/types'
-import type { TurnContinuation, TurnRequest } from '../../common/turn'
 import type { NormalizedEvent } from '../../../../shared/ipc'
-import { OpenCodeActivityMapper } from './activity'
-import { createOpenCodeMessageId } from './message-id'
-import { classifyOpenCodeError, openCodePreparationError } from './errors'
-import { isSettledOpenCodePermission, replyToApproval } from './approval'
-import { recoveredPrompt } from '../../common/recovery'
-import { modelRef } from './model-ref'
-import { reportError } from '../../../infra/error-report'
 import type { NativeComposerCatalog, NativeResource } from '../../../../shared/native-resources'
+import { pluginMentionIds } from '../../../../shared/plugin-mention'
+import { reportError } from '../../../infra/error-report'
+import { recoveredPrompt } from '../../common/recovery'
+import type { TurnContinuation, TurnRequest } from '../../common/turn'
+import type { LiveTurn, ProviderMessageBatch } from '../../common/types'
+import { OpenCodeActivityMapper } from './activity'
+import { isSettledOpenCodePermission, replyToApproval } from './approval'
+import { classifyOpenCodeError, openCodePreparationError } from './errors'
+import { createOpenCodeMessageId } from './message-id'
+import { modelRef } from './model-ref'
+import { openCodeNativeCommands, openCodeNativePlugins } from './native-resources'
 import type { OpenCodeClientLease } from './session-context'
 import { OpenCodeTurnTrace } from './turn-trace'
-import { pluginMentionIds } from '../../../../shared/plugin-mention'
 
 /** One SDK subscription feeds the existing SessionRuntime pump for its entire lifetime. */
 export function openCodeChannel(
@@ -481,21 +477,6 @@ export function openCodeChannel(
     projectResourcePolicy: () => connection?.mcpControl?.policy,
     reconcileNativeResources: async (revision, idle) =>
       connection?.mcpControl ? connection.mcpControl.reconcile(revision, idle) : 'applied',
-    setNativeResource: async (request) => {
-      if (
-        closed ||
-        ended ||
-        request.generation !== generation ||
-        request.kind !== 'mcp' ||
-        !connection?.mcpControl
-      )
-        throw new Error('현재 프로젝트에서 이 항목을 제어할 수 없습니다.')
-      await connection.mcpControl.set(request.id, request.enabled)
-    },
-    nativePluginDirectory: async (id) => {
-      if (!client || closed || ended) return undefined
-      return openCodeNativePluginDirectory(client, req.cwd, id, { ...process.env, ...req.env })
-    },
     nativeResources: async () => {
       if (!client || closed || ended || connection?.signal.aborted)
         return { state: 'disconnected', items: [] }

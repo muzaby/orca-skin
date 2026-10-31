@@ -1,17 +1,16 @@
-import type { OpenCodePluginsChanged } from '../../../../shared/native-resources'
 import type {
-  ComposerCatalogRequest,
-  ComposerCatalogResult,
-  ComposerCatalogInvalidated
-} from '../../../../shared/composer-catalog'
-import type {
-  DraftNativeResourcesRequest,
-  NativeResources,
-  SetNativeResource,
-  SetGlobalNativeResourceResult,
-  OpenNativePlugin
-} from '../../../../shared/native-resources'
-import type { NormalizedPermissionMode } from '../../../../shared/permission-mode'
+  ArtifactActionResult,
+  ArtifactCatalogItem,
+  ArtifactListRequest,
+  ArtifactRef,
+  ArtifactSaveRequest,
+  ArtifactSaveResult,
+  ArtifactSetPinnedRequest,
+  ArtifactStatusItem,
+  ArtifactStatusRequest,
+  ArtifactTargetRequest,
+  ArtifactTrashResult
+} from '../../../../shared/artifacts'
 import type {
   BackgroundEvent,
   BackgroundSessionState,
@@ -22,40 +21,28 @@ import type {
   StopAllBackgroundTasksResult
 } from '../../../../shared/background-task'
 import type {
-  ArtifactRef,
-  ArtifactCatalogItem,
-  ArtifactSetPinnedRequest,
-  ArtifactListRequest,
-  ArtifactTargetRequest,
-  ArtifactStatusRequest,
-  ArtifactStatusItem,
-  ArtifactSaveRequest,
-  ArtifactSaveResult,
-  ArtifactTrashResult,
-  ArtifactActionResult
-} from '../../../../shared/artifacts'
+  ComposerCatalogInvalidated,
+  ComposerCatalogRequest,
+  ComposerCatalogResult
+} from '../../../../shared/composer-catalog'
 import type {
-  PermissionRespond,
-  BootReport,
-  SetPermissionMode,
+  AddSessionDirectoryRequest,
+  AddSessionDirectoryResult,
+  AgentEnvironment,
+  AuthorSkillRequest,
   Backend,
   BackendListResult,
-  AgentEnvironment,
-  UsageStats,
-  UsageStatsRange,
+  BootReport,
+  CancelSteer,
   ConcurrencyEvent,
-  NormalizedEvent,
+  CreateEngineRequest,
   CreateMcpServerRequest,
   CreateProjectRequest,
-  ProviderInfo,
-  ProviderPlatformState,
-  ProviderStepInfo,
-  ProviderLoginRequest,
-  ProviderContinueRequest,
-  ProviderReauthRequest,
-  ProviderRevokeRequest,
-  ProviderConnectRequest,
-  ProviderConnectionInfo,
+  DebugMockState,
+  DeleteSessionResult,
+  EngineReadResult,
+  EngineUserSettingsResult,
+  EngineWriteResult,
   FileEntry,
   GitBranchList,
   GitCheckoutRequest,
@@ -65,46 +52,57 @@ import type {
   GitSnapshotRequest,
   GitSnapshotResult,
   GitStatus,
-  PickedAttachment,
-  OpenPathRequest,
+  InstallStatus,
+  LoadedSession,
+  McpServer,
+  NormalizedEvent,
+  NotifyShow,
   OpenContextFileRequest,
   OpenContextFileResult,
-  ReadAttachmentResult,
-  InstallStatus,
-  RefreshSessionResult,
-  LoadedSession,
-  AddSessionDirectoryRequest,
-  AddSessionDirectoryResult,
-  McpServer,
+  OpenPathRequest,
+  PermissionRespond,
+  PickedAttachment,
   Project,
+  ProviderConnectRequest,
+  ProviderConnectionInfo,
+  ProviderContinueRequest,
+  ProviderInfo,
+  ProviderLoginRequest,
+  ProviderPlatformState,
+  ProviderReauthRequest,
+  ProviderRevokeRequest,
+  ProviderStepInfo,
+  ReadAttachmentResult,
+  RefreshSessionResult,
   SearchHit,
   SendChatMessage,
-  CancelSteer,
-  SteerSendNow,
   SessionListItem,
   SessionTitleEvent,
+  SetPermissionMode,
+  SetSkillEnabledRequest,
   Settings,
   SettingsPatch,
-  NotifyShow,
   SkillInfo,
-  AuthorSkillRequest,
-  UploadSkillRequest,
-  SetSkillEnabledRequest,
   SkillTargetRequest,
-  UpdateMcpServerRequest,
-  UpdateProjectRequest,
-  DebugMockState,
-  CreateEngineRequest,
-  UpdateEngineRequest,
-  EngineReadResult,
-  EngineUserSettingsResult,
-  EngineWriteResult,
-  UpdateState,
-  UpdateProgress,
+  SteerSendNow,
   UpdateCheckResult,
+  UpdateEngineRequest,
   UpdateInstallResult,
-  DeleteSessionResult
+  UpdateMcpServerRequest,
+  UpdateProgress,
+  UpdateProjectRequest,
+  UpdateState,
+  UploadSkillRequest,
+  UsageStats,
+  UsageStatsRange
 } from '../../../../shared/ipc'
+import type {
+  DraftNativeResourcesRequest,
+  NativeResources,
+  OpenCodePluginsChanged,
+  SetGlobalNativeResourceResult
+} from '../../../../shared/native-resources'
+import type { NormalizedPermissionMode } from '../../../../shared/permission-mode'
 // 사용량 타입 정본은 `shared/usage/limits.ts` (ipc.ts 에 두면 순환).
 import type { UsageDelta, UsageLimitsView } from '../../../../shared/usage/limits'
 
@@ -248,10 +246,6 @@ export const sessionApi = {
     observation
       ? window.orca.session.nativeResources(request, observation)
       : window.orca.session.nativeResources(request),
-  openNativePlugin: (request: OpenNativePlugin): Promise<void> =>
-    window.orca.session.openNativePlugin(request),
-  setNativeResource: (request: SetNativeResource): Promise<NativeResources> =>
-    window.orca.session.setNativeResource(request),
   addDirectory: (request: AddSessionDirectoryRequest): Promise<AddSessionDirectoryResult> =>
     window.orca.session.addDirectory(request),
   cwd: (): Promise<string> => window.orca.session.cwd(),

@@ -1,11 +1,14 @@
 import { describe, expect, it, vi, type Mock } from 'vitest'
+import type { BackgroundEvent, ProviderMessageEvent } from '../../../shared/background-task'
 import type { DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
-import { makeClassifiedError } from '../../infra/errors'
-import type { TurnRequest, TurnContinuation } from '../../adapters/common/turn'
-import type { AbortCause } from '../../contracts/session-state'
-import type { GovernedLiveTurn, RuntimeSessionAdapter } from '../../contracts/ports'
 import type { NormalizedPermissionMode } from '../../../shared/permission-mode'
+import type { TurnContinuation, TurnRequest } from '../../adapters/common/turn'
 import type { LiveTurn, ProviderMessageBatch } from '../../adapters/common/types'
+import type { GovernedLiveTurn, RuntimeSessionAdapter } from '../../contracts/ports'
+import type { AbortCause } from '../../contracts/session-state'
+import { makeClassifiedError } from '../../infra/errors'
+import { getLogger } from '../../infra/log/registry'
+import { decideRespawn } from './respawn-policy'
 import { SessionRuntime, pickFrameDelegates } from './session-runtime'
 
 it.each([0, 37])(
@@ -24,9 +27,6 @@ it.each([0, 37])(
     expect(runtime.spawnedManagedMcpRevision).toBeUndefined()
   }
 )
-import { decideRespawn } from './respawn-policy'
-import { getLogger } from '../../infra/log/registry'
-import type { BackgroundEvent, ProviderMessageEvent } from '../../../shared/background-task'
 
 function req(): TurnRequest {
   return {
@@ -2203,12 +2203,8 @@ describe('SessionRuntime native resource generation', () => {
   })
   async function setup(): Promise<{
     runtime: SessionRuntime
-    nativeResources: Mock<() => Promise<import('../../../shared/native-resources').NativeResources>>
-    setNativeResource: Mock<
-      (request: import('../../../shared/native-resources').SetNativeResource) => Promise<void>
-    >
-    nativePluginDirectory: Mock<(id: string) => Promise<string | undefined>>
-    done: () => Promise<void>
+    nativeResources: Mock<() => Promise<{ state: 'connected'; generation: string; items: never[] }>>
+    done(): Promise<void>
   }> {
     const turn = live([{ type: 'message.delta', sessionId: 's1', delta: { text: 'a' } }])
     const nativeResources = vi.fn(async () => ({
@@ -2216,115 +2212,42 @@ describe('SessionRuntime native resource generation', () => {
       generation: 'gen-B',
       items: []
     }))
-    const setNativeResource = vi.fn<
-      (request: import('../../../shared/native-resources').SetNativeResource) => Promise<void>
-    >(async () => {})
-    const nativePluginDirectory = vi.fn<(id: string) => Promise<string | undefined>>(
-      async () => 'C:/plugin-B'
-    )
-    Object.assign(turn, {
-      providerGeneration: 'gen-B',
-      nativeResources,
-      setNativeResource,
-      nativePluginDirectory
-    })
+    Object.assign(turn, { providerGeneration: 'gen-B', nativeResources })
     const runtime = new SessionRuntime(adapter(turn))
     const stream = runtime.send(req())[Symbol.asyncIterator]()
     await stream.next()
     return {
       runtime,
       nativeResources,
-      setNativeResource,
-      nativePluginDirectory,
       done: async () => {
         await stream.return?.(undefined)
       }
     }
   }
-  it('forwards native plugin identity and rejects a result after channel retirement', async () => {
-    const { runtime, nativePluginDirectory, done } = await setup()
-    expect(await runtime.nativePluginDirectory('plugin-B')).toBe('C:/plugin-B')
-    expect(nativePluginDirectory).toHaveBeenCalledExactlyOnceWith('plugin-B')
-    let finish!: (value: string) => void
-    nativePluginDirectory.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          finish = resolve
-        })
-    )
-    const pending = runtime.nativePluginDirectory('plugin-B')
-    const rejected = expect(pending).rejects.toThrow('바뀌었습니다')
-    runtime.close()
-    finish('C:/old')
-    await rejected
-    expect(await runtime.nativePluginDirectory('plugin-B')).toBeUndefined()
-    await done()
-  })
-  it('reads and toggles the same live generation and rejects a stale identity', async () => {
-    const { runtime, setNativeResource, done } = await setup()
+  it('reads the same live generation and disconnects on retirement', async () => {
+    const { runtime, done } = await setup()
     expect(await runtime.nativeResources()).toEqual({
       state: 'connected',
       generation: 'gen-B',
       items: []
     })
-    for (const enabled of [false, true]) {
-      const request = {
-        sessionId: 's1',
-        generation: 'gen-B',
-        kind: 'mcp' as const,
-        id: 'native-A',
-        enabled
-      }
-      await runtime.setNativeResource(request)
-      expect(setNativeResource).toHaveBeenLastCalledWith(request)
-    }
-    await expect(
-      runtime.setNativeResource({
-        sessionId: 's1',
-        generation: 'old',
-        kind: 'mcp',
-        id: 'native-A',
-        enabled: false
-      })
-    ).rejects.toThrow()
-    expect(setNativeResource).toHaveBeenCalledTimes(2)
     runtime.close()
     expect(await runtime.nativeResources()).toEqual({ state: 'disconnected', items: [] })
     await done()
   })
-  it.each(['read', 'write'] as const)(
-    'rejects a late %s result after channel retirement',
-    async (operation) => {
-      const { runtime, nativeResources, setNativeResource, done } = await setup()
-      let finish!: () => void
-      if (operation === 'read')
-        nativeResources.mockImplementationOnce(
-          () =>
-            new Promise((resolve) => {
-              finish = () => resolve({ state: 'connected', generation: 'gen-B', items: [] })
-            })
-        )
-      else
-        setNativeResource.mockImplementationOnce(
-          () =>
-            new Promise((resolve) => {
-              finish = resolve
-            })
-        )
-      const pending =
-        operation === 'read'
-          ? runtime.nativeResources()
-          : runtime.setNativeResource({
-              sessionId: 's1',
-              generation: 'gen-B',
-              kind: 'mcp',
-              id: 'native-A',
-              enabled: false
-            })
-      runtime.teardownChannel()
-      finish()
-      await expect(pending).rejects.toThrow('바뀌었습니다')
-      await done()
-    }
-  )
+  it('rejects a late read result after channel retirement', async () => {
+    const { runtime, nativeResources, done } = await setup()
+    let finish!: () => void
+    nativeResources.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = () => resolve({ state: 'connected', generation: 'gen-B', items: [] })
+        })
+    )
+    const pending = runtime.nativeResources()
+    runtime.teardownChannel()
+    finish()
+    await expect(pending).rejects.toThrow('바뀌었습니다')
+    await done()
+  })
 })

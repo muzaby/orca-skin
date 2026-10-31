@@ -1,8 +1,10 @@
 import { EventEmitter } from 'node:events'
 import { afterEach, expect, it, vi, type Mock } from 'vitest'
-import { CHANNELS } from '../../../shared/ipc'
 import type { ComposerCatalogLease } from '../../../shared/composer-catalog'
+import { CHANNELS } from '../../../shared/ipc'
 import type { NativeResources } from '../../../shared/native-resources'
+import { PreparedMcpResources } from '../prepared-mcp-resources'
+import { registerSessionResourceHandlers } from './session-resources'
 const callbacks = vi.hoisted(
   () => new Map<string, (event: unknown, request: unknown) => Promise<NativeResources>>()
 )
@@ -10,8 +12,6 @@ vi.mock('electron', () => ({
   shell: {},
   ipcMain: { handle: (name: string, fn: never) => callbacks.set(name, fn) }
 }))
-import { PreparedMcpResources } from '../prepared-mcp-resources'
-import { registerSessionResourceHandlers } from './session-resources'
 
 const scopes = {
   draft: {
@@ -56,19 +56,13 @@ function fixture(): {
     retry: vi.fn(),
     decorate: (_: unknown, value: unknown) => value
   }
-  registerSessionResourceHandlers(
-    () => undefined,
-    configuredResources,
-    undefined,
-    undefined,
-    undefined,
-    configuredResources,
-    undefined,
-    undefined,
-    undefined,
-    sync as never,
-    prepared
-  )
+  registerSessionResourceHandlers({
+    lookup: () => undefined,
+    configuredResources: configuredResources,
+    draftResources: configuredResources,
+    projectSync: sync as never,
+    preparedMcp: prepared
+  })
   const sender = Object.assign(new EventEmitter(), {
     id: 289,
     isDestroyed: () => false,

@@ -1,24 +1,24 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Event } from '@opencode-ai/sdk/v2'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { NormalizedEvent } from '../../../../shared/ipc'
+import { setRootLogger } from '../../../infra/log/registry'
 import type { TurnRequest } from '../../common/turn'
 import type { ProviderMessageBatch } from '../../common/types'
 import { OpenCodeAdapter } from './adapter'
-import { OpenCodeServerPool } from './server'
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { retentionTransport } from './opencode-retention.testfixture'
-import { managedMcpAlias } from './managed-mcp'
-import { openCodeDiscovery } from './discovery-cache'
-import { setRootLogger } from '../../../infra/log/registry'
 import {
   assistantMessage,
   editTool,
-  jsonResponse,
   openCodeEvent as event,
+  jsonResponse,
   textPart
 } from './adapter.testfixture'
+import { openCodeDiscovery } from './discovery-cache'
+import { managedMcpAlias } from './managed-mcp'
+import { retentionTransport } from './opencode-retention.testfixture'
+import { OpenCodeServerPool } from './server'
 
 function request(overrides: Partial<TurnRequest> = {}): TurnRequest {
   return {
@@ -315,24 +315,6 @@ it('applies SDK MCP choices before the first prompt, rejects unsafe project cont
   expect(first.items).toEqual([
     expect.objectContaining({ id: 'docs', enabled: false, canToggle: false })
   ])
-  await expect(
-    live.setNativeResource!({
-      sessionId: 's1',
-      generation: 'old',
-      id: 'docs',
-      kind: 'mcp',
-      enabled: true
-    })
-  ).rejects.toThrow('제어')
-  await expect(
-    live.setNativeResource!({
-      sessionId: 's1',
-      generation: first.generation!,
-      id: 'docs',
-      kind: 'mcp',
-      enabled: true
-    })
-  ).rejects.toThrow()
   const policy = live.projectResourcePolicy!()!
   const revision = (await policy.read('C:/work')).revision
   expect(await live.reconcileNativeResources!(revision, () => false)).toBe('pending')

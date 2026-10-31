@@ -1,18 +1,18 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, renameSync } from 'node:fs'
-import { join } from 'node:path'
+import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { afterEach, expect, it, vi } from 'vitest'
-import type { GovernedLiveTurn } from '../contracts/ports'
 import type { ChatActivitySnapshot } from '../../shared/ipc'
+import {
+  claudeProjectSettingsFiles,
+  readClaudeProjectSettings
+} from '../adapters/claude/project-settings'
+import type { GovernedLiveTurn } from '../contracts/ports'
 import {
   ProjectResourceSync,
   projectResourcesIdle,
   type ProjectResourceTarget
 } from './project-resource-sync'
-import {
-  claudeProjectSettingsFiles,
-  readClaudeProjectSettings
-} from '../adapters/claude/project-settings'
 const services: ProjectResourceSync[] = []
 afterEach(() => {
   services.splice(0).forEach((service) => service.close())
@@ -84,7 +84,6 @@ function fixture(): {
       ]
     }),
     emit,
-    run: async (_key, task) => task(),
     watch: (_path, callback) => {
       changed.push(callback)
       return stopped
@@ -246,7 +245,6 @@ it('detects real file creation and atomic replacement without starting a runtime
       read: async () => readClaudeProjectSettings(cwd, root)
     }),
     idle: () => true,
-    run: async (_key, action) => action(),
     emit: vi.fn(),
     read: async () => ({
       state: 'disconnected',
@@ -338,6 +336,7 @@ it('discards a revision invalidated during reading before any resource push', as
   } as unknown as GovernedLiveTurn
   f.replace([peer])
   f.service.tick()
+  await flush()
   expect(policyRead).toHaveBeenCalledOnce()
   f.update('newer')
   stale.resolve({ revision: 'stale' })
@@ -384,12 +383,6 @@ it('holds watcher broadcasts behind an in-flight project mutation', async () => 
   let appliedRevision = 'before'
   const changed: Array<() => void> = []
   const emit = vi.fn()
-  let tail: Promise<unknown> = Promise.resolve()
-  const run = <T>(_key: string, task: () => Promise<T>): Promise<T> => {
-    const next = tail.catch(() => undefined).then(task)
-    tail = next
-    return next
-  }
   const runtime = {
     reconcileNativeResources: vi.fn(async () => 'pending' as const),
     nativeResourcesApplied: (value: string) => value === appliedRevision
@@ -415,7 +408,6 @@ it('holds watcher broadcasts behind an in-flight project mutation', async () => 
       ]
     }),
     emit,
-    run,
     watch: (_path, callback) => {
       changed.push(callback)
       return () => undefined
@@ -426,7 +418,7 @@ it('holds watcher broadcasts behind an in-flight project mutation', async () => 
   await flush()
   emit.mockClear()
   let release!: () => void
-  const mutation = run('same', () => new Promise<void>((resolve) => (release = resolve)))
+  const mutation = service.run('same', () => new Promise<void>((resolve) => (release = resolve)))
   revision = 'own-first'
   appliedRevision = 'own-first'
   changed.forEach((callback) => callback())
@@ -449,12 +441,6 @@ it('holds watcher broadcasts behind an in-flight project mutation', async () => 
 it('holds connection-change broadcasts behind an in-flight project mutation', async () => {
   let pending = false
   const emit = vi.fn()
-  let tail: Promise<unknown> = Promise.resolve()
-  const run = <T>(_key: string, task: () => Promise<T>): Promise<T> => {
-    const next = tail.catch(() => undefined).then(task)
-    tail = next
-    return next
-  }
   const runtime = {
     reconcileNativeResources: vi.fn(async () => 'applied' as const),
     nativeResourcesApplied: () => true
@@ -487,7 +473,6 @@ it('holds connection-change broadcasts behind an in-flight project mutation', as
       ]
     }),
     emit,
-    run,
     watch: () => () => undefined
   })
   services.push(service)
@@ -495,7 +480,7 @@ it('holds connection-change broadcasts behind an in-flight project mutation', as
   await flush()
   emit.mockClear()
   let release!: () => void
-  const mutation = run('same', async () => {
+  const mutation = service.run('same', async () => {
     pending = true
     await new Promise<void>((resolve) => (release = resolve))
     pending = false
@@ -531,15 +516,9 @@ function queuedMutationFixture(
   let mutation: Promise<void> | undefined
   const changed: Array<() => void> = []
   const emit = vi.fn()
-  let tail: Promise<unknown> = Promise.resolve()
-  const run = <T>(_key: string, task: () => Promise<T>): Promise<T> => {
-    const next = tail.catch(() => undefined).then(task)
-    tail = next
-    return next
-  }
   const queue = (): void => {
     pending = true
-    mutation = run('same', async () => {
+    mutation = service.run('same', async () => {
       await new Promise<void>((resolve) => (release = resolve))
       pending = false
     })
@@ -575,7 +554,6 @@ function queuedMutationFixture(
       ]
     }),
     emit,
-    run,
     watch: (_path, callback) => {
       changed.push(callback)
       return () => undefined
@@ -653,3 +631,22 @@ it('holds apply failure broadcasts behind a mutation queued during reconcile', a
   expect(fixture.emit.mock.calls.length).toBeGreaterThan(before)
   expect(pendingBroadcasts(fixture.emit)).toBe(0)
 })
+
+it.each([false, true])(
+  'serializes the same project key and continues after failure (%s)',
+  async (reject) => {
+    const { service } = fixture()
+    const gate = Promise.withResolvers<void>()
+    const first = service.run('same', () => gate.promise)
+    const observed = first.catch(() => undefined)
+    const secondAction = vi.fn(async () => 'second')
+    const second = service.run('same', secondAction)
+    expect(await service.run('other', async () => 'independent')).toBe('independent')
+    expect(secondAction).not.toHaveBeenCalled()
+    if (reject) gate.reject(new Error('failed'))
+    else gate.resolve()
+    await observed
+    expect(await second).toBe('second')
+    expect(secondAction).toHaveBeenCalledOnce()
+  }
+)

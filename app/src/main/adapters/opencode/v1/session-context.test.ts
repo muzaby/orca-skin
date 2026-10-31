@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
 import type { Event } from '@opencode-ai/sdk/v2/client'
+import { describe, expect, it, vi } from 'vitest'
+import { openCodeEvent as event, jsonResponse } from './adapter.testfixture'
 import { OpenCodeSessionContexts } from './session-context'
-import { jsonResponse, openCodeEvent as event } from './adapter.testfixture'
 
 interface ContextFixture {
   pool: OpenCodeSessionContexts
@@ -140,7 +140,6 @@ describe('OpenCode server context with the installed SDK', () => {
     await b.prepare(freshSignal())
     expect((await b.mcp(freshSignal()))[0].enabled).toBe(true)
     expect((await peer.mcp(freshSignal(), true))[0].enabled).toBe(true)
-    await expect(a.mcpControl!.set('docs', true)).rejects.toThrow()
     expect((await peer.mcp(freshSignal(), true))[0].enabled).toBe(true)
     await a.release()
     expect((await peer.mcp(freshSignal(), true))[0].enabled).toBe(true)

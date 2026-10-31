@@ -1,7 +1,7 @@
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import type { OpencodeClient } from '@opencode-ai/sdk/v2/client'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { OpencodeClient } from '@opencode-ai/sdk/v2/client'
 import { expect, it, vi } from 'vitest'
 import { OpenCodeMcpControl } from './mcp-control'
 
@@ -45,7 +45,8 @@ it('applies restored choices once per new directory and preserves project overri
   const signal = new AbortController().signal
   try {
     const old = new OpenCodeMcpControl(client, a, control, signal)
-    await old.prepare()
+    old.activate()
+    await old.pending()
     await old.reconcileChoices()
     expect(connect.mock.calls.map(([params]) => params)).toEqual([
       { directory: a, name: 'disabled' },
@@ -55,9 +56,11 @@ it('applies restored choices once per new directory and preserves project overri
       { directory: a, name: 'docs' }
     ])
     choices = { 'mcp:docs': true, 'mcp:disabled': false, 'mcp:project': true }
-    await old.prepare()
+    old.activate()
+    await old.pending()
     const next = new OpenCodeMcpControl(client, b, control, signal)
-    await next.prepare()
+    next.activate()
+    await next.pending()
     await next.reconcileChoices()
     expect(
       await old.preview([

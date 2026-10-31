@@ -1,17 +1,17 @@
-import {
-  discoveryReadFile as readFile,
-  discoveryStat as stat,
-  openCodeDiscovery
-} from './discovery-cache'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { isRecord } from '../../../../shared/obj'
 import type { NativeResource } from '../../../../shared/native-resources'
+import { isRecord } from '../../../../shared/obj'
+import {
+  openCodeDiscovery,
+  discoveryReadFile as readFile,
+  discoveryStat as stat
+} from './discovery-cache'
 import { openCodePluginId, openCodePluginInstallation } from './plugin-installation'
 import { withinSkillRoot } from './skill-sources'
 
-import { parseConfig } from './openCodePluginConfig'
 import { effectiveOpenCodePlugins, openCodeGlobalConfigFiles } from './global-plugins'
+import { parseConfig } from './openCodePluginConfig'
 export { parseConfig } from './openCodePluginConfig'
 
 /** Resolve only a file that actually declares this server; never invent a default path. */
@@ -139,14 +139,6 @@ export async function globalOpenCodeResources(
 
 export async function globalOpenCodeMcpFile(id: string): Promise<string | undefined> {
   return (await configuredOpenCode(homedir(), process.env, true)).files.get(id)
-}
-
-export async function configuredOpenCodeMcpFile(
-  cwd: string,
-  id: string,
-  env: NodeJS.ProcessEnv = process.env
-): Promise<string | undefined> {
-  return (await configuredOpenCode(cwd, env)).files.get(id)
 }
 
 export async function configuredOpenCodeResources(

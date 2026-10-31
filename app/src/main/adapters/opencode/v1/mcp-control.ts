@@ -1,12 +1,12 @@
 import type { OpencodeClient } from '@opencode-ai/sdk/v2/client'
+import type { NativeResource } from '../../../../shared/native-resources'
 import type { ExtensionControl } from '../../common/extension-control'
 import type { ProjectResourcePolicy } from '../../common/project-resources'
+import type { OpenCodeComposerCache } from './composer-cache'
+import { opaqueIdentity } from './diagnostics'
+import { waitForOpenCode } from './instance-lifecycle'
 import { openCodeNativeMcp } from './native-resources'
 import { openCodeProjectResources, readOpenCodeProjectSettings } from './project-settings'
-import type { NativeResource } from '../../../../shared/native-resources'
-import type { OpenCodeComposerCache } from './composer-cache'
-import { waitForOpenCode } from './instance-lifecycle'
-import { opaqueIdentity } from './diagnostics'
 import { retentionTrace } from './retention-trace'
 
 interface Attempt {
@@ -203,11 +203,6 @@ export class OpenCodeMcpControl {
     } finally {
       clearTimeout(timer)
     }
-  }
-  async set(_id: string, _enabled: boolean): Promise<void> {
-    void _id
-    void _enabled
-    throw new Error('이 MCP는 작업 경로별 제어를 지원하지 않습니다.')
   }
   async reconcile(
     revision: string,

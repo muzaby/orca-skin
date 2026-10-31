@@ -1,21 +1,19 @@
-import { openCodePluginId } from './plugin-installation'
-import { realpath, mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import type { Event } from '@opencode-ai/sdk/v2'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import type { Event } from '@opencode-ai/sdk/v2'
-import type { LiveTurn, ProviderMessageBatch } from '../../common/types'
+import { reportError } from '../../../infra/error-report'
+import { setRootLogger } from '../../../infra/log/registry'
 import type { TurnRequest } from '../../common/turn'
+import type { LiveTurn, ProviderMessageBatch } from '../../common/types'
 import { OpenCodeAdapter } from './adapter'
 import {
   assistantMessage,
   editTool,
-  jsonResponse,
   openCodeEvent as event,
+  jsonResponse,
   textPart
 } from './adapter.testfixture'
-import { reportError } from '../../../infra/error-report'
-import { setRootLogger } from '../../../infra/log/registry'
+import { openCodePluginId } from './plugin-installation'
 
 vi.mock('../../../infra/error-report', () => ({ reportError: vi.fn() }))
 
@@ -1043,52 +1041,8 @@ it('exposes native resources from the live channel client and its directory with
       )
       expect(request.method).toBe('GET')
     }
-    await expect(
-      f.live.setNativeResource!({
-        sessionId: 's1',
-        generation: f.live.providerGeneration!,
-        kind: 'mcp',
-        id: 'native',
-        enabled: false
-      })
-    ).rejects.toThrow('제어')
   } finally {
     await dispose(f.live, iterator)
   }
   expect(await f.live.nativeResources?.()).toEqual({ state: 'disconnected', items: [] })
-})
-
-it('resolves the native plugin directory with the same environment as the live channel', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'orca-channel-plugin-')).then((path) => realpath(path))
-  const directory = join(
-    root,
-    'opencode',
-    'packages',
-    '@native/plugin@1',
-    'node_modules',
-    '@native/plugin'
-  )
-  await mkdir(directory, { recursive: true })
-  await writeFile(
-    join(directory, 'package.json'),
-    JSON.stringify({ description: 'Channel plugin skills' })
-  )
-  const f = fixture({ cwd: root, env: { XDG_CACHE_HOME: root } })
-  const iterator = f.live.eventBatches[Symbol.asyncIterator]()
-  try {
-    expect(
-      await f.live.nativePluginDirectory?.(openCodePluginId('@native/plugin@1'))
-    ).toBeUndefined()
-    await frame(iterator)
-    expect(
-      (await f.live.nativeResources?.())?.items.find((item) => item.kind === 'plugin')?.description
-    ).toBe('Channel plugin skills')
-    expect(await f.live.nativePluginDirectory?.(openCodePluginId('@native/plugin@1'))).toBe(
-      directory
-    )
-    expect(await f.live.nativePluginDirectory?.('plugin:0')).toBeUndefined()
-  } finally {
-    await dispose(f.live, iterator)
-    await rm(root, { recursive: true, force: true })
-  }
 })

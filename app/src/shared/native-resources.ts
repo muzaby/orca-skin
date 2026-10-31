@@ -50,13 +50,6 @@ export interface NativeComposerCatalog {
   agents: { name: string; description?: string; model?: string; variant?: string }[]
   models: { id: string; variants: string[] }[]
 }
-export interface SetNativeResource {
-  sessionId: string
-  generation: string
-  kind: NativeResource['kind']
-  id: string
-  enabled: boolean
-}
 export interface GlobalNativeResourceTarget {
   backend: Backend
   kind: NativeResource['kind']
@@ -83,11 +76,6 @@ export interface NativeResourcesChanged {
 export interface NativeResourceObservation {
   owner: string
   active: boolean
-}
-export type OpenNativePlugin = ({ sessionId: string } | DraftNativeResourcesRequest) & {
-  id: string
-  /** Omitted for compatibility with plugin directory actions. MCP reveals its config file. */
-  kind?: NativeResource['kind']
 }
 
 /** Read-only discovery before a draft has a persisted session. */

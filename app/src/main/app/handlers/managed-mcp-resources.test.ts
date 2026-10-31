@@ -2,8 +2,11 @@ import { EventEmitter } from 'node:events'
 import { expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../../shared/ipc'
 import type { NativeResources } from '../../../shared/native-resources'
+import { mapManagedMcpResources } from '../../adapters/opencode/v1/managed-mcp'
 import type { GovernedLiveTurn } from '../../contracts/ports'
+import { PreparedMcpResources } from '../prepared-mcp-resources'
 import type { ProjectResourceSync } from '../project-resource-sync'
+import { registerSessionResourceHandlers } from './session-resources'
 const callbacks = vi.hoisted(
   () => new Map<string, (event: unknown, request: unknown) => Promise<NativeResources>>()
 )
@@ -16,9 +19,6 @@ vi.mock('electron', () => ({
     ) => callbacks.set(name, callback)
   }
 }))
-import { registerSessionResourceHandlers } from './session-resources'
-import { PreparedMcpResources } from '../prepared-mcp-resources'
-import { mapManagedMcpResources } from '../../adapters/opencode/v1/managed-mcp'
 
 it('preserves source identity through prepared and live views', async () => {
   const identities = new Map([
@@ -72,19 +72,11 @@ it('preserves source identity through prepared and live views', async () => {
     retry: vi.fn(),
     decorate: (_request: unknown, value: NativeResources) => value
   } as unknown as ProjectResourceSync
-  registerSessionResourceHandlers(
-    () => runtime,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    sync,
-    prepared
-  )
+  registerSessionResourceHandlers({
+    lookup: () => runtime,
+    projectSync: sync,
+    preparedMcp: prepared
+  })
   const sender = Object.assign(new EventEmitter(), {
     id: 3,
     isDestroyed: () => false,

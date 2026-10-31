@@ -1,11 +1,11 @@
-import { openCodeDiscovery } from './discovery-cache'
-import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises'
+import type { OpencodeClient } from '@opencode-ai/sdk/v2/client'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, expect, it, vi } from 'vitest'
-import type { OpencodeClient } from '@opencode-ai/sdk/v2/client'
-import { readOpenCodeProjectSettings, openCodeProjectFiles } from './project-settings'
+import { openCodeDiscovery } from './discovery-cache'
 import { OpenCodeMcpControl } from './mcp-control'
+import { openCodeProjectFiles, readOpenCodeProjectSettings } from './project-settings'
 let root: string | undefined
 afterEach(async () => {
   if (root) await rm(root, { recursive: true, force: true })
@@ -37,7 +37,8 @@ it('observes exact cwd MCP/plugin keys without writing, and waits for reclamatio
     { global: () => ({ 'mcp:same': true }) },
     new AbortController().signal
   )
-  await control.prepare() // Own native project declaration wins over an Orca global default.
+  control.activate()
+  await control.pending() // Own native project declaration wins over an Orca global default.
   await writeFile(file, '{"mcp":{"same":{"enabled":false}},"plugin":["p"],"model":"other"}')
   openCodeDiscovery.invalidate()
   expect((await readOpenCodeProjectSettings(a)).revision).toBe(first.revision)
@@ -59,7 +60,6 @@ it('observes exact cwd MCP/plugin keys without writing, and waits for reclamatio
       }
     ])
   ).toMatchObject([{ enabled: true, status: 'disabled', canToggle: false }])
-  await expect(control.set('same', false)).rejects.toThrow()
   expect(connect).not.toHaveBeenCalled()
   expect(disconnect).not.toHaveBeenCalled()
   expect(await readFile(file, 'utf8')).toBe(bytes)

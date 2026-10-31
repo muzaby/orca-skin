@@ -9,7 +9,7 @@
 // preload 는 `orca` 를 값으로 export 하지 않는다. `contextBridge.exposeInMainWorld` 가 받은
 // 객체를 포획해 실제 노출 표면을 그대로 부른다 — 재구현이 아니라 production 객체다.
 
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHANNELS, type OpenContextFileResult } from '../shared/ipc'
 import type { OrcaApi } from './index'
 
@@ -493,33 +493,6 @@ it('preserves native resource state and toggle identity through renderer and pre
     })
     await sessionApi.nativeResources(draft)
     expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.sessionNativeResources, draft)
-    await sessionApi.openNativePlugin({ sessionId: 'session-B', id: 'plugin-C' })
-    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.sessionOpenNativePlugin, {
-      sessionId: 'session-B',
-      id: 'plugin-C'
-    })
-    await sessionApi.openNativePlugin({ sessionId: 'session-B', id: 'mcp-C', kind: 'mcp' })
-    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.sessionOpenNativePlugin, {
-      sessionId: 'session-B',
-      id: 'mcp-C',
-      kind: 'mcp'
-    })
-    await sessionApi.openNativePlugin({ ...draft, id: 'draft-plugin' })
-    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.sessionOpenNativePlugin, {
-      ...draft,
-      id: 'draft-plugin'
-    })
-    for (const enabled of [false, true]) {
-      const request = {
-        sessionId: 'session-B',
-        generation: 'native-generation',
-        kind: 'mcp' as const,
-        id: 'server-C',
-        enabled
-      }
-      expect(await sessionApi.setNativeResource(request)).toBe(result)
-      expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.sessionSetNativeResource, request)
-    }
   } finally {
     harness.invoke.mockResolvedValue(undefined)
     vi.unstubAllGlobals()
