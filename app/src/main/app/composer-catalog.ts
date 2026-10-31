@@ -1,14 +1,10 @@
-import { isAbsolute, normalize } from 'node:path'
 import { createHash } from 'node:crypto'
-import type { ComposerPreparationTarget } from './composer-preparation-service'
-import type { ComposerCatalogLease, ComposerCatalogScope } from '../../shared/composer-catalog'
-import type { RouterContext } from './context'
+import { isAbsolute, normalize } from 'node:path'
+import type { ComposerCatalogScope } from '../../shared/composer-catalog'
 import { resolveTurnProvider } from './chat-turn/resolve-turn'
-import {
-  registerComposerCatalogHandlers,
-  type ComposerCatalogRegistration
-} from './handlers/composer-catalog'
 import { ComposerCatalogError } from './composer-catalog-error'
+import type { ComposerPreparationTarget } from './composer-preparation-service'
+import type { RouterContext } from './context'
 
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical)
@@ -19,14 +15,6 @@ function canonical(value: unknown): unknown {
         .map(([key, entry]) => [key, canonical(entry)])
     )
   return value
-}
-
-export async function prepareComposerCatalog(
-  ctx: RouterContext,
-  scope: ComposerCatalogScope,
-  signal: AbortSignal
-): Promise<ComposerCatalogLease> {
-  return (await resolveComposerPreparation(ctx, scope, signal)).acquire()
 }
 
 export async function resolveComposerPreparation(
@@ -87,10 +75,4 @@ export async function resolveComposerPreparation(
         throw new ComposerCatalogError('acquire', error)
       })
   }
-}
-
-export function registerComposerCatalog(ctx: RouterContext): ComposerCatalogRegistration {
-  return registerComposerCatalogHandlers((scope, signal) =>
-    prepareComposerCatalog(ctx, scope, signal)
-  )
 }

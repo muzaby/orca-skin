@@ -1,20 +1,18 @@
 import type { WebContents } from 'electron'
 import {
   CHANNELS,
-  ComposerCatalogRequestSchema,
-  ComposerCatalogReleaseSchema
+  ComposerCatalogReleaseSchema,
+  ComposerCatalogRequestSchema
 } from '../../../shared/protocol'
-import type { ComposerCatalogLease, ComposerCatalogScope } from '../../../shared/composer-catalog'
 import { handle } from '../../infra/ipc/handle'
-import { ComposerCatalogOwners, ComposerCatalogCancelled } from '../composer-catalog-owner'
-import { ComposerCatalogError } from '../composer-catalog-error'
 import { getLogger } from '../../infra/log'
+import { ComposerCatalogError } from '../composer-catalog-error'
+import { ComposerCatalogCancelled, ComposerCatalogOwners } from '../composer-catalog-owner'
 
 export type ComposerCatalogRegistration = (() => void) & { invalidate(): void }
 
 export function registerComposerCatalogHandlers(
-  prepare: (scope: ComposerCatalogScope, signal: AbortSignal) => Promise<ComposerCatalogLease>,
-  owners = new ComposerCatalogOwners(prepare)
+  owners: ComposerCatalogOwners
 ): ComposerCatalogRegistration {
   const windows = new Map<WebContents, () => void>()
   const watch = (sender: WebContents): void => {
