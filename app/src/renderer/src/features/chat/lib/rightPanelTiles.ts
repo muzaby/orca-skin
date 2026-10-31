@@ -47,10 +47,6 @@ export const rightPanelTileIds = rightPanelTileDefinitions.map(
   (tile) => tile.id
 ) as RightPanelTileId[]
 
-export function isRightPanelTileId(value: string): value is RightPanelTileId {
-  return rightPanelTileIds.includes(value as RightPanelTileId)
-}
-
 export function defaultRightPanelTileLabelKey(id: RightPanelTileId): MessageKey {
   return (
     rightPanelTileDefinitions.find((tile) => tile.id === id)?.defaultLabelKey ??

@@ -3,7 +3,6 @@
    (e.g. `--color-ink` → `bg-ink`, `text-ink`, `border-ink`). */
 
 @theme {
-  --color-oc-background: #fafafa;
   --color-oc-surface: #ffffffff;
   --color-oc-layer-1: #fafafaff;
   --color-oc-layer-2: #f2f2f2ff;
@@ -21,8 +20,6 @@
   --color-oc-border: #0000001a;
   --color-oc-selected: #f5f8ff;
   --color-oc-composer: #ffffff;
-  --color-oc-bubble: #f5f8ff;
-  --color-oc-bubble-ink: #0b34f4;
   --color-oc-button: #242424;
   --color-oc-button-ink: #ffffff;
   --shadow-oc-raised:
@@ -283,7 +280,6 @@
    re-themes the whole tree without remounting. */
 
 [data-theme='dark'] {
-  --color-oc-background: #101113;
   --color-oc-surface: #161616ff;
   --color-oc-layer-1: #242424ff;
   --color-oc-layer-2: #2e2e2eff;
@@ -301,8 +297,6 @@
   --color-oc-border: #ffffff1a;
   --color-oc-selected: #7698fd26;
   --color-oc-composer: #242424;
-  --color-oc-bubble: #021945;
-  --color-oc-bubble-ink: #c3d4fd;
   --color-oc-button: #3a3a3a;
   --color-oc-button-ink: #fafafa;
   --shadow-oc-raised:

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { claudeNativePaths } from './native-paths'
 import { readUserClaudeSettings } from './settings'
-import { claudePlansDirectory, planFileTarget } from './plan-file'
+import { planFileTarget } from './plan-file'
 import { guardToolAccess, resolveGuardRoots } from './workspace-guard'
 
 const roots: string[] = []
@@ -29,7 +29,7 @@ describe('Claude native root consumers', () => {
     await writeFile(path.join(native, 'settings.json'), settings)
     vi.stubEnv('CLAUDE_CONFIG_DIR', native)
     expect(readUserClaudeSettings()).toEqual({ exists: true, settingsJson: settings })
-    const plans = claudePlansDirectory((key) => process.env[key])
+    const plans = claudeNativePaths((key) => process.env[key]).plans
     expect(plans).toBe(path.join(native, 'plans'))
     const plan = path.join(plans, 'test.md')
     expect(planFileTarget('Write', { file_path: plan }, plans)).toBe(plan)

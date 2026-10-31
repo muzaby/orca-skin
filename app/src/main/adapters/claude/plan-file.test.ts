@@ -1,3 +1,4 @@
+import { claudeNativePaths } from './native-paths'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { lstat, mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { execFileSync } from 'node:child_process'
@@ -5,7 +6,6 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import type { HookCallback } from '@anthropic-ai/claude-agent-sdk'
 import {
-  claudePlansDirectory,
   makePlanFileHook,
   nodePlanFileReader,
   PLAN_FILE_MAX_BYTES,
@@ -31,9 +31,9 @@ const planPath = path.join(plansDir, 'a.md')
 describe('0249 VP-12 — plans 경로 판정', () => {
   it('CLAUDE_CONFIG_DIR 실효 조회값과 기본 home을 사용한다', () => {
     const lookup = vi.fn(() => undefined)
-    expect(claudePlansDirectory(lookup, home)).toBe(plansDir)
+    expect(claudeNativePaths(lookup, home).plans).toBe(plansDir)
     expect(lookup).toHaveBeenCalledWith('CLAUDE_CONFIG_DIR')
-    expect(claudePlansDirectory(() => '~/custom-claude', home)).toBe(
+    expect(claudeNativePaths(() => '~/custom-claude', home).plans).toBe(
       path.join(home, 'custom-claude', 'plans')
     )
   })

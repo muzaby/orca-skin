@@ -31,7 +31,7 @@ app 또는 pages 조립은 하향 의존만 허용한다. 페이지는 feature U
 | [app/Header.tsx](../../../app/src/renderer/src/app/Header.tsx) — `Header` | 작은 툴바·버전/업데이트 동작. 메뉴는 Popover·MenuItem을 재사용한다. |
 | [app/OverlayLayer.tsx](../../../app/src/renderer/src/app/OverlayLayer.tsx) — `OverlayLayer` | 전역 overlay·modal 슬롯의 배경·상태 책임. backdrop을 중첩하지 않는다. |
 | [app/RootGate.tsx](../../../app/src/renderer/src/app/RootGate.tsx) — `RootGate` | 부팅·인증·앱 진입 분기. 각 상태의 셸을 재사용한다. |
-| [app/Sidebar.tsx](../../../app/src/renderer/src/app/Sidebar.tsx) — `SIDEBAR_MIN_WIDTH`, `SIDEBAR_MAX_WIDTH`, `SIDEBAR_DEFAULT_WIDTH`, `Sidebar` | sidebar 표면·접힘·리사이즈·nav 선택 위계를 유지한다. |
+| [app/Sidebar.tsx](../../../app/src/renderer/src/app/Sidebar.tsx) — `SIDEBAR_MIN_WIDTH`, `SIDEBAR_MAX_WIDTH`, `Sidebar` | sidebar 표면·접힘·리사이즈·nav 선택 위계를 유지한다. |
 | [app/SidebarUserButton.tsx](../../../app/src/renderer/src/app/SidebarUserButton.tsx) — `SidebarUserButton` | 프로필·보조 라벨·사용자 메뉴의 밀도를 sidebar에 맞춘다. |
 | [app/WinControls.tsx](../../../app/src/renderer/src/app/WinControls.tsx) — `WinControls` | 플랫폼별 창 제어·no-drag 클릭 영역·닫기 hover를 보존한다. |
 | [app/boot/BootScreen.tsx](../../../app/src/renderer/src/app/boot/BootScreen.tsx) — `BootScreen` | 부팅 단계·브랜드·실패 안내를 구별하고 의미 없는 무한 진행을 추가하지 않는다. |
@@ -84,7 +84,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | [shared/ui/ResizableSidePane.tsx](../../../app/src/renderer/src/shared/ui/ResizableSidePane.tsx) — `ResizableSidePane` | pane 단위 폭·확대·복원·키보드/포인터 리사이즈와 iframe 경계 처리를 재사용한다. |
 | [shared/ui/SidebarSection.tsx](../../../app/src/renderer/src/shared/ui/SidebarSection.tsx) — `CollapsibleSection` | 구획 제목·우측 동작·접힘·본문 여백을 sidebar 패턴으로 통일한다. |
 | [shared/ui/SparkSpinner.tsx](../../../app/src/renderer/src/shared/ui/SparkSpinner.tsx) — `SparkSpinner` | 원본 artwork·spinner 고정색·진행 애니메이션을 사용하고 테마별 재색칠하지 않는다. |
-| [shared/ui/Status.tsx](../../../app/src/renderer/src/shared/ui/Status.tsx) — `Dot`, `Status` | 의미 tone에 visible/accessibility label·tooltip을 함께 둔다. 연결 상태 공은 수동 표시이며 활성 스위치와 구분한다. |
+| [shared/ui/Status.tsx](../../../app/src/renderer/src/shared/ui/Status.tsx) — `Dot` | 의미 tone에 visible/accessibility label·tooltip을 함께 둔다. 연결 상태 공은 수동 표시이며 활성 스위치와 구분한다. |
 | [shared/ui/Toggle.tsx](../../../app/src/renderer/src/shared/ui/Toggle.tsx) — `Toggle`, `ToggleIndicator` | Toggle은 on·label API와 switch ARIA를 제공한다. 메뉴의 ToggleIndicator는 손잡이 transform·배경색200ms 전환을 사용하며 reduced motion에서는 전환하지 않는다. 선택 blue·off border-strong과 흰색 원형 손잡이를 유지한다. busy spinner는 손잡이 안에 표시하고 축소 모션에서는 회전을 멈춘다. 접근성 이름·checked/busy·중복 입력 방지는 바깥 메뉴 버튼이 맡는다. |
 | [shared/ui/TooltipHost.tsx](../../../app/src/renderer/src/shared/ui/TooltipHost.tsx) — `TooltipHost` | title 기반 tooltip을 루트에서 표시한다. feature별 title host를 추가하지 않는다. |
 | [shared/ui/UsageCircle.tsx](../../../app/src/renderer/src/shared/ui/UsageCircle.tsx) — `UsageCircle` | 사용량 ratio·공통 tone·숫자 피드백을 유지하고 Meter와 다른 임계값을 만들지 않는다. |
@@ -121,9 +121,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | [features/chat/components/transcript/HarnessScrollController.tsx](../../../app/src/renderer/src/features/chat/components/transcript/HarnessScrollController.tsx) — `HarnessScrollController` | 하네스의 스크롤 controller만 선택한다. 공통 선택·읽기 정책을 임의로 강제하지 않는다. |
 | [features/chat/components/transcript/LineageBanner.tsx](../../../app/src/renderer/src/features/chat/components/transcript/LineageBanner.tsx) — `LineageBanner` | 세션 계보·이동 동작을 낮은 강조 행으로 표시하고 원문과 구별한다. |
 | [features/chat/components/transcript/PendingAssistantStatus.tsx](../../../app/src/renderer/src/features/chat/components/transcript/PendingAssistantStatus.tsx) — `PendingAssistantStatus` | 응답 대기 상태의 하네스 표시를 선택한다. 별도 spinner·문구를 중복 표시하지 않는다. |
-| [features/chat/components/transcript/ToolGroup.tsx](../../../app/src/renderer/src/features/chat/components/transcript/ToolGroup.tsx) — `ToolGroup` | 같은 목적의 도구를 요약 행과 펼침으로 묶고 상태·개수를 표시한다. |
 | [features/chat/components/transcript/TranscriptView.tsx](../../../app/src/renderer/src/features/chat/components/transcript/TranscriptView.tsx) — `TranscriptView` | 하네스 viewport·본문 배율·가상화 경계 유지. 읽는 위치와 선택 영역을 보존한다. |
-| [features/chat/harnesses/SubmitButton.tsx](../../../app/src/renderer/src/features/chat/harnesses/SubmitButton.tsx) — `HarnessSubmitButton` | 보내기·중단·busy·disabled 상태와 접근성 이름을 하네스 정책에 맞게 표시한다. |
 
 ## 공유 composer
 
@@ -328,7 +326,6 @@ Provider와 registry는 시각 컴포넌트 선택/수명 책임만 갖는다. �
 | 소스 / 표시 단위 | 적용 규칙 |
 |---|---|
 | [features/backend/harnesses/claude/components/AuthExpiredModal.tsx](../../../app/src/renderer/src/features/backend/harnesses/claude/components/AuthExpiredModal.tsx) — `AuthExpiredModal` | 인증 만료 안내·재로그인 다음 동작을 전역 modal 슬롯 규약에 맞춘다. |
-| [features/backend/harnesses/claude/components/BackendStatus.tsx](../../../app/src/renderer/src/features/backend/harnesses/claude/components/BackendStatus.tsx) — `BackendStatus` | 설치·준비·실패 상태의 label·tone·동작을 구별한다. |
 | [features/backend/harnesses/claude/components/InstallerDialog.tsx](../../../app/src/renderer/src/features/backend/harnesses/claude/components/InstallerDialog.tsx) — `InstallerDialog` | 설치 진행·로그·명령 복사·실패 복구를 같은 dialog 안에 배치한다. |
 | [features/engine/common/components/AgentEnvironmentView.tsx](../../../app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.tsx) — `AgentEnvironmentView` | 엔진/모델 목록·추가·설정 진입을 카탈로그/상세 위계로 표시한다. 카드는 Claude → OpenCode → 그 밖 순서(`lib/agentOrder.ts`, 같은 하네스 안은 입력 순서)다. 추가 메뉴의 Claude/OpenCode 라벨 왼쪽에는 각 공식 컬러 마크를 정렬한다. |
 | [features/engine/common/components/EngineCard.tsx](../../../app/src/renderer/src/features/engine/common/components/EngineCard.tsx) — `EngineCard` | 제목 왼쪽에 지원 하네스의 공식 컬러 로고를 배치하며 엔진명·하네스·연결 상태·모델·동작의 위계를 유지한다. |

@@ -19,10 +19,6 @@ export function toggleBubbleExpanded(key: string): void {
   })
 }
 
-export function isBubbleExpanded(key: string): boolean {
-  return useBubbleExpansionStore.getState().expanded.has(key)
-}
-
 export function useBubbleExpanded(key: string | undefined): boolean {
   return useBubbleExpansionStore((state) => (key ? state.expanded.has(key) : false))
 }
