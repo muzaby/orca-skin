@@ -275,7 +275,7 @@ function fixture(
   }))
   const servers = { acquire, close: vi.fn() } as unknown as OpenCodeServerPool
   const result: ReturnType<typeof fixture> = {
-    adapter: new OpenCodeAdapter(servers, transport, undefined, undefined, controls, preferences),
+    adapter: new OpenCodeAdapter(servers, transport, undefined, controls, preferences),
     acquire,
     release,
     requests,

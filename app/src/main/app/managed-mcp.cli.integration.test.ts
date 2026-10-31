@@ -1,24 +1,24 @@
-import { expect, it, vi } from 'vitest'
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js'
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
+import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { createServer, type IncomingMessage } from 'node:http'
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process'
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js'
+import { expect, it, vi } from 'vitest'
 import { z } from 'zod'
+import type { OrcaMcpConfig } from '../adapters/common/mcp-config'
+import type { TurnRequest } from '../adapters/common/turn'
 import { OpenCodeAdapter } from '../adapters/opencode/v1/adapter'
 import { OpenCodeServerPool, resolveOpenCodeExecutable } from '../adapters/opencode/v1/server'
-import { createManagedMcp } from './managed-mcp'
-import { createPluginBinding } from './deployment/plugins'
+import type { PluginAuth } from '../contracts/auth'
 import { confluenceTools } from '../features/plugins/confluence/tools'
 import { jiraTools } from '../features/plugins/jira/tools'
 import { mailTools } from '../features/plugins/mail/tools'
-import type { PluginAuth } from '../contracts/auth'
-import type { TurnRequest } from '../adapters/common/turn'
-import type { OrcaMcpConfig } from '../adapters/common/mcp-config'
+import { createPluginBinding } from './deployment/plugins'
+import { createManagedMcp } from './managed-mcp'
 
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 30_000 })
 const fixtureData = vi.hoisted(() => ({ root: '' }))
@@ -274,18 +274,10 @@ await server.connect(new StdioServerTransport());`
       )
     return result
   }
-  const adapter = new OpenCodeAdapter(
-    pool,
-    fetchObserved,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    {
-      snapshot: () => managed.source.snapshot(),
-      acquire: (snapshot) => managed.mcpBridge.acquire(snapshot)
-    }
-  )
+  const adapter = new OpenCodeAdapter(pool, fetchObserved, undefined, undefined, undefined, {
+    snapshot: () => managed.source.snapshot(),
+    acquire: (snapshot) => managed.mcpBridge.acquire(snapshot)
+  })
   let prepared: Awaited<ReturnType<NonNullable<typeof adapter.prepareComposer>>> | undefined
   let turn: ReturnType<typeof adapter.sendMessage> | undefined
   try {

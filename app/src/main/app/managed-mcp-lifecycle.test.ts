@@ -1,15 +1,15 @@
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openCodeDiscovery } from '../adapters/opencode/v1/discovery-cache'
 import { expect, it, vi } from 'vitest'
-import { OpenCodeAdapter } from '../adapters/opencode/v1/adapter'
-import { createManagedMcp } from './managed-mcp'
-import { createPluginBinding } from './deployment/plugins'
-import type { PluginAuth } from '../contracts/auth'
-import type { OpenCodeServer } from '../adapters/opencode/implementation'
 import type { OrcaMcpConfig } from '../adapters/common/mcp-config'
+import type { OpenCodeServer } from '../adapters/opencode/implementation'
+import { OpenCodeAdapter } from '../adapters/opencode/v1/adapter'
+import { openCodeDiscovery } from '../adapters/opencode/v1/discovery-cache'
 import { managedMcpAlias } from '../adapters/opencode/v1/managed-mcp'
+import type { PluginAuth } from '../contracts/auth'
+import { createPluginBinding } from './deployment/plugins'
+import { createManagedMcp } from './managed-mcp'
 
 it('shares generations and releases only owned resources', async () => {
   let users: OrcaMcpConfig = { user: { command: 'distinct command', env: { TOKEN: '${TOKEN}' } } }
@@ -116,18 +116,10 @@ it('shares generations and releases only owned resources', async () => {
         : {}
     return new Response(JSON.stringify(data), { headers: { 'content-type': 'application/json' } })
   }
-  const adapter = new OpenCodeAdapter(
-    server,
-    fetchImpl,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    {
-      snapshot: () => managed.source.snapshot(),
-      acquire: (snapshot) => managed.mcpBridge.acquire(snapshot)
-    }
-  )
+  const adapter = new OpenCodeAdapter(server, fetchImpl, undefined, undefined, undefined, {
+    snapshot: () => managed.source.snapshot(),
+    acquire: (snapshot) => managed.mcpBridge.acquire(snapshot)
+  })
   const env = { XDG_CONFIG_HOME: 'C:/orca-managed-mcp-lifecycle-empty' }
   let a: Awaited<ReturnType<typeof adapter.client>> | undefined, b: typeof a, c: typeof a
   try {
@@ -230,7 +222,6 @@ it('checks native identity collisions in each actual adapter environment before 
   const adapter = new OpenCodeAdapter(
     { acquire, installed: vi.fn(), close: vi.fn() },
     vi.fn(),
-    undefined,
     undefined,
     undefined,
     undefined,

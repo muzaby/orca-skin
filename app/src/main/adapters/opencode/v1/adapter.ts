@@ -1,33 +1,32 @@
 // /v2/client is the flat-parameter client export used by OpenCode 1.x.
+import type { ComposerCatalogData } from '../../../../shared/composer-catalog'
 import type { AgentEnvironment, ClassifiedError } from '../../../../shared/ipc'
-import type { CompleteRequest, LiveTurn, SessionAdapter } from '../../common/types'
-import type { TurnRequest } from '../../common/turn'
-import type { OpenCodeServer } from '../implementation'
+import { isRecord } from '../../../../shared/obj'
+import type { openFileDatabase } from '../../../infra/db/file-database'
+import { reportError } from '../../../infra/error-report'
 import type { HarnessListedModel } from '../../common/harness-config'
-import { OPENCODE_DESCRIPTOR } from './descriptor'
-import { openCodeCatalog } from './catalog'
-import { classifyOpenCodeError } from './errors'
-import { openCodeChannel } from './channel'
-import { routeNativeSession } from '../../common/recovery'
-import { modelRef } from './model-ref'
+import type { ManagedMcpRuntime, ManagedMcpSnapshot } from '../../common/managed-mcp'
 import type { NativeHistoryRequest, NativeHistoryResult } from '../../common/native-history'
-import { readOpenCodeHistory, nativeRevision } from './native-history'
+import { routeNativeSession } from '../../common/recovery'
+import type { TurnRequest } from '../../common/turn'
+import type { CompleteRequest, LiveTurn, SessionAdapter } from '../../common/types'
+import type { OpenCodeServer } from '../implementation'
+import { openCodeCatalog } from './catalog'
+import { openCodeChannel } from './channel'
+import { configuredOpenCodeResources, globalOpenCodeResources } from './configured-resources'
+import { OPENCODE_DESCRIPTOR } from './descriptor'
+import { openCodeDiscovery } from './discovery-cache'
+import { classifyOpenCodeError } from './errors'
+import { mapManagedMcpResources, projectManagedMcp } from './managed-mcp'
+import { modelRef } from './model-ref'
+import { probeNativeCursor } from './native-cursor'
+import { nativeRevision, readOpenCodeHistory } from './native-history'
 import {
   nativeOpenCodeData,
   nativeOpenCodeEnvironment,
   nativeWorkingDirectory
 } from './native-storage'
 import { OpenCodeSessionContexts, type OpenCodeClientLease } from './session-context'
-import { probeNativeCursor } from './native-cursor'
-import type { openFileDatabase } from '../../../infra/db/file-database'
-import type { LegacyStorageMigration } from './legacy-storage-migration'
-import { reportError } from '../../../infra/error-report'
-import type { ComposerCatalogData } from '../../../../shared/composer-catalog'
-import type { ManagedMcpRuntime, ManagedMcpSnapshot } from '../../common/managed-mcp'
-import { mapManagedMcpResources, projectManagedMcp } from './managed-mcp'
-import { configuredOpenCodeResources, globalOpenCodeResources } from './configured-resources'
-import { openCodeDiscovery } from './discovery-cache'
-import { isRecord } from '../../../../shared/obj'
 
 export class OpenCodeAdapter implements SessionAdapter {
   readonly id = 'opencode' as const
@@ -50,7 +49,6 @@ export class OpenCodeAdapter implements SessionAdapter {
   constructor(
     private readonly servers: OpenCodeServer,
     fetchImpl: typeof fetch,
-    private readonly migration?: LegacyStorageMigration,
     private readonly openDatabase?: typeof openFileDatabase,
     extensionControl?: import('../../common/extension-control').ExtensionControl,
     private readonly preferences?: () =>
@@ -386,21 +384,7 @@ export class OpenCodeAdapter implements SessionAdapter {
           this.openDatabase && this.servers.databasePath
             ? async () => probeNativeCursor(this.openDatabase!, await databasePath(), req.sessionId)
             : undefined,
-        sourceKey: async () => nativeRevision([await databasePath(), req.cwd]),
-        ...(this.migration && this.servers.databasePath
-          ? {
-              migrate: async () =>
-                this.migration!.migrate({
-                  sessionId: req.sessionId,
-                  cwd: req.cwd,
-                  targetDatabase: await databasePath(),
-                  nativeData: nativeOpenCodeData(
-                    nativeOpenCodeEnvironment(config, req.env),
-                    req.cwd
-                  )
-                })
-            }
-          : {})
+        sourceKey: async () => nativeRevision([await databasePath(), req.cwd])
       })
     } finally {
       await connection?.release()

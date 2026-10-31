@@ -3,9 +3,9 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { nativeSchemaSql } from './legacy-schema.testfixture'
-import { probeNativeCursor } from './native-cursor'
 import { openFileDatabase } from '../../../infra/db/file-database'
+import { probeNativeCursor } from './native-cursor'
+import { nativeSchemaSql } from './native-schema.testfixture'
 
 let root: string
 let file: string

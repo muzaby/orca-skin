@@ -1,19 +1,19 @@
-import { createHash } from 'node:crypto'
 import type {
+  OpencodeClient,
   Part,
   Session,
-  SessionMessagesResponses,
-  OpencodeClient
+  SessionMessagesResponses
 } from '@opencode-ai/sdk/v2/client'
+import { createHash } from 'node:crypto'
 import type { AppMessagePart, NormalizedEvent } from '../../../../shared/ipc'
+import { withReceivedInputFormat } from '../../../../shared/received-input'
 import type {
   NativeHistoryMessage,
   NativeHistoryRequest,
   NativeHistoryResult
 } from '../../common/native-history'
-import { withReceivedInputFormat } from '../../../../shared/received-input'
-import { sameNativePath } from './native-storage'
 import { OpenCodeEventMapper } from './map'
+import { sameNativePath } from './native-storage'
 
 export type NativeMessages = SessionMessagesResponses[200]
 export function nativeRevision(value: unknown): string {
@@ -169,9 +169,6 @@ export interface NativeReadDependencies {
   client(request: NativeHistoryRequest): Promise<OpencodeClient>
   probe?(): Promise<Record<string, unknown> | undefined>
   sourceKey(request: NativeHistoryRequest): Promise<string>
-  migrate?(
-    request: NativeHistoryRequest
-  ): Promise<{ status: 'migrated' } | Exclude<NativeHistoryResult, { status: 'ready' }>>
 }
 
 const unavailable = (): NativeHistoryResult => ({
@@ -185,16 +182,9 @@ export async function readOpenCodeHistory(
   try {
     const client = await deps.client(request)
     const query = { sessionID: request.sessionId, directory: request.cwd }
-    let session = await client.session.get(query, { throwOnError: false })
-    if (session.response.status === 404) {
-      const migrated = await deps.migrate?.(request)
-      if (!migrated) return { status: 'missing', message: 'OpenCode 원본 세션을 찾을 수 없습니다.' }
-      // Here 404 proved the target absent. Legacy busy does not prove native existence.
-      if (migrated.status === 'busy')
-        return { status: 'migration-required', message: migrated.message }
-      if (migrated.status !== 'migrated') return migrated
-      session = await client.session.get(query, { throwOnError: false })
-    }
+    const session = await client.session.get(query, { throwOnError: false })
+    if (session.response.status === 404)
+      return { status: 'missing', message: 'OpenCode 원본 세션을 찾을 수 없습니다.' }
     if (!session.response.ok || !session.data) return unavailable()
     if (
       session.data.id !== request.sessionId ||

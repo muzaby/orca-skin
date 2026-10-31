@@ -1,14 +1,14 @@
+import type { ChildProcess, spawn, SpawnOptions } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import { PassThrough } from 'node:stream'
-import type { ChildProcess, spawn, SpawnOptions } from 'node:child_process'
 import { vi } from 'vitest'
-import { OpenCodeAdapter } from './adapter'
-import { OpenCodeServerPool } from './server'
-import { assistantMessage, textPart, jsonResponse } from './adapter.testfixture'
-import type { ManagedMcpRuntime } from '../../common/managed-mcp'
-import type { ExtensionControl } from '../../common/extension-control'
-import { setRootLogger } from '../../../infra/log/registry'
 import type { AppLogger } from '../../../infra/log/log-manager'
+import { setRootLogger } from '../../../infra/log/registry'
+import type { ExtensionControl } from '../../common/extension-control'
+import type { ManagedMcpRuntime } from '../../common/managed-mcp'
+import { OpenCodeAdapter } from './adapter'
+import { assistantMessage, jsonResponse, textPart } from './adapter.testfixture'
+import { OpenCodeServerPool } from './server'
 
 /** Actual pool/adapter/SDK; only native process and HTTP server are represented at the boundary. */
 export function retentionTransport(
@@ -157,15 +157,7 @@ export function retentionTransport(
     fetchImpl
   })
   return {
-    adapter: new OpenCodeAdapter(
-      pool,
-      fetchImpl,
-      undefined,
-      undefined,
-      control,
-      undefined,
-      managed
-    ),
+    adapter: new OpenCodeAdapter(pool, fetchImpl, undefined, control, undefined, managed),
     requests,
     traces,
     children,
