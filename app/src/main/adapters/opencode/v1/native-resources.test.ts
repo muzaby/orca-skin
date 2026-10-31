@@ -1,16 +1,15 @@
-import { describe, expect, it, vi } from 'vitest'
 import type { OpencodeClient } from '@opencode-ai/sdk/v2/client'
+import { createOpencodeClient } from '@opencode-ai/sdk/v2/client'
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { describe, expect, it, vi } from 'vitest'
+import { setRootLogger } from '../../../infra/log/registry'
 import {
   openCodeNativeCommands,
   openCodeNativeMcp,
-  openCodeNativePlugins,
-  openCodeNativeMcp
+  openCodeNativePlugins
 } from './native-resources'
-import { createOpencodeClient } from '@opencode-ai/sdk/v2/client'
-import { setRootLogger } from '../../../infra/log/registry'
-import { realpath, mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 
 describe('OpenCode native resources', () => {
   it('traces secret-free MCP status classes without changing the returned resources', async () => {

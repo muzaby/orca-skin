@@ -1,11 +1,13 @@
-import { PluginSnapshots } from '../../infra/config/plugin-snapshots'
-import type { SetNativeResource } from '../../../shared/native-resources'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
+import type { Options, SDKMessage } from '@anthropic-ai/claude-agent-sdk'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import type { Options, SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 import type { SkillInfo } from '../../../shared/ipc'
+import { PluginSnapshots } from '../../infra/config/plugin-snapshots'
+import type { LiveTurn } from '../common/types'
+import { ClaudeAdapter } from './adapter'
+import { nativePluginId } from './configured-resources'
 
 const fixture = vi.hoisted(() => ({
   messages: [] as SDKMessage[],
@@ -32,8 +34,6 @@ vi.mock('@anthropic-ai/claude-agent-sdk', async (original) => ({
   ...(await original<typeof import('@anthropic-ai/claude-agent-sdk')>()),
   query: fixture.query
 }))
-import { ClaudeAdapter } from './adapter'
-import { nativePluginId } from './configured-resources'
 
 let temp: string
 let cwd: string
@@ -130,6 +130,24 @@ it('applies current global plugin choices to every new query while live queries 
   expect(readFileSync(join(root, 'settings.json'), 'utf8')).toBe(original)
 })
 
+async function selectPlugin(live: LiveTurn, enabled: boolean): Promise<void> {
+  const file = join(cwd, '.claude/settings.local.json')
+  let settings: Record<string, unknown> = {}
+  try {
+    settings = JSON.parse(readFileSync(file, 'utf8'))
+  } catch {
+    /* A new project has no settings yet. */
+  }
+  write(file, {
+    ...settings,
+    enabledPlugins: {
+      ...(settings.enabledPlugins as Record<string, unknown>),
+      'frontend@market': enabled
+    }
+  })
+  const revision = (await live.projectResourcePolicy!()!.read(cwd)).revision
+  expect(await live.reconcileNativeResources!(revision, () => true)).toBe('applied')
+}
 const skill = (name: string, enabled: boolean): SkillInfo => ({
   name,
   enabled,
@@ -212,7 +230,7 @@ it.each([null, 'resume-native-B'])(
   }
 )
 
-it('carries plugin controls through the actual adapter and preserves provider flags and generation', async () => {
+it('reconciles plugin choices through the actual adapter while preserving provider flags', async () => {
   const live = new ClaudeAdapter().sendMessage({
     sessionId: null,
     cwd,
@@ -233,17 +251,7 @@ it('carries plugin controls through the actual adapter and preserves provider fl
     'frontend-design@inline': true
   })
   const sdk = fixture.query.mock.results[0].value
-  const generation = (await live.nativeResources!()).generation!
-  const request = {
-    sessionId: 'B',
-    generation,
-    kind: 'plugin' as const,
-    id: nativePluginId(plugin),
-    enabled: false
-  }
-  await expect(live.setNativeResource!({ ...request, generation: 'old' })).rejects.toThrow('제어')
-  expect(sdk.applyFlagSettings).not.toHaveBeenCalled()
-  await live.setNativeResource!(request)
+  await selectPlugin(live, false)
   expect(sdk.applyFlagSettings).toHaveBeenCalledExactlyOnceWith({
     enabledPlugins: {
       'provider-only@inline': true,
@@ -291,7 +299,7 @@ it('exposes runtime-native watch files and applies external project choices only
   }
 })
 
-it('persists both plugin states across follow-up turns, new adapters and cold resumes over provider defaults', async () => {
+it('preserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults', async () => {
   const file = join(cwd, '.claude/settings.local.json')
   write(file, { permissions: { allow: ['Read'] }, enabledPlugins: { 'sibling@market': true } })
   const request = {
@@ -316,15 +324,8 @@ it('persists both plugin states across follow-up turns, new adapters and cold re
     mcpServers: [],
     error_count: 0
   })
-  const change = (enabled: boolean): SetNativeResource => ({
-    sessionId: 'B',
-    generation: first.providerGeneration!,
-    kind: 'plugin' as const,
-    id: nativePluginId(plugin),
-    enabled
-  })
   expect((await first.nativeResources!()).items[0].enabled).toBe(false)
-  await first.setNativeResource!(change(true))
+  await selectPlugin(first, true)
   await first.pushTurn!({ text: 'continue' })
   expect((await first.nativeResources!()).items[0].enabled).toBe(true)
   expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({
@@ -336,7 +337,7 @@ it('persists both plugin states across follow-up turns, new adapters and cold re
   const options = (fixture.query.mock.calls[1][0] as { options: Options }).options
   expect(JSON.parse(String(options.settings)).enabledPlugins['frontend-design@inline']).toBe(true)
   expect((await resumed.nativeResources!()).items[0].enabled).toBe(true)
-  await resumed.setNativeResource!({ ...change(false), generation: resumed.providerGeneration! })
+  await selectPlugin(resumed, false)
   resumed.close()
   const restarted = new ClaudeAdapter().sendMessage({
     ...request,
@@ -388,13 +389,7 @@ it('pins deployed MCP files for same-cwd peers and reloads until the final owner
     })
     return { plugins: [], commands: [], agents: [], mcpServers: [], error_count: 0 }
   })
-  await peer.setNativeResource!({
-    sessionId: 'cold-resume',
-    generation: peer.providerGeneration!,
-    kind: 'plugin',
-    id: nativePluginId(plugin),
-    enabled: false
-  })
+  await selectPlugin(peer, false)
   const other = adapter.sendMessage({ ...request, cwd: join(temp, 'other') })
   expect(JSON.parse(readFileSync(join(files()[0], '.mcp.json'), 'utf8'))).toEqual({
     mcpServers: { next: {} }
@@ -414,7 +409,7 @@ it('pins deployed MCP files for same-cwd peers and reloads until the final owner
   await snapshots.close()
 })
 
-it('reports its own persisted plugin revision as applied but not an external edit', async () => {
+it('reports a reconciled plugin revision as applied but not a later external edit', async () => {
   const live = new ClaudeAdapter().sendMessage({
     sessionId: null,
     cwd,
@@ -426,13 +421,7 @@ it('reports its own persisted plugin revision as applied but not an external edi
     const policy = live.projectResourcePolicy!()!
     const file = join(cwd, '.claude/settings.local.json')
     const before = (await policy.read(cwd)).revision
-    await live.setNativeResource!({
-      sessionId: 'B',
-      generation: live.providerGeneration!,
-      kind: 'plugin',
-      id: nativePluginId(plugin),
-      enabled: false
-    })
+    await selectPlugin(live, false)
     expect(JSON.parse(readFileSync(file, 'utf8')).enabledPlugins).toEqual({
       'frontend@market': false
     })

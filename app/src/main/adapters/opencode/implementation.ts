@@ -1,13 +1,13 @@
-import type { AgentModelView, EngineUserSettingsResult } from '../../../shared/ipc'
 import type { OpenCodePreferences } from '../../../shared/harness'
+import type { AgentModelView, EngineUserSettingsResult } from '../../../shared/ipc'
+import type { NativeResource } from '../../../shared/native-resources'
+import type { openFileDatabase } from '../../infra/db/file-database'
 import type {
   HarnessListedModel,
   HarnessRuntimeConfig,
   HarnessSettingsLoader
 } from '../common/harness-config'
 import type { SessionAdapter } from '../common/types'
-import type { openFileDatabase } from '../../infra/db/file-database'
-import type { NativeResource } from '../../../shared/native-resources'
 
 // 앱이 소유하는 수명/전송 포트. SDK client와 버전별 설정 형상은 구현에서만 해석한다.
 export interface OpenCodeServer {
@@ -58,7 +58,6 @@ export interface OpenCodeImplementation {
   parseModels: (config: Record<string, unknown>) => AgentModelView[]
   parseRuntimeModels: (config: HarnessRuntimeConfig) => AgentModelView[]
   readUserSettings: (configRoot?: string) => EngineUserSettingsResult
-  configuredMcpFile: (cwd: string, id: string) => Promise<string | undefined>
   configuredResources: (cwd: string) => Promise<NativeResource[]>
   globalResources: () => Promise<NativeResource[]>
   globalResourcePath: (id: string) => Promise<string | undefined>

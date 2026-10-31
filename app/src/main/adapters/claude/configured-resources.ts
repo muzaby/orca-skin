@@ -4,9 +4,9 @@ import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { NativeResource } from '../../../shared/native-resources'
 import { isRecord } from '../../../shared/obj'
-import { claudeNativePaths } from './native-paths'
-import { installedClaudePlugins, pluginPathKey, claudeInstallationExists } from './plugin-catalog'
 import { extensionChoices } from '../common/extension-control'
+import { claudeNativePaths } from './native-paths'
+import { claudeInstallationExists, installedClaudePlugins, pluginPathKey } from './plugin-catalog'
 import { claudeLocalSettingsRoot } from './project-path'
 
 const record = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {})
@@ -212,20 +212,4 @@ export async function configuredClaudeResources(
   ...args: Parameters<typeof readConfiguredClaudeResources>
 ): Promise<NativeResource[]> {
   return (await readConfiguredClaudeResources(...args)).items
-}
-
-export async function configuredClaudePluginDirectory(
-  cwd: string,
-  id: string,
-  paths?: Parameters<typeof readConfiguredClaudeResources>[1]
-): Promise<string | undefined> {
-  return (await readConfiguredClaudeResources(cwd, paths)).directories.get(id)
-}
-
-export async function configuredClaudeMcpFile(
-  cwd: string,
-  id: string,
-  paths?: Parameters<typeof readConfiguredClaudeResources>[1]
-): Promise<string | undefined> {
-  return (await readConfiguredClaudeResources(cwd, paths)).mcpFiles.get(id)
 }

@@ -1,11 +1,11 @@
+import { createOpencodeClient } from '@opencode-ai/sdk/v2/client'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createOpencodeClient } from '@opencode-ai/sdk/v2/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { OpenCodeMcpControl } from './mcp-control'
 import { OpenCodeComposerCache } from './composer-cache'
 import { openCodeDiscovery } from './discovery-cache'
+import { OpenCodeMcpControl } from './mcp-control'
 
 let cwd: string
 let controller: AbortController
@@ -105,7 +105,8 @@ it('activates directories connects desired MCPs independently and admits submiss
   expect(f.requests).toEqual([])
   // Initial additive activation is allowed even while a response is active.
   f.busy(true)
-  await f.control.prepare()
+  f.control.activate()
+  await f.control.pending()
   expect(await f.control.pending()).toBe(false)
   await vi.waitFor(() => expect(f.control.connected('fast')).toBe(true))
   expect(f.requests.filter((path) => path.endsWith('/connect')).sort()).toEqual([
@@ -144,7 +145,8 @@ it('activates directories connects desired MCPs independently and admits submiss
   expect((await f.control.read(controller.signal)).find((item) => item.id === 'slow')?.status).toBe(
     'connected'
   )
-  await f.control.prepare()
+  f.control.activate()
+  await f.control.pending()
   expect(f.requests.filter((path) => path === '/mcp/slow/connect')).toHaveLength(1)
   controller.abort()
   expect(() => f.control.read(new AbortController().signal)).toThrow()
@@ -155,7 +157,8 @@ it('settles mentioned connections and cancels admission without cancelling a sha
   const slow = Promise.withResolvers<void>()
   f.gates.set('slow', slow)
   f.failures.add('failed')
-  await f.control.prepare()
+  f.control.activate()
+  await f.control.pending()
   await vi.waitFor(() => expect(f.requests).toContain('/mcp/failed/connect'))
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   const caller = new AbortController(),
@@ -180,7 +183,8 @@ it('settles mentioned connections and cancels admission without cancelling a sha
 
 it('defers toggle mutations while busy and blocks submission on removal failure but not connect failure', async () => {
   const f = fixture({ tool: true, other: false })
-  await f.control.prepare()
+  f.control.activate()
+  await f.control.pending()
   await vi.waitFor(() => expect(f.control.connected('tool')).toBe(true))
   await f.control.reconcileChoices()
   f.busy(true)
@@ -219,7 +223,8 @@ it('rechecks removal when choices change during the bounded admission wait', asy
   const f = fixture({ slow: true, tool: true })
   const slow = Promise.withResolvers<void>()
   f.gates.set('slow', slow)
-  await f.control.prepare()
+  f.control.activate()
+  await f.control.pending()
   await vi.waitFor(() => expect(f.control.connected('tool')).toBe(true))
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   const send = vi.fn(async () => {})

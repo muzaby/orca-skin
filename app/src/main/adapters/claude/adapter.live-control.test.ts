@@ -8,11 +8,11 @@ import { nativePluginId } from './configured-resources'
 //
 // 이 파일이 없으면 `claude.ts:503-507` 세 줄의 인자 전달을 보는 단언이 0이 된다.
 
-import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
+import type { McpServerStatus, SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 import { randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { McpServerStatus, SDKMessage } from '@anthropic-ai/claude-agent-sdk'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { queryMock, control, messages } = vi.hoisted(() => {
   const messages: SDKMessage[] = []
@@ -47,8 +47,8 @@ vi.mock('@anthropic-ai/claude-agent-sdk', async (original) => ({
   query: queryMock
 }))
 
-import { ClaudeAdapter } from './adapter'
 import type { TurnRequest } from '../common/turn'
+import { ClaudeAdapter } from './adapter'
 
 const isolatedConfig = join(tmpdir(), `orca-live-control-config-${randomUUID()}`)
 beforeEach(() => vi.stubEnv('CLAUDE_CONFIG_DIR', isolatedConfig))
@@ -143,8 +143,6 @@ it('wires native status, loaded plugins, injected exclusions and read-only MCP g
   try {
     await iterator.next()
     const result = await live.nativeResources?.()
-    expect(await live.nativePluginDirectory?.(nativePluginId('/native'))).toBe('/native')
-    expect(await live.nativePluginDirectory?.(nativePluginId('/injected'))).toBeUndefined()
     expect(result).toEqual({
       state: 'connected',
       generation: live.providerGeneration,
@@ -170,35 +168,7 @@ it('wires native status, loaded plugins, injected exclusions and read-only MCP g
         }
       ]
     })
-    for (const enabled of [false, true])
-      await expect(
-        live.setNativeResource?.({
-          sessionId: 'native-session',
-          generation: result!.generation!,
-          kind: 'mcp',
-          id: 'native-A',
-          enabled
-        })
-      ).rejects.toThrow()
     expect(control.toggleMcpServer).not.toHaveBeenCalled()
-    await expect(
-      live.setNativeResource?.({
-        sessionId: 'native-session',
-        generation: 'old',
-        kind: 'mcp',
-        id: 'native-A',
-        enabled: false
-      })
-    ).rejects.toThrow()
-    await expect(
-      live.setNativeResource?.({
-        sessionId: 'native-session',
-        generation: result!.generation!,
-        kind: 'plugin',
-        id: nativePluginId('/native'),
-        enabled: false
-      })
-    ).rejects.toThrow()
   } finally {
     live.close()
     await iterator.return?.()

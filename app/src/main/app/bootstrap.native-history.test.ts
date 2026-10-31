@@ -1,34 +1,33 @@
-import { extensionControl } from './extension-control'
 import { errorReportHub } from '../infra/error-report'
+import { extensionControl } from './extension-control'
 // 0265 — 실제 Bootstrap.register가 session handler에 넘긴 콜백을 실행한다.
 // 다른 IPC 등록 직전에 멈추며, runtime과 activity는 프로덕션 인스턴스를 유지한다.
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { RouterContext } from './context'
-import type { registerSessionHandlers } from './handlers/session'
-import type { createNativeHistoryRefresh } from './native-history'
-import type { RuntimeSupervisor } from '../features/sessions/supervisor'
-import type { SessionActivityProjector } from '../features/chat/session-activity-projector'
-import type { NativeResourceSharing } from './native-resource-sharing'
-import type { ProjectResourceSync } from './project-resource-sync'
-import type { HistoryWriter } from '../features/history/writer'
-import type { PendingMessageQueue } from '../features/chat/pending-message-queue'
-import type { TurnContext } from '../contracts/turn'
-import type { ManagedRuntime } from '../contracts/ports'
-import type { AdapterRegistry } from '../adapters/common/registry'
-import type { PluginSnapshots } from '../infra/config/plugin-snapshots'
 import type { Options } from '@anthropic-ai/claude-agent-sdk'
-import { mkdtemp, mkdir, rm, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import type { OpenCodeGlobalWatch } from './opencode-global-watch'
-import { openCodePluginId } from '../adapters/opencode/v1/plugin-installation'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   DraftNativeResourcesRequest,
   NativeCommand,
   NativeResource
 } from '../../shared/native-resources'
 import { nativePluginId } from '../adapters/claude/configured-resources'
+import type { AdapterRegistry } from '../adapters/common/registry'
+import { openCodePluginId } from '../adapters/opencode/v1/plugin-installation'
+import type { ManagedRuntime } from '../contracts/ports'
+import type { TurnContext } from '../contracts/turn'
+import type { PendingMessageQueue } from '../features/chat/pending-message-queue'
+import type { SessionActivityProjector } from '../features/chat/session-activity-projector'
+import type { HistoryWriter } from '../features/history/writer'
+import type { RuntimeSupervisor } from '../features/sessions/supervisor'
+import type { PluginSnapshots } from '../infra/config/plugin-snapshots'
+import type { RouterContext } from './context'
+import type { registerSessionHandlers } from './handlers/session'
+import type { createNativeHistoryRefresh } from './native-history'
+import type { OpenCodeGlobalWatch } from './opencode-global-watch'
+import type { ProjectResourceSync } from './project-resource-sync'
 
 const fixture = vi.hoisted(() => ({
   rawSettings: {} as Record<string, unknown>,
@@ -42,19 +41,8 @@ const fixture = vi.hoisted(() => ({
   commands: undefined as ((sessionId: string) => Promise<NativeCommand[] | undefined>) | undefined,
   configured: undefined as
     ((sessionId: string) => Promise<NativeResource[] | undefined>) | undefined,
-  pluginDirectory: undefined as
-    ((sessionId: string, id: string) => Promise<string | undefined>) | undefined,
   draftResources: undefined as
     ((request: DraftNativeResourcesRequest) => Promise<NativeResource[] | undefined>) | undefined,
-  draftDirectory: undefined as
-    ((request: DraftNativeResourcesRequest, id: string) => Promise<string | undefined>) | undefined,
-  mcpFile: undefined as
-    | ((
-        request: DraftNativeResourcesRequest | { sessionId: string },
-        id: string
-      ) => Promise<string | undefined>)
-    | undefined,
-  sharing: undefined as NativeResourceSharing | undefined,
   projectSync: undefined as ProjectResourceSync | undefined,
   broadcasts: vi.fn(),
   peerBroadcasts: vi.fn(),
@@ -120,30 +108,16 @@ vi.mock('./native-history', () => ({
 }))
 vi.mock('./handlers/session-resources', () => ({
   registerSessionResourceHandlers: (
-    lookup: (sessionId: string) => unknown,
-    configured: (sessionId: string) => Promise<NativeResource[]>,
-    pluginDirectory: (sessionId: string, id: string) => Promise<string | undefined>,
-    commands: (sessionId: string) => Promise<NativeCommand[] | undefined>,
-    draftCommands: (request: DraftNativeResourcesRequest) => Promise<NativeCommand[]>,
-    draftResources: (request: DraftNativeResourcesRequest) => Promise<NativeResource[] | undefined>,
-    draftDirectory: (
-      request: DraftNativeResourcesRequest,
-      id: string
-    ) => Promise<string | undefined>,
-    mcpFile: NonNullable<typeof fixture.mcpFile>,
-    sharing: NativeResourceSharing,
-    projectSync: ProjectResourceSync
+    options: Parameters<
+      typeof import('./handlers/session-resources').registerSessionResourceHandlers
+    >[0]
   ) => {
-    fixture.projectSync = projectSync
-    fixture.sharing = sharing
-    fixture.draftResources = draftResources
-    fixture.draftDirectory = draftDirectory
-    fixture.draftCommands = draftCommands
-    fixture.commands = commands
-    fixture.lookup = lookup
-    fixture.configured = configured
-    fixture.pluginDirectory = pluginDirectory
-    fixture.mcpFile = mcpFile
+    fixture.projectSync = options.projectSync
+    fixture.draftResources = options.draftResources
+    fixture.draftCommands = options.draftCommands
+    fixture.commands = options.configuredCommands
+    fixture.lookup = options.lookup
+    fixture.configured = options.configuredResources
     return async () => ({ state: 'connected', generation: 'fixture-live', items: [] })
   }
 }))
@@ -169,11 +143,11 @@ vi.mock('./handlers/files', () => ({
   }
 }))
 
-import { Bootstrap } from './bootstrap'
-import { SettingsStore } from '../infra/settings-store'
-import { OpenCodeServerPool } from '../adapters/opencode/v1/server'
-import { CHANNELS, type SkillInfo } from '../../shared/ipc'
 import { ipcMain } from 'electron'
+import { CHANNELS, type SkillInfo } from '../../shared/ipc'
+import { OpenCodeServerPool } from '../adapters/opencode/v1/server'
+import { SettingsStore } from '../infra/settings-store'
+import { Bootstrap } from './bootstrap'
 import { harnessModule } from './harnesses/registry'
 
 const watches: OpenCodeGlobalWatch[] = []
@@ -415,12 +389,6 @@ it('reads native configuration through the registered module using stored backen
       }
     ])
     expect(get).toHaveBeenCalledWith('session-B')
-    expect(await fixture.mcpFile?.({ sessionId: 'session-B' }, 'project-B')).toBe(
-      join(cwd, '.mcp.json')
-    )
-    expect(await fixture.mcpFile?.({ backend: 'claude', cwd, projectId: null }, 'project-B')).toBe(
-      join(cwd, '.mcp.json')
-    )
     expect(ctx.getCwd).not.toHaveBeenCalled()
     await mkdir(join(root, 'plugins'), { recursive: true })
     const installed = join(temp, 'native-plugin-B')
@@ -462,30 +430,17 @@ it('reads native configuration through the registered module using stored backen
     await expect(
       fixture.draftCommands?.({ backend: 'claude', cwd: 'relative/path', projectId: null })
     ).rejects.toThrow('절대 경로')
-    expect(await fixture.pluginDirectory?.('session-B', nativePluginId(installed))).toBe(installed)
-    expect(await fixture.pluginDirectory?.('session-B', installed)).toBeUndefined()
     const draftScope = { backend: 'claude' as const, cwd, projectId: 'project-B' }
     expect(await fixture.draftResources?.(draftScope)).toEqual(
       await fixture.configured?.('session-B')
     )
-    expect(await fixture.draftDirectory?.(draftScope, nativePluginId(installed))).toBe(installed)
-    expect(
-      await fixture.draftDirectory?.({ ...draftScope, cwd: null }, nativePluginId(installed))
-    ).toBe(installed)
     await expect(fixture.draftResources?.({ ...draftScope, cwd: 'relative' })).rejects.toThrow(
       '절대 경로'
     )
-    await expect(
-      fixture.draftDirectory?.({ ...draftScope, cwd: 'relative' }, nativePluginId(installed))
-    ).rejects.toThrow('절대 경로')
 
     row.backend = 'opencode'
     await writeFile(join(cwd, 'opencode.json'), JSON.stringify({ mcp: { 'open-B': {} } }))
-    expect(await fixture.mcpFile?.({ sessionId: 'session-B' }, 'open-B')).toBe(
-      join(cwd, 'opencode.json')
-    )
     expect(await fixture.commands?.('session-B')).toBeUndefined()
-    expect(await fixture.pluginDirectory?.('session-B', nativePluginId(installed))).toBeUndefined()
     expect(await fixture.configured?.('session-B')).toBeUndefined()
     expect(
       await fixture.draftResources?.({ backend: 'opencode', cwd, projectId: null })
@@ -551,58 +506,6 @@ it('refreshes the bootstrap skill cache with native catalog sources and preserve
   } finally {
     vi.unstubAllEnvs()
     await rm(root, { recursive: true, force: true })
-  }
-})
-
-it('groups runtimes by actual cwd and backend across project IDs and broadcasts actual snapshots', () => {
-  const { ctx, supervisor, activity } = register()
-  const sessions = new Map([
-    ['A', { backend: 'claude', project_id: 'shared', cwd: '/same' }],
-    ['B', { backend: 'claude', project_id: 'shared', cwd: '/same/child' }],
-    ['C', { backend: 'claude', project_id: 'other', cwd: '/same' }],
-    ['D', { backend: 'opencode', project_id: 'shared', cwd: '/same' }]
-  ])
-  ctx.db.getSessionById = vi.fn((id) => sessions.get(id)) as never
-  const runtimes = ['A', 'B', 'C', 'D'].map((sessionId) => ({
-    sessionId,
-    runtime: { marker: sessionId } as never
-  }))
-  vi.spyOn(supervisor, 'runtimeEntries').mockReturnValue(runtimes)
-  const key = fixture.sharing!.scope('A')!
-  expect(fixture.sharing!.scope('B')).not.toBe(key)
-  expect(fixture.sharing!.scope('C')).toBe(key)
-  expect(fixture.sharing!.peers(key)).toEqual([runtimes[0], runtimes[2]])
-  expect(fixture.sharing!.scope('missing')).toBeUndefined()
-  fixture.broadcasts.mockClear()
-  fixture.peerBroadcasts.mockClear()
-  const resources = { state: 'connected' as const, generation: 'B-live', items: [] }
-  fixture.sharing!.changed('B', resources)
-  expect(fixture.broadcasts).toHaveBeenCalledExactlyOnceWith(
-    'orca:session:native-resources-changed',
-    { sessionId: 'B', resources }
-  )
-  expect(fixture.peerBroadcasts).toHaveBeenCalledExactlyOnceWith(
-    'orca:session:native-resources-changed',
-    { sessionId: 'B', resources }
-  )
-  activity.dispose()
-})
-
-it('keeps different current working directories distinct even under one Git root', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'orca-sharing-root-'))
-  const { ctx, activity } = register()
-  try {
-    await mkdir(join(directory, '.git'))
-    ctx.db.getSessionById = vi.fn((id: string) => ({
-      backend: 'claude',
-      project_id: null,
-      cwd: id === 'A' ? directory : join(directory, 'child')
-    })) as never
-    expect(fixture.sharing!.scope('A')).not.toBe(fixture.sharing!.scope('B'))
-    expect(JSON.parse(fixture.sharing!.scope('A')!)[1]).toBe('directory')
-  } finally {
-    activity.dispose()
-    await rm(directory, { recursive: true, force: true })
   }
 })
 

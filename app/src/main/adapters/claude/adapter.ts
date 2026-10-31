@@ -1,17 +1,14 @@
 import { DEFAULT_CLAUDE_OUTPUT_STYLE, type ClaudePreferences } from '../../../shared/harness'
 import { extensionChoices } from '../common/extension-control'
+import { claudeNativeResources } from './native-resources'
+import { pluginPathKey, readClaudePluginCatalog } from './plugin-catalog'
 import { persistClaudePluginState } from './plugin-state'
 import { ClaudeProjectReconciliation } from './project-reconciliation'
 import { claudeProjectSettingsFiles, readClaudeProjectSettings } from './project-settings'
-import { readClaudePluginCatalog, pluginPathKey } from './plugin-catalog'
-import { claudeNativeResources } from './native-resources'
 // ClaudeAdapter — @anthropic-ai/claude-agent-sdk 의 query() 함수를 통해 Claude Code 와 통신.
 // CLI spawn 방식은 폐기 (Phase 3, 2026-05-18) — 외부 계약은 TRD §7.1,
 // 내부 매핑은 architecture.md §5.4, SDK API 명세는 docs/spec/claude/agent-sdk/typescript.md 참조.
 
-import { createRequire } from 'node:module'
-import { readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
 import {
   query,
   type CanUseTool,
@@ -19,53 +16,41 @@ import {
   type PermissionResult,
   type SDKMessage
 } from '@anthropic-ai/claude-agent-sdk'
-import type {
-  AskQuestion,
-  ApprovalResolution,
-  ClassifiedError,
-  DiffRequirementAnchor,
-  NormalizedEvent,
-  PermissionAction
-} from '../../../shared/ipc'
-import { PLAN_APPROVED_MODE, type NormalizedPermissionMode } from '../../../shared/permission-mode'
+import type { Base64ImageSource } from '@anthropic-ai/sdk/resources/messages'
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { dirname, join } from 'node:path'
+import type { AgentKind } from '../../../shared/agent-kind'
 import {
   fromClaudePermissionMode,
   toClaudePermissionMode
 } from '../../../shared/harnesses/claude/permission-mode'
-import { claudeToNormalized, type MapContext } from './map'
-import { ClaudeBackgroundMapper } from './background'
-import { readClaudeSessionSchedules } from './schedules'
-import { makeOutputFilesHook } from './output-files'
-import { ClaudeInputReceipts } from './input-receipts'
-import { envLookup, modelForCli } from './context-policy'
+import type {
+  ApprovalResolution,
+  AskQuestion,
+  ClassifiedError,
+  DiffRequirementAnchor,
+  NormalizedEvent,
+  PermissionAction,
+  ProviderDescriptor
+} from '../../../shared/ipc'
+import { PLAN_APPROVED_MODE, type NormalizedPermissionMode } from '../../../shared/permission-mode'
 import type { SessionSchedule } from '../../../shared/session-schedules'
-import { claudeErrorClassifier, errorEvent } from './error-classifier'
-import { createSessionInputStream, type TurnInputContent } from './streaming-input'
-import type { Base64ImageSource } from '@anthropic-ai/sdk/resources/messages'
-import { recoveredPrompt } from '../common/recovery'
+import { getTemporaryFilesPath } from '../../infra/config/temp-path'
 import { formatAttachmentPromptBlock } from '../common/attachment-prompt'
 import { formatDiffRequirementsPrompt } from '../common/diff-requirements'
-import { formatPlanFeedbackPrompt } from './plan-feedback'
-import { resolvePlanReview } from './plan-text'
-import {
-  makePlanFileHook,
-  nodePlanFileReader,
-  readDeclaredPlanFile,
-  readTrackedPlanFile,
-  type PlanFile,
-  type PlanFileCell
-} from './plan-file'
+import type { AdapterSpawnEnvPatch } from '../common/harness-config'
+import type { NativeHistoryRequest, NativeHistoryResult } from '../common/native-history'
+import { recoveredPrompt } from '../common/recovery'
+import { isRiskyTool } from '../common/risky-tools'
+import { runtimeApprovalToolNames } from '../common/runtime-tool-policy'
+import type { ExtractedAttachmentImage, ExtractedAttachmentText, TurnRequest } from '../common/turn'
 import type {
   CompleteRequest,
   LiveTurn,
   ProviderMessageBatch,
   SessionAdapter
 } from '../common/types'
-import type { TurnRequest } from '../common/turn'
-import type { ExtractedAttachmentImage, ExtractedAttachmentText } from '../common/turn'
-import { isRiskyTool } from '../common/risky-tools'
-import { adaptRuntimeTools } from './runtime-tools'
-import { runtimeApprovalToolNames } from '../common/runtime-tool-policy'
 import {
   adaptExecutionConfig,
   adaptHooks,
@@ -77,18 +62,32 @@ import {
   mergeHooks,
   withPostCompactHook
 } from './adapt'
-import { CLAUDE_DESCRIPTOR } from './descriptor'
-import { makeWorkspaceGuardHook, resolveGuardRoots } from './workspace-guard'
-import { buildEditPreview, nodeEditPreviewReader } from './edit-preview'
-import { resolveClaudeExecutable, resolveClaudeExecutableIdentity } from './executable'
-import type { ProviderDescriptor } from '../../../shared/ipc'
-import type { AgentKind } from '../../../shared/agent-kind'
-import type { AdapterSpawnEnvPatch } from '../common/harness-config'
 import { claudeAgentKindEnv } from './agent-kind-env'
-import { getTemporaryFilesPath } from '../../infra/config/temp-path'
-import { claudeNativePaths } from './native-paths'
+import { ClaudeBackgroundMapper } from './background'
+import { envLookup, modelForCli } from './context-policy'
+import { CLAUDE_DESCRIPTOR } from './descriptor'
+import { buildEditPreview, nodeEditPreviewReader } from './edit-preview'
+import { claudeErrorClassifier, errorEvent } from './error-classifier'
+import { resolveClaudeExecutable, resolveClaudeExecutableIdentity } from './executable'
+import { ClaudeInputReceipts } from './input-receipts'
+import { claudeToNormalized, type MapContext } from './map'
 import { readClaudeNativeHistory } from './native-history'
-import type { NativeHistoryRequest, NativeHistoryResult } from '../common/native-history'
+import { claudeNativePaths } from './native-paths'
+import { makeOutputFilesHook } from './output-files'
+import { formatPlanFeedbackPrompt } from './plan-feedback'
+import {
+  makePlanFileHook,
+  nodePlanFileReader,
+  readDeclaredPlanFile,
+  readTrackedPlanFile,
+  type PlanFile,
+  type PlanFileCell
+} from './plan-file'
+import { resolvePlanReview } from './plan-text'
+import { adaptRuntimeTools } from './runtime-tools'
+import { readClaudeSessionSchedules } from './schedules'
+import { createSessionInputStream, type TurnInputContent } from './streaming-input'
+import { makeWorkspaceGuardHook, resolveGuardRoots } from './workspace-guard'
 
 const requireFn = createRequire(import.meta.url)
 
@@ -996,7 +995,6 @@ export class ClaudeAdapter implements SessionAdapter {
       reconcileNativeResources: (revision, isIdle) => projectResources.reconcile(revision, isIdle),
       nativeResourcesApplied: (revision) => projectResources.covers(revision),
       providerGeneration: backgroundMapper.generation,
-      nativePluginDirectory: (id) => resources.directory(id),
       nativeResources: async () => {
         const [items, commands] = await Promise.all([
           resources.list(),
@@ -1009,11 +1007,6 @@ export class ClaudeAdapter implements SessionAdapter {
           ...(commands !== undefined ? { commands } : {}),
           ...(commands === undefined ? { partial: true } : {})
         }
-      },
-      setNativeResource: async (request) => {
-        if (request.generation !== backgroundMapper.generation)
-          throw new Error('이 항목은 프로젝트별 제어를 지원하지 않습니다.')
-        await resources.set(request.id, request.enabled, request.kind)
       },
       reinitialize: async () => {
         await handle.reinitialize()

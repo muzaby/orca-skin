@@ -1,129 +1,129 @@
-import { OpenCodeGlobalWatch } from './opencode-global-watch'
-import { invalidateOpenCodeDiscovery } from '../adapters/opencode'
-import { broadcastOpenCodePluginsChanged } from '../infra/ipc/send'
-import { openCodeGlobalConfigFiles, openCodeGlobalPluginFingerprint } from '../adapters/opencode'
-import { PluginSnapshots } from '../infra/config/plugin-snapshots'
-import { nativeFileMutations } from '../infra/config/file-mutation'
-import { nativeSettingsShutdown } from './native-settings-lifecycle'
-import { createNativeResourceSharing } from './native-resource-sharing'
-import { registerSessionResourceHandlers } from './handlers/session-resources'
 import {
-  ProjectResourceSync,
-  projectResourcesIdle,
-  type ResourceRequest,
-  type ProjectResourceTarget
-} from './project-resource-sync'
+  invalidateOpenCodeDiscovery,
+  openCodeGlobalConfigFiles,
+  openCodeGlobalPluginFingerprint
+} from '../adapters/opencode'
+import { nativeFileMutations } from '../infra/config/file-mutation'
+import { PluginSnapshots } from '../infra/config/plugin-snapshots'
+import { reportError } from '../infra/error-report'
+import { broadcastOpenCodePluginsChanged } from '../infra/ipc/send'
 import { createComposerPreparation } from './composer-preparation'
+import type { ComposerPreparationService } from './composer-preparation-service'
+import { registerSessionResourceHandlers } from './handlers/session-resources'
+import { nativeSettingsShutdown } from './native-settings-lifecycle'
+import { OpenCodeGlobalWatch } from './opencode-global-watch'
 import { OpenCodeMcpReconcile } from './opencode-mcp-reconcile'
 import { OpenCodeWarmup } from './opencode-warmup'
-import type { ComposerPreparationService } from './composer-preparation-service'
 import type { PreparedMcpResources } from './prepared-mcp-resources'
-import { reportError } from '../infra/error-report'
+import {
+  projectResourcesIdle,
+  ProjectResourceSync,
+  type ProjectResourceTarget,
+  type ResourceRequest
+} from './project-resource-sync'
 // Bootstrap — main 측 컴포지션 루트(app 레이어). 의존성 생성 + 부팅 시퀀스 + 핸들러 등록 위임만
 // 담당한다. 도메인 핸들러는 app/handlers/, chat 턴 셋업은 app/chat-turn.ts, 턴 파이프라인 협력자는
 // features/{chat,history,approvals,sessions,usage} 참조 (handoff 0062 수직 슬라이스 재구성).
 
-import { app, powerMonitor, shell, webContents } from 'electron'
 import type { IpcMainInvokeEvent } from 'electron'
+import { app, powerMonitor, shell, webContents } from 'electron'
 import { mkdir } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
+import { parseAgentKind } from '../../shared/agent-kind'
 import {
   CHANNELS,
   type DebugMockState,
   type NormalizedEvent,
   type SkillInfo
 } from '../../shared/ipc'
+import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../shared/product'
 import type { RestartGateState } from '../../shared/update-restart'
-import { parseAgentKind } from '../../shared/agent-kind'
+import type { AuthRuntime, AuthSecretReader } from '../contracts/auth'
+import type { MainBus, OrcaBusEvents } from '../contracts/bus-events'
 import type { TurnContext } from '../contracts/turn'
+import { resolveAgentProfile } from '../features/agents/profiles'
+import { ApprovalCoordinator } from '../features/approvals/coordinator'
+import { PermissionModeController } from '../features/approvals/permission-mode-controller'
+import { ArtifactCatalog } from '../features/artifacts/catalog'
+import { createWorkOutputFiles } from '../features/artifacts/output-files'
+import { ArtifactService } from '../features/artifacts/service'
+import { createArtifactToolServer } from '../features/artifacts/tool'
+import { SessionRunner } from '../features/auth/browser-session/runner'
+import { OAuthStateStore } from '../features/auth/oauth'
+import { OAuthRunner } from '../features/auth/oauth-runner'
+import { createAuthRuntime } from '../features/auth/runtime'
+import { createGrantPersistence, createOAuthStatePersistence } from '../features/auth/store-file'
+import { BackgroundTaskTracker } from '../features/chat/background-tasks'
+import { PendingMessageQueue } from '../features/chat/pending-message-queue'
+import { recoverSessionHistory } from '../features/chat/recovery'
 import {
-  createAdapterRegistry,
-  createHarnessSettingsService,
-  parseHarnessRuntimeModels,
-  createHarnessDeploymentService,
-  harnessPluginRoots,
-  harnessSkillRoots,
-  harnessModule,
-  scaffoldHarnessSettings,
-  MockAdapter
-} from './harnesses/registry'
-import { SettingsStore } from '../infra/settings-store'
+  SessionActivityProjector,
+  sessionForeground
+} from '../features/chat/session-activity-projector'
+import { settleOpenToolRuns } from '../features/chat/settle'
+import { TitleGenerator } from '../features/chat/title-generation'
+import { ExtensionBuilder } from '../features/extensions/common/builder'
+import { ExtensionDeploymentService } from '../features/extensions/common/extension-deployment-service'
 import { McpStore } from '../features/extensions/common/mcp/store'
+import { RuntimeToolRegistry } from '../features/extensions/common/runtime-tool-registry'
+import type { SkillScanRoot } from '../features/extensions/common/skills/scan'
+import { seedBuiltinSkills } from '../features/extensions/common/skills/seed'
+import { createGate, selectGateMembers } from '../features/gate'
+import {
+  createRuntimeModelCatalog,
+  createRuntimeModelCatalogBridge
+} from '../features/harnesses/common/runtime-catalog'
+import { createHarnessRuntimeConfigService } from '../features/harnesses/common/runtime-config'
+import { HistoryWriter } from '../features/history/writer'
+import { materializeContinuityArrival } from '../features/orchestration/fork'
+import { DbRunRecorder, Scheduler } from '../features/scheduler'
+import { ActiveTurnTracker } from '../features/sessions/active-turn-tracker'
+import { deriveLeaseGateState } from '../features/sessions/restart-gate'
+import { BoundedRuntimeCapPolicy } from '../features/sessions/runtime-cap-policy'
+import { clientLeaseKey } from '../features/sessions/session-chain-lease'
+import { RuntimeSupervisor } from '../features/sessions/supervisor'
+import type { UsageFetcher } from '../features/usage/fetcher'
+import { registerUsageJobs } from '../features/usage/jobs'
+import { UsageTracker } from '../features/usage/tracker'
+import { WorktreeService } from '../features/worktrees/service'
+import { BrowserSessionStore } from '../infra/browser-session'
+import { TypedBus } from '../infra/bus'
+import type { MigrationReport } from '../infra/config/migrate-legacy'
+import { migrationBlocksBoot } from '../infra/config/migrate-legacy'
+import { loadOrcaConfig } from '../infra/config/orca-config'
 import {
   ensureConfigDir,
   getWorkspacePath,
+  managedWorktreesDir,
   orcaConfigDir,
-  sourcesSkillsDir,
-  managedWorktreesDir
+  sourcesSkillsDir
 } from '../infra/config/paths'
-import { loadOrcaConfig } from '../infra/config/orca-config'
 import { SecretStore } from '../infra/config/secret-store'
-import { ExtensionDeploymentService } from '../features/extensions/common/extension-deployment-service'
-import { netFetch } from '../infra/net/net-fetch'
-import type { SkillScanRoot } from '../features/extensions/common/skills/scan'
-import { readSkillCatalog } from './skill-catalog'
-import { seedBuiltinSkills } from '../features/extensions/common/skills/seed'
-import type { MigrationReport } from '../infra/config/migrate-legacy'
-import { migrationBlocksBoot } from '../infra/config/migrate-legacy'
-import { rebaseStoredPaths, repairMovedWorktrees } from './legacy-paths'
-import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../shared/product'
 import { getDbConnection, initDb } from '../infra/db'
+import { errorMessage } from '../infra/errors'
+import {
+  broadcastChatEvent,
+  broadcastConcurrency,
+  broadcastNativeResourcesChanged,
+  broadcastProviderState,
+  sendChatEvent
+} from '../infra/ipc/send'
 import { getLogger, setLogDebug } from '../infra/log'
-import { UsageTracker } from '../features/usage/tracker'
-import { registerUsageJobs } from '../features/usage/jobs'
-import type { UsageFetcher } from '../features/usage/fetcher'
-import { DbRunRecorder, Scheduler } from '../features/scheduler'
-import { ExtensionBuilder } from '../features/extensions/common/builder'
-import { createManagedMcp } from './managed-mcp'
-import { PermissionModeController } from '../features/approvals/permission-mode-controller'
-import type { RouterContext } from './context'
-import { registerSessionHandlers } from './handlers/session'
-import { createNativeHistoryRefresh } from './native-history'
-import { registerProjectHandlers } from './handlers/project'
-import { registerMcpHandlers } from './handlers/mcp'
-import { registerEngineHandlers } from './handlers/engine'
-import { registerMiscHandlers } from './handlers/misc'
-import { registerSettingsHandlers, registerSettingsReadHandler } from './handlers/settings'
-import { registerSkillsHandlers } from './handlers/skills'
-import { createClaudeProcessReset } from './claude-processes'
-import { discardSessionWork } from './chat-turn/discard'
-import { registerExtensionCatalogHandlers } from './handlers/extension-catalog'
-import { extensionControl } from './extension-control'
-import { registerFilesHandlers } from './handlers/files'
-import { registerArtifactHandlers } from './handlers/artifacts'
-import { ArtifactService } from '../features/artifacts/service'
-import { ArtifactCatalog } from '../features/artifacts/catalog'
-import { createWorkOutputFiles } from '../features/artifacts/output-files'
-import { createArtifactToolServer } from '../features/artifacts/tool'
-import { registerGitHandlers } from './handlers/git'
-import { registerCostHandlers } from './handlers/cost'
-import { registerBootHandlers } from './handlers/boot'
-import { registerUpdateHandlers } from './handlers/update'
-import { registerConnectionHandlers } from './handlers/providers'
-import { WorktreeService } from '../features/worktrees/service'
-import { createAuthRuntime } from '../features/auth/runtime'
-import { createHostHarnessPort } from './harness-host'
-import { createGrantPersistence, createOAuthStatePersistence } from '../features/auth/store-file'
-import { OAuthStateStore } from '../features/auth/oauth'
-import { OAuthRunner } from '../features/auth/oauth-runner'
-import { createGate, selectGateMembers } from '../features/gate'
-import { startDailyGate } from './daily-gate'
+import { netFetch } from '../infra/net/net-fetch'
+import { SettingsStore } from '../infra/settings-store'
+import { createVault } from '../infra/vault'
 import { createAuthResume } from './auth-resume'
-import { createHarnessRuntimeConfigService } from '../features/harnesses/common/runtime-config'
-import {
-  createRuntimeModelCatalogBridge,
-  createRuntimeModelCatalog
-} from '../features/harnesses/common/runtime-catalog'
-import {
-  createRuntimeModelAuthChangeHandler,
-  createRuntimeModelAuthResume,
-  createRuntimeModelAuthInvalidator,
-  createRuntimeModelReconcileSnapshot,
-  createRuntimeModelReconcileVerified,
-  createRuntimeModelSnapshotReader,
-  startRuntimeModelCatalogAfterDeploy
-} from './runtime-model-startup'
+import { createBootReportRecorder } from './boot-report'
+import { resolveBuiltinSkillsDir, resolveWorkProfilePluginDir } from './builtin-resources'
+import { registerChatHandlers } from './chat-turn'
+import { discardSessionWork } from './chat-turn/discard'
+import { createClaudeProcessReset } from './claude-processes'
+import type { ConnectionViewSource } from './connection-views'
+import { connectionState, duplicateConnectionAuthIds } from './connection-views'
+import type { RouterContext } from './context'
+import { startDailyGate } from './daily-gate'
 import { AUTH_DEFINITIONS, LOGIN_FREE_DEFINITIONS } from './deployment/auth-definitions'
+import { createConnectionSources } from './deployment/connections'
 import { GATE_AUTH_DEFINITIONS, remainingAuthDefinitions } from './deployment/gate-auth'
 import {
   AUTH_INVALIDATED_HARNESS_KEYS,
@@ -132,48 +132,50 @@ import {
   RUNTIME_MODEL_CONTRIBUTIONS
 } from './deployment/harness-runtime'
 import { createPluginBindings } from './deployment/plugins'
-import { createConnectionSources } from './deployment/connections'
 import { createUsageFetcher } from './deployment/usage-fetcher'
-import { connectionState, duplicateConnectionAuthIds } from './connection-views'
-import type { ConnectionViewSource } from './connection-views'
-import type { AuthRuntime, AuthSecretReader } from '../contracts/auth'
-import { errorMessage } from '../infra/errors'
-import { createVault } from '../infra/vault'
-import { BrowserSessionStore } from '../infra/browser-session'
-import { SessionRunner } from '../features/auth/browser-session/runner'
-import { createNoopUpdater, loadElectronAutoUpdater, UpdateController } from './updater'
-import { registerChatHandlers } from './chat-turn'
+import { extensionControl } from './extension-control'
+import { registerArtifactHandlers } from './handlers/artifacts'
+import { registerBootHandlers } from './handlers/boot'
+import { registerCostHandlers } from './handlers/cost'
+import { registerEngineHandlers } from './handlers/engine'
+import { registerExtensionCatalogHandlers } from './handlers/extension-catalog'
+import { registerFilesHandlers } from './handlers/files'
+import { registerGitHandlers } from './handlers/git'
+import { registerMcpHandlers } from './handlers/mcp'
+import { registerMiscHandlers } from './handlers/misc'
+import { registerProjectHandlers } from './handlers/project'
+import { registerConnectionHandlers } from './handlers/providers'
+import { registerSessionHandlers } from './handlers/session'
+import { registerSettingsHandlers, registerSettingsReadHandler } from './handlers/settings'
+import { registerSkillsHandlers } from './handlers/skills'
+import { registerUpdateHandlers } from './handlers/update'
+import { createHostHarnessPort } from './harness-host'
+import {
+  createAdapterRegistry,
+  createHarnessDeploymentService,
+  createHarnessSettingsService,
+  harnessModule,
+  harnessPluginRoots,
+  harnessSkillRoots,
+  MockAdapter,
+  parseHarnessRuntimeModels,
+  scaffoldHarnessSettings
+} from './harnesses/registry'
+import { rebaseStoredPaths, repairMovedWorktrees } from './legacy-paths'
+import { createManagedMcp } from './managed-mcp'
+import { createNativeHistoryRefresh } from './native-history'
+import {
+  createRuntimeModelAuthChangeHandler,
+  createRuntimeModelAuthInvalidator,
+  createRuntimeModelAuthResume,
+  createRuntimeModelReconcileSnapshot,
+  createRuntimeModelReconcileVerified,
+  createRuntimeModelSnapshotReader,
+  startRuntimeModelCatalogAfterDeploy
+} from './runtime-model-startup'
 import { registerSettingsReactions } from './settings-reactions'
-import { createBootReportRecorder } from './boot-report'
-import { RuntimeSupervisor } from '../features/sessions/supervisor'
-import { BoundedRuntimeCapPolicy } from '../features/sessions/runtime-cap-policy'
-import { PendingMessageQueue } from '../features/chat/pending-message-queue'
-import { ActiveTurnTracker } from '../features/sessions/active-turn-tracker'
-import { TypedBus } from '../infra/bus'
-import type { MainBus, OrcaBusEvents } from '../contracts/bus-events'
-import { settleOpenToolRuns } from '../features/chat/settle'
-import { ApprovalCoordinator } from '../features/approvals/coordinator'
-import { HistoryWriter } from '../features/history/writer'
-import { resolveAgentProfile } from '../features/agents/profiles'
-import { materializeContinuityArrival } from '../features/orchestration/fork'
-import { TitleGenerator } from '../features/chat/title-generation'
-import { recoverSessionHistory } from '../features/chat/recovery'
-import {
-  broadcastConcurrency,
-  broadcastChatEvent,
-  broadcastProviderState,
-  broadcastNativeResourcesChanged,
-  sendChatEvent
-} from '../infra/ipc/send'
-import { RuntimeToolRegistry } from '../features/extensions/common/runtime-tool-registry'
-import { resolveBuiltinSkillsDir, resolveWorkProfilePluginDir } from './builtin-resources'
-import { BackgroundTaskTracker } from '../features/chat/background-tasks'
-import {
-  SessionActivityProjector,
-  sessionForeground
-} from '../features/chat/session-activity-projector'
-import { clientLeaseKey } from '../features/sessions/session-chain-lease'
-import { deriveLeaseGateState } from '../features/sessions/restart-gate'
+import { readSkillCatalog } from './skill-catalog'
+import { createNoopUpdater, loadElectronAutoUpdater, UpdateController } from './updater'
 
 export class Bootstrap {
   private readonly bootReport = createBootReportRecorder()
@@ -1104,13 +1106,6 @@ export class Bootstrap {
         if (!wc.isDestroyed()) wc.send(CHANNELS.managedMcpChanged, { revision })
       }
     })
-    const resourceSharing = createNativeResourceSharing({
-      session: (id) => ctx.db.getSessionById(id),
-      cwd: ctx.getCwd,
-      projectRoot: (backend, cwd) => harnessModule(backend).nativeResourceScope?.(cwd) ?? cwd,
-      runtimes: () => supervisor.runtimeEntries(),
-      changed: (sessionId, resources) => broadcastNativeResourcesChanged({ sessionId, resources })
-    })
     const resolveResourceTarget = (request: ResourceRequest): ProjectResourceTarget | undefined => {
       const session = 'sessionId' in request ? ctx.db.getSessionById(request.sessionId) : undefined
       if ('sessionId' in request && !session) return undefined
@@ -1143,12 +1138,11 @@ export class Bootstrap {
         ('sessionId' in target.request &&
           projectResourcesIdle(activity.current(target.request.sessionId), target.runtime)),
       read: (request) => readResources(request),
-      emit: (sessionId, resources) => broadcastNativeResourcesChanged({ sessionId, resources }),
-      run: (key, action) => resourceSharing.run!(key, action)
+      emit: (sessionId, resources) => broadcastNativeResourcesChanged({ sessionId, resources })
     }))
-    const readResources = registerSessionResourceHandlers(
-      (sessionId) => supervisor.peekRuntime(sessionId),
-      async (sessionId) => {
+    const readResources = registerSessionResourceHandlers({
+      lookup: (sessionId) => supervisor.peekRuntime(sessionId),
+      configuredResources: async (sessionId) => {
         const session = ctx.db.getSessionById(sessionId)
         if (!session) return []
         const items = await harnessModule(session.backend).configuredResources?.(
@@ -1165,24 +1159,7 @@ export class Bootstrap {
           throw new Error('대화가 바뀌었습니다. 메뉴를 다시 열어 주세요.')
         return items
       },
-      async (sessionId, id) => {
-        const session = ctx.db.getSessionById(sessionId)
-        if (!session) return undefined
-        const directory = await harnessModule(session.backend).configuredPluginDirectory?.(
-          session.cwd ?? ctx.getCwd(session.project_id),
-          id
-        )
-        const current = ctx.db.getSessionById(sessionId)
-        if (
-          !current ||
-          current.backend !== session.backend ||
-          current.cwd !== session.cwd ||
-          current.project_id !== session.project_id
-        )
-          throw new Error('대화가 바뀌었습니다. 메뉴를 다시 열어 주세요.')
-        return directory
-      },
-      async (sessionId) => {
+      configuredCommands: async (sessionId) => {
         const session = ctx.db.getSessionById(sessionId)
         if (!session) return []
         const commands = await harnessModule(session.backend).configuredCommands?.(
@@ -1199,7 +1176,7 @@ export class Bootstrap {
           throw new Error('대화가 바뀌었습니다. 메뉴를 다시 열어 주세요.')
         return commands
       },
-      async ({ backend, cwd, projectId }) => {
+      draftCommands: async ({ backend, cwd, projectId }) => {
         const directory = cwd ?? ctx.getCwd(projectId)
         if (!isAbsolute(directory)) throw new Error('작업 폴더는 절대 경로여야 합니다.')
         return (
@@ -1209,7 +1186,7 @@ export class Bootstrap {
           )) ?? []
         )
       },
-      async ({ backend, cwd, projectId }) => {
+      draftResources: async ({ backend, cwd, projectId }) => {
         const directory = cwd ?? ctx.getCwd(projectId)
         if (!isAbsolute(directory)) throw new Error('작업 폴더는 절대 경로여야 합니다.')
         const module = harnessModule(backend)
@@ -1218,37 +1195,9 @@ export class Bootstrap {
           this.extensionChoices.global(backend)
         )
       },
-      async ({ backend, cwd, projectId }, id) => {
-        const directory = cwd ?? ctx.getCwd(projectId)
-        if (!isAbsolute(directory)) throw new Error('작업 폴더는 절대 경로여야 합니다.')
-        return harnessModule(backend).configuredPluginDirectory?.(directory, id)
-      },
-      async (request, id) => {
-        const session =
-          'sessionId' in request ? ctx.db.getSessionById(request.sessionId) : undefined
-        if ('sessionId' in request && !session) return undefined
-        const scope = session
-          ? { backend: session.backend, cwd: session.cwd, projectId: session.project_id }
-          : (request as import('../../shared/native-resources').DraftNativeResourcesRequest)
-        const directory = scope.cwd ?? ctx.getCwd(scope.projectId)
-        if (!isAbsolute(directory)) throw new Error('작업 폴더는 절대 경로여야 합니다.')
-        const file = await harnessModule(scope.backend).configuredMcpFile?.(directory, id)
-        if (session) {
-          const current = ctx.db.getSessionById(session.id)
-          if (
-            !current ||
-            current.backend !== session.backend ||
-            current.cwd !== session.cwd ||
-            current.project_id !== session.project_id
-          )
-            throw new Error('대화가 바뀌었습니다. 메뉴를 다시 열어 주세요.')
-        }
-        return file
-      },
-      resourceSharing,
-      projectSync,
-      preparedMcp
-    )
+      projectSync: projectSync,
+      preparedMcp: preparedMcp
+    })
     const openCode = ctx.registry.get('opencode')
     if (openCode)
       this.openCodeMcpReconcile = new OpenCodeMcpReconcile({

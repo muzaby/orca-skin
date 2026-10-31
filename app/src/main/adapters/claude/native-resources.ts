@@ -1,9 +1,9 @@
-import { join, resolve } from 'node:path'
 import type { McpServerStatus, Query } from '@anthropic-ai/claude-agent-sdk'
+import { join, resolve } from 'node:path'
 import type { NativeCommand, NativeResource } from '../../../shared/native-resources'
-import { nativePluginId } from './configured-resources'
-import { resourceQuery } from '../common/resource-query'
 import { pluginDescription } from '../common/plugin-description'
+import { resourceQuery } from '../common/resource-query'
+import { nativePluginId } from './configured-resources'
 
 /** Owns observations for one Query; Orca MCPs carry a separate read-only origin. */
 export function claudeNativeResources(
@@ -19,7 +19,6 @@ export function claudeNativeResources(
   observeCommands(names: readonly string[]): void
   commands(): Promise<NativeCommand[]>
   list(): Promise<NativeResource[]>
-  directory(id: string): Promise<string | undefined>
   set(
     id: string,
     enabled: boolean,
@@ -141,9 +140,6 @@ export function claudeNativeResources(
           })
         ))
       ]
-    },
-    async directory(id) {
-      return directories.get(id)
     },
     set(id, enabled, kind = 'mcp', persist = true, isIdle = () => true) {
       const operation = mutations

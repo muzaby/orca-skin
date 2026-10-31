@@ -1,14 +1,14 @@
-import { openCodeDiscovery } from './discovery-cache'
-import { mkdtemp, mkdir, realpath, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { expect, it } from 'vitest'
 import {
-  configuredOpenCodeMcpFile,
-  globalOpenCodeResources,
-  configuredOpenCodePluginSkillDirectories
+  configuredOpenCodePluginSkillDirectories,
+  configuredOpenCodeResources,
+  globalOpenCodeResources
 } from './configured-resources'
+import { openCodeDiscovery } from './discovery-cache'
 
 it('discovers global config.json and excludes the default workspace and its .opencode files', async () => {
   const root = await mkdtemp(join(tmpdir(), 'orca-global-config-'))
@@ -69,22 +69,19 @@ it('resolves JSONC MCP declarations in global, custom and project scopes without
     )
     openCodeDiscovery.invalidate()
     const env = { XDG_CONFIG_HOME: join(root, 'config'), OPENCODE_CONFIG: custom }
-    for (const [id, file] of [
-      ['global', global],
-      ['custom', custom],
-      ['shared', project]
+    expect((await configuredOpenCodeResources(cwd, env)).map((item) => item.id).sort()).toEqual([
+      'custom',
+      'global',
+      'shared'
     ])
-      expect(await configuredOpenCodeMcpFile(cwd, id, env)).toBe(file)
-    expect(await configuredOpenCodeMcpFile(cwd, 'missing', env)).toBeUndefined()
     expect(
-      await configuredOpenCodeMcpFile(cwd, 'shared', {
-        ...env,
-        OPENCODE_DISABLE_PROJECT_CONFIG: 'true'
-      })
-    ).toBe(custom)
+      (await configuredOpenCodeResources(cwd, { ...env, OPENCODE_DISABLE_PROJECT_CONFIG: 'true' }))
+        .map((item) => item.id)
+        .sort()
+    ).toEqual(['custom', 'global', 'shared'])
     await writeFile(project, '{"mcp":')
     openCodeDiscovery.invalidate()
-    await expect(configuredOpenCodeMcpFile(cwd, 'shared', env)).rejects.toThrow('설정 파일')
+    await expect(configuredOpenCodeResources(cwd, env)).rejects.toThrow('설정 파일')
   } finally {
     await rm(root, { recursive: true, force: true })
   }

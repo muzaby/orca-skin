@@ -1,8 +1,12 @@
 import { EventEmitter } from 'node:events'
 import { afterEach, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../shared/ipc'
-import type { RouterContext } from './context'
 import { OpenCodeAdapter } from '../adapters/opencode/v1/adapter'
+import { createComposerPreparation } from './composer-preparation'
+import { ComposerPreparationService } from './composer-preparation-service'
+import type { RouterContext } from './context'
+import { registerSessionResourceHandlers } from './handlers/session-resources'
+import { OpenCodeWarmup } from './opencode-warmup'
 const handlers = vi.hoisted(
   () => new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>()
 )
@@ -11,10 +15,6 @@ vi.mock('electron', () => ({
   shell: {}
 }))
 vi.mock('../infra/config/orca-config', () => ({ appEnv: () => ({}) }))
-import { createComposerPreparation } from './composer-preparation'
-import { registerSessionResourceHandlers } from './handlers/session-resources'
-import { ComposerPreparationService } from './composer-preparation-service'
-import { OpenCodeWarmup } from './opencode-warmup'
 
 const cleanups: (() => void)[] = []
 afterEach(() => {
@@ -88,19 +88,11 @@ it('shares targets across catalog resources and warmup through the production as
     retry: vi.fn(),
     decorate: (_: unknown, value: unknown) => value
   }
-  registerSessionResourceHandlers(
-    () => undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    sync as never,
-    assembly.resources
-  )
+  registerSessionResourceHandlers({
+    lookup: () => undefined,
+    projectSync: sync as never,
+    preparedMcp: assembly.resources
+  })
   const sender = Object.assign(new EventEmitter(), {
     id: 9,
     isDestroyed: () => false,

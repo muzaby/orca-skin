@@ -1,8 +1,13 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, expect, it, vi } from 'vitest'
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
+import type { NativeResources } from '../../../shared/native-resources'
+import { ClaudeAdapter } from '../../adapters/claude/adapter'
+import type { GovernedLiveTurn } from '../../contracts/ports'
+import { ProjectResourceSync } from '../project-resource-sync'
+import { registerSessionResourceHandlers } from './session-resources'
 const fx = vi.hoisted(() => ({
   enabled: new Set<string>(),
   messages: [] as SDKMessage[],
@@ -41,22 +46,14 @@ vi.mock('electron', () => ({
     handle: (n: string, c: (e: unknown, p: unknown) => Promise<unknown>) => callbacks.set(n, c)
   }
 }))
-import { ClaudeAdapter } from '../../adapters/claude/adapter'
-import { nativePluginId } from '../../adapters/claude/configured-resources'
-import { CHANNELS } from '../../../shared/ipc'
-import { ProjectResourceSync } from '../project-resource-sync'
-import { createNativeResourceSharing } from '../native-resource-sharing'
-import { registerSessionResourceHandlers } from './session-resources'
-import type { GovernedLiveTurn } from '../../contracts/ports'
-import type { NativeResources } from '../../../shared/native-resources'
 let temp = ''
 afterEach(() => rmSync(temp, { recursive: true, force: true }))
 const write = (p: string, v: unknown): void => {
   mkdirSync(dirname(p), { recursive: true })
   writeFileSync(p, JSON.stringify(v))
 }
-/** Real Claude adapter + real polling watcher: the watcher lags behind the runtime's own save. */
-it('keeps every toggle while overlapping plugin toggles save through the real watcher', async () => {
+/** Real Claude adapter, native settings file, watcher and IPC read assembly. */
+it('reconciles external plugin selections and publishes the final state through the real watcher', async () => {
   temp = mkdtempSync(join(tmpdir(), 'orca-toggle-assembly-'))
   const cwd = join(temp, 'desk'),
     root = join(temp, 'claude')
@@ -83,18 +80,11 @@ it('keeps every toggle while overlapping plugin toggles save through the real wa
     extensions: { skills: [], hooks: { normalized: {} } }
   }) as unknown as GovernedLiveTurn
   const snapshots: NativeResources[] = []
-  const sharing = createNativeResourceSharing({
-    session: () => ({ backend: 'claude', project_id: null, cwd }),
-    cwd: () => cwd,
-    projectRoot: (_backend, value) => value,
-    runtimes: () => [{ sessionId: 'S', runtime: live }],
-    changed: (_sessionId, value) => snapshots.push(value)
-  })
   const reader: { read?: (request: { sessionId: string }) => Promise<NativeResources> } = {}
   const target = {
     backend: 'claude' as const,
     cwd,
-    key: sharing.scope('S')!,
+    key: cwd,
     request: { sessionId: 'S' },
     runtime: live
   }
@@ -104,45 +94,31 @@ it('keeps every toggle while overlapping plugin toggles save through the real wa
     policy: () => undefined,
     idle: () => true,
     read: (request) => reader.read!(request as { sessionId: string }),
-    emit: (_sessionId, value) => snapshots.push(value),
-    run: (key, action) => sharing.run!(key, action)
+    emit: (_sessionId, value) => snapshots.push(value)
   })
   try {
-    reader.read = registerSessionResourceHandlers(
-      (id) => (id === 'S' ? live : undefined),
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      sharing,
-      sync
-    ) as typeof reader.read
+    reader.read = registerSessionResourceHandlers({
+      lookup: (id) => (id === 'S' ? live : undefined),
+      projectSync: sync
+    }) as typeof reader.read
     sync.tick()
     await new Promise((resolve) => setTimeout(resolve, 1000))
-    const toggle = (name: string): Promise<unknown> =>
-      callbacks.get(CHANNELS.sessionSetNativeResource)!(
-        {},
-        {
-          sessionId: 'S',
-          generation: live.providerGeneration,
-          kind: 'plugin',
-          id: nativePluginId(join(fx.root, name)),
-          enabled: false
-        }
-      )
-    const results = await Promise.allSettled([toggle('a'), toggle('b')])
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    expect(results.map((result) => result.status)).toEqual(['fulfilled', 'fulfilled'])
-    expect(snapshots.length).toBeGreaterThan(0)
-    for (const value of snapshots) {
-      expect(value.configurationPending).toBeUndefined()
-      expect(
-        value.items.filter((item) => item.kind === 'plugin').every((item) => item.canToggle)
-      ).toBe(true)
-    }
+    write(join(cwd, '.claude/settings.local.json'), {
+      enabledPlugins: { 'a@m': false, 'b@m': false }
+    })
+    await vi.waitFor(
+      () => {
+        expect(
+          snapshots.at(-1)?.items.map((item) => [item.name, item.enabled, item.status])
+        ).toEqual([
+          ['a@m', false, 'disabled'],
+          ['b@m', false, 'disabled'],
+          ['c@m', true, 'enabled']
+        ])
+        expect(snapshots.at(-1)?.configurationPending).toBeUndefined()
+      },
+      { timeout: 5000 }
+    )
   } finally {
     sync.close()
     live.close()

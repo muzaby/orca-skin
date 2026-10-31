@@ -1,15 +1,13 @@
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir, homedir } from 'node:os'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { homedir, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   configuredClaudeResources,
-  configuredClaudePluginDirectory,
-  configuredClaudeMcpFile,
+  globalClaudeResources,
   nativePluginId
 } from './configured-resources'
 import { claudeNativeResources } from './native-resources'
-import { globalClaudeResources } from './configured-resources'
 
 let temp: string
 let cwd: string
@@ -58,33 +56,6 @@ describe('configured Claude resources', () => {
     expect(resources).toHaveLength(2)
     expect(JSON.stringify(resources)).not.toContain('secret-command')
     expect(await readFile(paths.globalConfig, 'utf8')).toBe(before)
-  })
-  it('resolves the actual MCP declaration file across user, project, local and plugin precedence', async () => {
-    await json(paths.globalConfig, {
-      mcpServers: { global: { command: 'a' }, shared: { command: 'a' } },
-      projects: { [cwd]: { mcpServers: { local: { command: 'b' } } } }
-    })
-    await json(join(cwd, '.mcp.json'), { mcpServers: { shared: { command: 'c' } } })
-    const root = join(temp, 'plugin')
-    await json(join(paths.root, 'plugins/installed_plugins.json'), {
-      plugins: { 'p@market': [{ scope: 'user', installPath: root }] }
-    })
-    await json(join(root, '.claude-plugin/plugin.json'), {
-      name: 'p',
-      mcpServers: [{ inline: { command: 'd' } }, './extra.json']
-    })
-    await json(join(root, '.mcp.json'), { mcpServers: { bundled: { command: 'e' } } })
-    await json(join(root, 'extra.json'), { external: { command: 'f' } })
-    for (const [id, file] of [
-      ['global', paths.globalConfig],
-      ['local', paths.globalConfig],
-      ['shared', join(cwd, '.mcp.json')],
-      ['plugin:p:inline', join(root, '.claude-plugin/plugin.json')],
-      ['plugin:p:bundled', join(root, '.mcp.json')],
-      ['plugin:p:external', join(root, 'extra.json')]
-    ])
-      expect(await configuredClaudeMcpFile(cwd, id, paths)).toBe(file)
-    expect(await configuredClaudeMcpFile(cwd, 'unknown', paths)).toBeUndefined()
   })
   it('reads scoped MCP metadata and disabled flags without exposing private configuration', async () => {
     await json(paths.globalConfig, {
@@ -150,11 +121,6 @@ describe('configured Claude resources', () => {
     expect(rows.find((item) => item.id === nativePluginId(active))?.description).toBe(
       'Active native skills'
     )
-    expect(await configuredClaudePluginDirectory(cwd, nativePluginId(active), paths)).toBe(active)
-    expect(
-      await configuredClaudePluginDirectory(join(temp, 'other'), nativePluginId(active), paths)
-    ).toBeUndefined()
-    expect(await configuredClaudePluginDirectory(cwd, active, paths)).toBeUndefined()
     expect(rows.find((item) => item.id === nativePluginId(join(temp, 'old')))).toMatchObject({
       name: 'active@market'
     })
@@ -248,11 +214,6 @@ it('lists every applicable install independently of flags, uses path boundaries 
   const rows = await configuredClaudeResources(cwd, paths)
   expect(rows).toHaveLength(3)
   expect(rows.every((item) => item.status === 'disabled')).toBe(true)
-  for (const entry of entries['superpowers@official']) {
-    expect(
-      await configuredClaudePluginDirectory(cwd, nativePluginId(entry.installPath), paths)
-    ).toBe(entry.installPath)
-  }
   const nested = join(cwd, 'child', 'nested-repo')
   await mkdir(join(nested, '.git'), { recursive: true })
   expect((await configuredClaudeResources(nested, paths)).map((item) => item.id)).toEqual([
@@ -270,7 +231,6 @@ it('lists every applicable install independently of flags, uses path boundaries 
   expect((await configuredClaudeResources(cwd, paths)).every((item) => item.enabled)).toBe(true)
   await json(registry, { version: 2, plugins: {} })
   expect(await configuredClaudeResources(cwd, paths)).toEqual([])
-  expect(await configuredClaudePluginDirectory(cwd, rows[0].id, paths)).toBeUndefined()
 })
 
 it('applies Orca plugin choices above user defaults and below project selections', async () => {

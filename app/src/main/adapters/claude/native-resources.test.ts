@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
 import type { McpServerStatus } from '@anthropic-ai/claude-agent-sdk'
-import { claudeNativeResources } from './native-resources'
+import { describe, expect, it, vi } from 'vitest'
 import { nativePluginId } from './configured-resources'
+import { claudeNativeResources } from './native-resources'
 
 describe('Claude native resources', () => {
   it('projects exact supported slash commands and descriptions while excluding builtins and injected plugins', async () => {
@@ -71,9 +71,6 @@ describe('Claude native resources', () => {
   it('projects statuses and loaded plugins without injected resources or private configuration', async () => {
     const { resources } = fixture()
     const items = await resources.list()
-    expect(await resources.directory(nativePluginId('/private/plugin'))).toBe('/private/plugin')
-    expect(await resources.directory(nativePluginId('/injected'))).toBeUndefined()
-    expect(await resources.directory('/private/plugin')).toBeUndefined()
     expect(items).toEqual([
       {
         id: 'native',

@@ -1,24 +1,24 @@
-import { openCodeGlobalConfigFiles, openCodeGlobalPluginFingerprint } from './global-plugins'
-import { openCodeProjectResources } from './project-settings'
-import { openCodeDiscovery } from './discovery-cache'
 import type { OpenCodeImplementation } from '../implementation'
 import { OpenCodeAdapter } from './adapter'
-import { OpenCodeServerPool } from './server'
-import { LegacyStorageMigration } from './legacy-storage-migration'
-import { openCodeContextWindow } from './context-usage'
 import {
-  configuredOpenCodeMcpFile,
+  configuredOpenCodePluginSkillDirectories,
   configuredOpenCodeResources,
-  configuredOpenCodePluginSkillDirectories
+  globalOpenCodeMcpFile,
+  globalOpenCodeResources
 } from './configured-resources'
-import { globalOpenCodeResources, globalOpenCodeMcpFile } from './configured-resources'
-import { openCodeSkillDirectories } from './skill-sources'
+import { openCodeContextWindow } from './context-usage'
+import { openCodeDiscovery } from './discovery-cache'
+import { openCodeGlobalConfigFiles, openCodeGlobalPluginFingerprint } from './global-plugins'
+import { LegacyStorageMigration } from './legacy-storage-migration'
+import { openCodeProjectResources } from './project-settings'
+import { OpenCodeServerPool } from './server'
 import {
   loadOpenCodeProviderSettings,
   parseOpenCodeModels,
   parseOpenCodeRuntimeModels,
   readUserOpenCodeSettings
 } from './settings'
+import { openCodeSkillDirectories } from './skill-sources'
 
 export const implementation: OpenCodeImplementation = {
   invalidateDiscovery: () => openCodeDiscovery.invalidate(),
@@ -44,7 +44,6 @@ export const implementation: OpenCodeImplementation = {
   parseModels: parseOpenCodeModels,
   parseRuntimeModels: parseOpenCodeRuntimeModels,
   readUserSettings: readUserOpenCodeSettings,
-  configuredMcpFile: configuredOpenCodeMcpFile,
   configuredResources: configuredOpenCodeResources,
   globalResources: globalOpenCodeResources,
   globalResourcePath: globalOpenCodeMcpFile,

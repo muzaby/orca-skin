@@ -1,16 +1,16 @@
-import type { NativeResources, SetNativeResource } from '../../../shared/native-resources'
+import type { AgentKind } from '../../../shared/agent-kind'
+import type { BackgroundEvent, ProviderMessageEvent } from '../../../shared/background-task'
 import type {
   Backend,
   ClassifiedError,
   NormalizedEvent,
   ProviderDescriptor
 } from '../../../shared/ipc'
+import type { NativeResources } from '../../../shared/native-resources'
 import type { NormalizedPermissionMode } from '../../../shared/permission-mode'
-import type { AgentKind } from '../../../shared/agent-kind'
-import type { InterruptReceipt, TurnContinuation, TurnRequest } from './turn'
 import type { AdapterSpawnEnvPatch, ResolvedHarnessSettings } from './harness-config'
-import type { BackgroundEvent, ProviderMessageEvent } from '../../../shared/background-task'
 import type { NativeHistoryRequest, NativeHistoryResult } from './native-history'
+import type { InterruptReceipt, TurnContinuation, TurnRequest } from './turn'
 
 export type { Backend, NormalizedEvent }
 
@@ -32,8 +32,6 @@ type AdapterSubmissionOutcome =
 export interface LiveTurn {
   projectResourcePolicy?(): import('./project-resources').ProjectResourcePolicy | undefined
   nativeResources?(): Promise<NativeResources>
-  nativePluginDirectory?(id: string): Promise<string | undefined>
-  setNativeResource?(request: SetNativeResource): Promise<void>
   reconcileNativeResources?(
     revision: string,
     isIdle: () => boolean

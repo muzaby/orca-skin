@@ -1,23 +1,23 @@
-import type { NativeResources, SetNativeResource } from '../../../shared/native-resources'
-import { reportError } from '../../infra/error-report'
+import type { BackgroundEventSource } from '../../../shared/background-task'
 import type { NormalizedEvent } from '../../../shared/ipc'
-import type { SessionSchedule } from '../../../shared/session-schedules'
+import type { NativeResources } from '../../../shared/native-resources'
 import type { NormalizedPermissionMode } from '../../../shared/permission-mode'
+import type { SessionSchedule } from '../../../shared/session-schedules'
 import {
   harnessEnvFingerprint,
   type ResolvedHarnessSettings
 } from '../../adapters/common/harness-config'
-import type { TurnRequest } from '../../adapters/common/turn'
 import type { RuntimeToolContext } from '../../adapters/common/runtime-tools'
+import type { TurnRequest } from '../../adapters/common/turn'
 import type { LiveTurn, ProviderMessageBatch } from '../../adapters/common/types'
-import type { BackgroundEventSource } from '../../../shared/background-task'
 import type { ManagedRuntime, RuntimeSessionAdapter } from '../../contracts/ports'
-import { getLogger } from '../../infra/log/registry'
 import {
   SessionRuntimeStatus,
   type AbortCause,
   type SessionRuntimeState
 } from '../../contracts/session-state'
+import { reportError } from '../../infra/error-report'
+import { getLogger } from '../../infra/log/registry'
 
 // 프레임 위임 키 — **채널보다 짧은 수명(체인·턴)을 캡처한 콜백의 정본 목록**이다. 채널은 체인보다
 // 오래 살므로 이 콜백들은 spawn 시점 값으로 굳으면 안 되고, 매 send/listen 마다 갈아끼워야 한다.
@@ -954,21 +954,6 @@ export class SessionRuntime implements ManagedRuntime {
 
   nativeResourcesApplied(revision: string): boolean {
     return this.live?.nativeResourcesApplied?.(revision) === true
-  }
-
-  async setNativeResource(request: SetNativeResource): Promise<void> {
-    const live = this.live
-    if (!live?.setNativeResource || live.providerGeneration !== request.generation)
-      throw new Error('실행 중인 하네스 연결을 확인해 주세요.')
-    await live.setNativeResource(request)
-    if (this.live !== live) throw new Error('하네스 연결이 바뀌었습니다. 메뉴를 다시 열어 주세요.')
-  }
-
-  async nativePluginDirectory(id: string): Promise<string | undefined> {
-    const live = this.live
-    const directory = await live?.nativePluginDirectory?.(id)
-    if (this.live !== live) throw new Error('하네스 연결이 바뀌었습니다. 메뉴를 다시 열어 주세요.')
-    return directory
   }
 
   async setPermissionMode(mode: NormalizedPermissionMode): Promise<void> {

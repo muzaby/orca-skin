@@ -1,11 +1,11 @@
-import { watchFile, unwatchFile } from 'node:fs'
+import { unwatchFile, watchFile } from 'node:fs'
 import type { Backend, ChatActivitySnapshot } from '../../shared/ipc'
 import type { DraftNativeResourcesRequest, NativeResources } from '../../shared/native-resources'
-import type { GovernedLiveTurn } from '../contracts/ports'
 import type {
   ProjectResourceConfiguration,
   ProjectResourcePolicy
 } from '../adapters/common/project-resources'
+import type { GovernedLiveTurn } from '../contracts/ports'
 
 export type ResourceRequest = { sessionId: string } | DraftNativeResourcesRequest
 export interface ProjectResourceTarget {
@@ -52,6 +52,7 @@ export class ProjectResourceSync {
   private readonly entries = new Map<string, Entry>()
   private readonly timer: ReturnType<typeof setInterval>
   private closed = false
+  private readonly mutations = new Map<string, Promise<unknown>>()
   constructor(
     private readonly deps: {
       resolve(request: ResourceRequest): ProjectResourceTarget | undefined
@@ -60,12 +61,20 @@ export class ProjectResourceSync {
       idle(target: ProjectResourceTarget): boolean
       read(request: ResourceRequest): Promise<NativeResources>
       emit(sessionId: string, value: NativeResources): void
-      run<T>(key: string, action: () => Promise<T>): Promise<T>
       watch?: (file: string, changed: () => void) => () => void
     }
   ) {
     this.timer = setInterval(() => this.tick(), 500)
     this.timer.unref?.()
+  }
+  async run<T>(key: string, action: () => Promise<T>): Promise<T> {
+    const task = (this.mutations.get(key) ?? Promise.resolve()).catch(() => undefined).then(action)
+    this.mutations.set(key, task)
+    try {
+      return await task
+    } finally {
+      if (this.mutations.get(key) === task) this.mutations.delete(key)
+    }
   }
   observe(owner: string, request: ResourceRequest, emit: Owner['emit']): void {
     this.owners.set(owner, { request, emit })
@@ -183,7 +192,7 @@ export class ProjectResourceSync {
         try {
           // An own save can advance again while a watcher waits for the mutation queue.
           // Read and publish under the same owner so an intermediate revision cannot escape.
-          await this.deps.run(entry.target.key, async () => {
+          await this.run(entry.target.key, async () => {
             const next = await entry.policy.read(entry.target.cwd)
             if (!this.valid(entry) || version !== entry.version) return
             const recovered = entry.failed
@@ -231,7 +240,7 @@ export class ProjectResourceSync {
     if (!pending.length || !this.peers(entry, true).every((peer) => this.deps.idle(peer))) return
     entry.applying = true
     try {
-      await this.deps.run(entry.target.key, async () => {
+      await this.run(entry.target.key, async () => {
         const guard = (): boolean =>
           this.valid(entry) &&
           !entry.failed &&
@@ -268,9 +277,9 @@ export class ProjectResourceSync {
     return true
   }
   // Broadcasts wait behind an in-flight project mutation so its intermediate state is never shown.
-  // Never call this from inside `deps.run`: the queue would wait on itself.
+  // Never call this from inside `run`: the queue would wait on itself.
   private emit(entry: Entry): Promise<void> {
-    return this.deps.run(entry.target.key, () => this.broadcast(entry))
+    return this.run(entry.target.key, () => this.broadcast(entry))
   }
   private async broadcast(entry: Entry): Promise<void> {
     const version = entry.version

@@ -4,12 +4,12 @@
 // 권한 모드 정규화 타입 (type-only — 런타임 사이클 없음). permission-mode.ts 와 상호 type import.
 import type { NormalizedPermissionMode } from './permission-mode'
 // continuity 언어 스냅샷(0127) — type-only.
-import type { ContinuityLang } from './continuity-lang'
-import type { ArtifactRef } from './artifacts'
 import type { AgentKind } from './agent-kind'
+import type { ArtifactRef } from './artifacts'
+import type { ContinuityLang } from './continuity-lang'
+import type { ProviderCatalogPresentation } from './provider-catalog'
 import type { ResponseBoundary, ResponseBoundaryPart } from './response-boundary'
 import type { ReceivedMessageOrigin, SessionSchedule } from './session-schedules'
-import type { ProviderCatalogPresentation } from './provider-catalog'
 import type { NonExecution } from './tool-outcome'
 
 export type { AgentKind } from './agent-kind'
@@ -100,8 +100,6 @@ export const CHANNELS = {
   composerCatalog: 'orca:composer:catalog',
   composerCatalogRelease: 'orca:composer:catalog-release',
   composerCatalogInvalidated: 'orca:composer:catalog-invalidated',
-  sessionOpenNativePlugin: 'orca:session:open-native-plugin',
-  sessionSetNativeResource: 'orca:session:set-native-resource',
   sessionNativeResourcesChanged: 'orca:session:native-resources-changed',
   sessionAddDirectory: 'orca:session:addDirectory',
   sessionTitleEvent: 'orca:session:titleEvent',

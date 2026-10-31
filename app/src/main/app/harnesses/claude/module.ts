@@ -1,14 +1,14 @@
-import { configuredClaudeCommands, pluginPathKey } from '../../../adapters/claude/plugin-catalog'
 import { ClaudeAdapter } from '../../../adapters/claude/adapter'
 import {
   configuredClaudeResources,
-  configuredClaudePluginDirectory,
-  configuredClaudeMcpFile
+  globalClaudeResourcePath,
+  globalClaudeResources
 } from '../../../adapters/claude/configured-resources'
+import { configuredClaudeCommands, pluginPathKey } from '../../../adapters/claude/plugin-catalog'
 import {
-  globalClaudeResources,
-  globalClaudeResourcePath
-} from '../../../adapters/claude/configured-resources'
+  claudeProjectSettingsFiles,
+  readClaudeProjectSettings
+} from '../../../adapters/claude/project-settings'
 import {
   loadClaudeProviderSettings,
   readUserClaudeSettings
@@ -19,10 +19,6 @@ import {
 } from '../../../features/harnesses/claude/model-parser'
 import { defaultProvider, resolveTitleModel } from '../../../features/harnesses/claude/model-policy'
 import type { MainHarnessModule } from '../common/contracts'
-import {
-  claudeProjectSettingsFiles,
-  readClaudeProjectSettings
-} from '../../../adapters/claude/project-settings'
 
 export const claudeMainModule: MainHarnessModule = {
   projectResources: {
@@ -43,8 +39,6 @@ export const claudeMainModule: MainHarnessModule = {
   configuredResources: (cwd, choices) => configuredClaudeResources(cwd, undefined, false, choices),
   nativeResourceScope: pluginPathKey,
   configuredCommands: configuredClaudeCommands,
-  configuredPluginDirectory: configuredClaudePluginDirectory,
-  configuredMcpFile: configuredClaudeMcpFile,
   defaultProvider,
   resolveTitleModel,
   recoveryContextWindow: (_settings, model) =>
