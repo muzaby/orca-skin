@@ -1,10 +1,10 @@
 // session 도메인 핸들러 — cwd / list / load / delete / rename.
 // 검증 실패 정책(조회·삭제·rename = 무해 폴백)은 registry.ts 의 등록부 명시 규약을 따른다.
 
-import { resolveLandingCwd } from './session-cwd'
+import type { ChatActivitySnapshot, DeleteSessionResult } from '../../../shared/ipc'
 import {
-  CHANNELS,
   AddSessionDirectorySchema,
+  CHANNELS,
   DeleteSessionRequestSchema,
   LoadSessionRequestSchema,
   RenameSessionRequestSchema,
@@ -13,13 +13,13 @@ import {
   type RefreshSessionResult,
   type SessionListItem
 } from '../../../shared/protocol'
+import type { NativeSyncResult } from '../../features/history/native-sync'
 import { loadSession } from '../../features/history/reader'
-import type { RouterContext } from '../context'
-import { addSessionDirectory } from './session-directory'
 import { toSessionListItem } from '../../infra/ipc/dto'
 import { handle, handlePlain } from '../../infra/ipc/handle'
-import type { ChatActivitySnapshot } from '../../../shared/ipc'
-import type { DeleteSessionResult } from '../../../shared/ipc'
+import type { RouterContext } from '../context'
+import { resolveLandingCwd } from './session-cwd'
+import { addSessionDirectory } from './session-directory'
 
 // 세션 폐기 시 정리할 in-memory 소유자들(0151 AC8) — 컴포지션 루트가 주입한다. 세션 슬라이스가
 // chat 슬라이스를 직접 참조하지 않기 위한 구조적 포트(main/AGENTS.md 해소책 ③).
@@ -27,7 +27,7 @@ interface SessionDisposeHooks {
   isSessionBusy?: (sessionId: string) => boolean
   onSessionDisposed?: (sessionId: string) => void
   getActivity?: (sessionId: string) => ChatActivitySnapshot
-  refreshHistory?: (sessionId: string) => Promise<LoadedSession['nativeSync']>
+  refreshHistory?: (sessionId: string) => Promise<NativeSyncResult | undefined>
 }
 
 type SessionHandlerContext = Pick<RouterContext, 'db' | 'getCwd'> & {
@@ -88,7 +88,12 @@ export function registerSessionHandlers(
       if (sync.status === 'busy') return { status: 'busy' }
       if (sync.status !== 'ready')
         return { status: sync.status, message: sync.message ?? '원본 대화를 확인할 수 없습니다.' }
-      const session = loadSession(ctx.db, req.sessionId, (projectId) => ctx.getCwd(projectId))
+      const session = loadSession(
+        ctx.db,
+        req.sessionId,
+        (projectId) => ctx.getCwd(projectId),
+        sync.snapshot
+      )
       if (!session) return { status: 'missing', message: '목록에서 제거된 대화입니다.' }
       return {
         status: 'updated',

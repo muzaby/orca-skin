@@ -13,6 +13,7 @@ import type {
 import { refreshNativeHistory } from '../../features/history/native-sync'
 import { applyMigrations } from '../../infra/db/migrate'
 import { DbQueries } from '../../infra/db/queries'
+import { registerSessionHandlers } from './session'
 
 const callbacks = vi.hoisted(() => new Map<string, (request: { sessionId: string }) => unknown>())
 vi.mock('../../infra/ipc/handle', () => ({
@@ -24,7 +25,6 @@ vi.mock('../../infra/ipc/handle', () => ({
   ) => callbacks.set(channel, callback),
   handlePlain: vi.fn()
 }))
-import { registerSessionHandlers } from './session'
 
 let db: Database.Database
 let queries: DbQueries
@@ -256,6 +256,34 @@ describe('session load IPC restores the complete persisted view', () => {
 })
 
 describe('session load IPC refreshes native history before composing the archived view', () => {
+  it('reuses the refreshed snapshot through the handler without parsing its payload again', async () => {
+    session()
+    const stored = value()
+    await refreshNativeHistory('s1', {
+      db: queries,
+      isBusy: () => false,
+      read: async () => ({ status: 'ready', snapshot: stored })
+    })
+    const payload = queries.nativeHistory.get('s1')!.payload_json
+    const next = { ...stored, revision: 'next' }
+    await load(
+      's1',
+      undefined,
+      refresher(async () => ({ status: 'ready', snapshot: next }))
+    )
+    const parse = vi.spyOn(JSON, 'parse')
+    try {
+      const result = (await callbacks.get(CHANNELS.sessionRefresh)!({
+        sessionId: 's1'
+      })) as RefreshSessionResult
+      expect(result.status).toBe('updated')
+      expect(parse.mock.calls.filter(([text]) => text === payload)).toHaveLength(1)
+      expect(parse.mock.calls.filter(([text]) => text === JSON.stringify(next))).toHaveLength(0)
+      expect(JSON.stringify(result)).not.toMatch(/mainOnly|sourceKey|snapshot/)
+    } finally {
+      parse.mockRestore()
+    }
+  })
   function value(): NativeHistorySnapshot {
     return {
       sessionId: 's1',

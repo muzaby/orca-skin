@@ -1,14 +1,35 @@
 import type { LoadedSession } from '../../../shared/ipc'
+import { isRecord } from '../../../shared/obj'
 import type {
-  NativeHistoryRequest,
   NativeHistoryCursor,
+  NativeHistoryRequest,
   NativeHistoryResult,
   NativeHistorySnapshot
 } from '../../adapters/common/native-history'
-import { isRecord } from '../../../shared/obj'
 import type { DbQueries } from '../../infra/db'
 
-type SyncStatus = NonNullable<LoadedSession['nativeSync']>
+export type NativeSyncResult = NonNullable<LoadedSession['nativeSync']> & {
+  snapshot?: NativeHistorySnapshot
+}
+
+export function readNativeHistoryPrevious(
+  db: DbQueries,
+  sessionId: string
+): NativeHistoryRequest['previous'] {
+  const row = db.nativeHistory?.get(sessionId)
+  if (!row) return undefined
+  const snapshot = JSON.parse(row.payload_json) as NativeHistorySnapshot
+  const candidate = row.cursor_json
+    ? (JSON.parse(row.cursor_json) as NativeHistoryCursor)
+    : undefined
+  const cursor =
+    candidate?.version === 1 &&
+    candidate.sourceKey === snapshot.sourceKey &&
+    candidate.revision === snapshot.revision
+      ? candidate
+      : undefined
+  return { snapshot, cursor }
+}
 
 export interface NativeSyncDependencies {
   db: DbQueries
@@ -45,26 +66,17 @@ export function validNativeSnapshot(snapshot: NativeHistorySnapshot, sessionId: 
 export async function refreshNativeHistory(
   sessionId: string,
   deps: NativeSyncDependencies
-): Promise<SyncStatus> {
-  const busy: SyncStatus = { status: 'busy' }
+): Promise<NativeSyncResult> {
+  const busy: NativeSyncResult = { status: 'busy' }
   if (deps.isBusy()) return busy
   if (!deps.db.getSessionById(sessionId))
     return { status: 'missing', message: '목록에서 제거된 대화입니다.' }
   const before = deps.db.nativeHistory.observe(sessionId)
+  let previous: NativeHistoryRequest['previous']
   let result: NativeHistoryResult
   try {
-    const row = deps.db.nativeHistory.get(sessionId)
-    const snapshot = row ? (JSON.parse(row.payload_json) as NativeHistorySnapshot) : undefined
-    const candidate = row?.cursor_json
-      ? (JSON.parse(row.cursor_json) as NativeHistoryCursor)
-      : undefined
-    const cursor =
-      candidate?.version === 1 &&
-      candidate.sourceKey === snapshot?.sourceKey &&
-      candidate.revision === snapshot?.revision
-        ? candidate
-        : undefined
-    result = await deps.read(snapshot ? { snapshot, cursor } : undefined)
+    previous = readNativeHistoryPrevious(deps.db, sessionId)
+    result = await deps.read(previous)
   } catch {
     return {
       status: 'unavailable',
@@ -92,13 +104,8 @@ export async function refreshNativeHistory(
       message: '하네스 원본의 메시지 식별자를 확인할 수 없어 보관된 대화를 표시합니다.'
     }
   }
-  const previous = deps.db.nativeHistory.get(sessionId)
   try {
-    if (
-      previous &&
-      (JSON.parse(previous.payload_json) as NativeHistorySnapshot).sourceKey !==
-        result.snapshot.sourceKey
-    ) {
+    if (previous && previous.snapshot.sourceKey !== result.snapshot.sourceKey) {
       return {
         status: 'migration-required',
         message: '이 대화의 하네스 저장 경로가 변경되었습니다. 기존 원본을 확인해 주세요.'
@@ -121,7 +128,7 @@ export async function refreshNativeHistory(
           .join('\n')
       }))
     })
-    return saved ? { status: 'ready' } : busy
+    return saved ? { status: 'ready', snapshot: result.snapshot } : busy
   } catch {
     return {
       status: 'unavailable',

@@ -1,12 +1,7 @@
-import {
-  readOpenCodeHistory,
-  type NativeReadDependencies
-} from '../../adapters/opencode/v1/native-history'
+import Database from 'better-sqlite3'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import Database from 'better-sqlite3'
-import { openFileDatabase } from '../../infra/db/file-database'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AppMessagePart, LoadedSession } from '../../../shared/ipc'
 import type {
@@ -14,10 +9,15 @@ import type {
   NativeHistoryResult,
   NativeHistorySnapshot
 } from '../../adapters/common/native-history'
-import { refreshNativeHistory } from './native-sync'
-import { loadSession } from './reader'
+import {
+  readOpenCodeHistory,
+  type NativeReadDependencies
+} from '../../adapters/opencode/v1/native-history'
+import { openFileDatabase } from '../../infra/db/file-database'
 import { applyMigrations } from '../../infra/db/migrate'
 import { DbQueries } from '../../infra/db/queries'
+import { refreshNativeHistory } from './native-sync'
+import { loadSession } from './reader'
 
 let db: Database.Database
 let queries: DbQueries
@@ -94,6 +94,35 @@ function transcriptText(): string[] {
 }
 
 describe('native history with the migrated SQLite archive', () => {
+  it('keeps row identities and touches only changed messages while deleting absent native IDs', async () => {
+    await sync(
+      snapshot([native('keep', 'stable'), native('change', 'before'), native('remove', 'obsolete')])
+    )
+    const rows = (): unknown[] =>
+      db.prepare('SELECT id, native_id FROM native_history_messages ORDER BY native_id').all()
+    const before = rows()
+    db.exec(`CREATE TABLE fixture_updates (native_id TEXT);
+      CREATE TRIGGER fixture_update AFTER UPDATE ON native_history_messages BEGIN INSERT INTO fixture_updates VALUES (NEW.native_id); END;`)
+    await sync(snapshot([native('keep', 'stable'), native('change', 'after')], 'next'))
+    expect(rows()).toEqual(
+      before.filter((row) => (row as { native_id: string }).native_id !== 'remove')
+    )
+    expect(db.prepare('SELECT native_id FROM fixture_updates').all()).toEqual([
+      { native_id: 'change' }
+    ])
+    expect(queries.searchMessages('before')).toEqual([])
+    expect(queries.searchMessages('after')).toHaveLength(1)
+    const prepare = vi.spyOn(db, 'prepare')
+    try {
+      queries.nativeHistory.get('session')
+      queries.nativeHistory.observe('session')
+      queries.nativeHistory.bindings('session')
+      queries.nativeHistory.search('stable', 10)
+      expect(prepare).not.toHaveBeenCalled()
+    } finally {
+      prepare.mockRestore()
+    }
+  })
   it('atomically stores the snapshot, local frontier and searchable native text without replacing local rows', async () => {
     const frontier = local('archivedobsolete')
     const original = queries.loadParts('session')
@@ -102,7 +131,7 @@ describe('native history with the migrated SQLite archive', () => {
       native('native-answer', 'terminalanswer')
     ])
 
-    expect(await sync(value)).toEqual({ status: 'ready' })
+    expect(await sync(value)).toMatchObject({ status: 'ready' })
     expect(queries.nativeHistory.get('session')).toEqual({
       payload_json: JSON.stringify(value),
       cursor_json: null,
@@ -134,8 +163,8 @@ describe('native history with the migrated SQLite archive', () => {
     local('legacy')
     await sync(snapshot([native('same-id', 'previouskeyword')]))
     const updated = snapshot([native('same-id', 'replacementkeyword')], 'revision-2')
-    expect(await sync(updated)).toEqual({ status: 'ready' })
-    expect(await sync(updated)).toEqual({ status: 'ready' })
+    expect(await sync(updated)).toMatchObject({ status: 'ready' })
+    expect(await sync(updated)).toMatchObject({ status: 'ready' })
 
     expect(db.prepare('SELECT native_id, content FROM native_history_messages').all()).toEqual([
       { native_id: 'same-id', content: 'replacementkeyword' }
@@ -159,9 +188,9 @@ describe('native history with the migrated SQLite archive', () => {
       expect.objectContaining({ message_id: tail })
     ])
 
-    expect(await sync(snapshot([first, native('tail-id', 'livetext')], 'revision-2'))).toEqual({
-      status: 'ready'
-    })
+    expect(
+      await sync(snapshot([first, native('tail-id', 'livetext')], 'revision-2'))
+    ).toMatchObject({ status: 'ready' })
     expect(queries.nativeHistory.get('session')?.local_frontier).toBe(tail)
     expect(transcriptText()).toEqual(['before', 'livetext'])
     const hits = queries.searchMessages('livetext')
@@ -283,7 +312,7 @@ describe('native history with the migrated SQLite archive', () => {
     queries.nativeHistory.bind(mapped, 'native-user')
     const original = queries.loadParts('session')
 
-    expect(await sync(snapshot([native('native-user', 'samebody', 'user')]))).toEqual({
+    expect(await sync(snapshot([native('native-user', 'samebody', 'user')]))).toMatchObject({
       status: 'ready'
     })
     const view = loaded()
@@ -582,9 +611,9 @@ it('commits the OpenCode reader result and checkpoint through the common transac
         probe: async () => ({ kind: 'opencode-sqlite', sequence: 4, digest: 'native-projection' })
       }
     )
-  expect(await refreshNativeHistory('session', { db: queries, isBusy: () => false, read })).toEqual(
-    { status: 'ready' }
-  )
+  expect(
+    await refreshNativeHistory('session', { db: queries, isBusy: () => false, read })
+  ).toMatchObject({ status: 'ready' })
   expect(transcriptText()).toEqual(['external question', 'external answer'])
   expect(JSON.parse(queries.nativeHistory.get('session')!.cursor_json!).checkpoint).toMatchObject({
     sequence: 4,

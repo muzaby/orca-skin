@@ -1,25 +1,25 @@
 import Database from 'better-sqlite3'
-import { openFileDatabase } from '../../infra/db/file-database'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { NativeHistoryResult } from '../../adapters/common/native-history'
+import { recoveredPrompt } from '../../adapters/common/recovery'
+import type { TurnContext } from '../../contracts/turn'
+import {
+  archivePrompt,
+  recoveryFitsContext,
+  restoreRecoveryResult
+} from '../../features/history/native-recovery'
+import { refreshNativeHistory } from '../../features/history/native-sync'
+import { loadSession } from '../../features/history/reader'
+import { HistoryWriter } from '../../features/history/writer'
+import { openFileDatabase } from '../../infra/db/file-database'
 import { applyMigrations } from '../../infra/db/migrate'
 import { DbQueries } from '../../infra/db/queries'
-import { loadSession } from '../../features/history/reader'
-import { refreshNativeHistory } from '../../features/history/native-sync'
-import {
-  restoreRecoveryResult,
-  recoveryFitsContext,
-  archivePrompt
-} from '../../features/history/native-recovery'
-import { recoveredPrompt } from '../../adapters/common/recovery'
-import type { NativeHistoryResult } from '../../adapters/common/native-history'
-import { prepareNativeSession } from './native-session'
-import { HistoryWriter } from '../../features/history/writer'
-import type { TurnContext } from '../../contracts/turn'
-import { resolveTurn } from './resolve-turn'
 import type { RouterContext } from '../context'
+import { prepareNativeSession } from './native-session'
+import { resolveTurn } from './resolve-turn'
 
 vi.mock('../../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
 vi.mock('../../infra/config/orca-config', () => ({ appEnv: () => ({ APP_ENV: 'app' }) }))
@@ -84,6 +84,34 @@ beforeEach(() => {
 afterEach(() => db.close())
 
 describe('native retention recovery through the migrated archive', () => {
+  it('passes a stored snapshot and matching cursor on cold resume, but bypasses them for unsettled recovery', async () => {
+    const value = native([{ id: 'existing', text: 'archive' }])
+    if (value.status !== 'ready') throw new Error('snapshot required')
+    const snapshot = { ...value.snapshot, sessionId: request.sessionId }
+    const cursor = {
+      version: 1 as const,
+      sourceKey: snapshot.sourceKey,
+      revision: snapshot.revision,
+      checkpoint: { sequence: 1 }
+    }
+    await refreshNativeHistory(request.sessionId, {
+      db: queries,
+      isBusy: () => false,
+      read: async () => ({ status: 'ready', snapshot, cursor })
+    })
+    const readHistory = vi.fn(async (): Promise<NativeHistoryResult> => ({ status: 'unchanged' }))
+    expect((await prepareNativeSession({ readHistory }, request, queries, cwd)).ok).toBe(true)
+    expect(readHistory).toHaveBeenLastCalledWith({ ...request, previous: { snapshot, cursor } })
+    db.prepare(
+      `INSERT INTO native_session_recovery (session_id,native_id,archive_json,local_frontier,fresh_start) VALUES (?,?,'[]',0,0)`
+    ).run(request.sessionId, 'replacement')
+    await prepareNativeSession({ readHistory }, request, queries, cwd)
+    expect(readHistory).toHaveBeenLastCalledWith({
+      ...request,
+      sessionId: 'replacement',
+      previous: undefined
+    })
+  })
   it('uses the selected engine model context limit before creating a replacement', async () => {
     const adapter = {
       id: 'opencode' as const,
@@ -365,7 +393,7 @@ describe('native retention recovery through the migrated archive', () => {
         isBusy: () => false,
         read: async () => restored
       })
-    ).toEqual({ status: 'ready' })
+    ).toMatchObject({ status: 'ready' })
     expect(texts()).toEqual(['archivedquestion', 'archivedanswer', 'new request'])
     adapter.readHistory.mockResolvedValue(
       native([{ id: 'first-prompt', text: 'ARCHIVE PREFIX + new request' }])
