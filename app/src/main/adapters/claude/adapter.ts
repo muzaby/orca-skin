@@ -1,7 +1,7 @@
 import { DEFAULT_CLAUDE_OUTPUT_STYLE, type ClaudePreferences } from '../../../shared/harness'
 import { extensionChoices } from '../common/extension-control'
 import { claudeNativeResources } from './native-resources'
-import { readClaudePluginCatalog } from './plugin-catalog'
+import { claudePluginDefaults, readClaudePluginCatalog } from './plugin-catalog'
 import { persistClaudePluginState } from './plugin-state'
 import { pluginPathKey } from './project-path'
 import { ClaudeProjectReconciliation } from './project-reconciliation'
@@ -445,18 +445,13 @@ export class ClaudeAdapter implements SessionAdapter {
     ).root
     const choices = this.extensionControl?.global('claude') ?? {}
     const flags = extensionChoices(choices, 'plugin')
-    const plugins = readClaudePluginCatalog(
-      req.cwd,
-      nativeRoot,
-      {
-        ...req.providerSettings?.settings,
-        enabledPlugins: {
-          ...(req.providerSettings?.settings?.enabledPlugins as Record<string, unknown>),
-          ...flags
-        }
-      },
-      true
-    ).defaults
+    const plugins = claudePluginDefaults(nativeRoot, {
+      ...req.providerSettings?.settings,
+      enabledPlugins: {
+        ...(req.providerSettings?.settings?.enabledPlugins as Record<string, unknown>),
+        ...flags
+      }
+    })
     let snapshot = this.extensionSnapshots.get(key)
     if (!snapshot) {
       const deployment = this.pluginSnapshots?.capture(req.extensions.pluginRoots ?? [])

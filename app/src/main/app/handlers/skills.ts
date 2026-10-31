@@ -1,21 +1,21 @@
 // 스킬 IPC 7종 — 목록·작성·업로드·활성토글·열기·폴더에서 보기·제거 (0179 에서 misc 에서 분리).
 
+import { shell } from 'electron'
+import { PRODUCT_DISPLAY_NAME } from '../../../shared/product'
 import {
-  CHANNELS,
   AuthorSkillSchema,
+  CHANNELS,
   SetSkillEnabledSchema,
   SkillTargetSchema,
   UploadSkillSchema,
   type SkillInfo
 } from '../../../shared/protocol'
-import { shell } from 'electron'
-import { PRODUCT_DISPLAY_NAME } from '../../../shared/product'
+import { skillEnabledKey } from '../../features/extensions/common/skills/scan'
 import {
   removeOrcaSkillDir,
   writeAuthoredSkill,
   writeUploadedSkill
 } from '../../features/extensions/common/skills/sources'
-import { skillEnabledKey } from '../../features/extensions/common/skills/scan'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import type { RouterContext } from '../context'
 
@@ -35,18 +35,26 @@ function findSkill(
 }
 
 export function registerSkillsHandlers(ctx: SkillsHandlerContext): void {
-  handlePlain(CHANNELS.skillsList, (): Promise<SkillInfo[]> => ctx.refreshSkills())
+  let listing: Promise<SkillInfo[]> | undefined
+  const refresh = (): Promise<SkillInfo[]> => {
+    const task = ctx.refreshSkills().finally(() => {
+      if (listing === task) listing = undefined
+    })
+    listing = task
+    return task
+  }
+  handlePlain(CHANNELS.skillsList, (): Promise<SkillInfo[]> => listing ?? refresh())
 
   handle(CHANNELS.skillsAuthor, AuthorSkillSchema, 'reject', async (req): Promise<SkillInfo[]> => {
     await writeAuthoredSkill(req)
     await ctx.deployExtensions()
-    return ctx.refreshSkills()
+    return refresh()
   })
 
   handle(CHANNELS.skillsUpload, UploadSkillSchema, 'reject', async (req): Promise<SkillInfo[]> => {
     await writeUploadedSkill(req)
     await ctx.deployExtensions()
-    return ctx.refreshSkills()
+    return refresh()
   })
 
   handle(
@@ -65,7 +73,7 @@ export function registerSkillsHandlers(ctx: SkillsHandlerContext): void {
       })
       // 토글은 파일을 바꾸지 않는다(모든 Orca 스킬은 항상 배포됨) — 활성화는 런타임
       // options.skills 필터가 반영하므로 캐시 갱신만으로 충분(파일 재싱크 불필요).
-      return ctx.refreshSkills()
+      return refresh()
     }
   )
 
@@ -86,6 +94,6 @@ export function registerSkillsHandlers(ctx: SkillsHandlerContext): void {
     delete skillEnabled[skillEnabledKey(req.sourceId, req.name)]
     ctx.settings.patch({ skillEnabled })
     await ctx.deployExtensions()
-    return ctx.refreshSkills()
+    return refresh()
   })
 }

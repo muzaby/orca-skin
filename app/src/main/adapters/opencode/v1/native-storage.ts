@@ -24,10 +24,10 @@ export function nativeWorkingDirectory(cwd?: string): string {
   return resolve(cwd || homedir())
 }
 
+export function nativePathKey(path: string): string {
+  const value = resolve(path)
+  return process.platform === 'win32' ? value.toLowerCase() : value
+}
 export function sameNativePath(a: string, b: string): boolean {
-  const canonical = (path: string): string => {
-    const value = resolve(path)
-    return process.platform === 'win32' ? value.toLowerCase() : value
-  }
-  return canonical(a) === canonical(b)
+  return nativePathKey(a) === nativePathKey(b)
 }

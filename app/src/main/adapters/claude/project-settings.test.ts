@@ -1,10 +1,10 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { tmpdir, homedir } from 'node:os'
-import { beforeEach, afterEach, expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { persistClaudePluginState } from './plugin-state'
 import { claudeLocalSettingsRoot } from './project-path'
 import { claudeProjectSettingsFiles, readClaudeProjectSettings } from './project-settings'
-import { persistClaudePluginState } from './plugin-state'
 
 let temp: string, cwd: string, root: string
 beforeEach(() => {
@@ -16,6 +16,29 @@ beforeEach(() => {
   mkdirSync(root, { recursive: true })
 })
 afterEach(() => rmSync(temp, { recursive: true, force: true }))
+it('parses shared native state once per file fingerprint and refreshes after replacement', () => {
+  const state = claudeProjectSettingsFiles(cwd, root)[3]
+  const first = JSON.stringify({ projects: { [cwd]: { disabledMcpServers: ['one'] } } })
+  writeFileSync(state, first)
+  const parse = vi.spyOn(JSON, 'parse')
+  try {
+    expect(readClaudeProjectSettings(cwd, root).disabledMcp).toEqual(['one'])
+    expect(readClaudeProjectSettings(cwd, root).disabledMcp).toEqual(['one'])
+    expect(parse.mock.calls.filter(([text]) => text === first)).toHaveLength(1)
+    writeFileSync(
+      state,
+      JSON.stringify({ projects: { [cwd]: { disabledMcpServers: ['replacement'] } } })
+    )
+    expect(readClaudeProjectSettings(cwd, root).disabledMcp).toEqual(['replacement'])
+    rmSync(state)
+    expect(readClaudeProjectSettings(cwd, root).disabledMcp).toEqual([])
+    writeFileSync(state, first)
+    expect(readClaudeProjectSettings(cwd, root).disabledMcp).toEqual(['one'])
+    expect(parse.mock.calls.filter(([text]) => text === first)).toHaveLength(2)
+  } finally {
+    parse.mockRestore()
+  }
+})
 it('fingerprints only project extension keys and native project state, excluding other cwd and Git-root state', () => {
   const files = claudeProjectSettingsFiles(cwd, root)
   writeFileSync(

@@ -18,7 +18,7 @@ import {
 } from './instance-lifecycle'
 import { OpenCodeMcpControl } from './mcp-control'
 import { openCodeNativeCommands } from './native-resources'
-import { sameNativePath } from './native-storage'
+import { nativePathKey, sameNativePath } from './native-storage'
 
 interface ServerIdentity {
   url: string
@@ -302,7 +302,7 @@ class ServerContext {
   async *events(directory: string, signal: AbortSignal): AsyncGenerator<Event> {
     signal.throwIfAborted()
     this.controller.signal.throwIfAborted()
-    const subscriber: Subscriber = { directory, queue: [] }
+    const subscriber: Subscriber = { directory: nativePathKey(directory), queue: [] }
     this.subscribers.add(subscriber)
     const wake = (): void => {
       subscriber.wake?.()
@@ -377,12 +377,10 @@ class ServerContext {
           if (event.type === 'server.instance.disposed' && envelope.directory) {
             this.instances.disposed(envelope.directory)
           }
+          const directory =
+            !global && envelope.directory ? nativePathKey(envelope.directory) : undefined
           for (const subscriber of this.subscribers) {
-            if (
-              !global &&
-              (!envelope.directory || !sameNativePath(subscriber.directory, envelope.directory))
-            )
-              continue
+            if (!global && (!directory || subscriber.directory !== directory)) continue
             if (event.type === 'server.instance.disposed') {
               subscriber.error = new Error(
                 'OpenCode 프로젝트 연결이 종료되었습니다. 다시 연결해 주세요.'

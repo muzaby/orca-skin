@@ -1,8 +1,20 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { readClaudePluginCatalog, readClaudePluginCatalogAsync } from './plugin-catalog'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  claudePluginDefaults,
+  readClaudePluginCatalog,
+  readClaudePluginCatalogAsync
+} from './plugin-catalog'
+vi.mock('node:fs', async (original) => {
+  const actual = await original<typeof import('node:fs')>()
+  return {
+    ...actual,
+    readFileSync: vi.fn(actual.readFileSync),
+    readdirSync: vi.fn(actual.readdirSync)
+  }
+})
 
 let temp: string
 let cwd: string
@@ -29,6 +41,22 @@ beforeEach(() => {
 afterEach(() => rmSync(temp, { recursive: true, force: true }))
 
 describe('native plugin catalog', () => {
+  it('reads defaults from settings alone without traversing installed plugin trees', () => {
+    const path = plugin('bundle')
+    write(join(root, 'settings.json'), {
+      enabledPlugins: { active: true, off: false, array: [], object: {} }
+    })
+    write(join(root, 'plugins/installed_plugins.json'), {
+      plugins: { active: [{ scope: 'user', installPath: path }] }
+    })
+    const overrides = { enabledPlugins: { active: false, extra: true } }
+    const expected = readClaudePluginCatalog(cwd, root, overrides, true).defaults
+    vi.mocked(readFileSync).mockClear()
+    vi.mocked(readdirSync).mockClear()
+    expect(claudePluginDefaults(root, overrides)).toEqual(expected)
+    expect(readFileSync).toHaveBeenCalledExactlyOnceWith(join(root, 'settings.json'), 'utf8')
+    expect(readdirSync).not.toHaveBeenCalled()
+  })
   it('projects asynchronous menu reads identically to spawn without re-reading skill contents', async () => {
     const path = plugin('bundle')
     write(
