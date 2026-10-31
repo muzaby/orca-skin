@@ -19,7 +19,7 @@
 
 - **판정: /simplify 4관점(Reuse·Simplification·Efficiency·Altitude)을 따랐고 리뷰 에이전트 대신 설계자가 직접 수행했다.** 4관점 × main/renderer 에이전트 8개가 계정 5시간 사용 한도(HTTP 429)로 두 번 중단돼(01:00·06:00 UTC 리셋) 결과 0건이었다.
 - 직접 수행은 기계 스캔 + 표적 읽기다: 미사용 export 스캐너(`scan/dead-exports.cjs`, 기준선 `0b3fdeae^` 트리 대조), jscpd 복제 탐지(min-tokens 35·60), 하네스 리터럴 분기·동기 fs·타이머·i18n 키(`scan/i18n-unreferenced.cjs`)·CSS 토큰 스윕.
-- 2차(10-31): 에이전트 재개 3회 중 Efficiency·main 1개만 최종 보고(발견 20 + plan 이견 2)를 냈다. 사용자 지시(D-013)에 따라 그 보고를 HEAD `e0318497` 코드로 하나씩 검증해 채택 16(2건은 일부만)·후속 4·이견 2 반영으로 갈랐고(§10 EP-15~EP-16·§17), 남은 renderer 영역은 설계자가 직접 읽었다(EP-17).
+- 2차(10-31): 에이전트 재개 3회 중 Efficiency·main 1개만 최종 보고(발견 20 + plan 이견 2)를 냈다. 사용자 지시(D-013)에 따라 그 보고를 HEAD `e0318497` 코드로 하나씩 검증해 채택 16(A1·A5·A14 3건은 일부만)·후속 4·이견 2 반영으로 갈랐고(§10 EP-15~EP-16·§17), 남은 renderer 영역은 설계자가 직접 읽었다(EP-17).
 - 표적 읽기 범위와 못 본 범위는 §8 `리뷰 커버리지` 표가 갖는다. 이 plan 은 구현 지시서이고 구현 커밋은 아직 없다(사용자 "Plan까지만 구현할 것").
 
 # Part I — Product & UX Contract
