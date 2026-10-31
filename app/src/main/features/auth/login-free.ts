@@ -1,5 +1,11 @@
 // 로그인 프리 포트에는 store·vault·change callback이 없다. 요청 실패는 상태를 바꾸지 않는다.
-import type { LoginFreeDefinition, LoginFreePluginAuth } from '../../contracts/auth'
+// 연결 선언(0291)이 있으면 snapshot만 연결 상태기계에 위임한다 — request 정책은 같다.
+import type {
+  AuthId,
+  AuthSnapshot,
+  LoginFreeDefinition,
+  LoginFreePluginAuth
+} from '../../contracts/auth'
 import type { AuthenticatedFetchDeps, PreparedRequest } from '../../infra/net/transport'
 import { ifPresent } from '../../../shared/obj'
 import { AuthPolicyError } from './auth-policy-error'
@@ -9,6 +15,13 @@ import { followRedirects, toAuthenticatedResponse, withQuery } from './request-c
 interface LoginFreeDeps {
   sender: AuthenticatedFetchDeps
   logger?: (event: string, data: Record<string, unknown>) => void
+  // 연결 선언 대상만 넘긴다. 없으면 항상 연결된 상수다(0248).
+  connection?: () => AuthSnapshot
+}
+
+// 연결 선언 없는 로그인 프리 대상의 상수 snapshot — 정본 1벌.
+export function alwaysConnectedSnapshot(authId: AuthId): AuthSnapshot {
+  return { authId, status: 'valid', verified: true, credentialRevision: 0 }
 }
 
 export function createLoginFreePluginAuth(
@@ -19,12 +32,7 @@ export function createLoginFreePluginAuth(
     authId: definition.id,
     label: definition.label,
     ...ifPresent('origin', definition.origin),
-    snapshot: () => ({
-      authId: definition.id,
-      status: 'valid',
-      verified: true,
-      credentialRevision: 0
-    }),
+    snapshot: deps.connection ?? (() => alwaysConnectedSnapshot(definition.id)),
     async request(req, signal) {
       if (definition.origin === undefined) {
         throw new AuthPolicyError('origin_not_declared', definition.id)

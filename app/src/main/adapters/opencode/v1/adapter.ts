@@ -3,6 +3,7 @@ import type { AgentEnvironment, ClassifiedError } from '../../../../shared/ipc'
 import type { CompleteRequest, LiveTurn, SessionAdapter } from '../../common/types'
 import type { TurnRequest } from '../../common/turn'
 import type { OpenCodeServer } from '../implementation'
+import type { HarnessListedModel } from '../../common/harness-config'
 import { OPENCODE_DESCRIPTOR } from './descriptor'
 import { openCodeCatalog } from './catalog'
 import { classifyOpenCodeError } from './errors'
@@ -74,6 +75,16 @@ export class OpenCodeAdapter implements SessionAdapter {
   }
   isInstalled(): ReturnType<OpenCodeServer['installed']> {
     return this.servers.installed()
+  }
+  // 로그인 프리 연결(0291)이 호스트 설정 그대로 provider 모델 목록을 읽는다.
+  listProviderModels(
+    provider: string,
+    options: { signal: AbortSignal; env?: Readonly<Record<string, string>> }
+  ): Promise<HarnessListedModel[]> {
+    if (!this.servers.listModels) {
+      return Promise.reject(new Error('OpenCode 서버 관리자가 모델 목록 조회를 지원하지 않습니다.'))
+    }
+    return this.servers.listModels(provider, options)
   }
   async *install(): AsyncIterable<{ step: string; error?: string; done?: boolean }> {
     yield {

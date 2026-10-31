@@ -1,0 +1,338 @@
+app/src/main/adapters/claude/adapter.native-plugins.test.ts	carries plugin controls through the actual adapter and preserves provider flags and generation
+app/src/main/adapters/claude/adapter.native-plugins.test.ts	exposes runtime-native watch files and applies external project choices only after idle reconciliation
+app/src/main/adapters/claude/adapter.native-plugins.test.ts	persists both plugin states across follow-up turns, new adapters and cold resumes over provider defaults
+app/src/main/adapters/claude/adapter.native-plugins.test.ts	pins deployed MCP files for same-cwd peers and reloads until the final owner closes
+app/src/main/adapters/claude/adapter.native-plugins.test.ts	reports its own persisted plugin revision as applied but not an external edit
+app/src/main/adapters/claude/native-resources.test.ts	applies session-only inline flags and reloads actual plugin state while preserving sibling flags
+app/src/main/adapters/claude/native-resources.test.ts	commits a plugin choice only after verified reload and restores flags and commands when persistence fails
+app/src/main/adapters/claude/native-resources.test.ts	waits for durable persistence and serializes subsequent plugin mutations
+app/src/main/adapters/claude/project-reconciliation.test.ts	shows external selection with actual status immediately, waits for idle, and never saves it back
+app/src/main/adapters/opencode/v1/adapter.instances.test.ts	Owned server, directory lifecycle and actual SDK composition > keeps one process for A/B, waits for native completion, and fences same-directory reacquisition
+app/src/main/adapters/opencode/v1/adapter.instances.test.ts	Owned server, directory lifecycle and actual SDK composition > retires failed cleanup without killing B and reports only a safe error before new generation startup
+app/src/main/adapters/opencode/v1/adapter.persistent.test.ts	exposes native resources from the live channel client and its directory without mutations
+app/src/main/adapters/opencode/v1/adapter.test.ts	OpenCode adapter with the real installed SDK and injected HTTP/SSE transport > subscribes before sending, scopes the turn and leaves admission to the runtime
+app/src/main/adapters/opencode/v1/legacy-storage-migration.integration.test.ts	OpenCode legacy migration with the installed SQLite ABI > preserves native rows/resources and rolls back interrupted writes without reinstalling SQLite
+app/src/main/adapters/opencode/v1/native-cursor.test.ts	detects projection mutation without advancing event sequence: DELETE FROM message WHERE id = 'm'
+app/src/main/adapters/opencode/v1/native-cursor.test.ts	detects projection mutation without advancing event sequence: DELETE FROM part WHERE id = 'part'
+app/src/main/adapters/opencode/v1/native-cursor.test.ts	detects projection mutation without advancing event sequence: INSERT INTO message VALUES ('new','s',2,2,'{}')
+app/src/main/adapters/opencode/v1/native-cursor.test.ts	detects projection mutation without advancing event sequence: UPDATE part SET data = '{edited}' WHERE id = 'part'
+app/src/main/adapters/opencode/v1/native-cursor.test.ts	detects projection mutation without advancing event sequence: UPDATE session SET revert = '{reverted}' WHERE id = 's'
+app/src/main/adapters/opencode/v1/native-cursor.test.ts	isolates other sessions and falls back when a required schema changes
+app/src/main/adapters/opencode/v1/native-cursor.test.ts	reads the actual native schema without writes or initialization
+app/src/main/app/bootstrap.artifacts.test.ts	<file-level>
+app/src/main/app/bootstrap.harness.test.ts	<file-level>
+app/src/main/app/bootstrap.opencode-warmup.test.ts	<file-level>
+app/src/main/app/bootstrap.shutdown.test.ts	<file-level>
+app/src/main/app/chat-turn.continuity.test.ts	<file-level>
+app/src/main/app/chat-turn/background.integration.test.ts	journals before relay, captures late terminal output, and reloads without raw/currentness leakage
+app/src/main/app/chat-turn/context-usage.test.ts	OpenCode last-step context through persistence > keeps the latest step despite late prior updates, preserves billing totals and restores the donut after reopening
+app/src/main/app/chat-turn/context-usage.test.ts	OpenCode last-step context through persistence > persists an explicitly empty latest step instead of resurrecting the previous nonzero context
+app/src/main/app/chat-turn/discard.test.ts	<file-level>
+app/src/main/app/chat-turn/native-session.test.ts	<file-level>
+app/src/main/app/chat-turn/project-binding.test.ts	first session project binding through real SQLite > keeps an explicit legacy project at its default and uses a new path after cwd selection
+app/src/main/app/chat-turn/project-binding.test.ts	first session project binding through real SQLite > reuses a normalized path, keeps same names at different paths and exposes cwd in DTO
+app/src/main/app/chat-turn/project-binding.test.ts	first session project binding through real SQLite > writes project membership separately from an isolated execution cwd and preserves it on reload
+app/src/main/app/chat-turn/resolve-turn.agent.test.ts	<file-level>
+app/src/main/app/chat-turn/send.agent-profile.test.ts	<file-level>
+app/src/main/app/chat-turn/send.busy.test.ts	<file-level>
+app/src/main/app/chat-turn/send.harness.test.ts	<file-level>
+app/src/main/app/chat-turn/worktree-bind.test.ts	<file-level>
+app/src/main/app/chat-turn/worktree-recover.test.ts	<file-level>
+app/src/main/app/composer-catalog.test.ts	does not start a native server after caller cancellation or session scope change during preparation
+app/src/main/app/composer-catalog.test.ts	prepares draft and saved directory with the same production settings and env resolution as turns
+app/src/main/app/composer-catalog.test.ts	preserves the acquire failure stage through the registered catalog handler
+app/src/main/app/composer-catalog.test.ts	preserves the configuration failure stage through the registered catalog handler
+app/src/main/app/composer-catalog.test.ts	returns prepared plugin and agent parts through IPC before blocked MCP/models without a session
+app/src/main/app/composer-catalog.test.ts	wires the public handler through the production resolver and returns its shutdown cleanup
+app/src/main/app/composer-preparation-service.test.ts	shares targets across catalog resources and warmup through the production assembly
+app/src/main/app/deployment/mail.integration.test.ts	<file-level>
+app/src/main/app/deployment/opencode-connection-deployment.test.ts	<file-level>
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context directory open — actual registration, SQLite and filesystem > does not allow descendants or unrelated directories by prefix matching
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context directory open — actual registration, SQLite and filesystem > keeps unscoped extra directory closed while legacy cwd opening works
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context directory open — actual registration, SQLite and filesystem > opens only recorded OpenCode Code folders and files through the context entry points
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context directory open — actual registration, SQLite and filesystem > opens the actual session cwd without requiring a duplicate extra folder
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context directory open — actual registration, SQLite and filesystem > opens the stored Work extra directory without changing cwd or allowed scope
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context directory open — actual registration, SQLite and filesystem > propagates native failure so the chip can show an error and retry
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context directory open — actual registration, SQLite and filesystem > rechecks the stored session after asynchronous path resolution
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context directory open — actual registration, SQLite and filesystem > rejects a folder outside the requested code Work scope
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context directory open — actual registration, SQLite and filesystem > rejects a folder outside the requested missing Work scope
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context directory open — actual registration, SQLite and filesystem > rejects a folder outside the requested other Work scope
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context directory open — actual registration, SQLite and filesystem > rejects a saved alias whose actual target is the filesystem root
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context directory open — actual registration, SQLite and filesystem > rejects an invalid persisted kind instead of treating it as Code
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context directory open — actual registration, SQLite and filesystem > rejects missing folders and paths whose current target is a file
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context directory open — actual registration, SQLite and filesystem > supports an explicitly stored directory alias while keeping exact recorded membership
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open outcomes — actual IPC registration > opens an approved file with the actual path and no reveal
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open outcomes — actual IPC registration > rejects invalid payloads before calling either shell sink
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open outcomes — actual IPC registration > returns missing only for approved absent paths without calling either shell sink
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open outcomes — actual IPC registration > reveals README without opening its default app
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open outcomes — actual IPC registration > reveals data.xlsx without opening its default app
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open outcomes — actual IPC registration > reveals program.exe without opening its default app
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open outcomes — actual IPC registration > reveals report.PDF without opening its default app
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open outcomes — actual IPC registration > reveals report.docx without opening its default app
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open outcomes — actual IPC registration > reveals script.py without opening its default app
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open outcomes — actual IPC registration > reveals slides.pptx without opening its default app
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open outcomes — actual IPC registration > reveals the file after a native error string
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open outcomes — actual IPC registration > uses the resolved extension when an approved spelling ends in pdf
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open — shared session scope and actual filesystem paths > does not fall back to other sessions or allow lexical traversal outside the requested scope
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open — shared session scope and actual filesystem paths > does not follow a registered attachment that is later redirected
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open — shared session scope and actual filesystem paths > rechecks session scope after path resolution: change-cwd
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open — shared session scope and actual filesystem paths > rechecks session scope after path resolution: delete
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open — shared session scope and actual filesystem paths > rechecks session scope after path resolution: remove-extra
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open — shared session scope and actual filesystem paths > rejects an in-scope junction escaping to an unrecorded actual directory
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open — shared session scope and actual filesystem paths > rejects directories and handles missing files according to the entry contract
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open — shared session scope and actual filesystem paths > rejects files outside the requested code Work scope
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open — shared session scope and actual filesystem paths > rejects files outside the requested missing Work scope
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open — shared session scope and actual filesystem paths > rejects files outside the requested other Work scope
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open — shared session scope and actual filesystem paths > requires lexical membership even when an outside alias resolves to a recorded directory
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open — shared session scope and actual filesystem paths > reveals files inside the session cwd, including descendants
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open — shared session scope and actual filesystem paths > reveals files inside the session extra, including descendants
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open — shared session scope and actual filesystem paths > reveals only the exact attachment registered with its canonical path outside session folders
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open — shared session scope and actual filesystem paths > reveals only the exact attachment registered with its lexical path outside session folders
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open — shared session scope and actual filesystem paths > supports an explicitly recorded root alias and reveals the resolved file
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file open — shared session scope and actual filesystem paths > uses recorded extra folders when the session has no cwd
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file reveal — shared session scope and actual filesystem paths > does not fall back to other sessions or allow lexical traversal outside the requested scope
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file reveal — shared session scope and actual filesystem paths > does not follow a registered attachment that is later redirected
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file reveal — shared session scope and actual filesystem paths > rechecks session scope after path resolution: change-cwd
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file reveal — shared session scope and actual filesystem paths > rechecks session scope after path resolution: delete
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file reveal — shared session scope and actual filesystem paths > rechecks session scope after path resolution: remove-extra
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file reveal — shared session scope and actual filesystem paths > rejects an in-scope junction escaping to an unrecorded actual directory
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file reveal — shared session scope and actual filesystem paths > rejects directories and handles missing files according to the entry contract
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file reveal — shared session scope and actual filesystem paths > rejects files outside the requested code Work scope
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file reveal — shared session scope and actual filesystem paths > rejects files outside the requested missing Work scope
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file reveal — shared session scope and actual filesystem paths > rejects files outside the requested other Work scope
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file reveal — shared session scope and actual filesystem paths > requires lexical membership even when an outside alias resolves to a recorded directory
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file reveal — shared session scope and actual filesystem paths > reveals files inside the session cwd, including descendants
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file reveal — shared session scope and actual filesystem paths > reveals files inside the session extra, including descendants
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file reveal — shared session scope and actual filesystem paths > reveals only the exact attachment registered with its canonical path outside session folders
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file reveal — shared session scope and actual filesystem paths > reveals only the exact attachment registered with its lexical path outside session folders
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file reveal — shared session scope and actual filesystem paths > supports an explicitly recorded root alias and reveals the resolved file
+app/src/main/app/handlers/files.contextDirectory.test.ts	Context file reveal — shared session scope and actual filesystem paths > uses recorded extra folders when the session has no cwd
+app/src/main/app/handlers/project.test.ts	registered project IPC with real SQLite > keeps manual legacy creation and name editing, and rejects invalid path and oversized instructions
+app/src/main/app/handlers/project.test.ts	registered project IPC with real SQLite > persists instruction edits and exposes them on list without replacing name or cwd
+app/src/main/app/handlers/session-directory.test.ts	Work session:addDirectory — production registration, filesystem and SQLite > canonicalizes a selected cwd alias and keeps repeat aliases idempotent
+app/src/main/app/handlers/session-directory.test.ts	Work session:addDirectory — production registration, filesystem and SQLite > does not recreate a session deleted during folder validation
+app/src/main/app/handlers/session-directory.test.ts	Work session:addDirectory — production registration, filesystem and SQLite > keeps an already added directory idempotent without a DB write
+app/src/main/app/handlers/session-directory.test.ts	Work session:addDirectory — production registration, filesystem and SQLite > merges concurrent additions from the latest DB row
+app/src/main/app/handlers/session-directory.test.ts	Work session:addDirectory — production registration, filesystem and SQLite > persists OpenCode Code context folders and still rejects updates while busy
+app/src/main/app/handlers/session-directory.test.ts	Work session:addDirectory — production registration, filesystem and SQLite > persists an explicitly selected cwd for Context and reload without changing cwd
+app/src/main/app/handlers/session-directory.test.ts	Work session:addDirectory — production registration, filesystem and SQLite > persists canonical directories, restores them and uses DB scope on resume
+app/src/main/app/handlers/session-directory.test.ts	Work session:addDirectory — production registration, filesystem and SQLite > preserves a stored legacy alias when its canonical directory is selected again
+app/src/main/app/handlers/session-directory.test.ts	Work session:addDirectory — production registration, filesystem and SQLite > rechecks busy after filesystem awaits and preserves the database
+app/src/main/app/handlers/session-directory.test.ts	Work session:addDirectory — production registration, filesystem and SQLite > refuses new additions at the limit while preserving prior entries
+app/src/main/app/handlers/session-directory.test.ts	Work session:addDirectory — production registration, filesystem and SQLite > rejects Code and missing sessions without granting directories
+app/src/main/app/handlers/session-directory.test.ts	Work session:addDirectory — production registration, filesystem and SQLite > rejects a junction or symlink that resolves to the filesystem root
+app/src/main/app/handlers/session-directory.test.ts	Work session:addDirectory — production registration, filesystem and SQLite > rejects an invalid persisted kind instead of treating it as Code
+app/src/main/app/handlers/session-directory.test.ts	Work session:addDirectory — production registration, filesystem and SQLite > rejects busy sessions before filesystem lookup
+app/src/main/app/handlers/session-directory.test.ts	Work session:addDirectory — production registration, filesystem and SQLite > rejects raw root, relative, missing directory and a file
+app/src/main/app/handlers/session-directory.test.ts	Work session:addDirectory — production registration, filesystem and SQLite > returns failed when persistence fails and never claims success
+app/src/main/app/handlers/session-directory.test.ts	Work session:addDirectory — production registration, filesystem and SQLite > treats preparing leases as busy before an active child exists
+app/src/main/app/handlers/session-resources.claude-assembly.test.ts	keeps every toggle while overlapping plugin toggles save through the real watcher
+app/src/main/app/handlers/session-worktree-display.test.ts	resume 후 표시 정본 복원 (VP-08) > managed row 가 없는 세션은 필드를 싣지 않는다 — 소비자가 cwd 파생으로 폴백한다
+app/src/main/app/handlers/session-worktree-display.test.ts	resume 후 표시 정본 복원 (VP-08) > 앱을 다시 켜도 source_cwd·repo_root 가 같은 값으로 돌아온다
+app/src/main/app/handlers/session.delete.native-history.test.ts	session removal preserves native and archived files through the real handler > keeps native, worktree and output files when runtime cleanup fails: false
+app/src/main/app/handlers/session.delete.native-history.test.ts	session removal preserves native and archived files through the real handler > keeps native, worktree and output files when runtime cleanup fails: true
+app/src/main/app/handlers/session.load.test.ts	returns DB body and backend without starting the slow native reader
+app/src/main/app/handlers/session.load.test.ts	session load IPC refreshes native history before composing the archived view > does not reopen or query a hidden session
+app/src/main/app/handlers/session.load.test.ts	session load IPC refreshes native history before composing the archived view > imports terminal user, assistant and tool messages and reopens twice without duplication
+app/src/main/app/handlers/session.load.test.ts	session load IPC refreshes native history before composing the archived view > returns the last snapshot with a missing warning instead of an empty session
+app/src/main/app/handlers/session.load.test.ts	session load IPC refreshes native history before composing the archived view > returns the last snapshot with a unavailable warning instead of an empty session
+app/src/main/app/handlers/session.load.test.ts	session load IPC restores the complete persisted view > omits lineage after parent deletion and returns null if metadata disappears
+app/src/main/app/handlers/session.load.test.ts	session load IPC restores the complete persisted view > preserves ordered parts, incomplete state, usage, cost, lineage, worktree, cwd and activity
+app/src/main/app/handlers/session.load.test.ts	session load IPC restores the complete persisted view > propagates storage errors
+app/src/main/app/handlers/session.load.test.ts	session load IPC restores the complete persisted view > returns null only for missing sessions and restores the identity of an empty session
+app/src/main/app/handlers/session.load.test.ts	session load IPC restores the complete persisted view > uses cwd fallback and omits absent metadata without inventing payload for invalid JSON
+app/src/main/app/harnesses/claude/extensions.native-paths.test.ts	<file-level>
+app/src/main/app/harnesses/claude/extensions.test.ts	<file-level>
+app/src/main/app/harnesses/registry.preferences.test.ts	<file-level>
+app/src/main/app/harnesses/registry.test.ts	<file-level>
+app/src/main/app/legacy-paths.test.ts	<file-level>
+app/src/main/app/managed-mcp-claude-regression.test.ts	<file-level>
+app/src/main/app/native-history.test.ts	<file-level>
+app/src/main/app/response-boundary.integration.test.ts	Work response boundary composition > persists the actual coordinator stream around initial and steer user commits in live order
+app/src/main/app/work-profile.integration.test.ts	<file-level>
+app/src/main/app/work-profile.runtime.test.ts	<file-level>
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > blocks late DB access after synchronous close and reports already successful trash honestly
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > bounds requests and serializes concurrent trash for shared file identity
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > bounds simultaneous preparation at two and does not join separate publications
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > close settles in-flight work and rejects new publication without removing committed files
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > coalesces the same registered file status and preserves access-denied failures
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > collects ordinary final files separately from artifacts and preserves Office bytes above the preview limit
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > copies input, returns only opaque receipt, and every invocation creates new files
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > derives missing/restored state from the saved file, keeps history and exports current bytes
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > does not collect bytes overwritten after the triggering Write
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > does not read unowned paths and rechecks ownership after the last file inspection
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > does not remove an externally replaced prepared file during rollback
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > enforces 5MiB inclusively and never commits oversized input
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > ignores intermediate and unrelated paths, rejects redirected output files, and respects cancellation
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > keeps files on trash failure and rejects directory/junction/profile escapes
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > keeps unchanged attachments in context and collects only a changed or newly generated file as output
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > limits overlapping status requests to four inspections across the service
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > preserves the published file after parent and last fork session deletion and DB reinitialization
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > publishes a Temp deliverable through the tool and preserves its owned copy after source deletion
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > publishes, previews and downloads code, HTML, Markdown and image bytes through the persisted IDs
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > reads the Temp original without a managed copy and orders changed versions with a frozen clock
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > rejects a development root redirected into production before writing any file
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > rejects cancellation, expired generation and deleted session before committing
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > rejects forged image publication and validates changed preview bytes without changing downloads
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > removes an already missing artifact from the catalog without deleting its original source
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > removes only this uncommitted prepared file on DB failure and preserves prior files/input
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > reopens the SQLite file and restores the same reference, bytes and card without its workspace input
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > reports trash success separately when DB history fails
+app/src/main/features/artifacts/service.test.ts	artifact real filesystem and SQLite publication > supports explicit extra roots and rejects siblings, junction escapes, folders and invalid bytes
+app/src/main/features/extensions/common/builder.test.ts	ExtensionBuilder.runtimeTools > adds only the profile header/key and preserves the exact tool snapshot, plugins and skills
+app/src/main/features/extensions/common/builder.test.ts	ExtensionBuilder.runtimeTools > build는 plugin·skill·지침을 보존하면서 배포용 MCP 데이터를 만들지 않는다
+app/src/main/features/extensions/common/builder.test.ts	ExtensionBuilder.runtimeTools > forwards the injected empty registry snapshot with revision zero
+app/src/main/features/extensions/common/builder.test.ts	ExtensionBuilder.systemPromptAppend > resume 경로: 헤더(# Orca/# User/# Project) 뒤에 프로젝트 지침이 붙는다
+app/src/main/features/extensions/common/builder.test.ts	ExtensionBuilder.systemPromptAppend > 새 채팅 경로(projectId): 세션 없이 프로젝트명/지침을 조회한다
+app/src/main/features/extensions/common/builder.test.ts	ExtensionBuilder.systemPromptAppend > 프로젝트 없는 세션: 헤더만(# Project 섹션·지침 없음)
+app/src/main/features/history/last-model.test.ts	restores each session model after closing and reopening its database, without using title models or unconsumed input
+app/src/main/features/history/last-model.test.ts	upgrades an existing database without losing conversation rows or messages
+app/src/main/features/history/native-history.db.test.ts	commits the OpenCode reader result and checkpoint through the common transaction
+app/src/main/features/history/native-history.db.test.ts	native history with the migrated SQLite archive > atomically stores the snapshot, local frontier and searchable native text without replacing local rows
+app/src/main/features/history/native-history.db.test.ts	native history with the migrated SQLite archive > hides every discovery path while retaining snapshot, source rows, usage, artifacts, journal and worktree
+app/src/main/features/history/native-history.db.test.ts	native history with the migrated SQLite archive > joins a user attachment only by its native ID and retains unmapped metadata without duplicate body text
+app/src/main/features/history/native-history.db.test.ts	native history with the migrated SQLite archive > keeps the prior snapshot and local tail when native read reports migration-required
+app/src/main/features/history/native-history.db.test.ts	native history with the migrated SQLite archive > keeps the prior snapshot and local tail when native read reports missing
+app/src/main/features/history/native-history.db.test.ts	native history with the migrated SQLite archive > keeps the prior snapshot and local tail when native read reports unavailable
+app/src/main/features/history/native-history.db.test.ts	native history with the migrated SQLite archive > preserves live rows after the frontier and absorbs them once in the next complete native snapshot
+app/src/main/features/history/native-history.db.test.ts	native history with the migrated SQLite archive > rejects a stale transaction version and a late read after a local write
+app/src/main/features/history/native-history.db.test.ts	native history with the migrated SQLite archive > replaces repeated native IDs and their old FTS content without accumulating duplicate messages
+app/src/main/features/history/native-history.db.test.ts	native history with the migrated SQLite archive > rolls back snapshot, frontier, native rows and FTS when a write fails after partial insertion
+app/src/main/features/history/native-history.db.test.ts	persists the committed cursor after closing and reopening a file database
+app/src/main/features/history/native-history.db.test.ts	stores per-session cursors atomically, restores them through a new query owner, and preserves them on failure
+app/src/main/features/history/native-history.db.test.ts	upgrades a cursorless archive on its first native read
+app/src/main/features/history/reader.test.ts	history reader with the current SQLite schema > loads ordered persisted parts and leaves activity to the IPC owner
+app/src/main/features/history/reader.test.ts	history reader with the current SQLite schema > rejects a corrupt persisted kind instead of returning an invalid current session
+app/src/main/features/history/reader.test.ts	history reader with the current SQLite schema > usage facade shares the session transaction and rollback
+app/src/main/features/history/writer.artifacts.test.ts	HistoryWriter artifact receipt > persists ordinary output in its original tool or response message, including reload and reuse
+app/src/main/features/history/writer.artifacts.test.ts	HistoryWriter artifact receipt > uses the persisted original tool call after steer and reload (parent=parent-tool)
+app/src/main/features/history/writer.artifacts.test.ts	HistoryWriter artifact receipt > uses the persisted original tool call after steer and reload (parent=undefined)
+app/src/main/features/history/writer.ask.test.ts	HistoryWriter AskUserQuestion answer identity > round trips a child answer parent through SQLite reload
+app/src/main/features/history/writer.background.test.ts	commits early provider events after session creation and relays canonical facts once
+app/src/main/features/history/writer.plan-review-input.test.ts	0249 ΔV3 — 계획 검토 입력의 영속과 늦은 호출 > DB API도 다른 sessionId와 현재 messageId의 조합을 거부한다
+app/src/main/features/history/writer.plan-review-input.test.ts	0249 ΔV3 — 계획 검토 입력의 영속과 늦은 호출 > DB 교정 실패는 history critical 오류로 전파한다
+app/src/main/features/history/writer.plan-review-input.test.ts	0249 ΔV3 — 계획 검토 입력의 영속과 늦은 호출 > SQL은 같은 id의 다른 세션·다른 도구·child 입력과 parent/result를 보존한다
+app/src/main/features/history/writer.plan-review-input.test.ts	0249 ΔV3 — 계획 검토 입력의 영속과 늦은 호출 > array input 승인은 메인 계획 입력을 교정하지 않는다
+app/src/main/features/history/writer.plan-review-input.test.ts	0249 ΔV3 — 계획 검토 입력의 영속과 늦은 호출 > child 승인은 메인 계획 입력을 교정하지 않는다
+app/src/main/features/history/writer.plan-review-input.test.ts	0249 ΔV3 — 계획 검토 입력의 영속과 늦은 호출 > no identity 승인은 메인 계획 입력을 교정하지 않는다
+app/src/main/features/history/writer.plan-review-input.test.ts	0249 ΔV3 — 계획 검토 입력의 영속과 늦은 호출 > other approval 승인은 메인 계획 입력을 교정하지 않는다
+app/src/main/features/history/writer.plan-review-input.test.ts	0249 ΔV3 — 계획 검토 입력의 영속과 늦은 호출 > permission 선행 후 telemetry·승인 해소가 와도 늦은 started를 relay 전에 보정한다
+app/src/main/features/history/writer.plan-review-input.test.ts	0249 ΔV3 — 계획 검토 입력의 영속과 늦은 호출 > started 선행이면 기존 호출 args만 갱신하고 결과·메타·순서를 보존한다
+app/src/main/features/history/writer.plan-review-input.test.ts	0249 ΔV3 — 계획 검토 입력의 영속과 늦은 호출 > 같은 세션의 이전 턴에서 같은 id를 써도 현재 턴의 호출만 교정한다
+app/src/main/features/history/writer.plan-review-input.test.ts	0249 ΔV3 — 계획 검토 입력의 영속과 늦은 호출 > 다른 세션 permission은 Map·저장된 호출을 교정하지 않는다
+app/src/main/features/history/writer.plan-review-input.test.ts	0249 ΔV3 — 계획 검토 입력의 영속과 늦은 호출 > 새 승인 요청의 최신 값으로 다시 교정하고 다른 호출에는 적용하지 않는다
+app/src/main/features/history/writer.plan-review-input.test.ts	0249 ΔV3 — 계획 검토 입력의 영속과 늦은 호출 > 세션 미확정 permission을 이후 늦은 started에 적용하되 다른 owner는 제외한다
+app/src/main/features/history/writer.plan-review-input.test.ts	0249 ΔV3 — 계획 검토 입력의 영속과 늦은 호출 > 세션 미확정 started 두 건과 그 뒤 승인을 세션 확정 후 원래 순서로 저장한다
+app/src/main/features/history/writer.plan-review-input.test.ts	0249 ΔV3 — 계획 검토 입력의 영속과 늦은 호출 > 정상 입력의 참조를 보존하고 동일 요청 재전달은 파트를 추가하지 않는다
+app/src/main/features/history/writer.test.ts	HistoryWriter — conversation engine key > stores the selected engine key at creation and replaces it with a later turn key on commit
+app/src/main/features/history/writer.test.ts	HistoryWriter — session baseline birth persistence > resumed session.updated cannot replace the birth baseline in the database
+app/src/main/features/history/writer.test.ts	HistoryWriter — 비실행 사유 영속 (0239) > AC5 — host 정착 뒤 같은 id 의 실제 결과가 오면 한 행을 덮어쓴다(last-wins)
+app/src/main/features/history/writer.test.ts	HistoryWriter — 비실행 사유 영속 (0239) > AC8 — nonExecution 을 payload 에 싣고 reader 가 같은 값으로 복원한다
+app/src/main/features/history/writer.test.ts	HistoryWriter — 비실행 사유 영속 (0239) > 사유가 없으면 키를 만들지 않는다 — 끝까지 실행된 결과는 그대로다
+app/src/main/features/history/writer.test.ts	HistoryWriter.persistUserMessage — 첨부 영속 > committed requirements survive real message_parts storage and the session-load parser
+app/src/main/features/history/writer.test.ts	Work boundary persistence > appends end to the completed original row, preserves FTS, and survives disk reopen and fork
+app/src/main/features/history/writer.test.ts	Work boundary persistence > does not synthesize end after a crash or create rows for unmatched/foreign ends
+app/src/main/features/history/writer.test.ts	Work boundary persistence > moves the end address when later output creates a new assistant row after telemetry
+app/src/main/features/history/writer.test.ts	Work boundary persistence > uses the injected response-boundary policy
+app/src/main/features/orchestration/fork.test.ts	materializeContinuityArrival > fork — 원본 messages+parts 를 idx/순서 보존 복사하고 lineage(fork) 를 남긴다
+app/src/main/features/orchestration/fork.test.ts	materializeContinuityArrival > handoff — display 복사 없이 lineage(handoff) 만 남긴다
+app/src/main/features/orchestration/fork.test.ts	materializeContinuityArrival > insertLineage 는 멱등(같은 child 재시도에 안전)
+app/src/main/features/orchestration/fork.test.ts	materializeContinuityArrival > 세션 삭제 시 lineage 가 CASCADE 로 정리된다
+app/src/main/features/plugins/mail/mime.test.ts	<file-level>
+app/src/main/features/plugins/mail/store/index.test.ts	<file-level>
+app/src/main/features/plugins/mail/store/migrate.test.ts	<file-level>
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > DB 저장 실패는 tracker까지 전파하고 push를 하지 않는다
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > provider 호출 수 계약 empty
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > provider 호출 수 계약 missing
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > provider 호출 수 계약 null-day
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > provider 호출 수 계약 unsupported
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > total·모델 미제공과 빈 집합은 보존하고 보고한 모델 집합만 교체한다
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > 다른 기간은 누적하고 같은 기간은 전체 최신값으로 갱신한다
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > 모델 insert PK 실패는 선행 캐시·total·모델 삭제까지 전부 롤백한다
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > 비용 NULL 날짜·월 항목 존재는 조회에서 보존하며 경계 결과에는 SDK 합계만 있다
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > 비용 NULL 날짜와 월 선택이 조회·push까지 같다: {"monthly":[{"month":"2026-10","total":{"inputTokens":1}}],"usedUsd":null,"expected":0,"source":"remote"}
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > 비용 NULL 날짜와 월 선택이 조회·push까지 같다: {"usedUsd":33,"expected":33,"source":"remote"}
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > 비용 NULL 날짜와 월 선택이 조회·push까지 같다: {"usedUsd":null,"expected":0,"source":"remote-daily"}
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > 사용량 탭 30d 원격 칸 NULL은 SDK로 채우지 않는다
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > 사용량 탭 7d 원격 칸 NULL은 SDK로 채우지 않는다
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > 사용량 탭 all 원격 칸 NULL은 SDK로 채우지 않는다
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > 새 tracker는 fetch 없이 저장된 원격 값을 쓰고 global/boundary는 원격을 무시한다
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > 세션 삭제로 provider NULL이 된 SDK 행을 LEFT JOIN 로 보존한다
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > 원격 칸 유무 false와 무관하게 SDK 원장·세션 비용·최신 사용량·전역은 증가한다
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > 원격 칸 유무 true와 무관하게 SDK 원장·세션 비용·최신 사용량·전역은 증가한다
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > 원격 행이 권위 없는 empty 상태는 기존 SQL만 사용한다
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > 원격 행이 권위 없는 missing 상태는 기존 SQL만 사용한다
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > 원격 행이 권위 없는 unsupported 상태는 기존 SQL만 사용한다
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > 캐시·일·월 total·독립 모델을 NULL 그대로 저장하고 원장은 건드리지 않는다
+app/src/main/features/usage/tracker-integration.test.ts	원격 사용량 SQLite 저장·합성 종단 > 형식 오류는 세 테이블 쓰기와 push 모두 0이다
+app/src/main/infra/db/agent-kind.test.ts	persists Work across reopen, defaults callers to Code, and preserves birth on conflict
+app/src/main/infra/db/artifact-formats-migration.test.ts	artifact format migration from the existing ledger > upgrades the pre-0024 ledger with fork references and foreign keys intact
+app/src/main/infra/db/artifact-formats-migration.test.ts	artifact format migration from the existing ledger > upgrades the pre-0025 ledger with fork references and foreign keys intact
+app/src/main/infra/db/artifact-queries.test.ts	artifact DB ledger and original-call attachment > allows exact nested calls and validates a supplied parent while preserving reload metadata
+app/src/main/infra/db/artifact-queries.test.ts	artifact DB ledger and original-call attachment > attaches to original call, not the latest assistant; replay is idempotent
+app/src/main/infra/db/artifact-queries.test.ts	artifact DB ledger and original-call attachment > does not deduplicate equal content in another message
+app/src/main/infra/db/artifact-queries.test.ts	artifact DB ledger and original-call attachment > fork copies independent refs including unlinked rows, rewrites cards, and survives parent deletion
+app/src/main/infra/db/artifact-queries.test.ts	artifact DB ledger and original-call attachment > keeps unlinked publications, latest by input source, and session-independent files
+app/src/main/infra/db/artifact-queries.test.ts	artifact DB ledger and original-call attachment > rejects other sessions, non-publisher and ambiguous original calls
+app/src/main/infra/db/artifact-queries.test.ts	artifact DB ledger and original-call attachment > rolls back attachment if insertion of the actual message part fails
+app/src/main/infra/db/artifact-queries.test.ts	artifact DB ledger and original-call attachment > rolls back both inserts when publication ownership is invalid
+app/src/main/infra/db/artifact-queries.test.ts	artifact DB ledger and original-call attachment > suppresses only equal cards in one message, retaining every publication and file
+app/src/main/infra/db/artifact-queries.test.ts	artifact catalog across sessions > deduplicates shared fork files, persists pin state and inherits it on a new source version
+app/src/main/infra/db/artifact-queries.test.ts	artifact catalog across sessions > keeps the latest artifact and ordinary file independently for the same input source
+app/src/main/infra/db/artifact-queries.test.ts	artifact catalog across sessions > rejects pinning another session, an ordinary output or a trashed file
+app/src/main/infra/db/artifact-queries.test.ts	artifact catalog across sessions > removes a trashed latest file without resurrecting older versions or deleting the ledger
+app/src/main/infra/db/attachment-files.test.ts	session attachment file records > loads persisted native paths and hashes from user attachments only and keeps sessions isolated
+app/src/main/infra/db/background-task-queries.test.ts	background event journal > keeps task state and raw envelopes out of transcript and isolates sessions and generations
+app/src/main/infra/db/file-database.test.ts	<file-level>
+app/src/main/infra/db/managed-worktrees.test.ts	managed_worktrees persistence > ambiguous unbound ancestors are preserved instead of binding the first row
+app/src/main/infra/db/managed-worktrees.test.ts	managed_worktrees persistence > nullable metadata를 execution cwd로 session에 bind하고 삭제 뒤에도 row를 보존한다
+app/src/main/infra/db/migrate.test.ts	0006_turn_usage migration > usage_events 데이터를 id 보존 turn_usage/turn_model_usage 로 이관하고 기존 테이블을 제거한다
+app/src/main/infra/db/migrate.test.ts	0009_message_complete migration > 기존 messages 행을 complete=1 로 backfill 한다
+app/src/main/infra/db/migrate.test.ts	0023_session_agent_kind_code migration > moves both values while preserving session indexes, inbound FKs, messages, FTS, and lineage
+app/src/main/infra/db/migrate.test.ts	0023_session_agent_kind_code migration > preserves published artifact references, messages, and FTS after close and reopen
+app/src/main/infra/db/migrate.test.ts	0023_session_agent_kind_code migration > rolls back the schema change when persisted data is corrupt
+app/src/main/infra/db/migrate.test.ts	DB migrations hardening > WAL 내용을 포함한 복구 가능한 마이그레이션 전 백업을 만든다
+app/src/main/infra/db/migrate.test.ts	DB migrations hardening > 미적용 마이그레이션이 없으면 백업을 만들지 않는다
+app/src/main/infra/db/migrate.test.ts	DB migrations hardening > 백업 API는 단독으로 복구 가능한 스냅샷을 만든다
+app/src/main/infra/db/migrate.test.ts	DB migrations hardening > 백업 실패 시 신규 마이그레이션을 적용하지 않는다
+app/src/main/infra/db/migrate.test.ts	DB migrations hardening > 부분 적용된 오래된 DB를 최신까지 한 번에 전진시킨다
+app/src/main/infra/db/migrate.test.ts	DB migrations hardening > 앱이 모르는 미래 마이그레이션이 적용된 DB는 명확히 거부한다
+app/src/main/infra/db/migrate.test.ts	upgrades an existing pre-kind session to Code without changing messages or metadata
+app/src/main/infra/db/queries.test.ts	DbQueries attachment 파트 영속 왕복 > user 메시지의 attachment 파트가 loadParts→partFromRow 로 복원된다
+app/src/main/infra/db/queries.test.ts	DbQueries message complete > assistant 메시지를 미완료로 만들고 완료 처리할 수 있다
+app/src/main/infra/db/queries.test.ts	DbQueries pinned (0129) > 세션 고정 토글이 pinned_at 을 시각/null 로 왕복한다
+app/src/main/infra/db/queries.test.ts	DbQueries pinned (0129) > 프로젝트 고정 토글이 pinned_at 을 시각/null 로 왕복한다
+app/src/main/infra/db/queries.test.ts	DbQueries provider usage + limits (0080) > getProviderLimit/setProviderLimit 는 upsert 로 마지막 한도를 보존한다
+app/src/main/infra/db/queries.test.ts	DbQueries provider usage + limits (0080) > provider 경계 집계는 월 전체를 반환한다
+app/src/main/infra/db/queries.test.ts	DbQueries provider usage + limits (0080) > provider_key NULL 세션의 사용량은 어떤 provider 에도 귀속되지 않는다
+app/src/main/infra/db/queries.test.ts	DbQueries provider usage + limits (0080) > provider의 주·월 전체 사용량을 함께 집계한다
+app/src/main/infra/db/queries.test.ts	DbQueries provider usage + limits (0080) > sumUsageByBoundariesForProvider 는 provider_key 로 turn_usage 를 귀속·집계한다
+app/src/main/infra/db/queries.test.ts	DbQueries provider_key > insertSession 과 updateSessionProviderKey 로 마지막 provider 를 기록한다
+app/src/main/infra/db/queries.test.ts	DbQueries provider_key > 레거시 NULL provider_key row 를 조회할 수 있다
+app/src/main/infra/db/queries.test.ts	DbQueries session cwd > cwd 미지정(레거시) 세션은 NULL 로 저장돼 화이트리스트에 걸리지 않는다
+app/src/main/infra/db/queries.test.ts	DbQueries session cwd > insertSession 으로 cwd 를 영속하고 hasSessionWithCwd 로 화이트리스트한다
+app/src/main/infra/db/queries.test.ts	DbQueries session title source > getTitleSource 는 기본 auto 값을 읽는다
+app/src/main/infra/db/queries.test.ts	DbQueries session title source > renameSession 은 title_source 를 user 로 표기한다
+app/src/main/infra/db/queries.test.ts	DbQueries session title source > updateSessionTitleAuto 는 auto 행만 갱신하고 user 행은 보호한다
+app/src/main/infra/db/queries.test.ts	DbQueries turn usage > getLatestTurnUsage 는 최신 부모 행과 input_tokens 내림차순 자식 행을 반환한다
+app/src/main/infra/db/queries.test.ts	DbQueries turn usage > insertTurnUsage id 반환과 insertTurnModelUsage 연결을 제공한다
+app/src/main/infra/db/queries.test.ts	DbQueries turn usage > sumSessionCostUsd 는 세션 한정 비용 총합을 반환하고 null 비용/무행을 0 으로 본다
+app/src/main/infra/db/queries.test.ts	DbQueries turn usage > sumUsageByBoundaries 는 한 스캔으로 day/week/month 를 집계하고 null 을 0 으로 본다
+app/src/main/infra/db/queries.test.ts	DbQueries usage stats (0112) > sumUsageByDaySince 는 OS 로컬 일자로 버킷팅한다 (자정 경계 분리, null→0, 오름차순)
+app/src/main/infra/db/queries.test.ts	DbQueries usage stats (0112) > sumUsageByDaySince 는 since 이전 행을 제외한다
+app/src/main/infra/db/queries.test.ts	DbQueries usage stats (0112) > sumUsageByModelSince 는 턴 횡단 모델별 합산 + 총 토큰 내림차순 + since 필터를 제공한다
+app/src/main/infra/db/queries.test.ts	DbQueries — session baseline > detached HEAD 는 커밋만 남고 이름이 null 이다 — 화면은 그때 sha 로 접는다 (D-071)
+app/src/main/infra/db/queries.test.ts	DbQueries — session baseline > 출생 시 전달된 커밋과 브랜치 이름을 함께 저장하고 레거시는 둘 다 null 이다
+app/src/main/infra/db/queries.test.ts	DbQueries — sessions.extra_dirs 왕복 > listSessions 행도 같은 값을 싣는다 — 목록/단건이 갈라지지 않는다
+app/src/main/infra/db/queries.test.ts	DbQueries — sessions.extra_dirs 왕복 > 배열을 JSON 문자열로 저장하고 그대로 돌려준다
+app/src/main/infra/db/queries.test.ts	DbQueries — sessions.extra_dirs 왕복 > 빈 배열·null·미지정은 전부 NULL 이다
+app/src/main/infra/db/queries.test.ts	DbQueries — sessions.extra_dirs 왕복 > 원소가 하나여도 배열 형태를 유지한다
+app/src/main/infra/db/queries.test.ts	provider usage report cache (0014) > provider usage report 왕복
+app/src/main/infra/db/queries.test.ts	provider usage report cache (0014) > 같은 provider 재수집은 upsert 로 최신 1행만 남긴다
+app/src/main/infra/db/queries.test.ts	schedule_runs > records scheduler run lifecycle in one row
+app/src/renderer/src/features/chat/components/transcript/planMode.render.test.ts	<file-level>
+app/src/renderer/src/features/chat/lib/settlement.integration.test.ts	0239 SDK to persisted and rendered settlement > keeps live and loaded cancelled outcomes equal through the full result path
+app/src/renderer/src/features/chat/lib/settlement.integration.test.ts	0239 SDK to persisted and rendered settlement > keeps live and loaded late-result outcomes equal through the full result path
+app/src/renderer/src/features/chat/lib/settlement.integration.test.ts	0239 SDK to persisted and rendered settlement > keeps live and loaded no_result outcomes equal through the full result path
+app/src/renderer/src/features/chat/lib/settlement.integration.test.ts	0239 SDK to persisted and rendered settlement > keeps live and loaded retracted outcomes equal through the full result path
+app/src/renderer/src/features/chat/lib/settlement.integration.test.ts	0239 SDK to persisted and rendered settlement > keeps live and loaded user-rejected outcomes equal through the full result path

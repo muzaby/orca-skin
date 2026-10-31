@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compact, ifPresent, isRecord } from './obj'
+import { canonicalJson, compact, ifPresent, isRecord } from './obj'
 
 // 0194 D15 — `compact`·`ifPresent` 의 `!= null` semantics 에 눈이 없었다. "0·'' 는 유지한다" 가
 // 주석의 계약으로만 있었고, `!value` 로 바꿔도 저장소 전체가 green 이었다.
@@ -91,5 +91,22 @@ describe('isRecord', () => {
     expect(isRecord(null)).toBe(false)
     expect(isRecord('s')).toBe(false)
     expect(isRecord(undefined)).toBe(false)
+  })
+})
+
+describe('canonicalJson (0291)', () => {
+  it('sorts keys at every depth and keeps array order', () => {
+    expect(canonicalJson({ b: 1, a: { d: [2, 1], c: null } })).toBe(
+      canonicalJson({ a: { c: null, d: [2, 1] }, b: 1 })
+    )
+    expect(canonicalJson([2, 1])).not.toBe(canonicalJson([1, 2]))
+    expect(canonicalJson(undefined)).toBe('null')
+  })
+
+  it('throws on values that cannot be serialized', () => {
+    const cycle: Record<string, unknown> = {}
+    cycle.self = cycle
+    expect(() => canonicalJson(cycle)).toThrow()
+    expect(() => canonicalJson({ n: BigInt(1) })).toThrow()
   })
 })

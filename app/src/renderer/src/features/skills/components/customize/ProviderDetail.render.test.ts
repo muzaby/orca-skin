@@ -47,7 +47,8 @@ describe('ProviderDetail plugin presentation', () => {
           onLogin: vi.fn(),
           onSubmit: vi.fn(),
           onReauth: vi.fn(),
-          onRevoke: vi.fn()
+          onRevoke: vi.fn(),
+          onConnect: vi.fn()
         })
       )
       expect(markup).toContain('>기본 제공</span>')
@@ -73,7 +74,8 @@ describe('ProviderDetail plugin presentation', () => {
         onLogin: vi.fn(),
         onSubmit: vi.fn(),
         onReauth: vi.fn(),
-        onRevoke: vi.fn()
+        onRevoke: vi.fn(),
+        onConnect: vi.fn()
       })
     )
     expect(markup).toContain('지라 데이터 센터')
@@ -99,7 +101,8 @@ describe('ProviderDetail plugin presentation', () => {
         onLogin: vi.fn(),
         onSubmit: vi.fn(),
         onReauth: vi.fn(),
-        onRevoke: vi.fn()
+        onRevoke: vi.fn(),
+        onConnect: vi.fn()
       })
     )
     expect(markup).toContain('data-action="provider-reauth-menu"')
@@ -115,10 +118,54 @@ describe('ProviderDetail plugin presentation', () => {
         onLogin: vi.fn(),
         onSubmit: vi.fn(),
         onReauth: vi.fn(),
-        onRevoke: vi.fn()
+        onRevoke: vi.fn(),
+        onConnect: vi.fn()
       })
     )
     expect(markup).toContain('Legacy Auth')
     expect(markup).not.toContain('@atlassian-dc-mcp/jira')
+  })
+
+  it('colors the connection dot and shows the failure reason', () => {
+    const render = (state: 'idle' | 'checking' | 'connected' | 'failed'): string =>
+      renderToStaticMarkup(
+        createElement(ProviderDetail, {
+          provider: {
+            ...provider,
+            authScheme: 'login-free',
+            auth: [],
+            status: state === 'connected' ? 'valid' : 'none',
+            connection: {
+              state,
+              message: state === 'failed' ? 'OpenCode가 설치되어 있지 않습니다.' : null
+            }
+          },
+          step: null,
+          onLogin: vi.fn(),
+          onSubmit: vi.fn(),
+          onReauth: vi.fn(),
+          onRevoke: vi.fn(),
+          onConnect: vi.fn()
+        })
+      )
+    const idle = render('idle')
+    expect(idle).toContain('bg-slate-dot')
+    expect(idle).toContain('>연결 안 됨</span>')
+    expect(idle).toContain('data-action="provider-connect"')
+    expect(idle).toContain('>연결<')
+    const checking = render('checking')
+    expect(checking).toContain('bg-warn')
+    expect(checking).toContain('>확인 중…</span>')
+    expect(checking).toContain('aria-busy="true"')
+    expect(checking).toContain('>다시 연결<')
+    const connected = render('connected')
+    expect(connected).toContain('bg-good')
+    expect(connected).toContain('>연결됨</span>')
+    expect(connected).not.toContain('provider-connection-error')
+    const failed = render('failed')
+    expect(failed).toContain('bg-bad')
+    expect(failed).toContain('>연결 실패</span>')
+    expect(failed).toMatch(/text-bad[^>]*>OpenCode가 설치되어 있지 않습니다\.</)
+    expect(failed).toContain('>다시 연결<')
   })
 })

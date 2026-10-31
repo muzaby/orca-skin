@@ -209,7 +209,8 @@ it.each(['agents', 'models'] as const)(
     expect(dom.query('[data-agent-loading]') !== null).toBe(first !== 'agents')
     expect(dom.query('[role="group"]')?.props['aria-busy']).toBe(first !== 'agents')
     expect(dom.queryAll('[role="menuitemradio"]').map((row) => row.textContent)).toEqual(
-      first === 'agents' ? ['plugin-review'] : []
+      // 목록 전에는 공용 기본 placeholder(0291 D-016)를 보인다.
+      first === 'agents' ? ['plugin-review'] : ['build', 'plan']
     )
     if (first === 'agents') models.resolve(modelResult)
     else agents.resolve(agentResult)
@@ -332,4 +333,74 @@ it('clears cached agents on plugin changes with no Composer mounted and refetche
     'new-global'
   ])
   expect(query.mock.calls.filter(([r]) => r.part === 'agents')).toHaveLength(1)
+})
+
+// 0291 D-016 — 런타임 목록 로딩 중에는 선택 provider 행의 agents 를 placeholder 로 쓰고,
+// 목록이 도착하면 교체한다. placeholder 는 저장하지 않는다.
+it('fills agents from the provider catalog while the runtime list loads and overrides it on arrival', async () => {
+  const agents = Promise.withResolvers<ComposerCatalogResult>()
+  const query = vi.fn((request: ComposerCatalogRequest) =>
+    request.part === 'agents'
+      ? agents.promise
+      : Promise.resolve({ part: 'models', value: [], generation: 'g1' } as ComposerCatalogResult)
+  )
+  Object.assign(window, {
+    orca: {
+      session: {
+        composerCatalog: query,
+        releaseComposerCatalog: vi.fn(async () => undefined),
+        onComposerCatalogInvalidated: () => () => undefined
+      }
+    }
+  })
+  // 새 대화 — 아직 선택한 에이전트가 없다.
+  const previousAgent = state.selected.harnessAgent
+  state.selected.harnessAgent = ''
+  Object.assign(state.selected, {
+    sessionId: null,
+    cwd: 'C:/connection-0291',
+    projectId: 'connection-0291',
+    pendingProjectId: null
+  })
+  const props: ComposerControlProps = {
+    agents: [
+      {
+        key: 'other',
+        adapter: 'opencode',
+        models: [],
+        supported: true,
+        agents: [{ name: 'other-agent' }]
+      },
+      {
+        key: 'corp-native',
+        adapter: 'opencode',
+        models: [],
+        supported: true,
+        agents: [{ name: 'corp-build' }, { name: 'corp-plan' }]
+      }
+    ],
+    providerKey: 'corp-native',
+    modelFamily: '',
+    model: null
+  }
+  dom.render(createElement(composerModule.ModeControl, props))
+  await settle()
+  expect(dom.query('[aria-label="harness.agent"]')?.textContent).toContain('corp-build')
+  dom.click(dom.query('[aria-label="harness.agent"]')!)
+  expect(dom.query('[data-agent-loading]')).not.toBeNull()
+  expect(dom.queryAll('[role="menuitemradio"]').map((row) => row.textContent)).toEqual([
+    'corp-build',
+    'corp-plan'
+  ])
+  expect(state.change).not.toHaveBeenCalled()
+  agents.resolve({ part: 'agents', value: [{ name: 'plugin-review' }], generation: 'g1' })
+  await settle()
+  expect(dom.query('[data-agent-loading]')).toBeNull()
+  expect(dom.queryAll('[role="menuitemradio"]').map((row) => row.textContent)).toEqual([
+    'plugin-review'
+  ])
+  // 목록이 도착해야 첫 항목을 저장한다(0287 D-002). placeholder 는 저장된 적이 없다.
+  expect(state.change).toHaveBeenCalledWith({ agent: 'plugin-review' })
+  expect(state.change).not.toHaveBeenCalledWith(expect.objectContaining({ agent: 'corp-build' }))
+  state.selected.harnessAgent = previousAgent
 })

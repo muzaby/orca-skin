@@ -9,15 +9,19 @@ import { OpenCodeIcon } from '../Icon'
 import type { ComposerControlProps } from '../../contracts'
 import { modelKey } from '../../../components/composer/modelSelection'
 import { useComposerCatalog } from './useComposerCatalog'
-import { resolveAgentSelection } from './agentSelection'
+import { agentPlaceholder, resolveAgentSelection } from './agentSelection'
 
-export function OpenCodeModeControl({ providerKey }: ComposerControlProps): React.JSX.Element {
+export function OpenCodeModeControl({
+  agents,
+  providerKey
+}: ComposerControlProps): React.JSX.Element {
   const { snapshot } = useComposerCatalog(providerKey)
   return (
     <OpenCodeAgentControl
       agents={snapshot.agents.value}
       authoritative={snapshot.agents.value !== undefined}
       status={snapshot.agents.status}
+      placeholder={agentPlaceholder(providerKey, agents)}
     />
   )
 }
@@ -196,15 +200,20 @@ function OpenCodeSelect({
 export function OpenCodeAgentControl({
   agents,
   authoritative = false,
-  status
+  status,
+  placeholder = []
 }: {
   agents: AgentEnvironment['agents']
   authoritative?: boolean
   status?: 'loading' | 'ready' | 'error'
+  // authoritative 목록 전의 표시 목록(0291). 메뉴·버튼에만 쓰고 저장하지 않는다.
+  placeholder?: NonNullable<AgentEnvironment['agents']>
 }): React.JSX.Element {
   const { tr } = useI18n()
   const selected = useChatSession((state) => state.harnessAgent)
   const resolved = resolveAgentSelection(selected, agents, authoritative, status)
+  const options = agents ?? (authoritative ? [] : placeholder)
+  const shown = authoritative ? resolved : resolved || (placeholder[0]?.name ?? '')
   useEffect(() => {
     if (resolved !== (selected ?? ''))
       chatActions.setHarnessOptions({ agent: resolved, ...(selected ? { variant: '' } : {}) })
@@ -212,7 +221,7 @@ export function OpenCodeAgentControl({
   return (
     <OpenCodeSelect
       label={tr('harness.agent')}
-      value={resolved}
+      value={shown}
       compact
       emptyLabel={tr(
         status === 'loading'
@@ -223,7 +232,7 @@ export function OpenCodeAgentControl({
       )}
       onChange={(value) => chatActions.setHarnessOptions({ agent: value })}
       loading={status === 'loading'}
-      options={(agents ?? []).map((agent) => ({ value: agent.name, label: agent.name }))}
+      options={options.map((agent) => ({ value: agent.name, label: agent.name }))}
     />
   )
 }

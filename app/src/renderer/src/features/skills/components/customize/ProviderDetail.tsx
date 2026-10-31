@@ -10,11 +10,9 @@ import {
   initialAuthKind,
   needsAuthChoice
 } from '../../../../shared/config/providerAuth'
-import { providerRowMeta } from '../../lib/providerRows'
+import { providerRowMeta, providerTone } from '../../lib/providerRows'
 import { providerPresentation } from '../../lib/providerPresentation'
 import { ProviderAuthActions } from './ProviderAuthActions'
-
-const TONE = { valid: 'green', expired: 'amber', unknown: 'amber', none: 'slate' } as const
 
 // provider 상세 — 상태·인증·재인증·해제. 앱 로그인(gate)과 사내 서비스(service)가 **같은
 // 패널**을 쓴다. 로그인 프리는 체계에 맞는 상태 표시와 도구 목록을 쓴다.
@@ -26,7 +24,8 @@ export function ProviderDetail({
   onLogin,
   onSubmit,
   onReauth,
-  onRevoke
+  onRevoke,
+  onConnect
 }: {
   provider: ProviderInfo
   step: ProviderStepInfo | null
@@ -34,6 +33,7 @@ export function ProviderDetail({
   onSubmit: (input: Record<string, string>) => void
   onReauth: (authKind?: ProviderAuthKind) => void
   onRevoke: () => void
+  onConnect: () => void
 }): React.JSX.Element {
   const { tr, locale } = useI18n()
   const meta = providerRowMeta(provider)
@@ -59,7 +59,7 @@ export function ProviderDetail({
           <div className="mt-g1 flex flex-wrap items-center gap-g3 text-footnote text-ink3">
             <span>{tr(meta.kindKey)}</span>
             <span>·</span>
-            <Dot tone={TONE[provider.status]} />
+            <Dot tone={providerTone(provider)} />
             <span>{tr(meta.statusKey)}</span>
             {meta.activeLabel !== null && (
               <>
@@ -76,9 +76,16 @@ export function ProviderDetail({
             onLogin={onLogin}
             onReauth={onReauth}
             onRevoke={onRevoke}
+            onConnect={onConnect}
           />
         </div>
       </div>
+
+      {provider.connection?.state === 'failed' && provider.connection.message !== null && (
+        <p className="mt-p7 mb-0 text-footnote text-bad" data-role="provider-connection-error">
+          {provider.connection.message}
+        </p>
+      )}
 
       {presentation.body && (
         <p className="mt-p7 mb-0 whitespace-pre-wrap text-footnote text-ink2">

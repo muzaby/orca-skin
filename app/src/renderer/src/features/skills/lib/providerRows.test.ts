@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ProviderInfo } from '../../../../../shared/ipc'
 import { authChoices, initialAuthKind, needsAuthChoice } from '../../../shared/config/providerAuth'
-import { canManageAuth, providerRowMeta } from './providerRows'
+import { canManageAuth, providerRowMeta, providerTone } from './providerRows'
 
 function provider(patch: Partial<ProviderInfo> = {}): ProviderInfo {
   return {
@@ -88,4 +88,32 @@ describe('providerRows (AC5)', () => {
       expect(canManageAuth(info)).toBe(false)
     }
   )
+})
+
+describe('host connection rows (0291)', () => {
+  it('maps each host connection state to its label and tone', () => {
+    const row = (state: 'idle' | 'checking' | 'connected' | 'failed'): ProviderInfo =>
+      provider({
+        authScheme: 'login-free',
+        auth: [],
+        status: state === 'connected' ? 'valid' : 'none',
+        connection: { state, message: state === 'failed' ? '실패' : null }
+      })
+    const seen = (['idle', 'checking', 'connected', 'failed'] as const).map((state) => [
+      providerRowMeta(row(state)).statusKey,
+      providerTone(row(state)),
+      providerRowMeta(row(state)).kindKey
+    ])
+    expect(seen).toEqual([
+      ['skills.provider.status.none', 'slate', 'skills.provider.kind.loginFree'],
+      ['skills.provider.status.checking', 'amber', 'skills.provider.kind.loginFree'],
+      ['skills.provider.status.valid', 'green', 'skills.provider.kind.loginFree'],
+      ['skills.provider.status.failed', 'red', 'skills.provider.kind.loginFree']
+    ])
+    // 연결 선언 없는 로그인 프리는 그대로 항상 연결 표시다(0248).
+    const plain = provider({ authScheme: 'login-free', auth: [], status: 'valid' })
+    expect(providerRowMeta(plain).statusKey).toBe('skills.provider.status.loginFree')
+    expect(providerTone(plain)).toBe('green')
+    expect(providerTone(provider({ status: 'expired' }))).toBe('amber')
+  })
 })

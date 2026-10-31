@@ -11,6 +11,68 @@ import {
   openCodeStorageProfile
 } from './server-profile'
 import { diffProfileComponents, type ProfileComponents } from './diagnostics'
+import type { HarnessListedModel } from '../../common/harness-config'
+import { assertOpenCodeProviderId, parseOpenCodeModelListing } from './model-listing'
+import { nativeWorkingDirectory } from './native-storage'
+
+const CLI_VERSION = /^(?:opencode\s+)?v?1\.\d+\.\d+(?:-[\w.-]+)?(?:\+[\w.-]+)?$/
+export const OPENCODE_CLI_VERSION_MESSAGE =
+  'OpenCode CLI 1.x가 필요합니다. 하네스 설정에서 1.x 실행 파일을 지정해 주세요.'
+const CLI_TIMEOUT_MS = 60_000
+const CLI_MAX_BUFFER = 16 * 1024 * 1024
+const CLI_STDERR_LINE_LIMIT = 300
+
+// 서버 시작과 모델 조회가 공유하는 실행 조건(0291 EP-09). SDK의 /v2/client export와 제품 CLI의
+// major는 별개다. 실행 대상은 1.x만 지원한다.
+export function isSupportedOpenCodeCliVersion(version: string): boolean {
+  return CLI_VERSION.test(version)
+}
+
+export interface OpenCodeCliOptions {
+  cwd: string
+  env: NodeJS.ProcessEnv
+  windowsHide: true
+  timeout: number
+  maxBuffer: number
+  signal: AbortSignal
+}
+
+export interface OpenCodeCliResult {
+  stdout: string
+}
+
+export class OpenCodeCliError extends Error {
+  constructor(
+    message: string,
+    readonly stderr: string
+  ) {
+    super(message)
+  }
+}
+
+function runOpenCodeCli(
+  executable: string,
+  args: readonly string[],
+  options: OpenCodeCliOptions
+): Promise<OpenCodeCliResult> {
+  return new Promise((resolve, reject) => {
+    execFile(executable, [...args], { ...options, encoding: 'utf8' }, (error, stdout, stderr) => {
+      if (error) reject(new OpenCodeCliError(error.message, String(stderr ?? '')))
+      else resolve({ stdout: String(stdout) })
+    })
+  })
+}
+
+function lastStderrLine(error: unknown): string {
+  const stderr = error instanceof OpenCodeCliError ? error.stderr : ''
+  const line = stderr
+    .split(/\r?\n/)
+    .map((value) => value.trim())
+    .filter((value) => value !== '')
+    .at(-1)
+  if (line) return line.slice(0, CLI_STDERR_LINE_LIMIT)
+  return (error instanceof Error ? error.message : String(error)).slice(0, CLI_STDERR_LINE_LIMIT)
+}
 
 export interface OpenCodeConnection {
   url: string
@@ -60,6 +122,11 @@ export interface OpenCodeServerDependencies {
   readVersion?: (executable: string) => Promise<string>
   allocatePort?: () => Promise<number>
   timeoutMs?: number
+  runCli?: (
+    executable: string,
+    args: readonly string[],
+    options: OpenCodeCliOptions
+  ) => Promise<OpenCodeCliResult>
 }
 
 /** Only processes created here are owned. No attachment to an existing port/process. */
@@ -202,14 +269,7 @@ export class OpenCodeServerPool {
   ): Promise<OpenCodeConnection> {
     const runtime = randomUUID()
     retentionTrace('process.start-request', { runtime })
-    const version = await this.readVersion(executable)
-    // SDK의 /v2/client export와 제품 CLI의 major는 별개다. 실행 대상은 1.x만 지원한다.
-    if (!/^(?:opencode\s+)?v?1\.\d+\.\d+(?:-[\w.-]+)?(?:\+[\w.-]+)?$/.test(version)) {
-      this.version = undefined
-      throw new Error(
-        'OpenCode CLI 1.x가 필요합니다. 하네스 설정에서 1.x 실행 파일을 지정해 주세요.'
-      )
-    }
+    await this.assertCliVersion(executable)
     // 버전 조회 중 close()가 호출됐다면 서버를 만들지 않는다.
     this.shutdown.signal.throwIfAborted()
     const port = await (this.deps.allocatePort ?? allocateLoopbackPort)()
@@ -297,6 +357,47 @@ export class OpenCodeServerPool {
     } finally {
       clearTimeout(timer)
     }
+  }
+
+  // 서버 시작과 같은 실행 조건 — 판정 실패면 버전 cache 를 비워 다음 시도가 다시 읽는다.
+  private async assertCliVersion(executable: string): Promise<void> {
+    const version = await this.readVersion(executable)
+    if (!isSupportedOpenCodeCliVersion(version)) {
+      this.version = undefined
+      throw new Error(OPENCODE_CLI_VERSION_MESSAGE)
+    }
+  }
+
+  // 호스트 OpenCode 설정 그대로 provider 의 모델 목록을 읽는다(0291). 서버와 같은 실행 파일·
+  // 같은 1.x 판정을 쓰고, 프로젝트 설정은 섞지 않는다(cwd 홈 + OPENCODE_DISABLE_PROJECT_CONFIG).
+  async listModels(
+    provider: string,
+    options: { signal: AbortSignal; env?: Readonly<Record<string, string>> }
+  ): Promise<HarnessListedModel[]> {
+    assertOpenCodeProviderId(provider)
+    if (this.stopped) throw new Error('OpenCode 서버 관리자가 종료되었습니다.')
+    const executable = this.executable()
+    await this.assertCliVersion(executable)
+    const signal = AbortSignal.any([options.signal, this.shutdown.signal])
+    signal.throwIfAborted()
+    let stdout: string
+    try {
+      ;({ stdout } = await (this.deps.runCli ?? runOpenCodeCli)(
+        executable,
+        ['models', provider, '--verbose', '--pure'],
+        {
+          cwd: nativeWorkingDirectory(),
+          env: { ...process.env, ...options.env, OPENCODE_DISABLE_PROJECT_CONFIG: 'true' },
+          windowsHide: true,
+          timeout: CLI_TIMEOUT_MS,
+          maxBuffer: CLI_MAX_BUFFER,
+          signal
+        }
+      ))
+    } catch (error) {
+      throw new Error(`OpenCode 모델 목록을 가져오지 못했습니다: ${lastStderrLine(error)}`)
+    }
+    return parseOpenCodeModelListing(stdout, provider)
   }
 
   async databasePath(

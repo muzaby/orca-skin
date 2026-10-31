@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { AgentEnvironment, ProviderGateState } from '../../shared/ipc'
-import type { AuthChange, AuthDefinition, AuthRuntime, BoundAuth } from '../contracts/auth'
+import type {
+  AuthChange,
+  AuthDefinition,
+  AuthRuntime,
+  AuthSnapshot,
+  BoundAuth
+} from '../contracts/auth'
 import { createVault } from '../infra/vault'
 import { createMemoryGrantPersistence } from '../features/auth/store'
 import { createAuthRuntime } from '../features/auth/runtime'
@@ -84,17 +90,39 @@ describe('runtime model startup', () => {
     expect(order).toEqual(['attach', 'resume'])
   })
 
-  it('reads the live store snapshot on every call rather than a captured one', () => {
-    const snapshots: Record<string, { authId: string; revision: number }> = {
-      gate: { authId: 'gate', revision: 1 }
+  it('reads login-free and credential snapshots through auth.snapshot on every call', () => {
+    const snapshots: Record<string, AuthSnapshot> = {
+      gate: { authId: 'gate', status: 'valid', verified: true, credentialRevision: 1 },
+      'opencode-llm': {
+        authId: 'opencode-llm',
+        status: 'none',
+        verified: false,
+        credentialRevision: 0,
+        connection: { state: 'idle' }
+      }
     }
-    const reader = createRuntimeModelSnapshotReader({
-      bind: (authId) => ({ snapshot: () => snapshots[authId] }) as never
-    })
+    // `bind` 는 로그인 프리 id 를 none 으로 읽는다 — reader 가 그쪽으로 돌아가면 이 케이스가 깨진다.
+    const auth = {
+      snapshot: (authId: string) => snapshots[authId]!,
+      bind: (authId: string) => ({
+        authId,
+        snapshot: () => ({ authId, status: 'none', verified: false, credentialRevision: 0 })
+      })
+    }
+    const reader = createRuntimeModelSnapshotReader(auth as never)
 
-    expect(reader('gate')).toMatchObject({ revision: 1 })
-    snapshots['gate'] = { authId: 'gate', revision: 2 }
-    expect(reader('gate')).toMatchObject({ revision: 2 })
+    expect(reader('gate')).toMatchObject({ credentialRevision: 1 })
+    expect(reader('opencode-llm')).toMatchObject({ connection: { state: 'idle' } })
+    snapshots['gate'] = { ...snapshots['gate']!, credentialRevision: 2 }
+    snapshots['opencode-llm'] = {
+      authId: 'opencode-llm',
+      status: 'valid',
+      verified: true,
+      credentialRevision: 1,
+      connection: { state: 'connected' }
+    }
+    expect(reader('gate')).toMatchObject({ credentialRevision: 2 })
+    expect(reader('opencode-llm')).toMatchObject({ status: 'valid', verified: true })
   })
 
   it('forwards a verified authId to the catalog bridge with its current snapshot', () => {
