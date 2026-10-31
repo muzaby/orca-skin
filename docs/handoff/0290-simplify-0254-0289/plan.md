@@ -9,10 +9,10 @@
 | 일자 | 2026-10-30 |
 | 매핑 | 사용자 `/handoff-plan` + `/simplify` — 0254~0289 리팩토링, **Plan까지만** · 10-31 보완: 0291 착지분 포함(D-014) |
 | 상태 | READY |
-| V mode | `Baseline V` |
-| 기준 V | `none` |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| V mode | `Delta V` |
+| 기준 V | `V1` — 기존 본문, `ae103f3c` |
+| 이번 V revision | `ΔV1` — 구현 전 계획 검토 |
+| 유효 V | `V1 + ΔV1` — 아래 증분이 충돌하는 V1 문장을 대체 |
 | 기준 커밋 | 범위 기준 `0b3fdeae^` → 설계 시점 HEAD `5ecaefd4` → 좌표 재측정 HEAD `e0318497`(같은 브랜치에 0291 착지, `git cat-file -t` = commit) · 0291 범위 `5ecaefd4` → `e0318497`(app 비테스트 변경은 구현 `88cb0421` 1개, r2 `69fa34f4` 는 테스트만 — 둘 다 `git cat-file -t` = commit) |
 
 ## 0. 작성 경로
@@ -51,7 +51,7 @@
 
 | ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
 |---|---|---|---|---|---|
-| D-001 | 이번 턴은 plan READY 까지다. 구현은 다음 handoff-impl 턴, 구현 주체는 Claude | "Plan까지만 구현할 것" · 리팩토링은 Claude 직접 구현(root `AGENTS.md` 협업 분담) | 사용자 턴 1 | ACTIVE | — |
+| D-001 | 이번 턴은 plan READY 까지다. 구현은 다음 handoff-impl 턴, 구현 주체는 Claude | "Plan까지만 구현할 것" · 리팩토링은 Claude 직접 구현(root `AGENTS.md` 협업 분담) | 사용자 턴 1 | SUPERSEDED | D-017 |
 | D-002 | 정리 방법 = /simplify 4관점 + 기계 스캔. 발견마다 HEAD 코드로 재확인하고 동작을 바꾸는 발견은 D-005~D-007 밖이면 뺀다 | "/simplify 스킬로 진행하라" · 스킬 "Skip any finding whose fix would change intended behavior" | 사용자 턴 1 · simplify | ACTIVE | — |
 | D-003 | 사용자 관측 동작 보존 — 화면·문구·대화 흐름·남는 IPC 채널의 요청/응답·DB 스키마·영속 키·설정 키 불변 | 리팩토링 정의 · 데이터 무결성 | 설계자 | ACTIVE | 예외 = D-005·D-006·D-007 |
 | D-004 | 최적화를 포함하고, 크기·다파일·구조 변경을 이유로 발견을 빼지 않는다 | "최적화도 포함할 것." "과감한 선택할 것" | 사용자 턴 1 추가 | ACTIVE | — |
@@ -66,6 +66,9 @@
 | D-013 | 이후 조사는 서브에이전트 없이 설계자가 직접 한다. 완료된 서브에이전트 보고(Efficiency·main)는 HEAD 코드로 검증한 뒤 채택·후속·제외로 가르고, 저장 포맷·관측 동작을 바꾸는 부분은 D-003 으로 뺀다 | "서브에이전트로 조사하지 말 것" · "이전 서브에이전트의 결과가 있는 경우 활용할 것" | 사용자 턴 3 | ACTIVE | — |
 | D-014 | 범위에 0291 착지분을 더한다 — `88cb0421` 이 바꾼 app 비테스트 47파일과 0291 이 0290 으로 넘긴 기존 canonical JSON 3사본. 0291 ACTIVE 결정 D-001~D-021·이름(0291 D-020)·관측 동작은 유지한다(D-003) | "핸드오프가 먼저 완성되었다. 291까지 고려하여 290 핸드오프 plan을 보완하라" · 0291 plan §6 "기존 canonical JSON 사본 3곳 통합(0290 영역)" | 사용자 턴 4 | ACTIVE | — |
 | D-015 | 0291 배포 확장점도 D-008 과 같이 유지 — 가이드 §4 레시피가 쓰는 `runtime-listing.ts`(`listedModelsOf`·`runtimeModelsFromListing`)·`createConfigApiAugmenters`·`HostHarnessPort`·`LoginFreeConnect(Context)`·`AuthRuntime.connectionValue` 는 production 호출자가 없어도 지우거나 합치지 않는다 | `docs/guides/closed-network-extensions.md:936-947` 레시피 · 0291 D-001(mainline 은 인프라만) | 코드·문서 | ACTIVE | — |
+
+| D-016 | 이벤트 ID 4,096개 상한(EP-16 #7)은 제외하고 기존 중복 방지를 유지한다 | 오래된 delta 재전달이 대화 텍스트를 중복시킴 — D-003 위반 실측 | 사용자 2026-10-31: "중복 방지 유지, 이 최적화 제외 (권장)" | ACTIVE | AC21·EP-16 #7·§14 상한 문구 대체 |
+| D-017 | Codex가 0290 계획을 검토·보완하고 나머지 리팩토링을 구현한다. 서브에이전트는 쓰지 않는다 | "Handoff-impl 290 … 충실하게 계획하였는지 검증하고 구현하라" | 현재 사용자 요청 | ACTIVE | D-001 대체, D-013 유지 |
 
 ### 갱신 메모
 
@@ -228,6 +231,43 @@
 | message-bus | 커밋 trailer | `git log -1 --format='%(trailers:only=true)'` | 파싱 0건 |
 
 ---
+
+## ΔV1 — 구현 전 검토에 따른 정정 (2026-10-31)
+
+**수정 필요.** 삭제·재사용·모듈 위치의 방향은 유지하되 이벤트 상한은 D-003과 충돌했고, push 수명주기와 이력 fast path의 오류 경계에 직접 증거가 빠져 있었다. V1의 영향 없는 계약·자리·적대 증거는 그대로 상속한다.
+
+| 발견 | 코드/실측 근거 | 정정 |
+|---|---|---|
+| 오래된 delta 재전달 | `map.ts:93-94,134-145`: 같은 delta를 4,096개 이벤트 뒤 재전달하면 기존 출력 `[]`, 계획의 FIFO 축출 적용 시 `message.delta` 1건 | D-016. AC21에서 상한만 제거; EP-16 #7은 변경 대신 회귀 자리로 유지 |
+| probe 선행 시 missing 판정 유실 | `native-cursor.ts:10`의 DB open은 throw 가능. `native-history.ts:189`의 404는 현재 그보다 먼저 `missing`을 반환 | EP-15 #1: probe 오류를 보관하고 SDK의 404를 먼저 판정. 404면 missing, 성공 세션이면 기존 unavailable 의미 유지. 같은 source/cursor일 때만 HTTP 없이 unchanged |
+| push의 busy 구간 신호 유실 | `useNativeMcpCatalog.ts:49`가 busy/lock 동안 refresh를 버림. 주기 재조회 삭제 뒤에는 다음 조회가 보장되지 않음 | 해당 backend의 pending refresh를 합치고 진행 중 조회/토글 종료 뒤 1회 실행. unmount 이후 실행하지 않음 |
+| Windows 스캔이 대상 0개를 성공으로 보고 | `dead-exports.cjs`의 APP은 역슬래시, TS source filename은 슬래시. 원본 실행 `exports=0`; 경로 정규화 후 `exports=3625 dead=44 test-only=52` | 스캔 내부·출력 경로 정규화, 실패 ID 도구는 `fileURLToPath` 사용. 소스 존재·표본 검출을 함께 확인 |
+
+### ΔV1 계약과 V 증분
+
+| Node / Pair | provenance / requiredness | 대체·상속 범위 | 직접 oracle / 선택 적대 증거 |
+|---|---|---|---|
+| MD-09 / VP-16 | CHANGED / REQUIRED | AC21 중 상한만 제외; EP-16 #7은 기존 중복 방지 회귀. 나머지 10자리 유지 | `map.replay.test.ts`: 실제 mapper에 text delta→서로 다른 4,096 이벤트→원 delta 재전달, 추가 출력 0. FIFO 상한 변이로 red |
+| MD-08 / VP-15 | CHANGED / REQUIRED | AC20·EP-15 6자리 유지, #1의 실패 경계 보강 | `native-history.test.ts`: probe throw+SDK 404→missing; probe throw+SDK success→unavailable; previous/source 불일치→SDK 조회. 기존 probe 순서·DELETE 변이 유지 |
+| R-02 / VP-02 | CHANGED / REQUIRED | AC11·EP-02 3자리 유지, push 구독의 busy/lock/unmount 의미 보강 | `useNativeMcpCatalog.test.ts`: busy 중 동일 backend push 2회→완료 뒤 추가 1회; 토글 중 push→잠금 해제 뒤 1회; unmount 뒤 추가 0. 기존 interval·구독 제거 변이 유지 |
+| SD-01 / VP-19 | NEW / REQUIRED | AC11·AC12의 외부 변경→방송→목록 갱신 및 해제 수명주기. 아래 EP-19 6자리 | 아래 각 edge의 production 실행 좌표를 합성. bootstrap 방송·preload 구독·API 전달 각 제거 변이 red |
+| R-01 / VP-01 | INHERITED / REGRESSION | D-003·AC1 전부 | Windows 기준선 차집합 및 기존 gate 유지 |
+
+### EP-19 — 확장 push 수명주기 (6자리)
+
+| # | production edge | 직접 oracle |
+|---|---|---|
+| 1 | bootstrap의 OpenCode 전역 changed → 공용 `{backend:'opencode'}` 방송, 기존 revision 방송 유지 | `bootstrap.native-history.test.ts`: 감시 fake 변경 callback을 부르고 실제 방송 채널·두 payload를 구별해 단언 |
+| 2 | bootstrap의 Claude 전역 changed → `{backend:'claude'}` 방송 | 같은 테스트: Claude 감시 callback→공용 방송. OpenCode revision 방송 없음 |
+| 3 | bootstrap shutdown → 신규 감시 close | 같은 테스트: shutdown 후 등록 감시 close 호출 |
+| 4 | preload IPC listener → 공개 onExtensionsChanged callback·해제 | 신규 `preload/extensions-changed.test.ts`: 실제 preload를 mocked electron으로 import, capture한 API 구독→IPC payload 전달→unsubscribe |
+| 5 | renderer sessionApi.onExtensionsChanged → preload API | 신규 `shared/api/extensions-changed.test.ts`: 실제 sessionApi를 통해 callback·unsubscribe 동일성 단언 |
+| 6 | hook subscription → backend별 globalExtensions→목록, unmount→구독 해제 | `useNativeMcpCatalog.test.ts`: 실제 훅·구별된 두 backend 자원, push 후 해당 행 변경과 cleanup 단언 |
+
+- 자리 검색: `rg -n 'extensionsChanged|onExtensionsChanged|OpenCodeGlobalWatch|shutdown\(' app/src/main/app/bootstrap.ts app/src/preload app/src/renderer/src/shared/api app/src/renderer/src/features/skills/hooks` — 신규 공용 채널 배선의 양 끝과 shutdown을 위 6자리로 묶는다. `CHANNELS.extensionsChanged`의 문자열은 preload 테스트가 실제 상수를 소비하며 잠근다.
+- ΔV1 이후 유효 pair는 VP-01~VP-19. VP-01만 REGRESSION, 나머지는 REQUIRED. AC는 23개이며 AC21의 상한 조건 외에는 완화하지 않는다.
+- ACTIVE 결정↔AC 대조: D-016과 수정 AC21은 일치, D-003과 오래된 delta 재전달 결과는 동일. D-005~D-007·D-008·D-015는 그대로 유지한다.
+- WP-12 #7은 기능 변경 대신 회귀 테스트만 작성한다. WP-7은 EP-19·pending refresh를 포함한다. 본 증분은 구현 산출과 분리해 커밋한다.
 
 # Part II — Technical Design
 
