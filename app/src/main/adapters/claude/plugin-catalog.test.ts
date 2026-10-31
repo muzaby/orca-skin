@@ -1,8 +1,8 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { readClaudePluginCatalog } from './plugin-catalog'
+import { readClaudePluginCatalog, readClaudePluginCatalogAsync } from './plugin-catalog'
 
 let temp: string
 let cwd: string
@@ -29,6 +29,32 @@ beforeEach(() => {
 afterEach(() => rmSync(temp, { recursive: true, force: true }))
 
 describe('native plugin catalog', () => {
+  it('projects asynchronous menu reads identically to spawn without re-reading skill contents', async () => {
+    const path = plugin('bundle')
+    write(
+      join(path, 'commands', 'check.md'),
+      '---\ndescription: Check\nargument-hint: [file]\n---\nbody'
+    )
+    write(join(path, 'skills', 'internal', 'SKILL.md'), '---\nuser-invocable: false\n---\nhidden')
+    write(join(root, 'settings.json'), { enabledPlugins: { 'bundle@market': true } })
+    write(join(root, 'plugins/installed_plugins.json'), {
+      plugins: { 'bundle@market': [{ scope: 'user', installPath: path }] }
+    })
+    expect(await readClaudePluginCatalogAsync(cwd, root)).toEqual(
+      readClaudePluginCatalog(cwd, root)
+    )
+    write(join(cwd, '.claude/settings.local.json'), { enabledPlugins: { 'bundle@market': false } })
+    expect(await readClaudePluginCatalogAsync(cwd, root)).toEqual(
+      readClaudePluginCatalog(cwd, root)
+    )
+    expect(await readClaudePluginCatalogAsync(cwd, root, {}, true)).toEqual(
+      readClaudePluginCatalog(cwd, root, {}, true)
+    )
+    write(join(root, 'settings.json'), '{"secret":"private-value"')
+    await expect(readClaudePluginCatalogAsync(cwd, root)).rejects.toThrow(
+      'Claude 네이티브 확장 설정을 읽을 수 없습니다.'
+    )
+  })
   it('selects active installations by scope and precedence and refreshes every read', () => {
     const active = plugin('frontend-design')
     const disabled = plugin('disabled')

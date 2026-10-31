@@ -1,11 +1,16 @@
-import { mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { afterEach, expect, it, vi } from 'vitest'
-import { readSkillCatalog } from './skill-catalog'
-import { registerSkillsHandlers } from './handlers/skills'
 import { CHANNELS } from '../../shared/ipc'
+import { registerSkillsHandlers } from './handlers/skills'
+import { readSkillCatalog } from './skill-catalog'
+
+vi.mock('node:fs/promises', async (original) => {
+  const actual = await original<typeof import('node:fs/promises')>()
+  return { ...actual, realpath: vi.fn(actual.realpath) }
+})
 
 const handlers = vi.hoisted(() => new Map<string, (event: unknown, raw: unknown) => unknown>())
 const showItemInFolder = vi.hoisted(() => vi.fn())
@@ -88,7 +93,12 @@ it('assembles the real catalog from lock, harness and native plugin files withou
       home,
       {}
     )
-  expect((await catalog()).map((s) => `${s.sourceId}/${s.name}`).sort()).toEqual([
+  vi.mocked(realpath).mockClear()
+  const first = await catalog()
+  expect(
+    vi.mocked(realpath).mock.calls.filter(([path]) => path === join(agents, 'locked', 'SKILL.md'))
+  ).toHaveLength(1)
+  expect(first.map((s) => `${s.sourceId}/${s.name}`).sort()).toEqual([
     'adapter:claude/claude-only',
     'adapter:opencode/open-only',
     'agents/locked',

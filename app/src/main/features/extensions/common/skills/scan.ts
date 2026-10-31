@@ -4,9 +4,9 @@
 
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
-import { skillMetadata } from '../../../../adapters/common/skill-metadata'
 import type { SkillInfo } from '../../../../../shared/ipc'
 import { isRecord } from '../../../../../shared/obj'
+import { skillMetadata } from '../../../../adapters/common/skill-metadata'
 
 export interface SkillScanRoot {
   sourceId: string
@@ -14,7 +14,13 @@ export interface SkillScanRoot {
   sourceKind: 'orca' | 'adapter' | 'workspace'
   rootDir: string
   /** Explicit native plugin files, with their exact slash-command names. */
-  files?: readonly { file: string; name: string; enabled?: boolean }[]
+  files?: readonly {
+    file: string
+    name: string
+    enabled?: boolean
+    text?: string
+    meta?: Record<string, string>
+  }[]
   /** Only entries recorded in this installation lock are visible. */
   lockFile?: string
 }
@@ -56,11 +62,11 @@ async function scanRoot(
       const skillPath = entry.file
       const skillDir = join(skillPath, '..')
       const [text, stat] = await Promise.all([
-        fs.readFile(skillPath, 'utf8').catch(() => null),
+        entry.text ?? fs.readFile(skillPath, 'utf8').catch(() => null),
         fs.stat(skillPath).catch(() => null)
       ])
       if (text === null || !stat?.isFile()) return null
-      const meta = skillMetadata(text)
+      const meta = entry.meta ?? skillMetadata(text)
       if (meta['user-invocable'] === 'false') return null
       const name = entry.name || meta.name || skillDir.split(/[\\/]/).at(-1)!
       return {

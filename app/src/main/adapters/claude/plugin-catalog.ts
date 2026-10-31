@@ -1,15 +1,20 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { readFile, readdir, stat } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { NativeCommand } from '../../../shared/native-resources'
 import { isRecord } from '../../../shared/obj'
-import { readJsonObjectSync } from '../../infra/config/json-file'
+import { readJsonObject, readJsonObjectSync } from '../../infra/config/json-file'
 import { extensionChoices } from '../common/extension-control'
+import { gitRootLineage } from '../common/git-root'
 import { skillMetadata } from '../common/skill-metadata'
 import { claudeNativePaths } from './native-paths'
 import { claudePluginEnabled } from './plugin-flag'
 import { claudeLocalSettingsRoot, pluginPathKey } from './project-path'
 const readObject = (file: string): Record<string, unknown> =>
   readJsonObjectSync(file, () => new Error('Claude 네이티브 확장 설정을 읽을 수 없습니다.'))
+
+const readObjectAsync = (file: string): Promise<Record<string, unknown>> =>
+  readJsonObject(file, () => new Error('Claude 네이티브 확장 설정을 읽을 수 없습니다.'))
 
 const record = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {})
 
@@ -107,13 +112,142 @@ function pluginFiles(root: string, path: string, skills: boolean): string[] {
   }
 }
 
+async function pluginFilesAsync(root: string, path: string, skills: boolean): Promise<string[]> {
+  const child = relative(root, path)
+  if (child === '..' || child.startsWith('..' + sep) || isAbsolute(child)) return []
+  try {
+    if ((await stat(path)).isFile()) return path.endsWith('.md') ? [path] : []
+    const entries = await readdir(path, { withFileTypes: true })
+    return (
+      await Promise.all(
+        entries.map(async (entry) => {
+          const file = join(path, entry.name)
+          if (entry.isDirectory()) return pluginFilesAsync(root, file, skills)
+          return entry.isFile() && (skills ? entry.name === 'SKILL.md' : entry.name.endsWith('.md'))
+            ? [file]
+            : []
+        })
+      )
+    ).flat()
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
+    throw new Error('Claude 플러그인 스킬을 읽을 수 없습니다.')
+  }
+}
+
 export interface ClaudePluginCatalog {
   defaults: Record<string, boolean>
   roots: string[]
   skills: string[]
   commands: NativeCommand[]
-  files: Array<{ file: string; name: string; enabled: boolean }>
+  files: Array<{
+    file: string
+    name: string
+    enabled: boolean
+    text: string
+    meta: Record<string, string>
+  }>
   installations: Array<{ key: string; name: string; path: string; enabled: boolean }>
+}
+
+type PluginEntry = ReturnType<typeof selectClaudePlugins>[number]
+interface LoadedPlugin {
+  entry: PluginEntry
+  manifest: Record<string, unknown>
+  files: Array<{ file: string; text: string }>
+}
+
+function catalogSelection(
+  cwd: string,
+  documents: Record<string, unknown>[],
+  overrides: Record<string, unknown>,
+  includeDisabled: boolean,
+  capturedDefaults?: Record<string, boolean>
+): { defaults: Record<string, unknown>; entries: PluginEntry[] } {
+  const [global, project, local, installed] = documents
+  const defaults = capturedDefaults ?? {
+    ...record(global.enabledPlugins),
+    ...record(overrides.enabledPlugins)
+  }
+  const enabled = {
+    ...defaults,
+    ...record(project.enabledPlugins),
+    ...record(local.enabledPlugins)
+  }
+  const roots = new Set<string>()
+  const entries = selectClaudePlugins(cwd, installed.plugins, enabled).filter((entry) => {
+    if ((!includeDisabled && !entry.enabled) || !isAbsolute(entry.path)) return false
+    const key = pluginPathKey(entry.path)
+    if (roots.has(key)) return false
+    roots.add(key)
+    return true
+  })
+  return { defaults, entries }
+}
+
+function declaredPaths(manifest: Record<string, unknown>, kind: 'commands' | 'skills'): string[] {
+  const declaration = manifest[kind]
+  return [
+    kind,
+    ...(typeof declaration === 'string'
+      ? [declaration]
+      : Array.isArray(declaration)
+        ? declaration.filter((item): item is string => typeof item === 'string')
+        : [])
+  ]
+}
+
+/** File I/O is outside this projection so menu reads and synchronous SDK spawn agree. */
+function projectCatalog(
+  defaults: Record<string, unknown>,
+  loaded: LoadedPlugin[]
+): ClaudePluginCatalog {
+  const roots: string[] = []
+  const skills = new Set<string>()
+  const commands = new Map<string, NativeCommand>()
+  const filesByName = new Map<string, Omit<ClaudePluginCatalog['files'][number], 'name'>>()
+  const installations: ClaudePluginCatalog['installations'] = []
+  for (const { entry, manifest, files } of loaded) {
+    const root = resolve(entry.path)
+    roots.push(root)
+    const pluginName = typeof manifest.name === 'string' ? manifest.name : basename(root)
+    installations.push({ key: entry.key, name: pluginName, path: root, enabled: entry.enabled })
+    for (const { file, text } of files) {
+      const meta = skillMetadata(text)
+      const localName =
+        meta.name ||
+        (basename(file) === 'SKILL.md' ? basename(dirname(file)) : basename(file, '.md'))
+      const name = pluginName + ':' + localName
+      skills.add(name)
+      if (meta['user-invocable'] === 'false') continue
+      filesByName.set(name, { file, enabled: entry.enabled, text, meta })
+      commands.set(name, {
+        name,
+        description: (meta.description ?? '').slice(0, 4000),
+        argumentHint: (meta['argument-hint'] ?? '').slice(0, 1000),
+        source: 'plugin'
+      })
+    }
+  }
+  return {
+    defaults: Object.fromEntries(
+      Object.entries(defaults).map(([key, value]) => [key, claudePluginEnabled(value)])
+    ),
+    roots,
+    skills: [...skills],
+    commands: [...commands.values()],
+    files: [...filesByName].map(([name, entry]) => ({ name, ...entry })),
+    installations
+  }
+}
+
+function settingsPaths(projectRoot: string, nativeRoot: string): string[] {
+  return [
+    join(nativeRoot, 'settings.json'),
+    join(projectRoot, '.claude', 'settings.json'),
+    join(projectRoot, '.claude', 'settings.local.json'),
+    join(nativeRoot, 'plugins', 'installed_plugins.json')
+  ]
 }
 
 /** A fresh metadata snapshot for the synchronous SDK spawn boundary. No writes/imports. */
@@ -124,94 +258,113 @@ export function readClaudePluginCatalog(
   includeDisabled = false,
   capturedDefaults?: Record<string, boolean>
 ): ClaudePluginCatalog {
-  const projectRoot = claudeLocalSettingsRoot(cwd)
-  const defaults = capturedDefaults ?? {
-    ...record(readObject(join(nativeRoot, 'settings.json')).enabledPlugins),
-    ...record(overrides.enabledPlugins)
-  }
-  const enabled = {
-    ...defaults,
-    ...record(readObject(join(projectRoot, '.claude', 'settings.json')).enabledPlugins),
-    // Explicit workspace plugin choices survive fresh Query flags and provider defaults.
-    ...record(readObject(join(projectRoot, '.claude', 'settings.local.json')).enabledPlugins)
-  }
-  const entries = selectClaudePlugins(
-    cwd,
-    readObject(join(nativeRoot, 'plugins', 'installed_plugins.json')).plugins,
-    enabled
+  const documents = settingsPaths(claudeLocalSettingsRoot(cwd), nativeRoot).map((file, i) =>
+    i === 0 && capturedDefaults ? {} : readObject(file)
   )
-  const roots = new Map<string, string>()
-  const skills = new Set<string>()
-  const commands = new Map<string, NativeCommand>()
-  const filesByName = new Map<string, { file: string; enabled: boolean }>()
-  const installations: ClaudePluginCatalog['installations'] = []
-  for (const entry of entries) {
-    if (
-      (!includeDisabled && !entry.enabled) ||
-      !isAbsolute(entry.path) ||
-      !claudeInstallationExists(entry.path)
-    )
-      continue
-    const root = resolve(entry.path)
-    if (roots.has(pluginPathKey(root))) continue
-    roots.set(pluginPathKey(root), root)
-    const manifest = readObject(join(root, '.claude-plugin', 'plugin.json'))
-    const pluginName = typeof manifest.name === 'string' ? manifest.name : basename(root)
-    installations.push({ key: entry.key, name: pluginName, path: root, enabled: entry.enabled })
-    for (const kind of ['commands', 'skills'] as const) {
-      const declaration = manifest[kind]
-      const custom =
-        typeof declaration === 'string'
-          ? [declaration]
-          : Array.isArray(declaration)
-            ? declaration.filter((item): item is string => typeof item === 'string')
-            : []
-      const files = new Set(
-        [kind, ...custom].flatMap((path) =>
-          pluginFiles(root, resolve(root, path), kind === 'skills')
+  const { defaults, entries } = catalogSelection(
+    cwd,
+    documents,
+    overrides,
+    includeDisabled,
+    capturedDefaults
+  )
+  const loaded = entries
+    .filter((entry) => claudeInstallationExists(entry.path))
+    .map((entry): LoadedPlugin => {
+      const root = resolve(entry.path)
+      const manifest = readObject(join(root, '.claude-plugin', 'plugin.json'))
+      const files = (['commands', 'skills'] as const).flatMap((kind) => [
+        ...new Set(
+          declaredPaths(manifest, kind).flatMap((path) =>
+            pluginFiles(root, resolve(root, path), kind === 'skills')
+          )
         )
-      )
-      for (const file of files) {
-        let text: string
-        try {
-          text = readFileSync(file, 'utf8')
-        } catch {
-          throw new Error('Claude 플러그인 스킬을 읽을 수 없습니다.')
-        }
-        const meta = skillMetadata(text)
-        const localName =
-          meta.name ||
-          (basename(file) === 'SKILL.md' ? basename(dirname(file)) : basename(file, '.md'))
-        const name = `${pluginName}:${localName}`
-        skills.add(name)
-        if (meta['user-invocable'] === 'false') continue
-        filesByName.set(name, { file, enabled: entry.enabled })
-        commands.set(name, {
-          name,
-          description: (meta.description ?? '').slice(0, 4000),
-          argumentHint: (meta['argument-hint'] ?? '').slice(0, 1000),
-          source: 'plugin'
+      ])
+      return {
+        entry,
+        manifest,
+        files: files.map((file) => {
+          try {
+            return { file, text: readFileSync(file, 'utf8') }
+          } catch {
+            throw new Error('Claude 플러그인 스킬을 읽을 수 없습니다.')
+          }
         })
       }
+    })
+  return projectCatalog(defaults, loaded)
+}
+
+export async function readClaudePluginCatalogAsync(
+  cwd: string,
+  nativeRoot = claudeNativePaths().root,
+  overrides: Record<string, unknown> = {},
+  includeDisabled = false,
+  capturedDefaults?: Record<string, boolean>
+): Promise<ClaudePluginCatalog> {
+  let projectRoot = resolve(cwd)
+  if (process.platform !== 'win32') {
+    try {
+      projectRoot = (await gitRootLineage(cwd)).root
+    } catch {
+      throw new Error('Claude 프로젝트 설정을 읽을 수 없습니다.')
     }
   }
-  return {
-    defaults: Object.fromEntries(
-      Object.entries(defaults).map(([key, value]) => [key, claudePluginEnabled(value)])
-    ),
-    roots: [...roots.values()],
-    skills: [...skills],
-    commands: [...commands.values()],
-    files: [...filesByName].map(([name, entry]) => ({ name, ...entry })),
-    installations
-  }
+  const documents = await Promise.all(
+    settingsPaths(projectRoot, nativeRoot).map((file, i) =>
+      i === 0 && capturedDefaults ? {} : readObjectAsync(file)
+    )
+  )
+  const { defaults, entries } = catalogSelection(
+    cwd,
+    documents,
+    overrides,
+    includeDisabled,
+    capturedDefaults
+  )
+  const loaded = await Promise.all(
+    entries.map(async (entry): Promise<LoadedPlugin | null> => {
+      if (!(await stat(entry.path).catch(() => null))?.isDirectory()) return null
+      const root = resolve(entry.path)
+      const manifest = await readObjectAsync(join(root, '.claude-plugin', 'plugin.json'))
+      const perKind = await Promise.all(
+        (['commands', 'skills'] as const).map(async (kind) => [
+          ...new Set(
+            (
+              await Promise.all(
+                declaredPaths(manifest, kind).map((path) =>
+                  pluginFilesAsync(root, resolve(root, path), kind === 'skills')
+                )
+              )
+            ).flat()
+          )
+        ])
+      )
+      const files = await Promise.all(
+        perKind.flat().map(async (file) => {
+          try {
+            return { file, text: await readFile(file, 'utf8') }
+          } catch {
+            throw new Error('Claude 플러그인 스킬을 읽을 수 없습니다.')
+          }
+        })
+      )
+      return { entry, manifest, files }
+    })
+  )
+  return projectCatalog(
+    defaults,
+    loaded.filter((entry): entry is LoadedPlugin => entry !== null)
+  )
 }
 
 export async function configuredClaudeCommands(
   cwd: string,
   choices: Record<string, boolean>
 ): Promise<NativeCommand[]> {
-  return readClaudePluginCatalog(cwd, undefined, {
-    enabledPlugins: extensionChoices(choices, 'plugin')
-  }).commands
+  return (
+    await readClaudePluginCatalogAsync(cwd, undefined, {
+      enabledPlugins: extensionChoices(choices, 'plugin')
+    })
+  ).commands
 }

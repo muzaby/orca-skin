@@ -32,7 +32,7 @@ it('shares preparation identity for reordered settings and changes it for differ
   cleanups.push(() => rm(root, { recursive: true, force: true }))
   const config = await f.resolve({ key: 'opencode-one', modelProviderId: 'one' })
   const key = async (settings: Record<string, unknown>): Promise<string> => {
-    f.resolve.mockResolvedValue({ ...config, settings: { ...config.settings, settings } })
+    f.resolve.mockResolvedValue({ ...config, settings: { ...config.settings!, settings } })
     return (
       await resolveComposerPreparation(
         f.ctx,

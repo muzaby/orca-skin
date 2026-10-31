@@ -482,12 +482,18 @@ export function openCodeChannel(
     nativeResources: async () => {
       if (!client || closed || ended || connection?.signal.aborted)
         return { state: 'disconnected', items: [] }
+      const configuration = client.config.get(
+        { directory: req.cwd },
+        { throwOnError: false, signal }
+      )
       const [resourceReads, commands, composer] = await Promise.all([
         Promise.allSettled([
           connection!.mcp(signal),
-          openCodeNativePlugins(client, req.cwd, env, signal)
+          openCodeNativePlugins(client, req.cwd, env, signal, configuration)
         ]),
-        openCodeNativeCommands(client, req.cwd, true, env).catch(() => undefined),
+        openCodeNativeCommands(client, req.cwd, true, env, undefined, configuration).catch(
+          () => undefined
+        ),
         refreshComposer()
       ])
       if (closed || ended || connection?.signal.aborted) return { state: 'disconnected', items: [] }
