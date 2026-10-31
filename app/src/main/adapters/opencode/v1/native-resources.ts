@@ -5,7 +5,7 @@ import { classifyMcpError, opaqueIdentity } from './diagnostics'
 import { pluginSpec } from './openCodePluginConfig'
 import { openCodePluginId, openCodePluginInstallation } from './plugin-installation'
 import { retentionTrace } from './retention-trace'
-import { isOpenCodeSkill, withinSkillRoot } from './skill-sources'
+import { openCodeSkillRoots, withinSkillRoot } from './skill-sources'
 
 export async function openCodeNativeCommands(
   client: OpencodeClient,
@@ -36,6 +36,7 @@ export async function openCodeNativeCommands(
       openCodePluginInstallation(pluginSpec(source), directory, env)
     )
   )
+  let skillRoots: Promise<string[]> | undefined
   return Promise.all(
     (result.data ?? []).map(async (command) => {
       const file = skills.find((skill) => skill.name === command.name)?.location
@@ -57,7 +58,10 @@ export async function openCodeNativeCommands(
               skill:
                 command.source === 'skill' &&
                 !!location &&
-                (!!plugin || (await isOpenCodeSkill(location, directory, env)))
+                (!!plugin ||
+                  (await (skillRoots ??= openCodeSkillRoots(directory, env))).some((root) =>
+                    withinSkillRoot(location, root)
+                  ))
             }
           : {})
       }

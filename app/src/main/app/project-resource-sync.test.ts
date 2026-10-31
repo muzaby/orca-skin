@@ -21,6 +21,32 @@ afterEach(() => {
 const flush = async (): Promise<void> => {
   for (let i = 0; i < 40; i++) await Promise.resolve()
 }
+it('captures runtime targets once per stable tick across three project entries', async () => {
+  const peers: ProjectResourceTarget[] = ['a', 'b', 'c'].map((key) => ({
+    backend: 'claude',
+    cwd: '/' + key,
+    key,
+    request: { sessionId: key },
+    runtime: { reconcileNativeResources: async () => 'applied' } as unknown as GovernedLiveTurn
+  }))
+  const targets = vi.fn(() => peers)
+  const service = new ProjectResourceSync({
+    targets,
+    resolve: (request) =>
+      peers.find((peer) => JSON.stringify(peer.request) === JSON.stringify(request)),
+    policy: () => ({ files: () => [], read: async () => ({ revision: 'same' }) }),
+    idle: () => true,
+    read: async () => ({ state: 'connected', items: [] }),
+    emit: () => {}
+  })
+  services.push(service)
+  service.tick()
+  await flush()
+  targets.mockClear()
+  service.tick()
+  await flush()
+  expect(targets).toHaveBeenCalledOnce()
+})
 function fixture(): {
   service: ProjectResourceSync
   runtime: GovernedLiveTurn

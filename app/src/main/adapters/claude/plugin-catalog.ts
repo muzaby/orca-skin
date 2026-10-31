@@ -16,6 +16,22 @@ const readObject = (file: string): Record<string, unknown> =>
 const readObjectAsync = (file: string): Promise<Record<string, unknown>> =>
   readJsonObject(file, () => new Error('Claude 네이티브 확장 설정을 읽을 수 없습니다.'))
 
+export function claudePluginDefaults(
+  nativeRoot: string,
+  overrides: Record<string, unknown> = {}
+): Record<string, boolean> {
+  const defaults = pluginDefaults(readObject(join(nativeRoot, 'settings.json')), overrides)
+  return Object.fromEntries(
+    Object.entries(defaults).map(([key, value]) => [key, claudePluginEnabled(value)])
+  )
+}
+function pluginDefaults(
+  global: Record<string, unknown>,
+  overrides: Record<string, unknown>
+): Record<string, unknown> {
+  return { ...record(global.enabledPlugins), ...record(overrides.enabledPlugins) }
+}
+
 const record = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {})
 
 /** All applicable installations, including disabled entries and distinct paths for one key. */
@@ -165,10 +181,7 @@ function catalogSelection(
   capturedDefaults?: Record<string, boolean>
 ): { defaults: Record<string, unknown>; entries: PluginEntry[] } {
   const [global, project, local, installed] = documents
-  const defaults = capturedDefaults ?? {
-    ...record(global.enabledPlugins),
-    ...record(overrides.enabledPlugins)
-  }
+  const defaults = capturedDefaults ?? pluginDefaults(global, overrides)
   const enabled = {
     ...defaults,
     ...record(project.enabledPlugins),

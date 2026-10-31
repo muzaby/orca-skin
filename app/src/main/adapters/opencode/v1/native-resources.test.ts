@@ -10,6 +10,10 @@ import {
   openCodeNativeMcp,
   openCodeNativePlugins
 } from './native-resources'
+vi.mock('node:fs/promises', async (original) => {
+  const actual = await original<typeof import('node:fs/promises')>()
+  return { ...actual, realpath: vi.fn(actual.realpath) }
+})
 
 describe('OpenCode native resources', () => {
   it('starts skill and configuration reads together before either completes', async () => {
@@ -111,9 +115,15 @@ describe('OpenCode native resources', () => {
         },
         config: { get: async () => ({ data: { plugin: [plugin] } }) }
       } as unknown as OpencodeClient
+      vi.mocked(realpath).mockClear()
       const items = await openCodeNativeCommands(client, root, true, {
         XDG_CONFIG_HOME: join(root, 'config')
       })
+      expect(
+        vi
+          .mocked(realpath)
+          .mock.calls.filter(([path]) => path === join(root, '.opencode', 'skills'))
+      ).toHaveLength(1)
       expect(items.map(({ name, source, skill }) => ({ name, source, skill }))).toEqual([
         { name: 'own', source: 'harness', skill: true },
         { name: 'vendor:design', source: 'plugin', skill: true },

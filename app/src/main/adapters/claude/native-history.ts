@@ -6,13 +6,13 @@ import { isRecord } from '../../../shared/obj'
 import { isWithinDir } from '../../infra/config/paths'
 import type { NativeHistoryRequest, NativeHistoryResult } from '../common/native-history'
 import { envLookup } from './context-policy'
-import { claudeNativePaths } from './native-paths'
 import {
   isClaudeHistoryComplete,
   mapClaudeHistory,
   selectClaudeHistory,
   type ClaudeHistoryEntry
 } from './native-history-map'
+import { claudeNativePaths } from './native-paths'
 
 export const CLAUDE_HISTORY_MAX_BYTES = 128 * 1024 * 1024
 const PROJECTION_VERSION = 1
@@ -36,8 +36,15 @@ function code(error: unknown): string | undefined {
 
 async function readSnapshot(
   file: string,
-  root: string
-): Promise<{ bytes: Buffer; revision: string; signature: string; identity: string }> {
+  root: string,
+  prefixOffset?: unknown
+): Promise<{
+  bytes: Buffer
+  revision: string
+  prefixRevision?: string
+  signature: string
+  identity: string
+}> {
   const before = await lstat(file)
   if (!before.isFile() || before.isSymbolicLink() || before.size > CLAUDE_HISTORY_MAX_BYTES)
     throw new HistoryReadError('unavailable', 'Claude 원본 이력 파일을 안전하게 읽을 수 없습니다.')
@@ -81,10 +88,23 @@ async function readSnapshot(
         'Claude 원본 이력이 변경 중입니다. 잠시 후 다시 열어 주세요.'
       )
     const bytes = buffer.subarray(0, offset)
+    const hash = createHash('sha256')
+    let prefixRevision: string | undefined
+    if (
+      typeof prefixOffset === 'number' &&
+      Number.isSafeInteger(prefixOffset) &&
+      prefixOffset > 0 &&
+      prefixOffset < bytes.length
+    ) {
+      hash.update(bytes.subarray(0, prefixOffset))
+      prefixRevision = hash.copy().digest('hex')
+      hash.update(bytes.subarray(prefixOffset))
+    } else hash.update(bytes)
     return {
       bytes,
+      prefixRevision,
       identity: JSON.stringify([current.dev, current.ino]),
-      revision: createHash('sha256').update(bytes).digest('hex'),
+      revision: hash.digest('hex'),
       signature: JSON.stringify([
         current.ino,
         current.dev,
@@ -141,15 +161,23 @@ export async function readClaudeNativeHistory(
     const directories = await readdir(root, { withFileTypes: true })
     const candidates: string[] = []
     // Only this known ID is inspected. Do not discover/import arbitrary native sessions.
-    for (const directory of directories) {
-      if (!directory.isDirectory() && !directory.isSymbolicLink()) continue
-      const file = path.join(root, directory.name, `${req.sessionId}.jsonl`)
-      try {
-        await lstat(file)
-        candidates.push(file)
-      } catch (error) {
-        if (code(error) !== 'ENOENT') throw error
-      }
+    const eligible = directories.filter(
+      (directory) => directory.isDirectory() || directory.isSymbolicLink()
+    )
+    for (let offset = 0; offset < eligible.length; offset += 16) {
+      const batch = await Promise.all(
+        eligible.slice(offset, offset + 16).map(async (directory) => {
+          const file = path.join(root, directory.name, req.sessionId + '.jsonl')
+          try {
+            await lstat(file)
+            return file
+          } catch (error) {
+            if (code(error) !== 'ENOENT') throw error
+            return undefined
+          }
+        })
+      )
+      candidates.push(...batch.filter((file): file is string => file !== undefined))
     }
     if (candidates.length === 0)
       return {
@@ -162,7 +190,7 @@ export async function readClaudeNativeHistory(
         message: '같은 ID의 Claude 원본 세션이 여러 경로에 있어 확인이 필요합니다.'
       }
     const file = candidates[0]
-    const snapshot = await readSnapshot(file, root)
+    const snapshot = await readSnapshot(file, root, req.previous?.cursor?.checkpoint.offset)
     const sourceKey = `claude:${createHash('sha256')
       .update(JSON.stringify([file, cwd]))
       .digest('hex')}`
@@ -185,8 +213,7 @@ export async function readClaudeNativeHistory(
       Number.isSafeInteger(offset) &&
       offset > 0 &&
       offset < snapshot.bytes.length &&
-      createHash('sha256').update(snapshot.bytes.subarray(0, offset)).digest('hex') ===
-        cursor.revision &&
+      snapshot.prefixRevision === cursor.revision &&
       Array.isArray(previous.snapshot.raw)
     // Prefix bytes are verified, but already parsed records are reused only for a proven append.
     const entries = append

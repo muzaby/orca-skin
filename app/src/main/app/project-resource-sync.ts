@@ -125,8 +125,9 @@ export class ProjectResourceSync {
   }
   tick(): void {
     if (this.closed) return
+    const runtimeTargets = this.deps.targets()
     const targets = [
-      ...this.deps.targets(),
+      ...runtimeTargets,
       ...[...this.owners.values()].flatMap(({ request }) => this.deps.resolve(request) ?? [])
     ]
     const keys = new Set<string>()
@@ -165,7 +166,7 @@ export class ProjectResourceSync {
         }
         void this.refresh(current)
       }
-      void this.apply(entry)
+      void this.apply(entry, runtimeTargets)
     }
     for (const [key, entry] of this.entries)
       if (!keys.has(key)) {
@@ -217,27 +218,30 @@ export class ProjectResourceSync {
     }
     void this.apply(entry)
   }
-  private peers(entry: Entry, allConfigurations = false): ProjectResourceTarget[] {
-    return this.deps
-      .targets()
-      .filter(
-        (target) =>
-          target.key === entry.target.key &&
-          target.runtime &&
-          (allConfigurations || this.entryKey(target) === entry.key)
-      )
+  private peers(
+    entry: Entry,
+    allConfigurations = false,
+    targets = this.deps.targets()
+  ): ProjectResourceTarget[] {
+    return targets.filter(
+      (target) =>
+        target.key === entry.target.key &&
+        target.runtime &&
+        (allConfigurations || this.entryKey(target) === entry.key)
+    )
   }
-  private async apply(entry: Entry): Promise<void> {
+  private async apply(entry: Entry, targets = this.deps.targets()): Promise<void> {
     const configuration = entry.configuration
     if (!this.valid(entry) || !configuration || entry.failed || entry.applying || entry.reading)
       return
-    const peers = this.peers(entry)
+    const peers = this.peers(entry, false, targets)
     const pending = peers.filter(
       ({ runtime }) =>
         !this.appliedTo(entry, runtime!, configuration.revision) &&
         entry.restart.get(runtime!) !== configuration.revision
     )
-    if (!pending.length || !this.peers(entry, true).every((peer) => this.deps.idle(peer))) return
+    if (!pending.length || !this.peers(entry, true, targets).every((peer) => this.deps.idle(peer)))
+      return
     entry.applying = true
     try {
       await this.run(entry.target.key, async () => {

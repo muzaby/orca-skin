@@ -1,12 +1,29 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as fs from 'node:fs/promises'
 import path from 'node:path'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CLAUDE_HISTORY_MAX_BYTES, readClaudeNativeHistory } from './native-history'
 import {
-  HISTORY_SESSION_ID as sessionId,
   historyEntry,
-  nativeHistoryFixture
+  nativeHistoryFixture,
+  HISTORY_SESSION_ID as sessionId
 } from './native-history.testfixture'
+
+const hashedBytes = vi.hoisted(() => [] as number[])
+vi.mock('node:crypto', async (original) => {
+  const actual = await original<typeof import('node:crypto')>()
+  return {
+    ...actual,
+    createHash: (...args: Parameters<typeof actual.createHash>) => {
+      const hash = actual.createHash(...args)
+      const update = hash.update.bind(hash)
+      hash.update = (...values: Parameters<typeof hash.update>) => {
+        if (Buffer.isBuffer(values[0])) hashedBytes.push(values[0].length)
+        return update(...values)
+      }
+      return hash
+    }
+  }
+})
 
 vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs/promises')>()
@@ -25,6 +42,36 @@ async function fixture(): Promise<Awaited<ReturnType<typeof nativeHistoryFixture
 }
 
 describe('Claude native history reads', () => {
+  it('bounds concurrent candidate inspection while retaining the same native session', async () => {
+    const f = await fixture()
+    await Promise.all(
+      Array.from({ length: 33 }, (_, index) =>
+        fs.mkdir(path.join(f.config, 'projects', 'other-' + index))
+      )
+    )
+    const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')
+    let active = 0
+    let maximum = 0
+    vi.mocked(fs.lstat).mockImplementation((async (target, ...args) => {
+      active++
+      maximum = Math.max(maximum, active)
+      try {
+        await new Promise((done) => setTimeout(done, 1))
+        return await Reflect.apply(actual.lstat, actual, [target, ...args])
+      } finally {
+        active--
+      }
+    }) as typeof fs.lstat)
+    const result = await readClaudeNativeHistory({
+      sessionId,
+      cwd: f.cwd,
+      env: { CLAUDE_CONFIG_DIR: f.config }
+    })
+    expect(result.status).toBe('ready')
+    expect(maximum).toBeGreaterThan(1)
+    expect(maximum).toBeLessThanOrEqual(16)
+    vi.mocked(fs.lstat).mockImplementation(actual.lstat)
+  })
   it('reprojects a pre-command-display snapshot on restart without modifying native bytes', async () => {
     const f = await fixture()
     const text =
@@ -257,7 +304,9 @@ it('commits UTF-8 byte checkpoints, reuses complete prefixes and defers partial 
   await fs.appendFile(f.file, bytes.subarray(0, cut))
   expect((await readClaudeNativeHistory({ ...req, previous })).status).toBe('busy')
   await fs.appendFile(f.file, bytes.subarray(cut))
+  hashedBytes.length = 0
   const next = await readClaudeNativeHistory({ ...req, previous })
+  expect(hashedBytes.reduce((sum, value) => sum + value, 0)).toBe((await fs.stat(f.file)).size)
   if (next.status !== 'ready') throw new Error('completed append required')
   expect(next.cursor?.checkpoint.offset).toBe((await fs.stat(f.file)).size)
   expect(next.snapshot.messages.map((m) => m.id)).toEqual(['user-1', 'assistant-1', 'u2', 'a2'])

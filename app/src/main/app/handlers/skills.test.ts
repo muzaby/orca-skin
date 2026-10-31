@@ -64,6 +64,22 @@ beforeEach(() => {
 })
 
 describe('catalog skill target IPC', () => {
+  it('joins concurrent list scans and starts a fresh scan after a mutation', async () => {
+    const pending = Promise.withResolvers<SkillInfo[]>()
+    ctx.refreshSkills.mockImplementationOnce(() => pending.promise)
+    const requests = [
+      invoke(CHANNELS.skillsList, undefined),
+      invoke(CHANNELS.skillsList, undefined),
+      invoke(CHANNELS.skillsList, undefined)
+    ]
+    expect(ctx.refreshSkills).toHaveBeenCalledOnce()
+    await invoke(CHANNELS.skillsSetEnabled, { sourceId: 'orca', name: 'local', enabled: true })
+    expect(ctx.refreshSkills).toHaveBeenCalledTimes(2)
+    await invoke(CHANNELS.skillsList, undefined)
+    expect(ctx.refreshSkills).toHaveBeenCalledTimes(3)
+    pending.resolve(catalog)
+    await Promise.all(requests)
+  })
   it.each([CHANNELS.skillsOpen, CHANNELS.skillsShowInFolder])(
     '%s opens the exact disabled native skill without treating its name as a directory slug',
     async (channel) => {

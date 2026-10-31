@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { isRecord } from '../../../shared/obj'
@@ -7,6 +8,23 @@ import { claudeNativePaths } from './native-paths'
 import { claudeLocalSettingsRoot, pluginPathKey } from './project-path'
 const read = (file: string): Record<string, unknown> =>
   readJsonObjectSync(file, () => new Error('프로젝트 확장 설정을 읽을 수 없습니다.'))
+
+const stateCache = new Map<string, { fingerprint: string; value: Record<string, unknown> }>()
+function readState(file: string): Record<string, unknown> {
+  try {
+    const stat = statSync(file)
+    const fingerprint = JSON.stringify([stat.mtimeMs, stat.size, stat.ino, stat.ctimeMs])
+    const cached = stateCache.get(file)
+    if (cached?.fingerprint === fingerprint) return cached.value
+    const value = read(file)
+    stateCache.set(file, { fingerprint, value })
+    return value
+  } catch (error) {
+    stateCache.delete(file)
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {}
+    throw new Error('프로젝트 확장 설정을 읽을 수 없습니다.')
+  }
+}
 
 const record = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {})
 const names = (value: unknown): string[] => {
@@ -63,12 +81,11 @@ export function readClaudeProjectSettings(
       )
         throw new Error('프로젝트 확장 설정을 읽을 수 없습니다.')
   }
-  const projects = record(read(stateFile).projects)
-  const entry = (path: string): Record<string, unknown> =>
-    record(
-      Object.entries(projects).find(([key]) => pluginPathKey(key) === pluginPathKey(path))?.[1]
-    )
-  const native = entry(cwd)
+  const projects = record(readState(stateFile).projects)
+  const cwdKey = pluginPathKey(cwd)
+  const native = record(
+    Object.entries(projects).find(([key]) => pluginPathKey(key) === cwdKey)?.[1]
+  )
   const plugins = { ...record(project.enabledPlugins), ...record(local.enabledPlugins) }
   if (
     Object.values(plugins).some(

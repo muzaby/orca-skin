@@ -1,8 +1,8 @@
-import { mkdtemp, mkdir, writeFile, realpath, symlink, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { expect, it } from 'vitest'
-import { isOpenCodeSkill } from './skill-sources'
+import { openCodeSkillRoots, withinSkillRoot } from './skill-sources'
 
 it('matches a canonical skill against an aliased config root while excluding sibling installations', async () => {
   const root = await mkdtemp(join(tmpdir(), 'orca-skill-root-'))
@@ -14,14 +14,11 @@ it('matches a canonical skill against an aliased config root while excluding sib
     await writeFile(skill, 'review')
     await symlink(config, alias, process.platform === 'win32' ? 'junction' : 'dir')
     const path = await realpath(skill)
-    expect(await isOpenCodeSkill(path, join(root, 'project'), { XDG_CONFIG_HOME: alias })).toBe(
-      true
+    const roots = await openCodeSkillRoots(join(root, 'project'), { XDG_CONFIG_HOME: alias })
+    expect(roots.some((root) => withinSkillRoot(path, root))).toBe(true)
+    expect(roots.some((entry) => withinSkillRoot(join(root, 'other', 'SKILL.md'), entry))).toBe(
+      false
     )
-    expect(
-      await isOpenCodeSkill(join(root, 'other', 'SKILL.md'), join(root, 'project'), {
-        XDG_CONFIG_HOME: alias
-      })
-    ).toBe(false)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

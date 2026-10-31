@@ -21,11 +21,10 @@ export function withinSkillRoot(file: string, root: string): boolean {
   return child !== '..' && !child.startsWith(`..${sep}`) && !isAbsolute(child)
 }
 
-export async function isOpenCodeSkill(
-  file: string,
+export async function openCodeSkillRoots(
   directory: string,
   env: NodeJS.ProcessEnv
-): Promise<boolean> {
+): Promise<string[]> {
   const roots = openCodeSkillDirectories(homedir(), env)
   let current = resolve(directory)
   for (;;) {
@@ -34,6 +33,5 @@ export async function isOpenCodeSkill(
     if (parent === current) break
     current = parent
   }
-  const canonical = await Promise.all(roots.map((root) => realpath(root).catch(() => root)))
-  return canonical.some((root) => withinSkillRoot(file, root))
+  return Promise.all(roots.map((root) => realpath(root).catch(() => root)))
 }

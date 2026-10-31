@@ -1,7 +1,12 @@
 import type { Event } from '@opencode-ai/sdk/v2/client'
 import { describe, expect, it, vi } from 'vitest'
 import { openCodeEvent as event, jsonResponse } from './adapter.testfixture'
+import { nativePathKey } from './native-storage'
 import { OpenCodeSessionContexts } from './session-context'
+vi.mock('./native-storage', async (original) => {
+  const actual = await original<typeof import('./native-storage')>()
+  return { ...actual, nativePathKey: vi.fn(actual.nativePathKey) }
+})
 
 interface ContextFixture {
   pool: OpenCodeSessionContexts
@@ -106,6 +111,30 @@ const server = { url: 'http://owned.test', headers: { Authorization: 'Basic one'
 const freshSignal = (): AbortSignal => new AbortController().signal
 
 describe('OpenCode server context with the installed SDK', () => {
+  it('normalizes each subscription once and each directory event once across peers', async () => {
+    const f = fixture()
+    const a = await f.pool.acquire(server, 'C:/A')
+    const b = await f.pool.acquire(server, 'C:/A')
+    vi.mocked(nativePathKey).mockClear()
+    const first = a.events(freshSignal())
+    const second = b.events(freshSignal())
+    try {
+      await Promise.all([first.next(), second.next()])
+      const next = Promise.all([first.next(), second.next()])
+      f.emit('C:/A', event('session.idle', { sessionID: 's1' }))
+      expect((await next).map((entry) => entry.value?.type)).toEqual([
+        'session.idle',
+        'session.idle'
+      ])
+      expect(nativePathKey).toHaveBeenCalledTimes(3)
+    } finally {
+      await first.return(undefined)
+      await second.return(undefined)
+      f.pool.close()
+      await a.release()
+      await b.release()
+    }
+  })
   it('reconciles current global choices for idle directory peers and rejects unsafe project writes', async () => {
     let enabled = false
     const f = fixture(4096, {

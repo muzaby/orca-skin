@@ -1,8 +1,8 @@
 import { existsSync, statSync } from 'node:fs'
 import { isAbsolute, resolve } from 'node:path'
 import { harnessEnvFingerprint } from '../../common/harness-config'
-import { nativeOpenCodeEnvironment, nativeWorkingDirectory } from './native-storage'
 import { profileComponents, type ProfileComponents } from './diagnostics'
+import { nativeOpenCodeEnvironment, nativeWorkingDirectory } from './native-storage'
 
 export function openCodeExecutableIdentity(executable: string): string {
   const stat = existsSync(executable) ? statSync(executable) : undefined
@@ -35,9 +35,11 @@ export function openCodeServerProfile(
     else if (paths.has(name)) environment[key] = resolve(source, value)
   }
   const cwd = relativeXdg ? source : nativeWorkingDirectory()
+  const executableIdentity = openCodeExecutableIdentity(executable)
+  let components: ProfileComponents | undefined
   return {
     key: harnessEnvFingerprint({
-      executable: openCodeExecutableIdentity(executable),
+      executable: executableIdentity,
       environment: JSON.stringify(
         Object.entries(environment).sort(([a], [b]) => a.localeCompare(b))
       ),
@@ -45,7 +47,9 @@ export function openCodeServerProfile(
     }),
     cwd,
     environment,
-    components: profileComponents(openCodeExecutableIdentity(executable), cwd, environment)
+    get components() {
+      return (components ??= profileComponents(executableIdentity, cwd, environment))
+    }
   }
 }
 
