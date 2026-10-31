@@ -13,7 +13,7 @@
 | 기준 V | `none` |
 | 이번 V revision | `V1` |
 | 유효 V | `V1` |
-| 기준 커밋 | 범위 기준 `0b3fdeae^` → 설계 시점 HEAD `5ecaefd4`(origin/main 동일, `git cat-file -t` = commit) |
+| 기준 커밋 | 범위 기준 `0b3fdeae^` → 설계 시점 HEAD `5ecaefd4` → 좌표 재측정 HEAD `e0318497`(같은 브랜치에 0291 착지, `git cat-file -t` = commit) |
 
 ## 0. 작성 경로
 
@@ -120,7 +120,7 @@
 |---|---|---|---|---|
 | R-01 | AT-01 / AC1 | 정리 후 기존 동작이 같다 | `vitest run --reporter=json` 실패 ID − `baseline/vitest-failed-ids.txt` = ∅ · `npm run typecheck` 오류 0 · `eslint ./src ./scripts` error 0, warning ⊆ 기준선 2건 · Windows CI(`.github/workflows/ci.yml`) green | 전 모듈 기존 호출부 |
 | MD-01 | UT-01 / AC2 | §10 VP-08 목록의 미사용 심볼·파일이 남지 않고, 정리가 새 미사용 export 를 만들지 않는다 | VP-08 자리 검색 각 0건 · `scan/dead-exports.cjs` 결과의 dead·test-only `(name, kind)` 집합 ⊆ `baseline/dead-exports.tsv` 의 같은 범주 − 삭제 목록(파일 경로는 EP-06 이동을 적용해 비교) | 정적 |
-| MD-01 | UT-01 / AC3 | 미참조 i18n 키 14개와 CSS 토큰 3개가 ko·en·두 테마에서 사라지고 새 미참조 키가 생기지 않는다 | `scan/i18n-unreferenced.cjs --absent baseline/i18n-remove-keys.txt` exit 0(설계 시점 present 14·exit 1) · 전체 스캔 출력 ⊆ `baseline/i18n-unreferenced.txt`(65) − 제거 8 · VP-08 토큰 검색 0 · typecheck(en `typeof ko` 패리티) | `tr()` · Tailwind 토큰 |
+| MD-01 | UT-01 / AC3 | 미참조 i18n 키 14개와 CSS 토큰 3개가 ko·en·두 테마에서 사라지고 새 미참조 키가 생기지 않는다 | `scan/i18n-unreferenced.cjs --absent baseline/i18n-remove-keys.txt` exit 0(설계 시점 present 14·exit 1) · 전체 스캔 출력 ⊆ `baseline/i18n-unreferenced.txt`(64) − 제거 8 · VP-08 토큰 검색 0 · typecheck(en `typeof ko` 패리티) | `tr()` · Tailwind 토큰 |
 | AR-01 | IT-01 / AC4 | 고아 IPC 2채널과 사슬이 없고 `orca:session:native-resources` 응답은 같다 | VP-04 자리 검색 0 · `session-resources*.test.ts` 4파일 green · `check-doc-inventory --check` green | Composer → `sessionApi.nativeResources` → handler → runtime |
 | AR-01 | IT-01 / AC5 | 프로젝트 리소스 감시·재적용의 키별 직렬화가 `NativeResourceSharing` 없이 유지된다 | `project-resource-sync.test.ts` green + 신규 직렬화 케이스(§10 VP-04) | `ProjectResourceSync.run` |
 | R-03 | AT-03 / AC6 | native 에 없는 OpenCode 세션은 이관 없이 `missing` | 신규 `native-history.test.ts` 케이스: 404 → `{status:'missing'}` · VP-03 자리 검색 0 | `readHistory` → `readOpenCodeHistory` |
@@ -210,9 +210,9 @@
 
 | 발견 / 제약 | 근거 |
 |---|---|
-| renderer 가 `openNativePlugin`·`setNativeResource` 를 부르지 않는다 | `rg "\.setNativeResource\(|\.openNativePlugin\(" app/src/renderer` = `shared/api/ipc.ts:249-252` 정의만 |
+| renderer 가 `openNativePlugin`·`setNativeResource` 를 부르지 않는다 | `rg "\.setNativeResource\(|\.openNativePlugin\(" app/src/renderer` = `shared/api/ipc.ts:251-254` 정의만 |
 | OpenCode `setNativeResource` 는 항상 throw 한다 | `opencode/v1/mcp-control.ts:211-215` `set()` |
-| `NativeResourceSharing.run` 은 `ProjectResourceSync` 도 쓴다 — 나머지(scope·peers·changed·shareNativeResource)는 set 경로 전용 | `app/bootstrap.ts:1139` · `native-resource-sharing.ts:53` |
+| `NativeResourceSharing.run` 은 `ProjectResourceSync` 도 쓴다 — 나머지(scope·peers·changed·shareNativeResource)는 set 경로 전용 | `app/bootstrap.ts:1147` · `native-resource-sharing.ts:53` |
 | Claude `resources.set` 은 프로젝트 재조정도 쓴다 — 삭제 대상 아님 | `claude/adapter.ts:848-854` `ClaudeProjectReconciliation` |
 | 격리 이관은 `readOpenCodeHistory` 의 404 분기에서만 호출된다. `migrate` 가 없으면 이미 `missing` 을 돌려준다 | `opencode/v1/native-history.ts:189-196` |
 | `migration-required` 상태는 이관 밖에서도 생산된다 — 유지 | `native-history.ts:204`·`:237` · `features/history/native-sync.ts:103` · `shared/ipc.ts:1615` |
@@ -232,7 +232,7 @@
 |---|---|---:|---|
 | 범위 커밋 | `git log --format='%(trailers:key=Handoff,valueonly)'` 0254~0289 매칭 | 352 | 기준 `0b3fdeae^` 이후 376커밋 중 비범위 24(0232·0003·handoff 메타) |
 | 범위 app 비테스트 diff | `git diff -M50% --numstat 0b3fdeae^ HEAD -- <scope>` | 658 | A308·M173·R165·D12, +30,616/−4,362 |
-| 미사용 export (HEAD, app/src 전체) | `scan/dead-exports.cjs` | 44 / 56 | dead / test-only — `baseline/dead-exports.tsv` |
+| 미사용 export (HEAD `e0318497`, app/src 전체) | `scan/dead-exports.cjs` | 44 / 52 | dead / test-only — `baseline/dead-exports.tsv` |
 | 그중 범위 생산·사망 | 기준선 트리 대조 | ADDED dead 3 · ADDED test-only 4 · MADE-DEAD 5 | §10 VP-08 |
 | 범위 추가 i18n 키 | ko.ts 평가 대조(`0b3fdeae^` vs HEAD) | 148 | 미참조 14(§10) |
 | 범위 추가 CSS 토큰 | tokens.css diff | 44 | 미사용 3(나머지 9 중 6은 Tailwind `--text-*--*` 짝 변수) |
@@ -316,7 +316,7 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 | VP-05 | production 조립 1벌 | `createComposerPreparation` | ① `app/composer-catalog.ts:24` `prepareComposerCatalog` 삭제 ② `:92` `registerComposerCatalog` 삭제 ③ `handlers/composer-catalog.ts:17` `owners` 기본값 제거(필수 인자) | `rg -n 'registerComposerCatalog\b|prepareComposerCatalog\b' app/src` → 12 / 0 | ①② `composer-catalog.test.ts` 기존 케이스 6(`wires the public handler through the production resolver and returns its shutdown cleanup` · `preserves the configuration failure stage through the registered catalog handler` · `preserves the acquire failure stage through the registered catalog handler` 외 3)이 `createComposerPreparation(ctx)` 로 조립 — 6개 모두 Linux 기준선 red(Windows 경로 전제)라 **판정은 Windows CI** · ③ `gate:npm run typecheck`(기본값 의존 호출 0) | 테스트가 production 이 아닌 조립을 시험 |
 | VP-06 | 하네스 전용 app 모듈 위치 | `app/harnesses/<name>/` | `opencode-warmup.ts` · `opencode-mcp-reconcile.ts` · `opencode-global-watch.ts` · `prepared-mcp-resources.ts` → `app/harnesses/opencode/` · `claude-processes.ts` → `app/harnesses/claude/` (5) | `ls app/src/main/app/{opencode-warmup,opencode-mcp-reconcile,opencode-global-watch,prepared-mcp-resources,claude-processes}.ts` → 5 / 0 | `gate:npm run lint` · 변이: `app/harnesses/common/` 파일에서 이동 모듈 import → `harness/ownership` error | 공통이 하네스 구현을 직접 끌어옴 |
 | VP-07 | 감시 1벌, 지문 변화마다 콜백 1회 | `infra/config/fingerprint-watch.ts` | ① `opencode-global-watch.ts:29` ② `project-resource-sync.ts:151-154` ③ 신규 Claude 전역 확장 감시(bootstrap 조립) | `rg -n '\bwatchFile\(' app/src/main $G` → 2 / 1 | 신규 `fingerprint-watch.test.ts`: 주입 `watch` fake 로 콜백 2회 + 지문 동일 → `changed` 0 · 지문 변화 → 1 · `close` 후 0. 기존 `opencode-global-watch.test.ts`·`project-resource-sync.test.ts` 전 케이스 | 중복 방송·누락 |
-| VP-08 | 미사용 코드 부재 | — | 아래 EP-08 자리 표 29 | 자리별 검색(표) · `node docs/handoff/0290-simplify-0254-0289/scan/dead-exports.cjs --out <t>` → dead 44·test-only 56 / ⊆ 기준선 − 삭제 목록 · `scan/i18n-unreferenced.cjs --absent baseline/i18n-remove-keys.txt` → present 14 / 0 · 전체 미참조 65 / ⊆ 기준선 − 8 | `gate:` 각 검색·스캔(설계 시점 red 관측) | 쓰이지 않는 코드가 남거나 새로 생김 |
+| VP-08 | 미사용 코드 부재 | — | 아래 EP-08 자리 표 29 | 자리별 검색(표) · `node docs/handoff/0290-simplify-0254-0289/scan/dead-exports.cjs --out <t>` → dead 44·test-only 52 / ⊆ 기준선 − 삭제 목록 · `scan/i18n-unreferenced.cjs --absent baseline/i18n-remove-keys.txt` → present 14 / 0 · 전체 미참조 64 / ⊆ 기준선 − 8 | `gate:` 각 검색·스캔(설계 시점 red 관측) | 쓰이지 않는 코드가 남거나 새로 생김 |
 | VP-09 | main 규칙 SSOT | 헬퍼 4 | 아래 EP-09 자리 표 13 | 표 | 헬퍼: 신규 `json-file.test.ts`(BOM·ENOENT·비객체·파싱 실패 → 주입 Error) · 신규 `git-root.test.ts`(중첩 3단 · 루트 없음 → cwd) · 소비: `plugin-catalog.test.ts`·`configured-resources.test.ts`·`project-settings.test.ts`·`plugin-state.test.ts`·`native-resources.test.ts`·`plugin-installation.test.ts` 전 케이스 | 같은 규칙이 자리마다 달라짐 |
 | VP-10 | OpenCode 연결·조립 SSOT | 헬퍼 5 + options | 아래 EP-10 자리 표 11 | 표 | 신규 `abortable-fetch.test.ts`(abort 후 body cancel + throw) · `session-context.test.ts`·`adapter*.test.ts`(4)·`channel.warm-fence.test.ts` 전 케이스 · 신규 `adapter.test.ts` 케이스 — revision 다르면 `managedMcpMentions` 빈 객체 | 연결·MCP 노출 판정이 자리마다 달라짐 |
 | VP-11 | 효율 | — | 아래 EP-11 자리 표 4 | 표 | 신규 `channel.native-resources.test.ts`: fake client `config.get` 호출 1 · 신규 `native-resources.test.ts` 케이스: `app.skills`·`config.get` 두 deferred 가 동시에 pending · `skill-catalog.test.ts`·`plugin-catalog.test.ts` 전 케이스 | 같은 읽기 반복·이벤트 루프 블로킹 |
@@ -328,15 +328,15 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 
 | # | 자리 | 처리 |
 |---|---|---|
-| 1 | `app/src/renderer/src/shared/api/ipc.ts:249-252` `openNativePlugin`·`setNativeResource` | 삭제 |
-| 2 | `app/src/preload/index.ts:13-14` 타입 import · `:292-293` · `:302-303` | 삭제 |
+| 1 | `app/src/renderer/src/shared/api/ipc.ts:251-254` `openNativePlugin`·`setNativeResource` | 삭제 |
+| 2 | `app/src/preload/index.ts:13-14` 타입 import · `:294-295` · `:304-305` | 삭제 |
 | 3 | `app/src/shared/ipc.ts:103-104` `sessionOpenNativePlugin`·`sessionSetNativeResource` | 삭제 |
 | 4 | `app/src/shared/protocol.ts:439` `SetNativeResourceSchema` · `:445` `OpenNativePluginSchema` | 삭제 |
 | 5 | `app/src/shared/native-resources.ts:53` `SetNativeResource` · `:87` `OpenNativePlugin` | 삭제 |
 | 6 | `app/src/main/app/handlers/session-resources.ts:232-317` 두 handler · `:50-72` `mutate` · deps `configuredPluginDirectory`·`draftPluginDirectory`·`configuredMcpFile`·`sharing` | 삭제, 남는 deps 는 options 객체(EP-10 #10) |
 | 7 | `app/src/main/app/native-resource-sharing.ts` 파일 | 삭제(`run` 은 #8 로 이동) |
 | 8 | `app/src/main/app/project-resource-sync.ts` 생성자 `run` 의존 | 키별 직렬화를 내부 소유 |
-| 9 | `app/src/main/app/bootstrap.ts:1100-1106` `createNativeResourceSharing` · `:1139` `run` 주입 · `registerSessionResourceHandlers` 의 삭제 deps 인자(`:1162-1175` 등) · `:1217`·`:1228` 파일 경로 콜백 | 삭제/정리 |
+| 9 | `app/src/main/app/bootstrap.ts:1107-1113` `createNativeResourceSharing` · `:1147` `run` 주입 · `registerSessionResourceHandlers` 의 삭제 deps 인자(`:1169-1182` 등) · `:1224`·`:1235` 파일 경로 콜백 | 삭제/정리 |
 | 10 | `app/src/main/adapters/common/types.ts:35-36` `nativePluginDirectory?`·`setNativeResource?` | 삭제 |
 | 11 | `app/src/main/adapters/claude/adapter.ts:999` `nativePluginDirectory` · `:1013-1017` `setNativeResource` | 삭제 |
 | 12 | `app/src/main/adapters/claude/native-resources.ts:22` `directory()` · `:145-147` 구현 | 삭제(다른 소비 0 확인 후) |
@@ -344,7 +344,7 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 | 14 | `app/src/main/adapters/opencode/v1/mcp-control.ts:211-215` `set()` | 삭제 |
 | 15 | `app/src/main/features/sessions/session-runtime.ts:959-970` `setNativeResource`·`nativePluginDirectory` | 삭제 |
 | 16 | `app/src/main/contracts/ports.ts:35` `GovernedLiveTurn extends Omit<RuntimeLiveTurn,'interrupt'>` — 두 멤버를 `LiveTurn` 에서 상속 | 별도 편집 없음, #10 삭제로 소멸(typecheck 로 소비자 0 확인) |
-| 17 | `app/src/main/app/harnesses/common/contracts.ts:39-40` `configuredPluginDirectory?`·`configuredMcpFile?` · `claude/module.ts:46-47` · `opencode/module.ts:36` · `adapters/opencode/implementation.ts:51` · `opencode/index.ts:8` · `opencode/v1/index.ts:45` | 삭제 |
+| 17 | `app/src/main/app/harnesses/common/contracts.ts:39-40` `configuredPluginDirectory?`·`configuredMcpFile?` · `claude/module.ts:46-47` · `opencode/module.ts:38` · `adapters/opencode/implementation.ts:61` · `opencode/index.ts:9` · `opencode/v1/index.ts:47` | 삭제 |
 | 18 | `app/src/main/adapters/claude/configured-resources.ts:217`·`:225` · `opencode/v1/configured-resources.ts:144` 파일 경로 함수 | 삭제(다른 소비 0 확인 후) |
 | 19 | 문서 `docs/IPC_CONTRACT.md:265-266` · `docs/generated/inventory.md`(재생성) | 삭제·재생성 |
 
@@ -370,7 +370,7 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 | 14 | `features/chat/lib/rightPanelLayout.ts:98` `columnIndexOfTile` | PRE-EXISTING dead | 삭제 |
 | 15 | `features/chat/lib/rightPanelTiles.ts:50` `isRightPanelTileId` | PRE-EXISTING dead | 삭제 |
 | 16 | `renderer/src/app/Sidebar.tsx:21` `SIDEBAR_DEFAULT_WIDTH` | PRE-EXISTING dead | 삭제 |
-| 17 | `src/shared/protocol.ts:298` `UpdateCheckResultSchema` · `:747` `DEFAULT_SCHEDULER_SETTINGS` | PRE-EXISTING dead | 삭제 |
+| 17 | `src/shared/protocol.ts:298` `UpdateCheckResultSchema` · `:751` `DEFAULT_SCHEDULER_SETTINGS` | PRE-EXISTING dead | 삭제 |
 | 18 | i18n `engine.form.harness` · `harness.defaultAgent` | 참조 0 | ko·en 삭제 |
 | 19 | i18n `chat.opencode.panel.{title,menu,back,expand,collapse}` · `chat.opencode.todosEmpty` | 참조 0 | ko·en 삭제 |
 | 20 | i18n `chat.nativeResources.{openError,stale,controlError,empty,disconnected,unsupported}` | 리터럴 0 · `NativeResource.status` union(`shared/native-resources.ts:9-17`) 밖이라 동적 `chat.nativeResources.${status}`(`CustomizeList.tsx:112`·`AttachMenu.tsx:54`)로도 도달 불가 — 스캐너는 동적 부모 때문에 참조로 센다 | ko·en 삭제. #18~#20 목록 = `baseline/i18n-remove-keys.txt`(14) |
@@ -378,7 +378,7 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 | 22 | `harnesses/claude/Logo.tsx` · `harnesses/opencode/Logo.tsx` · `harnesses/registries/brand.tsx` | 1줄 shim · chat 전용 사본 | 삭제(EP-12) |
 | 23 | `harnesses/{claude,opencode}/rightpanel/PlanTile.tsx` | 키 2개만 다른 2벌 | 삭제(EP-12) |
 | 24 | `adapters/opencode/v1/legacy-storage-migration.ts` · `legacy-resources.ts` · `legacy-schema.ts` + `.testfixture.ts`·`.integration.test.ts`·`legacy-resources.test.ts`·`legacy-schema.testfixture.ts` | D-006 | 삭제 |
-| 25 | `opencode/v1/adapter.ts:22,52` `migration` · `readHistory` 의 `migrate` 블록 · `opencode/v1/index.ts:7,32-37` | D-006 | 삭제 |
+| 25 | `opencode/v1/adapter.ts:23,53` `migration` · `readHistory` 의 `migrate` 블록 · `opencode/v1/index.ts:7,33-38` | D-006 | 삭제 |
 | 26 | `docs/arch/backend/adapters.md:47` 구격리 저장소 문장 | D-006 | 삭제 |
 | 27 | `docs/arch/frontend/design-components.md` 의 `BackendStatus`·`Status`·`HarnessSubmitButton`·`components/transcript/ToolGroup`·`PlanTile`·로고 shim 행 | 카탈로그 동기(renderer AGENTS 6) | 삭제·`HarnessLogo` 행 신설 |
 | 28 | `docs/arch/backend/provider-runtime.md:251,489` "`BackendStatus` 지표" | 소비자 서술 정정 | 정정 |
@@ -404,10 +404,10 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 | # | 규칙 | 자리 | 검색 → N / 목표 |
 |---|---|---|---|
 | 1-2 | abortable fetch | `opencode/v1/session-context.ts:129-156` `fetchScoped` · `:178-188` `callerClient` | `rg -n 'response.body\?\.cancel\(\)' app/src/main/adapters/opencode/v1/session-context.ts` → 2 / 0 |
-| 3-4 | managed source 활성 술어 | `opencode/v1/adapter.ts:156-171` `choices` · `:198-205` `mapMcpResources` | `rg -n 'plugin.identity.sourceId ===' app/src/main/adapters/opencode/v1/adapter.ts` → 2 / 1 |
-| 5-6 | dispose 실패 보고 | `adapter.ts:59-67` · `:225-232` | `rg -n "opencode.instance.dispose.failed" app/src/main $G` → 2 / 1 |
-| 7-8 | 프로젝트 범위 키 `[backend,'directory',scope]` | `bootstrap.ts:1116-1121` · `native-resource-sharing.ts:28-34`(EP-04 #7 삭제 후 1) | `rg -n "'directory'," app/src/main/app/bootstrap.ts app/src/main/app/native-resource-sharing.ts` → 2 / 1 |
-| 9 | 세션 binding(backend·cwd·project_id) 가드 | `bootstrap.ts:1156`·`:1173`·`:1190`·`:1235`(일부는 EP-04 #9 삭제로 소멸) · `app/composer-catalog.ts:68` | `rg -n 'current.project_id !== session.project_id' app/src/main/app $G` → 5 / 0(헬퍼 `sameSessionBinding` 1) |
+| 3-4 | managed source 활성 술어 | `opencode/v1/adapter.ts:167-182` `choices` · `:198-217` `mapMcpResources` | `rg -n 'plugin.identity.sourceId ===' app/src/main/adapters/opencode/v1/adapter.ts` → 2 / 1 |
+| 5-6 | dispose 실패 보고 | `adapter.ts:60-69` · `:236-244` | `rg -n "opencode.instance.dispose.failed" app/src/main $G` → 2 / 1 |
+| 7-8 | 프로젝트 범위 키 `[backend,'directory',scope]` | `bootstrap.ts:1126-1130` · `native-resource-sharing.ts:28-34`(EP-04 #7 삭제 후 1) | `rg -n "'directory'," app/src/main/app/bootstrap.ts app/src/main/app/native-resource-sharing.ts` → 2 / 1 |
+| 9 | 세션 binding(backend·cwd·project_id) 가드 | `bootstrap.ts:1163`·`:1180`·`:1197`·`:1242`(일부는 EP-04 #9 삭제로 소멸) · `app/composer-catalog.ts:68` | `rg -n 'current.project_id !== session.project_id' app/src/main/app $G` → 5 / 0(헬퍼 `sameSessionBinding` 1) |
 | 10 | 위치 인자 → options | `handlers/session-resources.ts:23-49` (11개) | `gate:npm run typecheck` |
 | 11 | 위치 인자 → options | `opencode/v1/session-context.ts:89-102` `ServerContext`(12개) | `gate:npm run typecheck` |
 
@@ -428,9 +428,9 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 
 | # | 자리 | 변경 |
 |---|---|---|
-| 1-6 | `<ClaudeLogo`·`<OpenCodeLogo` 직접 렌더 6: `engine/common/components/EngineCard.tsx:30`·`:32` · `AgentEnvironmentView.tsx:102`·`:104` · `skills/components/customize/SourceHeading.tsx:21`·`:23` | `HarnessLogo` (SourceHeading 의 `source.includes(...)` 판정은 유지하고 마크만 위임) |
+| 1-6 | `<ClaudeLogo`·`<OpenCodeLogo` 직접 렌더 6: `engine/common/components/EngineCard.tsx:30`·`:32` · `AgentEnvironmentView.tsx:103`·`:105` · `skills/components/customize/SourceHeading.tsx:21`·`:23` | `HarnessLogo` (SourceHeading 의 `source.includes(...)` 판정은 유지하고 마크만 위임) |
 | 7-10 | chat 내부 `HarnessLogo`(registries/brand) 소비 4: `chat/components/AgentModeToggle.tsx:57` · `composer/ModelMenu.tsx:46` · `harnesses/registries/composer.ts:19` · `app/SidebarUserButton.tsx:136` | `shared/ui/HarnessLogo` import |
-| 11-13 | 표시명 삼항 3: `ChatTitleBar.tsx:114` · `AgentEnvironmentView.tsx:106` · `src/shared/extension-sources.ts:5` | `HARNESS_CAPABILITIES[backend]` 의 신규 `shortLabel`(`'Claude'`·`'OpenCode'`) — 기존 문자열 유지 |
+| 11-13 | 표시명 삼항 3: `ChatTitleBar.tsx:114` · `AgentEnvironmentView.tsx:107` · `src/shared/extension-sources.ts:5` | `HARNESS_CAPABILITIES[backend]` 의 신규 `shortLabel`(`'Claude'`·`'OpenCode'`) — 기존 문자열 유지 |
 | 14-15 | `harnesses/{claude,opencode}/rightpanel/PlanTile.tsx` | 삭제(EP-08 #23), 두 `tileRegistry.ts` 는 common `PlanTileContent` 에 `harnessCatalog(b).planEmptyDescription`·`planSelectHint` 를 넘긴다 |
 
 - 검색: `rg -n '<ClaudeLogo|<OpenCodeLogo' app/src/renderer/src $G` → 6 / 2(`HarnessLogo` 내부) · `rg -n "=== 'opencode' \? 'OpenCode' : 'Claude'|=== 'claude' \? 'Claude' :" app/src $G` → 3 / 0 · `ls app/src/renderer/src/features/chat/harnesses/{claude,opencode}/Logo.tsx app/src/renderer/src/features/chat/harnesses/registries/brand.tsx app/src/renderer/src/features/chat/harnesses/{claude,opencode}/rightpanel/PlanTile.tsx` → 5 / 0.
@@ -458,7 +458,7 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 |---|---|---|
 | 1 | `engine/harnesses/opencode/ProviderForm.tsx:265-312` 모델 행 | `RowListEditor` (같은 파일 또는 `engine/common/components/`) |
 | 2 | 같은 파일 `:313-370` 헤더 행 | 같은 컴포넌트 |
-| 3 | `chat/harnesses/opencode/transcript/ScrollController.tsx:77-91` `onScroll` → `capture()` | rAF 1프레임 1회, unmount 시 cancel |
+| 3 | `chat/harnesses/opencode/transcript/ScrollController.tsx:73-91` `onScroll` → `capture()` | rAF 1프레임 1회, unmount 시 cancel |
 
 - 검색: `rg -n 'capture\(\)' app/src/renderer/src/features/chat/harnesses/opencode/transcript/ScrollController.tsx` → 3 / 3(호출 자리 유지, onScroll 쪽만 프레임 래핑) — 관측은 VP-14 신규 케이스.
 
@@ -579,7 +579,7 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 
 - 코드: §10 EP-04·EP-08~EP-14 자리 + §11 표.
 - 문서: 이 plan · `docs/handoff/INDEX.md` · `docs/IPC_CONTRACT.md` · `docs/generated/inventory.md` · `docs/arch/backend/{adapters,provider-runtime}.md` · `docs/arch/frontend/design-components.md` · EP-08 #29 검색 출력.
-- 도구·기준선: `scan/dead-exports.cjs` · `scan/i18n-unreferenced.cjs` · `scan/vitest-failed-ids.mjs` · `baseline/vitest-failed-ids.txt`(338) · `baseline/dead-exports.tsv`(used 외 658행) · `baseline/i18n-unreferenced.txt`(65) · `baseline/i18n-remove-keys.txt`(14).
+- 도구·기준선: `scan/dead-exports.cjs` · `scan/i18n-unreferenced.cjs` · `scan/vitest-failed-ids.mjs` · `baseline/vitest-failed-ids.txt`(338) · `baseline/dead-exports.tsv`(used 외 645행) · `baseline/i18n-unreferenced.txt`(64) · `baseline/i18n-remove-keys.txt`(14).
 
 ## 19. 게이트
 
