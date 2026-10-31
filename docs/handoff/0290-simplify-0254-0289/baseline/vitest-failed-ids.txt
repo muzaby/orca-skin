@@ -46,6 +46,7 @@ app/src/main/app/composer-catalog.test.ts	returns prepared plugin and agent part
 app/src/main/app/composer-catalog.test.ts	wires the public handler through the production resolver and returns its shutdown cleanup
 app/src/main/app/composer-preparation-service.test.ts	shares targets across catalog resources and warmup through the production assembly
 app/src/main/app/deployment/mail.integration.test.ts	<file-level>
+app/src/main/app/deployment/opencode-connection-deployment.test.ts	<file-level>
 app/src/main/app/handlers/files.contextDirectory.test.ts	Context directory open — actual registration, SQLite and filesystem > does not allow descendants or unrelated directories by prefix matching
 app/src/main/app/handlers/files.contextDirectory.test.ts	Context directory open — actual registration, SQLite and filesystem > keeps unscoped extra directory closed while legacy cwd opening works
 app/src/main/app/handlers/files.contextDirectory.test.ts	Context directory open — actual registration, SQLite and filesystem > opens only recorded OpenCode Code folders and files through the context entry points
@@ -329,7 +330,6 @@ app/src/main/infra/db/queries.test.ts	DbQueries — sessions.extra_dirs 왕복 >
 app/src/main/infra/db/queries.test.ts	provider usage report cache (0014) > provider usage report 왕복
 app/src/main/infra/db/queries.test.ts	provider usage report cache (0014) > 같은 provider 재수집은 upsert 로 최신 1행만 남긴다
 app/src/main/infra/db/queries.test.ts	schedule_runs > records scheduler run lifecycle in one row
-app/src/main/infra/loopback-callback.test.ts	awaitLoopbackCallback > 경로가 다른 요청(favicon 등)은 흘려보내고 계속 기다린다
 app/src/renderer/src/features/chat/components/transcript/planMode.render.test.ts	<file-level>
 app/src/renderer/src/features/chat/lib/settlement.integration.test.ts	0239 SDK to persisted and rendered settlement > keeps live and loaded cancelled outcomes equal through the full result path
 app/src/renderer/src/features/chat/lib/settlement.integration.test.ts	0239 SDK to persisted and rendered settlement > keeps live and loaded late-result outcomes equal through the full result path

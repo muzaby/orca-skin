@@ -143,7 +143,8 @@
 - 기존 테스트 재사용: 파일 존재는 §8 표에서 확인했다. 케이스명 좌표는 §7-A 각 pair 와 §10 에 적고, 구현자가 새로 만드는 케이스는 파일·진입점·구별 입력·관측 대상을 §10 에 적었다.
 - 사람 실기: 없음 — 시각은 클래스 문자열 동일성 테스트로 내렸다(AC14·AC16). Windows 전용 동작은 CI 가 판정한다(AC1).
 - 0건/전수 기준: 삭제 자리는 "없다" 가 불변식이다. SSOT 자리는 구 사본 0(음성) + 헬퍼 사용 N(양성) + 헬퍼 고장 변이 red(방향)로 묶는다(§5 방향 규칙).
-- 기준선: `baseline/vitest-failed-ids.txt` 338 ID(케이스 310 + 파일 단위 28)는 Linux · `ELECTRON_SKIP_BINARY_DOWNLOAD=1` · better-sqlite3 Electron ABI 환경의 실측이다. 다른 환경이면 구현 전에 같은 명령으로 기준선을 다시 뜬다.
+- 기준선: `baseline/vitest-failed-ids.txt` 338 ID(케이스 309 + 파일 단위 29, HEAD `e0318497` · 876파일 8,121케이스)는 Linux · `ELECTRON_SKIP_BINARY_DOWNLOAD=1` · better-sqlite3 Electron ABI 환경의 실측이다. 다른 환경이면 구현 전에 같은 명령으로 기준선을 다시 뜬다.
+- 흔들리는 기준선 1건: `infra/loopback-callback.test.ts` `경로가 다른 요청(favicon 등)…` 은 `5ecaefd4` 측정에서 실패·`e0318497` 측정에서 통과했다(프록시 환경의 loopback fetch). 차집합에 나타나면 같은 명령 재실행 1회로 판정한다.
 
 ## 7-A. V / Trace Matrix
 
