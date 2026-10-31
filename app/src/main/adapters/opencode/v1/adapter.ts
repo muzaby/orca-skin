@@ -55,14 +55,12 @@ export class OpenCodeAdapter implements SessionAdapter {
       import('../../../../shared/harness').OpenCodePreferences | undefined,
     private readonly managedMcp?: ManagedMcpRuntime
   ) {
-    this.contexts = new OpenCodeSessionContexts(fetchImpl, 4096, extensionControl, undefined, () =>
-      reportError({
-        event: 'opencode.instance.dispose.failed',
-        scope: 'engine',
-        title: 'engineInternal',
-        level: 'warn',
-        detail: 'OpenCode 프로젝트 정리를 완료하지 못했습니다. 새 연결로 다시 시작해 주세요.'
-      })
+    this.contexts = new OpenCodeSessionContexts(
+      fetchImpl,
+      4096,
+      extensionControl,
+      undefined,
+      reportDisposeFailure
     )
   }
   agentSpawnEnv(): Record<string, never> {
@@ -162,20 +160,21 @@ export class OpenCodeAdapter implements SessionAdapter {
     }
     try {
       const identities = projection?.identities ?? new Map()
+      const active = (
+        identity: { kind: 'builtin' | 'user'; sourceId: string },
+        current: Readonly<ManagedMcpSnapshot> | undefined
+      ): boolean =>
+        !!current &&
+        this.restartRevision(current) === this.restartRevision(snapshot) &&
+        (identity.kind === 'user'
+          ? Object.hasOwn(current.users, identity.sourceId)
+          : [...current.plugins.values()].some(
+              (plugin) => plugin.identity.sourceId === identity.sourceId && plugin.authorized()
+            ))
       const choices = (): Record<string, boolean> => {
-        const current = this.managedMcp?.snapshot()
+        const current = this.managedMcp?.peek()
         return Object.fromEntries(
-          [...identities].map(([id, identity]) => [
-            id,
-            !!current &&
-              this.restartRevision(current) === this.restartRevision(snapshot) &&
-              (identity.kind === 'user'
-                ? Object.hasOwn(current.users, identity.sourceId)
-                : [...current.plugins.values()].some(
-                    (plugin) =>
-                      plugin.identity.sourceId === identity.sourceId && plugin.authorized()
-                  ))
-          ])
+          [...identities].map(([id, identity]) => [id, active(identity, current)])
         )
       }
       const lease = await this.contexts.acquire(
@@ -196,7 +195,7 @@ export class OpenCodeAdapter implements SessionAdapter {
       const mapMcpResources = (
         items: import('../../../../shared/native-resources').NativeResource[]
       ): import('../../../../shared/native-resources').NativeResource[] => {
-        const current = this.managedMcp?.snapshot()
+        const current = this.managedMcp?.peek()
         return mapManagedMcpResources(items, identities).filter((item) => {
           if (!item.managedSource) return true
           if (item.status === 'failed' || item.status === 'needs-auth')
@@ -204,14 +203,7 @@ export class OpenCodeAdapter implements SessionAdapter {
               `${snapshot?.revision}:${item.id}:${item.status}`,
               item.managedSource.sourceId
             )
-          if (!current || this.restartRevision(current) !== this.restartRevision(snapshot))
-            return false
-          if (item.managedSource.kind === 'user')
-            return Object.hasOwn(current.users, item.managedSource.sourceId)
-          return [...current.plugins.values()].some(
-            (plugin) =>
-              plugin.identity.sourceId === item.managedSource?.sourceId && plugin.authorized()
-          )
+          return active(item.managedSource, current)
         })
       }
       let releasing: Promise<void> | undefined
@@ -231,15 +223,7 @@ export class OpenCodeAdapter implements SessionAdapter {
         mapMcpResources,
         mcp: async (signal, refresh) => mapMcpResources(await lease.mcp(signal, refresh)),
         release: () => {
-          releasing ??= lease.release().catch(() =>
-            reportError({
-              event: 'opencode.instance.dispose.failed',
-              scope: 'engine',
-              title: 'engineInternal',
-              detail: 'OpenCode 프로젝트 정리를 완료하지 못했습니다. 새 연결로 다시 시작해 주세요.',
-              level: 'warn'
-            })
-          )
+          releasing ??= lease.release().catch(reportDisposeFailure)
           return releasing
         }
       }
@@ -394,4 +378,14 @@ export class OpenCodeAdapter implements SessionAdapter {
   classifyError(error: unknown): ClassifiedError {
     return classifyOpenCodeError(error, 'provider_connection_error')
   }
+}
+
+function reportDisposeFailure(): void {
+  reportError({
+    event: 'opencode.instance.dispose.failed',
+    scope: 'engine',
+    title: 'engineInternal',
+    level: 'warn',
+    detail: 'OpenCode 프로젝트 정리를 완료하지 못했습니다. 새 연결로 다시 시작해 주세요.'
+  })
 }

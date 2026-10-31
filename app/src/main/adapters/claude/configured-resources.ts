@@ -1,48 +1,23 @@
 import { createHash } from 'node:crypto'
-import { readFile, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { NativeResource } from '../../../shared/native-resources'
 import { isRecord } from '../../../shared/obj'
+import { readJsonObject } from '../../infra/config/json-file'
 import { extensionChoices } from '../common/extension-control'
+import { gitRootLineage } from '../common/git-root'
 import { claudeNativePaths } from './native-paths'
-import { claudeInstallationExists, installedClaudePlugins, pluginPathKey } from './plugin-catalog'
-import { claudeLocalSettingsRoot } from './project-path'
+import { claudeInstallationExists, installedClaudePlugins } from './plugin-catalog'
+import { claudePluginEnabled } from './plugin-flag'
+import { claudeLocalSettingsRoot, pluginPathKey } from './project-path'
+const readObject = (file: string): Promise<Record<string, unknown>> =>
+  readJsonObject(file, () => new Error('Claude 네이티브 확장 설정을 읽을 수 없습니다.'))
 
 const record = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {})
-const pathKey = pluginPathKey
 
 /** Match init observations to installation records without sending paths over IPC. */
 export function nativePluginId(path: string): string {
-  return `plugin:${createHash('sha256').update(pathKey(path)).digest('hex')}`
-}
-
-async function readObject(file: string): Promise<Record<string, unknown>> {
-  try {
-    const value: unknown = JSON.parse((await readFile(file, 'utf8')).replace(/^\uFEFF/, ''))
-    if (!isRecord(value)) throw new Error('invalid object')
-    return value
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {}
-    // JSON parse errors and filesystem errors can contain credentials or private paths.
-    throw new Error('Claude 네이티브 확장 설정을 읽을 수 없습니다.')
-  }
-}
-
-async function projectRoot(cwd: string): Promise<string> {
-  let current = resolve(cwd)
-  for (;;) {
-    try {
-      await stat(join(current, '.git'))
-      return current
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
-        throw new Error('Claude 프로젝트 설정을 읽을 수 없습니다.')
-    }
-    const parent = dirname(current)
-    if (parent === current) return resolve(cwd)
-    current = parent
-  }
+  return `plugin:${createHash('sha256').update(pluginPathKey(path)).digest('hex')}`
 }
 
 function configured(
@@ -98,7 +73,9 @@ async function readConfiguredClaudeResources(
   ])
   const projects = record(global.projects)
   const projectEntry = (path: string): Record<string, unknown> =>
-    record(Object.entries(projects).find(([key]) => pathKey(key) === pathKey(path))?.[1])
+    record(
+      Object.entries(projects).find(([key]) => pluginPathKey(key) === pluginPathKey(path))?.[1]
+    )
   const current = globalOnly ? {} : { ...projectEntry(nativeRoot), ...projectEntry(cwd) }
   const enabledPlugins = {
     ...record(user.enabledPlugins),
@@ -150,7 +127,7 @@ async function readConfiguredClaudeResources(
     const { key: name, path: installPath } = entry
     if (!isAbsolute(installPath) || !claudeInstallationExists(installPath)) continue
     const flag = enabledPlugins[name]
-    const enabled = flag === true || Array.isArray(flag) || isRecord(flag)
+    const enabled = claudePluginEnabled(flag)
     const installedOnly = flag === undefined
     const manifest = await readObject(join(installPath, '.claude-plugin', 'plugin.json'))
     const id = nativePluginId(installPath)
@@ -212,4 +189,12 @@ export async function configuredClaudeResources(
   ...args: Parameters<typeof readConfiguredClaudeResources>
 ): Promise<NativeResource[]> {
   return (await readConfiguredClaudeResources(...args)).items
+}
+
+async function projectRoot(cwd: string): Promise<string> {
+  try {
+    return (await gitRootLineage(cwd)).root
+  } catch {
+    throw new Error('Claude 프로젝트 설정을 읽을 수 없습니다.')
+  }
 }

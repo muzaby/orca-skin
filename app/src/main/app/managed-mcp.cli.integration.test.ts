@@ -276,6 +276,7 @@ await server.connect(new StdioServerTransport());`
   }
   const adapter = new OpenCodeAdapter(pool, fetchObserved, undefined, undefined, undefined, {
     snapshot: () => managed.source.snapshot(),
+    peek: () => managed.source.peek(),
     acquire: (snapshot) => managed.mcpBridge.acquire(snapshot)
   })
   let prepared: Awaited<ReturnType<NonNullable<typeof adapter.prepareComposer>>> | undefined

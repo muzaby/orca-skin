@@ -283,7 +283,11 @@ describe('OpenCode server context with the installed SDK', () => {
     try {
       await expect(async () => lease.prepare(control.signal)).rejects.toThrow('caller cancelled')
       await expect(async () => lease.commands(control.signal)).rejects.toThrow('caller cancelled')
-      await expect(async () => lease.composer(control.signal)).rejects.toThrow('caller cancelled')
+      await expect(async () =>
+        Promise.all([lease.agents(control.signal), lease.models(control.signal)]).then(
+          ([agents, models]) => ({ agents, models })
+        )
+      ).rejects.toThrow('caller cancelled')
       expect(f.requests).toEqual([])
     } finally {
       await lease.release()
@@ -351,14 +355,25 @@ describe('OpenCode server context with the installed SDK', () => {
       gate.resolve()
       expect((await second)[0].name).toBe('native:one')
       expect((await two.commands(freshSignal()))[0].name).toBe('native:one')
-      const catalogs = await Promise.all([two.composer(freshSignal()), two.composer(freshSignal())])
+      const catalogs = await Promise.all([
+        Promise.all([two.agents(freshSignal()), two.models(freshSignal())]).then(
+          ([agents, models]) => ({ agents, models })
+        ),
+        Promise.all([two.agents(freshSignal()), two.models(freshSignal())]).then(
+          ([agents, models]) => ({ agents, models })
+        )
+      ])
       expect(catalogs.map((catalog) => catalog.agents.map((agent) => agent.name))).toEqual([
         ['build'],
         ['build']
       ])
-      expect((await two.composer(freshSignal())).agents.map((agent) => agent.name)).toEqual([
-        'build'
-      ])
+      expect(
+        (
+          await Promise.all([two.agents(freshSignal()), two.models(freshSignal())]).then(
+            ([agents, models]) => ({ agents, models })
+          )
+        ).agents.map((agent) => agent.name)
+      ).toEqual(['build'])
       const paths = f.requests.map((request) => new URL(request.url).pathname)
       for (const path of ['/config', '/command', '/agent', '/provider'])
         expect(paths.filter((value) => value === path)).toHaveLength(1)
@@ -367,9 +382,14 @@ describe('OpenCode server context with the installed SDK', () => {
           ? jsonResponse([{ name: 'fresh', mode: 'primary' }])
           : undefined
       )
-      expect((await two.composer(freshSignal(), true)).agents.map((agent) => agent.name)).toEqual([
-        'fresh'
-      ])
+      expect(
+        (
+          await Promise.all([
+            two.agents(freshSignal(), true),
+            two.models(freshSignal(), true)
+          ]).then(([agents, models]) => ({ agents, models }))
+        ).agents.map((agent) => agent.name)
+      ).toEqual(['fresh'])
       for (const path of ['/agent', '/provider'])
         expect(f.requests.filter((request) => new URL(request.url).pathname === path)).toHaveLength(
           2

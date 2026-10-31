@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { NativeResource } from '../../../shared/native-resources'
 import type { ClaudePluginCatalog } from './plugin-catalog'
+import { claudePluginEnabled } from './plugin-flag'
 import {
   claudeProjectSettingsRevision,
   readClaudeProjectSettings,
@@ -41,7 +42,7 @@ export class ClaudeProjectReconciliation {
       const flag = next.plugins[item.name]
       return flag === undefined
         ? (this.deps.plugins.defaults[item.name] ?? false)
-        : flag === true || Array.isArray(flag) || (typeof flag === 'object' && flag !== null)
+        : claudePluginEnabled(flag)
     }
     const changed = (key: 'disabledMcp' | 'enabledMcp' | 'disabledProjectMcp'): boolean =>
       next[key].includes(item.id) !== this.applied[key].includes(item.id)

@@ -1,8 +1,9 @@
 import { DEFAULT_CLAUDE_OUTPUT_STYLE, type ClaudePreferences } from '../../../shared/harness'
 import { extensionChoices } from '../common/extension-control'
 import { claudeNativeResources } from './native-resources'
-import { pluginPathKey, readClaudePluginCatalog } from './plugin-catalog'
+import { readClaudePluginCatalog } from './plugin-catalog'
 import { persistClaudePluginState } from './plugin-state'
+import { pluginPathKey } from './project-path'
 import { ClaudeProjectReconciliation } from './project-reconciliation'
 import { claudeProjectSettingsFiles, readClaudeProjectSettings } from './project-settings'
 // ClaudeAdapter — @anthropic-ai/claude-agent-sdk 의 query() 함수를 통해 Claude Code 와 통신.

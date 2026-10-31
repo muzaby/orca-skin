@@ -1,6 +1,7 @@
 import { join } from 'node:path'
 import { isRecord } from '../../../shared/obj'
 import { nativeFileMutations, type FileMutationCoordinator } from '../../infra/config/file-mutation'
+import { parseJsonObject } from '../../infra/config/json-file'
 import { claudeLocalSettingsRoot } from './project-path'
 
 /** Patch only the requested plugin key after earlier writers have committed. */
@@ -15,11 +16,8 @@ export async function persistClaudePluginState(
     await mutations.mutate(
       file,
       (latest) => {
-        const value: unknown = latest === undefined ? {} : JSON.parse(latest.replace(/^\uFEFF/, ''))
-        if (
-          !isRecord(value) ||
-          (value.enabledPlugins !== undefined && !isRecord(value.enabledPlugins))
-        )
+        const value = parseJsonObject(latest, () => new Error('invalid settings'))
+        if (value.enabledPlugins !== undefined && !isRecord(value.enabledPlugins))
           throw new Error('invalid settings')
         return (
           JSON.stringify(

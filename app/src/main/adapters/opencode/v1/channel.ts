@@ -24,6 +24,7 @@ export function openCodeChannel(
   release: () => void | Promise<void> = () => undefined,
   preferences?: () => import('../../../../shared/harness').OpenCodePreferences | undefined
 ): LiveTurn {
+  const env = { ...process.env, ...req.env }
   const generation = randomUUID()
   const trace = new OpenCodeTurnTrace()
   const controller = new AbortController()
@@ -41,9 +42,12 @@ export function openCodeChannel(
   const refreshComposer = (refresh = false): Promise<NativeComposerCatalog | undefined> => {
     if (composerFlight) return composerFlight
     if (!connection || closed) return Promise.resolve(undefined)
-    const flight = connection
-      .composer(signal, refresh)
-      .then((catalog) => {
+    const flight = Promise.all([
+      connection.agents(signal, refresh),
+      connection.models(signal, refresh)
+    ])
+      .then(([agents, models]) => {
+        const catalog = { agents, models }
         if (!closed) composerCatalog = catalog
         return catalog
       })
@@ -55,6 +59,11 @@ export function openCodeChannel(
     return flight
   }
   let sessionId = req.sessionId
+  const aborted = (): NormalizedEvent => ({
+    type: 'turn.aborted',
+    ...(sessionId ? { sessionId } : {}),
+    reason: 'user_cancelled'
+  })
   let activity: OpenCodeActivityMapper | undefined
   let iterator: AsyncGenerator<Event> | undefined
   let closed = false
@@ -184,10 +193,11 @@ export function openCodeChannel(
     interrupted = false
     responseOpen = true
     mainApproval = new AbortController()
+    const managedMcpMentions = connection?.managedMcpMentions
     const system = [
       req.extensions.systemPromptAppend,
-      connection?.managedMcpMentions && Object.keys(connection.managedMcpMentions).length
-        ? `Orca MCP references (JSON mapping of mention IDs to runtime server IDs): ${JSON.stringify(connection.managedMcpMentions)}`
+      managedMcpMentions && Object.keys(managedMcpMentions).length
+        ? `Orca MCP references (JSON mapping of mention IDs to runtime server IDs): ${JSON.stringify(managedMcpMentions)}`
         : undefined,
       req.extraDirs?.length
         ? `Additional context directories selected for this session (JSON): ${JSON.stringify(req.extraDirs)}`
@@ -416,9 +426,7 @@ export function openCodeChannel(
         ) {
           responseOpen = false
           const events = activity.finish()
-          publish(
-            interrupted ? [{ type: 'turn.aborted', sessionId, reason: 'user_cancelled' }] : events
-          )
+          publish(interrupted ? [aborted()] : events)
           interrupted = false
         }
       }
@@ -429,13 +437,7 @@ export function openCodeChannel(
         publish(
           admission.signal.aborted ||
             (signal.aborted && (req.signal?.aborted || signal.reason?.name === 'AbortError'))
-            ? [
-                {
-                  type: 'turn.aborted',
-                  ...(sessionId ? { sessionId } : {}),
-                  reason: 'user_cancelled'
-                }
-              ]
+            ? [aborted()]
             : [
                 {
                   type: 'error',
@@ -483,11 +485,9 @@ export function openCodeChannel(
       const [resourceReads, commands, composer] = await Promise.all([
         Promise.allSettled([
           connection!.mcp(signal),
-          openCodeNativePlugins(client, req.cwd, { ...process.env, ...req.env }, signal)
+          openCodeNativePlugins(client, req.cwd, env, signal)
         ]),
-        openCodeNativeCommands(client, req.cwd, true, { ...process.env, ...req.env }).catch(
-          () => undefined
-        ),
+        openCodeNativeCommands(client, req.cwd, true, env).catch(() => undefined),
         refreshComposer()
       ])
       if (closed || ended || connection?.signal.aborted) return { state: 'disconnected', items: [] }
@@ -525,9 +525,7 @@ export function openCodeChannel(
         await submit(next)
       } catch (error) {
         if (admission.signal.aborted && !responseOpen) {
-          publish([
-            { type: 'turn.aborted', ...(sessionId ? { sessionId } : {}), reason: 'user_cancelled' }
-          ])
+          publish([aborted()])
           return { kind: 'accepted' }
         }
         // HTTP failure leaves acceptance uncertain. Retire this generation; the

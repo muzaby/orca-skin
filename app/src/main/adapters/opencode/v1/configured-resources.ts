@@ -1,7 +1,8 @@
 import { homedir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import type { NativeResource } from '../../../../shared/native-resources'
 import { isRecord } from '../../../../shared/obj'
+import { gitRootLineage } from '../../common/git-root'
 import {
   openCodeDiscovery,
   discoveryReadFile as readFile,
@@ -25,20 +26,7 @@ async function readConfiguredOpenCode(
   pluginSkillDirectories: string[]
 }> {
   const globalRoot = join(env.XDG_CONFIG_HOME || join(homedir(), '.config'), 'opencode')
-  const lineage: string[] = []
-  let current = resolve(cwd)
-  for (; !globalOnly;) {
-    lineage.unshift(current)
-    try {
-      await stat(join(current, '.git'))
-      break
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-    }
-    const parent = dirname(current)
-    if (parent === current) break
-    current = parent
-  }
+  const lineage = globalOnly ? [] : (await gitRootLineage(cwd, stat)).directories.reverse()
   const at = (root: string): string[] => [join(root, 'opencode.json'), join(root, 'opencode.jsonc')]
   const files = [
     join(globalRoot, 'config.json'),

@@ -2,6 +2,7 @@ import type { OpencodeClient } from '@opencode-ai/sdk/v2/client'
 import { realpath } from 'node:fs/promises'
 import type { NativeCommand, NativeResource } from '../../../../shared/native-resources'
 import { classifyMcpError, opaqueIdentity } from './diagnostics'
+import { pluginSpec } from './openCodePluginConfig'
 import { openCodePluginId, openCodePluginInstallation } from './plugin-installation'
 import { retentionTrace } from './retention-trace'
 import { isOpenCodeSkill, withinSkillRoot } from './skill-sources'
@@ -24,7 +25,7 @@ export async function openCodeNativeCommands(
   const config = hasSkills ? (await client.config.get({ directory }, options)).data : undefined
   const plugins = await Promise.all(
     (config?.plugin ?? []).map((source) =>
-      openCodePluginInstallation(typeof source === 'string' ? source : source[0], directory, env)
+      openCodePluginInstallation(pluginSpec(source), directory, env)
     )
   )
   return Promise.all(
@@ -94,12 +95,7 @@ export async function openCodeNativeMcp(
       id: name,
       name,
       kind: 'mcp',
-      status:
-        value.status === 'needs_client_registration'
-          ? 'needs-auth'
-          : value.status === 'needs_auth'
-            ? 'needs-auth'
-            : value.status,
+      status,
       enabled: value.status !== 'disabled',
       canToggle: false
     }
@@ -119,7 +115,7 @@ export async function openCodeNativePlugins(
     })
   return Promise.all(
     (config.data?.plugin ?? []).map(async (entry): Promise<NativeResource> => {
-      const spec = typeof entry === 'string' ? entry : entry[0]
+      const spec = pluginSpec(entry)
       const installed = await openCodePluginInstallation(spec, directory, env)
       return {
         id: openCodePluginId(spec),

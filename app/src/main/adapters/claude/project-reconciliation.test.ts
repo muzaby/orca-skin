@@ -1,12 +1,12 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { beforeEach, afterEach, expect, it, vi } from 'vitest'
+import { join } from 'node:path'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { NativeResource } from '../../../shared/native-resources'
+import { claudeNativeResources } from './native-resources'
+import { readClaudePluginCatalog } from './plugin-catalog'
 import { ClaudeProjectReconciliation } from './project-reconciliation'
 import { readClaudeProjectSettings } from './project-settings'
-import { readClaudePluginCatalog } from './plugin-catalog'
-import { claudeNativeResources } from './native-resources'
 let temp: string, cwd: string, root: string, plugin: string
 const json = (path: string, value: unknown): void => {
   writeFileSync(path, JSON.stringify(value))
@@ -161,3 +161,14 @@ it('acknowledges only its own persisted change and leaves external edits pending
   expect(await reconcile.reconcile(revision(), () => true)).toBe('applied')
   expect(reconcile.covers(revision())).toBe(true)
 })
+
+it.each([[], {}, true, false])(
+  'projects native plugin flag %j during external reconciliation',
+  async (flag) => {
+    const f = fixture()
+    json(join(cwd, '.claude/settings.local.json'), { enabledPlugins: { 'p@m': flag } })
+    expect(f.reconcile.preview(await f.resources.list())[0].enabled).toBe(flag !== false)
+    expect(await f.reconcile.reconcile(f.revision(), () => true)).toBe('applied')
+    expect((await f.resources.list())[0].enabled).toBe(flag !== false)
+  }
+)

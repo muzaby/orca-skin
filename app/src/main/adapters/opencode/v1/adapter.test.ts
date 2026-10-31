@@ -52,7 +52,7 @@ it('projects disabled global MCP overrides and connects them through the directo
     join(aPath, 'opencode.json'),
     '{"mcp":{"projectOnly":{"type":"local","command":["project"]}}}'
   )
-  const snapshot = {
+  let snapshot = {
     revision: 1,
     users: {
       collision: { command: 'managed' },
@@ -68,6 +68,7 @@ it('projects disabled global MCP overrides and connects them through the directo
   const f = retentionTransport(
     {
       snapshot: () => snapshot,
+      peek: () => snapshot,
       acquire: async () => ({ endpoints: new Map(), release: async () => {} })
     },
     { global: () => ({}) }
@@ -93,6 +94,14 @@ it('projects disabled global MCP overrides and connects them through the directo
     await a.prepare(new AbortController().signal)
     await vi.waitFor(() => expect(a.mcpControl!.connected(good)).toBe(true))
     expect(a.managedMcpMentions).toEqual({ [good]: good })
+    snapshot = { ...snapshot, revision: snapshot.revision + 1 }
+    expect(a.managedMcpMentions).toEqual({})
+    expect(
+      a.mapMcpResources!([
+        { id: good, name: good, kind: 'mcp', status: 'connected', enabled: true, canToggle: false }
+      ])
+    ).toEqual([])
+    snapshot = { ...snapshot, revision: snapshot.revision - 1 }
     expect(a.managedMcpReferences).toEqual({ [good]: good, [bad]: bad })
     expect(
       (await a.mcp(new AbortController().signal)).find((item) => item.id === bad)

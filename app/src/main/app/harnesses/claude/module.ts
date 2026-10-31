@@ -4,7 +4,8 @@ import {
   globalClaudeResourcePath,
   globalClaudeResources
 } from '../../../adapters/claude/configured-resources'
-import { configuredClaudeCommands, pluginPathKey } from '../../../adapters/claude/plugin-catalog'
+import { configuredClaudeCommands } from '../../../adapters/claude/plugin-catalog'
+import { pluginPathKey } from '../../../adapters/claude/project-path'
 import {
   claudeProjectSettingsFiles,
   readClaudeProjectSettings

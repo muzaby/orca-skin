@@ -2,24 +2,16 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { NativeCommand } from '../../../shared/native-resources'
 import { isRecord } from '../../../shared/obj'
-import { skillMetadata } from '../common/skill-metadata'
+import { readJsonObjectSync } from '../../infra/config/json-file'
 import { extensionChoices } from '../common/extension-control'
+import { skillMetadata } from '../common/skill-metadata'
 import { claudeNativePaths } from './native-paths'
-import { pluginPathKey, claudeLocalSettingsRoot } from './project-path'
-export { pluginPathKey, claudePluginProjectRoot } from './project-path'
+import { claudePluginEnabled } from './plugin-flag'
+import { claudeLocalSettingsRoot, pluginPathKey } from './project-path'
+const readObject = (file: string): Record<string, unknown> =>
+  readJsonObjectSync(file, () => new Error('Claude 네이티브 확장 설정을 읽을 수 없습니다.'))
 
 const record = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {})
-
-function readObject(path: string): Record<string, unknown> {
-  try {
-    const value: unknown = JSON.parse(readFileSync(path, 'utf8').replace(/^\uFEFF/, ''))
-    if (!isRecord(value)) throw new Error('invalid object')
-    return value
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {}
-    throw new Error('Claude 네이티브 확장 설정을 읽을 수 없습니다.')
-  }
-}
 
 /** All applicable installations, including disabled entries and distinct paths for one key. */
 export function installedClaudePlugins(
@@ -82,7 +74,7 @@ export function selectClaudePlugins(
     return {
       key: entry.key,
       path: entry.path,
-      enabled: flag === true || Array.isArray(flag) || isRecord(flag),
+      enabled: claudePluginEnabled(flag),
       installedOnly: flag === undefined
     }
   })
@@ -205,10 +197,7 @@ export function readClaudePluginCatalog(
   }
   return {
     defaults: Object.fromEntries(
-      Object.entries(defaults).map(([key, value]) => [
-        key,
-        value === true || Array.isArray(value) || isRecord(value)
-      ])
+      Object.entries(defaults).map(([key, value]) => [key, claudePluginEnabled(value)])
     ),
     roots: [...roots.values()],
     skills: [...skills],

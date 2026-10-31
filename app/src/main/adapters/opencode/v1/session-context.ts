@@ -4,20 +4,21 @@ import type {
   NativeComposerCatalog,
   NativeResource
 } from '../../../../shared/native-resources'
-import { harnessEnvFingerprint } from '../../common/harness-config'
-import { OpenCodeComposerCache } from './composer-cache'
-import { OpenCodeMcpControl } from './mcp-control'
 import type { ExtensionControl } from '../../common/extension-control'
+import { harnessEnvFingerprint } from '../../common/harness-config'
+import { abortableFetch } from './abortable-fetch'
+import { OpenCodeComposerCache } from './composer-cache'
+import { openCodeDiscovery } from './discovery-cache'
 import { openCodePreparationError } from './errors'
-import { openCodeNativeCommands } from './native-resources'
-import { sameNativePath } from './native-storage'
 import {
   OpenCodeIdleBudget,
   OpenCodeInstances,
   waitForOpenCode,
   type OpenCodeInstance
 } from './instance-lifecycle'
-import { openCodeDiscovery } from './discovery-cache'
+import { OpenCodeMcpControl } from './mcp-control'
+import { openCodeNativeCommands } from './native-resources'
+import { sameNativePath } from './native-storage'
 
 interface ServerIdentity {
   url: string
@@ -62,7 +63,6 @@ export interface OpenCodeClientLease {
   events(signal: AbortSignal): AsyncGenerator<Event>
   prepare(signal: AbortSignal): Promise<void>
   commands(signal: AbortSignal): Promise<NativeCommand[]>
-  composer(signal: AbortSignal, refresh?: boolean): Promise<NativeComposerCatalog>
   agents(signal: AbortSignal, refresh?: boolean): Promise<NativeComposerCatalog['agents']>
   models(signal: AbortSignal, refresh?: boolean): Promise<NativeComposerCatalog['models']>
   mcp(signal: AbortSignal, refresh?: boolean): Promise<NativeResource[]>
@@ -87,19 +87,22 @@ class ServerContext {
   private readonly connectionWaiters = new Set<() => void>()
 
   constructor(
-    private readonly server: ServerIdentity,
-    private readonly fetchImpl: typeof fetch,
-    private readonly retire: () => void,
-    private readonly queueLimit: number,
-    private readonly extensionControl: ExtensionControl | undefined,
-    idleBudget: OpenCodeIdleBudget,
-    settled: () => void,
-    private readonly releaseDependencies: () => void,
-    idleRetentionMs?: number,
-    cleanupFailed?: () => void,
-    private readonly managed?: ManagedConnectionChoices,
-    private readonly idle: (cwd: string, beforeSubmit: boolean) => boolean = () => true
+    private readonly options: {
+      server: ServerIdentity
+      fetchImpl: typeof fetch
+      retire(): void
+      queueLimit: number
+      extensionControl?: ExtensionControl
+      idleBudget: OpenCodeIdleBudget
+      settled(): void
+      releaseDependencies(): void
+      idleRetentionMs?: number
+      cleanupFailed?: () => void
+      managed?: ManagedConnectionChoices
+      idle(cwd: string, beforeSubmit: boolean): boolean
+    }
   ) {
+    const { server, fetchImpl, idleBudget, settled, idleRetentionMs, cleanupFailed } = options
     this.client = createOpencodeClient({
       baseUrl: server.url,
       headers: server.headers,
@@ -113,7 +116,7 @@ class ServerContext {
       },
       retire: () => {
         server.retire?.()
-        this.retire()
+        this.options.retire()
         this.instances.retire()
       },
       idleBudget,
@@ -147,16 +150,11 @@ class ServerContext {
             throw new Error('OpenCode 프로젝트 요청 경로가 일치하지 않습니다.')
           scope.touched = true
         }
-        const response = await this.fetchImpl(new Request(request, { signal }))
-        if (signal.aborted) {
-          await response.body?.cancel().catch(() => undefined)
-          signal.throwIfAborted()
-        }
-        return response
+        return abortableFetch(this.options.fetchImpl, request, signal)
       }
       const client = createOpencodeClient({
-        baseUrl: this.server.url,
-        headers: this.server.headers,
+        baseUrl: this.options.server.url,
+        headers: this.options.server.headers,
         directory: scope.directory,
         fetch: fetchScoped,
         throwOnError: true
@@ -171,31 +169,25 @@ class ServerContext {
         client,
         callerClient: (signal) =>
           createOpencodeClient({
-            baseUrl: this.server.url,
-            headers: this.server.headers,
+            baseUrl: this.options.server.url,
+            headers: this.options.server.headers,
             directory: scope.directory,
             throwOnError: true,
             fetch: async (input, init) => {
               const request = new Request(input, init)
               const combined = AbortSignal.any([signal, request.signal])
-              combined.throwIfAborted()
-              const response = await fetchScoped(new Request(request, { signal: combined }))
-              if (combined.aborted) {
-                await response.body?.cancel().catch(() => undefined)
-                combined.throwIfAborted()
-              }
-              return response
+              return abortableFetch(fetchScoped, request, combined)
             }
           }),
         mcpControl: new OpenCodeMcpControl(
           client,
           scope.directory,
-          this.extensionControl ?? { global: () => ({}) },
+          this.options.extensionControl ?? { global: () => ({}) },
           scope.controller.signal,
           composer,
-          this.managed,
-          (beforeSubmit) => this.idle(scope.directory, beforeSubmit),
-          this.managed?.defaults
+          this.options.managed,
+          (beforeSubmit) => this.options.idle(scope.directory, beforeSubmit),
+          this.options.managed?.defaults
         ),
         controller: scope.controller,
         composer,
@@ -280,18 +272,6 @@ class ServerContext {
     return this.wait(state.commandFlight, state, signal)
   }
 
-  async composer(
-    state: DirectoryState,
-    signal: AbortSignal,
-    refresh = false
-  ): Promise<NativeComposerCatalog> {
-    const [agents, models] = await Promise.all([
-      state.composer.agents(signal, refresh),
-      state.composer.models(signal, refresh)
-    ])
-    return { agents, models }
-  }
-
   rememberCommands(
     scope: OpenCodeInstance,
     state: DirectoryState,
@@ -309,7 +289,7 @@ class ServerContext {
 
   private offer(subscriber: Subscriber, event: Event): void {
     if (subscriber.error) return
-    if (subscriber.queue.length >= this.queueLimit) {
+    if (subscriber.queue.length >= this.options.queueLimit) {
       subscriber.queue.length = 0
       subscriber.error = new Error(
         'OpenCode 이벤트 수신이 지연되어 연결을 종료했습니다. 다시 연결해 주세요.'
@@ -424,8 +404,8 @@ class ServerContext {
   }
 
   private fail(error: Error): void {
-    this.server.retire?.()
-    this.retire()
+    this.options.server.retire?.()
+    this.options.retire()
     this.close(error)
   }
 
@@ -450,7 +430,7 @@ class ServerContext {
       subscriber.wake?.()
       subscriber.wake = undefined
     }
-    this.releaseDependencies()
+    this.options.releaseDependencies()
   }
 }
 
@@ -487,25 +467,25 @@ export class OpenCodeSessionContexts {
     const key = `${server.url}:${harnessEnvFingerprint(server.headers)}`
     let state = this.entries.get(key)
     if (!state) {
-      const created = new ServerContext(
-        server,
-        this.fetchImpl,
-        () => {
+      const created = new ServerContext({
+        server: server,
+        fetchImpl: this.fetchImpl,
+        retire: () => {
           if (this.entries.get(key) === created) this.entries.delete(key)
         },
-        this.queueLimit,
-        this.extensionControl,
-        this.idleBudget,
-        () => this.finish(key, created),
-        () => {
+        queueLimit: this.queueLimit,
+        extensionControl: this.extensionControl,
+        idleBudget: this.idleBudget,
+        settled: () => this.finish(key, created),
+        releaseDependencies: () => {
           this.owned.delete(created)
           releaseDependencies()
         },
-        this.idleRetentionMs,
-        this.cleanupFailed,
-        managed,
-        (cwd, beforeSubmit) => this.idle(cwd, beforeSubmit)
-      )
+        idleRetentionMs: this.idleRetentionMs,
+        cleanupFailed: this.cleanupFailed,
+        managed: managed,
+        idle: (cwd, beforeSubmit) => this.idle(cwd, beforeSubmit)
+      })
       this.entries.set(key, created)
       this.owned.add(created)
       state = created
@@ -545,7 +525,6 @@ export class OpenCodeSessionContexts {
       client: metadata.callerClient(caller.signal),
       prepare: (signal) => owned.prepare(scope.directory, metadata, combined(signal)),
       commands: (signal) => owned.commands(scope.directory, metadata, combined(signal)),
-      composer: (signal, refresh) => owned.composer(metadata, combined(signal), refresh),
       agents: (signal, refresh) => metadata.composer.agents(combined(signal), refresh),
       models: (signal, refresh) => metadata.composer.models(combined(signal), refresh),
       mcp: (signal, refresh) =>
