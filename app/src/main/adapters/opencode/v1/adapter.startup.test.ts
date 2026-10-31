@@ -1,11 +1,11 @@
-import { describe, expect, it, vi } from 'vitest'
 import type { Event } from '@opencode-ai/sdk/v2/client'
+import { describe, expect, it, vi } from 'vitest'
 import type { LiveTurn, ProviderMessageBatch } from '../../common/types'
 import { OpenCodeAdapter } from './adapter'
 import {
   assistantMessage,
-  jsonResponse,
   openCodeEvent as event,
+  jsonResponse,
   textPart
 } from './adapter.testfixture'
 
@@ -117,6 +117,8 @@ function fixture(): StartupFixture {
   }
   const adapter = new OpenCodeAdapter(
     {
+      retireAll: () => {},
+      listModels: async () => [],
       acquire: async () => ({
         url: 'http://owned-startup.test',
         headers: { Authorization: 'Basic startup' },

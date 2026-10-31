@@ -1,21 +1,21 @@
-import { afterEach, expect, it, vi } from 'vitest'
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { CHANNELS, type AgentEnvironment } from '../../../shared/ipc'
+import { afterEach, expect, it, vi } from 'vitest'
 import {
   importedProviders,
   serializeProviderDraft
 } from '../../../renderer/src/features/engine/harnesses/opencode/v1/customProvider'
+import { CHANNELS, type AgentEnvironment } from '../../../shared/ipc'
 import { OpenCodeAdapter } from '../../adapters/opencode/v1/adapter'
-import type { HarnessSettingsService } from '../../features/harnesses/common/settings'
-import { createHarnessRuntimeConfigService } from '../../features/harnesses/common/runtime-config'
 import { createRuntimeModelCatalog } from '../../features/harnesses/common/runtime-catalog'
-import { createHarnessSettingsService, parseHarnessRuntimeModels } from '../harnesses/registry'
+import { createHarnessRuntimeConfigService } from '../../features/harnesses/common/runtime-config'
+import type { HarnessSettingsService } from '../../features/harnesses/common/settings'
+import { resolveTurnProvider } from '../chat-turn/resolve-turn'
 import { RUNTIME_MODEL_CONTRIBUTIONS } from '../deployment/harness-runtime'
+import { createHarnessSettingsService, parseHarnessRuntimeModels } from '../harnesses/registry'
 import { registerEngineHandlers } from './engine'
 import { registerMiscHandlers } from './misc'
-import { resolveTurnProvider } from '../chat-turn/resolve-turn'
 
 const fixture = vi.hoisted(() => ({
   root: '',
@@ -83,7 +83,16 @@ it('imports fields, saves an independent document and lists/resolves only its mo
   const acquire = vi.fn(),
     fetchImpl = vi.fn(),
     deployExtensions = vi.fn(async () => {})
-  const adapter = new OpenCodeAdapter({ acquire, installed: vi.fn(), close: vi.fn() }, fetchImpl)
+  const adapter = new OpenCodeAdapter(
+    {
+      retireAll: () => {},
+      listModels: async () => [],
+      acquire,
+      installed: vi.fn(),
+      close: vi.fn()
+    },
+    fetchImpl
+  )
   // The production factory registers every harness module's loader and parser, as bootstrap does.
   const makeSettings = (): HarnessSettingsService => createHarnessSettingsService(fixture.root)
   let settings = makeSettings()

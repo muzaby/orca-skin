@@ -29,9 +29,9 @@ export interface OpenCodeServer {
     env?: Record<string, string>,
     cwd?: string
   ): Promise<string>
-  retireAll?(): void
+  retireAll(): void
   // 호스트 설정 그대로 provider 모델 목록을 읽는다(0291). 서버와 같은 실행 파일·1.x 판정.
-  listModels?(
+  listModels(
     provider: string,
     options: { signal: AbortSignal; env?: Readonly<Record<string, string>> }
   ): Promise<HarnessListedModel[]>

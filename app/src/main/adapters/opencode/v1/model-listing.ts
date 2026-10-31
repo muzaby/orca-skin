@@ -1,3 +1,5 @@
+import { isRecord } from '../../../../shared/obj'
+import { enabledVariantNames } from './model-variants'
 // `opencode models <provider> --verbose --pure` 출력 해석 (0291).
 //
 // CLI 출력은 문서화된 machine 형식이 아니다. v1.18.27 의 실제 형상은 모델마다
@@ -23,15 +25,8 @@ export function assertOpenCodeProviderId(provider: string): void {
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 function variantsOf(value: unknown): string[] | undefined {
-  if (!isRecord(value)) return undefined
-  const names = Object.entries(value)
-    .filter(([, variant]) => !(isRecord(variant) && variant.disabled === true))
-    .map(([name]) => name)
+  const names = enabledVariantNames(value)
   return names.length > 0 ? names : undefined
 }
 

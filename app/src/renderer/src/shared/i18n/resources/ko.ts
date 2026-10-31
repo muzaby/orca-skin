@@ -643,7 +643,7 @@ export const ko = {
       disabled: '비활성화',
       failed: '연결 실패',
       'needs-auth': '인증 필요',
-      pending: '연결 중',
+      pending: '연결 중'
     },
     opencode: {
       panel: {
@@ -695,7 +695,7 @@ export const ko = {
         list: '{{count}}개 목록'
       },
       explorationDone: '탐색 완료',
-      explorationRunning: '탐색 중',
+      explorationRunning: '탐색 중'
     },
     agent: {
       choose: '작업 종류 선택',

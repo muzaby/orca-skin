@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import type { AgentModelView, EngineUserSettingsResult } from '../../../../shared/ipc'
 import { isRecord } from '../../../../shared/obj'
 import type { HarnessRuntimeConfig, HarnessSettingsLoader } from '../../common/harness-config'
+import { enabledVariantNames } from './model-variants'
 
 // 전역 설정의 원문만 읽는다. 파싱/저장은 엔진 모달의 기존 편집 흐름이 담당한다.
 export function readUserOpenCodeSettings(
@@ -34,14 +35,6 @@ export const loadOpenCodeProviderSettings: HarnessSettingsLoader = async ({
   const parsed: unknown = JSON.parse(raw)
   if (!isRecord(parsed)) throw new Error('OpenCode 설정은 JSON 객체여야 합니다.')
   return { settings: parsed }
-}
-
-function variantNames(variants: unknown): string[] {
-  return isRecord(variants)
-    ? Object.entries(variants)
-        .filter(([, v]) => !isRecord(v) || v.disabled !== true)
-        .map(([k]) => k)
-    : []
 }
 
 function modelRow(
@@ -88,7 +81,7 @@ export function parseOpenCodeModels(config: Record<string, unknown>): AgentModel
     if (!isRecord(provider) || !isRecord(provider.models)) continue
     for (const [modelId, definition] of Object.entries(provider.models)) {
       const details = isRecord(definition) ? definition : {}
-      const row = modelRow(providerId, modelId, details.name, variantNames(details.variants))
+      const row = modelRow(providerId, modelId, details.name, enabledVariantNames(details.variants))
       row.isDefault = config.model === row.model
       models.push(row)
     }

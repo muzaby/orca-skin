@@ -1,11 +1,12 @@
+import { canonicalJson } from '../../../shared/obj'
 // Provider settings 계약 타입 — 어댑터 포트. 해석 서비스(HarnessSettingsService)·열거·env 유틸은
 // features/harnesses 소관이지만, 어댑터가 소비하는 *타입 계약*(해석된 blob·로더 시그니처)은 여기 둔다.
 // 런타임 import 는 node 내장 crypto 하나뿐이다 — feature/adapter 모듈은 물지 않는다
 // (turn/types 와의 순환 회피).
 
 import { createHmac, randomBytes } from 'node:crypto'
-import { ifPresent, isRecord } from '../../../shared/obj'
 import type { Backend } from '../../../shared/ipc'
+import { ifPresent, isRecord } from '../../../shared/obj'
 
 // 어댑터-네이티브 provider settings — Claude 의 경우 `~/.claude/settings.json` 과 동일 스키마다.
 // env(auth key 등)를 포함할 수 있으며, 그대로 options.settings flag 레이어로 주입된다(handoff 0028).
@@ -68,18 +69,7 @@ export type HarnessSettingsLoader = (args: {
 const FINGERPRINT_KEY = randomBytes(32)
 
 export function harnessEnvFingerprint(env: Readonly<Record<string, string>> | undefined): string {
-  return createHmac('sha256', FINGERPRINT_KEY)
-    .update(JSON.stringify(canonicalize(env) ?? null))
-    .digest('base64')
-}
-
-function canonicalize(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonicalize)
-  if (typeof value !== 'object' || value === null) return value
-  const record = value as Record<string, unknown>
-  const out: Record<string, unknown> = {}
-  for (const key of Object.keys(record).sort()) out[key] = canonicalize(record[key])
-  return out
+  return createHmac('sha256', FINGERPRINT_KEY).update(canonicalJson(env)).digest('base64')
 }
 
 // ── Harness 실행 구성 계약 (0190 — 0188 의 `features/harnesses/runtime-config.ts` 에서 하강) ──

@@ -1,11 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
 import type { WebContents } from 'electron'
-import { CHANNELS, type NormalizedEvent } from '../../../shared/ipc'
+import { describe, expect, it, vi } from 'vitest'
 import type { BackgroundEvent, ProviderMessageEvent } from '../../../shared/background-task'
-import type { TurnContext } from '../../contracts/turn'
-import type { OrcaBusEvents } from '../../contracts/bus-events'
+import { CHANNELS, type NormalizedEvent } from '../../../shared/ipc'
+import { sessionLeaseKey } from '../../../shared/lease-key'
 import type { SteerFlushBatch } from '../../adapters/common/turn'
-import type { TurnPersistSink } from '../../features/chat/turn-sinks'
 import { createOpenCodeAdapter, type OpenCodeServer } from '../../adapters/opencode'
 import {
   assistantMessage,
@@ -16,24 +14,26 @@ import {
   type Event,
   type UserMessage
 } from '../../adapters/opencode/v1/adapter.testfixture'
-import { SessionRuntime } from '../../features/sessions/session-runtime'
-import { RuntimeSupervisor } from '../../features/sessions/supervisor'
-import { PendingMessageQueue } from '../../features/chat/pending-message-queue'
-import { BackgroundTaskTracker } from '../../features/chat/background-tasks'
+import type { OrcaBusEvents } from '../../contracts/bus-events'
+import type { TurnContext } from '../../contracts/turn'
 import { BackgroundController } from '../../features/chat/background-controller'
+import { BackgroundTaskTracker } from '../../features/chat/background-tasks'
+import { PendingMessageQueue } from '../../features/chat/pending-message-queue'
 import {
   SessionActivityProjector,
   sessionForeground
 } from '../../features/chat/session-activity-projector'
-import { TurnCoordinator } from '../../features/chat/turn-coordinator'
 import { settleTrackedTasks } from '../../features/chat/settle'
+import { TurnCoordinator } from '../../features/chat/turn-coordinator'
+import type { TurnPersistSink } from '../../features/chat/turn-sinks'
+import { SessionRuntime } from '../../features/sessions/session-runtime'
+import { RuntimeSupervisor } from '../../features/sessions/supervisor'
 import { TypedBus } from '../../infra/bus'
-import { sessionLeaseKey } from '../../../shared/lease-key'
-import { buildTurnRequest } from './turn-request'
-import { makeContinuationTurn } from './turn-context'
-import { runTurnWithContinuations } from './post-turn'
-import { registerChatHandlers } from './index'
 import { reserveOnBusySession } from './enqueue'
+import { registerChatHandlers } from './index'
+import { runTurnWithContinuations } from './post-turn'
+import { makeContinuationTurn } from './turn-context'
+import { buildTurnRequest } from './turn-request'
 
 const ipc = vi.hoisted(() => ({
   handlers: new Map<string, (event: unknown, raw: unknown) => Promise<void>>()
@@ -173,6 +173,8 @@ function fixture(abortEvents?: 'idle-only' | 'message-error' | 'session-error') 
     throw new Error(`Unexpected request: ${request.method} ${path}`)
   }
   const server: OpenCodeServer = {
+    retireAll: () => {},
+    listModels: async () => [],
     acquire: async () => ({ url: 'http://opencode.test', headers: {} }),
     installed: async () => ({ installed: true, version: '1.19.0' }),
     close: () => {}

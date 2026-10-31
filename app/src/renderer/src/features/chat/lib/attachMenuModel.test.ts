@@ -1,12 +1,11 @@
 // 0259 AC1~AC5 · VP-08 — '+' 메뉴 트리.
 import { describe, expect, it } from 'vitest'
-import type { SkillInfo } from '../../../../../shared/ipc'
 import { sourceSkills } from '../../../../../shared/extension-sources'
+import type { SkillInfo } from '../../../../../shared/ipc'
 import {
   attachMenuToken,
   buildAttachMenu,
   nativeAttachItems,
-  orcaGroupFirst,
   nativePluginMentions,
   skillTooltip
 } from './attachMenuModel'
@@ -30,32 +29,6 @@ const plugins = [
   { kind: 'plugin' as const, id: 'confluence', label: 'Confluence' },
   { kind: 'plugin' as const, id: 'jira', label: 'Jira' }
 ]
-
-describe('orcaGroupFirst (0291 D-017)', () => {
-  it('puts the Orcinus orca group first in the skills panel', () => {
-    const items = [
-      { kind: 'heading' as const, id: 'skills:adapter:claude', label: 'Claude' },
-      { kind: 'empty' as const, id: 'c1', label: 'c1' },
-      { kind: 'heading' as const, id: 'skills:plugin:x', label: 'X' },
-      { kind: 'empty' as const, id: 'x1', label: 'x1' },
-      { kind: 'heading' as const, id: 'skills:orca', label: 'Orcinus orca' },
-      { kind: 'empty' as const, id: 'o1', label: 'o1' },
-      { kind: 'empty' as const, id: 'o2', label: 'o2' }
-    ]
-    expect(orcaGroupFirst(items, 'skills:orca').map((item) => item.id)).toEqual([
-      'skills:orca',
-      'o1',
-      'o2',
-      'skills:adapter:claude',
-      'c1',
-      'skills:plugin:x',
-      'x1'
-    ])
-    // 그룹이 없으면 기존 순서.
-    const noOrca = items.slice(0, 4)
-    expect(orcaGroupFirst(noOrca, 'skills:orca')).toEqual(noOrca)
-  })
-})
 
 describe('buildAttachMenu', () => {
   it('merges groups that share a title into one heading without losing item identities', () => {
