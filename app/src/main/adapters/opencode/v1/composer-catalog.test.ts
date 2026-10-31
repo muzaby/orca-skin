@@ -1,6 +1,6 @@
 import { createOpencodeClient } from '@opencode-ai/sdk/v2/client'
 import { expect, it, vi } from 'vitest'
-import { openCodeComposerCatalog } from './composer-catalog'
+import { openCodeComposerAgents, openCodeComposerModels } from './composer-catalog'
 import { jsonResponse } from './adapter.testfixture'
 
 it('reads plugin-resolved primary agents and variants from the live SDK without leaking options', async () => {
@@ -40,7 +40,10 @@ it('reads plugin-resolved primary agents and variants from the live SDK without 
           })
     }
   })
-  expect(await openCodeComposerCatalog(client, 'C:/native-project')).toEqual({
+  expect({
+    agents: await openCodeComposerAgents(client, 'C:/native-project'),
+    models: await openCodeComposerModels(client, 'C:/native-project')
+  }).toEqual({
     agents: [{ name: 'plugin-review', model: 'team/fast', variant: 'low' }, { name: 'both' }],
     models: [
       { id: 'team/fast', variants: ['low'] },
@@ -58,7 +61,10 @@ it('distinguishes a successful empty catalog from an unavailable endpoint', asyn
     jsonResponse(new URL(new Request(input).url).pathname === '/agent' ? [] : { all: [] })
   )
   const client = createOpencodeClient({ baseUrl: 'http://fixture.test', fetch })
-  expect(await openCodeComposerCatalog(client, '/repo')).toEqual({ agents: [], models: [] })
+  expect({
+    agents: await openCodeComposerAgents(client, '/repo'),
+    models: await openCodeComposerModels(client, '/repo')
+  }).toEqual({ agents: [], models: [] })
   fetch.mockRejectedValueOnce(new Error('offline'))
-  await expect(openCodeComposerCatalog(client, '/repo')).rejects.toThrow()
+  await expect(openCodeComposerAgents(client, '/repo')).rejects.toThrow()
 })

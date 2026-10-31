@@ -295,13 +295,6 @@ export const UpdateStateSchema = z.object({
   lastError: z.string().min(1).optional(),
   checkedAt: z.number().int().nonnegative().optional()
 })
-export const UpdateCheckResultSchema = z.object({
-  ok: z.boolean(),
-  state: UpdateStateSchema,
-  reason: z
-    .enum(['feed-not-configured', 'check-failed', 'not-available', 'download-failed'])
-    .optional()
-})
 export const UpdateInstallResultSchema = z.object({
   ok: z.boolean(),
   reason: z.enum(['not-ready', 'not-idle', 'internal-error']).optional(),
@@ -747,8 +740,6 @@ const SchedulerSettingsSchema = z
     updateCheck: SchedulerUpdateCheckSettingsSchema
   })
   .prefault({})
-
-export const DEFAULT_SCHEDULER_SETTINGS = SchedulerSettingsSchema.parse({})
 
 const HarnessPreferencesSchema = z.object({
   instructions: z.string().default(''),

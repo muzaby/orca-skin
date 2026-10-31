@@ -52,7 +52,7 @@ src/renderer/
     │
     ├── features/                    ✅ 도메인 모듈 — 자기 레이어 내부만 의존. cross-feature import 금지.
     │                                #   (목록은 디렉토리가 진실, 개수는 ../../generated/inventory.md)
-    │   ├── backend/                 # BackendProvider, useBackend, BackendStatus, InstallerDialog, AuthExpiredModal
+    │   ├── backend/                 # BackendProvider, useBackend, InstallerDialog, AuthExpiredModal
     │   ├── chat/                    # ChatProvider, chat store(Zustand)+chatReducer, useSkillAutocomplete, useMentionAutocomplete,
     │   │                            #   ChatTile, ChatTitleBar(폴더 아이콘→제목+인라인 rename), Composer, ChatView, PlanTile,
     │   │                            #   ApprovalCard, AskUserQuestionCard, StatusLine(0093 에서 shared/ui 로부터 이동),

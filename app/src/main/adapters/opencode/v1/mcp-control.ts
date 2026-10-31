@@ -62,10 +62,6 @@ export class OpenCodeMcpControl {
     void this.activation.catch(() => undefined)
     void this.activation.then(() => this.reconcileChoices()).catch(() => undefined)
   }
-  async prepare(): Promise<void> {
-    this.activate()
-    await this.activation
-  }
   observeActivity(active: () => boolean): () => void {
     this.active.add(active)
     return () => this.active.delete(active)

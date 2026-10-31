@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import type { OpencodeClient } from '@opencode-ai/sdk/v2/client'
 import {
   openCodeNativeCommands,
-  openCodeNativeResources,
+  openCodeNativeMcp,
+  openCodeNativePlugins,
   openCodeNativeMcp
 } from './native-resources'
 import { createOpencodeClient } from '@opencode-ai/sdk/v2/client'
@@ -149,10 +150,11 @@ describe('OpenCode native resources', () => {
         provider: { secret: 'key' }
       }
     }))
-    const items = await openCodeNativeResources(
-      { mcp: { status }, config: { get } } as unknown as OpencodeClient,
-      'C:/session-B'
-    )
+    const client = { mcp: { status }, config: { get } } as unknown as OpencodeClient
+    const items = [
+      ...(await openCodeNativeMcp(client, 'C:/session-B')),
+      ...(await openCodeNativePlugins(client, 'C:/session-B'))
+    ]
     expect(status).toHaveBeenCalledExactlyOnceWith(
       { directory: 'C:/session-B' },
       { throwOnError: false, signal: undefined }
@@ -179,8 +181,8 @@ describe('OpenCode native resources', () => {
       mcp: { status: vi.fn().mockRejectedValue(new Error('offline')) },
       config: { get: vi.fn().mockResolvedValue({ data: {} }) }
     }
-    await expect(
-      openCodeNativeResources(client as unknown as OpencodeClient, '/repo')
-    ).rejects.toThrow('offline')
+    await expect(openCodeNativeMcp(client as unknown as OpencodeClient, '/repo')).rejects.toThrow(
+      'offline'
+    )
   })
 })

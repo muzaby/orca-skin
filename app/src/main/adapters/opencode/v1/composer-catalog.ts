@@ -44,15 +44,3 @@ export async function openCodeComposerModels(
     }))
   )
 }
-
-export async function openCodeComposerCatalog(
-  client: OpencodeClient,
-  directory: string,
-  signal?: AbortSignal
-): Promise<NativeComposerCatalog> {
-  const [agents, models] = await Promise.all([
-    openCodeComposerAgents(client, directory, signal),
-    openCodeComposerModels(client, directory, signal)
-  ])
-  return { agents, models }
-}

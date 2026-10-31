@@ -7,7 +7,7 @@ export interface AgentSessionPolicy {
 }
 
 // 기존 세션 능력의 순수 정의. busy·소유권·경로 검증은 Main 경계가 강제한다.
-export const agentSessionPolicy = {
+const agentSessionPolicy = {
   work: {
     allowDirectoryUpdates: true,
     directoryIdentity: 'windows',

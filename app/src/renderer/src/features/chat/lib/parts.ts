@@ -488,13 +488,6 @@ export function partsErrors(parts: AppMessagePart[]): unknown[] {
   return errs
 }
 
-// structured_output 파트들의 value.
-export function partsStructured(parts: AppMessagePart[]): unknown[] {
-  const out: unknown[] = []
-  for (const p of parts) if (p.type === 'structured_output') out.push(p.value)
-  return out
-}
-
 // 콘텐츠 순서를 보존한 렌더 세그먼트 — parts 를 타입별로 뭉치지 않고,
 // 만나는 순서대로 "연속 동종"을 묶어 분절한다(메시지 내부 "텍스트 → 도구 → 텍스트" 보존).
 export type MessageSegment =

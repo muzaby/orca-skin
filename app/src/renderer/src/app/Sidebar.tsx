@@ -18,7 +18,6 @@ import { SIDEBAR_NAV } from './navItems'
 // 일반 useDragResize 훅이 아닌 이 파일에 둔다.
 export const SIDEBAR_MIN_WIDTH = 180
 export const SIDEBAR_MAX_WIDTH = 480
-export const SIDEBAR_DEFAULT_WIDTH = 248
 
 export interface SidebarProps {
   // '프로젝트' 슬롯 — 경로 프로젝트와 기존 프로젝트를 모두 나열한다.
@@ -26,7 +25,7 @@ export interface SidebarProps {
   // '고정됨' 슬롯 — features/sessions 의 PinnedSection.
   pinnedSlot: ReactNode
   sessionsSlot: ReactNode
-  // footer 슬롯 — features/backend 의 BackendStatus.
+  // footer 슬롯.
   footerSlot: ReactNode
 }
 

@@ -71,18 +71,6 @@ function pluginName(source: string): string {
   return source
 }
 
-export async function openCodeNativeResources(
-  client: OpencodeClient,
-  directory: string,
-  env: NodeJS.ProcessEnv = process.env
-): Promise<NativeResource[]> {
-  const [servers, plugins] = await Promise.all([
-    openCodeNativeMcp(client, directory),
-    openCodeNativePlugins(client, directory, env)
-  ])
-  return [...servers, ...plugins]
-}
-
 export async function openCodeNativeMcp(
   client: OpencodeClient,
   directory: string,

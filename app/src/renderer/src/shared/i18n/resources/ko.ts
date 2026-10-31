@@ -453,7 +453,6 @@ export const ko = {
         '불러올 OpenAI 호환 공급자가 없습니다. opencode.json의 provider 설정을 확인하세요.'
     },
     form: {
-      harness: '하네스',
       openCodeHint: `OpenCode 기본 설정 JSON입니다. <c>provider</c>에 모델 공급자와 인증을 구성하세요. ${PRODUCT_DISPLAY_NAME}가 별도 로컬 서버를 자동 관리합니다.`,
       titleEdit: '엔진 설정 편집',
       titleAdd: '엔진 추가',
@@ -485,7 +484,6 @@ export const ko = {
     noAgents: '에이전트 없음',
     agent: '에이전트',
     variant: '추론 수준',
-    defaultAgent: '기본 에이전트',
     defaultVariant: '기본',
     promptPlaceholder: 'OpenCode에 작업을 요청하세요.'
   },
@@ -636,27 +634,19 @@ export const ko = {
         '응답 중이거나 작업이 진행 중인 Claude 세션이 {{count}}개 있습니다. 플러그인 변경을 적용하려면 실행 중인 Claude 세션을 모두 종료합니다. 진행 중인 응답과 백그라운드 작업은 중단됩니다.',
       claudeCloseConfirm: '변경',
       retry: '다시 시도',
-      openError: '플러그인 설치 폴더를 열 수 없습니다. 설치 상태를 확인해 주세요.',
-      stale: '이전에 불러온 목록입니다.',
-      controlError: '변경하지 못했습니다. 목록을 확인한 후 다시 시도해 주세요.',
       useMcp: '{{name}} MCP 도구를 사용해 ',
       configured: '설정에서 활성화',
       installed: '설치됨',
       error: '목록을 갱신하지 못했습니다. 메뉴를 다시 열어 주세요.',
-      disconnected: '실행 중인 하네스 연결 없음',
       connected: '연결됨',
-      empty: '연결된 항목 없음',
       enabled: '활성화',
       disabled: '비활성화',
       failed: '연결 실패',
       'needs-auth': '인증 필요',
       pending: '연결 중',
-      unsupported: '프로젝트별 제어 미지원'
     },
     opencode: {
       panel: {
-        title: '세션 정보',
-        menu: '세션 패널 메뉴',
         sources: '소스',
         showAll: '모두 보기',
         agents: '하위 에이전트',
@@ -679,9 +669,6 @@ export const ko = {
         noProcesses: '기록된 셸 실행이 없습니다.',
         noOutput: '수신한 출력이 없습니다.',
         truncated: '출력이 길어 마지막 64K 문자만 표시합니다.',
-        back: '뒤로',
-        expand: '패널 확대',
-        collapse: '패널 축소',
         unavailable: '이 항목의 기록을 찾을 수 없습니다.'
       },
       back: '뒤로',
@@ -709,7 +696,6 @@ export const ko = {
       },
       explorationDone: '탐색 완료',
       explorationRunning: '탐색 중',
-      todosEmpty: '아직 기록된 할 일이 없습니다'
     },
     agent: {
       choose: '작업 종류 선택',

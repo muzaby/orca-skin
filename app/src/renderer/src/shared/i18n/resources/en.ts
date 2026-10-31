@@ -449,7 +449,6 @@ export const en: typeof ko = {
         'No OpenAI-compatible provider to import. Check the provider configuration in opencode.json.'
     },
     form: {
-      harness: 'Harness',
       openCodeHint: `Native OpenCode configuration JSON. Configure model providers and authentication under <c>provider</c>. ${PRODUCT_DISPLAY_NAME} manages a separate local server automatically.`,
       titleEdit: 'Edit engine settings',
       titleAdd: 'Add engine',
@@ -481,7 +480,6 @@ export const en: typeof ko = {
     noAgents: 'No agents',
     agent: 'Agent',
     variant: 'Variant',
-    defaultAgent: 'Default agent',
     defaultVariant: 'Default',
     promptPlaceholder: 'Ask OpenCode to work on something.'
   },
@@ -632,27 +630,19 @@ export const en: typeof ko = {
         '{{count}} Claude sessions are responding or running work. Applying this plugin change closes every running Claude session, and responses and background work in progress will stop.',
       claudeCloseConfirm: 'Change',
       retry: 'Retry',
-      openError: 'Could not open the plugin folder. Check its installation.',
-      stale: 'Showing previously loaded resources.',
-      controlError: 'The change failed. Check the resources and try again.',
       useMcp: 'Use the {{name}} MCP tools to ',
       configured: 'Enabled in configuration',
       installed: 'Installed',
       error: 'Unable to refresh resources. Reopen the menu to try again.',
-      disconnected: 'No running harness connection',
       connected: 'Connected',
-      empty: 'No connected items',
       enabled: 'Enabled',
       disabled: 'Disabled',
       failed: 'Connection failed',
       'needs-auth': 'Authentication required',
       pending: 'Connecting',
-      unsupported: 'Project controls unavailable'
     },
     opencode: {
       panel: {
-        title: 'Session details',
-        menu: 'Session panel menu',
         sources: 'Sources',
         showAll: 'Show all',
         agents: 'Subagents',
@@ -675,9 +665,6 @@ export const en: typeof ko = {
         noProcesses: 'No recorded shell executions.',
         noOutput: 'No output received.',
         truncated: 'Showing the last 64K characters of output.',
-        back: 'Back',
-        expand: 'Expand panel',
-        collapse: 'Collapse panel',
         unavailable: 'This record is unavailable.'
       },
       back: 'Back',
@@ -705,7 +692,6 @@ export const en: typeof ko = {
       },
       explorationDone: 'Exploration complete',
       explorationRunning: 'Exploring',
-      todosEmpty: 'No todos recorded yet'
     },
     agent: {
       choose: 'Choose a mode',
