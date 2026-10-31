@@ -21,6 +21,7 @@ import {
   type ProjectResourceTarget,
   type ResourceRequest
 } from './project-resource-sync'
+import { sameSessionBinding } from './session-binding'
 // Bootstrap — main 측 컴포지션 루트(app 레이어). 의존성 생성 + 부팅 시퀀스 + 핸들러 등록 위임만
 // 담당한다. 도메인 핸들러는 app/handlers/, chat 턴 셋업은 app/chat-turn.ts, 턴 파이프라인 협력자는
 // features/{chat,history,approvals,sessions,usage} 참조 (handoff 0062 수직 슬라이스 재구성).
@@ -202,6 +203,7 @@ export class Bootstrap {
   private readonly registry = createAdapterRegistry({
     managedMcp: {
       snapshot: () => this.managedMcp?.source.snapshot(),
+      peek: () => this.managedMcp?.source.peek(),
       acquire: (snapshot) => {
         if (!this.managedMcp) throw new Error('MCP source unavailable')
         return this.managedMcp.mcpBridge.acquire(snapshot)
@@ -1150,12 +1152,7 @@ export class Bootstrap {
           this.extensionChoices.global(session.backend)
         )
         const current = ctx.db.getSessionById(sessionId)
-        if (
-          !current ||
-          current.backend !== session.backend ||
-          current.cwd !== session.cwd ||
-          current.project_id !== session.project_id
-        )
+        if (!sameSessionBinding(current, session))
           throw new Error('대화가 바뀌었습니다. 메뉴를 다시 열어 주세요.')
         return items
       },
@@ -1167,12 +1164,7 @@ export class Bootstrap {
           this.extensionChoices.global(session.backend)
         )
         const current = ctx.db.getSessionById(sessionId)
-        if (
-          !current ||
-          current.backend !== session.backend ||
-          current.cwd !== session.cwd ||
-          current.project_id !== session.project_id
-        )
+        if (!sameSessionBinding(current, session))
           throw new Error('대화가 바뀌었습니다. 메뉴를 다시 열어 주세요.')
         return commands
       },

@@ -1,8 +1,8 @@
-import { expect, it, vi } from 'vitest'
 import type { Event } from '@opencode-ai/sdk/v2/client'
-import type { OpenCodeClientLease } from './session-context'
-import { openCodeChannel } from './channel'
+import { expect, it, vi } from 'vitest'
 import { openCodeEvent as event } from './adapter.testfixture'
+import { openCodeChannel } from './channel'
+import type { OpenCodeClientLease } from './session-context'
 
 vi.mock('../../../infra/error-report', () => ({ reportError: vi.fn() }))
 
@@ -23,7 +23,8 @@ it('fences a rejected warm prompt before a queued event can escape the submissio
     client: { session: { promptAsync, abort: vi.fn(async () => ({})) } },
     prepare: async () => undefined,
     commands: async () => [],
-    composer: async () => ({ agents: [], models: [] }),
+    agents: async () => [],
+    models: async () => [],
     events: () => events
   } as unknown as OpenCodeClientLease
   const live = openCodeChannel(

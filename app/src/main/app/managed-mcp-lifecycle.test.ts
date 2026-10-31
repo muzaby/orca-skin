@@ -118,6 +118,7 @@ it('shares generations and releases only owned resources', async () => {
   }
   const adapter = new OpenCodeAdapter(server, fetchImpl, undefined, undefined, undefined, {
     snapshot: () => managed.source.snapshot(),
+    peek: () => managed.source.peek(),
     acquire: (snapshot) => managed.mcpBridge.acquire(snapshot)
   })
   const env = { XDG_CONFIG_HOME: 'C:/orca-managed-mcp-lifecycle-empty' }
@@ -227,6 +228,7 @@ it('checks native identity collisions in each actual adapter environment before 
     undefined,
     {
       snapshot: managed.source.snapshot,
+      peek: managed.source.peek,
       acquire: (snapshot) => managed.mcpBridge.acquire(snapshot)
     }
   )

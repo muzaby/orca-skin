@@ -1,15 +1,15 @@
-import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
+import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { z } from 'zod'
-import { getLogger } from '../../../../infra/log/registry'
 import type {
   ManagedMcpBridgeLease,
   ManagedMcpSnapshot,
   ManagedMcpSource
 } from '../../../../adapters/common/managed-mcp'
+import { getLogger } from '../../../../infra/log/registry'
 
 const resultSchema = z
   .object({
@@ -82,7 +82,7 @@ export class ManagedMcpBridge {
     let host = ''
     const authorized = (id: string): boolean => {
       const original = snapshot.plugins.get(id)
-      const current = this.source.snapshot().plugins.get(id)
+      const current = this.source.peek().plugins.get(id)
       return (
         !!original &&
         !!current &&

@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest'
-import { createManagedMcpSource } from './managed-source'
-import type { OrcaMcpConfig } from '../../../../adapters/common/mcp-config'
 import type { ManagedMcpPlugin } from '../../../../adapters/common/managed-mcp'
+import type { OrcaMcpConfig } from '../../../../adapters/common/mcp-config'
+import { createManagedMcpSource } from './managed-source'
 
 it('separates definitions and desired choices through disable edit resolution rotation and revocation', () => {
   let definitions: OrcaMcpConfig = {
@@ -88,4 +88,25 @@ it('separates definitions and desired choices through disable edit resolution ro
   cloned.desired!.first = true
   expect(source.snapshot().definitions!.first).toEqual({ command: 'edited' })
   expect(source.snapshot().desired!.first).toBe(false)
+})
+
+it('peeks at membership without cloning and preserves defensive snapshots', () => {
+  const source = createManagedMcpSource({
+    users: () => ({ docs: { command: 'docs' } }),
+    resolver: () => () => undefined,
+    plugins: () => []
+  })
+  source.refresh()
+  const clone = vi.spyOn(globalThis, 'structuredClone')
+  try {
+    const first = source.peek()
+    expect(source.peek()).toBe(first)
+    expect(first.users).toEqual({ docs: { command: 'docs' } })
+    expect(clone).not.toHaveBeenCalled()
+    const copy = source.snapshot()
+    copy.users.docs = { command: 'changed' }
+    expect(source.peek().users.docs).toEqual({ command: 'docs' })
+  } finally {
+    clone.mockRestore()
+  }
 })

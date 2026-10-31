@@ -1,17 +1,17 @@
 import { expect, it, vi } from 'vitest'
+import type { Settings } from '../../../shared/ipc'
+import type { ManagedMcpSnapshot, ManagedMcpSource } from '../../adapters/common/managed-mcp'
+import type { OrcaMcpConfig } from '../../adapters/common/mcp-config'
+import { OpenCodeAdapter } from '../../adapters/opencode/v1/adapter'
+import type { RuntimeSessionAdapter } from '../../contracts/ports'
 import { ExtensionBuilder } from '../../features/extensions/common/builder'
 import { createManagedMcpSource } from '../../features/extensions/common/mcp/managed-source'
-import { SessionRuntime } from '../../features/sessions/session-runtime'
-import { acquireTurnRuntime } from './runtime-entry'
-import { prepareAutomaticContinuation } from '../chat-turn-continuation'
 import { decideRespawn } from '../../features/sessions/respawn-policy'
-import { respawnInputs } from './respawn-inputs'
+import { SessionRuntime } from '../../features/sessions/session-runtime'
 import type { DbQueries } from '../../infra/db'
-import type { Settings } from '../../../shared/ipc'
-import type { RuntimeSessionAdapter } from '../../contracts/ports'
-import type { OrcaMcpConfig } from '../../adapters/common/mcp-config'
-import type { ManagedMcpSnapshot, ManagedMcpSource } from '../../adapters/common/managed-mcp'
-import { OpenCodeAdapter } from '../../adapters/opencode/v1/adapter'
+import { prepareAutomaticContinuation } from '../chat-turn-continuation'
+import { respawnInputs } from './respawn-inputs'
+import { acquireTurnRuntime } from './runtime-entry'
 
 it.each(['opencode', 'claude'] as const)(
   'uses the %s restart policy through both turn entries and resets its recorded revision',
@@ -25,6 +25,7 @@ it.each(['opencode', 'claude'] as const)(
     }
     const source: ManagedMcpSource = {
       snapshot: () => snapshot,
+      peek: () => snapshot,
       refresh: () => {},
       subscribe: () => () => {}
     }

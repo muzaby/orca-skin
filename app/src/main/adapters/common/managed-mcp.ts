@@ -24,6 +24,7 @@ export interface ManagedMcpSnapshot {
   plugins: ReadonlyMap<string, ManagedMcpPlugin>
 }
 export interface ManagedMcpSource {
+  peek(): Readonly<ManagedMcpSnapshot>
   snapshot(): ManagedMcpSnapshot
   refresh(): void
   subscribe(listener: (revision: number, kind?: 'definitions' | 'connections') => void): () => void
@@ -33,6 +34,7 @@ export interface ManagedMcpBridgeLease {
   release(): Promise<void>
 }
 export interface ManagedMcpRuntime {
+  peek(): Readonly<ManagedMcpSnapshot> | undefined
   snapshot(): ManagedMcpSnapshot | undefined
   acquire(snapshot: ManagedMcpSnapshot): Promise<ManagedMcpBridgeLease>
 }

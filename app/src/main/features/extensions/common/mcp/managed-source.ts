@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto'
-import type { Resolver } from '../../../../infra/vars'
-import type { OrcaMcpConfig } from '../../../../adapters/common/mcp-config'
 import type {
   ManagedMcpPlugin,
   ManagedMcpSnapshot,
   ManagedMcpSource
 } from '../../../../adapters/common/managed-mcp'
+import type { OrcaMcpConfig } from '../../../../adapters/common/mcp-config'
+import type { Resolver } from '../../../../infra/vars'
 import { resolveMcpConfig } from './resolve'
 
 export function createManagedMcpSource(input: {
@@ -74,6 +74,7 @@ export function createManagedMcpSource(input: {
   }
   return {
     refresh,
+    peek: () => current,
     snapshot: () => ({
       ...current,
       users: structuredClone(current.users),

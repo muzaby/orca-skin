@@ -5,6 +5,7 @@ import { resolveTurnProvider } from './chat-turn/resolve-turn'
 import { ComposerCatalogError } from './composer-catalog-error'
 import type { ComposerPreparationTarget } from './composer-preparation-service'
 import type { RouterContext } from './context'
+import { sameSessionBinding } from './session-binding'
 
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical)
@@ -48,13 +49,7 @@ export async function resolveComposerPreparation(
   signal.throwIfAborted()
   if (session) {
     const current = ctx.db.getSessionById(session.id)
-    if (
-      !current ||
-      current.backend !== session.backend ||
-      current.agent_kind !== session.agent_kind ||
-      current.cwd !== session.cwd ||
-      current.project_id !== session.project_id
-    )
+    if (!sameSessionBinding(current, session) || current?.agent_kind !== session.agent_kind)
       throw new Error('Composer session changed')
   }
   const cwd = normalize(directory)

@@ -1,10 +1,12 @@
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { isRecord } from '../../../shared/obj'
+import { readJsonObjectSync } from '../../infra/config/json-file'
 import { claudeNativePaths } from './native-paths'
-import { pluginPathKey, claudeLocalSettingsRoot } from './project-path'
+import { claudeLocalSettingsRoot, pluginPathKey } from './project-path'
+const read = (file: string): Record<string, unknown> =>
+  readJsonObjectSync(file, () => new Error('프로젝트 확장 설정을 읽을 수 없습니다.'))
 
 const record = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {})
 const names = (value: unknown): string[] => {
@@ -12,16 +14,6 @@ const names = (value: unknown): string[] => {
   if (!Array.isArray(value) || !value.every((item) => typeof item === 'string'))
     throw new Error('프로젝트 확장 설정을 읽을 수 없습니다.')
   return [...value].sort()
-}
-function read(file: string): Record<string, unknown> {
-  try {
-    const value: unknown = JSON.parse(readFileSync(file, 'utf8').replace(/^\uFEFF/, ''))
-    if (!isRecord(value)) throw new Error('invalid object')
-    return value
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {}
-    throw new Error('프로젝트 확장 설정을 읽을 수 없습니다.')
-  }
 }
 export function claudeProjectSettingsFiles(
   cwd: string,

@@ -134,6 +134,7 @@ beforeEach(async () => {
   f = retentionTransport(
     {
       snapshot: managed.source.snapshot,
+      peek: managed.source.peek,
       acquire: (snapshot) => managed.mcpBridge.acquire(snapshot)
     },
     control
