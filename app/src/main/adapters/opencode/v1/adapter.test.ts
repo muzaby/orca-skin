@@ -741,6 +741,8 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
       const release = vi.fn()
       const adapter = new OpenCodeAdapter(
         {
+          retireAll: () => {},
+          listModels: async () => [],
           acquire: async () => ({ url: 'http://fixture.test', headers: {}, release }),
           installed: async () => ({ installed: true }),
           close: () => {}

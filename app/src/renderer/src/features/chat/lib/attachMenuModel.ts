@@ -1,16 +1,16 @@
 // 컴포저 '+' 메뉴 트리 — 출처 제목 아래 모든 스킬·MCP·플러그인을 직접 나열하는 순수 함수.
 // 자동완성의 검색 필터와 별도로 전체 catalog를 받는다.
-import type { SkillInfo } from '../../../../../shared/ipc'
 import type { ReactNode } from 'react'
-import type { CascadeItem } from '../../../shared/ui/cascadeMenuState'
-import { pluginMentionToken, type PluginMention } from './pluginMention'
-import type { NativeResourcesView } from '../hooks/useNativeResources'
-import type { NativeResource } from '../../../../../shared/native-resources'
 import {
-  sourceSkills,
   extensionSourceLabels,
-  harnessSourceTitle
+  harnessSourceTitle,
+  sourceSkills
 } from '../../../../../shared/extension-sources'
+import type { SkillInfo } from '../../../../../shared/ipc'
+import type { NativeResource } from '../../../../../shared/native-resources'
+import type { CascadeItem } from '../../../shared/ui/cascadeMenuState'
+import type { NativeResourcesView } from '../hooks/useNativeResources'
+import { pluginMentionToken, type PluginMention } from './pluginMention'
 
 export type AttachMenuAction =
   | { type: 'attach' }
@@ -42,19 +42,6 @@ export function attachMenuToken(action: AttachMenuAction): string | null {
 export function skillTooltip(skill: Pick<SkillInfo, 'description' | 'sourceLabel'>): string {
   const description = skill.description.trim()
   return description ? `${description}\n${skill.sourceLabel}` : skill.sourceLabel
-}
-
-// `Orcinus orca` 그룹(heading + 다음 heading 전까지의 항목)을 패널 맨 앞으로 옮긴다(0291 D-017 —
-// 플러그인 탭과 같은 규칙). 나머지 그룹의 상대 순서와 항목은 그대로다. 그룹이 없으면 입력 그대로.
-export function orcaGroupFirst<T>(
-  items: readonly CascadeItem<T>[],
-  headingId: string
-): CascadeItem<T>[] {
-  const start = items.findIndex((item) => item.kind === 'heading' && item.id === headingId)
-  if (start <= 0) return [...items]
-  let end = start + 1
-  while (end < items.length && items[end]!.kind !== 'heading') end++
-  return [...items.slice(start, end), ...items.slice(0, start), ...items.slice(end)]
 }
 
 export function buildAttachMenu(input: {
@@ -103,15 +90,21 @@ export function buildAttachMenu(input: {
   }
   // 제목별 그룹 — 처음 나온 순서와 각 항목의 출처 식별자를 지킨다.
   const bySource = new Map<string, { label: string; skills: SkillInfo[] }>()
+  const skillGroups: Array<{ label: string; skills: SkillInfo[] }> = []
   for (const skill of skills) {
     const group = bySource.get(skill.sourceLabel)
     if (group) group.skills.push(skill)
-    else bySource.set(skill.sourceLabel, { label: skill.sourceLabel, skills: [skill] })
+    else {
+      const next = { label: skill.sourceLabel, skills: [skill] }
+      bySource.set(skill.sourceLabel, next)
+      if (skill.sourceId === 'orca') skillGroups.unshift(next)
+      else skillGroups.push(next)
+    }
   }
   const skillItems: CascadeItem<AttachMenuAction>[] =
     bySource.size === 0
       ? [{ kind: 'empty', id: 'skills:empty', label: labels.noSkills }]
-      : [...bySource.values()].flatMap((group): CascadeItem<AttachMenuAction>[] => [
+      : skillGroups.flatMap((group): CascadeItem<AttachMenuAction>[] => [
           {
             kind: 'heading',
             id: `skills:${group.skills[0].sourceId}`,
@@ -186,7 +179,7 @@ export function buildAttachMenu(input: {
     if (plugins.length === 0 && !(includeManagedMcp && input.native.orcaItems?.length))
       pluginItems.length = 0
     if (input.native.items.length)
-      pluginItems.unshift(
+      pluginItems.push(
         {
           kind: 'heading',
           id: 'native',
@@ -196,12 +189,6 @@ export function buildAttachMenu(input: {
         ...input.native.items
       )
   }
-  const orderedSkills = orcaGroupFirst(skillItems, 'skills:orca')
-  skillItems.length = 0
-  skillItems.push(...orderedSkills)
-  const orderedPlugins = orcaGroupFirst(pluginItems, 'plugins:orca')
-  pluginItems.length = 0
-  pluginItems.push(...orderedPlugins)
   if (!skillItems.length)
     skillItems.push({ kind: 'empty', id: 'skills:empty', label: labels.noSkills })
   if (!pluginItems.length)

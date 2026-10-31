@@ -17,6 +17,7 @@
 // `AuthChange` 의 `credentialChanged` 는 **소비자가 무효화 여부를 판단하는 유일한 근거**다.
 // 여기서 `cause` → boolean 매핑을 한 곳에 고정한다 — 소비자마다 다시 판정하면 규칙이 갈린다.
 
+import type { HostHarnessPort } from '../../adapters/common/harness-config'
 import type {
   AuthChange,
   AuthDefinition,
@@ -35,23 +36,22 @@ import type {
   LoginFreePluginAuth,
   PluginAuth
 } from '../../contracts/auth'
-import { AuthenticatedRequester } from './authenticated-request'
-import type { AuthenticatedRequesterDeps } from './authenticated-request'
-import { LoginService } from './login'
-import type { OAuthAuthenticator, SessionAuthenticator } from './login'
-import { AuthRegistry } from './registry'
-import type { AuthRejection } from './registry'
-import { AuthStore } from './store'
-import type { GrantPersistencePort } from './store'
-import { createAuthSecretReader } from './secret-access'
-import type { Vault } from '../../infra/vault'
-import type { BrowserSessionPort } from './specs/browser-session'
-import { registerDeclaredSessions } from './session-policies'
 import { errorMessage } from '../../infra/errors'
 import { createSender } from '../../infra/net/transport'
+import type { Vault } from '../../infra/vault'
+import type { AuthenticatedRequesterDeps } from './authenticated-request'
+import { AuthenticatedRequester } from './authenticated-request'
+import type { OAuthAuthenticator, SessionAuthenticator } from './login'
+import { LoginService } from './login'
 import { alwaysConnectedSnapshot, createLoginFreePluginAuth } from './login-free'
 import { createLoginFreeConnections } from './login-free-connection'
-import type { HostHarnessPort } from '../../adapters/common/harness-config'
+import type { AuthRejection } from './registry'
+import { AuthRegistry } from './registry'
+import { createAuthSecretReader } from './secret-access'
+import { registerDeclaredSessions } from './session-policies'
+import type { BrowserSessionPort } from './specs/browser-session'
+import type { GrantPersistencePort } from './store'
+import { AuthStore } from './store'
 
 // **실행 credential 이 바뀐 원인만 true 다.** `verified` 는 "기록이 살아 있음을 확인했다" 는
 // 뜻이지 값이 달라졌다는 뜻이 아니다 — 이것을 true 로 두면 부팅 probe 한 번에 모든 Harness
@@ -251,6 +251,8 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
     }
   }
 
+  const loginFreeSnapshot = (authId: AuthId): AuthSnapshot =>
+    connections.has(authId) ? connections.snapshot(authId) : alwaysConnectedSnapshot(authId)
   const loginFreeSender = createSender(deps.fetchImpl)
   const bindLoginFreePlugin = (authId: AuthId): LoginFreePluginAuth => {
     const definition = registry.getLoginFree(authId)
@@ -263,7 +265,7 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
     return createLoginFreePluginAuth(definition, {
       sender: loginFreeSender,
       ...(deps.logger ? { logger: deps.logger } : {}),
-      ...(connections.has(authId) ? { connection: () => connections.snapshot(authId) } : {})
+      snapshot: () => loginFreeSnapshot(authId)
     })
   }
 
@@ -312,16 +314,11 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
     // 두 체계를 같은 형상으로 읽는다(0291). 미등록 id 는 자격증명 store 가 none 으로 답한다.
     snapshot(authId) {
       if (registry.getLoginFree(authId)) {
-        return connections.has(authId)
-          ? connections.snapshot(authId)
-          : alwaysConnectedSnapshot(authId)
+        return loginFreeSnapshot(authId)
       }
       return snapshot(authId)
     },
     async connect(authId) {
-      if (!connections.has(authId)) {
-        throw new Error(`login-free connect is not declared: ${authId}`)
-      }
       return connections.connect(authId)
     },
     connectAll: () => connections.connectAll(),

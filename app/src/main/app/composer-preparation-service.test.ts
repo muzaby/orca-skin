@@ -40,6 +40,8 @@ it('shares targets across catalog resources and warmup through the production as
   }
   const adapter = new OpenCodeAdapter(
     {
+      retireAll: () => {},
+      listModels: async () => [],
       acquire: vi.fn(async () => ({ url: 'http://owned.test', headers: {}, release: vi.fn() })),
       close: vi.fn(),
       installed: vi.fn()

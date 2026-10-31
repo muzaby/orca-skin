@@ -38,6 +38,8 @@ it('shares generations and releases only owned resources', async () => {
   let fail = false
   const streams = new Map<string, ReadableStreamDefaultController<Uint8Array>>()
   const server: OpenCodeServer = {
+    retireAll: () => {},
+    listModels: async () => [],
     acquire: async (config = {}, env) => {
       inputs.push({ config, env })
       if (fail) throw new Error('fixture acquisition failed')
@@ -221,7 +223,13 @@ it('checks native identity collisions in each actual adapter environment before 
     release: vi.fn()
   }))
   const adapter = new OpenCodeAdapter(
-    { acquire, installed: vi.fn(), close: vi.fn() },
+    {
+      retireAll: () => {},
+      listModels: async () => [],
+      acquire,
+      installed: vi.fn(),
+      close: vi.fn()
+    },
     vi.fn(),
     undefined,
     undefined,

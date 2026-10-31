@@ -1,22 +1,12 @@
 import { createHash } from 'node:crypto'
 import { isAbsolute, normalize } from 'node:path'
 import type { ComposerCatalogScope } from '../../shared/composer-catalog'
+import { canonicalJson } from '../../shared/obj'
 import { resolveTurnProvider } from './chat-turn/resolve-turn'
 import { ComposerCatalogError } from './composer-catalog-error'
 import type { ComposerPreparationTarget } from './composer-preparation-service'
 import type { RouterContext } from './context'
 import { sameSessionBinding } from './session-binding'
-
-function canonical(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonical)
-  if (value && typeof value === 'object')
-    return Object.fromEntries(
-      Object.entries(value)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([key, entry]) => [key, canonical(entry)])
-    )
-  return value
-}
 
 export async function resolveComposerPreparation(
   ctx: RouterContext,
@@ -53,11 +43,11 @@ export async function resolveComposerPreparation(
       throw new Error('Composer session changed')
   }
   const cwd = normalize(directory)
-  const identity = JSON.stringify([
+  const identity = canonicalJson([
     scope.backend,
     process.platform === 'win32' ? cwd.toLowerCase() : cwd,
     scope.agentKind,
-    canonical(resolved.prepared)
+    resolved.prepared
   ])
   return {
     key: createHash('sha256').update(identity).digest('hex'),

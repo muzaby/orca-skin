@@ -1,3 +1,4 @@
+import { providerConnectionInfo } from '../connection-views'
 // 연결(Auth) IPC (0181 → 0188).
 //
 // `RouterContext` 가 아니라 `AuthRuntime`·`Gate`·view source 를 직접 받는다 — 창이
@@ -22,9 +23,9 @@ import {
   type ProviderPlatformState,
   type ProviderStepInfo
 } from '../../../shared/protocol'
-import { handle, handlePlain } from '../../infra/ipc/handle'
 import type { AuthRuntime } from '../../contracts/auth'
 import type { Gate } from '../../features/gate'
+import { handle, handlePlain } from '../../infra/ipc/handle'
 import { connectionList, connectionState, type ConnectionViewSource } from '../connection-views'
 
 export interface ConnectionHandlerDeps {
@@ -79,7 +80,7 @@ export function registerConnectionHandlers(deps: ConnectionHandlerDeps): void {
     'reject',
     async (req): Promise<ProviderConnectionInfo> => {
       const status = await auth.connect(req.providerId)
-      return { state: status.state, message: status.message ?? null }
+      return providerConnectionInfo(status)
     }
   )
   handle(CHANNELS.providerRevoke, ProviderRevokeRequestSchema, 'reject', (req): void => {

@@ -77,9 +77,6 @@ export class OpenCodeAdapter implements SessionAdapter {
     provider: string,
     options: { signal: AbortSignal; env?: Readonly<Record<string, string>> }
   ): Promise<HarnessListedModel[]> {
-    if (!this.servers.listModels) {
-      return Promise.reject(new Error('OpenCode 서버 관리자가 모델 목록 조회를 지원하지 않습니다.'))
-    }
     return this.servers.listModels(provider, options)
   }
   async *install(): AsyncIterable<{ step: string; error?: string; done?: boolean }> {
@@ -91,7 +88,7 @@ export class OpenCodeAdapter implements SessionAdapter {
   }
   extensionsChanged(): void {
     this.contexts.retireAll()
-    this.servers.retireAll?.()
+    this.servers.retireAll()
   }
 
   restartRevision(snapshot: ManagedMcpSnapshot | undefined): number | undefined {

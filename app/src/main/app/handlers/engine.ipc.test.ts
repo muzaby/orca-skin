@@ -1,20 +1,20 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHANNELS, type AgentEnvironment, type Backend } from '../../../shared/ipc'
-import { registerEngineHandlers } from './engine'
-import { registerMiscHandlers } from './misc'
-import { createHarnessSettingsService, parseHarnessRuntimeModels } from '../harnesses/registry'
+import { ClaudeAdapter } from '../../adapters/claude/adapter'
+import { OpenCodeAdapter } from '../../adapters/opencode/v1/adapter'
+import { createRuntimeModelCatalog } from '../../features/harnesses/common/runtime-catalog'
+import { createHarnessRuntimeConfigService } from '../../features/harnesses/common/runtime-config'
+import { orcaConfigDir } from '../../infra/config/paths'
 import {
   createRuntimeConfigAugmenters,
   RUNTIME_MODEL_CONTRIBUTIONS
 } from '../deployment/harness-runtime'
-import { createHarnessRuntimeConfigService } from '../../features/harnesses/common/runtime-config'
-import { createRuntimeModelCatalog } from '../../features/harnesses/common/runtime-catalog'
-import { ClaudeAdapter } from '../../adapters/claude/adapter'
-import { OpenCodeAdapter } from '../../adapters/opencode/v1/adapter'
-import { orcaConfigDir } from '../../infra/config/paths'
+import { createHarnessSettingsService, parseHarnessRuntimeModels } from '../harnesses/registry'
+import { registerEngineHandlers } from './engine'
+import { registerMiscHandlers } from './misc'
 
 const fixture = vi.hoisted(() => ({
   home: '',
@@ -91,7 +91,16 @@ beforeEach(() => {
     }
   })
   const claude = new ClaudeAdapter()
-  const opencode = new OpenCodeAdapter({ acquire, installed: vi.fn(), close: vi.fn() }, fetchImpl)
+  const opencode = new OpenCodeAdapter(
+    {
+      retireAll: () => {},
+      listModels: async () => [],
+      acquire,
+      installed: vi.fn(),
+      close: vi.fn()
+    },
+    fetchImpl
+  )
   registerEngineHandlers({
     deployExtensions: deploy,
     harnessSettings: settings,

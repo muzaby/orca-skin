@@ -1,5 +1,6 @@
 import type { OpencodeClient } from '@opencode-ai/sdk/v2/client'
 import type { NativeComposerCatalog } from '../../../../shared/native-resources'
+import { enabledVariantNames } from './model-variants'
 
 export async function openCodeComposerAgents(
   client: OpencodeClient,
@@ -38,9 +39,7 @@ export async function openCodeComposerModels(
   return providers.data.all.flatMap((provider) =>
     Object.values(provider.models).map((model) => ({
       id: `${provider.id}/${model.id}`,
-      variants: Object.entries(model.variants ?? {})
-        .filter(([, value]) => value.disabled !== true)
-        .map(([name]) => name)
+      variants: enabledVariantNames(model.variants)
     }))
   )
 }

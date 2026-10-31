@@ -2,8 +2,8 @@ import type { AppErrorTitle } from '../../../../../shared/app-error'
 // 영어 UI 카탈로그(0096). `typeof ko` 선언으로 ko 와의 키 패리티(누락/초과)를 컴파일 타임에
 // 강제한다 — 새 키는 항상 ko.ts 에 먼저 추가하고 여기 번역을 채운다.
 
-import type { ko } from './ko'
 import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../../../../shared/product'
+import type { ko } from './ko'
 
 export const en: typeof ko = {
   background: {
@@ -639,7 +639,7 @@ export const en: typeof ko = {
       disabled: 'Disabled',
       failed: 'Connection failed',
       'needs-auth': 'Authentication required',
-      pending: 'Connecting',
+      pending: 'Connecting'
     },
     opencode: {
       panel: {
@@ -691,7 +691,7 @@ export const en: typeof ko = {
         list: '{{count}} listed'
       },
       explorationDone: 'Exploration complete',
-      explorationRunning: 'Exploring',
+      explorationRunning: 'Exploring'
     },
     agent: {
       choose: 'Choose a mode',

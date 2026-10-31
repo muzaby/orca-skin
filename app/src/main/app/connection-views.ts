@@ -1,3 +1,5 @@
+import type { ProviderConnectionInfo } from '../../shared/ipc'
+import type { LoginFreeConnectionStatus } from '../contracts/auth'
 // 카탈로그 view 조립 (0188 — 구 `ProviderPlatform.list()`/`state()`).
 //
 // ── 왜 wire 를 그대로 두는가 ─────────────────────────────────────────────────
@@ -17,10 +19,10 @@
 // 읽어 **중복 선언하지 않는다**.
 
 import type { ProviderInfo, ProviderKind, ProviderPlatformState } from '../../shared/ipc'
+import type { ProviderCatalogPresentation } from '../../shared/provider-catalog'
 import type { AuthRuntime, BoundAuth } from '../contracts/auth'
 import type { Gate } from '../features/gate'
 import type { HarnessModelProviderKey } from '../features/harnesses/common/runtime-config'
-import type { ProviderCatalogPresentation } from '../../shared/provider-catalog'
 
 // 이 모듈은 **읽기만** 한다 — 선언 설명과 현재 단계. `AuthRuntime` 전체를 받으면 view 조립이
 // 인증을 시작하거나 해제할 수 있게 된다(0190).
@@ -81,10 +83,7 @@ export function connectionInfo(auth: AuthDescriber, source: ConnectionViewSource
     // 연결 선언 로그인 프리 행에만 싣는다(0291). renderer 는 키 존재로 연결 행을 판별한다.
     ...(snapshot.connection
       ? {
-          connection: {
-            state: snapshot.connection.state,
-            message: snapshot.connection.message ?? null
-          }
+          connection: providerConnectionInfo(snapshot.connection)
         }
       : {}),
     ...(source.catalog ? { catalog: source.catalog } : {})
@@ -128,4 +127,8 @@ export function duplicateConnectionAuthIds(
     seen.add(source.auth.authId)
   }
   return [...duplicates]
+}
+
+export function providerConnectionInfo(status: LoginFreeConnectionStatus): ProviderConnectionInfo {
+  return { state: status.state, message: status.message ?? null }
 }

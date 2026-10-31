@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { openCodeCatalog } from './catalog'
 import { OpenCodeAdapter } from './adapter'
+import { openCodeCatalog } from './catalog'
 
 describe('OpenCode catalog', () => {
   it('keeps provider-qualified model IDs, names, defaults and enabled variants', () => {
@@ -58,7 +58,16 @@ describe('OpenCode catalog', () => {
   it('rebuilds from only the engine document without starting a server or fetching global models', async () => {
     const acquire = vi.fn(),
       fetchImpl = vi.fn()
-    const adapter = new OpenCodeAdapter({ acquire, installed: vi.fn(), close: vi.fn() }, fetchImpl)
+    const adapter = new OpenCodeAdapter(
+      {
+        retireAll: () => {},
+        listModels: async () => [],
+        acquire,
+        installed: vi.fn(),
+        close: vi.fn()
+      },
+      fetchImpl
+    )
     const entry = { adapter: 'opencode', key: 'opencode-local', supported: true, models: [] }
     for (const id of ['first', 'second']) {
       const result = await adapter.catalog(

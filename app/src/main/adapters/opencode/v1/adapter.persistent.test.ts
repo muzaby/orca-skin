@@ -138,6 +138,8 @@ function fixture(overrides: Partial<TurnRequest> = {}): {
   }
   const adapter = new OpenCodeAdapter(
     {
+      retireAll: () => {},
+      listModels: async () => [],
       acquire: async () => ({ url: 'http://fixture.test', headers: {} }),
       installed: async () => ({ installed: true, version: '1.19.0' }),
       close: () => {}

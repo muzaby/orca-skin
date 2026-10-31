@@ -7,6 +7,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import type { ComposerCatalogLease, ComposerCatalogScope } from '../../shared/composer-catalog'
 import { CHANNELS } from '../../shared/ipc'
 import { OpenCodeAdapter } from '../adapters/opencode/v1/adapter'
+import { resolveComposerPreparation } from './composer-catalog'
 import { createComposerPreparation } from './composer-preparation'
 import type { RouterContext } from './context'
 const handlers = vi.hoisted(
@@ -23,6 +24,26 @@ vi.mock('../infra/config/orca-config', () => ({ appEnv: () => ({ PREVIEW_APP_ENV
 const cleanups: Array<() => void | Promise<void>> = []
 afterEach(async () => {
   for (const close of cleanups.splice(0).reverse()) await close()
+})
+
+it('shares preparation identity for reordered settings and changes it for different values', async () => {
+  const f = fixture()
+  const root = await mkdtemp(join(tmpdir(), 'orca-catalog-identity-'))
+  cleanups.push(() => rm(root, { recursive: true, force: true }))
+  const config = await f.resolve({ key: 'opencode-one', modelProviderId: 'one' })
+  const key = async (settings: Record<string, unknown>): Promise<string> => {
+    f.resolve.mockResolvedValue({ ...config, settings: { ...config.settings, settings } })
+    return (
+      await resolveComposerPreparation(
+        f.ctx,
+        { ...f.scope, cwd: root },
+        new AbortController().signal
+      )
+    ).key
+  }
+  const first = await key({ a: { b: 2, a: 1 }, z: ['ordered', 'array'] })
+  expect(await key({ z: ['ordered', 'array'], a: { a: 1, b: 2 } })).toBe(first)
+  expect(await key({ z: ['array', 'ordered'], a: { a: 1, b: 2 } })).not.toBe(first)
 })
 function fixture(): {
   preparation: ReturnType<typeof createComposerPreparation>
@@ -62,7 +83,16 @@ function fixture(): {
 } {
   const fetchImpl = vi.fn<typeof fetch>()
   const acquire = vi.fn(async () => ({ url: 'http://owned.test', headers: {}, release: vi.fn() }))
-  const adapter = new OpenCodeAdapter({ acquire, installed: vi.fn(), close: vi.fn() }, fetchImpl)
+  const adapter = new OpenCodeAdapter(
+    {
+      retireAll: () => {},
+      listModels: async () => [],
+      acquire,
+      installed: vi.fn(),
+      close: vi.fn()
+    },
+    fetchImpl
+  )
   const capture = vi.spyOn(adapter, 'prepareComposer').mockResolvedValue({
     generation: 'native-generation',
     signal: new AbortController().signal,

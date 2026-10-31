@@ -1,26 +1,16 @@
-import { createHash } from 'node:crypto'
 import type Database from 'better-sqlite3'
+import { createHash } from 'node:crypto'
 import type { BackgroundEvent, ProviderMessageEvent } from '../../../shared/background-task'
+import { canonicalJson } from '../../../shared/obj'
 
 type JournalEvent = BackgroundEvent | ProviderMessageEvent
-
-function canonical(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonical)
-  if (value !== null && typeof value === 'object')
-    return Object.fromEntries(
-      Object.keys(value)
-        .sort()
-        .map((key) => [key, canonical((value as Record<string, unknown>)[key])])
-    )
-  return value
-}
 
 // A UUID identifies delivery, not immutable content. Corrected payloads are retained.
 export function backgroundJournalKey(event: JournalEvent): string {
   const { source, ...payload } = event
   const identity = source.uuid ? { uuid: source.uuid } : { sequence: source.sequence }
   return createHash('sha256')
-    .update(JSON.stringify(canonical({ ...payload, identity, replay: source.replay })))
+    .update(canonicalJson({ ...payload, identity, replay: source.replay }))
     .digest('hex')
 }
 

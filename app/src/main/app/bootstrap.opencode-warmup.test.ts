@@ -1,11 +1,11 @@
-import { mkdtemp, mkdir, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import type { RouterContext } from './context'
-import type { AuthRuntime, AuthSecretReader, AuthChange } from '../contracts/auth'
-import type { ComposerPreparationService } from './composer-preparation-service'
 import type { SessionAdapter } from '../adapters/common/types'
+import type { AuthChange, AuthRuntime, AuthSecretReader } from '../contracts/auth'
+import type { ComposerPreparationService } from './composer-preparation-service'
+import type { RouterContext } from './context'
 
 const fixture = vi.hoisted(() => ({
   root: '',
@@ -116,9 +116,9 @@ vi.mock('./harnesses/registry', async (original) => ({
   })
 }))
 
-import { Bootstrap } from './bootstrap'
-import { BootReportRecorder } from './boot-report'
 import { OpenCodeAdapter } from '../adapters/opencode/v1/adapter'
+import { BootReportRecorder } from './boot-report'
+import { Bootstrap } from './bootstrap'
 import { createComposerPreparation } from './composer-preparation'
 
 const bootstraps: Bootstrap[] = []
@@ -153,6 +153,8 @@ beforeEach(async () => {
   }
   fixture.adapter = new OpenCodeAdapter(
     {
+      retireAll: () => {},
+      listModels: async () => [],
       acquire: async () => ({ url: 'http://boot.test', headers: {}, release: vi.fn() }),
       installed: async () => ({ installed: true }),
       close: vi.fn()

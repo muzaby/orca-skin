@@ -1,10 +1,10 @@
 // 0291 — `OpenCodeServerPool.listModels` (EP-09·EP-10). 실제 프로세스를 띄우지 않고 `runCli` seam 으로
 // 실행 인자·환경·한계를 관측한다. 판정 함수는 서버 start 와 같은 것이다.
-import { afterEach, describe, expect, it, vi } from 'vitest'
 import { homedir } from 'node:os'
 import { resolve } from 'node:path'
-import { OPENCODE_CLI_VERSION_MESSAGE, OpenCodeCliError, OpenCodeServerPool } from './server'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { OpenCodeCliOptions } from './server'
+import { OPENCODE_CLI_VERSION_MESSAGE, OpenCodeCliError, OpenCodeServerPool } from './server'
 
 const pools: OpenCodeServerPool[] = []
 afterEach(() => {
@@ -67,9 +67,9 @@ describe('OpenCodeServerPool.listModels (0291)', () => {
     expect(exe).toBe('/opt/opencode/bin/opencode')
     expect(args).toEqual(['models', 'corp', '--verbose', '--pure'])
     expect(cli.cwd).toBe(resolve(homedir()))
-    expect(cli.env.OPENCODE_DISABLE_PROJECT_CONFIG).toBe('true')
-    expect(cli.env.CORP_TOKEN_HINT).toBe('x')
-    expect(cli.env.PATH).toBe(process.env.PATH)
+    expect(cli.env!.OPENCODE_DISABLE_PROJECT_CONFIG).toBe('true')
+    expect(cli.env!.CORP_TOKEN_HINT).toBe('x')
+    expect(cli.env!.PATH).toBe(process.env.PATH)
     expect(cli).toMatchObject({ windowsHide: true, timeout: 60_000, maxBuffer: 16 * 1024 * 1024 })
   })
 
@@ -85,8 +85,8 @@ describe('OpenCodeServerPool.listModels (0291)', () => {
         env: { OPENCODE_DISABLE_PROJECT_CONFIG: 'false', CORP_PROXY: 'caller' }
       })
       const [, , cli] = runCli.mock.calls[0]!
-      expect(cli.env.OPENCODE_DISABLE_PROJECT_CONFIG).toBe('true')
-      expect(cli.env.CORP_PROXY).toBe('caller')
+      expect(cli.env!.OPENCODE_DISABLE_PROJECT_CONFIG).toBe('true')
+      expect(cli.env!.CORP_PROXY).toBe('caller')
     } finally {
       vi.unstubAllEnvs()
     }
@@ -125,7 +125,7 @@ describe('OpenCodeServerPool.listModels (0291)', () => {
     const { pool, runCli } = setup()
     const seen: AbortSignal[] = []
     runCli.mockImplementation(async (_exe, _args, cli) => {
-      seen.push(cli.signal)
+      seen.push(cli.signal!)
       return { stdout: '' }
     })
     const caller = new AbortController()

@@ -1,19 +1,19 @@
-import { spawn, execFile, type ChildProcess } from 'node:child_process'
-import { existsSync } from 'node:fs'
-import { allocateLoopbackPort } from '../../../infra/net/loopback-port'
-import { delimiter, isAbsolute, join } from 'node:path'
+import { execFile, spawn, type ChildProcess } from 'node:child_process'
 import { randomBytes, randomUUID } from 'node:crypto'
-import { retentionTrace } from './retention-trace'
+import { existsSync } from 'node:fs'
+import { delimiter, isAbsolute, join } from 'node:path'
 import type { HarnessPreferences } from '../../../../shared/harness'
+import { allocateLoopbackPort } from '../../../infra/net/loopback-port'
+import type { HarnessListedModel } from '../../common/harness-config'
+import { diffProfileComponents, type ProfileComponents } from './diagnostics'
+import { assertOpenCodeProviderId, parseOpenCodeModelListing } from './model-listing'
+import { nativeWorkingDirectory } from './native-storage'
+import { retentionTrace } from './retention-trace'
 import {
   openCodeExecutableIdentity,
   openCodeServerProfile,
   openCodeStorageProfile
 } from './server-profile'
-import { diffProfileComponents, type ProfileComponents } from './diagnostics'
-import type { HarnessListedModel } from '../../common/harness-config'
-import { assertOpenCodeProviderId, parseOpenCodeModelListing } from './model-listing'
-import { nativeWorkingDirectory } from './native-storage'
 
 const CLI_VERSION = /^(?:opencode\s+)?v?1\.\d+\.\d+(?:-[\w.-]+)?(?:\+[\w.-]+)?$/
 export const OPENCODE_CLI_VERSION_MESSAGE =
@@ -29,12 +29,12 @@ export function isSupportedOpenCodeCliVersion(version: string): boolean {
 }
 
 export interface OpenCodeCliOptions {
-  cwd: string
-  env: NodeJS.ProcessEnv
+  cwd?: string
+  env?: NodeJS.ProcessEnv
   windowsHide: true
   timeout: number
-  maxBuffer: number
-  signal: AbortSignal
+  maxBuffer?: number
+  signal?: AbortSignal
 }
 
 export interface OpenCodeCliResult {
@@ -162,17 +162,8 @@ export class OpenCodeServerPool {
   private async probeVersion(executable: string): Promise<string> {
     const output = this.deps.readVersion
       ? await this.deps.readVersion(executable)
-      : await new Promise<string>((resolve, reject) => {
-          execFile(
-            executable,
-            ['--version'],
-            { windowsHide: true, timeout: 15000 },
-            (error, stdout) => {
-              if (error) reject(error)
-              else resolve(stdout)
-            }
-          )
-        })
+      : (await runOpenCodeCli(executable, ['--version'], { windowsHide: true, timeout: 15000 }))
+          .stdout
     return output.trim().slice(0, 100)
   }
 
@@ -430,19 +421,12 @@ export class OpenCodeServerPool {
     env?: Record<string, string>,
     cwd?: string
   ): Promise<string> {
-    const output = await new Promise<string>((resolveOutput, reject) => {
-      const profile = openCodeServerProfile(executable, config, env, cwd)
-      execFile(
-        executable,
-        ['db', 'path'],
-        {
-          windowsHide: true,
-          timeout: 15000,
-          cwd: profile.cwd,
-          env: profile.environment
-        },
-        (error, stdout) => (error ? reject(error) : resolveOutput(stdout))
-      )
+    const profile = openCodeServerProfile(executable, config, env, cwd)
+    const { stdout: output } = await runOpenCodeCli(executable, ['db', 'path'], {
+      windowsHide: true,
+      timeout: 15000,
+      cwd: profile.cwd,
+      env: profile.environment
     })
     const value = output.trim()
     if (!isAbsolute(value) || /[\r\n]/.test(value) || !existsSync(value))

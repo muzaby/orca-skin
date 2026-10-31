@@ -508,6 +508,8 @@ describe('OpenCode native read through the SDK boundary', () => {
       throw new Error(`Unexpected SDK request ${req.method} ${url.pathname}`)
     }
     const server: OpenCodeServer = {
+      retireAll: () => {},
+      listModels: async () => [],
       acquire: vi.fn(async () => ({
         url: 'http://opencode.test',
         headers: { Authorization: 'Basic fixture' }
