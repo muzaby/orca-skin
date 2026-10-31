@@ -1,17 +1,18 @@
+import { parseAgentKind } from '../../../shared/agent-kind'
+import { parseStoredExtraDirectories } from '../../../shared/extra-directories'
 import type { LoadedSession } from '../../../shared/protocol'
 import type { NativeHistorySnapshot } from '../../adapters/common/native-history'
-import { parseStoredExtraDirectories } from '../../../shared/extra-directories'
 import type { DbQueries } from '../../infra/db'
-import { parseAgentKind } from '../../../shared/agent-kind'
 import { usageRowToTelemetry } from '../../infra/ipc/dto'
-import { recoveryArchive } from './native-recovery'
 import { localMessages, projectNativeHistory } from './native-projection'
+import { recoveryArchive } from './native-recovery'
 
 // 영속 세션의 복원 조립. 현재 실행 상태(activity)는 IPC 조립 루트가 덧붙인다.
 export function loadSession(
   db: DbQueries,
   sessionId: string,
-  getCwd: (projectId?: string | null) => string
+  getCwd: (projectId?: string | null) => string,
+  refreshedSnapshot?: NativeHistorySnapshot
 ): LoadedSession | null {
   // 세션의 모든 파트를 메시지 순서(message_idx) → 파트 순서(part_idx)로 조회해 재구성.
   const recovery = db.nativeHistory?.recovery?.(sessionId)
@@ -25,7 +26,8 @@ export function loadSession(
   let nativeSync: LoadedSession['nativeSync']
   if (stored) {
     try {
-      const snapshot = JSON.parse(stored.payload_json) as NativeHistorySnapshot
+      const snapshot =
+        refreshedSnapshot ?? (JSON.parse(stored.payload_json) as NativeHistorySnapshot)
       const projected = projectNativeHistory(
         snapshot,
         partRows,

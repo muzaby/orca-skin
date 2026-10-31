@@ -139,7 +139,7 @@ describe('native history composition', () => {
         ]
       }
     })
-    expect(await createNativeHistoryRefresh(f.ctx, f.runtime)('s')).toEqual({ status: 'ready' })
+    expect(await createNativeHistoryRefresh(f.ctx, f.runtime)('s')).toMatchObject({ status: 'ready' })
     expect(f.read).toHaveBeenCalledWith(expect.objectContaining({ sessionId: 'replacement' }))
     const replacement = (f.replace.mock.calls as unknown[][])[0][0] as { payloadJson: string }
     expect(JSON.parse(replacement.payloadJson)).toMatchObject({
@@ -258,7 +258,7 @@ describe('native history composition', () => {
       expect(await next.nativeResources()).toEqual(resources)
       expect(f.read).not.toHaveBeenCalled()
       next.close()
-      expect(await refresh('s')).toEqual({ status: 'ready' })
+      expect(await refresh('s')).toMatchObject({ status: 'ready' })
       expect(f.read).toHaveBeenCalledOnce()
     }
   )
@@ -267,7 +267,7 @@ describe('native history composition', () => {
     'uses stored %s backend, actual cwd and the execution configuration',
     async (backend) => {
       const f = setup(backend)
-      expect(await createNativeHistoryRefresh(f.ctx, f.runtime)('s')).toEqual({ status: 'ready' })
+      expect(await createNativeHistoryRefresh(f.ctx, f.runtime)('s')).toMatchObject({ status: 'ready' })
       expect(f.read).toHaveBeenCalledWith({
         sessionId: 's',
         cwd: '/actual/worktree',

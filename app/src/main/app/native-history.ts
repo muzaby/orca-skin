@@ -1,7 +1,7 @@
-import type { ChatActivitySnapshot, LoadedSession } from '../../shared/ipc'
-import { restoreRecoveryResult } from '../features/history/native-recovery'
-import { refreshNativeHistory } from '../features/history/native-sync'
 import { parseAgentKind } from '../../shared/agent-kind'
+import type { ChatActivitySnapshot } from '../../shared/ipc'
+import { restoreRecoveryResult } from '../features/history/native-recovery'
+import { refreshNativeHistory, type NativeSyncResult } from '../features/history/native-sync'
 import { resolveTurnProvider } from './chat-turn/resolve-turn'
 import type { RouterContext } from './context'
 import { sessionActivityBusy as nativeHistoryBusy } from './session-activity-busy'
@@ -15,7 +15,7 @@ export function createNativeHistoryRefresh(
     hasRuntime(sessionId: string): boolean
     activity(sessionId: string): ChatActivitySnapshot
   }
-): (sessionId: string) => Promise<LoadedSession['nativeSync']> {
+): (sessionId: string) => Promise<NativeSyncResult | undefined> {
   return async (sessionId) => {
     const meta = ctx.db.getSessionById(sessionId)
     if (!meta) return undefined

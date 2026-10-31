@@ -572,9 +572,11 @@ it('skips SDK messages only when the committed per-session probe still matches',
   const first = await readOpenCodeHistory(request, deps)
   if (first.status !== 'ready') throw new Error('snapshot required')
   f.messages.mockClear()
+  vi.mocked(f.deps.client).mockClear()
   const previous = { snapshot: first.snapshot, cursor: first.cursor }
   expect(await readOpenCodeHistory({ ...request, previous }, deps)).toEqual({ status: 'unchanged' })
   expect(f.messages).not.toHaveBeenCalled()
+  expect(f.deps.client).not.toHaveBeenCalled()
   probe.mockResolvedValue({
     kind: 'opencode-sqlite',
     sequence: 4,
@@ -586,6 +588,38 @@ it('skips SDK messages only when the committed per-session probe still matches',
   expect(changed.status === 'ready' && changed.cursor?.checkpoint.digest).toBe(
     'part-updated-without-seq'
   )
+})
+
+it.each([404, 200])(
+  'preserves SDK status %s when the early database probe throws',
+  async (status) => {
+    const f = fixture()
+    if (status === 404) f.get.mockResolvedValue(response<Session>(undefined, 404))
+    const result = await readOpenCodeHistory(request, {
+      ...f.deps,
+      probe: async () => {
+        throw new Error('open failed')
+      }
+    })
+    expect(result.status).toBe(status === 404 ? 'missing' : 'unavailable')
+    expect(f.deps.client).toHaveBeenCalledOnce()
+  }
+)
+
+it('reads SDK when the previous checkpoint belongs to a different source', async () => {
+  const f = fixture()
+  const deps = { ...f.deps, probe: async () => ({ sequence: 1 }) }
+  const first = await readOpenCodeHistory(request, deps)
+  if (first.status !== 'ready') throw new Error('snapshot required')
+  vi.mocked(f.deps.client).mockClear()
+  await readOpenCodeHistory(
+    {
+      ...request,
+      previous: { snapshot: { ...first.snapshot, sourceKey: 'other' }, cursor: first.cursor }
+    },
+    deps
+  )
+  expect(f.deps.client).toHaveBeenCalledOnce()
 })
 
 it('does not pair a cursor from after a concurrent mutation with an earlier SDK snapshot', async () => {

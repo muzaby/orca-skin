@@ -1,14 +1,15 @@
-import type { SessionAdapter } from '../../adapters/common/types'
-import type { NativeHistoryRequest } from '../../adapters/common/native-history'
-import { makeClassifiedError } from '../../infra/errors'
 import type { ClassifiedError } from '../../../shared/ipc'
-import type { DbQueries } from '../../infra/db'
-import { loadSession } from '../../features/history/reader'
+import type { NativeHistoryRequest } from '../../adapters/common/native-history'
+import type { SessionAdapter } from '../../adapters/common/types'
 import {
   archivePrompt,
   recoveryArchive,
   recoveryFitsContext
 } from '../../features/history/native-recovery'
+import { readNativeHistoryPrevious } from '../../features/history/native-sync'
+import { loadSession } from '../../features/history/reader'
+import type { DbQueries } from '../../infra/db'
+import { makeClassifiedError } from '../../infra/errors'
 
 export interface NativeSessionPreparation {
   nativeSessionId?: string
@@ -41,7 +42,15 @@ export async function prepareNativeSession(
   try {
     const recovery = db.nativeHistory?.recovery?.(request.sessionId)
     const nativeId = recovery?.native_id ?? request.sessionId
-    const result = await adapter.readHistory({ ...request, sessionId: nativeId })
+    const previous =
+      recovery && !recovery.accepted ? undefined : readNativeHistoryPrevious(db, request.sessionId)
+    const result = await adapter.readHistory({
+      ...request,
+      sessionId: nativeId,
+      previous: previous
+        ? { ...previous, snapshot: { ...previous.snapshot, sessionId: nativeId } }
+        : undefined
+    })
     if (result.status === 'missing' && adapter.recoverSession) {
       const archive = loadSession(db, request.sessionId, getCwd)
       if (!archive) throw new Error('Conversation was removed during recovery')

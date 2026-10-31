@@ -180,6 +180,27 @@ export async function readOpenCodeHistory(
   deps: NativeReadDependencies
 ): Promise<NativeHistoryResult> {
   try {
+    let sourceKey: string | undefined
+    let checkpoint: Record<string, unknown> | undefined
+    let probeFailed = false
+    try {
+      sourceKey = await deps.sourceKey(request)
+      checkpoint = await deps.probe?.()
+    } catch {
+      probeFailed = true
+    }
+    const previous = request.previous
+    const reusable =
+      previous?.cursor?.version === 1 &&
+      previous.cursor.sourceKey === sourceKey &&
+      previous.snapshot.sourceKey === sourceKey &&
+      previous.cursor.revision === previous.snapshot.revision
+    if (
+      checkpoint &&
+      reusable &&
+      nativeRevision(checkpoint) === nativeRevision(previous.cursor?.checkpoint)
+    )
+      return { status: 'unchanged' }
     const client = await deps.client(request)
     const query = { sessionID: request.sessionId, directory: request.cwd }
     const session = await client.session.get(query, { throwOnError: false })
@@ -194,20 +215,7 @@ export async function readOpenCodeHistory(
         status: 'migration-required',
         message: 'OpenCode 원본 세션의 작업 폴더가 다릅니다. 원래 작업 폴더에서 다시 열어 주세요.'
       }
-    const sourceKey = await deps.sourceKey(request)
-    const checkpoint = await deps.probe?.()
-    const previous = request.previous
-    const reusable =
-      previous?.cursor?.version === 1 &&
-      previous.cursor.sourceKey === sourceKey &&
-      previous.snapshot.sourceKey === sourceKey &&
-      previous.cursor.revision === previous.snapshot.revision
-    if (
-      checkpoint &&
-      reusable &&
-      nativeRevision(checkpoint) === nativeRevision(previous.cursor?.checkpoint)
-    )
-      return { status: 'unchanged' }
+    if (probeFailed || !sourceKey) return unavailable()
     const read = async (): Promise<{ session: Session; messages: NativeMessages } | undefined> => {
       const [header, body] = await Promise.all([
         client.session.get(query, { throwOnError: false }),

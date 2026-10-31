@@ -66,12 +66,26 @@ function fixture(): {
 }
 
 describe('native snapshot synchronization', () => {
+  it('parses a stored payload once and returns the freshly committed snapshot for projection', async () => {
+    const f = fixture()
+    const payload = JSON.stringify(f.snapshot)
+    f.get.mockReturnValue({ payload_json: payload })
+    const parse = vi.spyOn(JSON, 'parse')
+    try {
+      const result = await refreshNativeHistory('s', f.deps)
+      expect(result.snapshot).toBe(f.snapshot)
+      expect(parse.mock.calls.filter(([value]) => value === payload)).toHaveLength(1)
+      expect(f.get).toHaveBeenCalledOnce()
+    } finally {
+      parse.mockRestore()
+    }
+  })
   it('reads without touching runtime lifetime and commits snapshot, frontier and search together', async () => {
     const f = fixture()
     f.read.mockImplementation(async () => {
       return { status: 'ready', snapshot: f.snapshot }
     })
-    expect(await refreshNativeHistory('s', f.deps)).toEqual({ status: 'ready' })
+    expect(await refreshNativeHistory('s', f.deps)).toMatchObject({ status: 'ready' })
     expect(f.replace).toHaveBeenCalledWith(
       expect.objectContaining({
         sessionId: 's',
