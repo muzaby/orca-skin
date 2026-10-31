@@ -12,7 +12,6 @@ skills.groups.inactiveMcp
 skills.groups.gateProviders
 skills.groups.llmProviders
 skills.groups.serviceProviders
-skills.provider.connect
 skills.view.selectItem
 skills.view.backAria
 skills.addMenu.create
