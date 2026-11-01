@@ -784,7 +784,7 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| VP-01 | 기존 동작 | 0(집계) | 0 | 구현 증거 O-01·전체 gate | 보정 후 신규 실패 ID 0 | 최종 CI 완료 대기 |
+| VP-01 | 기존 동작 | 0(집계) | 0 | 구현 증거 O-01·전체 gate | 신규 실패 ID 0·Windows CI 성공 | 없음 |
 | VP-02 | push·focus | 3 | 3 | O-02 | 30초 조회 0·backend별 갱신·focus·해제 | 없음 |
 | VP-03 | native missing | 2 | 2 | O-03 | probe throw와 404/success를 구별 | 없음 |
 | VP-04 | 고아 사슬·직렬화 | 19 | 19 | O-04·production/문서 검색 0 | 첫 action 보류 중 둘째 미시작·실패 뒤 진행 | 없음 |
@@ -814,7 +814,7 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-01 | REGRESSION | SELF_BLOCKED | O-01 | not selected; 최종 CI 대기 |
+| VP-01 | REGRESSION | SELF_PASS | O-01 | not selected — 집계; Windows CI 성공 |
 | VP-02 | REQUIRED | SELF_PASS | O-02 | 2변이 red |
 | VP-03 | REQUIRED | SELF_PASS | O-03 | 해당 없음 — 직접 oracle |
 | VP-04 | REQUIRED | SELF_PASS | O-04 | 삭제 토큰 복원 gate red |
@@ -825,7 +825,7 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 | VP-09 | REQUIRED | SELF_PASS | O-09 | 4변이 red·소비자 BOM 4자리/Git 3자리 포함 |
 | VP-10 | REQUIRED | SELF_PASS | O-10 | 2개 술어 반전 red |
 | VP-11 | REQUIRED | SELF_PASS | O-11 | 반복 조회·직렬 await red |
-| VP-12 | REQUIRED | SELF_PASS | O-12 | 13변이 red |
+| VP-12 | REQUIRED | SELF_PASS | O-12 | 17변이 red |
 | VP-13 | REQUIRED | SELF_PASS | O-13 | 25변이 red |
 | VP-14 | REQUIRED | SELF_PASS | O-14 | 해당 없음 — 직접 oracle |
 | VP-15 | REQUIRED | SELF_PASS | O-15 | client 선행·전체 DELETE red |
@@ -846,7 +846,7 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 | BOM 제거 생략·sync/async ENOENT 전파·Git 1단계(4) | VP-09 | 최초 | O-09·32실패, 소비자별 BOM/Git 경로 포함 | red |
 | managed source 두 소비 술어 반전(2) | VP-10 | 최초 | adapter·2실패 | red |
 | config 재조회·순차 await(2) | VP-11 | 최초 | channel/native-resources·2실패 | red |
-| 하네스 마크·색·표시명·계획 안내 맞바꿈(13) | VP-12 | 최초 | 실제 소비자 렌더/clipboard·20실패 | red |
+| 하네스 마크·색·표시명·계획 안내 맞바꿈(17) | VP-12 | 최초 | 실제 소비자 렌더/clipboard·30실패 | red |
 | cwd 슬롯·landing/Composer 배치·capability 맞바꿈(25) | VP-13 | 최초 | CwdPanel·페이지·store/reducer·39실패 | red |
 | client 선행·전체 native 메시지 DELETE(2) | VP-15 | 최초 | native history·DB rowid·5실패 | red |
 | 반복 계산/읽기 복원·event cap(12) | VP-16·D-016 | 최초 | 횟수·동시성·재전달·12실패 | red |
@@ -855,7 +855,7 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 | bootstrap 두 방송·preload·renderer API 전달 제거(4) | VP-19 | 최초 | bootstrap/preload·4실패 | red |
 | Windows 실패 ID에 케이스·collection 실패 주입(1) | 수정한 scanner oracle | 최초 | 상대 경로/이름 2개 추출·누락 gate red | red |
 
-- 분모 검산: 선택 증거 93건 · 직전 인용 변이 0건 · 새 실패-ID oracle 1건 = 94건(표의 그룹별 괄호 합). 실행 변이 82건의 assertion 실패 합 148, 정적 gate 12건의 red를 별도로 센다. [전체 교체식·테스트명·관측](scan/mutation-evidence.json)에 미실행/green 최종 행은 없다.
+- 분모 검산: 선택 증거 97건 · 직전 인용 변이 0건 · 새 실패-ID oracle 1건 = 98건(표의 그룹별 괄호 합). 실행 변이 86건의 assertion 실패 합 158, 정적 gate 12건의 red를 별도로 센다. [전체 교체식·테스트명·관측](scan/mutation-evidence.json)에 미실행/green 최종 행은 없다.
 - 덮개 회귀: 삭제 테스트는 제거된 기능 전용만 정리했고, generic ToolGroup·PlanTile·plugin path 검사는 실제 production 소비자로 옮겼다. 초기 slot 검사에서 seed/continuity/permission 회귀를 못 잡던 4지점을 보강한 뒤 동일 변이를 재실행해 red를 확인했다. VP-03·05·14는 해당 없음 — 직접 oracle.
 
 ## [구현자 기입] Product/UX 파생 검토
@@ -893,17 +893,17 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 |---|---|
 | 변경 파일 | WP-1~14의 main/renderer/shared·관련 테스트·IPC/아키텍처 문서. 신설 runtime 의존성 0. 공유 브랜치에 WP별 구현 커밋 반영 |
 | 실행 명령 | [구현 증거 재현 명령](implementation-evidence.md#재현-명령) 및 `scan/mutation-evidence.json`의 자리별 Vitest 실행 |
-| 관측한 게이트 산출 | 전체 Vitest 886파일/8,256케이스에서 테스트 대역 12실패 수정, 기준선 CLI 1실패 유지·신규 실패 ID 0. Node 스크립트 144/144. 타입·Electron build 성공. 최종 Windows CI 대기 |
-| V-pair 자기확인 | SELF_PASS 18·SELF_BLOCKED 1(CI 집계) / 유효 pair 19 |
+| 관측한 게이트 산출 | Windows CI: Vitest 888파일·8,278케이스 성공(3파일·3케이스 환경 조건 skip), 스크립트 144/144. lint 0 error·기존 warning 2, 타입 3구성·문서·migration·budget 성공. 로컬 Electron build 성공. [CI](https://github.com/muzaby/orca-skin/actions/runs/41288104219) |
+| V-pair 자기확인 | SELF_PASS 19·SELF_BLOCKED 0 / 유효 pair 19 |
 | 강제 지점 전수 | 187/187·미대응 자리 차집합 0. 텍스트 검색의 범위 밖 6줄은 위에 별도 기록 |
-| AC 자기보고 | 아래 표 22/23, AC1의 최종 CI 대기 |
-| 합계 검산 | ✅ 22 · ⚠️ 1 · ❌ 0 = 총 23 |
-| 블로커 / 역질문 | 사용자 역질문 없음. 이벤트 상한 제외 승계. CI만 완료 대기 |
+| AC 자기보고 | 아래 표 23/23, AC1 Windows CI 성공 확인 |
+| 합계 검산 | ✅ 23 · ⚠️ 0 · ❌ 0 = 총 23 |
+| 블로커 / 역질문 | 미해결 블로커·역질문 없음. 이벤트 상한 제외 승계. 독립 검증은 다음 주체 Claude |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 | AC | 자기확인 | 이번 턴 관측 |
 |---|---|---|
-| AC1 | ⚠️ | O-01 신규 실패 ID 0·타입/build 성공·최종 CI 대기 |
+| AC1 | ✅ | O-01 신규 실패 ID 0·타입/build 성공·Windows CI 전체 gate 성공 |
 | AC2 | ✅ | O-08 삭제 목표 잔여 0·신규 dead/test-only 차집합 0 |
 | AC3 | ✅ | 삭제 i18n present 0·신규 미참조 차집합 0·CSS 토큰 0 |
 | AC4 | ✅ | IPC 사슬 검색 0·O-04 응답 테스트 성공 |
@@ -927,7 +927,7 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 | AC22 | ✅ | 네 소비자 계산 1회·참조 변경 갱신·catalog stale·media cleanup |
 | AC23 | ✅ | O-18 19자리·14변이 red·기존 연결 종단 테스트 성공 |
 
-검산: AC 행 23개 = ✅ 22 + ⚠️ 1 + ❌ 0. 구현 커밋의 최종 trailer는 CI 결과를 반영해 작성한다.
+검산: AC 행 23개 = ✅ 23 + ⚠️ 0 + ❌ 0. 최종 구현 trailer `Criteria-Met: 23/23`과 일치한다.
 
 ## [구현자 기입] Review Signals — 사실만
 
