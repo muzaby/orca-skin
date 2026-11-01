@@ -1,13 +1,14 @@
-import { harnessRightPanel } from '../../registries/rightpanel'
+import { load, type CheerioAPI } from 'cheerio'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { load, type CheerioAPI } from 'cheerio'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { initialChatState, type ChatState } from '../../../reducer/chatReducer'
 import { TaskTileContent } from '../../claude/rightpanel/TaskTileContent'
-import { PlanContent as PlanTileContent } from '../../claude/rightpanel/PlanTile'
-import { RightPanelTile } from './RightPanelTile'
+import { claudeTileById } from '../../claude/rightpanel/tileRegistry'
+import { harnessRightPanel } from '../../registries/rightpanel'
 import { ArtifactCards } from '../transcript/ArtifactCards'
+import { RightPanelTile } from './RightPanelTile'
+const PlanTileContent = claudeTileById('plan').Content
 
 const harness = vi.hoisted(() => ({ session: null as ChatState | null }))
 vi.mock('../../../store/chatStore', () => ({

@@ -1,10 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { load } from 'cheerio'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { load } from 'cheerio'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Project, SessionListItem } from '../../../../shared/ipc'
-import type { Tweaks } from '../../shared/theme/TweakProvider'
 import { useSessionsStore } from '../../features/sessions/store/sessionsStore'
+import type { Tweaks } from '../../shared/theme/TweakProvider'
 import { Sidebar } from '../Sidebar'
 import { useSessionHandlers, type SessionHandlers } from './useSessionHandlers'
 import { useSidebarSlots } from './useSidebarSlots'
@@ -34,7 +34,6 @@ vi.mock('../../features/projects', () => ({
   projectsActions: { setPinned: h.pinProject }
 }))
 vi.mock('../../features/chat', async () => ({
-  HarnessLogo: (await import('../../features/chat/harnesses/registries/brand')).HarnessLogo,
   chatActions: {
     handleSessionDeleted: vi.fn(),
     renameSession: vi.fn(),

@@ -1,0 +1,96 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`preserves every rendered class for default > cwd-button 1`] = `
+[
+  "app-frame-composer-directory flex flex-wrap items-center gap-g3 rounded-r7 border border-transparent bg-transparent px-1 py-1 min-h-[calc(2.25rem+2px)]",
+  "inline-flex max-w-full items-center gap-g3 bg-transparent text-footnote transition-colors h-7 rounded-r4 border px-p5 border-border text-t6 hover:bg-fill-uncontained-hover hover:text-t7 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-60 ",
+  "shrink-0",
+  "min-w-0 truncate",
+  "inline-flex h-7 max-w-full items-stretch overflow-hidden rounded-r4 border border-border",
+  "inline-flex max-w-full items-center gap-g3 bg-transparent text-footnote transition-colors self-stretch px-p5 text-t6 hover:bg-fill-uncontained-hover hover:text-t7 cursor-default outline-none hide-focus-ring ring-focus disabled:cursor-not-allowed disabled:opacity-50 max-w-[16rem]",
+  "shrink-0",
+  "min-w-0 truncate",
+  "w-px shrink-0 self-stretch bg-border",
+  "inline-flex max-w-full items-center gap-g3 bg-transparent text-footnote transition-colors self-stretch px-p5 text-t6 hover:bg-fill-uncontained-hover hover:text-t7 cursor-default has-disabled:cursor-not-allowed has-disabled:opacity-50",
+  "m-0 size-3.5 shrink-0 accent-selected",
+  "min-w-0 truncate",
+  "inline-flex max-w-full items-center gap-g3 bg-transparent text-footnote transition-colors h-7 rounded-r4 border px-p5 border-border text-t6 hover:bg-fill-uncontained-hover hover:text-t7 max-w-[14rem]",
+  "shrink-0",
+  "min-w-0 truncate",
+  "-mr-0.5 grid h-4 w-4 shrink-0 cursor-default place-items-center rounded-full text-t5 outline-none hide-focus-ring ring-focus transition-colors hover:bg-fill-uncontained-hover hover:text-t7 disabled:cursor-not-allowed disabled:opacity-50",
+  "inline-flex max-w-full items-center gap-g3 bg-transparent text-footnote transition-colors h-7 rounded-r4 border px-p3 border-border text-t6 hover:bg-fill-uncontained-hover hover:text-t7 cursor-default outline-none hide-focus-ring ring-focus disabled:cursor-not-allowed disabled:opacity-50 ",
+  "shrink-0",
+]
+`;
+
+exports[`preserves every rendered class for default > project-picker 1`] = `
+[
+  "app-frame-composer-directory flex flex-wrap items-center gap-g3 rounded-r7 border border-transparent bg-transparent px-1 py-1 min-h-[calc(2.25rem+2px)]",
+  "inline-flex max-w-full items-center gap-g3 bg-transparent text-footnote transition-colors h-7 rounded-r4 border px-p5 border-border text-t6 hover:bg-fill-uncontained-hover hover:text-t7 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-60 ",
+  "shrink-0",
+  "min-w-0 truncate",
+  "shrink-0",
+  "inline-flex h-7 max-w-full items-stretch overflow-hidden rounded-r4 border border-border",
+  "inline-flex max-w-full items-center gap-g3 bg-transparent text-footnote transition-colors self-stretch px-p5 text-t6 hover:bg-fill-uncontained-hover hover:text-t7 cursor-default outline-none hide-focus-ring ring-focus disabled:cursor-not-allowed disabled:opacity-50 max-w-[16rem]",
+  "shrink-0",
+  "min-w-0 truncate",
+  "w-px shrink-0 self-stretch bg-border",
+  "inline-flex max-w-full items-center gap-g3 bg-transparent text-footnote transition-colors self-stretch px-p5 text-t6 hover:bg-fill-uncontained-hover hover:text-t7 cursor-default has-disabled:cursor-not-allowed has-disabled:opacity-50",
+  "m-0 size-3.5 shrink-0 accent-selected",
+  "min-w-0 truncate",
+  "inline-flex max-w-full items-center gap-g3 bg-transparent text-footnote transition-colors h-7 rounded-r4 border px-p5 border-border text-t6 hover:bg-fill-uncontained-hover hover:text-t7 max-w-[14rem]",
+  "shrink-0",
+  "min-w-0 truncate",
+  "-mr-0.5 grid h-4 w-4 shrink-0 cursor-default place-items-center rounded-full text-t5 outline-none hide-focus-ring ring-focus transition-colors hover:bg-fill-uncontained-hover hover:text-t7 disabled:cursor-not-allowed disabled:opacity-50",
+  "inline-flex max-w-full items-center gap-g3 bg-transparent text-footnote transition-colors h-7 rounded-r4 border px-p3 border-border text-t6 hover:bg-fill-uncontained-hover hover:text-t7 cursor-default outline-none hide-focus-ring ring-focus disabled:cursor-not-allowed disabled:opacity-50 ",
+  "shrink-0",
+]
+`;
+
+exports[`preserves every rendered class for opencode > cwd-button 1`] = `
+[
+  "app-frame-composer-directory flex flex-wrap items-center justify-center gap-[4px] text-oc-muted ",
+  "inline-flex max-w-full items-center gap-g3 bg-transparent text-footnote transition-colors h-7 rounded-r4 border px-p5 border-transparent text-t6 hover:bg-fill-contained-hover hover:text-t7 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-60 max-w-[203px]",
+  "shrink-0",
+  "min-w-0 truncate",
+  "shrink-0",
+  "inline-flex h-7 max-w-full items-center",
+  "mx-1 select-none text-t5",
+  "inline-flex max-w-full items-center gap-g3 bg-transparent text-footnote transition-colors h-7 rounded-r4 border px-p5 border-transparent text-t6 hover:bg-fill-contained-hover hover:text-t7 cursor-default outline-none hide-focus-ring ring-focus disabled:cursor-not-allowed disabled:opacity-50 max-w-[16rem]",
+  "shrink-0",
+  "min-w-0 truncate",
+  "inline-flex max-w-full items-center gap-g3 bg-transparent text-footnote transition-colors h-7 rounded-r4 border px-p5 border-transparent text-t6 hover:bg-fill-contained-hover hover:text-t7 cursor-default has-disabled:cursor-not-allowed has-disabled:opacity-50",
+  "m-0 size-3.5 shrink-0 accent-selected",
+  "min-w-0 truncate",
+  "inline-flex max-w-full items-center gap-g3 bg-transparent text-footnote transition-colors h-7 rounded-r4 border px-p5 border-border text-t6 hover:bg-fill-uncontained-hover hover:text-t7 max-w-[14rem]",
+  "shrink-0",
+  "min-w-0 truncate",
+  "-mr-0.5 grid h-4 w-4 shrink-0 cursor-default place-items-center rounded-full text-t5 outline-none hide-focus-ring ring-focus transition-colors hover:bg-fill-uncontained-hover hover:text-t7 disabled:cursor-not-allowed disabled:opacity-50",
+  "inline-flex max-w-full items-center gap-g3 bg-transparent text-footnote transition-colors h-7 rounded-r4 border px-p3 border-transparent text-t6 hover:bg-fill-contained-hover hover:text-t7 cursor-default outline-none hide-focus-ring ring-focus disabled:cursor-not-allowed disabled:opacity-50 ",
+  "shrink-0",
+]
+`;
+
+exports[`preserves every rendered class for opencode > project-picker 1`] = `
+[
+  "app-frame-composer-directory flex flex-wrap items-center justify-center gap-[4px] text-oc-muted ",
+  "inline-flex max-w-full items-center gap-g3 bg-transparent text-footnote transition-colors h-7 rounded-r4 border px-p5 border-transparent text-t6 hover:bg-fill-contained-hover hover:text-t7 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-60 max-w-[203px]",
+  "shrink-0",
+  "min-w-0 truncate",
+  "shrink-0",
+  "inline-flex h-7 max-w-full items-center",
+  "mx-1 select-none text-t5",
+  "inline-flex max-w-full items-center gap-g3 bg-transparent text-footnote transition-colors h-7 rounded-r4 border px-p5 border-transparent text-t6 hover:bg-fill-contained-hover hover:text-t7 cursor-default outline-none hide-focus-ring ring-focus disabled:cursor-not-allowed disabled:opacity-50 max-w-[16rem]",
+  "shrink-0",
+  "min-w-0 truncate",
+  "inline-flex max-w-full items-center gap-g3 bg-transparent text-footnote transition-colors h-7 rounded-r4 border px-p5 border-transparent text-t6 hover:bg-fill-contained-hover hover:text-t7 cursor-default has-disabled:cursor-not-allowed has-disabled:opacity-50",
+  "m-0 size-3.5 shrink-0 accent-selected",
+  "min-w-0 truncate",
+  "inline-flex max-w-full items-center gap-g3 bg-transparent text-footnote transition-colors h-7 rounded-r4 border px-p5 border-border text-t6 hover:bg-fill-uncontained-hover hover:text-t7 max-w-[14rem]",
+  "shrink-0",
+  "min-w-0 truncate",
+  "-mr-0.5 grid h-4 w-4 shrink-0 cursor-default place-items-center rounded-full text-t5 outline-none hide-focus-ring ring-focus transition-colors hover:bg-fill-uncontained-hover hover:text-t7 disabled:cursor-not-allowed disabled:opacity-50",
+  "inline-flex max-w-full items-center gap-g3 bg-transparent text-footnote transition-colors h-7 rounded-r4 border px-p3 border-transparent text-t6 hover:bg-fill-contained-hover hover:text-t7 cursor-default outline-none hide-focus-ring ring-focus disabled:cursor-not-allowed disabled:opacity-50 ",
+  "shrink-0",
+]
+`;

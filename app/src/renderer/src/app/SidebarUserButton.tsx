@@ -1,12 +1,12 @@
-import { HarnessLogo } from '../features/chat'
 import { useRef, useState } from 'react'
+import { useProviderPrincipal } from '../features/providers'
+import { SettingsModal, useSettingsModalStore } from '../features/settings'
+import { useI18n, type UiLocale } from '../shared/i18n'
+import { useTweakContext } from '../shared/theme'
+import { HarnessLogo } from '../shared/ui/HarnessLogo'
+import { Icon } from '../shared/ui/Icon'
 import { MenuItem } from '../shared/ui/MenuItem'
 import { Popover } from '../shared/ui/Popover'
-import { Icon } from '../shared/ui/Icon'
-import { useTweakContext } from '../shared/theme'
-import { useI18n, type UiLocale } from '../shared/i18n'
-import { SettingsModal, useSettingsModalStore } from '../features/settings'
-import { useProviderPrincipal } from '../features/providers'
 
 // 언어 서브메뉴 목록 — UI 표시 언어(settings.uiLocale) 스위처(0096).
 // 언어 이름은 해당 언어 자체 표기라 번역하지 않는다.
@@ -135,7 +135,8 @@ export function SidebarUserButton(): React.JSX.Element {
         harnessBrand={(backend) => (
           <HarnessLogo
             backend={backend}
-            className={`size-4 ${backend === 'claude' ? 'text-spinner' : 'text-ink'}`}
+            className="size-4"
+            tone={backend === 'claude' ? 'text-spinner' : 'text-ink'}
           />
         )}
       />

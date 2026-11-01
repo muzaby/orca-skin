@@ -1,8 +1,10 @@
+import { createElement } from 'react'
 import { rightPanelTileDefinitions, type RightPanelTileId } from '../../../lib/rightPanelTiles'
-import type { RightPanelTileRegistration } from '../../contracts'
-import { PlanTileHeaderActions } from '../../common/rightpanel/PlanTileContent'
+import { harnessCatalog } from '../../catalog'
 import { DiffTileContent } from '../../common/rightpanel/DiffTileContent'
 import { GitContextBar } from '../../common/rightpanel/GitContextBar'
+import { PlanTileContent, PlanTileHeaderActions } from '../../common/rightpanel/PlanTileContent'
+import type { RightPanelTileRegistration } from '../../contracts'
 import {
   OpenCodeAgentContent,
   OpenCodeAgentHeader,
@@ -10,10 +12,13 @@ import {
   OpenCodeSourceContent,
   OpenCodeTaskContent
 } from './tiles'
-import { PlanContent } from './PlanTile'
 
 const contentById = {
-  plan: PlanContent,
+  plan: () =>
+    createElement(PlanTileContent, {
+      emptyDescriptionKey: harnessCatalog('opencode').planEmptyDescription,
+      selectHintKey: harnessCatalog('opencode').planSelectHint
+    }),
   subagent: OpenCodeAgentContent,
   task: OpenCodeTaskContent,
   diff: DiffTileContent,

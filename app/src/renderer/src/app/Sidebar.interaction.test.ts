@@ -1,4 +1,14 @@
+import { createElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  chatActions,
+  getActiveChatSession,
+  seedLandingBackend,
+  useChatStore
+} from '../features/chat/store/chatStore'
+import { installChatStoreHarness } from '../features/chat/store/chatStore.testHarness'
+import { installFakeDom, type FakeDom } from '../shared/ui/renderHarness.testfixture'
+import { Sidebar } from './Sidebar'
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
   ...(await import('../shared/ui/renderHarness.testfixture')).fakeHooks,
@@ -29,19 +39,8 @@ vi.mock('../shared/hooks/useDragResize', () => ({
 }))
 vi.mock('../shared/i18n', () => ({ useI18n: () => ({ tr: (key: string) => key }) }))
 vi.mock('../features/chat', async () => ({
-  chatActions: (await import('../features/chat/store/chatStore')).chatActions,
-  HarnessLogo: (await import('../features/chat/harnesses/registries/brand')).HarnessLogo
+  chatActions: (await import('../features/chat/store/chatStore')).chatActions
 }))
-import { createElement } from 'react'
-import { Sidebar } from './Sidebar'
-import { installFakeDom, type FakeDom } from '../shared/ui/renderHarness.testfixture'
-import { installChatStoreHarness } from '../features/chat/store/chatStore.testHarness'
-import {
-  chatActions,
-  getActiveChatSession,
-  seedLandingBackend,
-  useChatStore
-} from '../features/chat/store/chatStore'
 
 let dom: FakeDom
 function render(collapsed = false): {

@@ -230,7 +230,6 @@ Orca 공통 팔레트와 기존 Claude 활자·카드·메뉴를 따른다. Work
 | [features/chat/harnesses/claude/composer/ToolApproval.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/composer/ToolApproval.tsx) — `ToolApprovalBody` | 도구명·입력·승인/거부·세션 정책·진행 상태를 명확히 구별한다. |
 | [features/chat/harnesses/claude/rightpanel/CanonicalBackgroundContent.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/rightpanel/CanonicalBackgroundContent.tsx) — `CanonicalBackgroundContent`, `BackgroundTaskCard` | 백그라운드 작업의 원본 상태·목록·출력을 공통 타일 chrome에 표시한다. |
 | [features/chat/harnesses/claude/rightpanel/Panel.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/rightpanel/Panel.tsx) — `ClaudeRightPanel` | 하네스별 타일 registry·헤더와 공통 TilePanel을 연결한다. |
-| [features/chat/harnesses/claude/rightpanel/PlanTile.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/rightpanel/PlanTile.tsx) — `PlanContent` | 하네스 계획 데이터를 공통 계획 타일/본문 규칙으로 표시한다. |
 | [features/chat/harnesses/claude/rightpanel/SubAgentTileContent.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/rightpanel/SubAgentTileContent.tsx) — `SubAgentTileHeader`, `SubAgentTileContent`, `SubAgentTaskList` | 하위 에이전트 목록·상세·상태를 같은 작업 타일 밀도로 표시한다. |
 | [features/chat/harnesses/claude/rightpanel/TaskTileContent.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/rightpanel/TaskTileContent.tsx) — `TaskTileHeader`, `TaskTileContent` | 작업 목록·선택·진행·출력을 공통 타일 구획에 배치한다. |
 | [features/chat/harnesses/claude/transcript/AskExchange.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/transcript/AskExchange.tsx) — `AskExchange` | 질문과 답변의 연결·순서·메타를 유지하며 일반 도구 로그와 구별한다. |
@@ -280,7 +279,6 @@ Orca 공통 팔레트와 기존 Claude 활자·카드·메뉴를 따른다. Work
 | [features/chat/harnesses/opencode/landing/Brand.tsx](../../../app/src/renderer/src/features/chat/harnesses/opencode/landing/Brand.tsx) — `LandingBrand` | OpenCode landing 브랜드의 wordmark·간격·하네스 스코프를 유지한다. |
 | [features/chat/harnesses/opencode/rightpanel/AgentViews.tsx](../../../app/src/renderer/src/features/chat/harnesses/opencode/rightpanel/AgentViews.tsx) — `AgentList`, `AgentDetail` | agent 목록·avatar·진행·상세를 OpenCode 패널 행으로 표시한다. |
 | [features/chat/harnesses/opencode/rightpanel/Panel.tsx](../../../app/src/renderer/src/features/chat/harnesses/opencode/rightpanel/Panel.tsx) — `OpenCodeRightPanel` | 하네스별 타일 registry·헤더와 공통 TilePanel을 연결한다. |
-| [features/chat/harnesses/opencode/rightpanel/PlanTile.tsx](../../../app/src/renderer/src/features/chat/harnesses/opencode/rightpanel/PlanTile.tsx) — `PlanContent` | 하네스 계획 데이터를 공통 계획 타일/본문 규칙으로 표시한다. |
 | [features/chat/harnesses/opencode/rightpanel/Sources.tsx](../../../app/src/renderer/src/features/chat/harnesses/opencode/rightpanel/Sources.tsx) — `OpenCodeSources` | 소스 종류·이름·경로·진입 동작을 동일한 패널 행으로 표시한다. |
 | [features/chat/harnesses/opencode/rightpanel/chrome.tsx](../../../app/src/renderer/src/features/chat/harnesses/opencode/rightpanel/chrome.tsx) — `PanelRow`, `AgentAvatar` | PanelRow·AgentAvatar의 oc 계열 톤·행 인셋·상태·접근성 이름을 공유한다. |
 | [features/chat/harnesses/opencode/rightpanel/tiles.tsx](../../../app/src/renderer/src/features/chat/harnesses/opencode/rightpanel/tiles.tsx) — `OpenCodeTaskContent`, `OpenCodeAgentContent`, `OpenCodeAgentHeader`, `OpenCodeProcessContent`, `OpenCodeSourceContent` | OpenCode 타일의 헤더·본문 슬롯을 registry에 제공하고 공통 패널 수명을 보존한다. |
@@ -406,10 +404,9 @@ Provider와 registry는 시각 컴포넌트 선택/수명 책임만 갖는다. �
 |---|---|
 | [shared/ui/ClaudeLogo.tsx](../../../app/src/renderer/src/shared/ui/ClaudeLogo.tsx) — `ClaudeLogo` | 공식 Claude 마크, currentColor. 메뉴·히어로는 spinner 토큰. |
 | [shared/ui/OpenCodeLogo.tsx](../../../app/src/renderer/src/shared/ui/OpenCodeLogo.tsx) — `OpenCodeLogo` | 공식 OpenCode 마크, currentColor와 ink 토큰. 원본 비율을 유지한다. |
-| [features/chat/harnesses/claude/Logo.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/Logo.tsx) — `ClaudeLogo` | shared/ui의 ClaudeLogo를 하네스 registry에 재수출한다. |
-| [features/chat/harnesses/opencode/Logo.tsx](../../../app/src/renderer/src/features/chat/harnesses/opencode/Logo.tsx) — `OpenCodeLogo` | shared/ui의 OpenCodeLogo를 하네스 registry에 재수출한다. |
-| [features/chat/harnesses/registries/brand.tsx](../../../app/src/renderer/src/features/chat/harnesses/registries/brand.tsx) — `HarnessLogo` | 하네스별 마크 조립만 소유하며 기존 랜딩 presentation을 바꾸지 않는다. |
 
 `Popover`의 `boundaryRef`는 right 배치의 가로 경계만 바꾼다. 세로 기준은 trigger이며 창·nav 리사이즈에 다시 측정한다. `CascadeBody`의 status는 왼쪽 연결 상태 공, secondary는 오른쪽 활성 스위치를 렌더한다. native 목록은 primary checked/description을 사용하지 않는다. 해당 항목의 진행 중 중복 입력만 막고, 지원되지 않는 MCP 제어는 disabled로 표시한다. 플러그인 폴더 열기는 일반 액션이다.
 
 OpenCode 에이전트 메뉴는 이름과 체크 열에 맞는 가변 폭과 viewport 상한을 사용한다. 제목 바로 뒤의 화살표 없는 원호는 에이전트 목록 로딩만 나타내며 모션 감소 설정에서 멈춘다. Popover는 열린 패널의 내용 크기 변경도 관측해 배치를 다시 계산한다.
+
+| [shared/ui/HarnessLogo.tsx](../../../app/src/renderer/src/shared/ui/HarnessLogo.tsx) — `HarnessLogo` | 하네스 마크와 기본 색을 공통 선택한다. 별도 문맥의 색은 tone으로 지정하며 기존 SVG 비율을 유지한다. |

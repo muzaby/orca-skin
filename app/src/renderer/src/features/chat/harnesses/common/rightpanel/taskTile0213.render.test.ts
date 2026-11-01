@@ -8,13 +8,13 @@
 // 껍데기 부재(AC8·AC9)는 형제 파일 `rightPanelTiles.render.test.ts` 가 래퍼를 직접 렌더해
 // 양성 짝과 함께 관측한다 — 여기서 다시 단언하지 않는다.
 
-import { describe, expect, it, vi } from 'vitest'
+import { load } from 'cheerio'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { load } from 'cheerio'
+import { describe, expect, it, vi } from 'vitest'
+import type { AppMessagePart } from '../../../../../../../shared/ipc'
 import { backgroundTaskKey, taskBoardFromMessages, taskBoardOrdered } from '../../../lib/taskBoard'
 import type { Message } from '../../../reducer/chatReducer'
-import type { AppMessagePart } from '../../../../../../../shared/ipc'
 
 // 현재 Code 래퍼(`PlanTileContent`)는 store 를 읽는다 — `renderToStaticMarkup` 은 zustand 의 SSR
 // 스냅샷(`getInitialState()`)을 돌려주어 시드가 반영되지 않는다. 그래서 store 모듈을 통째로
@@ -51,7 +51,8 @@ vi.mock('../../../store/chatStore', () => ({
 }))
 
 const { TaskProgressList } = await import('./TaskProgressList')
-const { PlanContent: PlanTileContent } = await import('../../claude/rightpanel/PlanTile')
+const { claudeTileById } = await import('../../claude/rightpanel/tileRegistry')
+const PlanTileContent = claudeTileById('plan').Content
 
 let runSeq = 0
 const nextRun = (): string => `run${(runSeq += 1)}`

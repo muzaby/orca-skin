@@ -1,14 +1,19 @@
+import { createElement } from 'react'
 import { rightPanelTileDefinitions, type RightPanelTileId } from '../../../lib/rightPanelTiles'
-import type { RightPanelTileRegistration } from '../../contracts'
-import { PlanTileHeaderActions } from '../../common/rightpanel/PlanTileContent'
+import { harnessCatalog } from '../../catalog'
 import { DiffTileContent } from '../../common/rightpanel/DiffTileContent'
 import { GitContextBar } from '../../common/rightpanel/GitContextBar'
+import { PlanTileContent, PlanTileHeaderActions } from '../../common/rightpanel/PlanTileContent'
+import type { RightPanelTileRegistration } from '../../contracts'
 import { SubAgentTileContent, SubAgentTileHeader } from './SubAgentTileContent'
 import { TaskTileContent, TaskTileHeader } from './TaskTileContent'
-import { PlanContent } from './PlanTile'
 
 const contentById = {
-  plan: PlanContent,
+  plan: () =>
+    createElement(PlanTileContent, {
+      emptyDescriptionKey: harnessCatalog('claude').planEmptyDescription,
+      selectHintKey: harnessCatalog('claude').planSelectHint
+    }),
   subagent: SubAgentTileContent,
   task: TaskTileContent,
   diff: DiffTileContent

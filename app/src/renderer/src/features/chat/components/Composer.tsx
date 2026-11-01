@@ -1,14 +1,32 @@
-import { landingFrame } from './landingFrame'
-import { composerHarness } from '../harnesses/registries/composer'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Icon } from '../../../shared/ui/Icon'
+import type { UsageLimitsView } from '../../../../../shared/usage/limits'
+import { useAgents } from '../../../shared/hooks/useAgents'
 import { useI18n } from '../../../shared/i18n'
-import { UsageCircle } from '../../../shared/ui/UsageCircle'
-import { agentUiPolicy } from '../lib/agentPresentation'
+import { Button } from '../../../shared/ui/Button'
+import { Icon } from '../../../shared/ui/Icon'
 import { Popover } from '../../../shared/ui/Popover'
 import { ReadingColumn } from '../../../shared/ui/ReadingColumn'
+import { UsageCircle } from '../../../shared/ui/UsageCircle'
 import { ComposerInputController } from '../harnesses/common/composer/ComposerInputController'
 import { RequirementTray } from '../harnesses/common/composer/RequirementTray'
+import { composerHarness } from '../harnesses/registries/composer'
+import { agentUiPolicy } from '../lib/agentPresentation'
+import type { ComposerDraftUpdate } from '../lib/composerDraft'
+import { contextWindowOf, nearCompaction } from '../lib/contextWindow'
+import type { LandingProjects } from '../lib/landingProjectOptions'
+import { steerBlockedByProviderBoundary } from '../lib/sendAdmission'
+import { contextTokens } from '../lib/telemetry'
+import {
+  chatActions,
+  useChatBusy,
+  useChatResidualSteer,
+  useChatResponding,
+  useChatSession,
+  useNewChatPending,
+  useProjectConcurrencyCount
+} from '../store/chatStore'
+import { ApprovalCard } from './ApprovalCard'
+import { GitRow } from './composer/GitRow'
 import { ModelMenu } from './composer/ModelMenu'
 import {
   draftSelection,
@@ -17,28 +35,10 @@ import {
   selectionExists,
   selectionLabel
 } from './composer/modelSelection'
-import { steerBlockedByProviderBoundary } from '../lib/sendAdmission'
-import { Button } from '../../../shared/ui/Button'
 import { CwdPanel } from './CwdPanel'
-import type { LandingProjects } from '../lib/landingProjectOptions'
-import { GitRow } from './composer/GitRow'
+import { landingFrame } from './landingFrame'
 import { Notice } from './Notice'
-import { ApprovalCard } from './ApprovalCard'
 import { UsagePanel } from './UsagePanel'
-import type { UsageLimitsView } from '../../../../../shared/usage/limits'
-import {
-  chatActions,
-  useChatBusy,
-  useChatResponding,
-  useChatResidualSteer,
-  useChatSession,
-  useNewChatPending,
-  useProjectConcurrencyCount
-} from '../store/chatStore'
-import { contextTokens } from '../lib/telemetry'
-import { contextWindowOf, nearCompaction } from '../lib/contextWindow'
-import { useAgents } from '../../../shared/hooks/useAgents'
-import type { ComposerDraftUpdate } from '../lib/composerDraft'
 
 interface ComposerProps {
   backendLabel: string
@@ -68,7 +68,7 @@ interface ComposerProps {
   showLandingCwdPanel?: boolean
   landingProjects?: LandingProjects
   // OpenCode 새 대화의 컨텍스트는 입력 아래. 모델 전환에도 입력 인스턴스를 유지한다.
-  openCodeLanding?: boolean
+  contextLayout?: 'below' | 'inline'
   // 세션이 시작됐는가 — git 행의 노출 조건 절반(나머지 절반은 git 저장소 여부, 0206 D-002).
   showGitRow?: boolean
   // '+' 메뉴 '플러그인 관리' — 페이지가 navigate('/plugins') 를 주입한다(0259 D-010).
@@ -117,7 +117,7 @@ export function Composer({
   flush,
   showLandingCwdPanel = false,
   landingProjects,
-  openCodeLanding = false,
+  contextLayout = 'inline',
   showGitRow = false,
   onManagePlugins
 }: ComposerProps): React.JSX.Element {
@@ -231,7 +231,7 @@ export function Composer({
   const toolApprovalPending = pendingToolApprovals.length > 0
   return (
     <div
-      className={`app-frame-composer relative ${openCodeLanding && contextBelow ? landingFrame.openCodeComposer : 'pb-[18px] pt-3'}`}
+      className={`app-frame-composer relative ${contextLayout === 'below' && contextBelow ? landingFrame.openCodeComposer : 'pb-[18px] pt-3'}`}
     >
       {showScrollToBottom && (
         <button
@@ -252,7 +252,7 @@ export function Composer({
           beforeGitRow={
             <>
               <Requests />
-              {showLandingCwdPanel && !(openCodeLanding && contextBelow) && (
+              {showLandingCwdPanel && !(contextLayout === 'below' && contextBelow) && (
                 <CwdPanel cwd={cwd} inflight={leaseBusy} landingProjects={landingProjects} />
               )}
             </>
@@ -404,7 +404,7 @@ export function Composer({
             </>
           }
           afterComposerInput={
-            showLandingCwdPanel && openCodeLanding && contextBelow ? (
+            showLandingCwdPanel && contextLayout === 'below' && contextBelow ? (
               <div
                 className="absolute inset-x-0 top-full pt-6"
                 data-surface="opencode-landing-context"

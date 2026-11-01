@@ -1,11 +1,11 @@
-import { Icon } from '../../../../shared/ui/Icon'
 import type { AgentEnvironment } from '../../../../../../shared/ipc'
+import { Icon } from '../../../../shared/ui/Icon'
 
-import { modelKey, type ModelSelection } from './modelSelection'
-import { modelPresentation } from '../../harnesses/modelPresentation'
-import { MenuItem, MenuTitle } from '../../../../shared/ui/MenuItem'
 import { useI18n } from '../../../../shared/i18n'
-import { HarnessLogo } from '../../harnesses/registries/brand'
+import { HarnessLogo } from '../../../../shared/ui/HarnessLogo'
+import { MenuItem, MenuTitle } from '../../../../shared/ui/MenuItem'
+import { modelPresentation } from '../../harnesses/modelPresentation'
+import { modelKey, type ModelSelection } from './modelSelection'
 
 interface ModelMenuProps {
   agents: AgentEnvironment[]
@@ -43,10 +43,7 @@ export function ModelMenu({
           <MenuTitle
             leading={
               (agent.adapter === 'claude' || agent.adapter === 'opencode') && (
-                <HarnessLogo
-                  backend={agent.adapter}
-                  className={`size-3.5 shrink-0 ${agent.adapter === 'claude' ? 'text-spinner' : 'text-oc-ink'}`}
-                />
+                <HarnessLogo backend={agent.adapter} className="size-3.5 shrink-0" />
               )
             }
           >

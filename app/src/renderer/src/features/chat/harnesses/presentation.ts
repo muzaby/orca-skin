@@ -1,5 +1,6 @@
+import type { Backend } from '../../../../../shared/ipc'
 import { harnessCatalog } from './catalog'
 import type { HarnessSurfaces } from './contracts'
-export function harnessSurfaces(openCode: boolean): HarnessSurfaces {
-  return harnessCatalog(openCode ? 'opencode' : 'claude').surfaces
+export function harnessSurfaces(backend: Backend): HarnessSurfaces {
+  return harnessCatalog(backend).surfaces
 }

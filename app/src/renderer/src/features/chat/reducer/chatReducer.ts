@@ -1,62 +1,65 @@
-import type {
-  AppMessagePart,
-  AskQuestionRequest,
-  AttachmentView,
-  NormalizedEvent,
-  ClassifiedError,
-  LoadedSession,
-  PlanReviewRequest,
-  ProviderApprovalRequest,
-  ProviderReportedTelemetry,
-  SubagentTaskMeta,
-  Backend,
-  EffortLevel,
-  DiffRequirementItem,
-  DiffRequirementAnchor,
-  GitDiffSummary,
-  WorktreeDisplay,
-  WorktreePrepareStep,
-  GitDiffPatch
-} from '../../../../../shared/ipc'
-import { subagentNoticePart } from '../../../../../shared/ipc'
-import { defaultEffortForModel } from '../../../../../shared/harnesses/claude/model-effort'
-import type { NonExecution } from '../../../../../shared/tool-outcome'
 import { isFilesystemRoot } from '../../../../../shared/absolute-path'
-import { directoryIdentity } from '../../../../../shared/extra-directories'
 import {
   DEFAULT_AGENT_KIND,
   parseAgentKind,
   readLegacyAgentKind
 } from '../../../../../shared/agent-kind'
 import { sessionContextPolicy } from '../../../../../shared/agent-session-policy'
-import { isBackend, supportsAgentKind } from '../../../../../shared/harness'
-import { responseBoundaryPart } from '../../../../../shared/response-boundary'
+import type { ContinuityLang } from '../../../../../shared/continuity-lang'
+import { directoryIdentity } from '../../../../../shared/extra-directories'
+import { HARNESS_CAPABILITIES, isBackend, supportsAgentKind } from '../../../../../shared/harness'
+import { defaultEffortForModel } from '../../../../../shared/harnesses/claude/model-effort'
+import type {
+  AppMessagePart,
+  AskQuestionRequest,
+  AttachmentView,
+  Backend,
+  ClassifiedError,
+  DiffRequirementAnchor,
+  DiffRequirementItem,
+  EffortLevel,
+  GitDiffPatch,
+  GitDiffSummary,
+  LoadedSession,
+  NormalizedEvent,
+  PlanReviewRequest,
+  ProviderApprovalRequest,
+  ProviderReportedTelemetry,
+  SubagentTaskMeta,
+  WorktreeDisplay,
+  WorktreePrepareStep
+} from '../../../../../shared/ipc'
+import { subagentNoticePart } from '../../../../../shared/ipc'
+import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
+import {
+  coercePermissionMode,
+  DEFAULT_PERMISSION_MODE,
+  permissionModeForAgent
+} from '../../../../../shared/permission-mode'
 import { planReviewToolInput } from '../../../../../shared/plan-review-input'
+import { responseBoundaryPart } from '../../../../../shared/response-boundary'
 import type {
   ReceivedMessageOrigin,
   SessionSchedule
 } from '../../../../../shared/session-schedules'
-import {
-  coercePermissionMode,
-  permissionModeForAgent,
-  DEFAULT_PERMISSION_MODE
-} from '../../../../../shared/permission-mode'
-import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
-import type { ContinuityLang } from '../../../../../shared/continuity-lang'
 import { readTaskToolObservation } from '../../../../../shared/task-tool'
+import type { NonExecution } from '../../../../../shared/tool-outcome'
 import type { MessageKey } from '../../../shared/i18n'
-import { contextTokens } from '../lib/telemetry'
-import { agentTaskKey, backgroundTaskKey } from '../lib/taskBoard'
-import { settleOrphanToolParts, settleStaleAsyncLaunchParts } from '../lib/parts'
-import { rightPanelPolicy, rightPanelTarget, type RightPanelTileId } from '../lib/rightPanelTiles'
 import type { BranchSnapshot } from '../harnesses/common/composer/branchChipState'
 import {
+  ALL_CHANGES,
+  diffComparisonKey,
+  reconcileComparison,
+  type DiffComparison
+} from '../harnesses/common/rightpanel/diffComparison'
+import {
+  diffRequirementMatchesComparison,
   reanchorDiffRequirementItem,
-  wireDiffRequirementAnchor,
-  diffRequirementMatchesComparison
+  wireDiffRequirementAnchor
 } from '../harnesses/common/rightpanel/diffRequirements'
 import { patchLinesToDiffLines } from '../lib/diffPatchLines'
 import { readGitPatchCache, writeGitPatchCache, type GitPatchCache } from '../lib/gitPatchCache'
+import { settleOrphanToolParts, settleStaleAsyncLaunchParts } from '../lib/parts'
 import {
   addTileColumnMajor,
   columnsContain,
@@ -64,12 +67,9 @@ import {
   rightPanelColumnsForAgent,
   type RightPanelColumns
 } from '../lib/rightPanelLayout'
-import {
-  ALL_CHANGES,
-  diffComparisonKey,
-  reconcileComparison,
-  type DiffComparison
-} from '../harnesses/common/rightpanel/diffComparison'
+import { rightPanelPolicy, rightPanelTarget, type RightPanelTileId } from '../lib/rightPanelTiles'
+import { agentTaskKey, backgroundTaskKey } from '../lib/taskBoard'
+import { contextTokens } from '../lib/telemetry'
 
 // transcript 렌더가 쓰는 도구 호출 view — parts 의 tool_call+tool_result 를 toolRunId 로
 // 페어링한 결과(lib/parts.ts partsToolCalls). 더 이상 Message 의 필드가 아니다.
@@ -1650,7 +1650,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         modelAlias: action.modelAlias,
         effort: selectionChanged ? defaultEffortForModel(action.modelFamily) : state.effort,
         permissionMode: coercePermissionMode(
-          backend === 'claude' && !state.permissionModeExplicit
+          backend && HARNESS_CAPABILITIES[backend].permissionModes && !state.permissionModeExplicit
             ? DEFAULT_PERMISSION_MODE
             : state.permissionMode,
           { alias: action.modelAlias ?? '', model: action.modelFamily },
@@ -1991,7 +1991,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...state,
         selectedSubagentTaskId: action.toolRunId,
-        rightPanelTiles: activateTile(state, state.backend === 'opencode' ? 'task' : 'subagent')
+        rightPanelTiles: activateTile(
+          state,
+          HARNESS_CAPABILITIES[state.backend ?? 'claude'].subagentTile
+        )
       }
 
     case 'SELECT_PROCESS_TOOL':
