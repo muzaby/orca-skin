@@ -3,7 +3,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { initialChatState, type ChatState } from '../../../reducer/chatReducer'
 import { TaskTileContent } from '../../claude/rightpanel/TaskTileContent'
-import { PlanContent as PlanTileContent } from '../../claude/rightpanel/PlanTile'
+import { claudeTileById } from '../../claude/rightpanel/tileRegistry'
+const PlanTileContent = claudeTileById('plan').Content
 
 const harness = vi.hoisted(() => ({
   effects: [] as EffectCallback[],

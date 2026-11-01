@@ -1,7 +1,6 @@
-import { ClaudeLogo } from '../../../../shared/ui/ClaudeLogo'
-import { OpenCodeLogo } from '../../../../shared/ui/OpenCodeLogo'
-import { OrcaLogo } from '../../../../shared/ui/OrcaLogo'
+import { HarnessLogo } from '../../../../shared/ui/HarnessLogo'
 import { Icon } from '../../../../shared/ui/Icon'
+import { OrcaLogo } from '../../../../shared/ui/OrcaLogo'
 
 export function SourceHeading({
   source,
@@ -18,9 +17,9 @@ export function SourceHeading({
       className={`flex items-center gap-2 px-3 pb-2 text-caption font-medium text-ink3 ${spaced ? 'pt-8' : 'pt-5'}`}
     >
       {source.includes('claude') ? (
-        <ClaudeLogo className={`${className} text-spinner`} />
+        <HarnessLogo backend="claude" className={className} />
       ) : source.includes('opencode') ? (
-        <OpenCodeLogo className={`${className} text-oc-ink`} />
+        <HarnessLogo backend="opencode" className={className} />
       ) : source === 'orca' ? (
         <OrcaLogo className="h-4 w-auto shrink-0" />
       ) : (

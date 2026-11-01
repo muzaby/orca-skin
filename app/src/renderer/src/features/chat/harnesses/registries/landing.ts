@@ -1,11 +1,11 @@
 import type { Backend } from '../../../../../../shared/ipc'
 import { claudeLandingPresentation } from '../claude/landing/presentation'
-import { openCodeLandingPresentation } from '../opencode/landing/presentation'
 import type { HarnessLandingPresentation } from '../contracts'
+import { openCodePresentation } from '../opencode/landing/presentation'
 
 const presentations = {
   claude: claudeLandingPresentation,
-  opencode: openCodeLandingPresentation
+  opencode: openCodePresentation
 } satisfies Record<Backend, HarnessLandingPresentation>
 
 export function harnessLanding(backend: Backend | null): HarnessLandingPresentation {

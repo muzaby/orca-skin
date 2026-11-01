@@ -4,12 +4,32 @@ import type { Backend } from './ipc'
 export const HARNESS_IDS = ['claude', 'opencode'] as const
 
 export const HARNESS_CAPABILITIES = {
-  claude: { label: 'Claude Code', agentKinds: ['code', 'work'], nativeAgents: false },
-  opencode: { label: 'OpenCode', agentKinds: ['code'], nativeAgents: true }
+  claude: {
+    label: 'Claude Code',
+    shortLabel: 'Claude',
+    agentKinds: ['code', 'work'],
+    nativeAgents: false,
+    continuity: true,
+    subagentTile: 'subagent',
+    permissionModes: true
+  },
+  opencode: {
+    label: 'OpenCode',
+    shortLabel: 'OpenCode',
+    agentKinds: ['code'],
+    nativeAgents: true,
+    continuity: false,
+    subagentTile: 'task',
+    permissionModes: false
+  }
 } as const satisfies Record<
   Backend,
   {
     label: string
+    shortLabel: string
+    continuity: boolean
+    subagentTile: 'subagent' | 'task'
+    permissionModes: boolean
     agentKinds: readonly AgentKind[]
     nativeAgents: boolean
   }

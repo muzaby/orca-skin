@@ -1,7 +1,7 @@
 import type { HarnessLandingPresentation } from '../../contracts'
 import { LandingBrand } from './Brand'
 
-export const openCodeLandingPresentation: HarnessLandingPresentation = {
+export const openCodePresentation: HarnessLandingPresentation = {
   Header: LandingBrand,
-  composer: { openCodeLanding: true, flush: true }
+  composer: { contextLayout: 'below', flush: true }
 }

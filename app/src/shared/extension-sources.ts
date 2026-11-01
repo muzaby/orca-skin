@@ -1,8 +1,9 @@
+import { HARNESS_CAPABILITIES } from './harness'
 import type { Backend, SkillInfo } from './ipc'
 import { PRODUCT_DISPLAY_NAME } from './product'
 
 export function harnessSourceTitle(backend: Backend): string {
-  return backend === 'opencode' ? 'OpenCode' : 'Claude'
+  return HARNESS_CAPABILITIES[backend].shortLabel
 }
 
 export const extensionSourceLabels: Readonly<Record<string, string>> = {

@@ -1,28 +1,28 @@
-import { reportError } from '../../../shared/errors'
 import { memo, useCallback, useMemo, useRef, useState } from 'react'
+import { reportError } from '../../../shared/errors'
+import { useI18n } from '../../../shared/i18n'
 import { Button } from '../../../shared/ui/Button'
 import { MenuItem } from '../../../shared/ui/MenuItem'
 import { Popover } from '../../../shared/ui/Popover'
 import { RenameInput } from '../../../shared/ui/RenameInput'
 import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
-import { useI18n } from '../../../shared/i18n'
+import { partsText } from '../lib/parts'
+import { flattenColumns, rightPanelColumnsForAgent } from '../lib/rightPanelLayout'
+import {
+  rightPanelMenuTileDefinitionsForAgent,
+  rightPanelPolicy,
+  rightPanelTileLabel,
+  showsUnseenTaskBadge,
+  SUSPENDED_RIGHT_PANEL_TILES,
+  type RightPanelTileId
+} from '../lib/rightPanelTiles'
+import type { ChatState } from '../reducer/chatReducer'
 import {
   chatActions,
   getActiveChatSession,
   useChatSession,
   useUnseenSettledTaskCount
 } from '../store/chatStore'
-import { partsText } from '../lib/parts'
-import type { ChatState } from '../reducer/chatReducer'
-import {
-  rightPanelPolicy,
-  rightPanelTileLabel,
-  rightPanelMenuTileDefinitionsForAgent,
-  showsUnseenTaskBadge,
-  SUSPENDED_RIGHT_PANEL_TILES,
-  type RightPanelTileId
-} from '../lib/rightPanelTiles'
-import { flattenColumns, rightPanelColumnsForAgent } from '../lib/rightPanelLayout'
 import { CwdButton } from './CwdButton'
 
 // 사이드바 메타 (state.title) 가 즉시 채워지므로 사용자가 세션을 선택한 순간부터

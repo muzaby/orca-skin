@@ -3,5 +3,5 @@ import type { HarnessLandingPresentation } from '../../contracts'
 
 export const claudeLandingPresentation: HarnessLandingPresentation = {
   Header: AgentModeToggle,
-  composer: { openCodeLanding: false, flush: false }
+  composer: { contextLayout: 'inline', flush: false }
 }

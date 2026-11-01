@@ -1,13 +1,11 @@
 import type { ComponentType, ForwardRefExoticComponent, ReactNode, RefAttributes } from 'react'
-import type { AgentEnvironment } from '../../../../../shared/ipc'
-import type { ChatState } from '../reducer/chatReducer'
-import type { ComposerSubmitProps } from './types'
-import type { Backend, ClassifiedError } from '../../../../../shared/ipc'
 import type { AgentKind } from '../../../../../shared/agent-kind'
+import type { AgentEnvironment, Backend, ClassifiedError } from '../../../../../shared/ipc'
 import type { MessageKey } from '../../../shared/i18n'
 import type { IconName } from '../../../shared/ui/Icon'
-import type { Message } from '../reducer/chatReducer'
+import type { ChatState, Message } from '../reducer/chatReducer'
 import type { PendingSteerState } from '../store/chatStore'
+import type { ComposerSubmitProps } from './types'
 export type { ComposerSubmitProps, ModelPresentation } from './types'
 export interface AgentComposerPresentation {
   showGitRow: boolean
@@ -73,6 +71,14 @@ export interface HarnessSurfaces {
   message: string
   directory: string
   pathWidth: string
+  cwd: {
+    variant: 'flat' | 'outlined'
+    chipVariant: 'flat' | 'segment'
+    showChevron: boolean
+    trailingDivider: boolean
+    contextRow: string
+    chipGroup: string
+  }
 }
 export interface RightPanelAppearance {
   tile: string
@@ -82,7 +88,7 @@ export interface RightPanelAppearance {
 
 export interface HarnessLandingPresentation {
   Header: ComponentType<{ framed?: boolean }>
-  composer: { openCodeLanding: boolean; flush: boolean }
+  composer: { contextLayout: 'below' | 'inline'; flush: boolean }
 }
 export interface ComposerInputPresentation {
   onInputIntent?: () => void

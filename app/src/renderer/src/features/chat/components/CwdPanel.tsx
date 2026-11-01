@@ -1,17 +1,15 @@
-import { landingFrame } from './landingFrame'
-import { harnessSurfaces } from '../harnesses/presentation'
 import { useI18n } from '../../../shared/i18n'
-import { agentUiPolicy } from '../lib/agentPresentation'
-import { chatActions, useChatSession } from '../store/chatStore'
-import { CwdButton } from './CwdButton'
-import { LandingProjectPicker } from './LandingProjectPicker'
-import type { LandingProjects } from '../lib/landingProjectOptions'
-import { useDirectoryPicker } from '../hooks/useDirectoryPicker'
 import { BranchChip } from '../harnesses/common/composer/BranchChip'
-import { chipGroupSurface } from '../harnesses/common/composer/chipSurface'
 import { ComposerChip } from '../harnesses/common/composer/ComposerChip'
 import { ExtraDirChip } from '../harnesses/common/composer/ExtraDirChip'
 import { WorktreeToggle } from '../harnesses/common/composer/WorktreeToggle'
+import { harnessSurfaces } from '../harnesses/presentation'
+import { useDirectoryPicker } from '../hooks/useDirectoryPicker'
+import { agentUiPolicy } from '../lib/agentPresentation'
+import type { LandingProjects } from '../lib/landingProjectOptions'
+import { chatActions, useChatSession } from '../store/chatStore'
+import { CwdButton } from './CwdButton'
+import { LandingProjectPicker } from './LandingProjectPicker'
 
 interface CwdPanelProps {
   cwd: string | null
@@ -30,7 +28,8 @@ export function CwdPanel({
   landingProjects,
   appearance = 'default'
 }: CwdPanelProps): React.JSX.Element {
-  const openCode = appearance === 'opencode'
+  const surfaces = harnessSurfaces(appearance === 'default' ? 'claude' : appearance)
+  const surface = surfaces.cwd
   const { tr } = useI18n()
   const agentKind = useChatSession((s) => s.agentKind)
   const extraDirs = useChatSession((s) => s.extraDirs)
@@ -41,7 +40,7 @@ export function CwdPanel({
 
   return (
     <div
-      className={`app-frame-composer-directory flex flex-wrap items-center ${harnessSurfaces(openCode).directory} ${openCode ? '' : landingFrame.contextRow}`}
+      className={`app-frame-composer-directory flex flex-wrap items-center ${surfaces.directory} ${surface.contextRow}`}
       data-surface="cwd-panel"
       data-state="landing"
       data-appearance={appearance}
@@ -51,17 +50,17 @@ export function CwdPanel({
           cwd={cwd}
           inflight={inflight}
           projects={landingProjects}
-          variant={openCode ? 'flat' : 'outlined'}
-          className={harnessSurfaces(openCode).pathWidth}
+          variant={surface.variant}
+          className={surfaces.pathWidth}
         />
       ) : (
         <CwdButton
           cwd={cwd}
           sessionStarted={false}
           inflight={inflight}
-          variant={openCode ? 'flat' : 'outlined'}
-          className={harnessSurfaces(openCode).pathWidth}
-          showChevron={openCode}
+          variant={surface.variant}
+          className={surfaces.pathWidth}
+          showChevron={surface.showChevron}
         />
       )}
       {/* Code에서만 Git을 조회한다. 격리 ON이면 선택은 base ref로 유예된다. */}
@@ -69,16 +68,13 @@ export function CwdPanel({
         cwd={cwd}
         hidden={!agentUiPolicy(agentKind).composer.showLandingCwdControls}
         disabled={inflight}
-        variant={openCode ? 'flat' : 'segment'}
-        trailingDivider={!openCode}
+        variant={surface.chipVariant}
+        trailingDivider={surface.trailingDivider}
         deferTo={worktreeIsolation ? (branch) => chatActions.setWorktreeBaseRef(branch) : undefined}
         deferred={worktreeIsolation ? worktreeBaseRef : null}
         renderTrigger={(branch, pending) => (
-          <div
-            className={openCode ? 'inline-flex h-7 max-w-full items-center' : chipGroupSurface}
-            data-surface="branch-worktree-group"
-          >
-            {openCode && (
+          <div className={surface.chipGroup} data-surface="branch-worktree-group">
+            {surface.showChevron && (
               <span aria-hidden="true" className="mx-1 select-none text-t5">
                 /
               </span>
@@ -88,7 +84,7 @@ export function CwdPanel({
               checked={worktreeIsolation}
               disabled={inflight || !cwd || pending}
               onChange={chatActions.setWorktreeIsolation}
-              variant={openCode ? 'flat' : 'segment'}
+              variant={surface.chipVariant}
             />
           </div>
         )}
@@ -103,7 +99,7 @@ export function CwdPanel({
       ))}
       <ComposerChip
         icon="plus"
-        variant={openCode ? 'flat' : 'outlined'}
+        variant={surface.variant}
         disabled={picking || inflight}
         onClick={() => void pick()}
         title={tr('chat.composer.extraDirAdd')}

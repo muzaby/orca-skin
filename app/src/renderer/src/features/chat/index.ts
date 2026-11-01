@@ -1,20 +1,20 @@
-export { ChatProvider } from './providers/ChatProvider'
+export { AgentModeToggle } from './components/AgentModeToggle'
 export { AutomaticFeedDebugSection } from './components/AutomaticFeedDebugSection'
-export { ChatView } from './components/ChatView'
 export { ChatTile } from './components/ChatTile'
+export { ChatView } from './components/ChatView'
+export { Composer } from './components/Composer'
 export { RightPanel } from './components/rightpanel/RightPanel'
 export { ArtifactViewer } from './harnesses/common/rightpanel/ArtifactViewer'
+export { OpenCodeWordmark } from './harnesses/opencode/Wordmark'
+export { useUsageForTelemetryProvider } from './hooks/useUsageForTelemetryProvider'
+export { agentPresentation } from './lib/agentPresentation'
+export { ChatProvider } from './providers/ChatProvider'
 export {
   closeArtifactViewer,
   openArtifactViewer,
   setArtifactViewerWidth,
   useArtifactViewerStore
 } from './store/artifactViewerStore'
-export { Composer } from './components/Composer'
-export { OpenCodeWordmark } from './harnesses/opencode/Wordmark'
-export { AgentModeToggle } from './components/AgentModeToggle'
-export { agentPresentation } from './lib/agentPresentation'
-export { useUsageForTelemetryProvider } from './hooks/useUsageForTelemetryProvider'
 // Zustand chat store — 외부(app/pages)는 selector 훅 + 안정 액션 + imperative read 헬퍼로만
 // 접근한다 (store 외피는 멀티세션 sessions Record — handoff 0013).
 export {
@@ -22,18 +22,17 @@ export {
   getActiveChatSession,
   seedLandingAgentKind,
   seedLandingBackend,
-  useChatRecentsEpoch,
+  subscribeGeneratingSessions,
+  subscribeResponseRequest,
+  subscribeTurnEnd,
+  useActiveDraftKey,
   useChatBusy,
+  useChatRecentsEpoch,
   useChatSession,
   useDraftSessionRows,
-  useActiveDraftKey,
-  subscribeTurnEnd,
-  subscribeResponseRequest,
-  subscribeGeneratingSessions,
   type DraftRow
 } from './store/chatStore'
 
-export { harnessSurfaces } from './harnesses/presentation'
 export { Landing } from './components/Landing'
 export { LandingHeader } from './components/LandingHeader'
-export { HarnessLogo } from './harnesses/registries/brand'
+export { harnessSurfaces } from './harnesses/presentation'

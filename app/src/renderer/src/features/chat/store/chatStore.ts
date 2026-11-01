@@ -1,38 +1,17 @@
-import { reportError } from '../../../shared/errors'
-import { promoteComposer } from '../lib/composerPromotion'
-import { isFilesystemRoot } from '../../../../../shared/absolute-path'
 import { useMemo } from 'react'
+import { create } from 'zustand'
+import { useShallow } from 'zustand/react/shallow'
+import { isFilesystemRoot } from '../../../../../shared/absolute-path'
 import {
   DEFAULT_LANDING_AGENT_KIND,
   parseAgentKind,
   type AgentKind
 } from '../../../../../shared/agent-kind'
 import { sessionContextPolicy } from '../../../../../shared/agent-session-policy'
-import { create } from 'zustand'
-import { useShallow } from 'zustand/react/shallow'
-import {
-  chatReducer,
-  initialChatState,
-  type ChatAction,
-  type DiffViewOptions,
-  type GitSnapshotRequest,
-  type ChatState,
-  type DiffRequirementDraft,
-  type PlanComment
-} from '../reducer/chatReducer'
-import { toPlanFeedback } from '../lib/planComments'
-import { generatingSessionKeys, sameKeys } from '../lib/responseProgress'
-import { nextComposerDraftSequence, type ComposerDraftUpdate } from '../lib/composerDraft'
-import { steerBlockedByProviderBoundary, shouldQueueAsPending } from '../lib/sendAdmission'
-import {
-  chatApi,
-  concurrencyApi,
-  permissionApi,
-  sessionApi,
-  settingsApi
-} from '../../../shared/api/ipc'
-import { createEventCoalescer, type DeltaEvent } from '../lib/eventCoalescer'
+import { continuityLangFor, continuityTitle } from '../../../../../shared/continuity-lang'
+import { HARNESS_CAPABILITIES, supportsAgentKind } from '../../../../../shared/harness'
 import type {
+  AddSessionDirectoryResult,
   AttachmentView,
   ComposerAttachment,
   DiffRequirementAnchor,
@@ -41,27 +20,49 @@ import type {
   GitDiffPatch,
   GitDiffSummary,
   NormalizedEvent,
-  SendChatMessage,
-  AddSessionDirectoryResult
+  SendChatMessage
 } from '../../../../../shared/ipc'
 import {
   planApprovedMode,
   type NormalizedPermissionMode
 } from '../../../../../shared/permission-mode'
-import { continuityLangFor, continuityTitle } from '../../../../../shared/continuity-lang'
-import { rightPanelTarget, type RightPanelTileId } from '../lib/rightPanelTiles'
+import {
+  chatApi,
+  concurrencyApi,
+  permissionApi,
+  sessionApi,
+  settingsApi
+} from '../../../shared/api/ipc'
+import { reportError } from '../../../shared/errors'
 import type { BranchSnapshot } from '../harnesses/common/composer/branchChipState'
-import { wireDiffRequirementAnchor } from '../harnesses/common/rightpanel/diffRequirements'
 import type { DiffComparison } from '../harnesses/common/rightpanel/diffComparison'
+import { wireDiffRequirementAnchor } from '../harnesses/common/rightpanel/diffRequirements'
+import { backgroundCallKeyForToolUse } from '../lib/canonicalBackground'
+import { nextComposerDraftSequence, type ComposerDraftUpdate } from '../lib/composerDraft'
+import { promoteComposer } from '../lib/composerPromotion'
+import { createEventCoalescer, type DeltaEvent } from '../lib/eventCoalescer'
+import { toPlanFeedback } from '../lib/planComments'
+import { generatingSessionKeys, sameKeys } from '../lib/responseProgress'
+import { rightPanelTarget, type RightPanelTileId } from '../lib/rightPanelTiles'
+import { shouldQueueAsPending, steerBlockedByProviderBoundary } from '../lib/sendAdmission'
+import {
+  chatReducer,
+  initialChatState,
+  type ChatAction,
+  type ChatState,
+  type DiffRequirementDraft,
+  type DiffViewOptions,
+  type GitSnapshotRequest,
+  type PlanComment
+} from '../reducer/chatReducer'
 import { forgetArtifacts, refreshArtifactList } from './artifactStore'
 import {
-  ingestBackgroundEvent,
   forgetBackgroundState,
+  ingestBackgroundEvent,
   refreshBackgroundState,
   selectBackgroundItem,
   useBackgroundStore
 } from './backgroundStore'
-import { backgroundCallKeyForToolUse } from '../lib/canonicalBackground'
 
 // Zustand 단일 chat store — arch/frontend/state.md §1.4 채택안의 멀티세션 외피(handoff 0013).
 //
@@ -196,7 +197,9 @@ export function seedLandingBackend(
               session: {
                 ...entry.session,
                 backend: landingBackend,
-                agentKind: landingBackend === 'opencode' ? 'code' : entry.session.agentKind
+                agentKind: supportsAgentKind(landingBackend, entry.session.agentKind)
+                  ? entry.session.agentKind
+                  : HARNESS_CAPABILITIES[landingBackend].agentKinds[0]
               }
             }
           : entry
@@ -249,7 +252,9 @@ function freshEntry(projectId: string | null = null, cwd?: string | null): Sessi
     session: withoutDeletedProject({
       ...withLandingAgentKind(initialChatState, landingAgentKind),
       backend: landingBackend,
-      ...(landingBackend === 'opencode' ? { agentKind: 'code' as const } : {}),
+      ...(!supportsAgentKind(landingBackend, landingAgentKind)
+        ? { agentKind: HARNESS_CAPABILITIES[landingBackend].agentKinds[0] }
+        : {}),
       cwd: cwd ?? cwdCache,
       pendingProjectId: projectId
     }),
@@ -1502,7 +1507,12 @@ function continuityDraftSession(src: ChatState, kind: 'fork' | 'handoff'): ChatS
 function startForkDraft(): boolean {
   const s = getState()
   const src = s.sessions[s.activeKey]?.session
-  if (!src?.sessionId || src.loadingSession || src.backend === 'opencode') return false
+  if (
+    !src?.sessionId ||
+    src.loadingSession ||
+    !HARNESS_CAPABILITIES[src.backend ?? 'claude'].continuity
+  )
+    return false
   pruneUnsentContinuityDrafts(src.sessionId)
   const draftKey = `draft:${crypto.randomUUID()}`
   const draft: SessionEntry = {
@@ -1551,7 +1561,12 @@ function startHandoff(): boolean {
   // 가드: 확정 세션 + 턴 비진행 + 사용자 턴 2회 이상(Composer 비활성 가드와 이중 방어).
   // 0149 — listen 대기(main 의 턴-후 루프 진행 중)도 busy 로 센다(sessionBusy 단일 정의):
   // 백그라운드 서브에이전트를 기다리는 동안 핸드오프가 열리던 구멍을 막는다.
-  if (!src?.sessionId || sessionBusy(src) || src.loadingSession || src.backend === 'opencode')
+  if (
+    !src?.sessionId ||
+    sessionBusy(src) ||
+    src.loadingSession ||
+    !HARNESS_CAPABILITIES[src.backend ?? 'claude'].continuity
+  )
     return false
   if (src.messages.filter((m) => m.role === 'user').length < 2) return false
   // 다른 새-채팅 전송이 pending 이면 조용한 큐 대기 대신 거부 — silent stuck 방지(r2).
@@ -2088,7 +2103,10 @@ export const chatActions = {
     )
   },
   openSubagentTask: (toolRunId: string, origin?: HTMLElement): void => {
-    if (getState().sessions[getState().activeKey]?.session.backend === 'opencode') {
+    if (
+      HARNESS_CAPABILITIES[getState().sessions[getState().activeKey]?.session.backend ?? 'claude']
+        .subagentTile === 'task'
+    ) {
       dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId })
       patchEntry(getState().activeKey, (entry) => ({
         ...entry,
