@@ -1,0 +1,66 @@
+[
+  {
+    "file": "app/src/main/adapters/claude/plugin-catalog.test.ts",
+    "sha256": "2df52b5a3b948d115d3db804a3ada588437ffa00f7644f48e73d889168ea3ef5"
+  },
+  {
+    "file": "app/src/main/adapters/claude/plugin-catalog.ts",
+    "sha256": "a1d466f0a8920cf70fd159c7de6e3bc12f3acefdd5652e461f0aa94c7a03da28"
+  },
+  {
+    "file": "app/src/main/adapters/claude/project-path.ts",
+    "sha256": "4a155b1220b73157376501c998bea8d8a3ebcdfbfd281ac6ce4925ee6ed86692"
+  },
+  {
+    "file": "app/src/main/adapters/opencode/v1/discovery-cache.test.ts",
+    "sha256": "d78eb97dacbf504f3ac06bff9325c2cf58b9470dd8bbb7049fc01e8820931bdb"
+  },
+  {
+    "file": "app/src/main/adapters/opencode/v1/discovery-cache.ts",
+    "sha256": "f1d3c97121337a0b68006cbf9b09f077bc356f8d2cce29929894d610609aa67f"
+  },
+  {
+    "file": "app/src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+    "sha256": "02bdb1e19becaf9e5e0307ffe0dc6b799fbe861eb4ffc5dd980de2f03a75ec22"
+  },
+  {
+    "file": "app/src/main/app/bootstrap.native-history.test.ts",
+    "sha256": "9281c7aa999b5169e60a19d2a47b4863c3d2d4b9343fcfb37df1074b5957b848"
+  },
+  {
+    "file": "app/src/main/app/handlers/skills.test.ts",
+    "sha256": "5d3802e1101fd09e42da4cee0a3502fcabf05e9b178d3a2577792edbd6e2336c"
+  },
+  {
+    "file": "app/src/main/app/project-resource-sync.ts",
+    "sha256": "3830de005416043e7dfcdb2d0f23b5a4de732e353fc7e5d72d893484044523be"
+  },
+  {
+    "file": "app/src/main/app/project-resource-sync.initialization.test.ts",
+    "sha256": "4e8d6215e6170e345032006a4e1c1bdd05437ed949a69efdb0e32f904a1d70c0"
+  },
+  {
+    "file": "app/src/main/infra/config/fingerprint-watch.test.ts",
+    "sha256": "c1271fcd1e38f6ca20882ef61b2523f69ce1517afff1c729750a9f5005294089"
+  },
+  {
+    "file": "app/src/main/infra/config/fingerprint-watch.ts",
+    "sha256": "e5b6417d378a34d09d28a6d4e722e37aacb975b5a77345ae90797a750e4afe43"
+  },
+  {
+    "file": "app/src/renderer/src/features/chat/harnesses/opencode/transcript/ScrollController.tsx",
+    "sha256": "939b1d1b5ddd79dc51b96c86ee7c23e650836346ac2c7e9b780425347bb9830b"
+  },
+  {
+    "file": "app/src/renderer/src/features/chat/harnesses/opencode/transcript/ScrollController.restore-race.test.ts",
+    "sha256": "05cd29285ac84fcf5b4fe2cbd9378318b8541b5b375ee0ad21791d64a90c71c9"
+  },
+  {
+    "file": "app/src/main/app/composer-catalog.test.ts",
+    "sha256": "c5c88001ced24199ba85ee7afd3f270360e135e8eb9d9ab11dc253ddec606b7a"
+  },
+  {
+    "file": "app/src/main/adapters/opencode/v1/adapter.persistent.test.ts",
+    "sha256": "a355e8bb557df24cb604a71811c6a0c12952f926a80ad89ce62376d67a011562"
+  }
+]

@@ -95,6 +95,38 @@ it('holds file watches without starting recurring content probes and refreshes o
   expect(readFile).not.toHaveBeenCalled()
 })
 
+it('rechecks a newly held scope when its startup check overlaps another scope probe', async () => {
+  const cache = new OpenCodeDiscoveryCache()
+  const first = join(cwd, 'first.json'),
+    second = join(cwd, 'second.json')
+  await writeFile(first, 'first old')
+  await writeFile(second, 'second old')
+  const firstKey = cache.key('configured', cwd, env, 'first')
+  const secondKey = cache.key('configured', cwd, env, 'second')
+  await cache.run(firstKey, () => discoveryReadFile(first))
+  await cache.run(secondKey, () => discoveryReadFile(second))
+  releases.push(cache.hold(firstKey, vi.fn()))
+  await writeFile(first, 'first new')
+  const slow = Promise.withResolvers<string>()
+  vi.mocked(readFile).mockReturnValueOnce(slow.promise)
+  const polling = cache.poll()
+  const changed = vi.fn()
+  try {
+    await writeFile(second, 'second new')
+    releases.push(cache.hold(secondKey, changed))
+    // Let the new watch's one-shot startup check join the older, blocked poll.
+    await new Promise((done) => setTimeout(done, 200))
+    expect(changed).not.toHaveBeenCalled()
+    slow.resolve('first new')
+    await polling
+    await vi.waitFor(() => expect(changed).toHaveBeenCalledOnce(), { timeout: 4000 })
+    expect(await cache.run(secondKey, () => discoveryReadFile(second))).toBe('second new')
+  } finally {
+    slow.resolve('first new')
+    await polling
+  }
+})
+
 it('tracks missing candidates, ancestor git boundaries, custom files and environment layouts', async () => {
   const ancestor = join(root, 'project', 'opencode.json')
   await writeFile(ancestor, '{"mcp":{"parent":{}}}')

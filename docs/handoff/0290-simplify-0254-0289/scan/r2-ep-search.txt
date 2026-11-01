@@ -1,0 +1,48 @@
+### tree: .
+VP02 setInterval skills                          0
+VP02 onExtensionsChanged                         7
+VP03 legacy files (-l)                           0
+VP04 orphan chain (G)                            0
+VP04 orphan chain (incl tests)                   0
+VP04 docs                                        0
+VP05 old composer assembly                       0
+VP06 old app files                               0
+VP07 watchFile( main G                           1
+VP07 setInterval discovery-cache                 0
+VP08 dead symbols                                8
+VP08 dead symbols (!harnesses)                   0
+VP08 css tokens                                  0
+VP08 policy/prepare                              0
+VP09 BOM+JSON.parse claude                       0
+VP09 BOM any main (G)                            5
+VP09 git join main/adapters                      0
+VP09 git join main all                           2
+VP09 flag rule                                   1
+VP09 spec rule                                   1
+VP09 re-export/alias                             0
+VP10 body cancel session-context                 0
+VP10 sourceId === adapter                        1
+VP10 dispose.failed                              1
+VP10 'directory', bootstrap                      1
+VP10 project_id guard                            0
+VP10 sameSessionBinding                          6
+VP11 sync fs plugin-catalog                      5
+VP12 <ClaudeLogo|<OpenCodeLogo                   2
+VP12 label ternary                               0
+VP12 shim/PlanTile files                         0
+VP13 CwdPanel openCode branch                    0
+VP13 openCodeLanding (G)                         0
+VP13 store/reducer literal                       3
+VP14 capture() ScrollController                  3
+VP15 prepare count (-c)                          16
+VP18 canonical( main                             0
+VP18 canonicalJson def                           1
+VP18 disabled variant                            1
+VP18 isRecord def                                1
+VP18 execFile(executable (count)                 1
+VP18 optional guards                             0
+VP18 .message ?? null                            1
+VP18 connections.has(authId)                     1
+VP18 deps.connection ??                          0
+VP18 orcaGroupFirst                              0
+EP08#29 docs moved paths                         0

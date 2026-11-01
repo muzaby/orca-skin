@@ -373,14 +373,20 @@ it('does not start a native server after caller cancellation or session scope ch
   })
   await expect(f.prepare(f.scope, control.signal)).rejects.toThrow()
   expect(f.capture).not.toHaveBeenCalled()
-  f.getSessionById
-    .mockReturnValueOnce(f.saved)
-    .mockReturnValueOnce(f.saved)
-    .mockReturnValueOnce({ ...f.saved, cwd: 'C:/changed' })
-  await expect(
-    f.prepare({ ...f.scope, sessionId: 'saved' }, new AbortController().signal)
-  ).rejects.toThrow('session changed')
-  expect(f.capture).not.toHaveBeenCalled()
+  for (const changed of [
+    { ...f.saved, backend: 'claude' },
+    { ...f.saved, cwd: 'C:/changed' },
+    { ...f.saved, project_id: 'changed-project' }
+  ]) {
+    f.getSessionById
+      .mockReturnValueOnce(f.saved)
+      .mockReturnValueOnce(f.saved)
+      .mockReturnValueOnce(changed)
+    await expect(
+      f.prepare({ ...f.scope, sessionId: 'saved' }, new AbortController().signal)
+    ).rejects.toThrow('session changed')
+    expect(f.capture).not.toHaveBeenCalled()
+  }
 })
 
 it('wires the public handler through the production resolver and returns its shutdown cleanup', async () => {

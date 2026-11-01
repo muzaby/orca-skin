@@ -5,6 +5,7 @@ import { extensionControl } from './extension-control'
 import type { Options } from '@anthropic-ai/claude-agent-sdk'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import * as os from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -29,6 +30,10 @@ import type { registerSessionHandlers } from './handlers/session'
 import type { OpenCodeGlobalWatch } from './harnesses/opencode/global-watch'
 import type { createNativeHistoryRefresh } from './native-history'
 import type { ProjectResourceSync } from './project-resource-sync'
+
+vi.mock('node:os', async (original) => ({
+  ...(await original<typeof import('node:os')>())
+}))
 
 const fixture = vi.hoisted(() => ({
   rawSettings: {} as Record<string, unknown>,
@@ -177,6 +182,55 @@ it('keeps the newer skill scan in the cache when a pre-mutation scan finishes la
 })
 
 const watches: FingerprintWatch[] = []
+it.each([
+  [true, 'installed'],
+  [false, 'installed'],
+  [true, 'state'],
+  [false, 'state']
+] as const)(
+  'broadcasts Claude %s config / %s file changes through the configured native paths',
+  async (configured, kind) => {
+    const home = await mkdtemp(join(tmpdir(), 'orca-claude-watch-path-'))
+    vi.spyOn(os, 'homedir').mockReturnValue(home)
+    const root = join(home, configured ? 'custom' : '.claude')
+    vi.stubEnv('CLAUDE_CONFIG_DIR', configured ? root : undefined)
+    await mkdir(join(root, 'plugins'), { recursive: true })
+    const file =
+      kind === 'installed'
+        ? join(root, 'plugins', 'installed_plugins.json')
+        : join(configured ? root : home, '.claude.json')
+    const decoy = join(configured ? home : root, '.claude.json')
+    await writeFile(file, '{}')
+    const bootstrap = new Bootstrap(() => true)
+    fixture.stopAtSession = false
+    const { activity } = register(bootstrap)
+    const owned = bootstrap as unknown as { claudeGlobalWatch: FingerprintWatch }
+    try {
+      await owned.claudeGlobalWatch.check()
+      fixture.broadcasts.mockClear()
+      fixture.peerBroadcasts.mockClear()
+      await writeFile(decoy, '{"ignored":true}')
+      await owned.claudeGlobalWatch.check()
+      expect(fixture.broadcasts).not.toHaveBeenCalled()
+      await writeFile(file, '{"changed":true}')
+      await owned.claudeGlobalWatch.check()
+      await owned.claudeGlobalWatch.check()
+      expect(fixture.broadcasts.mock.calls).toEqual([
+        [CHANNELS.extensionsChanged, { backend: 'claude' }]
+      ])
+      expect(fixture.peerBroadcasts.mock.calls).toEqual(fixture.broadcasts.mock.calls)
+      bootstrap.shutdown()
+      await writeFile(file, '{}')
+      await owned.claudeGlobalWatch.check()
+      expect(fixture.broadcasts).toHaveBeenCalledTimes(1)
+    } finally {
+      bootstrap.shutdown()
+      activity.dispose()
+      vi.unstubAllEnvs()
+      await rm(home, { recursive: true, force: true })
+    }
+  }
+)
 it('broadcasts Claude global changes only on the common channel and closes both watchers on shutdown', async () => {
   const root = await mkdtemp(join(tmpdir(), 'orca-claude-watch-'))
   vi.stubEnv('CLAUDE_CONFIG_DIR', root)
@@ -515,12 +569,18 @@ it('reads native configuration through the registered module using stored backen
     ctx.getCwd = vi.fn(() => cwd)
     expect((await fixture.configured?.('session-B'))?.[0].name).toBe('project-B')
     expect(ctx.getCwd).toHaveBeenCalledWith('project-B')
-    get.mockReturnValueOnce({ ...row, backend: 'claude' })
-    get.mockReturnValueOnce({ ...row, backend: 'opencode' })
-    await expect(fixture.configured?.('session-B')).rejects.toThrow('바뀌었습니다')
-    get.mockReturnValueOnce({ ...row, backend: 'claude' })
-    get.mockReturnValueOnce({ ...row, backend: 'opencode' })
-    await expect(fixture.commands?.('session-B')).rejects.toThrow('바뀌었습니다')
+    const expected = { ...row, backend: 'claude' }
+    for (const changed of [
+      { ...expected, backend: 'opencode' },
+      { ...expected, cwd: join(temp, 'changed-directory') },
+      { ...expected, project_id: 'changed-project' }
+    ]) {
+      for (const read of [fixture.configured, fixture.commands]) {
+        get.mockReturnValueOnce(expected)
+        get.mockReturnValueOnce(changed)
+        await expect(read?.('session-B')).rejects.toThrow('바뀌었습니다')
+      }
+    }
     get.mockReturnValue(undefined as never)
     expect(await fixture.configured?.('missing')).toEqual([])
     expect(await fixture.commands?.('missing')).toEqual([])

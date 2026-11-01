@@ -5,11 +5,14 @@ import type { NativeCommand } from '../../../shared/native-resources'
 import { isRecord } from '../../../shared/obj'
 import { readJsonObject, readJsonObjectSync } from '../../infra/config/json-file'
 import { extensionChoices } from '../common/extension-control'
-import { gitRootLineage } from '../common/git-root'
 import { skillMetadata } from '../common/skill-metadata'
 import { claudeNativePaths } from './native-paths'
 import { claudePluginEnabled } from './plugin-flag'
-import { claudeLocalSettingsRoot, pluginPathKey } from './project-path'
+import {
+  claudeLocalSettingsRoot,
+  claudeLocalSettingsRootAsync,
+  pluginPathKey
+} from './project-path'
 const readObject = (file: string): Record<string, unknown> =>
   readJsonObjectSync(file, () => new Error('Claude 네이티브 확장 설정을 읽을 수 없습니다.'))
 
@@ -315,14 +318,7 @@ export async function readClaudePluginCatalogAsync(
   includeDisabled = false,
   capturedDefaults?: Record<string, boolean>
 ): Promise<ClaudePluginCatalog> {
-  let projectRoot = resolve(cwd)
-  if (process.platform !== 'win32') {
-    try {
-      projectRoot = (await gitRootLineage(cwd)).root
-    } catch {
-      throw new Error('Claude 프로젝트 설정을 읽을 수 없습니다.')
-    }
-  }
+  const projectRoot = await claudeLocalSettingsRootAsync(cwd)
   const documents = await Promise.all(
     settingsPaths(projectRoot, nativeRoot).map((file, i) =>
       i === 0 && capturedDefaults ? {} : readObjectAsync(file)

@@ -30,6 +30,7 @@ export async function fileFingerprints(files: readonly string[]): Promise<string
 
 /** Serializes fingerprint reads and suppresses unchanged or closed notifications. */
 export class FingerprintWatch {
+  readonly ready: Promise<void>
   private tail: Promise<unknown>
   private fingerprint?: string
   private revision = 0
@@ -42,28 +43,31 @@ export class FingerprintWatch {
       interval?: number
       watch?: Watch
       fingerprint?(): Promise<string>
+      initialFingerprint?: string
       dirty?(): void
       changed(revision: number): void
       failed(error: unknown): void
     }
   ) {
-    this.tail = this.read()
+    this.fingerprint = deps.initialFingerprint
+    this.ready = this.tail = (
+      deps.initialFingerprint === undefined ? this.read() : Promise.resolve(deps.initialFingerprint)
+    )
       .then((value) => {
         this.fingerprint = value
       })
       .catch(deps.failed)
+    const schedule = (): void => {
+      if (this.closed) return
+      if (this.scheduled) clearTimeout(this.scheduled)
+      this.scheduled = setTimeout(() => void this.check(), 100)
+      this.scheduled.unref?.()
+    }
     this.stops = deps.files.map((file) =>
-      (deps.watch ?? watch)(
-        file,
-        () => {
-          if (this.closed) return
-          if (this.scheduled) clearTimeout(this.scheduled)
-          this.scheduled = setTimeout(() => void this.check(), 100)
-          this.scheduled.unref?.()
-        },
-        deps.interval ?? 1000
-      )
+      (deps.watch ?? watch)(file, schedule, deps.interval ?? 1000)
     )
+    // A consumer-supplied baseline predates observation; reconcile that gap once.
+    if (deps.initialFingerprint !== undefined) schedule()
   }
   private read(): Promise<string> {
     return this.deps.fingerprint?.() ?? fileFingerprints(this.deps.files)

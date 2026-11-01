@@ -167,7 +167,8 @@ export function OpenCodeScrollController({
         frame = null
         if (held.current) return
         if (state.pinned) writeTop(el.scrollHeight)
-        else if (state.anchor) {
+        // A queued capture owns a newer scroll position than the saved anchor.
+        else if (captureFrame.current === null && state.anchor) {
           const anchor = Array.from(el.querySelectorAll<HTMLElement>('[data-timeline-key]')).find(
             (row) => row.dataset.timelineKey === state.anchor!.key
           )

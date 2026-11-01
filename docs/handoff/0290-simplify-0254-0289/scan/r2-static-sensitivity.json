@@ -1,0 +1,62 @@
+[
+  {
+    "id": "VP08-dead-target-classification",
+    "status": "RED",
+    "observation": "Restored ClaudeMcp=dead; test alias=test-only; production import=used (3/3)."
+  },
+  {
+    "id": "VP08-i18n-absent",
+    "status": "RED",
+    "observation": "Restored engine.form.harness => present=1, exit 1."
+  },
+  {
+    "id": "VP08-i18n-new-unused",
+    "status": "RED",
+    "observation": "New unused key appears in set difference."
+  },
+  {
+    "id": "VP04-ipc-sweep",
+    "status": "RED",
+    "observation": "Restored forbidden token => nonempty search, zero-result gate rejects."
+  },
+  {
+    "id": "VP08-symbol-sweep",
+    "status": "RED",
+    "observation": "Restored forbidden token => nonempty search, zero-result gate rejects."
+  },
+  {
+    "id": "VP08-token-sweep",
+    "status": "RED",
+    "observation": "Restored forbidden token => nonempty search, zero-result gate rejects."
+  },
+  {
+    "id": "VP01-failed-id-windows",
+    "status": "RED",
+    "observation": "Injected case failure and collection failure are both extracted with repository-relative Windows paths."
+  },
+  {
+    "id": "VP06-opencode/warmup",
+    "status": "RED",
+    "observation": "Common module importing moved implementation => harness/ownership error."
+  },
+  {
+    "id": "VP06-opencode/mcp-reconcile",
+    "status": "RED",
+    "observation": "Common module importing moved implementation => harness/ownership error."
+  },
+  {
+    "id": "VP06-opencode/global-watch",
+    "status": "RED",
+    "observation": "Common module importing moved implementation => harness/ownership error."
+  },
+  {
+    "id": "VP06-opencode/prepared-mcp-resources",
+    "status": "RED",
+    "observation": "Common module importing moved implementation => harness/ownership error."
+  },
+  {
+    "id": "VP06-claude/processes",
+    "status": "RED",
+    "observation": "Common module importing moved implementation => harness/ownership error."
+  }
+]

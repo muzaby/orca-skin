@@ -64,6 +64,49 @@ beforeEach(() => {
 })
 
 describe('catalog skill target IPC', () => {
+  it.each([
+    [CHANNELS.skillsAuthor, { name: 'authored', description: 'new skill', body: 'body' }],
+    [CHANNELS.skillsUpload, { fileName: 'SKILL.md', content: 'uploaded skill' }],
+    [CHANNELS.skillsSetEnabled, { sourceId: 'orca', name: 'local', enabled: true }],
+    [CHANNELS.skillsRemove, { sourceId: 'orca', name: 'local' }]
+  ])('%s starts a post-write scan while an earlier list is pending', async (channel, request) => {
+    const older = Promise.withResolvers<SkillInfo[]>()
+    const newer = Promise.withResolvers<SkillInfo[]>()
+    const deployed = Promise.withResolvers<void>()
+    ctx.refreshSkills
+      .mockImplementationOnce(() => older.promise)
+      .mockImplementationOnce(() => newer.promise)
+    ctx.deployExtensions.mockImplementationOnce(() => deployed.promise)
+    const oldLists = [
+      invoke(CHANNELS.skillsList, undefined),
+      invoke(CHANNELS.skillsList, undefined)
+    ]
+    const mutation = invoke(channel, request)
+    // File-writing paths must finish deployment before scanning the new state.
+    if (channel !== CHANNELS.skillsSetEnabled) {
+      await vi.waitFor(() => expect(ctx.deployExtensions).toHaveBeenCalledOnce())
+      expect(ctx.refreshSkills).toHaveBeenCalledOnce()
+    }
+    deployed.resolve()
+    try {
+      await vi.waitFor(() => expect(ctx.refreshSkills).toHaveBeenCalledTimes(2))
+      // Finishing the old scan must not clear the new in-flight list.
+      older.resolve(catalog)
+      await Promise.all(oldLists)
+      const latestList = invoke(CHANNELS.skillsList, undefined)
+      expect(ctx.refreshSkills).toHaveBeenCalledTimes(2)
+      const fresh = [skill('orca', 'post-write', true)]
+      newer.resolve(fresh)
+      expect(await mutation).toEqual(fresh)
+      expect(await latestList).toEqual(fresh)
+    } finally {
+      older.resolve(catalog)
+      newer.resolve(catalog)
+      await Promise.all([...oldLists, mutation])
+      ctx.deployExtensions.mockReset().mockResolvedValue(undefined)
+      ctx.refreshSkills.mockReset().mockResolvedValue(catalog)
+    }
+  })
   it('joins concurrent list scans and starts a fresh scan after a mutation', async () => {
     const pending = Promise.withResolvers<SkillInfo[]>()
     ctx.refreshSkills.mockImplementationOnce(() => pending.promise)

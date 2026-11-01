@@ -939,14 +939,168 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 
 ---
 
+## r2 구현 보완
+
+### [구현자 기입] 설계 리뷰
+
+- 판정: V1+ΔV1을 그대로 적용했다. r1 verify의 D1~D5는 기존 계약 안의 회귀·oracle 누락이며 PLAN_GAP은 없다.
+- 불변식: 감시는 소비자가 읽은 상태 이후의 변경을 놓치지 않는다. 지연된 스크롤 복원은 더 최근 사용자 위치를 덮지 않는다. 쓰기 뒤 조회는 쓰기 전 조회에 합류하지 않는다. 동기·비동기 카탈로그는 같은 플랫폼별 경로 정책을 따른다.
+- D1은 discovery와 프로젝트 감시 초기화 모두에 적용했다. 비동기 probe 중 새 scope가 추가되는 경우도 재검사한다. D3은 설치 목록·전역 상태 파일의 기본/사용자 지정 경로, D4는 CRUD 네 경로, D5는 중첩 cwd의 두 플랫폼 경로를 실행했다.
+- 이견 / 현실성 문제: 없음. 제품 동작·ACTIVE Decision·AC·§10·의존성 변경 없음. N1·N2는 기존 NON_BLOCKING 기록을 유지한다.
+
+### [구현자 기입] 강제 지점 전수 (§10 대조)
+
+자리별 좌표의 정본은 [r2 구현 증거](implementation-evidence-r2.md)다. O-01~O-19는 r1 문서의 자리별 목록을 현재 실행 집합에서 다시 대조한 좌표이고, R2-01~R2-05는 이번 보완의 직접 관측이다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01 | 기존 동작 | 0(집계) | 0 | 전체 gate·실패 ID 차집합 | R2-01·02 회귀 반례 해소 | CI 대기 |
+| VP-02 | push·focus | 3 | 3 | O-02·전체 Vitest | backend별 push·busy·lock·해제 | 없음 |
+| VP-03 | native missing | 2 | 2 | O-03·legacy 검색 | 404와 probe 실패 구별 | 없음 |
+| VP-04 | 고아 사슬·직렬화 | 19 | 19 | O-04·0건 검색 | mutation queue 및 늦은 watcher 결과 | 없음 |
+| VP-05 | production 조립 | 3 | 3 | O-05·구 조립 검색 | 실제 조립의 configuration/acquire·취소 | 없음 |
+| VP-06 | 하네스 소유권 | 5 | 5 | O-06·경계 lint | 이동 경로와 ownership | 없음 |
+| VP-07 | 공통 감시 | 4 | 4 | O-07·R2-01·R2-03 | load/hold 사이 변경·프로젝트 초기화·Claude 파일 경로 | 없음 |
+| VP-08 | 미사용 제거 | 29 | 29 | O-08·검색·스캔 차집합 | 삭제·신규 미사용 집합 | 없음 |
+| VP-09 | JSON·Git·flag·spec | 14 | 14 | O-09·R2-05 | BOM·Git 상향 탐색·플랫폼 분기 | 없음 |
+| VP-10 | 연결·조립 | 11 | 11 | O-10·R2-06·07 | revision·scope·dispose·필수 인자 | 없음 |
+| VP-11 | 자원 조회 효율 | 4 | 4 | O-11·R2-05 | 비동기 메뉴·동기 spawn의 중첩 cwd 결과 | 없음 |
+| VP-12 | 브랜드·이름 | 15 | 15 | O-12·전체 Vitest | SVG·톤·표시명·locale별 계획 문구 | 없음 |
+| VP-13 | 슬롯·capability | 29 | 29 | O-13·전체 Vitest | cwd 클래스·랜딩 순서·연속성·권한 | 없음 |
+| VP-14 | 행 편집·스크롤 | 3 | 3 | O-14·R2-02 | 두 rAF 순서·후속 높이 변화·프레임당 1회 | 없음 |
+| VP-15 | 이력 읽기·쓰기 | 6 | 6 | O-15·전체 Vitest | probe·snapshot·rowid·FTS·rollback | 없음 |
+| VP-16 | 반복 제거 | 11 | 11 | O-16·R2-04 | CRUD 4경로 새 스캔·이전 완료가 새 flight를 지우지 않음 | 없음 |
+| VP-17 | renderer 파생 | 4 | 4 | O-17·전체 Vitest | 공유 memo·stale·감속 모션 | 없음 |
+| VP-18 | 0291 정리 | 19 | 19 | O-18·전체 Vitest | canonical·variant·CLI·snapshot·wire·순서 | 없음 |
+| VP-19 | push 수명주기 | 6 | 6 | O-19·R2-03 | 공용/전용 방송 구별·shutdown·preload·API·hook | 없음 |
+
+- 분모: 고정 자리 187개. 검색 결과와 자리별 좌표의 차집합은 r2 증거 문서에 기록했다. D1의 프로젝트 감시는 VP-07 #2로 함께 확인했으며 새로운 제품 계약을 만들지 않았다.
+- 직전 `못 잡음` 집합 = M091·M092·M097·M098·M100·M101·F1·F2. r2 검출 집합과의 차집합은 0이다.
+
+**V-pair 자기확인**
+
+| Pair | Requiredness | 자기 상태 | 직접 좌표 | 적대 증거 / 남은 곳 |
+|---|---|---|---|---|
+| VP-01 | REGRESSION | SELF_BLOCKED | O-01 | CI 대기; 로컬 CLI 기존 실패 분리 |
+| VP-02 | REQUIRED | SELF_PASS | O-02 | 실행 변이 3·정적 0 검출 |
+| VP-03 | REQUIRED | SELF_PASS | O-03 | 해당 없음 — 직접 oracle |
+| VP-04 | REQUIRED | SELF_PASS | O-04 | 실행 변이 1·정적 1 검출 |
+| VP-05 | REQUIRED | SELF_PASS | O-05 | 해당 없음 — 직접 oracle |
+| VP-06 | REQUIRED | SELF_PASS | O-06 | 실행 변이 0·정적 5 검출 |
+| VP-07 | REQUIRED | SELF_PASS | O-07·R2-01·03 | 실행 변이 9·정적 0 검출 |
+| VP-08 | REQUIRED | SELF_PASS | O-08 | 실행 변이 0·정적 5 검출 |
+| VP-09 | REQUIRED | SELF_PASS | O-09·R2-05 | 실행 변이 6·정적 0 검출 |
+| VP-10 | REQUIRED | SELF_PASS | O-10·R2-06 | 실행 변이 4·정적 0 검출 |
+| VP-11 | REQUIRED | SELF_PASS | O-11·R2-05 | 실행 변이 3·정적 0 검출 |
+| VP-12 | REQUIRED | SELF_PASS | O-12 | 실행 변이 17·정적 0 검출 |
+| VP-13 | REQUIRED | SELF_PASS | O-13 | 실행 변이 25·정적 0 검출 |
+| VP-14 | REQUIRED | SELF_PASS | O-14·R2-02 | 실행 변이 2·정적 0 검출 |
+| VP-15 | REQUIRED | SELF_PASS | O-15 | 실행 변이 4·정적 0 검출 |
+| VP-16 | REQUIRED | SELF_PASS | O-16·R2-04 | 실행 변이 17·정적 0 검출 |
+| VP-17 | REQUIRED | SELF_PASS | O-17 | 실행 변이 2·정적 0 검출 |
+| VP-18 | REQUIRED | SELF_PASS | O-18 | 실행 변이 14·정적 0 검출 |
+| VP-19 | REQUIRED | SELF_PASS | O-19·R2-03 | 실행 변이 5·정적 0 검출 |
+
+### [구현자 기입] 이번 라운드 수정의 잠금
+
+| 출처 / 주장 | 분모 | 결함 방식 · 재현 좌표 | 관측 | 복원 확인 |
+|---|---|---|---|---|
+| 선택 증거 — 이전 실행 변이 | 107 | r1 정의 81 + verify 정의 26. 5개 적용 불가 옛 정의를 verify의 6개 정확한 정의로 대체 | 107/107 assertion red | 107/107 같은 suite green |
+| 인용 변이 — D1·D2 | 2 | F1 소비 기준선 제거 · F2 capture guard 제거 | F1 2실패 · F2 1실패 | 두 suite green |
+| D1 보완의 초기화 배선 | 3 | project baseline await 제거·startup 검사 제거·pending scope 재검사 제거 | 각각 1실패 | 세 suite green |
+| 선택 증거 — 정적 oracle | 12 | 삭제 사슬·소유권 5곳·dead 분류·i18n·실패 ID 추출 | 12/12 검출 | probe 격리; source 변경 없음 |
+
+- 집합 검산: 실행 정의 112개와 결과 ID 차집합 0, 중복 ID 0. 정적 정의 12개와 관측 ID 차집합 0. 합계 124개(실행 112 + 정적 12).
+- 직전 못 잡음 8개 중 M091·M092·M097·M098·M100·M101은 위 107개의 부분집합, F1·F2는 별도 2개다. 추가 합산하지 않았다. 선택/인용 중 해당 없는 직접 행동 oracle은 새 변이 의무로 세지 않았다.
+- 전체 정의·교체 문자열·실패 테스트명·복원 결과는 [실행 기록](scan/r2-mutation-evidence.json)과 [정적 기록](scan/r2-static-sensitivity.json)에 있다.
+
+### [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 사용자 문구·상태의 소비자 | 새 문자열·상태 없음. 기존 변경 방송과 스크롤 상태를 수정 | 없음 |
+| 실패 경로와 Part I 상태표 | 외부 설정 변경 알림 및 그 밖의 조작 보존 행. 읽기 실패의 기존 로그/부분 실패 의미 유지 | 없음 |
+| 무반응으로 보이는 실패 | load→hold 사이 변경도 방송하므로 원본 편집이 묻히지 않음 | R2-01 |
+| 늦은 작업이 화면을 되돌리는가 | capture 대기 중 옛 앵커 복원 생략, 이후 높이 변화에는 새 앵커 적용 | R2-02 |
+| 해제·재진입·공유 수명 | 초기 검사 close 취소, 폐기 entry 읽기 차단, 새 scope의 pending probe 재실행 | R2-01·03 |
+| 테마·선택·읽기 보존 | 클래스·SVG·문구 변경 없음. 기존 선택/최신 이동 테스트와 새 스크롤 순서 테스트 실행 | 시각 실기는 추가하지 않음 |
+
+### [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| D1 | 소비 후 새 stat을 기준선으로 삼아 편집을 흡수 | discovery는 읽기 당시 fingerprint 전달·초기 재검사. project는 baseline 완료 뒤 읽기 | R2-01 |
+| D2 | resize rAF가 오래된 앵커를 먼저 복원 | pending capture가 있으면 unpinned 앵커 복원을 건너뜀 | R2-02 |
+| D3 | 파일 목록 일부만 테스트됨 | 설치 목록·전역 상태 파일과 경로 형제 맞바꿈 검출 | R2-03 |
+| D4 | CRUD 테스트가 토글만 봄 | 작성·업로드·토글·삭제 각각 이전 list와 겹친 새 스캔·반환값 관측 | R2-04 |
+| D5 | 동기/비동기 플랫폼 경로 분기 사본 | project-path의 한 정책으로 합치고 중첩 cwd의 두 플랫폼 결과 비교 | R2-05 |
+| R2-01a | 초기 검사가 다른 scope의 진행 중 poll에 합류해 유실될 수 있음 | pending 검사를 다음 pass에서 수행, 갱신된 dependency manifest를 옛 poll이 덮지 않음 | overlapping scope 직접 테스트 |
+| R2-02a | 이전 CAUGHT 기록 Y12가 Windows에서는 통과해 project_id 항이 잠기지 않음 | 설정·명령 조회 및 카탈로그 준비 세 경로에 backend/cwd/project_id 각각 다른 입력으로 단언 | R2-06·Y12 재검출 |
+| R2-02b | 이전 CAUGHT 기록 Y14가 Windows에서는 통과해 release 실패 보고가 잠기지 않음 | 실제 어댑터에서 client lease release만 실패시켜 경고 1회·비공개 오류 비노출을 단언 | R2-07·Y14 재검출 |
+
+설계 대비 명시적 차이: 없음. 기존 공통 감시에 소비 시점 기준선과 초기화 완료 Promise를 추가했다. 만료는 discovery TTL 유지, 공유는 scope별 manifest와 전역 probe 캐시 유지, 재진입은 pending pass 재검사, 무효화는 기존 epoch 및 close 가드로 확인했다. 기존 r1 테스트·oracle은 삭제하지 않았다.
+
+### [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 감시·discovery·프로젝트 감시·스크롤 복원·Claude 경로 정책 및 회귀 테스트. 신규 의존성 0 |
+| 실행 명령 | [r2 구현 증거](implementation-evidence-r2.md)의 재현 명령과 [변이별 정의·결과](scan/r2-mutation-evidence.json) |
+| 관측한 게이트 산출 | 타입 3구성 통과; lint 0오류·기존 경고 2(수정 파일 재검사 포함); Vitest 894파일 8,299케이스 중 8,295 통과·2 실패·2 skip → registry 재실행 성공, 로컬 CLI 기존 실패 1건만 남음; scripts 144/144; inventory·migration·budget 통과; CI 대기 |
+| V-pair 자기확인 | 19 중 SELF_PASS 18 · SELF_BLOCKED 1(VP-01, CI 대기) |
+| 강제 지점 전수 | 187자리의 직접 좌표 및 검색 차집합은 r2 증거에 기록 |
+| AC 자기보고 | ✅ 22 · ⚠️ 1 · ❌ 0 = 23; Criteria-Met 22/23 |
+| 합계 검산 | ✅ 22 · ⚠️ 1 · ❌ 0 = 23; Criteria-Met 22/23 |
+| 블로커 / 역질문 | 코드 보완 미해결 0; Windows CI 확인 대기; PLAN_GAP 없음 |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+
+| AC | 자기확인 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ⚠️ | 전체 실행·재실행 후 신규 행동 실패 없음. Windows CI 대기, 로컬 CLI 기존 자원 0/6 분리 |
+| AC2 | ✅ | O-08 삭제 목표 잔여 0·신규 dead/test-only 차집합 0 |
+| AC3 | ✅ | 삭제 i18n present 0·신규 미참조 차집합 0·CSS 토큰 0 |
+| AC4 | ✅ | IPC 사슬 검색 0·O-04 응답 테스트 성공 |
+| AC5 | ✅ | 같은 key deferred 직렬화·실패 후 큐 진행 2케이스 |
+| AC6 | ✅ | O-03 SDK 404 missing·이관 경로 검색 0 |
+| AC7 | ✅ | O-09 BOM·Git·flag/spec 실행; R2-05 중첩 cwd 플랫폼 분기 동일 |
+| AC8 | ✅ | O-10 lifecycle·revision·options; R2-06 세 소비 경로의 binding 필드 구별, R2-07 release 실패 경고 1회·비공개 오류 비노출 |
+| AC9 | ✅ | 구 catalog 조립 0·production preparation으로 handler 테스트 실행 |
+| AC10 | ✅ | O-11 반복 횟수/동시성; R2-05 win32/linux 동기·비동기 결과 동일, 루트 변이 1실패 |
+| AC11 | ✅ | O-02/O-19 push·focus·busy/lock·unmount 결과 단언 |
+| AC12 | ✅ | R2-01 load→hold 사이/로드 중 변경 통보·초기화·pending scope; R2-03 파일·경로 4조합 방송과 종료 |
+| AC13 | ✅ | 구 파일 5개 부재·공통 소유권 위반 5/5 red |
+| AC14 | ✅ | 마크 렌더 정본 2분기·shim/PlanTile 5파일 부재·O-12 렌더 |
+| AC15 | ✅ | shortLabel 삼항 0·clipboard 3케이스·엔진/표 테스트 |
+| AC16 | ✅ | cwd 클래스 스냅샷 4개 동일·실제 랜딩 DOM 배치 보존 |
+| AC17 | ✅ | 7개 능력 소비 변이 red·보존한 UI 이름 분기 3개 |
+| AC18 | ✅ | O-14 모델/헤더 편집·프레임당 측정; R2-02 두 프레임 순서 모두 240 유지, 후속 높이 변경 시 300 |
+| AC19 | ✅ | inventory generated/prose/links OK. 공개 계약·문구·컴포넌트 구조 변경 없음 |
+| AC20 | ✅ | client 0·parse 1·previous 전달·DB rowid/FTS/rollback·2변이 red |
+| AC21 | ✅ | O-16 11자리 기존 테스트; R2-04 CRUD 4경로 새 스캔·오래된 flight 완료 뒤 최신 결과 유지 |
+| AC22 | ✅ | 네 소비자 계산 1회·참조 변경 갱신·catalog stale·media cleanup |
+| AC23 | ✅ | O-18 19자리·14변이 red·기존 연결 종단 테스트 성공 |
+
+합계 검산: ✅ 22 · ⚠️ 1 · ❌ 0 = 총 23. 유효 AC 분모 23 유지. CI 완료 전 Criteria-Met은 22/23이다.
+
+### [구현자 기입] Review Signals — 사실만
+
+- 현재 라운드·impl 턴: r2. 최초 verify FAIL 뒤 재구현이며 review 의무 임계(3회)에 해당하지 않는다. 사용자 D-017에 따라 단독 수행했다.
+- r1의 감시 기준선·스크롤 프레임 순서 누락은 D-003 보존 계약과 충돌했다. 기존 횟수 단언은 값이 사용되는 시점의 경쟁을 보지 않았다.
+- D3~D5는 목록·형제 경로·플랫폼 분모 일부를 테스트가 실행하지 않아 놓쳤다. 같은 파일의 기존 green과 구별되는 입력으로 인용 변이를 다시 실행했다.
+- 기존 CAUGHT Y12·Y14는 Windows 재실행에서 green이었다. 기존 Linux 기록의 실패는 경로 의존 케이스였으며, 이번에는 project_id만 다른 소비 경로와 release 실패의 보고 결과로 보강했다. 지침 자체는 바꾸지 않았다.
+- 환경 한계·실측 gate 분리는 r2 증거 문서에 기록했다. 구현자의 SELF_PASS는 독립 verify PASS가 아니다.
+
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | discovery hold의 감시 기준선이 hold 시점이라 load 뒤·hold 전 의존 파일 변경을 통보하지 않는다 — 구 코드 통보, 새 코드 4초 0회([재현](verify-evidence/repro/discovery-cache.hold-race.verify.test.ts)) | VP-07 §10 ④ · D-003 | 기준선을 소비자가 읽은 상태로 잡거나 감시 생성 직후 재검증. `project-resource-sync.ts:163` 감시도 같은 불변식으로 확인 | BLOCKING (PAIR_FAIL) | open (r1 verify) |
-| D2 | `ScrollController` capture를 rAF로 미뤄, 먼저 예약된 resize 복원이 사용자 스크롤을 옛 앵커로 되돌린다(240→200, 구 코드 240)([재현](verify-evidence/repro/ScrollController.restore-race.verify.test.ts)) | VP-14 §10 #3 · D-003 | 복원이 최신 앵커를 쓰게 하고 재현 테스트를 회귀 테스트로 둔다 | BLOCKING (PAIR_FAIL) | open (r1 verify) |
-| D3 | Claude 전역 감시 파일 목록의 `installed_plugins.json` 항과 `.claude.json` 경로 분기가 어떤 테스트에도 잠기지 않는다(verify M091·M092 못 잡음) | VP-07 §10 ③ · AC12 | 두 파일 변경과 `CLAUDE_CONFIG_DIR` 유무별 경로로 공용 방송을 단언 | BLOCKING (PAIR_FAIL) | open (r1 verify) |
-| D4 | `skills` CRUD author·upload·remove가 진행 중 list에 합류해도 잡히지 않는다 — 테스트는 setEnabled만 실행(verify M097·M098·M100 못 잡음) | VP-16 §10 #2 · AC21 | CRUD 4경로 각각 "진행 중 list와 겹친 쓰기 뒤 새 스캔"을 단언 | BLOCKING (PAIR_FAIL) | open (r1 verify) |
-| D5 | 비동기 Claude 카탈로그가 비Windows 프로젝트 루트 분기를 `claudeLocalSettingsRoot`와 따로 적었고 그 항이 잠기지 않는다(verify M101 못 잡음) | VP-11 §10 #3 · AC10 | 루트 판정 헬퍼 1벌 + cwd≠git 루트 입력으로 동기·비동기 결과 동일을 단언 | BLOCKING (PAIR_FAIL) | open (r1 verify) |
+| D1 | discovery hold의 감시 기준선이 hold 시점이라 load 뒤·hold 전 의존 파일 변경을 통보하지 않는다 — 구 코드 통보, 새 코드 4초 0회([재현](verify-evidence/repro/discovery-cache.hold-race.verify.test.ts)) | VP-07 §10 ④ · D-003 | 기준선을 소비자가 읽은 상태로 잡거나 감시 생성 직후 재검증. `project-resource-sync.ts:163` 감시도 같은 불변식으로 확인 | BLOCKING (PAIR_FAIL) | closed (r2 구현 자기확인: R2-01 5케이스 및 공통 watcher 2케이스 성공; F1 2실패·초기화 변이 3개 각 1실패; 독립 verify 대기) |
+| D2 | `ScrollController` capture를 rAF로 미뤄, 먼저 예약된 resize 복원이 사용자 스크롤을 옛 앵커로 되돌린다(240→200, 구 코드 240)([재현](verify-evidence/repro/ScrollController.restore-race.verify.test.ts)) | VP-14 §10 #3 · D-003 | 복원이 최신 앵커를 쓰게 하고 재현 테스트를 회귀 테스트로 둔다 | BLOCKING (PAIR_FAIL) | closed (r2 구현 자기확인: R2-02 2케이스 성공; F2 1실패; 독립 verify 대기) |
+| D3 | Claude 전역 감시 파일 목록의 `installed_plugins.json` 항과 `.claude.json` 경로 분기가 어떤 테스트에도 잠기지 않는다(verify M091·M092 못 잡음) | VP-07 §10 ③ · AC12 | 두 파일 변경과 `CLAUDE_CONFIG_DIR` 유무별 경로로 공용 방송을 단언 | BLOCKING (PAIR_FAIL) | closed (r2 구현 자기확인: R2-03 4조합 성공; M091 2실패·M092 4실패; 독립 verify 대기) |
+| D4 | `skills` CRUD author·upload·remove가 진행 중 list에 합류해도 잡히지 않는다 — 테스트는 setEnabled만 실행(verify M097·M098·M100 못 잡음) | VP-16 §10 #2 · AC21 | CRUD 4경로 각각 "진행 중 list와 겹친 쓰기 뒤 새 스캔"을 단언 | BLOCKING (PAIR_FAIL) | closed (r2 구현 자기확인: R2-04 CRUD 4경로 성공; M097·M098·M100 각각 1실패; 독립 verify 대기) |
+| D5 | 비동기 Claude 카탈로그가 비Windows 프로젝트 루트 분기를 `claudeLocalSettingsRoot`와 따로 적었고 그 항이 잠기지 않는다(verify M101 못 잡음) | VP-11 §10 #3 · AC10 | 루트 판정 헬퍼 1벌 + cwd≠git 루트 입력으로 동기·비동기 결과 동일을 단언 | BLOCKING (PAIR_FAIL) | closed (r2 구현 자기확인: R2-05 두 플랫폼 성공; M101 1실패; 독립 verify 대기) |
 | N1 | 정규화 JSON 사본이 VP-18 path 밖에 2곳 남았다 — `claude/project-settings.ts:125` `canonical`, `claude/background.ts:20` `stable`(undefined 처리 다름) | 비귀속 | 후속 정리 후보 | NON_BLOCKING | 기록 |
 | N2 | EP-09 #11 신규 케이스가 Linux 기준선 red fixture를 써 `false` 갈래는 Windows CI에서만 판별된다(§7 주의사항과 다름) | VP-09 · AC 주의사항 | fixture 분리 권장 | NON_BLOCKING | 기록 |

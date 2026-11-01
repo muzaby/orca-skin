@@ -6,12 +6,13 @@ import { resolve } from 'node:path'
 import { fileFingerprints, FingerprintWatch } from '../../../infra/config/fingerprint-watch'
 import { openCodeRetention } from './retention-policy'
 
-type Probe = { value?: unknown; error?: unknown; signature: string; fingerprint?: string }
+type Probe = { value?: unknown; error?: unknown; signature: string; fingerprint: string }
 type Dependency = {
   key: string
   path: string
   probe(force?: boolean): Promise<Probe>
   signature: string
+  fingerprint: string
 }
 type Entry = {
   value?: unknown
@@ -61,7 +62,13 @@ async function dependency<T>(
     return flight
   }
   const result = await probe()
-  context.getStore()?.set(key, { key, path: resolve(path), probe, signature: result.signature })
+  context.getStore()?.set(key, {
+    key,
+    path: resolve(path),
+    probe,
+    signature: result.signature,
+    fingerprint: result.fingerprint
+  })
   if (result.error) throw result.error
   return result.value as T
 }
@@ -111,6 +118,7 @@ export class OpenCodeDiscoveryCache {
     }
   >()
   private polling?: Promise<void>
+  private pollRequested = false
   key(kind: string, cwd: string, env: NodeJS.ProcessEnv = process.env, extra = ''): string {
     const directory = resolve(cwd)
     return JSON.stringify([
@@ -215,8 +223,14 @@ export class OpenCodeDiscoveryCache {
     const observer = this.observers.get(key)
     if (!observer) return
     observer.watcher?.close()
+    const dependencies = [...observer.dependencies.values()]
     observer.watcher = new FingerprintWatch({
-      files: [...new Set([...observer.dependencies.values()].map((dependency) => dependency.path))],
+      files: [...new Set(dependencies.map((dependency) => dependency.path))],
+      initialFingerprint: JSON.stringify(dependencies.map((dependency) => dependency.fingerprint)),
+      fingerprint: async () =>
+        JSON.stringify(
+          await Promise.all(dependencies.map((dependency) => fileFingerprints([dependency.path])))
+        ),
       interval: openCodeRetention.discoveryCheckMs,
       changed: () => {
         void this.poll().catch(() => undefined)
@@ -227,32 +241,42 @@ export class OpenCodeDiscoveryCache {
     })
   }
   poll(): Promise<void> {
+    this.pollRequested = true
     if (this.polling) return this.polling
-    const task = Promise.all(
-      [...this.observers].map(async ([key, observer]) => {
-        let changed = false
-        const next = new Map<string, Dependency>()
+    const task = (async () => {
+      do {
+        this.pollRequested = false
         await Promise.all(
-          [...observer.dependencies.values()].map(async (dependency) => {
-            const signature = (await dependency.probe(true)).signature
-            changed ||= signature !== dependency.signature
-            next.set(dependency.key, { ...dependency, signature })
+          [...this.observers].map(async ([key, observer]) => {
+            const dependencies = observer.dependencies
+            let changed = false
+            const next = new Map<string, Dependency>()
+            await Promise.all(
+              [...dependencies.values()].map(async (dependency) => {
+                const { signature, fingerprint } = await dependency.probe(true)
+                changed ||= signature !== dependency.signature
+                next.set(dependency.key, { ...dependency, signature, fingerprint })
+              })
+            )
+            if (this.observers.get(key) !== observer) return
+            if (observer.dependencies !== dependencies) {
+              this.pollRequested = true
+              return
+            }
+            if (!changed) return
+            observer.dependencies = next
+            const entry = this.entries.get(key)
+            if (entry) {
+              entry.epoch++
+              entry.ready = false
+            }
+            for (const notify of observer.changed) notify()
           })
         )
-        if (!changed || this.observers.get(key) !== observer) return
-        observer.dependencies = next
-        const entry = this.entries.get(key)
-        if (entry) {
-          entry.epoch++
-          entry.ready = false
-        }
-        for (const notify of observer.changed) notify()
-      })
-    )
-      .then(() => undefined)
-      .finally(() => {
-        if (this.polling === task) this.polling = undefined
-      })
+      } while (this.pollRequested)
+    })().finally(() => {
+      if (this.polling === task) this.polling = undefined
+    })
     this.polling = task
     return task
   }
