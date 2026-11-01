@@ -1,9 +1,9 @@
 import { createElement, type ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { installFakeDom, type FakeDom } from '../../../../../shared/ui/renderHarness.testfixture'
+import type { ScrollAnchor } from '../../common/transcript/scrollTypes'
 import { OpenCodeScrollController } from './ScrollController'
 import { timelineViewState } from './viewState'
-import type { ScrollAnchor } from '../../common/transcript/scrollTypes'
 
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
@@ -32,6 +32,71 @@ afterEach(() => {
   vi.useRealTimers()
 })
 describe('OpenCode controller document interaction', () => {
+  it('captures the latest scroll once per frame and cancels the queued capture on unmount', () => {
+    vi.useFakeTimers()
+    dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+    vi.stubGlobal('requestAnimationFrame', window.requestAnimationFrame)
+    vi.stubGlobal('cancelAnimationFrame', window.cancelAnimationFrame)
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe(): void {}
+        disconnect(): void {}
+      }
+    )
+    const row = new RowElement()
+    const measure = vi.fn(() => [row])
+    const viewport = {
+      scrollTop: 0,
+      scrollHeight: 1000,
+      clientHeight: 200,
+      getBoundingClientRect: () => ({ top: 0, bottom: 200 }),
+      querySelectorAll: measure,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    }
+    let controls!: ScrollAnchor
+    const state = timelineViewState('frame-coalescing')
+    state.setPinned(false)
+    dom.render(
+      createElement(OpenCodeScrollController, {
+        sessionKey: 'frame-coalescing',
+        children: (scroll) => {
+          controls = scroll
+          scroll.scrollRef.current = viewport as unknown as HTMLDivElement
+          scroll.contentRef.current = {} as HTMLDivElement
+          return null
+        }
+      })
+    )
+    measure.mockClear()
+    dom.act(() => {
+      for (const top of [10, 20, 30]) {
+        viewport.scrollTop = top
+        controls.onScroll()
+      }
+    })
+    expect(measure).not.toHaveBeenCalled()
+    dom.frame()
+    expect(measure).toHaveBeenCalledTimes(1)
+    expect(state.top).toBe(30)
+    dom.act(() => {
+      viewport.scrollTop = 40
+      controls.onScroll()
+    })
+    dom.frame()
+    expect(measure).toHaveBeenCalledTimes(2)
+    expect(state.top).toBe(40)
+    dom.act(() => {
+      viewport.scrollTop = 50
+      controls.onScroll()
+    })
+    dom.unmount()
+    dom.frame()
+    expect(measure).toHaveBeenCalledTimes(2)
+    expect(state.top).toBe(50)
+  })
+
   it('keeps jump-to-bottom pinned when an external click releases over a retained selection, then follows output', () => {
     vi.useFakeTimers()
     dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })

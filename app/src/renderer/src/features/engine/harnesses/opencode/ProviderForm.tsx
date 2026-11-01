@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import type { EngineFormModalProps } from '../../common/components/EngineFormModal'
 import { engineApi } from '../../../../shared/api/ipc'
 import { useI18n, type MessageKey } from '../../../../shared/i18n'
 import { Button } from '../../../../shared/ui/Button'
 import { Icon } from '../../../../shared/ui/Icon'
 import { Modal } from '../../../../shared/ui/Modal'
-import type { ProviderDraft } from './providerForm.types'
+import type { EngineFormModalProps } from '../../common/components/EngineFormModal'
 import {
   emptyProviderDraft,
   importedProviders,
   serializeProviderDraft,
   validateProviderDraft
 } from './index'
+import type { ProviderDraft } from './providerForm.types'
 
 const inputClass =
   'min-w-0 w-full rounded-lg border border-border bg-bg px-3 py-2 text-[13px] text-ink outline-none focus:border-border-strong disabled:opacity-60'
@@ -50,6 +50,70 @@ function Field({
       />
       {error && <span className="text-[11.5px] text-bad">{error}</span>}
     </label>
+  )
+}
+
+function RowListEditor<Row extends { row: string }>({
+  label,
+  rows,
+  fields,
+  disabled,
+  error,
+  addLabel,
+  removeLabel,
+  create,
+  onChange
+}: {
+  label: string
+  rows: Row[]
+  fields: Array<{ key: keyof Row; label(index: number): string; placeholder: string }>
+  disabled: boolean
+  error(key: string): string | undefined
+  addLabel: string
+  removeLabel(index: number): string
+  create(): Row
+  onChange(rows: Row[]): void
+}): React.JSX.Element {
+  return (
+    <fieldset className="m-0 min-w-0 border-0 p-0" disabled={disabled}>
+      <legend className="mb-3 text-[12px] font-medium text-ink2">{label}</legend>
+      <div className="flex flex-col gap-3">
+        {rows.map((row, index) => (
+          <div key={row.row} className="flex items-start gap-2">
+            {fields.map((field) => (
+              <Field
+                key={String(field.key)}
+                label={field.label(index)}
+                value={String(row[field.key])}
+                placeholder={field.placeholder}
+                error={error(row.row + '.' + String(field.key))}
+                onChange={(value) =>
+                  onChange(
+                    rows.map((item) => (item === row ? { ...item, [field.key]: value } : item))
+                  )
+                }
+              />
+            ))}
+            <Button
+              className="mt-6 shrink-0"
+              iconOnly
+              leadingIcon="trash"
+              disabled={rows.length <= 1}
+              aria-label={removeLabel(index)}
+              onClick={() => onChange(rows.filter((item) => item !== row))}
+            />
+          </div>
+        ))}
+      </div>
+      <Button
+        className="mt-2"
+        size="small"
+        leadingIcon="plus"
+        onClick={() => onChange([...rows, create()])}
+      >
+        {addLabel}
+      </Button>
+    </fieldset>
   )
 }
 
@@ -248,134 +312,50 @@ export function OpenCodeProviderForm({
               <span className="text-[11px] text-ink3">{tr('engine.openCode.apiKeyHint')}</span>
             </div>
           </div>
-          <fieldset className="m-0 min-w-0 border-0 p-0" disabled={disabled}>
-            <legend className="mb-3 text-[12px] font-medium text-ink2">
-              {tr('engine.openCode.models')}
-            </legend>
-            <div className="flex flex-col gap-3">
-              {draft.models.map((row, index) => (
-                <div key={row.row} className="flex items-start gap-2">
-                  <Field
-                    label={tr('engine.openCode.modelId', { count: index + 1 })}
-                    value={row.id}
-                    placeholder="model-id"
-                    error={error(`${row.row}.id`)}
-                    onChange={(id) =>
-                      update({
-                        ...draft,
-                        models: draft.models.map((item) => (item === row ? { ...item, id } : item))
-                      })
-                    }
-                  />
-                  <Field
-                    label={tr('engine.openCode.modelName', { count: index + 1 })}
-                    value={row.name}
-                    placeholder={tr('engine.openCode.name')}
-                    error={error(`${row.row}.name`)}
-                    onChange={(name) =>
-                      update({
-                        ...draft,
-                        models: draft.models.map((item) =>
-                          item === row ? { ...item, name } : item
-                        )
-                      })
-                    }
-                  />
-                  <Button
-                    className="mt-6 shrink-0"
-                    iconOnly
-                    leadingIcon="trash"
-                    disabled={draft.models.length <= 1}
-                    aria-label={tr('engine.openCode.removeModel', { count: index + 1 })}
-                    onClick={() =>
-                      update({ ...draft, models: draft.models.filter((item) => item !== row) })
-                    }
-                  />
-                </div>
-              ))}
-            </div>
-            <Button
-              className="mt-2"
-              size="small"
-              leadingIcon="plus"
-              onClick={() =>
-                update({
-                  ...draft,
-                  models: [
-                    ...draft.models,
-                    { row: `new-model-${++rowId.current}`, id: '', name: '' }
-                  ]
-                })
+          <RowListEditor
+            label={tr('engine.openCode.models')}
+            rows={draft.models}
+            disabled={disabled}
+            error={error}
+            fields={[
+              {
+                key: 'id',
+                label: (index) => tr('engine.openCode.modelId', { count: index + 1 }),
+                placeholder: 'model-id'
+              },
+              {
+                key: 'name',
+                label: (index) => tr('engine.openCode.modelName', { count: index + 1 }),
+                placeholder: tr('engine.openCode.name')
               }
-            >
-              {tr('engine.openCode.addModel')}
-            </Button>
-          </fieldset>
-          <fieldset className="m-0 min-w-0 border-0 p-0" disabled={disabled}>
-            <legend className="mb-3 text-[12px] font-medium text-ink2">
-              {tr('engine.openCode.headers')}
-            </legend>
-            <div className="flex flex-col gap-3">
-              {draft.headers.map((row, index) => (
-                <div key={row.row} className="flex items-start gap-2">
-                  <Field
-                    label={tr('engine.openCode.headerKey', { count: index + 1 })}
-                    value={row.key}
-                    placeholder={tr('engine.openCode.headerKeyPlaceholder')}
-                    error={error(`${row.row}.key`)}
-                    onChange={(key) =>
-                      update({
-                        ...draft,
-                        headers: draft.headers.map((item) =>
-                          item === row ? { ...item, key } : item
-                        )
-                      })
-                    }
-                  />
-                  <Field
-                    label={tr('engine.openCode.headerValue', { count: index + 1 })}
-                    value={row.value}
-                    placeholder={tr('engine.openCode.headerValuePlaceholder')}
-                    error={error(`${row.row}.value`)}
-                    onChange={(value) =>
-                      update({
-                        ...draft,
-                        headers: draft.headers.map((item) =>
-                          item === row ? { ...item, value } : item
-                        )
-                      })
-                    }
-                  />
-                  <Button
-                    className="mt-6 shrink-0"
-                    iconOnly
-                    leadingIcon="trash"
-                    disabled={draft.headers.length <= 1}
-                    aria-label={tr('engine.openCode.removeHeader', { count: index + 1 })}
-                    onClick={() =>
-                      update({ ...draft, headers: draft.headers.filter((item) => item !== row) })
-                    }
-                  />
-                </div>
-              ))}
-            </div>
-            <Button
-              className="mt-2"
-              size="small"
-              leadingIcon="plus"
-              onClick={() =>
-                update({
-                  ...draft,
-                  headers: [
-                    ...draft.headers,
-                    { row: `new-header-${++rowId.current}`, key: '', value: '' }
-                  ]
-                })
+            ]}
+            addLabel={tr('engine.openCode.addModel')}
+            removeLabel={(index) => tr('engine.openCode.removeModel', { count: index + 1 })}
+            create={() => ({ row: 'new-model-' + ++rowId.current, id: '', name: '' })}
+            onChange={(models) => update({ ...draft, models })}
+          />
+          <RowListEditor
+            label={tr('engine.openCode.headers')}
+            rows={draft.headers}
+            disabled={disabled}
+            error={error}
+            fields={[
+              {
+                key: 'key',
+                label: (index) => tr('engine.openCode.headerKey', { count: index + 1 }),
+                placeholder: tr('engine.openCode.headerKeyPlaceholder')
+              },
+              {
+                key: 'value',
+                label: (index) => tr('engine.openCode.headerValue', { count: index + 1 }),
+                placeholder: tr('engine.openCode.headerValuePlaceholder')
               }
-            >
-              {tr('engine.openCode.addHeader')}
-            </Button>
-          </fieldset>
+            ]}
+            addLabel={tr('engine.openCode.addHeader')}
+            removeLabel={(index) => tr('engine.openCode.removeHeader', { count: index + 1 })}
+            create={() => ({ row: 'new-header-' + ++rowId.current, key: '', value: '' })}
+            onChange={(headers) => update({ ...draft, headers })}
+          />
           {notice && (
             <p role="alert" className="m-0 rounded-lg bg-bad/10 px-3 py-2 text-[12px] text-bad">
               {notice}
