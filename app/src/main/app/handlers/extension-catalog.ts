@@ -12,7 +12,7 @@ import type {
 } from '../../../shared/native-resources'
 import { extensionChoiceKey } from '../../adapters/common/extension-control'
 import { handle } from '../../infra/ipc/handle'
-import type { ClaudeProcessReset } from '../claude-processes'
+import type { ClaudeProcessReset } from '../harnesses/claude/processes'
 import type { MutableExtensionControl } from '../extension-control'
 import { harnessModule } from '../harnesses/registry'
 

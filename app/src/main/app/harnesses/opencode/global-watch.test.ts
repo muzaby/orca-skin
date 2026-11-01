@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { OpenCodeGlobalWatch } from './opencode-global-watch'
+import { OpenCodeGlobalWatch } from './global-watch'
 
 const fs = vi.hoisted(() => ({ watchFile: vi.fn(), unwatchFile: vi.fn() }))
 vi.mock('node:fs', () => fs)

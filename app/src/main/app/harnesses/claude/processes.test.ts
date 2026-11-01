@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { Backend, ChatActivitySnapshot } from '../../shared/ipc'
-import { createClaudeProcessReset, planClaudeProcesses } from './claude-processes'
+import type { Backend, ChatActivitySnapshot } from '../../../../shared/ipc'
+import { createClaudeProcessReset, planClaudeProcesses } from './processes'
 
 const idle = (sessionId: string): ChatActivitySnapshot => ({
   type: 'chat.activity',

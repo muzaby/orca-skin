@@ -4,7 +4,7 @@ import { CHANNELS } from '../../../shared/ipc'
 import type { NativeResources } from '../../../shared/native-resources'
 import { mapManagedMcpResources } from '../../adapters/opencode/v1/managed-mcp'
 import type { GovernedLiveTurn } from '../../contracts/ports'
-import { PreparedMcpResources } from '../prepared-mcp-resources'
+import { PreparedMcpResources } from '../harnesses/opencode/prepared-mcp-resources'
 import type { ProjectResourceSync } from '../project-resource-sync'
 import { registerSessionResourceHandlers } from './session-resources'
 const callbacks = vi.hoisted(

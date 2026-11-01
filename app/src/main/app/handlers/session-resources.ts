@@ -25,7 +25,7 @@ export function registerSessionResourceHandlers({
   draftCommands?: (request: DraftNativeResourcesRequest) => Promise<NativeCommand[]>
   draftResources?: (request: DraftNativeResourcesRequest) => Promise<NativeResource[] | undefined>
   projectSync?: ProjectResourceSync
-  preparedMcp?: import('../prepared-mcp-resources').PreparedMcpResources
+  preparedMcp?: import('../harnesses/opencode/prepared-mcp-resources').PreparedMcpResources
 }): (request: ResourceRequest) => Promise<NativeResources> {
   const senders = new WeakSet<Electron.WebContents>()
   const observations = new WeakMap<GovernedLiveTurn, NativeResources>()

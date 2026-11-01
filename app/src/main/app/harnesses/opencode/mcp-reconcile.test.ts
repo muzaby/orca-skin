@@ -2,12 +2,12 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import type { Settings, ChatActivitySnapshot } from '../../shared/ipc'
-import { CHANNELS } from '../../shared/ipc'
-import type { SettingsStore } from '../infra/settings-store'
-import type { GovernedLiveTurn } from '../contracts/ports'
-import type { RouterContext } from './context'
-import type { ProviderMessageBatch } from '../adapters/common/types'
+import type { Settings, ChatActivitySnapshot } from '../../../../shared/ipc'
+import { CHANNELS } from '../../../../shared/ipc'
+import type { SettingsStore } from '../../../infra/settings-store'
+import type { GovernedLiveTurn } from '../../../contracts/ports'
+import type { RouterContext } from '../../context'
+import type { ProviderMessageBatch } from '../../../adapters/common/types'
 const boundary = vi.hoisted(() => ({
   root: '',
   handlers: new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>()
@@ -16,12 +16,12 @@ vi.mock('electron', () => ({
   ipcMain: { handle: (name: string, handler: never) => boundary.handlers.set(name, handler) },
   shell: {}
 }))
-vi.mock('../infra/config/paths', async (original) => ({
-  ...(await original<typeof import('../infra/config/paths')>()),
+vi.mock('../../../infra/config/paths', async (original) => ({
+  ...(await original<typeof import('../../../infra/config/paths')>()),
   orcaConfigDir: () => boundary.root,
   mcpJsonPath: () => `${boundary.root}/mcp.json`
 }))
-vi.mock('../infra/config/secret-store', () => ({
+vi.mock('../../../infra/config/secret-store', () => ({
   SecretStore: class {
     get(): undefined {
       return undefined
@@ -31,28 +31,28 @@ vi.mock('../infra/config/secret-store', () => ({
     }
   }
 }))
-vi.mock('../infra/config/orca-config', () => ({ appEnv: () => ({}), secretEnvAllowlist: () => [] }))
-vi.mock('./harnesses/registry', async (original) => {
-  const { openCodeMainModule } = await import('./harnesses/opencode/module')
+vi.mock('../../../infra/config/orca-config', () => ({ appEnv: () => ({}), secretEnvAllowlist: () => [] }))
+vi.mock('../registry', async (original) => {
+  const { openCodeMainModule } = await import('./module')
   return {
-    ...(await original<typeof import('./harnesses/registry')>()),
+    ...(await original<typeof import('../registry')>()),
     harnessModule: () => openCodeMainModule
   }
 })
-import { McpStore } from '../features/extensions/common/mcp/store'
-import { createManagedMcp } from './managed-mcp'
-import { createPluginBinding } from './deployment/plugins'
-import type { PluginAuth } from '../contracts/auth'
-import { extensionControl } from './extension-control'
-import { registerMcpHandlers } from './handlers/mcp'
-import { registerExtensionCatalogHandlers } from './handlers/extension-catalog'
-import { OpenCodeMcpReconcile } from './opencode-mcp-reconcile'
-import { retentionTransport } from './opencode-retention.testfixture'
-import { managedMcpAlias } from '../adapters/opencode/v1/managed-mcp'
-import { openCodeDiscovery } from '../adapters/opencode/v1/discovery-cache'
-import { createComposerPreparation } from './composer-preparation'
-import { OpenCodeWarmup } from './opencode-warmup'
-import { setRootLogger } from '../infra/log/registry'
+import { McpStore } from '../../../features/extensions/common/mcp/store'
+import { createManagedMcp } from '../../managed-mcp'
+import { createPluginBinding } from '../../deployment/plugins'
+import type { PluginAuth } from '../../../contracts/auth'
+import { extensionControl } from '../../extension-control'
+import { registerMcpHandlers } from '../../handlers/mcp'
+import { registerExtensionCatalogHandlers } from '../../handlers/extension-catalog'
+import { OpenCodeMcpReconcile } from './mcp-reconcile'
+import { retentionTransport } from '../../opencode-retention.testfixture'
+import { managedMcpAlias } from '../../../adapters/opencode/v1/managed-mcp'
+import { openCodeDiscovery } from '../../../adapters/opencode/v1/discovery-cache'
+import { createComposerPreparation } from '../../composer-preparation'
+import { OpenCodeWarmup } from './warmup'
+import { setRootLogger } from '../../../infra/log/registry'
 
 let f: ReturnType<typeof retentionTransport>,
   managed: ReturnType<typeof createManagedMcp>,

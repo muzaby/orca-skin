@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi, type Mock } from 'vitest'
 import type { ComposerCatalogLease } from '../../../shared/composer-catalog'
 import { CHANNELS } from '../../../shared/ipc'
 import type { NativeResources } from '../../../shared/native-resources'
-import { PreparedMcpResources } from '../prepared-mcp-resources'
+import { PreparedMcpResources } from '../harnesses/opencode/prepared-mcp-resources'
 import { registerSessionResourceHandlers } from './session-resources'
 const callbacks = vi.hoisted(
   () => new Map<string, (event: unknown, request: unknown) => Promise<NativeResources>>()

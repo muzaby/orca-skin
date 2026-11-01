@@ -349,7 +349,7 @@ const deadline = setTimeout(() => {
 try {
   await stage('boot', async () => {
     if (baseline) return
-    const { OpenCodeWarmup } = await load('app/opencode-warmup')
+    const { OpenCodeWarmup } = await load('app/harnesses/opencode/warmup')
     const warmup = new OpenCodeWarmup({
       service,
       allowed: () => true,

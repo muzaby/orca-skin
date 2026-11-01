@@ -1,8 +1,8 @@
 import { normalize } from 'node:path'
-import type { SessionAdapter } from '../adapters/common/types'
-import type { ChatActivitySnapshot } from '../../shared/ipc'
-import { projectResourcesIdle } from './project-resource-sync'
-import type { GovernedLiveTurn } from '../contracts/ports'
+import type { SessionAdapter } from '../../../adapters/common/types'
+import type { ChatActivitySnapshot } from '../../../../shared/ipc'
+import { projectResourcesIdle } from '../../project-resource-sync'
+import type { GovernedLiveTurn } from '../../../contracts/ports'
 
 /** The adapter observes executing channels; the app supplies queue/background activity. */
 export class OpenCodeMcpReconcile {
