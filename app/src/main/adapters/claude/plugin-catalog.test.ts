@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   claudePluginDefaults,
+  configuredClaudeCommands,
   readClaudePluginCatalog,
   readClaudePluginCatalogAsync
 } from './plugin-catalog'
@@ -38,7 +39,10 @@ beforeEach(() => {
   root = join(temp, 'claude')
   mkdirSync(join(cwd, '.git'), { recursive: true })
 })
-afterEach(() => rmSync(temp, { recursive: true, force: true }))
+afterEach(() => {
+  vi.unstubAllEnvs()
+  rmSync(temp, { recursive: true, force: true })
+})
 
 describe('native plugin catalog', () => {
   it('reads defaults from settings alone without traversing installed plugin trees', () => {
@@ -68,6 +72,14 @@ describe('native plugin catalog', () => {
     write(join(root, 'plugins/installed_plugins.json'), {
       plugins: { 'bundle@market': [{ scope: 'user', installPath: path }] }
     })
+    vi.mocked(readFileSync).mockClear()
+    vi.mocked(readdirSync).mockClear()
+    vi.stubEnv('CLAUDE_CONFIG_DIR', root)
+    expect(await configuredClaudeCommands(cwd, {})).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: 'bundle:check' })])
+    )
+    expect(readFileSync).not.toHaveBeenCalled()
+    expect(readdirSync).not.toHaveBeenCalled()
     expect(await readClaudePluginCatalogAsync(cwd, root)).toEqual(
       readClaudePluginCatalog(cwd, root)
     )

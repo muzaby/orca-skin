@@ -776,72 +776,166 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: 재사용·소유권 분리·미사용 제거의 대상과 보존 범위가 구체적이다. WP-1~14를 구현하고 고정 자리 187개를 직접 oracle에 대응시켰다. 재현 명령·자리별 테스트명은 [구현 증거](implementation-evidence.md)에 모았다.
+- 이견 / 현실성 문제: 초기 계획의 이벤트 4,096개 상한은 오래된 delta 재전달 시 대화가 중복된다. 사용자가 중복 방지 유지를 선택하여 D-016·ΔV1로 제외했고, 상한 복원 변이가 실패하는 회귀 테스트를 남겼다.
+- ACTIVE Decision과 충돌하는 설계 발견: 위 D-003 충돌을 규범 정정 커밋으로 먼저 해소했다. push의 backend별 전달·busy/lock 보류·종료 및 probe 실패 경계는 ΔV1에서 보강했다. 미해결 PLAN_GAP은 없다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| VP-… | … | … | … | … | … | … |
+| VP-01 | 기존 동작 | 0(집계) | 0 | 구현 증거 O-01·전체 gate | 보정 후 신규 실패 ID 0 | 최종 CI 완료 대기 |
+| VP-02 | push·focus | 3 | 3 | O-02 | 30초 조회 0·backend별 갱신·focus·해제 | 없음 |
+| VP-03 | native missing | 2 | 2 | O-03 | probe throw와 404/success를 구별 | 없음 |
+| VP-04 | 고아 사슬·직렬화 | 19 | 19 | O-04·production/문서 검색 0 | 첫 action 보류 중 둘째 미시작·실패 뒤 진행 | 없음 |
+| VP-05 | production 조립 | 3 | 3 | O-05·구 조립 심볼 0 | configuration/acquire 오류·취소·shutdown | 없음 |
+| VP-06 | 하네스 모듈 소유권 | 5 | 5 | O-06·공통→이동 모듈 import 5/5 red | 기존 경로 0·허용 위치 소비 유지 | 없음 |
+| VP-07 | 공통 파일 감시 | 4 | 4 | O-07·O-19 | 동일 지문 0·변화 1·close 뒤 0 | 없음 |
+| VP-08 | 미사용 제거 | 29 | 29 | O-08·아래 검색 차집합 | 신규 dead/test-only/i18n 차집합 0 | 없음 |
+| VP-09 | JSON·Git·flag·spec 규칙 | 14 | 14 | O-09 | BOM·ENOENT·깊이 3·true/false/배열/객체 | 없음 |
+| VP-10 | 연결·조립 공통화 | 11 | 11 | O-10 | abort·revision·권한·scope 변경·해제 실패 | 없음 |
+| VP-11 | 자원 조회 효율 | 4 | 4 | O-11 | config 1회·두 deferred 동시 pending·동기/비동기 결과 동일 | 없음 |
+| VP-12 | 마크·이름·계획 타일 | 15 | 15 | O-12 | viewBox/톤·clipboard·두 하네스 계획 안내 | 없음 |
+| VP-13 | 슬롯·capability | 29 | 29 | O-13 | 클래스 스냅샷 4개·DOM 순서·상태 결과·25변이 red | 없음 |
+| VP-14 | 행 편집·scroll | 3 | 3 | O-14 | 모델/헤더 CRUD·scroll 3회에 측정 1회 | 없음 |
+| VP-15 | 이력 읽기·쓰기 | 6 | 6 | O-15 | unchanged client 0·parse 1·rowid 유지·rollback | 없음 |
+| VP-16 | main 반복 제거 | 11 | 11 | O-16 | 대상/scan/parse/realpath/identity/정규화 횟수·기존 중복 방지 | 없음 |
+| VP-17 | renderer 파생 공유 | 4 | 4 | O-17 | 네 소비자 모델 1회·입력 참조 변경 시 갱신·media change | 없음 |
+| VP-18 | 0291 정리 | 19 | 19 | O-18 | 고정 journal hash·disabled variant·CLI args·null wire·그룹 순서 | 없음 |
+| VP-19 | push lifecycle | 6 | 6 | O-19·O-02 | 실제 방송·preload/API 전달·watch/subscription 해제 | 없음 |
 
-- §10 자리 목록 밖에서 본 운반 자리: …
+- 분모 검산: §10 및 ΔV1 자리 187개, 직접 좌표 대응 187개, 미대응 자리 차집합 0. VP-01의 CI는 집계 gate로 별도 판정한다.
+- 자리 검색 재실행: 고아 채널·legacy·구 catalog 조립·구 파일·표시명 삼항·CwdPanel 이름 분기·openCodeLanding·정규화 사본·선택 가드의 삭제 목표 잔여 0. watchFile 1·남겨 둔 OpenCode UI 분기 3은 계획과 같다.
+- §10 자리 목록 밖에서 본 운반 자리: 넓은 AssistantSegment 텍스트 검색의 6줄은 §17 보존 대상 하네스 전용 파일 경로·로컬 alias다. 삭제 대상 export는 0이며 고정 삭제 목록에 이 6줄을 추가하지 않았다. JSON 검색에서 계획 텍스트의 BOM 처리는 별도 규칙으로 제외했다([차집합 근거](implementation-evidence.md#검색-차집합과-제외-근거)).
+- 미사용 집합: Windows 스캐너로 전후 재측정한 dead 44→33·test-only 52→45, 각 범주 `(name,kind)` 신규 차집합 0. i18n 64→56·신규 차집합 0·지정 14키 present 0.
 - 직전 verify 고장 이력의 `못 잡음` 행: 없음(최초 라운드)
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | REQUIRED | … | … | … |
+| VP-01 | REGRESSION | SELF_BLOCKED | O-01 | not selected; 최종 CI 대기 |
+| VP-02 | REQUIRED | SELF_PASS | O-02 | 2변이 red |
+| VP-03 | REQUIRED | SELF_PASS | O-03 | 해당 없음 — 직접 oracle |
+| VP-04 | REQUIRED | SELF_PASS | O-04 | 삭제 토큰 복원 gate red |
+| VP-05 | REQUIRED | SELF_PASS | O-05 | 해당 없음 — 직접 oracle |
+| VP-06 | REQUIRED | SELF_PASS | O-06 | 5개 경계 위반 red |
+| VP-07 | REQUIRED | SELF_PASS | O-07 | 지문 비교 제거 red |
+| VP-08 | REQUIRED | SELF_PASS | O-08 | 정적 5건 red |
+| VP-09 | REQUIRED | SELF_PASS | O-09 | 4변이 red·소비자 BOM 4자리/Git 3자리 포함 |
+| VP-10 | REQUIRED | SELF_PASS | O-10 | 2개 술어 반전 red |
+| VP-11 | REQUIRED | SELF_PASS | O-11 | 반복 조회·직렬 await red |
+| VP-12 | REQUIRED | SELF_PASS | O-12 | 13변이 red |
+| VP-13 | REQUIRED | SELF_PASS | O-13 | 25변이 red |
+| VP-14 | REQUIRED | SELF_PASS | O-14 | 해당 없음 — 직접 oracle |
+| VP-15 | REQUIRED | SELF_PASS | O-15 | client 선행·전체 DELETE red |
+| VP-16 | REQUIRED | SELF_PASS | O-16 | 반복 복원·event cap 등 12변이 red |
+| VP-17 | REQUIRED | SELF_PASS | O-17 | 공유 memo 제거 red |
+| VP-18 | REQUIRED | SELF_PASS | O-18 | 14변이 red |
+| VP-19 | REQUIRED | SELF_PASS | O-19 | 방송·preload/API 전달 제거 4변이 red |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| 주기 조회 복원·push 구독 제거(2) | VP-02 | 최초 | O-02·변이별 합 2실패 | red |
+| 고아 IPC 토큰 복원(1) | VP-04 | 최초 | §10 0건 gate 1실패 | red |
+| 공통 모듈→이동 구현 import(5) | VP-06 | 최초 | harness/ownership 5오류 | red |
+| 지문 동일성 비교 제거(1) | VP-07 | 최초 | fingerprint/global watch·1실패 | red |
+| 삭제 export·i18n 키·심볼·CSS 복원(5) | VP-08 | 최초 | dead/test-only 분류·신규 키·0건 gate 5실패 | red |
+| BOM 제거 생략·sync/async ENOENT 전파·Git 1단계(4) | VP-09 | 최초 | O-09·32실패, 소비자별 BOM/Git 경로 포함 | red |
+| managed source 두 소비 술어 반전(2) | VP-10 | 최초 | adapter·2실패 | red |
+| config 재조회·순차 await(2) | VP-11 | 최초 | channel/native-resources·2실패 | red |
+| 하네스 마크·색·표시명·계획 안내 맞바꿈(13) | VP-12 | 최초 | 실제 소비자 렌더/clipboard·20실패 | red |
+| cwd 슬롯·landing/Composer 배치·capability 맞바꿈(25) | VP-13 | 최초 | CwdPanel·페이지·store/reducer·39실패 | red |
+| client 선행·전체 native 메시지 DELETE(2) | VP-15 | 최초 | native history·DB rowid·5실패 | red |
+| 반복 계산/읽기 복원·event cap(12) | VP-16·D-016 | 최초 | 횟수·동시성·재전달·12실패 | red |
+| 공유 memo 우회(1) | VP-17 | 최초 | 실제 패널 네 소비자·1실패 | red |
+| canonical/variant/CLI/auth/wire/순서 되돌림(14) | VP-18 | 최초 | O-18·28실패 | red |
+| bootstrap 두 방송·preload·renderer API 전달 제거(4) | VP-19 | 최초 | bootstrap/preload·4실패 | red |
+| Windows 실패 ID에 케이스·collection 실패 주입(1) | 수정한 scanner oracle | 최초 | 상대 경로/이름 2개 추출·누락 gate red | red |
 
-- 분모 검산: …
-- 덮개 회귀: …
+- 분모 검산: 선택 증거 93건 · 직전 인용 변이 0건 · 새 실패-ID oracle 1건 = 94건(표의 그룹별 괄호 합). 실행 변이 82건의 assertion 실패 합 148, 정적 gate 12건의 red를 별도로 센다. [전체 교체식·테스트명·관측](scan/mutation-evidence.json)에 미실행/green 최종 행은 없다.
+- 덮개 회귀: 삭제 테스트는 제거된 기능 전용만 정리했고, generic ToolGroup·PlanTile·plugin path 검사는 실제 production 소비자로 옮겼다. 초기 slot 검사에서 seed/continuity/permission 회귀를 못 잡던 4지점을 보강한 뒤 동일 변이를 재실행해 red를 확인했다. VP-03·05·14는 해당 없음 — 직접 oracle.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 새 문구 없음. 기존 missing·unavailable·계획 안내·복사 표시명을 직접 단언 | 없음 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | catalog shutdown·watch close·IPC unsubscribe·rAF cancel을 실행해 확인 | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | native probe 실패는 unavailable, SDK 404는 missing. 기존 보관을 유지 | ΔV1·O-03/O-15 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | native 오류 표시 유지. busy/toggle 중 push를 보류하고 잠금 해제 후 재조회 | O-02 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | hook request version·unmount fence 유지. 늦은 스킬 스캔의 공유 캐시 덮어쓰기를 generation으로 차단 | O-02/O-16 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | event 상한이 오래된 delta의 중복 방지를 깨뜨림 | 사용자 선택 D-016 반영, 상한 미적용 | 4,096 이벤트 뒤 재전달 0·cap 변이 red |
+| 2 | push 수신 시 busy/toggle lock이면 갱신을 잃을 수 있음 | backend별 pending refresh를 합류하고 해제 뒤 수행 | O-02 |
+| 3 | stat 이벤트의 부분 쓰기 중간 상태가 중복 방송을 만들 수 있음 | 공통 watcher의 debounce·직렬 check·close fence | O-07 |
+| 4 | 쓰기 후 스킬 재스캔보다 먼저 시작한 조회가 늦게 끝남 | Bootstrap 캐시 publication에 generation 확인 | O-16 최신 스캔 보존 케이스 |
+| 5 | 삭제로 종속 선언·문구가 새 미사용 상태가 됨 | Avatar·설치 훅·update schema·tile id 목록·backend 문구까지 정리 | dead/test-only/i18n 신규 차집합 0 |
+| 6 | Windows에서 스캐너 경로 구분자/URL 때문에 빈 결과 가능 | TypeScript 파일명 정규화·fileURLToPath 적용 | 분류 probe 3종·실패 ID probe 2종 |
+| 7 | 로컬 CLI 통합 자원 0/6 실패 | 기존 트리에서 같은 증상 재현, 테스트 유지 | O-01·구현 증거 환경 한계 |
 
 ### 설계 대비 명시적 차이
 
-- …
+- 이력 이관 fixture 전체 삭제 대신 현재 native DB probe도 쓰는 schema fixture를 `native-schema.testfixture.ts`로 남겼다. 이관 로직·기존 경로·호출은 0이고 실제 native read 테스트를 보존한다.
+- preload/API 신규 테스트를 별도 파일 둘 대신 기존 `preload/index.test.ts`에 합쳤다. 실제 양 끝 모듈을 실행하며 callback·해제 동일성을 관측한다.
+- 감시 구현은 파일 이벤트 뒤 짧은 debounce와 직렬 fingerprint check를 공유한다. 만료: discovery TTL 의미 보존; 공유: Claude/OpenCode/project 별 watcher와 notification을 분리; 재진입: pending check 합류; 무효화: 외부 replace/create·설정 변경·shutdown을 O-07/O-19로 재확인했다.
+- 영속 포맷·신규 의존성·기본 제품 동작은 변경하지 않았다. 저장 SQL의 17개 준비 호출은 동일 bind SQL을 공유한 생성자 statement 16개로 귀결된다. 만료·공유 무효화는 DB owner 수명과 같고, 재진입/rollback은 O-15의 실제 DB 테스트로 확인했다.
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| 관측한 게이트 산출 | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| AC 자기보고 | … |
-| 합계 검산 | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | WP-1~14의 main/renderer/shared·관련 테스트·IPC/아키텍처 문서. 신설 runtime 의존성 0. 공유 브랜치에 WP별 구현 커밋 반영 |
+| 실행 명령 | [구현 증거 재현 명령](implementation-evidence.md#재현-명령) 및 `scan/mutation-evidence.json`의 자리별 Vitest 실행 |
+| 관측한 게이트 산출 | 전체 Vitest 886파일/8,256케이스에서 테스트 대역 12실패 수정, 기준선 CLI 1실패 유지·신규 실패 ID 0. Node 스크립트 144/144. 타입·Electron build 성공. 최종 Windows CI 대기 |
+| V-pair 자기확인 | SELF_PASS 18·SELF_BLOCKED 1(CI 집계) / 유효 pair 19 |
+| 강제 지점 전수 | 187/187·미대응 자리 차집합 0. 텍스트 검색의 범위 밖 6줄은 위에 별도 기록 |
+| AC 자기보고 | 아래 표 22/23, AC1의 최종 CI 대기 |
+| 합계 검산 | ✅ 22 · ⚠️ 1 · ❌ 0 = 총 23 |
+| 블로커 / 역질문 | 사용자 역질문 없음. 이벤트 상한 제외 승계. CI만 완료 대기 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+| AC | 자기확인 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ⚠️ | O-01 신규 실패 ID 0·타입/build 성공·최종 CI 대기 |
+| AC2 | ✅ | O-08 삭제 목표 잔여 0·신규 dead/test-only 차집합 0 |
+| AC3 | ✅ | 삭제 i18n present 0·신규 미참조 차집합 0·CSS 토큰 0 |
+| AC4 | ✅ | IPC 사슬 검색 0·O-04 응답 테스트 성공 |
+| AC5 | ✅ | 같은 key deferred 직렬화·실패 후 큐 진행 2케이스 |
+| AC6 | ✅ | O-03 SDK 404 missing·이관 경로 검색 0 |
+| AC7 | ✅ | O-09 BOM 4소비자·Git 3소비자·flag/spec 테스트·4변이 red |
+| AC8 | ✅ | O-10 lifecycle·revision·options 조립·2술어 반전 red |
+| AC9 | ✅ | 구 catalog 조립 0·production preparation으로 handler 테스트 실행 |
+| AC10 | ✅ | config 1회·skills/config 동시 pending·비동기 catalog 결과 동일 |
+| AC11 | ✅ | O-02/O-19 push·focus·busy/lock·unmount 결과 단언 |
+| AC12 | ✅ | watchFile 1·동일 지문 0·변화 1·close 이후 0 |
+| AC13 | ✅ | 구 파일 5개 부재·공통 소유권 위반 5/5 red |
+| AC14 | ✅ | 마크 렌더 정본 2분기·shim/PlanTile 5파일 부재·O-12 렌더 |
+| AC15 | ✅ | shortLabel 삼항 0·clipboard 3케이스·엔진/표 테스트 |
+| AC16 | ✅ | cwd 클래스 스냅샷 4개 동일·실제 랜딩 DOM 배치 보존 |
+| AC17 | ✅ | 7개 능력 소비 변이 red·보존한 UI 이름 분기 3개 |
+| AC18 | ✅ | 모델/헤더 편집 테스트·scroll 3회에 측정 1회 |
+| AC19 | ✅ | IPC inventory·현재 아키텍처·컴포넌트 카탈로그 동기, Windows 문서 gate 성공 |
+| AC20 | ✅ | client 0·parse 1·previous 전달·DB rowid/FTS/rollback·2변이 red |
+| AC21 | ✅ | O-16 11자리, 반복 복원 12변이 red; D-016에 따라 중복 방지 유지 |
+| AC22 | ✅ | 네 소비자 계산 1회·참조 변경 갱신·catalog stale·media cleanup |
+| AC23 | ✅ | O-18 19자리·14변이 red·기존 연결 종단 테스트 성공 |
+
+검산: AC 행 23개 = ✅ 22 + ⚠️ 1 + ❌ 0. 구현 커밋의 최종 trailer는 CI 결과를 반영해 작성한다.
 
 ## [구현자 기입] Review Signals — 사실만
 
 - 설계 턴의 리뷰 에이전트 8개가 계정 사용량 한도로 두 번 중단 — 설계자가 직접 4관점 수행(§0).
-- 현재 라운드·impl 턴: …
+- 현재 라운드·impl 턴: r1. 사용자 지시에 따라 Codex가 단독 구현(D-017), sub-agent 사용 없음.
+- 계획의 횟수/구조 oracle을 실제 고장으로 확인하는 과정에서 잘못된 변이 한 건(배치 stride만 변경)과 잘못 지정한 테스트 경로 한 건을 수정해 재측정했다. collection 오류는 실패 케이스로 세지 않았다.
+- 초기 UI 테스트는 존재·정상 기본값만 보아 seed/continuity/permission 맞바꿈을 놓쳤다. 기존 지침은 구별 값을 요구했으며, 실제 소비자의 비기본 fixture를 추가한 뒤 해당 변이가 red였다.
+- 반복 환경 한계는 Windows 호스트의 긴 테스트 실행 시간과 로컬 제3자 checkout의 문서 링크 오류였다. 전체 테스트는 JSON으로 수집했고 깨끗한 Windows CI gate를 병행했다.
 
 ---
 

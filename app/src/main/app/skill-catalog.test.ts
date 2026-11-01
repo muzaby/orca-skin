@@ -1,3 +1,4 @@
+import { readFileSync, readdirSync } from 'node:fs'
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -6,6 +7,15 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../shared/ipc'
 import { registerSkillsHandlers } from './handlers/skills'
 import { readSkillCatalog } from './skill-catalog'
+
+vi.mock('node:fs', async (original) => {
+  const actual = await original<typeof import('node:fs')>()
+  return {
+    ...actual,
+    readFileSync: vi.fn(actual.readFileSync),
+    readdirSync: vi.fn(actual.readdirSync)
+  }
+})
 
 vi.mock('node:fs/promises', async (original) => {
   const actual = await original<typeof import('node:fs/promises')>()
@@ -94,7 +104,11 @@ it('assembles the real catalog from lock, harness and native plugin files withou
       {}
     )
   vi.mocked(realpath).mockClear()
+  vi.mocked(readFileSync).mockClear()
+  vi.mocked(readdirSync).mockClear()
   const first = await catalog()
+  expect(readFileSync).not.toHaveBeenCalled()
+  expect(readdirSync).not.toHaveBeenCalled()
   expect(
     vi.mocked(realpath).mock.calls.filter(([path]) => path === join(agents, 'locked', 'SKILL.md'))
   ).toHaveLength(1)
