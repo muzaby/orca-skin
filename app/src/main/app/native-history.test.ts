@@ -1,17 +1,17 @@
 import { describe, expect, it, vi, type Mock } from 'vitest'
-import type { ResolvedHarnessSettings } from '../adapters/common/harness-config'
 import type { ChatActivitySnapshot } from '../../shared/ipc'
-import type { SessionAdapter } from '../adapters/common/types'
+import type { NativeResources } from '../../shared/native-resources'
+import type { ResolvedHarnessSettings } from '../adapters/common/harness-config'
 import type { NativeHistoryResult } from '../adapters/common/native-history'
 import { AdapterRegistry } from '../adapters/common/registry'
+import type { TurnRequest } from '../adapters/common/turn'
+import type { SessionAdapter } from '../adapters/common/types'
+import type { RuntimeSessionAdapter } from '../contracts/ports'
+import { SessionRuntime } from '../features/sessions/session-runtime'
+import { RuntimeSupervisor } from '../features/sessions/supervisor'
+import { resolveTurn } from './chat-turn/resolve-turn'
 import type { RouterContext } from './context'
 import { createNativeHistoryRefresh, nativeHistoryBusy } from './native-history'
-import { resolveTurn } from './chat-turn/resolve-turn'
-import { RuntimeSupervisor } from '../features/sessions/supervisor'
-import { SessionRuntime } from '../features/sessions/session-runtime'
-import type { RuntimeSessionAdapter } from '../contracts/ports'
-import type { TurnRequest } from '../adapters/common/turn'
-import type { NativeResources } from '../../shared/native-resources'
 vi.mock('../infra/config/orca-config', () => ({ appEnv: () => ({ APP_ENV: 'app' }) }))
 vi.mock('../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
 vi.mock('../features/chat/recovery', () => ({ recoverSessionHistory: vi.fn() }))
@@ -139,7 +139,9 @@ describe('native history composition', () => {
         ]
       }
     })
-    expect(await createNativeHistoryRefresh(f.ctx, f.runtime)('s')).toMatchObject({ status: 'ready' })
+    expect(await createNativeHistoryRefresh(f.ctx, f.runtime)('s')).toMatchObject({
+      status: 'ready'
+    })
     expect(f.read).toHaveBeenCalledWith(expect.objectContaining({ sessionId: 'replacement' }))
     const replacement = (f.replace.mock.calls as unknown[][])[0][0] as { payloadJson: string }
     expect(JSON.parse(replacement.payloadJson)).toMatchObject({
@@ -267,7 +269,9 @@ describe('native history composition', () => {
     'uses stored %s backend, actual cwd and the execution configuration',
     async (backend) => {
       const f = setup(backend)
-      expect(await createNativeHistoryRefresh(f.ctx, f.runtime)('s')).toMatchObject({ status: 'ready' })
+      expect(await createNativeHistoryRefresh(f.ctx, f.runtime)('s')).toMatchObject({
+        status: 'ready'
+      })
       expect(f.read).toHaveBeenCalledWith({
         sessionId: 's',
         cwd: '/actual/worktree',

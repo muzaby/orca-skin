@@ -484,16 +484,6 @@ export const en: typeof ko = {
     promptPlaceholder: 'Ask OpenCode to work on something.'
   },
   backend: {
-    installed: 'Installed',
-    notInstalled: 'Install required',
-    supportedTitle: 'Supported features: {{list}}',
-    capability: {
-      continue: 'Continue',
-      resume: 'Resume',
-      fork: 'Fork',
-      abort: 'Abort',
-      structuredOutput: 'Structured output'
-    },
     installer: {
       title: 'Install Claude Code',
       cliRequired: 'The Claude Code CLI is required to use chat.',

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { chatReducer, initialChatState, type ChatAction } from './chatReducer'
 import { flattenColumns } from '../lib/rightPanelLayout'
+import { chatReducer, initialChatState, type ChatAction } from './chatReducer'
 
 const select: ChatAction = {
   type: 'SET_MODEL',
@@ -10,6 +10,16 @@ const select: ChatAction = {
   modelAlias: 'Model'
 }
 describe('harness identity and panel enforcement', () => {
+  it.each(['claude', 'opencode'] as const)(
+    'applies the %s permission default only when supported',
+    (backend) => {
+      const state = chatReducer(
+        { ...initialChatState, permissionMode: 'plan', permissionModeExplicit: false },
+        { ...select, adapter: backend }
+      )
+      expect(state.permissionMode).toBe(backend === 'claude' ? 'accept_edits' : 'plan')
+    }
+  )
   it('shows an explicitly measured zero context instead of retaining the previous step', () => {
     const usage = { inputTokens: 100, contextTokens: 0, contextWindow: 123456 }
     const state = chatReducer(

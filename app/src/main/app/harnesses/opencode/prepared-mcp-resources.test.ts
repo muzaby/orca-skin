@@ -1,6 +1,9 @@
 import { expect, it, vi } from 'vitest'
-import type { ComposerCatalogLease, ComposerCatalogScope } from '../../../../shared/composer-catalog'
-import { preparedMcpScope, PreparedMcpResources } from './prepared-mcp-resources'
+import type {
+  ComposerCatalogLease,
+  ComposerCatalogScope
+} from '../../../../shared/composer-catalog'
+import { PreparedMcpResources, preparedMcpScope } from './prepared-mcp-resources'
 
 it('resolves draft execution choices and saved session scope from their actual owners', () => {
   const getSessionById = vi.fn()

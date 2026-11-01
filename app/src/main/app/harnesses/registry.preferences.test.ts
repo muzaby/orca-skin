@@ -1,4 +1,6 @@
 import { expect, it, vi } from 'vitest'
+import { SettingsStore } from '../../infra/settings-store'
+import { createAdapterRegistry } from './registry'
 const captured = vi.hoisted(() => ({
   claude: undefined as (() => unknown) | undefined,
   opencode: undefined as (() => unknown) | undefined
@@ -18,7 +20,6 @@ vi.mock('../../adapters/opencode/v1/adapter', () => ({
     constructor(
       _server: unknown,
       _fetch: unknown,
-      _migration: unknown,
       _db: unknown,
       _control: unknown,
       preferences: () => unknown
@@ -27,8 +28,6 @@ vi.mock('../../adapters/opencode/v1/adapter', () => ({
     }
   }
 }))
-import { createAdapterRegistry } from './registry'
-import { SettingsStore } from '../../infra/settings-store'
 it('passes saved harness preferences to adapters live', () => {
   const settings = new SettingsStore('test', { store: {} })
   createAdapterRegistry({

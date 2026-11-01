@@ -33,7 +33,17 @@ function usePanelData(): {
   return { messages, model }
 }
 
-function useSelectedOpenCodeAgent() {
+function useSelectedOpenCodeAgent(): ReturnType<typeof usePanelData> & {
+  navigation: ReturnType<typeof useOpenCodePanelNavigation>
+  detail:
+    | Extract<
+        NonNullable<ReturnType<typeof useOpenCodePanelNavigation>>['selection'],
+        { id: 'subagent' | 'process' }
+      >
+    | undefined
+  selected: string | null
+  agent: ReturnType<typeof sessionPanelModel>['agents'][number] | undefined
+} {
   const { messages, model } = usePanelData()
   const baseSelected = useChatSession((state) => state.selectedSubagentTaskId)
   const navigation = useOpenCodePanelNavigation()

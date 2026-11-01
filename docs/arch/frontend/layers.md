@@ -82,7 +82,7 @@ src/renderer/
     │   ├── api/ipc.ts               # `window.orca.*` 타입드 래퍼 — chatApi/backendApi/installApi/settingsApi/skillApi/fileApi/sessionApi/projectApi/windowApi/costApi/updateApi/debugApi(dev 전용)
     │   ├── config/theme.ts          # ThemeId 타입 + TRANSCRIPT_TEXT_SCALE·TRANSCRIPT_WIDTH_PX
     │   ├── logging.ts               # renderer 로그를 orca:log:emit 으로 중계 (0123/0124)
-    │   └── ui/                      # Icon, Avatar, Status, Popover, CopyIconButton, FloatingPanel(+ PanelSection/Toggle/Radio/Select/Slider atom),
+    │   └── ui/                      # Icon, Status, Popover, CopyIconButton, FloatingPanel(+ PanelSection/Toggle/Radio/Select/Slider atom),
     │                                #   Modal(공용 모달 셸, 0093 일반화), ConfirmDialogHost+confirmDialogStore(삭제 확인, 0083), RenameInput(0083),
     │                                #   Meter·UsageCircle·usageTone(사용량 시각화, 0079/0080), AutoGrowTextarea, ReadingColumn, OrcaLogo, Button, Toggle,
     │                                #   markdown/(Markdown·CodeBlock — features/chat 에는 StreamingMarkdown 만 잔류), elapsed, mock, BayerPattern, Histogram

@@ -2,9 +2,9 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import type { AgentEnvironment } from '../../../../../../shared/ipc'
-import { ModelMenu } from './ModelMenu'
 import { ModeMenu } from '../../harnesses/claude/composer/ModeMenu'
 import { modeMenuOptions } from '../../harnesses/claude/composer/modes'
+import { ModelMenu } from './ModelMenu'
 import { modelKey, selectedModelShape, type ModelSelection } from './modelSelection'
 
 // 0215 VP-09·VP-10·VP-12 — 두 `[1m]` 변형이 각각의 행이고, haiku 는 '자동'을 내걸지 않는다.
@@ -52,6 +52,22 @@ const BOTH = [
   model('sonnet', 'claude-sonnet-4-6', false, true),
   model('sonnet', 'claude-sonnet-4-6', true)
 ]
+
+it.each([
+  ['claude', '0 0 248 248', 'text-spinner'],
+  ['opencode', '0 0 16 20', 'text-oc-ink']
+] as const)('preserves the %s provider heading brand', (adapter, viewBox, tone) => {
+  const html = renderToStaticMarkup(
+    createElement(ModelMenu, {
+      agents: [{ ...agent(BOTH), adapter }],
+      sessionBackend: null,
+      selection: null,
+      onPick: vi.fn()
+    })
+  )
+  expect(html).toContain(`viewBox="${viewBox}"`)
+  expect(html).toContain(tone)
+})
 
 describe('ModelMenu — [1m] 변형이 각각의 행이다 (AT-10)', () => {
   it('두 변형이 모두 노출되고 1M 배지로 구분된다', () => {

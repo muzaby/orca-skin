@@ -15,13 +15,15 @@ const args = Object.fromEntries(
   }, [])
 )
 const ROOT = path.resolve(__dirname, '../../../..')
-const APP = path.resolve(ROOT, args.app ?? 'app')
+// TypeScript normalizes source filenames to forward slashes on Windows as well.
+const normalize = (file) => path.resolve(file).replaceAll('\\', '/')
+const APP = normalize(path.resolve(ROOT, args.app ?? 'app'))
 const ts = require(path.join(APP, 'node_modules/typescript'))
 if (!args.out) throw new Error('--out is required')
 
 const isTest = (f) =>
   /\.(test|spec)\.(ts|tsx)$/.test(f) || /\.test(fixture|lib)\.tsx?$/.test(f) || f.includes('/__tests__/')
-const kindOf = (f) => (isTest(f) ? 'test' : f.startsWith(path.join(APP, 'scripts') + path.sep) ? 'fixture' : 'prod')
+const kindOf = (f) => (isTest(f) ? 'test' : f.startsWith(`${APP}/scripts/`) ? 'fixture' : 'prod')
 
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -37,8 +39,8 @@ const scope = new Set(
         .readFileSync(path.resolve(ROOT, args.scope), 'utf8')
         .split('\n')
         .filter((l) => /\.(ts|tsx)$/.test(l) && !/\.d\.ts$/.test(l))
-        .map((l) => path.join(ROOT, l.trim()))
-    : walk(path.join(APP, 'src'))
+        .map((l) => normalize(path.join(ROOT, l.trim())))
+    : walk(path.join(APP, 'src')).map(normalize)
 )
 
 function loadProgram(tsconfig) {
@@ -76,7 +78,7 @@ function scan(program) {
   const checker = program.getTypeChecker()
   for (const sf of program.getSourceFiles()) {
     const f = sf.fileName
-    if (f.includes('/node_modules/') || !f.startsWith(APP)) continue
+    if (f.includes('/node_modules/') || !f.startsWith(`${APP}/`)) continue
     const importer = kindOf(f)
     const namespaces = []
     const visit = (node) => {
@@ -183,7 +185,7 @@ for (const [f, list] of exportsByFile)
       !own || escaped || prod > 0 || fixture > 0 ? 'used'
       : test > 0 ? (refs > 0 ? 'test+local' : 'test-only')
       : refs > 0 ? 'local-only' : 'dead'
-    rows.push([path.relative(ROOT, f), e.name, e.kind, own ? 'own' : 'reexport', e.line, prod, test, fixture, refs, escaped ? 'ns-escaped' : '', category].join('\t'))
+    rows.push([path.relative(ROOT, f).replaceAll('\\', '/'), e.name, e.kind, own ? 'own' : 'reexport', e.line, prod, test, fixture, refs, escaped ? 'ns-escaped' : '', category].join('\t'))
   }
 fs.writeFileSync(path.resolve(ROOT, args.out), rows.join('\n') + '\n')
 const count = (c) => rows.filter((r) => r.endsWith('\t' + c)).length

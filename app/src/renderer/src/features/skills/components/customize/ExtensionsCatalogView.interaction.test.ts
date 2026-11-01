@@ -1,12 +1,12 @@
 import { createElement, Fragment } from 'react'
-import type { StateCreator } from 'zustand/vanilla'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import type { StateCreator } from 'zustand/vanilla'
+import type { NativeResource, NativeResources } from '../../../../../../shared/native-resources'
+import { i18n } from '../../../../shared/i18n'
+import { ConfirmDialogHost } from '../../../../shared/ui/ConfirmDialogHost'
+import { useConfirmStore } from '../../../../shared/ui/confirmDialogStore'
 import { installFakeDom, type FakeDom } from '../../../../shared/ui/renderHarness.testfixture'
 import { ExtensionsCatalogView } from './ExtensionsCatalogView'
-import { useConfirmStore } from '../../../../shared/ui/confirmDialogStore'
-import { ConfirmDialogHost } from '../../../../shared/ui/ConfirmDialogHost'
-import { i18n } from '../../../../shared/i18n'
-import type { NativeResource, NativeResources } from '../../../../../../shared/native-resources'
 
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
@@ -48,7 +48,11 @@ vi.mock('../../../../shared/api/ipc', async (original) => ({
   skillApi: { list: api.skillList },
   mcpApi: { list: async () => [] },
   providerApi: { state: api.providers, onState: () => () => {} },
-  sessionApi: { globalExtensions: api.read, setGlobalExtension: api.write }
+  sessionApi: {
+    globalExtensions: api.read,
+    setGlobalExtension: api.write,
+    onExtensionsChanged: () => () => undefined
+  }
 }))
 
 let dom: FakeDom

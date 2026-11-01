@@ -66,7 +66,3 @@ export function useBackendLabel(): string {
     return cc?.version ? `Claude Code · ${cc.version}` : 'Claude Code'
   })
 }
-
-export function useClaudeCodeInstalled(): boolean {
-  return useBackendStore((s) => s.list.find((b) => b.id === 'claude')?.installed === true)
-}
