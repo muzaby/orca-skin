@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ScrollAnchor } from '../../common/transcript/scrollTypes'
+import { TimelineScrollContext, type TimelineScroll } from './scrollContext'
 import {
   canConsumeScroll,
   isTimelineBottom,
@@ -7,7 +8,6 @@ import {
   shouldShowTimelineJump
 } from './scrollPolicy'
 import { timelineViewState } from './viewState'
-import { TimelineScrollContext, type TimelineScroll } from './scrollContext'
 const geometry = (el: HTMLDivElement): { top: number; height: number; viewport: number } => ({
   top: el.scrollTop,
   height: el.scrollHeight,
@@ -35,6 +35,7 @@ export function OpenCodeScrollController({
   const gestureUntil = useRef(0)
   const lastTop = useRef(state.top)
   const automaticTop = useRef<number | null>(null)
+  const captureFrame = useRef<number | null>(null)
   const [showJump, setShowJump] = useState(false)
   const [retained, setRetained] = useState<string[]>([])
   const capture = useCallback(() => {
@@ -87,7 +88,12 @@ export function OpenCodeScrollController({
     }
     lastTop.current = el.scrollTop
     setShowJump(shouldShowTimelineJump(geometry(el)))
-    capture()
+    if (captureFrame.current === null) {
+      captureFrame.current = requestAnimationFrame(() => {
+        captureFrame.current = null
+        capture()
+      })
+    }
   }, [capture, state])
 
   useLayoutEffect(() => {
@@ -188,6 +194,8 @@ export function OpenCodeScrollController({
     return () => {
       state.setTop(el.scrollTop)
       if (isTimelineBottom(geometry(el)) && state.pinned) state.setAnchor(null)
+      if (captureFrame.current !== null) cancelAnimationFrame(captureFrame.current)
+      captureFrame.current = null
       observer.disconnect()
       if (frame !== null) cancelAnimationFrame(frame)
       el.removeEventListener('wheel', wheel)
