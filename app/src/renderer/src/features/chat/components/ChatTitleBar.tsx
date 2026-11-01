@@ -1,4 +1,5 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react'
+import { HARNESS_CAPABILITIES } from '../../../../../shared/harness'
 import { reportError } from '../../../shared/errors'
 import { useI18n } from '../../../shared/i18n'
 import { Button } from '../../../shared/ui/Button'
@@ -111,7 +112,7 @@ export const ChatTitleBar = memo(function ChatTitleBar({
       .map((m) => {
         const body = partsText(m.parts).trim()
         if (!body) return ''
-        return `## ${m.role === 'user' ? tr('chat.titleBar.roleUser') : conversationBackend === 'opencode' ? 'OpenCode' : 'Claude'}\n\n${body}`
+        return `## ${m.role === 'user' ? tr('chat.titleBar.roleUser') : HARNESS_CAPABILITIES[conversationBackend ?? 'claude'].shortLabel}\n\n${body}`
       })
       .filter(Boolean)
       .join('\n\n')
