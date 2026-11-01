@@ -1,8 +1,8 @@
 // Claude 플러그인 전역 토글(0283)이 닫는 실행 중 Claude 프로세스의 계획과 실행.
 // 전역 선택은 Query 생성 때만 읽히므로, 토글은 살아 있는 Claude 프로세스를 모두 닫아 다음
 // 메시지가 새 선택으로 다시 띄우게 한다. electron·DB 를 import 하지 않는 순수 모듈이다.
-import type { Backend, ChatActivitySnapshot } from '../../shared/ipc'
-import { sessionActivityBusy } from './session-activity-busy'
+import type { Backend, ChatActivitySnapshot } from '../../../../shared/ipc'
+import { sessionActivityBusy } from '../../session-activity-busy'
 
 interface LeaseView {
   readonly leaseId: string

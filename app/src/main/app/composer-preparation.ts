@@ -2,7 +2,7 @@ import { resolveComposerPreparation } from './composer-catalog'
 import { ComposerPreparationService } from './composer-preparation-service'
 import type { RouterContext } from './context'
 import { registerComposerCatalogHandlers } from './handlers/composer-catalog'
-import { PreparedMcpResources, preparedMcpScope } from './prepared-mcp-resources'
+import { PreparedMcpResources, preparedMcpScope } from './harnesses/opencode/prepared-mcp-resources'
 
 /** Production assembly is shared by bootstrap and handler integration tests. */
 export function createComposerPreparation(ctx: RouterContext): {

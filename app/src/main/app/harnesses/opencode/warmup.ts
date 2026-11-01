@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
-import type { ComposerPreparationService } from './composer-preparation-service'
-import { resolveLandingCwd } from './handlers/session-cwd'
-import { getLogger } from '../infra/log/registry'
+import type { ComposerPreparationService } from '../../composer-preparation-service'
+import { resolveLandingCwd } from '../../handlers/session-cwd'
+import { getLogger } from '../../../infra/log/registry'
 
 /** A normal preparation owner. Boot never waits on native connections. */
 export class OpenCodeWarmup {

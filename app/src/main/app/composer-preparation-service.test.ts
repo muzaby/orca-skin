@@ -6,7 +6,7 @@ import { createComposerPreparation } from './composer-preparation'
 import { ComposerPreparationService } from './composer-preparation-service'
 import type { RouterContext } from './context'
 import { registerSessionResourceHandlers } from './handlers/session-resources'
-import { OpenCodeWarmup } from './opencode-warmup'
+import { OpenCodeWarmup } from './harnesses/opencode/warmup'
 const handlers = vi.hoisted(
   () => new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>()
 )

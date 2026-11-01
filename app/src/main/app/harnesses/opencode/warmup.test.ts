@@ -2,9 +2,9 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, it, vi } from 'vitest'
-import { ComposerPreparationService } from './composer-preparation-service'
-import { OpenCodeWarmup } from './opencode-warmup'
-import type { ComposerCatalogData, ComposerCatalogScope } from '../../shared/composer-catalog'
+import { ComposerPreparationService } from '../../composer-preparation-service'
+import { OpenCodeWarmup } from './warmup'
+import type { ComposerCatalogData, ComposerCatalogScope } from '../../../../shared/composer-catalog'
 
 it('skips unavailable CLI and leaves an explicit foreground retry available', async () => {
   const acquire = vi.fn()

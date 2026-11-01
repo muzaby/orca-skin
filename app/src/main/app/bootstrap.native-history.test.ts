@@ -27,7 +27,7 @@ import type { PluginSnapshots } from '../infra/config/plugin-snapshots'
 import type { RouterContext } from './context'
 import type { registerSessionHandlers } from './handlers/session'
 import type { createNativeHistoryRefresh } from './native-history'
-import type { OpenCodeGlobalWatch } from './opencode-global-watch'
+import type { OpenCodeGlobalWatch } from './harnesses/opencode/global-watch'
 import type { ProjectResourceSync } from './project-resource-sync'
 
 const fixture = vi.hoisted(() => ({

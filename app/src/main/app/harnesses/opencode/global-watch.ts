@@ -1,4 +1,4 @@
-import { fileFingerprints, FingerprintWatch } from '../infra/config/fingerprint-watch'
+import { fileFingerprints, FingerprintWatch } from '../../../infra/config/fingerprint-watch'
 
 /** OpenCode supplies its semantic plugin fingerprint and discovery invalidation barrier. */
 export class OpenCodeGlobalWatch extends FingerprintWatch {

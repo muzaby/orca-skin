@@ -1,9 +1,9 @@
-import type { ComposerCatalogLease, ComposerCatalogScope } from '../../shared/composer-catalog'
-import type { NativeResourceObservation, NativeResources } from '../../shared/native-resources'
-import type { ResourceRequest } from './project-resource-sync'
-import { ComposerCatalogCancelled, ComposerCatalogOwners } from './composer-catalog-owner'
-import { parseAgentKind } from '../../shared/agent-kind'
-import type { RouterContext } from './context'
+import type { ComposerCatalogLease, ComposerCatalogScope } from '../../../../shared/composer-catalog'
+import type { NativeResourceObservation, NativeResources } from '../../../../shared/native-resources'
+import type { ResourceRequest } from '../../project-resource-sync'
+import { ComposerCatalogCancelled, ComposerCatalogOwners } from '../../composer-catalog-owner'
+import { parseAgentKind } from '../../../../shared/agent-kind'
+import type { RouterContext } from '../../context'
 
 export function resourceRequestKey(request: ResourceRequest): string {
   return 'sessionId' in request
