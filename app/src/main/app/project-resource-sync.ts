@@ -21,6 +21,7 @@ type Entry = {
   target: ProjectResourceTarget
   policy: ProjectResourcePolicy
   stop: Array<() => void>
+  watching: Promise<void>
   version: number
   reading?: Promise<void>
   configuration?: ProjectResourceConfiguration
@@ -143,6 +144,7 @@ export class ProjectResourceSync {
           target,
           policy,
           stop: [],
+          watching: Promise.resolve(),
           version: 0,
           applied: new WeakMap(),
           restart: new WeakMap(),
@@ -157,6 +159,7 @@ export class ProjectResourceSync {
           current.version++
           void this.refresh(current)
         }
+        const ready: Promise<void>[] = []
         for (const file of policy.files(target.cwd)) {
           if (this.deps.watch) current.stop.push(this.deps.watch(file, changed))
           else {
@@ -167,8 +170,10 @@ export class ProjectResourceSync {
               failed: changed
             })
             current.stop.push(() => watcher.close())
+            ready.push(watcher.ready)
           }
         }
+        current.watching = Promise.all(ready).then(() => undefined)
         void this.refresh(current)
       }
       void this.apply(entry, runtimeTargets)
@@ -199,6 +204,9 @@ export class ProjectResourceSync {
           // An own save can advance again while a watcher waits for the mutation queue.
           // Read and publish under the same owner so an intermediate revision cannot escape.
           await this.run(entry.target.key, async () => {
+            // Establish observation before reading the state it must keep fresh.
+            await entry.watching
+            if (!this.valid(entry)) return
             const next = await entry.policy.read(entry.target.cwd)
             if (!this.valid(entry) || version !== entry.version) return
             const recovered = entry.failed

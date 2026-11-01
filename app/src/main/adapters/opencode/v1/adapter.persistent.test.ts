@@ -14,6 +14,7 @@ import {
   textPart
 } from './adapter.testfixture'
 import { openCodePluginId } from './plugin-installation'
+import { OpenCodeSessionContexts } from './session-context'
 
 vi.mock('../../../infra/error-report', () => ({ reportError: vi.fn() }))
 
@@ -973,6 +974,45 @@ describe('OpenCode persistent SDK channel', () => {
       expect(seen[0].aborted).toBe(false)
     } finally {
       await dispose(f.live, iterator)
+    }
+  })
+
+  it('reports a rejected client lease release once without exposing its error', async () => {
+    vi.mocked(reportError).mockClear()
+    const original = OpenCodeSessionContexts.prototype.acquire
+    const acquire = vi
+      .spyOn(OpenCodeSessionContexts.prototype, 'acquire')
+      .mockImplementation(async function (this: OpenCodeSessionContexts, ...args) {
+        const lease = await original.apply(this, args)
+        return {
+          ...lease,
+          release: async () => {
+            await lease.release()
+            throw new Error('PRIVATE_RELEASE_DETAIL')
+          }
+        }
+      })
+    const f = fixture()
+    const iterator = f.live.eventBatches[Symbol.asyncIterator]()
+    try {
+      await frame(iterator)
+      await dispose(f.live, iterator)
+      f.live.close()
+      await vi.waitFor(() => expect(reportError).toHaveBeenCalledOnce())
+      expect(reportError).toHaveBeenCalledWith({
+        event: 'opencode.instance.dispose.failed',
+        scope: 'engine',
+        title: 'engineInternal',
+        level: 'warn',
+        detail: 'OpenCode 프로젝트 정리를 완료하지 못했습니다. 새 연결로 다시 시작해 주세요.'
+      })
+      expect(JSON.stringify(vi.mocked(reportError).mock.calls)).not.toContain(
+        'PRIVATE_RELEASE_DETAIL'
+      )
+    } finally {
+      await dispose(f.live, iterator)
+      f.adapter.close()
+      acquire.mockRestore()
     }
   })
 

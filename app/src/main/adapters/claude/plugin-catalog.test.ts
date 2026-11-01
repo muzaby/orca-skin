@@ -40,11 +40,39 @@ beforeEach(() => {
   mkdirSync(join(cwd, '.git'), { recursive: true })
 })
 afterEach(() => {
+  vi.restoreAllMocks()
   vi.unstubAllEnvs()
   rmSync(temp, { recursive: true, force: true })
 })
 
 describe('native plugin catalog', () => {
+  it.each(['win32', 'linux'] as const)(
+    'keeps nested cwd selection identical for sync and async catalogs on %s',
+    async (platform) => {
+      vi.spyOn(process, 'platform', 'get').mockReturnValue(platform)
+      const child = join(cwd, 'nested', 'child')
+      mkdirSync(child, { recursive: true })
+      const path = plugin('bundle')
+      write(join(root, 'settings.json'), { enabledPlugins: { 'bundle@market': true } })
+      write(join(root, 'plugins/installed_plugins.json'), {
+        plugins: { 'bundle@market': [{ scope: 'user', installPath: path }] }
+      })
+      write(join(cwd, '.claude/settings.local.json'), {
+        enabledPlugins: { 'bundle@market': false }
+      })
+      write(join(child, '.claude/settings.local.json'), {
+        enabledPlugins: { 'bundle@market': true }
+      })
+      const sync = readClaudePluginCatalog(child, root)
+      const asyncCatalog = await readClaudePluginCatalogAsync(child, root)
+      expect(asyncCatalog).toEqual(sync)
+      expect(asyncCatalog.commands.map((command) => command.name)).toEqual(
+        platform === 'win32' ? ['bundle:bundle'] : []
+      )
+      vi.stubEnv('CLAUDE_CONFIG_DIR', root)
+      expect(await configuredClaudeCommands(child, {})).toEqual(asyncCatalog.commands)
+    }
+  )
   it('reads defaults from settings alone without traversing installed plugin trees', () => {
     const path = plugin('bundle')
     write(join(root, 'settings.json'), {

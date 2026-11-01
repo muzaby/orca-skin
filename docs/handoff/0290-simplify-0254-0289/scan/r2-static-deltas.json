@@ -1,0 +1,27 @@
+{
+  "dead": {
+    "before": 44,
+    "after": 33,
+    "added": []
+  },
+  "test-only": {
+    "before": 52,
+    "after": 45,
+    "added": []
+  },
+  "i18n": {
+    "before": 64,
+    "after": 56,
+    "added": [],
+    "removed": [
+      "engine.form.harness",
+      "harness.defaultAgent",
+      "chat.opencode.panel.title",
+      "chat.opencode.panel.menu",
+      "chat.opencode.panel.back",
+      "chat.opencode.panel.expand",
+      "chat.opencode.panel.collapse",
+      "chat.opencode.todosEmpty"
+    ]
+  }
+}
