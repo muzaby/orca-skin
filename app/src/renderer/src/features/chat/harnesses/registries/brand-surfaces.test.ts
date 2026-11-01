@@ -10,7 +10,7 @@ it.each(['claude', 'opencode'] as const)(
       ['native:claude', '0 0 248 248', 'text-spinner'],
       ['native:opencode', '0 0 16 20', 'text-oc-ink']
     ]) {
-    const html = renderToStaticMarkup(composerHarness(backend).sourceIcon!(source))
+      const html = renderToStaticMarkup(composerHarness(backend).sourceIcon!(source))
       expect(html).toContain(`viewBox="${viewBox}"`)
       expect(html).toContain(tone)
     }
