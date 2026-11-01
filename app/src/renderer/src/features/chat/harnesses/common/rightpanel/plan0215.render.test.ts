@@ -61,6 +61,15 @@ const UNAVAILABLE = '계획 본문을 가져오지 못했습니다'
 
 describe('PlanTileContent — 본문 미해소 표시 (AT-03 · D-002)', () => {
   it.each([
+    ['claude', 'Claude 가 탐색하며 계획을 세우면 여기에 표시됩니다.'],
+    ['opencode', 'OpenCode가 탐색하며 계획을 세우면 여기에 표시됩니다.']
+  ] as const)(
+    'keeps the %s empty plan description through the tile registry',
+    (backend, description) => {
+      expect(render({ backend })).toContain(description)
+    }
+  )
+  it.each([
     ['ko', 'claude', '텍스트를 선택해 Claude에게 의견을 남기세요'],
     ['ko', 'opencode', '텍스트를 선택해 OpenCode에게 의견을 남기세요'],
     ['en', 'claude', 'Select text to leave feedback for Claude'],
