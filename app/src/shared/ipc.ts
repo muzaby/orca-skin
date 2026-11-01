@@ -93,6 +93,7 @@ export const CHANNELS = {
   sessionSetPinned: 'orca:session:setPinned',
   sessionNativeResources: 'orca:session:native-resources',
   extensionCatalog: 'orca:extensions:catalog',
+  extensionsChanged: 'orca:extensions:changed',
   extensionOpenCodePluginsChanged: 'orca:extensions:opencode-plugins-changed',
   managedMcpChanged: 'orca:extensions:managed-mcp-changed',
   extensionSetEnabled: 'orca:extensions:setEnabled',

@@ -1,4 +1,14 @@
+import { createElement, useLayoutEffect } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
+import type {
+  NativeResources,
+  SetGlobalNativeResourceResult
+} from '../../../../../shared/native-resources'
+import { errorToastStore } from '../../../shared/errors/errorToastStore'
+import { openConfirmDialog, useConfirmStore } from '../../../shared/ui/confirmDialogStore'
+import { installFakeDom } from '../../../shared/ui/renderHarness.testfixture'
+import { CustomizeList } from '../components/customize/CustomizeList'
+import { useNativeMcpCatalog } from './useNativeMcpCatalog'
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
   ...(await import('../../../shared/ui/renderHarness.testfixture')).fakeHooks
@@ -11,16 +21,6 @@ vi.mock('../../../shared/i18n', async (original) => ({
     locale: 'ko'
   })
 }))
-import { createElement, useLayoutEffect } from 'react'
-import { installFakeDom } from '../../../shared/ui/renderHarness.testfixture'
-import { useNativeMcpCatalog } from './useNativeMcpCatalog'
-import { CustomizeList } from '../components/customize/CustomizeList'
-import type {
-  NativeResources,
-  SetGlobalNativeResourceResult
-} from '../../../../../shared/native-resources'
-import { openConfirmDialog, useConfirmStore } from '../../../shared/ui/confirmDialogStore'
-import { errorToastStore } from '../../../shared/errors/errorToastStore'
 let dom: ReturnType<typeof installFakeDom>
 afterEach(() => {
   dom?.unmount()
@@ -52,6 +52,68 @@ const flush = async (): Promise<void> => {
   for (let i = 0; i < 16; i++) await Promise.resolve()
   dom.act(() => {})
 }
+
+it('refreshes on backend push and focus, coalesces busy and locked pushes and stops after unmount', async () => {
+  vi.useFakeTimers()
+  dom = installFakeDom({ innerWidth: 1280, innerHeight: 800 })
+  const read = vi.fn(async (_backend: string) => catalog())
+  const write = vi.fn(async () => applied(catalog(false)))
+  let changed!: (event: { backend: 'claude' | 'opencode' }) => void
+  const off = vi.fn()
+  Object.assign(window, {
+    orca: {
+      session: {
+        globalExtensions: read,
+        setGlobalExtension: write,
+        onExtensionsChanged: (handler: typeof changed) => {
+          changed = handler
+          return off
+        }
+      }
+    }
+  })
+  const { result } = renderCatalog()
+  await flush()
+  expect(read.mock.calls).toEqual([['claude'], ['opencode']])
+  await vi.advanceTimersByTimeAsync(15000)
+  expect(read).toHaveBeenCalledTimes(2)
+  const focus = vi
+    .mocked(window.addEventListener)
+    .mock.calls.find(([name]) => name === 'focus')![1] as () => void
+  focus()
+  await flush()
+  expect(read).toHaveBeenCalledTimes(4)
+  const busy = Promise.withResolvers<NativeResources>()
+  read.mockImplementationOnce(() => busy.promise)
+  changed({ backend: 'claude' })
+  changed({ backend: 'claude' })
+  changed({ backend: 'claude' })
+  expect(read).toHaveBeenCalledTimes(5)
+  busy.resolve(catalog())
+  await flush()
+  expect(read.mock.calls.slice(4)).toEqual([['claude'], ['claude']])
+  const locked = Promise.withResolvers<SetGlobalNativeResourceResult>()
+  write.mockImplementationOnce(() => locked.promise)
+  const toggling = result().toggle('opencode', result().list[1].resource)
+  changed({ backend: 'opencode' })
+  changed({ backend: 'opencode' })
+  expect(read).toHaveBeenCalledTimes(6)
+  locked.resolve(applied(catalog(false)))
+  await toggling
+  await flush()
+  expect(read.mock.calls.slice(6)).toEqual([['opencode']])
+  const delayed = Promise.withResolvers<NativeResources>()
+  read.mockImplementationOnce(() => delayed.promise)
+  changed({ backend: 'claude' })
+  changed({ backend: 'claude' })
+  dom.unmount()
+  expect(off).toHaveBeenCalledOnce()
+  expect(window.removeEventListener).toHaveBeenCalledWith('focus', focus)
+  delayed.resolve(catalog())
+  changed({ backend: 'opencode' })
+  await flush()
+  expect(read).toHaveBeenCalledTimes(8)
+})
 
 it('queries explicit global scope without owning runtime observations, retains good rows on failure and ignores stale reads', async () => {
   vi.useFakeTimers()
@@ -461,11 +523,11 @@ it('ignores toggles for a locked harness and keeps the other harness available',
   void result().toggle('claude', row(result(), 'a'))
   await flush()
   expect(main.write).toHaveBeenCalledTimes(1)
-  // The periodic refresh skips the locked harness only.
+  // Focus refresh waits for the locked harness and refreshes its unlocked peer.
   const reads = (backend: string): number =>
     main.read.mock.calls.filter(([value]) => value === backend).length
   const before = { claude: reads('claude'), opencode: reads('opencode') }
-  dom.advance(5000)
+  void result().refresh()
   await flush()
   expect({ claude: reads('claude'), opencode: reads('opencode') }).toEqual({
     claude: before.claude,

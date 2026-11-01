@@ -16,10 +16,13 @@ vi.mock('node:crypto', async (original) => {
     createHash: (...args: Parameters<typeof actual.createHash>) => {
       const hash = actual.createHash(...args)
       const update = hash.update.bind(hash)
-      hash.update = (...values: Parameters<typeof hash.update>) => {
-        if (Buffer.isBuffer(values[0])) hashedBytes.push(values[0].length)
-        return update(...values)
-      }
+      hash.update = ((
+        data: import('node:crypto').BinaryLike,
+        encoding?: import('node:crypto').Encoding
+      ) => {
+        if (Buffer.isBuffer(data)) hashedBytes.push(data.length)
+        return Reflect.apply(update, hash, encoding ? [data, encoding] : [data])
+      }) as typeof hash.update
       return hash
     }
   }

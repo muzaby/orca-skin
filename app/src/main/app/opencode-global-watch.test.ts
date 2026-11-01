@@ -24,22 +24,22 @@ it('fans out once per external plugin change and ignores unchanged polls', async
   const callback = fs.watchFile.mock.calls[0][2] as () => void
   fingerprint = 'external'
   callback()
-  await flush()
+  await watcher.check()
   expect(changed).toHaveBeenCalledExactlyOnceWith(1)
   callback()
-  await flush()
+  await watcher.check()
   expect(changed).toHaveBeenCalledTimes(1)
   // A general config edit still invalidates discovery even when plugin entries are unchanged.
   expect(dirty).toHaveBeenCalledTimes(3)
   fingerprint = 'removed'
   callback()
-  await flush()
+  await watcher.check()
   expect(changed.mock.calls).toEqual([[1], [2]])
   watcher.close()
   expect(fs.unwatchFile.mock.calls.map(([file]) => file)).toEqual(['a', 'b', 'c'])
   fingerprint = 'after close'
   callback()
-  await flush()
+  await watcher.check()
   expect(changed).toHaveBeenCalledTimes(2)
 })
 

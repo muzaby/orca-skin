@@ -1,12 +1,18 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { createHash } from 'node:crypto'
-import { readFile, realpath, stat } from 'node:fs/promises'
 import type { Stats } from 'node:fs'
+import { readFile, realpath, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { fileFingerprints, FingerprintWatch } from '../../../infra/config/fingerprint-watch'
 import { openCodeRetention } from './retention-policy'
 
-type Probe = { value?: unknown; error?: unknown; signature: string }
-type Dependency = { key: string; probe(force?: boolean): Promise<Probe>; signature: string }
+type Probe = { value?: unknown; error?: unknown; signature: string; fingerprint?: string }
+type Dependency = {
+  key: string
+  path: string
+  probe(force?: boolean): Promise<Probe>
+  signature: string
+}
 type Entry = {
   value?: unknown
   ready: boolean
@@ -30,11 +36,24 @@ async function dependency<T>(
     const previous = probes.get(key)
     if (!force && previous && Date.now() - previous.at < openCodeRetention.discoveryCheckMs)
       return previous.flight
+    const fingerprint = await fileFingerprints([path])
+    if (force && previous) {
+      const cached = await previous.flight
+      if (
+        cached.fingerprint === fingerprint &&
+        Date.now() - previous.at < openCodeRetention.discoveryCheckMs
+      )
+        return cached
+    }
+    // Another consumer may have started the same dependency while stat was pending.
+    const concurrent = probes.get(key)
+    if (concurrent && concurrent !== previous) return concurrent.flight
     const flight = load().then(
-      (value) => ({ value, signature: hash(describe(value)) }),
+      (value) => ({ value, signature: hash(describe(value)), fingerprint }),
       (error: unknown) => ({
         error,
-        signature: `error:${(error as NodeJS.ErrnoException).code ?? 'unknown'}`
+        signature: `error:${(error as NodeJS.ErrnoException).code ?? 'unknown'}`,
+        fingerprint
       })
     )
     probes.set(key, { at: Date.now(), flight })
@@ -42,7 +61,7 @@ async function dependency<T>(
     return flight
   }
   const result = await probe()
-  context.getStore()?.set(key, { key, probe, signature: result.signature })
+  context.getStore()?.set(key, { key, path: resolve(path), probe, signature: result.signature })
   if (result.error) throw result.error
   return result.value as T
 }
@@ -84,9 +103,13 @@ export class OpenCodeDiscoveryCache {
   private readonly entries = new Map<string, Entry>()
   private readonly observers = new Map<
     string,
-    { refs: number; changed: Set<() => void>; dependencies: Map<string, Dependency> }
+    {
+      refs: number
+      changed: Set<() => void>
+      dependencies: Map<string, Dependency>
+      watcher?: FingerprintWatch
+    }
   >()
-  private timer?: ReturnType<typeof setInterval>
   private polling?: Promise<void>
   key(kind: string, cwd: string, env: NodeJS.ProcessEnv = process.env, extra = ''): string {
     const directory = resolve(cwd)
@@ -128,7 +151,10 @@ export class OpenCodeDiscoveryCache {
           owned.checked = Date.now()
           owned.ready = true
           const observer = this.observers.get(key)
-          if (observer) observer.dependencies = new Map(manifest)
+          if (observer) {
+            observer.dependencies = new Map(manifest)
+            this.watch(key)
+          }
           return value
         }
       })().finally(() => {
@@ -173,21 +199,32 @@ export class OpenCodeDiscoveryCache {
       )
     observer.refs++
     observer.changed.add(changed)
-    this.timer ??= setInterval(() => {
-      void this.poll().catch(() => undefined)
-    }, openCodeRetention.discoveryCheckMs)
-    this.timer.unref?.()
+    this.watch(key)
     let released = false
     return () => {
       if (released) return
       released = true
       observer!.changed.delete(changed)
-      if (--observer!.refs === 0) this.observers.delete(key)
-      if (!this.observers.size) {
-        clearInterval(this.timer)
-        this.timer = undefined
+      if (--observer!.refs === 0) {
+        observer!.watcher?.close()
+        this.observers.delete(key)
       }
     }
+  }
+  private watch(key: string): void {
+    const observer = this.observers.get(key)
+    if (!observer) return
+    observer.watcher?.close()
+    observer.watcher = new FingerprintWatch({
+      files: [...new Set([...observer.dependencies.values()].map((dependency) => dependency.path))],
+      interval: openCodeRetention.discoveryCheckMs,
+      changed: () => {
+        void this.poll().catch(() => undefined)
+      },
+      failed: () => {
+        void this.poll().catch(() => undefined)
+      }
+    })
   }
   poll(): Promise<void> {
     if (this.polling) return this.polling
@@ -197,7 +234,7 @@ export class OpenCodeDiscoveryCache {
         const next = new Map<string, Dependency>()
         await Promise.all(
           [...observer.dependencies.values()].map(async (dependency) => {
-            const signature = (await dependency.probe()).signature
+            const signature = (await dependency.probe(true)).signature
             changed ||= signature !== dependency.signature
             next.set(dependency.key, { ...dependency, signature })
           })

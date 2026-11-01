@@ -1,60 +1,37 @@
-import { watchFile, unwatchFile } from 'node:fs'
+import { fileFingerprints, FingerprintWatch } from '../infra/config/fingerprint-watch'
 
-/** Serializes polling so each observed external plugin change has one fan-out. */
-export class OpenCodeGlobalWatch {
-  private tail: Promise<unknown>
-  private fingerprint?: string
-  private revision = 0
-  private closed = false
-  private readonly callback = (): void => {
-    void this.check()
-  }
-
-  constructor(
-    private readonly deps: {
-      files: string[]
-      fingerprint(): Promise<string>
-      dirty?(): void
-      changed(revision: number): void
-      failed(error: unknown): void
-    }
-  ) {
-    this.tail = deps
-      .fingerprint()
-      .then((value) => {
-        this.fingerprint = value
-      })
-      .catch(deps.failed)
-    for (const file of deps.files)
-      watchFile(file, { interval: 1000, persistent: false }, this.callback)
-  }
-
-  private enqueue(action: () => Promise<void>): Promise<void> {
-    const task = this.tail
-      .catch(() => undefined)
-      .then(async () => {
-        await action()
-      })
-    this.tail = task
-    return task
-  }
-
-  private async notifyOpenCodePluginsChanged(): Promise<void> {
-    if (this.closed) return
-    const next = await this.deps.fingerprint()
-    if (this.closed || next === this.fingerprint) return
-    this.fingerprint = next
-    this.deps.changed(++this.revision)
-  }
-
-  check(): Promise<void> {
-    if (this.closed) return Promise.resolve()
-    this.deps.dirty?.()
-    return this.enqueue(() => this.notifyOpenCodePluginsChanged()).catch(this.deps.failed)
-  }
-
-  close(): void {
-    this.closed = true
-    for (const file of this.deps.files) unwatchFile(file, this.callback)
+/** OpenCode supplies its semantic plugin fingerprint and discovery invalidation barrier. */
+export class OpenCodeGlobalWatch extends FingerprintWatch {
+  constructor(deps: {
+    files: string[]
+    fingerprint(): Promise<string>
+    dirty?(): void
+    changed(revision: number): void
+    extensionsChanged?(): void
+    failed(error: unknown): void
+  }) {
+    let previous: string | undefined
+    let current: string | undefined
+    let revision = 0
+    let initializing = true
+    super({
+      ...deps,
+      fingerprint: async () => {
+        const initial = initializing
+        initializing = false
+        current = await deps.fingerprint()
+        if (initial) previous = current
+        return deps.extensionsChanged
+          ? JSON.stringify([current, await fileFingerprints(deps.files)])
+          : current
+      },
+      changed: () => {
+        if (current !== previous) {
+          previous = current
+          deps.changed(++revision)
+        }
+        deps.extensionsChanged?.()
+      }
+    })
   }
 }

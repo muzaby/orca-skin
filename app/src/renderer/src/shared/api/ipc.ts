@@ -98,6 +98,7 @@ import type {
 } from '../../../../shared/ipc'
 import type {
   DraftNativeResourcesRequest,
+  ExtensionsChanged,
   NativeResources,
   OpenCodePluginsChanged,
   SetGlobalNativeResourceResult
@@ -233,6 +234,8 @@ export const sessionApi = {
   onComposerCatalogInvalidated: (
     handler: (event: ComposerCatalogInvalidated) => void
   ): (() => void) => window.orca.session.onComposerCatalogInvalidated(handler),
+  onExtensionsChanged: (handler: (event: ExtensionsChanged) => void): (() => void) | undefined =>
+    globalThis.window?.orca?.session?.onExtensionsChanged?.(handler),
   onOpenCodePluginsChanged: (
     handler: (event: OpenCodePluginsChanged) => void
   ): (() => void) | undefined =>

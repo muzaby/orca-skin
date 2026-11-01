@@ -43,6 +43,26 @@ Object.defineProperty(process, 'contextIsolated', { value: true, configurable: t
 
 await import('./index')
 
+it('forwards backend extension changes through preload and renderer and removes the listener', async () => {
+  vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
+  try {
+    const { sessionApi } = await import('../renderer/src/shared/api/ipc')
+    const seen = vi.fn()
+    const off = sessionApi.onExtensionsChanged(seen)!
+    const listeners = harness.listeners.get(CHANNELS.extensionsChanged)!
+    expect(listeners.size).toBe(1)
+    for (const backend of ['claude', 'opencode'])
+      for (const listener of listeners) listener({}, { backend })
+    expect(seen.mock.calls).toEqual([[{ backend: 'claude' }], [{ backend: 'opencode' }]])
+    off()
+    expect(listeners.size).toBe(0)
+    for (const listener of listeners) listener({}, { backend: 'claude' })
+    expect(seen).toHaveBeenCalledTimes(2)
+  } finally {
+    vi.unstubAllGlobals()
+  }
+})
+
 it('carries managed MCP revision events through the actual preload and renderer subscription', async () => {
   vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
   try {
