@@ -12,6 +12,7 @@
       "tests": [
         "src/renderer/src/features/skills/hooks/useNativeMcpCatalog.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 11,
       "failed": [
@@ -31,6 +32,7 @@
       "tests": [
         "src/renderer/src/features/skills/hooks/useNativeMcpCatalog.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 11,
       "failed": [
@@ -51,6 +53,7 @@
         "src/main/infra/config/fingerprint-watch.test.ts",
         "src/main/app/harnesses/opencode/global-watch.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 4,
       "failed": [
@@ -75,6 +78,7 @@
         "src/main/adapters/claude/project-settings.test.ts",
         "src/main/adapters/claude/plugin-state.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 31,
       "failed": [
@@ -115,6 +119,7 @@
         "src/main/adapters/claude/project-settings.test.ts",
         "src/main/adapters/claude/plugin-state.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 31,
       "failed": [
@@ -175,6 +180,7 @@
         "src/main/adapters/claude/project-settings.test.ts",
         "src/main/adapters/claude/plugin-state.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 31,
       "failed": [
@@ -245,6 +251,7 @@
         "src/main/adapters/claude/configured-resources.test.ts",
         "src/main/adapters/opencode/v1/configured-resources.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 20,
       "failed": [
@@ -276,6 +283,9 @@
       "tests": [
         "src/main/adapters/opencode/v1/adapter.test.ts"
       ],
+      "unmatchedFilters": [
+        "src/main/adapters/opencode/v1/adapter.managed-mcp.test.ts"
+      ],
       "status": "RED",
       "total": 26,
       "failed": [
@@ -283,9 +293,6 @@
           "file": "src/main/adapters/opencode/v1/adapter.test.ts",
           "test": "projects disabled global MCP overrides and connects them through the directory manager"
         }
-      ],
-      "unmatchedFilters": [
-        "src/main/adapters/opencode/v1/adapter.managed-mcp.test.ts"
       ]
     },
     {
@@ -298,6 +305,9 @@
       "tests": [
         "src/main/adapters/opencode/v1/adapter.test.ts"
       ],
+      "unmatchedFilters": [
+        "src/main/adapters/opencode/v1/adapter.managed-mcp.test.ts"
+      ],
       "status": "RED",
       "total": 26,
       "failed": [
@@ -305,9 +315,6 @@
           "file": "src/main/adapters/opencode/v1/adapter.test.ts",
           "test": "projects disabled global MCP overrides and connects them through the directory manager"
         }
-      ],
-      "unmatchedFilters": [
-        "src/main/adapters/opencode/v1/adapter.managed-mcp.test.ts"
       ]
     },
     {
@@ -320,6 +327,7 @@
       "tests": [
         "src/main/adapters/opencode/v1/channel.native-resources.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 1,
       "failed": [
@@ -339,6 +347,7 @@
       "tests": [
         "src/main/adapters/opencode/v1/native-resources.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 6,
       "failed": [
@@ -358,6 +367,7 @@
       "tests": [
         "src/main/adapters/opencode/v1/native-history.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 35,
       "failed": [
@@ -389,6 +399,7 @@
       "tests": [
         "src/main/app/project-resource-sync.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 17,
       "failed": [
@@ -408,6 +419,7 @@
       "tests": [
         "src/main/app/handlers/skills.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 12,
       "failed": [
@@ -427,6 +439,7 @@
       "tests": [
         "src/main/adapters/claude/project-settings.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 5,
       "failed": [
@@ -449,6 +462,7 @@
       "tests": [
         "src/main/adapters/claude/native-history.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 16,
       "failed": [
@@ -468,6 +482,7 @@
       "tests": [
         "src/main/adapters/claude/native-history.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 16,
       "failed": [
@@ -487,6 +502,7 @@
       "tests": [
         "src/main/app/skill-catalog.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 1,
       "failed": [
@@ -506,6 +522,7 @@
       "tests": [
         "src/main/adapters/opencode/v1/map.replay.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 1,
       "failed": [
@@ -525,6 +542,7 @@
       "tests": [
         "src/main/adapters/opencode/v1/native-resources.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 6,
       "failed": [
@@ -544,6 +562,7 @@
       "tests": [
         "src/main/adapters/opencode/v1/session-context.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 15,
       "failed": [
@@ -563,6 +582,7 @@
       "tests": [
         "src/main/features/extensions/common/mcp/managed-source.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 2,
       "failed": [
@@ -582,6 +602,7 @@
       "tests": [
         "src/renderer/src/features/chat/harnesses/opencode/rightpanel/tiles.memo.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 1,
       "failed": [
@@ -601,6 +622,7 @@
       "tests": [
         "src/main/adapters/common/harness-config.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 54,
       "failed": [
@@ -644,6 +666,7 @@
       "tests": [
         "src/main/infra/db/background-journal-key.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 1,
       "failed": [
@@ -663,6 +686,7 @@
       "tests": [
         "src/main/app/composer-catalog.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 8,
       "failed": [
@@ -685,6 +709,7 @@
       "tests": [
         "src/main/adapters/opencode/v1/settings.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 5,
       "failed": [
@@ -711,6 +736,7 @@
       "tests": [
         "src/main/adapters/opencode/v1/model-listing.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 6,
       "failed": [
@@ -733,6 +759,7 @@
       "tests": [
         "src/main/adapters/opencode/v1/composer-catalog.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 2,
       "failed": [
@@ -752,6 +779,7 @@
       "tests": [
         "src/main/adapters/opencode/v1/server.cli.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 1,
       "failed": [
@@ -771,6 +799,7 @@
       "tests": [
         "src/main/adapters/opencode/v1/server.database-path.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 1,
       "failed": [
@@ -790,6 +819,7 @@
       "tests": [
         "src/main/features/auth/login-free.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 26,
       "failed": [
@@ -829,6 +859,7 @@
       "tests": [
         "src/main/features/auth/login-free.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 26,
       "failed": [
@@ -852,6 +883,7 @@
       "tests": [
         "src/main/app/connection-views.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 12,
       "failed": [
@@ -871,6 +903,7 @@
       "tests": [
         "src/main/app/handlers/providers.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 4,
       "failed": [
@@ -890,6 +923,7 @@
       "tests": [
         "src/renderer/src/features/chat/lib/attachMenuModel.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 20,
       "failed": [
@@ -909,6 +943,7 @@
       "tests": [
         "src/renderer/src/features/chat/harnesses/common/composer/Composer.native-menu.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 15,
       "failed": [
@@ -932,6 +967,7 @@
       "tests": [
         "src/main/app/bootstrap.native-history.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 17,
       "failed": [
@@ -951,6 +987,7 @@
       "tests": [
         "src/main/app/bootstrap.native-history.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 17,
       "failed": [
@@ -970,6 +1007,7 @@
       "tests": [
         "src/preload/index.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 29,
       "failed": [
@@ -989,6 +1027,7 @@
       "tests": [
         "src/preload/index.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 29,
       "failed": [
@@ -1008,6 +1047,7 @@
       "tests": [
         "src/main/features/history/native-history.db.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 15,
       "failed": [
@@ -1027,6 +1067,7 @@
       "tests": [
         "src/main/adapters/opencode/v1/server-profile.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 1,
       "failed": [
@@ -1046,6 +1087,7 @@
       "tests": [
         "src/main/adapters/claude/plugin-catalog.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 6,
       "failed": [
@@ -1065,6 +1107,7 @@
       "tests": [
         "src/renderer/src/shared/ui/HarnessLogo.render.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 2,
       "failed": [
@@ -1088,6 +1131,7 @@
       "tests": [
         "src/renderer/src/shared/ui/HarnessLogo.render.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 2,
       "failed": [
@@ -1111,6 +1155,7 @@
       "tests": [
         "src/renderer/src/features/engine/common/components/EngineCard.render.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 3,
       "failed": [
@@ -1134,6 +1179,7 @@
       "tests": [
         "src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 1,
       "failed": [
@@ -1153,6 +1199,7 @@
       "tests": [
         "src/renderer/src/features/skills/components/customize/SourceHeading.render.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 2,
       "failed": [
@@ -1172,6 +1219,7 @@
       "tests": [
         "src/renderer/src/features/skills/components/customize/SourceHeading.render.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 2,
       "failed": [
@@ -1191,6 +1239,7 @@
       "tests": [
         "src/renderer/src/features/chat/components/AgentModeToggle.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 5,
       "failed": [
@@ -1214,6 +1263,7 @@
       "tests": [
         "src/renderer/src/features/chat/components/composer/modelMenu0215.render.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 9,
       "failed": [
@@ -1237,6 +1287,7 @@
       "tests": [
         "src/renderer/src/features/chat/harnesses/registries/brand-surfaces.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 3,
       "failed": [
@@ -1260,6 +1311,7 @@
       "tests": [
         "src/renderer/src/app/SidebarUserButton.brand.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 1,
       "failed": [
@@ -1279,6 +1331,7 @@
       "tests": [
         "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 2,
       "failed": [
@@ -1298,6 +1351,7 @@
       "tests": [
         "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 2,
       "failed": [
@@ -1317,6 +1371,7 @@
       "tests": [
         "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 2,
       "failed": [
@@ -1336,6 +1391,7 @@
       "tests": [
         "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 2,
       "failed": [
@@ -1355,6 +1411,7 @@
       "tests": [
         "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 2,
       "failed": [
@@ -1374,6 +1431,7 @@
       "tests": [
         "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 2,
       "failed": [
@@ -1393,6 +1451,7 @@
       "tests": [
         "src/renderer/src/features/chat/harnesses/registries/brand-surfaces.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 3,
       "failed": [
@@ -1412,6 +1471,7 @@
       "tests": [
         "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 2,
       "failed": [
@@ -1431,6 +1491,7 @@
       "tests": [
         "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 2,
       "failed": [
@@ -1450,6 +1511,7 @@
       "tests": [
         "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 2,
       "failed": [
@@ -1469,6 +1531,7 @@
       "tests": [
         "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 2,
       "failed": [
@@ -1488,6 +1551,7 @@
       "tests": [
         "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 2,
       "failed": [
@@ -1507,6 +1571,7 @@
       "tests": [
         "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 2,
       "failed": [
@@ -1526,6 +1591,7 @@
       "tests": [
         "src/renderer/src/features/chat/harnesses/registries/brand-surfaces.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 3,
       "failed": [
@@ -1545,6 +1611,7 @@
       "tests": [
         "src/renderer/src/features/chat/store/chatStore.harness.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 12,
       "failed": [
@@ -1568,6 +1635,7 @@
       "tests": [
         "src/renderer/src/features/chat/store/chatStore.harness.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 8,
       "failed": [
@@ -1592,6 +1660,7 @@
         "src/renderer/src/features/chat/store/chatStore.harness.test.ts",
         "src/renderer/src/features/chat/store/chatStore.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 70,
       "failed": [
@@ -1635,6 +1704,7 @@
         "src/renderer/src/features/chat/store/chatStore.harness.test.ts",
         "src/renderer/src/features/chat/store/chatStore.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 70,
       "failed": [
@@ -1667,6 +1737,7 @@
         "src/renderer/src/features/chat/store/chatStore.panelTiles.test.ts",
         "src/renderer/src/features/chat/store/chatStore.background-open.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 9,
       "failed": [
@@ -1687,6 +1758,7 @@
         "src/renderer/src/features/chat/reducer/chatReducer.harness.test.ts",
         "src/renderer/src/features/chat/reducer/chatReducer.task.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 38,
       "failed": [
@@ -1707,6 +1779,7 @@
         "src/renderer/src/features/chat/reducer/chatReducer.harness.test.ts",
         "src/renderer/src/features/chat/reducer/chatReducer.permission.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 37,
       "failed": [
@@ -1730,6 +1803,7 @@
       "tests": [
         "src/renderer/src/pages/NewChatLandingPage.harness.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 5,
       "failed": [
@@ -1749,6 +1823,7 @@
       "tests": [
         "src/renderer/src/pages/NewChatLandingPage.harness.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 5,
       "failed": [
@@ -1768,6 +1843,7 @@
       "tests": [
         "src/renderer/src/pages/NewChatLandingPage.harness.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 5,
       "failed": [
@@ -1795,6 +1871,7 @@
       "tests": [
         "src/renderer/src/pages/NewChatLandingPage.harness.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 5,
       "failed": [
@@ -1818,6 +1895,7 @@
       "tests": [
         "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 9,
       "failed": [
@@ -1837,6 +1915,7 @@
       "tests": [
         "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 9,
       "failed": [
@@ -1856,6 +1935,7 @@
       "tests": [
         "src/renderer/src/features/chat/components/ChatTitleBar.copy.test.ts"
       ],
+      "unmatchedFilters": [],
       "status": "RED",
       "total": 3,
       "failed": [
@@ -1866,6 +1946,111 @@
         {
           "file": "src/renderer/src/features/chat/components/ChatTitleBar.copy.test.ts",
           "test": "copies the opencode conversation with its short harness label"
+        }
+      ]
+    },
+    {
+      "id": "VP12-label-engine",
+      "file": "src/renderer/src/features/engine/common/components/AgentEnvironmentView.tsx",
+      "replacement": {
+        "from": "HARNESS_CAPABILITIES[engine].shortLabel",
+        "to": "HARNESS_CAPABILITIES[engine === 'claude' ? 'opencode' : 'claude'].shortLabel"
+      },
+      "tests": [
+        "src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts"
+      ],
+      "unmatchedFilters": [],
+      "status": "RED",
+      "total": 1,
+      "failed": [
+        {
+          "file": "src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts",
+          "test": "selects Claude or OpenCode before opening their production forms and closes the menu"
+        }
+      ]
+    },
+    {
+      "id": "VP12-label-source",
+      "file": "src/shared/extension-sources.ts",
+      "replacement": {
+        "from": "HARNESS_CAPABILITIES[backend].shortLabel",
+        "to": "HARNESS_CAPABILITIES[backend === 'claude' ? 'opencode' : 'claude'].shortLabel"
+      },
+      "tests": [
+        "src/renderer/src/features/chat/lib/composerSkills.test.ts",
+        "src/renderer/src/features/chat/lib/attachMenuModel.test.ts"
+      ],
+      "unmatchedFilters": [],
+      "status": "RED",
+      "total": 25,
+      "failed": [
+        {
+          "file": "src/renderer/src/features/chat/lib/attachMenuModel.test.ts",
+          "test": "buildAttachMenu merges groups that share a title into one heading without losing item identities"
+        },
+        {
+          "file": "src/renderer/src/features/chat/lib/attachMenuModel.test.ts",
+          "test": "buildAttachMenu limits claude to approved skill sources and merges duplicate source headings"
+        },
+        {
+          "file": "src/renderer/src/features/chat/lib/attachMenuModel.test.ts",
+          "test": "buildAttachMenu limits opencode to approved skill sources and merges duplicate source headings"
+        },
+        {
+          "file": "src/renderer/src/features/chat/lib/attachMenuModel.test.ts",
+          "test": "buildAttachMenu lists source headings and every skill in one panel"
+        },
+        {
+          "file": "src/renderer/src/features/chat/lib/composerSkills.test.ts",
+          "test": "uses session commands over global plugin flags and preserves allowed file skills"
+        }
+      ]
+    },
+    {
+      "id": "VP12-plan-hint-claude",
+      "file": "src/renderer/src/features/chat/harnesses/claude/rightpanel/tileRegistry.ts",
+      "replacement": {
+        "from": "selectHintKey: harnessCatalog('claude')",
+        "to": "selectHintKey: harnessCatalog('opencode')"
+      },
+      "tests": [
+        "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts"
+      ],
+      "unmatchedFilters": [],
+      "status": "RED",
+      "total": 9,
+      "failed": [
+        {
+          "file": "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts",
+          "test": "PlanTileContent — 본문 미해소 표시 (AT-03 · D-002) uses the ko claude plan feedback hint"
+        },
+        {
+          "file": "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts",
+          "test": "PlanTileContent — 본문 미해소 표시 (AT-03 · D-002) uses the en claude plan feedback hint"
+        }
+      ]
+    },
+    {
+      "id": "VP12-plan-hint-opencode",
+      "file": "src/renderer/src/features/chat/harnesses/opencode/rightpanel/tileRegistry.ts",
+      "replacement": {
+        "from": "selectHintKey: harnessCatalog('opencode')",
+        "to": "selectHintKey: harnessCatalog('claude')"
+      },
+      "tests": [
+        "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts"
+      ],
+      "unmatchedFilters": [],
+      "status": "RED",
+      "total": 9,
+      "failed": [
+        {
+          "file": "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts",
+          "test": "PlanTileContent — 본문 미해소 표시 (AT-03 · D-002) uses the ko opencode plan feedback hint"
+        },
+        {
+          "file": "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts",
+          "test": "PlanTileContent — 본문 미해소 표시 (AT-03 · D-002) uses the en opencode plan feedback hint"
         }
       ]
     }

@@ -49,7 +49,7 @@ node docs/handoff/0290-simplify-0254-0289/scan/vitest-failed-ids.mjs app/vitest-
 | O-10 | VP-10 #5~11 | `adapter.persistent.test.ts`의 dispose 실패, `main/app/project-resource-sync.test.ts`의 native root/idle boundary, `main/app/bootstrap.native-history.test.ts`의 scope 변경 거부, `composer-catalog.test.ts`의 취소/세션 변경, `session-context.test.ts`의 lifecycle. 삭제된 공유 경로는 O-04, options 필수 항은 typecheck와 실제 소비 테스트 병행. |
 | O-11 | VP-11 #1~4 | `channel.native-resources.test.ts:shares one configuration read between plugin and skill projections in a channel inventory`; `native-resources.test.ts`의 deferred 동시성; `claude/plugin-catalog.test.ts:projects asynchronous menu reads identically to spawn without re-reading skill contents`; `main/app/skill-catalog.test.ts` 전 케이스. |
 | O-12 | VP-12 #1~10 | `shared/ui/HarnessLogo.render.test.ts`; `engine/common/components/{EngineCard.render,AgentEnvironmentView.interaction}.test.ts`; `skills/components/customize/SourceHeading.render.test.ts`; `chat/components/AgentModeToggle.test.ts`, `composer/modelMenu0215.render.test.ts`, `harnesses/registries/brand-surfaces.test.ts`; `app/SidebarUserButton.brand.test.ts`. 각 소비자의 viewBox·톤을 구별해 단언. |
-| O-12 | VP-12 #11~15 | `shared/harness.test.ts`의 shortLabel·능력 표, `ChatTitleBar.copy.test.ts`의 두 하네스·null 기본값 실제 clipboard, 엔진 메뉴 테스트. `chat/harnesses/common/rightpanel/plan0215.render.test.ts`의 locale별 feedback hint 4케이스·하네스별 빈 설명 2케이스는 실제 `tileById(...).Content`를 렌더. |
+| O-12 | VP-12 #11~15 | `shared/harness.test.ts`의 shortLabel·능력 표, `ChatTitleBar.copy.test.ts`의 두 하네스·null 기본값 실제 clipboard, 엔진 메뉴 및 `chat/lib/{composerSkills,attachMenuModel}.test.ts`의 source label. `chat/harnesses/common/rightpanel/plan0215.render.test.ts`의 locale별 feedback hint 4케이스·하네스별 빈 설명 2케이스는 실제 `tileById(...).Content`를 렌더. |
 | O-13 | VP-13 #1~11 | `chat/components/CwdPanel.surface.test.ts` — 구현 전 생성한 클래스 스냅샷 4개와 동일. 두 하네스의 6개 cwd 슬롯 각각 맞바꿈에서 실패(12변이). |
 | O-13 | VP-13 #12~22 | `pages/NewChatLandingPage.harness.test.ts:renders the harness landing and preserves draft and attachment state` — 실제 Landing→Composer에서 context DOM 순서, 입력·첨부 보존. `brand-surfaces.test.ts`의 presentation 값. Composer 클래스·inline/below·Landing 전달 변이 모두 실패. |
 | O-13 | VP-13 #23~29 | `chat/store/chatStore.harness.test.ts`의 기존 Work draft seed·fresh draft·OpenCode continuity 거부; `chatStore.test.ts`의 Claude fork/handoff; `chatStore.{panelTiles,background-open}.test.ts`; `chat/reducer/chatReducer.harness.test.ts`의 subagent·permission default. 7자리별 반전 변이 모두 실패. |
@@ -81,12 +81,18 @@ node docs/handoff/0290-simplify-0254-0289/scan/vitest-failed-ids.mjs app/vitest-
 
 ## 결함 주입 재현
 
-[mutation-evidence.json](scan/mutation-evidence.json)에 production 파일, 정확한 교체 전/후 문자열(정규식은 pattern/flags), 실행한 테스트 파일, 실패한 테스트명을 저장했다. 별도 작업 사본에서 한 변이씩 적용하고 `cd app; node node_modules/vitest/vitest.mjs run <tests...> --maxWorkers=1`로 실행한 뒤 복원했다. 전체 82변이는 assertion 실패로 red이며 collection 오류를 red로 세지 않았다.
+[mutation-evidence.json](scan/mutation-evidence.json)에 production 파일, 정확한 교체 전/후 문자열(정규식은 pattern/flags), 실행한 테스트 파일, 실패한 테스트명을 저장했다. 별도 작업 사본에서 한 변이씩 적용하고 `cd app; node node_modules/vitest/vitest.mjs run <tests...> --maxWorkers=1`로 실행한 뒤 복원했다. 전체 86변이는 assertion 실패로 red이며 collection 오류를 red로 세지 않았다.
 
 정적 oracle 12건은 파일명/분류·alias 소비·production 소비·i18n 삭제/신규 키·금지 심볼·금지 토큰·이동 모듈 소유권·Windows 실패 ID 추출의 민감도 확인이다. 원본 작업 트리에는 변이를 적용하지 않았다. [정적 재현 스크립트](scan/check-oracle-sensitivity.cjs)는 저장소 루트에서 실행하며 임시 산출만 `.git/0290-evidence/`에 쓴다.
 
+## 최종 운영 gate
+
+[Windows CI](https://github.com/muzaby/orca-skin/actions/runs/41288104219)가 성공했다. Vitest 888파일·8,278케이스 성공, 3파일·3케이스 skip; Node 스크립트 144/144 성공; ESLint 오류 0·기존 react-hooks/incompatible-library 경고 2; 타입 3구성·migration·문서 inventory/링크·test budget 통과. 로컬 Electron build도 성공했다.
+
+환경 조건에 따라 생략된 파일은 managed-mcp.cli.integration, artifact-sdk-live, native-storage.integration이다. 로컬에서는 첫 CLI 통합을 실행했고 변경 전/후 동일 실패를 별도로 기록했다.
+
 ## 환경 한계
 
-로컬 doc inventory의 생성 내용·prose 검사는 통과했지만, 무시된 기존 제3자 checkout `.tmp/opencode-dev`·`app/.temp/opencode`의 문서 링크 10개가 전체 링크 검사를 실패시킨다. 해당 디렉터리는 수정하지 않았다. 깨끗한 checkout의 Windows CI에서 동일 문서 gate가 통과하는지 확인한다.
+로컬 doc inventory의 생성 내용·prose 검사는 통과했지만, 무시된 기존 제3자 checkout `.tmp/opencode-dev`·`app/.temp/opencode`의 문서 링크 10개가 전체 링크 검사를 실패시킨다. 해당 디렉터리는 수정하지 않았다. 깨끗한 checkout의 Windows CI에서는 동일 문서 gate가 통과했다.
 
 로컬 CLI 통합 실패는 변경 전/후 모두 `advertises and calls managed MCP through the supported CLI`에서 connected 자원이 0/6인 동일 증상이다. 0건을 성공으로 바꾸거나 테스트를 삭제하지 않았다.
