@@ -202,7 +202,12 @@ describe('OpenCode panel rendering', () => {
         .map((button) => $(button).text())
     expect(shellCommands(render())).toEqual(['echo first', 'echo second'])
 
-    messages[0].parts.push({
+    // Publish immutable snapshots, as chatReducer does for each incoming event.
+    const appendPart = (part: Message['parts'][number]): void => {
+      messages[0] = { ...messages[0], parts: [...messages[0].parts, part] }
+      entry.session = { ...entry.session, messages: [...messages] }
+    }
+    appendPart({
       type: 'tool_result',
       toolRunId: 'first',
       result: 'first final log',
@@ -216,7 +221,7 @@ describe('OpenCode panel rendering', () => {
       ).text()
     ).toBe('first final log')
 
-    messages[0].parts.push({
+    appendPart({
       type: 'tool_result',
       toolRunId: 'second',
       result: 'second final failure',
@@ -235,7 +240,7 @@ describe('OpenCode panel rendering', () => {
       '이 항목의 기록을 찾을 수 없습니다.'
     )
 
-    messages[0].parts.push({
+    appendPart({
       type: 'tool_call',
       toolRunId: 'retry',
       toolName: 'Bash',

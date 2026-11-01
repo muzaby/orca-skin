@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useReducedMotion } from '../../../../../shared/hooks/useReducedMotion'
 import { useI18n } from '../../../../../shared/i18n'
 import { OpenCodeIcon } from '../Icon'
 import type { OpenCodeTodo } from '../toolPresentation'
@@ -18,22 +19,6 @@ export interface OpenCodeTodoDockProps {
   blocked: boolean
   collapsed: boolean
   onCollapsedChange: (collapsed: boolean) => void
-}
-
-function useReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(
-    () =>
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
-  )
-  useEffect(() => {
-    const query = window.matchMedia?.('(prefers-reduced-motion: reduce)')
-    if (!query) return
-    const update = (): void => setReduced(query.matches)
-    query.addEventListener('change', update)
-    return () => query.removeEventListener('change', update)
-  }, [])
-  return reduced
 }
 
 function useProgress(target: number, key: string, reduced: boolean): number {

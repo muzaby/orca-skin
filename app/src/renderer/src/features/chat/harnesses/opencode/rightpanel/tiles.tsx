@@ -1,15 +1,17 @@
-import { useMemo } from 'react'
+import { basenameForDisplay } from '../../../../../../../shared/path-basename'
 import { useI18n } from '../../../../../shared/i18n'
 import { Button } from '../../../../../shared/ui/Button'
-import { basenameForDisplay } from '../../../../../../../shared/path-basename'
-import { chatActions, useChatSession } from '../../../store/chatStore'
+import type { Message } from '../../../reducer/chatReducer'
 import { useBackgroundStore } from '../../../store/backgroundStore'
+import { chatActions, useChatSession } from '../../../store/chatStore'
 import { AgentDetail, AgentList } from './AgentViews'
 import { AgentAvatar, PanelRow } from './chrome'
-import { OpenCodeSources } from './Sources'
 import { activePanelProcesses, sessionPanelModel } from './model'
-import type { Message } from '../../../reducer/chatReducer'
 import { useOpenCodePanelNavigation } from './navigation'
+import { OpenCodeSources } from './Sources'
+
+const panelModels = new WeakMap<Message[], WeakMap<object, ReturnType<typeof sessionPanelModel>>>()
+const emptyBackground = {}
 
 function usePanelData(): {
   messages: Message[]
@@ -20,8 +22,25 @@ function usePanelData(): {
   const background = useBackgroundStore((state) =>
     sessionId ? state.sessions[sessionId]?.state : undefined
   )
-  const model = useMemo(() => sessionPanelModel(messages, background), [messages, background])
+  let inputs = panelModels.get(messages)
+  if (!inputs) panelModels.set(messages, (inputs = new WeakMap()))
+  const backgroundKey = background ?? emptyBackground
+  let model = inputs.get(backgroundKey)
+  if (!model) {
+    model = sessionPanelModel(messages, background)
+    inputs.set(backgroundKey, model)
+  }
   return { messages, model }
+}
+
+function useSelectedOpenCodeAgent() {
+  const { messages, model } = usePanelData()
+  const baseSelected = useChatSession((state) => state.selectedSubagentTaskId)
+  const navigation = useOpenCodePanelNavigation()
+  const detail = navigation?.selection?.id === 'subagent' ? navigation.selection : undefined
+  const selected = detail ? detail.selectedId : baseSelected
+  const agent = model.agents.find((item) => item.toolUseId === selected)
+  return { messages, model, navigation, detail, selected, agent }
 }
 
 export function OpenCodeTaskContent(): React.JSX.Element {
@@ -93,12 +112,7 @@ export function OpenCodeTaskContent(): React.JSX.Element {
 
 export function OpenCodeAgentContent(): React.JSX.Element {
   const { tr } = useI18n()
-  const { messages, model } = usePanelData()
-  const baseSelected = useChatSession((state) => state.selectedSubagentTaskId)
-  const navigation = useOpenCodePanelNavigation()
-  const detail = navigation?.selection?.id === 'subagent' ? navigation.selection : undefined
-  const selected = detail ? detail.selectedId : baseSelected
-  const agent = model.agents.find((item) => item.toolUseId === selected)
+  const { messages, model, navigation, detail, selected, agent } = useSelectedOpenCodeAgent()
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       {agent ? (
@@ -122,12 +136,7 @@ export function OpenCodeAgentContent(): React.JSX.Element {
 // The existing subagent tile owns list/detail navigation inside its single native header.
 export function OpenCodeAgentHeader(): React.JSX.Element {
   const { tr } = useI18n()
-  const { model } = usePanelData()
-  const baseSelected = useChatSession((state) => state.selectedSubagentTaskId)
-  const navigation = useOpenCodePanelNavigation()
-  const detail = navigation?.selection?.id === 'subagent' ? navigation.selection : undefined
-  const selected = detail ? detail.selectedId : baseSelected
-  const agent = model.agents.find((item) => item.toolUseId === selected)
+  const { navigation, detail, selected, agent } = useSelectedOpenCodeAgent()
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2">
       {selected && (
