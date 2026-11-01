@@ -1,4 +1,3 @@
-import { unwatchFile, watchFile } from 'node:fs'
 import type { Backend, ChatActivitySnapshot } from '../../shared/ipc'
 import type { DraftNativeResourcesRequest, NativeResources } from '../../shared/native-resources'
 import type {
@@ -6,6 +5,7 @@ import type {
   ProjectResourcePolicy
 } from '../adapters/common/project-resources'
 import type { GovernedLiveTurn } from '../contracts/ports'
+import { FingerprintWatch } from '../infra/config/fingerprint-watch'
 
 export type ResourceRequest = { sessionId: string } | DraftNativeResourcesRequest
 export interface ProjectResourceTarget {
@@ -160,8 +160,13 @@ export class ProjectResourceSync {
         for (const file of policy.files(target.cwd)) {
           if (this.deps.watch) current.stop.push(this.deps.watch(file, changed))
           else {
-            watchFile(file, { interval: 250, persistent: false }, changed)
-            current.stop.push(() => unwatchFile(file, changed))
+            const watcher = new FingerprintWatch({
+              files: [file],
+              interval: 250,
+              changed,
+              failed: changed
+            })
+            current.stop.push(() => watcher.close())
           }
         }
         void this.refresh(current)

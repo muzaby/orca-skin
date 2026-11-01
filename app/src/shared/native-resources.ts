@@ -64,6 +64,10 @@ export type SetGlobalNativeResourceResult =
   | { status: 'applied'; resources: NativeResources }
   | { status: 'confirm'; reason: 'claude-processes'; sessions: number }
 
+export interface ExtensionsChanged {
+  backend: Backend
+}
+
 export interface OpenCodePluginsChanged {
   revision: number
 }

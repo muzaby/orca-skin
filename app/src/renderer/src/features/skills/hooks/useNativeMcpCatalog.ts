@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useI18n } from '../../../shared/i18n'
-import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
 import type { Backend } from '../../../../../shared/ipc'
 import type { NativeResource, NativeResources } from '../../../../../shared/native-resources'
 import { sessionApi } from '../../../shared/api/ipc'
 import { reportError } from '../../../shared/errors'
+import { useI18n } from '../../../shared/i18n'
+import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
 
 /** Native global navigation. Never owns a composer/server/project lease. */
 export function useNativeMcpCatalog(): {
@@ -30,6 +30,7 @@ export function useNativeMcpCatalog(): {
   const locks = useRef(new Set<Backend>())
   const [locked, setLocked] = useState<ReadonlySet<Backend>>(new Set())
   const mounted = useRef(false)
+  const pending = useRef(new Set<Backend>())
   const accept = useCallback((backend: Backend, value: NativeResources) => {
     loaded.current.add(backend)
     setLoading(loaded.current.size < 2)
@@ -44,37 +45,58 @@ export function useNativeMcpCatalog(): {
     failures.current.delete(backend)
     setFailed(failures.current.size > 0)
   }, [])
-  const refresh = useCallback(async () => {
-    await Promise.all(
-      (['claude', 'opencode'] as const).map(async (backend) => {
-        if (busy.current.has(backend) || locks.current.has(backend)) return
-        busy.current.add(backend)
-        const version = ++versions.current[backend]
-        try {
-          const value = await sessionApi.globalExtensions(backend)
-          if (mounted.current && version === versions.current[backend]) accept(backend, value)
-        } catch {
-          if (mounted.current && version === versions.current[backend]) {
-            failures.current.add(backend)
-            loaded.current.add(backend)
-            setLoading(loaded.current.size < 2)
-            setFailed(true)
+  const refreshBackend = useCallback(
+    async (backend: Backend) => {
+      if (!mounted.current) return
+      if (busy.current.has(backend) || locks.current.has(backend)) {
+        pending.current.add(backend)
+        return
+      }
+      busy.current.add(backend)
+      try {
+        do {
+          pending.current.delete(backend)
+          const version = ++versions.current[backend]
+          try {
+            const value = await sessionApi.globalExtensions(backend)
+            if (mounted.current && version === versions.current[backend]) accept(backend, value)
+          } catch {
+            if (mounted.current && version === versions.current[backend]) {
+              failures.current.add(backend)
+              loaded.current.add(backend)
+              setLoading(loaded.current.size < 2)
+              setFailed(true)
+            }
           }
-        } finally {
-          busy.current.delete(backend)
-        }
-      })
-    )
-  }, [accept])
+        } while (mounted.current && pending.current.has(backend) && !locks.current.has(backend))
+      } finally {
+        busy.current.delete(backend)
+      }
+    },
+    [accept]
+  )
+  const refresh = useCallback(async () => {
+    await Promise.all((['claude', 'opencode'] as const).map(refreshBackend))
+  }, [refreshBackend])
   useEffect(() => {
     mounted.current = true
     void refresh()
-    const timer = setInterval(() => void refresh(), 5000)
+    const unsubscribe = sessionApi.onExtensionsChanged(({ backend }) => {
+      void refreshBackend(backend)
+    })
+    const focus = (): void => {
+      void refresh()
+    }
+    window.addEventListener('focus', focus)
     return () => {
       mounted.current = false
-      clearInterval(timer)
+      pending.current.clear()
+      versions.current.claude++
+      versions.current.opencode++
+      unsubscribe?.()
+      window.removeEventListener('focus', focus)
     }
-  }, [refresh])
+  }, [refresh, refreshBackend])
   const setLock = (backend: Backend, held: boolean): void => {
     if (held) locks.current.add(backend)
     else locks.current.delete(backend)
@@ -120,6 +142,7 @@ export function useNativeMcpCatalog(): {
       })
     } finally {
       setLock(backend, false)
+      if (pending.current.has(backend)) void refreshBackend(backend)
     }
   }
   return {

@@ -14,12 +14,17 @@ import {
   type UpdateState
 } from '../../../shared/ipc'
 
-import { wireLog } from './wire-log'
 import type { BackgroundEvent } from '../../../shared/background-task'
 import type {
+  ExtensionsChanged,
   NativeResourcesChanged,
   OpenCodePluginsChanged
 } from '../../../shared/native-resources'
+import { wireLog } from './wire-log'
+
+export function broadcastExtensionsChanged(event: ExtensionsChanged): void {
+  broadcast(CHANNELS.extensionsChanged, event)
+}
 
 export function broadcastOpenCodePluginsChanged(event: OpenCodePluginsChanged): void {
   broadcast(CHANNELS.extensionOpenCodePluginsChanged, event)

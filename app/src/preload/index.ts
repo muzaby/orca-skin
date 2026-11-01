@@ -101,6 +101,7 @@ import {
 } from '../shared/ipc'
 import type {
   DraftNativeResourcesRequest,
+  ExtensionsChanged,
   GlobalNativeResourceTarget,
   NativeResources,
   OpenCodePluginsChanged,
@@ -276,6 +277,8 @@ const orca = {
     onComposerCatalogInvalidated: (
       handler: (event: ComposerCatalogInvalidated) => void
     ): (() => void) => subscribe(CHANNELS.composerCatalogInvalidated, handler),
+    onExtensionsChanged: (handler: (event: ExtensionsChanged) => void): (() => void) =>
+      subscribe(CHANNELS.extensionsChanged, handler),
     onOpenCodePluginsChanged: (handler: (event: OpenCodePluginsChanged) => void): (() => void) =>
       subscribe(CHANNELS.extensionOpenCodePluginsChanged, handler),
     onNativeResourcesChanged: (

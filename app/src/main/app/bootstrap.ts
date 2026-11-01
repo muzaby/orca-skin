@@ -1,12 +1,15 @@
+import { homedir } from 'node:os'
+import { claudeNativePaths } from '../adapters/claude/native-paths'
 import {
   invalidateOpenCodeDiscovery,
   openCodeGlobalConfigFiles,
   openCodeGlobalPluginFingerprint
 } from '../adapters/opencode'
 import { nativeFileMutations } from '../infra/config/file-mutation'
+import { FingerprintWatch } from '../infra/config/fingerprint-watch'
 import { PluginSnapshots } from '../infra/config/plugin-snapshots'
 import { reportError } from '../infra/error-report'
-import { broadcastOpenCodePluginsChanged } from '../infra/ipc/send'
+import { broadcastExtensionsChanged, broadcastOpenCodePluginsChanged } from '../infra/ipc/send'
 import { createComposerPreparation } from './composer-preparation'
 import type { ComposerPreparationService } from './composer-preparation-service'
 import { registerSessionResourceHandlers } from './handlers/session-resources'
@@ -237,6 +240,7 @@ export class Bootstrap {
   private composerPreparation?: ComposerPreparationService
   private openCodeWarmup?: OpenCodeWarmup
   private openCodeGlobalWatch?: OpenCodeGlobalWatch
+  private claudeGlobalWatch?: FingerprintWatch
   private bus?: MainBus<Electron.WebContents>
   private activeDbWriteCount = 0
   private isIndexing = false
@@ -934,6 +938,7 @@ export class Bootstrap {
     this.pendingMessages?.freeze()
     this.openCodeWarmup?.close()
     this.openCodeGlobalWatch?.close()
+    this.claudeGlobalWatch?.close()
     this.openCodeMcpReconcile?.close()
     this.closeComposerCatalog?.()
     this.preparedMcpResources?.close()
@@ -1245,9 +1250,28 @@ export class Bootstrap {
         this.preparedMcpResources?.invalidate()
         broadcastOpenCodePluginsChanged({ revision })
       },
+      extensionsChanged: () => broadcastExtensionsChanged({ backend: 'opencode' }),
       failed: (error) =>
         reportError({
           event: 'opencode.plugins.watch-failed',
+          scope: 'engine',
+          title: 'saveFailed',
+          error
+        })
+    })
+    const nativeClaude = claudeNativePaths()
+    this.claudeGlobalWatch = new FingerprintWatch({
+      files: [
+        nativeClaude.settings,
+        join(nativeClaude.root, 'plugins', 'installed_plugins.json'),
+        process.env.CLAUDE_CONFIG_DIR?.trim()
+          ? join(nativeClaude.root, '.claude.json')
+          : join(homedir(), '.claude.json')
+      ],
+      changed: () => broadcastExtensionsChanged({ backend: 'claude' }),
+      failed: (error) =>
+        reportError({
+          event: 'claude.extensions.watch-failed',
           scope: 'engine',
           title: 'saveFailed',
           error
@@ -1276,6 +1300,7 @@ export class Bootstrap {
       }),
       (backend) => {
         if (backend === 'opencode') this.openCodeMcpReconcile?.changed()
+        broadcastExtensionsChanged({ backend })
       }
     )
     registerFilesHandlers(ctx)

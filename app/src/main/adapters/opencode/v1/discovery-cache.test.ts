@@ -1,22 +1,22 @@
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import {
-  mkdtemp,
   mkdir,
-  writeFile,
+  mkdtemp,
   readFile,
   realpath,
   rm,
   stat,
+  symlink,
   utimes,
-  symlink
+  writeFile
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { discoveryReadFile, OpenCodeDiscoveryCache, openCodeDiscovery } from './discovery-cache'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { configuredOpenCodeResources } from './configured-resources'
-import { openCodePluginInstallation } from './plugin-installation'
+import { discoveryReadFile, openCodeDiscovery, OpenCodeDiscoveryCache } from './discovery-cache'
 import { effectiveOpenCodePlugins } from './global-plugins'
+import { openCodePluginInstallation } from './plugin-installation'
 import { readOpenCodeProjectSettings } from './project-settings'
 
 vi.mock('node:fs/promises', async (original) => {
@@ -68,6 +68,31 @@ it('shares reads and immutable results, then detects equal-size content with res
   expect(changed).toHaveBeenCalledOnce()
   expect((await configuredOpenCodeResources(cwd, env)).map((item) => item.id)).toEqual(['two'])
   expect(vi.mocked(readFile).mock.calls.filter(([path]) => path === file)).toHaveLength(2)
+})
+
+it('holds file watches without starting recurring content probes and refreshes on an external change', async () => {
+  const cache = new OpenCodeDiscoveryCache()
+  const file = join(cwd, 'watched.json')
+  await writeFile(file, 'initial')
+  const key = cache.key('configured', cwd, env)
+  await cache.run(key, () => discoveryReadFile(file))
+  const interval = vi.spyOn(globalThis, 'setInterval')
+  const changed = vi.fn()
+  const release = cache.hold(key, changed)
+  releases.push(release)
+  expect(interval).not.toHaveBeenCalled()
+  // Establish the watcher baseline before changing the file.
+  await new Promise((done) => setTimeout(done, 30))
+  vi.mocked(readFile).mockClear()
+  await writeFile(file, 'external change')
+  await vi.waitFor(() => expect(changed).toHaveBeenCalledOnce(), { timeout: 4000, interval: 100 })
+  expect(await cache.run(key, () => discoveryReadFile(file))).toBe('external change')
+  expect(vi.mocked(readFile).mock.calls.filter(([path]) => path === file)).toHaveLength(1)
+  release()
+  vi.mocked(readFile).mockClear()
+  await writeFile(file, 'after release')
+  await cache.poll()
+  expect(readFile).not.toHaveBeenCalled()
 })
 
 it('tracks missing candidates, ancestor git boundaries, custom files and environment layouts', async () => {

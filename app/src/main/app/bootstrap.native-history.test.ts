@@ -22,6 +22,7 @@ import type { PendingMessageQueue } from '../features/chat/pending-message-queue
 import type { SessionActivityProjector } from '../features/chat/session-activity-projector'
 import type { HistoryWriter } from '../features/history/writer'
 import type { RuntimeSupervisor } from '../features/sessions/supervisor'
+import type { FingerprintWatch } from '../infra/config/fingerprint-watch'
 import type { PluginSnapshots } from '../infra/config/plugin-snapshots'
 import type { RouterContext } from './context'
 import type { registerSessionHandlers } from './handlers/session'
@@ -150,7 +151,44 @@ import { SettingsStore } from '../infra/settings-store'
 import { Bootstrap } from './bootstrap'
 import { harnessModule } from './harnesses/registry'
 
-const watches: OpenCodeGlobalWatch[] = []
+const watches: FingerprintWatch[] = []
+it('broadcasts Claude global changes only on the common channel and closes both watchers on shutdown', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'orca-claude-watch-'))
+  vi.stubEnv('CLAUDE_CONFIG_DIR', root)
+  await writeFile(join(root, 'settings.json'), '{}')
+  const bootstrap = new Bootstrap(() => true)
+  fixture.stopAtSession = false
+  const { activity } = register(bootstrap)
+  const owned = bootstrap as unknown as {
+    claudeGlobalWatch: FingerprintWatch
+    openCodeGlobalWatch: OpenCodeGlobalWatch
+  }
+  try {
+    await owned.claudeGlobalWatch.check()
+    fixture.broadcasts.mockClear()
+    fixture.peerBroadcasts.mockClear()
+    await writeFile(join(root, 'settings.json'), '{"enabledPlugins":{"native":true}}')
+    await owned.claudeGlobalWatch.check()
+    await owned.claudeGlobalWatch.check()
+    expect(fixture.broadcasts.mock.calls).toEqual([
+      [CHANNELS.extensionsChanged, { backend: 'claude' }]
+    ])
+    expect(fixture.peerBroadcasts.mock.calls).toEqual(fixture.broadcasts.mock.calls)
+    const claudeClose = vi.spyOn(owned.claudeGlobalWatch, 'close')
+    const openClose = vi.spyOn(owned.openCodeGlobalWatch, 'close')
+    bootstrap.shutdown()
+    expect(claudeClose).toHaveBeenCalledOnce()
+    expect(openClose).toHaveBeenCalledOnce()
+    await writeFile(join(root, 'settings.json'), '{}')
+    await owned.claudeGlobalWatch.check()
+    expect(fixture.broadcasts).toHaveBeenCalledTimes(1)
+  } finally {
+    bootstrap.shutdown()
+    activity.dispose()
+    vi.unstubAllEnvs()
+    await rm(root, { recursive: true, force: true })
+  }
+})
 beforeEach(() => {
   fixture.rawSettings = {}
   fixture.fetch.mockReset()
@@ -182,6 +220,7 @@ function register(realBootstrap?: Bootstrap): {
     extensionChoices: ReturnType<typeof extensionControl>
     registry?: AdapterRegistry
     openCodeGlobalWatch?: OpenCodeGlobalWatch
+    claudeGlobalWatch?: FingerprintWatch
     settings: SettingsStore
     pendingMessages: PendingMessageQueue
   }
@@ -198,6 +237,7 @@ function register(realBootstrap?: Bootstrap): {
   const ctx = { db: {}, registry: bootstrap.registry ?? { get: () => undefined } } as RouterContext
   expect(() => bootstrap.register(ctx)).toThrow(fixture.stop)
   if (bootstrap.openCodeGlobalWatch) watches.push(bootstrap.openCodeGlobalWatch)
+  if (bootstrap.claudeGlobalWatch) watches.push(bootstrap.claudeGlobalWatch)
   expect(fixture.hooks).toBeDefined()
   return {
     ctx,
@@ -721,17 +761,32 @@ it('broadcasts each OpenCode plugin revision after retiring servers without an o
       })
       await watch.check()
     }
-    const expected = [1, 2, 3].map((revision) => [
-      CHANNELS.extensionOpenCodePluginsChanged,
-      { revision }
+    const expected = [1, 2, 3].flatMap((revision) => [
+      [CHANNELS.extensionOpenCodePluginsChanged, { revision }],
+      [CHANNELS.extensionsChanged, { backend: 'opencode' }]
     ])
     expect(fixture.broadcasts.mock.calls).toEqual(expected)
     expect(fixture.peerBroadcasts.mock.calls).toEqual(expected)
     for (let i = 0; i < 3; i++)
       expect(retired.mock.invocationCallOrder[i]).toBeLessThan(
-        fixture.broadcasts.mock.invocationCallOrder[i]
+        fixture.broadcasts.mock.invocationCallOrder[i * 2]
       )
     expect(await read(event, { backend: 'opencode' })).toMatchObject({ items: [] })
+    await writeFile(
+      file,
+      JSON.stringify({ plugin: [], mcp: { added: { type: 'local', command: ['fixture'] } } })
+    )
+    await watch.check()
+    expect(
+      fixture.broadcasts.mock.calls.filter(
+        ([channel]) => channel === CHANNELS.extensionOpenCodePluginsChanged
+      )
+    ).toHaveLength(3)
+    expect(
+      fixture.broadcasts.mock.calls.filter(([channel]) => channel === CHANNELS.extensionsChanged)
+    ).toEqual(
+      Array.from({ length: 4 }, () => [CHANNELS.extensionsChanged, { backend: 'opencode' }])
+    )
     const stop = vi.spyOn(watch, 'close')
     bootstrap.shutdown()
     expect(stop).toHaveBeenCalledOnce()
