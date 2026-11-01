@@ -26,8 +26,8 @@ import type { FingerprintWatch } from '../infra/config/fingerprint-watch'
 import type { PluginSnapshots } from '../infra/config/plugin-snapshots'
 import type { RouterContext } from './context'
 import type { registerSessionHandlers } from './handlers/session'
-import type { createNativeHistoryRefresh } from './native-history'
 import type { OpenCodeGlobalWatch } from './harnesses/opencode/global-watch'
+import type { createNativeHistoryRefresh } from './native-history'
 import type { ProjectResourceSync } from './project-resource-sync'
 
 const fixture = vi.hoisted(() => ({
@@ -150,6 +150,31 @@ import { OpenCodeServerPool } from '../adapters/opencode/v1/server'
 import { SettingsStore } from '../infra/settings-store'
 import { Bootstrap } from './bootstrap'
 import { harnessModule } from './harnesses/registry'
+import * as skillCatalog from './skill-catalog'
+
+it('keeps the newer skill scan in the cache when a pre-mutation scan finishes late', async () => {
+  const older = Promise.withResolvers<SkillInfo[]>()
+  const newer = Promise.withResolvers<SkillInfo[]>()
+  vi.spyOn(skillCatalog, 'readSkillCatalog')
+    .mockReturnValueOnce(older.promise)
+    .mockReturnValueOnce(newer.promise)
+  const bootstrap = new Bootstrap(() => true)
+  const owned = bootstrap as unknown as {
+    refreshSkills(): Promise<SkillInfo[]>
+    skillsCache: SkillInfo[]
+    skillRoots(): []
+  }
+  vi.spyOn(owned, 'skillRoots').mockReturnValue([])
+  const oldRead = owned.refreshSkills()
+  const newRead = owned.refreshSkills()
+  const fresh = [{ name: 'fresh' }] as SkillInfo[]
+  newer.resolve(fresh)
+  await newRead
+  older.resolve([{ name: 'old' }] as SkillInfo[])
+  await oldRead
+  expect(owned.skillsCache).toBe(fresh)
+  bootstrap.shutdown()
+})
 
 const watches: FingerprintWatch[] = []
 it('broadcasts Claude global changes only on the common channel and closes both watchers on shutdown', async () => {
@@ -528,7 +553,9 @@ it('refreshes the bootstrap skill cache with native catalog sources and preserve
       }[]
       refreshSkills: () => Promise<SkillInfo[]>
       skillsCache: SkillInfo[]
+      skillsRevision: number
     }
+    bootstrap.skillsRevision = 0
     bootstrap.settings = { getAll: () => ({ skillEnabled: { 'orca/off': false } }) }
     bootstrap.skillRoots = () => [
       { sourceId: 'orca', sourceLabel: 'Orca', sourceKind: 'orca', rootDir: join(root, 'orca') }

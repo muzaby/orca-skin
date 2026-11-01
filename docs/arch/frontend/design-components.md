@@ -57,7 +57,6 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | [shared/theme/TweakProvider.tsx](../../../app/src/renderer/src/shared/theme/TweakProvider.tsx) — `TweakProvider` | 루트 테마·폰트·읽기 설정 적용. 컴포넌트별 테마 상태를 만들지 않는다. |
 | [shared/ui/AuthKindChoices.tsx](../../../app/src/renderer/src/shared/ui/AuthKindChoices.tsx) — `AuthKindChoices` | 인증 방식 선택을 같은 크기·선택 상태로 표시하고 옵션 label을 제공한다. |
 | [shared/ui/AutoGrowTextarea.tsx](../../../app/src/renderer/src/shared/ui/AutoGrowTextarea.tsx) — `AutoGrowTextarea` | 자동 높이·줄 수·입력 글꼴을 유지한다. 새 textarea 높이 계산을 복제하지 않는다. |
-| [shared/ui/Avatar.tsx](../../../app/src/renderer/src/shared/ui/Avatar.tsx) — `Avatar` | kind별 사용자·Claude·OpenCode 표식의 크기·모서리·글리프를 해당 primitive에 맡긴다. |
 | [shared/ui/BayerPattern.tsx](../../../app/src/renderer/src/shared/ui/BayerPattern.tsx) — `BayerPattern` | 센서 이미지 표시용 stage 배경·그리드·표적. 일반 카드 장식으로 사용하지 않는다. |
 | [shared/ui/Button.tsx](../../../app/src/renderer/src/shared/ui/Button.tsx) — `Button` | variant·size·busy·pressed·dropdown props 사용. primary=중립 반전, danger=rust; 배경 span·isolate 유지. |
 | [shared/ui/CascadeMenu.tsx](../../../app/src/renderer/src/shared/ui/CascadeMenu.tsx) — `CascadeMenu`, `CascadeBody` | MenuItem 표면·계단식 submenu·키보드·초점·viewport 배치를 재사용한다. heading은 MenuTitle로 렌더하며 키보드 탐색에서 건너뛴다. disabled submenu는 회색이며 확장하지 않는다. 선택적 status 공은 제목 왼쪽의 수동 상태 표시다. 오른쪽 secondary는 주 액션과 독립된 클릭/Enter/Space 스위치이며 처리 중에는 원형 손잡이 내부 spinner와 해당 제어의 중복 입력 방지를 적용한다. 다른 항목은 계속 사용한다. |
@@ -332,7 +331,7 @@ Provider와 registry는 시각 컴포넌트 선택/수명 책임만 갖는다. �
 | [features/engine/components/AgentEnvironmentView.tsx](../../../app/src/renderer/src/features/engine/components/AgentEnvironmentView.tsx) — `AgentEnvironmentView` | 엔진/모델 목록·추가·설정 진입을 카탈로그/상세 위계로 표시한다. |
 | [features/engine/components/EngineCard.tsx](../../../app/src/renderer/src/features/engine/components/EngineCard.tsx) — `EngineCard` | 제목 왼쪽에 지원 하네스의 공식 컬러 로고를 배치하며 엔진명·하네스·연결 상태·모델·동작의 위계를 유지한다. |
 | [features/engine/components/EngineFormModal.tsx](../../../app/src/renderer/src/features/engine/components/EngineFormModal.tsx) — `EngineFormModal` | 단일 화면 엔진 폼. Modal 입력·label·인증/불러오기·저장 상태를 재사용한다. |
-| [features/engine/harnesses/opencode/ProviderForm.tsx](../../../app/src/renderer/src/features/engine/harnesses/opencode/ProviderForm.tsx) — `OpenCodeProviderForm` | OpenCode provider 입력을 공통 폼 규칙 안에서 표시하고 필드 오류를 가까이에 둔다. |
+| [features/engine/harnesses/opencode/ProviderForm.tsx](../../../app/src/renderer/src/features/engine/harnesses/opencode/ProviderForm.tsx) — `OpenCodeProviderForm`, `RowListEditor` | OpenCode provider 입력을 공통 폼 규칙 안에서 표시하고 필드 오류를 가까이에 둔다. |
 
 ## 프로젝트·세션
 

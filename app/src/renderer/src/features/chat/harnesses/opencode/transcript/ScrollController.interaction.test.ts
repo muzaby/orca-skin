@@ -40,8 +40,12 @@ describe('OpenCode controller document interaction', () => {
     vi.stubGlobal(
       'ResizeObserver',
       class {
-        observe(): void {}
-        disconnect(): void {}
+        observe(): void {
+          /* explicit fixture geometry */
+        }
+        disconnect(): void {
+          /* no native observer */
+        }
       }
     )
     const row = new RowElement()
@@ -58,17 +62,16 @@ describe('OpenCode controller document interaction', () => {
     let controls!: ScrollAnchor
     const state = timelineViewState('frame-coalescing')
     state.setPinned(false)
-    dom.render(
-      createElement(OpenCodeScrollController, {
-        sessionKey: 'frame-coalescing',
-        children: (scroll) => {
-          controls = scroll
-          scroll.scrollRef.current = viewport as unknown as HTMLDivElement
-          scroll.contentRef.current = {} as HTMLDivElement
-          return null
-        }
-      })
-    )
+    const props: Parameters<typeof OpenCodeScrollController>[0] = {
+      sessionKey: 'frame-coalescing',
+      children: (scroll) => {
+        controls = scroll
+        scroll.scrollRef.current = viewport as unknown as HTMLDivElement
+        scroll.contentRef.current = {} as HTMLDivElement
+        return null
+      }
+    }
+    dom.render(createElement(OpenCodeScrollController, props))
     measure.mockClear()
     dom.act(() => {
       for (const top of [10, 20, 30]) {

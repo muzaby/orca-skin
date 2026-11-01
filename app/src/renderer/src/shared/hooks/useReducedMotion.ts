@@ -15,4 +15,3 @@ export function useReducedMotion(): boolean {
   }, [])
   return reduced
 }
-

@@ -79,6 +79,8 @@ export function useNativeMcpCatalog(): {
     await Promise.all((['claude', 'opencode'] as const).map(refreshBackend))
   }, [refreshBackend])
   useEffect(() => {
+    const pendingRefreshes = pending.current
+    const requestVersions = versions.current
     mounted.current = true
     void refresh()
     const unsubscribe = sessionApi.onExtensionsChanged(({ backend }) => {
@@ -90,9 +92,9 @@ export function useNativeMcpCatalog(): {
     window.addEventListener('focus', focus)
     return () => {
       mounted.current = false
-      pending.current.clear()
-      versions.current.claude++
-      versions.current.opencode++
+      pendingRefreshes.clear()
+      requestVersions.claude++
+      requestVersions.opencode++
       unsubscribe?.()
       window.removeEventListener('focus', focus)
     }

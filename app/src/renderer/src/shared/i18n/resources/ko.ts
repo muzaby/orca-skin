@@ -488,16 +488,6 @@ export const ko = {
     promptPlaceholder: 'OpenCode에 작업을 요청하세요.'
   },
   backend: {
-    installed: '설치됨',
-    notInstalled: '설치 필요',
-    supportedTitle: '지원 기능: {{list}}',
-    capability: {
-      continue: '이어가기',
-      resume: '재개',
-      fork: '분기',
-      abort: '중단',
-      structuredOutput: '구조화 출력'
-    },
     installer: {
       title: 'Claude Code 설치',
       cliRequired: '채팅을 사용하려면 Claude Code CLI 가 필요합니다.',

@@ -5,12 +5,13 @@
 // usage (repo root): node docs/handoff/0290-simplify-0254-0289/scan/vitest-failed-ids.mjs <report.json>
 import { readFileSync } from 'node:fs'
 import { relative, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const root = resolve(new URL('.', import.meta.url).pathname, '../../../..')
+const root = resolve(fileURLToPath(new URL('.', import.meta.url)), '../../../..')
 const report = JSON.parse(readFileSync(process.argv[2], 'utf8'))
 const ids = []
 for (const file of report.testResults) {
-  const name = relative(root, file.name)
+  const name = relative(root, file.name).replaceAll('\\', '/')
   const failed = file.assertionResults.filter((a) => a.status === 'failed')
   if (file.status !== 'passed' && failed.length === 0) ids.push(`${name}\t<file-level>`)
   for (const a of failed) ids.push(`${name}\t${[...(a.ancestorTitles ?? []), a.title].join(' > ')}`)

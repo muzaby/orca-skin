@@ -1,9 +1,9 @@
+import { load } from 'cheerio'
 import { createElement, type ButtonHTMLAttributes } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { AgentModeToggle } from './AgentModeToggle'
 import { agentPresentation } from '../lib/agentPresentation'
-import { load } from 'cheerio'
+import { AgentModeToggle } from './AgentModeToggle'
 const harness = vi.hoisted(() => ({
   state: { agentKind: 'code', agentKindLocked: false, sessionId: null as string | null },
   select: vi.fn(),
@@ -64,6 +64,8 @@ describe('actual draft mode toggle', () => {
     const $ = load(html)
     const heading = $('[data-agent-mode-hero]')
     expect(heading.children().first().prop('tagName')).toBe('SVG')
+    expect(heading.children().first().attr('viewBox')).toBe('0 0 248 248')
+    expect(heading.children().first().attr('class')).toContain('text-spinner')
     expect(heading.children().last().text()).toBe(greeting)
     expect(heading.attr('class')).toContain('justify-center')
     expect(html).toContain(greeting)

@@ -2,10 +2,15 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
 import { emptyBackgroundState } from '../../../../../../../shared/background-task'
-import { useChatStore } from '../../../store/chatStore'
 import { useBackgroundStore } from '../../../store/backgroundStore'
+import { useChatStore } from '../../../store/chatStore'
 import * as projection from './model'
-import { OpenCodeTaskContent, OpenCodeAgentContent, OpenCodeAgentHeader, OpenCodeProcessContent } from './tiles'
+import {
+  OpenCodeAgentContent,
+  OpenCodeAgentHeader,
+  OpenCodeProcessContent,
+  OpenCodeTaskContent
+} from './tiles'
 
 it('shares one projection across four components and invalidates each input reference independently', () => {
   const initial = useChatStore.getInitialState()
@@ -13,11 +18,37 @@ it('shares one projection across four components and invalidates each input refe
   const previous = entry.session
   const backgrounds = useBackgroundStore.getInitialState().sessions
   const project = vi.spyOn(projection, 'sessionPanelModel')
-  const render = (): string => renderToStaticMarkup(createElement('div', null,
-    createElement(OpenCodeTaskContent), createElement(OpenCodeAgentContent),
-    createElement(OpenCodeAgentHeader), createElement(OpenCodeProcessContent)))
+  const render = (): string =>
+    renderToStaticMarkup(
+      createElement(
+        'div',
+        null,
+        createElement(OpenCodeTaskContent),
+        createElement(OpenCodeAgentContent),
+        createElement(OpenCodeAgentHeader),
+        createElement(OpenCodeProcessContent)
+      )
+    )
   try {
-    entry.session = { ...previous, sessionId: 'memo-panel', backend: 'opencode', messages: [{ role: 'assistant', createdAt: 1, parts: [{ type: 'tool_call', toolName: 'Bash', toolRunId: 'shell', args: { command: 'echo first' } }] }] }
+    entry.session = {
+      ...previous,
+      sessionId: 'memo-panel',
+      backend: 'opencode',
+      messages: [
+        {
+          role: 'assistant',
+          createdAt: 1,
+          parts: [
+            {
+              type: 'tool_call',
+              toolName: 'Bash',
+              toolRunId: 'shell',
+              args: { command: 'echo first' }
+            }
+          ]
+        }
+      ]
+    }
     const messages = entry.session.messages
     expect(render()).toContain('echo first')
     render()
@@ -33,7 +64,19 @@ it('shares one projection across four components and invalidates each input refe
     backgrounds['memo-panel'] = { state: background, loading: false }
     render()
     expect(project).toHaveBeenCalledTimes(3)
-    entry.session = { ...entry.session, messages: [...messages, { role: 'assistant', createdAt: 2, parts: [{ type: 'tool_result', toolRunId: 'shell', result: 'final output', isError: false }] }] }
+    entry.session = {
+      ...entry.session,
+      messages: [
+        ...messages,
+        {
+          role: 'assistant',
+          createdAt: 2,
+          parts: [
+            { type: 'tool_result', toolRunId: 'shell', result: 'final output', isError: false }
+          ]
+        }
+      ]
+    }
     expect(render()).toContain('echo first')
     expect(project).toHaveBeenCalledTimes(4)
     expect(project.mock.results.at(-1)?.value.processes[0].output).toBe('final output')

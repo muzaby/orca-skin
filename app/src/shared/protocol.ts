@@ -276,25 +276,6 @@ export const SetPermissionModeSchema = z.object({
 })
 
 export const StartInstallSchema = z.object({ backend: BackendSchema })
-
-export const UpdateProgressSchema = z.object({
-  percent: z.number().min(0).max(100),
-  transferred: z.number().nonnegative().optional(),
-  total: z.number().nonnegative().optional(),
-  bytesPerSecond: z.number().nonnegative().optional()
-})
-export const UpdateStateSchema = z.object({
-  status: z.enum(['idle', 'checking', 'available', 'downloading', 'ready', 'installing', 'error']),
-  currentVersion: z.string().min(1),
-  availableVersion: z.string().min(1).optional(),
-  releaseNotes: z.string().nullable().optional(),
-  progress: UpdateProgressSchema.optional(),
-  canInstall: z.boolean(),
-  installBlockReason: z.string().min(1).optional(),
-  error: z.string().min(1).optional(),
-  lastError: z.string().min(1).optional(),
-  checkedAt: z.number().int().nonnegative().optional()
-})
 export const UpdateInstallResultSchema = z.object({
   ok: z.boolean(),
   reason: z.enum(['not-ready', 'not-idle', 'internal-error']).optional(),

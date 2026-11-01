@@ -1,20 +1,53 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import type { AgentEnvironment } from '../../../../../shared/ipc'
+import { draftSelection } from '../components/composer/modelSelection'
 import {
   chatActions,
   getActiveChatSession,
-  seedLandingBackend,
   seedLandingAgentKind,
+  seedLandingBackend,
   useChatStore
 } from './chatStore'
 import { installChatStoreHarness } from './chatStore.testHarness'
-import { draftSelection } from '../components/composer/modelSelection'
-import type { AgentEnvironment } from '../../../../../shared/ipc'
 
 afterEach(() => {
   seedLandingBackend(null)
   seedLandingAgentKind('work')
 })
 describe('remembered harness and request routing', () => {
+  it.each(['claude', 'opencode'] as const)(
+    'seeds the %s capability into an existing unsent Work draft',
+    (backend) => {
+      installChatStoreHarness({
+        sessionId: null,
+        agentKind: 'work',
+        harnessExplicitlySelected: false
+      })
+      seedLandingBackend(backend)
+      expect(getActiveChatSession()).toMatchObject({
+        backend,
+        agentKind: backend === 'claude' ? 'work' : 'code'
+      })
+    }
+  )
+  it.each(['startForkDraft', 'startHandoff'] as const)(
+    'rejects OpenCode continuity through %s',
+    (action) => {
+      installChatStoreHarness({
+        sessionId: 's',
+        backend: 'opencode',
+        loadingSession: false,
+        inflight: false,
+        messages: [
+          { role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'one' }] },
+          { role: 'user', createdAt: 2, parts: [{ type: 'text', text: 'two' }] }
+        ]
+      })
+      const before = getActiveChatSession()
+      expect(chatActions[action]()).toBe(false)
+      expect(getActiveChatSession()).toBe(before)
+    }
+  )
   it('preserves an explicit harness through model hydration and late boot settings, then resets it for a new draft', () => {
     installChatStoreHarness({ sessionId: null })
     chatActions.setModel(null, null, null, 'opencode', { explicitHarness: true })

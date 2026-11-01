@@ -56,7 +56,7 @@ const flush = async (): Promise<void> => {
 it('refreshes on backend push and focus, coalesces busy and locked pushes and stops after unmount', async () => {
   vi.useFakeTimers()
   dom = installFakeDom({ innerWidth: 1280, innerHeight: 800 })
-  const read = vi.fn(async (_backend: string) => catalog())
+  const read = vi.fn(async () => catalog())
   const write = vi.fn(async () => applied(catalog(false)))
   let changed!: (event: { backend: 'claude' | 'opencode' }) => void
   const off = vi.fn()

@@ -1,7 +1,7 @@
-import { harnessCatalog } from '../harnesses/catalog'
-import type { Backend } from '../../../../../shared/ipc'
 import type { AgentKind } from '../../../../../shared/agent-kind'
+import type { Backend } from '../../../../../shared/ipc'
 import type { MessageKey } from '../../../shared/i18n'
+import { harnessCatalog } from '../harnesses/catalog'
 
 // 타일 기본 라벨은 카탈로그 키만 두고 소비자(RightPanelTile/ChatTitleBar)가 렌더에서
 // tr() 해석한다(0096 stale-방지 패턴, 0097). 런타임 라벨(rightPanelTileLabels)이 있으면 우선.
@@ -42,10 +42,6 @@ export function rightPanelPolicy(
 ): RightPanelAgentPolicy {
   return harnessCatalog(backend).panel(kind)
 }
-
-export const rightPanelTileIds = rightPanelTileDefinitions.map(
-  (tile) => tile.id
-) as RightPanelTileId[]
 
 export function defaultRightPanelTileLabelKey(id: RightPanelTileId): MessageKey {
   return (

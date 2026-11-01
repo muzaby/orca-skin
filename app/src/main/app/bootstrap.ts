@@ -13,11 +13,11 @@ import { broadcastExtensionsChanged, broadcastOpenCodePluginsChanged } from '../
 import { createComposerPreparation } from './composer-preparation'
 import type { ComposerPreparationService } from './composer-preparation-service'
 import { registerSessionResourceHandlers } from './handlers/session-resources'
-import { nativeSettingsShutdown } from './native-settings-lifecycle'
 import { OpenCodeGlobalWatch } from './harnesses/opencode/global-watch'
 import { OpenCodeMcpReconcile } from './harnesses/opencode/mcp-reconcile'
-import { OpenCodeWarmup } from './harnesses/opencode/warmup'
 import type { PreparedMcpResources } from './harnesses/opencode/prepared-mcp-resources'
+import { OpenCodeWarmup } from './harnesses/opencode/warmup'
+import { nativeSettingsShutdown } from './native-settings-lifecycle'
 import {
   projectResourcesIdle,
   ProjectResourceSync,
@@ -121,7 +121,6 @@ import { createBootReportRecorder } from './boot-report'
 import { resolveBuiltinSkillsDir, resolveWorkProfilePluginDir } from './builtin-resources'
 import { registerChatHandlers } from './chat-turn'
 import { discardSessionWork } from './chat-turn/discard'
-import { createClaudeProcessReset } from './harnesses/claude/processes'
 import type { ConnectionViewSource } from './connection-views'
 import { connectionState, duplicateConnectionAuthIds } from './connection-views'
 import type { RouterContext } from './context'
@@ -154,6 +153,7 @@ import { registerSettingsHandlers, registerSettingsReadHandler } from './handler
 import { registerSkillsHandlers } from './handlers/skills'
 import { registerUpdateHandlers } from './handlers/update'
 import { createHostHarnessPort } from './harness-host'
+import { createClaudeProcessReset } from './harnesses/claude/processes'
 import {
   createAdapterRegistry,
   createHarnessDeploymentService,
@@ -285,12 +285,16 @@ export class Bootstrap {
     ]
   }
 
+  private skillsRevision = 0
+
   private async refreshSkills(): Promise<SkillInfo[]> {
-    this.skillsCache = await readSkillCatalog(
+    const revision = ++this.skillsRevision
+    const skills = await readSkillCatalog(
       this.skillRoots(),
       this.settings.getAll().skillEnabled
     ).catch(() => [])
-    return this.skillsCache
+    if (revision === this.skillsRevision) this.skillsCache = skills
+    return skills
   }
 
   private createDeploymentService(): ExtensionDeploymentService {
