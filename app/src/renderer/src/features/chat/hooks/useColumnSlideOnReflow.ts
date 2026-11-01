@@ -1,4 +1,5 @@
 import { useCallback, useLayoutEffect, useRef } from 'react'
+import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
 
 interface ColumnReflow {
   // 열 외곽 래퍼 div 에 붙이는 콜백 ref. 리사이즈 기준점과 FLIP 측정에 공유된다.
@@ -20,6 +21,7 @@ interface ColumnReflow {
 // 열 ref 배열은 이 훅이 소유한다(리사이즈 기준점과 공유). 열 수가 줄었을 때만 애니메이션해
 // 리사이즈/추가 시의 잔떨림을 피한다.
 export function useColumnSlideOnReflow(columnKeys: string[]): ColumnReflow {
+  const reduce = useReducedMotion()
   const columnRefs = useRef<Array<HTMLDivElement | null>>([])
   const prevLefts = useRef<Map<string, number>>(new Map())
   const prevCount = useRef(columnKeys.length)
@@ -39,9 +41,6 @@ export function useColumnSlideOnReflow(columnKeys: string[]): ColumnReflow {
 
   // deps 없음 — 매 렌더 후 실행해 위치를 항상 최신으로 유지(다음 제거가 올바른 델타를 쓰도록).
   useLayoutEffect(() => {
-    const reduce =
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
     const removed = columnKeys.length < prevCount.current
     const lefts = new Map<string, number>()
 

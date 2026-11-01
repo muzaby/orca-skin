@@ -1,15 +1,15 @@
 import type {
-  BackgroundSessionState,
-  BackgroundCallRecord
+  BackgroundCallRecord,
+  BackgroundSessionState
 } from '../../../../../../../shared/background-task'
-import type { Message, ToolCall } from '../../../reducer/chatReducer'
 import {
   partsToolCalls,
   subagentTasksFromMessages,
   type SubagentTaskSummary
 } from '../../../lib/parts'
-import { describeTool } from '../toolPresentation'
 import type { TaskContextDirectory, TaskContextSource } from '../../../lib/taskContext'
+import type { Message, ToolCall } from '../../../reducer/chatReducer'
+import { describeTool } from '../toolPresentation'
 
 export interface SessionPanelModel {
   agents: (SubagentTaskSummary & { model: string | null | undefined })[]
@@ -27,8 +27,12 @@ export function sessionPanelModel(
   background?: BackgroundSessionState
 ): SessionPanelModel {
   const calls = Object.values(background?.calls ?? {})
-  const latest = (id: string): BackgroundCallRecord | undefined =>
-    calls.filter((call) => call.toolUseId === id).sort((a, b) => b.lastSeenAt - a.lastSeenAt)[0]
+  const latestCalls = new Map<string, BackgroundCallRecord>()
+  for (const call of calls) {
+    const previous = latestCalls.get(call.toolUseId)
+    if (!previous || call.lastSeenAt > previous.lastSeenAt) latestCalls.set(call.toolUseId, call)
+  }
+  const latest = (id: string): BackgroundCallRecord | undefined => latestCalls.get(id)
   const agents = subagentTasksFromMessages(messages, true).map((agent) => ({
     ...agent,
     model: latest(agent.toolUseId)?.model

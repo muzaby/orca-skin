@@ -1,12 +1,12 @@
 import type {
+  ComposerCatalogData,
   ComposerCatalogPart,
-  ComposerCatalogScope,
-  ComposerCatalogData
+  ComposerCatalogScope
 } from '../../../../../../../shared/composer-catalog'
 import type { NativeComposerCatalog } from '../../../../../../../shared/native-resources'
 import { sessionApi } from '../../../../../shared/api/ipc'
-import { composerAgentStore } from './composerAgentStore'
 import { onComposerPromotion } from '../../../lib/composerPromotion'
+import { composerAgentStore } from './composerAgentStore'
 import { composerModelStore } from './composerModelStore'
 
 export interface CatalogSlot<T> {
@@ -106,9 +106,28 @@ export class ComposerCatalogState {
     void this.read('models', false, true)
   }
 
+  private stale(epoch: number, owner: string): boolean {
+    return (
+      this.disposed ||
+      epoch !== this.epoch ||
+      (owner !== this.owner && owner !== this.previousOwner)
+    )
+  }
+
+  private failedSlot<K extends ComposerCatalogPart>(
+    part: K,
+    preserve = true
+  ): NonNullable<ComposerCatalogSnapshot[K]> {
+    return (
+      part === 'agents' && this.agents.getState().agents !== undefined
+        ? this.agentSlot()
+        : { ...(preserve ? this.snapshot[part] : undefined), status: 'error' }
+    ) as NonNullable<ComposerCatalogSnapshot[K]>
+  }
+
   private invalidate(): void {
     this.snapshot = {
-      agents: this.agents.getState().agents === undefined ? { status: 'error' } : this.agentSlot(),
+      agents: this.failedSlot('agents', false),
       models: { status: 'error' },
       ...(this.snapshot.mcp ? { mcp: { status: 'error' as const } } : {}),
       ...(this.snapshot.plugins ? { plugins: { status: 'error' as const } } : {})
@@ -136,21 +155,13 @@ export class ComposerCatalogState {
     const flight = sessionApi
       .composerCatalog({ owner, scope: this.scope, part, refresh })
       .then((result) => {
-        if (
-          this.disposed ||
-          epoch !== this.epoch ||
-          (owner !== this.owner && owner !== this.previousOwner)
-        )
-          return
+        if (this.stale(epoch, owner)) return
         if (result.part !== part) throw new Error('Unexpected composer catalog part')
         if ('status' in result) {
           // Cancellation is an ownership outcome, never a successful empty catalog.
           this.snapshot = {
             ...this.snapshot,
-            [part]:
-              part === 'agents' && this.agents.getState().agents !== undefined
-                ? this.agentSlot()
-                : { ...this.snapshot[part], status: 'error' }
+            [part]: this.failedSlot(part)
           }
           this.publish()
           return
@@ -174,18 +185,10 @@ export class ComposerCatalogState {
         this.publish()
       })
       .catch(() => {
-        if (
-          this.disposed ||
-          epoch !== this.epoch ||
-          (owner !== this.owner && owner !== this.previousOwner)
-        )
-          return
+        if (this.stale(epoch, owner)) return
         this.snapshot = {
           ...this.snapshot,
-          [part]:
-            part === 'agents' && this.agents.getState().agents !== undefined
-              ? this.agentSlot()
-              : { ...this.snapshot[part], status: 'error' }
+          [part]: this.failedSlot(part)
         }
         this.publish()
       })
