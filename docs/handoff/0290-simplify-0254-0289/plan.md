@@ -943,4 +943,10 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| D1 | discovery hold의 감시 기준선이 hold 시점이라 load 뒤·hold 전 의존 파일 변경을 통보하지 않는다 — 구 코드 통보, 새 코드 4초 0회([재현](verify-evidence/repro/discovery-cache.hold-race.verify.test.ts)) | VP-07 §10 ④ · D-003 | 기준선을 소비자가 읽은 상태로 잡거나 감시 생성 직후 재검증. `project-resource-sync.ts:163` 감시도 같은 불변식으로 확인 | BLOCKING (PAIR_FAIL) | open (r1 verify) |
+| D2 | `ScrollController` capture를 rAF로 미뤄, 먼저 예약된 resize 복원이 사용자 스크롤을 옛 앵커로 되돌린다(240→200, 구 코드 240)([재현](verify-evidence/repro/ScrollController.restore-race.verify.test.ts)) | VP-14 §10 #3 · D-003 | 복원이 최신 앵커를 쓰게 하고 재현 테스트를 회귀 테스트로 둔다 | BLOCKING (PAIR_FAIL) | open (r1 verify) |
+| D3 | Claude 전역 감시 파일 목록의 `installed_plugins.json` 항과 `.claude.json` 경로 분기가 어떤 테스트에도 잠기지 않는다(verify M091·M092 못 잡음) | VP-07 §10 ③ · AC12 | 두 파일 변경과 `CLAUDE_CONFIG_DIR` 유무별 경로로 공용 방송을 단언 | BLOCKING (PAIR_FAIL) | open (r1 verify) |
+| D4 | `skills` CRUD author·upload·remove가 진행 중 list에 합류해도 잡히지 않는다 — 테스트는 setEnabled만 실행(verify M097·M098·M100 못 잡음) | VP-16 §10 #2 · AC21 | CRUD 4경로 각각 "진행 중 list와 겹친 쓰기 뒤 새 스캔"을 단언 | BLOCKING (PAIR_FAIL) | open (r1 verify) |
+| D5 | 비동기 Claude 카탈로그가 비Windows 프로젝트 루트 분기를 `claudeLocalSettingsRoot`와 따로 적었고 그 항이 잠기지 않는다(verify M101 못 잡음) | VP-11 §10 #3 · AC10 | 루트 판정 헬퍼 1벌 + cwd≠git 루트 입력으로 동기·비동기 결과 동일을 단언 | BLOCKING (PAIR_FAIL) | open (r1 verify) |
+| N1 | 정규화 JSON 사본이 VP-18 path 밖에 2곳 남았다 — `claude/project-settings.ts:125` `canonical`, `claude/background.ts:20` `stable`(undefined 처리 다름) | 비귀속 | 후속 정리 후보 | NON_BLOCKING | 기록 |
+| N2 | EP-09 #11 신규 케이스가 Linux 기준선 red fixture를 써 `false` 갈래는 Windows CI에서만 판별된다(§7 주의사항과 다름) | VP-09 · AC 주의사항 | fixture 분리 권장 | NON_BLOCKING | 기록 |

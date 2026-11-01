@@ -1,0 +1,319 @@
+[
+ {
+  "id": "R-VP09-missing-sync-all",
+  "file": "src/main/infra/config/json-file.ts",
+  "replacement": {
+   "from": "if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {}",
+   "to": "if (false) return {}",
+   "all": true
+  },
+  "tests": [
+   "src/main/app/native-config-boundaries.test.ts",
+   "src/main/infra/config/json-file.test.ts",
+   "src/main/adapters/claude/plugin-catalog.test.ts",
+   "src/main/adapters/claude/configured-resources.test.ts",
+   "src/main/adapters/claude/project-settings.test.ts",
+   "src/main/adapters/claude/plugin-state.test.ts"
+  ]
+ },
+ {
+  "id": "R-VP09-missing-sync-only",
+  "file": "src/main/infra/config/json-file.ts",
+  "replacement": {
+   "from": "if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {}",
+   "to": "if (false) return {}",
+   "nth": 0
+  },
+  "tests": [
+   "src/main/app/native-config-boundaries.test.ts",
+   "src/main/infra/config/json-file.test.ts",
+   "src/main/adapters/claude/plugin-catalog.test.ts",
+   "src/main/adapters/claude/configured-resources.test.ts",
+   "src/main/adapters/claude/project-settings.test.ts",
+   "src/main/adapters/claude/plugin-state.test.ts"
+  ]
+ },
+ {
+  "id": "R-VP18-plugin-order-native",
+  "file": "src/renderer/src/features/chat/lib/attachMenuModel.ts",
+  "replacement": {
+   "from": "pluginItems.push(",
+   "to": "pluginItems.unshift(",
+   "nth": 0
+  },
+  "tests": [
+   "src/renderer/src/features/chat/harnesses/common/composer/Composer.native-menu.test.ts",
+   "src/renderer/src/features/chat/lib/attachMenuModel.test.ts"
+  ]
+ },
+ {
+  "id": "R-VP13-fork-only",
+  "file": "src/renderer/src/features/chat/store/chatStore.ts",
+  "replacement": {
+   "from": "!HARNESS_CAPABILITIES[src.backend ?? 'claude'].continuity",
+   "to": "HARNESS_CAPABILITIES[src.backend ?? 'claude'].continuity",
+   "nth": 0
+  },
+  "tests": [
+   "src/renderer/src/features/chat/store/chatStore.harness.test.ts",
+   "src/renderer/src/features/chat/store/chatStore.test.ts"
+  ]
+ },
+ {
+  "id": "R-VP12-plan-claude-desc",
+  "file": "src/renderer/src/features/chat/harnesses/claude/rightpanel/tileRegistry.ts",
+  "replacement": {
+   "from": "harnessCatalog('claude')",
+   "to": "harnessCatalog('opencode')",
+   "nth": 0
+  },
+  "tests": [
+   "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts"
+  ]
+ },
+ {
+  "id": "R-VP12-plan-opencode-desc",
+  "file": "src/renderer/src/features/chat/harnesses/opencode/rightpanel/tileRegistry.ts",
+  "replacement": {
+   "from": "harnessCatalog('opencode')",
+   "to": "harnessCatalog('claude')",
+   "nth": 0
+  },
+  "tests": [
+   "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts"
+  ]
+ },
+ {
+  "id": "Y01-VP07-revision-sibling",
+  "file": "src/main/app/harnesses/opencode/global-watch.ts",
+  "replacement": {
+   "from": "if (current !== previous) {",
+   "to": "if (true) {"
+  },
+  "tests": [
+   "src/main/app/harnesses/opencode/global-watch.test.ts",
+   "src/main/app/bootstrap.native-history.test.ts"
+  ]
+ },
+ {
+  "id": "Y02-VP19-claude-close",
+  "file": "src/main/app/bootstrap.ts",
+  "replacement": {
+   "from": "    this.claudeGlobalWatch?.close()\n",
+   "to": ""
+  },
+  "tests": [
+   "src/main/app/bootstrap.native-history.test.ts"
+  ]
+ },
+ {
+  "id": "Y03-VP07-claude-settings-file",
+  "file": "src/main/app/bootstrap.ts",
+  "replacement": {
+   "from": "        nativeClaude.settings,\n",
+   "to": ""
+  },
+  "tests": [
+   "src/main/app/bootstrap.native-history.test.ts"
+  ]
+ },
+ {
+  "id": "Y04-VP07-claude-installed-file",
+  "file": "src/main/app/bootstrap.ts",
+  "replacement": {
+   "from": "        join(nativeClaude.root, 'plugins', 'installed_plugins.json'),\n",
+   "to": ""
+  },
+  "tests": [
+   "src/main/app/bootstrap.native-history.test.ts"
+  ]
+ },
+ {
+  "id": "Y05-VP07-claude-state-path-swap",
+  "file": "src/main/app/bootstrap.ts",
+  "replacement": {
+   "from": "          ? join(nativeClaude.root, '.claude.json')\n          : join(homedir(), '.claude.json')",
+   "to": "          ? join(homedir(), '.claude.json')\n          : join(nativeClaude.root, '.claude.json')"
+  },
+  "tests": [
+   "src/main/app/bootstrap.native-history.test.ts"
+  ]
+ },
+ {
+  "id": "Y06-VP02-toggle-pending",
+  "file": "src/renderer/src/features/skills/hooks/useNativeMcpCatalog.ts",
+  "replacement": {
+   "from": "      if (pending.current.has(backend)) void refreshBackend(backend)\n",
+   "to": ""
+  },
+  "tests": [
+   "src/renderer/src/features/skills/hooks/useNativeMcpCatalog.test.ts"
+  ]
+ },
+ {
+  "id": "Y07-VP15-cold-recovery-bypass",
+  "file": "src/main/app/chat-turn/native-session.ts",
+  "replacement": {
+   "from": "recovery && !recovery.accepted ? undefined : readNativeHistoryPrevious(db, request.sessionId)",
+   "to": "readNativeHistoryPrevious(db, request.sessionId)"
+  },
+  "tests": [
+   "src/main/app/chat-turn/native-session.test.ts"
+  ]
+ },
+ {
+  "id": "Y08-VP15-handler-snapshot",
+  "file": "src/main/app/handlers/session.ts",
+  "replacement": {
+   "from": "        sync.snapshot\n",
+   "to": "        undefined\n"
+  },
+  "tests": [
+   "src/main/app/handlers/session.load.test.ts"
+  ]
+ },
+ {
+  "id": "Y09-VP16-skills-generation",
+  "file": "src/main/app/bootstrap.ts",
+  "replacement": {
+   "from": "if (revision === this.skillsRevision) this.skillsCache = skills",
+   "to": "this.skillsCache = skills"
+  },
+  "tests": [
+   "src/main/app/bootstrap.native-history.test.ts"
+  ]
+ },
+ {
+  "id": "Y10-VP16-author-joins-stale",
+  "file": "src/main/app/handlers/skills.ts",
+  "replacement": {
+   "from": "    await writeAuthoredSkill(req)\n    await ctx.deployExtensions()\n    return refresh()",
+   "to": "    await writeAuthoredSkill(req)\n    await ctx.deployExtensions()\n    return listing ?? refresh()"
+  },
+  "tests": [
+   "src/main/app/handlers/skills.test.ts"
+  ]
+ },
+ {
+  "id": "Y11-VP11-async-project-root",
+  "file": "src/main/adapters/claude/plugin-catalog.ts",
+  "replacement": {
+   "from": "projectRoot = (await gitRootLineage(cwd)).root",
+   "to": "projectRoot = resolve(cwd)"
+  },
+  "tests": [
+   "src/main/adapters/claude/plugin-catalog.test.ts",
+   "src/main/app/native-config-boundaries.test.ts",
+   "src/main/app/skill-catalog.test.ts"
+  ]
+ },
+ {
+  "id": "Y12-VP10-binding-project",
+  "file": "src/main/app/session-binding.ts",
+  "replacement": {
+   "from": "current.project_id === expected.project_id",
+   "to": "true"
+  },
+  "tests": [
+   "src/main/app/bootstrap.native-history.test.ts",
+   "src/main/app/composer-catalog.test.ts",
+   "src/main/app/handlers/session-resources.test.ts",
+   "src/main/app/handlers/session-resources.sync.test.ts",
+   "src/main/app/handlers/session-resources.cancellation.test.ts"
+  ]
+ },
+ {
+  "id": "Y13-VP04-serialize",
+  "file": "src/main/app/project-resource-sync.ts",
+  "replacement": {
+   "from": "(this.mutations.get(key) ?? Promise.resolve())",
+   "to": "Promise.resolve()"
+  },
+  "tests": [
+   "src/main/app/project-resource-sync.test.ts"
+  ]
+ },
+ {
+  "id": "Y14-VP10-dispose-report",
+  "file": "src/main/adapters/opencode/v1/adapter.ts",
+  "replacement": {
+   "from": "releasing ??= lease.release().catch(reportDisposeFailure)",
+   "to": "releasing ??= lease.release().catch(() => undefined)"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/adapter.persistent.test.ts",
+   "src/main/adapters/opencode/v1/adapter.test.ts"
+  ]
+ },
+ {
+  "id": "Y15-VP17-reduced-motion",
+  "file": "src/renderer/src/shared/hooks/useReducedMotion.ts",
+  "replacement": {
+   "from": "setReduced(query.matches)",
+   "to": "setReduced(!query.matches)"
+  },
+  "tests": [
+   "src/renderer/src/shared/hooks/useReducedMotion.test.ts"
+  ]
+ },
+ {
+  "id": "Y16-VP14-row-remove",
+  "file": "src/renderer/src/features/engine/harnesses/opencode/ProviderForm.tsx",
+  "replacement": {
+   "from": "disabled={rows.length <= 1}",
+   "to": "disabled={false}"
+  },
+  "tests": [
+   "src/renderer/src/features/engine/harnesses/opencode/ProviderForm.interaction.test.ts"
+  ]
+ },
+ {
+  "id": "Y17-VP09-flag-array",
+  "file": "src/main/adapters/claude/plugin-flag.ts",
+  "replacement": {
+   "from": "value === true || Array.isArray(value) || isRecord(value)",
+   "to": "value === true || isRecord(value)"
+  },
+  "tests": [
+   "src/main/adapters/claude/configured-resources.test.ts",
+   "src/main/adapters/claude/plugin-catalog.test.ts",
+   "src/main/adapters/claude/project-reconciliation.test.ts"
+  ]
+ },
+ {
+  "id": "Y10b-VP16-upload-joins-stale",
+  "file": "src/main/app/handlers/skills.ts",
+  "replacement": {
+   "from": "return refresh()",
+   "to": "return listing ?? refresh()",
+   "nth": 1
+  },
+  "tests": [
+   "src/main/app/handlers/skills.test.ts"
+  ]
+ },
+ {
+  "id": "Y10c-VP16-setEnabled-joins-stale",
+  "file": "src/main/app/handlers/skills.ts",
+  "replacement": {
+   "from": "return refresh()",
+   "to": "return listing ?? refresh()",
+   "nth": 2
+  },
+  "tests": [
+   "src/main/app/handlers/skills.test.ts"
+  ]
+ },
+ {
+  "id": "Y10d-VP16-remove-joins-stale",
+  "file": "src/main/app/handlers/skills.ts",
+  "replacement": {
+   "from": "return refresh()",
+   "to": "return listing ?? refresh()",
+   "nth": 3
+  },
+  "tests": [
+   "src/main/app/handlers/skills.test.ts"
+  ]
+ }
+]

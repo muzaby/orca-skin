@@ -1,0 +1,1587 @@
+{
+ "round": "r1 verify",
+ "scope": "Independent rerun by verifier (Linux, Node ABI better-sqlite3, Electron binary installed). Implementer list from scan/mutation-evidence.json plus verifier axes in verify-mutations.json. NOAPPLY = from-string occurs more than once; re-targeted as R-* with all/nth.",
+ "results": [
+  {
+   "id": "VP02-interval",
+   "file": "src/renderer/src/features/skills/hooks/useNativeMcpCatalog.ts",
+   "tests": [
+    "src/renderer/src/features/skills/hooks/useNativeMcpCatalog.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 11,
+   "failed": [
+    "src/renderer/src/features/skills/hooks/useNativeMcpCatalog.test.ts :: refreshes on backend push and focus, coalesces busy and locked pushes and stops after unmount"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP02-subscribe",
+   "file": "src/renderer/src/features/skills/hooks/useNativeMcpCatalog.ts",
+   "tests": [
+    "src/renderer/src/features/skills/hooks/useNativeMcpCatalog.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 11,
+   "failed": [
+    "src/renderer/src/features/skills/hooks/useNativeMcpCatalog.test.ts :: refreshes on backend push and focus, coalesces busy and locked pushes and stops after unmount"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP07-comparison",
+   "file": "src/main/infra/config/fingerprint-watch.ts",
+   "tests": [
+    "src/main/infra/config/fingerprint-watch.test.ts",
+    "src/main/app/harnesses/opencode/global-watch.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 4,
+   "failed": [
+    "src/main/infra/config/fingerprint-watch.test.ts :: serializes checks, notifies once for a changed fingerprint and releases every file on close"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP09-BOM",
+   "file": "src/main/infra/config/json-file.ts",
+   "tests": [
+    "src/main/app/native-config-boundaries.test.ts",
+    "src/main/infra/config/json-file.test.ts",
+    "src/main/adapters/claude/plugin-catalog.test.ts",
+    "src/main/adapters/claude/configured-resources.test.ts",
+    "src/main/adapters/claude/project-settings.test.ts",
+    "src/main/adapters/claude/plugin-state.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 31,
+   "failed": [
+    "src/main/app/native-config-boundaries.test.ts :: carries BOM JSON through configured Claude resources",
+    "src/main/app/native-config-boundaries.test.ts :: carries BOM JSON through synchronous and asynchronous plugin catalogs",
+    "src/main/app/native-config-boundaries.test.ts :: carries BOM JSON through native project settings",
+    "src/main/app/native-config-boundaries.test.ts :: preserves existing BOM-prefixed settings through plugin state writes",
+    "src/main/infra/config/json-file.test.ts :: reads BOM objects, treats absent files as empty and preserves injected errors for malformed input"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP09-missing-sync",
+   "file": "src/main/infra/config/json-file.ts",
+   "tests": [
+    "src/main/app/native-config-boundaries.test.ts",
+    "src/main/infra/config/json-file.test.ts",
+    "src/main/adapters/claude/plugin-catalog.test.ts",
+    "src/main/adapters/claude/configured-resources.test.ts",
+    "src/main/adapters/claude/project-settings.test.ts",
+    "src/main/adapters/claude/plugin-state.test.ts"
+   ],
+   "result": "NOAPPLY"
+  },
+  {
+   "id": "VP09-missing-async",
+   "file": "src/main/infra/config/json-file.ts",
+   "tests": [
+    "src/main/app/native-config-boundaries.test.ts",
+    "src/main/infra/config/json-file.test.ts",
+    "src/main/adapters/claude/plugin-catalog.test.ts",
+    "src/main/adapters/claude/configured-resources.test.ts",
+    "src/main/adapters/claude/project-settings.test.ts",
+    "src/main/adapters/claude/plugin-state.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 31,
+   "failed": [
+    "src/main/app/native-config-boundaries.test.ts :: carries BOM JSON through configured Claude resources",
+    "src/main/app/native-config-boundaries.test.ts :: carries BOM JSON through synchronous and asynchronous plugin catalogs",
+    "src/main/app/native-config-boundaries.test.ts :: includes the Git-root MCP through the Claude resource consumer",
+    "src/main/adapters/claude/configured-resources.test.ts :: configured Claude resources > reads global defaults without project plugin installs or project MCP switches",
+    "src/main/adapters/claude/configured-resources.test.ts :: configured Claude resources > reads scoped MCP metadata and disabled flags without exposing private configuration",
+    "src/main/adapters/claude/configured-resources.test.ts :: configured Claude resources > applies plugin scope and setting precedence, and shares identity with actual init observations",
+    "src/main/adapters/claude/configured-resources.test.ts :: configured Claude resources > reads bundled, inline and referenced plugin MCP metadata but blocks escaped paths",
+    "src/main/adapters/claude/configured-resources.test.ts :: configured Claude resources > distinguishes absent metadata from malformed data with a redacted error",
+    "src/main/adapters/claude/configured-resources.test.ts :: lists every applicable install independently of flags, uses path boundaries and refreshes removal",
+    "src/main/adapters/claude/configured-resources.test.ts :: applies Orca plugin choices above user defaults and below project selections",
+    "src/main/adapters/claude/configured-resources.test.ts :: omits installations whose directory no longer exists",
+    "src/main/adapters/claude/plugin-catalog.test.ts :: native plugin catalog > projects asynchronous menu reads identically to spawn without re-reading skill contents",
+    "src/main/infra/config/json-file.test.ts :: reads BOM objects, treats absent files as empty and preserves injected errors for malformed input"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP09-git",
+   "file": "src/main/adapters/common/git-root.ts",
+   "tests": [
+    "src/main/app/native-config-boundaries.test.ts",
+    "src/main/adapters/common/git-root.test.ts",
+    "src/main/adapters/claude/configured-resources.test.ts",
+    "src/main/adapters/opencode/v1/configured-resources.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 20,
+   "failed": [
+    "src/main/app/native-config-boundaries.test.ts :: finds the Git root through the Claude project path consumer",
+    "src/main/app/native-config-boundaries.test.ts :: includes the Git-root MCP through the Claude resource consumer",
+    "src/main/app/native-config-boundaries.test.ts :: includes the Git-root MCP through the OpenCode resource consumer",
+    "src/main/adapters/common/git-root.test.ts :: finds the nearest Git ancestor through three nested directories and falls back to cwd"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP10-membership",
+   "file": "src/main/adapters/opencode/v1/adapter.ts",
+   "tests": [
+    "src/main/adapters/opencode/v1/adapter.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 26,
+   "failed": [
+    "src/main/adapters/opencode/v1/adapter.test.ts :: projects disabled global MCP overrides and connects them through the directory manager",
+    "src/main/adapters/opencode/v1/adapter.test.ts :: OpenCode adapter with the real installed SDK and injected HTTP/SSE transport > subscribes before sending, scopes the turn and leaves admission to the runtime"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP10-choices",
+   "file": "src/main/adapters/opencode/v1/adapter.ts",
+   "tests": [
+    "src/main/adapters/opencode/v1/adapter.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 26,
+   "failed": [
+    "src/main/adapters/opencode/v1/adapter.test.ts :: projects disabled global MCP overrides and connects them through the directory manager",
+    "src/main/adapters/opencode/v1/adapter.test.ts :: OpenCode adapter with the real installed SDK and injected HTTP/SSE transport > subscribes before sending, scopes the turn and leaves admission to the runtime"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP11-double-config",
+   "file": "src/main/adapters/opencode/v1/channel.ts",
+   "tests": [
+    "src/main/adapters/opencode/v1/channel.native-resources.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 1,
+   "failed": [
+    "src/main/adapters/opencode/v1/channel.native-resources.test.ts :: shares one configuration read between plugin and skill projections in a channel inventory"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP11-serial",
+   "file": "src/main/adapters/opencode/v1/native-resources.ts",
+   "tests": [
+    "src/main/adapters/opencode/v1/native-resources.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 6,
+   "failed": [
+    "src/main/adapters/opencode/v1/native-resources.test.ts :: OpenCode native resources > starts skill and configuration reads together before either completes"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP15-client-first",
+   "file": "src/main/adapters/opencode/v1/native-history.ts",
+   "tests": [
+    "src/main/adapters/opencode/v1/native-history.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 35,
+   "failed": [
+    "src/main/adapters/opencode/v1/native-history.test.ts :: skips SDK messages only when the committed per-session probe still matches",
+    "src/main/adapters/opencode/v1/native-history.test.ts :: preserves SDK status 404 when the early database probe throws",
+    "src/main/adapters/opencode/v1/native-history.test.ts :: preserves SDK status 200 when the early database probe throws",
+    "src/main/adapters/opencode/v1/native-history.test.ts :: reads SDK when the previous checkpoint belongs to a different source"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP16-targets",
+   "file": "src/main/app/project-resource-sync.ts",
+   "tests": [
+    "src/main/app/project-resource-sync.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 17,
+   "failed": [
+    "src/main/app/project-resource-sync.test.ts :: captures runtime targets once per stable tick across three project entries"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP16-list",
+   "file": "src/main/app/handlers/skills.ts",
+   "tests": [
+    "src/main/app/handlers/skills.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 12,
+   "failed": [
+    "src/main/app/handlers/skills.test.ts :: catalog skill target IPC > joins concurrent list scans and starts a fresh scan after a mutation"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP16-parse",
+   "file": "src/main/adapters/claude/project-settings.ts",
+   "tests": [
+    "src/main/adapters/claude/project-settings.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 5,
+   "failed": [
+    "src/main/adapters/claude/project-settings.test.ts :: parses shared native state once per file fingerprint and refreshes after replacement"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP16-candidate",
+   "file": "src/main/adapters/claude/native-history.ts",
+   "tests": [
+    "src/main/adapters/claude/native-history.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 16,
+   "failed": [
+    "src/main/adapters/claude/native-history.test.ts :: Claude native history reads > bounds concurrent candidate inspection while retaining the same native session"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP16-hash",
+   "file": "src/main/adapters/claude/native-history.ts",
+   "tests": [
+    "src/main/adapters/claude/native-history.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 16,
+   "failed": [
+    "src/main/adapters/claude/native-history.test.ts :: commits UTF-8 byte checkpoints, reuses complete prefixes and defers partial appends"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP16-skill-path",
+   "file": "src/main/app/skill-catalog.ts",
+   "tests": [
+    "src/main/app/skill-catalog.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 1,
+   "failed": [
+    "src/main/app/skill-catalog.test.ts :: assembles the real catalog from lock, harness and native plugin files without exposing other installations"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP16-event-cap",
+   "file": "src/main/adapters/opencode/v1/map.ts",
+   "tests": [
+    "src/main/adapters/opencode/v1/map.replay.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 1,
+   "failed": [
+    "src/main/adapters/opencode/v1/map.replay.test.ts :: ignores an old text delta replay after more than 4096 distinct events"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP16-roots",
+   "file": "src/main/adapters/opencode/v1/native-resources.ts",
+   "tests": [
+    "src/main/adapters/opencode/v1/native-resources.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 6,
+   "failed": [
+    "src/main/adapters/opencode/v1/native-resources.test.ts :: OpenCode native resources > classifies only OpenCode and installed-plugin skills from SDK locations, without losing exact dispatch names"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP16-SSE",
+   "file": "src/main/adapters/opencode/v1/session-context.ts",
+   "tests": [
+    "src/main/adapters/opencode/v1/session-context.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 15,
+   "failed": [
+    "src/main/adapters/opencode/v1/session-context.test.ts :: OpenCode server context with the installed SDK > normalizes each subscription once and each directory event once across peers"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP16-peek",
+   "file": "src/main/features/extensions/common/mcp/managed-source.ts",
+   "tests": [
+    "src/main/features/extensions/common/mcp/managed-source.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 2,
+   "failed": [
+    "src/main/features/extensions/common/mcp/managed-source.test.ts :: peeks at membership without cloning and preserves defensive snapshots"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP17-memo",
+   "file": "src/renderer/src/features/chat/harnesses/opencode/rightpanel/tiles.tsx",
+   "tests": [
+    "src/renderer/src/features/chat/harnesses/opencode/rightpanel/tiles.memo.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 1,
+   "failed": [
+    "src/renderer/src/features/chat/harnesses/opencode/rightpanel/tiles.memo.test.ts :: shares one projection across four components and invalidates each input reference independently"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP18-canonical-harness-config",
+   "file": "src/main/adapters/common/harness-config.ts",
+   "tests": [
+    "src/main/adapters/common/harness-config.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 54,
+   "failed": [
+    "src/main/adapters/common/harness-config.test.ts :: env 우선순위 (AC15) > options.env 를 만들지 않는 턴에는 settings 채널을 건드리지 않는다 — 정적 배포 무회귀",
+    "src/main/adapters/common/harness-config.test.ts :: env 우선순위 (AC15) > 동적 값도 app env 도 없으면 env 옵션을 생략한다 — SDK 기본 상속을 유지한다",
+    "src/main/adapters/common/harness-config.test.ts :: adapter agent-kind env patch (0235) > keeps lazy env omission and the settings reference for an empty patch",
+    "src/main/adapters/common/harness-config.test.ts :: host-managed provider spawn env (0200) > 정확히 1이 아닌 settings-only flag 는 host-managed fast path 를 켜지 않는다",
+    "src/main/adapters/common/harness-config.test.ts :: env fingerprint (AC19) > 같은 입력은 같은 값 — 키 순서가 달라도 같다",
+    "src/main/adapters/common/harness-config.test.ts :: 두 채널 결정표 — characterization (0190 AC13) > options.env 를 만들지 않는 턴에는 settings 채널을 건드리지 않는다",
+    "src/main/adapters/common/harness-config.test.ts :: 배포 spawn env injector (0207) > 미등록과 빈 객체 반환은 env 를 만들지 않고 같은 settings 참조를 유지한다"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP18-canonical-background-task-queries",
+   "file": "src/main/infra/db/background-task-queries.ts",
+   "tests": [
+    "src/main/infra/db/background-journal-key.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 1,
+   "failed": [
+    "src/main/infra/db/background-journal-key.test.ts :: preserves persisted journal keys across nested key ordering, arrays and undefined fields"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP18-canonical-composer-catalog",
+   "file": "src/main/app/composer-catalog.ts",
+   "tests": [
+    "src/main/app/composer-catalog.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 8,
+   "failed": [
+    "src/main/app/composer-catalog.test.ts :: shares preparation identity for reordered settings and changes it for different values",
+    "src/main/app/composer-catalog.test.ts :: preserves the configuration failure stage through the registered catalog handler",
+    "src/main/app/composer-catalog.test.ts :: preserves the acquire failure stage through the registered catalog handler",
+    "src/main/app/composer-catalog.test.ts :: prepares draft and saved directory with the same production settings and env resolution as turns",
+    "src/main/app/composer-catalog.test.ts :: returns prepared plugin and agent parts through IPC before blocked MCP/models without a session",
+    "src/main/app/composer-catalog.test.ts :: does not start a native server after caller cancellation or session scope change during preparation",
+    "src/main/app/composer-catalog.test.ts :: wires the public handler through the production resolver and returns its shutdown cleanup"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP18-variant-settings",
+   "file": "src/main/adapters/opencode/v1/settings.ts",
+   "tests": [
+    "src/main/adapters/opencode/v1/settings.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 5,
+   "failed": [
+    "src/main/adapters/opencode/v1/settings.test.ts :: OpenCode native model catalogs > uses native provider/model IDs and filters disabled variants",
+    "src/main/adapters/opencode/v1/settings.test.ts :: OpenCode native model catalogs > exposes configured models and primary agents without hidden or subagent-only choices"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP18-variant-model-listing",
+   "file": "src/main/adapters/opencode/v1/model-listing.ts",
+   "tests": [
+    "src/main/adapters/opencode/v1/model-listing.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 6,
+   "failed": [
+    "src/main/adapters/opencode/v1/model-listing.test.ts :: parseOpenCodeModelListing (0291 MD-02) > reads header lines with their pretty JSON blocks"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP18-variant-composer-catalog",
+   "file": "src/main/adapters/opencode/v1/composer-catalog.ts",
+   "tests": [
+    "src/main/adapters/opencode/v1/composer-catalog.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 2,
+   "failed": [
+    "src/main/adapters/opencode/v1/composer-catalog.test.ts :: reads plugin-resolved primary agents and variants from the live SDK without leaking options"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP18-version",
+   "file": "src/main/adapters/opencode/v1/server.ts",
+   "tests": [
+    "src/main/adapters/opencode/v1/server.cli.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 1,
+   "failed": [
+    "src/main/adapters/opencode/v1/server.cli.test.ts :: probes the installed version through the shared CLI runner with version arguments and limits"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP18-db-path",
+   "file": "src/main/adapters/opencode/v1/server.ts",
+   "tests": [
+    "src/main/adapters/opencode/v1/server.database-path.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 1,
+   "failed": [
+    "src/main/adapters/opencode/v1/server.database-path.test.ts :: OpenCode native database path (0262 EP56 P49) > reads the database path through the server and CLI environment of the selected engine document"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP18-auth-plugin",
+   "file": "src/main/features/auth/runtime.ts",
+   "tests": [
+    "src/main/features/auth/login-free.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 26,
+   "failed": [
+    "src/main/features/auth/login-free.test.ts :: 로그인 프리 런타임 — lifecycle 분리 (0248 AC4·AC8·AC9) > 같은 id의 예전 영속 grant·vault 값도 자격증명 경로에 복원하지 않는다 (AC4)",
+    "src/main/features/auth/login-free.test.ts :: 로그인 프리 런타임 — lifecycle 분리 (0248 AC4·AC8·AC9) > 체계가 다른 plugin binder와 미등록 id는 실패한다",
+    "src/main/features/auth/login-free.test.ts :: 로그인 프리 런타임 — lifecycle 분리 (0248 AC4·AC8·AC9) > login·reauth는 unknown_provider이고 revoke는 snapshot을 내지 않는다",
+    "src/main/features/auth/login-free.test.ts :: 로그인 프리 request — 런타임 경유 (0248 AC5·AC6·AC7) > 401와 authFailureStatuses에도 snapshot·change·저장소가 불변이다 (AC7)",
+    "src/main/features/auth/login-free.test.ts :: 로그인 프리 request — 런타임 경유 (0248 AC5·AC6·AC7) > 403와 authFailureStatuses에도 snapshot·change·저장소가 불변이다 (AC7)",
+    "src/main/features/auth/login-free.test.ts :: 로그인 프리 호스트 연결 — 런타임 경유 (0291) > connect 선언 포트는 연결 상태를, 무선언 포트는 상수를 돌려준다"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP18-auth-runtime",
+   "file": "src/main/features/auth/runtime.ts",
+   "tests": [
+    "src/main/features/auth/login-free.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 26,
+   "failed": [
+    "src/main/features/auth/login-free.test.ts :: 로그인 프리 호스트 연결 — 런타임 경유 (0291) > snapshot은 두 체계와 미등록 id를 같은 형상으로 읽는다",
+    "src/main/features/auth/login-free.test.ts :: 로그인 프리 호스트 연결 — 런타임 경유 (0291) > 연결 경로는 디스크를 쓰지 않는다 — 새 runtime 은 idle 에서 시작한다 (D-008)"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP18-connection-list",
+   "file": "src/main/app/connection-views.ts",
+   "tests": [
+    "src/main/app/connection-views.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 12,
+   "failed": [
+    "src/main/app/connection-views.test.ts :: host connection (0291) > carries connection only for connect-declared login-free rows"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP18-connection-handler",
+   "file": "src/main/app/handlers/providers.ts",
+   "tests": [
+    "src/main/app/handlers/providers.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 4,
+   "failed": [
+    "src/main/app/handlers/providers.test.ts :: registerConnectionHandlers > connect는 최종 연결 상태를 돌려준다"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP18-skill-order",
+   "file": "src/renderer/src/features/chat/lib/attachMenuModel.ts",
+   "tests": [
+    "src/renderer/src/features/chat/lib/attachMenuModel.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 20,
+   "failed": [
+    "src/renderer/src/features/chat/lib/attachMenuModel.test.ts :: buildAttachMenu > merges groups that share a title into one heading without losing item identities"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP18-plugin-order",
+   "file": "src/renderer/src/features/chat/lib/attachMenuModel.ts",
+   "tests": [
+    "src/renderer/src/features/chat/harnesses/common/composer/Composer.native-menu.test.ts"
+   ],
+   "result": "NOAPPLY"
+  },
+  {
+   "id": "VP19-bootstrap-opencode",
+   "file": "src/main/app/bootstrap.ts",
+   "tests": [
+    "src/main/app/bootstrap.native-history.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 18,
+   "failed": [
+    "src/main/app/bootstrap.native-history.test.ts :: broadcasts each OpenCode plugin revision after retiring servers without an owner"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP19-bootstrap-claude",
+   "file": "src/main/app/bootstrap.ts",
+   "tests": [
+    "src/main/app/bootstrap.native-history.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 18,
+   "failed": [
+    "src/main/app/bootstrap.native-history.test.ts :: broadcasts Claude global changes only on the common channel and closes both watchers on shutdown"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP19-preload",
+   "file": "src/preload/index.ts",
+   "tests": [
+    "src/preload/index.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 29,
+   "failed": [
+    "src/preload/index.test.ts :: forwards backend extension changes through preload and renderer and removes the listener"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP19-api",
+   "file": "src/renderer/src/shared/api/ipc.ts",
+   "tests": [
+    "src/preload/index.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 29,
+   "failed": [
+    "src/preload/index.test.ts :: forwards backend extension changes through preload and renderer and removes the listener"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP15-whole-delete",
+   "file": "src/main/infra/db/native-history-queries.ts",
+   "tests": [
+    "src/main/features/history/native-history.db.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 15,
+   "failed": [
+    "src/main/features/history/native-history.db.test.ts :: native history with the migrated SQLite archive > keeps row identities and touches only changed messages while deleting absent native IDs"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP16-identity",
+   "file": "src/main/adapters/opencode/v1/server-profile.ts",
+   "tests": [
+    "src/main/adapters/opencode/v1/server-profile.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 1,
+   "failed": [
+    "src/main/adapters/opencode/v1/server-profile.test.ts :: computes executable identity once and delays diagnostic components until requested"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP16-defaults",
+   "file": "src/main/adapters/claude/plugin-catalog.ts",
+   "tests": [
+    "src/main/adapters/claude/plugin-catalog.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 6,
+   "failed": [
+    "src/main/adapters/claude/plugin-catalog.test.ts :: native plugin catalog > reads defaults from settings alone without traversing installed plugin trees"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP12-mark",
+   "file": "src/renderer/src/shared/ui/HarnessLogo.tsx",
+   "tests": [
+    "src/renderer/src/shared/ui/HarnessLogo.render.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 2,
+   "failed": [
+    "src/renderer/src/shared/ui/HarnessLogo.render.test.ts :: preserves claude artwork and default or explicit tone",
+    "src/renderer/src/shared/ui/HarnessLogo.render.test.ts :: preserves opencode artwork and default or explicit tone"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP12-color",
+   "file": "src/renderer/src/shared/ui/HarnessLogo.tsx",
+   "tests": [
+    "src/renderer/src/shared/ui/HarnessLogo.render.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 2,
+   "failed": [
+    "src/renderer/src/shared/ui/HarnessLogo.render.test.ts :: preserves claude artwork and default or explicit tone",
+    "src/renderer/src/shared/ui/HarnessLogo.render.test.ts :: preserves opencode artwork and default or explicit tone"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP12-engine",
+   "file": "src/renderer/src/features/engine/common/components/EngineCard.tsx",
+   "tests": [
+    "src/renderer/src/features/engine/common/components/EngineCard.render.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 3,
+   "failed": [
+    "src/renderer/src/features/engine/common/components/EngineCard.render.test.ts :: preserves the claude card label and editable actions (0262 AC31)",
+    "src/renderer/src/features/engine/common/components/EngineCard.render.test.ts :: preserves the opencode card label and editable actions (0262 AC31)"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP12-engine-menu",
+   "file": "src/renderer/src/features/engine/common/components/AgentEnvironmentView.tsx",
+   "tests": [
+    "src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 1,
+   "failed": [
+    "src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts :: selects Claude or OpenCode before opening their production forms and closes the menu"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP12-source-claude",
+   "file": "src/renderer/src/features/skills/components/customize/SourceHeading.tsx",
+   "tests": [
+    "src/renderer/src/features/skills/components/customize/SourceHeading.render.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 2,
+   "failed": [
+    "src/renderer/src/features/skills/components/customize/SourceHeading.render.test.ts :: preserves the native:claude source mark and color"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP12-source-opencode",
+   "file": "src/renderer/src/features/skills/components/customize/SourceHeading.tsx",
+   "tests": [
+    "src/renderer/src/features/skills/components/customize/SourceHeading.render.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 2,
+   "failed": [
+    "src/renderer/src/features/skills/components/customize/SourceHeading.render.test.ts :: preserves the native:opencode source mark and color"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP12-agent-toggle",
+   "file": "src/renderer/src/features/chat/components/AgentModeToggle.tsx",
+   "tests": [
+    "src/renderer/src/features/chat/components/AgentModeToggle.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 5,
+   "failed": [
+    "src/renderer/src/features/chat/components/AgentModeToggle.test.ts :: actual draft mode toggle > places the work hero below the icon controls exactly once",
+    "src/renderer/src/features/chat/components/AgentModeToggle.test.ts :: actual draft mode toggle > places the code hero below the icon controls exactly once"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP12-model-menu",
+   "file": "src/renderer/src/features/chat/components/composer/ModelMenu.tsx",
+   "tests": [
+    "src/renderer/src/features/chat/components/composer/modelMenu0215.render.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 9,
+   "failed": [
+    "src/renderer/src/features/chat/components/composer/modelMenu0215.render.test.ts :: preserves the claude provider heading brand",
+    "src/renderer/src/features/chat/components/composer/modelMenu0215.render.test.ts :: preserves the opencode provider heading brand"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP12-composer-icon",
+   "file": "src/renderer/src/features/chat/harnesses/registries/composer.ts",
+   "tests": [
+    "src/renderer/src/features/chat/harnesses/registries/brand-surfaces.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 3,
+   "failed": [
+    "src/renderer/src/features/chat/harnesses/registries/brand-surfaces.test.ts :: carries each source brand through the claude composer",
+    "src/renderer/src/features/chat/harnesses/registries/brand-surfaces.test.ts :: carries each source brand through the opencode composer"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP12-sidebar",
+   "file": "src/renderer/src/app/SidebarUserButton.tsx",
+   "tests": [
+    "src/renderer/src/app/SidebarUserButton.brand.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 1,
+   "failed": [
+    "src/renderer/src/app/SidebarUserButton.brand.test.ts :: passes each settings brand with the original sidebar tone"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-claude-variant",
+   "file": "src/renderer/src/features/chat/harnesses/claude/surfaces.ts",
+   "tests": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 2,
+   "failed": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts :: preserves every rendered class for default"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-claude-chipVariant",
+   "file": "src/renderer/src/features/chat/harnesses/claude/surfaces.ts",
+   "tests": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 2,
+   "failed": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts :: preserves every rendered class for default"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-claude-showChevron",
+   "file": "src/renderer/src/features/chat/harnesses/claude/surfaces.ts",
+   "tests": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 2,
+   "failed": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts :: preserves every rendered class for default"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-claude-trailingDivider",
+   "file": "src/renderer/src/features/chat/harnesses/claude/surfaces.ts",
+   "tests": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 2,
+   "failed": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts :: preserves every rendered class for default"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-claude-contextRow",
+   "file": "src/renderer/src/features/chat/harnesses/claude/surfaces.ts",
+   "tests": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 2,
+   "failed": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts :: preserves every rendered class for default"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-claude-chipGroup",
+   "file": "src/renderer/src/features/chat/harnesses/claude/surfaces.ts",
+   "tests": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 2,
+   "failed": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts :: preserves every rendered class for default"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-claude-landing",
+   "file": "src/renderer/src/features/chat/harnesses/claude/landing/presentation.ts",
+   "tests": [
+    "src/renderer/src/features/chat/harnesses/registries/brand-surfaces.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 3,
+   "failed": [
+    "src/renderer/src/features/chat/harnesses/registries/brand-surfaces.test.ts :: keeps the context location in the landing presentation"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-opencode-variant",
+   "file": "src/renderer/src/features/chat/harnesses/opencode/surfaces.ts",
+   "tests": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 2,
+   "failed": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts :: preserves every rendered class for opencode"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-opencode-chipVariant",
+   "file": "src/renderer/src/features/chat/harnesses/opencode/surfaces.ts",
+   "tests": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 2,
+   "failed": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts :: preserves every rendered class for opencode"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-opencode-showChevron",
+   "file": "src/renderer/src/features/chat/harnesses/opencode/surfaces.ts",
+   "tests": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 2,
+   "failed": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts :: preserves every rendered class for opencode"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-opencode-trailingDivider",
+   "file": "src/renderer/src/features/chat/harnesses/opencode/surfaces.ts",
+   "tests": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 2,
+   "failed": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts :: preserves every rendered class for opencode"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-opencode-contextRow",
+   "file": "src/renderer/src/features/chat/harnesses/opencode/surfaces.ts",
+   "tests": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 2,
+   "failed": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts :: preserves every rendered class for opencode"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-opencode-chipGroup",
+   "file": "src/renderer/src/features/chat/harnesses/opencode/surfaces.ts",
+   "tests": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 2,
+   "failed": [
+    "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts :: preserves every rendered class for opencode"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-opencode-landing",
+   "file": "src/renderer/src/features/chat/harnesses/opencode/landing/presentation.ts",
+   "tests": [
+    "src/renderer/src/features/chat/harnesses/registries/brand-surfaces.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 3,
+   "failed": [
+    "src/renderer/src/features/chat/harnesses/registries/brand-surfaces.test.ts :: keeps the context location in the landing presentation"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-seed-kind",
+   "file": "src/renderer/src/features/chat/store/chatStore.ts",
+   "tests": [
+    "src/renderer/src/features/chat/store/chatStore.harness.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 12,
+   "failed": [
+    "src/renderer/src/features/chat/store/chatStore.harness.test.ts :: remembered harness and request routing > seeds the claude capability into an existing unsent Work draft",
+    "src/renderer/src/features/chat/store/chatStore.harness.test.ts :: remembered harness and request routing > seeds the opencode capability into an existing unsent Work draft"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-fresh-kind",
+   "file": "src/renderer/src/features/chat/store/chatStore.ts",
+   "tests": [
+    "src/renderer/src/features/chat/store/chatStore.harness.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 12,
+   "failed": [
+    "src/renderer/src/features/chat/store/chatStore.harness.test.ts :: remembered harness and request routing > creates a fresh draft using the boot-seeded claude harness",
+    "src/renderer/src/features/chat/store/chatStore.harness.test.ts :: remembered harness and request routing > creates a fresh draft using the boot-seeded opencode harness"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-fork",
+   "file": "src/renderer/src/features/chat/store/chatStore.ts",
+   "tests": [
+    "src/renderer/src/features/chat/store/chatStore.harness.test.ts",
+    "src/renderer/src/features/chat/store/chatStore.test.ts"
+   ],
+   "result": "NOAPPLY"
+  },
+  {
+   "id": "VP13-handoff",
+   "file": "src/renderer/src/features/chat/store/chatStore.ts",
+   "tests": [
+    "src/renderer/src/features/chat/store/chatStore.harness.test.ts",
+    "src/renderer/src/features/chat/store/chatStore.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 70,
+   "failed": [
+    "src/renderer/src/features/chat/store/chatStore.harness.test.ts :: remembered harness and request routing > rejects OpenCode continuity through startHandoff",
+    "src/renderer/src/features/chat/store/chatStore.test.ts :: chatStore — 0064 r4 핸드오프 에코 순서 > 자동 메시지가 pending(message.queued)으로 서고 echo 커밋(committed)이 요약보다 앞선다",
+    "src/renderer/src/features/chat/store/chatStore.test.ts :: chatStore — 0064 r4 핸드오프 에코 순서 > 승격이 늦어 committed/요약이 폴백 라우팅돼도 draft 안에서 [user → 요약] 순서가 유지된다",
+    "src/renderer/src/features/chat/store/chatStore.test.ts :: chatStore — continuityLang 스냅샷 (0127) > en 시드 시 handoff draft 제목이 [Handoff] 이고 payload 에 continuityLang 이 실린다"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-open-subagent",
+   "file": "src/renderer/src/features/chat/store/chatStore.ts",
+   "tests": [
+    "src/renderer/src/features/chat/store/chatStore.panelTiles.test.ts",
+    "src/renderer/src/features/chat/store/chatStore.background-open.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 9,
+   "failed": [
+    "src/renderer/src/features/chat/store/chatStore.panelTiles.test.ts :: OpenCode independent panel state > keeps the summary and other selections while opening and revealing each target"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-reducer-subagent",
+   "file": "src/renderer/src/features/chat/reducer/chatReducer.ts",
+   "tests": [
+    "src/renderer/src/features/chat/reducer/chatReducer.harness.test.ts",
+    "src/renderer/src/features/chat/reducer/chatReducer.task.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 40,
+   "failed": [
+    "src/renderer/src/features/chat/reducer/chatReducer.harness.test.ts :: harness identity and panel enforcement > opens OpenCode subagents via 'OPEN_SUBAGENT_TASK'"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-permissions",
+   "file": "src/renderer/src/features/chat/reducer/chatReducer.ts",
+   "tests": [
+    "src/renderer/src/features/chat/reducer/chatReducer.harness.test.ts",
+    "src/renderer/src/features/chat/reducer/chatReducer.permission.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 37,
+   "failed": [
+    "src/renderer/src/features/chat/reducer/chatReducer.harness.test.ts :: harness identity and panel enforcement > applies the claude permission default only when supported",
+    "src/renderer/src/features/chat/reducer/chatReducer.harness.test.ts :: harness identity and panel enforcement > applies the opencode permission default only when supported"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-composer-frame",
+   "file": "src/renderer/src/features/chat/components/Composer.tsx",
+   "tests": [
+    "src/renderer/src/pages/NewChatLandingPage.harness.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 5,
+   "failed": [
+    "src/renderer/src/pages/NewChatLandingPage.harness.test.ts :: shares the landing frame and hero slot across harnesses"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-composer-inline",
+   "file": "src/renderer/src/features/chat/components/Composer.tsx",
+   "tests": [
+    "src/renderer/src/pages/NewChatLandingPage.harness.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 5,
+   "failed": [
+    "src/renderer/src/pages/NewChatLandingPage.harness.test.ts :: new conversation harness layout > renders the harness landing and preserves draft and attachment state"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-composer-below",
+   "file": "src/renderer/src/features/chat/components/Composer.tsx",
+   "tests": [
+    "src/renderer/src/pages/NewChatLandingPage.harness.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 5,
+   "failed": [
+    "src/renderer/src/pages/NewChatLandingPage.harness.test.ts :: new conversation harness layout > renders the harness landing and preserves draft and attachment state",
+    "src/renderer/src/pages/NewChatLandingPage.harness.test.ts :: new conversation harness layout > selects workspace and branch from the footer",
+    "src/renderer/src/pages/NewChatLandingPage.harness.test.ts :: shares the landing frame and hero slot across harnesses"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP13-landing-forward",
+   "file": "src/renderer/src/features/chat/components/Landing.tsx",
+   "tests": [
+    "src/renderer/src/pages/NewChatLandingPage.harness.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 5,
+   "failed": [
+    "src/renderer/src/pages/NewChatLandingPage.harness.test.ts :: new conversation harness layout > renders the harness landing and preserves draft and attachment state",
+    "src/renderer/src/pages/NewChatLandingPage.harness.test.ts :: shares the landing frame and hero slot across harnesses"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP12-plan-claude",
+   "file": "src/renderer/src/features/chat/harnesses/claude/rightpanel/tileRegistry.ts",
+   "tests": [
+    "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts"
+   ],
+   "result": "NOAPPLY"
+  },
+  {
+   "id": "VP12-plan-opencode",
+   "file": "src/renderer/src/features/chat/harnesses/opencode/rightpanel/tileRegistry.ts",
+   "tests": [
+    "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts"
+   ],
+   "result": "NOAPPLY"
+  },
+  {
+   "id": "VP12-label-copy",
+   "file": "src/renderer/src/features/chat/components/ChatTitleBar.tsx",
+   "tests": [
+    "src/renderer/src/features/chat/components/ChatTitleBar.copy.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 3,
+   "failed": [
+    "src/renderer/src/features/chat/components/ChatTitleBar.copy.test.ts :: copies the claude conversation with its short harness label",
+    "src/renderer/src/features/chat/components/ChatTitleBar.copy.test.ts :: copies the opencode conversation with its short harness label"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP12-label-engine",
+   "file": "src/renderer/src/features/engine/common/components/AgentEnvironmentView.tsx",
+   "tests": [
+    "src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 1,
+   "failed": [
+    "src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts :: selects Claude or OpenCode before opening their production forms and closes the menu"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP12-label-source",
+   "file": "src/shared/extension-sources.ts",
+   "tests": [
+    "src/renderer/src/features/chat/lib/composerSkills.test.ts",
+    "src/renderer/src/features/chat/lib/attachMenuModel.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 25,
+   "failed": [
+    "src/renderer/src/features/chat/lib/attachMenuModel.test.ts :: buildAttachMenu > merges groups that share a title into one heading without losing item identities",
+    "src/renderer/src/features/chat/lib/attachMenuModel.test.ts :: buildAttachMenu > limits claude to approved skill sources and merges duplicate source headings",
+    "src/renderer/src/features/chat/lib/attachMenuModel.test.ts :: buildAttachMenu > limits opencode to approved skill sources and merges duplicate source headings",
+    "src/renderer/src/features/chat/lib/attachMenuModel.test.ts :: buildAttachMenu > lists source headings and every skill in one panel",
+    "src/renderer/src/features/chat/lib/composerSkills.test.ts :: uses session commands over global plugin flags and preserves allowed file skills"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP12-plan-hint-claude",
+   "file": "src/renderer/src/features/chat/harnesses/claude/rightpanel/tileRegistry.ts",
+   "tests": [
+    "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 9,
+   "failed": [
+    "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts :: PlanTileContent — 본문 미해소 표시 (AT-03 · D-002) > uses the ko claude plan feedback hint",
+    "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts :: PlanTileContent — 본문 미해소 표시 (AT-03 · D-002) > uses the en claude plan feedback hint"
+   ],
+   "collection": []
+  },
+  {
+   "id": "VP12-plan-hint-opencode",
+   "file": "src/renderer/src/features/chat/harnesses/opencode/rightpanel/tileRegistry.ts",
+   "tests": [
+    "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 9,
+   "failed": [
+    "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts :: PlanTileContent — 본문 미해소 표시 (AT-03 · D-002) > uses the ko opencode plan feedback hint",
+    "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts :: PlanTileContent — 본문 미해소 표시 (AT-03 · D-002) > uses the en opencode plan feedback hint"
+   ],
+   "collection": []
+  },
+  {
+   "id": "R-VP09-missing-sync-all",
+   "file": "src/main/infra/config/json-file.ts",
+   "tests": [
+    "src/main/app/native-config-boundaries.test.ts",
+    "src/main/infra/config/json-file.test.ts",
+    "src/main/adapters/claude/plugin-catalog.test.ts",
+    "src/main/adapters/claude/configured-resources.test.ts",
+    "src/main/adapters/claude/project-settings.test.ts",
+    "src/main/adapters/claude/plugin-state.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 31,
+   "failed": [
+    "src/main/app/native-config-boundaries.test.ts :: carries BOM JSON through configured Claude resources",
+    "src/main/app/native-config-boundaries.test.ts :: carries BOM JSON through synchronous and asynchronous plugin catalogs",
+    "src/main/app/native-config-boundaries.test.ts :: carries BOM JSON through native project settings",
+    "src/main/app/native-config-boundaries.test.ts :: includes the Git-root MCP through the Claude resource consumer",
+    "src/main/adapters/claude/configured-resources.test.ts :: configured Claude resources > reads global defaults without project plugin installs or project MCP switches",
+    "src/main/adapters/claude/configured-resources.test.ts :: configured Claude resources > reads scoped MCP metadata and disabled flags without exposing private configuration",
+    "src/main/adapters/claude/configured-resources.test.ts :: configured Claude resources > applies plugin scope and setting precedence, and shares identity with actual init observations",
+    "src/main/adapters/claude/configured-resources.test.ts :: configured Claude resources > reads bundled, inline and referenced plugin MCP metadata but blocks escaped paths",
+    "src/main/adapters/claude/configured-resources.test.ts :: configured Claude resources > distinguishes absent metadata from malformed data with a redacted error",
+    "src/main/adapters/claude/configured-resources.test.ts :: lists every applicable install independently of flags, uses path boundaries and refreshes removal",
+    "src/main/adapters/claude/configured-resources.test.ts :: applies Orca plugin choices above user defaults and below project selections",
+    "src/main/adapters/claude/configured-resources.test.ts :: omits installations whose directory no longer exists",
+    "src/main/adapters/claude/plugin-catalog.test.ts :: native plugin catalog > reads defaults from settings alone without traversing installed plugin trees",
+    "src/main/adapters/claude/plugin-catalog.test.ts :: native plugin catalog > projects asynchronous menu reads identically to spawn without re-reading skill contents",
+    "src/main/adapters/claude/plugin-catalog.test.ts :: native plugin catalog > discovers declared skill paths and legacy commands with descriptions, hints and invocation policy",
+    "src/main/adapters/claude/plugin-catalog.test.ts :: native plugin catalog > reports invalid configuration without its contents and leaves absent installations empty",
+    "src/main/adapters/claude/plugin-catalog.test.ts :: excludes local installs from child cwd and selects the nearest project without relying on git root",
+    "src/main/adapters/claude/project-settings.test.ts :: parses shared native state once per file fingerprint and refreshes after replacement",
+    "src/main/adapters/claude/project-settings.test.ts :: fingerprints only project extension keys and native project state, excluding other cwd and Git-root state",
+    "src/main/infra/config/json-file.test.ts :: reads BOM objects, treats absent files as empty and preserves injected errors for malformed input"
+   ],
+   "collection": []
+  },
+  {
+   "id": "R-VP09-missing-sync-only",
+   "file": "src/main/infra/config/json-file.ts",
+   "tests": [
+    "src/main/app/native-config-boundaries.test.ts",
+    "src/main/infra/config/json-file.test.ts",
+    "src/main/adapters/claude/plugin-catalog.test.ts",
+    "src/main/adapters/claude/configured-resources.test.ts",
+    "src/main/adapters/claude/project-settings.test.ts",
+    "src/main/adapters/claude/plugin-state.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 31,
+   "failed": [
+    "src/main/app/native-config-boundaries.test.ts :: carries BOM JSON through synchronous and asynchronous plugin catalogs",
+    "src/main/app/native-config-boundaries.test.ts :: carries BOM JSON through native project settings",
+    "src/main/adapters/claude/plugin-catalog.test.ts :: native plugin catalog > reads defaults from settings alone without traversing installed plugin trees",
+    "src/main/adapters/claude/plugin-catalog.test.ts :: native plugin catalog > projects asynchronous menu reads identically to spawn without re-reading skill contents",
+    "src/main/adapters/claude/plugin-catalog.test.ts :: native plugin catalog > discovers declared skill paths and legacy commands with descriptions, hints and invocation policy",
+    "src/main/adapters/claude/plugin-catalog.test.ts :: native plugin catalog > reports invalid configuration without its contents and leaves absent installations empty",
+    "src/main/adapters/claude/plugin-catalog.test.ts :: excludes local installs from child cwd and selects the nearest project without relying on git root",
+    "src/main/adapters/claude/project-settings.test.ts :: parses shared native state once per file fingerprint and refreshes after replacement",
+    "src/main/adapters/claude/project-settings.test.ts :: fingerprints only project extension keys and native project state, excluding other cwd and Git-root state",
+    "src/main/infra/config/json-file.test.ts :: reads BOM objects, treats absent files as empty and preserves injected errors for malformed input"
+   ],
+   "collection": []
+  },
+  {
+   "id": "R-VP18-plugin-order-native",
+   "file": "src/renderer/src/features/chat/lib/attachMenuModel.ts",
+   "tests": [
+    "src/renderer/src/features/chat/harnesses/common/composer/Composer.native-menu.test.ts",
+    "src/renderer/src/features/chat/lib/attachMenuModel.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 35,
+   "failed": [
+    "src/renderer/src/features/chat/lib/attachMenuModel.test.ts :: buildAttachMenu > puts the Orcinus orca group before native plugins for claude",
+    "src/renderer/src/features/chat/lib/attachMenuModel.test.ts :: buildAttachMenu > puts the Orcinus orca group before native plugins for opencode",
+    "src/renderer/src/features/chat/harnesses/common/composer/Composer.native-menu.test.ts :: shows all source groups directly for claude and keeps draft text on selection — puts the Orcinus orca group first in both panels",
+    "src/renderer/src/features/chat/harnesses/common/composer/Composer.native-menu.test.ts :: shows all source groups directly for opencode and keeps draft text on selection — puts the Orcinus orca group first in both panels"
+   ],
+   "collection": []
+  },
+  {
+   "id": "R-VP13-fork-only",
+   "file": "src/renderer/src/features/chat/store/chatStore.ts",
+   "tests": [
+    "src/renderer/src/features/chat/store/chatStore.harness.test.ts",
+    "src/renderer/src/features/chat/store/chatStore.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 70,
+   "failed": [
+    "src/renderer/src/features/chat/store/chatStore.harness.test.ts :: remembered harness and request routing > rejects OpenCode continuity through startForkDraft",
+    "src/renderer/src/features/chat/store/chatStore.test.ts :: chatStore — 0064 r4 continuity draft nav > startForkDraft 는 draft 를 즉시 만들고, 같은 부모의 이전 미전송 draft 를 교체한다",
+    "src/renderer/src/features/chat/store/chatStore.test.ts :: chatStore — 0064 r4 continuity draft nav > 다른 세션으로 이탈해도 draft 는 살아남고(nav 행 유지), activate 로 복귀한다",
+    "src/renderer/src/features/chat/store/chatStore.test.ts :: chatStore — 0064 r4 continuity draft nav > discardContinuityDraft — 활성 draft 삭제 시 부모 엔트리로 복귀, pending 중엔 거부",
+    "src/renderer/src/features/chat/store/chatStore.test.ts :: chatStore — continuityLang 스냅샷 (0127) > en 시드 시 fork draft 제목이 [Fork] 이고 send payload 에 continuityLang 이 실린다",
+    "src/renderer/src/features/chat/store/chatStore.test.ts :: chatStore — continuityLang 스냅샷 (0127) > ko 시드(기본)면 기존 한글 마커·payload continuityLang=ko — 문자열 무회귀"
+   ],
+   "collection": []
+  },
+  {
+   "id": "R-VP12-plan-claude-desc",
+   "file": "src/renderer/src/features/chat/harnesses/claude/rightpanel/tileRegistry.ts",
+   "tests": [
+    "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 9,
+   "failed": [
+    "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts :: PlanTileContent — 본문 미해소 표시 (AT-03 · D-002) > keeps the claude empty plan description through the tile registry"
+   ],
+   "collection": []
+  },
+  {
+   "id": "R-VP12-plan-opencode-desc",
+   "file": "src/renderer/src/features/chat/harnesses/opencode/rightpanel/tileRegistry.ts",
+   "tests": [
+    "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 9,
+   "failed": [
+    "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts :: PlanTileContent — 본문 미해소 표시 (AT-03 · D-002) > keeps the opencode empty plan description through the tile registry"
+   ],
+   "collection": []
+  },
+  {
+   "id": "Y01-VP07-revision-sibling",
+   "file": "src/main/app/harnesses/opencode/global-watch.ts",
+   "tests": [
+    "src/main/app/harnesses/opencode/global-watch.test.ts",
+    "src/main/app/bootstrap.native-history.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 21,
+   "failed": [
+    "src/main/app/bootstrap.native-history.test.ts :: broadcasts each OpenCode plugin revision after retiring servers without an owner"
+   ],
+   "collection": []
+  },
+  {
+   "id": "Y02-VP19-claude-close",
+   "file": "src/main/app/bootstrap.ts",
+   "tests": [
+    "src/main/app/bootstrap.native-history.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 18,
+   "failed": [
+    "src/main/app/bootstrap.native-history.test.ts :: broadcasts Claude global changes only on the common channel and closes both watchers on shutdown"
+   ],
+   "collection": []
+  },
+  {
+   "id": "Y03-VP07-claude-settings-file",
+   "file": "src/main/app/bootstrap.ts",
+   "tests": [
+    "src/main/app/bootstrap.native-history.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 18,
+   "failed": [
+    "src/main/app/bootstrap.native-history.test.ts :: broadcasts Claude global changes only on the common channel and closes both watchers on shutdown"
+   ],
+   "collection": []
+  },
+  {
+   "id": "Y04-VP07-claude-installed-file",
+   "file": "src/main/app/bootstrap.ts",
+   "tests": [
+    "src/main/app/bootstrap.native-history.test.ts"
+   ],
+   "result": "MISSED",
+   "total": 18,
+   "failed": [],
+   "collection": []
+  },
+  {
+   "id": "Y05-VP07-claude-state-path-swap",
+   "file": "src/main/app/bootstrap.ts",
+   "tests": [
+    "src/main/app/bootstrap.native-history.test.ts"
+   ],
+   "result": "MISSED",
+   "total": 18,
+   "failed": [],
+   "collection": []
+  },
+  {
+   "id": "Y06-VP02-toggle-pending",
+   "file": "src/renderer/src/features/skills/hooks/useNativeMcpCatalog.ts",
+   "tests": [
+    "src/renderer/src/features/skills/hooks/useNativeMcpCatalog.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 11,
+   "failed": [
+    "src/renderer/src/features/skills/hooks/useNativeMcpCatalog.test.ts :: refreshes on backend push and focus, coalesces busy and locked pushes and stops after unmount"
+   ],
+   "collection": []
+  },
+  {
+   "id": "Y07-VP15-cold-recovery-bypass",
+   "file": "src/main/app/chat-turn/native-session.ts",
+   "tests": [
+    "src/main/app/chat-turn/native-session.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 12,
+   "failed": [
+    "src/main/app/chat-turn/native-session.test.ts :: native retention recovery through the migrated archive > passes a stored snapshot and matching cursor on cold resume, but bypasses them for unsettled recovery"
+   ],
+   "collection": []
+  },
+  {
+   "id": "Y08-VP15-handler-snapshot",
+   "file": "src/main/app/handlers/session.ts",
+   "tests": [
+    "src/main/app/handlers/session.load.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 11,
+   "failed": [
+    "src/main/app/handlers/session.load.test.ts :: session load IPC refreshes native history before composing the archived view > reuses the refreshed snapshot through the handler without parsing its payload again"
+   ],
+   "collection": []
+  },
+  {
+   "id": "Y09-VP16-skills-generation",
+   "file": "src/main/app/bootstrap.ts",
+   "tests": [
+    "src/main/app/bootstrap.native-history.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 18,
+   "failed": [
+    "src/main/app/bootstrap.native-history.test.ts :: keeps the newer skill scan in the cache when a pre-mutation scan finishes late"
+   ],
+   "collection": []
+  },
+  {
+   "id": "Y10-VP16-author-joins-stale",
+   "file": "src/main/app/handlers/skills.ts",
+   "tests": [
+    "src/main/app/handlers/skills.test.ts"
+   ],
+   "result": "MISSED",
+   "total": 12,
+   "failed": [],
+   "collection": []
+  },
+  {
+   "id": "Y11-VP11-async-project-root",
+   "file": "src/main/adapters/claude/plugin-catalog.ts",
+   "tests": [
+    "src/main/adapters/claude/plugin-catalog.test.ts",
+    "src/main/app/native-config-boundaries.test.ts",
+    "src/main/app/skill-catalog.test.ts"
+   ],
+   "result": "MISSED",
+   "total": 14,
+   "failed": [],
+   "collection": []
+  },
+  {
+   "id": "Y12-VP10-binding-project",
+   "file": "src/main/app/session-binding.ts",
+   "tests": [
+    "src/main/app/bootstrap.native-history.test.ts",
+    "src/main/app/composer-catalog.test.ts",
+    "src/main/app/handlers/session-resources.test.ts",
+    "src/main/app/handlers/session-resources.sync.test.ts",
+    "src/main/app/handlers/session-resources.cancellation.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 45,
+   "failed": [
+    "src/main/app/composer-catalog.test.ts :: preserves the configuration failure stage through the registered catalog handler",
+    "src/main/app/composer-catalog.test.ts :: preserves the acquire failure stage through the registered catalog handler",
+    "src/main/app/composer-catalog.test.ts :: prepares draft and saved directory with the same production settings and env resolution as turns",
+    "src/main/app/composer-catalog.test.ts :: returns prepared plugin and agent parts through IPC before blocked MCP/models without a session",
+    "src/main/app/composer-catalog.test.ts :: does not start a native server after caller cancellation or session scope change during preparation",
+    "src/main/app/composer-catalog.test.ts :: wires the public handler through the production resolver and returns its shutdown cleanup"
+   ],
+   "collection": []
+  },
+  {
+   "id": "Y13-VP04-serialize",
+   "file": "src/main/app/project-resource-sync.ts",
+   "tests": [
+    "src/main/app/project-resource-sync.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 17,
+   "failed": [
+    "src/main/app/project-resource-sync.test.ts :: holds watcher broadcasts behind an in-flight project mutation",
+    "src/main/app/project-resource-sync.test.ts :: holds connection-change broadcasts behind an in-flight project mutation",
+    "src/main/app/project-resource-sync.test.ts :: holds watcher failure broadcasts behind a mutation queued during the read",
+    "src/main/app/project-resource-sync.test.ts :: holds post-apply broadcasts behind a mutation queued during reconcile",
+    "src/main/app/project-resource-sync.test.ts :: holds apply failure broadcasts behind a mutation queued during reconcile",
+    "src/main/app/project-resource-sync.test.ts :: serializes the same project key and continues after failure (false)",
+    "src/main/app/project-resource-sync.test.ts :: serializes the same project key and continues after failure (true)"
+   ],
+   "collection": []
+  },
+  {
+   "id": "Y14-VP10-dispose-report",
+   "file": "src/main/adapters/opencode/v1/adapter.ts",
+   "tests": [
+    "src/main/adapters/opencode/v1/adapter.persistent.test.ts",
+    "src/main/adapters/opencode/v1/adapter.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 52,
+   "failed": [
+    "src/main/adapters/opencode/v1/adapter.persistent.test.ts :: exposes native resources from the live channel client and its directory without mutations",
+    "src/main/adapters/opencode/v1/adapter.test.ts :: OpenCode adapter with the real installed SDK and injected HTTP/SSE transport > subscribes before sending, scopes the turn and leaves admission to the runtime"
+   ],
+   "collection": []
+  },
+  {
+   "id": "Y15-VP17-reduced-motion",
+   "file": "src/renderer/src/shared/hooks/useReducedMotion.ts",
+   "tests": [
+    "src/renderer/src/shared/hooks/useReducedMotion.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 1,
+   "failed": [
+    "src/renderer/src/shared/hooks/useReducedMotion.test.ts :: reads the motion preference, follows changes and releases its listener"
+   ],
+   "collection": []
+  },
+  {
+   "id": "Y16-VP14-row-remove",
+   "file": "src/renderer/src/features/engine/harnesses/opencode/ProviderForm.tsx",
+   "tests": [
+    "src/renderer/src/features/engine/harnesses/opencode/ProviderForm.interaction.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 10,
+   "failed": [
+    "src/renderer/src/features/engine/harnesses/opencode/ProviderForm.interaction.test.ts :: OpenCode provider form through production engine router > validates fields, adds and removes rows and submits native settings with the selected harness"
+   ],
+   "collection": []
+  },
+  {
+   "id": "Y17-VP09-flag-array",
+   "file": "src/main/adapters/claude/plugin-flag.ts",
+   "tests": [
+    "src/main/adapters/claude/configured-resources.test.ts",
+    "src/main/adapters/claude/plugin-catalog.test.ts",
+    "src/main/adapters/claude/project-reconciliation.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 25,
+   "failed": [
+    "src/main/adapters/claude/project-reconciliation.test.ts :: shows external selection with actual status immediately, waits for idle, and never saves it back",
+    "src/main/adapters/claude/project-reconciliation.test.ts :: projects native plugin flag undefined during external reconciliation",
+    "src/main/adapters/claude/project-reconciliation.test.ts :: projects native plugin flag false during external reconciliation"
+   ],
+   "collection": []
+  },
+  {
+   "id": "Y10b-VP16-upload-joins-stale",
+   "file": "src/main/app/handlers/skills.ts",
+   "tests": [
+    "src/main/app/handlers/skills.test.ts"
+   ],
+   "result": "MISSED",
+   "total": 12,
+   "failed": [],
+   "collection": []
+  },
+  {
+   "id": "Y10c-VP16-setEnabled-joins-stale",
+   "file": "src/main/app/handlers/skills.ts",
+   "tests": [
+    "src/main/app/handlers/skills.test.ts"
+   ],
+   "result": "CAUGHT",
+   "total": 12,
+   "failed": [
+    "src/main/app/handlers/skills.test.ts :: catalog skill target IPC > joins concurrent list scans and starts a fresh scan after a mutation"
+   ],
+   "collection": []
+  },
+  {
+   "id": "Y10d-VP16-remove-joins-stale",
+   "file": "src/main/app/handlers/skills.ts",
+   "tests": [
+    "src/main/app/handlers/skills.test.ts"
+   ],
+   "result": "MISSED",
+   "total": 12,
+   "failed": [],
+   "collection": []
+  }
+ ]
+}
