@@ -1,0 +1,1632 @@
+[
+ {
+  "id": "M001 VP02-interval",
+  "file": "src/renderer/src/features/skills/hooks/useNativeMcpCatalog.ts",
+  "replacement": {
+   "from": "    window.addEventListener('focus', focus)",
+   "to": "    setInterval(() => void refresh(), 5000)\n    window.addEventListener('focus', focus)"
+  },
+  "tests": [
+   "src/renderer/src/features/skills/hooks/useNativeMcpCatalog.test.ts"
+  ]
+ },
+ {
+  "id": "M002 VP02-subscribe",
+  "file": "src/renderer/src/features/skills/hooks/useNativeMcpCatalog.ts",
+  "replacement": {
+   "from": "      void refreshBackend(backend)",
+   "to": "      void backend"
+  },
+  "tests": [
+   "src/renderer/src/features/skills/hooks/useNativeMcpCatalog.test.ts"
+  ]
+ },
+ {
+  "id": "M003 VP07-comparison",
+  "file": "src/main/infra/config/fingerprint-watch.ts",
+  "replacement": {
+   "from": "this.closed || next === this.fingerprint",
+   "to": "this.closed"
+  },
+  "tests": [
+   "src/main/infra/config/fingerprint-watch.test.ts",
+   "src/main/app/harnesses/opencode/global-watch.test.ts"
+  ]
+ },
+ {
+  "id": "M004 VP09-BOM",
+  "file": "src/main/infra/config/json-file.ts",
+  "replacement": {
+   "from": "text.replace(/^\\uFEFF/, '')",
+   "to": "text"
+  },
+  "tests": [
+   "src/main/app/native-config-boundaries.test.ts",
+   "src/main/infra/config/json-file.test.ts",
+   "src/main/adapters/claude/plugin-catalog.test.ts",
+   "src/main/adapters/claude/configured-resources.test.ts",
+   "src/main/adapters/claude/project-settings.test.ts",
+   "src/main/adapters/claude/plugin-state.test.ts"
+  ]
+ },
+ {
+  "id": "M005 VP09-missing-async",
+  "file": "src/main/infra/config/json-file.ts",
+  "replacement": {
+   "from": "    text = await readFile(path, 'utf8')\n  } catch (error) {\n    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {}",
+   "to": "    text = await readFile(path, 'utf8')\n  } catch (error) {\n    if (false) return {}"
+  },
+  "tests": [
+   "src/main/app/native-config-boundaries.test.ts",
+   "src/main/infra/config/json-file.test.ts",
+   "src/main/adapters/claude/plugin-catalog.test.ts",
+   "src/main/adapters/claude/configured-resources.test.ts",
+   "src/main/adapters/claude/project-settings.test.ts",
+   "src/main/adapters/claude/plugin-state.test.ts"
+  ]
+ },
+ {
+  "id": "M006 VP09-git",
+  "file": "src/main/adapters/common/git-root.ts",
+  "replacement": {
+   "from": "    yield current",
+   "to": "    yield current\n    return"
+  },
+  "tests": [
+   "src/main/app/native-config-boundaries.test.ts",
+   "src/main/adapters/common/git-root.test.ts",
+   "src/main/adapters/claude/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts"
+  ]
+ },
+ {
+  "id": "M007 VP10-membership",
+  "file": "src/main/adapters/opencode/v1/adapter.ts",
+  "replacement": {
+   "from": "return active(item.managedSource, current)",
+   "to": "return !active(item.managedSource, current)"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/adapter.test.ts"
+  ]
+ },
+ {
+  "id": "M008 VP10-choices",
+  "file": "src/main/adapters/opencode/v1/adapter.ts",
+  "replacement": {
+   "from": "[id, active(identity, current)]",
+   "to": "[id, !active(identity, current)]"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/adapter.test.ts"
+  ]
+ },
+ {
+  "id": "M009 VP11-double-config",
+  "file": "src/main/adapters/opencode/v1/channel.ts",
+  "replacement": {
+   "from": "openCodeNativePlugins(client, req.cwd, env, signal, configuration)",
+   "to": "openCodeNativePlugins(client, req.cwd, env, signal)"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/channel.native-resources.test.ts"
+  ]
+ },
+ {
+  "id": "M010 VP11-serial",
+  "file": "src/main/adapters/opencode/v1/native-resources.ts",
+  "replacement": {
+   "from": "client.app.skills({ directory }, options),",
+   "to": "await client.app.skills({ directory }, options),"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/native-resources.test.ts"
+  ]
+ },
+ {
+  "id": "M011 VP15-client-first",
+  "file": "src/main/adapters/opencode/v1/native-history.ts",
+  "replacement": {
+   "from": "    let probeFailed = false",
+   "to": "    await deps.client(request)\n    let probeFailed = false"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/native-history.test.ts"
+  ]
+ },
+ {
+  "id": "M012 VP16-targets",
+  "file": "src/main/app/project-resource-sync.ts",
+  "replacement": {
+   "from": "void this.apply(entry, runtimeTargets)",
+   "to": "void this.apply(entry)"
+  },
+  "tests": [
+   "src/main/app/project-resource-sync.test.ts"
+  ]
+ },
+ {
+  "id": "M013 VP16-list",
+  "file": "src/main/app/handlers/skills.ts",
+  "replacement": {
+   "from": "listing ?? refresh()",
+   "to": "refresh()"
+  },
+  "tests": [
+   "src/main/app/handlers/skills.test.ts"
+  ]
+ },
+ {
+  "id": "M014 VP16-parse",
+  "file": "src/main/adapters/claude/project-settings.ts",
+  "replacement": {
+   "from": "if (cached?.fingerprint === fingerprint) return cached.value",
+   "to": "if (false) return cached!.value"
+  },
+  "tests": [
+   "src/main/adapters/claude/project-settings.test.ts"
+  ]
+ },
+ {
+  "id": "M015 VP16-candidate",
+  "file": "src/main/adapters/claude/native-history.ts",
+  "replacement": {
+   "from": {
+    "pattern": "offset (\\+=|\\+) 16",
+    "flags": "g"
+   },
+   "to": "offset $1 1"
+  },
+  "tests": [
+   "src/main/adapters/claude/native-history.test.ts"
+  ]
+ },
+ {
+  "id": "M016 VP16-hash",
+  "file": "src/main/adapters/claude/native-history.ts",
+  "replacement": {
+   "from": "prefixRevision = hash.copy().digest('hex')",
+   "to": "prefixRevision = createHash('sha256').update(bytes.subarray(0, prefixOffset)).digest('hex')"
+  },
+  "tests": [
+   "src/main/adapters/claude/native-history.test.ts"
+  ]
+ },
+ {
+  "id": "M017 VP16-skill-path",
+  "file": "src/main/app/skill-catalog.ts",
+  "replacement": {
+   "from": "path: await realpath(skill.skillPath).catch(() => skill.skillPath)",
+   "to": "path: await realpath(skill.skillPath).then(() => realpath(skill.skillPath)).catch(() => skill.skillPath)"
+  },
+  "tests": [
+   "src/main/app/skill-catalog.test.ts"
+  ]
+ },
+ {
+  "id": "M018 VP16-event-cap",
+  "file": "src/main/adapters/opencode/v1/map.ts",
+  "replacement": {
+   "from": "if (event.id) this.seenEvents.add(event.id)",
+   "to": "if (event.id) this.seenEvents.add(event.id)\n    if (this.seenEvents.size > 4096) this.seenEvents.delete(this.seenEvents.values().next().value!)"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/map.replay.test.ts"
+  ]
+ },
+ {
+  "id": "M019 VP16-roots",
+  "file": "src/main/adapters/opencode/v1/native-resources.ts",
+  "replacement": {
+   "from": "skillRoots ??= openCodeSkillRoots(directory, env)",
+   "to": "skillRoots = openCodeSkillRoots(directory, env)"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/native-resources.test.ts"
+  ]
+ },
+ {
+  "id": "M020 VP16-SSE",
+  "file": "src/main/adapters/opencode/v1/session-context.ts",
+  "replacement": {
+   "from": "subscriber.directory !== directory",
+   "to": "nativePathKey(subscriber.directory) !== directory"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/session-context.test.ts"
+  ]
+ },
+ {
+  "id": "M021 VP16-peek",
+  "file": "src/main/features/extensions/common/mcp/managed-source.ts",
+  "replacement": {
+   "from": "peek: () => current",
+   "to": "peek: () => ({ ...current, users: structuredClone(current.users), definitions: structuredClone(current.definitions), desired: structuredClone(current.desired) })"
+  },
+  "tests": [
+   "src/main/features/extensions/common/mcp/managed-source.test.ts"
+  ]
+ },
+ {
+  "id": "M022 VP17-memo",
+  "file": "src/renderer/src/features/chat/harnesses/opencode/rightpanel/tiles.tsx",
+  "replacement": {
+   "from": "let model = inputs.get(backgroundKey)",
+   "to": "let model = undefined as ReturnType<typeof sessionPanelModel> | undefined"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/harnesses/opencode/rightpanel/tiles.memo.test.ts"
+  ]
+ },
+ {
+  "id": "M023 VP18-canonical-harness-config",
+  "file": "src/main/adapters/common/harness-config.ts",
+  "replacement": {
+   "from": "canonicalJson(",
+   "to": "JSON.stringify("
+  },
+  "tests": [
+   "src/main/adapters/common/harness-config.test.ts"
+  ]
+ },
+ {
+  "id": "M024 VP18-canonical-background-task-queries",
+  "file": "src/main/infra/db/background-task-queries.ts",
+  "replacement": {
+   "from": "canonicalJson(",
+   "to": "JSON.stringify("
+  },
+  "tests": [
+   "src/main/infra/db/background-journal-key.test.ts"
+  ]
+ },
+ {
+  "id": "M025 VP18-canonical-composer-catalog",
+  "file": "src/main/app/composer-catalog.ts",
+  "replacement": {
+   "from": "canonicalJson(",
+   "to": "JSON.stringify("
+  },
+  "tests": [
+   "src/main/app/composer-catalog.test.ts"
+  ]
+ },
+ {
+  "id": "M026 VP18-variant-settings",
+  "file": "src/main/adapters/opencode/v1/settings.ts",
+  "replacement": {
+   "from": {
+    "pattern": "enabledVariantNames\\(([^()]+)\\)",
+    "flags": ""
+   },
+   "to": "Object.keys($1 ?? {})"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/settings.test.ts"
+  ]
+ },
+ {
+  "id": "M027 VP18-variant-model-listing",
+  "file": "src/main/adapters/opencode/v1/model-listing.ts",
+  "replacement": {
+   "from": {
+    "pattern": "enabledVariantNames\\(([^()]+)\\)",
+    "flags": ""
+   },
+   "to": "Object.keys($1 ?? {})"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/model-listing.test.ts"
+  ]
+ },
+ {
+  "id": "M028 VP18-variant-composer-catalog",
+  "file": "src/main/adapters/opencode/v1/composer-catalog.ts",
+  "replacement": {
+   "from": {
+    "pattern": "enabledVariantNames\\(([^()]+)\\)",
+    "flags": ""
+   },
+   "to": "Object.keys($1 ?? {})"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/composer-catalog.test.ts"
+  ]
+ },
+ {
+  "id": "M029 VP18-version",
+  "file": "src/main/adapters/opencode/v1/server.ts",
+  "replacement": {
+   "from": "['--version']",
+   "to": "['-v']"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/server.cli.test.ts"
+  ]
+ },
+ {
+  "id": "M030 VP18-db-path",
+  "file": "src/main/adapters/opencode/v1/server.ts",
+  "replacement": {
+   "from": "['db', 'path']",
+   "to": "['db', 'wrong']"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/server.database-path.test.ts"
+  ]
+ },
+ {
+  "id": "M031 VP18-auth-plugin",
+  "file": "src/main/features/auth/runtime.ts",
+  "replacement": {
+   "from": "snapshot: () => loginFreeSnapshot(authId)",
+   "to": "snapshot: () => (connections.has(authId) ? alwaysConnectedSnapshot(authId) : connections.snapshot(authId))"
+  },
+  "tests": [
+   "src/main/features/auth/login-free.test.ts"
+  ]
+ },
+ {
+  "id": "M032 VP18-auth-runtime",
+  "file": "src/main/features/auth/runtime.ts",
+  "replacement": {
+   "from": "return loginFreeSnapshot(authId)",
+   "to": "return (connections.has(authId) ? alwaysConnectedSnapshot(authId) : connections.snapshot(authId))"
+  },
+  "tests": [
+   "src/main/features/auth/login-free.test.ts"
+  ]
+ },
+ {
+  "id": "M033 VP18-connection-list",
+  "file": "src/main/app/connection-views.ts",
+  "replacement": {
+   "from": "providerConnectionInfo(snapshot.connection)",
+   "to": "({ ...providerConnectionInfo(snapshot.connection), message: snapshot.connection.message ?? '' })"
+  },
+  "tests": [
+   "src/main/app/connection-views.test.ts"
+  ]
+ },
+ {
+  "id": "M034 VP18-connection-handler",
+  "file": "src/main/app/handlers/providers.ts",
+  "replacement": {
+   "from": "return providerConnectionInfo(status)",
+   "to": "return { ...providerConnectionInfo(status), message: status.message ?? '' }"
+  },
+  "tests": [
+   "src/main/app/handlers/providers.test.ts"
+  ]
+ },
+ {
+  "id": "M035 VP18-skill-order",
+  "file": "src/renderer/src/features/chat/lib/attachMenuModel.ts",
+  "replacement": {
+   "from": "skillGroups.unshift(next)",
+   "to": "skillGroups.push(next)"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/lib/attachMenuModel.test.ts"
+  ]
+ },
+ {
+  "id": "M036 VP19-bootstrap-opencode",
+  "file": "src/main/app/bootstrap.ts",
+  "replacement": {
+   "from": "broadcastExtensionsChanged({ backend: 'opencode' })",
+   "to": "undefined"
+  },
+  "tests": [
+   "src/main/app/bootstrap.native-history.test.ts"
+  ]
+ },
+ {
+  "id": "M037 VP19-bootstrap-claude",
+  "file": "src/main/app/bootstrap.ts",
+  "replacement": {
+   "from": "broadcastExtensionsChanged({ backend: 'claude' })",
+   "to": "undefined"
+  },
+  "tests": [
+   "src/main/app/bootstrap.native-history.test.ts"
+  ]
+ },
+ {
+  "id": "M038 VP19-preload",
+  "file": "src/preload/index.ts",
+  "replacement": {
+   "from": "subscribe(CHANNELS.extensionsChanged, handler)",
+   "to": "(() => undefined)"
+  },
+  "tests": [
+   "src/preload/index.test.ts"
+  ]
+ },
+ {
+  "id": "M039 VP19-api",
+  "file": "src/renderer/src/shared/api/ipc.ts",
+  "replacement": {
+   "from": "globalThis.window?.orca?.session?.onExtensionsChanged?.(handler)",
+   "to": "undefined"
+  },
+  "tests": [
+   "src/preload/index.test.ts"
+  ]
+ },
+ {
+  "id": "M040 VP15-whole-delete",
+  "file": "src/main/infra/db/native-history-queries.ts",
+  "replacement": {
+   "from": "AND native_id NOT IN (SELECT value FROM json_each(?))",
+   "to": "AND length(?) >= 0"
+  },
+  "tests": [
+   "src/main/features/history/native-history.db.test.ts"
+  ]
+ },
+ {
+  "id": "M041 VP16-identity",
+  "file": "src/main/adapters/opencode/v1/server-profile.ts",
+  "replacement": {
+   "from": "profileComponents(executableIdentity, cwd, environment)",
+   "to": "profileComponents(openCodeExecutableIdentity(executable), cwd, environment)"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/server-profile.test.ts"
+  ]
+ },
+ {
+  "id": "M042 VP16-defaults",
+  "file": "src/main/adapters/claude/plugin-catalog.ts",
+  "replacement": {
+   "from": "  const defaults = pluginDefaults(readObject(join(nativeRoot, 'settings.json')), overrides)",
+   "to": "  readClaudePluginCatalog(process.cwd(), nativeRoot, overrides, { includeDisabled: true })\n  const defaults = pluginDefaults(readObject(join(nativeRoot, 'settings.json')), overrides)"
+  },
+  "tests": [
+   "src/main/adapters/claude/plugin-catalog.test.ts"
+  ]
+ },
+ {
+  "id": "M043 VP12-mark",
+  "file": "src/renderer/src/shared/ui/HarnessLogo.tsx",
+  "replacement": {
+   "from": "backend === 'claude' ? (",
+   "to": "backend !== 'claude' ? ("
+  },
+  "tests": [
+   "src/renderer/src/shared/ui/HarnessLogo.render.test.ts"
+  ]
+ },
+ {
+  "id": "M044 VP12-color",
+  "file": "src/renderer/src/shared/ui/HarnessLogo.tsx",
+  "replacement": {
+   "from": "backend === 'claude' ? 'text-spinner' : 'text-oc-ink'",
+   "to": "backend === 'claude' ? 'text-oc-ink' : 'text-spinner'"
+  },
+  "tests": [
+   "src/renderer/src/shared/ui/HarnessLogo.render.test.ts"
+  ]
+ },
+ {
+  "id": "M045 VP12-engine",
+  "file": "src/renderer/src/features/engine/common/components/EngineCard.tsx",
+  "replacement": {
+   "from": "backend={agent.adapter}",
+   "to": "backend={agent.adapter === 'claude' ? 'opencode' : 'claude'}"
+  },
+  "tests": [
+   "src/renderer/src/features/engine/common/components/EngineCard.render.test.ts"
+  ]
+ },
+ {
+  "id": "M046 VP12-engine-menu",
+  "file": "src/renderer/src/features/engine/common/components/AgentEnvironmentView.tsx",
+  "replacement": {
+   "from": "backend={engine}",
+   "to": "backend={engine === 'claude' ? 'opencode' : 'claude'}"
+  },
+  "tests": [
+   "src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts"
+  ]
+ },
+ {
+  "id": "M047 VP12-source-claude",
+  "file": "src/renderer/src/features/skills/components/customize/SourceHeading.tsx",
+  "replacement": {
+   "from": "backend=\"claude\"",
+   "to": "backend=\"opencode\""
+  },
+  "tests": [
+   "src/renderer/src/features/skills/components/customize/SourceHeading.render.test.ts"
+  ]
+ },
+ {
+  "id": "M048 VP12-source-opencode",
+  "file": "src/renderer/src/features/skills/components/customize/SourceHeading.tsx",
+  "replacement": {
+   "from": "backend=\"opencode\"",
+   "to": "backend=\"claude\""
+  },
+  "tests": [
+   "src/renderer/src/features/skills/components/customize/SourceHeading.render.test.ts"
+  ]
+ },
+ {
+  "id": "M049 VP12-agent-toggle",
+  "file": "src/renderer/src/features/chat/components/AgentModeToggle.tsx",
+  "replacement": {
+   "from": "backend=\"claude\"",
+   "to": "backend=\"opencode\""
+  },
+  "tests": [
+   "src/renderer/src/features/chat/components/AgentModeToggle.test.ts"
+  ]
+ },
+ {
+  "id": "M050 VP12-model-menu",
+  "file": "src/renderer/src/features/chat/components/composer/ModelMenu.tsx",
+  "replacement": {
+   "from": "backend={agent.adapter}",
+   "to": "backend={agent.adapter === 'claude' ? 'opencode' : 'claude'}"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/components/composer/modelMenu0215.render.test.ts"
+  ]
+ },
+ {
+  "id": "M051 VP12-composer-icon",
+  "file": "src/renderer/src/features/chat/harnesses/registries/composer.ts",
+  "replacement": {
+   "from": "backend: sourceBackend",
+   "to": "backend: sourceBackend === 'claude' ? 'opencode' : 'claude'"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/harnesses/registries/brand-surfaces.test.ts"
+  ]
+ },
+ {
+  "id": "M052 VP12-sidebar",
+  "file": "src/renderer/src/app/SidebarUserButton.tsx",
+  "replacement": {
+   "from": "backend={backend}",
+   "to": "backend={backend === 'claude' ? 'opencode' : 'claude'}"
+  },
+  "tests": [
+   "src/renderer/src/app/SidebarUserButton.brand.test.ts"
+  ]
+ },
+ {
+  "id": "M053 VP13-claude-variant",
+  "file": "src/renderer/src/features/chat/harnesses/claude/surfaces.ts",
+  "replacement": {
+   "from": "variant: 'outlined'",
+   "to": "variant: 'flat'"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+  ]
+ },
+ {
+  "id": "M054 VP13-claude-chipVariant",
+  "file": "src/renderer/src/features/chat/harnesses/claude/surfaces.ts",
+  "replacement": {
+   "from": "chipVariant: 'segment'",
+   "to": "chipVariant: 'flat'"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+  ]
+ },
+ {
+  "id": "M055 VP13-claude-showChevron",
+  "file": "src/renderer/src/features/chat/harnesses/claude/surfaces.ts",
+  "replacement": {
+   "from": "showChevron: false",
+   "to": "showChevron: true"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+  ]
+ },
+ {
+  "id": "M056 VP13-claude-trailingDivider",
+  "file": "src/renderer/src/features/chat/harnesses/claude/surfaces.ts",
+  "replacement": {
+   "from": "trailingDivider: true",
+   "to": "trailingDivider: false"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+  ]
+ },
+ {
+  "id": "M057 VP13-claude-contextRow",
+  "file": "src/renderer/src/features/chat/harnesses/claude/surfaces.ts",
+  "replacement": {
+   "from": "contextRow: landingFrame.contextRow",
+   "to": "contextRow: ''"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+  ]
+ },
+ {
+  "id": "M058 VP13-claude-chipGroup",
+  "file": "src/renderer/src/features/chat/harnesses/claude/surfaces.ts",
+  "replacement": {
+   "from": "chipGroup: chipGroupSurface",
+   "to": "chipGroup: 'inline-flex h-7 max-w-full items-center'"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+  ]
+ },
+ {
+  "id": "M059 VP13-claude-landing",
+  "file": "src/renderer/src/features/chat/harnesses/claude/landing/presentation.ts",
+  "replacement": {
+   "from": "contextLayout: 'inline'",
+   "to": "contextLayout: 'below'"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/harnesses/registries/brand-surfaces.test.ts"
+  ]
+ },
+ {
+  "id": "M060 VP13-opencode-variant",
+  "file": "src/renderer/src/features/chat/harnesses/opencode/surfaces.ts",
+  "replacement": {
+   "from": "variant: 'flat'",
+   "to": "variant: 'outlined'"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+  ]
+ },
+ {
+  "id": "M061 VP13-opencode-chipVariant",
+  "file": "src/renderer/src/features/chat/harnesses/opencode/surfaces.ts",
+  "replacement": {
+   "from": "chipVariant: 'flat'",
+   "to": "chipVariant: 'segment'"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+  ]
+ },
+ {
+  "id": "M062 VP13-opencode-showChevron",
+  "file": "src/renderer/src/features/chat/harnesses/opencode/surfaces.ts",
+  "replacement": {
+   "from": "showChevron: true",
+   "to": "showChevron: false"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+  ]
+ },
+ {
+  "id": "M063 VP13-opencode-trailingDivider",
+  "file": "src/renderer/src/features/chat/harnesses/opencode/surfaces.ts",
+  "replacement": {
+   "from": "trailingDivider: false",
+   "to": "trailingDivider: true"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+  ]
+ },
+ {
+  "id": "M064 VP13-opencode-contextRow",
+  "file": "src/renderer/src/features/chat/harnesses/opencode/surfaces.ts",
+  "replacement": {
+   "from": "contextRow: ''",
+   "to": "contextRow: 'gap-g3'"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+  ]
+ },
+ {
+  "id": "M065 VP13-opencode-chipGroup",
+  "file": "src/renderer/src/features/chat/harnesses/opencode/surfaces.ts",
+  "replacement": {
+   "from": "chipGroup: 'inline-flex h-7 max-w-full items-center'",
+   "to": "chipGroup: 'border'"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/components/CwdPanel.surface.test.ts"
+  ]
+ },
+ {
+  "id": "M066 VP13-opencode-landing",
+  "file": "src/renderer/src/features/chat/harnesses/opencode/landing/presentation.ts",
+  "replacement": {
+   "from": "contextLayout: 'below'",
+   "to": "contextLayout: 'inline'"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/harnesses/registries/brand-surfaces.test.ts"
+  ]
+ },
+ {
+  "id": "M067 VP13-seed-kind",
+  "file": "src/renderer/src/features/chat/store/chatStore.ts",
+  "replacement": {
+   "from": "supportsAgentKind(landingBackend, entry.session.agentKind)",
+   "to": "!supportsAgentKind(landingBackend, entry.session.agentKind)"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/store/chatStore.harness.test.ts"
+  ]
+ },
+ {
+  "id": "M068 VP13-fresh-kind",
+  "file": "src/renderer/src/features/chat/store/chatStore.ts",
+  "replacement": {
+   "from": "!supportsAgentKind(landingBackend, landingAgentKind)",
+   "to": "supportsAgentKind(landingBackend, landingAgentKind)"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/store/chatStore.harness.test.ts"
+  ]
+ },
+ {
+  "id": "M069 VP13-handoff",
+  "file": "src/renderer/src/features/chat/store/chatStore.ts",
+  "replacement": {
+   "from": {
+    "pattern": "sessionBusy\\(src\\) \\|\\|\\s*src\\.loadingSession \\|\\|\\s*!HARNESS_CAPABILITIES\\[src\\.backend \\?\\? 'claude'\\]\\.continuity",
+    "flags": ""
+   },
+   "to": "sessionBusy(src) || src.loadingSession || HARNESS_CAPABILITIES[src.backend ?? 'claude'].continuity"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/store/chatStore.harness.test.ts",
+   "src/renderer/src/features/chat/store/chatStore.test.ts"
+  ]
+ },
+ {
+  "id": "M070 VP13-open-subagent",
+  "file": "src/renderer/src/features/chat/store/chatStore.ts",
+  "replacement": {
+   "from": ".subagentTile === 'task'",
+   "to": ".subagentTile === 'subagent'"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/store/chatStore.panelTiles.test.ts",
+   "src/renderer/src/features/chat/store/chatStore.background-open.test.ts"
+  ]
+ },
+ {
+  "id": "M071 VP13-reducer-subagent",
+  "file": "src/renderer/src/features/chat/reducer/chatReducer.ts",
+  "replacement": {
+   "from": "HARNESS_CAPABILITIES[state.backend ?? 'claude'].subagentTile",
+   "to": "HARNESS_CAPABILITIES[state.backend === 'claude' ? 'opencode' : 'claude'].subagentTile"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/reducer/chatReducer.harness.test.ts",
+   "src/renderer/src/features/chat/reducer/chatReducer.task.test.ts"
+  ]
+ },
+ {
+  "id": "M072 VP13-permissions",
+  "file": "src/renderer/src/features/chat/reducer/chatReducer.ts",
+  "replacement": {
+   "from": "HARNESS_CAPABILITIES[backend].permissionModes",
+   "to": "!HARNESS_CAPABILITIES[backend].permissionModes"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/reducer/chatReducer.harness.test.ts",
+   "src/renderer/src/features/chat/reducer/chatReducer.permission.test.ts"
+  ]
+ },
+ {
+  "id": "M073 VP13-composer-frame",
+  "file": "src/renderer/src/features/chat/components/Composer.tsx",
+  "replacement": {
+   "from": "contextLayout === 'below' && contextBelow ? landingFrame.openCodeComposer",
+   "to": "contextLayout !== 'below' && contextBelow ? landingFrame.openCodeComposer"
+  },
+  "tests": [
+   "src/renderer/src/pages/NewChatLandingPage.harness.test.ts"
+  ]
+ },
+ {
+  "id": "M074 VP13-composer-inline",
+  "file": "src/renderer/src/features/chat/components/Composer.tsx",
+  "replacement": {
+   "from": "showLandingCwdPanel && !(contextLayout === 'below' && contextBelow)",
+   "to": "showLandingCwdPanel && (contextLayout === 'below' && contextBelow)"
+  },
+  "tests": [
+   "src/renderer/src/pages/NewChatLandingPage.harness.test.ts"
+  ]
+ },
+ {
+  "id": "M075 VP13-composer-below",
+  "file": "src/renderer/src/features/chat/components/Composer.tsx",
+  "replacement": {
+   "from": "showLandingCwdPanel && contextLayout === 'below' && contextBelow ?",
+   "to": "showLandingCwdPanel && contextLayout !== 'below' && contextBelow ?"
+  },
+  "tests": [
+   "src/renderer/src/pages/NewChatLandingPage.harness.test.ts"
+  ]
+ },
+ {
+  "id": "M076 VP13-landing-forward",
+  "file": "src/renderer/src/features/chat/components/Landing.tsx",
+  "replacement": {
+   "from": "{...presentation.composer}",
+   "to": "{...presentation.composer} contextLayout='inline'"
+  },
+  "tests": [
+   "src/renderer/src/pages/NewChatLandingPage.harness.test.ts"
+  ]
+ },
+ {
+  "id": "M077 VP12-label-copy",
+  "file": "src/renderer/src/features/chat/components/ChatTitleBar.tsx",
+  "replacement": {
+   "from": "HARNESS_CAPABILITIES[conversationBackend ?? 'claude'].shortLabel",
+   "to": "HARNESS_CAPABILITIES[conversationBackend === 'claude' ? 'opencode' : 'claude'].shortLabel"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/components/ChatTitleBar.copy.test.ts"
+  ]
+ },
+ {
+  "id": "M078 VP12-label-engine",
+  "file": "src/renderer/src/features/engine/common/components/AgentEnvironmentView.tsx",
+  "replacement": {
+   "from": "HARNESS_CAPABILITIES[engine].shortLabel",
+   "to": "HARNESS_CAPABILITIES[engine === 'claude' ? 'opencode' : 'claude'].shortLabel"
+  },
+  "tests": [
+   "src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts"
+  ]
+ },
+ {
+  "id": "M079 VP12-label-source",
+  "file": "src/shared/extension-sources.ts",
+  "replacement": {
+   "from": "HARNESS_CAPABILITIES[backend].shortLabel",
+   "to": "HARNESS_CAPABILITIES[backend === 'claude' ? 'opencode' : 'claude'].shortLabel"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/lib/composerSkills.test.ts",
+   "src/renderer/src/features/chat/lib/attachMenuModel.test.ts"
+  ]
+ },
+ {
+  "id": "M080 VP12-plan-hint-claude",
+  "file": "src/renderer/src/features/chat/harnesses/claude/rightpanel/tileRegistry.ts",
+  "replacement": {
+   "from": "selectHintKey: harnessCatalog('claude')",
+   "to": "selectHintKey: harnessCatalog('opencode')"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts"
+  ]
+ },
+ {
+  "id": "M081 VP12-plan-hint-opencode",
+  "file": "src/renderer/src/features/chat/harnesses/opencode/rightpanel/tileRegistry.ts",
+  "replacement": {
+   "from": "selectHintKey: harnessCatalog('opencode')",
+   "to": "selectHintKey: harnessCatalog('claude')"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts"
+  ]
+ },
+ {
+  "id": "M082 R-VP09-missing-sync-all",
+  "file": "src/main/infra/config/json-file.ts",
+  "replacement": {
+   "from": "if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {}",
+   "to": "if (false) return {}",
+   "all": true
+  },
+  "tests": [
+   "src/main/app/native-config-boundaries.test.ts",
+   "src/main/infra/config/json-file.test.ts",
+   "src/main/adapters/claude/plugin-catalog.test.ts",
+   "src/main/adapters/claude/configured-resources.test.ts",
+   "src/main/adapters/claude/project-settings.test.ts",
+   "src/main/adapters/claude/plugin-state.test.ts"
+  ]
+ },
+ {
+  "id": "M083 R-VP09-missing-sync-only",
+  "file": "src/main/infra/config/json-file.ts",
+  "replacement": {
+   "from": "if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {}",
+   "to": "if (false) return {}",
+   "nth": 0
+  },
+  "tests": [
+   "src/main/app/native-config-boundaries.test.ts",
+   "src/main/infra/config/json-file.test.ts",
+   "src/main/adapters/claude/plugin-catalog.test.ts",
+   "src/main/adapters/claude/configured-resources.test.ts",
+   "src/main/adapters/claude/project-settings.test.ts",
+   "src/main/adapters/claude/plugin-state.test.ts"
+  ]
+ },
+ {
+  "id": "M084 R-VP18-plugin-order-native",
+  "file": "src/renderer/src/features/chat/lib/attachMenuModel.ts",
+  "replacement": {
+   "from": "pluginItems.push(",
+   "to": "pluginItems.unshift(",
+   "nth": 0
+  },
+  "tests": [
+   "src/renderer/src/features/chat/harnesses/common/composer/Composer.native-menu.test.ts",
+   "src/renderer/src/features/chat/lib/attachMenuModel.test.ts"
+  ]
+ },
+ {
+  "id": "M085 R-VP13-fork-only",
+  "file": "src/renderer/src/features/chat/store/chatStore.ts",
+  "replacement": {
+   "from": "!HARNESS_CAPABILITIES[src.backend ?? 'claude'].continuity",
+   "to": "HARNESS_CAPABILITIES[src.backend ?? 'claude'].continuity",
+   "nth": 0
+  },
+  "tests": [
+   "src/renderer/src/features/chat/store/chatStore.harness.test.ts",
+   "src/renderer/src/features/chat/store/chatStore.test.ts"
+  ]
+ },
+ {
+  "id": "M086 R-VP12-plan-claude-desc",
+  "file": "src/renderer/src/features/chat/harnesses/claude/rightpanel/tileRegistry.ts",
+  "replacement": {
+   "from": "harnessCatalog('claude')",
+   "to": "harnessCatalog('opencode')",
+   "nth": 0
+  },
+  "tests": [
+   "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts"
+  ]
+ },
+ {
+  "id": "M087 R-VP12-plan-opencode-desc",
+  "file": "src/renderer/src/features/chat/harnesses/opencode/rightpanel/tileRegistry.ts",
+  "replacement": {
+   "from": "harnessCatalog('opencode')",
+   "to": "harnessCatalog('claude')",
+   "nth": 0
+  },
+  "tests": [
+   "src/renderer/src/features/chat/harnesses/common/rightpanel/plan0215.render.test.ts"
+  ]
+ },
+ {
+  "id": "M088 Y01-VP07-revision-sibling",
+  "file": "src/main/app/harnesses/opencode/global-watch.ts",
+  "replacement": {
+   "from": "if (current !== previous) {",
+   "to": "if (true) {"
+  },
+  "tests": [
+   "src/main/app/harnesses/opencode/global-watch.test.ts",
+   "src/main/app/bootstrap.native-history.test.ts"
+  ]
+ },
+ {
+  "id": "M089 Y02-VP19-claude-close",
+  "file": "src/main/app/bootstrap.ts",
+  "replacement": {
+   "from": "    this.claudeGlobalWatch?.close()\n",
+   "to": ""
+  },
+  "tests": [
+   "src/main/app/bootstrap.native-history.test.ts"
+  ]
+ },
+ {
+  "id": "M090 Y03-VP07-claude-settings-file",
+  "file": "src/main/app/bootstrap.ts",
+  "replacement": {
+   "from": "        nativeClaude.settings,\n",
+   "to": ""
+  },
+  "tests": [
+   "src/main/app/bootstrap.native-history.test.ts"
+  ]
+ },
+ {
+  "id": "M091 Y04-VP07-claude-installed-file",
+  "file": "src/main/app/bootstrap.ts",
+  "replacement": {
+   "from": "        join(nativeClaude.root, 'plugins', 'installed_plugins.json'),\n",
+   "to": ""
+  },
+  "tests": [
+   "src/main/app/bootstrap.native-history.test.ts"
+  ]
+ },
+ {
+  "id": "M092 Y05-VP07-claude-state-path-swap",
+  "file": "src/main/app/bootstrap.ts",
+  "replacement": {
+   "from": "          ? join(nativeClaude.root, '.claude.json')\n          : join(homedir(), '.claude.json')",
+   "to": "          ? join(homedir(), '.claude.json')\n          : join(nativeClaude.root, '.claude.json')"
+  },
+  "tests": [
+   "src/main/app/bootstrap.native-history.test.ts"
+  ]
+ },
+ {
+  "id": "M093 Y06-VP02-toggle-pending",
+  "file": "src/renderer/src/features/skills/hooks/useNativeMcpCatalog.ts",
+  "replacement": {
+   "from": "      if (pending.current.has(backend)) void refreshBackend(backend)\n",
+   "to": ""
+  },
+  "tests": [
+   "src/renderer/src/features/skills/hooks/useNativeMcpCatalog.test.ts"
+  ]
+ },
+ {
+  "id": "M094 Y07-VP15-cold-recovery-bypass",
+  "file": "src/main/app/chat-turn/native-session.ts",
+  "replacement": {
+   "from": "recovery && !recovery.accepted ? undefined : readNativeHistoryPrevious(db, request.sessionId)",
+   "to": "readNativeHistoryPrevious(db, request.sessionId)"
+  },
+  "tests": [
+   "src/main/app/chat-turn/native-session.test.ts"
+  ]
+ },
+ {
+  "id": "M095 Y08-VP15-handler-snapshot",
+  "file": "src/main/app/handlers/session.ts",
+  "replacement": {
+   "from": "        sync.snapshot\n",
+   "to": "        undefined\n"
+  },
+  "tests": [
+   "src/main/app/handlers/session.load.test.ts"
+  ]
+ },
+ {
+  "id": "M096 Y09-VP16-skills-generation",
+  "file": "src/main/app/bootstrap.ts",
+  "replacement": {
+   "from": "if (revision === this.skillsRevision) this.skillsCache = skills",
+   "to": "this.skillsCache = skills"
+  },
+  "tests": [
+   "src/main/app/bootstrap.native-history.test.ts"
+  ]
+ },
+ {
+  "id": "M097 Y10-VP16-author-joins-stale",
+  "file": "src/main/app/handlers/skills.ts",
+  "replacement": {
+   "from": "    await writeAuthoredSkill(req)\n    await ctx.deployExtensions()\n    return refresh()",
+   "to": "    await writeAuthoredSkill(req)\n    await ctx.deployExtensions()\n    return listing ?? refresh()"
+  },
+  "tests": [
+   "src/main/app/handlers/skills.test.ts"
+  ]
+ },
+ {
+  "id": "M098 Y10b-VP16-upload-joins-stale",
+  "file": "src/main/app/handlers/skills.ts",
+  "replacement": {
+   "from": "return refresh()",
+   "to": "return listing ?? refresh()",
+   "nth": 1
+  },
+  "tests": [
+   "src/main/app/handlers/skills.test.ts"
+  ]
+ },
+ {
+  "id": "M099 Y10c-VP16-setEnabled-joins-stale",
+  "file": "src/main/app/handlers/skills.ts",
+  "replacement": {
+   "from": "return refresh()",
+   "to": "return listing ?? refresh()",
+   "nth": 2
+  },
+  "tests": [
+   "src/main/app/handlers/skills.test.ts"
+  ]
+ },
+ {
+  "id": "M100 Y10d-VP16-remove-joins-stale",
+  "file": "src/main/app/handlers/skills.ts",
+  "replacement": {
+   "from": "return refresh()",
+   "to": "return listing ?? refresh()",
+   "nth": 3
+  },
+  "tests": [
+   "src/main/app/handlers/skills.test.ts"
+  ]
+ },
+ {
+  "id": "M101 Y11-VP11-async-project-root",
+  "file": "src/main/adapters/claude/plugin-catalog.ts",
+  "replacement": {
+   "from": "const projectRoot = await claudeLocalSettingsRootAsync(cwd)",
+   "to": "const projectRoot = resolve(cwd)"
+  },
+  "tests": [
+   "src/main/adapters/claude/plugin-catalog.test.ts",
+   "src/main/app/native-config-boundaries.test.ts",
+   "src/main/app/skill-catalog.test.ts"
+  ],
+  "note": "r1 정의 NOAPPLY(코드 이동) — 구현자 r2 재지정 정의(호출부) 사용"
+ },
+ {
+  "id": "M102 Y12-VP10-binding-project",
+  "file": "src/main/app/session-binding.ts",
+  "replacement": {
+   "from": "current.project_id === expected.project_id",
+   "to": "true"
+  },
+  "tests": [
+   "src/main/app/bootstrap.native-history.test.ts",
+   "src/main/app/composer-catalog.test.ts",
+   "src/main/app/handlers/session-resources.test.ts",
+   "src/main/app/handlers/session-resources.sync.test.ts",
+   "src/main/app/handlers/session-resources.cancellation.test.ts"
+  ]
+ },
+ {
+  "id": "M103 Y13-VP04-serialize",
+  "file": "src/main/app/project-resource-sync.ts",
+  "replacement": {
+   "from": "(this.mutations.get(key) ?? Promise.resolve())",
+   "to": "Promise.resolve()"
+  },
+  "tests": [
+   "src/main/app/project-resource-sync.test.ts"
+  ]
+ },
+ {
+  "id": "M104 Y14-VP10-dispose-report",
+  "file": "src/main/adapters/opencode/v1/adapter.ts",
+  "replacement": {
+   "from": "releasing ??= lease.release().catch(reportDisposeFailure)",
+   "to": "releasing ??= lease.release().catch(() => undefined)"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/adapter.persistent.test.ts",
+   "src/main/adapters/opencode/v1/adapter.test.ts"
+  ]
+ },
+ {
+  "id": "M105 Y15-VP17-reduced-motion",
+  "file": "src/renderer/src/shared/hooks/useReducedMotion.ts",
+  "replacement": {
+   "from": "setReduced(query.matches)",
+   "to": "setReduced(!query.matches)"
+  },
+  "tests": [
+   "src/renderer/src/shared/hooks/useReducedMotion.test.ts"
+  ]
+ },
+ {
+  "id": "M106 Y16-VP14-row-remove",
+  "file": "src/renderer/src/features/engine/harnesses/opencode/ProviderForm.tsx",
+  "replacement": {
+   "from": "disabled={rows.length <= 1}",
+   "to": "disabled={false}"
+  },
+  "tests": [
+   "src/renderer/src/features/engine/harnesses/opencode/ProviderForm.interaction.test.ts"
+  ]
+ },
+ {
+  "id": "M107 Y17-VP09-flag-array",
+  "file": "src/main/adapters/claude/plugin-flag.ts",
+  "replacement": {
+   "from": "value === true || Array.isArray(value) || isRecord(value)",
+   "to": "value === true || isRecord(value)"
+  },
+  "tests": [
+   "src/main/adapters/claude/configured-resources.test.ts",
+   "src/main/adapters/claude/plugin-catalog.test.ts",
+   "src/main/adapters/claude/project-reconciliation.test.ts"
+  ]
+ },
+ {
+  "id": "R2I F1-D1-loaded-baseline",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "replacement": {
+   "from": "initialFingerprint: JSON.stringify(dependencies.map((dependency) => dependency.fingerprint)),",
+   "to": ""
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts"
+  ]
+ },
+ {
+  "id": "R2I F2-D2-scroll-order",
+  "file": "src/renderer/src/features/chat/harnesses/opencode/transcript/ScrollController.tsx",
+  "replacement": {
+   "from": "captureFrame.current === null && state.anchor",
+   "to": "state.anchor"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/harnesses/opencode/transcript/ScrollController.restore-race.test.ts"
+  ]
+ },
+ {
+  "id": "R2I D1-project-baseline-order",
+  "file": "src/main/app/project-resource-sync.ts",
+  "replacement": {
+   "from": "await entry.watching",
+   "to": "void entry.watching"
+  },
+  "tests": [
+   "src/main/app/project-resource-sync.initialization.test.ts"
+  ]
+ },
+ {
+  "id": "R2I D1-startup-check",
+  "file": "src/main/infra/config/fingerprint-watch.ts",
+  "replacement": {
+   "from": "if (deps.initialFingerprint !== undefined) schedule()",
+   "to": ""
+  },
+  "tests": [
+   "src/main/infra/config/fingerprint-watch.test.ts"
+  ]
+ },
+ {
+  "id": "R2I D1-pending-scope-check",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "replacement": {
+   "from": "} while (this.pollRequested)",
+   "to": "} while (false)"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts"
+  ]
+ },
+ {
+  "id": "Z01 VP07-4-probe-stat-after-load",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "replacement": {
+   "from": "      (value) => ({ value, signature: hash(describe(value)), fingerprint }),",
+   "to": "      async (value) => ({ value, signature: hash(describe(value)), fingerprint: await fileFingerprints([path]) }),"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts"
+  ],
+  "note": "뒤집기 — 소비 기준선 stat을 내용 읽기 뒤로"
+ },
+ {
+  "id": "Z02 VP07-4-poll-join-flag",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "replacement": {
+   "from": "  poll(): Promise<void> {\n    this.pollRequested = true\n",
+   "to": "  poll(): Promise<void> {\n"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts"
+  ],
+  "note": "제거 — 진행 중 poll 합류 요청 표시"
+ },
+ {
+  "id": "Z03 VP07-4-stale-manifest-guard",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "replacement": {
+   "from": "            if (observer.dependencies !== dependencies) {\n              this.pollRequested = true\n              return\n            }\n",
+   "to": ""
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts"
+  ],
+  "note": "제거 — 갱신된 manifest 덮어쓰기 방지"
+ },
+ {
+  "id": "Z04 VP07-2-ready-collect",
+  "file": "src/main/app/project-resource-sync.ts",
+  "replacement": {
+   "from": "            ready.push(watcher.ready)\n",
+   "to": ""
+  },
+  "tests": [
+   "src/main/app/project-resource-sync.initialization.test.ts",
+   "src/main/app/project-resource-sync.test.ts",
+   "src/main/infra/config/fingerprint-watch.test.ts",
+   "src/main/app/harnesses/opencode/global-watch.test.ts",
+   "src/main/app/bootstrap.native-history.test.ts",
+   "src/main/app/handlers/session-resources.claude-assembly.test.ts",
+   "src/main/app/handlers/session-resources.sync.test.ts"
+  ],
+  "note": "제거 — 감시 기준선 대기 수집"
+ },
+ {
+  "id": "Z05 VP07-2-ready-early",
+  "file": "src/main/infra/config/fingerprint-watch.ts",
+  "replacement": {
+   "from": "    this.ready = this.tail = (",
+   "to": "    this.ready = Promise.resolve(); this.tail = ("
+  },
+  "tests": [
+   "src/main/app/project-resource-sync.initialization.test.ts",
+   "src/main/app/project-resource-sync.test.ts",
+   "src/main/infra/config/fingerprint-watch.test.ts",
+   "src/main/app/harnesses/opencode/global-watch.test.ts",
+   "src/main/app/bootstrap.native-history.test.ts",
+   "src/main/app/handlers/session-resources.claude-assembly.test.ts",
+   "src/main/app/handlers/session-resources.sync.test.ts"
+  ],
+  "note": "호출 대체 — ready가 기준선 읽기 전에 resolve"
+ },
+ {
+  "id": "Z06 VP14-3-guard-flip",
+  "file": "src/renderer/src/features/chat/harnesses/opencode/transcript/ScrollController.tsx",
+  "replacement": {
+   "from": "captureFrame.current === null && state.anchor",
+   "to": "captureFrame.current !== null && state.anchor"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/harnesses/opencode/transcript/ScrollController.restore-race.test.ts",
+   "src/renderer/src/features/chat/harnesses/opencode/transcript/ScrollController.interaction.test.ts",
+   "src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.render.test.ts",
+   "src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.selection.test.ts"
+  ],
+  "note": "뒤집기 — 대기 capture 가드"
+ },
+ {
+  "id": "Z07 VP07-3-default-state-arm",
+  "file": "src/main/app/bootstrap.ts",
+  "replacement": {
+   "from": "          : join(homedir(), '.claude.json')",
+   "to": "          : join(nativeClaude.root, '.claude.json')"
+  },
+  "tests": [
+   "src/main/app/bootstrap.native-history.test.ts"
+  ],
+  "note": "다른 값 — 기본 경로 갈래(M092 형제)"
+ },
+ {
+  "id": "Z08 VP16-2-flight-identity",
+  "file": "src/main/app/handlers/skills.ts",
+  "replacement": {
+   "from": "      if (listing === task) listing = undefined",
+   "to": "      listing = undefined"
+  },
+  "tests": [
+   "src/main/app/handlers/skills.test.ts",
+   "src/main/app/bootstrap.native-history.test.ts"
+  ],
+  "note": "제거 — 끝난 이전 scan이 새 flight를 지움"
+ },
+ {
+  "id": "Z09 VP16-2-author-scan-before-deploy",
+  "file": "src/main/app/handlers/skills.ts",
+  "replacement": {
+   "from": "    await writeAuthoredSkill(req)\n    await ctx.deployExtensions()\n    return refresh()",
+   "to": "    await writeAuthoredSkill(req)\n    const scan = refresh()\n    await ctx.deployExtensions()\n    return scan"
+  },
+  "tests": [
+   "src/main/app/handlers/skills.test.ts"
+  ],
+  "note": "뒤집기 — 배포 전 scan 시작"
+ },
+ {
+  "id": "Z10 VP11-3-platform-flip",
+  "file": "src/main/adapters/claude/project-path.ts",
+  "replacement": {
+   "from": "process.platform === 'win32' ? resolve(cwd) : projectRoot()",
+   "to": "process.platform !== 'win32' ? resolve(cwd) : projectRoot()"
+  },
+  "tests": [
+   "src/main/adapters/claude/plugin-catalog.test.ts",
+   "src/main/app/native-config-boundaries.test.ts",
+   "src/main/adapters/claude/project-settings.test.ts",
+   "src/main/adapters/claude/plugin-state.test.ts",
+   "src/main/adapters/claude/configured-resources.test.ts",
+   "src/main/adapters/claude/project-reconciliation.test.ts",
+   "src/main/app/skill-catalog.test.ts",
+   "src/main/adapters/claude/adapter.native-plugins.test.ts"
+  ],
+  "note": "뒤집기 — 공유 플랫폼 분기"
+ },
+ {
+  "id": "Z11 VP11-3-sync-root-cwd",
+  "file": "src/main/adapters/claude/project-path.ts",
+  "replacement": {
+   "from": "localSettingsRoot(cwd, () => claudePluginProjectRoot(cwd))",
+   "to": "localSettingsRoot(cwd, () => resolve(cwd))"
+  },
+  "tests": [
+   "src/main/adapters/claude/plugin-catalog.test.ts",
+   "src/main/app/native-config-boundaries.test.ts",
+   "src/main/adapters/claude/project-settings.test.ts",
+   "src/main/adapters/claude/plugin-state.test.ts",
+   "src/main/adapters/claude/configured-resources.test.ts",
+   "src/main/adapters/claude/project-reconciliation.test.ts",
+   "src/main/app/skill-catalog.test.ts",
+   "src/main/adapters/claude/adapter.native-plugins.test.ts"
+  ],
+  "note": "고정값 — 동기 비Windows 루트를 cwd로"
+ },
+ {
+  "id": "Z12 VP07-4-startup-check-consumer",
+  "file": "src/main/infra/config/fingerprint-watch.ts",
+  "replacement": {
+   "from": "if (deps.initialFingerprint !== undefined) schedule()",
+   "to": ""
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts"
+  ],
+  "note": "제거 — 시작 재검사(구현자 D1-startup-check를 소비자 좌표로)"
+ },
+ {
+  "id": "Z14 VP10-9-binding-cwd",
+  "file": "src/main/app/session-binding.ts",
+  "replacement": {
+   "from": "current.cwd === expected.cwd",
+   "to": "true"
+  },
+  "tests": [
+   "src/main/app/bootstrap.native-history.test.ts",
+   "src/main/app/composer-catalog.test.ts",
+   "src/main/app/handlers/session-resources.test.ts",
+   "src/main/app/handlers/session-resources.sync.test.ts",
+   "src/main/app/handlers/session-resources.cancellation.test.ts"
+  ],
+  "note": "고정값 — binding cwd 항"
+ },
+ {
+  "id": "Z15 VP10-9-binding-backend",
+  "file": "src/main/app/session-binding.ts",
+  "replacement": {
+   "from": "current.backend === expected.backend",
+   "to": "true"
+  },
+  "tests": [
+   "src/main/app/bootstrap.native-history.test.ts",
+   "src/main/app/composer-catalog.test.ts",
+   "src/main/app/handlers/session-resources.test.ts",
+   "src/main/app/handlers/session-resources.sync.test.ts",
+   "src/main/app/handlers/session-resources.cancellation.test.ts"
+  ],
+  "note": "고정값 — binding backend 항"
+ },
+ {
+  "id": "Z16 VP10-5-release-once",
+  "file": "src/main/adapters/opencode/v1/adapter.ts",
+  "replacement": {
+   "from": "releasing ??= lease.release().catch(reportDisposeFailure)",
+   "to": "releasing = lease.release().catch(reportDisposeFailure)"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/adapter.persistent.test.ts",
+   "src/main/adapters/opencode/v1/adapter.test.ts"
+  ],
+  "note": "뒤집기 — release 1회 보장"
+ },
+ {
+  "id": "Z17 VP11-3-async-helper-root",
+  "file": "src/main/adapters/claude/project-path.ts",
+  "replacement": {
+   "from": "async () => (await gitRootLineage(cwd)).root",
+   "to": "async () => resolve(cwd)"
+  },
+  "tests": [
+   "src/main/adapters/claude/plugin-catalog.test.ts",
+   "src/main/app/native-config-boundaries.test.ts",
+   "src/main/adapters/claude/project-settings.test.ts",
+   "src/main/adapters/claude/plugin-state.test.ts",
+   "src/main/adapters/claude/configured-resources.test.ts",
+   "src/main/adapters/claude/project-reconciliation.test.ts",
+   "src/main/app/skill-catalog.test.ts",
+   "src/main/adapters/claude/adapter.native-plugins.test.ts"
+  ],
+  "note": "고정값 — 비동기 비Windows 루트를 cwd로(M101을 SSOT 안에)"
+ },
+ {
+  "id": "F1 repro@HEAD",
+  "file": null,
+  "replacement": null,
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.verify.test.ts"
+  ],
+  "extraFiles": [
+   {
+    "src": "docs/handoff/0290-simplify-0254-0289/verify-evidence/repro/discovery-cache.hold-race.verify.test.ts",
+    "dst": "src/main/adapters/opencode/v1/discovery-cache.hold-race.verify.test.ts"
+   }
+  ]
+ },
+ {
+  "id": "F2 repro@HEAD",
+  "file": null,
+  "replacement": null,
+  "tests": [
+   "src/renderer/src/features/chat/harnesses/opencode/transcript/ScrollController.restore-race.verify.test.ts"
+  ],
+  "extraFiles": [
+   {
+    "src": "docs/handoff/0290-simplify-0254-0289/verify-evidence/repro/ScrollController.restore-race.verify.test.ts",
+    "dst": "src/renderer/src/features/chat/harnesses/opencode/transcript/ScrollController.restore-race.verify.test.ts"
+   }
+  ]
+ },
+ {
+  "id": "F1 repro+fix-revert",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "replacement": {
+   "from": "initialFingerprint: JSON.stringify(dependencies.map((dependency) => dependency.fingerprint)),",
+   "to": ""
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.verify.test.ts"
+  ],
+  "extraFiles": [
+   {
+    "src": "docs/handoff/0290-simplify-0254-0289/verify-evidence/repro/discovery-cache.hold-race.verify.test.ts",
+    "dst": "src/main/adapters/opencode/v1/discovery-cache.hold-race.verify.test.ts"
+   }
+  ]
+ },
+ {
+  "id": "F2 repro+fix-revert",
+  "file": "src/renderer/src/features/chat/harnesses/opencode/transcript/ScrollController.tsx",
+  "replacement": {
+   "from": "captureFrame.current === null && state.anchor",
+   "to": "state.anchor"
+  },
+  "tests": [
+   "src/renderer/src/features/chat/harnesses/opencode/transcript/ScrollController.restore-race.verify.test.ts"
+  ],
+  "extraFiles": [
+   {
+    "src": "docs/handoff/0290-simplify-0254-0289/verify-evidence/repro/ScrollController.restore-race.verify.test.ts",
+    "dst": "src/renderer/src/features/chat/harnesses/opencode/transcript/ScrollController.restore-race.verify.test.ts"
+   }
+  ]
+ }
+]
