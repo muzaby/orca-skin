@@ -13,6 +13,7 @@ count 'S02b adapter-registry step' rg -n "'adapter-registry'" app/src/main "${G[
 count 'S05a install consumers' rg -n 'isInstalled\(\)|installState|registry\.list\(\)\.map' app/src/main/app app/src/main/adapters/common/registry.ts "${G[@]}"
 count 'S05b supported producers' rg -n 'supported: supported\.has|supported: true, source' app/src/main "${G[@]}"
 count 'S05c OpenCode background starts' rg -n 'new OpenCodeWarmup\(|new OpenCodeGlobalWatch\(|void auth\.connectAll\(\)|resolveComposerPreparation\(ctx' app/src/main/app "${G[@]}"
+count 'S05d app direct install probes' rg -n 'isInstalled\(\)' app/src/main/app "${G[@]}"
 # VP-03 renderer 노출 자리
 count 'S03 renderer exposure' rg -n 'seedLandingBackend\(settings|HARNESS_IDS\.map|<Composer\b|agent\.supported' app/src/renderer/src "${G[@]}"
 # VP-06 보관 raw

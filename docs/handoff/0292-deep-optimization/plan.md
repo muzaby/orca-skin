@@ -9,11 +9,13 @@
 | 일자 | 2026-11-01 |
 | 매핑 | 사용자 `/handoff-plan` "292 핸드오프" — 0290이 다루지 못한 최적화 보완, 파괴적 수준, 서브에이전트 없이 조사 |
 | 상태 | READY |
-| V mode | `Baseline V` |
-| 기준 V | `none` — 0290의 결정은 §3 D-012로 승계하고 V는 상속하지 않는다 |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
-| 기준 커밋 | 설계 HEAD `0eb7dc2`(`git cat-file -t` = commit). 구현 착수 HEAD는 0290 r2 착지 뒤(D-011) — 좌표는 검증자 기입 |
+| V mode | `Delta V` |
+| 기준 V | `0292:V1@64047af` — 이 plan의 V1(설계 HEAD `0eb7dc2`에서 작성, main 병합 `64047af`) |
+| 이번 V revision | `ΔV1` — 버전 확인 실측 반영 정정(2026-11-02) |
+| 유효 V | `V1 + ΔV1` — ΔV1 절이 충돌하는 V1 행을 대체 |
+| 기준 커밋 | V1 설계 HEAD `0eb7dc2` · V1 병합 `64047af` · ΔV1 설계 HEAD `feaca09`(셋 다 `git cat-file -t` = commit). 구현 착수 HEAD는 D-011 — 좌표는 검증자 기입 |
+
+> **ΔV1(2026-11-02)**: D-005·D-008을 D-014·D-015가, AC2~AC6을 AC2′~AC6′가, §10 EP-02·EP-04 전부와 EP-05 #1-8·#15·EP-03 #1을 아래 ΔV1 절이 대체한다. 그 밖의 V1 행은 그대로 유효하다.
 
 ## 0. 작성 경로
 
@@ -26,7 +28,7 @@
 ## 1. Context / 목표
 
 - 해결하려는 문제: 0290은 0254~0289 커밋이 건드린 파일 안의 정리·효율만 다뤘다. 그래서 부팅 임계 경로, 렌더러 번들, OpenCode 스트리밍 투영, 보관 payload, 상시 타이머가 남았다. 0290이 NEXT_HANDOFF로 미룬 폴링 3건(A1·A3·A15)과 부팅 대기(A9)도 그대로다.
-- 완료 후 달라지는 것: 부팅이 OpenCode CLI 확인을 기다리지 않는다. 렌더러 시작 청크가 압축되고 차트·구문 강조는 쓸 때 로드된다. OpenCode 스트리밍은 프레임마다 전체 대화를 다시 투영하지 않는다. 세션 열기는 원본 레코드(raw)를 파싱하지 않는다. 할 일이 없을 때 main 타이머가 깨지 않는다.
+- 완료 후 달라지는 것: 부팅이 OpenCode CLI 확인을 순서대로 기다리지 않고 다른 부팅 단계와 겹쳐 처리한다(ΔV1). 렌더러 시작 청크가 압축되고 차트·구문 강조는 쓸 때 로드된다. OpenCode 스트리밍은 프레임마다 전체 대화를 다시 투영하지 않는다. 세션 열기는 원본 레코드(raw)를 파싱하지 않는다. 할 일이 없을 때 main 타이머가 깨지 않는다.
 - OpenCode 미설치 처리(D-006): 미설치나 미지원 버전이면 OpenCode 컴포저가 보이지 않고, 엔진 추가에서 OpenCode를 고를 수 없으며, main의 OpenCode 백그라운드 작업이 돌지 않는다.
 - 성공 한 문장: **설치된 사용자는 같은 화면·같은 동작을 더 빨리 받고, OpenCode가 없는 사용자는 실패할 동작을 처음부터 보지 않는다(D-003).**
 
@@ -53,21 +55,25 @@
 | D-002 | 조사는 서브에이전트 없이 설계자가 직접 한다 | "자료조사에서 서브에이전트 사용하지 말것" | 턴 1 | ACTIVE | — |
 | D-003 | 사용자 관측 회귀 0 — 화면·문구·대화 흐름·설정 값·보관 대화가 같다. 의도된 변화는 D-004~D-009의 항목뿐이다 | "사용자 경험 및 애플리에케이션 회귀가 없어야 한다" | 질의 2라운드 | ACTIVE | — |
 | D-004 | renderer production 번들을 전체 압축한다. main·preload는 압축하지 않는다 | 실측 3.89MB→1.83MB(§8) · 스택은 같은 커밋을 `--sourcemap`으로 빌드해 복원 | "전체 압축" | ACTIVE | — |
-| D-005 | 부팅은 OpenCode 버전 확인을 기다리지 않는다. registry 설치 캐시와 `orca:backend:list`의 `installed`를 하네스 가용성 상태로 대체한다. 판정원은 서버 풀의 실행 파일 탐색 + 버전 확인 캐시 1벌이다 | 그 값을 읽는 화면이 없다(§8) · 백그라운드 작업은 서버 풀 캐시만 쓴다(§8) | 질의 2라운드 답 + 추적 | ACTIVE | — |
+| D-005 | 부팅은 OpenCode 버전 확인을 기다리지 않는다. registry 설치 캐시와 `orca:backend:list`의 `installed`를 하네스 가용성 상태로 대체한다. 판정원은 서버 풀의 실행 파일 탐색 + 버전 확인 캐시 1벌이다 | 그 값을 읽는 화면이 없다(§8) · 백그라운드 작업은 서버 풀 캐시만 쓴다(§8) | 질의 2라운드 답 + 추적 | SUPERSEDED | D-014 |
 | D-006 | OpenCode가 미설치·미지원·확인 실패면 OpenCode 컴포저를 노출하지 않는다(모델 메뉴의 OpenCode 엔진 비노출, 기존 OpenCode 세션은 컴포저 자리에 안내). 엔진&모델 페이지의 OpenCode 추가 항목은 비활성이다. main의 OpenCode 백그라운드 작업(웜업·로그인 프리 연결의 CLI 확인·전역 설정 감시·컴포저 준비)은 시작하지 않는다. Claude는 대상이 아니다 | "미설치 시 opencode 컴포저가 노출되면 안 된다" · "추가 버튼도 비활성화" · "Claude … 무관" | 질의 3라운드 | ACTIVE | — |
 | D-007 | 마지막 하네스가 OpenCode인데 사용할 수 없으면 새 대화는 Claude로 시작하고 `lastBackend`는 덮어쓰지 않는다 | "Claude로 시작" | 질의 3라운드 | ACTIVE | — |
-| D-008 | 가용성 판정 방식(D-005의 세부) — ① 실행 파일이 없으면 프로세스를 띄우지 않고 즉시 `missing`. ② 있으면 `checking`이며 화면은 사용 가능으로 취급(깜빡임 없음). ③ 버전 확인은 `start()` 초입에 대기 없이 시작해 부팅 단계와 겹친다(1회, 이후 수요는 합류). ④ 재확인은 실행 파일 설정 변경·"다시 확인"·`missing/failed` 상태의 창 포커스(파일 존재만 검사) | "사용자 체감 반응성 및 앱 동작이 원활한 방향으로 제안할 것" | 설계자 제안(질의 2라운드 설명) — 답변이 화면 요구만 더함 | ACTIVE | — |
+| D-008 | 가용성 판정 방식(D-005의 세부) — ① 실행 파일이 없으면 프로세스를 띄우지 않고 즉시 `missing`. ② 있으면 `checking`이며 화면은 사용 가능으로 취급(깜빡임 없음). ③ 버전 확인은 `start()` 초입에 대기 없이 시작해 부팅 단계와 겹친다(1회, 이후 수요는 합류). ④ 재확인은 실행 파일 설정 변경·"다시 확인"·`missing/failed` 상태의 창 포커스(파일 존재만 검사) | "사용자 체감 반응성 및 앱 동작이 원활한 방향으로 제안할 것" | 설계자 제안(질의 2라운드 설명) — 답변이 화면 요구만 더함 | SUPERSEDED | D-015 |
 | D-009 | 보관 raw를 같은 행의 별도 열로 분리 보관한다. 세션 열기·표시는 `messages`만 읽는다. 기존 행은 그 세션을 처음 열 때 1회 분리한다. raw를 지우지 않는다(삭제된 원본 재해석 대비 의도 유지) | "raw 분리 보관" · 원본 삭제 후 이어가기는 `messages` 경로(§8) | 질의 2라운드 | ACTIVE | — |
 | D-010 | 0225 이관 코드(폴더 이동·경로 재기록·워크트리 repair)를 유지한다 | v0.3.1 사용자 데이터 연속성 | "유지" | ACTIVE | — |
 | D-011 | 구현은 0290 r2 커밋이 공유 브랜치에 착지한 뒤 그 HEAD에서 시작한다. 착수 직후 `scan/sites.sh`·`baseline` 측정을 다시 하고 N이 다르면 `[구현자 기입]`에 차이를 적는다 | 0290 r2가 `project-resource-sync.ts`·`discovery-cache.ts`·`ScrollController.tsx`·`plugin-catalog.ts`·`handlers/skills.ts`·bootstrap 테스트를 고친다(0290 verify §13 D1~D5) | 설계자 | ACTIVE | — |
 | D-012 | 0290 ACTIVE 결정 중 이번 경로에 닿는 것을 유지한다 — 배포 확장점(0290 D-008·D-015: `HostHarnessPort`는 시그니처·의미 유지, 구현만 가용성 경유) · 하네스 격리(D-009) · spawn 경계 동기 카탈로그(D-012) · 이벤트 id 상한 없음(D-016) | 기존 결정 | 0290 plan §3 | ACTIVE | — |
 | D-013 | 신규 의존성 없음. shiki는 같은 패키지의 세분 진입점(`shiki/core`·`shiki/engine/javascript`·`shiki/langs/*.mjs`·`shiki/themes/*.mjs`)만 쓴다 | `app/AGENTS.md` 의존성 정책 · exports 실측(§8) | 설계자 | ACTIVE | — |
+| D-014 | OpenCode 설치·버전 확인은 부팅 안에 둔다 — renderer `main-ready` 때 결과가 정해져 있다. 순차 단계 대신 `start()` 초입에 시작해 나머지 부팅 단계와 동시에 돌리고 `bootReport.finish()` 직전에 합류한다. 시간 초과 상한 15초와 그 처리는 현행 그대로다. `orca:backend:list`의 `installed`·`version`은 유지하고 `usable`·`unavailableReason`만 덧붙인다 | 확인은 사용자 실측 3초 이내 — 사용자 시나리오를 바꿀 근거가 없다 | "Version 확인은 오래걸리는 작업이 아니다. 15초 상한값 설정으로 유저시나리오를 변경하려는 시도를 너가 하지 않았나" → "그대로 plan 정정하라" | ACTIVE | D-005 대체 |
+| D-015 | 가용성 SSOT는 registry 설치 캐시(하네스별 `installed`·`version`·`usable`·`unavailableReason`·실행 파일 identity)다. 화면에 `checking` 상태는 없다. 재확인은 ① 실행 파일 경로 설정 변경 ② "다시 확인" ③ `missing`·`failed` 상태의 창 포커스 — identity(경로+stat, 프로세스 없음)가 마지막 확인과 다를 때만 버전 확인 1회. 재확인 중에는 직전 상태를 유지하고 결과가 바뀔 때만 방송한다 | 앱 실행 중 OpenCode를 설치하면 재시작 없이 쓰던 현행 동작을 게이트가 깨지 않게 한다 | 위 사용자 턴 · V1 D-008 ①④ 승계 | ACTIVE | D-008 대체 |
 
 ### 갱신 메모
 
 - 이번 턴 신규 결정: D-001~D-013. OPEN 0. 대체된 외부 결정 없음.
+- ΔV1(2026-11-02): D-005 → D-014, D-008 → D-015 SUPERSEDED. 원인은 설계자가 `--version` 실행 시간을 재지 않고 시간 초과 상한 15초(`server.ts:165`)를 비용처럼 제시한 것이다(§8 정정). 사용자 실측은 생성·종료 포함 3초 이내다.
+- ΔV1 `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-014 ↔ AC2′·AC3′·AC5′(`installed` 유지) · D-015 ↔ AC4′·AC6′ · D-006 ↔ AC7(EP-03 #1′)·AC8·AC9. SUPERSEDED D-005·D-008을 요구하는 유효 AC 없음(AC2~AC6은 대체됨). D-003·D-004·D-007·D-009~D-013 대응은 V1 대조 줄과 같다.
 - raw에 대한 설계자 정정: 1라운드 질의의 "OpenCode raw는 읽히지 않는다"는 부정확했다. 보관 행(`payload_json`)은 세션 열기마다 통째로 읽힌다. 다만 그중 `raw` 필드를 실제로 쓰는 코드는 Claude 이어붙이기 빠른 경로 하나다(§8). 사용자는 이 정정을 받은 뒤 D-009를 골랐다.
-- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-003 ↔ AC1(회귀 gate)·AC7(보관 대화 표시 유지)·AC13(같은 DOM)·AC17(이어가기 동일). D-004 ↔ AC10. D-005 ↔ AC2·AC3·AC5. D-006 ↔ AC6·AC7·AC8·AC9(Claude 행은 AC6·AC8에서 불변 단언). D-007 ↔ AC7(`lastBackend` 미기록). D-008 ↔ AC4·AC12. D-009 ↔ AC15·AC16·AC17(raw를 지우라는 AC 없음). D-010 ↔ 0225 경로를 바꾸는 AC 없음(§16). D-012 ↔ AC9(`HostHarnessPort` 시그니처 불변)·AC18(이벤트 상한 미도입). D-013 ↔ AC12(새 패키지 0).
+- (V1 — 아래 D-005·D-008 관련 대응은 ΔV1 대조가 대체) **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-003 ↔ AC1(회귀 gate)·AC7(보관 대화 표시 유지)·AC13(같은 DOM)·AC17(이어가기 동일). D-004 ↔ AC10. D-005 ↔ AC2·AC3·AC5. D-006 ↔ AC6·AC7·AC8·AC9(Claude 행은 AC6·AC8에서 불변 단언). D-007 ↔ AC7(`lastBackend` 미기록). D-008 ↔ AC4·AC12. D-009 ↔ AC15·AC16·AC17(raw를 지우라는 AC 없음). D-010 ↔ 0225 경로를 바꾸는 AC 없음(§16). D-012 ↔ AC9(`HostHarnessPort` 시그니처 불변)·AC18(이벤트 상한 미도입). D-013 ↔ AC12(새 패키지 0).
 
 ## 4. 요구 비판적 검토
 
@@ -86,8 +92,8 @@
 ## 5. 동작 / 사용자 흐름
 
 ```text
-[앱 실행] → 창 → 부팅 단계(설치 확인 대기 없음) → 랜딩
-   ↘ 부팅과 동시(대기 없음): OpenCode 가용성 확인 1회 → ready / missing / unsupported / failed → push
+[앱 실행] → 창 → 부팅 단계(설치 확인은 다른 단계와 겹쳐 실행) → 랜딩
+   ↘ 부팅과 동시에 OpenCode 설치·버전 확인 → 부팅 완료 직전 합류(화면이 뜰 때 결과 확정, ΔV1)
 [OpenCode 사용 가능] → 지금과 같은 화면·동작
 [OpenCode 사용 불가] → 모델 메뉴에 OpenCode 없음 · 새 대화 Claude · 엔진 추가의 OpenCode 비활성
                      → 기존 OpenCode 세션: 보관 대화 표시 + 컴포저 자리에 안내/다시 확인
@@ -98,11 +104,10 @@
 | 시작 상태/이벤트 | 시스템 동작 | 사용자/소비자에게 보이는 결과 |
 |---|---|---|
 | 부팅, OpenCode 실행 파일 없음 | 파일 존재 검사(프로세스 없음) → `missing` | 랜딩부터 OpenCode 비노출 — 깜빡임 없음 |
-| 부팅, 실행 파일 있음 | `checking`; 부팅 시작과 동시에 버전 확인 1회(부팅은 기다리지 않음) | 지금처럼 OpenCode 노출. 부팅 화면이 그만큼 일찍 끝남 |
-| `checking` → `ready` | 상태 push. 웜업 등 대기 작업이 같은 결과로 진행 | 변화 없음 |
-| `checking` → `unsupported`/`failed` | push → 모델 목록에서 OpenCode 제외 · 빈 새 대화 칸은 Claude로 | OpenCode 엔진이 메뉴에서 사라지고 안내가 뜬다 |
-| `missing`/`failed`에서 창 포커스 | 파일 존재만 검사. 생겼으면 버전 확인 1회 | 설치 직후 앱으로 돌아오면 재시작 없이 OpenCode가 나타남 |
-| 실행 파일 경로 설정 변경 · "다시 확인" | 재확인(파일 검사 → 버전 확인) | 결과대로 노출/비노출 |
+| 부팅, 실행 파일 있음 | 버전 확인을 부팅 시작과 동시에 돌리고 부팅 완료 직전에 합류(ΔV1) | 화면이 뜰 때 결과가 정해져 있다 — 사용 가능이면 지금과 같은 화면, 부팅은 겹친 만큼 일찍 끝남 |
+| 부팅 확인 결과 `unsupported`/`failed` | 화면이 뜨기 전에 정해짐(ΔV1) | 처음부터 OpenCode 비노출 + 사유 |
+| `missing`/`failed`에서 창 포커스 | 실행 파일 identity(경로·stat, 프로세스 없음)가 마지막 확인과 다를 때만 버전 확인 1회(ΔV1) | 설치 직후 앱으로 돌아오면 재시작 없이 OpenCode가 나타남 |
+| 실행 파일 경로 설정 변경 · "다시 확인" | 재확인 — 진행 중에는 직전 상태 유지(ΔV1) | 결과대로 노출/비노출 |
 | OpenCode 세션 열기, 사용 불가 | 보관 대화 로드는 지금과 같음 | 대화는 보이고 입력창 자리에 "OpenCode가 설치되어 있지 않습니다" + 다시 확인 |
 | 엔진&모델 페이지 추가 메뉴, 사용 불가 | OpenCode 항목 비활성 + 사유 | Claude 항목은 그대로 |
 | 세션 열기(기존 보관 행에 raw 포함) | raw를 별도 열로 1회 분리 후 `messages`만 파싱 | 같은 대화가 더 빨리 뜬다 |
@@ -133,11 +138,11 @@
 | R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
 |---|---|---|---|---|
 | R-01 | AT-01 / AC1 | 정리 후 기존 동작이 같다 | vitest 실패 ID − 착수 HEAD 기준선 = ∅ · typecheck 0 · eslint(무수정) error 0, warning ⊆ 기준선 · scripts · migration append-only · doc-inventory · Windows CI green | 전 진입점 |
-| R-02 | AT-02 / AC2 | `start()`가 OpenCode 버전 확인을 기다리지 않는다 | 신규 bootstrap 테스트: 버전 확인이 끝나지 않아도 `start()` resolve, boot report에 `adapter-registry` 없음 | 창 → `bootWhenReady` → renderer `main-ready` |
-| R-02 | AT-02 / AC3 | 첫 OpenCode 작업이 지금보다 느려지지 않는다 — 확인을 `start()` 초입에 대기 없이 시작해 부팅과 겹치고, 동시 수요는 합류 | 신규 테스트: `start()` 진입 직후 확인 1회 시작, 웜업·연결 확인·서버 시작이 동시에 기다려도 `--version` 실행 1회 | `start()` → 가용성 → 서버 풀 캐시 |
-| SD-01 | ST-01 / AC4 | 가용성 상태 기계가 D-008을 따른다 | 신규 단위 테스트: 실행 파일 없음 → `missing`·probe 0회 / 있음 → `checking` → `ready`·`unsupported`·`failed` / 포커스 재확인은 `missing`·`failed`에서만, 파일 검사만 / 같은 상태 재통지 0 | bootstrap 조립 → push |
-| AR-01 | IT-01 / AC5 | `orca:backend:list`가 `installed` 대신 `availability`를 싣고, 변화는 `orca:harness:availability`로 방송, 재확인은 `orca:harness:recheck` | 핸들러·preload 테스트: 응답 키 집합 · push payload · recheck 결과 · Claude `ready`+버전 | preload → `backendApi` → 가용성 store |
-| AR-01 | IT-01 / AC6 | `agent:list`의 OpenCode 행이 사용 불가일 때 `supported:false`+사유, `checking`·`ready`면 `true`. Claude 행 불변 | 핸들러 테스트(settings 행·runtime 행 둘 다) + 가용성 push 뒤 agent store 재조회 1회 | `agent:list` → `agentStore` → ModelMenu·선택·EngineCard |
+| R-02 | AT-02 / ~~AC2~~ → AC2′(ΔV1) | `start()`가 OpenCode 버전 확인을 기다리지 않는다 | 신규 bootstrap 테스트: 버전 확인이 끝나지 않아도 `start()` resolve, boot report에 `adapter-registry` 없음 | 창 → `bootWhenReady` → renderer `main-ready` |
+| R-02 | AT-02 / ~~AC3~~ → AC3′(ΔV1) | 첫 OpenCode 작업이 지금보다 느려지지 않는다 — 확인을 `start()` 초입에 대기 없이 시작해 부팅과 겹치고, 동시 수요는 합류 | 신규 테스트: `start()` 진입 직후 확인 1회 시작, 웜업·연결 확인·서버 시작이 동시에 기다려도 `--version` 실행 1회 | `start()` → 가용성 → 서버 풀 캐시 |
+| SD-01 | ST-01 / ~~AC4~~ → AC4′(ΔV1) | 가용성 상태 기계가 D-008을 따른다 | 신규 단위 테스트: 실행 파일 없음 → `missing`·probe 0회 / 있음 → `checking` → `ready`·`unsupported`·`failed` / 포커스 재확인은 `missing`·`failed`에서만, 파일 검사만 / 같은 상태 재통지 0 | bootstrap 조립 → push |
+| AR-01 | IT-01 / ~~AC5~~ → AC5′(ΔV1) | `orca:backend:list`가 `installed` 대신 `availability`를 싣고, 변화는 `orca:harness:availability`로 방송, 재확인은 `orca:harness:recheck` | 핸들러·preload 테스트: 응답 키 집합 · push payload · recheck 결과 · Claude `ready`+버전 | preload → `backendApi` → 가용성 store |
+| AR-01 | IT-01 / ~~AC6~~ → AC6′(ΔV1) | `agent:list`의 OpenCode 행이 사용 불가일 때 `supported:false`+사유, `checking`·`ready`면 `true`. Claude 행 불변 | 핸들러 테스트(settings 행·runtime 행 둘 다) + 가용성 push 뒤 agent store 재조회 1회 | `agent:list` → `agentStore` → ModelMenu·선택·EngineCard |
 | R-03 | AT-03 / AC7 | 사용 불가면 OpenCode 컴포저가 보이지 않는다 — 새 대화·프로젝트 랜딩은 Claude, 기존 OpenCode 세션은 안내+다시 확인, `lastBackend` 미기록 | renderer 테스트: 부팅 시드 · 상태 전환 시 빈 칸 재시드 · ChatTile 안내 · 모델 메뉴 항목 | boot steps → chatStore → Landing·ChatTile·ModelMenu |
 | R-03 | AT-03 / AC8 | 엔진&모델 페이지 추가 메뉴의 OpenCode 항목이 비활성+사유, 눌러도 모달 없음. 기존 OpenCode 카드는 사유 배지 | `AgentEnvironmentView`·`EngineCard` 렌더 테스트 | 엔진 페이지 |
 | AR-01 | IT-01 / AC9 | 사용 불가면 main의 OpenCode 작업이 시작되지 않는다 — 웜업·로그인 프리 CLI 확인·전역 감시·컴포저 준비. `ready` 전환 시 웜업 1회·감시 시작+revision 1회 | 각 소비자 테스트: probe·acquire·watch spy 0 / 전환 뒤 1. `HostHarnessPort` 시그니처 불변 | bootstrap → 각 서비스 |
@@ -188,15 +193,17 @@
 | MD-03 / UT-03 | MD/UT | Claude SDK 지연 로드 · AC21 | NEW | — |
 | MD-04 / UT-04 | MD/UT | 정규화 JSON SSOT · AC22 | NEW | 0290 verify N1 |
 
+- ΔV1: R-02·R-03·SD-01·AR-01과 VP-02~VP-05는 CHANGED — 정본은 ΔV1 절. 나머지 노드·pair는 V1 그대로 유효(REQUIRED).
+
 ### Pair registry
 
 | Pair | left ↔ right | requiredness | production path | 직접 oracle (자리별 좌표) | 선택적 적대 증거 | §10 강제 지점 |
 |---|---|---|---|---|---|---|
 | VP-01 | R-01 ↔ AT-01 | REQUIRED | 전 진입점 → 기존 호출부 | `gate:vitest 실패 ID 차집합`·`gate:typecheck`·`gate:eslint`·`gate:CI` | not selected — 집계 | 0 — 집계 |
-| VP-02 | R-02 ↔ AT-02 | REQUIRED | `index.ts` `router.start()` → 가용성 kick-off(대기 없음) → 서버 풀 `readVersion` ∥ 나머지 boot steps → `finish` | §10 EP-02 | required — `adapter-registry` 단계 복원 변이 · kick-off 제거 변이 | EP-02 (4) |
-| VP-03 | R-03 ↔ AT-03 | REQUIRED | 가용성 store/`agent:list` → boot 시드·chatStore·agentStore → Landing·ProjectLanding·ChatTile·ModelMenu·선택·EngineCard·AgentEnvironmentView | §10 EP-03 | required — 하네스 맞바꿈(opencode↔claude 판정) · 시드 폴백 제거 | EP-03 (10) |
-| VP-04 | SD-01 ↔ ST-01 | REQUIRED | locate → `checking` → probe → 상태 → push · 재확인 트리거 3 | §10 EP-04 | required — 포커스 재확인 조건 뒤집기 · 같은 상태 재방송 | EP-04 (6) |
-| VP-05 | AR-01 ↔ IT-01 | REQUIRED | 가용성 SSOT → `backend:list`·`agent:list`·`HostHarnessPort`·웜업·전역 감시·컴포저 준비 | §10 EP-05 | required — 소비자별 게이트 제거 변이 | EP-05 (15) |
+| VP-02 | R-02 ↔ AT-02 | REQUIRED (ΔV1 CHANGED — 경로·oracle은 ΔV1 절) | `index.ts` `router.start()` → 가용성 kick-off(대기 없음) → 서버 풀 `readVersion` ∥ 나머지 boot steps → `finish` | §10 EP-02 | required — `adapter-registry` 단계 복원 변이 · kick-off 제거 변이 | EP-02 (4) |
+| VP-03 | R-03 ↔ AT-03 | REQUIRED (ΔV1 CHANGED — 경로·oracle은 ΔV1 절) | 가용성 store/`agent:list` → boot 시드·chatStore·agentStore → Landing·ProjectLanding·ChatTile·ModelMenu·선택·EngineCard·AgentEnvironmentView | §10 EP-03 | required — 하네스 맞바꿈(opencode↔claude 판정) · 시드 폴백 제거 | EP-03 (10) |
+| VP-04 | SD-01 ↔ ST-01 | REQUIRED (ΔV1 CHANGED — 경로·oracle은 ΔV1 절) | locate → `checking` → probe → 상태 → push · 재확인 트리거 3 | §10 EP-04 | required — 포커스 재확인 조건 뒤집기 · 같은 상태 재방송 | EP-04 (6) |
+| VP-05 | AR-01 ↔ IT-01 | REQUIRED (ΔV1 CHANGED — 경로·oracle은 ΔV1 절) | 가용성 SSOT → `backend:list`·`agent:list`·`HostHarnessPort`·웜업·전역 감시·컴포저 준비 | §10 EP-05 | required — 소비자별 게이트 제거 변이 | EP-05 (15) |
 | VP-06 | AR-03 ↔ IT-03 | REQUIRED | adapter `raw` → `refreshNativeHistory` → `replace(payload, raw)` · `session:load` → 분리 → `loadSession` · `readNativeHistoryPrevious` → lazy raw | §10 EP-06 | required — payload에 raw 재합류 변이 · 분리 순서 뒤집기 | EP-06 (16) |
 | VP-07 | AR-02 ↔ IT-02 | REQUIRED | `electron.vite.config.ts` → renderer 빌드 → 진입 청크 | `gate:bundle` + §10 EP-07 | required — 정적 import 복원 2종 · minify 제거 | EP-07 (4) |
 | VP-08 | MD-01 ↔ UT-01 | REQUIRED | `useLiveText` → Timeline → head/tail 투영 → 가상화 | §10 EP-08 | required — head memo 제거 · 복사 텍스트 즉시 계산 복원 | EP-08 (8) |
@@ -218,6 +225,90 @@
 | CI | Windows 전용 경로·DB 스위트 | PR의 `ci.yml` windows-latest | red |
 | message-bus | 커밋 trailer | `git log -1 --format='%(trailers:only=true)'` | 파싱 0건 |
 
+## ΔV1 — 버전 확인 실측 반영 정정 (2026-11-02)
+
+**수정 필요.** V1은 `opencode --version` 실행 시간을 재지 않은 채 시간 초과 상한 15초(`server.ts:165`)를 비용처럼 제시했고, 그것을 근거로 부팅이 확인을 기다리지 않게 바꿔 `checking` 구간·늦은 노출 변경·`installed` 삭제를 넣었다. 사용자 실측은 프로세스 생성·종료 포함 3초 이내다. ΔV1은 확인을 부팅 안에 두되 나머지 단계와 동시에 돌린다.
+
+| 발견 | 근거 | 정정 |
+|---|---|---|
+| 15초는 측정값이 아니라 시간 초과 상한이다 | `server.ts:165` `timeout: 15000` · 이 컨테이너에 OpenCode CLI 없음(실측 불가) · 사용자 보고 3초 이내(생성·종료 포함) | §8·§14 문구 정정 |
+| 부팅이 확인을 기다리지 않으면 화면에 `checking` 구간과 늦은 사라짐이 생긴다 | V1 §5 상태표 `checking` 3행 · V1 §17 첫 행 | D-014 — 부팅 안에서 동시 실행 후 합류. 화면은 확정 결과만 본다 |
+| `installed` 삭제는 근거(부팅 대기 제거)가 사라지면 이유가 없다 | V1 D-005 · AC5 | 기존 키 유지 + `usable`·`unavailableReason` 가산 |
+| 별도 상태 기계는 registry 설치 캐시의 사본이 된다 | V1 §9 `availability.ts` · `registry.ts:13-34` | registry 설치 캐시를 가용성 SSOT로 확장(D-015) |
+
+### ΔV1 계약과 V 증분
+
+| Node / Pair | provenance / requiredness | 대체·상속 범위 | 직접 oracle / 선택 적대 증거 |
+|---|---|---|---|
+| R-02 / VP-02 | CHANGED / REQUIRED | AC2·AC3 → AC2′·AC3′ · EP-02 → EP-02′ | EP-02′ — 등록 변이: 순차 await 복원 · 합류 제거 |
+| SD-01 / VP-04 | CHANGED / REQUIRED | AC4 → AC4′ · EP-04 → EP-04′(`checking` 규칙 삭제) | EP-04′ — 등록 변이: 포커스 identity 비교 제거 · 변화 비교 제거 |
+| AR-01 / VP-05 | CHANGED / REQUIRED | AC5·AC6 → AC5′·AC6′ · EP-05 #1-8·#15 → EP-05′. V1 EP-05 #9~#14는 그대로이고 그 문장의 "가용성"·"`ready`"는 registry `usable`로 읽는다 | V1 등록 변이(소비자별 게이트 제거) 유지 |
+| R-03 / VP-03 | CHANGED / REQUIRED | EP-03 #1 oracle에서 `checking` 입력 삭제(§10 행에 ΔV1 표시). 나머지 EP-03 행은 V1 그대로 | V1 등록 변이 유지 |
+| 그 밖의 V1 노드·pair(R-01·AR-02·AR-03·MD-01~MD-04 / VP-01·VP-06~VP-11) | INHERITED / V1 requiredness 그대로(REQUIRED) | 구현 전이라 V1 행 전부 유효 | V1 §10 |
+
+- ΔV1 production path — VP-02: `index.ts` `router.start()` → 0225 등급 확인 직후 `adapter-registry` 시작 ∥ 나머지 boot steps → `finish()` 직전 합류 → `bootWhenReady` resolve → renderer `main-ready`.
+- ΔV1 production path — VP-04: 경로 설정 변경·`orca:harness:recheck`·`browser-window-focus` → `AdapterRegistry`(identity 비교 → `refreshInstallState(id)`) → 바뀌면 listener → bootstrap 방송 `orca:harness:availability` → preload → 가용성 store.
+- ΔV1 production path — VP-05: `AdapterRegistry.availability`·`settled` → `backend:list`·`agent:list`·`HostHarnessPort.installed`·웜업·전역 감시·컴포저 준비. VP-03은 V1 경로 그대로이고 store 값만 `usable` 필드다.
+- `SUPERSEDED` 행의 증거 이관: V1 VP-02 변이(단계 복원·kick-off 제거)는 EP-02′ 두 변이로, V1 VP-04 변이(조건 뒤집기·비교 제거)는 EP-04′ 두 변이로 옮긴다. 폐기 0.
+- ΔV1 이후 유효 pair는 VP-01~VP-11이고 전부 REQUIRED다. AC는 23개다(AC2~AC6이 AC2′~AC6′로 대체).
+
+### 대체 AC
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-02 | AT-02 / AC2′ | 부팅이 설치·버전 확인을 순서대로 기다리지 않는다 — `start()` 초입에 시작해 나머지 단계와 겹치고 `finish()` 직전에 합류한다 | 신규 `bootstrap.availability.test.ts`(기존 `bootstrap.opencode-warmup.test.ts`의 registry mock 방식): 주입 `refreshInstallState`가 deferred인 동안 `db-init` 이후 단계가 실행된다(단계 로그) · resolve 전 `start()` 미완 · resolve 직후 완료 · boot report `adapter-registry` 1건 | 창 → `bootWhenReady` → renderer `main-ready` |
+| R-02 | AT-02 / AC3′ | `main-ready` 때 버전 캐시가 채워져 있어, 부팅 뒤 첫 OpenCode 작업과 부팅 중 겹친 수요가 `--version`을 다시 실행하지 않는다 | 같은 테스트 + 서버 풀 fake: 부팅·웜업·`HostHarnessPort.installed`·`acquire`까지 주입 `readVersion` 1회 | `start()` → registry → 서버 풀 캐시 |
+| SD-01 | ST-01 / AC4′ | 가용성은 부팅 확인 결과로 정해지고 D-015 재확인 3트리거로만 바뀐다. 재확인 중에는 직전 상태를 유지하고 바뀔 때만 방송한다. 화면에 `checking`이 없다 | 신규 `registry.availability.test.ts`(EP-04′ 표) | bootstrap → registry → push |
+| AR-01 | IT-01 / AC5′ | `orca:backend:list`가 기존 `installed`·`version`을 유지하고 `usable`·`unavailableReason`을 싣는다. 재확인 결과가 바뀌면 `orca:harness:availability` 방송, `orca:harness:recheck`로 재확인 | `misc-split.test.ts` 신규: 기존 키 ⊆ 새 키 · Claude `usable:true`+버전 · OpenCode 사유별 값 / preload 테스트: push 전달·recheck 호출 | preload → `backendApi` → 가용성 store |
+| AR-01 | IT-01 / AC6′ | `agent:list`의 OpenCode 행은 `usable:false`면 `supported:false`+사유, `usable:true`면 지금과 같다. Claude 행 불변 | `misc.runtime-catalog.test.ts` 신규(settings 행·runtime 행) + `agentStore.test.ts` 신규(방송 뒤 재조회 1회) | `agent:list` → `agentStore` → ModelMenu·선택·EngineCard |
+
+- AC 게이트 재확인: 다섯 행 모두 행동 단언(단계 로그·호출 수·키 집합)과 프로덕션 도달 경로를 갖는다. AC3′의 sink는 `OpenCodeServerPool.probeVersion` 1곳이고 호출부 3곳(`server.ts:173`·`:263`·`:371`)이 모두 `readVersion` 캐시를 지난다.
+
+### ΔV1 §10
+
+자리 검색은 [`scan/sites.sh`](scan/sites.sh)이고 N은 ΔV1 설계 HEAD `feaca09` 실측이다(V1 검색 18개의 N 전부 V1과 같고, S05d를 새로 더했다).
+
+| pair | 계약 | SSOT | 언제 강제 (자리 목록 = 분모) | 자리 검색 → N / 목표 | 직접 oracle | 실패 의미 |
+|---|---|---|---|---|---|---|
+| VP-02 | 확인을 부팅 안에서 동시에 돌리고 `finish()` 직전에 합류 | `AdapterRegistry.refreshInstallState` | EP-02′ (4) | S02a 3 / 3 · S02b 1 / 1(위치 이동) | EP-02′ 표 | 순차 대기 회귀 · 합류 누락으로 미확정 결과 노출 |
+| VP-04 | D-015 재확인 | `AdapterRegistry` | EP-04′ (5) | 신규 — `rg -n "focusRecheck\(\|onAvailabilityChange\(\|settled\(" app/src/main/adapters/common/registry.ts` ≥ 3 | EP-04′ 표 | 설치 후 미반영 · 불필요 spawn · 중복 방송 |
+| VP-05 | 소비자가 registry 판정 1벌을 읽는다 | `AdapterRegistry.availability` | EP-05′ (9) + V1 EP-05 #9~#14 (6) = 15 | S05a 9 / 6(registry 안 4 + `registry.list().map` 2) · S05d 3 / 0(app의 `isInstalled()` 직접 호출·언급) | EP-05′ 표 | 판정 사본 재발생 |
+
+### EP-02′ — 부팅 안 동시 확인 (4)
+
+| # | 자리 | 변경 | 직접 oracle |
+|---|---|---|---|
+| 1 | `bootstrap.ts:764-768` `adapter-registry` 순차 단계 | `start()`의 0225 이관 등급 확인(`:453`) 직후·첫 await 전에 `bootReport.step('adapter-registry', …, () => this.registry.refreshInstallState())`를 시작만 하고 promise를 보관한다. 시작 즉시 거절 처리기를 붙인다(미처리 거절 경고 방지) | AC2′ 테스트: deferred 동안 뒤 단계 실행 로그 |
+| 2 | `bootstrap.ts:850` `this.bootReport.finish()` 직전 | 보관한 promise를 `await`(합류). critical 실패는 여기서 다시 던진다 | AC2′ 테스트: resolve 전 `start()` 미완 · resolve 뒤 완료 · report `adapter-registry` 1건 |
+| 3 | `registry.ts:22-29` `refreshInstallState` | 유지 + 하네스 인자(선택) · 진행 중이면 같은 promise 합류 · `usable`·`unavailableReason`·identity 기록 | `registry.availability.test.ts`: 동시 2회 → adapter `isInstalled` 1회 · 필드 값 |
+| 4 | `misc.ts:98` 설치 뒤 갱신 | 유지 — 결과가 바뀌면 EP-04′ #1 경로로 방송 | `misc-split.test.ts` 신규: 설치 스트림 뒤 refresh 1 · 바뀌면 방송 1 |
+
+- 등록 변이: #1 순차 `await` 복원(뒤 단계가 deferred resolve 뒤에 실행 → red) · #2 합류 제거(`start()`가 resolve 전에 완료 → red).
+
+### EP-04′ — registry 재확인 (5)
+
+| # | 규칙 | 직접 oracle — 신규 `adapters/common/registry.availability.test.ts` |
+|---|---|---|
+| 1 | 결과가 바뀔 때만 listener 호출 | 같은 결과 재확인 → listener 0 · `usable` 또는 사유 변화 → 1 |
+| 2 | 재확인 중에는 직전 상태 유지 | refresh 진행 중 `availability(id)` = 직전 값 |
+| 3 | `focusRecheck()` — `missing`·`failed`인 하네스만 adapter `executableIdentity?.()`(동기, 프로세스 없음)를 마지막 확인 값과 비교해 다를 때 refresh 1회 | `usable`에서 focus → identity 조회 0 · 같은 identity → refresh 0 · 다른 identity → refresh 1 |
+| 4 | bootstrap `app.on('browser-window-focus')` → `focusRecheck()`, `shutdown`에서 해제 | `bootstrap.availability.test.ts`: focus 1 → `focusRecheck` 1 · shutdown 뒤 0 |
+| 5 | `settings-reactions.ts`의 `harnesses.opencode.executablePath` 변경과 `orca:harness:recheck` 핸들러 → `refreshInstallState('opencode')` | settings-reactions 신규 케이스(경로 변경 1 · 다른 키 0) · 핸들러 테스트 |
+
+- adapter 포트(`adapters/common/types.ts`): `isInstalled()` 결과에 선택 필드 `usable`·`reason`, 선택 메서드 `executableIdentity?(): string | undefined`. OpenCode는 `servers.installed()`가 `isSupportedOpenCodeCliVersion`(`server.ts:27`)으로 `usable`을, 실패 지점으로 `reason`(실행 파일 없음 `missing` · 확인 실패 `failed` · 1.x 아님 `unsupported`)을 낸다. identity는 `openCodeExecutableIdentity`(`server-profile.ts:7`) 재사용. Claude는 필드 없이 `usable:true`로 읽는다.
+- 등록 변이: #3 identity 비교 제거(같은 identity에도 refresh → red) · #1 비교 제거(중복 방송 → red).
+
+### EP-05′ — registry 가용성 소비자 (9, V1 EP-05 #1-8·#15 대체)
+
+| # | 자리 | 변경 | 직접 oracle |
+|---|---|---|---|
+| 1-4 | `registry.ts:13`·`:25`·`:28`·`:33` 설치 캐시 | 유지 + `usable`·`unavailableReason`·identity · `availability(id)`·`settled(id)` 공개 | EP-04′ 테스트 |
+| 5 | `harness-host.ts:4` 주석 | 판정원을 registry로 정정 | `gate:` S05d 0 |
+| 6 | `harness-host.ts:14` `adapter.isInstalled()` | `await registry.settled(id)` → `{installed, version}`(형상 불변, D-012) | `harness-host.test.ts` 신규: adapter `isInstalled` spy 0 · registry 값 · 부팅 중 호출은 진행 중 확인에 합류 |
+| 7 | `bootstrap.ts:887` 웜업 `installed` | `registry.settled('opencode')`의 `usable`. 건너뛰면 `attempted`를 세우지 않고 `usable` 전환 때 `update()` | `warmup.test.ts` 신규: `usable:false` → prepare 0 · 전환 → 1 |
+| 8 | `misc.ts:36` `backend:list` | 기존 키 + `usable`·`unavailableReason` | AC5′ 테스트 |
+| 15 | `bootstrap.ts:1247` 전역 감시 | 부팅에서 `usable`이면 지금과 같은 시점에 생성(추가 방송 없음), `usable:false`면 생성 안 함. 부팅 뒤 `usable` 전환 때 생성 + revision 1회, 사용 불가 전환 때 close | `bootstrap.native-history.test.ts` 신규: 부팅 `usable` → 생성 1·방송 0 · `missing` → 생성 0 · 전환 → 생성 1·방송 1 |
+
 ---
 
 # Part II — Technical Design
@@ -226,7 +317,7 @@
 
 | 발견 / 제약 | 근거 |
 |---|---|
-| 부팅 필수 단계가 `opencode --version` 실행(상한 15s)을 기다린 뒤에야 다음 단계로 간다 | `bootstrap.ts:765-767` → `registry.ts:22-29` → `opencode/v1/server.ts:161-166` |
+| 부팅 필수 단계가 `opencode --version` 실행을 기다린 뒤에야 다음 단계로 간다. 15s는 실행 시간이 아니라 시간 초과 상한이고, 실행 시간은 이 환경에서 측정 불가(OpenCode 미설치) — 사용자 실측 3초 이내(생성·종료 포함, ΔV1 정정) | `bootstrap.ts:765-767` → `registry.ts:22-29` → `opencode/v1/server.ts:161-166` |
 | 그 결과(`installed`·`version`)는 `backend:list` 응답에만 실리고 renderer에서 읽는 곳이 없다 | `misc.ts:36` · renderer `rg "\.installed\b\|installed\b"` → i18n 리소스만 · `backendStore.ts` 소비는 `capabilities`·Claude 버전 라벨뿐 |
 | 백그라운드 작업은 registry 캐시가 아니라 서버 풀 캐시를 쓴다 — 웜업·`HostHarnessPort`·서버 시작·모델 목록 | `bootstrap.ts:887` · `harness-host.ts:14` · `server.ts:173`·`:263`·`:371` → `readVersion`(`:151`, identity별 promise 합류) |
 | 미설치면 PATH 존재 검사(`existsSync`)에서 즉시 실패하고 프로세스를 띄우지 않는다 | `server.ts:91-113` `resolveOpenCodeExecutable` |
@@ -300,9 +391,9 @@ renderer: ModelMenu(supported) · Landing(lastBackend) · ChatTile(<Composer>) �
 ### TO-BE — 변경 후 목표 구조와 동작 경로
 
 - 관련 V node: 같음.
-- 부팅: `adapter-registry` 단계 삭제. `start()` 초입에 가용성 확인 1회를 대기 없이 시작해 나머지 부팅 단계와 겹친다.
-- 가용성 SSOT: `HarnessAvailability`(상태 기계, 순수)가 하네스별 `locate()`(동기, 프로세스 없음)·`probe()`(서버 풀 `installed()`)를 주입받아 상태를 갖는다. bootstrap이 조립하고 변화 시 `orca:harness:availability`를 방송한다. Claude는 고정 `ready`(SDK 동봉).
-- 소비자: `backend:list`(availability) · `agent:list`(`supported` = 등록 ∧ 사용 가능) · `HostHarnessPort.installed`(가용성 경유, 시그니처 불변) · 웜업·전역 감시·컴포저 준비(사용 불가면 시작 안 함, `ready` 전환 시 시작).
+- 부팅(ΔV1): `adapter-registry` 단계를 `start()` 초입에서 시작만 하고 `finish()` 직전에 합류한다 — 나머지 부팅 단계와 겹치고 화면이 뜰 때 결과는 확정이다.
+- 가용성 SSOT(ΔV1): registry 설치 캐시가 하네스별 `installed`·`version?`·`usable`·`unavailableReason?`·identity를 갖는다. 재확인(D-015)도 registry가 하고, 바뀔 때만 bootstrap이 `orca:harness:availability`를 방송한다. Claude는 `usable:true`(SDK 동봉).
+- 소비자(ΔV1): `backend:list`(기존 키 + `usable`·`unavailableReason`) · `agent:list`(`supported` = 등록 ∧ `usable`) · `HostHarnessPort.installed`(registry 값, 시그니처 불변) · 웜업·전역 감시·컴포저 준비(`usable:false`면 시작 안 함, 부팅 뒤 `usable` 전환 때 시작).
 - renderer: 가용성 store(`shared/stores`)가 boot `backend` 단계에서 초기값을 받고 push를 구독한다. 시드·재시드·ChatTile 안내·엔진 추가 메뉴가 그것을 읽는다. 모델 메뉴는 기존대로 `supported`만 읽는다.
 - 번들: renderer `minify:'esbuild'` · `TokensPerDayChart` `React.lazy` · `syntax.ts`가 shiki 세분 모듈을 `getHighlighter()` 안에서 동적 로드.
 - OpenCode 스트리밍: 확정 교환 rows는 `messages` 변화 때 1회, 진행 중 교환 rows만 프레임마다. 복사 텍스트는 복사할 때 계산. 행 조회는 key 색인.
@@ -311,9 +402,10 @@ renderer: ModelMenu(supported) · Landing(lastBackend) · ChatTile(<Composer>) �
 - SDK: `adapters/claude/sdk.ts` loader 1벌이 `import()`를 memo한다. 값 import 0.
 
 ```text
-start() ─ seed ─ deploy ─ scan ─ finish ─▶ main-ready
-start() 초입 ─▶ availability.ensure() ─ locate ─ probe(서버 풀 캐시 1벌, 부팅과 겹침) ─▶ push
-availability ─▶ backend:list · agent:list(supported) · HostHarnessPort · warmup · global watch · composer prep
+start() ─┬─ db-init ─ … ─ seed ─ deploy ─ scan ─┬─ finish ─▶ main-ready(결과 확정)
+         └─ adapter-registry(설치·버전 확인) ─────┘ 합류(ΔV1)
+registry 설치 캐시 ─▶ backend:list · agent:list(supported) · HostHarnessPort · warmup · global watch · composer prep
+재확인(경로 변경·다시 확인·포커스) ─▶ registry ─ 바뀜 ─▶ push(orca:harness:availability)
 renderer availability store ─▶ boot seed · chatStore reseed · ChatTile notice · AgentEnvironmentView
 ```
 
@@ -331,9 +423,9 @@ renderer availability store ─▶ boot seed · chatStore reseed · ChatTile not
 
 | 모듈/레이어 | 책임 | 입력/출력 | 누가 import/호출 |
 |---|---|---|---|
-| `features/harnesses/common/availability.ts` (신규, feature 순수) | 상태 기계·합류·재확인 규칙(D-008) | `{locate(): string \| undefined, probe(): Promise<{installed, version?, reason?}>, emit(state)}` → `get()`·`ensure()`·`recheck()`·`focus()` | bootstrap |
-| `shared/harness.ts` (확장, shared) | 타입 `HarnessAvailabilityState` `{state:'checking'\|'ready'\|'missing'\|'unsupported'\|'failed'; version?; reason?}` + 판정 `harnessUsable(state)` 1개. 채널 상수 2개는 `shared/ipc.ts` | 타입·순수 함수 | main·preload·renderer |
-| `adapters/opencode/v1/server.ts` (확장) | `locateExecutable(): string \| undefined` — 기존 `resolveOpenCodeExecutable`을 예외 없이 감싼 동기 판정 | — | OpenCode adapter → availability |
+| `adapters/common/registry.ts` (확장, adapters) | 가용성 SSOT(ΔV1) — 하네스별 설치 캐시 + `usable`·`unavailableReason`·identity, 하네스별 refresh 합류, 재확인 3트리거, 바뀔 때만 listener | `refreshInstallState(id?)` · `availability(id)` · `settled(id)` · `focusRecheck()` · `onAvailabilityChange(fn)` | bootstrap · harness-host · handlers |
+| `shared/ipc.ts` (확장, shared) | `BackendListResult` 항목에 `usable: boolean`·`unavailableReason?: 'missing'\|'unsupported'\|'failed'` 가산 + 채널 상수 2개(ΔV1) | 타입 | main·preload·renderer |
+| `adapters/opencode/v1/server.ts`·`adapter.ts` (확장) | `installed()` 결과에 `usable`·`reason` 추가 + `executableIdentity()`(동기 stat, 프로세스 없음, 없으면 `undefined`)(ΔV1) | — | registry |
 | `adapters/claude/sdk.ts` (신규, adapter-impl) | Claude SDK `import()` memo 1벌 | `loadClaudeSdk(): Promise<typeof import(sdk)>` | adapter·runtime-tools·native-history-map·bootstrap prefetch |
 | `renderer/src/shared/stores/harnessAvailabilityStore.ts` (신규, shared) | 하네스별 상태 보관·push 구독 | `useHarnessAvailable(backend)` | app boot·features chat/engine |
 | `features/chat/components/HarnessUnavailableNotice.tsx` (신규, feature UI) | 컴포저 자리 안내 + 다시 확인 | `{backend, availability, onRecheck}` | ChatTile |
@@ -345,10 +437,10 @@ renderer availability store ─▶ boot seed · chatStore reseed · ChatTile not
 
 | pair | 계약 | SSOT | 언제 강제 (자리 목록 = 분모) | 자리 검색 → 설계 N / 목표 | 직접 oracle 좌표 | 실패 의미 |
 |---|---|---|---|---|---|---|
-| VP-02 | 부팅이 probe를 기다리지 않고 `start()` 초입에 1회 시작 | `HarnessAvailability.ensure` | 아래 EP-02 (4) | S02a 3 / 0 · S02b 1 / 0 | EP-02 표 | 부팅이 다시 CLI를 기다림 · 첫 사용이 느려짐 |
+| VP-02 | ~~부팅이 probe를 기다리지 않고 `start()` 초입에 1회 시작~~ **ΔV1 대체** | `HarnessAvailability.ensure` | 아래 EP-02 (4) | S02a 3 / 0 · S02b 1 / 0 | EP-02 표 | 부팅이 다시 CLI를 기다림 · 첫 사용이 느려짐 |
 | VP-03 | 사용 불가면 OpenCode 컴포저 비노출·추가 비활성·Claude 폴백 | 가용성 store + `supported` | EP-03 (10) | S03 9 / 9(자리 유지, 동작 변경) + 신규 1(agentStore 구독) | EP-03 표 | 실패할 OpenCode 화면이 노출 |
-| VP-04 | 상태 기계 D-008 | `availability.ts` | EP-04 (6, 신규 코드) | 신규 — `rg -n "focus\(\|recheck\(\|ensure\(" app/src/main/features/harnesses/common/availability.ts` ≥ 3 | EP-04 표 | 재확인 누락·불필요 spawn·중복 방송 |
-| VP-05 | 소비자 전부가 가용성 1벌을 읽는다 | `HarnessAvailability` | EP-05 (15) | S05a 9 / 3(`registry.list().map` 2줄 + bootstrap probe 주입 1줄, `installState` 0) · S05b 2 / settings 행 1 불변·runtime 행은 조건식 · S05c 4 / 4(호출부 유지, 게이트 경유) | EP-05 표 | 미설치인데 작업 시작 · 설치인데 숨김 |
+| VP-04 | ~~상태 기계 D-008~~ **ΔV1 대체** | `availability.ts` | EP-04 (6, 신규 코드) | 신규 — `rg -n "focus\(\|recheck\(\|ensure\(" app/src/main/features/harnesses/common/availability.ts` ≥ 3 | EP-04 표 | 재확인 누락·불필요 spawn·중복 방송 |
+| VP-05 | 소비자 전부가 가용성 1벌을 읽는다 — **ΔV1: SSOT는 registry, EP-05 일부 대체** | `HarnessAvailability` | EP-05 (15) | S05a 9 / 3(`registry.list().map` 2줄 + bootstrap probe 주입 1줄, `installState` 0) · S05b 2 / settings 행 1 불변·runtime 행은 조건식 · S05c 4 / 4(호출부 유지, 게이트 경유) | EP-05 표 | 미설치인데 작업 시작 · 설치인데 숨김 |
 | VP-06 | payload에 raw 없음, raw는 `raw_json` | `NativeHistoryQueries` | EP-06 (16) | S06a 5 / 5 · S06b 9 / 9+ · S06c `0033` / `0034_native_snapshot_raw.sql` | EP-06 표 | 열기 비용 회귀 · raw 유실 · 첫 refresh busy |
 | VP-07 | 진입 청크 압축·계열 0B·자산 ≤ 60 | `electron.vite.config.ts` · `syntax.ts` · `UsageTab.tsx` | EP-07 (4) | S07a 0 / ≥1 · S07b 2 / 1(차트 파일만) · S07c 1 / 0 | `gate:bundle` + EP-07 표 | 시작 청크 회귀 |
 | VP-08 | live 변화는 진행 중 교환만 투영 | `projection.ts` head/tail | EP-08 (8) | S08 8 / `findIndex` 0 · `turnCopyText(` 1(복사 시점) | EP-08 표 | 프레임마다 O(대화) 재투영 |
@@ -356,7 +448,7 @@ renderer availability store ─▶ boot seed · chatStore reseed · ChatTile not
 | VP-10 | 모듈 초기화가 SDK를 불러오지 않음 | `adapters/claude/sdk.ts` | EP-10 (5) | S10a 2 / 0 · S10b 1 / 1(loader 안) | `gate:bundle`(require 0) + EP-10 표 | 부팅 파싱 1.24MB 회귀 |
 | VP-11 | 정규화 JSON 1벌 | `shared/obj.ts canonicalJson` | EP-11 (2) | S11 2 / 0 | EP-11 표 | 규칙 drift |
 
-### EP-02 — 부팅 대기 제거 (4)
+### EP-02 — 부팅 대기 제거 (4) — ΔV1 EP-02′가 전부 대체
 
 | # | 자리 | 변경 | 직접 oracle |
 |---|---|---|---|
@@ -371,7 +463,7 @@ renderer availability store ─▶ boot seed · chatStore reseed · ChatTile not
 
 | # | 자리 | 변경 | 직접 oracle |
 |---|---|---|---|
-| 1 | `app/boot/steps.ts:68` `seedLandingBackend(settings.lastBackend)` | `backend` 단계를 `landing-target` 앞으로 옮기고, 사용 불가면 `'claude'`로 시드. 설정 쓰기 없음 | 신규 `steps.availability.test.ts`: lastBackend `opencode` × {`missing`→claude, `checking`→opencode, `ready`→opencode}, `settingsApi.set` 호출 0 |
+| 1 | `app/boot/steps.ts:68` `seedLandingBackend(settings.lastBackend)` | `backend` 단계를 `landing-target` 앞으로 옮기고, 사용 불가면 `'claude'`로 시드. 설정 쓰기 없음 | 신규 `steps.availability.test.ts`: lastBackend `opencode` × {`usable:false`(missing·unsupported·failed)→claude, `usable:true`→opencode}(ΔV1), `settingsApi.set` 호출 0 |
 | 2 | `features/chat/components/Landing.tsx:27` `<Composer` | 빈 새 대화 칸은 chatStore `applyHarnessAvailability`가 재시드 — 사용 불가면 OpenCode 칸(명시 선택 포함, 세션 없음)을 Claude로 | 신규 `chatStore.availability.test.ts`: OpenCode 칸 + `missing` push → backend `claude`, `lastBackend` 불변 · Claude 칸 불변 |
 | 3 | `pages/ProjectLandingPage.tsx:111` `<Composer` | #2와 같은 store 경로 | #2 테스트의 프로젝트 칸 케이스 |
 | 4 | `features/chat/components/ChatTile.tsx:150` `<Composer` | 세션 backend가 사용 불가면 `HarnessUnavailableNotice`로 대체 | 신규 `ChatTile.availability.test.ts`: OpenCode 세션 + `missing` → textarea 0·안내 문구·다시 확인 클릭 시 `harness:recheck` 1회 / Claude 세션 + 같은 상태 → Composer 있음 |
@@ -384,7 +476,7 @@ renderer availability store ─▶ boot seed · chatStore reseed · ChatTile not
 
 - 등록 변이: #1 폴백 제거 · #4 하네스 판정 맞바꿈(claude↔opencode) · #9 disabled 조건 뒤집기 — 각 행 oracle red.
 
-### EP-04 — 가용성 상태 기계 (6, 신규)
+### EP-04 — 가용성 상태 기계 (6, 신규) — ΔV1 EP-04′가 전부 대체
 
 | # | 규칙 | 직접 oracle — 신규 `features/harnesses/common/availability.test.ts` |
 |---|---|---|
@@ -397,7 +489,7 @@ renderer availability store ─▶ boot seed · chatStore reseed · ChatTile not
 
 - 등록 변이: #4 조건 뒤집기(ready에서 locate) · #6 비교 제거(중복 emit) — red.
 
-### EP-05 — 가용성 소비자 (15)
+### EP-05 — 가용성 소비자 (15) — #1-8·#15는 ΔV1 EP-05′가 대체
 
 | # | 자리 | 변경 | 직접 oracle |
 |---|---|---|---|
@@ -406,7 +498,7 @@ renderer availability store ─▶ boot seed · chatStore reseed · ChatTile not
 | 6 | `harness-host.ts:14` `adapter.isInstalled()` | `availability.settled(harnessId)` → `{installed, version}`(형상 불변, D-012) | `harness-host.test.ts` 신규: `missing` → `{installed:false}`·adapter `isInstalled` spy 0 · `ready` → 버전 |
 | 7 | `bootstrap.ts:887` 웜업 `installed` | 가용성 경유. 사용 불가로 건너뛰면 `attempted`를 세우지 않고 `ready` 전환 때 `update()` | `warmup.test.ts` 신규: `missing` → prepare 0 · `ready` 전환 → prepare 1 |
 | 8 | `misc.ts:36` `backend:list` | `{id, version?, availability, capabilities}` — `installed` 없음 | `misc-split.test.ts` 신규: 키 집합·Claude `ready`+버전·OpenCode 상태 |
-| 9 | `misc.ts:44` `agent:list` supported | `registered ∧ usable(availability)` | `misc.runtime-catalog.test.ts` 신규: OpenCode settings 행 `supported:false`+`unavailable` · `checking` → true |
+| 9 | `misc.ts:44` `agent:list` supported | `registered ∧ usable(availability)` | `misc.runtime-catalog.test.ts` 신규: OpenCode settings 행 `supported:false`+`unavailable` · `usable:true` → true(ΔV1) |
 | 10 | `models.ts:97` settings 행 supported | 호출부가 넘긴 집합 그대로(집합이 가용성 반영) — 코드 불변 | #9 |
 | 11 | `runtime-catalog.ts:125` runtime 행 `supported:true` | 하네스 사용 불가면 false+사유 | `misc.runtime-catalog.test.ts` 신규: OpenCode runtime 행 + `missing` → false |
 | 12 | `composer-preparation.ts:14` resolve | OpenCode scope + 사용 불가 → 서버 획득 없이 `unavailable` 단계로 거절 | `composer-preparation-service.test.ts` 신규: acquire spy 0·stage 값 |
@@ -502,19 +594,19 @@ renderer availability store ─▶ boot seed · chatStore reseed · ChatTile not
 
 | 문서 | 변경 |
 |---|---|
-| `docs/IPC_CONTRACT.md:89` | `orca:backend:list` 형상(`availability`, `installed` 삭제) + 신규 2행 `orca:harness:availability`·`orca:harness:recheck` |
+| `docs/IPC_CONTRACT.md:89` | `orca:backend:list`에 `usable`·`unavailableReason` 가산(기존 키 유지, ΔV1) + 신규 2행 `orca:harness:availability`·`orca:harness:recheck` |
 | `docs/generated/inventory.md` | 재생성 |
 | `docs/arch/backend/persistence.md` | `native_history_snapshots.raw_json` · 분리 시점 |
-| `docs/arch/backend/adapters.md` | 하네스 가용성 SSOT · 설치 판정 1벌 |
+| `docs/arch/backend/adapters.md` | registry 설치 캐시 = 하네스 가용성 SSOT · 설치 판정 1벌(ΔV1) |
 | `docs/arch/frontend/design-components.md` | `HarnessUnavailableNotice` 행 |
 | `docs/guides/release-operations.md` | renderer 압축 스택 복원 절차(같은 태그 `--sourcemap` 빌드) |
 | `app/src/main/AGENTS.md`·`app/AGENTS.md` | 변경 없음 — 경로 표가 이 변경을 서술하지 않는다(`rg -n "installState\|refreshInstallState" app/AGENTS.md app/src/main/AGENTS.md` = 0) |
 
-- 자리 검색: `rg -n "installed: boolean|refreshInstallState|adapter-registry" docs app/AGENTS.md app/src/main/AGENTS.md` → 구현 후 0(`docs/archive/**`·`docs/handoff/**` 제외).
+- 자리 검색(ΔV1): `rg -n "unavailableReason" docs/IPC_CONTRACT.md` → 구현 후 ≥ 1 · `rg -n "orca:harness:(availability|recheck)" docs/IPC_CONTRACT.md` → 구현 후 2.
 
-- 같은 규칙의 SSOT: 위 표 `SSOT` 열. 가용성 판정은 `availability.ts` 한 곳, 실행 파일·버전 판정은 서버 풀 한 곳이다.
+- 같은 규칙의 SSOT: 위 표 `SSOT` 열. 가용성 판정은 registry 설치 캐시 한 곳(ΔV1), 실행 파일·버전 판정은 서버 풀 한 곳이다.
 - `실패 의미`에 "다른 게이트가 막는다"를 적은 행: 없음.
-- 선택적 필드 의미: `HarnessAvailabilityState.version`은 `ready`·`unsupported`에서만 있다. `AgentEnvironment.unavailable`은 `supported:false`일 때만 있다. `previous.raw`가 `undefined`면 빠른 경로를 쓰지 않는다(fail-safe = 전체 파싱).
+- 선택적 필드 의미: `BackendListResult` 항목의 `version`은 `installed:true`일 때만, `unavailableReason`은 `usable:false`일 때만 있다(ΔV1). `AgentEnvironment.unavailable`은 `supported:false`일 때만 있다. `previous.raw`가 `undefined`면 빠른 경로를 쓰지 않는다(fail-safe = 전체 파싱).
 - 외부 SDK 경계: `loadClaudeSdk()`의 반환 타입은 `typeof import('@anthropic-ai/claude-agent-sdk')` 그대로다(`as` 캐스트 금지).
 
 ## 11. 구현 설계
@@ -524,7 +616,7 @@ renderer availability store ─▶ boot seed · chatStore reseed · ChatTile not
 | WP | 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
 |---|---|---|---|---|
 | WP-1 번들 | `electron.vite.config.ts` · `UsageTab.tsx` · `syntax.ts` | EP-07 | 압축·지연 로드 | `gate:bundle` + 렌더 테스트 |
-| WP-2 가용성 main | 신규 `features/harnesses/common/availability.ts` · `shared/harness.ts`(타입·`harnessUsable`) · `shared/ipc.ts`(채널 2) · `adapters/common/registry.ts` · `adapters/opencode/v1/{server,adapter}.ts`(`locateExecutable`) · `app/bootstrap.ts` · `app/harness-host.ts` · `app/handlers/misc.ts` · `features/harnesses/common/runtime-catalog.ts` · `app/composer-preparation.ts`/`composer-catalog.ts` · `app/settings-reactions.ts` · `preload/index.ts` | EP-02·EP-04·EP-05 | 상태 기계·배선·게이트 | 순수 상태 기계 + 핸들러·bootstrap fake |
+| WP-2 가용성 main | `adapters/common/registry.ts`(가용성 SSOT) · `adapters/common/types.ts`(`isInstalled` 결과 필드·`executableIdentity?`) · `adapters/opencode/v1/{server,adapter}.ts` · `shared/ipc.ts`(필드 가산·채널 2) · `app/bootstrap.ts`(동시 시작·합류·포커스·방송) · `app/harness-host.ts` · `app/handlers/misc.ts` · `features/harnesses/common/runtime-catalog.ts` · `app/composer-preparation.ts`/`composer-catalog.ts` · `app/settings-reactions.ts` · `preload/index.ts` | EP-02′·EP-04′·EP-05′·V1 EP-05 #9~#14 | 동시 확인·재확인·게이트(ΔV1) | registry 단위 + 핸들러·bootstrap fake |
 | WP-3 가용성 renderer | 신규 `shared/stores/harnessAvailabilityStore.ts` · `shared/stores/agentStore.ts` · `shared/api/ipc.ts` · `app/boot/steps.ts` · `features/chat/store/chatStore.ts`(`applyHarnessAvailability`) · `ChatTile.tsx` · 신규 `HarnessUnavailableNotice.tsx` · `EngineCard.tsx` · `AgentEnvironmentView.tsx` · i18n ko·en | EP-03 | 시드·재시드·안내·비활성 | 렌더·store 테스트 |
 | WP-4 raw 분리 | `0034_native_snapshot_raw.sql` · `native-history-queries.ts` · `native-sync.ts` · `handlers/session.ts` · `adapters/common/native-history.ts` · `claude/native-history.ts` | EP-06 | 열·분리·lazy raw | DB 스위트 + 순수 fake |
 | WP-5 Timeline | `opencode/transcript/{projection,Timeline}.ts(x)` · `common/transcript/MessageMeta.tsx`(복사 시점) | EP-08 | head/tail·lazy 복사·색인 | golden + 렌더 spy |
@@ -534,7 +626,7 @@ renderer availability store ─▶ boot seed · chatStore reseed · ChatTile not
 
 ### 테스트 가능성
 
-- electron 비의존 순수 파일: `availability.ts`(locate·probe·emit 주입) · `projection.ts`(head/tail) · `sdk.ts`(동적 import는 vi.mock 대상).
+- electron 비의존 순수 파일: `registry.ts`(adapter fake 주입, ΔV1) · `projection.ts`(head/tail) · `sdk.ts`(동적 import는 vi.mock 대상).
 - 기존 메커니즘 재사용 형상: 버전 확인 합류는 `server.ts:151` identity 캐시를 그대로 쓰고 새 캐시를 만들지 않는다. 전역 감시는 0290 `FingerprintWatch`를 그대로 쓴다.
 - 순서 관측: EP-06 #12는 queries fake의 호출 로그로, EP-02 #4는 `start()` 첫 await 전후 probe 카운트로 본다.
 
@@ -543,31 +635,31 @@ renderer availability store ─▶ boot seed · chatStore reseed · ChatTile not
 ### producer → consumer
 
 ```text
-locate/probe(서버 풀) → HarnessAvailability → emit → broadcast(orca:harness:availability)
+isInstalled·executableIdentity(서버 풀) → registry 설치 캐시 → 바뀜 → broadcast(orca:harness:availability)
   → preload → harnessAvailabilityStore → steps 시드 · chatStore 재시드 · ChatTile · AgentEnvironmentView
   → agentStore.refresh → agent:list(supported) → ModelMenu · modelSelection · EngineCard
 ```
 
-- producer 기준: 상태가 바뀔 때만 방송한다(EP-04 #6).
-- consumer 파생 규칙: `checking`·`ready` = 사용 가능, `missing`·`unsupported`·`failed` = 사용 불가. 이 판정 함수는 `shared`에 1개(`harnessUsable`)를 두고 main·renderer가 같이 쓴다.
+- producer 기준: 상태가 바뀔 때만 방송한다(EP-04′ #1).
+- consumer 파생 규칙(ΔV1): registry가 `usable`을 한 번 판정하고 모든 소비자는 그 필드만 읽는다(재판정 금지). `checking` 상태는 없다.
 - 합성값 우회 없음: 모델 메뉴는 `supported`만, 컴포저 노출은 가용성 store만 읽는다 — 두 값의 출처는 같은 상태 1벌이다.
 
 ### 부팅/등록/초기화 변경 시 기존 소비처
 
 | 기존 소비처 | 영향 | 회귀 AC |
 |---|---|---|
-| renderer `initBackend` → `backendStore.list` | `installed` 키가 사라짐 — 소비 0이라 무영향, `useBackendLabel`은 `version` 유지 | AC5 |
+| renderer `initBackend` → `backendStore.list` | 기존 키 유지 + `usable`·`unavailableReason` 가산(ΔV1) — 기존 소비(`capabilities`·Claude 버전 라벨) 무영향 | AC5′ |
 | 로그인 프리 연결(`auth.connectAll`, 0291 D-009) | 같은 `HostHarnessPort` 형상, 판정만 가용성 경유 | AC9 |
-| OpenCode 웜업(`lastBackend === 'opencode'`) | 사용 가능 판정 전에는 기다리고, 불가면 건너뜀 | AC3·AC9 |
-| OpenCode 전역 감시 revision 구독자(0282 D-022) | `ready`에서만 감시 — 시작 시 revision 1회로 보정 | AC9 |
+| OpenCode 웜업(`lastBackend === 'opencode'`) | 부팅 합류 뒤 registry 결과를 읽어 대기 없음. `usable:false`면 건너뛰고 부팅 뒤 `usable` 전환 때 1회(ΔV1) | AC3′·AC9 |
+| OpenCode 전역 감시 revision 구독자(0282 D-022) | 부팅에서 `usable`이면 지금과 같은 시점에 생성(추가 방송 없음). 부팅 뒤 `usable` 전환 때만 생성 + revision 1회(ΔV1) | AC9 |
 | 설치 마법사 `install` 핸들러 | 설치 뒤 recheck | AC5 |
 | 보관 행 소비자(`loadSession`·`readNativeHistoryPrevious`·`prepareNativeSession`) | payload에 raw 없음 — 셋 다 raw를 쓰지 않음(빠른 경로만 lazy) | AC15~AC17 |
 
 ## 13. Lifecycle / 오류 / 정리
 
-- 생성/시작: 가용성은 `start()` 초입에 만들고 locate는 동기, probe는 같은 자리에서 대기 없이 시작한다.
+- 생성/시작(ΔV1): 설치 확인은 `start()` 초입(0225 이관 등급 확인 직후, 첫 await 전)에 시작하고 `finish()` 직전에 합류한다. 시작 즉시 거절 처리기를 붙이고 합류 지점에서 결과를 다시 던진다.
 - 취소/중단: 종료 중이면 probe를 시작하지 않는다. 진행 중 probe는 기존 서버 풀 `shutdown` 신호를 따른다.
-- 종료/quit: 가용성의 focus 리스너를 `shutdown`에서 해제한다. 상태 기계 자체는 타이머가 없다.
+- 종료/quit: 포커스 리스너를 `shutdown`에서 해제한다. registry 재확인에는 타이머가 없다(ΔV1).
 - retry/timeout: probe 시간 초과 15s(현행)는 `failed` — 포커스·"다시 확인"으로 재시도.
 - cleanup/rollback: raw 분리는 한 UPDATE 문이라 원자적이다. 실패하면 행이 그대로(raw 내장)고 다음 열기에서 다시 시도한다.
 - **다중 저장소 쓰기**: 코드 쓰기는 SQLite 한 행(UPDATE 1문)뿐이다. 산출 문서의 상태 사본은 `plan.md` + `docs/handoff/INDEX.md` 2곳이며 같은 커밋에서 함께 갱신한다.
@@ -576,7 +668,7 @@ locate/probe(서버 풀) → HarnessAvailability → emit → broadcast(orca:har
 
 | 항목 | AS-IS | TO-BE |
 |---|---|---|
-| 부팅 임계 경로 | `--version` 실행 시간(설치 시 수백 ms~수 s, 상한 15s) 포함 | 0 — 부팅과 겹쳐 실행, 첫 OpenCode 준비 시점 = max(부팅, 확인) |
+| 부팅 임계 경로 | `--version` 실행 시간 포함 — 사용자 실측 3초 이내(생성·종료 포함). 15s는 시간 초과 상한(`server.ts:165`)(ΔV1 정정) | 나머지 단계와 겹쳐 실행 — 단축 = min(확인 시간, 나머지 부팅 단계 시간). 화면이 뜰 때 결과 확정 |
 | main 시작 파싱 | Claude SDK 1.24MB 즉시 `require` | 0 — 부팅 뒤 prefetch(첫 로드 ~150ms를 임계 경로 밖으로) |
 | renderer 진입 청크 | 3,891,098B 비압축 | ≤ 1,500,000B 압축(차트·강조 제외) |
 | renderer 자산 | 277개 · 14.6MB | ≤ 60개 |
@@ -584,19 +676,19 @@ locate/probe(서버 풀) → HarnessAvailability → emit → broadcast(orca:har
 | 세션 열기 파싱 | payload 전체(raw 71% 포함) | messages만 — 실측 10.1ms → 4.6ms(대화 3.42MB 기준) |
 | 유휴 main wakeup | 500ms 타이머 3개(초당 6회) + 제출 대기 20ms 폴링 | 할 일 있을 때만 |
 
-- 잃는 부수 효과와 회귀 테스트: ① 사용량 탭·첫 코드 블록이 최초 표시 때 모듈 로드만큼 늦을 수 있다 — 같은 높이 자리로 레이아웃 이동 없음(AC11). ② 압축으로 renderer 스택 이름이 축약된다 — 복원 절차 문서화(D-004·EP-23). ③ 첫 Claude 턴이 prefetch 전이면 SDK 로드를 기다린다 — 부팅 직후 prefetch로 대부분 흡수(AC21). ④ 전역 감시가 `checking` 동안 꺼져 있다 — 시작 시 revision 1회로 보정(AC9).
+- 잃는 부수 효과와 회귀 테스트: ① 사용량 탭·첫 코드 블록이 최초 표시 때 모듈 로드만큼 늦을 수 있다 — 같은 높이 자리로 레이아웃 이동 없음(AC11). ② 압축으로 renderer 스택 이름이 축약된다 — 복원 절차 문서화(D-004·EP-23). ③ 첫 Claude 턴이 prefetch 전이면 SDK 로드를 기다린다 — 부팅 직후 prefetch로 대부분 흡수(AC21). ④ 전역 감시 생성 시점은 지금과 같다(ΔV1 — `checking` 구간 없음).
 
 ## 15. 외부 구현 포트 / 문서 계약
 
 - 외부/배포가 구현할 port 변경: 없음 — `HostHarnessPort.installed`의 시그니처·의미(`{installed, version?}`)는 그대로다(D-012). 판정원만 가용성으로 바뀐다.
-- IPC 계약: `orca:backend:list` 응답 형상 변경 + 신규 2채널(EP-23). `orca:agent:list`의 `AgentEnvironment`에 선택 필드 `unavailable` 추가(가산).
+- IPC 계약: `orca:backend:list` 응답에 `usable`·`unavailableReason` 가산(기존 키 유지, ΔV1) + 신규 2채널(EP-23). `orca:agent:list`의 `AgentEnvironment`에 선택 필드 `unavailable` 추가(가산).
 - shape 검증: `docs/guides/closed-network-extensions.md`의 `HostHarnessPort` 예제는 바뀌지 않는다 — 기존 typecheck로 충분.
 
 ## 16. 기존 결정·규칙과의 관계
 
 | 기존 결정/규칙 | 출처 | 본문에서 건드리는 문장 | 결과 |
 |---|---|---|---|
-| `backend:list` "등록된 어댑터의 설치 상태" | `docs/IPC_CONTRACT.md:89` | D-005 · EP-05 #8 | **변경** — 사용자 결정(질의 2·3라운드) |
+| `backend:list` "등록된 어댑터의 설치 상태" | `docs/IPC_CONTRACT.md:89` | D-014 · EP-05′ #8 | 유지 + 가산(ΔV1) — 기존 키 그대로 |
 | 0290 D-008·D-015 배포 확장점 | 0290 plan §3 | EP-05 #6 · §15 | 유지 — `HostHarnessPort` 형상 불변 |
 | 0290 D-016 이벤트 id 상한 없음 | 0290 plan §3 | §6 범위에 상한 없음 | 유지 |
 | 0290 D-012 spawn 경계 동기 카탈로그 | 0290 plan §3 | 해당 없음(카탈로그 미변경) | 유지 |
@@ -606,7 +698,7 @@ locate/probe(서버 풀) → HarnessAvailability → emit → broadcast(orca:har
 | 0108·0008 스트리밍 마크다운 꼬리 재파싱 | 각 plan | §4 | 유지 — 범위 밖 |
 | 머지된 마이그레이션 수정 금지 | `app/AGENTS.md` | EP-06 #1 새 파일 | 유지 |
 | 의존성 정책 | `app/AGENTS.md` | D-013 | 유지 — 새 패키지 0 |
-| 하네스 형제 import 금지 | `app/scripts/harness-boundary.mjs` | `availability.ts`는 `features/harnesses/common`, OpenCode `locateExecutable`은 adapter 안 | 유지 |
+| 하네스 형제 import 금지 | `app/scripts/harness-boundary.mjs` | registry 확장은 `adapters/common`(구체 하네스 비의존 — adapter 포트의 선택 메서드만 호출), OpenCode `executableIdentity`는 adapter 안(ΔV1) | 유지 |
 | feature 교차 import 금지(renderer) | `app/src/renderer/AGENTS.md` | 가용성 store를 `shared/stores`에 둔다(agentStore 선례) | 유지 |
 | 컴포넌트 카탈로그 동기 | `app/src/renderer/AGENTS.md` 6 | EP-23 `HarnessUnavailableNotice` | 유지 |
 | 문서에 코드 수치 금지 | root `AGENTS.md` 원칙 4 | EP-23은 형상·경로만 | 유지 |
@@ -615,7 +707,6 @@ locate/probe(서버 풀) → HarnessAvailability → emit → broadcast(orca:har
 
 | 리스크 | 완화/결정 |
 |---|---|
-| `checking` 중 OpenCode가 노출됐다가 `unsupported`로 사라짐 | 드문 경우(설치됐지만 1.x 아님). 빈 칸만 재시드하고 진행 중 턴은 건드리지 않는다(§5) |
 | 압축 스택 판독성 | 같은 커밋 `--sourcemap` 빌드로 복원(EP-23) |
 | raw 분리 UPDATE가 큰 행에서 느림 | SQLite C 함수 1문, 세션당 1회 |
 | 0290 r2와 같은 파일 충돌 | D-011 순서 + 착수 재측정 |
@@ -657,6 +748,7 @@ locate/probe(서버 풀) → HarnessAvailability → emit → broadcast(orca:har
 - 사람 실기는 시각·실환경 3건뿐이다. 순수 로직은 테스트로 내렸다.
 - `ACTIVE 결정 ↔ AC` 대조: 충돌 0(§3 갱신 메모).
 - 산출물 문장 규칙: 판정 먼저·표 위주. 수치는 §8·§14에만 둔다.
+- ΔV1 self-review: SUPERSEDED D-005·D-008과 대체 D-014·D-015를 Ledger에 남겼다. 대체 AC2′~AC6′는 AC 게이트(행동 단언·검증 수단·도달 경로)를 다시 통과했다. 바뀐 pair VP-02~VP-05의 자리 목록은 `feaca09`에서 `scan/sites.sh`(S05d 추가)로 다시 열거했고, 바뀌지 않은 V1 검색 18개의 N은 `feaca09`에서도 같다.
 
 ---
 
